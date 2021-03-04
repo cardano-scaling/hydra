@@ -89,13 +89,13 @@ test-suite integration
       Test.LocalClusterSpec
   default-language:
       Haskell2010
-  build-depends:
-                  cardano-prelude
-                , hspec
-                , hspec-core
-                , local-cluster
-                , temporary
-                , text
+  build-depends: base >=4.7 && <5
+               , cardano-prelude
+               , hspec
+               , hspec-core
+               , local-cluster
+               , temporary
+               , text
   build-tools:
       hspec-discover
   type:

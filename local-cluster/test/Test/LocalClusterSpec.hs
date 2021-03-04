@@ -6,8 +6,7 @@ import Lib (ClusterConfig(..), withCluster)
 import Logging (Severity(..), withStdoutTracer)
 import System.IO.Temp (withSystemTempDirectory)
 import Test.Hspec (Spec, describe, it)
-
-import qualified Data.Text as T
+import Data.String (IsString(..))
 
 spec :: Spec
 spec = describe "Hydra local cluster" $ do

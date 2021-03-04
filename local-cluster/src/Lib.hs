@@ -6,7 +6,7 @@ import Cardano.Prelude
 
 import Data.Time.Clock (UTCTime, addUTCTime, getCurrentTime)
 import Logging (HasSeverityAnnotation (..), Severity (..), Tracer)
-import Ports(randomUnusedTCPPorts)
+import Ports (randomUnusedTCPPorts)
 
 data RunningCluster = RunningCluster ClusterConfig [PortsConfig]
 
@@ -47,11 +47,10 @@ withCluster ::
 withCluster tracer ClusterConfig{stateDirectory} action = do
     systemStart <- initSystemStart
     (cfgA, cfgB, cfgC) <- makeNodesConfig stateDirectory systemStart <$> randomUnusedTCPPorts 3
-    withBFTNode tracer cfgA $ \ _ -> do
-        withBFTNode tracer cfgB $ \ _ -> do
-            withBFTNode tracer cfgC $ \ _ -> do
+    withBFTNode tracer cfgA $ \_ -> do
+        withBFTNode tracer cfgB $ \_ -> do
+            withBFTNode tracer cfgC $ \_ -> do
                 action (RunningCluster (ClusterConfig stateDirectory) (fmap ports [cfgA, cfgB, cfgC]))
-
 
 withBFTNode ::
     Tracer IO ClusterLog ->
@@ -68,7 +67,7 @@ initSystemStart = do
     addUTCTime 1 <$> getCurrentTime
 
 makeNodesConfig :: FilePath -> UTCTime -> [Port] -> (NodeConfig, NodeConfig, NodeConfig)
-makeNodesConfig stateDirectory systemStart  [a, b, c] =
+makeNodesConfig stateDirectory systemStart [a, b, c] =
     ( NodeConfig stateDirectory systemStart $ PortsConfig a [b, c]
     , NodeConfig stateDirectory systemStart $ PortsConfig b [a, c]
     , NodeConfig stateDirectory systemStart $ PortsConfig c [a, b]
