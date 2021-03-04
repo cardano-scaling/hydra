@@ -10,7 +10,6 @@ for demos.
 
 For now, we use a static scenario in which we first develop the Hydra node:
 
-- 1 Cardano BFT node
-- sped up network parameters
-- directly forks into Allegra and Mary
-- 3 Cardano stake pool nodes
+- 3 Cardano BFT nodes
+- using sped up network parameters
+- directly forking into Allegra and Mary
