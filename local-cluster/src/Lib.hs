@@ -4,7 +4,6 @@ module Lib where
 
 import Cardano.Prelude
 
-import Control.Concurrent.Async(Async)
 import Data.Time.Clock(getCurrentTime, UTCTime, addUTCTime)
 
 import qualified Data.List as L

@@ -10,4 +10,3 @@ source-repository-package
   --sha256: 0dg6ihgrn5mgqp95c4f11l6kh9k3y75lwfqf47hdp554w7wyvaw6
   subdir:
     cardano-prelude
-    cardano-prelude-test
