@@ -24,18 +24,24 @@ library
       Lib
       Logging
       Ports
+      Node
   hs-source-dirs:
       src
   build-depends: base >=4.7 && <5
+      , aeson
       , async
       , cardano-prelude
       , contra-tracer
+      , directory
       , exceptions
+      , filepath
       , iohk-monitoring
       , network
+      , process
       , random-shuffle
       , streaming-commons
       , time
+      , unordered-containers
   default-language: Haskell2010
   default-extensions:
     BangPatterns
