@@ -3,11 +3,19 @@
 # derivation of our cabal.project.
 { compiler ? "ghc8104"
   # Latest haskell.nix for more likely cache hits
-, haskellNix ? import (builtins.fetchTarball "https://github.com/input-output-hk/haskell.nix/archive/master.tar.gz") { }
+, haskellNix ? import
+    (builtins.fetchTarball
+      "https://github.com/input-output-hk/haskell.nix/archive/master.tar.gz")
+    { }
   # Use same pkgs as haskell.nix for more likely cache hits
 , nixpkgsSrc ? haskellNix.sources.nixpkgs-2009
 , nixpkgsArgs ? haskellNix.nixpkgsArgs
 , pkgs ? import nixpkgsSrc nixpkgsArgs
+  # Use cardano-node master for more likely cache hits
+, cardanoNodePkgs ? import
+    (builtins.fetchTarball
+      "https://github.com/input-output-hk/cardano-node/archive/master.tar.gz")
+    { gitrev = "0b0ab070e71f7f29bb35dfc595c6a69772b1d866"; }
 }:
 with pkgs;
 let
@@ -21,6 +29,9 @@ mkShell rec {
     ghc
     cabal-install
     hls
+    # Used in local-cluster
+    cardanoNodePkgs.cardano-node
+    cardanoNodePkgs.cardano-cli
   ];
 
   libs = [
