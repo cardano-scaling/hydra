@@ -36,3 +36,25 @@ library
     -Werror
     -Wall
     -fwarn-redundant-constraints
+
+test-suite integration
+  default-language:
+      Haskell2010
+  default-extensions:
+      NoImplicitPrelude
+  ghc-options:
+      -threaded -rtsopts
+      -Wall -Werror
+  build-depends:
+      cardano-prelude
+    , local-cluster
+    , hspec
+    , hspec-core
+  build-tools:
+      hspec-discover
+  type:
+     exitcode-stdio-1.0
+  hs-source-dirs:
+      test
+  main-is:
+      Main.hs
