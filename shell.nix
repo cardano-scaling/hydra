@@ -1,26 +1,18 @@
 # A very simple shell.nix file for setting up necessary build tools. This is
 # likely going to be updated using the iohk-specific nixpkgs and a haskel.nix
 # derivation of our cabal.project.
-{ pkgs ? import <nixpkgs> { }
-, compiler ? "ghc8102"
-  # Import Haskell.nix master as of 2020-10-13, just for building hls.
-, haskellNix ? import
-    (builtins.fetchTarball {
-      url = "https://github.com/input-output-hk/haskell.nix/archive/40a26afa33b421d7ede240b5d6c2a9a22313cb2b.tar.gz";
-      sha256 = "1cd6i1rrxxqnrg659zcq0xhkind67q0kx1gddr9sni8cdhwdlvqb";
-    })
-    { }
+{ compiler ? "ghc8104"
+  # Latest haskell.nix for more likely cache hits
+, haskellNix ? import (builtins.fetchTarball "https://github.com/input-output-hk/haskell.nix/archive/master.tar.gz") { }
+  # Use same pkgs as haskell.nix for more likely cache hits
+, nixpkgsSrc ? haskellNix.sources.nixpkgs-2009
+, nixpkgsArgs ? haskellNix.nixpkgsArgs
+, pkgs ? import nixpkgsSrc nixpkgsArgs
 }:
-
 with pkgs;
 let
-  hls = (haskellNix.pkgs.haskell-nix.hackage-package {
-    name = "haskell-language-server";
-    version = "latest";
-    compiler-nix-name = compiler;
-  }).components.exes.haskell-language-server;
-
-  ghc = haskell.compiler.${compiler};
+  hls = haskell-nix.tool compiler "haskell-language-server" "latest";
+  ghc = haskell-nix.compiler.${compiler};
 in
 mkShell rec {
   name = "hydra-node-env";
@@ -28,7 +20,6 @@ mkShell rec {
   tools = [
     ghc
     cabal-install
-    haskellPackages.hoogle
     hls
   ];
 
