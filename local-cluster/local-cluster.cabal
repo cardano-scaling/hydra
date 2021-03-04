@@ -38,6 +38,8 @@ library
     -fwarn-redundant-constraints
 
 test-suite integration
+  other-modules:
+      Test.LocalClusterSpec
   default-language:
       Haskell2010
   default-extensions:

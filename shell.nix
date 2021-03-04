@@ -1,7 +1,6 @@
 # A very simple shell.nix file for setting up necessary build tools. This is
 # likely going to be updated using the iohk-specific nixpkgs and a haskel.nix
 # derivation of our cabal.project.
-
 { pkgs ? import <nixpkgs> { }
 , compiler ? "ghc8102"
   # Import Haskell.nix master as of 2020-10-13, just for building hls.
