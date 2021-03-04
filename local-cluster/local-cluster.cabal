@@ -22,8 +22,16 @@ source-repository head
 library
   exposed-modules:
       Lib
+      Logging
   hs-source-dirs:
       src
+  build-depends: base >=4.7 && <5
+      , async
+      , cardano-prelude
+      , iohk-monitoring
+      , contra-tracer
+      , time
+  default-language: Haskell2010
   default-extensions:
     BangPatterns
     BinaryLiterals
@@ -60,11 +68,6 @@ library
     TypeFamilies
     TypeSynonymInstances
     ViewPatterns
-  build-depends: base >=4.7 && <5
-      , async
-      , cardano-prelude
-      , time
-  default-language: Haskell2010
   ghc-options:
     -Werror
     -Wall
@@ -82,8 +85,57 @@ test-suite integration
       Test.LocalClusterSpec
   default-language:
       Haskell2010
+  build-depends:
+                  cardano-prelude
+                , hspec
+                , hspec-core
+                , local-cluster
+                , temporary
+                , text
+  build-tools:
+      hspec-discover
+  type:
+     exitcode-stdio-1.0
+  hs-source-dirs:
+      test
+  main-is:
+      Main.hs
   default-extensions:
-      NoImplicitPrelude
+    BangPatterns
+    BinaryLiterals
+    ConstraintKinds
+    DataKinds
+    DefaultSignatures
+    DeriveDataTypeable
+    DeriveFoldable
+    DeriveFunctor
+    DeriveGeneric
+    DeriveTraversable
+    EmptyDataDecls
+    ExistentialQuantification
+    FlexibleContexts
+    FlexibleInstances
+    FunctionalDependencies
+    GADTs
+    InstanceSigs
+    KindSignatures
+    LambdaCase
+    MonadFailDesugaring
+    MultiParamTypeClasses
+    MultiWayIf
+    NamedFieldPuns
+    NoImplicitPrelude
+    NumericUnderscores
+    OverloadedStrings
+    PartialTypeSignatures
+    PatternGuards
+    RankNTypes
+    ScopedTypeVariables
+    StandaloneDeriving
+    TupleSections
+    TypeFamilies
+    TypeSynonymInstances
+    ViewPatterns
   ghc-options:
     -Werror
     -Wall
@@ -95,17 +147,3 @@ test-suite integration
     -Wredundant-constraints
     -threaded
     -rtsopts
-  build-depends:
-                  cardano-prelude
-                , hspec
-                , hspec-core
-                , local-cluster
-                , temporary
-  build-tools:
-      hspec-discover
-  type:
-     exitcode-stdio-1.0
-  hs-source-dirs:
-      test
-  main-is:
-      Main.hs

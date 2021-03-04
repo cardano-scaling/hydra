@@ -3,8 +3,9 @@
 module Lib where
 
 import Cardano.Prelude
-import qualified Data.List as L
+
 import Data.Time.Clock (UTCTime, addUTCTime, getCurrentTime)
+import Logging (Tracer, HasSeverityAnnotation(..), Severity(..))
 
 data RunningCluster = RunningCluster ClusterConfig [(Async (), Port)]
 
@@ -38,6 +39,7 @@ data PortsConfig = PortsConfig
 type Port = Int
 
 withCluster ::
+  Tracer IO ClusterLog ->
   ClusterConfig ->
   (RunningCluster -> IO ()) ->
   IO ()
@@ -62,6 +64,19 @@ initSystemStart = do
 --
 -- >>> rotate [1,2,3]
 -- [(1,[2,3]), (2, [1,3]), (3, [1,2])]
-rotate :: Ord a => [a] -> [(a, [a])]
-rotate =
-  L.nub . fmap (\(x : xs) -> (x, L.sort xs)) . L.permutations
+rotate :: a -> a -> a -> [(a, [a])]
+rotate a b c =
+    [ (a, [b,c])
+    , (b, [a,c])
+    , (c, [a,b])
+    ]
+
+--
+-- Logging
+--
+
+data ClusterLog = ClusterLog deriving Show
+
+instance HasSeverityAnnotation ClusterLog where
+    getSeverityAnnotation = \case
+        ClusterLog -> Info
