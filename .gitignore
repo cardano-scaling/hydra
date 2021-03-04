@@ -1,5 +1,4 @@
 ### Cabal ###
-
 .ghc.environment.*
 /cabal.project.diff
 /cabal.project.local
@@ -13,3 +12,6 @@
 
 ### Nix ###
 result*
+
+### Direnv ###
+.direnv/
