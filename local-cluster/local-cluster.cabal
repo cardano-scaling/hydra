@@ -23,13 +23,18 @@ library
   exposed-modules:
       Lib
       Logging
+      Ports
   hs-source-dirs:
       src
   build-depends: base >=4.7 && <5
       , async
       , cardano-prelude
-      , iohk-monitoring
       , contra-tracer
+      , exceptions
+      , iohk-monitoring
+      , network
+      , random-shuffle
+      , streaming-commons
       , time
   default-language: Haskell2010
   default-extensions:
