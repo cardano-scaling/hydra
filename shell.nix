@@ -1,30 +1,53 @@
-# shell.nix
-{pkgs ? import <nixpkgs> {} }:
+# A very simple shell.nix file for setting up necessary build tools. This is
+# likely going to be updated using the iohk-specific nixpkgs and a haskel.nix
+# derivation of our cabal.project.
 
+{ pkgs ? import <nixpkgs> { }
+, compiler ? "ghc8102"
+  # Import Haskell.nix master as of 2020-10-13, just for building hls.
+, haskellNix ? import
+    (builtins.fetchTarball {
+      url = "https://github.com/input-output-hk/haskell.nix/archive/40a26afa33b421d7ede240b5d6c2a9a22313cb2b.tar.gz";
+      sha256 = "1cd6i1rrxxqnrg659zcq0xhkind67q0kx1gddr9sni8cdhwdlvqb";
+    })
+    { }
+}:
+
+with pkgs;
 let
-  hsPkgs = import ./default.nix { };
+  hls = (haskellNix.pkgs.haskell-nix.hackage-package {
+    name = "haskell-language-server";
+    version = "latest";
+    compiler-nix-name = compiler;
+  }).components.exes.haskell-language-server;
+
+  ghc = haskell.compiler.${compiler};
 in
-  hsPkgs.shellFor {
-    # Include only the *local* packages of your project.
-    packages = ps: with ps; [
-      local-cluster
-    ];
+mkShell rec {
+  name = "hydra-node-env";
 
-    # Builds a Hoogle documentation index of all dependencies,
-    # and provides a "hoogle" command to search the index.
-#    withHoogle = true;
+  tools = [
+    ghc
+    cabal-install
+    haskellPackages.hoogle
+    hls
+  ];
 
-    # You might want some extra tools in the shell (optional).
+  libs = [
+    zlib
+  ];
 
-    # Some common tools can be added with the `tools` argument
-    tools = { cabal = "3.2.0.0"; hlint = "2.2.11"; haskell-language-server = "0.8.0"; ormolu = "latest" ; };
-    # See overlays/tools.nix for more details
+  buildInputs = tools ++ libs;
 
-    # Some you may need to get some other way.
-    buildInputs = with pkgs.haskellPackages;
-      [ ghcid ];
+  # Ensure that libz.so and other libraries are available to TH splices.
+  LD_LIBRARY_PATH = lib.makeLibraryPath libs;
 
-    # Prevents cabal from choosing alternate plans, so that
-    # *all* dependencies are provided by Nix.
-    exactDeps = true;
-  }
+  # Force a UTF-8 locale because many Haskell programs and tests
+  # assume this.
+  LANG = "en_US.UTF-8";
+
+  # Make the shell suitable for the stack nix integration
+  # <nixpkgs/pkgs/development/haskell-modules/generic-stack-builder.nix>
+  GIT_SSL_CAINFO = "${cacert}/etc/ssl/certs/ca-bundle.crt";
+  STACK_IN_NIX_SHELL = "true";
+}
