@@ -48,10 +48,11 @@ test-suite integration
       -threaded -rtsopts
       -Wall -Werror
   build-depends:
-      cardano-prelude
-    , local-cluster
-    , hspec
-    , hspec-core
+                  cardano-prelude
+                , hspec
+                , hspec-core
+                , local-cluster
+                , temporary
   build-tools:
       hspec-discover
   type:
