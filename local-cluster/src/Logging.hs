@@ -37,8 +37,6 @@ import Cardano.BM.Data.Tracer
     ( HasSeverityAnnotation (..) )
 import Cardano.BM.Setup
     ( setupTrace_, shutdown )
-import Control.Monad.IO.Class
-    ( MonadIO (..) )
 import Control.Tracer
     ( Tracer (..), natTracer, nullTracer, traceWith, contramap )
 

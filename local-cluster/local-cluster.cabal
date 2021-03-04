@@ -124,7 +124,6 @@ test-suite integration
     InstanceSigs
     KindSignatures
     LambdaCase
-    MonadFailDesugaring
     MultiParamTypeClasses
     MultiWayIf
     NamedFieldPuns

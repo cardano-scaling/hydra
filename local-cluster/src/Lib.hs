@@ -8,10 +8,10 @@ import Data.Time.Clock (UTCTime, addUTCTime, getCurrentTime)
 import Logging (HasSeverityAnnotation (..), Severity (..), Tracer)
 import Ports(randomUnusedTCPPorts)
 
-data RunningCluster = RunningCluster ClusterConfig [(Async (), Port)]
+data RunningCluster = RunningCluster ClusterConfig [PortsConfig]
 
 -- | Value corresponding to running process.
-data RunningNode = RunningNode NodeConfig (Async ())
+data RunningNode = RunningNode NodeConfig
 
 -- | Configuration parameters for the cluster.
 data ClusterConfig = ClusterConfig
@@ -44,12 +44,17 @@ withCluster ::
     ClusterConfig ->
     (RunningCluster -> IO ()) ->
     IO ()
-withCluster tr ClusterConfig{stateDirectory} action = do
+withCluster tracer ClusterConfig{stateDirectory} action = do
     systemStart <- initSystemStart
-    (cfgA, cfgB, cfgC) <- randomUnusedTCPPorts 3
-    panic "TODO" cfgA cfgB cfgC systemStart
+    (cfgA, cfgB, cfgC) <- makeNodesConfig stateDirectory systemStart <$> randomUnusedTCPPorts 3
+    withBFTNode tracer cfgA $ \ _ -> do
+        withBFTNode tracer cfgB $ \ _ -> do
+            withBFTNode tracer cfgC $ \ _ -> do
+                action (RunningCluster (ClusterConfig stateDirectory) (fmap ports [cfgA, cfgB, cfgC]))
+
 
 withBFTNode ::
+    Tracer IO ClusterLog ->
     NodeConfig ->
     (RunningNode -> IO ()) ->
     IO ()
@@ -62,17 +67,13 @@ initSystemStart :: IO UTCTime
 initSystemStart = do
     addUTCTime 1 <$> getCurrentTime
 
--- | Get permutations of the size (n-1) for a list of n elements, alongside
--- with the element left aside. `[a]` is really expected to be `Set a`.
---
--- >>> rotate [1,2,3]
--- [(1,[2,3]), (2, [1,3]), (3, [1,2])]
-rotate :: Port -> Port -> Port -> (PortsConfig, PortsConfig, PortsConfig)
-rotate a b c =
-    ( PortsConfig a [b, c]
-    , PortsConfig b [a, c]
-    , PortsConfig c [a, b]
+makeNodesConfig :: FilePath -> UTCTime -> [Port] -> (NodeConfig, NodeConfig, NodeConfig)
+makeNodesConfig stateDirectory systemStart  [a, b, c] =
+    ( NodeConfig stateDirectory systemStart $ PortsConfig a [b, c]
+    , NodeConfig stateDirectory systemStart $ PortsConfig b [a, c]
+    , NodeConfig stateDirectory systemStart $ PortsConfig c [a, b]
     )
+makeNodesConfig _ _ _ = panic "we only support topology for 3 nodes"
 
 --
 -- Logging

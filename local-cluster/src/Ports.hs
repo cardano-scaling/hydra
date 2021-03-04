@@ -2,16 +2,10 @@ module Ports where
 
 import Cardano.Prelude
 
-import Control.Monad
-    ( filterM )
-import Control.Monad.IO.Class
-    ( liftIO )
 import Data.List
-    ( isInfixOf, sort )
+    ( isInfixOf)
 import Data.Streaming.Network
     ( bindRandomPortTCP )
-import Data.Word
-    ( Word8 )
 import Foreign.C.Error
     ( Errno (..), eCONNREFUSED )
 import GHC.IO.Exception
@@ -28,9 +22,6 @@ import Network.Socket
     )
 import System.Random.Shuffle
     ( shuffleM )
-import Control.Exception
-    ( bracket, try )
-
 
 -- | Find a TCPv4 port which is likely to be free for listening on
 -- @localhost@. This binds a socket, receives an OS-assigned port, then closes
