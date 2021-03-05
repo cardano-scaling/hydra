@@ -42,6 +42,7 @@ library
       , streaming-commons
       , time
       , text
+      , unix
       , unordered-containers
   default-language: Haskell2010
   default-extensions:
