@@ -3,7 +3,7 @@ module Lib where
 import Cardano.Prelude
 
 import Data.Time.Clock (UTCTime, addUTCTime, getCurrentTime)
-import Logging (HasSeverityAnnotation(..), Severity(..), Tracer)
+import Logging (HasSeverityAnnotation(..), Tracer)
 import Node
   ( CardanoNodeArgs(..)
   , CardanoNodeConfig(..)
@@ -11,13 +11,13 @@ import Node
   , PortsConfig(..)
   , RunningNode
   , defaultCardanoNodeArgs
-  , withCardanoNode
+  , withCardanoNode, NodeLog, NodeId
   )
 import Ports (randomUnusedTCPPorts)
 import System.Directory (copyFile, createDirectoryIfMissing)
 import System.FilePath ((</>))
 
-data RunningCluster = RunningCluster ClusterConfig [PortsConfig]
+data RunningCluster = RunningCluster ClusterConfig [RunningNode]
 
 -- | Configuration parameters for the cluster.
 data ClusterConfig = ClusterConfig
@@ -30,10 +30,10 @@ withCluster _tracer cfg@ClusterConfig { parentStateDirectory } action = do
   systemStart <- initSystemStart
   (cfgA, cfgB, cfgC) <- makeNodesConfig parentStateDirectory systemStart
     <$> randomUnusedTCPPorts 3
-  withBFTNode cfgA $ \_ -> do
-    withBFTNode cfgB $ \_ -> do
-      withBFTNode cfgC $ \_ -> do
-        action (RunningCluster cfg (fmap ports [cfgA, cfgB, cfgC]))
+  withBFTNode cfgA $ \nodeA -> do
+    withBFTNode cfgB $ \nodeB -> do
+      withBFTNode cfgC $ \nodeC -> do
+        action (RunningCluster cfg [nodeA, nodeB, nodeC])
 
 withBFTNode :: CardanoNodeConfig -> (RunningNode -> IO ()) -> IO ()
 withBFTNode cfg action = do
@@ -108,9 +108,9 @@ makeNodesConfig _ _ _ = panic "we only support topology for 3 nodes"
 -- Logging
 --
 
-data ClusterLog = ClusterLog
+data ClusterLog = MsgFromNode NodeId NodeLog
   deriving Show
 
 instance HasSeverityAnnotation ClusterLog where
   getSeverityAnnotation = \case
-    ClusterLog -> Info
+    MsgFromNode _ msg -> getSeverityAnnotation msg

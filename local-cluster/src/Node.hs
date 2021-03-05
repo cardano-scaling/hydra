@@ -1,3 +1,4 @@
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE TypeApplications #-}
 
 module Node where
@@ -15,16 +16,19 @@ import Logging
 import qualified Prelude
 import System.FilePath ((</>))
 import System.Process
-  (CreateProcess(..), ProcessHandle, proc, withCreateProcess)
+  (CreateProcess(..), proc, withCreateProcess)
 
 type Port = Int
 
-newtype RunningNode = RunningNode ProcessHandle
+newtype NodeId = NodeId Int
+    deriving (Show, Num)
+
+newtype RunningNode = RunningNode FilePath
 
 -- | Configuration parameters for a single node of the cluster
 data CardanoNodeConfig = CardanoNodeConfig
   { -- | An identifier for the node
-    nodeId :: Int
+    nodeId :: NodeId
   , -- | Parent state directory in which create a state directory for the cluster
     stateDirectory :: FilePath
   , -- | Blockchain start time
@@ -81,9 +85,8 @@ withCardanoNode cfg args action = do
   let process = cardanoNodeProcess (Just $ stateDirectory cfg) args
   print (cmdspec process)
   withCreateProcess process
-    $ \_stdin _stdout _stderr h ->
-      -- Wait for socket and pass it to action
-                                   action (RunningNode h)
+    $ \_stdin _stdout _stderr _ ->
+          action (RunningNode (nodeSocket args))
  where
   generateEnvironment = do
     refreshSystemStart cfg args
