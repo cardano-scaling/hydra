@@ -6,6 +6,7 @@ module Node where
 
 import Cardano.Prelude
 
+import Control.Retry (constantDelay, limitRetriesByCumulativeDelay, retrying)
 import Data.Aeson (FromJSON (..), ToJSON (..), (.=))
 import qualified Data.Aeson as Aeson
 import qualified Data.HashMap.Strict as HM
@@ -22,6 +23,7 @@ import System.FilePath ((</>))
 import System.Process (
     CreateProcess (..),
     proc,
+    readCreateProcessWithExitCode,
     withCreateProcess,
  )
 import qualified Prelude
@@ -216,25 +218,27 @@ cliRetry ::
     Text ->
     CreateProcess ->
     IO ()
-cliRetry _tr _msg _cp = do
-    panic "not implemented"
+cliRetry tracer msg cp = do
+    (st, _, err) <- retrying pol (const isFail) (const cmd)
+    traceWith tracer $ MsgCLIStatus msg st
+    case st of
+        ExitSuccess -> pure ()
+        ExitFailure _ ->
+            throwIO $ ProcessHasExited ("cardano-cli failed: " <> Text.pack err) st
+  where
+    cmd = do
+        traceWith tracer $ MsgCLIRetry msg
+        (st, out, err) <- readCreateProcessWithExitCode cp mempty
+        case st of
+            ExitSuccess -> pure ()
+            ExitFailure code -> traceWith tracer (MsgCLIRetryResult msg code)
+        pure (st, out, err)
+    isFail (st, _, _) = pure (st /= ExitSuccess)
+    pol = limitRetriesByCumulativeDelay 30_000_000 $ constantDelay 1_000_000
 
---  (st, _, _) <- retrying pol (const isFail) (const cmd)
---  traceWith tr $ MsgCLIStatus msg st
---  case st of
---    ExitSuccess -> pure ()
---    ExitFailure _ ->
---      throwIO $ ProcessHasExited ("cardano-cli failed: " <> BL8.unpack err) st
--- where
---  cmd = do
---    traceWith tr $ MsgCLIRetry msg
---    (st, out, err) <- readProcess processConfig
---    case st of
---      ExitSuccess -> pure ()
---      ExitFailure code -> traceWith tr (MsgCLIRetryResult msg code err)
---    pure (st, out, err)
---  isFail (st, _, _) = pure (st /= ExitSuccess)
---  pol = limitRetriesByCumulativeDelay 30_000_000 $ constantDelay 1_000_000
+data ProcessHasExited = ProcessHasExited Text ExitCode deriving (Show)
+
+instance Exception ProcessHasExited
 
 -- Logging
 

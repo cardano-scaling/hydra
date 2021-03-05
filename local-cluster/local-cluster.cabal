@@ -30,6 +30,7 @@ library
   build-depends: base >=4.7 && <5
       , aeson
       , async
+      , bytestring
       , cardano-prelude
       , contra-tracer
       , directory
@@ -39,6 +40,7 @@ library
       , network
       , process
       , random-shuffle
+      , retry
       , streaming-commons
       , time
       , text
