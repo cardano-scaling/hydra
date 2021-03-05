@@ -2,26 +2,32 @@ module Ports where
 
 import Cardano.Prelude
 
-import Data.List
-    ( isInfixOf)
-import Data.Streaming.Network
-    ( bindRandomPortTCP )
-import Foreign.C.Error
-    ( Errno (..), eCONNREFUSED )
-import GHC.IO.Exception
-    ( IOException (..) )
-import Network.Socket
-    ( Family (AF_INET)
-    , PortNumber
-    , SockAddr (..)
-    , SocketType (Stream)
-    , close'
-    , connect
-    , socket
-    , tupleToHostAddress
-    )
-import System.Random.Shuffle
-    ( shuffleM )
+import Data.List (
+  isInfixOf,
+ )
+import Data.Streaming.Network (
+  bindRandomPortTCP,
+ )
+import Foreign.C.Error (
+  Errno (..),
+  eCONNREFUSED,
+ )
+import GHC.IO.Exception (
+  IOException (..),
+ )
+import Network.Socket (
+  Family (AF_INET),
+  PortNumber,
+  SockAddr (..),
+  SocketType (Stream),
+  close',
+  connect,
+  socket,
+  tupleToHostAddress,
+ )
+import System.Random.Shuffle (
+  shuffleM,
+ )
 
 -- | Find a TCPv4 port which is likely to be free for listening on
 -- @localhost@. This binds a socket, receives an OS-assigned port, then closes
@@ -33,10 +39,10 @@ import System.Random.Shuffle
 -- Do not use this unless you have no other option.
 getRandomPort :: IO PortNumber
 getRandomPort = do
-    let hostPreference = "127.0.0.1"
-    (port, sock) <- bindRandomPortTCP hostPreference
-    liftIO $ close' sock
-    return $ fromIntegral port
+  let hostPreference = "127.0.0.1"
+  (port, sock) <- bindRandomPortTCP hostPreference
+  liftIO $ close' sock
+  return $ fromIntegral port
 
 -- | Checks whether @connect()@ to a given TCPv4 `SockAddr` succeeds or
 -- returns `eCONNREFUSED`.
@@ -60,9 +66,9 @@ isPortOpen sockAddr = do
 -- socket addresses which aren't bound to any TCP port.
 unsafePortNumber :: SockAddr -> PortNumber
 unsafePortNumber = \case
-    SockAddrInet p _ -> p
-    SockAddrInet6 p _ _ _ -> p
-    SockAddrUnix _ -> panic "unsafePortNumber: no port for unix sockets."
+  SockAddrInet p _ -> p
+  SockAddrInet6 p _ _ _ -> p
+  SockAddrUnix _ -> panic "unsafePortNumber: no port for unix sockets."
 
 -- | Creates a `SockAttr` from host IP and port number.
 --
@@ -79,7 +85,7 @@ simpleSockAddr addr port = SockAddrInet port (tupleToHostAddress addr)
 -- listening socket to the child process.
 randomUnusedTCPPorts :: Int -> IO [Int]
 randomUnusedTCPPorts count = do
-    usablePorts <- shuffleM [1024..49151]
-    sort <$> filterM unused (take count usablePorts)
-  where
-    unused = fmap not . isPortOpen . simpleSockAddr (127,0,0,1) . fromIntegral
+  usablePorts <- shuffleM [1024 .. 49151]
+  sort <$> filterM unused (take count usablePorts)
+ where
+  unused = fmap not . isPortOpen . simpleSockAddr (127, 0, 0, 1) . fromIntegral
