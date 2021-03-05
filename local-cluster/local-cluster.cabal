@@ -41,6 +41,7 @@ library
       , random-shuffle
       , streaming-commons
       , time
+      , text
       , unordered-containers
   default-language: Haskell2010
   default-extensions:
