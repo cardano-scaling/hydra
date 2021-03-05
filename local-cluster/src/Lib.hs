@@ -1,7 +1,6 @@
 module Lib where
 
 import Cardano.Prelude
-
 import Data.Time.Clock (UTCTime, addUTCTime, getCurrentTime)
 import Logging (HasSeverityAnnotation (..), Tracer)
 import Node (

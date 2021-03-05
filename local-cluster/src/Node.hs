@@ -5,7 +5,6 @@
 module Node where
 
 import Cardano.Prelude
-
 import Control.Retry (constantDelay, limitRetriesByCumulativeDelay, retrying)
 import Data.Aeson (FromJSON (..), ToJSON (..), (.=))
 import qualified Data.Aeson as Aeson
