@@ -15,7 +15,7 @@
 
   "minSeverity": "Info",
   "defaultBackends": [],
-  "defaultScribes": [[ "stdout" ]],
+  "defaultScribes": [[ "StdoutSK", "stdout" ]],
   "setupBackends": [],
   "setupScribes": [
     {
