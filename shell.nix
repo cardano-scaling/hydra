@@ -21,13 +21,15 @@ with pkgs;
 let
   hls = haskell-nix.tool compiler "haskell-language-server" "latest";
   ghc = haskell-nix.compiler.${compiler};
+  fourmolu = haskell-nix.tool compiler "fourmolu" "latest";
 in
 mkShell rec {
   name = "hydra-node-env";
 
   tools = [
-    ghc
     cabal-install
+    fourmolu
+    ghc
     hls
     # Used in local-cluster
     cardanoNodePkgs.cardano-node
