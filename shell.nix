@@ -31,6 +31,8 @@ mkShell rec {
     fourmolu
     ghc
     hls
+    # For discovering libs (below)
+    pkgconfig
     # Used in local-cluster
     cardanoNodePkgs.cardano-node
     cardanoNodePkgs.cardano-cli
@@ -38,6 +40,7 @@ mkShell rec {
 
   libs = [
     zlib
+    systemd
   ];
 
   buildInputs = tools ++ libs;
