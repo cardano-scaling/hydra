@@ -1,51 +1,22 @@
-cabal-version: 1.12
+cabal-version: 2.2
 
-name:           local-cluster
-version:        0.1.0.0
-description:    TODO
-homepage:       TODO
-bug-reports:    TODO
-author:         Author name here
-maintainer:     example@example.com
-copyright:      2021 Author name here
-license:        Apache-2.0
-license-file:   LICENSE
-build-type:     Simple
-extra-source-files:
-    README.md
-    ChangeLog.md
+name:               local-cluster
+version:            0.1.0
+description:        Integration test suite using a local cluster of cardano and hydra nodes
+author:             IOHK
+copyright:          2021 IOHK
+license:            Apache-2.0
+license-files:
+    LICENSE
+    NOTICE
+build-type:         Simple
+extra-source-files: README.md
 
 source-repository head
   type: git
   location: https://github.com/input-output-hk/hydra-node/local-cluster
 
-library
-  exposed-modules:
-      Lib
-      Logging
-      Ports
-      Node
-  hs-source-dirs:
-      src
-  build-depends: base >=4.7 && <5
-      , aeson
-      , async
-      , bytestring
-      , cardano-prelude
-      , contra-tracer
-      , directory
-      , exceptions
-      , filepath
-      , iohk-monitoring
-      , network
-      , process
-      , random-shuffle
-      , retry
-      , streaming-commons
-      , time
-      , text
-      , unix
-      , unordered-containers
+common project-config
   default-language: Haskell2010
   default-extensions:
     BangPatterns
@@ -91,13 +62,42 @@ library
     -Wincomplete-uni-patterns
     -Wpartial-fields
     -Wredundant-constraints
+            
+library
+  import: project-config
+  exposed-modules:
+      Lib
+      Logging
+      Ports
+      Node
+  hs-source-dirs:
+      src
+  build-depends: base >=4.7 && <5
+      , aeson
+      , async
+      , bytestring
+      , cardano-prelude
+      , contra-tracer
+      , directory
+      , exceptions
+      , filepath
+      , iohk-monitoring
+      , network
+      , process
+      , random-shuffle
+      , retry
+      , streaming-commons
+      , time
+      , text
+      , unix
+      , unordered-containers
+  ghc-options:
     -haddock
 
 test-suite integration
+  import: project-config
   other-modules:
       Test.LocalClusterSpec
-  default-language:
-      Haskell2010
   build-depends: base >=4.7 && <5
                , cardano-prelude
                , hspec
@@ -113,49 +113,6 @@ test-suite integration
       test
   main-is:
       Main.hs
-  default-extensions:
-    BangPatterns
-    BinaryLiterals
-    ConstraintKinds
-    DataKinds
-    DefaultSignatures
-    DeriveDataTypeable
-    DeriveFoldable
-    DeriveFunctor
-    DeriveGeneric
-    DeriveTraversable
-    EmptyDataDecls
-    ExistentialQuantification
-    FlexibleContexts
-    FlexibleInstances
-    FunctionalDependencies
-    GADTs
-    InstanceSigs
-    KindSignatures
-    LambdaCase
-    MultiParamTypeClasses
-    MultiWayIf
-    NamedFieldPuns
-    NoImplicitPrelude
-    NumericUnderscores
-    OverloadedStrings
-    PartialTypeSignatures
-    PatternGuards
-    RankNTypes
-    ScopedTypeVariables
-    StandaloneDeriving
-    TupleSections
-    TypeFamilies
-    TypeSynonymInstances
-    ViewPatterns
   ghc-options:
-    -Werror
-    -Wall
-    -Wcompat
-    -Widentities
-    -Wincomplete-record-updates
-    -Wincomplete-uni-patterns
-    -Wpartial-fields
-    -Wredundant-constraints
     -threaded
     -rtsopts
