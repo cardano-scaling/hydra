@@ -27,7 +27,10 @@ assertNetworkIsUp tracer = \case
     panic "empty cluster?"
 
 waitForNewSlot :: IO ()
-waitForNewSlot = threadDelay (2 * 1_000_000)  -- FIXME this should be found in the genesis file
+waitForNewSlot = threadDelay (2 * slotLength)
+
+slotLength :: Int -- in Microseconds
+slotLength = 1_000_000 -- FIXME this should be found in the genesis file
 
 sshow :: (IsString s, Show a) => a -> s
 sshow = fromString . show

@@ -191,7 +191,7 @@ cliQueryTip ::
   Tracer IO NodeLog ->
   -- | cardano node socket path
   FilePath ->
-  IO ()
+  IO ChainTip
 cliQueryTip tr sock = do
   let msg = "Checking for usable socket file " <> Text.pack sock
   -- TODO: check whether querying the tip works just as well.
@@ -201,7 +201,8 @@ cliQueryTip tr sock = do
       sock
       [ "query"
       , "tip"
-      , "--testnet-magic", "42"
+      , "--testnet-magic"
+      , "42"
       , "--cardano-mode"
       ]
   traceWith tr $ MsgSocketIsReady sock
