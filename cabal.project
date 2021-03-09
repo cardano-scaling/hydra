@@ -1,7 +1,9 @@
 packages:
   local-cluster
-    
+
 tests: False
+package local-cluster
+  tests: True
 
 -- Always show detailed output for tests
 test-show-details: direct
