@@ -1,0 +1,7 @@
+cradle:
+  cabal:
+    - path: "local-cluster/src"
+      component: "lib:local-cluster"
+
+    - path: "local-cluster/test"
+      component: "local-cluster:test:integration"
