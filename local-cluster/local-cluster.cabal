@@ -96,6 +96,9 @@ library
 
 test-suite integration
   import: project-config
+  hs-source-dirs: test
+  main-is: Main.hs
+  type: exitcode-stdio-1.0
   other-modules:
       Test.LocalClusterSpec
   build-depends: base >=4.7 && <5
@@ -105,14 +108,8 @@ test-suite integration
                , local-cluster
                , temporary
                , text
-  build-tools:
-      hspec-discover
-  type:
-     exitcode-stdio-1.0
-  hs-source-dirs:
-      test
-  main-is:
-      Main.hs
+  build-tool-depends:
+    hspec-discover:hspec-discover
   ghc-options:
     -threaded
     -rtsopts
