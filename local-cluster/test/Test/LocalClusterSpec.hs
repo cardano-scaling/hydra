@@ -7,7 +7,7 @@ import Lib (ClusterConfig (..), ClusterLog (..), RunningCluster (..), withCluste
 import Logging (Severity (..), Tracer, contramap, withStdoutTracer)
 import Node (RunningNode (..), cliQueryTip)
 import System.IO.Temp (withSystemTempDirectory)
-import Test.Hspec (Spec, describe, it)
+import Test.Hspec (Spec, describe, it, shouldSatisfy)
 
 spec :: Spec
 spec = describe "Hydra local cluster" $ do
@@ -18,10 +18,16 @@ spec = describe "Hydra local cluster" $ do
 
 assertNetworkIsUp :: Tracer IO ClusterLog -> RunningCluster -> IO ()
 assertNetworkIsUp tracer = \case
-  RunningCluster _ (RunningNode nodeId socket : _) ->
-    cliQueryTip (contramap (MsgFromNode nodeId) tracer) socket
+  RunningCluster _ (RunningNode nodeId socket : _) -> do
+    initialTip <- cliQueryTip (contramap (MsgFromNode nodeId) tracer) socket
+    waitForNewSlot
+    anotherTip <- cliQueryTip (contramap (MsgFromNode nodeId) tracer) socket
+    anotherTip `shouldSatisfy` (> initialTip)
   _ ->
     panic "empty cluster?"
+
+waitForNewSlot :: IO ()
+waitForNewSlot = threadDelay (2 * 1_000_000)  -- FIXME this should be found in the genesis file
 
 sshow :: (IsString s, Show a) => a -> s
 sshow = fromString . show
