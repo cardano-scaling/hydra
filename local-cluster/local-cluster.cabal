@@ -62,35 +62,33 @@ common project-config
     -Wincomplete-uni-patterns
     -Wpartial-fields
     -Wredundant-constraints
+    -Wunused-packages
             
 library
   import: project-config
+  hs-source-dirs: src
   exposed-modules:
-      Lib
-      Logging
-      Ports
-      Node
-  hs-source-dirs:
-      src
-  build-depends: base >=4.7 && <5
-      , aeson
-      , async
-      , bytestring
-      , cardano-prelude
-      , contra-tracer
-      , directory
-      , exceptions
-      , filepath
-      , iohk-monitoring
-      , network
-      , process
-      , random-shuffle
-      , retry
-      , streaming-commons
-      , time
-      , text
-      , unix
-      , unordered-containers
+    Lib
+    Logging
+    Ports
+    Node
+  build-depends:
+      base >=4.7 && <5
+    , aeson
+    , cardano-prelude
+    , contra-tracer
+    , directory
+    , filepath
+    , iohk-monitoring
+    , network
+    , process
+    , random-shuffle
+    , retry
+    , streaming-commons
+    , time
+    , text
+    , unix
+    , unordered-containers
   ghc-options:
     -haddock
 
@@ -100,14 +98,14 @@ test-suite integration
   main-is: Main.hs
   type: exitcode-stdio-1.0
   other-modules:
-      Test.LocalClusterSpec
-  build-depends: base >=4.7 && <5
-               , cardano-prelude
-               , hspec
-               , hspec-core
-               , local-cluster
-               , temporary
-               , text
+    Test.LocalClusterSpec
+  build-depends:
+      base >=4.7 && <5
+    , cardano-prelude
+    , hspec
+    , hspec-core
+    , local-cluster
+    , temporary
   build-tool-depends:
     hspec-discover:hspec-discover
   ghc-options:
