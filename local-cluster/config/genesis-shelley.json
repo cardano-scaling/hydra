@@ -46,7 +46,7 @@
         "611ca30a1d14c424097f225d1783141d717cfda555529e32dd6301b2fd": 100
     },
     "maxLovelaceSupply": 300,
-    "networkMagic": 764824073,
+    "networkMagic": 42,
     "epochLength": 432000,
     "staking": {
         "pools": {},

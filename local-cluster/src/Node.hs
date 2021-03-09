@@ -96,7 +96,7 @@ withCardanoNode cfg args action = do
   print (cmdspec process)
   withCreateProcess process $
     \_stdin _stdout _stderr _ ->
-      action (RunningNode (nodeId cfg) (nodeSocket args))
+      action (RunningNode (nodeId cfg) (stateDirectory cfg </> nodeSocket args))
  where
   generateEnvironment = do
     refreshSystemStart cfg args
@@ -201,9 +201,8 @@ cliQueryTip tr sock = do
       sock
       [ "query"
       , "tip"
-      , "--mainnet"
-      , --, "--testnet-magic", "764824073"
-        "--cardano-mode"
+      , "--testnet-magic", "42"
+      , "--cardano-mode"
       ]
   traceWith tr $ MsgSocketIsReady sock
 
