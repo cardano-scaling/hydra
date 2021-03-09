@@ -192,9 +192,9 @@ cliCreateProcess tr sock args = do
   pure $ cp{env = Just (socketEnv : fromMaybe [] (env cp))}
 
 data ChainTip = ChainTip
-  { slotNo :: Integer
-  , headerHash :: Text
-  , blockNo :: Integer
+  { slot :: Integer
+  , hash :: Text
+  , block :: Integer
   }
   deriving stock (Show, Generic)
   deriving anyclass (FromJSON)

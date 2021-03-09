@@ -22,7 +22,7 @@ assertNetworkIsProducingBlock tracer = \case
     initialTip <- cliQueryTip (contramap (MsgFromNode nodeId) tracer) socket
     waitForNewBlock
     anotherTip <- cliQueryTip (contramap (MsgFromNode nodeId) tracer) socket
-    on (>) blockNo anotherTip initialTip `shouldBe` True
+    on (>) block anotherTip initialTip `shouldBe` True
   _ ->
     panic "empty cluster?"
 
