@@ -19,7 +19,7 @@
 }:
 with pkgs;
 let
-  hls = haskell-nix.tool compiler "haskell-language-server" "0.9.0.0";
+  hls = haskell-nix.tool compiler "haskell-language-server" "latest";
   ghc = haskell-nix.compiler.${compiler};
   fourmolu = haskell-nix.tool compiler "fourmolu" "latest";
 in
