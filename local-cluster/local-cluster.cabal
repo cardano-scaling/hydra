@@ -63,7 +63,7 @@ common project-config
     -Wpartial-fields
     -Wredundant-constraints
     -Wunused-packages
-            
+
 library
   import: project-config
   hs-source-dirs: src
@@ -75,6 +75,7 @@ library
   build-depends:
       base >=4.7 && <5
     , aeson
+    , bytestring
     , cardano-prelude
     , contra-tracer
     , directory

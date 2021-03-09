@@ -1,3 +1,4 @@
+{-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE DerivingStrategies #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE TypeApplications #-}
@@ -5,11 +6,16 @@
 module Node where
 
 import Cardano.Prelude
+import Control.Monad.Fail (
+  fail,
+ )
 import Control.Retry (constantDelay, limitRetriesByCumulativeDelay, retrying)
 import Data.Aeson (FromJSON (..), ToJSON (..), (.=))
 import qualified Data.Aeson as Aeson
+import qualified Data.ByteString.Lazy as BL
 import qualified Data.HashMap.Strict as HM
-import qualified Data.Text as Text -- REVIEW(SN): not in prelude?
+import qualified Data.Text as Text
+import qualified Data.Text.Encoding as Text
 import Data.Time.Clock (UTCTime)
 import Data.Time.Clock.POSIX (posixSecondsToUTCTime, utcTimeToPOSIXSeconds)
 import Logging (
@@ -25,7 +31,6 @@ import System.Process (
   readCreateProcessWithExitCode,
   withCreateProcess,
  )
-import qualified Prelude
 
 type Port = Int
 
@@ -164,7 +169,7 @@ mkTopology peers = do
   encodePeer :: Int -> Aeson.Value
   encodePeer port =
     Aeson.object
-      [ "addr" .= ("127.0.0.1" :: Prelude.String)
+      [ "addr" .= ("127.0.0.1" :: Text)
       , "port" .= port
       , "valency" .= (1 :: Int)
       ]
@@ -186,6 +191,14 @@ cliCreateProcess tr sock args = do
   let cp = proc "cardano-cli" $ fmap Text.unpack args
   pure $ cp{env = Just (socketEnv : fromMaybe [] (env cp))}
 
+data ChainTip = ChainTip
+  { slotNo :: Integer
+  , headerHash :: Text
+  , blockNo :: Integer
+  }
+  deriving stock (Show, Generic)
+  deriving anyclass (FromJSON)
+
 -- | Query a cardano node tip with retrying.
 cliQueryTip ::
   Tracer IO NodeLog ->
@@ -195,17 +208,21 @@ cliQueryTip ::
 cliQueryTip tr sock = do
   let msg = "Checking for usable socket file " <> Text.pack sock
   -- TODO: check whether querying the tip works just as well.
-  cliRetry tr msg
-    =<< cliCreateProcess
-      tr
-      sock
-      [ "query"
-      , "tip"
-      , "--testnet-magic"
-      , "42"
-      , "--cardano-mode"
-      ]
+  bytes <-
+    cliRetry tr msg
+      =<< cliCreateProcess
+        tr
+        sock
+        [ "query"
+        , "tip"
+        , "--testnet-magic"
+        , "42"
+        , "--cardano-mode"
+        ]
   traceWith tr $ MsgSocketIsReady sock
+  case Aeson.eitherDecode' (BL.fromStrict bytes) of
+    Left e -> fail e
+    Right tip -> pure tip
 
 -- | Runs a @cardano-cli@ command and retries for up to 30 seconds if the
 -- command failed.
@@ -216,12 +233,13 @@ cliRetry ::
   -- | message to print before running command
   Text ->
   CreateProcess ->
-  IO ()
+  IO ByteString
 cliRetry tracer msg cp = do
-  (st, _, err) <- retrying pol (const isFail) (const cmd)
+  (st, out, err) <- retrying pol (const isFail) (const cmd)
   traceWith tracer $ MsgCLIStatus msg st
   case st of
-    ExitSuccess -> pure ()
+    ExitSuccess ->
+      pure $ Text.encodeUtf8 $ Text.pack out
     ExitFailure _ ->
       throwIO $ ProcessHasExited ("cardano-cli failed: " <> Text.pack err) st
  where
@@ -274,4 +292,4 @@ withObject fn = \case
 
 unsafeDecodeJsonFile :: FromJSON a => FilePath -> IO a
 unsafeDecodeJsonFile =
-  Aeson.eitherDecodeFileStrict >=> either Prelude.fail pure
+  Aeson.eitherDecodeFileStrict >=> either fail pure
