@@ -7,8 +7,8 @@ author:             IOHK
 copyright:          2021 IOHK
 license:            Apache-2.0
 license-files:
-    LICENSE
-    NOTICE
+  LICENSE
+  NOTICE
 build-type:         Simple
 extra-source-files: README.md
 
