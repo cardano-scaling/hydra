@@ -1,8 +1,12 @@
 packages:
   local-cluster
+  hydra-node
 
 tests: False
 package local-cluster
+  tests: True
+
+package hydra-node
   tests: True
 
 -- Always show detailed output for tests

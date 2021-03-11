@@ -1,0 +1,104 @@
+cabal-version: 2.2
+
+name:               hydra-node
+version:            0.1.0
+description:        Hydra node executable (server
+author:             IOHK
+copyright:          2021 IOHK
+license:            Apache-2.0
+license-files:
+  LICENSE
+  NOTICE
+build-type:         Simple
+extra-source-files: README.md
+
+source-repository head
+  type: git
+  location: https://github.com/input-output-hk/hydra-node
+
+common project-config
+  default-language: Haskell2010
+  default-extensions:
+    BangPatterns
+    BinaryLiterals
+    ConstraintKinds
+    DataKinds
+    DefaultSignatures
+    DeriveDataTypeable
+    DeriveFoldable
+    DeriveFunctor
+    DeriveGeneric
+    DeriveTraversable
+    EmptyDataDecls
+    ExistentialQuantification
+    FlexibleContexts
+    FlexibleInstances
+    FunctionalDependencies
+    GADTs
+    InstanceSigs
+    KindSignatures
+    LambdaCase
+    MultiParamTypeClasses
+    MultiWayIf
+    NamedFieldPuns
+    NoImplicitPrelude
+    NumericUnderscores
+    OverloadedStrings
+    PartialTypeSignatures
+    PatternGuards
+    RankNTypes
+    ScopedTypeVariables
+    StandaloneDeriving
+    TupleSections
+    TypeFamilies
+    TypeSynonymInstances
+    ViewPatterns
+  ghc-options:
+    -Werror
+    -Wall
+    -Wcompat
+    -Widentities
+    -Wincomplete-record-updates
+    -Wincomplete-uni-patterns
+    -Wpartial-fields
+    -Wredundant-constraints
+    -Wunused-packages
+
+library
+  import: project-config
+  hs-source-dirs: src
+  exposed-modules:
+    Hydra.Node
+  build-depends:
+      cardano-prelude
+  ghc-options:
+    -haddock
+
+executable hydra
+  import: project-config
+  hs-source-dirs: app
+  main-is: hydra-node.hs
+  build-depends:
+      cardano-prelude
+    , hydra-node
+  ghc-options:
+    -threaded
+    -rtsopts
+
+test-suite tests
+  import: project-config
+  hs-source-dirs: test
+  other-modules:
+    Hydra.NodeSpec
+  main-is: Main.hs
+  type: exitcode-stdio-1.0
+  build-depends:
+      cardano-prelude
+    , hspec
+    , hspec-core
+    , hydra-node
+  build-tool-depends:
+    hspec-discover:hspec-discover
+  ghc-options:
+    -threaded
+    -rtsopts
