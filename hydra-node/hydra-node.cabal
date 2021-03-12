@@ -70,7 +70,8 @@ library
   exposed-modules:
     Hydra.Node
   build-depends:
-      cardano-prelude
+      async
+    , cardano-prelude
   ghc-options:
     -haddock
 
