@@ -6,9 +6,7 @@
 module Node where
 
 import Cardano.Prelude
-import Control.Monad.Fail (
-  fail,
- )
+import Control.Monad.Fail (fail)
 import Control.Retry (constantDelay, limitRetriesByCumulativeDelay, retrying)
 import Data.Aeson (FromJSON (..), ToJSON (..), (.=))
 import qualified Data.Aeson as Aeson
@@ -26,6 +24,7 @@ import Logging (
  )
 import System.FilePath ((</>))
 import System.Process (
+  CmdSpec,
   CreateProcess (..),
   proc,
   readCreateProcessWithExitCode,
@@ -50,6 +49,7 @@ data CardanoNodeConfig = CardanoNodeConfig
   , -- | A list of port
     ports :: PortsConfig
   }
+  deriving (Show)
 
 -- | Arguments given to the 'cardano-node' command-line to run a node.
 data CardanoNodeArgs = CardanoNodeArgs
@@ -92,16 +92,20 @@ data PortsConfig = PortsConfig
   , -- | Other peers TCP ports.
     peers :: [Port]
   }
+  deriving (Show)
 
 withCardanoNode ::
-  CardanoNodeConfig -> CardanoNodeArgs -> (RunningNode -> IO a) -> IO a
-withCardanoNode cfg args action = do
+  Tracer IO NodeLog ->
+  CardanoNodeConfig ->
+  CardanoNodeArgs ->
+  (RunningNode -> IO a) ->
+  IO a
+withCardanoNode tr cfg args action = do
   generateEnvironment
   let process = cardanoNodeProcess (Just $ stateDirectory cfg) args
-  print (cmdspec process)
-  withCreateProcess process $
-    \_stdin _stdout _stderr _ ->
-      action (RunningNode (nodeId cfg) (stateDirectory cfg </> nodeSocket args))
+  traceWith tr $ MsgNodeCmdSpec (cmdspec process)
+  withCreateProcess process $ \_stdin _stdout _stderr _ ->
+    action (RunningNode (nodeId cfg) (stateDirectory cfg </> nodeSocket args))
  where
   generateEnvironment = do
     refreshSystemStart cfg args
@@ -169,10 +173,7 @@ mkTopology peers = do
   encodePeer :: Int -> Aeson.Value
   encodePeer port =
     Aeson.object
-      [ "addr" .= ("127.0.0.1" :: Text)
-      , "port" .= port
-      , "valency" .= (1 :: Int)
-      ]
+      ["addr" .= ("127.0.0.1" :: Text), "port" .= port, "valency" .= (1 :: Int)]
 
 -- | Make a 'CreateProcess' for running @cardano-cli@. The program must be on
 -- the @PATH@, as normal. Sets @CARDANO_NODE_SOCKET_PATH@ for the subprocess, if
@@ -207,18 +208,12 @@ cliQueryTip ::
   IO ChainTip
 cliQueryTip tr sock = do
   let msg = "Checking for usable socket file " <> Text.pack sock
-  -- TODO: check whether querying the tip works just as well.
   bytes <-
     cliRetry tr msg
       =<< cliCreateProcess
         tr
         sock
-        [ "query"
-        , "tip"
-        , "--testnet-magic"
-        , "42"
-        , "--cardano-mode"
-        ]
+        ["query", "tip", "--testnet-magic", "42", "--cardano-mode"]
   traceWith tr $ MsgSocketIsReady sock
   case Aeson.eitherDecode' (BL.fromStrict bytes) of
     Left e -> fail e
@@ -238,8 +233,7 @@ cliRetry tracer msg cp = do
   (st, out, err) <- retrying pol (const isFail) (const cmd)
   traceWith tracer $ MsgCLIStatus msg st
   case st of
-    ExitSuccess ->
-      pure $ Text.encodeUtf8 $ Text.pack out
+    ExitSuccess -> pure $ Text.encodeUtf8 $ Text.pack out
     ExitFailure _ ->
       throwIO $ ProcessHasExited ("cardano-cli failed: " <> Text.pack err) st
  where
@@ -253,14 +247,16 @@ cliRetry tracer msg cp = do
   isFail (st, _, _) = pure (st /= ExitSuccess)
   pol = limitRetriesByCumulativeDelay 30_000_000 $ constantDelay 1_000_000
 
-data ProcessHasExited = ProcessHasExited Text ExitCode deriving (Show)
+data ProcessHasExited = ProcessHasExited Text ExitCode
+  deriving (Show)
 
 instance Exception ProcessHasExited
 
 -- Logging
 
 data NodeLog
-  = MsgCLI [Text]
+  = MsgNodeCmdSpec CmdSpec
+  | MsgCLI [Text]
   | MsgCLIStatus Text ExitCode
   | MsgCLIRetry Text
   | MsgCLIRetryResult Text Int
@@ -269,6 +265,7 @@ data NodeLog
 
 instance HasSeverityAnnotation NodeLog where
   getSeverityAnnotation = \case
+    MsgNodeCmdSpec{} -> Debug
     MsgCLI{} -> Debug
     MsgCLIStatus _ ExitSuccess -> Debug
     MsgCLIStatus _ (ExitFailure _) -> Error
@@ -291,5 +288,4 @@ withObject fn = \case
   x -> x
 
 unsafeDecodeJsonFile :: FromJSON a => FilePath -> IO a
-unsafeDecodeJsonFile =
-  Aeson.eitherDecodeFileStrict >=> either fail pure
+unsafeDecodeJsonFile = Aeson.eitherDecodeFileStrict >=> either fail pure

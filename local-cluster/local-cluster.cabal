@@ -93,6 +93,18 @@ library
   ghc-options:
     -haddock
 
+executable local-cluster
+  import: project-config
+  hs-source-dirs: exe
+  main-is: Main.hs
+  ghc-options:
+    -threaded
+    -rtsopts
+  build-depends: base >=4.7 && <5
+               , cardano-prelude
+               , local-cluster
+               , temporary
+
 test-suite integration
   import: project-config
   hs-source-dirs: test

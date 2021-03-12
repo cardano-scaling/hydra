@@ -2,7 +2,7 @@ module Lib where
 
 import Cardano.Prelude
 import Data.Time.Clock (UTCTime, addUTCTime, getCurrentTime)
-import Logging (HasSeverityAnnotation (..), Tracer)
+import Logging (HasSeverityAnnotation (..), Severity (Info), Tracer, contramap, traceWith)
 import Node (
   CardanoNodeArgs (..),
   CardanoNodeConfig (..),
@@ -31,27 +31,27 @@ data ClusterConfig = ClusterConfig
 
 withCluster ::
   Tracer IO ClusterLog -> ClusterConfig -> (RunningCluster -> IO ()) -> IO ()
-withCluster _tracer cfg@ClusterConfig{parentStateDirectory} action = do
+withCluster tr cfg@ClusterConfig{parentStateDirectory} action = do
   systemStart <- initSystemStart
   (cfgA, cfgB, cfgC) <-
     makeNodesConfig parentStateDirectory systemStart
       <$> randomUnusedTCPPorts 3
-  withBFTNode cfgA $ \nodeA -> do
-    withBFTNode cfgB $ \nodeB -> do
-      withBFTNode cfgC $ \nodeC -> do
+  withBFTNode tr cfgA $ \nodeA -> do
+    withBFTNode tr cfgB $ \nodeB -> do
+      withBFTNode tr cfgC $ \nodeC -> do
         action (RunningCluster cfg [nodeA, nodeB, nodeC])
 
-withBFTNode :: CardanoNodeConfig -> (RunningNode -> IO ()) -> IO ()
-withBFTNode cfg action = do
+withBFTNode :: Tracer IO ClusterLog -> CardanoNodeConfig -> (RunningNode -> IO ()) -> IO ()
+withBFTNode clusterTracer cfg action = do
   createDirectoryIfMissing False (stateDirectory cfg)
 
   [dlgCert, signKey, vrfKey, kesKey, opCert] <-
     forM
-      [ dlgCertFilename (nodeId cfg)
-      , signKeyFilename (nodeId cfg)
-      , vrfKeyFilename (nodeId cfg)
-      , kesKeyFilename (nodeId cfg)
-      , opCertFilename (nodeId cfg)
+      [ dlgCertFilename nid
+      , signKeyFilename nid
+      , vrfKeyFilename nid
+      , kesKeyFilename nid
+      , opCertFilename nid
       ]
       (copyCredential (stateDirectory cfg))
 
@@ -77,7 +77,9 @@ withBFTNode cfg action = do
     ("config" </> "genesis-shelley.json")
     (stateDirectory cfg </> nodeShelleyGenesisFile args)
 
-  withCardanoNode cfg args action
+  withCardanoNode nodeTracer cfg args $ \rn -> do
+    traceWith clusterTracer $ MsgNodeStarting cfg
+    action rn
  where
   dlgCertFilename id = "delegation-cert.00" <> show (id - 1) <> ".json"
   signKeyFilename id = "delegate-keys.00" <> show (id - 1) <> ".key"
@@ -91,6 +93,10 @@ withBFTNode cfg action = do
     copyFile source destination
     setFileMode destination ownerReadMode
     pure destination
+
+  nid = nodeId cfg
+
+  nodeTracer = contramap (MsgFromNode nid) clusterTracer
 
 -- | Initialize the system start time to now (modulo a small offset needed to
 -- give time to the system to bootstrap correctly).
@@ -117,9 +123,12 @@ makeNodesConfig _ _ _ = panic "we only support topology for 3 nodes"
 -- Logging
 --
 
-data ClusterLog = MsgFromNode NodeId NodeLog
+data ClusterLog
+  = MsgFromNode NodeId NodeLog
+  | MsgNodeStarting CardanoNodeConfig
   deriving (Show)
 
 instance HasSeverityAnnotation ClusterLog where
   getSeverityAnnotation = \case
     MsgFromNode _ msg -> getSeverityAnnotation msg
+    MsgNodeStarting{} -> Info
