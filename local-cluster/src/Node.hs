@@ -152,10 +152,8 @@ refreshSystemStart cfg args = do
 
   config <-
     unsafeDecodeJsonFile (stateDirectory cfg </> nodeConfigFile args)
-      >>= pure
-        . addField "ByronGenesisFile" (nodeByronGenesisFile args)
-      >>= pure
-        . addField "ShelleyGenesisFile" (nodeShelleyGenesisFile args)
+      <&> addField "ByronGenesisFile" (nodeByronGenesisFile args)
+      <&> addField "ShelleyGenesisFile" (nodeShelleyGenesisFile args)
 
   Aeson.encodeFile
     (stateDirectory cfg </> nodeByronGenesisFile args)
