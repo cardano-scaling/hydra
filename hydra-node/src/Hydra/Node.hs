@@ -22,9 +22,10 @@ data NodeStatus = NotReady | Ready
   deriving stock (Eq, Show)
 
 startNode :: IO ()
-startNode = do
-  signal <- newEmptyMVar
-  takeMVar signal
+startNode = forever $ threadDelay oneSecond
+
+oneSecond :: Int
+oneSecond = 1_000_000
 
 stopNode :: HydraNode -> IO HydraNode
 stopNode node =
