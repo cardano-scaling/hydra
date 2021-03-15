@@ -96,7 +96,7 @@ library
 executable local-cluster
   import: project-config
   hs-source-dirs: exe
-  main-is: Main.hs
+  main-is: local-cluster.hs
   ghc-options:
     -threaded
     -rtsopts

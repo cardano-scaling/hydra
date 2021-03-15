@@ -75,9 +75,9 @@ library
   ghc-options:
     -haddock
 
-executable hydra
+executable hydra-node
   import: project-config
-  hs-source-dirs: app
+  hs-source-dirs: exe
   main-is: hydra-node.hs
   build-depends:
       cardano-prelude

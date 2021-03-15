@@ -104,6 +104,7 @@ source-repository-package
     ouroboros-consensus-shelley
     ouroboros-network
     ouroboros-network-framework
+    ouroboros-network-testing
     typed-protocols
     typed-protocols-examples
     Win32-network
