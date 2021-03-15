@@ -6,11 +6,11 @@ module Hydra.Node where
 import Cardano.Prelude
 
 runHydra :: IO ()
-runHydra = do
-  node <- startNode
-  putStrLn ("Hydra started" :: Text)
-  waitForInput
-  void $ stopNode node
+runHydra =
+  startStopNode $
+    const $ do
+      putStrLn ("Hydra started" :: Text)
+      waitForInput
  where
   waitForInput = void getLine
 
@@ -21,17 +21,23 @@ newtype HydraNode = HydraNode {nodeThread :: Maybe (Async ())}
 data NodeStatus = NotReady | Ready
   deriving stock (Eq, Show)
 
+startNode :: IO ()
+startNode = do
+  signal <- newEmptyMVar
+  takeMVar signal
+
 stopNode :: HydraNode -> IO HydraNode
 stopNode node =
   case nodeThread node of
     Just thread -> cancel thread >> pure (HydraNode Nothing)
     Nothing -> pure node
 
-startNode :: IO HydraNode
-startNode = do
-  signal <- newEmptyMVar
-  thread <- async $ takeMVar signal
-  pure $ HydraNode (Just thread)
+startStopNode :: (HydraNode -> IO ()) -> IO ()
+startStopNode act = withAsync startNode $ \thread -> do
+  let node = HydraNode (Just thread)
+  res <- act node
+  void $ stopNode node
+  pure res
 
 status :: HydraNode -> IO NodeStatus
 status node =

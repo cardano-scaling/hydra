@@ -11,6 +11,3 @@ spec = around startStopNode $
   describe "Live Hydra Node" $ do
     it "returns Ready when asked status" $ \node -> do
       status node `shouldReturn` Ready
-
-startStopNode :: (HydraNode -> IO ()) -> IO ()
-startStopNode = bracket startNode stopNode
