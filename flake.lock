@@ -15,7 +15,7 @@
         "type": "github"
       }
     },
-    "haskell-nix": {
+    "haskellNix": {
       "inputs": {
         "nixpkgs": "nixpkgs",
         "nixpkgs-2003": "nixpkgs-2003",
@@ -103,10 +103,10 @@
     "root": {
       "inputs": {
         "flake-utils": "flake-utils",
-        "haskell-nix": "haskell-nix",
+        "haskellNix": "haskellNix",
         "nixpkgs": [
-          "haskell-nix",
-          "nixpkgs-2009"
+          "haskellNix",
+          "nixpkgs-unstable"
         ]
       }
     }
