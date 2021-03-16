@@ -1,3 +1,8 @@
+# Alternative set up using nix flakes. Flakes are still considered experimental
+# and also the fact, that we do not have a proper cache set up for all this, is
+# why you would still want to use the shell.nix instead.
+#
+# See https://nixos.wiki/wiki/Flakes for more info
 {
   description = "Hydra project flake";
 
