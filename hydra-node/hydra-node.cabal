@@ -86,6 +86,29 @@ executable hydra-node
     -threaded
     -rtsopts
 
+executable ping-pong
+  import: project-config
+  hs-source-dirs: exe
+  main-is: ping-pong.hs
+  build-depends:
+      cardano-prelude
+    , async
+    , base
+    , bytestring
+    , contra-tracer
+    , directory
+    , text
+    , cborg
+
+    , io-sim-classes
+    , network-mux
+    , ouroboros-network-framework
+    , typed-protocols
+    , typed-protocols-examples
+  ghc-options:
+    -threaded
+    -rtsopts
+
 test-suite tests
   import: project-config
   hs-source-dirs: test
