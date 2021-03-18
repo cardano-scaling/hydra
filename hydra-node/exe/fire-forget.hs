@@ -83,8 +83,6 @@ import Ouroboros.Network.Socket (
  )
 import System.Directory (doesFileExist, removeFile)
 
--- From: ouroboros-network-framework/demo/ping-pong.hs
-
 main :: IO ()
 main = do
   args <- getArgs
@@ -118,10 +116,6 @@ rmIfExists path = do
 maximumMiniProtocolLimits :: MiniProtocolLimits
 maximumMiniProtocolLimits =
   MiniProtocolLimits{maximumIngressQueue = maxBound}
-
---
--- Ping pong demo
---
 
 app :: OuroborosApplication 'InitiatorResponderMode addr LBS.ByteString IO () ()
 app = demoProtocol0 $ InitiatorAndResponderProtocol initiator responder
@@ -189,8 +183,6 @@ hailHydraServer =
     , recvMsgDone = putTextLn "Done."
     }
 
--- From: ouroboros-network-framework/test/Network/TypedProtocol/FireForget/Codec/CBOR.hs
-
 codecFireForget ::
   forall a m.
   MonadST m =>
@@ -217,7 +209,6 @@ codecFireForget = mkCodecCborLazyBS encodeMsg decodeMsg
       (ClientAgency TokIdle, 0) ->
         return $ SomeMessage MsgDone
       (ClientAgency TokIdle, 1) -> do
-        msg <- fromCBOR
-        return $ SomeMessage (MsgSend msg)
+        SomeMessage . MsgSend <$> fromCBOR
       (ClientAgency TokIdle, _) ->
         fail "codecFireForget.StIdle: unexpected key"
