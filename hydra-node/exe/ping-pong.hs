@@ -12,6 +12,7 @@ module Main where
 
 import Cardano.Prelude hiding (Nat)
 
+import Cardano.Binary (FromCBOR, ToCBOR)
 import qualified Codec.CBOR.Decoding as CBOR (Decoder, decodeWord)
 import qualified Codec.CBOR.Encoding as CBOR (Encoding, encodeWord)
 import qualified Codec.CBOR.Read as CBOR
@@ -187,9 +188,10 @@ pingPongServerStandard = undefined
 -- From: ouroboros-network-framework/test/Network/TypedProtocol/FireForget/Codec/CBOR.hs
 
 codecFireForget ::
-  forall m.
   MonadST m =>
-  Codec (FireForget Int) CBOR.DeserialiseFailure m LBS.ByteString
+  ToCBOR a =>
+  FromCBOR a =>
+  Codec (FireForget a) CBOR.DeserialiseFailure m LBS.ByteString
 codecFireForget = panic "not implemented"
 
 -- mkCodecCborLazyBS encodeMsg decodeMsg

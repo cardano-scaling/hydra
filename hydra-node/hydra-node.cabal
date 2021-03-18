@@ -106,6 +106,7 @@ executable ping-pong
     , text
     , cborg
 
+    , cardano-binary
     , io-sim-classes
     , network-mux
     , ouroboros-network-framework
