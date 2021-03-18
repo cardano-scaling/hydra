@@ -153,7 +153,10 @@ clientFireForget = withIOManager $ \iomgr ->
       MuxPeer
         (contramap show stdoutTracer)
         codecFireForget
-        undefined
+        (fireForgetClientPeer hailHydraClient)
+
+hailHydraClient :: Applicative m => FireForgetClient Text m ()
+hailHydraClient = SendMsg ("hello world" :: Text) $ pure $ SendDone $ pure ()
 
 serverFireForget :: IO Void
 serverFireForget = withIOManager $ \iomgr -> do
