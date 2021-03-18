@@ -3,7 +3,8 @@
 
 module Network.TypedProtocol.FireForget.Type where
 
-import Cardano.Prelude (Eq)
+import Cardano.Prelude
+
 import GHC.Show (Show (show))
 import Network.TypedProtocol (Protocol (..))
 import Ouroboros.Network.Util.ShowProxy (ShowProxy (..))

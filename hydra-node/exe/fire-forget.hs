@@ -3,6 +3,7 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE NamedFieldPuns #-}
+{-# LANGUAGE PolyKinds #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
@@ -12,7 +13,7 @@ module Main where
 
 import Cardano.Prelude hiding (Nat)
 
-import Cardano.Binary (FromCBOR, ToCBOR)
+import Cardano.Binary (FromCBOR (..), ToCBOR (..))
 import qualified Codec.CBOR.Decoding as CBOR (Decoder, decodeWord)
 import qualified Codec.CBOR.Encoding as CBOR (Encoding, encodeWord)
 import qualified Codec.CBOR.Read as CBOR
@@ -20,7 +21,10 @@ import Control.Monad (MonadFail (fail))
 import Control.Monad.Class.MonadST (MonadST)
 import Control.Tracer (Contravariant (contramap), stdoutTracer)
 import qualified Data.ByteString.Lazy as LBS
-import Network.TypedProtocol (PeerHasAgency (ClientAgency, ServerAgency), SomeMessage (SomeMessage))
+import Network.TypedProtocol (
+  PeerHasAgency (ClientAgency),
+  SomeMessage (SomeMessage),
+ )
 import Network.TypedProtocol.Codec (Codec, PeerRole)
 import Network.TypedProtocol.FireForget.Client as FireForget (
   FireForgetClient (..),
@@ -30,7 +34,11 @@ import Network.TypedProtocol.FireForget.Server as FireForget (
   FireForgetServer (..),
   fireForgetServerPeer,
  )
-import Network.TypedProtocol.FireForget.Type (ClientHasAgency (TokIdle), FireForget, Message (MsgDone, MsgSend))
+import Network.TypedProtocol.FireForget.Type (
+  ClientHasAgency (TokIdle),
+  FireForget,
+  Message (MsgDone, MsgSend),
+ )
 import Network.TypedProtocol.Pipelined ()
 import Ouroboros.Network.Codec (mkCodecCborLazyBS)
 import Ouroboros.Network.ErrorPolicy (nullErrorPolicies)
@@ -156,7 +164,7 @@ clientFireForget = withIOManager $ \iomgr ->
         (fireForgetClientPeer hailHydraClient)
 
 hailHydraClient :: Applicative m => FireForgetClient Text m ()
-hailHydraClient = SendMsg ("hello world" :: Text) $ pure $ SendDone $ pure ()
+hailHydraClient = SendMsg ("Hail Hydra!" :: Text) $ pure $ SendDone $ pure ()
 
 serverFireForget :: IO Void
 serverFireForget = withIOManager $ \iomgr -> do
@@ -183,41 +191,44 @@ serverFireForget = withIOManager $ \iomgr -> do
       MuxPeer
         (contramap show stdoutTracer)
         codecFireForget
-        (fireForgetServerPeer undefined)
+        (fireForgetServerPeer hailHydraServer)
 
-pingPongServerStandard :: Applicative m => FireForgetServer Int m ()
-pingPongServerStandard = undefined
+hailHydraServer :: FireForgetServer Text IO ()
+hailHydraServer =
+  FireForgetServer
+    { recvMsg = \msg -> print msg $> hailHydraServer
+    , recvMsgDone = putTextLn "Done."
+    }
 
 -- From: ouroboros-network-framework/test/Network/TypedProtocol/FireForget/Codec/CBOR.hs
 
 codecFireForget ::
+  forall a m.
   MonadST m =>
   ToCBOR a =>
   FromCBOR a =>
   Codec (FireForget a) CBOR.DeserialiseFailure m LBS.ByteString
-codecFireForget = panic "not implemented"
+codecFireForget = mkCodecCborLazyBS encodeMsg decodeMsg
+ where
+  encodeMsg ::
+    forall (pr :: PeerRole) st st'.
+    PeerHasAgency pr st ->
+    Message (FireForget a) st st' ->
+    CBOR.Encoding
+  encodeMsg (ClientAgency TokIdle) MsgDone = CBOR.encodeWord 0
+  encodeMsg (ClientAgency TokIdle) (MsgSend msg) = CBOR.encodeWord 1 <> toCBOR msg
 
--- mkCodecCborLazyBS encodeMsg decodeMsg
---  where
---   encodeMsg ::
---     forall (pr :: PeerRole) st st'.
---     PeerHasAgency pr st ->
---     Message FireForget st st' ->
---     CBOR.Encoding
---   encodeMsg (ClientAgency TokIdle) MsgPing = CBOR.encodeWord 0
---   encodeMsg (ServerAgency TokBusy) MsgPong = CBOR.encodeWord 1
---   encodeMsg (ClientAgency TokIdle) MsgDone = CBOR.encodeWord 2
-
---   decodeMsg ::
---     forall (pr :: PeerRole) s (st :: FireForget).
---     PeerHasAgency pr st ->
---     CBOR.Decoder s (SomeMessage st)
---   decodeMsg stok = do
---     key <- CBOR.decodeWord
---     case (stok, key) of
---       (ClientAgency TokIdle, 0) -> return $ SomeMessage MsgPing
---       (ServerAgency TokBusy, 1) -> return $ SomeMessage MsgPong
---       (ClientAgency TokIdle, 2) -> return $ SomeMessage MsgDone
---       -- TODO proper exceptions
---       (ClientAgency TokIdle, _) -> fail "codecFireForget.StIdle: unexpected key"
---       (ServerAgency TokBusy, _) -> fail "codecFireForget.StBusy: unexpected key"
+  decodeMsg ::
+    forall (pr :: PeerRole) s (st :: FireForget a).
+    PeerHasAgency pr st ->
+    CBOR.Decoder s (SomeMessage st)
+  decodeMsg stok = do
+    key <- CBOR.decodeWord
+    case (stok, key) of
+      (ClientAgency TokIdle, 0) ->
+        return $ SomeMessage MsgDone
+      (ClientAgency TokIdle, 1) -> do
+        msg <- fromCBOR
+        return $ SomeMessage (MsgSend msg)
+      (ClientAgency TokIdle, _) ->
+        fail "codecFireForget.StIdle: unexpected key"

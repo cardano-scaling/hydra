@@ -92,10 +92,10 @@ executable hydra-node
     -threaded
     -rtsopts
 
-executable ping-pong
+executable fire-forget
   import: project-config
   hs-source-dirs: exe
-  main-is: ping-pong.hs
+  main-is: fire-forget.hs
   build-depends:
       cardano-prelude
     , async
@@ -106,7 +106,6 @@ executable ping-pong
     , hydra-node
     , text
     , cborg
-
     , cardano-binary
     , io-sim-classes
     , network-mux
