@@ -71,6 +71,7 @@ library
     Hydra.Node
     Network.TypedProtocol.FireForget.Type
     Network.TypedProtocol.FireForget.Client
+    Network.TypedProtocol.FireForget.Server
   build-depends:
       async
     , base
@@ -101,6 +102,7 @@ executable ping-pong
     , bytestring
     , contra-tracer
     , directory
+    , hydra-node
     , text
     , cborg
 

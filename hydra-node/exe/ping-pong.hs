@@ -19,20 +19,17 @@ import Control.Monad (MonadFail (fail))
 import Control.Monad.Class.MonadST (MonadST)
 import Control.Tracer (Contravariant (contramap), stdoutTracer)
 import qualified Data.ByteString.Lazy as LBS
-import Network.TypedProtocol (Nat (Succ, Zero), PeerHasAgency (ClientAgency, ServerAgency), SomeMessage (SomeMessage))
+import Network.TypedProtocol (PeerHasAgency (ClientAgency, ServerAgency), SomeMessage (SomeMessage))
 import Network.TypedProtocol.Codec (Codec, PeerRole)
-import Network.TypedProtocol.PingPong.Client as PingPong (
-  PingPongClient (..),
-  PingPongClientPipelined (..),
-  PingPongSender (..),
-  pingPongClientPeer,
-  pingPongClientPeerPipelined,
+import Network.TypedProtocol.FireForget.Client as FireForget (
+  FireForgetClient (..),
+  fireForgetClientPeer,
  )
-import Network.TypedProtocol.PingPong.Server as PingPong (
-  PingPongServer (..),
-  pingPongServerPeer,
+import Network.TypedProtocol.FireForget.Server as FireForget (
+  FireForgetServer (..),
+  fireForgetServerPeer,
  )
-import Network.TypedProtocol.PingPong.Type (ClientHasAgency (TokIdle), Message (MsgDone, MsgPing, MsgPong), PingPong, ServerHasAgency (TokBusy))
+import Network.TypedProtocol.FireForget.Type (ClientHasAgency (TokIdle), FireForget, Message (MsgDone, MsgSend))
 import Network.TypedProtocol.Pipelined ()
 import Ouroboros.Network.Codec (mkCodecCborLazyBS)
 import Ouroboros.Network.ErrorPolicy (nullErrorPolicies)
@@ -47,7 +44,7 @@ import Ouroboros.Network.Mux (
   MiniProtocolLimits (..),
   MiniProtocolNum (MiniProtocolNum),
   MuxMode (InitiatorMode, ResponderMode),
-  MuxPeer (MuxPeer, MuxPeerPipelined),
+  MuxPeer (MuxPeer),
   OuroborosApplication (..),
   RunMiniProtocol (InitiatorProtocolOnly, ResponderProtocolOnly),
  )
@@ -86,19 +83,14 @@ main :: IO ()
 main = do
   args <- getArgs
   case args of
-    ["pingpong", "client"] -> clientPingPong False
-    ["pingpong", "client-pipelined"] -> clientPingPong True
+    ["pingpong", "client"] -> clientFireForget
     ["pingpong", "server"] -> do
       rmIfExists defaultLocalSocketAddrPath
-      void serverPingPong
-    ["pingpong2", "client"] -> clientPingPong2
-    ["pingpong2", "server"] -> do
-      rmIfExists defaultLocalSocketAddrPath
-      void serverPingPong2
+      void serverFireForget
     _ -> usage
 
-instance ShowProxy PingPong where
-  showProxy _ = "PingPong"
+instance ShowProxy FireForget where
+  showProxy _ = "FireForget"
 
 usage :: IO ()
 usage = do
@@ -140,8 +132,8 @@ demoProtocol0 pingPong =
         }
     ]
 
-clientPingPong :: Bool -> IO ()
-clientPingPong pipelined = withIOManager $ \iomgr ->
+clientFireForget :: IO ()
+clientFireForget = withIOManager $ \iomgr ->
   connectToNode
     (localSnocket iomgr defaultLocalSocketAddrPath)
     unversionedHandshakeCodec
@@ -155,26 +147,15 @@ clientPingPong pipelined = withIOManager $ \iomgr ->
   app :: OuroborosApplication InitiatorMode addr LBS.ByteString IO () Void
   app = demoProtocol0 pingPongInitiator
 
-  pingPongInitiator
-    | pipelined =
-      InitiatorProtocolOnly $
-        MuxPeerPipelined
-          (contramap show stdoutTracer)
-          codecPingPong
-          (pingPongClientPeerPipelined (pingPongClientPipelinedMax 5))
-    | otherwise =
-      InitiatorProtocolOnly $
-        MuxPeer
-          (contramap show stdoutTracer)
-          codecPingPong
-          (pingPongClientPeer (pingPongClientCount 5))
+  pingPongInitiator =
+    InitiatorProtocolOnly $
+      MuxPeer
+        (contramap show stdoutTracer)
+        codecFireForget
+        undefined
 
-pingPongClientCount :: Applicative m => Int -> PingPongClient m ()
-pingPongClientCount 0 = PingPong.SendMsgDone ()
-pingPongClientCount n = SendMsgPing (pure (pingPongClientCount (n - 1)))
-
-serverPingPong :: IO Void
-serverPingPong = withIOManager $ \iomgr -> do
+serverFireForget :: IO Void
+serverFireForget = withIOManager $ \iomgr -> do
   networkState <- newNetworkMutableState
   _ <- async $ cleanNetworkMutableState networkState
   withServerNode
@@ -197,136 +178,41 @@ serverPingPong = withIOManager $ \iomgr -> do
     ResponderProtocolOnly $
       MuxPeer
         (contramap show stdoutTracer)
-        codecPingPong
-        (pingPongServerPeer pingPongServerStandard)
+        codecFireForget
+        (fireForgetServerPeer undefined)
 
-pingPongServerStandard :: Applicative m => PingPongServer m ()
-pingPongServerStandard =
-  PingPongServer{recvMsgPing = pure pingPongServerStandard, recvMsgDone = ()}
+pingPongServerStandard :: Applicative m => FireForgetServer Int m ()
+pingPongServerStandard = undefined
 
---
--- Ping pong demo2
---
+-- From: ouroboros-network-framework/test/Network/TypedProtocol/FireForget/Codec/CBOR.hs
 
-demoProtocol1 ::
-  RunMiniProtocol appType bytes m a b ->
-  RunMiniProtocol appType bytes m a b ->
-  OuroborosApplication appType addr bytes m a b
-demoProtocol1 pingPong pingPong' =
-  OuroborosApplication $ \_connectionId _controlMessageSTM ->
-    [ MiniProtocol
-        { miniProtocolNum = MiniProtocolNum 2
-        , miniProtocolLimits = maximumMiniProtocolLimits
-        , miniProtocolRun = pingPong
-        }
-    , MiniProtocol
-        { miniProtocolNum = MiniProtocolNum 3
-        , miniProtocolLimits = maximumMiniProtocolLimits
-        , miniProtocolRun = pingPong'
-        }
-    ]
-
-clientPingPong2 :: IO ()
-clientPingPong2 = withIOManager $ \iomgr ->
-  connectToNode
-    (localSnocket iomgr defaultLocalSocketAddrPath)
-    unversionedHandshakeCodec
-    (cborTermVersionDataCodec unversionedProtocolDataCodec)
-    nullNetworkConnectTracers
-    acceptableVersion
-    (unversionedProtocol app)
-    Nothing
-    defaultLocalSocketAddr
- where
-  app :: OuroborosApplication InitiatorMode addr LBS.ByteString IO () Void
-  app = demoProtocol1 pingpong pingpong'
-
-  pingpong =
-    InitiatorProtocolOnly $
-      MuxPeer
-        (contramap (show . (,) (1 :: Int)) stdoutTracer)
-        codecPingPong
-        (pingPongClientPeer (pingPongClientCount 5))
-
-  pingpong' =
-    InitiatorProtocolOnly $
-      MuxPeer
-        (contramap (show . (,) (2 :: Int)) stdoutTracer)
-        codecPingPong
-        (pingPongClientPeer (pingPongClientCount 5))
-
-pingPongClientPipelinedMax ::
-  forall m. Monad m => Int -> PingPongClientPipelined m ()
-pingPongClientPipelinedMax c = PingPongClientPipelined (go [] Zero 0)
- where
-  go :: [Either Int Int] -> Nat o -> Int -> PingPongSender o Int m ()
-  go acc o n
-    | n < c =
-      SendMsgPingPipelined (return n) (go (Left n : acc) (Succ o) (succ n))
-  go _ Zero _ = SendMsgDonePipelined ()
-  go acc (Succ o) n = CollectPipelined Nothing (\n' -> go (Right n' : acc) o n)
-
-serverPingPong2 :: IO Void
-serverPingPong2 = withIOManager $ \iomgr -> do
-  networkState <- newNetworkMutableState
-  _ <- async $ cleanNetworkMutableState networkState
-  withServerNode
-    (localSnocket iomgr defaultLocalSocketAddrPath)
-    nullNetworkServerTracers
-    networkState
-    (AcceptedConnectionsLimit maxBound maxBound 0)
-    defaultLocalSocketAddr
-    unversionedHandshakeCodec
-    (cborTermVersionDataCodec unversionedProtocolDataCodec)
-    acceptableVersion
-    (unversionedProtocol (SomeResponderApplication app))
-    nullErrorPolicies
-    $ \_ serverAsync -> wait serverAsync -- block until async exception
- where
-  app :: OuroborosApplication ResponderMode addr LBS.ByteString IO Void ()
-  app = demoProtocol1 pingpong pingpong'
-
-  pingpong =
-    ResponderProtocolOnly $
-      MuxPeer
-        (contramap (show . (,) (1 :: Int)) stdoutTracer)
-        codecPingPong
-        (pingPongServerPeer pingPongServerStandard)
-
-  pingpong' =
-    ResponderProtocolOnly $
-      MuxPeer
-        (contramap (show . (,) (2 :: Int)) stdoutTracer)
-        codecPingPong
-        (pingPongServerPeer pingPongServerStandard)
-
--- From: ouroboros-network-framework/test/Network/TypedProtocol/PingPong/Codec/CBOR.hs
-
-codecPingPong ::
+codecFireForget ::
   forall m.
   MonadST m =>
-  Codec PingPong CBOR.DeserialiseFailure m LBS.ByteString
-codecPingPong = mkCodecCborLazyBS encodeMsg decodeMsg
- where
-  encodeMsg ::
-    forall (pr :: PeerRole) st st'.
-    PeerHasAgency pr st ->
-    Message PingPong st st' ->
-    CBOR.Encoding
-  encodeMsg (ClientAgency TokIdle) MsgPing = CBOR.encodeWord 0
-  encodeMsg (ServerAgency TokBusy) MsgPong = CBOR.encodeWord 1
-  encodeMsg (ClientAgency TokIdle) MsgDone = CBOR.encodeWord 2
+  Codec (FireForget Int) CBOR.DeserialiseFailure m LBS.ByteString
+codecFireForget = panic "not implemented"
 
-  decodeMsg ::
-    forall (pr :: PeerRole) s (st :: PingPong).
-    PeerHasAgency pr st ->
-    CBOR.Decoder s (SomeMessage st)
-  decodeMsg stok = do
-    key <- CBOR.decodeWord
-    case (stok, key) of
-      (ClientAgency TokIdle, 0) -> return $ SomeMessage MsgPing
-      (ServerAgency TokBusy, 1) -> return $ SomeMessage MsgPong
-      (ClientAgency TokIdle, 2) -> return $ SomeMessage MsgDone
-      -- TODO proper exceptions
-      (ClientAgency TokIdle, _) -> fail "codecPingPong.StIdle: unexpected key"
-      (ServerAgency TokBusy, _) -> fail "codecPingPong.StBusy: unexpected key"
+-- mkCodecCborLazyBS encodeMsg decodeMsg
+--  where
+--   encodeMsg ::
+--     forall (pr :: PeerRole) st st'.
+--     PeerHasAgency pr st ->
+--     Message FireForget st st' ->
+--     CBOR.Encoding
+--   encodeMsg (ClientAgency TokIdle) MsgPing = CBOR.encodeWord 0
+--   encodeMsg (ServerAgency TokBusy) MsgPong = CBOR.encodeWord 1
+--   encodeMsg (ClientAgency TokIdle) MsgDone = CBOR.encodeWord 2
+
+--   decodeMsg ::
+--     forall (pr :: PeerRole) s (st :: FireForget).
+--     PeerHasAgency pr st ->
+--     CBOR.Decoder s (SomeMessage st)
+--   decodeMsg stok = do
+--     key <- CBOR.decodeWord
+--     case (stok, key) of
+--       (ClientAgency TokIdle, 0) -> return $ SomeMessage MsgPing
+--       (ServerAgency TokBusy, 1) -> return $ SomeMessage MsgPong
+--       (ClientAgency TokIdle, 2) -> return $ SomeMessage MsgDone
+--       -- TODO proper exceptions
+--       (ClientAgency TokIdle, _) -> fail "codecFireForget.StIdle: unexpected key"
+--       (ServerAgency TokBusy, _) -> fail "codecFireForget.StBusy: unexpected key"
