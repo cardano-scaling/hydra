@@ -50,10 +50,10 @@ import Ouroboros.Network.Mux (
   ),
   MiniProtocolLimits (..),
   MiniProtocolNum (MiniProtocolNum),
-  MuxMode (InitiatorMode, ResponderMode),
+  MuxMode (InitiatorResponderMode),
   MuxPeer (MuxPeer),
   OuroborosApplication (..),
-  RunMiniProtocol (InitiatorProtocolOnly, ResponderProtocolOnly),
+  RunMiniProtocol (InitiatorAndResponderProtocol),
  )
 import Ouroboros.Network.Protocol.Handshake.Codec (
   cborTermVersionDataCodec,
@@ -90,10 +90,10 @@ main = do
   args <- getArgs
   case args of
     ["client"] ->
-      clientFireForget
+      fireForgetClient
     ["server"] -> do
       rmIfExists defaultLocalSocketAddrPath
-      void serverFireForget
+      void fireForgetServer
     _ ->
       usage
  where
@@ -123,20 +123,35 @@ maximumMiniProtocolLimits =
 -- Ping pong demo
 --
 
-demoProtocol0 ::
-  RunMiniProtocol appType bytes m a b ->
-  OuroborosApplication appType addr bytes m a b
-demoProtocol0 pingPong =
-  OuroborosApplication $ \_connectionId _controlMessageSTM ->
-    [ MiniProtocol
-        { miniProtocolNum = MiniProtocolNum 2
-        , miniProtocolLimits = maximumMiniProtocolLimits
-        , miniProtocolRun = pingPong
-        }
-    ]
+app :: OuroborosApplication 'InitiatorResponderMode addr LBS.ByteString IO () ()
+app = demoProtocol0 $ InitiatorAndResponderProtocol initiator responder
+ where
+  initiator =
+    MuxPeer
+      (contramap show stdoutTracer)
+      codecFireForget
+      (fireForgetClientPeer hailHydraClient)
 
-clientFireForget :: IO ()
-clientFireForget = withIOManager $ \iomgr ->
+  responder =
+    MuxPeer
+      (contramap show stdoutTracer)
+      codecFireForget
+      (fireForgetServerPeer hailHydraServer)
+
+  demoProtocol0 ::
+    RunMiniProtocol appType bytes m a b ->
+    OuroborosApplication appType addr bytes m a b
+  demoProtocol0 pingPong =
+    OuroborosApplication $ \_connectionId _controlMessageSTM ->
+      [ MiniProtocol
+          { miniProtocolNum = MiniProtocolNum 2
+          , miniProtocolLimits = maximumMiniProtocolLimits
+          , miniProtocolRun = pingPong
+          }
+      ]
+
+fireForgetClient :: IO ()
+fireForgetClient = withIOManager $ \iomgr ->
   connectToNode
     (localSnocket iomgr defaultLocalSocketAddrPath)
     unversionedHandshakeCodec
@@ -146,22 +161,9 @@ clientFireForget = withIOManager $ \iomgr ->
     (unversionedProtocol app)
     Nothing
     defaultLocalSocketAddr
- where
-  app :: OuroborosApplication 'InitiatorMode addr LBS.ByteString IO () Void
-  app = demoProtocol0 pingPongInitiator
 
-  pingPongInitiator =
-    InitiatorProtocolOnly $
-      MuxPeer
-        (contramap show stdoutTracer)
-        codecFireForget
-        (fireForgetClientPeer hailHydraClient)
-
-hailHydraClient :: Applicative m => FireForgetClient Text m ()
-hailHydraClient = SendMsg ("Hail Hydra!" :: Text) $ pure $ SendDone $ pure ()
-
-serverFireForget :: IO Void
-serverFireForget = withIOManager $ \iomgr -> do
+fireForgetServer :: IO Void
+fireForgetServer = withIOManager $ \iomgr -> do
   networkState <- newNetworkMutableState
   _ <- async $ cleanNetworkMutableState networkState
   withServerNode
@@ -176,16 +178,9 @@ serverFireForget = withIOManager $ \iomgr -> do
     (unversionedProtocol (SomeResponderApplication app))
     nullErrorPolicies
     $ \_ serverAsync -> wait serverAsync -- block until async exception
- where
-  app :: OuroborosApplication 'ResponderMode addr LBS.ByteString IO Void ()
-  app = demoProtocol0 pingPongResponder
 
-  pingPongResponder =
-    ResponderProtocolOnly $
-      MuxPeer
-        (contramap show stdoutTracer)
-        codecFireForget
-        (fireForgetServerPeer hailHydraServer)
+hailHydraClient :: Applicative m => FireForgetClient Text m ()
+hailHydraClient = SendMsg ("Hail Hydra!" :: Text) $ pure $ SendDone $ pure ()
 
 hailHydraServer :: FireForgetServer Text IO ()
 hailHydraServer =
