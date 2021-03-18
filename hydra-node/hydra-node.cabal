@@ -69,9 +69,12 @@ library
   hs-source-dirs: src
   exposed-modules:
     Hydra.Node
+    Network.TypedProtocol.FireForget.Type
   build-depends:
       async
+    , base
     , cardano-prelude
+    , typed-protocols
   ghc-options:
     -haddock
 
