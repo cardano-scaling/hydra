@@ -6,8 +6,6 @@
 {-# LANGUAGE PolyKinds #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-{-# OPTIONS_GHC -Wno-orphans #-}
-{-# OPTIONS_GHC -Wno-unticked-promoted-constructors #-}
 
 module Main where
 
@@ -83,7 +81,6 @@ import Ouroboros.Network.Socket (
   nullNetworkServerTracers,
   withServerNode,
  )
-import Ouroboros.Network.Util.ShowProxy (ShowProxy (..))
 import System.Directory (doesFileExist, removeFile)
 
 -- From: ouroboros-network-framework/demo/ping-pong.hs
@@ -92,24 +89,21 @@ main :: IO ()
 main = do
   args <- getArgs
   case args of
-    ["pingpong", "client"] -> clientFireForget
-    ["pingpong", "server"] -> do
+    ["client"] ->
+      clientFireForget
+    ["server"] -> do
       rmIfExists defaultLocalSocketAddrPath
       void serverFireForget
-    _ -> usage
-
-instance ShowProxy FireForget where
-  showProxy _ = "FireForget"
-
-usage :: IO ()
-usage = do
-  hPutStrLn
-    stderr
-    ("usage: demo-ping-pong [pingpong|pingpong2] {client|server} [addr]" :: Text)
-  exitFailure
+    _ ->
+      usage
+ where
+  usage :: IO ()
+  usage = do
+    hPutStrLn stderr ("usage: fire-forget [client|server] " :: Text)
+    exitFailure
 
 defaultLocalSocketAddrPath :: FilePath
-defaultLocalSocketAddrPath = "./demo-ping-pong.sock"
+defaultLocalSocketAddrPath = "./fire-forget.socket"
 
 defaultLocalSocketAddr :: LocalAddress
 defaultLocalSocketAddr = localAddressFromPath defaultLocalSocketAddrPath
@@ -153,7 +147,7 @@ clientFireForget = withIOManager $ \iomgr ->
     Nothing
     defaultLocalSocketAddr
  where
-  app :: OuroborosApplication InitiatorMode addr LBS.ByteString IO () Void
+  app :: OuroborosApplication 'InitiatorMode addr LBS.ByteString IO () Void
   app = demoProtocol0 pingPongInitiator
 
   pingPongInitiator =
@@ -183,7 +177,7 @@ serverFireForget = withIOManager $ \iomgr -> do
     nullErrorPolicies
     $ \_ serverAsync -> wait serverAsync -- block until async exception
  where
-  app :: OuroborosApplication ResponderMode addr LBS.ByteString IO Void ()
+  app :: OuroborosApplication 'ResponderMode addr LBS.ByteString IO Void ()
   app = demoProtocol0 pingPongResponder
 
   pingPongResponder =
