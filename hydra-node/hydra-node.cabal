@@ -70,6 +70,7 @@ library
   exposed-modules:
     Hydra.Node
     Network.TypedProtocol.FireForget.Type
+    Network.TypedProtocol.FireForget.Client
   build-depends:
       async
     , base
