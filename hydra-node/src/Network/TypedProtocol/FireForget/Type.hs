@@ -16,6 +16,9 @@ data FireForget msg where
   StIdle :: FireForget msg
   StDone :: FireForget msg
 
+instance ShowProxy (FireForget msg) where
+  showProxy _ = "FireForget"
+
 instance Protocol (FireForget msg) where
   -- The actual messages in our protocol.
   --
@@ -51,3 +54,6 @@ deriving instance (Eq msg) => Eq (Message (FireForget msg) from to)
 
 instance Show (ClientHasAgency (st :: FireForget msg)) where
   show TokIdle = "TokIdle"
+
+instance Show (ServerHasAgency (st :: FireForget msg)) where
+  show _ = panic "absurd"
