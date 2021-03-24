@@ -24,9 +24,9 @@ instance ShowProxy (FireForget msg) where
 instance Protocol (FireForget msg) where
   -- The actual messages in our protocol.
   --
-  -- These involve transitions between different states within the 'PingPong'
-  -- states. A ping request goes from idle to busy, and a pong response go from
-  -- busy to idle.
+  -- Messages define the possible transitions between the protocol's state as defined
+  -- by `FireForget`. In this particular case things are extremely simple: The protocol
+  -- handles `Msg` containing some payload until terminated by `MsgDone`.
   data Message (FireForget msg) from to where
     MsgSend :: msg -> Message (FireForget msg) 'StIdle 'StIdle
     MsgDone :: Message (FireForget msg) 'StIdle 'StDone
