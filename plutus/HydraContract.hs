@@ -63,15 +63,11 @@ validateClose :: Datum -> Redeemer -> ValidatorCtx -> Bool
 validateClose (Open OpenState{keyAggregate,eta}) (Redeemer _ xi)  _ctx =
   isJust (close keyAggregate eta xi)
 
--- MultisigPublicKey: Kagg
--- Eta:
---
---
 close :: MultisigPublicKey -> Eta -> Xi -> Maybe Eta
-close aggregatedKeys eta xi = do
+close kAgg eta xi = do
   let (Xi u s sigma txs) = xi
-  guard (all (verifyMultisignature aggregatedKeys) txs)
-  guard (s /= 0 && verifySnapshot aggregatedKeys u s sigma)
+  guard (all (verifyMultisignature kAgg) txs)
+  guard (s /= 0 && verifySnapshot kAgg u s sigma)
   let realU = if s == 0
               then utxos eta
               else u
@@ -80,25 +76,25 @@ close aggregatedKeys eta xi = do
   pure $ Eta realU s mainchainTxs
 
 verifyMultisignature :: MultisigPublicKey -> TransactionObject -> Bool
-verifyMultisignature aggregatedKeys TransactionObject{sigma,tx} =
-  msAVerify aggregatedKeys (hash tx) sigma
+verifyMultisignature kAgg TransactionObject{sigma,tx} =
+  msAVerify kAgg (hash tx) sigma
 
 verifySnapshot :: MultisigPublicKey -> UTXO -> SnapshotNumber -> MultiSignature -> Bool
 verifySnapshot kAgg u s sigma =
   msAVerify kAgg (hash u <> hash s) sigma
 
-applyTransactions :: UTXO -> [Transaction] -> Maybe UTXO
-applyTransactions = undefined
-
 --
 -- Primitives we need
 --
 
+applyTransactions :: UTXO -> [Transaction] -> Maybe UTXO
+applyTransactions u _ = Just u -- TODO
+
 hash :: a -> ByteString
-hash = const "hashed bytestring"
+hash = const "hashed bytestring" -- TODO
 
 msAVerify :: MultisigPublicKey -> ByteString -> MultiSignature -> Bool
-msAVerify _ _ _ = True
+msAVerify _ _ _ = True -- TODO
 
 --
 -- Boilerplate
