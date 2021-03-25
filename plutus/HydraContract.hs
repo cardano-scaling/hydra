@@ -25,7 +25,7 @@ data MultisigPublicKey = MultisigPublicKey
 data Eta = Eta {
   utxos :: UTXO,  -- u
   snapshotNumber :: SnapshotNumber, -- s
-  transactions :: [MainchainTransaction]
+  transactions :: [Transaction] -- morally a Set
   }
 
 newtype SnapshotNumber = SnapshotNumber { getSnapshotNumber :: Integer }
@@ -33,11 +33,14 @@ newtype SnapshotNumber = SnapshotNumber { getSnapshotNumber :: Integer }
 
 data UTXO = UTXO
 
-data MainchainTransaction = MainchainTransaction
-
+-- | The transaction as handled in the hydra head, i.e. the tx which we have put
+-- into Hydra. According to isomorphism property of Hydra, it could also have
+-- been put on the main chain.
 data Transaction = Transaction
+
+data TransactionObject = TransactionObject
   { sigma :: MultiSignature
-  , tx :: MainchainTransaction
+  , tx :: Transaction
   }
 
 data MultiSignature = MultiSignature
@@ -53,7 +56,7 @@ data Xi =
   Xi { xiUtxos :: UTXO,
        xiSnapshotNumber :: SnapshotNumber,
        signatures :: MultiSignature,
-       confirmedTransactions :: [Transaction]
+       confirmedTransactions :: [TransactionObject] -- morally a Set
      }
 
 validateClose :: Datum -> Redeemer -> ValidatorCtx -> Bool
@@ -65,7 +68,8 @@ validateClose (Open OpenState{keyAggregate,eta}) (Redeemer _ xi)  _ctx =
 --
 --
 close :: MultisigPublicKey -> Eta -> Xi -> Maybe Eta
-close aggregatedKeys eta (Xi u s sigma txs) = do
+close aggregatedKeys eta xi = do
+  let (Xi u s sigma txs) = xi
   guard (all (verifyMultisignature aggregatedKeys) txs)
   guard (s /= 0 && verifySnapshot aggregatedKeys u s sigma)
   let realU = if s == 0
@@ -75,26 +79,25 @@ close aggregatedKeys eta (Xi u s sigma txs) = do
   guard (isJust $ applyTransactions realU mainchainTxs)
   pure $ Eta realU s mainchainTxs
 
-verifyMultisignature :: MultisigPublicKey -> Transaction -> Bool
-verifyMultisignature aggregatedKeys Transaction{sigma,tx} =
+verifyMultisignature :: MultisigPublicKey -> TransactionObject -> Bool
+verifyMultisignature aggregatedKeys TransactionObject{sigma,tx} =
   msAVerify aggregatedKeys (hash tx) sigma
 
 verifySnapshot :: MultisigPublicKey -> UTXO -> SnapshotNumber -> MultiSignature -> Bool
-verifySnapshot = undefined
+verifySnapshot kAgg u s sigma =
+  msAVerify kAgg (hash u <> hash s) sigma
 
-applyTransactions :: UTXO -> [MainchainTransaction] -> Maybe UTXO
+applyTransactions :: UTXO -> [Transaction] -> Maybe UTXO
 applyTransactions = undefined
 
 --
--- Crypto Primitives
+-- Primitives we need
 --
 
-data Digest = Digest
+hash :: a -> ByteString
+hash = const "hashed bytestring"
 
-hash :: a -> Digest
-hash = const Digest
-
-msAVerify :: MultisigPublicKey -> Digest -> MultiSignature -> Bool
+msAVerify :: MultisigPublicKey -> ByteString -> MultiSignature -> Bool
 msAVerify _ _ _ = True
 
 --
@@ -124,7 +127,7 @@ PlutusTx.makeLift ''OpenState
 PlutusTx.makeLift ''MultisigPublicKey
 PlutusTx.makeLift ''Eta
 PlutusTx.makeLift ''MerkleTreeRoot
-PlutusTx.makeLift ''MainchainTransaction
+PlutusTx.makeLift ''TransactionObject
 PlutusTx.makeLift ''Transaction
 PlutusTx.makeLift ''UTXO
 PlutusTx.makeLift ''MultiSignature
