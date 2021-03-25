@@ -1,3 +1,4 @@
+import Data.Set(Set)
 import           Language.PlutusTx.Prelude
 import           Playground.Contract
 import Numeric.Natural(Natural)
@@ -21,7 +22,16 @@ data OpenState = OpenState {
 
 data MultisigPublicKey = MultisigPublicKey
 
-data Eta = Eta
+data Eta =
+  Eta { utxos :: UTXO,
+        snapshotNumber :: Integer,
+        signatures :: MultiSignature,
+        confirmedTransactions :: [Tx]
+      }
+
+data UTXO = UTXO
+
+data MultiSignature = MultiSignature
 
 data MerkleTreeRoot = MerkleTreeRoot
 
@@ -38,9 +48,12 @@ data Pi
 
 data Xi
 
-
 validateClose :: Datum -> Redeemer -> ValidatorCtx -> Bool
-validateClose _datum _redeemer _ctx = True
+validateClose (Open OpenState{keyAggregate,eta}) (Redeemer _ xi)  _ctx =
+  isJust (close keyAggregate eta xi)
+
+close :: MultisigPublicKey -> Eta -> Xi -> Maybe Eta
+close _ _ _ = Nothing
 
 --
 -- Boilerplate
