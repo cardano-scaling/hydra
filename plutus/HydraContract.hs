@@ -1,11 +1,10 @@
-import Data.Set(Set)
 import           Language.PlutusTx.Prelude
 import           Playground.Contract
-import Numeric.Natural(Natural)
+import           Control.Monad(guard)
+import           Numeric.Natural(Natural)
 import           Ledger                    (Address, ValidatorCtx, scriptAddress)
 import qualified Language.PlutusTx         as PlutusTx
 import qualified Ledger.Typed.Scripts      as Scripts
-
 
 data Datum =
   Open OpenState
@@ -22,38 +21,62 @@ data OpenState = OpenState {
 
 data MultisigPublicKey = MultisigPublicKey
 
-data Eta =
-  Eta { utxos :: UTXO,
-        snapshotNumber :: Integer,
-        signatures :: MultiSignature,
-        confirmedTransactions :: [Tx]
-      }
+data Eta = Eta
 
 data UTXO = UTXO
+
+data TransactionBody = TransactionBody
+
+data Transaction = Transaction
+  { signature :: MultiSignature
+  , body :: TransactionBody
+  }
 
 data MultiSignature = MultiSignature
 
 data MerkleTreeRoot = MerkleTreeRoot
-
-PlutusTx.makeLift ''Datum
-PlutusTx.makeLift ''OpenState
-PlutusTx.makeLift ''MultisigPublicKey
-PlutusTx.makeLift ''Eta
-PlutusTx.makeLift ''MerkleTreeRoot
 
 data Redeemer = Redeemer Pi Xi
     deriving (PlutusTx.IsData)
 
 data Pi
 
-data Xi
+data Xi =
+  Xi { utxos :: UTXO,
+       snapshotNumber :: Integer,
+       signatures :: MultiSignature,
+       confirmedTransactions :: [Transaction]
+     }
 
 validateClose :: Datum -> Redeemer -> ValidatorCtx -> Bool
 validateClose (Open OpenState{keyAggregate,eta}) (Redeemer _ xi)  _ctx =
   isJust (close keyAggregate eta xi)
 
+-- MultisigPublicKey: Kagg
+-- Eta:
+--
+--
 close :: MultisigPublicKey -> Eta -> Xi -> Maybe Eta
-close _ _ _ = Nothing
+close aggregatedKeys eta (Xi u s sigma txs) = do
+  guard (all (verifyMultisignature aggregatedKeys) txs)
+  undefined
+
+verifyMultisignature :: MultisigPublicKey -> Transaction -> Bool
+verifyMultisignature aggregatedKeys Transaction{signature,body} =
+  msAVerify aggregatedKeys (hash body) signature
+
+
+--
+-- Crypto Primitives
+--
+
+data Digest = Digest
+
+hash :: a -> Digest
+hash = const Digest
+
+msAVerify :: MultisigPublicKey -> Digest -> MultiSignature -> Bool
+msAVerify _ _ _ = True
 
 --
 -- Boilerplate
@@ -72,3 +95,17 @@ contractInstance = Scripts.validator @Hydra
     $$(PlutusTx.compile [|| validateClose ||])
     $$(PlutusTx.compile [|| wrap ||]) where
         wrap = Scripts.wrapValidator @Datum @Redeemer
+
+--
+-- Template Haskell
+--
+
+PlutusTx.makeLift ''Datum
+PlutusTx.makeLift ''OpenState
+PlutusTx.makeLift ''MultisigPublicKey
+PlutusTx.makeLift ''Eta
+PlutusTx.makeLift ''MerkleTreeRoot
+PlutusTx.makeLift ''TransactionBody
+PlutusTx.makeLift ''Transaction
+PlutusTx.makeLift ''UTXO
+PlutusTx.makeLift ''MultiSignature
