@@ -159,19 +159,16 @@ closeEndpoint :: AsContractError e => Contract Schema e ()
 closeEndpoint = do
   endpoint @"close" @()
   logInfo @String $ "closeEndpoint"
-  unspentOutputs <- utxoAt contractAddress
-  let tx = collectFromScript unspentOutputs redeemer
-  void (submitTxConstraintsSpending contractInstance unspentOutputs tx)
- where
   -- Querying ledger from application backend
-  --  utxoMap <- utxoAt contractAddress
-  --  let balance = foldMap (txOutValue . txOutTxOut . snd) $ Map.toList utxoMap
-  --  logInfo @String $ "CONTRACT BALANCE: " ++ show balance
-  --  let tx = collectFromScript utxoMap redeemer
-  --  void (submitTxConstraints contractInstance tx)
-  -- where
-  --  datum = Close -- TODO add more things
-
+  utxoMap <- utxoAt contractAddress
+  let balance = foldMap (txOutValue . txOutTxOut . snd) $ Map.toList utxoMap
+  logInfo @String $ "CONTRACT BALANCE: " ++ show balance
+  let tx =
+        collectFromScript utxoMap redeemer
+          <> Constraints.mustPayToTheScript datum balance
+  void (submitTxConstraintsSpending contractInstance utxoMap tx)
+ where
+  datum = Close -- TODO add more things
   redeemer = Redeemer $ Xi UTXO 0 MultiSignature []
 
 type Schema =
