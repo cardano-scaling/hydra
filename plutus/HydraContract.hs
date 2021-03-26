@@ -64,16 +64,15 @@ data Xi = Xi
   }
 
 validate :: Datum -> Redeemer -> ValidatorCtx -> Bool
-validate (Open OpenState{keyAggregate, eta}) (Redeemer xi) _ctx = False
-
--- isJust (close keyAggregate eta xi)
+validate (Open OpenState{keyAggregate, eta}) (Redeemer xi) _ctx =
+  isJust (close keyAggregate eta xi)
 
 {-# INLINEABLE close #-}
 close :: MultisigPublicKey -> Eta -> Xi -> Maybe Eta
 close kAgg eta xi = do
   let (Xi u s sigma txs) = xi
   guard (all (verifyMultisignature kAgg) txs)
-  guard (s /= 0 && verifySnapshot kAgg u s sigma)
+  guard (s == 0 || verifySnapshot kAgg u s sigma)
   let realU =
         if s == 0
           then utxos eta
