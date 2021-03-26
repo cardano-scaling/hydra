@@ -1,17 +1,20 @@
+{-# LANGUAGE DeriveAnyClass #-}
+{-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeApplications #-}
+{-# OPTIONS_GHC -fno-specialize #-}
+
+module Hydra.Contract where
 
 import Control.Monad (guard, void)
 import qualified Data.Map as Map
-import Language.Plutus.Contract
-import qualified Language.PlutusTx as PlutusTx
-import Language.PlutusTx.Prelude
 import Ledger (Address, Validator, ValidatorCtx, Value, scriptAddress)
 import qualified Ledger.Constraints as Constraints
+import Ledger.Tx (TxOut (..), TxOutTx (..))
 import qualified Ledger.Typed.Scripts as Scripts
-import Numeric.Natural (Natural)
 import Playground.Contract
-import Plutus.V1.Ledger.Tx (Tx (..), TxIn (..), TxOut (..), TxOutRef (..), TxOutTx (..), txId)
-import Prelude (Num)
+import Plutus.Contract
+import qualified PlutusTx
+import PlutusTx.Prelude
 import qualified Prelude
 
 data Datum
@@ -63,9 +66,11 @@ data Xi = Xi
   , confirmedTransactions :: [TransactionObject] -- morally a Set
   }
 
+{-# INLINEABLE validate #-}
 validate :: Datum -> Redeemer -> ValidatorCtx -> Bool
 validate (Open OpenState{keyAggregate, eta}) (Redeemer xi) _ctx =
   isJust (close keyAggregate eta xi)
+validate Close _ _ = False
 
 {-# INLINEABLE close #-}
 close :: MultisigPublicKey -> Eta -> Xi -> Maybe Eta
@@ -133,14 +138,10 @@ data CollectComParams = CollectComParams
   { amount :: Value
   }
   deriving stock (Prelude.Eq, Prelude.Show, Generic)
-  deriving anyclass (FromJSON, ToJSON, IotsType, ToSchema, ToArgument)
-
-data CloseParams = CloseParams {foo :: Integer}
-  deriving stock (Prelude.Eq, Prelude.Show, Generic)
-  deriving anyclass (FromJSON, ToJSON, IotsType, ToSchema, ToArgument)
+  deriving anyclass (FromJSON, ToJSON, ToSchema, ToArgument)
 
 -- | Our mocked "collectCom" endpoint
-collectComEndpoint :: AsContractError e => Contract Schema e ()
+collectComEndpoint :: AsContractError e => Contract () Schema e ()
 collectComEndpoint = do
   CollectComParams amt <- endpoint @"collectCom" @CollectComParams
   logInfo @String $ "collectComEndpoint"
@@ -155,7 +156,7 @@ collectComEndpoint = do
         }
 
 -- | Our "close" endpoint to trigger a close
-closeEndpoint :: AsContractError e => Contract Schema e ()
+closeEndpoint :: AsContractError e => Contract () Schema e ()
 closeEndpoint = do
   endpoint @"close" @()
   logInfo @String $ "closeEndpoint"
@@ -176,10 +177,8 @@ type Schema =
     .\/ Endpoint "collectCom" CollectComParams
     .\/ Endpoint "close" ()
 
-endpoints :: AsContractError e => Contract Schema e ()
-endpoints = collectComEndpoint `select` closeEndpoint
-
-mkSchemaDefinitions ''Schema
+hydraHead :: AsContractError e => Contract () Schema e ()
+hydraHead = collectComEndpoint `select` closeEndpoint
 
 --
 -- Template Haskell
@@ -195,14 +194,14 @@ PlutusTx.makeLift ''Transaction
 PlutusTx.makeLift ''UTXO
 PlutusTx.makeLift ''MultiSignature
 
-PlutusTx.makeIsData ''Datum
-PlutusTx.makeIsData ''OpenState
-PlutusTx.makeIsData ''MultisigPublicKey
-PlutusTx.makeIsData ''Eta
-PlutusTx.makeIsData ''MerkleTreeRoot
-PlutusTx.makeIsData ''TransactionObject
-PlutusTx.makeIsData ''Transaction
-PlutusTx.makeIsData ''UTXO
-PlutusTx.makeIsData ''MultiSignature
-PlutusTx.makeIsData ''Redeemer
-PlutusTx.makeIsData ''Xi
+PlutusTx.unstableMakeIsData ''Datum
+PlutusTx.unstableMakeIsData ''OpenState
+PlutusTx.unstableMakeIsData ''MultisigPublicKey
+PlutusTx.unstableMakeIsData ''Eta
+PlutusTx.unstableMakeIsData ''MerkleTreeRoot
+PlutusTx.unstableMakeIsData ''TransactionObject
+PlutusTx.unstableMakeIsData ''Transaction
+PlutusTx.unstableMakeIsData ''UTXO
+PlutusTx.unstableMakeIsData ''MultiSignature
+PlutusTx.unstableMakeIsData ''Redeemer
+PlutusTx.unstableMakeIsData ''Xi
