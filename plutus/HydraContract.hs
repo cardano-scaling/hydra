@@ -64,8 +64,9 @@ data Xi = Xi
   }
 
 validate :: Datum -> Redeemer -> ValidatorCtx -> Bool
-validate (Open OpenState{keyAggregate, eta}) (Redeemer xi) _ctx =
-  isJust (close keyAggregate eta xi)
+validate (Open OpenState{keyAggregate, eta}) (Redeemer xi) _ctx = False
+
+-- isJust (close keyAggregate eta xi)
 
 {-# INLINEABLE close #-}
 close :: MultisigPublicKey -> Eta -> Xi -> Maybe Eta
@@ -135,11 +136,15 @@ data CollectComParams = CollectComParams
   deriving stock (Prelude.Eq, Prelude.Show, Generic)
   deriving anyclass (FromJSON, ToJSON, IotsType, ToSchema, ToArgument)
 
+data CloseParams = CloseParams {foo :: Integer}
+  deriving stock (Prelude.Eq, Prelude.Show, Generic)
+  deriving anyclass (FromJSON, ToJSON, IotsType, ToSchema, ToArgument)
+
 -- | Our mocked "collectCom" endpoint
 collectComEndpoint :: AsContractError e => Contract Schema e ()
 collectComEndpoint = do
-  logInfo @String $ "collectComEndpoint"
   CollectComParams amt <- endpoint @"collectCom" @CollectComParams
+  logInfo @String $ "collectComEndpoint"
   let tx = Constraints.mustPayToTheScript datum amt
   void (submitTxConstraints contractInstance tx)
  where
@@ -153,18 +158,22 @@ collectComEndpoint = do
 -- | Our "close" endpoint to trigger a close
 closeEndpoint :: AsContractError e => Contract Schema e ()
 closeEndpoint = do
+  endpoint @"close" @()
   logInfo @String $ "closeEndpoint"
-  value <- getContractBalance
-  logInfo @String $ "CONTRACT BALANCE: " ++ show value
-  let txConstraints = Constraints.mustPayToTheScript datum value
-  void (submitTxConstraints contractInstance txConstraints)
+  unspentOutputs <- utxoAt contractAddress
+  let tx = collectFromScript unspentOutputs redeemer
+  void (submitTxConstraintsSpending contractInstance unspentOutputs tx)
  where
-  datum = Close -- TODO add more things
-
   -- Querying ledger from application backend
-  getContractBalance = do
-    utxoMap <- utxoAt contractAddress
-    pure $ foldMap (txOutValue . txOutTxOut . snd) $ Map.toList utxoMap
+  --  utxoMap <- utxoAt contractAddress
+  --  let balance = foldMap (txOutValue . txOutTxOut . snd) $ Map.toList utxoMap
+  --  logInfo @String $ "CONTRACT BALANCE: " ++ show balance
+  --  let tx = collectFromScript utxoMap redeemer
+  --  void (submitTxConstraints contractInstance tx)
+  -- where
+  --  datum = Close -- TODO add more things
+
+  redeemer = Redeemer $ Xi UTXO 0 MultiSignature []
 
 type Schema =
   BlockchainActions
