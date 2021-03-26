@@ -93,21 +93,26 @@ close kAgg eta xi = do
 {-# INLINEABLE verifyMultisignature #-}
 verifyMultisignature :: MultisigPublicKey -> TransactionObject -> Bool
 verifyMultisignature kAgg TransactionObject{sigma, tx} =
-  msAVerify kAgg (hash tx) sigma
+  msAVerify kAgg (hash $ serialize tx) sigma
 
 {-# INLINEABLE verifySnapshot #-}
 verifySnapshot :: MultisigPublicKey -> UTXO -> Integer -> MultiSignature -> Bool
 verifySnapshot kAgg u s sigma =
-  msAVerify kAgg (hash u <> hash s) sigma
+  msAVerify kAgg (hash $ serialize u <> serialize s) sigma
+
+-- | This is only about folding the transactions onto a UTXO and no evaluation
+-- whatsoever.
+applyTransactions :: UTXO -> [Transaction] -> Maybe UTXO
+applyTransactions u _ = Just u -- TODO
 
 --
 -- Primitives we need
 --
 
-applyTransactions :: UTXO -> [Transaction] -> Maybe UTXO
-applyTransactions u _ = Just u -- TODO
+serialize :: a -> ByteString
+serialize = const "reuse plutus tx's isData stuff" -- TODO
 
-hash :: a -> ByteString
+hash :: ByteString -> ByteString
 hash = const "hashed bytestring" -- TODO
 
 msAVerify :: MultisigPublicKey -> ByteString -> MultiSignature -> Bool
