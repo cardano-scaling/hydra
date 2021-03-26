@@ -1,6 +1,7 @@
 {-# LANGUAGE TypeApplications #-}
 
 import Control.Monad (guard, void)
+import qualified Data.Map as Map
 import Language.Plutus.Contract
 import qualified Language.PlutusTx as PlutusTx
 import Language.PlutusTx.Prelude
@@ -9,11 +10,13 @@ import qualified Ledger.Constraints as Constraints
 import qualified Ledger.Typed.Scripts as Scripts
 import Numeric.Natural (Natural)
 import Playground.Contract
+import Plutus.V1.Ledger.Tx (Tx (..), TxIn (..), TxOut (..), TxOutRef (..), TxOutTx (..), txId)
 import Prelude (Num)
 import qualified Prelude
 
 data Datum
   = Open OpenState
+  | Close
   deriving (Generic)
 
 data OpenState = OpenState
@@ -60,8 +63,8 @@ data Xi = Xi
   , confirmedTransactions :: [TransactionObject] -- morally a Set
   }
 
-validateClose :: Datum -> Redeemer -> ValidatorCtx -> Bool
-validateClose (Open OpenState{keyAggregate, eta}) (Redeemer xi) _ctx =
+validate :: Datum -> Redeemer -> ValidatorCtx -> Bool
+validate (Open OpenState{keyAggregate, eta}) (Redeemer xi) _ctx =
   isJust (close keyAggregate eta xi)
 
 {-# INLINEABLE close #-}
@@ -113,10 +116,18 @@ instance Scripts.ScriptType Hydra where
 {- ORMOLU_DISABLE -}
 contractInstance :: Scripts.ScriptInstance Hydra
 contractInstance = Scripts.validator @Hydra
-    $$(PlutusTx.compile [|| validateClose ||])
+    $$(PlutusTx.compile [|| validate ||])
     $$(PlutusTx.compile [|| wrap ||]) where
         wrap = Scripts.wrapValidator @Datum @Redeemer
 {- ORMOLU_ENABLE -}
+
+-- | The validator script of the contract.
+contractValidator :: Validator
+contractValidator = Scripts.validatorScript contractInstance
+
+-- | The address of the contract (the hash of its validator script)
+contractAddress :: Address
+contractAddress = Ledger.scriptAddress contractValidator
 
 data CollectComParams = CollectComParams
   { amount :: Value
@@ -127,6 +138,7 @@ data CollectComParams = CollectComParams
 -- | Our mocked "collectCom" endpoint
 collectComEndpoint :: AsContractError e => Contract Schema e ()
 collectComEndpoint = do
+  logInfo @String $ "collectComEndpoint"
   CollectComParams amt <- endpoint @"collectCom" @CollectComParams
   let tx = Constraints.mustPayToTheScript datum amt
   void (submitTxConstraints contractInstance tx)
@@ -140,13 +152,19 @@ collectComEndpoint = do
 
 -- | Our "close" endpoint to trigger a close
 closeEndpoint :: AsContractError e => Contract Schema e ()
-closeEndpoint = pure ()
+closeEndpoint = do
+  logInfo @String $ "closeEndpoint"
+  value <- getContractBalance
+  logInfo @String $ "CONTRACT BALANCE: " ++ show value
+  let txConstraints = Constraints.mustPayToTheScript datum value
+  void (submitTxConstraints contractInstance txConstraints)
+ where
+  datum = Close -- TODO add more things
 
--- GuessParams theGuess <- endpoint @"guess" @GuessParams
--- unspentOutputs <- utxoAt gameAddress
--- let redeemer = clearString theGuess
---     tx       = collectFromScript unspentOutputs redeemer
--- void (submitTxConstraintsSpending gameInstance unspentOutputs tx)
+  -- Querying ledger from application backend
+  getContractBalance = do
+    utxoMap <- utxoAt contractAddress
+    pure $ foldMap (txOutValue . txOutTxOut . snd) $ Map.toList utxoMap
 
 type Schema =
   BlockchainActions
