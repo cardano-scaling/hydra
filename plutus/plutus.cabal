@@ -101,6 +101,8 @@ test-suite plutus-test
       Hydra.Utils
   build-depends:
       cardano-prelude -any,
+      containers -any,
+      foldl -any,
       freer-extras -any,
       freer-simple -any,
       plutus -any,

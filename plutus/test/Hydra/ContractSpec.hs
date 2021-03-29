@@ -31,7 +31,7 @@ import Control.Monad.Freer (Eff)
 import Control.Monad.Freer.Extras.Log (LogMsg)
 import Data.String (String)
 import Hydra.Contract
-import Hydra.Utils (checkCompiledContractPIR)
+import Hydra.Utils (checkCompiledContractPIR, datumAtAddress, toDatumHash)
 import Ledger (Slot (Slot), ValidatorCtx)
 import qualified Ledger.Ada as Ada
 import Plutus.Contract hiding (runError)
@@ -68,9 +68,13 @@ tests =
         $ void (Trace.activateContractWallet w1 theContract)
     , checkPredicate
         "Close state after CollectCom"
-        assertNoFailedTransactions
+        (assertNoFailedTransactions .&&. assertStateIsClosed)
         collectAndClose
     ]
+
+assertStateIsClosed :: TracePredicate
+assertStateIsClosed =
+  datumAtAddress contractAddress (toDatumHash Closed)
 
 collectAndClose :: Eff '[RunContract, Waiting, EmulatorControl, EmulatedWalletAPI, LogMsg String] ()
 collectAndClose = do

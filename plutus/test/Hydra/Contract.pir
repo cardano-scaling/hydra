@@ -55,7 +55,7 @@
             (tyvardecl Datum (type))
 
             Datum_match
-            (vardecl Close Datum) (vardecl Open (fun OpenState Datum))
+            (vardecl Closed Datum) (vardecl Open (fun OpenState Datum))
           )
         )
         (datatypebind

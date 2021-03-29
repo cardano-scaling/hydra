@@ -19,8 +19,8 @@ import qualified Prelude
 
 data Datum
   = Open OpenState
-  | Close
-  deriving (Generic)
+  | Closed
+  deriving stock (Prelude.Eq, Generic)
 
 data OpenState = OpenState
   { keyAggregate :: MultisigPublicKey
@@ -29,22 +29,26 @@ data OpenState = OpenState
   -- numberOfMembers :: Integer,
   -- contestationPeriod :: Integer
   }
-  deriving (Generic)
+  deriving (Prelude.Eq, Generic)
 
 data MultisigPublicKey = MultisigPublicKey
+  deriving (Prelude.Eq, Generic)
 
 data Eta = Eta
   { utxos :: UTXO -- u
   , snapshotNumber :: Integer -- s
   , transactions :: [Transaction] -- morally a Set
   }
+  deriving (Prelude.Eq, Generic)
 
 data UTXO = UTXO
+  deriving (Prelude.Eq, Generic)
 
 -- | The transaction as handled in the hydra head, i.e. the tx which we have put
 -- into Hydra. According to isomorphism property of Hydra, it could also have
 -- been put on the main chain.
 data Transaction = Transaction
+  deriving (Prelude.Eq, Generic)
 
 data TransactionObject = TransactionObject
   { sigma :: MultiSignature
@@ -70,7 +74,7 @@ data Xi = Xi
 validate :: Datum -> Redeemer -> ValidatorCtx -> Bool
 validate (Open OpenState{keyAggregate, eta}) (Redeemer xi) _ctx =
   isJust (close keyAggregate eta xi)
-validate Close _ _ = False
+validate Closed _ _ = False
 
 {-# INLINEABLE close #-}
 close :: MultisigPublicKey -> Eta -> Xi -> Maybe Eta
@@ -169,7 +173,7 @@ closeEndpoint = do
           <> Constraints.mustPayToTheScript datum balance
   void (submitTxConstraintsSpending contractInstance utxoMap tx)
  where
-  datum = Close -- TODO add more things
+  datum = Closed -- TODO add more things
   redeemer = Redeemer $ Xi UTXO 0 MultiSignature []
 
 type Schema =
