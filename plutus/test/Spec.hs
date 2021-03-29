@@ -1,5 +1,6 @@
 import Cardano.Prelude
-import qualified Hydra.ContractSpec as ContractSpec
+import qualified Hydra.ContractSpec as Contract
+import qualified Hydra.ContractStateMachineSpec as ContractStateMachine
 import Test.Tasty
 
 main :: IO ()
@@ -9,5 +10,6 @@ tests :: TestTree
 tests =
   testGroup
     "Contracts tests"
-    [ ContractSpec.tests
+    [ Contract.tests
+    , ContractStateMachine.tests
     ]

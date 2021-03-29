@@ -75,6 +75,7 @@ library
   import: project-config
   exposed-modules:
       Hydra.Contract
+      Hydra.ContractStateMachine
   hs-source-dirs: src
   build-depends:
       aeson -any,
@@ -98,6 +99,7 @@ test-suite plutus-test
   hs-source-dirs: test
   other-modules:
       Hydra.ContractSpec
+      Hydra.ContractStateMachineSpec
       Hydra.Utils
   build-depends:
       cardano-prelude -any,
