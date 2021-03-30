@@ -122,7 +122,9 @@ transition ::
   State HydraState ->
   HydraInput ->
   Maybe (SM.TxConstraints Void Void, State HydraState)
-transition State{stateData = oldData, stateValue = oldValue} input = Nothing
+transition state@State{stateData = Open OpenState{eta, keyAggregate}} (HydraInput xi)
+  | isJust (close keyAggregate eta xi) = Just (mempty, state{stateData = Closed})
+transition _ _ = Nothing
 
 {-# INLINEABLE machine #-}
 machine :: SM.StateMachine HydraState HydraInput
@@ -167,7 +169,7 @@ data CollectComParams = CollectComParams
 -- | Our mocked "collectCom" endpoint
 collectComEndpoint :: AsContractError e => Contract () Schema e ()
 collectComEndpoint = do
-  CollectComParams amt <- endpoint @"collectCom" @CollectComParams
+  CollectComParams _amt <- endpoint @"collectCom" @CollectComParams
   logInfo @String $ "collectComEndpoint"
 
 --  let tx = Constraints.mustPayToTheScript datum amt

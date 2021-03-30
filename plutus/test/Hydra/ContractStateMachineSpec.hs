@@ -8,8 +8,8 @@ import Cardano.Prelude
 import Control.Monad.Freer (Eff)
 import Control.Monad.Freer.Extras.Log (LogMsg)
 import Data.String (String)
-import Hydra.Utils (checkCompiledContractPIR, datumAtAddress, toDatumHash)
-import Ledger (Slot (Slot), ValidatorCtx)
+import Hydra.Utils (datumAtAddress, toDatumHash)
+import Ledger (Slot (Slot))
 import qualified Ledger.Ada as Ada
 import Plutus.Contract hiding (runError)
 import Plutus.Contract.Test
@@ -18,7 +18,6 @@ import Plutus.Trace.Effects.EmulatorControl (EmulatorControl)
 import Plutus.Trace.Effects.RunContract (RunContract)
 import Plutus.Trace.Effects.Waiting (Waiting)
 import qualified Plutus.Trace.Emulator as Trace
-import qualified PlutusTx
 import Test.Tasty
 
 w1 :: Wallet
@@ -28,16 +27,16 @@ theContract :: Contract () Schema ContractError ()
 theContract = hydraHead
 
 {- ORMOLU_DISABLE -}
-compiledScript :: PlutusTx.CompiledCode (HydraState -> HydraInput -> ValidatorCtx -> Bool)
-compiledScript = $$(PlutusTx.compile [|| validatorSM ||])
+-- compiledScript :: PlutusTx.CompiledCode (HydraState -> HydraInput -> ValidatorCtx -> Bool)
+-- compiledScript = $$(PlutusTx.compile [|| validatorSM ||])
 {- ORMOLU_ENABLE -}
 
 tests :: TestTree
 tests =
   testGroup
     "StateMachine Contract Behaviour"
-    [ checkCompiledContractPIR "test/Hydra/ContractStateMachine.pir" compiledScript
-    , checkPredicate
+    [ --checkCompiledContractPIR "test/Hydra/ContractStateMachine.pir" compiledScript
+      checkPredicate
         "Expose 'collectCom' and 'close' endpoints"
         ( endpointAvailable @"collectCom" theContract (Trace.walletInstanceTag w1)
             .&&. endpointAvailable @"close" theContract (Trace.walletInstanceTag w1)
