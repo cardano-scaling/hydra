@@ -5,12 +5,9 @@
 
 module Hydra.ContractStateMachine where
 
-import Control.Monad (guard)
+import Control.Monad (guard, void)
 
 import Ledger (Address, Validator, Value, scriptAddress)
-
---import qualified Ledger.Constraints as Constraints
--- import Ledger.Tx (TxOut (..), TxOutTx (..))
 import qualified Ledger.Typed.Scripts as Scripts
 import Playground.Contract
 import Plutus.Contract
@@ -167,42 +164,30 @@ data CollectComParams = CollectComParams
   deriving anyclass (FromJSON, ToJSON, ToSchema, ToArgument)
 
 -- | Our mocked "collectCom" endpoint
-collectComEndpoint :: AsContractError e => Contract () Schema e ()
+collectComEndpoint :: (AsContractError e, SM.AsSMContractError e) => Contract () Schema e ()
 collectComEndpoint = do
-  CollectComParams _amt <- endpoint @"collectCom" @CollectComParams
+  CollectComParams amt <- endpoint @"collectCom" @CollectComParams
   logInfo @String $ "collectComEndpoint"
-
---  let tx = Constraints.mustPayToTheScript datum amt
---  void (submitTxConstraints contractInstance tx)
--- where
---  datum =
---    Open $ OpenState { keyAggregate = MultisigPublicKey, eta = Eta UTXO 0 [] }
+  void $ SM.runInitialise client initialState amt
+ where
+  initialState =
+    Open $ OpenState{keyAggregate = MultisigPublicKey, eta = Eta UTXO 0 []}
 
 -- | Our "close" endpoint to trigger a close
-closeEndpoint :: AsContractError e => Contract () Schema e ()
+closeEndpoint :: (AsContractError e, SM.AsSMContractError e) => Contract () Schema e ()
 closeEndpoint = do
   endpoint @"close" @()
   logInfo @String $ "closeEndpoint"
-
--- Querying ledger from application backend
---  utxoMap <- utxoAt contractAddress
---  let balance = foldMap (txOutValue . txOutTxOut . snd) $ Map.toList utxoMap
---  logInfo @String $ "CONTRACT BALANCE: " ++ show balance
---  let
---    tx =
---      collectFromScript utxoMap redeemer
---        <> Constraints.mustPayToTheScript datum balance
---  void (submitTxConstraintsSpending contractInstance utxoMap tx)
--- where
---  datum    = Closed -- TODO add more things
---  redeemer = HydraInput $ Xi UTXO 0 MultiSignature []
+  void $ SM.runStep client input
+ where
+  input = HydraInput $ Xi UTXO 0 MultiSignature []
 
 type Schema =
   BlockchainActions
     .\/ Endpoint "collectCom" CollectComParams
     .\/ Endpoint "close" ()
 
-hydraHead :: AsContractError e => Contract () Schema e ()
+hydraHead :: (AsContractError e, SM.AsSMContractError e) => Contract () Schema e ()
 hydraHead = collectComEndpoint `select` closeEndpoint -- TODO loop here?
 
 --

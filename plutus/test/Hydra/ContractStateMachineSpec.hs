@@ -12,6 +12,7 @@ import Hydra.Utils (datumAtAddress, toDatumHash)
 import Ledger (Slot (Slot))
 import qualified Ledger.Ada as Ada
 import Plutus.Contract hiding (runError)
+import Plutus.Contract.StateMachine (SMContractError)
 import Plutus.Contract.Test
 import Plutus.Trace.Effects.EmulatedWalletAPI (EmulatedWalletAPI)
 import Plutus.Trace.Effects.EmulatorControl (EmulatorControl)
@@ -23,7 +24,7 @@ import Test.Tasty
 w1 :: Wallet
 w1 = Wallet 1
 
-theContract :: Contract () Schema ContractError ()
+theContract :: Contract () Schema SMContractError ()
 theContract = hydraHead
 
 {- ORMOLU_DISABLE -}
@@ -61,12 +62,12 @@ collectAndClose = do
 
 callCollectCom :: Trace.EmulatorTrace ()
 callCollectCom = do
-  contractHandle <- Trace.activateContractWallet w1 (hydraHead @ContractError)
+  contractHandle <- Trace.activateContractWallet w1 theContract
   Trace.callEndpoint @"collectCom" contractHandle (CollectComParams $ Ada.lovelaceValueOf 42)
 
 callClose :: Trace.EmulatorTrace ()
 callClose = do
-  contractHandle <- Trace.activateContractWallet w1 (hydraHead @ContractError)
+  contractHandle <- Trace.activateContractWallet w1 theContract
   Trace.callEndpoint @"close" contractHandle ()
 
 -- renderWalletLog :: EmulatorTrace () -> ByteString
