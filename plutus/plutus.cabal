@@ -74,7 +74,6 @@ common project-config
 library
   import: project-config
   exposed-modules:
-      Hydra.Core
       Hydra.Contract
       Hydra.ContractStateMachine
   hs-source-dirs: src
