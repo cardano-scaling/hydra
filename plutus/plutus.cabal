@@ -113,7 +113,9 @@ test-suite plutus-test
       plutus-contract -any,
       plutus-ledger -any,
       plutus-tx-plugin -any,
-      prettyprinter -any
+      prettyprinter -any, 
+      streaming,
+      text
   build-depends:
       base >=4.9 && <5,
       tasty -any,

@@ -69,21 +69,3 @@ callClose :: Trace.EmulatorTrace ()
 callClose = do
   contractHandle <- Trace.activateContractWallet w1 theContract
   Trace.callEndpoint @"close" contractHandle ()
-
--- renderWalletLog :: EmulatorTrace () -> ByteString
--- renderWalletLog trace =
---     let result =
---             run
---             $ foldEmulatorStreamM (L.generalize $ Folds.instanceLog (Trace.walletInstanceTag w1))
---             $ filterLogLevel Info
---             $ Trace.runEmulatorStream Trace.defaultEmulatorConfig trace
---     in BSL.fromStrict $ T.encodeUtf8 $ renderStrict $ layoutPretty defaultLayoutOptions $ vsep $ fmap pretty $ S.fst' result
-
--- renderEmulatorLog :: EmulatorTrace () -> ByteString
--- renderEmulatorLog trace =
---     let result =
---             run
---             $ foldEmulatorStreamM (L.generalize Folds.emulatorLog)
---             $ filterLogLevel Info
---             $ Trace.runEmulatorStream Trace.defaultEmulatorConfig trace
---     in BSL.fromStrict $ T.encodeUtf8 $ renderStrict $ layoutPretty defaultLayoutOptions $ vsep $ fmap pretty $ S.fst' result
