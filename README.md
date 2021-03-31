@@ -1,6 +1,6 @@
-# Hydra
+# Hydra Proof of Concept (POC)
 
-To be awesome.
+A repository for our colorful prototypes and experiments.
 
 ## Development
 
