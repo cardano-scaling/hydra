@@ -45,3 +45,17 @@ status node =
   case nodeThread node of
     Just{} -> pure Ready
     Nothing -> pure NotReady
+
+buildInitialTransaction :: HydraNode -> HeadParameters -> Transaction
+buildInitialTransaction = panic "not implemented"
+
+data Transaction = Transaction
+
+numberOfOutputs :: Transaction -> Int
+numberOfOutputs = panic "not implemented"
+
+data HeadParameters = HeadParameters
+  { verificationKeys :: [VerificationKey]
+  }
+
+newtype VerificationKey = VerificationKey {unverificationKey :: ByteString}
