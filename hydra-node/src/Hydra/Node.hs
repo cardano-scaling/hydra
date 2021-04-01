@@ -4,6 +4,7 @@
 module Hydra.Node where
 
 import Cardano.Prelude
+import Data.Map.Strict as Map
 
 runHydra :: IO ()
 runHydra =
@@ -46,16 +47,53 @@ status node =
     Just{} -> pure Ready
     Nothing -> pure NotReady
 
-buildInitialTransaction :: HydraNode -> HeadParameters -> Transaction
-buildInitialTransaction = panic "not implemented"
+buildInitialTransaction :: HydraNode -> HeadParameters -> IO (Transaction, AssetId)
+buildInitialTransaction _ HeadParameters{verificationKeys} = do
+  let policyId = PolicyId "MyPolicyId"
+  let assetName = AssetName ""
+  let mkOutput =
+        TransactionOutput
+          ( Value
+              (Quantity 0)
+              (Map.fromList [(policyId, Map.fromList [(assetName, Quantity 1)])])
+          )
+  let stateMachineOutput = panic "TODO"
+  let outputs = stateMachineOutput : replicate (length verificationKeys) mkOutput
+  return (Transaction{outputs}, (policyId, assetName))
 
 data Transaction = Transaction
+  { outputs :: [TransactionOutput]
+  }
 
-numberOfOutputs :: Transaction -> Int
-numberOfOutputs = panic "not implemented"
+data TransactionOutput = TransactionOutput
+  { value :: Value
+  }
+
+data Value = Value Quantity (Map PolicyId (Map AssetName Quantity))
+
+newtype Quantity = Quantity Natural
 
 data HeadParameters = HeadParameters
   { verificationKeys :: [VerificationKey]
   }
 
-newtype VerificationKey = VerificationKey {unverificationKey :: ByteString}
+newtype VerificationKey = VerificationKey
+  { unverificationKey :: ByteString
+  }
+  deriving (Show)
+
+data MonetaryScript
+  = AnyOf [VerificationKey]
+
+type AssetId = (PolicyId, AssetName)
+
+-- Other constructors (e.g. AllOf, MOfN are left aside for now).
+
+-- FIXME:
+--
+-- newtype PolicyId = Hash MonetaryScript Blake2b_224
+--
+-- newtype Hash (what :: Type) (alg :: Type) = Digest alg
+newtype PolicyId = PolicyId ByteString deriving (Eq, Ord)
+
+newtype AssetName = AssetName ByteString deriving (Eq, Ord)

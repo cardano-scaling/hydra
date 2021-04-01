@@ -20,6 +20,14 @@ spec = around startStopNode $ do
           key2 = VerificationKey "key2"
           key3 = VerificationKey "key3"
 
-          tx = buildInitialTransaction node initParameters
+      (tx, cid) <- buildInitialTransaction node initParameters
 
-      numberOfOutputs tx `shouldBe` 1 + length (verificationKeys initParameters)
+      let numberOfParticipants = length (verificationKeys initParameters)
+
+      length (outputs tx)
+        `shouldBe` 1 + numberOfParticipants
+      length (filter (hasParticipationToken cid 1) (outputs tx))
+        `shouldBe` numberOfParticipants
+
+hasParticipationToken :: AssetId -> Natural -> TransactionOutput -> Bool
+hasParticipationToken = panic "TODO"

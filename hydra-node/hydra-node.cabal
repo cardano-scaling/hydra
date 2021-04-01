@@ -76,6 +76,7 @@ library
       async
     , base
     , cardano-prelude
+    , containers
     , ouroboros-network-framework
     , typed-protocols
   ghc-options:
