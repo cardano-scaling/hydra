@@ -4,8 +4,9 @@ module Hydra.NodeSpec where
 
 import Cardano.Prelude
 import qualified Data.Map.Strict as Map
+import qualified Data.Set as Set
 import Hydra.Node
-import Test.Hspec (Spec, around, describe, it, shouldBe, shouldReturn)
+import Test.Hspec (Expectation, Spec, around, describe, it, shouldBe, shouldReturn)
 
 spec :: Spec
 spec = around startStopNode $ do
@@ -22,13 +23,18 @@ spec = around startStopNode $ do
           key3 = VerificationKey "key3"
           numberOfParticipants = length (verificationKeys initParameters)
 
-      (tx, assetId) <- buildInitialTransaction node initParameters
+      (tx, policyId) <- buildInitialTransaction node initParameters
 
       length (outputs tx)
         `shouldBe` 1 + numberOfParticipants
-      length (filter (hasParticipationToken assetId 1) (outputs tx))
-        `shouldBe` numberOfParticipants
+      assertValidParticipationTokens tx policyId numberOfParticipants
 
-hasParticipationToken :: AssetId -> Quantity -> TransactionOutput -> Bool
-hasParticipationToken (policyId, assetName) numberOfTokens TransactionOutput{value = Value _ tokens} =
-  (Map.lookup policyId tokens >>= Map.lookup assetName) == Just numberOfTokens
+assertValidParticipationTokens :: Transaction -> PolicyId -> Int -> Expectation
+assertValidParticipationTokens tx policyId numberOfParticipants = do
+  length (filter (hasParticipationToken policyId 1) (outputs tx)) `shouldBe` numberOfParticipants
+  let tokenNames = Set.fromList $ concatMap Map.keys $ mapMaybe (Map.lookup policyId . tokens . value) (outputs tx)
+  Set.size tokenNames `shouldBe` numberOfParticipants
+
+hasParticipationToken :: PolicyId -> Quantity -> TransactionOutput -> Bool
+hasParticipationToken policyId numberOfTokens TransactionOutput{value = Value _ tokens} =
+  (Map.elems <$> Map.lookup policyId tokens) == Just [numberOfTokens]

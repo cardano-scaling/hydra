@@ -5,7 +5,7 @@
 module Hydra.Node where
 
 import Cardano.Prelude
-import Data.Map.Strict as Map
+import Data.Map.Strict as Map hiding (map)
 
 runHydra :: IO ()
 runHydra =
@@ -48,19 +48,18 @@ status node =
     Just{} -> pure Ready
     Nothing -> pure NotReady
 
-buildInitialTransaction :: HydraNode -> HeadParameters -> IO (Transaction, AssetId)
+buildInitialTransaction :: HydraNode -> HeadParameters -> IO (Transaction, PolicyId)
 buildInitialTransaction _ HeadParameters{verificationKeys} = do
   let policyId = PolicyId "MyPolicyId"
-  let assetName = AssetName ""
-  let mkOutput =
+  let mkOutput verificationKey =
         TransactionOutput
           ( Value
               (Quantity 0)
-              (Map.fromList [(policyId, Map.fromList [(assetName, Quantity 1)])])
+              (Map.fromList [(policyId, Map.fromList [(AssetName (unverificationKey verificationKey), Quantity 1)])])
           )
   let stateMachineOutput = TransactionOutput (Value 0 mempty)
-  let outputs = stateMachineOutput : replicate (length verificationKeys) mkOutput
-  return (Transaction{outputs}, (policyId, assetName))
+  let outputs = stateMachineOutput : map mkOutput verificationKeys
+  return (Transaction{outputs}, policyId)
 
 data Transaction = Transaction
   { outputs :: [TransactionOutput]
@@ -70,7 +69,10 @@ data TransactionOutput = TransactionOutput
   { value :: Value
   }
 
-data Value = Value Quantity (Map PolicyId (Map AssetName Quantity))
+data Value = Value
+  { adas :: Quantity
+  , tokens :: Map PolicyId (Map AssetName Quantity)
+  }
 
 newtype Quantity = Quantity Natural
   deriving newtype (Eq, Num)
