@@ -126,6 +126,7 @@ test-suite tests
   type: exitcode-stdio-1.0
   build-depends:
       cardano-prelude
+    , containers
     , hspec
     , hspec-core
     , hydra-node

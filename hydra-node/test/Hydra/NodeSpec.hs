@@ -3,6 +3,7 @@
 module Hydra.NodeSpec where
 
 import Cardano.Prelude
+import qualified Data.Map.Strict as Map
 import Hydra.Node
 import Test.Hspec (Spec, around, describe, it, shouldBe, shouldReturn)
 
@@ -19,15 +20,15 @@ spec = around startStopNode $ do
           key1 = VerificationKey "key1"
           key2 = VerificationKey "key2"
           key3 = VerificationKey "key3"
+          numberOfParticipants = length (verificationKeys initParameters)
 
-      (tx, cid) <- buildInitialTransaction node initParameters
-
-      let numberOfParticipants = length (verificationKeys initParameters)
+      (tx, assetId) <- buildInitialTransaction node initParameters
 
       length (outputs tx)
         `shouldBe` 1 + numberOfParticipants
-      length (filter (hasParticipationToken cid 1) (outputs tx))
+      length (filter (hasParticipationToken assetId 1) (outputs tx))
         `shouldBe` numberOfParticipants
 
-hasParticipationToken :: AssetId -> Natural -> TransactionOutput -> Bool
-hasParticipationToken = panic "TODO"
+hasParticipationToken :: AssetId -> Quantity -> TransactionOutput -> Bool
+hasParticipationToken (policyId, assetName) numberOfTokens TransactionOutput{value = Value _ tokens} =
+  (Map.lookup policyId tokens >>= Map.lookup assetName) == Just numberOfTokens

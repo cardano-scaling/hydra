@@ -1,4 +1,5 @@
 {-# LANGUAGE DerivingStrategies #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 
 -- | Top-level module to run a single Hydra node
 module Hydra.Node where
@@ -57,7 +58,7 @@ buildInitialTransaction _ HeadParameters{verificationKeys} = do
               (Quantity 0)
               (Map.fromList [(policyId, Map.fromList [(assetName, Quantity 1)])])
           )
-  let stateMachineOutput = panic "TODO"
+  let stateMachineOutput = TransactionOutput (Value 0 mempty)
   let outputs = stateMachineOutput : replicate (length verificationKeys) mkOutput
   return (Transaction{outputs}, (policyId, assetName))
 
@@ -72,6 +73,7 @@ data TransactionOutput = TransactionOutput
 data Value = Value Quantity (Map PolicyId (Map AssetName Quantity))
 
 newtype Quantity = Quantity Natural
+  deriving newtype (Eq, Num)
 
 data HeadParameters = HeadParameters
   { verificationKeys :: [VerificationKey]
