@@ -32,8 +32,7 @@ spec = around startStopNode $ do
 assertValidParticipationTokens :: Transaction -> PolicyId -> Int -> Expectation
 assertValidParticipationTokens tx policyId numberOfParticipants = do
   length (filter (hasParticipationToken policyId 1) (outputs tx)) `shouldBe` numberOfParticipants
-  let tokenNames = Set.fromList $ concatMap Map.keys $ mapMaybe (Map.lookup policyId . tokens . value) (outputs tx)
-  Set.size tokenNames `shouldBe` numberOfParticipants
+  Set.size (assetNames policyId tx) `shouldBe` numberOfParticipants
 
 hasParticipationToken :: PolicyId -> Quantity -> TransactionOutput -> Bool
 hasParticipationToken policyId numberOfTokens TransactionOutput{value = Value _ tokens} =

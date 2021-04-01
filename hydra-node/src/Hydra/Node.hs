@@ -5,7 +5,8 @@
 module Hydra.Node where
 
 import Cardano.Prelude
-import Data.Map.Strict as Map hiding (map)
+import qualified Data.Map.Strict as Map hiding (map)
+import qualified Data.Set as Set
 
 runHydra :: IO ()
 runHydra =
@@ -65,10 +66,16 @@ data Transaction = Transaction
   { outputs :: [TransactionOutput]
   }
 
+assetNames :: PolicyId -> Transaction -> Set AssetName
+assetNames policyId =
+  Set.fromList
+    . concatMap Map.keys
+    . mapMaybe (Map.lookup policyId . tokens . value)
+    . outputs
+
 data TransactionOutput = TransactionOutput
   { value :: Value
   }
-
 data Value = Value
   { adas :: Quantity
   , tokens :: Map PolicyId (Map AssetName Quantity)
