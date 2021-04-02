@@ -124,6 +124,7 @@ test-suite tests
   hs-source-dirs: test
   other-modules:
     Hydra.NodeSpec
+    Hydra.OnChainTransactionSpec
   main-is: Main.hs
   type: exitcode-stdio-1.0
   build-depends:

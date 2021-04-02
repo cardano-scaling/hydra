@@ -62,10 +62,10 @@ status node =
     Just{} -> pure Ready
     Nothing -> pure NotReady
 
-buildInitialTransaction :: HydraNode -> HeadParameters -> IO (Transaction, PolicyId)
-buildInitialTransaction _ HeadParameters{verificationKeys, monetaryPolicyInput} = do
+buildInitialTransaction :: HeadParameters -> (Transaction, PolicyId)
+buildInitialTransaction HeadParameters{verificationKeys, monetaryPolicyInput} =
   let policyId = fromCurrencySymbol $ hydraCurrencySymbol (outputRef monetaryPolicyInput)
-  let mkOutput verificationKey =
+      mkOutput verificationKey =
         TransactionOutput
           { value =
               Value
@@ -74,15 +74,15 @@ buildInitialTransaction _ HeadParameters{verificationKeys, monetaryPolicyInput} 
           , address = PubKeyAddress verificationKey
           , datum = Nothing
           }
-  let stateMachineOutput =
+      stateMachineOutput =
         TransactionOutput
           { value = Value 0 mempty
           , address = ScriptAddress contractAddress
           , datum = Just (toDatumHash (initialState verificationKeys))
           }
-  let outputs = stateMachineOutput : map mkOutput verificationKeys
-  let inputs = [monetaryPolicyInput]
-  return (Transaction{outputs, inputs}, policyId)
+      outputs = stateMachineOutput : map mkOutput verificationKeys
+      inputs = [monetaryPolicyInput]
+   in (Transaction{outputs, inputs}, policyId)
 
 data Transaction = Transaction
   { outputs :: [TransactionOutput]
