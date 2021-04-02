@@ -1,28 +1,22 @@
-{-# LANGUAGE DerivingStrategies #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
-
--- | Top-level module to run a single Hydra node
 module Hydra.OnChainTransaction (
   buildInitialTransaction,
-  initialState,
   module Hydra.OnChainTransaction.Types,
+  module Hydra.OnChainTransaction.State,
   module Hydra.OnChainTransaction.Plutus,
 ) where
 
 import Cardano.Prelude
 import qualified Data.Map.Strict as Map hiding (map)
+
+-- TODO: Remove dependency on types from contract
 import Hydra.ContractStateMachine (
-  Eta (..),
-  HydraState (..),
-  MultisigPublicKey (..),
-  OpenState (..),
-  UTXO (..),
   VerificationKey (..),
   contractAddress,
   toDatumHash,
  )
 import Hydra.MonetaryPolicy (hydraCurrencySymbol)
 import Hydra.OnChainTransaction.Plutus
+import Hydra.OnChainTransaction.State
 import Hydra.OnChainTransaction.Types
 
 buildInitialTransaction :: HeadParameters -> (Transaction, PolicyId)
@@ -46,21 +40,3 @@ buildInitialTransaction HeadParameters{verificationKeys, monetaryPolicyInput} =
       outputs = stateMachineOutput : map mkOutput verificationKeys
       inputs = [monetaryPolicyInput]
    in (Transaction{outputs, inputs}, policyId)
-
---
--- Hydra State
---
-
-initialState :: [VerificationKey] -> HydraState
-initialState keys = Open openState
- where
-  openState =
-    OpenState
-      { keyAggregate = MultisigPublicKey keys
-      , eta =
-          Eta
-            { utxos = UTXO
-            , snapshotNumber = 0
-            , transactions = mempty
-            }
-      }

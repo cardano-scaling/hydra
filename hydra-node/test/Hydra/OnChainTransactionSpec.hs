@@ -28,7 +28,7 @@ spec = describe "On-Chain Transactions" $ do
       length (outputs tx)
         `shouldBe` 1 + numberOfParticipants
 
-      assertValidParticipationTokens tx policyId numberOfParticipants
+      assertParticipationTokensAreUnique tx policyId numberOfParticipants
 
       assertStateMachineOutputIsInitialised
         tx
@@ -50,8 +50,8 @@ assertStateMachineOutputIsInitialised tx st = do
   toPlutusAddress (address smOutput) `shouldBe` contractAddress
   toPlutusDatumHash <$> datum smOutput `shouldBe` Just (toDatumHash st)
 
-assertValidParticipationTokens :: Transaction -> PolicyId -> Int -> Expectation
-assertValidParticipationTokens tx policyId numberOfParticipants = do
+assertParticipationTokensAreUnique :: Transaction -> PolicyId -> Int -> Expectation
+assertParticipationTokensAreUnique tx policyId numberOfParticipants = do
   length (filter (hasParticipationToken policyId 1) (outputs tx)) `shouldBe` numberOfParticipants
   Set.size (assetNames policyId tx) `shouldBe` numberOfParticipants
 

@@ -6,6 +6,8 @@
 module Hydra.OnChainTransaction.Plutus where
 
 import Cardano.Prelude
+
+-- TODO: Remove dependency on types from contract
 import Hydra.ContractStateMachine (VerificationKey (VerificationKey))
 import Hydra.OnChainTransaction.Types
 import qualified Ledger as Plutus
