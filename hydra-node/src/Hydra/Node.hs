@@ -7,6 +7,17 @@ module Hydra.Node where
 import Cardano.Prelude
 import qualified Data.Map.Strict as Map hiding (map)
 import qualified Data.Set as Set
+import Hydra.ContractStateMachine (
+  Eta (..),
+  HydraState (..),
+  MultisigPublicKey (..),
+  OpenState (..),
+  UTXO (..),
+  VerificationKey (..),
+  contractAddress,
+  toDatumHash,
+ )
+import qualified Ledger as Plutus
 
 runHydra :: IO ()
 runHydra =
@@ -54,11 +65,19 @@ buildInitialTransaction _ HeadParameters{verificationKeys} = do
   let policyId = PolicyId "MyPolicyId"
   let mkOutput verificationKey =
         TransactionOutput
-          ( Value
-              (Quantity 0)
-              (Map.fromList [(policyId, Map.fromList [(AssetName (unverificationKey verificationKey), Quantity 1)])])
-          )
-  let stateMachineOutput = TransactionOutput (Value 0 mempty)
+          { value =
+              Value
+                (Quantity 0)
+                (Map.fromList [(policyId, Map.fromList [(AssetName (unverificationKey verificationKey), Quantity 1)])])
+          , address = PubKeyAddress verificationKey
+          , datum = Nothing
+          }
+  let stateMachineOutput =
+        TransactionOutput
+          { value = Value 0 mempty
+          , address = ScriptAddress contractAddress
+          , datum = Just (toDatumHash (initialState verificationKeys))
+          }
   let outputs = stateMachineOutput : map mkOutput verificationKeys
   return (Transaction{outputs}, policyId)
 
@@ -73,13 +92,28 @@ assetNames policyId =
     . mapMaybe (Map.lookup policyId . tokens . value)
     . outputs
 
+getStateMachineOutput :: Transaction -> Maybe TransactionOutput
+getStateMachineOutput = find (isJust . datum) . outputs
+
 data TransactionOutput = TransactionOutput
   { value :: Value
+  , address :: Address
+  , datum :: Maybe Plutus.DatumHash
   }
+
 data Value = Value
   { adas :: Quantity
   , tokens :: Map PolicyId (Map AssetName Quantity)
   }
+
+data Address
+  = PubKeyAddress VerificationKey
+  | ScriptAddress Plutus.Address
+
+toPlutusAddress :: Address -> Maybe Plutus.Address
+toPlutusAddress = \case
+  ScriptAddress addr -> Just addr
+  _ -> Nothing
 
 newtype Quantity = Quantity Natural
   deriving newtype (Eq, Num)
@@ -87,11 +121,6 @@ newtype Quantity = Quantity Natural
 data HeadParameters = HeadParameters
   { verificationKeys :: [VerificationKey]
   }
-
-newtype VerificationKey = VerificationKey
-  { unverificationKey :: ByteString
-  }
-  deriving (Show)
 
 data MonetaryScript
   = AnyOf [VerificationKey]
@@ -108,3 +137,21 @@ type AssetId = (PolicyId, AssetName)
 newtype PolicyId = PolicyId ByteString deriving (Eq, Ord)
 
 newtype AssetName = AssetName ByteString deriving (Eq, Ord)
+
+--
+-- Hydra State
+--
+
+initialState :: [VerificationKey] -> HydraState
+initialState keys = Open openState
+ where
+  openState =
+    OpenState
+      { keyAggregate = MultisigPublicKey keys
+      , eta =
+          Eta
+            { utxos = UTXO
+            , snapshotNumber = 0
+            , transactions = mempty
+            }
+      }

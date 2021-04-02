@@ -4,8 +4,9 @@ module Hydra.NodeSpec where
 
 import Cardano.Prelude
 import qualified Data.Map.Strict as Map
+import Data.Maybe (fromJust)
 import qualified Data.Set as Set
-import Hydra.ContractStateMachine (HydraState (..), toDatumHash)
+import Hydra.ContractStateMachine (HydraState (..), VerificationKey (..), contractAddress, toDatumHash)
 import Hydra.Node
 import Test.Hspec (Expectation, Spec, around, describe, it, shouldBe, shouldReturn)
 
@@ -31,14 +32,16 @@ spec = around startStopNode $ do
 
       assertValidParticipationTokens tx policyId numberOfParticipants
 
-      assertStateMachineOutputIsInitialised tx initialState
+      assertStateMachineOutputIsInitialised
+        tx
+        (initialState $ verificationKeys initParameters)
 
 assertStateMachineOutputIsInitialised ::
   Transaction -> HydraState -> Expectation
 assertStateMachineOutputIsInitialised tx st = do
-  let smOutput = getStateMachineOutput tx
-  address smOutput `shouldBe` contractAddress
-  datum smOutput `shouldBe` toDatumHash st
+  let smOutput = fromJust $ getStateMachineOutput tx
+  toPlutusAddress (address smOutput) `shouldBe` Just contractAddress
+  datum smOutput `shouldBe` Just (toDatumHash st)
 
 assertValidParticipationTokens :: Transaction -> PolicyId -> Int -> Expectation
 assertValidParticipationTokens tx policyId numberOfParticipants = do

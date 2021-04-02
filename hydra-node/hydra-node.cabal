@@ -77,7 +77,8 @@ library
     , base
     , cardano-prelude
     , containers
---    , hydra-plutus
+    , hydra-plutus
+    , plutus-ledger
     , ouroboros-network-framework
     , typed-protocols
   ghc-options:
@@ -126,7 +127,8 @@ test-suite tests
   main-is: Main.hs
   type: exitcode-stdio-1.0
   build-depends:
-      cardano-prelude
+      base
+    , cardano-prelude
     , containers
     , hspec
     , hspec-core

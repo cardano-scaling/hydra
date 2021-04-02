@@ -33,8 +33,13 @@ data OpenState = OpenState
   }
   deriving (Prelude.Eq, Generic)
 
-data MultisigPublicKey = MultisigPublicKey
+data MultisigPublicKey = MultisigPublicKey [VerificationKey]
   deriving (Prelude.Eq, Generic)
+
+newtype VerificationKey = VerificationKey
+  { unverificationKey :: ByteString
+  }
+  deriving (Prelude.Eq, Show)
 
 data Eta = Eta
   { utxos :: UTXO -- u
@@ -171,7 +176,7 @@ collectComEndpoint = do
   void $ SM.runInitialise client initialState amt
  where
   initialState =
-    Open $ OpenState{keyAggregate = MultisigPublicKey, eta = Eta UTXO 0 []}
+    Open $ OpenState{keyAggregate = MultisigPublicKey [], eta = Eta UTXO 0 []}
 
 -- | Our "close" endpoint to trigger a close
 closeEndpoint :: (AsContractError e, SM.AsSMContractError e) => Contract () Schema e ()
@@ -200,6 +205,7 @@ toDatumHash = datumHash . Datum . PlutusTx.toData
 PlutusTx.makeLift ''HydraState
 PlutusTx.makeLift ''OpenState
 PlutusTx.makeLift ''MultisigPublicKey
+PlutusTx.makeLift ''VerificationKey
 PlutusTx.makeLift ''Eta
 PlutusTx.makeLift ''MerkleTreeRoot
 PlutusTx.makeLift ''TransactionObject
@@ -210,6 +216,7 @@ PlutusTx.makeLift ''MultiSignature
 PlutusTx.unstableMakeIsData ''HydraState
 PlutusTx.unstableMakeIsData ''OpenState
 PlutusTx.unstableMakeIsData ''MultisigPublicKey
+PlutusTx.unstableMakeIsData ''VerificationKey
 PlutusTx.unstableMakeIsData ''Eta
 PlutusTx.unstableMakeIsData ''MerkleTreeRoot
 PlutusTx.unstableMakeIsData ''TransactionObject
