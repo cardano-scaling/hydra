@@ -1,4 +1,3 @@
-{-# LANGUAGE DerivingStrategies #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 
 module Hydra.OnChainTransaction.Types where
@@ -21,6 +20,7 @@ data Address
 newtype DatumHash = DatumHash ByteString
 
 newtype TxId = TxId ByteString
+  deriving (Eq, Show)
 
 data Transaction = Transaction
   { outputs :: [TransactionOutput]
@@ -49,9 +49,13 @@ data Value = Value
   }
 
 newtype Quantity = Quantity Natural
-  deriving newtype (Eq, Num)
+  deriving (Eq, Num)
 
-data TransactionInput = TransactionInput {txId :: TxId, utxoIndex :: Integer}
+data TransactionInput = TransactionInput
+  { txId :: TxId
+  , utxoIndex :: Integer
+  }
+  deriving (Eq, Show)
 
 mkTransactionInput :: ByteString -> Integer -> TransactionInput
 mkTransactionInput txRef = TransactionInput (TxId txRef)
@@ -63,8 +67,10 @@ data HeadParameters = HeadParameters
   { verificationKeys :: [VerificationKey]
   , monetaryPolicyInput :: TransactionInput
   }
+  deriving (Eq, Show)
 
 newtype MonetaryScript = AnyOf [VerificationKey]
+  deriving (Eq, Show)
 
 type AssetId = (PolicyId, AssetName)
 

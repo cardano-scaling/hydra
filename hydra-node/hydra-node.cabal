@@ -128,18 +128,21 @@ test-suite tests
   import: project-config
   hs-source-dirs: test
   other-modules:
+    Hydra.Arbitraries
     Hydra.NodeSpec
     Hydra.OnChainTransactionSpec
   main-is: Main.hs
   type: exitcode-stdio-1.0
   build-depends:
       base
+    , bytestring
     , cardano-prelude
     , containers
     , hspec
     , hspec-core
     , hydra-node
     , hydra-plutus
+    , QuickCheck
   build-tool-depends:
     hspec-discover:hspec-discover
   ghc-options:
