@@ -77,6 +77,7 @@ library
     , base
     , cardano-prelude
     , containers
+--    , hydra-plutus
     , ouroboros-network-framework
     , typed-protocols
   ghc-options:
@@ -130,6 +131,7 @@ test-suite tests
     , hspec
     , hspec-core
     , hydra-node
+    , hydra-plutus
   build-tool-depends:
     hspec-discover:hspec-discover
   ghc-options:

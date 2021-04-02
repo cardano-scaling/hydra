@@ -7,7 +7,7 @@ module Hydra.ContractStateMachine where
 
 import Control.Monad (guard, void)
 
-import Ledger (Address, Validator, Value, scriptAddress)
+import Ledger (Address, Datum (Datum), DatumHash, Validator, Value, datumHash, scriptAddress)
 import qualified Ledger.Typed.Scripts as Scripts
 import Playground.Contract
 import Plutus.Contract
@@ -189,6 +189,9 @@ type Schema =
 
 hydraHead :: (AsContractError e, SM.AsSMContractError e) => Contract () Schema e ()
 hydraHead = collectComEndpoint `select` closeEndpoint -- TODO loop here?
+
+toDatumHash :: PlutusTx.IsData a => a -> DatumHash
+toDatumHash = datumHash . Datum . PlutusTx.toData
 
 --
 -- Template Haskell

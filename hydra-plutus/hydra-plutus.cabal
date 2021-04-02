@@ -1,5 +1,5 @@
 cabal-version: 2.2
-name: plutus
+name: hydra-plutus
 version: 0.1.0.0
 description:        Hydra Plutus Contracts
 author:             IOHK
@@ -12,7 +12,7 @@ build-type:         Simple
 
 source-repository head
     type: git
-    location: https://github.com/input-output-hk/hydra-node
+    location: https://github.com/input-output-hk/hydra-poc
 
 flag defer-plugin-errors
     description:
@@ -92,7 +92,7 @@ library
   if flag(defer-plugin-errors)
       ghc-options: -fplugin-opt PlutusTx.Plugin:defer-errors
 
-test-suite plutus-test
+test-suite hydra-plutus-test
   import: project-config
   type: exitcode-stdio-1.0
   main-is: Spec.hs
@@ -107,13 +107,13 @@ test-suite plutus-test
       foldl -any,
       freer-extras -any,
       freer-simple -any,
-      plutus -any,
+      hydra-plutus -any,
       plutus-core -any,
       plutus-tx -any,
       plutus-contract -any,
       plutus-ledger -any,
       plutus-tx-plugin -any,
-      prettyprinter -any, 
+      prettyprinter -any,
       streaming,
       text
   build-depends:

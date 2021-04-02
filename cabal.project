@@ -3,7 +3,7 @@ index-state: 2021-02-24T00:00:00Z
 packages:
   local-cluster
   hydra-node
-  plutus
+  hydra-plutus
 
 tests: False
 package local-cluster
@@ -12,7 +12,7 @@ package local-cluster
 package hydra-node
   tests: True
 
-package plutus
+package hydra-plutus
   tests: True
 
 -- Always show detailed output for tests
