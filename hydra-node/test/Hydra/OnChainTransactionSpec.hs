@@ -41,14 +41,14 @@ assertTransactionInputValidatesMonetaryPolicy tx policyId = do
   let txInputs = inputs tx
       txOutputRef = outputRef $ Prelude.head txInputs
   length txInputs `shouldBe` 1
-  toCurrencySymbol policyId `shouldBe` hydraCurrencySymbol txOutputRef
+  toCurrencySymbol policyId `shouldBe` hydraCurrencySymbol (first toTxId txOutputRef)
 
 assertStateMachineOutputIsInitialised ::
   Transaction -> HydraState -> Expectation
 assertStateMachineOutputIsInitialised tx st = do
   let smOutput = fromJust $ getStateMachineOutput tx
-  toPlutusAddress (address smOutput) `shouldBe` Just contractAddress
-  datum smOutput `shouldBe` Just (toDatumHash st)
+  toPlutusAddress (address smOutput) `shouldBe` contractAddress
+  toPlutusDatumHash <$> datum smOutput `shouldBe` Just (toDatumHash st)
 
 assertValidParticipationTokens :: Transaction -> PolicyId -> Int -> Expectation
 assertValidParticipationTokens tx policyId numberOfParticipants = do

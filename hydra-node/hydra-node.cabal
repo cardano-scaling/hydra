@@ -73,6 +73,9 @@ library
     Network.TypedProtocol.FireForget.Type
     Network.TypedProtocol.FireForget.Client
     Network.TypedProtocol.FireForget.Server
+  exposed-modules:
+    Hydra.OnChainTransaction.Types
+    Hydra.OnChainTransaction.Plutus
   build-depends:
       async
     , base
