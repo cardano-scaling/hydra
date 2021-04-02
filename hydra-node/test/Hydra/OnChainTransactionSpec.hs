@@ -8,7 +8,7 @@ import Data.Maybe (fromJust)
 import qualified Data.Set as Set
 import Hydra.ContractStateMachine (HydraState (..), VerificationKey (..), contractAddress, toDatumHash)
 import Hydra.MonetaryPolicy (hydraCurrencySymbol)
-import Hydra.Node
+import Hydra.OnChainTransaction
 import Test.Hspec (Expectation, Spec, describe, it, shouldBe)
 import qualified Prelude
 

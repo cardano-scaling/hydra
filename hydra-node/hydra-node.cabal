@@ -69,6 +69,7 @@ library
   hs-source-dirs: src
   exposed-modules:
     Hydra.Node
+    Hydra.OnChainTransaction
     Network.TypedProtocol.FireForget.Type
     Network.TypedProtocol.FireForget.Client
     Network.TypedProtocol.FireForget.Server
