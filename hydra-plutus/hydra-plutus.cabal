@@ -76,6 +76,7 @@ library
   exposed-modules:
       Hydra.Contract
       Hydra.ContractStateMachine
+      Hydra.MonetaryPolicy
   hs-source-dirs: src
   build-depends:
       aeson -any,
