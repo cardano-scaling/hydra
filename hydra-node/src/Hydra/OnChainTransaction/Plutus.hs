@@ -13,11 +13,11 @@ import Hydra.OnChainTransaction.Types
 import qualified Ledger as Plutus
 import qualified Ledger.Value as Value
 
-toCurrencySymbol :: PolicyId -> Plutus.CurrencySymbol
-toCurrencySymbol (PolicyId hash) = Value.currencySymbol hash
+toCurrencySymbol :: MonetaryPolicyId -> Plutus.CurrencySymbol
+toCurrencySymbol (MonetaryPolicyId hash) = Value.currencySymbol hash
 
-fromCurrencySymbol :: Plutus.CurrencySymbol -> PolicyId
-fromCurrencySymbol = PolicyId . Value.unCurrencySymbol
+fromCurrencySymbol :: Plutus.CurrencySymbol -> MonetaryPolicyId
+fromCurrencySymbol = MonetaryPolicyId . Value.unCurrencySymbol
 
 toPlutusAddress :: Address -> Plutus.Address
 toPlutusAddress = \case

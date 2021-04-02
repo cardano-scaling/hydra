@@ -11,7 +11,7 @@ import Hydra.ContractStateMachine (
   VerificationKey (..),
  )
 
-newtype PolicyId = PolicyId ByteString deriving (Eq, Ord)
+newtype MonetaryPolicyId = MonetaryPolicyId ByteString deriving (Eq, Ord)
 
 data Address
   = PubKeyAddress VerificationKey
@@ -27,7 +27,7 @@ data Transaction = Transaction
   , inputs :: [TransactionInput]
   }
 
-assetNames :: PolicyId -> Transaction -> Set AssetName
+assetNames :: MonetaryPolicyId -> Transaction -> Set AssetName
 assetNames policyId =
   Set.fromList
     . concatMap Map.keys
@@ -45,7 +45,7 @@ data TransactionOutput = TransactionOutput
 
 data Value = Value
   { adas :: Quantity
-  , tokens :: Map PolicyId (Map AssetName Quantity)
+  , tokens :: Map MonetaryPolicyId (Map AssetName Quantity)
   }
 
 newtype Quantity = Quantity Natural
@@ -65,13 +65,15 @@ outputRef TransactionInput{txId, utxoIndex} = (txId, utxoIndex)
 
 data HeadParameters = HeadParameters
   { verificationKeys :: [VerificationKey]
-  , monetaryPolicyInput :: TransactionInput
+  , -- | This input consumes a UTxO that will be used to uniquely identify the monetary policy
+    -- and pay the fees.
+    monetaryPolicyInput :: TransactionInput
   }
   deriving (Eq, Show)
 
 newtype MonetaryScript = AnyOf [VerificationKey]
   deriving (Eq, Show)
 
-type AssetId = (PolicyId, AssetName)
+type AssetId = (MonetaryPolicyId, AssetName)
 
 newtype AssetName = AssetName ByteString deriving (Eq, Ord)

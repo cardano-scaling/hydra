@@ -1,3 +1,4 @@
+-- | Build On-Chain transactions given parameters and state of Hydra Head.
 module Hydra.OnChainTransaction (
   buildInitialTransaction,
   module Hydra.OnChainTransaction.Types,
@@ -19,7 +20,10 @@ import Hydra.OnChainTransaction.Plutus
 import Hydra.OnChainTransaction.State
 import Hydra.OnChainTransaction.Types
 
-buildInitialTransaction :: HeadParameters -> (Transaction, PolicyId)
+-- | Build initial (`Init`) transaction to start a Hydra Head instance.
+--
+-- TODO: Remove dependencies on Plutus-specific stuff and let transaction poster do the conversion
+buildInitialTransaction :: HeadParameters -> (Transaction, MonetaryPolicyId)
 buildInitialTransaction HeadParameters{verificationKeys, monetaryPolicyInput} =
   let policyId = fromCurrencySymbol $ hydraCurrencySymbol (first toTxId $ outputRef monetaryPolicyInput)
       mkOutput verificationKey =

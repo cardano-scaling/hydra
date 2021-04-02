@@ -30,7 +30,7 @@ buildsValidInitialTransaction (SomeHeadParameters initParameters@HeadParameters{
         && stateMachineOutputIsInitialised tx verificationKeys
         && transactionInputValidatesMonetaryPolicy tx policyId
 
-transactionInputValidatesMonetaryPolicy :: Transaction -> PolicyId -> Bool
+transactionInputValidatesMonetaryPolicy :: Transaction -> MonetaryPolicyId -> Bool
 transactionInputValidatesMonetaryPolicy tx policyId =
   let txInputs = inputs tx
       txOutputRef = outputRef $ Prelude.head txInputs
@@ -44,11 +44,11 @@ stateMachineOutputIsInitialised tx keys =
    in toPlutusAddress (address smOutput) == contractAddress
         && (toPlutusDatumHash <$> datum smOutput) == Just (toDatumHash $ initialState keys)
 
-participationTokensAreUnique :: Transaction -> PolicyId -> Int -> Bool
+participationTokensAreUnique :: Transaction -> MonetaryPolicyId -> Int -> Bool
 participationTokensAreUnique tx policyId numberOfParticipants =
   length (filter (hasParticipationToken policyId 1) (outputs tx)) == numberOfParticipants
     && Set.size (assetNames policyId tx) == numberOfParticipants
 
-hasParticipationToken :: PolicyId -> Quantity -> TransactionOutput -> Bool
+hasParticipationToken :: MonetaryPolicyId -> Quantity -> TransactionOutput -> Bool
 hasParticipationToken policyId numberOfTokens TransactionOutput{value = Value _ tokens} =
   (Map.elems <$> Map.lookup policyId tokens) == Just [numberOfTokens]
