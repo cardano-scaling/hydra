@@ -7,8 +7,10 @@ import qualified Data.Map.Strict as Map
 import Data.Maybe (fromJust)
 import qualified Data.Set as Set
 import Hydra.ContractStateMachine (HydraState (..), VerificationKey (..), contractAddress, toDatumHash)
+import Hydra.MonetaryPolicy (hydraCurrencySymbol)
 import Hydra.Node
 import Test.Hspec (Expectation, Spec, around, describe, it, shouldBe, shouldReturn)
+import qualified Prelude
 
 spec :: Spec
 spec = around startStopNode $ do
@@ -19,7 +21,7 @@ spec = around startStopNode $ do
   describe "On-Chain Transactions" $ do
     it "Build Init transaction with outputs to be consumed by peers when given Init command" $ \node -> do
       let initParameters =
-            HeadParameters{verificationKeys = [key1, key2, key3]}
+            HeadParameters{verificationKeys = [key1, key2, key3], monetaryPolicyInput = mkTransactionInput "1" 1}
           key1 = VerificationKey "key1"
           key2 = VerificationKey "key2"
           key3 = VerificationKey "key3"
@@ -35,6 +37,15 @@ spec = around startStopNode $ do
       assertStateMachineOutputIsInitialised
         tx
         (initialState $ verificationKeys initParameters)
+
+      assertTransactionInputValidatesMonetaryPolicy tx policyId
+
+assertTransactionInputValidatesMonetaryPolicy :: Transaction -> PolicyId -> Expectation
+assertTransactionInputValidatesMonetaryPolicy tx policyId = do
+  let txInputs = inputs tx
+      txOutputRef = outputRef $ Prelude.head txInputs
+  length txInputs `shouldBe` 1
+  toCurrencySymbol policyId `shouldBe` hydraCurrencySymbol txOutputRef
 
 assertStateMachineOutputIsInitialised ::
   Transaction -> HydraState -> Expectation

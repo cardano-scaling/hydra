@@ -17,7 +17,9 @@ import Hydra.ContractStateMachine (
   contractAddress,
   toDatumHash,
  )
+import Hydra.MonetaryPolicy (hydraCurrencySymbol)
 import qualified Ledger as Plutus
+import qualified Ledger.Value as Value
 
 runHydra :: IO ()
 runHydra =
@@ -61,8 +63,8 @@ status node =
     Nothing -> pure NotReady
 
 buildInitialTransaction :: HydraNode -> HeadParameters -> IO (Transaction, PolicyId)
-buildInitialTransaction _ HeadParameters{verificationKeys} = do
-  let policyId = PolicyId "MyPolicyId"
+buildInitialTransaction _ HeadParameters{verificationKeys, monetaryPolicyInput} = do
+  let policyId = fromCurrencySymbol $ hydraCurrencySymbol (outputRef monetaryPolicyInput)
   let mkOutput verificationKey =
         TransactionOutput
           { value =
@@ -79,10 +81,12 @@ buildInitialTransaction _ HeadParameters{verificationKeys} = do
           , datum = Just (toDatumHash (initialState verificationKeys))
           }
   let outputs = stateMachineOutput : map mkOutput verificationKeys
-  return (Transaction{outputs}, policyId)
+  let inputs = [monetaryPolicyInput]
+  return (Transaction{outputs, inputs}, policyId)
 
 data Transaction = Transaction
   { outputs :: [TransactionOutput]
+  , inputs :: [TransactionInput]
   }
 
 assetNames :: PolicyId -> Transaction -> Set AssetName
@@ -118,8 +122,23 @@ toPlutusAddress = \case
 newtype Quantity = Quantity Natural
   deriving newtype (Eq, Num)
 
+data TransactionInput = TransactionInput {txId :: Plutus.TxId, utxoIndex :: Integer}
+
+mkTransactionInput :: ByteString -> Integer -> TransactionInput
+mkTransactionInput txRef idx = TransactionInput (Plutus.TxId txRef) idx
+
+outputRef :: TransactionInput -> (Plutus.TxId, Integer)
+outputRef TransactionInput{txId, utxoIndex} = (txId, utxoIndex)
+
+toCurrencySymbol :: PolicyId -> Plutus.CurrencySymbol
+toCurrencySymbol (PolicyId hash) = Value.currencySymbol hash
+
+fromCurrencySymbol :: Plutus.CurrencySymbol -> PolicyId
+fromCurrencySymbol = PolicyId . Value.unCurrencySymbol
+
 data HeadParameters = HeadParameters
   { verificationKeys :: [VerificationKey]
+  , monetaryPolicyInput :: TransactionInput
   }
 
 data MonetaryScript
