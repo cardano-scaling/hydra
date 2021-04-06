@@ -7,7 +7,7 @@ import qualified Data.Map.Strict as Map
 import qualified Data.Set as Set
 
 -- TODO: Remove dependency on types from contract
-import Hydra.ContractStateMachine (
+import Hydra.Contract.Types (
   VerificationKey (..),
  )
 

@@ -7,6 +7,7 @@ module Hydra.Contract where
 
 import Control.Monad (guard, void)
 import qualified Data.Map as Map
+import Hydra.Contract.Types
 import Ledger (Address, Validator, ValidatorCtx, Value, scriptAddress)
 import qualified Ledger.Constraints as Constraints
 import Ledger.Tx (TxOut (..), TxOutTx (..))
@@ -17,63 +18,12 @@ import qualified PlutusTx
 import PlutusTx.Prelude
 import qualified Prelude
 
-data Datum
-  = Open OpenState
-  | Closed
-  deriving stock (Prelude.Eq, Generic)
-
-data OpenState = OpenState
-  { keyAggregate :: MultisigPublicKey
-  , eta :: Eta
-  -- hMT :: MerkleTreeRoot,
-  -- numberOfMembers :: Integer,
-  -- contestationPeriod :: Integer
-  }
-  deriving (Prelude.Eq, Generic)
-
-data MultisigPublicKey = MultisigPublicKey
-  deriving (Prelude.Eq, Generic)
-
-data Eta = Eta
-  { utxos :: UTXO -- u
-  , snapshotNumber :: Integer -- s
-  , transactions :: [Transaction] -- morally a Set
-  }
-  deriving (Prelude.Eq, Generic)
-
-data UTXO = UTXO
-  deriving (Prelude.Eq, Generic)
-
--- | The transaction as handled in the hydra head, i.e. the tx which we have put
--- into Hydra. According to isomorphism property of Hydra, it could also have
--- been put on the main chain.
-data Transaction = Transaction
-  deriving (Prelude.Eq, Generic)
-
-data TransactionObject = TransactionObject
-  { sigma :: MultiSignature
-  , tx :: Transaction
-  }
-
-data MultiSignature = MultiSignature
-
-data MerkleTreeRoot = MerkleTreeRoot
-
-data Redeemer = Redeemer Xi -- Pi
-
-data Pi
-
-data Xi = Xi
-  { xiUtxos :: UTXO
-  , xiSnapshotNumber :: Integer
-  , signatures :: MultiSignature
-  , confirmedTransactions :: [TransactionObject] -- morally a Set
-  }
-
 {-# INLINEABLE validate #-}
-validate :: Datum -> Redeemer -> ValidatorCtx -> Bool
-validate (Open OpenState{keyAggregate, eta}) (Redeemer xi) _ctx =
-  isJust (close keyAggregate eta xi)
+validate :: HydraState -> HydraInput -> ValidatorCtx -> Bool
+validate (Open OpenState{keyAggregate, eta}) (HydraInput xi) _ctx =
+  case close keyAggregate eta xi of
+    Just{} -> True
+    Nothing -> False
 validate Closed _ _ = False
 
 {-# INLINEABLE close #-}
@@ -124,15 +74,15 @@ msAVerify _ _ _ = True -- TODO
 
 data Hydra
 instance Scripts.ScriptType Hydra where
-  type RedeemerType Hydra = Redeemer
-  type DatumType Hydra = Datum
+  type DatumType Hydra = HydraState
+  type RedeemerType Hydra = HydraInput
 
 {- ORMOLU_DISABLE -}
 contractInstance :: Scripts.ScriptInstance Hydra
 contractInstance = Scripts.validator @Hydra
     $$(PlutusTx.compile [|| validate ||])
     $$(PlutusTx.compile [|| wrap ||]) where
-        wrap = Scripts.wrapValidator @Datum @Redeemer
+        wrap = Scripts.wrapValidator @HydraState @HydraInput
 {- ORMOLU_ENABLE -}
 
 -- | The validator script of the contract.
@@ -160,7 +110,7 @@ collectComEndpoint = do
   datum =
     Open $
       OpenState
-        { keyAggregate = MultisigPublicKey
+        { keyAggregate = MultisigPublicKey []
         , eta = Eta UTXO 0 []
         }
 
@@ -179,7 +129,7 @@ closeEndpoint = do
   void (submitTxConstraintsSpending contractInstance utxoMap tx)
  where
   datum = Closed -- TODO add more things
-  redeemer = Redeemer $ Xi UTXO 0 MultiSignature []
+  redeemer = HydraInput $ Xi UTXO 0 MultiSignature []
 
 type Schema =
   BlockchainActions
@@ -188,29 +138,3 @@ type Schema =
 
 hydraHead :: AsContractError e => Contract () Schema e ()
 hydraHead = collectComEndpoint `select` closeEndpoint
-
---
--- Template Haskell
---
-
-PlutusTx.makeLift ''Datum
-PlutusTx.makeLift ''OpenState
-PlutusTx.makeLift ''MultisigPublicKey
-PlutusTx.makeLift ''Eta
-PlutusTx.makeLift ''MerkleTreeRoot
-PlutusTx.makeLift ''TransactionObject
-PlutusTx.makeLift ''Transaction
-PlutusTx.makeLift ''UTXO
-PlutusTx.makeLift ''MultiSignature
-
-PlutusTx.unstableMakeIsData ''Datum
-PlutusTx.unstableMakeIsData ''OpenState
-PlutusTx.unstableMakeIsData ''MultisigPublicKey
-PlutusTx.unstableMakeIsData ''Eta
-PlutusTx.unstableMakeIsData ''MerkleTreeRoot
-PlutusTx.unstableMakeIsData ''TransactionObject
-PlutusTx.unstableMakeIsData ''Transaction
-PlutusTx.unstableMakeIsData ''UTXO
-PlutusTx.unstableMakeIsData ''MultiSignature
-PlutusTx.unstableMakeIsData ''Redeemer
-PlutusTx.unstableMakeIsData ''Xi

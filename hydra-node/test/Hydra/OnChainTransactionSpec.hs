@@ -7,7 +7,8 @@ import qualified Data.Map.Strict as Map
 import Data.Maybe (fromJust)
 import qualified Data.Set as Set
 import Hydra.Arbitraries (SomeHeadParameters (..))
-import Hydra.ContractStateMachine (VerificationKey (..), contractAddress, toDatumHash)
+import Hydra.Contract.Types (VerificationKey (..), toDatumHash)
+import Hydra.ContractStateMachine (contractAddress)
 import Hydra.MonetaryPolicy (hydraCurrencySymbol)
 import Hydra.OnChainTransaction
 import Test.Hspec (Spec, describe, it)

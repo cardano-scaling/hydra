@@ -10,10 +10,10 @@ import Cardano.Prelude
 import qualified Data.Map.Strict as Map hiding (map)
 
 -- TODO: Remove dependency on types from contract
+
+import Hydra.Contract.Types (VerificationKey (..), toDatumHash)
 import Hydra.ContractStateMachine (
-  VerificationKey (..),
   contractAddress,
-  toDatumHash,
  )
 import Hydra.MonetaryPolicy (hydraCurrencySymbol)
 import Hydra.OnChainTransaction.Plutus

@@ -8,6 +8,7 @@ import Cardano.Prelude
 import Control.Monad.Freer (Eff)
 import Control.Monad.Freer.Extras.Log (LogMsg)
 import Data.String (String)
+import Hydra.Contract.Types (HydraState (Closed), toDatumHash)
 import Hydra.Utils (datumAtAddress)
 import Ledger (Slot (Slot))
 import qualified Ledger.Ada as Ada

@@ -2,36 +2,13 @@
 
 module Hydra.ContractSpec where
 
---import qualified Control.Foldl                         as L
---import           Control.Lens                          ((&), (.~))
--- import           Control.Monad                         (void)
-
--- import           Control.Monad.Freer.Extras.Log        (LogLevel (..))
--- import           Data.ByteString.Lazy                  (ByteString)
--- import qualified Data.ByteString.Lazy                  as BSL
--- import qualified Data.Text.Encoding                    as T
--- import           Data.Text.Prettyprint.Doc             (Pretty (..), defaultLayoutOptions, layoutPretty, vsep)
--- import           Data.Text.Prettyprint.Doc.Render.Text (renderStrict)
--- import           Spec.Lib                              (timesFeeAdjust)
-
--- import           Test.Tasty.Golden                     (goldenVsString)
--- import qualified Test.Tasty.HUnit                      as HUnit
-
--- import qualified Ledger.Ada                            as Ada
--- import           Ledger.Slot                           (Slot (..))
--- import           Plutus.Trace.Emulator                 (ContractHandle (..), EmulatorTrace)
-
--- import qualified PlutusTx.Prelude                      as PlutusTx
---import qualified Streaming.Prelude                     as S
--- import qualified Wallet.Emulator.Folds                 as Folds
--- import           Wallet.Emulator.Stream                (filterLogLevel, foldEmulatorStreamM)
-
 import Cardano.Prelude
 import Control.Monad.Freer (Eff)
 import Control.Monad.Freer.Extras.Log (LogMsg)
 import Data.String (String)
 import Hydra.Contract
-import Hydra.Utils (checkCompiledContractPIR, datumAtAddress, toDatumHash)
+import Hydra.Contract.Types
+import Hydra.Utils (checkCompiledContractPIR, datumAtAddress)
 import Ledger (Slot (Slot), ValidatorCtx)
 import qualified Ledger.Ada as Ada
 import Plutus.Contract hiding (runError)
@@ -51,7 +28,7 @@ theContract :: Contract () Schema ContractError ()
 theContract = hydraHead
 
 {- ORMOLU_DISABLE -}
-compiledScript :: PlutusTx.CompiledCode (Datum -> Redeemer -> ValidatorCtx -> Bool)
+compiledScript :: PlutusTx.CompiledCode (HydraState -> HydraInput -> ValidatorCtx -> Bool)
 compiledScript = $$(PlutusTx.compile [|| validate ||])
 {- ORMOLU_ENABLE -}
 

@@ -3,7 +3,7 @@ module Hydra.OnChainTransaction.State where
 import Cardano.Prelude
 
 -- TODO: Remove dependency on types from contract
-import Hydra.ContractStateMachine (
+import Hydra.Contract.Types (
   Eta (..),
   HydraState (..),
   MultisigPublicKey (MultisigPublicKey),

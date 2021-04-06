@@ -69,13 +69,14 @@ common project-config
     -Wpartial-fields
     -Wredundant-constraints
     -Wnoncanonical-monad-instances
-    -fobject-code -fno-ignore-interface-pragmas -fno-omit-interface-pragmas
+    -fobject-code -fno-ignore-interface-pragmas -fno-omit-interface-pragmas -fno-strictness
 
 library
   import: project-config
   exposed-modules:
       Hydra.Contract
       Hydra.ContractStateMachine
+      Hydra.Contract.Types
       Hydra.MonetaryPolicy
   hs-source-dirs: src
   build-depends:

@@ -2,7 +2,7 @@ module Hydra.Arbitraries where
 
 import Cardano.Prelude
 import qualified Data.ByteString as ByteString
-import Hydra.ContractStateMachine (VerificationKey (..))
+import Hydra.Contract.Types (VerificationKey (..))
 import Hydra.OnChainTransaction
 import Test.QuickCheck
 

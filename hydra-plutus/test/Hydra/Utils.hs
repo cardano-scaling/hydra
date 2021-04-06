@@ -11,7 +11,7 @@ import Data.Text (Text)
 import Data.Text.Prettyprint.Doc
 import Data.Text.Prettyprint.Doc.Render.Text (renderStrict)
 import Data.Void (Void)
-import Ledger (Address, Datum (Datum), DatumHash, TxOutTx (txOutTxOut), datumHash, txOutDatum)
+import Ledger (Address, DatumHash, TxOutTx (txOutTxOut), txOutDatum)
 import Ledger.AddressMap (UtxoMap)
 import Plutus.Contract.Test (TracePredicate)
 import Plutus.Trace (EmulatorTrace, defaultEmulatorConfig, runEmulatorStream, walletInstanceTag)
@@ -42,9 +42,6 @@ datumAtAddress address expected =
               <+> pretty datums
           )
         return False
-
-toDatumHash :: IsData a => a -> DatumHash
-toDatumHash = datumHash . Datum . toData
 
 datum :: UtxoMap -> [DatumHash]
 datum utxoMap =

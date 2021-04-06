@@ -2,14 +2,6 @@
   (let
     (nonrec)
     (datatypebind
-      (datatype
-        (tyvardecl Transaction (type))
-
-        Transaction_match
-        (vardecl Transaction Transaction)
-      )
-    )
-    (datatypebind
       (datatype (tyvardecl UTXO (type))  UTXO_match (vardecl UTXO UTXO))
     )
     (let
@@ -26,44 +18,18 @@
         (nonrec)
         (datatypebind
           (datatype
-            (tyvardecl Eta (type))
-
-            Eta_match
-            (vardecl
-              Eta (fun UTXO (fun (con integer) (fun [List Transaction] Eta)))
-            )
-          )
-        )
-        (datatypebind
-          (datatype
-            (tyvardecl MultisigPublicKey (type))
-
-            MultisigPublicKey_match
-            (vardecl MultisigPublicKey MultisigPublicKey)
-          )
-        )
-        (datatypebind
-          (datatype
-            (tyvardecl OpenState (type))
-
-            OpenState_match
-            (vardecl OpenState (fun MultisigPublicKey (fun Eta OpenState)))
-          )
-        )
-        (datatypebind
-          (datatype
-            (tyvardecl Datum (type))
-
-            Datum_match
-            (vardecl Closed Datum) (vardecl Open (fun OpenState Datum))
-          )
-        )
-        (datatypebind
-          (datatype
             (tyvardecl MultiSignature (type))
 
             MultiSignature_match
             (vardecl MultiSignature MultiSignature)
+          )
+        )
+        (datatypebind
+          (datatype
+            (tyvardecl Transaction (type))
+
+            Transaction_match
+            (vardecl Transaction Transaction)
           )
         )
         (datatypebind
@@ -90,10 +56,47 @@
         )
         (datatypebind
           (datatype
-            (tyvardecl Redeemer (type))
+            (tyvardecl HydraInput (type))
 
-            Redeemer_match
-            (vardecl Redeemer (fun Xi Redeemer))
+            HydraInput_match
+            (vardecl HydraInput (fun Xi HydraInput))
+          )
+        )
+        (datatypebind
+          (datatype
+            (tyvardecl Eta (type))
+
+            Eta_match
+            (vardecl
+              Eta (fun UTXO (fun (con integer) (fun [List Transaction] Eta)))
+            )
+          )
+        )
+        (datatypebind
+          (datatype
+            (tyvardecl MultisigPublicKey (type))
+
+            MultisigPublicKey_match
+            (vardecl
+              MultisigPublicKey (fun [List (con bytestring)] MultisigPublicKey)
+            )
+          )
+        )
+        (datatypebind
+          (datatype
+            (tyvardecl OpenState (type))
+
+            OpenState_match
+            (vardecl OpenState (fun MultisigPublicKey (fun Eta OpenState)))
+          )
+        )
+        (datatypebind
+          (datatype
+            (tyvardecl HydraState (type))
+
+            HydraState_match
+            (vardecl Closed HydraState)
+            (vardecl Open (fun OpenState HydraState))
           )
         )
         (datatypebind
@@ -577,21 +580,60 @@
                     (termbind
                       (strict)
                       (vardecl
-                        wclose
-                        (fun Eta (fun UTXO (fun (con integer) (fun [List TransactionObject] [Maybe Eta]))))
+                        close
+                        (fun MultisigPublicKey (fun Eta (fun Xi [Maybe Eta])))
                       )
                       (lam
-                        w
-                        Eta
+                        kAgg
+                        MultisigPublicKey
                         (lam
-                          ww
-                          UTXO
+                          eta
+                          Eta
                           (lam
-                            ww
-                            (con integer)
-                            (lam
-                              ww
-                              [List TransactionObject]
+                            xi
+                            Xi
+                            (let
+                              (nonrec)
+                              (termbind
+                                (nonstrict)
+                                (vardecl s (con integer))
+                                [
+                                  { [ Xi_match xi ] (con integer) }
+                                  (lam
+                                    u
+                                    UTXO
+                                    (lam
+                                      s
+                                      (con integer)
+                                      (lam
+                                        sigma
+                                        MultiSignature
+                                        (lam txs [List TransactionObject] s)
+                                      )
+                                    )
+                                  )
+                                ]
+                              )
+                              (termbind
+                                (nonstrict)
+                                (vardecl txs [List TransactionObject])
+                                [
+                                  { [ Xi_match xi ] [List TransactionObject] }
+                                  (lam
+                                    u
+                                    UTXO
+                                    (lam
+                                      s
+                                      (con integer)
+                                      (lam
+                                        sigma
+                                        MultiSignature
+                                        (lam txs [List TransactionObject] txs)
+                                      )
+                                    )
+                                  )
+                                ]
+                              )
                               [
                                 [
                                   [
@@ -629,7 +671,7 @@
                                               ]
                                             )
                                           ]
-                                          ww
+                                          txs
                                         ]
                                       ]
                                       (fun Unit [Maybe Eta])
@@ -643,7 +685,7 @@
                                           (strict)
                                           (vardecl wild Bool)
                                           [
-                                            [ equalsInteger ww ] (con integer 0)
+                                            [ equalsInteger s ] (con integer 0)
                                           ]
                                         )
                                         [
@@ -659,7 +701,7 @@
                                                         [
                                                           Bool_match
                                                           [
-                                                            [ equalsInteger ww ]
+                                                            [ equalsInteger s ]
                                                             (con integer 0)
                                                           ]
                                                         ]
@@ -670,7 +712,8 @@
                                                         Unit
                                                         [
                                                           {
-                                                            [ Eta_match w ] UTXO
+                                                            [ Eta_match eta ]
+                                                            UTXO
                                                           }
                                                           (lam
                                                             ds
@@ -688,12 +731,35 @@
                                                         ]
                                                       )
                                                     ]
-                                                    (lam thunk Unit ww)
+                                                    (lam
+                                                      thunk
+                                                      Unit
+                                                      [
+                                                        { [ Xi_match xi ] UTXO }
+                                                        (lam
+                                                          u
+                                                          UTXO
+                                                          (lam
+                                                            s
+                                                            (con integer)
+                                                            (lam
+                                                              sigma
+                                                              MultiSignature
+                                                              (lam
+                                                                txs
+                                                                [List TransactionObject]
+                                                                u
+                                                              )
+                                                            )
+                                                          )
+                                                        )
+                                                      ]
+                                                    )
                                                   ]
                                                   Unit
                                                 ]
                                               ]
-                                              ww
+                                              s
                                             ]
                                             [
                                               [
@@ -703,7 +769,7 @@
                                                 }
                                                 tx
                                               ]
-                                              ww
+                                              txs
                                             ]
                                           ]
                                         ]
@@ -722,61 +788,22 @@
                     (termbind
                       (strict)
                       (vardecl
-                        close
-                        (fun MultisigPublicKey (fun Eta (fun Xi [Maybe Eta])))
-                      )
-                      (lam
-                        w
-                        MultisigPublicKey
-                        (lam
-                          w
-                          Eta
-                          (lam
-                            w
-                            Xi
-                            [
-                              { [ Xi_match w ] [Maybe Eta] }
-                              (lam
-                                ww
-                                UTXO
-                                (lam
-                                  ww
-                                  (con integer)
-                                  (lam
-                                    ww
-                                    MultiSignature
-                                    (lam
-                                      ww
-                                      [List TransactionObject]
-                                      [ [ [ [ wclose w ] ww ] ww ] ww ]
-                                    )
-                                  )
-                                )
-                              )
-                            ]
-                          )
-                        )
-                      )
-                    )
-                    (termbind
-                      (strict)
-                      (vardecl
                         validate
-                        (fun Datum (fun Redeemer (fun ValidatorCtx Bool)))
+                        (fun HydraState (fun HydraInput (fun ValidatorCtx Bool)))
                       )
                       (lam
                         ds
-                        Datum
+                        HydraState
                         (lam
                           ds
-                          Redeemer
+                          HydraInput
                           (lam
                             ctx
                             ValidatorCtx
                             [
                               [
                                 [
-                                  { [ Datum_match ds ] (fun Unit Bool) }
+                                  { [ HydraState_match ds ] (fun Unit Bool) }
                                   (lam thunk Unit False)
                                 ]
                                 (lam
@@ -794,7 +821,7 @@
                                           ds
                                           Eta
                                           [
-                                            { [ Redeemer_match ds ] Bool }
+                                            { [ HydraInput_match ds ] Bool }
                                             (lam
                                               xi
                                               Xi
