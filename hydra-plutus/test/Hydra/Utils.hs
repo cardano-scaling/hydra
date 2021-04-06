@@ -57,7 +57,7 @@ renderWalletLog w1 trace =
           foldEmulatorStreamM (L.generalize $ Folds.instanceLog (walletInstanceTag w1)) $
             filterLogLevel Info $
               runEmulatorStream defaultEmulatorConfig trace
-   in renderStrict $ layoutPretty defaultLayoutOptions $ vsep $ fmap pretty $ S.fst' result
+   in renderStrict $ layoutPretty defaultLayoutOptions $ vsep $ pretty <$> S.fst' result
 
 -- renderEmulatorLog :: EmulatorTrace () -> ByteString
 -- renderEmulatorLog trace =
