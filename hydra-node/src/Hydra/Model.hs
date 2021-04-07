@@ -21,6 +21,7 @@ data ClientInstruction
   | CommitTxDraft
   | HeadClosed
   | TxConfirmed
+  deriving (Show)
 
 -- | Messages which are sent through the hydra node-to-node network
 data HydraMessage
@@ -135,6 +136,8 @@ main = do
   forever $ do
     e <- getEvent
     runHydraHeadProtocol hn mc hh e
+ where
+  getEvent = panic "not implememted"
 
 -- | Connects to a configured set of peers and sets up the whole network stack.
 setupHydraNetwork :: MainChain IO -> HydraHead IO -> IO (HydraNetworkClient IO)
@@ -153,14 +156,15 @@ hydraMessageServer action = do
   panic "not implemented"
 
 -- | Monadic interface around 'hydraHeadProtocolHandler'.
-runHydraHeadProtocol :: Monad m => HydraNetworkClient m -> MainChain m -> HydraHead m -> Event -> m ()
+runHydraHeadProtocol :: (Monad m, Show ClientInstruction) => HydraNetworkClient m -> MainChain m -> HydraHead m -> Event -> m ()
 runHydraHeadProtocol HydraNetworkClient{broadcast} MainChain{postTx} HydraHead{getState, putState} e = do
-  -- s <- getState
-  -- let (s', msgs, txs) = hydraHeadProtocolHandler s e
-  -- mapM_ broadcast msgs
-  -- mapM_ postTx txs
-  -- putState s'
-  panic "not implemented"
+  s <- getState
+  let (s', out) = hydraHeadProtocolHandler s e
+  putState s'
+  forM_ out $ \case
+    ClientOutput i -> panic $ "client instruction: " <> show i
+    HydraOutput msg -> broadcast msg
+    OnChainOutput tx -> postTx tx
 
 data HydraHead m = HydraHead
   { getState :: m HeadState

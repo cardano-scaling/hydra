@@ -1,3 +1,5 @@
+module Spec where
+
 import Cardano.Prelude
 import qualified Hydra.ContractStateMachineSpec as ContractStateMachine
 import Test.Tasty
