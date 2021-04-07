@@ -19,6 +19,14 @@ import qualified Prelude
 import Hydra.Contract ()
 import Hydra.Contract.Types
 
+{-# INLINEABLE transition #-}
+transition :: State HydraState -> HydraInput -> Maybe (SM.TxConstraints Void Void, State HydraState)
+transition state@State{stateData = Open OpenState{eta, keyAggregate}} (HydraInput xi) =
+  case close keyAggregate eta xi of
+    Just{} -> Just (mempty, state{stateData = Closed})
+    Nothing -> Nothing
+transition _ _ = Nothing
+
 {-# INLINEABLE close #-}
 close :: MultisigPublicKey -> Eta -> Xi -> Maybe Eta
 close kAgg eta xi = do
@@ -61,16 +69,9 @@ hash = const "hashed bytestring" -- TODO
 msAVerify :: MultisigPublicKey -> ByteString -> MultiSignature -> Bool
 msAVerify _ _ _ = True -- TODO
 
-{-# INLINEABLE transition #-}
-transition ::
-  State HydraState ->
-  HydraInput ->
-  Maybe (SM.TxConstraints Void Void, State HydraState)
-transition state@State{stateData = Open OpenState{eta, keyAggregate}} (HydraInput xi) =
-  case close keyAggregate eta xi of
-    Just{} -> Just (mempty, state{stateData = Closed})
-    Nothing -> Nothing
-transition _ _ = Nothing
+--
+-- Boilerplate
+--
 
 {-# INLINEABLE machine #-}
 machine :: SM.StateMachine HydraState HydraInput
