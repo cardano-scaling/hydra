@@ -41,12 +41,12 @@ data OnChainTx
 
 data Event
   = ClientEvent ClientCommand
-  | HydraEvent HydraMessage
+  | NetworkEvent HydraMessage
   | OnChainEvent OnChainTx
 
 data Output
   = ClientOutput ClientInstruction
-  | HydraOutput HydraMessage
+  | NetworkOutput HydraMessage
   | OnChainOutput OnChainTx
 
 data HeadState
@@ -129,21 +129,41 @@ data ProtocolParameters
 
 main :: IO ()
 main = do
-  hn <- panic "undefined"
-  mc <- panic "undefined"
-  hh <- panic "undefined"
+  hh <- setupHydraHead
+  oc <- setupChainClient
+  hn <- setupHydraNetwork oc hh
 
   forever $ do
     e <- getEvent
-    runHydraHeadProtocol hn mc hh e
+    runHydraHeadProtocol hn oc hh e
  where
   getEvent = panic "not implememted"
 
+setupHydraHead :: IO (HydraHead IO)
+setupHydraHead = do
+  tv <- newTVarIO HeadState
+  pure
+    HydraHead
+      { getState = readTVarIO tv
+      , putState = atomically . putTVar tv
+      }
+
+-- | Connects to a cardano node and sets up things in order to be able to
+-- construct actual transactions using 'OnChainTx' and send them on 'postTx'.
+setupChainClient :: IO (OnChain IO)
+setupChainClient =
+  -- TODO(SN): How would the chain client be able to react on observed
+  -- 'OnChainTx'? Invoking 'runHydraHeadProtocol' with OnChainEvent similar to
+  -- the server side of 'setupHydraNetwork' is problematic as we would need a
+  -- 'HydraNetwork' here -> how to tie the knot?
+  pure OnChain{postTx = panic "construct and send transaction e.g. using plutus"}
+
 -- | Connects to a configured set of peers and sets up the whole network stack.
-setupHydraNetwork :: MainChain IO -> HydraHead IO -> IO (HydraNetworkClient IO)
+setupHydraNetwork :: OnChain IO -> HydraHead IO -> IO (HydraNetwork IO)
 setupHydraNetwork mc hh = do
-  let client = panic "create HydraNetworkClient interface out of ourobouros client"
-  let server = hydraMessageServer (runHydraHeadProtocol client mc hh . HydraEvent)
+  let client = panic "create HydraNetwork interface out of ourobouros client"
+  -- The server reacts on received 'HydraMessage' by running th protocol handler
+  let server = hydraMessageServer (runHydraHeadProtocol client mc hh . NetworkEvent)
   -- ourobouros network stuff, setting up mux, protocols and whatnot
   panic "not implemented"
 
@@ -156,25 +176,31 @@ hydraMessageServer action = do
   panic "not implemented"
 
 -- | Monadic interface around 'hydraHeadProtocolHandler'.
-runHydraHeadProtocol :: (Monad m, Show ClientInstruction) => HydraNetworkClient m -> MainChain m -> HydraHead m -> Event -> m ()
-runHydraHeadProtocol HydraNetworkClient{broadcast} MainChain{postTx} HydraHead{getState, putState} e = do
-  s <- getState
+runHydraHeadProtocol :: (Monad m, Show ClientInstruction) => HydraNetwork m -> OnChain m -> HydraHead m -> Event -> m ()
+runHydraHeadProtocol HydraNetwork{broadcast} OnChain{postTx} HydraHead{getState, putState} e = do
+  s <- getState -- NOTE(SN): this is obviously not thread-safe
   let (s', out) = hydraHeadProtocolHandler s e
   putState s'
   forM_ out $ \case
     ClientOutput i -> panic $ "client instruction: " <> show i
-    HydraOutput msg -> broadcast msg
+    NetworkOutput msg -> broadcast msg
     OnChainOutput tx -> postTx tx
 
+-- | Handle to access and modify a Hydra Head's state.
 data HydraHead m = HydraHead
   { getState :: m HeadState
   , putState :: HeadState -> m ()
   }
 
-newtype HydraNetworkClient m = HydraNetworkClient
-  { broadcast :: HydraMessage -> m ()
+-- | Handle to interface with the hydra network and send messages "off chain".
+newtype HydraNetwork m = HydraNetwork
+  { -- | Send a 'HydraMessage' to the whole hydra network.
+    broadcast :: HydraMessage -> m ()
   }
 
-newtype MainChain m = MainChain
-  { postTx :: OnChainTx -> m ()
+-- | Handle to interface with the main chain network
+newtype OnChain m = OnChain
+  { -- | Construct and send a transaction to the main chain corresponding to the
+    -- given 'OnChainTx' event.
+    postTx :: OnChainTx -> m ()
   }

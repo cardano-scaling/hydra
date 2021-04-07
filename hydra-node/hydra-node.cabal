@@ -93,6 +93,7 @@ library
     , ouroboros-consensus-shelley
     , shelley-spec-ledger
     , cardano-ledger-shelley-ma
+    , stm
     , typed-protocols
   ghc-options:
     -haddock
