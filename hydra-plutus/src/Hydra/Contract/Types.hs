@@ -12,7 +12,8 @@ import PlutusTx.Prelude
 import qualified Prelude
 
 data HydraState
-  = Open OpenState
+  = Collecting
+  | Open OpenState
   | Closed
   deriving stock (Prelude.Eq)
 
@@ -58,7 +59,7 @@ data MultiSignature = MultiSignature
 
 data MerkleTreeRoot = MerkleTreeRoot
 
-data HydraInput = HydraInput Xi -- Pi
+data HydraInput = CollectCom | Close Xi -- Pi
   deriving (Generic)
 
 data Pi

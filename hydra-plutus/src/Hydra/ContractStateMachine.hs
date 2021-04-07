@@ -7,6 +7,7 @@ module Hydra.ContractStateMachine where
 
 import Control.Monad (guard, void)
 import Ledger (Address, Validator, Value, scriptAddress)
+import qualified Ledger.Ada as Ada
 import qualified Ledger.Typed.Scripts as Scripts
 import Playground.Contract
 import Plutus.Contract
@@ -21,7 +22,16 @@ import Hydra.Contract.Types
 
 {-# INLINEABLE transition #-}
 transition :: State HydraState -> HydraInput -> Maybe (SM.TxConstraints Void Void, State HydraState)
-transition state@State{stateData = Open OpenState{eta, keyAggregate}} (HydraInput xi) =
+transition state@State{stateData = Collecting} CollectCom =
+  -- NOTE: vvv maybe we can add constraints for collecting PTs here?
+  Just (mempty, state{stateData = Open openState})
+ where
+  openState =
+    OpenState
+      { keyAggregate = MultisigPublicKey []
+      , eta = Eta UTXO 0 []
+      }
+transition state@State{stateData = Open OpenState{eta, keyAggregate}} (Close xi) =
   case close keyAggregate eta xi of
     Just{} -> Just (mempty, state{stateData = Closed})
     Nothing -> Nothing
@@ -107,6 +117,15 @@ contractValidator = Scripts.validatorScript contractInstance
 contractAddress :: Address
 contractAddress = Ledger.scriptAddress contractValidator
 
+-- | Our mocked "init" endpoint
+initEndpoint :: (AsContractError e, SM.AsSMContractError e) => Contract () Schema e ()
+initEndpoint = do
+  endpoint @"init" @()
+  logInfo @String $ "initEndpoint"
+  void $ SM.runInitialise client initialState (Ada.lovelaceValueOf 1)
+ where
+  initialState = Collecting
+
 data CollectComParams = CollectComParams
   { amount :: Value
   }
@@ -116,12 +135,11 @@ data CollectComParams = CollectComParams
 -- | Our mocked "collectCom" endpoint
 collectComEndpoint :: (AsContractError e, SM.AsSMContractError e) => Contract () Schema e ()
 collectComEndpoint = do
-  CollectComParams amt <- endpoint @"collectCom" @CollectComParams
+  CollectComParams _amt <- endpoint @"collectCom" @CollectComParams
   logInfo @String $ "collectComEndpoint"
-  void $ SM.runInitialise client initialState amt
+  void $ SM.runStep client input
  where
-  initialState =
-    Open $ OpenState{keyAggregate = MultisigPublicKey [], eta = Eta UTXO 0 []}
+  input = CollectCom
 
 -- | Our "close" endpoint to trigger a close
 closeEndpoint :: (AsContractError e, SM.AsSMContractError e) => Contract () Schema e ()
@@ -130,12 +148,15 @@ closeEndpoint = do
   logInfo @String $ "closeEndpoint"
   void $ SM.runStep client input
  where
-  input = HydraInput $ Xi UTXO 0 MultiSignature []
+  input = Close $ Xi UTXO 0 MultiSignature []
 
 type Schema =
   BlockchainActions
+    .\/ Endpoint "init" ()
     .\/ Endpoint "collectCom" CollectComParams
     .\/ Endpoint "close" ()
 
-hydraHead :: (AsContractError e, SM.AsSMContractError e) => Contract () Schema e ()
-hydraHead = collectComEndpoint `select` closeEndpoint -- TODO loop here?
+contract :: (AsContractError e, SM.AsSMContractError e) => Contract () Schema e ()
+contract = endpoints -- TODO do loop here?
+ where
+  endpoints = initEndpoint `select` collectComEndpoint `select` closeEndpoint

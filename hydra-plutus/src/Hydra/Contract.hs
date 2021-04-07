@@ -20,11 +20,12 @@ import qualified Prelude
 
 {-# INLINEABLE validate #-}
 validate :: HydraState -> HydraInput -> ValidatorCtx -> Bool
-validate (Open OpenState{keyAggregate, eta}) (HydraInput xi) _ctx =
+validate Collecting _input _ctx = False
+validate (Open OpenState{keyAggregate, eta}) (Close xi) _ctx =
   case close keyAggregate eta xi of
     Just{} -> True
     Nothing -> False
-validate Closed _ _ = False
+validate _ _ _ = False
 
 {-# INLINEABLE close #-}
 close :: MultisigPublicKey -> Eta -> Xi -> Maybe Eta
@@ -129,7 +130,7 @@ closeEndpoint = do
   void (submitTxConstraintsSpending contractInstance utxoMap tx)
  where
   datum = Closed -- TODO add more things
-  redeemer = HydraInput $ Xi UTXO 0 MultiSignature []
+  redeemer = Close $ Xi UTXO 0 MultiSignature []
 
 type Schema =
   BlockchainActions
