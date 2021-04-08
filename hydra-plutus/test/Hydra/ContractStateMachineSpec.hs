@@ -5,9 +5,10 @@ module Hydra.ContractStateMachineSpec where
 import Hydra.ContractStateMachine
 
 import Cardano.Prelude
-import Hydra.Contract.Types (HydraInput, HydraState (..), toDatumHash)
+import Hydra.Contract.Types (HydraInput, HydraState (..), toDatumHash, HeadParameters(..))
 import Hydra.Utils (checkCompiledContractPIR, datumAtAddress)
-import Ledger (Slot (Slot), ValidatorCtx)
+import Ledger (Slot (Slot), ValidatorCtx, Tx(..))
+import Ledger.Constraints.OffChain (UnbalancedTx(..))
 import qualified Ledger.Ada as Ada
 import Plutus.Contract hiding (runError)
 import Plutus.Contract.StateMachine (SMContractError)
@@ -20,7 +21,12 @@ w1 :: Wallet
 w1 = Wallet 1
 
 theContract :: Contract () Schema SMContractError ()
-theContract = contract
+theContract = contract headParameters
+
+headParameters :: HeadParameters
+headParameters = HeadParameters
+  { verificationKeys = []
+  }
 
 {- ORMOLU_DISABLE -}
 compiledScript :: PlutusTx.CompiledCode (HydraState -> HydraInput -> ValidatorCtx -> Bool)
@@ -29,7 +35,8 @@ compiledScript = $$(PlutusTx.compile [|| validatorSM ||])
 
 tests :: TestTree
 tests =
-  testGroup
+  testGroup "Contract StateMachine"
+  [ testGroup
     "StateMachine Contract Behaviour"
     [ checkCompiledContractPIR "test/Hydra/ContractStateMachine.pir" compiledScript
     , checkPredicate
@@ -44,12 +51,28 @@ tests =
         setupInitCollectAndClose
     ]
 
+  , testGroup
+    "Init Transaction has the right shape"
+    [ checkPredicate "has right number of outputs"
+      (tx theContract (Trace.walletInstanceTag w1) (assertInitTxShape headParameters) "right shape")
+      (do
+        contractHandle <- Trace.activateContractWallet w1 theContract
+        Trace.callEndpoint @"setup" contractHandle ()
+      )
+    ]
+  ]
+
 assertState :: HydraState -> TracePredicate
 assertState = datumAtAddress contractAddress . toDatumHash
 
 assertStateIsClosed :: TracePredicate
 assertStateIsClosed =
   datumAtAddress contractAddress (toDatumHash Closed)
+
+assertInitTxShape :: HeadParameters -> UnbalancedTx -> Bool
+assertInitTxShape HeadParameters{verificationKeys} unbalancedTx =
+  let outputs = txOutputs (unBalancedTxTx unbalancedTx) in
+  length outputs == length verificationKeys + 1
 
 collectAndClose :: Trace.EmulatorTrace ()
 collectAndClose = do

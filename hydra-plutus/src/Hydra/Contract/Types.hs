@@ -5,7 +5,7 @@
 
 module Hydra.Contract.Types where
 
-import Ledger (Datum (Datum), DatumHash, datumHash)
+import Ledger (Datum (Datum), DatumHash, PubKeyHash, datumHash)
 import PlutusPrelude (Generic)
 import qualified PlutusTx
 import PlutusTx.Prelude
@@ -19,7 +19,7 @@ data HydraState
   deriving stock (Prelude.Eq)
 
 data HydraInput
-  = Init
+  = Init HeadParameters
   | CollectCom
   | Close Xi -- Pi
   deriving (Generic)
@@ -75,6 +75,11 @@ data Xi = Xi
   , confirmedTransactions :: [TransactionObject] -- morally a Set
   }
 
+data HeadParameters = HeadParameters
+  { verificationKeys :: [PubKeyHash]
+  }
+  deriving (Prelude.Eq, Show)
+
 toDatumHash :: PlutusTx.IsData a => a -> DatumHash
 toDatumHash = datumHash . Datum . PlutusTx.toData
 
@@ -90,6 +95,7 @@ PlutusTx.makeLift ''Transaction
 PlutusTx.makeLift ''UTXO
 PlutusTx.makeLift ''MultiSignature
 PlutusTx.makeLift ''Xi
+PlutusTx.makeLift ''HeadParameters
 
 PlutusTx.unstableMakeIsData ''HydraState
 PlutusTx.unstableMakeIsData ''HydraInput
@@ -103,3 +109,4 @@ PlutusTx.unstableMakeIsData ''Transaction
 PlutusTx.unstableMakeIsData ''UTXO
 PlutusTx.unstableMakeIsData ''MultiSignature
 PlutusTx.unstableMakeIsData ''Xi
+PlutusTx.unstableMakeIsData ''HeadParameters

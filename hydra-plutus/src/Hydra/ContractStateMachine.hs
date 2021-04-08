@@ -5,9 +5,10 @@
 
 module Hydra.ContractStateMachine where
 
-import Control.Monad (guard, void)
+import Control.Monad (forever, guard, void)
 import Ledger (Address, Validator, Value, scriptAddress)
 import qualified Ledger.Ada as Ada
+import Ledger.Constraints as Constraints
 import qualified Ledger.Typed.Scripts as Scripts
 import Playground.Contract
 import Plutus.Contract
@@ -22,9 +23,14 @@ import Hydra.Contract.Types
 
 {-# INLINEABLE transition #-}
 transition :: State HydraState -> HydraInput -> Maybe (SM.TxConstraints Void Void, State HydraState)
-transition state@State{stateData = Initial} Init =
+transition state@State{stateData = Initial} (Init params) =
   -- NOTE: vvv maybe we can add constraints for forging PTs here?
-  Just (mempty, state{stateData = Collecting})
+  let initValue =
+        Ada.lovelaceValueOf 1
+   in Just
+        ( mconcat ((`Constraints.mustPayToPubKey` initValue) <$> verificationKeys params)
+        , state{stateData = Collecting}
+        )
 transition state@State{stateData = Collecting} CollectCom =
   -- NOTE: vvv maybe we can add constraints for collecting PTs here?
   Just (mempty, state{stateData = Open openState})
@@ -120,12 +126,12 @@ contractValidator = Scripts.validatorScript contractInstance
 contractAddress :: Address
 contractAddress = Ledger.scriptAddress contractValidator
 
-setupEndpoint :: (AsContractError e, SM.AsSMContractError e) => Contract () Schema e ()
-setupEndpoint = do
+setupEndpoint :: (AsContractError e, SM.AsSMContractError e) => HeadParameters -> Contract () Schema e ()
+setupEndpoint params = do
   endpoint @"setup" @()
   logInfo @String $ "setupEndpoint"
   void $ SM.runInitialise client initialState (Ada.lovelaceValueOf 1)
-  void $ SM.runStep client Init
+  void $ SM.runStep client (Init params)
  where
   initialState = Initial
 
@@ -169,7 +175,14 @@ type Schema =
     .\/ Endpoint "collectCom" CollectComParams
     .\/ Endpoint "close" ()
 
-contract :: (AsContractError e, SM.AsSMContractError e) => Contract () Schema e ()
-contract = endpoints >> contract
+contract ::
+  (AsContractError e, SM.AsSMContractError e) =>
+  HeadParameters ->
+  Contract () Schema e ()
+contract params = forever endpoints
  where
-  endpoints = setupEndpoint `select` initEndpoint `select` collectComEndpoint `select` closeEndpoint
+  endpoints =
+    setupEndpoint params
+      `select` initEndpoint
+      `select` collectComEndpoint
+      `select` closeEndpoint
