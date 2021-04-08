@@ -77,7 +77,7 @@ initCollectAndClose = do
   contractHandle <- Trace.activateContractWallet w1 theContract
   Trace.callEndpoint @"init" contractHandle ()
   void $ Trace.waitUntilSlot (Slot 10)
-  callCollectCom
+  Trace.callEndpoint @"collectCom" contractHandle (CollectComParams $ Ada.lovelaceValueOf 42)
   void $ Trace.waitUntilSlot (Slot 20)
-  callClose
+  Trace.callEndpoint @"close" contractHandle ()
   void $ Trace.waitUntilSlot (Slot 30)

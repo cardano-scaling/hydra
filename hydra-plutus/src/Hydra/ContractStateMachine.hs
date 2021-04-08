@@ -157,6 +157,6 @@ type Schema =
     .\/ Endpoint "close" ()
 
 contract :: (AsContractError e, SM.AsSMContractError e) => Contract () Schema e ()
-contract = endpoints -- TODO do loop here?
+contract = endpoints >> contract
  where
   endpoints = initEndpoint `select` collectComEndpoint `select` closeEndpoint
