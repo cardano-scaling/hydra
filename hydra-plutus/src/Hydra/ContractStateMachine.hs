@@ -25,12 +25,17 @@ import Hydra.Contract.Types
 transition :: State HydraState -> HydraInput -> Maybe (SM.TxConstraints Void Void, State HydraState)
 transition state@State{stateData = Initial} (Init params) =
   -- NOTE: vvv maybe we can add constraints for forging PTs here?
-  let initValue =
-        Ada.lovelaceValueOf 1
-   in Just
-        ( mconcat ((`Constraints.mustPayToPubKey` initValue) <$> verificationKeys params)
-        , state{stateData = Collecting}
-        )
+  Just
+    ( foldMap constraints $ verificationKeys params
+    , state{stateData = Collecting}
+    )
+ where
+  constraints vk =
+    let val = Value.singleton currency (TokenName $ getPubKeyHash vk) 1
+     in Constraints.mustForgeValue val
+          <> Constraints.mustPayToPubKey val vk
+
+  currency = panic "undefined"
 transition state@State{stateData = Collecting} CollectCom =
   -- NOTE: vvv maybe we can add constraints for collecting PTs here?
   Just (mempty, state{stateData = Open openState})
