@@ -1,28 +1,21 @@
 module Hydra.Utils where
 
 import qualified Control.Foldl as L
-import Control.Monad.Freer (run)
-import Control.Monad.Freer.Extras (LogLevel (Info))
 import Control.Monad.Freer.Writer (tell)
 import qualified Data.Map as Map
 import Data.Maybe
 import Data.String
-import Data.Text (Text)
 import Data.Text.Prettyprint.Doc
-import Data.Text.Prettyprint.Doc.Render.Text (renderStrict)
 import Data.Void (Void)
 import Ledger (Address, DatumHash, TxOutTx (txOutTxOut), txOutDatum)
 import Ledger.AddressMap (UtxoMap)
 import Plutus.Contract.Test (TracePredicate)
 import PlutusTx
 import PlutusTx.Prelude hiding (trace)
-import qualified Streaming.Prelude as S
 import Test.Tasty
 import Test.Tasty.Golden
-import Wallet.Emulator (Wallet)
 import Wallet.Emulator.Folds (postMapM)
 import qualified Wallet.Emulator.Folds as Folds
-import Wallet.Emulator.Stream (filterLogLevel, foldEmulatorStreamM)
 
 -- | Check that the given script address has some `DatumHash`.
 datumAtAddress :: Address -> DatumHash -> TracePredicate

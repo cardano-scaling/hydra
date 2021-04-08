@@ -6,10 +6,11 @@
 module Hydra.ContractStateMachine where
 
 import Control.Monad (forever, guard, void)
-import Ledger (Address, Validator, Value, scriptAddress)
+import Ledger (Address, PubKeyHash (..), Validator, Value, scriptAddress)
 import qualified Ledger.Ada as Ada
 import Ledger.Constraints as Constraints
 import qualified Ledger.Typed.Scripts as Scripts
+import qualified Ledger.Value as Value
 import Playground.Contract
 import Plutus.Contract
 import Plutus.Contract.StateMachine (State (..), Void)
@@ -31,11 +32,13 @@ transition state@State{stateData = Initial} (Init params) =
     )
  where
   constraints vk =
-    let val = Value.singleton currency (TokenName $ getPubKeyHash vk) 1
+    let val =
+          Value.singleton
+            (currencyId params)
+            (TokenName $ getPubKeyHash vk)
+            1
      in Constraints.mustForgeValue val
-          <> Constraints.mustPayToPubKey val vk
-
-  currency = panic "undefined"
+          <> Constraints.mustPayToPubKey vk val
 transition state@State{stateData = Collecting} CollectCom =
   -- NOTE: vvv maybe we can add constraints for collecting PTs here?
   Just (mempty, state{stateData = Open openState})

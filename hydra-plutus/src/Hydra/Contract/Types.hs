@@ -5,7 +5,7 @@
 
 module Hydra.Contract.Types where
 
-import Ledger (Datum (Datum), DatumHash, PubKeyHash, datumHash)
+import Ledger (CurrencySymbol, Datum (Datum), DatumHash, PubKeyHash, datumHash)
 import PlutusPrelude (Generic)
 import qualified PlutusTx
 import PlutusTx.Prelude
@@ -77,6 +77,7 @@ data Xi = Xi
 
 data HeadParameters = HeadParameters
   { verificationKeys :: [PubKeyHash]
+  , currencyId :: CurrencySymbol
   }
   deriving (Prelude.Eq, Show)
 

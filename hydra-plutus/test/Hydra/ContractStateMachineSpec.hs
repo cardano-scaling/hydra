@@ -17,6 +17,7 @@ import Plutus.Contract.Test
 import qualified Plutus.Trace.Emulator as Trace
 import qualified PlutusTx
 import Test.Tasty
+import Hydra.MonetaryPolicy(hydraCurrencySymbol)
 
 w1 :: Wallet
 w1 = Wallet 1
@@ -28,6 +29,7 @@ headParameters :: HeadParameters
 headParameters =
   HeadParameters
     { verificationKeys = [PubKeyHash "party1pubkeyhash", PubKeyHash "party2pubkeyhash"]
+    , currencyId = hydraCurrencySymbol 14
     }
 
 {- ORMOLU_DISABLE -}
