@@ -125,6 +125,7 @@ setupEndpoint = do
   endpoint @"setup" @()
   logInfo @String $ "setupEndpoint"
   void $ SM.runInitialise client initialState (Ada.lovelaceValueOf 1)
+  void $ SM.runStep client Init
  where
   initialState = Initial
 
