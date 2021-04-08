@@ -39,13 +39,9 @@ tests =
         )
         $ void (Trace.activateContractWallet w1 theContract)
     , checkPredicate
-        "Close state after CollectCom"
+        "Closed state after setup > init > collectCom > close"
         (assertNoFailedTransactions .&&. assertStateIsClosed)
-        collectAndClose
-    , checkPredicate
-        "Closed state after init > collectCom > close"
-        (assertNoFailedTransactions .&&. assertStateIsClosed)
-        initCollectAndClose
+        setupInitCollectAndClose
     ]
 
 assertState :: HydraState -> TracePredicate
@@ -72,9 +68,11 @@ callClose = do
   contractHandle <- Trace.activateContractWallet w1 theContract
   Trace.callEndpoint @"close" contractHandle ()
 
-initCollectAndClose :: Trace.EmulatorTrace ()
-initCollectAndClose = do
+setupInitCollectAndClose :: Trace.EmulatorTrace ()
+setupInitCollectAndClose = do
   contractHandle <- Trace.activateContractWallet w1 theContract
+  Trace.callEndpoint @"setup" contractHandle ()
+  void $ Trace.waitUntilSlot (Slot 1)
   Trace.callEndpoint @"init" contractHandle ()
   void $ Trace.waitUntilSlot (Slot 10)
   Trace.callEndpoint @"collectCom" contractHandle (CollectComParams $ Ada.lovelaceValueOf 42)

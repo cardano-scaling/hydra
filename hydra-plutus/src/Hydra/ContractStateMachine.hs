@@ -22,6 +22,9 @@ import Hydra.Contract.Types
 
 {-# INLINEABLE transition #-}
 transition :: State HydraState -> HydraInput -> Maybe (SM.TxConstraints Void Void, State HydraState)
+transition state@State{stateData = Initial} Init =
+  -- NOTE: vvv maybe we can add constraints for forging PTs here?
+  Just (mempty, state{stateData = Collecting})
 transition state@State{stateData = Collecting} CollectCom =
   -- NOTE: vvv maybe we can add constraints for collecting PTs here?
   Just (mempty, state{stateData = Open openState})
@@ -117,14 +120,22 @@ contractValidator = Scripts.validatorScript contractInstance
 contractAddress :: Address
 contractAddress = Ledger.scriptAddress contractValidator
 
+setupEndpoint :: (AsContractError e, SM.AsSMContractError e) => Contract () Schema e ()
+setupEndpoint = do
+  endpoint @"setup" @()
+  logInfo @String $ "setupEndpoint"
+  void $ SM.runInitialise client initialState (Ada.lovelaceValueOf 1)
+ where
+  initialState = Initial
+
 -- | Our mocked "init" endpoint
 initEndpoint :: (AsContractError e, SM.AsSMContractError e) => Contract () Schema e ()
 initEndpoint = do
   endpoint @"init" @()
   logInfo @String $ "initEndpoint"
-  void $ SM.runInitialise client initialState (Ada.lovelaceValueOf 1)
+  void $ SM.runStep client input
  where
-  initialState = Collecting
+  input = CollectCom
 
 data CollectComParams = CollectComParams
   { amount :: Value
@@ -152,6 +163,7 @@ closeEndpoint = do
 
 type Schema =
   BlockchainActions
+    .\/ Endpoint "setup" ()
     .\/ Endpoint "init" ()
     .\/ Endpoint "collectCom" CollectComParams
     .\/ Endpoint "close" ()
@@ -159,4 +171,4 @@ type Schema =
 contract :: (AsContractError e, SM.AsSMContractError e) => Contract () Schema e ()
 contract = endpoints >> contract
  where
-  endpoints = initEndpoint `select` collectComEndpoint `select` closeEndpoint
+  endpoints = setupEndpoint `select` initEndpoint `select` collectComEndpoint `select` closeEndpoint

@@ -12,10 +12,17 @@ import PlutusTx.Prelude
 import qualified Prelude
 
 data HydraState
-  = Collecting
+  = Initial
+  | Collecting
   | Open OpenState
   | Closed
   deriving stock (Prelude.Eq)
+
+data HydraInput
+  = Init
+  | CollectCom
+  | Close Xi -- Pi
+  deriving (Generic)
 
 data OpenState = OpenState
   { keyAggregate :: MultisigPublicKey
@@ -58,9 +65,6 @@ data TransactionObject = TransactionObject
 data MultiSignature = MultiSignature
 
 data MerkleTreeRoot = MerkleTreeRoot
-
-data HydraInput = CollectCom | Close Xi -- Pi
-  deriving (Generic)
 
 data Pi
 
