@@ -5,11 +5,14 @@ module Hydra.ContractStateMachineSpec where
 import Hydra.ContractStateMachine
 
 import Cardano.Prelude
-import Hydra.Contract.Types (HydraInput, HydraState (..), toDatumHash, HeadParameters(..))
+import qualified Data.Map.Strict as Map
+import qualified Data.Set as Set
+import Hydra.Contract.Types (HeadParameters (..), HydraInput, HydraState (..), toDatumHash)
 import Hydra.Utils (checkCompiledContractPIR, datumAtAddress)
-import Ledger (Slot (Slot), ValidatorCtx, Tx(..))
-import Ledger.Constraints.OffChain (UnbalancedTx(..))
+import Ledger (Slot (Slot), Tx (..), TxOut, ValidatorCtx, txOutValue)
 import qualified Ledger.Ada as Ada
+import Ledger.Constraints.OffChain (UnbalancedTx (..))
+import Ledger.Value (flattenValue)
 import Plutus.Contract hiding (runError)
 import Plutus.Contract.StateMachine (SMContractError)
 import Plutus.Contract.Test
@@ -24,9 +27,10 @@ theContract :: Contract () Schema SMContractError ()
 theContract = contract headParameters
 
 headParameters :: HeadParameters
-headParameters = HeadParameters
-  { verificationKeys = []
-  }
+headParameters =
+  HeadParameters
+    { verificationKeys = []
+    }
 
 {- ORMOLU_DISABLE -}
 compiledScript :: PlutusTx.CompiledCode (HydraState -> HydraInput -> ValidatorCtx -> Bool)
@@ -35,32 +39,33 @@ compiledScript = $$(PlutusTx.compile [|| validatorSM ||])
 
 tests :: TestTree
 tests =
-  testGroup "Contract StateMachine"
-  [ testGroup
-    "StateMachine Contract Behaviour"
-    [ checkCompiledContractPIR "test/Hydra/ContractStateMachine.pir" compiledScript
-    , checkPredicate
-        "Expose 'collectCom' and 'close' endpoints"
-        ( endpointAvailable @"collectCom" theContract (Trace.walletInstanceTag w1)
-            .&&. endpointAvailable @"close" theContract (Trace.walletInstanceTag w1)
-        )
-        $ void (Trace.activateContractWallet w1 theContract)
-    , checkPredicate
-        "Closed state after setup > init > collectCom > close"
-        (assertNoFailedTransactions .&&. assertStateIsClosed)
-        setupInitCollectAndClose
+  testGroup
+    "Contract StateMachine"
+    [ testGroup
+        "StateMachine Contract Behaviour"
+        [ checkCompiledContractPIR "test/Hydra/ContractStateMachine.pir" compiledScript
+        , checkPredicate
+            "Expose 'collectCom' and 'close' endpoints"
+            ( endpointAvailable @"collectCom" theContract (Trace.walletInstanceTag w1)
+                .&&. endpointAvailable @"close" theContract (Trace.walletInstanceTag w1)
+            )
+            $ void (Trace.activateContractWallet w1 theContract)
+        , checkPredicate
+            "Closed state after setup > init > collectCom > close"
+            (assertNoFailedTransactions .&&. assertStateIsClosed)
+            setupInitCollectAndClose
+        ]
+    , testGroup
+        "Init Transaction has the right shape"
+        [ checkPredicate
+            "has right number of outputs"
+            (tx theContract (Trace.walletInstanceTag w1) (assertInitTxShape headParameters) "right shape")
+            ( do
+                contractHandle <- Trace.activateContractWallet w1 theContract
+                Trace.callEndpoint @"setup" contractHandle ()
+            )
+        ]
     ]
-
-  , testGroup
-    "Init Transaction has the right shape"
-    [ checkPredicate "has right number of outputs"
-      (tx theContract (Trace.walletInstanceTag w1) (assertInitTxShape headParameters) "right shape")
-      (do
-        contractHandle <- Trace.activateContractWallet w1 theContract
-        Trace.callEndpoint @"setup" contractHandle ()
-      )
-    ]
-  ]
 
 assertState :: HydraState -> TracePredicate
 assertState = datumAtAddress contractAddress . toDatumHash
@@ -71,8 +76,20 @@ assertStateIsClosed =
 
 assertInitTxShape :: HeadParameters -> UnbalancedTx -> Bool
 assertInitTxShape HeadParameters{verificationKeys} unbalancedTx =
-  let outputs = txOutputs (unBalancedTxTx unbalancedTx) in
-  length outputs == length verificationKeys + 1
+  let outputs = txOutputs (unBalancedTxTx unbalancedTx)
+      numberOfParticipants = length verificationKeys
+   in length outputs == numberOfParticipants + 1
+        && participationTokensAreUnique outputs numberOfParticipants
+
+participationTokensAreUnique :: [TxOut] -> Int -> Bool
+participationTokensAreUnique outputs policyId numberOfParticipants =
+  length (filter (hasParticipationToken 1) outputs) == numberOfParticipants
+--    && Set.size (assetNames policyId tx) == numberOfParticipants
+
+hasParticipationToken :: Int -> TxOut -> Bool
+hasParticipationToken numberOfTokens txOut =
+  let tokens = filter (\(cur,_,_) -> cur /= Ada.adaSymbol) $ flattenValue $ txOutValue txOut
+   in length tokens == numberOfTokens
 
 collectAndClose :: Trace.EmulatorTrace ()
 collectAndClose = do
