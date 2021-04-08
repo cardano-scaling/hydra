@@ -63,6 +63,7 @@ tests =
             ( do
                 contractHandle <- Trace.activateContractWallet w1 theContract
                 Trace.callEndpoint @"setup" contractHandle ()
+                Trace.callEndpoint @"init" contractHandle ()
             )
         ]
     ]
