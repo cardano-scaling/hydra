@@ -5,11 +5,9 @@ module Hydra.ContractStateMachineSpec where
 import Hydra.ContractStateMachine
 
 import Cardano.Prelude
-import qualified Data.Map.Strict as Map
-import qualified Data.Set as Set
 import Hydra.Contract.Types (HeadParameters (..), HydraInput, HydraState (..), toDatumHash)
 import Hydra.Utils (checkCompiledContractPIR, datumAtAddress)
-import Ledger (Slot (Slot), Tx (..), TxOut, ValidatorCtx, txOutValue)
+import Ledger (PubKeyHash (..), Slot (Slot), Tx (..), TxOut, ValidatorCtx, txOutValue)
 import qualified Ledger.Ada as Ada
 import Ledger.Constraints.OffChain (UnbalancedTx (..))
 import Ledger.Value (flattenValue)
@@ -29,7 +27,7 @@ theContract = contract headParameters
 headParameters :: HeadParameters
 headParameters =
   HeadParameters
-    { verificationKeys = []
+    { verificationKeys = [PubKeyHash "party1pubkeyhash", PubKeyHash "party2pubkeyhash"]
     }
 
 {- ORMOLU_DISABLE -}
@@ -82,13 +80,14 @@ assertInitTxShape HeadParameters{verificationKeys} unbalancedTx =
         && participationTokensAreUnique outputs numberOfParticipants
 
 participationTokensAreUnique :: [TxOut] -> Int -> Bool
-participationTokensAreUnique outputs policyId numberOfParticipants =
+participationTokensAreUnique outputs numberOfParticipants =
   length (filter (hasParticipationToken 1) outputs) == numberOfParticipants
+
 --    && Set.size (assetNames policyId tx) == numberOfParticipants
 
 hasParticipationToken :: Int -> TxOut -> Bool
 hasParticipationToken numberOfTokens txOut =
-  let tokens = filter (\(cur,_,_) -> cur /= Ada.adaSymbol) $ flattenValue $ txOutValue txOut
+  let tokens = filter (\(cur, _, _) -> cur /= Ada.adaSymbol) $ flattenValue $ txOutValue txOut
    in length tokens == numberOfTokens
 
 collectAndClose :: Trace.EmulatorTrace ()

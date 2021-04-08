@@ -14,7 +14,6 @@ import Data.Void (Void)
 import Ledger (Address, DatumHash, TxOutTx (txOutTxOut), txOutDatum)
 import Ledger.AddressMap (UtxoMap)
 import Plutus.Contract.Test (TracePredicate)
-import Plutus.Trace (EmulatorTrace, defaultEmulatorConfig, runEmulatorStream, walletInstanceTag)
 import PlutusTx
 import PlutusTx.Prelude hiding (trace)
 import qualified Streaming.Prelude as S
@@ -50,14 +49,14 @@ datum utxoMap =
 checkCompiledContractPIR :: FilePath -> CompiledCode a -> TestTree
 checkCompiledContractPIR path code = goldenVsString "PIR" path (return $ fromString $ show $ pretty $ fromJust $ getPir code)
 
-renderWalletLog :: Wallet -> EmulatorTrace () -> Text
-renderWalletLog w1 trace =
-  let result =
-        run $
-          foldEmulatorStreamM (L.generalize $ Folds.instanceLog (walletInstanceTag w1)) $
-            filterLogLevel Info $
-              runEmulatorStream defaultEmulatorConfig trace
-   in renderStrict $ layoutPretty defaultLayoutOptions $ vsep $ pretty <$> S.fst' result
+-- renderWalletLog :: Wallet -> EmulatorTrace () -> Text
+-- renderWalletLog w1 trace =
+--   let result =
+--         run $
+--           foldEmulatorStreamM (L.generalize $ Folds.instanceLog (walletInstanceTag w1)) $
+--             filterLogLevel Info $
+--               runEmulatorStream defaultEmulatorConfig trace
+--    in renderStrict $ layoutPretty defaultLayoutOptions $ vsep $ pretty <$> S.fst' result
 
 -- renderEmulatorLog :: EmulatorTrace () -> ByteString
 -- renderEmulatorLog trace =
