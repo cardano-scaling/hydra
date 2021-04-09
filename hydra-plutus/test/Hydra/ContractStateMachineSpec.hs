@@ -22,6 +22,9 @@ import Test.Tasty
 w1 :: Wallet
 w1 = Wallet 1
 
+w2 :: Wallet
+w2 = Wallet 2
+
 theContract :: Contract () Schema SMContractError ()
 theContract = contract headParameters
 
@@ -137,16 +140,17 @@ callClose = do
 
 setupInitCollectAndClose :: Trace.EmulatorTrace ()
 setupInitCollectAndClose = do
-  contractHandle <- Trace.activateContractWallet w1 theContract
-  Trace.callEndpoint @"setup" contractHandle ()
-  void $ Trace.waitUntilSlot (Slot 10)
-  Trace.callEndpoint @"init" contractHandle ()
-  void $ Trace.waitUntilSlot (Slot 20)
-  Trace.callEndpoint @"commit" contractHandle pubKey1
-  void $ Trace.waitUntilSlot (Slot 30)
-  Trace.callEndpoint @"commit" contractHandle pubKey2
-  void $ Trace.waitUntilSlot (Slot 40)
-  Trace.callEndpoint @"collectCom" contractHandle (CollectComParams $ Ada.lovelaceValueOf 42)
-  void $ Trace.waitUntilSlot (Slot 50)
-  Trace.callEndpoint @"close" contractHandle ()
-  void $ Trace.waitUntilSlot (Slot 60)
+  alice <- Trace.activateContractWallet w1 theContract
+  bob <- Trace.activateContractWallet w2 theContract
+  Trace.callEndpoint @"setup" alice ()
+  void $ Trace.nextSlot
+  Trace.callEndpoint @"init" alice ()
+  void $ Trace.nextSlot
+  Trace.callEndpoint @"commit" alice pubKey1
+  void $ Trace.nextSlot
+  Trace.callEndpoint @"commit" bob pubKey2
+  void $ Trace.nextSlot
+  Trace.callEndpoint @"collectCom" alice (CollectComParams $ Ada.lovelaceValueOf 42)
+  void $ Trace.nextSlot
+  Trace.callEndpoint @"close" alice ()
+  void $ Trace.nextSlot
