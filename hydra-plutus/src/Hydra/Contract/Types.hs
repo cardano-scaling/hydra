@@ -5,7 +5,13 @@
 
 module Hydra.Contract.Types where
 
-import Ledger (CurrencySymbol, Datum(Datum), DatumHash, PubKeyHash, datumHash)
+import Ledger (
+  CurrencySymbol,
+  Datum (Datum),
+  DatumHash,
+  PubKeyHash,
+  datumHash,
+ )
 import PlutusPrelude (Generic)
 import qualified PlutusTx
 import PlutusTx.Prelude
@@ -13,13 +19,18 @@ import qualified Prelude
 
 data HydraState
   = Initial
-  | Collecting { stillNeedToCommit :: [PubKeyHash] }
+  | Collecting CollectingState
   | Open OpenState
   | Closed
   deriving stock (Prelude.Eq)
 
+data CollectingState = CollectingState
+  {stillNeedToCommit :: [PubKeyHash]}
+  deriving stock (Prelude.Eq)
+
 data HydraInput
   = Init HeadParameters
+  | Commit PubKeyHash
   | CollectCom
   | Close Xi -- Pi
   deriving (Generic)
@@ -31,7 +42,7 @@ data OpenState = OpenState
   -- numberOfMembers :: Integer,
   -- contestationPeriod :: Integer
   }
-  deriving Prelude.Eq
+  deriving (Prelude.Eq)
 
 data MultisigPublicKey = MultisigPublicKey [VerificationKey]
   deriving (Prelude.Eq, Generic)
@@ -46,20 +57,20 @@ data Eta = Eta
   , snapshotNumber :: Integer -- s
   , transactions :: [Transaction] -- morally a Set
   }
-  deriving Prelude.Eq
+  deriving (Prelude.Eq)
 
 data UTXO = UTXO
-  deriving Prelude.Eq
+  deriving (Prelude.Eq)
 
 -- | The transaction as handled in the hydra head, i.e. the tx which we have put
 -- into Hydra. According to isomorphism property of Hydra, it could also have
 -- been put on the main chain.
 data Transaction = Transaction
-  deriving Prelude.Eq
+  deriving (Prelude.Eq)
 
 data TransactionObject = TransactionObject
   { sigma :: MultiSignature
-  , tx    :: Transaction
+  , tx :: Transaction
   }
 
 data MultiSignature = MultiSignature
@@ -69,7 +80,7 @@ data MerkleTreeRoot = MerkleTreeRoot
 data Pi
 
 data Xi = Xi
-  { xiUtxos    :: UTXO
+  { xiUtxos :: UTXO
   , xiSnapshotNumber :: Integer
   , signatures :: MultiSignature
   , confirmedTransactions :: [TransactionObject] -- morally a Set
@@ -85,6 +96,7 @@ toDatumHash :: PlutusTx.IsData a => a -> DatumHash
 toDatumHash = datumHash . Datum . PlutusTx.toData
 
 PlutusTx.makeLift ''HydraState
+PlutusTx.makeLift ''CollectingState
 PlutusTx.makeLift ''HydraInput
 PlutusTx.makeLift ''OpenState
 PlutusTx.makeLift ''MultisigPublicKey
@@ -99,6 +111,7 @@ PlutusTx.makeLift ''Xi
 PlutusTx.makeLift ''HeadParameters
 
 PlutusTx.unstableMakeIsData ''HydraState
+PlutusTx.unstableMakeIsData ''CollectingState
 PlutusTx.unstableMakeIsData ''HydraInput
 PlutusTx.unstableMakeIsData ''OpenState
 PlutusTx.unstableMakeIsData ''MultisigPublicKey

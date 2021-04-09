@@ -5,7 +5,7 @@ module Hydra.ContractStateMachineSpec where
 import Hydra.ContractStateMachine
 
 import Cardano.Prelude
-import Hydra.Contract.Types (HeadParameters (..), HydraInput, HydraState (..), toDatumHash)
+import Hydra.Contract.Types (HeadParameters (..), CollectingState(..), HydraInput, HydraState (..), toDatumHash)
 import Hydra.MonetaryPolicy (hydraCurrencySymbol)
 import Hydra.Utils (checkCompiledContractPIR, datumAtAddress)
 import Ledger (PubKeyHash (..), Slot (Slot), Tx (..), TxOut, ValidatorCtx, txOutValue)
@@ -56,12 +56,25 @@ tests =
             setupInitCollectAndClose
         , checkPredicate
             "Collecting holds all keys after init"
-            (assertNoFailedTransactions .&&. assertState (Collecting $ verificationKeys headParameters))
+            (assertNoFailedTransactions .&&. assertState (Collecting $ CollectingState $ verificationKeys headParameters))
             $ do
               contractHandle <- Trace.activateContractWallet w1 theContract
               Trace.callEndpoint @"setup" contractHandle ()
               void $ Trace.waitUntilSlot (Slot 10)
               Trace.callEndpoint @"init" contractHandle ()
+        , let
+            [keyForCommit, keyLeft] = verificationKeys headParameters
+          in
+          checkPredicate
+            "Single commit is acknowledged"
+            (assertNoFailedTransactions .&&. assertState (Collecting $ CollectingState [keyLeft]))
+          $ do
+            contractHandle <- Trace.activateContractWallet w1 theContract
+            Trace.callEndpoint @"setup" contractHandle ()
+            void $ Trace.waitUntilSlot (Slot 10)
+            Trace.callEndpoint @"init" contractHandle ()
+            void $ Trace.waitUntilSlot (Slot 10)
+            Trace.callEndpoint @"commit" contractHandle keyForCommit
         ]
     ]
 
@@ -114,7 +127,10 @@ setupInitCollectAndClose = do
   void $ Trace.waitUntilSlot (Slot 10)
   Trace.callEndpoint @"init" contractHandle ()
   void $ Trace.waitUntilSlot (Slot 20)
-  Trace.callEndpoint @"collectCom" contractHandle (CollectComParams $ Ada.lovelaceValueOf 42)
+  forM_ (verificationKeys headParameters) $ \vk ->
+    Trace.callEndpoint @"commit" contractHandle vk
   void $ Trace.waitUntilSlot (Slot 30)
-  Trace.callEndpoint @"close" contractHandle ()
+  Trace.callEndpoint @"collectCom" contractHandle (CollectComParams $ Ada.lovelaceValueOf 42)
   void $ Trace.waitUntilSlot (Slot 40)
+  Trace.callEndpoint @"close" contractHandle ()
+  void $ Trace.waitUntilSlot (Slot 50)
