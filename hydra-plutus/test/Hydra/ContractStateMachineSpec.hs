@@ -5,9 +5,9 @@ module Hydra.ContractStateMachineSpec where
 import Hydra.ContractStateMachine
 
 import Cardano.Prelude
-import Hydra.Contract.Types (HeadParameters (..), CollectingState(..), HydraInput, HydraState (..), toDatumHash)
+import Hydra.Contract.Types (CollectingState (..), HeadParameters (..), HydraInput, HydraState (..), toDatumHash)
 import Hydra.MonetaryPolicy (hydraCurrencySymbol)
-import Hydra.Utils (checkCompiledContractPIR, datumAtAddress)
+import Hydra.Utils (datumAtAddress)
 import Ledger (PubKeyHash (..), Slot (Slot), Tx (..), TxOut, ValidatorCtx, txOutValue)
 import qualified Ledger.Ada as Ada
 import Ledger.Constraints.OffChain (UnbalancedTx (..))
@@ -25,10 +25,16 @@ w1 = Wallet 1
 theContract :: Contract () Schema SMContractError ()
 theContract = contract headParameters
 
+pubKey1 :: PubKeyHash
+pubKey1 = PubKeyHash "party1pubkeyhash"
+
+pubKey2 :: PubKeyHash
+pubKey2 = PubKeyHash "party2pubkeyhash"
+
 headParameters :: HeadParameters
 headParameters =
   HeadParameters
-    { verificationKeys = [PubKeyHash "party1pubkeyhash", PubKeyHash "party2pubkeyhash"]
+    { verificationKeys = [pubKey1, pubKey2]
     , currencyId = hydraCurrencySymbol 14
     }
 
@@ -62,19 +68,28 @@ tests =
               Trace.callEndpoint @"setup" contractHandle ()
               void $ Trace.waitUntilSlot (Slot 10)
               Trace.callEndpoint @"init" contractHandle ()
-        , let
-            [keyForCommit, keyLeft] = verificationKeys headParameters
-          in
-          checkPredicate
+        , checkPredicate
             "Single commit is acknowledged"
-            (assertNoFailedTransactions .&&. assertState (Collecting $ CollectingState [keyLeft]))
-          $ do
-            contractHandle <- Trace.activateContractWallet w1 theContract
-            Trace.callEndpoint @"setup" contractHandle ()
-            void $ Trace.waitUntilSlot (Slot 10)
-            Trace.callEndpoint @"init" contractHandle ()
-            void $ Trace.waitUntilSlot (Slot 10)
-            Trace.callEndpoint @"commit" contractHandle keyForCommit
+            (assertNoFailedTransactions .&&. assertState (Collecting $ CollectingState [pubKey2]))
+            $ do
+              contractHandle <- Trace.activateContractWallet w1 theContract
+              Trace.callEndpoint @"setup" contractHandle ()
+              void $ Trace.waitUntilSlot (Slot 10)
+              Trace.callEndpoint @"init" contractHandle ()
+              void $ Trace.waitUntilSlot (Slot 20)
+              Trace.callEndpoint @"commit" contractHandle pubKey1
+        , checkPredicate
+            "Committing from all parties is acknowledged"
+            (assertNoFailedTransactions .&&. assertState (Collecting $ CollectingState []))
+            $ do
+              contractHandle <- Trace.activateContractWallet w1 theContract
+              Trace.callEndpoint @"setup" contractHandle ()
+              void $ Trace.waitUntilSlot (Slot 10)
+              Trace.callEndpoint @"init" contractHandle ()
+              void $ Trace.waitUntilSlot (Slot 20)
+              Trace.callEndpoint @"commit" contractHandle pubKey1
+              void $ Trace.waitUntilSlot (Slot 30)
+              Trace.callEndpoint @"commit" contractHandle pubKey2
         ]
     ]
 
@@ -127,10 +142,11 @@ setupInitCollectAndClose = do
   void $ Trace.waitUntilSlot (Slot 10)
   Trace.callEndpoint @"init" contractHandle ()
   void $ Trace.waitUntilSlot (Slot 20)
-  forM_ (verificationKeys headParameters) $ \vk ->
-    Trace.callEndpoint @"commit" contractHandle vk
+  Trace.callEndpoint @"commit" contractHandle pubKey1
   void $ Trace.waitUntilSlot (Slot 30)
-  Trace.callEndpoint @"collectCom" contractHandle (CollectComParams $ Ada.lovelaceValueOf 42)
+  Trace.callEndpoint @"commit" contractHandle pubKey2
   void $ Trace.waitUntilSlot (Slot 40)
-  Trace.callEndpoint @"close" contractHandle ()
+  Trace.callEndpoint @"collectCom" contractHandle (CollectComParams $ Ada.lovelaceValueOf 42)
   void $ Trace.waitUntilSlot (Slot 50)
+  Trace.callEndpoint @"close" contractHandle ()
+  void $ Trace.waitUntilSlot (Slot 60)
