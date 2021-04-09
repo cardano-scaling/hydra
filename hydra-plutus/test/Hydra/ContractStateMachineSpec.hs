@@ -8,7 +8,7 @@ import Cardano.Prelude
 import Hydra.Contract.Types (CollectingState (..), HeadParameters (..), HydraInput, HydraState (..), toDatumHash)
 import Hydra.MonetaryPolicy (hydraCurrencySymbol)
 import Hydra.Utils (datumAtAddress)
-import Ledger (PubKeyHash (..), Slot (Slot), Tx (..), TxOut, ValidatorCtx, txOutValue)
+import Ledger (PubKeyHash (..), Tx (..), TxOut, ValidatorCtx, txOutValue)
 import qualified Ledger.Ada as Ada
 import Ledger.Constraints.OffChain (UnbalancedTx (..))
 import Ledger.Value (flattenValue)
@@ -69,7 +69,7 @@ tests =
             $ do
               contractHandle <- Trace.activateContractWallet w1 theContract
               Trace.callEndpoint @"setup" contractHandle ()
-              void $ Trace.waitUntilSlot (Slot 10)
+              void $ Trace.nextSlot
               Trace.callEndpoint @"init" contractHandle ()
         , checkPredicate
             "Single commit is acknowledged"
@@ -77,9 +77,9 @@ tests =
             $ do
               contractHandle <- Trace.activateContractWallet w1 theContract
               Trace.callEndpoint @"setup" contractHandle ()
-              void $ Trace.waitUntilSlot (Slot 10)
+              void $ Trace.nextSlot
               Trace.callEndpoint @"init" contractHandle ()
-              void $ Trace.waitUntilSlot (Slot 20)
+              void $ Trace.nextSlot
               Trace.callEndpoint @"commit" contractHandle pubKey1
         , checkPredicate
             "Committing from all parties is acknowledged"
@@ -87,11 +87,11 @@ tests =
             $ do
               contractHandle <- Trace.activateContractWallet w1 theContract
               Trace.callEndpoint @"setup" contractHandle ()
-              void $ Trace.waitUntilSlot (Slot 10)
+              void $ Trace.nextSlot
               Trace.callEndpoint @"init" contractHandle ()
-              void $ Trace.waitUntilSlot (Slot 20)
+              void $ Trace.nextSlot
               Trace.callEndpoint @"commit" contractHandle pubKey1
-              void $ Trace.waitUntilSlot (Slot 30)
+              void $ Trace.nextSlot
               Trace.callEndpoint @"commit" contractHandle pubKey2
         ]
     ]
@@ -124,9 +124,9 @@ hasParticipationToken numberOfTokens txOut =
 collectAndClose :: Trace.EmulatorTrace ()
 collectAndClose = do
   callCollectCom
-  void $ Trace.waitUntilSlot (Slot 10)
+  void $ Trace.nextSlot
   callClose
-  void $ Trace.waitUntilSlot (Slot 20)
+  void $ Trace.nextSlot
 
 callCollectCom :: Trace.EmulatorTrace ()
 callCollectCom = do
