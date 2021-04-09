@@ -6,6 +6,7 @@ import Hydra.ContractStateMachine
 
 import Cardano.Prelude
 import Hydra.Contract.Types (HeadParameters (..), HydraInput, HydraState (..), toDatumHash)
+import Hydra.MonetaryPolicy (hydraCurrencySymbol)
 import Hydra.Utils (checkCompiledContractPIR, datumAtAddress)
 import Ledger (PubKeyHash (..), Slot (Slot), Tx (..), TxOut, ValidatorCtx, txOutValue)
 import qualified Ledger.Ada as Ada
@@ -17,7 +18,6 @@ import Plutus.Contract.Test
 import qualified Plutus.Trace.Emulator as Trace
 import qualified PlutusTx
 import Test.Tasty
-import Hydra.MonetaryPolicy(hydraCurrencySymbol)
 
 w1 :: Wallet
 w1 = Wallet 1
@@ -43,8 +43,8 @@ tests =
     "Contract StateMachine"
     [ testGroup
         "StateMachine Contract Behaviour"
-        [ checkCompiledContractPIR "test/Hydra/ContractStateMachine.pir" compiledScript
-        , checkPredicate
+        [ -- checkCompiledContractPIR "test/Hydra/ContractStateMachine.pir" compiledScript
+          checkPredicate
             "Expose 'collectCom' and 'close' endpoints"
             ( endpointAvailable @"collectCom" theContract (Trace.walletInstanceTag w1)
                 .&&. endpointAvailable @"close" theContract (Trace.walletInstanceTag w1)
@@ -54,17 +54,14 @@ tests =
             "Closed state after setup > init > collectCom > close"
             (assertNoFailedTransactions .&&. assertStateIsClosed)
             setupInitCollectAndClose
-        ]
-    , testGroup
-        "Init Transaction has the right shape"
-        [ checkPredicate
-            "has right number of outputs"
-            (tx theContract (Trace.walletInstanceTag w1) (assertInitTxShape headParameters) "right shape")
-            ( do
-                contractHandle <- Trace.activateContractWallet w1 theContract
-                Trace.callEndpoint @"setup" contractHandle ()
-                Trace.callEndpoint @"init" contractHandle ()
-            )
+        , checkPredicate
+            "Collecting holds all keys after init"
+            (assertNoFailedTransactions .&&. assertState (Collecting $ verificationKeys headParameters))
+            $ do
+              contractHandle <- Trace.activateContractWallet w1 theContract
+              Trace.callEndpoint @"setup" contractHandle ()
+              void $ Trace.waitUntilSlot (Slot 10)
+              Trace.callEndpoint @"init" contractHandle ()
         ]
     ]
 
