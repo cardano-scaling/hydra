@@ -5,7 +5,7 @@ module Hydra.ContractStateMachineSpec where
 import Hydra.ContractStateMachine
 
 import Cardano.Prelude
-import Hydra.Contract.Types (CollectingState (..), HeadParameters (..), HydraInput, HydraState (..), toDatumHash)
+import Hydra.Contract.Types (CollectingState (..), HeadParameters (..), HydraInput, HydraState (..), UTXO (UTXO), toDatumHash)
 import Hydra.MonetaryPolicy (hydraCurrencySymbol)
 import Hydra.Utils (datumAtAddress)
 import Ledger (PubKeyHash (..), Tx (..), TxOut, ValidatorCtx, txOutValue)
@@ -65,7 +65,7 @@ tests =
             setupInitCollectAndClose
         , checkPredicate
             "Collecting holds all keys after init"
-            (assertNoFailedTransactions .&&. assertState (Collecting $ CollectingState $ verificationKeys headParameters))
+            (assertNoFailedTransactions .&&. assertState (Collecting $ CollectingState (verificationKeys headParameters) []))
             $ do
               contractHandle <- Trace.activateContractWallet w1 theContract
               Trace.callEndpoint @"setup" contractHandle ()
@@ -73,26 +73,26 @@ tests =
               Trace.callEndpoint @"init" contractHandle ()
         , checkPredicate
             "Single commit is acknowledged"
-            (assertNoFailedTransactions .&&. assertState (Collecting $ CollectingState [pubKey2]))
+            (assertNoFailedTransactions .&&. assertState (Collecting (CollectingState{stillNeedToCommit = [pubKey2], committedUtxos = [UTXO]})))
             $ do
               contractHandle <- Trace.activateContractWallet w1 theContract
               Trace.callEndpoint @"setup" contractHandle ()
               void $ Trace.nextSlot
               Trace.callEndpoint @"init" contractHandle ()
               void $ Trace.nextSlot
-              Trace.callEndpoint @"commit" contractHandle pubKey1
+              Trace.callEndpoint @"commit" contractHandle (pubKey1, [UTXO])
         , checkPredicate
             "Committing from all parties is acknowledged"
-            (assertNoFailedTransactions .&&. assertState (Collecting $ CollectingState []))
+            (assertNoFailedTransactions .&&. assertState (Collecting (CollectingState{stillNeedToCommit = [], committedUtxos = [UTXO, UTXO, UTXO]})))
             $ do
               contractHandle <- Trace.activateContractWallet w1 theContract
               Trace.callEndpoint @"setup" contractHandle ()
               void $ Trace.nextSlot
               Trace.callEndpoint @"init" contractHandle ()
               void $ Trace.nextSlot
-              Trace.callEndpoint @"commit" contractHandle pubKey1
+              Trace.callEndpoint @"commit" contractHandle (pubKey1, [UTXO])
               void $ Trace.nextSlot
-              Trace.callEndpoint @"commit" contractHandle pubKey2
+              Trace.callEndpoint @"commit" contractHandle (pubKey2, [UTXO, UTXO])
         ]
     ]
 
@@ -146,9 +146,9 @@ setupInitCollectAndClose = do
   void $ Trace.nextSlot
   Trace.callEndpoint @"init" alice ()
   void $ Trace.nextSlot
-  Trace.callEndpoint @"commit" alice pubKey1
+  Trace.callEndpoint @"commit" alice (pubKey1, [UTXO])
   void $ Trace.nextSlot
-  Trace.callEndpoint @"commit" bob pubKey2
+  Trace.callEndpoint @"commit" bob (pubKey2, [UTXO])
   void $ Trace.nextSlot
   Trace.callEndpoint @"collectCom" alice (CollectComParams $ Ada.lovelaceValueOf 42)
   void $ Trace.nextSlot

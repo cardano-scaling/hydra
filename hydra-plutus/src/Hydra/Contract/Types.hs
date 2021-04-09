@@ -5,6 +5,7 @@
 
 module Hydra.Contract.Types where
 
+import Data.Aeson (FromJSON, ToJSON)
 import Ledger (
   CurrencySymbol,
   Datum (Datum),
@@ -25,12 +26,14 @@ data HydraState
   deriving stock (Prelude.Eq)
 
 data CollectingState = CollectingState
-  {stillNeedToCommit :: [PubKeyHash]}
+  { stillNeedToCommit :: [PubKeyHash]
+  , committedUtxos :: [UTXO]
+  }
   deriving stock (Prelude.Eq)
 
 data HydraInput
   = Init HeadParameters
-  | Commit PubKeyHash
+  | Commit PubKeyHash [UTXO]
   | CollectCom
   | Close Xi -- Pi
   deriving (Generic)
@@ -60,7 +63,7 @@ data Eta = Eta
   deriving (Prelude.Eq)
 
 data UTXO = UTXO
-  deriving (Prelude.Eq)
+  deriving (Prelude.Eq, Generic, ToJSON, FromJSON)
 
 -- | The transaction as handled in the hydra head, i.e. the tx which we have put
 -- into Hydra. According to isomorphism property of Hydra, it could also have

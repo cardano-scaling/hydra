@@ -26,10 +26,10 @@ transition ::
   Maybe (SM.TxConstraints Void Void, State HydraState)
 transition s i = case (s, i) of
   (state@State{stateData = Initial}, Init params) ->
-    Just (mempty, state{stateData = Collecting $ CollectingState $ verificationKeys params})
-  (state@State{stateData = Collecting (CollectingState toCommit)}, Commit pk) ->
-    Just (mempty, state{stateData = Collecting $ CollectingState $ filter (/= pk) toCommit})
-  (state@State{stateData = Collecting (CollectingState toCommit)}, CollectCom)
+    Just (mempty, state{stateData = Collecting $ CollectingState (verificationKeys params) []})
+  (state@State{stateData = Collecting (CollectingState toCommit [])}, Commit pk _utxos) ->
+    Just (mempty, state{stateData = Collecting $ CollectingState (filter (/= pk) toCommit) []})
+  (state@State{stateData = Collecting (CollectingState toCommit [])}, CollectCom)
     | null toCommit -> Just (mempty, state{stateData = Open openState})
     | otherwise -> Nothing
   (state@State{stateData = Open OpenState{eta, keyAggregate}}, Close xi) ->
@@ -144,9 +144,9 @@ commit ::
   (AsContractError e, SM.AsSMContractError e) =>
   Contract () Schema e ()
 commit = do
-  pk <- endpoint @"commit" @PubKeyHash
+  (pk, utxos) <- endpoint @"commit" @(PubKeyHash, [UTXO])
   logInfo @String "commitEndpoint"
-  void $ SM.runStep client (Commit pk)
+  void $ SM.runStep client (Commit pk utxos)
 
 data CollectComParams = CollectComParams
   { amount :: Value
@@ -178,7 +178,7 @@ type Schema =
   BlockchainActions
     .\/ Endpoint "setup" ()
     .\/ Endpoint "init" ()
-    .\/ Endpoint "commit" PubKeyHash
+    .\/ Endpoint "commit" (PubKeyHash, [UTXO])
     .\/ Endpoint "collectCom" CollectComParams
     .\/ Endpoint "close" ()
 
