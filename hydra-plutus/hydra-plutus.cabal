@@ -74,7 +74,6 @@ common project-config
 library
   import: project-config
   exposed-modules:
-      Hydra.Contract
       Hydra.ContractStateMachine
       Hydra.Contract.Types
       Hydra.MonetaryPolicy
@@ -100,7 +99,6 @@ test-suite hydra-plutus-test
   main-is: Spec.hs
   hs-source-dirs: test
   other-modules:
-      Hydra.ContractSpec
       Hydra.ContractStateMachineSpec
       Hydra.Utils
   build-depends:
