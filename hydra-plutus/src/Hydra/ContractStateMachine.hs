@@ -6,8 +6,14 @@
 module Hydra.ContractStateMachine where
 
 import Control.Monad (forever, guard, void)
+import qualified Data.Map.Strict as Map
+import Hydra.Contract.Types
 import Ledger (Address, PubKeyHash (..), Validator, Value, scriptAddress)
 import qualified Ledger.Ada as Ada
+import Ledger.AddressMap (UtxoMap)
+import Ledger.Constraints.OffChain (ScriptLookups (..))
+import Ledger.Constraints.TxConstraints as Constraints
+import Ledger.Index (ValidationError, lkpValue)
 import qualified Ledger.Typed.Scripts as Scripts
 import Playground.Contract
 import Plutus.Contract
@@ -17,77 +23,51 @@ import qualified PlutusTx
 import PlutusTx.Prelude
 import qualified Prelude
 
-import Hydra.Contract.Types
-
 {-# INLINEABLE transition #-}
 transition ::
   State HydraState ->
   HydraInput ->
   Maybe (SM.TxConstraints Void Void, State HydraState)
 transition s i = case (s, i) of
-  (state@State{stateData = Initial}, Init params) ->
-    Just (mempty, state{stateData = Collecting $ CollectingState (verificationKeys params) []})
-  (state@State{stateData = Collecting (CollectingState toCommit [])}, Commit pk _utxos) ->
-    Just (mempty, state{stateData = Collecting $ CollectingState (filter (/= pk) toCommit) []})
-  (state@State{stateData = Collecting (CollectingState toCommit [])}, CollectCom)
-    | null toCommit -> Just (mempty, state{stateData = Open openState})
-    | otherwise -> Nothing
-  (state@State{stateData = Open OpenState{eta, keyAggregate}}, Close xi) ->
-    case close keyAggregate eta xi of
-      Just{} -> Just (mempty, state{stateData = Closed})
-      Nothing -> Nothing
+  (state@State{stateData = Started}, Init params) ->
+    Just
+      ( mempty
+      , state{stateData = Initial (verificationKeys params)}
+      )
+  (state@State{stateData = Initial vks}, Commit vk refs) ->
+    case vks of
+      (h : q)
+        | h == vk ->
+          Just
+            -- TODO
+            -- <> Constraints.mustPayToTheScript st sumOfUTxOs
+            ( foldMap Constraints.mustSpendPubKeyOutput refs
+                <> Constraints.mustBeSignedBy vk
+            , state{stateData = Initial q}
+            )
+      _ ->
+        Nothing
+  (state@State{stateData = Initial vks}, CollectCom) ->
+    case vks of
+      [] ->
+        Just
+          ( mempty
+          , state{stateData = Open}
+          )
+      _ ->
+        Nothing
+  (state@State{stateData = Open}, Close) ->
+    Just
+      ( mempty
+      , state{stateData = Closed}
+      )
   (_, _) -> Nothing
- where
-  openState =
-    OpenState{keyAggregate = MultisigPublicKey [], eta = Eta UTXO 0 []}
-
-{-# INLINEABLE close #-}
-close :: MultisigPublicKey -> Eta -> Xi -> Maybe Eta
-close kAgg eta xi = do
-  let (Xi u s sigma txs) = xi
-  guard (all (verifyMultisignature kAgg) txs)
-  guard (s == 0 || verifySnapshot kAgg u s sigma)
-  let realU = if s == 0 then utxos eta else u
-      mainchainTxs = map tx txs
-  guard (isJust $ applyTransactions realU mainchainTxs)
-  pure $ Eta realU s mainchainTxs
-
-{-# INLINEABLE verifyMultisignature #-}
-verifyMultisignature :: MultisigPublicKey -> TransactionObject -> Bool
-verifyMultisignature kAgg TransactionObject{sigma, tx} =
-  msAVerify kAgg (hash $ serialize tx) sigma
-
-{-# INLINEABLE verifySnapshot #-}
-verifySnapshot ::
-  MultisigPublicKey -> UTXO -> Integer -> MultiSignature -> Bool
-verifySnapshot kAgg u s sigma =
-  msAVerify kAgg (hash $ serialize u <> serialize s) sigma
-
--- | This is only about folding the transactions onto a UTXO and no evaluation
--- whatsoever.
-applyTransactions :: UTXO -> [Transaction] -> Maybe UTXO
-applyTransactions u _ = Just u -- TODO
-
---
--- Primitives we need
---
-
-serialize :: a -> ByteString
-serialize = const "reuse plutus tx's isData stuff" -- TODO
-
-hash :: ByteString -> ByteString
-hash = const "hashed bytestring" -- TODO
-
-msAVerify :: MultisigPublicKey -> ByteString -> MultiSignature -> Bool
-msAVerify _ _ _ = True -- TODO
-
---
--- Boilerplate
---
 
 {-# INLINEABLE machine #-}
 machine :: SM.StateMachine HydraState HydraInput
-machine = SM.mkStateMachine transition isFinal where isFinal _ = False
+machine = SM.mkStateMachine transition isFinal
+ where
+  isFinal _ = False
 
 {-# INLINEABLE validatorSM #-}
 validatorSM :: Scripts.ValidatorType (SM.StateMachine HydraState HydraInput)
@@ -124,9 +104,7 @@ setupEndpoint ::
 setupEndpoint = do
   endpoint @"setup" @()
   logInfo @String $ "setupEndpoint"
-  void $ SM.runInitialise client initialState (Ada.lovelaceValueOf 1)
- where
-  initialState = Initial
+  void $ SM.runInitialise client Started (Ada.lovelaceValueOf 1)
 
 -- | Our mocked "init" endpoint
 initEndpoint ::
@@ -136,51 +114,54 @@ initEndpoint ::
 initEndpoint params = do
   endpoint @"init" @()
   logInfo @String $ "initEndpoint"
-  void $ SM.runStep client input
- where
-  input = Init params
-
-commit ::
-  (AsContractError e, SM.AsSMContractError e) =>
-  Contract () Schema e ()
-commit = do
-  (pk, utxos) <- endpoint @"commit" @(PubKeyHash, [UTXO])
-  logInfo @String "commitEndpoint"
-  void $ SM.runStep client (Commit pk utxos)
-
-data CollectComParams = CollectComParams
-  { amount :: Value
-  }
-  deriving stock (Prelude.Eq, Prelude.Show, Generic)
-  deriving anyclass (FromJSON, ToJSON, ToSchema, ToArgument)
+  void $ SM.runStep client (Init params)
 
 -- | Our mocked "collectCom" endpoint
 collectComEndpoint ::
-  (AsContractError e, SM.AsSMContractError e) => Contract () Schema e ()
+  (AsContractError e, SM.AsSMContractError e) =>
+  Contract () Schema e ()
 collectComEndpoint = do
-  CollectComParams _amt <- endpoint @"collectCom" @CollectComParams
+  endpoint @"collectCom" @()
   logInfo @String $ "collectComEndpoint"
-  void $ SM.runStep client input
- where
-  input = CollectCom
+  void $ SM.runStep client CollectCom
 
 -- | Our "close" endpoint to trigger a close
 closeEndpoint ::
-  (AsContractError e, SM.AsSMContractError e) => Contract () Schema e ()
+  (AsContractError e, SM.AsSMContractError e) =>
+  Contract () Schema e ()
 closeEndpoint = do
   endpoint @"close" @()
   logInfo @String $ "closeEndpoint"
-  void $ SM.runStep client input
+  void $ SM.runStep client Close
+
+commitEndpoint ::
+  (AsContractError e, SM.AsSMContractError e) =>
+  Contract () Schema e ()
+commitEndpoint = do
+  (vk, utxo) <- endpoint @"commit" @(PubKeyHash, UtxoMap)
+  logInfo @String "commitEndpoint"
+  void $ SM.runStepWith client (Commit vk $ Map.keys utxo) (withKnownUtxo utxo)
  where
-  input = Close $ Xi UTXO 0 MultiSignature []
+  withKnownUtxo ::
+    UtxoMap ->
+    SM.StateMachineTransition state input ->
+    SM.StateMachineTransition state input
+  withKnownUtxo utxo transition@SM.StateMachineTransition{SM.smtLookups} =
+    transition
+      { SM.smtLookups =
+          smtLookups
+            { slTxOutputs =
+                slTxOutputs smtLookups Prelude.<> utxo
+            }
+      }
 
 type Schema =
   BlockchainActions
     .\/ Endpoint "setup" ()
     .\/ Endpoint "init" ()
-    .\/ Endpoint "commit" (PubKeyHash, [UTXO])
-    .\/ Endpoint "collectCom" CollectComParams
+    .\/ Endpoint "collectCom" ()
     .\/ Endpoint "close" ()
+    .\/ Endpoint "commit" (PubKeyHash, UtxoMap)
 
 contract ::
   (AsContractError e, SM.AsSMContractError e) =>
@@ -191,6 +172,6 @@ contract params = forever endpoints
   endpoints =
     setupEndpoint
       `select` initEndpoint params
-      `select` commit
       `select` collectComEndpoint
+      `select` commitEndpoint
       `select` closeEndpoint
