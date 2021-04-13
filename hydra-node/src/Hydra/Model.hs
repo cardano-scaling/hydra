@@ -1,6 +1,7 @@
+{-# LANGUAGE AllowAmbiguousTypes #-}
+
 -- | A first take on our problem domain and how we would model things. This is a
 -- DRAFT and most things are likely incomplete.
-{-# LANGUAGE AllowAmbiguousTypes #-}
 module Hydra.Model where
 
 import Cardano.Prelude
@@ -89,11 +90,12 @@ createHeadState = panic "not implemented"
 class HydraLedger l where
   type LedgerState l :: Type
 
-  applyTxs :: LedgerEnv
-           -> LedgerState l
-           -> Seq Tx
-           -> Either ValidationError (LedgerState l)
-          
+  applyTxs ::
+    LedgerEnv ->
+    LedgerState l ->
+    Seq Tx ->
+    Either ValidationError (LedgerState l)
+
 validateTx :: HydraLedger l => LedgerState l -> Tx -> ValidationResult
 validateTx = panic "derive this from applyTx"
 
@@ -113,17 +115,10 @@ data ProtocolParameters
 -- mainchain protocol parameters.
 -- type LedgerState = UTxO
 
--- | Either valid or an error which we get from the ledger-specs tx validation.
-data ValidationResult
-  = Valid
-  | Invalid ValidationError
-
 -- | Validate a transaction given a ledger state and mainchain protocol
 -- parameters. TODO: required if we have applyTx?
 -- validateTx :: LedgerState -> Tx -> ValidationResult
 -- validateTx = panic "not implemented"
-
-data ValidationError
 
 -- | Validate and apply a transaction if valid to a given ledger.
 -- applyTx :: ProtocolParameters -> LedgerState -> Tx -> Either ValidationError LedgerState

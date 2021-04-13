@@ -69,6 +69,7 @@ library
   hs-source-dirs: src
   exposed-modules:
     Hydra.Node
+    Hydra.Ledger
     Hydra.OnChainTransaction
     Network.TypedProtocol.FireForget.Type
     Network.TypedProtocol.FireForget.Client
@@ -85,6 +86,9 @@ library
     , hydra-plutus
     , plutus-ledger
     , ouroboros-network-framework
+    , ouroboros-consensus-shelley
+    , shelley-spec-ledger
+    , cardano-ledger-shelley-ma
     , typed-protocols
   ghc-options:
     -haddock
