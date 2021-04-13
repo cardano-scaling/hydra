@@ -70,14 +70,9 @@ library
   exposed-modules:
     Hydra.Node
     Hydra.Ledger
-    Hydra.OnChainTransaction
     Network.TypedProtocol.FireForget.Type
     Network.TypedProtocol.FireForget.Client
     Network.TypedProtocol.FireForget.Server
-  other-modules:
-    Hydra.OnChainTransaction.Plutus
-    Hydra.OnChainTransaction.State
-    Hydra.OnChainTransaction.Types
   build-depends:
       async
     , base
@@ -132,21 +127,15 @@ test-suite tests
   import: project-config
   hs-source-dirs: test
   other-modules:
-    Hydra.Arbitraries
     Hydra.NodeSpec
-    Hydra.OnChainTransactionSpec
   main-is: Main.hs
   type: exitcode-stdio-1.0
   build-depends:
       base
-    , bytestring
     , cardano-prelude
-    , containers
     , hspec
     , hspec-core
     , hydra-node
-    , hydra-plutus
-    , QuickCheck
   build-tool-depends:
     hspec-discover:hspec-discover
   ghc-options:
