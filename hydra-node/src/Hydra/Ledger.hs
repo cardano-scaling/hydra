@@ -1,5 +1,7 @@
 module Hydra.Ledger where
 
+import Cardano.Prelude
+
 import Cardano.Ledger.Mary (MaryEra)
 import Ouroboros.Consensus.Shelley.Protocol (StandardCrypto)
 import qualified Shelley.Spec.Ledger.API as Ledger
@@ -18,19 +20,23 @@ type Era = MaryEra StandardCrypto
 globals :: Ledger.Globals
 globals = panic "undefined"
 
-ledgerEnv :: Ledgers.LedgersEnv era
+ledgerEnv :: Ledgers.LedgersEnv Era
 ledgerEnv = panic "undefined"
+
+ledgerState :: Ledger.LedgerState Era
+ledgerState = panic "undefined"
 
 -- | Either valid or an error which we get from the ledger-specs tx validation.
 data ValidationResult
   = Valid
   | Invalid ValidationError
 
-data ValidationError
+data ValidationError = ValidationError
 
-validateTx :: Ledger.LedgerState era -> Ledger.Tx era -> ValidationResult
-validateTx =
-  Ledger.applyTxsTransition
-    globals
-    mempoolEnv
-    txs
+validateTx :: Ledger.Tx Era -> ValidationResult
+validateTx tx =
+  either (Invalid . toValidationError)
+         (const Valid) $ Ledger.applyTxsTransition globals ledgerEnv (pure tx) ledgerState
+ where
+  -- toValidationError :: ApplyTxError -> ValidationError
+  toValidationError = const ValidationError
