@@ -77,18 +77,26 @@ transition s i = case (s, i) of
   mustForgeParticipationToken :: MonetaryPolicyHash -> PubKeyHash -> TxConstraints i o
   mustForgeParticipationToken policy vk =
     let value = Value.singleton (Value.mpsSymbol policy) (mkTokenName vk) 1
-     in Constraints.mustForgeCurrency policy (mkTokenName vk) 1
-          <> Constraints.mustPayToPubKey vk value
+     in mconcat
+          [ Constraints.mustForgeCurrency policy (mkTokenName vk) 1
+          , Constraints.mustPayToPubKey vk value
+          ]
 
   mustLockUtxo :: (TxOutRef, TxOut) -> TxConstraints i o
   mustLockUtxo (ref, out) =
     let value = txOutValue out
-     in Constraints.mustSpendPubKeyOutput ref <> Constraints.mustProduceAtLeast value
+     in mconcat
+          [ Constraints.mustSpendPubKeyOutput ref
+          , Constraints.mustProduceAtLeast value
+          ]
 
   mustForwardParticipationToken :: MonetaryPolicyHash -> PubKeyHash -> TxConstraints i o
   mustForwardParticipationToken policy vk =
     let value = Value.singleton (Value.mpsSymbol policy) (mkTokenName vk) 1
-     in Constraints.mustSpendAtLeast value <> Constraints.mustProduceAtLeast value
+     in mconcat
+          [ Constraints.mustSpendAtLeast value
+          , Constraints.mustProduceAtLeast value
+          ]
 
 {-# INLINEABLE machine #-}
 machine :: SM.StateMachine HydraState HydraInput
