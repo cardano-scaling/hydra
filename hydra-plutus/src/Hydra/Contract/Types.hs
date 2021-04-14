@@ -6,10 +6,12 @@
 module Hydra.Contract.Types where
 
 import Ledger (
-  CurrencySymbol,
   Datum (Datum),
   DatumHash,
+  MonetaryPolicy,
+  MonetaryPolicyHash,
   PubKeyHash,
+  TxOut,
   TxOutRef,
   datumHash,
  )
@@ -20,14 +22,14 @@ import qualified Prelude
 
 data HydraState
   = Started
-  | Initial [PubKeyHash]
+  | Initial [PubKeyHash] MonetaryPolicyHash
   | Open
   | Closed
   deriving stock (Prelude.Eq, Prelude.Show)
 
 data HydraInput
-  = Init HeadParameters
-  | Commit PubKeyHash [TxOutRef]
+  = Init [PubKeyHash] MonetaryPolicyHash
+  | Commit PubKeyHash [(TxOutRef, TxOut)]
   | CollectCom
   | Close
   deriving (Generic)
@@ -39,7 +41,7 @@ newtype VerificationKey = VerificationKey
 
 data HeadParameters = HeadParameters
   { verificationKeys :: [PubKeyHash]
-  , currencyId :: CurrencySymbol
+  , monetaryPolicy :: MonetaryPolicy
   }
   deriving (Prelude.Eq, Show)
 
@@ -48,8 +50,6 @@ toDatumHash = datumHash . Datum . PlutusTx.toData
 
 PlutusTx.makeLift ''HydraState
 PlutusTx.makeLift ''HydraInput
-PlutusTx.makeLift ''HeadParameters
 
 PlutusTx.unstableMakeIsData ''HydraState
 PlutusTx.unstableMakeIsData ''HydraInput
-PlutusTx.unstableMakeIsData ''HeadParameters
