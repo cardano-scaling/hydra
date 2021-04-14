@@ -5,6 +5,7 @@
 module Hydra.Model where
 
 import Cardano.Prelude
+import Control.Concurrent.STM (TChan, newTChanIO, newTVarIO, readTChan, readTVarIO, writeTVar)
 import Network.TypedProtocol.FireForget.Server (FireForgetServer)
 
 data Tx
@@ -49,7 +50,7 @@ data Output
   | NetworkOutput HydraMessage
   | OnChainOutput OnChainTx
 
-data HeadState
+data HeadState = HeadState
 
 -- | The heart of the Hydra head protocol, a handler of all kinds of 'Event' in
 -- the Hydra head. This may also be split into multiple handlers, i.e. one for
@@ -129,15 +130,20 @@ data ProtocolParameters
 
 main :: IO ()
 main = do
+  eq <- newTChanIO
   hh <- setupHydraHead
-  oc <- setupChainClient
-  hn <- setupHydraNetwork oc hh
+  oc <- setupChainClient eq
+  hn <- setupHydraNetwork eq
 
-  forever $ do
-    e <- getEvent
-    runHydraHeadProtocol hn oc hh e
+  -- TODO forM_ [0..1] $ async $
+  runHydraHeadProtocol eq hn oc hh
  where
   getEvent = panic "not implememted"
+
+type EventQueue = TChan Event
+
+putEvent :: EventQueue -> Event -> IO ()
+putEvent = panic "undefined"
 
 setupHydraHead :: IO (HydraHead IO)
 setupHydraHead = do
@@ -145,25 +151,27 @@ setupHydraHead = do
   pure
     HydraHead
       { getState = readTVarIO tv
-      , putState = atomically . putTVar tv
+      , putState = atomically . writeTVar tv
       }
 
 -- | Connects to a cardano node and sets up things in order to be able to
 -- construct actual transactions using 'OnChainTx' and send them on 'postTx'.
-setupChainClient :: IO (OnChain IO)
-setupChainClient =
+setupChainClient :: EventQueue -> IO (OnChain IO)
+setupChainClient eq = do
   -- TODO(SN): How would the chain client be able to react on observed
   -- 'OnChainTx'? Invoking 'runHydraHeadProtocol' with OnChainEvent similar to
   -- the server side of 'setupHydraNetwork' is problematic as we would need a
   -- 'HydraNetwork' here -> how to tie the knot?
-  pure OnChain{postTx = panic "construct and send transaction e.g. using plutus"}
+  let onChainHandle = OnChain{postTx = panic "construct and send transaction e.g. using plutus"}
+  let plutussChainSyncServer = putEvent eq . OnChainEvent
+  pure onChainHandle
 
 -- | Connects to a configured set of peers and sets up the whole network stack.
-setupHydraNetwork :: OnChain IO -> HydraHead IO -> IO (HydraNetwork IO)
-setupHydraNetwork mc hh = do
+setupHydraNetwork :: EventQueue -> IO (HydraNetwork IO)
+setupHydraNetwork eq = do
   let client = panic "create HydraNetwork interface out of ourobouros client"
   -- The server reacts on received 'HydraMessage' by running th protocol handler
-  let server = hydraMessageServer (runHydraHeadProtocol client mc hh . NetworkEvent)
+  let server = hydraMessageServer (putEvent eq . NetworkEvent)
   -- ourobouros network stuff, setting up mux, protocols and whatnot
   panic "not implemented"
 
@@ -176,15 +184,23 @@ hydraMessageServer action = do
   panic "not implemented"
 
 -- | Monadic interface around 'hydraHeadProtocolHandler'.
-runHydraHeadProtocol :: (Monad m, Show ClientInstruction) => HydraNetwork m -> OnChain m -> HydraHead m -> Event -> m ()
-runHydraHeadProtocol HydraNetwork{broadcast} OnChain{postTx} HydraHead{getState, putState} e = do
-  s <- getState -- NOTE(SN): this is obviously not thread-safe
-  let (s', out) = hydraHeadProtocolHandler s e
-  putState s'
-  forM_ out $ \case
-    ClientOutput i -> panic $ "client instruction: " <> show i
-    NetworkOutput msg -> broadcast msg
-    OnChainOutput tx -> postTx tx
+runHydraHeadProtocol ::
+  (Monad m, MonadIO m, Show ClientInstruction) =>
+  EventQueue ->
+  HydraNetwork m ->
+  OnChain m ->
+  HydraHead m ->
+  m ()
+runHydraHeadProtocol eq HydraNetwork{broadcast} OnChain{postTx} HydraHead{getState, putState} =
+  forever $ do
+    e <- liftIO $ atomically $ readTChan eq
+    s <- getState -- NOTE(SN): this is obviously not thread-safe
+    let (s', out) = hydraHeadProtocolHandler s e
+    putState s'
+    forM_ out $ \case
+      ClientOutput i -> panic $ "client instruction: " <> show i
+      NetworkOutput msg -> broadcast msg
+      OnChainOutput tx -> postTx tx
 
 -- | Handle to access and modify a Hydra Head's state.
 data HydraHead m = HydraHead
