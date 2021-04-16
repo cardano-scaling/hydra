@@ -128,38 +128,22 @@ data ProtocolParameters
 
 -- * Too detailed stuff
 
--- NOTE(SN): this output stuff is ugly as hell and I never would implement it
--- really like this ._.
-
-type OutputQueue = TChan Event
-
-putOutput :: OutputQueue -> Output -> IO ()
-putOutput = panic "undefined"
-
-getOutputIf :: OutputQueue -> (Output -> Bool) -> IO (Maybe Output)
-getOutputIf = panic "undefined"
-
-isOnChainOutput :: Output -> Bool
-isOnChainOutput OnChainOutput{} = True
-isOnChainOutput _ = False
-
-isNetworkOutput :: Output -> Bool
-isNetworkOutput OnChainOutput{} = True
-isNetworkOutput _ = False
-
 main :: IO ()
 main = do
   eq <- newTChanIO
   hh <- setupHydraHead
-  setupChainClient eq hh
-  setupHydraNetwork eq hh
-  -- TODO wait until killed?
-  forever $ threadDelay 10000
- where
-  -- TODO forM_ [0..1] $ async $
-  -- runHydraHeadProtocol eq hn oc hh
+  oc <- setupChainClient eq
+  hn <- setupHydraNetwork eq
 
+  -- TODO forM_ [0..1] $ async $
+  runHydraHeadProtocol eq hn oc hh
+ where
   getEvent = panic "not implememted"
+
+type EventQueue = TChan Event
+
+putEvent :: EventQueue -> Event -> IO ()
+putEvent = panic "undefined"
 
 setupHydraHead :: IO (HydraHead IO)
 setupHydraHead = do
@@ -172,36 +156,24 @@ setupHydraHead = do
 
 -- | Connects to a cardano node and sets up things in order to be able to
 -- construct actual transactions using 'OnChainTx' and send them on 'postTx'.
-setupChainClient :: OutputQueue -> HydraHead IO -> IO ()
-setupChainClient oq hh = do
-  let plutussChainSyncServer = runHydraHeadProtocol oq hh . OnChainEvent
-  forever $
-    getOutputIf oq isOnChainOutput >>= \case
-      Just (OnChainOutput o) -> panic "construct and send transction e.g. using plutus from output"
-      _ -> pure ()
+setupChainClient :: EventQueue -> IO (OnChain IO)
+setupChainClient eq = do
+  -- TODO(SN): How would the chain client be able to react on observed
+  -- 'OnChainTx'? Invoking 'runHydraHeadProtocol' with OnChainEvent similar to
+  -- the server side of 'setupHydraNetwork' is problematic as we would need a
+  -- 'HydraNetwork' here -> how to tie the knot?
+  let onChainHandle = OnChain{postTx = panic "construct and send transaction e.g. using plutus"}
+  let plutussChainSyncServer = putEvent eq . OnChainEvent
+  pure onChainHandle
 
 -- | Connects to a configured set of peers and sets up the whole network stack.
-setupHydraNetwork :: OutputQueue -> HydraHead IO -> IO (HydraNetwork IO)
-setupHydraNetwork oq hh = do
-  -- ourobouros network stuff, setting up mux, protocols and whatnot and wire in
-  -- the 'server' and 'client' in an 'app' (like in the fire and forget example)
-  panic "not implemented"
- where
+setupHydraNetwork :: EventQueue -> IO (HydraNetwork IO)
+setupHydraNetwork eq = do
+  let client = panic "create HydraNetwork interface out of ourobouros client"
   -- The server reacts on received 'HydraMessage' by running th protocol handler
-  server = hydraMessageServer (runHydraHeadProtocol oq hh . NetworkEvent)
-
-  -- The client endlessly reads from the output queue to send messages into the
-  -- network
-  client :: MonadIO m => m ()
-  client =
-    forever $
-      liftIO (getOutputIf oq isNetworkOutput) >>= \case
-        Just (NetworkOutput msg) -> sendMsg msg
-        _ -> pure ()
-
-  -- TODO(SN): this should be "the monadic interface" of SendMsg :: FireForgetClient msg m a
-  sendMsg :: HydraMessage -> m ()
-  sendMsg = panic "not implemented"
+  let server = hydraMessageServer (putEvent eq . NetworkEvent)
+  -- ourobouros network stuff, setting up mux, protocols and whatnot
+  panic "not implemented"
 
 hydraMessageServer :: (HydraMessage -> IO ()) -> FireForgetServer HydraMessage IO ()
 hydraMessageServer action = do
@@ -214,17 +186,21 @@ hydraMessageServer action = do
 -- | Monadic interface around 'hydraHeadProtocolHandler'.
 runHydraHeadProtocol ::
   (Monad m, MonadIO m, Show ClientInstruction) =>
-  OutputQueue ->
+  EventQueue ->
+  HydraNetwork m ->
+  OnChain m ->
   HydraHead m ->
-  Event ->
   m ()
-runHydraHeadProtocol oq HydraHead{getState, putState} e =
+runHydraHeadProtocol eq HydraNetwork{broadcast} OnChain{postTx} HydraHead{getState, putState} =
   forever $ do
-    -- e <- liftIO $ atomically $ readTChan eq
+    e <- liftIO $ atomically $ readTChan eq
     s <- getState -- NOTE(SN): this is obviously not thread-safe
     let (s', out) = hydraHeadProtocolHandler s e
     putState s'
-    forM_ out $ putOutput oq
+    forM_ out $ \case
+      ClientOutput i -> panic $ "client instruction: " <> show i
+      NetworkOutput msg -> broadcast msg
+      OnChainOutput tx -> postTx tx
 
 -- | Handle to access and modify a Hydra Head's state.
 data HydraHead m = HydraHead
