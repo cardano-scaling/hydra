@@ -1,3 +1,4 @@
+{-# LANGUAGE TypeApplications #-}
 {-# OPTIONS_GHC -Wno-deferred-type-errors #-}
 
 -- | Top-level module to run a single Hydra node.
@@ -5,8 +6,6 @@ module Hydra.Node where
 
 import Cardano.Prelude
 import Control.Concurrent.STM (
-  TQueue,
-  newTQueue,
   newTQueueIO,
   newTVarIO,
   readTQueue,
@@ -14,19 +13,17 @@ import Control.Concurrent.STM (
   writeTQueue,
  )
 import Hydra.Logic (
-  ClientInstruction,
   Effect (ClientEffect, NetworkEffect, OnChainEffect, Wait),
   Event (NetworkEvent, OnChainEvent),
   HeadState (InitState),
-  HydraMessage,
+  HydraMessage (AckSn, AckTx, ConfSn, ConfTx, ReqSn, ReqTx),
   OnChainTx (InitTx),
  )
 import qualified Hydra.Logic as Logic
-import Network.TypedProtocol.FireForget.Server (FireForgetServer)
 
 -- | Monadic interface around 'Hydra.Logic.update'.
 runHydra ::
-  (Monad m, MonadIO m, Show ClientInstruction) =>
+  Monad m =>
   EventQueue m ->
   HydraNetwork m ->
   OnChain m ->
@@ -47,6 +44,7 @@ runHydra EventQueue{nextEvent} HydraNetwork{broadcast} OnChain{postTx} HydraHead
 
 -- | The single, required queue in the system from which a hydra head is "fed".
 -- NOTE(SN): this probably should be bounded and include proper logging
+-- NOTE(SN): handle pattern, but likely not required as there is no need for an alternative implementation
 data EventQueue m = EventQueue
   { putEvent :: Event -> m ()
   , nextEvent :: m Event
@@ -91,20 +89,25 @@ newtype HydraNetwork m = HydraNetwork
 -- | Connects to a configured set of peers and sets up the whole network stack.
 createHydraNetwork :: EventQueue IO -> IO (HydraNetwork IO)
 createHydraNetwork EventQueue{putEvent} = do
-  let client = panic "create HydraNetwork interface out of ourobouros client"
-  -- The server reacts on received 'HydraMessage' by running th protocol handler
-  let server = hydraMessageServer (putEvent . NetworkEvent)
-  -- ourobouros network stuff, setting up mux, protocols and whatnot
-  panic "not implemented"
- where
-  hydraMessageServer ::
-    (HydraMessage -> IO ()) -> FireForgetServer HydraMessage IO ()
-  hydraMessageServer action = do
-    -- FireForgetServer
-    --   { recvMsg = \msg -> action msg >> hydraMessageServer
-    --   , recvMsgDone = putTextLn "Done."
-    --   }
-    panic "not implemented"
+  -- NOTE(SN): obviously we should connect to a known set of peers here and do
+  -- really broadcast messages to them
+  pure
+    HydraNetwork
+      { broadcast = \msg -> do
+          putStrLn @Text $ "[Network] should broadcast " <> show msg
+          let ma = case msg of
+                ReqTx -> Just AckTx
+                AckTx -> Just ConfTx
+                ConfTx -> Nothing
+                ReqSn -> Just AckSn
+                AckSn -> Just ConfSn
+                ConfSn -> Nothing
+          case ma of
+            Just answer -> do
+              putStrLn @Text $ "[Network] simulating answer " <> show answer
+              putEvent $ NetworkEvent answer
+            Nothing -> pure ()
+      }
 
 --
 -- OnChain handle to abstract over chain access

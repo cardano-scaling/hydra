@@ -33,6 +33,7 @@ data HydraMessage
   | ConfTx
   | ReqSn
   | AckSn
+  | ConfSn
   deriving (Show)
 
 data OnChainTx
@@ -83,6 +84,9 @@ update :: HeadState -> Event -> (HeadState, [Effect])
 update st ev = case (st, ev) of
   (InitState{}, ClientEvent Init) -> init
   (OpenState st', ClientEvent Close) -> close st'
+  (OpenState st', ClientEvent NewTx) ->
+    bimap OpenState (map mapEffect) $
+      SimpleHead.update st' SimpleHead.NewTxFromClient
   (OpenState st', NetworkEvent ReqTx) ->
     bimap OpenState (map mapEffect) $
       SimpleHead.update st' SimpleHead.ReqTxFromPeer

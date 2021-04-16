@@ -11,6 +11,6 @@ main = do
 
   -- NOTE(SN): here we would introduce concurrent head processing, e.g. with
   -- something like 'forM_ [0..1] $ async'
-  runHydra eq hn oc hh
+  forever $ runHydra eq hn oc hh
  where
   headState = createHeadState [] HeadParameters SnapshotStrategy
