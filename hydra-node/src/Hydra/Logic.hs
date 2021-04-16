@@ -30,7 +30,7 @@ data ClientCommand
 data ClientInstruction
   = ReadyToCommit
   | AcceptingTx
-  deriving (Show)
+  deriving (Eq, Show)
 
 data HydraMessage
   = ReqTx
