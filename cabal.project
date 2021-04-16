@@ -4,6 +4,7 @@ packages:
   local-cluster
   hydra-node
   hydra-plutus
+  ../plutus/plutus-contract
 
 tests: False
 package local-cluster
@@ -148,7 +149,7 @@ source-repository-package
     playground-common
     plutus-core
     plutus-tx
-    plutus-contract
+    -- plutus-contract
     plutus-ledger
     plutus-ledger-api
     plutus-tx-plugin
