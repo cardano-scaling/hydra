@@ -9,7 +9,6 @@ import Ledger (
   Datum (Datum),
   DatumHash,
   MonetaryPolicy,
-  MonetaryPolicyHash,
   PubKeyHash,
   TxOut,
   TxOutRef,
@@ -22,13 +21,13 @@ import qualified Prelude
 
 data HydraState
   = Started
-  | Initial [PubKeyHash] MonetaryPolicyHash
-  | Open
+  | Initial [PubKeyHash] [(TxOutRef, TxOut)]
+  | Open [(TxOutRef, TxOut)]
   | Closed
   deriving stock (Prelude.Eq, Prelude.Show)
 
 data HydraInput
-  = Init [PubKeyHash] MonetaryPolicyHash
+  = Init [PubKeyHash]
   | Commit PubKeyHash [(TxOutRef, TxOut)]
   | CollectCom
   | Close

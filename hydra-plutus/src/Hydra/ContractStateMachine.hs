@@ -36,35 +36,36 @@ import qualified Prelude
 
 {-# INLINEABLE transition #-}
 transition ::
+  MonetaryPolicyHash ->
   State HydraState ->
   HydraInput ->
   Maybe (SM.TxConstraints Void Void, State HydraState)
-transition s i = case (s, i) of
-  (state@State{stateData = Started}, Init vks policy) ->
+transition policy s i = case (s, i) of
+  (state@State{stateData = Started}, Init vks) ->
     Just
-      ( foldMap (mustForgeParticipationToken policy) vks
-      , state{stateData = Initial vks policy}
+      ( foldMap mustForgeParticipationToken vks
+      , state{stateData = Initial vks []}
       )
-  (state@State{stateData = Initial vks policy}, Commit vk refs) ->
+  (state@State{stateData = Initial vks utxo}, Commit vk refs) ->
     case vks of
       (h : q)
         | h == vk ->
           Just
-            ( foldMap mustLockUtxo refs <> mustForwardParticipationToken policy vk
-            , state{stateData = Initial q policy}
+            ( foldMap mustLockUtxo refs <> mustForwardParticipationToken vk
+            , state{stateData = Initial q (refs ++ utxo)}
             )
       _ ->
         Nothing
-  (state@State{stateData = Initial vks _}, CollectCom) ->
+  (state@State{stateData = Initial vks utxo}, CollectCom) ->
     case vks of
       [] ->
         Just
-          ( mempty
-          , state{stateData = Open}
+          ( foldMap mustForwardParticipationToken vks
+          , state{stateData = Open utxo}
           )
       _ ->
         Nothing
-  (state@State{stateData = Open}, Close) ->
+  (state@State{stateData = Open{}}, Close) ->
     Just
       ( mempty
       , state{stateData = Closed}
@@ -74,12 +75,19 @@ transition s i = case (s, i) of
   mkTokenName :: PubKeyHash -> TokenName
   mkTokenName = TokenName . getPubKeyHash
 
-  mustForgeParticipationToken :: MonetaryPolicyHash -> PubKeyHash -> TxConstraints i o
-  mustForgeParticipationToken policy vk =
+  mustForgeParticipationToken :: PubKeyHash -> TxConstraints i o
+  mustForgeParticipationToken vk =
     let value = Value.singleton (Value.mpsSymbol policy) (mkTokenName vk) 1
      in mconcat
           [ Constraints.mustForgeCurrency policy (mkTokenName vk) 1
-          , Constraints.mustPayToPubKey vk value
+          , -- TODO: This doesn't account for _abort_. The token should be sent to
+            -- an output where the validator allows either:
+            --
+            -- - An abort
+            -- - A commit
+            --
+            --
+            Constraints.mustPayToPubKey vk value
           ]
 
   mustLockUtxo :: (TxOutRef, TxOut) -> TxConstraints i o
@@ -90,8 +98,8 @@ transition s i = case (s, i) of
           , Constraints.mustProduceAtLeast value
           ]
 
-  mustForwardParticipationToken :: MonetaryPolicyHash -> PubKeyHash -> TxConstraints i o
-  mustForwardParticipationToken policy vk =
+  mustForwardParticipationToken :: PubKeyHash -> TxConstraints i o
+  mustForwardParticipationToken vk =
     let value = Value.singleton (Value.mpsSymbol policy) (mkTokenName vk) 1
      in mconcat
           [ Constraints.mustSpendAtLeast value
@@ -99,20 +107,23 @@ transition s i = case (s, i) of
           ]
 
 {-# INLINEABLE machine #-}
-machine :: SM.StateMachine HydraState HydraInput
-machine = SM.mkStateMachine transition isFinal
+machine :: MonetaryPolicyHash -> SM.StateMachine HydraState HydraInput
+machine policy = SM.mkStateMachine (transition policy) isFinal
  where
   isFinal _ = False
 
 {-# INLINEABLE validatorSM #-}
-validatorSM :: Scripts.ValidatorType (SM.StateMachine HydraState HydraInput)
-validatorSM = SM.mkValidator machine
+validatorSM ::
+  MonetaryPolicyHash ->
+  Scripts.ValidatorType (SM.StateMachine HydraState HydraInput)
+validatorSM = SM.mkValidator . machine
 
 {- ORMOLU_DISABLE -}
 contractInstance
-  :: Scripts.ScriptInstance (SM.StateMachine HydraState HydraInput)
-contractInstance = Scripts.validator @(SM.StateMachine HydraState HydraInput)
-    $$(PlutusTx.compile [|| validatorSM ||])
+  :: MonetaryPolicyHash
+  -> Scripts.ScriptInstance (SM.StateMachine HydraState HydraInput)
+contractInstance policy = Scripts.validator @(SM.StateMachine HydraState HydraInput)
+    ($$(PlutusTx.compile [|| validatorSM ||]) `PlutusTx.applyCode` PlutusTx.liftCode policy)
     $$(PlutusTx.compile [|| wrap ||])
     where
         wrap = Scripts.wrapValidator @HydraState @HydraInput
@@ -120,26 +131,48 @@ contractInstance = Scripts.validator @(SM.StateMachine HydraState HydraInput)
 
 -- | The 'SM.StateMachineInstance' of the hydra state machine contract. It uses
 -- the functions in 'PlutusTx.StateMachine'.
-machineInstance :: SM.StateMachineInstance HydraState HydraInput
-machineInstance = SM.StateMachineInstance machine contractInstance
+machineInstance :: MonetaryPolicyHash -> SM.StateMachineInstance HydraState HydraInput
+machineInstance policy =
+  SM.StateMachineInstance (machine policy) (contractInstance policy)
 
-client :: SM.StateMachineClient HydraState HydraInput
-client = SM.mkStateMachineClient machineInstance
+client :: MonetaryPolicyHash -> SM.StateMachineClient HydraState HydraInput
+client policy =
+  SM.StateMachineClient (machineInstance policy) chooser
+ where
+  chooser ::
+    HydraInput ->
+    [SM.OnChainState HydraState HydraInput] ->
+    Either SM.SMContractError (SM.OnChainState HydraState HydraInput)
+  chooser input states =
+    let matchState =
+          case input of
+            Init{} -> pure
+            Commit{} -> pure
+            CollectCom{} -> pure
+            Close{} -> pure
+     in case mapMaybe matchState states of
+          [state] -> Right state
+          _ -> Left $ SM.ChooserError "Unable to choose SM state."
 
 -- | The validator script of the contract.
-contractValidator :: Validator
-contractValidator = Scripts.validatorScript contractInstance
+contractValidator :: MonetaryPolicyHash -> Validator
+contractValidator = Scripts.validatorScript . contractInstance
 
 -- | The address of the contract (the hash of its validator script)
-contractAddress :: Address
-contractAddress = Ledger.scriptAddress contractValidator
+contractAddress :: MonetaryPolicyHash -> Address
+contractAddress = Ledger.scriptAddress . contractValidator
+
+mkClient :: HeadParameters -> SM.StateMachineClient HydraState HydraInput
+mkClient = client . monetaryPolicyHash . monetaryPolicy
 
 setupEndpoint ::
-  (AsContractError e, SM.AsSMContractError e) => Contract () Schema e ()
-setupEndpoint = do
+  (AsContractError e, SM.AsSMContractError e) =>
+  HeadParameters ->
+  Contract () Schema e ()
+setupEndpoint params = do
   endpoint @"setup" @()
   logInfo @String $ "setupEndpoint"
-  void $ SM.runInitialise client Started (Ada.lovelaceValueOf 1)
+  void $ SM.runInitialise (mkClient params) Started (Ada.lovelaceValueOf 1)
 
 -- | Our mocked "init" endpoint
 initEndpoint ::
@@ -150,8 +183,8 @@ initEndpoint params = do
   endpoint @"init" @()
   logInfo @String $ "initEndpoint"
   let policy = monetaryPolicy params
-  let input = Init (verificationKeys params) (monetaryPolicyHash policy)
-  void $ SM.runStepWith client input (withKnownPolicy policy)
+  let input = Init (verificationKeys params)
+  void $ SM.runStepWith (mkClient params) input (withKnownPolicy policy)
  where
   withKnownPolicy ::
     MonetaryPolicy ->
@@ -172,28 +205,31 @@ initEndpoint params = do
 -- | Our mocked "collectCom" endpoint
 collectComEndpoint ::
   (AsContractError e, SM.AsSMContractError e) =>
+  HeadParameters ->
   Contract () Schema e ()
-collectComEndpoint = do
+collectComEndpoint params = do
   endpoint @"collectCom" @()
   logInfo @String $ "collectComEndpoint"
-  void $ SM.runStep client CollectCom
+  void $ SM.runStep (mkClient params) CollectCom
 
 -- | Our "close" endpoint to trigger a close
 closeEndpoint ::
   (AsContractError e, SM.AsSMContractError e) =>
+  HeadParameters ->
   Contract () Schema e ()
-closeEndpoint = do
+closeEndpoint params = do
   endpoint @"close" @()
   logInfo @String $ "closeEndpoint"
-  void $ SM.runStep client Close
+  void $ SM.runStep (mkClient params) Close
 
 commitEndpoint ::
   (AsContractError e, SM.AsSMContractError e) =>
+  HeadParameters ->
   Contract () Schema e ()
-commitEndpoint = do
+commitEndpoint params = do
   (vk, utxo) <- endpoint @"commit" @(PubKeyHash, UtxoMap)
   logInfo @String "commitEndpoint"
-  void $ SM.runStepWith client (Commit vk $ toList' utxo) (withKnownUtxo utxo)
+  void $ SM.runStepWith (mkClient params) (Commit vk $ toList' utxo) (withKnownUtxo utxo)
  where
   toList' :: UtxoMap -> [(TxOutRef, TxOut)]
   toList' =
@@ -227,8 +263,8 @@ contract ::
 contract params = forever endpoints
  where
   endpoints =
-    setupEndpoint
+    setupEndpoint params
       `select` initEndpoint params
-      `select` collectComEndpoint
-      `select` commitEndpoint
-      `select` closeEndpoint
+      `select` collectComEndpoint params
+      `select` commitEndpoint params
+      `select` closeEndpoint params
