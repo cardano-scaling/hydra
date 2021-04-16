@@ -46,25 +46,21 @@ data State
   | OpenState SimpleHead.State
   | ClosedState
 
-update :: State -> Event -> (State, [Effect])
-update st e =
-  fromMaybe (st, []) $ -- TODO this is likely an error
-    asum
-      [ init st e
-      , close st e
-      , do
-          st' <- mapState st
-          e' <- mapEvent e
-          pure $ bimap OpenState (map mapEffect) $ SimpleHead.update st' e'
-      ]
+data Env = Env
 
-init :: State -> Event -> Maybe (State, [Effect])
-init InitState{} (ClientEvent Init) = Just (OpenState SimpleHead.mkState, [])
-init _ _ = Nothing
+update :: Env -> State -> Event -> (State, [Effect])
+update _env st ev = case (st, ev) of
+  (InitState{}, ClientEvent Init) -> init
+  (OpenState st', ClientEvent Close) -> close st'
+  (OpenState st', NetworkEvent ReqTx) ->
+    bimap OpenState (map mapEffect) $ SimpleHead.update st' SimpleHead.ReqTxFromPeer
 
-close :: State -> Event -> Maybe (State, [Effect])
-close OpenState{} (ClientEvent Close) = Just (ClosedState, [])
-close _ _ = Nothing
+-- | NOTE: This is definitely not directly Open!
+init :: (State, [Effect])
+init = (OpenState SimpleHead.mkState, [])
+
+close :: SimpleHead.State -> (State, [Effect])
+close _ = (ClosedState, [])
 
 -- NOTE: This three things needs to be polymorphic in the output eventually, likely a
 -- type-class with data-families for each sub-modules.
@@ -74,18 +70,10 @@ mapState = \case
   OpenState st' -> Just st'
   _ -> Nothing
 
-mapEvent :: Event -> Maybe SimpleHead.Event
-mapEvent = \case
-  NetworkEvent ReqTx -> Just SimpleHead.ReqTxFromPeer
-  NetworkEvent ReqSn -> Just SimpleHead.ReqSnFromPeer
-  ClientEvent NewTx -> Just SimpleHead.NewTxFromClient
-  _ -> Nothing
-
--- | NOTE: This needs to be polymorphic in the input eventually
 mapEffect :: SimpleHead.Effect -> Effect
 mapEffect = \case
   SimpleHead.MulticastReqTx -> NetworkEffect ReqTx
   SimpleHead.MulticastReqSn -> NetworkEffect ReqSn
   SimpleHead.MulticastConfTx -> NetworkEffect ConfTx
   SimpleHead.SendAckTx -> NetworkEffect AckTx
-  SimpleHead.Wait continue -> Wait $ mapState >>= fmap (bimap OpenState mapEffect) . continue
+  SimpleHead.Wait continue -> Wait $ mapState >=> fmap (bimap OpenState (map mapEffect)) . continue
