@@ -13,13 +13,16 @@ import Control.Concurrent.STM (
   writeTQueue,
  )
 import Hydra.Logic (
+  ClientCommand (Close, Commit, Contest, Init, NewTx),
+  ClientInstruction (..),
   Effect (ClientEffect, NetworkEffect, OnChainEffect, Wait),
-  Event (NetworkEvent, OnChainEvent),
+  Event (ClientEvent, NetworkEvent, OnChainEvent),
   HeadState (InitState),
   HydraMessage (AckSn, AckTx, ConfSn, ConfTx, ReqSn, ReqTx),
   OnChainTx (InitTx),
  )
 import qualified Hydra.Logic as Logic
+import System.Console.Repline (CompleterStyle (Word0), ExitDecision (Exit), evalRepl)
 
 -- | Monadic interface around 'Hydra.Logic.update'.
 runHydra ::
@@ -27,13 +30,14 @@ runHydra ::
   EventQueue m ->
   HydraNetwork m ->
   OnChain m ->
+  ClientSide m ->
   HydraHead m ->
   m ()
-runHydra EventQueue{nextEvent} HydraNetwork{broadcast} OnChain{postTx} HydraHead{modifyHeadState} = do
+runHydra EventQueue{nextEvent} HydraNetwork{broadcast} OnChain{postTx} ClientSide{showInstruction} HydraHead{modifyHeadState} = do
   e <- nextEvent
   out <- modifyHeadState $ \s -> swap $ Logic.update s e
   forM_ out $ \case
-    ClientEffect i -> panic $ "TODO: client effect: " <> show i
+    ClientEffect i -> showInstruction i
     NetworkEffect msg -> broadcast msg
     OnChainEffect tx -> postTx tx
     Wait _cont -> panic "TODO: wait and reschedule continuation"
@@ -130,3 +134,47 @@ createChainClient EventQueue{putEvent} = do
           }
   let plutussChainSyncServer = putEvent . OnChainEvent
   pure onChainHandle
+
+--
+-- ClientSide handle to abstract over the client side.. duh.
+--
+
+newtype ClientSide m = ClientSide
+  { showInstruction :: ClientInstruction -> m ()
+  }
+
+-- | A simple command line based read-eval-process-loop (REPL) to have a chat
+-- with the Hydra node.
+--
+-- NOTE(SN): This clashes a bit when other parts of the node do log things, but
+-- spreading \r and >>> all over the place is likely not what we want
+createClientSideRepl :: EventQueue IO -> IO (ClientSide IO)
+createClientSideRepl EventQueue{putEvent} = do
+  link =<< async runRepl
+  pure
+    ClientSide
+      { showInstruction = \ins -> putStrLn @Text $ "[ClientSide] " <> prettyInstruction ins
+      }
+ where
+  prettyInstruction = \case
+    ReadyToCommit -> "Head initialized, commit funds to it using 'commit'"
+    AcceptingTx -> "Head is open, now feed the hydra with your 'newtx'"
+
+  runRepl = evalRepl (const $ pure prompt) replCommand [] Nothing Nothing (Word0 replComplete) replInit (pure Exit)
+
+  prompt = ">>> "
+
+  -- TODO(SN): avoid redundancy
+  commands = ["init", "commit", "newtx", "close", "contest"]
+
+  replCommand c
+    | c == "init" = liftIO $ putEvent $ ClientEvent Init
+    | c == "commit" = liftIO $ putEvent $ ClientEvent Commit
+    | c == "newtx" = liftIO $ putEvent $ ClientEvent NewTx
+    | c == "close" = liftIO $ putEvent $ ClientEvent Close
+    | c == "contest" = liftIO $ putEvent $ ClientEvent Contest
+    | otherwise = liftIO $ putStrLn @Text $ "Unknown command, use any of: " <> show commands
+
+  replComplete n = pure $ filter (n `isPrefixOf`) commands
+
+  replInit = liftIO $ putStrLn @Text "Welcome to the Hydra Node REPL, you can even use tab completion! (Ctrl+D to exit)"

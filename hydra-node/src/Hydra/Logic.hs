@@ -3,11 +3,13 @@ module Hydra.Logic where
 import Cardano.Prelude hiding (State)
 
 import qualified Hydra.Logic.SimpleHead as SimpleHead
+import Prelude (error)
 
 data Event
   = ClientEvent ClientCommand
   | NetworkEvent HydraMessage
   | OnChainEvent OnChainTx
+  deriving (Show)
 
 data Effect
   = ClientEffect ClientInstruction
@@ -23,8 +25,11 @@ data ClientCommand
   | NewTx
   | Close
   | Contest
+  deriving (Show)
 
-data ClientInstruction = ClientInstruction
+data ClientInstruction
+  = ReadyToCommit
+  | AcceptingTx
   deriving (Show)
 
 data HydraMessage
@@ -90,10 +95,11 @@ update st ev = case (st, ev) of
   (OpenState st', NetworkEvent ReqTx) ->
     bimap OpenState (map mapEffect) $
       SimpleHead.update st' SimpleHead.ReqTxFromPeer
+  _ -> error $ "Unhandled event " <> show ev <> " in state " <> show st
 
 -- | NOTE: This is definitely not directly Open!
 init :: (HeadState, [Effect])
-init = (OpenState SimpleHead.mkState, [])
+init = (OpenState SimpleHead.mkState, [ClientEffect AcceptingTx])
 
 close :: SimpleHead.State -> (HeadState, [Effect])
 close _ = (ClosedState, [])

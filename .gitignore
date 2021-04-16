@@ -16,3 +16,6 @@ result*
 ### Direnv ###
 .direnv/
 *~
+
+### hydra-node ###
+.history
