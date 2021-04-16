@@ -1,17 +1,13 @@
 module Hydra.Logic.SimpleHead where
 
-import Cardano.Prelude
+import Cardano.Prelude hiding (State)
 
 data Event
   = NewTxFromClient
-
   | NewSnFromSomewhere
-
   | ReqTxFromPeer
-
   | AckTxFromPeer
   | ConfTxFromPeer
-
   | ReqSnFromPeer
   | AckSnFromPeer
   | ConfSnFromPeer
@@ -22,9 +18,12 @@ data State = State
   , snapshots :: Snapshots
   }
 
-data Ledger
-data Transactions
-data Snapshots
+mkState :: State
+mkState = State Ledger Transaction Snapshots
+
+data Ledger = Ledger
+data Transactions = Transaction
+data Snapshots = Snapshots
 
 data Effect
   = MulticastReqTx
@@ -34,4 +33,5 @@ data Effect
   | Wait (State -> Maybe (State, [Effect]))
 
 update :: State -> Event -> (State, [Effect])
-update = panic "TODO"
+update st NewTxFromClient = (st, [MulticastReqTx])
+update _ _ = panic "TODO"
