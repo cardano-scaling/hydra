@@ -16,6 +16,11 @@ source-repository head
   type: git
   location: https://github.com/input-output-hk/hydra-node
 
+flag development
+     description: Disable -Werror for development
+     default: False
+     manual: True
+
 common project-config
   default-language: Haskell2010
   default-extensions:
@@ -54,7 +59,6 @@ common project-config
     TypeSynonymInstances
     ViewPatterns
   ghc-options:
-    -Werror
     -Wall
     -Wcompat
     -Widentities
@@ -64,12 +68,17 @@ common project-config
     -Wredundant-constraints
     -Wunused-packages
 
+  if !flag(development)
+      ghc-options: -Werror
+
 library
   import: project-config
   hs-source-dirs: src
   exposed-modules:
     Hydra.Node
     Hydra.Ledger
+    Hydra.Logic
+    Hydra.Logic.SimpleHead
     Network.TypedProtocol.FireForget.Type
     Network.TypedProtocol.FireForget.Client
     Network.TypedProtocol.FireForget.Server
