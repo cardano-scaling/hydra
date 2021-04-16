@@ -17,13 +17,14 @@ data State = State
   , transactions :: Transactions
   , snapshots :: Snapshots
   }
+  deriving (Eq, Show)
 
 mkState :: State
 mkState = State Ledger Transaction Snapshots
 
-data Ledger = Ledger
-data Transactions = Transaction
-data Snapshots = Snapshots
+data Ledger = Ledger deriving (Eq, Show)
+data Transactions = Transaction deriving (Eq, Show)
+data Snapshots = Snapshots deriving (Eq, Show)
 
 data Effect
   = MulticastReqTx
