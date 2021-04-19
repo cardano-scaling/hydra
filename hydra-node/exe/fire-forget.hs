@@ -57,6 +57,7 @@ import Ouroboros.Network.Mux (
  )
 import Ouroboros.Network.Protocol.Handshake.Codec (
   cborTermVersionDataCodec,
+  noTimeLimitsHandshake,
  )
 import Ouroboros.Network.Protocol.Handshake.Unversioned (
   unversionedHandshakeCodec,
@@ -149,6 +150,7 @@ fireForgetClient = withIOManager $ \iomgr ->
   connectToNode
     (localSnocket iomgr defaultLocalSocketAddrPath)
     unversionedHandshakeCodec
+    noTimeLimitsHandshake
     (cborTermVersionDataCodec unversionedProtocolDataCodec)
     nullNetworkConnectTracers
     acceptableVersion
@@ -167,6 +169,7 @@ fireForgetServer = withIOManager $ \iomgr -> do
     (AcceptedConnectionsLimit maxBound maxBound 0)
     defaultLocalSocketAddr
     unversionedHandshakeCodec
+    noTimeLimitsHandshake
     (cborTermVersionDataCodec unversionedProtocolDataCodec)
     acceptableVersion
     (unversionedProtocol (SomeResponderApplication app))
