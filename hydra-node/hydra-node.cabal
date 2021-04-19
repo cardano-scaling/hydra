@@ -101,8 +101,8 @@ library
 
 executable hydra-node
   import: project-config
-  hs-source-dirs: exe
-  main-is: hydra-node.hs
+  hs-source-dirs: exe/hydra-node
+  main-is: Main.hs
   build-depends:
       cardano-prelude
     , hydra-node
@@ -112,8 +112,8 @@ executable hydra-node
 
 executable fire-forget
   import: project-config
-  hs-source-dirs: exe
-  main-is: fire-forget.hs
+  hs-source-dirs: exe/fire-forget
+  main-is: Main.hs
   build-depends:
       cardano-prelude
     , async
