@@ -8,7 +8,7 @@ main = do
   hh <- createHydraHead headState
   oc <- createChainClient eq
   hn <- createHydraNetwork eq
-  cs <- createClientSideRepl eq
+  cs <- createClientSideRepl oc hh
 
   -- NOTE(SN): here we would introduce concurrent head processing, e.g. with
   -- something like 'forM_ [0..1] $ async'

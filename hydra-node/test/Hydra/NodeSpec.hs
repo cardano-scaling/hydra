@@ -4,9 +4,23 @@ import Cardano.Prelude
 import Hydra.Node
 
 import Data.String (String)
-import Hydra.Logic (ClientCommand (Close, Init, NewTx), ClientInstruction (AcceptingTx), Event (ClientEvent), HeadState (ClosedState, InitState))
+import Hydra.Logic (
+  ClientInstruction (..),
+  Event,
+  HeadState (..),
+  OnChainTx (..),
+ )
 import System.Timeout (timeout)
-import Test.Hspec (Expectation, Spec, describe, expectationFailure, it, shouldBe, shouldNotBe, shouldReturn)
+import Test.Hspec (
+  Expectation,
+  Spec,
+  describe,
+  expectationFailure,
+  it,
+  shouldBe,
+  shouldNotBe,
+  shouldReturn,
+ )
 
 spec :: Spec
 spec = describe "Hydra Node" $ do
@@ -17,20 +31,9 @@ spec = describe "Hydra Node" $ do
     res `shouldBe` Nothing
     queryHeadState hh `shouldReturn` InitState
   it "does something" $ do
-    q <- primedEventQueue [ClientEvent Init, ClientEvent NewTx, ClientEvent Close]
     hh <- createHydraHead InitState
-    n <- createHydraNetwork q
-    runHydra q n mockChain (expectClientSide AcceptingTx) hh
+    init (expectOnChain InitTx) hh (expectClientSide AcceptingTx)
     queryHeadState hh >>= shouldNotBe InitState
-    runHydra q n mockChain mockClientSide hh
-    runHydra q n mockChain mockClientSide hh
-    queryHeadState hh >>= shouldBe ClosedState
-
-primedEventQueue :: [Event] -> IO (EventQueue IO)
-primedEventQueue es = do
-  q@EventQueue{putEvent} <- createEventQueue
-  mapM_ putEvent es
-  pure q
 
 mockNetwork :: HydraNetwork IO
 mockNetwork =
@@ -42,6 +45,12 @@ mockChain :: OnChain IO
 mockChain =
   OnChain
     { postTx = \x -> shouldNotBeCalled $ "postTx(" <> show x <> ")"
+    }
+
+expectOnChain :: OnChainTx -> OnChain IO
+expectOnChain expected =
+  OnChain
+    { postTx = (`shouldBe` expected)
     }
 
 mockClientSide :: ClientSide IO

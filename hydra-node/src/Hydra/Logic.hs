@@ -6,8 +6,7 @@ import qualified Hydra.Logic.SimpleHead as SimpleHead
 import Prelude (error)
 
 data Event
-  = ClientEvent ClientCommand
-  | NetworkEvent HydraMessage
+  = NetworkEvent HydraMessage
   | OnChainEvent OnChainTx
   deriving (Show)
 
@@ -19,7 +18,7 @@ data Effect
     -- retries on every state changes until the continuation returns Just{}.
     Wait (HeadState -> Maybe (HeadState, [Effect]))
 
-data ClientCommand
+data ClientRequest
   = Init
   | Commit
   | NewTx
@@ -48,7 +47,7 @@ data OnChainTx
   | CloseTx
   | ContestTx
   | FanoutTx
-  deriving (Show)
+  deriving (Eq, Show)
 
 data HeadState
   = InitState
@@ -87,19 +86,16 @@ createHeadState _ _ _ = InitState
 -- sub-'State'.
 update :: HeadState -> Event -> (HeadState, [Effect])
 update st ev = case (st, ev) of
-  (InitState{}, ClientEvent Init) -> init
-  (OpenState st', ClientEvent Close) -> close st'
-  (OpenState st', ClientEvent NewTx) ->
-    bimap OpenState (map mapEffect) $
-      SimpleHead.update st' SimpleHead.NewTxFromClient
   (OpenState st', NetworkEvent ReqTx) ->
     bimap OpenState (map mapEffect) $
       SimpleHead.update st' SimpleHead.ReqTxFromPeer
   _ -> error $ "Unhandled event " <> show ev <> " in state " <> show st
 
--- | NOTE: This is definitely not directly Open!
-init :: (HeadState, [Effect])
-init = (OpenState SimpleHead.mkState, [ClientEffect AcceptingTx])
+--  (InitState{}, ClientEvent Init) -> init
+--  (OpenState st', ClientEvent Close) -> close st'
+--  (OpenState st', ClientEvent NewTx) ->
+--    bimap OpenState (map mapEffect) $
+--      SimpleHead.update st' SimpleHead.NewTxFromClient
 
 close :: SimpleHead.State -> (HeadState, [Effect])
 close _ = (ClosedState, [])

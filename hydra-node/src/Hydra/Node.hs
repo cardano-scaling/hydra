@@ -13,15 +13,15 @@ import Control.Concurrent.STM (
   writeTQueue,
  )
 import Hydra.Logic (
-  ClientCommand (Close, Commit, Contest, Init, NewTx),
   ClientInstruction (..),
   Effect (ClientEffect, NetworkEffect, OnChainEffect, Wait),
-  Event (ClientEvent, NetworkEvent, OnChainEvent),
-  HeadState,
+  Event (NetworkEvent, OnChainEvent),
+  HeadState (..),
   HydraMessage (AckSn, AckTx, ConfSn, ConfTx, ReqSn, ReqTx),
   OnChainTx (..),
  )
 import qualified Hydra.Logic as Logic
+import qualified Hydra.Logic.SimpleHead as SimpleHead
 import System.Console.Repline (CompleterStyle (Word0), ExitDecision (Exit), evalRepl)
 
 -- | Monadic interface around 'Hydra.Logic.update'.
@@ -41,6 +41,17 @@ runHydra EventQueue{nextEvent} HydraNetwork{broadcast} OnChain{postTx} ClientSid
     NetworkEffect msg -> broadcast msg
     OnChainEffect tx -> postTx tx
     Wait _cont -> panic "TODO: wait and reschedule continuation"
+
+init ::
+  Monad m =>
+  OnChain m ->
+  HydraHead m ->
+  ClientSide m ->
+  m ()
+init OnChain{postTx} hh ClientSide{showInstruction} = do
+  putState hh $ OpenState SimpleHead.mkState
+  postTx InitTx
+  showInstruction AcceptingTx
 
 --
 -- Some general event queue from which the Hydra head is "fed"
@@ -75,6 +86,10 @@ newtype HydraHead m = HydraHead
 
 queryHeadState :: HydraHead m -> m HeadState
 queryHeadState = (`modifyHeadState` \s -> (s, s))
+
+putState :: HydraHead m -> HeadState -> m ()
+putState HydraHead{modifyHeadState} new =
+  modifyHeadState $ \_old -> ((), new)
 
 createHydraHead :: HeadState -> IO (HydraHead IO)
 createHydraHead initialState = do
@@ -161,13 +176,10 @@ newtype ClientSide m = ClientSide
 --
 -- NOTE(SN): This clashes a bit when other parts of the node do log things, but
 -- spreading \r and >>> all over the place is likely not what we want
-createClientSideRepl :: EventQueue IO -> IO (ClientSide IO)
-createClientSideRepl EventQueue{putEvent} = do
+createClientSideRepl :: OnChain IO -> HydraHead IO -> IO (ClientSide IO)
+createClientSideRepl oc hh = do
   link =<< async runRepl
-  pure
-    ClientSide
-      { showInstruction = \ins -> putStrLn @Text $ "[ClientSide] " <> prettyInstruction ins
-      }
+  pure cs
  where
   prettyInstruction = \case
     ReadyToCommit -> "Head initialized, commit funds to it using 'commit'"
@@ -175,17 +187,22 @@ createClientSideRepl EventQueue{putEvent} = do
 
   runRepl = evalRepl (const $ pure prompt) replCommand [] Nothing Nothing (Word0 replComplete) replInit (pure Exit)
 
+  cs =
+    ClientSide
+      { showInstruction = \ins -> putStrLn @Text $ "[ClientSide] " <> prettyInstruction ins
+      }
+
   prompt = ">>> "
 
   -- TODO(SN): avoid redundancy
   commands = ["init", "commit", "newtx", "close", "contest"]
 
   replCommand c
-    | c == "init" = liftIO $ putEvent $ ClientEvent Init
-    | c == "commit" = liftIO $ putEvent $ ClientEvent Commit
-    | c == "newtx" = liftIO $ putEvent $ ClientEvent NewTx
-    | c == "close" = liftIO $ putEvent $ ClientEvent Close
-    | c == "contest" = liftIO $ putEvent $ ClientEvent Contest
+    | c == "init" = liftIO $ init oc hh cs
+    -- c == "commit" =
+    -- c == "newtx" =
+    -- c == "close" =
+    -- c == "contest" =
     | otherwise = liftIO $ putStrLn @Text $ "Unknown command, use any of: " <> show commands
 
   replComplete n = pure $ filter (n `isPrefixOf`) commands
