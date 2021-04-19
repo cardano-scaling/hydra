@@ -1,3 +1,4 @@
+{-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE TypeApplications #-}
 {-# OPTIONS_GHC -Wno-deferred-type-errors #-}
 
@@ -12,28 +13,34 @@ import Control.Concurrent.STM (
   stateTVar,
   writeTQueue,
  )
+import Control.Exception.Safe (MonadThrow)
 import Hydra.Logic (
   ClientInstruction (..),
-  Effect (ClientEffect, NetworkEffect, OnChainEffect, Wait),
+  Effect (ClientEffect, ErrorEffect, NetworkEffect, OnChainEffect, Wait),
   Event (NetworkEvent, OnChainEvent),
   HeadState (..),
   HydraMessage (AckSn, AckTx, ConfSn, ConfTx, ReqSn, ReqTx),
+  LogicError (InvalidState),
   OnChainTx (..),
  )
 import qualified Hydra.Logic as Logic
 import qualified Hydra.Logic.SimpleHead as SimpleHead
 import System.Console.Repline (CompleterStyle (Word0), ExitDecision (Exit), evalRepl)
 
+--
+-- General handlers of client commands or events.
+--
+
 -- | Monadic interface around 'Hydra.Logic.update'.
-runHydra ::
-  Monad m =>
+handleNextEvent ::
+  MonadThrow m =>
   EventQueue m ->
   HydraNetwork m ->
   OnChain m ->
   ClientSide m ->
   HydraHead m ->
   m ()
-runHydra EventQueue{nextEvent} HydraNetwork{broadcast} OnChain{postTx} ClientSide{showInstruction} HydraHead{modifyHeadState} = do
+handleNextEvent EventQueue{nextEvent} HydraNetwork{broadcast} OnChain{postTx} ClientSide{showInstruction} HydraHead{modifyHeadState} = do
   e <- nextEvent
   out <- modifyHeadState $ \s -> swap $ Logic.update s e
   forM_ out $ \case
@@ -41,17 +48,35 @@ runHydra EventQueue{nextEvent} HydraNetwork{broadcast} OnChain{postTx} ClientSid
     NetworkEffect msg -> broadcast msg
     OnChainEffect tx -> postTx tx
     Wait _cont -> panic "TODO: wait and reschedule continuation"
+    ErrorEffect ie -> panic $ "TODO: handle this error: " <> show ie
 
 init ::
-  Monad m =>
+  MonadThrow m =>
   OnChain m ->
   HydraHead m ->
   ClientSide m ->
+  m (Either LogicError ())
+init OnChain{postTx} HydraHead{modifyHeadState} ClientSide{showInstruction} = do
+  res <- modifyHeadState $ \s ->
+    case s of
+      InitState -> (Nothing, OpenState SimpleHead.mkState)
+      _ -> (Just $ InvalidState s, s)
+  case res of
+    Just e -> pure $ Left e
+    Nothing -> do
+      postTx InitTx
+      showInstruction AcceptingTx
+      pure $ Right ()
+
+close ::
+  MonadThrow m =>
+  OnChain m ->
+  HydraHead m ->
   m ()
-init OnChain{postTx} hh ClientSide{showInstruction} = do
-  putState hh $ OpenState SimpleHead.mkState
-  postTx InitTx
-  showInstruction AcceptingTx
+close OnChain{postTx} hh = do
+  -- TODO(SN): check that we are in open state
+  putState hh ClosedState
+  postTx CloseTx
 
 --
 -- Some general event queue from which the Hydra head is "fed"
@@ -132,11 +157,15 @@ createHydraNetwork EventQueue{putEvent} = do
 -- OnChain handle to abstract over chain access
 --
 
+data ChainError = ChainError
+  deriving (Exception, Show)
+
 -- | Handle to interface with the main chain network
 newtype OnChain m = OnChain
   { -- | Construct and send a transaction to the main chain corresponding to the
     -- given 'OnChainTx' event.
-    postTx :: OnChainTx -> m ()
+    -- Does at least throw 'ChainError'.
+    postTx :: MonadThrow m => OnChainTx -> m ()
   }
 
 -- | Connects to a cardano node and sets up things in order to be able to
@@ -150,7 +179,7 @@ createChainClient EventQueue{putEvent} = do
   simulatedPostTx tx = do
     putStrLn @Text $ "[OnChain] should post tx for " <> show tx
     let ma = case tx of
-          InitTx -> Just CommitTx -- simulate other peer committing
+          InitTx -> Nothing
           CommitTx -> Just CollectComTx -- simulate other peer collecting
           CollectComTx -> Nothing
           CloseTx -> Just ContestTx -- simulate other peer contesting
@@ -198,10 +227,14 @@ createClientSideRepl oc hh = do
   commands = ["init", "commit", "newtx", "close", "contest"]
 
   replCommand c
-    | c == "init" = liftIO $ init oc hh cs
+    | c == "init" =
+      liftIO $
+        init oc hh cs >>= \case
+          Left e -> putStrLn @Text $ "You dummy.. " <> show e
+          Right _ -> pure ()
+    | c == "close" = liftIO $ close oc hh
     -- c == "commit" =
     -- c == "newtx" =
-    -- c == "close" =
     -- c == "contest" =
     | otherwise = liftIO $ putStrLn @Text $ "Unknown command, use any of: " <> show commands
 

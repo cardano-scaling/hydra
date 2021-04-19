@@ -1,14 +1,13 @@
 module Hydra.Logic where
 
-import Cardano.Prelude hiding (State)
+import Cardano.Prelude
 
 import qualified Hydra.Logic.SimpleHead as SimpleHead
-import Prelude (error)
 
 data Event
   = NetworkEvent HydraMessage
   | OnChainEvent OnChainTx
-  deriving (Show)
+  deriving (Eq, Show)
 
 data Effect
   = ClientEffect ClientInstruction
@@ -17,6 +16,7 @@ data Effect
   | -- | Wait effect should be interpreted as a non-blocking interruption which
     -- retries on every state changes until the continuation returns Just{}.
     Wait (HeadState -> Maybe (HeadState, [Effect]))
+  | ErrorEffect LogicError -- NOTE(SN): this feels weird, maybe an Either on the 'update' fits better
 
 data ClientRequest
   = Init
@@ -38,7 +38,7 @@ data HydraMessage
   | ReqSn
   | AckSn
   | ConfSn
-  deriving (Show)
+  deriving (Eq, Show)
 
 data OnChainTx
   = InitTx
@@ -80,6 +80,11 @@ data SnapshotStrategy = SnapshotStrategy
 createHeadState :: [Party] -> HeadParameters -> SnapshotStrategy -> HeadState
 createHeadState _ _ _ = InitState
 
+data LogicError
+  = InvalidEvent Event HeadState
+  | InvalidState HeadState
+  deriving (Eq, Show)
+
 -- | The heart of the Hydra head logic, a handler of all kinds of 'Event' in the
 -- Hydra head. This may also be split into multiple handlers, i.e. one for hydra
 -- network events, one for client events and one for main chain events, or by
@@ -89,16 +94,7 @@ update st ev = case (st, ev) of
   (OpenState st', NetworkEvent ReqTx) ->
     bimap OpenState (map mapEffect) $
       SimpleHead.update st' SimpleHead.ReqTxFromPeer
-  _ -> error $ "Unhandled event " <> show ev <> " in state " <> show st
-
---  (InitState{}, ClientEvent Init) -> init
---  (OpenState st', ClientEvent Close) -> close st'
---  (OpenState st', ClientEvent NewTx) ->
---    bimap OpenState (map mapEffect) $
---      SimpleHead.update st' SimpleHead.NewTxFromClient
-
-close :: SimpleHead.State -> (HeadState, [Effect])
-close _ = (ClosedState, [])
+  _ -> (st, [ErrorEffect $ InvalidEvent ev st])
 
 -- NOTE: This three things needs to be polymorphic in the output eventually, likely a
 -- type-class with data-families for each sub-modules.

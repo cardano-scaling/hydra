@@ -6,7 +6,6 @@ import Hydra.Node
 import Data.String (String)
 import Hydra.Logic (
   ClientInstruction (..),
-  Event,
   HeadState (..),
   OnChainTx (..),
  )
@@ -27,12 +26,13 @@ spec = describe "Hydra Node" $ do
   it "does nothing for a second without events" $ do
     q <- createEventQueue
     hh <- createHydraHead InitState
-    res <- timeout 1000000 $ runHydra q mockNetwork mockChain mockClientSide hh
+    res <- timeout 1000000 $ handleNextEvent q mockNetwork mockChain mockClientSide hh
     res `shouldBe` Nothing
     queryHeadState hh `shouldReturn` InitState
   it "does something" $ do
     hh <- createHydraHead InitState
-    init (expectOnChain InitTx) hh (expectClientSide AcceptingTx)
+    res <- init (expectOnChain InitTx) hh (expectClientSide AcceptingTx)
+    res `shouldBe` Right ()
     queryHeadState hh >>= shouldNotBe InitState
 
 mockNetwork :: HydraNetwork IO

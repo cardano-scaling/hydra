@@ -94,6 +94,7 @@ library
     , shelley-spec-ledger
     , cardano-ledger-shelley-ma
     , repline
+    , safe-exceptions
     , stm
     , typed-protocols
   ghc-options:
