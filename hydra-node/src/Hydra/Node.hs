@@ -17,9 +17,9 @@ import Hydra.Logic (
   ClientInstruction (..),
   Effect (ClientEffect, NetworkEffect, OnChainEffect, Wait),
   Event (ClientEvent, NetworkEvent, OnChainEvent),
-  HeadState (InitState),
+  HeadState,
   HydraMessage (AckSn, AckTx, ConfSn, ConfTx, ReqSn, ReqTx),
-  OnChainTx (InitTx),
+  OnChainTx (..),
  )
 import qualified Hydra.Logic as Logic
 import System.Console.Repline (CompleterStyle (Word0), ExitDecision (Exit), evalRepl)
@@ -48,7 +48,8 @@ runHydra EventQueue{nextEvent} HydraNetwork{broadcast} OnChain{postTx} ClientSid
 
 -- | The single, required queue in the system from which a hydra head is "fed".
 -- NOTE(SN): this probably should be bounded and include proper logging
--- NOTE(SN): handle pattern, but likely not required as there is no need for an alternative implementation
+-- NOTE(SN): handle pattern, but likely not required as there is no need for an
+-- alternative implementation
 data EventQueue m = EventQueue
   { putEvent :: Event -> m ()
   , nextEvent :: m Event
@@ -95,23 +96,22 @@ createHydraNetwork :: EventQueue IO -> IO (HydraNetwork IO)
 createHydraNetwork EventQueue{putEvent} = do
   -- NOTE(SN): obviously we should connect to a known set of peers here and do
   -- really broadcast messages to them
-  pure
-    HydraNetwork
-      { broadcast = \msg -> do
-          putStrLn @Text $ "[Network] should broadcast " <> show msg
-          let ma = case msg of
-                ReqTx -> Just AckTx
-                AckTx -> Just ConfTx
-                ConfTx -> Nothing
-                ReqSn -> Just AckSn
-                AckSn -> Just ConfSn
-                ConfSn -> Nothing
-          case ma of
-            Just answer -> do
-              putStrLn @Text $ "[Network] simulating answer " <> show answer
-              putEvent $ NetworkEvent answer
-            Nothing -> pure ()
-      }
+  pure HydraNetwork{broadcast = simulatedBroadcast}
+ where
+  simulatedBroadcast msg = do
+    putStrLn @Text $ "[Network] should broadcast " <> show msg
+    let ma = case msg of
+          ReqTx -> Just AckTx
+          AckTx -> Just ConfTx
+          ConfTx -> Nothing
+          ReqSn -> Just AckSn
+          AckSn -> Just ConfSn
+          ConfSn -> Nothing
+    case ma of
+      Just answer -> do
+        putStrLn @Text $ "[Network] simulating answer " <> show answer
+        putEvent $ NetworkEvent answer
+      Nothing -> pure ()
 
 --
 -- OnChain handle to abstract over chain access
@@ -128,12 +128,25 @@ newtype OnChain m = OnChain
 -- construct actual transactions using 'OnChainTx' and send them on 'postTx'.
 createChainClient :: EventQueue IO -> IO (OnChain IO)
 createChainClient EventQueue{putEvent} = do
-  let onChainHandle =
-        OnChain
-          { postTx = panic "should construct and send transaction e.g. using plutus"
-          }
-  let plutussChainSyncServer = putEvent . OnChainEvent
-  pure onChainHandle
+  -- NOTE(SN): obviously we should construct and send transactions, e.g. using
+  -- plutus instead
+  pure OnChain{postTx = simulatedPostTx}
+ where
+  simulatedPostTx tx = do
+    putStrLn @Text $ "[OnChain] should post tx for " <> show tx
+    let ma = case tx of
+          InitTx -> Just CommitTx -- simulate other peer committing
+          CommitTx -> Just CollectComTx -- simulate other peer collecting
+          CollectComTx -> Nothing
+          CloseTx -> Just ContestTx -- simulate other peer contesting
+          ContestTx -> Nothing
+          FanoutTx -> Nothing
+    case ma of
+      Just answer -> void . async $ do
+        threadDelay 1000000
+        putStrLn @Text $ "[OnChain] simulating  " <> show answer
+        putEvent $ OnChainEvent answer
+      Nothing -> pure ()
 
 --
 -- ClientSide handle to abstract over the client side.. duh.
