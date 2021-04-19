@@ -81,9 +81,8 @@ common project-config
 library
   import: project-config
   exposed-modules:
-      Hydra.ContractStateMachine
-      Hydra.Contract.Types
-      Hydra.MonetaryPolicy
+      Hydra.Contract.OnChain
+      Hydra.Contract.OffChain
   hs-source-dirs: src
   build-depends:
       aeson,
