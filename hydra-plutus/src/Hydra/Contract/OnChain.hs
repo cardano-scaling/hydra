@@ -81,13 +81,16 @@ machine policyId =
         wrap = Scripts.wrapValidator @HydraState @HydraInput
 {- ORMOLU_ENABLE -}
 
+νHydraAddress :: MonetaryPolicyHash -> Address
+νHydraAddress = Scripts.scriptAddress . νHydraInstance
+
 νHydraHash :: MonetaryPolicyHash -> ValidatorHash
 νHydraHash = Scripts.scriptHash . νHydraInstance
 {-# INLINEABLE νHydraHash #-}
 
-ρCollectCom :: Datum
-ρCollectCom = Datum (toData Initial)
-{-# INLINEABLE ρCollectCom #-}
+δCollectCom :: Datum
+δCollectCom = Datum (toData Initial)
+{-# INLINEABLE δCollectCom #-}
 
 --
 -- Participation Tokens
@@ -160,13 +163,20 @@ instance Scripts.ScriptType Initial where
   wrap = Scripts.wrapValidator @(DatumType Initial) @(RedeemerType Initial)
 {- ORMOLU_ENABLE -}
 
-ρInitial :: PubKeyHash -> Datum
-ρInitial = Datum . toData
-{-# INLINEABLE ρInitial #-}
+νInitialAddress :: MonetaryPolicyHash -> Address
+νInitialAddress = Scripts.scriptAddress . νInitialInstance
 
 νInitialHash :: MonetaryPolicyHash -> ValidatorHash
 νInitialHash = Scripts.scriptHash . νInitialInstance
 {-# INLINEABLE νInitialHash #-}
+
+δInitial :: PubKeyHash -> Datum
+δInitial = Datum . toData
+{-# INLINEABLE δInitial #-}
+
+ρInitial :: Redeemer
+ρInitial = Redeemer (toData ())
+{-# INLINEABLE ρInitial #-}
 
 --
 -- νCommit
@@ -196,7 +206,7 @@ instance Scripts.ScriptType Initial where
  where
   consumedByAbort = False -- FIXME
   consumedByCollectCom =
-    let utxos = txInfoInputs (valCtxTxInfo tx)
+    let utxos = filterInputs (const True) tx
      in mustSatisfy @PubKeyHash @[TxOutRef]
           [ mustCollectCommit νCollectComHash utxos
           , mustForwardParticipationToken policyId vk
@@ -222,13 +232,16 @@ instance Scripts.ScriptType Commit where
   wrap = Scripts.wrapValidator @(DatumType Commit) @(RedeemerType Commit)
 {- ORMOLU_ENABLE -}
 
+νCommitAddress :: MonetaryPolicyHash -> Address
+νCommitAddress = Scripts.scriptAddress . νCommitInstance
+
 νCommitHash :: MonetaryPolicyHash -> ValidatorHash
 νCommitHash = Scripts.scriptHash . νCommitInstance
 {-# INLINEABLE νCommitHash #-}
 
-ρCommit :: [TxOutRef] -> Datum
-ρCommit = Datum . toData
-{-# INLINEABLE ρCommit #-}
+δCommit :: [TxOutRef] -> Datum
+δCommit = Datum . toData
+{-# INLINEABLE δCommit #-}
 
 -- NOTE: We would like this to be INLINEABLE. Yet, behind the scene, 'datumHash'
 -- relies on CBOR binary serialisation, which isn't runnable in plutus-core _yet_.
@@ -241,14 +254,15 @@ instance Scripts.ScriptType Commit where
 -- _doable_ though a bit unpleasant / not recommended (as it would have to match
 -- exactly the one from the ledger). Otherwise, fingers crossed for this to be
 -- addressed in upcoming releases of Plutus.
-ρCommitHash :: [TxOutRef] -> DatumHash
-ρCommitHash =
-  datumHash . ρCommit
+δCommitHash :: [TxOutRef] -> DatumHash
+δCommitHash =
+  datumHash . δCommit
 
 --
 -- Helpers
 --
 
+-- | Small helper to make constraint validation a little easier to write.
 mustSatisfy ::
   forall i o.
   IsData o =>
@@ -259,6 +273,7 @@ mustSatisfy constraints =
   checkValidatorCtx (mconcat constraints)
 {-# INLINEABLE mustSatisfy #-}
 
+-- | Re-exported to make code declaring constraints a bit more uniform.
 mustBeSignedBy ::
   forall i o.
   PubKeyHash ->
@@ -292,22 +307,22 @@ mustForwardParticipationToken policyId vk =
 mustCommitUtxos ::
   forall i o.
   ValidatorHash ->
-  [TxInInfo] ->
+  [(TxOutRef, Value)] ->
   TxConstraints i o
 mustCommitUtxos νCommitHash utxos =
-  let value = foldMap txInInfoValue utxos
-      datum = ρCommit $ txInInfoOutRef <$> utxos
+  let value = foldMap snd utxos
+      datum = δCommit $ fst <$> utxos
    in Constraints.mustPayToOtherScript νCommitHash datum value
 {-# INLINEABLE mustCommitUtxos #-}
 
 mustCollectCommit ::
   forall i o.
   ValidatorHash ->
-  [TxInInfo] ->
+  [(TxOutRef, Value)] ->
   TxConstraints i o
 mustCollectCommit νCollectComHash utxos =
-  let value = foldMap txInInfoValue utxos
-   in Constraints.mustPayToOtherScript νCollectComHash ρCollectCom value
+  let value = foldMap snd utxos
+   in Constraints.mustPayToOtherScript νCollectComHash δCollectCom value
 {-# INLINEABLE mustCollectCommit #-}
 
 mkParticipationToken :: MonetaryPolicyHash -> PubKeyHash -> Value
@@ -320,9 +335,13 @@ mkParticipationTokenName =
   TokenName . getPubKeyHash
 {-# INLINEABLE mkParticipationTokenName #-}
 
-filterInputs :: (TxInInfo -> Bool) -> ValidatorCtx -> [TxInInfo]
+filterInputs :: (TxInInfo -> Bool) -> ValidatorCtx -> [(TxOutRef, Value)]
 filterInputs predicate =
-  filter predicate . txInfoInputs . valCtxTxInfo
+  mapMaybe fn . txInfoInputs . valCtxTxInfo
+ where
+  fn info
+    | predicate info = Just (txInInfoOutRef info, txInInfoValue info)
+    | otherwise = Nothing
 {-# INLINEABLE filterInputs #-}
 
 hasParticipationToken :: MonetaryPolicyHash -> TxInInfo -> Bool

@@ -6,7 +6,7 @@ import qualified Data.Map as Map
 import Data.Maybe
 import Data.Text.Prettyprint.Doc
 import Data.Void (Void)
-import Ledger (Address, DatumHash, TxOutTx (txOutTxOut), txOutDatum)
+import Ledger (Datum(..), Address, DatumHash, TxOutTx (txOutTxOut), txOutDatum, datumHash)
 import Ledger.AddressMap (UtxoMap)
 import Plutus.Contract.Test (TracePredicate)
 import PlutusTx.Prelude hiding (trace)
@@ -14,16 +14,17 @@ import Wallet.Emulator.Folds (postMapM)
 import qualified Wallet.Emulator.Folds as Folds
 
 -- | Check that the given script address has some `DatumHash`.
-datumAtAddress :: Address -> DatumHash -> TracePredicate
+datumAtAddress :: IsData a => Address -> a -> TracePredicate
 datumAtAddress address expected =
   flip postMapM (L.generalize $ Folds.utxoAtAddress address) $ \utxo -> do
     let datums = datum utxo
-    if expected `elem` datums
+        expectedDatum = datumHash $ Datum $ toData expected
+    if expectedDatum `elem` datums
       then return True
       else do
         tell @(Doc Void)
           ( "Expected datum with hash"
-              <+> pretty expected
+              <+> pretty expectedDatum
               <+> ", got datums at address"
               <+> pretty address
               <+> ":"
