@@ -4,6 +4,7 @@ import Cardano.Prelude
 
 import Ledger
 
+import Prettyprinter (pretty)
 import Ledger.AddressMap (UtxoMap, fundsAt)
 import Wallet.Types(ContractError)
 import Wallet.Emulator.Chain(chainNewestFirst)
@@ -24,9 +25,11 @@ import Plutus.Contract.Test (
   checkPredicate
  )
 
+import qualified Prettyprinter as Pretty
+import qualified Prelude
 import qualified Hydra.Contract.OnChain as OnChain
 import qualified Hydra.Contract.OffChain as OffChain
-
+import qualified Data.Map.Strict as Map
 import qualified Plutus.Trace.Emulator as Trace
 import qualified Control.Monad.Freer.Extras.Log as Trace
 
@@ -47,7 +50,7 @@ testPolicyId :: MonetaryPolicyHash
 testPolicyId = monetaryPolicyHash testPolicy
 
 contract :: Contract () OffChain.Schema ContractError ()
-contract = OffChain.contract testPolicy
+contract = OffChain.contract testPolicy [vk alice, vk bob]
 
 --
 -- Helpers
@@ -61,6 +64,13 @@ utxoOf w = do
   st <- emulatorState . view chainNewestFirst <$> Trace.chainState
   return $ st ^. chainUtxo . fundsAt (walletAddress w)
 
+prettyUtxo :: UtxoMap -> String
+prettyUtxo
+  = show
+  . Pretty.list
+  . fmap (\(outRef, tx) -> Pretty.tupled [pretty outRef, pretty (txOutTxOut tx)])
+  . Map.toList
+
 --
 -- Test
 --
@@ -70,7 +80,7 @@ tests =
   testGroup
     "Simple Scenario"
     [ checkPredicate
-        "Init > Commit > Commit"
+        "Init > Commit > Commit > CollectCom"
         (assertNoFailedTransactions .&&. assertStateIs OnChain.Open)
         fullScenarioSimple
     ]
@@ -84,20 +94,20 @@ fullScenarioSimple = do
   aliceH <- Trace.activateContractWallet alice contract
   bobH <- Trace.activateContractWallet bob contract
 
-  Trace.callEndpoint @"init" aliceH [vk alice, vk bob]
+  Trace.callEndpoint @"init" aliceH ()
   void Trace.nextSlot
+
+  utxoBob <- utxoOf bob
+  Trace.logInfo ("Bob's UTxO: " <> show @_ @String utxoBob)
+  Trace.callEndpoint @"commit" bobH (vk bob, commitFirst utxoBob)
+  void Trace.nextSlot                              --
 
   utxoAlice <- utxoOf alice
-  Trace.logInfo ("Alice's UTxO: " <> show @_ @String utxoAlice)
-  Trace.callEndpoint @"commit" aliceH (vk alice, utxoAlice)
+  Trace.logInfo ("Alice's UTxO: " <> prettyUtxo utxoAlice)
+  Trace.callEndpoint @"commit" aliceH (vk alice, commitFirst utxoAlice)
   void Trace.nextSlot
 
-  -- utxoBob <- utxoOf bob
-  -- Trace.logInfo ("Bob's UTxO: " <> show @_ @String utxoBob)
-  -- Trace.callEndpoint @"commit" bobH (vk bob, utxoBob)
-  -- void Trace.nextSlot                              --
-
-  -- Trace.callEndpoint @"collectCom" alice ()
-  -- void Trace.nextSlot
-  -- Trace.callEndpoint @"close" alice ()
-  -- void Trace.nextSlot
+  Trace.callEndpoint @"collectCom" aliceH (vk alice)
+  void Trace.nextSlot
+ where
+  commitFirst = Prelude.head . Map.toList

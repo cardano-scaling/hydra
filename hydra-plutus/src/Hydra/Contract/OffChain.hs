@@ -4,15 +4,25 @@
 
 module Hydra.Contract.OffChain where
 
-import PlutusTx.Prelude hiding (init)
+import Prelude hiding (init)
 
 import Control.Arrow (second)
 import Control.Monad (forever, void)
-import Ledger
+import Ledger hiding (out, value)
 import Ledger.Ada (lovelaceValueOf)
 import Ledger.AddressMap (UtxoMap)
 import Ledger.Constraints.OffChain (ScriptLookups (..))
+import Ledger.Typed.Scripts (ScriptInstance)
 import Plutus.Contract.Effects.UtxoAt (HasUtxoAt)
+
+import Ledger.Constraints.TxConstraints (
+  mustBeSignedBy,
+  mustForgeValue,
+  mustPayToOtherScript,
+  mustPayToTheScript,
+  mustSpendPubKeyOutput,
+  mustSpendScriptOutput,
+ )
 
 import Plutus.Contract (
   AsContractError,
@@ -20,7 +30,6 @@ import Plutus.Contract (
   Contract,
   Endpoint,
   endpoint,
-  logInfo,
   select,
   submitTxConstraintsWith,
   utxoAt,
@@ -29,9 +38,8 @@ import Plutus.Contract (
 
 import qualified Data.Map.Strict as Map
 import qualified Hydra.Contract.OnChain as OnChain
-import qualified Ledger.Constraints.TxConstraints as Constraints
 import qualified Ledger.Typed.Scripts as Scripts
-import qualified Prelude
+import qualified Ledger.Value as Value
 
 --
 -- Initial
@@ -47,41 +55,40 @@ import qualified Prelude
 init ::
   (AsContractError e) =>
   MonetaryPolicy ->
+  [PubKeyHash] ->
   Contract () Schema e ()
-init policy = do
-  vks <- endpoint @"init" @[PubKeyHash]
-  void $ submitTxConstraintsWith lookups (constraints vks)
+init policy vks = do
+  endpoint @"init" @()
+  void $ submitTxConstraintsWith lookups constraints
  where
   policyId =
     monetaryPolicyHash policy
 
   lookups =
-    Prelude.mempty
+    mempty
       { slMPS =
           Map.singleton policyId policy
       , slScriptInstance =
           Just (OnChain.νHydraInstance policyId)
       }
 
-  constraints vks =
+  constraints =
     mconcat
       [ foldMap
           ( \vk ->
               let participationToken = OnChain.mkParticipationToken policyId vk
                in mconcat
-                    [ Constraints.mustPayToOtherScript
+                    [ mustPayToOtherScript
                         (OnChain.νInitialHash policyId)
                         (OnChain.δInitial vk)
                         participationToken
-                    , Constraints.mustForgeValue
+                    , mustForgeValue
                         participationToken
                     ]
           )
           vks
-      , Constraints.mustPayToTheScript state (lovelaceValueOf 1)
+      , mustPayToTheScript (OnChain.Initial vks) (lovelaceValueOf 0)
       ]
-   where
-    state = OnChain.Initial
 
 -- To lock outputs for a Hydra head, the i-th head member will attach a commit
 -- transaction to the i-th output of the initial transaction.
@@ -93,76 +100,136 @@ commit ::
   MonetaryPolicy ->
   Contract () Schema e ()
 commit policy = do
-  (vk, toCommit) <- endpoint @"commit" @(PubKeyHash, UtxoMap)
-  utxo <- utxoAtWithDatum (OnChain.νInitialAddress policyId) (OnChain.δInitial vk)
-  logInfo @String $ show utxo
-  void $
-    submitTxConstraintsWith
-      (lookups vk toCommit utxo)
-      (constraints vk toCommit utxo)
+  (vk, toCommit) <- endpoint @"commit" @(PubKeyHash, (TxOutRef, TxOutTx))
+  initial <- utxoAtWithDatum (OnChain.νInitialAddress policyId) (OnChain.δInitial vk)
+  void $ submitTxConstraintsWith (lookups vk toCommit initial) (constraints vk toCommit initial)
  where
   policyId =
     monetaryPolicyHash policy
 
-  lookups vk toCommit utxo =
-    Prelude.mempty
+  lookups vk (ref, out) initial =
+    mempty
       { slMPS =
           Map.singleton policyId policy
       , slScriptInstance =
-          Just (OnChain.νInitialInstance policyId)
+          Just (OnChain.νHydraInstance policyId)
       , slTxOutputs =
-          utxo Prelude.<> toCommit
+          initial <> Map.singleton ref out
       , slOtherScripts =
-          let scriptA = OnChain.νCommitInstance policyId
-              scriptB = OnChain.νInitialInstance policyId
+          let script = OnChain.νInitialInstance policyId
            in Map.fromList
-                [ (Scripts.scriptAddress scriptA, Scripts.validatorScript scriptA)
-                , (Scripts.scriptAddress scriptB, Scripts.validatorScript scriptB)
+                [ (Scripts.scriptAddress script, Scripts.validatorScript script)
                 ]
       , slOtherData =
-          let datum = OnChain.δCommit (Map.keys toCommit)
+          let datum = OnChain.δCommit ref
            in Map.fromList
-                [(datumHash datum, datum)]
+                [ (datumHash datum, datum)
+                ]
       , slOwnPubkey =
           Just vk
       }
 
-  constraints vk toCommit utxo =
-    mconcat
-      [ OnChain.mustBeSignedBy vk
-      , OnChain.mustCommitUtxos (OnChain.νCommitHash policyId) (flattenUtxo toCommit)
-      , OnChain.mustForwardParticipationToken policyId vk
-      , foldMap (`Constraints.mustSpendScriptOutput` OnChain.ρInitial) (Map.keys utxo)
-      ]
+  constraints vk (ref, out) initial =
+    let value = txOutValue (txOutTxOut out) <> OnChain.mkParticipationToken policyId vk
+     in mconcat
+          [ mustBeSignedBy vk
+          , -- NOTE: using a 'foldMap' here but that 'initial' utxo really has only one
+            -- element!
+            foldMap (`mustSpendScriptOutput` OnChain.ρInitial) (Map.keys initial)
+          , mustSpendPubKeyOutput ref
+          , mustPayToOtherScript
+              (OnChain.νCommitHash policyId)
+              (OnChain.δCommit ref)
+              value
+          ]
 
+-- The SM transition from initial to open is achieved by posting the collectCom
+-- transaction.
+--
+-- All head parameters remain part of the state.
+--
+-- In addition, information about the initial UTxO set, which is made up of the
+-- individual UTxO sets Ui collected from the commit transactions, is stored in
+-- the state.
+--
+-- It is also required that all n participation tokens be present in the output
+-- of the collectCom transaction.
+--
+-- Finally, note that the transition requires a proof that the signer is one of
+-- the head members.
 collectCom ::
   (AsContractError e) =>
+  MonetaryPolicy ->
+  [PubKeyHash] ->
   Contract () Schema e ()
-collectCom =
-  endpoint @"collectCom" @()
+collectCom policy vks = do
+  headMember <- endpoint @"collectCom" @PubKeyHash
+  committed <- utxoAt (OnChain.νCommitAddress policyId)
+  stateMachine <- utxoAt (OnChain.νHydraAddress policyId)
+  void $
+    submitTxConstraintsWith @OnChain.Hydra
+      (lookups committed stateMachine headMember)
+      (constraints committed stateMachine headMember)
+ where
+  policyId =
+    monetaryPolicyHash policy
 
--- FIXME
+  lookups committed stateMachine headMember =
+    mempty
+      { slMPS =
+          Map.singleton policyId policy
+      , slScriptInstance =
+          Just (OnChain.νHydraInstance policyId)
+      , slOtherScripts =
+          Map.fromList
+            [ (Scripts.scriptAddress script, Scripts.validatorScript script)
+            | SomeScriptInstance script <-
+                [ SomeScriptInstance $ OnChain.νCommitInstance policyId
+                , SomeScriptInstance $ OnChain.νHydraInstance policyId
+                ]
+            ]
+      , slTxOutputs =
+          committed <> stateMachine
+      , slOwnPubkey =
+          Just headMember
+      }
+
+  constraints committed stateMachine headMember =
+    let value = foldMap snd $ flattenUtxo (committed <> stateMachine)
+     in mconcat
+          [ mustBeSignedBy headMember
+          , mustPayToTheScript OnChain.Open value
+          , foldMap
+              (\(vk, ref) -> mustSpendScriptOutput ref (OnChain.ρCommit vk))
+              (zipOnParticipationToken policyId vks committed)
+          , -- NOTE: using a 'foldMap' here but the 'stateMachine' utxo really
+            -- has only one element!
+            foldMap (`mustSpendScriptOutput` OnChain.ρInit) (Map.keys stateMachine)
+          ]
 
 type Schema =
   BlockchainActions
-    .\/ Endpoint "init" [PubKeyHash]
-    .\/ Endpoint "commit" (PubKeyHash, UtxoMap)
-    .\/ Endpoint "collectCom" ()
+    .\/ Endpoint "init" ()
+    .\/ Endpoint "commit" (PubKeyHash, (TxOutRef, TxOutTx))
+    .\/ Endpoint "collectCom" PubKeyHash
 
 contract ::
   (AsContractError e) =>
   MonetaryPolicy ->
+  [PubKeyHash] ->
   Contract () Schema e ()
-contract policy = forever endpoints
+contract policy vks = forever endpoints
  where
   endpoints =
-    init policy
+    init policy vks
       `select` commit policy
-      `select` collectCom
+      `select` collectCom policy vks
 
 --
 -- Helpers
 --
+
+data SomeScriptInstance = forall a. SomeScriptInstance (ScriptInstance a)
 
 flattenUtxo :: UtxoMap -> [(TxOutRef, Value)]
 flattenUtxo =
@@ -182,3 +249,31 @@ utxoAtWithDatum addr datum = do
     case txOutType (txOutTxOut out) of
       PayToScript d | d == datumHash datum -> True
       _ -> False
+
+-- When collecting commits, we need to associate each commit utxo to the
+-- corresponding head member keys. There's no guarantee that head members will
+-- commit in the order they are defined in the head parameters, so just
+-- "zipping" doesn't do it.
+--
+-- Instead, we must associate each commited utxo to their key using the
+-- participation token that they all carry.
+zipOnParticipationToken ::
+  MonetaryPolicyHash ->
+  [PubKeyHash] ->
+  UtxoMap ->
+  [(PubKeyHash, TxOutRef)]
+zipOnParticipationToken policyId vks utxo =
+  go [] (flattenUtxo utxo) vks []
+ where
+  go acc [] _ _ = acc
+  go acc _ [] _ = acc
+  go acc (u : qu) (vk : qv) qv' =
+    if u `hasParticipationToken` vk
+      then go ((vk, fst u) : acc) qu (qv ++ qv') []
+      else go acc (u : qu) qv (vk : qv')
+
+  hasParticipationToken :: (TxOutRef, Value) -> PubKeyHash -> Bool
+  hasParticipationToken (_, value) vk =
+    let currency = Value.mpsSymbol policyId
+        token = OnChain.mkParticipationTokenName vk
+     in Value.valueOf value currency token > 0

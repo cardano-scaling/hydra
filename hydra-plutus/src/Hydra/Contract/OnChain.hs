@@ -7,18 +7,26 @@ module Hydra.Contract.OnChain where
 import PlutusPrelude (Generic)
 import PlutusTx.Prelude
 
-import Ledger
+import Ledger hiding (out, value)
 import Ledger.Constraints (TxConstraints, checkValidatorCtx)
 import Ledger.Typed.Scripts (ScriptType (DatumType, RedeemerType))
 import Ledger.Value (TokenName (..))
-import Plutus.Contract.StateMachine (State (..), Void)
+import PlutusTx.AssocMap (Map)
 import PlutusTx.IsData.Class (IsData (..))
 
-import qualified Ledger.Constraints.TxConstraints as Constraints
+import Ledger.Constraints.TxConstraints (
+  mustBeSignedBy,
+  mustPayToOtherScript,
+  mustPayToTheScript,
+  mustProduceAtLeast,
+  mustSpendAtLeast,
+  mustSpendPubKeyOutput,
+ )
+
 import qualified Ledger.Typed.Scripts as Scripts
 import qualified Ledger.Value as Value
-import qualified Plutus.Contract.StateMachine as SM
 import qualified PlutusTx
+import qualified PlutusTx.AssocMap as Map
 
 {- HLINT ignore "Use &&" -}
 
@@ -27,7 +35,7 @@ import qualified PlutusTx
 --
 
 data HydraState
-  = Initial
+  = Initial [PubKeyHash]
   | Open
 PlutusTx.makeLift ''HydraState
 PlutusTx.unstableMakeIsData ''HydraState
@@ -38,47 +46,41 @@ data HydraInput
 PlutusTx.makeLift ''HydraInput
 PlutusTx.unstableMakeIsData ''HydraInput
 
-transition ::
-  MonetaryPolicyHash ->
-  State HydraState ->
-  HydraInput ->
-  Maybe (SM.TxConstraints Void Void, State HydraState)
-transition policyId s i = case (s, i) of
-  (state@State{stateData = Initial}, CollectCom) ->
-    Just
-      ( mempty
-      , state{stateData = Open}
-      )
-  (_, _) -> Nothing
-{-# INLINEABLE transition #-}
-
-machine ::
-  MonetaryPolicyHash ->
-  SM.StateMachine HydraState HydraInput
-machine policyId =
-  SM.mkStateMachine (transition policyId) isFinal
- where
-  isFinal _ = False -- FIXME
-{-# INLINEABLE machine #-}
-
 νHydra ::
   MonetaryPolicyHash ->
-  Scripts.ValidatorType (SM.StateMachine HydraState HydraInput)
-νHydra =
-  SM.mkValidator . machine
+  HydraState ->
+  HydraInput ->
+  ValidatorCtx ->
+  Bool
+νHydra policyId s i tx = case (s, i) of
+  (Initial vks, CollectCom) ->
+    let utxos = filterInputs (const True) tx
+     in mustSatisfy @HydraInput @HydraState
+          [ mustPayToTheScript Open (foldMap snd utxos)
+          , foldMap (mustForwardParticipationToken policyId) vks
+          ]
+          tx
+          && tx `mustBeSignedByOneOf` vks
+  _ ->
+    False
 {-# INLINEABLE νHydra #-}
+
+data Hydra
+instance Scripts.ScriptType Hydra where
+  type DatumType Hydra = HydraState
+  type RedeemerType Hydra = HydraInput
 
 {- ORMOLU_DISABLE -}
 νHydraInstance
   :: MonetaryPolicyHash
-  -> Scripts.ScriptInstance (SM.StateMachine HydraState HydraInput)
-νHydraInstance policyId = Scripts.validator @(SM.StateMachine HydraState HydraInput)
+  -> Scripts.ScriptInstance Hydra
+νHydraInstance policyId = Scripts.validator @Hydra
     ( $$(PlutusTx.compile [|| νHydra ||])
       `PlutusTx.applyCode` PlutusTx.liftCode policyId
     )
     $$(PlutusTx.compile [|| wrap ||])
     where
-        wrap = Scripts.wrapValidator @HydraState @HydraInput
+        wrap = Scripts.wrapValidator @(DatumType Hydra) @(RedeemerType Hydra)
 {- ORMOLU_ENABLE -}
 
 νHydraAddress :: MonetaryPolicyHash -> Address
@@ -88,9 +90,13 @@ machine policyId =
 νHydraHash = Scripts.scriptHash . νHydraInstance
 {-# INLINEABLE νHydraHash #-}
 
-δCollectCom :: Datum
-δCollectCom = Datum (toData Initial)
-{-# INLINEABLE δCollectCom #-}
+δOpen :: Datum
+δOpen = Datum (toData Open)
+{-# INLINEABLE δOpen #-}
+
+ρInit :: Redeemer
+ρInit = Redeemer (toData CollectCom)
+{-# INLINEABLE ρInit #-}
 
 --
 -- Participation Tokens
@@ -131,18 +137,23 @@ hydraMonetaryPolicyHash = monetaryPolicyHash . hydraMonetaryPolicy
   () ->
   ValidatorCtx ->
   Bool
-νInitial policyId νCommitHash vk () tx =
+νInitial policyId script vk () tx =
   consumedByCommit || consumedByAbort
  where
   consumedByAbort = False -- FIXME
   consumedByCommit =
-    let utxos = filterInputs (not . hasParticipationToken policyId) tx
-     in mustSatisfy @() @PubKeyHash
-          [ mustBeSignedBy vk
-          , mustCommitUtxos νCommitHash utxos
-          , mustForwardParticipationToken policyId vk
-          ]
-          tx
+    let committed = filterInputs (not . hasParticipationToken policyId) tx
+        participationToken = filterInputs (hasParticipationToken policyId) tx
+     in case committed of
+          [utxo] ->
+            mustSatisfy @() @PubKeyHash
+              [ mustBeSignedBy vk
+              , mustCommitUtxos script utxo (<> foldMap snd participationToken)
+              , mustForwardParticipationToken policyId vk
+              ]
+              tx
+          _ ->
+            False
 
 data Initial
 instance Scripts.ScriptType Initial where
@@ -197,17 +208,17 @@ instance Scripts.ScriptType Initial where
 νCommit ::
   MonetaryPolicyHash ->
   ValidatorHash ->
-  [TxOutRef] ->
+  TxOutRef ->
   PubKeyHash ->
   ValidatorCtx ->
   Bool
-νCommit policyId νCollectComHash outs vk tx =
+νCommit policyId νCollectComHash _out vk tx =
   consumedByCollectCom || consumedByAbort
  where
   consumedByAbort = False -- FIXME
   consumedByCollectCom =
     let utxos = filterInputs (const True) tx
-     in mustSatisfy @PubKeyHash @[TxOutRef]
+     in mustSatisfy @PubKeyHash @TxOutRef
           [ mustCollectCommit νCollectComHash utxos
           , mustForwardParticipationToken policyId vk
           ]
@@ -215,7 +226,7 @@ instance Scripts.ScriptType Initial where
 
 data Commit
 instance Scripts.ScriptType Commit where
-  type DatumType Commit = [TxOutRef]
+  type DatumType Commit = TxOutRef
   type RedeemerType Commit = PubKeyHash
 
 {- ORMOLU_DISABLE -}
@@ -239,24 +250,13 @@ instance Scripts.ScriptType Commit where
 νCommitHash = Scripts.scriptHash . νCommitInstance
 {-# INLINEABLE νCommitHash #-}
 
-δCommit :: [TxOutRef] -> Datum
+δCommit :: TxOutRef -> Datum
 δCommit = Datum . toData
 {-# INLINEABLE δCommit #-}
 
--- NOTE: We would like this to be INLINEABLE. Yet, behind the scene, 'datumHash'
--- relies on CBOR binary serialisation, which isn't runnable in plutus-core _yet_.
---
--- Question asked here on #plutus:
---
---     https://input-output-rnd.slack.com/archives/C21UF2WVC/p1618818447210100
---
--- If needed _immediately_ we would have to write our own serialiser, which is
--- _doable_ though a bit unpleasant / not recommended (as it would have to match
--- exactly the one from the ledger). Otherwise, fingers crossed for this to be
--- addressed in upcoming releases of Plutus.
-δCommitHash :: [TxOutRef] -> DatumHash
-δCommitHash =
-  datumHash . δCommit
+ρCommit :: PubKeyHash -> Redeemer
+ρCommit = Redeemer . toData
+{-# INLINEABLE ρCommit #-}
 
 --
 -- Helpers
@@ -273,13 +273,13 @@ mustSatisfy constraints =
   checkValidatorCtx (mconcat constraints)
 {-# INLINEABLE mustSatisfy #-}
 
--- | Re-exported to make code declaring constraints a bit more uniform.
-mustBeSignedBy ::
-  forall i o.
-  PubKeyHash ->
-  TxConstraints i o
-mustBeSignedBy = Constraints.mustBeSignedBy
-{-# INLINEABLE mustBeSignedBy #-}
+mustBeSignedByOneOf ::
+  ValidatorCtx ->
+  [PubKeyHash] ->
+  Bool
+mustBeSignedByOneOf tx vks =
+  or ((`checkValidatorCtx` tx) . mustBeSignedBy @() @() <$> vks)
+{-# INLINEABLE mustBeSignedByOneOf #-}
 
 mustForwardParticipationToken ::
   forall i o.
@@ -289,8 +289,8 @@ mustForwardParticipationToken ::
 mustForwardParticipationToken policyId vk =
   let participationToken = mkParticipationToken policyId vk
    in mconcat
-        [ Constraints.mustSpendAtLeast participationToken
-        , Constraints.mustProduceAtLeast participationToken
+        [ mustSpendAtLeast participationToken
+        , mustProduceAtLeast participationToken
         ]
 {-# INLINEABLE mustForwardParticipationToken #-}
 
@@ -307,12 +307,14 @@ mustForwardParticipationToken policyId vk =
 mustCommitUtxos ::
   forall i o.
   ValidatorHash ->
-  [(TxOutRef, Value)] ->
+  (TxOutRef, Value) ->
+  (Value -> Value) ->
   TxConstraints i o
-mustCommitUtxos νCommitHash utxos =
-  let value = foldMap snd utxos
-      datum = δCommit $ fst <$> utxos
-   in Constraints.mustPayToOtherScript νCommitHash datum value
+mustCommitUtxos script (ref, value) total =
+  mconcat
+    [ mustPayToOtherScript script (δCommit ref) (total value)
+    , mustSpendPubKeyOutput ref
+    ]
 {-# INLINEABLE mustCommitUtxos #-}
 
 mustCollectCommit ::
@@ -322,7 +324,7 @@ mustCollectCommit ::
   TxConstraints i o
 mustCollectCommit νCollectComHash utxos =
   let value = foldMap snd utxos
-   in Constraints.mustPayToOtherScript νCollectComHash δCollectCom value
+   in mustPayToOtherScript νCollectComHash δOpen value
 {-# INLINEABLE mustCollectCommit #-}
 
 mkParticipationToken :: MonetaryPolicyHash -> PubKeyHash -> Value
@@ -347,5 +349,28 @@ filterInputs predicate =
 hasParticipationToken :: MonetaryPolicyHash -> TxInInfo -> Bool
 hasParticipationToken policyId input =
   let currency = Value.mpsSymbol policyId
-   in currency `elem` Value.symbols (txInInfoValue input)
+   in currency `elem` symbols (txInInfoValue input)
 {-# INLINEABLE hasParticipationToken #-}
+
+-- NOTE: Not using `Value.symbols` because it is broken. In fact, a 'Value' may
+-- carry null quantities of some particular tokens, leading to weird situation
+-- where both:
+--
+--   - value == lovelaceValueOf n
+--   - symbols value /= [adaSymbol]
+--
+-- are true at the same time. The equality makes no difference between the
+-- absence of a certain symbol/token, and a null quantity of that symbol. Such
+-- null quantities are probably constructed when moving values around but they
+-- don't really mean anything so they should be discarded from views of the
+-- value itself, like 'symbols'
+symbols :: Value -> [CurrencySymbol]
+symbols = foldr normalize [] . Map.toList . Value.getValue
+ where
+  normalize :: (CurrencySymbol, Map TokenName Integer) -> [CurrencySymbol] -> [CurrencySymbol]
+  normalize (currency, tokens) acc
+    | currency `elem` acc = acc
+    | otherwise =
+      let elems = snd <$> Map.toList tokens
+       in if sum elems == 0 then acc else currency : acc
+{-# INLINEABLE symbols #-}
