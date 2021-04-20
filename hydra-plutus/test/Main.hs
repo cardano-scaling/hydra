@@ -1,4 +1,4 @@
-module Spec where
+module Main where
 
 import Cardano.Prelude
 import qualified Hydra.ContractStateMachineSpec as ContractStateMachine
