@@ -1,16 +1,23 @@
 module Hydra.Utils where
 
-import qualified Control.Foldl as L
+import Cardano.Prelude
+
 import Control.Monad.Freer.Writer (tell)
-import qualified Data.Map as Map
 import Data.Maybe
 import Data.Text.Prettyprint.Doc
-import Data.Void (Void)
 import Ledger (Datum(..), Address, DatumHash, TxOutTx (txOutTxOut), txOutDatum, datumHash)
 import Ledger.AddressMap (UtxoMap)
 import Plutus.Contract.Test (TracePredicate)
+import PlutusTx
 import PlutusTx.Prelude hiding (trace)
+import Test.Tasty
+import Test.Tasty.Golden
 import Wallet.Emulator.Folds (postMapM)
+import Wallet.Emulator.MultiAgent (EmulatorTimeEvent(..))
+import Plutus.Trace.Emulator.Types(UserThreadMsg (..))
+
+import qualified Control.Foldl as L
+import qualified Data.Map as Map
 import qualified Wallet.Emulator.Folds as Folds
 
 -- | Check that the given script address has some `DatumHash`.
@@ -35,3 +42,10 @@ datumAtAddress address expected =
 datum :: UtxoMap -> [DatumHash]
 datum utxoMap =
   catMaybes $ Map.elems $ Map.map (txOutDatum . txOutTxOut) utxoMap
+
+assertLastLog :: String -> TracePredicate
+assertLastLog expected = do
+  flip postMapM (L.generalize Folds.userLog) $ \logs ->
+    case reverse logs of
+      (EmulatorTimeEvent _ (UserLog got)):_ -> return (got == expected)
+      _ -> return False

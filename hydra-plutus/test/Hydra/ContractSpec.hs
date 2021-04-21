@@ -13,13 +13,13 @@ import Wallet.Emulator.MultiAgent (emulatorState, chainUtxo)
 import Control.Lens(view, (^.))
 import Test.Tasty(TestTree, testGroup)
 import Plutus.Contract (Contract)
-import Hydra.Utils (datumAtAddress)
 import Data.String (String)
+import Plutus.Trace.Emulator.Types (walletInstanceTag)
 
 import Plutus.Contract.Test (
   Wallet(..),
   (.&&.),
-  TracePredicate,
+  assertAccumState,
   walletPubKey,
   assertNoFailedTransactions,
   checkPredicate
@@ -49,7 +49,7 @@ testPolicy = OnChain.hydraMonetaryPolicy 42
 testPolicyId :: MonetaryPolicyHash
 testPolicyId = monetaryPolicyHash testPolicy
 
-contract :: Contract () OffChain.Schema ContractError ()
+contract :: Contract [OnChain.HydraState] OffChain.Schema ContractError ()
 contract = OffChain.contract testPolicy [vk alice, vk bob]
 
 --
@@ -81,13 +81,16 @@ tests =
     "Simple Scenario"
     [ checkPredicate
         "Init > Commit > Commit > CollectCom"
-        (assertNoFailedTransactions .&&. assertStateIs OnChain.Open)
+        (assertNoFailedTransactions
+          .&&. assertAccumState contract (walletInstanceTag alice) stateIsOpen "state is Open"
+        )
         fullScenarioSimple
     ]
 
-assertStateIs :: OnChain.HydraState -> TracePredicate
-assertStateIs =
-  datumAtAddress (OnChain.νHydraAddress testPolicyId)
+stateIsOpen :: [OnChain.HydraState] -> Bool
+stateIsOpen = \case
+  [OnChain.Open{}] -> True
+  _ -> False
 
 fullScenarioSimple :: Trace.EmulatorTrace ()
 fullScenarioSimple = do
@@ -109,5 +112,8 @@ fullScenarioSimple = do
 
   Trace.callEndpoint @"collectCom" aliceH (vk alice)
   void Trace.nextSlot
+
+  -- Trace.callEndpoint @"close" aliceH (vk alice)
+  -- void Trace.nextSlot
  where
   commitFirst = Prelude.head . Map.toList

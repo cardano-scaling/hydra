@@ -13,6 +13,7 @@ import Ledger.Ada (lovelaceValueOf)
 import Ledger.AddressMap (UtxoMap)
 import Ledger.Constraints.OffChain (ScriptLookups (..))
 import Ledger.Typed.Scripts (ScriptInstance)
+import Plutus.Contract.Effects.AwaitTxConfirmed (awaitTxConfirmed)
 import Plutus.Contract.Effects.UtxoAt (HasUtxoAt)
 
 import Ledger.Constraints.TxConstraints (
@@ -32,6 +33,7 @@ import Plutus.Contract (
   endpoint,
   select,
   submitTxConstraintsWith,
+  tell,
   utxoAt,
   type (.\/),
  )
@@ -56,7 +58,7 @@ init ::
   (AsContractError e) =>
   MonetaryPolicy ->
   [PubKeyHash] ->
-  Contract () Schema e ()
+  Contract [OnChain.HydraState] Schema e ()
 init policy vks = do
   endpoint @"init" @()
   void $ submitTxConstraintsWith lookups constraints
@@ -98,7 +100,7 @@ init policy vks = do
 commit ::
   (AsContractError e) =>
   MonetaryPolicy ->
-  Contract () Schema e ()
+  Contract [OnChain.HydraState] Schema e ()
 commit policy = do
   (vk, toCommit) <- endpoint @"commit" @(PubKeyHash, (TxOutRef, TxOutTx))
   initial <- utxoAtWithDatum (OnChain.νInitialAddress policyId) (OnChain.δInitial vk)
@@ -161,18 +163,23 @@ collectCom ::
   (AsContractError e) =>
   MonetaryPolicy ->
   [PubKeyHash] ->
-  Contract () Schema e ()
+  Contract [OnChain.HydraState] Schema e ()
 collectCom policy vks = do
   headMember <- endpoint @"collectCom" @PubKeyHash
   committed <- utxoAt (OnChain.νCommitAddress policyId)
   stateMachine <- utxoAt (OnChain.νHydraAddress policyId)
-  void $
+  tx <-
     submitTxConstraintsWith @OnChain.Hydra
       (lookups committed stateMachine headMember)
       (constraints committed stateMachine headMember)
+  awaitTxConfirmed (txId tx)
+  tell [nextState]
  where
   policyId =
     monetaryPolicyHash policy
+
+  nextState =
+    OnChain.Open []
 
   lookups committed stateMachine headMember =
     mempty
@@ -198,7 +205,7 @@ collectCom policy vks = do
     let value = foldMap snd $ flattenUtxo (committed <> stateMachine)
      in mconcat
           [ mustBeSignedBy headMember
-          , mustPayToTheScript OnChain.Open value
+          , mustPayToTheScript nextState value
           , foldMap
               (\(vk, ref) -> mustSpendScriptOutput ref (OnChain.ρCommit vk))
               (zipOnParticipationToken policyId vks committed)
@@ -217,7 +224,7 @@ contract ::
   (AsContractError e) =>
   MonetaryPolicy ->
   [PubKeyHash] ->
-  Contract () Schema e ()
+  Contract [OnChain.HydraState] Schema e ()
 contract policy vks = forever endpoints
  where
   endpoints =

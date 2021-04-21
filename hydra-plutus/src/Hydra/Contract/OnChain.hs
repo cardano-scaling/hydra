@@ -1,3 +1,4 @@
+{-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeApplications #-}
 {-# OPTIONS_GHC -fno-specialize #-}
@@ -7,6 +8,7 @@ module Hydra.Contract.OnChain where
 import PlutusPrelude (Generic)
 import PlutusTx.Prelude
 
+import Data.Aeson (ToJSON)
 import Ledger hiding (out, value)
 import Ledger.Constraints (TxConstraints, checkValidatorCtx)
 import Ledger.Typed.Scripts (ScriptType (DatumType, RedeemerType))
@@ -36,13 +38,15 @@ import qualified PlutusTx.AssocMap as Map
 
 data HydraState
   = Initial [PubKeyHash]
-  | Open
+  | Open [TxOut]
+  deriving stock (Generic, Show)
+  deriving anyclass (ToJSON)
 PlutusTx.makeLift ''HydraState
 PlutusTx.unstableMakeIsData ''HydraState
 
 data HydraInput
   = CollectCom
-  deriving (Generic)
+  deriving (Generic, Show)
 PlutusTx.makeLift ''HydraInput
 PlutusTx.unstableMakeIsData ''HydraInput
 
@@ -56,7 +60,7 @@ PlutusTx.unstableMakeIsData ''HydraInput
   (Initial vks, CollectCom) ->
     let utxos = filterInputs (const True) tx
      in mustSatisfy @HydraInput @HydraState
-          [ mustPayToTheScript Open (foldMap snd utxos)
+          [ mustPayToTheScript (Open []) (foldMap snd utxos)
           , foldMap (mustForwardParticipationToken policyId) vks
           ]
           tx
@@ -91,7 +95,7 @@ instance Scripts.ScriptType Hydra where
 {-# INLINEABLE νHydraHash #-}
 
 δOpen :: Datum
-δOpen = Datum (toData Open)
+δOpen = Datum (toData (Open []))
 {-# INLINEABLE δOpen #-}
 
 ρInit :: Redeemer
