@@ -1,6 +1,7 @@
 module Main where
 
 import Cardano.Prelude
+import qualified Hydra.ContractModelSpec as Model
 import qualified Hydra.ContractSpec as Contract
 import Test.Tasty
 
@@ -12,4 +13,5 @@ tests =
   testGroup
     "Contracts tests"
     [ Contract.tests
+    , Model.tests
     ]

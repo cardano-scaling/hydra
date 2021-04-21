@@ -105,9 +105,11 @@ test-suite hydra-plutus-test
   main-is: Main.hs
   hs-source-dirs: test
   other-modules:
-      Hydra.ContractStateMachineTest
+      Hydra.ContractSpec
+      Hydra.ContractModelSpec
       Hydra.Utils
   build-depends:
+      base >=4.9 && <5,
       cardano-prelude,
       containers,
       foldl,
@@ -122,10 +124,8 @@ test-suite hydra-plutus-test
       plutus-tx-plugin,
       prettyprinter,
       streaming,
-      text
-  build-depends:
-      base >=4.9 && <5,
       tasty,
+      tasty-expected-failure,
       tasty-golden,
       tasty-hunit,
-      tasty-expected-failure
+      text
