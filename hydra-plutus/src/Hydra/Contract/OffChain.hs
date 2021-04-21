@@ -15,6 +15,7 @@ import Ledger.Constraints.OffChain (ScriptLookups (..))
 import Ledger.Typed.Scripts (ScriptInstance)
 import Plutus.Contract.Effects.AwaitTxConfirmed (awaitTxConfirmed)
 import Plutus.Contract.Effects.UtxoAt (HasUtxoAt)
+import PlutusTx.IsData.Class (IsData (..))
 
 import Ledger.Constraints.TxConstraints (
   mustBeSignedBy,
@@ -173,13 +174,12 @@ collectCom policy vks = do
       (lookups committed stateMachine headMember)
       (constraints committed stateMachine headMember)
   awaitTxConfirmed (txId tx)
-  tell [nextState]
+  tell [mkOpenState committed]
  where
   policyId =
     monetaryPolicyHash policy
 
-  nextState =
-    OnChain.Open []
+  mkOpenState = OnChain.Open . fmap snd . flattenUtxo
 
   lookups committed stateMachine headMember =
     mempty
@@ -195,6 +195,11 @@ collectCom policy vks = do
                 , SomeScriptInstance $ OnChain.νHydraInstance policyId
                 ]
             ]
+      , slOtherData =
+          let datum = Datum $ toData $ mkOpenState committed
+           in Map.fromList
+                [ (datumHash datum, datum)
+                ]
       , slTxOutputs =
           committed <> stateMachine
       , slOwnPubkey =
@@ -205,7 +210,7 @@ collectCom policy vks = do
     let value = foldMap snd $ flattenUtxo (committed <> stateMachine)
      in mconcat
           [ mustBeSignedBy headMember
-          , mustPayToTheScript nextState value
+          , mustPayToTheScript (mkOpenState committed) value
           , foldMap
               (\(vk, ref) -> mustSpendScriptOutput ref (OnChain.ρCommit vk))
               (zipOnParticipationToken policyId vks committed)

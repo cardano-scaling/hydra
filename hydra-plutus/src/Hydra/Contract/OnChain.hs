@@ -6,7 +6,7 @@
 module Hydra.Contract.OnChain where
 
 import PlutusPrelude (Generic)
-import PlutusTx.Prelude
+import PlutusTx.Prelude hiding (remainder)
 
 import Data.Aeson (ToJSON)
 import Ledger hiding (out, value)
@@ -38,7 +38,7 @@ import qualified PlutusTx.AssocMap as Map
 
 data HydraState
   = Initial [PubKeyHash]
-  | Open [TxOut]
+  | Open [Value]
   deriving stock (Generic, Show)
   deriving anyclass (ToJSON)
 PlutusTx.makeLift ''HydraState
@@ -59,8 +59,9 @@ PlutusTx.unstableMakeIsData ''HydraInput
 νHydra policyId s i tx = case (s, i) of
   (Initial vks, CollectCom) ->
     let utxos = filterInputs (const True) tx
+        committed = filterInputs (hasParticipationToken policyId) tx
      in mustSatisfy @HydraInput @HydraState
-          [ mustPayToTheScript (Open []) (foldMap snd utxos)
+          [ mustPayToTheScript (Open $ snd <$> committed) (foldMap snd utxos)
           , foldMap (mustForwardParticipationToken policyId) vks
           ]
           tx
@@ -94,8 +95,8 @@ instance Scripts.ScriptType Hydra where
 νHydraHash = Scripts.scriptHash . νHydraInstance
 {-# INLINEABLE νHydraHash #-}
 
-δOpen :: Datum
-δOpen = Datum (toData (Open []))
+δOpen :: [Value] -> Datum
+δOpen = Datum . toData . Open
 {-# INLINEABLE δOpen #-}
 
 ρInit :: Redeemer
@@ -221,9 +222,10 @@ instance Scripts.ScriptType Initial where
  where
   consumedByAbort = False -- FIXME
   consumedByCollectCom =
-    let utxos = filterInputs (const True) tx
+    let remainder = filterInputs (not . hasParticipationToken policyId) tx
+        toCollect = filterInputs (hasParticipationToken policyId) tx
      in mustSatisfy @PubKeyHash @TxOutRef
-          [ mustCollectCommit νCollectComHash utxos
+          [ mustCollectCommit νCollectComHash toCollect remainder
           , mustForwardParticipationToken policyId vk
           ]
           tx
@@ -325,10 +327,11 @@ mustCollectCommit ::
   forall i o.
   ValidatorHash ->
   [(TxOutRef, Value)] ->
+  [(TxOutRef, Value)] ->
   TxConstraints i o
-mustCollectCommit νCollectComHash utxos =
-  let value = foldMap snd utxos
-   in mustPayToOtherScript νCollectComHash δOpen value
+mustCollectCommit νCollectComHash toCollect remainder =
+  let value = foldMap snd (toCollect <> remainder)
+   in mustPayToOtherScript νCollectComHash (δOpen $ snd <$> toCollect) value
 {-# INLINEABLE mustCollectCommit #-}
 
 mkParticipationToken :: MonetaryPolicyHash -> PubKeyHash -> Value
