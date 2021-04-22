@@ -148,6 +148,7 @@ test-suite tests
     , hspec
     , hspec-core
     , hydra-node
+    , shelley-spec-ledger
   build-tool-depends:
     hspec-discover:hspec-discover
   ghc-options:
