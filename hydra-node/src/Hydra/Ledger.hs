@@ -21,17 +21,18 @@ type Era = MaryEra StandardCrypto
 globals :: Ledger.Globals
 globals = panic "undefined"
 
-ledgerEnv :: Ledgers.LedgersEnv Era
+ledgerEnv :: Ledgers.LedgersEnv era
 ledgerEnv = panic "undefined"
 
 -- | Either valid or an error which we get from the ledger-specs tx validation.
 data ValidationResult
   = Valid
   | Invalid ValidationError
+  deriving (Eq, Show)
 
-data ValidationError = ValidationError
+data ValidationError = ValidationError deriving (Eq, Show)
 
-validateTx :: Ledger.LedgerState Era -> Ledger.Tx Era -> ValidationResult
+validateTx :: Ledger.ApplyTx era => Ledger.LedgerState era -> Ledger.Tx era -> ValidationResult
 validateTx ls tx =
   either (Invalid . toValidationError) (const Valid) $
     Ledger.applyTxsTransition globals ledgerEnv (pure tx) ls

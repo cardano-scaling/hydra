@@ -86,9 +86,6 @@ library
       async
     , base
     , cardano-prelude
-    , containers
-    , hydra-plutus
-    , plutus-ledger
     , ouroboros-network-framework
     , ouroboros-consensus-shelley
     , shelley-spec-ledger
@@ -140,15 +137,20 @@ test-suite tests
   hs-source-dirs: test
   other-modules:
     Hydra.NodeSpec
+    Hydra.LedgerSpec
   main-is: Main.hs
   type: exitcode-stdio-1.0
   build-depends:
       base
+    , cardano-ledger-shelley-ma
+    , cardano-ledger-shelley-ma-test
     , cardano-prelude
+    , containers
     , hspec
     , hspec-core
     , hydra-node
     , shelley-spec-ledger
+    , shelley-spec-ledger-test
   build-tool-depends:
     hspec-discover:hspec-discover
   ghc-options:
