@@ -14,6 +14,7 @@ import Control.Concurrent.STM (
   writeTQueue,
  )
 import Control.Exception.Safe (MonadThrow)
+import Hydra.Ledger
 import Hydra.Logic (
   ClientInstruction (..),
   Effect (ClientEffect, ErrorEffect, NetworkEffect, OnChainEffect, Wait),
@@ -22,6 +23,7 @@ import Hydra.Logic (
   HydraMessage (AckSn, AckTx, ConfSn, ConfTx, ReqSn, ReqTx),
   LogicError (InvalidState),
   OnChainTx (..),
+  logicErrorToString,
  )
 import qualified Hydra.Logic as Logic
 import qualified Hydra.Logic.SimpleHead as SimpleHead
@@ -48,18 +50,18 @@ handleNextEvent EventQueue{nextEvent} HydraNetwork{broadcast} OnChain{postTx} Cl
     NetworkEffect msg -> broadcast msg
     OnChainEffect tx -> postTx tx
     Wait _cont -> panic "TODO: wait and reschedule continuation"
-    ErrorEffect ie -> panic $ "TODO: handle this error: " <> show ie
+    ErrorEffect ie -> panic $ "TODO: handle this error: " <> logicErrorToString ie
 
 init ::
   MonadThrow m =>
   OnChain m ->
   HydraHead tx m ->
   ClientSide m ->
-  m (Either LogicError ())
-init OnChain{postTx} HydraHead{modifyHeadState} ClientSide{showInstruction} = do
+  m (Either (LogicError tx) ())
+init OnChain{postTx} HydraHead{modifyHeadState, initLedger} ClientSide{showInstruction} = do
   res <- modifyHeadState $ \s ->
     case s of
-      InitState -> (Nothing, OpenState SimpleHead.mkState)
+      InitState -> (Nothing, OpenState (SimpleHead.mkState initLedger))
       _ -> (Just $ InvalidState s, s)
   case res of
     Just e -> pure $ Left e
@@ -68,8 +70,19 @@ init OnChain{postTx} HydraHead{modifyHeadState} ClientSide{showInstruction} = do
       showInstruction AcceptingTx
       pure $ Right ()
 
-newTx :: Monad m => HydraHead tx m -> HydraNetwork m -> tx -> m ()
-newTx _hh _hn _tx = pure ()
+newTx :: Monad m => HydraHead tx m -> HydraNetwork m -> tx -> m ValidationResult
+newTx hh HydraNetwork{broadcast} tx = do
+  mConfirmedLedger <- getConfirmedLedger hh
+  case mConfirmedLedger of
+    Nothing -> panic "TODO: Not in OpenState"
+    Just confirmedLedger ->
+      case canApply confirmedLedger tx of
+        Valid -> do
+          broadcast ReqTx $> Valid
+        invalid ->
+          return invalid
+
+-- broadcast ReqTx
 
 close ::
   MonadThrow m =>
@@ -80,6 +93,9 @@ close OnChain{postTx} hh = do
   -- TODO(SN): check that we are in open state
   putState hh ClosedState
   postTx CloseTx
+
+data InvalidTransaction = InvalidTransaction
+  deriving (Eq, Show)
 
 --
 -- Some general event queue from which the Hydra head is "fed"
@@ -108,21 +124,28 @@ createEventQueue = do
 --
 
 -- | Handle to access and modify a Hydra Head's state.
-newtype HydraHead tx m = HydraHead
-  { modifyHeadState :: forall a. (HeadState -> (a, HeadState)) -> m a
+data HydraHead tx m = HydraHead
+  { modifyHeadState :: forall a. (HeadState tx -> (a, HeadState tx)) -> m a
+  , initLedger :: Ledger tx
   }
 
-queryHeadState :: HydraHead tx m -> m HeadState
+getConfirmedLedger :: Monad m => HydraHead tx m -> m (Maybe (Ledger tx))
+getConfirmedLedger hh =
+  queryHeadState hh <&> \case
+    OpenState st -> Just (SimpleHead.confirmedLedger st)
+    _ -> Nothing
+
+queryHeadState :: HydraHead tx m -> m (HeadState tx)
 queryHeadState = (`modifyHeadState` \s -> (s, s))
 
-putState :: HydraHead tx m -> HeadState -> m ()
+putState :: HydraHead tx m -> HeadState tx -> m ()
 putState HydraHead{modifyHeadState} new =
   modifyHeadState $ \_old -> ((), new)
 
-createHydraHead :: HeadState -> IO (HydraHead tx IO)
-createHydraHead initialState = do
+createHydraHead :: HeadState tx -> Ledger tx -> IO (HydraHead tx IO)
+createHydraHead initialState initLedger = do
   tv <- newTVarIO initialState
-  pure HydraHead{modifyHeadState = atomically . stateTVar tv}
+  pure HydraHead{modifyHeadState = atomically . stateTVar tv, initLedger}
 
 --
 -- HydraNetwork handle to abstract over network access
@@ -238,11 +261,11 @@ createClientSideRepl oc hh hn loadTx = do
     | c == "init" =
       liftIO $
         init oc hh cs >>= \case
-          Left e -> putStrLn @Text $ "You dummy.. " <> show e
+          Left e -> putStrLn @Text $ "You dummy.. " <> logicErrorToString e
           Right _ -> pure ()
     | c == "close" = liftIO $ close oc hh
     -- c == "commit" =
-    | c == "newtx" = liftIO $ loadTx "hardcoded/file/path" >>= newTx hh hn
+    | c == "newtx" = liftIO $ loadTx "hardcoded/file/path" >>= void . newTx hh hn
     -- c == "contest" =
     | otherwise = liftIO $ putStrLn @Text $ "Unknown command, use any of: " <> show commands
 

@@ -9,6 +9,16 @@ import Ouroboros.Consensus.Shelley.Protocol (
 import qualified Shelley.Spec.Ledger.API as Ledger
 import qualified Shelley.Spec.Ledger.STS.Ledgers as Ledgers
 
+data Ledger tx = Ledger
+  { canApply :: tx -> ValidationResult
+  }
+
+newConcreteLedger :: Ledger.ApplyTx era => Ledger.LedgerState era -> Ledger (Ledger.Tx era)
+newConcreteLedger st =
+  Ledger
+    { canApply = validateTx st
+    }
+
 type Tx l = Ledger.Tx l -- In fact this is an era only
 
 type Era = MaryEra StandardCrypto

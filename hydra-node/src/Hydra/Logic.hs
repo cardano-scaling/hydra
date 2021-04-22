@@ -9,14 +9,14 @@ data Event
   | OnChainEvent OnChainTx
   deriving (Eq, Show)
 
-data Effect
+data Effect tx
   = ClientEffect ClientInstruction
   | NetworkEffect HydraMessage
   | OnChainEffect OnChainTx
   | -- | Wait effect should be interpreted as a non-blocking interruption which
     -- retries on every state changes until the continuation returns Just{}.
-    Wait (HeadState -> Maybe (HeadState, [Effect]))
-  | ErrorEffect LogicError -- NOTE(SN): this feels weird, maybe an Either on the 'update' fits better
+    Wait (HeadState tx -> Maybe (HeadState tx, [Effect tx]))
+  | ErrorEffect (LogicError tx) -- NOTE(SN): this feels weird, maybe an Either on the 'update' fits better
 
 data ClientRequest
   = Init
@@ -49,11 +49,10 @@ data OnChainTx
   | FanoutTx
   deriving (Eq, Show)
 
-data HeadState
+data HeadState tx
   = InitState
-  | OpenState SimpleHead.State
+  | OpenState (SimpleHead.State tx)
   | ClosedState
-  deriving (Eq, Show)
 
 -- | Verification used to authenticate main chain transactions that are
 -- restricted to members of the Head protocol instance, i.e. the commit
@@ -77,19 +76,23 @@ data SnapshotStrategy = SnapshotStrategy
 
 -- | Assume: We know the party members and their verification keys. These need
 -- to be exchanged somehow, eventually.
-createHeadState :: [Party] -> HeadParameters -> SnapshotStrategy -> HeadState
+createHeadState :: [Party] -> HeadParameters -> SnapshotStrategy -> HeadState tx
 createHeadState _ _ _ = InitState
 
-data LogicError
-  = InvalidEvent Event HeadState
-  | InvalidState HeadState
-  deriving (Eq, Show)
+data LogicError tx
+  = InvalidEvent Event (HeadState tx)
+  | InvalidState (HeadState tx)
+
+logicErrorToString :: LogicError tx -> Text
+logicErrorToString = \case
+  InvalidEvent{} -> "invalid event"
+  InvalidState{} -> "invalid state"
 
 -- | The heart of the Hydra head logic, a handler of all kinds of 'Event' in the
 -- Hydra head. This may also be split into multiple handlers, i.e. one for hydra
 -- network events, one for client events and one for main chain events, or by
 -- sub-'State'.
-update :: HeadState -> Event -> (HeadState, [Effect])
+update :: HeadState tx -> Event -> (HeadState tx, [Effect tx])
 update st ev = case (st, ev) of
   (OpenState st', NetworkEvent ReqTx) ->
     bimap OpenState (map mapEffect) $
@@ -99,12 +102,12 @@ update st ev = case (st, ev) of
 -- NOTE: This three things needs to be polymorphic in the output eventually, likely a
 -- type-class with data-families for each sub-modules.
 
-mapState :: HeadState -> Maybe SimpleHead.State
+mapState :: HeadState tx -> Maybe (SimpleHead.State tx)
 mapState = \case
   OpenState st' -> Just st'
   _ -> Nothing
 
-mapEffect :: SimpleHead.Effect -> Effect
+mapEffect :: SimpleHead.Effect tx -> Effect tx
 mapEffect = \case
   SimpleHead.MulticastReqTx -> NetworkEffect ReqTx
   SimpleHead.MulticastReqSn -> NetworkEffect ReqSn
