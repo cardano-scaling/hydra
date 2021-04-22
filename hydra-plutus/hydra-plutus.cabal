@@ -59,7 +59,6 @@ common project-config
     ScopedTypeVariables
     StandaloneDeriving
     TupleSections
-    TypeApplications
     TypeFamilies
     TypeOperators
     TypeSynonymInstances
@@ -107,7 +106,7 @@ test-suite hydra-plutus-test
   other-modules:
       Hydra.ContractSpec
       Hydra.ContractModelSpec
-      Hydra.Utils
+      Hydra.Test.Utils
   build-depends:
       base >=4.9 && <5,
       cardano-prelude,
