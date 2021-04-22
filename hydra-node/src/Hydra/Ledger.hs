@@ -9,14 +9,17 @@ import Ouroboros.Consensus.Shelley.Protocol (
 import qualified Shelley.Spec.Ledger.API as Ledger
 import qualified Shelley.Spec.Ledger.STS.Ledgers as Ledgers
 
+data LedgerState tx = LedgerState
+  deriving (Show, Eq)
+
 data Ledger tx = Ledger
-  { canApply :: tx -> ValidationResult
+  { canApply :: LedgerState tx -> tx -> ValidationResult
   }
 
-newConcreteLedger :: Ledger.ApplyTx era => Ledger.LedgerState era -> Ledger (Ledger.Tx era)
-newConcreteLedger st =
+newConcreteLedger :: Ledger.ApplyTx era => Ledger (Ledger.Tx era)
+newConcreteLedger =
   Ledger
-    { canApply = validateTx st
+    { canApply = \_ -> validateTx undefined
     }
 
 type Tx l = Ledger.Tx l -- In fact this is an era only

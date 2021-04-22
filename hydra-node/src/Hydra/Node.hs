@@ -126,10 +126,10 @@ createEventQueue = do
 -- | Handle to access and modify a Hydra Head's state.
 data HydraHead tx m = HydraHead
   { modifyHeadState :: forall a. (HeadState tx -> (a, HeadState tx)) -> m a
-  , initLedger :: Ledger tx
+  , initLedger :: LedgerState tx
   }
 
-getConfirmedLedger :: Monad m => HydraHead tx m -> m (Maybe (Ledger tx))
+getConfirmedLedger :: Monad m => HydraHead tx m -> m (Maybe (LedgerState tx))
 getConfirmedLedger hh =
   queryHeadState hh <&> \case
     OpenState st -> Just (SimpleHead.confirmedLedger st)

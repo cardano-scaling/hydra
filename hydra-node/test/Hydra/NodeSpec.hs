@@ -21,9 +21,7 @@ import Test.Hspec (
   expectationFailure,
   it,
   shouldBe,
-  shouldNotBe,
   shouldReturn,
-  shouldSatisfy,
  )
 
 spec :: Spec
@@ -50,14 +48,14 @@ spec = describe "Hydra Node" $ do
       _ -> return ()
 
   it "does send transactions received from client onto the network" $ do
-    hh <- createHydraHead (OpenState (SimpleHead.mkState mockLedger)) mockLedger
+    hh <- createHydraHead (OpenState SimpleHead.mkState) mockLedger
     (n, queryNetworkMsgs) <- recordNetwork
-    newTx hh n MockTxValid
+    _ <- newTx hh n MockTxValid
     -- queryHeadState hh >>= flip shouldSatisfy isOpen
     queryNetworkMsgs `shouldReturn` [ReqTx]
 
   it "does not forward invalid transactions received from client" $ do
-    hh <- createHydraHead (OpenState (SimpleHead.mkState mockLedger)) mockLedger
+    hh <- createHydraHead (OpenState SimpleHead.mkState) mockLedger
     res <- newTx hh mockNetwork MockTxInvalid
     case res of
       Invalid{} -> return ()
@@ -70,7 +68,7 @@ data MockTx = MockTxInvalid | MockTxValid
 mockLedger :: Ledger MockTx
 mockLedger =
   Ledger
-    { canApply = \case
+    { canApply = \_ -> \case
         MockTxInvalid -> Invalid undefined
         MockTxValid -> Valid
     }

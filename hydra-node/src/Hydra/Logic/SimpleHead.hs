@@ -2,7 +2,9 @@ module Hydra.Logic.SimpleHead where
 
 import Cardano.Prelude hiding (State)
 
-import Hydra.Ledger (Ledger)
+import Hydra.Ledger (
+  LedgerState (LedgerState),
+ )
 
 data Event
   = ReqTxFromPeer
@@ -13,13 +15,14 @@ data Event
   | ConfSnFromPeer
 
 data State tx = State
-  { confirmedLedger :: Ledger tx
+  { confirmedLedger :: LedgerState tx
   , transactions :: Transactions
   , snapshots :: Snapshots
   }
+  deriving (Eq, Show)
 
-mkState :: Ledger tx -> State tx
-mkState ledger = State ledger Transaction Snapshots
+mkState :: State tx
+mkState = State LedgerState Transaction Snapshots
 
 data Transactions = Transaction deriving (Eq, Show)
 data Snapshots = Snapshots deriving (Eq, Show)
