@@ -43,13 +43,13 @@ spec = describe "Hydra Node" $ do
   it "does send transactions received from client onto the network" $ do
     hh <- createHydraHead $ OpenState SimpleHead.mkState
     (n, queryNetworkMsgs) <- recordNetwork
-    newTx hh n
+    newTx hh n ()
     queryHeadState hh >>= flip shouldSatisfy isOpen
     queryNetworkMsgs `shouldReturn` [ReqTx]
 
   it "does not forward invalid transactions received from client" $ do
     hh <- createHydraHead $ OpenState SimpleHead.mkState
-    newTx hh mockNetwork
+    newTx hh mockNetwork ()
     queryHeadState hh >>= flip shouldSatisfy isOpen
 
 isOpen :: HeadState -> Bool

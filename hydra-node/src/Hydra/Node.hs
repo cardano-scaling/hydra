@@ -38,7 +38,7 @@ handleNextEvent ::
   HydraNetwork m ->
   OnChain m ->
   ClientSide m ->
-  HydraHead m ->
+  HydraHead tx m ->
   m ()
 handleNextEvent EventQueue{nextEvent} HydraNetwork{broadcast} OnChain{postTx} ClientSide{showInstruction} HydraHead{modifyHeadState} = do
   e <- nextEvent
@@ -53,7 +53,7 @@ handleNextEvent EventQueue{nextEvent} HydraNetwork{broadcast} OnChain{postTx} Cl
 init ::
   MonadThrow m =>
   OnChain m ->
-  HydraHead m ->
+  HydraHead tx m ->
   ClientSide m ->
   m (Either LogicError ())
 init OnChain{postTx} HydraHead{modifyHeadState} ClientSide{showInstruction} = do
@@ -68,13 +68,13 @@ init OnChain{postTx} HydraHead{modifyHeadState} ClientSide{showInstruction} = do
       showInstruction AcceptingTx
       pure $ Right ()
 
-newTx :: Monad m => HydraHead m -> HydraNetwork m -> m ()
-newTx _hh _hn = pure ()
+newTx :: Monad m => HydraHead tx m -> HydraNetwork m -> tx -> m ()
+newTx _hh _hn _tx = pure ()
 
 close ::
   MonadThrow m =>
   OnChain m ->
-  HydraHead m ->
+  HydraHead tx m ->
   m ()
 close OnChain{postTx} hh = do
   -- TODO(SN): check that we are in open state
@@ -108,18 +108,18 @@ createEventQueue = do
 --
 
 -- | Handle to access and modify a Hydra Head's state.
-newtype HydraHead m = HydraHead
+newtype HydraHead tx m = HydraHead
   { modifyHeadState :: forall a. (HeadState -> (a, HeadState)) -> m a
   }
 
-queryHeadState :: HydraHead m -> m HeadState
+queryHeadState :: HydraHead tx m -> m HeadState
 queryHeadState = (`modifyHeadState` \s -> (s, s))
 
-putState :: HydraHead m -> HeadState -> m ()
+putState :: HydraHead tx m -> HeadState -> m ()
 putState HydraHead{modifyHeadState} new =
   modifyHeadState $ \_old -> ((), new)
 
-createHydraHead :: HeadState -> IO (HydraHead IO)
+createHydraHead :: HeadState -> IO (HydraHead tx IO)
 createHydraHead initialState = do
   tv <- newTVarIO initialState
   pure HydraHead{modifyHeadState = atomically . stateTVar tv}
@@ -208,8 +208,13 @@ newtype ClientSide m = ClientSide
 --
 -- NOTE(SN): This clashes a bit when other parts of the node do log things, but
 -- spreading \r and >>> all over the place is likely not what we want
-createClientSideRepl :: OnChain IO -> HydraHead IO -> IO (ClientSide IO)
-createClientSideRepl oc hh = do
+createClientSideRepl ::
+  OnChain IO ->
+  HydraHead tx IO ->
+  HydraNetwork IO ->
+  (FilePath -> IO tx) ->
+  IO (ClientSide IO)
+createClientSideRepl oc hh hn loadTx = do
   link =<< async runRepl
   pure cs
  where
@@ -237,7 +242,7 @@ createClientSideRepl oc hh = do
           Right _ -> pure ()
     | c == "close" = liftIO $ close oc hh
     -- c == "commit" =
-    -- c == "newtx" =
+    | c == "newtx" = liftIO $ loadTx "hardcoded/file/path" >>= newTx hh hn
     -- c == "contest" =
     | otherwise = liftIO $ putStrLn @Text $ "Unknown command, use any of: " <> show commands
 

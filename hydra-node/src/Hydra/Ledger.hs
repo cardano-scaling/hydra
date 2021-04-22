@@ -9,6 +9,8 @@ import Ouroboros.Consensus.Shelley.Protocol (
 import qualified Shelley.Spec.Ledger.API as Ledger
 import qualified Shelley.Spec.Ledger.STS.Ledgers as Ledgers
 
+type Tx l = Ledger.Tx l -- In fact this is an era only
+
 type Era = MaryEra StandardCrypto
 
 globals :: Ledger.Globals
