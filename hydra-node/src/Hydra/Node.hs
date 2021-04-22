@@ -58,10 +58,10 @@ init ::
   HydraHead tx m ->
   ClientSide m ->
   m (Either (LogicError tx) ())
-init OnChain{postTx} HydraHead{modifyHeadState, initLedger} ClientSide{showInstruction} = do
+init OnChain{postTx} HydraHead{modifyHeadState} ClientSide{showInstruction} = do
   res <- modifyHeadState $ \s ->
     case s of
-      InitState -> (Nothing, OpenState (SimpleHead.mkState initLedger))
+      InitState -> (Nothing, OpenState SimpleHead.mkState)
       _ -> (Just $ InvalidState s, s)
   case res of
     Just e -> pure $ Left e
@@ -71,12 +71,12 @@ init OnChain{postTx} HydraHead{modifyHeadState, initLedger} ClientSide{showInstr
       pure $ Right ()
 
 newTx :: Monad m => HydraHead tx m -> HydraNetwork m -> tx -> m ValidationResult
-newTx hh HydraNetwork{broadcast} tx = do
+newTx hh@HydraHead{ledger} HydraNetwork{broadcast} tx = do
   mConfirmedLedger <- getConfirmedLedger hh
   case mConfirmedLedger of
     Nothing -> panic "TODO: Not in OpenState"
     Just confirmedLedger ->
-      case canApply confirmedLedger tx of
+      case canApply ledger confirmedLedger tx of
         Valid -> do
           broadcast ReqTx $> Valid
         invalid ->
@@ -126,7 +126,7 @@ createEventQueue = do
 -- | Handle to access and modify a Hydra Head's state.
 data HydraHead tx m = HydraHead
   { modifyHeadState :: forall a. (HeadState tx -> (a, HeadState tx)) -> m a
-  , initLedger :: LedgerState tx
+  , ledger :: Ledger tx
   }
 
 getConfirmedLedger :: Monad m => HydraHead tx m -> m (Maybe (LedgerState tx))
@@ -143,9 +143,9 @@ putState HydraHead{modifyHeadState} new =
   modifyHeadState $ \_old -> ((), new)
 
 createHydraHead :: HeadState tx -> Ledger tx -> IO (HydraHead tx IO)
-createHydraHead initialState initLedger = do
+createHydraHead initialState ledger = do
   tv <- newTVarIO initialState
-  pure HydraHead{modifyHeadState = atomically . stateTVar tv, initLedger}
+  pure HydraHead{modifyHeadState = atomically . stateTVar tv, ledger}
 
 --
 -- HydraNetwork handle to abstract over network access

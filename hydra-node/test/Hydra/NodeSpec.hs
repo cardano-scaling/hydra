@@ -1,3 +1,5 @@
+{-# OPTIONS_GHC -Wno-deferred-type-errors #-}
+
 module Hydra.NodeSpec where
 
 import Cardano.Prelude
@@ -5,7 +7,7 @@ import Hydra.Node
 
 import Data.IORef (atomicModifyIORef', newIORef, readIORef)
 import Data.String (String)
-import Hydra.Ledger (Ledger (..), ValidationResult (..))
+import Hydra.Ledger (Ledger (Ledger, canApply), ValidationError (ValidationError), ValidationResult (..))
 import Hydra.Logic (
   ClientInstruction (..),
   HeadState (..),
@@ -21,7 +23,9 @@ import Test.Hspec (
   expectationFailure,
   it,
   shouldBe,
+  shouldNotBe,
   shouldReturn,
+  shouldSatisfy,
  )
 
 spec :: Spec
@@ -31,46 +35,35 @@ spec = describe "Hydra Node" $ do
     hh <- createHydraHead InitState mockLedger
     res <- timeout 1000000 $ handleNextEvent q mockNetwork mockChain mockClientSide hh
     res `shouldBe` Nothing
-    st <- queryHeadState hh
-    case st of
-      InitState -> return ()
-      _ -> expectationFailure "invalid state"
+    queryHeadState hh `shouldReturn` InitState
 
   it "does something" $ do
     hh <- createHydraHead InitState mockLedger
     res <- init (expectOnChain InitTx) hh (expectClientSide AcceptingTx)
-    case res of
-      Right () -> return ()
-      Left{} -> expectationFailure "should have succeeded"
-    st <- queryHeadState hh
-    case st of
-      InitState -> expectationFailure "should not be init"
-      _ -> return ()
+    res `shouldBe` Right ()
+    queryHeadState hh >>= shouldNotBe InitState
 
   it "does send transactions received from client onto the network" $ do
     hh <- createHydraHead (OpenState SimpleHead.mkState) mockLedger
     (n, queryNetworkMsgs) <- recordNetwork
-    _ <- newTx hh n MockTxValid
-    -- queryHeadState hh >>= flip shouldSatisfy isOpen
+    void $ newTx hh n ValidTx
+    queryHeadState hh >>= flip shouldSatisfy isOpen
     queryNetworkMsgs `shouldReturn` [ReqTx]
 
   it "does not forward invalid transactions received from client" $ do
     hh <- createHydraHead (OpenState SimpleHead.mkState) mockLedger
-    res <- newTx hh mockNetwork MockTxInvalid
-    case res of
-      Invalid{} -> return ()
-      Valid -> expectationFailure "should have failed"
+    newTx hh mockNetwork InvalidTx `shouldReturn` Invalid ValidationError
+    queryHeadState hh >>= flip shouldSatisfy isOpen
 
--- queryHeadState hh >>= flip shouldSatisfy isOpen
-
-data MockTx = MockTxInvalid | MockTxValid
+data MockTx = ValidTx | InvalidTx
+  deriving (Eq, Show)
 
 mockLedger :: Ledger MockTx
 mockLedger =
   Ledger
     { canApply = \_ -> \case
-        MockTxInvalid -> Invalid undefined
-        MockTxValid -> Valid
+        ValidTx -> Valid
+        InvalidTx -> Invalid ValidationError
     }
 
 isOpen :: HeadState tx -> Bool

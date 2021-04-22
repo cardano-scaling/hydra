@@ -53,6 +53,7 @@ data HeadState tx
   = InitState
   | OpenState (SimpleHead.State tx)
   | ClosedState
+  deriving (Eq, Show)
 
 -- | Verification used to authenticate main chain transactions that are
 -- restricted to members of the Head protocol instance, i.e. the commit
@@ -82,6 +83,7 @@ createHeadState _ _ _ = InitState
 data LogicError tx
   = InvalidEvent Event (HeadState tx)
   | InvalidState (HeadState tx)
+  deriving (Eq, Show)
 
 logicErrorToString :: LogicError tx -> Text
 logicErrorToString = \case
