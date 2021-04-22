@@ -68,6 +68,9 @@ init OnChain{postTx} HydraHead{modifyHeadState} ClientSide{showInstruction} = do
       showInstruction AcceptingTx
       pure $ Right ()
 
+newTx :: Monad m => HydraHead m -> HydraNetwork m -> m ()
+newTx _hh _hn = pure ()
+
 close ::
   MonadThrow m =>
   OnChain m ->

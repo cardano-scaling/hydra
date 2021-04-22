@@ -11,13 +11,6 @@ import qualified Shelley.Spec.Ledger.STS.Ledgers as Ledgers
 
 type Era = MaryEra StandardCrypto
 
--- applyTxs ::
---   LedgerEnv ->
---   Ledger.LedgerState ->
---   Seq Tx ->
---   Either ValidationError (LedgerState l)
--- applyTxs = panice "not implemented"
-
 globals :: Ledger.Globals
 globals = panic "undefined globals"
 
@@ -31,6 +24,13 @@ data ValidationResult
   deriving (Eq, Show)
 
 data ValidationError = ValidationError deriving (Eq, Show)
+
+applyTxs ::
+  Ledger.LedgerEnv era ->
+  Ledger.LedgerState era ->
+  Seq (Ledger.Tx era) ->
+  Either ValidationError (Ledger.LedgerState l)
+applyTxs = panic "should use 'applyTxsTransition' as well"
 
 validateTx :: Ledger.ApplyTx era => Ledger.LedgerState era -> Ledger.Tx era -> ValidationResult
 validateTx ls tx =
