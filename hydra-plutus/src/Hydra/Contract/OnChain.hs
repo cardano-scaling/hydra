@@ -50,13 +50,13 @@ data HydraInput
 PlutusTx.makeLift ''HydraInput
 PlutusTx.unstableMakeIsData ''HydraInput
 
-νHydra ::
+hydraValidator ::
   MonetaryPolicyHash ->
   HydraState ->
   HydraInput ->
   ValidatorCtx ->
   Bool
-νHydra policyId s i tx = case (s, i) of
+hydraValidator policyId s i tx = case (s, i) of
   (Initial vks, CollectCom) ->
     let utxos = filterInputs (const True) tx
         committed = filterInputs (hasParticipationToken policyId) tx
@@ -68,7 +68,6 @@ PlutusTx.unstableMakeIsData ''HydraInput
           && tx `mustBeSignedByOneOf` vks
   _ ->
     False
-{-# INLINEABLE νHydra #-}
 
 data Hydra
 instance Scripts.ScriptType Hydra where
@@ -76,11 +75,11 @@ instance Scripts.ScriptType Hydra where
   type RedeemerType Hydra = HydraInput
 
 {- ORMOLU_DISABLE -}
-νHydraInstance
+hydra
   :: MonetaryPolicyHash
   -> Scripts.ScriptInstance Hydra
-νHydraInstance policyId = Scripts.validator @Hydra
-    ( $$(PlutusTx.compile [|| νHydra ||])
+hydra policyId = Scripts.validator @Hydra
+    ( $$(PlutusTx.compile [|| hydraValidator ||])
       `PlutusTx.applyCode` PlutusTx.liftCode policyId
     )
     $$(PlutusTx.compile [|| wrap ||])
@@ -88,20 +87,16 @@ instance Scripts.ScriptType Hydra where
         wrap = Scripts.wrapValidator @(DatumType Hydra) @(RedeemerType Hydra)
 {- ORMOLU_ENABLE -}
 
-νHydraAddress :: MonetaryPolicyHash -> Address
-νHydraAddress = Scripts.scriptAddress . νHydraInstance
+hydraAddress :: MonetaryPolicyHash -> Address
+hydraAddress = Scripts.scriptAddress . hydra
 
-νHydraHash :: MonetaryPolicyHash -> ValidatorHash
-νHydraHash = Scripts.scriptHash . νHydraInstance
-{-# INLINEABLE νHydraHash #-}
+hydraHash :: MonetaryPolicyHash -> ValidatorHash
+hydraHash = Scripts.scriptHash . hydra
+{-# INLINEABLE hydraHash #-}
 
-δOpen :: [Value] -> Datum
-δOpen = Datum . toData . Open
-{-# INLINEABLE δOpen #-}
-
-ρInit :: Redeemer
-ρInit = Redeemer (toData CollectCom)
-{-# INLINEABLE ρInit #-}
+mkStateOpen :: [Value] -> HydraState
+mkStateOpen = Open
+{-# INLINEABLE mkStateOpen #-}
 
 --
 -- Participation Tokens
@@ -124,25 +119,25 @@ hydraMonetaryPolicyHash :: CurrencyId -> MonetaryPolicyHash
 hydraMonetaryPolicyHash = monetaryPolicyHash . hydraMonetaryPolicy
 
 --
--- νInitial
+-- initial
 --
 
--- | The Validator 'νInitial' ensures the following: either the output
+-- | The Validator 'initial' ensures the following: either the output
 -- is consumed by
 --
 -- 1. an SM abort transaction (see below) or
 -- 2. a commit transaction, identified by:
---    (a) Having validator 'νCommit' in its only output
+--    (a) Having validator 'commit' in its only output
 --    (b) A signature that verifies as valid with verification key k_i
 --    (c) The presence of a single participation token in outputs
-νInitial ::
+initialValidator ::
   MonetaryPolicyHash ->
   ValidatorHash ->
   PubKeyHash ->
   () ->
   ValidatorCtx ->
   Bool
-νInitial policyId script vk () tx =
+initialValidator policyId script vk () tx =
   consumedByCommit || consumedByAbort
  where
   consumedByAbort = False -- FIXME
@@ -166,41 +161,33 @@ instance Scripts.ScriptType Initial where
   type RedeemerType Initial = ()
 
 {- ORMOLU_DISABLE -}
-νInitialInstance
+initial
   :: MonetaryPolicyHash
   -> Scripts.ScriptInstance Initial
-νInitialInstance policyId = Scripts.validator @Initial
-  ($$(PlutusTx.compile [||νInitial||])
+initial policyId = Scripts.validator @Initial
+  ($$(PlutusTx.compile [|| initialValidator ||])
       `PlutusTx.applyCode` PlutusTx.liftCode policyId
-      `PlutusTx.applyCode` PlutusTx.liftCode (νCommitHash policyId)
+      `PlutusTx.applyCode` PlutusTx.liftCode (commitHash policyId)
   )
   $$(PlutusTx.compile [|| wrap ||])
  where
   wrap = Scripts.wrapValidator @(DatumType Initial) @(RedeemerType Initial)
 {- ORMOLU_ENABLE -}
 
-νInitialAddress :: MonetaryPolicyHash -> Address
-νInitialAddress = Scripts.scriptAddress . νInitialInstance
+initialAddress :: MonetaryPolicyHash -> Address
+initialAddress = Scripts.scriptAddress . initial
 
-νInitialHash :: MonetaryPolicyHash -> ValidatorHash
-νInitialHash = Scripts.scriptHash . νInitialInstance
-{-# INLINEABLE νInitialHash #-}
-
-δInitial :: PubKeyHash -> Datum
-δInitial = Datum . toData
-{-# INLINEABLE δInitial #-}
-
-ρInitial :: Redeemer
-ρInitial = Redeemer (toData ())
-{-# INLINEABLE ρInitial #-}
+initialHash :: MonetaryPolicyHash -> ValidatorHash
+initialHash = Scripts.scriptHash . initial
+{-# INLINEABLE initialHash #-}
 
 --
--- νCommit
+-- commit
 --
 
 -- |  To lock outputs for a Hydra head, the ith head member will attach a commit
 -- transaction to the i-th output of the initial transaction.
--- Validator 'νCommit' ensures that the commit transaction correctly records the
+-- Validator 'commit' ensures that the commit transaction correctly records the
 -- partial UTxO set Ui committed by the party.
 --
 -- The data field of the output of the commit transaction is
@@ -210,14 +197,14 @@ instance Scripts.ScriptType Initial where
 -- where the o_j are the outputs referenced by the commit transaction’s inputs
 -- and makeUTxO stores pairs (out-ref_j , o_j) of outputs o_j with the
 -- corresponding output reference out-ref_j .
-νCommit ::
+commitValidator ::
   MonetaryPolicyHash ->
   ValidatorHash ->
   TxOutRef ->
   PubKeyHash ->
   ValidatorCtx ->
   Bool
-νCommit policyId νCollectComHash _out vk tx =
+commitValidator policyId vCollectComHash _out vk tx =
   consumedByCollectCom || consumedByAbort
  where
   consumedByAbort = False -- FIXME
@@ -225,7 +212,7 @@ instance Scripts.ScriptType Initial where
     let remainder = filterInputs (not . hasParticipationToken policyId) tx
         toCollect = filterInputs (hasParticipationToken policyId) tx
      in mustSatisfy @PubKeyHash @TxOutRef
-          [ mustCollectCommit νCollectComHash toCollect remainder
+          [ mustCollectCommit vCollectComHash toCollect remainder
           , mustForwardParticipationToken policyId vk
           ]
           tx
@@ -236,33 +223,25 @@ instance Scripts.ScriptType Commit where
   type RedeemerType Commit = PubKeyHash
 
 {- ORMOLU_DISABLE -}
-νCommitInstance
+commit
   :: MonetaryPolicyHash
   -> Scripts.ScriptInstance Commit
-νCommitInstance policyId = Scripts.validator @Commit
-  ($$(PlutusTx.compile [|| νCommit ||])
+commit policyId = Scripts.validator @Commit
+  ($$(PlutusTx.compile [|| commitValidator ||])
     `PlutusTx.applyCode` PlutusTx.liftCode policyId
-    `PlutusTx.applyCode` PlutusTx.liftCode (νHydraHash policyId)
+    `PlutusTx.applyCode` PlutusTx.liftCode (hydraHash policyId)
   )
   $$(PlutusTx.compile [|| wrap ||])
  where
   wrap = Scripts.wrapValidator @(DatumType Commit) @(RedeemerType Commit)
 {- ORMOLU_ENABLE -}
 
-νCommitAddress :: MonetaryPolicyHash -> Address
-νCommitAddress = Scripts.scriptAddress . νCommitInstance
+commitAddress :: MonetaryPolicyHash -> Address
+commitAddress = Scripts.scriptAddress . commit
 
-νCommitHash :: MonetaryPolicyHash -> ValidatorHash
-νCommitHash = Scripts.scriptHash . νCommitInstance
-{-# INLINEABLE νCommitHash #-}
-
-δCommit :: TxOutRef -> Datum
-δCommit = Datum . toData
-{-# INLINEABLE δCommit #-}
-
-ρCommit :: PubKeyHash -> Redeemer
-ρCommit = Redeemer . toData
-{-# INLINEABLE ρCommit #-}
+commitHash :: MonetaryPolicyHash -> ValidatorHash
+commitHash = Scripts.scriptHash . commit
+{-# INLINEABLE commitHash #-}
 
 --
 -- Helpers
@@ -318,7 +297,7 @@ mustCommitUtxos ::
   TxConstraints i o
 mustCommitUtxos script (ref, value) total =
   mconcat
-    [ mustPayToOtherScript script (δCommit ref) (total value)
+    [ mustPayToOtherScript script (asDatum ref) (total value)
     , mustSpendPubKeyOutput ref
     ]
 {-# INLINEABLE mustCommitUtxos #-}
@@ -329,9 +308,9 @@ mustCollectCommit ::
   [(TxOutRef, Value)] ->
   [(TxOutRef, Value)] ->
   TxConstraints i o
-mustCollectCommit νCollectComHash toCollect remainder =
+mustCollectCommit vCollectComHash toCollect remainder =
   let value = foldMap snd (toCollect <> remainder)
-   in mustPayToOtherScript νCollectComHash (δOpen $ snd <$> toCollect) value
+   in mustPayToOtherScript vCollectComHash (asDatum $ Open $ snd <$> toCollect) value
 {-# INLINEABLE mustCollectCommit #-}
 
 mkParticipationToken :: MonetaryPolicyHash -> PubKeyHash -> Value
@@ -381,3 +360,11 @@ symbols = foldr normalize [] . Map.toList . Value.getValue
       let elems = snd <$> Map.toList tokens
        in if sum elems == 0 then acc else currency : acc
 {-# INLINEABLE symbols #-}
+
+asDatum :: IsData a => a -> Datum
+asDatum = Datum . toData
+{-# INLINEABLE asDatum #-}
+
+asRedeemer :: IsData a => a -> Redeemer
+asRedeemer = Redeemer . toData
+{-# INLINEABLE asRedeemer #-}

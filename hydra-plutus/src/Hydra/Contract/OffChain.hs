@@ -72,7 +72,7 @@ init policy vks = do
       { slMPS =
           Map.singleton policyId policy
       , slScriptInstance =
-          Just (OnChain.νHydraInstance policyId)
+          Just (OnChain.hydra policyId)
       }
 
   constraints =
@@ -82,8 +82,8 @@ init policy vks = do
               let participationToken = OnChain.mkParticipationToken policyId vk
                in mconcat
                     [ mustPayToOtherScript
-                        (OnChain.νInitialHash policyId)
-                        (OnChain.δInitial vk)
+                        (OnChain.initialHash policyId)
+                        (OnChain.asDatum vk)
                         participationToken
                     , mustForgeValue
                         participationToken
@@ -104,7 +104,7 @@ commit ::
   Contract [OnChain.HydraState] Schema e ()
 commit policy = do
   (vk, toCommit) <- endpoint @"commit" @(PubKeyHash, (TxOutRef, TxOutTx))
-  initial <- utxoAtWithDatum (OnChain.νInitialAddress policyId) (OnChain.δInitial vk)
+  initial <- utxoAtWithDatum (OnChain.initialAddress policyId) (OnChain.asDatum vk)
   void $ submitTxConstraintsWith (lookups vk toCommit initial) (constraints vk toCommit initial)
  where
   policyId =
@@ -115,16 +115,16 @@ commit policy = do
       { slMPS =
           Map.singleton policyId policy
       , slScriptInstance =
-          Just (OnChain.νHydraInstance policyId)
+          Just (OnChain.hydra policyId)
       , slTxOutputs =
           initial <> Map.singleton ref out
       , slOtherScripts =
-          let script = OnChain.νInitialInstance policyId
+          let script = OnChain.initial policyId
            in Map.fromList
                 [ (Scripts.scriptAddress script, Scripts.validatorScript script)
                 ]
       , slOtherData =
-          let datum = OnChain.δCommit ref
+          let datum = OnChain.asDatum ref
            in Map.fromList
                 [ (datumHash datum, datum)
                 ]
@@ -138,11 +138,11 @@ commit policy = do
           [ mustBeSignedBy vk
           , -- NOTE: using a 'foldMap' here but that 'initial' utxo really has only one
             -- element!
-            foldMap (`mustSpendScriptOutput` OnChain.ρInitial) (Map.keys initial)
+            foldMap (`mustSpendScriptOutput` OnChain.asRedeemer ()) (Map.keys initial)
           , mustSpendPubKeyOutput ref
           , mustPayToOtherScript
-              (OnChain.νCommitHash policyId)
-              (OnChain.δCommit ref)
+              (OnChain.commitHash policyId)
+              (OnChain.asDatum ref)
               value
           ]
 
@@ -167,8 +167,8 @@ collectCom ::
   Contract [OnChain.HydraState] Schema e ()
 collectCom policy vks = do
   headMember <- endpoint @"collectCom" @PubKeyHash
-  committed <- utxoAt (OnChain.νCommitAddress policyId)
-  stateMachine <- utxoAt (OnChain.νHydraAddress policyId)
+  committed <- utxoAt (OnChain.commitAddress policyId)
+  stateMachine <- utxoAt (OnChain.hydraAddress policyId)
   tx <-
     submitTxConstraintsWith @OnChain.Hydra
       (lookups committed stateMachine headMember)
@@ -186,13 +186,13 @@ collectCom policy vks = do
       { slMPS =
           Map.singleton policyId policy
       , slScriptInstance =
-          Just (OnChain.νHydraInstance policyId)
+          Just (OnChain.hydra policyId)
       , slOtherScripts =
           Map.fromList
             [ (Scripts.scriptAddress script, Scripts.validatorScript script)
             | SomeScriptInstance script <-
-                [ SomeScriptInstance $ OnChain.νCommitInstance policyId
-                , SomeScriptInstance $ OnChain.νHydraInstance policyId
+                [ SomeScriptInstance $ OnChain.commit policyId
+                , SomeScriptInstance $ OnChain.hydra policyId
                 ]
             ]
       , slOtherData =
@@ -212,11 +212,13 @@ collectCom policy vks = do
           [ mustBeSignedBy headMember
           , mustPayToTheScript (mkOpenState committed) value
           , foldMap
-              (\(vk, ref) -> mustSpendScriptOutput ref (OnChain.ρCommit vk))
+              (\(vk, ref) -> mustSpendScriptOutput ref (OnChain.asRedeemer vk))
               (zipOnParticipationToken policyId vks committed)
           , -- NOTE: using a 'foldMap' here but the 'stateMachine' utxo really
             -- has only one element!
-            foldMap (`mustSpendScriptOutput` OnChain.ρInit) (Map.keys stateMachine)
+            foldMap
+              (`mustSpendScriptOutput` OnChain.asRedeemer OnChain.CollectCom)
+              (Map.keys stateMachine)
           ]
 
 type Schema =
