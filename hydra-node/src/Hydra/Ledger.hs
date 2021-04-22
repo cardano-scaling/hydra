@@ -19,10 +19,10 @@ type Era = MaryEra StandardCrypto
 -- applyTxs = panice "not implemented"
 
 globals :: Ledger.Globals
-globals = panic "undefined"
+globals = panic "undefined globals"
 
 ledgerEnv :: Ledgers.LedgersEnv era
-ledgerEnv = panic "undefined"
+ledgerEnv = panic "undefined ledgerEnv"
 
 -- | Either valid or an error which we get from the ledger-specs tx validation.
 data ValidationResult

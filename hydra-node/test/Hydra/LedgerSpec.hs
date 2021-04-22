@@ -25,12 +25,14 @@ import Cardano.Ledger.ShelleyMA.Timelocks (ValidityInterval (..))
 import Cardano.Ledger.ShelleyMA.TxBody (TxBody (TxBody))
 import Cardano.Ledger.Val (Val ((<+>)), (<->))
 import qualified Cardano.Ledger.Val as Val
+import Data.Default (def)
 import qualified Data.Map as Map
 import qualified Data.Sequence.Strict as StrictSeq
 import qualified Data.Set as Set
 import Shelley.Spec.Ledger.API (Addr, Coin (..), KeyPair (..), KeyRole (Payment, Staking), StrictMaybe (SNothing), Tx (..), TxId, TxIn (TxIn), TxOut (..), UTxO, Wdrl (..))
 import qualified Shelley.Spec.Ledger.API as Ledger
 import Shelley.Spec.Ledger.Keys (asWitness)
+import Shelley.Spec.Ledger.LedgerState (LedgerState (..), UTxOState (..))
 import Shelley.Spec.Ledger.Tx (addrWits)
 import Shelley.Spec.Ledger.UTxO (UTxO (..), makeWitnessesVKey, txid)
 import Test.Cardano.Ledger.EraBuffet (MaryEra, TestCrypto)
@@ -63,7 +65,8 @@ txSimpleTransfer =
   val = Val.inject (Coin 5)
 
 mkLedgerState :: Ledger.LedgerState MaryTest
-mkLedgerState = panic "undefined"
+mkLedgerState =
+  def{_utxoState = def{_utxo = initUTxO}}
 
 --
 -- From: shelley-ma/shelley-ma-test/test/Test/Cardano/Ledger/Mary/Examples/Cast.hs
