@@ -40,12 +40,17 @@ spec = describe "Hydra Node" $ do
     res `shouldBe` Right ()
     queryHeadState hh >>= shouldNotBe InitState
 
-  it "does validate new transactions from clients and sends them onto the network" $ do
+  it "does send transactions received from client onto the network" $ do
     hh <- createHydraHead $ OpenState SimpleHead.mkState
     (n, queryNetworkMsgs) <- recordNetwork
     newTx hh n
     queryHeadState hh >>= flip shouldSatisfy isOpen
     queryNetworkMsgs `shouldReturn` [ReqTx]
+
+  it "does not forward invalid transactions received from client" $ do
+    hh <- createHydraHead $ OpenState SimpleHead.mkState
+    newTx hh mockNetwork
+    queryHeadState hh >>= flip shouldSatisfy isOpen
 
 isOpen :: HeadState -> Bool
 isOpen OpenState{} = True
