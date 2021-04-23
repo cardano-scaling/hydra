@@ -11,12 +11,13 @@ import Hydra.Ledger (Ledger (Ledger, canApply, initLedgerState), LedgerState, Va
 import Hydra.LedgerSpec as LedgerSpec
 import Hydra.Logic (
   ClientInstruction (..),
+  ClientRequest (..),
+  Event (..),
   HeadState (..),
-  HydraMessage (ReqTx),
+  HydraMessage (..),
   OnChainTx (..),
  )
 import qualified Hydra.Logic.SimpleHead as SimpleHead
-import System.Timeout (timeout)
 import Test.Hspec (
   Expectation,
   Spec,
@@ -31,13 +32,6 @@ import Test.Hspec (
 
 spec :: Spec
 spec = describe "Hydra Node" $ do
-  it "does nothing for a second without events" $ do
-    q <- createEventQueue
-    hh <- createHydraHead InitState mockLedger
-    res <- timeout 1000000 $ handleNextEvent q mockNetwork mockChain mockClientSide hh
-    res `shouldBe` Nothing
-    queryHeadState hh `shouldReturn` InitState
-
   it "does something" $ do
     hh <- createHydraHead InitState mockLedger
     res <- init (expectOnChain InitTx) hh (expectClientSide AcceptingTx)
@@ -58,7 +52,8 @@ spec = describe "Hydra Node" $ do
 
   it "does also work with a real ledger" $ do
     hh <- createHydraHead (OpenState $ SimpleHead.mkState LedgerSpec.mkLedgerState) cardanoLedger
-    newTx hh mockNetwork LedgerSpec.txInvalid `shouldReturn` Invalid ValidationError
+    handleNextEvent mockNetwork mockChain mockClientSide hh $ ClientEvent $ NewTx LedgerSpec.txInvalid
+    -- `shouldReturn` Invalid ValidationError
     queryHeadState hh >>= flip shouldSatisfy isOpen
 
 data MockTx = ValidTx | InvalidTx

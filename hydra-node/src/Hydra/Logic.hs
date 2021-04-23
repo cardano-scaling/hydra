@@ -6,8 +6,9 @@ import Cardano.Prelude
 
 import qualified Hydra.Logic.SimpleHead as SimpleHead
 
-data Event
-  = NetworkEvent HydraMessage
+data Event tx
+  = ClientEvent (ClientRequest tx)
+  | NetworkEvent HydraMessage
   | OnChainEvent OnChainTx
   deriving (Eq, Show)
 
@@ -20,13 +21,13 @@ data Effect tx
     Wait (HeadState tx -> Maybe (HeadState tx, [Effect tx]))
   | ErrorEffect (LogicError tx) -- NOTE(SN): this feels weird, maybe an Either on the 'update' fits better
 
-data ClientRequest
+data ClientRequest tx
   = Init
   | Commit
-  | NewTx
+  | NewTx tx
   | Close
   | Contest
-  deriving (Show)
+  deriving (Eq, Show)
 
 data ClientInstruction
   = ReadyToCommit
@@ -85,11 +86,11 @@ createHeadState :: [Party] -> HeadParameters -> SnapshotStrategy -> HeadState tx
 createHeadState _ _ _ = InitState
 
 data LogicError tx
-  = InvalidEvent Event (HeadState tx)
+  = InvalidEvent (Event tx) (HeadState tx)
   | InvalidState (HeadState tx)
 
-deriving instance Eq (HeadState tx) => Eq (LogicError tx)
-deriving instance Show (HeadState tx) => Show (LogicError tx)
+deriving instance (Eq (HeadState tx), Eq (Event tx)) => Eq (LogicError tx)
+deriving instance (Show (HeadState tx), Show (Event tx)) => Show (LogicError tx)
 
 logicErrorToString :: LogicError tx -> Text
 logicErrorToString = \case
@@ -100,8 +101,11 @@ logicErrorToString = \case
 -- Hydra head. This may also be split into multiple handlers, i.e. one for hydra
 -- network events, one for client events and one for main chain events, or by
 -- sub-'State'.
-update :: HeadState tx -> Event -> (HeadState tx, [Effect tx])
+update :: HeadState tx -> Event tx -> (HeadState tx, [Effect tx])
 update st ev = case (st, ev) of
+  (OpenState st', ClientEvent (NewTx tx)) ->
+    bimap OpenState (map mapEffect) $
+      SimpleHead.update st' (SimpleHead.NewTxFromClient tx)
   (OpenState st', NetworkEvent ReqTx) ->
     bimap OpenState (map mapEffect) $
       SimpleHead.update st' SimpleHead.ReqTxFromPeer

@@ -6,8 +6,9 @@ import Cardano.Prelude hiding (State)
 
 import Hydra.Ledger (LedgerState)
 
-data Event
-  = ReqTxFromPeer
+data Event tx
+  = NewTxFromClient tx
+  | ReqTxFromPeer
   | AckTxFromPeer
   | ConfTxFromPeer
   | ReqSnFromPeer
@@ -36,5 +37,7 @@ data Effect tx
   | SendAckTx
   | Wait (State tx -> Maybe (State tx, [Effect tx]))
 
-update :: State tx -> Event -> (State tx, [Effect tx])
-update _ _ = panic "TODO"
+update :: State tx -> Event tx -> (State tx, [Effect tx])
+update st = \case
+  NewTxFromClient _tx -> (st, [MulticastReqTx])
+  _ -> panic "SimpleHead.TODO"

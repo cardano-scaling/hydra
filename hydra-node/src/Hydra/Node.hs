@@ -35,14 +35,13 @@ import System.Console.Repline (CompleterStyle (Word0), ExitDecision (Exit), eval
 -- | Monadic interface around 'Hydra.Logic.update'.
 handleNextEvent ::
   MonadThrow m =>
-  EventQueue m ->
   HydraNetwork m ->
   OnChain m ->
   ClientSide m ->
   HydraHead tx m ->
+  Event tx ->
   m ()
-handleNextEvent EventQueue{nextEvent} HydraNetwork{broadcast} OnChain{postTx} ClientSide{showInstruction} HydraHead{modifyHeadState} = do
-  e <- nextEvent
+handleNextEvent HydraNetwork{broadcast} OnChain{postTx} ClientSide{showInstruction} HydraHead{modifyHeadState} e = do
   out <- modifyHeadState $ \s -> swap $ Logic.update s e
   forM_ out $ \case
     ClientEffect i -> showInstruction i
@@ -106,12 +105,12 @@ data InvalidTransaction = InvalidTransaction
 -- NOTE(SN): this probably should be bounded and include proper logging
 -- NOTE(SN): handle pattern, but likely not required as there is no need for an
 -- alternative implementation
-data EventQueue m = EventQueue
-  { putEvent :: Event -> m ()
-  , nextEvent :: m Event
+data EventQueue m e = EventQueue
+  { putEvent :: e -> m ()
+  , nextEvent :: m e
   }
 
-createEventQueue :: IO (EventQueue IO)
+createEventQueue :: IO (EventQueue IO e)
 createEventQueue = do
   q <- newTQueueIO
   pure
@@ -159,7 +158,7 @@ newtype HydraNetwork m = HydraNetwork
   }
 
 -- | Connects to a configured set of peers and sets up the whole network stack.
-createHydraNetwork :: EventQueue IO -> IO (HydraNetwork IO)
+createHydraNetwork :: EventQueue IO (Event tx) -> IO (HydraNetwork IO)
 createHydraNetwork EventQueue{putEvent} = do
   -- NOTE(SN): obviously we should connect to a known set of peers here and do
   -- really broadcast messages to them
@@ -197,7 +196,7 @@ newtype OnChain m = OnChain
 
 -- | Connects to a cardano node and sets up things in order to be able to
 -- construct actual transactions using 'OnChainTx' and send them on 'postTx'.
-createChainClient :: EventQueue IO -> IO (OnChain IO)
+createChainClient :: EventQueue IO (Event tx) -> IO (OnChain IO)
 createChainClient EventQueue{putEvent} = do
   -- NOTE(SN): obviously we should construct and send transactions, e.g. using
   -- plutus instead
