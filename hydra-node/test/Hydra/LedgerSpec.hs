@@ -14,6 +14,7 @@ import Test.Hspec (
   describe,
   it,
   shouldBe,
+  shouldSatisfy,
  )
 
 -- REVIEW(SN): use a more consistent set of ledger imports, but some things not
@@ -31,17 +32,27 @@ import qualified Data.Sequence.Strict as StrictSeq
 import qualified Data.Set as Set
 import Shelley.Spec.Ledger.API (Addr, Coin (..), KeyPair (..), KeyRole (Payment, Staking), StrictMaybe (SNothing), Tx (..), TxId, TxIn (TxIn), TxOut (..), UTxO, Wdrl (..))
 import qualified Shelley.Spec.Ledger.API as Ledger
+import qualified Shelley.Spec.Ledger.API as Ledgers
 import Shelley.Spec.Ledger.Keys (asWitness)
 import Shelley.Spec.Ledger.LedgerState (LedgerState (..), UTxOState (..))
+import Shelley.Spec.Ledger.PParams (emptyPParams)
+import Shelley.Spec.Ledger.Slot (SlotNo (SlotNo))
 import Shelley.Spec.Ledger.Tx (addrWits)
 import Shelley.Spec.Ledger.UTxO (UTxO (..), makeWitnessesVKey, txid)
 import Test.Cardano.Ledger.EraBuffet (MaryEra, TestCrypto)
 import Test.Shelley.Spec.Ledger.Utils (mkAddr, mkKeyPair)
 
 spec :: Spec
-spec = describe "Hydra Ledger (Mary)" $
+spec = describe "Hydra Ledger (Mary)" $ do
+  it "should reject invalid transactions" $ do
+    validateTx mkLedgerEnv mkLedgerState txInvalid `shouldBe` Invalid ValidationError
+
   it "should validate transactions which simply transfer value" $ do
-    validateTx mkLedgerState txSimpleTransfer `shouldBe` Valid
+    validateTx mkLedgerEnv mkLedgerState txSimpleTransfer `shouldBe` Valid
+
+-- | Some invalid tx (unbalanced and no witnesses).
+txInvalid :: Ledger.Tx MaryTest
+txInvalid = Tx (makeTxb [TxIn bootstrapTxId 0] [] unboundedInterval Val.zero) mempty SNothing
 
 -- | Alice gives five Ada to Bob.
 -- TODO(SN): type Era = Mary TestCrypt as era instead?
@@ -56,13 +67,21 @@ txSimpleTransfer =
   txbody =
     makeTxb
       [TxIn bootstrapTxId 0]
-      [ TxOut aliceAddr (Val.inject aliceInitCoin <-> Val.inject feeEx <-> val) -- TODO(SN): remove fee?
-      , TxOut bobAddr (Val.inject bobInitCoin <+> val)
+      [ TxOut aliceAddr $ Val.inject $ aliceInitCoin <-> feeEx <-> transfered -- TODO(SN): remove fee?
+      , TxOut bobAddr $ Val.inject transfered
       ]
       unboundedInterval
       Val.zero
 
-  val = Val.inject (Coin 5)
+  transfered = Coin 5
+
+mkLedgerEnv :: Ledgers.LedgersEnv MaryTest
+mkLedgerEnv =
+  Ledgers.LedgersEnv
+    { Ledgers.ledgersSlotNo = SlotNo 1
+    , Ledgers.ledgersPp = emptyPParams
+    , Ledgers.ledgersAccount = undefined
+    }
 
 mkLedgerState :: Ledger.LedgerState MaryTest
 mkLedgerState =

@@ -1,6 +1,5 @@
 {-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE TypeApplications #-}
-{-# OPTIONS_GHC -Wno-deferred-type-errors #-}
 
 -- | Top-level module to run a single Hydra node.
 module Hydra.Node where

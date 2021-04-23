@@ -1,13 +1,13 @@
 module Hydra.Ledger where
 
-import Cardano.Prelude
+import Cardano.Prelude hiding (undefined)
+import Prelude (undefined)
 
-import Cardano.Ledger.Mary (MaryEra)
-import Ouroboros.Consensus.Shelley.Protocol (
-  StandardCrypto,
- )
+import Cardano.Slotting.EpochInfo (fixedSizeEpochInfo)
+import Shelley.Spec.Ledger.API (Globals (..), Network (Testnet))
 import qualified Shelley.Spec.Ledger.API as Ledger
-import qualified Shelley.Spec.Ledger.STS.Ledgers as Ledgers
+import Shelley.Spec.Ledger.BaseTypes (UnitInterval, mkActiveSlotCoeff, mkUnitInterval)
+import Shelley.Spec.Ledger.Slot (EpochSize (EpochSize))
 
 data LedgerState tx = LedgerState
   deriving (Show, Eq)
@@ -19,18 +19,8 @@ data Ledger tx = Ledger
 newConcreteLedger :: Ledger.ApplyTx era => Ledger (Ledger.Tx era)
 newConcreteLedger =
   Ledger
-    { canApply = \_ -> validateTx undefined
+    { canApply = \_ -> validateTx undefined undefined
     }
-
-type Tx l = Ledger.Tx l -- In fact this is an era only
-
-type Era = MaryEra StandardCrypto
-
-globals :: Ledger.Globals
-globals = panic "undefined globals"
-
-ledgerEnv :: Ledgers.LedgersEnv era
-ledgerEnv = panic "undefined ledgerEnv"
 
 -- | Either valid or an error which we get from the ledger-specs tx validation.
 data ValidationResult
@@ -40,17 +30,41 @@ data ValidationResult
 
 data ValidationError = ValidationError deriving (Eq, Show)
 
-applyTxs ::
-  Ledger.LedgerEnv era ->
+validateTx ::
+  Ledger.ApplyTx era =>
+  Ledger.LedgersEnv era ->
   Ledger.LedgerState era ->
-  Seq (Ledger.Tx era) ->
-  Either ValidationError (Ledger.LedgerState l)
-applyTxs = panic "should use 'applyTxsTransition' as well"
-
-validateTx :: Ledger.ApplyTx era => Ledger.LedgerState era -> Ledger.Tx era -> ValidationResult
-validateTx ls tx =
+  Ledger.Tx era ->
+  ValidationResult
+validateTx env ls tx =
   either (Invalid . toValidationError) (const Valid) $
-    Ledger.applyTxsTransition globals ledgerEnv (pure tx) ls
+    Ledger.applyTxsTransition globals env (pure tx) ls
  where
   -- toValidationError :: ApplyTxError -> ValidationError
   toValidationError = const ValidationError
+
+--
+-- From: shelley/chain-and-ledger/shelley-spec-ledger-test/src/Test/Shelley/Spec/Ledger/Utils.hs
+--
+
+-- TODO(SN): not hard-code these obviously
+globals :: Globals
+globals =
+  Globals
+    { epochInfo = fixedSizeEpochInfo $ EpochSize 100
+    , slotsPerKESPeriod = 20
+    , stabilityWindow = 33
+    , randomnessStabilisationWindow = 33
+    , securityParameter = 10
+    , maxKESEvo = 10
+    , quorum = 5
+    , maxMajorPV = 1000
+    , maxLovelaceSupply = 45 * 1000 * 1000 * 1000 * 1000 * 1000
+    , activeSlotCoeff = mkActiveSlotCoeff . unsafeMkUnitInterval $ 0.9
+    , networkId = Testnet
+    }
+
+-- | You vouch that argument is in [0; 1].
+unsafeMkUnitInterval :: Ratio Word64 -> UnitInterval
+unsafeMkUnitInterval r =
+  fromMaybe (panic "could not construct unit interval") $ mkUnitInterval r
