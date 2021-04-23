@@ -6,15 +6,15 @@ jobs:
   tests:
     runs-on: ubuntu-latest
     steps:
-    - env:
-        # TODO: this is insecure as the name implies, but is reaised
-        # by the cachix-action
-        ACTIONS_ALLOW_UNSECURE_COMMANDS: true
     - uses: actions/checkout@v2.3.1
     - uses: cachix/install-nix-action@v10
       with:
         skip_adding_nixpkgs_channel: true
     - uses: cachix/cachix-action@v10
+      env:
+        # TODO: this is insecure as the name implies, but is reaised
+        # by the cachix-action
+        ACTIONS_ALLOW_UNSECURE_COMMANDS: true
       with:
         name: hydra-node
         signingKey: '${{ secrets.CACHIX_SIGNING_KEY }}'
