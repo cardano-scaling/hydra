@@ -2,7 +2,6 @@ index-state: 2021-02-24T00:00:00Z
 
 packages:
   local-cluster
-  hydra-model
   hydra-node
   hydra-plutus
 
@@ -14,9 +13,6 @@ package hydra-node
   tests: True
 
 package hydra-plutus
-  tests: True
-
-package hydra-model
   tests: True
 
 -- Always show detailed output for tests
@@ -157,8 +153,3 @@ source-repository-package
     plutus-ledger-api
     plutus-tx-plugin
     prettyprinter-configurable
-
-source-repository-package
-  type: git
-  location: /home/curry/hydra-sim
-  tag: 5daa5dbc4c300a24601281f94f671f651abcb595
