@@ -153,3 +153,9 @@ source-repository-package
     plutus-ledger-api
     plutus-tx-plugin
     prettyprinter-configurable
+
+source-repository-package
+  type: git
+  location: https://github.com/input-output-hk/hedgehog-extras
+  tag: 8bcd3c9dc22cc44f9fcfe161f4638a384fc7a187
+  --sha256: 12viwpahjdfvlqpnzdgjp40nw31rvyznnab1hml9afpaxd6ixh70
