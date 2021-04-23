@@ -13,6 +13,6 @@ jobs:
     - uses: cachix/cachix-action@v10
       with:
         name: hydra-node
-        signingKey: '${{ secrets.CACHIX_SIGNING_KEY }}'
+        authToken: '${{ secrets.CACHIX_AUTH_TOKEN }}'
     - run: cachix use iohk
     - run: nix-shell --run 'cabal update && cabal test all'
