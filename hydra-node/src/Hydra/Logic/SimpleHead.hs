@@ -1,10 +1,10 @@
+{-# LANGUAGE UndecidableInstances #-}
+
 module Hydra.Logic.SimpleHead where
 
 import Cardano.Prelude hiding (State)
 
-import Hydra.Ledger (
-  LedgerState (LedgerState),
- )
+import Hydra.Ledger (LedgerState)
 
 data Event
   = ReqTxFromPeer
@@ -19,10 +19,12 @@ data State tx = State
   , transactions :: Transactions
   , snapshots :: Snapshots
   }
-  deriving (Eq, Show)
 
-mkState :: State tx
-mkState = State LedgerState Transaction Snapshots
+deriving instance Eq (LedgerState tx) => Eq (State tx)
+deriving instance Show (LedgerState tx) => Show (State tx)
+
+mkState :: LedgerState tx -> State tx
+mkState mkLedgerState = State mkLedgerState Transaction Snapshots
 
 data Transactions = Transaction deriving (Eq, Show)
 data Snapshots = Snapshots deriving (Eq, Show)

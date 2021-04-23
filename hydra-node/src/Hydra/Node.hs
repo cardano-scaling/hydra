@@ -57,10 +57,10 @@ init ::
   HydraHead tx m ->
   ClientSide m ->
   m (Either (LogicError tx) ())
-init OnChain{postTx} HydraHead{modifyHeadState} ClientSide{showInstruction} = do
+init OnChain{postTx} HydraHead{modifyHeadState, ledger} ClientSide{showInstruction} = do
   res <- modifyHeadState $ \s ->
     case s of
-      InitState -> (Nothing, OpenState SimpleHead.mkState)
+      InitState -> (Nothing, OpenState $ SimpleHead.mkState initLedgerState)
       _ -> (Just $ InvalidState s, s)
   case res of
     Just e -> pure $ Left e
@@ -68,6 +68,8 @@ init OnChain{postTx} HydraHead{modifyHeadState} ClientSide{showInstruction} = do
       postTx InitTx
       showInstruction AcceptingTx
       pure $ Right ()
+ where
+  Ledger{initLedgerState} = ledger
 
 newTx :: Monad m => HydraHead tx m -> HydraNetwork m -> tx -> m ValidationResult
 newTx hh@HydraHead{ledger} HydraNetwork{broadcast} tx = do

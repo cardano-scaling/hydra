@@ -1,3 +1,5 @@
+{-# LANGUAGE UndecidableInstances #-}
+
 module Hydra.Logic where
 
 import Cardano.Prelude
@@ -53,7 +55,9 @@ data HeadState tx
   = InitState
   | OpenState (SimpleHead.State tx)
   | ClosedState
-  deriving (Eq, Show)
+
+deriving instance Eq (SimpleHead.State tx) => Eq (HeadState tx)
+deriving instance Show (SimpleHead.State tx) => Show (HeadState tx)
 
 -- | Verification used to authenticate main chain transactions that are
 -- restricted to members of the Head protocol instance, i.e. the commit
@@ -83,7 +87,9 @@ createHeadState _ _ _ = InitState
 data LogicError tx
   = InvalidEvent Event (HeadState tx)
   | InvalidState (HeadState tx)
-  deriving (Eq, Show)
+
+deriving instance Eq (HeadState tx) => Eq (LogicError tx)
+deriving instance Show (HeadState tx) => Show (LogicError tx)
 
 logicErrorToString :: LogicError tx -> Text
 logicErrorToString = \case

@@ -9,18 +9,12 @@ import qualified Shelley.Spec.Ledger.API as Ledger
 import Shelley.Spec.Ledger.BaseTypes (UnitInterval, mkActiveSlotCoeff, mkUnitInterval)
 import Shelley.Spec.Ledger.Slot (EpochSize (EpochSize))
 
-data LedgerState tx = LedgerState
-  deriving (Show, Eq)
+type family LedgerState tx
 
 data Ledger tx = Ledger
   { canApply :: LedgerState tx -> tx -> ValidationResult
+  , initLedgerState :: LedgerState tx
   }
-
-newConcreteLedger :: Ledger.ApplyTx era => Ledger (Ledger.Tx era)
-newConcreteLedger =
-  Ledger
-    { canApply = \_ -> validateTx undefined undefined
-    }
 
 -- | Either valid or an error which we get from the ledger-specs tx validation.
 data ValidationResult
@@ -29,6 +23,17 @@ data ValidationResult
   deriving (Eq, Show)
 
 data ValidationError = ValidationError deriving (Eq, Show)
+
+--
+-- Cardano ledger
+--
+
+newConcreteLedger :: Ledger.ApplyTx era => Ledger (Ledger.Tx era)
+newConcreteLedger =
+  Ledger
+    { canApply = \_ -> validateTx undefined undefined
+    , initLedgerState = undefined
+    }
 
 validateTx ::
   Ledger.ApplyTx era =>

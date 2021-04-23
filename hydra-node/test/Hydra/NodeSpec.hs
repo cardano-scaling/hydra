@@ -7,7 +7,7 @@ import Hydra.Node
 
 import Data.IORef (atomicModifyIORef', newIORef, readIORef)
 import Data.String (String)
-import Hydra.Ledger (Ledger (Ledger, canApply), ValidationError (ValidationError), ValidationResult (..))
+import Hydra.Ledger (Ledger (Ledger, canApply, initLedgerState), LedgerState, ValidationError (ValidationError), ValidationResult (..))
 import Hydra.Logic (
   ClientInstruction (..),
   HeadState (..),
@@ -44,26 +44,29 @@ spec = describe "Hydra Node" $ do
     queryHeadState hh >>= shouldNotBe InitState
 
   it "does send transactions received from client onto the network" $ do
-    hh <- createHydraHead (OpenState SimpleHead.mkState) mockLedger
+    hh <- createHydraHead (OpenState $ SimpleHead.mkState ()) mockLedger
     (n, queryNetworkMsgs) <- recordNetwork
     void $ newTx hh n ValidTx
     queryHeadState hh >>= flip shouldSatisfy isOpen
     queryNetworkMsgs `shouldReturn` [ReqTx]
 
   it "does not forward invalid transactions received from client" $ do
-    hh <- createHydraHead (OpenState SimpleHead.mkState) mockLedger
+    hh <- createHydraHead (OpenState $ SimpleHead.mkState ()) mockLedger
     newTx hh mockNetwork InvalidTx `shouldReturn` Invalid ValidationError
     queryHeadState hh >>= flip shouldSatisfy isOpen
 
 data MockTx = ValidTx | InvalidTx
   deriving (Eq, Show)
 
+type instance LedgerState MockTx = ()
+
 mockLedger :: Ledger MockTx
 mockLedger =
   Ledger
-    { canApply = \_ -> \case
+    { canApply = \st tx -> case st `seq` tx of
         ValidTx -> Valid
         InvalidTx -> Invalid ValidationError
+    , initLedgerState = ()
     }
 
 isOpen :: HeadState tx -> Bool
