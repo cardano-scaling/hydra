@@ -22,7 +22,6 @@ import Hydra.Logic (
   HydraMessage (AckSn, AckTx, ConfSn, ConfTx, ReqSn, ReqTx),
   LogicError (InvalidState),
   OnChainTx (..),
-  logicErrorToString,
  )
 import qualified Hydra.Logic as Logic
 import qualified Hydra.Logic.SimpleHead as SimpleHead
@@ -34,13 +33,15 @@ import System.Console.Repline (CompleterStyle (Word0), ExitDecision (Exit), eval
 
 -- | Monadic interface around 'Hydra.Logic.update'.
 handleNextEvent ::
+  Show (LedgerState tx) => -- TODO(SN): leaky abstraction of HydraHead
+  Show tx =>
   MonadThrow m =>
   HydraNetwork m ->
   OnChain m ->
   ClientSide m ->
   HydraHead tx m ->
   Event tx ->
-  m (Maybe ValidationError)
+  m (Maybe (LogicError tx))
 handleNextEvent HydraNetwork{broadcast} OnChain{postTx} ClientSide{showInstruction} HydraHead{modifyHeadState, ledger} e = do
   result <- modifyHeadState $ \s -> swap $ Logic.update ledger s e
   case result of
@@ -51,7 +52,7 @@ handleNextEvent HydraNetwork{broadcast} OnChain{postTx} ClientSide{showInstructi
         NetworkEffect msg -> broadcast msg
         OnChainEffect tx -> postTx tx
         Wait _cont -> panic "TODO: wait and reschedule continuation"
-        ErrorEffect ie -> panic $ "TODO: handle this error: " <> logicErrorToString ie
+        ErrorEffect ie -> panic $ "TODO: handle this error: " <> show ie
       pure Nothing
 
 init ::
@@ -236,6 +237,8 @@ newtype ClientSide m = ClientSide
 -- NOTE(SN): This clashes a bit when other parts of the node do log things, but
 -- spreading \r and >>> all over the place is likely not what we want
 createClientSideRepl ::
+  Show (LedgerState tx) => -- TODO(SN): leaky abstraction of HydraHead
+  Show tx =>
   OnChain IO ->
   HydraHead tx IO ->
   HydraNetwork IO ->
@@ -265,7 +268,7 @@ createClientSideRepl oc hh hn loadTx = do
     | c == "init" =
       liftIO $
         init oc hh cs >>= \case
-          Left e -> putStrLn @Text $ "You dummy.. " <> logicErrorToString e
+          Left e -> putStrLn @Text $ "You dummy.. " <> show e
           Right _ -> pure ()
     | c == "close" = liftIO $ close oc hh
     -- c == "commit" =

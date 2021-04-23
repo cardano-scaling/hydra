@@ -89,26 +89,22 @@ createHeadState _ _ _ = InitState
 data LogicError tx
   = InvalidEvent (Event tx) (HeadState tx)
   | InvalidState (HeadState tx)
+  | LedgerError ValidationError
 
 deriving instance (Eq (HeadState tx), Eq (Event tx)) => Eq (LogicError tx)
 deriving instance (Show (HeadState tx), Show (Event tx)) => Show (LogicError tx)
-
-logicErrorToString :: LogicError tx -> Text
-logicErrorToString = \case
-  InvalidEvent{} -> "invalid event"
-  InvalidState{} -> "invalid state"
 
 -- | The heart of the Hydra head logic, a handler of all kinds of 'Event' in the
 -- Hydra head. This may also be split into multiple handlers, i.e. one for hydra
 -- network events, one for client events and one for main chain events, or by
 -- sub-'State'.
-update :: Ledger tx -> HeadState tx -> Event tx -> (HeadState tx, Either ValidationError [Effect tx])
+update :: Ledger tx -> HeadState tx -> Event tx -> (HeadState tx, Either (LogicError tx) [Effect tx])
 update Ledger{canApply} st ev = case (st, ev) of
   (OpenState st', ClientEvent (NewTx tx)) ->
     let ls = SimpleHead.confirmedLedger st'
      in case canApply ls tx of
           Valid -> (st, Right [NetworkEffect ReqTx])
-          Invalid err -> (st, Left err)
+          Invalid err -> (st, Left $ LedgerError err)
   (OpenState st', NetworkEvent ReqTx) ->
     bimap OpenState (Right . map mapEffect) $
       SimpleHead.update st' SimpleHead.ReqTxFromPeer

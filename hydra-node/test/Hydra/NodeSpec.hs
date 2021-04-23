@@ -15,6 +15,7 @@ import Hydra.Logic (
   Event (..),
   HeadState (..),
   HydraMessage (..),
+  LogicError (..),
   OnChainTx (..),
  )
 import qualified Hydra.Logic.SimpleHead as SimpleHead
@@ -54,7 +55,7 @@ spec = describe "Hydra Node" $ do
     it "does not broadcast reqTx given new transaction is invalid" $ do
       hh <- createHydraHead (OpenState $ SimpleHead.mkState LedgerSpec.mkLedgerState) cardanoLedger
       handleNextEvent mockNetwork mockChain mockClientSide hh (ClientEvent $ NewTx LedgerSpec.txInvalid)
-        `shouldReturn` Just ValidationError
+        `shouldReturn` Just (LedgerError ValidationError)
       queryHeadState hh >>= flip shouldSatisfy isOpen
 
 data MockTx = ValidTx | InvalidTx
