@@ -88,9 +88,7 @@ library
     , cardano-slotting
     , cardano-prelude
     , ouroboros-network-framework
-    , ouroboros-consensus-shelley
     , shelley-spec-ledger
-    , cardano-ledger-shelley-ma
     , repline
     , safe-exceptions
     , stm

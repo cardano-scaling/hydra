@@ -14,7 +14,6 @@ import Test.Hspec (
   describe,
   it,
   shouldBe,
-  shouldSatisfy,
  )
 
 -- REVIEW(SN): use a more consistent set of ledger imports, but some things not
@@ -24,7 +23,7 @@ import Cardano.Ledger.Core (Value)
 import Cardano.Ledger.SafeHash (hashAnnotated)
 import Cardano.Ledger.ShelleyMA.Timelocks (ValidityInterval (..))
 import Cardano.Ledger.ShelleyMA.TxBody (TxBody (TxBody))
-import Cardano.Ledger.Val (Val ((<+>)), (<->))
+import Cardano.Ledger.Val ((<->))
 import qualified Cardano.Ledger.Val as Val
 import Data.Default (def)
 import qualified Data.Map as Map
@@ -80,7 +79,7 @@ mkLedgerEnv =
   Ledgers.LedgersEnv
     { Ledgers.ledgersSlotNo = SlotNo 1
     , Ledgers.ledgersPp = emptyPParams
-    , Ledgers.ledgersAccount = undefined
+    , Ledgers.ledgersAccount = panic "Not implemented"
     }
 
 mkLedgerState :: Ledger.LedgerState MaryTest
