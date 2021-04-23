@@ -28,8 +28,10 @@ data ValidationError = ValidationError deriving (Eq, Show)
 -- Cardano ledger
 --
 
-newConcreteLedger :: Ledger.ApplyTx era => Ledger (Ledger.Tx era)
-newConcreteLedger =
+type instance LedgerState (Ledger.Tx era) = Ledger.LedgerState era
+
+cardanoLedger :: Ledger.ApplyTx era => Ledger (Ledger.Tx era)
+cardanoLedger =
   Ledger
     { canApply = \_ -> validateTx undefined undefined
     , initLedgerState = undefined

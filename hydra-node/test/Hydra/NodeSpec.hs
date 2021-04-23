@@ -7,7 +7,8 @@ import Hydra.Node
 
 import Data.IORef (atomicModifyIORef', newIORef, readIORef)
 import Data.String (String)
-import Hydra.Ledger (Ledger (Ledger, canApply, initLedgerState), LedgerState, ValidationError (ValidationError), ValidationResult (..))
+import Hydra.Ledger (Ledger (Ledger, canApply, initLedgerState), LedgerState, ValidationError (ValidationError), ValidationResult (..), cardanoLedger)
+import Hydra.LedgerSpec as LedgerSpec
 import Hydra.Logic (
   ClientInstruction (..),
   HeadState (..),
@@ -53,6 +54,11 @@ spec = describe "Hydra Node" $ do
   it "does not forward invalid transactions received from client" $ do
     hh <- createHydraHead (OpenState $ SimpleHead.mkState ()) mockLedger
     newTx hh mockNetwork InvalidTx `shouldReturn` Invalid ValidationError
+    queryHeadState hh >>= flip shouldSatisfy isOpen
+
+  it "does also work with a real ledger" $ do
+    hh <- createHydraHead (OpenState $ SimpleHead.mkState LedgerSpec.mkLedgerState) cardanoLedger
+    newTx hh mockNetwork LedgerSpec.txInvalid `shouldReturn` Invalid ValidationError
     queryHeadState hh >>= flip shouldSatisfy isOpen
 
 data MockTx = ValidTx | InvalidTx
