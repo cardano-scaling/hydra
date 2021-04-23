@@ -41,8 +41,8 @@ handleNextEvent ::
   HydraHead tx m ->
   Event tx ->
   m (Maybe ValidationError)
-handleNextEvent HydraNetwork{broadcast} OnChain{postTx} ClientSide{showInstruction} HydraHead{modifyHeadState} e = do
-  result <- modifyHeadState $ \s -> swap $ Logic.update s e
+handleNextEvent HydraNetwork{broadcast} OnChain{postTx} ClientSide{showInstruction} HydraHead{modifyHeadState, ledger} e = do
+  result <- modifyHeadState $ \s -> swap $ Logic.update ledger s e
   case result of
     Left err -> pure $ Just err
     Right out -> do

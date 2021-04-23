@@ -4,7 +4,7 @@ module Hydra.Logic where
 
 import Cardano.Prelude
 
-import Hydra.Ledger (ValidationError)
+import Hydra.Ledger (Ledger (Ledger, canApply), ValidationError, ValidationResult (Invalid, Valid))
 import qualified Hydra.Logic.SimpleHead as SimpleHead
 
 data Event tx
@@ -102,11 +102,13 @@ logicErrorToString = \case
 -- Hydra head. This may also be split into multiple handlers, i.e. one for hydra
 -- network events, one for client events and one for main chain events, or by
 -- sub-'State'.
-update :: HeadState tx -> Event tx -> (HeadState tx, Either ValidationError [Effect tx])
-update st ev = case (st, ev) of
+update :: Ledger tx -> HeadState tx -> Event tx -> (HeadState tx, Either ValidationError [Effect tx])
+update Ledger{canApply} st ev = case (st, ev) of
   (OpenState st', ClientEvent (NewTx tx)) ->
-    bimap OpenState (Right . map mapEffect) $
-      SimpleHead.update st' (SimpleHead.NewTxFromClient tx)
+    let ls = SimpleHead.confirmedLedger st'
+     in case canApply ls tx of
+          Valid -> (st, Right [NetworkEffect ReqTx])
+          Invalid err -> (st, Left err)
   (OpenState st', NetworkEvent ReqTx) ->
     bimap OpenState (Right . map mapEffect) $
       SimpleHead.update st' SimpleHead.ReqTxFromPeer
