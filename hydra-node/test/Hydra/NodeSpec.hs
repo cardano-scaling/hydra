@@ -53,7 +53,7 @@ spec = describe "Hydra Node" $ do
 
   describe "Hydra Node Client" $ do
     it "does not broadcast reqTx given new transaction is invalid" $ do
-      hh <- createHydraHead (OpenState $ SimpleHead.mkState LedgerSpec.mkLedgerState) cardanoLedger
+      hh <- createHydraHead (OpenState $ SimpleHead.mkState LedgerSpec.mkLedgerState) (cardanoLedger LedgerSpec.mkLedgerEnv)
       handleNextEvent mockNetwork mockChain mockClientSide hh (ClientEvent $ NewTx LedgerSpec.txInvalid)
         `shouldReturn` Just (LedgerError ValidationError)
       queryHeadState hh >>= flip shouldSatisfy isOpen
