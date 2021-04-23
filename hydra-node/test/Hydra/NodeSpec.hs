@@ -8,6 +8,7 @@ import Hydra.Node
 import Data.IORef (atomicModifyIORef', newIORef, readIORef)
 import Data.String (String)
 import Hydra.Ledger (Ledger (Ledger, canApply, initLedgerState), LedgerState, ValidationError (ValidationError), ValidationResult (..), cardanoLedger)
+import qualified Hydra.Ledger.MaryTest as MaryTest
 import Hydra.LedgerSpec as LedgerSpec
 import Hydra.Logic (
   ClientInstruction (..),
@@ -53,7 +54,7 @@ spec = describe "Hydra Node" $ do
 
   describe "Hydra Node Client" $ do
     it "does not broadcast reqTx given new transaction is invalid" $ do
-      hh <- createHydraHead (OpenState $ SimpleHead.mkState LedgerSpec.mkLedgerState) (cardanoLedger LedgerSpec.mkLedgerEnv)
+      hh <- createHydraHead (OpenState $ SimpleHead.mkState MaryTest.mkLedgerState) (cardanoLedger MaryTest.mkLedgerEnv)
       handleNextEvent mockNetwork mockChain mockClientSide hh (ClientEvent $ NewTx LedgerSpec.txInvalid)
         `shouldReturn` Just (LedgerError ValidationError)
       queryHeadState hh >>= flip shouldSatisfy isOpen
