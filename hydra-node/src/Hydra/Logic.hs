@@ -4,6 +4,7 @@ module Hydra.Logic where
 
 import Cardano.Prelude
 
+import Hydra.Ledger (ValidationError)
 import qualified Hydra.Logic.SimpleHead as SimpleHead
 
 data Event tx
@@ -101,15 +102,15 @@ logicErrorToString = \case
 -- Hydra head. This may also be split into multiple handlers, i.e. one for hydra
 -- network events, one for client events and one for main chain events, or by
 -- sub-'State'.
-update :: HeadState tx -> Event tx -> (HeadState tx, [Effect tx])
+update :: HeadState tx -> Event tx -> (HeadState tx, Either ValidationError [Effect tx])
 update st ev = case (st, ev) of
   (OpenState st', ClientEvent (NewTx tx)) ->
-    bimap OpenState (map mapEffect) $
+    bimap OpenState (Right . map mapEffect) $
       SimpleHead.update st' (SimpleHead.NewTxFromClient tx)
   (OpenState st', NetworkEvent ReqTx) ->
-    bimap OpenState (map mapEffect) $
+    bimap OpenState (Right . map mapEffect) $
       SimpleHead.update st' SimpleHead.ReqTxFromPeer
-  _ -> (st, [ErrorEffect $ InvalidEvent ev st])
+  _ -> (st, Right [ErrorEffect $ InvalidEvent ev st])
 
 -- NOTE: This three things needs to be polymorphic in the output eventually, likely a
 -- type-class with data-families for each sub-modules.

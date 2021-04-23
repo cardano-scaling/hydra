@@ -40,15 +40,19 @@ handleNextEvent ::
   ClientSide m ->
   HydraHead tx m ->
   Event tx ->
-  m ()
+  m (Maybe ValidationError)
 handleNextEvent HydraNetwork{broadcast} OnChain{postTx} ClientSide{showInstruction} HydraHead{modifyHeadState} e = do
-  out <- modifyHeadState $ \s -> swap $ Logic.update s e
-  forM_ out $ \case
-    ClientEffect i -> showInstruction i
-    NetworkEffect msg -> broadcast msg
-    OnChainEffect tx -> postTx tx
-    Wait _cont -> panic "TODO: wait and reschedule continuation"
-    ErrorEffect ie -> panic $ "TODO: handle this error: " <> logicErrorToString ie
+  result <- modifyHeadState $ \s -> swap $ Logic.update s e
+  case result of
+    Left err -> pure $ Just err
+    Right out -> do
+      forM_ out $ \case
+        ClientEffect i -> showInstruction i
+        NetworkEffect msg -> broadcast msg
+        OnChainEffect tx -> postTx tx
+        Wait _cont -> panic "TODO: wait and reschedule continuation"
+        ErrorEffect ie -> panic $ "TODO: handle this error: " <> logicErrorToString ie
+      pure Nothing
 
 init ::
   MonadThrow m =>

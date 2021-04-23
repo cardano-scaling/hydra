@@ -50,11 +50,12 @@ spec = describe "Hydra Node" $ do
     newTx hh mockNetwork InvalidTx `shouldReturn` Invalid ValidationError
     queryHeadState hh >>= flip shouldSatisfy isOpen
 
-  it "does also work with a real ledger" $ do
-    hh <- createHydraHead (OpenState $ SimpleHead.mkState LedgerSpec.mkLedgerState) cardanoLedger
-    handleNextEvent mockNetwork mockChain mockClientSide hh $ ClientEvent $ NewTx LedgerSpec.txInvalid
-    -- `shouldReturn` Invalid ValidationError
-    queryHeadState hh >>= flip shouldSatisfy isOpen
+  describe "Hydra Node Client" $ do
+    it "does not broadcast reqTx given new transaction is invalid" $ do
+      hh <- createHydraHead (OpenState $ SimpleHead.mkState LedgerSpec.mkLedgerState) cardanoLedger
+      handleNextEvent mockNetwork mockChain mockClientSide hh (ClientEvent $ NewTx LedgerSpec.txInvalid)
+        `shouldReturn` Just ValidationError
+      queryHeadState hh >>= flip shouldSatisfy isOpen
 
 data MockTx = ValidTx | InvalidTx
   deriving (Eq, Show)
