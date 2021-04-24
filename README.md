@@ -2,6 +2,8 @@
 
 A repository for our colorful prototypes and experiments.
 
+![GitHub Actions CI][https://github.com/input-output-hk/hydra-poc/actions/workflows/ci.yaml/badge.svg]
+
 ## Development
 
 We provide a `shell.nix` to set up a development environment. So a simple call
