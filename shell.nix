@@ -5,7 +5,7 @@
   # Latest haskell.nix for more likely cache hits
 , haskellNix ? import
     (builtins.fetchTarball
-      "https://github.com/input-output-hk/haskell.nix/archive/9b7c3e6bb0f95759a582e710dc41b2607a775b26.tar.gz")
+      "https://github.com/input-output-hk/haskell.nix/archive/abb289ff961fb1bd98eb0340088c432f15109807.tar.gz")
     { }
   # Use same pkgs as haskell.nix for more likely cache hits
 , nixpkgsSrc ? haskellNix.sources.nixpkgs-2009
