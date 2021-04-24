@@ -2,7 +2,7 @@
 
 A repository for our colorful prototypes and experiments.
 
-![GitHub Actions CI][https://github.com/input-output-hk/hydra-poc/actions/workflows/ci.yaml/badge.svg]
+![GitHub Actions CI](https://github.com/input-output-hk/hydra-poc/actions/workflows/ci.yaml/badge.svg)
 
 ## Development
 
