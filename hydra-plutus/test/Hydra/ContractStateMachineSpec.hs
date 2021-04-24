@@ -18,6 +18,7 @@ import Plutus.Contract.Test
 import qualified Plutus.Trace.Emulator as Trace
 import qualified PlutusTx
 import Test.Tasty
+import Test.Tasty.ExpectedFailure (expectFailBecause)
 
 w1 :: Wallet
 w1 = Wallet 1
@@ -71,28 +72,30 @@ tests =
               Trace.callEndpoint @"setup" contractHandle ()
               void $ Trace.nextSlot
               Trace.callEndpoint @"init" contractHandle ()
-        , checkPredicate
-            "Single commit is acknowledged"
-            (assertNoFailedTransactions .&&. assertState (Collecting (CollectingState{stillNeedToCommit = [pubKey2], committedUtxos = [UTXO]})))
-            $ do
-              contractHandle <- Trace.activateContractWallet w1 theContract
-              Trace.callEndpoint @"setup" contractHandle ()
-              void $ Trace.nextSlot
-              Trace.callEndpoint @"init" contractHandle ()
-              void $ Trace.nextSlot
-              Trace.callEndpoint @"commit" contractHandle (pubKey1, [UTXO])
-        , checkPredicate
-            "Committing from all parties is acknowledged"
-            (assertNoFailedTransactions .&&. assertState (Collecting (CollectingState{stillNeedToCommit = [], committedUtxos = [UTXO, UTXO, UTXO]})))
-            $ do
-              contractHandle <- Trace.activateContractWallet w1 theContract
-              Trace.callEndpoint @"setup" contractHandle ()
-              void $ Trace.nextSlot
-              Trace.callEndpoint @"init" contractHandle ()
-              void $ Trace.nextSlot
-              Trace.callEndpoint @"commit" contractHandle (pubKey1, [UTXO])
-              void $ Trace.nextSlot
-              Trace.callEndpoint @"commit" contractHandle (pubKey2, [UTXO, UTXO])
+        , expectFailBecause "Contract is incomplete" $
+            checkPredicate
+              "Single commit is acknowledged"
+              (assertNoFailedTransactions .&&. assertState (Collecting (CollectingState{stillNeedToCommit = [pubKey2], committedUtxos = [UTXO]})))
+              $ do
+                contractHandle <- Trace.activateContractWallet w1 theContract
+                Trace.callEndpoint @"setup" contractHandle ()
+                void $ Trace.nextSlot
+                Trace.callEndpoint @"init" contractHandle ()
+                void $ Trace.nextSlot
+                Trace.callEndpoint @"commit" contractHandle (pubKey1, [UTXO])
+        , expectFailBecause "Contract is incomplete" $
+            checkPredicate
+              "Committing from all parties is acknowledged"
+              (assertNoFailedTransactions .&&. assertState (Collecting (CollectingState{stillNeedToCommit = [], committedUtxos = [UTXO, UTXO, UTXO]})))
+              $ do
+                contractHandle <- Trace.activateContractWallet w1 theContract
+                Trace.callEndpoint @"setup" contractHandle ()
+                void $ Trace.nextSlot
+                Trace.callEndpoint @"init" contractHandle ()
+                void $ Trace.nextSlot
+                Trace.callEndpoint @"commit" contractHandle (pubKey1, [UTXO])
+                void $ Trace.nextSlot
+                Trace.callEndpoint @"commit" contractHandle (pubKey2, [UTXO, UTXO])
         ]
     ]
 

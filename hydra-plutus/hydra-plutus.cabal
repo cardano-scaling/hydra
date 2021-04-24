@@ -127,4 +127,5 @@ test-suite hydra-plutus-test
       base >=4.9 && <5,
       tasty -any,
       tasty-golden -any,
-      tasty-hunit -any
+      tasty-hunit -any,
+      tasty-expected-failure -any
