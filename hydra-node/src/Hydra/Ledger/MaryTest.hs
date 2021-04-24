@@ -2,7 +2,7 @@
 
 -- | A dummy "Mary" ledger useful for testing purpose
 --
---TODO: Move it to dedicated package
+--TODO: Move it to dedicated hydra-ledger-test package
 module Hydra.Ledger.MaryTest where
 
 import Cardano.Ledger.ShelleyMA.Timelocks (ValidityInterval (..))
