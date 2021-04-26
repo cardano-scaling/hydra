@@ -50,13 +50,19 @@ data HydraInput
 PlutusTx.makeLift ''HydraInput
 PlutusTx.unstableMakeIsData ''HydraInput
 
+data HeadParameters = HeadParameters
+  { participants :: [PubKeyHash]
+  , policyId :: MonetaryPolicyHash
+  }
+PlutusTx.makeLift ''HeadParameters
+
 hydraValidator ::
-  MonetaryPolicyHash ->
+  HeadParameters ->
   HydraState ->
   HydraInput ->
   ValidatorCtx ->
   Bool
-hydraValidator policyId s i tx = case (s, i) of
+hydraValidator (HeadParameters _ policyId) s i tx = case (s, i) of
   (Initial vks, CollectCom) ->
     let utxos = filterInputs (const True) tx
         committed = filterInputs (hasParticipationToken policyId) tx
@@ -76,21 +82,21 @@ instance Scripts.ScriptType Hydra where
 
 {- ORMOLU_DISABLE -}
 hydra
-  :: MonetaryPolicyHash
+  :: HeadParameters
   -> Scripts.ScriptInstance Hydra
-hydra policyId = Scripts.validator @Hydra
+hydra params = Scripts.validator @Hydra
     ( $$(PlutusTx.compile [|| hydraValidator ||])
-      `PlutusTx.applyCode` PlutusTx.liftCode policyId
+      `PlutusTx.applyCode` PlutusTx.liftCode params
     )
     $$(PlutusTx.compile [|| wrap ||])
     where
         wrap = Scripts.wrapValidator @(DatumType Hydra) @(RedeemerType Hydra)
 {- ORMOLU_ENABLE -}
 
-hydraAddress :: MonetaryPolicyHash -> Address
+hydraAddress :: HeadParameters -> Address
 hydraAddress = Scripts.scriptAddress . hydra
 
-hydraHash :: MonetaryPolicyHash -> ValidatorHash
+hydraHash :: HeadParameters -> ValidatorHash
 hydraHash = Scripts.scriptHash . hydra
 {-# INLINEABLE hydraHash #-}
 
@@ -131,13 +137,13 @@ hydraMonetaryPolicyHash = monetaryPolicyHash . hydraMonetaryPolicy
 --    (b) A signature that verifies as valid with verification key k_i
 --    (c) The presence of a single participation token in outputs
 initialValidator ::
-  MonetaryPolicyHash ->
+  HeadParameters ->
   ValidatorHash ->
   PubKeyHash ->
   () ->
   ValidatorCtx ->
   Bool
-initialValidator policyId script vk () tx =
+initialValidator (HeadParameters _ policyId) script vk () tx =
   consumedByCommit || consumedByAbort
  where
   consumedByAbort = False -- FIXME
@@ -162,7 +168,7 @@ instance Scripts.ScriptType Initial where
 
 {- ORMOLU_DISABLE -}
 initial
-  :: MonetaryPolicyHash
+  :: HeadParameters
   -> Scripts.ScriptInstance Initial
 initial policyId = Scripts.validator @Initial
   ($$(PlutusTx.compile [|| initialValidator ||])
@@ -174,10 +180,10 @@ initial policyId = Scripts.validator @Initial
   wrap = Scripts.wrapValidator @(DatumType Initial) @(RedeemerType Initial)
 {- ORMOLU_ENABLE -}
 
-initialAddress :: MonetaryPolicyHash -> Address
+initialAddress :: HeadParameters -> Address
 initialAddress = Scripts.scriptAddress . initial
 
-initialHash :: MonetaryPolicyHash -> ValidatorHash
+initialHash :: HeadParameters -> ValidatorHash
 initialHash = Scripts.scriptHash . initial
 {-# INLINEABLE initialHash #-}
 
@@ -198,13 +204,13 @@ initialHash = Scripts.scriptHash . initial
 -- and makeUTxO stores pairs (out-ref_j , o_j) of outputs o_j with the
 -- corresponding output reference out-ref_j .
 commitValidator ::
-  MonetaryPolicyHash ->
+  HeadParameters ->
   ValidatorHash ->
   TxOutRef ->
   PubKeyHash ->
   ValidatorCtx ->
   Bool
-commitValidator policyId vCollectComHash _out vk tx =
+commitValidator (HeadParameters _ policyId) vCollectComHash _out vk tx =
   consumedByCollectCom || consumedByAbort
  where
   consumedByAbort = False -- FIXME
@@ -224,22 +230,22 @@ instance Scripts.ScriptType Commit where
 
 {- ORMOLU_DISABLE -}
 commit
-  :: MonetaryPolicyHash
+  :: HeadParameters
   -> Scripts.ScriptInstance Commit
-commit policyId = Scripts.validator @Commit
+commit params = Scripts.validator @Commit
   ($$(PlutusTx.compile [|| commitValidator ||])
-    `PlutusTx.applyCode` PlutusTx.liftCode policyId
-    `PlutusTx.applyCode` PlutusTx.liftCode (hydraHash policyId)
+    `PlutusTx.applyCode` PlutusTx.liftCode params
+    `PlutusTx.applyCode` PlutusTx.liftCode (hydraHash params)
   )
   $$(PlutusTx.compile [|| wrap ||])
  where
   wrap = Scripts.wrapValidator @(DatumType Commit) @(RedeemerType Commit)
 {- ORMOLU_ENABLE -}
 
-commitAddress :: MonetaryPolicyHash -> Address
+commitAddress :: HeadParameters -> Address
 commitAddress = Scripts.scriptAddress . commit
 
-commitHash :: MonetaryPolicyHash -> ValidatorHash
+commitHash :: HeadParameters -> ValidatorHash
 commitHash = Scripts.scriptHash . commit
 {-# INLINEABLE commitHash #-}
 

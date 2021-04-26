@@ -8,6 +8,7 @@ import Prelude hiding (init)
 
 import Control.Arrow (second)
 import Control.Monad (forever, void)
+import Hydra.Contract.OnChain (HeadParameters (..))
 import Ledger hiding (out, value)
 import Ledger.Ada (lovelaceValueOf)
 import Ledger.AddressMap (UtxoMap)
@@ -57,22 +58,25 @@ import qualified Ledger.Value as Value
 -- It also initialises the state-machine,
 init ::
   (AsContractError e) =>
-  MonetaryPolicy ->
   [PubKeyHash] ->
+  MonetaryPolicy ->
   Contract [OnChain.HydraState] Schema e ()
-init policy vks = do
+init vks policy = do
   endpoint @"init" @()
   void $ submitTxConstraintsWith lookups constraints
  where
   policyId =
     monetaryPolicyHash policy
 
+  headParameters =
+    HeadParameters vks policyId
+
   lookups =
     mempty
       { slMPS =
           Map.singleton policyId policy
       , slScriptInstance =
-          Just (OnChain.hydra policyId)
+          Just (OnChain.hydra headParameters)
       }
 
   constraints =
@@ -82,7 +86,7 @@ init policy vks = do
               let participationToken = OnChain.mkParticipationToken policyId vk
                in mconcat
                     [ mustPayToOtherScript
-                        (OnChain.initialHash policyId)
+                        (OnChain.initialHash headParameters)
                         (OnChain.asDatum vk)
                         participationToken
                     , mustForgeValue
@@ -100,26 +104,30 @@ init policy vks = do
 -- partial UTxO set Ui committed by the party.
 commit ::
   (AsContractError e) =>
+  [PubKeyHash] ->
   MonetaryPolicy ->
   Contract [OnChain.HydraState] Schema e ()
-commit policy = do
+commit vks policy = do
   (vk, toCommit) <- endpoint @"commit" @(PubKeyHash, (TxOutRef, TxOutTx))
-  initial <- utxoAtWithDatum (OnChain.initialAddress policyId) (OnChain.asDatum vk)
+  initial <- utxoAtWithDatum (OnChain.initialAddress headParameters) (OnChain.asDatum vk)
   void $ submitTxConstraintsWith (lookups vk toCommit initial) (constraints vk toCommit initial)
  where
   policyId =
     monetaryPolicyHash policy
+
+  headParameters =
+    HeadParameters vks policyId
 
   lookups vk (ref, out) initial =
     mempty
       { slMPS =
           Map.singleton policyId policy
       , slScriptInstance =
-          Just (OnChain.hydra policyId)
+          Just (OnChain.hydra headParameters)
       , slTxOutputs =
           initial <> Map.singleton ref out
       , slOtherScripts =
-          let script = OnChain.initial policyId
+          let script = OnChain.initial headParameters
            in Map.fromList
                 [ (Scripts.scriptAddress script, Scripts.validatorScript script)
                 ]
@@ -141,7 +149,7 @@ commit policy = do
             foldMap (`mustSpendScriptOutput` OnChain.asRedeemer ()) (Map.keys initial)
           , mustSpendPubKeyOutput ref
           , mustPayToOtherScript
-              (OnChain.commitHash policyId)
+              (OnChain.commitHash headParameters)
               (OnChain.asDatum ref)
               value
           ]
@@ -162,13 +170,13 @@ commit policy = do
 -- the head members.
 collectCom ::
   (AsContractError e) =>
-  MonetaryPolicy ->
   [PubKeyHash] ->
+  MonetaryPolicy ->
   Contract [OnChain.HydraState] Schema e ()
-collectCom policy vks = do
+collectCom vks policy = do
   headMember <- endpoint @"collectCom" @PubKeyHash
-  committed <- utxoAt (OnChain.commitAddress policyId)
-  stateMachine <- utxoAt (OnChain.hydraAddress policyId)
+  committed <- utxoAt (OnChain.commitAddress headParameters)
+  stateMachine <- utxoAt (OnChain.hydraAddress headParameters)
   tx <-
     submitTxConstraintsWith @OnChain.Hydra
       (lookups committed stateMachine headMember)
@@ -179,6 +187,9 @@ collectCom policy vks = do
   policyId =
     monetaryPolicyHash policy
 
+  headParameters =
+    HeadParameters vks policyId
+
   mkOpenState = OnChain.Open . fmap snd . flattenUtxo
 
   lookups committed stateMachine headMember =
@@ -186,13 +197,13 @@ collectCom policy vks = do
       { slMPS =
           Map.singleton policyId policy
       , slScriptInstance =
-          Just (OnChain.hydra policyId)
+          Just (OnChain.hydra headParameters)
       , slOtherScripts =
           Map.fromList
             [ (Scripts.scriptAddress script, Scripts.validatorScript script)
             | SomeScriptInstance script <-
-                [ SomeScriptInstance $ OnChain.commit policyId
-                , SomeScriptInstance $ OnChain.hydra policyId
+                [ SomeScriptInstance $ OnChain.commit headParameters
+                , SomeScriptInstance $ OnChain.hydra headParameters
                 ]
             ]
       , slOtherData =
@@ -235,9 +246,9 @@ contract ::
 contract policy vks = forever endpoints
  where
   endpoints =
-    init policy vks
-      `select` commit policy
-      `select` collectCom policy vks
+    init vks policy
+      `select` commit vks policy
+      `select` collectCom vks policy
 
 --
 -- Helpers
