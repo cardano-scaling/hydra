@@ -10,7 +10,8 @@ import PlutusTx.Prelude hiding (remainder)
 
 import Data.Aeson (ToJSON)
 import Ledger hiding (out, value)
-import Ledger.Constraints (TxConstraints, checkScriptContext)
+import Ledger.Ada (lovelaceValueOf)
+import Ledger.Constraints (checkScriptContext)
 import Ledger.Typed.Scripts (ScriptType (DatumType, RedeemerType))
 import Ledger.Value (TokenName (..))
 import PlutusTx.AssocMap (Map)
@@ -31,6 +32,8 @@ import qualified Ledger.Value as Value
 import qualified PlutusTx
 import qualified PlutusTx.AssocMap as Map
 
+{- HLINT ignore "Use &&" -}
+
 --
 -- State-Machine
 --
@@ -38,6 +41,7 @@ import qualified PlutusTx.AssocMap as Map
 data HydraState
   = Initial [PubKeyHash]
   | Open [TxOut]
+  | Final
   deriving stock (Generic, Show)
   deriving anyclass (ToJSON)
 PlutusTx.makeLift ''HydraState
@@ -45,6 +49,7 @@ PlutusTx.unstableMakeIsData ''HydraState
 
 data HydraInput
   = CollectCom
+  | Abort
   deriving (Generic, Show)
 PlutusTx.makeLift ''HydraInput
 PlutusTx.unstableMakeIsData ''HydraInput
@@ -61,18 +66,18 @@ hydraValidator ::
   HydraInput ->
   ScriptContext ->
   Bool
-hydraValidator (HeadParameters vks policyId) s i tx =
+hydraValidator params s i tx =
   case (s, i) of
-    (Initial vks', CollectCom) ->
-      let committed = snd <$> filterInputs (hasParticipationToken policyId) tx
-       in mustSatisfy @HydraInput @HydraState
-            [ mustPayToTheScript (Open committed) (foldMap txOutValue committed)
-            , foldMap (mustForwardParticipationToken policyId) vks
-            ]
-            tx
-            && tx `mustBeSignedByOneOf` vks
-            && all (`elem` vks) vks'
-            && all (`elem` vks') vks
+    (Initial vks, CollectCom) ->
+      and
+        [ mustCollectCommits tx params Nothing
+        , mustIncludeAllHeadMembers vks params
+        ]
+    (Initial vks, Abort) ->
+      and
+        [ mustAbort tx params Nothing
+        , mustIncludeAllHeadMembers vks params
+        ]
     _ -> False
 
 data Hydra
@@ -151,36 +156,19 @@ hydraMonetaryPolicyHash = monetaryPolicyHash . hydraMonetaryPolicy
 initialValidator ::
   HeadParameters ->
   ValidatorHash ->
+  ValidatorHash ->
   PubKeyHash ->
   TxOutRef ->
   ScriptContext ->
   Bool
-initialValidator (HeadParameters vks policyId) commitScript vk ref tx =
+initialValidator params hydraScript commitScript vk ref tx =
   consumedByCommit || consumedByAbort
  where
   consumedByAbort =
-    -- TODO
-    -- mustSatisfy @() @PubKeyHash
-    --   [ foldMap (mustBurnParticipationToken policyId) vks
-    --   ]
-    --   tx
-    False
+    mustAbort tx params (Just hydraScript)
 
   consumedByCommit =
-    case findUtxo ref tx of
-      Just utxo ->
-        mustSatisfy @() @PubKeyHash
-          [ mustBeSignedBy vk
-          , mustSpendPubKeyOutput (fst utxo)
-          , mustForwardParticipationToken policyId vk
-          , mustPayToOtherScript
-              commitScript
-              (commitDatum utxo)
-              (txOutValue (snd utxo) <> mkParticipationToken policyId vk)
-          ]
-          tx
-      Nothing ->
-        False
+    mustCommitUtxo tx params commitScript (vk, ref)
 
 data Initial
 instance Scripts.ScriptType Initial where
@@ -194,6 +182,7 @@ initial
 initial policyId = Scripts.validator @Initial
   ($$(PlutusTx.compile [|| initialValidator ||])
       `PlutusTx.applyCode` PlutusTx.liftCode policyId
+      `PlutusTx.applyCode` PlutusTx.liftCode (hydraHash policyId)
       `PlutusTx.applyCode` PlutusTx.liftCode (commitHash policyId)
   )
   $$(PlutusTx.compile [|| wrap ||])
@@ -207,6 +196,10 @@ initialAddress = Scripts.scriptAddress . initial
 initialHash :: HeadParameters -> ValidatorHash
 initialHash = Scripts.scriptHash . initial
 {-# INLINEABLE initialHash #-}
+
+initialRedeemer :: TxOutRef -> Redeemer
+initialRedeemer = asRedeemer . toData
+{-# INLINEABLE initialRedeemer #-}
 
 --
 -- commit
@@ -231,20 +224,13 @@ commitValidator ::
   () ->
   ScriptContext ->
   Bool
-commitValidator (HeadParameters _vks policyId) hydraScript (_outRef, out) () tx =
+commitValidator params hydraScript (_outRef, out) () tx =
   consumedByCollectCom || consumedByAbort
  where
   consumedByAbort =
-    mustReimburse out tx
+    mustAbort tx params (Just hydraScript) && mustReimburse tx out
   consumedByCollectCom =
-    let committed = snd <$> filterInputs (hasParticipationToken policyId) tx
-     in mustSatisfy @PubKeyHash @()
-          [ mustPayToOtherScript
-              hydraScript
-              (asDatum $ Open committed)
-              (foldMap txOutValue committed)
-          ]
-          tx
+    mustCollectCommits tx params (Just hydraScript)
 
 data Commit
 instance Scripts.ScriptType Commit where
@@ -276,20 +262,13 @@ commitDatum :: (TxOutRef, TxOut) -> Datum
 commitDatum = asDatum
 {-# INLINEABLE commitDatum #-}
 
+commitRedeemer :: Redeemer
+commitRedeemer = asRedeemer ()
+{-# INLINEABLE commitRedeemer #-}
+
 --
 -- Helpers
 --
-
--- | Small helper to make constraint validation a little easier to write.
-mustSatisfy ::
-  forall i o.
-  IsData o =>
-  [TxConstraints i o] ->
-  ScriptContext ->
-  Bool
-mustSatisfy constraints =
-  checkScriptContext (mconcat constraints)
-{-# INLINEABLE mustSatisfy #-}
 
 mustBeSignedByOneOf ::
   ScriptContext ->
@@ -299,37 +278,111 @@ mustBeSignedByOneOf tx vks =
   or ((`checkScriptContext` tx) . mustBeSignedBy @() @() <$> vks)
 {-# INLINEABLE mustBeSignedByOneOf #-}
 
+mustIncludeAllHeadMembers ::
+  [PubKeyHash] ->
+  HeadParameters ->
+  Bool
+mustIncludeAllHeadMembers vks (HeadParameters vks' _) =
+  all (`elem` vks) vks' && all (`elem` vks') vks
+{-# INLINEABLE mustIncludeAllHeadMembers #-}
+
+mustCommitUtxo ::
+  ScriptContext ->
+  HeadParameters ->
+  ValidatorHash ->
+  (PubKeyHash, TxOutRef) ->
+  Bool
+mustCommitUtxo tx (HeadParameters _ policyId) commitScript (vk, ref) =
+  case findUtxo ref tx of
+    Just utxo ->
+      checkScriptContext @(RedeemerType Initial) @(DatumType Initial)
+        ( mconcat
+            [ mustBeSignedBy vk
+            , mustSpendPubKeyOutput (fst utxo)
+            , mustPayToOtherScript
+                commitScript
+                (commitDatum utxo)
+                (txOutValue (snd utxo) <> mkParticipationToken policyId vk)
+            ]
+        )
+        tx
+    Nothing ->
+      False
+{-# INLINEABLE mustCommitUtxo #-}
+
+mustCollectCommits ::
+  ScriptContext ->
+  HeadParameters ->
+  Maybe ValidatorHash ->
+  Bool
+mustCollectCommits tx (HeadParameters vks policyId) maybeHydraScript =
+  let committed = snd <$> filterInputs (hasParticipationToken policyId) tx
+      st = Open committed
+      amount = foldMap txOutValue committed
+   in and
+        [ mustBeSignedByOneOf tx vks
+        , all (mustForwardParticipationToken tx policyId) vks
+        , checkScriptContext @(RedeemerType Hydra) @(DatumType Hydra)
+            ( case maybeHydraScript of
+                Just hydraScript -> mustPayToOtherScript hydraScript (asDatum st) amount
+                Nothing -> mustPayToTheScript st amount
+            )
+            tx
+        ]
+{-# INLINEABLE mustCollectCommits #-}
+
+mustAbort ::
+  ScriptContext ->
+  HeadParameters ->
+  Maybe ValidatorHash ->
+  Bool
+mustAbort tx (HeadParameters vks policyId) maybeHydraScript =
+  let st = Final
+      amount = lovelaceValueOf 0
+   in and
+        [ mustBeSignedByOneOf tx vks
+        , all (mustBurnParticipationToken tx policyId) vks
+        , checkScriptContext @HydraInput @HydraState
+            ( case maybeHydraScript of
+                Just hydraScript -> mustPayToOtherScript hydraScript (asDatum st) amount
+                Nothing -> mustPayToTheScript st amount
+            )
+            tx
+        ]
+{-# INLINEABLE mustAbort #-}
+
 mustForwardParticipationToken ::
-  forall i o.
+  ScriptContext ->
   MonetaryPolicyHash ->
   PubKeyHash ->
-  TxConstraints i o
-mustForwardParticipationToken policyId vk =
+  Bool
+mustForwardParticipationToken tx policyId vk =
   let participationToken = mkParticipationToken policyId vk
-   in mconcat
-        [ mustSpendAtLeast participationToken
-        , mustProduceAtLeast participationToken
-        ]
+   in checkScriptContext @() @()
+        ( mconcat
+            [ mustSpendAtLeast participationToken
+            , mustProduceAtLeast participationToken
+            ]
+        )
+        tx
 {-# INLINEABLE mustForwardParticipationToken #-}
 
 mustBurnParticipationToken ::
-  forall i o.
+  ScriptContext ->
   MonetaryPolicyHash ->
   PubKeyHash ->
-  TxConstraints i o
-mustBurnParticipationToken policyId vk =
+  Bool
+mustBurnParticipationToken tx policyId vk =
   let assetName = mkParticipationTokenName vk
-   in mconcat
-        [ mustForgeCurrency policyId assetName (-1)
-        ]
+   in checkScriptContext @() @() (mustForgeCurrency policyId assetName (-1)) tx
 {-# INLINEABLE mustBurnParticipationToken #-}
 
 mustReimburse ::
-  TxOut ->
   ScriptContext ->
+  TxOut ->
   Bool
-mustReimburse out =
-  elem out . txInfoOutputs . scriptContextTxInfo
+mustReimburse tx out =
+  elem out . txInfoOutputs . scriptContextTxInfo $ tx
 {-# INLINEABLE mustReimburse #-}
 
 mkParticipationToken :: MonetaryPolicyHash -> PubKeyHash -> Value

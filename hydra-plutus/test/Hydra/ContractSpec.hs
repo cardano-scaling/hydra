@@ -6,15 +6,27 @@ import Cardano.Prelude
 
 import Ledger
 
-import Hydra.Test.Utils (assertFinalState, prettyUtxo, utxoOf, vk)
+import Ledger.Ada (lovelaceValueOf)
+import Ledger.AddressMap (UtxoMap)
 import Plutus.Contract (Contract)
+import PlutusTx.Monoid (inv)
 import Test.Tasty (TestTree, testGroup)
 import Wallet.Types (ContractError)
 
+import Hydra.Test.Utils (
+  assertFinalState,
+  callEndpoint,
+  prettyUtxo,
+  utxoOf,
+  vk,
+ )
+
 import Plutus.Contract.Test (
   Wallet (..),
+  assertFailedTransaction,
   assertNoFailedTransactions,
   checkPredicate,
+  walletFundsChange,
   (.&&.),
  )
 
@@ -55,47 +67,94 @@ contract = OffChain.contract testPolicy [vk alice, vk bob]
 tests :: TestTree
 tests =
   testGroup
-    "Simple Scenario"
+    "Hydra Scenarios"
     [ checkPredicate
-        "Init > Commit > Commit > CollectCom"
-        ( assertNoFailedTransactions .&&. assertFinalState contract alice stateIsOpen
+        "✓ | Init > Commit > Commit > CollectCom"
+        ( assertNoFailedTransactions
+            .&&. assertFinalState contract alice stateIsOpen
+            .&&. walletFundsChange alice (inv fixtureAmount)
+            .&&. walletFundsChange bob (inv fixtureAmount)
         )
-        fullScenarioSimple
+        $ do
+          aliceH <- setupWallet alice
+          bobH <- setupWallet bob
+
+          callEndpoint @"init" aliceH ()
+
+          utxoAlice <- utxoOf alice
+          Trace.logInfo ("Alice's UTxO: " <> prettyUtxo utxoAlice)
+          callEndpoint @"commit" aliceH (vk alice, selectOne utxoAlice)
+
+          utxoBob <- utxoOf bob
+          Trace.logInfo ("Bob's UTxO: " <> prettyUtxo utxoBob)
+          callEndpoint @"commit" bobH (vk bob, selectOne utxoBob)
+
+          callEndpoint @"collectCom" aliceH (vk alice)
+    , checkPredicate
+        "✓ | Init > Abort"
+        ( assertNoFailedTransactions
+            .&&. assertFinalState contract alice stateIsFinal
+            .&&. walletFundsChange alice (lovelaceValueOf 0)
+        )
+        $ do
+          aliceH <- setupWallet alice
+          callEndpoint @"init" aliceH ()
+          callEndpoint @"abort" aliceH (vk alice, [])
+    , checkPredicate
+        "✓ | Init > Commit > Abort"
+        ( assertNoFailedTransactions
+            .&&. assertFinalState contract alice stateIsFinal
+            .&&. walletFundsChange alice (lovelaceValueOf 0)
+        )
+        $ do
+          aliceH <- setupWallet alice
+          callEndpoint @"init" aliceH ()
+          utxoAlice <- selectOne <$> utxoOf alice
+          callEndpoint @"commit" aliceH (vk alice, utxoAlice)
+          callEndpoint @"abort" aliceH (vk alice, [txOutTxOut $ snd utxoAlice])
+    , checkPredicate
+        "x | Init > Commit > CollectCom"
+        ( assertFailedTransaction (\_ _ _ -> True)
+            .&&. assertFinalState contract alice stateIsInitial
+            .&&. walletFundsChange alice (inv fixtureAmount)
+        )
+        $ do
+          aliceH <- setupWallet alice
+          callEndpoint @"init" aliceH ()
+          utxoAlice <- selectOne <$> utxoOf alice
+          callEndpoint @"commit" aliceH (vk alice, utxoAlice)
+          callEndpoint @"collectCom" aliceH (vk alice)
     ]
+
+fixtureAmount :: Value
+fixtureAmount = lovelaceValueOf 1000
+
+stateIsInitial :: OnChain.HydraState -> Bool
+stateIsInitial = \case
+  OnChain.Initial{} -> True
+  _ -> False
 
 stateIsOpen :: OnChain.HydraState -> Bool
 stateIsOpen = \case
   OnChain.Open{} -> True
   _ -> False
 
-fullScenarioSimple :: Trace.EmulatorTrace ()
-fullScenarioSimple = do
-  aliceH <- setupWallet alice
-  bobH <- setupWallet bob
+stateIsFinal :: OnChain.HydraState -> Bool
+stateIsFinal = \case
+  OnChain.Final{} -> True
+  _ -> False
 
-  Trace.callEndpoint @"init" aliceH ()
+selectOne :: UtxoMap -> (TxOutRef, TxOutTx)
+selectOne =
+  Prelude.head
+    . Map.toList
+    . Map.filter ((== fixtureAmount) . txOutValue . txOutTxOut)
+
+setupWallet ::
+  Wallet ->
+  Trace.EmulatorTrace (Trace.ContractHandle [OnChain.HydraState] OffChain.Schema ContractError)
+setupWallet user = do
+  h <- Trace.activateContractWallet user contract
+  Trace.callEndpoint @"setupForTesting" h (vk user, replicate 10 fixtureAmount)
   void Trace.nextSlot
-
-  utxoAlice <- utxoOf alice
-  Trace.logInfo ("Alice's UTxO: " <> prettyUtxo utxoAlice)
-  Trace.callEndpoint @"commit" aliceH (vk alice, selectOne utxoAlice)
-  void Trace.nextSlot
-
-  utxoBob <- utxoOf bob
-  Trace.logInfo ("Bob's UTxO: " <> prettyUtxo utxoBob)
-  Trace.callEndpoint @"commit" bobH (vk bob, selectOne utxoBob)
-  void Trace.nextSlot
-
-  Trace.callEndpoint @"collectCom" aliceH (vk alice)
-  void Trace.nextSlot
- where
-  selectOne = Prelude.last . Map.toList
-
-  setupWallet ::
-    Wallet ->
-    Trace.EmulatorTrace (Trace.ContractHandle [OnChain.HydraState] OffChain.Schema ContractError)
-  setupWallet user = do
-    h <- Trace.activateContractWallet user contract
-    Trace.callEndpoint @"setupForTesting" h (vk user)
-    void Trace.nextSlot
-    return h
+  return h

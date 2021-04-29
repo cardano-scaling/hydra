@@ -13,13 +13,15 @@ import Ledger hiding (out, value)
 import Ledger.Ada (lovelaceValueOf)
 import Ledger.AddressMap (UtxoMap)
 import Ledger.Constraints.OffChain (ScriptLookups (..))
+import Ledger.Credential (Credential (..))
 import Ledger.Typed.Scripts (ScriptInstance)
 import Plutus.Contract.Effects.AwaitTxConfirmed (awaitTxConfirmed)
 import Plutus.Contract.Effects.UtxoAt (HasUtxoAt)
-import PlutusTx.IsData.Class (IsData (..))
 
 import Ledger.Constraints.TxConstraints (
+  TxConstraints,
   mustBeSignedBy,
+  mustForgeCurrency,
   mustForgeValue,
   mustPayToOtherScript,
   mustPayToPubKey,
@@ -134,11 +136,6 @@ commit vks policy = do
            in Map.fromList
                 [ (Scripts.scriptAddress script, Scripts.validatorScript script)
                 ]
-      , slOtherData =
-          let datum = OnChain.asDatum ref
-           in Map.fromList
-                [ (datumHash datum, datum)
-                ]
       , slOwnPubkey =
           Just vk
       }
@@ -149,7 +146,7 @@ commit vks policy = do
           [ mustBeSignedBy vk
           , -- NOTE: using a 'foldMap' here but that 'initial' utxo really has only one
             -- element!
-            foldMap (`mustSpendScriptOutput` OnChain.asRedeemer ref) (Map.keys initial)
+            foldMap (`mustSpendScriptOutput` OnChain.initialRedeemer ref) (Map.keys initial)
           , mustSpendPubKeyOutput ref
           , mustPayToOtherScript
               (OnChain.commitHash headParameters)
@@ -209,11 +206,6 @@ collectCom vks policy = do
                 , SomeScriptInstance $ OnChain.hydra headParameters
                 ]
             ]
-      , slOtherData =
-          let datum = Datum $ toData $ mkOpenState committed
-           in Map.fromList
-                [ (datumHash datum, datum)
-                ]
       , slTxOutputs =
           committed <> stateMachine
       , slOwnPubkey =
@@ -226,7 +218,7 @@ collectCom vks policy = do
           [ mustBeSignedBy headMember
           , mustPayToTheScript (mkOpenState committed) value
           , foldMap
-              (\(_vk, ref) -> mustSpendScriptOutput ref (OnChain.asRedeemer ()))
+              (\(_vk, ref) -> mustSpendScriptOutput ref OnChain.commitRedeemer)
               (zipOnParticipationToken policyId vks committed)
           , -- NOTE: using a 'foldMap' here but the 'stateMachine' utxo really
             -- has only one element!
@@ -234,6 +226,69 @@ collectCom vks policy = do
               (`mustSpendScriptOutput` OnChain.asRedeemer OnChain.CollectCom)
               (Map.keys stateMachine)
           ]
+
+abort ::
+  (AsContractError e) =>
+  [PubKeyHash] ->
+  MonetaryPolicy ->
+  Contract [OnChain.HydraState] Schema e ()
+abort vks policy = do
+  (headMember, toRefund) <- endpoint @"abort" @(PubKeyHash, [TxOut])
+  initial <- utxoAt (OnChain.initialAddress headParameters)
+  commits <- utxoAt (OnChain.commitAddress headParameters)
+  stateMachine <- utxoAt (OnChain.hydraAddress headParameters)
+  tx <-
+    submitTxConstraintsWith @OnChain.Hydra
+      (lookups initial commits stateMachine headMember)
+      (constraints initial commits stateMachine toRefund headMember)
+  awaitTxConfirmed (txId tx)
+  tell [OnChain.Final]
+ where
+  policyId =
+    monetaryPolicyHash policy
+
+  headParameters =
+    HeadParameters vks policyId
+
+  lookups initial commits stateMachine headMember =
+    mempty
+      { slMPS =
+          Map.singleton policyId policy
+      , slScriptInstance =
+          Just (OnChain.hydra headParameters)
+      , slOtherScripts =
+          Map.fromList
+            [ (Scripts.scriptAddress script, Scripts.validatorScript script)
+            | SomeScriptInstance script <-
+                [ SomeScriptInstance $ OnChain.initial headParameters
+                , SomeScriptInstance $ OnChain.commit headParameters
+                , SomeScriptInstance $ OnChain.hydra headParameters
+                ]
+            ]
+      , slTxOutputs =
+          initial <> commits <> stateMachine
+      , slOwnPubkey =
+          Just headMember
+      }
+
+  constraints initial commits stateMachine toRefund headMember =
+    mconcat
+      [ mustBeSignedBy headMember
+      , mustPayToTheScript OnChain.Final (lovelaceValueOf 0)
+      , foldMap
+          (\vk -> mustForgeCurrency policyId (OnChain.mkParticipationTokenName vk) (-1))
+          vks
+      , foldMap mustRefund toRefund
+      , foldMap
+          (\(_vk, ref) -> mustSpendScriptOutput ref (OnChain.initialRedeemer ref))
+          (zipOnParticipationToken policyId vks initial)
+      , foldMap
+          (\(_vk, ref) -> mustSpendScriptOutput ref OnChain.commitRedeemer)
+          (zipOnParticipationToken policyId vks commits)
+      , foldMap
+          (`mustSpendScriptOutput` OnChain.asRedeemer OnChain.Abort)
+          (Map.keys stateMachine)
+      ]
 
 -- | This endpoint allows for setting up a wallet for testing, that is, a wallet
 -- that has several UTxO, so that one can be locked and the other used to pay
@@ -244,8 +299,8 @@ setupForTesting ::
   MonetaryPolicy ->
   Contract [OnChain.HydraState] Schema e ()
 setupForTesting vks policy = do
-  vk <- endpoint @"setupForTesting" @PubKeyHash
-  tx <- submitTxConstraints (OnChain.hydra headParameters) (constraints vk)
+  (vk, coins) <- endpoint @"setupForTesting" @(PubKeyHash, [Value])
+  tx <- submitTxConstraints (OnChain.hydra headParameters) (constraints vk coins)
   awaitTxConfirmed (txId tx)
  where
   policyId =
@@ -255,14 +310,15 @@ setupForTesting vks policy = do
     HeadParameters vks policyId
 
   constraints vk =
-    mconcat $ replicate 10 (mustPayToPubKey vk (lovelaceValueOf 1000))
+    foldMap (mustPayToPubKey vk)
 
 type Schema =
   BlockchainActions
-    .\/ Endpoint "setupForTesting" PubKeyHash
+    .\/ Endpoint "setupForTesting" (PubKeyHash, [Value])
     .\/ Endpoint "init" ()
     .\/ Endpoint "commit" (PubKeyHash, (TxOutRef, TxOutTx))
     .\/ Endpoint "collectCom" PubKeyHash
+    .\/ Endpoint "abort" (PubKeyHash, [TxOut])
 
 contract ::
   (AsContractError e) =>
@@ -276,6 +332,7 @@ contract policy vks = forever endpoints
       `select` init vks policy
       `select` commit vks policy
       `select` collectCom vks policy
+      `select` abort vks policy
 
 --
 -- Helpers
@@ -286,6 +343,17 @@ data SomeScriptInstance = forall a. SomeScriptInstance (ScriptInstance a)
 flattenUtxo :: UtxoMap -> [(TxOutRef, TxOut)]
 flattenUtxo =
   fmap (second txOutTxOut) . Map.assocs
+
+mustRefund ::
+  forall i o.
+  TxOut ->
+  TxConstraints i o
+mustRefund out =
+  case txOutAddress out of
+    (Address (PubKeyCredential vk) _) ->
+      mustPayToPubKey vk (txOutValue out)
+    (Address ScriptCredential{} _) ->
+      error "mustRefund: committing script output isn't allowed."
 
 utxoAtWithDatum ::
   forall w s e.

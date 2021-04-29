@@ -1,3 +1,4 @@
+{-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE TypeApplications #-}
 
 module Hydra.Test.Utils where
@@ -7,14 +8,16 @@ import Cardano.Prelude
 import Ledger
 
 import Control.Lens (view, (^.))
+import Control.Monad.Freer (Eff, Member)
 import Control.Monad.Freer.Writer (tell)
 import Data.Maybe (fromJust)
 import Data.String (IsString (..), String)
 import Data.Text.Prettyprint.Doc (Doc, (<+>))
 import Ledger.AddressMap (UtxoMap, fundsAt)
-import Plutus.Contract (Contract)
-import Plutus.Trace.Effects.RunContract (ContractConstraints)
-import Plutus.Trace.Emulator.Types (UserThreadMsg (..), walletInstanceTag)
+import Plutus.Contract (Contract, HasEndpoint)
+import Plutus.Trace.Effects.RunContract (ContractConstraints, RunContract)
+import Plutus.Trace.Effects.Waiting (Waiting)
+import Plutus.Trace.Emulator.Types (ContractHandle, UserThreadMsg (..), walletInstanceTag)
 import PlutusTx (CompiledCode, IsData (..), getPir)
 import Prettyprinter (pretty)
 import Test.Tasty (TestTree)
@@ -117,6 +120,20 @@ prettyUtxo =
     . Pretty.list
     . fmap (\(outRef, tx) -> Pretty.tupled [pretty outRef, pretty (txOutTxOut tx)])
     . Map.toList
+
+callEndpoint ::
+  forall l ep w s e effs.
+  ( ContractConstraints s
+  , HasEndpoint l ep s
+  , Member RunContract effs
+  , Member Waiting effs
+  ) =>
+  ContractHandle w s e ->
+  ep ->
+  Eff effs ()
+callEndpoint hdl v = do
+  Trace.callEndpoint @l hdl v
+  void Trace.nextSlot
 
 --
 -- Miscellaneous
