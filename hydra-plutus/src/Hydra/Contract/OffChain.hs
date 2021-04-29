@@ -22,6 +22,7 @@ import Ledger.Constraints.TxConstraints (
   mustBeSignedBy,
   mustForgeValue,
   mustPayToOtherScript,
+  mustPayToPubKey,
   mustPayToTheScript,
   mustSpendPubKeyOutput,
   mustSpendScriptOutput,
@@ -34,6 +35,7 @@ import Plutus.Contract (
   Endpoint,
   endpoint,
   select,
+  submitTxConstraints,
   submitTxConstraintsWith,
   tell,
   utxoAt,
@@ -64,6 +66,7 @@ init ::
 init vks policy = do
   endpoint @"init" @()
   void $ submitTxConstraintsWith lookups constraints
+  tell [OnChain.Initial vks]
  where
   policyId =
     monetaryPolicyHash policy
@@ -146,11 +149,11 @@ commit vks policy = do
           [ mustBeSignedBy vk
           , -- NOTE: using a 'foldMap' here but that 'initial' utxo really has only one
             -- element!
-            foldMap (`mustSpendScriptOutput` OnChain.asRedeemer ()) (Map.keys initial)
+            foldMap (`mustSpendScriptOutput` OnChain.asRedeemer ref) (Map.keys initial)
           , mustSpendPubKeyOutput ref
           , mustPayToOtherScript
               (OnChain.commitHash headParameters)
-              (OnChain.asDatum ref)
+              (OnChain.commitDatum (ref, txOutTxOut out))
               value
           ]
 
@@ -218,12 +221,12 @@ collectCom vks policy = do
       }
 
   constraints committed stateMachine headMember =
-    let value = foldMap snd $ flattenUtxo (committed <> stateMachine)
+    let value = foldMap (txOutValue . snd) $ flattenUtxo (committed <> stateMachine)
      in mconcat
           [ mustBeSignedBy headMember
           , mustPayToTheScript (mkOpenState committed) value
           , foldMap
-              (\(vk, ref) -> mustSpendScriptOutput ref (OnChain.asRedeemer vk))
+              (\(_vk, ref) -> mustSpendScriptOutput ref (OnChain.asRedeemer ()))
               (zipOnParticipationToken policyId vks committed)
           , -- NOTE: using a 'foldMap' here but the 'stateMachine' utxo really
             -- has only one element!
@@ -232,8 +235,31 @@ collectCom vks policy = do
               (Map.keys stateMachine)
           ]
 
+-- | This endpoint allows for setting up a wallet for testing, that is, a wallet
+-- that has several UTxO, so that one can be locked and the other used to pay
+-- for fees.
+setupForTesting ::
+  (AsContractError e) =>
+  [PubKeyHash] ->
+  MonetaryPolicy ->
+  Contract [OnChain.HydraState] Schema e ()
+setupForTesting vks policy = do
+  vk <- endpoint @"setupForTesting" @PubKeyHash
+  tx <- submitTxConstraints (OnChain.hydra headParameters) (constraints vk)
+  awaitTxConfirmed (txId tx)
+ where
+  policyId =
+    monetaryPolicyHash policy
+
+  headParameters =
+    HeadParameters vks policyId
+
+  constraints vk =
+    mconcat $ replicate 10 (mustPayToPubKey vk (lovelaceValueOf 1000))
+
 type Schema =
   BlockchainActions
+    .\/ Endpoint "setupForTesting" PubKeyHash
     .\/ Endpoint "init" ()
     .\/ Endpoint "commit" (PubKeyHash, (TxOutRef, TxOutTx))
     .\/ Endpoint "collectCom" PubKeyHash
@@ -246,7 +272,8 @@ contract ::
 contract policy vks = forever endpoints
  where
   endpoints =
-    init vks policy
+    setupForTesting vks policy
+      `select` init vks policy
       `select` commit vks policy
       `select` collectCom vks policy
 
@@ -256,9 +283,9 @@ contract policy vks = forever endpoints
 
 data SomeScriptInstance = forall a. SomeScriptInstance (ScriptInstance a)
 
-flattenUtxo :: UtxoMap -> [(TxOutRef, Value)]
+flattenUtxo :: UtxoMap -> [(TxOutRef, TxOut)]
 flattenUtxo =
-  fmap (second (txOutValue . txOutTxOut)) . Map.assocs
+  fmap (second txOutTxOut) . Map.assocs
 
 utxoAtWithDatum ::
   forall w s e.
@@ -271,9 +298,7 @@ utxoAtWithDatum addr datum = do
   pure $ Map.filter matchDatum utxo
  where
   matchDatum out =
-    case txOutType (txOutTxOut out) of
-      PayToScript d | d == datumHash datum -> True
-      _ -> False
+    txOutDatumHash (txOutTxOut out) == Just (datumHash datum)
 
 -- When collecting commits, we need to associate each commit utxo to the
 -- corresponding head member keys. There's no guarantee that head members will
@@ -297,8 +322,8 @@ zipOnParticipationToken policyId vks utxo =
       then go ((vk, fst u) : acc) qu (qv ++ qv') []
       else go acc (u : qu) qv (vk : qv')
 
-  hasParticipationToken :: (TxOutRef, Value) -> PubKeyHash -> Bool
-  hasParticipationToken (_, value) vk =
+  hasParticipationToken :: (TxOutRef, TxOut) -> PubKeyHash -> Bool
+  hasParticipationToken (_, out) vk =
     let currency = Value.mpsSymbol policyId
         token = OnChain.mkParticipationTokenName vk
-     in Value.valueOf value currency token > 0
+     in Value.valueOf (txOutValue out) currency token > 0

@@ -142,7 +142,7 @@ source-repository-package
 source-repository-package
   type: git
   location: https://github.com/input-output-hk/plutus
-  tag: 032b7f7b8882180e9d4613c48191e8e781ce446c
+  tag: 80dc20243c347a74d5e2322a93a1d292acdab3f6
   subdir:
     freer-extras
     playground-common
@@ -153,6 +153,7 @@ source-repository-package
     plutus-ledger-api
     plutus-tx-plugin
     prettyprinter-configurable
+    quickcheck-dynamic
 
 source-repository-package
   type: git

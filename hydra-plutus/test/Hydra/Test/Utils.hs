@@ -12,7 +12,9 @@ import Data.Maybe (fromJust)
 import Data.String (IsString (..), String)
 import Data.Text.Prettyprint.Doc (Doc, (<+>))
 import Ledger.AddressMap (UtxoMap, fundsAt)
-import Plutus.Trace.Emulator.Types (UserThreadMsg (..))
+import Plutus.Contract (Contract)
+import Plutus.Trace.Effects.RunContract (ContractConstraints)
+import Plutus.Trace.Emulator.Types (UserThreadMsg (..), walletInstanceTag)
 import PlutusTx (CompiledCode, IsData (..), getPir)
 import Prettyprinter (pretty)
 import Test.Tasty (TestTree)
@@ -25,6 +27,7 @@ import Wallet.Emulator.Wallet (walletAddress)
 import Plutus.Contract.Test (
   TracePredicate,
   Wallet (..),
+  assertAccumState,
   walletPubKey,
  )
 
@@ -78,6 +81,20 @@ assertLastLog expected = do
     case reverse logs of
       (EmulatorTimeEvent _ (UserLog got)) : _ -> return (got == expected)
       _ -> return False
+
+-- | A tiny wrapper around 'assertAccumState' but when the state is a list.
+assertFinalState ::
+  (ContractConstraints schema, Show st) =>
+  Contract [st] schema e a ->
+  Wallet ->
+  (st -> Bool) ->
+  TracePredicate
+assertFinalState contract wallet predicate =
+  assertAccumState
+    contract
+    (walletInstanceTag wallet)
+    (maybe False predicate . lastMay)
+    "assert final state"
 
 checkCompiledContractPIR :: FilePath -> CompiledCode a -> TestTree
 checkCompiledContractPIR path code =

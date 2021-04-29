@@ -10,7 +10,7 @@ import PlutusTx.Prelude hiding (remainder)
 
 import Data.Aeson (ToJSON)
 import Ledger hiding (out, value)
-import Ledger.Constraints (TxConstraints, checkValidatorCtx)
+import Ledger.Constraints (TxConstraints, checkScriptContext)
 import Ledger.Typed.Scripts (ScriptType (DatumType, RedeemerType))
 import Ledger.Value (TokenName (..))
 import PlutusTx.AssocMap (Map)
@@ -18,6 +18,7 @@ import PlutusTx.IsData.Class (IsData (..))
 
 import Ledger.Constraints.TxConstraints (
   mustBeSignedBy,
+  mustForgeCurrency,
   mustPayToOtherScript,
   mustPayToTheScript,
   mustProduceAtLeast,
@@ -30,15 +31,13 @@ import qualified Ledger.Value as Value
 import qualified PlutusTx
 import qualified PlutusTx.AssocMap as Map
 
-{- HLINT ignore "Use &&" -}
-
 --
 -- State-Machine
 --
 
 data HydraState
   = Initial [PubKeyHash]
-  | Open [Value]
+  | Open [TxOut]
   deriving stock (Generic, Show)
   deriving anyclass (ToJSON)
 PlutusTx.makeLift ''HydraState
@@ -60,20 +59,21 @@ hydraValidator ::
   HeadParameters ->
   HydraState ->
   HydraInput ->
-  ValidatorCtx ->
+  ScriptContext ->
   Bool
-hydraValidator (HeadParameters _ policyId) s i tx = case (s, i) of
-  (Initial vks, CollectCom) ->
-    let utxos = filterInputs (const True) tx
-        committed = filterInputs (hasParticipationToken policyId) tx
-     in mustSatisfy @HydraInput @HydraState
-          [ mustPayToTheScript (Open $ snd <$> committed) (foldMap snd utxos)
-          , foldMap (mustForwardParticipationToken policyId) vks
-          ]
-          tx
-          && tx `mustBeSignedByOneOf` vks
-  _ ->
-    False
+hydraValidator (HeadParameters vks policyId) s i tx =
+  case (s, i) of
+    (Initial vks', CollectCom) ->
+      let committed = snd <$> filterInputs (hasParticipationToken policyId) tx
+       in mustSatisfy @HydraInput @HydraState
+            [ mustPayToTheScript (Open committed) (foldMap txOutValue committed)
+            , foldMap (mustForwardParticipationToken policyId) vks
+            ]
+            tx
+            && tx `mustBeSignedByOneOf` vks
+            && all (`elem` vks) vks'
+            && all (`elem` vks') vks
+    _ -> False
 
 data Hydra
 instance Scripts.ScriptType Hydra where
@@ -100,7 +100,7 @@ hydraHash :: HeadParameters -> ValidatorHash
 hydraHash = Scripts.scriptHash . hydra
 {-# INLINEABLE hydraHash #-}
 
-mkStateOpen :: [Value] -> HydraState
+mkStateOpen :: [TxOut] -> HydraState
 mkStateOpen = Open
 {-# INLINEABLE mkStateOpen #-}
 
@@ -110,7 +110,7 @@ mkStateOpen = Open
 
 type CurrencyId = Integer -- TODO: This should ultimately be a TxOutRef
 
-validateHydraMonetaryPolicy :: CurrencyId -> PolicyCtx -> Bool
+validateHydraMonetaryPolicy :: CurrencyId -> ScriptContext -> Bool
 validateHydraMonetaryPolicy _ _ = True
 
 {- ORMOLU_DISABLE -}
@@ -131,40 +131,61 @@ hydraMonetaryPolicyHash = monetaryPolicyHash . hydraMonetaryPolicy
 -- | The Validator 'initial' ensures the following: either the output
 -- is consumed by
 --
--- 1. an SM abort transaction (see below) or
+-- 1. an SM abort transaction, identified by:
+--    (a) Burning all participation tokens of all participants
 -- 2. a commit transaction, identified by:
 --    (a) Having validator 'commit' in its only output
 --    (b) A signature that verifies as valid with verification key k_i
 --    (c) The presence of a single participation token in outputs
+--
+-- TODO: According to the paper, this should also enforce that the transaction
+-- only have a single output. Not only is this not possible to express with the
+-- current 'TxConstraints' API, but also is this quite unpractical. In fact,
+-- wallets will have to balance a transaction for fee, using extra inputs and
+-- causing in most cases, a resulting change output.
+--
+-- I'd like therefore to challenge that 'single output' constraint with the
+-- researchers. IMO, It would suffice to pay a certain amount to the commit
+-- script, so long as this amount corresponds exactly to the balance of the UTxO
+-- committed.
 initialValidator ::
   HeadParameters ->
   ValidatorHash ->
   PubKeyHash ->
-  () ->
-  ValidatorCtx ->
+  TxOutRef ->
+  ScriptContext ->
   Bool
-initialValidator (HeadParameters _ policyId) script vk () tx =
+initialValidator (HeadParameters vks policyId) commitScript vk ref tx =
   consumedByCommit || consumedByAbort
  where
-  consumedByAbort = False -- FIXME
+  consumedByAbort =
+    -- TODO
+    -- mustSatisfy @() @PubKeyHash
+    --   [ foldMap (mustBurnParticipationToken policyId) vks
+    --   ]
+    --   tx
+    False
+
   consumedByCommit =
-    let committed = filterInputs (not . hasParticipationToken policyId) tx
-        participationToken = filterInputs (hasParticipationToken policyId) tx
-     in case committed of
-          [utxo] ->
-            mustSatisfy @() @PubKeyHash
-              [ mustBeSignedBy vk
-              , mustCommitUtxos script utxo (<> foldMap snd participationToken)
-              , mustForwardParticipationToken policyId vk
-              ]
-              tx
-          _ ->
-            False
+    case findUtxo ref tx of
+      Just utxo ->
+        mustSatisfy @() @PubKeyHash
+          [ mustBeSignedBy vk
+          , mustSpendPubKeyOutput (fst utxo)
+          , mustForwardParticipationToken policyId vk
+          , mustPayToOtherScript
+              commitScript
+              (commitDatum utxo)
+              (txOutValue (snd utxo) <> mkParticipationToken policyId vk)
+          ]
+          tx
+      Nothing ->
+        False
 
 data Initial
 instance Scripts.ScriptType Initial where
   type DatumType Initial = PubKeyHash
-  type RedeemerType Initial = ()
+  type RedeemerType Initial = TxOutRef
 
 {- ORMOLU_DISABLE -}
 initial
@@ -206,27 +227,29 @@ initialHash = Scripts.scriptHash . initial
 commitValidator ::
   HeadParameters ->
   ValidatorHash ->
-  TxOutRef ->
-  PubKeyHash ->
-  ValidatorCtx ->
+  (TxOutRef, TxOut) ->
+  () ->
+  ScriptContext ->
   Bool
-commitValidator (HeadParameters _ policyId) vCollectComHash _out vk tx =
+commitValidator (HeadParameters _vks policyId) hydraScript (_outRef, out) () tx =
   consumedByCollectCom || consumedByAbort
  where
-  consumedByAbort = False -- FIXME
+  consumedByAbort =
+    mustReimburse out tx
   consumedByCollectCom =
-    let remainder = filterInputs (not . hasParticipationToken policyId) tx
-        toCollect = filterInputs (hasParticipationToken policyId) tx
-     in mustSatisfy @PubKeyHash @TxOutRef
-          [ mustCollectCommit vCollectComHash toCollect remainder
-          , mustForwardParticipationToken policyId vk
+    let committed = snd <$> filterInputs (hasParticipationToken policyId) tx
+     in mustSatisfy @PubKeyHash @()
+          [ mustPayToOtherScript
+              hydraScript
+              (asDatum $ Open committed)
+              (foldMap txOutValue committed)
           ]
           tx
 
 data Commit
 instance Scripts.ScriptType Commit where
-  type DatumType Commit = TxOutRef
-  type RedeemerType Commit = PubKeyHash
+  type DatumType Commit = (TxOutRef, TxOut)
+  type RedeemerType Commit = ()
 
 {- ORMOLU_DISABLE -}
 commit
@@ -249,6 +272,10 @@ commitHash :: HeadParameters -> ValidatorHash
 commitHash = Scripts.scriptHash . commit
 {-# INLINEABLE commitHash #-}
 
+commitDatum :: (TxOutRef, TxOut) -> Datum
+commitDatum = asDatum
+{-# INLINEABLE commitDatum #-}
+
 --
 -- Helpers
 --
@@ -258,18 +285,18 @@ mustSatisfy ::
   forall i o.
   IsData o =>
   [TxConstraints i o] ->
-  ValidatorCtx ->
+  ScriptContext ->
   Bool
 mustSatisfy constraints =
-  checkValidatorCtx (mconcat constraints)
+  checkScriptContext (mconcat constraints)
 {-# INLINEABLE mustSatisfy #-}
 
 mustBeSignedByOneOf ::
-  ValidatorCtx ->
+  ScriptContext ->
   [PubKeyHash] ->
   Bool
 mustBeSignedByOneOf tx vks =
-  or ((`checkValidatorCtx` tx) . mustBeSignedBy @() @() <$> vks)
+  or ((`checkScriptContext` tx) . mustBeSignedBy @() @() <$> vks)
 {-# INLINEABLE mustBeSignedByOneOf #-}
 
 mustForwardParticipationToken ::
@@ -285,39 +312,25 @@ mustForwardParticipationToken policyId vk =
         ]
 {-# INLINEABLE mustForwardParticipationToken #-}
 
--- TODO: According to the paper, this should also enforce that the transaction
--- only have a single output. Not only is this not possible to express with the
--- current 'TxConstraints' API, but also is this quite unpractical. In fact,
--- wallets will have to balance a transaction for fee, using extra inputs and
--- causing in most cases, a resulting change output.
---
--- I'd like therefore to challenge that 'single output' constraint with the
--- researchers. IMO, It would suffice to pay a certain amount to the commit
--- script, so long as this amount corresponds exactly to the balance of the UTxO
--- committed.
-mustCommitUtxos ::
+mustBurnParticipationToken ::
   forall i o.
-  ValidatorHash ->
-  (TxOutRef, Value) ->
-  (Value -> Value) ->
+  MonetaryPolicyHash ->
+  PubKeyHash ->
   TxConstraints i o
-mustCommitUtxos script (ref, value) total =
-  mconcat
-    [ mustPayToOtherScript script (asDatum ref) (total value)
-    , mustSpendPubKeyOutput ref
-    ]
-{-# INLINEABLE mustCommitUtxos #-}
+mustBurnParticipationToken policyId vk =
+  let assetName = mkParticipationTokenName vk
+   in mconcat
+        [ mustForgeCurrency policyId assetName (-1)
+        ]
+{-# INLINEABLE mustBurnParticipationToken #-}
 
-mustCollectCommit ::
-  forall i o.
-  ValidatorHash ->
-  [(TxOutRef, Value)] ->
-  [(TxOutRef, Value)] ->
-  TxConstraints i o
-mustCollectCommit vCollectComHash toCollect remainder =
-  let value = foldMap snd (toCollect <> remainder)
-   in mustPayToOtherScript vCollectComHash (asDatum $ Open $ snd <$> toCollect) value
-{-# INLINEABLE mustCollectCommit #-}
+mustReimburse ::
+  TxOut ->
+  ScriptContext ->
+  Bool
+mustReimburse out =
+  elem out . txInfoOutputs . scriptContextTxInfo
+{-# INLINEABLE mustReimburse #-}
 
 mkParticipationToken :: MonetaryPolicyHash -> PubKeyHash -> Value
 mkParticipationToken policyId vk =
@@ -329,20 +342,27 @@ mkParticipationTokenName =
   TokenName . getPubKeyHash
 {-# INLINEABLE mkParticipationTokenName #-}
 
-filterInputs :: (TxInInfo -> Bool) -> ValidatorCtx -> [(TxOutRef, Value)]
+filterInputs :: (TxInInfo -> Bool) -> ScriptContext -> [(TxOutRef, TxOut)]
 filterInputs predicate =
-  mapMaybe fn . txInfoInputs . valCtxTxInfo
+  mapMaybe fn . txInfoInputs . scriptContextTxInfo
  where
   fn info
-    | predicate info = Just (txInInfoOutRef info, txInInfoValue info)
+    | predicate info = Just (txInInfoOutRef info, txInInfoResolved info)
     | otherwise = Nothing
 {-# INLINEABLE filterInputs #-}
 
 hasParticipationToken :: MonetaryPolicyHash -> TxInInfo -> Bool
 hasParticipationToken policyId input =
   let currency = Value.mpsSymbol policyId
-   in currency `elem` symbols (txInInfoValue input)
+   in currency `elem` symbols (txOutValue $ txInInfoResolved input)
 {-# INLINEABLE hasParticipationToken #-}
+
+findUtxo :: TxOutRef -> ScriptContext -> Maybe (TxOutRef, TxOut)
+findUtxo ref tx =
+  case filterInputs (\input -> ref == txInInfoOutRef input) tx of
+    [utxo] -> Just utxo
+    _ -> Nothing
+{-# INLINEABLE findUtxo #-}
 
 -- NOTE: Not using `Value.symbols` because it is broken. In fact, a 'Value' may
 -- carry null quantities of some particular tokens, leading to weird situation
