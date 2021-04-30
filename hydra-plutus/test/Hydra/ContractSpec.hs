@@ -3,16 +3,10 @@
 module Hydra.ContractSpec where
 
 import Cardano.Prelude
-
-import Ledger
-
-import Ledger.Ada (lovelaceValueOf)
-import Ledger.AddressMap (UtxoMap)
-import Plutus.Contract (Contract)
-import PlutusTx.Monoid (inv)
-import Test.Tasty (TestTree, testGroup)
-import Wallet.Types (ContractError)
-
+import qualified Control.Monad.Freer.Extras.Log as Trace
+import qualified Data.Map.Strict as Map
+import qualified Hydra.Contract.OffChain as OffChain
+import qualified Hydra.Contract.OnChain as OnChain
 import Hydra.Test.Utils (
   assertFinalState,
   callEndpoint,
@@ -20,7 +14,10 @@ import Hydra.Test.Utils (
   utxoOf,
   vk,
  )
-
+import Ledger
+import Ledger.Ada (lovelaceValueOf)
+import Ledger.AddressMap (UtxoMap)
+import Plutus.Contract (Contract)
 import Plutus.Contract.Test (
   Wallet (..),
   assertFailedTransaction,
@@ -29,12 +26,10 @@ import Plutus.Contract.Test (
   walletFundsChange,
   (.&&.),
  )
-
-import qualified Control.Monad.Freer.Extras.Log as Trace
-import qualified Data.Map.Strict as Map
-import qualified Hydra.Contract.OffChain as OffChain
-import qualified Hydra.Contract.OnChain as OnChain
 import qualified Plutus.Trace.Emulator as Trace
+import PlutusTx.Monoid (inv)
+import Test.Tasty (TestTree, testGroup)
+import Wallet.Types (ContractError)
 import qualified Prelude
 
 --
@@ -72,6 +67,7 @@ tests =
         "✓ | Init > Commit > Commit > CollectCom"
         ( assertNoFailedTransactions
             .&&. assertFinalState contract alice stateIsOpen
+            .&&. assertFinalState contract alice hasTwoTxOuts
             .&&. walletFundsChange alice (inv fixtureAmount)
             .&&. walletFundsChange bob (inv fixtureAmount)
         )
@@ -83,13 +79,15 @@ tests =
 
           utxoAlice <- utxoOf alice
           Trace.logInfo ("Alice's UTxO: " <> prettyUtxo utxoAlice)
-          callEndpoint @"commit" aliceH (vk alice, selectOne utxoAlice)
+          let aliceCommit = selectOne utxoAlice
+          callEndpoint @"commit" aliceH (vk alice, aliceCommit)
 
           utxoBob <- utxoOf bob
           Trace.logInfo ("Bob's UTxO: " <> prettyUtxo utxoBob)
-          callEndpoint @"commit" bobH (vk bob, selectOne utxoBob)
+          let bobCommit = selectOne utxoBob
+          callEndpoint @"commit" bobH (vk bob, bobCommit)
 
-          callEndpoint @"collectCom" aliceH (vk alice)
+          callEndpoint @"collectCom" aliceH (vk alice, txOutTxOut . snd <$> [aliceCommit, bobCommit])
     , checkPredicate
         "✓ | Init > Abort"
         ( assertNoFailedTransactions
@@ -123,7 +121,7 @@ tests =
           callEndpoint @"init" aliceH ()
           utxoAlice <- selectOne <$> utxoOf alice
           callEndpoint @"commit" aliceH (vk alice, utxoAlice)
-          callEndpoint @"collectCom" aliceH (vk alice)
+          callEndpoint @"collectCom" aliceH (vk alice, [])
     ]
 
 fixtureAmount :: Value
@@ -137,6 +135,11 @@ stateIsInitial = \case
 stateIsOpen :: OnChain.HydraState -> Bool
 stateIsOpen = \case
   OnChain.Open{} -> True
+  _ -> False
+
+hasTwoTxOuts :: OnChain.HydraState -> Bool
+hasTwoTxOuts = \case
+  OnChain.Open committedOutputs -> length committedOutputs == 2
   _ -> False
 
 stateIsFinal :: OnChain.HydraState -> Bool

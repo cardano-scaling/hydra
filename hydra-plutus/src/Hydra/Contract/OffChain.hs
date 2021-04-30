@@ -13,11 +13,6 @@ import Ledger hiding (out, value)
 import Ledger.Ada (lovelaceValueOf)
 import Ledger.AddressMap (UtxoMap)
 import Ledger.Constraints.OffChain (ScriptLookups (..))
-import Ledger.Credential (Credential (..))
-import Ledger.Typed.Scripts (ScriptInstance)
-import Plutus.Contract.Effects.AwaitTxConfirmed (awaitTxConfirmed)
-import Plutus.Contract.Effects.UtxoAt (HasUtxoAt)
-
 import Ledger.Constraints.TxConstraints (
   TxConstraints,
   mustBeSignedBy,
@@ -29,13 +24,15 @@ import Ledger.Constraints.TxConstraints (
   mustSpendPubKeyOutput,
   mustSpendScriptOutput,
  )
-
+import Ledger.Credential (Credential (..))
+import Ledger.Typed.Scripts (ScriptInstance)
 import Plutus.Contract (
   AsContractError,
   BlockchainActions,
   Contract,
   Endpoint,
   endpoint,
+  logInfo,
   select,
   submitTxConstraints,
   submitTxConstraintsWith,
@@ -43,6 +40,8 @@ import Plutus.Contract (
   utxoAt,
   type (.\/),
  )
+import Plutus.Contract.Effects.AwaitTxConfirmed (awaitTxConfirmed)
+import Plutus.Contract.Effects.UtxoAt (HasUtxoAt)
 
 import qualified Data.Map.Strict as Map
 import qualified Hydra.Contract.OnChain as OnChain
@@ -150,7 +149,7 @@ commit vks policy = do
           , mustSpendPubKeyOutput ref
           , mustPayToOtherScript
               (OnChain.commitHash headParameters)
-              (OnChain.commitDatum (ref, txOutTxOut out))
+              (OnChain.commitDatum $ txOutTxOut out)
               value
           ]
 
@@ -174,15 +173,16 @@ collectCom ::
   MonetaryPolicy ->
   Contract [OnChain.HydraState] Schema e ()
 collectCom vks policy = do
-  headMember <- endpoint @"collectCom" @PubKeyHash
-  committed <- utxoAt (OnChain.commitAddress headParameters)
+  (headMember, storedOutputs) <- endpoint @"collectCom" @(PubKeyHash, [TxOut])
+  commits <- utxoAt (OnChain.commitAddress headParameters)
+  logInfo @String $ "commits: " <> show (length commits)
   stateMachine <- utxoAt (OnChain.hydraAddress headParameters)
   tx <-
     submitTxConstraintsWith @OnChain.Hydra
-      (lookups committed stateMachine headMember)
-      (constraints committed stateMachine headMember)
+      (lookups commits stateMachine headMember storedOutputs)
+      (constraints commits stateMachine headMember storedOutputs)
   awaitTxConfirmed (txId tx)
-  tell [mkOpenState committed]
+  tell [OnChain.Open storedOutputs]
  where
   policyId =
     monetaryPolicyHash policy
@@ -190,9 +190,7 @@ collectCom vks policy = do
   headParameters =
     HeadParameters vks policyId
 
-  mkOpenState = OnChain.Open . fmap snd . flattenUtxo
-
-  lookups committed stateMachine headMember =
+  lookups commits stateMachine headMember storedOutputs =
     mempty
       { slMPS =
           Map.singleton policyId policy
@@ -207,19 +205,21 @@ collectCom vks policy = do
                 ]
             ]
       , slTxOutputs =
-          committed <> stateMachine
+          commits <> stateMachine
       , slOwnPubkey =
           Just headMember
+      , slOtherData =
+          Map.fromList [let d = OnChain.asDatum out in (datumHash d, d) | out <- storedOutputs]
       }
 
-  constraints committed stateMachine headMember =
-    let value = foldMap (txOutValue . snd) $ flattenUtxo (committed <> stateMachine)
+  constraints commits stateMachine headMember storedOutputs =
+    let value = foldMap (txOutValue . snd) $ flattenUtxo (commits <> stateMachine)
      in mconcat
           [ mustBeSignedBy headMember
-          , mustPayToTheScript (mkOpenState committed) value
+          , mustPayToTheScript (OnChain.Open storedOutputs) value
           , foldMap
-              (\(_vk, ref) -> mustSpendScriptOutput ref OnChain.commitRedeemer)
-              (zipOnParticipationToken policyId vks committed)
+              (\(_vk, ref) -> mustSpendScriptOutput ref $ OnChain.asRedeemer ())
+              (zipOnParticipationToken policyId vks commits)
           , -- NOTE: using a 'foldMap' here but the 'stateMachine' utxo really
             -- has only one element!
             foldMap
@@ -317,7 +317,7 @@ type Schema =
     .\/ Endpoint "setupForTesting" (PubKeyHash, [Value])
     .\/ Endpoint "init" ()
     .\/ Endpoint "commit" (PubKeyHash, (TxOutRef, TxOutTx))
-    .\/ Endpoint "collectCom" PubKeyHash
+    .\/ Endpoint "collectCom" (PubKeyHash, [TxOut])
     .\/ Endpoint "abort" (PubKeyHash, [TxOut])
 
 contract ::

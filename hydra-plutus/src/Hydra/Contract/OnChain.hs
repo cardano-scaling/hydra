@@ -5,18 +5,10 @@
 
 module Hydra.Contract.OnChain where
 
-import PlutusPrelude (Generic)
-import PlutusTx.Prelude hiding (remainder)
-
 import Data.Aeson (ToJSON)
 import Ledger hiding (out, value)
 import Ledger.Ada (lovelaceValueOf)
 import Ledger.Constraints (checkScriptContext)
-import Ledger.Typed.Scripts (ScriptType (DatumType, RedeemerType))
-import Ledger.Value (TokenName (..))
-import PlutusTx.AssocMap (Map)
-import PlutusTx.IsData.Class (IsData (..))
-
 import Ledger.Constraints.TxConstraints (
   mustBeSignedBy,
   mustForgeCurrency,
@@ -26,11 +18,16 @@ import Ledger.Constraints.TxConstraints (
   mustSpendAtLeast,
   mustSpendPubKeyOutput,
  )
-
+import Ledger.Typed.Scripts (ScriptType (DatumType, RedeemerType))
 import qualified Ledger.Typed.Scripts as Scripts
+import Ledger.Value (TokenName (..))
 import qualified Ledger.Value as Value
+import PlutusPrelude (Generic, (>=>))
 import qualified PlutusTx
+import PlutusTx.AssocMap (Map)
 import qualified PlutusTx.AssocMap as Map
+import PlutusTx.IsData.Class (IsData (..))
+import PlutusTx.Prelude hiding (remainder)
 
 {- HLINT ignore "Use &&" -}
 
@@ -44,6 +41,7 @@ data HydraState
   | Final
   deriving stock (Generic, Show)
   deriving anyclass (ToJSON)
+
 PlutusTx.makeLift ''HydraState
 PlutusTx.unstableMakeIsData ''HydraState
 
@@ -51,6 +49,7 @@ data HydraInput
   = CollectCom
   | Abort
   deriving (Generic, Show)
+
 PlutusTx.makeLift ''HydraInput
 PlutusTx.unstableMakeIsData ''HydraInput
 
@@ -58,6 +57,7 @@ data HeadParameters = HeadParameters
   { participants :: [PubKeyHash]
   , policyId :: MonetaryPolicyHash
   }
+
 PlutusTx.makeLift ''HeadParameters
 
 hydraValidator ::
@@ -81,6 +81,7 @@ hydraValidator params s i tx =
     _ -> False
 
 data Hydra
+
 instance Scripts.ScriptType Hydra where
   type DatumType Hydra = HydraState
   type RedeemerType Hydra = HydraInput
@@ -171,6 +172,7 @@ initialValidator params hydraScript commitScript vk ref tx =
     mustCommitUtxo tx params commitScript (vk, ref)
 
 data Initial
+
 instance Scripts.ScriptType Initial where
   type DatumType Initial = PubKeyHash
   type RedeemerType Initial = TxOutRef
@@ -220,11 +222,13 @@ initialRedeemer = asRedeemer . toData
 commitValidator ::
   HeadParameters ->
   ValidatorHash ->
-  (TxOutRef, TxOut) ->
+  -- | Datum: The output to store
+  TxOut ->
+  -- | Redeemer: Unused
   () ->
   ScriptContext ->
   Bool
-commitValidator params hydraScript (_outRef, out) () tx =
+commitValidator params hydraScript out () tx =
   consumedByCollectCom || consumedByAbort
  where
   consumedByAbort =
@@ -233,8 +237,9 @@ commitValidator params hydraScript (_outRef, out) () tx =
     mustCollectCommits tx params (Just hydraScript)
 
 data Commit
+
 instance Scripts.ScriptType Commit where
-  type DatumType Commit = (TxOutRef, TxOut)
+  type DatumType Commit = TxOut
   type RedeemerType Commit = ()
 
 {- ORMOLU_DISABLE -}
@@ -258,7 +263,7 @@ commitHash :: HeadParameters -> ValidatorHash
 commitHash = Scripts.scriptHash . commit
 {-# INLINEABLE commitHash #-}
 
-commitDatum :: (TxOutRef, TxOut) -> Datum
+commitDatum :: TxOut -> Datum
 commitDatum = asDatum
 {-# INLINEABLE commitDatum #-}
 
@@ -301,7 +306,7 @@ mustCommitUtxo tx (HeadParameters _ policyId) commitScript (vk, ref) =
             , mustSpendPubKeyOutput (fst utxo)
             , mustPayToOtherScript
                 commitScript
-                (commitDatum utxo)
+                (commitDatum (snd utxo))
                 (txOutValue (snd utxo) <> mkParticipationToken policyId vk)
             ]
         )
@@ -310,25 +315,37 @@ mustCommitUtxo tx (HeadParameters _ policyId) commitScript (vk, ref) =
       False
 {-# INLINEABLE mustCommitUtxo #-}
 
+-- | We are certain that all stored outputs are reproduced into a collectCom
+-- transaction, by checking that all paticipation tokens are forwarded and that
+-- all individual stored outputs are in the resulting datum
 mustCollectCommits ::
   ScriptContext ->
   HeadParameters ->
   Maybe ValidatorHash ->
   Bool
 mustCollectCommits tx (HeadParameters vks policyId) maybeHydraScript =
-  let committed = snd <$> filterInputs (hasParticipationToken policyId) tx
-      st = Open committed
-      amount = foldMap txOutValue committed
-   in and
-        [ mustBeSignedByOneOf tx vks
-        , all (mustForwardParticipationToken tx policyId) vks
-        , checkScriptContext @(RedeemerType Hydra) @(DatumType Hydra)
-            ( case maybeHydraScript of
-                Just hydraScript -> mustPayToOtherScript hydraScript (asDatum st) amount
-                Nothing -> mustPayToTheScript st amount
-            )
-            tx
-        ]
+  and
+    [ mustBeSignedByOneOf tx vks
+    , all (mustForwardParticipationToken tx policyId) vks
+    , checkScriptContext @(RedeemerType Hydra) @(DatumType Hydra)
+        ( case maybeHydraScript of
+            Just hydraScript -> mustPayToOtherScript hydraScript (asDatum st) amount
+            Nothing -> mustPayToTheScript st amount
+        )
+        tx
+    ]
+ where
+  st = Open storedOutputs
+
+  storedOutputs = mapMaybe decodeStoredOutput commitOutputs
+
+  commitOutputs = snd <$> filterInputs (hasParticipationToken policyId) tx
+
+  txInfo = scriptContextTxInfo tx
+
+  decodeStoredOutput = txOutDatumHash >=> (`findDatum` txInfo) >=> (fromData . getDatum)
+
+  amount = foldMap txOutValue commitOutputs
 {-# INLINEABLE mustCollectCommits #-}
 
 mustAbort ::
