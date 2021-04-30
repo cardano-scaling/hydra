@@ -18,6 +18,7 @@ import Ledger.Constraints.TxConstraints (
   mustBeSignedBy,
   mustForgeCurrency,
   mustForgeValue,
+  mustIncludeDatum,
   mustPayToOtherScript,
   mustPayToPubKey,
   mustPayToTheScript,
@@ -175,11 +176,10 @@ collectCom ::
 collectCom vks policy = do
   (headMember, storedOutputs) <- endpoint @"collectCom" @(PubKeyHash, [TxOut])
   commits <- utxoAt (OnChain.commitAddress headParameters)
-  logInfo @String $ "commits: " <> show (length commits)
   stateMachine <- utxoAt (OnChain.hydraAddress headParameters)
   tx <-
     submitTxConstraintsWith @OnChain.Hydra
-      (lookups commits stateMachine headMember storedOutputs)
+      (lookups commits stateMachine headMember)
       (constraints commits stateMachine headMember storedOutputs)
   awaitTxConfirmed (txId tx)
   tell [OnChain.Open storedOutputs]
@@ -190,7 +190,7 @@ collectCom vks policy = do
   headParameters =
     HeadParameters vks policyId
 
-  lookups commits stateMachine headMember storedOutputs =
+  lookups commits stateMachine headMember =
     mempty
       { slMPS =
           Map.singleton policyId policy
@@ -208,8 +208,6 @@ collectCom vks policy = do
           commits <> stateMachine
       , slOwnPubkey =
           Just headMember
-      , slOtherData =
-          Map.fromList [let d = OnChain.asDatum out in (datumHash d, d) | out <- storedOutputs]
       }
 
   constraints commits stateMachine headMember storedOutputs =
@@ -225,6 +223,7 @@ collectCom vks policy = do
             foldMap
               (`mustSpendScriptOutput` OnChain.asRedeemer OnChain.CollectCom)
               (Map.keys stateMachine)
+          , foldMap (mustIncludeDatum . OnChain.asDatum) storedOutputs
           ]
 
 abort ::
