@@ -14,44 +14,62 @@ import Control.Concurrent.STM (
   writeTQueue,
  )
 import Control.Exception.Safe (MonadThrow)
-import Control.Monad.Class.MonadAsync (MonadAsync (cancel, poll), async)
-import Control.Monad.Class.MonadTimer (MonadTimer, threadDelay)
+import Control.Monad.Class.MonadAsync (async)
+import Control.Monad.Class.MonadTimer (threadDelay)
 import Hydra.Ledger
 import Hydra.Logic (
   ClientInstruction (..),
   Effect (ClientEffect, ErrorEffect, NetworkEffect, OnChainEffect, Wait),
   Event (NetworkEvent, OnChainEvent),
+  HeadParameters (..),
   HeadState (..),
   HydraMessage (AckSn, AckTx, ConfSn, ConfTx, ReqSn, ReqTx),
   LogicError (InvalidState),
   OnChainTx (..),
+  SnapshotStrategy (..),
  )
 import qualified Hydra.Logic as Logic
 import qualified Hydra.Logic.SimpleHead as SimpleHead
 import System.Console.Repline (CompleterStyle (Word0), ExitDecision (Exit), evalRepl)
 
-data NodeState = NotReady | Ready
-  deriving (Eq, Show)
-
-data HydraNode m = HydraNode
-  { stopHydraNode :: m ()
-  , queryNodeState :: m NodeState
+data HydraNode tx m = HydraNode
+  { eq :: EventQueue m (Event tx)
+  , hn :: HydraNetwork m
+  , hh :: HydraHead tx m
+  , oc :: OnChain m
+  , cs :: ClientSide m
   }
 
-startHydraNode ::
-  MonadAsync m =>
-  MonadTimer m =>
-  m (HydraNode m)
-startHydraNode = do
-  nodeThread <- async $ forever $ threadDelay 1_000_000
-  pure
-    HydraNode
-      { stopHydraNode = cancel nodeThread
-      , queryNodeState =
-          poll nodeThread >>= \case
-            Nothing -> pure Ready
-            Just _ -> pure NotReady
-      }
+createHydraNode ::
+  Show (LedgerState tx) => -- TODO(SN): leaky abstraction of HydraHead
+  Show tx =>
+  Ledger tx ->
+  IO (HydraNode tx IO)
+createHydraNode ledger = do
+  eq <- createEventQueue
+  hh <- createHydraHead headState ledger
+  oc <- createChainClient eq
+  hn <- createHydraNetwork eq
+  -- TODO(SN): factor out repl thread
+  cs <- createClientSideRepl oc hh hn loadTx
+  pure $ HydraNode eq hn hh oc cs
+ where
+  loadTx fp = panic $ "should load and decode a tx from " <> show fp
+
+  headState = Logic.createHeadState [] HeadParameters SnapshotStrategy
+
+runHydraNode ::
+  MonadThrow m =>
+  Show (LedgerState tx) => -- TODO(SN): leaky abstraction of HydraHead
+  Show tx =>
+  HydraNode tx m ->
+  m ()
+runHydraNode HydraNode{eq, hn, oc, cs, hh} =
+  -- NOTE(SN): here we would introduce concurrent head processing, e.g. with
+  -- something like 'forM_ [0..1] $ async'
+  forever $ do
+    e <- nextEvent eq
+    handleNextEvent hn oc cs hh e
 
 --
 -- General handlers of client commands or events.
