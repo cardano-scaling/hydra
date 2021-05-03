@@ -92,6 +92,7 @@ library
     , cardano-prelude
     , containers
     , data-default
+    , io-sim-classes
     , ouroboros-network-framework
     , shelley-spec-ledger
     , shelley-spec-ledger-test

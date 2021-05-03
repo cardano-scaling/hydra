@@ -1,10 +1,11 @@
 {-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE TypeApplications #-}
+{-# OPTIONS_GHC -Wno-deferred-type-errors #-}
 
 -- | Top-level module to run a single Hydra node.
 module Hydra.Node where
 
-import Cardano.Prelude
+import Cardano.Prelude hiding (async, cancel, poll, threadDelay)
 import Control.Concurrent.STM (
   newTQueueIO,
   newTVarIO,
@@ -13,6 +14,8 @@ import Control.Concurrent.STM (
   writeTQueue,
  )
 import Control.Exception.Safe (MonadThrow)
+import Control.Monad.Class.MonadAsync (MonadAsync (cancel, poll), async)
+import Control.Monad.Class.MonadTimer (MonadTimer, threadDelay)
 import Hydra.Ledger
 import Hydra.Logic (
   ClientInstruction (..),
@@ -27,7 +30,7 @@ import qualified Hydra.Logic as Logic
 import qualified Hydra.Logic.SimpleHead as SimpleHead
 import System.Console.Repline (CompleterStyle (Word0), ExitDecision (Exit), evalRepl)
 
-data NodeState = Ready
+data NodeState = NotReady | Ready
   deriving (Eq, Show)
 
 data HydraNode m = HydraNode
@@ -35,12 +38,19 @@ data HydraNode m = HydraNode
   , queryNodeState :: m NodeState
   }
 
-startHydraNode :: Applicative m => m (HydraNode m)
-startHydraNode =
+startHydraNode ::
+  MonadAsync m =>
+  MonadTimer m =>
+  m (HydraNode m)
+startHydraNode = do
+  nodeThread <- async $ forever $ threadDelay 1_000_000
   pure
     HydraNode
-      { stopHydraNode = pure ()
-      , queryNodeState = pure Ready
+      { stopHydraNode = cancel nodeThread
+      , queryNodeState =
+          poll nodeThread >>= \case
+            Nothing -> pure Ready
+            Just _ -> pure NotReady
       }
 
 --
