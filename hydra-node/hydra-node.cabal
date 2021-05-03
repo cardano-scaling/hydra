@@ -160,3 +160,20 @@ test-suite tests
   ghc-options:
     -threaded
     -rtsopts
+
+test-suite integration
+  import: project-config
+  hs-source-dirs: integration
+  other-modules:
+    IntegrationSpec
+  main-is: Main.hs
+  type: exitcode-stdio-1.0
+  build-depends:
+      cardano-prelude
+    , hspec
+    , hspec-core
+  build-tool-depends:
+    hspec-discover:hspec-discover
+  ghc-options:
+    -threaded
+    -rtsopts
