@@ -172,6 +172,7 @@ test-suite integration
       cardano-prelude
     , hspec
     , hspec-core
+    , hydra-node
   build-tool-depends:
     hspec-discover:hspec-discover
   ghc-options:

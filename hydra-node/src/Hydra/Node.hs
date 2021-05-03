@@ -27,6 +27,22 @@ import qualified Hydra.Logic as Logic
 import qualified Hydra.Logic.SimpleHead as SimpleHead
 import System.Console.Repline (CompleterStyle (Word0), ExitDecision (Exit), evalRepl)
 
+data NodeState = Ready
+  deriving (Eq, Show)
+
+data HydraNode m = HydraNode
+  { stopHydraNode :: m ()
+  , queryNodeState :: m NodeState
+  }
+
+startHydraNode :: Applicative m => m (HydraNode m)
+startHydraNode =
+  pure
+    HydraNode
+      { stopHydraNode = pure ()
+      , queryNodeState = pure Ready
+      }
+
 --
 -- General handlers of client commands or events.
 --
