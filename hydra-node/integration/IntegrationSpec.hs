@@ -3,7 +3,7 @@
 module IntegrationSpec where
 
 import Cardano.Prelude
-import Hydra.Node (HydraNode, createHydraNode)
+import Hydra.Node (HydraNode, createHydraNode, runHydraNode)
 
 import Hydra.Ledger (Ledger (..), LedgerState, ValidationError (..), ValidationResult (Invalid, Valid))
 import Hydra.Logic (ClientRequest (Init))
@@ -42,7 +42,7 @@ data HydraProcess m = HydraProcess
 
 startHydraNode :: IO (HydraProcess IO)
 startHydraNode = do
-  nodeThread <- async $ forever $ threadDelay 1_000_000
+  nodeThread <- async $ forever $ testHydraNode >>= runHydraNode
   pure
     HydraProcess
       { stopHydraNode = cancel nodeThread
@@ -52,9 +52,9 @@ startHydraNode = do
             Just _ -> pure NotReady
       , sendCommand = panic "not implemented"
       }
-
-testHydraNode :: IO (HydraNode MockTx IO)
-testHydraNode = createHydraNode mockLedger
+ where
+  testHydraNode :: IO (HydraNode MockTx IO)
+  testHydraNode = createHydraNode mockLedger
 
 data MockTx = ValidTx | InvalidTx
   deriving (Eq, Show)
