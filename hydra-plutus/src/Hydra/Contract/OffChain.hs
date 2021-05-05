@@ -4,12 +4,12 @@
 
 module Hydra.Contract.OffChain where
 
+import Ledger
 import Prelude hiding (init)
 
 import Control.Arrow (second)
 import Control.Monad (forever, void)
-import Hydra.Contract.OnChain (HeadParameters (..))
-import Ledger hiding (out, value)
+import Hydra.Contract.OnChain as OnChain (asDatum, asRedeemer)
 import Ledger.Ada (lovelaceValueOf)
 import Ledger.AddressMap (UtxoMap)
 import Ledger.Constraints.OffChain (ScriptLookups (..))
@@ -26,14 +26,13 @@ import Ledger.Constraints.TxConstraints (
   mustSpendScriptOutput,
  )
 import Ledger.Credential (Credential (..))
-import Ledger.Typed.Scripts (ScriptInstance)
+import Ledger.Typed.Scripts (ScriptInstance, ScriptType (..))
 import Plutus.Contract (
   AsContractError,
   BlockchainActions,
   Contract,
   Endpoint,
   endpoint,
-  logInfo,
   select,
   submitTxConstraints,
   submitTxConstraintsWith,
@@ -50,7 +49,23 @@ import qualified Ledger.Typed.Scripts as Scripts
 import qualified Ledger.Value as Value
 
 --
--- Initial
+-- Head Parameters
+--
+
+data HeadParameters = HeadParameters
+  { participants :: [PubKeyHash]
+  , policy :: MonetaryPolicy
+  , policyId :: MonetaryPolicyHash
+  }
+
+mkHeadParameters :: [PubKeyHash] -> MonetaryPolicy -> HeadParameters
+mkHeadParameters participants policy =
+  HeadParameters{participants, policy, policyId}
+ where
+  policyId = monetaryPolicyHash policy
+
+--
+-- Init
 --
 
 -- The initial transaction has `n` outputs, where each output is locked by a
@@ -62,26 +77,19 @@ import qualified Ledger.Value as Value
 -- It also initialises the state-machine,
 init ::
   (AsContractError e) =>
-  [PubKeyHash] ->
-  MonetaryPolicy ->
-  Contract [OnChain.HydraState] Schema e ()
-init vks policy = do
+  HeadParameters ->
+  Contract [OnChain.State] Schema e ()
+init params@HeadParameters{participants, policy, policyId} = do
   endpoint @"init" @()
   void $ submitTxConstraintsWith lookups constraints
-  tell [OnChain.Initial vks]
+  tell [OnChain.Initial]
  where
-  policyId =
-    monetaryPolicyHash policy
-
-  headParameters =
-    HeadParameters vks policyId
-
   lookups =
     mempty
       { slMPS =
           Map.singleton policyId policy
       , slScriptInstance =
-          Just (OnChain.hydra headParameters)
+          Just (hydraScriptInstance params)
       }
 
   constraints =
@@ -91,15 +99,15 @@ init vks policy = do
               let participationToken = OnChain.mkParticipationToken policyId vk
                in mconcat
                     [ mustPayToOtherScript
-                        (OnChain.initialHash headParameters)
-                        (OnChain.asDatum vk)
+                        (Scripts.scriptHash $ initialScriptInstance params)
+                        (asDatum @(DatumType OnChain.Initial) vk)
                         participationToken
                     , mustForgeValue
                         participationToken
                     ]
           )
-          vks
-      , mustPayToTheScript (OnChain.Initial vks) (lovelaceValueOf 0)
+          participants
+      , mustPayToTheScript OnChain.Initial (lovelaceValueOf 0)
       ]
 
 -- To lock outputs for a Hydra head, the i-th head member will attach a commit
@@ -109,49 +117,52 @@ init vks policy = do
 -- partial UTxO set Ui committed by the party.
 commit ::
   (AsContractError e) =>
-  [PubKeyHash] ->
-  MonetaryPolicy ->
-  Contract [OnChain.HydraState] Schema e ()
-commit vks policy = do
+  HeadParameters ->
+  Contract [OnChain.State] Schema e ()
+commit params@HeadParameters{policy, policyId} = do
   (vk, toCommit) <- endpoint @"commit" @(PubKeyHash, (TxOutRef, TxOutTx))
-  initial <- utxoAtWithDatum (OnChain.initialAddress headParameters) (OnChain.asDatum vk)
-  void $ submitTxConstraintsWith (lookups vk toCommit initial) (constraints vk toCommit initial)
+  initial <-
+    utxoAtWithDatum
+      (Scripts.scriptAddress $ initialScriptInstance params)
+      (asDatum @(DatumType OnChain.Initial) vk)
+  void $
+    submitTxConstraintsWith
+      (lookups vk toCommit initial)
+      (constraints vk toCommit initial)
  where
-  policyId =
-    monetaryPolicyHash policy
-
-  headParameters =
-    HeadParameters vks policyId
-
-  lookups vk (ref, out) initial =
+  lookups vk (ref, txOut) initial =
     mempty
       { slMPS =
           Map.singleton policyId policy
       , slScriptInstance =
-          Just (OnChain.hydra headParameters)
+          Just (hydraScriptInstance params)
       , slTxOutputs =
-          initial <> Map.singleton ref out
+          initial <> Map.singleton ref txOut
       , slOtherScripts =
-          let script = OnChain.initial headParameters
-           in Map.fromList
-                [ (Scripts.scriptAddress script, Scripts.validatorScript script)
+          Map.fromList
+            [ (Scripts.scriptAddress script, Scripts.validatorScript script)
+            | SomeScriptInstance script <-
+                [ SomeScriptInstance $ initialScriptInstance params
                 ]
+            ]
       , slOwnPubkey =
           Just vk
       }
 
-  constraints vk (ref, out) initial =
-    let value = txOutValue (txOutTxOut out) <> OnChain.mkParticipationToken policyId vk
+  constraints vk (ref, txOut) initial =
+    let amount = txOutValue (txOutTxOut txOut) <> OnChain.mkParticipationToken policyId vk
      in mconcat
           [ mustBeSignedBy vk
           , -- NOTE: using a 'foldMap' here but that 'initial' utxo really has only one
             -- element!
-            foldMap (`mustSpendScriptOutput` OnChain.initialRedeemer ref) (Map.keys initial)
+            foldMap
+              (`mustSpendScriptOutput` asRedeemer @(RedeemerType OnChain.Initial) ref)
+              (Map.keys initial)
           , mustSpendPubKeyOutput ref
           , mustPayToOtherScript
-              (OnChain.commitHash headParameters)
-              (OnChain.commitDatum $ txOutTxOut out)
-              value
+              (Scripts.scriptHash $ commitScriptInstance params)
+              (asDatum @(DatumType OnChain.Commit) (txOutTxOut txOut))
+              amount
           ]
 
 -- The SM transition from initial to open is achieved by posting the collectCom
@@ -170,13 +181,12 @@ commit vks policy = do
 -- the head members.
 collectCom ::
   (AsContractError e) =>
-  [PubKeyHash] ->
-  MonetaryPolicy ->
-  Contract [OnChain.HydraState] Schema e ()
-collectCom vks policy = do
+  HeadParameters ->
+  Contract [OnChain.State] Schema e ()
+collectCom params@HeadParameters{participants, policy, policyId} = do
   (headMember, storedOutputs) <- endpoint @"collectCom" @(PubKeyHash, [TxOut])
-  commits <- utxoAt (OnChain.commitAddress headParameters)
-  stateMachine <- utxoAt (OnChain.hydraAddress headParameters)
+  commits <- utxoAt (Scripts.scriptAddress $ commitScriptInstance params)
+  stateMachine <- utxoAt (Scripts.scriptAddress $ hydraScriptInstance params)
   tx <-
     submitTxConstraintsWith @OnChain.Hydra
       (lookups commits stateMachine headMember)
@@ -184,24 +194,18 @@ collectCom vks policy = do
   awaitTxConfirmed (txId tx)
   tell [OnChain.Open storedOutputs]
  where
-  policyId =
-    monetaryPolicyHash policy
-
-  headParameters =
-    HeadParameters vks policyId
-
   lookups commits stateMachine headMember =
     mempty
       { slMPS =
           Map.singleton policyId policy
       , slScriptInstance =
-          Just (OnChain.hydra headParameters)
+          Just (hydraScriptInstance params)
       , slOtherScripts =
           Map.fromList
             [ (Scripts.scriptAddress script, Scripts.validatorScript script)
             | SomeScriptInstance script <-
-                [ SomeScriptInstance $ OnChain.commit headParameters
-                , SomeScriptInstance $ OnChain.hydra headParameters
+                [ SomeScriptInstance $ commitScriptInstance params
+                , SomeScriptInstance $ hydraScriptInstance params
                 ]
             ]
       , slTxOutputs =
@@ -211,31 +215,30 @@ collectCom vks policy = do
       }
 
   constraints commits stateMachine headMember storedOutputs =
-    let value = foldMap (txOutValue . snd) $ flattenUtxo (commits <> stateMachine)
+    let amount = foldMap (txOutValue . snd) $ flattenUtxo (commits <> stateMachine)
      in mconcat
           [ mustBeSignedBy headMember
-          , mustPayToTheScript (OnChain.Open storedOutputs) value
           , foldMap
-              (\(_vk, ref) -> mustSpendScriptOutput ref $ OnChain.asRedeemer ())
-              (zipOnParticipationToken policyId vks commits)
-          , -- NOTE: using a 'foldMap' here but the 'stateMachine' utxo really
-            -- has only one element!
-            foldMap
-              (`mustSpendScriptOutput` OnChain.asRedeemer OnChain.CollectCom)
+              (\ref -> mustSpendScriptOutput ref $ asRedeemer @(RedeemerType OnChain.Hydra) OnChain.CollectCom)
               (Map.keys stateMachine)
-          , foldMap (mustIncludeDatum . OnChain.asDatum) storedOutputs
+          , foldMap
+              (\(_, ref) -> mustSpendScriptOutput ref $ asRedeemer @(RedeemerType OnChain.Commit) ())
+              (zipOnParticipationToken policyId participants commits)
+          , foldMap
+              (mustIncludeDatum . asDatum @(DatumType OnChain.Commit))
+              storedOutputs
+          , mustPayToTheScript (OnChain.Open $ reverse storedOutputs) amount
           ]
 
 abort ::
   (AsContractError e) =>
-  [PubKeyHash] ->
-  MonetaryPolicy ->
-  Contract [OnChain.HydraState] Schema e ()
-abort vks policy = do
+  HeadParameters ->
+  Contract [OnChain.State] Schema e ()
+abort params@HeadParameters{participants, policy, policyId} = do
   (headMember, toRefund) <- endpoint @"abort" @(PubKeyHash, [TxOut])
-  initial <- utxoAt (OnChain.initialAddress headParameters)
-  commits <- utxoAt (OnChain.commitAddress headParameters)
-  stateMachine <- utxoAt (OnChain.hydraAddress headParameters)
+  initial <- utxoAt (Scripts.scriptAddress $ initialScriptInstance params)
+  commits <- utxoAt (Scripts.scriptAddress $ commitScriptInstance params)
+  stateMachine <- utxoAt (Scripts.scriptAddress $ hydraScriptInstance params)
   tx <-
     submitTxConstraintsWith @OnChain.Hydra
       (lookups initial commits stateMachine headMember)
@@ -243,25 +246,19 @@ abort vks policy = do
   awaitTxConfirmed (txId tx)
   tell [OnChain.Final]
  where
-  policyId =
-    monetaryPolicyHash policy
-
-  headParameters =
-    HeadParameters vks policyId
-
   lookups initial commits stateMachine headMember =
     mempty
       { slMPS =
           Map.singleton policyId policy
       , slScriptInstance =
-          Just (OnChain.hydra headParameters)
+          Just (hydraScriptInstance params)
       , slOtherScripts =
           Map.fromList
             [ (Scripts.scriptAddress script, Scripts.validatorScript script)
             | SomeScriptInstance script <-
-                [ SomeScriptInstance $ OnChain.initial headParameters
-                , SomeScriptInstance $ OnChain.commit headParameters
-                , SomeScriptInstance $ OnChain.hydra headParameters
+                [ SomeScriptInstance $ initialScriptInstance params
+                , SomeScriptInstance $ commitScriptInstance params
+                , SomeScriptInstance $ hydraScriptInstance params
                 ]
             ]
       , slTxOutputs =
@@ -276,16 +273,16 @@ abort vks policy = do
       , mustPayToTheScript OnChain.Final (lovelaceValueOf 0)
       , foldMap
           (\vk -> mustForgeCurrency policyId (OnChain.mkParticipationTokenName vk) (-1))
-          vks
+          participants
       , foldMap mustRefund toRefund
       , foldMap
-          (\(_vk, ref) -> mustSpendScriptOutput ref (OnChain.initialRedeemer ref))
-          (zipOnParticipationToken policyId vks initial)
+          (\(_vk, ref) -> mustSpendScriptOutput ref $ asRedeemer @(RedeemerType OnChain.Initial) ref)
+          (zipOnParticipationToken policyId participants initial)
       , foldMap
-          (\(_vk, ref) -> mustSpendScriptOutput ref OnChain.commitRedeemer)
-          (zipOnParticipationToken policyId vks commits)
+          (\(_vk, ref) -> mustSpendScriptOutput ref $ asRedeemer @(RedeemerType OnChain.Commit) ())
+          (zipOnParticipationToken policyId participants commits)
       , foldMap
-          (`mustSpendScriptOutput` OnChain.asRedeemer OnChain.Abort)
+          (`mustSpendScriptOutput` asRedeemer @(RedeemerType OnChain.Hydra) OnChain.Abort)
           (Map.keys stateMachine)
       ]
 
@@ -294,20 +291,13 @@ abort vks policy = do
 -- for fees.
 setupForTesting ::
   (AsContractError e) =>
-  [PubKeyHash] ->
-  MonetaryPolicy ->
-  Contract [OnChain.HydraState] Schema e ()
-setupForTesting vks policy = do
+  HeadParameters ->
+  Contract [OnChain.State] Schema e ()
+setupForTesting params = do
   (vk, coins) <- endpoint @"setupForTesting" @(PubKeyHash, [Value])
-  tx <- submitTxConstraints (OnChain.hydra headParameters) (constraints vk coins)
+  tx <- submitTxConstraints (hydraScriptInstance params) (constraints vk coins)
   awaitTxConfirmed (txId tx)
  where
-  policyId =
-    monetaryPolicyHash policy
-
-  headParameters =
-    HeadParameters vks policyId
-
   constraints vk =
     foldMap (mustPayToPubKey vk)
 
@@ -321,23 +311,38 @@ type Schema =
 
 contract ::
   (AsContractError e) =>
-  MonetaryPolicy ->
-  [PubKeyHash] ->
-  Contract [OnChain.HydraState] Schema e ()
-contract policy vks = forever endpoints
+  HeadParameters ->
+  Contract [OnChain.State] Schema e ()
+contract params = forever endpoints
  where
   endpoints =
-    setupForTesting vks policy
-      `select` init vks policy
-      `select` commit vks policy
-      `select` collectCom vks policy
-      `select` abort vks policy
+    setupForTesting params
+      `select` init params
+      `select` commit params
+      `select` collectCom params
+      `select` abort params
 
 --
 -- Helpers
 --
 
 data SomeScriptInstance = forall a. SomeScriptInstance (ScriptInstance a)
+
+hydraScriptInstance :: HeadParameters -> Scripts.ScriptInstance OnChain.Hydra
+hydraScriptInstance =
+  OnChain.hydraScriptInstance . toOnChainHeadParameters
+
+initialScriptInstance :: HeadParameters -> Scripts.ScriptInstance OnChain.Initial
+initialScriptInstance =
+  OnChain.initialScriptInstance . toOnChainHeadParameters
+
+commitScriptInstance :: HeadParameters -> Scripts.ScriptInstance OnChain.Commit
+commitScriptInstance =
+  OnChain.commitScriptInstance . toOnChainHeadParameters
+
+toOnChainHeadParameters :: HeadParameters -> OnChain.HeadParameters
+toOnChainHeadParameters HeadParameters{participants, policyId} =
+  OnChain.HeadParameters participants policyId
 
 flattenUtxo :: UtxoMap -> [(TxOutRef, TxOut)]
 flattenUtxo =
@@ -347,10 +352,10 @@ mustRefund ::
   forall i o.
   TxOut ->
   TxConstraints i o
-mustRefund out =
-  case txOutAddress out of
+mustRefund txOut =
+  case txOutAddress txOut of
     (Address (PubKeyCredential vk) _) ->
-      mustPayToPubKey vk (txOutValue out)
+      mustPayToPubKey vk (txOutValue txOut)
     (Address ScriptCredential{} _) ->
       error "mustRefund: committing script output isn't allowed."
 
@@ -364,8 +369,8 @@ utxoAtWithDatum addr datum = do
   utxo <- utxoAt addr
   pure $ Map.filter matchDatum utxo
  where
-  matchDatum out =
-    txOutDatumHash (txOutTxOut out) == Just (datumHash datum)
+  matchDatum txOut =
+    txOutDatumHash (txOutTxOut txOut) == Just (datumHash datum)
 
 -- When collecting commits, we need to associate each commit utxo to the
 -- corresponding head member keys. There's no guarantee that head members will
@@ -390,7 +395,7 @@ zipOnParticipationToken policyId vks utxo =
       else go acc (u : qu) qv (vk : qv')
 
   hasParticipationToken :: (TxOutRef, TxOut) -> PubKeyHash -> Bool
-  hasParticipationToken (_, out) vk =
+  hasParticipationToken (_, txOut) vk =
     let currency = Value.mpsSymbol policyId
         token = OnChain.mkParticipationTokenName vk
-     in Value.valueOf (txOutValue out) currency token > 0
+     in Value.valueOf (txOutValue txOut) currency token > 0

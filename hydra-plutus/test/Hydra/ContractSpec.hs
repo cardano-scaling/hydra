@@ -3,10 +3,8 @@
 module Hydra.ContractSpec where
 
 import Cardano.Prelude
-import qualified Control.Monad.Freer.Extras.Log as Trace
-import qualified Data.Map.Strict as Map
-import qualified Hydra.Contract.OffChain as OffChain
-import qualified Hydra.Contract.OnChain as OnChain
+import Ledger
+
 import Hydra.Test.Utils (
   assertFinalState,
   callEndpoint,
@@ -14,7 +12,6 @@ import Hydra.Test.Utils (
   utxoOf,
   vk,
  )
-import Ledger
 import Ledger.Ada (lovelaceValueOf)
 import Ledger.AddressMap (UtxoMap)
 import Plutus.Contract (Contract)
@@ -26,10 +23,15 @@ import Plutus.Contract.Test (
   walletFundsChange,
   (.&&.),
  )
-import qualified Plutus.Trace.Emulator as Trace
 import PlutusTx.Monoid (inv)
 import Test.Tasty (TestTree, testGroup)
 import Wallet.Types (ContractError)
+
+import qualified Control.Monad.Freer.Extras.Log as Trace
+import qualified Data.Map.Strict as Map
+import qualified Hydra.Contract.OffChain as OffChain
+import qualified Hydra.Contract.OnChain as OnChain
+import qualified Plutus.Trace.Emulator as Trace
 import qualified Prelude
 
 --
@@ -48,8 +50,10 @@ testPolicy = OnChain.hydraMonetaryPolicy 42
 testPolicyId :: MonetaryPolicyHash
 testPolicyId = monetaryPolicyHash testPolicy
 
-contract :: Contract [OnChain.HydraState] OffChain.Schema ContractError ()
-contract = OffChain.contract testPolicy [vk alice, vk bob]
+contract :: Contract [OnChain.State] OffChain.Schema ContractError ()
+contract = OffChain.contract headParameters
+ where
+  headParameters = OffChain.mkHeadParameters [vk alice, vk bob] testPolicy
 
 --
 -- Helpers
@@ -127,22 +131,22 @@ tests =
 fixtureAmount :: Value
 fixtureAmount = lovelaceValueOf 1000
 
-stateIsInitial :: OnChain.HydraState -> Bool
+stateIsInitial :: OnChain.State -> Bool
 stateIsInitial = \case
   OnChain.Initial{} -> True
   _ -> False
 
-stateIsOpen :: OnChain.HydraState -> Bool
+stateIsOpen :: OnChain.State -> Bool
 stateIsOpen = \case
   OnChain.Open{} -> True
   _ -> False
 
-hasTwoTxOuts :: OnChain.HydraState -> Bool
+hasTwoTxOuts :: OnChain.State -> Bool
 hasTwoTxOuts = \case
   OnChain.Open committedOutputs -> length committedOutputs == 2
   _ -> False
 
-stateIsFinal :: OnChain.HydraState -> Bool
+stateIsFinal :: OnChain.State -> Bool
 stateIsFinal = \case
   OnChain.Final{} -> True
   _ -> False
@@ -155,7 +159,7 @@ selectOne =
 
 setupWallet ::
   Wallet ->
-  Trace.EmulatorTrace (Trace.ContractHandle [OnChain.HydraState] OffChain.Schema ContractError)
+  Trace.EmulatorTrace (Trace.ContractHandle [OnChain.State] OffChain.Schema ContractError)
 setupWallet user = do
   h <- Trace.activateContractWallet user contract
   Trace.callEndpoint @"setupForTesting" h (vk user, replicate 10 fixtureAmount)

@@ -41,7 +41,7 @@ instance ContractModel HydraModel where
 
   data ContractInstanceKey HydraModel w schema err where
     -- | No party in a Hydra Head is privileged
-    HeadParty :: Wallet -> ContractInstanceKey HydraModel [OnChain.HydraState] OffChain.Schema ContractError
+    HeadParty :: Wallet -> ContractInstanceKey HydraModel [OnChain.State] OffChain.Schema ContractError
 
   arbitraryAction _ = pure (Init w1)
   initialState = HydraModel Nothing
@@ -60,8 +60,13 @@ instanceSpec = [ContractInstanceSpec (HeadParty w) w hydraContract | w <- wallet
   testPolicy :: MonetaryPolicy
   testPolicy = OnChain.hydraMonetaryPolicy 42
 
-  hydraContract :: Contract [OnChain.HydraState] OffChain.Schema ContractError ()
-  hydraContract = OffChain.contract testPolicy (map (pubKeyHash . walletPubKey) wallets)
+  hydraContract :: Contract [OnChain.State] OffChain.Schema ContractError ()
+  hydraContract = OffChain.contract headParameters
+   where
+    headParameters =
+      OffChain.mkHeadParameters
+        (map (pubKeyHash . walletPubKey) wallets)
+        testPolicy
 
 prop_HydraOCV :: Actions HydraModel -> Property
 prop_HydraOCV = propRunActions_ instanceSpec

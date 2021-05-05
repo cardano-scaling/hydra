@@ -1,3 +1,4 @@
+{-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeApplications #-}
@@ -5,8 +6,10 @@
 
 module Hydra.Contract.OnChain where
 
+import Ledger
+import PlutusTx.Prelude
+
 import Data.Aeson (ToJSON)
-import Ledger hiding (out, value)
 import Ledger.Ada (lovelaceValueOf)
 import Ledger.Constraints (checkScriptContext)
 import Ledger.Constraints.TxConstraints (
@@ -17,41 +20,23 @@ import Ledger.Constraints.TxConstraints (
   mustProduceAtLeast,
   mustSpendAtLeast,
   mustSpendPubKeyOutput,
+  mustSpendScriptOutput,
  )
-import Ledger.Typed.Scripts (ScriptType (DatumType, RedeemerType))
-import qualified Ledger.Typed.Scripts as Scripts
+import Ledger.Credential (Credential (..))
+import Ledger.Typed.Scripts (ScriptType (..))
 import Ledger.Value (TokenName (..))
-import qualified Ledger.Value as Value
 import PlutusPrelude (Generic, (>=>))
-import qualified PlutusTx
 import PlutusTx.AssocMap (Map)
-import qualified PlutusTx.AssocMap as Map
 import PlutusTx.IsData.Class (IsData (..))
-import PlutusTx.Prelude hiding (remainder)
 
-{- HLINT ignore "Use &&" -}
+import qualified Ledger.Typed.Scripts as Scripts
+import qualified Ledger.Value as Value
+import qualified PlutusTx
+import qualified PlutusTx.AssocMap as Map
 
 --
--- State-Machine
+-- Head Parameters
 --
-
-data HydraState
-  = Initial [PubKeyHash]
-  | Open [TxOut]
-  | Final
-  deriving stock (Generic, Show)
-  deriving anyclass (ToJSON)
-
-PlutusTx.makeLift ''HydraState
-PlutusTx.unstableMakeIsData ''HydraState
-
-data HydraInput
-  = CollectCom
-  | Abort
-  deriving (Generic, Show)
-
-PlutusTx.makeLift ''HydraInput
-PlutusTx.unstableMakeIsData ''HydraInput
 
 data HeadParameters = HeadParameters
   { participants :: [PubKeyHash]
@@ -60,37 +45,82 @@ data HeadParameters = HeadParameters
 
 PlutusTx.makeLift ''HeadParameters
 
-hydraValidator ::
-  HeadParameters ->
-  HydraState ->
-  HydraInput ->
-  ScriptContext ->
-  Bool
-hydraValidator params s i tx =
-  case (s, i) of
-    (Initial vks, CollectCom) ->
-      and
-        [ mustCollectCommits tx params Nothing
-        , mustIncludeAllHeadMembers vks params
-        ]
-    (Initial vks, Abort) ->
-      and
-        [ mustAbort tx params Nothing
-        , mustIncludeAllHeadMembers vks params
-        ]
-    _ -> False
+--
+-- Hydra State-Machine
+--
+
+data State
+  = Initial
+  | Open [TxOut]
+  | Final
+  deriving stock (Generic, Show)
+  deriving anyclass (ToJSON)
+
+PlutusTx.makeLift ''State
+PlutusTx.unstableMakeIsData ''State
+
+data Transition
+  = CollectCom
+  | Abort
+  deriving (Generic, Show)
+
+PlutusTx.makeLift ''Transition
+PlutusTx.unstableMakeIsData ''Transition
 
 data Hydra
-
 instance Scripts.ScriptType Hydra where
-  type DatumType Hydra = HydraState
-  type RedeemerType Hydra = HydraInput
+  type DatumType Hydra = State
+  type RedeemerType Hydra = Transition
+
+hydraValidator ::
+  HeadParameters ->
+  State ->
+  Transition ->
+  ScriptContext ->
+  Bool
+hydraValidator HeadParameters{participants, policyId} s i ctx =
+  case (s, i) of
+    (Initial, CollectCom) ->
+      let collectComUtxos =
+            snd <$> filterInputs (hasParticipationToken policyId) ctx
+          committedOutputs =
+            mapMaybe decodeCommit collectComUtxos
+          newState =
+            Open committedOutputs
+          amountPaid =
+            foldMap txOutValue collectComUtxos
+       in and
+            [ mustBeSignedByOneOf participants ctx
+            , all (mustForwardParticipationToken ctx policyId) participants
+            , checkScriptContext @(RedeemerType Hydra) @(DatumType Hydra)
+                (mustPayToTheScript newState amountPaid)
+                ctx
+            ]
+    (Initial, Abort) ->
+      let newState =
+            Final
+          amountPaid =
+            lovelaceValueOf 0
+       in and
+            [ mustBeSignedByOneOf participants ctx
+            , all (mustBurnParticipationToken ctx policyId) participants
+            , checkScriptContext @(RedeemerType Hydra) @(DatumType Hydra)
+                (mustPayToTheScript newState amountPaid)
+                ctx
+            ]
+    _ ->
+      False
+ where
+  decodeCommit =
+    txOutDatumHash
+      >=> (`findDatum` scriptContextTxInfo ctx)
+      >=> (fromData @(DatumType Commit) . getDatum)
 
 {- ORMOLU_DISABLE -}
-hydra
+hydraScriptInstance
   :: HeadParameters
   -> Scripts.ScriptInstance Hydra
-hydra params = Scripts.validator @Hydra
+hydraScriptInstance params = Scripts.validator @Hydra
     ( $$(PlutusTx.compile [|| hydraValidator ||])
       `PlutusTx.applyCode` PlutusTx.liftCode params
     )
@@ -99,61 +129,21 @@ hydra params = Scripts.validator @Hydra
         wrap = Scripts.wrapValidator @(DatumType Hydra) @(RedeemerType Hydra)
 {- ORMOLU_ENABLE -}
 
-hydraAddress :: HeadParameters -> Address
-hydraAddress = Scripts.scriptAddress . hydra
-
-hydraHash :: HeadParameters -> ValidatorHash
-hydraHash = Scripts.scriptHash . hydra
-{-# INLINEABLE hydraHash #-}
-
-mkStateOpen :: [TxOut] -> HydraState
-mkStateOpen = Open
-{-# INLINEABLE mkStateOpen #-}
+hydraValidatorHash :: HeadParameters -> ValidatorHash
+hydraValidatorHash = Scripts.scriptHash . hydraScriptInstance
+{-# INLINEABLE hydraValidatorHash #-}
 
 --
--- Participation Tokens
+-- Initial Validator
 --
 
-type CurrencyId = Integer -- TODO: This should ultimately be a TxOutRef
+data Initial
+instance Scripts.ScriptType Initial where
+  type DatumType Initial = PubKeyHash
+  type RedeemerType Initial = TxOutRef
 
-validateHydraMonetaryPolicy :: CurrencyId -> ScriptContext -> Bool
-validateHydraMonetaryPolicy _ _ = True
-
-{- ORMOLU_DISABLE -}
-hydraMonetaryPolicy :: CurrencyId -> MonetaryPolicy
-hydraMonetaryPolicy currencyId = mkMonetaryPolicyScript $
-    $$(PlutusTx.compile
-      [||Scripts.wrapMonetaryPolicy . validateHydraMonetaryPolicy||])
-      `PlutusTx.applyCode` PlutusTx.liftCode currencyId
-{- ORMOLU_ENABLE -}
-
-hydraMonetaryPolicyHash :: CurrencyId -> MonetaryPolicyHash
-hydraMonetaryPolicyHash = monetaryPolicyHash . hydraMonetaryPolicy
-
---
--- initial
---
-
--- | The Validator 'initial' ensures the following: either the output
--- is consumed by
---
--- 1. an SM abort transaction, identified by:
---    (a) Burning all participation tokens of all participants
--- 2. a commit transaction, identified by:
---    (a) Having validator 'commit' in its only output
---    (b) A signature that verifies as valid with verification key k_i
---    (c) The presence of a single participation token in outputs
---
--- TODO: According to the paper, this should also enforce that the transaction
--- only have a single output. Not only is this not possible to express with the
--- current 'TxConstraints' API, but also is this quite unpractical. In fact,
--- wallets will have to balance a transaction for fee, using extra inputs and
--- causing in most cases, a resulting change output.
---
--- I'd like therefore to challenge that 'single output' constraint with the
--- researchers. IMO, It would suffice to pay a certain amount to the commit
--- script, so long as this amount corresponds exactly to the balance of the UTxO
--- committed.
+-- | The Validator 'initial' ensures that the input is consumed by a commit or
+-- an abort transaction.
 initialValidator ::
   HeadParameters ->
   ValidatorHash ->
@@ -162,50 +152,57 @@ initialValidator ::
   TxOutRef ->
   ScriptContext ->
   Bool
-initialValidator params hydraScript commitScript vk ref tx =
+initialValidator HeadParameters{policyId} hydraScript commitScript vk ref ctx =
   consumedByCommit || consumedByAbort
  where
-  consumedByAbort =
-    mustAbort tx params (Just hydraScript)
-
+  -- A commit transaction, identified by:
+  --    (a) A signature that verifies as valid with verification key defined as datum
+  --    (b) Spending a UTxO also referenced as redeemer.
+  --    (c) Having the commit validator in its only output, with a valid
+  --        participation token for the associated key, and the total value of the
+  --        committed UTxO.
   consumedByCommit =
-    mustCommitUtxo tx params commitScript (vk, ref)
+    case findUtxo ref ctx of
+      Nothing ->
+        False
+      Just utxo ->
+        let commitDatum = asDatum @(DatumType Commit) (snd utxo)
+            commitValue = txOutValue (snd utxo) <> mkParticipationToken policyId vk
+         in checkScriptContext @(RedeemerType Initial) @(DatumType Initial)
+              ( mconcat
+                  [ mustBeSignedBy vk
+                  , mustSpendPubKeyOutput (fst utxo)
+                  , mustPayToOtherScript commitScript commitDatum commitValue
+                  ]
+              )
+              ctx
 
-data Initial
-
-instance Scripts.ScriptType Initial where
-  type DatumType Initial = PubKeyHash
-  type RedeemerType Initial = TxOutRef
+  consumedByAbort =
+    mustRunContract hydraScript Abort ctx
 
 {- ORMOLU_DISABLE -}
-initial
+initialScriptInstance
   :: HeadParameters
   -> Scripts.ScriptInstance Initial
-initial policyId = Scripts.validator @Initial
+initialScriptInstance policyId = Scripts.validator @Initial
   ($$(PlutusTx.compile [|| initialValidator ||])
       `PlutusTx.applyCode` PlutusTx.liftCode policyId
-      `PlutusTx.applyCode` PlutusTx.liftCode (hydraHash policyId)
-      `PlutusTx.applyCode` PlutusTx.liftCode (commitHash policyId)
+      `PlutusTx.applyCode` PlutusTx.liftCode (hydraValidatorHash policyId)
+      `PlutusTx.applyCode` PlutusTx.liftCode (commitValidatorHash policyId)
   )
   $$(PlutusTx.compile [|| wrap ||])
  where
   wrap = Scripts.wrapValidator @(DatumType Initial) @(RedeemerType Initial)
 {- ORMOLU_ENABLE -}
 
-initialAddress :: HeadParameters -> Address
-initialAddress = Scripts.scriptAddress . initial
-
-initialHash :: HeadParameters -> ValidatorHash
-initialHash = Scripts.scriptHash . initial
-{-# INLINEABLE initialHash #-}
-
-initialRedeemer :: TxOutRef -> Redeemer
-initialRedeemer = asRedeemer . toData
-{-# INLINEABLE initialRedeemer #-}
-
 --
--- commit
+-- Commit Validator
 --
+
+data Commit
+instance Scripts.ScriptType Commit where
+  type DatumType Commit = TxOut
+  type RedeemerType Commit = ()
 
 -- |  To lock outputs for a Hydra head, the ith head member will attach a commit
 -- transaction to the i-th output of the initial transaction.
@@ -220,160 +217,159 @@ initialRedeemer = asRedeemer . toData
 -- and makeUTxO stores pairs (out-ref_j , o_j) of outputs o_j with the
 -- corresponding output reference out-ref_j .
 commitValidator ::
-  HeadParameters ->
   ValidatorHash ->
-  -- | Datum: The output to store
   TxOut ->
-  -- | Redeemer: Unused
   () ->
   ScriptContext ->
   Bool
-commitValidator params hydraScript out () tx =
+commitValidator hydraScript committedOut () ctx =
   consumedByCollectCom || consumedByAbort
  where
-  consumedByAbort =
-    mustAbort tx params (Just hydraScript) && mustReimburse tx out
   consumedByCollectCom =
-    mustCollectCommits tx params (Just hydraScript)
+    mustRunContract hydraScript CollectCom ctx
 
-data Commit
-
-instance Scripts.ScriptType Commit where
-  type DatumType Commit = TxOut
-  type RedeemerType Commit = ()
+  consumedByAbort =
+    and
+      [ mustRunContract hydraScript Abort ctx
+      , mustReimburse committedOut ctx
+      ]
 
 {- ORMOLU_DISABLE -}
-commit
+commitScriptInstance
   :: HeadParameters
   -> Scripts.ScriptInstance Commit
-commit params = Scripts.validator @Commit
+commitScriptInstance params = Scripts.validator @Commit
   ($$(PlutusTx.compile [|| commitValidator ||])
-    `PlutusTx.applyCode` PlutusTx.liftCode params
-    `PlutusTx.applyCode` PlutusTx.liftCode (hydraHash params)
+    `PlutusTx.applyCode` PlutusTx.liftCode (hydraValidatorHash params)
   )
   $$(PlutusTx.compile [|| wrap ||])
  where
   wrap = Scripts.wrapValidator @(DatumType Commit) @(RedeemerType Commit)
 {- ORMOLU_ENABLE -}
 
-commitAddress :: HeadParameters -> Address
-commitAddress = Scripts.scriptAddress . commit
+commitValidatorHash :: HeadParameters -> ValidatorHash
+commitValidatorHash = Scripts.scriptHash . commitScriptInstance
+{-# INLINEABLE commitValidatorHash #-}
 
-commitHash :: HeadParameters -> ValidatorHash
-commitHash = Scripts.scriptHash . commit
-{-# INLINEABLE commitHash #-}
+--
+-- Monetary Policy
+--
 
-commitDatum :: TxOut -> Datum
-commitDatum = asDatum
-{-# INLINEABLE commitDatum #-}
+-- For the sake of simplicity in testing and whatnot, we currently 'fake' the
+-- currencyId with an Integer chosen by a fair dice roll. In practice, we really
+-- want this to a 'TxOutRef' so we can get actual guarantees from the ledger
+-- about this being unique.
+type CurrencyId = Integer
 
-commitRedeemer :: Redeemer
-commitRedeemer = asRedeemer ()
-{-# INLINEABLE commitRedeemer #-}
+-- The validator is parameterized by the public keys of the participants, as well
+-- as a reference to a particular UTxO. A minting transaction will be considered
+-- valid if it is able to spend that UTxO (automatically ensuring that minting
+-- can only happen *once*).
+--
+-- What it not necessarily transparent here is that, the on-chain code is really
+-- made of the curried function 'ScriptContext -> Bool', after the first parameter
+-- has been partially applied. This is similar to what is called 'closures' in
+-- some languages. Fundamentally, the parameter 'CurrencyId' is embedded within the
+-- policy and is part of the on-chain code itself!
+validateMonetaryPolicy ::
+  CurrencyId ->
+  ScriptContext ->
+  Bool
+validateMonetaryPolicy _outRef _ctx =
+  validateMinting || validateBurning
+ where
+  -- FIXME
+  validateBurning =
+    True
+
+  -- TODO: In practice, we would do:
+  --
+  --     let constraints = mustSpendPubKeyOutput outRef
+  --      in checkScriptContext @() @() constraints ctx
+  validateMinting =
+    True
+
+hydraMonetaryPolicy ::
+  CurrencyId ->
+  MonetaryPolicy
+hydraMonetaryPolicy outRef =
+  mkMonetaryPolicyScript $
+    $$(PlutusTx.compile [||Scripts.wrapMonetaryPolicy . validateMonetaryPolicy||])
+      `PlutusTx.applyCode` PlutusTx.liftCode outRef
 
 --
 -- Helpers
 --
 
+-- | This function can be rather unsafe and should *always* be used with a type
+-- annotation to avoid silly mistakes and hours of debugging.
+--
+-- So prefer:
+--
+-- >>> asDatum @(DatumType MyContract) val
+--
+-- over
+--
+-- >>> asDatum val
+--
+-- A 'Datum' is an opaque type, and type information is lost when turning into a
+-- a 'Data'. Hence, various functions of the Plutus Tx framework that rely on
+-- 'Datum' or 'Redeemer' are basically stringly-typed function with no guarantee
+-- whatsoever that the 'IsData a' being passed will correspond to what's
+-- expected by the underlying script. So, save you some hours of debugging and
+-- always explicitly specify the source type when using this function,
+-- preferably using the data-family from the 'ScriptType' instance.
+asDatum :: IsData a => a -> Datum
+asDatum = Datum . toData
+{-# INLINEABLE asDatum #-}
+
+-- | Always use with explicit type-annotation, See warnings on 'asDatum'.
+asRedeemer :: IsData a => a -> Redeemer
+asRedeemer = Redeemer . toData
+{-# INLINEABLE asRedeemer #-}
+
 mustBeSignedByOneOf ::
-  ScriptContext ->
   [PubKeyHash] ->
+  ScriptContext ->
   Bool
-mustBeSignedByOneOf tx vks =
-  or ((`checkScriptContext` tx) . mustBeSignedBy @() @() <$> vks)
+mustBeSignedByOneOf vks ctx =
+  or ((`checkScriptContext` ctx) . mustBeSignedBy @() @() <$> vks)
 {-# INLINEABLE mustBeSignedByOneOf #-}
 
-mustIncludeAllHeadMembers ::
-  [PubKeyHash] ->
-  HeadParameters ->
-  Bool
-mustIncludeAllHeadMembers vks (HeadParameters vks' _) =
-  all (`elem` vks) vks' && all (`elem` vks') vks
-{-# INLINEABLE mustIncludeAllHeadMembers #-}
-
-mustCommitUtxo ::
+mustReimburse ::
+  TxOut ->
   ScriptContext ->
-  HeadParameters ->
-  ValidatorHash ->
-  (PubKeyHash, TxOutRef) ->
   Bool
-mustCommitUtxo tx (HeadParameters _ policyId) commitScript (vk, ref) =
-  case findUtxo ref tx of
-    Just utxo ->
-      checkScriptContext @(RedeemerType Initial) @(DatumType Initial)
-        ( mconcat
-            [ mustBeSignedBy vk
-            , mustSpendPubKeyOutput (fst utxo)
-            , mustPayToOtherScript
-                commitScript
-                (commitDatum (snd utxo))
-                (txOutValue (snd utxo) <> mkParticipationToken policyId vk)
-            ]
-        )
-        tx
+mustReimburse txOut =
+  elem txOut . txInfoOutputs . scriptContextTxInfo
+{-# INLINEABLE mustReimburse #-}
+
+mustRunContract ::
+  forall redeemer.
+  (IsData redeemer) =>
+  ValidatorHash ->
+  redeemer ->
+  ScriptContext ->
+  Bool
+mustRunContract script redeemer ctx =
+  case findContractInput script ctx of
     Nothing ->
       False
-{-# INLINEABLE mustCommitUtxo #-}
-
--- | We are certain that all stored outputs are reproduced into a collectCom
--- transaction, by checking that all paticipation tokens are forwarded and that
--- all individual stored outputs are in the resulting datum
-mustCollectCommits ::
-  ScriptContext ->
-  HeadParameters ->
-  Maybe ValidatorHash ->
-  Bool
-mustCollectCommits tx (HeadParameters vks policyId) maybeHydraScript =
-  and
-    [ mustBeSignedByOneOf tx vks
-    , all (mustForwardParticipationToken tx policyId) vks
-    , checkScriptContext @(RedeemerType Hydra) @(DatumType Hydra)
-        ( case maybeHydraScript of
-            Just hydraScript -> mustPayToOtherScript hydraScript (asDatum st) amount
-            Nothing -> mustPayToTheScript st amount
+    Just contractRef ->
+      checkScriptContext @() @()
+        ( mconcat
+            [ mustSpendScriptOutput contractRef (asRedeemer redeemer)
+            ]
         )
-        tx
-    ]
- where
-  st = Open storedOutputs
-
-  storedOutputs = mapMaybe decodeStoredOutput commitOutputs
-
-  commitOutputs = snd <$> filterInputs (hasParticipationToken policyId) tx
-
-  txInfo = scriptContextTxInfo tx
-
-  decodeStoredOutput = txOutDatumHash >=> (`findDatum` txInfo) >=> (fromData . getDatum)
-
-  amount = foldMap txOutValue commitOutputs
-{-# INLINEABLE mustCollectCommits #-}
-
-mustAbort ::
-  ScriptContext ->
-  HeadParameters ->
-  Maybe ValidatorHash ->
-  Bool
-mustAbort tx (HeadParameters vks policyId) maybeHydraScript =
-  let st = Final
-      amount = lovelaceValueOf 0
-   in and
-        [ mustBeSignedByOneOf tx vks
-        , all (mustBurnParticipationToken tx policyId) vks
-        , checkScriptContext @HydraInput @HydraState
-            ( case maybeHydraScript of
-                Just hydraScript -> mustPayToOtherScript hydraScript (asDatum st) amount
-                Nothing -> mustPayToTheScript st amount
-            )
-            tx
-        ]
-{-# INLINEABLE mustAbort #-}
+        ctx
+{-# INLINEABLE mustRunContract #-}
 
 mustForwardParticipationToken ::
   ScriptContext ->
   MonetaryPolicyHash ->
   PubKeyHash ->
   Bool
-mustForwardParticipationToken tx policyId vk =
+mustForwardParticipationToken ctx policyId vk =
   let participationToken = mkParticipationToken policyId vk
    in checkScriptContext @() @()
         ( mconcat
@@ -381,7 +377,7 @@ mustForwardParticipationToken tx policyId vk =
             , mustProduceAtLeast participationToken
             ]
         )
-        tx
+        ctx
 {-# INLINEABLE mustForwardParticipationToken #-}
 
 mustBurnParticipationToken ::
@@ -389,28 +385,31 @@ mustBurnParticipationToken ::
   MonetaryPolicyHash ->
   PubKeyHash ->
   Bool
-mustBurnParticipationToken tx policyId vk =
+mustBurnParticipationToken ctx policyId vk =
   let assetName = mkParticipationTokenName vk
-   in checkScriptContext @() @() (mustForgeCurrency policyId assetName (-1)) tx
+   in checkScriptContext @() @() (mustForgeCurrency policyId assetName (-1)) ctx
 {-# INLINEABLE mustBurnParticipationToken #-}
 
-mustReimburse ::
-  ScriptContext ->
-  TxOut ->
-  Bool
-mustReimburse tx out =
-  elem out . txInfoOutputs . scriptContextTxInfo $ tx
-{-# INLINEABLE mustReimburse #-}
-
-mkParticipationToken :: MonetaryPolicyHash -> PubKeyHash -> Value
+mkParticipationToken ::
+  MonetaryPolicyHash ->
+  PubKeyHash ->
+  Value
 mkParticipationToken policyId vk =
   Value.singleton (Value.mpsSymbol policyId) (mkParticipationTokenName vk) 1
 {-# INLINEABLE mkParticipationToken #-}
 
-mkParticipationTokenName :: PubKeyHash -> TokenName
+mkParticipationTokenName ::
+  PubKeyHash ->
+  TokenName
 mkParticipationTokenName =
   TokenName . getPubKeyHash
 {-# INLINEABLE mkParticipationTokenName #-}
+
+hasParticipationToken :: MonetaryPolicyHash -> TxInInfo -> Bool
+hasParticipationToken policyId input =
+  let currency = Value.mpsSymbol policyId
+   in currency `elem` symbols (txOutValue $ txInInfoResolved input)
+{-# INLINEABLE hasParticipationToken #-}
 
 filterInputs :: (TxInInfo -> Bool) -> ScriptContext -> [(TxOutRef, TxOut)]
 filterInputs predicate =
@@ -421,18 +420,25 @@ filterInputs predicate =
     | otherwise = Nothing
 {-# INLINEABLE filterInputs #-}
 
-hasParticipationToken :: MonetaryPolicyHash -> TxInInfo -> Bool
-hasParticipationToken policyId input =
-  let currency = Value.mpsSymbol policyId
-   in currency `elem` symbols (txOutValue $ txInInfoResolved input)
-{-# INLINEABLE hasParticipationToken #-}
-
 findUtxo :: TxOutRef -> ScriptContext -> Maybe (TxOutRef, TxOut)
-findUtxo ref tx =
-  case filterInputs (\input -> ref == txInInfoOutRef input) tx of
+findUtxo ref ctx =
+  case filterInputs (\input -> ref == txInInfoOutRef input) ctx of
     [utxo] -> Just utxo
     _ -> Nothing
 {-# INLINEABLE findUtxo #-}
+
+findContractInput :: ValidatorHash -> ScriptContext -> Maybe TxOutRef
+findContractInput script ctx =
+  case filterInputs (matchScript . txInInfoResolved) ctx of
+    [utxo] -> Just (fst utxo)
+    _ -> Nothing
+ where
+  matchScript :: TxOut -> Bool
+  matchScript txOut =
+    case txOutAddress txOut of
+      Address (ScriptCredential script') _ -> script == script'
+      _ -> False
+{-# INLINEABLE findContractInput #-}
 
 -- NOTE: Not using `Value.symbols` because it is broken. In fact, a 'Value' may
 -- carry null quantities of some particular tokens, leading to weird situation
@@ -456,11 +462,3 @@ symbols = foldr normalize [] . Map.toList . Value.getValue
       let elems = snd <$> Map.toList tokens
        in if sum elems == 0 then acc else currency : acc
 {-# INLINEABLE symbols #-}
-
-asDatum :: IsData a => a -> Datum
-asDatum = Datum . toData
-{-# INLINEABLE asDatum #-}
-
-asRedeemer :: IsData a => a -> Redeemer
-asRedeemer = Redeemer . toData
-{-# INLINEABLE asRedeemer #-}
