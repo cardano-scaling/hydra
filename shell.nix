@@ -22,6 +22,8 @@ let
   hls = haskell-nix.tool compiler "haskell-language-server" "latest";
   ghc = haskell-nix.compiler.${compiler};
   fourmolu = haskell-nix.tool compiler "fourmolu" "latest";
+  ghcid = pkgs.haskellPackages.ghcid ;
+  hspec-discover = pkgs.haskellPackages.hspec-discover ;
   libsodium-vrf = libsodium.overrideAttrs (oldAttrs: {
     name = "libsodium-1.0.18-vrf";
     src = fetchFromGitHub {
@@ -43,6 +45,8 @@ mkShell rec {
     fourmolu
     ghc
     hls
+    ghcid
+    hspec-discover
     # For discovering libs (below)
     pkgconfig
     # Used in local-cluster
