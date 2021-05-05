@@ -1,14 +1,14 @@
 module Main where
 
 import Cardano.Prelude
+
 import Hydra.Ledger (cardanoLedger)
 import qualified Hydra.Ledger.MaryTest as MaryTest
-import Hydra.Logic (HeadParameters (..), SnapshotStrategy (..), createHeadState)
-import Hydra.Node
+import Hydra.Node (createHydraNode, runHydraNode)
 
 main :: IO ()
 main = do
-  createHydraNode headState ledger >>= runHydraNode
+  createHydraNode ledger >>= runHydraNode
  where
   ledger = cardanoLedger defaultEnv
 
