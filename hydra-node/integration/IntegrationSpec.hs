@@ -3,17 +3,15 @@
 module IntegrationSpec where
 
 import Cardano.Prelude
-import Hydra.Node (HydraNode (..), createHydraNode, handleCommand, runHydraNode)
-
+import Control.Concurrent.STM.TChan
 import Hydra.Ledger (Ledger (..), LedgerState, ValidationError (..), ValidationResult (Invalid, Valid))
-import Hydra.Logic (ClientRequest (..), LogicError)
+import Hydra.Logic (ClientRequest (..), Event (OnChainEvent), OnChainTx)
+import Hydra.Node (EventQueue (..), HydraNode (..), OnChain (..), createHydraNode, handleCommand, runHydraNode)
 import Test.Hspec (
   Spec,
   describe,
   expectationFailure,
   it,
-  pendingWith,
-  shouldBe,
   shouldReturn,
  )
 
@@ -21,27 +19,28 @@ spec :: Spec
 spec = describe "Integrating one ore more hydra-nodes" $ do
   describe "Sanity tests of test suite" $ do
     it "is Ready when started" $ do
-      n <- startHydraNode
+      n <- createTestChain >>= startHydraNode
       queryNodeState n `shouldReturn` Ready
 
     it "is NotReady when stopped" $ do
-      n <- startHydraNode
+      n <- createTestChain >>= startHydraNode
       stopHydraNode n
       queryNodeState n `shouldReturn` NotReady
 
   describe "Hydra node integration" $ do
     it "does accept Init command" $ do
-      n <- startHydraNode
+      n <- createTestChain >>= startHydraNode
       sendCommand n Init `shouldReturn` ()
 
     it "does accept commits after successful Init" $ do
-      n <- startHydraNode
+      n <- createTestChain >>= startHydraNode
       sendCommand n Init
       sendCommand n Commit
 
     it "does accept a tx after the head is opened between many nodes" $ do
-      n1 <- startHydraNode
-      n2 <- startHydraNode
+      chain <- createTestChain
+      n1 <- startHydraNode chain
+      n2 <- startHydraNode chain
       sendCommand n1 Init
       sendCommand n1 Commit
       -- The second node can only commit after having observed the 'Init'
@@ -59,10 +58,20 @@ data HydraProcess m = HydraProcess
   , queryNodeState :: m NodeState
   }
 
-startHydraNode :: IO (HydraProcess IO)
-startHydraNode = do
+createTestChain :: IO (TChan OnChainTx)
+createTestChain = newTChanIO
+
+startHydraNode :: TChan OnChainTx -> IO (HydraProcess IO)
+startHydraNode channel = do
+  newChannel <- atomically $ dupTChan channel
   node <- testHydraNode
-  nodeThread <- async $ forever $ runHydraNode node
+  void $
+    async $
+      forever $ do
+        tx <- atomically (readTChan newChannel)
+        putEvent (eq node) (OnChainEvent tx)
+  let testNode = node{oc = OnChain{postTx = atomically . writeTChan channel}}
+  nodeThread <- async $ forever $ runHydraNode testNode
   pure
     HydraProcess
       { stopHydraNode = cancel nodeThread
@@ -71,7 +80,7 @@ startHydraNode = do
             Nothing -> pure Ready
             Just _ -> pure NotReady
       , sendCommand =
-          handleCommand node >=> \case
+          handleCommand testNode >=> \case
             Right () -> pure ()
             Left _ -> expectationFailure "sendCommand failed"
       }
