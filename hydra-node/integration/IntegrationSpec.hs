@@ -3,7 +3,7 @@
 module IntegrationSpec where
 
 import Cardano.Prelude
-import Control.Concurrent.STM (TVar, modifyTVar, newTVarIO, readTVarIO)
+import Control.Concurrent.STM (modifyTVar, newTVarIO, readTVarIO)
 import Hydra.Ledger (Ledger (..), LedgerState, ValidationError (..), ValidationResult (Invalid, Valid))
 import Hydra.Logic (ClientRequest (..), Event (OnChainEvent))
 import Hydra.Node (EventQueue (..), HydraNode (..), OnChain (..), createHydraNode, handleCommand, runHydraNode)
@@ -58,14 +58,18 @@ data HydraProcess m = HydraProcess
   , queryNodeState :: m NodeState
   }
 
-simulatedChain :: IO (TVar [EventQueue m (Event MockTx)])
-simulatedChain = newTVarIO []
+simulatedChain :: IO (HydraNode MockTx IO -> IO (OnChain IO))
+simulatedChain = do
+  queues <- newTVarIO []
+  pure $ \HydraNode{eq} -> do
+    atomically $ modifyTVar queues (eq :)
+    pure $ OnChain{postTx = \tx -> readTVarIO queues >>= mapM_ (`putEvent` OnChainEvent tx)}
 
-startHydraNode :: TVar [EventQueue IO (Event MockTx)] -> IO (HydraProcess IO)
-startHydraNode queues = do
-  node@HydraNode{eq} <- testHydraNode
-  atomically $ modifyTVar queues (eq :)
-  let testNode = node{oc = OnChain{postTx = \tx -> readTVarIO queues >>= mapM_ (`putEvent` OnChainEvent tx)}}
+startHydraNode :: (HydraNode MockTx IO -> IO (OnChain IO)) -> IO (HydraProcess IO)
+startHydraNode connectToChain = do
+  node <- testHydraNode
+  cc <- connectToChain node
+  let testNode = node{oc = cc}
   nodeThread <- async $ forever $ runHydraNode testNode
   pure
     HydraProcess
