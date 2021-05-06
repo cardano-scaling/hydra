@@ -27,7 +27,6 @@ import Test.Hspec (
   expectationFailure,
   it,
   shouldBe,
-  shouldNotBe,
   shouldReturn,
   shouldSatisfy,
  )
@@ -38,7 +37,7 @@ spec = describe "Hydra Node business logic" $ do
     hh <- createHydraHead InitState mockLedger
     res <- init (expectOnChain InitTx) hh (expectClientSide AcceptingTx)
     res `shouldBe` Right ()
-    queryHeadState hh >>= shouldNotBe InitState
+    queryHeadState hh >>= shouldBe InitState
 
   it "does send transactions received from client onto the network" $ do
     hh <- createHydraHead (OpenState $ SimpleHead.mkState ()) mockLedger
