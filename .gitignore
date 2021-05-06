@@ -19,3 +19,5 @@ result*
 
 ### hydra-node ###
 .history
+*.hi
+*.o

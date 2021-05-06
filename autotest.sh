@@ -40,6 +40,10 @@ FLAGS=$(echo "
     -XTypeOperators
     -XTypeSynonymInstances
     -XViewPatterns
+    -fno-ignore-interface-pragmas
+    -fno-omit-interface-pragmas  
+    -fplugin-opt PlutusTx.Plugin:defer-errors
+    -fobject-code                    
     -Wall
     -Wcompat
     -Widentities
@@ -51,10 +55,10 @@ FLAGS=$(echo "
 
 # List all hspec modules in the given packages and turn those into something
 # that can be put into a Haskell list
-SPECS=$(git ls-files 'hydra-model/**/*Spec.hs' 'hydra-node/**/*Spec.hs' | \
+SPECS=$(git ls-files  'hydra-node/**/*Spec.hs'  'hydra-plutus/**/*Spec.hs' | \
           sed -e 's/^[^A-Z]*\(.*\)\.hs$/\1/' | sed 'y=/=.=' | sed -e 's/$/.spec/' | tr -s '\012' ',' | sed -e 's/,$//' )
 
-COMMAND="cabal exec ghci -- -ihydra-model/src -ihydra-model/test -ihydra-node/src -ihydra-node/test $FLAGS $(git ls-files 'hydra-model/**/*.hs' 'hydra-node/**/*.hs' | grep -v Main.hs| tr -s '\012' ' ')"
+COMMAND="cabal exec ghci -- -ihydra-plutus/src -ihydra-plutus/test -ihydra-node/src -ihydra-node/test $FLAGS $(git ls-files 'hydra-node/**/*.hs'  'hydra-plutus/**/*.hs' | grep -v Main.hs| tr -s '\012' ' ')"
 
 exec ghcid -c "$COMMAND" --restart=autotest.sh --restart=cabal.project \
-     -T "mapM_ Test.Hspec.hspec [$SPECS]"
+    -T "Control.Monad.mapM_ Test.Hspec.hspec [$SPECS]"
