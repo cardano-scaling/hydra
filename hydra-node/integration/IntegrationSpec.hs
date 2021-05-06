@@ -51,9 +51,7 @@ startHydraNode = do
           poll nodeThread >>= \case
             Nothing -> pure Ready
             Just _ -> pure NotReady
-      , sendCommand = \case
-          Init -> init oc hh cs
-          _ -> panic "Not implemented"
+      , sendCommand = handleCommand node
       }
  where
   testHydraNode :: IO (HydraNode MockTx IO)

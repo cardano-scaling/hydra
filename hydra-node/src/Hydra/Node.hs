@@ -19,6 +19,7 @@ import Control.Monad.Class.MonadTimer (threadDelay)
 import Hydra.Ledger
 import Hydra.Logic (
   ClientInstruction (..),
+  ClientRequest (..),
   Effect (ClientEffect, ErrorEffect, NetworkEffect, OnChainEffect, Wait),
   Event (NetworkEvent, OnChainEvent),
   HeadParameters (..),
@@ -39,6 +40,15 @@ data HydraNode tx m = HydraNode
   , oc :: OnChain m
   , cs :: ClientSide m
   }
+
+handleCommand ::
+  MonadThrow m =>
+  HydraNode tx m ->
+  ClientRequest tx ->
+  m (Either (LogicError tx) ())
+handleCommand HydraNode{hh, oc, cs} = \case
+  Init -> init oc hh cs
+  _ -> panic "Not implemented"
 
 createHydraNode ::
   Show (LedgerState tx) => -- TODO(SN): leaky abstraction of HydraHead
