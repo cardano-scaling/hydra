@@ -84,8 +84,7 @@ library
     Network.TypedProtocol.FireForget.Client
     Network.TypedProtocol.FireForget.Server
   build-depends:
-      async
-    , base
+      base
     , cardano-ledger-shelley-ma
     , cardano-ledger-shelley-ma-test
     , cardano-slotting
@@ -96,7 +95,6 @@ library
     , ouroboros-network-framework
     , shelley-spec-ledger
     , shelley-spec-ledger-test
-    , repline
     , safe-exceptions
     , stm
     , typed-protocols

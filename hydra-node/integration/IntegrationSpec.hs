@@ -3,7 +3,7 @@
 module IntegrationSpec where
 
 import Cardano.Prelude
-import Hydra.Node (HydraNode (..), createHydraNode, handleCommand, init, runHydraNode)
+import Hydra.Node (HydraNode (..), createHydraNode, handleCommand, runHydraNode)
 
 import Hydra.Ledger (Ledger (..), LedgerState, ValidationError (..), ValidationResult (Invalid, Valid))
 import Hydra.Logic (ClientRequest (Init), LogicError)

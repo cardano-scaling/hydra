@@ -4,7 +4,7 @@ import Cardano.Prelude
 
 import Hydra.Ledger (cardanoLedger)
 import qualified Hydra.Ledger.MaryTest as MaryTest
-import Hydra.Node (createHydraNode, runHydraNode)
+import Hydra.Node (HydraNode, createHydraNode, runHydraNode)
 
 main :: IO ()
 main = do

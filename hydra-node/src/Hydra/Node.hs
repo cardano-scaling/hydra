@@ -31,7 +31,6 @@ import Hydra.Logic (
  )
 import qualified Hydra.Logic as Logic
 import qualified Hydra.Logic.SimpleHead as SimpleHead
-import System.Console.Repline (CompleterStyle (Word0), ExitDecision (Exit), evalRepl)
 
 data HydraNode tx m = HydraNode
   { eq :: EventQueue m (Event tx)
@@ -50,22 +49,15 @@ handleCommand HydraNode{hh, oc, cs} = \case
   Init -> init oc hh cs
   _ -> panic "Not implemented"
 
-createHydraNode ::
-  Show (LedgerState tx) => -- TODO(SN): leaky abstraction of HydraHead
-  Show tx =>
-  Ledger tx ->
-  IO (HydraNode tx IO)
+createHydraNode :: Ledger tx -> IO (HydraNode tx IO)
 createHydraNode ledger = do
   eq <- createEventQueue
   hh <- createHydraHead headState ledger
   oc <- createChainClient eq
   hn <- createHydraNetwork eq
-  -- TODO(SN): factor out repl thread
-  cs <- createClientSideRepl oc hh hn loadTx
+  cs <- createClientSide
   pure $ HydraNode eq hn hh oc cs
  where
-  loadTx fp = panic $ "should load and decode a tx from " <> show fp
-
   headState = Logic.createHeadState [] HeadParameters SnapshotStrategy
 
 runHydraNode ::
@@ -285,51 +277,16 @@ newtype ClientSide m = ClientSide
   { showInstruction :: ClientInstruction -> m ()
   }
 
--- | A simple command line based read-eval-process-loop (REPL) to have a chat
--- with the Hydra node.
---
--- NOTE(SN): This clashes a bit when other parts of the node do log things, but
--- spreading \r and >>> all over the place is likely not what we want
-createClientSideRepl ::
-  Show (LedgerState tx) => -- TODO(SN): leaky abstraction of HydraHead
-  Show tx =>
-  OnChain IO ->
-  HydraHead tx IO ->
-  HydraNetwork IO ->
-  (FilePath -> IO tx) ->
-  IO (ClientSide IO)
-createClientSideRepl oc hh hn loadTx = do
-  link =<< async runRepl
+-- | A simple client side implementation which shows instructions on stdout.
+createClientSide :: IO (ClientSide IO)
+createClientSide = do
   pure cs
  where
   prettyInstruction = \case
     ReadyToCommit -> "Head initialized, commit funds to it using 'commit'"
     AcceptingTx -> "Head is open, now feed the hydra with your 'newtx'"
 
-  runRepl = evalRepl (const $ pure prompt) replCommand [] Nothing Nothing (Word0 replComplete) replInit (pure Exit)
-
   cs =
     ClientSide
-      { showInstruction = \ins -> putStrLn @Text $ "[ClientSide] " <> prettyInstruction ins
+      { showInstruction = \ins -> putText $ "[ClientSide] " <> prettyInstruction ins
       }
-
-  prompt = ">>> "
-
-  -- TODO(SN): avoid redundancy
-  commands = ["init", "commit", "newtx", "close", "contest"]
-
-  replCommand c
-    | c == "init" =
-      liftIO $
-        init oc hh cs >>= \case
-          Left e -> putStrLn @Text $ "You dummy.. " <> show e
-          Right _ -> pure ()
-    | c == "close" = liftIO $ close oc hh
-    -- c == "commit" =
-    | c == "newtx" = liftIO $ loadTx "hardcoded/file/path" >>= void . newTx hh hn
-    -- c == "contest" =
-    | otherwise = liftIO $ putStrLn @Text $ "Unknown command, use any of: " <> show commands
-
-  replComplete n = pure $ filter (n `isPrefixOf`) commands
-
-  replInit = liftIO $ putStrLn @Text "Welcome to the Hydra Node REPL, you can even use tab completion! (Ctrl+D to exit)"
