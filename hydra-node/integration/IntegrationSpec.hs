@@ -6,17 +6,19 @@ import Cardano.Prelude
 import Hydra.Node (HydraNode (..), createHydraNode, handleCommand, runHydraNode)
 
 import Hydra.Ledger (Ledger (..), LedgerState, ValidationError (..), ValidationResult (Invalid, Valid))
-import Hydra.Logic (ClientRequest (Init), LogicError)
+import Hydra.Logic (ClientRequest (..), LogicError)
 import Test.Hspec (
   Spec,
   describe,
+  expectationFailure,
   it,
-  shouldReturn, shouldBe, expectationFailure
+  pendingWith,
+  shouldBe,
+  shouldReturn,
  )
 
 spec :: Spec
 spec = describe "Integrating one ore more hydra-nodes" $ do
-  
   describe "Sanity tests of test suite" $ do
     it "is Ready when started" $ do
       n <- startHydraNode
@@ -31,18 +33,22 @@ spec = describe "Integrating one ore more hydra-nodes" $ do
     it "does accept Init command" $ do
       n <- startHydraNode
       sendCommand n Init `shouldReturn` ()
-      
-    it "does accept commits after successful Init" $
-      expectationFailure "not implemented"
-      
-    it "does accept commits after some other node initialized a head" $
-      pending "requires chain simulation" do
-        n1 <- startHydraNode
-        n2 <- startHydraNode
-        sendCommand n1 Init `shouldReturn` ()
-        expectationFailure "should commit on n2 here"
-        -- TODO(SN) sendCommand n2 Commit `shouldReturn` ()
-      
+
+    it "does accept commits after successful Init" $ do
+      n <- startHydraNode
+      sendCommand n Init
+      sendCommand n Commit
+
+    it "does accept a tx after the head is opened between many nodes" $ do
+      n1 <- startHydraNode
+      n2 <- startHydraNode
+      sendCommand n1 Init
+      sendCommand n1 Commit
+      -- The second node can only commit after having observed the 'Init'
+      -- transaction from the first node. We expect this commit to block until
+      -- that moment.
+      sendCommand n2 Commit
+      sendCommand n2 (NewTx ValidTx)
 
 data NodeState = NotReady | Ready
   deriving (Eq, Show)
@@ -64,9 +70,10 @@ startHydraNode = do
           poll nodeThread >>= \case
             Nothing -> pure Ready
             Just _ -> pure NotReady
-      , sendCommand = handleCommand node >=> \case
-          Right () -> pure ()
-          Left _ -> expectationFailure "sendCommand failed"
+      , sendCommand =
+          handleCommand node >=> \case
+            Right () -> pure ()
+            Left _ -> expectationFailure "sendCommand failed"
       }
  where
   testHydraNode :: IO (HydraNode MockTx IO)

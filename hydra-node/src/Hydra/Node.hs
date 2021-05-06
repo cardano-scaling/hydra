@@ -25,7 +25,7 @@ import Hydra.Logic (
   HeadParameters (..),
   HeadState (..),
   HydraMessage (AckSn, AckTx, ConfSn, ConfTx, ReqSn, ReqTx),
-  LogicError (InvalidState),
+  LogicError (..),
   OnChainTx (..),
   SnapshotStrategy (..),
  )
@@ -45,8 +45,13 @@ handleCommand ::
   HydraNode tx m ->
   ClientRequest tx ->
   m (Either (LogicError tx) ())
-handleCommand HydraNode{hh, oc, cs} = \case
+handleCommand HydraNode{hh, oc, cs, hn} = \case
   Init -> init oc hh cs
+  Commit -> pure (Right ())
+  NewTx tx ->
+    newTx hh hn tx <&> \case
+      Valid -> Right ()
+      Invalid{} -> Left (LedgerError ValidationError)
   _ -> panic "Not implemented"
 
 createHydraNode :: Ledger tx -> IO (HydraNode tx IO)
