@@ -4,7 +4,7 @@ module Hydra.Logic where
 
 import Cardano.Prelude
 
-import Hydra.Ledger (Ledger (Ledger, canApply), ValidationError, ValidationResult (Invalid, Valid))
+import Hydra.Ledger (Ledger (Ledger, canApply), ValidationError, ValidationResult (Invalid, Valid), initLedgerState)
 import qualified Hydra.Logic.SimpleHead as SimpleHead
 
 data Event tx
@@ -99,7 +99,10 @@ deriving instance (Show (HeadState tx), Show (Event tx)) => Show (LogicError tx)
 -- network events, one for client events and one for main chain events, or by
 -- sub-'State'.
 update :: Ledger tx -> HeadState tx -> Event tx -> (HeadState tx, Either (LogicError tx) [Effect tx])
-update Ledger{canApply} st ev = case (st, ev) of
+update Ledger{canApply, initLedgerState} st ev = case (st, ev) of
+  (InitState, OnChainEvent InitTx) ->
+    let initSt = SimpleHead.mkState initLedgerState
+     in (OpenState initSt, Right [])
   (OpenState st', ClientEvent (NewTx tx)) ->
     let ls = SimpleHead.confirmedLedger st'
      in case canApply ls tx of

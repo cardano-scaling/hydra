@@ -113,16 +113,9 @@ init ::
   ClientSide m ->
   m (Either (LogicError tx) ())
 init OnChain{postTx} HydraHead{modifyHeadState, ledger} ClientSide{showInstruction} = do
-  res <- modifyHeadState $ \s ->
-    case s of
-      InitState -> (Nothing, OpenState $ SimpleHead.mkState initLedgerState)
-      _ -> (Just $ InvalidState s, s)
-  case res of
-    Just e -> pure $ Left e
-    Nothing -> do
-      postTx InitTx
-      showInstruction AcceptingTx
-      pure $ Right ()
+  postTx InitTx
+  showInstruction AcceptingTx
+  pure $ Right ()
  where
   Ledger{initLedgerState} = ledger
 
@@ -261,7 +254,7 @@ createChainClient EventQueue{putEvent} = do
   simulatedPostTx tx = do
     putStrLn @Text $ "[OnChain] should post tx for " <> show tx
     let ma = case tx of
-          InitTx -> Nothing
+          InitTx -> Just InitTx
           CommitTx -> Just CollectComTx -- simulate other peer collecting
           CollectComTx -> Nothing
           CloseTx -> Just ContestTx -- simulate other peer contesting
