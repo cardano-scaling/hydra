@@ -1,7 +1,7 @@
 module Main where
 
 import Cardano.Prelude
-import qualified Hydra.ContractStateMachineSpec as ContractStateMachine
+import qualified Hydra.ContractStateMachineTest as ContractStateMachine
 import Test.Tasty
 
 main :: IO ()

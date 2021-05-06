@@ -1,6 +1,6 @@
 {-# LANGUAGE TemplateHaskell #-}
 
-module Hydra.ContractStateMachineSpec where
+module Hydra.ContractStateMachineTest where
 
 import Hydra.ContractStateMachine
 

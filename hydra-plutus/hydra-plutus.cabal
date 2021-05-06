@@ -106,7 +106,7 @@ test-suite hydra-plutus-test
   main-is: Main.hs
   hs-source-dirs: test
   other-modules:
-      Hydra.ContractStateMachineSpec
+      Hydra.ContractStateMachineTest
       Hydra.Utils
   build-depends:
       cardano-prelude -any,
