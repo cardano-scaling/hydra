@@ -112,12 +112,10 @@ init ::
   HydraHead tx m ->
   ClientSide m ->
   m (Either (LogicError tx) ())
-init OnChain{postTx} HydraHead{modifyHeadState, ledger} ClientSide{showInstruction} = do
+init OnChain{postTx} HydraHead{} ClientSide{showInstruction} = do
   postTx InitTx
   showInstruction AcceptingTx
   pure $ Right ()
- where
-  Ledger{initLedgerState} = ledger
 
 newTx :: Monad m => HydraHead tx m -> HydraNetwork m -> tx -> m ValidationResult
 newTx hh@HydraHead{ledger} HydraNetwork{broadcast} tx = do
