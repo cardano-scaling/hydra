@@ -3,10 +3,10 @@
 module IntegrationSpec where
 
 import Cardano.Prelude
-import Hydra.Node (HydraNode, createHydraNode, runHydraNode)
+import Hydra.Node (HydraNode (..), createHydraNode, init, runHydraNode)
 
 import Hydra.Ledger (Ledger (..), LedgerState, ValidationError (..), ValidationResult (Invalid, Valid))
-import Hydra.Logic (ClientRequest (Init))
+import Hydra.Logic (ClientRequest (Init), LogicError)
 import Test.Hspec (
   Spec,
   describe,
@@ -29,20 +29,21 @@ spec = describe "Integration tests" $ do
   describe "Hydra node integration" $ do
     it "does accept Init command" $ do
       n <- startHydraNode
-      sendCommand n Init
+      sendCommand n Init `shouldReturn` Right ()
 
 data NodeState = NotReady | Ready
   deriving (Eq, Show)
 
 data HydraProcess m = HydraProcess
   { stopHydraNode :: m ()
-  , sendCommand :: ClientRequest MockTx -> m ()
+  , sendCommand :: ClientRequest MockTx -> m (Either (LogicError MockTx) ())
   , queryNodeState :: m NodeState
   }
 
 startHydraNode :: IO (HydraProcess IO)
 startHydraNode = do
-  nodeThread <- async $ forever $ testHydraNode >>= runHydraNode
+  node@HydraNode{hh, oc, cs} <- testHydraNode
+  nodeThread <- async $ forever $ runHydraNode node
   pure
     HydraProcess
       { stopHydraNode = cancel nodeThread
@@ -50,7 +51,9 @@ startHydraNode = do
           poll nodeThread >>= \case
             Nothing -> pure Ready
             Just _ -> pure NotReady
-      , sendCommand = panic "not implemented"
+      , sendCommand = \case
+          Init -> init oc hh cs
+          _ -> panic "Not implemented"
       }
  where
   testHydraNode :: IO (HydraNode MockTx IO)
