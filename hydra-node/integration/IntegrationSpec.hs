@@ -11,11 +11,12 @@ import Test.Hspec (
   Spec,
   describe,
   it,
-  shouldReturn,
+  shouldReturn, shouldBe, expectationFailure
  )
 
 spec :: Spec
-spec = describe "Integration tests" $ do
+spec = describe "Integrating one ore more hydra-nodes" $ do
+  
   describe "Sanity tests of test suite" $ do
     it "is Ready when started" $ do
       n <- startHydraNode
@@ -29,14 +30,22 @@ spec = describe "Integration tests" $ do
   describe "Hydra node integration" $ do
     it "does accept Init command" $ do
       n <- startHydraNode
-      sendCommand n Init `shouldReturn` Right ()
+      sendCommand n Init `shouldReturn` ()
+      
+    it "does accept commits after some other node initialized a head" $ do
+      n1 <- startHydraNode
+      n2 <- startHydraNode
+      sendCommand n1 Init `shouldReturn` ()
+      expectationFailure "should commit on n2 here"
+      -- TODO(SN) sendCommand n2 Commit `shouldReturn` ()
+      
 
 data NodeState = NotReady | Ready
   deriving (Eq, Show)
 
 data HydraProcess m = HydraProcess
   { stopHydraNode :: m ()
-  , sendCommand :: ClientRequest MockTx -> m (Either (LogicError MockTx) ())
+  , sendCommand :: ClientRequest MockTx -> m ()
   , queryNodeState :: m NodeState
   }
 
@@ -51,7 +60,9 @@ startHydraNode = do
           poll nodeThread >>= \case
             Nothing -> pure Ready
             Just _ -> pure NotReady
-      , sendCommand = handleCommand node
+      , sendCommand = handleCommand node >=> \case
+          Right () -> pure ()
+          Left _ -> expectationFailure "sendCommand failed"
       }
  where
   testHydraNode :: IO (HydraNode MockTx IO)

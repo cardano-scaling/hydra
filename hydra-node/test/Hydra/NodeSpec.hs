@@ -33,8 +33,8 @@ import Test.Hspec (
  )
 
 spec :: Spec
-spec = describe "Hydra Node" $ do
-  it "does something" $ do
+spec = describe "Hydra Node business logic" $ do
+  it "does initialize a Head" $ do
     hh <- createHydraHead InitState mockLedger
     res <- init (expectOnChain InitTx) hh (expectClientSide AcceptingTx)
     res `shouldBe` Right ()
