@@ -32,12 +32,16 @@ spec = describe "Integrating one ore more hydra-nodes" $ do
       n <- startHydraNode
       sendCommand n Init `shouldReturn` ()
       
-    it "does accept commits after some other node initialized a head" $ do
-      n1 <- startHydraNode
-      n2 <- startHydraNode
-      sendCommand n1 Init `shouldReturn` ()
-      expectationFailure "should commit on n2 here"
-      -- TODO(SN) sendCommand n2 Commit `shouldReturn` ()
+    it "does accept commits after successful Init" $
+      expectationFailure "not implemented"
+      
+    it "does accept commits after some other node initialized a head" $
+      pending "requires chain simulation" do
+        n1 <- startHydraNode
+        n2 <- startHydraNode
+        sendCommand n1 Init `shouldReturn` ()
+        expectationFailure "should commit on n2 here"
+        -- TODO(SN) sendCommand n2 Commit `shouldReturn` ()
       
 
 data NodeState = NotReady | Ready
