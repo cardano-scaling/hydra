@@ -11,9 +11,7 @@ import System.Timeout (timeout)
 import Test.Hspec (
   Spec,
   describe,
-  expectationFailure,
   it,
-  shouldBe,
   shouldReturn,
  )
 
@@ -45,22 +43,22 @@ spec = describe "Integrating one ore more hydra-nodes" $ do
       n2 <- startHydraNode chain
 
       sendRequest n1 Init
-      waitForResponse n1 ReadyToCommit
+      waitForResponse n1 `shouldReturn` ReadyToCommit
       sendRequest n1 Commit
 
-      waitForResponse n2 ReadyToCommit
+      waitForResponse n2 `shouldReturn` ReadyToCommit
       sendRequest n2 Commit
-      waitForResponse n2 HeadIsOpen
+      waitForResponse n2 `shouldReturn` HeadIsOpen
       sendRequest n2 (NewTx ValidTx)
 
     it "does not accept commits when the head is open" $ do
       n1 <- simulatedChain >>= startHydraNode
       sendRequest n1 Init
-      waitForResponse n1 ReadyToCommit
+      waitForResponse n1 `shouldReturn` ReadyToCommit
       sendRequest n1 Commit
-      waitForResponse n1 HeadIsOpen
+      waitForResponse n1 `shouldReturn` HeadIsOpen
       sendRequest n1 Commit
-      waitForResponse n1 CommandFailed
+      waitForResponse n1 `shouldReturn` CommandFailed
 
 data NodeState = NotReady | Ready
   deriving (Eq, Show)
@@ -68,8 +66,8 @@ data NodeState = NotReady | Ready
 data HydraProcess m = HydraProcess
   { stopHydraNode :: m ()
   , sendRequest :: ClientRequest MockTx -> m ()
-  , -- | Wait for given 'ClientResponse' up to one second.
-    waitForResponse :: ClientResponse -> m ()
+  , -- | Wait for next 'ClientResponse' up to one second.
+    waitForResponse :: m ClientResponse
   , queryNodeState :: m NodeState
   }
 
@@ -96,10 +94,10 @@ startHydraNode connectToChain = do
             Nothing -> pure Ready
             Just _ -> pure NotReady
       , sendRequest = handleClientRequest node
-      , waitForResponse = \expected -> do
-          let action = takeMVar response >>= \actual -> actual `shouldBe` expected
+      , waitForResponse = do
+          let action = takeMVar response
           timeout 1_000_000 action
-            >>= maybe (expectationFailure $ "Timed out while waiting for " <> show expected) pure
+            >>= maybe (panic "Timed out while waiting for ClientResponse") pure
       }
  where
   testHydraNode :: IO (HydraNode MockTx IO)
