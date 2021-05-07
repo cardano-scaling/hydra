@@ -88,7 +88,7 @@ handleNextEvent ::
   HydraHead tx m ->
   Event tx ->
   m (Maybe (LogicError tx))
-handleNextEvent HydraNetwork{broadcast} OnChain{postTx} ClientSide{showInstruction} HydraHead{modifyHeadState, ledger} e = do
+handleNextEvent HydraNetwork{broadcast} OnChain{postTx} ClientSide{sendResponse} HydraHead{modifyHeadState, ledger} e = do
   result <- modifyHeadState $ \s ->
     case Logic.update ledger s e of
       NewState s' effects -> (Right effects, s')
@@ -97,7 +97,7 @@ handleNextEvent HydraNetwork{broadcast} OnChain{postTx} ClientSide{showInstructi
     Left err -> pure $ Just err
     Right out -> do
       forM_ out $ \case
-        ClientEffect i -> showInstruction i
+        ClientEffect i -> sendResponse i
         NetworkEffect msg -> broadcast msg
         OnChainEffect tx -> postTx tx
         Wait _cont -> panic "TODO: wait and reschedule continuation" -- TODO(SN) also this is not forced
@@ -263,7 +263,7 @@ createChainClient EventQueue{putEvent} =
 --
 
 newtype ClientSide m = ClientSide
-  { showInstruction :: ClientResponse -> m ()
+  { sendResponse :: ClientResponse -> m ()
   }
 
 -- | A simple client side implementation which shows instructions on stdout.
@@ -271,11 +271,12 @@ createClientSide :: IO (ClientSide IO)
 createClientSide =
   pure cs
  where
-  prettyInstruction = \case
+  prettyResponse = \case
     ReadyToCommit -> "Head initialized, commit funds to it using 'commit'"
-    AcceptingTx -> "Head is open, now feed the hydra with your 'newtx'"
+    HeadIsOpen -> "Head is open, now feed the hydra with your 'newtx'"
+    CommandFailed -> "A command failed! Which one you ask? ..nobody knows."
 
   cs =
     ClientSide
-      { showInstruction = \ins -> putText $ "[ClientSide] " <> prettyInstruction ins
+      { sendResponse = \ins -> putText $ "[ClientSide] " <> prettyResponse ins
       }

@@ -31,7 +31,8 @@ data ClientRequest tx
 
 data ClientResponse
   = ReadyToCommit
-  | AcceptingTx
+  | HeadIsOpen
+  | CommandFailed
   deriving (Eq, Show)
 
 data HydraMessage
@@ -115,7 +116,7 @@ update Ledger{canApply, initLedgerState} st ev = case (st, ev) of
     let initSt = SimpleHead.mkState initLedgerState
      in NewState (OpenState initSt) [ClientEffect ReadyToCommit]
   (os@OpenState{}, ClientEvent Commit) ->
-    NewState os [ClientEffect AcceptingTx]
+    NewState os [ClientEffect HeadIsOpen]
   (OpenState st', ClientEvent (NewTx tx)) ->
     let ls = SimpleHead.confirmedLedger st'
      in case canApply ls tx of

@@ -50,8 +50,17 @@ spec = describe "Integrating one ore more hydra-nodes" $ do
 
       waitForResponse n2 ReadyToCommit
       sendRequest n2 Commit
-      waitForResponse n2 AcceptingTx
+      waitForResponse n2 HeadIsOpen
       sendRequest n2 (NewTx ValidTx)
+
+    it "does not accept commits when the head is open" $ do
+      n1 <- simulatedChain >>= startHydraNode
+      sendRequest n1 Init
+      waitForResponse n1 ReadyToCommit
+      sendRequest n1 Commit
+      waitForResponse n1 HeadIsOpen
+      sendRequest n1 Commit
+      waitForResponse n1 CommandFailed
 
 data NodeState = NotReady | Ready
   deriving (Eq, Show)
@@ -76,7 +85,7 @@ startHydraNode connectToChain = do
   node <- testHydraNode
   cc <- connectToChain node
   response <- newEmptyMVar
-  let testNode = node{oc = cc, cs = ClientSide{showInstruction = putMVar response}}
+  let testNode = node{oc = cc, cs = ClientSide{sendResponse = putMVar response}}
   nodeThread <- async $ runHydraNode testNode
   link nodeThread
   pure
