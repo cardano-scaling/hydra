@@ -237,7 +237,7 @@ createClientSide =
     ReadyToCommit -> "Head initialized, commit funds to it using 'commit'"
     HeadIsOpen -> "Head is open, now feed the hydra with your 'newtx'"
     CommandFailed -> "A command failed! Which one you ask? ..nobody knows."
-
+    HeadIsClosed -> "Head is closed, please contest if unhappy."
   cs =
     ClientSide
       { sendResponse = \ins -> putText $ "[ClientSide] " <> prettyResponse ins
