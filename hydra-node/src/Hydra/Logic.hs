@@ -20,7 +20,6 @@ data Effect tx
   | -- | Wait effect should be interpreted as a non-blocking interruption which
     -- retries on every state changes until the continuation returns Just{}.
     Wait (HeadState tx -> Maybe (HeadState tx, [Effect tx]))
-  | ErrorEffect (LogicError tx) -- NOTE(SN): this feels weird, maybe an Either on the 'update' fits better
 
 data ClientRequest tx
   = Init
@@ -94,24 +93,25 @@ data LogicError tx
 deriving instance (Eq (HeadState tx), Eq (Event tx)) => Eq (LogicError tx)
 deriving instance (Show (HeadState tx), Show (Event tx)) => Show (LogicError tx)
 
+data Outcome tx
+  = NewState (HeadState tx) [Effect tx]
+  | Error (LogicError tx)
+
 -- | The heart of the Hydra head logic, a handler of all kinds of 'Event' in the
 -- Hydra head. This may also be split into multiple handlers, i.e. one for hydra
 -- network events, one for client events and one for main chain events, or by
 -- sub-'State'.
-update :: Ledger tx -> HeadState tx -> Event tx -> (HeadState tx, Either (LogicError tx) [Effect tx])
+update :: Ledger tx -> HeadState tx -> Event tx -> Outcome tx
 update Ledger{canApply, initLedgerState} st ev = case (st, ev) of
   (InitState, OnChainEvent InitTx) ->
     let initSt = SimpleHead.mkState initLedgerState
-     in (OpenState initSt, Right [])
+     in NewState (OpenState initSt) []
   (OpenState st', ClientEvent (NewTx tx)) ->
     let ls = SimpleHead.confirmedLedger st'
      in case canApply ls tx of
-          Valid -> (st, Right [NetworkEffect ReqTx])
-          Invalid err -> (st, Left $ LedgerError err)
-  (OpenState st', NetworkEvent ReqTx) ->
-    bimap OpenState (Right . map mapEffect) $
-      SimpleHead.update st' SimpleHead.ReqTxFromPeer
-  _ -> (st, Right [ErrorEffect $ InvalidEvent ev st])
+          Valid -> NewState st [NetworkEffect ReqTx]
+          Invalid err -> Error (LedgerError err)
+  _ -> Error (InvalidEvent ev st)
 
 -- NOTE: This three things needs to be polymorphic in the output eventually, likely a
 -- type-class with data-families for each sub-modules.

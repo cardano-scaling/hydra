@@ -20,13 +20,14 @@ import Hydra.Ledger
 import Hydra.Logic (
   ClientInstruction (..),
   ClientRequest (..),
-  Effect (ClientEffect, ErrorEffect, NetworkEffect, OnChainEffect, Wait),
+  Effect (ClientEffect, NetworkEffect, OnChainEffect, Wait),
   Event (NetworkEvent, OnChainEvent),
   HeadParameters (..),
   HeadState (..),
   HydraMessage (AckSn, AckTx, ConfSn, ConfTx, ReqSn, ReqTx),
   LogicError (..),
   OnChainTx (..),
+  Outcome (Error, NewState),
   SnapshotStrategy (..),
  )
 import qualified Hydra.Logic as Logic
@@ -60,13 +61,13 @@ createHydraNode ledger = do
   hh <- createHydraHead headState ledger
   oc <- createChainClient eq
   hn <- createHydraNetwork eq
-  cs <- createClientSide
-  pure $ HydraNode eq hn hh oc cs
+  HydraNode eq hn hh oc <$> createClientSide
  where
   headState = Logic.createHeadState [] HeadParameters SnapshotStrategy
 
 runHydraNode ::
   MonadThrow m =>
+  MonadIO m =>
   Show (LedgerState tx) => -- TODO(SN): leaky abstraction of HydraHead
   Show tx =>
   HydraNode tx m ->
@@ -76,7 +77,9 @@ runHydraNode HydraNode{eq, hn, oc, cs, hh} =
   -- something like 'forM_ [0..1] $ async'
   forever $ do
     e <- nextEvent eq
-    handleNextEvent hn oc cs hh e
+    handleNextEvent hn oc cs hh e >>= \case
+      Just err -> putText $ "runHydraNode ERROR: " <> show err
+      _ -> pure ()
 
 --
 -- General handlers of client commands or events.
@@ -84,8 +87,6 @@ runHydraNode HydraNode{eq, hn, oc, cs, hh} =
 
 -- | Monadic interface around 'Hydra.Logic.update'.
 handleNextEvent ::
-  Show (LedgerState tx) => -- TODO(SN): leaky abstraction of HydraHead
-  Show tx =>
   MonadThrow m =>
   HydraNetwork m ->
   OnChain m ->
@@ -94,7 +95,10 @@ handleNextEvent ::
   Event tx ->
   m (Maybe (LogicError tx))
 handleNextEvent HydraNetwork{broadcast} OnChain{postTx} ClientSide{showInstruction} HydraHead{modifyHeadState, ledger} e = do
-  result <- modifyHeadState $ \s -> swap $ Logic.update ledger s e
+  result <- modifyHeadState $ \s ->
+    case Logic.update ledger s e of
+      NewState s' effects -> (Right effects, s')
+      Error err -> (Left err, s)
   case result of
     Left err -> pure $ Just err
     Right out -> do
@@ -102,8 +106,7 @@ handleNextEvent HydraNetwork{broadcast} OnChain{postTx} ClientSide{showInstructi
         ClientEffect i -> showInstruction i
         NetworkEffect msg -> broadcast msg
         OnChainEffect tx -> postTx tx
-        Wait _cont -> panic "TODO: wait and reschedule continuation"
-        ErrorEffect ie -> panic $ "TODO: handle this error: " <> show ie
+        Wait _cont -> panic "TODO: wait and reschedule continuation" -- TODO(SN) also this is not forced
       pure Nothing
 
 init ::
@@ -124,7 +127,7 @@ newTx hh@HydraHead{ledger} HydraNetwork{broadcast} tx = do
     Nothing -> panic "TODO: Not in OpenState"
     Just confirmedLedger ->
       case canApply ledger confirmedLedger tx of
-        Valid -> do
+        Valid ->
           broadcast ReqTx $> Valid
         invalid ->
           return invalid
@@ -187,7 +190,7 @@ queryHeadState = (`modifyHeadState` \s -> (s, s))
 
 putState :: HydraHead tx m -> HeadState tx -> m ()
 putState HydraHead{modifyHeadState} new =
-  modifyHeadState $ \_old -> ((), new)
+  modifyHeadState $ const ((), new)
 
 createHydraHead :: HeadState tx -> Ledger tx -> IO (HydraHead tx IO)
 createHydraHead initialState ledger = do
@@ -206,9 +209,7 @@ newtype HydraNetwork m = HydraNetwork
 
 -- | Connects to a configured set of peers and sets up the whole network stack.
 createHydraNetwork :: EventQueue IO (Event tx) -> IO (HydraNetwork IO)
-createHydraNetwork EventQueue{putEvent} = do
-  -- NOTE(SN): obviously we should connect to a known set of peers here and do
-  -- really broadcast messages to them
+createHydraNetwork EventQueue{putEvent} =
   pure HydraNetwork{broadcast = simulatedBroadcast}
  where
   simulatedBroadcast msg = do
@@ -244,9 +245,7 @@ newtype OnChain m = OnChain
 -- | Connects to a cardano node and sets up things in order to be able to
 -- construct actual transactions using 'OnChainTx' and send them on 'postTx'.
 createChainClient :: EventQueue IO (Event tx) -> IO (OnChain IO)
-createChainClient EventQueue{putEvent} = do
-  -- NOTE(SN): obviously we should construct and send transactions, e.g. using
-  -- plutus instead
+createChainClient EventQueue{putEvent} =
   pure OnChain{postTx = simulatedPostTx}
  where
   simulatedPostTx tx = do
@@ -275,7 +274,7 @@ newtype ClientSide m = ClientSide
 
 -- | A simple client side implementation which shows instructions on stdout.
 createClientSide :: IO (ClientSide IO)
-createClientSide = do
+createClientSide =
   pure cs
  where
   prettyInstruction = \case
