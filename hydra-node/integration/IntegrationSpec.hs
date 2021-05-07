@@ -5,8 +5,8 @@ module IntegrationSpec where
 import Cardano.Prelude
 import Control.Concurrent.STM (modifyTVar, newTVarIO, readTVarIO)
 import Hydra.Ledger (Ledger (..), LedgerState, ValidationError (..), ValidationResult (Invalid, Valid))
-import Hydra.Logic (ClientRequest (..), ClientResponse (..), Event (ClientEvent, OnChainEvent))
-import Hydra.Node (ClientSide (..), EventQueue (..), HydraNode (..), OnChain (..), createHydraNode, runHydraNode)
+import Hydra.Logic (ClientRequest (..), ClientResponse (..))
+import Hydra.Node (ClientSide (..), HydraNode (..), OnChain (..), createHydraNode, handleChainTx, handleClientRequest, runHydraNode)
 import System.Timeout (timeout)
 import Test.Hspec (
   Spec,
@@ -32,33 +32,33 @@ spec = describe "Integrating one ore more hydra-nodes" $ do
   describe "Hydra node integration" $ do
     it "does accept Init command" $ do
       n <- simulatedChain >>= startHydraNode
-      sendCommand n Init `shouldReturn` ()
+      sendRequest n Init `shouldReturn` ()
 
-    it "does accept commits after successful Init" $ do
+    it "does accept Commit after successful Init" $ do
       n <- simulatedChain >>= startHydraNode
-      sendCommand n Init
-      sendCommand n Commit
+      sendRequest n Init
+      sendRequest n Commit
 
-    it "does accept a tx after the head is opened between many nodes" $ do
+    it "does accept a tx after the head was opened between two nodes" $ do
       chain <- simulatedChain
       n1 <- startHydraNode chain
       n2 <- startHydraNode chain
 
-      sendCommand n1 Init
+      sendRequest n1 Init
       waitForResponse n1 ReadyToCommit
-      sendCommand n1 Commit
+      sendRequest n1 Commit
 
       waitForResponse n2 ReadyToCommit
-      sendCommand n2 Commit
+      sendRequest n2 Commit
       waitForResponse n2 AcceptingTx
-      sendCommand n2 (NewTx ValidTx)
+      sendRequest n2 (NewTx ValidTx)
 
 data NodeState = NotReady | Ready
   deriving (Eq, Show)
 
 data HydraProcess m = HydraProcess
   { stopHydraNode :: m ()
-  , sendCommand :: ClientRequest MockTx -> m ()
+  , sendRequest :: ClientRequest MockTx -> m ()
   , -- | Wait for given 'ClientResponse' up to one second.
     waitForResponse :: ClientResponse -> m ()
   , queryNodeState :: m NodeState
@@ -66,14 +66,14 @@ data HydraProcess m = HydraProcess
 
 simulatedChain :: IO (HydraNode MockTx IO -> IO (OnChain IO))
 simulatedChain = do
-  queues <- newTVarIO []
-  pure $ \HydraNode{eq} -> do
-    atomically $ modifyTVar queues (eq :)
-    pure $ OnChain{postTx = \tx -> readTVarIO queues >>= mapM_ (`putEvent` OnChainEvent tx)}
+  nodes <- newTVarIO []
+  pure $ \n -> do
+    atomically $ modifyTVar nodes (n :)
+    pure $ OnChain{postTx = \tx -> readTVarIO nodes >>= mapM_ (`handleChainTx` tx)}
 
 startHydraNode :: (HydraNode MockTx IO -> IO (OnChain IO)) -> IO (HydraProcess IO)
 startHydraNode connectToChain = do
-  node@HydraNode{eq} <- testHydraNode
+  node <- testHydraNode
   cc <- connectToChain node
   response <- newEmptyMVar
   let testNode = node{oc = cc, cs = ClientSide{showInstruction = putMVar response}}
@@ -86,7 +86,7 @@ startHydraNode connectToChain = do
           poll nodeThread >>= \case
             Nothing -> pure Ready
             Just _ -> pure NotReady
-      , sendCommand = putEvent eq . ClientEvent
+      , sendRequest = handleClientRequest node
       , waitForResponse = \expected -> do
           let action = takeMVar response >>= \actual -> actual `shouldBe` expected
           timeout 1_000_000 action

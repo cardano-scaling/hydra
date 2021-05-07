@@ -21,7 +21,7 @@ import Hydra.Logic (
   ClientRequest (..),
   ClientResponse (..),
   Effect (ClientEffect, NetworkEffect, OnChainEffect, Wait),
-  Event (NetworkEvent, OnChainEvent),
+  Event (ClientEvent, NetworkEvent, OnChainEvent),
   HeadParameters (..),
   HeadState (..),
   HydraMessage (AckSn, AckTx, ConfSn, ConfTx, ReqSn, ReqTx),
@@ -41,19 +41,11 @@ data HydraNode tx m = HydraNode
   , cs :: ClientSide m
   }
 
-handleCommand ::
-  MonadThrow m =>
-  HydraNode tx m ->
-  ClientRequest tx ->
-  m (Either (LogicError tx) ())
-handleCommand HydraNode{hh, oc, cs, hn} = \case
-  Init -> init oc hh cs
-  Commit -> pure (Right ())
-  NewTx tx ->
-    newTx hh hn tx <&> \case
-      Valid -> Right ()
-      Invalid{} -> Left (LedgerError ValidationError)
-  _ -> panic "Not implemented"
+handleClientRequest :: HydraNode tx m -> ClientRequest tx -> m ()
+handleClientRequest HydraNode{eq} = putEvent eq . ClientEvent
+
+handleChainTx :: HydraNode tx m -> OnChainTx -> m ()
+handleChainTx HydraNode{eq} = putEvent eq . OnChainEvent
 
 createHydraNode :: Ledger tx -> IO (HydraNode tx IO)
 createHydraNode ledger = do
