@@ -47,7 +47,7 @@ data HydraMessage
 
 data OnChainTx
   = InitTx
-  | CommitTx
+  | CommitTx ParticipationToken
   | CollectComTx
   | CloseTx
   | ContestTx
@@ -62,6 +62,13 @@ data HeadState tx
 
 deriving instance Eq (SimpleHead.State tx) => Eq (HeadState tx)
 deriving instance Show (SimpleHead.State tx) => Show (HeadState tx)
+
+-- | Identifies the commit of a single party member
+data ParticipationToken = ParticipationToken
+  { totalTokens :: Natural
+  , thisToken :: Natural
+  }
+  deriving (Eq, Show)
 
 -- | Verification used to authenticate main chain transactions that are
 -- restricted to members of the Head protocol instance, i.e. the commit
@@ -100,6 +107,11 @@ data Outcome tx
   = NewState (HeadState tx) [Effect tx]
   | Error (LogicError tx)
 
+newtype Environment = Environment
+  { -- | This is the p_i from the paper
+    partyIndex :: Natural
+  }
+
 -- | The heart of the Hydra head logic, a handler of all kinds of 'Event' in the
 -- Hydra head. This may also be split into multiple handlers, i.e. one for hydra
 -- network events, one for client events and one for main chain events, or by
@@ -107,23 +119,24 @@ data Outcome tx
 update ::
   Show (LedgerState tx) =>
   Show tx =>
+  Environment ->
   Ledger tx ->
   HeadState tx ->
   Event tx ->
   Outcome tx
-update Ledger{initLedgerState} st ev = case (st, ev) of
+update _ Ledger{initLedgerState} st ev = case (st, ev) of
   (InitState, ClientEvent Init) ->
     NewState InitState [OnChainEffect InitTx]
   (InitState, OnChainEvent InitTx) ->
     NewState CollectingState [ClientEffect ReadyToCommit]
   --
   (CollectingState, ClientEvent Commit) ->
-    NewState CollectingState [OnChainEffect CommitTx]
-  (CollectingState, OnChainEvent CommitTx) ->
+    NewState CollectingState [OnChainEffect (CommitTx (panic "where is this comming from?"))]
+  (CollectingState, OnChainEvent CommitTx{}) ->
     let initSt = SimpleHead.mkState initLedgerState
      in NewState (OpenState initSt) [ClientEffect HeadIsOpen]
   --
-  (OpenState _, OnChainEvent CommitTx) ->
+  (OpenState _, OnChainEvent CommitTx{}) ->
     Error (InvalidEvent ev st) -- HACK(SN): is a general case later
   (OpenState{}, ClientEvent Close) ->
     NewState st [OnChainEffect CloseTx]

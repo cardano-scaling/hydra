@@ -90,7 +90,7 @@ handleNextEvent ::
   m (Maybe (LogicError tx))
 handleNextEvent HydraNetwork{broadcast} OnChain{postTx} ClientSide{sendResponse} HydraHead{modifyHeadState, ledger} e = do
   result <- modifyHeadState $ \s ->
-    case Logic.update ledger s e of
+    case Logic.update (Logic.Environment 1) ledger s e of
       NewState s' effects -> (Right effects, s')
       Error err -> (Left err, s)
   case result of
@@ -208,7 +208,7 @@ createChainClient EventQueue{putEvent} =
     putStrLn @Text $ "[OnChain] should post tx for " <> show tx
     let ma = case tx of
           InitTx -> Just InitTx
-          CommitTx -> Just CollectComTx -- simulate other peer collecting
+          CommitTx _ -> Just CollectComTx -- simulate other peer collecting
           CollectComTx -> Nothing
           CloseTx -> Just ContestTx -- simulate other peer contesting
           ContestTx -> Nothing
