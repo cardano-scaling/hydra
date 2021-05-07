@@ -170,7 +170,8 @@ test-suite integration
   main-is: Main.hs
   type: exitcode-stdio-1.0
   build-depends:
-      cardano-prelude
+      base
+    , cardano-prelude
     , hspec
     , hspec-core
     , hydra-node

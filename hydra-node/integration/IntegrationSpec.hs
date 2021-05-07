@@ -6,11 +6,13 @@ import Cardano.Prelude
 import Control.Concurrent.STM (modifyTVar, newTVarIO, readTVarIO)
 import Hydra.Ledger (Ledger (..), LedgerState, ValidationError (..), ValidationResult (Invalid, Valid))
 import Hydra.Logic (ClientRequest (..), ClientResponse (..), Event (ClientEvent, OnChainEvent))
-import Hydra.Node (EventQueue (..), HydraNode (..), OnChain (..), createHydraNode, runHydraNode)
+import Hydra.Node (ClientSide (..), EventQueue (..), HydraNode (..), OnChain (..), createHydraNode, runHydraNode)
+import System.Timeout (timeout)
 import Test.Hspec (
   Spec,
   describe,
   it,
+  shouldBe,
   shouldReturn,
  )
 
@@ -41,12 +43,18 @@ spec = describe "Integrating one ore more hydra-nodes" $ do
       n1 <- startHydraNode chain
       n2 <- startHydraNode chain
       sendCommand n1 Init
-      waitForResponse n1 ReadyToCommit
+      failAfter (Seconds 1) $ waitForResponse n1 ReadyToCommit
       sendCommand n1 Commit
       waitForResponse n2 ReadyToCommit
       sendCommand n2 Commit
       waitForResponse n2 AcceptingTx
       sendCommand n2 (NewTx ValidTx)
+
+newtype Seconds = Seconds Natural
+
+failAfter :: Seconds -> IO a -> IO a
+failAfter (Seconds seconds) action =
+  timeout (fromIntegral seconds * 1_000_000) action >>= maybe (panic $ "timed out after " <> show seconds <> "s") pure
 
 data NodeState = NotReady | Ready
   deriving (Eq, Show)
@@ -69,7 +77,8 @@ startHydraNode :: (HydraNode MockTx IO -> IO (OnChain IO)) -> IO (HydraProcess I
 startHydraNode connectToChain = do
   node@HydraNode{eq} <- testHydraNode
   cc <- connectToChain node
-  let testNode = node{oc = cc}
+  response <- newEmptyMVar
+  let testNode = node{oc = cc, cs = ClientSide{showInstruction = putMVar response}}
   nodeThread <- async $ forever $ runHydraNode testNode
   pure
     HydraProcess
@@ -79,7 +88,8 @@ startHydraNode connectToChain = do
             Nothing -> pure Ready
             Just _ -> pure NotReady
       , sendCommand = putEvent eq . ClientEvent
-      , waitForResponse = panic "not implemented"
+      , waitForResponse =
+          \expected -> takeMVar response >>= \actual -> actual `shouldBe` expected
       }
  where
   testHydraNode :: IO (HydraNode MockTx IO)
