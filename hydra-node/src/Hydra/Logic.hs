@@ -4,7 +4,7 @@ module Hydra.Logic where
 
 import Cardano.Prelude
 
-import Hydra.Ledger (Ledger (Ledger, canApply), LedgerState, ValidationError, ValidationResult (Invalid, Valid), initLedgerState)
+import Hydra.Ledger (Ledger (Ledger), LedgerState, ValidationError, initLedgerState)
 import qualified Hydra.Logic.SimpleHead as SimpleHead
 
 data Event tx
@@ -32,6 +32,7 @@ data ClientRequest tx
 data ClientResponse
   = ReadyToCommit
   | HeadIsOpen
+  | HeadIsClosed
   | CommandFailed
   deriving (Eq, Show)
 
@@ -110,38 +111,25 @@ update ::
   HeadState tx ->
   Event tx ->
   Outcome tx
-update Ledger{canApply, initLedgerState} st ev = case (st, ev) of
+update Ledger{initLedgerState} st ev = case (st, ev) of
   (InitState, ClientEvent Init) ->
     NewState InitState [OnChainEffect InitTx]
   (InitState, OnChainEvent InitTx) ->
     NewState CollectingState [ClientEffect ReadyToCommit]
+  --
   (CollectingState, ClientEvent Commit) ->
     NewState CollectingState [OnChainEffect CommitTx]
   (CollectingState, OnChainEvent CommitTx) ->
     let initSt = SimpleHead.mkState initLedgerState
      in NewState (OpenState initSt) [ClientEffect HeadIsOpen]
-  (OpenState st', ClientEvent (NewTx tx)) ->
-    let ls = SimpleHead.confirmedLedger st'
-     in case canApply ls tx of
-          Valid -> NewState st [NetworkEffect ReqTx]
-          Invalid err -> Error (LedgerError err)
+  --
+  (OpenState _, OnChainEvent CommitTx) ->
+    Error (InvalidEvent ev st) -- HACK(SN): is a general case later
+  (OpenState{}, ClientEvent Close) ->
+    NewState st [OnChainEffect CloseTx]
+  (OpenState _, OnChainEvent CloseTx) ->
+    NewState ClosedState [ClientEffect HeadIsClosed]
+  --
   (currentState, ClientEvent{}) ->
     NewState currentState [ClientEffect CommandFailed]
   _ -> panic $ "UNHANDLED EVENT: " <> show ev <> " in state " <> show st
-
--- NOTE: This three things needs to be polymorphic in the output eventually, likely a
--- type-class with data-families for each sub-modules.
-
-mapState :: HeadState tx -> Maybe (SimpleHead.State tx)
-mapState = \case
-  OpenState st' -> Just st'
-  _ -> Nothing
-
-mapEffect :: SimpleHead.Effect tx -> Effect tx
-mapEffect = \case
-  SimpleHead.MulticastReqTx -> NetworkEffect ReqTx
-  SimpleHead.MulticastReqSn -> NetworkEffect ReqSn
-  SimpleHead.MulticastConfTx -> NetworkEffect ConfTx
-  SimpleHead.SendAckTx -> NetworkEffect AckTx
-  SimpleHead.Wait continue ->
-    Wait $ mapState >=> fmap (bimap OpenState (map mapEffect)) . continue

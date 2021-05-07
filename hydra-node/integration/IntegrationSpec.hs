@@ -12,6 +12,8 @@ import Test.Hspec (
   Spec,
   describe,
   it,
+  pendingWith,
+  shouldNotBe,
   shouldReturn,
  )
 
@@ -28,37 +30,82 @@ spec = describe "Integrating one ore more hydra-nodes" $ do
       queryNodeState n `shouldReturn` NotReady
 
   describe "Hydra node integration" $ do
-    it "does accept Init command" $ do
+    it "accepts Init command" $ do
       n <- simulatedChain >>= startHydraNode
       sendRequest n Init `shouldReturn` ()
 
-    it "does accept Commit after successful Init" $ do
+    it "accepts Commit after successful Init" $ do
       n <- simulatedChain >>= startHydraNode
       sendRequest n Init
       sendRequest n Commit
 
-    it "does accept a tx after the head was opened between two nodes" $ do
+    it "accepts a tx after the head was opened between two nodes" $ do
       chain <- simulatedChain
       n1 <- startHydraNode chain
       n2 <- startHydraNode chain
 
       sendRequest n1 Init
-      waitForResponse n1 `shouldReturn` ReadyToCommit
+      waitForResponse n1 `shouldReturn` Just ReadyToCommit
       sendRequest n1 Commit
 
-      waitForResponse n2 `shouldReturn` ReadyToCommit
+      waitForResponse n2 `shouldReturn` Just ReadyToCommit
       sendRequest n2 Commit
-      waitForResponse n2 `shouldReturn` HeadIsOpen
+      waitForResponse n2 `shouldReturn` Just HeadIsOpen
       sendRequest n2 (NewTx ValidTx)
 
-    it "does not accept commits when the head is open" $ do
+    it "not accepts commits when the head is open" $ do
       n1 <- simulatedChain >>= startHydraNode
       sendRequest n1 Init
-      waitForResponse n1 `shouldReturn` ReadyToCommit
+      waitForResponse n1 `shouldReturn` Just ReadyToCommit
       sendRequest n1 Commit
-      waitForResponse n1 `shouldReturn` HeadIsOpen
+      waitForResponse n1 `shouldReturn` Just HeadIsOpen
       sendRequest n1 Commit
-      waitForResponse n1 `shouldReturn` CommandFailed
+      waitForResponse n1 `shouldReturn` Just CommandFailed
+
+    it "can close an open head" $ do
+      n1 <- simulatedChain >>= startHydraNode
+      sendRequest n1 Init
+      waitForResponse n1 `shouldReturn` Just ReadyToCommit
+      sendRequest n1 Commit
+      waitForResponse n1 `shouldReturn` Just HeadIsOpen
+      sendRequest n1 Close
+      waitForResponse n1 `shouldReturn` Just HeadIsClosed
+
+    it "sees the head closed by other nodes" $ do
+      chain <- simulatedChain
+      n1 <- startHydraNode chain
+      n2 <- startHydraNode chain
+
+      sendRequest n1 Init
+      waitForResponse n1 `shouldReturn` Just ReadyToCommit
+      sendRequest n1 Commit
+
+      waitForResponse n2 `shouldReturn` Just ReadyToCommit
+      sendRequest n2 Commit
+      waitForResponse n2 `shouldReturn` Just HeadIsOpen
+
+      waitForResponse n1 `shouldReturn` Just HeadIsOpen
+      sendRequest n1 Close
+
+      waitForResponse n2 `shouldReturn` Just HeadIsClosed
+
+    it "only opens the head after all nodes committed" $ do
+      pendingWith "requires a lot of fleshing out of init and collectCom"
+      chain <- simulatedChain
+      n1 <- startHydraNode chain
+      n2 <- startHydraNode chain
+
+      sendRequest n1 Init
+      waitForResponse n1 `shouldReturn` Just ReadyToCommit
+      sendRequest n1 Commit
+      waitForResponse n1 >>= (`shouldNotBe` Just HeadIsOpen)
+
+      waitForResponse n2 `shouldReturn` Just ReadyToCommit
+      sendRequest n2 Commit
+      waitForResponse n2 `shouldReturn` Just HeadIsOpen
+
+      -- Only now the head should be open for node 1
+      waitForResponse n1 `shouldReturn` Just HeadIsOpen
 
 data NodeState = NotReady | Ready
   deriving (Eq, Show)
@@ -66,8 +113,8 @@ data NodeState = NotReady | Ready
 data HydraProcess m = HydraProcess
   { stopHydraNode :: m ()
   , sendRequest :: ClientRequest MockTx -> m ()
-  , -- | Wait for next 'ClientResponse' up to one second.
-    waitForResponse :: m ClientResponse
+  , -- | Waits for one second max.
+    waitForResponse :: m (Maybe ClientResponse)
   , queryNodeState :: m NodeState
   }
 
@@ -94,10 +141,8 @@ startHydraNode connectToChain = do
             Nothing -> pure Ready
             Just _ -> pure NotReady
       , sendRequest = handleClientRequest node
-      , waitForResponse = do
-          let action = takeMVar response
-          timeout 1_000_000 action
-            >>= maybe (panic "Timed out while waiting for ClientResponse") pure
+      , waitForResponse =
+          timeout 1_000_000 $ takeMVar response
       }
  where
   testHydraNode :: IO (HydraNode MockTx IO)
