@@ -11,8 +11,8 @@ import Hydra.Ledger (Ledger (Ledger, canApply, initLedgerState), LedgerState, Va
 import qualified Hydra.Ledger.MaryTest as MaryTest
 import Hydra.LedgerSpec as LedgerSpec
 import Hydra.Logic (
-  ClientInstruction (..),
   ClientRequest (..),
+  ClientResponse (..),
   Event (..),
   HeadState (..),
   HydraMessage (..),
@@ -109,7 +109,7 @@ mockClientSide =
     { showInstruction = \x -> shouldNotBeCalled $ "showInstruction(" <> show x <> ")"
     }
 
-expectClientSide :: ClientInstruction -> ClientSide IO
+expectClientSide :: ClientResponse -> ClientSide IO
 expectClientSide ins =
   ClientSide
     { showInstruction = (`shouldBe` ins)

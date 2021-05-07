@@ -5,7 +5,7 @@ module IntegrationSpec where
 import Cardano.Prelude
 import Control.Concurrent.STM (modifyTVar, newTVarIO, readTVarIO)
 import Hydra.Ledger (Ledger (..), LedgerState, ValidationError (..), ValidationResult (Invalid, Valid))
-import Hydra.Logic (ClientRequest (..), Event (ClientEvent, OnChainEvent))
+import Hydra.Logic (ClientRequest (..), ClientResponse (..), Event (ClientEvent, OnChainEvent))
 import Hydra.Node (EventQueue (..), HydraNode (..), OnChain (..), createHydraNode, runHydraNode)
 import Test.Hspec (
   Spec,

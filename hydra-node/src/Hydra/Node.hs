@@ -18,8 +18,8 @@ import Control.Monad.Class.MonadAsync (async)
 import Control.Monad.Class.MonadTimer (threadDelay)
 import Hydra.Ledger
 import Hydra.Logic (
-  ClientInstruction (..),
   ClientRequest (..),
+  ClientResponse (..),
   Effect (ClientEffect, NetworkEffect, OnChainEffect, Wait),
   Event (NetworkEvent, OnChainEvent),
   HeadParameters (..),
@@ -269,7 +269,7 @@ createChainClient EventQueue{putEvent} =
 --
 
 newtype ClientSide m = ClientSide
-  { showInstruction :: ClientInstruction -> m ()
+  { showInstruction :: ClientResponse -> m ()
   }
 
 -- | A simple client side implementation which shows instructions on stdout.
