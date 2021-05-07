@@ -14,7 +14,7 @@ data Event tx
   deriving (Eq, Show)
 
 data Effect tx
-  = ClientEffect ClientInstruction
+  = ClientEffect ClientResponse
   | NetworkEffect HydraMessage
   | OnChainEffect OnChainTx
   | -- | Wait effect should be interpreted as a non-blocking interruption which
@@ -29,7 +29,7 @@ data ClientRequest tx
   | Contest
   deriving (Eq, Show)
 
-data ClientInstruction
+data ClientResponse
   = ReadyToCommit
   | AcceptingTx
   deriving (Eq, Show)

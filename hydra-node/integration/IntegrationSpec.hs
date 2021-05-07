@@ -41,11 +41,11 @@ spec = describe "Integrating one ore more hydra-nodes" $ do
       n1 <- startHydraNode chain
       n2 <- startHydraNode chain
       sendCommand n1 Init
+      waitForResponse n1 ReadyToCommit
       sendCommand n1 Commit
-      -- The second node can only commit after having observed the 'Init'
-      -- transaction from the first node. We expect this commit to block until
-      -- that moment.
+      waitForResponse n2 ReadyToCommit
       sendCommand n2 Commit
+      waitForResponse n2 AcceptingTx
       sendCommand n2 (NewTx ValidTx)
 
 data NodeState = NotReady | Ready
@@ -54,6 +54,7 @@ data NodeState = NotReady | Ready
 data HydraProcess m = HydraProcess
   { stopHydraNode :: m ()
   , sendCommand :: ClientRequest MockTx -> m ()
+  , waitForResponse :: ClientResponse -> m ()
   , queryNodeState :: m NodeState
   }
 
@@ -78,6 +79,7 @@ startHydraNode connectToChain = do
             Nothing -> pure Ready
             Just _ -> pure NotReady
       , sendCommand = putEvent eq . ClientEvent
+      , waitForResponse = panic "not implemented"
       }
  where
   testHydraNode :: IO (HydraNode MockTx IO)
