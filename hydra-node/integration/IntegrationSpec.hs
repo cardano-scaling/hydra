@@ -11,6 +11,7 @@ import System.Timeout (timeout)
 import Test.Hspec (
   Spec,
   describe,
+  expectationFailure,
   it,
   shouldBe,
   shouldReturn,
@@ -42,19 +43,15 @@ spec = describe "Integrating one ore more hydra-nodes" $ do
       chain <- simulatedChain
       n1 <- startHydraNode chain
       n2 <- startHydraNode chain
+
       sendCommand n1 Init
-      failAfter (Seconds 1) $ waitForResponse n1 ReadyToCommit
+      waitForResponse n1 ReadyToCommit
       sendCommand n1 Commit
+
       waitForResponse n2 ReadyToCommit
       sendCommand n2 Commit
       waitForResponse n2 AcceptingTx
       sendCommand n2 (NewTx ValidTx)
-
-newtype Seconds = Seconds Natural
-
-failAfter :: Seconds -> IO a -> IO a
-failAfter (Seconds seconds) action =
-  timeout (fromIntegral seconds * 1_000_000) action >>= maybe (panic $ "timed out after " <> show seconds <> "s") pure
 
 data NodeState = NotReady | Ready
   deriving (Eq, Show)
@@ -62,7 +59,8 @@ data NodeState = NotReady | Ready
 data HydraProcess m = HydraProcess
   { stopHydraNode :: m ()
   , sendCommand :: ClientRequest MockTx -> m ()
-  , waitForResponse :: ClientResponse -> m ()
+  , -- | Wait for given 'ClientResponse' up to one second.
+    waitForResponse :: ClientResponse -> m ()
   , queryNodeState :: m NodeState
   }
 
@@ -88,8 +86,10 @@ startHydraNode connectToChain = do
             Nothing -> pure Ready
             Just _ -> pure NotReady
       , sendCommand = putEvent eq . ClientEvent
-      , waitForResponse =
-          \expected -> takeMVar response >>= \actual -> actual `shouldBe` expected
+      , waitForResponse = \expected -> do
+          let action = takeMVar response >>= \actual -> actual `shouldBe` expected
+          timeout 1_000_000 action
+            >>= maybe (expectationFailure $ "Timed out while waiting for " <> show expected) pure
       }
  where
   testHydraNode :: IO (HydraNode MockTx IO)
