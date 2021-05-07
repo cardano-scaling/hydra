@@ -5,12 +5,11 @@ module IntegrationSpec where
 import Cardano.Prelude
 import Control.Concurrent.STM (modifyTVar, newTVarIO, readTVarIO)
 import Hydra.Ledger (Ledger (..), LedgerState, ValidationError (..), ValidationResult (Invalid, Valid))
-import Hydra.Logic (ClientRequest (..), Event (OnChainEvent))
-import Hydra.Node (EventQueue (..), HydraNode (..), OnChain (..), createHydraNode, handleCommand, runHydraNode)
+import Hydra.Logic (ClientRequest (..), Event (ClientEvent, OnChainEvent))
+import Hydra.Node (EventQueue (..), HydraNode (..), OnChain (..), createHydraNode, runHydraNode)
 import Test.Hspec (
   Spec,
   describe,
-  expectationFailure,
   it,
   shouldReturn,
  )
@@ -67,7 +66,7 @@ simulatedChain = do
 
 startHydraNode :: (HydraNode MockTx IO -> IO (OnChain IO)) -> IO (HydraProcess IO)
 startHydraNode connectToChain = do
-  node <- testHydraNode
+  node@HydraNode{eq} <- testHydraNode
   cc <- connectToChain node
   let testNode = node{oc = cc}
   nodeThread <- async $ forever $ runHydraNode testNode
@@ -78,10 +77,7 @@ startHydraNode connectToChain = do
           poll nodeThread >>= \case
             Nothing -> pure Ready
             Just _ -> pure NotReady
-      , sendCommand =
-          handleCommand testNode >=> \case
-            Right () -> pure ()
-            Left _ -> expectationFailure "sendCommand failed"
+      , sendCommand = putEvent eq . ClientEvent
       }
  where
   testHydraNode :: IO (HydraNode MockTx IO)
