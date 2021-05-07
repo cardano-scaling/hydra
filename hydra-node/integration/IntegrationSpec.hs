@@ -77,7 +77,8 @@ startHydraNode connectToChain = do
   cc <- connectToChain node
   response <- newEmptyMVar
   let testNode = node{oc = cc, cs = ClientSide{showInstruction = putMVar response}}
-  nodeThread <- async $ forever $ runHydraNode testNode
+  nodeThread <- async $ runHydraNode testNode
+  link nodeThread
   pure
     HydraProcess
       { stopHydraNode = cancel nodeThread

@@ -87,6 +87,8 @@ runHydraNode HydraNode{eq, hn, oc, cs, hh} =
 
 -- | Monadic interface around 'Hydra.Logic.update'.
 handleNextEvent ::
+  Show (LedgerState tx) =>
+  Show tx =>
   MonadThrow m =>
   HydraNetwork m ->
   OnChain m ->

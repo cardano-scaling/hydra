@@ -4,7 +4,7 @@ module Hydra.Logic where
 
 import Cardano.Prelude
 
-import Hydra.Ledger (Ledger (Ledger, canApply), ValidationError, ValidationResult (Invalid, Valid), initLedgerState)
+import Hydra.Ledger (Ledger (Ledger, canApply), LedgerState, ValidationError, ValidationResult (Invalid, Valid), initLedgerState)
 import qualified Hydra.Logic.SimpleHead as SimpleHead
 
 data Event tx
@@ -101,19 +101,27 @@ data Outcome tx
 -- Hydra head. This may also be split into multiple handlers, i.e. one for hydra
 -- network events, one for client events and one for main chain events, or by
 -- sub-'State'.
-update :: Ledger tx -> HeadState tx -> Event tx -> Outcome tx
+update ::
+  Show (LedgerState tx) =>
+  Show tx =>
+  Ledger tx ->
+  HeadState tx ->
+  Event tx ->
+  Outcome tx
 update Ledger{canApply, initLedgerState} st ev = case (st, ev) of
   (InitState, ClientEvent Init) ->
     NewState InitState [OnChainEffect InitTx]
   (InitState, OnChainEvent InitTx) ->
     let initSt = SimpleHead.mkState initLedgerState
      in NewState (OpenState initSt) [ClientEffect ReadyToCommit]
+  (os@OpenState{}, ClientEvent Commit) ->
+    NewState os [ClientEffect AcceptingTx]
   (OpenState st', ClientEvent (NewTx tx)) ->
     let ls = SimpleHead.confirmedLedger st'
      in case canApply ls tx of
           Valid -> NewState st [NetworkEffect ReqTx]
           Invalid err -> Error (LedgerError err)
-  _ -> Error (InvalidEvent ev st)
+  _ -> panic $ "UNHANDLED EVENT: " <> show ev <> " in state " <> show st
 
 -- NOTE: This three things needs to be polymorphic in the output eventually, likely a
 -- type-class with data-families for each sub-modules.
