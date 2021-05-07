@@ -119,6 +119,13 @@ data HydraProcess m = HydraProcess
   , queryNodeState :: m NodeState
   }
 
+-- | Creates a simulated chain by returning a function to create the chain
+-- client interface for a node. This is necessary, to get to know all nodes
+-- which use this function and simulate an 'OnChainTx' happening.
+--
+-- NOTE: This implementation currently ensures that no two equal 'OnChainTx' can
+-- be posted on chain assuming the construction of the real transaction is
+-- referrentially transparent (within one node).
 simulatedChain :: IO (HydraNode MockTx IO -> IO (OnChain IO))
 simulatedChain = do
   nodes <- newTVarIO []
