@@ -4,6 +4,7 @@ module IntegrationSpec where
 
 import Cardano.Prelude
 import Control.Concurrent.STM (modifyTVar, newTVarIO, readTVarIO)
+import Data.IORef (modifyIORef', newIORef, readIORef)
 import Hydra.Ledger (Ledger (..), LedgerState, ValidationError (..), ValidationResult (Invalid, Valid))
 import Hydra.Logic (ClientRequest (..), ClientResponse (..))
 import Hydra.Node (ClientSide (..), HydraNode (..), OnChain (..), createHydraNode, handleChainTx, handleClientRequest, runHydraNode)
@@ -11,8 +12,8 @@ import System.Timeout (timeout)
 import Test.Hspec (
   Spec,
   describe,
+  expectationFailure,
   it,
-  pendingWith,
   shouldNotBe,
   shouldReturn,
  )
@@ -21,28 +22,28 @@ spec :: Spec
 spec = describe "Integrating one ore more hydra-nodes" $ do
   describe "Sanity tests of test suite" $ do
     it "is Ready when started" $ do
-      n <- simulatedChain >>= startHydraNode
+      n <- simulatedChain >>= startHydraNode 1
       queryNodeState n `shouldReturn` Ready
 
     it "is NotReady when stopped" $ do
-      n <- simulatedChain >>= startHydraNode
+      n <- simulatedChain >>= startHydraNode 1
       stopHydraNode n
       queryNodeState n `shouldReturn` NotReady
 
   describe "Hydra node integration" $ do
     it "accepts Init command" $ do
-      n <- simulatedChain >>= startHydraNode
+      n <- simulatedChain >>= startHydraNode 1
       sendRequest n Init `shouldReturn` ()
 
     it "accepts Commit after successful Init" $ do
-      n <- simulatedChain >>= startHydraNode
+      n <- simulatedChain >>= startHydraNode 1
       sendRequest n Init
       sendRequest n Commit
 
     it "accepts a tx after the head was opened between two nodes" $ do
       chain <- simulatedChain
-      n1 <- startHydraNode chain
-      n2 <- startHydraNode chain
+      n1 <- startHydraNode 1 chain
+      n2 <- startHydraNode 2 chain
 
       sendRequest n1 Init
       waitForResponse n1 `shouldReturn` Just ReadyToCommit
@@ -54,7 +55,7 @@ spec = describe "Integrating one ore more hydra-nodes" $ do
       sendRequest n2 (NewTx ValidTx)
 
     it "not accepts commits when the head is open" $ do
-      n1 <- simulatedChain >>= startHydraNode
+      n1 <- simulatedChain >>= startHydraNode 1
       sendRequest n1 Init
       waitForResponse n1 `shouldReturn` Just ReadyToCommit
       sendRequest n1 Commit
@@ -63,7 +64,7 @@ spec = describe "Integrating one ore more hydra-nodes" $ do
       waitForResponse n1 `shouldReturn` Just CommandFailed
 
     it "can close an open head" $ do
-      n1 <- simulatedChain >>= startHydraNode
+      n1 <- simulatedChain >>= startHydraNode 1
       sendRequest n1 Init
       waitForResponse n1 `shouldReturn` Just ReadyToCommit
       sendRequest n1 Commit
@@ -73,8 +74,8 @@ spec = describe "Integrating one ore more hydra-nodes" $ do
 
     it "sees the head closed by other nodes" $ do
       chain <- simulatedChain
-      n1 <- startHydraNode chain
-      n2 <- startHydraNode chain
+      n1 <- startHydraNode 1 chain
+      n2 <- startHydraNode 2 chain
 
       sendRequest n1 Init
       waitForResponse n1 `shouldReturn` Just ReadyToCommit
@@ -90,10 +91,9 @@ spec = describe "Integrating one ore more hydra-nodes" $ do
       waitForResponse n2 `shouldReturn` Just HeadIsClosed
 
     it "only opens the head after all nodes committed" $ do
-      pendingWith "requires a lot of fleshing out of init and collectCom"
       chain <- simulatedChain
-      n1 <- startHydraNode chain
-      n2 <- startHydraNode chain
+      n1 <- startHydraNode 1 chain
+      n2 <- startHydraNode 2 chain
 
       sendRequest n1 Init
       waitForResponse n1 `shouldReturn` Just ReadyToCommit
@@ -111,7 +111,8 @@ data NodeState = NotReady | Ready
   deriving (Eq, Show)
 
 data HydraProcess m = HydraProcess
-  { stopHydraNode :: m ()
+  { nodeId :: Integer
+  , stopHydraNode :: m ()
   , sendRequest :: ClientRequest MockTx -> m ()
   , -- | Waits for one second max.
     waitForResponse :: m (Maybe ClientResponse)
@@ -122,11 +123,18 @@ simulatedChain :: IO (HydraNode MockTx IO -> IO (OnChain IO))
 simulatedChain = do
   nodes <- newTVarIO []
   pure $ \n -> do
+    refHistory <- newIORef []
     atomically $ modifyTVar nodes (n :)
-    pure $ OnChain{postTx = \tx -> readTVarIO nodes >>= mapM_ (`handleChainTx` tx)}
+    pure $ OnChain{postTx = postTx nodes refHistory}
+ where
+  postTx nodes refHistory tx = do
+    h <- readIORef refHistory
+    when (tx `elem` h) $ expectationFailure ("cannot post the same transaction " <> show tx <> " twice")
+    modifyIORef' refHistory (tx :)
+    readTVarIO nodes >>= mapM_ (`handleChainTx` tx)
 
-startHydraNode :: (HydraNode MockTx IO -> IO (OnChain IO)) -> IO (HydraProcess IO)
-startHydraNode connectToChain = do
+startHydraNode :: Integer -> (HydraNode MockTx IO -> IO (OnChain IO)) -> IO (HydraProcess IO)
+startHydraNode nodeId connectToChain = do
   node <- testHydraNode
   cc <- connectToChain node
   response <- newEmptyMVar
@@ -143,6 +151,7 @@ startHydraNode connectToChain = do
       , sendRequest = handleClientRequest node
       , waitForResponse =
           timeout 1_000_000 $ takeMVar response
+      , nodeId
       }
  where
   testHydraNode :: IO (HydraNode MockTx IO)
