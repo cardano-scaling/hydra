@@ -103,9 +103,11 @@ data Outcome tx
 -- sub-'State'.
 update :: Ledger tx -> HeadState tx -> Event tx -> Outcome tx
 update Ledger{canApply, initLedgerState} st ev = case (st, ev) of
+  (InitState, ClientEvent Init) ->
+    NewState InitState [OnChainEffect InitTx]
   (InitState, OnChainEvent InitTx) ->
     let initSt = SimpleHead.mkState initLedgerState
-     in NewState (OpenState initSt) []
+     in NewState (OpenState initSt) [ClientEffect ReadyToCommit]
   (OpenState st', ClientEvent (NewTx tx)) ->
     let ls = SimpleHead.confirmedLedger st'
      in case canApply ls tx of
