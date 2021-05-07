@@ -55,6 +55,7 @@ data OnChainTx
 
 data HeadState tx
   = InitState
+  | CollectingState
   | OpenState (SimpleHead.State tx)
   | ClosedState
 
@@ -113,15 +114,19 @@ update Ledger{canApply, initLedgerState} st ev = case (st, ev) of
   (InitState, ClientEvent Init) ->
     NewState InitState [OnChainEffect InitTx]
   (InitState, OnChainEvent InitTx) ->
+    NewState CollectingState [ClientEffect ReadyToCommit]
+  (CollectingState, ClientEvent Commit) ->
+    NewState CollectingState [OnChainEffect CommitTx]
+  (CollectingState, OnChainEvent CommitTx) ->
     let initSt = SimpleHead.mkState initLedgerState
-     in NewState (OpenState initSt) [ClientEffect ReadyToCommit]
-  (os@OpenState{}, ClientEvent Commit) ->
-    NewState os [ClientEffect HeadIsOpen]
+     in NewState (OpenState initSt) [ClientEffect HeadIsOpen]
   (OpenState st', ClientEvent (NewTx tx)) ->
     let ls = SimpleHead.confirmedLedger st'
      in case canApply ls tx of
           Valid -> NewState st [NetworkEffect ReqTx]
           Invalid err -> Error (LedgerError err)
+  (currentState, ClientEvent{}) ->
+    NewState currentState [ClientEffect CommandFailed]
   _ -> panic $ "UNHANDLED EVENT: " <> show ev <> " in state " <> show st
 
 -- NOTE: This three things needs to be polymorphic in the output eventually, likely a
