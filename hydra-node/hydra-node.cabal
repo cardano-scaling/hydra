@@ -85,6 +85,7 @@ library
     Network.TypedProtocol.FireForget.Server
   build-depends:
       base
+    , cardano-binary
     , cardano-ledger-shelley-ma
     , cardano-ledger-shelley-ma-test
     , cardano-slotting
@@ -107,7 +108,8 @@ executable hydra-node
   main-is: Main.hs
   other-modules: Hydra.Repl
   build-depends:
-      cardano-prelude
+      bytestring
+    , cardano-prelude
     , hydra-node
     , repline
   ghc-options:

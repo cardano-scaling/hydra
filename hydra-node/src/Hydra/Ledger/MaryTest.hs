@@ -5,15 +5,29 @@
 --TODO: Move it to dedicated hydra-ledger-test package
 module Hydra.Ledger.MaryTest where
 
+import Cardano.Prelude
+
+import Cardano.Binary (DecoderError, decodeAnnotator, fromCBOR)
 import Cardano.Ledger.ShelleyMA.Timelocks (ValidityInterval (..))
 import Cardano.Ledger.ShelleyMA.TxBody (TxBody (TxBody))
 import qualified Cardano.Ledger.Val as Val
-import Cardano.Prelude
 import Data.Default (def)
 import qualified Data.Map as Map
 import qualified Data.Sequence.Strict as StrictSeq
 import qualified Data.Set as Set
-import Shelley.Spec.Ledger.API (Addr, Coin (..), KeyPair, KeyRole (Payment, Staking), StrictMaybe (SNothing), TxId, TxIn (TxIn), TxOut (..), UTxO, Wdrl (..))
+import Shelley.Spec.Ledger.API (
+  Addr,
+  Coin (..),
+  KeyPair,
+  KeyRole (Payment, Staking),
+  StrictMaybe (SNothing),
+  Tx,
+  TxId,
+  TxIn (TxIn),
+  TxOut (..),
+  UTxO,
+  Wdrl (..),
+ )
 import qualified Shelley.Spec.Ledger.API as Ledger
 import qualified Shelley.Spec.Ledger.API as Ledgers
 import Shelley.Spec.Ledger.Keys (KeyPair (KeyPair))
@@ -35,6 +49,11 @@ mkLedgerEnv =
 mkLedgerState :: Ledger.LedgerState MaryTest
 mkLedgerState =
   def{_utxoState = def{_utxo = initUTxO}}
+
+type MaryTestTx = Tx MaryTest
+
+decodeTx :: LByteString -> Either DecoderError MaryTestTx
+decodeTx = decodeAnnotator "tx" fromCBOR
 
 --
 -- From: shelley-ma/shelley-ma-test/test/Test/Cardano/Ledger/Mary/Examples/MultiAssets.hs
