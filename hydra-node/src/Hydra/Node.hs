@@ -169,7 +169,7 @@ createHydraNetwork EventQueue{putEvent} =
   pure HydraNetwork{broadcast = simulatedBroadcast}
  where
   simulatedBroadcast msg = do
-    putStrLn @Text $ "[Network] should broadcast " <> show msg
+    putText $ "[Network] should broadcast " <> show msg
     let ma = case msg of
           ReqTx -> Just AckTx
           AckTx -> Just ConfTx
@@ -179,7 +179,7 @@ createHydraNetwork EventQueue{putEvent} =
           ConfSn -> Nothing
     case ma of
       Just answer -> do
-        putStrLn @Text $ "[Network] simulating answer " <> show answer
+        putText $ "[Network] simulating answer " <> show answer
         putEvent $ NetworkEvent answer
       Nothing -> pure ()
 
@@ -205,20 +205,11 @@ createChainClient EventQueue{putEvent} =
   pure OnChain{postTx = simulatedPostTx}
  where
   simulatedPostTx tx = do
-    putStrLn @Text $ "[OnChain] should post tx for " <> show tx
-    let ma = case tx of
-          InitTx -> Just InitTx
-          CommitTx _ -> Just CollectComTx -- simulate other peer collecting
-          CollectComTx -> Nothing
-          CloseTx -> Just ContestTx -- simulate other peer contesting
-          ContestTx -> Nothing
-          FanoutTx -> Nothing
-    case ma of
-      Just answer -> void . async $ do
-        threadDelay 1000000
-        putStrLn @Text $ "[OnChain] simulating  " <> show answer
-        putEvent $ OnChainEvent answer
-      Nothing -> pure ()
+    putText $ "[OnChain] should post tx for " <> show tx
+    void . async $ do
+      threadDelay 1
+      putText $ "[OnChain] simulating response " <> show tx
+      putEvent $ OnChainEvent tx
 
 --
 -- ClientSide handle to abstract over the client side.. duh.
