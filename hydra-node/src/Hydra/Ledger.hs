@@ -1,9 +1,9 @@
 module Hydra.Ledger where
 
 import Cardano.Prelude hiding (undefined)
-import Prelude (undefined)
 
 import Cardano.Slotting.EpochInfo (fixedSizeEpochInfo)
+import Data.Default (Default (def))
 import Shelley.Spec.Ledger.API (Globals (..), Network (Testnet))
 import qualified Shelley.Spec.Ledger.API as Ledger
 import Shelley.Spec.Ledger.BaseTypes (UnitInterval, mkActiveSlotCoeff, mkUnitInterval)
@@ -30,11 +30,15 @@ data ValidationError = ValidationError deriving (Eq, Show)
 
 type instance LedgerState (Ledger.Tx era) = Ledger.LedgerState era
 
-cardanoLedger :: Ledger.ApplyTx era => Ledger.LedgersEnv era -> Ledger (Ledger.Tx era)
+cardanoLedger ::
+  Ledger.ApplyTx era =>
+  Default (Ledger.LedgerState era) =>
+  Ledger.LedgersEnv era ->
+  Ledger (Ledger.Tx era)
 cardanoLedger env =
   Ledger
     { canApply = validateTx env
-    , initLedgerState = undefined
+    , initLedgerState = def
     }
 
 validateTx ::

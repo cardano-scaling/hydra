@@ -108,8 +108,7 @@ executable hydra-node
   main-is: Main.hs
   other-modules: Hydra.Repl
   build-depends:
-      bytestring
-    , cardano-prelude
+      cardano-prelude
     , hydra-node
     , repline
   ghc-options:
@@ -150,14 +149,10 @@ test-suite tests
   type: exitcode-stdio-1.0
   build-depends:
       base
-    , cardano-ledger-shelley-ma
-    , cardano-ledger-shelley-ma-test
     , cardano-prelude
-    , containers
     , hspec
     , hspec-core
     , hydra-node
-    , shelley-spec-ledger
   build-tool-depends:
     hspec-discover:hspec-discover
   ghc-options:
