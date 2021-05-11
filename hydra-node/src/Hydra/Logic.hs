@@ -22,7 +22,7 @@ data Effect tx
     Wait (HeadState tx -> Maybe (HeadState tx, [Effect tx]))
 
 data ClientRequest tx
-  = Init
+  = Init Natural
   | Commit
   | NewTx tx
   | Close
@@ -125,7 +125,7 @@ update ::
   Event tx ->
   Outcome tx
 update Environment{partyIndex} Ledger{initLedgerState} st ev = case (st, ev) of
-  (InitState, ClientEvent Init) ->
+  (InitState, ClientEvent (Init _parties)) ->
     NewState InitState [OnChainEffect InitTx]
   (InitState, OnChainEvent InitTx) ->
     NewState CollectingState [ClientEffect ReadyToCommit]

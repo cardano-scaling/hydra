@@ -33,11 +33,11 @@ spec = describe "Integrating one ore more hydra-nodes" $ do
   describe "Hydra node integration" $ do
     it "accepts Init command" $ do
       n <- simulatedChain >>= startHydraNode 1
-      sendRequest n Init `shouldReturn` ()
+      sendRequest n (Init 1) `shouldReturn` ()
 
     it "accepts Commit after successful Init" $ do
       n <- simulatedChain >>= startHydraNode 1
-      sendRequest n Init
+      sendRequest n (Init 1)
       sendRequest n Commit
 
     it "accepts a tx after the head was opened between two nodes" $ do
@@ -45,7 +45,7 @@ spec = describe "Integrating one ore more hydra-nodes" $ do
       n1 <- startHydraNode 1 chain
       n2 <- startHydraNode 2 chain
 
-      sendRequest n1 Init
+      sendRequest n1 (Init 1)
       waitForResponse n1 `shouldReturn` Just ReadyToCommit
       sendRequest n1 Commit
 
@@ -56,7 +56,7 @@ spec = describe "Integrating one ore more hydra-nodes" $ do
 
     it "not accepts commits when the head is open" $ do
       n1 <- simulatedChain >>= startHydraNode 1
-      sendRequest n1 Init
+      sendRequest n1 (Init 1)
       waitForResponse n1 `shouldReturn` Just ReadyToCommit
       sendRequest n1 Commit
       waitForResponse n1 `shouldReturn` Just HeadIsOpen
@@ -65,7 +65,7 @@ spec = describe "Integrating one ore more hydra-nodes" $ do
 
     it "can close an open head" $ do
       n1 <- simulatedChain >>= startHydraNode 1
-      sendRequest n1 Init
+      sendRequest n1 (Init 1)
       waitForResponse n1 `shouldReturn` Just ReadyToCommit
       sendRequest n1 Commit
       waitForResponse n1 `shouldReturn` Just HeadIsOpen
@@ -77,7 +77,7 @@ spec = describe "Integrating one ore more hydra-nodes" $ do
       n1 <- startHydraNode 1 chain
       n2 <- startHydraNode 2 chain
 
-      sendRequest n1 Init
+      sendRequest n1 (Init 2)
       waitForResponse n1 `shouldReturn` Just ReadyToCommit
       sendRequest n1 Commit
 
@@ -95,7 +95,7 @@ spec = describe "Integrating one ore more hydra-nodes" $ do
       n1 <- startHydraNode 1 chain
       n2 <- startHydraNode 2 chain
 
-      sendRequest n1 Init
+      sendRequest n1 (Init 2)
       waitForResponse n1 `shouldReturn` Just ReadyToCommit
       sendRequest n1 Commit
       waitForResponse n1 >>= (`shouldNotBe` Just HeadIsOpen)
