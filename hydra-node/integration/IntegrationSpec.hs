@@ -12,7 +12,6 @@ import System.Timeout (timeout)
 import Test.Hspec (
   Spec,
   describe,
-  expectationFailure,
   it,
   shouldNotBe,
   shouldReturn,
@@ -125,20 +124,20 @@ data HydraProcess m = HydraProcess
 --
 -- NOTE: This implementation currently ensures that no two equal 'OnChainTx' can
 -- be posted on chain assuming the construction of the real transaction is
--- referrentially transparent (within one node).
+-- referentially transparent.
 simulatedChain :: IO (HydraNode MockTx IO -> IO (OnChain IO))
 simulatedChain = do
+  refHistory <- newIORef []
   nodes <- newTVarIO []
   pure $ \n -> do
-    refHistory <- newIORef []
     atomically $ modifyTVar nodes (n :)
     pure $ OnChain{postTx = postTx nodes refHistory}
  where
   postTx nodes refHistory tx = do
     h <- readIORef refHistory
-    when (tx `elem` h) $ expectationFailure ("cannot post the same transaction " <> show tx <> " twice")
-    modifyIORef' refHistory (tx :)
-    readTVarIO nodes >>= mapM_ (`handleChainTx` tx)
+    unless (tx `elem` h) $ do
+      modifyIORef' refHistory (tx :)
+      readTVarIO nodes >>= mapM_ (`handleChainTx` tx)
 
 startHydraNode :: Natural -> (HydraNode MockTx IO -> IO (OnChain IO)) -> IO (HydraProcess IO)
 startHydraNode nodeId connectToChain = do

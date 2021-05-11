@@ -143,9 +143,11 @@ update Environment{party} Ledger{initLedgerState} st ev = case (st, ev) of
       then
         let canCommit' = Set.delete pt canCommit
          in if null canCommit'
-              then NewState (OpenState $ SimpleHead.mkState initLedgerState) [ClientEffect HeadIsOpen]
+              then NewState (CollectingState canCommit') [OnChainEffect CollectComTx]
               else NewState (CollectingState canCommit') []
       else panic $ "invalid commit seen by " <> show pt
+  (CollectingState{}, OnChainEvent CollectComTx) ->
+    NewState (OpenState $ SimpleHead.mkState initLedgerState) [ClientEffect HeadIsOpen]
   --
   (OpenState _, OnChainEvent CommitTx{}) ->
     Error (InvalidEvent ev st) -- HACK(SN): is a general case later
