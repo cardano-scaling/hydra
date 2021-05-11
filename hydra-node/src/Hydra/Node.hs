@@ -1,6 +1,5 @@
 {-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE TypeApplications #-}
-{-# OPTIONS_GHC -Wno-deferred-type-errors #-}
 
 -- | Top-level module to run a single Hydra node.
 module Hydra.Node where
@@ -21,6 +20,7 @@ import Hydra.Logic (
   ClientRequest (..),
   ClientResponse (..),
   Effect (ClientEffect, NetworkEffect, OnChainEffect, Wait),
+  Environment (..),
   Event (ClientEvent, NetworkEvent, OnChainEvent),
   HeadParameters (..),
   HeadState (..),
@@ -39,6 +39,7 @@ data HydraNode tx m = HydraNode
   , hh :: HydraHead tx m
   , oc :: OnChain m
   , cs :: ClientSide m
+  , env :: Environment
   }
 
 handleClientRequest :: HydraNode tx m -> ClientRequest tx -> m ()
@@ -47,13 +48,14 @@ handleClientRequest HydraNode{eq} = putEvent eq . ClientEvent
 handleChainTx :: HydraNode tx m -> OnChainTx -> m ()
 handleChainTx HydraNode{eq} = putEvent eq . OnChainEvent
 
-createHydraNode :: Ledger tx -> IO (HydraNode tx IO)
-createHydraNode ledger = do
+createHydraNode :: Natural -> Ledger tx -> IO (HydraNode tx IO)
+createHydraNode partyIndex ledger = do
   eq <- createEventQueue
   hh <- createHydraHead headState ledger
   oc <- createChainClient eq
   hn <- createHydraNetwork eq
-  HydraNode eq hn hh oc <$> createClientSide
+  cs <- createClientSide
+  pure $ HydraNode eq hn hh oc cs (Environment partyIndex)
  where
   headState = Logic.createHeadState [] HeadParameters SnapshotStrategy
 
@@ -64,12 +66,12 @@ runHydraNode ::
   Show tx =>
   HydraNode tx m ->
   m ()
-runHydraNode HydraNode{eq, hn, oc, cs, hh} =
+runHydraNode HydraNode{eq, hn, oc, cs, hh, env} =
   -- NOTE(SN): here we would introduce concurrent head processing, e.g. with
   -- something like 'forM_ [0..1] $ async'
   forever $ do
     e <- nextEvent eq
-    handleNextEvent hn oc cs hh e >>= \case
+    handleNextEvent hn oc cs hh env e >>= \case
       Just err -> putText $ "runHydraNode ERROR: " <> show err
       _ -> pure ()
 
@@ -86,22 +88,29 @@ handleNextEvent ::
   OnChain m ->
   ClientSide m ->
   HydraHead tx m ->
+  Environment ->
   Event tx ->
   m (Maybe (LogicError tx))
-handleNextEvent HydraNetwork{broadcast} OnChain{postTx} ClientSide{sendResponse} HydraHead{modifyHeadState, ledger} e = do
-  result <- modifyHeadState $ \s ->
-    case Logic.update (Logic.Environment 1) ledger s e of
-      NewState s' effects -> (Right effects, s')
-      Error err -> (Left err, s)
-  case result of
-    Left err -> pure $ Just err
-    Right out -> do
-      forM_ out $ \case
-        ClientEffect i -> sendResponse i
-        NetworkEffect msg -> broadcast msg
-        OnChainEffect tx -> postTx tx
-        Wait _cont -> panic "TODO: wait and reschedule continuation" -- TODO(SN) also this is not forced
-      pure Nothing
+handleNextEvent
+  HydraNetwork{broadcast}
+  OnChain{postTx}
+  ClientSide{sendResponse}
+  HydraHead{modifyHeadState, ledger}
+  env
+  e = do
+    result <- modifyHeadState $ \s ->
+      case Logic.update env ledger s e of
+        NewState s' effects -> (Right effects, s')
+        Error err -> (Left err, s)
+    case result of
+      Left err -> pure $ Just err
+      Right out -> do
+        forM_ out $ \case
+          ClientEffect i -> sendResponse i
+          NetworkEffect msg -> broadcast msg
+          OnChainEffect tx -> postTx tx
+          Wait _cont -> panic "TODO: wait and reschedule continuation" -- TODO(SN) also this is not forced
+        pure Nothing
 
 --
 -- Some general event queue from which the Hydra head is "fed"

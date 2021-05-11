@@ -9,7 +9,7 @@ import Hydra.Repl (startHydraRepl)
 
 main :: IO ()
 main = do
-  node <- createHydraNode ledger
+  node <- createHydraNode 0 ledger
   startHydraRepl node
   runHydraNode node
  where

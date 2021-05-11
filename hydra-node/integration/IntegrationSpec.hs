@@ -111,7 +111,7 @@ data NodeState = NotReady | Ready
   deriving (Eq, Show)
 
 data HydraProcess m = HydraProcess
-  { nodeId :: Integer
+  { nodeId :: Natural
   , stopHydraNode :: m ()
   , sendRequest :: ClientRequest MockTx -> m ()
   , -- | Waits for one second max.
@@ -140,7 +140,7 @@ simulatedChain = do
     modifyIORef' refHistory (tx :)
     readTVarIO nodes >>= mapM_ (`handleChainTx` tx)
 
-startHydraNode :: Integer -> (HydraNode MockTx IO -> IO (OnChain IO)) -> IO (HydraProcess IO)
+startHydraNode :: Natural -> (HydraNode MockTx IO -> IO (OnChain IO)) -> IO (HydraProcess IO)
 startHydraNode nodeId connectToChain = do
   node <- testHydraNode
   cc <- connectToChain node
@@ -162,7 +162,7 @@ startHydraNode nodeId connectToChain = do
       }
  where
   testHydraNode :: IO (HydraNode MockTx IO)
-  testHydraNode = createHydraNode mockLedger
+  testHydraNode = createHydraNode nodeId mockLedger
 
 data MockTx = ValidTx | InvalidTx
   deriving (Eq, Show)
