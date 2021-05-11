@@ -4,6 +4,7 @@ module Hydra.Logic where
 
 import Cardano.Prelude
 
+import qualified Data.Set as Set
 import Hydra.Ledger (Ledger (Ledger), LedgerState, ValidationError, initLedgerState)
 import qualified Hydra.Logic.SimpleHead as SimpleHead
 
@@ -56,7 +57,7 @@ data OnChainTx
 
 data HeadState tx
   = InitState
-  | CollectingState
+  | CollectingState {canCommit :: Set ParticipationToken}
   | OpenState (SimpleHead.State tx)
   | ClosedState
 
@@ -68,7 +69,7 @@ data ParticipationToken = ParticipationToken
   { totalTokens :: Natural
   , thisToken :: Natural
   }
-  deriving (Eq, Show)
+  deriving (Eq, Ord, Show)
 
 -- | Verification used to authenticate main chain transactions that are
 -- restricted to members of the Head protocol instance, i.e. the commit
@@ -126,15 +127,22 @@ update ::
   Outcome tx
 update Environment{partyIndex} Ledger{initLedgerState} st ev = case (st, ev) of
   (InitState, ClientEvent (Init parties)) ->
-    NewState InitState [OnChainEffect (InitTx parties)]
-  (InitState, OnChainEvent (InitTx _)) ->
-    NewState CollectingState [ClientEffect ReadyToCommit]
+    NewState InitState [OnChainEffect (InitTx $ makeAllTokens parties)]
+  (InitState, OnChainEvent (InitTx tokens)) ->
+    NewState CollectingState{canCommit = tokens} [ClientEffect ReadyToCommit]
   --
-  (CollectingState, ClientEvent Commit) ->
-    NewState CollectingState [OnChainEffect (CommitTx $ makeParticipationToken partyIndex)]
-  (CollectingState, OnChainEvent CommitTx{}) ->
-    let initSt = SimpleHead.mkState initLedgerState
-     in NewState (OpenState initSt) [ClientEffect HeadIsOpen]
+  (CollectingState{canCommit}, ClientEvent Commit) ->
+    case findToken canCommit partyIndex of
+      Nothing -> panic "your not allowed to commit (anymore)!"
+      Just pt -> NewState st [OnChainEffect (CommitTx pt)]
+  (CollectingState{canCommit}, OnChainEvent (CommitTx pt)) ->
+    if pt `Set.member` canCommit
+      then
+        let canCommit' = Set.delete pt canCommit
+         in if null canCommit'
+              then NewState (OpenState $ SimpleHead.mkState initLedgerState) [ClientEffect HeadIsOpen]
+              else NewState (CollectingState canCommit') []
+      else panic $ "invalid commit seen by " <> show pt
   --
   (OpenState _, OnChainEvent CommitTx{}) ->
     Error (InvalidEvent ev st) -- HACK(SN): is a general case later
@@ -147,5 +155,9 @@ update Environment{partyIndex} Ledger{initLedgerState} st ev = case (st, ev) of
     NewState currentState [ClientEffect CommandFailed]
   _ -> panic $ "UNHANDLED EVENT: " <> show ev <> " in state " <> show st
 
-makeParticipationToken :: Natural -> ParticipationToken
-makeParticipationToken n = ParticipationToken n n
+makeAllTokens :: Natural -> Set ParticipationToken
+makeAllTokens total = foldMap (\n -> Set.singleton (ParticipationToken{totalTokens = total, thisToken = n})) [0 .. (total - 1)]
+
+findToken :: Set ParticipationToken -> Natural -> Maybe ParticipationToken
+findToken allTokens index =
+  find (\t -> thisToken t == index) allTokens
