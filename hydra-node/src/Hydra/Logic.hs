@@ -1,6 +1,5 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE UndecidableInstances #-}
-{-# OPTIONS_GHC -Wno-partial-fields #-}
 
 module Hydra.Logic where
 
@@ -59,12 +58,14 @@ data OnChainTx
 
 data HeadState tx
   = InitState
-  | CollectingState {canCommit :: Set ParticipationToken}
+  | CollectingState PendingCommits
   | OpenState (SimpleHead.State tx)
   | ClosedState
 
 deriving instance Eq (SimpleHead.State tx) => Eq (HeadState tx)
 deriving instance Show (SimpleHead.State tx) => Show (HeadState tx)
+
+type PendingCommits = Set ParticipationToken
 
 -- | Identifies a party in a Hydra head.
 newtype Party = Party Natural
@@ -132,13 +133,13 @@ update Environment{party} Ledger{initLedgerState} st ev = case (st, ev) of
   (InitState, ClientEvent (Init parties)) ->
     NewState InitState [OnChainEffect (InitTx $ makeAllTokens parties)]
   (InitState, OnChainEvent (InitTx tokens)) ->
-    NewState CollectingState{canCommit = tokens} [ClientEffect ReadyToCommit]
+    NewState (CollectingState tokens) [ClientEffect ReadyToCommit]
   --
-  (CollectingState{canCommit}, ClientEvent Commit) ->
+  (CollectingState canCommit, ClientEvent Commit) ->
     case findToken canCommit party of
       Nothing -> panic $ "you're not allowed to commit (anymore): canCommit : " <> show canCommit <> ", partiyIndex:  " <> show party
       Just pt -> NewState st [OnChainEffect (CommitTx pt)]
-  (CollectingState{canCommit}, OnChainEvent (CommitTx pt)) ->
+  (CollectingState canCommit, OnChainEvent (CommitTx pt)) ->
     if pt `Set.member` canCommit
       then
         let canCommit' = Set.delete pt canCommit
