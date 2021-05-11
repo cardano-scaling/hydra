@@ -73,7 +73,7 @@ newtype Party = Party Natural
 -- | Identifies the commit of a single party member
 data ParticipationToken = ParticipationToken
   { totalTokens :: Natural
-  , thisToken :: Natural
+  , thisToken :: Party
   }
   deriving (Eq, Ord, Show)
 
@@ -142,7 +142,7 @@ update Environment{party} Ledger{initLedgerState} st ev = case (st, ev) of
     if pt `Set.member` canCommit
       then
         let canCommit' = Set.delete pt canCommit
-         in if null canCommit'
+         in if null canCommit' && thisToken pt == party
               then NewState (CollectingState canCommit') [OnChainEffect CollectComTx]
               else NewState (CollectingState canCommit') []
       else panic $ "invalid commit seen by " <> show pt
@@ -161,10 +161,10 @@ update Environment{party} Ledger{initLedgerState} st ev = case (st, ev) of
   _ -> panic $ "UNHANDLED EVENT: " <> show ev <> " in state " <> show st
 
 makeAllTokens :: [Party] -> Set ParticipationToken
-makeAllTokens parties = Set.fromList $ map (\(Party n) -> ParticipationToken{totalTokens = total, thisToken = n}) parties
+makeAllTokens parties = Set.fromList $ map (ParticipationToken total) parties
  where
   total = fromIntegral $ length parties
 
 findToken :: Set ParticipationToken -> Party -> Maybe ParticipationToken
-findToken allTokens (Party index) =
-  find (\t -> thisToken t == index) allTokens
+findToken allTokens party =
+  find (\t -> thisToken t == party) allTokens
