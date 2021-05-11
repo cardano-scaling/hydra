@@ -124,14 +124,14 @@ update ::
   HeadState tx ->
   Event tx ->
   Outcome tx
-update _ Ledger{initLedgerState} st ev = case (st, ev) of
+update Environment{partyIndex} Ledger{initLedgerState} st ev = case (st, ev) of
   (InitState, ClientEvent Init) ->
     NewState InitState [OnChainEffect InitTx]
   (InitState, OnChainEvent InitTx) ->
     NewState CollectingState [ClientEffect ReadyToCommit]
   --
   (CollectingState, ClientEvent Commit) ->
-    NewState CollectingState [OnChainEffect (CommitTx (panic "where is this comming from?"))]
+    NewState CollectingState [OnChainEffect (CommitTx $ makeParticipationToken partyIndex)]
   (CollectingState, OnChainEvent CommitTx{}) ->
     let initSt = SimpleHead.mkState initLedgerState
      in NewState (OpenState initSt) [ClientEffect HeadIsOpen]
@@ -146,3 +146,6 @@ update _ Ledger{initLedgerState} st ev = case (st, ev) of
   (currentState, ClientEvent{}) ->
     NewState currentState [ClientEffect CommandFailed]
   _ -> panic $ "UNHANDLED EVENT: " <> show ev <> " in state " <> show st
+
+makeParticipationToken :: Natural -> ParticipationToken
+makeParticipationToken n = ParticipationToken n n
