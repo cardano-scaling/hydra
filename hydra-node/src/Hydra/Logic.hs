@@ -46,7 +46,7 @@ data HydraMessage
   deriving (Eq, Show)
 
 data OnChainTx
-  = InitTx
+  = InitTx (Set.Set ParticipationToken)
   | CommitTx ParticipationToken
   | CollectComTx
   | CloseTx
@@ -125,9 +125,9 @@ update ::
   Event tx ->
   Outcome tx
 update Environment{partyIndex} Ledger{initLedgerState} st ev = case (st, ev) of
-  (InitState, ClientEvent (Init _parties)) ->
-    NewState InitState [OnChainEffect InitTx]
-  (InitState, OnChainEvent InitTx) ->
+  (InitState, ClientEvent (Init parties)) ->
+    NewState InitState [OnChainEffect (InitTx parties)]
+  (InitState, OnChainEvent (InitTx _)) ->
     NewState CollectingState [ClientEffect ReadyToCommit]
   --
   (CollectingState, ClientEvent Commit) ->
