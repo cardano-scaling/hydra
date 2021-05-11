@@ -28,6 +28,7 @@ import Hydra.Logic (
   LogicError (..),
   OnChainTx (..),
   Outcome (Error, NewState),
+  Party,
   SnapshotStrategy (..),
  )
 import qualified Hydra.Logic as Logic
@@ -48,14 +49,14 @@ handleClientRequest HydraNode{eq} = putEvent eq . ClientEvent
 handleChainTx :: HydraNode tx m -> OnChainTx -> m ()
 handleChainTx HydraNode{eq} = putEvent eq . OnChainEvent
 
-createHydraNode :: Natural -> Ledger tx -> IO (HydraNode tx IO)
-createHydraNode partyIndex ledger = do
+createHydraNode :: Party -> Ledger tx -> IO (HydraNode tx IO)
+createHydraNode party ledger = do
   eq <- createEventQueue
   hh <- createHydraHead headState ledger
   oc <- createChainClient eq
   hn <- createHydraNetwork eq
   cs <- createClientSide
-  pure $ HydraNode eq hn hh oc cs (Environment partyIndex)
+  pure $ HydraNode eq hn hh oc cs (Environment party)
  where
   headState = Logic.createHeadState [] HeadParameters SnapshotStrategy
 

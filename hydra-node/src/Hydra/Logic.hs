@@ -1,3 +1,4 @@
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE UndecidableInstances #-}
 {-# OPTIONS_GHC -Wno-partial-fields #-}
 
@@ -24,7 +25,7 @@ data Effect tx
     Wait (HeadState tx -> Maybe (HeadState tx, [Effect tx]))
 
 data ClientRequest tx
-  = Init Natural
+  = Init [Party]
   | Commit
   | NewTx tx
   | Close
@@ -65,6 +66,10 @@ data HeadState tx
 deriving instance Eq (SimpleHead.State tx) => Eq (HeadState tx)
 deriving instance Show (SimpleHead.State tx) => Show (HeadState tx)
 
+-- | Identifies a party in a Hydra head.
+newtype Party = Party Natural
+  deriving (Eq, Ord, Num, Show)
+
 -- | Identifies the commit of a single party member
 data ParticipationToken = ParticipationToken
   { totalTokens :: Natural
@@ -82,9 +87,6 @@ data OnChainVerificationKey
 -- off chain. This key is named K_i in the paper and can be aggregated with
 -- other party member's 'HydraVerificationKey' to K_agg.
 data HydraVerificationKey
-
--- | Identifes a party in a Hydra head.
-type Party = (OnChainVerificationKey, HydraVerificationKey)
 
 -- | Contains at least the contestation period and other things.
 data HeadParameters = HeadParameters
@@ -111,7 +113,7 @@ data Outcome tx
 
 newtype Environment = Environment
   { -- | This is the p_i from the paper
-    partyIndex :: Natural
+    party :: Party
   }
 
 -- | The heart of the Hydra head logic, a handler of all kinds of 'Event' in the
@@ -126,15 +128,15 @@ update ::
   HeadState tx ->
   Event tx ->
   Outcome tx
-update Environment{partyIndex} Ledger{initLedgerState} st ev = case (st, ev) of
+update Environment{party} Ledger{initLedgerState} st ev = case (st, ev) of
   (InitState, ClientEvent (Init parties)) ->
     NewState InitState [OnChainEffect (InitTx $ makeAllTokens parties)]
   (InitState, OnChainEvent (InitTx tokens)) ->
     NewState CollectingState{canCommit = tokens} [ClientEffect ReadyToCommit]
   --
   (CollectingState{canCommit}, ClientEvent Commit) ->
-    case findToken canCommit partyIndex of
-      Nothing -> panic "your not allowed to commit (anymore)!"
+    case findToken canCommit party of
+      Nothing -> panic $ "you're not allowed to commit (anymore): canCommit : " <> show canCommit <> ", partiyIndex:  " <> show party
       Just pt -> NewState st [OnChainEffect (CommitTx pt)]
   (CollectingState{canCommit}, OnChainEvent (CommitTx pt)) ->
     if pt `Set.member` canCommit
@@ -156,9 +158,11 @@ update Environment{partyIndex} Ledger{initLedgerState} st ev = case (st, ev) of
     NewState currentState [ClientEffect CommandFailed]
   _ -> panic $ "UNHANDLED EVENT: " <> show ev <> " in state " <> show st
 
-makeAllTokens :: Natural -> Set ParticipationToken
-makeAllTokens total = foldMap (\n -> Set.singleton (ParticipationToken{totalTokens = total, thisToken = n})) [0 .. (total - 1)]
+makeAllTokens :: [Party] -> Set ParticipationToken
+makeAllTokens parties = Set.fromList $ map (\(Party n) -> ParticipationToken{totalTokens = total, thisToken = n}) parties
+ where
+  total = fromIntegral $ length parties
 
-findToken :: Set ParticipationToken -> Natural -> Maybe ParticipationToken
-findToken allTokens index =
+findToken :: Set ParticipationToken -> Party -> Maybe ParticipationToken
+findToken allTokens (Party index) =
   find (\t -> thisToken t == index) allTokens

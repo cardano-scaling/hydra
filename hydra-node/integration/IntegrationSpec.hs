@@ -6,7 +6,7 @@ import Cardano.Prelude
 import Control.Concurrent.STM (modifyTVar, newTVarIO, readTVarIO)
 import Data.IORef (modifyIORef', newIORef, readIORef)
 import Hydra.Ledger (Ledger (..), LedgerState, ValidationError (..), ValidationResult (Invalid, Valid))
-import Hydra.Logic (ClientRequest (..), ClientResponse (..))
+import Hydra.Logic (ClientRequest (..), ClientResponse (..), Party (..))
 import Hydra.Node (ClientSide (..), HydraNode (..), OnChain (..), createHydraNode, handleChainTx, handleClientRequest, runHydraNode)
 import System.Timeout (timeout)
 import Test.Hspec (
@@ -33,11 +33,11 @@ spec = describe "Integrating one ore more hydra-nodes" $ do
   describe "Hydra node integration" $ do
     it "accepts Init command" $ do
       n <- simulatedChain >>= startHydraNode 1
-      sendRequest n (Init 1) `shouldReturn` ()
+      sendRequest n (Init [1]) `shouldReturn` ()
 
     it "accepts Commit after successful Init" $ do
       n <- simulatedChain >>= startHydraNode 1
-      sendRequest n (Init 1)
+      sendRequest n (Init [1])
       sendRequest n Commit
 
     it "accepts a tx after the head was opened between two nodes" $ do
@@ -45,7 +45,7 @@ spec = describe "Integrating one ore more hydra-nodes" $ do
       n1 <- startHydraNode 1 chain
       n2 <- startHydraNode 2 chain
 
-      sendRequest n1 (Init 1)
+      sendRequest n1 (Init [1, 2])
       waitForResponse n1 `shouldReturn` Just ReadyToCommit
       sendRequest n1 Commit
 
@@ -56,7 +56,7 @@ spec = describe "Integrating one ore more hydra-nodes" $ do
 
     it "not accepts commits when the head is open" $ do
       n1 <- simulatedChain >>= startHydraNode 1
-      sendRequest n1 (Init 1)
+      sendRequest n1 (Init [1])
       waitForResponse n1 `shouldReturn` Just ReadyToCommit
       sendRequest n1 Commit
       waitForResponse n1 `shouldReturn` Just HeadIsOpen
@@ -65,7 +65,7 @@ spec = describe "Integrating one ore more hydra-nodes" $ do
 
     it "can close an open head" $ do
       n1 <- simulatedChain >>= startHydraNode 1
-      sendRequest n1 (Init 1)
+      sendRequest n1 (Init [1])
       waitForResponse n1 `shouldReturn` Just ReadyToCommit
       sendRequest n1 Commit
       waitForResponse n1 `shouldReturn` Just HeadIsOpen
@@ -77,7 +77,7 @@ spec = describe "Integrating one ore more hydra-nodes" $ do
       n1 <- startHydraNode 1 chain
       n2 <- startHydraNode 2 chain
 
-      sendRequest n1 (Init 2)
+      sendRequest n1 (Init [1, 2])
       waitForResponse n1 `shouldReturn` Just ReadyToCommit
       sendRequest n1 Commit
 
@@ -95,7 +95,7 @@ spec = describe "Integrating one ore more hydra-nodes" $ do
       n1 <- startHydraNode 1 chain
       n2 <- startHydraNode 2 chain
 
-      sendRequest n1 (Init 2)
+      sendRequest n1 (Init [1, 2])
       waitForResponse n1 `shouldReturn` Just ReadyToCommit
       sendRequest n1 Commit
       waitForResponse n1 >>= (`shouldNotBe` Just HeadIsOpen)
@@ -162,7 +162,7 @@ startHydraNode nodeId connectToChain = do
       }
  where
   testHydraNode :: IO (HydraNode MockTx IO)
-  testHydraNode = createHydraNode nodeId mockLedger
+  testHydraNode = createHydraNode (Party nodeId) mockLedger
 
 data MockTx = ValidTx | InvalidTx
   deriving (Eq, Show)
