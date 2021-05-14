@@ -1,20 +1,19 @@
 {-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE TypeApplications #-}
+{-# OPTIONS_GHC -Wno-deferred-type-errors #-}
 
 -- | Top-level module to run a single Hydra node.
 module Hydra.Node where
 
-import Cardano.Prelude hiding (STM, async, cancel, poll, threadDelay)
+import Cardano.Prelude hiding (STM, async, atomically, cancel, poll, threadDelay)
 import Control.Concurrent.STM (
   newTQueueIO,
-  newTVarIO,
   readTQueue,
-  stateTVar,
   writeTQueue,
  )
 import Control.Exception.Safe (MonadThrow)
 import Control.Monad.Class.MonadAsync (async)
-import Control.Monad.Class.MonadSTM (STM)
+import Control.Monad.Class.MonadSTM (MonadSTM (STM), atomically, newTVar, stateTVar)
 import Control.Monad.Class.MonadTimer (threadDelay)
 import Hydra.Ledger
 import Hydra.Logic (
@@ -50,8 +49,8 @@ handleClientRequest HydraNode{eq} = putEvent eq . ClientEvent
 handleChainTx :: HydraNode tx m -> OnChainTx -> m ()
 handleChainTx HydraNode{eq} = putEvent eq . OnChainEvent
 
-queryLedgerState :: HydraNode tx m -> STM m (Maybe (LedgerState tx))
-queryLedgerState = panic "not implemented"
+queryLedgerState :: MonadSTM m => HydraNode tx m -> STM m (Maybe (LedgerState tx))
+queryLedgerState HydraNode{hh} = getConfirmedLedger hh
 
 createHydraNode :: Party -> Ledger tx -> IO (HydraNode tx IO)
 createHydraNode party ledger = do
@@ -66,6 +65,7 @@ createHydraNode party ledger = do
 
 runHydraNode ::
   MonadThrow m =>
+  MonadSTM m =>
   MonadIO m =>
   Show (LedgerState tx) => -- TODO(SN): leaky abstraction of HydraHead
   Show tx =>
@@ -88,6 +88,7 @@ runHydraNode HydraNode{eq, hn, oc, cs, hh, env} =
 handleNextEvent ::
   Show (LedgerState tx) =>
   Show tx =>
+  MonadSTM m =>
   MonadThrow m =>
   HydraNetwork m ->
   OnChain m ->
@@ -103,10 +104,11 @@ handleNextEvent
   HydraHead{modifyHeadState, ledger}
   env
   e = do
-    result <- modifyHeadState $ \s ->
-      case Logic.update env ledger s e of
-        NewState s' effects -> (Right effects, s')
-        Error err -> (Left err, s)
+    result <- atomically $
+      modifyHeadState $ \s ->
+        case Logic.update env ledger s e of
+          NewState s' effects -> (Right effects, s')
+          Error err -> (Left err, s)
     case result of
       Left err -> pure $ Just err
       Right out -> do
@@ -145,27 +147,27 @@ createEventQueue = do
 
 -- | Handle to access and modify a Hydra Head's state.
 data HydraHead tx m = HydraHead
-  { modifyHeadState :: forall a. (HeadState tx -> (a, HeadState tx)) -> m a
+  { modifyHeadState :: forall a. (HeadState tx -> (a, HeadState tx)) -> STM m a
   , ledger :: Ledger tx
   }
 
-getConfirmedLedger :: Monad m => HydraHead tx m -> m (Maybe (LedgerState tx))
+getConfirmedLedger :: MonadSTM m => HydraHead tx m -> STM m (Maybe (LedgerState tx))
 getConfirmedLedger hh =
   queryHeadState hh <&> \case
     OpenState st -> Just (SimpleHead.confirmedLedger st)
     _ -> Nothing
 
-queryHeadState :: HydraHead tx m -> m (HeadState tx)
+queryHeadState :: HydraHead tx m -> STM m (HeadState tx)
 queryHeadState = (`modifyHeadState` \s -> (s, s))
 
-putState :: HydraHead tx m -> HeadState tx -> m ()
+putState :: HydraHead tx m -> HeadState tx -> STM m ()
 putState HydraHead{modifyHeadState} new =
   modifyHeadState $ const ((), new)
 
-createHydraHead :: HeadState tx -> Ledger tx -> IO (HydraHead tx IO)
+createHydraHead :: (MonadSTM m) => HeadState tx -> Ledger tx -> m (HydraHead tx m)
 createHydraHead initialState ledger = do
-  tv <- newTVarIO initialState
-  pure HydraHead{modifyHeadState = atomically . stateTVar tv, ledger}
+  tv <- atomically $ newTVar initialState
+  pure HydraHead{modifyHeadState = stateTVar tv, ledger}
 
 --
 -- HydraNetwork handle to abstract over network access
