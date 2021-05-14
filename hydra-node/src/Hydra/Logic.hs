@@ -11,13 +11,13 @@ import qualified Hydra.Logic.SimpleHead as SimpleHead
 
 data Event tx
   = ClientEvent (ClientRequest tx)
-  | NetworkEvent HydraMessage
+  | NetworkEvent (HydraMessage tx)
   | OnChainEvent OnChainTx
   deriving (Eq, Show)
 
 data Effect tx
   = ClientEffect ClientResponse
-  | NetworkEffect HydraMessage
+  | NetworkEffect (HydraMessage tx)
   | OnChainEffect OnChainTx
   | -- | Wait effect should be interpreted as a non-blocking interruption which
     -- retries on every state changes until the continuation returns Just{}.
@@ -38,8 +38,8 @@ data ClientResponse
   | CommandFailed
   deriving (Eq, Show)
 
-data HydraMessage
-  = ReqTx
+data HydraMessage tx
+  = ReqTx tx
   | AckTx
   | ConfTx
   | ReqSn
@@ -152,6 +152,8 @@ update Environment{party} Ledger{initLedgerState} st ev = case (st, ev) of
     Error (InvalidEvent ev st) -- HACK(SN): is a general case later
   (OpenState{}, ClientEvent Close) ->
     NewState st [OnChainEffect CloseTx]
+  (OpenState{}, ClientEvent (NewTx tx)) ->
+    NewState st [NetworkEffect $ ReqTx tx]
   (OpenState _, OnChainEvent CloseTx) ->
     NewState ClosedState [ClientEffect HeadIsClosed]
   --
