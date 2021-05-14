@@ -60,6 +60,7 @@ mockChainClient postTxAddress tx = runZMQ $ do
 startChainSync :: MonadIO m => String -> (OnChainTx -> IO ()) -> m (Async ())
 startChainSync chainSyncAddress handler = runZMQ $ do
   sub <- socket Sub
+  subscribe sub ""
   connect sub chainSyncAddress
   async $
     forever $ do
