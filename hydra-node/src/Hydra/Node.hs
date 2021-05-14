@@ -4,7 +4,7 @@
 -- | Top-level module to run a single Hydra node.
 module Hydra.Node where
 
-import Cardano.Prelude hiding (async, cancel, poll, threadDelay)
+import Cardano.Prelude hiding (STM, async, cancel, poll, threadDelay)
 import Control.Concurrent.STM (
   newTQueueIO,
   newTVarIO,
@@ -14,6 +14,7 @@ import Control.Concurrent.STM (
  )
 import Control.Exception.Safe (MonadThrow)
 import Control.Monad.Class.MonadAsync (async)
+import Control.Monad.Class.MonadSTM (STM)
 import Control.Monad.Class.MonadTimer (threadDelay)
 import Hydra.Ledger
 import Hydra.Logic (
@@ -48,6 +49,9 @@ handleClientRequest HydraNode{eq} = putEvent eq . ClientEvent
 
 handleChainTx :: HydraNode tx m -> OnChainTx -> m ()
 handleChainTx HydraNode{eq} = putEvent eq . OnChainEvent
+
+queryLedgerState :: HydraNode tx m -> STM m (Maybe (LedgerState tx))
+queryLedgerState = panic "not implemented"
 
 createHydraNode :: Party -> Ledger tx -> IO (HydraNode tx IO)
 createHydraNode party ledger = do

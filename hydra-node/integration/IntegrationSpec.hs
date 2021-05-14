@@ -2,12 +2,13 @@
 
 module IntegrationSpec where
 
-import Cardano.Prelude
+import Cardano.Prelude hiding (atomically, check)
 import Control.Concurrent.STM (modifyTVar, newTVarIO, readTVarIO)
+import Control.Monad.Class.MonadSTM (atomically, check)
 import Data.IORef (modifyIORef', newIORef, readIORef)
 import Hydra.Ledger (Ledger (..), LedgerState, ValidationError (..), ValidationResult (Invalid, Valid))
 import Hydra.Logic (ClientRequest (..), ClientResponse (..), Party (..))
-import Hydra.Node (ClientSide (..), HydraNode (..), OnChain (..), createHydraNode, handleChainTx, handleClientRequest, runHydraNode)
+import Hydra.Node (ClientSide (..), HydraNode (..), OnChain (..), createHydraNode, handleChainTx, handleClientRequest, queryLedgerState, runHydraNode)
 import System.Timeout (timeout)
 import Test.Hspec (
   Spec,
@@ -118,24 +119,22 @@ spec = describe "Integrating one ore more hydra-nodes" $ do
       wait1sForResponse n1 `shouldReturn` Just HeadIsOpen
 
       sendRequest n1 (NewTx $ ValidTx 1)
-      waitForLedgerState n1 `shouldReturn` Just [ValidTx 1]
-      waitForLedgerState n2 `shouldReturn` Just [ValidTx 1]
+      waitForLedgerState n1 (Just [ValidTx 1])
+      waitForLedgerState n2 (Just [ValidTx 1])
 
-waitForLedgerState :: HydraProcess IO -> IO (Maybe [MockTx])
-waitForLedgerState = panic "not implemented"
-
-sendRequestAndWaitFor :: HydraProcess IO -> ClientRequest MockTx -> ClientResponse -> IO ()
+sendRequestAndWaitFor :: HydraProcess IO MockTx -> ClientRequest MockTx -> ClientResponse -> IO ()
 sendRequestAndWaitFor node req expected =
   sendRequest node req >> (wait1sForResponse node `shouldReturn` Just expected)
 
 data NodeState = NotReady | Ready
   deriving (Eq, Show)
 
-data HydraProcess m = HydraProcess
+data HydraProcess m tx = HydraProcess
   { nodeId :: Natural
   , stopHydraNode :: m ()
-  , sendRequest :: ClientRequest MockTx -> m ()
+  , sendRequest :: ClientRequest tx -> m ()
   , wait1sForResponse :: m (Maybe ClientResponse)
+  , waitForLedgerState :: Maybe (LedgerState tx) -> m ()
   , queryNodeState :: m NodeState
   }
 
@@ -160,7 +159,7 @@ simulatedChain = do
       modifyIORef' refHistory (tx :)
       readTVarIO nodes >>= mapM_ (`handleChainTx` tx)
 
-startHydraNode :: Natural -> (HydraNode MockTx IO -> IO (OnChain IO)) -> IO (HydraProcess IO)
+startHydraNode :: Natural -> (HydraNode MockTx IO -> IO (OnChain IO)) -> IO (HydraProcess IO MockTx)
 startHydraNode nodeId connectToChain = do
   node <- testHydraNode
   cc <- connectToChain node
@@ -178,6 +177,15 @@ startHydraNode nodeId connectToChain = do
       , sendRequest = handleClientRequest node
       , wait1sForResponse =
           timeout 1_000_000 $ takeMVar response
+      , waitForLedgerState =
+          \st ->
+            timeout
+              1_000_000
+              ( atomically $ do
+                  st' <- queryLedgerState node
+                  check (st == st')
+              )
+              `shouldReturn` Just ()
       , nodeId
       }
  where
