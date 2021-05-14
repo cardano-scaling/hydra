@@ -45,31 +45,31 @@ spec = describe "Integrating one ore more hydra-nodes" $ do
       n2 <- startHydraNode 2 chain
 
       sendRequest n1 (Init [1, 2])
-      waitForResponse n1 `shouldReturn` Just ReadyToCommit
+      wait1sForResponse n1 `shouldReturn` Just ReadyToCommit
       sendRequest n1 Commit
 
-      waitForResponse n2 `shouldReturn` Just ReadyToCommit
+      wait1sForResponse n2 `shouldReturn` Just ReadyToCommit
       sendRequest n2 Commit
-      waitForResponse n2 `shouldReturn` Just HeadIsOpen
-      sendRequest n2 (NewTx ValidTx)
+      wait1sForResponse n2 `shouldReturn` Just HeadIsOpen
+      sendRequest n2 (NewTx $ ValidTx 1)
 
     it "not accepts commits when the head is open" $ do
       n1 <- simulatedChain >>= startHydraNode 1
       sendRequest n1 (Init [1])
-      waitForResponse n1 `shouldReturn` Just ReadyToCommit
+      wait1sForResponse n1 `shouldReturn` Just ReadyToCommit
       sendRequest n1 Commit
-      waitForResponse n1 `shouldReturn` Just HeadIsOpen
+      wait1sForResponse n1 `shouldReturn` Just HeadIsOpen
       sendRequest n1 Commit
-      waitForResponse n1 `shouldReturn` Just CommandFailed
+      wait1sForResponse n1 `shouldReturn` Just CommandFailed
 
     it "can close an open head" $ do
       n1 <- simulatedChain >>= startHydraNode 1
       sendRequest n1 (Init [1])
-      waitForResponse n1 `shouldReturn` Just ReadyToCommit
+      wait1sForResponse n1 `shouldReturn` Just ReadyToCommit
       sendRequest n1 Commit
-      waitForResponse n1 `shouldReturn` Just HeadIsOpen
+      wait1sForResponse n1 `shouldReturn` Just HeadIsOpen
       sendRequest n1 Close
-      waitForResponse n1 `shouldReturn` Just HeadIsClosed
+      wait1sForResponse n1 `shouldReturn` Just HeadIsClosed
 
     it "sees the head closed by other nodes" $ do
       chain <- simulatedChain
@@ -77,17 +77,17 @@ spec = describe "Integrating one ore more hydra-nodes" $ do
       n2 <- startHydraNode 2 chain
 
       sendRequest n1 (Init [1, 2])
-      waitForResponse n1 `shouldReturn` Just ReadyToCommit
+      wait1sForResponse n1 `shouldReturn` Just ReadyToCommit
       sendRequest n1 Commit
 
-      waitForResponse n2 `shouldReturn` Just ReadyToCommit
+      wait1sForResponse n2 `shouldReturn` Just ReadyToCommit
       sendRequest n2 Commit
-      waitForResponse n2 `shouldReturn` Just HeadIsOpen
+      wait1sForResponse n2 `shouldReturn` Just HeadIsOpen
 
-      waitForResponse n1 `shouldReturn` Just HeadIsOpen
+      wait1sForResponse n1 `shouldReturn` Just HeadIsOpen
       sendRequest n1 Close
 
-      waitForResponse n2 `shouldReturn` Just HeadIsClosed
+      wait1sForResponse n2 `shouldReturn` Just HeadIsClosed
 
     it "only opens the head after all nodes committed" $ do
       chain <- simulatedChain
@@ -95,16 +95,38 @@ spec = describe "Integrating one ore more hydra-nodes" $ do
       n2 <- startHydraNode 2 chain
 
       sendRequest n1 (Init [1, 2])
-      waitForResponse n1 `shouldReturn` Just ReadyToCommit
+      wait1sForResponse n1 `shouldReturn` Just ReadyToCommit
       sendRequest n1 Commit
-      waitForResponse n1 >>= (`shouldNotBe` Just HeadIsOpen)
+      wait1sForResponse n1 >>= (`shouldNotBe` Just HeadIsOpen)
 
-      waitForResponse n2 `shouldReturn` Just ReadyToCommit
+      wait1sForResponse n2 `shouldReturn` Just ReadyToCommit
       sendRequest n2 Commit
-      waitForResponse n2 `shouldReturn` Just HeadIsOpen
+      wait1sForResponse n2 `shouldReturn` Just HeadIsOpen
 
       -- Only now the head should be open for node 1
-      waitForResponse n1 `shouldReturn` Just HeadIsOpen
+      wait1sForResponse n1 `shouldReturn` Just HeadIsOpen
+
+    it "valid new transaction in open head is stored in ledger" $ do
+      chain <- simulatedChain
+      n1 <- startHydraNode 1 chain
+      n2 <- startHydraNode 2 chain
+
+      sendRequestAndWaitFor n1 (Init [1, 2]) ReadyToCommit
+      sendRequest n1 Commit
+      wait1sForResponse n2 `shouldReturn` Just ReadyToCommit
+      sendRequestAndWaitFor n2 Commit HeadIsOpen
+      wait1sForResponse n1 `shouldReturn` Just HeadIsOpen
+
+      sendRequest n1 (NewTx $ ValidTx 1)
+      waitForLedgerState n1 `shouldReturn` Just [ValidTx 1]
+      waitForLedgerState n2 `shouldReturn` Just [ValidTx 1]
+
+waitForLedgerState :: HydraProcess IO -> IO (Maybe [MockTx])
+waitForLedgerState = panic "not implemented"
+
+sendRequestAndWaitFor :: HydraProcess IO -> ClientRequest MockTx -> ClientResponse -> IO ()
+sendRequestAndWaitFor node req expected =
+  sendRequest node req >> (wait1sForResponse node `shouldReturn` Just expected)
 
 data NodeState = NotReady | Ready
   deriving (Eq, Show)
@@ -113,8 +135,7 @@ data HydraProcess m = HydraProcess
   { nodeId :: Natural
   , stopHydraNode :: m ()
   , sendRequest :: ClientRequest MockTx -> m ()
-  , -- | Waits for one second max.
-    waitForResponse :: m (Maybe ClientResponse)
+  , wait1sForResponse :: m (Maybe ClientResponse)
   , queryNodeState :: m NodeState
   }
 
@@ -155,7 +176,7 @@ startHydraNode nodeId connectToChain = do
             Nothing -> pure Ready
             Just _ -> pure NotReady
       , sendRequest = handleClientRequest node
-      , waitForResponse =
+      , wait1sForResponse =
           timeout 1_000_000 $ takeMVar response
       , nodeId
       }
@@ -163,16 +184,16 @@ startHydraNode nodeId connectToChain = do
   testHydraNode :: IO (HydraNode MockTx IO)
   testHydraNode = createHydraNode (Party nodeId) mockLedger
 
-data MockTx = ValidTx | InvalidTx
+data MockTx = ValidTx Integer | InvalidTx
   deriving (Eq, Show)
 
-type instance LedgerState MockTx = ()
+type instance LedgerState MockTx = [MockTx]
 
 mockLedger :: Ledger MockTx
 mockLedger =
   Ledger
     { canApply = \st tx -> case st `seq` tx of
-        ValidTx -> Valid
+        ValidTx _ -> Valid
         InvalidTx -> Invalid ValidationError
-    , initLedgerState = ()
+    , initLedgerState = []
     }
