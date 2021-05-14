@@ -7,6 +7,7 @@ import Control.Concurrent.STM (modifyTVar, newTVarIO, readTVarIO)
 import Control.Monad.Class.MonadSTM (atomically, check)
 import Data.IORef (modifyIORef', newIORef, readIORef)
 import Hydra.Ledger (Ledger (..), LedgerState, ValidationError (..), ValidationResult (Invalid, Valid))
+import Hydra.Ledger.MockTx
 import Hydra.Logic (ClientRequest (..), ClientResponse (..), Party (..))
 import Hydra.Node (
   ClientSide (..),
@@ -197,18 +198,3 @@ startHydraNode nodeId connectToChain = do
  where
   testHydraNode :: IO (HydraNode MockTx IO)
   testHydraNode = createHydraNode (Party nodeId) mockLedger
-
-data MockTx = ValidTx Integer | InvalidTx
-  deriving (Eq, Show)
-
-type instance LedgerState MockTx = [MockTx]
-
-mockLedger :: Ledger MockTx
-mockLedger =
-  Ledger
-    { canApply = \st tx -> case st `seq` tx of
-        ValidTx _ -> Valid
-        InvalidTx -> Invalid ValidationError
-    , applyTransaction = \st tx -> pure (tx : st)
-    , initLedgerState = []
-    }

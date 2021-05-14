@@ -78,6 +78,7 @@ library
     Hydra.Node
     Hydra.Ledger
     Hydra.Ledger.MaryTest
+    Hydra.Ledger.MockTx
     Hydra.Logic
     Hydra.Logic.SimpleHead
     Network.TypedProtocol.FireForget.Type
@@ -122,6 +123,9 @@ executable mock-chain
   build-depends:
       base
     , cardano-prelude
+    , hydra-node
+    , optparse-applicative
+    , stm
     , text
     , zeromq4-haskell
   ghc-options:
