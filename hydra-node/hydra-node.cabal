@@ -115,6 +115,19 @@ executable hydra-node
     -threaded
     -rtsopts
 
+executable mock-chain
+  import: project-config
+  hs-source-dirs: exe/mock-chain
+  main-is: Main.hs
+  build-depends:
+      base
+    , cardano-prelude
+    , text
+    , zeromq4-haskell
+  ghc-options:
+    -threaded
+    -rtsopts
+
 executable fire-forget
   import: project-config
   hs-source-dirs: exe/fire-forget
