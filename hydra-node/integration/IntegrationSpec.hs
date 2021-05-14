@@ -13,6 +13,7 @@ import System.Timeout (timeout)
 import Test.Hspec (
   Spec,
   describe,
+  expectationFailure,
   it,
   shouldNotBe,
   shouldReturn,
@@ -178,14 +179,15 @@ startHydraNode nodeId connectToChain = do
       , wait1sForResponse =
           timeout 1_000_000 $ takeMVar response
       , waitForLedgerState =
-          \st ->
-            timeout
-              1_000_000
-              ( atomically $ do
-                  st' <- queryLedgerState node
-                  check (st == st')
-              )
-              `shouldReturn` Just ()
+          \st -> do
+            result <-
+              timeout
+                1_000_000
+                ( atomically $ do
+                    st' <- queryLedgerState node
+                    check (st == st')
+                )
+            when (isNothing result) $ expectationFailure ("Expected ledger state of node " <> show nodeId <> " to be " <> show st)
       , nodeId
       }
  where
@@ -203,5 +205,6 @@ mockLedger =
     { canApply = \st tx -> case st `seq` tx of
         ValidTx _ -> Valid
         InvalidTx -> Invalid ValidationError
+    , applyTransaction = \st tx -> pure (tx : st)
     , initLedgerState = []
     }
