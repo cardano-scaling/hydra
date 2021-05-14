@@ -49,6 +49,9 @@ handleClientRequest HydraNode{eq} = putEvent eq . ClientEvent
 handleChainTx :: HydraNode tx m -> OnChainTx -> m ()
 handleChainTx HydraNode{eq} = putEvent eq . OnChainEvent
 
+handleMessage :: HydraNode tx m -> HydraMessage tx -> m ()
+handleMessage HydraNode{eq} = putEvent eq . NetworkEvent
+
 queryLedgerState :: MonadSTM m => HydraNode tx m -> STM m (Maybe (LedgerState tx))
 queryLedgerState HydraNode{hh} = getConfirmedLedger hh
 

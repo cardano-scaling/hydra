@@ -1,4 +1,6 @@
+{-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE UndecidableInstances #-}
+{-# OPTIONS_GHC -Wno-deprecations #-}
 
 module Hydra.Logic.SimpleHead where
 
@@ -43,7 +45,8 @@ update :: Show tx => Ledger tx -> State tx -> Event tx -> (State tx, [Effect tx]
 update ledger st = \case
   NewTxFromClient tx -> (st, [MulticastReqTx tx])
   ReqTxFromPeer tx ->
-    case applyTransaction ledger (confirmedLedger st) tx of
-      Left err -> panic $ "applying invalid transaction " <> show tx <> " to ledger: " <> show err
-      Right newLedgerState -> (st{confirmedLedger = newLedgerState}, [])
+    trace @Text ("applying transaction " <> show tx) $
+      case applyTransaction ledger (confirmedLedger st) tx of
+        Left err -> panic $ "applying invalid transaction " <> show tx <> " to ledger: " <> show err
+        Right newLedgerState -> (st{confirmedLedger = newLedgerState}, [])
   _ -> panic "SimpleHead.TODO"
