@@ -135,18 +135,16 @@ update Environment{party} Ledger{initLedgerState} st ev = case (st, ev) of
   (InitState, OnChainEvent (InitTx tokens)) ->
     NewState (CollectingState tokens) [ClientEffect ReadyToCommit]
   --
-  (CollectingState canCommit, ClientEvent Commit) ->
-    case findToken canCommit party of
-      Nothing -> panic $ "you're not allowed to commit (anymore): canCommit : " <> show canCommit <> ", partiyIndex:  " <> show party
+  (CollectingState remainingTokens, ClientEvent Commit) ->
+    case findToken remainingTokens party of
+      Nothing -> panic $ "you're not allowed to commit (anymore): remainingTokens : " <> show remainingTokens <> ", partiyIndex:  " <> show party
       Just pt -> NewState st [OnChainEffect (CommitTx pt)]
-  (CollectingState canCommit, OnChainEvent (CommitTx pt)) ->
-    if pt `Set.member` canCommit
-      then
-        let canCommit' = Set.delete pt canCommit
-         in if null canCommit' && thisToken pt == party
-              then NewState (CollectingState canCommit') [OnChainEffect CollectComTx]
-              else NewState (CollectingState canCommit') []
-      else panic $ "invalid commit seen by " <> show pt
+  (CollectingState remainingTokens, OnChainEvent (CommitTx pt)) ->
+    let remainingTokens' = Set.delete pt remainingTokens
+        newState = CollectingState remainingTokens'
+     in if canCollectCom party pt remainingTokens'
+          then NewState newState [OnChainEffect CollectComTx]
+          else NewState newState []
   (CollectingState{}, OnChainEvent CollectComTx) ->
     NewState (OpenState $ SimpleHead.mkState initLedgerState) [ClientEffect HeadIsOpen]
   --
@@ -160,6 +158,9 @@ update Environment{party} Ledger{initLedgerState} st ev = case (st, ev) of
   (currentState, ClientEvent{}) ->
     NewState currentState [ClientEffect CommandFailed]
   _ -> panic $ "UNHANDLED EVENT: " <> show ev <> " in state " <> show st
+
+canCollectCom :: Party -> ParticipationToken -> Set ParticipationToken -> Bool
+canCollectCom party pt remainingTokens = null remainingTokens && thisToken pt == party
 
 makeAllTokens :: [Party] -> Set ParticipationToken
 makeAllTokens parties = Set.fromList $ map (ParticipationToken total) parties
