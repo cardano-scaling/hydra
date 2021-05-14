@@ -1,6 +1,6 @@
 module Hydra.MockRepl where
 
-import Cardano.Prelude hiding ((<|>))
+import Cardano.Prelude hiding (try, (<|>))
 
 import Data.String (String)
 import Hydra.Ledger.MockTx
@@ -34,7 +34,7 @@ parseCommand :: String -> Either Text (ClientRequest MockTx)
 parseCommand = first show . runParser commandParser () ""
 
 commandParser :: Parsec String () (ClientRequest MockTx)
-commandParser = initParser <|> commitParser <|> newTxParser <|> closeParser
+commandParser = initParser <|> try commitParser <|> newTxParser <|> closeParser
  where
   haskellTokens = makeTokenParser haskellDef
 
