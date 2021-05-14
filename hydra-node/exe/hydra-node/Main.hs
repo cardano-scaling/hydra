@@ -2,7 +2,7 @@ module Main where
 
 import Cardano.Prelude hiding (option)
 
-import Data.Text (pack)
+import Data.Text (pack, unpack)
 import Hydra.Ledger.MockTx (mockLedger)
 import Hydra.Logic (Party (Party))
 import Hydra.MockRepl (startHydraRepl)
@@ -65,7 +65,7 @@ main :: IO ()
 main = do
   Options{chainSyncAddress, postTxAddress, nodeId} <- execParser hydraNodeOptions
   node <- createHydraNode nodeId mockLedger
-  let mockChainNode = node{oc = OnChain $ mockChainClient postTxAddress}
+  let mockChainNode = node{oc = OnChain $ mockChainClient (unpack postTxAddress)}
   startHydraRepl mockChainNode
-  startChainSync chainSyncAddress (handleChainTx mockChainNode) >>= link
+  startChainSync (unpack chainSyncAddress) (handleChainTx mockChainNode) >>= link
   runHydraNode mockChainNode

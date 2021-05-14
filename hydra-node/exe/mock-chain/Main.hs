@@ -3,19 +3,31 @@
 
 import Cardano.Prelude hiding (Option, async, option)
 import Data.String
+import Data.Text (unpack)
 import Hydra.MockZMQChain
 import Options.Applicative
 
 data Option = Option
-  { chainSyncAddress :: String
+  { mode :: ChainMode
+  , chainSyncAddress :: String
   , postTxAddress :: String
   }
+  deriving (Eq, Show)
+
+data ChainMode = NodeMode | ClientMode
   deriving (Eq, Show)
 
 mockChainParser :: Parser Option
 mockChainParser =
   Option
-    <$> strOption
+    <$> flag
+      NodeMode
+      ClientMode
+      ( long "client"
+          <> short 'c'
+          <> help "Run in client mode, reading OnChainTx from the stdin"
+      )
+    <*> strOption
       ( long "sync-address"
           <> short 's'
           <> value "tcp://127.0.0.1:56789"
@@ -39,5 +51,13 @@ mockChainOptions =
 
 main :: IO ()
 main = do
-  Option{chainSyncAddress, postTxAddress} <- execParser mockChainOptions
-  startChain chainSyncAddress postTxAddress
+  Option{mode, chainSyncAddress, postTxAddress} <- execParser mockChainOptions
+  case mode of
+    NodeMode -> startChain chainSyncAddress postTxAddress
+    ClientMode -> do
+      startChainSync chainSyncAddress print >>= link
+      forever $ do
+        msg <- getLine
+        case reads (unpack msg) of
+          (tx, "") : _ -> liftIO $ mockChainClient postTxAddress tx
+          _ -> print $ "failed to read command: " <> msg

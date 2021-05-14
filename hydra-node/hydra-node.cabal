@@ -134,6 +134,7 @@ executable mock-chain
     , cardano-prelude
     , hydra-node
     , optparse-applicative
+    , text
   ghc-options:
     -threaded
     -rtsopts

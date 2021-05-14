@@ -46,10 +46,10 @@ transactionPublisher chainSyncAddress txQueue = do
     hPutStrLn @Text stdout $ "sending transaction " <> show tx
     send pub [] (Enc.encodeUtf8 $ show tx)
 
-mockChainClient :: MonadIO m => Text -> OnChainTx -> m ()
+mockChainClient :: MonadIO m => String -> OnChainTx -> m ()
 mockChainClient postTxAddress tx = runZMQ $ do
   req <- socket Req
-  connect req (unpack postTxAddress)
+  connect req postTxAddress
   send req [] (Enc.encodeUtf8 $ show tx)
   liftIO $ hPutStrLn @Text stdout ("sent message " <> show tx)
   resp <- receive req
@@ -57,10 +57,10 @@ mockChainClient postTxAddress tx = runZMQ $ do
     "OK" -> liftIO (hPutStrLn @Text stdout "received OK ") >> pure ()
     _ -> panic $ "Something went wrong posting " <> show tx
 
-startChainSync :: MonadIO m => Text -> (OnChainTx -> IO ()) -> m (Async ())
+startChainSync :: MonadIO m => String -> (OnChainTx -> IO ()) -> m (Async ())
 startChainSync chainSyncAddress handler = runZMQ $ do
   sub <- socket Sub
-  connect sub (unpack chainSyncAddress)
+  connect sub chainSyncAddress
   async $
     forever $ do
       msg <- unpack . Enc.decodeUtf8 <$> receive sub
