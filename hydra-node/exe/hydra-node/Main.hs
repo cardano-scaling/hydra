@@ -6,7 +6,7 @@ import Data.Text (pack, unpack)
 import Hydra.Ledger.MockTx (mockLedger)
 import Hydra.Logic (Party (Party))
 import Hydra.MockRepl (startHydraRepl)
-import Hydra.MockZMQChain (mockChainClient, startChainSync)
+import Hydra.MockZMQChain (mockChainClient, runChainSync)
 import Hydra.Node (HydraNode (oc), OnChain (..), createHydraNode, handleChainTx, runHydraNode)
 import Options.Applicative (Parser, ParserInfo, auto, execParser, fullDesc, header, help, helper, info, long, metavar, option, progDesc, short, strOption, value)
 
@@ -67,5 +67,5 @@ main = do
   node <- createHydraNode nodeId mockLedger
   let mockChainNode = node{oc = OnChain $ mockChainClient (unpack postTxAddress)}
   startHydraRepl mockChainNode
-  startChainSync (unpack chainSyncAddress) (handleChainTx mockChainNode) >>= link
+  async (runChainSync (unpack chainSyncAddress) (handleChainTx mockChainNode)) >>= link
   runHydraNode mockChainNode

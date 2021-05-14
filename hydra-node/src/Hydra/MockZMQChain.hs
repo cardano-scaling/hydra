@@ -57,15 +57,14 @@ mockChainClient postTxAddress tx = runZMQ $ do
     "OK" -> liftIO (hPutStrLn @Text stdout "received OK ") >> pure ()
     _ -> panic $ "Something went wrong posting " <> show tx
 
-startChainSync :: MonadIO m => String -> (OnChainTx -> IO ()) -> m (Async ())
-startChainSync chainSyncAddress handler = runZMQ $ do
+runChainSync :: MonadIO m => String -> (OnChainTx -> IO ()) -> m ()
+runChainSync chainSyncAddress handler = runZMQ $ do
   sub <- socket Sub
   subscribe sub ""
   connect sub chainSyncAddress
-  async $
-    forever $ do
-      msg <- unpack . Enc.decodeUtf8 <$> receive sub
-      liftIO $ hPutStrLn @Text stderr ("received message " <> show msg)
-      case reads msg of
-        (tx, "") : _ -> liftIO $ handler tx
-        _ -> panic $ "cannot decode transaction " <> show msg
+  forever $ do
+    msg <- unpack . Enc.decodeUtf8 <$> receive sub
+    liftIO $ hPutStrLn @Text stderr ("received message " <> show msg)
+    case reads msg of
+      (tx, "") : _ -> liftIO $ handler tx
+      _ -> panic $ "cannot decode transaction " <> show msg

@@ -1,6 +1,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TypeApplications #-}
 
+import Cardano.Prelude (async)
 import Cardano.Prelude hiding (Option, async, option)
 import Data.String
 import Data.Text (unpack)
@@ -55,7 +56,7 @@ main = do
   case mode of
     NodeMode -> startChain chainSyncAddress postTxAddress
     ClientMode -> do
-      startChainSync chainSyncAddress print >>= link
+      async (runChainSync chainSyncAddress print) >>= link
       forever $ do
         msg <- getLine
         case reads (unpack msg) of
