@@ -81,6 +81,7 @@ library
     Hydra.Ledger.MockTx
     Hydra.Logic
     Hydra.Logic.SimpleHead
+    Hydra.MockZMQChain
     Network.TypedProtocol.FireForget.Type
     Network.TypedProtocol.FireForget.Client
     Network.TypedProtocol.FireForget.Server
@@ -99,7 +100,9 @@ library
     , shelley-spec-ledger-test
     , safe-exceptions
     , stm
+    , text
     , typed-protocols
+    , zeromq4-haskell
   ghc-options:
     -haddock
 
@@ -125,9 +128,6 @@ executable mock-chain
     , cardano-prelude
     , hydra-node
     , optparse-applicative
-    , stm
-    , text
-    , zeromq4-haskell
   ghc-options:
     -threaded
     -rtsopts
