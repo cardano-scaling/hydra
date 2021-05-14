@@ -6,7 +6,7 @@ import Cardano.Prelude hiding (atomically, check)
 import Control.Concurrent.STM (modifyTVar, newTVarIO, readTVarIO)
 import Control.Monad.Class.MonadSTM (atomically, check)
 import Data.IORef (modifyIORef', newIORef, readIORef)
-import Hydra.Ledger (Ledger (..), LedgerState, ValidationError (..), ValidationResult (Invalid, Valid))
+import Hydra.Ledger (LedgerState)
 import Hydra.Ledger.MockTx
 import Hydra.Logic (ClientRequest (..), ClientResponse (..), Party (..))
 import Hydra.Node (

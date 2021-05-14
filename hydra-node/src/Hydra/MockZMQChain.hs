@@ -11,7 +11,7 @@ import Control.Concurrent.STM (TBQueue, newTBQueue, readTBQueue, writeTBQueue)
 import Data.String
 import Data.Text (unpack)
 import qualified Data.Text.Encoding as Enc
-import Hydra.Ledger.MockTx
+import Hydra.Logic (OnChainTx)
 import System.ZMQ4.Monadic
 
 startChain :: String -> String -> IO ()
@@ -22,26 +22,47 @@ startChain chainSyncAddress postTxAddress = do
 
   runZMQ $ transactionListener postTxAddress txQueue
 
-transactionListener :: String -> TBQueue MockTx -> ZMQ z ()
+transactionListener :: String -> TBQueue OnChainTx -> ZMQ z ()
 transactionListener postTxAddress txQueue = do
   rep <- socket Rep
   bind rep postTxAddress
   forever $ do
     msg <- unpack . Enc.decodeUtf8 <$> receive rep
     case reads msg of
-      (txid, "") : _ -> do
-        liftIO $ atomically $ writeTBQueue txQueue (ValidTx txid)
+      (tx, "") : _ -> do
+        liftIO $ atomically $ writeTBQueue txQueue tx
         send rep [] "OK"
       _ -> do
         hPutStrLn stderr $ "cannot decode " <> msg <> " as a valid transaction"
         send rep [] "KO"
 
-transactionPublisher :: String -> TBQueue MockTx -> ZMQ z ()
+transactionPublisher :: String -> TBQueue OnChainTx -> ZMQ z ()
 transactionPublisher chainSyncAddress txQueue = do
   pub <- socket Pub
   bind pub chainSyncAddress
   forever $ do
     tx <- liftIO $ atomically $ readTBQueue txQueue
-    case tx of
-      ValidTx txid -> send pub [] (Enc.encodeUtf8 $ show txid)
-      InvalidTx -> liftIO $ hPutStrLn @Text stderr "Got invalid transaction"
+    send pub [] (Enc.encodeUtf8 $ show tx)
+
+mockChainClient :: MonadIO m => Text -> OnChainTx -> m ()
+mockChainClient postTxAddress tx = runZMQ $ do
+  req <- socket Req
+  connect req (unpack postTxAddress)
+  send req [] (Enc.encodeUtf8 $ show tx)
+  liftIO $ hPutStrLn @Text stderr ("sent message " <> show tx)
+  resp <- receive req
+  case resp of
+    "OK" -> liftIO (hPutStrLn @Text stderr "received OK ") >> pure ()
+    _ -> panic $ "Something went wrong posting " <> show tx
+
+startChainSync :: MonadIO m => Text -> (OnChainTx -> IO ()) -> m (Async ())
+startChainSync chainSyncAddress handler = runZMQ $ do
+  sub <- socket Sub
+  connect sub (unpack chainSyncAddress)
+  async $
+    forever $ do
+      msg <- unpack . Enc.decodeUtf8 <$> receive sub
+      liftIO $ hPutStrLn @Text stderr ("received message " <> show msg)
+      case reads msg of
+        (tx, "") : _ -> liftIO $ handler tx
+        _ -> panic $ "cannot decode transaction " <> show msg

@@ -110,11 +110,17 @@ executable hydra-node
   import: project-config
   hs-source-dirs: exe/hydra-node
   main-is: Main.hs
-  other-modules: Hydra.Repl
+  other-modules:
+      Hydra.Repl
+      Hydra.MockRepl
   build-depends:
-      cardano-prelude
+      base
+    , cardano-prelude
     , hydra-node
+    , optparse-applicative
+    , parsec
     , repline
+    , text
   ghc-options:
     -threaded
     -rtsopts

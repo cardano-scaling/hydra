@@ -18,13 +18,13 @@ mockChainParser =
     <$> strOption
       ( long "sync-address"
           <> short 's'
-          <> value "tls://127.0.0.1:56789"
+          <> value "tcp://127.0.0.1:56789"
           <> help "The address where clients can connect for syncing transactions"
       )
     <*> strOption
       ( long "post-address"
           <> short 'p'
-          <> value "tls://127.0.0.1:56790"
+          <> value "tcp://127.0.0.1:56790"
           <> help "The address where clients can post transactions"
       )
 

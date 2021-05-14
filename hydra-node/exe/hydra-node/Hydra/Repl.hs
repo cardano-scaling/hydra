@@ -18,7 +18,7 @@ startHydraRepl node = link =<< async runRepl
   commands = ["init", "commit", "newtx", "close", "contest"]
 
   replCommand c
-    | c == "init" = liftIO $ handleClientRequest node Init
+    | c == "init" = liftIO $ handleClientRequest node (Init [])
     | c == "close" = liftIO $ handleClientRequest node Close
     | c == "commit" = liftIO $ handleClientRequest node Commit
     | c == "newtx" = liftIO $ do
