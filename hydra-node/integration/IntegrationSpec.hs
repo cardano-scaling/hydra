@@ -123,10 +123,6 @@ spec = describe "Integrating one ore more hydra-nodes" $ do
       waitForLedgerState n1 (Just [ValidTx 1])
       waitForLedgerState n2 (Just [ValidTx 1])
 
-sendRequestAndWaitFor :: HydraProcess IO MockTx -> ClientRequest MockTx -> ClientResponse -> IO ()
-sendRequestAndWaitFor node req expected =
-  sendRequest node req >> (wait1sForResponse node `shouldReturn` Just expected)
-
 data NodeState = NotReady | Ready
   deriving (Eq, Show)
 
@@ -139,11 +135,15 @@ data HydraProcess m tx = HydraProcess
   , queryNodeState :: m NodeState
   }
 
+sendRequestAndWaitFor :: HydraProcess IO MockTx -> ClientRequest MockTx -> ClientResponse -> IO ()
+sendRequestAndWaitFor node req expected =
+  sendRequest node req >> (wait1sForResponse node `shouldReturn` Just expected)
+
 data Connections = Connections {chain :: OnChain IO, network :: HydraNetwork MockTx IO}
 
--- | Creates a simulated chain by returning a function to create the chain
--- client interface for a node. This is necessary, to get to know all nodes
--- which use this function and simulate an 'OnChainTx' happening.
+-- | Creates a simulated chain and hydra network by returning a function to create the connectors.
+-- This is necessary, to get to know all nodes which use this function and simulate an 'OnChainTx'
+-- and `HydraMessage` flowing between nodes.
 --
 -- NOTE: This implementation currently ensures that no two equal 'OnChainTx' can
 -- be posted on chain assuming the construction of the real transaction is
