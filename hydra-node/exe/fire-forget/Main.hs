@@ -185,33 +185,3 @@ hailHydraServer =
     { recvMsg = \msg -> print msg $> hailHydraServer
     , recvMsgDone = putTextLn "Done."
     }
-
-codecFireForget ::
-  forall a m.
-  MonadST m =>
-  ToCBOR a =>
-  FromCBOR a =>
-  Codec (FireForget a) CBOR.DeserialiseFailure m LBS.ByteString
-codecFireForget = mkCodecCborLazyBS encodeMsg decodeMsg
- where
-  encodeMsg ::
-    forall (pr :: PeerRole) st st'.
-    PeerHasAgency pr st ->
-    Message (FireForget a) st st' ->
-    CBOR.Encoding
-  encodeMsg (ClientAgency TokIdle) MsgDone = CBOR.encodeWord 0
-  encodeMsg (ClientAgency TokIdle) (MsgSend msg) = CBOR.encodeWord 1 <> toCBOR msg
-
-  decodeMsg ::
-    forall (pr :: PeerRole) s (st :: FireForget a).
-    PeerHasAgency pr st ->
-    CBOR.Decoder s (SomeMessage st)
-  decodeMsg stok = do
-    key <- CBOR.decodeWord
-    case (stok, key) of
-      (ClientAgency TokIdle, 0) ->
-        return $ SomeMessage MsgDone
-      (ClientAgency TokIdle, 1) -> do
-        SomeMessage . MsgSend <$> fromCBOR
-      (ClientAgency TokIdle, _) ->
-        fail "codecFireForget.StIdle: unexpected key"

@@ -1,12 +1,22 @@
 {-# LANGUAGE EmptyCase #-}
+{-# LANGUAGE ExplicitForAll #-}
 {-# LANGUAGE PolyKinds #-}
 
 module Network.TypedProtocol.FireForget.Type where
 
 import Cardano.Prelude
 
+import Cardano.Binary (FromCBOR, ToCBOR, fromCBOR, toCBOR)
+import qualified Cardano.Binary as CBOR
+import qualified Codec.CBOR.Read as CBOR
+import Control.Monad (fail)
+import Control.Monad.Class.MonadST (MonadST)
+import qualified Data.ByteString.Lazy as LBS
 import GHC.Show (Show (show))
-import Network.TypedProtocol (Protocol (..))
+import Network.TypedProtocol (PeerHasAgency (ClientAgency), Protocol (..))
+import Network.TypedProtocol.Core (PeerRole)
+import Network.TypedProtocol.Driver (SomeMessage (SomeMessage))
+import Ouroboros.Network.Codec (Codec, mkCodecCborLazyBS)
 import Ouroboros.Network.Util.ShowProxy (ShowProxy (..))
 
 -- | TODO explain Protocol
@@ -59,3 +69,33 @@ instance Show (ClientHasAgency (st :: FireForget msg)) where
 
 instance Show (ServerHasAgency (st :: FireForget msg)) where
   show _ = panic "absurd"
+
+codecFireForget ::
+  forall a m.
+  MonadST m =>
+  ToCBOR a =>
+  FromCBOR a =>
+  Codec (FireForget a) CBOR.DeserialiseFailure m LBS.ByteString
+codecFireForget = mkCodecCborLazyBS encodeMsg decodeMsg
+ where
+  encodeMsg ::
+    forall (pr :: PeerRole) st st'.
+    PeerHasAgency pr st ->
+    Message (FireForget a) st st' ->
+    CBOR.Encoding
+  encodeMsg (ClientAgency TokIdle) MsgDone = CBOR.encodeWord 0
+  encodeMsg (ClientAgency TokIdle) (MsgSend msg) = CBOR.encodeWord 1 <> toCBOR msg
+
+  decodeMsg ::
+    forall (pr :: PeerRole) s (st :: FireForget a).
+    PeerHasAgency pr st ->
+    CBOR.Decoder s (SomeMessage st)
+  decodeMsg stok = do
+    key <- CBOR.decodeWord
+    case (stok, key) of
+      (ClientAgency TokIdle, 0) ->
+        return $ SomeMessage MsgDone
+      (ClientAgency TokIdle, 1) -> do
+        SomeMessage . MsgSend <$> fromCBOR
+      (ClientAgency TokIdle, _) ->
+        fail "codecFireForget.StIdle: unexpected key"

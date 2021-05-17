@@ -85,11 +85,13 @@ library
     Network.TypedProtocol.FireForget.Server
   build-depends:
       base
+    , bytestring
     , cardano-binary
     , cardano-ledger-shelley-ma
     , cardano-ledger-shelley-ma-test
     , cardano-slotting
     , cardano-prelude
+    , cborg
     , containers
     , data-default
     , io-sim-classes
@@ -154,6 +156,10 @@ test-suite tests
     , hspec
     , hspec-core
     , hydra-node
+    , network-mux
+    , io-sim
+    , io-sim-classes
+    , typed-protocols-examples
   build-tool-depends:
     hspec-discover:hspec-discover
   ghc-options:
