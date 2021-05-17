@@ -153,6 +153,7 @@ test-suite tests
   build-depends:
       base
     , cardano-prelude
+    , contra-tracer
     , hspec
     , hspec-core
     , hydra-node
@@ -160,6 +161,7 @@ test-suite tests
     , io-sim
     , io-sim-classes
     , typed-protocols-examples
+    , ouroboros-network-framework
   build-tool-depends:
     hspec-discover:hspec-discover
   ghc-options:
