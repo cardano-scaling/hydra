@@ -1,3 +1,5 @@
+{-# OPTIONS_GHC -Wno-orphans #-}
+
 module Hydra.Network where
 
 import Cardano.Prelude hiding (atomically, concurrently)
@@ -15,7 +17,6 @@ import Control.Monad.Class.MonadSTM (
   TMVar,
   atomically,
   newEmptyTMVarIO,
-  newTMVar,
   putTMVar,
   takeTMVar,
  )
@@ -25,11 +26,6 @@ import Control.Tracer (
  )
 import qualified Data.ByteString.Lazy as LBS
 import Hydra.Logic (HydraMessage (..))
-import Network.TypedProtocol (
-  PeerHasAgency (ClientAgency),
-  SomeMessage (SomeMessage),
- )
-import Network.TypedProtocol.Codec (Codec, PeerRole)
 import Network.TypedProtocol.FireForget.Client as FireForget (
   FireForgetClient (..),
   fireForgetClientPeer,
@@ -39,14 +35,9 @@ import Network.TypedProtocol.FireForget.Server as FireForget (
   fireForgetServerPeer,
  )
 import Network.TypedProtocol.FireForget.Type (
-  ClientHasAgency (TokIdle),
-  FireForget,
-  Message (MsgDone, MsgSend),
   codecFireForget,
  )
 import Network.TypedProtocol.Pipelined ()
-import Ouroboros.Network.Codec (mkCodecCborLazyBS)
-import Ouroboros.Network.ErrorPolicy (nullErrorPolicies)
 import Ouroboros.Network.IOManager (withIOManager)
 import Ouroboros.Network.Mux (
   MiniProtocol (
@@ -61,33 +52,6 @@ import Ouroboros.Network.Mux (
   MuxPeer (MuxPeer),
   OuroborosApplication (..),
   RunMiniProtocol (InitiatorAndResponderProtocol),
- )
-import Ouroboros.Network.Protocol.Handshake.Codec (
-  cborTermVersionDataCodec,
-  noTimeLimitsHandshake,
- )
-import Ouroboros.Network.Protocol.Handshake.Unversioned (
-  unversionedHandshakeCodec,
-  unversionedProtocol,
-  unversionedProtocolDataCodec,
- )
-import Ouroboros.Network.Protocol.Handshake.Version (
-  Acceptable (acceptableVersion),
- )
-import Ouroboros.Network.Snocket (
-  LocalAddress,
-  localAddressFromPath,
-  localSnocket,
- )
-import Ouroboros.Network.Socket (
-  AcceptedConnectionsLimit (AcceptedConnectionsLimit),
-  SomeResponderApplication (SomeResponderApplication),
-  cleanNetworkMutableState,
-  connectToNode,
-  newNetworkMutableState,
-  nullNetworkConnectTracers,
-  nullNetworkServerTracers,
-  withServerNode,
  )
 
 type Hostname = Text
