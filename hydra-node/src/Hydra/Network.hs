@@ -41,5 +41,5 @@ createSimulatedHydraNetwork _ callback =
         callback answer
       Nothing -> pure ()
 
-createOurobourosHydraNetwork :: [Hostname] -> NetworkCallback IO -> IO (HydraNetwork IO)
-createOurobourosHydraNetwork _ _ = panic "TODO"
+createOuroborosHydraNetwork :: [Hostname] -> NetworkCallback IO -> IO (HydraNetwork IO)
+createOuroborosHydraNetwork _ _ = panic "TODO"
