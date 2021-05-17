@@ -78,10 +78,8 @@ library
     Hydra.Node
     Hydra.Ledger
     Hydra.Ledger.MaryTest
-    Hydra.Ledger.MockTx
     Hydra.Logic
     Hydra.Logic.SimpleHead
-    Hydra.MockZMQChain
     Network.TypedProtocol.FireForget.Type
     Network.TypedProtocol.FireForget.Client
     Network.TypedProtocol.FireForget.Server
@@ -100,9 +98,7 @@ library
     , shelley-spec-ledger-test
     , safe-exceptions
     , stm
-    , text
     , typed-protocols
-    , zeromq4-haskell
   ghc-options:
     -haddock
 
@@ -110,31 +106,11 @@ executable hydra-node
   import: project-config
   hs-source-dirs: exe/hydra-node
   main-is: Main.hs
-  other-modules:
-      Hydra.Repl
-      Hydra.MockRepl
+  other-modules: Hydra.Repl
   build-depends:
-      base
-    , cardano-prelude
+      cardano-prelude
     , hydra-node
-    , optparse-applicative
-    , parsec
     , repline
-    , text
-  ghc-options:
-    -threaded
-    -rtsopts
-
-executable mock-chain
-  import: project-config
-  hs-source-dirs: exe/mock-chain
-  main-is: Main.hs
-  build-depends:
-      base
-    , cardano-prelude
-    , hydra-node
-    , optparse-applicative
-    , text
   ghc-options:
     -threaded
     -rtsopts
@@ -196,7 +172,6 @@ test-suite integration
     , hspec
     , hspec-core
     , hydra-node
-    , io-sim-classes
     , stm
   build-tool-depends:
     hspec-discover:hspec-discover

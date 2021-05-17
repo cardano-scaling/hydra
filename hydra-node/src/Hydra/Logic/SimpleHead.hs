@@ -1,16 +1,14 @@
-{-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE UndecidableInstances #-}
-{-# OPTIONS_GHC -Wno-deprecations #-}
 
 module Hydra.Logic.SimpleHead where
 
-import Cardano.Prelude hiding (State)
+import           Cardano.Prelude         hiding ( State )
 
-import Hydra.Ledger (Ledger, LedgerState, applyTransaction)
+import           Hydra.Ledger                   ( LedgerState )
 
 data Event tx
   = NewTxFromClient tx
-  | ReqTxFromPeer tx
+  | ReqTxFromPeer
   | AckTxFromPeer
   | ConfTxFromPeer
   | ReqSnFromPeer
@@ -19,8 +17,8 @@ data Event tx
 
 data State tx = State
   { confirmedLedger :: LedgerState tx
-  , transactions :: Transactions
-  , snapshots :: Snapshots
+  , transactions    :: Transactions
+  , snapshots       :: Snapshots
   }
 
 deriving instance Eq (LedgerState tx) => Eq (State tx)
@@ -35,18 +33,13 @@ data Snapshots = Snapshots
   deriving (Eq, Show)
 
 data Effect tx
-  = MulticastReqTx tx
+  = MulticastReqTx
   | MulticastReqSn
   | MulticastConfTx
   | SendAckTx
   | Wait (State tx -> Maybe (State tx, [Effect tx]))
 
-update :: Show tx => Ledger tx -> State tx -> Event tx -> (State tx, [Effect tx])
-update ledger st = \case
-  NewTxFromClient tx -> (st, [MulticastReqTx tx])
-  ReqTxFromPeer tx ->
-    trace @Text ("applying transaction " <> show tx) $
-      case applyTransaction ledger (confirmedLedger st) tx of
-        Left err -> panic $ "applying invalid transaction " <> show tx <> " to ledger: " <> show err
-        Right newLedgerState -> (st{confirmedLedger = newLedgerState}, [])
-  _ -> panic "SimpleHead.TODO"
+update :: State tx -> Event tx -> (State tx, [Effect tx])
+update st = \case
+  NewTxFromClient _tx -> (st, [MulticastReqTx])
+  _                   -> panic "SimpleHead.TODO"

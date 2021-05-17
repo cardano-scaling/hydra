@@ -1,24 +1,23 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE UndecidableInstances #-}
-{-# OPTIONS_GHC -Wno-deferred-type-errors #-}
 
 module Hydra.Logic where
 
 import Cardano.Prelude
 
 import qualified Data.Set as Set
-import Hydra.Ledger (Ledger, LedgerState, ValidationError, initLedgerState)
+import Hydra.Ledger (Ledger (Ledger), LedgerState, ValidationError, initLedgerState)
 import qualified Hydra.Logic.SimpleHead as SimpleHead
 
 data Event tx
   = ClientEvent (ClientRequest tx)
-  | NetworkEvent (HydraMessage tx)
+  | NetworkEvent HydraMessage
   | OnChainEvent OnChainTx
   deriving (Eq, Show)
 
 data Effect tx
   = ClientEffect ClientResponse
-  | NetworkEffect (HydraMessage tx)
+  | NetworkEffect HydraMessage
   | OnChainEffect OnChainTx
   | -- | Wait effect should be interpreted as a non-blocking interruption which
     -- retries on every state changes until the continuation returns Just{}.
@@ -39,8 +38,8 @@ data ClientResponse
   | CommandFailed
   deriving (Eq, Show)
 
-data HydraMessage tx
-  = ReqTx tx
+data HydraMessage
+  = ReqTx
   | AckTx
   | ConfTx
   | ReqSn
@@ -55,7 +54,7 @@ data OnChainTx
   | CloseTx
   | ContestTx
   | FanoutTx
-  deriving (Eq, Read, Show)
+  deriving (Eq, Show)
 
 data HeadState tx
   = InitState
@@ -70,14 +69,14 @@ type PendingCommits = Set ParticipationToken
 
 -- | Identifies a party in a Hydra head.
 newtype Party = Party Natural
-  deriving (Eq, Ord, Num, Read, Show)
+  deriving (Eq, Ord, Num, Show)
 
 -- | Identifies the commit of a single party member
 data ParticipationToken = ParticipationToken
   { totalTokens :: Natural
   , thisToken :: Party
   }
-  deriving (Eq, Ord, Read, Show)
+  deriving (Eq, Ord, Show)
 
 -- | Verification used to authenticate main chain transactions that are
 -- restricted to members of the Head protocol instance, i.e. the commit
@@ -130,7 +129,7 @@ update ::
   HeadState tx ->
   Event tx ->
   Outcome tx
-update Environment{party} ledger st ev = case (st, ev) of
+update Environment{party} Ledger{initLedgerState} st ev = case (st, ev) of
   (InitState, ClientEvent (Init parties)) ->
     NewState InitState [OnChainEffect (InitTx $ makeAllTokens parties)]
   (InitState, OnChainEvent (InitTx tokens)) ->
@@ -147,19 +146,12 @@ update Environment{party} ledger st ev = case (st, ev) of
           then NewState newState [OnChainEffect CollectComTx]
           else NewState newState []
   (CollectingState{}, OnChainEvent CollectComTx) ->
-    NewState (OpenState $ SimpleHead.mkState (initLedgerState ledger)) [ClientEffect HeadIsOpen]
+    NewState (OpenState $ SimpleHead.mkState initLedgerState) [ClientEffect HeadIsOpen]
   --
   (OpenState _, OnChainEvent CommitTx{}) ->
     Error (InvalidEvent ev st) -- HACK(SN): is a general case later
   (OpenState{}, ClientEvent Close) ->
     NewState st [OnChainEffect CloseTx]
-  (OpenState{}, ClientEvent (NewTx tx)) ->
-    NewState st [NetworkEffect $ ReqTx tx]
-  (OpenState headState, NetworkEvent (ReqTx tx)) ->
-    -- TODO: this is a shortcut for the sake of making nodes communicate and do stuff
-    -- with transaction
-    let (headState', _) = SimpleHead.update ledger headState (SimpleHead.ReqTxFromPeer tx)
-     in NewState (OpenState headState') []
   (OpenState _, OnChainEvent CloseTx) ->
     NewState ClosedState [ClientEffect HeadIsClosed]
   --

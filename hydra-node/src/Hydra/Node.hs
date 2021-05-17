@@ -1,19 +1,19 @@
 {-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE TypeApplications #-}
-{-# OPTIONS_GHC -Wno-deferred-type-errors #-}
 
 -- | Top-level module to run a single Hydra node.
 module Hydra.Node where
 
-import Cardano.Prelude hiding (STM, async, atomically, cancel, poll, threadDelay)
+import Cardano.Prelude hiding (async, cancel, poll, threadDelay)
 import Control.Concurrent.STM (
   newTQueueIO,
+  newTVarIO,
   readTQueue,
+  stateTVar,
   writeTQueue,
  )
 import Control.Exception.Safe (MonadThrow)
 import Control.Monad.Class.MonadAsync (async)
-import Control.Monad.Class.MonadSTM (MonadSTM (STM), atomically, newTVar, stateTVar)
 import Control.Monad.Class.MonadTimer (threadDelay)
 import Hydra.Ledger
 import Hydra.Logic (
@@ -36,7 +36,7 @@ import qualified Hydra.Logic.SimpleHead as SimpleHead
 
 data HydraNode tx m = HydraNode
   { eq :: EventQueue m (Event tx)
-  , hn :: HydraNetwork tx m
+  , hn :: HydraNetwork m
   , hh :: HydraHead tx m
   , oc :: OnChain m
   , cs :: ClientSide m
@@ -49,13 +49,7 @@ handleClientRequest HydraNode{eq} = putEvent eq . ClientEvent
 handleChainTx :: HydraNode tx m -> OnChainTx -> m ()
 handleChainTx HydraNode{eq} = putEvent eq . OnChainEvent
 
-handleMessage :: HydraNode tx m -> HydraMessage tx -> m ()
-handleMessage HydraNode{eq} = putEvent eq . NetworkEvent
-
-queryLedgerState :: MonadSTM m => HydraNode tx m -> STM m (Maybe (LedgerState tx))
-queryLedgerState HydraNode{hh} = getConfirmedLedger hh
-
-createHydraNode :: Show tx => Party -> Ledger tx -> IO (HydraNode tx IO)
+createHydraNode :: Party -> Ledger tx -> IO (HydraNode tx IO)
 createHydraNode party ledger = do
   eq <- createEventQueue
   hh <- createHydraHead headState ledger
@@ -68,7 +62,6 @@ createHydraNode party ledger = do
 
 runHydraNode ::
   MonadThrow m =>
-  MonadSTM m =>
   MonadIO m =>
   Show (LedgerState tx) => -- TODO(SN): leaky abstraction of HydraHead
   Show tx =>
@@ -91,9 +84,8 @@ runHydraNode HydraNode{eq, hn, oc, cs, hh, env} =
 handleNextEvent ::
   Show (LedgerState tx) =>
   Show tx =>
-  MonadSTM m =>
   MonadThrow m =>
-  HydraNetwork tx m ->
+  HydraNetwork m ->
   OnChain m ->
   ClientSide m ->
   HydraHead tx m ->
@@ -107,11 +99,10 @@ handleNextEvent
   HydraHead{modifyHeadState, ledger}
   env
   e = do
-    result <- atomically $
-      modifyHeadState $ \s ->
-        case Logic.update env ledger s e of
-          NewState s' effects -> (Right effects, s')
-          Error err -> (Left err, s)
+    result <- modifyHeadState $ \s ->
+      case Logic.update env ledger s e of
+        NewState s' effects -> (Right effects, s')
+        Error err -> (Left err, s)
     case result of
       Left err -> pure $ Just err
       Right out -> do
@@ -150,47 +141,47 @@ createEventQueue = do
 
 -- | Handle to access and modify a Hydra Head's state.
 data HydraHead tx m = HydraHead
-  { modifyHeadState :: forall a. (HeadState tx -> (a, HeadState tx)) -> STM m a
+  { modifyHeadState :: forall a. (HeadState tx -> (a, HeadState tx)) -> m a
   , ledger :: Ledger tx
   }
 
-getConfirmedLedger :: MonadSTM m => HydraHead tx m -> STM m (Maybe (LedgerState tx))
+getConfirmedLedger :: Monad m => HydraHead tx m -> m (Maybe (LedgerState tx))
 getConfirmedLedger hh =
   queryHeadState hh <&> \case
     OpenState st -> Just (SimpleHead.confirmedLedger st)
     _ -> Nothing
 
-queryHeadState :: HydraHead tx m -> STM m (HeadState tx)
+queryHeadState :: HydraHead tx m -> m (HeadState tx)
 queryHeadState = (`modifyHeadState` \s -> (s, s))
 
-putState :: HydraHead tx m -> HeadState tx -> STM m ()
+putState :: HydraHead tx m -> HeadState tx -> m ()
 putState HydraHead{modifyHeadState} new =
   modifyHeadState $ const ((), new)
 
-createHydraHead :: (MonadSTM m) => HeadState tx -> Ledger tx -> m (HydraHead tx m)
+createHydraHead :: HeadState tx -> Ledger tx -> IO (HydraHead tx IO)
 createHydraHead initialState ledger = do
-  tv <- atomically $ newTVar initialState
-  pure HydraHead{modifyHeadState = stateTVar tv, ledger}
+  tv <- newTVarIO initialState
+  pure HydraHead{modifyHeadState = atomically . stateTVar tv, ledger}
 
 --
 -- HydraNetwork handle to abstract over network access
 --
 
 -- | Handle to interface with the hydra network and send messages "off chain".
-newtype HydraNetwork tx m = HydraNetwork
+newtype HydraNetwork m = HydraNetwork
   { -- | Send a 'HydraMessage' to the whole hydra network.
-    broadcast :: HydraMessage tx -> m ()
+    broadcast :: HydraMessage -> m ()
   }
 
 -- | Connects to a configured set of peers and sets up the whole network stack.
-createHydraNetwork :: Show tx => EventQueue IO (Event tx) -> IO (HydraNetwork tx IO)
+createHydraNetwork :: EventQueue IO (Event tx) -> IO (HydraNetwork IO)
 createHydraNetwork EventQueue{putEvent} =
   pure HydraNetwork{broadcast = simulatedBroadcast}
  where
   simulatedBroadcast msg = do
     putText $ "[Network] should broadcast " <> show msg
     let ma = case msg of
-          ReqTx _ -> Nothing
+          ReqTx -> Just AckTx
           AckTx -> Just ConfTx
           ConfTx -> Nothing
           ReqSn -> Just AckSn

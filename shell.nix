@@ -58,7 +58,6 @@ mkShell rec {
     libsodium-vrf
     systemd
     zlib
-    zeromq
   ];
 
   buildInputs = tools ++ libs;
