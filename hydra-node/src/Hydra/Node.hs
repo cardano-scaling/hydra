@@ -24,7 +24,6 @@ import Hydra.Logic (
   Event (ClientEvent, NetworkEvent, OnChainEvent),
   HeadParameters (..),
   HeadState (..),
-  HydraMessage (AckSn, AckTx, ConfSn, ConfTx, ReqSn, ReqTx),
   LogicError (..),
   OnChainTx (..),
   Outcome (Error, NewState),
@@ -33,6 +32,7 @@ import Hydra.Logic (
  )
 import qualified Hydra.Logic as Logic
 import qualified Hydra.Logic.SimpleHead as SimpleHead
+import Hydra.Network (HydraNetwork (..), createSimulatedHydraNetwork)
 
 data HydraNode tx m = HydraNode
   { eq :: EventQueue m (Event tx)
@@ -54,7 +54,7 @@ createHydraNode party ledger = do
   eq <- createEventQueue
   hh <- createHydraHead headState ledger
   oc <- createChainClient eq
-  hn <- createHydraNetwork eq
+  hn <- createSimulatedHydraNetwork [] (putEvent eq . NetworkEvent)
   cs <- createClientSide
   pure $ HydraNode eq hn hh oc cs (Environment party)
  where
@@ -162,36 +162,6 @@ createHydraHead :: HeadState tx -> Ledger tx -> IO (HydraHead tx IO)
 createHydraHead initialState ledger = do
   tv <- newTVarIO initialState
   pure HydraHead{modifyHeadState = atomically . stateTVar tv, ledger}
-
---
--- HydraNetwork handle to abstract over network access
---
-
--- | Handle to interface with the hydra network and send messages "off chain".
-newtype HydraNetwork m = HydraNetwork
-  { -- | Send a 'HydraMessage' to the whole hydra network.
-    broadcast :: HydraMessage -> m ()
-  }
-
--- | Connects to a configured set of peers and sets up the whole network stack.
-createHydraNetwork :: EventQueue IO (Event tx) -> IO (HydraNetwork IO)
-createHydraNetwork EventQueue{putEvent} =
-  pure HydraNetwork{broadcast = simulatedBroadcast}
- where
-  simulatedBroadcast msg = do
-    putText $ "[Network] should broadcast " <> show msg
-    let ma = case msg of
-          ReqTx -> Just AckTx
-          AckTx -> Just ConfTx
-          ConfTx -> Nothing
-          ReqSn -> Just AckSn
-          AckSn -> Just ConfSn
-          ConfSn -> Nothing
-    case ma of
-      Just answer -> do
-        putText $ "[Network] simulating answer " <> show answer
-        putEvent $ NetworkEvent answer
-      Nothing -> pure ()
 
 --
 -- OnChain handle to abstract over chain access
