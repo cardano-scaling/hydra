@@ -15,6 +15,7 @@ import Network.TypedProtocol.FireForget.Type (
  )
 
 data FireForgetClient msg m a where
+  Idle :: m (FireForgetClient msg m a) -> FireForgetClient msg m a
   SendMsg :: msg -> m (FireForgetClient msg m a) -> FireForgetClient msg m a
   SendDone :: m a -> FireForgetClient msg m a
 
@@ -23,6 +24,8 @@ fireForgetClientPeer ::
   FireForgetClient msg m a ->
   Peer (FireForget msg) 'AsClient 'StIdle m a
 fireForgetClientPeer = \case
+  Idle next ->
+    Effect $ fireForgetClientPeer <$> next
   SendMsg msg next ->
     Yield (ClientAgency TokIdle) (MsgSend msg) $
       Effect $ fireForgetClientPeer <$> next

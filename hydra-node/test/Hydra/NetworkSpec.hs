@@ -7,7 +7,7 @@ import Cardano.Prelude
 
 import Data.IORef (atomicModifyIORef', newIORef, readIORef)
 import Hydra.Logic (Event (NetworkEvent), HydraMessage (ReqTx))
-import Hydra.Network (HydraNetwork (broadcast), createOuroborosHydraNetwork)
+import Hydra.Network (HydraNetwork (broadcast), withOuroborosHydraNetwork)
 import Test.Hspec (Spec, describe, it, shouldReturn)
 
 type MockTx = ()
@@ -19,8 +19,7 @@ spec = describe "Ouroboros networking layer" $ do
 
     let callback msg = atomicModifyIORef' queue $ \msgs -> (NetworkEvent msg : msgs, ())
 
-    hn1 <- createOuroborosHydraNetwork "127.0.0.1:45678" ["127.0.0.1:45679"] (const $ pure ())
-    _ <- createOuroborosHydraNetwork "127.0.0.1:45679" ["127.0.0.1:45678"] callback
-
-    broadcast hn1 ReqTx
-    readIORef queue `shouldReturn` ([NetworkEvent ReqTx] :: [Event MockTx])
+    withOuroborosHydraNetwork "127.0.0.1:45678" ["127.0.0.1:45679"] (const $ pure ()) $ \hn1 ->
+      withOuroborosHydraNetwork "127.0.0.1:45679" ["127.0.0.1:45678"] callback $ \_ -> do
+        broadcast hn1 ReqTx
+        readIORef queue `shouldReturn` ([NetworkEvent ReqTx] :: [Event MockTx])

@@ -86,22 +86,29 @@ library
     Network.TypedProtocol.FireForget.Server
   build-depends:
       base
+    , async
+    , base
     , bytestring
     , cardano-binary
     , cardano-ledger-shelley-ma
     , cardano-ledger-shelley-ma-test
-    , cardano-slotting
     , cardano-prelude
+    , cardano-slotting
     , cborg
     , containers
+    , contra-tracer
     , data-default
+    , directory
     , io-sim-classes
+    , network-mux
     , ouroboros-network-framework
+    , safe-exceptions
     , shelley-spec-ledger
     , shelley-spec-ledger-test
-    , safe-exceptions
     , stm
+    , text
     , typed-protocols
+    , typed-protocols-examples
   ghc-options:
     -haddock
 
@@ -114,30 +121,6 @@ executable hydra-node
       cardano-prelude
     , hydra-node
     , repline
-  ghc-options:
-    -threaded
-    -rtsopts
-
-executable fire-forget
-  import: project-config
-  hs-source-dirs: exe/fire-forget
-  main-is: Main.hs
-  build-depends:
-      cardano-prelude
-    , async
-    , base
-    , bytestring
-    , contra-tracer
-    , directory
-    , hydra-node
-    , text
-    , cborg
-    , cardano-binary
-    , io-sim-classes
-    , network-mux
-    , ouroboros-network-framework
-    , typed-protocols
-    , typed-protocols-examples
   ghc-options:
     -threaded
     -rtsopts
