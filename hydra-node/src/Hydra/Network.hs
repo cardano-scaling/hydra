@@ -1,3 +1,5 @@
+{-# LANGUAGE DeriveAnyClass #-}
+{-# LANGUAGE DerivingStrategies #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 
 -- |Interface to the Hydra network and base types
@@ -10,6 +12,7 @@ import Cardano.Binary (
   ToCBOR (..),
  )
 import Cardano.Prelude
+import Codec.Serialise
 import Hydra.Logic (HydraMessage (..))
 import Network.Socket (HostName, ServiceName)
 import Network.TypedProtocol.Pipelined ()
@@ -33,6 +36,9 @@ type NetworkCallback m = HydraMessage -> m ()
 --
 -- Concrete network implementations
 --
+
+deriving stock instance Generic HydraMessage
+deriving anyclass instance Serialise HydraMessage
 
 instance ToCBOR HydraMessage where
   toCBOR = \case

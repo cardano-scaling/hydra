@@ -105,12 +105,14 @@ library
     , network-mux
     , ouroboros-network-framework
     , safe-exceptions
+    , serialise
     , shelley-spec-ledger
     , shelley-spec-ledger-test
     , stm
     , text
     , typed-protocols
     , typed-protocols-examples
+    , zeromq4-haskell
   ghc-options:
     -haddock
 
