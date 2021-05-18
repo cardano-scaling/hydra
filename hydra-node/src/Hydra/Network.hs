@@ -1,3 +1,4 @@
+{-# OPTIONS_GHC -Wno-deprecations #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 
 module Hydra.Network where
@@ -22,10 +23,14 @@ import Control.Monad.Class.MonadSTM (
  )
 import Control.Tracer (
   contramap,
+  debugTracer,
   stdoutTracer,
  )
 import qualified Data.ByteString.Lazy as LBS
+import Data.String (String)
+import qualified Data.Text as Text
 import Hydra.Logic (HydraMessage (..))
+import Network.Socket (AddrInfo (addrAddress), defaultHints, getAddrInfo, HostName, ServiceName)
 import Network.TypedProtocol.FireForget.Client as FireForget (
   FireForgetClient (..),
   fireForgetClientPeer,
@@ -53,8 +58,18 @@ import Ouroboros.Network.Mux (
   OuroborosApplication (..),
   RunMiniProtocol (InitiatorAndResponderProtocol),
  )
+import Ouroboros.Network.Snocket (socketSnocket)
+import Ouroboros.Network.Socket (newNetworkMutableState)
+import qualified Ouroboros.Network.Subscription as Subscription
+import Ouroboros.Network.Subscription.Ip (SubscriptionParams (..), IPSubscriptionTarget)
+import Ouroboros.Network.Subscription.Worker (LocalAddresses (LocalAddresses))
+import Text.Read (read)
+import Ouroboros.Network.ErrorPolicy (nullErrorPolicies)
+import Ouroboros.Network.Subscription (IPSubscriptionTarget(IPSubscriptionTarget))
 
-type Hostname = Text
+type Host = (HostName, Port)
+
+type Port = ServiceName
 
 --
 -- HydraNetwork handle to abstract over network access
@@ -79,7 +94,7 @@ instance FromCBOR HydraMessage where
   fromCBOR = panic "TODO: fromCBOR HydraMessage"
 
 -- | Connects to a configured set of peers and sets up the whole network stack.
-createSimulatedHydraNetwork :: [Hostname] -> NetworkCallback IO -> IO (HydraNetwork IO)
+createSimulatedHydraNetwork :: [Host] -> NetworkCallback IO -> IO (HydraNetwork IO)
 createSimulatedHydraNetwork _ callback =
   pure HydraNetwork{broadcast = simulatedBroadcast}
  where
@@ -99,18 +114,49 @@ createSimulatedHydraNetwork _ callback =
       Nothing -> pure ()
 
 withOuroborosHydraNetwork ::
-  Hostname ->
-  [Hostname] ->
+  Host ->
+  [Host] ->
   NetworkCallback IO ->
   (HydraNetwork IO -> IO ()) ->
   IO ()
-withOuroborosHydraNetwork _myHostName peers networkCallback between = do
+withOuroborosHydraNetwork localHost remoteHosts networkCallback between = do
   mvar <- newEmptyTMVarIO
   withIOManager $ \iomgr -> do
-    concurrently_ (forConcurrently_ peers (connect mvar)) (listen iomgr)
+    concurrently_ (connect iomgr mvar remoteHosts) (listen iomgr)
     between $ HydraNetwork (atomically . putTMVar mvar)
  where
-  connect _mvar _peer = panic "TODO"
+  resolveSockAddr (hostname,port) = do
+    is <- getAddrInfo (Just defaultHints) (Just hostname) (Just port)
+    case is of
+      (info : _) -> pure $ addrAddress info
+      _ -> panic "getAdrrInfo failed.. do proper error handling"
+
+  connect iomgr _mvar _peers = do
+    -- REVIEW(SN): move outside to have this information available?
+    networkState <- newNetworkMutableState
+    localAddr <- resolveSockAddr localHost
+    remoteAddrs <- forM remoteHosts resolveSockAddr
+    Subscription.ipSubscriptionWorker
+      (socketSnocket iomgr)
+      subscriptionTracer
+      errorPolicyTracer
+      networkState
+      (subscriptionParams localAddr remoteAddrs)
+      actualConnect
+
+  subscriptionParams localAddr remoteAddrs =
+    SubscriptionParams
+      { spLocalAddresses = LocalAddresses (Just localAddr) Nothing Nothing
+      , spConnectionAttemptDelay = const Nothing
+      , spErrorPolicies = nullErrorPolicies
+      , spSubscriptionTarget = IPSubscriptionTarget remoteAddrs 7
+      }
+
+  subscriptionTracer = contramap show debugTracer
+
+  errorPolicyTracer = contramap show debugTracer
+
+  actualConnect = panic "actualConnect"
   -- TODO:
   --    connectToNode
   --      (socketSnocket iomgr)
@@ -123,7 +169,7 @@ withOuroborosHydraNetwork _myHostName peers networkCallback between = do
   --      Nothing
   --      peerAddr
 
-  listen = panic "TODO" app
+  listen _iomgr = pure ()
   -- TODO:
   --    networkState <- newNetworkMutableState
   --    _ <- async $ cleanNetworkMutableState networkState
