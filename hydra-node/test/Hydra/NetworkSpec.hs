@@ -7,7 +7,7 @@ import Cardano.Prelude
 
 import Control.Monad.Class.MonadTimer (timeout)
 import Hydra.Logic (HydraMessage (ReqTx))
-import Hydra.Network (HydraNetwork (broadcast), withOuroborosHydraNetwork)
+import Hydra.Network.Ouroboros (broadcast, withOuroborosHydraNetwork)
 import Test.Hspec (Spec, describe, expectationFailure, it, shouldReturn)
 
 type MockTx = ()

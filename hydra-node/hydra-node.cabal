@@ -76,6 +76,7 @@ library
   hs-source-dirs: src
   exposed-modules:
     Hydra.Network
+    Hydra.Network.Ouroboros
     Hydra.Node
     Hydra.Ledger
     Hydra.Ledger.MaryTest
