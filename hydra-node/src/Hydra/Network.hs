@@ -92,10 +92,19 @@ type NetworkCallback m = HydraMessage -> m ()
 --
 
 instance ToCBOR HydraMessage where
-  toCBOR = panic "TODO: ToCBOR HydraMessage"
+  toCBOR = \case
+    ReqTx -> toCBOR ("ReqTx" :: Text)
+    AckTx -> toCBOR ("AckTx" :: Text)
+    ConfTx -> toCBOR ("ConfTx" :: Text)
+    ReqSn -> toCBOR ("ReqSn" :: Text)
+    AckSn -> toCBOR ("AckSn" :: Text)
+    ConfSn -> toCBOR ("ConfSn" :: Text)
 
 instance FromCBOR HydraMessage where
-  fromCBOR = panic "TODO: fromCBOR HydraMessage"
+  fromCBOR =
+    fromCBOR >>= \case
+      ("ReqTx" :: Text) -> pure ReqTx
+      _ -> panic "TODO: fromCBOR HydraMessage"
 
 -- | Connects to a configured set of peers and sets up the whole network stack.
 createSimulatedHydraNetwork :: [Host] -> NetworkCallback IO -> IO (HydraNetwork IO)
