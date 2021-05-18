@@ -13,6 +13,7 @@ import Cardano.Binary (
  )
 import Cardano.Prelude
 import Codec.Serialise
+import Control.Monad (fail)
 import Hydra.Logic (HydraMessage (..))
 import Network.Socket (HostName, ServiceName)
 import Network.TypedProtocol.Pipelined ()
@@ -53,7 +54,12 @@ instance FromCBOR HydraMessage where
   fromCBOR =
     fromCBOR >>= \case
       ("ReqTx" :: Text) -> pure ReqTx
-      _ -> panic "TODO: fromCBOR HydraMessage"
+      "AckTx" -> pure AckTx
+      "ConfTx" -> pure ConfTx
+      "ReqSn" -> pure ReqSn
+      "AckSn" -> pure AckSn
+      "ConfSn" -> pure ConfSn
+      msg -> fail $ show msg <> " is not a proper CBOR-encoded HydraMessage"
 
 -- | A dummy implemenation for stubbing purpose
 createSimulatedHydraNetwork :: [Host] -> NetworkCallback IO -> IO (HydraNetwork IO)

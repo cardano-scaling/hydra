@@ -1,15 +1,22 @@
+{-# LANGUAGE TypeApplications #-}
 {-# OPTIONS_GHC -Wno-deferred-type-errors #-}
+{-# OPTIONS_GHC -Wno-orphans #-}
 
 -- | Test the real networking layer
 module Hydra.NetworkSpec where
 
 import Cardano.Prelude hiding (threadDelay)
 
+import Cardano.Binary (FromCBOR, ToCBOR, fromCBOR, toCBOR)
+import Codec.CBOR.Read (deserialiseFromBytes)
+import Codec.CBOR.Write (toLazyByteString)
+import Codec.Serialise (Serialise, deserialiseOrFail, serialise)
 import Control.Monad.Class.MonadTimer (threadDelay, timeout)
-import Hydra.Logic (HydraMessage (ReqTx))
+import Hydra.Logic (HydraMessage (..))
 import Hydra.Network.Ouroboros (broadcast, withOuroborosHydraNetwork)
 import Hydra.Network.ZeroMQ (withZeroMQHydraNetwork)
 import Test.Hspec (Spec, describe, expectationFailure, it, shouldReturn, xit)
+import Test.QuickCheck (Arbitrary (..), arbitrary, elements, property)
 
 type MockTx = ()
 
@@ -36,6 +43,24 @@ spec = describe "Networking layer" $ do
               broadcast hn1 ReqTx
               takeMVar node2received `shouldReturn` ReqTx
               takeMVar node3received `shouldReturn` ReqTx
+
+  describe "Serialisation" $ do
+    it "can roundtrip serialisation of HydraMessage" $ property $ prop_canRoundtripSerialise @HydraMessage
+    it "can roundtrip CBOR encoding/decoding of HydraMessage" $ property $ prop_canRoundtripCBOREncoding @HydraMessage
+
+instance Arbitrary HydraMessage where
+  arbitrary = elements [ReqTx, AckTx, ConfTx, ReqSn, AckSn, ConfSn]
+
+prop_canRoundtripSerialise :: (Serialise a, Eq a) => a -> Bool
+prop_canRoundtripSerialise a =
+  let encoded = serialise a
+   in deserialiseOrFail encoded == Right a
+
+prop_canRoundtripCBOREncoding ::
+  (ToCBOR a, FromCBOR a, Eq a) => a -> Bool
+prop_canRoundtripCBOREncoding a =
+  let encoded = toLazyByteString $ toCBOR a
+   in (snd <$> deserialiseFromBytes fromCBOR encoded) == Right a
 
 failAfter2Seconds :: IO () -> IO ()
 failAfter2Seconds action =

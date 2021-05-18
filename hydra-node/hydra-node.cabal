@@ -141,13 +141,17 @@ test-suite tests
   type: exitcode-stdio-1.0
   build-depends:
       base
+    , cardano-binary
     , cardano-prelude
+    , cborg
     , contra-tracer
     , hspec
     , hspec-core
     , hydra-node
     , io-sim
     , io-sim-classes
+    , QuickCheck
+    , serialise
     , typed-protocols-examples
   build-tool-depends:
     hspec-discover:hspec-discover
