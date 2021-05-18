@@ -3,15 +3,30 @@
 
 module Hydra.Network where
 
-import Cardano.Prelude hiding (atomically, concurrently)
+import Cardano.Prelude (
+  Applicative (pure),
+  Bounded (maxBound),
+  Category ((.)),
+  Functor ((<$)),
+  IO,
+  Maybe (Just, Nothing),
+  Monad ((>>=)),
+  Semigroup ((<>)),
+  Text,
+  const,
+  forM,
+  panic,
+  putText,
+  race_,
+  show,
+  wait,
+  ($),
+  (<&>),
+ )
 
 import Cardano.Binary (
   FromCBOR (..),
   ToCBOR (..),
- )
-import Control.Monad.Class.MonadAsync (
-  concurrently_,
-  forConcurrently_,
  )
 import Control.Monad.Class.MonadSTM (
   MonadSTM,
@@ -27,8 +42,6 @@ import Control.Tracer (
   stdoutTracer,
  )
 import qualified Data.ByteString.Lazy as LBS
-import Data.String (String)
-import qualified Data.Text as Text
 import Hydra.Logic (HydraMessage (..))
 import Network.Socket (AddrInfo (addrAddress), HostName, ServiceName, defaultHints, getAddrInfo)
 import Network.TypedProtocol.FireForget.Client as FireForget (
@@ -64,12 +77,18 @@ import Ouroboros.Network.Protocol.Handshake.Unversioned (unversionedHandshakeCod
 import Ouroboros.Network.Protocol.Handshake.Version (acceptableVersion)
 import Ouroboros.Network.Server.Socket (AcceptedConnectionsLimit (AcceptedConnectionsLimit))
 import Ouroboros.Network.Snocket (socketSnocket)
-import Ouroboros.Network.Socket (AcceptedConnectionsLimit, SomeResponderApplication (..), connectToNode, connectToNodeSocket, newNetworkMutableState, nullNetworkConnectTracers, nullNetworkServerTracers, withServerNode)
+import Ouroboros.Network.Socket (
+  SomeResponderApplication (..),
+  connectToNodeSocket,
+  newNetworkMutableState,
+  nullNetworkConnectTracers,
+  nullNetworkServerTracers,
+  withServerNode,
+ )
 import Ouroboros.Network.Subscription (IPSubscriptionTarget (IPSubscriptionTarget))
 import qualified Ouroboros.Network.Subscription as Subscription
-import Ouroboros.Network.Subscription.Ip (IPSubscriptionTarget, SubscriptionParams (..))
+import Ouroboros.Network.Subscription.Ip (SubscriptionParams (..))
 import Ouroboros.Network.Subscription.Worker (LocalAddresses (LocalAddresses))
-import Text.Read (read)
 
 type Host = (HostName, Port)
 

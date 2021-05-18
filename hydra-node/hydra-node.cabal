@@ -98,7 +98,6 @@ library
     , containers
     , contra-tracer
     , data-default
-    , directory
     , io-sim-classes
     , network
     , network-mux
@@ -143,11 +142,9 @@ test-suite tests
     , hspec
     , hspec-core
     , hydra-node
-    , network-mux
     , io-sim
     , io-sim-classes
     , typed-protocols-examples
-    , ouroboros-network-framework
   build-tool-depends:
     hspec-discover:hspec-discover
   ghc-options:
