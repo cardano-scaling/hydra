@@ -15,7 +15,7 @@ import Control.Monad.Class.MonadTimer (threadDelay, timeout)
 import Hydra.Logic (HydraMessage (..))
 import Hydra.Network.Ouroboros (broadcast, withOuroborosHydraNetwork)
 import Hydra.Network.ZeroMQ (withZeroMQHydraNetwork)
-import Test.Hspec (Spec, describe, expectationFailure, it, shouldReturn, xit)
+import Test.Hspec (Spec, describe, expectationFailure, it, shouldReturn)
 import Test.QuickCheck (Arbitrary (..), arbitrary, elements, property)
 
 type MockTx = ()
@@ -23,7 +23,7 @@ type MockTx = ()
 spec :: Spec
 spec = describe "Networking layer" $ do
   describe "Ouroboros Network" $ do
-    xit "broadcasts messages to single connected peer" $ do
+    it "broadcasts messages to single connected peer" $ do
       received <- newEmptyMVar
       failAfter2Seconds $ do
         withOuroborosHydraNetwork ("127.0.0.1", "45678") [("127.0.0.1", "45679")] (const $ pure ()) $ \hn1 ->
