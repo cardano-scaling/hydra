@@ -30,7 +30,7 @@ import qualified Data.ByteString.Lazy as LBS
 import Data.String (String)
 import qualified Data.Text as Text
 import Hydra.Logic (HydraMessage (..))
-import Network.Socket (AddrInfo (addrAddress), defaultHints, getAddrInfo, HostName, ServiceName)
+import Network.Socket (AddrInfo (addrAddress), HostName, ServiceName, defaultHints, getAddrInfo)
 import Network.TypedProtocol.FireForget.Client as FireForget (
   FireForgetClient (..),
   fireForgetClientPeer,
@@ -43,6 +43,7 @@ import Network.TypedProtocol.FireForget.Type (
   codecFireForget,
  )
 import Network.TypedProtocol.Pipelined ()
+import Ouroboros.Network.ErrorPolicy (nullErrorPolicies)
 import Ouroboros.Network.IOManager (withIOManager)
 import Ouroboros.Network.Mux (
   MiniProtocol (
@@ -58,14 +59,17 @@ import Ouroboros.Network.Mux (
   OuroborosApplication (..),
   RunMiniProtocol (InitiatorAndResponderProtocol),
  )
+import Ouroboros.Network.Protocol.Handshake.Codec (cborTermVersionDataCodec, noTimeLimitsHandshake)
+import Ouroboros.Network.Protocol.Handshake.Unversioned (unversionedHandshakeCodec, unversionedProtocol, unversionedProtocolDataCodec)
+import Ouroboros.Network.Protocol.Handshake.Version (acceptableVersion)
+import Ouroboros.Network.Server.Socket (AcceptedConnectionsLimit (AcceptedConnectionsLimit))
 import Ouroboros.Network.Snocket (socketSnocket)
-import Ouroboros.Network.Socket (newNetworkMutableState)
+import Ouroboros.Network.Socket (AcceptedConnectionsLimit, SomeResponderApplication (..), newNetworkMutableState, nullNetworkServerTracers, withServerNode)
+import Ouroboros.Network.Subscription (IPSubscriptionTarget (IPSubscriptionTarget))
 import qualified Ouroboros.Network.Subscription as Subscription
-import Ouroboros.Network.Subscription.Ip (SubscriptionParams (..), IPSubscriptionTarget)
+import Ouroboros.Network.Subscription.Ip (IPSubscriptionTarget, SubscriptionParams (..))
 import Ouroboros.Network.Subscription.Worker (LocalAddresses (LocalAddresses))
 import Text.Read (read)
-import Ouroboros.Network.ErrorPolicy (nullErrorPolicies)
-import Ouroboros.Network.Subscription (IPSubscriptionTarget(IPSubscriptionTarget))
 
 type Host = (HostName, Port)
 
@@ -122,10 +126,11 @@ withOuroborosHydraNetwork ::
 withOuroborosHydraNetwork localHost remoteHosts networkCallback between = do
   mvar <- newEmptyTMVarIO
   withIOManager $ \iomgr -> do
-    concurrently_ (connect iomgr mvar remoteHosts) (listen iomgr)
-    between $ HydraNetwork (atomically . putTMVar mvar)
+    race_ (connect iomgr mvar remoteHosts) $
+      race_ (listen iomgr $ hydraApp mvar) $ do
+        between $ HydraNetwork (atomically . putTMVar mvar)
  where
-  resolveSockAddr (hostname,port) = do
+  resolveSockAddr (hostname, port) = do
     is <- getAddrInfo (Just defaultHints) (Just hostname) (Just port)
     case is of
       (info : _) -> pure $ addrAddress info
@@ -169,26 +174,27 @@ withOuroborosHydraNetwork localHost remoteHosts networkCallback between = do
   --      Nothing
   --      peerAddr
 
-  listen _iomgr = pure ()
-  -- TODO:
-  --    networkState <- newNetworkMutableState
-  --    _ <- async $ cleanNetworkMutableState networkState
-  --    withServerNode
-  --      (localSnocket iomgr defaultLocalSocketAddrPath)
-  --      nullNetworkServerTracers
-  --      networkState
-  --      (AcceptedConnectionsLimit maxBound maxBound 0)
-  --      defaultLocalSocketAddr
-  --      unversionedHandshakeCodec
-  --      noTimeLimitsHandshake
-  --      (cborTermVersionDataCodec unversionedProtocolDataCodec)
-  --      acceptableVersion
-  --      (unversionedProtocol (SomeResponderApplication app))
-  --      nullErrorPolicies
-  --      $ \_ serverAsync -> wait serverAsync -- block until async exception
+  listen iomgr app = do
+    networkState <- newNetworkMutableState
+    localAddr <- resolveSockAddr localHost
+    -- TODO(SN): whats this? _ <- async $ cleanNetworkMutableState networkState
+    withServerNode
+      (socketSnocket iomgr)
+      nullNetworkServerTracers
+      networkState
+      (AcceptedConnectionsLimit maxBound maxBound 0)
+      localAddr
+      unversionedHandshakeCodec
+      noTimeLimitsHandshake
+      (cborTermVersionDataCodec unversionedProtocolDataCodec)
+      acceptableVersion
+      (unversionedProtocol (SomeResponderApplication app))
+      nullErrorPolicies
+      $ \_ serverAsync -> wait serverAsync -- block until async exception
 
-  app :: TMVar IO HydraMessage -> OuroborosApplication 'InitiatorResponderMode addr LBS.ByteString IO () ()
-  app var = demoProtocol0 $ InitiatorAndResponderProtocol initiator responder
+  --
+  hydraApp :: TMVar IO HydraMessage -> OuroborosApplication 'InitiatorResponderMode addr LBS.ByteString IO () ()
+  hydraApp var = demoProtocol0 $ InitiatorAndResponderProtocol initiator responder
    where
     initiator =
       MuxPeer
