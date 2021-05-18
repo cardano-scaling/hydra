@@ -64,7 +64,7 @@ import Ouroboros.Network.Protocol.Handshake.Unversioned (unversionedHandshakeCod
 import Ouroboros.Network.Protocol.Handshake.Version (acceptableVersion)
 import Ouroboros.Network.Server.Socket (AcceptedConnectionsLimit (AcceptedConnectionsLimit))
 import Ouroboros.Network.Snocket (socketSnocket)
-import Ouroboros.Network.Socket (AcceptedConnectionsLimit, SomeResponderApplication (..), newNetworkMutableState, nullNetworkServerTracers, withServerNode)
+import Ouroboros.Network.Socket (AcceptedConnectionsLimit, SomeResponderApplication (..), connectToNode, connectToNodeSocket, newNetworkMutableState, nullNetworkConnectTracers, nullNetworkServerTracers, withServerNode)
 import Ouroboros.Network.Subscription (IPSubscriptionTarget (IPSubscriptionTarget))
 import qualified Ouroboros.Network.Subscription as Subscription
 import Ouroboros.Network.Subscription.Ip (IPSubscriptionTarget, SubscriptionParams (..))
@@ -126,7 +126,7 @@ withOuroborosHydraNetwork ::
 withOuroborosHydraNetwork localHost remoteHosts networkCallback between = do
   mvar <- newEmptyTMVarIO
   withIOManager $ \iomgr -> do
-    race_ (connect iomgr mvar remoteHosts) $
+    race_ (connect iomgr $ hydraApp mvar) $
       race_ (listen iomgr $ hydraApp mvar) $ do
         between $ HydraNetwork (atomically . putTMVar mvar)
  where
@@ -136,18 +136,19 @@ withOuroborosHydraNetwork localHost remoteHosts networkCallback between = do
       (info : _) -> pure $ addrAddress info
       _ -> panic "getAdrrInfo failed.. do proper error handling"
 
-  connect iomgr _mvar _peers = do
+  connect iomgr app = do
     -- REVIEW(SN): move outside to have this information available?
     networkState <- newNetworkMutableState
     localAddr <- resolveSockAddr localHost
     remoteAddrs <- forM remoteHosts resolveSockAddr
+    let sn = socketSnocket iomgr
     Subscription.ipSubscriptionWorker
-      (socketSnocket iomgr)
+      sn
       subscriptionTracer
       errorPolicyTracer
       networkState
       (subscriptionParams localAddr remoteAddrs)
-      actualConnect
+      (actualConnect iomgr app)
 
   subscriptionParams localAddr remoteAddrs =
     SubscriptionParams
@@ -161,18 +162,15 @@ withOuroborosHydraNetwork localHost remoteHosts networkCallback between = do
 
   errorPolicyTracer = contramap show debugTracer
 
-  actualConnect = panic "actualConnect"
-  -- TODO:
-  --    connectToNode
-  --      (socketSnocket iomgr)
-  --      unversionedHandshakeCodec
-  --      noTimeLimitsHandshake
-  --      (cborTermVersionDataCodec unversionedProtocolDataCodec)
-  --      nullNetworkConnectTracers
-  --      acceptableVersion
-  --      (unversionedProtocol $ app mvar)
-  --      Nothing
-  --      peerAddr
+  actualConnect iomgr app =
+    connectToNodeSocket
+      iomgr
+      unversionedHandshakeCodec
+      noTimeLimitsHandshake
+      (cborTermVersionDataCodec unversionedProtocolDataCodec)
+      nullNetworkConnectTracers
+      acceptableVersion
+      (unversionedProtocol app)
 
   listen iomgr app = do
     networkState <- newNetworkMutableState
