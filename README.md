@@ -1,16 +1,16 @@
-# Hydra Proof of Concept (POC) :construction:
+# :construction: Hydra Proof of Concept (POC) :construction:
 
 A home to our colorful experiments and prototypes.
 
 ![GitHub Actions CI](https://github.com/input-output-hk/hydra-poc/actions/workflows/ci.yaml/badge.svg)
 
-## Disclaimer :warning:
+## :warning: Disclaimer :warning:
 
 This is prototypical and exploratory work. Although we might create a prototype
 for a `hydra-node` in here, some experiments have not a clear goal or usage in
 mind. We do not provide documentation or support for the artifacts created here
 by purpose as we also intend to throw away / discontinue use when we start work
-on a real product. This also implies that the code quality seen around here is
+on an actual product. This also implies that the code quality seen around here is
 not representing our best practices and you will find many code smells and dirty
 hacks.
 
