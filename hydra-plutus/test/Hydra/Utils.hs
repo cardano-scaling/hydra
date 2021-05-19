@@ -4,16 +4,12 @@ import qualified Control.Foldl as L
 import Control.Monad.Freer.Writer (tell)
 import qualified Data.Map as Map
 import Data.Maybe
-import Data.String
 import Data.Text.Prettyprint.Doc
 import Data.Void (Void)
 import Ledger (Address, DatumHash, TxOutTx (txOutTxOut), txOutDatum)
 import Ledger.AddressMap (UtxoMap)
 import Plutus.Contract.Test (TracePredicate)
-import PlutusTx
 import PlutusTx.Prelude hiding (trace)
-import Test.Tasty
-import Test.Tasty.Golden
 import Wallet.Emulator.Folds (postMapM)
 import qualified Wallet.Emulator.Folds as Folds
 
