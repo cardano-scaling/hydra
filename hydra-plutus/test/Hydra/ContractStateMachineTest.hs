@@ -53,8 +53,7 @@ tests =
     "Contract StateMachine"
     [ testGroup
         "StateMachine Contract Behaviour"
-        [ -- checkCompiledContractPIR "test/Hydra/ContractStateMachine.pir" compiledScript
-          checkPredicate
+        [ checkPredicate
             "Expose 'collectCom' and 'close' endpoints"
             ( endpointAvailable @"collectCom" theContract (Trace.walletInstanceTag w1)
                 .&&. endpointAvailable @"close" theContract (Trace.walletInstanceTag w1)

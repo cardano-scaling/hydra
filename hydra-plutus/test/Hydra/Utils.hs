@@ -38,24 +38,3 @@ datumAtAddress address expected =
 datum :: UtxoMap -> [DatumHash]
 datum utxoMap =
   catMaybes $ Map.elems $ Map.map (txOutDatum . txOutTxOut) utxoMap
-
-checkCompiledContractPIR :: FilePath -> CompiledCode a -> TestTree
-checkCompiledContractPIR path code = goldenVsString "PIR" path (return $ fromString $ show $ pretty $ fromJust $ getPir code)
-
--- renderWalletLog :: Wallet -> EmulatorTrace () -> Text
--- renderWalletLog w1 trace =
---   let result =
---         run $
---           foldEmulatorStreamM (L.generalize $ Folds.instanceLog (walletInstanceTag w1)) $
---             filterLogLevel Info $
---               runEmulatorStream defaultEmulatorConfig trace
---    in renderStrict $ layoutPretty defaultLayoutOptions $ vsep $ pretty <$> S.fst' result
-
--- renderEmulatorLog :: EmulatorTrace () -> ByteString
--- renderEmulatorLog trace =
---     let result =
---             run
---             $ foldEmulatorStreamM (L.generalize Folds.emulatorLog)
---             $ filterLogLevel Info
---             $ Trace.runEmulatorStream Trace.defaultEmulatorConfig trace
---     in BSL.fromStrict $ T.encodeUtf8 $ renderStrict $ layoutPretty defaultLayoutOptions $ vsep $ fmap pretty $ S.fst' result
