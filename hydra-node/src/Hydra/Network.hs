@@ -2,9 +2,9 @@
 {-# LANGUAGE DerivingStrategies #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 
--- |Interface to the Hydra network and base types
--- Concrete implementations are provided by submodules. Import those instead of this one
--- if interested in actually configuring and running a real network layer.
+-- | Interface to the Hydra network and base types. Concrete implementations are
+-- provided by submodules. Import those instead of this one if interested in
+-- actually configuring and running a real network layer.
 module Hydra.Network where
 
 import Cardano.Binary (
@@ -18,13 +18,7 @@ import Hydra.Logic (HydraMessage (..))
 import Network.Socket (HostName, ServiceName)
 import Network.TypedProtocol.Pipelined ()
 
-type Host = (HostName, Port)
-
-type Port = ServiceName
-
---
--- HydraNetwork handle to abstract over network access
---
+-- * Hydra network interface
 
 -- | Handle to interface with the hydra network and send messages "off chain".
 newtype HydraNetwork tx m = HydraNetwork
@@ -34,9 +28,11 @@ newtype HydraNetwork tx m = HydraNetwork
 
 type NetworkCallback tx m = HydraMessage tx -> m ()
 
---
--- Concrete network implementations
---
+-- * Types used by concrete implementations
+
+type Host = (HostName, Port)
+
+type Port = ServiceName
 
 deriving stock instance Generic (HydraMessage tx)
 deriving anyclass instance Serialise tx => Serialise (HydraMessage tx)

@@ -1,7 +1,7 @@
 {-# LANGUAGE TypeApplications #-}
 
 -- | A simplified "Mary" ledger, which is initialized with a genesis UTXO set
--- and also some example transactions.
+-- and also some example transactions. Use this with 'cardanoLedger'.
 module Hydra.Ledger.MaryTest where
 
 import Cardano.Prelude

@@ -21,6 +21,9 @@ data Effect tx
   | OnChainEffect OnChainTx
   | -- | Wait effect should be interpreted as a non-blocking interruption which
     -- retries on every state changes until the continuation returns Just{}.
+    -- NOTE(SN): This is more likely an alternative 'Outcome' rather than an
+    -- 'Effect' Also instead of a continuation, we could just re-enqueue an
+    -- event (as long as the repeated computation "up to" wait is cheap enough)
     Wait (HeadState tx -> Maybe (HeadState tx, [Effect tx]))
 
 data ClientRequest tx
@@ -78,17 +81,6 @@ data ParticipationToken = ParticipationToken
   }
   deriving (Eq, Ord, Show)
 
--- | Verification used to authenticate main chain transactions that are
--- restricted to members of the Head protocol instance, i.e. the commit
--- transaction. This key is named k_i in the paper and for Cardano, this is
--- currently a Ed25519 verification key
-data OnChainVerificationKey
-
--- | Verification key to the signing key used for signing / acking transactions
--- off chain. This key is named K_i in the paper and can be aggregated with
--- other party member's 'HydraVerificationKey' to K_agg.
-data HydraVerificationKey
-
 -- | Contains at least the contestation period and other things.
 data HeadParameters = HeadParameters
 
@@ -100,6 +92,8 @@ data SnapshotStrategy = SnapshotStrategy
 createHeadState :: [Party] -> HeadParameters -> SnapshotStrategy -> HeadState tx
 createHeadState _ _ _ = InitState
 
+-- | Preliminary type for collecting errors occurring during 'update'. Might
+-- make sense to merge this (back) into 'Outcome'.
 data LogicError tx
   = InvalidEvent (Event tx) (HeadState tx)
   | InvalidState (HeadState tx)

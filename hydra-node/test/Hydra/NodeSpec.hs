@@ -1,5 +1,3 @@
-{-# OPTIONS_GHC -Wno-deferred-type-errors #-}
-
 module Hydra.NodeSpec where
 
 import Cardano.Prelude
