@@ -1,6 +1,7 @@
 -- | Ouroboros-based implementation of `Hydra.Network` interface
 module Hydra.Network.Ouroboros (withOuroborosHydraNetwork, module Hydra.Network) where
 
+import Cardano.Binary (FromCBOR, ToCBOR)
 import Cardano.Prelude hiding (atomically)
 import Control.Monad.Class.MonadSTM (
   MonadSTM,
@@ -66,10 +67,14 @@ import Ouroboros.Network.Subscription.Ip (SubscriptionParams (..))
 import Ouroboros.Network.Subscription.Worker (LocalAddresses (LocalAddresses))
 
 withOuroborosHydraNetwork ::
+  forall tx.
+  Show tx =>
+  ToCBOR tx =>
+  FromCBOR tx =>
   Host ->
   [Host] ->
-  NetworkCallback IO ->
-  (HydraNetwork IO -> IO ()) ->
+  NetworkCallback tx IO ->
+  (HydraNetwork tx IO -> IO ()) ->
   IO ()
 withOuroborosHydraNetwork localHost remoteHosts networkCallback between = do
   mvar <- newEmptyTMVarIO
@@ -139,7 +144,7 @@ withOuroborosHydraNetwork localHost remoteHosts networkCallback between = do
       $ \_ serverAsync -> wait serverAsync -- block until async exception
 
   --
-  hydraApp :: TMVar IO HydraMessage -> OuroborosApplication 'InitiatorResponderMode addr LBS.ByteString IO () ()
+  hydraApp :: TMVar IO (HydraMessage tx) -> OuroborosApplication 'InitiatorResponderMode addr LBS.ByteString IO () ()
   hydraApp var = demoProtocol0 $ InitiatorAndResponderProtocol initiator responder
    where
     initiator =
@@ -174,14 +179,14 @@ withOuroborosHydraNetwork localHost remoteHosts networkCallback between = do
 
   client ::
     (MonadSTM m) =>
-    TMVar m HydraMessage ->
-    FireForgetClient HydraMessage m ()
+    TMVar m (HydraMessage tx) ->
+    FireForgetClient (HydraMessage tx) m ()
   client queue =
     Idle $
       atomically (takeTMVar queue) <&> \msg ->
         SendMsg msg (pure $ client queue)
 
-  server :: FireForgetServer HydraMessage IO ()
+  server :: FireForgetServer (HydraMessage tx) IO ()
   server =
     FireForgetServer
       { recvMsg = \msg -> server <$ networkCallback msg
