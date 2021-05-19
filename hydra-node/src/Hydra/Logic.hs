@@ -21,6 +21,9 @@ data Effect tx
   | OnChainEffect OnChainTx
   | -- | Wait effect should be interpreted as a non-blocking interruption which
     -- retries on every state changes until the continuation returns Just{}.
+    -- NOTE(SN): This is more likely an alternative 'Outcome' rather than an
+    -- 'Effect' Also instead of a continuation, we could just re-enqueue an
+    -- event (as long as the repeated computation "up to" wait is cheap enough)
     Wait (HeadState tx -> Maybe (HeadState tx, [Effect tx]))
 
 data ClientRequest tx
@@ -100,6 +103,8 @@ data SnapshotStrategy = SnapshotStrategy
 createHeadState :: [Party] -> HeadParameters -> SnapshotStrategy -> HeadState tx
 createHeadState _ _ _ = InitState
 
+-- | Preliminary type for collecting errors occurring during 'update'. Might
+-- make sense to merge this (back) into 'Outcome'.
 data LogicError tx
   = InvalidEvent (Event tx) (HeadState tx)
   | InvalidState (HeadState tx)

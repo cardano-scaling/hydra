@@ -34,6 +34,8 @@ import qualified Hydra.Logic as Logic
 import qualified Hydra.Logic.SimpleHead as SimpleHead
 import Hydra.Network (HydraNetwork (..), createSimulatedHydraNetwork)
 
+-- ** Create and run a hydra node
+
 data HydraNode tx m = HydraNode
   { eq :: EventQueue m (Event tx)
   , hn :: HydraNetwork m
@@ -68,17 +70,13 @@ runHydraNode ::
   HydraNode tx m ->
   m ()
 runHydraNode HydraNode{eq, hn, oc, cs, hh, env} =
-  -- NOTE(SN): here we would introduce concurrent head processing, e.g. with
+  -- NOTE(SN): here we could introduce concurrent head processing, e.g. with
   -- something like 'forM_ [0..1] $ async'
   forever $ do
     e <- nextEvent eq
     handleNextEvent hn oc cs hh env e >>= \case
       Just err -> putText $ "runHydraNode ERROR: " <> show err
       _ -> pure ()
-
---
--- General handlers of client commands or events.
---
 
 -- | Monadic interface around 'Hydra.Logic.update'.
 handleNextEvent ::
@@ -110,12 +108,10 @@ handleNextEvent
           ClientEffect i -> sendResponse i
           NetworkEffect msg -> broadcast msg
           OnChainEffect tx -> postTx tx
-          Wait _cont -> panic "TODO: wait and reschedule continuation" -- TODO(SN) also this is not forced
+          Wait _cont -> panic "TODO: wait and reschedule continuation" -- TODO(SN) this error is not forced
         pure Nothing
 
---
--- Some general event queue from which the Hydra head is "fed"
---
+-- ** Some general event queue from which the Hydra head is "fed"
 
 -- | The single, required queue in the system from which a hydra head is "fed".
 -- NOTE(SN): this probably should be bounded and include proper logging
@@ -135,9 +131,7 @@ createEventQueue = do
       , nextEvent = atomically $ readTQueue q
       }
 
---
--- HydraHead handle to manage a single hydra head state concurrently
---
+-- ** HydraHead handle to manage a single hydra head state concurrently
 
 -- | Handle to access and modify a Hydra Head's state.
 data HydraHead tx m = HydraHead
@@ -162,10 +156,7 @@ createHydraHead :: HeadState tx -> Ledger tx -> IO (HydraHead tx IO)
 createHydraHead initialState ledger = do
   tv <- newTVarIO initialState
   pure HydraHead{modifyHeadState = atomically . stateTVar tv, ledger}
-
---
--- OnChain handle to abstract over chain access
---
+-- ** OnChain handle to abstract over chain access
 
 data ChainError = ChainError
   deriving (Exception, Show)

@@ -1,4 +1,4 @@
--- | Ouroboros-based implementation of `Hydra.Network` interface
+-- | Ouroboros-based implementation of 'Hydra.Network' interface
 module Hydra.Network.Ouroboros (withOuroborosHydraNetwork, module Hydra.Network) where
 
 import Cardano.Prelude hiding (atomically)

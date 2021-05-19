@@ -9,6 +9,8 @@ import qualified Shelley.Spec.Ledger.API as Ledger
 import Shelley.Spec.Ledger.BaseTypes (UnitInterval, mkActiveSlotCoeff, mkUnitInterval)
 import Shelley.Spec.Ledger.Slot (EpochSize (EpochSize))
 
+-- * Ledger interface
+
 type family LedgerState tx
 
 data Ledger tx = Ledger
@@ -24,9 +26,7 @@ data ValidationResult
 
 data ValidationError = ValidationError deriving (Eq, Show)
 
---
--- Cardano ledger
---
+-- * Cardano ledger
 
 type instance LedgerState (Ledger.Tx era) = Ledger.LedgerState era
 
