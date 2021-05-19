@@ -1,6 +1,6 @@
 # Hydra Proof of Concept (POC) :construction:
 
-A repository for our colorful prototypes and experiments.
+A home to our colorful experiments and prototypes.
 
 ![GitHub Actions CI](https://github.com/input-output-hk/hydra-poc/actions/workflows/ci.yaml/badge.svg)
 
