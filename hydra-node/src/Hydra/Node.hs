@@ -164,7 +164,7 @@ putState HydraHead{modifyHeadState} new =
 createHydraHead :: (MonadSTM m) => HeadState tx -> Ledger tx -> m (HydraHead tx m)
 createHydraHead initialState ledger = do
   tv <- atomically $ newTVar initialState
-  pure HydraHead{modifyHeadState = atomically . stateTVar tv, ledger}
+  pure HydraHead{modifyHeadState = stateTVar tv, ledger}
 -- ** OnChain handle to abstract over chain access
 
 data ChainError = ChainError
