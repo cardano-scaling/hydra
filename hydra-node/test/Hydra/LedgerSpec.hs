@@ -1,5 +1,4 @@
 {-# LANGUAGE TypeApplications #-}
-{-# OPTIONS_GHC -Wno-deferred-type-errors #-}
 
 -- | Tests for our 'Hydra.Ledger' integration. We do only want to do "smoke" and
 -- "sanity" tests here and leave the detailed unit tests to the ledger

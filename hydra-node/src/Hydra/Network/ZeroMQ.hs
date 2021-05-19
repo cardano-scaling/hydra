@@ -1,6 +1,4 @@
 {-# LANGUAGE TypeApplications #-}
-{-# OPTIONS_GHC -Wno-deferred-type-errors #-}
-{-# OPTIONS_GHC -Wno-unused-matches #-}
 
 module Hydra.Network.ZeroMQ where
 
