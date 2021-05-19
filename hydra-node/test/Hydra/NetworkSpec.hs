@@ -15,22 +15,25 @@ import Hydra.Logic (HydraMessage (..))
 import Hydra.Network.Ouroboros (broadcast, withOuroborosHydraNetwork)
 import Hydra.Network.ZeroMQ (withZeroMQHydraNetwork)
 import Test.Hspec (Spec, describe, expectationFailure, it, shouldReturn)
-import Test.QuickCheck (Arbitrary (..), arbitrary, elements, property)
+import Test.QuickCheck (Arbitrary (..), arbitrary, oneof, property)
 
 type MockTx = ()
 
 spec :: Spec
 spec = describe "Networking layer" $ do
-  describe "Ouroboros Network" $ do
+  let requestTx :: HydraMessage Integer
+      requestTx = ReqTx 1
+
+  describe "Ouroboros Network" $
     it "broadcasts messages to single connected peer" $ do
       received <- newEmptyMVar
       failAfter2Seconds $ do
         withOuroborosHydraNetwork ("127.0.0.1", "45678") [("127.0.0.1", "45679")] (const $ pure ()) $ \hn1 ->
           withOuroborosHydraNetwork ("127.0.0.1", "45679") [("127.0.0.1", "45678")] (putMVar received) $ \_ -> do
-            broadcast hn1 ReqTx
-            takeMVar received `shouldReturn` ReqTx
+            broadcast hn1 requestTx
+            takeMVar received `shouldReturn` requestTx
 
-  describe "0MQ Network" $ do
+  describe "0MQ Network" $
     it "broadcasts messages to 2 connected peers" $ do
       node2received <- newEmptyMVar
       node3received <- newEmptyMVar
@@ -39,16 +42,16 @@ spec = describe "Networking layer" $ do
           withZeroMQHydraNetwork ("127.0.0.1", "55678") [("127.0.0.1", "55677"), ("127.0.0.1", "55679")] (putMVar node2received) $ \_ ->
             withZeroMQHydraNetwork ("127.0.0.1", "55679") [("127.0.0.1", "55677"), ("127.0.0.1", "55678")] (putMVar node3received) $ \_ -> do
               threadDelay 1 -- This is needed to wait for all nodes to be up
-              broadcast hn1 ReqTx
-              takeMVar node2received `shouldReturn` ReqTx
-              takeMVar node3received `shouldReturn` ReqTx
+              broadcast hn1 requestTx
+              takeMVar node2received `shouldReturn` requestTx
+              takeMVar node3received `shouldReturn` requestTx
 
   describe "Serialisation" $ do
-    it "can roundtrip serialisation of HydraMessage" $ property $ prop_canRoundtripSerialise @HydraMessage
-    it "can roundtrip CBOR encoding/decoding of HydraMessage" $ property $ prop_canRoundtripCBOREncoding @HydraMessage
+    it "can roundtrip serialisation of HydraMessage" $ property $ prop_canRoundtripSerialise @(HydraMessage Integer)
+    it "can roundtrip CBOR encoding/decoding of HydraMessage" $ property $ prop_canRoundtripCBOREncoding @(HydraMessage Integer)
 
-instance Arbitrary HydraMessage where
-  arbitrary = elements [ReqTx, AckTx, ConfTx, ReqSn, AckSn, ConfSn]
+instance Arbitrary (HydraMessage Integer) where
+  arbitrary = oneof [ReqTx <$> arbitrary, pure AckTx, pure ConfTx, pure ReqSn, pure AckSn, pure ConfSn]
 
 prop_canRoundtripSerialise :: (Serialise a, Eq a) => a -> Bool
 prop_canRoundtripSerialise a =

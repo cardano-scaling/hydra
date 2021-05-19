@@ -6,18 +6,18 @@ module Hydra.Logic where
 import Cardano.Prelude
 
 import qualified Data.Set as Set
-import Hydra.Ledger (Ledger (Ledger), LedgerState, ValidationError, initLedgerState)
+import Hydra.Ledger (Ledger, LedgerState, ValidationError, initLedgerState)
 import qualified Hydra.Logic.SimpleHead as SimpleHead
 
 data Event tx
   = ClientEvent (ClientRequest tx)
-  | NetworkEvent HydraMessage
+  | NetworkEvent (HydraMessage tx)
   | OnChainEvent OnChainTx
   deriving (Eq, Show)
 
 data Effect tx
   = ClientEffect ClientResponse
-  | NetworkEffect HydraMessage
+  | NetworkEffect (HydraMessage tx)
   | OnChainEffect OnChainTx
   | -- | Wait effect should be interpreted as a non-blocking interruption which
     -- retries on every state changes until the continuation returns Just{}.
@@ -41,8 +41,8 @@ data ClientResponse
   | CommandFailed
   deriving (Eq, Show)
 
-data HydraMessage
-  = ReqTx
+data HydraMessage tx
+  = ReqTx tx
   | AckTx
   | ConfTx
   | ReqSn
@@ -123,7 +123,7 @@ update ::
   HeadState tx ->
   Event tx ->
   Outcome tx
-update Environment{party} Ledger{initLedgerState} st ev = case (st, ev) of
+update Environment{party} ledger st ev = case (st, ev) of
   (InitState, ClientEvent (Init parties)) ->
     NewState InitState [OnChainEffect (InitTx $ makeAllTokens parties)]
   (InitState, OnChainEvent (InitTx tokens)) ->
@@ -140,12 +140,19 @@ update Environment{party} Ledger{initLedgerState} st ev = case (st, ev) of
           then NewState newState [OnChainEffect CollectComTx]
           else NewState newState []
   (CollectingState{}, OnChainEvent CollectComTx) ->
-    NewState (OpenState $ SimpleHead.mkState initLedgerState) [ClientEffect HeadIsOpen]
+    NewState (OpenState $ SimpleHead.mkState (initLedgerState ledger)) [ClientEffect HeadIsOpen]
   --
   (OpenState _, OnChainEvent CommitTx{}) ->
     Error (InvalidEvent ev st) -- HACK(SN): is a general case later
   (OpenState{}, ClientEvent Close) ->
     NewState st [OnChainEffect CloseTx]
+  (OpenState{}, ClientEvent (NewTx tx)) ->
+    NewState st [NetworkEffect $ ReqTx tx]
+  (OpenState headState, NetworkEvent (ReqTx tx)) ->
+    -- TODO: this is a shortcut for the sake of making nodes communicate and do stuff
+    -- with transaction
+    let (headState', _) = SimpleHead.update ledger headState (SimpleHead.ReqTxFromPeer tx)
+     in NewState (OpenState headState') []
   (OpenState _, OnChainEvent CloseTx) ->
     NewState ClosedState [ClientEffect HeadIsClosed]
   --

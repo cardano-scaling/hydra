@@ -3,17 +3,19 @@
 module Hydra.Network.ZeroMQ where
 
 import Cardano.Prelude hiding (atomically, takeMVar)
-import Codec.Serialise (deserialiseOrFail, serialise)
+import Codec.Serialise (Serialise, deserialiseOrFail, serialise)
 import Control.Monad.Class.MonadSTM (atomically, newEmptyTMVarIO, putTMVar, takeTMVar)
 import qualified Data.ByteString.Lazy as LBS
 import Hydra.Network
 import System.ZMQ4.Monadic (Pub (Pub), Sub (Sub), bind, connect, receive, runZMQ, send, socket, subscribe)
 
 withZeroMQHydraNetwork ::
+  Show tx =>
+  Serialise tx =>
   Host ->
   [Host] ->
-  NetworkCallback IO ->
-  (HydraNetwork IO -> IO ()) ->
+  NetworkCallback tx IO ->
+  (HydraNetwork tx IO -> IO ()) ->
   IO ()
 withZeroMQHydraNetwork localHost remoteHosts incomingCallback continuation = do
   mvar <- newEmptyTMVarIO

@@ -172,6 +172,7 @@ test-suite integration
     , hspec
     , hspec-core
     , hydra-node
+    , io-sim-classes
     , stm
   build-tool-depends:
     hspec-discover:hspec-discover

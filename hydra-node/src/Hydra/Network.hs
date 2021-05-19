@@ -21,12 +21,12 @@ import Network.TypedProtocol.Pipelined ()
 -- * Hydra network interface
 
 -- | Handle to interface with the hydra network and send messages "off chain".
-newtype HydraNetwork m = HydraNetwork
+newtype HydraNetwork tx m = HydraNetwork
   { -- | Send a 'HydraMessage' to the whole hydra network.
-    broadcast :: HydraMessage -> m ()
+    broadcast :: HydraMessage tx -> m ()
   }
 
-type NetworkCallback m = HydraMessage -> m ()
+type NetworkCallback tx m = HydraMessage tx -> m ()
 
 -- * Types used by concrete implementations
 
@@ -34,22 +34,22 @@ type Host = (HostName, Port)
 
 type Port = ServiceName
 
-deriving stock instance Generic HydraMessage
-deriving anyclass instance Serialise HydraMessage
+deriving stock instance Generic (HydraMessage tx)
+deriving anyclass instance Serialise tx => Serialise (HydraMessage tx)
 
-instance ToCBOR HydraMessage where
+instance ToCBOR tx => ToCBOR (HydraMessage tx) where
   toCBOR = \case
-    ReqTx -> toCBOR ("ReqTx" :: Text)
+    ReqTx tx -> toCBOR ("ReqTx" :: Text) <> toCBOR tx
     AckTx -> toCBOR ("AckTx" :: Text)
     ConfTx -> toCBOR ("ConfTx" :: Text)
     ReqSn -> toCBOR ("ReqSn" :: Text)
     AckSn -> toCBOR ("AckSn" :: Text)
     ConfSn -> toCBOR ("ConfSn" :: Text)
 
-instance FromCBOR HydraMessage where
+instance FromCBOR tx => FromCBOR (HydraMessage tx) where
   fromCBOR =
     fromCBOR >>= \case
-      ("ReqTx" :: Text) -> pure ReqTx
+      ("ReqTx" :: Text) -> ReqTx <$> fromCBOR
       "AckTx" -> pure AckTx
       "ConfTx" -> pure ConfTx
       "ReqSn" -> pure ReqSn
@@ -58,14 +58,15 @@ instance FromCBOR HydraMessage where
       msg -> fail $ show msg <> " is not a proper CBOR-encoded HydraMessage"
 
 -- | A dummy implemenation for stubbing purpose
-createSimulatedHydraNetwork :: [Host] -> NetworkCallback IO -> IO (HydraNetwork IO)
+createSimulatedHydraNetwork ::
+  Show tx => [Host] -> NetworkCallback tx IO -> IO (HydraNetwork tx IO)
 createSimulatedHydraNetwork _ callback =
   pure HydraNetwork{broadcast = simulatedBroadcast}
  where
   simulatedBroadcast msg = do
     putText $ "[Network] should broadcast " <> show msg
     let ma = case msg of
-          ReqTx -> Just AckTx
+          ReqTx _ -> Just AckTx
           AckTx -> Just ConfTx
           ConfTx -> Nothing
           ReqSn -> Just AckSn

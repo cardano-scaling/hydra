@@ -15,6 +15,7 @@ type family LedgerState tx
 
 data Ledger tx = Ledger
   { canApply :: LedgerState tx -> tx -> ValidationResult
+  , applyTransaction :: LedgerState tx -> tx -> Either ValidationError (LedgerState tx)
   , initLedgerState :: LedgerState tx
   }
 
@@ -38,8 +39,21 @@ cardanoLedger ::
 cardanoLedger env =
   Ledger
     { canApply = validateTx env
+    , applyTransaction = applyTx env
     , initLedgerState = def
     }
+
+applyTx ::
+  Ledger.ApplyTx era =>
+  Ledger.LedgersEnv era ->
+  Ledger.LedgerState era ->
+  Ledger.Tx era ->
+  Either ValidationError (Ledger.LedgerState era)
+applyTx env ls tx =
+  first toValidationError $ Ledger.applyTxsTransition globals env (pure tx) ls
+ where
+  -- toValidationError :: ApplyTxError -> ValidationError
+  toValidationError = const ValidationError
 
 validateTx ::
   Ledger.ApplyTx era =>
