@@ -55,9 +55,9 @@ import Ouroboros.Network.Snocket (socketSnocket)
 import Ouroboros.Network.Socket (
   SomeResponderApplication (..),
   connectToNodeSocket,
+  debuggingNetworkConnectTracers,
+  debuggingNetworkServerTracers,
   newNetworkMutableState,
-  nullNetworkConnectTracers,
-  nullNetworkServerTracers,
   withServerNode,
  )
 import Ouroboros.Network.Subscription (IPSubscriptionTarget (IPSubscriptionTarget))
@@ -116,7 +116,7 @@ withOuroborosHydraNetwork localHost remoteHosts networkCallback between = do
       unversionedHandshakeCodec
       noTimeLimitsHandshake
       (cborTermVersionDataCodec unversionedProtocolDataCodec)
-      nullNetworkConnectTracers
+      debuggingNetworkConnectTracers
       acceptableVersion
       (unversionedProtocol app)
 
@@ -126,7 +126,7 @@ withOuroborosHydraNetwork localHost remoteHosts networkCallback between = do
     -- TODO(SN): whats this? _ <- async $ cleanNetworkMutableState networkState
     withServerNode
       (socketSnocket iomgr)
-      nullNetworkServerTracers
+      debuggingNetworkServerTracers
       networkState
       (AcceptedConnectionsLimit maxBound maxBound 0)
       localAddr
@@ -144,13 +144,13 @@ withOuroborosHydraNetwork localHost remoteHosts networkCallback between = do
    where
     initiator =
       MuxPeer
-        (contramap show stdoutTracer)
+        showStdoutTracer
         codecFireForget
         (fireForgetClientPeer $ client var)
 
     responder =
       MuxPeer
-        (contramap show stdoutTracer)
+        showStdoutTracer
         codecFireForget
         (fireForgetServerPeer server)
 
@@ -172,14 +172,11 @@ withOuroborosHydraNetwork localHost remoteHosts networkCallback between = do
   maximumMiniProtocolLimits =
     MiniProtocolLimits{maximumIngressQueue = maxBound}
 
-  client ::
-    (MonadSTM m) =>
-    TMVar m HydraMessage ->
-    FireForgetClient HydraMessage m ()
-  client queue =
+  client :: (MonadSTM m) => TMVar m HydraMessage -> FireForgetClient HydraMessage m ()
+  client nextMsg =
     Idle $
-      atomically (takeTMVar queue) <&> \msg ->
-        SendMsg msg (pure $ client queue)
+      atomically (takeTMVar nextMsg) <&> \msg ->
+        SendMsg msg (pure $ client nextMsg)
 
   server :: FireForgetServer HydraMessage IO ()
   server =
@@ -187,3 +184,5 @@ withOuroborosHydraNetwork localHost remoteHosts networkCallback between = do
       { recvMsg = \msg -> server <$ networkCallback msg
       , recvMsgDone = pure ()
       }
+
+  showStdoutTracer = contramap show stdoutTracer
