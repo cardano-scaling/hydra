@@ -81,17 +81,6 @@ data ParticipationToken = ParticipationToken
   }
   deriving (Eq, Ord, Show)
 
--- | Verification used to authenticate main chain transactions that are
--- restricted to members of the Head protocol instance, i.e. the commit
--- transaction. This key is named k_i in the paper and for Cardano, this is
--- currently a Ed25519 verification key
-data OnChainVerificationKey
-
--- | Verification key to the signing key used for signing / acking transactions
--- off chain. This key is named K_i in the paper and can be aggregated with
--- other party member's 'HydraVerificationKey' to K_agg.
-data HydraVerificationKey
-
 -- | Contains at least the contestation period and other things.
 data HeadParameters = HeadParameters
 
