@@ -62,12 +62,13 @@ createHydraNode ::
   Show tx =>
   Party ->
   Ledger tx ->
+  (EventQueue IO (Event tx) -> IO (OnChain IO)) ->
   (ClientResponse -> IO ()) ->
   IO (HydraNode tx IO)
-createHydraNode party ledger sendResponse = do
+createHydraNode party ledger mkChainClient sendResponse = do
   eq <- createEventQueue
   hh <- createHydraHead headState ledger
-  oc <- createMockChainClient eq
+  oc <- mkChainClient eq
   hn <- createSimulatedHydraNetwork [] (putEvent eq . NetworkEvent)
   pure $ HydraNode eq hn hh oc sendResponse (Environment party)
  where
@@ -181,8 +182,8 @@ createMockChainClient EventQueue{putEvent} = do
 
 -- | Connects to a cardano node and sets up things in order to be able to
 -- construct actual transactions using 'OnChainTx' and send them on 'postTx'.
-createChainClient :: EventQueue IO (Event tx) -> IO (OnChain IO)
-createChainClient EventQueue{putEvent} =
+createDummyChainClient :: EventQueue IO (Event tx) -> IO (OnChain IO)
+createDummyChainClient EventQueue{putEvent} =
   pure OnChain{postTx = simulatedPostTx}
  where
   simulatedPostTx tx = do

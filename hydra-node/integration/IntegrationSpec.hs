@@ -12,6 +12,7 @@ import Hydra.Network (HydraNetwork (..))
 import Hydra.Node (
   HydraNode (..),
   OnChain (..),
+  createDummyChainClient,
   createHydraNode,
   handleChainTx,
   handleClientRequest,
@@ -166,7 +167,7 @@ simulatedChainAndNetwork = do
 startHydraNode :: Natural -> (HydraNode MockTx IO -> IO Connections) -> IO (HydraProcess IO MockTx)
 startHydraNode nodeId connectToChain = do
   response <- newEmptyMVar
-  node <- createHydraNode nodeId mockLedger (putMVar response)
+  node <- createHydraNode nodeId mockLedger createDummyChainClient (putMVar response)
   Connections cc hn <- connectToChain node
   let testNode = node{oc = cc, hn}
   nodeThread <- async $ runHydraNode testNode
