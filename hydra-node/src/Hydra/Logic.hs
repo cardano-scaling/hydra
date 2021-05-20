@@ -33,7 +33,7 @@ data ClientRequest tx
   | NewTx tx
   | Close
   | Contest
-  deriving (Eq, Show)
+  deriving (Eq, Read, Show)
 
 data ClientResponse
   = ReadyToCommit

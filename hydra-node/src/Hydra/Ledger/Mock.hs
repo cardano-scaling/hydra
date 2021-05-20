@@ -1,11 +1,11 @@
 -- | A mock implementation of a ledger
-module Hydra.Ledger.MockTx where
+module Hydra.Ledger.Mock where
 
 import Cardano.Prelude
 import Hydra.Ledger
 
 data MockTx = ValidTx Integer | InvalidTx
-  deriving (Eq, Show)
+  deriving (Eq, Read, Show)
 
 type instance LedgerState MockTx = [MockTx]
 

@@ -81,6 +81,7 @@ library
     Hydra.Node
     Hydra.Ledger
     Hydra.Ledger.MaryTest
+    Hydra.Ledger.Mock
     Hydra.Logic
     Hydra.Logic.SimpleHead
     Hydra.MockZMQChain

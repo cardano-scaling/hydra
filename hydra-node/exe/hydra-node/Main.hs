@@ -6,8 +6,7 @@ module Main where
 import Cardano.Prelude
 
 import Data.Text (pack)
-import Hydra.Ledger (cardanoLedger)
-import qualified Hydra.Ledger.MaryTest as MaryTest
+import qualified Hydra.Ledger.Mock as Ledger
 import Hydra.Logic (Party (Party))
 import Hydra.Node (HydraNode, createHydraNode, handleClientRequest, runHydraNode)
 import Network.Socket (Family (AF_UNIX), SockAddr (SockAddrUnix), SocketType (Stream), bind, defaultProtocol, listen, socket, socketToHandle)
@@ -19,17 +18,13 @@ main = do
   [nodeId] <- getArgs
   h <- openUnixSocket ("hydra.socket." <> nodeId)
   case readMaybe nodeId of
-    Just n -> do
-      node <- createHydraNode (Party n) ledger (hPrint h)
       _ <- async $ runAPIServer h node
       runHydraNode node
     Nothing -> panic $ "invalid nodeId argument, should be a number: " <> pack nodeId
- where
-  ledger = cardanoLedger defaultEnv
+    Just n -> do
+      node <- createHydraNode (Party n) Ledger.mockLedger (hPrint h)
 
-  defaultEnv = MaryTest.mkLedgerEnv
-
-runAPIServer :: Handle -> HydraNode tx IO -> IO a0
+runAPIServer :: Read tx => Handle -> HydraNode tx IO -> IO ()
 runAPIServer h node = forever $ do
   input <- hGetLine h
   case readMaybe input of
