@@ -1,11 +1,10 @@
 module Test.EndToEndSpec where
 
 import Cardano.Prelude
-
+import HydraNode
 import Test.Hspec (
   Spec,
   describe,
-  expectationFailure,
   it,
   shouldReturn,
  )
@@ -22,21 +21,5 @@ spec = describe "End-to-end test using a mocked chain though" $ do
           wait1sForResponse n2 `shouldReturn` Just ReadyToCommit
           wait1sForResponse n3 `shouldReturn` Just ReadyToCommit
 
-data HydraNode
-
-data Request
-  = Init [Int]
-  deriving (Eq, Show)
-
-data Response
-  = ReadyToCommit
-  deriving (Eq, Show)
-
 wait1sForResponse :: HydraNode -> IO (Maybe Response)
 wait1sForResponse = error "not implemented"
-
-sendRequest :: HydraNode -> Request -> IO ()
-sendRequest = error "not implemented"
-
-withHydraNode :: Int -> (HydraNode -> IO ()) -> IO ()
-withHydraNode = error "not implemented"

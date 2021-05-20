@@ -68,6 +68,7 @@ library
   import: project-config
   hs-source-dirs: src
   exposed-modules:
+    HydraNode
     Lib
     Logging
     Ports
