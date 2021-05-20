@@ -3,7 +3,12 @@
 module HydraNode where
 
 import Cardano.Prelude
-import System.Process (CreateProcess, proc, withCreateProcess)
+import System.Process (
+  CreateProcess (..),
+  StdStream (..),
+  proc,
+  withCreateProcess,
+ )
 
 data HydraNode = HydraNode {hydraNodeId :: Int, inputStream :: Maybe Handle}
 
@@ -16,9 +21,12 @@ data Response
   deriving (Eq, Show)
 
 sendRequest :: HydraNode -> Request -> IO ()
-sendRequest HydraNode{inputStream = Just input} request =
-  hPutStrLn input (show @_ @Text request)
-sendRequest _ _ = panic "Not implemented"
+sendRequest HydraNode{hydraNodeId, inputStream} request =
+  case inputStream of
+    Just input ->
+      hPutStrLn input (show @_ @Text request)
+    Nothing ->
+      panic $ "Can't connect to node: " <> show hydraNodeId <> ", request: " <> show request
 
 withHydraNode :: Int -> (HydraNode -> IO ()) -> IO ()
 withHydraNode hydraId action = do
@@ -28,4 +36,7 @@ withHydraNode hydraId action = do
       action (HydraNode hydraId stdin_)
 
 hydraNodeProcess :: Int -> CreateProcess
-hydraNodeProcess nodeId = proc "hydra-node" ["--node-id", show nodeId]
+hydraNodeProcess nodeId =
+  (proc "hydra-node" ["--node-id", show nodeId])
+    { std_in = CreatePipe
+    }
