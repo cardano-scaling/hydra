@@ -1,7 +1,7 @@
 module HydraNode where
 
 import Cardano.Prelude
-import System.Process (CreateProcess, withCreateProcess)
+import System.Process (CreateProcess, proc, withCreateProcess)
 
 data HydraNode = HydraNode {hydraNodeId :: Int}
 
@@ -24,4 +24,4 @@ withHydraNode hydraId action = do
       action (HydraNode hydraId)
 
 hydraNodeProcess :: Int -> CreateProcess
-hydraNodeProcess = panic "not implemented"
+hydraNodeProcess nodeId = proc "hydra-node" ["--node-id", show nodeId]
