@@ -10,7 +10,6 @@ import Hydra.Ledger (Ledger (..), LedgerState, ValidationError (..), ValidationR
 import Hydra.Logic (ClientRequest (..), ClientResponse (..), Party (..))
 import Hydra.Network (HydraNetwork (..))
 import Hydra.Node (
-  ClientSide (..),
   HydraNode (..),
   OnChain (..),
   createHydraNode,
@@ -166,10 +165,10 @@ simulatedChainAndNetwork = do
 
 startHydraNode :: Natural -> (HydraNode MockTx IO -> IO Connections) -> IO (HydraProcess IO MockTx)
 startHydraNode nodeId connectToChain = do
-  node <- testHydraNode
-  Connections cc hn <- connectToChain node
   response <- newEmptyMVar
-  let testNode = node{oc = cc, hn, cs = ClientSide{sendResponse = putMVar response}}
+  node <- createHydraNode (Party nodeId) mockLedger (putMVar response)
+  Connections cc hn <- connectToChain node
+  let testNode = node{oc = cc, hn}
   nodeThread <- async $ runHydraNode testNode
   link nodeThread
   pure
@@ -194,9 +193,6 @@ startHydraNode nodeId connectToChain = do
             when (isNothing result) $ expectationFailure ("Expected ledger state of node " <> show nodeId <> " to be " <> show st)
       , nodeId
       }
- where
-  testHydraNode :: IO (HydraNode MockTx IO)
-  testHydraNode = createHydraNode (Party nodeId) mockLedger
 
 data MockTx = ValidTx Integer | InvalidTx
   deriving (Eq, Show)

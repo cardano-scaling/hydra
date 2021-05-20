@@ -41,7 +41,7 @@ data HydraNode tx m = HydraNode
   , hn :: HydraNetwork tx m
   , hh :: HydraHead tx m
   , oc :: OnChain m
-  , cs :: ClientSide m
+  , sendResponse :: ClientResponse -> m ()
   , env :: Environment
   }
 
@@ -57,14 +57,18 @@ handleMessage HydraNode{eq} = putEvent eq . NetworkEvent
 queryLedgerState :: MonadSTM m => HydraNode tx m -> STM m (Maybe (LedgerState tx))
 queryLedgerState HydraNode{hh} = getConfirmedLedger hh
 
-createHydraNode :: Show tx => Party -> Ledger tx -> IO (HydraNode tx IO)
-createHydraNode party ledger = do
+createHydraNode ::
+  Show tx =>
+  Party ->
+  Ledger tx ->
+  (ClientResponse -> IO ()) ->
+  IO (HydraNode tx IO)
+createHydraNode party ledger sendResponse = do
   eq <- createEventQueue
   hh <- createHydraHead headState ledger
   oc <- createChainClient eq
   hn <- createSimulatedHydraNetwork [] (putEvent eq . NetworkEvent)
-  cs <- createClientSide
-  pure $ HydraNode eq hn hh oc cs (Environment party)
+  pure $ HydraNode eq hn hh oc sendResponse (Environment party)
  where
   headState = Logic.createHeadState [] HeadParameters SnapshotStrategy
 
@@ -76,12 +80,12 @@ runHydraNode ::
   Show tx =>
   HydraNode tx m ->
   m ()
-runHydraNode HydraNode{eq, hn, oc, cs, hh, env} =
+runHydraNode node@HydraNode{eq} =
   -- NOTE(SN): here we could introduce concurrent head processing, e.g. with
   -- something like 'forM_ [0..1] $ async'
   forever $ do
     e <- nextEvent eq
-    handleNextEvent hn oc cs hh env e >>= \case
+    handleNextEvent node e >>= \case
       Just err -> putText $ "runHydraNode ERROR: " <> show err
       _ -> pure ()
 
@@ -91,34 +95,24 @@ handleNextEvent ::
   Show tx =>
   MonadSTM m =>
   MonadThrow m =>
-  HydraNetwork tx m ->
-  OnChain m ->
-  ClientSide m ->
-  HydraHead tx m ->
-  Environment ->
+  HydraNode tx m ->
   Event tx ->
   m (Maybe (LogicError tx))
-handleNextEvent
-  HydraNetwork{broadcast}
-  OnChain{postTx}
-  ClientSide{sendResponse}
-  HydraHead{modifyHeadState, ledger}
-  env
-  e = do
-    result <- atomically $
-      modifyHeadState $ \s ->
-        case Logic.update env ledger s e of
-          NewState s' effects -> (Right effects, s')
-          Error err -> (Left err, s)
-    case result of
-      Left err -> pure $ Just err
-      Right out -> do
-        forM_ out $ \case
-          ClientEffect i -> sendResponse i
-          NetworkEffect msg -> broadcast msg
-          OnChainEffect tx -> postTx tx
-          Wait _cont -> panic "TODO: wait and reschedule continuation" -- TODO(SN) this error is not forced
-        pure Nothing
+handleNextEvent HydraNode{hn, oc, sendResponse, hh, env} e = do
+  result <- atomically $
+    modifyHeadState hh $ \s ->
+      case Logic.update env (ledger hh) s e of
+        NewState s' effects -> (Right effects, s')
+        Error err -> (Left err, s)
+  case result of
+    Left err -> pure $ Just err
+    Right out -> do
+      forM_ out $ \case
+        ClientEffect i -> sendResponse i
+        NetworkEffect msg -> broadcast hn msg
+        OnChainEffect tx -> postTx oc tx
+        Wait _cont -> panic "TODO: wait and reschedule continuation" -- TODO(SN) this error is not forced
+      pure Nothing
 
 -- ** Some general event queue from which the Hydra head is "fed"
 
@@ -190,26 +184,3 @@ createChainClient EventQueue{putEvent} =
       threadDelay 1
       putText $ "[OnChain] simulating response " <> show tx
       putEvent $ OnChainEvent tx
-
---
--- ClientSide handle to abstract over the client side.. duh.
---
-
-newtype ClientSide m = ClientSide
-  { sendResponse :: ClientResponse -> m ()
-  }
-
--- | A simple client side implementation which shows instructions on stdout.
-createClientSide :: IO (ClientSide IO)
-createClientSide =
-  pure cs
- where
-  prettyResponse = \case
-    ReadyToCommit -> "Head initialized, commit funds to it using 'commit'"
-    HeadIsOpen -> "Head is open, now feed the hydra with your 'newtx'"
-    CommandFailed -> "A command failed! Which one you ask? ..nobody knows."
-    HeadIsClosed -> "Head is closed, please contest if unhappy."
-  cs =
-    ClientSide
-      { sendResponse = \ins -> putText $ "[ClientSide] " <> prettyResponse ins
-      }

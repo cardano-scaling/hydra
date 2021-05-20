@@ -123,9 +123,13 @@ executable hydra-node
   main-is: Main.hs
   other-modules: Hydra.Repl
   build-depends:
-      cardano-prelude
+      base
+    , cardano-prelude
+    , directory
     , hydra-node
+    , network
     , repline
+    , text
   ghc-options:
     -threaded
     -rtsopts

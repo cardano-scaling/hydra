@@ -47,7 +47,7 @@ instance Exception CannotStartHydraNode
 
 hydraNodeProcess :: Int -> CreateProcess
 hydraNodeProcess nodeId =
-  (proc "hydra-node" ["--node-id", show nodeId])
+  (proc "hydra-node" [show nodeId])
     { std_in = CreatePipe
     , std_out = CreatePipe
     }
