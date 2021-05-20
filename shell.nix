@@ -14,16 +14,16 @@
   # Use cardano-node master for more likely cache hits
 , cardanoNodePkgs ? import
     (builtins.fetchTarball
-      "https://github.com/input-output-hk/cardano-node/archive/master.tar.gz")
-    { gitrev = "0b0ab070e71f7f29bb35dfc595c6a69772b1d866"; }
+      "https://github.com/input-output-hk/cardano-node/archive/8fe46140a52810b6ca456be01d652ca08fe730bf.tar.gz")
+    { gitrev = "8fe46140a52810b6ca456be01d652ca08fe730bf"; }
 }:
 with pkgs;
 let
   hls = haskell-nix.tool compiler "haskell-language-server" "latest";
   ghc = haskell-nix.compiler.${compiler};
   fourmolu = haskell-nix.tool compiler "fourmolu" "latest";
-  ghcid = pkgs.haskellPackages.ghcid ;
-  hspec-discover = pkgs.haskellPackages.hspec-discover ;
+  ghcid = pkgs.haskellPackages.ghcid;
+  hspec-discover = pkgs.haskellPackages.hspec-discover;
   libsodium-vrf = libsodium.overrideAttrs (oldAttrs: {
     name = "libsodium-1.0.18-vrf";
     src = fetchFromGitHub {
