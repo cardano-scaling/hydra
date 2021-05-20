@@ -3,7 +3,7 @@ module Hydra.MockZMQChainSpec where
 import Cardano.Prelude
 import qualified Data.Set as Set
 import Data.String (String)
-import Hydra.Logic (OnChainTx (InitTx), ParticipationToken (..), Party (..))
+import Hydra.Logic (OnChainTx (InitTx), ParticipationToken (..))
 import Hydra.MockZMQChain (mockChainClient, runChainSync, startChain)
 import System.Timeout (timeout)
 import Test.Hspec (Spec, around, describe, it, shouldReturn)
@@ -13,7 +13,7 @@ spec =
   around withMockZMQChain $
     describe "Mock 0MQ-Based Chain" $ do
       it "publish transactions received from a client" $ \(syncAddress, postAddress) -> do
-        let tx = InitTx (Set.fromList [ParticipationToken 2 (Party 1), ParticipationToken 2 (Party 2)])
+        let tx = InitTx (Set.fromList [ParticipationToken 2 1, ParticipationToken 2 2])
         mvar <- newEmptyMVar
         void $
           concurrently

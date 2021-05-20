@@ -7,7 +7,7 @@ import Control.Concurrent.STM (modifyTVar, newTVarIO, readTVarIO)
 import Control.Monad.Class.MonadSTM (atomically, check)
 import Data.IORef (modifyIORef', newIORef, readIORef)
 import Hydra.Ledger (Ledger (..), LedgerState, ValidationError (..), ValidationResult (Invalid, Valid))
-import Hydra.Logic (ClientRequest (..), ClientResponse (..), Party (..))
+import Hydra.Logic (ClientRequest (..), ClientResponse (..))
 import Hydra.Network (HydraNetwork (..))
 import Hydra.Node (
   HydraNode (..),
@@ -166,7 +166,7 @@ simulatedChainAndNetwork = do
 startHydraNode :: Natural -> (HydraNode MockTx IO -> IO Connections) -> IO (HydraProcess IO MockTx)
 startHydraNode nodeId connectToChain = do
   response <- newEmptyMVar
-  node <- createHydraNode (Party nodeId) mockLedger (putMVar response)
+  node <- createHydraNode nodeId mockLedger (putMVar response)
   Connections cc hn <- connectToChain node
   let testNode = node{oc = cc, hn}
   nodeThread <- async $ runHydraNode testNode
