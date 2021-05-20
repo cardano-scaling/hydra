@@ -32,6 +32,7 @@ import Hydra.Logic (
  )
 import qualified Hydra.Logic as Logic
 import qualified Hydra.Logic.SimpleHead as SimpleHead
+import Hydra.MockZMQChain (mockChainClient, runChainSync)
 import Hydra.Network (HydraNetwork (..), createSimulatedHydraNetwork)
 
 -- ** Create and run a hydra node
@@ -66,7 +67,7 @@ createHydraNode ::
 createHydraNode party ledger sendResponse = do
   eq <- createEventQueue
   hh <- createHydraHead headState ledger
-  oc <- createChainClient eq
+  oc <- createMockChainClient eq
   hn <- createSimulatedHydraNetwork [] (putEvent eq . NetworkEvent)
   pure $ HydraNode eq hn hh oc sendResponse (Environment party)
  where
@@ -171,6 +172,12 @@ newtype OnChain m = OnChain
     -- Does at least throw 'ChainError'.
     postTx :: MonadThrow m => OnChainTx -> m ()
   }
+
+createMockChainClient :: EventQueue IO (Event tx) -> IO (OnChain IO)
+createMockChainClient EventQueue{putEvent} = do
+  -- TODO: Do a proper cleanup of threads and what not
+  link =<< async (runChainSync "tcp://127.0.0.1:56789" (putEvent . OnChainEvent))
+  pure OnChain{postTx = mockChainClient "tcp://127.0.0.1:56790"}
 
 -- | Connects to a cardano node and sets up things in order to be able to
 -- construct actual transactions using 'OnChainTx' and send them on 'postTx'.

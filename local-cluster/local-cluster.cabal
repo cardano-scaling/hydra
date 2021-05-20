@@ -123,7 +123,7 @@ test-suite integration
     , local-cluster
     , temporary
   build-tool-depends:
-    hspec-discover:hspec-discover, hydra-node:hydra-node
+    hspec-discover:hspec-discover, hydra-node:hydra-node, hydra-node:mock-chain
   ghc-options:
     -threaded
     -rtsopts

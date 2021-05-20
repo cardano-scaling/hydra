@@ -4,7 +4,6 @@
 module HydraNode where
 
 import Cardano.Prelude
-import Data.Streaming.Process (terminateProcess)
 import Data.String (String)
 import Network.Socket (Family (AF_UNIX), SockAddr (SockAddrUnix), SocketType (Stream), close, connect, defaultProtocol, socket, socketToHandle)
 import Safe (readEitherSafe)
@@ -46,9 +45,8 @@ wait3sForResponse HydraNode{hydraNodeId, outputStream} = do
 withHydraNode :: Int -> (HydraNode -> IO ()) -> IO ()
 withHydraNode hydraNodeId action = do
   withCreateProcess (hydraNodeProcess hydraNodeId) $
-    \_stdin _stdout _stderr ph -> do
+    \_stdin _stdout _stderr _ph -> do
       bracket (open $ "/tmp/hydra.socket." <> show hydraNodeId) close client
-      terminateProcess ph
  where
   open addr =
     bracketOnError (socket AF_UNIX Stream defaultProtocol) close $ \sock -> do
@@ -70,3 +68,10 @@ instance Exception CannotStartHydraNode
 
 hydraNodeProcess :: Int -> CreateProcess
 hydraNodeProcess nodeId = proc "hydra-node" [show nodeId]
+
+withMockChain :: IO () -> IO ()
+withMockChain action = do
+  withCreateProcess (proc "mock-chain" []) $
+    \_in _out _err _handle -> do
+      putText "Mock chain started"
+      action
