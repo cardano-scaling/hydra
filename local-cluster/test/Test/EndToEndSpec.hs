@@ -3,26 +3,15 @@
 module Test.EndToEndSpec where
 
 import Cardano.Prelude (
-  Applicative (pure),
   Either (..),
-  IO,
-  Maybe (Just, Nothing),
   ($),
  )
-import Data.String (String)
 import HydraNode (
-  HydraNode (HydraNode, outputStream),
   Request (Init),
   Response (..),
   sendRequest,
+  wait1sForResponse,
   withHydraNode,
- )
-import Safe (readEitherSafe)
-import System.IO (
-  hGetLine,
- )
-import System.Timeout (
-  timeout,
  )
 import Test.Hspec (
   Spec,
@@ -41,10 +30,3 @@ spec = describe "End-to-end test using a mocked chain though" $ do
           wait1sForResponse n1 `shouldReturn` Right ReadyToCommit
           wait1sForResponse n2 `shouldReturn` Right ReadyToCommit
           wait1sForResponse n3 `shouldReturn` Right ReadyToCommit
-
-wait1sForResponse :: HydraNode -> IO (Either String Response)
-wait1sForResponse HydraNode{outputStream} = do
-  result <- timeout 1_000_000 $ hGetLine outputStream
-  case result of
-    Nothing -> pure $ Left "Timed out"
-    Just r -> pure $ readEitherSafe r

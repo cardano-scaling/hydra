@@ -17,7 +17,7 @@ main :: IO ()
 main = do
   [nodeId] <- getArgs
   -- TODO(SN): this is leaking resources (definitely)
-  h <- openUnixSocket ("hydra.socket." <> nodeId)
+  h <- openUnixSocket ("/tmp/hydra.socket." <> nodeId)
   case readMaybe nodeId of
     Nothing -> panic $ "invalid nodeId argument, should be a number: " <> pack nodeId
     Just n -> do
@@ -28,6 +28,7 @@ main = do
 
 runAPIServer :: Read tx => Handle -> HydraNode tx IO -> IO ()
 runAPIServer h node = forever $ do
+  threadDelay 100_000
   try @IOException (hGetLine h) >>= \case
     Left ex -> putText $ "[API] error reading: " <> show ex
     Right input -> case readMaybe input of
@@ -41,4 +42,5 @@ openUnixSocket socketPath = do
   bind s $ SockAddrUnix socketPath
   listen s 1
   (conn, _peer) <- accept s
+  putText "[API] Accepted connection"
   socketToHandle conn ReadWriteMode
