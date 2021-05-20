@@ -10,33 +10,41 @@ import System.Process (
   withCreateProcess,
  )
 
-data HydraNode = HydraNode {hydraNodeId :: Int, inputStream :: Maybe Handle}
+data HydraNode = HydraNode
+  { hydraNodeId :: Int
+  , inputStream :: Handle
+  , outputStream :: Handle
+  }
 
 data Request
   = Init [Int]
-  deriving (Eq, Show)
+  deriving (Eq, Show, Read)
 
 data Response
   = ReadyToCommit
-  deriving (Eq, Show)
+  deriving (Eq, Show, Read)
 
 sendRequest :: HydraNode -> Request -> IO ()
-sendRequest HydraNode{hydraNodeId, inputStream} request =
-  case inputStream of
-    Just input ->
-      hPutStrLn input (show @_ @Text request)
-    Nothing ->
-      panic $ "Can't connect to node: " <> show hydraNodeId <> ", request: " <> show request
+sendRequest HydraNode{inputStream} request =
+  hPutStrLn inputStream (show @_ @Text request)
 
 withHydraNode :: Int -> (HydraNode -> IO ()) -> IO ()
-withHydraNode hydraId action = do
-  let process = hydraNodeProcess hydraId
+withHydraNode hydraNodeId action = do
+  let process = hydraNodeProcess hydraNodeId
   withCreateProcess process $
-    \stdin_ _stdout _stderr _ ->
-      action (HydraNode hydraId stdin_)
+    \mstdin mstdout _stderr _ ->
+      case (mstdin, mstdout) of
+        (Just inputStream, Just outputStream) ->
+          action (HydraNode{hydraNodeId, inputStream, outputStream})
+        _ ->
+          throwIO $ CannotStartHydraNode hydraNodeId
+
+data CannotStartHydraNode = CannotStartHydraNode Int deriving (Show)
+instance Exception CannotStartHydraNode
 
 hydraNodeProcess :: Int -> CreateProcess
 hydraNodeProcess nodeId =
   (proc "hydra-node" ["--node-id", show nodeId])
     { std_in = CreatePipe
+    , std_out = CreatePipe
     }

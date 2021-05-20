@@ -1,14 +1,24 @@
+{-# LANGUAGE TypeApplications #-}
+
 module Test.EndToEndSpec where
 
 import Cardano.Prelude
 import HydraNode
+import Safe (
+  readMay,
+ )
+import System.IO (
+  hGetLine,
+ )
+import System.Timeout (
+  timeout,
+ )
 import Test.Hspec (
   Spec,
   describe,
   it,
   shouldReturn,
  )
-import Prelude (error)
 
 spec :: Spec
 spec = describe "End-to-end test using a mocked chain though" $ do
@@ -22,4 +32,6 @@ spec = describe "End-to-end test using a mocked chain though" $ do
           wait1sForResponse n3 `shouldReturn` Just ReadyToCommit
 
 wait1sForResponse :: HydraNode -> IO (Maybe Response)
-wait1sForResponse = error "not implemented"
+wait1sForResponse HydraNode{outputStream} = do
+  result <- timeout 1 $ hGetLine outputStream
+  pure $ result >>= readMay

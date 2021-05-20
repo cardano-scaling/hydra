@@ -120,6 +120,7 @@ test-suite integration
     , hspec
     , hspec-core
     , local-cluster
+    , safe
     , temporary
   build-tool-depends:
     hspec-discover:hspec-discover, hydra-node:hydra-node
