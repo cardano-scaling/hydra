@@ -1,5 +1,6 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE UndecidableInstances #-}
+{-# OPTIONS_GHC -Wno-deferred-type-errors #-}
 
 module Hydra.Logic where
 
@@ -57,7 +58,7 @@ data OnChainTx
   | CloseTx
   | ContestTx
   | FanoutTx
-  deriving (Eq, Show)
+  deriving (Eq, Show, Read)
 
 data HeadState tx
   = InitState
@@ -72,14 +73,14 @@ type PendingCommits = Set ParticipationToken
 
 -- | Identifies a party in a Hydra head.
 newtype Party = Party Natural
-  deriving (Eq, Ord, Num, Show)
+  deriving (Eq, Ord, Num, Show, Read)
 
 -- | Identifies the commit of a single party member
 data ParticipationToken = ParticipationToken
   { totalTokens :: Natural
   , thisToken :: Party
   }
-  deriving (Eq, Ord, Show)
+  deriving (Eq, Ord, Show, Read)
 
 -- | Contains at least the contestation period and other things.
 data HeadParameters = HeadParameters

@@ -83,6 +83,7 @@ library
     Hydra.Ledger.MaryTest
     Hydra.Logic
     Hydra.Logic.SimpleHead
+    Hydra.MockZMQChain
     Network.TypedProtocol.FireForget.Type
     Network.TypedProtocol.FireForget.Client
     Network.TypedProtocol.FireForget.Server
@@ -125,6 +126,20 @@ executable hydra-node
       cardano-prelude
     , hydra-node
     , repline
+  ghc-options:
+    -threaded
+    -rtsopts
+
+executable mock-chain
+  import: project-config
+  hs-source-dirs: exe/mock-chain
+  main-is: Main.hs
+  build-depends:
+      base
+    , cardano-prelude
+    , hydra-node
+    , optparse-applicative
+    , text
   ghc-options:
     -threaded
     -rtsopts
