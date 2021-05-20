@@ -15,6 +15,7 @@ import System.Process (
   withCreateProcess,
  )
 import System.Timeout (timeout)
+import Prelude (error)
 
 data HydraNode = HydraNode
   { hydraNodeId :: Int
@@ -34,11 +35,12 @@ sendRequest :: HydraNode -> Request -> IO ()
 sendRequest HydraNode{inputStream} request =
   hPutStrLn inputStream (show @_ @Text request)
 
-wait1sForResponse :: HydraNode -> IO (Either String Response)
-wait1sForResponse HydraNode{outputStream} = do
-  result <- timeout 1_000_000 $ hGetLine outputStream
+wait3sForResponse :: HasCallStack => HydraNode -> IO (Either String Response)
+wait3sForResponse HydraNode{hydraNodeId, outputStream} = do
+  -- The chain is slow...
+  result <- timeout 3_000_000 $ hGetLine outputStream
   case result of
-    Nothing -> pure $ Left "Timed out"
+    Nothing -> error $ "Timed out " <> show hydraNodeId
     Just r -> pure $ readEitherSafe r
 
 withHydraNode :: Int -> (HydraNode -> IO ()) -> IO ()
