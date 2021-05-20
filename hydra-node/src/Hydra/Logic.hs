@@ -72,8 +72,7 @@ deriving instance Show (SimpleHead.State tx) => Show (HeadState tx)
 type PendingCommits = Set ParticipationToken
 
 -- | Identifies a party in a Hydra head.
-newtype Party = Party Natural
-  deriving (Eq, Ord, Num, Show, Read)
+type Party = Natural
 
 -- | Identifies the commit of a single party member
 data ParticipationToken = ParticipationToken

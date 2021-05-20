@@ -7,7 +7,6 @@ import Cardano.Prelude
 
 import Data.Text (pack)
 import qualified Hydra.Ledger.Mock as Ledger
-import Hydra.Logic (Party (Party))
 import Hydra.Node (HydraNode, createHydraNode, handleClientRequest, runHydraNode)
 import Network.Socket (Family (AF_UNIX), SockAddr (SockAddrUnix), SocketType (Stream), accept, bind, defaultProtocol, listen, socket, socketToHandle)
 import System.Directory (removeFile)
@@ -21,7 +20,7 @@ main = do
   case readMaybe nodeId of
     Nothing -> panic $ "invalid nodeId argument, should be a number: " <> pack nodeId
     Just n -> do
-      node <- createHydraNode (Party n) Ledger.mockLedger (hPrint h)
+      node <- createHydraNode n Ledger.mockLedger (hPrint h)
       race_
         (runAPIServer @Ledger.MockTx h node)
         (runHydraNode node)

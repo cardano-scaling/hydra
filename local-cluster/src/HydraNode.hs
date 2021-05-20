@@ -54,7 +54,7 @@ withHydraNode hydraNodeId action = do
       return sock
 
   tryConnect sock addr =
-    connect sock (SockAddrUnix addr) `catch` \(e :: IOException) -> do
+    connect sock (SockAddrUnix addr) `catch` \(_ :: IOException) -> do
       threadDelay 100_000
       tryConnect sock addr
 
