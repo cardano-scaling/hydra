@@ -152,6 +152,7 @@ test-suite tests
     Hydra.NodeSpec
     Hydra.LedgerSpec
     Hydra.FireForgetSpec
+    Hydra.MockZMQChainSpec
   main-is: Main.hs
   type: exitcode-stdio-1.0
   build-depends:
@@ -159,6 +160,7 @@ test-suite tests
     , cardano-binary
     , cardano-prelude
     , cborg
+    , containers
     , contra-tracer
     , hspec
     , hspec-core
