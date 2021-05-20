@@ -3,6 +3,7 @@
 module HydraNode where
 
 import Cardano.Prelude
+import System.IO (BufferMode (LineBuffering), hSetBuffering)
 import System.Process (
   CreateProcess (..),
   StdStream (..),
@@ -34,7 +35,9 @@ withHydraNode hydraNodeId action = do
   withCreateProcess process $
     \mstdin mstdout _stderr _ ->
       case (mstdin, mstdout) of
-        (Just inputStream, Just outputStream) ->
+        (Just inputStream, Just outputStream) -> do
+          hSetBuffering inputStream LineBuffering
+          hSetBuffering outputStream LineBuffering
           action (HydraNode{hydraNodeId, inputStream, outputStream})
         _ ->
           throwIO $ CannotStartHydraNode hydraNodeId

@@ -29,4 +29,4 @@ startHydraRepl node = link =<< async runRepl
 
   replComplete n = pure $ filter (n `isPrefixOf`) commands
 
-  replInit = liftIO $ putText "Welcome to the Hydra Node REPL, you can even use tab completion! (Ctrl+D to exit)"
+  replInit = pure () -- liftIO $ putText "Welcome to the Hydra Node REPL, you can even use tab completion! (Ctrl+D to exit)"
