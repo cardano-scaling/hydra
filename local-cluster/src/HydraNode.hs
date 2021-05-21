@@ -22,12 +22,18 @@ data HydraNode = HydraNode
   , outputStream :: Handle
   }
 
+-- | Deliberately distinct client request type to not take shortcuts.
 data Request
   = Init [Int]
+  | Commit
+  | NewTx Int
   deriving (Eq, Show, Read)
 
+-- | Deliberately distinct client response type to not take shortcuts.
 data Response
   = ReadyToCommit
+  | HeadIsOpen
+  | TxReceived Int
   deriving (Eq, Show, Read)
 
 sendRequest :: HydraNode -> Request -> IO ()
