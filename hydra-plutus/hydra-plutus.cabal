@@ -101,7 +101,7 @@ library
 test-suite hydra-plutus-test
   import: project-config
   type: exitcode-stdio-1.0
-  main-is: Main.hs
+  main-is: Spec.hs
   hs-source-dirs: test
   other-modules:
       Hydra.ContractSpec
@@ -122,9 +122,11 @@ test-suite hydra-plutus-test
       plutus-tx,
       plutus-tx-plugin,
       prettyprinter,
+      QuickCheck,
       streaming,
       tasty,
       tasty-expected-failure,
       tasty-golden,
       tasty-hunit,
+      tasty-quickcheck,
       text
