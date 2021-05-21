@@ -90,16 +90,29 @@ mockChainClient postTxAddress tx = runZMQ $ do
   send req [] (Enc.encodeUtf8 $ show tx)
   resp <- receive req
   case resp of
-    "OK" -> liftIO (putText "received OK ") >> pure ()
+    "OK" -> pure ()
     _ -> panic $ "Something went wrong posting " <> show tx
 
-runChainSync :: MonadIO m => String -> String -> (OnChainTx -> IO ()) -> m ()
-runChainSync _catchUpAddress chainSyncAddress handler = runZMQ $ do
-  sub <- socket Sub
-  subscribe sub ""
-  connect sub chainSyncAddress
-  forever $ do
-    msg <- unpack . Enc.decodeUtf8 <$> receive sub
-    case reads msg of
-      (tx, "") : _ -> liftIO $ handler tx
-      _ -> panic $ "cannot decode transaction " <> show msg
+runChainSync :: MonadIO m => String -> (OnChainTx -> IO ()) -> m ()
+runChainSync chainSyncAddress handler = do
+  runZMQ $ do
+    sub <- socket Sub
+    subscribe sub ""
+    connect sub chainSyncAddress
+    forever $ do
+      msg <- unpack . Enc.decodeUtf8 <$> receive sub
+      case reads msg of
+        (tx, "") : _ -> liftIO $ handler tx
+        _ -> panic $ "cannot decode transaction " <> show msg
+
+catchUpTransactions :: String -> (OnChainTx -> IO ()) -> IO ()
+catchUpTransactions catchUpAddress handler = runZMQ $ do
+  req <- socket Req
+  connect req catchUpAddress
+  send req [] "Hello"
+  message <- unpack . Enc.decodeUtf8 <$> receive req
+  case readMaybe message of
+    Just (txs :: [OnChainTx]) -> liftIO $ do
+      putText $ "catch-up  " <> show (length txs) <> " transactions"
+      forM_ txs handler
+    Nothing -> panic $ "cannot decode catch-up transactions  " <> show message

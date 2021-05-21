@@ -16,18 +16,18 @@ data Option = Option
   }
   deriving (Eq, Show)
 
-data ChainMode = NodeMode | ClientMode
-  deriving (Eq, Show)
+data ChainMode = NodeMode | ClientMode | CatchUpMode
+  deriving (Eq, Read, Show)
 
 mockChainParser :: Parser Option
 mockChainParser =
   Option
-    <$> flag
-      NodeMode
-      ClientMode
-      ( long "client"
-          <> short 'c'
-          <> help "Run in client mode, reading OnChainTx from the stdin"
+    <$> option
+      auto
+      ( long "mode"
+          <> short 'm'
+          <> value NodeMode
+          <> help "Mode to run mock-chain, one of 'NodeMode', 'CatchUpMode' or 'ClientMode'"
       )
     <*> strOption
       ( long "sync-address"
@@ -62,8 +62,9 @@ main = do
   Option{mode, chainSyncAddress, catchUpAddress, postTxAddress} <- execParser mockChainOptions
   case mode of
     NodeMode -> startChain chainSyncAddress catchUpAddress postTxAddress
+    CatchUpMode -> catchUpTransactions catchUpAddress print
     ClientMode -> do
-      async (runChainSync catchUpAddress chainSyncAddress print) >>= link
+      async (runChainSync chainSyncAddress print) >>= link
       forever $ do
         msg <- getLine
         case reads (unpack msg) of
