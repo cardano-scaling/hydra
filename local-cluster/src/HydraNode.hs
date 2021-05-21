@@ -4,7 +4,9 @@
 module HydraNode where
 
 import Cardano.Prelude
-import Data.String (String)
+import Control.Concurrent.Async (
+  forConcurrently_,
+ )
 import Network.Socket (Family (AF_UNIX), SockAddr (SockAddrUnix), SocketType (Stream), close, connect, defaultProtocol, socket, socketToHandle)
 import Safe (readEitherSafe)
 import System.IO (BufferMode (LineBuffering), hGetLine, hSetBuffering)
@@ -14,7 +16,6 @@ import System.Process (
   withCreateProcess,
  )
 import System.Timeout (timeout)
-import Prelude (error)
 
 data HydraNode = HydraNode
   { hydraNodeId :: Int
@@ -40,13 +41,24 @@ sendRequest :: HydraNode -> Request -> IO ()
 sendRequest HydraNode{inputStream} request =
   hPutStrLn inputStream (show @_ @Text request)
 
-wait3sForResponse :: HasCallStack => HydraNode -> IO (Either String Response)
-wait3sForResponse HydraNode{hydraNodeId, outputStream} = do
-  -- The chain is slow...
-  result <- timeout 3_000_000 $ hGetLine outputStream
-  case result of
-    Nothing -> error $ "Timed out " <> show hydraNodeId
-    Just r -> pure $ readEitherSafe r
+data WaitForResponseTimeout = WaitForResponseTimeout Int Response deriving (Show)
+instance Exception WaitForResponseTimeout
+
+wait3sForResponse :: [HydraNode] -> Response -> IO ()
+wait3sForResponse nodes expected = do
+  forConcurrently_ nodes $ \HydraNode{hydraNodeId, outputStream} -> do
+    -- The chain is slow...
+    result <- timeout 3_000_000 $ tryNext outputStream
+    maybe (throwIO $ WaitForResponseTimeout hydraNodeId expected) pure result
+ where
+  tryNext h = do
+    result <- readEitherSafe <$> hGetLine h
+    case result of
+      Right r
+        | r == expected ->
+          pure ()
+      _ ->
+        tryNext h
 
 withHydraNode :: Int -> (HydraNode -> IO ()) -> IO ()
 withHydraNode hydraNodeId action = do
