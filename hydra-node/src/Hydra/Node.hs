@@ -22,18 +22,15 @@ import Hydra.Logic (
   Effect (ClientEffect, NetworkEffect, OnChainEffect, Wait),
   Environment (..),
   Event (ClientEvent, NetworkEvent, OnChainEvent),
-  HeadParameters (..),
   HeadState (..),
   LogicError (..),
   OnChainTx (..),
   Outcome (Error, NewState),
-  Party,
-  SnapshotStrategy (..),
  )
 import qualified Hydra.Logic as Logic
 import qualified Hydra.Logic.SimpleHead as SimpleHead
 import Hydra.MockZMQChain (mockChainClient, runChainSync)
-import Hydra.Network (HydraNetwork (..), createSimulatedHydraNetwork)
+import Hydra.Network (HydraNetwork (..))
 
 -- ** Create and run a hydra node
 
@@ -57,22 +54,6 @@ handleMessage HydraNode{eq} = putEvent eq . NetworkEvent
 
 queryLedgerState :: MonadSTM m => HydraNode tx m -> STM m (Maybe (LedgerState tx))
 queryLedgerState HydraNode{hh} = getConfirmedLedger hh
-
-createHydraNode ::
-  Show tx =>
-  Party ->
-  Ledger tx ->
-  (EventQueue IO (Event tx) -> IO (OnChain IO)) ->
-  (ClientResponse -> IO ()) ->
-  IO (HydraNode tx IO)
-createHydraNode party ledger mkChainClient sendResponse = do
-  eq <- createEventQueue
-  hh <- createHydraHead headState ledger
-  oc <- mkChainClient eq
-  hn <- createSimulatedHydraNetwork [] (putEvent eq . NetworkEvent)
-  pure $ HydraNode eq hn hh oc sendResponse (Environment party)
- where
-  headState = Logic.createHeadState [] HeadParameters SnapshotStrategy
 
 runHydraNode ::
   MonadThrow m =>

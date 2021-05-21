@@ -6,10 +6,29 @@ import Cardano.Prelude
 
 import Data.Text (pack)
 import qualified Hydra.Ledger.Mock as Ledger
-import Hydra.Node (HydraNode, createHydraNode, createMockChainClient, handleClientRequest, runHydraNode)
+import Hydra.Logic (
+  Environment (..),
+  Event (..),
+  HeadParameters (..),
+  SnapshotStrategy (..),
+ )
+import Hydra.Network.ZeroMQ (
+  withZeroMQHydraNetwork,
+ )
+import Hydra.Node (
+  EventQueue (..),
+  HydraNode (..),
+  createEventQueue,
+  createHydraHead,
+  createMockChainClient,
+  handleClientRequest,
+  runHydraNode,
+ )
 import Network.Socket (Family (AF_UNIX), SockAddr (SockAddrUnix), SocketType (Stream), accept, bind, defaultProtocol, listen, socket, socketToHandle)
 import System.Directory (removeFile)
 import System.IO (hGetLine, hPrint)
+
+import qualified Hydra.Logic as Logic
 
 main :: IO ()
 main = do
@@ -19,10 +38,20 @@ main = do
   case readMaybe nodeId of
     Nothing -> panic $ "invalid nodeId argument, should be a number: " <> pack nodeId
     Just n -> do
-      node <- createHydraNode n Ledger.mockLedger createMockChainClient (hPrint h)
-      race_
-        (runAPIServer @Ledger.MockTx h node)
-        (runHydraNode node)
+      eq <- createEventQueue
+      let headState = Logic.createHeadState [] HeadParameters SnapshotStrategy
+      hh <- createHydraHead headState Ledger.mockLedger
+      oc <- createMockChainClient eq
+      withZeroMQHydraNetwork me them (putEvent eq . NetworkEvent) $ \hn -> do
+        let sendResponse = hPrint h
+        let env = Environment n
+        let node = HydraNode{eq, hn, hh, oc, sendResponse, env}
+        race_
+          (runAPIServer @Ledger.MockTx h node)
+          (runHydraNode node)
+ where
+  me = panic ""
+  them = panic ""
 
 runAPIServer :: Read tx => Handle -> HydraNode tx IO -> IO ()
 runAPIServer h node = forever $ do

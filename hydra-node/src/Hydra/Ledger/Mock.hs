@@ -1,11 +1,16 @@
+{-# LANGUAGE DeriveAnyClass #-}
+{-# LANGUAGE DerivingStrategies #-}
+
 -- | A mock implementation of a ledger
 module Hydra.Ledger.Mock where
 
 import Cardano.Prelude
+import Codec.Serialise
 import Hydra.Ledger
 
 data MockTx = ValidTx Integer | InvalidTx
-  deriving (Eq, Read, Show)
+  deriving stock (Eq, Read, Show, Generic)
+  deriving anyclass (Serialise)
 
 type instance LedgerState MockTx = [MockTx]
 
