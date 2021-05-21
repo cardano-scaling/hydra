@@ -92,6 +92,7 @@ library
     , text
     , unix
     , unordered-containers
+    , websockets
   ghc-options:
     -haddock
 

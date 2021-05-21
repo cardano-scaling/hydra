@@ -131,6 +131,7 @@ executable hydra-node
     , network
     , repline
     , text
+    , websockets
   ghc-options:
     -threaded
     -rtsopts
