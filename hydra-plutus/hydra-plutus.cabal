@@ -1,4 +1,4 @@
-cabal-version: 2.2
+cabal-version: 3.4
 name: hydra-plutus
 version: 0.1.0.0
 description:        Hydra Plutus Contracts
@@ -86,16 +86,16 @@ library
       Hydra.MonetaryPolicy
   hs-source-dirs: src
   build-depends:
-      aeson -any,
-      base -any,
-      containers -any,
-      playground-common -any,
-      plutus-core -any,
-      plutus-tx -any,
-      plutus-contract -any,
-      plutus-ledger -any,
-      plutus-tx-plugin -any,
-      template-haskell -any
+      aeson,
+      base,
+      containers,
+      playground-common,
+      plutus-core,
+      plutus-tx,
+      plutus-contract,
+      plutus-ledger,
+      plutus-tx-plugin,
+      template-haskell
 
   if flag(defer-plugin-errors)
       ghc-options: -fplugin-opt PlutusTx.Plugin:defer-errors
@@ -109,23 +109,23 @@ test-suite hydra-plutus-test
       Hydra.ContractStateMachineTest
       Hydra.Utils
   build-depends:
-      cardano-prelude -any,
-      containers -any,
-      foldl -any,
-      freer-extras -any,
-      freer-simple -any,
-      hydra-plutus -any,
-      plutus-core -any,
-      plutus-tx -any,
-      plutus-contract -any,
-      plutus-ledger -any,
-      plutus-tx-plugin -any,
-      prettyprinter -any,
+      cardano-prelude,
+      containers,
+      foldl,
+      freer-extras,
+      freer-simple,
+      hydra-plutus,
+      plutus-core,
+      plutus-tx,
+      plutus-contract,
+      plutus-ledger,
+      plutus-tx-plugin,
+      prettyprinter,
       streaming,
       text
   build-depends:
       base >=4.9 && <5,
-      tasty -any,
-      tasty-golden -any,
-      tasty-hunit -any,
-      tasty-expected-failure -any
+      tasty,
+      tasty-golden,
+      tasty-hunit,
+      tasty-expected-failure
