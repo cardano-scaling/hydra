@@ -50,6 +50,7 @@ main = do
           (runAPIServer @Ledger.MockTx h node)
           (runHydraNode node)
  where
+  -- HACK(SN): Obviously we should configure the node instead
   me nodeId = ("127.0.0.1", show $ 5000 + nodeId)
   them nodeId = [("127.0.0.1", show $ 5000 + id) | id <- [1 .. 3], id /= nodeId]
 
