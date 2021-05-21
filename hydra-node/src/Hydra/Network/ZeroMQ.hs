@@ -24,27 +24,29 @@ withZeroMQHydraNetwork localHost remoteHosts incomingCallback continuation = do
       continuation $ HydraNetwork (atomically . putTMVar mvar)
  where
   toZMQAddress (hostName, port) = "tcp://" <> hostName <> ":" <> port
+  peerAddresses = map toZMQAddress remoteHosts
 
   runServer queue = runZMQ $ do
-    let peerAddresses = map toZMQAddress remoteHosts
     pub <- socket Pub
-    forM_ peerAddresses (connect pub)
+    bind pub $ toZMQAddress localHost
+    putText $ show localHost <> ": started Pub listening"
     forever $ do
       hydraMessage <- liftIO $ atomically $ takeTMVar queue
       let encoded = serialise hydraMessage
       -- TODO use proper tracers
-      hPutStrLn @Text stdout $ show localHost <> ": sending " <> show hydraMessage <> ", encoded as: " <> show encoded
+      putText $ show localHost <> ": sending " <> show hydraMessage <> ", encoded as: " <> show encoded
       send pub [] $ LBS.toStrict encoded
 
   runClients callback = runZMQ $ do
     sub <- socket Sub
     subscribe sub ""
-    bind sub $ toZMQAddress localHost
+    forM_ peerAddresses (connect sub)
+    putText $ show localHost <> ": Sub connected to peers " <> show peerAddresses
     forever $ do
       msg <- receive sub
       hPutStrLn @Text stdout $ show localHost <> ": receiving " <> show msg
       case deserialiseOrFail (LBS.fromStrict msg) of
         Left err -> panic $ "failed to decode msg " <> show msg <> " : " <> show err
         Right hydraMessage -> liftIO $ do
-          hPutStrLn @Text stdout $ show localHost <> ": received " <> show hydraMessage
+          putText $ show localHost <> ": received " <> show hydraMessage
           callback hydraMessage

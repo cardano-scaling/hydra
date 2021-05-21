@@ -42,7 +42,7 @@ main = do
       let headState = Logic.createHeadState [] HeadParameters SnapshotStrategy
       hh <- createHydraHead headState Ledger.mockLedger
       oc <- createMockChainClient eq
-      withZeroMQHydraNetwork me them (putEvent eq . NetworkEvent) $ \hn -> do
+      withZeroMQHydraNetwork (me n) (them n) (putEvent eq . NetworkEvent) $ \hn -> do
         let sendResponse = hPrint h
         let env = Environment n
         let node = HydraNode{eq, hn, hh, oc, sendResponse, env}
@@ -50,16 +50,18 @@ main = do
           (runAPIServer @Ledger.MockTx h node)
           (runHydraNode node)
  where
-  me = panic ""
-  them = panic ""
+  me nodeId = ("127.0.0.1", show $ 5000 + nodeId)
+  them nodeId = [("127.0.0.1", show $ 5000 + id) | id <- [1 .. 3], id /= nodeId]
 
-runAPIServer :: Read tx => Handle -> HydraNode tx IO -> IO ()
+runAPIServer :: Read tx => Show tx => Handle -> HydraNode tx IO -> IO ()
 runAPIServer h node = forever $ do
   threadDelay 100_000
   try @IOException (hGetLine h) >>= \case
     Left ex -> putText $ "[API] error reading: " <> show ex
     Right input -> case readMaybe input of
-      Just command -> handleClientRequest node command
+      Just command -> do
+        putText $ show (party $ env node) <> ": received command " <> show command
+        handleClientRequest node command
       Nothing -> hPutStrLn h $ "[API] Invalid command: " <> input
 
 openUnixSocket :: FilePath -> IO Handle

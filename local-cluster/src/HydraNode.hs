@@ -38,8 +38,8 @@ data Response
   deriving (Eq, Show, Read)
 
 sendRequest :: HydraNode -> Request -> IO ()
-sendRequest HydraNode{inputStream} request =
-  hPutStrLn inputStream (show @_ @Text request)
+sendRequest HydraNode{hydraNodeId, inputStream} request =
+  putText ("Tester sending to " <> show hydraNodeId <> ": " <> show request) >> hPutStrLn inputStream (show @_ @Text request)
 
 data WaitForResponseTimeout = WaitForResponseTimeout Int Response deriving (Show)
 instance Exception WaitForResponseTimeout
