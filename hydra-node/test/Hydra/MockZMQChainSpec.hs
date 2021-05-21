@@ -23,16 +23,16 @@ spec =
         void $
           concurrently
             (mockChainClient postAddress tx)
-            (within1second $ runChainSync syncAddress (putMVar mvar))
+            (within3second $ runChainSync syncAddress (putMVar mvar))
 
-        within1second (takeMVar mvar) `shouldReturn` Just tx
+        within3second (takeMVar mvar) `shouldReturn` Just tx
 
     it "catches up transacions with mock chain" $ do
       chan <- newChan
       withMockZMQChain 54324 54325 54326 $ \_syncAddress catchUpAddress postAddress -> do
         forM_ [1 .. numberOfTxs] $ const $ mockChainClient postAddress tx
         catchUpTransactions catchUpAddress (writeChan chan)
-        within1second (forM [1 .. numberOfTxs] (const $ readChan chan)) `shouldReturn` Just [tx, tx, tx]
+        within3second (forM [1 .. numberOfTxs] (const $ readChan chan)) `shouldReturn` Just [tx, tx, tx]
 
 withMockZMQChain :: Int -> Int -> Int -> (String -> String -> String -> IO ()) -> IO ()
 withMockZMQChain syncPort catchUpPort postPort action =
@@ -44,5 +44,5 @@ withMockZMQChain syncPort catchUpPort postPort action =
   catchUpAddress = "tcp://127.0.0.1:" <> show catchUpPort
   postAddress = "tcp://127.0.0.1:" <> show postPort
 
-within1second :: IO a -> IO (Maybe a)
-within1second = timeout 1_000_000
+within3second :: IO a -> IO (Maybe a)
+within3second = timeout 3_000_000
