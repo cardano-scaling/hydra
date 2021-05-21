@@ -87,7 +87,6 @@ library
     , process
     , random-shuffle
     , retry
-    , safe
     , streaming-commons
     , time
     , text

@@ -7,8 +7,17 @@ import Cardano.Prelude
 import Control.Concurrent.Async (
   forConcurrently_,
  )
-import Network.Socket (Family (AF_UNIX), SockAddr (SockAddrUnix), SocketType (Stream), close, connect, defaultProtocol, socket, socketToHandle)
-import Safe (readEitherSafe)
+import qualified Data.Text as Text
+import Network.Socket (
+  Family (AF_UNIX),
+  SockAddr (SockAddrUnix),
+  SocketType (Stream),
+  close,
+  connect,
+  defaultProtocol,
+  socket,
+  socketToHandle,
+ )
 import System.IO (BufferMode (LineBuffering), hGetLine, hSetBuffering)
 import System.Process (
   CreateProcess (..),
@@ -23,28 +32,16 @@ data HydraNode = HydraNode
   , outputStream :: Handle
   }
 
--- | Deliberately distinct client request type to not take shortcuts.
-data Request
-  = Init [Int]
-  | Commit
-  | NewTx Int
-  deriving (Eq, Show, Read)
-
--- | Deliberately distinct client response type to not take shortcuts.
-data Response
-  = ReadyToCommit
-  | HeadIsOpen
-  | TxReceived Int
-  deriving (Eq, Show, Read)
-
-sendRequest :: HydraNode -> Request -> IO ()
+sendRequest :: HydraNode -> Text -> IO ()
 sendRequest HydraNode{hydraNodeId, inputStream} request =
-  putText ("Tester sending to " <> show hydraNodeId <> ": " <> show request) >> hPutStrLn inputStream (show @_ @Text request)
+  putText ("Tester sending to " <> show hydraNodeId <> ": " <> show request) >> hPutStrLn inputStream request
 
-data WaitForResponseTimeout = WaitForResponseTimeout Int Response deriving (Show)
+data WaitForResponseTimeout = WaitForResponseTimeout {nodeId :: Int, expectedResponse :: Text}
+  deriving (Show)
+
 instance Exception WaitForResponseTimeout
 
-wait3sForResponse :: [HydraNode] -> Response -> IO ()
+wait3sForResponse :: [HydraNode] -> Text -> IO ()
 wait3sForResponse nodes expected = do
   forConcurrently_ nodes $ \HydraNode{hydraNodeId, outputStream} -> do
     -- The chain is slow...
@@ -52,13 +49,10 @@ wait3sForResponse nodes expected = do
     maybe (throwIO $ WaitForResponseTimeout hydraNodeId expected) pure result
  where
   tryNext h = do
-    result <- readEitherSafe <$> hGetLine h
-    case result of
-      Right r
-        | r == expected ->
-          pure ()
-      _ ->
-        tryNext h
+    result <- Text.pack <$> hGetLine h
+    if result == expected
+      then pure ()
+      else tryNext h
 
 withHydraNode :: Int -> (HydraNode -> IO ()) -> IO ()
 withHydraNode hydraNodeId action = do
