@@ -159,7 +159,7 @@ update Environment{party} ledger st ev = case (st, ev) of
   --
   (currentState, ClientEvent{}) ->
     NewState currentState [ClientEffect CommandFailed]
-  _ -> panic $ "UNHANDLED EVENT: " <> show ev <> " in state " <> show st
+  _ -> panic $ "UNHANDLED EVENT: on " <> show party <> " of event " <> show ev <> " in state " <> show st
 
 canCollectCom :: Party -> ParticipationToken -> Set ParticipationToken -> Bool
 canCollectCom party pt remainingTokens = null remainingTokens && thisToken pt == party

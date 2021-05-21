@@ -155,11 +155,22 @@ newtype OnChain m = OnChain
     postTx :: MonadThrow m => OnChainTx -> m ()
   }
 
-createMockChainClient :: EventQueue IO (Event tx) -> IO (OnChain IO)
-createMockChainClient EventQueue{putEvent} = do
+createMockChainClient :: Environment -> EventQueue IO (Event tx) -> IO (OnChain IO)
+createMockChainClient Environment{party} EventQueue{putEvent} = do
   -- TODO: Do a proper cleanup of threads and what not
-  link =<< async (runChainSync "tcp://127.0.0.1:56789" (putEvent . OnChainEvent))
-  pure OnChain{postTx = mockChainClient "tcp://127.0.0.1:56790"}
+  -- BUG(SN): This should wait until we are connected to the chain, otherwise we
+  -- might think that the 'OnChain' is ready, but it in fact would not see any
+  -- txs from the chain
+  link =<< async (runChainSync "tcp://127.0.0.1:56789" onTx)
+  pure OnChain{postTx = sendTx}
+ where
+  sendTx tx = do
+    putText $ "[OnChain:" <> show party <> "] sending tx: " <> show tx
+    mockChainClient "tcp://127.0.0.1:56790" tx
+
+  onTx tx = do
+    putText $ "[OnChain:" <> show party <> "] received tx: " <> show tx
+    putEvent $ OnChainEvent tx
 
 -- | Connects to a cardano node and sets up things in order to be able to
 -- construct actual transactions using 'OnChainTx' and send them on 'postTx'.

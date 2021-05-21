@@ -27,11 +27,9 @@ spec = describe "End-to-end test using a mocked chain though" $ do
         withHydraNode 2 $ \n2 ->
           withHydraNode 3 $ \n3 -> do
             sendRequest n1 (Init [1, 2, 3])
-            wait3sForResponse [n1] ReadyToCommit
+            wait3sForResponse [n1, n2, n3] ReadyToCommit
             sendRequest n1 Commit
-            wait3sForResponse [n2] ReadyToCommit
             sendRequest n2 Commit
-            wait3sForResponse [n3] ReadyToCommit
             sendRequest n3 Commit
 
             wait3sForResponse [n1, n2, n3] HeadIsOpen

@@ -38,13 +38,13 @@ main = do
   case readMaybe nodeId of
     Nothing -> panic $ "invalid nodeId argument, should be a number: " <> pack nodeId
     Just n -> do
+      let env = Environment n
       eq <- createEventQueue
       let headState = Logic.createHeadState [] HeadParameters SnapshotStrategy
       hh <- createHydraHead headState Ledger.mockLedger
-      oc <- createMockChainClient eq
+      oc <- createMockChainClient env eq
       withZeroMQHydraNetwork (me n) (them n) (putEvent eq . NetworkEvent) $ \hn -> do
         let sendResponse = hPrint h
-        let env = Environment n
         let node = HydraNode{eq, hn, hh, oc, sendResponse, env}
         race_
           (runAPIServer @Ledger.MockTx h node)

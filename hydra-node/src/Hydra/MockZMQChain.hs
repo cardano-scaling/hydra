@@ -43,10 +43,10 @@ transactionPublisher :: String -> TBQueue OnChainTx -> ZMQ z ()
 transactionPublisher chainSyncAddress txQueue = do
   pub <- socket Pub
   bind pub chainSyncAddress
-  putText $ "transaction publisher started on " <> pack chainSyncAddress
+  putText $ "[MockChain] transaction publisher started on " <> pack chainSyncAddress
   forever $ do
     tx <- liftIO $ atomically $ readTBQueue txQueue
-    putText $ "sending transaction " <> show tx
+    putText $ "[MockChain] sending transaction " <> show tx
     send pub [] (Enc.encodeUtf8 $ show tx)
 
 mockChainClient :: MonadIO m => String -> OnChainTx -> m ()
@@ -54,7 +54,6 @@ mockChainClient postTxAddress tx = runZMQ $ do
   req <- socket Req
   connect req postTxAddress
   send req [] (Enc.encodeUtf8 $ show tx)
-  liftIO $ putText ("sent message " <> show tx)
   resp <- receive req
   case resp of
     "OK" -> liftIO (putText "received OK ") >> pure ()
@@ -67,7 +66,6 @@ runChainSync chainSyncAddress handler = runZMQ $ do
   connect sub chainSyncAddress
   forever $ do
     msg <- unpack . Enc.decodeUtf8 <$> receive sub
-    liftIO $ putText ("received message " <> show msg)
     case reads msg of
       (tx, "") : _ -> liftIO $ handler tx
       _ -> panic $ "cannot decode transaction " <> show msg
