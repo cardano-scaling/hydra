@@ -17,7 +17,7 @@ data Event tx
   deriving (Eq, Show)
 
 data Effect tx
-  = ClientEffect ClientResponse
+  = ClientEffect (ClientResponse tx)
   | NetworkEffect (HydraMessage tx)
   | OnChainEffect OnChainTx
   | -- | Wait effect should be interpreted as a non-blocking interruption which
@@ -35,11 +35,12 @@ data ClientRequest tx
   | Contest
   deriving (Eq, Read, Show)
 
-data ClientResponse
+data ClientResponse tx
   = ReadyToCommit
   | HeadIsOpen
   | HeadIsClosed
   | CommandFailed
+  | TxReceived tx
   deriving (Eq, Show)
 
 data HydraMessage tx
@@ -152,7 +153,7 @@ update Environment{party} ledger st ev = case (st, ev) of
     -- TODO: this is a shortcut for the sake of making nodes communicate and do stuff
     -- with transaction
     let (headState', _) = SimpleHead.update ledger headState (SimpleHead.ReqTxFromPeer tx)
-     in NewState (OpenState headState') []
+     in NewState (OpenState headState') [ClientEffect $ TxReceived tx]
   (OpenState _, OnChainEvent CloseTx) ->
     NewState ClosedState [ClientEffect HeadIsClosed]
   --

@@ -26,7 +26,7 @@ import Hydra.Node (
  )
 import Network.Socket (Family (AF_UNIX), SockAddr (SockAddrUnix), SocketType (Stream), accept, bind, defaultProtocol, listen, socket, socketToHandle)
 import System.Directory (removeFile)
-import System.IO (hGetLine, hPrint)
+import System.IO (BufferMode (LineBuffering), hGetLine, hPrint, hSetBuffering)
 
 import qualified Hydra.Logic as Logic
 
@@ -72,4 +72,6 @@ openUnixSocket socketPath = do
   listen s 1
   (conn, _peer) <- accept s
   putText "[API] Accepted connection"
-  socketToHandle conn ReadWriteMode
+  h <- socketToHandle conn ReadWriteMode
+  hSetBuffering h LineBuffering
+  pure h

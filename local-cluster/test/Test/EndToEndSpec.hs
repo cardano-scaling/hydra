@@ -36,6 +36,9 @@ spec = describe "End-to-end test using a mocked chain though" $ do
 
             wait3sForResponse [n1, n2, n3] HeadIsOpen
 
+            -- XXX(SN): this is not failing properly if serialization is not
+            -- working (maybe test different client communication instead of our
+            -- stupid unix sockets implementation)
             sendRequest n1 (NewTx 1)
             -- NOTE(SN) we could wait for 'TxReceived 1' explicitly and ignore other responses
             wait3sForResponse [n2] (TxReceived 1)

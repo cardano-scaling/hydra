@@ -39,7 +39,7 @@ data HydraNode tx m = HydraNode
   , hn :: HydraNetwork tx m
   , hh :: HydraHead tx m
   , oc :: OnChain m
-  , sendResponse :: ClientResponse -> m ()
+  , sendResponse :: ClientResponse tx -> m ()
   , env :: Environment
   }
 
