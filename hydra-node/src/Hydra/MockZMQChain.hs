@@ -7,7 +7,8 @@
 module Hydra.MockZMQChain where
 
 import Cardano.Prelude hiding (Option, async, option)
-import Control.Concurrent.STM (TBQueue, newTBQueue, readTBQueue, writeTBQueue)
+import Control.Concurrent.Async (concurrently_)
+import Control.Concurrent.STM (TBQueue, TVar, modifyTVar', newTBQueue, newTVarIO, readTBQueue, readTVarIO, writeTBQueue)
 import Data.String
 import Data.Text (pack, unpack)
 import qualified Data.Text.Encoding as Enc
@@ -15,28 +16,50 @@ import Hydra.Logic (OnChainTx)
 import System.ZMQ4.Monadic
 
 -- TODO: replace crude putText with proper logging
-startChain :: String -> String -> IO ()
-startChain chainSyncAddress postTxAddress = do
+startChain :: String -> String -> String -> IO ()
+startChain chainSyncAddress chainCatchupAddress postTxAddress = do
   txQueue <- atomically $ newTBQueue 50
-  putText $ "Starting chain at addresses (" <> pack chainSyncAddress <> "," <> pack postTxAddress <> ")"
-  runZMQ $ do
-    async (transactionPublisher chainSyncAddress txQueue) >>= liftIO . link
-    transactionListener postTxAddress txQueue
+  transactionLog <- newTVarIO []
+  putText $ "[MockChain] starting at addresses (" <> pack chainSyncAddress <> ", " <> pack chainCatchupAddress <> ", " <> pack postTxAddress <> ")"
+  concurrently_
+    ( runZMQ
+        ( transactionSyncer
+            chainCatchupAddress
+            transactionLog
+        )
+    )
+    $ concurrently_
+      ( runZMQ
+          ( transactionPublisher
+              chainSyncAddress
+              txQueue
+          )
+      )
+      ( runZMQ
+          ( transactionListener
+              postTxAddress
+              transactionLog
+              txQueue
+          )
+      )
 
-transactionListener :: String -> TBQueue OnChainTx -> ZMQ z ()
-transactionListener postTxAddress txQueue = do
+transactionListener :: String -> TVar [OnChainTx] -> TBQueue OnChainTx -> ZMQ z ()
+transactionListener postTxAddress transactionLog txQueue = do
   rep <- socket Rep
   bind rep postTxAddress
-  putText $ "transaction listener started on " <> pack postTxAddress
+  putText $ "[MockChain] transaction listener started on " <> pack postTxAddress
   forever $ do
     msg <- unpack . Enc.decodeUtf8 <$> receive rep
-    putText $ "received message " <> show msg
+    putText $ "[MockChain] received message " <> show msg
     case reads msg of
       (tx, "") : _ -> do
-        liftIO $ atomically $ writeTBQueue txQueue tx
+        liftIO $
+          atomically $ do
+            writeTBQueue txQueue tx
+            modifyTVar' transactionLog (<> [tx])
         send rep [] "OK"
       _ -> do
-        hPutStrLn stderr $ "cannot decode " <> msg <> " as a valid transaction"
+        hPutStrLn stderr $ "[MockChain] cannot decode " <> msg <> " as a valid transaction"
         send rep [] "KO"
 
 transactionPublisher :: String -> TBQueue OnChainTx -> ZMQ z ()
@@ -49,6 +72,17 @@ transactionPublisher chainSyncAddress txQueue = do
     putText $ "[MockChain] sending transaction " <> show tx
     send pub [] (Enc.encodeUtf8 $ show tx)
 
+transactionSyncer :: String -> TVar [OnChainTx] -> ZMQ z ()
+transactionSyncer chainCatchupAddress transactionLog = do
+  rep <- socket Rep
+  bind rep chainCatchupAddress
+  putText $ "[MockChain] transaction syncer started on " <> pack chainCatchupAddress
+  forever $ do
+    _ <- receive rep
+    txs <- liftIO $ readTVarIO transactionLog
+    putText $ "[MockChain] received sync request, sending " <> show (length txs) <> " transactions"
+    send rep [] (Enc.encodeUtf8 $ show txs)
+
 mockChainClient :: MonadIO m => String -> OnChainTx -> m ()
 mockChainClient postTxAddress tx = runZMQ $ do
   req <- socket Req
@@ -59,8 +93,8 @@ mockChainClient postTxAddress tx = runZMQ $ do
     "OK" -> liftIO (putText "received OK ") >> pure ()
     _ -> panic $ "Something went wrong posting " <> show tx
 
-runChainSync :: MonadIO m => String -> (OnChainTx -> IO ()) -> m ()
-runChainSync chainSyncAddress handler = runZMQ $ do
+runChainSync :: MonadIO m => String -> String -> (OnChainTx -> IO ()) -> m ()
+runChainSync _catchUpAddress chainSyncAddress handler = runZMQ $ do
   sub <- socket Sub
   subscribe sub ""
   connect sub chainSyncAddress

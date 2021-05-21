@@ -161,13 +161,13 @@ createMockChainClient Environment{party} EventQueue{putEvent} = do
   -- BUG(SN): This should wait until we are connected to the chain, otherwise we
   -- might think that the 'OnChain' is ready, but it in fact would not see any
   -- txs from the chain. For now, we assume it takes 1 sec to connect.
-  link =<< async (runChainSync "tcp://127.0.0.1:56789" onTx)
+  link =<< async (runChainSync "tcp://127.0.0.1:56789" "tcp://127.0.0.1:56790" onTx)
   threadDelay 1
   pure OnChain{postTx = sendTx}
  where
   sendTx tx = do
     putText $ "[OnChain:" <> show party <> "] sending tx: " <> show tx
-    mockChainClient "tcp://127.0.0.1:56790" tx
+    mockChainClient "tcp://127.0.0.1:56791" tx
 
   onTx tx = do
     putText $ "[OnChain:" <> show party <> "] received tx: " <> show tx

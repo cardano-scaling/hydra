@@ -11,6 +11,7 @@ import Options.Applicative
 data Option = Option
   { mode :: ChainMode
   , chainSyncAddress :: String
+  , catchUpAddress :: String
   , postTxAddress :: String
   }
   deriving (Eq, Show)
@@ -35,9 +36,15 @@ mockChainParser =
           <> help "The address where clients can connect for syncing transactions"
       )
     <*> strOption
+      ( long "catch-up-address"
+          <> short 'u'
+          <> value "tcp://127.0.0.1:56790"
+          <> help "The address where clients can connect for syncing transactions"
+      )
+    <*> strOption
       ( long "post-address"
           <> short 'p'
-          <> value "tcp://127.0.0.1:56790"
+          <> value "tcp://127.0.0.1:56791"
           <> help "The address where clients can post transactions"
       )
 
@@ -52,11 +59,11 @@ mockChainOptions =
 
 main :: IO ()
 main = do
-  Option{mode, chainSyncAddress, postTxAddress} <- execParser mockChainOptions
+  Option{mode, chainSyncAddress, catchUpAddress, postTxAddress} <- execParser mockChainOptions
   case mode of
-    NodeMode -> startChain chainSyncAddress postTxAddress
+    NodeMode -> startChain chainSyncAddress catchUpAddress postTxAddress
     ClientMode -> do
-      async (runChainSync chainSyncAddress print) >>= link
+      async (runChainSync catchUpAddress chainSyncAddress print) >>= link
       forever $ do
         msg <- getLine
         case reads (unpack msg) of
