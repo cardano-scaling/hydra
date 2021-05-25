@@ -36,22 +36,27 @@ data Option = Option {verbosity :: Verbosity, nodeId :: Natural}
   deriving (Show)
 
 hydraNodeParser :: Parser Option
-hydraNodeParser =
-  Option
-    <$> flag
-      (Verbose "HydraNode")
-      Quiet
-      ( long "quiet"
-          <> short 'q'
-          <> help "Turns off any logging"
-      )
-      <*> option
-        auto
-        ( long "node-id"
-            <> short 'n'
-            <> metavar "INTEGER"
-            <> help "Sets this node's id"
-        )
+hydraNodeParser = Option <$> verbosityParser <*> nodeIdParser
+
+nodeIdParser :: Parser Natural
+nodeIdParser =
+  option
+    auto
+    ( long "node-id"
+        <> short 'n'
+        <> metavar "INTEGER"
+        <> help "Sets this node's id"
+    )
+
+verbosityParser :: Parser Verbosity
+verbosityParser =
+  flag
+    (Verbose "HydraNode")
+    Quiet
+    ( long "quiet"
+        <> short 'q'
+        <> help "Turns off any logging"
+    )
 
 hydraNodeOptions :: ParserInfo Option
 hydraNodeOptions =
@@ -71,7 +76,7 @@ data HydraLog
 
 main :: IO ()
 main = do
-  Option{nodeId, verbosity} <- execParser hydraNodeOptions
+  Option{nodeId, verbosity} <- identifyNode <$> execParser hydraNodeOptions
   withTracer verbosity show $ \tracer -> do
     let env = Environment nodeId
     eq <- createEventQueue
@@ -89,3 +94,7 @@ main = do
   -- HACK(SN): Obviously we should configure the node instead
   me nodeId = ("127.0.0.1", show $ 5000 + nodeId)
   them nodeId = [("127.0.0.1", show $ 5000 + id) | id <- [1 .. 3], id /= nodeId]
+
+identifyNode :: Option -> Option
+identifyNode Option{verbosity = Verbose "HydraNode", nodeId} = Option (Verbose $ "HydraNode-" <> show nodeId) nodeId
+identifyNode opt = opt
