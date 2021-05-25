@@ -91,15 +91,14 @@ mockChainOptions =
 main :: IO ()
 main = do
   Option{mode, chainSyncAddress, catchUpAddress, postTxAddress, verbosity} <- execParser mockChainOptions
-  case mode of
+  withTracer verbosity show $ \tracer -> case mode of
     NodeMode ->
-      withTracer verbosity show $
-        startChain chainSyncAddress catchUpAddress postTxAddress
-    CatchUpMode -> catchUpTransactions catchUpAddress print
+      startChain chainSyncAddress catchUpAddress postTxAddress tracer
+    CatchUpMode -> catchUpTransactions catchUpAddress print tracer
     ClientMode -> do
-      async (runChainSync chainSyncAddress print) >>= link
+      async (runChainSync chainSyncAddress print tracer) >>= link
       forever $ do
         msg <- getLine
         case reads (unpack msg) of
-          (tx, "") : _ -> liftIO $ mockChainClient postTxAddress tx
+          (tx, "") : _ -> liftIO $ mockChainClient postTxAddress tracer tx
           _ -> print $ "failed to read command: " <> msg

@@ -26,6 +26,10 @@ data MockChainLog
   | PublishingTransaction {transaction :: OnChainTx}
   | TransactionSyncerStarted {catchupAddress :: String}
   | SyncingTransactions {numberOfTransactions :: Int}
+  | TransactionPosted {postAddress :: String, transaction :: OnChainTx}
+  | ChainSyncStarted {syncAddress :: String}
+  | ReceivedTransaction {transaction :: OnChainTx}
+  | CatchingUpTransactions {catchupAddress :: String, numberOfTransactions :: Int}
   deriving (Show)
 
 startChain :: String -> String -> String -> Tracer IO MockChainLog -> IO ()
@@ -98,36 +102,39 @@ transactionSyncer chainCatchupAddress transactionLog tracer = do
     liftIO $ traceWith tracer (SyncingTransactions $ length txs)
     send rep [] (Enc.encodeUtf8 $ show txs)
 
-mockChainClient :: MonadIO m => String -> OnChainTx -> m ()
-mockChainClient postTxAddress tx = runZMQ $ do
+mockChainClient :: MonadIO m => String -> Tracer IO MockChainLog -> OnChainTx -> m ()
+mockChainClient postTxAddress tracer tx = runZMQ $ do
   req <- socket Req
   connect req postTxAddress
   send req [] (Enc.encodeUtf8 $ show tx)
   resp <- receive req
   case resp of
-    "OK" -> pure ()
+    "OK" -> liftIO (traceWith tracer (TransactionPosted postTxAddress tx)) >> pure ()
     _ -> panic $ "Something went wrong posting " <> show tx
 
-runChainSync :: MonadIO m => String -> (OnChainTx -> IO ()) -> m ()
-runChainSync chainSyncAddress handler = do
+runChainSync :: MonadIO m => String -> (OnChainTx -> IO ()) -> Tracer IO MockChainLog -> m ()
+runChainSync chainSyncAddress handler tracer = do
   runZMQ $ do
     sub <- socket Sub
     subscribe sub ""
     connect sub chainSyncAddress
+    liftIO (traceWith tracer (ChainSyncStarted chainSyncAddress))
     forever $ do
       msg <- unpack . Enc.decodeUtf8 <$> receive sub
       case reads msg of
-        (tx, "") : _ -> liftIO $ handler tx
+        (tx, "") : _ -> liftIO $ do
+          traceWith tracer (ReceivedTransaction tx)
+          handler tx
         _ -> panic $ "cannot decode transaction " <> show msg
 
-catchUpTransactions :: String -> (OnChainTx -> IO ()) -> IO ()
-catchUpTransactions catchUpAddress handler = runZMQ $ do
+catchUpTransactions :: String -> (OnChainTx -> IO ()) -> Tracer IO MockChainLog -> IO ()
+catchUpTransactions catchUpAddress handler tracer = runZMQ $ do
   req <- socket Req
   connect req catchUpAddress
   send req [] "Hello"
   message <- unpack . Enc.decodeUtf8 <$> receive req
   case readMaybe message of
     Just (txs :: [OnChainTx]) -> liftIO $ do
-      putText $ "catch-up  " <> show (length txs) <> " transactions"
+      traceWith tracer (CatchingUpTransactions catchUpAddress $ length txs)
       forM_ txs handler
     Nothing -> panic $ "cannot decode catch-up transactions  " <> show message

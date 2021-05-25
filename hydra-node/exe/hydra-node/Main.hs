@@ -28,6 +28,7 @@ import Hydra.Node (
   handleClientRequest,
   runHydraNode,
  )
+import Logging
 import Network.WebSockets (acceptRequest, receiveData, runServer, sendTextData, withPingThread)
 
 main :: IO ()
@@ -35,12 +36,12 @@ main = do
   [nodeId] <- getArgs
   case readMaybe nodeId of
     Nothing -> panic $ "invalid nodeId argument, should be a number: " <> pack nodeId
-    Just n -> do
+    Just n -> withTracer (Verbose "HydraNode") show $ \tracer -> do
       let env = Environment n
       eq <- createEventQueue
       let headState = createHeadState [] HeadParameters SnapshotStrategy
       hh <- createHydraHead headState Ledger.mockLedger
-      oc <- createMockChainClient env eq
+      oc <- createMockChainClient env eq tracer
       withZeroMQHydraNetwork (me n) (them n) (putEvent eq . NetworkEvent) $ \hn -> do
         responseChannel <- newBroadcastTChanIO
         let sendResponse = atomically . writeTChan responseChannel

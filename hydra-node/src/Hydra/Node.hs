@@ -29,8 +29,9 @@ import Hydra.Logic (
  )
 import qualified Hydra.Logic as Logic
 import qualified Hydra.Logic.SimpleHead as SimpleHead
-import Hydra.MockZMQChain (catchUpTransactions, mockChainClient, runChainSync)
+import Hydra.MockZMQChain (MockChainLog, catchUpTransactions, mockChainClient, runChainSync)
 import Hydra.Network (HydraNetwork (..))
+import Logging (Tracer)
 
 -- ** Create and run a hydra node
 
@@ -155,20 +156,20 @@ newtype OnChain m = OnChain
     postTx :: MonadThrow m => OnChainTx -> m ()
   }
 
-createMockChainClient :: Environment -> EventQueue IO (Event tx) -> IO (OnChain IO)
-createMockChainClient Environment{party} EventQueue{putEvent} = do
+createMockChainClient :: Environment -> EventQueue IO (Event tx) -> Tracer IO MockChainLog -> IO (OnChain IO)
+createMockChainClient Environment{party} EventQueue{putEvent} tracer = do
   -- TODO: Do a proper cleanup of threads and what not
   -- BUG(SN): This should wait until we are connected to the chain, otherwise we
   -- might think that the 'OnChain' is ready, but it in fact would not see any
   -- txs from the chain. For now, we assume it takes 1 sec to connect.
-  catchUpTransactions "tcp://127.0.0.1:56790" onTx
-  link =<< async (runChainSync "tcp://127.0.0.1:56789" onTx)
+  catchUpTransactions "tcp://127.0.0.1:56790" onTx tracer
+  link =<< async (runChainSync "tcp://127.0.0.1:56789" onTx tracer)
   threadDelay 1
   pure OnChain{postTx = sendTx}
  where
   sendTx tx = do
     putText $ "[OnChain:" <> show party <> "] sending tx: " <> show tx
-    mockChainClient "tcp://127.0.0.1:56791" tx
+    mockChainClient "tcp://127.0.0.1:56791" tracer tx
 
   onTx tx = do
     putText $ "[OnChain:" <> show party <> "] received tx: " <> show tx

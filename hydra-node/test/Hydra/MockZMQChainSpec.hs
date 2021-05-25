@@ -7,6 +7,7 @@ import qualified Data.Set as Set
 import Data.String (String)
 import Hydra.Logic (OnChainTx (InitTx), ParticipationToken (..))
 import Hydra.MockZMQChain (catchUpTransactions, mockChainClient, runChainSync, startChain)
+import Logging (nullTracer)
 import System.Timeout (timeout)
 import Test.Hspec (Spec, describe, it, shouldReturn)
 
@@ -23,22 +24,22 @@ spec =
         void $
           concurrently
             ( -- we lack proper synchronisation so better give chain sync time to join the party
-              threadDelay 500_000 >> mockChainClient postAddress tx
+              threadDelay 500_000 >> mockChainClient postAddress nullTracer tx
             )
-            (within3second $ runChainSync syncAddress (putMVar mvar))
+            (within3second $ runChainSync syncAddress (putMVar mvar) nullTracer)
 
         within3second (takeMVar mvar) `shouldReturn` Just tx
 
     it "catches up transacions with mock chain" $ do
       chan <- newChan
       withMockZMQChain 54324 54325 54326 $ \_syncAddress catchUpAddress postAddress -> do
-        forM_ [1 .. numberOfTxs] $ const $ mockChainClient postAddress tx
-        catchUpTransactions catchUpAddress (writeChan chan)
+        forM_ [1 .. numberOfTxs] $ const $ mockChainClient postAddress nullTracer tx
+        catchUpTransactions catchUpAddress (writeChan chan) nullTracer
         within3second (forM [1 .. numberOfTxs] (const $ readChan chan)) `shouldReturn` Just [tx, tx, tx]
 
 withMockZMQChain :: Int -> Int -> Int -> (String -> String -> String -> IO ()) -> IO ()
 withMockZMQChain syncPort catchUpPort postPort action =
-  withAsync (startChain syncAddress catchUpAddress postAddress) $ \_ -> do
+  withAsync (startChain syncAddress catchUpAddress postAddress nullTracer) $ \_ -> do
     action syncAddress catchUpAddress postAddress
  where
   syncAddress = "tcp://127.0.0.1:" <> show syncPort
