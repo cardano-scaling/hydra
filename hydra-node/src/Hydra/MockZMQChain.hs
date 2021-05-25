@@ -1,4 +1,5 @@
 {-# LANGUAGE TypeApplications #-}
+{-# OPTIONS_GHC -Wno-partial-fields #-}
 
 -- | A 0MQ based mock chain implementation.
 --
@@ -10,19 +11,26 @@ import Cardano.Prelude hiding (Option, async, option)
 import Control.Concurrent.Async (concurrently_)
 import Control.Concurrent.STM (TBQueue, TVar, modifyTVar', newTBQueue, newTVarIO, readTBQueue, readTVarIO, writeTBQueue)
 import Data.String
-import Data.Text (pack, unpack)
+import Data.Text (unpack)
 import qualified Data.Text.Encoding as Enc
 import Hydra.Logic (OnChainTx)
 import Logging (HasSeverityAnnotation (..), Severity (Debug), Tracer, traceWith)
 import System.ZMQ4.Monadic
 
-data MockChainLog = MockChainStarted {syncAddress :: String, catchupAddress :: String, postAddress :: String}
+data MockChainLog
+  = MockChainStarted {syncAddress :: String, catchupAddress :: String, postAddress :: String}
+  | TransactionListenerStarted {postAddress :: String}
+  | MessageReceived {message :: String}
+  | FailedToDecodeMessage {message :: String}
+  | TransactionPublisherStarted {postAddress :: String}
+  | PublishingTransaction {transaction :: OnChainTx}
+  | TransactionSyncerStarted {catchupAddress :: String}
+  | SyncingTransactions {numberOfTransactions :: Int}
   deriving (Show)
 
 instance HasSeverityAnnotation MockChainLog where
   getSeverityAnnotation _ = Debug
 
--- TODO: replace crude putText with proper logging
 startChain :: String -> String -> String -> Tracer IO MockChainLog -> IO ()
 startChain chainSyncAddress chainCatchupAddress postTxAddress tracer = do
   txQueue <- atomically $ newTBQueue 50
@@ -33,6 +41,7 @@ startChain chainSyncAddress chainCatchupAddress postTxAddress tracer = do
         ( transactionSyncer
             chainCatchupAddress
             transactionLog
+            tracer
         )
     )
     $ concurrently_
@@ -40,6 +49,7 @@ startChain chainSyncAddress chainCatchupAddress postTxAddress tracer = do
           ( transactionPublisher
               chainSyncAddress
               txQueue
+              tracer
           )
       )
       ( runZMQ
@@ -47,17 +57,18 @@ startChain chainSyncAddress chainCatchupAddress postTxAddress tracer = do
               postTxAddress
               transactionLog
               txQueue
+              tracer
           )
       )
 
-transactionListener :: String -> TVar [OnChainTx] -> TBQueue OnChainTx -> ZMQ z ()
-transactionListener postTxAddress transactionLog txQueue = do
+transactionListener :: String -> TVar [OnChainTx] -> TBQueue OnChainTx -> Tracer IO MockChainLog -> ZMQ z ()
+transactionListener postTxAddress transactionLog txQueue tracer = do
   rep <- socket Rep
   bind rep postTxAddress
-  putText $ "[MockChain] transaction listener started on " <> pack postTxAddress
+  liftIO $ traceWith tracer (TransactionListenerStarted postTxAddress)
   forever $ do
     msg <- unpack . Enc.decodeUtf8 <$> receive rep
-    putText $ "[MockChain] received message " <> show msg
+    liftIO $ traceWith tracer (MessageReceived msg)
     case reads msg of
       (tx, "") : _ -> do
         liftIO $
@@ -66,28 +77,28 @@ transactionListener postTxAddress transactionLog txQueue = do
             modifyTVar' transactionLog (<> [tx])
         send rep [] "OK"
       _ -> do
-        hPutStrLn stderr $ "[MockChain] cannot decode " <> msg <> " as a valid transaction"
+        liftIO $ traceWith tracer (FailedToDecodeMessage msg)
         send rep [] "KO"
 
-transactionPublisher :: String -> TBQueue OnChainTx -> ZMQ z ()
-transactionPublisher chainSyncAddress txQueue = do
+transactionPublisher :: String -> TBQueue OnChainTx -> Tracer IO MockChainLog -> ZMQ z ()
+transactionPublisher chainSyncAddress txQueue tracer = do
   pub <- socket Pub
   bind pub chainSyncAddress
-  putText $ "[MockChain] transaction publisher started on " <> pack chainSyncAddress
+  liftIO $ traceWith tracer (TransactionPublisherStarted chainSyncAddress)
   forever $ do
     tx <- liftIO $ atomically $ readTBQueue txQueue
-    putText $ "[MockChain] sending transaction " <> show tx
+    liftIO $ traceWith tracer (PublishingTransaction tx)
     send pub [] (Enc.encodeUtf8 $ show tx)
 
-transactionSyncer :: String -> TVar [OnChainTx] -> ZMQ z ()
-transactionSyncer chainCatchupAddress transactionLog = do
+transactionSyncer :: String -> TVar [OnChainTx] -> Tracer IO MockChainLog -> ZMQ z ()
+transactionSyncer chainCatchupAddress transactionLog tracer = do
   rep <- socket Rep
   bind rep chainCatchupAddress
-  putText $ "[MockChain] transaction syncer started on " <> pack chainCatchupAddress
+  liftIO $ traceWith tracer (TransactionSyncerStarted chainCatchupAddress)
   forever $ do
     _ <- receive rep
     txs <- liftIO $ readTVarIO transactionLog
-    putText $ "[MockChain] received sync request, sending " <> show (length txs) <> " transactions"
+    liftIO $ traceWith tracer (SyncingTransactions $ length txs)
     send rep [] (Enc.encodeUtf8 $ show txs)
 
 mockChainClient :: MonadIO m => String -> OnChainTx -> m ()
