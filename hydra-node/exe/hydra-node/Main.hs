@@ -2,10 +2,9 @@
 
 module Main where
 
-import Cardano.Prelude
+import Cardano.Prelude hiding (Option, option)
 
 import Control.Concurrent.STM (TChan, dupTChan, newBroadcastTChanIO, readTChan, writeTChan)
-import Data.Text (pack)
 import qualified Data.Text as Text
 import qualified Hydra.Ledger.Mock as Ledger
 import Hydra.Logic (
@@ -30,25 +29,54 @@ import Hydra.Node (
  )
 import Logging
 import Network.WebSockets (acceptRequest, receiveData, runServer, sendTextData, withPingThread)
+import Options.Applicative (Parser, ParserInfo, auto, execParser, flag, fullDesc, header, help, helper, info, long, metavar, option, progDesc, short)
+
+data Option = Option {verbosity :: Verbosity, nodeId :: Natural}
+  deriving (Show)
+
+hydraNodeParser :: Parser Option
+hydraNodeParser =
+  Option
+    <$> flag
+      (Verbose "HydraNode")
+      Quiet
+      ( long "quiet"
+          <> short 'q'
+          <> help "Turns off any logging"
+      )
+      <*> option
+        auto
+        ( long "node-id"
+            <> short 'n'
+            <> metavar "INTEGER"
+            <> help "Sets this node's id"
+        )
+
+hydraNodeOptions :: ParserInfo Option
+hydraNodeOptions =
+  info
+    (hydraNodeParser <**> helper)
+    ( fullDesc
+        <> progDesc "Starts a Hydra Node"
+        <> header "hydra-node - A prototype of Hydra Head protocol"
+    )
 
 main :: IO ()
 main = do
-  [nodeId] <- getArgs
-  case readMaybe nodeId of
-    Nothing -> panic $ "invalid nodeId argument, should be a number: " <> pack nodeId
-    Just n -> withTracer (Verbose "HydraNode") show $ \tracer -> do
-      let env = Environment n
-      eq <- createEventQueue
-      let headState = createHeadState [] HeadParameters SnapshotStrategy
-      hh <- createHydraHead headState Ledger.mockLedger
-      oc <- createMockChainClient env eq tracer
-      withZeroMQHydraNetwork (me n) (them n) (putEvent eq . NetworkEvent) $ \hn -> do
-        responseChannel <- newBroadcastTChanIO
-        let sendResponse = atomically . writeTChan responseChannel
-        let node = HydraNode{eq, hn, hh, oc, sendResponse, env}
-        race_
-          (runAPIServer responseChannel node)
-          (runHydraNode node)
+  Option{nodeId, verbosity} <- execParser hydraNodeOptions
+  withTracer verbosity show $ \tracer -> do
+    let env = Environment nodeId
+    eq <- createEventQueue
+    let headState = createHeadState [] HeadParameters SnapshotStrategy
+    hh <- createHydraHead headState Ledger.mockLedger
+    oc <- createMockChainClient env eq tracer
+    withZeroMQHydraNetwork (me nodeId) (them nodeId) (putEvent eq . NetworkEvent) $ \hn -> do
+      responseChannel <- newBroadcastTChanIO
+      let sendResponse = atomically . writeTChan responseChannel
+      let node = HydraNode{eq, hn, hh, oc, sendResponse, env}
+      race_
+        (runAPIServer responseChannel node)
+        (runHydraNode node)
  where
   -- HACK(SN): Obviously we should configure the node instead
   me nodeId = ("127.0.0.1", show $ 5000 + nodeId)

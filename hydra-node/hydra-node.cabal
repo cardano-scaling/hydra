@@ -129,6 +129,7 @@ executable hydra-node
       base
     , cardano-prelude
     , hydra-node
+    , optparse-applicative
     , repline
     , stm
     , text
