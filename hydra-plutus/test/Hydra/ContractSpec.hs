@@ -1,4 +1,5 @@
 {-# LANGUAGE TypeApplications #-}
+{-# OPTIONS_GHC -fplugin-opt PlutusTx.Plugin:defer-errors #-}
 
 module Hydra.ContractSpec where
 
@@ -68,7 +69,7 @@ tests =
   testGroup
     "Hydra Scenarios"
     [ checkPredicate
-        "✓ | Init > Commit > Commit > CollectCom"
+        "✓ | Init > Commit > Commit > CollectCom: Can CollectCom when all parties have submitted"
         ( assertNoFailedTransactions
             .&&. assertFinalState contract alice stateIsOpen
             .&&. assertFinalState contract alice hasTwoTxOuts
@@ -93,7 +94,7 @@ tests =
 
           callEndpoint @"collectCom" aliceH (vk alice, txOutTxOut . snd <$> [aliceCommit, bobCommit])
     , checkPredicate
-        "✓ | Init > Abort"
+        "✓ | Init > Abort: One can always abort before head is open"
         ( assertNoFailedTransactions
             .&&. assertFinalState contract alice stateIsFinal
             .&&. walletFundsChange alice (lovelaceValueOf 0)
@@ -103,7 +104,7 @@ tests =
           callEndpoint @"init" aliceH ()
           callEndpoint @"abort" aliceH (vk alice, [])
     , checkPredicate
-        "✓ | Init > Commit > Abort"
+        "✓ | Init > Commit > Abort: One can always abort before head is open"
         ( assertNoFailedTransactions
             .&&. assertFinalState contract alice stateIsFinal
             .&&. walletFundsChange alice (lovelaceValueOf 0)
@@ -115,7 +116,7 @@ tests =
           callEndpoint @"commit" aliceH (vk alice, utxoAlice)
           callEndpoint @"abort" aliceH (vk alice, [txOutTxOut $ snd utxoAlice])
     , checkPredicate
-        "x | Init > Commit > CollectCom"
+        "x | Init > Commit > CollectCom: CollectCom is not allowed when not all parties have committed"
         ( assertFailedTransaction (\_ _ _ -> True)
             .&&. assertFinalState contract alice stateIsInitial
             .&&. walletFundsChange alice (inv fixtureAmount)
