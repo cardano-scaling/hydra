@@ -5,7 +5,7 @@ module Main where
 import Cardano.Prelude hiding (Option, option)
 
 import Control.Concurrent.STM (newBroadcastTChanIO, writeTChan)
-import Hydra.API.Server (runAPIServer)
+import Hydra.API.Server (APIServerLog, runAPIServer)
 import qualified Hydra.Ledger.Mock as Ledger
 import Hydra.Logic (
   Environment (..),
@@ -14,6 +14,7 @@ import Hydra.Logic (
   SnapshotStrategy (..),
   createHeadState,
  )
+import Hydra.MockZMQChain (MockChainLog)
 import Hydra.Network.ZeroMQ (
   withZeroMQHydraNetwork,
  )
@@ -58,6 +59,11 @@ hydraNodeOptions =
         <> header "hydra-node - A prototype of Hydra Head protocol"
     )
 
+data HydraNodeLog
+  = MockChain MockChainLog
+  | APIServer APIServerLog
+  deriving (Show)
+
 main :: IO ()
 main = do
   Option{nodeId, verbosity} <- execParser hydraNodeOptions
@@ -66,13 +72,13 @@ main = do
     eq <- createEventQueue
     let headState = createHeadState [] HeadParameters SnapshotStrategy
     hh <- createHydraHead headState Ledger.mockLedger
-    oc <- createMockChainClient env eq tracer
+    oc <- createMockChainClient env eq (contramap MockChain tracer)
     withZeroMQHydraNetwork (me nodeId) (them nodeId) (putEvent eq . NetworkEvent) $ \hn -> do
       responseChannel <- newBroadcastTChanIO
       let sendResponse = atomically . writeTChan responseChannel
       let node = HydraNode{eq, hn, hh, oc, sendResponse, env}
       race_
-        (runAPIServer responseChannel node)
+        (runAPIServer responseChannel node (contramap APIServer tracer))
         (runHydraNode node)
  where
   -- HACK(SN): Obviously we should configure the node instead

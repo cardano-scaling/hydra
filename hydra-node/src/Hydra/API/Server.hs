@@ -1,4 +1,5 @@
 {-# LANGUAGE TypeApplications #-}
+{-# OPTIONS_GHC -Wno-partial-fields #-}
 
 module Hydra.API.Server where
 
@@ -13,32 +14,41 @@ import Hydra.Node (
   HydraNode (..),
   handleClientRequest,
  )
+import Logging (Tracer, traceWith)
 import Network.WebSockets (acceptRequest, receiveData, runServer, sendTextData, withPingThread)
 
-runAPIServer :: (Show tx, Read tx) => TChan (ClientResponse tx) -> HydraNode tx IO -> IO ()
-runAPIServer responseChannel node = do
-  logAPI $ "Listening on port " <> show port
+data APIServerLog
+  = APIServerStarted {listeningPort :: Int}
+  | NewAPIConnection
+  | APIResponseSent {sentResponse :: Text}
+  | APIRequestReceived {receivedRequest :: Text}
+  | APIInvalidRequest {receivedRequest :: Text}
+  deriving (Show)
+
+runAPIServer :: (Show tx, Read tx) => TChan (ClientResponse tx) -> HydraNode tx IO -> Tracer IO APIServerLog -> IO ()
+runAPIServer responseChannel node tracer = do
+  traceWith tracer (APIServerStarted port)
   runServer "0.0.0.0" port $ \pending -> do
     con <- acceptRequest pending
     chan <- atomically $ dupTChan responseChannel
-    logAPI "Accepted new connection"
+    traceWith tracer NewAPIConnection
     withPingThread con 30 (pure ()) $
       race_ (receiveRequests con) (sendResponses chan con)
  where
   sendResponses chan con = forever $ do
     response <- atomically $ readTChan chan
-    sendTextData con (show @_ @Text response)
+    let sentResponse = show @_ @Text response
+    sendTextData con sentResponse
+    traceWith tracer (APIResponseSent sentResponse)
 
   receiveRequests con = forever $ do
     msg <- receiveData con
     case readMaybe (Text.unpack msg) of
       Just request -> do
-        logAPI $ "Received request: " <> show request
+        traceWith tracer (APIRequestReceived msg)
         handleClientRequest node request
-      Nothing -> logAPI $ "Invalid request: " <> msg
+      Nothing -> traceWith tracer (APIInvalidRequest msg)
 
   nodeId = party $ env node
 
   port = fromIntegral $ 4000 + nodeId
-
-  logAPI t = putText $ "[API:" <> show nodeId <> "] " <> t
