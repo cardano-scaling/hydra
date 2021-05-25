@@ -85,6 +85,7 @@ library
     Hydra.Logic
     Hydra.Logic.SimpleHead
     Hydra.MockZMQChain
+    Logging
     Network.TypedProtocol.FireForget.Type
     Network.TypedProtocol.FireForget.Client
     Network.TypedProtocol.FireForget.Server
@@ -103,6 +104,7 @@ library
     , contra-tracer
     , data-default
     , io-sim-classes
+    , iohk-monitoring
     , network
     , network-mux
     , ouroboros-network-framework

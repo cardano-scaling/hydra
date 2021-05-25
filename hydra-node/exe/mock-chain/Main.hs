@@ -6,6 +6,7 @@ import Cardano.Prelude hiding (Option, async, option)
 import Data.String
 import Data.Text (unpack)
 import Hydra.MockZMQChain
+import Logging (Severity (Debug), withStdoutTracer)
 import Options.Applicative
 
 data Option = Option
@@ -61,7 +62,9 @@ main :: IO ()
 main = do
   Option{mode, chainSyncAddress, catchUpAddress, postTxAddress} <- execParser mockChainOptions
   case mode of
-    NodeMode -> startChain chainSyncAddress catchUpAddress postTxAddress
+    NodeMode ->
+      withStdoutTracer "MockChain" Debug show $
+        startChain chainSyncAddress catchUpAddress postTxAddress
     CatchUpMode -> catchUpTransactions catchUpAddress print
     ClientMode -> do
       async (runChainSync chainSyncAddress print) >>= link
