@@ -27,6 +27,7 @@ import Hydra.Node (
   queryLedgerState,
   runHydraNode,
  )
+import Logging (nullTracer)
 import System.Timeout (timeout)
 import Test.Hspec (
   Spec,
@@ -175,7 +176,7 @@ startHydraNode :: Natural -> (HydraNode MockTx IO -> IO Connections) -> IO (Hydr
 startHydraNode nodeId connectToChain = do
   response <- newEmptyMVar
   node <- createHydraNode response
-  nodeThread <- async $ runHydraNode node
+  nodeThread <- async $ runHydraNode node nullTracer
   link nodeThread
   pure
     HydraProcess

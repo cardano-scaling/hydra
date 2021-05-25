@@ -6,6 +6,7 @@ import Cardano.Prelude hiding (Option, option)
 
 import Control.Concurrent.STM (newBroadcastTChanIO, writeTChan)
 import Hydra.API.Server (APIServerLog, runAPIServer)
+import Hydra.Ledger.Mock (MockTx)
 import qualified Hydra.Ledger.Mock as Ledger
 import Hydra.Logic (
   Environment (..),
@@ -22,6 +23,7 @@ import Hydra.Network.ZeroMQ (
 import Hydra.Node (
   EventQueue (..),
   HydraNode (..),
+  HydraNodeLog,
   createEventQueue,
   createHydraHead,
   createMockChainClient,
@@ -60,10 +62,11 @@ hydraNodeOptions =
         <> header "hydra-node - A prototype of Hydra Head protocol"
     )
 
-data HydraNodeLog
+data HydraLog
   = MockChain MockChainLog
   | APIServer APIServerLog
   | Network NetworkLog
+  | Node (HydraNodeLog MockTx)
   deriving (Show)
 
 main :: IO ()
@@ -81,7 +84,7 @@ main = do
       let node = HydraNode{eq, hn, hh, oc, sendResponse, env}
       race_
         (runAPIServer responseChannel node (contramap APIServer tracer))
-        (runHydraNode node)
+        (runHydraNode node (contramap Node tracer))
  where
   -- HACK(SN): Obviously we should configure the node instead
   me nodeId = ("127.0.0.1", show $ 5000 + nodeId)

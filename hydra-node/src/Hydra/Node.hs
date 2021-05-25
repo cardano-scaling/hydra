@@ -1,5 +1,6 @@
 {-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE UndecidableInstances #-}
 {-# OPTIONS_GHC -Wno-deferred-type-errors #-}
 
 -- | Top-level module to run a single Hydra node.
@@ -31,7 +32,7 @@ import qualified Hydra.Logic as Logic
 import qualified Hydra.Logic.SimpleHead as SimpleHead
 import Hydra.MockZMQChain (MockChainLog, catchUpTransactions, mockChainClient, runChainSync)
 import Hydra.Network (HydraNetwork (..))
-import Logging (Tracer)
+import Logging (Tracer, traceWith)
 
 -- ** Create and run a hydra node
 
@@ -43,6 +44,10 @@ data HydraNode tx m = HydraNode
   , sendResponse :: ClientResponse tx -> m ()
   , env :: Environment
   }
+
+data HydraNodeLog tx = ErrorHandlingEvent (Event tx) (LogicError tx)
+
+deriving instance (Show tx, Show (LedgerState tx)) => Show (HydraNodeLog tx)
 
 handleClientRequest :: HydraNode tx m -> ClientRequest tx -> m ()
 handleClientRequest HydraNode{eq} = putEvent eq . ClientEvent
@@ -59,18 +64,18 @@ queryLedgerState HydraNode{hh} = getConfirmedLedger hh
 runHydraNode ::
   MonadThrow m =>
   MonadSTM m =>
-  MonadIO m =>
   Show (LedgerState tx) => -- TODO(SN): leaky abstraction of HydraHead
   Show tx =>
   HydraNode tx m ->
+  Tracer m (HydraNodeLog tx) ->
   m ()
-runHydraNode node@HydraNode{eq} =
+runHydraNode node@HydraNode{eq} tracer =
   -- NOTE(SN): here we could introduce concurrent head processing, e.g. with
   -- something like 'forM_ [0..1] $ async'
   forever $ do
     e <- nextEvent eq
     handleNextEvent node e >>= \case
-      Just err -> putText $ "runHydraNode ERROR: " <> show err
+      Just err -> traceWith tracer (ErrorHandlingEvent e err)
       _ -> pure ()
 
 -- | Monadic interface around 'Hydra.Logic.update'.
