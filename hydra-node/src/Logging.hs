@@ -11,16 +11,28 @@ module Logging (
   contramap,
   traceWith,
 
-  -- * Severity
-  Severity (..),
-  HasSeverityAnnotation (..),
-
-  -- * Instantiation
+  -- * Using it
+  Verbosity (..),
   LoggerName,
-  withStdoutTracer,
+  withTracer,
 ) where
 
-import Cardano.Prelude
+import Cardano.Prelude (
+  Applicative (pure, (<*>)),
+  Category ((.)),
+  Eq,
+  IO,
+  MonadIO (..),
+  Monoid (mempty),
+  Show,
+  Text,
+  bracket,
+  fst,
+  snd,
+  ($),
+  (<$>),
+  (=<<),
+ )
 
 import Cardano.BM.Backend.Switchboard (
   Switchboard,
@@ -38,9 +50,6 @@ import Cardano.BM.Data.LogItem (
 import Cardano.BM.Data.Severity (
   Severity (..),
  )
-import Cardano.BM.Data.Tracer (
-  HasSeverityAnnotation (..),
- )
 import Cardano.BM.Setup (
   setupTrace_,
   shutdown,
@@ -56,23 +65,25 @@ import Control.Tracer (
 import qualified Cardano.BM.Configuration.Model as CM
 import qualified Cardano.BM.Data.BackendKind as CM
 
+data Verbosity = Quiet | Verbose LoggerName
+  deriving (Eq, Show)
+
 -- | Acquire a tracer that automatically shutdown once the action is done via
 -- bracket-style allocation.
-withStdoutTracer ::
+withTracer ::
   forall m msg a.
-  (MonadIO m, HasSeverityAnnotation msg) =>
-  LoggerName ->
-  Severity ->
+  MonadIO m =>
+  Verbosity ->
   (msg -> Text) ->
   (Tracer m msg -> IO a) ->
   IO a
-withStdoutTracer name minSeverity transform between = do
+withTracer Quiet _ between = between nullTracer
+withTracer (Verbose name) transform between = do
   bracket before after (between . natTracer liftIO . fst)
  where
   before :: IO (Tracer IO msg, Switchboard Text)
   before = do
     config <- defaultConfigStdout
-    CM.setMinSeverity config minSeverity
     CM.setSetupBackends config [CM.KatipBK]
     (tr, sb) <- setupTrace_ config name
     pure (transformLogObject transform tr, sb)
@@ -81,13 +92,14 @@ withStdoutTracer name minSeverity transform between = do
   after = shutdown . snd
 
 -- | Tracer transformer which converts 'Trace m a' to 'Tracer m a' by wrapping
--- typed log messages into a 'LogObject'.
+-- typed log messages into a 'LogObject'. NOTE: All log messages are of severity
+-- 'Debug'.
 transformLogObject ::
-  (MonadIO m, HasSeverityAnnotation msg) =>
+  MonadIO m =>
   (msg -> Text) ->
   Tracer m (LoggerName, LogObject Text) ->
   Tracer m msg
 transformLogObject transform tr = Tracer $ \a -> do
   traceWith tr . (mempty,) =<< LogObject mempty
-    <$> mkLOMeta (getSeverityAnnotation a) Public
+    <$> mkLOMeta Debug Public
     <*> pure (LogMessage (transform a))

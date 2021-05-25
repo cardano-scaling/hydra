@@ -14,7 +14,7 @@ import Data.String
 import Data.Text (unpack)
 import qualified Data.Text.Encoding as Enc
 import Hydra.Logic (OnChainTx)
-import Logging (HasSeverityAnnotation (..), Severity (Debug), Tracer, traceWith)
+import Logging (Tracer, traceWith)
 import System.ZMQ4.Monadic
 
 data MockChainLog
@@ -27,9 +27,6 @@ data MockChainLog
   | TransactionSyncerStarted {catchupAddress :: String}
   | SyncingTransactions {numberOfTransactions :: Int}
   deriving (Show)
-
-instance HasSeverityAnnotation MockChainLog where
-  getSeverityAnnotation _ = Debug
 
 startChain :: String -> String -> String -> Tracer IO MockChainLog -> IO ()
 startChain chainSyncAddress chainCatchupAddress postTxAddress tracer = do

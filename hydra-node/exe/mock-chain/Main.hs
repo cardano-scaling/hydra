@@ -1,13 +1,34 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TypeApplications #-}
 
-import Cardano.Prelude (async)
-import Cardano.Prelude hiding (Option, async, option)
-import Data.String
+import Cardano.Prelude hiding (Option, option)
+import Data.String (String)
 import Data.Text (unpack)
-import Hydra.MockZMQChain
-import Logging (Severity (Debug), nullTracer, withStdoutTracer)
-import Options.Applicative
+import Hydra.MockZMQChain (
+  catchUpTransactions,
+  mockChainClient,
+  runChainSync,
+  startChain,
+ )
+import Logging (Verbosity (Quiet, Verbose), withTracer)
+import Options.Applicative (
+  Parser,
+  ParserInfo,
+  auto,
+  execParser,
+  flag,
+  fullDesc,
+  header,
+  help,
+  helper,
+  info,
+  long,
+  option,
+  progDesc,
+  short,
+  strOption,
+  value,
+ )
 
 data Option = Option
   { mode :: ChainMode
@@ -17,9 +38,6 @@ data Option = Option
   , -- TODO: provide less binary behaviour?
     verbosity :: Verbosity
   }
-  deriving (Eq, Show)
-
-data Verbosity = Quiet | Verbose
   deriving (Eq, Show)
 
 data ChainMode = NodeMode | ClientMode | CatchUpMode
@@ -54,7 +72,7 @@ mockChainParser =
           <> help "The address where clients can post transactions"
       )
     <*> flag
-      Verbose
+      (Verbose "MockChain")
       Quiet
       ( long "quiet"
           <> short 'q'
@@ -75,11 +93,8 @@ main = do
   Option{mode, chainSyncAddress, catchUpAddress, postTxAddress, verbosity} <- execParser mockChainOptions
   case mode of
     NodeMode ->
-      if verbosity == Verbose
-        then
-          withStdoutTracer "MockChain" Debug show $
-            startChain chainSyncAddress catchUpAddress postTxAddress
-        else startChain chainSyncAddress catchUpAddress postTxAddress nullTracer
+      withTracer verbosity show $
+        startChain chainSyncAddress catchUpAddress postTxAddress
     CatchUpMode -> catchUpTransactions catchUpAddress print
     ClientMode -> do
       async (runChainSync chainSyncAddress print) >>= link
