@@ -16,6 +16,7 @@ import System.Process (
   withCreateProcess,
  )
 import System.Timeout (timeout)
+import Test.Hspec.Expectations (expectationFailure)
 
 data HydraNode = HydraNode
   { hydraNodeId :: Int
@@ -32,12 +33,18 @@ data WaitForResponseTimeout = WaitForResponseTimeout {nodeId :: Int, expectedRes
 
 instance Exception WaitForResponseTimeout
 
-wait3sForResponse :: [HydraNode] -> Text -> IO ()
+failAfter :: HasCallStack => Natural -> IO () -> IO ()
+failAfter seconds action =
+  timeout (fromIntegral seconds * 1_000_000) action >>= \case
+    Just _ -> pure ()
+    Nothing -> expectationFailure $ "Timed out after " <> show seconds <> " second(s)"
+
+wait3sForResponse :: HasCallStack => [HydraNode] -> Text -> IO ()
 wait3sForResponse nodes expected = do
   forConcurrently_ nodes $ \HydraNode{hydraNodeId, connection} -> do
     -- The chain is slow...
     result <- timeout 3_000_000 $ tryNext connection
-    maybe (throwIO $ WaitForResponseTimeout hydraNodeId expected) pure result
+    maybe (expectationFailure $ show $ WaitForResponseTimeout hydraNodeId expected) pure result
  where
   tryNext c = do
     msg <-

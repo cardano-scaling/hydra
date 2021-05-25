@@ -82,6 +82,7 @@ library
     , contra-tracer
     , directory
     , filepath
+    , hspec-expectations
     , iohk-monitoring
     , network
     , process
