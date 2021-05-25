@@ -52,6 +52,8 @@ pkgs.mkShell rec {
     # Used in local-cluster
     cardanoNodePkgs.cardano-node
     cardanoNodePkgs.cardano-cli
+    # Handy to interact with the hydra-node via websockets
+    pkgs.ws
   ];
 
   libs = [
