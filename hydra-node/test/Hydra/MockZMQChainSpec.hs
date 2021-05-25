@@ -22,7 +22,9 @@ spec =
         mvar <- newEmptyMVar
         void $
           concurrently
-            (mockChainClient postAddress tx)
+            ( -- we lack proper synchronisation so better give chain sync time to join the party
+              threadDelay 500_000 >> mockChainClient postAddress tx
+            )
             (within3second $ runChainSync syncAddress (putMVar mvar))
 
         within3second (takeMVar mvar) `shouldReturn` Just tx
@@ -37,7 +39,6 @@ spec =
 withMockZMQChain :: Int -> Int -> Int -> (String -> String -> String -> IO ()) -> IO ()
 withMockZMQChain syncPort catchUpPort postPort action =
   withAsync (startChain syncAddress catchUpAddress postAddress) $ \_ -> do
-    threadDelay 500_000 -- we lack proper synchronisation so better give clients time to join the party
     action syncAddress catchUpAddress postAddress
  where
   syncAddress = "tcp://127.0.0.1:" <> show syncPort
