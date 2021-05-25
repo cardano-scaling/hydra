@@ -16,6 +16,7 @@ import Hydra.Logic (
  )
 import Hydra.MockZMQChain (MockChainLog)
 import Hydra.Network.ZeroMQ (
+  NetworkLog,
   withZeroMQHydraNetwork,
  )
 import Hydra.Node (
@@ -62,6 +63,7 @@ hydraNodeOptions =
 data HydraNodeLog
   = MockChain MockChainLog
   | APIServer APIServerLog
+  | Network NetworkLog
   deriving (Show)
 
 main :: IO ()
@@ -72,8 +74,8 @@ main = do
     eq <- createEventQueue
     let headState = createHeadState [] HeadParameters SnapshotStrategy
     hh <- createHydraHead headState Ledger.mockLedger
-    oc <- createMockChainClient env eq (contramap MockChain tracer)
-    withZeroMQHydraNetwork (me nodeId) (them nodeId) (putEvent eq . NetworkEvent) $ \hn -> do
+    oc <- createMockChainClient eq (contramap MockChain tracer)
+    withZeroMQHydraNetwork (me nodeId) (them nodeId) (contramap Network tracer) (putEvent eq . NetworkEvent) $ \hn -> do
       responseChannel <- newBroadcastTChanIO
       let sendResponse = atomically . writeTChan responseChannel
       let node = HydraNode{eq, hn, hh, oc, sendResponse, env}
