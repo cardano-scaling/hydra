@@ -6,8 +6,6 @@ import Cardano.Prelude (
   ($),
  )
 import HydraNode (
-  Request (Commit, Init, NewTx),
-  Response (..),
   sendRequest,
   wait3sForResponse,
   withHydraNode,
@@ -26,16 +24,17 @@ spec = describe "End-to-end test using a mocked chain though" $ do
       withHydraNode 1 $ \n1 ->
         withHydraNode 2 $ \n2 ->
           withHydraNode 3 $ \n3 -> do
-            sendRequest n1 (Init [1, 2, 3])
-            wait3sForResponse [n1] ReadyToCommit
-            sendRequest n1 Commit
-            wait3sForResponse [n2] ReadyToCommit
-            sendRequest n2 Commit
-            wait3sForResponse [n3] ReadyToCommit
-            sendRequest n3 Commit
+            sendRequest n1 "Init [1, 2, 3]"
+            wait3sForResponse [n1, n2, n3] "ReadyToCommit"
+            sendRequest n1 "Commit"
+            sendRequest n2 "Commit"
+            sendRequest n3 "Commit"
 
-            wait3sForResponse [n1, n2, n3] HeadIsOpen
+            wait3sForResponse [n1, n2, n3] "HeadIsOpen"
 
-            sendRequest n1 (NewTx 1)
-            -- NOTE(SN) we could wait for 'TxReceived 1' explicitly and ignore other responses
-            wait3sForResponse [n2] (TxReceived 1)
+            -- TODO(SN): this is not failing properly if serialization is not
+            -- working (maybe test different client communication instead of our
+            -- stupid unix sockets implementation)
+            sendRequest n1 "NewTx 1"
+
+            wait3sForResponse [n2] "TxReceived 1"

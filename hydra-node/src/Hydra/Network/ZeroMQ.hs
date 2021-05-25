@@ -48,5 +48,4 @@ withZeroMQHydraNetwork localHost remoteHosts incomingCallback continuation = do
       case deserialiseOrFail (LBS.fromStrict msg) of
         Left err -> panic $ "failed to decode msg " <> show msg <> " : " <> show err
         Right hydraMessage -> liftIO $ do
-          putText $ show localHost <> ": received " <> show hydraMessage
           callback hydraMessage

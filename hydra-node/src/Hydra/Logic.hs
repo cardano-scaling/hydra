@@ -17,7 +17,7 @@ data Event tx
   deriving (Eq, Show)
 
 data Effect tx
-  = ClientEffect ClientResponse
+  = ClientEffect (ClientResponse tx)
   | NetworkEffect (HydraMessage tx)
   | OnChainEffect OnChainTx
   | -- | Wait effect should be interpreted as a non-blocking interruption which
@@ -35,11 +35,12 @@ data ClientRequest tx
   | Contest
   deriving (Eq, Read, Show)
 
-data ClientResponse
+data ClientResponse tx
   = ReadyToCommit
   | HeadIsOpen
   | HeadIsClosed
   | CommandFailed
+  | TxReceived tx
   deriving (Eq, Show)
 
 data HydraMessage tx
@@ -152,13 +153,13 @@ update Environment{party} ledger st ev = case (st, ev) of
     -- TODO: this is a shortcut for the sake of making nodes communicate and do stuff
     -- with transaction
     let (headState', _) = SimpleHead.update ledger headState (SimpleHead.ReqTxFromPeer tx)
-     in NewState (OpenState headState') []
+     in NewState (OpenState headState') [ClientEffect $ TxReceived tx]
   (OpenState _, OnChainEvent CloseTx) ->
     NewState ClosedState [ClientEffect HeadIsClosed]
   --
   (currentState, ClientEvent{}) ->
     NewState currentState [ClientEffect CommandFailed]
-  _ -> panic $ "UNHANDLED EVENT: " <> show ev <> " in state " <> show st
+  _ -> panic $ "UNHANDLED EVENT: on " <> show party <> " of event " <> show ev <> " in state " <> show st
 
 canCollectCom :: Party -> ParticipationToken -> Set ParticipationToken -> Bool
 canCollectCom party pt remainingTokens = null remainingTokens && thisToken pt == party

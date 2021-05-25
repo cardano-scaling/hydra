@@ -7,13 +7,20 @@ import Control.Concurrent.STM (modifyTVar, newTVarIO, readTVarIO)
 import Control.Monad.Class.MonadSTM (atomically, check)
 import Data.IORef (modifyIORef', newIORef, readIORef)
 import Hydra.Ledger (Ledger (..), LedgerState, ValidationError (..), ValidationResult (Invalid, Valid))
-import Hydra.Logic (ClientRequest (..), ClientResponse (..))
+import Hydra.Logic (
+  ClientRequest (..),
+  ClientResponse (..),
+  Environment (..),
+  HeadParameters (..),
+  SnapshotStrategy (..),
+  createHeadState,
+ )
 import Hydra.Network (HydraNetwork (..))
 import Hydra.Node (
   HydraNode (..),
   OnChain (..),
-  createDummyChainClient,
-  createHydraNode,
+  createEventQueue,
+  createHydraHead,
   handleChainTx,
   handleClientRequest,
   handleMessage,
@@ -123,7 +130,7 @@ spec = describe "Integrating one ore more hydra-nodes" $ do
       waitForLedgerState n1 (Just [ValidTx 1])
       waitForLedgerState n2 (Just [ValidTx 1])
 
-sendRequestAndWaitFor :: HydraProcess IO MockTx -> ClientRequest MockTx -> ClientResponse -> IO ()
+sendRequestAndWaitFor :: HydraProcess IO MockTx -> ClientRequest MockTx -> ClientResponse MockTx -> IO ()
 sendRequestAndWaitFor node req expected =
   sendRequest node req >> (wait1sForResponse node `shouldReturn` Just expected)
 
@@ -134,7 +141,7 @@ data HydraProcess m tx = HydraProcess
   { nodeId :: Natural
   , stopHydraNode :: m ()
   , sendRequest :: ClientRequest tx -> m ()
-  , wait1sForResponse :: m (Maybe ClientResponse)
+  , wait1sForResponse :: m (Maybe (ClientResponse MockTx))
   , waitForLedgerState :: Maybe (LedgerState tx) -> m ()
   , queryNodeState :: m NodeState
   }
@@ -167,10 +174,8 @@ simulatedChainAndNetwork = do
 startHydraNode :: Natural -> (HydraNode MockTx IO -> IO Connections) -> IO (HydraProcess IO MockTx)
 startHydraNode nodeId connectToChain = do
   response <- newEmptyMVar
-  node <- createHydraNode nodeId mockLedger createDummyChainClient (putMVar response)
-  Connections cc hn <- connectToChain node
-  let testNode = node{oc = cc, hn}
-  nodeThread <- async $ runHydraNode testNode
+  node <- createHydraNode response
+  nodeThread <- async $ runHydraNode node
   link nodeThread
   pure
     HydraProcess
@@ -194,6 +199,15 @@ startHydraNode nodeId connectToChain = do
             when (isNothing result) $ expectationFailure ("Expected ledger state of node " <> show nodeId <> " to be " <> show st)
       , nodeId
       }
+ where
+  createHydraNode response = do
+    let env = Environment nodeId
+    eq <- createEventQueue
+    let headState = createHeadState [] HeadParameters SnapshotStrategy
+    hh <- createHydraHead headState mockLedger
+    let node = HydraNode{eq, hn = HydraNetwork $ const $ pure (), hh, oc = OnChain (const $ pure ()), sendResponse = putMVar response, env}
+    Connections oc hn <- connectToChain node
+    pure node{oc, hn}
 
 data MockTx = ValidTx Integer | InvalidTx
   deriving (Eq, Show)

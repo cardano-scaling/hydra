@@ -26,7 +26,7 @@ import Hydra.Node (
  )
 import Network.Socket (Family (AF_UNIX), SockAddr (SockAddrUnix), SocketType (Stream), accept, bind, defaultProtocol, listen, socket, socketToHandle)
 import System.Directory (removeFile)
-import System.IO (hGetLine, hPrint)
+import System.IO (BufferMode (LineBuffering), hGetLine, hPrint, hSetBuffering)
 
 import qualified Hydra.Logic as Logic
 
@@ -38,18 +38,19 @@ main = do
   case readMaybe nodeId of
     Nothing -> panic $ "invalid nodeId argument, should be a number: " <> pack nodeId
     Just n -> do
+      let env = Environment n
       eq <- createEventQueue
       let headState = Logic.createHeadState [] HeadParameters SnapshotStrategy
       hh <- createHydraHead headState Ledger.mockLedger
-      oc <- createMockChainClient eq
+      oc <- createMockChainClient env eq
       withZeroMQHydraNetwork (me n) (them n) (putEvent eq . NetworkEvent) $ \hn -> do
         let sendResponse = hPrint h
-        let env = Environment n
         let node = HydraNode{eq, hn, hh, oc, sendResponse, env}
         race_
           (runAPIServer @Ledger.MockTx h node)
           (runHydraNode node)
  where
+  -- HACK(SN): Obviously we should configure the node instead
   me nodeId = ("127.0.0.1", show $ 5000 + nodeId)
   them nodeId = [("127.0.0.1", show $ 5000 + id) | id <- [1 .. 3], id /= nodeId]
 
@@ -72,4 +73,6 @@ openUnixSocket socketPath = do
   listen s 1
   (conn, _peer) <- accept s
   putText "[API] Accepted connection"
-  socketToHandle conn ReadWriteMode
+  h <- socketToHandle conn ReadWriteMode
+  hSetBuffering h LineBuffering
+  pure h
