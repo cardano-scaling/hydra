@@ -51,11 +51,13 @@ wait3sForResponse nodes expected = do
 withHydraNode :: Int -> (HydraNode -> IO ()) -> IO ()
 withHydraNode hydraNodeId action = do
   withCreateProcess (hydraNodeProcess hydraNodeId) $
-    \_stdin _stdout _stderr _ph -> do
-      -- Create websocket connection to API
-      runClient "127.0.0.1" (4000 + hydraNodeId) "/" $ \con -> do
-        action $ HydraNode hydraNodeId con
-        sendClose con ("Bye" :: Text)
+    \_stdin _stdout _stderr _ph -> tryConnect
+ where
+  tryConnect = doConnect `catch` \(_ :: IOException) -> tryConnect
+
+  doConnect = runClient "127.0.0.1" (4000 + hydraNodeId) "/" $ \con -> do
+    action $ HydraNode hydraNodeId con
+    sendClose con ("Bye" :: Text)
 
 data CannotStartHydraNode = CannotStartHydraNode Int deriving (Show)
 instance Exception CannotStartHydraNode
