@@ -1,4 +1,3 @@
-{-# LANGUAGE EmptyDataDeriving #-}
 {-# LANGUAGE TypeApplications #-}
 
 -- | A 0MQ based mock chain implementation.
@@ -14,10 +13,10 @@ import Data.String
 import Data.Text (pack, unpack)
 import qualified Data.Text.Encoding as Enc
 import Hydra.Logic (OnChainTx)
-import Logging (HasSeverityAnnotation (..), Severity (Debug), Tracer)
+import Logging (HasSeverityAnnotation (..), Severity (Debug), Tracer, traceWith)
 import System.ZMQ4.Monadic
 
-data MockChainLog
+data MockChainLog = MockChainStarted {syncAddress :: String, catchupAddress :: String, postAddress :: String}
   deriving (Show)
 
 instance HasSeverityAnnotation MockChainLog where
@@ -25,10 +24,10 @@ instance HasSeverityAnnotation MockChainLog where
 
 -- TODO: replace crude putText with proper logging
 startChain :: String -> String -> String -> Tracer IO MockChainLog -> IO ()
-startChain chainSyncAddress chainCatchupAddress postTxAddress _tr = do
+startChain chainSyncAddress chainCatchupAddress postTxAddress tracer = do
   txQueue <- atomically $ newTBQueue 50
   transactionLog <- newTVarIO []
-  putText $ "[MockChain] starting at addresses (" <> pack chainSyncAddress <> ", " <> pack chainCatchupAddress <> ", " <> pack postTxAddress <> ")"
+  traceWith tracer (MockChainStarted chainSyncAddress chainCatchupAddress postTxAddress)
   concurrently_
     ( runZMQ
         ( transactionSyncer
