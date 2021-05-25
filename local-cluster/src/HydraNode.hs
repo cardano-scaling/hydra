@@ -12,7 +12,9 @@ import qualified Data.Text.Encoding as Text
 import Network.WebSockets (Connection, DataMessage (Binary, Text), receiveDataMessage, runClient, sendClose, sendTextData)
 import System.Process (
   CreateProcess (..),
+  ProcessHandle,
   proc,
+  waitForProcess,
   withCreateProcess,
  )
 import System.Timeout (timeout)
@@ -58,7 +60,8 @@ wait3sForResponse nodes expected = do
 withHydraNode :: Int -> (HydraNode -> IO ()) -> IO ()
 withHydraNode hydraNodeId action = do
   withCreateProcess (hydraNodeProcess hydraNodeId) $
-    \_stdin _stdout _stderr _ph -> tryConnect
+    \_stdin _stdout _stderr processHandle ->
+      race_ (checkProcessHasNotDied processHandle) tryConnect
  where
   tryConnect = doConnect `catch` \(_ :: IOException) -> tryConnect
 
@@ -75,6 +78,11 @@ hydraNodeProcess nodeId = proc "hydra-node" ["--node-id", show nodeId, "--quiet"
 withMockChain :: IO () -> IO ()
 withMockChain action = do
   withCreateProcess (proc "mock-chain" ["--quiet"]) $
-    \_in _out _err _handle -> do
-      putText "Mock chain started"
-      action
+    \_in _out _err processHandle -> do
+      race_ (checkProcessHasNotDied processHandle) action
+
+checkProcessHasNotDied :: ProcessHandle -> IO ()
+checkProcessHasNotDied processHandle =
+  waitForProcess processHandle >>= \case
+    ExitSuccess -> pure ()
+    ExitFailure exit -> expectationFailure $ "Process exited with failure code: " <> show exit
