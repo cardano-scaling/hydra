@@ -126,10 +126,9 @@ executable hydra-node
   build-depends:
       base
     , cardano-prelude
-    , directory
     , hydra-node
-    , network
     , repline
+    , stm
     , text
     , websockets
   ghc-options:
