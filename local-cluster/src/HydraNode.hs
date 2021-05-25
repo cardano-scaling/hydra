@@ -74,7 +74,7 @@ hydraNodeProcess nodeId = proc "hydra-node" [show nodeId]
 
 withMockChain :: IO () -> IO ()
 withMockChain action = do
-  withCreateProcess (proc "mock-chain" []) $
+  withCreateProcess (proc "mock-chain" ["--quiet"]) $
     \_in _out _err _handle -> do
       putText "Mock chain started"
       action
