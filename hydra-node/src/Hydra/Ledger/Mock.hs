@@ -11,13 +11,16 @@ import Hydra.Ledger
 import Text.Read (Read (..))
 import Text.Show (Show (..))
 
-data MockTx = ValidTx Integer | InvalidTx
+type Amount = Natural
+
+-- | Simple mock transaction, which conflates value and identity
+data MockTx = ValidTx Amount | InvalidTx
   deriving stock (Eq, Generic)
   deriving anyclass (Serialise)
 
 instance Read MockTx where
   readPrec =
-    ValidTx <$> readPrec @Integer
+    ValidTx <$> readPrec @Amount
       <|> pure InvalidTx
 
 instance Show MockTx where

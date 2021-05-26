@@ -27,9 +27,12 @@ data Effect tx
     -- event (as long as the repeated computation "up to" wait is cheap enough)
     Wait (HeadState tx -> Maybe (HeadState tx, [Effect tx]))
 
+-- | Naiive representation of value, which is likely to change.
+type Amount = Natural
+
 data ClientRequest tx
   = Init [Party]
-  | Commit
+  | Commit Amount
   | NewTx tx
   | Close
   | Contest
@@ -41,6 +44,7 @@ data ClientResponse tx
   | HeadIsClosed
   | CommandFailed
   | TxReceived tx
+  | TxInvalid tx
   deriving (Eq, Show)
 
 data HydraMessage tx
@@ -130,7 +134,7 @@ update Environment{party} ledger st ev = case (st, ev) of
   (InitState, OnChainEvent (InitTx tokens)) ->
     NewState (CollectingState tokens) [ClientEffect ReadyToCommit]
   --
-  (CollectingState remainingTokens, ClientEvent Commit) ->
+  (CollectingState remainingTokens, ClientEvent (Commit _)) ->
     case findToken remainingTokens party of
       Nothing -> panic $ "you're not allowed to commit (anymore): remainingTokens : " <> show remainingTokens <> ", partiyIndex:  " <> show party
       Just pt -> NewState st [OnChainEffect (CommitTx pt)]

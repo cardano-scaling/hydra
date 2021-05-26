@@ -58,7 +58,7 @@ spec = describe "Integrating one ore more hydra-nodes" $ do
     it "accepts Commit after successful Init" $ do
       n <- simulatedChainAndNetwork >>= startHydraNode 1
       sendRequest n (Init [1])
-      sendRequest n Commit
+      sendRequest n (Commit 1)
 
     it "accepts a tx after the head was opened between two nodes" $ do
       chain <- simulatedChainAndNetwork
@@ -66,23 +66,23 @@ spec = describe "Integrating one ore more hydra-nodes" $ do
       n2 <- startHydraNode 2 chain
 
       sendRequestAndWaitFor n1 (Init [1, 2]) ReadyToCommit
-      sendRequest n1 Commit
+      sendRequest n1 (Commit 1)
 
       wait1sForResponse n2 `shouldReturn` Just ReadyToCommit
-      sendRequest n2 Commit
+      sendRequest n2 (Commit 1)
       wait1sForResponse n2 `shouldReturn` Just HeadIsOpen
       sendRequest n2 (NewTx $ ValidTx 1)
 
     it "not accepts commits when the head is open" $ do
       n1 <- simulatedChainAndNetwork >>= startHydraNode 1
       sendRequestAndWaitFor n1 (Init [1]) ReadyToCommit
-      sendRequestAndWaitFor n1 Commit HeadIsOpen
-      sendRequestAndWaitFor n1 Commit CommandFailed
+      sendRequestAndWaitFor n1 (Commit 1) HeadIsOpen
+      sendRequestAndWaitFor n1 (Commit 1) CommandFailed
 
     it "can close an open head" $ do
       n1 <- simulatedChainAndNetwork >>= startHydraNode 1
       sendRequestAndWaitFor n1 (Init [1]) ReadyToCommit
-      sendRequestAndWaitFor n1 Commit HeadIsOpen
+      sendRequestAndWaitFor n1 (Commit 1) HeadIsOpen
       sendRequestAndWaitFor n1 Close HeadIsClosed
 
     it "sees the head closed by other nodes" $ do
@@ -91,10 +91,10 @@ spec = describe "Integrating one ore more hydra-nodes" $ do
       n2 <- startHydraNode 2 chain
 
       sendRequestAndWaitFor n1 (Init [1, 2]) ReadyToCommit
-      sendRequest n1 Commit
+      sendRequest n1 (Commit 1)
 
       wait1sForResponse n2 `shouldReturn` Just ReadyToCommit
-      sendRequestAndWaitFor n2 Commit HeadIsOpen
+      sendRequestAndWaitFor n2 (Commit 1) HeadIsOpen
 
       wait1sForResponse n1 `shouldReturn` Just HeadIsOpen
       sendRequest n1 Close
@@ -107,11 +107,11 @@ spec = describe "Integrating one ore more hydra-nodes" $ do
       n2 <- startHydraNode 2 chain
 
       sendRequestAndWaitFor n1 (Init [1, 2]) ReadyToCommit
-      sendRequest n1 Commit
+      sendRequest n1 (Commit 1)
       wait1sForResponse n1 >>= (`shouldNotBe` Just HeadIsOpen)
 
       wait1sForResponse n2 `shouldReturn` Just ReadyToCommit
-      sendRequestAndWaitFor n2 Commit HeadIsOpen
+      sendRequestAndWaitFor n2 (Commit 1) HeadIsOpen
 
       wait1sForResponse n1 `shouldReturn` Just HeadIsOpen
 
@@ -121,9 +121,9 @@ spec = describe "Integrating one ore more hydra-nodes" $ do
       n2 <- startHydraNode 2 chain
 
       sendRequestAndWaitFor n1 (Init [1, 2]) ReadyToCommit
-      sendRequest n1 Commit
+      sendRequest n1 (Commit 1)
       wait1sForResponse n2 `shouldReturn` Just ReadyToCommit
-      sendRequestAndWaitFor n2 Commit HeadIsOpen
+      sendRequestAndWaitFor n2 (Commit 1) HeadIsOpen
       wait1sForResponse n1 `shouldReturn` Just HeadIsOpen
 
       sendRequest n1 (NewTx $ ValidTx 1)
