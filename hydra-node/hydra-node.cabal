@@ -126,7 +126,6 @@ executable hydra-node
   import: project-config
   hs-source-dirs: exe/hydra-node
   main-is: Main.hs
-  other-modules: Hydra.Repl
   build-depends:
       base
     , cardano-prelude
