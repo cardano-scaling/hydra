@@ -1,8 +1,8 @@
 module Main where
 
 import Cardano.Prelude
-import qualified Hydra.ContractModelSpec as Model
-import qualified Hydra.ContractSpec as Contract
+import qualified Hydra.ContractModelTest as Model
+import qualified Hydra.ContractTest as Contract
 import Test.Tasty
 
 main :: IO ()

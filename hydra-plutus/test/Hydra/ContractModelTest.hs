@@ -1,7 +1,7 @@
 {-# OPTIONS_GHC -Wno-deferred-type-errors #-}
 {-# OPTIONS_GHC -Wno-incomplete-uni-patterns #-}
 
-module Hydra.ContractModelSpec where
+module Hydra.ContractModelTest where
 
 import Cardano.Prelude as Prelude
 import GHC.Show (Show (..))
