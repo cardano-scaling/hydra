@@ -27,9 +27,9 @@ import Hydra.Logic (
   LogicError (..),
   OnChainTx (..),
   Outcome (Error, NewState),
+  confirmedLedger,
  )
 import qualified Hydra.Logic as Logic
-import qualified Hydra.Logic.SimpleHead as SimpleHead
 import Hydra.MockZMQChain (MockChainLog, catchUpTransactions, mockChainClient, runChainSync)
 import Hydra.Network (HydraNetwork (..))
 import Logging (Tracer, traceWith)
@@ -134,7 +134,7 @@ data HydraHead tx m = HydraHead
 getConfirmedLedger :: MonadSTM m => HydraHead tx m -> STM m (Maybe (LedgerState tx))
 getConfirmedLedger hh =
   queryHeadState hh <&> \case
-    OpenState st -> Just (SimpleHead.confirmedLedger st)
+    OpenState st -> Just (confirmedLedger st)
     _ -> Nothing
 
 queryHeadState :: HydraHead tx m -> STM m (HeadState tx)

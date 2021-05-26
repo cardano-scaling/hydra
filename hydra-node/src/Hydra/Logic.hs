@@ -11,14 +11,13 @@ import qualified Data.Set as Set
 import Hydra.Ledger (
   Amount,
   Committed,
-  Ledger,
+  Ledger (applyTransaction),
   LedgerState,
   ParticipationToken (..),
   Party,
   ValidationError,
   initLedgerState,
  )
-import qualified Hydra.Logic.SimpleHead as SimpleHead
 
 data Event tx
   = ClientEvent (ClientRequest tx)
@@ -75,11 +74,26 @@ data OnChainTx
 data HeadState tx
   = InitState
   | CollectingState PendingCommits Committed
-  | OpenState (SimpleHead.State tx)
+  | OpenState (SimpleHeadState tx)
   | ClosedState
 
-deriving instance Eq (SimpleHead.State tx) => Eq (HeadState tx)
-deriving instance Show (SimpleHead.State tx) => Show (HeadState tx)
+deriving instance Eq (SimpleHeadState tx) => Eq (HeadState tx)
+deriving instance Show (SimpleHeadState tx) => Show (HeadState tx)
+
+data SimpleHeadState tx = SimpleHeadState
+  { confirmedLedger :: LedgerState tx
+  , transactions :: Transactions
+  , snapshots :: Snapshots
+  }
+
+deriving instance Eq (LedgerState tx) => Eq (SimpleHeadState tx)
+deriving instance Show (LedgerState tx) => Show (SimpleHeadState tx)
+
+data Transactions = Transaction
+  deriving (Eq, Show)
+
+data Snapshots = Snapshots
+  deriving (Eq, Show)
 
 type PendingCommits = Set ParticipationToken
 
@@ -145,7 +159,7 @@ update Environment{party} ledger st ev = case (st, ev) of
           else NewState newState []
   (CollectingState _ committed, OnChainEvent CollectComTx) ->
     NewState
-      (OpenState $ SimpleHead.mkState (initLedgerState ledger committed))
+      (OpenState $ SimpleHeadState (initLedgerState ledger committed) Transaction Snapshots)
       [ClientEffect HeadIsOpen]
   --
   (OpenState _, OnChainEvent CommitTx{}) ->
@@ -155,10 +169,12 @@ update Environment{party} ledger st ev = case (st, ev) of
   (OpenState{}, ClientEvent (NewTx tx)) ->
     NewState st [NetworkEffect $ ReqTx tx]
   (OpenState headState, NetworkEvent (ReqTx tx)) ->
-    -- TODO: this is a shortcut for the sake of making nodes communicate and do stuff
-    -- with transaction
-    let (headState', _) = SimpleHead.update ledger headState (SimpleHead.ReqTxFromPeer tx)
-     in NewState (OpenState headState') [ClientEffect $ TxReceived tx]
+    case applyTransaction ledger (confirmedLedger headState) tx of
+      Right newLedgerState ->
+        NewState
+          (OpenState $ headState{confirmedLedger = newLedgerState})
+          [ClientEffect $ TxReceived tx]
+      Left err -> panic $ "applying invalid transaction " <> show tx <> " to ledger: " <> show err
   (OpenState _, OnChainEvent CloseTx) ->
     NewState ClosedState [ClientEffect HeadIsClosed]
   --
