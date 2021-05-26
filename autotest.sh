@@ -55,15 +55,14 @@ FLAGS=$(echo "
 
 # List all hspec modules in the given packages and turn those into something
 # that can be put into a Haskell list
-SPECS=$(git ls-files  'hydra-node/**/*Spec.hs'  'hydra-plutus/**/*Spec.hs'  'local-cluster/**/*Spec.hs' | \
+SPECS=$(git ls-files  'hydra-node/**/*Spec.hs'  'hydra-plutus/**/*Spec.hs'  | \
           sed -e 's/^[^A-Z]*\(.*\)\.hs$/\1/' | sed 'y=/=.=' | sed -e 's/$/.spec/' | tr -s '\012' ',' | sed -e 's/,$//' )
 
-COMMAND="cabal exec ghci -- -ihydra-plutus/src -ihydra-plutus/test -ihydra-node/src -ihydra-node/test  -ilocal-cluster/src -ilocal-cluster/test $FLAGS $(git ls-files 'hydra-node/**/*.hs'  'hydra-plutus/**/*.hs'  'local-cluster/**/*.hs' | grep -v Main.hs| grep -v Repl | tr -s '\012' ' ')"
+COMMAND="cabal exec ghci -- -ihydra-plutus/src -ihydra-plutus/test -ihydra-node/src -ihydra-node/test  $FLAGS $(git ls-files 'hydra-node/**/*.hs'  'hydra-plutus/**/*.hs'  | grep -v Main.hs| grep -v Repl | tr -s '\012' ' ')"
 
 # need to explicitly list *.cabal files to restart because (I think) ghcid only
 # checks .cabal in current directory
 exec ghcid -c "$COMMAND" --restart=autotest.sh --restart=cabal.project \
      --restart=hydra-node/hydra-node.cabal \
      --restart=hydra-plutus/hydra-plutus.cabal \
-     --restart=local-cluster/local-cluster.cabal \
     -T "Control.Monad.mapM_ Test.Hspec.hspec [$SPECS]"
