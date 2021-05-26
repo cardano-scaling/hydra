@@ -12,13 +12,17 @@ import Control.Monad.Class.MonadSTM (
   takeTMVar,
  )
 import Control.Tracer (
-  contramap,
-  debugTracer,
-  stdoutTracer,
+  nullTracer,
  )
 import qualified Data.ByteString.Lazy as LBS
 import Hydra.Logic (HydraMessage (..))
-import Hydra.Network
+import Hydra.Network (
+  Host,
+  HydraNetwork (..),
+  NetworkCallback,
+  Port,
+  createSimulatedHydraNetwork,
+ )
 import Network.Socket (AddrInfo (addrAddress), defaultHints, getAddrInfo)
 import Network.TypedProtocol.FireForget.Client as FireForget (
   FireForgetClient (..),
@@ -56,9 +60,9 @@ import Ouroboros.Network.Snocket (socketSnocket)
 import Ouroboros.Network.Socket (
   SomeResponderApplication (..),
   connectToNodeSocket,
-  debuggingNetworkConnectTracers,
-  debuggingNetworkServerTracers,
   newNetworkMutableState,
+  nullNetworkConnectTracers,
+  nullNetworkServerTracers,
   withServerNode,
  )
 import Ouroboros.Network.Subscription (IPSubscriptionTarget (IPSubscriptionTarget))
@@ -68,7 +72,6 @@ import Ouroboros.Network.Subscription.Worker (LocalAddresses (LocalAddresses))
 
 withOuroborosHydraNetwork ::
   forall tx.
-  Show tx =>
   ToCBOR tx =>
   FromCBOR tx =>
   Host ->
@@ -111,9 +114,9 @@ withOuroborosHydraNetwork localHost remoteHosts networkCallback between = do
       , spSubscriptionTarget = IPSubscriptionTarget remoteAddrs 7
       }
 
-  subscriptionTracer = contramap show debugTracer
+  subscriptionTracer = nullTracer
 
-  errorPolicyTracer = contramap show debugTracer
+  errorPolicyTracer = nullTracer
 
   actualConnect iomgr app =
     connectToNodeSocket
@@ -121,7 +124,7 @@ withOuroborosHydraNetwork localHost remoteHosts networkCallback between = do
       unversionedHandshakeCodec
       noTimeLimitsHandshake
       (cborTermVersionDataCodec unversionedProtocolDataCodec)
-      debuggingNetworkConnectTracers
+      nullNetworkConnectTracers
       acceptableVersion
       (unversionedProtocol app)
 
@@ -131,7 +134,7 @@ withOuroborosHydraNetwork localHost remoteHosts networkCallback between = do
     -- TODO(SN): whats this? _ <- async $ cleanNetworkMutableState networkState
     withServerNode
       (socketSnocket iomgr)
-      debuggingNetworkServerTracers
+      nullNetworkServerTracers
       networkState
       (AcceptedConnectionsLimit maxBound maxBound 0)
       localAddr
@@ -149,13 +152,13 @@ withOuroborosHydraNetwork localHost remoteHosts networkCallback between = do
    where
     initiator =
       MuxPeer
-        showStdoutTracer
+        nullTracer
         codecFireForget
         (fireForgetClientPeer $ client var)
 
     responder =
       MuxPeer
-        showStdoutTracer
+        nullTracer
         codecFireForget
         (fireForgetServerPeer server)
 
@@ -192,5 +195,3 @@ withOuroborosHydraNetwork localHost remoteHosts networkCallback between = do
       { recvMsg = \msg -> server <$ networkCallback msg
       , recvMsgDone = pure ()
       }
-
-  showStdoutTracer = contramap show stdoutTracer
