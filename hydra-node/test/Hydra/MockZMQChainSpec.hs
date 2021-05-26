@@ -5,7 +5,8 @@ module Hydra.MockZMQChainSpec where
 import Cardano.Prelude
 import qualified Data.Set as Set
 import Data.String (String)
-import Hydra.Logic (OnChainTx (InitTx), ParticipationToken (..))
+import Hydra.Ledger (ParticipationToken (..))
+import Hydra.Logic (OnChainTx (InitTx))
 import Hydra.MockZMQChain (catchUpTransactions, mockChainClient, runChainSync, startChain)
 import Logging (nullTracer)
 import System.Timeout (timeout)
