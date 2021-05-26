@@ -11,8 +11,6 @@ import Hydra.Ledger
 import Text.Read (Read (..))
 import Text.Show (Show (..))
 
-type Amount = Natural
-
 -- | Simple mock transaction, which conflates value and identity
 data MockTx = ValidTx Amount | InvalidTx
   deriving stock (Eq, Generic)
@@ -28,7 +26,13 @@ instance Show MockTx where
     ValidTx i -> show i
     InvalidTx -> "_|_"
 
-type instance LedgerState MockTx = [MockTx]
+type instance LedgerState MockTx = MockLedgerState
+
+data MockLedgerState = MockLedgerState
+  { utxo :: Map ParticipationToken Amount
+  , transactions :: [MockTx]
+  }
+  deriving (Show)
 
 mockLedger :: Ledger MockTx
 mockLedger =
@@ -36,6 +40,10 @@ mockLedger =
     { canApply = \st tx -> case st `seq` tx of
         ValidTx _ -> Valid
         InvalidTx -> Invalid ValidationError
-    , applyTransaction = \st tx -> pure (tx : st)
-    , initLedgerState = []
+    , applyTransaction = \MockLedgerState{transactions, utxo} tx ->
+        let transactions' = tx : transactions
+         in Right $ MockLedgerState{utxo, transactions = transactions'}
+    , initLedgerState = \utxo ->
+        let transactions = mempty
+         in MockLedgerState{utxo, transactions}
     }

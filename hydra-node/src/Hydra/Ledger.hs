@@ -9,6 +9,24 @@ import qualified Shelley.Spec.Ledger.API as Ledger
 import Shelley.Spec.Ledger.BaseTypes (UnitInterval, mkActiveSlotCoeff, mkUnitInterval)
 import Shelley.Spec.Ledger.Slot (EpochSize (EpochSize))
 
+-- NOTE(MB): We probably want to move these common types somewhere else. Putting
+-- here to avoid circular dependencies with Hydra.Logic
+
+type Committed = Map ParticipationToken Amount
+
+-- | Naiive representation of value, which is likely to change.
+type Amount = Natural
+
+-- | Identifies the commit of a single party member
+data ParticipationToken = ParticipationToken
+  { totalTokens :: Natural
+  , thisToken :: Party
+  }
+  deriving (Eq, Ord, Show, Read)
+
+-- | Identifies a party in a Hydra head.
+type Party = Natural
+
 -- * Ledger interface
 
 type family LedgerState tx
@@ -16,7 +34,7 @@ type family LedgerState tx
 data Ledger tx = Ledger
   { canApply :: LedgerState tx -> tx -> ValidationResult
   , applyTransaction :: LedgerState tx -> tx -> Either ValidationError (LedgerState tx)
-  , initLedgerState :: LedgerState tx
+  , initLedgerState :: Committed -> LedgerState tx
   }
 
 -- | Either valid or an error which we get from the ledger-specs tx validation.

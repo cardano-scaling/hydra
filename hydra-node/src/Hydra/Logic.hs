@@ -6,8 +6,18 @@ module Hydra.Logic where
 
 import Cardano.Prelude
 
+import qualified Data.Map.Strict as Map
 import qualified Data.Set as Set
-import Hydra.Ledger (Ledger, LedgerState, ValidationError, initLedgerState)
+import Hydra.Ledger (
+  Amount,
+  Committed,
+  Ledger,
+  LedgerState,
+  ParticipationToken (..),
+  Party,
+  ValidationError,
+  initLedgerState,
+ )
 import qualified Hydra.Logic.SimpleHead as SimpleHead
 
 data Event tx
@@ -26,9 +36,6 @@ data Effect tx
     -- 'Effect' Also instead of a continuation, we could just re-enqueue an
     -- event (as long as the repeated computation "up to" wait is cheap enough)
     Wait (HeadState tx -> Maybe (HeadState tx, [Effect tx]))
-
--- | Naiive representation of value, which is likely to change.
-type Amount = Natural
 
 data ClientRequest tx
   = Init [Party]
@@ -58,7 +65,7 @@ data HydraMessage tx
 
 data OnChainTx
   = InitTx (Set.Set ParticipationToken)
-  | CommitTx ParticipationToken
+  | CommitTx ParticipationToken Natural
   | CollectComTx
   | CloseTx
   | ContestTx
@@ -67,7 +74,7 @@ data OnChainTx
 
 data HeadState tx
   = InitState
-  | CollectingState PendingCommits
+  | CollectingState PendingCommits Committed
   | OpenState (SimpleHead.State tx)
   | ClosedState
 
@@ -75,16 +82,6 @@ deriving instance Eq (SimpleHead.State tx) => Eq (HeadState tx)
 deriving instance Show (SimpleHead.State tx) => Show (HeadState tx)
 
 type PendingCommits = Set ParticipationToken
-
--- | Identifies a party in a Hydra head.
-type Party = Natural
-
--- | Identifies the commit of a single party member
-data ParticipationToken = ParticipationToken
-  { totalTokens :: Natural
-  , thisToken :: Party
-  }
-  deriving (Eq, Ord, Show, Read)
 
 -- | Contains at least the contestation period and other things.
 data HeadParameters = HeadParameters
@@ -132,20 +129,24 @@ update Environment{party} ledger st ev = case (st, ev) of
   (InitState, ClientEvent (Init parties)) ->
     NewState InitState [OnChainEffect (InitTx $ makeAllTokens parties)]
   (InitState, OnChainEvent (InitTx tokens)) ->
-    NewState (CollectingState tokens) [ClientEffect ReadyToCommit]
+    NewState (CollectingState tokens mempty) [ClientEffect ReadyToCommit]
   --
-  (CollectingState remainingTokens, ClientEvent (Commit _)) ->
+  (CollectingState remainingTokens _, ClientEvent (Commit amount)) ->
     case findToken remainingTokens party of
-      Nothing -> panic $ "you're not allowed to commit (anymore): remainingTokens : " <> show remainingTokens <> ", partiyIndex:  " <> show party
-      Just pt -> NewState st [OnChainEffect (CommitTx pt)]
-  (CollectingState remainingTokens, OnChainEvent (CommitTx pt)) ->
+      Nothing ->
+        panic $ "you're not allowed to commit (anymore): remainingTokens : " <> show remainingTokens <> ", partiyIndex:  " <> show party
+      Just pt -> NewState st [OnChainEffect (CommitTx pt amount)]
+  (CollectingState remainingTokens committed, OnChainEvent (CommitTx pt amount)) ->
     let remainingTokens' = Set.delete pt remainingTokens
-        newState = CollectingState remainingTokens'
+        newCommitted = Map.insert pt amount committed
+        newState = CollectingState remainingTokens' newCommitted
      in if canCollectCom party pt remainingTokens'
           then NewState newState [OnChainEffect CollectComTx]
           else NewState newState []
-  (CollectingState{}, OnChainEvent CollectComTx) ->
-    NewState (OpenState $ SimpleHead.mkState (initLedgerState ledger)) [ClientEffect HeadIsOpen]
+  (CollectingState _ committed, OnChainEvent CollectComTx) ->
+    NewState
+      (OpenState $ SimpleHead.mkState (initLedgerState ledger committed))
+      [ClientEffect HeadIsOpen]
   --
   (OpenState _, OnChainEvent CommitTx{}) ->
     Error (InvalidEvent ev st) -- HACK(SN): is a general case later
