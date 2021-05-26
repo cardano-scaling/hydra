@@ -131,7 +131,6 @@ executable hydra-node
     , cardano-prelude
     , hydra-node
     , optparse-applicative
-    , repline
     , stm
   ghc-options:
     -threaded
