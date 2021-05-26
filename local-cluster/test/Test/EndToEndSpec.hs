@@ -16,6 +16,7 @@ import Test.Hspec (
   Spec,
   describe,
   it,
+  pendingWith,
  )
 
 spec :: Spec
@@ -39,6 +40,7 @@ spec = describe "End-to-end test using a mocked chain though" $ do
     -- NOTE(SN): This is likely too detailed and should move to a lower-level
     -- integration test
     it "init a head and reject too expensive tx" $ do
+      pendingWith "requires tx validation and identifying sending party on NewTx"
       failAfter 10 $
         withMockChain $
           withHydraNode 1 $ \n1 ->
