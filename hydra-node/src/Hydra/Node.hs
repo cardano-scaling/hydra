@@ -73,6 +73,7 @@ runHydraNode ::
   Show (LedgerState tx) => -- TODO(SN): leaky abstraction of HydraHead
   Show tx =>
   HydraNode tx m ->
+  -- TODO: put the tracer in the HydraNode?
   Tracer m (HydraNodeLog tx) ->
   m ()
 runHydraNode node@HydraNode{eq} tracer =
@@ -81,31 +82,26 @@ runHydraNode node@HydraNode{eq} tracer =
   forever $ do
     e <- nextEvent eq
     traceWith tracer $ ProcessingEvent e
-    handleNextEvent node tracer e >>= \case
-      Just err -> traceWith tracer (ErrorHandlingEvent e err)
-      _ -> traceWith tracer $ ProcessedEvent e
+    processNextEvent node e
+      >>= traverse (mapM $ processEffect node tracer)
+      >>= \case
+        Left err -> traceWith tracer (ErrorHandlingEvent e err)
+        _ -> traceWith tracer $ ProcessedEvent e
 
 -- | Monadic interface around 'Hydra.Logic.update'.
-handleNextEvent ::
+processNextEvent ::
   Show (LedgerState tx) =>
   Show tx =>
   MonadSTM m =>
-  MonadThrow m =>
   HydraNode tx m ->
-  Tracer m (HydraNodeLog tx) ->
   Event tx ->
-  m (Maybe (LogicError tx))
-handleNextEvent node@HydraNode{hh, env} tracer e = do
-  result <- atomically $
+  m (Either (LogicError tx) [Effect tx])
+processNextEvent HydraNode{hh, env} e = do
+  atomically $
     modifyHeadState hh $ \s ->
       case Logic.update env (ledger hh) s e of
         NewState s' effects -> (Right effects, s')
         Error err -> (Left err, s)
-  case result of
-    Left err -> pure $ Just err
-    Right out -> do
-      forM_ out (processEffect node tracer)
-      pure Nothing
 
 processEffect ::
   MonadThrow m =>
