@@ -41,6 +41,8 @@ mockLedger =
         ValidTx _ -> Valid
         InvalidTx -> Invalid ValidationError
     , applyTransaction = \MockLedgerState{transactions, utxo} tx ->
+        -- TODO(MB): Here we need to check whether that particular tx is
+        -- "valid", that is, if whoever is sending it has the funds.
         let transactions' = tx : transactions
          in Right $ MockLedgerState{utxo, transactions = transactions'}
     , initLedgerState = \utxo ->
