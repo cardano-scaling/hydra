@@ -17,6 +17,7 @@ import Control.Monad.Class.MonadAsync (async)
 import Control.Monad.Class.MonadSTM (MonadSTM (STM), atomically, newTVar, stateTVar)
 import Control.Monad.Class.MonadTimer (threadDelay)
 import Hydra.Ledger
+import Hydra.Logging (Tracer, traceWith)
 import Hydra.Logic (
   ClientRequest (..),
   ClientResponse (..),
@@ -32,7 +33,6 @@ import Hydra.Logic (
 import qualified Hydra.Logic as Logic
 import Hydra.MockZMQChain (MockChainLog, catchUpTransactions, mockChainClient, runChainSync)
 import Hydra.Network (HydraNetwork (..))
-import Hydra.Logging (Tracer, traceWith)
 
 -- ** Create and run a hydra node
 
@@ -45,9 +45,12 @@ data HydraNode tx m = HydraNode
   , env :: Environment
   }
 
-data HydraNodeLog tx = ErrorHandlingEvent (Event tx) (LogicError tx)
+data HydraNodeLog tx
+  = ErrorHandlingEvent (Event tx) (LogicError tx)
+  | ProcessingEvent (Event tx)
 
 deriving instance (Show tx, Show (LedgerState tx)) => Show (HydraNodeLog tx)
+deriving instance (Eq tx, Eq (LedgerState tx)) => Eq (HydraNodeLog tx)
 
 handleClientRequest :: HydraNode tx m -> ClientRequest tx -> m ()
 handleClientRequest HydraNode{eq} = putEvent eq . ClientEvent

@@ -3,14 +3,16 @@
 module IntegrationSpec where
 
 import Cardano.Prelude hiding (atomically, check)
-import Control.Concurrent.STM (modifyTVar, newTVarIO, readTVarIO)
+import Control.Concurrent.STM (TVar, modifyTVar, newTVarIO, readTVarIO)
 import Control.Monad.Class.MonadSTM (atomically, check)
 import Data.IORef (modifyIORef', newIORef, readIORef)
 import Hydra.Ledger (Ledger (..), LedgerState, ValidationError (..), ValidationResult (Invalid, Valid))
+import Hydra.Logging (Tracer, nullTracer)
 import Hydra.Logic (
   ClientRequest (..),
   ClientResponse (..),
   Environment (..),
+  Event (ClientEvent),
   HeadParameters (..),
   SnapshotStrategy (..),
   createHeadState,
@@ -18,6 +20,7 @@ import Hydra.Logic (
 import Hydra.Network (HydraNetwork (..))
 import Hydra.Node (
   HydraNode (..),
+  HydraNodeLog (ProcessingEvent),
   OnChain (..),
   createEventQueue,
   createHydraHead,
@@ -27,13 +30,13 @@ import Hydra.Node (
   queryLedgerState,
   runHydraNode,
  )
-import Logging (nullTracer)
 import System.Timeout (timeout)
 import Test.Hspec (
   Spec,
   describe,
   expectationFailure,
   it,
+  shouldContain,
   shouldNotBe,
   shouldReturn,
  )
@@ -131,6 +134,22 @@ spec = describe "Integrating one ore more hydra-nodes" $ do
       waitForLedgerState n1 (Just [ValidTx 1])
       waitForLedgerState n2 (Just [ValidTx 1])
 
+  describe "Hydra Node Logging" $ do
+    it "traces processing of events" $ do
+      captured <- newTVarIO []
+      chain <- simulatedChainAndNetwork
+      n1 <- startHydraNodeTraced 1 chain (capturingTracer captured)
+
+      sendRequestAndWaitFor n1 (Init [1]) ReadyToCommit
+      sendRequest n1 (Commit 1)
+
+      traces <- readTVarIO captured
+
+      traces `shouldContain` [ProcessingEvent (ClientEvent $ Init [1])]
+
+capturingTracer :: TVar [HydraNodeLog MockTx] -> Tracer IO (HydraNodeLog MockTx)
+capturingTracer = panic "not implemented"
+
 sendRequestAndWaitFor :: HydraProcess IO MockTx -> ClientRequest MockTx -> ClientResponse MockTx -> IO ()
 sendRequestAndWaitFor node req expected =
   sendRequest node req >> (wait1sForResponse node `shouldReturn` Just expected)
@@ -173,10 +192,13 @@ simulatedChainAndNetwork = do
   broadcast nodes msg = readTVarIO nodes >>= mapM_ (`handleMessage` msg)
 
 startHydraNode :: Natural -> (HydraNode MockTx IO -> IO Connections) -> IO (HydraProcess IO MockTx)
-startHydraNode nodeId connectToChain = do
+startHydraNode nodeId connectToChain = startHydraNodeTraced nodeId connectToChain nullTracer
+
+startHydraNodeTraced :: Natural -> (HydraNode MockTx IO -> IO Connections) -> Tracer IO (HydraNodeLog MockTx) -> IO (HydraProcess IO MockTx)
+startHydraNodeTraced nodeId connectToChain tracer = do
   response <- newEmptyMVar
   node <- createHydraNode response
-  nodeThread <- async $ runHydraNode node nullTracer
+  nodeThread <- async $ runHydraNode node tracer
   link nodeThread
   pure
     HydraProcess
