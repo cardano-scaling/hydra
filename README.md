@@ -1,10 +1,11 @@
-# :construction: Hydra Proof of Concept (POC) :construction:
+# <p align="center">:construction: Hydra Proof of Concept (POC) 🚧</p>
 
-A home to our colorful experiments and prototypes.
+<div align="center">
+  <p>A home to our colorful experiments and prototypes.</p>
+  <a href='https://github.com/input-output-hk/hydra-poc/actions'><img src="https://img.shields.io/github/workflow/status/input-output-hk/hydra-poc/CI?label=Tests&style=for-the-badge" /></a>
+</div>
 
-![GitHub Actions CI](https://github.com/input-output-hk/hydra-poc/actions/workflows/ci.yaml/badge.svg)
-
-## :warning: Disclaimer :warning:
+## :warning: Disclaimer 
 
 This is prototypical and exploratory work. Although we might create a prototype
 for a `hydra-node` in here, some experiments have not a clear goal or usage in
@@ -14,7 +15,7 @@ on an actual product. This also implies that the code quality seen around here i
 not representing our best practices and you will find many code smells and dirty
 hacks.
 
-## Development
+## 👷‍♂️ Development
 
 We provide a `shell.nix` to set up a development environment. So a simple call
 to `nix-shell` should put everything in place for building, testing and
