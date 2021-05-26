@@ -8,7 +8,7 @@ import Control.Monad.Class.MonadSTM (atomically, newEmptyTMVarIO, putTMVar, take
 import qualified Data.ByteString.Lazy as LBS
 import Data.String (String)
 import Hydra.Network
-import Logging (Tracer, traceWith)
+import Hydra.Logging (Tracer, traceWith)
 import System.ZMQ4.Monadic (Pub (Pub), Sub (Sub), bind, connect, receive, runZMQ, send, socket, subscribe)
 
 data NetworkLog

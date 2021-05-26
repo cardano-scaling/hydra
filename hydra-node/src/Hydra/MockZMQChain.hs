@@ -14,7 +14,7 @@ import Data.String
 import Data.Text (unpack)
 import qualified Data.Text.Encoding as Enc
 import Hydra.Logic (OnChainTx)
-import Logging (Tracer, traceWith)
+import Hydra.Logging (Tracer, traceWith)
 import System.ZMQ4.Monadic
 
 data MockChainLog

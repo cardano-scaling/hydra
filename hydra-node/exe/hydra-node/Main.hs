@@ -29,7 +29,7 @@ import Hydra.Node (
   createMockChainClient,
   runHydraNode,
  )
-import Logging
+import Hydra.Logging
 import Options.Applicative (Parser, ParserInfo, auto, execParser, flag, fullDesc, header, help, helper, info, long, metavar, option, progDesc, short)
 
 data Option = Option {verbosity :: Verbosity, nodeId :: Natural}

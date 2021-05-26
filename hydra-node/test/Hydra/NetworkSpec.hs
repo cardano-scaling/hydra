@@ -14,7 +14,7 @@ import Control.Monad.Class.MonadTimer (threadDelay, timeout)
 import Hydra.Logic (HydraMessage (..))
 import Hydra.Network.Ouroboros (broadcast, withOuroborosHydraNetwork)
 import Hydra.Network.ZeroMQ (withZeroMQHydraNetwork)
-import Logging (nullTracer)
+import Hydra.Logging (nullTracer)
 import Test.Hspec (Spec, describe, expectationFailure, it, shouldReturn)
 import Test.QuickCheck (Arbitrary (..), arbitrary, oneof, property)
 

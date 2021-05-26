@@ -32,7 +32,7 @@ import Hydra.Logic (
 import qualified Hydra.Logic as Logic
 import Hydra.MockZMQChain (MockChainLog, catchUpTransactions, mockChainClient, runChainSync)
 import Hydra.Network (HydraNetwork (..))
-import Logging (Tracer, traceWith)
+import Hydra.Logging (Tracer, traceWith)
 
 -- ** Create and run a hydra node
 

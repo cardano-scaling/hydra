@@ -10,7 +10,7 @@ import Hydra.MockZMQChain (
   runChainSync,
   startChain,
  )
-import Logging (Verbosity (Quiet, Verbose), withTracer)
+import Hydra.Logging (Verbosity (Quiet, Verbose), withTracer)
 import Options.Applicative (
   Parser,
   ParserInfo,

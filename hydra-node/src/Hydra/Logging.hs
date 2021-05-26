@@ -3,7 +3,7 @@
 
 -- | Adapter module to the actual logging framework. For now we are using the
 -- iohk-monitoring package, but that might change soon.
-module Logging (
+module Hydra.Logging (
   -- * Tracer
   Tracer,
   natTracer,
