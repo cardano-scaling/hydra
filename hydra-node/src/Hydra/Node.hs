@@ -48,7 +48,9 @@ data HydraNode tx m = HydraNode
 data HydraNodeLog tx
   = ErrorHandlingEvent (Event tx) (LogicError tx)
   | ProcessingEvent (Event tx)
+  | ProcessedEvent (Event tx)
   | ProcessingEffect (Effect tx)
+  | ProcessedEffect (Effect tx)
 
 deriving instance (Show tx, Show (LedgerState tx)) => Show (HydraNodeLog tx)
 deriving instance (Eq tx, Eq (LedgerState tx)) => Eq (HydraNodeLog tx)
@@ -81,7 +83,7 @@ runHydraNode node@HydraNode{eq} tracer =
     traceWith tracer $ ProcessingEvent e
     handleNextEvent node tracer e >>= \case
       Just err -> traceWith tracer (ErrorHandlingEvent e err)
-      _ -> pure ()
+      _ -> traceWith tracer $ ProcessedEvent e
 
 -- | Monadic interface around 'Hydra.Logic.update'.
 handleNextEvent ::
@@ -118,7 +120,7 @@ processEffect HydraNode{hn, oc, sendResponse} tracer e = do
     NetworkEffect msg -> broadcast hn msg
     OnChainEffect tx -> postTx oc tx
     Wait -> panic "TODO: wait and reschedule continuation" -- TODO(SN) this error is not forced
-
+  traceWith tracer $ ProcessedEffect e
 -- ** Some general event queue from which the Hydra head is "fed"
 
 -- | The single, required queue in the system from which a hydra head is "fed".
