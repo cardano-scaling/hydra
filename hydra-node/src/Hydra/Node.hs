@@ -48,6 +48,7 @@ data HydraNode tx m = HydraNode
 data HydraNodeLog tx
   = ErrorHandlingEvent (Event tx) (LogicError tx)
   | ProcessingEvent (Event tx)
+  | ProcessingEffect (Effect tx)
 
 deriving instance (Show tx, Show (LedgerState tx)) => Show (HydraNodeLog tx)
 deriving instance (Eq tx, Eq (LedgerState tx)) => Eq (HydraNodeLog tx)
@@ -78,7 +79,7 @@ runHydraNode node@HydraNode{eq} tracer =
   forever $ do
     e <- nextEvent eq
     traceWith tracer $ ProcessingEvent e
-    handleNextEvent node e >>= \case
+    handleNextEvent node tracer e >>= \case
       Just err -> traceWith tracer (ErrorHandlingEvent e err)
       _ -> pure ()
 
@@ -89,9 +90,10 @@ handleNextEvent ::
   MonadSTM m =>
   MonadThrow m =>
   HydraNode tx m ->
+  Tracer m (HydraNodeLog tx) ->
   Event tx ->
   m (Maybe (LogicError tx))
-handleNextEvent HydraNode{hn, oc, sendResponse, hh, env} e = do
+handleNextEvent node@HydraNode{hh, env} tracer e = do
   result <- atomically $
     modifyHeadState hh $ \s ->
       case Logic.update env (ledger hh) s e of
@@ -100,12 +102,22 @@ handleNextEvent HydraNode{hn, oc, sendResponse, hh, env} e = do
   case result of
     Left err -> pure $ Just err
     Right out -> do
-      forM_ out $ \case
-        ClientEffect i -> sendResponse i
-        NetworkEffect msg -> broadcast hn msg
-        OnChainEffect tx -> postTx oc tx
-        Wait _cont -> panic "TODO: wait and reschedule continuation" -- TODO(SN) this error is not forced
+      forM_ out (processEffect node tracer)
       pure Nothing
+
+processEffect ::
+  MonadThrow m =>
+  HydraNode tx m ->
+  Tracer m (HydraNodeLog tx) ->
+  Effect tx ->
+  m ()
+processEffect HydraNode{hn, oc, sendResponse} tracer e = do
+  traceWith tracer $ ProcessingEffect e
+  case e of
+    ClientEffect i -> sendResponse i
+    NetworkEffect msg -> broadcast hn msg
+    OnChainEffect tx -> postTx oc tx
+    Wait -> panic "TODO: wait and reschedule continuation" -- TODO(SN) this error is not forced
 
 -- ** Some general event queue from which the Hydra head is "fed"
 

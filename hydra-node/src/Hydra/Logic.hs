@@ -34,7 +34,8 @@ data Effect tx
     -- NOTE(SN): This is more likely an alternative 'Outcome' rather than an
     -- 'Effect' Also instead of a continuation, we could just re-enqueue an
     -- event (as long as the repeated computation "up to" wait is cheap enough)
-    Wait (HeadState tx -> Maybe (HeadState tx, [Effect tx]))
+    Wait
+  deriving (Eq, Show)
 
 data ClientRequest tx
   = Init [Party]

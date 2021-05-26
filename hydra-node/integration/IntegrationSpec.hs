@@ -12,6 +12,7 @@ import Hydra.Logging (Tracer, nullTracer)
 import Hydra.Logic (
   ClientRequest (..),
   ClientResponse (..),
+  Effect (ClientEffect),
   Environment (..),
   Event (ClientEvent),
   HeadParameters (..),
@@ -21,7 +22,7 @@ import Hydra.Logic (
 import Hydra.Network (HydraNetwork (..))
 import Hydra.Node (
   HydraNode (..),
-  HydraNodeLog (ProcessingEvent),
+  HydraNodeLog (ProcessingEffect, ProcessingEvent),
   OnChain (..),
   createEventQueue,
   createHydraHead,
@@ -147,6 +148,18 @@ spec = describe "Integrating one ore more hydra-nodes" $ do
       traces <- readTVarIO captured
 
       traces `shouldContain` [ProcessingEvent (ClientEvent $ Init [1])]
+
+    it "traces handling of effects" $ do
+      captured <- newTVarIO []
+      chain <- simulatedChainAndNetwork
+      n1 <- startHydraNodeTraced 1 chain (traceInTVarIO captured)
+
+      sendRequestAndWaitFor n1 (Init [1]) ReadyToCommit
+      sendRequest n1 (Commit 1)
+
+      traces <- readTVarIO captured
+
+      traces `shouldContain` [ProcessingEffect (ClientEffect ReadyToCommit)]
 
 sendRequestAndWaitFor :: HydraProcess IO MockTx -> ClientRequest MockTx -> ClientResponse MockTx -> IO ()
 sendRequestAndWaitFor node req expected =
