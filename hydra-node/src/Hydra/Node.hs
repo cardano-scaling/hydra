@@ -77,6 +77,7 @@ runHydraNode node@HydraNode{eq} tracer =
   -- something like 'forM_ [0..1] $ async'
   forever $ do
     e <- nextEvent eq
+    traceWith tracer $ ProcessingEvent e
     handleNextEvent node e >>= \case
       Just err -> traceWith tracer (ErrorHandlingEvent e err)
       _ -> pure ()

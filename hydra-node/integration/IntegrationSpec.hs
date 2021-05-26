@@ -2,8 +2,9 @@
 
 module IntegrationSpec where
 
+import Cardano.BM.Trace (traceInTVarIO)
 import Cardano.Prelude hiding (atomically, check)
-import Control.Concurrent.STM (TVar, modifyTVar, newTVarIO, readTVarIO)
+import Control.Concurrent.STM (modifyTVar, newTVarIO, readTVarIO)
 import Control.Monad.Class.MonadSTM (atomically, check)
 import Data.IORef (modifyIORef', newIORef, readIORef)
 import Hydra.Ledger (Ledger (..), LedgerState, ValidationError (..), ValidationResult (Invalid, Valid))
@@ -138,7 +139,7 @@ spec = describe "Integrating one ore more hydra-nodes" $ do
     it "traces processing of events" $ do
       captured <- newTVarIO []
       chain <- simulatedChainAndNetwork
-      n1 <- startHydraNodeTraced 1 chain (capturingTracer captured)
+      n1 <- startHydraNodeTraced 1 chain (traceInTVarIO captured)
 
       sendRequestAndWaitFor n1 (Init [1]) ReadyToCommit
       sendRequest n1 (Commit 1)
@@ -146,9 +147,6 @@ spec = describe "Integrating one ore more hydra-nodes" $ do
       traces <- readTVarIO captured
 
       traces `shouldContain` [ProcessingEvent (ClientEvent $ Init [1])]
-
-capturingTracer :: TVar [HydraNodeLog MockTx] -> Tracer IO (HydraNodeLog MockTx)
-capturingTracer = panic "not implemented"
 
 sendRequestAndWaitFor :: HydraProcess IO MockTx -> ClientRequest MockTx -> ClientResponse MockTx -> IO ()
 sendRequestAndWaitFor node req expected =
@@ -192,7 +190,8 @@ simulatedChainAndNetwork = do
   broadcast nodes msg = readTVarIO nodes >>= mapM_ (`handleMessage` msg)
 
 startHydraNode :: Natural -> (HydraNode MockTx IO -> IO Connections) -> IO (HydraProcess IO MockTx)
-startHydraNode nodeId connectToChain = startHydraNodeTraced nodeId connectToChain nullTracer
+startHydraNode nodeId connectToChain =
+  startHydraNodeTraced nodeId connectToChain nullTracer
 
 startHydraNodeTraced :: Natural -> (HydraNode MockTx IO -> IO Connections) -> Tracer IO (HydraNodeLog MockTx) -> IO (HydraProcess IO MockTx)
 startHydraNodeTraced nodeId connectToChain tracer = do

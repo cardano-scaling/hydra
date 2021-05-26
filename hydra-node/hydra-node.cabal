@@ -194,6 +194,7 @@ test-suite integration
     , hspec
     , hspec-core
     , hydra-node
+    , iohk-monitoring
     , io-sim-classes
     , stm
   build-tool-depends:
