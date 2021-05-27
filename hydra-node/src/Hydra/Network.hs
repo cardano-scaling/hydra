@@ -1,5 +1,6 @@
 {-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE DerivingStrategies #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 
 -- | Interface to the Hydra network and base types. Concrete implementations are
@@ -14,8 +15,9 @@ import Cardano.Binary (
 import Cardano.Prelude
 import Codec.Serialise
 import Control.Monad (fail)
+import Data.String (String)
 import Hydra.Logic (HydraMessage (..))
-import Network.Socket (HostName, ServiceName)
+import Network.Socket (HostName)
 import Network.TypedProtocol.Pipelined ()
 
 -- * Hydra network interface
@@ -32,7 +34,16 @@ type NetworkCallback tx m = HydraMessage tx -> m ()
 
 type Host = (HostName, Port)
 
-type Port = ServiceName
+-- | A port is an integer between 0 and 65536
+newtype Port = Port Word16
+  deriving newtype (Eq, Num, Show)
+
+readPort :: String -> Maybe Port
+readPort s =
+  readMaybe s >>= \n ->
+    if n > 0 && n < fromIntegral (maxBound :: Word16)
+      then Just $ Port (fromInteger n)
+      else Nothing
 
 deriving stock instance Generic (HydraMessage tx)
 deriving anyclass instance Serialise tx => Serialise (HydraMessage tx)

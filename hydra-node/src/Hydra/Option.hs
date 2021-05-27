@@ -10,7 +10,7 @@ import Cardano.Prelude hiding (Option, option)
 import Data.IP (IP)
 import Data.String (String)
 import Hydra.Logging (Verbosity (..))
-import Hydra.Network (Port)
+import Hydra.Network (Port, readPort)
 import Options.Applicative (
   Parser,
   ParserInfo,
@@ -27,11 +27,11 @@ import Options.Applicative (
   helper,
   info,
   long,
+  maybeReader,
   metavar,
   option,
   progDesc,
   short,
-  strOption,
   value,
  )
 
@@ -44,7 +44,7 @@ data Option = Option
   deriving (Eq, Show)
 
 defaultOption :: Option
-defaultOption = Option (Verbose "HydraNode") 1 "127.0.0.1" "5001"
+defaultOption = Option (Verbose "HydraNode") 1 "127.0.0.1" 5001
 
 hydraNodeParser :: Parser Option
 hydraNodeParser =
@@ -87,10 +87,11 @@ hostParser =
 
 portParser :: Parser Port
 portParser =
-  strOption
+  option
+    (maybeReader readPort)
     ( long "port"
         <> short 'p'
-        <> value "5001"
+        <> value 5001
         <> metavar "PORT"
         <> help "The port this node listens on (default: 5001)"
     )

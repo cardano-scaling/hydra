@@ -19,5 +19,15 @@ spec = describe "Hydra Node Options" $ do
     parseOptions ["--node-id", "1", "--host", "2001:db8:11e:c00:101"]
       `shouldBe` Nothing
 
+  it "parses valid port number --port option" $ do
+    parseOptions ["--node-id", "1", "--port", "12345"]
+      `shouldBe` Just defaultOption{port = 12345}
+    parseOptions ["--node-id", "1", "--port", "123456"]
+      `shouldBe` Nothing
+    parseOptions ["--node-id", "1", "--port", "0"]
+      `shouldBe` Nothing
+    parseOptions ["--node-id", "1", "--port", "-42"]
+      `shouldBe` Nothing
+
 parseOptions :: [String] -> Maybe Hydra.Option.Option
 parseOptions = getParseResult . parseHydraOptionsFromString

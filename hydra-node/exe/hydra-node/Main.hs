@@ -17,6 +17,7 @@ import Hydra.Logic (
   createHeadState,
  )
 import Hydra.MockZMQChain (MockChainLog)
+import Hydra.Network (Port (Port))
 import Hydra.Network.ZeroMQ (
   NetworkLog,
   withZeroMQHydraNetwork,
@@ -57,7 +58,7 @@ main = do
         (runHydraNode (contramap Node tracer) node)
  where
   me host port = (show host, port)
-  them nodeId host = [(show host, show $ 5000 + id) | id <- [1 .. 3], id /= nodeId]
+  them nodeId host = [(show host, Port $ fromIntegral $ 5000 + id) | id <- [1 .. 3], id /= nodeId]
 
 identifyNode :: Option -> Option
 identifyNode opt@Option{verbosity = Verbose "HydraNode", nodeId} = opt{verbosity = Verbose $ "HydraNode-" <> show nodeId}
