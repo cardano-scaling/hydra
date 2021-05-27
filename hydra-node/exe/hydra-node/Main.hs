@@ -18,6 +18,7 @@ import Hydra.Logic (
   createHeadState,
  )
 import Hydra.MockZMQChain (MockChainLog)
+import Hydra.Network (Port)
 import Hydra.Network.ZeroMQ (
   NetworkLog,
   withZeroMQHydraNetwork,
@@ -31,12 +32,13 @@ import Hydra.Node (
   createMockChainClient,
   runHydraNode,
  )
-import Options.Applicative (Parser, ParserInfo, auto, execParser, flag, fullDesc, header, help, helper, info, long, metavar, option, progDesc, short, value)
+import Options.Applicative (Parser, ParserInfo, auto, execParser, flag, fullDesc, header, help, helper, info, long, metavar, option, progDesc, short, strOption, value)
 
 data Option = Option
   { verbosity :: Verbosity
   , nodeId :: Natural
   , host :: IP
+  , port :: Port
   }
   deriving (Show)
 
@@ -46,6 +48,7 @@ hydraNodeParser =
     <$> verbosityParser
     <*> nodeIdParser
     <*> hostParser
+    <*> portParser
 
 nodeIdParser :: Parser Natural
 nodeIdParser =
@@ -78,6 +81,16 @@ hostParser =
         <> help "The address this node listens on (default: 127.0.0.1)"
     )
 
+portParser :: Parser Port
+portParser =
+  strOption
+    ( long "port"
+        <> short 'p'
+        <> value "5001"
+        <> metavar "PORT"
+        <> help "The port this node listens on (default: 5001)"
+    )
+
 hydraNodeOptions :: ParserInfo Option
 hydraNodeOptions =
   info
@@ -96,14 +109,14 @@ data HydraLog
 
 main :: IO ()
 main = do
-  Option{nodeId, verbosity, host} <- identifyNode <$> execParser hydraNodeOptions
+  Option{nodeId, verbosity, host, port} <- identifyNode <$> execParser hydraNodeOptions
   withTracer verbosity show $ \tracer -> do
     let env = Environment nodeId
     eq <- createEventQueue
     let headState = createHeadState [] HeadParameters SnapshotStrategy
     hh <- createHydraHead headState Ledger.mockLedger
     oc <- createMockChainClient eq (contramap MockChain tracer)
-    withZeroMQHydraNetwork (me nodeId host) (them nodeId host) (contramap Network tracer) (putEvent eq . NetworkEvent) $ \hn -> do
+    withZeroMQHydraNetwork (me host port) (them nodeId host) (contramap Network tracer) (putEvent eq . NetworkEvent) $ \hn -> do
       responseChannel <- newBroadcastTChanIO
       let sendResponse = atomically . writeTChan responseChannel
       let node = HydraNode{eq, hn, hh, oc, sendResponse, env}
@@ -111,7 +124,7 @@ main = do
         (runAPIServer responseChannel node (contramap APIServer tracer))
         (runHydraNode (contramap Node tracer) node)
  where
-  me nodeId host = (show host, show $ 5000 + nodeId)
+  me host port = (show host, port)
   them nodeId host = [(show host, show $ 5000 + id) | id <- [1 .. 3], id /= nodeId]
 
 identifyNode :: Option -> Option
