@@ -1,16 +1,27 @@
-module Hydra.Option where
+module Hydra.Option (
+  Option (..),
+  parseHydraOptions,
+  parseHydraOptionsFromString,
+  getParseResult,
+  defaultOption,
+) where
 
 import Cardano.Prelude hiding (Option, option)
 import Data.IP (IP)
+import Data.String (String)
 import Hydra.Logging (Verbosity (..))
 import Hydra.Network (Port)
 import Options.Applicative (
   Parser,
   ParserInfo,
+  ParserResult,
   auto,
-  execParser,
+  defaultPrefs,
+  execParserPure,
   flag,
   fullDesc,
+  getParseResult,
+  handleParseResult,
   header,
   help,
   helper,
@@ -30,7 +41,10 @@ data Option = Option
   , host :: IP
   , port :: Port
   }
-  deriving (Show)
+  deriving (Eq, Show)
+
+defaultOption :: Option
+defaultOption = Option (Verbose "HydraNode") 1 "127.0.0.1" "5001"
 
 hydraNodeParser :: Parser Option
 hydraNodeParser =
@@ -90,5 +104,10 @@ hydraNodeOptions =
         <> header "hydra-node - A prototype of Hydra Head protocol"
     )
 
+-- | Parse command-line arguments into a `Option` or exit with failure and error message.
 parseHydraOptions :: IO Option
-parseHydraOptions = execParser hydraNodeOptions
+parseHydraOptions = getArgs <&> parseHydraOptionsFromString >>= handleParseResult
+
+-- | Pure parsing of `Option` from a list of arguments.
+parseHydraOptionsFromString :: [String] -> ParserResult Option
+parseHydraOptionsFromString = execParserPure defaultPrefs hydraNodeOptions

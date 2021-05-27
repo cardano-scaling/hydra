@@ -155,11 +155,12 @@ test-suite tests
   import: project-config
   hs-source-dirs: test
   other-modules:
+    Hydra.FireForgetSpec
+    Hydra.LedgerSpec
+    Hydra.MockZMQChainSpec
     Hydra.NetworkSpec
     Hydra.NodeSpec
-    Hydra.LedgerSpec
-    Hydra.FireForgetSpec
-    Hydra.MockZMQChainSpec
+    Hydra.OptionSpec
   main-is: Main.hs
   type: exitcode-stdio-1.0
   build-depends:
