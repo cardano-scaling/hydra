@@ -10,6 +10,7 @@ module Hydra.Logging (
   nullTracer,
   contramap,
   traceWith,
+  traceInTVarIO,
 
   -- * Using it
   Verbosity (..),
@@ -54,6 +55,7 @@ import Cardano.BM.Setup (
   setupTrace_,
   shutdown,
  )
+import Cardano.BM.Trace (traceInTVarIO)
 import Control.Tracer (
   Tracer (..),
   contramap,

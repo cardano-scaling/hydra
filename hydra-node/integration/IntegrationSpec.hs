@@ -2,13 +2,12 @@
 
 module IntegrationSpec where
 
-import Cardano.BM.Trace (traceInTVarIO)
 import Cardano.Prelude hiding (atomically, check)
-import Control.Concurrent.STM (modifyTVar, newTVarIO, readTVarIO)
+import Control.Concurrent.STM (TVar, modifyTVar, newTVarIO, readTVarIO)
 import Control.Monad.Class.MonadSTM (atomically, check)
 import Data.IORef (modifyIORef', newIORef, readIORef)
 import Hydra.Ledger (Ledger (..), LedgerState, ValidationError (..), ValidationResult (Invalid, Valid))
-import Hydra.Logging (Tracer, nullTracer)
+import Hydra.Logging (traceInTVarIO)
 import Hydra.Logic (
   ClientRequest (..),
   ClientResponse (..),
@@ -138,27 +137,25 @@ spec = describe "Integrating one ore more hydra-nodes" $ do
 
   describe "Hydra Node Logging" $ do
     it "traces processing of events" $ do
-      captured <- newTVarIO []
       chain <- simulatedChainAndNetwork
-      n1 <- startHydraNodeTraced 1 chain (traceInTVarIO captured)
+      n1 <- startHydraNode 1 chain
 
       sendRequestAndWaitFor n1 (Init [1]) ReadyToCommit
       sendRequest n1 (Commit 1)
 
-      traces <- readTVarIO captured
+      traces <- readTVarIO (capturedLogs n1)
 
       traces `shouldContain` [ProcessingEvent (ClientEvent $ Init [1])]
       traces `shouldContain` [ProcessedEvent (ClientEvent $ Init [1])]
 
     it "traces handling of effects" $ do
-      captured <- newTVarIO []
       chain <- simulatedChainAndNetwork
-      n1 <- startHydraNodeTraced 1 chain (traceInTVarIO captured)
+      n1 <- startHydraNode 1 chain
 
       sendRequestAndWaitFor n1 (Init [1]) ReadyToCommit
       sendRequest n1 (Commit 1)
 
-      traces <- readTVarIO captured
+      traces <- readTVarIO (capturedLogs n1)
 
       traces `shouldContain` [ProcessingEffect (ClientEffect ReadyToCommit)]
       traces `shouldContain` [ProcessedEffect (ClientEffect ReadyToCommit)]
@@ -177,6 +174,7 @@ data HydraProcess m tx = HydraProcess
   , wait1sForResponse :: m (Maybe (ClientResponse MockTx))
   , waitForLedgerState :: Maybe (LedgerState tx) -> m ()
   , queryNodeState :: m NodeState
+  , capturedLogs :: TVar [HydraNodeLog tx]
   }
 
 data Connections = Connections {chain :: OnChain IO, network :: HydraNetwork MockTx IO}
@@ -204,17 +202,17 @@ simulatedChainAndNetwork = do
 
   broadcast nodes msg = readTVarIO nodes >>= mapM_ (`handleMessage` msg)
 
-startHydraNode :: Natural -> (HydraNode MockTx IO -> IO Connections) -> IO (HydraProcess IO MockTx)
-startHydraNode nodeId connectToChain =
-  startHydraNodeTraced nodeId connectToChain nullTracer
-
-startHydraNodeTraced :: Natural -> (HydraNode MockTx IO -> IO Connections) -> Tracer IO (HydraNodeLog MockTx) -> IO (HydraProcess IO MockTx)
-startHydraNodeTraced nodeId connectToChain tracer = do
+startHydraNode ::
+  Natural ->
+  (HydraNode MockTx IO -> IO Connections) ->
+  IO (HydraProcess IO MockTx)
+startHydraNode nodeId connectToChain = do
+  capturedLogs <- newTVarIO []
   response <- newEmptyMVar
   node <- createHydraNode response
-  nodeThread <- async $ runHydraNode node tracer
+  nodeThread <- async $ runHydraNode (traceInTVarIO capturedLogs) node
   link nodeThread
-  pure
+  pure $
     HydraProcess
       { stopHydraNode = cancel nodeThread
       , queryNodeState =
@@ -235,6 +233,7 @@ startHydraNodeTraced nodeId connectToChain tracer = do
                 )
             when (isNothing result) $ expectationFailure ("Expected ledger state of node " <> show nodeId <> " to be " <> show st)
       , nodeId
+      , capturedLogs
       }
  where
   createHydraNode response = do

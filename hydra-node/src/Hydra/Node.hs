@@ -72,21 +72,18 @@ runHydraNode ::
   MonadSTM m =>
   Show (LedgerState tx) => -- TODO(SN): leaky abstraction of HydraHead
   Show tx =>
-  HydraNode tx m ->
-  -- TODO: put the tracer in the HydraNode?
   Tracer m (HydraNodeLog tx) ->
+  HydraNode tx m ->
   m ()
-runHydraNode node@HydraNode{eq} tracer =
+runHydraNode tracer node@HydraNode{eq} =
   -- NOTE(SN): here we could introduce concurrent head processing, e.g. with
   -- something like 'forM_ [0..1] $ async'
   forever $ do
     e <- nextEvent eq
     traceWith tracer $ ProcessingEvent e
-    processNextEvent node e
-      >>= traverse (mapM $ processEffect node tracer)
-      >>= \case
-        Left err -> traceWith tracer (ErrorHandlingEvent e err)
-        _ -> traceWith tracer $ ProcessedEvent e
+    processNextEvent node e >>= \case
+      Left err -> traceWith tracer (ErrorHandlingEvent e err)
+      Right effs -> forM_ effs (processEffect node tracer) >> traceWith tracer (ProcessedEvent e)
 
 -- | Monadic interface around 'Hydra.Logic.update'.
 processNextEvent ::

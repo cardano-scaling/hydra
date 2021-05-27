@@ -8,6 +8,7 @@ import Control.Concurrent.STM (newBroadcastTChanIO, writeTChan)
 import Hydra.API.Server (APIServerLog, runAPIServer)
 import Hydra.Ledger.Mock (MockTx)
 import qualified Hydra.Ledger.Mock as Ledger
+import Hydra.Logging
 import Hydra.Logic (
   Environment (..),
   Event (..),
@@ -29,7 +30,6 @@ import Hydra.Node (
   createMockChainClient,
   runHydraNode,
  )
-import Hydra.Logging
 import Options.Applicative (Parser, ParserInfo, auto, execParser, flag, fullDesc, header, help, helper, info, long, metavar, option, progDesc, short)
 
 data Option = Option {verbosity :: Verbosity, nodeId :: Natural}
@@ -89,7 +89,7 @@ main = do
       let node = HydraNode{eq, hn, hh, oc, sendResponse, env}
       race_
         (runAPIServer responseChannel node (contramap APIServer tracer))
-        (runHydraNode node (contramap Node tracer))
+        (runHydraNode (contramap Node tracer) node)
  where
   -- HACK(SN): Obviously we should configure the node instead
   me nodeId = ("127.0.0.1", show $ 5000 + nodeId)
