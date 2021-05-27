@@ -6,7 +6,20 @@
 -- | Interface to the Hydra network and base types. Concrete implementations are
 -- provided by submodules. Import those instead of this one if interested in
 -- actually configuring and running a real network layer.
-module Hydra.Network where
+module Hydra.Network (
+  -- * Types
+  HydraNetwork (..),
+  PortNumber,
+  Host,
+  NetworkCallback,
+
+  -- * Simulated Network
+  createSimulatedHydraNetwork,
+
+  -- * Parser
+  readHost,
+  readPort,
+) where
 
 import Cardano.Binary (
   FromCBOR (..),
@@ -18,7 +31,7 @@ import Control.Monad (fail)
 import qualified Data.List as List
 import Data.String (String)
 import Hydra.Logic (HydraMessage (..))
-import Network.Socket (HostName)
+import Network.Socket (HostName, PortNumber)
 import Network.TypedProtocol.Pipelined ()
 
 -- * Hydra network interface
@@ -33,7 +46,7 @@ type NetworkCallback tx m = HydraMessage tx -> m ()
 
 -- * Types used by concrete implementations
 
-type Host = (HostName, Port)
+type Host = (HostName, PortNumber)
 
 readHost :: String -> Maybe Host
 readHost s =
@@ -41,15 +54,11 @@ readHost s =
     (h, '@' : p) -> (h,) <$> readPort p
     _ -> Nothing
 
--- | A port is an integer between 0 and 65536
-newtype Port = Port Word16
-  deriving newtype (Eq, Num, Show)
-
-readPort :: String -> Maybe Port
+readPort :: String -> Maybe PortNumber
 readPort s =
   readMaybe s >>= \n ->
-    if n > 0 && n < fromIntegral (maxBound :: Word16)
-      then Just $ Port (fromInteger n)
+    if n >= 0 && n < fromIntegral (maxBound :: Word16)
+      then Just $ fromInteger n
       else Nothing
 
 deriving stock instance Generic (HydraMessage tx)

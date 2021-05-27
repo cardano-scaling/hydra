@@ -10,7 +10,7 @@ import Cardano.Prelude hiding (Option, option)
 import Data.IP (IP)
 import Data.String (String)
 import Hydra.Logging (Verbosity (..))
-import Hydra.Network (Host, Port, readHost, readPort)
+import Hydra.Network (Host, PortNumber, readHost, readPort)
 import Options.Applicative (
   Parser,
   ParserInfo,
@@ -39,7 +39,7 @@ data Option = Option
   { verbosity :: Verbosity
   , nodeId :: Natural
   , host :: IP
-  , port :: Port
+  , port :: PortNumber
   , peers :: [Host]
   }
   deriving (Eq, Show)
@@ -97,7 +97,7 @@ hostParser =
         <> help "The address this node listens on (default: 127.0.0.1)"
     )
 
-portParser :: Parser Port
+portParser :: Parser PortNumber
 portParser =
   option
     (maybeReader readPort)

@@ -22,7 +22,7 @@ import Hydra.Network (
   Host,
   HydraNetwork (..),
   NetworkCallback,
-  Port,
+  PortNumber,
   createSimulatedHydraNetwork,
  )
 import Network.Socket (AddrInfo (addrAddress), defaultHints, getAddrInfo)

@@ -25,7 +25,7 @@ spec = describe "Hydra Node Options" $ do
     parseOptions ["--port", "123456"]
       `shouldBe` Nothing
     parseOptions ["--port", "0"]
-      `shouldBe` Nothing
+      `shouldBe` Just defaultOption{port = 0}
     parseOptions ["--port", "-42"]
       `shouldBe` Nothing
 
