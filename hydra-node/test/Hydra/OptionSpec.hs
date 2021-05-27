@@ -7,26 +7,38 @@ import Test.Hspec (Spec, describe, it, shouldBe)
 
 spec :: Spec
 spec = describe "Hydra Node Options" $ do
-  it "parses valid IPv4 and IPv6 addresses for --host option" $ do
-    parseOptions ["--node-id", "1", "--host", "127.0.0.1"]
+  it "parses --host option given valid IPv4 and IPv6 addresses" $ do
+    parseOptions ["--host", "127.0.0.1"]
       `shouldBe` Just defaultOption{host = "127.0.0.1"}
-    parseOptions ["--node-id", "1", "--host", "2001:db8:11e:c00::101"]
+    parseOptions ["--host", "2001:db8:11e:c00::101"]
       `shouldBe` Just defaultOption{host = "2001:db8:11e:c00::101"}
-    parseOptions ["--node-id", "1", "--host", "0.0.0.0"]
+    parseOptions ["--host", "0.0.0.0"]
       `shouldBe` Just defaultOption{host = "0.0.0.0"}
-    parseOptions ["--node-id", "1", "--host", "0.0.0"]
+    parseOptions ["--host", "0.0.0"]
       `shouldBe` Nothing
-    parseOptions ["--node-id", "1", "--host", "2001:db8:11e:c00:101"]
+    parseOptions ["--host", "2001:db8:11e:c00:101"]
       `shouldBe` Nothing
 
-  it "parses valid port number --port option" $ do
-    parseOptions ["--node-id", "1", "--port", "12345"]
+  it "parses --port option given valid port number" $ do
+    parseOptions ["--port", "12345"]
       `shouldBe` Just defaultOption{port = 12345}
-    parseOptions ["--node-id", "1", "--port", "123456"]
+    parseOptions ["--port", "123456"]
       `shouldBe` Nothing
-    parseOptions ["--node-id", "1", "--port", "0"]
+    parseOptions ["--port", "0"]
       `shouldBe` Nothing
-    parseOptions ["--node-id", "1", "--port", "-42"]
+    parseOptions ["--port", "-42"]
+      `shouldBe` Nothing
+
+  it "parses --peer <host>@<port> option" $ do
+    parseOptions ["--peer", "1.2.3.4@4567"]
+      `shouldBe` Just defaultOption{peers = [("1.2.3.4", 4567)]}
+    parseOptions ["--peer", ":::1@4567"]
+      `shouldBe` Just defaultOption{peers = [(":::1", 4567)]}
+    parseOptions ["--peer", "1.2.3.4@4567", "--peer", "1.2.3.5@4568"]
+      `shouldBe` Just defaultOption{peers = [("1.2.3.4", 4567), ("1.2.3.5", 4568)]}
+    parseOptions ["--peer", "foo.com@4567"]
+      `shouldBe` Just defaultOption{peers = [("foo.com", 4567)]}
+    parseOptions ["--peer", "foo.com@456789"]
       `shouldBe` Nothing
 
 parseOptions :: [String] -> Maybe Hydra.Option.Option

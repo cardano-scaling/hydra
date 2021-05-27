@@ -15,6 +15,7 @@ import Cardano.Binary (
 import Cardano.Prelude
 import Codec.Serialise
 import Control.Monad (fail)
+import qualified Data.List as List
 import Data.String (String)
 import Hydra.Logic (HydraMessage (..))
 import Network.Socket (HostName)
@@ -33,6 +34,12 @@ type NetworkCallback tx m = HydraMessage tx -> m ()
 -- * Types used by concrete implementations
 
 type Host = (HostName, Port)
+
+readHost :: String -> Maybe Host
+readHost s =
+  case List.break (== '@') s of
+    (h, '@' : p) -> (h,) <$> readPort p
+    _ -> Nothing
 
 -- | A port is an integer between 0 and 65536
 newtype Port = Port Word16

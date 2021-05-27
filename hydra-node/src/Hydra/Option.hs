@@ -10,7 +10,7 @@ import Cardano.Prelude hiding (Option, option)
 import Data.IP (IP)
 import Data.String (String)
 import Hydra.Logging (Verbosity (..))
-import Hydra.Network (Port, readPort)
+import Hydra.Network (Host, Port, readHost, readPort)
 import Options.Applicative (
   Parser,
   ParserInfo,
@@ -40,11 +40,12 @@ data Option = Option
   , nodeId :: Natural
   , host :: IP
   , port :: Port
+  , peers :: [Host]
   }
   deriving (Eq, Show)
 
 defaultOption :: Option
-defaultOption = Option (Verbose "HydraNode") 1 "127.0.0.1" 5001
+defaultOption = Option (Verbose "HydraNode") 1 "127.0.0.1" 5001 []
 
 hydraNodeParser :: Parser Option
 hydraNodeParser =
@@ -53,6 +54,16 @@ hydraNodeParser =
     <*> nodeIdParser
     <*> hostParser
     <*> portParser
+    <*> many peerParser
+
+peerParser :: Parser Host
+peerParser =
+  option
+    (maybeReader readHost)
+    ( long "peer"
+        <> short 'P'
+        <> help "A peer address in the form <host>@<port>, where <host> can be an IP address, or a host name"
+    )
 
 nodeIdParser :: Parser Natural
 nodeIdParser =
@@ -60,6 +71,7 @@ nodeIdParser =
     auto
     ( long "node-id"
         <> short 'n'
+        <> value 1
         <> metavar "INTEGER"
         <> help "Sets this node's id"
     )
