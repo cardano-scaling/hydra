@@ -41,7 +41,7 @@ data HydraLog
 
 main :: IO ()
 main = do
-  Option{nodeId, verbosity, host, port, peers} <- identifyNode <$> parseHydraOptions
+  Option{nodeId, verbosity, host, port, peers, apiHost, apiPort} <- identifyNode <$> parseHydraOptions
   withTracer verbosity show $ \tracer -> do
     let env = Environment nodeId
     eq <- createEventQueue
@@ -53,7 +53,7 @@ main = do
       let sendResponse = atomically . writeTChan responseChannel
       let node = HydraNode{eq, hn, hh, oc, sendResponse, env}
       race_
-        (runAPIServer responseChannel node (contramap APIServer tracer))
+        (runAPIServer apiHost apiPort responseChannel node (contramap APIServer tracer))
         (runHydraNode (contramap Node tracer) node)
 
 identifyNode :: Option -> Option

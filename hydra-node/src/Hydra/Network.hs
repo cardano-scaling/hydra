@@ -12,6 +12,7 @@ module Hydra.Network (
   PortNumber,
   Host,
   NetworkCallback,
+  IP,
 
   -- * Simulated Network
   createSimulatedHydraNetwork,
@@ -28,6 +29,7 @@ import Cardano.Binary (
 import Cardano.Prelude
 import Codec.Serialise
 import Control.Monad (fail)
+import Data.IP (IP)
 import qualified Data.List as List
 import Data.String (String)
 import Hydra.Logic (HydraMessage (..))

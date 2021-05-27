@@ -41,11 +41,13 @@ data Option = Option
   , host :: IP
   , port :: PortNumber
   , peers :: [Host]
+  , apiHost :: IP
+  , apiPort :: PortNumber
   }
   deriving (Eq, Show)
 
 defaultOption :: Option
-defaultOption = Option (Verbose "HydraNode") 1 "127.0.0.1" 5001 []
+defaultOption = Option (Verbose "HydraNode") 1 "127.0.0.1" 5001 [] "127.0.0.1" 4001
 
 hydraNodeParser :: Parser Option
 hydraNodeParser =
@@ -55,6 +57,8 @@ hydraNodeParser =
     <*> hostParser
     <*> portParser
     <*> many peerParser
+    <*> apiHostParser
+    <*> apiPortParser
 
 peerParser :: Parser Host
 peerParser =
@@ -94,7 +98,7 @@ hostParser =
         <> short 'h'
         <> value "127.0.0.1"
         <> metavar "IP"
-        <> help "The address this node listens on (default: 127.0.0.1)"
+        <> help "The address this node listens on for Hydra network peers connection (default: 127.0.0.1)"
     )
 
 portParser :: Parser PortNumber
@@ -105,7 +109,27 @@ portParser =
         <> short 'p'
         <> value 5001
         <> metavar "PORT"
-        <> help "The port this node listens on (default: 5001)"
+        <> help "The port this node listens on for Hydra network peers connection (default: 5001)"
+    )
+
+apiHostParser :: Parser IP
+apiHostParser =
+  option
+    auto
+    ( long "api-host"
+        <> value "127.0.0.1"
+        <> metavar "IP"
+        <> help "The address this node listens on for client API connections (default: 127.0.0.1)"
+    )
+
+apiPortParser :: Parser PortNumber
+apiPortParser =
+  option
+    (maybeReader readPort)
+    ( long "api-port"
+        <> value 4001
+        <> metavar "PORT"
+        <> help "The port this node listens on for client API connections (default: 4001)"
     )
 
 hydraNodeOptions :: ParserInfo Option
