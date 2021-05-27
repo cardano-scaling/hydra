@@ -18,29 +18,15 @@ module Hydra.Logging (
   withTracer,
 ) where
 
-import Cardano.Prelude (
-  Applicative (pure, (<*>)),
-  Category ((.)),
-  Eq,
-  IO,
-  MonadIO (..),
-  Monoid (mempty),
-  Show,
-  Text,
-  bracket,
-  fst,
-  snd,
-  ($),
-  (<$>),
-  (=<<),
- )
-
 import Cardano.BM.Backend.Switchboard (
   Switchboard,
+  setSbEKGServer,
  )
+import qualified Cardano.BM.Configuration.Model as CM
 import Cardano.BM.Configuration.Static (
   defaultConfigStdout,
  )
+import qualified Cardano.BM.Data.BackendKind as CM
 import Cardano.BM.Data.LogItem (
   LOContent (..),
   LogObject (..),
@@ -56,6 +42,7 @@ import Cardano.BM.Setup (
   shutdown,
  )
 import Cardano.BM.Trace (traceInTVarIO)
+import Cardano.Prelude
 import Control.Tracer (
   Tracer (..),
   contramap,
@@ -63,9 +50,7 @@ import Control.Tracer (
   nullTracer,
   traceWith,
  )
-
-import qualified Cardano.BM.Configuration.Model as CM
-import qualified Cardano.BM.Data.BackendKind as CM
+import qualified System.Remote.Monitoring as Ekg
 
 data Verbosity = Quiet | Verbose LoggerName
   deriving (Eq, Show)
@@ -86,8 +71,10 @@ withTracer (Verbose name) transform between = do
   before :: IO (Tracer IO msg, Switchboard Text)
   before = do
     config <- defaultConfigStdout
-    CM.setSetupBackends config [CM.KatipBK]
+    CM.setSetupBackends config [CM.KatipBK, CM.EKGViewBK]
+    ekgServer <- Ekg.forkServer "127.0.0.1" 6001
     (tr, sb) <- setupTrace_ config name
+    setSbEKGServer (Just ekgServer) sb
     pure (transformLogObject transform tr, sb)
 
   after :: (Tracer IO msg, Switchboard Text) -> IO ()

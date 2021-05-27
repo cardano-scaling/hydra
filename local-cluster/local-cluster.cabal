@@ -122,6 +122,9 @@ test-suite integration
     , cardano-prelude
     , hspec
     , hspec-core
+    , http-conduit
+    , lens
+    , lens-aeson
     , local-cluster
     , temporary
   build-tool-depends:

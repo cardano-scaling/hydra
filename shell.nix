@@ -24,6 +24,7 @@ let
   cabal-plan = pkgs.haskell-nix.tool compiler "cabal-plan" "latest";
   fourmolu = pkgs.haskell-nix.tool compiler "fourmolu" "latest";
   ghcid = pkgs.haskellPackages.ghcid;
+  graphmod = pkgs.haskellPackages.graphmod;
   hspec-discover = pkgs.haskellPackages.hspec-discover;
   libsodium-vrf = pkgs.libsodium.overrideAttrs (oldAttrs: {
     name = "libsodium-1.0.18-vrf";
@@ -48,6 +49,7 @@ pkgs.mkShell rec {
     ghc
     hls
     ghcid
+    graphmod
     hspec-discover
     # For discovering libs (below)
     pkgs.pkgconfig

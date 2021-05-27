@@ -2,9 +2,9 @@
 
 module Test.EndToEndSpec where
 
-import Cardano.Prelude (
-  ($),
- )
+import Cardano.Prelude
+import Control.Lens ((^?))
+import Data.Aeson.Lens (key, _Integer)
 import HydraNode (
   failAfter,
   sendRequest,
@@ -12,10 +12,17 @@ import HydraNode (
   withHydraNode,
   withMockChain,
  )
+import Network.HTTP.Conduit (parseRequest)
+import Network.HTTP.Simple (getResponseBody, httpBS)
 import Test.Hspec (
   Spec,
   describe,
   it,
+<<<<<<< HEAD
+=======
+  pendingWith,
+  shouldBe,
+>>>>>>> [Wip] Wrote (failing) to retrieve JSON metrics from a node
  )
 
 spec :: Spec
@@ -53,3 +60,15 @@ spec = describe "End-to-end test using a mocked chain though" $ do
                 -- NOTE(SN): Everything above this boilerplate
                 sendRequest n1 "NewTx InvalidTx"
                 wait3sForResponse [n1] "TxInvalid InvalidTx"
+
+  describe "Monitoring" $ do
+    it "Node exposes JSON metrics on port 6001" $ do
+      failAfter 10 $
+        withMockChain $
+          withHydraNode 1 $ \n1 -> do
+            sendRequest n1 "Init [1, 2, 3]"
+
+            metrics <- getResponseBody <$> (parseRequest "http://127.0.0.1:6001/" >>= httpBS)
+
+            (metrics ^? key "hydra" . key "head" . key "events" . _Integer)
+              `shouldBe` Just 1
