@@ -5,6 +5,7 @@ module Main where
 import Cardano.Prelude hiding (Option, option)
 
 import Control.Concurrent.STM (newBroadcastTChanIO, writeTChan)
+import Data.IP (IP)
 import Hydra.API.Server (APIServerLog, runAPIServer)
 import Hydra.Ledger.Mock (MockTx)
 import qualified Hydra.Ledger.Mock as Ledger
@@ -30,13 +31,21 @@ import Hydra.Node (
   createMockChainClient,
   runHydraNode,
  )
-import Options.Applicative (Parser, ParserInfo, auto, execParser, flag, fullDesc, header, help, helper, info, long, metavar, option, progDesc, short)
+import Options.Applicative (Parser, ParserInfo, auto, execParser, flag, fullDesc, header, help, helper, info, long, metavar, option, progDesc, short, value)
 
-data Option = Option {verbosity :: Verbosity, nodeId :: Natural}
+data Option = Option
+  { verbosity :: Verbosity
+  , nodeId :: Natural
+  , host :: IP
+  }
   deriving (Show)
 
 hydraNodeParser :: Parser Option
-hydraNodeParser = Option <$> verbosityParser <*> nodeIdParser
+hydraNodeParser =
+  Option
+    <$> verbosityParser
+    <*> nodeIdParser
+    <*> hostParser
 
 nodeIdParser :: Parser Natural
 nodeIdParser =
@@ -58,6 +67,17 @@ verbosityParser =
         <> help "Turns off any logging"
     )
 
+hostParser :: Parser IP
+hostParser =
+  option
+    auto
+    ( long "host"
+        <> short 'h'
+        <> value "127.0.0.1"
+        <> metavar "IP"
+        <> help "The address this node listens on (default: 127.0.0.1)"
+    )
+
 hydraNodeOptions :: ParserInfo Option
 hydraNodeOptions =
   info
@@ -76,14 +96,14 @@ data HydraLog
 
 main :: IO ()
 main = do
-  Option{nodeId, verbosity} <- identifyNode <$> execParser hydraNodeOptions
+  Option{nodeId, verbosity, host} <- identifyNode <$> execParser hydraNodeOptions
   withTracer verbosity show $ \tracer -> do
     let env = Environment nodeId
     eq <- createEventQueue
     let headState = createHeadState [] HeadParameters SnapshotStrategy
     hh <- createHydraHead headState Ledger.mockLedger
     oc <- createMockChainClient eq (contramap MockChain tracer)
-    withZeroMQHydraNetwork (me nodeId) (them nodeId) (contramap Network tracer) (putEvent eq . NetworkEvent) $ \hn -> do
+    withZeroMQHydraNetwork (me nodeId host) (them nodeId host) (contramap Network tracer) (putEvent eq . NetworkEvent) $ \hn -> do
       responseChannel <- newBroadcastTChanIO
       let sendResponse = atomically . writeTChan responseChannel
       let node = HydraNode{eq, hn, hh, oc, sendResponse, env}
@@ -91,10 +111,9 @@ main = do
         (runAPIServer responseChannel node (contramap APIServer tracer))
         (runHydraNode (contramap Node tracer) node)
  where
-  -- HACK(SN): Obviously we should configure the node instead
-  me nodeId = ("127.0.0.1", show $ 5000 + nodeId)
-  them nodeId = [("127.0.0.1", show $ 5000 + id) | id <- [1 .. 3], id /= nodeId]
+  me nodeId host = (show host, show $ 5000 + nodeId)
+  them nodeId host = [(show host, show $ 5000 + id) | id <- [1 .. 3], id /= nodeId]
 
 identifyNode :: Option -> Option
-identifyNode Option{verbosity = Verbose "HydraNode", nodeId} = Option (Verbose $ "HydraNode-" <> show nodeId) nodeId
+identifyNode opt@Option{verbosity = Verbose "HydraNode", nodeId} = opt{verbosity = Verbose $ "HydraNode-" <> show nodeId}
 identifyNode opt = opt

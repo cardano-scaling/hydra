@@ -129,6 +129,7 @@ executable hydra-node
       base
     , cardano-prelude
     , hydra-node
+    , iproute
     , optparse-applicative
     , stm
   ghc-options:
