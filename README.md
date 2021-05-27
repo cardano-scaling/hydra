@@ -7,13 +7,14 @@
 
 ## :warning: Disclaimer 
 
-This is prototypical and exploratory work. Although we might create a prototype
-for a `hydra-node` in here, some experiments have not a clear goal or usage in
-mind. We do not provide documentation or support for the artifacts created here
-by purpose as we also intend to throw away / discontinue use when we start work
-on an actual product. This also implies that the code quality seen around here is
-not representing our best practices and you will find many code smells and dirty
-hacks.
+This is prototypical and exploratory work shared here for your interest. 
+Although we might create a prototypefor a `hydra-node` in here, some 
+experiments have not a clear goal or usage in mind. We do not provide 
+documentation or support for the artifacts created here by purpose as we 
+also intend to throw away / discontinue use when we start building the
+final product. Please note the code quality seen around here is not 
+representative of our best practices and you will find many code smells 
+and dirtyhacks. Thanks for visiting and enjoy!
 
 ## 👷‍♂️ Development
 
