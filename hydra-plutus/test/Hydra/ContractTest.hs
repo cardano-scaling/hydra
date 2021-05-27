@@ -1,7 +1,7 @@
 {-# LANGUAGE TypeApplications #-}
 {-# OPTIONS_GHC -fplugin-opt PlutusTx.Plugin:defer-errors #-}
 
-module Hydra.ContractSpec where
+module Hydra.ContractTest where
 
 import Cardano.Prelude
 import Ledger

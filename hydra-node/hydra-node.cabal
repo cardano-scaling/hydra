@@ -83,9 +83,9 @@ library
     Hydra.Ledger
     Hydra.Ledger.MaryTest
     Hydra.Ledger.Mock
+    Hydra.Logging
     Hydra.Logic
     Hydra.MockZMQChain
-    Logging
     Network.TypedProtocol.FireForget.Type
     Network.TypedProtocol.FireForget.Client
     Network.TypedProtocol.FireForget.Server
@@ -194,6 +194,7 @@ test-suite integration
     , hspec
     , hspec-core
     , hydra-node
+    , iohk-monitoring
     , io-sim-classes
     , stm
   build-tool-depends:

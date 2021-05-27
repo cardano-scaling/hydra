@@ -17,6 +17,7 @@ import Control.Monad.Class.MonadAsync (async)
 import Control.Monad.Class.MonadSTM (MonadSTM (STM), atomically, newTVar, stateTVar)
 import Control.Monad.Class.MonadTimer (threadDelay)
 import Hydra.Ledger
+import Hydra.Logging (Tracer, traceWith)
 import Hydra.Logic (
   ClientRequest (..),
   ClientResponse (..),
@@ -32,7 +33,6 @@ import Hydra.Logic (
 import qualified Hydra.Logic as Logic
 import Hydra.MockZMQChain (MockChainLog, catchUpTransactions, mockChainClient, runChainSync)
 import Hydra.Network (HydraNetwork (..))
-import Logging (Tracer, traceWith)
 
 -- ** Create and run a hydra node
 
@@ -45,9 +45,15 @@ data HydraNode tx m = HydraNode
   , env :: Environment
   }
 
-data HydraNodeLog tx = ErrorHandlingEvent (Event tx) (LogicError tx)
+data HydraNodeLog tx
+  = ErrorHandlingEvent (Event tx) (LogicError tx)
+  | ProcessingEvent (Event tx)
+  | ProcessedEvent (Event tx)
+  | ProcessingEffect (Effect tx)
+  | ProcessedEffect (Effect tx)
 
 deriving instance (Show tx, Show (LedgerState tx)) => Show (HydraNodeLog tx)
+deriving instance (Eq tx, Eq (LedgerState tx)) => Eq (HydraNodeLog tx)
 
 handleClientRequest :: HydraNode tx m -> ClientRequest tx -> m ()
 handleClientRequest HydraNode{eq} = putEvent eq . ClientEvent
@@ -66,43 +72,48 @@ runHydraNode ::
   MonadSTM m =>
   Show (LedgerState tx) => -- TODO(SN): leaky abstraction of HydraHead
   Show tx =>
-  HydraNode tx m ->
   Tracer m (HydraNodeLog tx) ->
+  HydraNode tx m ->
   m ()
-runHydraNode node@HydraNode{eq} tracer =
+runHydraNode tracer node@HydraNode{eq} =
   -- NOTE(SN): here we could introduce concurrent head processing, e.g. with
   -- something like 'forM_ [0..1] $ async'
   forever $ do
     e <- nextEvent eq
-    handleNextEvent node e >>= \case
-      Just err -> traceWith tracer (ErrorHandlingEvent e err)
-      _ -> pure ()
+    traceWith tracer $ ProcessingEvent e
+    processNextEvent node e >>= \case
+      Left err -> traceWith tracer (ErrorHandlingEvent e err)
+      Right effs -> forM_ effs (processEffect node tracer) >> traceWith tracer (ProcessedEvent e)
 
 -- | Monadic interface around 'Hydra.Logic.update'.
-handleNextEvent ::
+processNextEvent ::
   Show (LedgerState tx) =>
   Show tx =>
   MonadSTM m =>
-  MonadThrow m =>
   HydraNode tx m ->
   Event tx ->
-  m (Maybe (LogicError tx))
-handleNextEvent HydraNode{hn, oc, sendResponse, hh, env} e = do
-  result <- atomically $
+  m (Either (LogicError tx) [Effect tx])
+processNextEvent HydraNode{hh, env} e = do
+  atomically $
     modifyHeadState hh $ \s ->
       case Logic.update env (ledger hh) s e of
         NewState s' effects -> (Right effects, s')
         Error err -> (Left err, s)
-  case result of
-    Left err -> pure $ Just err
-    Right out -> do
-      forM_ out $ \case
-        ClientEffect i -> sendResponse i
-        NetworkEffect msg -> broadcast hn msg
-        OnChainEffect tx -> postTx oc tx
-        Wait _cont -> panic "TODO: wait and reschedule continuation" -- TODO(SN) this error is not forced
-      pure Nothing
 
+processEffect ::
+  MonadThrow m =>
+  HydraNode tx m ->
+  Tracer m (HydraNodeLog tx) ->
+  Effect tx ->
+  m ()
+processEffect HydraNode{hn, oc, sendResponse} tracer e = do
+  traceWith tracer $ ProcessingEffect e
+  case e of
+    ClientEffect i -> sendResponse i
+    NetworkEffect msg -> broadcast hn msg
+    OnChainEffect tx -> postTx oc tx
+    Wait -> panic "TODO: wait and reschedule continuation" -- TODO(SN) this error is not forced
+  traceWith tracer $ ProcessedEffect e
 -- ** Some general event queue from which the Hydra head is "fed"
 
 -- | The single, required queue in the system from which a hydra head is "fed".

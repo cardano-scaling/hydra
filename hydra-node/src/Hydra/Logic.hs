@@ -29,12 +29,10 @@ data Effect tx
   = ClientEffect (ClientResponse tx)
   | NetworkEffect (HydraMessage tx)
   | OnChainEffect OnChainTx
-  | -- | Wait effect should be interpreted as a non-blocking interruption which
-    -- retries on every state changes until the continuation returns Just{}.
-    -- NOTE(SN): This is more likely an alternative 'Outcome' rather than an
-    -- 'Effect' Also instead of a continuation, we could just re-enqueue an
-    -- event (as long as the repeated computation "up to" wait is cheap enough)
-    Wait (HeadState tx -> Maybe (HeadState tx, [Effect tx]))
+  | -- NOTE(SN): This is more likely an alternative 'Outcome' rather than an
+    -- 'Effect'
+    Wait
+  deriving (Eq, Show)
 
 data ClientRequest tx
   = Init [Party]

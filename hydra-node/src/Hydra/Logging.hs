@@ -3,13 +3,14 @@
 
 -- | Adapter module to the actual logging framework. For now we are using the
 -- iohk-monitoring package, but that might change soon.
-module Logging (
+module Hydra.Logging (
   -- * Tracer
   Tracer,
   natTracer,
   nullTracer,
   contramap,
   traceWith,
+  traceInTVarIO,
 
   -- * Using it
   Verbosity (..),
@@ -54,6 +55,7 @@ import Cardano.BM.Setup (
   setupTrace_,
   shutdown,
  )
+import Cardano.BM.Trace (traceInTVarIO)
 import Control.Tracer (
   Tracer (..),
   contramap,

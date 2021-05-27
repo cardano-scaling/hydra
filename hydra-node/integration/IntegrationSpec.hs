@@ -3,14 +3,17 @@
 module IntegrationSpec where
 
 import Cardano.Prelude hiding (atomically, check)
-import Control.Concurrent.STM (modifyTVar, newTVarIO, readTVarIO)
+import Control.Concurrent.STM (TVar, modifyTVar, newTVarIO, readTVarIO)
 import Control.Monad.Class.MonadSTM (atomically, check)
 import Data.IORef (modifyIORef', newIORef, readIORef)
 import Hydra.Ledger (Ledger (..), LedgerState, ValidationError (..), ValidationResult (Invalid, Valid))
+import Hydra.Logging (traceInTVarIO)
 import Hydra.Logic (
   ClientRequest (..),
   ClientResponse (..),
+  Effect (ClientEffect),
   Environment (..),
+  Event (ClientEvent),
   HeadParameters (..),
   SnapshotStrategy (..),
   createHeadState,
@@ -18,6 +21,7 @@ import Hydra.Logic (
 import Hydra.Network (HydraNetwork (..))
 import Hydra.Node (
   HydraNode (..),
+  HydraNodeLog (..),
   OnChain (..),
   createEventQueue,
   createHydraHead,
@@ -27,13 +31,13 @@ import Hydra.Node (
   queryLedgerState,
   runHydraNode,
  )
-import Logging (nullTracer)
 import System.Timeout (timeout)
 import Test.Hspec (
   Spec,
   describe,
   expectationFailure,
   it,
+  shouldContain,
   shouldNotBe,
   shouldReturn,
  )
@@ -131,6 +135,31 @@ spec = describe "Integrating one ore more hydra-nodes" $ do
       waitForLedgerState n1 (Just [ValidTx 1])
       waitForLedgerState n2 (Just [ValidTx 1])
 
+  describe "Hydra Node Logging" $ do
+    it "traces processing of events" $ do
+      chain <- simulatedChainAndNetwork
+      n1 <- startHydraNode 1 chain
+
+      sendRequestAndWaitFor n1 (Init [1]) ReadyToCommit
+      sendRequest n1 (Commit 1)
+
+      traces <- readTVarIO (capturedLogs n1)
+
+      traces `shouldContain` [ProcessingEvent (ClientEvent $ Init [1])]
+      traces `shouldContain` [ProcessedEvent (ClientEvent $ Init [1])]
+
+    it "traces handling of effects" $ do
+      chain <- simulatedChainAndNetwork
+      n1 <- startHydraNode 1 chain
+
+      sendRequestAndWaitFor n1 (Init [1]) ReadyToCommit
+      sendRequest n1 (Commit 1)
+
+      traces <- readTVarIO (capturedLogs n1)
+
+      traces `shouldContain` [ProcessingEffect (ClientEffect ReadyToCommit)]
+      traces `shouldContain` [ProcessedEffect (ClientEffect ReadyToCommit)]
+
 sendRequestAndWaitFor :: HydraProcess IO MockTx -> ClientRequest MockTx -> ClientResponse MockTx -> IO ()
 sendRequestAndWaitFor node req expected =
   sendRequest node req >> (wait1sForResponse node `shouldReturn` Just expected)
@@ -145,6 +174,7 @@ data HydraProcess m tx = HydraProcess
   , wait1sForResponse :: m (Maybe (ClientResponse MockTx))
   , waitForLedgerState :: Maybe (LedgerState tx) -> m ()
   , queryNodeState :: m NodeState
+  , capturedLogs :: TVar [HydraNodeLog tx]
   }
 
 data Connections = Connections {chain :: OnChain IO, network :: HydraNetwork MockTx IO}
@@ -172,13 +202,17 @@ simulatedChainAndNetwork = do
 
   broadcast nodes msg = readTVarIO nodes >>= mapM_ (`handleMessage` msg)
 
-startHydraNode :: Natural -> (HydraNode MockTx IO -> IO Connections) -> IO (HydraProcess IO MockTx)
+startHydraNode ::
+  Natural ->
+  (HydraNode MockTx IO -> IO Connections) ->
+  IO (HydraProcess IO MockTx)
 startHydraNode nodeId connectToChain = do
+  capturedLogs <- newTVarIO []
   response <- newEmptyMVar
   node <- createHydraNode response
-  nodeThread <- async $ runHydraNode node nullTracer
+  nodeThread <- async $ runHydraNode (traceInTVarIO capturedLogs) node
   link nodeThread
-  pure
+  pure $
     HydraProcess
       { stopHydraNode = cancel nodeThread
       , queryNodeState =
@@ -199,6 +233,7 @@ startHydraNode nodeId connectToChain = do
                 )
             when (isNothing result) $ expectationFailure ("Expected ledger state of node " <> show nodeId <> " to be " <> show st)
       , nodeId
+      , capturedLogs
       }
  where
   createHydraNode response = do

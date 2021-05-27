@@ -14,7 +14,7 @@ import Hydra.Node (
   HydraNode (..),
   handleClientRequest,
  )
-import Logging (Tracer, traceWith)
+import Hydra.Logging (Tracer, traceWith)
 import Network.WebSockets (acceptRequest, receiveData, runServer, sendTextData, withPingThread)
 
 data APIServerLog

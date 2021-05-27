@@ -8,7 +8,7 @@ import Data.String (String)
 import Hydra.Ledger (ParticipationToken (..))
 import Hydra.Logic (OnChainTx (InitTx))
 import Hydra.MockZMQChain (catchUpTransactions, mockChainClient, runChainSync, startChain)
-import Logging (nullTracer)
+import Hydra.Logging (nullTracer)
 import System.Timeout (timeout)
 import Test.Hspec (Spec, describe, it, shouldReturn)
 
