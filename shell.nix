@@ -21,6 +21,7 @@ let
   hls = pkgs.haskell-nix.tool compiler "haskell-language-server" "latest";
   ghc = pkgs.haskell-nix.compiler.${compiler};
   cabal-install = pkgs.haskell-nix.tool compiler "cabal-install" "3.4.0.0";
+  cabal-plan = pkgs.haskell-nix.tool compiler "cabal-plan" "latest";
   fourmolu = pkgs.haskell-nix.tool compiler "fourmolu" "latest";
   ghcid = pkgs.haskellPackages.ghcid;
   hspec-discover = pkgs.haskellPackages.hspec-discover;
@@ -42,6 +43,7 @@ pkgs.mkShell rec {
 
   tools = [
     cabal-install
+    cabal-plan
     fourmolu
     ghc
     hls
