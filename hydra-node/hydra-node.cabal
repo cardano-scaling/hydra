@@ -86,6 +86,7 @@ library
     Hydra.Logging
     Hydra.Logic
     Hydra.MockZMQChain
+    Hydra.Option
     Network.TypedProtocol.FireForget.Type
     Network.TypedProtocol.FireForget.Client
     Network.TypedProtocol.FireForget.Server
@@ -105,8 +106,10 @@ library
     , data-default
     , io-sim-classes
     , iohk-monitoring
+    , iproute
     , network
     , network-mux
+    , optparse-applicative
     , ouroboros-network-framework
     , safe-exceptions
     , serialise
@@ -129,8 +132,6 @@ executable hydra-node
       base
     , cardano-prelude
     , hydra-node
-    , iproute
-    , optparse-applicative
     , stm
   ghc-options:
     -threaded
