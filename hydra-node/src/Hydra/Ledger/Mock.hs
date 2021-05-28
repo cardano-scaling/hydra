@@ -8,26 +8,13 @@ module Hydra.Ledger.Mock where
 import Cardano.Prelude hiding (show)
 import Codec.Serialise
 import Hydra.Ledger
-import Text.Read (Read (..))
-import Text.Show (Show (..))
 
 -- | Simple mock transaction, which conflates value and identity
 data MockTx = ValidTx TxId | InvalidTx
-  deriving stock (Eq, Generic)
+  deriving stock (Eq, Generic, Read, Show)
   deriving anyclass (Serialise)
 
 type TxId = Integer
-
-instance Read MockTx where
-  readsPrec prec =
-    \case
-      "_|_" -> [(InvalidTx, "")]
-      s -> first ValidTx <$> readsPrec prec s
-
-instance Show MockTx where
-  show = \case
-    ValidTx i -> show i
-    InvalidTx -> "_|_"
 
 type instance LedgerState MockTx = MockLedgerState
 

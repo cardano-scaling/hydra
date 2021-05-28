@@ -11,11 +11,12 @@ import qualified Data.Set as Set
 import Hydra.Ledger (
   Amount,
   Committed,
-  Ledger (applyTransaction),
+  Ledger (applyTransaction, canApply),
   LedgerState,
   ParticipationToken (..),
   Party,
   ValidationError,
+  ValidationResult (Invalid, Valid),
   initLedgerState,
  )
 
@@ -164,16 +165,17 @@ update Environment{party} ledger st ev = case (st, ev) of
     Error (InvalidEvent ev st) -- HACK(SN): is a general case later
   (OpenState{}, ClientEvent Close) ->
     NewState st [OnChainEffect CloseTx]
-  (OpenState{}, ClientEvent (NewTx tx)) ->
-    NewState st [NetworkEffect $ ReqTx tx]
+  (OpenState SimpleHeadState{confirmedLedger}, ClientEvent (NewTx tx)) ->
+    case canApply ledger confirmedLedger tx of
+      Invalid _ -> NewState st [ClientEffect $ TxInvalid tx]
+      Valid -> NewState st [NetworkEffect $ ReqTx tx]
   (OpenState headState, NetworkEvent (ReqTx tx)) ->
     case applyTransaction ledger (confirmedLedger headState) tx of
       Right newLedgerState ->
         NewState
           (OpenState $ headState{confirmedLedger = newLedgerState})
           [ClientEffect $ TxReceived tx]
-      Left{} ->
-        NewState st [ClientEffect $ TxInvalid tx]
+      Left{} -> panic "TODO: how is this case handled?"
   (OpenState _, OnChainEvent CloseTx) ->
     NewState ClosedState [ClientEffect HeadIsClosed]
   --
