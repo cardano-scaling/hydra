@@ -105,6 +105,7 @@ library
     , contra-tracer
     , data-default
     , ekg
+    , ekg-core
     , io-sim-classes
     , iohk-monitoring
     , iproute

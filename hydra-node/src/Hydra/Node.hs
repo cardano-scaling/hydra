@@ -17,7 +17,7 @@ import Control.Monad.Class.MonadAsync (async)
 import Control.Monad.Class.MonadSTM (MonadSTM (STM), atomically, newTVar, stateTVar)
 import Control.Monad.Class.MonadTimer (threadDelay)
 import Hydra.Ledger
-import Hydra.Logging (Tracer, traceWith)
+import Hydra.Logging (Log (..), Tracer, traceCounter, traceEvent)
 import Hydra.Logic (
   ClientRequest (..),
   ClientResponse (..),
@@ -72,7 +72,7 @@ runHydraNode ::
   MonadSTM m =>
   Show (LedgerState tx) => -- TODO(SN): leaky abstraction of HydraHead
   Show tx =>
-  Tracer m (HydraNodeLog tx) ->
+  Tracer m (Log (HydraNodeLog tx)) ->
   HydraNode tx m ->
   m ()
 runHydraNode tracer node@HydraNode{eq} =
@@ -80,10 +80,10 @@ runHydraNode tracer node@HydraNode{eq} =
   -- something like 'forM_ [0..1] $ async'
   forever $ do
     e <- nextEvent eq
-    traceWith tracer $ ProcessingEvent e
+    traceEvent tracer $ ProcessingEvent e
     processNextEvent node e >>= \case
-      Left err -> traceWith tracer (ErrorHandlingEvent e err)
-      Right effs -> forM_ effs (processEffect node tracer) >> traceWith tracer (ProcessedEvent e)
+      Left err -> traceEvent tracer (ErrorHandlingEvent e err)
+      Right effs -> forM_ effs (processEffect node tracer) >> traceCounter tracer "hydra.head.events" (ProcessedEvent e)
 
 -- | Monadic interface around 'Hydra.Logic.update'.
 processNextEvent ::
@@ -103,17 +103,17 @@ processNextEvent HydraNode{hh, env} e = do
 processEffect ::
   MonadThrow m =>
   HydraNode tx m ->
-  Tracer m (HydraNodeLog tx) ->
+  Tracer m (Log (HydraNodeLog tx)) ->
   Effect tx ->
   m ()
 processEffect HydraNode{hn, oc, sendResponse} tracer e = do
-  traceWith tracer $ ProcessingEffect e
+  traceEvent tracer $ ProcessingEffect e
   case e of
     ClientEffect i -> sendResponse i
     NetworkEffect msg -> broadcast hn msg
     OnChainEffect tx -> postTx oc tx
     Wait -> panic "TODO: wait and reschedule continuation" -- TODO(SN) this error is not forced
-  traceWith tracer $ ProcessedEffect e
+  traceEvent tracer $ ProcessedEffect e
 -- ** Some general event queue from which the Hydra head is "fed"
 
 -- | The single, required queue in the system from which a hydra head is "fed".
@@ -172,7 +172,7 @@ newtype OnChain m = OnChain
     postTx :: MonadThrow m => OnChainTx -> m ()
   }
 
-createMockChainClient :: EventQueue IO (Event tx) -> Tracer IO MockChainLog -> IO (OnChain IO)
+createMockChainClient :: EventQueue IO (Event tx) -> Tracer IO (Log MockChainLog) -> IO (OnChain IO)
 createMockChainClient EventQueue{putEvent} tracer = do
   -- TODO: Do a proper cleanup of threads and what not
   -- BUG(SN): This should wait until we are connected to the chain, otherwise we

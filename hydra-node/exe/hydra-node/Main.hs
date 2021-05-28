@@ -47,14 +47,14 @@ main = do
     eq <- createEventQueue
     let headState = createHeadState [] HeadParameters SnapshotStrategy
     hh <- createHydraHead headState Ledger.mockLedger
-    oc <- createMockChainClient eq (contramap MockChain tracer)
-    withZeroMQHydraNetwork (show host, port) peers (contramap Network tracer) (putEvent eq . NetworkEvent) $ \hn -> do
+    oc <- createMockChainClient eq (contramap (map MockChain) tracer)
+    withZeroMQHydraNetwork (show host, port) peers (contramap (Log . Network) tracer) (putEvent eq . NetworkEvent) $ \hn -> do
       responseChannel <- newBroadcastTChanIO
       let sendResponse = atomically . writeTChan responseChannel
       let node = HydraNode{eq, hn, hh, oc, sendResponse, env}
       race_
-        (runAPIServer apiHost apiPort responseChannel node (contramap APIServer tracer))
-        (runHydraNode (contramap Node tracer) node)
+        (runAPIServer apiHost apiPort responseChannel node (contramap (map APIServer) tracer))
+        (runHydraNode (contramap (map Node) tracer) node)
 
 identifyNode :: Option -> Option
 identifyNode opt@Option{verbosity = Verbose "HydraNode", nodeId} = opt{verbosity = Verbose $ "HydraNode-" <> show nodeId}

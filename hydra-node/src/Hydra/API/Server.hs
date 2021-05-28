@@ -6,7 +6,7 @@ module Hydra.API.Server where
 import Cardano.Prelude hiding (Option, option)
 import Control.Concurrent.STM (TChan, dupTChan, readTChan)
 import qualified Data.Text as Text
-import Hydra.Logging (Tracer, traceWith)
+import Hydra.Logging (Log, Tracer, traceEvent)
 import Hydra.Logic (
   ClientResponse,
  )
@@ -25,13 +25,13 @@ data APIServerLog
   | APIInvalidRequest {receivedRequest :: Text}
   deriving (Show)
 
-runAPIServer :: (Show tx, Read tx) => IP -> PortNumber -> TChan (ClientResponse tx) -> HydraNode tx IO -> Tracer IO APIServerLog -> IO ()
+runAPIServer :: (Show tx, Read tx) => IP -> PortNumber -> TChan (ClientResponse tx) -> HydraNode tx IO -> Tracer IO (Log APIServerLog) -> IO ()
 runAPIServer host port responseChannel node tracer = do
-  traceWith tracer (APIServerStarted port)
+  traceEvent tracer (APIServerStarted port)
   runServer (show host) (fromIntegral port) $ \pending -> do
     con <- acceptRequest pending
     chan <- atomically $ dupTChan responseChannel
-    traceWith tracer NewAPIConnection
+    traceEvent tracer NewAPIConnection
     withPingThread con 30 (pure ()) $
       race_ (receiveRequests con) (sendResponses chan con)
  where
@@ -39,12 +39,12 @@ runAPIServer host port responseChannel node tracer = do
     response <- atomically $ readTChan chan
     let sentResponse = show @_ @Text response
     sendTextData con sentResponse
-    traceWith tracer (APIResponseSent sentResponse)
+    traceEvent tracer (APIResponseSent sentResponse)
 
   receiveRequests con = forever $ do
     msg <- receiveData con
     case readMaybe (Text.unpack msg) of
       Just request -> do
-        traceWith tracer (APIRequestReceived msg)
+        traceEvent tracer (APIRequestReceived msg)
         handleClientRequest node request
-      Nothing -> traceWith tracer (APIInvalidRequest msg)
+      Nothing -> traceEvent tracer (APIInvalidRequest msg)

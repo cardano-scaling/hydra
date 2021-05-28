@@ -2,12 +2,13 @@
 
 module IntegrationSpec where
 
+import Cardano.BM.Data.Tracer (Tracer (Tracer))
 import Cardano.Prelude hiding (atomically, check)
-import Control.Concurrent.STM (TVar, modifyTVar, newTVarIO, readTVarIO)
+import Control.Concurrent.STM (TVar, modifyTVar, modifyTVar', newTVarIO, readTVarIO)
 import Control.Monad.Class.MonadSTM (atomically, check)
 import Data.IORef (modifyIORef', newIORef, readIORef)
 import Hydra.Ledger (Ledger (..), LedgerState, ValidationError (..), ValidationResult (Invalid, Valid))
-import Hydra.Logging (traceInTVarIO)
+import Hydra.Logging (Log (Counter, Log))
 import Hydra.Logic (
   ClientRequest (..),
   ClientResponse (..),
@@ -210,7 +211,7 @@ startHydraNode nodeId connectToChain = do
   capturedLogs <- newTVarIO []
   response <- newEmptyMVar
   node <- createHydraNode response
-  nodeThread <- async $ runHydraNode (traceInTVarIO capturedLogs) node
+  nodeThread <- async $ runHydraNode (traceEventInTVarIO capturedLogs) node
   link nodeThread
   pure $
     HydraProcess
@@ -244,6 +245,14 @@ startHydraNode nodeId connectToChain = do
     let node = HydraNode{eq, hn = HydraNetwork $ const $ pure (), hh, oc = OnChain (const $ pure ()), sendResponse = putMVar response, env}
     Connections oc hn <- connectToChain node
     pure node{oc, hn}
+
+traceEventInTVarIO :: TVar [HydraNodeLog MockTx] -> Tracer IO (Log (HydraNodeLog MockTx))
+traceEventInTVarIO tvar =
+  Tracer $ \case
+    Log a -> append a
+    Counter _ a -> append a
+ where
+  append a = atomically $ modifyTVar' tvar (a :)
 
 data MockTx = ValidTx Integer | InvalidTx
   deriving (Eq, Show)
