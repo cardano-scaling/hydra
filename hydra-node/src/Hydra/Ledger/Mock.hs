@@ -12,13 +12,15 @@ import Text.Read (Read (..))
 import Text.Show (Show (..))
 
 -- | Simple mock transaction, which conflates value and identity
-data MockTx = ValidTx Amount | InvalidTx
+data MockTx = ValidTx TxId | InvalidTx
   deriving stock (Eq, Generic)
   deriving anyclass (Serialise)
 
+type TxId = Integer
+
 instance Read MockTx where
   readPrec =
-    ValidTx <$> readPrec @Amount
+    ValidTx <$> readPrec @TxId
       <|> pure InvalidTx
 
 instance Show MockTx where
@@ -28,9 +30,8 @@ instance Show MockTx where
 
 type instance LedgerState MockTx = MockLedgerState
 
-data MockLedgerState = MockLedgerState
-  { utxo :: Map ParticipationToken Amount
-  , transactions :: [MockTx]
+newtype MockLedgerState = MockLedgerState
+  { transactions :: [MockTx]
   }
   deriving (Show)
 
@@ -40,12 +41,16 @@ mockLedger =
     { canApply = \st tx -> case st `seq` tx of
         ValidTx _ -> Valid
         InvalidTx -> Invalid ValidationError
-    , applyTransaction = \MockLedgerState{transactions, utxo} tx ->
-        -- TODO(MB): Here we need to check whether that particular tx is
-        -- "valid", that is, if whoever is sending it has the funds.
+    , applyTransaction = \MockLedgerState{transactions} tx ->
+        -- NOTE:
+        -- There's no need to represent a real `tx` and do any fake ledger
+        -- validation because we can already represent that via `InvalidTx`.
+        --
+        -- In the end, we are really interested in the resulting UTxO which
+        -- _could_ be constructed from all the valid transactions that have
+        -- passed through the head. So it suffices to keep a list of all valid
+        -- transactions in the mock.
         let transactions' = tx : transactions
-         in Right $ MockLedgerState{utxo, transactions = transactions'}
-    , initLedgerState = \utxo ->
-        let transactions = mempty
-         in MockLedgerState{utxo, transactions}
+         in Right $ MockLedgerState{transactions = transactions'}
+    , initLedgerState = MockLedgerState mempty
     }

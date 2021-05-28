@@ -257,5 +257,5 @@ mockLedger =
         ValidTx _ -> Valid
         InvalidTx -> Invalid ValidationError
     , applyTransaction = \st tx -> pure (tx : st)
-    , initLedgerState = \_committed -> []
+    , initLedgerState = []
     }

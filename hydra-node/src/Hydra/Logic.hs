@@ -155,9 +155,9 @@ update Environment{party} ledger st ev = case (st, ev) of
      in if canCollectCom party pt remainingTokens'
           then NewState newState [OnChainEffect CollectComTx]
           else NewState newState []
-  (CollectingState _ committed, OnChainEvent CollectComTx) ->
+  (CollectingState{}, OnChainEvent CollectComTx) ->
     NewState
-      (OpenState $ SimpleHeadState (initLedgerState ledger committed) Transaction Snapshots)
+      (OpenState $ SimpleHeadState (initLedgerState ledger) Transaction Snapshots)
       [ClientEffect HeadIsOpen]
   --
   (OpenState _, OnChainEvent CommitTx{}) ->

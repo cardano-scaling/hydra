@@ -34,7 +34,7 @@ type family LedgerState tx
 data Ledger tx = Ledger
   { canApply :: LedgerState tx -> tx -> ValidationResult
   , applyTransaction :: LedgerState tx -> tx -> Either ValidationError (LedgerState tx)
-  , initLedgerState :: Committed -> LedgerState tx
+  , initLedgerState :: LedgerState tx
   }
 
 -- | Either valid or an error which we get from the ledger-specs tx validation.
