@@ -83,7 +83,10 @@ library
     , directory
     , filepath
     , hspec-expectations
+    , http-conduit
     , iohk-monitoring
+    , lens
+    , lens-aeson
     , network
     , process
     , random-shuffle
@@ -122,9 +125,6 @@ test-suite integration
     , cardano-prelude
     , hspec
     , hspec-core
-    , http-conduit
-    , lens
-    , lens-aeson
     , local-cluster
     , temporary
   build-tool-depends:

@@ -1,5 +1,6 @@
 {-# LANGUAGE NumericUnderscores #-}
 {-# LANGUAGE TypeApplications #-}
+{-# OPTIONS_GHC -Wno-incomplete-uni-patterns #-}
 
 module HydraNode where
 
@@ -7,9 +8,14 @@ import Cardano.Prelude
 import Control.Concurrent.Async (
   forConcurrently_,
  )
+import Control.Lens ((^?))
+import Data.Aeson.Lens (key, _Integer)
 import qualified Data.ByteString.Lazy as BSL
 import qualified Data.Text.Encoding as Text
+import Network.HTTP.Conduit (HttpExceptionContent (ConnectionFailure), parseRequest)
+import Network.HTTP.Simple (HttpException (HttpExceptionRequest), Request, Response, getResponseBody, getResponseStatusCode, httpBS)
 import Network.WebSockets (Connection, DataMessage (Binary, Text), receiveDataMessage, runClient, sendClose, sendTextData)
+import System.IO.Error (userError)
 import System.Process (
   CreateProcess (..),
   ProcessHandle,
@@ -30,16 +36,30 @@ sendRequest HydraNode{hydraNodeId, connection} request = do
   putText ("Tester sending to " <> show hydraNodeId <> ": " <> show request)
   sendTextData connection request
 
+getEventsCountMetric :: HydraNode -> IO (Maybe Integer)
+getEventsCountMetric HydraNode{hydraNodeId} = do
+  response <-
+    failAfter 3 $
+      parseRequest ("http://127.0.0.1:" <> show (6000 + hydraNodeId) <> "/")
+        >>= queryNode
+  when (getResponseStatusCode response /= 200) $ expectationFailure ("Request for Hydra-node metrics failed :" <> show (getResponseBody response))
+  pure $ getResponseBody response ^? key "hydra" . key "head" . key "events" . _Integer
+
+queryNode :: Request -> IO (Response ByteString)
+queryNode req = do
+  httpBS req
+    `catch` (\(HttpExceptionRequest _ (ConnectionFailure _)) -> threadDelay 100_000 >> queryNode req)
+
 data WaitForResponseTimeout = WaitForResponseTimeout {nodeId :: Int, expectedResponse :: Text}
   deriving (Show)
 
 instance Exception WaitForResponseTimeout
 
-failAfter :: HasCallStack => Natural -> IO () -> IO ()
+failAfter :: HasCallStack => Natural -> IO a -> IO a
 failAfter seconds action =
   timeout (fromIntegral seconds * 1_000_000) action >>= \case
-    Just _ -> pure ()
-    Nothing -> expectationFailure $ "Timed out after " <> show seconds <> " second(s)"
+    Just a -> pure a
+    Nothing -> expectationFailure ("Timed out after " <> show seconds <> " second(s)") >> throwIO (userError "Should never get there")
 
 wait3sForResponse :: HasCallStack => [HydraNode] -> Text -> IO ()
 wait3sForResponse nodes expected = do
