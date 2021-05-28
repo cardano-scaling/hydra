@@ -78,8 +78,8 @@ hydraNodeProcess nodeId =
     "hydra-node"
     $ [ "--node-id"
       , show nodeId
-      , "--quiet"
-      , "--host"
+      , -- , "--quiet"
+        "--host"
       , "127.0.0.1"
       , "--port"
       , show (5000 + nodeId)
