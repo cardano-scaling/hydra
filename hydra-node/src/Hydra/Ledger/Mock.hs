@@ -19,8 +19,10 @@ data MockTx = ValidTx TxId | InvalidTx
 type TxId = Integer
 
 instance Read MockTx where
-  readPrec =
-    (ValidTx <$> readPrec @TxId) <|> pure InvalidTx
+  readsPrec prec =
+    \case
+      "_|_" -> [(InvalidTx, "")]
+      s -> first ValidTx <$> readsPrec prec s
 
 instance Show MockTx where
   show = \case

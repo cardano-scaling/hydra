@@ -157,6 +157,7 @@ test-suite tests
   other-modules:
     Hydra.FireForgetSpec
     Hydra.LedgerSpec
+    Hydra.Ledger.MockSpec
     Hydra.MockZMQChainSpec
     Hydra.NetworkSpec
     Hydra.NodeSpec
