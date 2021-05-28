@@ -43,11 +43,12 @@ data Option = Option
   , peers :: [Host]
   , apiHost :: IP
   , apiPort :: PortNumber
+  , monitoringPort :: Maybe PortNumber
   }
   deriving (Eq, Show)
 
 defaultOption :: Option
-defaultOption = Option (Verbose "HydraNode") 1 "127.0.0.1" 5001 [] "127.0.0.1" 4001
+defaultOption = Option (Verbose "HydraNode") 1 "127.0.0.1" 5001 [] "127.0.0.1" 4001 Nothing
 
 hydraNodeParser :: Parser Option
 hydraNodeParser =
@@ -59,6 +60,7 @@ hydraNodeParser =
     <*> many peerParser
     <*> apiHostParser
     <*> apiPortParser
+    <*> optional monitoringPortParser
 
 peerParser :: Parser Host
 peerParser =
@@ -130,6 +132,15 @@ apiPortParser =
         <> value 4001
         <> metavar "PORT"
         <> help "The port this node listens on for client API connections (default: 4001)"
+    )
+
+monitoringPortParser :: Parser PortNumber
+monitoringPortParser =
+  option
+    (maybeReader readPort)
+    ( long "monitoring-port"
+        <> metavar "PORT"
+        <> help "The port this node listens on for monitoring and metrics. If left empty, monitoring server is not started"
     )
 
 hydraNodeOptions :: ParserInfo Option

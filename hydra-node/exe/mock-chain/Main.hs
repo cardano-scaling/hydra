@@ -4,13 +4,13 @@
 import Cardano.Prelude hiding (Option, option)
 import Data.String (String)
 import Data.Text (unpack)
+import Hydra.Logging (Verbosity (Quiet, Verbose), withTracer)
 import Hydra.MockZMQChain (
   catchUpTransactions,
   mockChainClient,
   runChainSync,
   startChain,
  )
-import Hydra.Logging (Verbosity (Quiet, Verbose), withTracer)
 import Options.Applicative (
   Parser,
   ParserInfo,
@@ -91,7 +91,7 @@ mockChainOptions =
 main :: IO ()
 main = do
   Option{mode, chainSyncAddress, catchUpAddress, postTxAddress, verbosity} <- execParser mockChainOptions
-  withTracer verbosity show $ \tracer -> case mode of
+  withTracer Nothing verbosity show $ \tracer -> case mode of
     NodeMode ->
       startChain chainSyncAddress catchUpAddress postTxAddress tracer
     CatchUpMode -> catchUpTransactions catchUpAddress print tracer

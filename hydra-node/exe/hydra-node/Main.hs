@@ -41,8 +41,8 @@ data HydraLog
 
 main :: IO ()
 main = do
-  Option{nodeId, verbosity, host, port, peers, apiHost, apiPort} <- identifyNode <$> parseHydraOptions
-  withTracer verbosity show $ \tracer -> do
+  Option{nodeId, verbosity, host, port, peers, apiHost, apiPort, monitoringPort} <- identifyNode <$> parseHydraOptions
+  withTracer monitoringPort verbosity show $ \tracer -> do
     let env = Environment nodeId
     eq <- createEventQueue
     let headState = createHeadState [] HeadParameters SnapshotStrategy

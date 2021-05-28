@@ -20,6 +20,7 @@ module Hydra.Logging (
 
 import Cardano.BM.Backend.Switchboard (
   Switchboard,
+  getSbEKGServer,
   setSbEKGServer,
  )
 import qualified Cardano.BM.Configuration.Model as CM
@@ -50,6 +51,7 @@ import Control.Tracer (
   nullTracer,
   traceWith,
  )
+import Hydra.Network (PortNumber)
 import qualified System.Remote.Monitoring as Ekg
 
 data Verbosity = Quiet | Verbose LoggerName
@@ -60,25 +62,33 @@ data Verbosity = Quiet | Verbose LoggerName
 withTracer ::
   forall m msg a.
   MonadIO m =>
+  Maybe PortNumber ->
   Verbosity ->
   (msg -> Text) ->
   (Tracer m msg -> IO a) ->
   IO a
-withTracer Quiet _ between = between nullTracer
-withTracer (Verbose name) transform between = do
+withTracer _ Quiet _ between = between nullTracer
+withTracer mEkgPort (Verbose name) transform between = do
   bracket before after (between . natTracer liftIO . fst)
  where
   before :: IO (Tracer IO msg, Switchboard Text)
   before = do
     config <- defaultConfigStdout
     CM.setSetupBackends config [CM.KatipBK, CM.EKGViewBK]
-    ekgServer <- Ekg.forkServer "127.0.0.1" 6001
     (tr, sb) <- setupTrace_ config name
-    setSbEKGServer (Just ekgServer) sb
+    beforeEkg mEkgPort sb
     pure (transformLogObject transform tr, sb)
 
+  beforeEkg Nothing _ = pure ()
+  beforeEkg (Just ekgPort) sb = do
+    ekgServer <- Ekg.forkServer "127.0.0.1" (fromIntegral ekgPort)
+    setSbEKGServer (Just ekgServer) sb
+
   after :: (Tracer IO msg, Switchboard Text) -> IO ()
-  after = shutdown . snd
+  after (_, sb) = getSbEKGServer sb >>= afterEkg >> shutdown sb
+
+  afterEkg Nothing = pure ()
+  afterEkg (Just ekg) = killThread $ Ekg.serverThreadId ekg
 
 -- | Tracer transformer which converts 'Trace m a' to 'Tracer m a' by wrapping
 -- typed log messages into a 'LogObject'. NOTE: All log messages are of severity
