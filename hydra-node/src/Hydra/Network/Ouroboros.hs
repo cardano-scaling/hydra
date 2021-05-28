@@ -1,3 +1,5 @@
+{-# OPTIONS_GHC -Wno-deferred-type-errors #-}
+
 -- | Ouroboros-based implementation of 'Hydra.Network' interface
 module Hydra.Network.Ouroboros (withOuroborosHydraNetwork, module Hydra.Network) where
 
@@ -20,7 +22,7 @@ import Hydra.Network (
   Host,
   HydraNetwork (..),
   NetworkCallback,
-  Port,
+  PortNumber,
   createSimulatedHydraNetwork,
  )
 import Network.Socket (AddrInfo (addrAddress), defaultHints, getAddrInfo)
@@ -87,7 +89,7 @@ withOuroborosHydraNetwork localHost remoteHosts networkCallback between = do
         between $ HydraNetwork (atomically . putTMVar mvar)
  where
   resolveSockAddr (hostname, port) = do
-    is <- getAddrInfo (Just defaultHints) (Just hostname) (Just port)
+    is <- getAddrInfo (Just defaultHints) (Just hostname) (Just $ show port)
     case is of
       (info : _) -> pure $ addrAddress info
       _ -> panic "getAdrrInfo failed.. do proper error handling"

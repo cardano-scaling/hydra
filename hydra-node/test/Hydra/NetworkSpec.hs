@@ -11,10 +11,10 @@ import Codec.CBOR.Read (deserialiseFromBytes)
 import Codec.CBOR.Write (toLazyByteString)
 import Codec.Serialise (Serialise, deserialiseOrFail, serialise)
 import Control.Monad.Class.MonadTimer (threadDelay, timeout)
+import Hydra.Logging (nullTracer)
 import Hydra.Logic (HydraMessage (..))
 import Hydra.Network.Ouroboros (broadcast, withOuroborosHydraNetwork)
 import Hydra.Network.ZeroMQ (withZeroMQHydraNetwork)
-import Hydra.Logging (nullTracer)
 import Test.Hspec (Spec, describe, expectationFailure, it, shouldReturn)
 import Test.QuickCheck (Arbitrary (..), arbitrary, oneof, property)
 
@@ -31,8 +31,8 @@ spec = describe "Networking layer" $ do
     it "broadcasts messages to single connected peer" $ do
       received <- newEmptyMVar
       failAfter2Seconds $ do
-        withOuroborosHydraNetwork (lo, "45678") [(lo, "45679")] (const $ pure ()) $ \hn1 ->
-          withOuroborosHydraNetwork (lo, "45679") [(lo, "45678")] (putMVar received) $ \_ -> do
+        withOuroborosHydraNetwork (lo, 45678) [(lo, 45679)] (const $ pure ()) $ \hn1 ->
+          withOuroborosHydraNetwork (lo, 45679) [(lo, 45678)] (putMVar received) $ \_ -> do
             broadcast hn1 requestTx
             takeMVar received `shouldReturn` requestTx
 
@@ -41,9 +41,9 @@ spec = describe "Networking layer" $ do
       node2received <- newEmptyMVar
       node3received <- newEmptyMVar
       failAfter2Seconds $ do
-        withZeroMQHydraNetwork (lo, "55677") [(lo, "55678"), (lo, "55679")] nullTracer (const $ pure ()) $ \hn1 ->
-          withZeroMQHydraNetwork (lo, "55678") [(lo, "55677"), (lo, "55679")] nullTracer (putMVar node2received) $ \_ ->
-            withZeroMQHydraNetwork (lo, "55679") [(lo, "55677"), (lo, "55678")] nullTracer (putMVar node3received) $ \_ -> do
+        withZeroMQHydraNetwork (lo, 55677) [(lo, 55678), (lo, 55679)] nullTracer (const $ pure ()) $ \hn1 ->
+          withZeroMQHydraNetwork (lo, 55678) [(lo, 55677), (lo, 55679)] nullTracer (putMVar node2received) $ \_ ->
+            withZeroMQHydraNetwork (lo, 55679) [(lo, 55677), (lo, 55678)] nullTracer (putMVar node3received) $ \_ -> do
               threadDelay 1 -- This is needed to wait for all nodes to be up
               broadcast hn1 requestTx
               takeMVar node2received `shouldReturn` requestTx

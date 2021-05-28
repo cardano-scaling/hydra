@@ -86,6 +86,7 @@ library
     Hydra.Logging
     Hydra.Logic
     Hydra.MockZMQChain
+    Hydra.Option
     Network.TypedProtocol.FireForget.Type
     Network.TypedProtocol.FireForget.Client
     Network.TypedProtocol.FireForget.Server
@@ -105,8 +106,10 @@ library
     , data-default
     , io-sim-classes
     , iohk-monitoring
+    , iproute
     , network
     , network-mux
+    , optparse-applicative
     , ouroboros-network-framework
     , safe-exceptions
     , serialise
@@ -129,7 +132,6 @@ executable hydra-node
       base
     , cardano-prelude
     , hydra-node
-    , optparse-applicative
     , stm
   ghc-options:
     -threaded
@@ -153,11 +155,12 @@ test-suite tests
   import: project-config
   hs-source-dirs: test
   other-modules:
+    Hydra.FireForgetSpec
+    Hydra.LedgerSpec
+    Hydra.MockZMQChainSpec
     Hydra.NetworkSpec
     Hydra.NodeSpec
-    Hydra.LedgerSpec
-    Hydra.FireForgetSpec
-    Hydra.MockZMQChainSpec
+    Hydra.OptionSpec
   main-is: Main.hs
   type: exitcode-stdio-1.0
   build-depends:

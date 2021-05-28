@@ -1,11 +1,26 @@
 {-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE DerivingStrategies #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 
 -- | Interface to the Hydra network and base types. Concrete implementations are
 -- provided by submodules. Import those instead of this one if interested in
 -- actually configuring and running a real network layer.
-module Hydra.Network where
+module Hydra.Network (
+  -- * Types
+  HydraNetwork (..),
+  PortNumber,
+  Host,
+  NetworkCallback,
+  IP,
+
+  -- * Simulated Network
+  createSimulatedHydraNetwork,
+
+  -- * Parser
+  readHost,
+  readPort,
+) where
 
 import Cardano.Binary (
   FromCBOR (..),
@@ -14,8 +29,11 @@ import Cardano.Binary (
 import Cardano.Prelude
 import Codec.Serialise
 import Control.Monad (fail)
+import Data.IP (IP)
+import qualified Data.List as List
+import Data.String (String)
 import Hydra.Logic (HydraMessage (..))
-import Network.Socket (HostName, ServiceName)
+import Network.Socket (HostName, PortNumber)
 import Network.TypedProtocol.Pipelined ()
 
 -- * Hydra network interface
@@ -30,9 +48,20 @@ type NetworkCallback tx m = HydraMessage tx -> m ()
 
 -- * Types used by concrete implementations
 
-type Host = (HostName, Port)
+type Host = (HostName, PortNumber)
 
-type Port = ServiceName
+readHost :: String -> Maybe Host
+readHost s =
+  case List.break (== '@') s of
+    (h, '@' : p) -> (h,) <$> readPort p
+    _ -> Nothing
+
+readPort :: String -> Maybe PortNumber
+readPort s =
+  readMaybe s >>= \n ->
+    if n >= 0 && n < fromIntegral (maxBound :: Word16)
+      then Just $ fromInteger n
+      else Nothing
 
 deriving stock instance Generic (HydraMessage tx)
 deriving anyclass instance Serialise tx => Serialise (HydraMessage tx)

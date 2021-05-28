@@ -73,7 +73,22 @@ data CannotStartHydraNode = CannotStartHydraNode Int deriving (Show)
 instance Exception CannotStartHydraNode
 
 hydraNodeProcess :: Int -> CreateProcess
-hydraNodeProcess nodeId = proc "hydra-node" ["--node-id", show nodeId, "--quiet"]
+hydraNodeProcess nodeId =
+  proc
+    "hydra-node"
+    $ [ "--node-id"
+      , show nodeId
+      , "--quiet"
+      , "--host"
+      , "127.0.0.1"
+      , "--port"
+      , show (5000 + nodeId)
+      , "--api-host"
+      , "127.0.0.1"
+      , "--api-port"
+      , show (4000 + nodeId)
+      ]
+      <> concat [["--peer", "127.0.0.1@" <> show (5000 + id)] | id <- [1 .. 3], id /= nodeId]
 
 withMockChain :: IO () -> IO ()
 withMockChain action = do
