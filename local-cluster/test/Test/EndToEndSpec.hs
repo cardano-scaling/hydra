@@ -40,7 +40,7 @@ spec = describe "End-to-end test using a mocked chain though" $ do
     -- NOTE(SN): This is likely too detailed and should move to a lower-level
     -- integration test
     it "init a head and reject too expensive tx" $ do
-      pendingWith "requires tx validation and identifying sending party on NewTx"
+      pendingWith "Somehow we fail to read 'NewTx _' as a valid 'InvalidTx' ?"
       failAfter 10 $
         withMockChain $
           withHydraNode 1 $ \n1 ->
@@ -53,5 +53,5 @@ spec = describe "End-to-end test using a mocked chain though" $ do
                 sendRequest n3 "Commit 5"
                 wait3sForResponse [n1, n2, n3] "HeadIsOpen"
                 -- NOTE(SN): Everything above this boilerplate
-                sendRequest n1 "NewTx 11"
+                sendRequest n1 "NewTx _"
                 wait3sForResponse [n1] "TxInvalid 11"

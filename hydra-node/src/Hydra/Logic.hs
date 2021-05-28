@@ -172,7 +172,8 @@ update Environment{party} ledger st ev = case (st, ev) of
         NewState
           (OpenState $ headState{confirmedLedger = newLedgerState})
           [ClientEffect $ TxReceived tx]
-      Left err -> panic $ "applying invalid transaction " <> show tx <> " to ledger: " <> show err
+      Left{} ->
+        NewState st [ClientEffect $ TxInvalid tx]
   (OpenState _, OnChainEvent CloseTx) ->
     NewState ClosedState [ClientEffect HeadIsClosed]
   --

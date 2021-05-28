@@ -20,8 +20,7 @@ type TxId = Integer
 
 instance Read MockTx where
   readPrec =
-    ValidTx <$> readPrec @TxId
-      <|> pure InvalidTx
+    (ValidTx <$> readPrec @TxId) <|> pure InvalidTx
 
 instance Show MockTx where
   show = \case
@@ -50,7 +49,11 @@ mockLedger =
         -- _could_ be constructed from all the valid transactions that have
         -- passed through the head. So it suffices to keep a list of all valid
         -- transactions in the mock.
-        let transactions' = tx : transactions
-         in Right $ MockLedgerState{transactions = transactions'}
+        case tx of
+          InvalidTx ->
+            Left ValidationError
+          ValidTx{} ->
+            let transactions' = tx : transactions
+             in Right $ MockLedgerState{transactions = transactions'}
     , initLedgerState = MockLedgerState mempty
     }
