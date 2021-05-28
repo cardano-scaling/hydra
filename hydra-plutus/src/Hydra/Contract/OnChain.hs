@@ -259,7 +259,7 @@ commitValidatorHash = Scripts.scriptHash . commitScriptInstance
 -- currencyId with an Integer chosen by a fair dice roll. In practice, we really
 -- want this to a 'TxOutRef' so we can get actual guarantees from the ledger
 -- about this being unique.
-type CurrencyId = Integer
+type FakeTxOutRef = Integer
 
 -- The validator is parameterized by the public keys of the participants, as well
 -- as a reference to a particular UTxO. A minting transaction will be considered
@@ -269,10 +269,10 @@ type CurrencyId = Integer
 -- What it not necessarily transparent here is that, the on-chain code is really
 -- made of the curried function 'ScriptContext -> Bool', after the first parameter
 -- has been partially applied. This is similar to what is called 'closures' in
--- some languages. Fundamentally, the parameter 'CurrencyId' is embedded within the
+-- some languages. Fundamentally, the parameter 'FakeTxOutRef' is embedded within the
 -- policy and is part of the on-chain code itself!
 validateMonetaryPolicy ::
-  CurrencyId ->
+  FakeTxOutRef ->
   ScriptContext ->
   Bool
 validateMonetaryPolicy _outRef _ctx =
@@ -290,7 +290,7 @@ validateMonetaryPolicy _outRef _ctx =
     True
 
 hydraMonetaryPolicy ::
-  CurrencyId ->
+  FakeTxOutRef ->
   MonetaryPolicy
 hydraMonetaryPolicy outRef =
   mkMonetaryPolicyScript $
