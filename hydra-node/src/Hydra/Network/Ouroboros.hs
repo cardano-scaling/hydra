@@ -14,7 +14,9 @@ import Control.Monad.Class.MonadSTM (
   takeTMVar,
  )
 import Control.Tracer (
-  nullTracer,
+  contramap,
+  debugTracer,
+  stdoutTracer,
  )
 import qualified Data.ByteString.Lazy as LBS
 import Hydra.Logic (HydraMessage (..))
@@ -62,9 +64,9 @@ import Ouroboros.Network.Snocket (socketSnocket)
 import Ouroboros.Network.Socket (
   SomeResponderApplication (..),
   connectToNodeSocket,
+  debuggingNetworkConnectTracers,
+  debuggingNetworkServerTracers,
   newNetworkMutableState,
-  nullNetworkConnectTracers,
-  nullNetworkServerTracers,
   withServerNode,
  )
 import Ouroboros.Network.Subscription (IPSubscriptionTarget (IPSubscriptionTarget))
@@ -74,6 +76,7 @@ import Ouroboros.Network.Subscription.Worker (LocalAddresses (LocalAddresses))
 
 withOuroborosHydraNetwork ::
   forall tx.
+  Show tx =>
   ToCBOR tx =>
   FromCBOR tx =>
   Host ->
@@ -116,9 +119,9 @@ withOuroborosHydraNetwork localHost remoteHosts networkCallback between = do
       , spSubscriptionTarget = IPSubscriptionTarget remoteAddrs 7
       }
 
-  subscriptionTracer = nullTracer
+  subscriptionTracer = contramap show debugTracer
 
-  errorPolicyTracer = nullTracer
+  errorPolicyTracer = contramap show debugTracer
 
   actualConnect iomgr app =
     connectToNodeSocket
@@ -126,7 +129,7 @@ withOuroborosHydraNetwork localHost remoteHosts networkCallback between = do
       unversionedHandshakeCodec
       noTimeLimitsHandshake
       (cborTermVersionDataCodec unversionedProtocolDataCodec)
-      nullNetworkConnectTracers
+      debuggingNetworkConnectTracers
       acceptableVersion
       (unversionedProtocol app)
 
@@ -136,7 +139,7 @@ withOuroborosHydraNetwork localHost remoteHosts networkCallback between = do
     -- TODO(SN): whats this? _ <- async $ cleanNetworkMutableState networkState
     withServerNode
       (socketSnocket iomgr)
-      nullNetworkServerTracers
+      debuggingNetworkServerTracers
       networkState
       (AcceptedConnectionsLimit maxBound maxBound 0)
       localAddr
@@ -154,13 +157,13 @@ withOuroborosHydraNetwork localHost remoteHosts networkCallback between = do
    where
     initiator =
       MuxPeer
-        nullTracer
+        showStdoutTracer
         codecFireForget
         (fireForgetClientPeer $ client var)
 
     responder =
       MuxPeer
-        nullTracer
+        showStdoutTracer
         codecFireForget
         (fireForgetServerPeer server)
 
@@ -197,3 +200,5 @@ withOuroborosHydraNetwork localHost remoteHosts networkCallback between = do
       { recvMsg = \msg -> server <$ networkCallback msg
       , recvMsgDone = pure ()
       }
+
+  showStdoutTracer = contramap show stdoutTracer
