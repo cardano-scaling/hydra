@@ -10,6 +10,7 @@ import Cardano.Binary (FromCBOR, ToCBOR, fromCBOR, toCBOR)
 import Codec.CBOR.Read (deserialiseFromBytes)
 import Codec.CBOR.Write (toLazyByteString)
 import Codec.Serialise (Serialise, deserialiseOrFail, serialise)
+import Control.Monad.Class.MonadTime (DiffTime)
 import Control.Monad.Class.MonadTimer (threadDelay, timeout)
 import Hydra.Logging (nullTracer)
 import Hydra.Logic (HydraMessage (..))
@@ -30,7 +31,7 @@ spec = describe "Networking layer" $ do
   describe "Ouroboros Network" $ do
     it "broadcasts messages to single connected peer" $ do
       received <- newEmptyMVar
-      failAfter2Seconds $ do
+      failAfter 2 $ do
         withOuroborosHydraNetwork (lo, 45678) [(lo, 45679)] (const $ pure ()) $ \hn1 ->
           withOuroborosHydraNetwork (lo, 45679) [(lo, 45678)] (putMVar received) $ \_ -> do
             broadcast hn1 requestTx
@@ -38,19 +39,19 @@ spec = describe "Networking layer" $ do
     it "broadcasts messages to 2 connected peer" $ do
       node2received <- newEmptyMVar
       node3received <- newEmptyMVar
-      failAfter2Seconds $ do
+      failAfter 3 $ do
         withOuroborosHydraNetwork (lo, 45678) [(lo, 45679), (lo, 45680)] (const $ pure ()) $ \hn1 ->
           withOuroborosHydraNetwork (lo, 45679) [(lo, 45678), (lo, 45680)] (putMVar node2received) $ \_ -> do
             withOuroborosHydraNetwork (lo, 45680) [(lo, 45678), (lo, 45679)] (putMVar node3received) $ \_ -> do
               broadcast hn1 requestTx
-              takeMVar node2received `shouldReturn` requestTx
-              takeMVar node3received `shouldReturn` requestTx
+              failAfter 1 $ takeMVar node2received `shouldReturn` requestTx
+              failAfter 1 $ takeMVar node3received `shouldReturn` requestTx
 
   describe "0MQ Network" $
     it "broadcasts messages to 2 connected peers" $ do
       node2received <- newEmptyMVar
       node3received <- newEmptyMVar
-      failAfter2Seconds $ do
+      failAfter 2 $ do
         withZeroMQHydraNetwork (lo, 55677) [(lo, 55678), (lo, 55679)] nullTracer (const $ pure ()) $ \hn1 ->
           withZeroMQHydraNetwork (lo, 55678) [(lo, 55677), (lo, 55679)] nullTracer (putMVar node2received) $ \_ ->
             withZeroMQHydraNetwork (lo, 55679) [(lo, 55677), (lo, 55678)] nullTracer (putMVar node3received) $ \_ -> do
@@ -77,8 +78,8 @@ prop_canRoundtripCBOREncoding a =
   let encoded = toLazyByteString $ toCBOR a
    in (snd <$> deserialiseFromBytes fromCBOR encoded) == Right a
 
-failAfter2Seconds :: IO () -> IO ()
-failAfter2Seconds action =
-  timeout 2 action >>= \case
+failAfter :: HasCallStack => DiffTime -> IO () -> IO ()
+failAfter seconds action =
+  timeout seconds action >>= \case
     Nothing -> expectationFailure "Test timed out after 2 seconds"
     Just _ -> pure ()
