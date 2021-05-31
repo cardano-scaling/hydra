@@ -69,8 +69,12 @@ spec = describe "Integrating one ore more hydra-nodes" $ do
       n1 <- startHydraNode 1 chain
       n2 <- startHydraNode 2 chain
 
+      wait1sForResponse n1 `shouldReturn` Just NodeConnectedToNetwork
+
       sendRequestAndWaitFor n1 (Init [1, 2]) ReadyToCommit
       sendRequest n1 (Commit 1)
+
+      wait1sForResponse n2 `shouldReturn` Just NodeConnectedToNetwork
 
       wait1sForResponse n2 `shouldReturn` Just ReadyToCommit
       sendRequest n2 (Commit 1)
@@ -79,12 +83,14 @@ spec = describe "Integrating one ore more hydra-nodes" $ do
 
     it "not accepts commits when the head is open" $ do
       n1 <- simulatedChainAndNetwork >>= startHydraNode 1
+      wait1sForResponse n1 `shouldReturn` Just NodeConnectedToNetwork
       sendRequestAndWaitFor n1 (Init [1]) ReadyToCommit
       sendRequestAndWaitFor n1 (Commit 1) HeadIsOpen
       sendRequestAndWaitFor n1 (Commit 1) CommandFailed
 
     it "can close an open head" $ do
       n1 <- simulatedChainAndNetwork >>= startHydraNode 1
+      wait1sForResponse n1 `shouldReturn` Just NodeConnectedToNetwork
       sendRequestAndWaitFor n1 (Init [1]) ReadyToCommit
       sendRequestAndWaitFor n1 (Commit 1) HeadIsOpen
       sendRequestAndWaitFor n1 Close HeadIsClosed
@@ -94,9 +100,11 @@ spec = describe "Integrating one ore more hydra-nodes" $ do
       n1 <- startHydraNode 1 chain
       n2 <- startHydraNode 2 chain
 
+      wait1sForResponse n1 `shouldReturn` Just NodeConnectedToNetwork
       sendRequestAndWaitFor n1 (Init [1, 2]) ReadyToCommit
       sendRequest n1 (Commit 1)
 
+      wait1sForResponse n2 `shouldReturn` Just NodeConnectedToNetwork
       wait1sForResponse n2 `shouldReturn` Just ReadyToCommit
       sendRequestAndWaitFor n2 (Commit 1) HeadIsOpen
 
@@ -110,10 +118,12 @@ spec = describe "Integrating one ore more hydra-nodes" $ do
       n1 <- startHydraNode 1 chain
       n2 <- startHydraNode 2 chain
 
+      wait1sForResponse n1 `shouldReturn` Just NodeConnectedToNetwork
       sendRequestAndWaitFor n1 (Init [1, 2]) ReadyToCommit
       sendRequest n1 (Commit 1)
       wait1sForResponse n1 >>= (`shouldNotBe` Just HeadIsOpen)
 
+      wait1sForResponse n2 `shouldReturn` Just NodeConnectedToNetwork
       wait1sForResponse n2 `shouldReturn` Just ReadyToCommit
       sendRequestAndWaitFor n2 (Commit 1) HeadIsOpen
 
@@ -124,8 +134,10 @@ spec = describe "Integrating one ore more hydra-nodes" $ do
       n1 <- startHydraNode 1 chain
       n2 <- startHydraNode 2 chain
 
+      wait1sForResponse n1 `shouldReturn` Just NodeConnectedToNetwork
       sendRequestAndWaitFor n1 (Init [1, 2]) ReadyToCommit
       sendRequest n1 (Commit 1)
+      wait1sForResponse n2 `shouldReturn` Just NodeConnectedToNetwork
       wait1sForResponse n2 `shouldReturn` Just ReadyToCommit
       sendRequestAndWaitFor n2 (Commit 1) HeadIsOpen
       wait1sForResponse n1 `shouldReturn` Just HeadIsOpen
@@ -140,6 +152,8 @@ spec = describe "Integrating one ore more hydra-nodes" $ do
       chain <- simulatedChainAndNetwork
       n1 <- startHydraNode 1 chain
 
+      wait1sForResponse n1 `shouldReturn` Just NodeConnectedToNetwork
+
       sendRequestAndWaitFor n1 (Init [1]) ReadyToCommit
       sendRequest n1 (Commit 1)
 
@@ -152,6 +166,8 @@ spec = describe "Integrating one ore more hydra-nodes" $ do
       chain <- simulatedChainAndNetwork
       n1 <- startHydraNode 1 chain
 
+      wait1sForResponse n1 `shouldReturn` Just NodeConnectedToNetwork
+
       sendRequestAndWaitFor n1 (Init [1]) ReadyToCommit
       sendRequest n1 (Commit 1)
 
@@ -160,7 +176,7 @@ spec = describe "Integrating one ore more hydra-nodes" $ do
       traces `shouldContain` [ProcessingEffect (ClientEffect ReadyToCommit)]
       traces `shouldContain` [ProcessedEffect (ClientEffect ReadyToCommit)]
 
-sendRequestAndWaitFor :: HydraProcess IO MockTx -> ClientRequest MockTx -> ClientResponse MockTx -> IO ()
+sendRequestAndWaitFor :: HasCallStack => HydraProcess IO MockTx -> ClientRequest MockTx -> ClientResponse MockTx -> IO ()
 sendRequestAndWaitFor node req expected =
   sendRequest node req >> (wait1sForResponse node `shouldReturn` Just expected)
 
