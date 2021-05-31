@@ -192,7 +192,7 @@ simulatedChainAndNetwork = do
   nodes <- newTVarIO []
   pure $ \n -> do
     atomically $ modifyTVar nodes (n :)
-    pure $ Connections OnChain{postTx = postTx nodes refHistory} HydraNetwork{broadcast = broadcast nodes}
+    pure $ Connections OnChain{postTx = postTx nodes refHistory} HydraNetwork{broadcast = broadcast nodes, isNetworkReady = pure True}
  where
   postTx nodes refHistory tx = do
     h <- readIORef refHistory
@@ -241,7 +241,8 @@ startHydraNode nodeId connectToChain = do
     eq <- createEventQueue
     let headState = createHeadState [] HeadParameters SnapshotStrategy
     hh <- createHydraHead headState mockLedger
-    let node = HydraNode{eq, hn = HydraNetwork $ const $ pure (), hh, oc = OnChain (const $ pure ()), sendResponse = putMVar response, env}
+    let hn' = HydraNetwork{broadcast = const $ pure (), isNetworkReady = pure True}
+    let node = HydraNode{eq, hn = hn', hh, oc = OnChain (const $ pure ()), sendResponse = putMVar response, env}
     Connections oc hn <- connectToChain node
     pure node{oc, hn}
 

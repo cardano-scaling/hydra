@@ -6,7 +6,7 @@
 -- | Top-level module to run a single Hydra node.
 module Hydra.Node where
 
-import Cardano.Prelude hiding (STM, async, atomically, cancel, poll, threadDelay)
+import Cardano.Prelude hiding (STM, async, atomically, cancel, check, poll, threadDelay)
 import Control.Concurrent.STM (
   newTQueueIO,
   readTQueue,
@@ -14,7 +14,7 @@ import Control.Concurrent.STM (
  )
 import Control.Exception.Safe (MonadThrow)
 import Control.Monad.Class.MonadAsync (async)
-import Control.Monad.Class.MonadSTM (MonadSTM (STM), atomically, newTVar, stateTVar)
+import Control.Monad.Class.MonadSTM (MonadSTM (STM), atomically, check, newTVar, stateTVar)
 import Control.Monad.Class.MonadTimer (threadDelay)
 import Hydra.Ledger
 import Hydra.Logging (Tracer, traceWith)
@@ -76,9 +76,11 @@ runHydraNode ::
   Tracer m (HydraNodeLog tx) ->
   HydraNode tx m ->
   m ()
-runHydraNode tracer node@HydraNode{eq} =
+runHydraNode tracer node@HydraNode{eq, hn} = do
   -- NOTE(SN): here we could introduce concurrent head processing, e.g. with
   -- something like 'forM_ [0..1] $ async'
+  atomically (isNetworkReady hn >>= check)
+  putEvent eq (NetworkEvent NetworkConnected)
   forever $ do
     e <- nextEvent eq
     traceWith tracer $ ProcessingEvent e

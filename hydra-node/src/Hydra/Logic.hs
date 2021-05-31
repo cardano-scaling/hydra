@@ -182,6 +182,8 @@ update Environment{party} ledger st ev = case (st, ev) of
           (OpenState $ headState{confirmedLedger = newLedgerState})
           [ClientEffect $ TxReceived tx]
       Left{} -> panic "TODO: how is this case handled?"
+  (currentState, NetworkEvent NetworkConnected) ->
+    NewState currentState [ClientEffect NodeConnectedToNetwork]
   (OpenState _, OnChainEvent CloseTx) ->
     NewState ClosedState [ClientEffect HeadIsClosed]
   --

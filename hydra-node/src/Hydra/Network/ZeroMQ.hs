@@ -31,7 +31,11 @@ withZeroMQHydraNetwork localHost remoteHosts tracer incomingCallback continuatio
   mvar <- newEmptyTMVarIO
   race_ (runServer mvar) $
     race_ (runClients incomingCallback) $ do
-      continuation $ HydraNetwork (atomically . putTMVar mvar)
+      continuation $
+        HydraNetwork
+          { broadcast = atomically . putTMVar mvar
+          , isNetworkReady = pure True
+          }
  where
   toZMQAddress (hostName, port) = "tcp://" <> hostName <> ":" <> show port
   peerAddresses = map toZMQAddress remoteHosts

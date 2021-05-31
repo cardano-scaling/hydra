@@ -15,6 +15,7 @@ import Control.Concurrent.STM (
   writeTBQueue,
   writeTChan,
  )
+import qualified Control.Monad.Class.MonadSTM as IOSim
 import Control.Tracer (
   contramap,
   debugTracer,
@@ -87,6 +88,7 @@ withOuroborosHydraNetwork ::
   (HydraNetwork tx IO -> IO ()) ->
   IO ()
 withOuroborosHydraNetwork localHost remoteHosts networkCallback between = do
+  networkStatus <- IOSim.newTVarIO (length remoteHosts)
   bchan <- newBroadcastTChanIO
   chanPool <- newTBQueueIO (fromIntegral $ length remoteHosts)
   replicateM_ (length remoteHosts) $
@@ -94,9 +96,13 @@ withOuroborosHydraNetwork localHost remoteHosts networkCallback between = do
       dup <- dupTChan bchan
       writeTBQueue chanPool dup
   withIOManager $ \iomgr -> do
-    race_ (connect iomgr chanPool hydraClient) $
+    race_ (connect iomgr networkStatus chanPool hydraClient) $
       race_ (listen iomgr hydraServer) $ do
-        between $ HydraNetwork{broadcast = atomically . writeTChan bchan}
+        between $
+          HydraNetwork
+            { broadcast = atomically . writeTChan bchan
+            , isNetworkReady = (== 0) <$> IOSim.readTVar networkStatus
+            }
  where
   resolveSockAddr (hostname, port) = do
     is <- getAddrInfo (Just defaultHints) (Just hostname) (Just $ show port)
@@ -104,7 +110,7 @@ withOuroborosHydraNetwork localHost remoteHosts networkCallback between = do
       (info : _) -> pure $ addrAddress info
       _ -> panic "getAdrrInfo failed.. do proper error handling"
 
-  connect iomgr chanPool app = do
+  connect iomgr networkStatus chanPool app = do
     -- REVIEW(SN): move outside to have this information available?
     networkState <- newNetworkMutableState
     -- Using port number 0 to let the operating system pick a random port
@@ -117,7 +123,7 @@ withOuroborosHydraNetwork localHost remoteHosts networkCallback between = do
       errorPolicyTracer
       networkState
       (subscriptionParams localAddr remoteAddrs)
-      (actualConnect iomgr chanPool app)
+      (actualConnect iomgr networkStatus chanPool app)
 
   subscriptionParams localAddr remoteAddrs =
     SubscriptionParams
@@ -131,8 +137,9 @@ withOuroborosHydraNetwork localHost remoteHosts networkCallback between = do
 
   errorPolicyTracer = contramap show debugTracer
 
-  actualConnect iomgr chanPool app sn = do
+  actualConnect iomgr networkStatus chanPool app sn = do
     chan <- atomically $ readTBQueue chanPool
+    IOSim.atomically $ IOSim.modifyTVar' networkStatus pred
     connectToNodeSocket
       iomgr
       unversionedHandshakeCodec

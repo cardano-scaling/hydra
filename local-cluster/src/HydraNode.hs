@@ -41,11 +41,11 @@ failAfter seconds action =
     Just _ -> pure ()
     Nothing -> expectationFailure $ "Timed out after " <> show seconds <> " second(s)"
 
-wait3sForResponse :: HasCallStack => [HydraNode] -> Text -> IO ()
-wait3sForResponse nodes expected = do
+waitForResponse :: HasCallStack => Natural -> [HydraNode] -> Text -> IO ()
+waitForResponse delay nodes expected = do
   forConcurrently_ nodes $ \HydraNode{hydraNodeId, connection} -> do
     -- The chain is slow...
-    result <- timeout 3_000_000 $ tryNext connection
+    result <- timeout (fromIntegral delay * 1_000_000) $ tryNext connection
     maybe (expectationFailure $ show $ WaitForResponseTimeout hydraNodeId expected) pure result
  where
   tryNext c = do

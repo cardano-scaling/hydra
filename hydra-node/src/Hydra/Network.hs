@@ -26,9 +26,10 @@ import Cardano.Binary (
   FromCBOR (..),
   ToCBOR (..),
  )
-import Cardano.Prelude
+import Cardano.Prelude hiding (STM)
 import Codec.Serialise
 import Control.Monad (fail)
+import Control.Monad.Class.MonadSTM (MonadSTM (STM))
 import Data.IP (IP)
 import qualified Data.List as List
 import Data.String (String)
@@ -39,9 +40,10 @@ import Network.TypedProtocol.Pipelined ()
 -- * Hydra network interface
 
 -- | Handle to interface with the hydra network and send messages "off chain".
-newtype HydraNetwork tx m = HydraNetwork
+data HydraNetwork tx m = HydraNetwork
   { -- | Send a 'HydraMessage' to the whole hydra network.
     broadcast :: HydraMessage tx -> m ()
+  , isNetworkReady :: STM m Bool
   }
 
 type NetworkCallback tx m = HydraMessage tx -> m ()
@@ -90,7 +92,7 @@ instance FromCBOR tx => FromCBOR (HydraMessage tx) where
 createSimulatedHydraNetwork ::
   Show tx => [Host] -> NetworkCallback tx IO -> IO (HydraNetwork tx IO)
 createSimulatedHydraNetwork _ callback =
-  pure HydraNetwork{broadcast = simulatedBroadcast}
+  pure HydraNetwork{broadcast = simulatedBroadcast, isNetworkReady = pure True}
  where
   simulatedBroadcast msg = do
     putText $ "[Network] should broadcast " <> show msg
