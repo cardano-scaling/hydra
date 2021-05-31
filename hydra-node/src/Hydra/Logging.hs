@@ -56,6 +56,7 @@ import Control.Tracer (
   nullTracer,
   traceWith,
  )
+import qualified Data.Map as Map
 import Hydra.Network (PortNumber)
 import qualified System.Metrics.Counter as Metrics
 import qualified System.Remote.Monitoring as Ekg
@@ -82,13 +83,19 @@ withTracer mEkgPort (Verbose name) transform between = do
     config <- defaultConfigStdout
     CM.setSetupBackends config [CM.KatipBK, CM.EKGViewBK]
     (tr, sb) <- setupTrace_ config name
-    beforeEkg mEkgPort sb
-    pure (makeTypedTracer sb transform tr, sb)
+    metricsMap <- beforeEkg mEkgPort sb >>= makeMetricsMap
+    pure (makeTypedTracer metricsMap transform tr, sb)
 
-  beforeEkg Nothing _ = pure ()
+  beforeEkg Nothing _ = pure Nothing
   beforeEkg (Just ekgPort) sb = do
     ekgServer <- Ekg.forkServer "127.0.0.1" (fromIntegral ekgPort)
     setSbEKGServer (Just ekgServer) sb
+    pure $ Just ekgServer
+
+  makeMetricsMap (Just ekgServer) = do
+    counter <- Ekg.getCounter "hydra.head.events" ekgServer
+    pure $ Map.fromList [("hydra.head.events", C "hydra.head.events" counter)]
+  makeMetricsMap _ = mempty
 
   after :: (Tracer IO (Log msg), Switchboard Text) -> IO ()
   after (_, sb) = getSbEKGServer sb >>= afterEkg >> shutdown sb
@@ -106,25 +113,33 @@ traceEvent tracer = traceWith (contramap Log tracer)
 traceCounter :: Tracer m (Log a) -> Text -> a -> m ()
 traceCounter tracer lbl a = traceWith tracer (Counter lbl a)
 
+data Metric = C Text Metrics.Counter
+
+instance Eq Metric where
+  (C t _) == (C t' _) = t == t'
+
+instance Ord Metric where
+  compare (C t _) (C t' _) = compare t t'
+
 -- | Tracer transformer which converts 'Trace m (LoggerName, LogObject Text)' to 'Tracer m a' by wrapping
 -- typed log messages into a 'LogObject'. NOTE: All log messages are of severity
 -- 'Debug'.
 makeTypedTracer ::
   MonadIO m =>
-  Switchboard t ->
+  Map.Map Text Metric ->
   (msg -> Text) ->
   Tracer m (LoggerName, LogObject Text) ->
   Tracer m (Log msg)
-makeTypedTracer sb asText tr = Tracer $ \case
+makeTypedTracer metricsMap asText tr = Tracer $ \case
   Log a -> doTrace a
-  Counter lbl a -> do
-    doTrace a
-    liftIO $
-      getSbEKGServer sb >>= \case
-        Nothing -> pure ()
-        Just server -> Ekg.getCounter lbl server >>= Metrics.inc
+  Counter lbl a -> doTrace a >> liftIO (incrementCounter lbl)
  where
   doTrace a = do
     traceWith tr . (mempty,) =<< LogObject mempty
       <$> mkLOMeta Debug Public
       <*> pure (LogMessage (asText a))
+
+  incrementCounter lbl =
+    case Map.lookup lbl metricsMap of
+      Nothing -> pure ()
+      Just (C _ c) -> Metrics.inc c

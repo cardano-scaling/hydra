@@ -61,4 +61,4 @@ spec = describe "End-to-end test using a mocked chain though" $ do
           withHydraNode 1 $ \n1 -> do
             sendRequest n1 "Init [1, 2, 3]"
 
-            getEventsCountMetric n1 `shouldReturn` Just 1
+            getEventsCountMetric n1 `shouldReturn` Just 2
