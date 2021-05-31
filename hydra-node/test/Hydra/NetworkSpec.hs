@@ -33,9 +33,10 @@ spec = describe "Networking layer" $ do
       received <- newEmptyMVar
       failAfter 2 $ do
         withOuroborosHydraNetwork (lo, 45678) [(lo, 45679)] (const $ pure ()) $ \hn1 ->
-          withOuroborosHydraNetwork (lo, 45679) [(lo, 45678)] (putMVar received) $ \_ -> do
+          withOuroborosHydraNetwork (lo, 45679) [] (putMVar received) $ \_ -> do
             broadcast hn1 requestTx
             takeMVar received `shouldReturn` requestTx
+
     it "broadcasts messages to 2 connected peer" $ do
       node2received <- newEmptyMVar
       node3received <- newEmptyMVar
@@ -43,8 +44,6 @@ spec = describe "Networking layer" $ do
         withOuroborosHydraNetwork (lo, 45678) [(lo, 45679), (lo, 45680)] (const $ pure ()) $ \hn1 ->
           withOuroborosHydraNetwork (lo, 45679) [] (putMVar node2received) $ \_ -> do
             withOuroborosHydraNetwork (lo, 45680) [] (putMVar node3received) $ \_ -> do
-              putText "Starting test"
-              threadDelay 1 -- This is needed to wait for all nodes to be up
               broadcast hn1 requestTx
               failAfter 1 $ takeMVar node2received `shouldReturn` requestTx
               failAfter 1 $ takeMVar node3received `shouldReturn` requestTx

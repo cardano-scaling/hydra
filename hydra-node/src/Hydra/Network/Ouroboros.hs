@@ -5,7 +5,18 @@ module Hydra.Network.Ouroboros (withOuroborosHydraNetwork, module Hydra.Network)
 
 import Cardano.Binary (FromCBOR, ToCBOR)
 import Cardano.Prelude
-import Control.Concurrent.STM (TChan, dupTChan, newBroadcastTChanIO, readTChan, writeTChan)
+import Control.Concurrent.STM (
+  TBQueue,
+  TChan,
+  dupTChan,
+  newBroadcastTChanIO,
+  newTBQueueIO,
+  newTChanIO,
+  readTBQueue,
+  readTChan,
+  writeTBQueue,
+  writeTChan,
+ )
 import Control.Tracer (
   contramap,
   debugTracer,
@@ -78,10 +89,16 @@ withOuroborosHydraNetwork ::
   (HydraNetwork tx IO -> IO ()) ->
   IO ()
 withOuroborosHydraNetwork localHost remoteHosts networkCallback between = do
+  sink <- newTChanIO
   bchan <- newBroadcastTChanIO
+  chanPool <- newTBQueueIO (fromIntegral $ length remoteHosts)
+  replicateM_ (length remoteHosts) $
+    atomically $ do
+      dup <- dupTChan bchan
+      writeTBQueue chanPool dup
   withIOManager $ \iomgr -> do
-    race_ (connect iomgr $ hydraApp bchan) $
-      race_ (listen iomgr $ hydraApp bchan) $ do
+    race_ (connect iomgr chanPool hydraApp) $
+      race_ (listen iomgr (hydraApp sink)) $ do
         between $ HydraNetwork{broadcast = atomically . writeTChan bchan}
  where
   resolveSockAddr (hostname, port) = do
@@ -90,7 +107,7 @@ withOuroborosHydraNetwork localHost remoteHosts networkCallback between = do
       (info : _) -> pure $ addrAddress info
       _ -> panic "getAdrrInfo failed.. do proper error handling"
 
-  connect iomgr app = do
+  connect iomgr chanPool app = do
     -- REVIEW(SN): move outside to have this information available?
     networkState <- newNetworkMutableState
     localAddr <- resolveSockAddr localHost
@@ -102,7 +119,7 @@ withOuroborosHydraNetwork localHost remoteHosts networkCallback between = do
       errorPolicyTracer
       networkState
       (subscriptionParams localAddr remoteAddrs)
-      (actualConnect iomgr app)
+      (actualConnect iomgr chanPool app)
 
   subscriptionParams localAddr remoteAddrs =
     SubscriptionParams
@@ -116,7 +133,8 @@ withOuroborosHydraNetwork localHost remoteHosts networkCallback between = do
 
   errorPolicyTracer = contramap show debugTracer
 
-  actualConnect iomgr app =
+  actualConnect iomgr chanPool app sn = do
+    chan <- atomically $ readTBQueue chanPool
     connectToNodeSocket
       iomgr
       unversionedHandshakeCodec
@@ -124,7 +142,8 @@ withOuroborosHydraNetwork localHost remoteHosts networkCallback between = do
       (cborTermVersionDataCodec unversionedProtocolDataCodec)
       debuggingNetworkConnectTracers
       acceptableVersion
-      (unversionedProtocol app)
+      (unversionedProtocol (app chan))
+      sn
 
   listen iomgr app = do
     networkState <- newNetworkMutableState
@@ -145,7 +164,9 @@ withOuroborosHydraNetwork localHost remoteHosts networkCallback between = do
       $ \_ serverAsync -> wait serverAsync -- block until async exception
 
   --
-  hydraApp :: TChan (HydraMessage tx) -> OuroborosApplication 'InitiatorResponderMode addr LBS.ByteString IO () ()
+  hydraApp ::
+    TChan (HydraMessage tx) ->
+    OuroborosApplication 'InitiatorResponderMode addr LBS.ByteString IO () ()
   hydraApp bchan = demoProtocol0 $ InitiatorAndResponderProtocol initiator responder
    where
     initiator =
@@ -183,13 +204,8 @@ withOuroborosHydraNetwork localHost remoteHosts networkCallback between = do
     FireForgetClient (HydraMessage tx) IO ()
   client bchan =
     Idle $ do
-      chan <- atomically $ dupTChan bchan
-      clientLoop chan
-
-  clientLoop :: TChan msg -> IO (FireForgetClient msg IO a)
-  clientLoop chan =
-    atomically (readTChan chan) <&> \msg ->
-      SendMsg msg (clientLoop chan)
+      atomically (readTChan bchan) <&> \msg ->
+        SendMsg msg (pure $ client bchan)
 
   server :: FireForgetServer (HydraMessage tx) IO ()
   server =
