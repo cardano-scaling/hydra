@@ -10,7 +10,6 @@ import Control.Concurrent.STM (
   dupTChan,
   newBroadcastTChanIO,
   newTBQueueIO,
-  newTChanIO,
   readTBQueue,
   readTChan,
   writeTBQueue,
@@ -54,10 +53,10 @@ import Ouroboros.Network.Mux (
   ),
   MiniProtocolLimits (..),
   MiniProtocolNum (MiniProtocolNum),
-  MuxMode (InitiatorResponderMode),
+  MuxMode (..),
   MuxPeer (MuxPeer),
   OuroborosApplication (..),
-  RunMiniProtocol (InitiatorAndResponderProtocol),
+  RunMiniProtocol (..),
  )
 import Ouroboros.Network.Protocol.Handshake.Codec (cborTermVersionDataCodec, noTimeLimitsHandshake)
 import Ouroboros.Network.Protocol.Handshake.Unversioned (unversionedHandshakeCodec, unversionedProtocol, unversionedProtocolDataCodec)
@@ -88,7 +87,6 @@ withOuroborosHydraNetwork ::
   (HydraNetwork tx IO -> IO ()) ->
   IO ()
 withOuroborosHydraNetwork localHost remoteHosts networkCallback between = do
-  sink <- newTChanIO
   bchan <- newBroadcastTChanIO
   chanPool <- newTBQueueIO (fromIntegral $ length remoteHosts)
   replicateM_ (length remoteHosts) $
@@ -96,8 +94,8 @@ withOuroborosHydraNetwork localHost remoteHosts networkCallback between = do
       dup <- dupTChan bchan
       writeTBQueue chanPool dup
   withIOManager $ \iomgr -> do
-    race_ (connect iomgr chanPool hydraApp) $
-      race_ (listen iomgr (hydraApp sink)) $ do
+    race_ (connect iomgr chanPool hydraClient) $
+      race_ (listen iomgr hydraServer) $ do
         between $ HydraNetwork{broadcast = atomically . writeTChan bchan}
  where
   resolveSockAddr (hostname, port) = do
@@ -109,7 +107,8 @@ withOuroborosHydraNetwork localHost remoteHosts networkCallback between = do
   connect iomgr chanPool app = do
     -- REVIEW(SN): move outside to have this information available?
     networkState <- newNetworkMutableState
-    localAddr <- resolveSockAddr localHost
+    -- Using port number 0 to let the operating system pick a random port
+    localAddr <- resolveSockAddr (second (const (0 :: Integer)) localHost)
     remoteAddrs <- forM remoteHosts resolveSockAddr
     let sn = socketSnocket iomgr
     Subscription.ipSubscriptionWorker
@@ -161,12 +160,17 @@ withOuroborosHydraNetwork localHost remoteHosts networkCallback between = do
       (unversionedProtocol (SomeResponderApplication app))
       nullErrorPolicies
       $ \_ serverAsync -> wait serverAsync -- block until async exception
-
-  --
-  hydraApp ::
+  hydraClient ::
     TChan (HydraMessage tx) ->
-    OuroborosApplication 'InitiatorResponderMode addr LBS.ByteString IO () ()
-  hydraApp bchan = demoProtocol0 $ InitiatorAndResponderProtocol initiator responder
+    OuroborosApplication 'InitiatorMode addr LBS.ByteString IO () Void
+  hydraClient bchan =
+    OuroborosApplication $ \_connectionId _controlMessageSTM ->
+      [ MiniProtocol
+          { miniProtocolNum = MiniProtocolNum 42
+          , miniProtocolLimits = maximumMiniProtocolLimits
+          , miniProtocolRun = InitiatorProtocolOnly initiator
+          }
+      ]
    where
     initiator =
       MuxPeer
@@ -174,23 +178,22 @@ withOuroborosHydraNetwork localHost remoteHosts networkCallback between = do
         codecFireForget
         (fireForgetClientPeer $ client bchan)
 
+  hydraServer ::
+    OuroborosApplication 'ResponderMode addr LBS.ByteString IO Void ()
+  hydraServer =
+    OuroborosApplication $ \_connectionId _controlMessageSTM ->
+      [ MiniProtocol
+          { miniProtocolNum = MiniProtocolNum 42
+          , miniProtocolLimits = maximumMiniProtocolLimits
+          , miniProtocolRun = ResponderProtocolOnly responder
+          }
+      ]
+   where
     responder =
       MuxPeer
         showStdoutTracer
         codecFireForget
         (fireForgetServerPeer server)
-
-    demoProtocol0 ::
-      RunMiniProtocol appType bytes m a b ->
-      OuroborosApplication appType addr bytes m a b
-    demoProtocol0 fireForget =
-      OuroborosApplication $ \_connectionId _controlMessageSTM ->
-        [ MiniProtocol
-            { miniProtocolNum = MiniProtocolNum 2
-            , miniProtocolLimits = maximumMiniProtocolLimits
-            , miniProtocolRun = fireForget
-            }
-        ]
 
   -- TODO: provide sensible limits
   -- https://github.com/input-output-hk/ouroboros-network/issues/575
