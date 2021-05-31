@@ -92,9 +92,8 @@ withTracer mEkgPort (Verbose name) transform between = do
     setSbEKGServer (Just ekgServer) sb
     pure $ Just ekgServer
 
-  makeMetricsMap (Just ekgServer) = do
-    counter <- Ekg.getCounter "hydra.head.events" ekgServer
-    pure $ Map.fromList [("hydra.head.events", C "hydra.head.events" counter)]
+  makeMetricsMap (Just ekgServer) =
+    Map.fromList . catMaybes <$> forM metrics (registerMetric ekgServer)
   makeMetricsMap _ = mempty
 
   after :: (Tracer IO (Log msg), Switchboard Text) -> IO ()
@@ -102,6 +101,18 @@ withTracer mEkgPort (Verbose name) transform between = do
 
   afterEkg Nothing = pure ()
   afterEkg (Just ekg) = killThread $ Ekg.serverThreadId ekg
+
+metrics :: [Log ()]
+metrics =
+  [ Counter "hydra.head.events" ()
+  , Counter "hydra.head.eventsError" ()
+  ]
+
+registerMetric :: Ekg.Server -> Log a -> IO (Maybe (Text, Metric))
+registerMetric server (Counter lbl _) = do
+  counter <- Ekg.getCounter lbl server
+  pure $ Just $ (lbl, C lbl counter)
+registerMetric _ _ = pure Nothing
 
 -- | Tag an arbitrary trace with a counter name
 data Log a = Log a | Counter Text a

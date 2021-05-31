@@ -82,8 +82,10 @@ runHydraNode tracer node@HydraNode{eq} =
     e <- nextEvent eq
     traceEvent tracer $ ProcessingEvent e
     processNextEvent node e >>= \case
-      Left err -> traceEvent tracer (ErrorHandlingEvent e err)
-      Right effs -> forM_ effs (processEffect node tracer) >> traceCounter tracer "hydra.head.events" (ProcessedEvent e)
+      Left err -> traceCounter tracer "hydra.head.eventsError" (ErrorHandlingEvent e err)
+      Right effs ->
+        forM_ effs (processEffect node tracer)
+          >> traceCounter tracer "hydra.head.events" (ProcessedEvent e)
 
 -- | Monadic interface around 'Hydra.Logic.update'.
 processNextEvent ::
