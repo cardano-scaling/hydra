@@ -4,15 +4,8 @@
 module Hydra.Network.Ouroboros (withOuroborosHydraNetwork, module Hydra.Network) where
 
 import Cardano.Binary (FromCBOR, ToCBOR)
-import Cardano.Prelude hiding (atomically)
-import Control.Monad.Class.MonadSTM (
-  MonadSTM,
-  TMVar,
-  atomically,
-  newEmptyTMVarIO,
-  putTMVar,
-  takeTMVar,
- )
+import Cardano.Prelude
+import Control.Concurrent.STM (TChan, dupTChan, newBroadcastTChanIO, readTChan, writeTChan)
 import Control.Tracer (
   contramap,
   debugTracer,
@@ -85,11 +78,11 @@ withOuroborosHydraNetwork ::
   (HydraNetwork tx IO -> IO ()) ->
   IO ()
 withOuroborosHydraNetwork localHost remoteHosts networkCallback between = do
-  mvar <- newEmptyTMVarIO
+  bchan <- newBroadcastTChanIO
   withIOManager $ \iomgr -> do
-    race_ (connect iomgr $ hydraApp mvar) $
-      race_ (listen iomgr $ hydraApp mvar) $ do
-        between $ HydraNetwork (atomically . putTMVar mvar)
+    race_ (connect iomgr $ hydraApp bchan) $
+      race_ (listen iomgr $ hydraApp bchan) $ do
+        between $ HydraNetwork{broadcast = atomically . writeTChan bchan}
  where
   resolveSockAddr (hostname, port) = do
     is <- getAddrInfo (Just defaultHints) (Just hostname) (Just $ show port)
@@ -152,14 +145,14 @@ withOuroborosHydraNetwork localHost remoteHosts networkCallback between = do
       $ \_ serverAsync -> wait serverAsync -- block until async exception
 
   --
-  hydraApp :: TMVar IO (HydraMessage tx) -> OuroborosApplication 'InitiatorResponderMode addr LBS.ByteString IO () ()
-  hydraApp var = demoProtocol0 $ InitiatorAndResponderProtocol initiator responder
+  hydraApp :: TChan (HydraMessage tx) -> OuroborosApplication 'InitiatorResponderMode addr LBS.ByteString IO () ()
+  hydraApp bchan = demoProtocol0 $ InitiatorAndResponderProtocol initiator responder
    where
     initiator =
       MuxPeer
         showStdoutTracer
         codecFireForget
-        (fireForgetClientPeer $ client var)
+        (fireForgetClientPeer $ client bchan)
 
     responder =
       MuxPeer
@@ -186,13 +179,17 @@ withOuroborosHydraNetwork localHost remoteHosts networkCallback between = do
     MiniProtocolLimits{maximumIngressQueue = maxBound}
 
   client ::
-    (MonadSTM m) =>
-    TMVar m (HydraMessage tx) ->
-    FireForgetClient (HydraMessage tx) m ()
-  client nextMsg =
-    Idle $
-      atomically (takeTMVar nextMsg) <&> \msg ->
-        SendMsg msg (pure $ client nextMsg)
+    TChan (HydraMessage tx) ->
+    FireForgetClient (HydraMessage tx) IO ()
+  client bchan =
+    Idle $ do
+      chan <- atomically $ dupTChan bchan
+      clientLoop chan
+
+  clientLoop :: TChan msg -> IO (FireForgetClient msg IO a)
+  clientLoop chan =
+    atomically (readTChan chan) <&> \msg ->
+      SendMsg msg (clientLoop chan)
 
   server :: FireForgetServer (HydraMessage tx) IO ()
   server =
