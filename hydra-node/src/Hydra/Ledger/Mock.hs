@@ -5,14 +5,28 @@
 -- | A mock implementation of a ledger
 module Hydra.Ledger.Mock where
 
-import Cardano.Prelude hiding (show)
+import Cardano.Binary (FromCBOR (..), ToCBOR (..), decodeTag, encodeTag)
+import Cardano.Prelude
 import Codec.Serialise
+import Control.Monad (fail)
 import Hydra.Ledger
 
 -- | Simple mock transaction, which conflates value and identity
 data MockTx = ValidTx TxId | InvalidTx
   deriving stock (Eq, Generic, Read, Show)
   deriving anyclass (Serialise)
+
+instance ToCBOR MockTx where
+  toCBOR (ValidTx txid) = encodeTag 1 <> toCBOR txid
+  toCBOR InvalidTx = encodeTag 2
+
+instance FromCBOR MockTx where
+  fromCBOR = do
+    tag <- decodeTag
+    case tag of
+      1 -> ValidTx <$> fromCBOR
+      2 -> pure InvalidTx
+      _ -> fail $ "Unknown tag " <> show tag
 
 type TxId = Integer
 

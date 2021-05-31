@@ -22,8 +22,15 @@ import Hydra.Ledger (
 
 data Event tx
   = ClientEvent (ClientRequest tx)
-  | NetworkEvent (HydraMessage tx)
+  | NetworkEvent (NetworkEvent tx)
   | OnChainEvent OnChainTx
+  deriving (Eq, Show)
+
+data NetworkEvent tx
+  = MessageReceived (HydraMessage tx)
+  | NetworkConnected
+  | -- What about disconnected? That's the interesting part...
+    NetworkDisconnected
   deriving (Eq, Show)
 
 data Effect tx
@@ -44,7 +51,8 @@ data ClientRequest tx
   deriving (Eq, Read, Show)
 
 data ClientResponse tx
-  = ReadyToCommit
+  = NetworkConnected
+  | ReadyToCommit
   | HeadIsOpen
   | HeadIsClosed
   | CommandFailed
