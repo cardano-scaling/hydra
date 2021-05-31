@@ -29,8 +29,6 @@ data Event tx
 data NetworkEvent tx
   = MessageReceived (HydraMessage tx)
   | NetworkConnected
-  | -- What about disconnected? That's the interesting part...
-    NetworkDisconnected
   deriving (Eq, Show)
 
 data Effect tx
@@ -51,7 +49,7 @@ data ClientRequest tx
   deriving (Eq, Read, Show)
 
 data ClientResponse tx
-  = NetworkConnected
+  = NodeConnectedToNetwork
   | ReadyToCommit
   | HeadIsOpen
   | HeadIsClosed
@@ -177,7 +175,7 @@ update Environment{party} ledger st ev = case (st, ev) of
     case canApply ledger confirmedLedger tx of
       Invalid _ -> NewState st [ClientEffect $ TxInvalid tx]
       Valid -> NewState st [NetworkEffect $ ReqTx tx]
-  (OpenState headState, NetworkEvent (ReqTx tx)) ->
+  (OpenState headState, NetworkEvent (MessageReceived (ReqTx tx))) ->
     case applyTransaction ledger (confirmedLedger headState) tx of
       Right newLedgerState ->
         NewState

@@ -21,11 +21,12 @@ import Hydra.Logging (Tracer, traceWith)
 import Hydra.Logic (
   ClientRequest (..),
   ClientResponse (..),
-  Effect (ClientEffect, NetworkEffect, OnChainEffect, Wait),
+  Effect (..),
   Environment (..),
-  Event (ClientEvent, NetworkEvent, OnChainEvent),
+  Event (..),
   HeadState (..),
   LogicError (..),
+  NetworkEvent (..),
   OnChainTx (..),
   Outcome (Error, NewState),
   confirmedLedger,
@@ -62,7 +63,7 @@ handleChainTx :: HydraNode tx m -> OnChainTx -> m ()
 handleChainTx HydraNode{eq} = putEvent eq . OnChainEvent
 
 handleMessage :: HydraNode tx m -> Logic.HydraMessage tx -> m ()
-handleMessage HydraNode{eq} = putEvent eq . NetworkEvent
+handleMessage HydraNode{eq} = putEvent eq . NetworkEvent . MessageReceived
 
 queryLedgerState :: MonadSTM m => HydraNode tx m -> STM m (Maybe (LedgerState tx))
 queryLedgerState HydraNode{hh} = getConfirmedLedger hh

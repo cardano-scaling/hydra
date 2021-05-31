@@ -27,6 +27,7 @@ spec = describe "End-to-end test using a mocked chain though" $ do
           withHydraNode 1 $ \n1 ->
             withHydraNode 2 $ \n2 ->
               withHydraNode 3 $ \n3 -> do
+                wait3sForResponse [n1, n2, n3] "NodeConnectedToNetwork"
                 sendRequest n1 "Init [1, 2, 3]"
                 wait3sForResponse [n1, n2, n3] "ReadyToCommit"
                 sendRequest n1 "Commit 10"
