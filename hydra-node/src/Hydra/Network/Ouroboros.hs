@@ -6,7 +6,6 @@ module Hydra.Network.Ouroboros (withOuroborosHydraNetwork, module Hydra.Network)
 import Cardano.Binary (FromCBOR, ToCBOR)
 import Cardano.Prelude
 import Control.Concurrent.STM (
-  TBQueue,
   TChan,
   dupTChan,
   newBroadcastTChanIO,
@@ -184,12 +183,12 @@ withOuroborosHydraNetwork localHost remoteHosts networkCallback between = do
     demoProtocol0 ::
       RunMiniProtocol appType bytes m a b ->
       OuroborosApplication appType addr bytes m a b
-    demoProtocol0 pingPong =
+    demoProtocol0 fireForget =
       OuroborosApplication $ \_connectionId _controlMessageSTM ->
         [ MiniProtocol
             { miniProtocolNum = MiniProtocolNum 2
             , miniProtocolLimits = maximumMiniProtocolLimits
-            , miniProtocolRun = pingPong
+            , miniProtocolRun = fireForget
             }
         ]
 
