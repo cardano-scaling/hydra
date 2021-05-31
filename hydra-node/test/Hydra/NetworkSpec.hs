@@ -11,10 +11,10 @@ import Codec.CBOR.Read (deserialiseFromBytes)
 import Codec.CBOR.Write (toLazyByteString)
 import Codec.Serialise (Serialise, deserialiseOrFail, serialise)
 import Control.Monad.Class.MonadTime (DiffTime)
-import Control.Monad.Class.MonadTimer (threadDelay, timeout)
+import Control.Monad.Class.MonadTimer (timeout)
 import Hydra.Logging (nullTracer)
 import Hydra.Logic (HydraMessage (..))
-import Hydra.Network.Ouroboros (broadcast, withOuroborosHydraNetwork)
+import Hydra.Network.Ouroboros (broadcast, isNetworkReady, withOuroborosHydraNetwork)
 import Hydra.Network.ZeroMQ (withZeroMQHydraNetwork)
 import Test.Hspec (Spec, describe, expectationFailure, it, shouldReturn)
 import Test.QuickCheck (Arbitrary (..), arbitrary, oneof, property)
@@ -66,7 +66,11 @@ spec = describe "Networking layer" $ do
         withZeroMQHydraNetwork (lo, 55677) [(lo, 55678), (lo, 55679)] nullTracer (putMVar node1received) $ \hn1 ->
           withZeroMQHydraNetwork (lo, 55678) [(lo, 55677), (lo, 55679)] nullTracer (putMVar node2received) $ \hn2 ->
             withZeroMQHydraNetwork (lo, 55679) [(lo, 55677), (lo, 55678)] nullTracer (putMVar node3received) $ \hn3 -> do
-              threadDelay 1 -- This is needed to wait for all nodes to be up
+              atomically $ do
+                isNetworkReady hn1 >>= check
+                isNetworkReady hn2 >>= check
+                isNetworkReady hn3 >>= check
+
               broadcast hn1 requestTx
               failAfter 1 $ takeMVar node2received `shouldReturn` requestTx
               failAfter 1 $ takeMVar node3received `shouldReturn` requestTx
@@ -100,5 +104,5 @@ prop_canRoundtripCBOREncoding a =
 failAfter :: HasCallStack => DiffTime -> IO () -> IO ()
 failAfter seconds action =
   timeout seconds action >>= \case
-    Nothing -> expectationFailure "Test timed out after 2 seconds"
+    Nothing -> expectationFailure $ "Test timed out after " <> show seconds <> " seconds"
     Just _ -> pure ()
