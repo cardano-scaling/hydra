@@ -1,6 +1,6 @@
-# A very simple shell.nix file for setting up necessary build tools. This is
-# likely going to be updated using the iohk-specific nixpkgs and a haskel.nix
-# derivation of our cabal.project.
+# A shell setup providing build tools and utilities for a development
+# environment. This is now based on haskell.nix and it's haskell-nix.project
+# (see 'default.nix').
 { compiler ? "ghc8104"
   # Latest haskell.nix for more likely cache hits
 , haskellNix ? import
@@ -16,15 +16,10 @@
     (builtins.fetchTarball
       "https://github.com/input-output-hk/cardano-node/archive/8fe46140a52810b6ca456be01d652ca08fe730bf.tar.gz")
     { gitrev = "8fe46140a52810b6ca456be01d652ca08fe730bf"; }
-}:
-let
-  hls = pkgs.haskell-nix.tool compiler "haskell-language-server" "latest";
-  ghc = pkgs.haskell-nix.compiler.${compiler};
-  cabal-install = pkgs.haskell-nix.tool compiler "cabal-install" "3.4.0.0";
-  fourmolu = pkgs.haskell-nix.tool compiler "fourmolu" "latest";
-  ghcid = pkgs.haskellPackages.ghcid;
-  hspec-discover = pkgs.haskellPackages.hspec-discover;
-  libsodium-vrf = pkgs.libsodium.overrideAttrs (oldAttrs: {
+
+, hsPkgs ? import ./default.nix { }
+
+, libsodium-vrf ? pkgs.libsodium.overrideAttrs (oldAttrs: {
     name = "libsodium-1.0.18-vrf";
     src = pkgs.fetchFromGitHub {
       owner = "input-output-hk";
@@ -35,50 +30,37 @@ let
     };
     nativeBuildInputs = [ pkgs.autoreconfHook ];
     configureFlags = "--enable-static";
-  });
-in
-pkgs.stdenv.mkDerivation rec {
-  name = "hydra-node-env";
-  phases = [ "noopPhase" ];
-  noopPhase = ''
-    echo "Nothing to build really"
-    echo "Shell for hydra-node" > $out
-  '';
-
-  tools = [
-    cabal-install
-    fourmolu
-    ghc
-    hls
-    ghcid
-    hspec-discover
-    # For discovering libs (below)
-    pkgs.pkgconfig
-    # Used in local-cluster
-    cardanoNodePkgs.cardano-node
-    cardanoNodePkgs.cardano-cli
-    # Handy to interact with the hydra-node via websockets
-    pkgs.ws
+  })
+}:
+hsPkgs.shellFor {
+  packages = ps: with ps; [
+    hydra-node
+    hydra-plutus
+    local-cluster
   ];
 
-  libs = [
+  # Haskell.nix managed tools (via hackage)
+  tools = {
+    cabal = "3.4.0.0";
+    fourmolu = "latest";
+    haskell-language-server = "latest";
+  };
+
+  # REVIEW(SN): Libs and pkgconfig still required with haskell.nix?
+  buildInputs = [
+    # Libraries
     libsodium-vrf
     pkgs.systemd
     pkgs.zlib
     pkgs.zeromq
+    # Tools
+    pkgs.pkgconfig
+    pkgs.haskellPackages.ghcid
+    pkgs.haskellPackages.hspec-discover
+    # Handy to interact with the hydra-node via websockets
+    pkgs.ws
+    # Used in local-cluster
+    cardanoNodePkgs.cardano-node
+    cardanoNodePkgs.cardano-cli
   ];
-
-  buildInputs = tools ++ libs;
-
-  # Ensure that libz.so and other libraries are available to TH splices.
-  LD_LIBRARY_PATH = pkgs.lib.makeLibraryPath libs;
-
-  # Force a UTF-8 locale because many Haskell programs and tests
-  # assume this.
-  LANG = "en_US.UTF-8";
-
-  # Make the shell suitable for the stack nix integration
-  # <nixpkgs/pkgs/development/haskell-modules/generic-stack-builder.nix>
-  GIT_SSL_CAINFO = "${pkgs.cacert}/etc/ssl/certs/ca-bundle.crt";
-  STACK_IN_NIX_SHELL = "true";
 }
