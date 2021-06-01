@@ -13,7 +13,6 @@ import Hydra.Logic (
   Environment (..),
   Event (..),
   HeadParameters (..),
-  NetworkEvent (..),
   SnapshotStrategy (..),
   createHeadState,
  )
