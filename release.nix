@@ -12,7 +12,9 @@ let
 in
 {
   # Keep this until we have a proper job
-  hello = pkgs.hello;
+  hello = pkgs.hello.overrideAttrs (oldAttrs: rec {
+    separateDebugInfo = true;
+  });
 
   # TODO(SN): Build shell derivation to cache it, but mkShell can't be built?
   # shell = ./shell.nix { };
