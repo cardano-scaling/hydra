@@ -84,6 +84,8 @@ library
     Hydra.Ledger.MaryTest
     Hydra.Ledger.Mock
     Hydra.Logging
+    Hydra.Logging.Messages
+    Hydra.Logging.Monitoring
     Hydra.Logic
     Hydra.MockZMQChain
     Hydra.Option
@@ -111,6 +113,7 @@ library
     , network-mux
     , optparse-applicative
     , ouroboros-network-framework
+    , prometheus
     , safe-exceptions
     , serialise
     , shelley-spec-ledger

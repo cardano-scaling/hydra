@@ -70,4 +70,4 @@ spec = describe "End-to-end test using a mocked chain though" $ do
                 waitForResponse 3 [n1] "ReadyToCommit"
 
                 metrics <- getMetrics n1
-                metrics `shouldSatisfy` ("hydra_head_events" `BS.isInfixOf`)
+                metrics `shouldSatisfy` ("hydra_head_events  3" `BS.isInfixOf`)
