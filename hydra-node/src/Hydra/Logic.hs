@@ -28,7 +28,7 @@ data Event tx
 
 data NetworkEvent tx
   = MessageReceived (HydraMessage tx)
-  | PeerConnected
+  | NetworkConnected
   deriving (Eq, Show)
 
 data Effect tx
@@ -182,11 +182,11 @@ update Environment{party} ledger st ev = case (st, ev) of
           (OpenState $ headState{confirmedLedger = newLedgerState})
           [ClientEffect $ TxReceived tx]
       Left{} -> panic "TODO: how is this case handled?"
+  (currentState, NetworkEvent NetworkConnected) ->
+    NewState currentState [ClientEffect NodeConnectedToNetwork]
   (OpenState _, OnChainEvent CloseTx) ->
     NewState ClosedState [ClientEffect HeadIsClosed]
   --
-  (currentState, NetworkEvent PeerConnected) ->
-    NewState currentState [ClientEffect NodeConnectedToNetwork]
   (currentState, ClientEvent{}) ->
     NewState currentState [ClientEffect CommandFailed]
   _ -> panic $ "UNHANDLED EVENT: on " <> show party <> " of event " <> show ev <> " in state " <> show st

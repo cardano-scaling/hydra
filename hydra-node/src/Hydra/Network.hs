@@ -29,7 +29,6 @@ import Cardano.Binary (
 import Cardano.Prelude hiding (STM)
 import Codec.Serialise
 import Control.Monad (fail)
-import Control.Monad.Class.MonadSTM (MonadSTM (STM))
 import Data.IP (IP)
 import qualified Data.List as List
 import Data.String (String)

@@ -13,7 +13,7 @@ import Codec.Serialise (Serialise, deserialiseOrFail, serialise)
 import Control.Monad.Class.MonadTime (DiffTime)
 import Control.Monad.Class.MonadTimer (timeout)
 import Hydra.Logging (nullTracer)
-import Hydra.Logic (HydraMessage (..), NetworkEvent (MessageReceived, PeerConnected))
+import Hydra.Logic (HydraMessage (..), NetworkEvent (MessageReceived, NetworkConnected))
 import Hydra.Network.Ouroboros (broadcast, withOuroborosHydraNetwork)
 import Hydra.Network.ZeroMQ (withZeroMQHydraNetwork)
 import Test.Hspec (Spec, describe, expectationFailure, it, pendingWith, shouldReturn)
@@ -34,7 +34,7 @@ spec = describe "Networking layer" $ do
       failAfter 2 $ do
         withOuroborosHydraNetwork (lo, 45678) [(lo, 45679)] (const $ pure ()) $ \hn1 ->
           withOuroborosHydraNetwork (lo, 45679) [(lo, 45678)] (putMVar received) $ \_ -> do
-            takeMVar received `shouldReturn` PeerConnected
+            takeMVar received `shouldReturn` NetworkConnected
             broadcast hn1 requestTx
             takeMVar received `shouldReturn` MessageReceived requestTx
 
@@ -46,12 +46,9 @@ spec = describe "Networking layer" $ do
         withOuroborosHydraNetwork (lo, 45678) [(lo, 45679), (lo, 45680)] (putMVar node1received) $ \hn1 ->
           withOuroborosHydraNetwork (lo, 45679) [(lo, 45678), (lo, 45680)] (putMVar node2received) $ \hn2 -> do
             withOuroborosHydraNetwork (lo, 45680) [(lo, 45678), (lo, 45679)] (putMVar node3received) $ \hn3 -> do
-              failAfter 1 $ takeMVar node1received `shouldReturn` PeerConnected
-              failAfter 1 $ takeMVar node1received `shouldReturn` PeerConnected
-              failAfter 1 $ takeMVar node2received `shouldReturn` PeerConnected
-              failAfter 1 $ takeMVar node2received `shouldReturn` PeerConnected
-              failAfter 1 $ takeMVar node3received `shouldReturn` PeerConnected
-              failAfter 1 $ takeMVar node3received `shouldReturn` PeerConnected
+              failAfter 1 $ takeMVar node1received `shouldReturn` NetworkConnected
+              failAfter 1 $ takeMVar node2received `shouldReturn` NetworkConnected
+              failAfter 1 $ takeMVar node3received `shouldReturn` NetworkConnected
 
               broadcast hn1 requestTx
               failAfter 1 $ takeMVar node2received `shouldReturn` MessageReceived requestTx
@@ -75,12 +72,9 @@ spec = describe "Networking layer" $ do
         withZeroMQHydraNetwork (lo, 55677) [(lo, 55678), (lo, 55679)] nullTracer (putMVar node1received) $ \hn1 ->
           withZeroMQHydraNetwork (lo, 55678) [(lo, 55677), (lo, 55679)] nullTracer (putMVar node2received) $ \hn2 ->
             withZeroMQHydraNetwork (lo, 55679) [(lo, 55677), (lo, 55678)] nullTracer (putMVar node3received) $ \hn3 -> do
-              failAfter 1 $ takeMVar node1received `shouldReturn` PeerConnected
-              failAfter 1 $ takeMVar node1received `shouldReturn` PeerConnected
-              failAfter 1 $ takeMVar node2received `shouldReturn` PeerConnected
-              failAfter 1 $ takeMVar node2received `shouldReturn` PeerConnected
-              failAfter 1 $ takeMVar node3received `shouldReturn` PeerConnected
-              failAfter 1 $ takeMVar node3received `shouldReturn` PeerConnected
+              failAfter 1 $ takeMVar node1received `shouldReturn` NetworkConnected
+              failAfter 1 $ takeMVar node2received `shouldReturn` NetworkConnected
+              failAfter 1 $ takeMVar node3received `shouldReturn` NetworkConnected
 
               broadcast hn1 requestTx
               failAfter 1 $ takeMVar node2received `shouldReturn` MessageReceived requestTx

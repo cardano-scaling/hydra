@@ -15,13 +15,14 @@ import Control.Concurrent.STM (
   writeTBQueue,
   writeTChan,
  )
+import qualified Control.Monad.Class.MonadSTM as IOSim
 import Control.Tracer (
   contramap,
   debugTracer,
   stdoutTracer,
  )
 import qualified Data.ByteString.Lazy as LBS
-import Hydra.Logic (HydraMessage (..), NetworkEvent (MessageReceived, PeerConnected))
+import Hydra.Logic (HydraMessage (..), NetworkEvent (MessageReceived, NetworkConnected))
 import Hydra.Network (
   Host,
   HydraNetwork (..),
@@ -87,6 +88,7 @@ withOuroborosHydraNetwork ::
   (HydraNetwork tx IO -> IO ()) ->
   IO ()
 withOuroborosHydraNetwork localHost remoteHosts networkCallback between = do
+  networkStatus <- IOSim.newTVarIO (length remoteHosts)
   bchan <- newBroadcastTChanIO
   chanPool <- newTBQueueIO (fromIntegral $ length remoteHosts)
   replicateM_ (length remoteHosts) $
@@ -94,7 +96,7 @@ withOuroborosHydraNetwork localHost remoteHosts networkCallback between = do
       dup <- dupTChan bchan
       writeTBQueue chanPool dup
   withIOManager $ \iomgr -> do
-    race_ (connect iomgr chanPool hydraClient) $
+    race_ (connect iomgr networkStatus chanPool hydraClient) $
       race_ (listen iomgr hydraServer) $ do
         between $
           HydraNetwork
@@ -107,7 +109,7 @@ withOuroborosHydraNetwork localHost remoteHosts networkCallback between = do
       (info : _) -> pure $ addrAddress info
       _ -> panic "getAdrrInfo failed.. do proper error handling"
 
-  connect iomgr chanPool app = do
+  connect iomgr networkStatus chanPool app = do
     -- REVIEW(SN): move outside to have this information available?
     networkState <- newNetworkMutableState
     -- Using port number 0 to let the operating system pick a random port
@@ -120,7 +122,7 @@ withOuroborosHydraNetwork localHost remoteHosts networkCallback between = do
       errorPolicyTracer
       networkState
       (subscriptionParams localAddr remoteAddrs)
-      (actualConnect iomgr chanPool app)
+      (actualConnect iomgr networkStatus chanPool app)
 
   subscriptionParams localAddr remoteAddrs =
     SubscriptionParams
@@ -134,9 +136,16 @@ withOuroborosHydraNetwork localHost remoteHosts networkCallback between = do
 
   errorPolicyTracer = contramap show debugTracer
 
-  actualConnect iomgr chanPool app sn = do
+  trackPeerConnected networkStatus = do
+    count <- IOSim.atomically $ do
+      IOSim.modifyTVar' networkStatus pred
+      IOSim.readTVar networkStatus
+
+    when (count == 0) $ networkCallback NetworkConnected
+
+  actualConnect iomgr networkStatus chanPool app sn = do
     chan <- atomically $ readTBQueue chanPool
-    networkCallback PeerConnected
+    trackPeerConnected networkStatus
     connectToNodeSocket
       iomgr
       unversionedHandshakeCodec

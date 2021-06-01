@@ -14,7 +14,7 @@ import Control.Concurrent.STM (
  )
 import Control.Exception.Safe (MonadThrow)
 import Control.Monad.Class.MonadAsync (async)
-import Control.Monad.Class.MonadSTM (MonadSTM (STM), atomically, check, newTVar, stateTVar)
+import Control.Monad.Class.MonadSTM (MonadSTM (STM), atomically, newTVar, stateTVar)
 import Control.Monad.Class.MonadTimer (threadDelay)
 import Hydra.Ledger
 import Hydra.Logging (Tracer, traceWith)
