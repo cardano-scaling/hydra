@@ -10,5 +10,5 @@
   hello = pkgs.hello;
 
   # TODO(SN): Build shell derivation to cache it, but mkShell can't be built?
-  shell = ./shell.nix { };
+  # shell = ./shell.nix { };
 }
