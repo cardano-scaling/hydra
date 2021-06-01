@@ -33,20 +33,19 @@ import Control.Monad.Class.MonadSTM (MonadSTM (STM))
 import Data.IP (IP)
 import qualified Data.List as List
 import Data.String (String)
-import Hydra.Logic (HydraMessage (..))
+import Hydra.Logic (HydraMessage (..), NetworkEvent (MessageReceived))
 import Network.Socket (HostName, PortNumber)
 import Network.TypedProtocol.Pipelined ()
 
 -- * Hydra network interface
 
 -- | Handle to interface with the hydra network and send messages "off chain".
-data HydraNetwork tx m = HydraNetwork
+newtype HydraNetwork tx m = HydraNetwork
   { -- | Send a 'HydraMessage' to the whole hydra network.
     broadcast :: HydraMessage tx -> m ()
-  , isNetworkReady :: STM m Bool
   }
 
-type NetworkCallback tx m = HydraMessage tx -> m ()
+type NetworkCallback tx m = NetworkEvent tx -> m ()
 
 -- * Types used by concrete implementations
 
@@ -92,7 +91,7 @@ instance FromCBOR tx => FromCBOR (HydraMessage tx) where
 createSimulatedHydraNetwork ::
   Show tx => [Host] -> NetworkCallback tx IO -> IO (HydraNetwork tx IO)
 createSimulatedHydraNetwork _ callback =
-  pure HydraNetwork{broadcast = simulatedBroadcast, isNetworkReady = pure True}
+  pure HydraNetwork{broadcast = simulatedBroadcast}
  where
   simulatedBroadcast msg = do
     putText $ "[Network] should broadcast " <> show msg
@@ -106,5 +105,5 @@ createSimulatedHydraNetwork _ callback =
     case ma of
       Just answer -> do
         putText $ "[Network] simulating answer " <> show answer
-        callback answer
+        callback (MessageReceived answer)
       Nothing -> pure ()

@@ -15,14 +15,13 @@ import Control.Concurrent.STM (
   writeTBQueue,
   writeTChan,
  )
-import qualified Control.Monad.Class.MonadSTM as IOSim
 import Control.Tracer (
   contramap,
   debugTracer,
   stdoutTracer,
  )
 import qualified Data.ByteString.Lazy as LBS
-import Hydra.Logic (HydraMessage (..))
+import Hydra.Logic (HydraMessage (..), NetworkEvent (MessageReceived, PeerConnected))
 import Hydra.Network (
   Host,
   HydraNetwork (..),
@@ -88,7 +87,6 @@ withOuroborosHydraNetwork ::
   (HydraNetwork tx IO -> IO ()) ->
   IO ()
 withOuroborosHydraNetwork localHost remoteHosts networkCallback between = do
-  networkStatus <- IOSim.newTVarIO (length remoteHosts)
   bchan <- newBroadcastTChanIO
   chanPool <- newTBQueueIO (fromIntegral $ length remoteHosts)
   replicateM_ (length remoteHosts) $
@@ -96,12 +94,11 @@ withOuroborosHydraNetwork localHost remoteHosts networkCallback between = do
       dup <- dupTChan bchan
       writeTBQueue chanPool dup
   withIOManager $ \iomgr -> do
-    race_ (connect iomgr networkStatus chanPool hydraClient) $
+    race_ (connect iomgr chanPool hydraClient) $
       race_ (listen iomgr hydraServer) $ do
         between $
           HydraNetwork
             { broadcast = atomically . writeTChan bchan
-            , isNetworkReady = (== 0) <$> IOSim.readTVar networkStatus
             }
  where
   resolveSockAddr (hostname, port) = do
@@ -110,7 +107,7 @@ withOuroborosHydraNetwork localHost remoteHosts networkCallback between = do
       (info : _) -> pure $ addrAddress info
       _ -> panic "getAdrrInfo failed.. do proper error handling"
 
-  connect iomgr networkStatus chanPool app = do
+  connect iomgr chanPool app = do
     -- REVIEW(SN): move outside to have this information available?
     networkState <- newNetworkMutableState
     -- Using port number 0 to let the operating system pick a random port
@@ -123,7 +120,7 @@ withOuroborosHydraNetwork localHost remoteHosts networkCallback between = do
       errorPolicyTracer
       networkState
       (subscriptionParams localAddr remoteAddrs)
-      (actualConnect iomgr networkStatus chanPool app)
+      (actualConnect iomgr chanPool app)
 
   subscriptionParams localAddr remoteAddrs =
     SubscriptionParams
@@ -137,9 +134,9 @@ withOuroborosHydraNetwork localHost remoteHosts networkCallback between = do
 
   errorPolicyTracer = contramap show debugTracer
 
-  actualConnect iomgr networkStatus chanPool app sn = do
+  actualConnect iomgr chanPool app sn = do
     chan <- atomically $ readTBQueue chanPool
-    IOSim.atomically $ IOSim.modifyTVar' networkStatus pred
+    networkCallback PeerConnected
     connectToNodeSocket
       iomgr
       unversionedHandshakeCodec
@@ -170,7 +167,7 @@ withOuroborosHydraNetwork localHost remoteHosts networkCallback between = do
   hydraClient ::
     TChan (HydraMessage tx) ->
     OuroborosApplication 'InitiatorMode addr LBS.ByteString IO () Void
-  hydraClient bchan =
+  hydraClient chan =
     OuroborosApplication $ \_connectionId _controlMessageSTM ->
       [ MiniProtocol
           { miniProtocolNum = MiniProtocolNum 42
@@ -183,7 +180,7 @@ withOuroborosHydraNetwork localHost remoteHosts networkCallback between = do
       MuxPeer
         showStdoutTracer
         codecFireForget
-        (fireForgetClientPeer $ client bchan)
+        (fireForgetClientPeer $ client chan)
 
   hydraServer ::
     OuroborosApplication 'ResponderMode addr LBS.ByteString IO Void ()
@@ -211,15 +208,15 @@ withOuroborosHydraNetwork localHost remoteHosts networkCallback between = do
   client ::
     TChan (HydraMessage tx) ->
     FireForgetClient (HydraMessage tx) IO ()
-  client bchan =
+  client chan =
     Idle $ do
-      atomically (readTChan bchan) <&> \msg ->
-        SendMsg msg (pure $ client bchan)
+      atomically (readTChan chan) <&> \msg ->
+        SendMsg msg (pure $ client chan)
 
   server :: FireForgetServer (HydraMessage tx) IO ()
   server =
     FireForgetServer
-      { recvMsg = \msg -> server <$ networkCallback msg
+      { recvMsg = \msg -> networkCallback (MessageReceived msg) $> server
       , recvMsgDone = pure ()
       }
 

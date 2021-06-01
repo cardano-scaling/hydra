@@ -49,7 +49,7 @@ main = do
     let headState = createHeadState [] HeadParameters SnapshotStrategy
     hh <- createHydraHead headState Ledger.mockLedger
     oc <- createMockChainClient eq (contramap MockChain tracer)
-    withOuroborosHydraNetwork (show host, port) peers (putEvent eq . NetworkEvent . MessageReceived) $ \hn -> do
+    withOuroborosHydraNetwork (show host, port) peers (putEvent eq . NetworkEvent) $ \hn -> do
       responseChannel <- newBroadcastTChanIO
       let sendResponse = atomically . writeTChan responseChannel
       let node = HydraNode{eq, hn, hh, oc, sendResponse, env}

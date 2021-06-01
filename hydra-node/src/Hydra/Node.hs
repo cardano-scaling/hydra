@@ -76,11 +76,9 @@ runHydraNode ::
   Tracer m (HydraNodeLog tx) ->
   HydraNode tx m ->
   m ()
-runHydraNode tracer node@HydraNode{eq, hn} = do
+runHydraNode tracer node@HydraNode{eq} = do
   -- NOTE(SN): here we could introduce concurrent head processing, e.g. with
   -- something like 'forM_ [0..1] $ async'
-  atomically (isNetworkReady hn >>= check)
-  putEvent eq (NetworkEvent NetworkConnected)
   forever $ do
     e <- nextEvent eq
     traceWith tracer $ ProcessingEvent e
