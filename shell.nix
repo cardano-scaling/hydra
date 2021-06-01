@@ -37,8 +37,13 @@ let
     configureFlags = "--enable-static";
   });
 in
-pkgs.mkShell rec {
+pkgs.stdenv.mkDerivation rec {
   name = "hydra-node-env";
+  phases = [ "noopPhase" ];
+  noopPhase = ''
+    echo "Nothing to build really"
+    echo "Shell for hydra-node" > $out
+  '';
 
   tools = [
     cabal-install
