@@ -2,10 +2,13 @@
 
 { ... }:
 let
-  sources = import ./nix/sources.nix { };
-  iohkNix = import sources.iohk-nix { };
-  nixpkgs = iohkNix.nixpkgs;
-  pkgs = import nixpkgs { };
+  iohkNix = import
+    (builtins.fetchTarball {
+      url = "https://github.com/input-output-hk/iohk-nix/archive/8b1d65ba294708b12d7b15103ac35431d9b60819.tar.gz";
+      sha256 = "1z23lw28s3wa5bf5yr89i61m413ad299lyhv02i9r36p28wjl94g";
+    })
+    { };
+  pkgs = import iohkNix.nixpkgs { };
 in
 {
   # Keep this until we have a proper job
