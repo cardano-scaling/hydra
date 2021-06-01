@@ -28,30 +28,29 @@ withMonitoring ::
   m ()
 withMonitoring Nothing tracer action = action tracer
 withMonitoring (Just monitoringPort) (Tracer tracer) action = do
-  (metricsMap, registry) <- prepareRegistry
+  (traceMetric, registry) <- prepareRegistry
   withAsync (serveMetrics (fromIntegral monitoringPort) ["metrics"] (sample registry)) $ \_ ->
     let wrappedTracer = Tracer $ \msg -> do
-          monitor metricsMap msg
+          traceMetric msg
           tracer msg
      in action wrappedTracer
 
-type MetricsMap = Map.Map Text Metric
+-- | Register all relevant metrics.
+-- Returns an updated `Registry` which is needed to `serveMetrics` or any other form of publication
+-- of metrics, whether push or pull, and a function for updating metrics given some trace event.
+prepareRegistry :: MonadIO m => m (HydraLog tx -> m (), Registry)
+prepareRegistry = first monitor <$> registerMetrics
+ where
+  monitor metricsMap (Node (ProcessedEvent _)) =
+    case Map.lookup "hydra_head_events" metricsMap of
+      (Just (CounterMetric c)) -> liftIO $ inc c
+      _ -> pure ()
+  monitor _ _ = pure ()
 
-monitor ::
-  MonadIO m =>
-  MetricsMap ->
-  HydraLog tx ->
-  m ()
-monitor metricsMap (Node (ProcessedEvent _)) =
-  case Map.lookup "hydra_head_events" metricsMap of
-    (Just (CounterMetric c)) -> liftIO $ inc c
-    _ -> pure ()
-monitor _ _ = pure ()
+  registerMetrics = foldM registerMetric (mempty, new) allMetrics
 
-prepareRegistry :: MonadIO m => m (MetricsMap, Registry)
-prepareRegistry = do
-  let registry = new
-      name = Name "hydra_head_events"
-  (counter, registry') <- liftIO $ registerCounter name mempty registry
-  let metricsMap = Map.insert "hydra_head_events" (CounterMetric counter) mempty
-  pure (metricsMap, registry')
+  allMetrics = [(Name "hydra_head_events", CounterMetric, flip registerCounter mempty)]
+
+  registerMetric (metricsMap, registry) (name, ctor, registration) = do
+    (metric, registry') <- liftIO $ registration name registry
+    pure (Map.insert name (ctor metric) metricsMap, registry')
