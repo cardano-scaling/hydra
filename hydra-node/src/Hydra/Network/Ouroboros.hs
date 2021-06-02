@@ -31,15 +31,15 @@ import Hydra.Network (
   createSimulatedHydraNetwork,
  )
 import Network.Socket (AddrInfo (addrAddress), defaultHints, getAddrInfo)
-import Network.TypedProtocol.FireForget.Client as FireForget (
+import Hydra.Network.Ouroboros.Client as FireForget (
   FireForgetClient (..),
   fireForgetClientPeer,
  )
-import Network.TypedProtocol.FireForget.Server as FireForget (
+import Hydra.Network.Ouroboros.Server as FireForget (
   FireForgetServer (..),
   fireForgetServerPeer,
  )
-import Network.TypedProtocol.FireForget.Type (
+import Hydra.Network.Ouroboros.Type (
   codecFireForget,
  )
 import Network.TypedProtocol.Pipelined ()

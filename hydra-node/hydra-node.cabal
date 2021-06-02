@@ -78,6 +78,9 @@ library
     Hydra.API.Server
     Hydra.Network
     Hydra.Network.Ouroboros
+    Hydra.Network.Ouroboros.Type
+    Hydra.Network.Ouroboros.Client
+    Hydra.Network.Ouroboros.Server
     Hydra.Network.ZeroMQ
     Hydra.Node
     Hydra.Ledger
@@ -89,9 +92,6 @@ library
     Hydra.Logic
     Hydra.MockZMQChain
     Hydra.Option
-    Network.TypedProtocol.FireForget.Type
-    Network.TypedProtocol.FireForget.Client
-    Network.TypedProtocol.FireForget.Server
   build-depends:
       base
     , async

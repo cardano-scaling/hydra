@@ -8,9 +8,9 @@ import Control.Monad.IOSim (IOSim, runSimOrThrow)
 import Control.Tracer (nullTracer)
 import Network.TypedProtocol.Channel (createConnectedChannels)
 import Network.TypedProtocol.Driver.Simple (runPeer)
-import Network.TypedProtocol.FireForget.Client (FireForgetClient (..), fireForgetClientPeer)
-import Network.TypedProtocol.FireForget.Server (FireForgetServer (..), fireForgetServerPeer)
-import Network.TypedProtocol.FireForget.Type (codecFireForget)
+import Hydra.Network.Ouroboros.Client (FireForgetClient (..), fireForgetClientPeer)
+import Hydra.Network.Ouroboros.Server (FireForgetServer (..), fireForgetServerPeer)
+import Hydra.Network.Ouroboros.Type (codecFireForget)
 import Test.Hspec
 
 spec :: Spec

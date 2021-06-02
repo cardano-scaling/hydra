@@ -2,7 +2,7 @@
 {-# LANGUAGE ExplicitForAll #-}
 {-# LANGUAGE PolyKinds #-}
 
-module Network.TypedProtocol.FireForget.Type where
+module Hydra.Network.Ouroboros.Type where
 
 import Cardano.Prelude
 

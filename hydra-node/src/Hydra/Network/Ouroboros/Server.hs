@@ -1,8 +1,8 @@
-module Network.TypedProtocol.FireForget.Server where
+module Hydra.Network.Ouroboros.Server where
 
 import Cardano.Prelude
 import Network.TypedProtocol (Peer (Await, Done, Effect), PeerHasAgency (ClientAgency), PeerRole (AsServer))
-import Network.TypedProtocol.FireForget.Type (ClientHasAgency (TokIdle), FireForget (StIdle), Message (MsgDone, MsgSend), NobodyHasAgency (TokDone))
+import Hydra.Network.Ouroboros.Type (ClientHasAgency (TokIdle), FireForget (StIdle), Message (MsgDone, MsgSend), NobodyHasAgency (TokDone))
 
 data FireForgetServer msg m a = FireForgetServer
   { -- | The client sent us a message.
