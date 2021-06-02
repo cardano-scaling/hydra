@@ -4,7 +4,7 @@
 import Cardano.Prelude hiding (Option, option)
 import Data.String (String)
 import Data.Text (unpack)
-import Hydra.MockZMQChain (
+import Hydra.Chain.ZeroMQ (
   catchUpTransactions,
   mockChainClient,
   runChainSync,

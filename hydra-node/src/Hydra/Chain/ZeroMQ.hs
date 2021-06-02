@@ -5,7 +5,7 @@
 --
 --This module provides both the "server-side" of the mock-chain and the "client-side" which
 --can be used by `HydraNode` to post and receive TX from the mainchain
-module Hydra.MockZMQChain where
+module Hydra.Chain.ZeroMQ where
 
 import Cardano.Prelude hiding (Option, async, option)
 import Control.Concurrent.Async (concurrently_)

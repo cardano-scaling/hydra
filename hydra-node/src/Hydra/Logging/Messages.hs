@@ -10,8 +10,8 @@ module Hydra.Logging.Messages where
 
 import Cardano.Prelude (Show)
 import Hydra.API.Server (APIServerLog)
+import Hydra.Chain.ZeroMQ (MockChainLog)
 import Hydra.Ledger (LedgerState)
-import Hydra.MockZMQChain (MockChainLog)
 import Hydra.Network.ZeroMQ (NetworkLog)
 import Hydra.Node (HydraNodeLog)
 

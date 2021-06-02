@@ -76,6 +76,7 @@ library
   hs-source-dirs: src
   exposed-modules:
     Hydra.API.Server
+    Hydra.Chain.ZeroMQ
     Hydra.Network
     Hydra.Network.Ouroboros
     Hydra.Network.Ouroboros.Type
@@ -90,7 +91,6 @@ library
     Hydra.Logging.Messages
     Hydra.Logging.Monitoring
     Hydra.Logic
-    Hydra.MockZMQChain
     Hydra.Option
   build-depends:
       base
@@ -160,7 +160,7 @@ test-suite tests
   other-modules:
     Hydra.FireForgetSpec
     Hydra.LedgerSpec
-    Hydra.MockZMQChainSpec
+    Hydra.Chain.ZeroMQSpec
     Hydra.NetworkSpec
     Hydra.NodeSpec
     Hydra.OptionSpec
