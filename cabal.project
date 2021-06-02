@@ -32,14 +32,6 @@ constraints:
 
 source-repository-package
   type: git
-  location: https://github.com/input-output-hk/cardano-node
-  tag: 62f38470098fc65e7de5a4b91e21e36ac30799f3
-  subdir:
-    cardano-api
-    cardano-config
-
-source-repository-package
-  type: git
   location: https://github.com/input-output-hk/cardano-base
   tag: 4251c0bb6e4f443f00231d28f5f70d42876da055
   --sha256: 02a61ymvx054pcdcgvg5qj9kpybiajg993nr22iqiya196jmgciv
@@ -133,16 +125,19 @@ source-repository-package
   type: git
   location: https://github.com/shmish111/purescript-bridge.git
   tag: 6a92d7853ea514be8b70bab5e72077bf5a510596
+  --sha256: 13j64vv116in3c204qsl1v0ajphac9fqvsjp7x3zzfr7n7g61drb
 
 source-repository-package
   type: git
   location: https://github.com/shmish111/servant-purescript.git
   tag: a76104490499aa72d40c2790d10e9383e0dbde63
+  --sha256: 11nxxmi5bw66va7psvrgrw7b7n85fvqgfp58yva99w3v9q3a50v9
 
 source-repository-package
   type: git
   location: https://github.com/input-output-hk/plutus
   tag: 80dc20243c347a74d5e2322a93a1d292acdab3f6
+  --sha256: 0lv65a4qfkqlzr0ri0bya1hak4bx4vwvqb1hzwjqkzda17yjniy9
   subdir:
     freer-extras
     playground-common

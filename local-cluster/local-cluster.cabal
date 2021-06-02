@@ -1,4 +1,4 @@
-cabal-version: 3.4
+cabal-version: 2.2
 
 name:               local-cluster
 version:            0.1.0
