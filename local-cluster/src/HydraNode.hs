@@ -22,6 +22,7 @@ import System.Process (
  )
 import System.Timeout (timeout)
 import Test.Hspec.Expectations (expectationFailure)
+import Prelude (error)
 
 data HydraNode = HydraNode
   { hydraNodeId :: Int
@@ -42,7 +43,7 @@ failAfter :: HasCallStack => Natural -> IO a -> IO a
 failAfter seconds action =
   timeout (fromIntegral seconds * 1_000_000) action >>= \case
     Just a -> pure a
-    Nothing -> expectationFailure ("Timed out after " <> show seconds <> " second(s)") >> panic "should never happen"
+    Nothing -> error $ "Timed out after " <> show seconds <> " second(s)"
 
 waitForResponse :: HasCallStack => Natural -> [HydraNode] -> Text -> IO ()
 waitForResponse delay nodes expected = do
@@ -60,7 +61,7 @@ waitForResponse delay nodes expected = do
       then pure ()
       else tryNext c
 
-getMetrics :: HydraNode -> IO ByteString
+getMetrics :: HasCallStack => HydraNode -> IO ByteString
 getMetrics HydraNode{hydraNodeId} = do
   response <-
     failAfter 3 $ queryNode hydraNodeId
