@@ -8,14 +8,28 @@
 module Hydra.Chain.ZeroMQ where
 
 import Cardano.Prelude hiding (Option, async, option)
-import Control.Concurrent.Async (concurrently_)
+import Control.Concurrent.Async (async, concurrently_)
 import Control.Concurrent.STM (TBQueue, TVar, modifyTVar', newTBQueue, newTVarIO, readTBQueue, readTVarIO, writeTBQueue)
 import Data.String
 import Data.Text (unpack)
 import qualified Data.Text.Encoding as Enc
 import Hydra.Logging (Tracer, traceWith)
-import Hydra.Logic (OnChainTx)
-import System.ZMQ4.Monadic
+import Hydra.Logic (Event (OnChainEvent), OnChainTx)
+import Hydra.Node (EventQueue (..), OnChain (..))
+import System.ZMQ4.Monadic (
+  Pub (..),
+  Rep (..),
+  Req (..),
+  Sub (..),
+  ZMQ,
+  bind,
+  connect,
+  receive,
+  runZMQ,
+  send,
+  socket,
+  subscribe,
+ )
 
 data MockChainLog
   = MockChainStarted {syncAddress :: String, catchupAddress :: String, postAddress :: String}
@@ -138,3 +152,18 @@ catchUpTransactions catchUpAddress handler tracer = runZMQ $ do
       traceWith tracer (CatchingUpTransactions catchUpAddress $ length txs)
       forM_ txs handler
     Nothing -> panic $ "cannot decode catch-up transactions  " <> show message
+
+createMockChainClient :: EventQueue IO (Event tx) -> Tracer IO MockChainLog -> IO (OnChain IO)
+createMockChainClient EventQueue{putEvent} tracer = do
+  -- TODO: Do a proper cleanup of threads and what not
+  -- BUG(SN): This should wait until we are connected to the chain, otherwise we
+  -- might think that the 'OnChain' is ready, but it in fact would not see any
+  -- txs from the chain. For now, we assume it takes 1 sec to connect.
+  catchUpTransactions "tcp://127.0.0.1:56790" onTx tracer
+  link =<< async (runChainSync "tcp://127.0.0.1:56789" onTx tracer)
+  threadDelay 1
+  pure OnChain{postTx = sendTx}
+ where
+  sendTx tx = mockChainClient "tcp://127.0.0.1:56791" tracer tx
+
+  onTx tx = putEvent $ OnChainEvent tx

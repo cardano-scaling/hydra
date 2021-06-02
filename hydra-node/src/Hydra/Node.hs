@@ -32,7 +32,6 @@ import Hydra.Logic (
   confirmedLedger,
  )
 import qualified Hydra.Logic as Logic
-import Hydra.Chain.ZeroMQ (MockChainLog, catchUpTransactions, mockChainClient, runChainSync)
 import Hydra.Network (HydraNetwork (..))
 
 -- ** Create and run a hydra node
@@ -172,21 +171,6 @@ newtype OnChain m = OnChain
     -- Does at least throw 'ChainError'.
     postTx :: MonadThrow m => OnChainTx -> m ()
   }
-
-createMockChainClient :: EventQueue IO (Event tx) -> Tracer IO MockChainLog -> IO (OnChain IO)
-createMockChainClient EventQueue{putEvent} tracer = do
-  -- TODO: Do a proper cleanup of threads and what not
-  -- BUG(SN): This should wait until we are connected to the chain, otherwise we
-  -- might think that the 'OnChain' is ready, but it in fact would not see any
-  -- txs from the chain. For now, we assume it takes 1 sec to connect.
-  catchUpTransactions "tcp://127.0.0.1:56790" onTx tracer
-  link =<< async (runChainSync "tcp://127.0.0.1:56789" onTx tracer)
-  threadDelay 1
-  pure OnChain{postTx = sendTx}
- where
-  sendTx tx = mockChainClient "tcp://127.0.0.1:56791" tracer tx
-
-  onTx tx = putEvent $ OnChainEvent tx
 
 -- | Connects to a cardano node and sets up things in order to be able to
 -- construct actual transactions using 'OnChainTx' and send them on 'postTx'.

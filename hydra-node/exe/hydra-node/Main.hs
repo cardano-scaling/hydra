@@ -6,6 +6,7 @@ import Cardano.Prelude hiding (Option, option)
 
 import Control.Concurrent.STM (newBroadcastTChanIO, writeTChan)
 import Hydra.API.Server (runAPIServer)
+import Hydra.Chain.ZeroMQ (createMockChainClient)
 import qualified Hydra.Ledger.Mock as Ledger
 import Hydra.Logging
 import Hydra.Logging.Messages (HydraLog (..))
@@ -23,7 +24,6 @@ import Hydra.Node (
   HydraNode (..),
   createEventQueue,
   createHydraHead,
-  createMockChainClient,
   runHydraNode,
  )
 import Hydra.Option (Option (..), parseHydraOptions)
