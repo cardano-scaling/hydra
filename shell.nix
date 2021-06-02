@@ -63,4 +63,7 @@ hsPkgs.shellFor {
     cardanoNodePkgs.cardano-node
     cardanoNodePkgs.cardano-cli
   ];
+
+  # Disable haddocks as it's currently failing for the 'plutus-ledger' package
+  withHoogle = false;
 }
