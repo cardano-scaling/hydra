@@ -1,5 +1,3 @@
-{-# OPTIONS_GHC -Wno-deferred-type-errors #-}
-
 -- | Ouroboros-based implementation of 'Hydra.Network' interface
 module Hydra.Network.Ouroboros (withOuroborosHydraNetwork, module Hydra.Network) where
 
@@ -28,9 +26,7 @@ import Hydra.Network (
   HydraNetwork (..),
   NetworkCallback,
   PortNumber,
-  createSimulatedHydraNetwork,
  )
-import Network.Socket (AddrInfo (addrAddress), defaultHints, getAddrInfo)
 import Hydra.Network.Ouroboros.Client as FireForget (
   FireForgetClient (..),
   fireForgetClientPeer,
@@ -42,6 +38,7 @@ import Hydra.Network.Ouroboros.Server as FireForget (
 import Hydra.Network.Ouroboros.Type (
   codecFireForget,
  )
+import Network.Socket (AddrInfo (addrAddress), defaultHints, getAddrInfo)
 import Network.TypedProtocol.Pipelined ()
 import Ouroboros.Network.ErrorPolicy (nullErrorPolicies)
 import Ouroboros.Network.IOManager (withIOManager)
