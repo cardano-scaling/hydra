@@ -2,11 +2,11 @@
 
 module Test.EndToEndSpec where
 
-import Cardano.Prelude (
-  ($),
- )
+import Cardano.Prelude
+import qualified Data.ByteString as BS
 import HydraNode (
   failAfter,
+  getMetrics,
   sendRequest,
   waitForResponse,
   withHydraNode,
@@ -16,6 +16,7 @@ import Test.Hspec (
   Spec,
   describe,
   it,
+  shouldSatisfy,
  )
 
 spec :: Spec
@@ -54,4 +55,19 @@ spec = describe "End-to-end test using a mocked chain though" $ do
                 waitForResponse 3 [n1, n2, n3] "HeadIsOpen"
                 -- NOTE(SN): Everything above this boilerplate
                 sendRequest n1 "NewTx InvalidTx"
+
                 waitForResponse 3 [n1] "TxInvalid InvalidTx"
+
+  describe "Monitoring" $ do
+    it "Node exposes Prometheus metrics on port 6001" $ do
+      failAfter 20 $
+        withMockChain $
+          withHydraNode 1 $ \n1 -> do
+            withHydraNode 2 $ \_ ->
+              withHydraNode 3 $ \_ -> do
+                waitForResponse 10 [n1] "NodeConnectedToNetwork"
+                sendRequest n1 "Init [1, 2, 3]"
+                waitForResponse 3 [n1] "ReadyToCommit"
+
+                metrics <- getMetrics n1
+                metrics `shouldSatisfy` ("hydra_head_events  3" `BS.isInfixOf`)

@@ -13,8 +13,8 @@ import Control.Concurrent.STM (TBQueue, TVar, modifyTVar', newTBQueue, newTVarIO
 import Data.String
 import Data.Text (unpack)
 import qualified Data.Text.Encoding as Enc
-import Hydra.Logic (OnChainTx)
 import Hydra.Logging (Tracer, traceWith)
+import Hydra.Logic (OnChainTx)
 import System.ZMQ4.Monadic
 
 data MockChainLog

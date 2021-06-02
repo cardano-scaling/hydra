@@ -11,29 +11,12 @@ module Hydra.Logging (
   contramap,
   traceWith,
   traceInTVarIO,
+  LoggerName,
 
   -- * Using it
   Verbosity (..),
-  LoggerName,
   withTracer,
 ) where
-
-import Cardano.Prelude (
-  Applicative (pure, (<*>)),
-  Category ((.)),
-  Eq,
-  IO,
-  MonadIO (..),
-  Monoid (mempty),
-  Show,
-  Text,
-  bracket,
-  fst,
-  snd,
-  ($),
-  (<$>),
-  (=<<),
- )
 
 import Cardano.BM.Backend.Switchboard (
   Switchboard,
@@ -56,6 +39,7 @@ import Cardano.BM.Setup (
   shutdown,
  )
 import Cardano.BM.Trace (traceInTVarIO)
+import Cardano.Prelude
 import Control.Tracer (
   Tracer (..),
   contramap,

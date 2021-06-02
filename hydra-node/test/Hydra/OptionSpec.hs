@@ -41,5 +41,11 @@ spec = describe "Hydra Node Options" $ do
     parseOptions ["--peer", "foo.com@456789"]
       `shouldBe` Nothing
 
+  it "parses --monitoring-port option given valid port number" $ do
+    parseOptions []
+      `shouldBe` Just defaultOption{monitoringPort = Nothing}
+    parseOptions ["--monitoring-port", "12345"]
+      `shouldBe` Just defaultOption{monitoringPort = Just 12345}
+
 parseOptions :: [String] -> Maybe Hydra.Option.Option
 parseOptions = getParseResult . parseHydraOptionsFromString

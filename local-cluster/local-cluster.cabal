@@ -83,6 +83,7 @@ library
     , directory
     , filepath
     , hspec-expectations
+    , http-conduit
     , iohk-monitoring
     , network
     , process
@@ -119,6 +120,7 @@ test-suite integration
     Test.LocalClusterSpec
   build-depends:
       base >=4.7 && <5
+    , bytestring
     , cardano-prelude
     , hspec
     , hspec-core

@@ -1,5 +1,6 @@
 {-# LANGUAGE NumericUnderscores #-}
 {-# LANGUAGE TypeApplications #-}
+{-# OPTIONS_GHC -Wno-incomplete-uni-patterns #-}
 
 module HydraNode where
 
@@ -9,6 +10,8 @@ import Control.Concurrent.Async (
  )
 import qualified Data.ByteString.Lazy as BSL
 import qualified Data.Text.Encoding as Text
+import Network.HTTP.Conduit (HttpExceptionContent (ConnectionFailure), parseRequest)
+import Network.HTTP.Simple (HttpException (HttpExceptionRequest), Response, getResponseBody, getResponseStatusCode, httpBS)
 import Network.WebSockets (Connection, DataMessage (Binary, Text), receiveDataMessage, runClient, sendClose, sendTextData)
 import System.Process (
   CreateProcess (..),
@@ -19,6 +22,7 @@ import System.Process (
  )
 import System.Timeout (timeout)
 import Test.Hspec.Expectations (expectationFailure)
+import Prelude (error)
 
 data HydraNode = HydraNode
   { hydraNodeId :: Int
@@ -35,11 +39,11 @@ data WaitForResponseTimeout = WaitForResponseTimeout {nodeId :: Int, expectedRes
 
 instance Exception WaitForResponseTimeout
 
-failAfter :: HasCallStack => Natural -> IO () -> IO ()
+failAfter :: HasCallStack => Natural -> IO a -> IO a
 failAfter seconds action =
   timeout (fromIntegral seconds * 1_000_000) action >>= \case
-    Just _ -> pure ()
-    Nothing -> expectationFailure $ "Timed out after " <> show seconds <> " second(s)"
+    Just a -> pure a
+    Nothing -> error $ "Timed out after " <> show seconds <> " second(s)"
 
 waitForResponse :: HasCallStack => Natural -> [HydraNode] -> Text -> IO ()
 waitForResponse delay nodes expected = do
@@ -56,6 +60,21 @@ waitForResponse delay nodes expected = do
     if msg == expected
       then pure ()
       else tryNext c
+
+getMetrics :: HasCallStack => HydraNode -> IO ByteString
+getMetrics HydraNode{hydraNodeId} = do
+  response <-
+    failAfter 3 $ queryNode hydraNodeId
+  when (getResponseStatusCode response /= 200) $ expectationFailure ("Request for Hydra-node metrics failed :" <> show (getResponseBody response))
+  pure $ getResponseBody response
+
+queryNode :: Int -> IO (Response ByteString)
+queryNode nodeId =
+  parseRequest ("http://127.0.0.1:" <> show (6000 + nodeId) <> "/metrics") >>= loop
+ where
+  loop req =
+    httpBS req
+      `catch` (\(HttpExceptionRequest _ (ConnectionFailure _)) -> threadDelay 100_000 >> loop req)
 
 withHydraNode :: Int -> (HydraNode -> IO ()) -> IO ()
 withHydraNode hydraNodeId action = do
@@ -87,6 +106,8 @@ hydraNodeProcess nodeId =
       , "127.0.0.1"
       , "--api-port"
       , show (4000 + nodeId)
+      , "--monitoring-port"
+      , show (6000 + nodeId)
       ]
       <> concat [["--peer", "127.0.0.1@" <> show (5000 + id)] | id <- [1 .. 3], id /= nodeId]
 
