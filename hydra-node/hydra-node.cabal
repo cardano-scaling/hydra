@@ -158,9 +158,10 @@ test-suite tests
   import: project-config
   hs-source-dirs: test
   other-modules:
-    Hydra.FireForgetSpec
-    Hydra.LedgerSpec
     Hydra.Chain.ZeroMQSpec
+    Hydra.FireForgetSpec
+    Hydra.IntegrationSpec
+    Hydra.LedgerSpec
     Hydra.NetworkSpec
     Hydra.NodeSpec
     Hydra.OptionSpec
@@ -181,28 +182,6 @@ test-suite tests
     , QuickCheck
     , serialise
     , typed-protocols-examples
-  build-tool-depends:
-    hspec-discover:hspec-discover
-  ghc-options:
-    -threaded
-    -rtsopts
-
-test-suite integration
-  import: project-config
-  hs-source-dirs: integration
-  other-modules:
-    IntegrationSpec
-  main-is: Main.hs
-  type: exitcode-stdio-1.0
-  build-depends:
-      base
-    , cardano-prelude
-    , hspec
-    , hspec-core
-    , hydra-node
-    , iohk-monitoring
-    , io-sim-classes
-    , stm
   build-tool-depends:
     hspec-discover:hspec-discover
   ghc-options:

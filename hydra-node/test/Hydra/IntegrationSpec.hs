@@ -1,10 +1,9 @@
 {-# LANGUAGE TypeApplications #-}
 
-module IntegrationSpec where
+module Hydra.IntegrationSpec where
 
 import Cardano.Prelude hiding (atomically, check)
-import Control.Concurrent.STM (TVar, modifyTVar, newTVarIO, readTVarIO)
-import Control.Monad.Class.MonadSTM (atomically, check)
+import Control.Monad.Class.MonadSTM (TVar, atomically, check, modifyTVar, newTVarIO, readTVar)
 import Data.IORef (modifyIORef', newIORef, readIORef)
 import Hydra.Ledger (Ledger (..), LedgerState, ValidationError (..), ValidationResult (Invalid, Valid))
 import Hydra.Logging (traceInTVarIO)
@@ -145,7 +144,7 @@ spec = describe "Integrating one ore more hydra-nodes" $ do
       sendRequestAndWaitFor n1 (Init [1]) ReadyToCommit
       sendRequest n1 (Commit 1)
 
-      traces <- readTVarIO (capturedLogs n1)
+      traces <- atomically $ readTVar (capturedLogs n1)
 
       traces `shouldContain` [ProcessingEvent (ClientEvent $ Init [1])]
       traces `shouldContain` [ProcessedEvent (ClientEvent $ Init [1])]
@@ -157,7 +156,7 @@ spec = describe "Integrating one ore more hydra-nodes" $ do
       sendRequestAndWaitFor n1 (Init [1]) ReadyToCommit
       sendRequest n1 (Commit 1)
 
-      traces <- readTVarIO (capturedLogs n1)
+      traces <- atomically $ readTVar (capturedLogs n1)
 
       traces `shouldContain` [ProcessingEffect (ClientEffect ReadyToCommit)]
       traces `shouldContain` [ProcessedEffect (ClientEffect ReadyToCommit)]
@@ -176,7 +175,7 @@ data HydraProcess m tx = HydraProcess
   , wait1sForResponse :: m (Maybe (ClientResponse MockTx))
   , waitForLedgerState :: Maybe (LedgerState tx) -> m ()
   , queryNodeState :: m NodeState
-  , capturedLogs :: TVar [HydraNodeLog tx]
+  , capturedLogs :: TVar m [HydraNodeLog tx]
   }
 
 data Connections = Connections {chain :: OnChain IO, network :: HydraNetwork MockTx IO}
@@ -200,9 +199,9 @@ simulatedChainAndNetwork = do
     h <- readIORef refHistory
     unless (tx `elem` h) $ do
       modifyIORef' refHistory (tx :)
-      readTVarIO nodes >>= mapM_ (`handleChainTx` tx)
+      atomically (readTVar nodes) >>= mapM_ (`handleChainTx` tx)
 
-  broadcast nodes msg = readTVarIO nodes >>= mapM_ (`handleMessage` msg)
+  broadcast nodes msg = atomically (readTVar nodes) >>= mapM_ (`handleMessage` msg)
 
 startHydraNode ::
   Natural ->
