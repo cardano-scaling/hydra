@@ -13,9 +13,7 @@ import Control.Concurrent.STM (
   writeTQueue,
  )
 import Control.Exception.Safe (MonadThrow)
-import Control.Monad.Class.MonadAsync (async)
 import Control.Monad.Class.MonadSTM (MonadSTM (STM), atomically, newTVar, stateTVar)
-import Control.Monad.Class.MonadTimer (threadDelay)
 import Hydra.Ledger
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Logic (
@@ -171,16 +169,3 @@ newtype OnChain m = OnChain
     -- Does at least throw 'ChainError'.
     postTx :: MonadThrow m => OnChainTx -> m ()
   }
-
--- | Connects to a cardano node and sets up things in order to be able to
--- construct actual transactions using 'OnChainTx' and send them on 'postTx'.
-createDummyChainClient :: EventQueue IO (Event tx) -> IO (OnChain IO)
-createDummyChainClient EventQueue{putEvent} =
-  pure OnChain{postTx = simulatedPostTx}
- where
-  simulatedPostTx tx = do
-    putText $ "[OnChain] should post tx for " <> show tx
-    void . async $ do
-      threadDelay 1
-      putText $ "[OnChain] simulating response " <> show tx
-      putEvent $ OnChainEvent tx
