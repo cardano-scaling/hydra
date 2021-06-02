@@ -1,10 +1,14 @@
 # Hydra release jobset
 
-{ pkgs ? import <nixpkgs> { } }:
+{ ... }:
+let
+  hsPkgs = import ./default.nix { };
+in
 {
-  # Keep this until we have a proper job
-  hello = pkgs.hello;
+  # Build shell derivation to cache it
+  shell = import ./shell.nix { };
 
-  # TODO(SN): Build shell derivation to cache it, but mkShell can't be built?
-  shell = ./shell.nix { };
+  # Build executables only (for now)
+  hydra-node = hsPkgs.hydra-node.components.exes.hydra-node;
+  mock-chain = hsPkgs.hydra-node.components.exes.mock-chain;
 }
