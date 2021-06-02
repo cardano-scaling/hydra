@@ -14,9 +14,6 @@ module Hydra.Network (
   NetworkCallback,
   IP,
 
-  -- * Simulated Network
-  createSimulatedHydraNetwork,
-
   -- * Parser
   readHost,
   readPort,
@@ -32,7 +29,7 @@ import Control.Monad (fail)
 import Data.IP (IP)
 import qualified Data.List as List
 import Data.String (String)
-import Hydra.Logic (HydraMessage (..), NetworkEvent (MessageReceived))
+import Hydra.Logic (HydraMessage (..), NetworkEvent (..))
 import Network.Socket (HostName, PortNumber)
 import Network.TypedProtocol.Pipelined ()
 
@@ -85,24 +82,3 @@ instance FromCBOR tx => FromCBOR (HydraMessage tx) where
       "AckSn" -> pure AckSn
       "ConfSn" -> pure ConfSn
       msg -> fail $ show msg <> " is not a proper CBOR-encoded HydraMessage"
-
--- | A dummy implemenation for stubbing purpose
-createSimulatedHydraNetwork ::
-  Show tx => [Host] -> NetworkCallback tx IO -> IO (HydraNetwork tx IO)
-createSimulatedHydraNetwork _ callback =
-  pure HydraNetwork{broadcast = simulatedBroadcast}
- where
-  simulatedBroadcast msg = do
-    putText $ "[Network] should broadcast " <> show msg
-    let ma = case msg of
-          ReqTx _ -> Just AckTx
-          AckTx -> Just ConfTx
-          ConfTx -> Nothing
-          ReqSn -> Just AckSn
-          AckSn -> Just ConfSn
-          ConfSn -> Nothing
-    case ma of
-      Just answer -> do
-        putText $ "[Network] simulating answer " <> show answer
-        callback (MessageReceived answer)
-      Nothing -> pure ()
