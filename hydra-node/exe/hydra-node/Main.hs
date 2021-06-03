@@ -26,11 +26,18 @@ import Hydra.Node (
   createHydraHead,
   runHydraNode,
  )
+import Hydra.Node.Version (gitRevision, showFullVersion, version)
 import Hydra.Option (Option (..), parseHydraOptions)
 
 main :: IO ()
-main = do
-  Option{nodeId, verbosity, host, port, peers, apiHost, apiPort, monitoringPort} <- identifyNode <$> parseHydraOptions
+main =
+  identifyNode <$> parseHydraOptions >>= \case
+    option
+      | displayVersion option == True -> putStr (showFullVersion version gitRevision)
+      | otherwise -> startHydraNode option
+
+startHydraNode :: Option -> IO ()
+startHydraNode Option{nodeId, verbosity, host, port, peers, apiHost, apiPort, monitoringPort} =
   withTracer verbosity show $ \tracer' ->
     withMonitoring monitoringPort tracer' $ \tracer -> do
       let env = Environment nodeId

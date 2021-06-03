@@ -84,6 +84,8 @@ library
     Hydra.Network.Ouroboros.Server
     Hydra.Network.ZeroMQ
     Hydra.Node
+    Hydra.Node.Version
+    Hydra.Node.Version.TH
     Hydra.Ledger
     Hydra.Ledger.MaryTest
     Hydra.Ledger.Mock
@@ -92,6 +94,8 @@ library
     Hydra.Logging.Monitoring
     Hydra.Logic
     Hydra.Option
+  other-modules:
+    Paths_hydra_node
   build-depends:
       base
     , async
@@ -106,6 +110,7 @@ library
     , containers
     , contra-tracer
     , data-default
+    , file-embed
     , io-sim-classes
     , iohk-monitoring
     , iproute
@@ -113,12 +118,14 @@ library
     , network-mux
     , optparse-applicative
     , ouroboros-network-framework
+    , process
     , prometheus
     , safe-exceptions
     , serialise
     , shelley-spec-ledger
     , shelley-spec-ledger-test
     , stm
+    , template-haskell
     , text
     , typed-protocols
     , typed-protocols-examples

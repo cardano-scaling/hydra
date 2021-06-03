@@ -1,14 +1,19 @@
 {-# LANGUAGE TypeApplications #-}
+{-# OPTIONS_GHC -Wno-incomplete-uni-patterns #-}
 
 module Test.EndToEndSpec where
 
 import Cardano.Prelude
 import qualified Data.ByteString as BS
 import HydraNode (
+  StdStream (CreatePipe),
   failAfter,
   getMetrics,
+  hydraNodeProcess,
   sendRequest,
+  std_out,
   waitForResponse,
+  withCreateProcess,
   withHydraNode,
   withMockChain,
  )
@@ -18,6 +23,8 @@ import Test.Hspec (
   it,
   shouldSatisfy,
  )
+import Text.Regex.TDFA
+import Text.Regex.TDFA.Text ()
 
 spec :: Spec
 spec = describe "End-to-end test using a mocked chain though" $ do
@@ -75,3 +82,10 @@ spec = describe "End-to-end test using a mocked chain though" $ do
 
                 metrics <- getMetrics n1
                 metrics `shouldSatisfy` ("hydra_head_events  3" `BS.isInfixOf`)
+
+  describe "hydra-node executable" $ do
+    it "display proper semantic version given it is passed --version argument" $ do
+      failAfter 5 $
+        withCreateProcess ((hydraNodeProcess ["--version"]){std_out = CreatePipe}) $ \_ (Just out) _ _ -> do
+          version <- fmap decodeUtf8 (BS.hGetContents out)
+          version `shouldSatisfy` (=~ ("[0-9]+\\.[0-9]+\\.[0-9]+(-[a-zA-Z0-9]+)?" :: Text))
