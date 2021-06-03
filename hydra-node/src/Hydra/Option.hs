@@ -32,6 +32,7 @@ import Options.Applicative (
   option,
   progDesc,
   short,
+  switch,
   value,
  )
 
@@ -44,11 +45,12 @@ data Option = Option
   , apiHost :: IP
   , apiPort :: PortNumber
   , monitoringPort :: Maybe PortNumber
+  , displayVersion :: Bool
   }
   deriving (Eq, Show)
 
 defaultOption :: Option
-defaultOption = Option (Verbose "HydraNode") 1 "127.0.0.1" 5001 [] "127.0.0.1" 4001 Nothing
+defaultOption = Option (Verbose "HydraNode") 1 "127.0.0.1" 5001 [] "127.0.0.1" 4001 Nothing False
 
 hydraNodeParser :: Parser Option
 hydraNodeParser =
@@ -61,6 +63,7 @@ hydraNodeParser =
     <*> apiHostParser
     <*> apiPortParser
     <*> optional monitoringPortParser
+    <*> displayVersionParser
 
 peerParser :: Parser Host
 peerParser =
@@ -141,6 +144,13 @@ monitoringPortParser =
     ( long "monitoring-port"
         <> metavar "PORT"
         <> help "The port this node listens on for monitoring and metrics. If left empty, monitoring server is not started"
+    )
+
+displayVersionParser :: Parser Bool
+displayVersionParser =
+  switch
+    ( long "version"
+        <> help "Show version number and exit"
     )
 
 hydraNodeOptions :: ParserInfo Option
