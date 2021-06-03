@@ -22,7 +22,7 @@ import Test.Hspec (
 spec :: Spec
 spec = describe "End-to-end test using a mocked chain though" $ do
   describe "three hydra nodes scenario" $ do
-    it "inits a head and accepts a valid tx" $ do
+    it "inits and closes a head without actual transactions" $ do
       failAfter 30 $
         withMockChain $
           withHydraNode 1 $ \n1 ->
@@ -34,12 +34,9 @@ spec = describe "End-to-end test using a mocked chain though" $ do
                 sendRequest n1 "Commit 10"
                 sendRequest n2 "Commit 20"
                 sendRequest n3 "Commit 5"
-                waitForResponse 3 [n1, n2, n3] "HeadIsOpen"
-                sendRequest n1 "NewTx (ValidTx 1)"
-                waitForResponse 3 [n2] "ReqTxReceived (ValidTx 1)"
+                waitForResponse 3 [n1, n2, n3] "HeadIsOpen []"
                 -- NOTE(SN): Here any number of head interactions would take
-                -- place. For now we do only have this requested, but not
-                -- confirmed transaction.
+                -- place. For now we do nothing.
                 sendRequest n1 "Close"
                 waitForResponse 3 [n1] "HeadIsClosing 3600"
                 waitForResponse 3 [n1] "NotContested 2"
@@ -60,7 +57,7 @@ spec = describe "End-to-end test using a mocked chain though" $ do
                 sendRequest n1 "Commit 10"
                 sendRequest n2 "Commit 20"
                 sendRequest n3 "Commit 5"
-                waitForResponse 3 [n1, n2, n3] "HeadIsOpen"
+                waitForResponse 3 [n1, n2, n3] "HeadIsOpen []"
                 -- NOTE(SN): Everything above this boilerplate
                 sendRequest n1 "NewTx InvalidTx"
 

@@ -11,10 +11,11 @@ import qualified Data.Set as Set
 import Hydra.Ledger (
   Amount,
   Committed,
-  Ledger (applyTransaction, canApply),
+  Ledger (applyTransaction, canApply, getUTxO),
   LedgerState,
   ParticipationToken (..),
   Party,
+  UTxO,
   ValidationError,
   ValidationResult (Invalid, Valid),
   initLedgerState,
@@ -38,7 +39,9 @@ data Effect tx
   | -- NOTE(SN): This is more likely an alternative 'Outcome' rather than an
     -- 'Effect'
     Wait
-  deriving (Eq, Show)
+
+deriving instance Eq tx => Eq (UTxO tx) => Eq (Effect tx)
+deriving instance Show tx => Show (UTxO tx) => Show (Effect tx)
 
 data ClientRequest tx
   = Init [Party]
@@ -51,12 +54,14 @@ data ClientRequest tx
 data ClientResponse tx
   = NodeConnectedToNetwork
   | ReadyToCommit
-  | HeadIsOpen
-  | HeadIsClosed
+  | HeadIsOpen (UTxO tx)
+  | HeadIsClosed (UTxO tx)
   | CommandFailed
   | ReqTxReceived tx
   | TxInvalid tx
-  deriving (Eq, Show)
+
+deriving instance Eq tx => Eq (UTxO tx) => Eq (ClientResponse tx)
+deriving instance Show tx => Show (UTxO tx) => Show (ClientResponse tx)
 
 data HydraMessage tx
   = ReqTx tx
@@ -163,9 +168,10 @@ update Environment{party} ledger st ev = case (st, ev) of
           then NewState newState [OnChainEffect CollectComTx]
           else NewState newState []
   (CollectingState{}, OnChainEvent CollectComTx) ->
-    NewState
-      (OpenState $ SimpleHeadState (initLedgerState ledger) Transaction Snapshots)
-      [ClientEffect HeadIsOpen]
+    let ls = initLedgerState ledger
+     in NewState
+          (OpenState $ SimpleHeadState ls Transaction Snapshots)
+          [ClientEffect $ HeadIsOpen $ getUTxO ledger ls]
   --
   (OpenState _, OnChainEvent CommitTx{}) ->
     Error (InvalidEvent ev st) -- HACK(SN): is a general case later
@@ -184,8 +190,8 @@ update Environment{party} ledger st ev = case (st, ev) of
       Left{} -> panic "TODO: how is this case handled?"
   (currentState, NetworkEvent NetworkConnected) ->
     NewState currentState [ClientEffect NodeConnectedToNetwork]
-  (OpenState _, OnChainEvent CloseTx) ->
-    NewState ClosedState [ClientEffect HeadIsClosed]
+  (OpenState SimpleHeadState{confirmedLedger}, OnChainEvent CloseTx) ->
+    NewState ClosedState [ClientEffect $ HeadIsClosed $ getUTxO ledger confirmedLedger]
   --
   (currentState, ClientEvent{}) ->
     NewState currentState [ClientEffect CommandFailed]

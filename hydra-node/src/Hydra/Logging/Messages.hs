@@ -11,7 +11,7 @@ module Hydra.Logging.Messages where
 import Cardano.Prelude (Show)
 import Hydra.API.Server (APIServerLog)
 import Hydra.Chain.ZeroMQ (MockChainLog)
-import Hydra.Ledger (LedgerState)
+import Hydra.Ledger (LedgerState, UTxO)
 import Hydra.Network.ZeroMQ (NetworkLog)
 import Hydra.Node (HydraNodeLog)
 
@@ -21,4 +21,4 @@ data HydraLog tx
   | Network NetworkLog
   | Node (HydraNodeLog tx)
 
-deriving instance (Show tx, Show (LedgerState tx)) => Show (HydraLog tx)
+deriving instance Show tx => Show (UTxO tx) => Show (LedgerState tx) => Show (HydraLog tx)

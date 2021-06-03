@@ -6,6 +6,7 @@ module Hydra.API.Server where
 import Cardano.Prelude hiding (Option, option)
 import Control.Concurrent.STM (TChan, dupTChan, readTChan)
 import qualified Data.Text as Text
+import Hydra.Ledger (UTxO)
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Logic (
   ClientResponse,
@@ -25,7 +26,7 @@ data APIServerLog
   | APIInvalidRequest {receivedRequest :: Text}
   deriving (Show)
 
-runAPIServer :: (Show tx, Read tx) => IP -> PortNumber -> TChan (ClientResponse tx) -> HydraNode tx IO -> Tracer IO APIServerLog -> IO ()
+runAPIServer :: (Show tx, Read tx, Show (UTxO tx)) => IP -> PortNumber -> TChan (ClientResponse tx) -> HydraNode tx IO -> Tracer IO APIServerLog -> IO ()
 runAPIServer host port responseChannel node tracer = do
   traceWith tracer (APIServerStarted port)
   runServer (show host) (fromIntegral port) $ \pending -> do

@@ -29,12 +29,17 @@ type Party = Natural
 
 -- * Ledger interface
 
+-- TODO(SN): likely a type class could tie things together better
+
+type family UTxO tx
+
 type family LedgerState tx
 
 data Ledger tx = Ledger
   { canApply :: LedgerState tx -> tx -> ValidationResult
   , applyTransaction :: LedgerState tx -> tx -> Either ValidationError (LedgerState tx)
   , initLedgerState :: LedgerState tx
+  , getUTxO :: LedgerState tx -> UTxO tx
   }
 
 -- | Either valid or an error which we get from the ledger-specs tx validation.
@@ -46,6 +51,8 @@ data ValidationResult
 data ValidationError = ValidationError deriving (Eq, Show)
 
 -- * Cardano ledger
+
+type instance UTxO (Ledger.Tx era) = Ledger.UTxO era
 
 type instance LedgerState (Ledger.Tx era) = Ledger.LedgerState era
 
@@ -59,6 +66,7 @@ cardanoLedger env =
     { canApply = validateTx env
     , applyTransaction = applyTx env
     , initLedgerState = def
+    , getUTxO = Ledger._utxo . Ledger._utxoState
     }
 
 applyTx ::

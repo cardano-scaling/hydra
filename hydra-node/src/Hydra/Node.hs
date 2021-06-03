@@ -50,8 +50,8 @@ data HydraNodeLog tx
   | ProcessingEffect (Effect tx)
   | ProcessedEffect (Effect tx)
 
-deriving instance (Show tx, Show (LedgerState tx)) => Show (HydraNodeLog tx)
-deriving instance (Eq tx, Eq (LedgerState tx)) => Eq (HydraNodeLog tx)
+deriving instance Show tx => Show (UTxO tx) => Show (LedgerState tx) => Show (HydraNodeLog tx)
+deriving instance Eq tx => Eq (UTxO tx) => Eq (LedgerState tx) => Eq (HydraNodeLog tx)
 
 handleClientRequest :: HydraNode tx m -> ClientRequest tx -> m ()
 handleClientRequest HydraNode{eq} = putEvent eq . ClientEvent

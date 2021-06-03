@@ -30,6 +30,8 @@ instance FromCBOR MockTx where
 
 type TxId = Integer
 
+type instance UTxO MockTx = [MockTx]
+
 type instance LedgerState MockTx = MockLedgerState
 
 newtype MockLedgerState = MockLedgerState
@@ -59,4 +61,5 @@ mockLedger =
             let transactions' = tx : transactions
              in Right $ MockLedgerState{transactions = transactions'}
     , initLedgerState = MockLedgerState mempty
+    , getUTxO = transactions
     }
