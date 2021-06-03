@@ -40,9 +40,6 @@ data Effect tx
   | NetworkEffect (HydraMessage tx)
   | OnChainEffect OnChainTx
   | Delay DiffTime (Event tx)
-  | -- NOTE(SN): This is more likely an alternative 'Outcome' rather than an
-    -- 'Effect'
-    Wait
 
 deriving instance Eq tx => Eq (UTxO tx) => Eq (Effect tx)
 deriving instance Show tx => Show (UTxO tx) => Show (Effect tx)
@@ -137,6 +134,7 @@ deriving instance (Show (HeadState tx), Show (Event tx)) => Show (LogicError tx)
 data Outcome tx
   = NewState (HeadState tx) [Effect tx]
   | Error (LogicError tx)
+  | Wait
 
 data Environment = Environment
   { -- | This is the p_i from the paper

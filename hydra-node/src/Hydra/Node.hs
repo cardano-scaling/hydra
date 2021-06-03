@@ -28,7 +28,7 @@ import Hydra.Logic (
   LogicError (..),
   NetworkEvent (..),
   OnChainTx (..),
-  Outcome (Error, NewState),
+  Outcome (..),
   confirmedLedger,
  )
 import qualified Hydra.Logic as Logic
@@ -102,6 +102,7 @@ processNextEvent HydraNode{hh, env} e = do
       case Logic.update env (ledger hh) s e of
         NewState s' effects -> (Right effects, s')
         Error err -> (Left err, s)
+        Wait -> panic "TODO: wait and reschedule continuation"
 
 processEffect ::
   MonadAsync m =>
@@ -118,7 +119,6 @@ processEffect HydraNode{hn, oc, sendResponse, eq} tracer e = do
     NetworkEffect msg -> broadcast hn msg
     OnChainEffect tx -> postTx oc tx
     Delay after event -> void . async $ threadDelay after >> putEvent eq event
-    Wait -> panic "TODO: wait and reschedule continuation" -- TODO(SN) this error is not forced
   traceWith tracer $ ProcessedEffect e
 -- ** Some general event queue from which the Hydra head is "fed"
 
