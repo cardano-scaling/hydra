@@ -89,7 +89,7 @@ spec = describe "Integrating one ore more hydra-nodes" $ do
 
       sendRequestAndWaitFor n1 (Init [1]) ReadyToCommit
       sendRequestAndWaitFor n1 (Commit 1) (HeadIsOpen [])
-      sendRequestAndWaitFor n1 Close (HeadIsClosed [])
+      sendRequestAndWaitFor n1 Close (HeadIsClosed 3 [])
 
     it "sees the head closed by other nodes" $ do
       chain <- simulatedChainAndNetwork
@@ -105,7 +105,7 @@ spec = describe "Integrating one ore more hydra-nodes" $ do
       wait1sForResponse n1 `shouldReturn` Just (HeadIsOpen [])
       sendRequest n1 Close
 
-      wait1sForResponse n2 `shouldReturn` Just (HeadIsClosed [])
+      wait1sForResponse n2 `shouldReturn` Just (HeadIsClosed 3 [])
 
     it "only opens the head after all nodes committed" $ do
       chain <- simulatedChainAndNetwork

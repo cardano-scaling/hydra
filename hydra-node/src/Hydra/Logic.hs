@@ -56,7 +56,7 @@ data ClientResponse tx
   = NodeConnectedToNetwork
   | ReadyToCommit
   | HeadIsOpen (UTxO tx)
-  | HeadIsClosed (UTxO tx)
+  | HeadIsClosed DiffTime (UTxO tx)
   | HeadIsFinalized (UTxO tx)
   | CommandFailed
   | ReqTxReceived tx
@@ -201,7 +201,7 @@ update Environment{party} ledger (HeadState p st) ev = case (st, ev) of
       Left{} -> panic "TODO: how is this case handled?"
   (OpenState SimpleHeadState{confirmedLedger}, OnChainEvent CloseTx) ->
     let utxo = getUTxO ledger confirmedLedger
-     in newState p (ClosedState utxo) [ClientEffect $ HeadIsClosed utxo]
+     in newState p (ClosedState utxo) [ClientEffect $ HeadIsClosed (contestationPeriod p) utxo]
   (ClosedState{}, ShouldPostFanout) ->
     newState p st [OnChainEffect FanoutTx]
   (ClosedState utxos, OnChainEvent FanoutTx) ->
