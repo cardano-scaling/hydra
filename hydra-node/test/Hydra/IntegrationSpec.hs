@@ -241,7 +241,7 @@ startHydraNode nodeId connectToChain = do
   createHydraNode response = do
     let env = Environment nodeId
     eq <- createEventQueue
-    let headState = createHeadState [] HeadParameters SnapshotStrategy
+    let headState = createHeadState [] (HeadParameters 3) SnapshotStrategy
     hh <- createHydraHead headState mockLedger
     let hn' = HydraNetwork{broadcast = const $ pure ()}
     let node = HydraNode{eq, hn = hn', hh, oc = OnChain (const $ pure ()), sendResponse = putMVar response, env}

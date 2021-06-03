@@ -83,35 +83,36 @@ data OnChainTx
   | FanoutTx
   deriving (Eq, Show, Read)
 
-data HeadState tx
+data HeadState tx = HeadState
+  { headParameters :: HeadParameters
+  , headStatus :: HeadStatus tx
+  }
+
+deriving instance Eq (UTxO tx) => Eq (SimpleHeadState tx) => Eq (HeadState tx)
+deriving instance Show (UTxO tx) => Show (SimpleHeadState tx) => Show (HeadState tx)
+
+data HeadStatus tx
   = InitState
   | CollectingState PendingCommits Committed
   | OpenState (SimpleHeadState tx)
   | ClosedState (UTxO tx)
   | FinalState
 
-deriving instance Eq (UTxO tx) => Eq (SimpleHeadState tx) => Eq (HeadState tx)
-deriving instance Show (UTxO tx) => Show (SimpleHeadState tx) => Show (HeadState tx)
+deriving instance Eq (UTxO tx) => Eq (SimpleHeadState tx) => Eq (HeadStatus tx)
+deriving instance Show (UTxO tx) => Show (SimpleHeadState tx) => Show (HeadStatus tx)
 
 data SimpleHeadState tx = SimpleHeadState
   { confirmedLedger :: LedgerState tx
-  , transactions :: Transactions
-  , snapshots :: Snapshots
   }
 
 deriving instance Eq (UTxO tx) => Eq (LedgerState tx) => Eq (SimpleHeadState tx)
 deriving instance Show (UTxO tx) => Show (LedgerState tx) => Show (SimpleHeadState tx)
 
-data Transactions = Transaction
-  deriving (Eq, Show)
-
-data Snapshots = Snapshots
-  deriving (Eq, Show)
-
 type PendingCommits = Set ParticipationToken
 
 -- | Contains at least the contestation period and other things.
-data HeadParameters = HeadParameters
+newtype HeadParameters = HeadParameters {contestationPeriod :: DiffTime}
+  deriving (Eq, Show)
 
 -- | Decides when, how often and who is in charge of creating snapshots.
 data SnapshotStrategy = SnapshotStrategy
@@ -119,7 +120,7 @@ data SnapshotStrategy = SnapshotStrategy
 -- | Assume: We know the party members and their verification keys. These need
 -- to be exchanged somehow, eventually.
 createHeadState :: [Party] -> HeadParameters -> SnapshotStrategy -> HeadState tx
-createHeadState _ _ _ = InitState
+createHeadState _ parameters _ = HeadState parameters InitState
 
 -- | Preliminary type for collecting errors occurring during 'update'. Might
 -- make sense to merge this (back) into 'Outcome'.
@@ -136,10 +137,12 @@ data Outcome tx
   | Error (LogicError tx)
   | Wait
 
+newState :: HeadParameters -> HeadStatus tx -> [Effect tx] -> Outcome tx
+newState p s = NewState (HeadState p s)
+
 data Environment = Environment
   { -- | This is the p_i from the paper
     party :: Party
-  , contestationPeriod :: DiffTime
   }
 
 -- | The heart of the Hydra head logic, a handler of all kinds of 'Event' in the
@@ -155,57 +158,59 @@ update ::
   HeadState tx ->
   Event tx ->
   Outcome tx
-update Environment{party, contestationPeriod} ledger st ev = case (st, ev) of
+update Environment{party} ledger (HeadState p st) ev = case (st, ev) of
   (InitState, ClientEvent (Init parties)) ->
-    NewState InitState [OnChainEffect (InitTx $ makeAllTokens parties)]
+    newState p InitState [OnChainEffect (InitTx $ makeAllTokens parties)]
   (InitState, OnChainEvent (InitTx tokens)) ->
-    NewState (CollectingState tokens mempty) [ClientEffect ReadyToCommit]
+    newState p (CollectingState tokens mempty) [ClientEffect ReadyToCommit]
   --
   (CollectingState remainingTokens _, ClientEvent (Commit amount)) ->
     case findToken remainingTokens party of
       Nothing ->
         panic $ "you're not allowed to commit (anymore): remainingTokens : " <> show remainingTokens <> ", partiyIndex:  " <> show party
-      Just pt -> NewState st [OnChainEffect (CommitTx pt amount)]
+      Just pt -> newState p st [OnChainEffect (CommitTx pt amount)]
   (CollectingState remainingTokens committed, OnChainEvent (CommitTx pt amount)) ->
     let remainingTokens' = Set.delete pt remainingTokens
         newCommitted = Map.insert pt amount committed
-        newState = CollectingState remainingTokens' newCommitted
+        newHeadState = CollectingState remainingTokens' newCommitted
      in if canCollectCom party pt remainingTokens'
-          then NewState newState [OnChainEffect CollectComTx]
-          else NewState newState []
+          then newState p newHeadState [OnChainEffect CollectComTx]
+          else newState p newHeadState []
   (CollectingState{}, OnChainEvent CollectComTx) ->
     let ls = initLedgerState ledger
-     in NewState
-          (OpenState $ SimpleHeadState ls Transaction Snapshots)
+     in newState
+          p
+          (OpenState $ SimpleHeadState ls)
           [ClientEffect $ HeadIsOpen $ getUTxO ledger ls]
   --
   (OpenState _, OnChainEvent CommitTx{}) ->
-    Error (InvalidEvent ev st) -- HACK(SN): is a general case later
+    Error (InvalidEvent ev (HeadState p st)) -- HACK(SN): is a general case later
   (OpenState{}, ClientEvent Close) ->
-    NewState st [OnChainEffect CloseTx, Delay contestationPeriod ShouldPostFanout]
+    newState p st [OnChainEffect CloseTx, Delay (contestationPeriod p) ShouldPostFanout]
   (OpenState SimpleHeadState{confirmedLedger}, ClientEvent (NewTx tx)) ->
     case canApply ledger confirmedLedger tx of
-      Invalid _ -> NewState st [ClientEffect $ TxInvalid tx]
-      Valid -> NewState st [NetworkEffect $ ReqTx tx]
+      Invalid _ -> newState p st [ClientEffect $ TxInvalid tx]
+      Valid -> newState p st [NetworkEffect $ ReqTx tx]
   (OpenState headState, NetworkEvent (MessageReceived (ReqTx tx))) ->
     case applyTransaction ledger (confirmedLedger headState) tx of
       Right newLedgerState ->
-        NewState
+        newState
+          p
           (OpenState $ headState{confirmedLedger = newLedgerState})
           [ClientEffect $ ReqTxReceived tx]
       Left{} -> panic "TODO: how is this case handled?"
   (OpenState SimpleHeadState{confirmedLedger}, OnChainEvent CloseTx) ->
     let utxo = getUTxO ledger confirmedLedger
-     in NewState (ClosedState utxo) [ClientEffect $ HeadIsClosed utxo]
+     in newState p (ClosedState utxo) [ClientEffect $ HeadIsClosed utxo]
   (ClosedState{}, ShouldPostFanout) ->
-    NewState st [OnChainEffect FanoutTx]
+    newState p st [OnChainEffect FanoutTx]
   (ClosedState utxos, OnChainEvent FanoutTx) ->
-    NewState FinalState [ClientEffect $ HeadIsFinalized utxos]
+    newState p FinalState [ClientEffect $ HeadIsFinalized utxos]
   --
   (_, NetworkEvent NetworkConnected) ->
-    NewState st [ClientEffect NodeConnectedToNetwork]
+    newState p st [ClientEffect NodeConnectedToNetwork]
   (_, ClientEvent{}) ->
-    NewState st [ClientEffect CommandFailed]
+    newState p st [ClientEffect CommandFailed]
   _ -> panic $ "UNHANDLED EVENT: on " <> show party <> " of event " <> show ev <> " in state " <> show st
 
 canCollectCom :: Party -> ParticipationToken -> Set ParticipationToken -> Bool

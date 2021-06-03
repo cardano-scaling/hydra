@@ -151,7 +151,7 @@ data HydraHead tx m = HydraHead
 getConfirmedLedger :: MonadSTM m => HydraHead tx m -> STM m (Maybe (LedgerState tx))
 getConfirmedLedger hh =
   queryHeadState hh <&> \case
-    OpenState st -> Just (confirmedLedger st)
+    HeadState _ (Logic.OpenState st) -> Just (confirmedLedger st)
     _ -> Nothing
 
 queryHeadState :: HydraHead tx m -> STM m (HeadState tx)
