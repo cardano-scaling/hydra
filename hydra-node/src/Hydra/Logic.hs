@@ -54,7 +54,7 @@ data ClientResponse tx
   | HeadIsOpen
   | HeadIsClosed
   | CommandFailed
-  | TxReceived tx
+  | ReqTxReceived tx
   | TxInvalid tx
   deriving (Eq, Show)
 
@@ -180,7 +180,7 @@ update Environment{party} ledger st ev = case (st, ev) of
       Right newLedgerState ->
         NewState
           (OpenState $ headState{confirmedLedger = newLedgerState})
-          [ClientEffect $ TxReceived tx]
+          [ClientEffect $ ReqTxReceived tx]
       Left{} -> panic "TODO: how is this case handled?"
   (currentState, NetworkEvent NetworkConnected) ->
     NewState currentState [ClientEffect NodeConnectedToNetwork]

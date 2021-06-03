@@ -36,7 +36,15 @@ spec = describe "End-to-end test using a mocked chain though" $ do
                 sendRequest n3 "Commit 5"
                 waitForResponse 3 [n1, n2, n3] "HeadIsOpen"
                 sendRequest n1 "NewTx (ValidTx 1)"
-                waitForResponse 3 [n2] "TxReceived (ValidTx 1)"
+                waitForResponse 3 [n2] "ReqTxReceived (ValidTx 1)"
+                -- NOTE(SN): Here any number of head interactions would take
+                -- place. For now we do only have this requested, but not
+                -- confirmed transaction.
+                sendRequest n1 "Close"
+                waitForResponse 3 [n1] "HeadIsClosing 3600"
+                waitForResponse 3 [n1] "NotContested 2"
+                waitForResponse 3 [n1] "NotContested 3"
+                waitForResponse 3 [n1] "HeadIsClosed []"
 
     -- NOTE(SN): This is likely too detailed and should move to a lower-level
     -- integration test
