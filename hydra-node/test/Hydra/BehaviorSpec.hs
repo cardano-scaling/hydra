@@ -43,7 +43,7 @@ import Test.Hspec (
  )
 
 spec :: Spec
-spec = describe "Behavior of one ore more hydra-nodes" $ do
+spec = describe "Behavior of one or more hydra-nodes" $ do
   describe "Sanity tests of test suite" $ do
     it "is Ready when started" $ do
       n <- simulatedChainAndNetwork >>= startHydraNode 1
