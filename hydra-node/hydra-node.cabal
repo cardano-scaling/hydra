@@ -160,7 +160,7 @@ test-suite tests
   other-modules:
     Hydra.Chain.ZeroMQSpec
     Hydra.FireForgetSpec
-    Hydra.IntegrationSpec
+    Hydra.BehaviorSpec
     Hydra.LedgerSpec
     Hydra.NetworkSpec
     Hydra.NodeSpec

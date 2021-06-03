@@ -1,6 +1,6 @@
 {-# LANGUAGE TypeApplications #-}
 
-module Hydra.IntegrationSpec where
+module Hydra.BehaviorSpec where
 
 import Cardano.Prelude hiding (atomically, check)
 import Control.Monad.Class.MonadSTM (TVar, atomically, check, modifyTVar, newTVarIO, readTVar)
@@ -43,7 +43,7 @@ import Test.Hspec (
  )
 
 spec :: Spec
-spec = describe "Integrating one ore more hydra-nodes" $ do
+spec = describe "Behavior of one ore more hydra-nodes" $ do
   describe "Sanity tests of test suite" $ do
     it "is Ready when started" $ do
       n <- simulatedChainAndNetwork >>= startHydraNode 1
