@@ -111,13 +111,13 @@ processEffect ::
   Tracer m (HydraNodeLog tx) ->
   Effect tx ->
   m ()
-processEffect HydraNode{hn, oc, sendResponse} tracer e = do
+processEffect HydraNode{hn, oc, sendResponse, eq} tracer e = do
   traceWith tracer $ ProcessingEffect e
   case e of
     ClientEffect i -> sendResponse i
     NetworkEffect msg -> broadcast hn msg
     OnChainEffect tx -> postTx oc tx
-    DelayedPostFanoutTx after -> void . async $ threadDelay after >> postTx oc FanoutTx
+    Delay after event -> void . async $ threadDelay after >> putEvent eq event
     Wait -> panic "TODO: wait and reschedule continuation" -- TODO(SN) this error is not forced
   traceWith tracer $ ProcessedEffect e
 -- ** Some general event queue from which the Hydra head is "fed"

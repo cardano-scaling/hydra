@@ -27,6 +27,7 @@ data Event tx
   = ClientEvent (ClientRequest tx)
   | NetworkEvent (NetworkEvent tx)
   | OnChainEvent OnChainTx
+  | ShouldPostFanout
   deriving (Eq, Show)
 
 data NetworkEvent tx
@@ -38,7 +39,7 @@ data Effect tx
   = ClientEffect (ClientResponse tx)
   | NetworkEffect (HydraMessage tx)
   | OnChainEffect OnChainTx
-  | DelayedPostFanoutTx DiffTime
+  | Delay DiffTime (Event tx)
   | -- NOTE(SN): This is more likely an alternative 'Outcome' rather than an
     -- 'Effect'
     Wait
@@ -183,7 +184,7 @@ update Environment{party, contestationPeriod} ledger st ev = case (st, ev) of
   (OpenState _, OnChainEvent CommitTx{}) ->
     Error (InvalidEvent ev st) -- HACK(SN): is a general case later
   (OpenState{}, ClientEvent Close) ->
-    NewState st [OnChainEffect CloseTx, DelayedPostFanoutTx contestationPeriod]
+    NewState st [OnChainEffect CloseTx, Delay contestationPeriod ShouldPostFanout]
   (OpenState SimpleHeadState{confirmedLedger}, ClientEvent (NewTx tx)) ->
     case canApply ledger confirmedLedger tx of
       Invalid _ -> NewState st [ClientEffect $ TxInvalid tx]
@@ -198,13 +199,15 @@ update Environment{party, contestationPeriod} ledger st ev = case (st, ev) of
   (OpenState SimpleHeadState{confirmedLedger}, OnChainEvent CloseTx) ->
     let utxo = getUTxO ledger confirmedLedger
      in NewState (ClosedState utxo) [ClientEffect $ HeadIsClosed utxo]
+  (ClosedState{}, ShouldPostFanout) ->
+    NewState st [OnChainEffect FanoutTx]
   (ClosedState utxos, OnChainEvent FanoutTx) ->
     NewState FinalState [ClientEffect $ HeadIsFinalized utxos]
   --
-  (currentState, NetworkEvent NetworkConnected) ->
-    NewState currentState [ClientEffect NodeConnectedToNetwork]
-  (currentState, ClientEvent{}) ->
-    NewState currentState [ClientEffect CommandFailed]
+  (_, NetworkEvent NetworkConnected) ->
+    NewState st [ClientEffect NodeConnectedToNetwork]
+  (_, ClientEvent{}) ->
+    NewState st [ClientEffect CommandFailed]
   _ -> panic $ "UNHANDLED EVENT: on " <> show party <> " of event " <> show ev <> " in state " <> show st
 
 canCollectCom :: Party -> ParticipationToken -> Set ParticipationToken -> Bool
