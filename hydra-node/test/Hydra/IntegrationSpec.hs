@@ -5,7 +5,8 @@ module Hydra.IntegrationSpec where
 import Cardano.Prelude hiding (atomically, check)
 import Control.Monad.Class.MonadSTM (TVar, atomically, check, modifyTVar, newTVarIO, readTVar)
 import Data.IORef (modifyIORef', newIORef, readIORef)
-import Hydra.Ledger (Ledger (..), LedgerState, ValidationError (..), ValidationResult (Invalid, Valid))
+import Hydra.Ledger (LedgerState)
+import Hydra.Ledger.Mock (MockLedgerState (..), MockTx (..), mockLedger)
 import Hydra.Logging (traceInTVarIO)
 import Hydra.Logic (
   ClientRequest (..),
@@ -73,22 +74,22 @@ spec = describe "Integrating one ore more hydra-nodes" $ do
 
       wait1sForResponse n2 `shouldReturn` Just ReadyToCommit
       sendRequest n2 (Commit 1)
-      wait1sForResponse n2 `shouldReturn` Just HeadIsOpen
+      wait1sForResponse n2 `shouldReturn` Just (HeadIsOpen [])
       sendRequest n2 (NewTx $ ValidTx 1)
 
     it "not accepts commits when the head is open" $ do
       n1 <- simulatedChainAndNetwork >>= startHydraNode 1
 
       sendRequestAndWaitFor n1 (Init [1]) ReadyToCommit
-      sendRequestAndWaitFor n1 (Commit 1) HeadIsOpen
+      sendRequestAndWaitFor n1 (Commit 1) (HeadIsOpen [])
       sendRequestAndWaitFor n1 (Commit 1) CommandFailed
 
     it "can close an open head" $ do
       n1 <- simulatedChainAndNetwork >>= startHydraNode 1
 
       sendRequestAndWaitFor n1 (Init [1]) ReadyToCommit
-      sendRequestAndWaitFor n1 (Commit 1) HeadIsOpen
-      sendRequestAndWaitFor n1 Close HeadIsClosed
+      sendRequestAndWaitFor n1 (Commit 1) (HeadIsOpen [])
+      sendRequestAndWaitFor n1 Close (HeadIsClosed [])
 
     it "sees the head closed by other nodes" $ do
       chain <- simulatedChainAndNetwork
@@ -99,12 +100,12 @@ spec = describe "Integrating one ore more hydra-nodes" $ do
       sendRequest n1 (Commit 1)
 
       wait1sForResponse n2 `shouldReturn` Just ReadyToCommit
-      sendRequestAndWaitFor n2 (Commit 1) HeadIsOpen
+      sendRequestAndWaitFor n2 (Commit 1) (HeadIsOpen [])
 
-      wait1sForResponse n1 `shouldReturn` Just HeadIsOpen
+      wait1sForResponse n1 `shouldReturn` Just (HeadIsOpen [])
       sendRequest n1 Close
 
-      wait1sForResponse n2 `shouldReturn` Just HeadIsClosed
+      wait1sForResponse n2 `shouldReturn` Just (HeadIsClosed [])
 
     it "only opens the head after all nodes committed" $ do
       chain <- simulatedChainAndNetwork
@@ -113,12 +114,12 @@ spec = describe "Integrating one ore more hydra-nodes" $ do
 
       sendRequestAndWaitFor n1 (Init [1, 2]) ReadyToCommit
       sendRequest n1 (Commit 1)
-      wait1sForResponse n1 >>= (`shouldNotBe` Just HeadIsOpen)
+      wait1sForResponse n1 >>= (`shouldNotBe` Just (HeadIsOpen []))
 
       wait1sForResponse n2 `shouldReturn` Just ReadyToCommit
-      sendRequestAndWaitFor n2 (Commit 1) HeadIsOpen
+      sendRequestAndWaitFor n2 (Commit 1) (HeadIsOpen [])
 
-      wait1sForResponse n1 `shouldReturn` Just HeadIsOpen
+      wait1sForResponse n1 `shouldReturn` Just (HeadIsOpen [])
 
     it "valid new transaction in open head is stored in ledger" $ do
       chain <- simulatedChainAndNetwork
@@ -128,13 +129,13 @@ spec = describe "Integrating one ore more hydra-nodes" $ do
       sendRequestAndWaitFor n1 (Init [1, 2]) ReadyToCommit
       sendRequest n1 (Commit 1)
       wait1sForResponse n2 `shouldReturn` Just ReadyToCommit
-      sendRequestAndWaitFor n2 (Commit 1) HeadIsOpen
-      wait1sForResponse n1 `shouldReturn` Just HeadIsOpen
+      sendRequestAndWaitFor n2 (Commit 1) (HeadIsOpen [])
+      wait1sForResponse n1 `shouldReturn` Just (HeadIsOpen [])
 
       sendRequest n1 (NewTx $ ValidTx 1)
 
-      waitForLedgerState n1 (Just [ValidTx 1])
-      waitForLedgerState n2 (Just [ValidTx 1])
+      waitForLedgerState n1 (Just $ MockLedgerState [ValidTx 1])
+      waitForLedgerState n2 (Just $ MockLedgerState [ValidTx 1])
 
   describe "Hydra Node Logging" $ do
     it "traces processing of events" $ do
@@ -246,18 +247,3 @@ startHydraNode nodeId connectToChain = do
     let node = HydraNode{eq, hn = hn', hh, oc = OnChain (const $ pure ()), sendResponse = putMVar response, env}
     Connections oc hn <- connectToChain node
     pure node{oc, hn}
-
-data MockTx = ValidTx Integer | InvalidTx
-  deriving (Eq, Show)
-
-type instance LedgerState MockTx = [MockTx]
-
-mockLedger :: Ledger MockTx
-mockLedger =
-  Ledger
-    { canApply = \st tx -> case st `seq` tx of
-        ValidTx _ -> Valid
-        InvalidTx -> Invalid ValidationError
-    , applyTransaction = \st tx -> pure (tx : st)
-    , initLedgerState = []
-    }

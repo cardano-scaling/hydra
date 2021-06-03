@@ -29,6 +29,7 @@ spec = describe "End-to-end test using a mocked chain though" $ do
             withHydraNode 2 $ \n2 ->
               withHydraNode 3 $ \n3 -> do
                 waitForResponse 10 [n1, n2, n3] "NodeConnectedToNetwork"
+                let contestationPeriod = 3 -- TODO: Should be part of init
                 sendRequest n1 "Init [1, 2, 3]"
                 waitForResponse 3 [n1, n2, n3] "ReadyToCommit"
                 sendRequest n1 "Commit 10"
@@ -38,10 +39,8 @@ spec = describe "End-to-end test using a mocked chain though" $ do
                 -- NOTE(SN): Here any number of head interactions would take
                 -- place. For now we do nothing.
                 sendRequest n1 "Close"
-                waitForResponse 3 [n1] "HeadIsClosing 3600"
-                waitForResponse 3 [n1] "NotContested 2"
-                waitForResponse 3 [n1] "NotContested 3"
-                waitForResponse 3 [n1] "HeadIsClosed []"
+                waitForResponse 3 [n1] "HeadIsClosing"
+                waitForResponse (contestationPeriod + 3) [n1] "HeadIsClosed []"
 
     -- NOTE(SN): This is likely too detailed and should move to a lower-level
     -- integration test

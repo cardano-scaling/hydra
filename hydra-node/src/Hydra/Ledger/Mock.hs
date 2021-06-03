@@ -37,7 +37,7 @@ type instance LedgerState MockTx = MockLedgerState
 newtype MockLedgerState = MockLedgerState
   { transactions :: [MockTx]
   }
-  deriving (Show)
+  deriving (Eq, Show)
 
 mockLedger :: Ledger MockTx
 mockLedger =

@@ -68,6 +68,7 @@ queryLedgerState HydraNode{hh} = getConfirmedLedger hh
 runHydraNode ::
   MonadThrow m =>
   MonadSTM m =>
+  Show (UTxO tx) =>
   Show (LedgerState tx) => -- TODO(SN): leaky abstraction of HydraHead
   Show tx =>
   Tracer m (HydraNodeLog tx) ->
@@ -85,6 +86,7 @@ runHydraNode tracer node@HydraNode{eq} = do
 
 -- | Monadic interface around 'Hydra.Logic.update'.
 processNextEvent ::
+  Show (UTxO tx) =>
   Show (LedgerState tx) =>
   Show tx =>
   MonadSTM m =>

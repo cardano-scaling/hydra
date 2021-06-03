@@ -1,6 +1,7 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE UndecidableInstances #-}
 {-# OPTIONS_GHC -Wno-deferred-type-errors #-}
+{-# OPTIONS_GHC -Wno-overlapping-patterns #-}
 
 module Hydra.Logic where
 
@@ -56,6 +57,7 @@ data ClientResponse tx
   | ReadyToCommit
   | HeadIsOpen (UTxO tx)
   | HeadIsClosed (UTxO tx)
+  | HeadIsFinalized (UTxO tx)
   | CommandFailed
   | ReqTxReceived tx
   | TxInvalid tx
@@ -85,10 +87,11 @@ data HeadState tx
   = InitState
   | CollectingState PendingCommits Committed
   | OpenState (SimpleHeadState tx)
-  | ClosedState
+  | ClosedState (UTxO tx)
+  | FinalState
 
-deriving instance Eq (SimpleHeadState tx) => Eq (HeadState tx)
-deriving instance Show (SimpleHeadState tx) => Show (HeadState tx)
+deriving instance Eq (UTxO tx) => Eq (SimpleHeadState tx) => Eq (HeadState tx)
+deriving instance Show (UTxO tx) => Show (SimpleHeadState tx) => Show (HeadState tx)
 
 data SimpleHeadState tx = SimpleHeadState
   { confirmedLedger :: LedgerState tx
@@ -96,8 +99,8 @@ data SimpleHeadState tx = SimpleHeadState
   , snapshots :: Snapshots
   }
 
-deriving instance Eq (LedgerState tx) => Eq (SimpleHeadState tx)
-deriving instance Show (LedgerState tx) => Show (SimpleHeadState tx)
+deriving instance Eq (UTxO tx) => Eq (LedgerState tx) => Eq (SimpleHeadState tx)
+deriving instance Show (UTxO tx) => Show (LedgerState tx) => Show (SimpleHeadState tx)
 
 data Transactions = Transaction
   deriving (Eq, Show)
@@ -143,6 +146,7 @@ newtype Environment = Environment
 -- sub-'State'.
 update ::
   Show (LedgerState tx) =>
+  Show (UTxO tx) =>
   Show tx =>
   Environment ->
   Ledger tx ->
@@ -188,11 +192,14 @@ update Environment{party} ledger st ev = case (st, ev) of
           (OpenState $ headState{confirmedLedger = newLedgerState})
           [ClientEffect $ ReqTxReceived tx]
       Left{} -> panic "TODO: how is this case handled?"
+  (OpenState SimpleHeadState{confirmedLedger}, OnChainEvent CloseTx) ->
+    let utxo = getUTxO ledger confirmedLedger
+     in NewState (ClosedState utxo) [ClientEffect $ HeadIsClosed utxo]
+  (ClosedState utxos, OnChainEvent FanoutTx) ->
+    NewState FinalState [ClientEffect $ HeadIsFinalized utxos]
+  --
   (currentState, NetworkEvent NetworkConnected) ->
     NewState currentState [ClientEffect NodeConnectedToNetwork]
-  (OpenState SimpleHeadState{confirmedLedger}, OnChainEvent CloseTx) ->
-    NewState ClosedState [ClientEffect $ HeadIsClosed $ getUTxO ledger confirmedLedger]
-  --
   (currentState, ClientEvent{}) ->
     NewState currentState [ClientEffect CommandFailed]
   _ -> panic $ "UNHANDLED EVENT: on " <> show party <> " of event " <> show ev <> " in state " <> show st
