@@ -33,7 +33,7 @@ main = do
   Option{nodeId, verbosity, host, port, peers, apiHost, apiPort, monitoringPort} <- identifyNode <$> parseHydraOptions
   withTracer verbosity show $ \tracer' ->
     withMonitoring monitoringPort tracer' $ \tracer -> do
-      let env = Environment nodeId
+      let env = Environment nodeId 3
       eq <- createEventQueue
       let headState = createHeadState [] HeadParameters SnapshotStrategy
       hh <- createHydraHead headState Ledger.mockLedger

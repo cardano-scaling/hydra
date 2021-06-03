@@ -7,6 +7,7 @@ module Hydra.Logic where
 
 import Cardano.Prelude
 
+import Control.Monad.Class.MonadTime (DiffTime)
 import qualified Data.Map.Strict as Map
 import qualified Data.Set as Set
 import Hydra.Ledger (
@@ -37,6 +38,7 @@ data Effect tx
   = ClientEffect (ClientResponse tx)
   | NetworkEffect (HydraMessage tx)
   | OnChainEffect OnChainTx
+  | DelayedPostFanoutTx DiffTime
   | -- NOTE(SN): This is more likely an alternative 'Outcome' rather than an
     -- 'Effect'
     Wait
@@ -135,9 +137,10 @@ data Outcome tx
   = NewState (HeadState tx) [Effect tx]
   | Error (LogicError tx)
 
-newtype Environment = Environment
+data Environment = Environment
   { -- | This is the p_i from the paper
     party :: Party
+  , contestationPeriod :: DiffTime
   }
 
 -- | The heart of the Hydra head logic, a handler of all kinds of 'Event' in the
@@ -153,7 +156,7 @@ update ::
   HeadState tx ->
   Event tx ->
   Outcome tx
-update Environment{party} ledger st ev = case (st, ev) of
+update Environment{party, contestationPeriod} ledger st ev = case (st, ev) of
   (InitState, ClientEvent (Init parties)) ->
     NewState InitState [OnChainEffect (InitTx $ makeAllTokens parties)]
   (InitState, OnChainEvent (InitTx tokens)) ->
@@ -180,7 +183,7 @@ update Environment{party} ledger st ev = case (st, ev) of
   (OpenState _, OnChainEvent CommitTx{}) ->
     Error (InvalidEvent ev st) -- HACK(SN): is a general case later
   (OpenState{}, ClientEvent Close) ->
-    NewState st [OnChainEffect CloseTx]
+    NewState st [OnChainEffect CloseTx, DelayedPostFanoutTx contestationPeriod]
   (OpenState SimpleHeadState{confirmedLedger}, ClientEvent (NewTx tx)) ->
     case canApply ledger confirmedLedger tx of
       Invalid _ -> NewState st [ClientEffect $ TxInvalid tx]

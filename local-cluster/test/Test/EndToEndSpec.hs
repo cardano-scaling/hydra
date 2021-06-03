@@ -39,8 +39,8 @@ spec = describe "End-to-end test using a mocked chain though" $ do
                 -- NOTE(SN): Here any number of head interactions would take
                 -- place. For now we do nothing.
                 sendRequest n1 "Close"
-                waitForResponse 3 [n1] "HeadIsClosing"
-                waitForResponse (contestationPeriod + 3) [n1] "HeadIsClosed []"
+                waitForResponse 3 [n1] "HeadIsClosed []"
+                waitForResponse (contestationPeriod + 3) [n1] "HeadIsFinalized []"
 
     -- NOTE(SN): This is likely too detailed and should move to a lower-level
     -- integration test

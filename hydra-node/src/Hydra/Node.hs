@@ -13,7 +13,9 @@ import Control.Concurrent.STM (
   writeTQueue,
  )
 import Control.Exception.Safe (MonadThrow)
+import Control.Monad.Class.MonadAsync (MonadAsync, async)
 import Control.Monad.Class.MonadSTM (MonadSTM (STM), atomically, newTVar, stateTVar)
+import Control.Monad.Class.MonadTimer (MonadTimer, threadDelay)
 import Hydra.Ledger
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Logic (
@@ -67,7 +69,8 @@ queryLedgerState HydraNode{hh} = getConfirmedLedger hh
 
 runHydraNode ::
   MonadThrow m =>
-  MonadSTM m =>
+  MonadAsync m =>
+  MonadTimer m =>
   Show (UTxO tx) =>
   Show (LedgerState tx) => -- TODO(SN): leaky abstraction of HydraHead
   Show tx =>
@@ -101,6 +104,8 @@ processNextEvent HydraNode{hh, env} e = do
         Error err -> (Left err, s)
 
 processEffect ::
+  MonadAsync m =>
+  MonadTimer m =>
   MonadThrow m =>
   HydraNode tx m ->
   Tracer m (HydraNodeLog tx) ->
@@ -112,6 +117,7 @@ processEffect HydraNode{hn, oc, sendResponse} tracer e = do
     ClientEffect i -> sendResponse i
     NetworkEffect msg -> broadcast hn msg
     OnChainEffect tx -> postTx oc tx
+    DelayedPostFanoutTx after -> void . async $ threadDelay after >> postTx oc FanoutTx
     Wait -> panic "TODO: wait and reschedule continuation" -- TODO(SN) this error is not forced
   traceWith tracer $ ProcessedEffect e
 -- ** Some general event queue from which the Hydra head is "fed"
