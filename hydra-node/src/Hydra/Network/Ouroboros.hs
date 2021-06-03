@@ -1,3 +1,5 @@
+{-# OPTIONS_GHC -Wno-deferred-type-errors #-}
+
 -- | Ouroboros-based implementation of 'Hydra.Network' interface
 module Hydra.Network.Ouroboros (withOuroborosHydraNetwork, module Hydra.Network) where
 
@@ -13,14 +15,13 @@ import Control.Concurrent.STM (
   writeTBQueue,
   writeTChan,
  )
-import qualified Control.Monad.Class.MonadSTM as IOSim
 import Control.Tracer (
   contramap,
   debugTracer,
   stdoutTracer,
  )
 import qualified Data.ByteString.Lazy as LBS
-import Hydra.Logic (HydraMessage (..), NetworkEvent (MessageReceived, NetworkConnected))
+import Hydra.Logging (Tracer)
 import Hydra.Network (
   Host,
   HydraNetwork (..),
@@ -36,10 +37,12 @@ import Hydra.Network.Ouroboros.Server as FireForget (
   fireForgetServerPeer,
  )
 import Hydra.Network.Ouroboros.Type (
+  FireForget,
   codecFireForget,
  )
 import Network.Socket (AddrInfo (addrAddress), defaultHints, getAddrInfo)
 import Network.TypedProtocol.Pipelined ()
+import Ouroboros.Network.Driver (TraceSendRecv)
 import Ouroboros.Network.ErrorPolicy (nullErrorPolicies)
 import Ouroboros.Network.IOManager (withIOManager)
 import Ouroboros.Network.Mux (
@@ -75,17 +78,15 @@ import Ouroboros.Network.Subscription.Ip (SubscriptionParams (..))
 import Ouroboros.Network.Subscription.Worker (LocalAddresses (LocalAddresses))
 
 withOuroborosHydraNetwork ::
-  forall tx.
-  Show tx =>
-  ToCBOR tx =>
-  FromCBOR tx =>
+  forall inmsg outmsg.
+  (Show outmsg, ToCBOR outmsg, FromCBOR outmsg) =>
+  (Show inmsg, ToCBOR inmsg, FromCBOR inmsg) =>
   Host ->
   [Host] ->
-  NetworkCallback tx IO ->
-  (HydraNetwork tx IO -> IO ()) ->
+  NetworkCallback inmsg IO ->
+  (HydraNetwork IO outmsg -> IO ()) ->
   IO ()
 withOuroborosHydraNetwork localHost remoteHosts networkCallback between = do
-  networkStatus <- IOSim.newTVarIO (length remoteHosts)
   bchan <- newBroadcastTChanIO
   chanPool <- newTBQueueIO (fromIntegral $ length remoteHosts)
   replicateM_ (length remoteHosts) $
@@ -93,7 +94,7 @@ withOuroborosHydraNetwork localHost remoteHosts networkCallback between = do
       dup <- dupTChan bchan
       writeTBQueue chanPool dup
   withIOManager $ \iomgr -> do
-    race_ (connect iomgr networkStatus chanPool hydraClient) $
+    race_ (connect iomgr chanPool hydraClient) $
       race_ (listen iomgr hydraServer) $ do
         between $
           HydraNetwork
@@ -106,7 +107,7 @@ withOuroborosHydraNetwork localHost remoteHosts networkCallback between = do
       (info : _) -> pure $ addrAddress info
       _ -> panic "getAdrrInfo failed.. do proper error handling"
 
-  connect iomgr networkStatus chanPool app = do
+  connect iomgr chanPool app = do
     -- REVIEW(SN): move outside to have this information available?
     networkState <- newNetworkMutableState
     -- Using port number 0 to let the operating system pick a random port
@@ -119,7 +120,7 @@ withOuroborosHydraNetwork localHost remoteHosts networkCallback between = do
       errorPolicyTracer
       networkState
       (subscriptionParams localAddr remoteAddrs)
-      (actualConnect iomgr networkStatus chanPool app)
+      (actualConnect iomgr chanPool app)
 
   subscriptionParams localAddr remoteAddrs =
     SubscriptionParams
@@ -133,16 +134,8 @@ withOuroborosHydraNetwork localHost remoteHosts networkCallback between = do
 
   errorPolicyTracer = contramap show debugTracer
 
-  trackPeerConnected networkStatus = do
-    count <- IOSim.atomically $ do
-      IOSim.modifyTVar' networkStatus pred
-      IOSim.readTVar networkStatus
-
-    when (count == 0) $ networkCallback NetworkConnected
-
-  actualConnect iomgr networkStatus chanPool app sn = do
+  actualConnect iomgr chanPool app sn = do
     chan <- atomically $ readTBQueue chanPool
-    trackPeerConnected networkStatus
     connectToNodeSocket
       iomgr
       unversionedHandshakeCodec
@@ -171,7 +164,7 @@ withOuroborosHydraNetwork localHost remoteHosts networkCallback between = do
       nullErrorPolicies
       $ \_ serverAsync -> wait serverAsync -- block until async exception
   hydraClient ::
-    TChan (HydraMessage tx) ->
+    TChan outmsg ->
     OuroborosApplication 'InitiatorMode addr LBS.ByteString IO () Void
   hydraClient chan =
     OuroborosApplication $ \_connectionId _controlMessageSTM ->
@@ -212,18 +205,20 @@ withOuroborosHydraNetwork localHost remoteHosts networkCallback between = do
     MiniProtocolLimits{maximumIngressQueue = maxBound}
 
   client ::
-    TChan (HydraMessage tx) ->
-    FireForgetClient (HydraMessage tx) IO ()
+    TChan outmsg ->
+    FireForgetClient outmsg IO ()
   client chan =
     Idle $ do
       atomically (readTChan chan) <&> \msg ->
         SendMsg msg (pure $ client chan)
 
-  server :: FireForgetServer (HydraMessage tx) IO ()
+  server :: FireForgetServer inmsg IO ()
   server =
     FireForgetServer
-      { recvMsg = \msg -> networkCallback (MessageReceived msg) $> server
+      { recvMsg = \msg -> networkCallback msg $> server
       , recvMsgDone = pure ()
       }
 
+  showStdoutTracer ::
+    Show msg => Tracer IO (TraceSendRecv (FireForget msg))
   showStdoutTracer = contramap show stdoutTracer

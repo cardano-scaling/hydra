@@ -78,6 +78,7 @@ library
     Hydra.API.Server
     Hydra.Chain.ZeroMQ
     Hydra.Network
+    Hydra.Network.Heartbeat
     Hydra.Network.Ouroboros
     Hydra.Network.Ouroboros.Type
     Hydra.Network.Ouroboros.Client

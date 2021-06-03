@@ -26,22 +26,27 @@ import Cardano.Binary (
 import Cardano.Prelude hiding (STM)
 import Codec.Serialise
 import Control.Monad (fail)
+import Data.Functor.Contravariant (Contravariant (..))
 import Data.IP (IP)
 import qualified Data.List as List
 import Data.String (String)
-import Hydra.Logic (HydraMessage (..), NetworkEvent (..))
+import Hydra.Logic (HydraMessage (..))
 import Network.Socket (HostName, PortNumber)
 import Network.TypedProtocol.Pipelined ()
 
 -- * Hydra network interface
 
 -- | Handle to interface with the hydra network and send messages "off chain".
-newtype HydraNetwork tx m = HydraNetwork
-  { -- | Send a 'HydraMessage' to the whole hydra network.
-    broadcast :: HydraMessage tx -> m ()
+newtype HydraNetwork m msg = HydraNetwork
+  { -- | Send a `msg` to the whole hydra network.
+    broadcast :: msg -> m ()
   }
 
-type NetworkCallback tx m = NetworkEvent tx -> m ()
+instance Contravariant (HydraNetwork m) where
+  contramap f (HydraNetwork bcast) = HydraNetwork $ \msg -> bcast (f msg)
+
+-- |Handle to interface for inbound messages.
+type NetworkCallback msg m = msg -> m ()
 
 -- * Types used by concrete implementations
 

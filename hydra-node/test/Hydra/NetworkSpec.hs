@@ -31,7 +31,7 @@ spec = describe "Networking layer" $ do
   describe "Ouroboros Network" $ do
     it "broadcasts messages to single connected peer" $ do
       received <- newEmptyMVar
-      failAfter 2 $ do
+      failAfter 10 $ do
         withOuroborosHydraNetwork (lo, 45678) [(lo, 45679)] (const $ pure ()) $ \hn1 ->
           withOuroborosHydraNetwork (lo, 45679) [(lo, 45678)] (putMVar received) $ \_ -> do
             takeMVar received `shouldReturn` NetworkConnected
@@ -42,7 +42,7 @@ spec = describe "Networking layer" $ do
       node1received <- newEmptyMVar
       node2received <- newEmptyMVar
       node3received <- newEmptyMVar
-      failAfter 3 $ do
+      failAfter 10 $ do
         withOuroborosHydraNetwork (lo, 45678) [(lo, 45679), (lo, 45680)] (putMVar node1received) $ \hn1 ->
           withOuroborosHydraNetwork (lo, 45679) [(lo, 45678), (lo, 45680)] (putMVar node2received) $ \hn2 -> do
             withOuroborosHydraNetwork (lo, 45680) [(lo, 45678), (lo, 45679)] (putMVar node3received) $ \hn3 -> do

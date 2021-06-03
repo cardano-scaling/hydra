@@ -8,7 +8,6 @@ import Control.Monad.Class.MonadSTM (atomically, newEmptyTMVarIO, putTMVar, take
 import qualified Data.ByteString.Lazy as LBS
 import Data.String (String)
 import Hydra.Logging (Tracer, traceWith)
-import Hydra.Logic (NetworkEvent (MessageReceived))
 import Hydra.Network
 import System.ZMQ4.Monadic (Pub (Pub), Sub (Sub), bind, connect, receive, runZMQ, send, socket, subscribe)
 
@@ -20,13 +19,12 @@ data NetworkLog
   deriving (Show)
 
 withZeroMQHydraNetwork ::
-  Show tx =>
-  Serialise tx =>
+  (Show inmsg, Serialise inmsg, Serialise outmsg) =>
   Host ->
   [Host] ->
   Tracer IO NetworkLog ->
-  NetworkCallback tx IO ->
-  (HydraNetwork tx IO -> IO ()) ->
+  NetworkCallback inmsg IO ->
+  (HydraNetwork IO outmsg -> IO ()) ->
   IO ()
 withZeroMQHydraNetwork localHost remoteHosts tracer incomingCallback continuation = do
   mvar <- newEmptyTMVarIO
@@ -61,4 +59,4 @@ withZeroMQHydraNetwork localHost remoteHosts tracer incomingCallback continuatio
         Left err -> panic $ "failed to decode msg " <> show msg <> " : " <> show err
         Right hydraMessage -> liftIO $ do
           traceWith tracer (LogMessageReceived $ show hydraMessage)
-          callback (MessageReceived hydraMessage)
+          callback hydraMessage

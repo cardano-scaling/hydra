@@ -25,6 +25,7 @@ import Hydra.Logic (
   Environment (..),
   Event (..),
   HeadState (..),
+  HydraMessage,
   LogicError (..),
   NetworkEvent (..),
   OnChainTx (..),
@@ -38,7 +39,7 @@ import Hydra.Network (HydraNetwork (..))
 
 data HydraNode tx m = HydraNode
   { eq :: EventQueue m (Event tx)
-  , hn :: HydraNetwork tx m
+  , hn :: HydraNetwork m (HydraMessage tx)
   , hh :: HydraHead tx m
   , oc :: OnChain m
   , sendResponse :: ClientResponse tx -> m ()
