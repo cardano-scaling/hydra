@@ -58,7 +58,7 @@ FLAGS=$(echo "
 SPECS=$(git ls-files  'hydra-node/**/*Spec.hs'  'hydra-plutus/**/*Spec.hs'  | \
           sed -e 's/^[^A-Z]*\(.*\)\.hs$/\1/' | sed 'y=/=.=' | sed -e 's/$/.spec/' | tr -s '\012' ',' | sed -e 's/,$//' )
 
-COMMAND="cabal exec ghci -- -ihydra-plutus/src -ihydra-plutus/test -ihydra-node/src -ihydra-node/test  $FLAGS $(git ls-files 'hydra-node/**/*.hs'  'hydra-plutus/**/*.hs'  | grep -v Main.hs| grep -v Repl | tr -s '\012' ' ')"
+COMMAND="cabal exec ghci -- -ihydra-plutus/src -ihydra-plutus/test -ihydra-node/src -ihydra-node/test -idist-newstyle/build/x86_64-linux/ghc-8.10.4/hydra-node-0.1.0/build/autogen/  $FLAGS $(git ls-files 'hydra-node/**/*.hs'  'hydra-plutus/**/*.hs'  | grep -v Main.hs| grep -v Repl | tr -s '\012' ' ')"
 
 # need to explicitly list *.cabal files to restart because (I think) ghcid only
 # checks .cabal in current directory

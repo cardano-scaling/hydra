@@ -31,14 +31,12 @@ import Data.Version (
   Version,
   showVersion,
  )
-import Hydra.Node.Version.TH (
-  gitRevFromGit,
- )
 import Paths_hydra_node (
   version,
  )
 
 import qualified Data.Text as T
+import Development.GitRev (gitHash)
 
 newtype GitRevision = GitRevision Text deriving (Show, Eq)
 
@@ -66,7 +64,7 @@ gitRevision
 
   -- Git revision found during compilation by running git. If
   -- git could not be run, then this will be empty.
-  fromGit = T.strip (fromString $(gitRevFromGit))
+  fromGit = T.strip (fromString $(gitHash))
 
   zeroRev :: Text
   zeroRev = "0000000000000000000000000000000000000000"

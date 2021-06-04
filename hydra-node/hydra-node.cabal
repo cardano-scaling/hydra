@@ -85,7 +85,6 @@ library
     Hydra.Network.ZeroMQ
     Hydra.Node
     Hydra.Node.Version
-    Hydra.Node.Version.TH
     Hydra.Ledger
     Hydra.Ledger.MaryTest
     Hydra.Ledger.Mock
@@ -111,6 +110,7 @@ library
     , contra-tracer
     , data-default
     , file-embed
+    , gitrev
     , io-sim-classes
     , iohk-monitoring
     , iproute
@@ -118,14 +118,12 @@ library
     , network-mux
     , optparse-applicative
     , ouroboros-network-framework
-    , process
     , prometheus
     , safe-exceptions
     , serialise
     , shelley-spec-ledger
     , shelley-spec-ledger-test
     , stm
-    , template-haskell
     , text
     , typed-protocols
     , typed-protocols-examples
