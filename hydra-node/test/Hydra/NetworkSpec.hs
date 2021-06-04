@@ -10,14 +10,13 @@ import Cardano.Binary (FromCBOR, ToCBOR, fromCBOR, toCBOR)
 import Codec.CBOR.Read (deserialiseFromBytes)
 import Codec.CBOR.Write (toLazyByteString)
 import Codec.Serialise (Serialise, deserialiseOrFail, serialise)
-import Control.Monad.Class.MonadTime (DiffTime)
-import Control.Monad.Class.MonadTimer (timeout)
 import Hydra.HeadLogic (HydraMessage (..), NetworkEvent (MessageReceived, NetworkConnected))
 import Hydra.Logging (nullTracer)
 import Hydra.Network.Ouroboros (broadcast, withOuroborosHydraNetwork)
 import Hydra.Network.ZeroMQ (withZeroMQHydraNetwork)
-import Test.Hspec (Spec, describe, expectationFailure, it, pendingWith, shouldReturn)
+import Test.Hspec (Spec, describe, it, pendingWith, shouldReturn)
 import Test.QuickCheck (Arbitrary (..), Positive (getPositive), arbitrary, oneof, property)
+import Test.Util (failAfter)
 
 type MockTx = ()
 
@@ -118,9 +117,3 @@ prop_canRoundtripCBOREncoding ::
 prop_canRoundtripCBOREncoding a =
   let encoded = toLazyByteString $ toCBOR a
    in (snd <$> deserialiseFromBytes fromCBOR encoded) == Right a
-
-failAfter :: HasCallStack => DiffTime -> IO () -> IO ()
-failAfter seconds action =
-  timeout seconds action >>= \case
-    Nothing -> expectationFailure $ "Test timed out after " <> show seconds <> " seconds"
-    Just _ -> pure ()

@@ -42,6 +42,7 @@ import Test.Hspec (
   shouldNotBe,
   shouldReturn,
  )
+import Test.Util (failAfter)
 
 spec :: Spec
 spec = describe "Behavior of one ore more hydra-nodes" $ do
@@ -73,9 +74,9 @@ spec = describe "Behavior of one ore more hydra-nodes" $ do
       sendRequestAndWaitFor n1 (Init [1, 2]) ReadyToCommit
       sendRequest n1 (Commit 1)
 
-      wait1sForResponse n2 `shouldReturn` Just ReadyToCommit
+      failAfter 1 $ waitForResponse n2 `shouldReturn` ReadyToCommit
       sendRequest n2 (Commit 1)
-      wait1sForResponse n2 `shouldReturn` Just (HeadIsOpen [])
+      failAfter 1 $ waitForResponse n2 `shouldReturn` HeadIsOpen []
       sendRequest n2 (NewTx $ ValidTx 1)
 
     it "not accepts commits when the head is open" $ do
@@ -100,13 +101,13 @@ spec = describe "Behavior of one ore more hydra-nodes" $ do
       sendRequestAndWaitFor n1 (Init [1, 2]) ReadyToCommit
       sendRequest n1 (Commit 1)
 
-      wait1sForResponse n2 `shouldReturn` Just ReadyToCommit
+      failAfter 1 $ waitForResponse n2 `shouldReturn` ReadyToCommit
       sendRequestAndWaitFor n2 (Commit 1) (HeadIsOpen [])
 
-      wait1sForResponse n1 `shouldReturn` Just (HeadIsOpen [])
+      failAfter 1 $ waitForResponse n1 `shouldReturn` HeadIsOpen []
       sendRequest n1 Close
 
-      wait1sForResponse n2 `shouldReturn` Just (HeadIsClosed 3 [] 0 [])
+      failAfter 1 $ waitForResponse n2 `shouldReturn` HeadIsClosed 3 [] 0 []
 
     it "only opens the head after all nodes committed" $ do
       chain <- simulatedChainAndNetwork
@@ -115,12 +116,12 @@ spec = describe "Behavior of one ore more hydra-nodes" $ do
 
       sendRequestAndWaitFor n1 (Init [1, 2]) ReadyToCommit
       sendRequest n1 (Commit 1)
-      wait1sForResponse n1 >>= (`shouldNotBe` Just (HeadIsOpen []))
+      timeout 1 (waitForResponse n1) >>= (`shouldNotBe` Just (HeadIsOpen []))
 
-      wait1sForResponse n2 `shouldReturn` Just ReadyToCommit
+      failAfter 1 $ waitForResponse n2 `shouldReturn` ReadyToCommit
       sendRequestAndWaitFor n2 (Commit 1) (HeadIsOpen [])
 
-      wait1sForResponse n1 `shouldReturn` Just (HeadIsOpen [])
+      failAfter 1 $ waitForResponse n1 `shouldReturn` HeadIsOpen []
 
     it "valid new transactions get confirmed without snapshotting" $ do
       chain <- simulatedChainAndNetwork
@@ -129,16 +130,16 @@ spec = describe "Behavior of one ore more hydra-nodes" $ do
 
       sendRequestAndWaitFor n1 (Init [1, 2]) ReadyToCommit
       sendRequest n1 (Commit 1)
-      wait1sForResponse n2 `shouldReturn` Just ReadyToCommit
+      failAfter 1 $ waitForResponse n2 `shouldReturn` ReadyToCommit
       sendRequestAndWaitFor n2 (Commit 1) (HeadIsOpen [])
-      wait1sForResponse n1 `shouldReturn` Just (HeadIsOpen [])
+      failAfter 1 $ waitForResponse n1 `shouldReturn` HeadIsOpen []
 
       sendRequest n1 (NewTx $ ValidTx 42)
-      wait1sForResponse n1 `shouldReturn` Just (TxConfirmed (ValidTx 42))
-      wait1sForResponse n2 `shouldReturn` Just (TxConfirmed (ValidTx 42))
+      failAfter 1 $ waitForResponse n1 `shouldReturn` TxConfirmed (ValidTx 42)
+      failAfter 1 $ waitForResponse n2 `shouldReturn` TxConfirmed (ValidTx 42)
 
       sendRequest n1 Close
-      wait1sForResponse n1 `shouldReturn` Just (HeadIsClosed 3 [] 0 [ValidTx 42])
+      failAfter 1 $ waitForResponse n1 `shouldReturn` HeadIsClosed 3 [] 0 [ValidTx 42]
 
     it "valid new transactions get snapshotted" $ do
       chain <- simulatedChainAndNetwork
@@ -147,16 +148,16 @@ spec = describe "Behavior of one ore more hydra-nodes" $ do
 
       sendRequestAndWaitFor n1 (Init [1, 2]) ReadyToCommit
       sendRequest n1 (Commit 1)
-      wait1sForResponse n2 `shouldReturn` Just ReadyToCommit
+      failAfter 1 $ waitForResponse n2 `shouldReturn` ReadyToCommit
       sendRequestAndWaitFor n2 (Commit 1) (HeadIsOpen [])
-      wait1sForResponse n1 `shouldReturn` Just (HeadIsOpen [])
+      failAfter 1 $ waitForResponse n1 `shouldReturn` HeadIsOpen []
 
       sendRequest n1 (NewTx $ ValidTx 42)
-      wait1sForResponse n1 `shouldReturn` Just (TxConfirmed (ValidTx 42))
-      wait1sForResponse n2 `shouldReturn` Just (TxConfirmed (ValidTx 42))
+      failAfter 1 $ waitForResponse n1 `shouldReturn` TxConfirmed (ValidTx 42)
+      failAfter 1 $ waitForResponse n2 `shouldReturn` TxConfirmed (ValidTx 42)
 
       sendRequest n1 Close
-      wait1sForResponse n1 `shouldReturn` Just (HeadIsClosed 3 [] 0 [ValidTx 42])
+      failAfter 1 $ waitForResponse n1 `shouldReturn` HeadIsClosed 3 [] 0 [ValidTx 42]
 
   describe "Hydra Node Logging" $ do
     it "traces processing of events" $ do
@@ -184,8 +185,9 @@ spec = describe "Behavior of one ore more hydra-nodes" $ do
       traces `shouldContain` [ProcessedEffect (ClientEffect ReadyToCommit)]
 
 sendRequestAndWaitFor :: HasCallStack => HydraProcess IO MockTx -> ClientRequest MockTx -> ClientResponse MockTx -> IO ()
-sendRequestAndWaitFor node req expected =
-  sendRequest node req >> (wait1sForResponse node `shouldReturn` Just expected)
+sendRequestAndWaitFor node req expected = do
+  sendRequest node req
+  failAfter 1 $ waitForResponse node `shouldReturn` expected
 
 data NodeState = NotReady | Ready
   deriving (Eq, Show)
@@ -194,7 +196,7 @@ data HydraProcess m tx = HydraProcess
   { nodeId :: Natural
   , stopHydraNode :: m ()
   , sendRequest :: ClientRequest tx -> m ()
-  , wait1sForResponse :: m (Maybe (ClientResponse MockTx))
+  , waitForResponse :: m (ClientResponse MockTx)
   , waitForLedgerState :: Maybe (LedgerState tx) -> m ()
   , queryNodeState :: m NodeState
   , capturedLogs :: TVar m [HydraNodeLog tx]
@@ -250,8 +252,7 @@ startHydraNode' snapshotStrategy nodeId connectToChain = do
             Nothing -> pure Ready
             Just _ -> pure NotReady
       , sendRequest = handleClientRequest node
-      , wait1sForResponse =
-          timeout 1_000_000 $ takeMVar response
+      , waitForResponse = takeMVar response
       , waitForLedgerState =
           \st -> do
             result <-
