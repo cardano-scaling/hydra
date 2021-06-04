@@ -109,7 +109,6 @@ library
     , containers
     , contra-tracer
     , data-default
-    , file-embed
     , gitrev
     , io-sim-classes
     , iohk-monitoring
