@@ -2,9 +2,22 @@
 {-# LANGUAGE TypeApplications #-}
 {-# OPTIONS_GHC -Wno-incomplete-uni-patterns #-}
 
-module HydraNode where
+module HydraNode (
+  HydraNode (..),
+  withHydraNode,
+  failAfter,
+  waitForResponse,
+  sendRequest,
+  getMetrics,
+  queryNode,
+  defaultArguments,
+  withMockChain,
+  hydraNodeProcess,
+  module System.Process,
+) where
 
 import Cardano.Prelude
+
 import Control.Concurrent.Async (
   forConcurrently_,
  )
@@ -16,17 +29,20 @@ import Network.WebSockets (Connection, DataMessage (Binary, Text), receiveDataMe
 import System.Process (
   CreateProcess (..),
   ProcessHandle,
+  StdStream (..),
   proc,
+  readCreateProcess,
   waitForProcess,
   withCreateProcess,
  )
 import System.Timeout (timeout)
 import Test.Hspec.Expectations (expectationFailure)
-import Prelude (error)
+import Prelude (String, error)
 
 data HydraNode = HydraNode
   { hydraNodeId :: Int
   , connection :: Connection
+  , nodeStdout :: Maybe Handle
   }
 
 sendRequest :: HydraNode -> Text -> IO ()
@@ -78,38 +94,39 @@ queryNode nodeId =
 
 withHydraNode :: Int -> (HydraNode -> IO ()) -> IO ()
 withHydraNode hydraNodeId action = do
-  withCreateProcess (hydraNodeProcess hydraNodeId) $
-    \_stdin _stdout _stderr processHandle ->
-      race_ (checkProcessHasNotDied processHandle) tryConnect
+  withCreateProcess (hydraNodeProcess $ defaultArguments hydraNodeId) $
+    \_stdin out _stderr processHandle ->
+      race_ (checkProcessHasNotDied processHandle) (tryConnect out)
  where
-  tryConnect = doConnect `catch` \(_ :: IOException) -> tryConnect
+  tryConnect out = doConnect out `catch` \(_ :: IOException) -> tryConnect out
 
-  doConnect = runClient "127.0.0.1" (4000 + hydraNodeId) "/" $ \con -> do
-    action $ HydraNode hydraNodeId con
+  doConnect out = runClient "127.0.0.1" (4000 + hydraNodeId) "/" $ \con -> do
+    action $ HydraNode hydraNodeId con out
     sendClose con ("Bye" :: Text)
 
 data CannotStartHydraNode = CannotStartHydraNode Int deriving (Show)
 instance Exception CannotStartHydraNode
 
-hydraNodeProcess :: Int -> CreateProcess
-hydraNodeProcess nodeId =
-  proc
-    "hydra-node"
-    $ [ "--node-id"
-      , show nodeId
-      , -- , "--quiet"
-        "--host"
-      , "127.0.0.1"
-      , "--port"
-      , show (5000 + nodeId)
-      , "--api-host"
-      , "127.0.0.1"
-      , "--api-port"
-      , show (4000 + nodeId)
-      , "--monitoring-port"
-      , show (6000 + nodeId)
-      ]
-      <> concat [["--peer", "127.0.0.1@" <> show (5000 + id)] | id <- [1 .. 3], id /= nodeId]
+hydraNodeProcess :: [String] -> CreateProcess
+hydraNodeProcess = proc "hydra-node"
+
+defaultArguments :: Int -> [String]
+defaultArguments nodeId =
+  [ "--node-id"
+  , show nodeId
+  , -- , "--quiet"
+    "--host"
+  , "127.0.0.1"
+  , "--port"
+  , show (5000 + nodeId)
+  , "--api-host"
+  , "127.0.0.1"
+  , "--api-port"
+  , show (4000 + nodeId)
+  , "--monitoring-port"
+  , show (6000 + nodeId)
+  ]
+    <> concat [["--peer", "127.0.0.1@" <> show (5000 + id)] | id <- [1 .. 3], id /= nodeId]
 
 withMockChain :: IO () -> IO ()
 withMockChain action = do

@@ -84,6 +84,7 @@ library
     Hydra.Network.Ouroboros.Server
     Hydra.Network.ZeroMQ
     Hydra.Node
+    Hydra.Node.Version
     Hydra.Ledger
     Hydra.Ledger.MaryTest
     Hydra.Ledger.Mock
@@ -92,6 +93,8 @@ library
     Hydra.Logging.Monitoring
     Hydra.Logic
     Hydra.Option
+  other-modules:
+    Paths_hydra_node
   build-depends:
       base
     , async
@@ -106,6 +109,7 @@ library
     , containers
     , contra-tracer
     , data-default
+    , gitrev
     , io-sim-classes
     , iohk-monitoring
     , iproute

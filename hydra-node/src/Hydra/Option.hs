@@ -4,6 +4,7 @@ module Hydra.Option (
   parseHydraOptionsFromString,
   getParseResult,
   defaultOption,
+  ParserResult (..),
 ) where
 
 import Cardano.Prelude hiding (Option, option)
@@ -11,10 +12,11 @@ import Data.IP (IP)
 import Data.String (String)
 import Hydra.Logging (Verbosity (..))
 import Hydra.Network (Host, PortNumber, readHost, readPort)
+import Hydra.Node.Version (gitRevision, showFullVersion, version)
 import Options.Applicative (
   Parser,
   ParserInfo,
-  ParserResult,
+  ParserResult (..),
   auto,
   defaultPrefs,
   execParserPure,
@@ -26,6 +28,7 @@ import Options.Applicative (
   help,
   helper,
   info,
+  infoOption,
   long,
   maybeReader,
   metavar,
@@ -146,11 +149,16 @@ monitoringPortParser =
 hydraNodeOptions :: ParserInfo Option
 hydraNodeOptions =
   info
-    (hydraNodeParser <**> helper)
+    (hydraNodeParser <**> helper <**> displayVersion)
     ( fullDesc
         <> progDesc "Starts a Hydra Node"
         <> header "hydra-node - A prototype of Hydra Head protocol"
     )
+ where
+  displayVersion =
+    infoOption
+      (showFullVersion version gitRevision)
+      (long "version" <> help "Show version")
 
 -- | Parse command-line arguments into a `Option` or exit with failure and error message.
 parseHydraOptions :: IO Option

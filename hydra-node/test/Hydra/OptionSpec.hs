@@ -47,5 +47,8 @@ spec = describe "Hydra Node Options" $ do
     parseOptions ["--monitoring-port", "12345"]
       `shouldBe` Just defaultOption{monitoringPort = Just 12345}
 
+  it "parses --version flag as a parse error" $ do
+    parseOptions ["--version"] `shouldBe` Nothing
+
 parseOptions :: [String] -> Maybe Hydra.Option.Option
 parseOptions = getParseResult . parseHydraOptionsFromString
