@@ -13,18 +13,10 @@ jobs:
         extra_nix_config: |
           trusted-public-keys = iohk.cachix.org-1:DpRUyj7h7V830dp/i6Nti+NEO2/nhblbov/8MW7Rqoo= hydra.iohk.io:f/Ea+s+dFdN+3Y/G+FDgSq+a5NEWhJGzdjvKNGv0/EQ= cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY=
           substituters = https://cache.nixos.org https://hydra.iohk.io https://iohk.cachix.org
-        install_options: --no-daemon
-    - name: Make /nix/store writable for cache-restore
-      run: |
-        ls -l /nix
-        id
-        sudo chown -R 1001 /nix/store
-        ls -l /nix
     - uses: actions/cache@v2.1.5
-      name: Cache /nix, ~/.cabal/packages, ~/.cabal/store and dist-newstyle
+      name: Cache ~/.cabal/packages, ~/.cabal/store and dist-newstyle
       with:
         path: |
-          /nix/store
           ~/.cabal/packages
           ~/.cabal/store
           dist-newstyle

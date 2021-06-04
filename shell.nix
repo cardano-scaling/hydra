@@ -33,11 +33,7 @@
   })
 }:
 hsPkgs.shellFor {
-  packages = ps: with ps; [
-    hydra-node
-    hydra-plutus
-    local-cluster
-  ];
+  packages = ps: with ps; [ ];
 
   # Haskell.nix managed tools (via hackage)
   tools = {
