@@ -5,15 +5,14 @@ module Test.EndToEndSpec where
 
 import Cardano.Prelude
 import qualified Data.ByteString as BS
+import Data.String (String)
 import HydraNode (
-  StdStream (CreatePipe),
   failAfter,
   getMetrics,
   hydraNodeProcess,
+  readCreateProcess,
   sendRequest,
-  std_out,
   waitForResponse,
-  withCreateProcess,
   withHydraNode,
   withMockChain,
  )
@@ -85,7 +84,6 @@ spec = describe "End-to-end test using a mocked chain though" $ do
 
   describe "hydra-node executable" $ do
     it "display proper semantic version given it is passed --version argument" $ do
-      failAfter 5 $
-        withCreateProcess ((hydraNodeProcess ["--version"]){std_out = CreatePipe}) $ \_ (Just out) _ _ -> do
-          version <- fmap decodeUtf8 (BS.hGetContents out)
-          version `shouldSatisfy` (=~ ("[0-9]+\\.[0-9]+\\.[0-9]+(-[a-zA-Z0-9]+)?" :: Text))
+      failAfter 5 $ do
+        version <- readCreateProcess (hydraNodeProcess ["--version"]) ""
+        version `shouldSatisfy` (=~ ("[0-9]+\\.[0-9]+\\.[0-9]+(-[a-zA-Z0-9]+)?" :: String))

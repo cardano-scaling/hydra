@@ -31,6 +31,7 @@ import System.Process (
   ProcessHandle,
   StdStream (..),
   proc,
+  readCreateProcess,
   waitForProcess,
   withCreateProcess,
  )
