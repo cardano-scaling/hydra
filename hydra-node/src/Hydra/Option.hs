@@ -4,6 +4,7 @@ module Hydra.Option (
   parseHydraOptionsFromString,
   getParseResult,
   defaultOption,
+  ParserResult (..),
 ) where
 
 import Cardano.Prelude hiding (Option, option)
@@ -11,10 +12,11 @@ import Data.IP (IP)
 import Data.String (String)
 import Hydra.Logging (Verbosity (..))
 import Hydra.Network (Host, PortNumber, readHost, readPort)
+import Hydra.Node.Version (gitRevision, showFullVersion, version)
 import Options.Applicative (
   Parser,
   ParserInfo,
-  ParserResult,
+  ParserResult (..),
   auto,
   defaultPrefs,
   execParserPure,
@@ -26,13 +28,13 @@ import Options.Applicative (
   help,
   helper,
   info,
+  infoOption,
   long,
   maybeReader,
   metavar,
   option,
   progDesc,
   short,
-  switch,
   value,
  )
 
@@ -45,12 +47,11 @@ data Option = Option
   , apiHost :: IP
   , apiPort :: PortNumber
   , monitoringPort :: Maybe PortNumber
-  , displayVersion :: Bool
   }
   deriving (Eq, Show)
 
 defaultOption :: Option
-defaultOption = Option (Verbose "HydraNode") 1 "127.0.0.1" 5001 [] "127.0.0.1" 4001 Nothing False
+defaultOption = Option (Verbose "HydraNode") 1 "127.0.0.1" 5001 [] "127.0.0.1" 4001 Nothing
 
 hydraNodeParser :: Parser Option
 hydraNodeParser =
@@ -63,7 +64,6 @@ hydraNodeParser =
     <*> apiHostParser
     <*> apiPortParser
     <*> optional monitoringPortParser
-    <*> displayVersionParser
 
 peerParser :: Parser Host
 peerParser =
@@ -146,21 +146,19 @@ monitoringPortParser =
         <> help "The port this node listens on for monitoring and metrics. If left empty, monitoring server is not started"
     )
 
-displayVersionParser :: Parser Bool
-displayVersionParser =
-  switch
-    ( long "version"
-        <> help "Show version number and exit"
-    )
-
 hydraNodeOptions :: ParserInfo Option
 hydraNodeOptions =
   info
-    (hydraNodeParser <**> helper)
+    (hydraNodeParser <**> helper <**> displayVersion)
     ( fullDesc
         <> progDesc "Starts a Hydra Node"
         <> header "hydra-node - A prototype of Hydra Head protocol"
     )
+ where
+  displayVersion =
+    infoOption
+      (showFullVersion version gitRevision)
+      (long "version" <> help "Show version")
 
 -- | Parse command-line arguments into a `Option` or exit with failure and error message.
 parseHydraOptions :: IO Option
