@@ -7,10 +7,6 @@ import Cardano.Prelude hiding (Option, option)
 import Control.Concurrent.STM (newBroadcastTChanIO, writeTChan)
 import Hydra.API.Server (runAPIServer)
 import Hydra.Chain.ZeroMQ (createMockChainClient)
-import qualified Hydra.Ledger.Mock as Ledger
-import Hydra.Logging
-import Hydra.Logging.Messages (HydraLog (..))
-import Hydra.Logging.Monitoring (withMonitoring)
 import Hydra.HeadLogic (
   Environment (..),
   Event (..),
@@ -18,6 +14,10 @@ import Hydra.HeadLogic (
   SnapshotStrategy (..),
   createHeadState,
  )
+import qualified Hydra.Ledger.Mock as Ledger
+import Hydra.Logging
+import Hydra.Logging.Messages (HydraLog (..))
+import Hydra.Logging.Monitoring (withMonitoring)
 import Hydra.Network.Ouroboros (withOuroborosHydraNetwork)
 import Hydra.Node (
   EventQueue (..),
@@ -35,7 +35,7 @@ main = do
     withMonitoring monitoringPort tracer' $ \tracer -> do
       let env = Environment nodeId
       eq <- createEventQueue
-      let headState = createHeadState [] (HeadParameters 3) SnapshotStrategy
+      let headState = createHeadState [] (HeadParameters 3 []) SnapshotStrategy
       hh <- createHydraHead headState Ledger.mockLedger
       oc <- createMockChainClient eq (contramap MockChain tracer)
       withOuroborosHydraNetwork (show host, port) peers (putEvent eq . NetworkEvent) $ \hn -> do

@@ -44,7 +44,7 @@ spec = describe "End-to-end test using a mocked chain though" $ do
                 -- NOTE(SN): uses MockTx and its UTxO type [MockTx]
                 waitForResponse 3 [n1, n2, n3] "HeadIsOpen []"
                 sendRequest n1 "NewTx (ValidTx 42)"
-                waitForResponse 3 [n1, n2, n3] "TxConfirmed (ValidTx 42)"
+                waitForResponse 10 [n1, n2, n3] "TxConfirmed (ValidTx 42)"
                 sendRequest n1 "Close"
                 waitForResponse 3 [n1] "HeadIsClosed 3s [ValidTx 42]"
                 waitForResponse (contestationPeriod + 3) [n1] "HeadIsFinalized [ValidTx 42]"

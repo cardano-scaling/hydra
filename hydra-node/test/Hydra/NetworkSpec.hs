@@ -62,6 +62,9 @@ spec = describe "Networking layer" $ do
               failAfter 1 $ takeMVar node1received `shouldReturn` MessageReceived requestTx
               failAfter 1 $ takeMVar node2received `shouldReturn` MessageReceived requestTx
 
+    it "broadcasts messages to itself" $ do
+      pendingWith "not tested yet"
+
   describe "0MQ Network" $
     it "broadcasts messages between 3 connected peers" $ do
       pendingWith "missing network callback"

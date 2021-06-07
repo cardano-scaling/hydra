@@ -166,7 +166,7 @@ update ::
   Outcome tx
 update Environment{party} ledger (HeadState p st) ev = case (st, ev) of
   (InitState, ClientEvent (Init parties)) ->
-    newState p InitState [OnChainEffect (InitTx $ makeAllTokens parties)]
+    newState (p{parties}) InitState [OnChainEffect (InitTx $ makeAllTokens parties)]
   (InitState, OnChainEvent (InitTx tokens)) ->
     newState p (CollectingState tokens mempty) [ClientEffect ReadyToCommit]
   --
