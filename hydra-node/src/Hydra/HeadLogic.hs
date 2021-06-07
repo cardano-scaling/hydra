@@ -103,15 +103,20 @@ deriving instance Show (UTxO tx) => Show (SimpleHeadState tx) => Show (HeadStatu
 
 data SimpleHeadState tx = SimpleHeadState
   { confirmedLedger :: LedgerState tx
+  , -- TODO: tx should be an abstract 'TxId'
+    signatures :: Map tx (Set Party)
   }
 
-deriving instance Eq (UTxO tx) => Eq (LedgerState tx) => Eq (SimpleHeadState tx)
-deriving instance Show (UTxO tx) => Show (LedgerState tx) => Show (SimpleHeadState tx)
+deriving instance (Eq tx, Eq (UTxO tx)) => Eq (LedgerState tx) => Eq (SimpleHeadState tx)
+deriving instance (Show tx, Show (UTxO tx)) => Show (LedgerState tx) => Show (SimpleHeadState tx)
 
 type PendingCommits = Set ParticipationToken
 
 -- | Contains at least the contestation period and other things.
-newtype HeadParameters = HeadParameters {contestationPeriod :: DiffTime}
+data HeadParameters = HeadParameters
+  { contestationPeriod :: DiffTime
+  , parties :: [Party]
+  }
   deriving (Eq, Show)
 
 -- | Decides when, how often and who is in charge of creating snapshots.
@@ -134,8 +139,8 @@ deriving instance (Show (HeadState tx), Show (Event tx)) => Show (LogicError tx)
 
 data Outcome tx
   = NewState (HeadState tx) [Effect tx]
-  | Error (LogicError tx)
   | Wait
+  | Error (LogicError tx)
 
 newState :: HeadParameters -> HeadStatus tx -> [Effect tx] -> Outcome tx
 newState p s = NewState (HeadState p s)
@@ -153,6 +158,7 @@ update ::
   Show (LedgerState tx) =>
   Show (UTxO tx) =>
   Show tx =>
+  Ord tx =>
   Environment ->
   Ledger tx ->
   HeadState tx ->
@@ -180,7 +186,7 @@ update Environment{party} ledger (HeadState p st) ev = case (st, ev) of
     let ls = initLedgerState ledger
      in newState
           p
-          (OpenState $ SimpleHeadState ls)
+          (OpenState $ SimpleHeadState ls mempty)
           [ClientEffect $ HeadIsOpen $ getUTxO ledger ls]
   --
   (OpenState _, OnChainEvent CommitTx{}) ->
@@ -196,16 +202,35 @@ update Environment{party} ledger (HeadState p st) ev = case (st, ev) of
     case canApply ledger (confirmedLedger headState) tx of
       Invalid _ -> panic "TODO: wait until it may be applied"
       Valid -> newState p st [NetworkEffect $ AckTx party tx]
-  (OpenState headState, NetworkEvent (MessageReceived (AckTx _otherParty tx))) ->
-    -- TODO(SN): should check AckTx (signature), wait for all 'otherParty' and
-    -- confirm it by:
+  (OpenState headState, NetworkEvent (MessageReceived (AckTx otherParty tx))) ->
     case applyTransaction ledger (confirmedLedger headState) tx of
       Left err -> panic $ "TODO: validation error: " <> show err
-      Right newLedgerState ->
-        newState
-          p
-          (OpenState $ headState{confirmedLedger = newLedgerState})
-          [ClientEffect $ TxConfirmed tx]
+      Right newLedgerState -> do
+        let sigs =
+              Set.insert
+                otherParty
+                (fromMaybe Set.empty $ Map.lookup tx (signatures headState))
+        if sigs == Set.fromList (parties p)
+          then
+            newState
+              p
+              ( OpenState $
+                  headState
+                    { confirmedLedger = newLedgerState
+                    , signatures = Map.delete tx (signatures headState)
+                    }
+              )
+              [ClientEffect $ TxConfirmed tx]
+          else
+            newState
+              p
+              ( OpenState $
+                  headState
+                    { signatures = Map.insert tx sigs (signatures headState)
+                    }
+              )
+              []
+
   --
   (OpenState SimpleHeadState{confirmedLedger}, OnChainEvent CloseTx) ->
     let utxo = getUTxO ledger confirmedLedger

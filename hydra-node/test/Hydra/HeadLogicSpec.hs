@@ -4,6 +4,9 @@ module Hydra.HeadLogicSpec where
 
 import Cardano.Prelude
 
+import Control.Monad.Fail (
+  fail,
+ )
 import Hydra.HeadLogic (
   Environment (..),
   Event (NetworkEvent),
@@ -12,12 +15,12 @@ import Hydra.HeadLogic (
   HeadStatus (OpenState),
   HydraMessage (..),
   NetworkEvent (MessageReceived),
-  Outcome,
+  Outcome (..),
   SimpleHeadState (..),
   update,
  )
 import Hydra.Ledger (Ledger (initLedgerState))
-import Hydra.Ledger.Mock (MockTx (ValidTx), mockLedger)
+import Hydra.Ledger.Mock (MockLedgerState (..), MockTx (ValidTx), mockLedger)
 import Test.Hspec (
   Spec,
   describe,
@@ -33,9 +36,20 @@ spec = describe "Hydra Head Logic" $ do
         ackFrom1 = NetworkEvent $ MessageReceived $ AckTx 1 (ValidTx 1)
         ackFrom2 = NetworkEvent $ MessageReceived $ AckTx 2 (ValidTx 1)
         ackFrom3 = NetworkEvent $ MessageReceived $ AckTx 3 (ValidTx 1)
-        env = Environment 2
+        env =
+          Environment
+            { party = 2
+            }
         ledger = mockLedger
-        s0 = HeadState (HeadParameters 42) $ OpenState $ SimpleHeadState $ initLedgerState ledger
+        s0 =
+          HeadState
+            { headStatus = OpenState $ SimpleHeadState (initLedgerState ledger) mempty
+            , headParameters =
+                HeadParameters
+                  { contestationPeriod = 42
+                  , parties = allParties
+                  }
+            }
 
     s1 <- assertNewState $ update env ledger s0 reqTx
     s2 <- assertNewState $ update env ledger s1 ackFrom3
@@ -48,7 +62,12 @@ spec = describe "Hydra Head Logic" $ do
     confirmedTransactions s4 `shouldBe` [ValidTx 1]
 
 confirmedTransactions :: HeadState MockTx -> [MockTx]
-confirmedTransactions = panic "not implemented"
+confirmedTransactions HeadState{headStatus} = case headStatus of
+  OpenState (SimpleHeadState MockLedgerState{transactions} _) -> transactions
+  _ -> []
 
 assertNewState :: Outcome MockTx -> IO (HeadState MockTx)
-assertNewState = panic "undefined"
+assertNewState = \case
+  NewState st _ -> pure st
+  Error e -> fail (show e)
+  Wait -> fail "Found 'Wait'"

@@ -12,8 +12,8 @@ import Codec.CBOR.Write (toLazyByteString)
 import Codec.Serialise (Serialise, deserialiseOrFail, serialise)
 import Control.Monad.Class.MonadTime (DiffTime)
 import Control.Monad.Class.MonadTimer (timeout)
-import Hydra.Logging (nullTracer)
 import Hydra.HeadLogic (HydraMessage (..), NetworkEvent (MessageReceived, NetworkConnected))
+import Hydra.Logging (nullTracer)
 import Hydra.Network.Ouroboros (broadcast, withOuroborosHydraNetwork)
 import Hydra.Network.ZeroMQ (withZeroMQHydraNetwork)
 import Test.Hspec (Spec, describe, expectationFailure, it, pendingWith, shouldReturn)
@@ -93,7 +93,15 @@ spec = describe "Networking layer" $ do
     it "can roundtrip CBOR encoding/decoding of HydraMessage" $ property $ prop_canRoundtripCBOREncoding @(HydraMessage Integer)
 
 instance Arbitrary (HydraMessage Integer) where
-  arbitrary = oneof [ReqTx <$> arbitrary, pure AckTx, pure ConfTx, pure ReqSn, pure AckSn, pure ConfSn]
+  arbitrary =
+    oneof
+      [ ReqTx <$> arbitrary
+      , AckTx <$> fmap (fromIntegral @Int) arbitrary <*> arbitrary
+      , pure ConfTx
+      , pure ReqSn
+      , pure AckSn
+      , pure ConfSn
+      ]
 
 prop_canRoundtripSerialise :: (Serialise a, Eq a) => a -> Bool
 prop_canRoundtripSerialise a =

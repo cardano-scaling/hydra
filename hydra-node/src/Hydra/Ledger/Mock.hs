@@ -14,7 +14,7 @@ import Hydra.Ledger
 
 -- | Simple mock transaction, which conflates value and identity
 data MockTx = ValidTx TxId | InvalidTx
-  deriving stock (Eq, Generic, Read, Show)
+  deriving stock (Eq, Ord, Generic, Read, Show)
   deriving anyclass (Serialise)
 
 instance ToCBOR MockTx where

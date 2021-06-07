@@ -74,6 +74,7 @@ runHydraNode ::
   Show (UTxO tx) =>
   Show (LedgerState tx) => -- TODO(SN): leaky abstraction of HydraHead
   Show tx =>
+  Ord tx =>
   Tracer m (HydraNodeLog tx) ->
   HydraNode tx m ->
   m ()
@@ -92,6 +93,7 @@ processNextEvent ::
   Show (UTxO tx) =>
   Show (LedgerState tx) =>
   Show tx =>
+  Ord tx =>
   MonadSTM m =>
   HydraNode tx m ->
   Event tx ->
