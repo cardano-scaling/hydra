@@ -6,7 +6,7 @@ import Cardano.Prelude
 import qualified Data.Set as Set
 import Data.String (String)
 import Hydra.Ledger (ParticipationToken (..))
-import Hydra.Logic (OnChainTx (InitTx))
+import Hydra.HeadLogic (OnChainTx (InitTx))
 import Hydra.Chain.ZeroMQ (catchUpTransactions, mockChainClient, runChainSync, startChain)
 import Hydra.Logging (nullTracer)
 import System.Timeout (timeout)

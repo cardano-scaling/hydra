@@ -8,7 +8,7 @@ import Control.Concurrent.STM (TChan, dupTChan, readTChan)
 import qualified Data.Text as Text
 import Hydra.Ledger (UTxO)
 import Hydra.Logging (Tracer, traceWith)
-import Hydra.Logic (
+import Hydra.HeadLogic (
   ClientResponse,
  )
 import Hydra.Network (IP, PortNumber)

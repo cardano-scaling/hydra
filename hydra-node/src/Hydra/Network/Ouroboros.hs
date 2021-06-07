@@ -20,7 +20,7 @@ import Control.Tracer (
   stdoutTracer,
  )
 import qualified Data.ByteString.Lazy as LBS
-import Hydra.Logic (HydraMessage (..), NetworkEvent (MessageReceived, NetworkConnected))
+import Hydra.HeadLogic (HydraMessage (..), NetworkEvent (MessageReceived, NetworkConnected))
 import Hydra.Network (
   Host,
   HydraNetwork (..),

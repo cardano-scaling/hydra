@@ -3,7 +3,7 @@
 {-# OPTIONS_GHC -Wno-deferred-type-errors #-}
 {-# OPTIONS_GHC -Wno-overlapping-patterns #-}
 
-module Hydra.Logic where
+module Hydra.HeadLogic where
 
 import Cardano.Prelude
 

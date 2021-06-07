@@ -8,7 +8,7 @@ import Data.IORef (modifyIORef', newIORef, readIORef)
 import Hydra.Ledger (LedgerState)
 import Hydra.Ledger.Mock (MockLedgerState (..), MockTx (..), mockLedger)
 import Hydra.Logging (traceInTVarIO)
-import Hydra.Logic (
+import Hydra.HeadLogic (
   ClientRequest (..),
   ClientResponse (..),
   Effect (ClientEffect),

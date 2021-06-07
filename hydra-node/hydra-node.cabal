@@ -91,7 +91,7 @@ library
     Hydra.Logging
     Hydra.Logging.Messages
     Hydra.Logging.Monitoring
-    Hydra.Logic
+    Hydra.HeadLogic
     Hydra.Option
   other-modules:
     Paths_hydra_node

@@ -29,7 +29,7 @@ import Control.Monad (fail)
 import Data.IP (IP)
 import qualified Data.List as List
 import Data.String (String)
-import Hydra.Logic (HydraMessage (..), NetworkEvent (..))
+import Hydra.HeadLogic (HydraMessage (..), NetworkEvent (..))
 import Network.Socket (HostName, PortNumber)
 import Network.TypedProtocol.Pipelined ()
 

@@ -11,7 +11,7 @@ import qualified Hydra.Ledger.Mock as Ledger
 import Hydra.Logging
 import Hydra.Logging.Messages (HydraLog (..))
 import Hydra.Logging.Monitoring (withMonitoring)
-import Hydra.Logic (
+import Hydra.HeadLogic (
   Environment (..),
   Event (..),
   HeadParameters (..),
