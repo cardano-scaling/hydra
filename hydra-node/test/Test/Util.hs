@@ -1,12 +1,12 @@
 module Test.Util where
 
 import Cardano.Prelude
-import Control.Monad.Class.MonadTime (DiffTime)
-import Control.Monad.Class.MonadTimer (timeout)
-import Test.Hspec (expectationFailure)
+import Control.Monad.Class.MonadTimer (DiffTime, MonadTimer, timeout)
+import Prelude (error)
 
-failAfter :: HasCallStack => DiffTime -> IO () -> IO ()
+failAfter :: (HasCallStack, MonadTimer m) => DiffTime -> m () -> m ()
 failAfter seconds action =
   timeout seconds action >>= \case
-    Nothing -> expectationFailure $ "Test timed out after " <> show seconds <> " seconds"
+    -- TODO(SN): use MonadThrow instead?
+    Nothing -> error $ "Test timed out after " <> show seconds <> " seconds"
     Just _ -> pure ()

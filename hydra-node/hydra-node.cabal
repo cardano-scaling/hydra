@@ -118,7 +118,6 @@ library
     , optparse-applicative
     , ouroboros-network-framework
     , prometheus
-    , safe-exceptions
     , serialise
     , shelley-spec-ledger
     , shelley-spec-ledger-test

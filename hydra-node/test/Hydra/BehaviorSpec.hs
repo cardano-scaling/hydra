@@ -1,12 +1,26 @@
 {-# LANGUAGE TypeApplications #-}
+{-# OPTIONS_GHC -Wno-unused-matches #-}
 
 module Hydra.BehaviorSpec where
 
-import Cardano.Prelude hiding (atomically, check, threadDelay)
-import Control.Monad.Class.MonadSTM (TVar, atomically, check, modifyTVar, newTVarIO, readTVar)
-import Control.Monad.Class.MonadTime (DiffTime)
-import Control.Monad.Class.MonadTimer (threadDelay)
-import Data.IORef (modifyIORef', newIORef, readIORef)
+import Cardano.Prelude hiding (Async, STM, async, atomically, cancel, check, link, poll, threadDelay)
+import Control.Monad.Class.MonadAsync (MonadAsync, async, cancel, link, poll)
+import Control.Monad.Class.MonadFork (MonadFork)
+import Control.Monad.Class.MonadSTM (
+  MonadSTM,
+  TVar,
+  atomically,
+  check,
+  modifyTVar,
+  modifyTVar',
+  newEmptyTMVar,
+  newTVarIO,
+  putTMVar,
+  readTVar,
+  takeTMVar,
+ )
+import Control.Monad.Class.MonadThrow (MonadMask)
+import Control.Monad.Class.MonadTimer (DiffTime, MonadTimer, threadDelay, timeout)
 import Hydra.HeadLogic (
   ClientRequest (..),
   ClientResponse (..),
@@ -19,8 +33,7 @@ import Hydra.HeadLogic (
  )
 import Hydra.Ledger (LedgerState)
 import Hydra.Ledger.Mock (MockTx (..), mockLedger)
-
-import Hydra.Logging (traceInTVarIO)
+import Hydra.Logging (traceInTVar)
 import Hydra.Network (HydraNetwork (..))
 import Hydra.Node (
   HydraNode (..),
@@ -34,17 +47,16 @@ import Hydra.Node (
   queryLedgerState,
   runHydraNode,
  )
-import System.Timeout (timeout)
 import Test.Hspec (
   Spec,
   describe,
-  expectationFailure,
   it,
   shouldContain,
   shouldNotBe,
   shouldReturn,
  )
 import Test.Util (failAfter)
+import Prelude (error)
 
 spec :: Spec
 spec = describe "Behavior of one ore more hydra-nodes" $ do
@@ -64,7 +76,7 @@ spec = describe "Behavior of one ore more hydra-nodes" $ do
       sendRequest n (Init [1]) `shouldReturn` ()
 
     it "accepts Commit after successful Init" $ do
-      n <- simulatedChainAndNetwork >>= startHydraNode 1
+      n :: HydraProcess IO MockTx <- simulatedChainAndNetwork >>= startHydraNode 1
       sendRequest n (Init [1])
       sendRequest n (Commit 1)
 
@@ -217,7 +229,7 @@ data HydraProcess m tx = HydraProcess
   , capturedLogs :: TVar m [HydraNodeLog tx]
   }
 
-data Connections = Connections {chain :: OnChain IO, network :: HydraNetwork MockTx IO}
+data Connections m = Connections {chain :: OnChain m, network :: HydraNetwork MockTx m}
 
 -- | Creates a simulated chain by returning a function to create the chain
 -- client interface for a node. This is necessary, to get to know all nodes
@@ -226,19 +238,25 @@ data Connections = Connections {chain :: OnChain IO, network :: HydraNetwork Moc
 -- NOTE: This implementation currently ensures that no two equal 'OnChainTx' can
 -- be posted on chain assuming the construction of the real transaction is
 -- referentially transparent.
-simulatedChainAndNetwork :: IO (HydraNode MockTx IO -> IO Connections)
+simulatedChainAndNetwork :: MonadSTM m => m (HydraNode MockTx m -> m (Connections m))
 simulatedChainAndNetwork = do
-  refHistory <- newIORef []
+  refHistory <- newTVarIO []
   nodes <- newTVarIO []
   pure $ \n -> do
     atomically $ modifyTVar nodes (n :)
     pure $ Connections OnChain{postTx = postTx nodes refHistory} HydraNetwork{broadcast = broadcast nodes}
  where
   postTx nodes refHistory tx = do
-    h <- readIORef refHistory
-    unless (tx `elem` h) $ do
-      modifyIORef' refHistory (tx :)
-      atomically (readTVar nodes) >>= mapM_ (`handleChainTx` tx)
+    res <- atomically $ do
+      h <- readTVar refHistory
+      if tx `elem` h
+        then pure Nothing
+        else do
+          modifyTVar' refHistory (tx :)
+          Just <$> readTVar nodes
+    case res of
+      Nothing -> pure ()
+      Just ns -> mapM_ (`handleChainTx` tx) ns
 
   broadcast nodes msg = atomically (readTVar nodes) >>= mapM_ (`handleMessage` msg)
 
@@ -247,21 +265,24 @@ testContestationPeriod :: DiffTime
 testContestationPeriod = 10
 
 startHydraNode ::
+  (MonadAsync m, MonadTimer m, MonadFork m, MonadMask m) =>
   Natural ->
-  (HydraNode MockTx IO -> IO Connections) ->
-  IO (HydraProcess IO MockTx)
+  (HydraNode MockTx m -> m (Connections m)) ->
+  m (HydraProcess m MockTx)
 startHydraNode = startHydraNode' NoSnapshots
 
 startHydraNode' ::
+  (MonadAsync m, MonadTimer m, MonadFork m, MonadMask m) =>
   SnapshotStrategy ->
   Natural ->
-  (HydraNode MockTx IO -> IO Connections) ->
-  IO (HydraProcess IO MockTx)
+  (HydraNode MockTx m -> m (Connections m)) ->
+  m (HydraProcess m MockTx)
 startHydraNode' snapshotStrategy nodeId connectToChain = do
   capturedLogs <- newTVarIO []
-  response <- newEmptyMVar
+  response <- atomically newEmptyTMVar
   node <- createHydraNode response
-  nodeThread <- async $ runHydraNode (traceInTVarIO capturedLogs) node
+  -- TODO(SN): trace directly into io-sim's 'Trace'
+  nodeThread <- async $ runHydraNode (traceInTVar capturedLogs) node
   link nodeThread
   pure $
     HydraProcess
@@ -271,17 +292,15 @@ startHydraNode' snapshotStrategy nodeId connectToChain = do
             Nothing -> pure Ready
             Just _ -> pure NotReady
       , sendRequest = handleClientRequest node
-      , waitForResponse = takeMVar response
+      , waitForResponse = atomically $ takeTMVar response
       , waitForLedgerState =
           \st -> do
-            result <-
-              timeout
-                1_000_000
-                ( atomically $ do
-                    st' <- queryLedgerState node
-                    check (st == st')
-                )
-            when (isNothing result) $ expectationFailure ("Expected ledger state of node " <> show nodeId <> " to be " <> show st)
+            result <- timeout 1 $
+              atomically $ do
+                st' <- queryLedgerState node
+                check (st == st')
+            -- TODO(SN): use MonadThrow instead?
+            when (isNothing result) $ error ("Expected ledger state of node " <> show nodeId <> " to be " <> show st)
       , nodeId
       , capturedLogs
       }
@@ -289,9 +308,9 @@ startHydraNode' snapshotStrategy nodeId connectToChain = do
   createHydraNode response = do
     let env = Environment nodeId
     eq <- createEventQueue
-    let headState = createHeadState [] (HeadParameters testContestationPeriod mempty) SnapshotStrategy
+    let headState = createHeadState [] (HeadParameters testContestationPeriod mempty) snapshotStrategy
     hh <- createHydraHead headState mockLedger
     let hn' = HydraNetwork{broadcast = const $ pure ()}
-    let node = HydraNode{eq, hn = hn', hh, oc = OnChain (const $ pure ()), sendResponse = putMVar response, env}
+    let node = HydraNode{eq, hn = hn', hh, oc = OnChain (const $ pure ()), sendResponse = atomically . putTMVar response, env}
     Connections oc hn <- connectToChain node
     pure node{oc, hn}
