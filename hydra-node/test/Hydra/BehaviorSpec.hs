@@ -56,7 +56,7 @@ spec = describe "Behavior of one ore more hydra-nodes" $ do
       stopHydraNode n
       queryNodeState n `shouldReturn` NotReady
 
-  describe "Hydra node integration" $ do
+  describe "Single participant Head" $ do
     it "accepts Init command" $ do
       n <- simulatedChainAndNetwork >>= startHydraNode 1
       sendRequest n (Init [1]) `shouldReturn` ()
@@ -65,19 +65,6 @@ spec = describe "Behavior of one ore more hydra-nodes" $ do
       n <- simulatedChainAndNetwork >>= startHydraNode 1
       sendRequest n (Init [1])
       sendRequest n (Commit 1)
-
-    it "accepts a tx after the head was opened between two nodes" $ do
-      chain <- simulatedChainAndNetwork
-      n1 <- startHydraNode 1 chain
-      n2 <- startHydraNode 2 chain
-
-      sendRequestAndWaitFor n1 (Init [1, 2]) ReadyToCommit
-      sendRequest n1 (Commit 1)
-
-      failAfter 1 $ waitForResponse n2 `shouldReturn` ReadyToCommit
-      sendRequest n2 (Commit 1)
-      failAfter 1 $ waitForResponse n2 `shouldReturn` HeadIsOpen []
-      sendRequest n2 (NewTx $ ValidTx 1)
 
     it "not accepts commits when the head is open" $ do
       n1 <- simulatedChainAndNetwork >>= startHydraNode 1
@@ -92,6 +79,20 @@ spec = describe "Behavior of one ore more hydra-nodes" $ do
       sendRequestAndWaitFor n1 (Init [1]) ReadyToCommit
       sendRequestAndWaitFor n1 (Commit 1) (HeadIsOpen [])
       sendRequestAndWaitFor n1 Close (HeadIsClosed 3 [] 0 [])
+
+  describe "Two participant Head" $ do
+    it "accepts a tx after the head was opened between two nodes" $ do
+      chain <- simulatedChainAndNetwork
+      n1 <- startHydraNode 1 chain
+      n2 <- startHydraNode 2 chain
+
+      sendRequestAndWaitFor n1 (Init [1, 2]) ReadyToCommit
+      sendRequest n1 (Commit 1)
+
+      failAfter 1 $ waitForResponse n2 `shouldReturn` ReadyToCommit
+      sendRequest n2 (Commit 1)
+      failAfter 1 $ waitForResponse n2 `shouldReturn` HeadIsOpen []
+      sendRequest n2 (NewTx $ ValidTx 1)
 
     it "sees the head closed by other nodes" $ do
       chain <- simulatedChainAndNetwork
