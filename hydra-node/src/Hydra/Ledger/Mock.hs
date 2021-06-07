@@ -9,6 +9,7 @@ import Cardano.Binary (FromCBOR (..), ToCBOR (..), decodeTag, encodeTag)
 import Cardano.Prelude
 import Codec.Serialise
 import Control.Monad (fail)
+import Data.List (nub)
 import Hydra.Ledger
 
 -- | Simple mock transaction, which conflates value and identity
@@ -58,7 +59,7 @@ mockLedger =
           InvalidTx ->
             Left ValidationError
           ValidTx{} ->
-            let transactions' = tx : transactions
+            let transactions' = nub $ tx : transactions
              in Right $ MockLedgerState{transactions = transactions'}
     , initLedgerState = MockLedgerState mempty
     , getUTxO = transactions

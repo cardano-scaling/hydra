@@ -21,6 +21,7 @@ import Control.Tracer (
  )
 import qualified Data.ByteString.Lazy as LBS
 import Hydra.HeadLogic (HydraMessage (..), NetworkEvent (MessageReceived, NetworkConnected))
+import Hydra.Logging (nullTracer)
 import Hydra.Network (
   Host,
   HydraNetwork (..),
@@ -184,7 +185,7 @@ withOuroborosHydraNetwork localHost remoteHosts networkCallback between = do
    where
     initiator =
       MuxPeer
-        showStdoutTracer
+        nullTracer
         codecFireForget
         (fireForgetClientPeer $ client chan)
 

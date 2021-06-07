@@ -59,7 +59,7 @@ data ClientResponse tx
   | HeadIsClosed DiffTime (UTxO tx)
   | HeadIsFinalized (UTxO tx)
   | CommandFailed
-  | ReqTxReceived tx
+  | TxConfirmed tx
   | TxInvalid tx
 
 deriving instance Eq tx => Eq (UTxO tx) => Eq (ClientResponse tx)
@@ -67,7 +67,7 @@ deriving instance Show tx => Show (UTxO tx) => Show (ClientResponse tx)
 
 data HydraMessage tx
   = ReqTx tx
-  | AckTx
+  | AckTx Party tx
   | ConfTx
   | ReqSn
   | AckSn
@@ -187,18 +187,26 @@ update Environment{party} ledger (HeadState p st) ev = case (st, ev) of
     Error (InvalidEvent ev (HeadState p st)) -- HACK(SN): is a general case later
   (OpenState{}, ClientEvent Close) ->
     newState p st [OnChainEffect CloseTx, Delay (contestationPeriod p) ShouldPostFanout]
+  --
   (OpenState SimpleHeadState{confirmedLedger}, ClientEvent (NewTx tx)) ->
     case canApply ledger confirmedLedger tx of
       Invalid _ -> newState p st [ClientEffect $ TxInvalid tx]
       Valid -> newState p st [NetworkEffect $ ReqTx tx]
   (OpenState headState, NetworkEvent (MessageReceived (ReqTx tx))) ->
+    case canApply ledger (confirmedLedger headState) tx of
+      Invalid _ -> panic "TODO: wait until it may be applied"
+      Valid -> newState p st [NetworkEffect $ AckTx party tx]
+  (OpenState headState, NetworkEvent (MessageReceived (AckTx _otherParty tx))) ->
+    -- TODO(SN): should check AckTx (signature), wait for all 'otherParty' and
+    -- confirm it by:
     case applyTransaction ledger (confirmedLedger headState) tx of
+      Left err -> panic $ "TODO: validation error: " <> show err
       Right newLedgerState ->
         newState
           p
           (OpenState $ headState{confirmedLedger = newLedgerState})
-          [ClientEffect $ ReqTxReceived tx]
-      Left{} -> panic "TODO: how is this case handled?"
+          [ClientEffect $ TxConfirmed tx]
+  --
   (OpenState SimpleHeadState{confirmedLedger}, OnChainEvent CloseTx) ->
     let utxo = getUTxO ledger confirmedLedger
      in newState p (ClosedState utxo) [ClientEffect $ HeadIsClosed (contestationPeriod p) utxo]
