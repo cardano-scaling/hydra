@@ -2,8 +2,10 @@
 
 module Hydra.BehaviorSpec where
 
-import Cardano.Prelude hiding (atomically, check)
+import Cardano.Prelude hiding (atomically, check, threadDelay)
 import Control.Monad.Class.MonadSTM (TVar, atomically, check, modifyTVar, newTVarIO, readTVar)
+import Control.Monad.Class.MonadTime (DiffTime)
+import Control.Monad.Class.MonadTimer (threadDelay)
 import Data.IORef (modifyIORef', newIORef, readIORef)
 import Hydra.HeadLogic (
   ClientRequest (..),
@@ -78,7 +80,19 @@ spec = describe "Behavior of one ore more hydra-nodes" $ do
 
       sendRequestAndWaitFor n1 (Init [1]) ReadyToCommit
       sendRequestAndWaitFor n1 (Commit 1) (HeadIsOpen [])
-      sendRequestAndWaitFor n1 Close (HeadIsClosed 3 [] 0 [])
+      sendRequestAndWaitFor n1 Close (HeadIsClosed testContestationPeriod [] 0 [])
+
+    it "does finalize head after contestation period" $ do
+      chain <- simulatedChainAndNetwork
+      n1 <- startHydraNode 1 chain
+
+      sendRequestAndWaitFor n1 (Init [1]) ReadyToCommit
+      sendRequest n1 (Commit 1)
+      failAfter 1 $ waitForResponse n1 `shouldReturn` HeadIsOpen []
+      sendRequest n1 Close
+      failAfter 1 $ waitForResponse n1 `shouldReturn` HeadIsClosed testContestationPeriod [] 0 []
+      threadDelay testContestationPeriod
+      failAfter 1 $ waitForResponse n1 `shouldReturn` HeadIsFinalized []
 
   describe "Two participant Head" $ do
     it "accepts a tx after the head was opened between two nodes" $ do
@@ -108,7 +122,7 @@ spec = describe "Behavior of one ore more hydra-nodes" $ do
       failAfter 1 $ waitForResponse n1 `shouldReturn` HeadIsOpen []
       sendRequest n1 Close
 
-      failAfter 1 $ waitForResponse n2 `shouldReturn` HeadIsClosed 3 [] 0 []
+      failAfter 1 $ waitForResponse n2 `shouldReturn` HeadIsClosed testContestationPeriod [] 0 []
 
     it "only opens the head after all nodes committed" $ do
       chain <- simulatedChainAndNetwork
@@ -228,6 +242,10 @@ simulatedChainAndNetwork = do
 
   broadcast nodes msg = atomically (readTVar nodes) >>= mapM_ (`handleMessage` msg)
 
+-- NOTE(SN): Deliberately not configurable via 'startHydraNode'
+testContestationPeriod :: DiffTime
+testContestationPeriod = 10
+
 startHydraNode ::
   Natural ->
   (HydraNode MockTx IO -> IO Connections) ->
@@ -271,7 +289,7 @@ startHydraNode' snapshotStrategy nodeId connectToChain = do
   createHydraNode response = do
     let env = Environment nodeId
     eq <- createEventQueue
-    let headState = createHeadState [] (HeadParameters 3 mempty) snapshotStrategy
+    let headState = createHeadState [] (HeadParameters testContestationPeriod mempty) SnapshotStrategy
     hh <- createHydraHead headState mockLedger
     let hn' = HydraNetwork{broadcast = const $ pure ()}
     let node = HydraNode{eq, hn = hn', hh, oc = OnChain (const $ pure ()), sendResponse = putMVar response, env}
