@@ -165,6 +165,7 @@ test-suite tests
     Hydra.Chain.ZeroMQSpec
     Hydra.FireForgetSpec
     Hydra.BehaviorSpec
+    Hydra.HeadLogicSpec
     Hydra.LedgerSpec
     Hydra.NetworkSpec
     Hydra.NodeSpec

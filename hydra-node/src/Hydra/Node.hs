@@ -16,8 +16,6 @@ import Control.Exception.Safe (MonadThrow)
 import Control.Monad.Class.MonadAsync (MonadAsync, async)
 import Control.Monad.Class.MonadSTM (MonadSTM (STM), atomically, newTVar, stateTVar)
 import Control.Monad.Class.MonadTimer (MonadTimer, threadDelay)
-import Hydra.Ledger
-import Hydra.Logging (Tracer, traceWith)
 import Hydra.HeadLogic (
   ClientRequest (..),
   ClientResponse (..),
@@ -32,6 +30,8 @@ import Hydra.HeadLogic (
   confirmedLedger,
  )
 import qualified Hydra.HeadLogic as Logic
+import Hydra.Ledger
+import Hydra.Logging (Tracer, traceWith)
 import Hydra.Network (HydraNetwork (..))
 
 -- ** Create and run a hydra node
