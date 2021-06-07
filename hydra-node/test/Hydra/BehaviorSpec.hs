@@ -55,8 +55,7 @@ import Test.Hspec (
   shouldNotBe,
   shouldReturn,
  )
-import Test.Util (failAfter)
-import Prelude (error)
+import Test.Util (failAfter, failure)
 
 spec :: Spec
 spec = describe "Behavior of one ore more hydra-nodes" $ do
@@ -299,8 +298,7 @@ startHydraNode' snapshotStrategy nodeId connectToChain = do
               atomically $ do
                 st' <- queryLedgerState node
                 check (st == st')
-            -- TODO(SN): use MonadThrow instead?
-            when (isNothing result) $ error ("Expected ledger state of node " <> show nodeId <> " to be " <> show st)
+            when (isNothing result) $ failure ("Expected ledger state of node " <> show nodeId <> " to be " <> show st)
       , nodeId
       , capturedLogs
       }
