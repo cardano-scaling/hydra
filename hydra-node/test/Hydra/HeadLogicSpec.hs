@@ -7,6 +7,7 @@ import Cardano.Prelude
 import Control.Monad.Fail (
   fail,
  )
+import qualified Data.Set as Set
 import Hydra.HeadLogic (
   Environment (..),
   Event (NetworkEvent),
@@ -31,7 +32,7 @@ import Test.Hspec (
 spec :: Spec
 spec = describe "Hydra Head Logic" $ do
   it "confirms tx given it receives AckTx from all parties" $ do
-    let allParties = [1, 2, 3]
+    let allParties = Set.fromList [1, 2, 3]
         reqTx = NetworkEvent $ MessageReceived $ ReqTx (ValidTx 1)
         ackFrom1 = NetworkEvent $ MessageReceived $ AckTx 1 (ValidTx 1)
         ackFrom2 = NetworkEvent $ MessageReceived $ AckTx 2 (ValidTx 1)

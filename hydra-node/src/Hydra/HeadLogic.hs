@@ -75,7 +75,7 @@ data HydraMessage tx
   deriving (Eq, Show)
 
 data OnChainTx
-  = InitTx (Set.Set ParticipationToken)
+  = InitTx (Set ParticipationToken)
   | CommitTx ParticipationToken Natural
   | CollectComTx
   | CloseTx
@@ -115,7 +115,7 @@ type PendingCommits = Set ParticipationToken
 -- | Contains at least the contestation period and other things.
 data HeadParameters = HeadParameters
   { contestationPeriod :: DiffTime
-  , parties :: [Party]
+  , parties :: Set Party
   }
   deriving (Eq, Show)
 
@@ -166,9 +166,10 @@ update ::
   Outcome tx
 update Environment{party} ledger (HeadState p st) ev = case (st, ev) of
   (InitState, ClientEvent (Init parties)) ->
-    newState (p{parties}) InitState [OnChainEffect (InitTx $ makeAllTokens parties)]
+    newState p InitState [OnChainEffect (InitTx $ makeAllTokens parties)]
   (InitState, OnChainEvent (InitTx tokens)) ->
-    newState p (CollectingState tokens mempty) [ClientEffect ReadyToCommit]
+    let parties = Set.map thisToken tokens
+     in newState (p{parties}) (CollectingState tokens mempty) [ClientEffect ReadyToCommit]
   --
   (CollectingState remainingTokens _, ClientEvent (Commit amount)) ->
     case findToken remainingTokens party of
@@ -210,7 +211,7 @@ update Environment{party} ledger (HeadState p st) ev = case (st, ev) of
               Set.insert
                 otherParty
                 (fromMaybe Set.empty $ Map.lookup tx (signatures headState))
-        if sigs == Set.fromList (parties p)
+        if sigs == parties p
           then
             newState
               p
