@@ -1,6 +1,5 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE UndecidableInstances #-}
-{-# OPTIONS_GHC -Wno-deferred-type-errors #-}
 {-# OPTIONS_GHC -Wno-overlapping-patterns #-}
 
 module Hydra.HeadLogic where
@@ -17,6 +16,7 @@ import Hydra.Ledger (
   LedgerState,
   ParticipationToken (..),
   Party,
+  Tx,
   UTxO,
   ValidationError,
   ValidationResult (Invalid, Valid),
@@ -41,8 +41,8 @@ data Effect tx
   | OnChainEffect OnChainTx
   | Delay DiffTime (Event tx)
 
-deriving instance Eq tx => Eq (UTxO tx) => Eq (Effect tx)
-deriving instance Show tx => Show (UTxO tx) => Show (Effect tx)
+deriving instance Tx tx => Eq (Effect tx)
+deriving instance Tx tx => Show (Effect tx)
 
 data ClientRequest tx
   = Init [Party]
@@ -62,8 +62,8 @@ data ClientResponse tx
   | TxConfirmed tx
   | TxInvalid tx
 
-deriving instance Eq tx => Eq (UTxO tx) => Eq (ClientResponse tx)
-deriving instance Show tx => Show (UTxO tx) => Show (ClientResponse tx)
+deriving instance Tx tx => Eq (ClientResponse tx)
+deriving instance Tx tx => Show (ClientResponse tx)
 
 data HydraMessage tx
   = ReqTx tx
@@ -88,8 +88,8 @@ data HeadState tx = HeadState
   , headStatus :: HeadStatus tx
   }
 
-deriving instance Eq (UTxO tx) => Eq (SimpleHeadState tx) => Eq (HeadState tx)
-deriving instance Show (UTxO tx) => Show (SimpleHeadState tx) => Show (HeadState tx)
+deriving instance Tx tx => Eq (HeadState tx)
+deriving instance Tx tx => Show (HeadState tx)
 
 data HeadStatus tx
   = InitState
@@ -98,8 +98,8 @@ data HeadStatus tx
   | ClosedState (UTxO tx)
   | FinalState
 
-deriving instance Eq (UTxO tx) => Eq (SimpleHeadState tx) => Eq (HeadStatus tx)
-deriving instance Show (UTxO tx) => Show (SimpleHeadState tx) => Show (HeadStatus tx)
+deriving instance Tx tx => Eq (HeadStatus tx)
+deriving instance Tx tx => Show (HeadStatus tx)
 
 data SimpleHeadState tx = SimpleHeadState
   { confirmedLedger :: LedgerState tx
@@ -107,8 +107,8 @@ data SimpleHeadState tx = SimpleHeadState
     signatures :: Map tx (Set Party)
   }
 
-deriving instance (Eq tx, Eq (UTxO tx)) => Eq (LedgerState tx) => Eq (SimpleHeadState tx)
-deriving instance (Show tx, Show (UTxO tx)) => Show (LedgerState tx) => Show (SimpleHeadState tx)
+deriving instance Tx tx => Eq (SimpleHeadState tx)
+deriving instance Tx tx => Show (SimpleHeadState tx)
 
 type PendingCommits = Set ParticipationToken
 
@@ -155,9 +155,7 @@ data Environment = Environment
 -- network events, one for client events and one for main chain events, or by
 -- sub-'State'.
 update ::
-  Show (LedgerState tx) =>
-  Show (UTxO tx) =>
-  Show tx =>
+  Tx tx =>
   Ord tx =>
   Environment ->
   Ledger tx ->
