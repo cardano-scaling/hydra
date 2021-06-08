@@ -35,7 +35,7 @@ main = do
     withMonitoring monitoringPort tracer' $ \tracer -> do
       let env = Environment nodeId
       eq <- createEventQueue
-      let headState = createHeadState [] (HeadParameters 3 mempty) SnapshotStrategy
+      let headState = createHeadState [] (HeadParameters 3 mempty) NoSnapshots
       hh <- createHydraHead headState Ledger.mockLedger
       oc <- createMockChainClient eq (contramap MockChain tracer)
       withOuroborosHydraNetwork (show host, port) peers (putEvent eq . NetworkEvent) $ \hn -> do

@@ -140,6 +140,24 @@ spec = describe "Behavior of one ore more hydra-nodes" $ do
       sendRequest n1 Close
       wait1sForResponse n1 `shouldReturn` Just (HeadIsClosed 3 [] 0 [ValidTx 42])
 
+    it "valid new transactions get snapshotted" $ do
+      chain <- simulatedChainAndNetwork
+      n1 <- startHydraNode' (SnapshotAfter 1) 1 chain
+      n2 <- startHydraNode 2 chain
+
+      sendRequestAndWaitFor n1 (Init [1, 2]) ReadyToCommit
+      sendRequest n1 (Commit 1)
+      wait1sForResponse n2 `shouldReturn` Just ReadyToCommit
+      sendRequestAndWaitFor n2 (Commit 1) (HeadIsOpen [])
+      wait1sForResponse n1 `shouldReturn` Just (HeadIsOpen [])
+
+      sendRequest n1 (NewTx $ ValidTx 42)
+      wait1sForResponse n1 `shouldReturn` Just (TxConfirmed (ValidTx 42))
+      wait1sForResponse n2 `shouldReturn` Just (TxConfirmed (ValidTx 42))
+
+      sendRequest n1 Close
+      wait1sForResponse n1 `shouldReturn` Just (HeadIsClosed 3 [] 0 [ValidTx 42])
+
   describe "Hydra Node Logging" $ do
     it "traces processing of events" $ do
       chain <- simulatedChainAndNetwork
@@ -211,7 +229,14 @@ startHydraNode ::
   Natural ->
   (HydraNode MockTx IO -> IO Connections) ->
   IO (HydraProcess IO MockTx)
-startHydraNode nodeId connectToChain = do
+startHydraNode = startHydraNode' NoSnapshots
+
+startHydraNode' ::
+  SnapshotStrategy ->
+  Natural ->
+  (HydraNode MockTx IO -> IO Connections) ->
+  IO (HydraProcess IO MockTx)
+startHydraNode' snapshotStrategy nodeId connectToChain = do
   capturedLogs <- newTVarIO []
   response <- newEmptyMVar
   node <- createHydraNode response
@@ -244,7 +269,7 @@ startHydraNode nodeId connectToChain = do
   createHydraNode response = do
     let env = Environment nodeId
     eq <- createEventQueue
-    let headState = createHeadState [] (HeadParameters 3 mempty) SnapshotStrategy
+    let headState = createHeadState [] (HeadParameters 3 mempty) snapshotStrategy
     hh <- createHydraHead headState mockLedger
     let hn' = HydraNetwork{broadcast = const $ pure ()}
     let node = HydraNode{eq, hn = hn', hh, oc = OnChain (const $ pure ()), sendResponse = putMVar response, env}

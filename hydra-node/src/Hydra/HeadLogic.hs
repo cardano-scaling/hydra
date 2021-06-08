@@ -124,7 +124,7 @@ data HeadParameters = HeadParameters
   deriving (Eq, Show)
 
 -- | Decides when, how often and who is in charge of creating snapshots.
-data SnapshotStrategy = SnapshotStrategy
+data SnapshotStrategy = NoSnapshots | SnapshotAfter Natural
 
 -- | Assume: We know the party members and their verification keys. These need
 -- to be exchanged somehow, eventually.
