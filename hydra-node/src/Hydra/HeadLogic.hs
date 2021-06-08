@@ -168,6 +168,8 @@ update Environment{party} ledger (HeadState p st) ev = case (st, ev) of
   (InitState, ClientEvent (Init parties)) ->
     newState p InitState [OnChainEffect (InitTx $ makeAllTokens parties)]
   (InitState, OnChainEvent (InitTx tokens)) ->
+    -- NOTE(SN): Eventually we won't be able to construct 'HeadParameters' from
+    -- the 'InitTx'
     let parties = Set.map thisToken tokens
      in newState (p{parties}) (CollectingState tokens mempty) [ClientEffect ReadyToCommit]
   --
