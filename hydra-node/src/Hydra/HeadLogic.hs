@@ -20,6 +20,7 @@ import Hydra.Ledger (
   UTxO,
   ValidationError,
   ValidationResult (Invalid, Valid),
+  emptyUTxO,
   initLedgerState,
  )
 
@@ -52,11 +53,13 @@ data ClientRequest tx
   | Contest
   deriving (Eq, Read, Show)
 
+type SnapshotNumber = Natural
+
 data ClientResponse tx
   = NodeConnectedToNetwork
   | ReadyToCommit
   | HeadIsOpen (UTxO tx)
-  | HeadIsClosed DiffTime (UTxO tx)
+  | HeadIsClosed DiffTime (UTxO tx) SnapshotNumber [tx]
   | HeadIsFinalized (UTxO tx)
   | CommandFailed
   | TxConfirmed tx
@@ -104,7 +107,8 @@ deriving instance Tx tx => Show (HeadStatus tx)
 data SimpleHeadState tx = SimpleHeadState
   { confirmedLedger :: LedgerState tx
   , -- TODO: tx should be an abstract 'TxId'
-    signatures :: Map tx (Set Party)
+    unconfirmedTxs :: Map tx (Set Party)
+  , confirmedTxs :: [tx]
   }
 
 deriving instance Tx tx => Eq (SimpleHeadState tx)
@@ -187,7 +191,7 @@ update Environment{party} ledger (HeadState p st) ev = case (st, ev) of
     let ls = initLedgerState ledger
      in newState
           p
-          (OpenState $ SimpleHeadState ls mempty)
+          (OpenState $ SimpleHeadState ls mempty mempty)
           [ClientEffect $ HeadIsOpen $ getUTxO ledger ls]
   --
   (OpenState _, OnChainEvent CommitTx{}) ->
@@ -203,14 +207,14 @@ update Environment{party} ledger (HeadState p st) ev = case (st, ev) of
     case canApply ledger (confirmedLedger headState) tx of
       Invalid _ -> panic "TODO: wait until it may be applied"
       Valid -> newState p st [NetworkEffect $ AckTx party tx]
-  (OpenState headState, NetworkEvent (MessageReceived (AckTx otherParty tx))) ->
-    case applyTransaction ledger (confirmedLedger headState) tx of
+  (OpenState headState@SimpleHeadState{confirmedLedger, confirmedTxs, unconfirmedTxs}, NetworkEvent (MessageReceived (AckTx otherParty tx))) ->
+    case applyTransaction ledger confirmedLedger tx of
       Left err -> panic $ "TODO: validation error: " <> show err
       Right newLedgerState -> do
         let sigs =
               Set.insert
                 otherParty
-                (fromMaybe Set.empty $ Map.lookup tx (signatures headState))
+                (fromMaybe Set.empty $ Map.lookup tx unconfirmedTxs)
         if sigs == parties p
           then
             newState
@@ -218,24 +222,27 @@ update Environment{party} ledger (HeadState p st) ev = case (st, ev) of
               ( OpenState $
                   headState
                     { confirmedLedger = newLedgerState
-                    , signatures = Map.delete tx (signatures headState)
+                    , unconfirmedTxs = Map.delete tx unconfirmedTxs
+                    , confirmedTxs = tx : confirmedTxs
                     }
               )
               [ClientEffect $ TxConfirmed tx]
           else
             newState
               p
-              ( OpenState $
-                  headState
-                    { signatures = Map.insert tx sigs (signatures headState)
-                    }
+              ( OpenState headState{unconfirmedTxs = Map.insert tx sigs unconfirmedTxs}
               )
               []
 
   --
-  (OpenState SimpleHeadState{confirmedLedger}, OnChainEvent CloseTx) ->
+  (OpenState SimpleHeadState{confirmedLedger, confirmedTxs}, OnChainEvent CloseTx) ->
     let utxo = getUTxO ledger confirmedLedger
-     in newState p (ClosedState utxo) [ClientEffect $ HeadIsClosed (contestationPeriod p) utxo]
+        snapshotUtxo = emptyUTxO ledger
+        snapshotNumber = 0
+     in newState
+          p
+          (ClosedState utxo)
+          [ClientEffect $ HeadIsClosed (contestationPeriod p) snapshotUtxo snapshotNumber confirmedTxs]
   (ClosedState{}, ShouldPostFanout) ->
     newState p st [OnChainEffect FanoutTx]
   (ClosedState utxos, OnChainEvent FanoutTx) ->

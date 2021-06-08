@@ -16,7 +16,8 @@ import Hydra.HeadLogic (
   createHeadState,
  )
 import Hydra.Ledger (LedgerState)
-import Hydra.Ledger.Mock (MockLedgerState (..), MockTx (..), mockLedger)
+import Hydra.Ledger.Mock (MockTx (..), mockLedger)
+
 import Hydra.Logging (traceInTVarIO)
 import Hydra.Network (HydraNetwork (..))
 import Hydra.Node (
@@ -89,7 +90,7 @@ spec = describe "Behavior of one ore more hydra-nodes" $ do
 
       sendRequestAndWaitFor n1 (Init [1]) ReadyToCommit
       sendRequestAndWaitFor n1 (Commit 1) (HeadIsOpen [])
-      sendRequestAndWaitFor n1 Close (HeadIsClosed 3 [])
+      sendRequestAndWaitFor n1 Close (HeadIsClosed 3 [] 0 [])
 
     it "sees the head closed by other nodes" $ do
       chain <- simulatedChainAndNetwork
@@ -105,7 +106,7 @@ spec = describe "Behavior of one ore more hydra-nodes" $ do
       wait1sForResponse n1 `shouldReturn` Just (HeadIsOpen [])
       sendRequest n1 Close
 
-      wait1sForResponse n2 `shouldReturn` Just (HeadIsClosed 3 [])
+      wait1sForResponse n2 `shouldReturn` Just (HeadIsClosed 3 [] 0 [])
 
     it "only opens the head after all nodes committed" $ do
       chain <- simulatedChainAndNetwork
@@ -121,7 +122,7 @@ spec = describe "Behavior of one ore more hydra-nodes" $ do
 
       wait1sForResponse n1 `shouldReturn` Just (HeadIsOpen [])
 
-    it "valid new transaction in open head is stored in ledger" $ do
+    it "valid new transactions get confirmed without snapshotting" $ do
       chain <- simulatedChainAndNetwork
       n1 <- startHydraNode 1 chain
       n2 <- startHydraNode 2 chain
@@ -132,10 +133,12 @@ spec = describe "Behavior of one ore more hydra-nodes" $ do
       sendRequestAndWaitFor n2 (Commit 1) (HeadIsOpen [])
       wait1sForResponse n1 `shouldReturn` Just (HeadIsOpen [])
 
-      sendRequest n1 (NewTx $ ValidTx 1)
+      sendRequest n1 (NewTx $ ValidTx 42)
+      wait1sForResponse n1 `shouldReturn` Just (TxConfirmed (ValidTx 42))
+      wait1sForResponse n2 `shouldReturn` Just (TxConfirmed (ValidTx 42))
 
-      waitForLedgerState n1 (Just $ MockLedgerState [ValidTx 1])
-      waitForLedgerState n2 (Just $ MockLedgerState [ValidTx 1])
+      sendRequest n1 Close
+      wait1sForResponse n1 `shouldReturn` Just (HeadIsClosed 3 [] 0 [ValidTx 42])
 
   describe "Hydra Node Logging" $ do
     it "traces processing of events" $ do

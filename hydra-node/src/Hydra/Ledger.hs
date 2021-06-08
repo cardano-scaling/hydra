@@ -49,3 +49,7 @@ data ValidationResult
   deriving (Eq, Show)
 
 data ValidationError = ValidationError deriving (Eq, Show)
+
+emptyUTxO :: Ledger tx -> UTxO tx
+emptyUTxO Ledger{initLedgerState, getUTxO} =
+  getUTxO initLedgerState

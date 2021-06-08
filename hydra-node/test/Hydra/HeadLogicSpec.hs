@@ -21,7 +21,7 @@ import Hydra.HeadLogic (
   update,
  )
 import Hydra.Ledger (Ledger (initLedgerState))
-import Hydra.Ledger.Mock (MockLedgerState (..), MockTx (ValidTx), mockLedger)
+import Hydra.Ledger.Mock (MockTx (ValidTx), mockLedger)
 import Test.Hspec (
   Spec,
   describe,
@@ -44,7 +44,7 @@ spec = describe "Hydra Head Logic" $ do
         ledger = mockLedger
         s0 =
           HeadState
-            { headStatus = OpenState $ SimpleHeadState (initLedgerState ledger) mempty
+            { headStatus = OpenState $ SimpleHeadState (initLedgerState ledger) mempty mempty
             , headParameters =
                 HeadParameters
                   { contestationPeriod = 42
@@ -62,9 +62,9 @@ spec = describe "Hydra Head Logic" $ do
 
     confirmedTransactions s4 `shouldBe` [ValidTx 1]
 
-confirmedTransactions :: HeadState MockTx -> [MockTx]
+confirmedTransactions :: HeadState tx -> [tx]
 confirmedTransactions HeadState{headStatus} = case headStatus of
-  OpenState (SimpleHeadState MockLedgerState{transactions} _) -> transactions
+  OpenState SimpleHeadState{confirmedTxs} -> confirmedTxs
   _ -> []
 
 assertNewState :: Outcome MockTx -> IO (HeadState MockTx)
