@@ -1,6 +1,5 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE UndecidableInstances #-}
-{-# OPTIONS_GHC -Wno-deferred-type-errors #-}
 {-# OPTIONS_GHC -Wno-overlapping-patterns #-}
 
 module Hydra.HeadLogic where
@@ -17,9 +16,11 @@ import Hydra.Ledger (
   LedgerState,
   ParticipationToken (..),
   Party,
+  Tx,
   UTxO,
   ValidationError,
   ValidationResult (Invalid, Valid),
+  emptyUTxO,
   initLedgerState,
  )
 
@@ -41,8 +42,8 @@ data Effect tx
   | OnChainEffect OnChainTx
   | Delay DiffTime (Event tx)
 
-deriving instance Eq tx => Eq (UTxO tx) => Eq (Effect tx)
-deriving instance Show tx => Show (UTxO tx) => Show (Effect tx)
+deriving instance Tx tx => Eq (Effect tx)
+deriving instance Tx tx => Show (Effect tx)
 
 data ClientRequest tx
   = Init [Party]
@@ -52,18 +53,20 @@ data ClientRequest tx
   | Contest
   deriving (Eq, Read, Show)
 
+type SnapshotNumber = Natural
+
 data ClientResponse tx
   = NodeConnectedToNetwork
   | ReadyToCommit
   | HeadIsOpen (UTxO tx)
-  | HeadIsClosed DiffTime (UTxO tx)
+  | HeadIsClosed DiffTime (UTxO tx) SnapshotNumber [tx]
   | HeadIsFinalized (UTxO tx)
   | CommandFailed
   | TxConfirmed tx
   | TxInvalid tx
 
-deriving instance Eq tx => Eq (UTxO tx) => Eq (ClientResponse tx)
-deriving instance Show tx => Show (UTxO tx) => Show (ClientResponse tx)
+deriving instance Tx tx => Eq (ClientResponse tx)
+deriving instance Tx tx => Show (ClientResponse tx)
 
 data HydraMessage tx
   = ReqTx tx
@@ -75,7 +78,7 @@ data HydraMessage tx
   deriving (Eq, Show)
 
 data OnChainTx
-  = InitTx (Set.Set ParticipationToken)
+  = InitTx (Set ParticipationToken)
   | CommitTx ParticipationToken Natural
   | CollectComTx
   | CloseTx
@@ -88,8 +91,8 @@ data HeadState tx = HeadState
   , headStatus :: HeadStatus tx
   }
 
-deriving instance Eq (UTxO tx) => Eq (SimpleHeadState tx) => Eq (HeadState tx)
-deriving instance Show (UTxO tx) => Show (SimpleHeadState tx) => Show (HeadState tx)
+deriving instance Tx tx => Eq (HeadState tx)
+deriving instance Tx tx => Show (HeadState tx)
 
 data HeadStatus tx
   = InitState
@@ -98,29 +101,30 @@ data HeadStatus tx
   | ClosedState (UTxO tx)
   | FinalState
 
-deriving instance Eq (UTxO tx) => Eq (SimpleHeadState tx) => Eq (HeadStatus tx)
-deriving instance Show (UTxO tx) => Show (SimpleHeadState tx) => Show (HeadStatus tx)
+deriving instance Tx tx => Eq (HeadStatus tx)
+deriving instance Tx tx => Show (HeadStatus tx)
 
 data SimpleHeadState tx = SimpleHeadState
   { confirmedLedger :: LedgerState tx
   , -- TODO: tx should be an abstract 'TxId'
-    signatures :: Map tx (Set Party)
+    unconfirmedTxs :: Map tx (Set Party)
+  , confirmedTxs :: [tx]
   }
 
-deriving instance (Eq tx, Eq (UTxO tx)) => Eq (LedgerState tx) => Eq (SimpleHeadState tx)
-deriving instance (Show tx, Show (UTxO tx)) => Show (LedgerState tx) => Show (SimpleHeadState tx)
+deriving instance Tx tx => Eq (SimpleHeadState tx)
+deriving instance Tx tx => Show (SimpleHeadState tx)
 
 type PendingCommits = Set ParticipationToken
 
 -- | Contains at least the contestation period and other things.
 data HeadParameters = HeadParameters
   { contestationPeriod :: DiffTime
-  , parties :: [Party]
+  , parties :: Set Party
   }
   deriving (Eq, Show)
 
 -- | Decides when, how often and who is in charge of creating snapshots.
-data SnapshotStrategy = SnapshotStrategy
+data SnapshotStrategy = NoSnapshots | SnapshotAfter Natural
 
 -- | Assume: We know the party members and their verification keys. These need
 -- to be exchanged somehow, eventually.
@@ -155,9 +159,7 @@ data Environment = Environment
 -- network events, one for client events and one for main chain events, or by
 -- sub-'State'.
 update ::
-  Show (LedgerState tx) =>
-  Show (UTxO tx) =>
-  Show tx =>
+  Tx tx =>
   Ord tx =>
   Environment ->
   Ledger tx ->
@@ -166,9 +168,12 @@ update ::
   Outcome tx
 update Environment{party} ledger (HeadState p st) ev = case (st, ev) of
   (InitState, ClientEvent (Init parties)) ->
-    newState (p{parties}) InitState [OnChainEffect (InitTx $ makeAllTokens parties)]
+    newState p InitState [OnChainEffect (InitTx $ makeAllTokens parties)]
   (InitState, OnChainEvent (InitTx tokens)) ->
-    newState p (CollectingState tokens mempty) [ClientEffect ReadyToCommit]
+    -- NOTE(SN): Eventually we won't be able to construct 'HeadParameters' from
+    -- the 'InitTx'
+    let parties = Set.map thisToken tokens
+     in newState (p{parties}) (CollectingState tokens mempty) [ClientEffect ReadyToCommit]
   --
   (CollectingState remainingTokens _, ClientEvent (Commit amount)) ->
     case findToken remainingTokens party of
@@ -186,7 +191,7 @@ update Environment{party} ledger (HeadState p st) ev = case (st, ev) of
     let ls = initLedgerState ledger
      in newState
           p
-          (OpenState $ SimpleHeadState ls mempty)
+          (OpenState $ SimpleHeadState ls mempty mempty)
           [ClientEffect $ HeadIsOpen $ getUTxO ledger ls]
   --
   (OpenState _, OnChainEvent CommitTx{}) ->
@@ -202,39 +207,42 @@ update Environment{party} ledger (HeadState p st) ev = case (st, ev) of
     case canApply ledger (confirmedLedger headState) tx of
       Invalid _ -> panic "TODO: wait until it may be applied"
       Valid -> newState p st [NetworkEffect $ AckTx party tx]
-  (OpenState headState, NetworkEvent (MessageReceived (AckTx otherParty tx))) ->
-    case applyTransaction ledger (confirmedLedger headState) tx of
+  (OpenState headState@SimpleHeadState{confirmedLedger, confirmedTxs, unconfirmedTxs}, NetworkEvent (MessageReceived (AckTx otherParty tx))) ->
+    case applyTransaction ledger confirmedLedger tx of
       Left err -> panic $ "TODO: validation error: " <> show err
       Right newLedgerState -> do
         let sigs =
               Set.insert
                 otherParty
-                (fromMaybe Set.empty $ Map.lookup tx (signatures headState))
-        if sigs == Set.fromList (parties p)
+                (fromMaybe Set.empty $ Map.lookup tx unconfirmedTxs)
+        if sigs == parties p
           then
             newState
               p
               ( OpenState $
                   headState
                     { confirmedLedger = newLedgerState
-                    , signatures = Map.delete tx (signatures headState)
+                    , unconfirmedTxs = Map.delete tx unconfirmedTxs
+                    , confirmedTxs = tx : confirmedTxs
                     }
               )
               [ClientEffect $ TxConfirmed tx]
           else
             newState
               p
-              ( OpenState $
-                  headState
-                    { signatures = Map.insert tx sigs (signatures headState)
-                    }
+              ( OpenState headState{unconfirmedTxs = Map.insert tx sigs unconfirmedTxs}
               )
               []
 
   --
-  (OpenState SimpleHeadState{confirmedLedger}, OnChainEvent CloseTx) ->
+  (OpenState SimpleHeadState{confirmedLedger, confirmedTxs}, OnChainEvent CloseTx) ->
     let utxo = getUTxO ledger confirmedLedger
-     in newState p (ClosedState utxo) [ClientEffect $ HeadIsClosed (contestationPeriod p) utxo]
+        snapshotUtxo = emptyUTxO ledger
+        snapshotNumber = 0
+     in newState
+          p
+          (ClosedState utxo)
+          [ClientEffect $ HeadIsClosed (contestationPeriod p) snapshotUtxo snapshotNumber confirmedTxs]
   (ClosedState{}, ShouldPostFanout) ->
     newState p st [OnChainEffect FanoutTx]
   (ClosedState utxos, OnChainEvent FanoutTx) ->

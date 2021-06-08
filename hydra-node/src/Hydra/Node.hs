@@ -1,7 +1,6 @@
 {-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE UndecidableInstances #-}
-{-# OPTIONS_GHC -Wno-deferred-type-errors #-}
 
 -- | Top-level module to run a single Hydra node.
 module Hydra.Node where
@@ -51,9 +50,7 @@ data HydraNodeLog tx
   | ProcessedEvent (Event tx)
   | ProcessingEffect (Effect tx)
   | ProcessedEffect (Effect tx)
-
-deriving instance Show tx => Show (UTxO tx) => Show (LedgerState tx) => Show (HydraNodeLog tx)
-deriving instance Eq tx => Eq (UTxO tx) => Eq (LedgerState tx) => Eq (HydraNodeLog tx)
+  deriving (Eq, Show)
 
 handleClientRequest :: HydraNode tx m -> ClientRequest tx -> m ()
 handleClientRequest HydraNode{eq} = putEvent eq . ClientEvent
@@ -71,9 +68,7 @@ runHydraNode ::
   MonadThrow m =>
   MonadAsync m =>
   MonadTimer m =>
-  Show (UTxO tx) =>
-  Show (LedgerState tx) => -- TODO(SN): leaky abstraction of HydraHead
-  Show tx =>
+  Tx tx =>
   Ord tx =>
   Tracer m (HydraNodeLog tx) ->
   HydraNode tx m ->
@@ -90,9 +85,7 @@ runHydraNode tracer node@HydraNode{eq} = do
 
 -- | Monadic interface around 'Hydra.Logic.update'.
 processNextEvent ::
-  Show (UTxO tx) =>
-  Show (LedgerState tx) =>
-  Show tx =>
+  Tx tx =>
   Ord tx =>
   MonadSTM m =>
   HydraNode tx m ->

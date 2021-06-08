@@ -17,7 +17,7 @@ import Hydra.Logging (nullTracer)
 import Hydra.Network.Ouroboros (broadcast, withOuroborosHydraNetwork)
 import Hydra.Network.ZeroMQ (withZeroMQHydraNetwork)
 import Test.Hspec (Spec, describe, expectationFailure, it, pendingWith, shouldReturn)
-import Test.QuickCheck (Arbitrary (..), arbitrary, oneof, property)
+import Test.QuickCheck (Arbitrary (..), Positive (getPositive), arbitrary, oneof, property)
 
 type MockTx = ()
 
@@ -99,12 +99,14 @@ instance Arbitrary (HydraMessage Integer) where
   arbitrary =
     oneof
       [ ReqTx <$> arbitrary
-      , AckTx <$> fmap (fromIntegral @Int) arbitrary <*> arbitrary
+      , AckTx <$> arbitraryNatural <*> arbitrary
       , pure ConfTx
       , pure ReqSn
       , pure AckSn
       , pure ConfSn
       ]
+   where
+    arbitraryNatural = fromIntegral . getPositive <$> arbitrary @(Positive Integer)
 
 prop_canRoundtripSerialise :: (Serialise a, Eq a) => a -> Bool
 prop_canRoundtripSerialise a =

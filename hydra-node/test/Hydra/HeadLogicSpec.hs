@@ -7,6 +7,7 @@ import Cardano.Prelude
 import Control.Monad.Fail (
   fail,
  )
+import qualified Data.Set as Set
 import Hydra.HeadLogic (
   Environment (..),
   Event (NetworkEvent),
@@ -20,7 +21,7 @@ import Hydra.HeadLogic (
   update,
  )
 import Hydra.Ledger (Ledger (initLedgerState))
-import Hydra.Ledger.Mock (MockLedgerState (..), MockTx (ValidTx), mockLedger)
+import Hydra.Ledger.Mock (MockTx (ValidTx), mockLedger)
 import Test.Hspec (
   Spec,
   describe,
@@ -31,7 +32,7 @@ import Test.Hspec (
 spec :: Spec
 spec = describe "Hydra Head Logic" $ do
   it "confirms tx given it receives AckTx from all parties" $ do
-    let allParties = [1, 2, 3]
+    let allParties = Set.fromList [1, 2, 3]
         reqTx = NetworkEvent $ MessageReceived $ ReqTx (ValidTx 1)
         ackFrom1 = NetworkEvent $ MessageReceived $ AckTx 1 (ValidTx 1)
         ackFrom2 = NetworkEvent $ MessageReceived $ AckTx 2 (ValidTx 1)
@@ -43,7 +44,7 @@ spec = describe "Hydra Head Logic" $ do
         ledger = mockLedger
         s0 =
           HeadState
-            { headStatus = OpenState $ SimpleHeadState (initLedgerState ledger) mempty
+            { headStatus = OpenState $ SimpleHeadState (initLedgerState ledger) mempty mempty
             , headParameters =
                 HeadParameters
                   { contestationPeriod = 42
@@ -61,9 +62,9 @@ spec = describe "Hydra Head Logic" $ do
 
     confirmedTransactions s4 `shouldBe` [ValidTx 1]
 
-confirmedTransactions :: HeadState MockTx -> [MockTx]
+confirmedTransactions :: HeadState tx -> [tx]
 confirmedTransactions HeadState{headStatus} = case headStatus of
-  OpenState (SimpleHeadState MockLedgerState{transactions} _) -> transactions
+  OpenState SimpleHeadState{confirmedTxs} -> confirmedTxs
   _ -> []
 
 assertNewState :: Outcome MockTx -> IO (HeadState MockTx)
