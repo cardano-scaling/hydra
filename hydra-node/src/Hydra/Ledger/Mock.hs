@@ -31,14 +31,14 @@ instance FromCBOR MockTx where
 
 type TxId = Integer
 
-type instance UTxO MockTx = [MockTx]
-
-type instance LedgerState MockTx = MockLedgerState
-
 newtype MockLedgerState = MockLedgerState
   { transactions :: [MockTx]
   }
   deriving (Eq, Show)
+
+instance Tx MockTx where
+  type UTxO MockTx = [MockTx]
+  type LedgerState MockTx = MockLedgerState
 
 mockLedger :: Ledger MockTx
 mockLedger =

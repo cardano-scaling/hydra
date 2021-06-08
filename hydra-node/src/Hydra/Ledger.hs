@@ -31,9 +31,9 @@ type Party = Natural
 
 -- TODO(SN): likely a type class could tie things together better
 
-type family UTxO tx
-
-type family LedgerState tx
+class Tx tx where
+  type UTxO tx
+  type LedgerState tx
 
 data Ledger tx = Ledger
   { canApply :: LedgerState tx -> tx -> ValidationResult
@@ -52,9 +52,9 @@ data ValidationError = ValidationError deriving (Eq, Show)
 
 -- * Cardano ledger
 
-type instance UTxO (Ledger.Tx era) = Ledger.UTxO era
-
-type instance LedgerState (Ledger.Tx era) = Ledger.LedgerState era
+instance Tx (Ledger.Tx era) where
+  type UTxO (Ledger.Tx era) = Ledger.UTxO era
+  type LedgerState (Ledger.Tx era) = Ledger.LedgerState era
 
 cardanoLedger ::
   Ledger.ApplyTx era =>
