@@ -27,7 +27,7 @@ Please refer to each component's internal documentation for details.
   * The protocol is described in two parts in the [Hydra paper](https://iohk.io/en/research/library/papers/hydrafast-isomorphic-state-channels/):
     * One part detailing how the Head deals with _clients input_, eg. [ClientRequest](../hydra-node/src/Hydra/HeadLogic.hs#L47):
     * Another part detailing how the Head reacts to _peers input_ provided by the network, eg. [HydraMessage](..//hydra-node/src/Hydra/HeadLogic.hs#L68):
-* The [OnChain](../hydra-node/src/Hydra/Node.hs#171) client implements the _Head-Chain Interaction_ part of the protocol
+* The [OnChain](../hydra-node/src/Hydra/Node.hs#L171) client implements the _Head-Chain Interaction_ part of the protocol
   * Incoming and outgoing on-chain transactions are modelled as an [OnChainTx](../hydra-node/src/Hydra/HeadLogic.hs#L77) data type that abstracts away the details of the structure of the transaction.
   * In order to ease the development process, we provide an idealised version of a blockchain client, implemented using [0MQ](https://zeromq.org/).
     * The server is implemented as a standalone [executable](../hydra-node/exe/mock-chain/Main.hs) which simply stores and forwards all transactions received to all connected clients using Pub/Sub connections.
