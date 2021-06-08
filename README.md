@@ -5,15 +5,15 @@
   <a href='https://github.com/input-output-hk/hydra-poc/actions'><img src="https://img.shields.io/github/workflow/status/input-output-hk/hydra-poc/CI?label=Tests&style=for-the-badge" /></a>
 </div>
 
-## :warning: Disclaimer 
+## :warning: Disclaimer
 
-This is prototypical and exploratory work shared here for your interest. 
-Although we might create a prototype for a `hydra-node` in here, some 
-experiments have not a clear goal or usage in mind. We do not provide 
-documentation or support for the artifacts created here by purpose as we 
+This is prototypical and exploratory work shared here for your interest.
+Although we might create a prototype for a `hydra-node` in here, some
+experiments have not a clear goal or usage in mind. We do not provide
+documentation or support for the artifacts created here by purpose as we
 also intend to throw away / discontinue use when we start building the
-final product. Please note the code quality seen around here is not 
-representative of our best practices and you will find many code smells 
+final product. Please note the code quality seen around here is not
+representative of our best practices and you will find many code smells
 and dirtyhacks. Thanks for visiting and enjoy!
 
 ## 👷‍♂️ Development
@@ -36,3 +36,7 @@ import the nix-shell environment into our favorite shell or editor.
 ### Building & Testing
 
 `cabal build` and `cabal test` should work as expected
+
+## Documentation
+
+Please refer to the [docs](docs/README.md) directory for available documentation.
