@@ -25,10 +25,10 @@ failAfter seconds action =
     Just _ -> pure ()
 
 -- | Run given 'action' in 'IOSim' and fail on exceptions.
-shouldRunInSim :: HasCallStack => (forall s. IOSim s ()) -> IO ()
+shouldRunInSim :: HasCallStack => (forall s. IOSim s a) -> IO a
 shouldRunInSim action =
   case runSim action of
-    Right () -> pure ()
+    Right x -> pure x
     Left f -> failure $ "Failed in io-sim: " <> show f
 
 -- | Lifted variant of Hspec's 'shouldBe'.

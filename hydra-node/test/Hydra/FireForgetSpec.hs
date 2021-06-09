@@ -4,27 +4,25 @@ import Cardano.Prelude hiding (atomically, concurrently)
 
 import Control.Monad.Class.MonadAsync (concurrently)
 import Control.Monad.Class.MonadSTM (MonadSTM (..), TVar, readTVar, writeTVar)
-import Control.Monad.IOSim (IOSim, runSimOrThrow)
 import Control.Tracer (nullTracer)
-import Network.TypedProtocol.Channel (createConnectedChannels)
-import Network.TypedProtocol.Driver.Simple (runPeer)
 import Hydra.Network.Ouroboros.Client (FireForgetClient (..), fireForgetClientPeer)
 import Hydra.Network.Ouroboros.Server (FireForgetServer (..), fireForgetServerPeer)
 import Hydra.Network.Ouroboros.Type (codecFireForget)
-import Test.Hspec
+import Network.TypedProtocol.Channel (createConnectedChannels)
+import Network.TypedProtocol.Driver.Simple (runPeer)
+import Test.Hspec.Core.Spec
+import Test.Util (shouldBe, shouldRunInSim)
 
 spec :: Spec
 spec = describe "Fire-Forget Ouroboros Protocol" $ do
   it "client can send 'Hail Hydra!' to server" $ do
-    let action :: IOSim s (Text, ())
-        action = do
-          (channelA, channelB) <- createConnectedChannels
-          server <- newServer
-          concurrently
-            (runPeer nullTracer codecFireForget channelA $ fireForgetServerPeer server)
-            (runPeer nullTracer codecFireForget channelB $ fireForgetClientPeer client)
-    let (resultServer, _) = runSimOrThrow action
-    resultServer `shouldBe` "Hail Hydra!"
+    (res, _) <- shouldRunInSim $ do
+      (channelA, channelB) <- createConnectedChannels
+      server <- newServer
+      concurrently
+        (runPeer nullTracer codecFireForget channelA $ fireForgetServerPeer server)
+        (runPeer nullTracer codecFireForget channelB $ fireForgetClientPeer client)
+    res `shouldBe` "Hail Hydra!"
 
 client :: Applicative m => FireForgetClient Text m ()
 client =
