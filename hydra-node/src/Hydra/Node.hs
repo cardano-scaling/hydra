@@ -27,7 +27,6 @@ import Hydra.Logic (
   HeadState (..),
   HydraMessage,
   LogicError (..),
-  NetworkEvent (..),
   OnChainTx (..),
   Outcome (..),
   confirmedLedger,
@@ -63,7 +62,7 @@ handleChainTx :: HydraNode tx m -> OnChainTx -> m ()
 handleChainTx HydraNode{eq} = putEvent eq . OnChainEvent
 
 handleMessage :: HydraNode tx m -> Logic.HydraMessage tx -> m ()
-handleMessage HydraNode{eq} = putEvent eq . NetworkEvent . MessageReceived
+handleMessage HydraNode{eq} = putEvent eq . NetworkEvent
 
 queryLedgerState :: MonadSTM m => HydraNode tx m -> STM m (Maybe (LedgerState tx))
 queryLedgerState HydraNode{hh} = getConfirmedLedger hh

@@ -15,6 +15,7 @@ import Hydra.Logic (
   Environment (..),
   Event (ClientEvent),
   HeadParameters (..),
+  HydraMessage,
   SnapshotStrategy (..),
   createHeadState,
  )
@@ -179,7 +180,7 @@ data HydraProcess m tx = HydraProcess
   , capturedLogs :: TVar m [HydraNodeLog tx]
   }
 
-data Connections = Connections {chain :: OnChain IO, network :: HydraNetwork IO MockTx}
+data Connections = Connections {chain :: OnChain IO, network :: HydraNetwork IO (HydraMessage MockTx)}
 
 -- | Creates a simulated chain by returning a function to create the chain
 -- client interface for a node. This is necessary, to get to know all nodes

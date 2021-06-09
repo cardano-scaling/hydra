@@ -13,10 +13,10 @@ import Codec.Serialise (Serialise, deserialiseOrFail, serialise)
 import Control.Monad.Class.MonadTime (DiffTime)
 import Control.Monad.Class.MonadTimer (timeout)
 import Hydra.Logging (nullTracer)
-import Hydra.Logic (HydraMessage (..), NetworkEvent (MessageReceived, NetworkConnected))
+import Hydra.Logic (HydraMessage (..))
 import Hydra.Network.Ouroboros (broadcast, withOuroborosHydraNetwork)
 import Hydra.Network.ZeroMQ (withZeroMQHydraNetwork)
-import Test.Hspec (Spec, describe, expectationFailure, it, pendingWith, shouldReturn)
+import Test.Hspec (Spec, describe, expectationFailure, it, shouldReturn)
 import Test.QuickCheck (Arbitrary (..), arbitrary, oneof, property)
 
 type MockTx = ()
@@ -32,39 +32,33 @@ spec = describe "Networking layer" $ do
     it "broadcasts messages to single connected peer" $ do
       received <- newEmptyMVar
       failAfter 10 $ do
-        withOuroborosHydraNetwork (lo, 45678) [(lo, 45679)] (const $ pure ()) $ \hn1 ->
-          withOuroborosHydraNetwork (lo, 45679) [(lo, 45678)] (putMVar received) $ \_ -> do
-            takeMVar received `shouldReturn` NetworkConnected
+        withOuroborosHydraNetwork (lo, 45678) [(lo, 45679)] (const @_ @(HydraMessage Integer) $ pure ()) $ \hn1 ->
+          withOuroborosHydraNetwork @(HydraMessage Integer) @(HydraMessage Integer) (lo, 45679) [(lo, 45678)] (putMVar received) $ \_ -> do
             broadcast hn1 requestTx
-            takeMVar received `shouldReturn` MessageReceived requestTx
+            takeMVar received `shouldReturn` requestTx
 
     it "broadcasts messages between 3 connected peers" $ do
       node1received <- newEmptyMVar
       node2received <- newEmptyMVar
       node3received <- newEmptyMVar
       failAfter 10 $ do
-        withOuroborosHydraNetwork (lo, 45678) [(lo, 45679), (lo, 45680)] (putMVar node1received) $ \hn1 ->
+        withOuroborosHydraNetwork @_ @(HydraMessage Integer) (lo, 45678) [(lo, 45679), (lo, 45680)] (putMVar node1received) $ \hn1 ->
           withOuroborosHydraNetwork (lo, 45679) [(lo, 45678), (lo, 45680)] (putMVar node2received) $ \hn2 -> do
             withOuroborosHydraNetwork (lo, 45680) [(lo, 45678), (lo, 45679)] (putMVar node3received) $ \hn3 -> do
-              failAfter 1 $ takeMVar node1received `shouldReturn` NetworkConnected
-              failAfter 1 $ takeMVar node2received `shouldReturn` NetworkConnected
-              failAfter 1 $ takeMVar node3received `shouldReturn` NetworkConnected
-
               broadcast hn1 requestTx
-              failAfter 1 $ takeMVar node2received `shouldReturn` MessageReceived requestTx
-              failAfter 1 $ takeMVar node3received `shouldReturn` MessageReceived requestTx
+              failAfter 1 $ takeMVar node2received `shouldReturn` requestTx
+              failAfter 1 $ takeMVar node3received `shouldReturn` requestTx
 
               broadcast hn2 requestTx
-              failAfter 1 $ takeMVar node1received `shouldReturn` MessageReceived requestTx
-              failAfter 1 $ takeMVar node3received `shouldReturn` MessageReceived requestTx
+              failAfter 1 $ takeMVar node1received `shouldReturn` requestTx
+              failAfter 1 $ takeMVar node3received `shouldReturn` requestTx
 
               broadcast hn3 requestTx
-              failAfter 1 $ takeMVar node1received `shouldReturn` MessageReceived requestTx
-              failAfter 1 $ takeMVar node2received `shouldReturn` MessageReceived requestTx
+              failAfter 1 $ takeMVar node1received `shouldReturn` requestTx
+              failAfter 1 $ takeMVar node2received `shouldReturn` requestTx
 
   describe "0MQ Network" $
     it "broadcasts messages between 3 connected peers" $ do
-      pendingWith "missing network callback"
       node1received <- newEmptyMVar
       node2received <- newEmptyMVar
       node3received <- newEmptyMVar
@@ -72,21 +66,17 @@ spec = describe "Networking layer" $ do
         withZeroMQHydraNetwork (lo, 55677) [(lo, 55678), (lo, 55679)] nullTracer (putMVar node1received) $ \hn1 ->
           withZeroMQHydraNetwork (lo, 55678) [(lo, 55677), (lo, 55679)] nullTracer (putMVar node2received) $ \hn2 ->
             withZeroMQHydraNetwork (lo, 55679) [(lo, 55677), (lo, 55678)] nullTracer (putMVar node3received) $ \hn3 -> do
-              failAfter 1 $ takeMVar node1received `shouldReturn` NetworkConnected
-              failAfter 1 $ takeMVar node2received `shouldReturn` NetworkConnected
-              failAfter 1 $ takeMVar node3received `shouldReturn` NetworkConnected
-
               broadcast hn1 requestTx
-              failAfter 1 $ takeMVar node2received `shouldReturn` MessageReceived requestTx
-              failAfter 1 $ takeMVar node3received `shouldReturn` MessageReceived requestTx
+              failAfter 1 $ takeMVar node2received `shouldReturn` requestTx
+              failAfter 1 $ takeMVar node3received `shouldReturn` requestTx
 
               broadcast hn2 requestTx
-              failAfter 1 $ takeMVar node1received `shouldReturn` MessageReceived requestTx
-              failAfter 1 $ takeMVar node3received `shouldReturn` MessageReceived requestTx
+              failAfter 1 $ takeMVar node1received `shouldReturn` requestTx
+              failAfter 1 $ takeMVar node3received `shouldReturn` requestTx
 
               broadcast hn3 requestTx
-              failAfter 1 $ takeMVar node1received `shouldReturn` MessageReceived requestTx
-              failAfter 1 $ takeMVar node2received `shouldReturn` MessageReceived requestTx
+              failAfter 1 $ takeMVar node1received `shouldReturn` requestTx
+              failAfter 1 $ takeMVar node2received `shouldReturn` requestTx
 
   describe "Serialisation" $ do
     it "can roundtrip serialisation of HydraMessage" $ property $ prop_canRoundtripSerialise @(HydraMessage Integer)

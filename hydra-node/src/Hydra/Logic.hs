@@ -1,7 +1,5 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE UndecidableInstances #-}
-{-# OPTIONS_GHC -Wno-deferred-type-errors #-}
-{-# OPTIONS_GHC -Wno-overlapping-patterns #-}
 
 module Hydra.Logic where
 
@@ -25,14 +23,9 @@ import Hydra.Ledger (
 
 data Event tx
   = ClientEvent (ClientRequest tx)
-  | NetworkEvent (NetworkEvent tx)
+  | NetworkEvent (HydraMessage tx)
   | OnChainEvent OnChainTx
   | ShouldPostFanout
-  deriving (Eq, Show)
-
-data NetworkEvent tx
-  = MessageReceived (HydraMessage tx)
-  | NetworkConnected
   deriving (Eq, Show)
 
 data Effect tx
@@ -191,7 +184,7 @@ update Environment{party} ledger (HeadState p st) ev = case (st, ev) of
     case canApply ledger confirmedLedger tx of
       Invalid _ -> newState p st [ClientEffect $ TxInvalid tx]
       Valid -> newState p st [NetworkEffect $ ReqTx tx]
-  (OpenState headState, NetworkEvent (MessageReceived (ReqTx tx))) ->
+  (OpenState headState, NetworkEvent (ReqTx tx)) ->
     case applyTransaction ledger (confirmedLedger headState) tx of
       Right newLedgerState ->
         newState
@@ -207,8 +200,6 @@ update Environment{party} ledger (HeadState p st) ev = case (st, ev) of
   (ClosedState utxos, OnChainEvent FanoutTx) ->
     newState p FinalState [ClientEffect $ HeadIsFinalized utxos]
   --
-  (_, NetworkEvent NetworkConnected) ->
-    newState p st [ClientEffect NodeConnectedToNetwork]
   (_, ClientEvent{}) ->
     newState p st [ClientEffect CommandFailed]
   _ -> panic $ "UNHANDLED EVENT: on " <> show party <> " of event " <> show ev <> " in state " <> show st
