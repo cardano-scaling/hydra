@@ -39,7 +39,7 @@ main = do
       let headState = createHeadState [] (HeadParameters 3) SnapshotStrategy
       hh <- createHydraHead headState Ledger.mockLedger
       oc <- createMockChainClient eq (contramap MockChain tracer)
-      withHeartbeat peers (withOuroborosHydraNetwork (show host, port) peers) (putEvent eq . NetworkEvent) $ \hn -> do
+      withHeartbeat nodeId (withOuroborosHydraNetwork (show host, port) peers) (putEvent eq . NetworkEvent) $ \hn -> do
         responseChannel <- newBroadcastTChanIO
         let sendResponse = atomically . writeTChan responseChannel
         let node = HydraNode{eq, hn, hh, oc, sendResponse, env}

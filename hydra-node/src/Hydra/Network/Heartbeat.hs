@@ -3,11 +3,11 @@
 module Hydra.Network.Heartbeat where
 
 import Cardano.Binary (FromCBOR (..), ToCBOR (..))
-import Cardano.Prelude hiding (threadDelay, withAsync)
+import Cardano.Prelude hiding (atomically, threadDelay, withAsync)
 import Control.Monad (fail)
 import Control.Monad.Class.MonadAsync (MonadAsync, withAsync)
+import Control.Monad.Class.MonadSTM (MonadSTM, TVar, atomically, newTVarIO, readTVar, writeTVar)
 import Control.Monad.Class.MonadTimer (MonadDelay, threadDelay)
-import Data.Functor.Contravariant (contramap)
 import Hydra.Ledger (Party)
 import Hydra.Logic (HydraMessage (..))
 import Hydra.Network (HydraNetwork (..), NetworkCallback)
@@ -29,25 +29,45 @@ instance FromCBOR tx => FromCBOR (HeartbeatMessage tx) where
       1 -> Heartbeat <$> fromCBOR
       tag -> fail $ show tag <> " is not a proper CBOR-encoded HydraMessage"
 
+data HeartbeatState
+  = SendHeartbeat
+  | StopHeartbeat
+  deriving (Eq)
+
 withHeartbeat ::
-  (MonadAsync m, MonadDelay m) =>
+  MonadAsync m =>
+  MonadDelay m =>
   Party ->
   (NetworkCallback (HeartbeatMessage tx) m -> (HydraNetwork m (HeartbeatMessage tx) -> m ()) -> m ()) ->
   NetworkCallback (HydraMessage tx) m ->
   (HydraNetwork m (HydraMessage tx) -> m ()) ->
   m ()
-withHeartbeat me withNetwork callback action =
+withHeartbeat me withNetwork callback action = do
+  heartbeat <- newTVarIO SendHeartbeat
   withNetwork (callback . peelHeartbeat) $ \network ->
-    withAsync (sendHeartbeatFor me network) $ \_ ->
-      action (contramap HydraMessage network)
+    withAsync (sendHeartbeatFor me heartbeat network) $ \_ ->
+      action (checkMessages network heartbeat)
+
+checkMessages :: MonadSTM m => HydraNetwork m (HeartbeatMessage tx) -> TVar m HeartbeatState -> HydraNetwork m (HydraMessage tx)
+checkMessages HydraNetwork{broadcast} heartbeatState =
+  HydraNetwork $ \msg -> do
+    case msg of
+      Ping _ -> pure ()
+      _ -> atomically (writeTVar heartbeatState StopHeartbeat)
+    broadcast (HydraMessage msg)
 
 sendHeartbeatFor ::
   MonadDelay m =>
+  MonadSTM m =>
   Party ->
+  TVar m HeartbeatState ->
   HydraNetwork m (HeartbeatMessage tx) ->
   m ()
-sendHeartbeatFor me HydraNetwork{broadcast} =
-  forever $ threadDelay 0.1 >> broadcast (Heartbeat me)
+sendHeartbeatFor me heartbeatState HydraNetwork{broadcast} =
+  forever $ do
+    threadDelay 0.1
+    st <- atomically $ readTVar heartbeatState
+    when (st == SendHeartbeat) $ broadcast (Heartbeat me)
 
 peelHeartbeat :: HeartbeatMessage tx -> HydraMessage tx
 peelHeartbeat (HydraMessage htx) = htx

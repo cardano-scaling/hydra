@@ -7,9 +7,9 @@ import Cardano.Prelude hiding (atomically, threadDelay)
 import Control.Monad.Class.MonadSTM (atomically, modifyTVar', newTVarIO, readTVar)
 import Control.Monad.Class.MonadTimer (threadDelay)
 import Control.Monad.IOSim (runSimOrThrow)
-import Hydra.Logic (HydraMessage (Ping))
+import Hydra.Logic (HydraMessage (AckTx, Ping))
 import Hydra.Network (HydraNetwork (..))
-import Hydra.Network.Heartbeat (HeartbeatMessage (Heartbeat), withHeartbeat)
+import Hydra.Network.Heartbeat (HeartbeatMessage (Heartbeat, HydraMessage), withHeartbeat)
 import Test.Hspec (Spec, describe, it, shouldBe)
 
 spec :: Spec
@@ -40,6 +40,20 @@ spec = describe "Heartbeat" $ do
           atomically $ readTVar receivedMessages
 
     receivedHeartbeats `shouldBe` [Ping 2]
+
+  it "stop sending heartbeat message given action sends a message" $ do
+    let sentHeartbeats = runSimOrThrow $ do
+          sentMessages <- newTVarIO ([] :: [HeartbeatMessage Integer])
+          let dummyNetwork _cb action = action $ HydraNetwork{broadcast = \msg -> atomically $ modifyTVar' sentMessages (msg :)}
+
+          withHeartbeat 1 dummyNetwork noop $ \HydraNetwork{broadcast} -> do
+            threadDelay 0.5
+            broadcast AckTx
+            threadDelay 1
+
+          atomically $ readTVar sentMessages
+
+    sentHeartbeats `shouldBe` (HydraMessage AckTx : replicate 4 (Heartbeat 1))
 
 noop :: Monad m => b -> m ()
 noop = const $ pure ()
