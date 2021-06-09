@@ -1,4 +1,5 @@
 {-# LANGUAGE TypeApplications #-}
+{-# OPTIONS_GHC -Wno-deferred-type-errors #-}
 
 module Hydra.HeadLogicSpec where
 
@@ -9,6 +10,8 @@ import Control.Monad.Fail (
  )
 import qualified Data.Set as Set
 import Hydra.HeadLogic (
+  ClientResponse (NodeConnectedToNetwork),
+  Effect (ClientEffect),
   Environment (..),
   Event (..),
   HeadParameters (..),
@@ -19,37 +22,31 @@ import Hydra.HeadLogic (
   SimpleHeadState (..),
   update,
  )
-import Hydra.Ledger (Ledger (initLedgerState))
+import Hydra.Ledger (Ledger (initLedgerState), Party, Tx)
 import Hydra.Ledger.Mock (MockTx (ValidTx), mockLedger)
 import Test.Hspec (
   Spec,
   describe,
+  expectationFailure,
   it,
   shouldBe,
  )
 
 spec :: Spec
 spec = describe "Hydra Head Logic" $ do
+  let threeParties = Set.fromList [1, 2, 3]
+      ledger = mockLedger
+      env =
+        Environment
+          { party = 2
+          }
+
   it "confirms tx given it receives AckTx from all parties" $ do
-    let allParties = Set.fromList [1, 2, 3]
-        reqTx = NetworkEvent $ ReqTx (ValidTx 1)
+    let reqTx = NetworkEvent $ ReqTx (ValidTx 1)
         ackFrom1 = NetworkEvent $ AckTx 1 (ValidTx 1)
         ackFrom2 = NetworkEvent $ AckTx 2 (ValidTx 1)
         ackFrom3 = NetworkEvent $ AckTx 3 (ValidTx 1)
-        env =
-          Environment
-            { party = 2
-            }
-        ledger = mockLedger
-        s0 =
-          HeadState
-            { headStatus = OpenState $ SimpleHeadState (initLedgerState ledger) mempty mempty
-            , headParameters =
-                HeadParameters
-                  { contestationPeriod = 42
-                  , parties = allParties
-                  }
-            }
+        s0 = initialState threeParties ledger
 
     s1 <- assertNewState $ update env ledger s0 reqTx
     s2 <- assertNewState $ update env ledger s1 ackFrom3
@@ -60,6 +57,30 @@ spec = describe "Hydra Head Logic" $ do
     s4 <- assertNewState $ update env ledger s3 ackFrom2
 
     confirmedTransactions s4 `shouldBe` [ValidTx 1]
+
+  it "notifies client when it receives a ping" $ do
+    update env ledger (initialState threeParties ledger) (NetworkEvent $ Ping 2) `hasEffect` ClientEffect (NodeConnectedToNetwork 2)
+
+hasEffect :: Tx tx => Outcome tx -> Effect tx -> IO ()
+hasEffect (NewState _ effects) effect
+  | effect `elem` effects = pure ()
+  | otherwise = expectationFailure $ "Missing effect " <> show effect <> " in produced effects:  " <> show effects
+hasEffect _ _ = expectationFailure $ "Unexpected outcome"
+
+initialState ::
+  Ord tx =>
+  Set Party ->
+  Ledger tx ->
+  HeadState tx
+initialState parties ledger =
+  HeadState
+    { headStatus = OpenState $ SimpleHeadState (initLedgerState ledger) mempty mempty
+    , headParameters =
+        HeadParameters
+          { contestationPeriod = 42
+          , parties
+          }
+    }
 
 confirmedTransactions :: HeadState tx -> [tx]
 confirmedTransactions HeadState{headStatus} = case headStatus of

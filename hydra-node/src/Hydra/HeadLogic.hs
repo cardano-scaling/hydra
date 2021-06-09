@@ -50,7 +50,7 @@ data ClientRequest tx
 type SnapshotNumber = Natural
 
 data ClientResponse tx
-  = NodeConnectedToNetwork
+  = NodeConnectedToNetwork Party
   | ReadyToCommit
   | HeadIsOpen (UTxO tx)
   | HeadIsClosed DiffTime (UTxO tx) SnapshotNumber [tx]
@@ -245,6 +245,8 @@ update Environment{party} ledger (HeadState p st) ev = case (st, ev) of
   --
   (_, ClientEvent{}) ->
     newState p st [ClientEffect CommandFailed]
+  (_, NetworkEvent (Ping pty)) ->
+    newState p st [ClientEffect $ NodeConnectedToNetwork pty]
   _ -> panic $ "UNHANDLED EVENT: on " <> show party <> " of event " <> show ev <> " in state " <> show st
 
 canCollectCom :: Party -> ParticipationToken -> Set ParticipationToken -> Bool
