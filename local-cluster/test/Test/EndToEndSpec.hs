@@ -28,7 +28,7 @@ import Text.Regex.TDFA.Text ()
 spec :: Spec
 spec = describe "End-to-end test using a mocked chain though" $ do
   describe "three hydra nodes scenario" $ do
-    it "inits and closes a head without actual transactions" $ do
+    it "inits and closes a head with a single mock transaction" $ do
       failAfter 30 $
         withMockChain $
           withHydraNode 1 $ \n1 ->
@@ -41,12 +41,13 @@ spec = describe "End-to-end test using a mocked chain though" $ do
                 sendRequest n1 "Commit 10"
                 sendRequest n2 "Commit 20"
                 sendRequest n3 "Commit 5"
+                -- NOTE(SN): uses MockTx and its UTxO type [MockTx]
                 waitForResponse 3 [n1, n2, n3] "HeadIsOpen []"
-                -- NOTE(SN): Here any number of head interactions would take
-                -- place. For now we do nothing.
+                sendRequest n1 "NewTx (ValidTx 42)"
+                waitForResponse 10 [n1, n2, n3] "TxConfirmed (ValidTx 42)"
                 sendRequest n1 "Close"
-                waitForResponse 3 [n1] "HeadIsClosed 3s []"
-                waitForResponse (contestationPeriod + 3) [n1] "HeadIsFinalized []"
+                waitForResponse 3 [n1] "HeadIsClosed 3s [] 0 [ValidTx 42]"
+                waitForResponse (contestationPeriod + 3) [n1] "HeadIsFinalized [ValidTx 42]"
 
     -- NOTE(SN): This is likely too detailed and should move to a lower-level
     -- integration test

@@ -8,8 +8,8 @@ import Control.Monad (fail)
 import Control.Monad.Class.MonadAsync (MonadAsync, withAsync)
 import Control.Monad.Class.MonadSTM (MonadSTM, TVar, atomically, newTVarIO, readTVar, writeTVar)
 import Control.Monad.Class.MonadTimer (MonadDelay, threadDelay)
+import Hydra.HeadLogic (HydraMessage (..))
 import Hydra.Ledger (Party)
-import Hydra.Logic (HydraMessage (..))
 import Hydra.Network (HydraNetwork (..), NetworkCallback)
 
 data HeartbeatMessage tx

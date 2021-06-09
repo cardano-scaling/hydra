@@ -12,12 +12,12 @@ import Codec.CBOR.Write (toLazyByteString)
 import Codec.Serialise (Serialise, deserialiseOrFail, serialise)
 import Control.Monad.Class.MonadTime (DiffTime)
 import Control.Monad.Class.MonadTimer (timeout)
+import Hydra.HeadLogic (HydraMessage (..))
 import Hydra.Logging (nullTracer)
-import Hydra.Logic (HydraMessage (..))
 import Hydra.Network.Ouroboros (broadcast, withOuroborosHydraNetwork)
 import Hydra.Network.ZeroMQ (withZeroMQHydraNetwork)
-import Test.Hspec (Spec, describe, expectationFailure, it, shouldReturn)
-import Test.QuickCheck (Arbitrary (..), arbitrary, oneof, property)
+import Test.Hspec (Spec, describe, expectationFailure, it, pendingWith, shouldReturn)
+import Test.QuickCheck (Arbitrary (..), Positive (getPositive), arbitrary, oneof, property)
 
 type MockTx = ()
 
@@ -33,7 +33,7 @@ spec = describe "Networking layer" $ do
       received <- newEmptyMVar
       failAfter 10 $ do
         withOuroborosHydraNetwork (lo, 45678) [(lo, 45679)] (const @_ @(HydraMessage Integer) $ pure ()) $ \hn1 ->
-          withOuroborosHydraNetwork @(HydraMessage Integer) @(HydraMessage Integer) (lo, 45679) [(lo, 45678)] (putMVar received) $ \_ -> do
+          withOuroborosHydraNetwork @(HydraMessage Integer) (lo, 45679) [(lo, 45678)] (putMVar received) $ \_ -> do
             broadcast hn1 requestTx
             takeMVar received `shouldReturn` requestTx
 
@@ -42,7 +42,7 @@ spec = describe "Networking layer" $ do
       node2received <- newEmptyMVar
       node3received <- newEmptyMVar
       failAfter 10 $ do
-        withOuroborosHydraNetwork @_ @(HydraMessage Integer) (lo, 45678) [(lo, 45679), (lo, 45680)] (putMVar node1received) $ \hn1 ->
+        withOuroborosHydraNetwork @(HydraMessage Integer) (lo, 45678) [(lo, 45679), (lo, 45680)] (putMVar node1received) $ \hn1 ->
           withOuroborosHydraNetwork (lo, 45679) [(lo, 45678), (lo, 45680)] (putMVar node2received) $ \hn2 -> do
             withOuroborosHydraNetwork (lo, 45680) [(lo, 45678), (lo, 45679)] (putMVar node3received) $ \hn3 -> do
               broadcast hn1 requestTx
@@ -56,6 +56,9 @@ spec = describe "Networking layer" $ do
               broadcast hn3 requestTx
               failAfter 1 $ takeMVar node1received `shouldReturn` requestTx
               failAfter 1 $ takeMVar node2received `shouldReturn` requestTx
+
+    it "broadcasts messages to itself" $ do
+      pendingWith "not tested yet"
 
   describe "0MQ Network" $
     it "broadcasts messages between 3 connected peers" $ do
@@ -83,7 +86,17 @@ spec = describe "Networking layer" $ do
     it "can roundtrip CBOR encoding/decoding of HydraMessage" $ property $ prop_canRoundtripCBOREncoding @(HydraMessage Integer)
 
 instance Arbitrary (HydraMessage Integer) where
-  arbitrary = oneof [ReqTx <$> arbitrary, pure AckTx, pure ConfTx, pure ReqSn, pure AckSn, pure ConfSn]
+  arbitrary =
+    oneof
+      [ ReqTx <$> arbitrary
+      , AckTx <$> arbitraryNatural <*> arbitrary
+      , pure ConfTx
+      , pure ReqSn
+      , pure AckSn
+      , pure ConfSn
+      ]
+   where
+    arbitraryNatural = fromIntegral . getPositive <$> arbitrary @(Positive Integer)
 
 prop_canRoundtripSerialise :: (Serialise a, Eq a) => a -> Bool
 prop_canRoundtripSerialise a =

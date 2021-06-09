@@ -22,6 +22,7 @@ import Control.Concurrent.Async (
   forConcurrently_,
  )
 import qualified Data.ByteString.Lazy as BSL
+import Data.IORef (modifyIORef', newIORef, readIORef)
 import qualified Data.Text.Encoding as Text
 import Network.HTTP.Conduit (HttpExceptionContent (ConnectionFailure), parseRequest)
 import Network.HTTP.Simple (HttpException (HttpExceptionRequest), Response, getResponseBody, getResponseStatusCode, httpBS)
@@ -50,7 +51,11 @@ sendRequest HydraNode{hydraNodeId, connection} request = do
   putText ("Tester sending to " <> show hydraNodeId <> ": " <> show request)
   sendTextData connection request
 
-data WaitForResponseTimeout = WaitForResponseTimeout {nodeId :: Int, expectedResponse :: Text}
+data WaitForResponseTimeout = WaitForResponseTimeout
+  { nodeId :: Int
+  , expectedResponse :: Text
+  , actualMessages :: [Text]
+  }
   deriving (Show)
 
 instance Exception WaitForResponseTimeout
@@ -64,18 +69,24 @@ failAfter seconds action =
 waitForResponse :: HasCallStack => Natural -> [HydraNode] -> Text -> IO ()
 waitForResponse delay nodes expected = do
   forConcurrently_ nodes $ \HydraNode{hydraNodeId, connection} -> do
+    msgs <- newIORef []
     -- The chain is slow...
-    result <- timeout (fromIntegral delay * 1_000_000) $ tryNext connection
-    maybe (expectationFailure $ show $ WaitForResponseTimeout hydraNodeId expected) pure result
+    result <- timeout (fromIntegral delay * 1_000_000) $ tryNext msgs connection
+    case result of
+      Just x -> pure x
+      Nothing -> do
+        actualMsgs <- readIORef msgs
+        expectationFailure $ show $ WaitForResponseTimeout hydraNodeId expected actualMsgs
  where
-  tryNext c = do
+  tryNext msgs c = do
     msg <-
       receiveDataMessage c >>= \case
         Text b _mt -> pure $ Text.decodeUtf8 $ BSL.toStrict b
         Binary b -> pure $ Text.decodeUtf8 $ BSL.toStrict b
+    modifyIORef' msgs (msg :)
     if msg == expected
       then pure ()
-      else tryNext c
+      else tryNext msgs c
 
 getMetrics :: HasCallStack => HydraNode -> IO ByteString
 getMetrics HydraNode{hydraNodeId} = do

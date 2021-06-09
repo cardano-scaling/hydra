@@ -14,7 +14,7 @@ import Data.String
 import Data.Text (unpack)
 import qualified Data.Text.Encoding as Enc
 import Hydra.Logging (Tracer, traceWith)
-import Hydra.Logic (Event (OnChainEvent), OnChainTx)
+import Hydra.HeadLogic (Event (OnChainEvent), OnChainTx)
 import Hydra.Node (EventQueue (..), OnChain (..))
 import System.ZMQ4.Monadic (
   Pub (..),

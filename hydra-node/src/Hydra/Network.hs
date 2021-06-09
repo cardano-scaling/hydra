@@ -30,7 +30,7 @@ import Data.Functor.Contravariant (Contravariant (..))
 import Data.IP (IP)
 import qualified Data.List as List
 import Data.String (String)
-import Hydra.Logic (HydraMessage (..))
+import Hydra.HeadLogic (HydraMessage (..))
 import Network.Socket (HostName, PortNumber)
 import Network.TypedProtocol.Pipelined ()
 
@@ -71,7 +71,7 @@ deriving anyclass instance Serialise tx => Serialise (HydraMessage tx)
 instance ToCBOR tx => ToCBOR (HydraMessage tx) where
   toCBOR = \case
     ReqTx tx -> toCBOR ("ReqTx" :: Text) <> toCBOR tx
-    AckTx -> toCBOR ("AckTx" :: Text)
+    AckTx party tx -> toCBOR ("AckTx" :: Text) <> toCBOR party <> toCBOR tx
     ConfTx -> toCBOR ("ConfTx" :: Text)
     ReqSn -> toCBOR ("ReqSn" :: Text)
     AckSn -> toCBOR ("AckSn" :: Text)
@@ -82,7 +82,7 @@ instance FromCBOR tx => FromCBOR (HydraMessage tx) where
   fromCBOR =
     fromCBOR >>= \case
       ("ReqTx" :: Text) -> ReqTx <$> fromCBOR
-      "AckTx" -> pure AckTx
+      "AckTx" -> AckTx <$> fromCBOR <*> fromCBOR
       "ConfTx" -> pure ConfTx
       "ReqSn" -> pure ReqSn
       "AckSn" -> pure AckSn

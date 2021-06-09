@@ -15,13 +15,9 @@ import Control.Concurrent.STM (
   writeTBQueue,
   writeTChan,
  )
-import Control.Tracer (
-  contramap,
-  debugTracer,
-  stdoutTracer,
- )
+import Control.Tracer (Tracer, contramap, debugTracer, stdoutTracer)
 import qualified Data.ByteString.Lazy as LBS
-import Hydra.Logging (Tracer)
+import Hydra.Logging (nullTracer)
 import Hydra.Network (
   Host,
   HydraNetwork (..),
@@ -78,13 +74,12 @@ import Ouroboros.Network.Subscription.Ip (SubscriptionParams (..))
 import Ouroboros.Network.Subscription.Worker (LocalAddresses (LocalAddresses))
 
 withOuroborosHydraNetwork ::
-  forall inmsg outmsg.
-  (Show outmsg, ToCBOR outmsg, FromCBOR outmsg) =>
-  (Show inmsg, ToCBOR inmsg, FromCBOR inmsg) =>
+  forall msg.
+  (Show msg, ToCBOR msg, FromCBOR msg) =>
   Host ->
   [Host] ->
-  NetworkCallback inmsg IO ->
-  (HydraNetwork IO outmsg -> IO ()) ->
+  NetworkCallback msg IO ->
+  (HydraNetwork IO msg -> IO ()) ->
   IO ()
 withOuroborosHydraNetwork localHost remoteHosts networkCallback between = do
   bchan <- newBroadcastTChanIO
@@ -98,7 +93,9 @@ withOuroborosHydraNetwork localHost remoteHosts networkCallback between = do
       race_ (listen iomgr hydraServer) $ do
         between $
           HydraNetwork
-            { broadcast = atomically . writeTChan bchan
+            { broadcast = \e -> do
+                atomically $ writeTChan bchan e
+                networkCallback e
             }
  where
   resolveSockAddr (hostname, port) = do
@@ -164,7 +161,7 @@ withOuroborosHydraNetwork localHost remoteHosts networkCallback between = do
       nullErrorPolicies
       $ \_ serverAsync -> wait serverAsync -- block until async exception
   hydraClient ::
-    TChan outmsg ->
+    TChan msg ->
     OuroborosApplication 'InitiatorMode addr LBS.ByteString IO () Void
   hydraClient chan =
     OuroborosApplication $ \_connectionId _controlMessageSTM ->
@@ -177,7 +174,7 @@ withOuroborosHydraNetwork localHost remoteHosts networkCallback between = do
    where
     initiator =
       MuxPeer
-        showStdoutTracer
+        nullTracer
         codecFireForget
         (fireForgetClientPeer $ client chan)
 
@@ -205,14 +202,14 @@ withOuroborosHydraNetwork localHost remoteHosts networkCallback between = do
     MiniProtocolLimits{maximumIngressQueue = maxBound}
 
   client ::
-    TChan outmsg ->
-    FireForgetClient outmsg IO ()
+    TChan msg ->
+    FireForgetClient msg IO ()
   client chan =
     Idle $ do
       atomically (readTChan chan) <&> \msg ->
         SendMsg msg (pure $ client chan)
 
-  server :: FireForgetServer inmsg IO ()
+  server :: FireForgetServer msg IO ()
   server =
     FireForgetServer
       { recvMsg = \msg -> networkCallback msg $> server
@@ -220,5 +217,5 @@ withOuroborosHydraNetwork localHost remoteHosts networkCallback between = do
       }
 
   showStdoutTracer ::
-    Show msg => Tracer IO (TraceSendRecv (FireForget msg))
+    Tracer IO (TraceSendRecv (FireForget msg))
   showStdoutTracer = contramap show stdoutTracer

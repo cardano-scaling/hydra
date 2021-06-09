@@ -9,11 +9,12 @@ import Cardano.Binary (FromCBOR (..), ToCBOR (..), decodeTag, encodeTag)
 import Cardano.Prelude
 import Codec.Serialise
 import Control.Monad (fail)
+import Data.List (nub)
 import Hydra.Ledger
 
 -- | Simple mock transaction, which conflates value and identity
 data MockTx = ValidTx TxId | InvalidTx
-  deriving stock (Eq, Generic, Read, Show)
+  deriving stock (Eq, Ord, Generic, Read, Show)
   deriving anyclass (Serialise)
 
 instance ToCBOR MockTx where
@@ -30,14 +31,14 @@ instance FromCBOR MockTx where
 
 type TxId = Integer
 
-type instance UTxO MockTx = [MockTx]
-
-type instance LedgerState MockTx = MockLedgerState
-
 newtype MockLedgerState = MockLedgerState
   { transactions :: [MockTx]
   }
   deriving (Eq, Show)
+
+instance Tx MockTx where
+  type UTxO MockTx = [MockTx]
+  type LedgerState MockTx = MockLedgerState
 
 mockLedger :: Ledger MockTx
 mockLedger =
@@ -58,7 +59,7 @@ mockLedger =
           InvalidTx ->
             Left ValidationError
           ValidTx{} ->
-            let transactions' = tx : transactions
+            let transactions' = nub $ tx : transactions
              in Right $ MockLedgerState{transactions = transactions'}
     , initLedgerState = MockLedgerState mempty
     , getUTxO = transactions

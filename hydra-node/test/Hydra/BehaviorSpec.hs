@@ -5,10 +5,7 @@ module Hydra.BehaviorSpec where
 import Cardano.Prelude hiding (atomically, check)
 import Control.Monad.Class.MonadSTM (TVar, atomically, check, modifyTVar, newTVarIO, readTVar)
 import Data.IORef (modifyIORef', newIORef, readIORef)
-import Hydra.Ledger (LedgerState)
-import Hydra.Ledger.Mock (MockLedgerState (..), MockTx (..), mockLedger)
-import Hydra.Logging (traceInTVarIO)
-import Hydra.Logic (
+import Hydra.HeadLogic (
   ClientRequest (..),
   ClientResponse (..),
   Effect (ClientEffect),
@@ -19,6 +16,10 @@ import Hydra.Logic (
   SnapshotStrategy (..),
   createHeadState,
  )
+import Hydra.Ledger (LedgerState)
+import Hydra.Ledger.Mock (MockTx (..), mockLedger)
+
+import Hydra.Logging (traceInTVarIO)
 import Hydra.Network (HydraNetwork (..))
 import Hydra.Node (
   HydraNode (..),
@@ -90,7 +91,7 @@ spec = describe "Behavior of one ore more hydra-nodes" $ do
 
       sendRequestAndWaitFor n1 (Init [1]) ReadyToCommit
       sendRequestAndWaitFor n1 (Commit 1) (HeadIsOpen [])
-      sendRequestAndWaitFor n1 Close (HeadIsClosed 3 [])
+      sendRequestAndWaitFor n1 Close (HeadIsClosed 3 [] 0 [])
 
     it "sees the head closed by other nodes" $ do
       chain <- simulatedChainAndNetwork
@@ -106,7 +107,7 @@ spec = describe "Behavior of one ore more hydra-nodes" $ do
       wait1sForResponse n1 `shouldReturn` Just (HeadIsOpen [])
       sendRequest n1 Close
 
-      wait1sForResponse n2 `shouldReturn` Just (HeadIsClosed 3 [])
+      wait1sForResponse n2 `shouldReturn` Just (HeadIsClosed 3 [] 0 [])
 
     it "only opens the head after all nodes committed" $ do
       chain <- simulatedChainAndNetwork
@@ -122,7 +123,7 @@ spec = describe "Behavior of one ore more hydra-nodes" $ do
 
       wait1sForResponse n1 `shouldReturn` Just (HeadIsOpen [])
 
-    it "valid new transaction in open head is stored in ledger" $ do
+    it "valid new transactions get confirmed without snapshotting" $ do
       chain <- simulatedChainAndNetwork
       n1 <- startHydraNode 1 chain
       n2 <- startHydraNode 2 chain
@@ -133,10 +134,30 @@ spec = describe "Behavior of one ore more hydra-nodes" $ do
       sendRequestAndWaitFor n2 (Commit 1) (HeadIsOpen [])
       wait1sForResponse n1 `shouldReturn` Just (HeadIsOpen [])
 
-      sendRequest n1 (NewTx $ ValidTx 1)
+      sendRequest n1 (NewTx $ ValidTx 42)
+      wait1sForResponse n1 `shouldReturn` Just (TxConfirmed (ValidTx 42))
+      wait1sForResponse n2 `shouldReturn` Just (TxConfirmed (ValidTx 42))
 
-      waitForLedgerState n1 (Just $ MockLedgerState [ValidTx 1])
-      waitForLedgerState n2 (Just $ MockLedgerState [ValidTx 1])
+      sendRequest n1 Close
+      wait1sForResponse n1 `shouldReturn` Just (HeadIsClosed 3 [] 0 [ValidTx 42])
+
+    it "valid new transactions get snapshotted" $ do
+      chain <- simulatedChainAndNetwork
+      n1 <- startHydraNode' (SnapshotAfter 1) 1 chain
+      n2 <- startHydraNode 2 chain
+
+      sendRequestAndWaitFor n1 (Init [1, 2]) ReadyToCommit
+      sendRequest n1 (Commit 1)
+      wait1sForResponse n2 `shouldReturn` Just ReadyToCommit
+      sendRequestAndWaitFor n2 (Commit 1) (HeadIsOpen [])
+      wait1sForResponse n1 `shouldReturn` Just (HeadIsOpen [])
+
+      sendRequest n1 (NewTx $ ValidTx 42)
+      wait1sForResponse n1 `shouldReturn` Just (TxConfirmed (ValidTx 42))
+      wait1sForResponse n2 `shouldReturn` Just (TxConfirmed (ValidTx 42))
+
+      sendRequest n1 Close
+      wait1sForResponse n1 `shouldReturn` Just (HeadIsClosed 3 [] 0 [ValidTx 42])
 
   describe "Hydra Node Logging" $ do
     it "traces processing of events" $ do
@@ -209,7 +230,14 @@ startHydraNode ::
   Natural ->
   (HydraNode MockTx IO -> IO Connections) ->
   IO (HydraProcess IO MockTx)
-startHydraNode nodeId connectToChain = do
+startHydraNode = startHydraNode' NoSnapshots
+
+startHydraNode' ::
+  SnapshotStrategy ->
+  Natural ->
+  (HydraNode MockTx IO -> IO Connections) ->
+  IO (HydraProcess IO MockTx)
+startHydraNode' snapshotStrategy nodeId connectToChain = do
   capturedLogs <- newTVarIO []
   response <- newEmptyMVar
   node <- createHydraNode response
@@ -242,7 +270,7 @@ startHydraNode nodeId connectToChain = do
   createHydraNode response = do
     let env = Environment nodeId
     eq <- createEventQueue
-    let headState = createHeadState [] (HeadParameters 3) SnapshotStrategy
+    let headState = createHeadState [] (HeadParameters 3 mempty) snapshotStrategy
     hh <- createHydraHead headState mockLedger
     let hn' = HydraNetwork{broadcast = const $ pure ()}
     let node = HydraNode{eq, hn = hn', hh, oc = OnChain (const $ pure ()), sendResponse = putMVar response, env}
