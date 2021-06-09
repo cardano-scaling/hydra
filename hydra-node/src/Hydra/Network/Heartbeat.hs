@@ -3,12 +3,14 @@
 module Hydra.Network.Heartbeat where
 
 import Cardano.Binary (FromCBOR (..), ToCBOR (..))
-import Cardano.Prelude
+import Cardano.Prelude hiding (threadDelay, withAsync)
 import Control.Monad (fail)
+import Control.Monad.Class.MonadAsync (MonadAsync, withAsync)
+import Control.Monad.Class.MonadTimer (MonadDelay, threadDelay)
 import Data.Functor.Contravariant (contramap)
 import Hydra.Ledger (Party)
-import Hydra.Logic (HydraMessage, NetworkEvent)
-import Hydra.Network (Host, HydraNetwork (..), NetworkCallback)
+import Hydra.Logic (HydraMessage (..))
+import Hydra.Network (HydraNetwork (..), NetworkCallback)
 
 data HeartbeatMessage tx
   = HydraMessage (HydraMessage tx)
@@ -28,13 +30,24 @@ instance FromCBOR tx => FromCBOR (HeartbeatMessage tx) where
       tag -> fail $ show tag <> " is not a proper CBOR-encoded HydraMessage"
 
 withHeartbeat ::
-  [Host] ->
+  (MonadAsync m, MonadDelay m) =>
+  Party ->
   (NetworkCallback (HeartbeatMessage tx) m -> (HydraNetwork m (HeartbeatMessage tx) -> m ()) -> m ()) ->
-  NetworkCallback (NetworkEvent tx) m ->
+  NetworkCallback (HydraMessage tx) m ->
   (HydraNetwork m (HydraMessage tx) -> m ()) ->
   m ()
-withHeartbeat _peers withNetwork callback action =
-  withNetwork (callback . wrap) (action . contramap HydraMessage)
+withHeartbeat me withNetwork callback action =
+  withNetwork (callback . wrap) $ \network ->
+    withAsync (sendHeartbeatFor me network) $ \_ ->
+      action (contramap HydraMessage network)
 
-wrap :: HeartbeatMessage tx -> NetworkEvent tx
+sendHeartbeatFor ::
+  MonadDelay m =>
+  Party ->
+  HydraNetwork m (HeartbeatMessage tx) ->
+  m ()
+sendHeartbeatFor me HydraNetwork{broadcast} =
+  forever $ threadDelay 0.1 >> broadcast (Heartbeat me)
+
+wrap :: HeartbeatMessage tx -> HydraMessage tx
 wrap = panic "not implemented"

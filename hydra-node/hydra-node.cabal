@@ -168,6 +168,7 @@ test-suite tests
     Hydra.BehaviorSpec
     Hydra.LedgerSpec
     Hydra.NetworkSpec
+    Hydra.Network.HeartbeatSpec
     Hydra.NodeSpec
     Hydra.OptionSpec
   main-is: Main.hs
