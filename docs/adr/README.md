@@ -8,4 +8,4 @@ Here is a list of currently accepted or discussed **Architecture Decision Record
 4. We use the [Handle pattern](./0004-use-handle-to-model-effects.md) for effectful computations
 5. We use [io-sim-classes](./0005-use-io-sim-classes.md) for all abstracting concurrency primitives
 6. Network [broadcasts all messages](./0006-network-broadcasts-all-messages.md)
-7. _Components are defined using [with-pattern](./0007-with-pattern-for-duplex-channels.md)_
+7. _Components are defined using [with-pattern](./0007-with-pattern-component-interfaces.md)_
