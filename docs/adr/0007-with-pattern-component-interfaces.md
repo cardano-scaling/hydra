@@ -28,7 +28,7 @@ We use this pattern to provide interfaces to all _active components_, which
 exchange messages with other components of the system. A prototypical signature
 of such a component could be:
 
-  ```
+  ```hs
   type Component m = outmsg -> m ()
   type Callback m = inmsg -> m ()
 
@@ -43,4 +43,4 @@ sure they are cleaned up.
 
 Components can be layered on top of another to provide additional behavior given the same interface. This also similar to "decorating" in the object-orientation world.
 
-If the `Component` is agnostic about the messages it consumes/produces, it can defined as a [`Contravariant` functor](https://hackage.haskell.org/package/base-4.15.0.0/docs/Data-Functor-Contravariant.html) and the `Callback` part as a (covariant) `Functor`. This makes it possible to use `map` and `contramap` operations to transform messages.
+If the `Component` is agnostic about the messages it consumes/produces, it can be defined as a [`Contravariant` functor](https://hackage.haskell.org/package/base-4.15.0.0/docs/Data-Functor-Contravariant.html) and the `Callback` part as a (covariant) `Functor`. This makes it possible to use `map` and `contramap` operations to transform messages.

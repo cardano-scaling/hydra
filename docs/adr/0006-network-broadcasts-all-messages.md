@@ -19,7 +19,7 @@ networks with any kind of topology (mesh), namely the
 [TxSubmission](https://github.com/input-output-hk/ouroboros-network/tree/master/ouroboros-network/src/Ouroboros/Network/TxSubmission)
 protocol of `ouroroboros-network`.
 
-If the network connects only interested peers, _broadcast_ is essentially the
+If the network connects only to interested peers, _broadcast_ is essentially the
 _multicast_ required by the protocol. If this is not the case, some addressing
 scheme is required and _broadcast_ would be a waste of resources.
 

@@ -10,10 +10,10 @@ Accepted
 
 Given we are structuring Hydra node as a [reactive core](0002-reactive-core) we need a way to ensure a strict separation of pure and impure (or effectful) code.
 
-We want to be able to the those impure/effectful parts of the code. This requires a means for exchanging the actual implementation for e.g. the function to send messages over a network.
+We want to be able to test those impure/effectful parts of the code. This requires a means for exchanging the actual implementation for e.g. the function to send messages over a network.
 
-Also we want to swapping implementations not only for testing, but also be able
-to accomodate different usage scenarios, e.g. use a different middleware
+Also we want the ability to swap implementations not only for testing, but also be able
+to accommodate different usage scenarios, e.g. use a different middleware
 depending on peer configuration.
 
 In Haskell there are various common _patterns_ to model effects:
@@ -36,7 +36,7 @@ There might be other techniques in use because of libraries used etc.
 ## Consequences
 
 For example, the network component is defined as:
-  ```
+  ```hs
   newtype HydraNetwork m = HydraNetwork
     { broadcast :: MonadThrow m => HydraMessage -> m ()
     }
