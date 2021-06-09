@@ -14,7 +14,7 @@ import Test.Hspec (Spec, describe, it, shouldBe)
 
 spec :: Spec
 spec = describe "Heartbeat" $ do
-  it "sends a heartbeat message with own party id every 100 ms" $ do
+  it "sends a heartbeat message with own party id every 500 ms" $ do
     let sentHeartbeats = runSimOrThrow $ do
           sentMessages <- newTVarIO ([] :: [HeartbeatMessage Integer])
           let broadcast msg = atomically $ modifyTVar' sentMessages (msg :)
@@ -25,7 +25,7 @@ spec = describe "Heartbeat" $ do
 
           atomically $ readTVar sentMessages
 
-    sentHeartbeats `shouldBe` replicate 10 (Heartbeat 1)
+    sentHeartbeats `shouldBe` replicate 2 (Heartbeat 1)
 
   it "propagates Heartbeat received from other parties" $ do
     let receivedHeartbeats = runSimOrThrow $ do
@@ -47,13 +47,13 @@ spec = describe "Heartbeat" $ do
           let dummyNetwork _cb action = action $ HydraNetwork{broadcast = \msg -> atomically $ modifyTVar' sentMessages (msg :)}
 
           withHeartbeat 1 dummyNetwork noop $ \HydraNetwork{broadcast} -> do
-            threadDelay 0.5
+            threadDelay 0.6
             broadcast AckSn
             threadDelay 1
 
           atomically $ readTVar sentMessages
 
-    sentHeartbeats `shouldBe` (HydraMessage AckSn : replicate 4 (Heartbeat 1))
+    sentHeartbeats `shouldBe` [HydraMessage AckSn, Heartbeat 1]
 
 noop :: Monad m => b -> m ()
 noop = const $ pure ()

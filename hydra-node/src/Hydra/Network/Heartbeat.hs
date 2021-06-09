@@ -65,7 +65,7 @@ sendHeartbeatFor ::
   m ()
 sendHeartbeatFor me heartbeatState HydraNetwork{broadcast} =
   forever $ do
-    threadDelay 0.1
+    threadDelay 0.5
     st <- atomically $ readTVar heartbeatState
     when (st == SendHeartbeat) $ broadcast (Heartbeat me)
 
