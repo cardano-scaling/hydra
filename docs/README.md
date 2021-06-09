@@ -1,9 +1,14 @@
 # Hydra Node Technical Architecture
 
 This document is essentially a collection of links to other places in the source repository
+
 ## Principles
 
-For basic principles and significant design decisions, please refer to the  [adr/](adr/README.md) directory which contains an up-to-date list of _Architecture Decision Records_.
+We use _Architecture Decision Records (ADR)_ for a lightweight technical
+documentation about our principles and significant design decisions. The
+architecture itself then is just a result of all accepted ADRs, which have not
+been deprecated or superseeded. An up-to-date index of still relevant ADRs is
+kept [here](./adr/README.md).
 
 ## Overview
 
