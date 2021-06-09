@@ -24,3 +24,5 @@ Accepted
 ## Consequences
 
 * As some of these functions and typeclasses clash with the [cardano-prelude](https://github.com/input-output-hk/cardano-prelude) we might want to [define a custom prelude](0006-define-custom-prelude)
+
+* Instantiation to concrete IO is pushed at the outermost layer, eg. in the `Main` or tests.
