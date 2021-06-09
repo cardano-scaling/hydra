@@ -19,7 +19,7 @@ import Control.Monad.Class.MonadSTM (
   readTVar,
   takeTMVar,
  )
-import Control.Monad.Class.MonadThrow (MonadMask)
+import Control.Monad.Class.MonadThrow (MonadMask, MonadThrow)
 import Control.Monad.Class.MonadTimer (DiffTime, MonadTimer, threadDelay, timeout)
 import Hydra.HeadLogic (
   ClientRequest (..),
@@ -53,9 +53,8 @@ import Test.Hspec (
   it,
   shouldContain,
   shouldNotBe,
-  shouldReturn,
  )
-import Test.Util (failAfter, failure)
+import Test.Util (failAfter, failure, shouldReturn)
 
 spec :: Spec
 spec = describe "Behavior of one ore more hydra-nodes" $ do
@@ -94,16 +93,14 @@ spec = describe "Behavior of one ore more hydra-nodes" $ do
       sendRequestAndWaitFor n1 Close (HeadIsClosed testContestationPeriod [] 0 [])
 
     it "does finalize head after contestation period" $ do
-      chain <- simulatedChainAndNetwork
-      n1 <- startHydraNode 1 chain
-
-      sendRequestAndWaitFor n1 (Init [1]) ReadyToCommit
-      sendRequest n1 (Commit 1)
-      failAfter 1 $ waitForResponse n1 `shouldReturn` HeadIsOpen []
-      sendRequest n1 Close
-      failAfter 1 $ waitForResponse n1 `shouldReturn` HeadIsClosed testContestationPeriod [] 0 []
-      threadDelay testContestationPeriod
-      failAfter 1 $ waitForResponse n1 `shouldReturn` HeadIsFinalized []
+      withHydraNode 1 $ \n1 -> do
+        sendRequestAndWaitFor n1 (Init [1]) ReadyToCommit
+        sendRequest n1 (Commit 1)
+        failAfter 1 $ waitForResponse n1 `shouldReturn` HeadIsOpen []
+        sendRequest n1 Close
+        failAfter 1 $ waitForResponse n1 `shouldReturn` HeadIsClosed testContestationPeriod [] 0 []
+        threadDelay testContestationPeriod
+        failAfter 1 $ waitForResponse n1 `shouldReturn` HeadIsFinalized []
 
   describe "Two participant Head" $ do
     it "accepts a tx after the head was opened between two nodes" $ do
@@ -165,7 +162,9 @@ spec = describe "Behavior of one ore more hydra-nodes" $ do
       failAfter 1 $ waitForResponse n2 `shouldReturn` TxConfirmed (ValidTx 42)
 
       sendRequest n1 Close
-      failAfter 1 $ waitForResponse n1 `shouldReturn` HeadIsClosed 3 [] 0 [ValidTx 42]
+      failAfter 1 $
+        waitForResponse n1
+          `shouldReturn` HeadIsClosed testContestationPeriod [] 0 [ValidTx 42]
 
     it "valid new transactions get snapshotted" $ do
       chain <- simulatedChainAndNetwork
@@ -183,7 +182,9 @@ spec = describe "Behavior of one ore more hydra-nodes" $ do
       failAfter 1 $ waitForResponse n2 `shouldReturn` TxConfirmed (ValidTx 42)
 
       sendRequest n1 Close
-      failAfter 1 $ waitForResponse n1 `shouldReturn` HeadIsClosed 3 [] 0 [ValidTx 42]
+      failAfter 1 $
+        waitForResponse n1
+          `shouldReturn` HeadIsClosed testContestationPeriod [] 0 [ValidTx 42]
 
   describe "Hydra Node Logging" $ do
     it "traces processing of events" $ do
@@ -210,7 +211,12 @@ spec = describe "Behavior of one ore more hydra-nodes" $ do
       traces `shouldContain` [ProcessingEffect (ClientEffect ReadyToCommit)]
       traces `shouldContain` [ProcessedEffect (ClientEffect ReadyToCommit)]
 
-sendRequestAndWaitFor :: HasCallStack => HydraProcess IO MockTx -> ClientRequest MockTx -> ClientResponse MockTx -> IO ()
+sendRequestAndWaitFor ::
+  (MonadThrow m, HasCallStack, MonadTimer m) =>
+  HydraProcess m MockTx ->
+  ClientRequest MockTx ->
+  ClientResponse MockTx ->
+  m ()
 sendRequestAndWaitFor node req expected = do
   sendRequest node req
   failAfter 1 $ waitForResponse node `shouldReturn` expected
@@ -264,10 +270,9 @@ testContestationPeriod :: DiffTime
 testContestationPeriod = 10
 
 startHydraNode ::
-  (MonadAsync m, MonadTimer m, MonadFork m, MonadMask m) =>
   Natural ->
-  (HydraNode MockTx m -> m (Connections m)) ->
-  m (HydraProcess m MockTx)
+  (HydraNode MockTx IO -> IO (Connections IO)) ->
+  IO (HydraProcess IO MockTx)
 startHydraNode = startHydraNode' NoSnapshots
 
 startHydraNode' ::
@@ -312,3 +317,6 @@ startHydraNode' snapshotStrategy nodeId connectToChain = do
     let node = HydraNode{eq, hn = hn', hh, oc = OnChain (const $ pure ()), sendResponse = atomically . putTMVar response, env}
     Connections oc hn <- connectToChain node
     pure node{oc, hn}
+
+withHydraNode :: Natural -> (HydraProcess IO MockTx -> IO ()) -> IO ()
+withHydraNode = panic "should run io-sim"
