@@ -183,6 +183,7 @@ test-suite tests
     , contra-tracer
     , hspec
     , hspec-core
+    , HUnit
     , hydra-node
     , io-sim
     , io-sim-classes
