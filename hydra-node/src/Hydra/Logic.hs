@@ -65,6 +65,7 @@ data HydraMessage tx
   | ReqSn
   | AckSn
   | ConfSn
+  | Ping Party
   deriving (Eq, Show)
 
 data OnChainTx

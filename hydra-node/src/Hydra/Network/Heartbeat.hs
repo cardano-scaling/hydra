@@ -37,7 +37,7 @@ withHeartbeat ::
   (HydraNetwork m (HydraMessage tx) -> m ()) ->
   m ()
 withHeartbeat me withNetwork callback action =
-  withNetwork (callback . wrap) $ \network ->
+  withNetwork (callback . peelHeartbeat) $ \network ->
     withAsync (sendHeartbeatFor me network) $ \_ ->
       action (contramap HydraMessage network)
 
@@ -49,5 +49,6 @@ sendHeartbeatFor ::
 sendHeartbeatFor me HydraNetwork{broadcast} =
   forever $ threadDelay 0.1 >> broadcast (Heartbeat me)
 
-wrap :: HeartbeatMessage tx -> HydraMessage tx
-wrap = panic "not implemented"
+peelHeartbeat :: HeartbeatMessage tx -> HydraMessage tx
+peelHeartbeat (HydraMessage htx) = htx
+peelHeartbeat (Heartbeat n) = Ping n
