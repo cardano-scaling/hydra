@@ -12,6 +12,7 @@ import HydraNode (
   hydraNodeProcess,
   readCreateProcess,
   sendRequest,
+  waitForNodesConnected,
   waitForResponse,
   withHydraNode,
   withMockChain,
@@ -34,7 +35,7 @@ spec = describe "End-to-end test using a mocked chain though" $ do
           withHydraNode 1 $ \n1 ->
             withHydraNode 2 $ \n2 ->
               withHydraNode 3 $ \n3 -> do
-                waitForResponse 10 [n1, n2, n3] "NodeConnectedToNetwork"
+                waitForNodesConnected [1, 2, 3] [n1, n2, n3]
                 let contestationPeriod = 3 -- TODO: Should be part of init
                 sendRequest n1 "Init [1, 2, 3]"
                 waitForResponse 3 [n1, n2, n3] "ReadyToCommit"
@@ -57,7 +58,7 @@ spec = describe "End-to-end test using a mocked chain though" $ do
           withHydraNode 1 $ \n1 ->
             withHydraNode 2 $ \n2 ->
               withHydraNode 3 $ \n3 -> do
-                waitForResponse 10 [n1, n2, n3] "NodeConnectedToNetwork"
+                waitForNodesConnected [1, 2, 3] [n1, n2, n3]
                 sendRequest n1 "Init [1, 2, 3]"
                 waitForResponse 3 [n1, n2, n3] "ReadyToCommit"
                 sendRequest n1 "Commit 10"
@@ -76,12 +77,12 @@ spec = describe "End-to-end test using a mocked chain though" $ do
           withHydraNode 1 $ \n1 -> do
             withHydraNode 2 $ \_ ->
               withHydraNode 3 $ \_ -> do
-                waitForResponse 10 [n1] "NodeConnectedToNetwork"
+                waitForNodesConnected [1, 2, 3] [n1]
                 sendRequest n1 "Init [1, 2, 3]"
                 waitForResponse 3 [n1] "ReadyToCommit"
 
                 metrics <- getMetrics n1
-                metrics `shouldSatisfy` ("hydra_head_events  3" `BS.isInfixOf`)
+                metrics `shouldSatisfy` ("hydra_head_events  5" `BS.isInfixOf`)
 
   describe "hydra-node executable" $ do
     it "display proper semantic version given it is passed --version argument" $ do

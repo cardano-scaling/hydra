@@ -14,6 +14,7 @@ module HydraNode (
   withMockChain,
   hydraNodeProcess,
   module System.Process,
+  waitForNodesConnected,
 ) where
 
 import Cardano.Prelude
@@ -150,3 +151,10 @@ checkProcessHasNotDied processHandle =
   waitForProcess processHandle >>= \case
     ExitSuccess -> pure ()
     ExitFailure exit -> expectationFailure $ "Process exited with failure code: " <> show exit
+
+waitForNodesConnected :: [Int] -> [HydraNode] -> IO ()
+waitForNodesConnected allNodeIds = mapM_ (waitForOtherNodesConnected allNodeIds)
+
+waitForOtherNodesConnected :: [Int] -> HydraNode -> IO ()
+waitForOtherNodesConnected allNodeIds n@HydraNode{hydraNodeId} =
+  mapM_ (\otherNode -> waitForResponse 10 [n] $ "NodeConnectedToNetwork " <> show otherNode) $ filter (/= hydraNodeId) allNodeIds
