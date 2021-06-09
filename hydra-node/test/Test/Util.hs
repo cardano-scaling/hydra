@@ -3,6 +3,8 @@ module Test.Util where
 import Cardano.Prelude hiding (SrcLoc, callStack, throwIO)
 import Control.Monad.Class.MonadThrow (MonadThrow (throwIO))
 import Control.Monad.Class.MonadTimer (DiffTime, MonadTimer, timeout)
+import Control.Monad.IOSim (IOSim, runSim)
+import Data.List (isInfixOf)
 import Data.String (String)
 import GHC.Stack (SrcLoc, callStack)
 import Test.HUnit.Lang (FailureReason (ExpectedButGot, Reason), HUnitFailure (HUnitFailure))
@@ -22,6 +24,13 @@ failAfter seconds action =
     Nothing -> failure $ "Test timed out after " <> show seconds <> " seconds"
     Just _ -> pure ()
 
+-- | Run given 'action' in 'IOSim' and fail on exceptions.
+shouldRunInSim :: HasCallStack => (forall s. IOSim s ()) -> IO ()
+shouldRunInSim action =
+  case runSim action of
+    Right () -> pure ()
+    Left f -> failure $ "Failed in io-sim: " <> show f
+
 -- | Lifted variant of Hspec's 'shouldBe'.
 shouldBe :: (HasCallStack, MonadThrow m, Eq a, Show a) => a -> a -> m ()
 shouldBe actual expected =
@@ -33,3 +42,21 @@ shouldBe actual expected =
 -- | Lifted variant of Hspec's 'shouldReturn'.
 shouldReturn :: (HasCallStack, MonadThrow m, Eq a, Show a) => m a -> a -> m ()
 shouldReturn ma expected = ma >>= (`shouldBe` expected)
+
+-- | Lifted variant of Hspec's 'shouldSatisfy'.
+shouldSatisfy :: (HasCallStack, MonadThrow m, Show a) => a -> (a -> Bool) -> m ()
+shouldSatisfy v p
+  | p v = pure ()
+  | otherwise = failure $ "predicate failed on: " <> show v
+
+-- | Lifted variant of Hspec's 'shouldNotBe'.
+shouldNotBe :: (HasCallStack, MonadThrow m, Eq a, Show a) => a -> a -> m ()
+shouldNotBe actual expected
+  | actual /= expected = pure ()
+  | otherwise = failure $ "not expected: " <> show actual
+
+-- | Lifted variant of Hspec's 'shouldContain'.
+shouldContain :: (HasCallStack, MonadThrow m, Eq a, Show a) => [a] -> [a] -> m ()
+shouldContain actual expected
+  | expected `isInfixOf` actual = pure ()
+  | otherwise = failure $ show actual <> " does not contain " <> show expected
