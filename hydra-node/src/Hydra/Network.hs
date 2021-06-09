@@ -9,6 +9,7 @@
 module Hydra.Network (
   -- * Types
   HydraNetwork (..),
+  NetworkComponent,
   PortNumber,
   Host,
   NetworkCallback,
@@ -47,6 +48,9 @@ instance Contravariant (HydraNetwork m) where
 
 -- |Handle to interface for inbound messages.
 type NetworkCallback msg m = msg -> m ()
+
+-- | A type tying both inbound and outbound messages sending in a single /Component/.
+type NetworkComponent m msg = NetworkCallback msg m -> (HydraNetwork m msg -> m ()) -> m ()
 
 -- * Types used by concrete implementations
 

@@ -1,5 +1,14 @@
 {-# LANGUAGE TypeApplications #-}
 
+-- | A naive implementation of an application-level Heartbeat
+-- This module exposes a /Component/ `withHeartbeat` than can be used to
+-- wrap another `Network` /component/ and piggy-back on it to send and propagate
+-- `HeartbeatMessage`s.
+--
+-- Its current behavior is very simple: When it starts, it sends a `Heartbeat` message
+-- with its own identifier every 500ms, until the wrapped component sends another message.
+-- `Heartbeat` messages received from other components are simply propagated to the
+-- wrapped component.
 module Hydra.Network.Heartbeat where
 
 import Cardano.Binary (FromCBOR (..), ToCBOR (..))
@@ -10,8 +19,9 @@ import Control.Monad.Class.MonadSTM (MonadSTM, TVar, atomically, newTVarIO, read
 import Control.Monad.Class.MonadTimer (MonadDelay, threadDelay)
 import Hydra.HeadLogic (HydraMessage (..))
 import Hydra.Ledger (Party)
-import Hydra.Network (HydraNetwork (..), NetworkCallback)
+import Hydra.Network (HydraNetwork (..), NetworkComponent)
 
+-- TODO: This type is not really necessary, remove it.
 data HeartbeatMessage tx
   = HydraMessage (HydraMessage tx)
   | Heartbeat Party
@@ -34,21 +44,24 @@ data HeartbeatState
   | StopHeartbeat
   deriving (Eq)
 
+-- | Wrap a `NetworkComponent` and handle sending/receiving of heartbeats.
 withHeartbeat ::
   MonadAsync m =>
   MonadDelay m =>
   Party ->
-  (NetworkCallback (HeartbeatMessage tx) m -> (HydraNetwork m (HeartbeatMessage tx) -> m ()) -> m ()) ->
-  NetworkCallback (HydraMessage tx) m ->
-  (HydraNetwork m (HydraMessage tx) -> m ()) ->
-  m ()
+  NetworkComponent m (HeartbeatMessage tx) ->
+  NetworkComponent m (HydraMessage tx)
 withHeartbeat me withNetwork callback action = do
   heartbeat <- newTVarIO SendHeartbeat
   withNetwork (callback . peelHeartbeat) $ \network ->
     withAsync (sendHeartbeatFor me heartbeat network) $ \_ ->
       action (checkMessages network heartbeat)
 
-checkMessages :: MonadSTM m => HydraNetwork m (HeartbeatMessage tx) -> TVar m HeartbeatState -> HydraNetwork m (HydraMessage tx)
+checkMessages ::
+  MonadSTM m =>
+  HydraNetwork m (HeartbeatMessage tx) ->
+  TVar m HeartbeatState ->
+  HydraNetwork m (HydraMessage tx)
 checkMessages HydraNetwork{broadcast} heartbeatState =
   HydraNetwork $ \msg -> do
     case msg of
