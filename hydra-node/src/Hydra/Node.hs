@@ -6,14 +6,9 @@
 module Hydra.Node where
 
 import Cardano.Prelude hiding (STM, async, atomically, cancel, check, poll, threadDelay)
-import Control.Concurrent.STM (
-  newTQueueIO,
-  readTQueue,
-  writeTQueue,
- )
-import Control.Exception.Safe (MonadThrow)
 import Control.Monad.Class.MonadAsync (MonadAsync, async)
-import Control.Monad.Class.MonadSTM (MonadSTM (STM), atomically, newTVar, stateTVar)
+import Control.Monad.Class.MonadSTM (MonadSTM (STM), atomically, newTQueue, newTVar, readTQueue, stateTVar, writeTQueue)
+import Control.Monad.Class.MonadThrow (MonadThrow)
 import Control.Monad.Class.MonadTimer (MonadTimer, threadDelay)
 import Hydra.HeadLogic (
   ClientRequest (..),
@@ -126,9 +121,9 @@ data EventQueue m e = EventQueue
   , nextEvent :: m e
   }
 
-createEventQueue :: IO (EventQueue IO e)
+createEventQueue :: MonadSTM m => m (EventQueue m e)
 createEventQueue = do
-  q <- newTQueueIO
+  q <- atomically newTQueue
   pure
     EventQueue
       { putEvent = atomically . writeTQueue q
@@ -156,7 +151,7 @@ putState :: HydraHead tx m -> HeadState tx -> STM m ()
 putState HydraHead{modifyHeadState} new =
   modifyHeadState $ const ((), new)
 
-createHydraHead :: (MonadSTM m) => HeadState tx -> Ledger tx -> m (HydraHead tx m)
+createHydraHead :: MonadSTM m => HeadState tx -> Ledger tx -> m (HydraHead tx m)
 createHydraHead initialState ledger = do
   tv <- atomically $ newTVar initialState
   pure HydraHead{modifyHeadState = stateTVar tv, ledger}

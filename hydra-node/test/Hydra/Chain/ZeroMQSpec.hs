@@ -8,7 +8,8 @@ import Hydra.HeadLogic (OnChainTx (InitTx))
 import Hydra.Ledger (ParticipationToken (..))
 import Hydra.Logging (nullTracer)
 import System.Timeout (timeout)
-import Test.Hspec (Spec, describe, it, shouldReturn)
+import Test.Hspec.Core.Spec (Spec, describe, it)
+import Test.Util (shouldReturn)
 
 spec :: Spec
 spec =

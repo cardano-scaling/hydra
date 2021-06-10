@@ -10,7 +10,7 @@ module Hydra.Logging (
   nullTracer,
   contramap,
   traceWith,
-  traceInTVarIO,
+  traceInTVar,
   LoggerName,
 
   -- * Using it
@@ -38,8 +38,7 @@ import Cardano.BM.Setup (
   setupTrace_,
   shutdown,
  )
-import Cardano.BM.Trace (traceInTVarIO)
-import Cardano.Prelude
+import Cardano.Prelude hiding (atomically)
 import Control.Tracer (
   Tracer (..),
   contramap,
@@ -50,6 +49,7 @@ import Control.Tracer (
 
 import qualified Cardano.BM.Configuration.Model as CM
 import qualified Cardano.BM.Data.BackendKind as CM
+import Control.Monad.Class.MonadSTM (MonadSTM (atomically), TVar, modifyTVar)
 
 data Verbosity = Quiet | Verbose LoggerName
   deriving (Eq, Show)
@@ -89,3 +89,7 @@ transformLogObject transform tr = Tracer $ \a -> do
   traceWith tr . (mempty,) =<< LogObject mempty
     <$> mkLOMeta Debug Public
     <*> pure (LogMessage (transform a))
+
+traceInTVar :: MonadSTM m => TVar m [a] -> Tracer m a
+traceInTVar tvar = Tracer $ \a ->
+  atomically $ modifyTVar tvar (a :)

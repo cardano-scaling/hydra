@@ -119,7 +119,6 @@ library
     , optparse-applicative
     , ouroboros-network-framework
     , prometheus
-    , safe-exceptions
     , serialise
     , shelley-spec-ledger
     , shelley-spec-ledger-test
@@ -172,6 +171,7 @@ test-suite tests
     Hydra.Network.HeartbeatSpec
     Hydra.NodeSpec
     Hydra.OptionSpec
+    Test.Util
   main-is: Main.hs
   type: exitcode-stdio-1.0
   build-depends:
@@ -190,6 +190,7 @@ test-suite tests
     , QuickCheck
     , serialise
     , typed-protocols-examples
+    , HUnit
   build-tool-depends:
     hspec-discover:hspec-discover
   ghc-options:
