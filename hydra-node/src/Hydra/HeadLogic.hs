@@ -60,7 +60,7 @@ deriving instance Tx tx => Eq (Snapshot tx)
 deriving instance Tx tx => Show (Snapshot tx)
 
 data ClientResponse tx
-  = NodeConnectedToNetwork Party
+  = PeerConnected Party
   | ReadyToCommit
   | HeadIsOpen (UTxO tx)
   | HeadIsClosed DiffTime (Snapshot tx) [tx]
@@ -277,7 +277,7 @@ update Environment{party, snapshotStrategy} ledger (HeadState p st) ev = case (s
   (_, ClientEvent{}) ->
     newState p st [ClientEffect CommandFailed]
   (_, NetworkEvent (Ping pty)) ->
-    newState p st [ClientEffect $ NodeConnectedToNetwork pty]
+    newState p st [ClientEffect $ PeerConnected pty]
   _ -> panic $ "UNHANDLED EVENT: on " <> show party <> " of event " <> show ev <> " in state " <> show st
 
 canCollectCom :: Party -> ParticipationToken -> Set ParticipationToken -> Bool

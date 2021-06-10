@@ -9,7 +9,7 @@ import Control.Monad.Fail (
  )
 import qualified Data.Set as Set
 import Hydra.HeadLogic (
-  ClientResponse (NodeConnectedToNetwork),
+  ClientResponse (PeerConnected),
   Effect (ClientEffect),
   Environment (..),
   Event (..),
@@ -61,7 +61,7 @@ spec = describe "Hydra Head Logic" $ do
     confirmedTransactions s4 `shouldBe` [ValidTx 1]
 
   it "notifies client when it receives a ping" $ do
-    update env ledger (initialState threeParties ledger) (NetworkEvent $ Ping 2) `hasEffect` ClientEffect (NodeConnectedToNetwork 2)
+    update env ledger (initialState threeParties ledger) (NetworkEvent $ Ping 2) `hasEffect` ClientEffect (PeerConnected 2)
 
   it "does not confirm snapshots from non-leaders" pending
   it "does not confirm old snapshots" pending
