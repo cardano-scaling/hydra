@@ -3,7 +3,7 @@ module Hydra.Network.BroadcastToSelfSpec where
 import Cardano.Prelude hiding (atomically, threadDelay)
 import Control.Monad.Class.MonadSTM (atomically, modifyTVar', newTVarIO, readTVar)
 import Control.Monad.IOSim (runSimOrThrow)
-import Hydra.Network (HydraNetwork (..))
+import Hydra.Network (Network (..))
 import Hydra.Network.BroadcastToSelf (withBroadcastToSelf)
 import Test.Hspec (Spec, describe, it, shouldBe)
 
@@ -14,9 +14,9 @@ spec = describe "Broadcast To Self" $ do
           receivedMessages <- newTVarIO ([] :: [Integer])
 
           let receive msg = atomically $ modifyTVar' receivedMessages (msg :)
-              noopNetwork _cb action = action $ HydraNetwork{broadcast = const $ pure ()}
+              noopNetwork _cb action = action $ Network{broadcast = const $ pure ()}
 
-          withBroadcastToSelf noopNetwork receive $ \HydraNetwork{broadcast} -> do
+          withBroadcastToSelf noopNetwork receive $ \Network{broadcast} -> do
             broadcast 42
 
           atomically $ readTVar receivedMessages

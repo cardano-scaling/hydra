@@ -2,7 +2,7 @@ module Hydra.Network.BroadcastToSelf where
 
 import Cardano.Prelude
 import Control.Monad.Class.MonadThrow (MonadThrow)
-import Hydra.Network (HydraNetwork (..), NetworkCallback, NetworkComponent)
+import Hydra.Network (Network (..), NetworkCallback, NetworkComponent)
 
 -- | Ensures that messages `broadcast` through the wrapped `NetworkComponent` are
 -- also sent back to "self" through passed `NetworkCallback`.
@@ -15,8 +15,8 @@ withBroadcastToSelf withNetwork callback action =
 
 sendbackMessages ::
   MonadThrow m =>
-  HydraNetwork m msg ->
+  Network m msg ->
   NetworkCallback msg m ->
-  HydraNetwork m msg
-sendbackMessages HydraNetwork{broadcast} callback =
-  HydraNetwork{broadcast = \msg -> broadcast msg >> callback msg}
+  Network m msg
+sendbackMessages Network{broadcast} callback =
+  Network{broadcast = \msg -> broadcast msg >> callback msg}
