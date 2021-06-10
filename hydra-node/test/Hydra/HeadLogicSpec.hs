@@ -19,10 +19,11 @@ import Hydra.HeadLogic (
   HydraMessage (..),
   Outcome (..),
   SimpleHeadState (..),
+  Snapshot (..),
   SnapshotStrategy (..),
   update,
  )
-import Hydra.Ledger (Ledger (initLedgerState), Party, Tx)
+import Hydra.Ledger (Ledger (..), Party, Tx, getUTxO)
 import Hydra.Ledger.Mock (MockTx (ValidTx), mockLedger)
 import Test.Hspec (
   Spec,
@@ -77,15 +78,17 @@ initialState ::
   Set Party ->
   Ledger tx ->
   HeadState tx
-initialState parties ledger =
-  HeadState
-    { headStatus = OpenState $ SimpleHeadState (initLedgerState ledger) mempty mempty 0
-    , headParameters =
-        HeadParameters
-          { contestationPeriod = 42
-          , parties
-          }
-    }
+initialState parties Ledger{getUTxO, initLedgerState} =
+  let ledger0 = initLedgerState
+      snapshot0 = Snapshot 0 (getUTxO ledger0) mempty
+   in HeadState
+        { headStatus = OpenState $ SimpleHeadState ledger0 mempty mempty snapshot0
+        , headParameters =
+            HeadParameters
+              { contestationPeriod = 42
+              , parties
+              }
+        }
 
 confirmedTransactions :: HeadState tx -> [tx]
 confirmedTransactions HeadState{headStatus} = case headStatus of

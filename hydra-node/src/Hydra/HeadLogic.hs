@@ -51,9 +51,10 @@ data ClientRequest tx
 type SnapshotNumber = Natural
 
 data Snapshot tx = Snapshot
-  { number :: SnapshotNumber
-  , utxo :: UTxO tx
-  , confirmed :: [tx]
+  { snapshotNumber :: SnapshotNumber
+  , utxos :: UTxO tx
+  , -- | The set of transactions that lead to 'utxos'
+    confirmed :: [tx]
   }
 
 deriving instance Tx tx => Eq (Snapshot tx)
@@ -78,7 +79,7 @@ data HydraMessage tx
   | AckTx Party tx
   | ConfTx
   | ReqSn SnapshotNumber [tx]
-  | AckSn SnapshotNumber [tx]
+  | AckSn (Snapshot tx) -- TODO: should actually be stored locally and not transmitted
   | ConfSn
   | Ping Party
   deriving (Eq, Show)
@@ -115,7 +116,7 @@ data SimpleHeadState tx = SimpleHeadState
   , -- TODO: tx should be an abstract 'TxId'
     unconfirmedTxs :: Map tx (Set Party)
   , confirmedTxs :: [tx]
-  , snapshotNumber :: SnapshotNumber
+  , confirmedSnapshot :: Snapshot tx
   }
 
 deriving instance Tx tx => Eq (SimpleHeadState tx)
@@ -200,7 +201,7 @@ update Environment{party, snapshotStrategy} ledger (HeadState p st) ev = case (s
     let ls = initLedgerState ledger
      in newState
           p
-          (OpenState $ SimpleHeadState ls mempty mempty 0) -- TODO: actually construct U_0 from commited UTxO
+          (OpenState $ SimpleHeadState ls mempty mempty (Snapshot 0 (getUTxO ledger ls) mempty))
           [ClientEffect $ HeadIsOpen $ getUTxO ledger ls]
   --
   (OpenState _, OnChainEvent CommitTx{}) ->
@@ -249,17 +250,18 @@ update Environment{party, snapshotStrategy} ledger (HeadState p st) ev = case (s
               ( OpenState headState{unconfirmedTxs = Map.insert tx sigs unconfirmedTxs}
               )
               []
-  (OpenState s, NetworkEvent (ReqSn sn txs)) ->
+  (OpenState s@SimpleHeadState{confirmedSnapshot}, NetworkEvent (ReqSn sn txs)) ->
     -- TODO: check inclusion and applicability of txs, e.g. using
     -- Set.null (Set.fromList txs `Set.difference` Set.fromList confirmedTxs) then
-    newState p (OpenState s) [NetworkEffect $ AckSn sn txs]
-  (OpenState headState@SimpleHeadState{confirmedTxs, snapshotNumber}, NetworkEvent (AckSn sn txs))
-    | sn == snapshotNumber + 1 ->
+    let nextSnapshot = Snapshot sn (makeUTxO (utxos confirmedSnapshot) txs) txs
+     in newState p (OpenState s) [NetworkEffect $ AckSn nextSnapshot]
+  (OpenState headState@SimpleHeadState{confirmedTxs, confirmedSnapshot}, NetworkEvent (AckSn sn))
+    | snapshotNumber confirmedSnapshot == snapshotNumber sn + 1 ->
       -- TODO: wait for all AckSn before confirming!
       newState
         p
-        (OpenState $ headState{confirmedTxs = confirmedTxs \\ txs, snapshotNumber = sn})
-        [ClientEffect $ SnapshotConfirmed sn]
+        (OpenState $ headState{confirmedTxs = confirmedTxs \\ confirmed sn, confirmedSnapshot = sn})
+        [ClientEffect $ SnapshotConfirmed $ snapshotNumber sn]
   (OpenState SimpleHeadState{confirmedLedger, confirmedTxs}, OnChainEvent CloseTx) ->
     let utxo = getUTxO ledger confirmedLedger
         snapshotUtxo = emptyUTxO ledger -- XXX
@@ -279,6 +281,9 @@ update Environment{party, snapshotStrategy} ledger (HeadState p st) ev = case (s
   (_, NetworkEvent (Ping pty)) ->
     newState p st [ClientEffect $ PeerConnected pty]
   _ -> panic $ "UNHANDLED EVENT: on " <> show party <> " of event " <> show ev <> " in state " <> show st
+
+makeUTxO :: UTxO tx -> [tx] -> UTxO tx
+makeUTxO = panic "not implemented"
 
 canCollectCom :: Party -> ParticipationToken -> Set ParticipationToken -> Bool
 canCollectCom party pt remainingTokens = null remainingTokens && thisToken pt == party

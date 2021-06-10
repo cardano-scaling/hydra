@@ -8,6 +8,7 @@ import Control.Monad.Class.MonadSTM (atomically, modifyTVar', newTVarIO, readTVa
 import Control.Monad.Class.MonadTimer (threadDelay)
 import Control.Monad.IOSim (runSimOrThrow)
 import Hydra.HeadLogic (HydraMessage (..))
+import Hydra.Ledger.Mock (MockTx)
 import Hydra.Network (HydraNetwork (..))
 import Hydra.Network.Heartbeat (withHeartbeat)
 import Test.Hspec (Spec, describe, it, shouldBe)
@@ -19,7 +20,7 @@ spec = describe "Heartbeat" $ do
 
   it "sends a heartbeat message with own party id every 500 ms" $ do
     let sentHeartbeats = runSimOrThrow $ do
-          sentMessages <- newTVarIO ([] :: [HydraMessage Integer])
+          sentMessages <- newTVarIO ([] :: [HydraMessage MockTx])
 
           withHeartbeat 1 (dummyNetwork sentMessages) noop $ \_ -> do
             threadDelay 1.1
@@ -30,7 +31,7 @@ spec = describe "Heartbeat" $ do
 
   it "propagates Heartbeat received from other parties" $ do
     let receivedHeartbeats = runSimOrThrow $ do
-          receivedMessages <- newTVarIO ([] :: [HydraMessage Integer])
+          receivedMessages <- newTVarIO ([] :: [HydraMessage MockTx])
 
           let receive msg = atomically $ modifyTVar' receivedMessages (msg :)
 
@@ -43,7 +44,7 @@ spec = describe "Heartbeat" $ do
 
   it "stop sending heartbeat message given action sends a message" $ do
     let sentHeartbeats = runSimOrThrow $ do
-          sentMessages <- newTVarIO ([] :: [HydraMessage Integer])
+          sentMessages <- newTVarIO ([] :: [HydraMessage MockTx])
 
           withHeartbeat 1 (dummyNetwork sentMessages) noop $ \HydraNetwork{broadcast} -> do
             threadDelay 0.6

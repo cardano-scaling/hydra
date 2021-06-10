@@ -11,6 +11,7 @@ import Codec.CBOR.Read (deserialiseFromBytes)
 import Codec.CBOR.Write (toLazyByteString)
 import Control.Monad.Class.MonadAsync (concurrently_)
 import Hydra.HeadLogic (HydraMessage (..))
+import Hydra.Ledger.Mock (MockTx (..))
 import Hydra.Logging (nullTracer)
 import Hydra.Network (HydraNetwork)
 import Hydra.Network.Ouroboros (broadcast, withOuroborosHydraNetwork)
@@ -27,12 +28,10 @@ import Test.QuickCheck (
  )
 import Test.Util (failAfter)
 
-type MockTx = ()
-
 spec :: Spec
 spec = describe "Networking layer" $ do
-  let requestTx :: HydraMessage Integer
-      requestTx = ReqTx 1
+  let requestTx :: HydraMessage MockTx
+      requestTx = ReqTx (ValidTx 1)
 
       lo = "127.0.0.1"
 
@@ -40,8 +39,8 @@ spec = describe "Networking layer" $ do
     it "broadcasts messages to single connected peer" $ do
       received <- newEmptyMVar
       failAfter 10 $ do
-        withOuroborosHydraNetwork (lo, 45678) [(lo, 45679)] (const @_ @(HydraMessage Integer) $ pure ()) $ \hn1 ->
-          withOuroborosHydraNetwork @(HydraMessage Integer) (lo, 45679) [(lo, 45678)] (putMVar received) $ \_ -> do
+        withOuroborosHydraNetwork (lo, 45678) [(lo, 45679)] (const @_ @(HydraMessage MockTx) $ pure ()) $ \hn1 ->
+          withOuroborosHydraNetwork @(HydraMessage MockTx) (lo, 45679) [(lo, 45678)] (putMVar received) $ \_ -> do
             broadcast hn1 requestTx
             takeMVar received `shouldReturn` requestTx
 
@@ -50,7 +49,7 @@ spec = describe "Networking layer" $ do
       node2received <- newEmptyMVar
       node3received <- newEmptyMVar
       failAfter 10 $ do
-        withOuroborosHydraNetwork @(HydraMessage Integer) (lo, 45678) [(lo, 45679), (lo, 45680)] (putMVar node1received) $ \hn1 ->
+        withOuroborosHydraNetwork @(HydraMessage MockTx) (lo, 45678) [(lo, 45679), (lo, 45680)] (putMVar node1received) $ \hn1 ->
           withOuroborosHydraNetwork (lo, 45679) [(lo, 45678), (lo, 45680)] (putMVar node2received) $ \hn2 -> do
             withOuroborosHydraNetwork (lo, 45680) [(lo, 45678), (lo, 45679)] (putMVar node3received) $ \hn3 -> do
               concurrently_ (assertBroadcastFrom requestTx hn1 [node2received, node3received]) $
@@ -86,20 +85,26 @@ assertBroadcastFrom requestTx network receivers =
     broadcast network requestTx
     forM_ receivers $ \var -> failAfter 1 $ takeMVar var `shouldReturn` requestTx
 
-instance Arbitrary (HydraMessage Integer) where
+instance Arbitrary (HydraMessage MockTx) where
   arbitrary =
     oneof
       [ ReqTx <$> arbitrary
       , AckTx <$> arbitraryNatural <*> arbitrary
       , pure ConfTx
       , ReqSn <$> arbitraryNatural <*> arbitrary
-      , AckSn <$> arbitraryNatural <*> arbitrary
+      , AckSn <$> panic "TODO"
       , pure ConfSn
       , Ping <$> arbitraryNatural
       ]
    where
     arbitraryNatural = fromIntegral . getPositive <$> arbitrary @(Positive Integer)
 
+instance Arbitrary MockTx where
+  arbitrary =
+    frequency
+      [ (10, ValidTx <$> arbitrary)
+      , (1, pure InvalidTx)
+      ]
 
 prop_canRoundtripCBOREncoding ::
   (ToCBOR a, FromCBOR a, Eq a) => a -> Bool

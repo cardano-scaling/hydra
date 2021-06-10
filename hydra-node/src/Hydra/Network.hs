@@ -76,7 +76,7 @@ instance ToCBOR tx => ToCBOR (HydraMessage tx) where
     AckTx party tx -> toCBOR ("AckTx" :: Text) <> toCBOR party <> toCBOR tx
     ConfTx -> toCBOR ("ConfTx" :: Text)
     ReqSn sn txs -> toCBOR ("ReqSn" :: Text) <> toCBOR sn <> toCBOR txs
-    AckSn sn txs -> toCBOR ("AckSn" :: Text) <> toCBOR sn <> toCBOR txs
+    AckSn _sn -> toCBOR ("AckSn" :: Text)
     ConfSn -> toCBOR ("ConfSn" :: Text)
     Ping pty -> toCBOR ("Ping" :: Text) <> toCBOR pty
 
@@ -87,7 +87,7 @@ instance FromCBOR tx => FromCBOR (HydraMessage tx) where
       "AckTx" -> AckTx <$> fromCBOR <*> fromCBOR
       "ConfTx" -> pure ConfTx
       "ReqSn" -> ReqSn <$> fromCBOR <*> fromCBOR
-      "AckSn" -> AckSn <$> fromCBOR <*> fromCBOR
+      "AckSn" -> AckSn <$> panic "TODO"
       "ConfSn" -> pure ConfSn
       "Ping" -> Ping <$> fromCBOR
       msg -> fail $ show msg <> " is not a proper CBOR-encoded HydraMessage"
