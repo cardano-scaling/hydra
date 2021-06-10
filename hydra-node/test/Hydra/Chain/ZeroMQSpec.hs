@@ -1,13 +1,11 @@
-{-# OPTIONS_GHC -Wno-deferred-type-errors #-}
-
 module Hydra.Chain.ZeroMQSpec where
 
 import Cardano.Prelude
 import qualified Data.Set as Set
 import Data.String (String)
-import Hydra.Ledger (ParticipationToken (..))
-import Hydra.HeadLogic (OnChainTx (InitTx))
 import Hydra.Chain.ZeroMQ (catchUpTransactions, mockChainClient, runChainSync, startChain)
+import Hydra.HeadLogic (OnChainTx (InitTx))
+import Hydra.Ledger (ParticipationToken (..))
 import Hydra.Logging (nullTracer)
 import System.Timeout (timeout)
 import Test.Hspec (Spec, describe, it, shouldReturn)

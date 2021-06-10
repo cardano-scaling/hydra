@@ -46,7 +46,7 @@ newtype HydraNetwork m msg = HydraNetwork
 instance Contravariant (HydraNetwork m) where
   contramap f (HydraNetwork bcast) = HydraNetwork $ \msg -> bcast (f msg)
 
--- |Handle to interface for inbound messages.
+-- | Handle to interface for inbound messages.
 type NetworkCallback msg m = msg -> m ()
 
 -- | A type tying both inbound and outbound messages sending in a single /Component/.
