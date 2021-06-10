@@ -4,6 +4,8 @@ import Cardano.Prelude
 import Control.Monad.Class.MonadThrow (MonadThrow)
 import Hydra.Network (HydraNetwork (..), NetworkCallback, NetworkComponent)
 
+-- | Ensures that messages `broadcast` through the wrapped `NetworkComponent` are
+-- also sent back to "self" through passed `NetworkCallback`.
 withBroadcastToSelf ::
   MonadThrow m =>
   NetworkComponent m msg ->

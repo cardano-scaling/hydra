@@ -47,7 +47,7 @@ spec = describe "End-to-end test using a mocked chain though" $ do
                 sendRequest n1 "NewTx (ValidTx 42)"
                 waitForResponse 10 [n1, n2, n3] "TxConfirmed (ValidTx 42)"
                 sendRequest n1 "Close"
-                waitForResponse 3 [n1] "HeadIsClosed 3s (Snapshot {number = 0, utxo = [], confirmed = []}) [ValidTx 42]"
+                waitForResponse 3 [n1] "HeadIsClosed 3s (Snapshot {snapshotNumber = 0, utxos = [], confirmed = []}) [ValidTx 42]"
                 waitForResponse (contestationPeriod + 3) [n1] "HeadIsFinalized [ValidTx 42]"
 
     -- NOTE(SN): This is likely too detailed and should move to a lower-level
