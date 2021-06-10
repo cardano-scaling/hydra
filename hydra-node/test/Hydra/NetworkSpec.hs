@@ -10,7 +10,7 @@ import Cardano.Binary (FromCBOR, ToCBOR, fromCBOR, toCBOR)
 import Codec.CBOR.Read (deserialiseFromBytes)
 import Codec.CBOR.Write (toLazyByteString)
 import Control.Monad.Class.MonadAsync (concurrently_)
-import Hydra.HeadLogic (HydraMessage (..))
+import Hydra.HeadLogic (HydraMessage (..), Snapshot (..))
 import Hydra.Ledger.Mock (MockTx (..))
 import Hydra.Logging (nullTracer)
 import Hydra.Network (HydraNetwork)
@@ -26,6 +26,7 @@ import Test.QuickCheck (
   oneof,
   property,
  )
+import Test.QuickCheck.Gen (Gen)
 import Test.Util (failAfter)
 
 spec :: Spec
@@ -92,12 +93,16 @@ instance Arbitrary (HydraMessage MockTx) where
       , AckTx <$> arbitraryNatural <*> arbitrary
       , pure ConfTx
       , ReqSn <$> arbitraryNatural <*> arbitrary
-      , AckSn <$> panic "TODO"
+      , AckSn <$> arbitrary
       , pure ConfSn
       , Ping <$> arbitraryNatural
       ]
-   where
-    arbitraryNatural = fromIntegral . getPositive <$> arbitrary @(Positive Integer)
+
+arbitraryNatural :: Gen Natural
+arbitraryNatural = fromIntegral . getPositive <$> arbitrary @(Positive Integer)
+
+instance Arbitrary (Snapshot MockTx) where
+  arbitrary = Snapshot <$> arbitraryNatural <*> arbitrary <*> arbitrary
 
 instance Arbitrary MockTx where
   arbitrary =
