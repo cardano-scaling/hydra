@@ -40,7 +40,7 @@ Please refer to each component's internal documentation for details.
     * The Hydra node [catch-up](../hydra-node/src/Hydra/Chain/ZeroMQ.hs#L144) with past transactions when it [starts the On-Chain client](../hydra-node/exe/hydra-node/Main.hs#L40).
   * A PAB Chain Client is planned for development but is not currently implemented, see the _Chain Client and Smart Contracts_ section for more details.
 * The [Network](../hydra-node/src/Hydra/Network.hs) component provides the Node an asynchronous messaging interface to the Hydra Network, e.g to other Hydra nodes
-  * Incoming and outgoing messages are modelled as [HydraMessage](../hydra-node/src/Hydra/Logic.hs#L68) data type
+  * Incoming and outgoing messages are modelled as [HydraMessage](../hydra-node/src/Hydra/HeadLogic.hs#L68) data type
   * We provide 2 implementations of the network, one based on the [ouroboros-network](https://github.com/input-output-hk/ouroboros-network/tree/master/ouroboros-network-framework) framework and one based on [0MQ](https://zeromq.org/)
     * The [Ouroboros](../hydra-node/src/Hydra/Network/Ouroboros.hs) based network layer implements a dumb [FireForget](../hydra-node/src/Hydra/Network/Ouroboros/Type.hs) protocol. Contrary to other protocols implemented in Ouroboros, this is a push-based protocol
     * The [0MQ](../hydra-node/src/Hydra/Network/ZeroMQ.hs) based network

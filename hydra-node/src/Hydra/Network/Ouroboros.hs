@@ -1,5 +1,5 @@
 -- | Ouroboros-based implementation of 'Hydra.Network' interface
-module Hydra.Network.Ouroboros (withOuroborosHydraNetwork, module Hydra.Network) where
+module Hydra.Network.Ouroboros (withOuroborosNetwork, module Hydra.Network) where
 
 import Cardano.Binary (FromCBOR, ToCBOR)
 import Cardano.Prelude
@@ -18,7 +18,7 @@ import qualified Data.ByteString.Lazy as LBS
 import Hydra.Logging (nullTracer)
 import Hydra.Network (
   Host,
-  HydraNetwork (..),
+  Network (..),
   NetworkCallback,
   PortNumber,
  )
@@ -71,15 +71,15 @@ import qualified Ouroboros.Network.Subscription as Subscription
 import Ouroboros.Network.Subscription.Ip (SubscriptionParams (..))
 import Ouroboros.Network.Subscription.Worker (LocalAddresses (LocalAddresses))
 
-withOuroborosHydraNetwork ::
+withOuroborosNetwork ::
   forall msg.
   (Show msg, ToCBOR msg, FromCBOR msg) =>
   Host ->
   [Host] ->
   NetworkCallback msg IO ->
-  (HydraNetwork IO msg -> IO ()) ->
+  (Network IO msg -> IO ()) ->
   IO ()
-withOuroborosHydraNetwork localHost remoteHosts networkCallback between = do
+withOuroborosNetwork localHost remoteHosts networkCallback between = do
   bchan <- newBroadcastTChanIO
   chanPool <- newTBQueueIO (fromIntegral $ length remoteHosts)
   replicateM_ (length remoteHosts) $
@@ -90,7 +90,7 @@ withOuroborosHydraNetwork localHost remoteHosts networkCallback between = do
     race_ (connect iomgr chanPool hydraClient) $
       race_ (listen iomgr hydraServer) $ do
         between $
-          HydraNetwork
+          Network
             { broadcast = atomically . writeTChan bchan
             }
  where

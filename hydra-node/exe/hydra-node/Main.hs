@@ -20,7 +20,7 @@ import Hydra.Logging.Messages (HydraLog (..))
 import Hydra.Logging.Monitoring (withMonitoring)
 import Hydra.Network.BroadcastToSelf (withBroadcastToSelf)
 import Hydra.Network.Heartbeat (withHeartbeat)
-import Hydra.Network.Ouroboros (withOuroborosHydraNetwork)
+import Hydra.Network.Ouroboros (withOuroborosNetwork)
 import Hydra.Node (
   EventQueue (..),
   HydraNode (..),
@@ -42,7 +42,7 @@ main = do
       oc <- createMockChainClient eq (contramap MockChain tracer)
       withHeartbeat
         nodeId
-        (withBroadcastToSelf $ withOuroborosHydraNetwork (show host, port) peers)
+        (withBroadcastToSelf $ withOuroborosNetwork (show host, port) peers)
         (putEvent eq . NetworkEvent)
         $ \hn -> do
           responseChannel <- newBroadcastTChanIO

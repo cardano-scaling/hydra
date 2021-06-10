@@ -17,7 +17,7 @@ import Control.Monad.Class.MonadSTM (MonadSTM, TVar, atomically, newTVarIO, read
 import Control.Monad.Class.MonadTimer (MonadDelay, threadDelay)
 import Hydra.HeadLogic (HydraMessage (..))
 import Hydra.Ledger (Party)
-import Hydra.Network (HydraNetwork (..), NetworkComponent)
+import Hydra.Network (Network (..), NetworkComponent)
 
 data HeartbeatState
   = SendHeartbeat
@@ -39,11 +39,11 @@ withHeartbeat me withNetwork callback action = do
 
 checkMessages ::
   MonadSTM m =>
-  HydraNetwork m (HydraMessage tx) ->
+  Network m (HydraMessage tx) ->
   TVar m HeartbeatState ->
-  HydraNetwork m (HydraMessage tx)
-checkMessages HydraNetwork{broadcast} heartbeatState =
-  HydraNetwork $ \msg -> do
+  Network m (HydraMessage tx)
+checkMessages Network{broadcast} heartbeatState =
+  Network $ \msg -> do
     case msg of
       Ping _ -> pure ()
       _ -> atomically (writeTVar heartbeatState StopHeartbeat)
@@ -54,9 +54,9 @@ sendHeartbeatFor ::
   MonadSTM m =>
   Party ->
   TVar m HeartbeatState ->
-  HydraNetwork m (HydraMessage tx) ->
+  Network m (HydraMessage tx) ->
   m ()
-sendHeartbeatFor me heartbeatState HydraNetwork{broadcast} =
+sendHeartbeatFor me heartbeatState Network{broadcast} =
   forever $ do
     threadDelay 0.5
     st <- atomically $ readTVar heartbeatState

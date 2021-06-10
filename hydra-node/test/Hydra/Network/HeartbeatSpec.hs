@@ -6,14 +6,14 @@ import Control.Monad.Class.MonadTimer (threadDelay)
 import Control.Monad.IOSim (runSimOrThrow)
 import Hydra.HeadLogic (HydraMessage (..))
 import Hydra.Ledger.Mock (MockTx)
-import Hydra.Network (HydraNetwork (..))
+import Hydra.Network (Network (..))
 import Hydra.Network.Heartbeat (withHeartbeat)
 import Test.Hspec (Spec, describe, it, shouldBe)
 
 spec :: Spec
 spec = describe "Heartbeat" $ do
   let dummyNetwork msgqueue _cb action =
-        action $ HydraNetwork{broadcast = \msg -> atomically $ modifyTVar' msgqueue (msg :)}
+        action $ Network{broadcast = \msg -> atomically $ modifyTVar' msgqueue (msg :)}
 
   it "sends a heartbeat message with own party id every 500 ms" $ do
     let sentHeartbeats = runSimOrThrow $ do
@@ -32,7 +32,7 @@ spec = describe "Heartbeat" $ do
 
           let receive msg = atomically $ modifyTVar' receivedMessages (msg :)
 
-          withHeartbeat 1 (\cb action -> action (HydraNetwork noop) >> cb (Ping 2)) receive $ \_ -> do
+          withHeartbeat 1 (\cb action -> action (Network noop) >> cb (Ping 2)) receive $ \_ -> do
             threadDelay 1
 
           atomically $ readTVar receivedMessages
@@ -43,7 +43,7 @@ spec = describe "Heartbeat" $ do
     let sentHeartbeats = runSimOrThrow $ do
           sentMessages <- newTVarIO ([] :: [HydraMessage MockTx])
 
-          withHeartbeat 1 (dummyNetwork sentMessages) noop $ \HydraNetwork{broadcast} -> do
+          withHeartbeat 1 (dummyNetwork sentMessages) noop $ \Network{broadcast} -> do
             threadDelay 0.6
             broadcast ConfSn
             threadDelay 1
