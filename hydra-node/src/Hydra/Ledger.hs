@@ -39,8 +39,13 @@ data Ledger tx = Ledger
   { canApply :: LedgerState tx -> tx -> ValidationResult
   , applyTransaction :: LedgerState tx -> tx -> Either ValidationError (LedgerState tx)
   , initLedgerState :: LedgerState tx
+  , fromUTxO :: UTxO tx -> LedgerState tx
   , getUTxO :: LedgerState tx -> UTxO tx
   }
+
+makeUTxO :: forall tx. Ledger tx -> UTxO tx -> [tx] -> Either ValidationError (UTxO tx)
+makeUTxO Ledger{getUTxO, fromUTxO, applyTransaction} utxo txs =
+  getUTxO <$> foldM applyTransaction (fromUTxO utxo) txs
 
 -- | Either valid or an error which we get from the ledger-specs tx validation.
 data ValidationResult

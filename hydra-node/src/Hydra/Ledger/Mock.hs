@@ -60,5 +60,6 @@ mockLedger =
             let transactions' = nub $ tx : transactions
              in Right $ MockLedgerState{transactions = transactions'}
     , initLedgerState = MockLedgerState mempty
+    , fromUTxO = MockLedgerState
     , getUTxO = transactions
     }

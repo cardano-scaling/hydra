@@ -180,9 +180,15 @@ spec = describe "Behavior of one ore more hydra-nodes" $ do
             failAfter 1 $ waitForResponse n1 `shouldReturn` SnapshotConfirmed 1
 
             sendRequest n1 Close
-            failAfter 1 $
+            failAfter 1 $ do
+              let expectedSnapshot =
+                    Snapshot
+                      { snapshotNumber = 1
+                      , utxos = [ValidTx 42]
+                      , confirmed = [ValidTx 42]
+                      }
               waitForResponse n1
-                `shouldReturn` HeadIsClosed testContestationPeriod (Snapshot 1 [] [ValidTx 42]) []
+                `shouldReturn` HeadIsClosed testContestationPeriod expectedSnapshot []
 
   describe "Hydra Node Logging" $ do
     it "traces processing of events" $

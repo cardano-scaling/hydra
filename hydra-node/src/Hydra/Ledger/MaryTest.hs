@@ -85,6 +85,9 @@ cardanoLedger env =
     , applyTransaction = applyTx env
     , initLedgerState = def
     , getUTxO = Ledger._utxo . Ledger._utxoState
+    , -- TODO(MB): Special gift for someone else, needs to construct a Mary ledger
+      -- state from an existing UTxO
+      fromUTxO = panic "TODO: fromUTxO MaryTestTx"
     }
 
 applyTx ::

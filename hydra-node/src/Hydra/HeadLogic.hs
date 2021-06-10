@@ -20,8 +20,8 @@ import Hydra.Ledger (
   UTxO,
   ValidationError,
   ValidationResult (Invalid, Valid),
-  emptyUTxO,
   initLedgerState,
+  makeUTxO,
  )
 
 data Event tx
@@ -217,7 +217,7 @@ update Environment{party, snapshotStrategy} ledger (HeadState p st) ev = case (s
     case canApply ledger (confirmedLedger headState) tx of
       Invalid _ -> panic "TODO: wait until it may be applied"
       Valid -> newState p st [NetworkEffect $ AckTx party tx]
-  (OpenState headState@SimpleHeadState{confirmedLedger, confirmedTxs, unconfirmedTxs}, NetworkEvent (AckTx otherParty tx)) ->
+  (OpenState headState@SimpleHeadState{confirmedLedger, confirmedTxs, confirmedSnapshot, unconfirmedTxs}, NetworkEvent (AckTx otherParty tx)) ->
     case applyTransaction ledger confirmedLedger tx of
       Left err -> panic $ "TODO: validation error: " <> show err
       Right newLedgerState -> do
@@ -229,7 +229,7 @@ update Environment{party, snapshotStrategy} ledger (HeadState p st) ev = case (s
               | party == 1 =
                 case snapshotStrategy of
                   NoSnapshots -> []
-                  SnapshotAfter{} -> [NetworkEffect $ ReqSn 1 (tx : confirmedTxs)] -- XXX
+                  SnapshotAfter{} -> [NetworkEffect $ ReqSn (snapshotNumber confirmedSnapshot + 1) (tx : confirmedTxs)] -- XXX
               | otherwise = []
         if sigs == parties p
           then
@@ -251,25 +251,27 @@ update Environment{party, snapshotStrategy} ledger (HeadState p st) ev = case (s
               )
               []
   (OpenState s@SimpleHeadState{confirmedSnapshot}, NetworkEvent (ReqSn sn txs)) ->
-    -- TODO: check inclusion and applicability of txs, e.g. using
-    -- Set.null (Set.fromList txs `Set.difference` Set.fromList confirmedTxs) then
-    let nextSnapshot = Snapshot sn (makeUTxO (utxos confirmedSnapshot) txs) txs
-     in newState p (OpenState s) [NetworkEffect $ AckSn nextSnapshot]
+    case makeUTxO ledger (utxos confirmedSnapshot) txs of
+      Left e ->
+        panic $ "Received not applicable snapshot (" <> show sn <> ") " <> show txs <> ": " <> show e
+      Right u ->
+        let nextSnapshot = Snapshot sn u txs
+         in newState p (OpenState s) [NetworkEffect $ AckSn nextSnapshot]
   (OpenState headState@SimpleHeadState{confirmedTxs, confirmedSnapshot}, NetworkEvent (AckSn sn))
-    | snapshotNumber confirmedSnapshot == snapshotNumber sn + 1 ->
+    | snapshotNumber confirmedSnapshot + 1 == snapshotNumber sn ->
       -- TODO: wait for all AckSn before confirming!
       newState
         p
         (OpenState $ headState{confirmedTxs = confirmedTxs \\ confirmed sn, confirmedSnapshot = sn})
         [ClientEffect $ SnapshotConfirmed $ snapshotNumber sn]
-  (OpenState SimpleHeadState{confirmedLedger, confirmedTxs}, OnChainEvent CloseTx) ->
+    | otherwise ->
+      newState p st []
+  (OpenState SimpleHeadState{confirmedLedger, confirmedTxs, confirmedSnapshot}, OnChainEvent CloseTx) ->
     let utxo = getUTxO ledger confirmedLedger
-        snapshotUtxo = emptyUTxO ledger -- XXX
-        snapshotNumber = 0 -- XXX
      in newState
           p
           (ClosedState utxo)
-          [ClientEffect $ HeadIsClosed (contestationPeriod p) (Snapshot snapshotNumber snapshotUtxo []) confirmedTxs]
+          [ClientEffect $ HeadIsClosed (contestationPeriod p) confirmedSnapshot confirmedTxs]
   --
   (ClosedState{}, ShouldPostFanout) ->
     newState p st [OnChainEffect FanoutTx]
@@ -281,9 +283,6 @@ update Environment{party, snapshotStrategy} ledger (HeadState p st) ev = case (s
   (_, NetworkEvent (Ping pty)) ->
     newState p st [ClientEffect $ PeerConnected pty]
   _ -> panic $ "UNHANDLED EVENT: on " <> show party <> " of event " <> show ev <> " in state " <> show st
-
-makeUTxO :: UTxO tx -> [tx] -> UTxO tx
-makeUTxO = panic "not implemented"
 
 canCollectCom :: Party -> ParticipationToken -> Set ParticipationToken -> Bool
 canCollectCom party pt remainingTokens = null remainingTokens && thisToken pt == party
