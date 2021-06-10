@@ -183,8 +183,8 @@ spec = describe "Behavior of one ore more hydra-nodes" $ do
             failAfter 1 $ do
               let expectedSnapshot =
                     Snapshot
-                      { snapshotNumber = 1
-                      , utxos = [ValidTx 42]
+                      { number = 1
+                      , utxo = [ValidTx 42]
                       , confirmed = [ValidTx 42]
                       }
               waitForResponse n1

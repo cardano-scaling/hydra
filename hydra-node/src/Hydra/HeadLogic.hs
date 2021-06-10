@@ -51,9 +51,9 @@ data ClientRequest tx
 type SnapshotNumber = Natural
 
 data Snapshot tx = Snapshot
-  { snapshotNumber :: SnapshotNumber
-  , utxos :: UTxO tx
-  , -- | The set of transactions that lead to 'utxos'
+  { number :: SnapshotNumber
+  , utxo :: UTxO tx
+  , -- | The set of transactions that lead to 'utxo'
     confirmed :: [tx]
   }
 
@@ -229,7 +229,7 @@ update Environment{party, snapshotStrategy} ledger (HeadState p st) ev = case (s
               | party == 1 =
                 case snapshotStrategy of
                   NoSnapshots -> []
-                  SnapshotAfter{} -> [NetworkEffect $ ReqSn (snapshotNumber confirmedSnapshot + 1) (tx : confirmedTxs)] -- XXX
+                  SnapshotAfter{} -> [NetworkEffect $ ReqSn (number confirmedSnapshot + 1) (tx : confirmedTxs)] -- XXX
               | otherwise = []
         if sigs == parties p
           then
@@ -251,19 +251,19 @@ update Environment{party, snapshotStrategy} ledger (HeadState p st) ev = case (s
               )
               []
   (OpenState s@SimpleHeadState{confirmedSnapshot}, NetworkEvent (ReqSn sn txs)) ->
-    case makeUTxO ledger (utxos confirmedSnapshot) txs of
+    case makeUTxO ledger (utxo confirmedSnapshot) txs of
       Left e ->
         panic $ "Received not applicable snapshot (" <> show sn <> ") " <> show txs <> ": " <> show e
       Right u ->
         let nextSnapshot = Snapshot sn u txs
          in newState p (OpenState s) [NetworkEffect $ AckSn nextSnapshot]
   (OpenState headState@SimpleHeadState{confirmedTxs, confirmedSnapshot}, NetworkEvent (AckSn sn))
-    | snapshotNumber confirmedSnapshot + 1 == snapshotNumber sn ->
+    | number confirmedSnapshot + 1 == number sn ->
       -- TODO: wait for all AckSn before confirming!
       newState
         p
         (OpenState $ headState{confirmedTxs = confirmedTxs \\ confirmed sn, confirmedSnapshot = sn})
-        [ClientEffect $ SnapshotConfirmed $ snapshotNumber sn]
+        [ClientEffect $ SnapshotConfirmed $ number sn]
     | otherwise ->
       newState p st []
   (OpenState SimpleHeadState{confirmedLedger, confirmedTxs, confirmedSnapshot}, OnChainEvent CloseTx) ->
@@ -275,8 +275,8 @@ update Environment{party, snapshotStrategy} ledger (HeadState p st) ev = case (s
   --
   (ClosedState{}, ShouldPostFanout) ->
     newState p st [OnChainEffect FanoutTx]
-  (ClosedState utxos, OnChainEvent FanoutTx) ->
-    newState p FinalState [ClientEffect $ HeadIsFinalized utxos]
+  (ClosedState utxo, OnChainEvent FanoutTx) ->
+    newState p FinalState [ClientEffect $ HeadIsFinalized utxo]
   --
   (_, ClientEvent{}) ->
     newState p st [ClientEffect CommandFailed]

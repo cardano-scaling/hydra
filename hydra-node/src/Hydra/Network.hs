@@ -83,7 +83,7 @@ instance (ToCBOR tx, ToCBOR (UTxO tx)) => ToCBOR (HydraMessage tx) where
     Ping pty -> toCBOR ("Ping" :: Text) <> toCBOR pty
 
 instance (ToCBOR tx, ToCBOR (UTxO tx)) => ToCBOR (Snapshot tx) where
-  toCBOR Snapshot{snapshotNumber, utxos, confirmed} = toCBOR snapshotNumber <> toCBOR utxos <> toCBOR confirmed
+  toCBOR Snapshot{number, utxo, confirmed} = toCBOR number <> toCBOR utxo <> toCBOR confirmed
 
 instance (FromCBOR tx, FromCBOR (UTxO tx)) => FromCBOR (HydraMessage tx) where
   fromCBOR =
