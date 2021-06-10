@@ -72,7 +72,7 @@ data HydraMessage tx
   = ReqTx tx
   | AckTx Party tx
   | ConfTx
-  | ReqSn
+  | ReqSn [tx]
   | AckSn
   | ConfSn
   deriving (Eq, Show)
@@ -128,8 +128,8 @@ data SnapshotStrategy = NoSnapshots | SnapshotAfter Natural
 
 -- | Assume: We know the party members and their verification keys. These need
 -- to be exchanged somehow, eventually.
-createHeadState :: [Party] -> HeadParameters -> SnapshotStrategy -> HeadState tx
-createHeadState _ parameters _ = HeadState parameters InitState
+createHeadState :: [Party] -> HeadParameters -> HeadState tx
+createHeadState _ parameters = HeadState parameters InitState
 
 -- | Preliminary type for collecting errors occurring during 'update'. Might
 -- make sense to merge this (back) into 'Outcome'.
@@ -152,6 +152,7 @@ newState p s = NewState (HeadState p s)
 data Environment = Environment
   { -- | This is the p_i from the paper
     party :: Party
+  , snapshotStrategy :: SnapshotStrategy
   }
 
 -- | The heart of the Hydra head logic, a handler of all kinds of 'Event' in the
@@ -166,7 +167,7 @@ update ::
   HeadState tx ->
   Event tx ->
   Outcome tx
-update Environment{party} ledger (HeadState p st) ev = case (st, ev) of
+update Environment{party, snapshotStrategy} ledger (HeadState p st) ev = case (st, ev) of
   (InitState, ClientEvent (Init parties)) ->
     newState p InitState [OnChainEffect (InitTx $ makeAllTokens parties)]
   (InitState, OnChainEvent (InitTx tokens)) ->
@@ -215,6 +216,10 @@ update Environment{party} ledger (HeadState p st) ev = case (st, ev) of
               Set.insert
                 otherParty
                 (fromMaybe Set.empty $ Map.lookup tx unconfirmedTxs)
+            snapshotEffects =
+              case snapshotStrategy of
+                NoSnapshots -> []
+                SnapshotAfter{} -> [NetworkEffect $ ReqSn (tx : confirmedTxs)]
         if sigs == parties p
           then
             newState
@@ -226,15 +231,14 @@ update Environment{party} ledger (HeadState p st) ev = case (st, ev) of
                     , confirmedTxs = tx : confirmedTxs
                     }
               )
-              [ClientEffect $ TxConfirmed tx]
+              ( ClientEffect (TxConfirmed tx) : snapshotEffects
+              )
           else
             newState
               p
               ( OpenState headState{unconfirmedTxs = Map.insert tx sigs unconfirmedTxs}
               )
               []
-
-  --
   (OpenState SimpleHeadState{confirmedLedger, confirmedTxs}, OnChainEvent CloseTx) ->
     let utxo = getUTxO ledger confirmedLedger
         snapshotUtxo = emptyUTxO ledger
@@ -243,6 +247,7 @@ update Environment{party} ledger (HeadState p st) ev = case (st, ev) of
           p
           (ClosedState utxo)
           [ClientEffect $ HeadIsClosed (contestationPeriod p) snapshotUtxo snapshotNumber confirmedTxs]
+  --
   (ClosedState{}, ShouldPostFanout) ->
     newState p st [OnChainEffect FanoutTx]
   (ClosedState utxos, OnChainEvent FanoutTx) ->

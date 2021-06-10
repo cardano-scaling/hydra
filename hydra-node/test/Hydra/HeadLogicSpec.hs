@@ -18,6 +18,7 @@ import Hydra.HeadLogic (
   NetworkEvent (MessageReceived),
   Outcome (..),
   SimpleHeadState (..),
+  SnapshotStrategy (..),
   update,
  )
 import Hydra.Ledger (Ledger (initLedgerState))
@@ -40,6 +41,7 @@ spec = describe "Hydra Head Logic" $ do
         env =
           Environment
             { party = 2
+            , snapshotStrategy = NoSnapshots
             }
         ledger = mockLedger
         s0 =

@@ -177,10 +177,9 @@ spec = describe "Behavior of one ore more hydra-nodes" $ do
             failAfter 1 $ waitForResponse n2 `shouldReturn` TxConfirmed (ValidTx 42)
 
             sendRequest n1 Close
-            -- TODO(SN): This should be in fact `[ValidTx 41] 1 []`
             failAfter 1 $
               waitForResponse n1
-                `shouldReturn` HeadIsClosed testContestationPeriod [] 0 [ValidTx 42]
+                `shouldReturn` HeadIsClosed testContestationPeriod [ValidTx 42] 1 []
 
   describe "Hydra Node Logging" $ do
     it "traces processing of events" $
@@ -292,9 +291,9 @@ withHydraNode nodeId snapshotStrategy connectToChain action = do
         }
  where
   createHydraNode response = do
-    let env = Environment nodeId
+    let env = Environment nodeId snapshotStrategy
     eq <- createEventQueue
-    let headState = createHeadState [] (HeadParameters testContestationPeriod mempty) snapshotStrategy
+    let headState = createHeadState [] (HeadParameters testContestationPeriod mempty)
     hh <- createHydraHead headState mockLedger
     let hn' = HydraNetwork{broadcast = const $ pure ()}
     let node = HydraNode{eq, hn = hn', hh, oc = OnChain (const $ pure ()), sendResponse = atomically . putTMVar response, env}
