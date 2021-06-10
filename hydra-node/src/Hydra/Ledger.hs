@@ -35,7 +35,7 @@ class
 data Ledger tx = Ledger
   { canApply :: UTxO tx -> tx -> ValidationResult
   , applyTransaction :: UTxO tx -> tx -> Either ValidationError (UTxO tx)
-  , initLedgerState :: UTxO tx
+  , initUTxO :: UTxO tx
   }
 
 makeUTxO :: forall tx. Ledger tx -> UTxO tx -> [tx] -> Either ValidationError (UTxO tx)

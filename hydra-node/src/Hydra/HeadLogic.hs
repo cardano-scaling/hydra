@@ -19,7 +19,7 @@ import Hydra.Ledger (
   UTxO,
   ValidationError,
   ValidationResult (Invalid, Valid),
-  initLedgerState,
+  initUTxO,
   makeUTxO,
  )
 
@@ -111,7 +111,7 @@ deriving instance Tx tx => Eq (HeadStatus tx)
 deriving instance Tx tx => Show (HeadStatus tx)
 
 data SimpleHeadState tx = SimpleHeadState
-  { confirmedLedger :: UTxO tx
+  { confirmedUTxO :: UTxO tx
   , -- TODO: tx should be an abstract 'TxId'
     unconfirmedTxs :: Map tx (Set Party)
   , confirmedTxs :: [tx]
@@ -197,27 +197,27 @@ update Environment{party, snapshotStrategy} ledger (HeadState p st) ev = case (s
           then newState p newHeadState [OnChainEffect CollectComTx]
           else newState p newHeadState []
   (CollectingState{}, OnChainEvent CollectComTx) ->
-    let utxo = initLedgerState ledger
+    let u0 = initUTxO ledger -- TODO(SN): should construct u0 from the collected utxo
      in newState
           p
-          (OpenState $ SimpleHeadState utxo mempty mempty (Snapshot 0 utxo mempty))
-          [ClientEffect $ HeadIsOpen utxo]
+          (OpenState $ SimpleHeadState u0 mempty mempty (Snapshot 0 u0 mempty))
+          [ClientEffect $ HeadIsOpen u0]
   --
   (OpenState _, OnChainEvent CommitTx{}) ->
     Error (InvalidEvent ev (HeadState p st)) -- HACK(SN): is a general case later
   (OpenState{}, ClientEvent Close) ->
     newState p st [OnChainEffect CloseTx, Delay (contestationPeriod p) ShouldPostFanout]
   --
-  (OpenState SimpleHeadState{confirmedLedger}, ClientEvent (NewTx tx)) ->
-    case canApply ledger confirmedLedger tx of
+  (OpenState SimpleHeadState{confirmedUTxO}, ClientEvent (NewTx tx)) ->
+    case canApply ledger confirmedUTxO tx of
       Invalid _ -> newState p st [ClientEffect $ TxInvalid tx]
       Valid -> newState p st [NetworkEffect $ ReqTx tx]
   (OpenState headState, NetworkEvent (ReqTx tx)) ->
-    case canApply ledger (confirmedLedger headState) tx of
+    case canApply ledger (confirmedUTxO headState) tx of
       Invalid _ -> panic "TODO: wait until it may be applied"
       Valid -> newState p st [NetworkEffect $ AckTx party tx]
-  (OpenState headState@SimpleHeadState{confirmedLedger, confirmedTxs, confirmedSnapshot, unconfirmedTxs}, NetworkEvent (AckTx otherParty tx)) ->
-    case applyTransaction ledger confirmedLedger tx of
+  (OpenState headState@SimpleHeadState{confirmedUTxO, confirmedTxs, confirmedSnapshot, unconfirmedTxs}, NetworkEvent (AckTx otherParty tx)) ->
+    case applyTransaction ledger confirmedUTxO tx of
       Left err -> panic $ "TODO: validation error: " <> show err
       Right newLedgerState -> do
         let sigs =
@@ -236,7 +236,7 @@ update Environment{party, snapshotStrategy} ledger (HeadState p st) ev = case (s
               p
               ( OpenState $
                   headState
-                    { confirmedLedger = newLedgerState
+                    { confirmedUTxO = newLedgerState
                     , unconfirmedTxs = Map.delete tx unconfirmedTxs
                     , confirmedTxs = tx : confirmedTxs
                     }
@@ -265,10 +265,10 @@ update Environment{party, snapshotStrategy} ledger (HeadState p st) ev = case (s
         [ClientEffect $ SnapshotConfirmed $ number sn]
     | otherwise ->
       newState p st []
-  (OpenState SimpleHeadState{confirmedLedger, confirmedTxs, confirmedSnapshot}, OnChainEvent CloseTx) ->
+  (OpenState SimpleHeadState{confirmedUTxO, confirmedTxs, confirmedSnapshot}, OnChainEvent CloseTx) ->
     newState
       p
-      (ClosedState confirmedLedger)
+      (ClosedState confirmedUTxO)
       [ClientEffect $ HeadIsClosed (contestationPeriod p) confirmedSnapshot confirmedTxs]
   --
   (ClosedState{}, ShouldPostFanout) ->

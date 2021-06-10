@@ -9,8 +9,8 @@ import Cardano.Prelude
 
 import Hydra.Ledger (ValidationError (..), ValidationResult (..))
 import Hydra.Ledger.MaryTest (
-  initUTxO,
   mkLedgerEnv,
+  testUTxO,
   txInvalid,
   txSimpleTransfer,
   validateTx,
@@ -20,8 +20,8 @@ import Test.Hspec (Spec, describe, it, shouldBe)
 spec :: Spec
 spec = describe "Hydra Ledger (Mary)" $ do
   it "should reject invalid transactions" $ do
-    validateTx mkLedgerEnv initUTxO txInvalid `shouldBe` Invalid ValidationError
+    validateTx mkLedgerEnv testUTxO txInvalid `shouldBe` Invalid ValidationError
 
   it "should validate transactions which simply transfer value" $ do
-    validateTx mkLedgerEnv initUTxO txSimpleTransfer `shouldBe` Valid
+    validateTx mkLedgerEnv testUTxO txSimpleTransfer `shouldBe` Valid
     txSimpleTransfer `shouldBe` txSimpleTransfer

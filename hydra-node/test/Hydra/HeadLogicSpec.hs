@@ -78,11 +78,11 @@ initialState ::
   Set Party ->
   Ledger tx ->
   HeadState tx
-initialState parties Ledger{initLedgerState} =
-  let ledger0 = initLedgerState
-      snapshot0 = Snapshot 0 ledger0 mempty
+initialState parties Ledger{initUTxO} =
+  let u0 = initUTxO
+      snapshot0 = Snapshot 0 u0 mempty
    in HeadState
-        { headStatus = OpenState $ SimpleHeadState ledger0 mempty mempty snapshot0
+        { headStatus = OpenState $ SimpleHeadState u0 mempty mempty snapshot0
         , headParameters =
             HeadParameters
               { contestationPeriod = 42

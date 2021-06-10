@@ -55,14 +55,12 @@ type MaryTestTx = Ledger.Tx MaryTest
 instance Tx MaryTestTx where
   type UTxO MaryTestTx = Ledger.UTxO MaryTest
 
-cardanoLedger ::
-  Ledger.LedgersEnv MaryTest ->
-  Ledger (Ledger.Tx MaryTest)
+cardanoLedger :: Ledger.LedgersEnv MaryTest -> Ledger (Ledger.Tx MaryTest)
 cardanoLedger env =
   Ledger
     { canApply = validateTx env
     , applyTransaction = applyTx env
-    , initLedgerState = getUTxO def
+    , initUTxO = getUTxO def
     }
 
 validateTx ::
@@ -167,8 +165,8 @@ bootstrapTxId = txid @MaryTest txb
       SNothing
       (Val.inject (Coin 0))
 
-initUTxO :: Ledger.UTxO MaryTest
-initUTxO =
+testUTxO :: Ledger.UTxO MaryTest
+testUTxO =
   UTxO $
     Map.fromList
       [ (TxIn bootstrapTxId 0, TxOut aliceAddr (Val.inject aliceInitCoin))

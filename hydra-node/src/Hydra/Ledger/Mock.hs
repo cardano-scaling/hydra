@@ -52,5 +52,5 @@ mockLedger =
           InvalidTx ->
             Left ValidationError
           ValidTx{} -> Right $ nub (tx : txs)
-    , initLedgerState = mempty
+    , initUTxO = mempty
     }
