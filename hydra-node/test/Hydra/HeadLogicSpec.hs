@@ -19,6 +19,7 @@ import Hydra.HeadLogic (
   HydraMessage (..),
   Outcome (..),
   SimpleHeadState (..),
+  SnapshotStrategy (..),
   update,
  )
 import Hydra.Ledger (Ledger (initLedgerState), Party, Tx)
@@ -30,6 +31,7 @@ import Test.Hspec (
   it,
   shouldBe,
  )
+import Test.Hspec.Core.Spec (pending)
 
 spec :: Spec
 spec = describe "Hydra Head Logic" $ do
@@ -38,6 +40,7 @@ spec = describe "Hydra Head Logic" $ do
       env =
         Environment
           { party = 2
+          , snapshotStrategy = NoSnapshots
           }
 
   it "confirms tx given it receives AckTx from all parties" $ do
@@ -60,6 +63,9 @@ spec = describe "Hydra Head Logic" $ do
   it "notifies client when it receives a ping" $ do
     update env ledger (initialState threeParties ledger) (NetworkEvent $ Ping 2) `hasEffect` ClientEffect (NodeConnectedToNetwork 2)
 
+  it "does not confirm snapshots from non-leaders" pending
+  it "does not confirm old snapshots" pending
+
 hasEffect :: Tx tx => Outcome tx -> Effect tx -> IO ()
 hasEffect (NewState _ effects) effect
   | effect `elem` effects = pure ()
@@ -73,7 +79,7 @@ initialState ::
   HeadState tx
 initialState parties ledger =
   HeadState
-    { headStatus = OpenState $ SimpleHeadState (initLedgerState ledger) mempty mempty
+    { headStatus = OpenState $ SimpleHeadState (initLedgerState ledger) mempty mempty 0
     , headParameters =
         HeadParameters
           { contestationPeriod = 42

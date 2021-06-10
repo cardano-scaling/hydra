@@ -34,9 +34,9 @@ main = do
   Option{nodeId, verbosity, host, port, peers, apiHost, apiPort, monitoringPort} <- identifyNode <$> parseHydraOptions
   withTracer verbosity show $ \tracer' ->
     withMonitoring monitoringPort tracer' $ \tracer -> do
-      let env = Environment nodeId
+      let env = Environment nodeId NoSnapshots
       eq <- createEventQueue
-      let headState = createHeadState [] (HeadParameters 3 mempty) NoSnapshots
+      let headState = createHeadState [] (HeadParameters 3 mempty)
       hh <- createHydraHead headState Ledger.mockLedger
       oc <- createMockChainClient eq (contramap MockChain tracer)
       withHeartbeat nodeId (withOuroborosHydraNetwork (show host, port) peers) (putEvent eq . NetworkEvent) $ \hn -> do

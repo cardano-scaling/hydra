@@ -47,12 +47,12 @@ spec = describe "Heartbeat" $ do
 
           withHeartbeat 1 (dummyNetwork sentMessages) noop $ \HydraNetwork{broadcast} -> do
             threadDelay 0.6
-            broadcast AckSn
+            broadcast ConfSn
             threadDelay 1
 
           atomically $ readTVar sentMessages
 
-    sentHeartbeats `shouldBe` [AckSn, Ping 1]
+    sentHeartbeats `shouldBe` [ConfSn, Ping 1]
 
 noop :: Monad m => b -> m ()
 noop = const $ pure ()
