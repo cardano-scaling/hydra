@@ -78,6 +78,7 @@ library
     Hydra.API.Server
     Hydra.Chain.ZeroMQ
     Hydra.Network
+    Hydra.Network.BroadcastToSelf
     Hydra.Network.Heartbeat
     Hydra.Network.Ouroboros
     Hydra.Network.Ouroboros.Type
@@ -168,6 +169,7 @@ test-suite tests
     Hydra.LedgerSpec
     Hydra.NetworkSpec
     Hydra.Network.HeartbeatSpec
+    Hydra.Network.BroadcastToSelfSpec
     Hydra.NodeSpec
     Hydra.OptionSpec
     Test.Util
