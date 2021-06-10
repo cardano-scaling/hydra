@@ -220,7 +220,7 @@ update Environment{party, snapshotStrategy} ledger (HeadState p st) ev = case (s
   (OpenState headState@SimpleHeadState{confirmedUTxO, confirmedTxs, confirmedSnapshot, unconfirmedTxs}, NetworkEvent (AckTx otherParty tx)) ->
     case applyTransactions ledger confirmedUTxO [tx] of
       Left err -> panic $ "TODO: validation error: " <> show err
-      Right newLedgerState -> do
+      Right utxo' -> do
         let sigs =
               Set.insert
                 otherParty
@@ -237,7 +237,7 @@ update Environment{party, snapshotStrategy} ledger (HeadState p st) ev = case (s
               p
               ( OpenState $
                   headState
-                    { confirmedUTxO = newLedgerState
+                    { confirmedUTxO = utxo'
                     , unconfirmedTxs = Map.delete tx unconfirmedTxs
                     , confirmedTxs = tx : confirmedTxs
                     }
