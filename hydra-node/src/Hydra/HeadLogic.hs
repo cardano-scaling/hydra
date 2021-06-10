@@ -12,8 +12,7 @@ import qualified Data.Set as Set
 import Hydra.Ledger (
   Amount,
   Committed,
-  Ledger (applyTransaction, canApply, getUTxO),
-  LedgerState,
+  Ledger (applyTransaction, canApply),
   ParticipationToken (..),
   Party,
   Tx,
@@ -112,7 +111,7 @@ deriving instance Tx tx => Eq (HeadStatus tx)
 deriving instance Tx tx => Show (HeadStatus tx)
 
 data SimpleHeadState tx = SimpleHeadState
-  { confirmedLedger :: LedgerState tx
+  { confirmedLedger :: UTxO tx
   , -- TODO: tx should be an abstract 'TxId'
     unconfirmedTxs :: Map tx (Set Party)
   , confirmedTxs :: [tx]
@@ -198,11 +197,11 @@ update Environment{party, snapshotStrategy} ledger (HeadState p st) ev = case (s
           then newState p newHeadState [OnChainEffect CollectComTx]
           else newState p newHeadState []
   (CollectingState{}, OnChainEvent CollectComTx) ->
-    let ls = initLedgerState ledger
+    let utxo = initLedgerState ledger
      in newState
           p
-          (OpenState $ SimpleHeadState ls mempty mempty (Snapshot 0 (getUTxO ledger ls) mempty))
-          [ClientEffect $ HeadIsOpen $ getUTxO ledger ls]
+          (OpenState $ SimpleHeadState utxo mempty mempty (Snapshot 0 utxo mempty))
+          [ClientEffect $ HeadIsOpen utxo]
   --
   (OpenState _, OnChainEvent CommitTx{}) ->
     Error (InvalidEvent ev (HeadState p st)) -- HACK(SN): is a general case later
@@ -267,11 +266,10 @@ update Environment{party, snapshotStrategy} ledger (HeadState p st) ev = case (s
     | otherwise ->
       newState p st []
   (OpenState SimpleHeadState{confirmedLedger, confirmedTxs, confirmedSnapshot}, OnChainEvent CloseTx) ->
-    let utxo = getUTxO ledger confirmedLedger
-     in newState
-          p
-          (ClosedState utxo)
-          [ClientEffect $ HeadIsClosed (contestationPeriod p) confirmedSnapshot confirmedTxs]
+    newState
+      p
+      (ClosedState confirmedLedger)
+      [ClientEffect $ HeadIsClosed (contestationPeriod p) confirmedSnapshot confirmedTxs]
   --
   (ClosedState{}, ShouldPostFanout) ->
     newState p st [OnChainEffect FanoutTx]

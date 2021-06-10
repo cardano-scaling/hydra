@@ -11,7 +11,8 @@ import Control.Monad (fail)
 import Data.List (nub)
 import Hydra.Ledger
 
--- | Simple mock transaction, which conflates value and identity
+-- | Simple mock transaction, which directly encodes validity and thus
+-- simplifies the LedgerState to a list of txs
 data MockTx = ValidTx TxId | InvalidTx
   deriving stock (Eq, Ord, Generic, Read, Show)
 
@@ -29,14 +30,8 @@ instance FromCBOR MockTx where
 
 type TxId = Integer
 
-newtype MockLedgerState = MockLedgerState
-  { transactions :: [MockTx]
-  }
-  deriving (Eq, Show)
-
 instance Tx MockTx where
   type UTxO MockTx = [MockTx]
-  type LedgerState MockTx = MockLedgerState
 
 mockLedger :: Ledger MockTx
 mockLedger =
@@ -44,7 +39,7 @@ mockLedger =
     { canApply = \st tx -> case st `seq` tx of
         ValidTx _ -> Valid
         InvalidTx -> Invalid ValidationError
-    , applyTransaction = \MockLedgerState{transactions} tx ->
+    , applyTransaction = \txs tx ->
         -- NOTE:
         -- There's no need to represent a real `tx` and do any fake ledger
         -- validation because we can already represent that via `InvalidTx`.
@@ -56,10 +51,6 @@ mockLedger =
         case tx of
           InvalidTx ->
             Left ValidationError
-          ValidTx{} ->
-            let transactions' = nub $ tx : transactions
-             in Right $ MockLedgerState{transactions = transactions'}
-    , initLedgerState = MockLedgerState mempty
-    , fromUTxO = MockLedgerState
-    , getUTxO = transactions
+          ValidTx{} -> Right $ nub (tx : txs)
+    , initLedgerState = mempty
     }

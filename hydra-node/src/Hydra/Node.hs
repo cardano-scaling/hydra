@@ -21,7 +21,6 @@ import Hydra.HeadLogic (
   LogicError (..),
   OnChainTx (..),
   Outcome (..),
-  confirmedLedger,
  )
 import qualified Hydra.HeadLogic as Logic
 import Hydra.Ledger
@@ -55,9 +54,6 @@ handleChainTx HydraNode{eq} = putEvent eq . OnChainEvent
 
 handleMessage :: HydraNode tx m -> Logic.HydraMessage tx -> m ()
 handleMessage HydraNode{eq} = putEvent eq . NetworkEvent
-
-queryLedgerState :: MonadSTM m => HydraNode tx m -> STM m (Maybe (LedgerState tx))
-queryLedgerState HydraNode{hh} = getConfirmedLedger hh
 
 runHydraNode ::
   MonadThrow m =>
@@ -137,12 +133,6 @@ data HydraHead tx m = HydraHead
   { modifyHeadState :: forall a. (HeadState tx -> (a, HeadState tx)) -> STM m a
   , ledger :: Ledger tx
   }
-
-getConfirmedLedger :: MonadSTM m => HydraHead tx m -> STM m (Maybe (LedgerState tx))
-getConfirmedLedger hh =
-  queryHeadState hh <&> \case
-    HeadState _ (Logic.OpenState st) -> Just (confirmedLedger st)
-    _ -> Nothing
 
 queryHeadState :: HydraHead tx m -> STM m (HeadState tx)
 queryHeadState = (`modifyHeadState` \s -> (s, s))

@@ -23,7 +23,7 @@ import Hydra.HeadLogic (
   SnapshotStrategy (..),
   update,
  )
-import Hydra.Ledger (Ledger (..), Party, Tx, getUTxO)
+import Hydra.Ledger (Ledger (..), Party, Tx)
 import Hydra.Ledger.Mock (MockTx (ValidTx), mockLedger)
 import Test.Hspec (
   Spec,
@@ -78,9 +78,9 @@ initialState ::
   Set Party ->
   Ledger tx ->
   HeadState tx
-initialState parties Ledger{getUTxO, initLedgerState} =
+initialState parties Ledger{initLedgerState} =
   let ledger0 = initLedgerState
-      snapshot0 = Snapshot 0 (getUTxO ledger0) mempty
+      snapshot0 = Snapshot 0 ledger0 mempty
    in HeadState
         { headStatus = OpenState $ SimpleHeadState ledger0 mempty mempty snapshot0
         , headParameters =

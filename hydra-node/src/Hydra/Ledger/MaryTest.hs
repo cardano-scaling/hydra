@@ -10,7 +10,6 @@ import Cardano.Prelude
 -- REVIEW(SN): use a more consistent set of ledger imports, but some things not
 -- in the API?
 
-import Cardano.Binary (DecoderError, decodeAnnotator, fromCBOR, serialize)
 import Cardano.Ledger.SafeHash (hashAnnotated)
 import Cardano.Ledger.ShelleyMA.Timelocks (ValidityInterval (..))
 import Cardano.Ledger.ShelleyMA.TxBody (TxBody (TxBody))
@@ -18,13 +17,14 @@ import Cardano.Ledger.Val ((<->))
 import qualified Cardano.Ledger.Val as Val
 import Cardano.Slotting.EpochInfo (fixedSizeEpochInfo)
 import Cardano.Slotting.Slot (EpochSize (EpochSize))
-import Data.Default (def)
+import Data.Default (Default, def)
 import qualified Data.Map as Map
 import qualified Data.Sequence.Strict as StrictSeq
 import qualified Data.Set as Set
 import Hydra.Ledger (Ledger (..), Tx (..), ValidationError (..), ValidationResult (..))
 import Shelley.Spec.Ledger.API (
   Addr,
+  ApplyTx,
   Coin (..),
   Globals (..),
   KeyPair,
@@ -50,31 +50,10 @@ import Test.Shelley.Spec.Ledger.Utils (mkAddr, mkKeyPair)
 
 type MaryTest = MaryEra TestCrypto
 
-mkLedgerEnv :: Ledgers.LedgersEnv MaryTest
-mkLedgerEnv =
-  Ledgers.LedgersEnv
-    { Ledgers.ledgersSlotNo = SlotNo 1
-    , Ledgers.ledgersPp = emptyPParams
-    , Ledgers.ledgersAccount = panic "Not implemented"
-    }
-
-mkLedgerState :: Ledger.LedgerState MaryTest
-mkLedgerState =
-  def{_utxoState = def{_utxo = initUTxO}}
-
 type MaryTestTx = Ledger.Tx MaryTest
-
-decodeTx :: LByteString -> Either DecoderError MaryTestTx
-decodeTx = decodeAnnotator "tx" fromCBOR
-
-encodeTx :: MaryTestTx -> LByteString
-encodeTx = serialize
-
--- * Cardano ledger
 
 instance Tx MaryTestTx where
   type UTxO MaryTestTx = Ledger.UTxO MaryTest
-  type LedgerState MaryTestTx = Ledger.LedgerState MaryTest
 
 cardanoLedger ::
   Ledger.LedgersEnv MaryTest ->
@@ -83,35 +62,45 @@ cardanoLedger env =
   Ledger
     { canApply = validateTx env
     , applyTransaction = applyTx env
-    , initLedgerState = def
-    , getUTxO = Ledger._utxo . Ledger._utxoState
-    , -- TODO(MB): Special gift for someone else, needs to construct a Mary ledger
-      -- state from an existing UTxO
-      fromUTxO = panic "TODO: fromUTxO MaryTestTx"
+    , initLedgerState = getUTxO def
     }
 
+validateTx ::
+  Default (Ledger.UTxOState era) =>
+  Default (Ledger.LedgerState era) =>
+  ApplyTx era =>
+  Ledger.LedgersEnv era ->
+  Ledger.UTxO era ->
+  Ledger.Tx era ->
+  ValidationResult
+validateTx env utxo tx =
+  either Invalid (const Valid) $ applyTx env utxo tx
+
 applyTx ::
-  Ledger.LedgersEnv MaryTest ->
-  Ledger.LedgerState MaryTest ->
-  Ledger.Tx MaryTest ->
-  Either ValidationError (Ledger.LedgerState MaryTest)
-applyTx env ls tx =
-  first toValidationError $ Ledger.applyTxsTransition globals env (pure tx) ls
+  Default (Ledger.UTxOState era) =>
+  Default (Ledger.LedgerState era) =>
+  ApplyTx era =>
+  Ledger.LedgersEnv era ->
+  Ledger.UTxO era ->
+  Ledger.Tx era ->
+  Either ValidationError (Ledger.UTxO era)
+applyTx env utxo tx =
+  case Ledger.applyTxsTransition globals env (pure tx) (fromUTxO utxo) of
+    Left err -> Left $ toValidationError err
+    Right ls -> Right $ getUTxO ls
  where
   -- toValidationError :: ApplyTxError -> ValidationError
   toValidationError = const ValidationError
 
-validateTx ::
-  Ledger.LedgersEnv MaryTest ->
-  Ledger.LedgerState MaryTest ->
-  Ledger.Tx MaryTest ->
-  ValidationResult
-validateTx env ls tx =
-  either (Invalid . toValidationError) (const Valid) $
-    Ledger.applyTxsTransition globals env (pure tx) ls
- where
-  -- toValidationError :: ApplyTxError -> ValidationError
-  toValidationError = const ValidationError
+getUTxO :: Ledger.LedgerState era -> Ledger.UTxO era
+getUTxO = Ledger._utxo . Ledger._utxoState
+
+fromUTxO ::
+  Default (Ledger.UTxOState era) =>
+  Default (Ledger.LedgerState era) =>
+  Ledger.UTxO era ->
+  Ledger.LedgerState era
+fromUTxO utxo = def{_utxoState = def{_utxo = utxo}}
 
 --
 -- From: shelley/chain-and-ledger/shelley-spec-ledger-test/src/Test/Shelley/Spec/Ledger/Utils.hs
@@ -138,6 +127,16 @@ globals =
 unsafeMkUnitInterval :: Ratio Word64 -> UnitInterval
 unsafeMkUnitInterval r =
   fromMaybe (panic "could not construct unit interval") $ mkUnitInterval r
+
+-- * Test functions
+
+mkLedgerEnv :: Ledgers.LedgersEnv MaryTest
+mkLedgerEnv =
+  Ledgers.LedgersEnv
+    { Ledgers.ledgersSlotNo = SlotNo 1
+    , Ledgers.ledgersPp = emptyPParams
+    , Ledgers.ledgersAccount = panic "Not implemented"
+    }
 
 --
 -- From: shelley-ma/shelley-ma-test/test/Test/Cardano/Ledger/Mary/Examples/MultiAssets.hs

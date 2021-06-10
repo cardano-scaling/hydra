@@ -25,27 +25,21 @@ type Party = Natural
 class
   ( Eq tx
   , Eq (UTxO tx)
-  , Eq (LedgerState tx)
   , Show tx
   , Show (UTxO tx)
-  , Show (LedgerState tx)
   ) =>
   Tx tx
   where
   type UTxO tx
-  type LedgerState tx
 
 data Ledger tx = Ledger
-  { canApply :: LedgerState tx -> tx -> ValidationResult
-  , applyTransaction :: LedgerState tx -> tx -> Either ValidationError (LedgerState tx)
-  , initLedgerState :: LedgerState tx
-  , fromUTxO :: UTxO tx -> LedgerState tx
-  , getUTxO :: LedgerState tx -> UTxO tx
+  { canApply :: UTxO tx -> tx -> ValidationResult
+  , applyTransaction :: UTxO tx -> tx -> Either ValidationError (UTxO tx)
+  , initLedgerState :: UTxO tx
   }
 
 makeUTxO :: forall tx. Ledger tx -> UTxO tx -> [tx] -> Either ValidationError (UTxO tx)
-makeUTxO Ledger{getUTxO, fromUTxO, applyTransaction} utxo txs =
-  getUTxO <$> foldM applyTransaction (fromUTxO utxo) txs
+makeUTxO Ledger{applyTransaction} = foldM applyTransaction
 
 -- | Either valid or an error which we get from the ledger-specs tx validation.
 data ValidationResult
@@ -54,7 +48,3 @@ data ValidationResult
   deriving (Eq, Show)
 
 data ValidationError = ValidationError deriving (Eq, Show)
-
-emptyUTxO :: Ledger tx -> UTxO tx
-emptyUTxO Ledger{initLedgerState, getUTxO} =
-  getUTxO initLedgerState
