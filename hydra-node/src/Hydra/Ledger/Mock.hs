@@ -11,8 +11,15 @@ import Control.Monad (fail)
 import Data.List (nub)
 import Hydra.Ledger
 
--- | Simple mock transaction, which directly encodes validity and thus
--- simplifies the LedgerState to a list of txs
+-- | Simple mock transaction.
+--
+-- NOTE: There's no need to represent a real `tx` and do any fake ledger
+-- validation because we can already represent that via `InvalidTx`.
+--
+-- In the end, we are really interested in the resulting UTxO which
+-- _could_ be constructed from all the valid transactions that have
+-- passed through the head. So it suffices to keep a list of all valid
+-- transactions in the mock.
 data MockTx = ValidTx TxId | InvalidTx
   deriving stock (Eq, Ord, Generic, Read, Show)
 
@@ -36,21 +43,10 @@ instance Tx MockTx where
 mockLedger :: Ledger MockTx
 mockLedger =
   Ledger
-    { canApply = \st tx -> case st `seq` tx of
-        ValidTx _ -> Valid
-        InvalidTx -> Invalid ValidationError
-    , applyTransaction = \txs tx ->
-        -- NOTE:
-        -- There's no need to represent a real `tx` and do any fake ledger
-        -- validation because we can already represent that via `InvalidTx`.
-        --
-        -- In the end, we are really interested in the resulting UTxO which
-        -- _could_ be constructed from all the valid transactions that have
-        -- passed through the head. So it suffices to keep a list of all valid
-        -- transactions in the mock.
+    { applyTransactions = foldM $ \utxo tx ->
         case tx of
           InvalidTx ->
             Left ValidationError
-          ValidTx{} -> Right $ nub (tx : txs)
+          ValidTx{} -> Right $ nub (tx : utxo)
     , initUTxO = mempty
     }

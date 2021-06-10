@@ -19,9 +19,10 @@ import Cardano.Slotting.EpochInfo (fixedSizeEpochInfo)
 import Cardano.Slotting.Slot (EpochSize (EpochSize))
 import Data.Default (Default, def)
 import qualified Data.Map as Map
+import qualified Data.Sequence as Seq
 import qualified Data.Sequence.Strict as StrictSeq
 import qualified Data.Set as Set
-import Hydra.Ledger (Ledger (..), Tx (..), ValidationError (..), ValidationResult (..))
+import Hydra.Ledger (Ledger (..), Tx (..), ValidationError (..))
 import Shelley.Spec.Ledger.API (
   Addr,
   ApplyTx,
@@ -58,21 +59,9 @@ instance Tx MaryTestTx where
 cardanoLedger :: Ledger.LedgersEnv MaryTest -> Ledger (Ledger.Tx MaryTest)
 cardanoLedger env =
   Ledger
-    { canApply = validateTx env
-    , applyTransaction = applyTx env
+    { applyTransactions = applyTx env
     , initUTxO = getUTxO def
     }
-
-validateTx ::
-  Default (Ledger.UTxOState era) =>
-  Default (Ledger.LedgerState era) =>
-  ApplyTx era =>
-  Ledger.LedgersEnv era ->
-  Ledger.UTxO era ->
-  Ledger.Tx era ->
-  ValidationResult
-validateTx env utxo tx =
-  either Invalid (const Valid) $ applyTx env utxo tx
 
 applyTx ::
   Default (Ledger.UTxOState era) =>
@@ -80,10 +69,10 @@ applyTx ::
   ApplyTx era =>
   Ledger.LedgersEnv era ->
   Ledger.UTxO era ->
-  Ledger.Tx era ->
+  [Ledger.Tx era] ->
   Either ValidationError (Ledger.UTxO era)
-applyTx env utxo tx =
-  case Ledger.applyTxsTransition globals env (pure tx) (fromUTxO utxo) of
+applyTx env utxo txs =
+  case Ledger.applyTxsTransition globals env (Seq.fromList txs) (fromUTxO utxo) of
     Left err -> Left $ toValidationError err
     Right ls -> Right $ getUTxO ls
  where

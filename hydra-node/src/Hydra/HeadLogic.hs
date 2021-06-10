@@ -12,15 +12,16 @@ import qualified Data.Set as Set
 import Hydra.Ledger (
   Amount,
   Committed,
-  Ledger (applyTransaction, canApply),
+  Ledger,
   ParticipationToken (..),
   Party,
   Tx,
   UTxO,
   ValidationError,
   ValidationResult (Invalid, Valid),
+  applyTransactions,
+  canApply,
   initUTxO,
-  makeUTxO,
  )
 
 data Event tx
@@ -217,7 +218,7 @@ update Environment{party, snapshotStrategy} ledger (HeadState p st) ev = case (s
       Invalid _ -> panic "TODO: wait until it may be applied"
       Valid -> newState p st [NetworkEffect $ AckTx party tx]
   (OpenState headState@SimpleHeadState{confirmedUTxO, confirmedTxs, confirmedSnapshot, unconfirmedTxs}, NetworkEvent (AckTx otherParty tx)) ->
-    case applyTransaction ledger confirmedUTxO tx of
+    case applyTransactions ledger confirmedUTxO [tx] of
       Left err -> panic $ "TODO: validation error: " <> show err
       Right newLedgerState -> do
         let sigs =
@@ -250,7 +251,7 @@ update Environment{party, snapshotStrategy} ledger (HeadState p st) ev = case (s
               )
               []
   (OpenState s@SimpleHeadState{confirmedSnapshot}, NetworkEvent (ReqSn sn txs)) ->
-    case makeUTxO ledger (utxo confirmedSnapshot) txs of
+    case applyTransactions ledger (utxo confirmedSnapshot) txs of
       Left e ->
         panic $ "Received not applicable snapshot (" <> show sn <> ") " <> show txs <> ": " <> show e
       Right u ->

@@ -33,13 +33,13 @@ class
   type UTxO tx
 
 data Ledger tx = Ledger
-  { canApply :: UTxO tx -> tx -> ValidationResult
-  , applyTransaction :: UTxO tx -> tx -> Either ValidationError (UTxO tx)
+  { applyTransactions :: UTxO tx -> [tx] -> Either ValidationError (UTxO tx)
   , initUTxO :: UTxO tx
   }
 
-makeUTxO :: forall tx. Ledger tx -> UTxO tx -> [tx] -> Either ValidationError (UTxO tx)
-makeUTxO Ledger{applyTransaction} = foldM applyTransaction
+canApply :: Ledger tx -> UTxO tx -> tx -> ValidationResult
+canApply ledger utxo tx =
+  either Invalid (const Valid) $ applyTransactions ledger utxo (pure tx)
 
 -- | Either valid or an error which we get from the ledger-specs tx validation.
 data ValidationResult
