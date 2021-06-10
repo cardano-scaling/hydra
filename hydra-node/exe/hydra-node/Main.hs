@@ -19,7 +19,7 @@ import Hydra.Logging
 import Hydra.Logging.Messages (HydraLog (..))
 import Hydra.Logging.Monitoring (withMonitoring)
 import Hydra.Network.Heartbeat (withHeartbeat)
-import Hydra.Network.Ouroboros (withOuroborosHydraNetwork)
+import Hydra.Network.Ouroboros (withOuroborosNetwork)
 import Hydra.Node (
   EventQueue (..),
   HydraNode (..),
@@ -39,7 +39,7 @@ main = do
       let headState = createHeadState [] (HeadParameters 3 mempty)
       hh <- createHydraHead headState Ledger.mockLedger
       oc <- createMockChainClient eq (contramap MockChain tracer)
-      withHeartbeat nodeId (withOuroborosHydraNetwork (show host, port) peers) (putEvent eq . NetworkEvent) $ \hn -> do
+      withHeartbeat nodeId (withOuroborosNetwork (show host, port) peers) (putEvent eq . NetworkEvent) $ \hn -> do
         responseChannel <- newBroadcastTChanIO
         let sendResponse = atomically . writeTChan responseChannel
         let node = HydraNode{eq, hn, hh, oc, sendResponse, env}

@@ -13,9 +13,9 @@ import Control.Monad.Class.MonadAsync (concurrently_)
 import Hydra.HeadLogic (HydraMessage (..), Snapshot (..))
 import Hydra.Ledger.Mock (MockTx (..))
 import Hydra.Logging (nullTracer)
-import Hydra.Network (HydraNetwork)
-import Hydra.Network.Ouroboros (broadcast, withOuroborosHydraNetwork)
-import Hydra.Network.ZeroMQ (withZeroMQHydraNetwork)
+import Hydra.Network (Network)
+import Hydra.Network.Ouroboros (broadcast, withOuroborosNetwork)
+import Hydra.Network.ZeroMQ (withZeroMQNetwork)
 import Test.HUnit.Lang (HUnitFailure)
 import Test.Hspec (Spec, describe, it, pendingWith, shouldReturn)
 import Test.QuickCheck (
@@ -40,8 +40,8 @@ spec = describe "Networking layer" $ do
     it "broadcasts messages to single connected peer" $ do
       received <- newEmptyMVar
       failAfter 10 $ do
-        withOuroborosHydraNetwork (lo, 45678) [(lo, 45679)] (const @_ @(HydraMessage MockTx) $ pure ()) $ \hn1 ->
-          withOuroborosHydraNetwork @(HydraMessage MockTx) (lo, 45679) [(lo, 45678)] (putMVar received) $ \_ -> do
+        withOuroborosNetwork (lo, 45678) [(lo, 45679)] (const @_ @(HydraMessage MockTx) $ pure ()) $ \hn1 ->
+          withOuroborosNetwork @(HydraMessage MockTx) (lo, 45679) [(lo, 45678)] (putMVar received) $ \_ -> do
             broadcast hn1 requestTx
             takeMVar received `shouldReturn` requestTx
 
@@ -50,9 +50,9 @@ spec = describe "Networking layer" $ do
       node2received <- newEmptyMVar
       node3received <- newEmptyMVar
       failAfter 10 $ do
-        withOuroborosHydraNetwork @(HydraMessage MockTx) (lo, 45678) [(lo, 45679), (lo, 45680)] (putMVar node1received) $ \hn1 ->
-          withOuroborosHydraNetwork (lo, 45679) [(lo, 45678), (lo, 45680)] (putMVar node2received) $ \hn2 -> do
-            withOuroborosHydraNetwork (lo, 45680) [(lo, 45678), (lo, 45679)] (putMVar node3received) $ \hn3 -> do
+        withOuroborosNetwork @(HydraMessage MockTx) (lo, 45678) [(lo, 45679), (lo, 45680)] (putMVar node1received) $ \hn1 ->
+          withOuroborosNetwork (lo, 45679) [(lo, 45678), (lo, 45680)] (putMVar node2received) $ \hn2 -> do
+            withOuroborosNetwork (lo, 45680) [(lo, 45678), (lo, 45679)] (putMVar node3received) $ \hn3 -> do
               concurrently_ (assertBroadcastFrom requestTx hn1 [node2received, node3received]) $
                 concurrently_
                   (assertBroadcastFrom requestTx hn2 [node1received, node3received])
@@ -67,9 +67,9 @@ spec = describe "Networking layer" $ do
       node2received <- newEmptyMVar
       node3received <- newEmptyMVar
       failAfter 10 $ do
-        withZeroMQHydraNetwork (lo, 55677) [(lo, 55678), (lo, 55679)] nullTracer (putMVar node1received) $ \hn1 ->
-          withZeroMQHydraNetwork (lo, 55678) [(lo, 55677), (lo, 55679)] nullTracer (putMVar node2received) $ \hn2 ->
-            withZeroMQHydraNetwork (lo, 55679) [(lo, 55677), (lo, 55678)] nullTracer (putMVar node3received) $ \hn3 -> do
+        withZeroMQNetwork (lo, 55677) [(lo, 55678), (lo, 55679)] nullTracer (putMVar node1received) $ \hn1 ->
+          withZeroMQNetwork (lo, 55678) [(lo, 55677), (lo, 55679)] nullTracer (putMVar node2received) $ \hn2 ->
+            withZeroMQNetwork (lo, 55679) [(lo, 55677), (lo, 55678)] nullTracer (putMVar node3received) $ \hn3 -> do
               concurrently_ (assertBroadcastFrom requestTx hn1 [node2received, node3received]) $
                 concurrently_
                   (assertBroadcastFrom requestTx hn2 [node1received, node3received])
@@ -78,7 +78,7 @@ spec = describe "Networking layer" $ do
   describe "Serialisation" $ do
     it "can roundtrip CBOR encoding/decoding of HydraMessage" $ property $ prop_canRoundtripCBOREncoding @(HydraMessage MockTx)
 
-assertBroadcastFrom :: Eq a => Show a => a -> HydraNetwork IO a -> [MVar a] -> IO ()
+assertBroadcastFrom :: Eq a => Show a => a -> Network IO a -> [MVar a] -> IO ()
 assertBroadcastFrom requestTx network receivers =
   tryBroadcast `catch` \(_ :: HUnitFailure) -> tryBroadcast
  where

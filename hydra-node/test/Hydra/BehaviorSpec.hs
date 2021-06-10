@@ -33,7 +33,7 @@ import Hydra.HeadLogic (
 import Hydra.Ledger (Tx)
 import Hydra.Ledger.Mock (MockTx (..), mockLedger)
 import Hydra.Logging (traceInTVar)
-import Hydra.Network (HydraNetwork (..))
+import Hydra.Network (Network (..))
 import Hydra.Node (
   HydraNode (..),
   HydraNodeLog (..),
@@ -255,7 +255,7 @@ simulatedChainAndNetwork = do
     pure $
       node
         { oc = OnChain{postTx = postTx nodes refHistory}
-        , hn = HydraNetwork{broadcast = broadcast nodes}
+        , hn = Network{broadcast = broadcast nodes}
         }
  where
   postTx nodes refHistory tx = do
@@ -304,6 +304,6 @@ withHydraNode nodeId snapshotStrategy connectToChain action = do
     eq <- createEventQueue
     let headState = createHeadState [] (HeadParameters testContestationPeriod mempty)
     hh <- createHydraHead headState mockLedger
-    let hn' = HydraNetwork{broadcast = const $ pure ()}
+    let hn' = Network{broadcast = const $ pure ()}
     let node = HydraNode{eq, hn = hn', hh, oc = OnChain (const $ pure ()), sendResponse = atomically . putTMVar response, env}
     connectToChain node

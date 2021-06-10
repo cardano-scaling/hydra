@@ -9,7 +9,7 @@
 -- actually configuring and running a real network layer.
 module Hydra.Network (
   -- * Types
-  HydraNetwork (..),
+  Network (..),
   NetworkComponent,
   PortNumber,
   Host,
@@ -39,19 +39,19 @@ import Network.TypedProtocol.Pipelined ()
 -- * Hydra network interface
 
 -- | Handle to interface with the hydra network and send messages "off chain".
-newtype HydraNetwork m msg = HydraNetwork
+newtype Network m msg = Network
   { -- | Send a `msg` to the whole hydra network.
     broadcast :: msg -> m ()
   }
 
-instance Contravariant (HydraNetwork m) where
-  contramap f (HydraNetwork bcast) = HydraNetwork $ \msg -> bcast (f msg)
+instance Contravariant (Network m) where
+  contramap f (Network bcast) = Network $ \msg -> bcast (f msg)
 
 -- | Handle to interface for inbound messages.
 type NetworkCallback msg m = msg -> m ()
 
 -- | A type tying both inbound and outbound messages sending in a single /Component/.
-type NetworkComponent m msg = NetworkCallback msg m -> (HydraNetwork m msg -> m ()) -> m ()
+type NetworkComponent m msg = NetworkCallback msg m -> (Network m msg -> m ()) -> m ()
 
 -- * Types used by concrete implementations
 

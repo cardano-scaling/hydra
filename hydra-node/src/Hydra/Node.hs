@@ -26,13 +26,13 @@ import Hydra.HeadLogic (
 import qualified Hydra.HeadLogic as Logic
 import Hydra.Ledger
 import Hydra.Logging (Tracer, traceWith)
-import Hydra.Network (HydraNetwork (..))
+import Hydra.Network (Network (..))
 
 -- ** Create and run a hydra node
 
 data HydraNode tx m = HydraNode
   { eq :: EventQueue m (Event tx)
-  , hn :: HydraNetwork m (HydraMessage tx)
+  , hn :: Network m (HydraMessage tx)
   , hh :: HydraHead tx m
   , oc :: OnChain m
   , sendResponse :: ClientResponse tx -> m ()

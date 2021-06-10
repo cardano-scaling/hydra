@@ -23,20 +23,20 @@ data NetworkLog
   | SubscribedTo [String]
   deriving (Show)
 
-withZeroMQHydraNetwork ::
+withZeroMQNetwork ::
   (Show inmsg, FromCBOR inmsg, ToCBOR outmsg) =>
   Host ->
   [Host] ->
   Tracer IO NetworkLog ->
   NetworkCallback inmsg IO ->
-  (HydraNetwork IO outmsg -> IO ()) ->
+  (Network IO outmsg -> IO ()) ->
   IO ()
-withZeroMQHydraNetwork localHost remoteHosts tracer incomingCallback continuation = do
+withZeroMQNetwork localHost remoteHosts tracer incomingCallback continuation = do
   mvar <- newEmptyTMVarIO
   race_ (runServer mvar) $
     race_ (runClients incomingCallback) $ do
       continuation $
-        HydraNetwork
+        Network
           { broadcast = atomically . putTMVar mvar
           }
  where

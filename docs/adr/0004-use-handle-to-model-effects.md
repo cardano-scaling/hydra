@@ -37,8 +37,8 @@ There might be other techniques in use because of libraries used etc.
 
 For example, the network component is defined as:
   ```hs
-  newtype HydraNetwork m = HydraNetwork
+  newtype Network m = Network
     { broadcast :: MonadThrow m => HydraMessage -> m ()
     }
   ```
-There might be multiple `createHydraNetwork :: m (HydraNetwork m)` functions
+There might be multiple `createNetwork :: m (Network m)` functions
