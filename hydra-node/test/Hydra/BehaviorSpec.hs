@@ -26,6 +26,7 @@ import Hydra.HeadLogic (
   Environment (..),
   Event (ClientEvent),
   HeadParameters (..),
+  Snapshot (..),
   SnapshotStrategy (..),
   createHeadState,
  )
@@ -82,7 +83,7 @@ spec = describe "Behavior of one ore more hydra-nodes" $ do
         withHydraNode 1 NoSnapshots chain $ \n1 -> do
           sendRequestAndWaitFor n1 (Init [1]) ReadyToCommit
           sendRequestAndWaitFor n1 (Commit 1) (HeadIsOpen [])
-          sendRequestAndWaitFor n1 Close (HeadIsClosed testContestationPeriod (0, []) [])
+          sendRequestAndWaitFor n1 Close (HeadIsClosed testContestationPeriod (Snapshot 0 [] []) [])
 
   it "does finalize head after contestation period" $
     shouldRunInSim $ do
@@ -93,7 +94,7 @@ spec = describe "Behavior of one ore more hydra-nodes" $ do
         sendRequest n1 (Commit 1)
         failAfter 1 $ waitForResponse n1 `shouldReturn` HeadIsOpen []
         sendRequest n1 Close
-        failAfter 1 $ waitForResponse n1 `shouldReturn` HeadIsClosed testContestationPeriod (0, []) []
+        failAfter 1 $ waitForResponse n1 `shouldReturn` HeadIsClosed testContestationPeriod (Snapshot 0 [] []) []
         threadDelay testContestationPeriod
         failAfter 1 $ waitForResponse n1 `shouldReturn` HeadIsFinalized []
 
@@ -125,7 +126,7 @@ spec = describe "Behavior of one ore more hydra-nodes" $ do
             failAfter 1 $ waitForResponse n1 `shouldReturn` HeadIsOpen []
             sendRequest n1 Close
 
-            failAfter 1 $ waitForResponse n2 `shouldReturn` HeadIsClosed testContestationPeriod (0, []) []
+            failAfter 1 $ waitForResponse n2 `shouldReturn` HeadIsClosed testContestationPeriod (Snapshot 0 [] []) []
 
     it "only opens the head after all nodes committed" $
       shouldRunInSim $ do
@@ -159,7 +160,7 @@ spec = describe "Behavior of one ore more hydra-nodes" $ do
             sendRequest n1 Close
             failAfter 1 $
               waitForResponse n1
-                `shouldReturn` HeadIsClosed testContestationPeriod (0, []) [ValidTx 42]
+                `shouldReturn` HeadIsClosed testContestationPeriod (Snapshot 0 [] []) [ValidTx 42]
 
     it "valid new transactions get snapshotted" $
       shouldRunInSim $ do
@@ -181,7 +182,7 @@ spec = describe "Behavior of one ore more hydra-nodes" $ do
             sendRequest n1 Close
             failAfter 1 $
               waitForResponse n1
-                `shouldReturn` HeadIsClosed testContestationPeriod (1, [ValidTx 42]) []
+                `shouldReturn` HeadIsClosed testContestationPeriod (Snapshot 1 [] [ValidTx 42]) []
 
   describe "Hydra Node Logging" $ do
     it "traces processing of events" $

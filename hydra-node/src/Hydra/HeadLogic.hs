@@ -56,7 +56,14 @@ data ClientRequest tx
 
 type SnapshotNumber = Natural
 
-type Snapshot tx = (SnapshotNumber, UTxO tx)
+data Snapshot tx = Snapshot
+  { number :: SnapshotNumber
+  , utxo :: UTxO tx
+  , confirmed :: [tx]
+  }
+
+deriving instance Tx tx => Eq (Snapshot tx)
+deriving instance Tx tx => Show (Snapshot tx)
 
 data ClientResponse tx
   = NodeConnectedToNetwork
@@ -198,7 +205,7 @@ update Environment{party, snapshotStrategy} ledger (HeadState p st) ev = case (s
     let ls = initLedgerState ledger
      in newState
           p
-          (OpenState $ SimpleHeadState ls mempty mempty 0)
+          (OpenState $ SimpleHeadState ls mempty mempty 0) -- TODO: actually construct U_0 from commited UTxO
           [ClientEffect $ HeadIsOpen $ getUTxO ledger ls]
   --
   (OpenState _, OnChainEvent CommitTx{}) ->
@@ -265,7 +272,7 @@ update Environment{party, snapshotStrategy} ledger (HeadState p st) ev = case (s
      in newState
           p
           (ClosedState utxo)
-          [ClientEffect $ HeadIsClosed (contestationPeriod p) (snapshotNumber, snapshotUtxo) confirmedTxs]
+          [ClientEffect $ HeadIsClosed (contestationPeriod p) (Snapshot snapshotNumber snapshotUtxo []) confirmedTxs]
   --
   (ClosedState{}, ShouldPostFanout) ->
     newState p st [OnChainEffect FanoutTx]
