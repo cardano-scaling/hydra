@@ -176,6 +176,8 @@ spec = describe "Behavior of one ore more hydra-nodes" $ do
             failAfter 1 $ waitForResponse n1 `shouldReturn` TxConfirmed (ValidTx 42)
             failAfter 1 $ waitForResponse n2 `shouldReturn` TxConfirmed (ValidTx 42)
 
+            failAfter 1 $ waitForResponse n1 `shouldReturn` SnapshotConfirmed 1
+
             sendRequest n1 Close
             failAfter 1 $
               waitForResponse n1

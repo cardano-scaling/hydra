@@ -67,6 +67,7 @@ data ClientResponse tx
   | CommandFailed
   | TxConfirmed tx
   | TxInvalid tx
+  | SnapshotConfirmed SnapshotNumber
 
 deriving instance Tx tx => Eq (ClientResponse tx)
 deriving instance Tx tx => Show (ClientResponse tx)
