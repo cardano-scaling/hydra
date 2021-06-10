@@ -1,6 +1,3 @@
-{-# LANGUAGE RecordWildCards #-}
-{-# LANGUAGE TypeApplications #-}
-
 module Hydra.Network.HeartbeatSpec where
 
 import Cardano.Prelude hiding (atomically, threadDelay)
