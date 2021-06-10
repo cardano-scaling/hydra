@@ -80,7 +80,7 @@ instance ToCBOR tx => ToCBOR (HydraMessage tx) where
     ReqSn -> toCBOR ("ReqSn" :: Text)
     AckSn -> toCBOR ("AckSn" :: Text)
     ConfSn -> toCBOR ("ConfSn" :: Text)
-    Ping pty -> toCBOR ("ConfSn" :: Text) <> toCBOR pty
+    Ping pty -> toCBOR ("Ping" :: Text) <> toCBOR pty
 
 instance FromCBOR tx => FromCBOR (HydraMessage tx) where
   fromCBOR =

@@ -91,6 +91,7 @@ instance Arbitrary (HydraMessage Integer) where
       , pure ReqSn
       , pure AckSn
       , pure ConfSn
+      , Ping <$> arbitraryNatural
       ]
    where
     arbitraryNatural = fromIntegral . getPositive <$> arbitrary @(Positive Integer)
