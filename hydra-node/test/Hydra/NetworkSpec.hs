@@ -100,8 +100,8 @@ instance Arbitrary (HydraMessage Integer) where
       [ ReqTx <$> arbitrary
       , AckTx <$> arbitraryNatural <*> arbitrary
       , pure ConfTx
-      , ReqSn <$> arbitrary
-      , AckSn <$> arbitrary
+      , ReqSn <$> arbitraryNatural <*> arbitrary
+      , AckSn <$> arbitraryNatural <*> arbitrary
       , pure ConfSn
       ]
    where

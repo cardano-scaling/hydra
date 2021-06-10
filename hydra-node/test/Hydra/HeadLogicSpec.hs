@@ -29,6 +29,7 @@ import Test.Hspec (
   it,
   shouldBe,
  )
+import Test.Hspec.Core.Spec (pending)
 
 spec :: Spec
 spec = describe "Hydra Head Logic" $ do
@@ -46,7 +47,7 @@ spec = describe "Hydra Head Logic" $ do
         ledger = mockLedger
         s0 =
           HeadState
-            { headStatus = OpenState $ SimpleHeadState (initLedgerState ledger) mempty mempty
+            { headStatus = OpenState $ SimpleHeadState (initLedgerState ledger) mempty mempty 0
             , headParameters =
                 HeadParameters
                   { contestationPeriod = 42
@@ -63,6 +64,9 @@ spec = describe "Hydra Head Logic" $ do
     s4 <- assertNewState $ update env ledger s3 ackFrom2
 
     confirmedTransactions s4 `shouldBe` [ValidTx 1]
+
+  it "does not confirm snapshots from non-leaders" pending
+  it "does not confirm old snapshots" pending
 
 confirmedTransactions :: HeadState tx -> [tx]
 confirmedTransactions HeadState{headStatus} = case headStatus of

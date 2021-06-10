@@ -76,8 +76,8 @@ data HydraMessage tx
   = ReqTx tx
   | AckTx Party tx
   | ConfTx
-  | ReqSn [tx]
-  | AckSn [tx]
+  | ReqSn SnapshotNumber [tx]
+  | AckSn SnapshotNumber [tx]
   | ConfSn
   deriving (Eq, Show)
 
@@ -113,6 +113,7 @@ data SimpleHeadState tx = SimpleHeadState
   , -- TODO: tx should be an abstract 'TxId'
     unconfirmedTxs :: Map tx (Set Party)
   , confirmedTxs :: [tx]
+  , snapshotNumber :: SnapshotNumber
   }
 
 deriving instance Tx tx => Eq (SimpleHeadState tx)
@@ -197,7 +198,7 @@ update Environment{party, snapshotStrategy} ledger (HeadState p st) ev = case (s
     let ls = initLedgerState ledger
      in newState
           p
-          (OpenState $ SimpleHeadState ls mempty mempty)
+          (OpenState $ SimpleHeadState ls mempty mempty 0)
           [ClientEffect $ HeadIsOpen $ getUTxO ledger ls]
   --
   (OpenState _, OnChainEvent CommitTx{}) ->
@@ -225,7 +226,7 @@ update Environment{party, snapshotStrategy} ledger (HeadState p st) ev = case (s
               | party == 1 =
                 case snapshotStrategy of
                   NoSnapshots -> []
-                  SnapshotAfter{} -> [NetworkEffect $ ReqSn (tx : confirmedTxs)]
+                  SnapshotAfter{} -> [NetworkEffect $ ReqSn 1 (tx : confirmedTxs)] -- XXX
               | otherwise = []
         if sigs == parties p
           then
@@ -246,17 +247,21 @@ update Environment{party, snapshotStrategy} ledger (HeadState p st) ev = case (s
               ( OpenState headState{unconfirmedTxs = Map.insert tx sigs unconfirmedTxs}
               )
               []
-  (OpenState s, NetworkEvent (MessageReceived (ReqSn txs))) ->
+  (OpenState s, NetworkEvent (MessageReceived (ReqSn sn txs))) ->
     -- TODO: check inclusion and applicability of txs, e.g. using
     -- Set.null (Set.fromList txs `Set.difference` Set.fromList confirmedTxs) then
-    newState p (OpenState s) [NetworkEffect $ AckSn txs]
-  (OpenState headState@SimpleHeadState{confirmedTxs}, NetworkEvent (MessageReceived (AckSn txs))) ->
-    -- TODO: wait for all AckSn before confirming!
-    newState p (OpenState $ headState{confirmedTxs = confirmedTxs \\ txs}) []
+    newState p (OpenState s) [NetworkEffect $ AckSn sn txs]
+  (OpenState headState@SimpleHeadState{confirmedTxs, snapshotNumber}, NetworkEvent (MessageReceived (AckSn sn txs)))
+    | sn == snapshotNumber + 1 ->
+      -- TODO: wait for all AckSn before confirming!
+      newState
+        p
+        (OpenState $ headState{confirmedTxs = confirmedTxs \\ txs, snapshotNumber = sn})
+        [ClientEffect $ SnapshotConfirmed sn]
   (OpenState SimpleHeadState{confirmedLedger, confirmedTxs}, OnChainEvent CloseTx) ->
     let utxo = getUTxO ledger confirmedLedger
-        snapshotUtxo = emptyUTxO ledger
-        snapshotNumber = 0
+        snapshotUtxo = emptyUTxO ledger -- XXX
+        snapshotNumber = 0 -- XXX
      in newState
           p
           (ClosedState utxo)
