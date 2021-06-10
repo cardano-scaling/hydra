@@ -239,6 +239,16 @@ update Environment{party, snapshotStrategy} ledger (HeadState p st) ev = case (s
               ( OpenState headState{unconfirmedTxs = Map.insert tx sigs unconfirmedTxs}
               )
               []
+  (OpenState s, NetworkEvent (MessageReceived (ReqSn _txs))) ->
+    newState
+      p
+      (OpenState s)
+      [ NetworkEffect AckSn
+      ]
+  -- TODO: Check for inclusion of requested txs
+  -- if Set.null (Set.fromList txs `Set.difference` Set.fromList confirmedTxs) then
+  -- else
+
   (OpenState SimpleHeadState{confirmedLedger, confirmedTxs}, OnChainEvent CloseTx) ->
     let utxo = getUTxO ledger confirmedLedger
         snapshotUtxo = emptyUTxO ledger
