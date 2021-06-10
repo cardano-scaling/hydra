@@ -7,6 +7,7 @@ module Hydra.HeadLogic where
 import Cardano.Prelude
 
 import Control.Monad.Class.MonadTime (DiffTime)
+import Data.List ((\\))
 import qualified Data.Map.Strict as Map
 import qualified Data.Set as Set
 import Hydra.Ledger (
@@ -55,11 +56,13 @@ data ClientRequest tx
 
 type SnapshotNumber = Natural
 
+type Snapshot tx = (SnapshotNumber, UTxO tx)
+
 data ClientResponse tx
   = NodeConnectedToNetwork
   | ReadyToCommit
   | HeadIsOpen (UTxO tx)
-  | HeadIsClosed DiffTime (UTxO tx) SnapshotNumber [tx]
+  | HeadIsClosed DiffTime (Snapshot tx) [tx]
   | HeadIsFinalized (UTxO tx)
   | CommandFailed
   | TxConfirmed tx
@@ -73,7 +76,7 @@ data HydraMessage tx
   | AckTx Party tx
   | ConfTx
   | ReqSn [tx]
-  | AckSn
+  | AckSn [tx]
   | ConfSn
   deriving (Eq, Show)
 
@@ -125,6 +128,7 @@ data HeadParameters = HeadParameters
 
 -- | Decides when, how often and who is in charge of creating snapshots.
 data SnapshotStrategy = NoSnapshots | SnapshotAfter Natural
+  deriving (Eq)
 
 -- | Assume: We know the party members and their verification keys. These need
 -- to be exchanged somehow, eventually.
@@ -216,10 +220,12 @@ update Environment{party, snapshotStrategy} ledger (HeadState p st) ev = case (s
               Set.insert
                 otherParty
                 (fromMaybe Set.empty $ Map.lookup tx unconfirmedTxs)
-            snapshotEffects =
-              case snapshotStrategy of
-                NoSnapshots -> []
-                SnapshotAfter{} -> [NetworkEffect $ ReqSn (tx : confirmedTxs)]
+            snapshotEffects
+              | party == 1 =
+                case snapshotStrategy of
+                  NoSnapshots -> []
+                  SnapshotAfter{} -> [NetworkEffect $ ReqSn (tx : confirmedTxs)]
+              | otherwise = []
         if sigs == parties p
           then
             newState
@@ -239,16 +245,13 @@ update Environment{party, snapshotStrategy} ledger (HeadState p st) ev = case (s
               ( OpenState headState{unconfirmedTxs = Map.insert tx sigs unconfirmedTxs}
               )
               []
-  (OpenState s, NetworkEvent (MessageReceived (ReqSn _txs))) ->
-    newState
-      p
-      (OpenState s)
-      [ NetworkEffect AckSn
-      ]
-  -- TODO: Check for inclusion of requested txs
-  -- if Set.null (Set.fromList txs `Set.difference` Set.fromList confirmedTxs) then
-  -- else
-
+  (OpenState s, NetworkEvent (MessageReceived (ReqSn txs))) ->
+    -- TODO: check inclusion and applicability of txs, e.g. using
+    -- Set.null (Set.fromList txs `Set.difference` Set.fromList confirmedTxs) then
+    newState p (OpenState s) [NetworkEffect $ AckSn txs]
+  (OpenState headState@SimpleHeadState{confirmedTxs}, NetworkEvent (MessageReceived (AckSn txs))) ->
+    -- TODO: wait for all AckSn before confirming!
+    newState p (OpenState $ headState{confirmedTxs = confirmedTxs \\ txs}) []
   (OpenState SimpleHeadState{confirmedLedger, confirmedTxs}, OnChainEvent CloseTx) ->
     let utxo = getUTxO ledger confirmedLedger
         snapshotUtxo = emptyUTxO ledger
@@ -256,7 +259,7 @@ update Environment{party, snapshotStrategy} ledger (HeadState p st) ev = case (s
      in newState
           p
           (ClosedState utxo)
-          [ClientEffect $ HeadIsClosed (contestationPeriod p) snapshotUtxo snapshotNumber confirmedTxs]
+          [ClientEffect $ HeadIsClosed (contestationPeriod p) (snapshotNumber, snapshotUtxo) confirmedTxs]
   --
   (ClosedState{}, ShouldPostFanout) ->
     newState p st [OnChainEffect FanoutTx]
