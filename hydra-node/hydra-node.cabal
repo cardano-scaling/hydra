@@ -119,7 +119,6 @@ library
     , optparse-applicative
     , ouroboros-network-framework
     , prometheus
-    , serialise
     , shelley-spec-ledger
     , shelley-spec-ledger-test
     , stm
@@ -188,7 +187,6 @@ test-suite tests
     , io-sim
     , io-sim-classes
     , QuickCheck
-    , serialise
     , typed-protocols-examples
     , HUnit
   build-tool-depends:

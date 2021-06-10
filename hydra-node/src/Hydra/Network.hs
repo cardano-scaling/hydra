@@ -25,7 +25,6 @@ import Cardano.Binary (
   ToCBOR (..),
  )
 import Cardano.Prelude hiding (STM)
-import Codec.Serialise
 import Control.Monad (fail)
 import Data.Functor.Contravariant (Contravariant (..))
 import Data.IP (IP)
@@ -70,7 +69,6 @@ readPort s =
       else Nothing
 
 deriving stock instance Generic (HydraMessage tx)
-deriving anyclass instance Serialise tx => Serialise (HydraMessage tx)
 
 instance ToCBOR tx => ToCBOR (HydraMessage tx) where
   toCBOR = \case

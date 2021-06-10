@@ -7,7 +7,6 @@ module Hydra.Ledger.Mock where
 
 import Cardano.Binary (FromCBOR (..), ToCBOR (..), decodeTag, encodeTag)
 import Cardano.Prelude
-import Codec.Serialise
 import Control.Monad (fail)
 import Data.List (nub)
 import Hydra.Ledger
@@ -15,7 +14,6 @@ import Hydra.Ledger
 -- | Simple mock transaction, which conflates value and identity
 data MockTx = ValidTx TxId | InvalidTx
   deriving stock (Eq, Ord, Generic, Read, Show)
-  deriving anyclass (Serialise)
 
 instance ToCBOR MockTx where
   toCBOR (ValidTx txid) = encodeTag 1 <> toCBOR txid

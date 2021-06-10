@@ -2,8 +2,13 @@
 
 module Hydra.Network.ZeroMQ where
 
+import Cardano.Binary (
+  FromCBOR (..),
+  ToCBOR (..),
+ )
 import Cardano.Prelude hiding (atomically, takeMVar)
-import Codec.Serialise (Serialise, deserialiseOrFail, serialise)
+import qualified Codec.CBOR.Read as CBOR
+import qualified Codec.CBOR.Write as CBOR
 import Control.Monad.Class.MonadSTM (atomically, newEmptyTMVarIO, putTMVar, takeTMVar)
 import qualified Data.ByteString.Lazy as LBS
 import Data.String (String)
@@ -19,7 +24,7 @@ data NetworkLog
   deriving (Show)
 
 withZeroMQHydraNetwork ::
-  (Show inmsg, Serialise inmsg, Serialise outmsg) =>
+  (Show inmsg, FromCBOR inmsg, ToCBOR outmsg) =>
   Host ->
   [Host] ->
   Tracer IO NetworkLog ->
@@ -44,7 +49,7 @@ withZeroMQHydraNetwork localHost remoteHosts tracer incomingCallback continuatio
     liftIO $ traceWith tracer (PublisherStarted localHost)
     forever $ do
       hydraMessage <- liftIO $ atomically $ takeTMVar queue
-      let encoded = serialise hydraMessage
+      let encoded = CBOR.toLazyByteString $ toCBOR hydraMessage
       send pub [] $ LBS.toStrict encoded
       liftIO $ traceWith tracer (MessageSent encoded)
 
@@ -55,8 +60,8 @@ withZeroMQHydraNetwork localHost remoteHosts tracer incomingCallback continuatio
     liftIO $ traceWith tracer (SubscribedTo peerAddresses)
     forever $ do
       msg <- receive sub
-      case deserialiseOrFail (LBS.fromStrict msg) of
+      case CBOR.deserialiseFromBytes fromCBOR (LBS.fromStrict msg) of
         Left err -> panic $ "failed to decode msg " <> show msg <> " : " <> show err
-        Right hydraMessage -> liftIO $ do
+        Right (_, hydraMessage) -> liftIO $ do
           traceWith tracer (LogMessageReceived $ show hydraMessage)
           callback hydraMessage

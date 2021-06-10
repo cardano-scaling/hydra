@@ -9,7 +9,6 @@ import Cardano.Prelude hiding (threadDelay)
 import Cardano.Binary (FromCBOR, ToCBOR, fromCBOR, toCBOR)
 import Codec.CBOR.Read (deserialiseFromBytes)
 import Codec.CBOR.Write (toLazyByteString)
-import Codec.Serialise (Serialise, deserialiseOrFail, serialise)
 import Control.Monad.Class.MonadAsync (concurrently_)
 import Hydra.HeadLogic (HydraMessage (..))
 import Hydra.Logging (nullTracer)
@@ -18,7 +17,14 @@ import Hydra.Network.Ouroboros (broadcast, withOuroborosHydraNetwork)
 import Hydra.Network.ZeroMQ (withZeroMQHydraNetwork)
 import Test.HUnit.Lang (HUnitFailure)
 import Test.Hspec (Spec, describe, it, pendingWith, shouldReturn)
-import Test.QuickCheck (Arbitrary (..), Positive (getPositive), arbitrary, oneof, property)
+import Test.QuickCheck (
+  Arbitrary (..),
+  Positive (getPositive),
+  arbitrary,
+  frequency,
+  oneof,
+  property,
+ )
 import Test.Util (failAfter)
 
 type MockTx = ()
@@ -70,8 +76,7 @@ spec = describe "Networking layer" $ do
                   (assertBroadcastFrom requestTx hn3 [node2received, node1received])
 
   describe "Serialisation" $ do
-    it "can roundtrip serialisation of HydraMessage" $ property $ prop_canRoundtripSerialise @(HydraMessage Integer)
-    it "can roundtrip CBOR encoding/decoding of HydraMessage" $ property $ prop_canRoundtripCBOREncoding @(HydraMessage Integer)
+    it "can roundtrip CBOR encoding/decoding of HydraMessage" $ property $ prop_canRoundtripCBOREncoding @(HydraMessage MockTx)
 
 assertBroadcastFrom :: Eq a => Show a => a -> HydraNetwork IO a -> [MVar a] -> IO ()
 assertBroadcastFrom requestTx network receivers =
@@ -95,10 +100,6 @@ instance Arbitrary (HydraMessage Integer) where
    where
     arbitraryNatural = fromIntegral . getPositive <$> arbitrary @(Positive Integer)
 
-prop_canRoundtripSerialise :: (Serialise a, Eq a) => a -> Bool
-prop_canRoundtripSerialise a =
-  let encoded = serialise a
-   in deserialiseOrFail encoded == Right a
 
 prop_canRoundtripCBOREncoding ::
   (ToCBOR a, FromCBOR a, Eq a) => a -> Bool
