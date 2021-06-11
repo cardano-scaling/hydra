@@ -25,6 +25,8 @@ The following diagram represents the internal structure of the Hydra Node and th
 
 ## Components
 
+> **TODO**: Move as haddock comments to each module/function
+
 Please refer to each component's internal documentation for details.
 
 * The [HydraNode](../hydra-node/src/Hydra/Node.hs) is a handle to all other components' handles
