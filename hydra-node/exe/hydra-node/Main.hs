@@ -40,17 +40,17 @@ main = do
       let headState = createHeadState [] (HeadParameters 3 mempty)
       hh <- createHydraHead headState Ledger.mockLedger
       oc <- createMockChainClient eq (contramap MockChain tracer)
-      withHeartbeat
-        nodeId
-        (withBroadcastToSelf $ withOuroborosNetwork (show host, port) peers)
-        (putEvent eq . NetworkEvent)
-        $ \hn -> do
+      withNetwork nodeId host port peers (putEvent eq . NetworkEvent) $
+        \hn -> do
           responseChannel <- newBroadcastTChanIO
           let sendResponse = atomically . writeTChan responseChannel
           let node = HydraNode{eq, hn, hh, oc, sendResponse, env}
           race_
             (runAPIServer apiHost apiPort responseChannel node (contramap APIServer tracer))
             (runHydraNode (contramap Node tracer) node)
+ where
+  withNetwork nodeId host port peers =
+    withHeartbeat nodeId $ withBroadcastToSelf $ withOuroborosNetwork (show host, port) peers
 
 identifyNode :: Option -> Option
 identifyNode opt@Option{verbosity = Verbose "HydraNode", nodeId} = opt{verbosity = Verbose $ "HydraNode-" <> show nodeId}
