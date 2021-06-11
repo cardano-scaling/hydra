@@ -270,11 +270,22 @@ update Environment{party, snapshotStrategy} ledger (HeadState p st) ev = case (s
     | otherwise ->
       newState p st []
   (OpenState SimpleHeadState{confirmedUTxO, confirmedTxs, confirmedSnapshot}, OnChainEvent CloseTx) ->
+    -- TODO: Should check whether we want / can contest the close snapshot by
+    --       comparing with our local state / utxo.
     newState
       p
       (ClosedState confirmedUTxO)
       [ClientEffect $ HeadIsClosed (contestationPeriod p) confirmedSnapshot confirmedTxs]
+  (_, OnChainEvent CloseTx) ->
+    -- TODO: In principle here, we want to:
+    --
+    --   a) Warn the user about a close tx outside of an open state
+    --   b) Move to close state, using information from the close tx
+    newState p st []
   --
+  (_, OnChainEvent ContestTx) ->
+    -- TODO: Handle contest tx
+    newState p st []
   (ClosedState utxo, ShouldPostFanout) ->
     newState p st [OnChainEffect (FanoutTx utxo)]
   (_, OnChainEvent (FanoutTx utxo)) ->
