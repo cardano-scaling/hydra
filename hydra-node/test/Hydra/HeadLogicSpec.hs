@@ -15,7 +15,7 @@ import Hydra.HeadLogic (
   Event (..),
   HeadParameters (..),
   HeadState (..),
-  HeadStatus (OpenState),
+  HeadStatus (..),
   HydraMessage (..),
   OnChainTx (InitTx),
   Outcome (..),
@@ -24,7 +24,7 @@ import Hydra.HeadLogic (
   SnapshotStrategy (..),
   update,
  )
-import Hydra.Ledger (Ledger (..), ParticipationToken (ParticipationToken), Party, Tx)
+import Hydra.Ledger (Ledger (..), Party, Tx)
 import Hydra.Ledger.Mock (MockTx (ValidTx), mockLedger)
 import Test.Hspec (
   Spec,
@@ -35,8 +35,9 @@ import Test.Hspec (
  )
 import Test.Hspec.Core.Spec (pending)
 import Test.Hspec.QuickCheck (prop)
-import Test.QuickCheck (Arbitrary (arbitrary), Gen, Property, Testable (property), forAll, listOf, listOf1, oneof, vectorOf)
-import Test.Util (arbitraryNatural)
+import Test.QuickCheck (Gen, Property, forAll, oneof)
+import Test.QuickCheck.Instances.Time ()
+import Test.QuickCheck.Property (collect)
 
 spec :: Spec
 spec = describe "Hydra Head Logic" $ do
@@ -74,30 +75,24 @@ spec = describe "Hydra Head Logic" $ do
   prop "can handle OnChainEvent in any state" $
     prop_handleOnChainEventInAnyState
 
-genOnChainEvent :: Gen (Event MockTx)
-genOnChainEvent =
-  OnChainEvent
-    <$> oneof
-      [ InitTx . Set.fromList <$> listOf1 genParticipationToken
-      ]
+genOnChainTx :: Gen (OnChainTx MockTx)
+genOnChainTx =
+  oneof
+    [pure $ InitTx mempty]
 
-genParticipationToken :: Gen ParticipationToken
-genParticipationToken =
-  ParticipationToken <$> arbitraryNatural <*> arbitraryNatural
+genHeadStatus :: Gen (HeadStatus MockTx)
+genHeadStatus = oneof [pure InitState, pure FinalState]
 
-genHeadState :: Gen (HeadState MockTx)
-genHeadState = panic "not implemented"
-
-genHeadParameters :: Gen HeadParameters
-genHeadParameters =
-  HeadParameters <$> arbitrary <*> (Set.fromList <$> listOf1 arbitraryNatural)
+defaultHeadParameters :: HeadParameters
+defaultHeadParameters =
+  HeadParameters 3600 (Set.singleton 1)
 
 prop_handleOnChainEventInAnyState :: Property
 prop_handleOnChainEventInAnyState =
-  forAll genHeadState $ \st ->
-    forAll genOnChainEvent $ \ev ->
-      property $
-        case update env ledger st ev of
+  forAll genHeadStatus $ \st ->
+    forAll genOnChainTx $ \tx ->
+      collect (tx, st) $
+        case update env ledger (HeadState defaultHeadParameters st) (OnChainEvent tx) of
           NewState _ _ -> True
           Wait -> True
           Error _ -> False

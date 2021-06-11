@@ -20,13 +20,11 @@ import Test.HUnit.Lang (HUnitFailure)
 import Test.Hspec (Spec, describe, it, shouldReturn)
 import Test.QuickCheck (
   Arbitrary (..),
-  Positive (getPositive),
   arbitrary,
   frequency,
   oneof,
   property,
  )
-import Test.QuickCheck.Gen (Gen)
 import Test.Util (arbitraryNatural, failAfter)
 
 spec :: Spec
