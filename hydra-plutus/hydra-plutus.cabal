@@ -19,7 +19,7 @@ flag development
      default: False
      manual: True
 
-flag defer-plugin-errors
+flag defer-plutus-plugin-errors
     description:
         Defer errors from the plugin, useful for things like Haddock that can't handle it.
     default: False
@@ -95,7 +95,7 @@ library
       plutus-tx-plugin,
       template-haskell
 
-  if flag(defer-plugin-errors)
+  if flag(defer-plutus-plugin-errors)
       ghc-options: -fplugin-opt PlutusTx.Plugin:defer-errors
 
 test-suite hydra-plutus-test
