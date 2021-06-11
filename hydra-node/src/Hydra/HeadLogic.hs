@@ -278,6 +278,7 @@ update Environment{party, snapshotStrategy} ledger (HeadState p st) ev = case (s
   (ClosedState utxo, ShouldPostFanout) ->
     newState p st [OnChainEffect (FanoutTx utxo)]
   (ClosedState{}, OnChainEvent (FanoutTx utxo)) ->
+    -- NOTE(SN): we might care if we are not in ClosedState
     newState p FinalState [ClientEffect $ HeadIsFinalized utxo]
   --
   (_, ClientEvent{}) ->

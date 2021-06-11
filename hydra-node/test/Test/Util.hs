@@ -1,3 +1,5 @@
+{-# LANGUAGE TypeApplications #-}
+
 module Test.Util where
 
 import Cardano.Prelude hiding (SrcLoc, callStack, throwIO)
@@ -8,6 +10,7 @@ import Data.List (isInfixOf)
 import Data.String (String)
 import GHC.Stack (SrcLoc, callStack)
 import Test.HUnit.Lang (FailureReason (ExpectedButGot, Reason), HUnitFailure (HUnitFailure))
+import Test.QuickCheck (Gen, Positive (getPositive), arbitrary)
 
 failure :: (HasCallStack, MonadThrow m) => String -> m a
 failure msg =
@@ -60,3 +63,6 @@ shouldContain :: (HasCallStack, MonadThrow m, Eq a, Show a) => [a] -> [a] -> m (
 shouldContain actual expected
   | expected `isInfixOf` actual = pure ()
   | otherwise = failure $ show actual <> " does not contain " <> show expected
+
+arbitraryNatural :: Gen Natural
+arbitraryNatural = fromIntegral . getPositive <$> arbitrary @(Positive Integer)

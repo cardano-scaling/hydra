@@ -27,7 +27,7 @@ import Test.QuickCheck (
   property,
  )
 import Test.QuickCheck.Gen (Gen)
-import Test.Util (failAfter)
+import Test.Util (arbitraryNatural, failAfter)
 
 spec :: Spec
 spec = describe "Networking layer" $ do
@@ -94,9 +94,6 @@ instance Arbitrary (HydraMessage MockTx) where
       , pure ConfSn
       , Ping <$> arbitraryNatural
       ]
-
-arbitraryNatural :: Gen Natural
-arbitraryNatural = fromIntegral . getPositive <$> arbitrary @(Positive Integer)
 
 instance Arbitrary (Snapshot MockTx) where
   arbitrary = Snapshot <$> arbitraryNatural <*> arbitrary <*> arbitrary

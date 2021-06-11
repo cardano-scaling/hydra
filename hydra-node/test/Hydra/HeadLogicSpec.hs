@@ -17,13 +17,14 @@ import Hydra.HeadLogic (
   HeadState (..),
   HeadStatus (OpenState),
   HydraMessage (..),
+  OnChainTx (InitTx),
   Outcome (..),
   SimpleHeadState (..),
   Snapshot (..),
   SnapshotStrategy (..),
   update,
  )
-import Hydra.Ledger (Ledger (..), Party, Tx)
+import Hydra.Ledger (Ledger (..), ParticipationToken (ParticipationToken), Party, Tx)
 import Hydra.Ledger.Mock (MockTx (ValidTx), mockLedger)
 import Test.Hspec (
   Spec,
@@ -33,6 +34,9 @@ import Test.Hspec (
   shouldBe,
  )
 import Test.Hspec.Core.Spec (pending)
+import Test.Hspec.QuickCheck (prop)
+import Test.QuickCheck (Arbitrary (arbitrary), Gen, Property, Testable (property), forAll, listOf, listOf1, oneof, vectorOf)
+import Test.Util (arbitraryNatural)
 
 spec :: Spec
 spec = describe "Hydra Head Logic" $ do
@@ -66,6 +70,40 @@ spec = describe "Hydra Head Logic" $ do
 
   it "does not confirm snapshots from non-leaders" pending
   it "does not confirm old snapshots" pending
+
+  prop "can handle OnChainEvent in any state" $
+    prop_handleOnChainEventInAnyState
+
+genOnChainEvent :: Gen (Event MockTx)
+genOnChainEvent =
+  OnChainEvent
+    <$> oneof
+      [ InitTx . Set.fromList <$> listOf1 genParticipationToken
+      ]
+
+genParticipationToken :: Gen ParticipationToken
+genParticipationToken =
+  ParticipationToken <$> arbitraryNatural <*> arbitraryNatural
+
+genHeadState :: Gen (HeadState MockTx)
+genHeadState = panic "not implemented"
+
+genHeadParameters :: Gen HeadParameters
+genHeadParameters =
+  HeadParameters <$> arbitrary <*> (Set.fromList <$> listOf1 arbitraryNatural)
+
+prop_handleOnChainEventInAnyState :: Property
+prop_handleOnChainEventInAnyState =
+  forAll genHeadState $ \st ->
+    forAll genOnChainEvent $ \ev ->
+      property $
+        case update env ledger st ev of
+          NewState _ _ -> True
+          Wait -> True
+          Error _ -> False
+ where
+  env = Environment 1 NoSnapshots
+  ledger = mockLedger
 
 hasEffect :: Tx tx => Outcome tx -> Effect tx -> IO ()
 hasEffect (NewState _ effects) effect
