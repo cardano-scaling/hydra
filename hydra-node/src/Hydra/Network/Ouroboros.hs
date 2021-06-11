@@ -91,9 +91,7 @@ withOuroborosNetwork localHost remoteHosts networkCallback between = do
       race_ (listen iomgr hydraServer) $ do
         between $
           Network
-            { broadcast = \e -> do
-                atomically $ writeTChan bchan e
-                networkCallback e
+            { broadcast = atomically . writeTChan bchan
             }
  where
   resolveSockAddr (hostname, port) = do

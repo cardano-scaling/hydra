@@ -17,7 +17,7 @@ import Hydra.Network (Network)
 import Hydra.Network.Ouroboros (broadcast, withOuroborosNetwork)
 import Hydra.Network.ZeroMQ (withZeroMQNetwork)
 import Test.HUnit.Lang (HUnitFailure)
-import Test.Hspec (Spec, describe, it, pendingWith, shouldReturn)
+import Test.Hspec (Spec, describe, it, shouldReturn)
 import Test.QuickCheck (
   Arbitrary (..),
   Positive (getPositive),
@@ -57,9 +57,6 @@ spec = describe "Networking layer" $ do
                 concurrently_
                   (assertBroadcastFrom requestTx hn2 [node1received, node3received])
                   (assertBroadcastFrom requestTx hn3 [node2received, node1received])
-
-    it "broadcasts messages to itself" $ do
-      pendingWith "not tested yet"
 
   describe "0MQ Network" $
     it "broadcasts messages between 3 connected peers" $ do
