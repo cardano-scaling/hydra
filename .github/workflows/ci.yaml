@@ -6,9 +6,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2.3.1
+      with:
+        repository: input-output-hk/hydra-poc
+        token: ${{ secrets.MY_TOKEN || github.token }}
     - uses: cachix/install-nix-action@v13
       with:
         skip_adding_nixpkgs_channel: true
+        install_options: '--no-daemon'
         extra_nix_config: |
           trusted-public-keys = iohk.cachix.org-1:DpRUyj7h7V830dp/i6Nti+NEO2/nhblbov/8MW7Rqoo= hydra.iohk.io:f/Ea+s+dFdN+3Y/G+FDgSq+a5NEWhJGzdjvKNGv0/EQ= cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY=
           substituters = https://cache.nixos.org https://hydra.iohk.io https://iohk.cachix.org
@@ -23,7 +27,7 @@ jobs:
           ~/.cabal/packages
           ~/.cabal/store
           dist-newstyle
-        key: ${{ runner.os }}-${{ hashFiles('cabal.project.freeze') }}
+        key: ${{ runner.os }}-${{ hashFiles('cabal.project') }}
         restore-keys: |
             ${{ runner.os }}-key
     - run: nix-shell --run 'cabal update && cabal test all'
