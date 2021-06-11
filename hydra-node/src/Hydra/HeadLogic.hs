@@ -201,6 +201,11 @@ update Environment{party, snapshotStrategy} ledger (HeadState p st) ev = case (s
      in if canCollectCom party pt remainingTokens'
           then newState p newHeadState [OnChainEffect CollectComTx]
           else newState p newHeadState []
+  (_, OnChainEvent CommitTx{}) ->
+    -- TODO: This should warn the user / client that something went _terribly_ wrong
+    --       We shouldn't see any commit outside of the collecting state, if we do,
+    --       there's an issue our logic or onChain layer.
+    newState p st []
   (_, OnChainEvent CollectComTx) ->
     let u0 = initUTxO ledger -- TODO(SN): should construct u0 from the collected utxo
      in newState
@@ -208,8 +213,6 @@ update Environment{party, snapshotStrategy} ledger (HeadState p st) ev = case (s
           (OpenState $ SimpleHeadState u0 mempty mempty (Snapshot 0 u0 mempty))
           [ClientEffect $ HeadIsOpen u0]
   --
-  (OpenState _, OnChainEvent CommitTx{}) ->
-    Error (InvalidEvent ev (HeadState p st)) -- HACK(SN): is a general case later
   (OpenState SimpleHeadState{confirmedSnapshot, confirmedTxs}, ClientEvent Close) ->
     newState
       p

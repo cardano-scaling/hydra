@@ -24,7 +24,7 @@ import Hydra.HeadLogic (
   SnapshotStrategy (..),
   update,
  )
-import Hydra.Ledger (Ledger (..), Party, Tx)
+import Hydra.Ledger (Ledger (..), ParticipationToken (..), Party, Tx)
 import Hydra.Ledger.Mock (MockTx (ValidTx), mockLedger)
 import Test.Hspec (
   Spec,
@@ -79,8 +79,8 @@ genOnChainTx :: Gen (OnChainTx MockTx)
 genOnChainTx =
   elements
     [ InitTx mempty
-    , -- TODO: maybe handle it differently? , CommitTx (ParticipationToken 1 1) 10
-      CollectComTx
+    , CommitTx (ParticipationToken 1 1) 10
+    , CollectComTx
     , CloseTx (Snapshot 0 mempty mempty) mempty
     , ContestTx
     , FanoutTx [ValidTx 1]
