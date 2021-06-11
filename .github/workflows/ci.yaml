@@ -30,4 +30,13 @@ jobs:
         key: ${{ runner.os }}-${{ hashFiles('cabal.project') }}
         restore-keys: |
             ${{ runner.os }}-key
-    - run: nix-shell --run 'cabal update && cabal test all'
+
+    - run: nix-shell --run 'build-ci.sh'
+
+    - uses: peaceiris/actions-gh-pages@v3
+      name: Publish Documentation
+      if: github.event_name == 'push'
+      with:
+        github_token: ${{ secrets.GITHUB_TOKEN || github.token }}
+        publish_dir: docs
+        enable_jekyll: true
