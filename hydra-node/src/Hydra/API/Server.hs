@@ -28,7 +28,6 @@ data APIServerLog
 
 runAPIServer ::
   Tx tx =>
-  Read tx =>
   IP ->
   PortNumber ->
   TChan (ClientResponse tx) ->

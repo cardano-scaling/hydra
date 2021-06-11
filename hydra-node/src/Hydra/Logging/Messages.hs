@@ -1,5 +1,3 @@
-{-# LANGUAGE UndecidableInstances #-}
-
 -- | Aggregates all tracing messages in a single type.
 --
 -- This module provides a central point where top-level traced messages are
@@ -15,7 +13,7 @@ import Hydra.Network.ZeroMQ (NetworkLog)
 import Hydra.Node (HydraNodeLog)
 
 data HydraLog tx
-  = MockChain MockChainLog
+  = MockChain (MockChainLog tx)
   | APIServer APIServerLog
   | Network NetworkLog
   | Node (HydraNodeLog tx)

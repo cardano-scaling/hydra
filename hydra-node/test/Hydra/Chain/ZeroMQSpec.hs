@@ -1,3 +1,5 @@
+{-# LANGUAGE TypeApplications #-}
+
 module Hydra.Chain.ZeroMQSpec where
 
 import Cardano.Prelude
@@ -6,6 +8,7 @@ import Data.String (String)
 import Hydra.Chain.ZeroMQ (catchUpTransactions, mockChainClient, runChainSync, startChain)
 import Hydra.HeadLogic (OnChainTx (InitTx))
 import Hydra.Ledger (ParticipationToken (..))
+import Hydra.Ledger.Mock (MockTx)
 import Hydra.Logging (nullTracer)
 import System.Timeout (timeout)
 import Test.Hspec.Core.Spec (Spec, describe, it)
@@ -24,22 +27,22 @@ spec =
         void $
           concurrently
             ( -- we lack proper synchronisation so better give chain sync time to join the party
-              threadDelay 500_000 >> mockChainClient postAddress nullTracer tx
+              threadDelay 500_000 >> mockChainClient @MockTx postAddress nullTracer tx
             )
-            (within3second $ runChainSync syncAddress (putMVar mvar) nullTracer)
+            (within3second $ runChainSync @MockTx syncAddress (putMVar mvar) nullTracer)
 
         within3second (takeMVar mvar) `shouldReturn` Just tx
 
     it "catches up transacions with mock chain" $ do
       chan <- newChan
       withMockZMQChain 54324 54325 54326 $ \_syncAddress catchUpAddress postAddress -> do
-        forM_ [1 .. numberOfTxs] $ const $ mockChainClient postAddress nullTracer tx
-        catchUpTransactions catchUpAddress (writeChan chan) nullTracer
+        forM_ [1 .. numberOfTxs] $ const $ mockChainClient @MockTx postAddress nullTracer tx
+        catchUpTransactions @MockTx catchUpAddress (writeChan chan) nullTracer
         within3second (forM [1 .. numberOfTxs] (const $ readChan chan)) `shouldReturn` Just [tx, tx, tx]
 
 withMockZMQChain :: Int -> Int -> Int -> (String -> String -> String -> IO ()) -> IO ()
 withMockZMQChain syncPort catchUpPort postPort action =
-  withAsync (startChain syncAddress catchUpAddress postAddress nullTracer) $ \_ -> do
+  withAsync (startChain @MockTx syncAddress catchUpAddress postAddress nullTracer) $ \_ -> do
     action syncAddress catchUpAddress postAddress
  where
   syncAddress = "tcp://127.0.0.1:" <> show syncPort

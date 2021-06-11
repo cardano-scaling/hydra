@@ -48,6 +48,7 @@ import Shelley.Spec.Ledger.Tx (addrWits)
 import Shelley.Spec.Ledger.UTxO (UTxO (..), makeWitnessesVKey, txid)
 import Test.Cardano.Ledger.EraBuffet (MaryEra, TestCrypto, Value)
 import Test.Shelley.Spec.Ledger.Utils (mkAddr, mkKeyPair)
+import Text.Read (Read (..))
 
 type MaryTest = MaryEra TestCrypto
 
@@ -55,6 +56,12 @@ type MaryTestTx = Ledger.Tx MaryTest
 
 instance Tx MaryTestTx where
   type UTxO MaryTestTx = Ledger.UTxO MaryTest
+
+instance Read MaryTestTx where
+  readPrec = panic "Read: MaryTestTx"
+
+instance Read (Ledger.UTxO era) where
+  readPrec = panic "Read: Ledger.UTxO"
 
 cardanoLedger :: Ledger.LedgersEnv MaryTest -> Ledger (Ledger.Tx MaryTest)
 cardanoLedger env =

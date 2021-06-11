@@ -246,7 +246,7 @@ type ConnectToChain tx m = (HydraNode tx m -> m (HydraNode tx m))
 -- NOTE: This implementation currently ensures that no two equal 'OnChainTx' can
 -- be posted on chain assuming the construction of the real transaction is
 -- referentially transparent.
-simulatedChainAndNetwork :: MonadSTM m => m (ConnectToChain tx m)
+simulatedChainAndNetwork :: (Tx tx, MonadSTM m) => m (ConnectToChain tx m)
 simulatedChainAndNetwork = do
   refHistory <- newTVarIO []
   nodes <- newTVarIO []

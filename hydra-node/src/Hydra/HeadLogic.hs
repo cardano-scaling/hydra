@@ -27,14 +27,14 @@ import Hydra.Ledger (
 data Event tx
   = ClientEvent (ClientRequest tx)
   | NetworkEvent (HydraMessage tx)
-  | OnChainEvent OnChainTx
+  | OnChainEvent (OnChainTx tx)
   | ShouldPostFanout
   deriving (Eq, Show)
 
 data Effect tx
   = ClientEffect (ClientResponse tx)
   | NetworkEffect (HydraMessage tx)
-  | OnChainEffect OnChainTx
+  | OnChainEffect (OnChainTx tx)
   | Delay DiffTime (Event tx)
 
 deriving instance Tx tx => Eq (Effect tx)
@@ -84,14 +84,17 @@ data HydraMessage tx
   | Ping Party
   deriving (Eq, Show)
 
-data OnChainTx
+data OnChainTx tx
   = InitTx (Set ParticipationToken)
   | CommitTx ParticipationToken Natural
   | CollectComTx
   | CloseTx
   | ContestTx
-  | FanoutTx
-  deriving (Eq, Show, Read)
+  | FanoutTx (UTxO tx)
+
+deriving instance Tx tx => Eq (OnChainTx tx)
+deriving instance Tx tx => Show (OnChainTx tx)
+deriving instance Tx tx => Read (OnChainTx tx)
 
 data HeadState tx = HeadState
   { headParameters :: HeadParameters
@@ -272,9 +275,9 @@ update Environment{party, snapshotStrategy} ledger (HeadState p st) ev = case (s
       (ClosedState confirmedUTxO)
       [ClientEffect $ HeadIsClosed (contestationPeriod p) confirmedSnapshot confirmedTxs]
   --
-  (ClosedState{}, ShouldPostFanout) ->
-    newState p st [OnChainEffect FanoutTx]
-  (ClosedState utxo, OnChainEvent FanoutTx) ->
+  (ClosedState utxo, ShouldPostFanout) ->
+    newState p st [OnChainEffect (FanoutTx utxo)]
+  (ClosedState{}, OnChainEvent (FanoutTx utxo)) ->
     newState p FinalState [ClientEffect $ HeadIsFinalized utxo]
   --
   (_, ClientEvent{}) ->

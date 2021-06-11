@@ -27,6 +27,8 @@ class
   , Eq (UTxO tx)
   , Show tx
   , Show (UTxO tx)
+  , Read tx
+  , Read (UTxO tx)
   ) =>
   Tx tx
   where

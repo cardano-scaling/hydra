@@ -33,7 +33,7 @@ data HydraNode tx m = HydraNode
   { eq :: EventQueue m (Event tx)
   , hn :: Network m (HydraMessage tx)
   , hh :: HydraHead tx m
-  , oc :: OnChain m
+  , oc :: OnChain tx m
   , sendResponse :: ClientResponse tx -> m ()
   , env :: Environment
   }
@@ -49,7 +49,7 @@ data HydraNodeLog tx
 handleClientRequest :: HydraNode tx m -> ClientRequest tx -> m ()
 handleClientRequest HydraNode{eq} = putEvent eq . ClientEvent
 
-handleChainTx :: HydraNode tx m -> OnChainTx -> m ()
+handleChainTx :: HydraNode tx m -> OnChainTx tx -> m ()
 handleChainTx HydraNode{eq} = putEvent eq . OnChainEvent
 
 handleMessage :: HydraNode tx m -> Logic.HydraMessage tx -> m ()
@@ -151,9 +151,9 @@ data ChainError = ChainError
   deriving (Exception, Show)
 
 -- | Handle to interface with the main chain network
-newtype OnChain m = OnChain
+newtype OnChain tx m = OnChain
   { -- | Construct and send a transaction to the main chain corresponding to the
     -- given 'OnChainTx' event.
     -- Does at least throw 'ChainError'.
-    postTx :: MonadThrow m => OnChainTx -> m ()
+    postTx :: MonadThrow m => OnChainTx tx -> m ()
   }
