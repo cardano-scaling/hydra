@@ -59,6 +59,7 @@ data Snapshot tx = Snapshot
 
 deriving instance Tx tx => Eq (Snapshot tx)
 deriving instance Tx tx => Show (Snapshot tx)
+deriving instance Tx tx => Read (Snapshot tx)
 
 data ClientResponse tx
   = PeerConnected Party
@@ -88,7 +89,7 @@ data OnChainTx tx
   = InitTx (Set ParticipationToken)
   | CommitTx ParticipationToken Natural
   | CollectComTx
-  | CloseTx
+  | CloseTx (Snapshot tx) [tx]
   | ContestTx
   | FanoutTx (UTxO tx)
 
@@ -209,8 +210,13 @@ update Environment{party, snapshotStrategy} ledger (HeadState p st) ev = case (s
   --
   (OpenState _, OnChainEvent CommitTx{}) ->
     Error (InvalidEvent ev (HeadState p st)) -- HACK(SN): is a general case later
-  (OpenState{}, ClientEvent Close) ->
-    newState p st [OnChainEffect CloseTx, Delay (contestationPeriod p) ShouldPostFanout]
+  (OpenState SimpleHeadState{confirmedSnapshot, confirmedTxs}, ClientEvent Close) ->
+    newState
+      p
+      st
+      [ OnChainEffect (CloseTx confirmedSnapshot confirmedTxs)
+      , Delay (contestationPeriod p) ShouldPostFanout
+      ]
   --
   (OpenState SimpleHeadState{confirmedUTxO}, ClientEvent (NewTx tx)) ->
     case canApply ledger confirmedUTxO tx of
@@ -269,19 +275,22 @@ update Environment{party, snapshotStrategy} ledger (HeadState p st) ev = case (s
         [ClientEffect $ SnapshotConfirmed $ number sn]
     | otherwise ->
       newState p st []
-  (OpenState SimpleHeadState{confirmedUTxO, confirmedTxs, confirmedSnapshot}, OnChainEvent CloseTx) ->
-    -- TODO: Should check whether we want / can contest the close snapshot by
+  (_, OnChainEvent (CloseTx snapshot txs)) ->
+    -- TODO(1): Should check whether we want / can contest the close snapshot by
     --       comparing with our local state / utxo.
-    newState
-      p
-      (ClosedState confirmedUTxO)
-      [ClientEffect $ HeadIsClosed (contestationPeriod p) confirmedSnapshot confirmedTxs]
-  (_, OnChainEvent CloseTx) ->
-    -- TODO: In principle here, we want to:
+    --
+    -- TODO(2): In principle here, we want to:
     --
     --   a) Warn the user about a close tx outside of an open state
     --   b) Move to close state, using information from the close tx
-    newState p st []
+    case applyTransactions ledger (utxo snapshot) txs of
+      Left e ->
+        panic $ "Stored not applicable snapshot (" <> show (number snapshot) <> ") " <> show txs <> ": " <> show e
+      Right confirmedUTxO ->
+        newState
+          p
+          (ClosedState confirmedUTxO)
+          [ClientEffect $ HeadIsClosed (contestationPeriod p) snapshot txs]
   --
   (_, OnChainEvent ContestTx) ->
     -- TODO: Handle contest tx

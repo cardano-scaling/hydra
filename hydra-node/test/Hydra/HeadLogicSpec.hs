@@ -81,7 +81,7 @@ genOnChainTx =
     [ InitTx mempty
     , -- TODO: maybe handle it differently? , CommitTx (ParticipationToken 1 1) 10
       CollectComTx
-    , CloseTx
+    , CloseTx (Snapshot 0 mempty mempty) mempty
     , ContestTx
     , FanoutTx [ValidTx 1]
     ]
