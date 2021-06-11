@@ -17,7 +17,7 @@ import Hydra.HeadLogic (
   HeadState (..),
   HeadStatus (..),
   HydraMessage (..),
-  OnChainTx (InitTx),
+  OnChainTx (..),
   Outcome (..),
   SimpleHeadState (..),
   Snapshot (..),
@@ -35,7 +35,7 @@ import Test.Hspec (
  )
 import Test.Hspec.Core.Spec (pending)
 import Test.Hspec.QuickCheck (prop)
-import Test.QuickCheck (Gen, Property, forAll, oneof)
+import Test.QuickCheck (Gen, Property, elements, forAll)
 import Test.QuickCheck.Instances.Time ()
 import Test.QuickCheck.Property (collect)
 
@@ -77,11 +77,23 @@ spec = describe "Hydra Head Logic" $ do
 
 genOnChainTx :: Gen (OnChainTx MockTx)
 genOnChainTx =
-  oneof
-    [pure $ InitTx mempty]
+  elements
+    [ InitTx mempty
+    , -- TODO: maybe handle it differently? , CommitTx (ParticipationToken 1 1) 10
+      CollectComTx
+    , CloseTx
+    , ContestTx
+    , FanoutTx [ValidTx 1]
+    ]
 
 genHeadStatus :: Gen (HeadStatus MockTx)
-genHeadStatus = oneof [pure InitState, pure FinalState]
+genHeadStatus =
+  elements
+    [ InitState
+    , FinalState
+    , CollectingState mempty mempty
+    , OpenState (SimpleHeadState [] mempty mempty (Snapshot 0 mempty mempty))
+    ]
 
 defaultHeadParameters :: HeadParameters
 defaultHeadParameters =

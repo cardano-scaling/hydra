@@ -200,7 +200,7 @@ update Environment{party, snapshotStrategy} ledger (HeadState p st) ev = case (s
      in if canCollectCom party pt remainingTokens'
           then newState p newHeadState [OnChainEffect CollectComTx]
           else newState p newHeadState []
-  (CollectingState{}, OnChainEvent CollectComTx) ->
+  (_, OnChainEvent CollectComTx) ->
     let u0 = initUTxO ledger -- TODO(SN): should construct u0 from the collected utxo
      in newState
           p
@@ -277,7 +277,7 @@ update Environment{party, snapshotStrategy} ledger (HeadState p st) ev = case (s
   --
   (ClosedState utxo, ShouldPostFanout) ->
     newState p st [OnChainEffect (FanoutTx utxo)]
-  (ClosedState{}, OnChainEvent (FanoutTx utxo)) ->
+  (_, OnChainEvent (FanoutTx utxo)) ->
     -- NOTE(SN): we might care if we are not in ClosedState
     newState p FinalState [ClientEffect $ HeadIsFinalized utxo]
   --
