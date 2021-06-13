@@ -146,7 +146,9 @@ source-repository-package
     plutus-contract
     plutus-ledger
     plutus-ledger-api
+    plutus-pab
     plutus-tx-plugin
+    plutus-use-cases
     prettyprinter-configurable
     quickcheck-dynamic
 

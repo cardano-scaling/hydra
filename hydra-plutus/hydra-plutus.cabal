@@ -130,3 +130,24 @@ test-suite hydra-plutus-test
       tasty-hunit,
       tasty-quickcheck,
       text
+
+executable hydra-pab
+  import: project-config
+  hs-source-dirs: exe/hydra-pab
+  main-is: Main.hs
+  build-depends:
+      aeson
+    , base
+    , cardano-prelude
+    , freer-extras
+    , freer-simple
+    , hydra-plutus
+    , optparse-applicative
+    , plutus-contract
+    , plutus-ledger
+    , plutus-pab
+    , prettyprinter
+    , text
+  ghc-options:
+    -threaded
+    -rtsopts
