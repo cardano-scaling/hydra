@@ -10,6 +10,7 @@ import Control.Monad.Class.MonadAsync (MonadAsync, async)
 import Control.Monad.Class.MonadSTM (MonadSTM (STM), atomically, newTQueue, newTVar, readTQueue, stateTVar, writeTQueue)
 import Control.Monad.Class.MonadThrow (MonadThrow, throwIO)
 import Control.Monad.Class.MonadTimer (MonadTimer, threadDelay)
+import Hydra.Chain (Chain (..))
 import Hydra.HeadLogic (
   ClientRequest (..),
   ClientResponse (..),
@@ -33,7 +34,7 @@ data HydraNode tx m = HydraNode
   { eq :: EventQueue m (Event tx)
   , hn :: Network m (HydraMessage tx)
   , hh :: HydraHead tx m
-  , oc :: OnChain tx m
+  , oc :: Chain tx m
   , sendResponse :: ClientResponse tx -> m ()
   , env :: Environment
   }
@@ -148,15 +149,3 @@ createHydraHead :: MonadSTM m => HeadState tx -> Ledger tx -> m (HydraHead tx m)
 createHydraHead initialState ledger = do
   tv <- atomically $ newTVar initialState
   pure HydraHead{modifyHeadState = stateTVar tv, ledger}
--- ** OnChain handle to abstract over chain access
-
-data ChainError = ChainError
-  deriving (Exception, Show)
-
--- | Handle to interface with the main chain network
-newtype OnChain tx m = OnChain
-  { -- | Construct and send a transaction to the main chain corresponding to the
-    -- given 'OnChainTx' event.
-    -- Does at least throw 'ChainError'.
-    postTx :: MonadThrow m => OnChainTx tx -> m ()
-  }

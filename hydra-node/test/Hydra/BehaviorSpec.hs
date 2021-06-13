@@ -18,7 +18,11 @@ import Control.Monad.Class.MonadSTM (
  )
 import Control.Monad.Class.MonadThrow (MonadThrow)
 import Control.Monad.Class.MonadTimer (DiffTime, MonadTimer, threadDelay, timeout)
+<<<<<<< HEAD
 import Control.Monad.IOSim (IOSim, runSimTrace, selectTraceEventsDynamic, traceM)
+=======
+import Hydra.Chain (Chain (..))
+>>>>>>> 1ee1683 (Introduce Hydra.Chain module and rename "component" to simply 'Chain')
 import Hydra.HeadLogic (
   ClientRequest (..),
   ClientResponse (..),
@@ -38,7 +42,6 @@ import Hydra.Network (Network (..))
 import Hydra.Node (
   HydraNode (..),
   HydraNodeLog (..),
-  OnChain (..),
   createEventQueue,
   createHydraHead,
   handleChainTx,
@@ -279,7 +282,7 @@ simulatedChainAndNetwork = do
     atomically $ modifyTVar nodes (node :)
     pure $
       node
-        { oc = OnChain{postTx = postTx nodes refHistory}
+        { oc = Chain{postTx = postTx nodes refHistory}
         , hn = Network{broadcast = broadcast nodes}
         }
  where
@@ -326,7 +329,7 @@ withHydraNode nodeId snapshotStrategy connectToChain action = do
     let headState = createHeadState [] (HeadParameters testContestationPeriod mempty)
     hh <- createHydraHead headState simpleLedger
     let hn' = Network{broadcast = const $ pure ()}
-    let node = HydraNode{eq, hn = hn', hh, oc = OnChain (const $ pure ()), sendResponse = atomically . writeTQueue response, env}
+    let node = HydraNode{eq, hn = hn', hh, oc = Chain (const $ pure ()), sendResponse = atomically . writeTQueue response, env}
     connectToChain node
 
 -- | A 'Tracer' that works in 'IOSim' monad.

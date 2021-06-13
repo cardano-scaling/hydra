@@ -79,6 +79,7 @@ library
   hs-source-dirs: src
   exposed-modules:
     Hydra.API.Server
+    Hydra.Chain
     Hydra.Chain.ZeroMQ
     Hydra.Network
     Hydra.Network.BroadcastToSelf
