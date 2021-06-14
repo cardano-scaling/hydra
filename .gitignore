@@ -21,3 +21,6 @@ result*
 .history
 *.hi
 *.o
+
+### hydra-pab ###
+W*.cid

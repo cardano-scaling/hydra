@@ -2,7 +2,7 @@
 
 module Main where
 
-import Cardano.Prelude
+import Cardano.Prelude hiding (log)
 
 import Control.Monad.Freer (Eff, Member, interpret, type (~>))
 import Control.Monad.Freer.Error (Error)
@@ -12,8 +12,8 @@ import Data.Aeson (
   ToJSON (..),
  )
 import Data.Text.Prettyprint.Doc (Pretty (..), viaShow)
-import Hydra.Contract.OffChain as OffChain
-import Hydra.Contract.OnChain as OnChain
+import qualified Hydra.Contract.OffChain as OffChain
+import qualified Hydra.Contract.OnChain as OnChain
 import Ledger (MonetaryPolicy, TxOut, TxOutRef, TxOutTx, pubKeyHash)
 import Plutus.Contract (BlockchainActions, Contract, ContractError, Empty, logInfo)
 import Plutus.Contract.Test (walletPubKey)
@@ -26,25 +26,39 @@ import qualified Plutus.PAB.Simulator as Simulator
 import Plutus.PAB.Types (PABError (..))
 import qualified Plutus.PAB.Webserver.Server as PAB.Server
 import Schema (FormSchema (..), ToSchema (..))
+import System.Directory (removeFile)
 import Wallet.Emulator.Types (Wallet (..))
+import Wallet.Types (ContractInstanceId (ContractInstanceId))
 
 main :: IO ()
 main = void $
   Simulator.runSimulationWith handlers $ do
-    Simulator.logString @(Builtin PABContract) "Starting plutus-starter PAB webserver on port 8080. Press enter to exit."
+    log "Starting plutus-starter PAB webserver on port 8080. Press enter to exit."
     shutdown <- PAB.Server.startServerDebug
 
-    -- TODO(SN): Use 'FundWallets' here instead of "setupForTesting" endpoint to
-    -- distribute initial funds
+    -- Activate wallets and write contract instances into files
+    files <- activateWallets
 
     -- Pressing enter results in the balances being printed
     void $ liftIO getLine
 
-    Simulator.logString @(Builtin PABContract) "Balances at the end of the simulation"
+    log "Balances at the end of the simulation"
     b <- Simulator.currentBalances
     Simulator.logBalances @(Builtin PABContract) b
 
+    -- Best-effort cleanup, due to the lack of a lifted bracket
+    cleanupWallets files
     shutdown
+ where
+  log = Simulator.logString @(Builtin PABContract)
+
+  activateWallets = forM [alice, bob] $ \w -> do
+    (ContractInstanceId cid) <- Simulator.activateContract w HydraContract
+    let fn = 'W' : show (getWallet w) <> ".cid"
+    liftIO $ writeFile fn $ show cid
+    pure fn
+
+  cleanupWallets = mapM_ (liftIO . removeFile)
 
 data PABContract
   = FundWallets
@@ -68,7 +82,10 @@ handleStarterContract = Builtin.handleBuiltin getSchema getContract
     HydraContract -> Builtin.endpointsToSchemas @(OffChain.Schema .\\ BlockchainActions)
   getContract = \case
     FundWallets -> SomeBuiltin fundWallets
-    HydraContract -> SomeBuiltin (OffChain.contract @ContractError headParameters)
+    HydraContract -> SomeBuiltin hydraContract
+
+hydraContract :: Contract [OnChain.State] OffChain.Schema ContractError ()
+hydraContract = OffChain.contract headParameters
 
 fundWallets :: Contract () BlockchainActions ContractError ()
 fundWallets =
@@ -82,18 +99,19 @@ handlers =
 
 -- TODO(SN): Do not hard-code headParameters
 headParameters :: OffChain.HeadParameters
-headParameters = mkHeadParameters [vk alice, vk bob] testPolicy
+headParameters = OffChain.mkHeadParameters [vk alice, vk bob] testPolicy
  where
   vk = pubKeyHash . walletPubKey
 
-  alice :: Wallet
-  alice = Wallet 1
-
-  bob :: Wallet
-  bob = Wallet 2
-
   testPolicy :: MonetaryPolicy
   testPolicy = OnChain.hydraMonetaryPolicy 42
+
+-- TODO(SN): Do not hard-code wallets
+alice :: Wallet
+alice = Wallet 1
+
+bob :: Wallet
+bob = Wallet 2
 
 -- REVIEW(SN): Orphan ToSchema instances, required to render the playground? Do
 -- we really need all these as endpoint parameters?
