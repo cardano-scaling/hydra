@@ -146,6 +146,7 @@ executable hydra-pab
     , plutus-contract
     , plutus-ledger
     , plutus-pab
+    , playground-common
     , prettyprinter
     , text
   ghc-options:

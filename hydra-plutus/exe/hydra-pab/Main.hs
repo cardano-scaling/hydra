@@ -9,7 +9,9 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeOperators #-}
 
-module Main (main) where
+module Main where
+
+import Cardano.Prelude
 
 import Control.Monad (void)
 import Control.Monad.Freer (Eff, Member, interpret, type (~>))
@@ -26,10 +28,13 @@ import Data.Aeson (
  )
 import Data.Text.Prettyprint.Doc (Pretty (..), viaShow)
 import GHC.Generics (Generic)
-import Plutus.Contract (BlockchainActions, ContractError)
-import Plutus.Contracts.Game as Game
+import Hydra.Contract.OffChain as OffChain
+import Hydra.Contract.OnChain as OnChain
+import Ledger (MonetaryPolicy, pubKeyHash, TxOut, TxOutRef, TxOutTx)
+import Plutus.Contract (Contract, BlockchainActions, ContractError, Empty, logInfo)
+import Plutus.Contract.Test (walletPubKey)
 import Plutus.PAB.Effects.Contract (ContractEffect (..))
-import Plutus.PAB.Effects.Contract.Builtin (Builtin, SomeBuiltin (..), type (.\\))
+import Plutus.PAB.Effects.Contract.Builtin (Builtin, SomeBuiltin (..), type (.\\), endpointsToSchemas)
 import qualified Plutus.PAB.Effects.Contract.Builtin as Builtin
 import Plutus.PAB.Monitoring.PABLogMsg (PABMultiAgentMsg)
 import Plutus.PAB.Simulator (SimulatorEffectHandlers)
@@ -37,63 +42,83 @@ import qualified Plutus.PAB.Simulator as Simulator
 import Plutus.PAB.Types (PABError (..))
 import qualified Plutus.PAB.Webserver.Server as PAB.Server
 import Wallet.Emulator.Types (Wallet (..))
+import Schema (ToSchema(..), FormSchema(..))
 
 main :: IO ()
 main = void $
   Simulator.runSimulationWith handlers $ do
-    Simulator.logString @(Builtin StarterContracts) "Starting plutus-starter PAB webserver on port 8080. Press enter to exit."
+    Simulator.logString @(Builtin PABContract) "Starting plutus-starter PAB webserver on port 8080. Press enter to exit."
     shutdown <- PAB.Server.startServerDebug
+
+    -- TODO(SN): Use 'FundWallets' here instead of "setupForTesting" endpoint to
+    -- distribute initial funds
 
     -- Pressing enter results in the balances being printed
     void $ liftIO getLine
 
-    Simulator.logString @(Builtin StarterContracts) "Balances at the end of the simulation"
+    Simulator.logString @(Builtin PABContract) "Balances at the end of the simulation"
     b <- Simulator.currentBalances
-    Simulator.logBalances @(Builtin StarterContracts) b
+    Simulator.logBalances @(Builtin PABContract) b
 
     shutdown
 
-data StarterContracts
-  = HydraContract
+data PABContract
+  = FundWallets
+  | HydraContract
   deriving (Eq, Ord, Show, Generic)
+  deriving anyclass (ToJSON, FromJSON)
 
--- NOTE: Because 'StarterContracts' only has one constructor, corresponding to
--- the demo 'Game' contract, we kindly ask aeson to still encode it as if it had
--- many; this way we get to see the label of the contract in the API output!
--- If you simple have more contracts, you can just use the anyclass deriving
--- statement on 'StarterContracts' instead:
---
---    `... deriving anyclass (ToJSON, FromJSON)`
-instance ToJSON StarterContracts where
-  toJSON =
-    genericToJSON
-      defaultOptions
-        { tagSingleConstructors = True
-        }
-instance FromJSON StarterContracts where
-  parseJSON =
-    genericParseJSON
-      defaultOptions
-        { tagSingleConstructors = True
-        }
-
-instance Pretty StarterContracts where
+instance Pretty PABContract where
   pretty = viaShow
 
 handleStarterContract ::
   ( Member (Error PABError) effs
-  , Member (LogMsg (PABMultiAgentMsg (Builtin StarterContracts))) effs
+  , Member (LogMsg (PABMultiAgentMsg (Builtin PABContract))) effs
   ) =>
-  ContractEffect (Builtin StarterContracts)
+  ContractEffect (Builtin PABContract)
     ~> Eff effs
 handleStarterContract = Builtin.handleBuiltin getSchema getContract
  where
   getSchema = \case
-    HydraContract -> Builtin.endpointsToSchemas @(Hydra.Schema .\\ BlockchainActions)
+    FundWallets -> endpointsToSchemas @Empty
+    HydraContract -> Builtin.endpointsToSchemas @(OffChain.Schema .\\ BlockchainActions)
   getContract = \case
-    HydraContract -> SomeBuiltin (Hydra.contract @ContractError)
+    FundWallets -> SomeBuiltin fundWallets
+    HydraContract -> SomeBuiltin (OffChain.contract @ContractError headParameters)
 
-handlers :: SimulatorEffectHandlers (Builtin StarterContracts)
+fundWallets :: Contract () BlockchainActions ContractError ()
+fundWallets =
+  logInfo @Text $ "TODO: Should distribute funds"
+
+handlers :: SimulatorEffectHandlers (Builtin PABContract)
 handlers =
-  Simulator.mkSimulatorHandlers @(Builtin StarterContracts) [HydraContract] $
+  -- REVIEW(SN): only HydraContract required here?
+  Simulator.mkSimulatorHandlers @(Builtin PABContract) [HydraContract] $
     interpret handleStarterContract
+
+-- TODO(SN): Do not hard-code headParameters
+headParameters :: OffChain.HeadParameters
+headParameters = mkHeadParameters [vk alice, vk bob] testPolicy
+ where
+  vk = pubKeyHash . walletPubKey
+
+  alice :: Wallet
+  alice = Wallet 1
+
+  bob :: Wallet
+  bob = Wallet 2
+
+  testPolicy :: MonetaryPolicy
+  testPolicy = OnChain.hydraMonetaryPolicy 42
+
+-- REVIEW(SN): Orphan ToSchema instances, required to render the playground? Do
+-- we really need all these as endpoint parameters?
+
+instance ToSchema TxOut where
+  toSchema = FormSchemaUnsupported "TxOut"
+
+instance ToSchema TxOutRef where
+  toSchema = FormSchemaUnsupported "TxOutRef"
+
+instance ToSchema TxOutTx where
+  toSchema = FormSchemaUnsupported "TxOutTx"
