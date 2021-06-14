@@ -54,7 +54,7 @@ main = void $
 
   activateWallets = forM [alice, bob] $ \w -> do
     (ContractInstanceId cid) <- Simulator.activateContract w HydraContract
-    let fn = 'W' : show (getWallet w) <> ".cid"
+    let fn = "/tmp/W" <> show (getWallet w) <> ".cid"
     liftIO $ writeFile fn $ show cid
     pure fn
 

@@ -80,6 +80,7 @@ library
   exposed-modules:
     Hydra.API.Server
     Hydra.Chain
+    Hydra.Chain.ExternalPAB
     Hydra.Chain.ZeroMQ
     Hydra.Network
     Hydra.Network.BroadcastToSelf
@@ -124,6 +125,7 @@ library
     , optparse-applicative
     , ouroboros-network-framework
     , prometheus
+    , req
     , shelley-spec-ledger
     , shelley-spec-ledger-test
     , stm
@@ -166,6 +168,7 @@ test-suite tests
   import: project-config
   hs-source-dirs: test
   other-modules:
+    Hydra.Chain.ExternalPABSpec
     Hydra.Chain.ZeroMQSpec
     Hydra.FireForgetSpec
     Hydra.BehaviorSpec
@@ -198,7 +201,6 @@ test-suite tests
     , quickcheck-instances
     , say
     , typed-protocols-examples
-    , HUnit
   build-tool-depends:
     hspec-discover:hspec-discover
   ghc-options:
