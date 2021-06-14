@@ -25,13 +25,13 @@ data NetworkLog
 
 withZeroMQNetwork ::
   (Show inmsg, FromCBOR inmsg, ToCBOR outmsg) =>
+  Tracer IO NetworkLog ->
   Host ->
   [Host] ->
-  Tracer IO NetworkLog ->
   NetworkCallback inmsg IO ->
   (Network IO outmsg -> IO ()) ->
   IO ()
-withZeroMQNetwork localHost remoteHosts tracer incomingCallback continuation = do
+withZeroMQNetwork tracer localHost remoteHosts incomingCallback continuation = do
   mvar <- newEmptyTMVarIO
   race_ (runServer mvar) $
     race_ (runClients incomingCallback) $ do

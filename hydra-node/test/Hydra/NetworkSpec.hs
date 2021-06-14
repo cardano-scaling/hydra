@@ -38,8 +38,9 @@ spec = describe "Networking layer" $ do
     it "broadcasts messages to single connected peer" $ do
       received <- newEmptyMVar
       failAfter 10 $ do
-        withOuroborosNetwork (lo, 45678) [(lo, 45679)] (const @_ @(HydraMessage MockTx) $ pure ()) $ \hn1 ->
-          withOuroborosNetwork @(HydraMessage MockTx) (lo, 45679) [(lo, 45678)] (putMVar received) $ \_ -> do
+        -- TODO(MB): Capture the trace and print it on failures.
+        withOuroborosNetwork nullTracer (lo, 45678) [(lo, 45679)] (const @_ @(HydraMessage MockTx) $ pure ()) $ \hn1 ->
+          withOuroborosNetwork @(HydraMessage MockTx) nullTracer (lo, 45679) [(lo, 45678)] (putMVar received) $ \_ -> do
             broadcast hn1 requestTx
             takeMVar received `shouldReturn` requestTx
 
@@ -48,9 +49,10 @@ spec = describe "Networking layer" $ do
       node2received <- newEmptyMVar
       node3received <- newEmptyMVar
       failAfter 10 $ do
-        withOuroborosNetwork @(HydraMessage MockTx) (lo, 45678) [(lo, 45679), (lo, 45680)] (putMVar node1received) $ \hn1 ->
-          withOuroborosNetwork (lo, 45679) [(lo, 45678), (lo, 45680)] (putMVar node2received) $ \hn2 -> do
-            withOuroborosNetwork (lo, 45680) [(lo, 45678), (lo, 45679)] (putMVar node3received) $ \hn3 -> do
+        -- TODO(MB): Capture the trace and print it on failures.
+        withOuroborosNetwork @(HydraMessage MockTx) nullTracer (lo, 45678) [(lo, 45679), (lo, 45680)] (putMVar node1received) $ \hn1 ->
+          withOuroborosNetwork nullTracer (lo, 45679) [(lo, 45678), (lo, 45680)] (putMVar node2received) $ \hn2 -> do
+            withOuroborosNetwork nullTracer (lo, 45680) [(lo, 45678), (lo, 45679)] (putMVar node3received) $ \hn3 -> do
               concurrently_ (assertBroadcastFrom requestTx hn1 [node2received, node3received]) $
                 concurrently_
                   (assertBroadcastFrom requestTx hn2 [node1received, node3received])
@@ -62,9 +64,10 @@ spec = describe "Networking layer" $ do
       node2received <- newEmptyMVar
       node3received <- newEmptyMVar
       failAfter 10 $ do
-        withZeroMQNetwork (lo, 55677) [(lo, 55678), (lo, 55679)] nullTracer (putMVar node1received) $ \hn1 ->
-          withZeroMQNetwork (lo, 55678) [(lo, 55677), (lo, 55679)] nullTracer (putMVar node2received) $ \hn2 ->
-            withZeroMQNetwork (lo, 55679) [(lo, 55677), (lo, 55678)] nullTracer (putMVar node3received) $ \hn3 -> do
+        -- TODO(MB): Capture the trace and print it on failures.
+        withZeroMQNetwork nullTracer (lo, 55677) [(lo, 55678), (lo, 55679)] (putMVar node1received) $ \hn1 ->
+          withZeroMQNetwork nullTracer (lo, 55678) [(lo, 55677), (lo, 55679)] (putMVar node2received) $ \hn2 ->
+            withZeroMQNetwork nullTracer (lo, 55679) [(lo, 55677), (lo, 55678)] (putMVar node3received) $ \hn3 -> do
               concurrently_ (assertBroadcastFrom requestTx hn1 [node2received, node3received]) $
                 concurrently_
                   (assertBroadcastFrom requestTx hn2 [node1received, node3received])
