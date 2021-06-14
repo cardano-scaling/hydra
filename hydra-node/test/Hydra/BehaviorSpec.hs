@@ -18,11 +18,8 @@ import Control.Monad.Class.MonadSTM (
  )
 import Control.Monad.Class.MonadThrow (MonadThrow)
 import Control.Monad.Class.MonadTimer (DiffTime, MonadTimer, threadDelay, timeout)
-<<<<<<< HEAD
 import Control.Monad.IOSim (IOSim, runSimTrace, selectTraceEventsDynamic, traceM)
-=======
 import Hydra.Chain (Chain (..))
->>>>>>> 1ee1683 (Introduce Hydra.Chain module and rename "component" to simply 'Chain')
 import Hydra.HeadLogic (
   ClientRequest (..),
   ClientResponse (..),
