@@ -56,11 +56,12 @@ handleMessage :: HydraNode tx m -> Logic.HydraMessage tx -> m ()
 handleMessage HydraNode{eq} = putEvent eq . NetworkEvent
 
 runHydraNode ::
-  MonadThrow m =>
-  MonadAsync m =>
-  MonadTimer m =>
-  Tx tx =>
-  Ord tx =>
+  ( MonadThrow m
+  , MonadAsync m
+  , MonadTimer m
+  , Tx tx
+  , Ord tx
+  ) =>
   Tracer m (HydraNodeLog tx) ->
   HydraNode tx m ->
   m ()
@@ -76,9 +77,10 @@ runHydraNode tracer node@HydraNode{eq} = do
 
 -- | Monadic interface around 'Hydra.Logic.update'.
 processNextEvent ::
-  Tx tx =>
-  Ord tx =>
-  MonadSTM m =>
+  ( Tx tx
+  , Ord tx
+  , MonadSTM m
+  ) =>
   HydraNode tx m ->
   Event tx ->
   m (Either (LogicError tx) [Effect tx])
@@ -91,9 +93,10 @@ processNextEvent HydraNode{hh, env} e = do
         Wait -> panic "TODO: wait and reschedule continuation"
 
 processEffect ::
-  MonadAsync m =>
-  MonadTimer m =>
-  MonadThrow m =>
+  ( MonadAsync m
+  , MonadTimer m
+  , MonadThrow m
+  ) =>
   HydraNode tx m ->
   Tracer m (HydraNodeLog tx) ->
   Effect tx ->
