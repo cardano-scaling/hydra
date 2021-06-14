@@ -23,8 +23,8 @@ import System.Metrics.Prometheus.Registry (Registry, new, registerCounter, sampl
 withMonitoring ::
   (MonadIO m, MonadAsync m) =>
   Maybe PortNumber ->
-  Tracer m (HydraLog tx) ->
-  (Tracer m (HydraLog tx) -> m ()) ->
+  Tracer m (HydraLog tx net) ->
+  (Tracer m (HydraLog tx net) -> m ()) ->
   m ()
 withMonitoring Nothing tracer action = action tracer
 withMonitoring (Just monitoringPort) (Tracer tracer) action = do
@@ -38,7 +38,7 @@ withMonitoring (Just monitoringPort) (Tracer tracer) action = do
 -- | Register all relevant metrics.
 -- Returns an updated `Registry` which is needed to `serveMetrics` or any other form of publication
 -- of metrics, whether push or pull, and a function for updating metrics given some trace event.
-prepareRegistry :: MonadIO m => m (HydraLog tx -> m (), Registry)
+prepareRegistry :: MonadIO m => m (HydraLog tx net -> m (), Registry)
 prepareRegistry = first monitor <$> registerMetrics
  where
   monitor metricsMap (Node (ProcessedEvent _)) =

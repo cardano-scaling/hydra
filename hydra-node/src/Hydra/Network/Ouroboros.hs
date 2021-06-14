@@ -1,8 +1,13 @@
 -- | Ouroboros-based implementation of 'Hydra.Network' interface
-module Hydra.Network.Ouroboros (withOuroborosNetwork, module Hydra.Network) where
+module Hydra.Network.Ouroboros (
+  withOuroborosNetwork,
+  TraceOuroborosNetwork,
+  module Hydra.Network,
+) where
 
 import Cardano.Binary (FromCBOR, ToCBOR)
 import Cardano.Prelude
+import qualified Codec.CBOR.Term as CBOR
 import Control.Concurrent.STM (
   TChan,
   dupTChan,
@@ -13,9 +18,8 @@ import Control.Concurrent.STM (
   writeTBQueue,
   writeTChan,
  )
-import Control.Tracer (Tracer, contramap, debugTracer, stdoutTracer)
 import qualified Data.ByteString.Lazy as LBS
-import Hydra.Logging (nullTracer)
+import Hydra.Logging (Tracer, contramap, nullTracer)
 import Hydra.Network (
   Host,
   Network (..),
@@ -31,13 +35,26 @@ import Hydra.Network.Ouroboros.Server as FireForget (
   fireForgetServerPeer,
  )
 import Hydra.Network.Ouroboros.Type (
-  FireForget,
   codecFireForget,
  )
-import Network.Socket (AddrInfo (addrAddress), defaultHints, getAddrInfo)
+import Network.Mux.Compat (
+  WithMuxBearer,
+ )
+import Network.Socket (
+  AddrInfo (addrAddress),
+  SockAddr,
+  defaultHints,
+  getAddrInfo,
+ )
 import Network.TypedProtocol.Pipelined ()
-import Ouroboros.Network.Driver (TraceSendRecv)
-import Ouroboros.Network.ErrorPolicy (nullErrorPolicies)
+import Ouroboros.Network.Driver.Simple (
+  TraceSendRecv,
+ )
+import Ouroboros.Network.ErrorPolicy (
+  ErrorPolicyTrace,
+  WithAddr,
+  nullErrorPolicies,
+ )
 import Ouroboros.Network.IOManager (withIOManager)
 import Ouroboros.Network.Mux (
   MiniProtocol (
@@ -54,32 +71,45 @@ import Ouroboros.Network.Mux (
   RunMiniProtocol (..),
  )
 import Ouroboros.Network.Protocol.Handshake.Codec (cborTermVersionDataCodec, noTimeLimitsHandshake)
-import Ouroboros.Network.Protocol.Handshake.Unversioned (unversionedHandshakeCodec, unversionedProtocol, unversionedProtocolDataCodec)
+import Ouroboros.Network.Protocol.Handshake.Type (Handshake)
+import Ouroboros.Network.Protocol.Handshake.Unversioned (
+  UnversionedProtocol,
+  unversionedHandshakeCodec,
+  unversionedProtocol,
+  unversionedProtocolDataCodec,
+ )
 import Ouroboros.Network.Protocol.Handshake.Version (acceptableVersion)
 import Ouroboros.Network.Server.Socket (AcceptedConnectionsLimit (AcceptedConnectionsLimit))
 import Ouroboros.Network.Snocket (socketSnocket)
 import Ouroboros.Network.Socket (
+  AcceptConnectionsPolicyTrace,
+  ConnectionId (..),
+  NetworkConnectTracers (..),
+  NetworkServerTracers (..),
   SomeResponderApplication (..),
   connectToNodeSocket,
-  debuggingNetworkConnectTracers,
-  debuggingNetworkServerTracers,
   newNetworkMutableState,
   withServerNode,
  )
-import Ouroboros.Network.Subscription (IPSubscriptionTarget (IPSubscriptionTarget))
+import Ouroboros.Network.Subscription (
+  IPSubscriptionTarget (IPSubscriptionTarget),
+  SubscriptionTrace,
+  WithIPList,
+ )
 import qualified Ouroboros.Network.Subscription as Subscription
 import Ouroboros.Network.Subscription.Ip (SubscriptionParams (..))
 import Ouroboros.Network.Subscription.Worker (LocalAddresses (LocalAddresses))
 
 withOuroborosNetwork ::
   forall msg.
-  (Show msg, ToCBOR msg, FromCBOR msg) =>
+  (ToCBOR msg, FromCBOR msg) =>
+  Tracer IO TraceOuroborosNetwork ->
   Host ->
   [Host] ->
   NetworkCallback msg IO ->
   (Network IO msg -> IO ()) ->
   IO ()
-withOuroborosNetwork localHost remoteHosts networkCallback between = do
+withOuroborosNetwork tracer localHost remoteHosts networkCallback between = do
   bchan <- newBroadcastTChanIO
   chanPool <- newTBQueueIO (fromIntegral $ length remoteHosts)
   replicateM_ (length remoteHosts) $
@@ -109,8 +139,8 @@ withOuroborosNetwork localHost remoteHosts networkCallback between = do
     let sn = socketSnocket iomgr
     Subscription.ipSubscriptionWorker
       sn
-      subscriptionTracer
-      errorPolicyTracer
+      (contramap TraceSubscriptions tracer)
+      (contramap TraceErrorPolicy tracer)
       networkState
       (subscriptionParams localAddr remoteAddrs)
       (actualConnect iomgr chanPool app)
@@ -123,10 +153,6 @@ withOuroborosNetwork localHost remoteHosts networkCallback between = do
       , spSubscriptionTarget = IPSubscriptionTarget remoteAddrs 7
       }
 
-  subscriptionTracer = contramap show debugTracer
-
-  errorPolicyTracer = contramap show debugTracer
-
   actualConnect iomgr chanPool app sn = do
     chan <- atomically $ readTBQueue chanPool
     connectToNodeSocket
@@ -134,10 +160,16 @@ withOuroborosNetwork localHost remoteHosts networkCallback between = do
       unversionedHandshakeCodec
       noTimeLimitsHandshake
       (cborTermVersionDataCodec unversionedProtocolDataCodec)
-      debuggingNetworkConnectTracers
+      networkConnectTracers
       acceptableVersion
       (unversionedProtocol (app chan))
       sn
+   where
+    networkConnectTracers =
+      NetworkConnectTracers
+        { nctMuxTracer = nullTracer
+        , nctHandshakeTracer = contramap TraceHandshake tracer
+        }
 
   listen iomgr app = do
     networkState <- newNetworkMutableState
@@ -145,7 +177,7 @@ withOuroborosNetwork localHost remoteHosts networkCallback between = do
     -- TODO(SN): whats this? _ <- async $ cleanNetworkMutableState networkState
     withServerNode
       (socketSnocket iomgr)
-      debuggingNetworkServerTracers
+      networkServerTracers
       networkState
       (AcceptedConnectionsLimit maxBound maxBound 0)
       localAddr
@@ -156,6 +188,15 @@ withOuroborosNetwork localHost remoteHosts networkCallback between = do
       (unversionedProtocol (SomeResponderApplication app))
       nullErrorPolicies
       $ \_ serverAsync -> wait serverAsync -- block until async exception
+   where
+    networkServerTracers =
+      NetworkServerTracers
+        { nstMuxTracer = nullTracer
+        , nstHandshakeTracer = contramap TraceHandshake tracer
+        , nstErrorPolicyTracer = contramap TraceErrorPolicy tracer
+        , nstAcceptPolicyTracer = contramap TraceAcceptPolicy tracer
+        }
+
   hydraClient ::
     TChan msg ->
     OuroborosApplication 'InitiatorMode addr LBS.ByteString IO () Void
@@ -187,7 +228,7 @@ withOuroborosNetwork localHost remoteHosts networkCallback between = do
    where
     responder =
       MuxPeer
-        showStdoutTracer
+        nullTracer
         codecFireForget
         (fireForgetServerPeer server)
 
@@ -212,6 +253,9 @@ withOuroborosNetwork localHost remoteHosts networkCallback between = do
       , recvMsgDone = pure ()
       }
 
-  showStdoutTracer ::
-    Tracer IO (TraceSendRecv (FireForget msg))
-  showStdoutTracer = contramap show stdoutTracer
+data TraceOuroborosNetwork
+  = TraceSubscriptions (WithIPList (SubscriptionTrace SockAddr))
+  | TraceErrorPolicy (WithAddr SockAddr ErrorPolicyTrace)
+  | TraceAcceptPolicy AcceptConnectionsPolicyTrace
+  | TraceHandshake (WithMuxBearer (ConnectionId SockAddr) (TraceSendRecv (Handshake UnversionedProtocol CBOR.Term)))
+  deriving (Show)

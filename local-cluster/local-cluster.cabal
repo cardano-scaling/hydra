@@ -84,13 +84,16 @@ library
     , filepath
     , hspec-expectations
     , http-conduit
+    , io-sim-classes
     , iohk-monitoring
     , network
     , process
     , random-shuffle
     , retry
+    , say
     , streaming-commons
     , time
+    , temporary
     , text
     , unix
     , unordered-containers
@@ -126,6 +129,7 @@ test-suite integration
     , hspec-core
     , local-cluster
     , regex-tdfa
+    , say
     , temporary
   build-tool-depends:
     hspec-discover:hspec-discover, hydra-node:hydra-node, hydra-node:mock-chain
