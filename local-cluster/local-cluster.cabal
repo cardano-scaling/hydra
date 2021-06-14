@@ -89,8 +89,10 @@ library
     , process
     , random-shuffle
     , retry
+    , say
     , streaming-commons
     , time
+    , temporary
     , text
     , unix
     , unordered-containers

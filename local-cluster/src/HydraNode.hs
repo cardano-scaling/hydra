@@ -25,9 +25,12 @@ import Control.Concurrent.Async (
 import qualified Data.ByteString.Lazy as BSL
 import Data.IORef (modifyIORef', newIORef, readIORef)
 import qualified Data.Text.Encoding as Text
+import GHC.IO.Handle (hDuplicate)
 import Network.HTTP.Conduit (HttpExceptionContent (ConnectionFailure), parseRequest)
 import Network.HTTP.Simple (HttpException (HttpExceptionRequest), Response, getResponseBody, getResponseStatusCode, httpBS)
 import Network.WebSockets (Connection, DataMessage (Binary, Text), receiveDataMessage, runClient, sendClose, sendTextData)
+import Say (say)
+import System.IO.Temp (withSystemTempFile)
 import System.Process (
   CreateProcess (..),
   ProcessHandle,
@@ -44,12 +47,12 @@ import Prelude (String, error)
 data HydraNode = HydraNode
   { hydraNodeId :: Int
   , connection :: Connection
-  , nodeStdout :: Maybe Handle
+  , nodeStdout :: Handle
   }
 
 sendRequest :: HydraNode -> Text -> IO ()
-sendRequest HydraNode{hydraNodeId, connection} request = do
-  putText ("Tester sending to " <> show hydraNodeId <> ": " <> show request)
+sendRequest HydraNode{hydraNodeId, connection, nodeStdout} request = do
+  hPutStrLn @Text nodeStdout ("Tester sending to " <> show hydraNodeId <> ": " <> show request)
   sendTextData connection request
 
 data WaitForResponseTimeout = WaitForResponseTimeout
@@ -106,15 +109,24 @@ queryNode nodeId =
 
 withHydraNode :: Int -> (HydraNode -> IO ()) -> IO ()
 withHydraNode hydraNodeId action = do
-  withCreateProcess (hydraNodeProcess $ defaultArguments hydraNodeId) $
-    \_stdin out _stderr processHandle ->
-      race_ (checkProcessHasNotDied processHandle) (tryConnect out)
+  withSystemTempFile "hydra-node" $ \f out -> traceOnFailure f $ do
+    out' <- hDuplicate out
+    let p =
+          (hydraNodeProcess $ defaultArguments hydraNodeId)
+            { std_out = UseHandle out
+            }
+    withCreateProcess p $
+      \_stdin _stdout _stderr processHandle -> do
+        race_ (checkProcessHasNotDied processHandle) (tryConnect out')
  where
   tryConnect out = doConnect out `catch` \(_ :: IOException) -> tryConnect out
 
   doConnect out = runClient "127.0.0.1" (4000 + hydraNodeId) "/" $ \con -> do
     action $ HydraNode hydraNodeId con out
     sendClose con ("Bye" :: Text)
+
+  traceOnFailure f io = do
+    io `onException` (readFile f >>= say)
 
 data CannotStartHydraNode = CannotStartHydraNode Int deriving (Show)
 instance Exception CannotStartHydraNode
@@ -126,8 +138,7 @@ defaultArguments :: Int -> [String]
 defaultArguments nodeId =
   [ "--node-id"
   , show nodeId
-  , -- , "--quiet"
-    "--host"
+  , "--host"
   , "127.0.0.1"
   , "--port"
   , show (5000 + nodeId)
