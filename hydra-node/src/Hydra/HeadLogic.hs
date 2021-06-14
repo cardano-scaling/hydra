@@ -85,6 +85,9 @@ data HydraMessage tx
   | Ping Party
   deriving (Eq, Show)
 
+-- NOTE(SN): Might not be symmetric in a real chain client, i.e. posting
+-- transactions could be parameterized using such data types, but they are not
+-- fully recoverable from transactions observed on chain
 data OnChainTx tx
   = InitTx (Set ParticipationToken)
   | CommitTx ParticipationToken Natural
