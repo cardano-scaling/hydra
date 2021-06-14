@@ -32,6 +32,7 @@ common project-config
     ConstraintKinds
     DataKinds
     DefaultSignatures
+    DeriveAnyClass
     DeriveDataTypeable
     DeriveFoldable
     DeriveFunctor
@@ -59,6 +60,7 @@ common project-config
     ScopedTypeVariables
     StandaloneDeriving
     TupleSections
+    TypeApplications
     TypeFamilies
     TypeOperators
     TypeSynonymInstances

@@ -1,48 +1,32 @@
-{-# LANGUAGE DataKinds #-}
-{-# LANGUAGE DeriveAnyClass #-}
-{-# LANGUAGE DeriveGeneric #-}
-{-# LANGUAGE DerivingStrategies #-}
-{-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE LambdaCase #-}
-{-# LANGUAGE RankNTypes #-}
-{-# LANGUAGE TypeApplications #-}
-{-# LANGUAGE TypeFamilies #-}
-{-# LANGUAGE TypeOperators #-}
+{-# OPTIONS_GHC -Wno-orphans #-}
 
 module Main where
 
 import Cardano.Prelude
 
-import Control.Monad (void)
 import Control.Monad.Freer (Eff, Member, interpret, type (~>))
 import Control.Monad.Freer.Error (Error)
 import Control.Monad.Freer.Extras.Log (LogMsg)
-import Control.Monad.IO.Class (MonadIO (..))
 import Data.Aeson (
   FromJSON (..),
-  Options (..),
   ToJSON (..),
-  defaultOptions,
-  genericParseJSON,
-  genericToJSON,
  )
 import Data.Text.Prettyprint.Doc (Pretty (..), viaShow)
-import GHC.Generics (Generic)
 import Hydra.Contract.OffChain as OffChain
 import Hydra.Contract.OnChain as OnChain
-import Ledger (MonetaryPolicy, pubKeyHash, TxOut, TxOutRef, TxOutTx)
-import Plutus.Contract (Contract, BlockchainActions, ContractError, Empty, logInfo)
+import Ledger (MonetaryPolicy, TxOut, TxOutRef, TxOutTx, pubKeyHash)
+import Plutus.Contract (BlockchainActions, Contract, ContractError, Empty, logInfo)
 import Plutus.Contract.Test (walletPubKey)
 import Plutus.PAB.Effects.Contract (ContractEffect (..))
-import Plutus.PAB.Effects.Contract.Builtin (Builtin, SomeBuiltin (..), type (.\\), endpointsToSchemas)
+import Plutus.PAB.Effects.Contract.Builtin (Builtin, SomeBuiltin (..), endpointsToSchemas, type (.\\))
 import qualified Plutus.PAB.Effects.Contract.Builtin as Builtin
 import Plutus.PAB.Monitoring.PABLogMsg (PABMultiAgentMsg)
 import Plutus.PAB.Simulator (SimulatorEffectHandlers)
 import qualified Plutus.PAB.Simulator as Simulator
 import Plutus.PAB.Types (PABError (..))
 import qualified Plutus.PAB.Webserver.Server as PAB.Server
+import Schema (FormSchema (..), ToSchema (..))
 import Wallet.Emulator.Types (Wallet (..))
-import Schema (ToSchema(..), FormSchema(..))
 
 main :: IO ()
 main = void $
