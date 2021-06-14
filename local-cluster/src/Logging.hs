@@ -16,9 +16,10 @@ module Logging (
   -- * Instantiation
   LoggerName,
   withStdoutTracer,
+  withTVarTracer,
 ) where
 
-import Cardano.Prelude
+import Cardano.Prelude hiding (atomically)
 
 import Cardano.BM.Backend.Switchboard (
   Switchboard,
@@ -42,6 +43,14 @@ import Cardano.BM.Data.Tracer (
 import Cardano.BM.Setup (
   setupTrace_,
   shutdown,
+ )
+import Cardano.BM.Trace (
+  traceInTVarIO,
+ )
+import Control.Monad.Class.MonadSTM (
+  MonadSTM (..),
+  TVar,
+  readTVar,
  )
 import Control.Tracer (
   Tracer (..),
@@ -77,6 +86,36 @@ withStdoutTracer name minSeverity transform between = do
 
   after :: (Tracer IO msg, Switchboard Text) -> IO ()
   after = shutdown . snd
+
+withTVarTracer ::
+  forall m msg a.
+  (MonadIO m, HasSeverityAnnotation msg) =>
+  LoggerName ->
+  Severity ->
+  (msg -> Text) ->
+  ((Tracer m msg, IO [msg]) -> IO a) ->
+  IO a
+withTVarTracer _name minSeverity _transform action =
+  bracket before after between
+ where
+  before :: IO (Tracer IO msg, TVar IO [msg])
+  before = do
+    tvar <- newTVarIO []
+    let tr = Tracer $ \a -> case getSeverityAnnotation a of
+          sev
+            | sev >= minSeverity ->
+              traceWith (traceInTVarIO tvar) a
+          _ ->
+            pure ()
+    pure (tr, tvar)
+
+  between :: (Tracer IO msg, TVar IO [msg]) -> IO a
+  between (tr, tvar) = do
+    let getLogs = reverse <$> atomically (readTVar tvar)
+    action (natTracer liftIO tr, getLogs)
+
+  after :: (fst, snd) -> IO ()
+  after = const (pure ())
 
 -- | Tracer transformer which converts 'Trace m a' to 'Tracer m a' by wrapping
 -- typed log messages into a 'LogObject'.
