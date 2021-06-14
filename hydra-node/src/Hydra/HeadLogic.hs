@@ -173,8 +173,9 @@ data Environment = Environment
 -- network events, one for client events and one for main chain events, or by
 -- sub-'State'.
 update ::
-  Tx tx =>
-  Ord tx =>
+  ( Tx tx
+  , Ord tx
+  ) =>
   Environment ->
   Ledger tx ->
   HeadState tx ->

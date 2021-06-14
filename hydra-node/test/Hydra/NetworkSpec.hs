@@ -73,7 +73,7 @@ spec = describe "Networking layer" $ do
   describe "Serialisation" $ do
     it "can roundtrip CBOR encoding/decoding of HydraMessage" $ property $ prop_canRoundtripCBOREncoding @(HydraMessage MockTx)
 
-assertBroadcastFrom :: Eq a => Show a => a -> Network IO a -> [MVar a] -> IO ()
+assertBroadcastFrom :: (Eq a, Show a) => a -> Network IO a -> [MVar a] -> IO ()
 assertBroadcastFrom requestTx network receivers =
   tryBroadcast `catch` \(_ :: HUnitFailure) -> tryBroadcast
  where

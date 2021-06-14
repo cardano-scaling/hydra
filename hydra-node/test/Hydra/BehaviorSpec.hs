@@ -216,10 +216,11 @@ spec = describe "Behavior of one ore more hydra-nodes" $ do
           traces `shouldContain` [ProcessedEffect (ClientEffect ReadyToCommit)]
 
 sendRequestAndWaitFor ::
-  HasCallStack =>
-  MonadThrow m =>
-  MonadTimer m =>
-  Tx tx =>
+  ( HasCallStack
+  , MonadThrow m
+  , MonadTimer m
+  , Tx tx
+  ) =>
   TestHydraNode tx m ->
   ClientRequest tx ->
   ClientResponse tx ->
@@ -277,9 +278,10 @@ testContestationPeriod :: DiffTime
 testContestationPeriod = 3600
 
 withHydraNode ::
-  MonadAsync m =>
-  MonadTimer m =>
-  MonadMask m =>
+  ( MonadAsync m
+  , MonadTimer m
+  , MonadMask m
+  ) =>
   Natural ->
   SnapshotStrategy ->
   ConnectToChain MockTx m ->

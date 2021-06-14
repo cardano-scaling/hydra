@@ -26,8 +26,9 @@ data HeartbeatState
 
 -- | Wrap a `NetworkComponent` and handle sending/receiving of heartbeats.
 withHeartbeat ::
-  MonadAsync m =>
-  MonadDelay m =>
+  ( MonadAsync m
+  , MonadDelay m
+  ) =>
   Party ->
   NetworkComponent m (HydraMessage tx) ->
   NetworkComponent m (HydraMessage tx)
@@ -50,8 +51,9 @@ checkMessages Network{broadcast} heartbeatState =
     broadcast msg
 
 sendHeartbeatFor ::
-  MonadDelay m =>
-  MonadSTM m =>
+  ( MonadDelay m
+  , MonadSTM m
+  ) =>
   Party ->
   TVar m HeartbeatState ->
   Network m (HydraMessage tx) ->

@@ -71,9 +71,10 @@ cardanoLedger env =
     }
 
 applyTx ::
-  Default (Ledger.UTxOState era) =>
-  Default (Ledger.LedgerState era) =>
-  ApplyTx era =>
+  ( Default (Ledger.UTxOState era)
+  , Default (Ledger.LedgerState era)
+  , ApplyTx era
+  ) =>
   Ledger.LedgersEnv era ->
   Ledger.UTxO era ->
   [Ledger.Tx era] ->
@@ -90,8 +91,9 @@ getUTxO :: Ledger.LedgerState era -> Ledger.UTxO era
 getUTxO = Ledger._utxo . Ledger._utxoState
 
 fromUTxO ::
-  Default (Ledger.UTxOState era) =>
-  Default (Ledger.LedgerState era) =>
+  ( Default (Ledger.UTxOState era)
+  , Default (Ledger.LedgerState era)
+  ) =>
   Ledger.UTxO era ->
   Ledger.LedgerState era
 fromUTxO utxo = def{_utxoState = def{_utxo = utxo}}

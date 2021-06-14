@@ -72,9 +72,10 @@ instance Show (ServerHasAgency (st :: FireForget msg)) where
 
 codecFireForget ::
   forall a m.
-  MonadST m =>
-  ToCBOR a =>
-  FromCBOR a =>
+  ( MonadST m
+  , ToCBOR a
+  , FromCBOR a
+  ) =>
   Codec (FireForget a) CBOR.DeserialiseFailure m LBS.ByteString
 codecFireForget = mkCodecCborLazyBS encodeMsg decodeMsg
  where
