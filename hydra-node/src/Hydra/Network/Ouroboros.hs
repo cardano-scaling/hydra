@@ -13,7 +13,7 @@ import Control.Concurrent.STM (
   writeTBQueue,
   writeTChan,
  )
-import Control.Tracer (Tracer, contramap, debugTracer, stdoutTracer)
+import Control.Tracer (contramap, debugTracer)
 import qualified Data.ByteString.Lazy as LBS
 import Hydra.Logging (nullTracer)
 import Hydra.Network (
@@ -31,12 +31,10 @@ import Hydra.Network.Ouroboros.Server as FireForget (
   fireForgetServerPeer,
  )
 import Hydra.Network.Ouroboros.Type (
-  FireForget,
   codecFireForget,
  )
 import Network.Socket (AddrInfo (addrAddress), defaultHints, getAddrInfo)
 import Network.TypedProtocol.Pipelined ()
-import Ouroboros.Network.Driver (TraceSendRecv)
 import Ouroboros.Network.ErrorPolicy (nullErrorPolicies)
 import Ouroboros.Network.IOManager (withIOManager)
 import Ouroboros.Network.Mux (
@@ -73,7 +71,7 @@ import Ouroboros.Network.Subscription.Worker (LocalAddresses (LocalAddresses))
 
 withOuroborosNetwork ::
   forall msg.
-  (Show msg, ToCBOR msg, FromCBOR msg) =>
+  (ToCBOR msg, FromCBOR msg) =>
   Host ->
   [Host] ->
   NetworkCallback msg IO ->
@@ -187,7 +185,7 @@ withOuroborosNetwork localHost remoteHosts networkCallback between = do
    where
     responder =
       MuxPeer
-        showStdoutTracer
+        nullTracer
         codecFireForget
         (fireForgetServerPeer server)
 
@@ -211,7 +209,3 @@ withOuroborosNetwork localHost remoteHosts networkCallback between = do
       { recvMsg = \msg -> networkCallback msg $> server
       , recvMsgDone = pure ()
       }
-
-  showStdoutTracer ::
-    Tracer IO (TraceSendRecv (FireForget msg))
-  showStdoutTracer = contramap show stdoutTracer
