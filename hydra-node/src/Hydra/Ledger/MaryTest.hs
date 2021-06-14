@@ -10,7 +10,6 @@ import Cardano.Prelude
 -- REVIEW(SN): use a more consistent set of ledger imports, but some things not
 -- in the API?
 
-import Cardano.Ledger.SafeHash (hashAnnotated)
 import Cardano.Ledger.ShelleyMA.Timelocks (ValidityInterval (..))
 import Cardano.Ledger.ShelleyMA.TxBody (TxBody (TxBody))
 import Cardano.Ledger.Val ((<->))
@@ -38,11 +37,10 @@ import Shelley.Spec.Ledger.API (
   Wdrl (..),
  )
 import qualified Shelley.Spec.Ledger.API as Ledger
-import qualified Shelley.Spec.Ledger.API as Ledgers hiding (Tx)
 import Shelley.Spec.Ledger.BaseTypes (UnitInterval, mkActiveSlotCoeff, mkUnitInterval)
+import Shelley.Spec.Ledger.Hashing (HashAnnotated (hashAnnotated))
 import Shelley.Spec.Ledger.Keys (KeyPair (KeyPair), asWitness)
-import Shelley.Spec.Ledger.LedgerState (LedgerState (..), UTxOState (..))
-import Shelley.Spec.Ledger.PParams (emptyPParams)
+import Shelley.Spec.Ledger.LedgerState (EpochState (esLState), LedgerState (..), NewEpochState (..), UTxOState (..))
 import Shelley.Spec.Ledger.Slot (SlotNo (SlotNo))
 import Shelley.Spec.Ledger.Tx (addrWits)
 import Shelley.Spec.Ledger.UTxO (UTxO (..), makeWitnessesVKey, txid)
@@ -70,10 +68,10 @@ instance Read MaryTestTx where
 instance Read (Ledger.UTxO era) where
   readPrec = panic "Read: Ledger.UTxO"
 
-cardanoLedger :: Ledger.LedgersEnv MaryTest -> Ledger (Ledger.Tx MaryTest)
-cardanoLedger env =
+cardanoLedger :: Ledger (Ledger.Tx MaryTest)
+cardanoLedger =
   Ledger
-    { applyTransactions = applyTx env
+    { applyTransactions = applyTx
     , initUTxO = getUTxO def
     }
 
@@ -82,20 +80,30 @@ applyTx ::
   , Default (Ledger.LedgerState era)
   , ApplyTx era
   ) =>
-  Ledger.LedgersEnv era ->
   Ledger.UTxO era ->
   [Ledger.Tx era] ->
   Either ValidationError (Ledger.UTxO era)
-applyTx env utxo txs =
-  case Ledger.applyTxsTransition globals env (Seq.fromList txs) (fromUTxO utxo) of
+applyTx utxo txs =
+  case Ledger.applyTxs globals (SlotNo 1) (Seq.fromList txs) newEpochState of
     Left err -> Left $ toValidationError err
-    Right ls -> Right $ getUTxO ls
+    Right ls -> Right $ getUTxO $ esLState $ nesEs ls
  where
   -- toValidationError :: ApplyTxError -> ValidationError
   toValidationError = const ValidationError
 
+  -- NOTE(SN): This does rely on that nesEs is used of the NewEpochState
+  newEpochState =
+    NewEpochState
+      { nesEs = def{esLState = fromUTxO utxo}
+      , nesEL = panic "undefined newEpochState"
+      , nesBprev = panic "undefined newEpochState"
+      , nesBcur = panic "undefined newEpochState"
+      , nesRu = panic "undefined newEpochState"
+      , nesPd = panic "undefined newEpochState"
+      }
+
 getUTxO :: Ledger.LedgerState era -> Ledger.UTxO era
-getUTxO = Ledger._utxo . Ledger._utxoState
+getUTxO = _utxo . _utxoState
 
 fromUTxO ::
   ( Default (Ledger.UTxOState era)
@@ -132,14 +140,6 @@ unsafeMkUnitInterval r =
   fromMaybe (panic "could not construct unit interval") $ mkUnitInterval r
 
 -- * Test functions
-
-mkLedgerEnv :: Ledgers.LedgersEnv MaryTest
-mkLedgerEnv =
-  Ledgers.LedgersEnv
-    { Ledgers.ledgersSlotNo = SlotNo 1
-    , Ledgers.ledgersPp = emptyPParams
-    , Ledgers.ledgersAccount = panic "Not implemented"
-    }
 
 --
 -- From: shelley-ma/shelley-ma-test/test/Test/Cardano/Ledger/Mary/Examples/MultiAssets.hs
