@@ -29,6 +29,7 @@ class
   , Show (UTxO tx)
   , Read tx
   , Read (UTxO tx)
+  , Monoid (UTxO tx)
   ) =>
   Tx tx
   where

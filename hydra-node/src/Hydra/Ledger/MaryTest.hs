@@ -54,6 +54,13 @@ type MaryTest = MaryEra TestCrypto
 
 type MaryTestTx = Ledger.Tx MaryTest
 
+-- Orphan
+instance Semigroup (Ledger.UTxO MaryTest) where
+  Ledger.UTxO u1 <> Ledger.UTxO u2 = Ledger.UTxO (u1 <> u2)
+
+instance Monoid (Ledger.UTxO MaryTest) where
+  mempty = Ledger.UTxO mempty
+
 instance Tx MaryTestTx where
   type UTxO MaryTestTx = Ledger.UTxO MaryTest
 
