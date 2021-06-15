@@ -79,7 +79,7 @@ genOnChainTx =
   elements
     [ InitTx mempty
     , CommitTx (ParticipationToken 1 1) [ValidTx 10]
-    , CollectComTx
+    , CollectComTx []
     , CloseTx (Snapshot 0 mempty mempty) mempty
     , ContestTx
     , FanoutTx [ValidTx 1]

@@ -74,7 +74,7 @@ spec = describe "Behavior of one ore more hydra-nodes" $ do
         chain <- simulatedChainAndNetwork
         withHydraNode 1 NoSnapshots chain $ \n1 -> do
           sendRequestAndWaitFor n1 (Init [1]) ReadyToCommit
-          sendRequestAndWaitFor n1 (Commit [ValidTx 1]) (HeadIsOpen [])
+          sendRequestAndWaitFor n1 (Commit [ValidTx 1]) (HeadIsOpen [ValidTx 1])
           sendRequestAndWaitFor n1 (Commit [ValidTx 2]) CommandFailed
 
     it "can close an open head" $
@@ -82,8 +82,8 @@ spec = describe "Behavior of one ore more hydra-nodes" $ do
         chain <- simulatedChainAndNetwork
         withHydraNode 1 NoSnapshots chain $ \n1 -> do
           sendRequestAndWaitFor n1 (Init [1]) ReadyToCommit
-          sendRequestAndWaitFor n1 (Commit [ValidTx 1]) (HeadIsOpen [])
-          sendRequestAndWaitFor n1 Close (HeadIsClosed testContestationPeriod (Snapshot 0 [] []) [])
+          sendRequestAndWaitFor n1 (Commit [ValidTx 1]) (HeadIsOpen [ValidTx 1])
+          sendRequestAndWaitFor n1 Close (HeadIsClosed testContestationPeriod (Snapshot 0 [ValidTx 1] []) [])
 
   it "does finalize head after contestation period" $
     shouldRunInSim $ do
@@ -92,11 +92,11 @@ spec = describe "Behavior of one ore more hydra-nodes" $ do
         sendRequest n1 $ Init [1]
         sendRequestAndWaitFor n1 (Init [1]) ReadyToCommit
         sendRequest n1 (Commit [ValidTx 1])
-        failAfter 1 $ waitForResponse n1 `shouldReturn` HeadIsOpen []
+        failAfter 1 $ waitForResponse n1 `shouldReturn` HeadIsOpen [ValidTx 1]
         sendRequest n1 Close
-        failAfter 1 $ waitForResponse n1 `shouldReturn` HeadIsClosed testContestationPeriod (Snapshot 0 [] []) []
+        failAfter 1 $ waitForResponse n1 `shouldReturn` HeadIsClosed testContestationPeriod (Snapshot 0 [ValidTx 1] []) []
         threadDelay testContestationPeriod
-        failAfter 1 $ waitForResponse n1 `shouldReturn` HeadIsFinalized []
+        failAfter 1 $ waitForResponse n1 `shouldReturn` HeadIsFinalized [ValidTx 1]
 
   describe "Two participant Head" $ do
     it "accepts a tx after the head was opened between two nodes" $
@@ -109,7 +109,7 @@ spec = describe "Behavior of one ore more hydra-nodes" $ do
 
             failAfter 1 $ waitForResponse n2 `shouldReturn` ReadyToCommit
             sendRequest n2 (Commit [ValidTx 2])
-            failAfter 1 $ waitForResponse n2 `shouldReturn` HeadIsOpen []
+            failAfter 1 $ waitForResponse n2 `shouldReturn` HeadIsOpen [ValidTx 1, ValidTx 2]
             sendRequest n2 (NewTx $ ValidTx 3)
 
     it "sees the head closed by other nodes" $
@@ -121,12 +121,14 @@ spec = describe "Behavior of one ore more hydra-nodes" $ do
             sendRequest n1 (Commit [ValidTx 1])
 
             failAfter 1 $ waitForResponse n2 `shouldReturn` ReadyToCommit
-            sendRequestAndWaitFor n2 (Commit [ValidTx 2]) (HeadIsOpen [])
+            sendRequestAndWaitFor n2 (Commit [ValidTx 2]) (HeadIsOpen [ValidTx 1, ValidTx 2])
 
-            failAfter 1 $ waitForResponse n1 `shouldReturn` HeadIsOpen []
+            failAfter 1 $ waitForResponse n1 `shouldReturn` HeadIsOpen [ValidTx 1, ValidTx 2]
             sendRequest n1 Close
 
-            failAfter 1 $ waitForResponse n2 `shouldReturn` HeadIsClosed testContestationPeriod (Snapshot 0 [] []) []
+            failAfter 1 $
+              waitForResponse n2
+                `shouldReturn` HeadIsClosed testContestationPeriod (Snapshot 0 [ValidTx 1, ValidTx 2] []) []
 
     it "only opens the head after all nodes committed" $
       shouldRunInSim $ do
@@ -135,12 +137,12 @@ spec = describe "Behavior of one ore more hydra-nodes" $ do
           withHydraNode 2 NoSnapshots chain $ \n2 -> do
             sendRequestAndWaitFor n1 (Init [1, 2]) ReadyToCommit
             sendRequest n1 (Commit [ValidTx 1])
-            timeout 1 (waitForResponse n1) >>= (`shouldNotBe` Just (HeadIsOpen []))
+            timeout 1 (waitForResponse n1) >>= (`shouldNotBe` Just (HeadIsOpen [ValidTx 1]))
 
             failAfter 1 $ waitForResponse n2 `shouldReturn` ReadyToCommit
-            sendRequestAndWaitFor n2 (Commit [ValidTx 2]) (HeadIsOpen [])
+            sendRequestAndWaitFor n2 (Commit [ValidTx 2]) (HeadIsOpen [ValidTx 1, ValidTx 2])
 
-            failAfter 1 $ waitForResponse n1 `shouldReturn` HeadIsOpen []
+            failAfter 1 $ waitForResponse n1 `shouldReturn` HeadIsOpen [ValidTx 1, ValidTx 2]
 
     it "valid new transactions get confirmed without snapshotting" $
       shouldRunInSim $ do
@@ -150,8 +152,8 @@ spec = describe "Behavior of one ore more hydra-nodes" $ do
             sendRequestAndWaitFor n1 (Init [1, 2]) ReadyToCommit
             sendRequest n1 (Commit [ValidTx 1])
             failAfter 1 $ waitForResponse n2 `shouldReturn` ReadyToCommit
-            sendRequestAndWaitFor n2 (Commit [ValidTx 2]) (HeadIsOpen [])
-            failAfter 1 $ waitForResponse n1 `shouldReturn` HeadIsOpen []
+            sendRequestAndWaitFor n2 (Commit [ValidTx 2]) (HeadIsOpen [ValidTx 1, ValidTx 2])
+            failAfter 1 $ waitForResponse n1 `shouldReturn` HeadIsOpen [ValidTx 1, ValidTx 2]
 
             sendRequest n1 (NewTx $ ValidTx 42)
             failAfter 1 $ waitForResponse n1 `shouldReturn` TxConfirmed (ValidTx 42)
@@ -160,7 +162,7 @@ spec = describe "Behavior of one ore more hydra-nodes" $ do
             sendRequest n1 Close
             failAfter 1 $
               waitForResponse n1
-                `shouldReturn` HeadIsClosed testContestationPeriod (Snapshot 0 [] []) [ValidTx 42]
+                `shouldReturn` HeadIsClosed testContestationPeriod (Snapshot 0 [ValidTx 1, ValidTx 2] []) [ValidTx 42]
 
     it "valid new transactions get snapshotted" $
       shouldRunInSim $ do
@@ -170,8 +172,8 @@ spec = describe "Behavior of one ore more hydra-nodes" $ do
             sendRequestAndWaitFor n1 (Init [1, 2]) ReadyToCommit
             sendRequest n1 (Commit [ValidTx 1])
             failAfter 1 $ waitForResponse n2 `shouldReturn` ReadyToCommit
-            sendRequestAndWaitFor n2 (Commit [ValidTx 2]) (HeadIsOpen [])
-            failAfter 1 $ waitForResponse n1 `shouldReturn` HeadIsOpen []
+            sendRequestAndWaitFor n2 (Commit [ValidTx 2]) (HeadIsOpen [ValidTx 1, ValidTx 2])
+            failAfter 1 $ waitForResponse n1 `shouldReturn` HeadIsOpen [ValidTx 1, ValidTx 2]
 
             sendRequest n1 (NewTx $ ValidTx 42)
             failAfter 1 $ waitForResponse n1 `shouldReturn` TxConfirmed (ValidTx 42)
@@ -184,7 +186,7 @@ spec = describe "Behavior of one ore more hydra-nodes" $ do
               let expectedSnapshot =
                     Snapshot
                       { number = 1
-                      , utxo = [ValidTx 42]
+                      , utxo = [ValidTx 42, ValidTx 1, ValidTx 2]
                       , confirmed = [ValidTx 42]
                       }
               waitForResponse n1

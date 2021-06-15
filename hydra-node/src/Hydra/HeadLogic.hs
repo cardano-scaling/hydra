@@ -20,7 +20,6 @@ import Hydra.Ledger (
   ValidationResult (Invalid, Valid),
   applyTransactions,
   canApply,
-  initUTxO,
  )
 
 data Event tx
@@ -93,7 +92,7 @@ data HydraMessage tx
 data OnChainTx tx
   = InitTx (Set ParticipationToken)
   | CommitTx ParticipationToken (UTxO tx)
-  | CollectComTx
+  | CollectComTx (UTxO tx)
   | CloseTx (Snapshot tx) [tx]
   | ContestTx
   | FanoutTx (UTxO tx)
@@ -205,15 +204,15 @@ update Environment{party, snapshotStrategy} ledger (HeadState p st) ev = case (s
         newCommitted = Map.insert pt utxo committed
         newHeadState = CollectingState remainingTokens' newCommitted
      in if canCollectCom party pt remainingTokens'
-          then newState p newHeadState [OnChainEffect CollectComTx]
+          then newState p newHeadState [OnChainEffect $ CollectComTx $ mconcat $ Map.elems newCommitted]
           else newState p newHeadState []
   (_, OnChainEvent CommitTx{}) ->
     -- TODO: This should warn the user / client that something went _terribly_ wrong
     --       We shouldn't see any commit outside of the collecting state, if we do,
     --       there's an issue our logic or onChain layer.
     newState p st []
-  (_, OnChainEvent CollectComTx) ->
-    let u0 = initUTxO ledger -- TODO(SN): should construct u0 from the collected utxo
+  (_, OnChainEvent (CollectComTx utxo)) ->
+    let u0 = utxo
      in newState
           p
           (OpenState $ SimpleHeadState u0 mempty mempty (Snapshot 0 u0 mempty))
