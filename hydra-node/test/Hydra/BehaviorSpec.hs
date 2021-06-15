@@ -67,22 +67,22 @@ spec = describe "Behavior of one ore more hydra-nodes" $ do
         chain <- simulatedChainAndNetwork
         withHydraNode 1 NoSnapshots chain $ \n -> do
           sendRequest n (Init [1])
-          sendRequest n (Commit 1)
+          sendRequest n (Commit [ValidTx 1])
 
     it "not accepts commits when the head is open" $
       shouldRunInSim $ do
         chain <- simulatedChainAndNetwork
         withHydraNode 1 NoSnapshots chain $ \n1 -> do
           sendRequestAndWaitFor n1 (Init [1]) ReadyToCommit
-          sendRequestAndWaitFor n1 (Commit 1) (HeadIsOpen [])
-          sendRequestAndWaitFor n1 (Commit 1) CommandFailed
+          sendRequestAndWaitFor n1 (Commit [ValidTx 1]) (HeadIsOpen [])
+          sendRequestAndWaitFor n1 (Commit [ValidTx 2]) CommandFailed
 
     it "can close an open head" $
       shouldRunInSim $ do
         chain <- simulatedChainAndNetwork
         withHydraNode 1 NoSnapshots chain $ \n1 -> do
           sendRequestAndWaitFor n1 (Init [1]) ReadyToCommit
-          sendRequestAndWaitFor n1 (Commit 1) (HeadIsOpen [])
+          sendRequestAndWaitFor n1 (Commit [ValidTx 1]) (HeadIsOpen [])
           sendRequestAndWaitFor n1 Close (HeadIsClosed testContestationPeriod (Snapshot 0 [] []) [])
 
   it "does finalize head after contestation period" $
@@ -91,7 +91,7 @@ spec = describe "Behavior of one ore more hydra-nodes" $ do
       withHydraNode 1 NoSnapshots chain $ \n1 -> do
         sendRequest n1 $ Init [1]
         sendRequestAndWaitFor n1 (Init [1]) ReadyToCommit
-        sendRequest n1 (Commit 1)
+        sendRequest n1 (Commit [ValidTx 1])
         failAfter 1 $ waitForResponse n1 `shouldReturn` HeadIsOpen []
         sendRequest n1 Close
         failAfter 1 $ waitForResponse n1 `shouldReturn` HeadIsClosed testContestationPeriod (Snapshot 0 [] []) []
@@ -105,12 +105,12 @@ spec = describe "Behavior of one ore more hydra-nodes" $ do
         withHydraNode 1 NoSnapshots chain $ \n1 -> do
           withHydraNode 2 NoSnapshots chain $ \n2 -> do
             sendRequestAndWaitFor n1 (Init [1, 2]) ReadyToCommit
-            sendRequest n1 (Commit 1)
+            sendRequest n1 (Commit [ValidTx 1])
 
             failAfter 1 $ waitForResponse n2 `shouldReturn` ReadyToCommit
-            sendRequest n2 (Commit 1)
+            sendRequest n2 (Commit [ValidTx 2])
             failAfter 1 $ waitForResponse n2 `shouldReturn` HeadIsOpen []
-            sendRequest n2 (NewTx $ ValidTx 1)
+            sendRequest n2 (NewTx $ ValidTx 3)
 
     it "sees the head closed by other nodes" $
       shouldRunInSim $ do
@@ -118,10 +118,10 @@ spec = describe "Behavior of one ore more hydra-nodes" $ do
         withHydraNode 1 NoSnapshots chain $ \n1 -> do
           withHydraNode 2 NoSnapshots chain $ \n2 -> do
             sendRequestAndWaitFor n1 (Init [1, 2]) ReadyToCommit
-            sendRequest n1 (Commit 1)
+            sendRequest n1 (Commit [ValidTx 1])
 
             failAfter 1 $ waitForResponse n2 `shouldReturn` ReadyToCommit
-            sendRequestAndWaitFor n2 (Commit 1) (HeadIsOpen [])
+            sendRequestAndWaitFor n2 (Commit [ValidTx 2]) (HeadIsOpen [])
 
             failAfter 1 $ waitForResponse n1 `shouldReturn` HeadIsOpen []
             sendRequest n1 Close
@@ -134,11 +134,11 @@ spec = describe "Behavior of one ore more hydra-nodes" $ do
         withHydraNode 1 NoSnapshots chain $ \n1 -> do
           withHydraNode 2 NoSnapshots chain $ \n2 -> do
             sendRequestAndWaitFor n1 (Init [1, 2]) ReadyToCommit
-            sendRequest n1 (Commit 1)
+            sendRequest n1 (Commit [ValidTx 1])
             timeout 1 (waitForResponse n1) >>= (`shouldNotBe` Just (HeadIsOpen []))
 
             failAfter 1 $ waitForResponse n2 `shouldReturn` ReadyToCommit
-            sendRequestAndWaitFor n2 (Commit 1) (HeadIsOpen [])
+            sendRequestAndWaitFor n2 (Commit [ValidTx 2]) (HeadIsOpen [])
 
             failAfter 1 $ waitForResponse n1 `shouldReturn` HeadIsOpen []
 
@@ -148,9 +148,9 @@ spec = describe "Behavior of one ore more hydra-nodes" $ do
         withHydraNode 1 NoSnapshots chain $ \n1 -> do
           withHydraNode 2 NoSnapshots chain $ \n2 -> do
             sendRequestAndWaitFor n1 (Init [1, 2]) ReadyToCommit
-            sendRequest n1 (Commit 1)
+            sendRequest n1 (Commit [ValidTx 1])
             failAfter 1 $ waitForResponse n2 `shouldReturn` ReadyToCommit
-            sendRequestAndWaitFor n2 (Commit 1) (HeadIsOpen [])
+            sendRequestAndWaitFor n2 (Commit [ValidTx 2]) (HeadIsOpen [])
             failAfter 1 $ waitForResponse n1 `shouldReturn` HeadIsOpen []
 
             sendRequest n1 (NewTx $ ValidTx 42)
@@ -168,9 +168,9 @@ spec = describe "Behavior of one ore more hydra-nodes" $ do
         withHydraNode 1 (SnapshotAfter 1) chain $ \n1 -> do
           withHydraNode 2 NoSnapshots chain $ \n2 -> do
             sendRequestAndWaitFor n1 (Init [1, 2]) ReadyToCommit
-            sendRequest n1 (Commit 1)
+            sendRequest n1 (Commit [ValidTx 1])
             failAfter 1 $ waitForResponse n2 `shouldReturn` ReadyToCommit
-            sendRequestAndWaitFor n2 (Commit 1) (HeadIsOpen [])
+            sendRequestAndWaitFor n2 (Commit [ValidTx 2]) (HeadIsOpen [])
             failAfter 1 $ waitForResponse n1 `shouldReturn` HeadIsOpen []
 
             sendRequest n1 (NewTx $ ValidTx 42)
@@ -196,7 +196,7 @@ spec = describe "Behavior of one ore more hydra-nodes" $ do
         chain <- simulatedChainAndNetwork
         withHydraNode 1 NoSnapshots chain $ \n1 -> do
           sendRequestAndWaitFor n1 (Init [1]) ReadyToCommit
-          sendRequest n1 (Commit 1)
+          sendRequest n1 (Commit [ValidTx 1])
 
           traces <- atomically $ readTVar (capturedLogs n1)
 
@@ -208,7 +208,7 @@ spec = describe "Behavior of one ore more hydra-nodes" $ do
         chain <- simulatedChainAndNetwork
         withHydraNode 1 NoSnapshots chain $ \n1 -> do
           sendRequestAndWaitFor n1 (Init [1]) ReadyToCommit
-          sendRequest n1 (Commit 1)
+          sendRequest n1 (Commit [ValidTx 1])
 
           traces <- atomically $ readTVar (capturedLogs n1)
 
