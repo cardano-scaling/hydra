@@ -3,8 +3,8 @@
 
 module Hydra.BehaviorSpec where
 
-import Cardano.Prelude hiding (Async, STM, async, atomically, cancel, check, link, poll, threadDelay, withAsync)
-import Control.Monad.Class.MonadAsync (MonadAsync, withAsync)
+import Cardano.Prelude hiding (Async, STM, async, atomically, cancel, check, link, poll, threadDelay, traceM, withAsync)
+import Control.Monad.Class.MonadAsync (withAsync)
 import Control.Monad.Class.MonadSTM (
   MonadSTM,
   TVar,
@@ -17,8 +17,9 @@ import Control.Monad.Class.MonadSTM (
   readTVar,
   takeTMVar,
  )
-import Control.Monad.Class.MonadThrow (MonadMask, MonadThrow)
+import Control.Monad.Class.MonadThrow (MonadThrow)
 import Control.Monad.Class.MonadTimer (DiffTime, MonadTimer, threadDelay, timeout)
+import Control.Monad.IOSim (IOSim, runSimTrace, selectTraceEventsDynamic, traceM)
 import Hydra.HeadLogic (
   ClientRequest (..),
   ClientResponse (..),
@@ -32,7 +33,7 @@ import Hydra.HeadLogic (
  )
 import Hydra.Ledger (Tx)
 import Hydra.Ledger.Mock (MockTx (..), mockLedger)
-import Hydra.Logging (traceInTVar)
+import Hydra.Logging (Tracer (..))
 import Hydra.Network (Network (..))
 import Hydra.Node (
   HydraNode (..),
@@ -45,8 +46,8 @@ import Hydra.Node (
   handleMessage,
   runHydraNode,
  )
-import Test.Hspec (Spec, describe, it)
-import Test.Util (failAfter, shouldContain, shouldNotBe, shouldReturn, shouldRunInSim)
+import Test.Hspec (Spec, describe, it, shouldContain)
+import Test.Util (failAfter, shouldNotBe, shouldReturn, shouldRunInSim)
 
 spec :: Spec
 spec = describe "Behavior of one ore more hydra-nodes" $ do
@@ -193,29 +194,29 @@ spec = describe "Behavior of one ore more hydra-nodes" $ do
                 `shouldReturn` HeadIsClosed testContestationPeriod expectedSnapshot []
 
   describe "Hydra Node Logging" $ do
-    it "traces processing of events" $
-      shouldRunInSim $ do
-        chain <- simulatedChainAndNetwork
-        withHydraNode 1 NoSnapshots chain $ \n1 -> do
-          sendRequestAndWaitFor n1 (Init [1]) ReadyToCommit
-          sendRequest n1 (Commit [ValidTx 1])
+    it "traces processing of events" $ do
+      let result = runSimTrace $ do
+            chain <- simulatedChainAndNetwork
+            withHydraNode 1 NoSnapshots chain $ \n1 -> do
+              sendRequestAndWaitFor n1 (Init [1]) ReadyToCommit
+              sendRequest n1 (Commit [ValidTx 1])
 
-          traces <- atomically $ readTVar (capturedLogs n1)
+          logs = selectTraceEventsDynamic @_ @(HydraNodeLog MockTx) result
 
-          traces `shouldContain` [ProcessingEvent (ClientEvent $ Init [1])]
-          traces `shouldContain` [ProcessedEvent (ClientEvent $ Init [1])]
+      logs `shouldContain` [ProcessingEvent (ClientEvent $ Init [1])]
+      logs `shouldContain` [ProcessedEvent (ClientEvent $ Init [1])]
 
-    it "traces handling of effects" $
-      shouldRunInSim $ do
-        chain <- simulatedChainAndNetwork
-        withHydraNode 1 NoSnapshots chain $ \n1 -> do
-          sendRequestAndWaitFor n1 (Init [1]) ReadyToCommit
-          sendRequest n1 (Commit [ValidTx 1])
+    it "traces handling of effects" $ do
+      let result = runSimTrace $ do
+            chain <- simulatedChainAndNetwork
+            withHydraNode 1 NoSnapshots chain $ \n1 -> do
+              sendRequestAndWaitFor n1 (Init [1]) ReadyToCommit
+              sendRequest n1 (Commit [ValidTx 1])
 
-          traces <- atomically $ readTVar (capturedLogs n1)
+          logs = selectTraceEventsDynamic @_ @(HydraNodeLog MockTx) result
 
-          traces `shouldContain` [ProcessingEffect (ClientEffect ReadyToCommit)]
-          traces `shouldContain` [ProcessedEffect (ClientEffect ReadyToCommit)]
+      logs `shouldContain` [ProcessingEffect (ClientEffect ReadyToCommit)]
+      logs `shouldContain` [ProcessedEffect (ClientEffect ReadyToCommit)]
 
 sendRequestAndWaitFor ::
   ( HasCallStack
@@ -280,21 +281,18 @@ testContestationPeriod :: DiffTime
 testContestationPeriod = 3600
 
 withHydraNode ::
-  ( MonadAsync m
-  , MonadTimer m
-  , MonadMask m
-  ) =>
+  forall s a.
   Natural ->
   SnapshotStrategy ->
-  ConnectToChain MockTx m ->
-  (TestHydraNode MockTx m -> m ()) ->
-  m ()
+  ConnectToChain MockTx (IOSim s) ->
+  (TestHydraNode MockTx (IOSim s) -> IOSim s a) ->
+  IOSim s a
 withHydraNode nodeId snapshotStrategy connectToChain action = do
   capturedLogs <- newTVarIO []
   response <- newEmptyTMVarIO
   node <- createHydraNode response
-  -- TODO(SN): trace directly into io-sim's 'Trace'
-  withAsync (runHydraNode (traceInTVar capturedLogs) node) $ \_ ->
+
+  withAsync (runHydraNode traceInIOSim node) $ \_ ->
     action $
       TestHydraNode
         { sendRequest = handleClientRequest node
@@ -311,3 +309,10 @@ withHydraNode nodeId snapshotStrategy connectToChain action = do
     let hn' = Network{broadcast = const $ pure ()}
     let node = HydraNode{eq, hn = hn', hh, oc = OnChain (const $ pure ()), sendResponse = atomically . putTMVar response, env}
     connectToChain node
+
+-- | A 'Tracer' that works in 'IOSim' monad.
+-- This tracer uses the 'Output' event which uses converts value traced to 'Dynamic'
+-- which requires 'Typeable' constraint. To retrieve the trace use 'selectTraceEventsDynamic'
+-- applied to the correct type.
+traceInIOSim :: Typeable a => Tracer (IOSim s) a
+traceInIOSim = Tracer $ \a -> traceM a

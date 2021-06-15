@@ -24,7 +24,7 @@ data APIServerLog
   | APIResponseSent {sentResponse :: Text}
   | APIRequestReceived {receivedRequest :: Text}
   | APIInvalidRequest {receivedRequest :: Text}
-  deriving (Show)
+  deriving (Eq, Show)
 
 runAPIServer ::
   Tx tx =>

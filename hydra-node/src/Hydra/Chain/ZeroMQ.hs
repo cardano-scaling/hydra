@@ -45,7 +45,7 @@ data MockChainLog tx
   | ChainSyncStarted {syncAddress :: String}
   | ReceivedTransaction {transaction :: OnChainTx tx}
   | CatchingUpTransactions {catchupAddress :: String, numberOfTransactions :: Int}
-  deriving (Show)
+  deriving (Eq, Show)
 
 startChain :: Tx tx => String -> String -> String -> Tracer IO (MockChainLog tx) -> IO ()
 startChain chainSyncAddress chainCatchupAddress postTxAddress tracer = do

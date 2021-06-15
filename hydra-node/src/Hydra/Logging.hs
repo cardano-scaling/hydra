@@ -5,7 +5,7 @@
 -- iohk-monitoring package, but that might change soon.
 module Hydra.Logging (
   -- * Tracer
-  Tracer,
+  Tracer (..),
   natTracer,
   nullTracer,
   contramap,
