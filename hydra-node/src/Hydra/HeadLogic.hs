@@ -94,7 +94,7 @@ data OnChainTx tx
   | CommitTx ParticipationToken (UTxO tx)
   | CollectComTx (UTxO tx)
   | CloseTx (Snapshot tx) [tx]
-  | ContestTx
+  | ContestTx (Snapshot tx) [tx]
   | FanoutTx (UTxO tx)
 
 deriving instance Tx tx => Eq (OnChainTx tx)
@@ -332,7 +332,7 @@ update Environment{party, snapshotStrategy} ledger (HeadState p st) ev = case (s
           (ClosedState confirmedUTxO)
           [ClientEffect $ HeadIsClosed (contestationPeriod p) snapshot txs]
   --
-  (_, OnChainEvent ContestTx) ->
+  (_, OnChainEvent ContestTx{}) ->
     -- TODO: Handle contest tx
     newState p st []
   (ClosedState utxo, ShouldPostFanout) ->

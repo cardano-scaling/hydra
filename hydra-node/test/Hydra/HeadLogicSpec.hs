@@ -90,7 +90,7 @@ genOnChainTx =
     , CommitTx (ParticipationToken 1 1) [ValidTx 10]
     , CollectComTx []
     , CloseTx (Snapshot 0 mempty mempty) mempty
-    , ContestTx
+    , ContestTx (Snapshot 0 mempty mempty) mempty
     , FanoutTx [ValidTx 1]
     ]
 
