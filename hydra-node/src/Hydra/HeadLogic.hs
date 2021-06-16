@@ -163,9 +163,6 @@ data Outcome tx
   | Wait
   | Error (LogicError tx)
 
-newState :: HeadParameters -> HeadStatus tx -> [Effect tx] -> Outcome tx
-newState p s = NewState (HeadState p s)
-
 data Environment = Environment
   { -- | This is the p_i from the paper
     party :: Party
@@ -185,24 +182,30 @@ update ::
   HeadState tx ->
   Event tx ->
   Outcome tx
-update Environment{party, snapshotStrategy} ledger (HeadState p st) ev = case (st, ev) of
+update Environment{party, snapshotStrategy} ledger (HeadState parameters st) ev = case (st, ev) of
   (InitState, ClientEvent (Init parties)) ->
-    newState p InitState [OnChainEffect (InitTx $ Set.fromList parties)]
+    newState InitState [OnChainEffect (InitTx $ Set.fromList parties)]
   (_, OnChainEvent (InitTx parties)) ->
     -- NOTE(SN): Eventually we won't be able to construct 'HeadParameters' from
     -- the 'InitTx'
-    newState (p{parties}) (CollectingState parties mempty) [ClientEffect ReadyToCommit]
+    NewState
+      ( HeadState
+          { headParameters = parameters{parties}
+          , headStatus = CollectingState parties mempty
+          }
+      )
+      [ClientEffect ReadyToCommit]
   --
   (CollectingState remainingParties _, ClientEvent (Commit utxo)) ->
     if canCommit
-      then newState p st [OnChainEffect (CommitTx party utxo)]
+      then newState st [OnChainEffect (CommitTx party utxo)]
       else panic $ "you're not allowed to commit (anymore): remainingParties : " <> show remainingParties <> ", partiyIndex:  " <> show party
    where
     canCommit = party `elem` remainingParties
   (CollectingState remainingParties committed, OnChainEvent (CommitTx pt utxo)) ->
     if canCollectCom
-      then newState p newHeadState [OnChainEffect $ CollectComTx $ mconcat $ Map.elems newCommitted]
-      else newState p newHeadState []
+      then newState newHeadState [OnChainEffect $ CollectComTx $ mconcat $ Map.elems newCommitted]
+      else newState newHeadState []
    where
     remainingParties' = Set.delete pt remainingParties
     newCommitted = Map.insert pt utxo committed
@@ -212,30 +215,28 @@ update Environment{party, snapshotStrategy} ledger (HeadState p st) ev = case (s
     -- TODO: This should warn the user / client that something went _terribly_ wrong
     --       We shouldn't see any commit outside of the collecting state, if we do,
     --       there's an issue our logic or onChain layer.
-    newState p st []
+    newState st []
   (_, OnChainEvent (CollectComTx utxo)) ->
     let u0 = utxo
      in newState
-          p
           (OpenState $ SimpleHeadState u0 mempty mempty (Snapshot 0 u0 mempty) Nothing)
           [ClientEffect $ HeadIsOpen u0]
   --
   (OpenState SimpleHeadState{confirmedSnapshot, confirmedTxs}, ClientEvent Close) ->
     newState
-      p
       st
       [ OnChainEffect (CloseTx confirmedSnapshot confirmedTxs)
-      , Delay (contestationPeriod p) ShouldPostFanout
+      , Delay (contestationPeriod parameters) ShouldPostFanout
       ]
   --
   (OpenState SimpleHeadState{confirmedUTxO}, ClientEvent (NewTx tx)) ->
     case canApply ledger confirmedUTxO tx of
-      Invalid _ -> newState p st [ClientEffect $ TxInvalid tx]
-      Valid -> newState p st [NetworkEffect $ ReqTx tx]
+      Invalid _ -> newState st [ClientEffect $ TxInvalid tx]
+      Valid -> newState st [NetworkEffect $ ReqTx tx]
   (OpenState headState, NetworkEvent (ReqTx tx)) ->
     case canApply ledger (confirmedUTxO headState) tx of
       Invalid _ -> panic "TODO: wait until it may be applied"
-      Valid -> newState p st [NetworkEffect $ AckTx party tx]
+      Valid -> newState st [NetworkEffect $ AckTx party tx]
   (OpenState headState@SimpleHeadState{confirmedUTxO, confirmedTxs, confirmedSnapshot, unconfirmedTxs}, NetworkEvent (AckTx otherParty tx)) ->
     -- TODO(SN): check signature of AckTx and we would not send the tx around, so some more bookkeeping is required here
     case applyTransactions ledger confirmedUTxO [tx] of
@@ -251,10 +252,9 @@ update Environment{party, snapshotStrategy} ledger (HeadState p st) ev = case (s
                   NoSnapshots -> []
                   SnapshotAfter{} -> [NetworkEffect $ ReqSn (number confirmedSnapshot + 1) (tx : confirmedTxs)] -- XXX
               | otherwise = []
-        if sigs == parties p
+        if sigs == parties parameters
           then
             newState
-              p
               ( OpenState $
                   headState
                     { confirmedUTxO = utxo'
@@ -266,7 +266,6 @@ update Environment{party, snapshotStrategy} ledger (HeadState p st) ev = case (s
               )
           else
             newState
-              p
               ( OpenState headState{unconfirmedTxs = Map.insert tx sigs unconfirmedTxs}
               )
               []
@@ -281,7 +280,6 @@ update Environment{party, snapshotStrategy} ledger (HeadState p st) ev = case (s
         | number confirmedSnapshot + 1 == sn ->
           let nextSnapshot = Snapshot sn u txs
            in newState
-                p
                 (OpenState $ s{unconfirmedSnapshot = Just (nextSnapshot, mempty)})
                 [NetworkEffect $ AckSn party sn]
       Right _ ->
@@ -293,10 +291,9 @@ update Environment{party, snapshotStrategy} ledger (HeadState p st) ev = case (s
       Just (snapshot, sigs)
         | number snapshot == sn ->
           let sigs' = otherParty `Set.insert` sigs
-           in if sigs' == parties p
+           in if sigs' == parties parameters
                 then
                   newState
-                    p
                     ( OpenState $
                         headState
                           { confirmedTxs = confirmedTxs \\ confirmed snapshot
@@ -307,7 +304,6 @@ update Environment{party, snapshotStrategy} ledger (HeadState p st) ev = case (s
                     [ClientEffect $ SnapshotConfirmed sn]
                 else
                   newState
-                    p
                     ( OpenState $
                         headState
                           { unconfirmedSnapshot = Just (snapshot, sigs')
@@ -329,21 +325,23 @@ update Environment{party, snapshotStrategy} ledger (HeadState p st) ev = case (s
         panic $ "Stored not applicable snapshot (" <> show (number snapshot) <> ") " <> show txs <> ": " <> show e
       Right confirmedUTxO ->
         newState
-          p
           (ClosedState confirmedUTxO)
-          [ClientEffect $ HeadIsClosed (contestationPeriod p) snapshot txs]
+          [ClientEffect $ HeadIsClosed (contestationPeriod parameters) snapshot txs]
   --
   (_, OnChainEvent ContestTx{}) ->
     -- TODO: Handle contest tx
-    newState p st []
+    newState st []
   (ClosedState utxo, ShouldPostFanout) ->
-    newState p st [OnChainEffect (FanoutTx utxo)]
+    newState st [OnChainEffect (FanoutTx utxo)]
   (_, OnChainEvent (FanoutTx utxo)) ->
     -- NOTE(SN): we might care if we are not in ClosedState
-    newState p FinalState [ClientEffect $ HeadIsFinalized utxo]
+    newState FinalState [ClientEffect $ HeadIsFinalized utxo]
   --
   (_, ClientEvent{}) ->
-    newState p st [ClientEffect CommandFailed]
+    newState st [ClientEffect CommandFailed]
   (_, NetworkEvent (Ping pty)) ->
-    newState p st [ClientEffect $ PeerConnected pty]
+    newState st [ClientEffect $ PeerConnected pty]
   _ -> panic $ "UNHANDLED EVENT: on " <> show party <> " of event " <> show ev <> " in state " <> show st
+ where
+  newState :: HeadStatus tx -> [Effect tx] -> Outcome tx
+  newState s = NewState (HeadState parameters s)
