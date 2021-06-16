@@ -7,7 +7,6 @@ import qualified Data.Set as Set
 import Data.String (String)
 import Hydra.Chain.ZeroMQ (catchUpTransactions, mockChainClient, runChainSync, startChain)
 import Hydra.HeadLogic (OnChainTx (InitTx))
-import Hydra.Ledger (ParticipationToken (..))
 import Hydra.Ledger.Mock (MockTx)
 import Hydra.Logging (nullTracer)
 import System.Timeout (timeout)
@@ -17,7 +16,7 @@ import Test.Util (shouldReturn)
 spec :: Spec
 spec =
   describe "Mock 0MQ-Based Chain" $ do
-    let tx = InitTx (Set.fromList [ParticipationToken 2 1, ParticipationToken 2 2])
+    let tx = InitTx (Set.fromList [1, 2])
         numberOfTxs :: Int
         numberOfTxs = 3
 

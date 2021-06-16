@@ -2,7 +2,20 @@
 
 module Hydra.HeadLogicSpec where
 
-import Cardano.Prelude
+import Cardano.Prelude (
+  Applicative (pure),
+  Bool (False, True),
+  Foldable (elem),
+  IO,
+  Maybe (..),
+  Monoid (mempty),
+  Ord,
+  Semigroup ((<>)),
+  Set,
+  otherwise,
+  show,
+  ($),
+ )
 
 import Control.Monad.Fail (
   fail,
@@ -24,7 +37,7 @@ import Hydra.HeadLogic (
   SnapshotStrategy (..),
   update,
  )
-import Hydra.Ledger (Ledger (..), ParticipationToken (..), Party, Tx)
+import Hydra.Ledger (Ledger (..), Party, Tx)
 import Hydra.Ledger.Mock (MockTx (ValidTx), mockLedger)
 import Test.Hspec (
   Spec,
@@ -87,7 +100,7 @@ genOnChainTx :: Gen (OnChainTx MockTx)
 genOnChainTx =
   elements
     [ InitTx mempty
-    , CommitTx (ParticipationToken 1 1) [ValidTx 10]
+    , CommitTx 1 [ValidTx 10]
     , CollectComTx []
     , CloseTx (Snapshot 0 mempty mempty) mempty
     , ContestTx (Snapshot 0 mempty mempty) mempty

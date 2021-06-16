@@ -12,7 +12,6 @@ import qualified Data.Set as Set
 import Hydra.Ledger (
   Committed,
   Ledger,
-  ParticipationToken (..),
   Party,
   Tx,
   UTxO,
@@ -90,8 +89,8 @@ data HydraMessage tx
 -- transactions could be parameterized using such data types, but they are not
 -- fully recoverable from transactions observed on chain
 data OnChainTx tx
-  = InitTx (Set ParticipationToken)
-  | CommitTx ParticipationToken (UTxO tx)
+  = InitTx (Set Party)
+  | CommitTx Party (UTxO tx)
   | CollectComTx (UTxO tx)
   | CloseTx (Snapshot tx) [tx]
   | ContestTx (Snapshot tx) [tx]
@@ -131,7 +130,7 @@ data SimpleHeadState tx = SimpleHeadState
 deriving instance Tx tx => Eq (SimpleHeadState tx)
 deriving instance Tx tx => Show (SimpleHeadState tx)
 
-type PendingCommits = Set ParticipationToken
+type PendingCommits = Set Party
 
 -- | Contains at least the contestation period and other things.
 data HeadParameters = HeadParameters
@@ -188,25 +187,27 @@ update ::
   Outcome tx
 update Environment{party, snapshotStrategy} ledger (HeadState p st) ev = case (st, ev) of
   (InitState, ClientEvent (Init parties)) ->
-    newState p InitState [OnChainEffect (InitTx $ makeAllTokens parties)]
-  (_, OnChainEvent (InitTx tokens)) ->
+    newState p InitState [OnChainEffect (InitTx $ Set.fromList parties)]
+  (_, OnChainEvent (InitTx parties)) ->
     -- NOTE(SN): Eventually we won't be able to construct 'HeadParameters' from
     -- the 'InitTx'
-    let parties = Set.map thisToken tokens
-     in newState (p{parties}) (CollectingState tokens mempty) [ClientEffect ReadyToCommit]
+    newState (p{parties}) (CollectingState parties mempty) [ClientEffect ReadyToCommit]
   --
-  (CollectingState remainingTokens _, ClientEvent (Commit utxo)) ->
-    case findToken remainingTokens party of
-      Nothing ->
-        panic $ "you're not allowed to commit (anymore): remainingTokens : " <> show remainingTokens <> ", partiyIndex:  " <> show party
-      Just pt -> newState p st [OnChainEffect (CommitTx pt utxo)]
-  (CollectingState remainingTokens committed, OnChainEvent (CommitTx pt utxo)) ->
-    let remainingTokens' = Set.delete pt remainingTokens
-        newCommitted = Map.insert pt utxo committed
-        newHeadState = CollectingState remainingTokens' newCommitted
-     in if canCollectCom party pt remainingTokens'
-          then newState p newHeadState [OnChainEffect $ CollectComTx $ mconcat $ Map.elems newCommitted]
-          else newState p newHeadState []
+  (CollectingState remainingParties _, ClientEvent (Commit utxo)) ->
+    if canCommit
+      then newState p st [OnChainEffect (CommitTx party utxo)]
+      else panic $ "you're not allowed to commit (anymore): remainingParties : " <> show remainingParties <> ", partiyIndex:  " <> show party
+   where
+    canCommit = party `elem` remainingParties
+  (CollectingState remainingParties committed, OnChainEvent (CommitTx pt utxo)) ->
+    if canCollectCom
+      then newState p newHeadState [OnChainEffect $ CollectComTx $ mconcat $ Map.elems newCommitted]
+      else newState p newHeadState []
+   where
+    remainingParties' = Set.delete pt remainingParties
+    newCommitted = Map.insert pt utxo committed
+    newHeadState = CollectingState remainingParties' newCommitted
+    canCollectCom = null remainingParties' && pt == party
   (_, OnChainEvent CommitTx{}) ->
     -- TODO: This should warn the user / client that something went _terribly_ wrong
     --       We shouldn't see any commit outside of the collecting state, if we do,
@@ -346,15 +347,3 @@ update Environment{party, snapshotStrategy} ledger (HeadState p st) ev = case (s
   (_, NetworkEvent (Ping pty)) ->
     newState p st [ClientEffect $ PeerConnected pty]
   _ -> panic $ "UNHANDLED EVENT: on " <> show party <> " of event " <> show ev <> " in state " <> show st
-
-canCollectCom :: Party -> ParticipationToken -> Set ParticipationToken -> Bool
-canCollectCom party pt remainingTokens = null remainingTokens && thisToken pt == party
-
-makeAllTokens :: [Party] -> Set ParticipationToken
-makeAllTokens parties = Set.fromList $ map (ParticipationToken total) parties
- where
-  total = fromIntegral $ length parties
-
-findToken :: Set ParticipationToken -> Party -> Maybe ParticipationToken
-findToken allTokens party =
-  find (\t -> thisToken t == party) allTokens

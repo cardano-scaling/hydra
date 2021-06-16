@@ -96,7 +96,7 @@ init params@HeadParameters{participants, policy, policyId} = do
     mconcat
       [ foldMap
           ( \vk ->
-              let participationToken = OnChain.mkParticipationToken policyId vk
+              let participationToken = OnChain.mkParty policyId vk
                in mconcat
                     [ mustPayToOtherScript
                         (Scripts.scriptHash $ initialScriptInstance params)
@@ -150,7 +150,7 @@ commit params@HeadParameters{policy, policyId} = do
       }
 
   constraints vk (ref, txOut) initial =
-    let amount = txOutValue (txOutTxOut txOut) <> OnChain.mkParticipationToken policyId vk
+    let amount = txOutValue (txOutTxOut txOut) <> OnChain.mkParty policyId vk
      in mconcat
           [ mustBeSignedBy vk
           , -- NOTE: using a 'foldMap' here but that 'initial' utxo really has only one
@@ -223,7 +223,7 @@ collectCom params@HeadParameters{participants, policy, policyId} = do
               (Map.keys stateMachine)
           , foldMap
               (\(_, ref) -> mustSpendScriptOutput ref $ asRedeemer @(RedeemerType OnChain.Commit) ())
-              (zipOnParticipationToken policyId participants commits)
+              (zipOnParty policyId participants commits)
           , foldMap
               (mustIncludeDatum . asDatum @(DatumType OnChain.Commit))
               storedOutputs
@@ -272,15 +272,15 @@ abort params@HeadParameters{participants, policy, policyId} = do
       [ mustBeSignedBy headMember
       , mustPayToTheScript OnChain.Final (lovelaceValueOf 0)
       , foldMap
-          (\vk -> mustForgeCurrency policyId (OnChain.mkParticipationTokenName vk) (-1))
+          (\vk -> mustForgeCurrency policyId (OnChain.mkPartyName vk) (-1))
           participants
       , foldMap mustRefund toRefund
       , foldMap
           (\(_vk, ref) -> mustSpendScriptOutput ref $ asRedeemer @(RedeemerType OnChain.Initial) ref)
-          (zipOnParticipationToken policyId participants initial)
+          (zipOnParty policyId participants initial)
       , foldMap
           (\(_vk, ref) -> mustSpendScriptOutput ref $ asRedeemer @(RedeemerType OnChain.Commit) ())
-          (zipOnParticipationToken policyId participants commits)
+          (zipOnParty policyId participants commits)
       , foldMap
           (`mustSpendScriptOutput` asRedeemer @(RedeemerType OnChain.Hydra) OnChain.Abort)
           (Map.keys stateMachine)
@@ -379,23 +379,23 @@ utxoAtWithDatum addr datum = do
 --
 -- Instead, we must associate each commited utxo to their key using the
 -- participation token that they all carry.
-zipOnParticipationToken ::
+zipOnParty ::
   MonetaryPolicyHash ->
   [PubKeyHash] ->
   UtxoMap ->
   [(PubKeyHash, TxOutRef)]
-zipOnParticipationToken policyId vks utxo =
+zipOnParty policyId vks utxo =
   go [] (flattenUtxo utxo) vks []
  where
   go acc [] _ _ = acc
   go acc _ [] _ = acc
   go acc (u : qu) (vk : qv) qv' =
-    if u `hasParticipationToken` vk
+    if u `hasParty` vk
       then go ((vk, fst u) : acc) qu (qv ++ qv') []
       else go acc (u : qu) qv (vk : qv')
 
-  hasParticipationToken :: (TxOutRef, TxOut) -> PubKeyHash -> Bool
-  hasParticipationToken (_, txOut) vk =
+  hasParty :: (TxOutRef, TxOut) -> PubKeyHash -> Bool
+  hasParty (_, txOut) vk =
     let currency = Value.mpsSymbol policyId
-        token = OnChain.mkParticipationTokenName vk
+        token = OnChain.mkPartyName vk
      in Value.valueOf (txOutValue txOut) currency token > 0

@@ -82,7 +82,7 @@ hydraValidator HeadParameters{participants, policyId} s i ctx =
   case (s, i) of
     (Initial, CollectCom) ->
       let collectComUtxos =
-            snd <$> filterInputs (hasParticipationToken policyId) ctx
+            snd <$> filterInputs (hasParty policyId) ctx
           committedOutputs =
             mapMaybe decodeCommit collectComUtxos
           newState =
@@ -91,7 +91,7 @@ hydraValidator HeadParameters{participants, policyId} s i ctx =
             foldMap txOutValue collectComUtxos
        in and
             [ mustBeSignedByOneOf participants ctx
-            , all (mustForwardParticipationToken ctx policyId) participants
+            , all (mustForwardParty ctx policyId) participants
             , checkScriptContext @(RedeemerType Hydra) @(DatumType Hydra)
                 (mustPayToTheScript newState amountPaid)
                 ctx
@@ -103,7 +103,7 @@ hydraValidator HeadParameters{participants, policyId} s i ctx =
             lovelaceValueOf 0
        in and
             [ mustBeSignedByOneOf participants ctx
-            , all (mustBurnParticipationToken ctx policyId) participants
+            , all (mustBurnParty ctx policyId) participants
             , checkScriptContext @(RedeemerType Hydra) @(DatumType Hydra)
                 (mustPayToTheScript newState amountPaid)
                 ctx
@@ -167,7 +167,7 @@ initialValidator HeadParameters{policyId} hydraScript commitScript vk ref ctx =
         False
       Just utxo ->
         let commitDatum = asDatum @(DatumType Commit) (snd utxo)
-            commitValue = txOutValue (snd utxo) <> mkParticipationToken policyId vk
+            commitValue = txOutValue (snd utxo) <> mkParty policyId vk
          in checkScriptContext @(RedeemerType Initial) @(DatumType Initial)
               ( mconcat
                   [ mustBeSignedBy vk
@@ -364,13 +364,13 @@ mustRunContract script redeemer ctx =
         ctx
 {-# INLINEABLE mustRunContract #-}
 
-mustForwardParticipationToken ::
+mustForwardParty ::
   ScriptContext ->
   MonetaryPolicyHash ->
   PubKeyHash ->
   Bool
-mustForwardParticipationToken ctx policyId vk =
-  let participationToken = mkParticipationToken policyId vk
+mustForwardParty ctx policyId vk =
+  let participationToken = mkParty policyId vk
    in checkScriptContext @() @()
         ( mconcat
             [ mustSpendAtLeast participationToken
@@ -378,38 +378,38 @@ mustForwardParticipationToken ctx policyId vk =
             ]
         )
         ctx
-{-# INLINEABLE mustForwardParticipationToken #-}
+{-# INLINEABLE mustForwardParty #-}
 
-mustBurnParticipationToken ::
+mustBurnParty ::
   ScriptContext ->
   MonetaryPolicyHash ->
   PubKeyHash ->
   Bool
-mustBurnParticipationToken ctx policyId vk =
-  let assetName = mkParticipationTokenName vk
+mustBurnParty ctx policyId vk =
+  let assetName = mkPartyName vk
    in checkScriptContext @() @() (mustForgeCurrency policyId assetName (-1)) ctx
-{-# INLINEABLE mustBurnParticipationToken #-}
+{-# INLINEABLE mustBurnParty #-}
 
-mkParticipationToken ::
+mkParty ::
   MonetaryPolicyHash ->
   PubKeyHash ->
   Value
-mkParticipationToken policyId vk =
-  Value.singleton (Value.mpsSymbol policyId) (mkParticipationTokenName vk) 1
-{-# INLINEABLE mkParticipationToken #-}
+mkParty policyId vk =
+  Value.singleton (Value.mpsSymbol policyId) (mkPartyName vk) 1
+{-# INLINEABLE mkParty #-}
 
-mkParticipationTokenName ::
+mkPartyName ::
   PubKeyHash ->
   TokenName
-mkParticipationTokenName =
+mkPartyName =
   TokenName . getPubKeyHash
-{-# INLINEABLE mkParticipationTokenName #-}
+{-# INLINEABLE mkPartyName #-}
 
-hasParticipationToken :: MonetaryPolicyHash -> TxInInfo -> Bool
-hasParticipationToken policyId input =
+hasParty :: MonetaryPolicyHash -> TxInInfo -> Bool
+hasParty policyId input =
   let currency = Value.mpsSymbol policyId
    in currency `elem` symbols (txOutValue $ txInInfoResolved input)
-{-# INLINEABLE hasParticipationToken #-}
+{-# INLINEABLE hasParty #-}
 
 filterInputs :: (TxInInfo -> Bool) -> ScriptContext -> [(TxOutRef, TxOut)]
 filterInputs predicate =

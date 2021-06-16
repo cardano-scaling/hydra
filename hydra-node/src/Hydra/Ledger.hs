@@ -5,17 +5,10 @@ import Cardano.Prelude hiding (undefined)
 -- NOTE(MB): We probably want to move these common types somewhere else. Putting
 -- here to avoid circular dependencies with Hydra.Logic
 
-type Committed tx = Map ParticipationToken (UTxO tx)
-
--- | Identifies the commit of a single party member
-data ParticipationToken = ParticipationToken
-  { totalTokens :: Natural
-  , thisToken :: Party
-  }
-  deriving (Eq, Ord, Show, Read)
-
 -- | Identifies a party in a Hydra head.
 type Party = Natural
+
+type Committed tx = Map Party (UTxO tx)
 
 -- * Ledger interface
 
