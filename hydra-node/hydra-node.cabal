@@ -168,6 +168,7 @@ test-suite tests
     Hydra.BehaviorSpec
     Hydra.HeadLogicSpec
     Hydra.LedgerSpec
+    Hydra.Ledger.Builder
     Hydra.Ledger.SimpleSpec
     Hydra.NetworkSpec
     Hydra.Network.HeartbeatSpec
