@@ -10,7 +10,6 @@ import Data.List ((\\))
 import qualified Data.Map.Strict as Map
 import qualified Data.Set as Set
 import Hydra.Ledger (
-  Amount,
   Committed,
   Ledger,
   ParticipationToken (..),
@@ -21,7 +20,6 @@ import Hydra.Ledger (
   ValidationResult (Invalid, Valid),
   applyTransactions,
   canApply,
-  initUTxO,
  )
 
 data Event tx
@@ -42,11 +40,14 @@ deriving instance Tx tx => Show (Effect tx)
 
 data ClientRequest tx
   = Init [Party]
-  | Commit Amount
+  | Commit (UTxO tx)
   | NewTx tx
   | Close
   | Contest
-  deriving (Eq, Read, Show)
+
+deriving instance Tx tx => Eq (ClientRequest tx)
+deriving instance Tx tx => Show (ClientRequest tx)
+deriving instance Tx tx => Read (ClientRequest tx)
 
 type SnapshotNumber = Natural
 
@@ -90,8 +91,8 @@ data HydraMessage tx
 -- fully recoverable from transactions observed on chain
 data OnChainTx tx
   = InitTx (Set ParticipationToken)
-  | CommitTx ParticipationToken Natural
-  | CollectComTx
+  | CommitTx ParticipationToken (UTxO tx)
+  | CollectComTx (UTxO tx)
   | CloseTx (Snapshot tx) [tx]
   | ContestTx
   | FanoutTx (UTxO tx)
@@ -110,7 +111,7 @@ deriving instance Tx tx => Show (HeadState tx)
 
 data HeadStatus tx
   = InitState
-  | CollectingState PendingCommits Committed
+  | CollectingState PendingCommits (Committed tx)
   | OpenState (SimpleHeadState tx)
   | ClosedState (UTxO tx)
   | FinalState
@@ -193,25 +194,25 @@ update Environment{party, snapshotStrategy} ledger (HeadState p st) ev = case (s
     let parties = Set.map thisToken tokens
      in newState (p{parties}) (CollectingState tokens mempty) [ClientEffect ReadyToCommit]
   --
-  (CollectingState remainingTokens _, ClientEvent (Commit amount)) ->
+  (CollectingState remainingTokens _, ClientEvent (Commit utxo)) ->
     case findToken remainingTokens party of
       Nothing ->
         panic $ "you're not allowed to commit (anymore): remainingTokens : " <> show remainingTokens <> ", partiyIndex:  " <> show party
-      Just pt -> newState p st [OnChainEffect (CommitTx pt amount)]
-  (CollectingState remainingTokens committed, OnChainEvent (CommitTx pt amount)) ->
+      Just pt -> newState p st [OnChainEffect (CommitTx pt utxo)]
+  (CollectingState remainingTokens committed, OnChainEvent (CommitTx pt utxo)) ->
     let remainingTokens' = Set.delete pt remainingTokens
-        newCommitted = Map.insert pt amount committed
+        newCommitted = Map.insert pt utxo committed
         newHeadState = CollectingState remainingTokens' newCommitted
      in if canCollectCom party pt remainingTokens'
-          then newState p newHeadState [OnChainEffect CollectComTx]
+          then newState p newHeadState [OnChainEffect $ CollectComTx $ mconcat $ Map.elems newCommitted]
           else newState p newHeadState []
   (_, OnChainEvent CommitTx{}) ->
     -- TODO: This should warn the user / client that something went _terribly_ wrong
     --       We shouldn't see any commit outside of the collecting state, if we do,
     --       there's an issue our logic or onChain layer.
     newState p st []
-  (_, OnChainEvent CollectComTx) ->
-    let u0 = initUTxO ledger -- TODO(SN): should construct u0 from the collected utxo
+  (_, OnChainEvent (CollectComTx utxo)) ->
+    let u0 = utxo
      in newState
           p
           (OpenState $ SimpleHeadState u0 mempty mempty (Snapshot 0 u0 mempty))

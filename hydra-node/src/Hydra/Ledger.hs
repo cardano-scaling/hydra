@@ -5,10 +5,7 @@ import Cardano.Prelude hiding (undefined)
 -- NOTE(MB): We probably want to move these common types somewhere else. Putting
 -- here to avoid circular dependencies with Hydra.Logic
 
-type Committed = Map ParticipationToken Amount
-
--- | Naiive representation of value, which is likely to change.
-type Amount = Natural
+type Committed tx = Map ParticipationToken (UTxO tx)
 
 -- | Identifies the commit of a single party member
 data ParticipationToken = ParticipationToken
@@ -29,6 +26,7 @@ class
   , Show (UTxO tx)
   , Read tx
   , Read (UTxO tx)
+  , Monoid (UTxO tx)
   ) =>
   Tx tx
   where

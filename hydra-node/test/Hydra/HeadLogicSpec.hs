@@ -72,15 +72,14 @@ spec = describe "Hydra Head Logic" $ do
   it "does not confirm snapshots from non-leaders" pending
   it "does not confirm old snapshots" pending
 
-  prop "can handle OnChainEvent in any state" $
-    prop_handleOnChainEventInAnyState
+  prop "can handle OnChainEvent in any state" prop_handleOnChainEventInAnyState
 
 genOnChainTx :: Gen (OnChainTx MockTx)
 genOnChainTx =
   elements
     [ InitTx mempty
-    , CommitTx (ParticipationToken 1 1) 10
-    , CollectComTx
+    , CommitTx (ParticipationToken 1 1) [ValidTx 10]
+    , CollectComTx []
     , CloseTx (Snapshot 0 mempty mempty) mempty
     , ContestTx
     , FanoutTx [ValidTx 1]
@@ -116,7 +115,7 @@ hasEffect :: Tx tx => Outcome tx -> Effect tx -> IO ()
 hasEffect (NewState _ effects) effect
   | effect `elem` effects = pure ()
   | otherwise = expectationFailure $ "Missing effect " <> show effect <> " in produced effects:  " <> show effects
-hasEffect _ _ = expectationFailure $ "Unexpected outcome"
+hasEffect _ _ = expectationFailure "Unexpected outcome"
 
 initialState ::
   Ord tx =>

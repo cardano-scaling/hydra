@@ -39,16 +39,16 @@ spec = describe "End-to-end test using a mocked chain though" $ do
                 let contestationPeriod = 3 -- TODO: Should be part of init
                 sendRequest n1 "Init [1, 2, 3]"
                 waitForResponse 3 [n1, n2, n3] "ReadyToCommit"
-                sendRequest n1 "Commit 10"
-                sendRequest n2 "Commit 20"
-                sendRequest n3 "Commit 5"
+                sendRequest n1 "Commit [ValidTx 1]"
+                sendRequest n2 "Commit [ValidTx 2]"
+                sendRequest n3 "Commit [ValidTx 3]"
                 -- NOTE(SN): uses MockTx and its UTxO type [MockTx]
-                waitForResponse 3 [n1, n2, n3] "HeadIsOpen []"
+                waitForResponse 3 [n1, n2, n3] "HeadIsOpen [ValidTx 1,ValidTx 2,ValidTx 3]"
                 sendRequest n1 "NewTx (ValidTx 42)"
                 waitForResponse 10 [n1, n2, n3] "TxConfirmed (ValidTx 42)"
                 sendRequest n1 "Close"
-                waitForResponse 3 [n1] "HeadIsClosed 3s (Snapshot {number = 0, utxo = [], confirmed = []}) [ValidTx 42]"
-                waitForResponse (contestationPeriod + 3) [n1] "HeadIsFinalized [ValidTx 42]"
+                waitForResponse 3 [n1] "HeadIsClosed 3s (Snapshot {number = 0, utxo = [ValidTx 1,ValidTx 2,ValidTx 3], confirmed = []}) [ValidTx 42]"
+                waitForResponse (contestationPeriod + 3) [n1] "HeadIsFinalized [ValidTx 42,ValidTx 1,ValidTx 2,ValidTx 3]"
 
     -- NOTE(SN): This is likely too detailed and should move to a lower-level
     -- integration test
@@ -61,10 +61,10 @@ spec = describe "End-to-end test using a mocked chain though" $ do
                 waitForNodesConnected [1, 2, 3] [n1, n2, n3]
                 sendRequest n1 "Init [1, 2, 3]"
                 waitForResponse 3 [n1, n2, n3] "ReadyToCommit"
-                sendRequest n1 "Commit 10"
-                sendRequest n2 "Commit 20"
-                sendRequest n3 "Commit 5"
-                waitForResponse 3 [n1, n2, n3] "HeadIsOpen []"
+                sendRequest n1 "Commit [ValidTx 1]"
+                sendRequest n2 "Commit [ValidTx 2]"
+                sendRequest n3 "Commit [ValidTx 3]"
+                waitForResponse 3 [n1, n2, n3] "HeadIsOpen [ValidTx 1,ValidTx 2,ValidTx 3]"
                 -- NOTE(SN): Everything above this boilerplate
                 sendRequest n1 "NewTx InvalidTx"
 
