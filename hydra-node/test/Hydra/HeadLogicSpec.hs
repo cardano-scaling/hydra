@@ -51,23 +51,32 @@ spec = describe "Hydra Head Logic" $ do
 
   it "confirms tx given it receives AckTx from all parties" $ do
     let reqTx = NetworkEvent $ ReqTx (ValidTx 1)
-        ackFrom1 = NetworkEvent $ AckTx 1 (ValidTx 1)
-        ackFrom2 = NetworkEvent $ AckTx 2 (ValidTx 1)
-        ackFrom3 = NetworkEvent $ AckTx 3 (ValidTx 1)
+        ackFrom n = NetworkEvent $ AckTx n (ValidTx 1)
         s0 = initialState threeParties ledger
 
     s1 <- assertNewState $ update env ledger s0 reqTx
-    s2 <- assertNewState $ update env ledger s1 ackFrom3
-    s3 <- assertNewState $ update env ledger s2 ackFrom1
+    s2 <- assertNewState $ update env ledger s1 (ackFrom 3)
+    s3 <- assertNewState $ update env ledger s2 (ackFrom 1)
+    getConfirmedTransactions s3 `shouldBe` []
 
-    confirmedTransactions s3 `shouldBe` []
-
-    s4 <- assertNewState $ update env ledger s3 ackFrom2
-
-    confirmedTransactions s4 `shouldBe` [ValidTx 1]
+    s4 <- assertNewState $ update env ledger s3 (ackFrom 2)
+    getConfirmedTransactions s4 `shouldBe` [ValidTx 1]
 
   it "notifies client when it receives a ping" $ do
     update env ledger (initialState threeParties ledger) (NetworkEvent $ Ping 2) `hasEffect` ClientEffect (PeerConnected 2)
+
+  it "confirms snapshot given it receives AckSn from all parties" $ do
+    let s0 = initialState threeParties ledger
+        reqSn = NetworkEvent $ ReqSn 1 []
+        ackFrom n = NetworkEvent $ AckSn n (Snapshot 1 [] [])
+    s1 <- assertNewState $ update env ledger s0 reqSn
+    s2 <- assertNewState $ update env ledger s1 (ackFrom 3)
+    s3 <- assertNewState $ update env ledger s2 (ackFrom 1)
+
+    getConfirmedSnapshot s3 `shouldBe` Just (Snapshot 0 [] [])
+
+    s4 <- assertNewState $ update env ledger s3 (ackFrom 2)
+    getConfirmedSnapshot s4 `shouldBe` Just (Snapshot 1 [] [])
 
   it "does not confirm snapshots from non-leaders" pending
   it "does not confirm old snapshots" pending
@@ -134,10 +143,15 @@ initialState parties Ledger{initUTxO} =
               }
         }
 
-confirmedTransactions :: HeadState tx -> [tx]
-confirmedTransactions HeadState{headStatus} = case headStatus of
+getConfirmedTransactions :: HeadState tx -> [tx]
+getConfirmedTransactions HeadState{headStatus} = case headStatus of
   OpenState SimpleHeadState{confirmedTxs} -> confirmedTxs
   _ -> []
+
+getConfirmedSnapshot :: HeadState tx -> Maybe (Snapshot tx)
+getConfirmedSnapshot HeadState{headStatus} = case headStatus of
+  OpenState SimpleHeadState{confirmedSnapshot} -> Just confirmedSnapshot
+  _ -> Nothing
 
 assertNewState :: Outcome MockTx -> IO (HeadState MockTx)
 assertNewState = \case

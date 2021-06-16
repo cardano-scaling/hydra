@@ -76,12 +76,14 @@ data ClientResponse tx
 deriving instance Tx tx => Eq (ClientResponse tx)
 deriving instance Tx tx => Show (ClientResponse tx)
 
+-- NOTE(SN): Every message comes from a 'Party', we might want to move it out of
+-- here into the 'NetworkEvent'
 data HydraMessage tx
   = ReqTx tx
   | AckTx Party tx
   | ConfTx
   | ReqSn SnapshotNumber [tx]
-  | AckSn (Snapshot tx) -- TODO: should actually be stored locally and not transmitted
+  | AckSn Party (Snapshot tx) -- TODO: should actually be stored locally and not transmitted
   | ConfSn
   | Ping Party
   deriving (Eq, Show)
@@ -274,8 +276,8 @@ update Environment{party, snapshotStrategy} ledger (HeadState p st) ev = case (s
         panic $ "Received not applicable snapshot (" <> show sn <> ") " <> show txs <> ": " <> show e
       Right u ->
         let nextSnapshot = Snapshot sn u txs
-         in newState p (OpenState s) [NetworkEffect $ AckSn nextSnapshot]
-  (OpenState headState@SimpleHeadState{confirmedTxs, confirmedSnapshot}, NetworkEvent (AckSn sn))
+         in newState p (OpenState s) [NetworkEffect $ AckSn party nextSnapshot]
+  (OpenState headState@SimpleHeadState{confirmedTxs, confirmedSnapshot}, NetworkEvent (AckSn _otherParty sn))
     | number confirmedSnapshot + 1 == number sn ->
       -- TODO: wait for all AckSn before confirming!
       newState
