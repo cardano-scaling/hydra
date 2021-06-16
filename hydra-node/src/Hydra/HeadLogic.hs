@@ -155,6 +155,8 @@ data LogicError tx
   | InvalidState (HeadState tx)
   | LedgerError ValidationError
 
+instance Tx tx => Exception (LogicError tx)
+
 deriving instance (Eq (HeadState tx), Eq (Event tx)) => Eq (LogicError tx)
 deriving instance (Show (HeadState tx), Show (Event tx)) => Show (LogicError tx)
 

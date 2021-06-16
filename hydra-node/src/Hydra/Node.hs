@@ -5,10 +5,10 @@
 -- | Top-level module to run a single Hydra node.
 module Hydra.Node where
 
-import Cardano.Prelude hiding (STM, async, atomically, cancel, check, poll, threadDelay)
+import Cardano.Prelude hiding (STM, async, atomically, cancel, check, poll, threadDelay, throwIO)
 import Control.Monad.Class.MonadAsync (MonadAsync, async)
 import Control.Monad.Class.MonadSTM (MonadSTM (STM), atomically, newTQueue, newTVar, readTQueue, stateTVar, writeTQueue)
-import Control.Monad.Class.MonadThrow (MonadThrow)
+import Control.Monad.Class.MonadThrow (MonadThrow, throwIO)
 import Control.Monad.Class.MonadTimer (MonadTimer, threadDelay)
 import Hydra.HeadLogic (
   ClientRequest (..),
@@ -72,7 +72,7 @@ runHydraNode tracer node@HydraNode{eq} = do
     e <- nextEvent eq
     traceWith tracer $ ProcessingEvent e
     processNextEvent node e >>= \case
-      Left err -> traceWith tracer (ErrorHandlingEvent e err)
+      Left err -> traceWith tracer (ErrorHandlingEvent e err) >> throwIO err
       Right effs -> forM_ effs (processEffect node tracer) >> traceWith tracer (ProcessedEvent e)
 
 -- | Monadic interface around 'Hydra.Logic.update'.

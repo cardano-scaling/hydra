@@ -20,6 +20,7 @@ class
   , Read tx
   , Read (UTxO tx)
   , Monoid (UTxO tx)
+  , Typeable tx
   ) =>
   Tx tx
   where
