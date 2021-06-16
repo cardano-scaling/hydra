@@ -10,11 +10,11 @@ import Control.Monad.Class.MonadSTM (
   atomically,
   modifyTVar,
   modifyTVar',
-  newEmptyTMVarIO,
+  newTQueue,
   newTVarIO,
-  putTMVar,
+  readTQueue,
   readTVar,
-  takeTMVar,
+  writeTQueue,
  )
 import Control.Monad.Class.MonadThrow (MonadThrow)
 import Control.Monad.Class.MonadTimer (DiffTime, MonadTimer, threadDelay, timeout)
@@ -286,14 +286,14 @@ withHydraNode ::
   (TestHydraNode MockTx (IOSim s) -> IOSim s a) ->
   IOSim s a
 withHydraNode nodeId snapshotStrategy connectToChain action = do
-  response <- newEmptyTMVarIO
+  response <- atomically newTQueue
   node <- createHydraNode response
 
   withAsync (runHydraNode traceInIOSim node) $ \_ ->
     action $
       TestHydraNode
         { sendRequest = handleClientRequest node
-        , waitForResponse = atomically $ takeTMVar response
+        , waitForResponse = atomically $ readTQueue response
         , nodeId
         }
  where
@@ -303,7 +303,7 @@ withHydraNode nodeId snapshotStrategy connectToChain action = do
     let headState = createHeadState [] (HeadParameters testContestationPeriod mempty)
     hh <- createHydraHead headState mockLedger
     let hn' = Network{broadcast = const $ pure ()}
-    let node = HydraNode{eq, hn = hn', hh, oc = OnChain (const $ pure ()), sendResponse = atomically . putTMVar response, env}
+    let node = HydraNode{eq, hn = hn', hh, oc = OnChain (const $ pure ()), sendResponse = atomically . writeTQueue response, env}
     connectToChain node
 
 -- | A 'Tracer' that works in 'IOSim' monad.
