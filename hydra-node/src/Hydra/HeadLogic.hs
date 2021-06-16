@@ -83,7 +83,7 @@ data HydraMessage tx
   | AckTx Party tx
   | ConfTx
   | ReqSn SnapshotNumber [tx]
-  | AckSn Party (Snapshot tx) -- TODO: should actually be stored locally and not transmitted
+  | AckSn Party SnapshotNumber
   | ConfSn
   | Ping Party
   deriving (Eq, Show)
@@ -127,6 +127,7 @@ data SimpleHeadState tx = SimpleHeadState
     unconfirmedTxs :: Map tx (Set Party)
   , confirmedTxs :: [tx]
   , confirmedSnapshot :: Snapshot tx
+  , unconfirmedSnapshot :: Maybe (Snapshot tx, Set Party)
   }
 
 deriving instance Tx tx => Eq (SimpleHeadState tx)
@@ -217,7 +218,7 @@ update Environment{party, snapshotStrategy} ledger (HeadState p st) ev = case (s
     let u0 = utxo
      in newState
           p
-          (OpenState $ SimpleHeadState u0 mempty mempty (Snapshot 0 u0 mempty))
+          (OpenState $ SimpleHeadState u0 mempty mempty (Snapshot 0 u0 mempty) Nothing)
           [ClientEffect $ HeadIsOpen u0]
   --
   (OpenState SimpleHeadState{confirmedSnapshot, confirmedTxs}, ClientEvent Close) ->
@@ -271,21 +272,51 @@ update Environment{party, snapshotStrategy} ledger (HeadState p st) ev = case (s
               )
               []
   (OpenState s@SimpleHeadState{confirmedSnapshot}, NetworkEvent (ReqSn sn txs)) ->
+    -- TODO: Verify the request is signed by (?) / comes from the leader
+    -- (Can we prove a message comes from a given peer, without signature?)
     case applyTransactions ledger (utxo confirmedSnapshot) txs of
       Left e ->
+        --TODO: Wait for transaction to be applicable.
         panic $ "Received not applicable snapshot (" <> show sn <> ") " <> show txs <> ": " <> show e
-      Right u ->
-        let nextSnapshot = Snapshot sn u txs
-         in newState p (OpenState s) [NetworkEffect $ AckSn party nextSnapshot]
-  (OpenState headState@SimpleHeadState{confirmedTxs, confirmedSnapshot}, NetworkEvent (AckSn _otherParty sn))
-    | number confirmedSnapshot + 1 == number sn ->
-      -- TODO: wait for all AckSn before confirming!
-      newState
-        p
-        (OpenState $ headState{confirmedTxs = confirmedTxs \\ confirmed sn, confirmedSnapshot = sn})
-        [ClientEffect $ SnapshotConfirmed $ number sn]
-    | otherwise ->
-      newState p st []
+      Right u
+        | number confirmedSnapshot + 1 == sn ->
+          let nextSnapshot = Snapshot sn u txs
+           in newState
+                p
+                (OpenState $ s{unconfirmedSnapshot = Just (nextSnapshot, mempty)})
+                [NetworkEffect $ AckSn party sn]
+      Right _ ->
+        panic $ "Received invalid snapshot request from leader. Confirmed snapshot: " <> show (number confirmedSnapshot) <> ", Requested snapshot: " <> show sn
+  (OpenState headState@SimpleHeadState{confirmedTxs, unconfirmedSnapshot}, NetworkEvent (AckSn otherParty sn)) ->
+    -- TODO: Verify snapshot signatures.
+    case unconfirmedSnapshot of
+      Nothing -> panic "TODO: wait until reqSn is seen (and unconfirmedSnapshot created)"
+      Just (snapshot, sigs)
+        | number snapshot == sn ->
+          let sigs' = otherParty `Set.insert` sigs
+           in if sigs' == parties p
+                then
+                  newState
+                    p
+                    ( OpenState $
+                        headState
+                          { confirmedTxs = confirmedTxs \\ confirmed snapshot
+                          , confirmedSnapshot = snapshot
+                          , unconfirmedSnapshot = Nothing
+                          }
+                    )
+                    [ClientEffect $ SnapshotConfirmed sn]
+                else
+                  newState
+                    p
+                    ( OpenState $
+                        headState
+                          { unconfirmedSnapshot = Just (snapshot, sigs')
+                          }
+                    )
+                    []
+      Just (snapshot, _) ->
+        panic $ "Received ack for unknown unconfirmed snapshot. Unconfirmed snapshot: " <> show (number snapshot) <> ", Requested snapshot: " <> show sn
   (_, OnChainEvent (CloseTx snapshot txs)) ->
     -- TODO(1): Should check whether we want / can contest the close snapshot by
     --       comparing with our local state / utxo.

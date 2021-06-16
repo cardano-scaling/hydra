@@ -51,7 +51,7 @@ spec = describe "Hydra Head Logic" $ do
 
   it "confirms tx given it receives AckTx from all parties" $ do
     let reqTx = NetworkEvent $ ReqTx (ValidTx 1)
-        ackFrom n = NetworkEvent $ AckTx n (ValidTx 1)
+        ackFrom p = NetworkEvent $ AckTx p (ValidTx 1)
         s0 = initialState threeParties ledger
 
     s1 <- assertNewState $ update env ledger s0 reqTx
@@ -68,7 +68,7 @@ spec = describe "Hydra Head Logic" $ do
   it "confirms snapshot given it receives AckSn from all parties" $ do
     let s0 = initialState threeParties ledger
         reqSn = NetworkEvent $ ReqSn 1 []
-        ackFrom n = NetworkEvent $ AckSn n (Snapshot 1 [] [])
+        ackFrom p = NetworkEvent $ AckSn p 1
     s1 <- assertNewState $ update env ledger s0 reqSn
     s2 <- assertNewState $ update env ledger s1 (ackFrom 3)
     s3 <- assertNewState $ update env ledger s2 (ackFrom 1)
@@ -100,7 +100,7 @@ genHeadStatus =
     [ InitState
     , FinalState
     , CollectingState mempty mempty
-    , OpenState (SimpleHeadState [] mempty mempty (Snapshot 0 mempty mempty))
+    , OpenState (SimpleHeadState [] mempty mempty (Snapshot 0 mempty mempty) Nothing)
     ]
 
 defaultHeadParameters :: HeadParameters
@@ -135,7 +135,7 @@ initialState parties Ledger{initUTxO} =
   let u0 = initUTxO
       snapshot0 = Snapshot 0 u0 mempty
    in HeadState
-        { headStatus = OpenState $ SimpleHeadState u0 mempty mempty snapshot0
+        { headStatus = OpenState $ SimpleHeadState u0 mempty mempty snapshot0 Nothing
         , headParameters =
             HeadParameters
               { contestationPeriod = 42
