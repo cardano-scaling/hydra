@@ -190,6 +190,7 @@ test-suite tests
     , io-sim-classes
     , QuickCheck
     , quickcheck-instances
+    , say
     , typed-protocols-examples
     , HUnit
   build-tool-depends:
