@@ -39,11 +39,11 @@ data HydraNode tx m = HydraNode
   }
 
 data HydraNodeLog tx
-  = ErrorHandlingEvent (Event tx) (LogicError tx)
-  | ProcessingEvent (Event tx)
-  | ProcessedEvent (Event tx)
-  | ProcessingEffect (Effect tx)
-  | ProcessedEffect (Effect tx)
+  = ErrorHandlingEvent Party (Event tx) (LogicError tx)
+  | ProcessingEvent Party (Event tx)
+  | ProcessedEvent Party (Event tx)
+  | ProcessingEffect Party (Effect tx)
+  | ProcessedEffect Party (Effect tx)
   deriving (Eq, Show)
 
 handleClientRequest :: HydraNode tx m -> ClientRequest tx -> m ()
@@ -65,15 +65,15 @@ runHydraNode ::
   Tracer m (HydraNodeLog tx) ->
   HydraNode tx m ->
   m ()
-runHydraNode tracer node@HydraNode{eq} = do
+runHydraNode tracer node@HydraNode{eq, env = Environment{party}} = do
   -- NOTE(SN): here we could introduce concurrent head processing, e.g. with
   -- something like 'forM_ [0..1] $ async'
   forever $ do
     e <- nextEvent eq
-    traceWith tracer $ ProcessingEvent e
+    traceWith tracer $ ProcessingEvent party e
     processNextEvent node e >>= \case
-      Left err -> traceWith tracer (ErrorHandlingEvent e err) >> throwIO err
-      Right effs -> forM_ effs (processEffect node tracer) >> traceWith tracer (ProcessedEvent e)
+      Left err -> traceWith tracer (ErrorHandlingEvent party e err) >> throwIO err
+      Right effs -> forM_ effs (processEffect node tracer) >> traceWith tracer (ProcessedEvent party e)
 
 -- | Monadic interface around 'Hydra.Logic.update'.
 processNextEvent ::
@@ -101,14 +101,14 @@ processEffect ::
   Tracer m (HydraNodeLog tx) ->
   Effect tx ->
   m ()
-processEffect HydraNode{hn, oc, sendResponse, eq} tracer e = do
-  traceWith tracer $ ProcessingEffect e
+processEffect HydraNode{hn, oc, sendResponse, eq, env = Environment{party}} tracer e = do
+  traceWith tracer $ ProcessingEffect party e
   case e of
     ClientEffect i -> sendResponse i
     NetworkEffect msg -> broadcast hn msg
     OnChainEffect tx -> postTx oc tx
     Delay after event -> void . async $ threadDelay after >> putEvent eq event
-  traceWith tracer $ ProcessedEffect e
+  traceWith tracer $ ProcessedEffect party e
 -- ** Some general event queue from which the Hydra head is "fed"
 
 -- | The single, required queue in the system from which a hydra head is "fed".

@@ -202,8 +202,8 @@ spec = describe "Behavior of one ore more hydra-nodes" $ do
 
           logs = selectTraceEventsDynamic @_ @(HydraNodeLog MockTx) result
 
-      logs `shouldContain` [ProcessingEvent (ClientEvent $ Init [1])]
-      logs `shouldContain` [ProcessedEvent (ClientEvent $ Init [1])]
+      logs `shouldContain` [ProcessingEvent 1 (ClientEvent $ Init [1])]
+      logs `shouldContain` [ProcessedEvent 1 (ClientEvent $ Init [1])]
 
     it "traces handling of effects" $ do
       let result = runSimTrace $ do
@@ -214,8 +214,8 @@ spec = describe "Behavior of one ore more hydra-nodes" $ do
 
           logs = selectTraceEventsDynamic @_ @(HydraNodeLog MockTx) result
 
-      logs `shouldContain` [ProcessingEffect (ClientEffect ReadyToCommit)]
-      logs `shouldContain` [ProcessedEffect (ClientEffect ReadyToCommit)]
+      logs `shouldContain` [ProcessingEffect 1 (ClientEffect ReadyToCommit)]
+      logs `shouldContain` [ProcessedEffect 1 (ClientEffect ReadyToCommit)]
 
 sendRequestAndWaitFor ::
   ( HasCallStack

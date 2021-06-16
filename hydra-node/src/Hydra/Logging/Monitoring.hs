@@ -41,7 +41,7 @@ withMonitoring (Just monitoringPort) (Tracer tracer) action = do
 prepareRegistry :: MonadIO m => m (HydraLog tx net -> m (), Registry)
 prepareRegistry = first monitor <$> registerMetrics
  where
-  monitor metricsMap (Node (ProcessedEvent _)) =
+  monitor metricsMap (Node (ProcessedEvent _ _)) =
     case Map.lookup "hydra_head_events" metricsMap of
       (Just (CounterMetric c)) -> liftIO $ inc c
       _ -> pure ()
