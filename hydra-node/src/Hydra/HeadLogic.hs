@@ -235,6 +235,7 @@ update Environment{party, snapshotStrategy} ledger (HeadState p st) ev = case (s
       Invalid _ -> panic "TODO: wait until it may be applied"
       Valid -> newState p st [NetworkEffect $ AckTx party tx]
   (OpenState headState@SimpleHeadState{confirmedUTxO, confirmedTxs, confirmedSnapshot, unconfirmedTxs}, NetworkEvent (AckTx otherParty tx)) ->
+    -- TODO(SN): check signature of AckTx and we would not send the tx around, so some more bookkeeping is required here
     case applyTransactions ledger confirmedUTxO [tx] of
       Left err -> panic $ "TODO: validation error: " <> show err
       Right utxo' -> do
