@@ -40,17 +40,18 @@ spec = describe "Heartbeat" $ do
     receivedHeartbeats `shouldBe` [Ping 2]
 
   it "stop sending heartbeat message given action sends a message" $ do
-    let sentHeartbeats = runSimOrThrow $ do
+    let someMessage = AckSn 1 1
+        sentHeartbeats = runSimOrThrow $ do
           sentMessages <- newTVarIO ([] :: [HydraMessage MockTx])
 
           withHeartbeat 1 (dummyNetwork sentMessages) noop $ \Network{broadcast} -> do
             threadDelay 0.6
-            broadcast ConfSn
+            broadcast someMessage
             threadDelay 1
 
           atomically $ readTVar sentMessages
 
-    sentHeartbeats `shouldBe` [ConfSn, Ping 1]
+    sentHeartbeats `shouldBe` [someMessage, Ping 1]
 
 noop :: Monad m => b -> m ()
 noop = const $ pure ()

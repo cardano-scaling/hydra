@@ -76,10 +76,8 @@ instance (ToCBOR tx, ToCBOR (UTxO tx)) => ToCBOR (HydraMessage tx) where
   toCBOR = \case
     ReqTx tx -> toCBOR ("ReqTx" :: Text) <> toCBOR tx
     AckTx party tx -> toCBOR ("AckTx" :: Text) <> toCBOR party <> toCBOR tx
-    ConfTx -> toCBOR ("ConfTx" :: Text)
     ReqSn sn txs -> toCBOR ("ReqSn" :: Text) <> toCBOR sn <> toCBOR txs
     AckSn party sn -> toCBOR ("AckSn" :: Text) <> toCBOR party <> toCBOR sn
-    ConfSn -> toCBOR ("ConfSn" :: Text)
     Ping party -> toCBOR ("Ping" :: Text) <> toCBOR party
 
 instance (ToCBOR tx, ToCBOR (UTxO tx)) => ToCBOR (Snapshot tx) where
@@ -90,10 +88,8 @@ instance (FromCBOR tx, FromCBOR (UTxO tx)) => FromCBOR (HydraMessage tx) where
     fromCBOR >>= \case
       ("ReqTx" :: Text) -> ReqTx <$> fromCBOR
       "AckTx" -> AckTx <$> fromCBOR <*> fromCBOR
-      "ConfTx" -> pure ConfTx
       "ReqSn" -> ReqSn <$> fromCBOR <*> fromCBOR
       "AckSn" -> AckSn <$> fromCBOR <*> fromCBOR
-      "ConfSn" -> pure ConfSn
       "Ping" -> Ping <$> fromCBOR
       msg -> fail $ show msg <> " is not a proper CBOR-encoded HydraMessage"
 

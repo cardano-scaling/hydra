@@ -81,10 +81,8 @@ deriving instance Tx tx => Show (ClientResponse tx)
 data HydraMessage tx
   = ReqTx tx
   | AckTx Party tx
-  | ConfTx
   | ReqSn SnapshotNumber [tx]
   | AckSn Party SnapshotNumber
-  | ConfSn
   | Ping Party
   deriving (Eq, Show)
 
