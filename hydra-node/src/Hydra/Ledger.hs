@@ -7,9 +7,6 @@ import Cardano.Prelude hiding (undefined)
 
 type Committed tx = Map ParticipationToken (UTxO tx)
 
--- | Naiive representation of value, which is likely to change.
-type Amount = Natural
-
 -- | Identifies the commit of a single party member
 data ParticipationToken = ParticipationToken
   { totalTokens :: Natural

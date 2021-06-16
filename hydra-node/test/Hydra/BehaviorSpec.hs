@@ -7,7 +7,6 @@ import Cardano.Prelude hiding (Async, STM, async, atomically, cancel, check, lin
 import Control.Monad.Class.MonadAsync (withAsync)
 import Control.Monad.Class.MonadSTM (
   MonadSTM,
-  TVar,
   atomically,
   modifyTVar,
   modifyTVar',
@@ -237,7 +236,6 @@ data TestHydraNode tx m = TestHydraNode
   { nodeId :: Natural
   , sendRequest :: ClientRequest tx -> m ()
   , waitForResponse :: m (ClientResponse tx)
-  , capturedLogs :: TVar m [HydraNodeLog tx]
   }
 
 type ConnectToChain tx m = (HydraNode tx m -> m (HydraNode tx m))
@@ -288,7 +286,6 @@ withHydraNode ::
   (TestHydraNode MockTx (IOSim s) -> IOSim s a) ->
   IOSim s a
 withHydraNode nodeId snapshotStrategy connectToChain action = do
-  capturedLogs <- newTVarIO []
   response <- newEmptyTMVarIO
   node <- createHydraNode response
 
@@ -298,7 +295,6 @@ withHydraNode nodeId snapshotStrategy connectToChain action = do
         { sendRequest = handleClientRequest node
         , waitForResponse = atomically $ takeTMVar response
         , nodeId
-        , capturedLogs
         }
  where
   createHydraNode response = do
