@@ -10,19 +10,11 @@ import Cardano.Binary (FromCBOR, ToCBOR, fromCBOR, toCBOR)
 import Codec.CBOR.Read (deserialiseFromBytes)
 import Codec.CBOR.Write (toLazyByteString)
 import Control.Monad.Class.MonadAsync (concurrently_)
-import Control.Monad.Class.MonadSTM (
-  MonadSTM (..),
-  newTVarIO,
-  readTVar,
- )
-import Control.Monad.Class.MonadThrow (MonadCatch, onException)
 import Hydra.HeadLogic (HydraMessage (..), Snapshot (..))
 import Hydra.Ledger.Mock (MockTx (..))
-import Hydra.Logging (Tracer, traceInTVar)
 import Hydra.Network (Network)
 import Hydra.Network.Ouroboros (broadcast, withOuroborosNetwork)
 import Hydra.Network.ZeroMQ (withZeroMQNetwork)
-import Say (say)
 import Test.HUnit.Lang (HUnitFailure)
 import Test.Hspec (Spec, describe, it, shouldReturn)
 import Test.QuickCheck (
@@ -32,7 +24,7 @@ import Test.QuickCheck (
   oneof,
   property,
  )
-import Test.Util (arbitraryNatural, failAfter)
+import Test.Util (arbitraryNatural, failAfter, showLogsOnFailure)
 
 spec :: Spec
 spec = describe "Networking layer" $ do
@@ -87,16 +79,6 @@ assertBroadcastFrom requestTx network receivers =
   tryBroadcast = do
     broadcast network requestTx
     forM_ receivers $ \var -> failAfter 1 $ takeMVar var `shouldReturn` requestTx
-
--- TODO(MB): Possibly relocate this function for re-use?
-showLogsOnFailure ::
-  (MonadSTM m, MonadCatch m, MonadIO m, Show msg) =>
-  (Tracer m msg -> m a) ->
-  m a
-showLogsOnFailure action = do
-  tvar <- newTVarIO []
-  action (traceInTVar tvar)
-    `onException` (atomically (readTVar tvar) >>= mapM_ (say . show))
 
 instance Arbitrary (HydraMessage MockTx) where
   arbitrary =

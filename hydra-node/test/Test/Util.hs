@@ -2,13 +2,21 @@
 
 module Test.Util where
 
-import Cardano.Prelude hiding (SrcLoc, callStack, throwIO)
-import Control.Monad.Class.MonadThrow (MonadThrow (throwIO))
+import Cardano.Prelude hiding (SrcLoc, atomically, callStack, onException, throwIO)
+
+import Control.Monad.Class.MonadSTM (
+  MonadSTM (..),
+  newTVarIO,
+  readTVar,
+ )
+import Control.Monad.Class.MonadThrow (MonadCatch, MonadThrow (throwIO), onException)
 import Control.Monad.Class.MonadTimer (DiffTime, MonadTimer, timeout)
 import Control.Monad.IOSim (IOSim, runSim)
 import Data.List (isInfixOf)
 import Data.String (String)
 import GHC.Stack (SrcLoc, callStack)
+import Hydra.Logging (Tracer, traceInTVar)
+import Say (say)
 import Test.HUnit.Lang (FailureReason (ExpectedButGot, Reason), HUnitFailure (HUnitFailure))
 import Test.QuickCheck (Gen, Positive (getPositive), arbitrary)
 
@@ -26,6 +34,15 @@ failAfter seconds action =
   timeout seconds action >>= \case
     Nothing -> failure $ "Test timed out after " <> show seconds <> " seconds"
     Just _ -> pure ()
+
+showLogsOnFailure ::
+  (MonadSTM m, MonadCatch m, MonadIO m, Show msg) =>
+  (Tracer m msg -> m a) ->
+  m a
+showLogsOnFailure action = do
+  tvar <- newTVarIO []
+  action (traceInTVar tvar)
+    `onException` (atomically (readTVar tvar) >>= mapM_ (say . show))
 
 -- | Run given 'action' in 'IOSim' and fail on exceptions.
 shouldRunInSim :: HasCallStack => (forall s. IOSim s a) -> IO a
