@@ -32,7 +32,7 @@ import Hydra.HeadLogic (
  )
 import Hydra.Ledger (Tx)
 import Hydra.Ledger.Builder (aValidTx, utxoRef, utxoRefs)
-import Hydra.Ledger.Simple (SimpleTx, simpleLedger)
+import Hydra.Ledger.Simple (SimpleTx (..), simpleLedger)
 import Hydra.Logging (Tracer (..))
 import Hydra.Network (Network (..))
 import Hydra.Node (
@@ -112,6 +112,28 @@ spec = describe "Behavior of one ore more hydra-nodes" $ do
             sendRequest n2 (Commit (utxoRef 2))
             failAfter 1 $ waitForResponse n2 `shouldReturn` HeadIsOpen (utxoRefs [1, 2])
             sendRequest n2 (NewTx $ aValidTx 3)
+
+    it "confirms depending transactions" $
+      shouldRunInSim $ do
+        chain <- simulatedChainAndNetwork
+        withHydraNode 1 NoSnapshots chain $ \n1 ->
+          withHydraNode 2 NoSnapshots chain $ \n2 -> do
+            sendRequestAndWaitFor n1 (Init [1, 2]) ReadyToCommit
+            sendRequest n1 (Commit (utxoRef 1))
+            failAfter 1 $ waitForResponse n2 `shouldReturn` ReadyToCommit
+            sendRequest n2 (Commit (utxoRef 2))
+            failAfter 1 $ do
+              waitForResponse n1 `shouldReturn` HeadIsOpen (utxoRefs [1, 2])
+              waitForResponse n2 `shouldReturn` HeadIsOpen (utxoRefs [1, 2])
+
+            let firstTx = SimpleTx 3 (utxoRef 1) (utxoRef 3)
+                secondTx = SimpleTx 4 (utxoRef 3) (utxoRef 4)
+
+            sendRequest n2 (NewTx secondTx)
+            sendRequest n1 (NewTx firstTx)
+            failAfter 1 $ do
+              waitForResponse n1 `shouldReturn` TxConfirmed firstTx
+              waitForResponse n1 `shouldReturn` TxConfirmed secondTx
 
     it "sees the head closed by other nodes" $
       shouldRunInSim $ do
