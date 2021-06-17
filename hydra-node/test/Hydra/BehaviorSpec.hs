@@ -190,7 +190,7 @@ spec = describe "Behavior of one ore more hydra-nodes" $ do
     it "valid new transactions get snapshotted" $
       shouldRunInSim $ do
         chain <- simulatedChainAndNetwork
-        withHydraNode 1 (SnapshotAfter 1) chain $ \n1 ->
+        withHydraNode 1 SnapshotAfterEachTx chain $ \n1 ->
           withHydraNode 2 NoSnapshots chain $ \n2 -> do
             sendRequestAndWaitFor n1 (Init [1, 2]) ReadyToCommit
             sendRequest n1 (Commit (utxoRef 1))

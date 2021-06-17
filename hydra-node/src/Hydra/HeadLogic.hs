@@ -139,8 +139,8 @@ data HeadParameters = HeadParameters
   }
   deriving (Eq, Show)
 
--- | Decides when, how often and who is in charge of creating snapshots.
-data SnapshotStrategy = NoSnapshots | SnapshotAfter Natural
+-- | Decides if snapshots should be done, or not.
+data SnapshotStrategy = NoSnapshots | SnapshotAfterEachTx
   deriving (Eq)
 
 -- | Assume: We know the party members and their verification keys. These need
@@ -260,7 +260,7 @@ update Environment{party, snapshotStrategy} ledger (HeadState parameters st) ev 
               | isLeader party sn' =
                 case snapshotStrategy of
                   NoSnapshots -> []
-                  SnapshotAfter{} -> [NetworkEffect $ ReqSn party sn' (tx : confirmedTxs)] -- XXX
+                  SnapshotAfterEachTx -> [NetworkEffect $ ReqSn party sn' (tx : confirmedTxs)] -- XXX
               | otherwise = []
         if sigs == parties parameters
           then
