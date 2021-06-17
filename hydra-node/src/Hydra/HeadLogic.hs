@@ -234,7 +234,7 @@ update Environment{party, snapshotStrategy} ledger (HeadState parameters st) ev 
       , Delay (contestationPeriod parameters) ShouldPostFanout
       ]
   --
-  (OpenState SimpleHeadState{confirmedUTxO}, ClientEvent (NewTx tx)) ->
+  (OpenState SimpleHeadState{}, ClientEvent (NewTx tx)) ->
     -- NOTE: We deliberately do not perform any validation because:
     --
     --   (a) The validation is already done when handling ReqTx

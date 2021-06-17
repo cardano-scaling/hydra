@@ -90,7 +90,7 @@ processNextEvent HydraNode{hh, env} e = do
       case Logic.update env (ledger hh) s e of
         NewState s' effects -> (Right effects, s')
         Error err -> (Left err, s)
-        Wait -> panic "TODO: wait and reschedule continuation"
+        Wait -> (Right [Delay 0.1 e], s)
 
 processEffect ::
   ( MonadAsync m
