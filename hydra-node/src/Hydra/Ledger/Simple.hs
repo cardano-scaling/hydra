@@ -1,10 +1,7 @@
-{-# LANGUAGE DeriveAnyClass #-}
-{-# LANGUAGE DerivingStrategies #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
-
 -- | A mock implementation of a ledger slightly less dumb than 'Mock'.
 --
 -- This implementation of a 'Ledger' adds a bit more logic in order to:
+--
 -- * Be able to have a representation of 'UTxO' closer to what a real-life eUTxO would be,
 --   so that we can distinguish it from other components of the ledger,
 -- * Be able to have transactions validated against the current state of the ledger, so that

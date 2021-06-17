@@ -29,6 +29,8 @@ common project-config
     ConstraintKinds
     DataKinds
     DefaultSignatures
+    DeriveAnyClass
+    DerivingStrategies
     DeriveDataTypeable
     DeriveFoldable
     DeriveFunctor
@@ -40,6 +42,7 @@ common project-config
     FlexibleInstances
     FunctionalDependencies
     GADTs
+    GeneralizedNewtypeDeriving
     InstanceSigs
     KindSignatures
     LambdaCase
@@ -55,6 +58,7 @@ common project-config
     ScopedTypeVariables
     StandaloneDeriving
     TupleSections
+    TypeApplications
     TypeFamilies
     TypeSynonymInstances
     ViewPatterns
