@@ -4,6 +4,9 @@
 # Assumes all needed tools are in scope which means it usually needs to be run
 # from a nix-shell session
 
+# fail the script if any command fails
+set -e
+
 cabal update
 
 cabal build --enable-tests all
