@@ -290,8 +290,6 @@ update Environment{party, snapshotStrategy} ledger (HeadState parameters st) ev 
            in newState
                 (OpenState $ s{unconfirmedSnapshot = Just (nextSnapshot, mempty)})
                 [NetworkEffect $ AckSn party sn]
-    | otherwise ->
-      panic $ "Received invalid snapshot request from leader. Confirmed snapshot: " <> show (number confirmedSnapshot) <> ", Requested snapshot: " <> show sn
   (OpenState headState@SimpleHeadState{confirmedTxs, unconfirmedSnapshot}, NetworkEvent (AckSn otherParty sn)) ->
     -- TODO: Verify snapshot signatures.
     case unconfirmedSnapshot of
@@ -349,7 +347,8 @@ update Environment{party, snapshotStrategy} ledger (HeadState parameters st) ev 
     newState st [ClientEffect CommandFailed]
   (_, NetworkEvent (Ping pty)) ->
     newState st [ClientEffect $ PeerConnected pty]
-  _ -> panic $ "UNHANDLED EVENT: on " <> show party <> " of event " <> show ev <> " in state " <> show st
+  _ ->
+    Error $ InvalidEvent ev (HeadState parameters st)
  where
   newState :: HeadStatus tx -> [Effect tx] -> Outcome tx
   newState s = NewState (HeadState parameters s)

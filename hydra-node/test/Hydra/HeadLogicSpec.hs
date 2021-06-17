@@ -30,6 +30,7 @@ import Hydra.HeadLogic (
   HeadState (..),
   HeadStatus (..),
   HydraMessage (..),
+  LogicError (..),
   OnChainTx (..),
   Outcome (..),
   SimpleHeadState (..),
@@ -105,6 +106,11 @@ spec = describe "Hydra Head Logic" $ do
   it "waits if we receive a snapshot with not-yet-seen transactions" $ do
     let event = NetworkEvent $ ReqSn 1 [SimpleTx 1 (utxoRef 1) (utxoRef 2)]
     update env ledger (initialState threeParties ledger) event `shouldBe` Wait
+
+  it "returns logic error if we receive a far-away snapshot (not the direct successor)" $ do
+    let event = NetworkEvent $ ReqSn 2 []
+        st = initialState threeParties ledger
+    update env ledger st event `shouldBe` Error (InvalidEvent event st)
 
   it "does not confirm snapshots from non-leaders" pending
   it "does not confirm old snapshots" pending
