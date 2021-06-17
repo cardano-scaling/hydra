@@ -235,9 +235,13 @@ update Environment{party, snapshotStrategy} ledger (HeadState parameters st) ev 
       ]
   --
   (OpenState SimpleHeadState{confirmedUTxO}, ClientEvent (NewTx tx)) ->
-    case canApply ledger confirmedUTxO tx of
-      Invalid _ -> newState st [ClientEffect $ TxInvalid tx]
-      Valid -> newState st [NetworkEffect $ ReqTx tx]
+    -- NOTE: We deliberately do not perform any validation because:
+    --
+    --   (a) The validation is already done when handling ReqTx
+    --   (b) It makes testing of the logic more complicated, for we can't
+    --       send not-yet-valid transactions and simulate messages out of
+    --       order
+    newState st [NetworkEffect $ ReqTx tx]
   (OpenState headState, NetworkEvent (ReqTx tx)) ->
     case canApply ledger (confirmedUTxO headState) tx of
       Invalid _ -> Wait
