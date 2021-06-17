@@ -278,21 +278,20 @@ update Environment{party, snapshotStrategy} ledger (HeadState parameters st) ev 
               ( OpenState headState{unconfirmedTxs = Map.insert tx sigs unconfirmedTxs}
               )
               []
-  (OpenState s@SimpleHeadState{confirmedSnapshot}, NetworkEvent (ReqSn sn txs)) ->
-    -- TODO: Verify the request is signed by (?) / comes from the leader
-    -- (Can we prove a message comes from a given peer, without signature?)
-    case applyTransactions ledger (utxo confirmedSnapshot) txs of
-      Left e ->
-        --TODO: Wait for transaction to be applicable.
-        panic $ "Received not applicable snapshot (" <> show sn <> ") " <> show txs <> ": " <> show e
-      Right u
-        | number confirmedSnapshot + 1 == sn ->
+  (OpenState s@SimpleHeadState{confirmedSnapshot}, NetworkEvent (ReqSn sn txs))
+    | number confirmedSnapshot + 1 == sn ->
+      -- TODO: Verify the request is signed by (?) / comes from the leader
+      -- (Can we prove a message comes from a given peer, without signature?)
+      case applyTransactions ledger (utxo confirmedSnapshot) txs of
+        Left{} ->
+          Wait
+        Right u ->
           let nextSnapshot = Snapshot sn u txs
            in newState
                 (OpenState $ s{unconfirmedSnapshot = Just (nextSnapshot, mempty)})
                 [NetworkEffect $ AckSn party sn]
-      Right _ ->
-        panic $ "Received invalid snapshot request from leader. Confirmed snapshot: " <> show (number confirmedSnapshot) <> ", Requested snapshot: " <> show sn
+    | otherwise ->
+      panic $ "Received invalid snapshot request from leader. Confirmed snapshot: " <> show (number confirmedSnapshot) <> ", Requested snapshot: " <> show sn
   (OpenState headState@SimpleHeadState{confirmedTxs, unconfirmedSnapshot}, NetworkEvent (AckSn otherParty sn)) ->
     -- TODO: Verify snapshot signatures.
     case unconfirmedSnapshot of

@@ -102,6 +102,10 @@ spec = describe "Hydra Head Logic" $ do
     s4 <- assertNewState $ update env ledger s3 (ackFrom 2)
     getConfirmedSnapshot s4 `shouldBe` Just (Snapshot 1 mempty [])
 
+  it "waits if we receive a snapshot with not-yet-seen transactions" $ do
+    let event = NetworkEvent $ ReqSn 1 [SimpleTx 1 (utxoRef 1) (utxoRef 2)]
+    update env ledger (initialState threeParties ledger) event `shouldBe` Wait
+
   it "does not confirm snapshots from non-leaders" pending
   it "does not confirm old snapshots" pending
 
