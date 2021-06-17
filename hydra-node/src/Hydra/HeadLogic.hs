@@ -80,7 +80,7 @@ deriving instance Tx tx => Show (ClientResponse tx)
 data HydraMessage tx
   = ReqTx tx
   | AckTx Party tx
-  | ReqSn SnapshotNumber [tx]
+  | ReqSn Party SnapshotNumber [tx]
   | AckSn Party SnapshotNumber
   | Ping Party
   deriving (Eq, Show)
@@ -124,7 +124,7 @@ data SimpleHeadState tx = SimpleHeadState
     unconfirmedTxs :: Map tx (Set Party)
   , confirmedTxs :: [tx]
   , confirmedSnapshot :: Snapshot tx
-  , unconfirmedSnapshot :: Maybe (Snapshot tx, Set Party)
+  , seenSnapshot :: Maybe (Snapshot tx, Set Party)
   }
 
 deriving instance Tx tx => Eq (SimpleHeadState tx)
@@ -255,11 +255,12 @@ update Environment{party, snapshotStrategy} ledger (HeadState parameters st) ev 
               Set.insert
                 otherParty
                 (fromMaybe Set.empty $ Map.lookup tx unconfirmedTxs)
+            sn' = number confirmedSnapshot + 1
             snapshotEffects
-              | party == 1 =
+              | isLeader party sn' =
                 case snapshotStrategy of
                   NoSnapshots -> []
-                  SnapshotAfter{} -> [NetworkEffect $ ReqSn (number confirmedSnapshot + 1) (tx : confirmedTxs)] -- XXX
+                  SnapshotAfter{} -> [NetworkEffect $ ReqSn party sn' (tx : confirmedTxs)] -- XXX
               | otherwise = []
         if sigs == parties parameters
           then
@@ -278,8 +279,8 @@ update Environment{party, snapshotStrategy} ledger (HeadState parameters st) ev 
               ( OpenState headState{unconfirmedTxs = Map.insert tx sigs unconfirmedTxs}
               )
               []
-  (OpenState s@SimpleHeadState{confirmedSnapshot}, NetworkEvent (ReqSn sn txs))
-    | number confirmedSnapshot + 1 == sn ->
+  (OpenState s@SimpleHeadState{confirmedSnapshot}, NetworkEvent (ReqSn otherParty sn txs))
+    | number confirmedSnapshot + 1 == sn && isLeader otherParty sn ->
       -- TODO: Verify the request is signed by (?) / comes from the leader
       -- (Can we prove a message comes from a given peer, without signature?)
       case applyTransactions ledger (utxo confirmedSnapshot) txs of
@@ -288,12 +289,12 @@ update Environment{party, snapshotStrategy} ledger (HeadState parameters st) ev 
         Right u ->
           let nextSnapshot = Snapshot sn u txs
            in newState
-                (OpenState $ s{unconfirmedSnapshot = Just (nextSnapshot, mempty)})
+                (OpenState $ s{seenSnapshot = Just (nextSnapshot, mempty)})
                 [NetworkEffect $ AckSn party sn]
-  (OpenState headState@SimpleHeadState{confirmedTxs, unconfirmedSnapshot}, NetworkEvent (AckSn otherParty sn)) ->
+  (OpenState headState@SimpleHeadState{confirmedTxs, seenSnapshot}, NetworkEvent (AckSn otherParty sn)) ->
     -- TODO: Verify snapshot signatures.
-    case unconfirmedSnapshot of
-      Nothing -> panic "TODO: wait until reqSn is seen (and unconfirmedSnapshot created)"
+    case seenSnapshot of
+      Nothing -> panic "TODO: wait until reqSn is seen (and seenSnapshot created)"
       Just (snapshot, sigs)
         | number snapshot == sn ->
           let sigs' = otherParty `Set.insert` sigs
@@ -304,7 +305,7 @@ update Environment{party, snapshotStrategy} ledger (HeadState parameters st) ev 
                         headState
                           { confirmedTxs = confirmedTxs \\ confirmed snapshot
                           , confirmedSnapshot = snapshot
-                          , unconfirmedSnapshot = Nothing
+                          , seenSnapshot = Nothing
                           }
                     )
                     [ClientEffect $ SnapshotConfirmed sn]
@@ -312,7 +313,7 @@ update Environment{party, snapshotStrategy} ledger (HeadState parameters st) ev 
                   newState
                     ( OpenState $
                         headState
-                          { unconfirmedSnapshot = Just (snapshot, sigs')
+                          { seenSnapshot = Just (snapshot, sigs')
                           }
                     )
                     []
@@ -352,3 +353,6 @@ update Environment{party, snapshotStrategy} ledger (HeadState parameters st) ev 
  where
   newState :: HeadStatus tx -> [Effect tx] -> Outcome tx
   newState s = NewState (HeadState parameters s)
+
+  isLeader :: Party -> SnapshotNumber -> Bool
+  isLeader p _sn = p == 1

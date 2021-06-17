@@ -23,7 +23,7 @@ import Control.Monad.Fail (
 import qualified Data.Set as Set
 import Hydra.HeadLogic (
   ClientResponse (PeerConnected),
-  Effect (ClientEffect),
+  Effect (ClientEffect, NetworkEffect),
   Environment (..),
   Event (..),
   HeadParameters (..),
@@ -48,7 +48,6 @@ import Test.Hspec (
   it,
   shouldBe,
  )
-import Test.Hspec.Core.Spec (pending)
 import Test.Hspec.QuickCheck (prop)
 import Test.QuickCheck (Gen, Property, elements, forAll)
 import Test.QuickCheck.Instances.Time ()
@@ -92,7 +91,7 @@ spec = describe "Hydra Head Logic" $ do
 
   it "confirms snapshot given it receives AckSn from all parties" $ do
     let s0 = initialState threeParties ledger
-        reqSn = NetworkEvent $ ReqSn 1 []
+        reqSn = NetworkEvent $ ReqSn 1 1 []
         ackFrom p = NetworkEvent $ AckSn p 1
     s1 <- assertNewState $ update env ledger s0 reqSn
     s2 <- assertNewState $ update env ledger s1 (ackFrom 3)
@@ -104,16 +103,31 @@ spec = describe "Hydra Head Logic" $ do
     getConfirmedSnapshot s4 `shouldBe` Just (Snapshot 1 mempty [])
 
   it "waits if we receive a snapshot with not-yet-seen transactions" $ do
-    let event = NetworkEvent $ ReqSn 1 [SimpleTx 1 (utxoRef 1) (utxoRef 2)]
+    let event = NetworkEvent $ ReqSn 1 1 [SimpleTx 1 (utxoRef 1) (utxoRef 2)]
     update env ledger (initialState threeParties ledger) event `shouldBe` Wait
 
   it "returns logic error if we receive a far-away snapshot (not the direct successor)" $ do
-    let event = NetworkEvent $ ReqSn 2 []
+    let event = NetworkEvent $ ReqSn 1 2 []
         st = initialState threeParties ledger
     update env ledger st event `shouldBe` Error (InvalidEvent event st)
 
-  it "does not confirm snapshots from non-leaders" pending
-  it "does not confirm old snapshots" pending
+  it "acks snapshot from the constant leader" $ do
+    let event = NetworkEvent $ ReqSn theLeader 1 []
+        theLeader = 1
+        st = initialState threeParties ledger
+    update env ledger st event `hasEffect` NetworkEffect (AckSn (party env) 1)
+
+  it "does not ack snapshots from non-leaders" $ do
+    let event = NetworkEvent $ ReqSn notTheLeader 1 []
+        notTheLeader = 2
+        st = initialState threeParties ledger
+    update env ledger st event `shouldBe` Error (InvalidEvent event st)
+
+  it "does not ack too new snapshots" $ do
+    let event = NetworkEvent $ ReqSn theLeader 3 []
+        theLeader = 1
+        st = initialState threeParties ledger
+    update env ledger st event `shouldBe` Error (InvalidEvent event st)
 
   prop "can handle OnChainEvent in any state" prop_handleOnChainEventInAnyState
 

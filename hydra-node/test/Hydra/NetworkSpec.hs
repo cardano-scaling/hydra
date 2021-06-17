@@ -85,7 +85,7 @@ instance Arbitrary (HydraMessage MockTx) where
     oneof
       [ ReqTx <$> arbitrary
       , AckTx <$> arbitraryNatural <*> arbitrary
-      , ReqSn <$> arbitraryNatural <*> arbitrary
+      , ReqSn <$> arbitraryNatural <*> arbitraryNatural <*> arbitrary
       , AckSn <$> arbitraryNatural <*> arbitraryNatural
       , Ping <$> arbitraryNatural
       ]
