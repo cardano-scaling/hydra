@@ -257,11 +257,10 @@ update Environment{party, snapshotStrategy} ledger (HeadState parameters st) ev 
                 (fromMaybe Set.empty $ Map.lookup tx unconfirmedTxs)
             sn' = number confirmedSnapshot + 1
             snapshotEffects
-              | isLeader party sn' =
-                case snapshotStrategy of
-                  NoSnapshots -> []
-                  SnapshotAfterEachTx -> [NetworkEffect $ ReqSn party sn' (tx : confirmedTxs)] -- XXX
-              | otherwise = []
+              | isLeader party sn' && snapshotStrategy == SnapshotAfterEachTx =
+                [NetworkEffect $ ReqSn party sn' (tx : confirmedTxs)]
+              | otherwise =
+                []
         if sigs == parties parameters
           then
             newState
