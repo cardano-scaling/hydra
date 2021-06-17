@@ -240,7 +240,7 @@ update Environment{party, snapshotStrategy} ledger (HeadState parameters st) ev 
       Valid -> newState st [NetworkEffect $ ReqTx tx]
   (OpenState headState, NetworkEvent (ReqTx tx)) ->
     case canApply ledger (confirmedUTxO headState) tx of
-      Invalid _ -> panic "TODO: wait until it may be applied"
+      Invalid _ -> Wait
       Valid -> newState st [NetworkEffect $ AckTx party tx]
   (OpenState headState@SimpleHeadState{confirmedUTxO, confirmedTxs, confirmedSnapshot, unconfirmedTxs}, NetworkEvent (AckTx otherParty tx)) ->
     -- TODO(SN): check signature of AckTx and we would not send the tx around, so some more bookkeeping is required here
