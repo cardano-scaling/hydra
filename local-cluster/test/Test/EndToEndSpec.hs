@@ -50,26 +50,6 @@ spec = describe "End-to-end test using a mocked chain though" $ do
                 waitForResponse 3 [n1] "HeadIsClosed 3s (Snapshot {number = 0, utxo = [ValidTx 1,ValidTx 2,ValidTx 3], confirmed = []}) [ValidTx 42]"
                 waitForResponse (contestationPeriod + 3) [n1] "HeadIsFinalized [ValidTx 42,ValidTx 1,ValidTx 2,ValidTx 3]"
 
-    -- NOTE(SN): This is likely too detailed and should move to a lower-level
-    -- integration test
-    it "init a head and reject too expensive tx" $ do
-      failAfter 30 $
-        withMockChain $
-          withHydraNode 1 $ \n1 ->
-            withHydraNode 2 $ \n2 ->
-              withHydraNode 3 $ \n3 -> do
-                waitForNodesConnected [1, 2, 3] [n1, n2, n3]
-                sendRequest n1 "Init [1, 2, 3]"
-                waitForResponse 3 [n1, n2, n3] "ReadyToCommit"
-                sendRequest n1 "Commit [ValidTx 1]"
-                sendRequest n2 "Commit [ValidTx 2]"
-                sendRequest n3 "Commit [ValidTx 3]"
-                waitForResponse 3 [n1, n2, n3] "HeadIsOpen [ValidTx 1,ValidTx 2,ValidTx 3]"
-                -- NOTE(SN): Everything above this boilerplate
-                sendRequest n1 "NewTx InvalidTx"
-
-                waitForResponse 3 [n1] "TxInvalid InvalidTx"
-
   describe "Monitoring" $ do
     it "Node exposes Prometheus metrics on port 6001" $ do
       failAfter 20 $
