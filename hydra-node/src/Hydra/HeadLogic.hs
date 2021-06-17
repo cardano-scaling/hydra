@@ -165,6 +165,9 @@ data Outcome tx
   | Wait
   | Error (LogicError tx)
 
+deriving instance Tx tx => Eq (Outcome tx)
+deriving instance Tx tx => Show (Outcome tx)
+
 data Environment = Environment
   { -- | This is the p_i from the paper
     party :: Party

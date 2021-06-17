@@ -38,6 +38,7 @@ import Hydra.HeadLogic (
   update,
  )
 import Hydra.Ledger (Ledger (..), Party, Tx)
+import Hydra.Ledger.Builder (utxoRef)
 import Hydra.Ledger.Simple (SimpleTx (..), TxIn (..), simpleLedger)
 import Test.Hspec (
   Spec,
@@ -77,6 +78,13 @@ spec = describe "Hydra Head Logic" $ do
 
     s4 <- assertNewState $ update env ledger s3 (ackFrom 2)
     getConfirmedTransactions s4 `shouldBe` [simpleTx]
+
+  it "waits if a requested tx is not (yet) applicable" $ do
+    let reqTx = NetworkEvent $ ReqTx $ SimpleTx 2 inputs mempty
+        inputs = utxoRef 1
+        s0 = initialState threeParties ledger
+
+    update env ledger s0 reqTx `shouldBe` Wait
 
   it "notifies client when it receives a ping" $ do
     update env ledger (initialState threeParties ledger) (NetworkEvent $ Ping 2) `hasEffect` ClientEffect (PeerConnected 2)

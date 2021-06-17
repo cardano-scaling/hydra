@@ -14,12 +14,15 @@ import Cardano.Prelude
 import qualified Data.Set as Set
 import Hydra.Ledger
 
+instance Tx SimpleTx where
+  type UTxO SimpleTx = Set TxIn
+
 -- | Simple transaction.
 -- A transaction is a 'TxId', a list of inputs and a list of outputs.
 data SimpleTx = SimpleTx
   { txId :: TxId
-  , txInputs :: Set TxIn
-  , txOutputs :: Set TxIn
+  , txInputs :: UTxO SimpleTx
+  , txOutputs :: UTxO SimpleTx
   }
   deriving stock (Eq, Ord, Generic, Read, Show)
 
@@ -41,9 +44,6 @@ instance ToCBOR TxIn where
 
 instance FromCBOR TxIn where
   fromCBOR = TxIn <$> fromCBOR
-
-instance Tx SimpleTx where
-  type UTxO SimpleTx = Set TxIn
 
 simpleLedger :: Ledger SimpleTx
 simpleLedger =
