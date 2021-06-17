@@ -143,7 +143,6 @@ executable hydra-node
       base
     , cardano-prelude
     , hydra-node
-    , stm
   ghc-options:
     -threaded
     -rtsopts
