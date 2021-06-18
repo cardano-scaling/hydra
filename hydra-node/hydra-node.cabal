@@ -93,7 +93,6 @@ library
     Hydra.Node.Version
     Hydra.Ledger
     Hydra.Ledger.MaryTest
-    Hydra.Ledger.Mock
     Hydra.Ledger.Simple
     Hydra.Logging
     Hydra.Logging.Messages

@@ -14,7 +14,7 @@ import Hydra.HeadLogic (
   SnapshotStrategy (..),
   createHeadState,
  )
-import qualified Hydra.Ledger.Mock as Ledger
+import qualified Hydra.Ledger.Simple as Ledger
 import Hydra.Logging
 import Hydra.Logging.Messages (HydraLog (..))
 import Hydra.Logging.Monitoring (withMonitoring)
@@ -38,7 +38,7 @@ main = do
       let env = Environment nodeId NoSnapshots
       eq <- createEventQueue
       let headState = createHeadState [] (HeadParameters 3 mempty)
-      hh <- createHydraHead headState Ledger.mockLedger
+      hh <- createHydraHead headState Ledger.simpleLedger
       oc <- createMockChainClient eq (contramap MockChain tracer)
       withNetwork (contramap Network tracer) nodeId host port peers (putEvent eq . NetworkEvent) $
         \hn -> do

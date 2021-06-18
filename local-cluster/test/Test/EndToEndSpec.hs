@@ -39,16 +39,16 @@ spec = describe "End-to-end test using a mocked chain though" $ do
                 let contestationPeriod = 3 -- TODO: Should be part of init
                 sendRequest n1 "Init [1, 2, 3]"
                 waitForResponse 3 [n1, n2, n3] "ReadyToCommit"
-                sendRequest n1 "Commit [ValidTx 1]"
-                sendRequest n2 "Commit [ValidTx 2]"
-                sendRequest n3 "Commit [ValidTx 3]"
-                -- NOTE(SN): uses MockTx and its UTxO type [MockTx]
-                waitForResponse 3 [n1, n2, n3] "HeadIsOpen [ValidTx 1,ValidTx 2,ValidTx 3]"
-                sendRequest n1 "NewTx (ValidTx 42)"
-                waitForResponse 10 [n1, n2, n3] "TxConfirmed (ValidTx 42)"
+                sendRequest n1 "Commit (fromList [1])"
+                sendRequest n2 "Commit (fromList [2])"
+                sendRequest n3 "Commit (fromList [3])"
+
+                waitForResponse 3 [n1, n2, n3] "HeadIsOpen (fromList [1,2,3])"
+                sendRequest n1 "NewTx (SimpleTx {txId = 42, txInputs = fromList [1], txOutputs = fromList [4]})"
+                waitForResponse 10 [n1, n2, n3] "TxConfirmed (SimpleTx {txId = 42, txInputs = fromList [1], txOutputs = fromList [4]})"
                 sendRequest n1 "Close"
-                waitForResponse 3 [n1] "HeadIsClosed 3s (Snapshot {number = 0, utxo = [ValidTx 1,ValidTx 2,ValidTx 3], confirmed = []}) [ValidTx 42]"
-                waitForResponse (contestationPeriod + 3) [n1] "HeadIsFinalized [ValidTx 42,ValidTx 1,ValidTx 2,ValidTx 3]"
+                waitForResponse 3 [n1] "HeadIsClosed 3s (Snapshot {number = 0, utxo = fromList [1,2,3], confirmed = []}) [SimpleTx {txId = 42, txInputs = fromList [1], txOutputs = fromList [4]}]"
+                waitForResponse (contestationPeriod + 3) [n1] "HeadIsFinalized (fromList [2,3,4])"
 
   describe "Monitoring" $ do
     it "Node exposes Prometheus metrics on port 6001" $ do
