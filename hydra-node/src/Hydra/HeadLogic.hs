@@ -74,6 +74,7 @@ data ClientResponse tx
 
 deriving instance Tx tx => Eq (ClientResponse tx)
 deriving instance Tx tx => Show (ClientResponse tx)
+deriving instance Tx tx => Read (ClientResponse tx)
 
 -- NOTE(SN): Every message comes from a 'Party', we might want to move it out of
 -- here into the 'NetworkEvent'

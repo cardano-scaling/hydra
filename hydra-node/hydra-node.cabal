@@ -165,6 +165,7 @@ test-suite tests
   import: project-config
   hs-source-dirs: test
   other-modules:
+    Hydra.API.ServerSpec
     Hydra.Chain.ZeroMQSpec
     Hydra.FireForgetSpec
     Hydra.BehaviorSpec
@@ -196,8 +197,10 @@ test-suite tests
     , QuickCheck
     , quickcheck-instances
     , say
+    , text
     , typed-protocols-examples
     , HUnit
+    , websockets
   build-tool-depends:
     hspec-discover:hspec-discover
   ghc-options:
