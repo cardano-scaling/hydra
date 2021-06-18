@@ -6,7 +6,7 @@ import Hydra.Ledger (UTxO, applyTransactions)
 import Hydra.Ledger.Simple
 import Test.Hspec (Spec, describe)
 import Test.Hspec.QuickCheck (prop)
-import Test.QuickCheck (Property, forAllShrink, shrinkList, sublistOf)
+import Test.QuickCheck (Property, arbitrary, forAllShrink, getNonEmpty, shrinkList, sublistOf)
 import Test.QuickCheck.Gen (Gen, choose)
 
 spec :: Spec
@@ -35,6 +35,16 @@ newTx :: (Integer, UTxO SimpleTx, [SimpleTx]) -> Integer -> Gen (Integer, UTxO S
 newTx (maxId, utxo, txs) txid = do
   (newMax, ins, outs) <- genInputsAndOutputs maxId utxo
   pure (newMax, (utxo Set.\\ ins) `Set.union` outs, SimpleTx txid ins outs : txs)
+
+genUtxo :: Gen (UTxO SimpleTx)
+genUtxo = Set.fromList . fmap TxIn . getNonEmpty <$> arbitrary
+
+genSimpleTx :: Gen SimpleTx
+genSimpleTx = do
+  utxo <- genUtxo
+  (_, ins, outs) <- genInputsAndOutputs (unTxIn $ maximum utxo) utxo
+  txid <- arbitrary
+  pure $ SimpleTx txid ins outs
 
 genInputsAndOutputs :: Integer -> Set TxIn -> Gen (Integer, Set TxIn, Set TxIn)
 genInputsAndOutputs maxId utxo = do

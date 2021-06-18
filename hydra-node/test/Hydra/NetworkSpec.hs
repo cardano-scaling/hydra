@@ -11,7 +11,9 @@ import Codec.CBOR.Read (deserialiseFromBytes)
 import Codec.CBOR.Write (toLazyByteString)
 import Control.Monad.Class.MonadAsync (concurrently_)
 import Hydra.HeadLogic (HydraMessage (..), Snapshot (..))
-import Hydra.Ledger.Mock (MockTx (..))
+import Hydra.Ledger.Builder (utxoRef)
+import Hydra.Ledger.Simple (SimpleTx (..))
+import Hydra.Ledger.SimpleSpec (genSimpleTx, genUtxo)
 import Hydra.Network (Network)
 import Hydra.Network.Ouroboros (broadcast, withOuroborosNetwork)
 import Hydra.Network.ZeroMQ (withZeroMQNetwork)
@@ -20,16 +22,16 @@ import Test.Hspec (Spec, describe, it, shouldReturn)
 import Test.QuickCheck (
   Arbitrary (..),
   arbitrary,
-  frequency,
   oneof,
   property,
+  vectorOf,
  )
 import Test.Util (arbitraryNatural, failAfter, showLogsOnFailure)
 
 spec :: Spec
 spec = describe "Networking layer" $ do
-  let requestTx :: HydraMessage MockTx
-      requestTx = ReqTx (ValidTx 1)
+  let requestTx :: HydraMessage SimpleTx
+      requestTx = ReqTx (SimpleTx 1 (utxoRef 1) (utxoRef 2))
 
       lo = "127.0.0.1"
 
@@ -37,8 +39,8 @@ spec = describe "Networking layer" $ do
     it "broadcasts messages to single connected peer" $ do
       received <- newEmptyMVar
       showLogsOnFailure $ \tracer -> failAfter 10 $ do
-        withOuroborosNetwork tracer (lo, 45678) [(lo, 45679)] (const @_ @(HydraMessage MockTx) $ pure ()) $ \hn1 ->
-          withOuroborosNetwork @(HydraMessage MockTx) tracer (lo, 45679) [(lo, 45678)] (putMVar received) $ \_ -> do
+        withOuroborosNetwork tracer (lo, 45678) [(lo, 45679)] (const @_ @(HydraMessage SimpleTx) $ pure ()) $ \hn1 ->
+          withOuroborosNetwork @(HydraMessage SimpleTx) tracer (lo, 45679) [(lo, 45678)] (putMVar received) $ \_ -> do
             broadcast hn1 requestTx
             takeMVar received `shouldReturn` requestTx
 
@@ -47,7 +49,7 @@ spec = describe "Networking layer" $ do
       node2received <- newEmptyMVar
       node3received <- newEmptyMVar
       showLogsOnFailure $ \tracer -> failAfter 10 $ do
-        withOuroborosNetwork @(HydraMessage MockTx) tracer (lo, 45678) [(lo, 45679), (lo, 45680)] (putMVar node1received) $ \hn1 ->
+        withOuroborosNetwork @(HydraMessage SimpleTx) tracer (lo, 45678) [(lo, 45679), (lo, 45680)] (putMVar node1received) $ \hn1 ->
           withOuroborosNetwork tracer (lo, 45679) [(lo, 45678), (lo, 45680)] (putMVar node2received) $ \hn2 -> do
             withOuroborosNetwork tracer (lo, 45680) [(lo, 45678), (lo, 45679)] (putMVar node3received) $ \hn3 -> do
               concurrently_ (assertBroadcastFrom requestTx hn1 [node2received, node3received]) $
@@ -70,7 +72,7 @@ spec = describe "Networking layer" $ do
                   (assertBroadcastFrom requestTx hn3 [node2received, node1received])
 
   describe "Serialisation" $ do
-    it "can roundtrip CBOR encoding/decoding of HydraMessage" $ property $ prop_canRoundtripCBOREncoding @(HydraMessage MockTx)
+    it "can roundtrip CBOR encoding/decoding of HydraMessage" $ property $ prop_canRoundtripCBOREncoding @(HydraMessage SimpleTx)
 
 assertBroadcastFrom :: (Eq a, Show a) => a -> Network IO a -> [MVar a] -> IO ()
 assertBroadcastFrom requestTx network receivers =
@@ -80,25 +82,18 @@ assertBroadcastFrom requestTx network receivers =
     broadcast network requestTx
     forM_ receivers $ \var -> failAfter 1 $ takeMVar var `shouldReturn` requestTx
 
-instance Arbitrary (HydraMessage MockTx) where
+instance Arbitrary (HydraMessage SimpleTx) where
   arbitrary =
     oneof
-      [ ReqTx <$> arbitrary
-      , AckTx <$> arbitraryNatural <*> arbitrary
-      , ReqSn <$> arbitraryNatural <*> arbitraryNatural <*> arbitrary
+      [ ReqTx <$> genSimpleTx
+      , AckTx <$> arbitraryNatural <*> genSimpleTx
+      , ReqSn <$> arbitraryNatural <*> arbitraryNatural <*> vectorOf 10 genSimpleTx
       , AckSn <$> arbitraryNatural <*> arbitraryNatural
       , Ping <$> arbitraryNatural
       ]
 
-instance Arbitrary (Snapshot MockTx) where
-  arbitrary = Snapshot <$> arbitraryNatural <*> arbitrary <*> arbitrary
-
-instance Arbitrary MockTx where
-  arbitrary =
-    frequency
-      [ (10, ValidTx <$> arbitrary)
-      , (1, pure InvalidTx)
-      ]
+instance Arbitrary (Snapshot SimpleTx) where
+  arbitrary = Snapshot <$> arbitraryNatural <*> genUtxo <*> vectorOf 10 genSimpleTx
 
 prop_canRoundtripCBOREncoding ::
   (ToCBOR a, FromCBOR a, Eq a) => a -> Bool
