@@ -3,9 +3,9 @@
 
 module Test.EndToEndSpec where
 
-import Cardano.Prelude
+import Hydra.Prelude
+
 import qualified Data.ByteString as BS
-import Data.String (String)
 import HydraNode (
   failAfter,
   getMetrics,

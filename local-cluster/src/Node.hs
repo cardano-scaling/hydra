@@ -5,16 +5,12 @@
 
 module Node where
 
-import Cardano.Prelude
-import Control.Monad.Fail (fail)
+import Hydra.Prelude
+
 import Control.Retry (constantDelay, limitRetriesByCumulativeDelay, retrying)
 import Data.Aeson (FromJSON (..), ToJSON (..), (.=))
 import qualified Data.Aeson as Aeson
-import qualified Data.ByteString.Lazy as BL
 import qualified Data.HashMap.Strict as HM
-import qualified Data.Text as Text
-import qualified Data.Text.Encoding as Text
-import Data.Time.Clock (UTCTime)
 import Data.Time.Clock.POSIX (posixSecondsToUTCTime, utcTimeToPOSIXSeconds)
 import Logging (
   HasSeverityAnnotation (..),
@@ -22,6 +18,7 @@ import Logging (
   Tracer,
   traceWith,
  )
+import System.Exit (ExitCode (..))
 import System.FilePath ((</>))
 import System.Process (
   CmdSpec,
@@ -187,7 +184,7 @@ cliCreateProcess ::
 cliCreateProcess tr sock args = do
   traceWith tr (MsgCLI args)
   let socketEnv = ("CARDANO_NODE_SOCKET_PATH", sock)
-  let cp = proc "cardano-cli" $ fmap Text.unpack args
+  let cp = proc "cardano-cli" $ fmap toString args
   pure $ cp{env = Just (socketEnv : fromMaybe [] (env cp))}
 
 data ChainTip = ChainTip
@@ -205,7 +202,7 @@ cliQueryTip ::
   FilePath ->
   IO ChainTip
 cliQueryTip tr sock = do
-  let msg = "Checking for usable socket file " <> Text.pack sock
+  let msg = "Checking for usable socket file " <> toText sock
   bytes <-
     cliRetry tr msg
       =<< cliCreateProcess
@@ -213,7 +210,7 @@ cliQueryTip tr sock = do
         sock
         ["query", "tip", "--testnet-magic", "42", "--cardano-mode"]
   traceWith tr $ MsgSocketIsReady sock
-  case Aeson.eitherDecode' (BL.fromStrict bytes) of
+  case Aeson.eitherDecode' (fromStrict bytes) of
     Left e -> fail e
     Right tip -> pure tip
 
@@ -231,9 +228,9 @@ cliRetry tracer msg cp = do
   (st, out, err) <- retrying pol (const isFail) (const cmd)
   traceWith tracer $ MsgCLIStatus msg st
   case st of
-    ExitSuccess -> pure $ Text.encodeUtf8 $ Text.pack out
+    ExitSuccess -> pure $ encodeUtf8 out
     ExitFailure _ ->
-      throwIO $ ProcessHasExited ("cardano-cli failed: " <> Text.pack err) st
+      throwIO $ ProcessHasExited ("cardano-cli failed: " <> toText err) st
  where
   cmd = do
     traceWith tracer $ MsgCLIRetry msg

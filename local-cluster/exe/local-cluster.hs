@@ -1,7 +1,8 @@
 -- | Main module for an executable to run a local cluster from the command line.
 module Main where
 
-import Cardano.Prelude
+import Hydra.Prelude
+
 import Lib (ClusterConfig (..), withCluster)
 import Logging (Severity (..), withStdoutTracer)
 import System.IO.Temp (withSystemTempDirectory)

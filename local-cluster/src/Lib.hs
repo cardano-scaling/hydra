@@ -1,8 +1,8 @@
 module Lib where
 
-import Cardano.Prelude
-import Data.Time.Clock (UTCTime, addUTCTime, getCurrentTime)
-import Logging (HasSeverityAnnotation (..), Severity (Info), Tracer, contramap, traceWith)
+import Hydra.Prelude
+
+import Logging (HasSeverityAnnotation (..), Severity (Info), Tracer, traceWith)
 import Node (
   CardanoNodeArgs (..),
   CardanoNodeConfig (..),
@@ -81,11 +81,11 @@ withBFTNode clusterTracer cfg action = do
     traceWith clusterTracer $ MsgNodeStarting cfg
     action rn
  where
-  dlgCertFilename id = "delegation-cert.00" <> show (id - 1) <> ".json"
-  signKeyFilename id = "delegate-keys.00" <> show (id - 1) <> ".key"
-  vrfKeyFilename id = "delegate" <> show id <> ".vrf.skey"
-  kesKeyFilename id = "delegate" <> show id <> ".kes.skey"
-  opCertFilename id = "opcert" <> show id <> ".cert"
+  dlgCertFilename i = "delegation-cert.00" <> show (i - 1) <> ".json"
+  signKeyFilename i = "delegate-keys.00" <> show (i - 1) <> ".key"
+  vrfKeyFilename i = "delegate" <> show i <> ".vrf.skey"
+  kesKeyFilename i = "delegate" <> show i <> ".kes.skey"
+  opCertFilename i = "opcert" <> show i <> ".cert"
 
   copyCredential parentDir file = do
     let source = "config" </> "credentials" </> file
@@ -117,7 +117,7 @@ makeNodesConfig stateDirectory systemStart [a, b, c] =
   , CardanoNodeConfig 3 (stateDirectory </> "node-3") systemStart $
       PortsConfig c [a, b]
   )
-makeNodesConfig _ _ _ = panic "we only support topology for 3 nodes"
+makeNodesConfig _ _ _ = error "we only support topology for 3 nodes"
 
 --
 -- Logging
