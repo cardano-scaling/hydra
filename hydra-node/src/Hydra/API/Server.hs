@@ -35,12 +35,12 @@ withAPIServer ::
   (ClientRequest tx -> IO ()) ->
   ((ClientResponse tx -> IO ()) -> IO ()) ->
   IO ()
-withAPIServer host port tracer requests node = do
+withAPIServer host port tracer requests continuation = do
   responseChannel <- newBroadcastTChanIO
   let sendResponse = atomically . writeTChan responseChannel
   race_
     (runAPIServer host port tracer requests responseChannel)
-    (node sendResponse)
+    (continuation sendResponse)
 
 runAPIServer ::
   Tx tx =>
