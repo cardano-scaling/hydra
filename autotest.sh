@@ -70,11 +70,13 @@ fi
 
 COMMAND="cabal exec ghci -- -ihydra-plutus/src -ihydra-plutus/test -ihydra-node/src -ihydra-node/test -idist-newstyle/build/x86_64-linux/ghc-8.10.4/hydra-node-0.1.0/build/autogen/  $FLAGS $(git ls-files 'hydra-node/**/*.hs'  'hydra-plutus/**/*.hs'  | grep -v Main.hs| grep -v Repl | tr -s '\012' ' ')"
 
-echo $COMMAND
-
-# need to explicitly list *.cabal files to restart because (I think) ghcid only
-# checks .cabal in current directory
-exec ghcid -c "$COMMAND" --restart=autotest.sh --restart=cabal.project \
-     --restart=hydra-node/hydra-node.cabal \
-     --restart=hydra-plutus/hydra-plutus.cabal \
-    -T "Control.Monad.mapM_ Test.Hspec.hspec [$SPECS]"
+if [ $1 == "repl" ]; then
+  exec $COMMAND
+else
+  # need to explicitly list *.cabal files to restart because (I think) ghcid only
+  # checks .cabal in current directory
+  exec ghcid -c "$COMMAND" --restart=autotest.sh --restart=cabal.project \
+       --restart=hydra-node/hydra-node.cabal \
+       --restart=hydra-plutus/hydra-plutus.cabal \
+       -T "Control.Monad.mapM_ Test.Hspec.hspec [$SPECS]"
+fi
