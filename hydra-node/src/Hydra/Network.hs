@@ -19,6 +19,9 @@ module Hydra.Network (
   -- * Parser
   readHost,
   readPort,
+
+  -- * Utility functions
+  close,
 ) where
 
 import Cardano.Binary (
@@ -33,7 +36,7 @@ import qualified Data.List as List
 import Data.String (String)
 import Hydra.HeadLogic (HydraMessage (..), Snapshot (..))
 import Hydra.Ledger (UTxO)
-import Network.Socket (HostName, PortNumber)
+import Network.Socket (HostName, PortNumber, close)
 import Network.TypedProtocol.Pipelined ()
 
 -- * Hydra network interface

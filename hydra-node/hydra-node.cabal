@@ -200,6 +200,7 @@ test-suite tests
     , text
     , typed-protocols-examples
     , HUnit
+    , warp
     , websockets
   build-tool-depends:
     hspec-discover:hspec-discover
