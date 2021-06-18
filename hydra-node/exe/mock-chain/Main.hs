@@ -1,9 +1,8 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TypeApplications #-}
 
-import Cardano.Prelude hiding (Option, option)
-import Data.String (String)
-import Data.Text (unpack)
+import Hydra.Prelude
+
 import Hydra.Chain.ZeroMQ (
   catchUpTransactions,
   mockChainClient,
@@ -97,9 +96,8 @@ main = do
       startChain @SimpleTx chainSyncAddress catchUpAddress postTxAddress tracer
     CatchUpMode -> catchUpTransactions catchUpAddress print tracer
     ClientMode -> do
-      async (runChainSync chainSyncAddress print tracer) >>= link
-      forever $ do
+      withAsync (runChainSync chainSyncAddress print tracer) $ \_async -> forever $ do
         msg <- getLine
-        case reads (unpack msg) of
+        case reads (toString msg) of
           (tx, "") : _ -> liftIO $ mockChainClient postTxAddress tracer tx
           _ -> print $ "failed to read command: " <> msg

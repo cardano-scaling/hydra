@@ -1,3 +1,5 @@
+{-# OPTIONS_GHC -fno-warn-orphans #-}
+
 module Hydra.Prelude (
   module Relude,
   module Control.Monad.Class.MonadSTM,
@@ -11,7 +13,7 @@ module Hydra.Prelude (
 ) where
 
 import Control.Monad.Class.MonadAsync (
-  MonadAsync,
+  MonadAsync (concurrently, concurrently_, race, race_, withAsync),
  )
 import Control.Monad.Class.MonadEventlog (
   MonadEventlog,
@@ -25,6 +27,7 @@ import Control.Monad.Class.MonadST (
  )
 import Control.Monad.Class.MonadSTM (
   MonadSTM,
+  STM,
   TBQueue,
   TMVar,
   TQueue,
@@ -32,10 +35,10 @@ import Control.Monad.Class.MonadSTM (
   atomically,
  )
 import Control.Monad.Class.MonadThrow (
-  MonadCatch,
-  MonadEvaluate,
-  MonadMask,
-  MonadThrow,
+  MonadCatch (..),
+  MonadEvaluate (..),
+  MonadMask (..),
+  MonadThrow (..),
  )
 import Control.Monad.Class.MonadTime (
   DiffTime,
@@ -51,11 +54,15 @@ import Control.Monad.Class.MonadTime (
  )
 import Control.Monad.Class.MonadTimer (
   MonadDelay (..),
-  MonadTimer (..),
+  MonadTimer,
+ )
+import GHC.Read (
+  Read (..),
  )
 import Relude hiding (
   MVar,
   Nat,
+  Option,
   STM,
   TMVar,
   TVar,
@@ -83,6 +90,7 @@ import Relude hiding (
   takeMVar,
   takeTMVar,
   throwSTM,
+  traceM,
   tryPutMVar,
   tryPutTMVar,
   tryReadMVar,
@@ -91,3 +99,12 @@ import Relude hiding (
   tryTakeTMVar,
   writeTVar,
  )
+import qualified Text.ParserCombinators.ReadP as ReadP
+import qualified Text.ParserCombinators.ReadPrec as ReadP
+
+-- TODO(MB): Remove when we upgrade dependencies to include time >= 1.11
+instance Read DiffTime where
+  readPrec = do
+    t <- readPrec
+    _ <- ReadP.lift $ ReadP.char 's'
+    return $ fromInteger t

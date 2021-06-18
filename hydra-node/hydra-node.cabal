@@ -102,9 +102,6 @@ library
     Paths_hydra_node
   build-depends:
       base
-    , async
-    , base
-    , bytestring
     , cardano-binary
     , cardano-ledger-shelley-ma
     , cardano-ledger-shelley-ma-test
@@ -115,6 +112,7 @@ library
     , contra-tracer
     , data-default
     , gitrev
+    , hydra-prelude
     , io-sim-classes
     , iohk-monitoring
     , iproute
@@ -140,7 +138,7 @@ executable hydra-node
   main-is: Main.hs
   build-depends:
       base
-    , cardano-prelude
+    , hydra-prelude
     , hydra-node
   ghc-options:
     -threaded
@@ -152,10 +150,9 @@ executable mock-chain
   main-is: Main.hs
   build-depends:
       base
-    , cardano-prelude
+    , hydra-prelude
     , hydra-node
     , optparse-applicative
-    , text
   ghc-options:
     -threaded
     -rtsopts
@@ -183,13 +180,13 @@ test-suite tests
   build-depends:
       base
     , cardano-binary
-    , cardano-prelude
     , cborg
     , containers
     , contra-tracer
     , hspec
     , hspec-core
     , HUnit
+    , hydra-prelude
     , hydra-node
     , io-sim
     , io-sim-classes

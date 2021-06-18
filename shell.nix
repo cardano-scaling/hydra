@@ -34,6 +34,7 @@
 }:
 hsPkgs.shellFor {
   packages = ps: with ps; [
+    hydra-prelude
     hydra-node
     hydra-plutus
     local-cluster

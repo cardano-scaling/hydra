@@ -1,7 +1,7 @@
 module Hydra.Network.BroadcastToSelf where
 
-import Cardano.Prelude
-import Control.Monad.Class.MonadThrow (MonadThrow)
+import Hydra.Prelude
+
 import Hydra.Network (Network (..), NetworkCallback, NetworkComponent)
 
 -- | Ensures that messages `broadcast` through the wrapped `NetworkComponent` are

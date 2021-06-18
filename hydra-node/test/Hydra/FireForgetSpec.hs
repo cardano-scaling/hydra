@@ -1,9 +1,8 @@
 module Hydra.FireForgetSpec where
 
-import Cardano.Prelude hiding (atomically, concurrently)
+import Hydra.Prelude
 
-import Control.Monad.Class.MonadAsync (concurrently)
-import Control.Monad.Class.MonadSTM (MonadSTM (..), TVar, readTVar, writeTVar)
+import Control.Monad.Class.MonadSTM (MonadSTM (..), readTVar, writeTVar)
 import Control.Tracer (nullTracer)
 import Hydra.Network.Ouroboros.Client (FireForgetClient (..), fireForgetClientPeer)
 import Hydra.Network.Ouroboros.Server (FireForgetServer (..), fireForgetServerPeer)

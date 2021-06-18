@@ -22,6 +22,7 @@ library
   exposed-modules:
     Hydra.Prelude
   build-depends:
+    base,
     relude,
     io-sim-classes,
   default-extensions:

@@ -1,6 +1,6 @@
 module Hydra.Ledger where
 
-import Cardano.Prelude hiding (undefined)
+import Hydra.Prelude
 
 -- NOTE(MB): We probably want to move these common types somewhere else. Putting
 -- here to avoid circular dependencies with Hydra.Logic

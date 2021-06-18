@@ -7,9 +7,9 @@ module Hydra.Option (
   ParserResult (..),
 ) where
 
-import Cardano.Prelude hiding (Option, option)
+import Hydra.Prelude
+
 import Data.IP (IP)
-import Data.String (String)
 import Hydra.Logging (Verbosity (..))
 import Hydra.Network (Host, PortNumber, readHost, readPort)
 import Hydra.Node.Version (gitRevision, showFullVersion, version)
@@ -37,6 +37,7 @@ import Options.Applicative (
   short,
   value,
  )
+import System.Environment (getArgs)
 
 data Option = Option
   { verbosity :: Verbosity

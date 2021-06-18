@@ -5,7 +5,7 @@
 -- and also some example transactions. Use this with 'cardanoLedger'.
 module Hydra.Ledger.MaryTest where
 
-import Cardano.Prelude
+import Hydra.Prelude
 
 -- REVIEW(SN): use a more consistent set of ledger imports, but some things not
 -- in the API?
@@ -65,10 +65,10 @@ instance Tx MaryTestTx where
   type UTxO MaryTestTx = Ledger.UTxO MaryTest
 
 instance Read MaryTestTx where
-  readPrec = panic "Read: MaryTestTx"
+  readPrec = error "Read: MaryTestTx"
 
 instance Read (Ledger.UTxO era) where
-  readPrec = panic "Read: Ledger.UTxO"
+  readPrec = error "Read: Ledger.UTxO"
 
 cardanoLedger :: Ledger.LedgersEnv MaryTest -> Ledger (Ledger.Tx MaryTest)
 cardanoLedger env =
@@ -129,7 +129,7 @@ globals =
 -- | You vouch that argument is in [0; 1].
 unsafeMkUnitInterval :: Ratio Word64 -> UnitInterval
 unsafeMkUnitInterval r =
-  fromMaybe (panic "could not construct unit interval") $ mkUnitInterval r
+  fromMaybe (error "could not construct unit interval") $ mkUnitInterval r
 
 -- * Test functions
 
@@ -138,7 +138,7 @@ mkLedgerEnv =
   Ledgers.LedgersEnv
     { Ledgers.ledgersSlotNo = SlotNo 1
     , Ledgers.ledgersPp = emptyPParams
-    , Ledgers.ledgersAccount = panic "Not implemented"
+    , Ledgers.ledgersAccount = error "Not implemented"
     }
 
 --

@@ -1,8 +1,13 @@
 module Hydra.OptionSpec where
 
-import Cardano.Prelude
-import Data.String (String)
-import Hydra.Option (Option (..), defaultOption, getParseResult, parseHydraOptionsFromString)
+import Hydra.Prelude
+
+import Hydra.Option (
+  Option (..),
+  defaultOption,
+  getParseResult,
+  parseHydraOptionsFromString,
+ )
 import Test.Hspec (Spec, describe, it, shouldBe)
 
 spec :: Spec

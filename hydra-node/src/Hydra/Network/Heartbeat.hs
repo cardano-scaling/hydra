@@ -11,10 +11,9 @@
 -- wrapped component.
 module Hydra.Network.Heartbeat where
 
-import Cardano.Prelude hiding (atomically, threadDelay, withAsync)
-import Control.Monad.Class.MonadAsync (MonadAsync, withAsync)
-import Control.Monad.Class.MonadSTM (MonadSTM, TVar, atomically, newTVarIO, readTVar, writeTVar)
-import Control.Monad.Class.MonadTimer (MonadDelay, threadDelay)
+import Hydra.Prelude
+
+import Control.Monad.Class.MonadSTM (newTVarIO, readTVar, writeTVar)
 import Hydra.HeadLogic (HydraMessage (..))
 import Hydra.Ledger (Party)
 import Hydra.Network (Network (..), NetworkComponent)

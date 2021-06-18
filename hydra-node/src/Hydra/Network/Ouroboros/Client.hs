@@ -1,17 +1,17 @@
 module Hydra.Network.Ouroboros.Client where
 
-import Cardano.Prelude
+import Hydra.Prelude
 
-import Network.TypedProtocol.Core (
-  Peer (..),
-  PeerHasAgency (..),
-  PeerRole (..),
- )
 import Hydra.Network.Ouroboros.Type (
   ClientHasAgency (TokIdle),
   FireForget (..),
   Message (MsgDone, MsgSend),
   NobodyHasAgency (TokDone),
+ )
+import Network.TypedProtocol.Core (
+  Peer (..),
+  PeerHasAgency (..),
+  PeerRole (..),
  )
 
 data FireForgetClient msg m a where

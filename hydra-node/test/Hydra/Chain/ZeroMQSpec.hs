@@ -2,14 +2,16 @@
 
 module Hydra.Chain.ZeroMQSpec where
 
-import Cardano.Prelude
+import Hydra.Prelude
+
+import Control.Concurrent (newChan, readChan, writeChan)
+import Control.Monad.Class.MonadSTM (newEmptyTMVarIO, putTMVar, takeTMVar)
+import Control.Monad.Class.MonadTimer (timeout)
 import qualified Data.Set as Set
-import Data.String (String)
 import Hydra.Chain.ZeroMQ (catchUpTransactions, mockChainClient, runChainSync, startChain)
 import Hydra.HeadLogic (OnChainTx (InitTx))
 import Hydra.Ledger.Simple (SimpleTx)
 import Hydra.Logging (nullTracer)
-import System.Timeout (timeout)
 import Test.Hspec.Core.Spec (Spec, describe, it)
 import Test.Util (shouldReturn)
 
@@ -22,15 +24,15 @@ spec =
 
     it "publish transactions received from a client given chain is started" $ do
       withMockZMQChain 54321 54322 54323 $ \syncAddress _catchUpAddress postAddress -> do
-        mvar <- newEmptyMVar
+        mvar <- newEmptyTMVarIO
         void $
           concurrently
             ( -- we lack proper synchronisation so better give chain sync time to join the party
-              threadDelay 500_000 >> mockChainClient @SimpleTx postAddress nullTracer tx
+              threadDelay 0.5 >> mockChainClient @SimpleTx postAddress nullTracer tx
             )
-            (within3second $ runChainSync @SimpleTx syncAddress (putMVar mvar) nullTracer)
+            (within3second $ runChainSync @SimpleTx syncAddress (atomically . putTMVar mvar) nullTracer)
 
-        within3second (takeMVar mvar) `shouldReturn` Just tx
+        within3second (atomically $ takeTMVar mvar) `shouldReturn` Just tx
 
     it "catches up transacions with mock chain" $ do
       chan <- newChan
@@ -49,4 +51,4 @@ withMockZMQChain syncPort catchUpPort postPort action =
   postAddress = "tcp://127.0.0.1:" <> show postPort
 
 within3second :: IO a -> IO (Maybe a)
-within3second = timeout 3_000_000
+within3second = timeout 3
