@@ -38,6 +38,7 @@ import Options.Applicative (
   value,
  )
 import System.Environment (getArgs)
+import Options.Applicative.Builder (str)
 
 data Option = Option
   { verbosity :: Verbosity
@@ -48,11 +49,12 @@ data Option = Option
   , apiHost :: IP
   , apiPort :: PortNumber
   , monitoringPort :: Maybe PortNumber
+  , parties :: [FilePath]
   }
   deriving (Eq, Show)
 
 defaultOption :: Option
-defaultOption = Option (Verbose "HydraNode") 1 "127.0.0.1" 5001 [] "127.0.0.1" 4001 Nothing
+defaultOption = Option (Verbose "HydraNode") 1 "127.0.0.1" 5001 [] "127.0.0.1" 4001 Nothing []
 
 hydraNodeParser :: Parser Option
 hydraNodeParser =
@@ -65,6 +67,16 @@ hydraNodeParser =
     <*> apiHostParser
     <*> apiPortParser
     <*> optional monitoringPortParser
+    <*> many partyParser
+
+partyParser :: Parser FilePath
+partyParser =
+  option
+    str
+    ( long "party"
+        <> metavar "PATH"
+        <> help "A public key file of another party"
+    )
 
 peerParser :: Parser Host
 peerParser =

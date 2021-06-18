@@ -55,5 +55,12 @@ spec = describe "Hydra Node Options" $ do
   it "parses --version flag as a parse error" $ do
     parseOptions ["--version"] `shouldBe` Nothing
 
+  it "parses --party option as a filepath" $ do
+    parseOptions ["--party", "./alice.vk"] `shouldBe` Just defaultOption{parties = ["./alice.vk"]}
+    parseOptions ["--party", "/foo"] `shouldBe` Just defaultOption{parties = ["/foo"]}
+    parseOptions ["--party", "bar"] `shouldBe` Just defaultOption{parties = ["bar"]}
+    parseOptions ["--party", "alice.vk", "--party", "bob.vk"]
+      `shouldBe` Just defaultOption{parties = ["alice.vk", "bob.vk"]}
+
 parseOptions :: [String] -> Maybe Hydra.Option.Option
 parseOptions = getParseResult . parseHydraOptionsFromString

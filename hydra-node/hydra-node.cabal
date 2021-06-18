@@ -110,6 +110,7 @@ library
     , cborg
     , containers
     , contra-tracer
+    , cryptonite
     , data-default
     , gitrev
     , hydra-prelude
