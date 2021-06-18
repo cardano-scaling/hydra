@@ -27,14 +27,14 @@ import Hydra.Node (
   createHydraHead,
   runHydraNode,
  )
-import Hydra.Option (Option (..), parseHydraOptions)
+import Hydra.Options (Options (..), parseHydraOptions)
 
 main :: IO ()
 main = do
-  Option{nodeId, verbosity, host, port, peers, apiHost, apiPort, monitoringPort} <- identifyNode <$> parseHydraOptions
+  o@Options{nodeId, verbosity, host, port, peers, apiHost, apiPort, monitoringPort} <- identifyNode <$> parseHydraOptions
+  let env = initEnvironment o
   withTracer verbosity show $ \tracer' ->
     withMonitoring monitoringPort tracer' $ \tracer -> do
-      let env = Environment nodeId NoSnapshots
       eq <- createEventQueue
       let headState = createHeadState [] (HeadParameters 3 mempty)
       hh <- createHydraHead headState Ledger.simpleLedger
@@ -48,6 +48,10 @@ main = do
   withNetwork tracer nodeId host port peers =
     withHeartbeat nodeId $ withBroadcastToSelf $ withOuroborosNetwork tracer (show host, port) peers
 
-identifyNode :: Option -> Option
-identifyNode opt@Option{verbosity = Verbose "HydraNode", nodeId} = opt{verbosity = Verbose $ "HydraNode-" <> show nodeId}
+identifyNode :: Options -> Options
+identifyNode opt@Options{verbosity = Verbose "HydraNode", nodeId} = opt{verbosity = Verbose $ "HydraNode-" <> show nodeId}
 identifyNode opt = opt
+
+initEnvironment :: Options -> Environment
+initEnvironment Options{nodeId}=
+  Environment nodeId NoSnapshots

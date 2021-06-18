@@ -80,6 +80,13 @@ library
   exposed-modules:
     Hydra.API.Server
     Hydra.Chain.ZeroMQ
+    Hydra.HeadLogic
+    Hydra.Ledger
+    Hydra.Ledger.MaryTest
+    Hydra.Ledger.Simple
+    Hydra.Logging
+    Hydra.Logging.Messages
+    Hydra.Logging.Monitoring
     Hydra.Network
     Hydra.Network.BroadcastToSelf
     Hydra.Network.Heartbeat
@@ -90,14 +97,7 @@ library
     Hydra.Network.ZeroMQ
     Hydra.Node
     Hydra.Node.Version
-    Hydra.Ledger
-    Hydra.Ledger.MaryTest
-    Hydra.Ledger.Simple
-    Hydra.Logging
-    Hydra.Logging.Messages
-    Hydra.Logging.Monitoring
-    Hydra.HeadLogic
-    Hydra.Option
+    Hydra.Options
   other-modules:
     Paths_hydra_node
   build-depends:
@@ -174,7 +174,7 @@ test-suite tests
     Hydra.Network.HeartbeatSpec
     Hydra.Network.BroadcastToSelfSpec
     Hydra.NodeSpec
-    Hydra.OptionSpec
+    Hydra.OptionsSpec
     Test.Util
   main-is: Main.hs
   type: exitcode-stdio-1.0

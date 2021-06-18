@@ -1,14 +1,13 @@
-module Hydra.Option (
-  Option (..),
+module Hydra.Options (
+  Options (..),
   parseHydraOptions,
   parseHydraOptionsFromString,
   getParseResult,
-  defaultOption,
+  defaultOptions,
   ParserResult (..),
 ) where
 
 import Hydra.Prelude
-
 import Data.IP (IP)
 import Hydra.Logging (Verbosity (..))
 import Hydra.Network (Host, PortNumber, readHost, readPort)
@@ -40,7 +39,7 @@ import Options.Applicative (
 import System.Environment (getArgs)
 import Options.Applicative.Builder (str)
 
-data Option = Option
+data Options = Options
   { verbosity :: Verbosity
   , nodeId :: Natural
   , host :: IP
@@ -53,12 +52,12 @@ data Option = Option
   }
   deriving (Eq, Show)
 
-defaultOption :: Option
-defaultOption = Option (Verbose "HydraNode") 1 "127.0.0.1" 5001 [] "127.0.0.1" 4001 Nothing []
+defaultOptions :: Options
+defaultOptions = Options (Verbose "HydraNode") 1 "127.0.0.1" 5001 [] "127.0.0.1" 4001 Nothing []
 
-hydraNodeParser :: Parser Option
+hydraNodeParser :: Parser Options
 hydraNodeParser =
-  Option
+  Options
     <$> verbosityParser
     <*> nodeIdParser
     <*> hostParser
@@ -159,7 +158,7 @@ monitoringPortParser =
         <> help "The port this node listens on for monitoring and metrics. If left empty, monitoring server is not started"
     )
 
-hydraNodeOptions :: ParserInfo Option
+hydraNodeOptions :: ParserInfo Options
 hydraNodeOptions =
   info
     (hydraNodeParser <**> helper <**> displayVersion)
@@ -174,9 +173,9 @@ hydraNodeOptions =
       (long "version" <> help "Show version")
 
 -- | Parse command-line arguments into a `Option` or exit with failure and error message.
-parseHydraOptions :: IO Option
+parseHydraOptions :: IO Options
 parseHydraOptions = getArgs <&> parseHydraOptionsFromString >>= handleParseResult
 
 -- | Pure parsing of `Option` from a list of arguments.
-parseHydraOptionsFromString :: [String] -> ParserResult Option
+parseHydraOptionsFromString :: [String] -> ParserResult Options
 parseHydraOptionsFromString = execParserPure defaultPrefs hydraNodeOptions
