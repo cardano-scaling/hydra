@@ -1,0 +1,34 @@
+cabal-version: 2.2
+
+name: hydra-prelude
+version: 1.0.0
+description: Custom Hydra Prelude used across other Hydra packages.
+author: IOG
+copyright: 2021 IOG
+license: Apache-2.0
+license-files:
+  LICENSE
+  NOTICE
+build-type: Simple
+extra-source-files: README.md
+
+source-repository head
+  type: git
+  location: https://github.com/input-output-hk/hydra-node
+
+library
+  hs-source-dirs:
+    src
+  exposed-modules:
+    Hydra.Prelude
+  build-depends:
+    relude,
+    io-sim-classes,
+  default-extensions:
+    NoImplicitPrelude
+  ghc-options:
+    -Wall
+    -Wcompat
+    -Wunused-packages
+  default-language:
+    Haskell2010
