@@ -8,6 +8,8 @@ FLAGS=$(echo "
     -XConstraintKinds
     -XDataKinds
     -XDefaultSignatures
+    -XDeriveAnyClass
+    -XDerivingStrategies
     -XDeriveDataTypeable
     -XDeriveFoldable
     -XDeriveFunctor
@@ -20,6 +22,7 @@ FLAGS=$(echo "
     -XFlexibleInstances
     -XFunctionalDependencies
     -XGADTs
+    -XGeneralizedNewtypeDeriving
     -XInstanceSigs
     -XKindSignatures
     -XLambdaCase
@@ -56,9 +59,18 @@ FLAGS=$(echo "
 # List all hspec modules in the given packages and turn those into something
 # that can be put into a Haskell list
 SPECS=$(git ls-files  'hydra-node/**/*Spec.hs'  'hydra-plutus/**/*Spec.hs'  | \
-          sed -e 's/^[^A-Z]*\(.*\)\.hs$/\1/' | sed 'y=/=.=' | sed -e 's/$/.spec/' | tr -s '\012' ',' | sed -e 's/,$//' )
+          sed -e 's/^[^A-Z]*\(.*\)\.hs$/\1/' | sed 'y=/=.=' | sed -e 's/$/.spec/' )
+
+if [ $# -gt 0 ]; then
+  SPECS=$(echo "$SPECS" | grep "$@" | tr -s '\012' ',' | sed -e 's/,$//')
+else
+  SPECS=$(echo "$SPECS" | tr -s '\012' ',' | sed -e 's/,$//')
+fi
+
 
 COMMAND="cabal exec ghci -- -ihydra-plutus/src -ihydra-plutus/test -ihydra-node/src -ihydra-node/test -idist-newstyle/build/x86_64-linux/ghc-8.10.4/hydra-node-0.1.0/build/autogen/  $FLAGS $(git ls-files 'hydra-node/**/*.hs'  'hydra-plutus/**/*.hs'  | grep -v Main.hs| grep -v Repl | tr -s '\012' ' ')"
+
+echo $COMMAND
 
 # need to explicitly list *.cabal files to restart because (I think) ghcid only
 # checks .cabal in current directory
