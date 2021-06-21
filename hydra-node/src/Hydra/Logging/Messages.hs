@@ -6,7 +6,8 @@
 -- collection.
 module Hydra.Logging.Messages where
 
-import Cardano.Prelude (Eq, Show)
+import Hydra.Prelude
+
 import Hydra.API.Server (APIServerLog)
 import Hydra.Chain.ZeroMQ (MockChainLog)
 import Hydra.Node (HydraNodeLog)

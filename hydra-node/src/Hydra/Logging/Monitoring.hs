@@ -3,10 +3,10 @@ module Hydra.Logging.Monitoring (
   withMonitoring,
 ) where
 
-import Cardano.Prelude hiding (Async, withAsync)
-import Control.Monad.Class.MonadAsync (MonadAsync, withAsync)
+import Hydra.Prelude
+
 import Control.Tracer (Tracer (Tracer))
-import qualified Data.Map as Map
+import Data.Map.Strict as Map
 import Hydra.Logging.Messages (HydraLog (..))
 import Hydra.Network (PortNumber)
 import Hydra.Node (HydraNodeLog (ProcessedEvent))
@@ -47,7 +47,7 @@ prepareRegistry = first monitor <$> registerMetrics
       _ -> pure ()
   monitor _ _ = pure ()
 
-  registerMetrics = foldM registerMetric (mempty, new) allMetrics
+  registerMetrics = foldlM registerMetric (mempty, new) allMetrics
 
   allMetrics = [(Name "hydra_head_events", CounterMetric, flip registerCounter mempty)]
 

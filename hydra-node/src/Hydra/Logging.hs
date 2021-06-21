@@ -8,7 +8,6 @@ module Hydra.Logging (
   Tracer (..),
   natTracer,
   nullTracer,
-  contramap,
   traceWith,
   traceInTVar,
   LoggerName,
@@ -17,6 +16,8 @@ module Hydra.Logging (
   Verbosity (..),
   withTracer,
 ) where
+
+import Hydra.Prelude
 
 import Cardano.BM.Backend.Switchboard (
   Switchboard,
@@ -38,10 +39,8 @@ import Cardano.BM.Setup (
   setupTrace_,
   shutdown,
  )
-import Cardano.Prelude hiding (atomically)
 import Control.Tracer (
   Tracer (..),
-  contramap,
   natTracer,
   nullTracer,
   traceWith,
@@ -49,7 +48,7 @@ import Control.Tracer (
 
 import qualified Cardano.BM.Configuration.Model as CM
 import qualified Cardano.BM.Data.BackendKind as CM
-import Control.Monad.Class.MonadSTM (MonadSTM (atomically), TVar, modifyTVar)
+import Control.Monad.Class.MonadSTM (modifyTVar)
 
 data Verbosity = Quiet | Verbose LoggerName
   deriving (Eq, Show)

@@ -2,7 +2,7 @@
 
 module Hydra.Test.Utils where
 
-import Cardano.Prelude
+import Hydra.Prelude
 
 import Ledger
 
@@ -10,7 +10,6 @@ import Control.Lens (view, (^.))
 import Control.Monad.Freer (Eff, Member)
 import Control.Monad.Freer.Writer (tell)
 import Data.Maybe (fromJust)
-import Data.String (IsString (..), String)
 import Data.Text.Prettyprint.Doc (Doc, (<+>))
 import Ledger.AddressMap (UtxoMap, fundsAt)
 import Plutus.Contract (Contract, HasEndpoint)
@@ -95,7 +94,7 @@ assertFinalState contract wallet predicate =
   assertAccumState
     contract
     (walletInstanceTag wallet)
-    (maybe False predicate . lastMay)
+    (maybe False (predicate . last) . nonEmpty)
     "assert final state"
 
 checkCompiledContractPIR :: FilePath -> CompiledCode a -> TestTree

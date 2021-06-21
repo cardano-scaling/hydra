@@ -1,7 +1,8 @@
 module Hydra.Network.BroadcastToSelfSpec where
 
-import Cardano.Prelude hiding (atomically, threadDelay)
-import Control.Monad.Class.MonadSTM (atomically, modifyTVar', newTVarIO, readTVar)
+import Hydra.Prelude
+
+import Control.Monad.Class.MonadSTM (modifyTVar', newTVarIO, readTVar)
 import Control.Monad.IOSim (runSimOrThrow)
 import Hydra.Network (Network (..))
 import Hydra.Network.BroadcastToSelf (withBroadcastToSelf)

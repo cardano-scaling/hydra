@@ -1,6 +1,8 @@
 module Hydra.Ledger.SimpleSpec where
 
-import Cardano.Prelude
+import Hydra.Prelude
+
+import Data.List (maximum)
 import qualified Data.Set as Set
 import Hydra.Ledger (UTxO, applyTransactions)
 import Hydra.Ledger.Simple
@@ -29,7 +31,7 @@ sequenceOfValidTransactions :: UTxO SimpleTx -> Gen [SimpleTx]
 sequenceOfValidTransactions initialUtxo = do
   let maxId = if Set.null initialUtxo then 0 else unTxIn (maximum initialUtxo)
   numTxs <- choose (1, 10)
-  foldM newTx (maxId, initialUtxo, mempty) [1 .. numTxs] >>= \(_, _, txs) -> pure (reverse txs)
+  foldlM newTx (maxId, initialUtxo, mempty) [1 .. numTxs] >>= \(_, _, txs) -> pure (reverse txs)
 
 newTx :: (Integer, UTxO SimpleTx, [SimpleTx]) -> Integer -> Gen (Integer, UTxO SimpleTx, [SimpleTx])
 newTx (maxId, utxo, txs) txid = do

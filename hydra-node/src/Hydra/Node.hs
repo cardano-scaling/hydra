@@ -5,11 +5,11 @@
 -- | Top-level module to run a single Hydra node.
 module Hydra.Node where
 
-import Cardano.Prelude hiding (STM, async, atomically, cancel, check, poll, threadDelay, throwIO)
-import Control.Monad.Class.MonadAsync (MonadAsync, async)
-import Control.Monad.Class.MonadSTM (MonadSTM (STM), atomically, newTQueue, newTVar, readTQueue, stateTVar, writeTQueue)
-import Control.Monad.Class.MonadThrow (MonadThrow, throwIO)
-import Control.Monad.Class.MonadTimer (MonadTimer, threadDelay)
+import Hydra.Prelude
+
+import Cardano.Crypto.DSIGN (deriveVerKeyDSIGN, rawDeserialiseSignKeyDSIGN)
+import Control.Monad.Class.MonadAsync (async)
+import Control.Monad.Class.MonadSTM (newTQueue, newTVarIO, readTQueue, stateTVar, writeTQueue)
 import Hydra.Chain (Chain (..))
 import Hydra.HeadLogic (
   ClientRequest (..),
@@ -22,11 +22,23 @@ import Hydra.HeadLogic (
   LogicError (..),
   OnChainTx (..),
   Outcome (..),
+  SnapshotStrategy (NoSnapshots),
  )
 import qualified Hydra.HeadLogic as Logic
 import Hydra.Ledger
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Network (Network (..))
+import Hydra.Options (Options (..))
+
+-- * Environment Handling
+
+initEnvironment :: Options -> IO Environment
+initEnvironment Options{me} = do
+  mKey <- rawDeserialiseSignKeyDSIGN <$> readFileBS me
+  case mKey of
+    Nothing -> fail $ "Failed to decode signing key from " <> me
+    Just key -> pure $ Environment (UnsafeParty $ deriveVerKeyDSIGN key) NoSnapshots
+--
 
 -- ** Create and run a hydra node
 
@@ -147,5 +159,5 @@ putState HydraHead{modifyHeadState} new =
 
 createHydraHead :: MonadSTM m => HeadState tx -> Ledger tx -> m (HydraHead tx m)
 createHydraHead initialState ledger = do
-  tv <- atomically $ newTVar initialState
+  tv <- newTVarIO initialState
   pure HydraHead{modifyHeadState = stateTVar tv, ledger}

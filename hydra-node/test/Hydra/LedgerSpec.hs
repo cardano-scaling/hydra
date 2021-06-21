@@ -5,7 +5,7 @@
 -- implementation itself.
 module Hydra.LedgerSpec where
 
-import Cardano.Prelude
+import Hydra.Prelude
 
 import Hydra.Ledger (ValidationError (..))
 import Hydra.Ledger.MaryTest (

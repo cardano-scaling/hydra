@@ -3,11 +3,10 @@
 
 module Hydra.Contract.OffChain where
 
-import Ledger
-import Prelude hiding (init)
+import Hydra.Prelude hiding (init)
 
-import Control.Arrow (second)
-import Control.Monad (forever, void)
+import Ledger
+
 import Hydra.Contract.OnChain as OnChain (asDatum, asRedeemer)
 import Ledger.Ada (lovelaceValueOf)
 import Ledger.AddressMap (UtxoMap)

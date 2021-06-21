@@ -2,7 +2,8 @@
 
 module Hydra.ContractTest where
 
-import Cardano.Prelude
+import Hydra.Prelude
+
 import Ledger
 
 import Hydra.Test.Utils (

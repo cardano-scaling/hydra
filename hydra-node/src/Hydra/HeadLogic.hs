@@ -3,9 +3,8 @@
 
 module Hydra.HeadLogic where
 
-import Cardano.Prelude
+import Hydra.Prelude
 
-import Control.Monad.Class.MonadTime (DiffTime)
 import Data.List ((\\))
 import qualified Data.Map.Strict as Map
 import qualified Data.Set as Set
@@ -38,7 +37,7 @@ deriving instance Tx tx => Eq (Effect tx)
 deriving instance Tx tx => Show (Effect tx)
 
 data ClientRequest tx
-  = Init [Party]
+  = Init
   | Commit (UTxO tx)
   | NewTx tx
   | Close
@@ -74,6 +73,7 @@ data ClientResponse tx
 
 deriving instance Tx tx => Eq (ClientResponse tx)
 deriving instance Tx tx => Show (ClientResponse tx)
+deriving instance Tx tx => Read (ClientResponse tx)
 
 -- NOTE(SN): Every message comes from a 'Party', we might want to move it out of
 -- here into the 'NetworkEvent'
@@ -188,8 +188,8 @@ update ::
   Event tx ->
   Outcome tx
 update Environment{party, snapshotStrategy} ledger (HeadState parameters st) ev = case (st, ev) of
-  (InitState, ClientEvent (Init parties)) ->
-    newState InitState [OnChainEffect (InitTx $ Set.fromList parties)]
+  (InitState, ClientEvent Init) ->
+    newState InitState [OnChainEffect (InitTx $ parties parameters)]
   (_, OnChainEvent (InitTx parties)) ->
     -- NOTE(SN): Eventually we won't be able to construct 'HeadParameters' from
     -- the 'InitTx'
@@ -204,9 +204,9 @@ update Environment{party, snapshotStrategy} ledger (HeadState parameters st) ev 
   (CollectingState remainingParties _, ClientEvent (Commit utxo)) ->
     if canCommit
       then newState st [OnChainEffect (CommitTx party utxo)]
-      else panic $ "you're not allowed to commit (anymore): remainingParties : " <> show remainingParties <> ", partiyIndex:  " <> show party
+      else error $ "you're not allowed to commit (anymore): remainingParties : " <> show remainingParties <> ", partiyIndex:  " <> show party
    where
-    canCommit = party `elem` remainingParties
+    canCommit = party `Set.member` remainingParties
   (CollectingState remainingParties committed, OnChainEvent (CommitTx pt utxo)) ->
     if canCollectCom
       then newState newHeadState [OnChainEffect $ CollectComTx $ mconcat $ Map.elems newCommitted]
@@ -249,7 +249,7 @@ update Environment{party, snapshotStrategy} ledger (HeadState parameters st) ev 
   (OpenState headState@SimpleHeadState{confirmedUTxO, confirmedTxs, confirmedSnapshot, unconfirmedTxs}, NetworkEvent (AckTx otherParty tx)) ->
     -- TODO(SN): check signature of AckTx and we would not send the tx around, so some more bookkeeping is required here
     case applyTransactions ledger confirmedUTxO [tx] of
-      Left err -> panic $ "TODO: validation error: " <> show err
+      Left err -> error $ "TODO: validation error: " <> show err
       Right utxo' -> do
         let sigs =
               Set.insert
@@ -293,7 +293,7 @@ update Environment{party, snapshotStrategy} ledger (HeadState parameters st) ev 
   (OpenState headState@SimpleHeadState{confirmedTxs, seenSnapshot}, NetworkEvent (AckSn otherParty sn)) ->
     -- TODO: Verify snapshot signatures.
     case seenSnapshot of
-      Nothing -> panic "TODO: wait until reqSn is seen (and seenSnapshot created)"
+      Nothing -> error "TODO: wait until reqSn is seen (and seenSnapshot created)"
       Just (snapshot, sigs)
         | number snapshot == sn ->
           let sigs' = otherParty `Set.insert` sigs
@@ -317,7 +317,7 @@ update Environment{party, snapshotStrategy} ledger (HeadState parameters st) ev 
                     )
                     []
       Just (snapshot, _) ->
-        panic $ "Received ack for unknown unconfirmed snapshot. Unconfirmed snapshot: " <> show (number snapshot) <> ", Requested snapshot: " <> show sn
+        error $ "Received ack for unknown unconfirmed snapshot. Unconfirmed snapshot: " <> show (number snapshot) <> ", Requested snapshot: " <> show sn
   (_, OnChainEvent (CloseTx snapshot txs)) ->
     -- TODO(1): Should check whether we want / can contest the close snapshot by
     --       comparing with our local state / utxo.
@@ -328,7 +328,7 @@ update Environment{party, snapshotStrategy} ledger (HeadState parameters st) ev 
     --   b) Move to close state, using information from the close tx
     case applyTransactions ledger (utxo snapshot) txs of
       Left e ->
-        panic $ "Stored not applicable snapshot (" <> show (number snapshot) <> ") " <> show txs <> ": " <> show e
+        error $ "Stored not applicable snapshot (" <> show (number snapshot) <> ") " <> show txs <> ": " <> show e
       Right confirmedUTxO ->
         newState
           (ClosedState confirmedUTxO)

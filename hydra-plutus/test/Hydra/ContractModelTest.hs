@@ -3,7 +3,8 @@
 
 module Hydra.ContractModelTest where
 
-import Cardano.Prelude as Prelude
+import Hydra.Prelude as Prelude
+
 import GHC.Show (Show (..))
 import qualified Hydra.Contract.OffChain as OffChain
 import qualified Hydra.Contract.OnChain as OnChain

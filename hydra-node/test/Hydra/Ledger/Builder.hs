@@ -2,7 +2,8 @@
 -- useful for testing purpose
 module Hydra.Ledger.Builder where
 
-import Cardano.Prelude
+import Hydra.Prelude
+
 import qualified Data.Set as Set
 import Hydra.Ledger (UTxO)
 import Hydra.Ledger.Simple (SimpleTx (..), TxIn (..))

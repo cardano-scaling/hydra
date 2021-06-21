@@ -1,6 +1,6 @@
 module Ports where
 
-import Cardano.Prelude
+import Hydra.Prelude
 
 import Data.List (
   isInfixOf,
@@ -68,7 +68,7 @@ unsafePortNumber :: SockAddr -> PortNumber
 unsafePortNumber = \case
   SockAddrInet p _ -> p
   SockAddrInet6 p _ _ _ -> p
-  SockAddrUnix _ -> panic "unsafePortNumber: no port for unix sockets."
+  SockAddrUnix _ -> error "unsafePortNumber: no port for unix sockets."
 
 -- | Creates a `SockAttr` from host IP and port number.
 --

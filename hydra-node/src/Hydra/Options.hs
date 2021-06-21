@@ -1,18 +1,17 @@
-module Hydra.Option (
-  Option (..),
+module Hydra.Options (
+  Options (..),
   parseHydraOptions,
   parseHydraOptionsFromString,
   getParseResult,
-  defaultOption,
+  defaultOptions,
   ParserResult (..),
 ) where
 
-import Cardano.Prelude hiding (Option, option)
 import Data.IP (IP)
-import Data.String (String)
 import Hydra.Logging (Verbosity (..))
 import Hydra.Network (Host, PortNumber, readHost, readPort)
 import Hydra.Node.Version (gitRevision, showFullVersion, version)
+import Hydra.Prelude
 import Options.Applicative (
   Parser,
   ParserInfo,
@@ -37,8 +36,10 @@ import Options.Applicative (
   short,
   value,
  )
+import Options.Applicative.Builder (str)
+import System.Environment (getArgs)
 
-data Option = Option
+data Options = Options
   { verbosity :: Verbosity
   , nodeId :: Natural
   , host :: IP
@@ -47,15 +48,17 @@ data Option = Option
   , apiHost :: IP
   , apiPort :: PortNumber
   , monitoringPort :: Maybe PortNumber
+  , me :: FilePath
+  , parties :: [FilePath]
   }
   deriving (Eq, Show)
 
-defaultOption :: Option
-defaultOption = Option (Verbose "HydraNode") 1 "127.0.0.1" 5001 [] "127.0.0.1" 4001 Nothing
+defaultOptions :: Options
+defaultOptions = Options (Verbose "HydraNode") 1 "127.0.0.1" 5001 [] "127.0.0.1" 4001 Nothing "me.sk" []
 
-hydraNodeParser :: Parser Option
+hydraNodeParser :: Parser Options
 hydraNodeParser =
-  Option
+  Options
     <$> verbosityParser
     <*> nodeIdParser
     <*> hostParser
@@ -64,6 +67,26 @@ hydraNodeParser =
     <*> apiHostParser
     <*> apiPortParser
     <*> optional monitoringPortParser
+    <*> signingKeyFileParser
+    <*> many verificationKeyFileParser
+
+signingKeyFileParser :: Parser FilePath
+signingKeyFileParser =
+  option
+    str
+    ( long "me"
+        <> metavar "PATH"
+        <> help "A filepath to our signing key"
+    )
+
+verificationKeyFileParser :: Parser FilePath
+verificationKeyFileParser =
+  option
+    str
+    ( long "party"
+        <> metavar "PATH"
+        <> help "A verification key file of another party"
+    )
 
 peerParser :: Parser Host
 peerParser =
@@ -146,7 +169,7 @@ monitoringPortParser =
         <> help "The port this node listens on for monitoring and metrics. If left empty, monitoring server is not started"
     )
 
-hydraNodeOptions :: ParserInfo Option
+hydraNodeOptions :: ParserInfo Options
 hydraNodeOptions =
   info
     (hydraNodeParser <**> helper <**> displayVersion)
@@ -161,9 +184,9 @@ hydraNodeOptions =
       (long "version" <> help "Show version")
 
 -- | Parse command-line arguments into a `Option` or exit with failure and error message.
-parseHydraOptions :: IO Option
+parseHydraOptions :: IO Options
 parseHydraOptions = getArgs <&> parseHydraOptionsFromString >>= handleParseResult
 
 -- | Pure parsing of `Option` from a list of arguments.
-parseHydraOptionsFromString :: [String] -> ParserResult Option
+parseHydraOptionsFromString :: [String] -> ParserResult Options
 parseHydraOptionsFromString = execParserPure defaultPrefs hydraNodeOptions

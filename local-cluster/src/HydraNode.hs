@@ -17,20 +17,27 @@ module HydraNode (
   waitForNodesConnected,
 ) where
 
-import Cardano.Prelude
+import Hydra.Prelude
 
+import Cardano.Crypto.DSIGN (
+  DSIGNAlgorithm (..),
+  SignKeyDSIGN,
+  VerKeyDSIGN,
+ )
 import Control.Concurrent.Async (
   forConcurrently_,
  )
-import qualified Data.ByteString.Lazy as BSL
-import Data.IORef (modifyIORef', newIORef, readIORef)
-import qualified Data.Text.Encoding as Text
+import Control.Exception (IOException)
+import qualified Data.ByteString as BS
+import Data.Text.IO (hPutStrLn)
 import GHC.IO.Handle (hDuplicate)
 import Network.HTTP.Conduit (HttpExceptionContent (ConnectionFailure), parseRequest)
 import Network.HTTP.Simple (HttpException (HttpExceptionRequest), Response, getResponseBody, getResponseStatusCode, httpBS)
 import Network.WebSockets (Connection, DataMessage (Binary, Text), receiveDataMessage, runClient, sendClose, sendTextData)
 import Say (say)
-import System.IO.Temp (withSystemTempFile)
+import System.Exit (ExitCode (..))
+import System.FilePath ((</>))
+import System.IO.Temp (withSystemTempDirectory, withSystemTempFile)
 import System.Process (
   CreateProcess (..),
   ProcessHandle,
@@ -42,7 +49,6 @@ import System.Process (
  )
 import System.Timeout (timeout)
 import Test.Hspec.Expectations (expectationFailure)
-import Prelude (String, error)
 
 data HydraNode = HydraNode
   { hydraNodeId :: Int
@@ -52,7 +58,7 @@ data HydraNode = HydraNode
 
 sendRequest :: HydraNode -> Text -> IO ()
 sendRequest HydraNode{hydraNodeId, connection, nodeStdout} request = do
-  hPutStrLn @Text nodeStdout ("Tester sending to " <> show hydraNodeId <> ": " <> show request)
+  hPutStrLn nodeStdout ("Tester sending to " <> show hydraNodeId <> ": " <> show request)
   sendTextData connection request
 
 data WaitForResponseTimeout = WaitForResponseTimeout
@@ -85,8 +91,8 @@ waitForResponse delay nodes expected = do
   tryNext msgs c = do
     msg <-
       receiveDataMessage c >>= \case
-        Text b _mt -> pure $ Text.decodeUtf8 $ BSL.toStrict b
-        Binary b -> pure $ Text.decodeUtf8 $ BSL.toStrict b
+        Text b _mt -> pure $ decodeUtf8 b
+        Binary b -> pure $ decodeUtf8 b
     modifyIORef' msgs (msg :)
     if msg == expected
       then pure ()
@@ -107,17 +113,24 @@ queryNode nodeId =
     httpBS req
       `catch` (\(HttpExceptionRequest _ (ConnectionFailure _)) -> threadDelay 100_000 >> loop req)
 
-withHydraNode :: Int -> (HydraNode -> IO ()) -> IO ()
-withHydraNode hydraNodeId action = do
+withHydraNode :: forall alg. DSIGNAlgorithm alg => Int -> SignKeyDSIGN alg -> [VerKeyDSIGN alg] -> (HydraNode -> IO ()) -> IO ()
+withHydraNode hydraNodeId sKey vKeys action = do
   withSystemTempFile "hydra-node" $ \f out -> traceOnFailure f $ do
     out' <- hDuplicate out
-    let p =
-          (hydraNodeProcess $ defaultArguments hydraNodeId)
-            { std_out = UseHandle out
-            }
-    withCreateProcess p $
-      \_stdin _stdout _stderr processHandle -> do
-        race_ (checkProcessHasNotDied processHandle) (tryConnect out')
+    withSystemTempDirectory "hydra-node" $ \dir -> do
+      let sKeyPath = dir </> (show hydraNodeId <> ".sk")
+      BS.writeFile sKeyPath (rawSerialiseSignKeyDSIGN sKey)
+      vKeysPaths <- forM (zip [1 ..] vKeys) $ \(i :: Int, vKey) -> do
+        let filepath = dir </> (show i <> ".vk")
+        filepath <$ BS.writeFile filepath (rawSerialiseVerKeyDSIGN vKey)
+
+      let p =
+            (hydraNodeProcess $ defaultArguments hydraNodeId sKeyPath vKeysPaths)
+              { std_out = UseHandle out
+              }
+      withCreateProcess p $
+        \_stdin _stdout _stderr processHandle -> do
+          race_ (checkProcessHasNotDied processHandle) (tryConnect out')
  where
   tryConnect out = doConnect out `catch` \(_ :: IOException) -> tryConnect out
 
@@ -126,7 +139,7 @@ withHydraNode hydraNodeId action = do
     sendClose con ("Bye" :: Text)
 
   traceOnFailure f io = do
-    io `onException` (readFile f >>= say)
+    io `onException` (readFileText f >>= say)
 
 data CannotStartHydraNode = CannotStartHydraNode Int deriving (Show)
 instance Exception CannotStartHydraNode
@@ -134,8 +147,12 @@ instance Exception CannotStartHydraNode
 hydraNodeProcess :: [String] -> CreateProcess
 hydraNodeProcess = proc "hydra-node"
 
-defaultArguments :: Int -> [String]
-defaultArguments nodeId =
+defaultArguments ::
+  Int ->
+  FilePath ->
+  [FilePath] ->
+  [String]
+defaultArguments nodeId sKey vKeys =
   [ "--node-id"
   , show nodeId
   , "--host"
@@ -148,8 +165,11 @@ defaultArguments nodeId =
   , show (4000 + nodeId)
   , "--monitoring-port"
   , show (6000 + nodeId)
+  , "--me"
+  , sKey
   ]
-    <> concat [["--peer", "127.0.0.1@" <> show (5000 + id)] | id <- [1 .. 3], id /= nodeId]
+    <> concat [["--peer", "127.0.0.1@" <> show (5000 + i)] | i <- [1 .. 3], i /= nodeId]
+    <> concat [["--party", vKey] | vKey <- vKeys]
 
 withMockChain :: IO () -> IO ()
 withMockChain action = do

@@ -19,21 +19,21 @@ module Hydra.Network (
   -- * Parser
   readHost,
   readPort,
+
+  -- * Utility functions
+  close,
 ) where
+
+import Hydra.Prelude
 
 import Cardano.Binary (
   FromCBOR (..),
   ToCBOR (..),
  )
-import Cardano.Prelude hiding (STM)
-import Control.Monad (fail)
-import Data.Functor.Contravariant (Contravariant (..))
 import Data.IP (IP)
-import qualified Data.List as List
-import Data.String (String)
 import Hydra.HeadLogic (HydraMessage (..), Snapshot (..))
 import Hydra.Ledger (UTxO)
-import Network.Socket (HostName, PortNumber)
+import Network.Socket (HostName, PortNumber, close)
 import Network.TypedProtocol.Pipelined ()
 
 -- * Hydra network interface
@@ -59,7 +59,7 @@ type Host = (HostName, PortNumber)
 
 readHost :: String -> Maybe Host
 readHost s =
-  case List.break (== '@') s of
+  case break (== '@') s of
     (h, '@' : p) -> (h,) <$> readPort p
     _ -> Nothing
 

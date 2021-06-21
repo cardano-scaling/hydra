@@ -82,6 +82,13 @@ library
     Hydra.Chain
     Hydra.Chain.ExternalPAB
     Hydra.Chain.ZeroMQ
+    Hydra.HeadLogic
+    Hydra.Ledger
+    Hydra.Ledger.MaryTest
+    Hydra.Ledger.Simple
+    Hydra.Logging
+    Hydra.Logging.Messages
+    Hydra.Logging.Monitoring
     Hydra.Network
     Hydra.Network.BroadcastToSelf
     Hydra.Network.Heartbeat
@@ -92,22 +99,13 @@ library
     Hydra.Network.ZeroMQ
     Hydra.Node
     Hydra.Node.Version
-    Hydra.Ledger
-    Hydra.Ledger.MaryTest
-    Hydra.Ledger.Simple
-    Hydra.Logging
-    Hydra.Logging.Messages
-    Hydra.Logging.Monitoring
-    Hydra.HeadLogic
-    Hydra.Option
+    Hydra.Options
   other-modules:
     Paths_hydra_node
   build-depends:
       base
-    , async
-    , base
-    , bytestring
     , cardano-binary
+    , cardano-crypto-class
     , cardano-ledger-core
     , cardano-ledger-shelley-ma
     , cardano-ledger-shelley-ma-test
@@ -116,8 +114,10 @@ library
     , cborg
     , containers
     , contra-tracer
+    , cryptonite
     , data-default
     , gitrev
+    , hydra-prelude
     , io-sim-classes
     , iohk-monitoring
     , iproute
@@ -146,9 +146,8 @@ executable hydra-node
   main-is: Main.hs
   build-depends:
       base
-    , cardano-prelude
+    , hydra-prelude
     , hydra-node
-    , stm
   ghc-options:
     -threaded
     -rtsopts
@@ -159,10 +158,9 @@ executable mock-chain
   main-is: Main.hs
   build-depends:
       base
-    , cardano-prelude
+    , hydra-prelude
     , hydra-node
     , optparse-applicative
-    , text
   ghc-options:
     -threaded
     -rtsopts
@@ -171,6 +169,7 @@ test-suite tests
   import: project-config
   hs-source-dirs: test
   other-modules:
+    Hydra.API.ServerSpec
     Hydra.Chain.ExternalPABSpec
     Hydra.Chain.ZeroMQSpec
     Hydra.FireForgetSpec
@@ -183,27 +182,31 @@ test-suite tests
     Hydra.Network.HeartbeatSpec
     Hydra.Network.BroadcastToSelfSpec
     Hydra.NodeSpec
-    Hydra.OptionSpec
+    Hydra.OptionsSpec
     Test.Util
   main-is: Main.hs
   type: exitcode-stdio-1.0
   build-depends:
       base
     , cardano-binary
-    , cardano-prelude
     , cborg
     , containers
     , contra-tracer
     , hspec
     , hspec-core
     , HUnit
+    , hydra-prelude
     , hydra-node
     , io-sim
     , io-sim-classes
     , QuickCheck
     , quickcheck-instances
     , say
+    , text
     , typed-protocols-examples
+    , HUnit
+    , warp
+    , websockets
   build-tool-depends:
     hspec-discover:hspec-discover
   ghc-options:

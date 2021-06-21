@@ -2,19 +2,17 @@
 
 module Test.Util where
 
-import Cardano.Prelude hiding (SrcLoc, atomically, callStack, onException, throwIO)
+import Hydra.Prelude
 
 import Control.Monad.Class.MonadSTM (
   MonadSTM (..),
   newTVarIO,
   readTVar,
  )
-import Control.Monad.Class.MonadThrow (MonadCatch, MonadThrow (throwIO), onException)
-import Control.Monad.Class.MonadTimer (DiffTime, MonadTimer, timeout)
+import Control.Monad.Class.MonadTimer (timeout)
 import Control.Monad.IOSim (IOSim, runSim)
 import Data.List (isInfixOf)
-import Data.String (String)
-import GHC.Stack (SrcLoc, callStack)
+import GHC.Stack (SrcLoc)
 import Hydra.Logging (Tracer, traceInTVar)
 import Say (say)
 import Test.HUnit.Lang (FailureReason (ExpectedButGot, Reason), HUnitFailure (HUnitFailure))

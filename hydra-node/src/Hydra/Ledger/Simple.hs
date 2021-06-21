@@ -9,8 +9,9 @@
 --   consumes is now available.
 module Hydra.Ledger.Simple where
 
+import Hydra.Prelude
+
 import Cardano.Binary (FromCBOR (..), ToCBOR (..))
-import Cardano.Prelude
 import qualified Data.Set as Set
 import Hydra.Ledger
 
@@ -49,7 +50,7 @@ simpleLedger :: Ledger SimpleTx
 simpleLedger =
   Ledger
     { applyTransactions =
-        foldM $ \utxo (SimpleTx _ ins outs) ->
+        foldlM $ \utxo (SimpleTx _ ins outs) ->
           if ins `Set.isSubsetOf` utxo && utxo `Set.disjoint` outs
             then Right $ (utxo Set.\\ ins) `Set.union` outs
             else Left ValidationError

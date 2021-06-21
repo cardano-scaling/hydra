@@ -2,24 +2,8 @@
 
 module Hydra.HeadLogicSpec where
 
-import Cardano.Prelude (
-  Applicative (pure),
-  Bool (False, True),
-  Foldable (elem),
-  IO,
-  Maybe (..),
-  Monoid (mempty),
-  Ord,
-  Semigroup ((<>)),
-  Set,
-  otherwise,
-  show,
-  ($),
- )
+import Hydra.Prelude
 
-import Control.Monad.Fail (
-  fail,
- )
 import qualified Data.Set as Set
 import Hydra.HeadLogic (
   ClientResponse (PeerConnected),

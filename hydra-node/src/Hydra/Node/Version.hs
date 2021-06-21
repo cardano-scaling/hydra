@@ -13,11 +13,8 @@ module Hydra.Node.Version (
   showFullVersion,
 ) where
 
-import Cardano.Prelude
-import Data.String (
-  String,
-  fromString,
- )
+import Hydra.Prelude
+
 import Data.Version (
   Version,
   showVersion,
@@ -34,7 +31,7 @@ newtype GitRevision = GitRevision Text deriving (Show, Eq)
 -- | Like 'showVersion', but also show the git revision.
 showFullVersion :: Version -> GitRevision -> String
 showFullVersion v (GitRevision r) =
-  showVersion v <> "-" <> T.unpack r
+  showVersion v <> toString r
 
 -- | The Git revision ID (40 character hex string) of this build.
 --

@@ -89,6 +89,7 @@ library
       aeson,
       base,
       containers,
+      hydra-prelude,
       playground-common,
       plutus-core,
       plutus-tx,
@@ -111,12 +112,12 @@ test-suite hydra-plutus-test
       Hydra.Test.Utils
   build-depends:
       base >=4.9 && <5,
-      cardano-prelude,
       containers,
       foldl,
       freer-extras,
       freer-simple,
       hydra-plutus,
+      hydra-prelude,
       lens,
       plutus-contract,
       plutus-core,

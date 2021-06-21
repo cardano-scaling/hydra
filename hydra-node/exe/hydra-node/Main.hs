@@ -2,20 +2,18 @@
 
 module Main where
 
-import Cardano.Prelude hiding (Option, option)
+import Hydra.Prelude
 
-import Control.Concurrent.STM (newBroadcastTChanIO, writeTChan)
-import Hydra.API.Server (runAPIServer)
+import Hydra.API.Server (withAPIServer)
 import Hydra.Chain.ZeroMQ (createMockChainClient)
 import Hydra.HeadLogic (
   Environment (..),
   Event (..),
   HeadParameters (..),
-  SnapshotStrategy (..),
   createHeadState,
  )
 import qualified Hydra.Ledger.Simple as Ledger
-import Hydra.Logging
+import Hydra.Logging (Verbosity (..), withTracer)
 import Hydra.Logging.Messages (HydraLog (..))
 import Hydra.Logging.Monitoring (withMonitoring)
 import Hydra.Network.BroadcastToSelf (withBroadcastToSelf)
@@ -26,32 +24,30 @@ import Hydra.Node (
   HydraNode (..),
   createEventQueue,
   createHydraHead,
+  initEnvironment,
   runHydraNode,
  )
-import Hydra.Option (Option (..), parseHydraOptions)
+import Hydra.Options (Options (..), parseHydraOptions)
 
 main :: IO ()
 main = do
-  Option{nodeId, verbosity, host, port, peers, apiHost, apiPort, monitoringPort} <- identifyNode <$> parseHydraOptions
+  o@Options{verbosity, host, port, peers, apiHost, apiPort, monitoringPort} <- identifyNode <$> parseHydraOptions
+  env@Environment{party} <- initEnvironment o
   withTracer verbosity show $ \tracer' ->
     withMonitoring monitoringPort tracer' $ \tracer -> do
-      let env = Environment nodeId NoSnapshots
       eq <- createEventQueue
       let headState = createHeadState [] (HeadParameters 3 mempty)
       hh <- createHydraHead headState Ledger.simpleLedger
       oc <- createMockChainClient eq (contramap MockChain tracer)
-      withNetwork (contramap Network tracer) nodeId host port peers (putEvent eq . NetworkEvent) $
-        \hn -> do
-          responseChannel <- newBroadcastTChanIO
-          let sendResponse = atomically . writeTChan responseChannel
-          let node = HydraNode{eq, hn, hh, oc, sendResponse, env}
-          race_
-            (runAPIServer apiHost apiPort responseChannel node (contramap APIServer tracer))
-            (runHydraNode (contramap Node tracer) node)
+      withNetwork (contramap Network tracer) party host port peers (putEvent eq . NetworkEvent) $
+        \hn ->
+          withAPIServer apiHost apiPort (contramap APIServer tracer) (putEvent eq . ClientEvent) $
+            \sendResponse ->
+              runHydraNode (contramap Node tracer) $ HydraNode{eq, hn, hh, oc, sendResponse, env}
  where
   withNetwork tracer nodeId host port peers =
     withHeartbeat nodeId $ withBroadcastToSelf $ withOuroborosNetwork tracer (show host, port) peers
 
-identifyNode :: Option -> Option
-identifyNode opt@Option{verbosity = Verbose "HydraNode", nodeId} = opt{verbosity = Verbose $ "HydraNode-" <> show nodeId}
+identifyNode :: Options -> Options
+identifyNode opt@Options{verbosity = Verbose "HydraNode", nodeId} = opt{verbosity = Verbose $ "HydraNode-" <> show nodeId}
 identifyNode opt = opt
