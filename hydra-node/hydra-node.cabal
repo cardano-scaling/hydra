@@ -103,7 +103,8 @@ library
   other-modules:
     Paths_hydra_node
   build-depends:
-      base
+      aeson
+    , base
     , cardano-binary
     , cardano-crypto-class
     , cardano-ledger-core
@@ -125,6 +126,8 @@ library
     , network-mux
     , optparse-applicative
     , ouroboros-network-framework
+    , plutus-contract
+    , plutus-ledger
     , prometheus
     , req
     , shelley-spec-ledger

@@ -50,7 +50,7 @@ noop = const $ pure ()
 
 testClient :: HasCallStack => Int -> TQueue IO (ClientResponse SimpleTx) -> TVar IO Int -> IO ()
 testClient port queue semaphore =
-  failAfter 5 $ tryClient
+  failAfter 5 tryClient
  where
   tryClient =
     runClient

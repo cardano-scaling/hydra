@@ -14,8 +14,8 @@ import Data.Aeson (
 import Data.Text.Prettyprint.Doc (Pretty (..), viaShow)
 import qualified Hydra.Contract.OffChain as OffChain
 import qualified Hydra.Contract.OnChain as OnChain
-import Ledger (MonetaryPolicy, TxOut, TxOutRef, TxOutTx, pubKeyHash)
-import Plutus.Contract (BlockchainActions, Contract, ContractError, Empty, logInfo)
+import Ledger (MonetaryPolicy, TxOut, TxOutRef, TxOutTx, pubKeyHash, pubKeyAddress)
+import Plutus.Contract (BlockchainActions, Contract, ContractError, Empty, logInfo, ownPubKey, utxoAt, tell, waitNSlots)
 import Plutus.Contract.Test (walletPubKey)
 import Plutus.PAB.Effects.Contract (ContractEffect (..))
 import Plutus.PAB.Effects.Contract.Builtin (Builtin, SomeBuiltin (..), endpointsToSchemas, type (.\\))
@@ -29,6 +29,7 @@ import Schema (FormSchema (..), ToSchema (..))
 import System.Directory (removeFile)
 import Wallet.Emulator.Types (Wallet (..))
 import Wallet.Types (ContractInstanceId (ContractInstanceId))
+import Ledger.AddressMap (UtxoMap)
 
 main :: IO ()
 main = void $
@@ -61,8 +62,8 @@ main = void $
   cleanupWallets = mapM_ (liftIO . removeFile)
 
 data PABContract
-  = FundWallets
-  | HydraContract
+  = HydraContract
+  | GetUtxos
   deriving (Eq, Ord, Show, Generic)
   deriving anyclass (ToJSON, FromJSON)
 
@@ -78,18 +79,26 @@ handleStarterContract ::
 handleStarterContract = Builtin.handleBuiltin getSchema getContract
  where
   getSchema = \case
-    FundWallets -> endpointsToSchemas @Empty
     HydraContract -> Builtin.endpointsToSchemas @(OffChain.Schema .\\ BlockchainActions)
+    GetUtxos -> endpointsToSchemas @Empty
   getContract = \case
-    FundWallets -> SomeBuiltin fundWallets
     HydraContract -> SomeBuiltin hydraContract
+    GetUtxos -> SomeBuiltin getUtxo
 
 hydraContract :: Contract [OnChain.State] OffChain.Schema ContractError ()
 hydraContract = OffChain.contract headParameters
 
-fundWallets :: Contract () BlockchainActions ContractError ()
-fundWallets =
-  logInfo @Text $ "TODO: Should distribute funds"
+getUtxo :: Contract (Last UtxoMap) BlockchainActions ContractError ()
+getUtxo = do
+  logInfo @Text $ "getUtxo: Starting to get and report utxo map every slot"
+  address <- pubKeyAddress <$> ownPubKey
+  loop address
+ where
+  loop address = do
+    utxos <- utxoAt address
+    tell . Last $ Just utxos
+    void $ waitNSlots 1
+    loop address
 
 handlers :: SimulatorEffectHandlers (Builtin PABContract)
 handlers =
