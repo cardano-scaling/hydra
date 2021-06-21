@@ -48,12 +48,13 @@ data Options = Options
   , apiHost :: IP
   , apiPort :: PortNumber
   , monitoringPort :: Maybe PortNumber
+  , me :: FilePath
   , parties :: [FilePath]
   }
   deriving (Eq, Show)
 
 defaultOptions :: Options
-defaultOptions = Options (Verbose "HydraNode") 1 "127.0.0.1" 5001 [] "127.0.0.1" 4001 Nothing []
+defaultOptions = Options (Verbose "HydraNode") 1 "127.0.0.1" 5001 [] "127.0.0.1" 4001 Nothing "me.sk" []
 
 hydraNodeParser :: Parser Options
 hydraNodeParser =
@@ -66,15 +67,25 @@ hydraNodeParser =
     <*> apiHostParser
     <*> apiPortParser
     <*> optional monitoringPortParser
-    <*> many partyParser
+    <*> signingKeyFileParser
+    <*> many verificationKeyFileParser
 
-partyParser :: Parser FilePath
-partyParser =
+signingKeyFileParser :: Parser FilePath
+signingKeyFileParser =
+  option
+    str
+    ( long "me"
+        <> metavar "PATH"
+        <> help "A filepath to our signing key"
+    )
+
+verificationKeyFileParser :: Parser FilePath
+verificationKeyFileParser =
   option
     str
     ( long "party"
         <> metavar "PATH"
-        <> help "A public key file of another party"
+        <> help "A verification key file of another party"
     )
 
 peerParser :: Parser Host

@@ -5,6 +5,11 @@ module Test.EndToEndSpec where
 
 import Hydra.Prelude
 
+import Cardano.Crypto.DSIGN (
+  MockDSIGN,
+  SignKeyDSIGN,
+  VerKeyDSIGN,
+ )
 import qualified Data.ByteString as BS
 import HydraNode (
   failAfter,
@@ -25,18 +30,16 @@ import Test.Hspec (
  )
 import Text.Regex.TDFA
 import Text.Regex.TDFA.Text ()
-import Cardano.Crypto.DSIGN
-    ( MockDSIGN, SignKeyDSIGN, VerKeyDSIGN )
 
 aliceSk, bobSk, carolSk :: SignKeyDSIGN MockDSIGN
-aliceSk = error "undefined"
-bobSk = error "undefined"
-carolSk = error "undefined"
+aliceSk = 10
+bobSk = 20
+carolSk = 30
 
 aliceVk, bobVk, carolVk :: VerKeyDSIGN MockDSIGN
-aliceVk = error "undefined"
-bobVk = error "undefined"
-carolVk = error "undefined"
+aliceVk = 11
+bobVk = 21
+carolVk = 31
 
 spec :: Spec
 spec = describe "End-to-end test using a mocked chain though" $ do
