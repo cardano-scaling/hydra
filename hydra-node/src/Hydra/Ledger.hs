@@ -1,12 +1,30 @@
 module Hydra.Ledger where
 
-import Hydra.Prelude
+import Hydra.Prelude hiding (show)
+import Cardano.Crypto.DSIGN (DSIGNAlgorithm (VerKeyDSIGN, rawSerialiseVerKeyDSIGN), MockDSIGN, encodeVerKeyDSIGN, decodeVerKeyDSIGN)
+import Cardano.Binary (FromCBOR (fromCBOR), ToCBOR (toCBOR))
+import Text.Read (Read(..))
 
 -- NOTE(MB): We probably want to move these common types somewhere else. Putting
 -- here to avoid circular dependencies with Hydra.Logic
 
 -- | Identifies a party in a Hydra head.
-type Party = Natural
+newtype Party = UnsafeParty (VerKeyDSIGN MockDSIGN)
+  deriving (Eq, Show)
+  deriving newtype Num
+
+instance Ord Party where
+  (UnsafeParty a) <= (UnsafeParty b) =
+    rawSerialiseVerKeyDSIGN a <= rawSerialiseVerKeyDSIGN b
+
+instance Read Party where
+  readsPrec = error "TODO: use json or cbor instead"
+
+instance FromCBOR Party where
+  fromCBOR = UnsafeParty <$> decodeVerKeyDSIGN
+
+instance ToCBOR Party where
+  toCBOR (UnsafeParty vk) = encodeVerKeyDSIGN vk
 
 type Committed tx = Map Party (UTxO tx)
 

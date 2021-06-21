@@ -1,5 +1,3 @@
-{-# OPTIONS_GHC -fno-warn-orphans #-}
-
 module Hydra.Prelude (
   module Relude,
   module Control.Monad.Class.MonadSTM,
@@ -56,9 +54,6 @@ import Control.Monad.Class.MonadTimer (
   MonadDelay (..),
   MonadTimer,
  )
-import GHC.Read (
-  Read (..),
- )
 import Relude hiding (
   MVar,
   Nat,
@@ -99,12 +94,3 @@ import Relude hiding (
   tryTakeTMVar,
   writeTVar,
  )
-import qualified Text.ParserCombinators.ReadP as ReadP
-import qualified Text.ParserCombinators.ReadPrec as ReadP
-
--- TODO(MB): Remove when we upgrade dependencies to include time >= 1.11
-instance Read DiffTime where
-  readPrec = do
-    t <- readPrec
-    _ <- ReadP.lift $ ReadP.char 's'
-    return $ fromInteger t

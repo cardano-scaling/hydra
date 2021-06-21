@@ -31,15 +31,15 @@ import Hydra.Options (Options (..), parseHydraOptions)
 
 main :: IO ()
 main = do
-  o@Options{nodeId, verbosity, host, port, peers, apiHost, apiPort, monitoringPort} <- identifyNode <$> parseHydraOptions
-  let env = initEnvironment o
+  o@Options{verbosity, host, port, peers, apiHost, apiPort, monitoringPort} <- identifyNode <$> parseHydraOptions
+  let env@Environment{party} = initEnvironment o
   withTracer verbosity show $ \tracer' ->
     withMonitoring monitoringPort tracer' $ \tracer -> do
       eq <- createEventQueue
       let headState = createHeadState [] (HeadParameters 3 mempty)
       hh <- createHydraHead headState Ledger.simpleLedger
       oc <- createMockChainClient eq (contramap MockChain tracer)
-      withNetwork (contramap Network tracer) nodeId host port peers (putEvent eq . NetworkEvent) $
+      withNetwork (contramap Network tracer) party host port peers (putEvent eq . NetworkEvent) $
         \hn ->
           withAPIServer apiHost apiPort (contramap APIServer tracer) (putEvent eq . ClientEvent) $
             \sendResponse ->
@@ -53,5 +53,5 @@ identifyNode opt@Options{verbosity = Verbose "HydraNode", nodeId} = opt{verbosit
 identifyNode opt = opt
 
 initEnvironment :: Options -> Environment
-initEnvironment Options{nodeId}=
-  Environment nodeId NoSnapshots
+initEnvironment Options{} =
+  Environment (error "load signing key here") NoSnapshots

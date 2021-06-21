@@ -52,8 +52,8 @@ spec = describe "End-to-end test using a mocked chain though" $ do
               withHydraNode 3 carolSk [aliceVk, bobVk] $ \n3 -> do
                 waitForNodesConnected [1, 2, 3] [n1, n2, n3]
                 let contestationPeriod = 3 -- TODO: Should be part of init
-                sendRequest n1 "Init [1, 2, 3]"
-                waitForResponse 3 [n1, n2, n3] "ReadyToCommit"
+                sendRequest n1 "Init"
+                waitForResponse 3 [n1, n2, n3] "ReadyToCommit [VerKeyMockDSIGN 11, VerKeyMockDSIGN 21, VerKeyMockDSIGN 31]"
                 sendRequest n1 "Commit (fromList [1])"
                 sendRequest n2 "Commit (fromList [2])"
                 sendRequest n3 "Commit (fromList [3])"

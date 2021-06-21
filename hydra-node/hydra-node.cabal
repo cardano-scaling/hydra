@@ -103,6 +103,7 @@ library
   build-depends:
       base
     , cardano-binary
+    , cardano-crypto-class
     , cardano-ledger-shelley-ma
     , cardano-ledger-shelley-ma-test
     , cardano-prelude

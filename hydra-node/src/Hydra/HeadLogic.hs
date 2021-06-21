@@ -37,7 +37,7 @@ deriving instance Tx tx => Eq (Effect tx)
 deriving instance Tx tx => Show (Effect tx)
 
 data ClientRequest tx
-  = Init [Party]
+  = Init
   | Commit (UTxO tx)
   | NewTx tx
   | Close
@@ -188,8 +188,8 @@ update ::
   Event tx ->
   Outcome tx
 update Environment{party, snapshotStrategy} ledger (HeadState parameters st) ev = case (st, ev) of
-  (InitState, ClientEvent (Init parties)) ->
-    newState InitState [OnChainEffect (InitTx $ Set.fromList parties)]
+  (InitState, ClientEvent Init) ->
+    newState InitState [OnChainEffect (InitTx $ parties parameters)]
   (_, OnChainEvent (InitTx parties)) ->
     -- NOTE(SN): Eventually we won't be able to construct 'HeadParameters' from
     -- the 'InitTx'
