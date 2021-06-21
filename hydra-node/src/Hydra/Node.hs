@@ -5,11 +5,10 @@
 -- | Top-level module to run a single Hydra node.
 module Hydra.Node where
 
-import Cardano.Prelude hiding (STM, async, atomically, cancel, check, poll, threadDelay, throwIO)
-import Control.Monad.Class.MonadAsync (MonadAsync, async)
-import Control.Monad.Class.MonadSTM (MonadSTM (STM), atomically, newTQueue, newTVar, readTQueue, stateTVar, writeTQueue)
-import Control.Monad.Class.MonadThrow (MonadThrow, throwIO)
-import Control.Monad.Class.MonadTimer (MonadTimer, threadDelay)
+import Hydra.Prelude
+
+import Control.Monad.Class.MonadAsync (async)
+import Control.Monad.Class.MonadSTM (newTQueue, newTVarIO, readTQueue, stateTVar, writeTQueue)
 import Hydra.HeadLogic (
   ClientRequest (..),
   ClientResponse (..),
@@ -146,7 +145,7 @@ putState HydraHead{modifyHeadState} new =
 
 createHydraHead :: MonadSTM m => HeadState tx -> Ledger tx -> m (HydraHead tx m)
 createHydraHead initialState ledger = do
-  tv <- atomically $ newTVar initialState
+  tv <- newTVarIO initialState
   pure HydraHead{modifyHeadState = stateTVar tv, ledger}
 -- ** OnChain handle to abstract over chain access
 

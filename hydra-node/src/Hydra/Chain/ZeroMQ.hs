@@ -7,11 +7,10 @@
 --can be used by `HydraNode` to post and receive TX from the mainchain
 module Hydra.Chain.ZeroMQ where
 
-import Cardano.Prelude hiding (Option, async, option)
-import Control.Concurrent.Async (async, concurrently_)
-import Control.Concurrent.STM (TBQueue, TVar, modifyTVar', newTBQueue, newTVarIO, readTBQueue, readTVarIO, writeTBQueue)
-import Data.String
-import Data.Text (unpack)
+import Hydra.Prelude
+
+import Control.Monad.Class.MonadAsync (async, link)
+import Control.Monad.Class.MonadSTM (modifyTVar', newTBQueue, newTVarIO, readTBQueue, readTVar, writeTBQueue)
 import qualified Data.Text.Encoding as Enc
 import Hydra.HeadLogic (Event (OnChainEvent), OnChainTx)
 import Hydra.Ledger (Tx)
@@ -77,13 +76,13 @@ startChain chainSyncAddress chainCatchupAddress postTxAddress tracer = do
           )
       )
 
-transactionListener :: Tx tx => String -> TVar [OnChainTx tx] -> TBQueue (OnChainTx tx) -> Tracer IO (MockChainLog tx) -> ZMQ z ()
+transactionListener :: Tx tx => String -> TVar IO [OnChainTx tx] -> TBQueue IO (OnChainTx tx) -> Tracer IO (MockChainLog tx) -> ZMQ z ()
 transactionListener postTxAddress transactionLog txQueue tracer = do
   rep <- socket Rep
   bind rep postTxAddress
   liftIO $ traceWith tracer (TransactionListenerStarted postTxAddress)
   forever $ do
-    msg <- unpack . Enc.decodeUtf8 <$> receive rep
+    msg <- toString . Enc.decodeUtf8 <$> receive rep
     liftIO $ traceWith tracer (MessageReceived msg)
     case reads msg of
       (tx, "") : _ -> do
@@ -96,7 +95,7 @@ transactionListener postTxAddress transactionLog txQueue tracer = do
         liftIO $ traceWith tracer (FailedToDecodeMessage msg)
         send rep [] "KO"
 
-transactionPublisher :: Tx tx => String -> TBQueue (OnChainTx tx) -> Tracer IO (MockChainLog tx) -> ZMQ z ()
+transactionPublisher :: Tx tx => String -> TBQueue IO (OnChainTx tx) -> Tracer IO (MockChainLog tx) -> ZMQ z ()
 transactionPublisher chainSyncAddress txQueue tracer = do
   pub <- socket Pub
   bind pub chainSyncAddress
@@ -106,14 +105,14 @@ transactionPublisher chainSyncAddress txQueue tracer = do
     liftIO $ traceWith tracer (PublishingTransaction tx)
     send pub [] (Enc.encodeUtf8 $ show tx)
 
-transactionSyncer :: Tx tx => String -> TVar [OnChainTx tx] -> Tracer IO (MockChainLog tx) -> ZMQ z ()
+transactionSyncer :: Tx tx => String -> TVar IO [OnChainTx tx] -> Tracer IO (MockChainLog tx) -> ZMQ z ()
 transactionSyncer chainCatchupAddress transactionLog tracer = do
   rep <- socket Rep
   bind rep chainCatchupAddress
   liftIO $ traceWith tracer (TransactionSyncerStarted chainCatchupAddress)
   forever $ do
     _ <- receive rep
-    txs <- liftIO $ readTVarIO transactionLog
+    txs <- liftIO $ atomically $ readTVar transactionLog
     liftIO $ traceWith tracer (SyncingTransactions $ length txs)
     send rep [] (Enc.encodeUtf8 $ show txs)
 
@@ -125,7 +124,7 @@ mockChainClient postTxAddress tracer tx = runZMQ $ do
   resp <- receive req
   case resp of
     "OK" -> liftIO (traceWith tracer (TransactionPosted postTxAddress tx)) >> pure ()
-    _ -> panic $ "Something went wrong posting " <> show tx
+    _ -> error $ "Something went wrong posting " <> show tx
 
 runChainSync :: (Tx tx, MonadIO m) => String -> (OnChainTx tx -> IO ()) -> Tracer IO (MockChainLog tx) -> m ()
 runChainSync chainSyncAddress handler tracer = do
@@ -135,24 +134,24 @@ runChainSync chainSyncAddress handler tracer = do
     connect sub chainSyncAddress
     liftIO (traceWith tracer (ChainSyncStarted chainSyncAddress))
     forever $ do
-      msg <- unpack . Enc.decodeUtf8 <$> receive sub
+      msg <- toString . Enc.decodeUtf8 <$> receive sub
       case reads msg of
         (tx, "") : _ -> liftIO $ do
           traceWith tracer (ReceivedTransaction tx)
           handler tx
-        _ -> panic $ "cannot decode transaction " <> show msg
+        _ -> error $ "cannot decode transaction " <> show msg
 
 catchUpTransactions :: Tx tx => String -> (OnChainTx tx -> IO ()) -> Tracer IO (MockChainLog tx) -> IO ()
 catchUpTransactions catchUpAddress handler tracer = runZMQ $ do
   req <- socket Req
   connect req catchUpAddress
   send req [] "Hello"
-  message <- unpack . Enc.decodeUtf8 <$> receive req
+  message <- toString . Enc.decodeUtf8 <$> receive req
   case readMaybe message of
     Just (txs :: [OnChainTx tx]) -> liftIO $ do
       traceWith tracer (CatchingUpTransactions catchUpAddress $ length txs)
       forM_ txs handler
-    Nothing -> panic $ "cannot decode catch-up transactions  " <> show message
+    Nothing -> error $ "cannot decode catch-up transactions  " <> show message
 
 createMockChainClient :: Tx tx => EventQueue IO (Event tx) -> Tracer IO (MockChainLog tx) -> IO (OnChain tx IO)
 createMockChainClient EventQueue{putEvent} tracer = do
@@ -162,7 +161,7 @@ createMockChainClient EventQueue{putEvent} tracer = do
   -- txs from the chain. For now, we assume it takes 1 sec to connect.
   catchUpTransactions "tcp://127.0.0.1:56790" onTx tracer
   link =<< async (runChainSync "tcp://127.0.0.1:56789" onTx tracer)
-  threadDelay 1
+  threadDelay 0.1
   pure OnChain{postTx = sendTx}
  where
   sendTx tx = mockChainClient "tcp://127.0.0.1:56791" tracer tx

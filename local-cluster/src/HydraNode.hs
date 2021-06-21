@@ -17,19 +17,19 @@ module HydraNode (
   waitForNodesConnected,
 ) where
 
-import Cardano.Prelude
+import Hydra.Prelude
 
 import Control.Concurrent.Async (
   forConcurrently_,
  )
-import qualified Data.ByteString.Lazy as BSL
-import Data.IORef (modifyIORef', newIORef, readIORef)
-import qualified Data.Text.Encoding as Text
+import Control.Exception (IOException)
+import Data.Text.IO (hPutStrLn)
 import GHC.IO.Handle (hDuplicate)
 import Network.HTTP.Conduit (HttpExceptionContent (ConnectionFailure), parseRequest)
 import Network.HTTP.Simple (HttpException (HttpExceptionRequest), Response, getResponseBody, getResponseStatusCode, httpBS)
 import Network.WebSockets (Connection, DataMessage (Binary, Text), receiveDataMessage, runClient, sendClose, sendTextData)
 import Say (say)
+import System.Exit (ExitCode (..))
 import System.IO.Temp (withSystemTempFile)
 import System.Process (
   CreateProcess (..),
@@ -42,7 +42,6 @@ import System.Process (
  )
 import System.Timeout (timeout)
 import Test.Hspec.Expectations (expectationFailure)
-import Prelude (String, error)
 
 data HydraNode = HydraNode
   { hydraNodeId :: Int
@@ -52,7 +51,7 @@ data HydraNode = HydraNode
 
 sendRequest :: HydraNode -> Text -> IO ()
 sendRequest HydraNode{hydraNodeId, connection, nodeStdout} request = do
-  hPutStrLn @Text nodeStdout ("Tester sending to " <> show hydraNodeId <> ": " <> show request)
+  hPutStrLn nodeStdout ("Tester sending to " <> show hydraNodeId <> ": " <> show request)
   sendTextData connection request
 
 data WaitForResponseTimeout = WaitForResponseTimeout
@@ -85,8 +84,8 @@ waitForResponse delay nodes expected = do
   tryNext msgs c = do
     msg <-
       receiveDataMessage c >>= \case
-        Text b _mt -> pure $ Text.decodeUtf8 $ BSL.toStrict b
-        Binary b -> pure $ Text.decodeUtf8 $ BSL.toStrict b
+        Text b _mt -> pure $ decodeUtf8 b
+        Binary b -> pure $ decodeUtf8 b
     modifyIORef' msgs (msg :)
     if msg == expected
       then pure ()
@@ -126,7 +125,7 @@ withHydraNode hydraNodeId action = do
     sendClose con ("Bye" :: Text)
 
   traceOnFailure f io = do
-    io `onException` (readFile f >>= say)
+    io `onException` (readFileText f >>= say)
 
 data CannotStartHydraNode = CannotStartHydraNode Int deriving (Show)
 instance Exception CannotStartHydraNode
@@ -149,7 +148,7 @@ defaultArguments nodeId =
   , "--monitoring-port"
   , show (6000 + nodeId)
   ]
-    <> concat [["--peer", "127.0.0.1@" <> show (5000 + id)] | id <- [1 .. 3], id /= nodeId]
+    <> concat [["--peer", "127.0.0.1@" <> show (5000 + i)] | i <- [1 .. 3], i /= nodeId]
 
 withMockChain :: IO () -> IO ()
 withMockChain action = do

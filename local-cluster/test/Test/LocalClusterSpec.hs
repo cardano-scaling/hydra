@@ -1,10 +1,9 @@
 module Test.LocalClusterSpec where
 
-import Cardano.Prelude
+import Hydra.Prelude
 
-import Data.String (IsString (..))
 import Lib (ClusterConfig (..), ClusterLog (..), RunningCluster (..), withCluster)
-import Logging (Severity (..), Tracer, contramap, withTVarTracer)
+import Logging (Severity (..), Tracer, withTVarTracer)
 import Node (ChainTip (..), RunningNode (..), cliQueryTip)
 import Say (say)
 import System.IO.Temp (withSystemTempDirectory)
@@ -25,7 +24,7 @@ assertNetworkIsProducingBlock tracer = \case
     anotherTip <- cliQueryTip (contramap (MsgFromNode nodeId) tracer) socket
     on (>) block anotherTip initialTip `shouldBe` True
   _ ->
-    panic "empty cluster?"
+    error "empty cluster?"
 
 traceOnFailure :: Show msg => IO [msg] -> IO a -> IO a
 traceOnFailure getLogs action = do
@@ -34,8 +33,8 @@ traceOnFailure getLogs action = do
 waitForNewBlock :: IO ()
 waitForNewBlock = threadDelay (2 * slotLength)
 
-slotLength :: Int -- in Microseconds
-slotLength = 1_000_000 -- FIXME this should be found in the genesis file
+slotLength :: DiffTime
+slotLength = 1 -- FIXME this should be found in the genesis file
 
 sshow :: (IsString s, Show a) => a -> s
 sshow = fromString . show

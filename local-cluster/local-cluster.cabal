@@ -77,12 +77,12 @@ library
     , aeson
     , async
     , bytestring
-    , cardano-prelude
     , contra-tracer
     , directory
     , filepath
     , hspec-expectations
     , http-conduit
+    , hydra-prelude
     , io-sim-classes
     , iohk-monitoring
     , network
@@ -108,8 +108,8 @@ executable local-cluster
     -threaded
     -rtsopts
   build-depends: base >=4.7 && <5
-               , cardano-prelude
                , local-cluster
+               , hydra-prelude
                , temporary
 
 test-suite integration
@@ -123,9 +123,9 @@ test-suite integration
   build-depends:
       base >=4.7 && <5
     , bytestring
-    , cardano-prelude
     , hspec
     , hspec-core
+    , hydra-prelude
     , local-cluster
     , regex-tdfa
     , say

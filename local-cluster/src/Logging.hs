@@ -19,7 +19,7 @@ module Logging (
   withTVarTracer,
 ) where
 
-import Cardano.Prelude hiding (atomically)
+import Hydra.Prelude
 
 import Cardano.BM.Backend.Switchboard (
   Switchboard,
@@ -48,13 +48,11 @@ import Cardano.BM.Trace (
   traceInTVarIO,
  )
 import Control.Monad.Class.MonadSTM (
-  MonadSTM (..),
-  TVar,
+  newTVarIO,
   readTVar,
  )
 import Control.Tracer (
   Tracer (..),
-  contramap,
   natTracer,
   nullTracer,
   traceWith,

@@ -5,8 +5,9 @@ module Hydra.Network.Ouroboros (
   module Hydra.Network,
 ) where
 
+import Hydra.Prelude
+
 import Cardano.Binary (FromCBOR, ToCBOR)
-import Cardano.Prelude
 import qualified Codec.CBOR.Term as CBOR
 import Control.Concurrent.STM (
   TChan,
@@ -18,8 +19,8 @@ import Control.Concurrent.STM (
   writeTBQueue,
   writeTChan,
  )
-import qualified Data.ByteString.Lazy as LBS
-import Hydra.Logging (Tracer, contramap, nullTracer)
+import Control.Monad.Class.MonadAsync (wait)
+import Hydra.Logging (Tracer, nullTracer)
 import Hydra.Network (
   Host,
   Network (..),
@@ -128,7 +129,7 @@ withOuroborosNetwork tracer localHost remoteHosts networkCallback between = do
     is <- getAddrInfo (Just defaultHints) (Just hostname) (Just $ show port)
     case is of
       (info : _) -> pure $ addrAddress info
-      _ -> panic "getAdrrInfo failed.. do proper error handling"
+      _ -> error "getAdrrInfo failed.. do proper error handling"
 
   connect iomgr chanPool app = do
     -- REVIEW(SN): move outside to have this information available?
@@ -199,7 +200,7 @@ withOuroborosNetwork tracer localHost remoteHosts networkCallback between = do
 
   hydraClient ::
     TChan msg ->
-    OuroborosApplication 'InitiatorMode addr LBS.ByteString IO () Void
+    OuroborosApplication 'InitiatorMode addr LByteString IO () Void
   hydraClient chan =
     OuroborosApplication $ \_connectionId _controlMessageSTM ->
       [ MiniProtocol
@@ -216,7 +217,7 @@ withOuroborosNetwork tracer localHost remoteHosts networkCallback between = do
         (fireForgetClientPeer $ client chan)
 
   hydraServer ::
-    OuroborosApplication 'ResponderMode addr LBS.ByteString IO Void ()
+    OuroborosApplication 'ResponderMode addr LByteString IO Void ()
   hydraServer =
     OuroborosApplication $ \_connectionId _controlMessageSTM ->
       [ MiniProtocol

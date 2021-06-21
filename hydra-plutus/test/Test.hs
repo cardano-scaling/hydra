@@ -1,6 +1,7 @@
 module Main where
 
-import Cardano.Prelude
+import Hydra.Prelude
+
 import qualified Hydra.ContractModelTest as Model
 import qualified Hydra.ContractTest as Contract
 import Test.Tasty

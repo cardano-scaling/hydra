@@ -1,8 +1,8 @@
 module Hydra.Network.HeartbeatSpec where
 
-import Cardano.Prelude hiding (atomically, threadDelay)
-import Control.Monad.Class.MonadSTM (atomically, modifyTVar', newTVarIO, readTVar)
-import Control.Monad.Class.MonadTimer (threadDelay)
+import Hydra.Prelude
+
+import Control.Monad.Class.MonadSTM (modifyTVar', newTVarIO, readTVar)
 import Control.Monad.IOSim (runSimOrThrow)
 import Hydra.HeadLogic (HydraMessage (..))
 import Hydra.Ledger.Simple (SimpleTx)

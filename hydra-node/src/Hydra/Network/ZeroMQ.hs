@@ -2,23 +2,32 @@
 
 module Hydra.Network.ZeroMQ where
 
+import Hydra.Prelude
+
 import Cardano.Binary (
   FromCBOR (..),
   ToCBOR (..),
  )
-import Cardano.Prelude hiding (atomically, takeMVar)
 import qualified Codec.CBOR.Read as CBOR
 import qualified Codec.CBOR.Write as CBOR
-import Control.Monad.Class.MonadSTM (atomically, newEmptyTMVarIO, putTMVar, takeTMVar)
-import qualified Data.ByteString.Lazy as LBS
-import Data.String (String)
+import Control.Monad.Class.MonadSTM (newEmptyTMVarIO, putTMVar, takeTMVar)
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Network
-import System.ZMQ4.Monadic (Pub (Pub), Sub (Sub), bind, connect, receive, runZMQ, send, socket, subscribe)
+import System.ZMQ4.Monadic (
+  Pub (Pub),
+  Sub (Sub),
+  bind,
+  connect,
+  receive,
+  runZMQ,
+  send,
+  socket,
+  subscribe,
+ )
 
 data NetworkLog
   = PublisherStarted Host
-  | MessageSent LBS.ByteString
+  | MessageSent LByteString
   | LogMessageReceived Text
   | SubscribedTo [String]
   deriving (Show)
@@ -50,7 +59,7 @@ withZeroMQNetwork tracer localHost remoteHosts incomingCallback continuation = d
     forever $ do
       hydraMessage <- liftIO $ atomically $ takeTMVar queue
       let encoded = CBOR.toLazyByteString $ toCBOR hydraMessage
-      send pub [] $ LBS.toStrict encoded
+      send pub [] $ toStrict encoded
       liftIO $ traceWith tracer (MessageSent encoded)
 
   runClients callback = runZMQ $ do
@@ -60,8 +69,8 @@ withZeroMQNetwork tracer localHost remoteHosts incomingCallback continuation = d
     liftIO $ traceWith tracer (SubscribedTo peerAddresses)
     forever $ do
       msg <- receive sub
-      case CBOR.deserialiseFromBytes fromCBOR (LBS.fromStrict msg) of
-        Left err -> panic $ "failed to decode msg " <> show msg <> " : " <> show err
+      case CBOR.deserialiseFromBytes fromCBOR (fromStrict msg) of
+        Left err -> error $ "failed to decode msg " <> show msg <> " : " <> show err
         Right (_, hydraMessage) -> liftIO $ do
           traceWith tracer (LogMessageReceived $ show hydraMessage)
           callback hydraMessage

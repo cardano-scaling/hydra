@@ -1,6 +1,6 @@
 module Hydra.NodeSpec where
 
-import Cardano.Prelude
+import Hydra.Prelude
 
 import Test.Hspec (
   Spec,

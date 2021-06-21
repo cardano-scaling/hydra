@@ -4,14 +4,11 @@
 
 module Hydra.Network.Ouroboros.Type where
 
-import Cardano.Prelude
+import Hydra.Prelude
 
 import Cardano.Binary (FromCBOR, ToCBOR, fromCBOR, toCBOR)
 import qualified Cardano.Binary as CBOR
 import qualified Codec.CBOR.Read as CBOR
-import Control.Monad (fail)
-import Control.Monad.Class.MonadST (MonadST)
-import qualified Data.ByteString.Lazy as LBS
 import GHC.Show (Show (show))
 import Network.TypedProtocol (PeerHasAgency (ClientAgency), Protocol (..))
 import Network.TypedProtocol.Core (PeerRole)
@@ -68,7 +65,7 @@ instance Show (ClientHasAgency (st :: FireForget msg)) where
   show TokIdle = "TokIdle"
 
 instance Show (ServerHasAgency (st :: FireForget msg)) where
-  show _ = panic "absurd"
+  show _ = error "absurd"
 
 codecFireForget ::
   forall a m.
@@ -76,7 +73,7 @@ codecFireForget ::
   , ToCBOR a
   , FromCBOR a
   ) =>
-  Codec (FireForget a) CBOR.DeserialiseFailure m LBS.ByteString
+  Codec (FireForget a) CBOR.DeserialiseFailure m LByteString
 codecFireForget = mkCodecCborLazyBS encodeMsg decodeMsg
  where
   encodeMsg ::

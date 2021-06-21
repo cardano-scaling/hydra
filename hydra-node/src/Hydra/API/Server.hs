@@ -6,10 +6,11 @@ module Hydra.API.Server (
   APIServerLog,
 ) where
 
-import Cardano.Prelude hiding (Option, option)
+import Hydra.Prelude
+
 import Control.Concurrent.STM (TChan, dupTChan, readTChan)
+import qualified Control.Concurrent.STM as STM
 import Control.Concurrent.STM.TChan (newBroadcastTChanIO, writeTChan)
-import qualified Data.Text as Text
 import Hydra.HeadLogic (
   ClientRequest,
   ClientResponse,
@@ -54,21 +55,22 @@ runAPIServer host port tracer requestHandler responseChannel = do
   traceWith tracer (APIServerStarted port)
   runServer (show host) (fromIntegral port) $ \pending -> do
     con <- acceptRequest pending
-    chan <- atomically $ dupTChan responseChannel
+    chan <- STM.atomically $ dupTChan responseChannel
     traceWith tracer NewAPIConnection
     withPingThread con 30 (pure ()) $
       race_ (receiveRequests con) (sendResponses chan con)
  where
   sendResponses chan con = forever $ do
-    response <- atomically $ readTChan chan
-    let sentResponse = show @_ @Text response
+    response <- STM.atomically $ readTChan chan
+    let sentResponse = show response
     sendTextData con sentResponse
     traceWith tracer (APIResponseSent sentResponse)
 
   receiveRequests con = forever $ do
     msg <- receiveData con
-    case readMaybe (Text.unpack msg) of
-      Just request -> do
+    case readEither (toString msg) of
+      Right request -> do
         traceWith tracer (APIRequestReceived msg)
         requestHandler request
-      Nothing -> traceWith tracer (APIInvalidRequest msg)
+      Left{} ->
+        traceWith tracer (APIInvalidRequest msg)

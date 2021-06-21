@@ -1,12 +1,9 @@
 module Hydra.API.ServerSpec where
 
-import Cardano.Prelude hiding (atomically, threadDelay)
-import Control.Monad.Class.MonadAsync (concurrently_)
+import Hydra.Prelude
 import Control.Monad.Class.MonadSTM (
-  TQueue,
-  TVar,
-  atomically,
   modifyTVar',
+  check,
   newTQueue,
   newTVarIO,
   readTQueue,
@@ -25,6 +22,7 @@ import Network.WebSockets (runClient)
 import Network.WebSockets.Connection (receiveData)
 import Test.Hspec
 import Test.Util (failAfter)
+import Control.Exception (IOException)
 
 spec :: Spec
 spec = describe "API Server" $ do

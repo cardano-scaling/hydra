@@ -3,11 +3,9 @@
 
 module Hydra.BehaviorSpec where
 
-import Cardano.Prelude hiding (Async, STM, async, atomically, cancel, check, link, poll, threadDelay, traceM, withAsync)
-import Control.Monad.Class.MonadAsync (withAsync)
+import Hydra.Prelude
+
 import Control.Monad.Class.MonadSTM (
-  MonadSTM,
-  atomically,
   modifyTVar,
   modifyTVar',
   newTQueue,
@@ -16,8 +14,7 @@ import Control.Monad.Class.MonadSTM (
   readTVar,
   writeTQueue,
  )
-import Control.Monad.Class.MonadThrow (MonadThrow)
-import Control.Monad.Class.MonadTimer (DiffTime, MonadTimer, threadDelay, timeout)
+import Control.Monad.Class.MonadTimer (timeout)
 import Control.Monad.IOSim (IOSim, runSimTrace, selectTraceEventsDynamic, traceM)
 import Hydra.HeadLogic (
   ClientRequest (..),

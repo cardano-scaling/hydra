@@ -2,7 +2,8 @@
 
 module Main where
 
-import Cardano.Prelude hiding (Option, option)
+import Hydra.Prelude
+
 import Hydra.API.Server (withAPIServer)
 import Hydra.Chain.ZeroMQ (createMockChainClient)
 import Hydra.HeadLogic (
@@ -13,7 +14,7 @@ import Hydra.HeadLogic (
   createHeadState,
  )
 import qualified Hydra.Ledger.Simple as Ledger
-import Hydra.Logging
+import Hydra.Logging (Verbosity (..), withTracer)
 import Hydra.Logging.Messages (HydraLog (..))
 import Hydra.Logging.Monitoring (withMonitoring)
 import Hydra.Network.BroadcastToSelf (withBroadcastToSelf)
