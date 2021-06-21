@@ -21,6 +21,7 @@ import Hydra.Ledger.SimpleSpec (genSimpleTx, genUtxo)
 import Hydra.Logging (showLogsOnFailure)
 import Hydra.Network (Host (..), Network)
 import Hydra.Network.Ouroboros (broadcast, withOuroborosNetwork)
+import Hydra.Network.Ports (randomUnusedTCPPorts)
 import Hydra.Network.ZeroMQ (withZeroMQNetwork)
 import Test.HUnit.Lang (HUnitFailure)
 import Test.Hspec (Spec, describe, it, shouldReturn)
@@ -47,9 +48,10 @@ spec = describe "Networking layer" $ do
   describe "Ouroboros Network" $ do
     it "broadcasts messages to single connected peer" $ do
       received <- newEmptyTMVarIO
-      showLogsOnFailure $ \tracer -> failAfter 10 $
-        withOuroborosNetwork tracer (Host lo 45778) [Host lo 45779] (const @_ @(HydraMessage SimpleTx) $ pure ()) $ \hn1 ->
-          withOuroborosNetwork @(HydraMessage SimpleTx) tracer (Host lo 45779) [Host lo 45778] (atomically . putTMVar received) $ \_ -> do
+      showLogsOnFailure $ \tracer -> failAfter 10 $ do
+        [port1, port2] <- fmap fromIntegral <$> randomUnusedTCPPorts 2
+        withOuroborosNetwork tracer (Host lo port1) [(Host lo port2)] (const @_ @(HydraMessage SimpleTx) $ pure ()) $ \hn1 ->
+          withOuroborosNetwork @(HydraMessage SimpleTx) tracer (Host lo port2) [Host lo port1] (atomically . putTMVar received) $ \_ -> do
             broadcast hn1 requestTx
             atomically (takeTMVar received) `shouldReturn` requestTx
 
@@ -57,10 +59,11 @@ spec = describe "Networking layer" $ do
       node1received <- newEmptyTMVarIO
       node2received <- newEmptyTMVarIO
       node3received <- newEmptyTMVarIO
-      showLogsOnFailure $ \tracer -> failAfter 10 $
-        withOuroborosNetwork @(HydraMessage SimpleTx) tracer (Host lo 45678) [Host lo 45679, Host lo 45680] (atomically . putTMVar node1received) $ \hn1 ->
-          withOuroborosNetwork tracer (Host lo 45679) [Host lo 45678, Host lo 45680] (atomically . putTMVar node2received) $ \hn2 ->
-            withOuroborosNetwork tracer (Host lo 45680) [Host lo 45678, Host lo 45679] (atomically . putTMVar node3received) $ \hn3 ->
+      showLogsOnFailure $ \tracer -> failAfter 10 $ do
+        [port1, port2, port3] <- fmap fromIntegral <$> randomUnusedTCPPorts 3
+        withOuroborosNetwork @(HydraMessage SimpleTx) tracer (Host lo port1) [(Host lo port2), (Host lo port3)] (atomically . putMVar node1received) $ \hn1 ->
+          withOuroborosNetwork tracer (Host lo port2) [(Host lo port1), (Host lo port3)] (atomically . putMVar node2received) $ \hn2 -> do
+            withOuroborosNetwork tracer (Host lo port3) [(Host lo port1), (Host lo port2)] (atomically . putMVar node3received) $ \hn3 -> do
               concurrently_ (assertBroadcastFrom requestTx hn1 [node2received, node3received]) $
                 concurrently_
                   (assertBroadcastFrom requestTx hn2 [node1received, node3received])
@@ -71,10 +74,11 @@ spec = describe "Networking layer" $ do
       node1received <- newEmptyTMVarIO
       node2received <- newEmptyTMVarIO
       node3received <- newEmptyTMVarIO
-      showLogsOnFailure $ \tracer -> failAfter 10 $
-        withZeroMQNetwork tracer (Host lo 55677) [Host lo 55678, Host lo 55679] (atomically . putTMVar node1received) $ \hn1 ->
-          withZeroMQNetwork tracer (Host lo 55678) [Host lo 55677, Host lo 55679] (atomically . putTMVar node2received) $ \hn2 ->
-            withZeroMQNetwork tracer (Host lo 55679) [Host lo 55677, Host lo 55678] (atomically . putTMVar node3received) $ \hn3 ->
+      showLogsOnFailure $ \tracer -> failAfter 10 $ do
+        [port1, port2, port3] <- fmap fromIntegral <$> randomUnusedTCPPorts 3
+        withZeroMQNetwork tracer (Host lo port1) [(Host lo port2), (Host lo port3)] (atomically . putMVar node1received) $ \hn1 ->
+          withZeroMQNetwork tracer (Host lo port2) [(Host lo port1), (Host lo port3)] (atomically . putMVar node2received) $ \hn2 ->
+            withZeroMQNetwork tracer (Host lo port3) [(Host lo port1), (Host lo port2)] (atomically . putMVar node3received) $ \hn3 -> do
               concurrently_ (assertBroadcastFrom requestTx hn1 [node2received, node3received]) $
                 concurrently_
                   (assertBroadcastFrom requestTx hn2 [node1received, node3received])
