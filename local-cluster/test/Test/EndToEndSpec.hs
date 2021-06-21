@@ -25,6 +25,18 @@ import Test.Hspec (
  )
 import Text.Regex.TDFA
 import Text.Regex.TDFA.Text ()
+import Cardano.Crypto.DSIGN
+    ( MockDSIGN, SignKeyDSIGN, VerKeyDSIGN )
+
+aliceSk, bobSk, carolSk :: SignKeyDSIGN MockDSIGN
+aliceSk = error "undefined"
+bobSk = error "undefined"
+carolSk = error "undefined"
+
+aliceVk, bobVk, carolVk :: VerKeyDSIGN MockDSIGN
+aliceVk = error "undefined"
+bobVk = error "undefined"
+carolVk = error "undefined"
 
 spec :: Spec
 spec = describe "End-to-end test using a mocked chain though" $ do
@@ -32,9 +44,9 @@ spec = describe "End-to-end test using a mocked chain though" $ do
     it "inits and closes a head with a single mock transaction" $ do
       failAfter 30 $
         withMockChain $
-          withHydraNode 1 $ \n1 ->
-            withHydraNode 2 $ \n2 ->
-              withHydraNode 3 $ \n3 -> do
+          withHydraNode 1 aliceSk [bobVk, carolVk] $ \n1 ->
+            withHydraNode 2 bobSk [aliceVk, carolVk] $ \n2 ->
+              withHydraNode 3 carolSk [aliceVk, bobVk] $ \n3 -> do
                 waitForNodesConnected [1, 2, 3] [n1, n2, n3]
                 let contestationPeriod = 3 -- TODO: Should be part of init
                 sendRequest n1 "Init [1, 2, 3]"
@@ -54,9 +66,9 @@ spec = describe "End-to-end test using a mocked chain though" $ do
     it "Node exposes Prometheus metrics on port 6001" $ do
       failAfter 20 $
         withMockChain $
-          withHydraNode 1 $ \n1 -> do
-            withHydraNode 2 $ \_ ->
-              withHydraNode 3 $ \_ -> do
+          withHydraNode 1 aliceSk [bobVk, carolVk] $ \n1 ->
+            withHydraNode 2 bobSk [aliceVk, carolVk] $ \_n2 ->
+              withHydraNode 3 carolSk [aliceVk, bobVk] $ \_n3 -> do
                 waitForNodesConnected [1, 2, 3] [n1]
                 sendRequest n1 "Init [1, 2, 3]"
                 waitForResponse 3 [n1] "ReadyToCommit"

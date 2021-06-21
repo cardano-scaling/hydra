@@ -42,6 +42,7 @@ import System.Process (
  )
 import System.Timeout (timeout)
 import Test.Hspec.Expectations (expectationFailure)
+import Cardano.Crypto.DSIGN (DSIGNAlgorithm (algorithmNameDSIGN), SignKeyDSIGN, VerKeyDSIGN)
 
 data HydraNode = HydraNode
   { hydraNodeId :: Int
@@ -106,8 +107,9 @@ queryNode nodeId =
     httpBS req
       `catch` (\(HttpExceptionRequest _ (ConnectionFailure _)) -> threadDelay 100_000 >> loop req)
 
-withHydraNode :: Int -> (HydraNode -> IO ()) -> IO ()
-withHydraNode hydraNodeId action = do
+withHydraNode :: forall v. DSIGNAlgorithm v => Int -> SignKeyDSIGN v -> [VerKeyDSIGN v] -> (HydraNode -> IO ()) -> IO ()
+withHydraNode hydraNodeId _sKey _vKeys action = do
+  putText $ "Using signing algorithm: " <> toText (algorithmNameDSIGN (Proxy :: Proxy v))
   withSystemTempFile "hydra-node" $ \f out -> traceOnFailure f $ do
     out' <- hDuplicate out
     let p =

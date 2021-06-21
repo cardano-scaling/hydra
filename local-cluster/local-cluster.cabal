@@ -77,6 +77,7 @@ library
     , aeson
     , async
     , bytestring
+    , cardano-crypto-class
     , contra-tracer
     , directory
     , filepath
@@ -123,6 +124,7 @@ test-suite integration
   build-depends:
       base >=4.7 && <5
     , bytestring
+    , cardano-crypto-class
     , hspec
     , hspec-core
     , hydra-prelude
