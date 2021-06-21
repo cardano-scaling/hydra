@@ -58,6 +58,7 @@ hsPkgs.shellFor {
     pkgs.haskellPackages.ghcid
     pkgs.haskellPackages.hspec-discover
     pkgs.haskellPackages.graphmod
+    pkgs.haskellPackages.cabal-plan
     # Handy to interact with the hydra-node via websockets
     pkgs.ws
     # Used in local-cluster
