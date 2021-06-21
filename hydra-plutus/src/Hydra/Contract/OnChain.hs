@@ -7,7 +7,8 @@ module Hydra.Contract.OnChain where
 import Ledger
 import PlutusTx.Prelude
 
-import Data.Aeson (ToJSON)
+import Text.Show (Show)
+import Data.Aeson (FromJSON, ToJSON)
 import Ledger.Ada (lovelaceValueOf)
 import Ledger.Constraints (checkScriptContext)
 import Ledger.Constraints.TxConstraints (
@@ -21,12 +22,11 @@ import Ledger.Constraints.TxConstraints (
   mustSpendScriptOutput,
  )
 import Ledger.Credential (Credential (..))
-import Ledger.Typed.Scripts (ScriptType (..))
 import Ledger.Value (TokenName (..))
 import PlutusPrelude (Generic, (>=>))
 import PlutusTx.AssocMap (Map)
 import PlutusTx.IsData.Class (IsData (..))
-
+import           Ledger.Typed.Scripts     (ValidatorTypes (..))
 import qualified Ledger.Typed.Scripts as Scripts
 import qualified Ledger.Value as Value
 import qualified PlutusTx
@@ -52,7 +52,7 @@ data State
   | Open [TxOut]
   | Final
   deriving stock (Generic, Show)
-  deriving anyclass (ToJSON)
+  deriving anyclass (FromJSON, ToJSON)
 
 PlutusTx.makeLift ''State
 PlutusTx.unstableMakeIsData ''State
@@ -60,13 +60,13 @@ PlutusTx.unstableMakeIsData ''State
 data Transition
   = CollectCom
   | Abort
-  deriving (Generic, Show)
+  deriving (Generic)
 
 PlutusTx.makeLift ''Transition
 PlutusTx.unstableMakeIsData ''Transition
 
 data Hydra
-instance Scripts.ScriptType Hydra where
+instance Scripts.ValidatorTypes Hydra where
   type DatumType Hydra = State
   type RedeemerType Hydra = Transition
 
@@ -115,10 +115,10 @@ hydraValidator HeadParameters{participants, policyId} s i ctx =
       >=> (fromData @(DatumType Commit) . getDatum)
 
 {- ORMOLU_DISABLE -}
-hydraScriptInstance
+hydraTypedValidator
   :: HeadParameters
-  -> Scripts.ScriptInstance Hydra
-hydraScriptInstance params = Scripts.validator @Hydra
+  -> Scripts.TypedValidator Hydra
+hydraTypedValidator params = Scripts.mkTypedValidator @Hydra
     ( $$(PlutusTx.compile [|| hydraValidator ||])
       `PlutusTx.applyCode` PlutusTx.liftCode params
     )
@@ -128,7 +128,7 @@ hydraScriptInstance params = Scripts.validator @Hydra
 {- ORMOLU_ENABLE -}
 
 hydraValidatorHash :: HeadParameters -> ValidatorHash
-hydraValidatorHash = Scripts.scriptHash . hydraScriptInstance
+hydraValidatorHash = Scripts.validatorHash . hydraTypedValidator
 {-# INLINEABLE hydraValidatorHash #-}
 
 --
@@ -136,7 +136,7 @@ hydraValidatorHash = Scripts.scriptHash . hydraScriptInstance
 --
 
 data Initial
-instance Scripts.ScriptType Initial where
+instance Scripts.ValidatorTypes Initial where
   type DatumType Initial = PubKeyHash
   type RedeemerType Initial = TxOutRef
 
@@ -179,10 +179,10 @@ initialValidator HeadParameters{policyId} hydraScript commitScript vk ref ctx =
     mustRunContract hydraScript Abort ctx
 
 {- ORMOLU_DISABLE -}
-initialScriptInstance
+initialTypedValidator
   :: HeadParameters
-  -> Scripts.ScriptInstance Initial
-initialScriptInstance policyId = Scripts.validator @Initial
+  -> Scripts.TypedValidator Initial
+initialTypedValidator policyId = Scripts.mkTypedValidator @Initial
   ($$(PlutusTx.compile [|| initialValidator ||])
       `PlutusTx.applyCode` PlutusTx.liftCode policyId
       `PlutusTx.applyCode` PlutusTx.liftCode (hydraValidatorHash policyId)
@@ -198,7 +198,7 @@ initialScriptInstance policyId = Scripts.validator @Initial
 --
 
 data Commit
-instance Scripts.ScriptType Commit where
+instance Scripts.ValidatorTypes Commit where
   type DatumType Commit = TxOut
   type RedeemerType Commit = ()
 
@@ -233,10 +233,10 @@ commitValidator hydraScript committedOut () ctx =
       ]
 
 {- ORMOLU_DISABLE -}
-commitScriptInstance
+commitTypedValidator
   :: HeadParameters
-  -> Scripts.ScriptInstance Commit
-commitScriptInstance params = Scripts.validator @Commit
+  -> Scripts.TypedValidator Commit
+commitTypedValidator params = Scripts.mkTypedValidator @Commit
   ($$(PlutusTx.compile [|| commitValidator ||])
     `PlutusTx.applyCode` PlutusTx.liftCode (hydraValidatorHash params)
   )
@@ -246,7 +246,7 @@ commitScriptInstance params = Scripts.validator @Commit
 {- ORMOLU_ENABLE -}
 
 commitValidatorHash :: HeadParameters -> ValidatorHash
-commitValidatorHash = Scripts.scriptHash . commitScriptInstance
+commitValidatorHash = Scripts.validatorHash . commitTypedValidator
 {-# INLINEABLE commitValidatorHash #-}
 
 --
@@ -316,7 +316,7 @@ hydraMonetaryPolicy outRef =
 -- whatsoever that the 'IsData a' being passed will correspond to what's
 -- expected by the underlying script. So, save you some hours of debugging and
 -- always explicitly specify the source type when using this function,
--- preferably using the data-family from the 'ScriptType' instance.
+-- preferably using the data-family from the 'ValidatorTypes' instance.
 asDatum :: IsData a => a -> Datum
 asDatum = Datum . toData
 {-# INLINEABLE asDatum #-}
