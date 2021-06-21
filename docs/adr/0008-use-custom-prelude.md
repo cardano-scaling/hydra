@@ -23,8 +23,8 @@ We'll use a custom prelude to help us get more productive and more importantly, 
 
 ## Consequences
 
-(anticipated)
-
+- Remove uses of 'cardano-prelude' in favor of a new 'hydra-prelude' module.
 - Cleaning up of imports from existing file modules.
 - Happier feeling day after day from using a developer-friendly prelude.
 - Stop loosing time in often re-importing the same functions over and over. 
+- Have an explicit point for discouraging / blessing usage of one or the other function, as well as documenting such decisions
