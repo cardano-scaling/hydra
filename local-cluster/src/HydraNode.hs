@@ -19,10 +19,16 @@ module HydraNode (
 
 import Hydra.Prelude
 
+import Cardano.Crypto.DSIGN (
+  DSIGNAlgorithm (..),
+  SignKeyDSIGN,
+  VerKeyDSIGN,
+ )
 import Control.Concurrent.Async (
   forConcurrently_,
  )
 import Control.Exception (IOException)
+import qualified Data.ByteString as BS
 import Data.Text.IO (hPutStrLn)
 import GHC.IO.Handle (hDuplicate)
 import Network.HTTP.Conduit (HttpExceptionContent (ConnectionFailure), parseRequest)
@@ -30,7 +36,8 @@ import Network.HTTP.Simple (HttpException (HttpExceptionRequest), Response, getR
 import Network.WebSockets (Connection, DataMessage (Binary, Text), receiveDataMessage, runClient, sendClose, sendTextData)
 import Say (say)
 import System.Exit (ExitCode (..))
-import System.IO.Temp (withSystemTempFile)
+import System.FilePath ((</>))
+import System.IO.Temp (withSystemTempDirectory, withSystemTempFile)
 import System.Process (
   CreateProcess (..),
   ProcessHandle,
@@ -42,7 +49,6 @@ import System.Process (
  )
 import System.Timeout (timeout)
 import Test.Hspec.Expectations (expectationFailure)
-import Cardano.Crypto.DSIGN (DSIGNAlgorithm (algorithmNameDSIGN), SignKeyDSIGN, VerKeyDSIGN)
 
 data HydraNode = HydraNode
   { hydraNodeId :: Int
@@ -107,18 +113,24 @@ queryNode nodeId =
     httpBS req
       `catch` (\(HttpExceptionRequest _ (ConnectionFailure _)) -> threadDelay 100_000 >> loop req)
 
-withHydraNode :: forall v. DSIGNAlgorithm v => Int -> SignKeyDSIGN v -> [VerKeyDSIGN v] -> (HydraNode -> IO ()) -> IO ()
-withHydraNode hydraNodeId _sKey _vKeys action = do
-  putText $ "Using signing algorithm: " <> toText (algorithmNameDSIGN (Proxy :: Proxy v))
+withHydraNode :: forall alg. DSIGNAlgorithm alg => Int -> SignKeyDSIGN alg -> [VerKeyDSIGN alg] -> (HydraNode -> IO ()) -> IO ()
+withHydraNode hydraNodeId sKey vKeys action = do
   withSystemTempFile "hydra-node" $ \f out -> traceOnFailure f $ do
     out' <- hDuplicate out
-    let p =
-          (hydraNodeProcess $ defaultArguments hydraNodeId)
-            { std_out = UseHandle out
-            }
-    withCreateProcess p $
-      \_stdin _stdout _stderr processHandle -> do
-        race_ (checkProcessHasNotDied processHandle) (tryConnect out')
+    withSystemTempDirectory "hydra-node" $ \dir -> do
+      let sKeyPath = dir </> (show hydraNodeId <> ".sk")
+      BS.writeFile sKeyPath (rawSerialiseSignKeyDSIGN sKey)
+      vKeysPaths <- forM (zip [1 ..] vKeys) $ \(i :: Int, vKey) -> do
+        let filepath = dir </> (show i <> ".vk")
+        filepath <$ BS.writeFile filepath (rawSerialiseVerKeyDSIGN vKey)
+
+      let p =
+            (hydraNodeProcess $ defaultArguments hydraNodeId sKeyPath vKeysPaths)
+              { std_out = UseHandle out
+              }
+      withCreateProcess p $
+        \_stdin _stdout _stderr processHandle -> do
+          race_ (checkProcessHasNotDied processHandle) (tryConnect out')
  where
   tryConnect out = doConnect out `catch` \(_ :: IOException) -> tryConnect out
 
@@ -135,8 +147,12 @@ instance Exception CannotStartHydraNode
 hydraNodeProcess :: [String] -> CreateProcess
 hydraNodeProcess = proc "hydra-node"
 
-defaultArguments :: Int -> [String]
-defaultArguments nodeId =
+defaultArguments ::
+  Int ->
+  FilePath ->
+  [FilePath] ->
+  [String]
+defaultArguments nodeId sKey vKeys =
   [ "--node-id"
   , show nodeId
   , "--host"
@@ -149,8 +165,11 @@ defaultArguments nodeId =
   , show (4000 + nodeId)
   , "--monitoring-port"
   , show (6000 + nodeId)
+  , "--me"
+  , sKey
   ]
     <> concat [["--peer", "127.0.0.1@" <> show (5000 + i)] | i <- [1 .. 3], i /= nodeId]
+    <> concat [["--party", vKey] | vKey <- vKeys]
 
 withMockChain :: IO () -> IO ()
 withMockChain action = do

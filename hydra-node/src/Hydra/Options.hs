@@ -7,11 +7,11 @@ module Hydra.Options (
   ParserResult (..),
 ) where
 
-import Hydra.Prelude
 import Data.IP (IP)
 import Hydra.Logging (Verbosity (..))
 import Hydra.Network (Host, PortNumber, readHost, readPort)
 import Hydra.Node.Version (gitRevision, showFullVersion, version)
+import Hydra.Prelude
 import Options.Applicative (
   Parser,
   ParserInfo,
@@ -36,8 +36,8 @@ import Options.Applicative (
   short,
   value,
  )
-import System.Environment (getArgs)
 import Options.Applicative.Builder (str)
+import System.Environment (getArgs)
 
 data Options = Options
   { verbosity :: Verbosity
