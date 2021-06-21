@@ -1,6 +1,7 @@
 module Hydra.Chain.ExternalPAB where
 
-import Cardano.Prelude
+import Hydra.Prelude
+
 import Hydra.Chain (Chain (Chain, postTx))
 import Hydra.HeadLogic (OnChainTx (InitTx))
 import Hydra.Ledger (Tx)
@@ -20,9 +21,9 @@ withExternalPAB _tracer _callback action = do
  where
   postTx = \case
     InitTx _ -> loadCid >>= postInitTx
-    tx -> panic $ "should post " <> show tx
+    tx -> error $ "should post " <> show tx
 
-  loadCid = readFile "/tmp/W1.cid"
+  loadCid = readFileText "/tmp/W1.cid"
 
 -- TODO(SN): use MonadHttp, but clashes with MonadThrow
 postInitTx :: Text -> IO ()
@@ -36,5 +37,5 @@ postInitTx cid = do
         jsonResponse
         (port 8080)
     when (responseStatusCode res /= 200) $
-      panic "failed to postInitTx"
+      error "failed to postInitTx"
     pure $ responseBody res

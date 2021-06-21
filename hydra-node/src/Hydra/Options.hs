@@ -37,7 +37,6 @@ import Options.Applicative (
   value,
  )
 import Options.Applicative.Builder (str)
-import System.Environment (getArgs)
 
 data Options = Options
   { verbosity :: Verbosity

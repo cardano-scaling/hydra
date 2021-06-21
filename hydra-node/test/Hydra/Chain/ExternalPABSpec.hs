@@ -1,6 +1,7 @@
 module Hydra.Chain.ExternalPABSpec where
 
-import Cardano.Prelude
+import Hydra.Prelude
+
 import Hydra.Chain (Chain (..))
 import Hydra.Chain.ExternalPAB (withExternalPAB)
 import Hydra.HeadLogic (OnChainTx (..))
@@ -13,5 +14,5 @@ spec =
   describe "ExternalPAB" $ do
     it "publishes init tx using wallet 1" $ do
       -- TODO(SN): launch hydra-pab as process
-      withExternalPAB nullTracer (panic "called back") $ \Chain{postTx} ->
-        postTx $ InitTx @SimpleTx (panic "unused")
+      withExternalPAB nullTracer (error "called back") $ \Chain{postTx} ->
+        postTx $ InitTx @SimpleTx (error "unused")

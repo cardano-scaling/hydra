@@ -99,18 +99,18 @@ applyTx utxo txs =
     NewEpochState
       { nesEs =
           EpochState
-            { esAccountState = panic "undefined EpochState"
-            , esSnapshots = panic "undefined EpochState"
+            { esAccountState = error "undefined EpochState"
+            , esSnapshots = error "undefined EpochState"
             , esLState = fromUTxO utxo
-            , esPrevPp = panic "undefined EpochState"
-            , esPp = panic "undefined EpochState"
-            , esNonMyopic = panic "undefined EpochState"
+            , esPrevPp = error "undefined EpochState"
+            , esPp = error "undefined EpochState"
+            , esNonMyopic = error "undefined EpochState"
             }
-      , nesEL = panic "undefined newEpochState"
-      , nesBprev = panic "undefined newEpochState"
-      , nesBcur = panic "undefined newEpochState"
-      , nesRu = panic "undefined newEpochState"
-      , nesPd = panic "undefined newEpochState"
+      , nesEL = error "undefined newEpochState"
+      , nesBprev = error "undefined newEpochState"
+      , nesBcur = error "undefined newEpochState"
+      , nesRu = error "undefined newEpochState"
+      , nesPd = error "undefined newEpochState"
       }
 
 getUTxO :: Ledger.LedgerState era -> Ledger.UTxO era
