@@ -9,8 +9,17 @@ import Hydra.Ledger (Tx)
 import Hydra.Logging (Tracer)
 import Network.HTTP.Req (POST (..), ReqBodyJson (..), defaultHttpConfig, http, jsonResponse, port, req, responseBody, responseStatusCode, runReq, (/:))
 import Wallet.Emulator.Types (Wallet (..))
-import Plutus.Contract (ContractInstanceId)
-import Data.Aeson (ToJSON)
+import Ledger.Value     as Value
+import Data.Aeson (ToJSON, eitherDecodeStrict, Result (Error, Success))
+import Network.WebSockets (receiveData)
+import qualified Data.Map as Map
+import Ledger (txOutTxOut, TxOut (txOutValue))
+import Control.Monad.Class.MonadSay (say)
+import Wallet.Types (unContractInstanceId)
+import Network.WebSockets.Client (runClient)
+import Ledger.AddressMap (UtxoMap)
+import Plutus.PAB.Webserver.Types (InstanceStatusToClient(NewObservableState))
+import Data.Aeson.Types (fromJSON)
 
 data ExternalPABLog
   deriving (Eq, Show)
@@ -23,8 +32,8 @@ withExternalPAB ::
   (Chain tx IO -> IO a) ->
   IO a
 withExternalPAB _tracer _callback action = do
-  getUtxoWebsocket (Wallet 1)
-  action $ Chain{postTx}
+  withAsync (utxoSubscriber $ Wallet 1) $ \_ ->
+    action $ Chain{postTx}
  where
   postTx = \case
     InitTx _ -> loadCid >>= postInitTx
@@ -51,8 +60,8 @@ postInitTx cid = do
 data ActivateContractRequest = ActivateContractRequest { caID :: Text , caWallet :: Wallet }
   deriving (Generic, ToJSON)
 
-getUtxoWebsocket :: Wallet -> IO ()
-getUtxoWebsocket wallet = do
+utxoSubscriber :: Wallet -> IO ()
+utxoSubscriber wallet = do
   res <- runReq defaultHttpConfig $ req
       POST
       (http "127.0.0.1" /: "api" /: "new" /: "contract" /: "activate")
@@ -61,7 +70,18 @@ getUtxoWebsocket wallet = do
       (port 8080)
   when (responseStatusCode res /= 200) $
     error "failed to activateContract"
-  let cid = responseBody res :: ContractInstanceId
-  putText $ "activated: " <> show cid
+  let cid = unContractInstanceId $ responseBody res
+  say $ "activated: " <> show cid
+  runClient "127.0.0.1" 8080 ("/ws/" <> show cid) $ \con -> forever $ do
+    msg <- receiveData con
+    case eitherDecodeStrict msg of
+      Right (NewObservableState val) ->
+        case fromJSON val of
+          Error err -> error $ "decoding error json: " <> show err
+          Success (utxos :: UtxoMap) -> do
+            let v = mconcat $ Map.elems $ txOutValue . txOutTxOut <$> utxos
+            say $ "own funds: " ++ show (flattenValue v)
+      Right _ -> pure ()
+      Left err -> error $ "error decoding msg: " <> show err
  where
   reqBody = ActivateContractRequest "GetUtxos" wallet
