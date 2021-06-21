@@ -7,6 +7,7 @@ module Hydra.Node where
 
 import Hydra.Prelude
 
+import Cardano.Crypto.DSIGN (deriveVerKeyDSIGN, rawDeserialiseSignKeyDSIGN)
 import Control.Monad.Class.MonadAsync (async)
 import Control.Monad.Class.MonadSTM (newTQueue, newTVarIO, readTQueue, stateTVar, writeTQueue)
 import Hydra.HeadLogic (
@@ -20,11 +21,23 @@ import Hydra.HeadLogic (
   LogicError (..),
   OnChainTx (..),
   Outcome (..),
+  SnapshotStrategy (NoSnapshots),
  )
 import qualified Hydra.HeadLogic as Logic
 import Hydra.Ledger
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Network (Network (..))
+import Hydra.Options (Options (..))
+
+-- * Environment Handling
+
+initEnvironment :: Options -> IO Environment
+initEnvironment Options{me} = do
+  mKey <- rawDeserialiseSignKeyDSIGN <$> readFileBS me
+  case mKey of
+    Nothing -> fail $ "Failed to decode signing key from " <> me
+    Just key -> pure $ Environment (UnsafeParty $ deriveVerKeyDSIGN key) NoSnapshots
+--
 
 -- ** Create and run a hydra node
 

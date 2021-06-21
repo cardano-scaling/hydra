@@ -10,7 +10,6 @@ import Hydra.HeadLogic (
   Environment (..),
   Event (..),
   HeadParameters (..),
-  SnapshotStrategy (..),
   createHeadState,
  )
 import qualified Hydra.Ledger.Simple as Ledger
@@ -25,6 +24,7 @@ import Hydra.Node (
   HydraNode (..),
   createEventQueue,
   createHydraHead,
+  initEnvironment,
   runHydraNode,
  )
 import Hydra.Options (Options (..), parseHydraOptions)
@@ -32,7 +32,7 @@ import Hydra.Options (Options (..), parseHydraOptions)
 main :: IO ()
 main = do
   o@Options{verbosity, host, port, peers, apiHost, apiPort, monitoringPort} <- identifyNode <$> parseHydraOptions
-  let env@Environment{party} = initEnvironment o
+  env@Environment{party} <- initEnvironment o
   withTracer verbosity show $ \tracer' ->
     withMonitoring monitoringPort tracer' $ \tracer -> do
       eq <- createEventQueue
@@ -51,7 +51,3 @@ main = do
 identifyNode :: Options -> Options
 identifyNode opt@Options{verbosity = Verbose "HydraNode", nodeId} = opt{verbosity = Verbose $ "HydraNode-" <> show nodeId}
 identifyNode opt = opt
-
-initEnvironment :: Options -> Environment
-initEnvironment Options{} =
-  Environment (error "load signing key here") NoSnapshots
