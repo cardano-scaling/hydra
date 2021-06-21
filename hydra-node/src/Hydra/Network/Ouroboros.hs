@@ -70,7 +70,6 @@ import Ouroboros.Network.Mux (
   OuroborosApplication (..),
   RunMiniProtocol (..),
  )
-<<<<<<< HEAD
 import Ouroboros.Network.Protocol.Handshake.Codec (cborTermVersionDataCodec, noTimeLimitsHandshake)
 import Ouroboros.Network.Protocol.Handshake.Type (Handshake)
 import Ouroboros.Network.Protocol.Handshake.Unversioned (
@@ -79,10 +78,6 @@ import Ouroboros.Network.Protocol.Handshake.Unversioned (
   unversionedProtocol,
   unversionedProtocolDataCodec,
  )
-=======
-import Ouroboros.Network.Protocol.Handshake.Codec (cborTermVersionDataCodec)
-import Ouroboros.Network.Protocol.Handshake.Unversioned (unversionedHandshakeCodec, unversionedProtocol, unversionedProtocolDataCodec)
->>>>>>> e74eebc (Update Network.Ouroboros to work with new version)
 import Ouroboros.Network.Protocol.Handshake.Version (acceptableVersion)
 import Ouroboros.Network.Server.Socket (AcceptedConnectionsLimit (AcceptedConnectionsLimit))
 import Ouroboros.Network.Snocket (socketSnocket)
@@ -163,6 +158,7 @@ withOuroborosNetwork tracer localHost remoteHosts networkCallback between = do
     connectToNodeSocket
       iomgr
       unversionedHandshakeCodec
+      noTimeLimitsHandshake
       (cborTermVersionDataCodec unversionedProtocolDataCodec)
       networkConnectTracers
       acceptableVersion
@@ -186,6 +182,7 @@ withOuroborosNetwork tracer localHost remoteHosts networkCallback between = do
       (AcceptedConnectionsLimit maxBound maxBound 0)
       localAddr
       unversionedHandshakeCodec
+      noTimeLimitsHandshake
       (cborTermVersionDataCodec unversionedProtocolDataCodec)
       acceptableVersion
       (unversionedProtocol (SomeResponderApplication app))

@@ -108,6 +108,7 @@ library
     , base
     , bytestring
     , cardano-binary
+    , cardano-ledger-core
     , cardano-ledger-shelley-ma
     , cardano-ledger-shelley-ma-test
     , cardano-prelude
@@ -129,7 +130,9 @@ library
     , shelley-spec-ledger
     , shelley-spec-ledger-test
     , stm
+    , strict-containers
     , text
+    , time
     , typed-protocols
     , typed-protocols-examples
     , websockets

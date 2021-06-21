@@ -6,21 +6,38 @@
 module Hydra.Ledger.MaryTest where
 
 import Cardano.Prelude
+    ( ($),
+      Num((*)),
+      Read,
+      Semigroup((<>)),
+      Monoid(mempty),
+      Ratio,
+      Word64,
+      Either(..),
+      fromMaybe,
+      const,
+      panic,
+      Category((.)) )
 
 -- REVIEW(SN): use a more consistent set of ledger imports, but some things not
 -- in the API?
 
+import Cardano.Ledger.SafeHash (hashAnnotated)
 import Cardano.Ledger.ShelleyMA.Timelocks (ValidityInterval (..))
 import Cardano.Ledger.ShelleyMA.TxBody (TxBody (TxBody))
 import Cardano.Ledger.Val ((<->))
 import qualified Cardano.Ledger.Val as Val
-import Cardano.Slotting.EpochInfo (fixedSizeEpochInfo)
-import Cardano.Slotting.Slot (EpochSize (EpochSize))
+import Cardano.Slotting.EpochInfo (
+  fixedEpochInfo,
+ )
+import Cardano.Slotting.Slot (EpochSize (..), SlotNo (..))
+import Cardano.Slotting.Time (SystemStart (..), mkSlotLength)
 import Data.Default (Default, def)
 import qualified Data.Map as Map
 import qualified Data.Sequence as Seq
 import qualified Data.Sequence.Strict as StrictSeq
 import qualified Data.Set as Set
+import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
 import Hydra.Ledger (Ledger (..), Tx (..), ValidationError (..))
 import Shelley.Spec.Ledger.API (
   Addr,
@@ -37,11 +54,9 @@ import Shelley.Spec.Ledger.API (
   Wdrl (..),
  )
 import qualified Shelley.Spec.Ledger.API as Ledger
-import Shelley.Spec.Ledger.BaseTypes (UnitInterval, mkActiveSlotCoeff, mkUnitInterval)
-import Shelley.Spec.Ledger.Hashing (HashAnnotated (hashAnnotated))
-import Shelley.Spec.Ledger.Keys (KeyPair (KeyPair), asWitness)
-import Shelley.Spec.Ledger.LedgerState (EpochState (esLState), LedgerState (..), NewEpochState (..), UTxOState (..))
-import Shelley.Spec.Ledger.Slot (SlotNo (SlotNo))
+import Cardano.Ledger.BaseTypes (UnitInterval, mkActiveSlotCoeff, mkUnitInterval)
+import Cardano.Ledger.Keys (KeyPair (KeyPair), asWitness)
+import Shelley.Spec.Ledger.LedgerState (EpochState (..), LedgerState (..), NewEpochState (..), UTxOState (..))
 import Shelley.Spec.Ledger.Tx (addrWits)
 import Shelley.Spec.Ledger.UTxO (UTxO (..), makeWitnessesVKey, txid)
 import Test.Cardano.Ledger.EraBuffet (MaryEra, TestCrypto, Value)
@@ -91,10 +106,18 @@ applyTx utxo txs =
   -- toValidationError :: ApplyTxError -> ValidationError
   toValidationError = const ValidationError
 
-  -- NOTE(SN): This does rely on that nesEs is used of the NewEpochState
+  -- NOTE(SN): This does rely on that *only* nesEs/esLState is used
   newEpochState =
     NewEpochState
-      { nesEs = def{esLState = fromUTxO utxo}
+      { nesEs =
+          EpochState
+            { esAccountState = panic "undefined EpochState"
+            , esSnapshots = panic "undefined EpochState"
+            , esLState = fromUTxO utxo
+            , esPrevPp = panic "undefined EpochState"
+            , esPp = panic "undefined EpochState"
+            , esNonMyopic = panic "undefined EpochState"
+            }
       , nesEL = panic "undefined newEpochState"
       , nesBprev = panic "undefined newEpochState"
       , nesBcur = panic "undefined newEpochState"
@@ -121,7 +144,7 @@ fromUTxO utxo = def{_utxoState = def{_utxo = utxo}}
 globals :: Globals
 globals =
   Globals
-    { epochInfo = fixedSizeEpochInfo $ EpochSize 100
+    { epochInfoWithErr = fixedEpochInfo (EpochSize 100) (mkSlotLength 1)
     , slotsPerKESPeriod = 20
     , stabilityWindow = 33
     , randomnessStabilisationWindow = 33
@@ -132,6 +155,7 @@ globals =
     , maxLovelaceSupply = 45 * 1000 * 1000 * 1000 * 1000 * 1000
     , activeSlotCoeff = mkActiveSlotCoeff . unsafeMkUnitInterval $ 0.9
     , networkId = Testnet
+    , systemStart = SystemStart $ posixSecondsToUTCTime 0
     }
 
 -- | You vouch that argument is in [0; 1].
