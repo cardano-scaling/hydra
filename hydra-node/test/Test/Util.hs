@@ -34,15 +34,6 @@ failAfter seconds action =
     Nothing -> failure $ "Test timed out after " <> show seconds <> " seconds"
     Just _ -> pure ()
 
-showLogsOnFailure ::
-  (MonadSTM m, MonadCatch m, MonadIO m, Show msg) =>
-  (Tracer m msg -> m a) ->
-  m a
-showLogsOnFailure action = do
-  tvar <- newTVarIO []
-  action (traceInTVar tvar)
-    `onException` (atomically (readTVar tvar) >>= mapM_ (say . show))
-
 -- | Run given 'action' in 'IOSim' and fail on exceptions.
 shouldRunInSim :: HasCallStack => (forall s. IOSim s a) -> IO a
 shouldRunInSim action =

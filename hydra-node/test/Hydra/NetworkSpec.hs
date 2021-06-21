@@ -18,6 +18,7 @@ import Hydra.Ledger (Party (..), Signed (UnsafeSigned))
 import Hydra.Ledger.Builder (utxoRef)
 import Hydra.Ledger.Simple (SimpleTx (..))
 import Hydra.Ledger.SimpleSpec (genSimpleTx, genUtxo)
+import Hydra.Logging (showLogsOnFailure)
 import Hydra.Network (Host (..), Network)
 import Hydra.Network.Ouroboros (broadcast, withOuroborosNetwork)
 import Hydra.Network.ZeroMQ (withZeroMQNetwork)
@@ -34,7 +35,7 @@ import Test.QuickCheck (
  )
 import Test.QuickCheck.Gen (Gen)
 import Test.QuickCheck.Instances.ByteString ()
-import Test.Util (arbitraryNatural, failAfter, showLogsOnFailure)
+import Test.Util (arbitraryNatural, failAfter)
 
 spec :: Spec
 spec = describe "Networking layer" $ do

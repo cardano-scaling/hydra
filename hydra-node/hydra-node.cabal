@@ -96,6 +96,7 @@ library
     Hydra.Network.Ouroboros.Type
     Hydra.Network.Ouroboros.Client
     Hydra.Network.Ouroboros.Server
+    Hydra.Network.Ports
     Hydra.Network.ZeroMQ
     Hydra.Node
     Hydra.Node.Version
@@ -132,6 +133,7 @@ library
     , plutus-pab
     , prometheus
     , req
+    , random-shuffle
     , shelley-spec-ledger
     , shelley-spec-ledger-test
     , stm
@@ -140,6 +142,7 @@ library
     , time
     , typed-protocols
     , typed-protocols-examples
+    , warp
     , websockets
     , zeromq4-haskell
   ghc-options:
@@ -200,6 +203,7 @@ test-suite tests
     , contra-tracer
     , hspec
     , hspec-core
+    , HUnit
     , hydra-node
     , hydra-prelude
     , io-sim
