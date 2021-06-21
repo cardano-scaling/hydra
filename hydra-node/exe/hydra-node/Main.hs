@@ -3,9 +3,7 @@
 module Main where
 
 import Cardano.Prelude hiding (Option, option)
-
-import Control.Concurrent.STM (newBroadcastTChanIO, writeTChan)
-import Hydra.API.Server (runAPIServer)
+import Hydra.API.Server (withAPIServer)
 import Hydra.Chain.ZeroMQ (createMockChainClient)
 import Hydra.HeadLogic (
   Environment (..),
@@ -41,13 +39,10 @@ main = do
       hh <- createHydraHead headState Ledger.simpleLedger
       oc <- createMockChainClient eq (contramap MockChain tracer)
       withNetwork (contramap Network tracer) nodeId host port peers (putEvent eq . NetworkEvent) $
-        \hn -> do
-          responseChannel <- newBroadcastTChanIO
-          let sendResponse = atomically . writeTChan responseChannel
-          let node = HydraNode{eq, hn, hh, oc, sendResponse, env}
-          race_
-            (runAPIServer apiHost apiPort responseChannel node (contramap APIServer tracer))
-            (runHydraNode (contramap Node tracer) node)
+        \hn ->
+          withAPIServer apiHost apiPort (contramap APIServer tracer) (putEvent eq . ClientEvent) $
+            \sendResponse ->
+              runHydraNode (contramap Node tracer) $ HydraNode{eq, hn, hh, oc, sendResponse, env}
  where
   withNetwork tracer nodeId host port peers =
     withHeartbeat nodeId $ withBroadcastToSelf $ withOuroborosNetwork tracer (show host, port) peers

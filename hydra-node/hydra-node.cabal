@@ -142,7 +142,6 @@ executable hydra-node
       base
     , cardano-prelude
     , hydra-node
-    , stm
   ghc-options:
     -threaded
     -rtsopts
@@ -165,6 +164,7 @@ test-suite tests
   import: project-config
   hs-source-dirs: test
   other-modules:
+    Hydra.API.ServerSpec
     Hydra.Chain.ZeroMQSpec
     Hydra.FireForgetSpec
     Hydra.BehaviorSpec
@@ -196,8 +196,11 @@ test-suite tests
     , QuickCheck
     , quickcheck-instances
     , say
+    , text
     , typed-protocols-examples
     , HUnit
+    , warp
+    , websockets
   build-tool-depends:
     hspec-discover:hspec-discover
   ghc-options:
