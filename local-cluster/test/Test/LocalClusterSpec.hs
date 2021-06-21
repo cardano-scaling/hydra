@@ -4,8 +4,7 @@ import Hydra.Prelude
 
 import CardanoCluster (ClusterConfig (..), ClusterLog (..), RunningCluster (..), withCluster)
 import CardanoNode (ChainTip (..), RunningNode (..), cliQueryTip)
-import Data.String (IsString (..))
-import Hydra.Logging (Tracer, contramap, showLogsOnFailure)
+import Hydra.Logging (Tracer, showLogsOnFailure)
 import System.IO.Temp (withSystemTempDirectory)
 import Test.Hspec (Spec, describe, it, shouldBe)
 

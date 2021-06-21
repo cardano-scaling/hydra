@@ -52,8 +52,7 @@ spec = describe "Networking layer" $ do
         [port1, port2] <- fmap fromIntegral <$> randomUnusedTCPPorts 2
         withOuroborosNetwork tracer (Host lo port1) [(Host lo port2)] (const @_ @(HydraMessage SimpleTx) $ pure ()) $ \hn1 ->
           withOuroborosNetwork @(HydraMessage SimpleTx) tracer (Host lo port2) [Host lo port1] (atomically . putTMVar received) $ \_ -> do
-            broadcast hn1 requestTx
-            atomically (takeTMVar received) `shouldReturn` requestTx
+            assertBroadcastFrom requestTx hn1 [received]
 
     it "broadcasts messages between 3 connected peers" $ do
       node1received <- newEmptyTMVarIO

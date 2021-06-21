@@ -15,6 +15,7 @@ module Hydra.Logging (
   -- * Using it
   Verbosity (..),
   withTracer,
+  contramap,
   showLogsOnFailure,
 ) where
 
@@ -49,9 +50,8 @@ import Control.Tracer (
 
 import qualified Cardano.BM.Configuration.Model as CM
 import qualified Cardano.BM.Data.BackendKind as CM
-import Control.Monad.Class.MonadSTM (TVar, modifyTVar, newTVarIO, readTVar)
+import Control.Monad.Class.MonadSTM (modifyTVar, newTVarIO, readTVar)
 import Control.Monad.Class.MonadSay (MonadSay, say)
-import Control.Monad.Class.MonadThrow (MonadCatch, onException)
 
 data Verbosity = Quiet | Verbose LoggerName
   deriving (Eq, Show)

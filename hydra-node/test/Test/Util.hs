@@ -4,18 +4,10 @@ module Test.Util where
 
 import Hydra.Prelude
 
-import Control.Monad.Class.MonadSTM (
-  MonadSTM (..),
-  newTVarIO,
-  readTVar,
- )
 import Control.Monad.Class.MonadTimer (timeout)
 import Control.Monad.IOSim (IOSim, runSim)
 import Data.List (isInfixOf)
 import GHC.Stack (SrcLoc)
-import Hydra.Ledger (Party (..))
-import Hydra.Logging (Tracer, traceInTVar)
-import Say (say)
 import Test.HUnit.Lang (FailureReason (ExpectedButGot, Reason), HUnitFailure (HUnitFailure))
 import Test.QuickCheck (Gen, Positive (getPositive), arbitrary)
 
@@ -73,6 +65,3 @@ shouldContain actual expected
 
 arbitraryNatural :: Gen Natural
 arbitraryNatural = fromIntegral . getPositive <$> arbitrary @(Positive Integer)
-
-generateParty :: Gen Party
-generateParty = UnsafeParty . fromInteger <$> arbitrary
