@@ -39,8 +39,8 @@ spec = describe "Networking layer" $ do
     it "broadcasts messages to single connected peer" $ do
       received <- newEmptyMVar
       showLogsOnFailure $ \tracer -> failAfter 10 $ do
-        withOuroborosNetwork tracer (lo, 45678) [(lo, 45679)] (const @_ @(HydraMessage SimpleTx) $ pure ()) $ \hn1 ->
-          withOuroborosNetwork @(HydraMessage SimpleTx) tracer (lo, 45679) [(lo, 45678)] (putMVar received) $ \_ -> do
+        withOuroborosNetwork tracer (lo, 45778) [(lo, 45779)] (const @_ @(HydraMessage SimpleTx) $ pure ()) $ \hn1 ->
+          withOuroborosNetwork @(HydraMessage SimpleTx) tracer (lo, 45779) [(lo, 45778)] (putMVar received) $ \_ -> do
             broadcast hn1 requestTx
             takeMVar received `shouldReturn` requestTx
 
