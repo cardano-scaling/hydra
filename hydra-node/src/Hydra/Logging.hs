@@ -103,4 +103,4 @@ showLogsOnFailure ::
 showLogsOnFailure action = do
   tvar <- newTVarIO []
   action (traceInTVar tvar)
-    `onException` (atomically (readTVar tvar) >>= mapM_ (say . show))
+    `onException` (atomically (readTVar tvar) >>= mapM_ (say . show) . reverse)
