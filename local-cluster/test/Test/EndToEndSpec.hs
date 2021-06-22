@@ -73,7 +73,7 @@ spec = describe "End-to-end test using a mocked chain though" $ do
             withHydraNode 2 bobSk [aliceVk, carolVk] $ \_n2 ->
               withHydraNode 3 carolSk [aliceVk, bobVk] $ \_n3 -> do
                 waitForNodesConnected [n1]
-                sendRequest n1 "Init [1, 2, 3]"
+                sendRequest n1 "Init"
                 waitForResponse 3 [n1] "ReadyToCommit"
 
                 metrics <- getMetrics n1
