@@ -13,7 +13,7 @@ import Ledger.Value     as Value
 import Data.Aeson (ToJSON, eitherDecodeStrict, Result (Error, Success))
 import Network.WebSockets (receiveData)
 import qualified Data.Map as Map
-import Ledger (txOutTxOut, TxOut (txOutValue))
+import Ledger (txOutTxOut, TxOut (txOutValue), PubKeyHash)
 import Control.Monad.Class.MonadSay (say)
 import Wallet.Types (unContractInstanceId)
 import Network.WebSockets.Client (runClient)
@@ -24,20 +24,23 @@ import Data.Aeson.Types (fromJSON)
 data ExternalPABLog
   deriving (Eq, Show)
 
--- TODO(SN): Parameterize with nodeId
 withExternalPAB ::
   Tx tx =>
   Tracer IO ExternalPABLog ->
   (OnChainTx tx -> IO ()) ->
   (Chain tx IO -> IO a) ->
   IO a
-withExternalPAB _tracer _callback action = do
-  withAsync (utxoSubscriber $ Wallet 1) $ \_ ->
-    action $ Chain{postTx}
+withExternalPAB _tracer callback action = do
+  withAsync (utxoSubscriber wallet) $ \_ ->
+    withAsync (initTxSubscriber wallet callback) $ \_ ->
+      action $ Chain{postTx}
  where
   postTx = \case
     InitTx _ -> loadCid >>= postInitTx
     tx -> error $ "should post " <> show tx
+
+  -- TODO(SN): Parameterize with nodeId
+  wallet = Wallet 1
 
   -- TODO(SN): don't use /tmp
   loadCid = readFileText "/tmp/W1.cid"
@@ -50,7 +53,7 @@ postInitTx cid = do
       req
         POST
         (http "127.0.0.1" /: "api" /: "new" /: "contract" /: "instance" /: cid /: "endpoint" /: "init")
-        (ReqBodyJson ())
+        (ReqBodyJson ()) -- TODO(SN): this should contain the hydra verification keys and pack them into metadata
         jsonResponse
         (port 8080)
     when (responseStatusCode res /= 200) $
@@ -59,6 +62,35 @@ postInitTx cid = do
 
 data ActivateContractRequest = ActivateContractRequest { caID :: Text , caWallet :: Wallet }
   deriving (Generic, ToJSON)
+
+-- TODO(SN): DRY subscribers
+initTxSubscriber :: Wallet -> (OnChainTx tx -> IO ()) -> IO ()
+initTxSubscriber wallet callback = do
+  res <- runReq defaultHttpConfig $ req
+      POST
+      (http "127.0.0.1" /: "api" /: "new" /: "contract" /: "activate")
+      (ReqBodyJson reqBody)
+      jsonResponse
+      (port 8080)
+  when (responseStatusCode res /= 200) $
+    error "failed to activateContract"
+  let cid = unContractInstanceId $ responseBody res
+  say $ "activated: " <> show cid
+  runClient "127.0.0.1" 8080 ("/ws/" <> show cid) $ \con -> forever $ do
+    msg <- receiveData con
+    say $ "received: " <> show msg
+    case eitherDecodeStrict msg of
+      Right (NewObservableState val) ->
+        case fromJSON val of
+          Error err -> error $ "decoding error json: " <> show err
+          Success (pubKeyHashes :: [PubKeyHash]) -> do
+            say $ "Observed Init tx with datums (pubkeyhashes): " ++ show pubKeyHashes
+            -- TODO(SN): pack hydra verification keys into metadata and callback with these
+            callback $ InitTx mempty
+      Right _ -> pure ()
+      Left err -> error $ "error decoding msg: " <> show err
+ where
+  reqBody = ActivateContractRequest "WatchInit" wallet
 
 utxoSubscriber :: Wallet -> IO ()
 utxoSubscriber wallet = do

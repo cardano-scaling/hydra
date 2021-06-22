@@ -11,11 +11,15 @@ import Data.Aeson (
   FromJSON (..),
   ToJSON (..),
  )
+import qualified Data.Map as Map
 import Data.Text.Prettyprint.Doc (Pretty (..), viaShow)
 import qualified Hydra.Contract.OffChain as OffChain
 import qualified Hydra.Contract.OnChain as OnChain
-import Ledger (MonetaryPolicy, TxOut, TxOutRef, TxOutTx, pubKeyHash, pubKeyAddress)
-import Plutus.Contract (BlockchainActions, Contract, ContractError, Empty, logInfo, ownPubKey, utxoAt, tell, waitNSlots)
+import Ledger (MonetaryPolicy, MonetaryPolicyHash, PubKeyHash, TxOut, TxOutRef, TxOutTx, monetaryPolicyHash, pubKeyAddress, pubKeyHash)
+import Ledger.AddressMap (UtxoMap, outputsMapFromTxForAddress)
+import qualified Ledger.Typed.Scripts as Scripts
+import Ledger.Typed.Tx (tyTxOutData, typeScriptTxOut)
+import Plutus.Contract (BlockchainActions, Contract, ContractError, Empty, logInfo, nextTransactionsAt, ownPubKey, tell, utxoAt, waitNSlots)
 import Plutus.Contract.Test (walletPubKey)
 import Plutus.PAB.Effects.Contract (ContractEffect (..))
 import Plutus.PAB.Effects.Contract.Builtin (Builtin, SomeBuiltin (..), endpointsToSchemas, type (.\\))
@@ -29,7 +33,6 @@ import Schema (FormSchema (..), ToSchema (..))
 import System.Directory (removeFile)
 import Wallet.Emulator.Types (Wallet (..))
 import Wallet.Types (ContractInstanceId (ContractInstanceId))
-import Ledger.AddressMap (UtxoMap)
 
 main :: IO ()
 main = void $
@@ -64,6 +67,7 @@ main = void $
 data PABContract
   = HydraContract
   | GetUtxos
+  | WatchInit
   deriving (Eq, Ord, Show, Generic)
   deriving anyclass (ToJSON, FromJSON)
 
@@ -81,12 +85,18 @@ handleStarterContract = Builtin.handleBuiltin getSchema getContract
   getSchema = \case
     HydraContract -> Builtin.endpointsToSchemas @(OffChain.Schema .\\ BlockchainActions)
     GetUtxos -> endpointsToSchemas @Empty
+    WatchInit -> endpointsToSchemas @Empty
   getContract = \case
     HydraContract -> SomeBuiltin hydraContract
     GetUtxos -> SomeBuiltin getUtxo
+    WatchInit -> SomeBuiltin watchInit
 
 hydraContract :: Contract [OnChain.State] OffChain.Schema ContractError ()
 hydraContract = OffChain.contract headParameters
+ where
+  -- TODO(SN): Do not hard-code headParameters
+  headParameters :: OffChain.HeadParameters
+  headParameters = OffChain.mkHeadParameters [vk alice, vk bob] testPolicy
 
 getUtxo :: Contract (Last UtxoMap) BlockchainActions ContractError ()
 getUtxo = do
@@ -100,20 +110,42 @@ getUtxo = do
     void $ waitNSlots 1
     loop address
 
+-- | Watch 'initialAddress' (with hard-coded parameters) and report all datums
+-- seen on each run.
+watchInit :: Contract (Last [PubKeyHash]) BlockchainActions ContractError ()
+watchInit = do
+  logInfo @Text $ "watchInit: Looking for an init tx"
+  forever $ do
+    -- NOTE(SN): this is essentially 'Plutus.Contract.StateMachine.waitForUpdate'
+    txs <- nextTransactionsAt initialAddress
+    let datums = txs >>= rights . fmap lookupDatum . Map.elems . outputsMapFromTxForAddress initialAddress
+    logInfo @Text $ "found init tx(s) with datums: " <> show datums
+    tell . Last $ Just datums
+    void $ waitNSlots 1 -- TODO(SN): really wait?
+ where
+  validator = OnChain.initialTypedValidator headParameters
+
+  initialAddress = Scripts.validatorAddress validator
+
+  lookupDatum txOutTx = tyTxOutData <$> typeScriptTxOut validator txOutTx
+
+  -- TODO(SN): Do not hard-code headParameters
+  headParameters = OnChain.HeadParameters [vk alice, vk bob] testPolicyId
+
 handlers :: SimulatorEffectHandlers (Builtin PABContract)
 handlers =
   -- REVIEW(SN): only HydraContract required here?
   Simulator.mkSimulatorHandlers @(Builtin PABContract) [HydraContract] $
     interpret handleStarterContract
 
--- TODO(SN): Do not hard-code headParameters
-headParameters :: OffChain.HeadParameters
-headParameters = OffChain.mkHeadParameters [vk alice, vk bob] testPolicy
- where
-  vk = pubKeyHash . walletPubKey
+testPolicy :: MonetaryPolicy
+testPolicy = OnChain.hydraMonetaryPolicy 42
 
-  testPolicy :: MonetaryPolicy
-  testPolicy = OnChain.hydraMonetaryPolicy 42
+testPolicyId :: MonetaryPolicyHash
+testPolicyId = monetaryPolicyHash testPolicy
+
+vk :: Wallet -> PubKeyHash
+vk = pubKeyHash . walletPubKey
 
 -- TODO(SN): Do not hard-code wallets
 alice :: Wallet

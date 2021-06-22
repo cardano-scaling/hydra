@@ -142,6 +142,7 @@ executable hydra-pab
       aeson
     , base
     , cardano-prelude
+    , containers
     , directory
     , freer-extras
     , freer-simple
