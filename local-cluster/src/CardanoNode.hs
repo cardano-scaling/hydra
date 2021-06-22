@@ -8,14 +8,14 @@ module CardanoNode where
 import Hydra.Prelude
 
 import Control.Retry (constantDelay, limitRetriesByCumulativeDelay, retrying)
+import Control.Tracer (
+  Tracer,
+  traceWith,
+ )
 import Data.Aeson (FromJSON (..), ToJSON (..), (.=))
 import qualified Data.Aeson as Aeson
 import qualified Data.HashMap.Strict as HM
 import Data.Time.Clock.POSIX (posixSecondsToUTCTime, utcTimeToPOSIXSeconds)
-import Hydra.Logging (
-  Tracer,
-  traceWith,
- )
 import System.Exit (ExitCode (..))
 import System.FilePath ((</>))
 import System.Process (

@@ -4,12 +4,11 @@ module Main where
 import Hydra.Prelude
 
 import CardanoCluster (ClusterConfig (..), withCluster)
-import Hydra.Logging (Verbosity (Verbose), withTracer)
+import Control.Tracer (Tracer (..))
 import System.IO.Temp (withSystemTempDirectory)
 
 main :: IO ()
 main = do
-  withTracer (Verbose "local-cluster") show $ \tr -> do
-    withSystemTempDirectory "hydra-local-cluster" $ \tmp -> do
-      withCluster tr (ClusterConfig tmp) $ \_ -> do
-        forever $ threadDelay 100_000 -- 100ms
+  withSystemTempDirectory "hydra-local-cluster" $ \tmp -> do
+    withCluster (Tracer print) (ClusterConfig tmp) $ \_ -> do
+      forever $ threadDelay 100_000 -- 100ms

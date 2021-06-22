@@ -108,7 +108,7 @@ executable local-cluster
     -threaded
     -rtsopts
   build-depends: base >=4.7 && <5
-               , hydra-node
+               , contra-tracer
                , hydra-prelude
                , local-cluster
                , temporary

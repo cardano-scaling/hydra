@@ -13,7 +13,7 @@ import CardanoNode (
   defaultCardanoNodeArgs,
   withCardanoNode,
  )
-import Hydra.Logging (Tracer, traceWith)
+import Control.Tracer (Tracer, traceWith)
 import Hydra.Network.Ports (randomUnusedTCPPorts)
 import System.Directory (copyFile, createDirectoryIfMissing)
 import System.FilePath ((</>))
