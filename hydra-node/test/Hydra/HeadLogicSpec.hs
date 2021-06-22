@@ -71,7 +71,9 @@ spec = describe "Hydra Head Logic" $ do
     update env ledger s0 reqTx `shouldBe` Wait
 
   it "notifies client when it receives a ping" $ do
-    update env ledger (initialState threeParties ledger) (NetworkEvent $ Ping 2) `hasEffect` ClientEffect (PeerConnected 2)
+    let host = ("0.0.0.0", 4000)
+    update env ledger (initialState threeParties ledger) (NetworkEvent $ Ping host)
+      `hasEffect` ClientEffect (PeerConnected host)
 
   it "confirms snapshot given it receives AckSn from all parties" $ do
     let s0 = initialState threeParties ledger

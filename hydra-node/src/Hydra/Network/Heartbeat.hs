@@ -15,8 +15,7 @@ import Hydra.Prelude
 
 import Control.Monad.Class.MonadSTM (newTVarIO, readTVar, writeTVar)
 import Hydra.HeadLogic (HydraMessage (..))
-import Hydra.Ledger (Party)
-import Hydra.Network (Network (..), NetworkComponent)
+import Hydra.Network (Network (..), NetworkComponent, Host)
 
 data HeartbeatState
   = SendHeartbeat
@@ -28,13 +27,13 @@ withHeartbeat ::
   ( MonadAsync m
   , MonadDelay m
   ) =>
-  Party ->
+  Host ->
   NetworkComponent m (HydraMessage tx) ->
   NetworkComponent m (HydraMessage tx)
-withHeartbeat me withNetwork callback action = do
+withHeartbeat localhost withNetwork callback action = do
   heartbeat <- newTVarIO SendHeartbeat
   withNetwork callback $ \network ->
-    withAsync (sendHeartbeatFor me heartbeat network) $ \_ ->
+    withAsync (sendHeartbeatFor localhost heartbeat network) $ \_ ->
       action (checkMessages network heartbeat)
 
 checkMessages ::
@@ -53,12 +52,12 @@ sendHeartbeatFor ::
   ( MonadDelay m
   , MonadSTM m
   ) =>
-  Party ->
+  Host ->
   TVar m HeartbeatState ->
   Network m (HydraMessage tx) ->
   m ()
-sendHeartbeatFor me heartbeatState Network{broadcast} =
+sendHeartbeatFor localhost heartbeatState Network{broadcast} =
   forever $ do
     threadDelay 0.5
     st <- atomically $ readTVar heartbeatState
-    when (st == SendHeartbeat) $ broadcast (Ping me)
+    when (st == SendHeartbeat) $ broadcast (Ping localhost)

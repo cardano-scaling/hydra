@@ -52,7 +52,7 @@ startChain chainSyncAddress chainCatchupAddress postTxAddress tracer = do
   txQueue <- atomically $ newTBQueue 50
   transactionLog <- newTVarIO []
   traceWith tracer (MockChainStarted chainSyncAddress chainCatchupAddress postTxAddress)
-  concurrently_
+  race_
     ( runZMQ
         ( transactionSyncer
             chainCatchupAddress
@@ -60,7 +60,7 @@ startChain chainSyncAddress chainCatchupAddress postTxAddress tracer = do
             tracer
         )
     )
-    $ concurrently_
+    $ race_
       ( runZMQ
           ( transactionPublisher
               chainSyncAddress
@@ -92,8 +92,8 @@ transactionListener postTxAddress transactionLog txQueue tracer = do
             writeTBQueue txQueue tx
             modifyTVar' transactionLog (<> [tx])
         send rep [] "OK"
-      _ -> do
-        liftIO $ traceWith tracer (FailedToDecodeMessage msg)
+      other -> do
+        liftIO $ traceWith tracer (FailedToDecodeMessage (msg <> ", error: " <> show other))
         send rep [] "KO"
 
 transactionPublisher :: Tx tx => String -> TBQueue IO (OnChainTx tx) -> Tracer IO (MockChainLog tx) -> ZMQ z ()
@@ -125,7 +125,7 @@ mockChainClient postTxAddress tracer tx = runZMQ $ do
   resp <- receive req
   case resp of
     "OK" -> liftIO (traceWith tracer (TransactionPosted postTxAddress tx)) >> pure ()
-    _ -> error $ "Something went wrong posting " <> show tx
+    _ -> error $ "Something went wrong posting " <> show tx <> ", error: " <> show resp
 
 runChainSync :: (Tx tx, MonadIO m) => String -> (OnChainTx tx -> IO ()) -> Tracer IO (MockChainLog tx) -> m ()
 runChainSync chainSyncAddress handler tracer = do

@@ -16,6 +16,7 @@ import Control.Monad.Class.MonadSTM (
  )
 import Control.Monad.Class.MonadTimer (timeout)
 import Control.Monad.IOSim (IOSim, runSimTrace, selectTraceEventsDynamic, traceM)
+import qualified Data.Set as Set
 import Hydra.Chain (Chain (..))
 import Hydra.HeadLogic (
   ClientRequest (..),
@@ -28,7 +29,7 @@ import Hydra.HeadLogic (
   SnapshotStrategy (..),
   createHeadState,
  )
-import Hydra.Ledger (Tx)
+import Hydra.Ledger (Party, Tx)
 import Hydra.Ledger.Builder (aValidTx, utxoRef, utxoRefs)
 import Hydra.Ledger.Simple (SimpleTx (..), simpleLedger)
 import Hydra.Logging (Tracer (..))
@@ -57,38 +58,38 @@ spec = describe "Behavior of one ore more hydra-nodes" $ do
     it "accepts Init command" $
       shouldRunInSim $ do
         chain <- simulatedChainAndNetwork
-        withHydraNode 1 NoSnapshots chain $ \n ->
-          sendRequest n (Init [1])
+        withHydraNode 1 [] NoSnapshots chain $ \n ->
+          sendRequest n Init
 
     it "accepts Commit after successful Init" $
       shouldRunInSim $ do
         chain <- simulatedChainAndNetwork
-        withHydraNode 1 NoSnapshots chain $ \n -> do
-          sendRequest n (Init [1])
+        withHydraNode 1 [] NoSnapshots chain $ \n -> do
+          sendRequest n Init
           sendRequest n (Commit (utxoRef 1))
 
     it "not accepts commits when the head is open" $
       shouldRunInSim $ do
         chain <- simulatedChainAndNetwork
-        withHydraNode 1 NoSnapshots chain $ \n1 -> do
-          sendRequestAndWaitFor n1 (Init [1]) ReadyToCommit
+        withHydraNode 1 [] NoSnapshots chain $ \n1 -> do
+          sendRequestAndWaitFor n1 Init ReadyToCommit
           sendRequestAndWaitFor n1 (Commit (utxoRef 1)) (HeadIsOpen (utxoRef 1))
           sendRequestAndWaitFor n1 (Commit (utxoRef 2)) CommandFailed
 
     it "can close an open head" $
       shouldRunInSim $ do
         chain <- simulatedChainAndNetwork
-        withHydraNode 1 NoSnapshots chain $ \n1 -> do
-          sendRequestAndWaitFor n1 (Init [1]) ReadyToCommit
+        withHydraNode 1 [] NoSnapshots chain $ \n1 -> do
+          sendRequestAndWaitFor n1 Init ReadyToCommit
           sendRequestAndWaitFor n1 (Commit (utxoRef 1)) (HeadIsOpen (utxoRef 1))
           sendRequestAndWaitFor n1 Close (HeadIsClosed testContestationPeriod (Snapshot 0 (utxoRef 1) []) [])
 
   it "does finalize head after contestation period" $
     shouldRunInSim $ do
       chain <- simulatedChainAndNetwork
-      withHydraNode 1 NoSnapshots chain $ \n1 -> do
-        sendRequest n1 $ Init [1]
-        sendRequestAndWaitFor n1 (Init [1]) ReadyToCommit
+      withHydraNode 1 [] NoSnapshots chain $ \n1 -> do
+        sendRequest n1 Init
+        sendRequestAndWaitFor n1 Init ReadyToCommit
         sendRequest n1 (Commit (utxoRef 1))
         failAfter 1 $ waitForResponse n1 `shouldReturn` HeadIsOpen (utxoRef 1)
         sendRequest n1 Close
@@ -100,9 +101,9 @@ spec = describe "Behavior of one ore more hydra-nodes" $ do
     it "accepts a tx after the head was opened between two nodes" $
       shouldRunInSim $ do
         chain <- simulatedChainAndNetwork
-        withHydraNode 1 NoSnapshots chain $ \n1 ->
-          withHydraNode 2 NoSnapshots chain $ \n2 -> do
-            sendRequestAndWaitFor n1 (Init [1, 2]) ReadyToCommit
+        withHydraNode 1 [2] NoSnapshots chain $ \n1 ->
+          withHydraNode 2 [1] NoSnapshots chain $ \n2 -> do
+            sendRequestAndWaitFor n1 Init ReadyToCommit
             sendRequest n1 (Commit (utxoRef 1))
 
             failAfter 1 $ waitForResponse n2 `shouldReturn` ReadyToCommit
@@ -113,9 +114,9 @@ spec = describe "Behavior of one ore more hydra-nodes" $ do
     it "confirms depending transactions" $
       shouldRunInSim $ do
         chain <- simulatedChainAndNetwork
-        withHydraNode 1 NoSnapshots chain $ \n1 ->
-          withHydraNode 2 NoSnapshots chain $ \n2 -> do
-            sendRequestAndWaitFor n1 (Init [1, 2]) ReadyToCommit
+        withHydraNode 1 [2] NoSnapshots chain $ \n1 ->
+          withHydraNode 2 [1] NoSnapshots chain $ \n2 -> do
+            sendRequestAndWaitFor n1 Init ReadyToCommit
             sendRequest n1 (Commit (utxoRef 1))
             failAfter 1 $ waitForResponse n2 `shouldReturn` ReadyToCommit
             sendRequest n2 (Commit (utxoRef 2))
@@ -135,9 +136,9 @@ spec = describe "Behavior of one ore more hydra-nodes" $ do
     it "sees the head closed by other nodes" $
       shouldRunInSim $ do
         chain <- simulatedChainAndNetwork
-        withHydraNode 1 NoSnapshots chain $ \n1 ->
-          withHydraNode 2 NoSnapshots chain $ \n2 -> do
-            sendRequestAndWaitFor n1 (Init [1, 2]) ReadyToCommit
+        withHydraNode 1 [2] NoSnapshots chain $ \n1 ->
+          withHydraNode 2 [1] NoSnapshots chain $ \n2 -> do
+            sendRequestAndWaitFor n1 Init ReadyToCommit
             sendRequest n1 (Commit (utxoRef 1))
 
             failAfter 1 $ waitForResponse n2 `shouldReturn` ReadyToCommit
@@ -153,9 +154,9 @@ spec = describe "Behavior of one ore more hydra-nodes" $ do
     it "only opens the head after all nodes committed" $
       shouldRunInSim $ do
         chain <- simulatedChainAndNetwork
-        withHydraNode 1 NoSnapshots chain $ \n1 ->
-          withHydraNode 2 NoSnapshots chain $ \n2 -> do
-            sendRequestAndWaitFor n1 (Init [1, 2]) ReadyToCommit
+        withHydraNode 1 [2] NoSnapshots chain $ \n1 ->
+          withHydraNode 2 [1] NoSnapshots chain $ \n2 -> do
+            sendRequestAndWaitFor n1 Init ReadyToCommit
             sendRequest n1 (Commit (utxoRef 1))
             timeout 1 (waitForResponse n1) >>= (`shouldNotBe` Just (HeadIsOpen (utxoRef 1)))
 
@@ -167,9 +168,9 @@ spec = describe "Behavior of one ore more hydra-nodes" $ do
     it "valid new transactions get confirmed without snapshotting" $
       shouldRunInSim $ do
         chain <- simulatedChainAndNetwork
-        withHydraNode 1 NoSnapshots chain $ \n1 ->
-          withHydraNode 2 NoSnapshots chain $ \n2 -> do
-            sendRequestAndWaitFor n1 (Init [1, 2]) ReadyToCommit
+        withHydraNode 1 [2] NoSnapshots chain $ \n1 ->
+          withHydraNode 2 [1] NoSnapshots chain $ \n2 -> do
+            sendRequestAndWaitFor n1 Init ReadyToCommit
             sendRequest n1 (Commit (utxoRef 1))
             failAfter 1 $ waitForResponse n2 `shouldReturn` ReadyToCommit
             sendRequestAndWaitFor n2 (Commit (utxoRef 2)) (HeadIsOpen (utxoRefs [1, 2]))
@@ -187,9 +188,9 @@ spec = describe "Behavior of one ore more hydra-nodes" $ do
     it "valid new transactions get snapshotted" $
       shouldRunInSim $ do
         chain <- simulatedChainAndNetwork
-        withHydraNode 1 SnapshotAfterEachTx chain $ \n1 ->
-          withHydraNode 2 NoSnapshots chain $ \n2 -> do
-            sendRequestAndWaitFor n1 (Init [1, 2]) ReadyToCommit
+        withHydraNode 1 [2] SnapshotAfterEachTx chain $ \n1 ->
+          withHydraNode 2 [1] NoSnapshots chain $ \n2 -> do
+            sendRequestAndWaitFor n1 Init ReadyToCommit
             sendRequest n1 (Commit (utxoRef 1))
             failAfter 1 $ waitForResponse n2 `shouldReturn` ReadyToCommit
             sendRequestAndWaitFor n2 (Commit (utxoRef 2)) (HeadIsOpen (utxoRefs [1, 2]))
@@ -216,20 +217,20 @@ spec = describe "Behavior of one ore more hydra-nodes" $ do
     it "traces processing of events" $ do
       let result = runSimTrace $ do
             chain <- simulatedChainAndNetwork
-            withHydraNode 1 NoSnapshots chain $ \n1 -> do
-              sendRequestAndWaitFor n1 (Init [1]) ReadyToCommit
+            withHydraNode 1 [] NoSnapshots chain $ \n1 -> do
+              sendRequestAndWaitFor n1 Init ReadyToCommit
               sendRequest n1 (Commit (utxoRef 1))
 
           logs = selectTraceEventsDynamic @_ @(HydraNodeLog SimpleTx) result
 
-      logs `shouldContain` [ProcessingEvent 1 (ClientEvent $ Init [1])]
-      logs `shouldContain` [ProcessedEvent 1 (ClientEvent $ Init [1])]
+      logs `shouldContain` [ProcessingEvent 1 (ClientEvent Init)]
+      logs `shouldContain` [ProcessedEvent 1 (ClientEvent Init)]
 
     it "traces handling of effects" $ do
       let result = runSimTrace $ do
             chain <- simulatedChainAndNetwork
-            withHydraNode 1 NoSnapshots chain $ \n1 -> do
-              sendRequestAndWaitFor n1 (Init [1]) ReadyToCommit
+            withHydraNode 1 [] NoSnapshots chain $ \n1 -> do
+              sendRequestAndWaitFor n1 Init ReadyToCommit
               sendRequest n1 (Commit (utxoRef 1))
 
           logs = selectTraceEventsDynamic @_ @(HydraNodeLog SimpleTx) result
@@ -253,7 +254,7 @@ sendRequestAndWaitFor node req expected = do
 
 -- | A thin layer around 'HydraNode' to be able to 'waitForResponse'.
 data TestHydraNode tx m = TestHydraNode
-  { nodeId :: Natural
+  { nodeId :: Party
   , sendRequest :: ClientRequest tx -> m ()
   , waitForResponse :: m (ClientResponse tx)
   }
@@ -300,12 +301,13 @@ testContestationPeriod = 3600
 
 withHydraNode ::
   forall s a.
-  Natural ->
+  Party ->
+  [Party] ->
   SnapshotStrategy ->
   ConnectToChain SimpleTx (IOSim s) ->
   (TestHydraNode SimpleTx (IOSim s) -> IOSim s a) ->
   IOSim s a
-withHydraNode nodeId snapshotStrategy connectToChain action = do
+withHydraNode nodeId peers snapshotStrategy connectToChain action = do
   response <- atomically newTQueue
   node <- createHydraNode response
 
@@ -320,7 +322,7 @@ withHydraNode nodeId snapshotStrategy connectToChain action = do
   createHydraNode response = do
     let env = Environment nodeId snapshotStrategy
     eq <- createEventQueue
-    let headState = createHeadState [] (HeadParameters testContestationPeriod mempty)
+    let headState = createHeadState [] (HeadParameters testContestationPeriod $ Set.fromList (nodeId : peers))
     hh <- createHydraHead headState simpleLedger
     let hn' = Network{broadcast = const $ pure ()}
     let node = HydraNode{eq, hn = hn', hh, oc = Chain (const $ pure ()), sendResponse = atomically . writeTQueue response, env}

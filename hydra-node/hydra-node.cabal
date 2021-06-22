@@ -198,19 +198,20 @@ test-suite tests
     , contra-tracer
     , hspec
     , hspec-core
-    , HUnit
-    , hydra-prelude
     , hydra-node
+    , hydra-prelude
     , io-sim
     , io-sim-classes
-    , QuickCheck
+    , iproute
+    , network
     , quickcheck-instances
     , say
     , text
     , typed-protocols-examples
-    , HUnit
     , warp
     , websockets
+    , HUnit
+    , QuickCheck
   build-tool-depends:
     hspec-discover:hspec-discover
   ghc-options:

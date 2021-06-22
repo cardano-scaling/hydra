@@ -6,7 +6,7 @@ import Control.Monad.Class.MonadSTM (modifyTVar', newTVarIO, readTVar)
 import Control.Monad.IOSim (runSimOrThrow)
 import Hydra.HeadLogic (HydraMessage (..))
 import Hydra.Ledger.Simple (SimpleTx)
-import Hydra.Network (Network (..))
+import Hydra.Network ( Network(..), Host )
 import Hydra.Network.Heartbeat (withHeartbeat)
 import Test.Hspec (Spec, describe, it, shouldBe)
 
@@ -19,39 +19,42 @@ spec = describe "Heartbeat" $ do
     let sentHeartbeats = runSimOrThrow $ do
           sentMessages <- newTVarIO ([] :: [HydraMessage SimpleTx])
 
-          withHeartbeat 1 (dummyNetwork sentMessages) noop $ \_ -> do
+          withHeartbeat testHost (dummyNetwork sentMessages) noop $ \_ -> do
             threadDelay 1.1
 
           atomically $ readTVar sentMessages
 
-    sentHeartbeats `shouldBe` replicate 2 (Ping 1)
+    sentHeartbeats `shouldBe` replicate 2 (Ping testHost)
 
   it "propagates Heartbeat received from other parties" $ do
+    let anotherHost = ("0.0.0.0", 4001)
     let receivedHeartbeats = runSimOrThrow $ do
           receivedMessages <- newTVarIO ([] :: [HydraMessage SimpleTx])
 
           let receive msg = atomically $ modifyTVar' receivedMessages (msg :)
-
-          withHeartbeat 1 (\cb action -> action (Network noop) >> cb (Ping 2)) receive $ \_ -> do
+          withHeartbeat testHost (\cb action -> action (Network noop) >> cb (Ping anotherHost)) receive $ \_ -> do
             threadDelay 1
 
           atomically $ readTVar receivedMessages
 
-    receivedHeartbeats `shouldBe` [Ping 2]
+    receivedHeartbeats `shouldBe` [Ping anotherHost]
 
   it "stop sending heartbeat message given action sends a message" $ do
     let someMessage = AckSn 1 1
         sentHeartbeats = runSimOrThrow $ do
           sentMessages <- newTVarIO ([] :: [HydraMessage SimpleTx])
 
-          withHeartbeat 1 (dummyNetwork sentMessages) noop $ \Network{broadcast} -> do
+          withHeartbeat testHost (dummyNetwork sentMessages) noop $ \Network{broadcast} -> do
             threadDelay 0.6
             broadcast someMessage
             threadDelay 1
 
           atomically $ readTVar sentMessages
 
-    sentHeartbeats `shouldBe` [someMessage, Ping 1]
+    sentHeartbeats `shouldBe` [someMessage, Ping testHost]
+
+testHost :: Host
+testHost = ("0.0.0.0", 4000)
 
 noop :: Monad m => b -> m ()
 noop = const $ pure ()
