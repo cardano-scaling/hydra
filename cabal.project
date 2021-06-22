@@ -19,6 +19,10 @@ package hydra-plutus
 -- Always show detailed output for tests
 test-show-details: direct
 
+allow-newer:
+  -- 'iohk-monitoring' -> 'ekg' -> 'snap-server' which has a < 0.14 upper bound for attoparsec
+  snap-server:attoparsec
+
 -- NOTE: The following is taken from plutus-starter / plutus from 2021-06-11
 
 source-repository-package
