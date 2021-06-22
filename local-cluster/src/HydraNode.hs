@@ -1,6 +1,5 @@
 {-# LANGUAGE NumericUnderscores #-}
 {-# LANGUAGE TypeApplications #-}
-{-# OPTIONS_GHC -Wno-incomplete-uni-patterns #-}
 
 module HydraNode (
   HydraNode (..),
@@ -110,8 +109,11 @@ queryNode nodeId =
   parseRequest ("http://127.0.0.1:" <> show (6000 + nodeId) <> "/metrics") >>= loop
  where
   loop req =
-    httpBS req
-      `catch` (\(HttpExceptionRequest _ (ConnectionFailure _)) -> threadDelay 100_000 >> loop req)
+    httpBS req `catch` onConnectionFailure (loop req)
+
+  onConnectionFailure cont = \case
+    (HttpExceptionRequest _ (ConnectionFailure _)) -> threadDelay 100_000 >> cont
+    e -> throwIO e
 
 withHydraNode :: forall alg. DSIGNAlgorithm alg => Int -> SignKeyDSIGN alg -> [VerKeyDSIGN alg] -> (HydraNode -> IO ()) -> IO ()
 withHydraNode hydraNodeId sKey vKeys action = do
@@ -168,7 +170,7 @@ defaultArguments nodeId sKey vKeys =
   , "--me"
   , sKey
   ]
-    <> concat [["--peer", "127.0.0.1@" <> show (5000 + i)] | i <- [1 .. 3], i /= nodeId]
+    <> concat [["--peer", "127.0.0.1@" <> show (5000 + i)] | i <- allNodeIds, i /= nodeId]
     <> concat [["--party", vKey] | vKey <- vKeys]
 
 withMockChain :: IO () -> IO ()
@@ -183,9 +185,17 @@ checkProcessHasNotDied processHandle =
     ExitSuccess -> pure ()
     ExitFailure exit -> expectationFailure $ "Process exited with failure code: " <> show exit
 
-waitForNodesConnected :: [Int] -> [HydraNode] -> IO ()
-waitForNodesConnected allNodeIds = mapM_ (waitForOtherNodesConnected allNodeIds)
+-- HACK(SN): These functions here are hard-coded for three nodes, but the tests
+-- are somewhat parameterized -> make it all or nothing hard-coded
+allNodeIds :: [Int]
+allNodeIds = [1 .. 3]
 
-waitForOtherNodesConnected :: [Int] -> HydraNode -> IO ()
-waitForOtherNodesConnected allNodeIds n@HydraNode{hydraNodeId} =
-  mapM_ (\otherNode -> waitForResponse 10 [n] $ "PeerConnected " <> show otherNode) $ filter (/= hydraNodeId) allNodeIds
+waitForNodesConnected :: [HydraNode] -> IO ()
+waitForNodesConnected = mapM_ waitForOtherNodesConnected
+
+waitForOtherNodesConnected :: HydraNode -> IO ()
+waitForOtherNodesConnected n@HydraNode{hydraNodeId} =
+  forM_ otherNodeIds $ \otherNode ->
+    waitForResponse 10 [n] $ "PeerConnected " <> show ("127.0.0.1" :: Text, 5000 + otherNode)
+ where
+  otherNodeIds = filter (/= hydraNodeId) allNodeIds

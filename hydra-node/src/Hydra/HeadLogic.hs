@@ -19,6 +19,9 @@ import Hydra.Ledger (
   applyTransactions,
   canApply,
  )
+import Network.Socket (HostName, PortNumber)
+
+type Host = (HostName, PortNumber)
 
 data Event tx
   = ClientEvent (ClientRequest tx)
@@ -61,7 +64,7 @@ deriving instance Tx tx => Show (Snapshot tx)
 deriving instance Tx tx => Read (Snapshot tx)
 
 data ClientResponse tx
-  = PeerConnected Party
+  = PeerConnected Host
   | ReadyToCommit
   | HeadIsOpen (UTxO tx)
   | HeadIsClosed DiffTime (Snapshot tx) [tx]
@@ -82,7 +85,7 @@ data HydraMessage tx
   | AckTx Party tx
   | ReqSn Party SnapshotNumber [tx]
   | AckSn Party SnapshotNumber
-  | Ping Party
+  | Ping Host
   deriving (Eq, Show)
 
 -- NOTE(SN): Might not be symmetric in a real chain client, i.e. posting
@@ -345,8 +348,8 @@ update Environment{party, snapshotStrategy} ledger (HeadState parameters st) ev 
   --
   (_, ClientEvent{}) ->
     newState st [ClientEffect CommandFailed]
-  (_, NetworkEvent (Ping pty)) ->
-    newState st [ClientEffect $ PeerConnected pty]
+  (_, NetworkEvent (Ping host)) ->
+    newState st [ClientEffect $ PeerConnected host]
   _ ->
     Error $ InvalidEvent ev (HeadState parameters st)
  where

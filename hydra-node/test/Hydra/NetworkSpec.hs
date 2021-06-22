@@ -10,7 +10,8 @@ import Cardano.Binary (FromCBOR, ToCBOR, fromCBOR, toCBOR)
 import Codec.CBOR.Read (deserialiseFromBytes)
 import Codec.CBOR.Write (toLazyByteString)
 import Control.Monad.Class.MonadSTM (newEmptyTMVarIO, putTMVar, takeTMVar)
-import Hydra.HeadLogic (HydraMessage (..), Snapshot (..))
+import Data.IP (toIPv4w)
+import Hydra.HeadLogic (Host, HydraMessage (..), Snapshot (..))
 import Hydra.Ledger (Party (..))
 import Hydra.Ledger.Builder (utxoRef)
 import Hydra.Ledger.Simple (SimpleTx (..))
@@ -23,6 +24,7 @@ import Test.Hspec (Spec, describe, it, shouldReturn)
 import Test.QuickCheck (
   Arbitrary (..),
   arbitrary,
+  chooseBoundedIntegral,
   getPositive,
   oneof,
   property,
@@ -88,6 +90,12 @@ assertBroadcastFrom requestTx network receivers =
 genParty :: Gen Party
 genParty = UnsafeParty . fromInteger . getPositive <$> arbitrary
 
+genHost :: Gen Host
+genHost = do
+  ip <- toIPv4w <$> arbitrary
+  port <- fromIntegral <$> chooseBoundedIntegral (1, maxBound @Word16)
+  pure (show ip, port)
+
 instance Arbitrary (HydraMessage SimpleTx) where
   arbitrary =
     oneof
@@ -95,7 +103,7 @@ instance Arbitrary (HydraMessage SimpleTx) where
       , AckTx <$> genParty <*> genSimpleTx
       , ReqSn <$> genParty <*> arbitraryNatural <*> vectorOf 10 genSimpleTx
       , AckSn <$> genParty <*> arbitraryNatural
-      , Ping <$> genParty
+      , Ping <$> genHost
       ]
 
 instance Arbitrary (Snapshot SimpleTx) where
