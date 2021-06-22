@@ -204,6 +204,7 @@ test-suite tests
     , io-sim-classes
     , iproute
     , network
+    , process
     , quickcheck-instances
     , say
     , text
@@ -213,7 +214,7 @@ test-suite tests
     , HUnit
     , QuickCheck
   build-tool-depends:
-    hspec-discover:hspec-discover
+    hspec-discover:hspec-discover, hydra-plutus:hydra-pab
   ghc-options:
     -threaded
     -rtsopts

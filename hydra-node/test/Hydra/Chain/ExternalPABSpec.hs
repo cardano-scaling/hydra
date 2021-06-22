@@ -7,13 +7,19 @@ import Hydra.Chain.ExternalPAB (withExternalPAB)
 import Hydra.HeadLogic (OnChainTx (..))
 import Hydra.Ledger.Simple (SimpleTx)
 import Hydra.Logging (nullTracer)
-import Test.Hspec.Core.Spec (Spec, describe, it, pendingWith)
+import System.Process (proc, withCreateProcess)
+import Test.Hspec.Core.Spec (Spec, describe, it)
 
 spec :: Spec
 spec =
   describe "ExternalPAB" $ do
     it "publishes init tx using wallet 1" $ do
-      pendingWith "launch hydra-pab as process"
-      -- TODO(SN): launch hydra-pab as process
-      withExternalPAB nullTracer (error "called back") $ \Chain{postTx} ->
-        postTx $ InitTx @SimpleTx (error "unused")
+      withHydraPAB $ do
+        withExternalPAB nullTracer (error "called back") $ \Chain{postTx} ->
+          postTx $ InitTx @SimpleTx (error "unused")
+
+withHydraPAB :: IO a -> IO a
+withHydraPAB action =
+  withCreateProcess (proc "hydra-pab" []) $ \_ _ _ _ -> do
+    threadDelay 2
+    action
