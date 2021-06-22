@@ -7,7 +7,6 @@ import Hydra.Prelude
 import Hydra.API.Server (withAPIServer)
 import Hydra.Chain.ZeroMQ (createMockChainClient)
 import Hydra.HeadLogic (
-  Environment (..),
   Event (..),
   HeadParameters (..),
   createHeadState,
