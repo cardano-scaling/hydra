@@ -76,6 +76,7 @@ signingKeyFileParser =
     str
     ( long "me"
         <> metavar "PATH"
+        <> value "me.sk"
         <> help "A filepath to our signing key"
     )
 

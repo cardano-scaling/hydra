@@ -11,6 +11,7 @@ import Codec.CBOR.Read (deserialiseFromBytes)
 import Codec.CBOR.Write (toLazyByteString)
 import Control.Monad.Class.MonadSTM (newEmptyTMVarIO, putTMVar, takeTMVar)
 import Hydra.HeadLogic (HydraMessage (..), Snapshot (..))
+import Hydra.Ledger (Party (..))
 import Hydra.Ledger.Builder (utxoRef)
 import Hydra.Ledger.Simple (SimpleTx (..))
 import Hydra.Ledger.SimpleSpec (genSimpleTx, genUtxo)
@@ -22,10 +23,12 @@ import Test.Hspec (Spec, describe, it, shouldReturn)
 import Test.QuickCheck (
   Arbitrary (..),
   arbitrary,
+  getPositive,
   oneof,
   property,
   vectorOf,
  )
+import Test.QuickCheck.Gen (Gen)
 import Test.Util (arbitraryNatural, failAfter, showLogsOnFailure)
 
 spec :: Spec
@@ -82,14 +85,17 @@ assertBroadcastFrom requestTx network receivers =
     broadcast network requestTx
     forM_ receivers $ \var -> failAfter 1 $ atomically (takeTMVar var) `shouldReturn` requestTx
 
+genParty :: Gen Party
+genParty = UnsafeParty . fromInteger . getPositive <$> arbitrary
+
 instance Arbitrary (HydraMessage SimpleTx) where
   arbitrary =
     oneof
       [ ReqTx <$> genSimpleTx
-      , AckTx <$> arbitraryNatural <*> genSimpleTx
-      , ReqSn <$> arbitraryNatural <*> arbitraryNatural <*> vectorOf 10 genSimpleTx
-      , AckSn <$> arbitraryNatural <*> arbitraryNatural
-      , Ping <$> arbitraryNatural
+      , AckTx <$> genParty <*> genSimpleTx
+      , ReqSn <$> genParty <*> arbitraryNatural <*> vectorOf 10 genSimpleTx
+      , AckSn <$> genParty <*> arbitraryNatural
+      , Ping <$> genParty
       ]
 
 instance Arbitrary (Snapshot SimpleTx) where
