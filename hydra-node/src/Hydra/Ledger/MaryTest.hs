@@ -40,11 +40,12 @@ import Shelley.Spec.Ledger.API (
   TxIn (TxIn),
   TxOut (..),
   Wdrl (..),
+  LedgerEnv(..)
  )
 import qualified Shelley.Spec.Ledger.API as Ledger
 import Cardano.Ledger.BaseTypes (UnitInterval, mkActiveSlotCoeff, mkUnitInterval)
 import Cardano.Ledger.Keys (KeyPair (KeyPair), asWitness)
-import Shelley.Spec.Ledger.LedgerState (EpochState (..), LedgerState (..), NewEpochState (..), UTxOState (..))
+import Shelley.Spec.Ledger.LedgerState (UTxOState (..))
 import Shelley.Spec.Ledger.Tx (addrWits)
 import Shelley.Spec.Ledger.UTxO (UTxO (..), makeWitnessesVKey, txid)
 import Test.Cardano.Ledger.EraBuffet (MaryEra, TestCrypto, Value)
@@ -71,58 +72,30 @@ instance Read MaryTestTx where
 instance Read (Ledger.UTxO era) where
   readPrec = error "Read: Ledger.UTxO"
 
-cardanoLedger :: Ledger (Ledger.Tx MaryTest)
-cardanoLedger =
+cardanoLedger :: Ledger.LedgerEnv MaryTest -> Ledger (Ledger.Tx MaryTest)
+cardanoLedger env =
   Ledger
-    { applyTransactions = applyTx
-    , initUTxO = getUTxO def
+    { applyTransactions = applyTx env
+    , initUTxO = Ledger._utxo def
     }
 
 applyTx ::
   ( Default (Ledger.UTxOState era)
-  , Default (Ledger.LedgerState era)
   , ApplyTx era
   ) =>
+  Ledger.LedgerEnv era ->
   Ledger.UTxO era ->
   [Ledger.Tx era] ->
   Either ValidationError (Ledger.UTxO era)
-applyTx utxo txs =
-  case Ledger.applyTxs globals (SlotNo 1) (Seq.fromList txs) newEpochState of
+applyTx env utxo txs =
+  case Ledger.applyTxsTransition globals env (Seq.fromList txs) memPoolState of
     Left err -> Left $ toValidationError err
-    Right ls -> Right $ getUTxO $ esLState $ nesEs ls
+    Right (ls, _ds) -> Right $ Ledger._utxo ls
  where
   -- toValidationError :: ApplyTxError -> ValidationError
   toValidationError = const ValidationError
 
-  -- NOTE(SN): This does rely on that *only* nesEs/esLState is used
-  newEpochState =
-    NewEpochState
-      { nesEs =
-          EpochState
-            { esAccountState = error "undefined EpochState"
-            , esSnapshots = error "undefined EpochState"
-            , esLState = fromUTxO utxo
-            , esPrevPp = error "undefined EpochState"
-            , esPp = error "undefined EpochState"
-            , esNonMyopic = error "undefined EpochState"
-            }
-      , nesEL = error "undefined newEpochState"
-      , nesBprev = error "undefined newEpochState"
-      , nesBcur = error "undefined newEpochState"
-      , nesRu = error "undefined newEpochState"
-      , nesPd = error "undefined newEpochState"
-      }
-
-getUTxO :: Ledger.LedgerState era -> Ledger.UTxO era
-getUTxO = _utxo . _utxoState
-
-fromUTxO ::
-  ( Default (Ledger.UTxOState era)
-  , Default (Ledger.LedgerState era)
-  ) =>
-  Ledger.UTxO era ->
-  Ledger.LedgerState era
-fromUTxO utxo = def{_utxoState = def{_utxo = utxo}}
+  memPoolState = (def{_utxo = utxo}, def)
 
 --
 -- From: shelley/chain-and-ledger/shelley-spec-ledger-test/src/Test/Shelley/Spec/Ledger/Utils.hs
@@ -152,6 +125,15 @@ unsafeMkUnitInterval r =
   fromMaybe (error "could not construct unit interval") $ mkUnitInterval r
 
 -- * Test functions
+
+mkLedgerEnv :: Ledger.LedgerEnv MaryTest
+mkLedgerEnv =
+  Ledger.LedgerEnv
+    { ledgerSlotNo = SlotNo 1
+    , ledgerIx = error "mkLedgerEnv ledgerIx undefinex"
+    , ledgerPp = def
+    , ledgerAccount = error "mkLedgerenv ledgersAccount undefined"
+    }
 --
 -- From: shelley-ma/shelley-ma-test/test/Test/Cardano/Ledger/Mary/Examples/MultiAssets.hs
 --
