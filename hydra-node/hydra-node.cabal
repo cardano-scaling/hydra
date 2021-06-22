@@ -70,6 +70,7 @@ common project-config
     -Wincomplete-uni-patterns
     -Wpartial-fields
     -Wredundant-constraints
+    -Wunused-packages
 
   if !flag(development)
       ghc-options: -Werror
@@ -96,7 +97,6 @@ library
     Hydra.Network.Ouroboros.Type
     Hydra.Network.Ouroboros.Client
     Hydra.Network.Ouroboros.Server
-    Hydra.Network.Ports
     Hydra.Network.ZeroMQ
     Hydra.Node
     Hydra.Node.Version
@@ -116,7 +116,6 @@ library
     , cborg
     , containers
     , contra-tracer
-    , cryptonite
     , data-default
     , gitrev
     , hydra-prelude
@@ -133,7 +132,6 @@ library
     , plutus-pab
     , prometheus
     , req
-    , random-shuffle
     , shelley-spec-ledger
     , shelley-spec-ledger-test
     , stm
@@ -142,7 +140,6 @@ library
     , time
     , typed-protocols
     , typed-protocols-examples
-    , warp
     , websockets
     , zeromq4-haskell
   ghc-options:
@@ -212,10 +209,8 @@ test-suite tests
     , network
     , process
     , quickcheck-instances
-    , say
     , text
     , typed-protocols-examples
-    , warp
     , websockets
     , HUnit
     , QuickCheck
