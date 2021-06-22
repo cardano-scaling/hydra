@@ -80,15 +80,16 @@ initTxSubscriber wallet callback = do
     msg <- receiveData con
     say $ "received: " <> show msg
     case eitherDecodeStrict msg of
-      Right (NewObservableState val) ->
+      Right (NewObservableState val) -> do
+        say $ "decoding: " <> show val
         case fromJSON val of
-          Error err -> error $ "decoding error json: " <> show err
-          Success (pubKeyHashes :: [PubKeyHash]) -> do
+          Error err -> say $ "decoding error json: " <> show err
+          Success (pubKeyHashes :: [PubKeyHash]) -> do -- XXX(SN): this is actually 'Last [PubKeyHash]'
             say $ "Observed Init tx with datums (pubkeyhashes): " ++ show pubKeyHashes
             -- TODO(SN): pack hydra verification keys into metadata and callback with these
             callback $ InitTx mempty
-      Right _ -> pure ()
-      Left err -> error $ "error decoding msg: " <> show err
+      Right _ -> say "received some other state change"
+      Left err -> say $ "error decoding msg: " <> show err
  where
   reqBody = ActivateContractRequest "WatchInit" wallet
 
