@@ -7,14 +7,10 @@ import Cardano.Prelude hiding (log)
 import Control.Monad.Freer (Eff, Member, interpret, type (~>))
 import Control.Monad.Freer.Error (Error)
 import Control.Monad.Freer.Extras.Log (LogMsg)
-import Data.Aeson (
-  FromJSON (..),
-  ToJSON (..),
- )
 import qualified Data.Map as Map
-import Data.Text.Prettyprint.Doc (Pretty (..), viaShow)
 import qualified Hydra.Contract.OffChain as OffChain
 import qualified Hydra.Contract.OnChain as OnChain
+import Hydra.Contract.PAB (PABContract (..))
 import Ledger (MonetaryPolicy, MonetaryPolicyHash, PubKeyHash, TxOut, TxOutRef, TxOutTx, monetaryPolicyHash, pubKeyAddress, pubKeyHash)
 import Ledger.AddressMap (UtxoMap, outputsMapFromTxForAddress)
 import qualified Ledger.Typed.Scripts as Scripts
@@ -30,18 +26,13 @@ import qualified Plutus.PAB.Simulator as Simulator
 import Plutus.PAB.Types (PABError (..))
 import qualified Plutus.PAB.Webserver.Server as PAB.Server
 import Schema (FormSchema (..), ToSchema (..))
-import System.Directory (removeFile)
 import Wallet.Emulator.Types (Wallet (..))
-import Wallet.Types (ContractInstanceId (ContractInstanceId))
 
 main :: IO ()
 main = void $
   Simulator.runSimulationWith handlers $ do
     log "Starting plutus-starter PAB webserver on port 8080. Press enter to exit."
     shutdown <- PAB.Server.startServerDebug
-
-    -- Activate wallets and write contract instances into files
-    files <- activateWallets
 
     -- Pressing enter results in the balances being printed
     void $ liftIO getLine
@@ -50,29 +41,9 @@ main = void $
     b <- Simulator.currentBalances
     Simulator.logBalances @(Builtin PABContract) b
 
-    -- Best-effort cleanup, due to the lack of a lifted bracket
-    cleanupWallets files
     shutdown
  where
   log = Simulator.logString @(Builtin PABContract)
-
-  activateWallets = forM [alice, bob] $ \w -> do
-    (ContractInstanceId cid) <- Simulator.activateContract w HydraContract
-    let fn = "/tmp/W" <> show (getWallet w) <> ".cid"
-    liftIO $ writeFile fn $ show cid
-    pure fn
-
-  cleanupWallets = mapM_ (liftIO . removeFile)
-
-data PABContract
-  = HydraContract
-  | GetUtxos
-  | WatchInit
-  deriving (Eq, Ord, Show, Generic)
-  deriving anyclass (ToJSON, FromJSON)
-
-instance Pretty PABContract where
-  pretty = viaShow
 
 handleStarterContract ::
   ( Member (Error PABError) effs

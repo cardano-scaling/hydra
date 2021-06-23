@@ -15,11 +15,12 @@ import Network.WebSockets (receiveData)
 import qualified Data.Map as Map
 import Ledger (txOutTxOut, TxOut (txOutValue), PubKeyHash)
 import Control.Monad.Class.MonadSay (say)
-import Wallet.Types (unContractInstanceId)
+import Wallet.Types (unContractInstanceId, ContractInstanceId)
 import Network.WebSockets.Client (runClient)
 import Ledger.AddressMap (UtxoMap)
 import Plutus.PAB.Webserver.Types (InstanceStatusToClient(NewObservableState))
 import Data.Aeson.Types (fromJSON)
+import Hydra.Contract.PAB (PABContract (..))
 
 data ExternalPABLog
   deriving (Eq, Show)
@@ -31,41 +32,50 @@ withExternalPAB ::
   (Chain tx IO -> IO a) ->
   IO a
 withExternalPAB _tracer callback action = do
+  hydraCid <- activateContract HydraContract wallet
   withAsync (utxoSubscriber wallet) $ \_ ->
     withAsync (initTxSubscriber wallet callback) $ \_ ->
-      action $ Chain{postTx}
+      action $ Chain{postTx = postTx hydraCid}
  where
-  postTx = \case
-    InitTx _ -> loadCid >>= postInitTx
+  postTx cid = \case
+    InitTx _ -> postInitTx cid
     tx -> error $ "should post " <> show tx
 
   -- TODO(SN): Parameterize with nodeId
   wallet = Wallet 1
 
-  -- TODO(SN): don't use /tmp
-  loadCid = readFileText "/tmp/W1.cid"
+activateContract :: PABContract -> Wallet -> IO ContractInstanceId
+activateContract contract wallet =
+  retryOnAnyHttpException $ do
+    res <- runReq defaultHttpConfig $ req
+        POST
+        (http "127.0.0.1" /: "api" /: "new" /: "contract" /: "activate")
+        (ReqBodyJson reqBody)
+        jsonResponse
+        (port 8080)
+    when (responseStatusCode res /= 200) $
+      error "failed to activateContract"
+    pure $ responseBody res
+ where
+  reqBody = ActivateContractRequest (show contract) wallet
 
 -- TODO(SN): use MonadHttp, but clashes with MonadThrow
-postInitTx :: Text -> IO ()
-postInitTx cid = do
-  doRequest `catch` onAnyHttpException doRequest
- where
-  onAnyHttpException cont = \case
-    (VanillaHttpException _) -> threadDelay 1 >> cont
-    e -> throwIO e
-
-  doRequest =
+postInitTx :: ContractInstanceId -> IO ()
+postInitTx cid =
+  retryOnAnyHttpException $
     runReq defaultHttpConfig $ do
       res <-
         req
           POST
-          (http "127.0.0.1" /: "api" /: "new" /: "contract" /: "instance" /: cid /: "endpoint" /: "init")
+          (http "127.0.0.1" /: "api" /: "new" /: "contract" /: "instance" /: cidText /: "endpoint" /: "init")
           (ReqBodyJson ()) -- TODO(SN): this should contain the hydra verification keys and pack them into metadata
           jsonResponse
           (port 8080)
       when (responseStatusCode res /= 200) $
         error "failed to postInitTx"
       pure $ responseBody res
+ where
+  cidText = show $ unContractInstanceId cid
 
 data ActivateContractRequest = ActivateContractRequest { caID :: Text , caWallet :: Wallet }
   deriving (Generic, ToJSON)
@@ -73,15 +83,7 @@ data ActivateContractRequest = ActivateContractRequest { caID :: Text , caWallet
 -- TODO(SN): DRY subscribers
 initTxSubscriber :: Wallet -> (OnChainTx tx -> IO ()) -> IO ()
 initTxSubscriber wallet callback = do
-  res <- runReq defaultHttpConfig $ req
-      POST
-      (http "127.0.0.1" /: "api" /: "new" /: "contract" /: "activate")
-      (ReqBodyJson reqBody)
-      jsonResponse
-      (port 8080)
-  when (responseStatusCode res /= 200) $
-    error "failed to activateContract"
-  let cid = unContractInstanceId $ responseBody res
+  cid <- unContractInstanceId <$> activateContract WatchInit wallet
   say $ "activated: " <> show cid
   runClient "127.0.0.1" 8080 ("/ws/" <> show cid) $ \con -> forever $ do
     msg <- receiveData con
@@ -97,20 +99,10 @@ initTxSubscriber wallet callback = do
             callback $ InitTx mempty
       Right _ -> say "received some other state change"
       Left err -> say $ "error decoding msg: " <> show err
- where
-  reqBody = ActivateContractRequest "WatchInit" wallet
 
 utxoSubscriber :: Wallet -> IO ()
 utxoSubscriber wallet = do
-  res <- runReq defaultHttpConfig $ req
-      POST
-      (http "127.0.0.1" /: "api" /: "new" /: "contract" /: "activate")
-      (ReqBodyJson reqBody)
-      jsonResponse
-      (port 8080)
-  when (responseStatusCode res /= 200) $
-    error "failed to activateContract"
-  let cid = unContractInstanceId $ responseBody res
+  cid <- unContractInstanceId <$> activateContract GetUtxos wallet
   say $ "activated: " <> show cid
   runClient "127.0.0.1" 8080 ("/ws/" <> show cid) $ \con -> forever $ do
     msg <- receiveData con
@@ -123,5 +115,10 @@ utxoSubscriber wallet = do
             say $ "own funds: " ++ show (flattenValue v)
       Right _ -> pure ()
       Left err -> error $ "error decoding msg: " <> show err
+
+retryOnAnyHttpException :: (MonadCatch m, MonadDelay m, MonadIO m) => m b -> m b
+retryOnAnyHttpException action = action `catch` onAnyHttpException
  where
-  reqBody = ActivateContractRequest "GetUtxos" wallet
+  onAnyHttpException = \case
+    (VanillaHttpException _) -> threadDelay 1 >> retryOnAnyHttpException action
+    e -> throwIO e

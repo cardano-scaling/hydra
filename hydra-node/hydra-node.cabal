@@ -119,6 +119,7 @@ library
     , data-default
     , gitrev
     , hydra-prelude
+    , hydra-plutus
     , io-sim-classes
     , iohk-monitoring
     , iproute

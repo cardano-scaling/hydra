@@ -84,6 +84,7 @@ library
   exposed-modules:
       Hydra.Contract.OnChain
       Hydra.Contract.OffChain
+      Hydra.Contract.PAB
   hs-source-dirs: src
   build-depends:
       aeson,
@@ -96,6 +97,7 @@ library
       plutus-contract,
       plutus-ledger,
       plutus-tx-plugin,
+      prettyprinter,
       template-haskell
 
   if flag(defer-plutus-plugin-errors)
@@ -152,7 +154,6 @@ executable hydra-pab
     , plutus-ledger
     , plutus-pab
     , playground-common
-    , prettyprinter
     , text
   ghc-options:
     -threaded
