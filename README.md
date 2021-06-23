@@ -45,3 +45,40 @@ Documentation is published online at https://input-output-hk.github.io/hydra-poc
 * [hydra-node](https://input-output-hk.github.io/hydra-poc/haddock/hydra-node/index.html)
 * [hydra-plutus](https://input-output-hk.github.io/hydra-poc/haddock/hydra-plutus/index.html)
 * [local-cluster](https://input-output-hk.github.io/hydra-poc/haddock/local-cluster/index.html)
+
+## Try it out
+
+When in the `nix-shell`, you can start a demo scenario with three parties using
+the following commands each in a separate shell:
+
+``` sh
+$ cabal exec mock-chain
+```
+
+``` sh
+$ abal exec hydra-node -- --node-id 1 --api-port 4001 \
+  --port 5001 --peer "localhost@5002" --peer "localhost@5003" \
+  --me "demo/alice.sk" --party "demo/bob.vk" --party "demo/carol.vk"
+```
+
+``` sh
+$ cabal exec hydra-node -- --node-id 2 --api-port 4002 \
+  --port 5002 --peer "localhost@5001" --peer "localhost@5003" \
+  --me "demo/bob.sk" --party "demo/alice.vk" --party "demo/carol.vk"
+```
+
+``` sh
+$ cabal exec hydra-node -- --node-id 3 --api-port 4003 \
+  --port 5003 --peer "localhost@5001" --peer "localhost@5002" \
+  --me "demo/carol.sk" --party "demo/alice.vk" --party "demo/bob.vk"
+```
+
+Then you can interact with any of the three `hydra-node` instances using `ws`
+and connecting to the individual port, e.g. to initiate a head via alice's
+`hydra-node`:
+
+``` sh
+$ ws ws://127.0.0.1:4001
+> Init
+< ReadyToCommit
+```
