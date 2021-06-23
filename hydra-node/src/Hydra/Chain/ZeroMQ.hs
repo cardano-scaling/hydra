@@ -12,10 +12,11 @@ import Hydra.Prelude
 import Control.Monad.Class.MonadAsync (async, link)
 import Control.Monad.Class.MonadSTM (modifyTVar', newTBQueue, newTVarIO, readTBQueue, readTVar, writeTBQueue)
 import qualified Data.Text.Encoding as Enc
+import Hydra.Chain (Chain (..))
 import Hydra.HeadLogic (Event (OnChainEvent), OnChainTx)
 import Hydra.Ledger (Tx)
 import Hydra.Logging (Tracer, traceWith)
-import Hydra.Node (EventQueue (..), OnChain (..))
+import Hydra.Node (EventQueue (..))
 import System.ZMQ4.Monadic (
   Pub (..),
   Rep (..),
@@ -153,7 +154,7 @@ catchUpTransactions catchUpAddress handler tracer = runZMQ $ do
       forM_ txs handler
     Nothing -> error $ "cannot decode catch-up transactions  " <> show message
 
-createMockChainClient :: Tx tx => EventQueue IO (Event tx) -> Tracer IO (MockChainLog tx) -> IO (OnChain tx IO)
+createMockChainClient :: Tx tx => EventQueue IO (Event tx) -> Tracer IO (MockChainLog tx) -> IO (Chain tx IO)
 createMockChainClient EventQueue{putEvent} tracer = do
   -- TODO: Do a proper cleanup of threads and what not
   -- BUG(SN): This should wait until we are connected to the chain, otherwise we
@@ -162,7 +163,7 @@ createMockChainClient EventQueue{putEvent} tracer = do
   catchUpTransactions "tcp://127.0.0.1:56790" onTx tracer
   link =<< async (runChainSync "tcp://127.0.0.1:56789" onTx tracer)
   threadDelay 0.1
-  pure OnChain{postTx = sendTx}
+  pure Chain{postTx = sendTx}
  where
   sendTx tx = mockChainClient "tcp://127.0.0.1:56791" tracer tx
 

@@ -79,6 +79,8 @@ library
   hs-source-dirs: src
   exposed-modules:
     Hydra.API.Server
+    Hydra.Chain
+    Hydra.Chain.ExternalPAB
     Hydra.Chain.ZeroMQ
     Hydra.HeadLogic
     Hydra.Ledger
@@ -101,9 +103,11 @@ library
   other-modules:
     Paths_hydra_node
   build-depends:
-      base
+      aeson
+    , base
     , cardano-binary
     , cardano-crypto-class
+    , cardano-ledger-core
     , cardano-ledger-shelley-ma
     , cardano-ledger-shelley-ma-test
     , cardano-prelude
@@ -115,6 +119,7 @@ library
     , data-default
     , gitrev
     , hydra-prelude
+    , hydra-plutus
     , io-sim-classes
     , iohk-monitoring
     , iproute
@@ -122,11 +127,17 @@ library
     , network-mux
     , optparse-applicative
     , ouroboros-network-framework
+    , plutus-contract
+    , plutus-ledger
+    , plutus-pab
     , prometheus
+    , req
     , shelley-spec-ledger
     , shelley-spec-ledger-test
     , stm
+    , strict-containers
     , text
+    , time
     , typed-protocols
     , typed-protocols-examples
     , websockets
@@ -164,6 +175,7 @@ test-suite tests
   hs-source-dirs: test
   other-modules:
     Hydra.API.ServerSpec
+    Hydra.Chain.ExternalPABSpec
     Hydra.Chain.ZeroMQSpec
     Hydra.FireForgetSpec
     Hydra.BehaviorSpec
@@ -193,6 +205,7 @@ test-suite tests
     , io-sim-classes
     , iproute
     , network
+    , process
     , quickcheck-instances
     , say
     , text
@@ -202,7 +215,7 @@ test-suite tests
     , HUnit
     , QuickCheck
   build-tool-depends:
-    hspec-discover:hspec-discover
+    hspec-discover:hspec-discover, hydra-plutus:hydra-pab
   ghc-options:
     -threaded
     -rtsopts

@@ -11,10 +11,12 @@ import Hydra.Prelude
 import Hydra.API.Server (APIServerLog)
 import Hydra.Chain.ZeroMQ (MockChainLog)
 import Hydra.Node (HydraNodeLog)
+import Hydra.Chain.ExternalPAB (ExternalPABLog)
 
 data HydraLog tx net
   = MockChain (MockChainLog tx)
   | APIServer APIServerLog
   | Network net
   | Node (HydraNodeLog tx)
+  | Chain ExternalPABLog
   deriving (Eq, Show)

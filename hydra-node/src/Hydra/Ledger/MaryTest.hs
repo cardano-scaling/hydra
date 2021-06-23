@@ -15,13 +15,17 @@ import Cardano.Ledger.ShelleyMA.Timelocks (ValidityInterval (..))
 import Cardano.Ledger.ShelleyMA.TxBody (TxBody (TxBody))
 import Cardano.Ledger.Val ((<->))
 import qualified Cardano.Ledger.Val as Val
-import Cardano.Slotting.EpochInfo (fixedSizeEpochInfo)
-import Cardano.Slotting.Slot (EpochSize (EpochSize))
+import Cardano.Slotting.EpochInfo (
+  fixedEpochInfo,
+ )
+import Cardano.Slotting.Slot (EpochSize (..), SlotNo (..))
+import Cardano.Slotting.Time (SystemStart (..), mkSlotLength)
 import Data.Default (Default, def)
 import qualified Data.Map as Map
 import qualified Data.Sequence as Seq
 import qualified Data.Sequence.Strict as StrictSeq
 import qualified Data.Set as Set
+import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
 import Hydra.Ledger (Ledger (..), Tx (..), ValidationError (..))
 import Shelley.Spec.Ledger.API (
   Addr,
@@ -36,14 +40,12 @@ import Shelley.Spec.Ledger.API (
   TxIn (TxIn),
   TxOut (..),
   Wdrl (..),
+  LedgerEnv(..)
  )
 import qualified Shelley.Spec.Ledger.API as Ledger
-import qualified Shelley.Spec.Ledger.API as Ledgers hiding (Tx)
-import Shelley.Spec.Ledger.BaseTypes (UnitInterval, mkActiveSlotCoeff, mkUnitInterval)
-import Shelley.Spec.Ledger.Keys (KeyPair (KeyPair), asWitness)
-import Shelley.Spec.Ledger.LedgerState (LedgerState (..), UTxOState (..))
-import Shelley.Spec.Ledger.PParams (emptyPParams)
-import Shelley.Spec.Ledger.Slot (SlotNo (SlotNo))
+import Cardano.Ledger.BaseTypes (UnitInterval, mkActiveSlotCoeff, mkUnitInterval)
+import Cardano.Ledger.Keys (KeyPair (KeyPair), asWitness)
+import Shelley.Spec.Ledger.LedgerState (UTxOState (..))
 import Shelley.Spec.Ledger.Tx (addrWits)
 import Shelley.Spec.Ledger.UTxO (UTxO (..), makeWitnessesVKey, txid)
 import Test.Cardano.Ledger.EraBuffet (MaryEra, TestCrypto, Value)
@@ -70,40 +72,30 @@ instance Read MaryTestTx where
 instance Read (Ledger.UTxO era) where
   readPrec = error "Read: Ledger.UTxO"
 
-cardanoLedger :: Ledger.LedgersEnv MaryTest -> Ledger (Ledger.Tx MaryTest)
+cardanoLedger :: Ledger.LedgerEnv MaryTest -> Ledger (Ledger.Tx MaryTest)
 cardanoLedger env =
   Ledger
     { applyTransactions = applyTx env
-    , initUTxO = getUTxO def
+    , initUTxO = Ledger._utxo def
     }
 
 applyTx ::
   ( Default (Ledger.UTxOState era)
-  , Default (Ledger.LedgerState era)
   , ApplyTx era
   ) =>
-  Ledger.LedgersEnv era ->
+  Ledger.LedgerEnv era ->
   Ledger.UTxO era ->
   [Ledger.Tx era] ->
   Either ValidationError (Ledger.UTxO era)
 applyTx env utxo txs =
-  case Ledger.applyTxsTransition globals env (Seq.fromList txs) (fromUTxO utxo) of
+  case Ledger.applyTxsTransition globals env (Seq.fromList txs) memPoolState of
     Left err -> Left $ toValidationError err
-    Right ls -> Right $ getUTxO ls
+    Right (ls, _ds) -> Right $ Ledger._utxo ls
  where
   -- toValidationError :: ApplyTxError -> ValidationError
   toValidationError = const ValidationError
 
-getUTxO :: Ledger.LedgerState era -> Ledger.UTxO era
-getUTxO = Ledger._utxo . Ledger._utxoState
-
-fromUTxO ::
-  ( Default (Ledger.UTxOState era)
-  , Default (Ledger.LedgerState era)
-  ) =>
-  Ledger.UTxO era ->
-  Ledger.LedgerState era
-fromUTxO utxo = def{_utxoState = def{_utxo = utxo}}
+  memPoolState = (def{_utxo = utxo}, def)
 
 --
 -- From: shelley/chain-and-ledger/shelley-spec-ledger-test/src/Test/Shelley/Spec/Ledger/Utils.hs
@@ -113,7 +105,7 @@ fromUTxO utxo = def{_utxoState = def{_utxo = utxo}}
 globals :: Globals
 globals =
   Globals
-    { epochInfo = fixedSizeEpochInfo $ EpochSize 100
+    { epochInfoWithErr = fixedEpochInfo (EpochSize 100) (mkSlotLength 1)
     , slotsPerKESPeriod = 20
     , stabilityWindow = 33
     , randomnessStabilisationWindow = 33
@@ -124,6 +116,7 @@ globals =
     , maxLovelaceSupply = 45 * 1000 * 1000 * 1000 * 1000 * 1000
     , activeSlotCoeff = mkActiveSlotCoeff . unsafeMkUnitInterval $ 0.9
     , networkId = Testnet
+    , systemStart = SystemStart $ posixSecondsToUTCTime 0
     }
 
 -- | You vouch that argument is in [0; 1].
@@ -133,14 +126,14 @@ unsafeMkUnitInterval r =
 
 -- * Test functions
 
-mkLedgerEnv :: Ledgers.LedgersEnv MaryTest
+mkLedgerEnv :: Ledger.LedgerEnv MaryTest
 mkLedgerEnv =
-  Ledgers.LedgersEnv
-    { Ledgers.ledgersSlotNo = SlotNo 1
-    , Ledgers.ledgersPp = emptyPParams
-    , Ledgers.ledgersAccount = error "Not implemented"
+  Ledger.LedgerEnv
+    { ledgerSlotNo = SlotNo 1
+    , ledgerIx = error "mkLedgerEnv ledgerIx undefinex"
+    , ledgerPp = def
+    , ledgerAccount = error "mkLedgerenv ledgersAccount undefined"
     }
-
 --
 -- From: shelley-ma/shelley-ma-test/test/Test/Cardano/Ledger/Mary/Examples/MultiAssets.hs
 --

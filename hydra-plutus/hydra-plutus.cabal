@@ -1,6 +1,6 @@
 cabal-version: 2.2
 name: hydra-plutus
-version: 0.1.0.0
+version: 0.1.0
 description:        Hydra Plutus Contracts
 author:             IOHK
 copyright:          2021 IOHK
@@ -32,6 +32,7 @@ common project-config
     ConstraintKinds
     DataKinds
     DefaultSignatures
+    DeriveAnyClass
     DeriveDataTypeable
     DeriveFoldable
     DeriveFunctor
@@ -59,6 +60,7 @@ common project-config
     ScopedTypeVariables
     StandaloneDeriving
     TupleSections
+    TypeApplications
     TypeFamilies
     TypeOperators
     TypeSynonymInstances
@@ -82,6 +84,7 @@ library
   exposed-modules:
       Hydra.Contract.OnChain
       Hydra.Contract.OffChain
+      Hydra.Contract.PAB
   hs-source-dirs: src
   build-depends:
       aeson,
@@ -94,6 +97,7 @@ library
       plutus-contract,
       plutus-ledger,
       plutus-tx-plugin,
+      prettyprinter,
       template-haskell
 
   if flag(defer-plutus-plugin-errors)
@@ -131,3 +135,26 @@ test-suite hydra-plutus-test
       tasty-hunit,
       tasty-quickcheck,
       text
+
+executable hydra-pab
+  import: project-config
+  hs-source-dirs: exe/hydra-pab
+  main-is: Main.hs
+  build-depends:
+      aeson
+    , base
+    , cardano-prelude
+    , containers
+    , directory
+    , freer-extras
+    , freer-simple
+    , hydra-plutus
+    , optparse-applicative
+    , plutus-contract
+    , plutus-ledger
+    , plutus-pab
+    , playground-common
+    , text
+  ghc-options:
+    -threaded
+    -rtsopts

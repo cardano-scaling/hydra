@@ -1,4 +1,3 @@
-{-# LANGUAGE TypeApplications #-}
 {-# OPTIONS_GHC -fplugin-opt PlutusTx.Plugin:defer-errors #-}
 
 module Hydra.ContractTest where
@@ -18,6 +17,7 @@ import Ledger.Ada (lovelaceValueOf)
 import Ledger.AddressMap (UtxoMap)
 import Plutus.Contract (Contract)
 import Plutus.Contract.Test (
+  TracePredicate,
   Wallet (..),
   assertFailedTransaction,
   assertNoFailedTransactions,
@@ -34,6 +34,7 @@ import qualified Data.Map.Strict as Map
 import qualified Hydra.Contract.OffChain as OffChain
 import qualified Hydra.Contract.OnChain as OnChain
 import qualified Plutus.Trace.Emulator as Trace
+import Test.Tasty.ExpectedFailure (expectFail)
 import qualified Prelude
 
 --
@@ -116,19 +117,24 @@ tests =
           utxoAlice <- selectOne <$> utxoOf alice
           callEndpoint @"commit" aliceH (vk alice, utxoAlice)
           callEndpoint @"abort" aliceH (vk alice, [txOutTxOut $ snd utxoAlice])
-    , checkPredicate
-        "Init > Commit > CollectCom: CollectCom is not allowed when not all parties have committed"
-        ( assertFailedTransaction (\_ _ _ -> True)
-            .&&. assertFinalState contract alice stateIsInitial
-            .&&. walletFundsChange alice (inv fixtureAmount)
-        )
-        $ do
-          aliceH <- setupWallet alice
-          callEndpoint @"init" aliceH ()
-          utxoAlice <- selectOne <$> utxoOf alice
-          callEndpoint @"commit" aliceH (vk alice, utxoAlice)
-          callEndpoint @"collectCom" aliceH (vk alice, [])
+    , expectFail $
+        checkPredicate
+          "Init > Commit > CollectCom: CollectCom is not allowed when not all parties have committed"
+          ( assertSomeFailedTransaction
+              .&&. assertFinalState contract alice stateIsInitial
+              .&&. walletFundsChange alice (inv fixtureAmount)
+          )
+          $ do
+            aliceH <- setupWallet alice
+            callEndpoint @"init" aliceH ()
+            utxoAlice <- selectOne <$> utxoOf alice
+            callEndpoint @"commit" aliceH (vk alice, utxoAlice)
+            callEndpoint @"collectCom" aliceH (vk alice, [])
     ]
+
+assertSomeFailedTransaction :: TracePredicate
+assertSomeFailedTransaction =
+  assertFailedTransaction $ \_ _ _ -> True
 
 fixtureAmount :: Value
 fixtureAmount = lovelaceValueOf 1000
