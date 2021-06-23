@@ -27,6 +27,5 @@ spec =
 
 withHydraPAB :: IO a -> IO a
 withHydraPAB action =
-  withCreateProcess (proc "hydra-pab" []) $ \_ _ _ _ -> do
-    threadDelay 5
+  withCreateProcess (proc "hydra-pab" []) $ \_ _ _ _ ->
     action

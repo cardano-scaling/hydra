@@ -7,7 +7,7 @@ import Hydra.Chain (Chain (Chain, postTx))
 import Hydra.HeadLogic (OnChainTx (InitTx))
 import Hydra.Ledger (Tx)
 import Hydra.Logging (Tracer)
-import Network.HTTP.Req (POST (..), ReqBodyJson (..), defaultHttpConfig, http, jsonResponse, port, req, responseBody, responseStatusCode, runReq, (/:))
+import Network.HTTP.Req (POST (..), ReqBodyJson (..), defaultHttpConfig, http, jsonResponse, port, req, responseBody, responseStatusCode, runReq, (/:), HttpException (VanillaHttpException))
 import Wallet.Emulator.Types (Wallet (..))
 import Ledger.Value     as Value
 import Data.Aeson (ToJSON, eitherDecodeStrict, Result (Error, Success))
@@ -48,17 +48,24 @@ withExternalPAB _tracer callback action = do
 -- TODO(SN): use MonadHttp, but clashes with MonadThrow
 postInitTx :: Text -> IO ()
 postInitTx cid = do
-  runReq defaultHttpConfig $ do
-    res <-
-      req
-        POST
-        (http "127.0.0.1" /: "api" /: "new" /: "contract" /: "instance" /: cid /: "endpoint" /: "init")
-        (ReqBodyJson ()) -- TODO(SN): this should contain the hydra verification keys and pack them into metadata
-        jsonResponse
-        (port 8080)
-    when (responseStatusCode res /= 200) $
-      error "failed to postInitTx"
-    pure $ responseBody res
+  doRequest `catch` onAnyHttpException doRequest
+ where
+  onAnyHttpException cont = \case
+    (VanillaHttpException _) -> threadDelay 1 >> cont
+    e -> throwIO e
+
+  doRequest =
+    runReq defaultHttpConfig $ do
+      res <-
+        req
+          POST
+          (http "127.0.0.1" /: "api" /: "new" /: "contract" /: "instance" /: cid /: "endpoint" /: "init")
+          (ReqBodyJson ()) -- TODO(SN): this should contain the hydra verification keys and pack them into metadata
+          jsonResponse
+          (port 8080)
+      when (responseStatusCode res /= 200) $
+        error "failed to postInitTx"
+      pure $ responseBody res
 
 data ActivateContractRequest = ActivateContractRequest { caID :: Text , caWallet :: Wallet }
   deriving (Generic, ToJSON)
