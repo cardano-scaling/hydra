@@ -84,35 +84,35 @@ data ActivateContractRequest = ActivateContractRequest { caID :: Text , caWallet
 initTxSubscriber :: Wallet -> (OnChainTx tx -> IO ()) -> IO ()
 initTxSubscriber wallet callback = do
   cid <- unContractInstanceId <$> activateContract WatchInit wallet
-  say $ "activated: " <> show cid
   runClient "127.0.0.1" 8080 ("/ws/" <> show cid) $ \con -> forever $ do
     msg <- receiveData con
-    say $ "received: " <> show msg
     case eitherDecodeStrict msg of
       Right (NewObservableState val) -> do
-        say $ "decoding: " <> show val
         case fromJSON val of
           Error err -> say $ "decoding error json: " <> show err
-          Success (pubKeyHashes :: [PubKeyHash]) -> do -- XXX(SN): this is actually 'Last [PubKeyHash]'
-            say $ "Observed Init tx with datums (pubkeyhashes): " ++ show pubKeyHashes
-            -- TODO(SN): pack hydra verification keys into metadata and callback with these
-            callback $ InitTx mempty
-      Right _ -> say "received some other state change"
+          Success res -> case getLast res of
+            Nothing -> pure ()
+            Just (pubKeyHashes :: [PubKeyHash]) -> do
+              say $ "Observed Init tx with datums (pubkeyhashes): " ++ show pubKeyHashes
+              -- TODO(SN): pack hydra verification keys into metadata and callback with these
+              callback $ InitTx mempty
+      Right _ -> pure ()
       Left err -> say $ "error decoding msg: " <> show err
 
 utxoSubscriber :: Wallet -> IO ()
 utxoSubscriber wallet = do
   cid <- unContractInstanceId <$> activateContract GetUtxos wallet
-  say $ "activated: " <> show cid
   runClient "127.0.0.1" 8080 ("/ws/" <> show cid) $ \con -> forever $ do
     msg <- receiveData con
     case eitherDecodeStrict msg of
       Right (NewObservableState val) ->
         case fromJSON val of
           Error err -> error $ "decoding error json: " <> show err
-          Success (utxos :: UtxoMap) -> do
-            let v = mconcat $ Map.elems $ txOutValue . txOutTxOut <$> utxos
-            say $ "own funds: " ++ show (flattenValue v)
+          Success res -> case getLast res of
+              Nothing -> pure ()
+              Just (utxos :: UtxoMap) -> do
+                let v = mconcat $ Map.elems $ txOutValue . txOutTxOut <$> utxos
+                say $ "Own funds changed: " ++ show (flattenValue v)
       Right _ -> pure ()
       Left err -> error $ "error decoding msg: " <> show err
 
