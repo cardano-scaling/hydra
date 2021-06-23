@@ -18,7 +18,7 @@ There are other such libraries, e.g. [concurrency](https://hackage.haskell.org/p
 
 ## Decision
 
-For all IO effects covered by the library, use functions from typeclasses exposed by [io-sim-classes](https://github.com/input-output-hk/ouroboros-network/tree/master/io-sim-classes). As of this writing, this covers:
+For all IO effects covered by the library, use functions from typeclasses exposed by [io-sim-classes](https://github.com/input-output-hk/ouroboros-network/tree/be47fbb3dbd237a37ad95759e89e455a0a563c19/io-sim-classes). As of this writing, this covers:
   * All STM operations through `MonadSTM`
   * Time and timers through `MonadTime` and `MonadTimer`
   * Concurrency through `MonadAsync`, `MonadFork`
