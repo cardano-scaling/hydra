@@ -8,7 +8,7 @@ import Hydra.Chain.ExternalPAB (withExternalPAB)
 import Hydra.HeadLogic (OnChainTx (..))
 import Hydra.Ledger.Simple (SimpleTx)
 import Hydra.Logging (nullTracer)
-import System.Process (proc, withCreateProcess)
+import System.Process (proc, withCreateProcess, CreateProcess (std_in), StdStream (CreatePipe))
 import Test.Hspec.Core.Spec (Spec, describe, it)
 import Test.Util (failAfter)
 import Test.Hspec (shouldReturn)
@@ -27,5 +27,8 @@ spec =
 
 withHydraPAB :: IO a -> IO a
 withHydraPAB action =
-  withCreateProcess (proc "hydra-pab" []) $ \_ _ _ _ ->
+  -- Open a stdin, as pab tries to read from it
+  withCreateProcess (pab { std_in = CreatePipe }) $ \_ _ _ _ ->
     action
+ where
+  pab = proc "hydra-pab" []
