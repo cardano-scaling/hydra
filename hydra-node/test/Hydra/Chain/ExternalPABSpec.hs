@@ -17,7 +17,7 @@ spec :: Spec
 spec =
   describe "ExternalPAB" $ do
     it "publishes init tx using wallet 1 and observes it also" $ do
-      withHydraPAB $ do
+      failAfter 10 $ withHydraPAB $ do
         calledBack <- newEmptyMVar
         withExternalPAB nullTracer (putMVar calledBack) $ \Chain{postTx} -> do
           let parties = mempty
@@ -28,5 +28,5 @@ spec =
 withHydraPAB :: IO a -> IO a
 withHydraPAB action =
   withCreateProcess (proc "hydra-pab" []) $ \_ _ _ _ -> do
-    threadDelay 3
+    threadDelay 5
     action
