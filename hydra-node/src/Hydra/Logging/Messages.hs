@@ -9,9 +9,9 @@ module Hydra.Logging.Messages where
 import Hydra.Prelude
 
 import Hydra.API.Server (APIServerLog)
+import Hydra.Chain.ExternalPAB (ExternalPABLog)
 import Hydra.Chain.ZeroMQ (MockChainLog)
 import Hydra.Node (HydraNodeLog)
-import Hydra.Chain.ExternalPAB (ExternalPABLog)
 
 data HydraLog tx net
   = MockChain (MockChainLog tx)

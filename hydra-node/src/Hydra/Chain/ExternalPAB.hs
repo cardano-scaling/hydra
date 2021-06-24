@@ -1,26 +1,27 @@
 {-# LANGUAGE EmptyDataDeriving #-}
+
 module Hydra.Chain.ExternalPAB where
 
 import Hydra.Prelude
 
+import Control.Monad.Class.MonadSay (say)
+import Data.Aeson (Result (Error, Success), ToJSON, eitherDecodeStrict)
+import Data.Aeson.Types (fromJSON)
+import qualified Data.Map as Map
 import Hydra.Chain (Chain (Chain, postTx))
+import Hydra.Contract.PAB (PABContract (..))
 import Hydra.HeadLogic (OnChainTx (InitTx))
 import Hydra.Ledger (Tx)
 import Hydra.Logging (Tracer)
-import Network.HTTP.Req (POST (..), ReqBodyJson (..), defaultHttpConfig, http, jsonResponse, port, req, responseBody, responseStatusCode, runReq, (/:), HttpException (VanillaHttpException))
-import Wallet.Emulator.Types (Wallet (..))
-import Ledger.Value     as Value
-import Data.Aeson (ToJSON, eitherDecodeStrict, Result (Error, Success))
-import Network.WebSockets (receiveData)
-import qualified Data.Map as Map
-import Ledger (txOutTxOut, TxOut (txOutValue), PubKeyHash)
-import Control.Monad.Class.MonadSay (say)
-import Wallet.Types (unContractInstanceId, ContractInstanceId)
-import Network.WebSockets.Client (runClient)
+import Ledger (PubKeyHash, TxOut (txOutValue), txOutTxOut)
 import Ledger.AddressMap (UtxoMap)
-import Plutus.PAB.Webserver.Types (InstanceStatusToClient(NewObservableState))
-import Data.Aeson.Types (fromJSON)
-import Hydra.Contract.PAB (PABContract (..))
+import Ledger.Value as Value
+import Network.HTTP.Req (HttpException (VanillaHttpException), POST (..), ReqBodyJson (..), defaultHttpConfig, http, jsonResponse, port, req, responseBody, responseStatusCode, runReq, (/:))
+import Network.WebSockets (receiveData)
+import Network.WebSockets.Client (runClient)
+import Plutus.PAB.Webserver.Types (InstanceStatusToClient (NewObservableState))
+import Wallet.Emulator.Types (Wallet (..))
+import Wallet.Types (ContractInstanceId, unContractInstanceId)
 
 data ExternalPABLog
   deriving (Eq, Show)
@@ -47,12 +48,14 @@ withExternalPAB _tracer callback action = do
 activateContract :: PABContract -> Wallet -> IO ContractInstanceId
 activateContract contract wallet =
   retryOnAnyHttpException $ do
-    res <- runReq defaultHttpConfig $ req
-        POST
-        (http "127.0.0.1" /: "api" /: "new" /: "contract" /: "activate")
-        (ReqBodyJson reqBody)
-        jsonResponse
-        (port 8080)
+    res <-
+      runReq defaultHttpConfig $
+        req
+          POST
+          (http "127.0.0.1" /: "api" /: "new" /: "contract" /: "activate")
+          (ReqBodyJson reqBody)
+          jsonResponse
+          (port 8080)
     when (responseStatusCode res /= 200) $
       error "failed to activateContract"
     pure $ responseBody res
@@ -77,7 +80,7 @@ postInitTx cid =
  where
   cidText = show $ unContractInstanceId cid
 
-data ActivateContractRequest = ActivateContractRequest { caID :: Text , caWallet :: Wallet }
+data ActivateContractRequest = ActivateContractRequest {caID :: Text, caWallet :: Wallet}
   deriving (Generic, ToJSON)
 
 -- TODO(SN): DRY subscribers
@@ -109,10 +112,10 @@ utxoSubscriber wallet = do
         case fromJSON val of
           Error err -> error $ "decoding error json: " <> show err
           Success res -> case getLast res of
-              Nothing -> pure ()
-              Just (utxos :: UtxoMap) -> do
-                let v = mconcat $ Map.elems $ txOutValue . txOutTxOut <$> utxos
-                say $ "Own funds changed: " ++ show (flattenValue v)
+            Nothing -> pure ()
+            Just (utxos :: UtxoMap) -> do
+              let v = mconcat $ Map.elems $ txOutValue . txOutTxOut <$> utxos
+              say $ "Own funds changed: " ++ show (flattenValue v)
       Right _ -> pure ()
       Left err -> error $ "error decoding msg: " <> show err
 

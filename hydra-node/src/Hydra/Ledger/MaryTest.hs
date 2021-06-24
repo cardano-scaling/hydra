@@ -10,6 +10,8 @@ import Hydra.Prelude
 -- REVIEW(SN): use a more consistent set of ledger imports, but some things not
 -- in the API?
 
+import Cardano.Ledger.BaseTypes (UnitInterval, mkActiveSlotCoeff, mkUnitInterval)
+import Cardano.Ledger.Keys (KeyPair (KeyPair), asWitness)
 import Cardano.Ledger.SafeHash (hashAnnotated)
 import Cardano.Ledger.ShelleyMA.Timelocks (ValidityInterval (..))
 import Cardano.Ledger.ShelleyMA.TxBody (TxBody (TxBody))
@@ -32,19 +34,16 @@ import Shelley.Spec.Ledger.API (
   ApplyTx,
   Coin (..),
   Globals (..),
-  KeyPair,
   KeyRole (Payment, Staking),
+  LedgerEnv (..),
   Network (Testnet),
   StrictMaybe (SNothing),
   TxId,
   TxIn (TxIn),
   TxOut (..),
   Wdrl (..),
-  LedgerEnv(..)
  )
 import qualified Shelley.Spec.Ledger.API as Ledger
-import Cardano.Ledger.BaseTypes (UnitInterval, mkActiveSlotCoeff, mkUnitInterval)
-import Cardano.Ledger.Keys (KeyPair (KeyPair), asWitness)
 import Shelley.Spec.Ledger.LedgerState (UTxOState (..))
 import Shelley.Spec.Ledger.Tx (addrWits)
 import Shelley.Spec.Ledger.UTxO (UTxO (..), makeWitnessesVKey, txid)
@@ -134,6 +133,7 @@ mkLedgerEnv =
     , ledgerPp = def
     , ledgerAccount = error "mkLedgerenv ledgersAccount undefined"
     }
+
 --
 -- From: shelley-ma/shelley-ma-test/test/Test/Cardano/Ledger/Mary/Examples/MultiAssets.hs
 --
