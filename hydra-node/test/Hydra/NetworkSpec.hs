@@ -59,7 +59,11 @@ spec = describe "Networking layer" $ do
         withOuroborosNetwork @(HydraMessage SimpleTx) tracer (Host lo port1) [(Host lo port2), (Host lo port3)] (atomically . putMVar node1received) $ \hn1 ->
           withOuroborosNetwork tracer (Host lo port2) [(Host lo port1), (Host lo port3)] (atomically . putMVar node2received) $ \hn2 -> do
             withOuroborosNetwork tracer (Host lo port3) [(Host lo port1), (Host lo port2)] (atomically . putMVar node3received) $ \hn3 -> do
-              assertAllNodesBroadcast port1 port2 port3 hn1 hn2 hn3 node1received node2received node3received
+              assertAllNodesBroadcast
+                [ (port1, hn1, node1received)
+                , (port2, hn2, node2received)
+                , (port1, hn3, node3received)
+                ]
 
   describe "0MQ Network" $
     it "broadcasts messages between 3 connected peers" $ do
@@ -71,32 +75,34 @@ spec = describe "Networking layer" $ do
         withZeroMQNetwork tracer (Host lo port1) [(Host lo port2), (Host lo port3)] (atomically . putMVar node1received) $ \hn1 ->
           withZeroMQNetwork tracer (Host lo port2) [(Host lo port1), (Host lo port3)] (atomically . putMVar node2received) $ \hn2 ->
             withZeroMQNetwork tracer (Host lo port3) [(Host lo port1), (Host lo port2)] (atomically . putMVar node3received) $ \hn3 -> do
-              assertAllNodesBroadcast port1 port2 port3 hn1 hn2 hn3 node1received node2received node3received
+              assertAllNodesBroadcast
+                [ (port1, hn1, node1received)
+                , (port2, hn2, node2received)
+                , (port1, hn3, node3received)
+                ]
 
   describe "Serialisation" $
     it "can roundtrip CBOR encoding/decoding of HydraMessage" $ property $ prop_canRoundtripCBOREncoding @(HydraMessage SimpleTx)
 
 assertAllNodesBroadcast ::
-  PortNumber ->
-  PortNumber ->
-  PortNumber ->
-  Network IO Integer ->
-  Network IO Integer ->
-  Network IO Integer ->
-  TQueue IO Integer ->
-  TQueue IO Integer ->
-  TQueue IO Integer ->
+  [(PortNumber, Network IO Integer, TQueue IO Integer)] ->
   Expectation
-assertAllNodesBroadcast port1 port2 port3 hn1 hn2 hn3 node1received node2received node3received =
-  withAsync (1 `broadcastFrom` hn1) $ \_ ->
-    withAsync (2 `broadcastFrom` hn2) $ \_ ->
-      withAsync (3 `broadcastFrom` hn3) $ \_ -> do
-        shouldEventuallyReceive node1received port1 2
-        shouldEventuallyReceive node1received port1 3
-        shouldEventuallyReceive node3received port3 2
-        shouldEventuallyReceive node3received port3 1
-        shouldEventuallyReceive node2received port2 3
-        shouldEventuallyReceive node2received port2 1
+assertAllNodesBroadcast networks =
+  parallelBroadcast checkQueues networks
+ where
+  parallelBroadcast :: IO () -> [(PortNumber, Network IO Integer, TQueue IO Integer)] -> IO ()
+  parallelBroadcast check [] = check
+  parallelBroadcast check ((port, network, _) : rest) =
+    withAsync (fromIntegral port `broadcastFrom` network) $ \_ -> parallelBroadcast check rest
+
+  checkQueues :: IO ()
+  checkQueues =
+    sequence_ $
+      [ shouldEventuallyReceive receiver myPort (fromIntegral otherPort)
+      | (myPort, _, receiver) <- networks
+      , (otherPort, _, _) <- networks
+      , otherPort /= myPort
+      ]
 
 broadcastFrom :: a -> Network IO a -> IO ()
 broadcastFrom requestTx network =

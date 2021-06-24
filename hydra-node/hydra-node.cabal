@@ -70,7 +70,6 @@ common project-config
     -Wincomplete-uni-patterns
     -Wpartial-fields
     -Wredundant-constraints
-    -Wunused-packages
 
   if !flag(development)
       ghc-options: -Werror
