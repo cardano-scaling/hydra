@@ -3,12 +3,12 @@
 
 module Test.EndToEndSpec where
 
-import Hydra.Prelude
+import Hydra.Prelude ( ($), Num((+)), String )
 
 import Cardano.Crypto.DSIGN (
   MockDSIGN,
   SignKeyDSIGN,
-  VerKeyDSIGN,
+  VerKeyDSIGN, DSIGNAlgorithm (deriveVerKeyDSIGN)
  )
 import qualified Data.ByteString as BS
 import HydraNode (
@@ -26,10 +26,9 @@ import Test.Hspec (
   Spec,
   describe,
   it,
-  pendingWith,
   shouldSatisfy,
  )
-import Text.Regex.TDFA
+import Text.Regex.TDFA ( (=~) )
 import Text.Regex.TDFA.Text ()
 
 aliceSk, bobSk, carolSk :: SignKeyDSIGN MockDSIGN
@@ -38,9 +37,9 @@ bobSk = 20
 carolSk = 30
 
 aliceVk, bobVk, carolVk :: VerKeyDSIGN MockDSIGN
-aliceVk = 11
-bobVk = 21
-carolVk = 31
+aliceVk = deriveVerKeyDSIGN aliceSk
+bobVk = deriveVerKeyDSIGN bobSk
+carolVk = deriveVerKeyDSIGN carolSk
 
 spec :: Spec
 spec = describe "End-to-end test using a mocked chain though" $ do
@@ -54,7 +53,7 @@ spec = describe "End-to-end test using a mocked chain though" $ do
                 waitForNodesConnected [n1, n2, n3]
                 let contestationPeriod = 3 -- TODO: Should be part of init
                 sendRequest n1 "Init"
-                waitForResponse 3 [n1, n2, n3] "ReadyToCommit [VerKeyMockDSIGN 11, VerKeyMockDSIGN 21, VerKeyMockDSIGN 31]"
+                waitForResponse 3 [n1, n2, n3] "ReadyToCommit [VerKeyMockDSIGN 10,VerKeyMockDSIGN 20,VerKeyMockDSIGN 30]"
                 sendRequest n1 "Commit (fromList [1])"
                 sendRequest n2 "Commit (fromList [2])"
                 sendRequest n3 "Commit (fromList [3])"
@@ -75,7 +74,7 @@ spec = describe "End-to-end test using a mocked chain though" $ do
               withHydraNode 3 carolSk [aliceVk, bobVk] $ \_n3 -> do
                 waitForNodesConnected [n1]
                 sendRequest n1 "Init"
-                waitForResponse 3 [n1] "ReadyToCommit"
+                waitForResponse 3 [n1] "ReadyToCommit [VerKeyMockDSIGN 10,VerKeyMockDSIGN 20,VerKeyMockDSIGN 30]"
 
                 metrics <- getMetrics n1
                 metrics `shouldSatisfy` ("hydra_head_events  5" `BS.isInfixOf`)

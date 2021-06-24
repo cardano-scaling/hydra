@@ -7,9 +7,10 @@ module Hydra.Node where
 
 import Hydra.Prelude
 
-import Cardano.Crypto.DSIGN (deriveVerKeyDSIGN, rawDeserialiseSignKeyDSIGN)
+import Cardano.Crypto.DSIGN (DSIGNAlgorithm (rawDeserialiseVerKeyDSIGN), deriveVerKeyDSIGN, rawDeserialiseSignKeyDSIGN)
 import Control.Monad.Class.MonadAsync (async)
 import Control.Monad.Class.MonadSTM (newTQueue, newTVarIO, readTQueue, stateTVar, writeTQueue)
+import qualified Data.Set as Set
 import Hydra.Chain (Chain (..))
 import Hydra.HeadLogic (
   ClientRequest (..),
@@ -33,11 +34,28 @@ import Hydra.Options (Options (..))
 -- * Environment Handling
 
 initEnvironment :: Options -> IO Environment
-initEnvironment Options{me} = do
-  mKey <- rawDeserialiseSignKeyDSIGN <$> readFileBS me
-  case mKey of
-    Nothing -> fail $ "Failed to decode signing key from " <> me
-    Just key -> pure $ Environment (UnsafeParty $ deriveVerKeyDSIGN key) NoSnapshots
+initEnvironment Options{me, parties} = do
+  sk <- loadSigningKey me
+  let vk = deriveVerKeyDSIGN sk
+  otherVKeys <- mapM loadVerificationKey parties
+  pure $
+    Environment
+      { party = UnsafeParty vk
+      , allParties = Set.fromList . map UnsafeParty $ vk : otherVKeys
+      , snapshotStrategy = NoSnapshots
+      }
+ where
+  loadSigningKey p = do
+    mKey <- rawDeserialiseSignKeyDSIGN <$> readFileBS p
+    case mKey of
+      Nothing -> fail $ "Failed to decode signing key from " <> p
+      Just key -> pure key
+
+  loadVerificationKey p = do
+    mKey <- rawDeserialiseVerKeyDSIGN <$> readFileBS p
+    case mKey of
+      Nothing -> fail $ "Failed to decode verification key from " <> p
+      Just key -> pure key
 --
 
 -- ** Create and run a hydra node

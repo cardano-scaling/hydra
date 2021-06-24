@@ -174,6 +174,7 @@ deriving instance Tx tx => Show (Outcome tx)
 data Environment = Environment
   { -- | This is the p_i from the paper
     party :: Party
+  , allParties :: Set Party
   , snapshotStrategy :: SnapshotStrategy
   }
 
@@ -190,9 +191,9 @@ update ::
   HeadState tx ->
   Event tx ->
   Outcome tx
-update Environment{party, snapshotStrategy} ledger (HeadState parameters st) ev = case (st, ev) of
+update Environment{party, allParties, snapshotStrategy} ledger (HeadState parameters st) ev = case (st, ev) of
   (InitState, ClientEvent Init) ->
-    newState InitState [OnChainEffect (InitTx $ parties parameters)]
+    newState InitState [OnChainEffect (InitTx allParties)]
   (_, OnChainEvent (InitTx parties)) ->
     -- NOTE(SN): Eventually we won't be able to construct 'HeadParameters' from
     -- the 'InitTx'
