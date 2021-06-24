@@ -34,9 +34,10 @@ spec = describe "API Server" $ do
           semaphore <- newTVarIO 0
           withAsync (concurrently_ (testClient port queue semaphore) (testClient port queue semaphore)) $ \_ -> do
             atomically $ readTVar semaphore >>= \n -> check (n == 2)
-            response ReadyToCommit
+            let arbitraryMsg = ReadyToCommit []
+            response arbitraryMsg
 
-            atomically (replicateM 2 (readTQueue queue)) `shouldReturn` [ReadyToCommit, ReadyToCommit]
+            atomically (replicateM 2 (readTQueue queue)) `shouldReturn` [arbitraryMsg, arbitraryMsg]
             atomically (tryReadTQueue queue) `shouldReturn` Nothing
 
 withFreePort :: (Int -> IO ()) -> IO ()

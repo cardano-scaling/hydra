@@ -44,6 +44,7 @@ spec = describe "Hydra Head Logic" $ do
       env =
         Environment
           { party = 2
+          , allParties = threeParties
           , snapshotStrategy = NoSnapshots
           }
       -- NOTE: This unrealistic Tx is just there to be always valid as
@@ -151,7 +152,7 @@ prop_handleOnChainEventInAnyState =
           Wait -> True
           Error _ -> False
  where
-  env = Environment 1 NoSnapshots
+  env = Environment 1 mempty NoSnapshots
   ledger = simpleLedger
 
 hasEffect :: Tx tx => Outcome tx -> Effect tx -> IO ()
