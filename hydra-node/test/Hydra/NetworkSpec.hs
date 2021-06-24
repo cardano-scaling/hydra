@@ -105,7 +105,6 @@ broadcastFrom requestTx network =
 shouldEventuallyReceive :: TQueue IO Integer -> PortNumber -> Integer -> Expectation
 shouldEventuallyReceive queue numNode value = do
   val <- atomically $ readTQueue queue
-  unless (val == value) $ shouldEventuallyReturn queue value
   unless (val == value) $ shouldEventuallyReceive queue numNode value
 
 genParty :: Gen Party

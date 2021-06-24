@@ -36,6 +36,7 @@ import Hydra.Network.Ouroboros.Server as FireForget (
   fireForgetServerPeer,
  )
 import Hydra.Network.Ouroboros.Type (
+  FireForget,
   codecFireForget,
  )
 import Network.Mux.Compat (
@@ -105,7 +106,7 @@ import Ouroboros.Network.Subscription.Worker (LocalAddresses (LocalAddresses))
 withOuroborosNetwork ::
   forall msg.
   (ToCBOR msg, FromCBOR msg) =>
-  Tracer IO TraceOuroborosNetwork ->
+  Tracer IO (TraceOuroborosNetwork msg) ->
   Host ->
   [Host] ->
   NetworkCallback msg IO ->
