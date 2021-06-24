@@ -65,7 +65,7 @@ deriving instance Tx tx => Read (Snapshot tx)
 
 data ClientResponse tx
   = PeerConnected Host
-  | ReadyToCommit
+  | ReadyToCommit [Party]
   | HeadIsOpen (UTxO tx)
   | HeadIsClosed DiffTime (Snapshot tx) [tx]
   | HeadIsFinalized (UTxO tx)
@@ -202,7 +202,7 @@ update Environment{party, snapshotStrategy} ledger (HeadState parameters st) ev 
           , headStatus = CollectingState parties mempty
           }
       )
-      [ClientEffect ReadyToCommit]
+      [ClientEffect $ ReadyToCommit (Set.toList parties)]
   --
   (CollectingState remainingParties _, ClientEvent (Commit utxo)) ->
     if canCommit

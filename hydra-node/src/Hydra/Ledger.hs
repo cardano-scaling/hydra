@@ -12,8 +12,8 @@ import Hydra.Prelude hiding (show)
 
 -- | Identifies a party in a Hydra head.
 newtype Party = UnsafeParty (VerKeyDSIGN MockDSIGN)
-  deriving (Eq, Show, Read)
-  deriving newtype (Num)
+  deriving (Eq)
+  deriving newtype (Show, Read, Num)
 
 deriving instance Read (VerKeyDSIGN MockDSIGN)
 
