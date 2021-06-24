@@ -25,6 +25,7 @@ import Hydra.HeadLogic (
 import Hydra.Ledger (Ledger (..), Party, Tx, sign)
 import Hydra.Ledger.Builder (utxoRef)
 import Hydra.Ledger.Simple (SimpleTx (..), TxIn (..), simpleLedger)
+import Hydra.Network (Host (Host, hostName, portNumber))
 import Test.Hspec (
   Spec,
   describe,
@@ -73,7 +74,7 @@ spec = describe "Hydra Head Logic" $ do
     update env ledger s0 reqTx `shouldBe` Wait
 
   it "notifies client when it receives a ping" $ do
-    let host = ("0.0.0.0", 4000)
+    let host = Host{hostName = "0.0.0.0", portNumber = 4000}
     update env ledger (initialState threeParties ledger) (NetworkEvent $ Ping host)
       `hasEffect` ClientEffect (PeerConnected host)
 

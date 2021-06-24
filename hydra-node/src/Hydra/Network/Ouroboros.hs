@@ -22,7 +22,7 @@ import Control.Concurrent.STM (
 import Control.Monad.Class.MonadAsync (wait)
 import Hydra.Logging (Tracer, nullTracer)
 import Hydra.Network (
-  Host,
+  Host (..),
   Network (..),
   NetworkCallback,
   PortNumber,
@@ -125,8 +125,8 @@ withOuroborosNetwork tracer localHost remoteHosts networkCallback between = do
             { broadcast = atomically . writeTChan bchan
             }
  where
-  resolveSockAddr (hostname, port) = do
-    is <- getAddrInfo (Just defaultHints) (Just hostname) (Just $ show port)
+  resolveSockAddr Host{hostName, portNumber} = do
+    is <- getAddrInfo (Just defaultHints) (Just $ toString hostName) (Just $ show portNumber)
     case is of
       (info : _) -> pure $ addrAddress info
       _ -> error "getAdrrInfo failed.. do proper error handling"
@@ -135,7 +135,7 @@ withOuroborosNetwork tracer localHost remoteHosts networkCallback between = do
     -- REVIEW(SN): move outside to have this information available?
     networkState <- newNetworkMutableState
     -- Using port number 0 to let the operating system pick a random port
-    localAddr <- resolveSockAddr (second (const (0 :: Integer)) localHost)
+    localAddr <- resolveSockAddr localHost{portNumber = 0}
     remoteAddrs <- forM remoteHosts resolveSockAddr
     let sn = socketSnocket iomgr
     Subscription.ipSubscriptionWorker

@@ -5,6 +5,7 @@ module Hydra.HeadLogic where
 
 import Hydra.Prelude
 
+import Cardano.Binary (FromCBOR (..), ToCBOR (..))
 import Cardano.Crypto.Util (SignableRepresentation (..))
 import Data.List ((\\))
 import qualified Data.Map.Strict as Map
@@ -24,9 +25,7 @@ import Hydra.Ledger (
   sign,
   verify,
  )
-import Network.Socket (HostName, PortNumber)
-
-type Host = (HostName, PortNumber)
+import Hydra.Network (Host)
 
 data Event tx
   = ClientEvent (ClientRequest tx)
@@ -95,6 +94,32 @@ data HydraMessage tx
   | AckSn Party (Signed (Snapshot tx)) SnapshotNumber
   | Ping Host
   deriving (Eq, Show)
+
+deriving stock instance Generic (HydraMessage tx)
+
+instance (ToCBOR tx, ToCBOR (UTxO tx)) => ToCBOR (HydraMessage tx) where
+  toCBOR = \case
+    ReqTx tx -> toCBOR ("ReqTx" :: Text) <> toCBOR tx
+    AckTx party tx -> toCBOR ("AckTx" :: Text) <> toCBOR party <> toCBOR tx
+    ReqSn party sn txs -> toCBOR ("ReqSn" :: Text) <> toCBOR party <> toCBOR sn <> toCBOR txs
+    AckSn party sig sn -> toCBOR ("AckSn" :: Text) <> toCBOR party <> toCBOR sig <> toCBOR sn
+    Ping host -> toCBOR ("Ping" :: Text) <> toCBOR host
+
+instance (ToCBOR tx, ToCBOR (UTxO tx)) => ToCBOR (Snapshot tx) where
+  toCBOR Snapshot{number, utxo, confirmed} = toCBOR number <> toCBOR utxo <> toCBOR confirmed
+
+instance (FromCBOR tx, FromCBOR (UTxO tx)) => FromCBOR (HydraMessage tx) where
+  fromCBOR =
+    fromCBOR >>= \case
+      ("ReqTx" :: Text) -> ReqTx <$> fromCBOR
+      "AckTx" -> AckTx <$> fromCBOR <*> fromCBOR
+      "ReqSn" -> ReqSn <$> fromCBOR <*> fromCBOR <*> fromCBOR
+      "AckSn" -> AckSn <$> fromCBOR <*> fromCBOR <*> fromCBOR
+      "Ping" -> Ping <$> fromCBOR
+      msg -> fail $ show msg <> " is not a proper CBOR-encoded HydraMessage"
+
+instance (FromCBOR tx, FromCBOR (UTxO tx)) => FromCBOR (Snapshot tx) where
+  fromCBOR = Snapshot <$> fromCBOR <*> fromCBOR <*> fromCBOR
 
 -- NOTE(SN): Might not be symmetric in a real chain client, i.e. posting
 -- transactions could be parameterized using such data types, but they are not
