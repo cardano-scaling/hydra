@@ -15,7 +15,7 @@ import Hydra.Prelude
 
 import Control.Monad.Class.MonadSTM (newTVarIO, readTVar, writeTVar)
 import Hydra.HeadLogic (HydraMessage (..))
-import Hydra.Network (Network (..), NetworkComponent, Host)
+import Hydra.Network (Host, Network (..), NetworkComponent)
 
 data HeartbeatState
   = SendHeartbeat

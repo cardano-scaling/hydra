@@ -4,7 +4,7 @@
 module Hydra.Ledger where
 
 import Cardano.Binary (FromCBOR (fromCBOR), ToCBOR (toCBOR))
-import Cardano.Crypto.DSIGN (DSIGNAlgorithm (..), MockDSIGN, VerKeyDSIGN (VerKeyMockDSIGN), decodeVerKeyDSIGN, encodeVerKeyDSIGN)
+import Cardano.Crypto.DSIGN (DSIGNAlgorithm (..), MockDSIGN, VerKeyDSIGN (VerKeyMockDSIGN))
 import Hydra.Prelude hiding (show)
 
 -- NOTE(MB): We probably want to move these common types somewhere else. Putting
@@ -22,13 +22,19 @@ instance Ord Party where
     rawSerialiseVerKeyDSIGN a <= rawSerialiseVerKeyDSIGN b
 
 instance FromCBOR Party where
-  fromCBOR = UnsafeParty <$> decodeVerKeyDSIGN
+  fromCBOR = UnsafeParty <$> fromCBOR
 
 instance ToCBOR Party where
-  toCBOR (UnsafeParty vk) = encodeVerKeyDSIGN vk
+  toCBOR (UnsafeParty vk) = toCBOR vk
 
-data Signed a = UnsafeSigned a (SigDSIGN MockDSIGN)
+newtype Signed a = UnsafeSigned (SigDSIGN MockDSIGN)
   deriving (Eq, Show)
+
+instance Typeable a => FromCBOR (Signed a) where
+  fromCBOR = UnsafeSigned <$> fromCBOR
+
+instance Typeable a => ToCBOR (Signed a) where
+  toCBOR (UnsafeSigned sig) = toCBOR sig
 
 -- TODO:
 -- deriving instance Read (SigDSIGN MockDSIGN)

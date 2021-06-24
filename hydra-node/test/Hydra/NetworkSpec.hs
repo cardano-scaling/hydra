@@ -7,12 +7,14 @@ module Hydra.NetworkSpec where
 import Hydra.Prelude
 
 import Cardano.Binary (FromCBOR, ToCBOR, fromCBOR, toCBOR)
+import Cardano.Crypto.DSIGN (DSIGNAlgorithm (signDSIGN), genKeyDSIGN)
+import Cardano.Crypto.Seed (mkSeedFromBytes)
 import Codec.CBOR.Read (deserialiseFromBytes)
 import Codec.CBOR.Write (toLazyByteString)
 import Control.Monad.Class.MonadSTM (newEmptyTMVarIO, putTMVar, takeTMVar)
 import Data.IP (toIPv4w)
 import Hydra.HeadLogic (Host, HydraMessage (..), Snapshot (..))
-import Hydra.Ledger (Party (..))
+import Hydra.Ledger (Party (..), Signed (UnsafeSigned))
 import Hydra.Ledger.Builder (utxoRef)
 import Hydra.Ledger.Simple (SimpleTx (..))
 import Hydra.Ledger.SimpleSpec (genSimpleTx, genUtxo)
@@ -31,6 +33,7 @@ import Test.QuickCheck (
   vectorOf,
  )
 import Test.QuickCheck.Gen (Gen)
+import Test.QuickCheck.Instances.ByteString ()
 import Test.Util (arbitraryNatural, failAfter, showLogsOnFailure)
 
 spec :: Spec
@@ -90,6 +93,13 @@ assertBroadcastFrom requestTx network receivers =
 genParty :: Gen Party
 genParty = UnsafeParty . fromInteger . getPositive <$> arbitrary
 
+-- | Some random signature, for any type 'a'.
+genSignature :: Gen (Signed a)
+genSignature = do
+  key <- genKeyDSIGN . mkSeedFromBytes <$> arbitrary
+  a <- arbitrary @ByteString
+  pure . UnsafeSigned $ signDSIGN () a key
+
 genHost :: Gen Host
 genHost = do
   ip <- toIPv4w <$> arbitrary
@@ -102,7 +112,7 @@ instance Arbitrary (HydraMessage SimpleTx) where
       [ ReqTx <$> genSimpleTx
       , AckTx <$> genParty <*> genSimpleTx
       , ReqSn <$> genParty <*> arbitraryNatural <*> vectorOf 10 genSimpleTx
-      , AckSn <$> genParty <*> arbitraryNatural
+      , AckSn <$> genParty <*> genSignature <*> arbitraryNatural
       , Ping <$> genHost
       ]
 

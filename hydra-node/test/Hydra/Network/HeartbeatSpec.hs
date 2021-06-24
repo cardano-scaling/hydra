@@ -6,7 +6,7 @@ import Control.Monad.Class.MonadSTM (modifyTVar', newTVarIO, readTVar)
 import Control.Monad.IOSim (runSimOrThrow)
 import Hydra.HeadLogic (HydraMessage (..))
 import Hydra.Ledger.Simple (SimpleTx)
-import Hydra.Network ( Network(..), Host )
+import Hydra.Network (Host, Network (..))
 import Hydra.Network.Heartbeat (withHeartbeat)
 import Test.Hspec (Spec, describe, it, shouldBe)
 
@@ -40,7 +40,7 @@ spec = describe "Heartbeat" $ do
     receivedHeartbeats `shouldBe` [Ping anotherHost]
 
   it "stop sending heartbeat message given action sends a message" $ do
-    let someMessage = AckSn 1 1
+    let someMessage = ReqTx (error "should not be used")
         sentHeartbeats = runSimOrThrow $ do
           sentMessages <- newTVarIO ([] :: [HydraMessage SimpleTx])
 

@@ -81,7 +81,7 @@ instance (ToCBOR tx, ToCBOR (UTxO tx)) => ToCBOR (HydraMessage tx) where
     ReqTx tx -> toCBOR ("ReqTx" :: Text) <> toCBOR tx
     AckTx party tx -> toCBOR ("AckTx" :: Text) <> toCBOR party <> toCBOR tx
     ReqSn party sn txs -> toCBOR ("ReqSn" :: Text) <> toCBOR party <> toCBOR sn <> toCBOR txs
-    AckSn party sn -> toCBOR ("AckSn" :: Text) <> toCBOR party <> toCBOR sn
+    AckSn party sig sn -> toCBOR ("AckSn" :: Text) <> toCBOR party <> toCBOR sig <> toCBOR sn
     Ping host -> toCBOR ("Ping" :: Text) <> toCBOR (showHost @Text host)
 
 instance (ToCBOR tx, ToCBOR (UTxO tx)) => ToCBOR (Snapshot tx) where
@@ -93,7 +93,7 @@ instance (FromCBOR tx, FromCBOR (UTxO tx)) => FromCBOR (HydraMessage tx) where
       ("ReqTx" :: Text) -> ReqTx <$> fromCBOR
       "AckTx" -> AckTx <$> fromCBOR <*> fromCBOR
       "ReqSn" -> ReqSn <$> fromCBOR <*> fromCBOR <*> fromCBOR
-      "AckSn" -> AckSn <$> fromCBOR <*> fromCBOR
+      "AckSn" -> AckSn <$> fromCBOR <*> fromCBOR <*> fromCBOR
       "Ping" -> Ping <$> (fromCBOR @Text >>= readHost . toString)
       msg -> fail $ show msg <> " is not a proper CBOR-encoded HydraMessage"
 

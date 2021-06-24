@@ -12,6 +12,7 @@ import Hydra.Ledger (
   Committed,
   Ledger,
   Party,
+  Signed,
   Tx,
   UTxO,
   ValidationError,
@@ -84,7 +85,7 @@ data HydraMessage tx
   = ReqTx tx
   | AckTx Party tx
   | ReqSn Party SnapshotNumber [tx]
-  | AckSn Party (Signed SnapshotNumber)
+  | AckSn Party (Signed (Snapshot tx)) SnapshotNumber
   | Ping Host
   deriving (Eq, Show)
 
@@ -293,8 +294,8 @@ update Environment{party, allParties, snapshotStrategy} ledger (HeadState parame
           let nextSnapshot = Snapshot sn u txs
            in newState
                 (OpenState $ s{seenSnapshot = Just (nextSnapshot, mempty)})
-                [NetworkEffect $ AckSn party sn]
-  (OpenState headState@SimpleHeadState{confirmedTxs, seenSnapshot}, NetworkEvent (AckSn otherParty sn)) ->
+                [NetworkEffect $ AckSn party (error "provide snapshot signature") sn]
+  (OpenState headState@SimpleHeadState{confirmedTxs, seenSnapshot}, NetworkEvent (AckSn otherParty _snapshotSignature sn)) ->
     -- TODO: Verify snapshot signatures.
     case seenSnapshot of
       Nothing -> error "TODO: wait until reqSn is seen (and seenSnapshot created)"

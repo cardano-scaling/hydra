@@ -79,7 +79,7 @@ spec = describe "Hydra Head Logic" $ do
   it "confirms snapshot given it receives AckSn from all parties" $ do
     let s0 = initialState threeParties ledger
         reqSn = NetworkEvent $ ReqSn 1 1 []
-        ackFrom p = NetworkEvent $ AckSn p 1
+        ackFrom p = NetworkEvent $ AckSn p (error "valid signature") 1
     s1 <- assertNewState $ update env ledger s0 reqSn
     s2 <- assertNewState $ update env ledger s1 (ackFrom 3)
     s3 <- assertNewState $ update env ledger s2 (ackFrom 1)
@@ -92,8 +92,8 @@ spec = describe "Hydra Head Logic" $ do
   it "does not confirm snapshot when given wrong signature" $ do
     let s0 = initialState threeParties ledger
         reqSn = NetworkEvent $ ReqSn 1 1 []
-        ackFrom p = NetworkEvent $ AckSn p 1
-        invalidAckFrom p = error "TODO: must create an invalid signature."
+        ackFrom p = NetworkEvent $ AckSn p (error "valid signature") 1
+        invalidAckFrom p = NetworkEvent $ AckSn p (error "invalid signature") 1
     s1 <- assertNewState $ update env ledger s0 reqSn
     s2 <- assertNewState $ update env ledger s1 (ackFrom 3)
     s3 <- assertNewState $ update env ledger s2 (ackFrom 1)
@@ -114,7 +114,7 @@ spec = describe "Hydra Head Logic" $ do
     let event = NetworkEvent $ ReqSn theLeader 1 []
         theLeader = 1
         st = initialState threeParties ledger
-    update env ledger st event `hasEffect` NetworkEffect (AckSn (party env) 1)
+    update env ledger st event `hasEffect` NetworkEffect (AckSn (party env) (error "valid signature") 1)
 
   it "does not ack snapshots from non-leaders" $ do
     let event = NetworkEvent $ ReqSn notTheLeader 1 []

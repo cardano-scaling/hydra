@@ -194,6 +194,7 @@ test-suite tests
   build-depends:
       base
     , cardano-binary
+    , cardano-crypto-class
     , cborg
     , containers
     , contra-tracer
