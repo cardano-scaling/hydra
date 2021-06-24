@@ -80,26 +80,39 @@ spec = describe "Hydra Head Logic" $ do
     let s0 = initialState threeParties ledger
         reqSn = NetworkEvent $ ReqSn 1 1 []
         snapshot1 = Snapshot 1 mempty []
-        validSnapshotSignature = sign 1 snapshot1
-        ackFrom p = NetworkEvent $ AckSn p validSnapshotSignature 1
+        ackFrom sk vk = NetworkEvent $ AckSn vk (sign sk snapshot1) 1
     s1 <- assertNewState $ update env ledger s0 reqSn
-    s2 <- assertNewState $ update env ledger s1 (ackFrom 3)
-    s3 <- assertNewState $ update env ledger s2 (ackFrom 1)
+    s2 <- assertNewState $ update env ledger s1 (ackFrom 3 3)
+    s3 <- assertNewState $ update env ledger s2 (ackFrom 1 1)
 
     getConfirmedSnapshot s3 `shouldBe` Just (Snapshot 0 mempty [])
 
-    s4 <- assertNewState $ update env ledger s3 (ackFrom 2)
+    s4 <- assertNewState $ update env ledger s3 (ackFrom 2 2)
     getConfirmedSnapshot s4 `shouldBe` Just snapshot1
 
-  it "does not confirm snapshot when given wrong signature" $ do
+  it "does not confirm snapshot when given a non-matching signature produced from a different message" $ do
     let s0 = initialState threeParties ledger
         reqSn = NetworkEvent $ ReqSn 1 1 []
-        ackFrom p = NetworkEvent $ AckSn p (error "valid signature") 1
-        invalidAckFrom p = NetworkEvent $ AckSn p (error "invalid signature") 1
+        snapshot = Snapshot 1 mempty []
+        snapshot' = Snapshot 2 mempty []
+        ackFrom sk vk = NetworkEvent $ AckSn vk (sign sk snapshot) 1
+        invalidAckFrom sk vk = NetworkEvent $ AckSn vk (sign sk snapshot') 1
     s1 <- assertNewState $ update env ledger s0 reqSn
-    s2 <- assertNewState $ update env ledger s1 (ackFrom 3)
-    s3 <- assertNewState $ update env ledger s2 (ackFrom 1)
-    s4 <- assertNewState $ update env ledger s3 (invalidAckFrom 2)
+    s2 <- assertNewState $ update env ledger s1 (ackFrom 3 3)
+    s3 <- assertNewState $ update env ledger s2 (ackFrom 1 1)
+    s4 <- assertNewState $ update env ledger s3 (invalidAckFrom 2 2)
+
+    getConfirmedSnapshot s4 `shouldBe` getConfirmedSnapshot s3
+
+  it "does not confirm snapshot when given a non-matching signature produced from a different key" $ do
+    let s0 = initialState threeParties ledger
+        reqSn = NetworkEvent $ ReqSn 1 1 []
+        snapshot = Snapshot 1 mempty []
+        ackFrom sk vk = NetworkEvent $ AckSn vk (sign sk snapshot) 1
+    s1 <- assertNewState $ update env ledger s0 reqSn
+    s2 <- assertNewState $ update env ledger s1 (ackFrom 3 3)
+    s3 <- assertNewState $ update env ledger s2 (ackFrom 1 1)
+    s4 <- assertNewState $ update env ledger s3 (ackFrom 42 2)
 
     getConfirmedSnapshot s4 `shouldBe` getConfirmedSnapshot s3
 
@@ -112,11 +125,14 @@ spec = describe "Hydra Head Logic" $ do
         st = initialState threeParties ledger
     update env ledger st event `shouldBe` Error (InvalidEvent event st)
 
-  it "acks snapshot from the constant leader" $ do
-    let event = NetworkEvent $ ReqSn theLeader 1 []
-        theLeader = 1
+  it "acks signed snapshot from the constant leader" $ do
+    let leader = 1
+        snapshot = Snapshot 1 mempty []
+        event = NetworkEvent $ ReqSn leader (number snapshot) []
+        sig = sign 2 snapshot
         st = initialState threeParties ledger
-    update env ledger st event `hasEffect` NetworkEffect (AckSn (party env) (error "valid signature") 1)
+        ack = AckSn (party env) sig (number snapshot)
+    update env ledger st event `hasEffect` NetworkEffect ack
 
   it "does not ack snapshots from non-leaders" $ do
     let event = NetworkEvent $ ReqSn notTheLeader 1 []

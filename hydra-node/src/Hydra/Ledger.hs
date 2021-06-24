@@ -40,6 +40,10 @@ instance Typeable a => ToCBOR (Signed a) where
 sign :: SignableRepresentation a => SignKeyDSIGN MockDSIGN -> a -> Signed a
 sign signingKey signable = UnsafeSigned $ signDSIGN () signable signingKey
 
+verify :: SignableRepresentation a => Signed a -> Party -> a -> Bool
+verify (UnsafeSigned sig) (UnsafeParty vk) msg =
+  isRight (verifyDSIGN () vk msg sig)
+
 -- TODO:
 -- deriving instance Read (SigDSIGN MockDSIGN)
 
