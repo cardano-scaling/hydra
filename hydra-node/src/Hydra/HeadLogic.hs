@@ -208,7 +208,7 @@ update Environment{party, allParties, snapshotStrategy} ledger (HeadState parame
   (CollectingState remainingParties _, ClientEvent (Commit utxo)) ->
     if canCommit
       then newState st [OnChainEffect (CommitTx party utxo)]
-      else error $ "you're not allowed to commit (anymore): remainingParties : " <> show remainingParties <> ", partiyIndex:  " <> show party
+      else error $ "you're not allowed to commit (anymore): remainingParties : " <> show remainingParties <> ", party:  " <> show party
    where
     canCommit = party `Set.member` remainingParties
   (CollectingState remainingParties committed, OnChainEvent (CommitTx pt utxo)) ->
