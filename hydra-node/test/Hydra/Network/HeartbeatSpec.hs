@@ -40,9 +40,9 @@ spec = describe "Heartbeat" $ do
     receivedHeartbeats `shouldBe` [Ping anotherHost]
 
   it "stop sending heartbeat message given action sends a message" $ do
-    let someMessage = ReqTx (error "should not be used")
+    let someMessage = ReqTx 1
         sentHeartbeats = runSimOrThrow $ do
-          sentMessages <- newTVarIO ([] :: [HydraMessage SimpleTx])
+          sentMessages <- newTVarIO ([] :: [HydraMessage Integer])
 
           withHeartbeat testHost (dummyNetwork sentMessages) noop $ \Network{broadcast} -> do
             threadDelay 0.6

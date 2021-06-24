@@ -96,7 +96,7 @@ genParty = UnsafeParty . fromInteger . getPositive <$> arbitrary
 -- | Some random signature, for any type 'a'.
 genSignature :: Gen (Signed a)
 genSignature = do
-  key <- genKeyDSIGN . mkSeedFromBytes <$> arbitrary
+  key <- genKeyDSIGN . mkSeedFromBytes . fromList <$> vectorOf 8 arbitrary
   a <- arbitrary @ByteString
   pure . UnsafeSigned $ signDSIGN () a key
 

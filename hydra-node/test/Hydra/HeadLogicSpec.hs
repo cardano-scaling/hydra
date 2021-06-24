@@ -22,7 +22,7 @@ import Hydra.HeadLogic (
   SnapshotStrategy (..),
   update,
  )
-import Hydra.Ledger (Ledger (..), Party, Tx)
+import Hydra.Ledger (Ledger (..), Party, Tx, sign)
 import Hydra.Ledger.Builder (utxoRef)
 import Hydra.Ledger.Simple (SimpleTx (..), TxIn (..), simpleLedger)
 import Test.Hspec (
@@ -79,7 +79,9 @@ spec = describe "Hydra Head Logic" $ do
   it "confirms snapshot given it receives AckSn from all parties" $ do
     let s0 = initialState threeParties ledger
         reqSn = NetworkEvent $ ReqSn 1 1 []
-        ackFrom p = NetworkEvent $ AckSn p (error "valid signature") 1
+        snapshot1 = Snapshot 1 mempty []
+        validSnapshotSignature = sign 1 snapshot1
+        ackFrom p = NetworkEvent $ AckSn p validSnapshotSignature 1
     s1 <- assertNewState $ update env ledger s0 reqSn
     s2 <- assertNewState $ update env ledger s1 (ackFrom 3)
     s3 <- assertNewState $ update env ledger s2 (ackFrom 1)
@@ -87,7 +89,7 @@ spec = describe "Hydra Head Logic" $ do
     getConfirmedSnapshot s3 `shouldBe` Just (Snapshot 0 mempty [])
 
     s4 <- assertNewState $ update env ledger s3 (ackFrom 2)
-    getConfirmedSnapshot s4 `shouldBe` Just (Snapshot 1 mempty [])
+    getConfirmedSnapshot s4 `shouldBe` Just snapshot1
 
   it "does not confirm snapshot when given wrong signature" $ do
     let s0 = initialState threeParties ledger
@@ -99,7 +101,7 @@ spec = describe "Hydra Head Logic" $ do
     s3 <- assertNewState $ update env ledger s2 (ackFrom 1)
     s4 <- assertNewState $ update env ledger s3 (invalidAckFrom 2)
 
-    getConfirmedSnapshot s3 `shouldBe` getConfirmedSnapshot s4
+    getConfirmedSnapshot s4 `shouldBe` getConfirmedSnapshot s3
 
   it "waits if we receive a snapshot with not-yet-seen transactions" $ do
     let event = NetworkEvent $ ReqSn 1 1 [SimpleTx 1 (utxoRef 1) (utxoRef 2)]

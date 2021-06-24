@@ -5,6 +5,7 @@ module Hydra.HeadLogic where
 
 import Hydra.Prelude
 
+import Cardano.Crypto.Util (SignableRepresentation (..))
 import Data.List ((\\))
 import qualified Data.Map.Strict as Map
 import qualified Data.Set as Set
@@ -63,6 +64,9 @@ data Snapshot tx = Snapshot
 deriving instance Tx tx => Eq (Snapshot tx)
 deriving instance Tx tx => Show (Snapshot tx)
 deriving instance Tx tx => Read (Snapshot tx)
+
+instance Tx tx => SignableRepresentation (Snapshot tx) where
+  getSignableRepresentation = encodeUtf8 . show @Text
 
 data ClientResponse tx
   = PeerConnected Host

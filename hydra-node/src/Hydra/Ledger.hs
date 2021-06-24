@@ -4,7 +4,8 @@
 module Hydra.Ledger where
 
 import Cardano.Binary (FromCBOR (fromCBOR), ToCBOR (toCBOR))
-import Cardano.Crypto.DSIGN (DSIGNAlgorithm (..), MockDSIGN, VerKeyDSIGN (VerKeyMockDSIGN))
+import Cardano.Crypto.DSIGN (DSIGNAlgorithm (..), MockDSIGN, SignKeyDSIGN, VerKeyDSIGN (VerKeyMockDSIGN), signDSIGN)
+import Cardano.Crypto.Util (SignableRepresentation)
 import Hydra.Prelude hiding (show)
 
 -- NOTE(MB): We probably want to move these common types somewhere else. Putting
@@ -35,6 +36,9 @@ instance Typeable a => FromCBOR (Signed a) where
 
 instance Typeable a => ToCBOR (Signed a) where
   toCBOR (UnsafeSigned sig) = toCBOR sig
+
+sign :: SignableRepresentation a => SignKeyDSIGN MockDSIGN -> a -> Signed a
+sign signingKey signable = UnsafeSigned $ signDSIGN () signable signingKey
 
 -- TODO:
 -- deriving instance Read (SigDSIGN MockDSIGN)
