@@ -1,5 +1,6 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE TypeApplications #-}
 {-# OPTIONS_GHC -fno-specialize #-}
 
 module Hydra.Contract.OnChain where
@@ -7,7 +8,6 @@ module Hydra.Contract.OnChain where
 import Ledger
 import PlutusTx.Prelude
 
-import Text.Show (Show)
 import Data.Aeson (FromJSON, ToJSON)
 import Ledger.Ada (lovelaceValueOf)
 import Ledger.Constraints (checkScriptContext)
@@ -22,15 +22,16 @@ import Ledger.Constraints.TxConstraints (
   mustSpendScriptOutput,
  )
 import Ledger.Credential (Credential (..))
-import Ledger.Value (TokenName (..))
-import PlutusPrelude (Generic, (>=>))
-import PlutusTx.AssocMap (Map)
-import PlutusTx.IsData.Class (IsData (..))
-import           Ledger.Typed.Scripts     (ValidatorTypes (..))
+import Ledger.Typed.Scripts (ValidatorTypes (..))
 import qualified Ledger.Typed.Scripts as Scripts
+import Ledger.Value (TokenName (..))
 import qualified Ledger.Value as Value
+import PlutusPrelude (Generic, (>=>))
 import qualified PlutusTx
+import PlutusTx.AssocMap (Map)
 import qualified PlutusTx.AssocMap as Map
+import PlutusTx.IsData.Class (IsData (..))
+import Text.Show (Show)
 
 --
 -- Head Parameters

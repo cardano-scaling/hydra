@@ -1,3 +1,5 @@
+{-# LANGUAGE TypeApplications #-}
+
 module Hydra.Chain.ExternalPABSpec where
 
 import Hydra.Prelude

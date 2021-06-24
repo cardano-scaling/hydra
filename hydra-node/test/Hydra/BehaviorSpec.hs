@@ -29,7 +29,7 @@ import Hydra.HeadLogic (
   SnapshotStrategy (..),
   createHeadState,
  )
-import Hydra.Ledger (Party, Tx, SigningKey, deriveParty)
+import Hydra.Ledger (Party, SigningKey, Tx, deriveParty)
 import Hydra.Ledger.Builder (aValidTx, utxoRef, utxoRefs)
 import Hydra.Ledger.Simple (SimpleTx (..), simpleLedger)
 import Hydra.Logging (Tracer (..))
@@ -321,11 +321,13 @@ withHydraNode signingKey otherParties snapshotStrategy connectToChain action = d
 
   createHydraNode response = do
     let parties = Set.fromList (party : otherParties)
-    let env = Environment { party
-                          , signingKey
-                          , allParties = parties
-                          , snapshotStrategy
-                          }
+    let env =
+          Environment
+            { party
+            , signingKey
+            , allParties = parties
+            , snapshotStrategy
+            }
     eq <- createEventQueue
     let headState = createHeadState [] (HeadParameters testContestationPeriod parties)
     hh <- createHydraHead headState simpleLedger

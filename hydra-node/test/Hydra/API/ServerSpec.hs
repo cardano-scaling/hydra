@@ -1,9 +1,11 @@
+{-# LANGUAGE TypeApplications #-}
+
 module Hydra.API.ServerSpec where
 
-import Hydra.Prelude
+import Control.Exception (IOException)
 import Control.Monad.Class.MonadSTM (
-  modifyTVar',
   check,
+  modifyTVar',
   newTQueue,
   newTVarIO,
   readTQueue,
@@ -17,11 +19,11 @@ import Hydra.HeadLogic (ClientResponse (..))
 import Hydra.Ledger.Simple (SimpleTx)
 import Hydra.Logging (nullTracer)
 import Hydra.Network.Ports (withFreePort)
+import Hydra.Prelude
 import Network.WebSockets (runClient)
 import Network.WebSockets.Connection (receiveData)
 import Test.Hspec
 import Test.Util (failAfter)
-import Control.Exception (IOException)
 
 spec :: Spec
 spec = describe "API Server" $ do
