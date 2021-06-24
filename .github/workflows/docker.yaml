@@ -1,18 +1,20 @@
 name: Docker
 
 on:
-  pull_request:
-    branches: [ "master" ]
   push:
     branches: [ "master" ]
     tags: [ "*.*.*" ]
+  # vvv Temporary, remove before merging.
+  pull_request:
+    branches: [ "master" ]
 
 jobs:
   docker:
     strategy:
       matrix:
         os: [ ubuntu-20.04 ]
-        repository: [ hydra ]
+        repository: [ inputoutput/hydra ]
+        target: [ hydra-node, mock-chain, hydra-pab ]
 
     runs-on: ${{ matrix.os }}
     steps:
@@ -39,8 +41,9 @@ jobs:
       with:
         context: .
         push: true
-        tags: inputoutput/${{ matrix.repository }}:latest
-        cache-from: type=registry,ref=inputoutput/${{ matrix.repository }}:latest
+        tags: ${{ matrix.repository }}:${{ matrix.target }}-latest
+        target: ${{ matrix.target }}
+        cache-from: type=registry,ref=${{ matrix.repository }}:${{ matrix.target }}-latest
         cache-to: type=inline
 
     - name: 📝 Variables
@@ -55,6 +58,7 @@ jobs:
       with:
         context: .
         push: true
-        tags: inputoutput/${{ matrix.repository }}:${{ steps.variables.outputs.tag }}
-        cache-from: type=registry,ref=inputoutput/${{ matrix.repository }}:latest
+        tags: ${{ matrix.repository }}:${{ matrix.target }}-${{ steps.variables.outputs.tag }}
+        target: ${{ matrix.target }}
+        cache-from: type=registry,ref=${{ matrix.repository }}:${{ matrix.target }}-latest
         cache-to: type=inline

@@ -1,10 +1,11 @@
 # This image is really a _starting point_. Some paths for improvements:
 #
-# - Use multi-stage docker to get a smaller "runtime" image.
 # - Produce a static linux binary using musl
 # - Find a way to split the build in multiple steps which can be cached (by Docker) better. Possibly not using Nix.
 
-FROM nixos/nix:2.3.11
+# ------------------------------------------------------------------------ BUILD
+
+FROM nixos/nix:2.3.11 as build
 
 WORKDIR /build
 
@@ -13,6 +14,43 @@ RUN echo "substituters = https://cache.nixos.org https://iohk.cachix.org https:/
 
 COPY . .
 
-RUN nix-build -A hydra-node.components.exes.hydra-node && nix-collect-garbage
+RUN nix-build -A hydra-node -o hydra-node-result release.nix > hydra-node.drv
+RUN nix-build -A mock-chain -o mock-chain-result release.nix > mock-chain.drv
+RUN nix-build -A hydra-pab  -o hydra-pab-result  release.nix > hydra-pab.drv
 
-ENTRYPOINT ["result/bin/hydra-node"]
+RUN nix-store --export $(nix-store -qR $(cat hydra-node.drv)) > hydra-node.closure
+RUN nix-store --export $(nix-store -qR $(cat mock-chain.drv)) > mock-chain.closure
+RUN nix-store --export $(nix-store -qR $(cat hydra-pab.drv))  > hydra-pab.closure
+
+# ------------------------------------------------------------------- HYDRA-NODE
+
+FROM nixos/nix:2.3.11 as hydra-node
+
+COPY --from=build /build/hydra-node-result/bin/hydra-node hydra-node
+COPY --from=build /build/hydra-node.closure hydra-node.closure
+
+RUN nix-store --import < hydra-node.closure
+
+ENTRYPOINT ["hydra-node"]
+
+# ------------------------------------------------------------------- MOCK-CHAIN
+
+FROM nixos/nix:2.3.11 as mock-chain
+
+COPY --from=build /build/mock-chain-result/bin/mock-chain mock-chain
+COPY --from=build /build/mock-chain.closure mock-chain.closure
+
+RUN nix-store --import < mock-chain.closure
+
+ENTRYPOINT ["mock-chain"]
+
+# -------------------------------------------------------------------- HYDRA-PAB
+
+FROM nixos/nix:2.3.11 as hydra-pab
+
+COPY --from=build /build/hydra-pab-result/bin/hydra-pab hydra-pab
+COPY --from=build /build/hydra-pab.closure hydra-pab.closure
+
+RUN nix-store --import < hydra-pab.closure
+
+ENTRYPOINT ["hydra-pab"]
