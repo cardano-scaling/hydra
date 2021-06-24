@@ -196,6 +196,6 @@ waitForNodesConnected = mapM_ waitForOtherNodesConnected
 waitForOtherNodesConnected :: HydraNode -> IO ()
 waitForOtherNodesConnected n@HydraNode{hydraNodeId} =
   forM_ otherNodeIds $ \otherNode ->
-    waitForResponse 10 [n] $ "PeerConnected " <> show ("127.0.0.1" :: Text, 5000 + otherNode)
+    waitForResponse 10 [n] $ "PeerConnected 127.0.0.1@" <> show (5000 + otherNode)
  where
   otherNodeIds = filter (/= hydraNodeId) allNodeIds

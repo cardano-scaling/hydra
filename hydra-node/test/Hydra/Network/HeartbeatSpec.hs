@@ -6,7 +6,7 @@ import Control.Monad.Class.MonadSTM (modifyTVar', newTVarIO, readTVar)
 import Control.Monad.IOSim (runSimOrThrow)
 import Hydra.HeadLogic (HydraMessage (..))
 import Hydra.Ledger.Simple (SimpleTx)
-import Hydra.Network (Host, Network (..))
+import Hydra.Network (Host (..), Network (..))
 import Hydra.Network.Heartbeat (withHeartbeat)
 import Test.Hspec (Spec, describe, it, shouldBe)
 
@@ -27,7 +27,7 @@ spec = describe "Heartbeat" $ do
     sentHeartbeats `shouldBe` replicate 2 (Ping testHost)
 
   it "propagates Heartbeat received from other parties" $ do
-    let anotherHost = ("0.0.0.0", 4001)
+    let anotherHost = Host{hostName = "0.0.0.0", portNumber = 4001}
     let receivedHeartbeats = runSimOrThrow $ do
           receivedMessages <- newTVarIO ([] :: [HydraMessage SimpleTx])
 
@@ -54,7 +54,7 @@ spec = describe "Heartbeat" $ do
     sentHeartbeats `shouldBe` [someMessage, Ping testHost]
 
 testHost :: Host
-testHost = ("0.0.0.0", 4000)
+testHost = Host{hostName = "0.0.0.0", portNumber = 4000}
 
 noop :: Monad m => b -> m ()
 noop = const $ pure ()

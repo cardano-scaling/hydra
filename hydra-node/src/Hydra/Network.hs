@@ -13,7 +13,7 @@ module Hydra.Network (
   NetworkComponent,
   NetworkCallback,
   IP,
-  Host,
+  Host (..),
   showHost,
   readHost,
   PortNumber,
@@ -23,17 +23,15 @@ module Hydra.Network (
   close,
 ) where
 
-import Hydra.Prelude
+import Hydra.Prelude hiding (show)
 
-import Cardano.Binary (
-  FromCBOR (..),
-  ToCBOR (..),
- )
+import Cardano.Binary (FromCBOR (fromCBOR), ToCBOR (toCBOR))
 import Data.IP (IP)
-import Hydra.HeadLogic (HydraMessage (..), Snapshot (..), Host)
-import Hydra.Ledger (UTxO)
+import Data.Text (pack, unpack)
 import Network.Socket (PortNumber, close)
 import Network.TypedProtocol.Pipelined ()
+import Text.Read (Read (readsPrec))
+import Text.Show (Show (show))
 
 -- * Hydra network interface
 
@@ -54,13 +52,33 @@ type NetworkComponent m msg = NetworkCallback msg m -> (Network m msg -> m ()) -
 
 -- * Types used by concrete implementations
 
-showHost :: (IsString s, Semigroup s) => Host -> s
-showHost (hostname, port) = fromString hostname <> "@" <> show port
+data Host = Host
+  { hostName :: Text
+  , portNumber :: PortNumber
+  }
+  deriving (Eq)
 
-readHost :: MonadFail m => String -> m Host
+instance Show Host where
+  show = showHost
+
+instance Read Host where
+  readsPrec _ s = case readHost s of
+    Just h -> [(h, "")]
+    Nothing -> []
+
+instance ToCBOR Host where
+  toCBOR Host{hostName, portNumber} = toCBOR hostName <> toCBOR (toInteger portNumber)
+
+instance FromCBOR Host where
+  fromCBOR = Host <$> fromCBOR <*> (fromInteger <$> fromCBOR)
+
+showHost :: Host -> String
+showHost Host{hostName, portNumber} = unpack hostName <> "@" <> show portNumber
+
+readHost :: String -> Maybe Host
 readHost s =
   case break (== '@') s of
-    (h, '@' : p) -> (h,) <$> readPort p
+    (h, '@' : p) -> Host (pack h) <$> readPort p
     _ -> fail $ "readHost: missing @ in " <> s
 
 readPort :: MonadFail m => String -> m PortNumber
@@ -73,29 +91,3 @@ readPort s =
         else fail $ "readPort: " <> show n <> " not within " <> show maxPort
  where
   maxPort = fromIntegral (maxBound :: Word16)
-
-deriving stock instance Generic (HydraMessage tx)
-
-instance (ToCBOR tx, ToCBOR (UTxO tx)) => ToCBOR (HydraMessage tx) where
-  toCBOR = \case
-    ReqTx tx -> toCBOR ("ReqTx" :: Text) <> toCBOR tx
-    AckTx party tx -> toCBOR ("AckTx" :: Text) <> toCBOR party <> toCBOR tx
-    ReqSn party sn txs -> toCBOR ("ReqSn" :: Text) <> toCBOR party <> toCBOR sn <> toCBOR txs
-    AckSn party sig sn -> toCBOR ("AckSn" :: Text) <> toCBOR party <> toCBOR sig <> toCBOR sn
-    Ping host -> toCBOR ("Ping" :: Text) <> toCBOR (showHost @Text host)
-
-instance (ToCBOR tx, ToCBOR (UTxO tx)) => ToCBOR (Snapshot tx) where
-  toCBOR Snapshot{number, utxo, confirmed} = toCBOR number <> toCBOR utxo <> toCBOR confirmed
-
-instance (FromCBOR tx, FromCBOR (UTxO tx)) => FromCBOR (HydraMessage tx) where
-  fromCBOR =
-    fromCBOR >>= \case
-      ("ReqTx" :: Text) -> ReqTx <$> fromCBOR
-      "AckTx" -> AckTx <$> fromCBOR <*> fromCBOR
-      "ReqSn" -> ReqSn <$> fromCBOR <*> fromCBOR <*> fromCBOR
-      "AckSn" -> AckSn <$> fromCBOR <*> fromCBOR <*> fromCBOR
-      "Ping" -> Ping <$> (fromCBOR @Text >>= readHost . toString)
-      msg -> fail $ show msg <> " is not a proper CBOR-encoded HydraMessage"
-
-instance (FromCBOR tx, FromCBOR (UTxO tx)) => FromCBOR (Snapshot tx) where
-  fromCBOR = Snapshot <$> fromCBOR <*> fromCBOR <*> fromCBOR
