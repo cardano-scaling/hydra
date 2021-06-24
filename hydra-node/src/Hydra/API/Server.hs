@@ -11,11 +11,12 @@ import Hydra.Prelude
 import Control.Concurrent.STM (TChan, dupTChan, readTChan)
 import qualified Control.Concurrent.STM as STM
 import Control.Concurrent.STM.TChan (newBroadcastTChanIO, writeTChan)
+import Data.Aeson (FromJSON, eitherDecode)
 import Hydra.HeadLogic (
   ClientRequest,
   ClientResponse,
  )
-import Hydra.Ledger (Tx)
+import Hydra.Ledger (Tx (..))
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Network (IP, PortNumber)
 import Network.WebSockets (acceptRequest, receiveData, runServer, sendTextData, withPingThread)
@@ -24,12 +25,12 @@ data APIServerLog
   = APIServerStarted {listeningPort :: PortNumber}
   | NewAPIConnection
   | APIResponseSent {sentResponse :: Text}
-  | APIRequestReceived {receivedRequest :: Text}
-  | APIInvalidRequest {receivedRequest :: Text}
+  | APIRequestReceived {receivedRequest :: LByteString}
+  | APIInvalidRequest {receivedRequest :: LByteString}
   deriving (Eq, Show)
 
 withAPIServer ::
-  Tx tx =>
+  (Tx tx, FromJSON tx, FromJSON (UTxO tx)) =>
   IP ->
   PortNumber ->
   Tracer IO APIServerLog ->
@@ -44,7 +45,7 @@ withAPIServer host port tracer requests continuation = do
     (continuation sendResponse)
 
 runAPIServer ::
-  Tx tx =>
+  (Tx tx, FromJSON tx, FromJSON (UTxO tx)) =>
   IP ->
   PortNumber ->
   Tracer IO APIServerLog ->
@@ -68,7 +69,7 @@ runAPIServer host port tracer requestHandler responseChannel = do
 
   receiveRequests con = forever $ do
     msg <- receiveData con
-    case readEither (toString msg) of
+    case eitherDecode msg of
       Right request -> do
         traceWith tracer (APIRequestReceived msg)
         requestHandler request

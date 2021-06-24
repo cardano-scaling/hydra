@@ -27,6 +27,7 @@ import Control.Concurrent.Async (
   forConcurrently_,
  )
 import Control.Exception (IOException)
+import qualified Data.Aeson as Aeson
 import qualified Data.ByteString as BS
 import Data.List (delete)
 import Data.Text.IO (hPutStrLn)
@@ -56,10 +57,10 @@ data HydraNode = HydraNode
   , nodeStdout :: Handle
   }
 
-sendRequest :: HydraNode -> Text -> IO ()
+sendRequest :: HydraNode -> Aeson.Value -> IO ()
 sendRequest HydraNode{hydraNodeId, connection, nodeStdout} request = do
   hPutStrLn nodeStdout ("Tester sending to " <> show hydraNodeId <> ": " <> show request)
-  sendTextData connection request
+  sendTextData connection (Aeson.encode request)
 
 data WaitForResponseTimeout = WaitForResponseTimeout
   { nodeId :: Int

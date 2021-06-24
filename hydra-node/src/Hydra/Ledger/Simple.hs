@@ -12,6 +12,14 @@ module Hydra.Ledger.Simple where
 import Hydra.Prelude
 
 import Cardano.Binary (FromCBOR (..), ToCBOR (..))
+import Data.Aeson (
+  FromJSON,
+  ToJSON,
+  genericParseJSON,
+  genericToJSON,
+ )
+import qualified Data.Aeson as Aeson
+import Data.Aeson.Casing (aesonPrefix, camelCase)
 import qualified Data.Set as Set
 import Hydra.Ledger
 
@@ -27,6 +35,12 @@ data SimpleTx = SimpleTx
   }
   deriving stock (Eq, Ord, Generic, Read, Show)
 
+instance ToJSON SimpleTx where
+  toJSON = genericToJSON (aesonPrefix camelCase)
+
+instance FromJSON SimpleTx where
+  parseJSON = genericParseJSON (aesonPrefix camelCase)
+
 instance ToCBOR SimpleTx where
   toCBOR (SimpleTx txid inputs outputs) =
     toCBOR txid <> toCBOR inputs <> toCBOR outputs
@@ -38,7 +52,7 @@ type TxId = Integer
 
 -- |An identifier for a single output of a 'SimpleTx'.
 newtype TxIn = TxIn {unTxIn :: Integer}
-  deriving newtype (Eq, Ord, Read, Show)
+  deriving newtype (Eq, Ord, Read, Show, ToJSON, FromJSON)
 
 instance ToCBOR TxIn where
   toCBOR (TxIn inId) = toCBOR inId

@@ -9,6 +9,18 @@ import Hydra.Prelude
 import Cardano.Binary (FromCBOR (..), ToCBOR (..))
 import Cardano.Crypto.Util (SignableRepresentation (..))
 import Data.List (elemIndex, (\\))
+import Data.Aeson (
+  FromJSON,
+  SumEncoding (..),
+  ToJSON,
+  constructorTagModifier,
+  genericParseJSON,
+  genericToJSON,
+  sumEncoding,
+  tagSingleConstructors,
+ )
+import qualified Data.Aeson as Aeson
+import Data.Aeson.Casing (camelCase)
 import qualified Data.Map.Strict as Map
 import qualified Data.Set as Set
 import Hydra.Ledger (
@@ -47,6 +59,25 @@ data ClientRequest tx
   | NewTx tx
   | Close
   | Contest
+  deriving (Generic)
+
+instance (ToJSON tx, ToJSON (UTxO tx)) => ToJSON (ClientRequest tx) where
+  toJSON = genericToJSON clientRequestJsonOptions
+
+instance (FromJSON tx, FromJSON (UTxO tx)) => FromJSON (ClientRequest tx) where
+  parseJSON = genericParseJSON clientRequestJsonOptions
+
+clientRequestJsonOptions :: Aeson.Options
+clientRequestJsonOptions =
+  Aeson.defaultOptions
+    { constructorTagModifier = camelCase
+    , tagSingleConstructors = True
+    , sumEncoding =
+        TaggedObject
+          { tagFieldName = "req"
+          , contentsFieldName = "args"
+          }
+    }
 
 deriving instance Tx tx => Eq (ClientRequest tx)
 deriving instance Tx tx => Show (ClientRequest tx)

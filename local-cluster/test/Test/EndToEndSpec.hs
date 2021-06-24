@@ -1,3 +1,4 @@
+{-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE TypeApplications #-}
 {-# OPTIONS_GHC -Wno-incomplete-uni-patterns #-}
 
@@ -10,6 +11,9 @@ import Cardano.Crypto.DSIGN (
   MockDSIGN,
   SignKeyDSIGN,
   VerKeyDSIGN,
+)
+import Data.Aeson.QQ.Simple (
+  aesonQQ,
  )
 import qualified Data.ByteString as BS
 import HydraNode (
@@ -53,17 +57,18 @@ spec = describe "End-to-end test using a mocked chain though" $ do
               withHydraNode 3 carolSk [aliceVk, bobVk] $ \n3 -> do
                 waitForNodesConnected [n1, n2, n3]
                 let contestationPeriod = 3 -- TODO: Should be part of init
-                sendRequest n1 "Init"
+                sendRequest n1 [aesonQQ|{"req": "init"}|]
                 waitForResponse 3 [n1, n2, n3] "ReadyToCommit [VerKeyMockDSIGN 10,VerKeyMockDSIGN 20,VerKeyMockDSIGN 30]"
-                sendRequest n1 "Commit (fromList [1])"
-                sendRequest n2 "Commit (fromList [2])"
-                sendRequest n3 "Commit (fromList [3])"
+                sendRequest n1 [aesonQQ|{"req": "commit", "args": [1] }|]
+                sendRequest n2 [aesonQQ|{"req": "commit", "args": [2] }|]
+                sendRequest n3 [aesonQQ|{"req": "commit", "args": [3] }|]
 
                 waitForResponse 3 [n1, n2, n3] "HeadIsOpen (fromList [1,2,3])"
-                sendRequest n1 "NewTx (SimpleTx {txId = 42, txInputs = fromList [1], txOutputs = fromList [4]})"
+
+                sendRequest n1 [aesonQQ|{"req": "newTx", "args": {"id": 42, "inputs": [1], "outputs": [4]}}|]
                 waitForResponse 10 [n1, n2, n3] "TxSeen (SimpleTx {txId = 42, txInputs = fromList [1], txOutputs = fromList [4]})"
                 waitForResponse 10 [n1, n2, n3] "SnapshotConfirmed 1"
-                sendRequest n1 "Close"
+                sendRequest n1 [aesonQQ|{"req": "close"}|]
                 waitForResponse 3 [n1] "HeadIsClosed 3s (Snapshot {number = 1, utxo = fromList [2,3,4], confirmed = [SimpleTx {txId = 42, txInputs = fromList [1], txOutputs = fromList [4]}]})"
                 waitForResponse (contestationPeriod + 3) [n1] "HeadIsFinalized (fromList [2,3,4])"
 
@@ -75,7 +80,7 @@ spec = describe "End-to-end test using a mocked chain though" $ do
             withHydraNode 2 bobSk [aliceVk, carolVk] $ \_n2 ->
               withHydraNode 3 carolSk [aliceVk, bobVk] $ \_n3 -> do
                 waitForNodesConnected [n1]
-                sendRequest n1 "Init"
+                sendRequest n1 [aesonQQ|{"req": "init"}|]
                 waitForResponse 3 [n1] "ReadyToCommit [VerKeyMockDSIGN 10,VerKeyMockDSIGN 20,VerKeyMockDSIGN 30]"
 
                 metrics <- getMetrics n1
