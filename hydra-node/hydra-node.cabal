@@ -58,7 +58,6 @@ common project-config
     ScopedTypeVariables
     StandaloneDeriving
     TupleSections
-    TypeApplications
     TypeFamilies
     TypeSynonymInstances
     ViewPatterns
