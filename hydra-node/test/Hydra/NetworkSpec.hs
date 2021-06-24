@@ -62,7 +62,7 @@ spec = describe "Networking layer" $ do
               assertAllNodesBroadcast
                 [ (port1, hn1, node1received)
                 , (port2, hn2, node2received)
-                , (port1, hn3, node3received)
+                , (port3, hn3, node3received)
                 ]
 
   describe "0MQ Network" $
@@ -78,7 +78,7 @@ spec = describe "Networking layer" $ do
               assertAllNodesBroadcast
                 [ (port1, hn1, node1received)
                 , (port2, hn2, node2received)
-                , (port1, hn3, node3received)
+                , (port3, hn3, node3received)
                 ]
 
   describe "Serialisation" $
