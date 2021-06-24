@@ -37,7 +37,12 @@ instance Typeable a => FromCBOR (Signed a) where
 instance Typeable a => ToCBOR (Signed a) where
   toCBOR (UnsafeSigned sig) = toCBOR sig
 
-sign :: SignableRepresentation a => SignKeyDSIGN MockDSIGN -> a -> Signed a
+type SigningKey = SignKeyDSIGN MockDSIGN
+
+deriveParty :: SigningKey -> Party
+deriveParty = coerce . deriveVerKeyDSIGN
+
+sign :: SignableRepresentation a => SigningKey -> a -> Signed a
 sign signingKey signable = UnsafeSigned $ signDSIGN () signable signingKey
 
 verify :: SignableRepresentation a => Signed a -> Party -> a -> Bool

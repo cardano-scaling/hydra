@@ -14,13 +14,15 @@ import Hydra.Ledger (
   Ledger,
   Party,
   Signed,
-  verify,
+  SigningKey,
   Tx,
   UTxO,
   ValidationError,
   ValidationResult (Invalid, Valid),
   applyTransactions,
   canApply,
+  sign,
+  verify,
  )
 import Network.Socket (HostName, PortNumber)
 
@@ -180,6 +182,9 @@ deriving instance Tx tx => Show (Outcome tx)
 data Environment = Environment
   { -- | This is the p_i from the paper
     party :: Party
+  , -- NOTE(MB): In the long run we would not want to keep the signing key in
+    -- memory, i.e. have an 'Effect' for signing or so.
+    signingKey :: SigningKey
   , allParties :: Set Party
   , snapshotStrategy :: SnapshotStrategy
   }
@@ -197,7 +202,7 @@ update ::
   HeadState tx ->
   Event tx ->
   Outcome tx
-update Environment{party, allParties, snapshotStrategy} ledger (HeadState parameters st) ev = case (st, ev) of
+update Environment{party, signingKey, allParties, snapshotStrategy} ledger (HeadState parameters st) ev = case (st, ev) of
   (InitState, ClientEvent Init) ->
     newState InitState [OnChainEffect (InitTx allParties)]
   (_, OnChainEvent (InitTx parties)) ->
@@ -297,9 +302,10 @@ update Environment{party, allParties, snapshotStrategy} ledger (HeadState parame
           Wait
         Right u ->
           let nextSnapshot = Snapshot sn u txs
+              snapshotSignature = sign signingKey nextSnapshot
            in newState
                 (OpenState $ s{seenSnapshot = Just (nextSnapshot, mempty)})
-                [NetworkEffect $ AckSn party (error "provide snapshot signature") sn]
+                [NetworkEffect $ AckSn party snapshotSignature sn]
   (OpenState headState@SimpleHeadState{confirmedTxs, seenSnapshot}, NetworkEvent (AckSn otherParty snapshotSignature sn)) ->
     -- TODO: Verify snapshot signatures.
     case seenSnapshot of

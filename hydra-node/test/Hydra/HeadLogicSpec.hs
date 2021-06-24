@@ -44,6 +44,7 @@ spec = describe "Hydra Head Logic" $ do
       env =
         Environment
           { party = 2
+          , signingKey = 2
           , allParties = threeParties
           , snapshotStrategy = NoSnapshots
           }
@@ -182,7 +183,13 @@ prop_handleOnChainEventInAnyState =
           Wait -> True
           Error _ -> False
  where
-  env = Environment 1 mempty NoSnapshots
+  env =
+    Environment
+      { party = 1
+      , signingKey = 1
+      , allParties = mempty -- TODO(SN): This is a big smell, make this impossible!
+      , snapshotStrategy = NoSnapshots
+      }
   ledger = simpleLedger
 
 hasEffect :: Tx tx => Outcome tx -> Effect tx -> IO ()

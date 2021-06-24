@@ -29,7 +29,7 @@ import Hydra.HeadLogic (
   SnapshotStrategy (..),
   createHeadState,
  )
-import Hydra.Ledger (Party, Tx)
+import Hydra.Ledger (Party, Tx, SigningKey, deriveParty)
 import Hydra.Ledger.Builder (aValidTx, utxoRef, utxoRefs)
 import Hydra.Ledger.Simple (SimpleTx (..), simpleLedger)
 import Hydra.Logging (Tracer (..))
@@ -254,8 +254,7 @@ sendRequestAndWaitFor node req expected = do
 
 -- | A thin layer around 'HydraNode' to be able to 'waitForResponse'.
 data TestHydraNode tx m = TestHydraNode
-  { nodeId :: Party
-  , sendRequest :: ClientRequest tx -> m ()
+  { sendRequest :: ClientRequest tx -> m ()
   , waitForResponse :: m (ClientResponse tx)
   }
 
@@ -301,13 +300,13 @@ testContestationPeriod = 3600
 
 withHydraNode ::
   forall s a.
-  Party ->
+  SigningKey ->
   [Party] ->
   SnapshotStrategy ->
   ConnectToChain SimpleTx (IOSim s) ->
   (TestHydraNode SimpleTx (IOSim s) -> IOSim s a) ->
   IOSim s a
-withHydraNode party otherParties snapshotStrategy connectToChain action = do
+withHydraNode signingKey otherParties snapshotStrategy connectToChain action = do
   response <- atomically newTQueue
   node <- createHydraNode response
 
@@ -316,12 +315,17 @@ withHydraNode party otherParties snapshotStrategy connectToChain action = do
       TestHydraNode
         { sendRequest = handleClientRequest node
         , waitForResponse = atomically $ readTQueue response
-        , nodeId = party
         }
  where
+  party = deriveParty signingKey
+
   createHydraNode response = do
     let parties = Set.fromList (party : otherParties)
-    let env = Environment party parties snapshotStrategy
+    let env = Environment { party
+                          , signingKey
+                          , allParties = parties
+                          , snapshotStrategy
+                          }
     eq <- createEventQueue
     let headState = createHeadState [] (HeadParameters testContestationPeriod parties)
     hh <- createHydraHead headState simpleLedger

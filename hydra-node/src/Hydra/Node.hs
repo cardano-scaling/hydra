@@ -41,6 +41,7 @@ initEnvironment Options{me, parties} = do
   pure $
     Environment
       { party = UnsafeParty vk
+      , signingKey = sk
       , allParties = Set.fromList . map UnsafeParty $ vk : otherVKeys
       , snapshotStrategy = NoSnapshots
       }
