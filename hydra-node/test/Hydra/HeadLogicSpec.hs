@@ -89,6 +89,18 @@ spec = describe "Hydra Head Logic" $ do
     s4 <- assertNewState $ update env ledger s3 (ackFrom 2)
     getConfirmedSnapshot s4 `shouldBe` Just (Snapshot 1 mempty [])
 
+  it "does not confirm snapshot when given wrong signature" $ do
+    let s0 = initialState threeParties ledger
+        reqSn = NetworkEvent $ ReqSn 1 1 []
+        ackFrom p = NetworkEvent $ AckSn p 1
+        invalidAckFrom p = error "TODO: must create an invalid signature."
+    s1 <- assertNewState $ update env ledger s0 reqSn
+    s2 <- assertNewState $ update env ledger s1 (ackFrom 3)
+    s3 <- assertNewState $ update env ledger s2 (ackFrom 1)
+    s4 <- assertNewState $ update env ledger s3 (invalidAckFrom 2)
+
+    getConfirmedSnapshot s3 `shouldBe` getConfirmedSnapshot s4
+
   it "waits if we receive a snapshot with not-yet-seen transactions" $ do
     let event = NetworkEvent $ ReqSn 1 1 [SimpleTx 1 (utxoRef 1) (utxoRef 2)]
     update env ledger (initialState threeParties ledger) event `shouldBe` Wait

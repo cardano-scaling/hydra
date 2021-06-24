@@ -4,7 +4,7 @@
 module Hydra.Ledger where
 
 import Cardano.Binary (FromCBOR (fromCBOR), ToCBOR (toCBOR))
-import Cardano.Crypto.DSIGN (DSIGNAlgorithm (VerKeyDSIGN, rawSerialiseVerKeyDSIGN), MockDSIGN, VerKeyDSIGN (VerKeyMockDSIGN), decodeVerKeyDSIGN, encodeVerKeyDSIGN)
+import Cardano.Crypto.DSIGN (DSIGNAlgorithm (..), MockDSIGN, VerKeyDSIGN (VerKeyMockDSIGN), decodeVerKeyDSIGN, encodeVerKeyDSIGN)
 import Hydra.Prelude hiding (show)
 
 -- NOTE(MB): We probably want to move these common types somewhere else. Putting
@@ -26,6 +26,12 @@ instance FromCBOR Party where
 
 instance ToCBOR Party where
   toCBOR (UnsafeParty vk) = encodeVerKeyDSIGN vk
+
+data Signed a = UnsafeSigned a (SigDSIGN MockDSIGN)
+  deriving (Eq, Show)
+
+-- TODO:
+-- deriving instance Read (SigDSIGN MockDSIGN)
 
 type Committed tx = Map Party (UTxO tx)
 

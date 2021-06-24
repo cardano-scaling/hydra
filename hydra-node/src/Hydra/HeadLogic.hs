@@ -84,7 +84,7 @@ data HydraMessage tx
   = ReqTx tx
   | AckTx Party tx
   | ReqSn Party SnapshotNumber [tx]
-  | AckSn Party SnapshotNumber
+  | AckSn Party (Signed SnapshotNumber)
   | Ping Host
   deriving (Eq, Show)
 
