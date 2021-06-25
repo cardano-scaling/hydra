@@ -17,7 +17,7 @@ import Hydra.HeadLogic (
   LogicError (..),
   OnChainTx (..),
   Outcome (..),
-  SimpleHeadState (..),
+  CoordinatedHeadState (..),
   Snapshot (..),
   SnapshotStrategy (..),
   update,
@@ -162,8 +162,8 @@ genOnChainTx =
     [ InitTx mempty
     , CommitTx 1 (Set.fromList [TxIn 1, TxIn 2])
     , CollectComTx mempty
-    , CloseTx (Snapshot 0 mempty mempty) mempty
-    , ContestTx (Snapshot 0 mempty mempty) mempty
+    , CloseTx (Snapshot 0 mempty mempty)
+    , ContestTx (Snapshot 0 mempty mempty)
     , FanoutTx (Set.fromList [TxIn 1, TxIn 2])
     ]
 
@@ -173,7 +173,7 @@ genHeadStatus =
     [ InitState
     , FinalState
     , CollectingState mempty mempty
-    , OpenState (SimpleHeadState mempty mempty mempty (Snapshot 0 mempty mempty) Nothing)
+    , OpenState (CoordinatedHeadState mempty mempty (Snapshot 0 mempty mempty) Nothing)
     ]
 
 defaultHeadParameters :: HeadParameters
@@ -213,7 +213,7 @@ initialState parties Ledger{initUTxO} =
   let u0 = initUTxO
       snapshot0 = Snapshot 0 u0 mempty
    in HeadState
-        { headStatus = OpenState $ SimpleHeadState u0 mempty mempty snapshot0 Nothing
+        { headStatus = OpenState $ CoordinatedHeadState u0 mempty snapshot0 Nothing
         , headParameters =
             HeadParameters
               { contestationPeriod = 42
@@ -221,14 +221,9 @@ initialState parties Ledger{initUTxO} =
               }
         }
 
-getConfirmedTransactions :: HeadState tx -> [tx]
-getConfirmedTransactions HeadState{headStatus} = case headStatus of
-  OpenState SimpleHeadState{confirmedTxs} -> confirmedTxs
-  _ -> []
-
 getConfirmedSnapshot :: HeadState tx -> Maybe (Snapshot tx)
 getConfirmedSnapshot HeadState{headStatus} = case headStatus of
-  OpenState SimpleHeadState{confirmedSnapshot} -> Just confirmedSnapshot
+  OpenState CoordinatedHeadState{confirmedSnapshot} -> Just confirmedSnapshot
   _ -> Nothing
 
 assertNewState :: Outcome SimpleTx -> IO (HeadState SimpleTx)

@@ -8,7 +8,6 @@ import Hydra.Prelude
 
 import Cardano.Binary (FromCBOR (..), ToCBOR (..))
 import Cardano.Crypto.Util (SignableRepresentation (..))
-import Data.List ((\\))
 import qualified Data.Map.Strict as Map
 import qualified Data.Set as Set
 import Hydra.Ledger (
@@ -73,7 +72,7 @@ data ClientResponse tx
   = PeerConnected Host
   | ReadyToCommit [Party]
   | HeadIsOpen (UTxO tx)
-  | HeadIsClosed DiffTime (Snapshot tx) [tx]
+  | HeadIsClosed DiffTime (Snapshot tx)
   | HeadIsFinalized (UTxO tx)
   | CommandFailed
   | TxSeen tx
@@ -127,8 +126,8 @@ data OnChainTx tx
   = InitTx (Set Party)
   | CommitTx Party (UTxO tx)
   | CollectComTx (UTxO tx)
-  | CloseTx (Snapshot tx) [tx]
-  | ContestTx (Snapshot tx) [tx]
+  | CloseTx (Snapshot tx)
+  | ContestTx (Snapshot tx)
   | FanoutTx (UTxO tx)
 
 deriving instance Tx tx => Eq (OnChainTx tx)
@@ -146,24 +145,23 @@ deriving instance Tx tx => Show (HeadState tx)
 data HeadStatus tx
   = InitState
   | CollectingState PendingCommits (Committed tx)
-  | OpenState (SimpleHeadState tx)
+  | OpenState (CoordinatedHeadState tx)
   | ClosedState (UTxO tx)
   | FinalState
 
 deriving instance Tx tx => Eq (HeadStatus tx)
 deriving instance Tx tx => Show (HeadStatus tx)
 
-data SimpleHeadState tx = SimpleHeadState
+data CoordinatedHeadState tx = CoordinatedHeadState
   { seenUTxO :: UTxO tx
   , -- TODO: tx should be an abstract 'TxId'
     seenTxs :: [tx]
-  , confirmedTxs :: [tx]
   , confirmedSnapshot :: Snapshot tx
   , seenSnapshot :: Maybe (Snapshot tx, Set Party)
   }
 
-deriving instance Tx tx => Eq (SimpleHeadState tx)
-deriving instance Tx tx => Show (SimpleHeadState tx)
+deriving instance Tx tx => Eq (CoordinatedHeadState tx)
+deriving instance Tx tx => Show (CoordinatedHeadState tx)
 
 type PendingCommits = Set Party
 
@@ -261,17 +259,17 @@ update Environment{party, signingKey, allParties, snapshotStrategy} ledger (Head
   (_, OnChainEvent (CollectComTx utxo)) ->
     let u0 = utxo
      in newState
-          (OpenState $ SimpleHeadState u0 mempty mempty (Snapshot 0 u0 mempty) Nothing)
+          (OpenState $ CoordinatedHeadState u0 mempty (Snapshot 0 u0 mempty) Nothing)
           [ClientEffect $ HeadIsOpen u0]
   --
-  (OpenState SimpleHeadState{confirmedSnapshot, confirmedTxs}, ClientEvent Close) ->
+  (OpenState CoordinatedHeadState{confirmedSnapshot}, ClientEvent Close) ->
     newState
       st
-      [ OnChainEffect (CloseTx confirmedSnapshot confirmedTxs)
+      [ OnChainEffect (CloseTx confirmedSnapshot)
       , Delay (contestationPeriod parameters) ShouldPostFanout
       ]
   --
-  (OpenState SimpleHeadState{}, ClientEvent (NewTx tx)) ->
+  (OpenState CoordinatedHeadState{}, ClientEvent (NewTx tx)) ->
     -- NOTE: We deliberately do not perform any validation because:
     --
     --   (a) The validation is already done when handling ReqTx
@@ -279,7 +277,7 @@ update Environment{party, signingKey, allParties, snapshotStrategy} ledger (Head
     --       send not-yet-valid transactions and simulate messages out of
     --       order
     newState st [NetworkEffect $ ReqTx tx]
-  (OpenState headState@SimpleHeadState{confirmedSnapshot, seenTxs, seenUTxO}, NetworkEvent (ReqTx tx)) ->
+  (OpenState headState@CoordinatedHeadState{confirmedSnapshot, seenTxs, seenUTxO}, NetworkEvent (ReqTx tx)) ->
     case applyTransactions ledger seenUTxO [tx] of
       Left _err -> Wait
       Right utxo' ->
@@ -291,7 +289,7 @@ update Environment{party, signingKey, allParties, snapshotStrategy} ledger (Head
               | otherwise =
                 []
          in newState (OpenState $ headState{seenTxs = newSeenTxs, seenUTxO = utxo'}) (ClientEffect (TxSeen tx) : snapshotEffects)
-  -- (OpenState headState@SimpleHeadState{confirmedUTxO, confirmedTxs, confirmedSnapshot, unconfirmedTxs}, NetworkEvent (AckTx otherParty tx)) ->
+  -- (OpenState headState@CoordinatedHeadState{confirmedUTxO, confirmedTxs, confirmedSnapshot, unconfirmedTxs}, NetworkEvent (AckTx otherParty tx)) ->
   --   -- TODO(SN): check signature of AckTx and we would not send the tx around, so some more bookkeeping is required here
   --   case applyTransactions ledger confirmedUTxO [tx] of
   --     Left err -> error $ "TODO: validation error: " <> show err
@@ -323,7 +321,7 @@ update Environment{party, signingKey, allParties, snapshotStrategy} ledger (Head
   --             ( OpenState headState{unconfirmedTxs = Map.insert tx sigs unconfirmedTxs}
   --             )
   --             []
-  (OpenState s@SimpleHeadState{confirmedSnapshot}, NetworkEvent (ReqSn otherParty sn txs))
+  (OpenState s@CoordinatedHeadState{confirmedSnapshot}, NetworkEvent (ReqSn otherParty sn txs))
     | number confirmedSnapshot + 1 == sn && isLeader otherParty sn ->
       -- TODO: Verify the request is signed by (?) / comes from the leader
       -- (Can we prove a message comes from a given peer, without signature?)
@@ -336,7 +334,7 @@ update Environment{party, signingKey, allParties, snapshotStrategy} ledger (Head
            in newState
                 (OpenState $ s{seenSnapshot = Just (nextSnapshot, mempty)})
                 [NetworkEffect $ AckSn party snapshotSignature sn]
-  (OpenState headState@SimpleHeadState{confirmedTxs, seenSnapshot}, NetworkEvent (AckSn otherParty snapshotSignature sn)) ->
+  (OpenState headState@CoordinatedHeadState{seenSnapshot}, NetworkEvent (AckSn otherParty snapshotSignature sn)) ->
     -- TODO: Verify snapshot signatures.
     case seenSnapshot of
       Nothing -> error "TODO: wait until reqSn is seen (and seenSnapshot created)"
@@ -351,8 +349,7 @@ update Environment{party, signingKey, allParties, snapshotStrategy} ledger (Head
                   newState
                     ( OpenState $
                         headState
-                          { confirmedTxs = confirmedTxs \\ confirmed snapshot
-                          , confirmedSnapshot = snapshot
+                          { confirmedSnapshot = snapshot
                           , seenSnapshot = Nothing
                           }
                     )
@@ -367,7 +364,7 @@ update Environment{party, signingKey, allParties, snapshotStrategy} ledger (Head
                     []
       Just (snapshot, _) ->
         error $ "Received ack for unknown unconfirmed snapshot. Unconfirmed snapshot: " <> show (number snapshot) <> ", Requested snapshot: " <> show sn
-  (_, OnChainEvent (CloseTx snapshot txs)) ->
+  (_, OnChainEvent (CloseTx snapshot)) ->
     -- TODO(1): Should check whether we want / can contest the close snapshot by
     --       comparing with our local state / utxo.
     --
@@ -375,13 +372,9 @@ update Environment{party, signingKey, allParties, snapshotStrategy} ledger (Head
     --
     --   a) Warn the user about a close tx outside of an open state
     --   b) Move to close state, using information from the close tx
-    case applyTransactions ledger (utxo snapshot) txs of
-      Left e ->
-        error $ "Stored not applicable snapshot (" <> show (number snapshot) <> ") " <> show txs <> ": " <> show e
-      Right utxo ->
-        newState
-          (ClosedState utxo)
-          [ClientEffect $ HeadIsClosed (contestationPeriod parameters) snapshot txs]
+    newState
+      (ClosedState $ utxo snapshot)
+      [ClientEffect $ HeadIsClosed (contestationPeriod parameters) snapshot]
   --
   (_, OnChainEvent ContestTx{}) ->
     -- TODO: Handle contest tx
