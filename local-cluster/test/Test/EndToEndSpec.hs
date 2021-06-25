@@ -60,7 +60,7 @@ spec = describe "End-to-end test using a mocked chain though" $ do
 
                 waitForResponse 3 [n1, n2, n3] "HeadIsOpen (fromList [1,2,3])"
                 sendRequest n1 "NewTx (SimpleTx {txId = 42, txInputs = fromList [1], txOutputs = fromList [4]})"
-                waitForResponse 10 [n1, n2, n3] "TxConfirmed (SimpleTx {txId = 42, txInputs = fromList [1], txOutputs = fromList [4]})"
+                waitForResponse 10 [n1, n2, n3] "TxSeen (SimpleTx {txId = 42, txInputs = fromList [1], txOutputs = fromList [4]})"
                 sendRequest n1 "Close"
                 waitForResponse 3 [n1] "HeadIsClosed 3s (Snapshot {number = 0, utxo = fromList [1,2,3], confirmed = []}) [SimpleTx {txId = 42, txInputs = fromList [1], txOutputs = fromList [4]}]"
                 waitForResponse (contestationPeriod + 3) [n1] "HeadIsFinalized (fromList [2,3,4])"

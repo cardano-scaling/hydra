@@ -63,19 +63,6 @@ spec = describe "Hydra Coordinated Head Protocol" $ do
       -- it does not require any input
       simpleTx = SimpleTx 1 mempty (Set.fromList [TxIn 3, TxIn 4])
 
-  it "confirms tx given it receives AckTx from all parties" $ do
-    let reqTx = NetworkEvent $ ReqTx simpleTx
-        ackFrom p = NetworkEvent $ AckTx p simpleTx
-        s0 = initialState threeParties ledger
-
-    s1 <- assertNewState $ update env ledger s0 reqTx
-    s2 <- assertNewState $ update env ledger s1 (ackFrom 3)
-    s3 <- assertNewState $ update env ledger s2 (ackFrom 1)
-    getConfirmedTransactions s3 `shouldBe` []
-
-    s4 <- assertNewState $ update env ledger s3 (ackFrom 2)
-    getConfirmedTransactions s4 `shouldBe` [simpleTx]
-
   it "waits if a requested tx is not (yet) applicable" $ do
     let reqTx = NetworkEvent $ ReqTx $ SimpleTx 2 inputs mempty
         inputs = utxoRef 1
@@ -219,7 +206,6 @@ hasEffect (NewState _ effects) effect
 hasEffect _ _ = expectationFailure "Unexpected outcome"
 
 initialState ::
-  Ord tx =>
   Set Party ->
   Ledger tx ->
   HeadState tx

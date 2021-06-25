@@ -92,7 +92,6 @@ runHydraNode ::
   , MonadAsync m
   , MonadTimer m
   , Tx tx
-  , Ord tx
   ) =>
   Tracer m (HydraNodeLog tx) ->
   HydraNode tx m ->
@@ -110,7 +109,6 @@ runHydraNode tracer node@HydraNode{eq, env = Environment{party}} = do
 -- | Monadic interface around 'Hydra.Logic.update'.
 processNextEvent ::
   ( Tx tx
-  , Ord tx
   , MonadSTM m
   ) =>
   HydraNode tx m ->

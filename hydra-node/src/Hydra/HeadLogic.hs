@@ -20,9 +20,7 @@ import Hydra.Ledger (
   Tx,
   UTxO,
   ValidationError,
-  ValidationResult (Invalid, Valid),
   applyTransactions,
-  canApply,
   sign,
   verify,
  )
@@ -78,7 +76,7 @@ data ClientResponse tx
   | HeadIsClosed DiffTime (Snapshot tx) [tx]
   | HeadIsFinalized (UTxO tx)
   | CommandFailed
-  | TxConfirmed tx
+  | TxSeen tx
   | TxInvalid tx
   | SnapshotConfirmed SnapshotNumber
 
@@ -220,9 +218,7 @@ data Environment = Environment
 -- network events, one for client events and one for main chain events, or by
 -- sub-'State'.
 update ::
-  ( Tx tx
-  , Ord tx
-  ) =>
+  Tx tx =>
   Environment ->
   Ledger tx ->
   HeadState tx ->
@@ -294,7 +290,7 @@ update Environment{party, signingKey, allParties, snapshotStrategy} ledger (Head
                 [NetworkEffect $ ReqSn party sn' newSeenTxs]
               | otherwise =
                 []
-         in newState (OpenState $ headState{seenTxs = newSeenTxs, seenUTxO = utxo'}) snapshotEffects
+         in newState (OpenState $ headState{seenTxs = newSeenTxs, seenUTxO = utxo'}) (ClientEffect (TxSeen tx) : snapshotEffects)
   -- (OpenState headState@SimpleHeadState{confirmedUTxO, confirmedTxs, confirmedSnapshot, unconfirmedTxs}, NetworkEvent (AckTx otherParty tx)) ->
   --   -- TODO(SN): check signature of AckTx and we would not send the tx around, so some more bookkeeping is required here
   --   case applyTransactions ledger confirmedUTxO [tx] of
@@ -320,7 +316,7 @@ update Environment{party, signingKey, allParties, snapshotStrategy} ledger (Head
   --                   , confirmedTxs = tx : confirmedTxs
   --                   }
   --             )
-  --             ( ClientEffect (TxConfirmed tx) : snapshotEffects
+  --             ( ClientEffect (TxSeen tx) : snapshotEffects
   --             )
   --         else
   --           newState

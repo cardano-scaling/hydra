@@ -130,8 +130,8 @@ spec = describe "Behavior of one ore more hydra-nodes" $ do
             sendRequest n2 (NewTx secondTx)
             sendRequest n1 (NewTx firstTx)
             failAfter 1 $ do
-              waitForResponse n1 `shouldReturn` TxConfirmed firstTx
-              waitForResponse n1 `shouldReturn` TxConfirmed secondTx
+              waitForResponse n1 `shouldReturn` TxSeen firstTx
+              waitForResponse n1 `shouldReturn` TxSeen secondTx
 
     it "sees the head closed by other nodes" $
       shouldRunInSim $ do
@@ -165,7 +165,7 @@ spec = describe "Behavior of one ore more hydra-nodes" $ do
 
             failAfter 1 $ waitForResponse n1 `shouldReturn` HeadIsOpen (utxoRefs [1, 2])
 
-    it "valid new transactions get confirmed without snapshotting" $
+    it "valid new transactions are seen by all parties" $
       shouldRunInSim $ do
         chain <- simulatedChainAndNetwork
         withHydraNode 1 [2] NoSnapshots chain $ \n1 ->
@@ -177,13 +177,8 @@ spec = describe "Behavior of one ore more hydra-nodes" $ do
             failAfter 1 $ waitForResponse n1 `shouldReturn` HeadIsOpen (utxoRefs [1, 2])
 
             sendRequest n1 (NewTx (aValidTx 42))
-            failAfter 1 $ waitForResponse n1 `shouldReturn` TxConfirmed (aValidTx 42)
-            failAfter 1 $ waitForResponse n2 `shouldReturn` TxConfirmed (aValidTx 42)
-
-            sendRequest n1 Close
-            failAfter 1 $
-              waitForResponse n1
-                `shouldReturn` HeadIsClosed testContestationPeriod (Snapshot 0 (utxoRefs [1, 2]) []) [aValidTx 42]
+            failAfter 1 $ waitForResponse n1 `shouldReturn` TxSeen (aValidTx 42)
+            failAfter 1 $ waitForResponse n2 `shouldReturn` TxSeen (aValidTx 42)
 
     it "valid new transactions get snapshotted" $
       shouldRunInSim $ do
@@ -197,8 +192,8 @@ spec = describe "Behavior of one ore more hydra-nodes" $ do
             failAfter 1 $ waitForResponse n1 `shouldReturn` HeadIsOpen (utxoRefs [1, 2])
 
             sendRequest n1 (NewTx (aValidTx 42))
-            failAfter 1 $ waitForResponse n1 `shouldReturn` TxConfirmed (aValidTx 42)
-            failAfter 1 $ waitForResponse n2 `shouldReturn` TxConfirmed (aValidTx 42)
+            failAfter 1 $ waitForResponse n1 `shouldReturn` TxSeen (aValidTx 42)
+            failAfter 1 $ waitForResponse n2 `shouldReturn` TxSeen (aValidTx 42)
 
             failAfter 1 $ waitForResponse n1 `shouldReturn` SnapshotConfirmed 1
 
