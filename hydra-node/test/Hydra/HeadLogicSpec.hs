@@ -4,6 +4,7 @@ module Hydra.HeadLogicSpec where
 
 import Hydra.Prelude
 
+import qualified Data.List as List
 import qualified Data.Set as Set
 import Hydra.HeadLogic (
   ClientResponse (PeerConnected),
@@ -23,7 +24,7 @@ import Hydra.HeadLogic (
   update,
  )
 import Hydra.Ledger (Ledger (..), Party, Tx, deriveParty, generateKey, sign)
-import Hydra.Ledger.Builder (utxoRef)
+import Hydra.Ledger.Builder (aValidTx, utxoRef)
 import Hydra.Ledger.Simple (SimpleTx (..), TxIn (..), simpleLedger)
 import Hydra.Network (Host (Host, hostName, portNumber))
 import Test.Hspec (
@@ -31,13 +32,13 @@ import Test.Hspec (
   describe,
   expectationFailure,
   it,
-  shouldBe,
+  shouldBe, pending, Expectation
  )
 import Test.Hspec.QuickCheck (prop)
 import Test.QuickCheck (Gen, Property, elements, forAll)
 import Test.QuickCheck.Instances.Time ()
 import Test.QuickCheck.Property (collect)
-import qualified Data.List as List
+import Test.Util (failure)
 
 spec :: Spec
 spec = describe "Hydra Coordinated Head Protocol" $ do
@@ -81,10 +82,9 @@ spec = describe "Hydra Coordinated Head Protocol" $ do
     update leaderEnv ledger s0 reqTx
       `hasEffect` NetworkEffect (ReqSn (party leaderEnv) 1 [simpleTx])
 
-  it "notifies client when it receives a ping" $ do
-    let host = Host{hostName = "0.0.0.0", portNumber = 4000}
-    update env ledger (initialState threeParties ledger) (NetworkEvent $ Ping host)
-      `hasEffect` ClientEffect (PeerConnected host)
+  it "does not request multiple snapshots" pending
+
+  it "does not request snapshots as non-leader" pending
 
   it "confirms snapshot given it receives AckSn from all parties" $ do
     let s0 = initialState threeParties ledger
@@ -155,6 +155,21 @@ spec = describe "Hydra Coordinated Head Protocol" $ do
         theLeader = 1
         st = initialState threeParties ledger
     update env ledger st event `shouldBe` Error (InvalidEvent event st)
+
+  it "does handle overlapping snapshot requests" $ do
+    let s0 = initialState threeParties ledger
+        theLeader = 1
+        nextSN = 1
+        firstReqSn = NetworkEvent $ ReqSn theLeader nextSN [aValidTx 42]
+        secondReqSn = NetworkEvent $ ReqSn theLeader nextSN [aValidTx 51]
+
+    s1 <- assertNewState $ update env ledger s0 firstReqSn
+    assertStateUnchangedFrom s1 $ update env ledger s1 secondReqSn
+
+  it "notifies client when it receives a ping" $ do
+    let host = Host{hostName = "0.0.0.0", portNumber = 4000}
+    update env ledger (initialState threeParties ledger) (NetworkEvent $ Ping host)
+      `hasEffect` ClientEffect (PeerConnected host)
 
   prop "can handle OnChainEvent in any state" prop_handleOnChainEventInAnyState
 
@@ -233,3 +248,10 @@ assertNewState = \case
   NewState st _ -> pure st
   Error e -> fail (show e)
   Wait -> fail "Found 'Wait'"
+
+assertStateUnchangedFrom :: HeadState SimpleTx -> Outcome SimpleTx -> Expectation
+assertStateUnchangedFrom st = \case
+  NewState st' eff -> do
+    st' `shouldBe` st
+    eff `shouldBe` []
+  anything -> failure $ "unexpected outcome: " <> show anything
