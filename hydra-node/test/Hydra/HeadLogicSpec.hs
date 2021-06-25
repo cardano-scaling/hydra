@@ -84,9 +84,18 @@ spec = describe "Hydra Coordinated Head Protocol" $ do
     update leaderEnv ledger s0 reqTx
       `hasEffect` NetworkEffect (ReqSn (party leaderEnv) 1 [simpleTx])
 
-  it "does not request multiple snapshots" pending
+  it "does not request multiple snapshots" $ pending
 
-  it "does not request snapshots as non-leader" pending
+  it "does not request snapshots as non-leader" $ do
+    let reqTx = NetworkEvent $ ReqTx simpleTx
+        leaderEnv = envFor 2
+        s0 = initialState threeParties ledger
+
+        s1 = update leaderEnv ledger s0 reqTx
+
+    s1 `hasNoEffectSatisfying` \case
+      NetworkEffect ReqSn{} -> True
+      _ -> False
 
   it "confirms snapshot given it receives AckSn from all parties" $ do
     let s0 = initialState threeParties ledger
@@ -223,6 +232,11 @@ hasEffect (NewState _ effects) effect
   | effect `elem` effects = pure ()
   | otherwise = expectationFailure $ "Missing effect " <> show effect <> " in produced effects:  " <> show effects
 hasEffect _ _ = expectationFailure "Unexpected outcome"
+
+hasNoEffectSatisfying :: Tx tx => Outcome tx -> (Effect tx -> Bool) -> IO ()
+hasNoEffectSatisfying (NewState _ effects) predicate
+  | any predicate effects = expectationFailure $ "Found unwanted effect in: " <> show effects
+hasNoEffectSatisfying _ _ = pure ()
 
 initialState ::
   [Party] ->
