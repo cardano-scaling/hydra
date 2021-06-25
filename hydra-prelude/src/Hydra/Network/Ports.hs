@@ -1,12 +1,13 @@
-module Ports where
+{-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE OverloadedStrings #-}
+
+-- | Utility module providing functions to find and allocate random ports.
+module Hydra.Network.Ports where
 
 import Hydra.Prelude
 
 import Data.List (
   isInfixOf,
- )
-import Data.Streaming.Network (
-  bindRandomPortTCP,
  )
 import Foreign.C.Error (
   Errno (..),
@@ -25,6 +26,7 @@ import Network.Socket (
   socket,
   tupleToHostAddress,
  )
+import Network.Wai.Handler.Warp (openFreePort)
 import System.Random.Shuffle (
   shuffleM,
  )
@@ -39,10 +41,15 @@ import System.Random.Shuffle (
 -- Do not use this unless you have no other option.
 getRandomPort :: IO PortNumber
 getRandomPort = do
-  let hostPreference = "127.0.0.1"
-  (port, sock) <- bindRandomPortTCP hostPreference
+  (port, sock) <- openFreePort
   liftIO $ close' sock
   return $ fromIntegral port
+
+-- | Find a free TCPv4 port and pass it to the given 'action'.
+--
+-- Should be used only for testing, see 'getRandomPort' for limitations.
+withFreePort :: (Int -> IO ()) -> IO ()
+withFreePort action = getRandomPort >>= action . fromIntegral
 
 -- | Checks whether @connect()@ to a given TCPv4 `SockAddr` succeeds or
 -- returns `eCONNREFUSED`.

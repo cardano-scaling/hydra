@@ -18,9 +18,8 @@ import Hydra.API.Server (withAPIServer)
 import Hydra.HeadLogic (ClientResponse (..))
 import Hydra.Ledger.Simple (SimpleTx)
 import Hydra.Logging (nullTracer)
-import Hydra.Network (close)
+import Hydra.Network.Ports (withFreePort)
 import Hydra.Prelude
-import Network.Wai.Handler.Warp (openFreePort)
 import Network.WebSockets (runClient)
 import Network.WebSockets.Connection (receiveData)
 import Test.Hspec
@@ -41,12 +40,6 @@ spec = describe "API Server" $ do
 
             atomically (replicateM 2 (readTQueue queue)) `shouldReturn` [arbitraryMsg, arbitraryMsg]
             atomically (tryReadTQueue queue) `shouldReturn` Nothing
-
-withFreePort :: (Int -> IO ()) -> IO ()
-withFreePort action = do
-  (port, sock) <- openFreePort
-  close sock
-  action port
 
 noop :: Applicative m => a -> m ()
 noop = const $ pure ()

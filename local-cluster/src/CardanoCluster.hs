@@ -1,9 +1,8 @@
-module Lib where
+module CardanoCluster where
 
 import Hydra.Prelude
 
-import Logging (HasSeverityAnnotation (..), Severity (Info), Tracer, traceWith)
-import Node (
+import CardanoNode (
   CardanoNodeArgs (..),
   CardanoNodeConfig (..),
   NodeId,
@@ -14,7 +13,8 @@ import Node (
   defaultCardanoNodeArgs,
   withCardanoNode,
  )
-import Ports (randomUnusedTCPPorts)
+import Control.Tracer (Tracer, traceWith)
+import Hydra.Network.Ports (randomUnusedTCPPorts)
 import System.Directory (copyFile, createDirectoryIfMissing)
 import System.FilePath ((</>))
 import System.Posix.Files (
@@ -25,9 +25,7 @@ import System.Posix.Files (
 data RunningCluster = RunningCluster ClusterConfig [RunningNode]
 
 -- | Configuration parameters for the cluster.
-data ClusterConfig = ClusterConfig
-  { parentStateDirectory :: FilePath
-  }
+newtype ClusterConfig = ClusterConfig {parentStateDirectory :: FilePath}
 
 withCluster ::
   Tracer IO ClusterLog -> ClusterConfig -> (RunningCluster -> IO ()) -> IO ()
@@ -127,8 +125,3 @@ data ClusterLog
   = MsgFromNode NodeId NodeLog
   | MsgNodeStarting CardanoNodeConfig
   deriving (Show)
-
-instance HasSeverityAnnotation ClusterLog where
-  getSeverityAnnotation = \case
-    MsgFromNode _ msg -> getSeverityAnnotation msg
-    MsgNodeStarting{} -> Info

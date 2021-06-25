@@ -11,18 +11,18 @@ import Cardano.Crypto.DSIGN (DSIGNAlgorithm (signDSIGN), genKeyDSIGN)
 import Cardano.Crypto.Seed (mkSeedFromBytes)
 import Codec.CBOR.Read (deserialiseFromBytes)
 import Codec.CBOR.Write (toLazyByteString)
-import Control.Monad.Class.MonadSTM (newEmptyTMVarIO, putTMVar, takeTMVar)
+import Control.Monad.Class.MonadSTM (newTQueue, readTQueue, writeTQueue)
 import Data.IP (toIPv4w)
 import Hydra.HeadLogic (HydraMessage (..), Snapshot (..))
 import Hydra.Ledger (Party (..), Signed (UnsafeSigned))
-import Hydra.Ledger.Builder (utxoRef)
 import Hydra.Ledger.Simple (SimpleTx (..))
 import Hydra.Ledger.SimpleSpec (genSimpleTx, genUtxo)
-import Hydra.Network (Host (..), Network)
+import Hydra.Logging (showLogsOnFailure)
+import Hydra.Network (Host (..), Network, PortNumber)
 import Hydra.Network.Ouroboros (broadcast, withOuroborosNetwork)
+import Hydra.Network.Ports (randomUnusedTCPPorts)
 import Hydra.Network.ZeroMQ (withZeroMQNetwork)
-import Test.HUnit.Lang (HUnitFailure)
-import Test.Hspec (Spec, describe, it, shouldReturn)
+import Test.Hspec (Expectation, Spec, describe, it, shouldReturn)
 import Test.QuickCheck (
   Arbitrary (..),
   arbitrary,
@@ -34,61 +34,84 @@ import Test.QuickCheck (
  )
 import Test.QuickCheck.Gen (Gen)
 import Test.QuickCheck.Instances.ByteString ()
-import Test.Util (arbitraryNatural, failAfter, showLogsOnFailure)
+import Test.Util (arbitraryNatural, failAfter)
 
 spec :: Spec
 spec = describe "Networking layer" $ do
-  let requestTx :: HydraMessage SimpleTx
-      requestTx = ReqTx (SimpleTx 1 (utxoRef 1) (utxoRef 2))
-
-      lo = "127.0.0.1"
+  let lo = "127.0.0.1"
 
   describe "Ouroboros Network" $ do
     it "broadcasts messages to single connected peer" $ do
-      received <- newEmptyTMVarIO
-      showLogsOnFailure $ \tracer -> failAfter 10 $
-        withOuroborosNetwork tracer (Host lo 45778) [Host lo 45779] (const @_ @(HydraMessage SimpleTx) $ pure ()) $ \hn1 ->
-          withOuroborosNetwork @(HydraMessage SimpleTx) tracer (Host lo 45779) [Host lo 45778] (atomically . putTMVar received) $ \_ -> do
-            broadcast hn1 requestTx
-            atomically (takeTMVar received) `shouldReturn` requestTx
+      received <- atomically newTQueue
+      showLogsOnFailure $ \tracer -> failAfter 30 $ do
+        [port1, port2] <- fmap fromIntegral <$> randomUnusedTCPPorts 2
+        withOuroborosNetwork tracer (Host lo port1) [(Host lo port2)] (const @_ @Integer $ pure ()) $ \hn1 ->
+          withOuroborosNetwork @Integer tracer (Host lo port2) [Host lo port1] (atomically . writeTQueue received) $ \_ -> do
+            withAsync (1 `broadcastFrom` hn1) $ \_ ->
+              atomically (readTQueue received) `shouldReturn` 1
 
     it "broadcasts messages between 3 connected peers" $ do
-      node1received <- newEmptyTMVarIO
-      node2received <- newEmptyTMVarIO
-      node3received <- newEmptyTMVarIO
-      showLogsOnFailure $ \tracer -> failAfter 10 $
-        withOuroborosNetwork @(HydraMessage SimpleTx) tracer (Host lo 45678) [Host lo 45679, Host lo 45680] (atomically . putTMVar node1received) $ \hn1 ->
-          withOuroborosNetwork tracer (Host lo 45679) [Host lo 45678, Host lo 45680] (atomically . putTMVar node2received) $ \hn2 ->
-            withOuroborosNetwork tracer (Host lo 45680) [Host lo 45678, Host lo 45679] (atomically . putTMVar node3received) $ \hn3 ->
-              concurrently_ (assertBroadcastFrom requestTx hn1 [node2received, node3received]) $
-                concurrently_
-                  (assertBroadcastFrom requestTx hn2 [node1received, node3received])
-                  (assertBroadcastFrom requestTx hn3 [node2received, node1received])
+      node1received <- atomically newTQueue
+      node2received <- atomically newTQueue
+      node3received <- atomically newTQueue
+      showLogsOnFailure $ \tracer -> failAfter 30 $ do
+        [port1, port2, port3] <- fmap fromIntegral <$> randomUnusedTCPPorts 3
+        withOuroborosNetwork @Integer tracer (Host lo port1) [(Host lo port2), (Host lo port3)] (atomically . writeTQueue node1received) $ \hn1 ->
+          withOuroborosNetwork tracer (Host lo port2) [(Host lo port1), (Host lo port3)] (atomically . writeTQueue node2received) $ \hn2 -> do
+            withOuroborosNetwork tracer (Host lo port3) [(Host lo port1), (Host lo port2)] (atomically . writeTQueue node3received) $ \hn3 -> do
+              assertAllNodesBroadcast
+                [ (port1, hn1, node1received)
+                , (port2, hn2, node2received)
+                , (port3, hn3, node3received)
+                ]
 
   describe "0MQ Network" $
     it "broadcasts messages between 3 connected peers" $ do
-      node1received <- newEmptyTMVarIO
-      node2received <- newEmptyTMVarIO
-      node3received <- newEmptyTMVarIO
-      showLogsOnFailure $ \tracer -> failAfter 10 $
-        withZeroMQNetwork tracer (Host lo 55677) [Host lo 55678, Host lo 55679] (atomically . putTMVar node1received) $ \hn1 ->
-          withZeroMQNetwork tracer (Host lo 55678) [Host lo 55677, Host lo 55679] (atomically . putTMVar node2received) $ \hn2 ->
-            withZeroMQNetwork tracer (Host lo 55679) [Host lo 55677, Host lo 55678] (atomically . putTMVar node3received) $ \hn3 ->
-              concurrently_ (assertBroadcastFrom requestTx hn1 [node2received, node3received]) $
-                concurrently_
-                  (assertBroadcastFrom requestTx hn2 [node1received, node3received])
-                  (assertBroadcastFrom requestTx hn3 [node2received, node1received])
+      node1received <- atomically newTQueue
+      node2received <- atomically newTQueue
+      node3received <- atomically newTQueue
+      showLogsOnFailure $ \tracer -> failAfter 10 $ do
+        [port1, port2, port3] <- fmap fromIntegral <$> randomUnusedTCPPorts 3
+        withZeroMQNetwork tracer (Host lo port1) [(Host lo port2), (Host lo port3)] (atomically . writeTQueue node1received) $ \hn1 ->
+          withZeroMQNetwork tracer (Host lo port2) [(Host lo port1), (Host lo port3)] (atomically . writeTQueue node2received) $ \hn2 ->
+            withZeroMQNetwork tracer (Host lo port3) [(Host lo port1), (Host lo port2)] (atomically . writeTQueue node3received) $ \hn3 -> do
+              assertAllNodesBroadcast
+                [ (port1, hn1, node1received)
+                , (port2, hn2, node2received)
+                , (port3, hn3, node3received)
+                ]
 
   describe "Serialisation" $
     it "can roundtrip CBOR encoding/decoding of HydraMessage" $ property $ prop_canRoundtripCBOREncoding @(HydraMessage SimpleTx)
 
-assertBroadcastFrom :: (Eq a, Show a) => a -> Network IO a -> [TMVar IO a] -> IO ()
-assertBroadcastFrom requestTx network receivers =
-  tryBroadcast `catch` \(_ :: HUnitFailure) -> tryBroadcast
+assertAllNodesBroadcast ::
+  [(PortNumber, Network IO Integer, TQueue IO Integer)] ->
+  Expectation
+assertAllNodesBroadcast networks =
+  parallelBroadcast checkQueues networks
  where
-  tryBroadcast = do
-    broadcast network requestTx
-    forM_ receivers $ \var -> failAfter 1 $ atomically (takeTMVar var) `shouldReturn` requestTx
+  parallelBroadcast :: IO () -> [(PortNumber, Network IO Integer, TQueue IO Integer)] -> IO ()
+  parallelBroadcast check [] = check
+  parallelBroadcast check ((port, network, _) : rest) =
+    withAsync (fromIntegral port `broadcastFrom` network) $ \_ -> parallelBroadcast check rest
+
+  checkQueues :: IO ()
+  checkQueues =
+    sequence_ $
+      [ shouldEventuallyReceive receiver myPort (fromIntegral otherPort)
+      | (myPort, _, receiver) <- networks
+      , (otherPort, _, _) <- networks
+      , otherPort /= myPort
+      ]
+
+broadcastFrom :: a -> Network IO a -> IO ()
+broadcastFrom requestTx network =
+  forever $ threadDelay 0.1 >> broadcast network requestTx
+
+shouldEventuallyReceive :: TQueue IO Integer -> PortNumber -> Integer -> Expectation
+shouldEventuallyReceive queue numNode value = do
+  val <- atomically $ readTQueue queue
+  unless (val == value) $ shouldEventuallyReceive queue numNode value
 
 genParty :: Gen Party
 genParty = UnsafeParty . fromInteger . getPositive <$> arbitrary

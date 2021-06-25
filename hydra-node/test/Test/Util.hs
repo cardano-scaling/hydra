@@ -4,18 +4,10 @@ module Test.Util where
 
 import Hydra.Prelude
 
-import Control.Monad.Class.MonadSTM (
-  MonadSTM (..),
-  newTVarIO,
-  readTVar,
- )
 import Control.Monad.Class.MonadTimer (timeout)
 import Control.Monad.IOSim (IOSim, runSim)
 import Data.List (isInfixOf)
 import GHC.Stack (SrcLoc)
-import Hydra.Ledger (Party (..))
-import Hydra.Logging (Tracer, traceInTVar)
-import Say (say)
 import Test.HUnit.Lang (FailureReason (ExpectedButGot, Reason), HUnitFailure (HUnitFailure))
 import Test.QuickCheck (Gen, Positive (getPositive), arbitrary)
 
@@ -33,15 +25,6 @@ failAfter seconds action =
   timeout seconds action >>= \case
     Nothing -> failure $ "Test timed out after " <> show seconds <> " seconds"
     Just _ -> pure ()
-
-showLogsOnFailure ::
-  (MonadSTM m, MonadCatch m, MonadIO m, Show msg) =>
-  (Tracer m msg -> m a) ->
-  m a
-showLogsOnFailure action = do
-  tvar <- newTVarIO []
-  action (traceInTVar tvar)
-    `onException` (atomically (readTVar tvar) >>= mapM_ (say . show))
 
 -- | Run given 'action' in 'IOSim' and fail on exceptions.
 shouldRunInSim :: HasCallStack => (forall s. IOSim s a) -> IO a
@@ -82,6 +65,3 @@ shouldContain actual expected
 
 arbitraryNatural :: Gen Natural
 arbitraryNatural = fromIntegral . getPositive <$> arbitrary @(Positive Integer)
-
-generateParty :: Gen Party
-generateParty = UnsafeParty . fromInteger <$> arbitrary

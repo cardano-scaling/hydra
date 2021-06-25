@@ -114,7 +114,6 @@ library
     , cborg
     , containers
     , contra-tracer
-    , cryptonite
     , data-default
     , gitrev
     , hydra-prelude
@@ -199,6 +198,7 @@ test-suite tests
     , contra-tracer
     , hspec
     , hspec-core
+    , HUnit
     , hydra-node
     , hydra-prelude
     , io-sim
@@ -207,10 +207,8 @@ test-suite tests
     , network
     , process
     , quickcheck-instances
-    , say
     , text
     , typed-protocols-examples
-    , warp
     , websockets
     , HUnit
     , QuickCheck

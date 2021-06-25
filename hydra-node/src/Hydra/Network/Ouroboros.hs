@@ -20,7 +20,7 @@ import Control.Concurrent.STM (
   writeTChan,
  )
 import Control.Monad.Class.MonadAsync (wait)
-import Hydra.Logging (Tracer, nullTracer)
+import Hydra.Logging (Tracer)
 import Hydra.Network (
   Host (..),
   Network (..),
@@ -36,9 +36,11 @@ import Hydra.Network.Ouroboros.Server as FireForget (
   fireForgetServerPeer,
  )
 import Hydra.Network.Ouroboros.Type (
+  FireForget,
   codecFireForget,
  )
 import Network.Mux.Compat (
+  MuxTrace,
   WithMuxBearer,
  )
 import Network.Socket (
@@ -104,7 +106,7 @@ import Ouroboros.Network.Subscription.Worker (LocalAddresses (LocalAddresses))
 withOuroborosNetwork ::
   forall msg.
   (ToCBOR msg, FromCBOR msg) =>
-  Tracer IO TraceOuroborosNetwork ->
+  Tracer IO (WithHost (TraceOuroborosNetwork msg)) ->
   Host ->
   [Host] ->
   NetworkCallback msg IO ->
@@ -140,8 +142,8 @@ withOuroborosNetwork tracer localHost remoteHosts networkCallback between = do
     let sn = socketSnocket iomgr
     Subscription.ipSubscriptionWorker
       sn
-      (contramap TraceSubscriptions tracer)
-      (contramap TraceErrorPolicy tracer)
+      (contramap (WithHost localHost . TraceSubscriptions) tracer)
+      (contramap (WithHost localHost . TraceErrorPolicy) tracer)
       networkState
       (subscriptionParams localAddr remoteAddrs)
       (actualConnect iomgr chanPool app)
@@ -168,8 +170,8 @@ withOuroborosNetwork tracer localHost remoteHosts networkCallback between = do
    where
     networkConnectTracers =
       NetworkConnectTracers
-        { nctMuxTracer = nullTracer
-        , nctHandshakeTracer = contramap TraceHandshake tracer
+        { nctMuxTracer = contramap (WithHost localHost . TraceMux) tracer
+        , nctHandshakeTracer = contramap (WithHost localHost . TraceHandshake) tracer
         }
 
   listen iomgr app = do
@@ -192,10 +194,10 @@ withOuroborosNetwork tracer localHost remoteHosts networkCallback between = do
    where
     networkServerTracers =
       NetworkServerTracers
-        { nstMuxTracer = nullTracer
-        , nstHandshakeTracer = contramap TraceHandshake tracer
-        , nstErrorPolicyTracer = contramap TraceErrorPolicy tracer
-        , nstAcceptPolicyTracer = contramap TraceAcceptPolicy tracer
+        { nstMuxTracer = contramap (WithHost localHost . TraceMux) tracer
+        , nstHandshakeTracer = contramap (WithHost localHost . TraceHandshake) tracer
+        , nstErrorPolicyTracer = contramap (WithHost localHost . TraceErrorPolicy) tracer
+        , nstAcceptPolicyTracer = contramap (WithHost localHost . TraceAcceptPolicy) tracer
         }
 
   hydraClient ::
@@ -212,7 +214,7 @@ withOuroborosNetwork tracer localHost remoteHosts networkCallback between = do
    where
     initiator =
       MuxPeer
-        nullTracer
+        (contramap (WithHost localHost . TraceSendRecv) tracer)
         codecFireForget
         (fireForgetClientPeer $ client chan)
 
@@ -229,7 +231,7 @@ withOuroborosNetwork tracer localHost remoteHosts networkCallback between = do
    where
     responder =
       MuxPeer
-        nullTracer
+        (contramap (WithHost localHost . TraceSendRecv) tracer)
         codecFireForget
         (fireForgetServerPeer server)
 
@@ -254,9 +256,14 @@ withOuroborosNetwork tracer localHost remoteHosts networkCallback between = do
       , recvMsgDone = pure ()
       }
 
-data TraceOuroborosNetwork
+data WithHost trace = WithHost Host trace
+  deriving (Show)
+
+data TraceOuroborosNetwork msg
   = TraceSubscriptions (WithIPList (SubscriptionTrace SockAddr))
   | TraceErrorPolicy (WithAddr SockAddr ErrorPolicyTrace)
   | TraceAcceptPolicy AcceptConnectionsPolicyTrace
   | TraceHandshake (WithMuxBearer (ConnectionId SockAddr) (TraceSendRecv (Handshake UnversionedProtocol CBOR.Term)))
+  | TraceMux (WithMuxBearer (ConnectionId SockAddr) MuxTrace)
+  | TraceSendRecv (TraceSendRecv (FireForget msg))
   deriving (Show)
