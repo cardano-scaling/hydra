@@ -135,7 +135,7 @@ instance Arbitrary (HydraMessage SimpleTx) where
       [ ReqTx <$> genSimpleTx
       , ReqSn <$> genParty <*> arbitraryNatural <*> vectorOf 10 genSimpleTx
       , AckSn <$> genParty <*> genSignature <*> arbitraryNatural
-      , Ping <$> genHost
+      , Connected <$> genHost
       ]
 
 instance Arbitrary (Snapshot SimpleTx) where

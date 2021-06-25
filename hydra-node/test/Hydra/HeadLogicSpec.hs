@@ -6,23 +6,7 @@ import Hydra.Prelude
 
 import qualified Data.List as List
 import qualified Data.Set as Set
-import Hydra.HeadLogic (
-  ClientResponse (PeerConnected),
-  CoordinatedHeadState (..),
-  Effect (ClientEffect, NetworkEffect),
-  Environment (..),
-  Event (..),
-  HeadParameters (..),
-  HeadState (..),
-  HeadStatus (..),
-  HydraMessage (..),
-  LogicError (..),
-  OnChainTx (..),
-  Outcome (..),
-  Snapshot (..),
-  SnapshotStrategy (..),
-  update,
- )
+import Hydra.HeadLogic (ClientResponse (PeerConnected), CoordinatedHeadState (..), Effect (ClientEffect, NetworkEffect), Environment (..), Event (..), HeadParameters (..), HeadState (..), HeadStatus (..), HydraMessage (..), LogicError (..), OnChainTx (..), Outcome (..), Snapshot (..), SnapshotStrategy (..), update)
 import Hydra.Ledger (Ledger (..), Party, Tx, deriveParty, generateKey, sign)
 import Hydra.Ledger.Builder (aValidTx, utxoRef)
 import Hydra.Ledger.Simple (SimpleTx (..), TxIn (..), simpleLedger)
@@ -179,7 +163,7 @@ spec = describe "Hydra Coordinated Head Protocol" $ do
 
   it "notifies client when it receives a ping" $ do
     let host = Host{hostName = "0.0.0.0", portNumber = 4000}
-    update env ledger (initialState threeParties ledger) (NetworkEvent $ Ping host)
+    update env ledger (initialState threeParties ledger) (NetworkEvent $ Connected host)
       `hasEffect` ClientEffect (PeerConnected host)
 
   prop "can handle OnChainEvent in any state" prop_handleOnChainEventInAnyState

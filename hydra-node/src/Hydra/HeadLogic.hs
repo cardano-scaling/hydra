@@ -90,7 +90,7 @@ data HydraMessage tx
   = ReqTx tx
   | ReqSn Party SnapshotNumber [tx]
   | AckSn Party (Signed (Snapshot tx)) SnapshotNumber
-  | Ping Host
+  | Connected Host
   deriving (Eq, Show)
 
 deriving stock instance Generic (HydraMessage tx)
@@ -100,7 +100,7 @@ instance (ToCBOR tx, ToCBOR (UTxO tx)) => ToCBOR (HydraMessage tx) where
     ReqTx tx -> toCBOR ("ReqTx" :: Text) <> toCBOR tx
     ReqSn party sn txs -> toCBOR ("ReqSn" :: Text) <> toCBOR party <> toCBOR sn <> toCBOR txs
     AckSn party sig sn -> toCBOR ("AckSn" :: Text) <> toCBOR party <> toCBOR sig <> toCBOR sn
-    Ping host -> toCBOR ("Ping" :: Text) <> toCBOR host
+    Connected host -> toCBOR ("Connected" :: Text) <> toCBOR host
 
 instance (ToCBOR tx, ToCBOR (UTxO tx)) => ToCBOR (Snapshot tx) where
   toCBOR Snapshot{number, utxo, confirmed} = toCBOR number <> toCBOR utxo <> toCBOR confirmed
@@ -111,7 +111,7 @@ instance (FromCBOR tx, FromCBOR (UTxO tx)) => FromCBOR (HydraMessage tx) where
       ("ReqTx" :: Text) -> ReqTx <$> fromCBOR
       "ReqSn" -> ReqSn <$> fromCBOR <*> fromCBOR <*> fromCBOR
       "AckSn" -> AckSn <$> fromCBOR <*> fromCBOR <*> fromCBOR
-      "Ping" -> Ping <$> fromCBOR
+      "Connected" -> Connected <$> fromCBOR
       msg -> fail $ show msg <> " is not a proper CBOR-encoded HydraMessage"
 
 instance (FromCBOR tx, FromCBOR (UTxO tx)) => FromCBOR (Snapshot tx) where
@@ -353,7 +353,7 @@ update Environment{party, signingKey, otherParties, snapshotStrategy} ledger (He
   --
   (_, ClientEvent{}) ->
     newState st [ClientEffect CommandFailed]
-  (_, NetworkEvent (Ping host)) ->
+  (_, NetworkEvent (Connected host)) ->
     newState st [ClientEffect $ PeerConnected host]
   _ ->
     Error $ InvalidEvent ev (HeadState parameters st)

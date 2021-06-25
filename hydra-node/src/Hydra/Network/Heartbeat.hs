@@ -13,14 +13,32 @@ module Hydra.Network.Heartbeat where
 
 import Hydra.Prelude
 
+import Cardano.Binary (FromCBOR (fromCBOR), ToCBOR (..))
 import Control.Monad.Class.MonadSTM (newTVarIO, writeTVar)
 import Hydra.HeadLogic (HydraMessage (..))
-import Hydra.Network (Host, Network (..), NetworkComponent)
+import Hydra.Network (Host, Network (..), NetworkCallback, NetworkComponent)
 
 data HeartbeatState
   = SendHeartbeat
   | StopHeartbeat
   deriving (Eq)
+
+data Heartbeat msg
+  = Message msg
+  | Ping Host
+  deriving (Eq, Show)
+
+instance (ToCBOR msg) => ToCBOR (Heartbeat msg) where
+  toCBOR = \case
+    (Message hmsg) -> toCBOR (0 :: Int) <> toCBOR hmsg
+    (Ping host) -> toCBOR (1 :: Int) <> toCBOR host
+
+instance (FromCBOR msg) => FromCBOR (Heartbeat msg) where
+  fromCBOR =
+    fromCBOR >>= \case
+      (0 :: Int) -> Message <$> fromCBOR
+      1 -> Ping <$> fromCBOR
+      other -> fail $ "Unknown tag " <> show other <> " trying to deserialise value to Heartbeat"
 
 -- | Wrap a `NetworkComponent` and handle sending/receiving of heartbeats.
 withHeartbeat ::
@@ -28,25 +46,28 @@ withHeartbeat ::
   , MonadDelay m
   ) =>
   Host ->
-  NetworkComponent m (HydraMessage tx) ->
-  NetworkComponent m (HydraMessage tx)
+  NetworkComponent m (Heartbeat (HydraMessage msg)) ->
+  NetworkComponent m (HydraMessage msg)
 withHeartbeat localhost withNetwork callback action = do
   heartbeat <- newTVarIO SendHeartbeat
-  withNetwork callback $ \network ->
+  withNetwork (fromHeartbeat callback) $ \network ->
     withAsync (sendHeartbeatFor localhost heartbeat network) $ \_ ->
       action (checkMessages network heartbeat)
 
+fromHeartbeat :: NetworkCallback (HydraMessage msg) m -> NetworkCallback (Heartbeat (HydraMessage msg)) m
+fromHeartbeat callback = \case
+  Message msg -> callback msg
+  Ping host -> callback (Connected host)
+
 checkMessages ::
   MonadSTM m =>
-  Network m (HydraMessage tx) ->
+  Network m (Heartbeat (HydraMessage msg)) ->
   TVar m HeartbeatState ->
-  Network m (HydraMessage tx)
+  Network m (HydraMessage msg)
 checkMessages Network{broadcast} heartbeatState =
   Network $ \msg -> do
-    case msg of
-      Ping _ -> pure ()
-      _ -> atomically (writeTVar heartbeatState StopHeartbeat)
-    broadcast msg
+    atomically (writeTVar heartbeatState StopHeartbeat)
+    broadcast (Message msg)
 
 sendHeartbeatFor ::
   ( MonadDelay m
@@ -54,7 +75,7 @@ sendHeartbeatFor ::
   ) =>
   Host ->
   TVar m HeartbeatState ->
-  Network m (HydraMessage tx) ->
+  Network m (Heartbeat (HydraMessage msg)) ->
   m ()
 sendHeartbeatFor localhost heartbeatState Network{broadcast} =
   forever $ do

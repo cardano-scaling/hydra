@@ -5,9 +5,8 @@ import Hydra.Prelude
 import Control.Monad.Class.MonadSTM (modifyTVar', newTVarIO)
 import Control.Monad.IOSim (runSimOrThrow)
 import Hydra.HeadLogic (HydraMessage (..))
-import Hydra.Ledger.Simple (SimpleTx)
 import Hydra.Network (Host (..), Network (..))
-import Hydra.Network.Heartbeat (withHeartbeat)
+import Hydra.Network.Heartbeat (Heartbeat (..), withHeartbeat)
 import Test.Hspec (Spec, describe, it, shouldBe)
 
 spec :: Spec
@@ -17,7 +16,7 @@ spec = describe "Heartbeat" $ do
 
   it "sends a heartbeat message with own party id every 500 ms" $ do
     let sentHeartbeats = runSimOrThrow $ do
-          sentMessages <- newTVarIO ([] :: [HydraMessage SimpleTx])
+          sentMessages <- newTVarIO ([] :: [Heartbeat (HydraMessage Integer)])
 
           withHeartbeat testHost (dummyNetwork sentMessages) noop $ \_ -> do
             threadDelay 1.1
@@ -29,20 +28,20 @@ spec = describe "Heartbeat" $ do
   it "propagates Heartbeat received from other parties" $ do
     let anotherHost = Host{hostName = "0.0.0.0", portNumber = 4001}
     let receivedHeartbeats = runSimOrThrow $ do
-          receivedMessages <- newTVarIO ([] :: [HydraMessage SimpleTx])
+          receivedMessages <- newTVarIO ([] :: [HydraMessage Integer])
 
           let receive msg = atomically $ modifyTVar' receivedMessages (msg :)
-          withHeartbeat testHost (\cb action -> action (Network noop) >> cb (Ping anotherHost)) receive $ \_ -> do
+          withHeartbeat testHost (\cb action -> action (Network noop) >> cb (Message $ Connected anotherHost)) receive $ \_ -> do
             threadDelay 1
 
           readTVarIO receivedMessages
 
-    receivedHeartbeats `shouldBe` [Ping anotherHost]
+    receivedHeartbeats `shouldBe` [Connected anotherHost]
 
   it "stop sending heartbeat message given action sends a message" $ do
     let someMessage = ReqTx 1
         sentHeartbeats = runSimOrThrow $ do
-          sentMessages <- newTVarIO ([] :: [HydraMessage Integer])
+          sentMessages <- newTVarIO ([] :: [Heartbeat (HydraMessage Integer)])
 
           withHeartbeat testHost (dummyNetwork sentMessages) noop $ \Network{broadcast} -> do
             threadDelay 0.6
@@ -51,7 +50,7 @@ spec = describe "Heartbeat" $ do
 
           readTVarIO sentMessages
 
-    sentHeartbeats `shouldBe` [someMessage, Ping testHost]
+    sentHeartbeats `shouldBe` [Message someMessage, Ping testHost]
 
 testHost :: Host
 testHost = Host{hostName = "0.0.0.0", portNumber = 4000}
