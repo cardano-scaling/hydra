@@ -22,10 +22,10 @@ import Hydra.HeadLogic (
   LogicError (..),
   OnChainTx (..),
   Outcome (..),
-  SnapshotStrategy (NoSnapshots),
+  SnapshotStrategy (SnapshotAfterEachTx),
  )
 import qualified Hydra.HeadLogic as Logic
-import Hydra.Ledger
+import Hydra.Ledger (Ledger, Party (..), Tx)
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Network (Network (..))
 import Hydra.Options (Options (..))
@@ -42,7 +42,7 @@ initEnvironment Options{me, parties} = do
       { party = UnsafeParty vk
       , signingKey = sk
       , otherParties = UnsafeParty <$> otherVKeys
-      , snapshotStrategy = NoSnapshots
+      , snapshotStrategy = SnapshotAfterEachTx
       }
  where
   loadSigningKey p = do

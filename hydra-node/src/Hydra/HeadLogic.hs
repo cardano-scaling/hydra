@@ -8,6 +8,7 @@ import Hydra.Prelude
 
 import Cardano.Binary (FromCBOR (..), ToCBOR (..))
 import Cardano.Crypto.Util (SignableRepresentation (..))
+import Data.List (elemIndex)
 import qualified Data.Map.Strict as Map
 import qualified Data.Set as Set
 import Hydra.Ledger (
@@ -361,4 +362,7 @@ update Environment{party, signingKey, otherParties, snapshotStrategy} ledger (He
   newState s = NewState (HeadState parameters s)
 
   isLeader :: Party -> SnapshotNumber -> Bool
-  isLeader p _sn = p == 1
+  isLeader p _alwayssn =
+    case p `elemIndex` parties parameters of
+      Just i -> i == 0
+      _ -> False
