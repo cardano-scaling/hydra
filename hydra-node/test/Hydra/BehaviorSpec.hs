@@ -11,7 +11,6 @@ import Control.Monad.Class.MonadSTM (
   newTQueue,
   newTVarIO,
   readTQueue,
-  readTVar,
   writeTQueue,
  )
 import Control.Monad.Class.MonadTimer (timeout)
@@ -286,7 +285,7 @@ simulatedChainAndNetwork = do
       Nothing -> pure ()
       Just ns -> mapM_ (`handleChainTx` tx) ns
 
-  broadcast nodes msg = atomically (readTVar nodes) >>= mapM_ (`handleMessage` msg)
+  broadcast nodes msg = readTVarIO nodes >>= mapM_ (`handleMessage` msg)
 
 -- NOTE(SN): Deliberately not configurable via 'startHydraNode'
 testContestationPeriod :: DiffTime

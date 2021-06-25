@@ -84,7 +84,7 @@ spec = describe "Hydra Coordinated Head Protocol" $ do
     update leaderEnv ledger s0 reqTx
       `hasEffect` NetworkEffect (ReqSn (party leaderEnv) 1 [simpleTx])
 
-  it "does not request multiple snapshots" $ pending
+  it "does not request multiple snapshots" pending
 
   it "does not request snapshots as non-leader" $ do
     let reqTx = NetworkEvent $ ReqTx simpleTx

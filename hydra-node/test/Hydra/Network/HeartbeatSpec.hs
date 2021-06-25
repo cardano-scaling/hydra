@@ -2,7 +2,7 @@ module Hydra.Network.HeartbeatSpec where
 
 import Hydra.Prelude
 
-import Control.Monad.Class.MonadSTM (modifyTVar', newTVarIO, readTVar)
+import Control.Monad.Class.MonadSTM (modifyTVar', newTVarIO)
 import Control.Monad.IOSim (runSimOrThrow)
 import Hydra.HeadLogic (HydraMessage (..))
 import Hydra.Ledger.Simple (SimpleTx)
@@ -22,7 +22,7 @@ spec = describe "Heartbeat" $ do
           withHeartbeat testHost (dummyNetwork sentMessages) noop $ \_ -> do
             threadDelay 1.1
 
-          atomically $ readTVar sentMessages
+          readTVarIO sentMessages
 
     sentHeartbeats `shouldBe` replicate 2 (Ping testHost)
 
@@ -35,7 +35,7 @@ spec = describe "Heartbeat" $ do
           withHeartbeat testHost (\cb action -> action (Network noop) >> cb (Ping anotherHost)) receive $ \_ -> do
             threadDelay 1
 
-          atomically $ readTVar receivedMessages
+          readTVarIO receivedMessages
 
     receivedHeartbeats `shouldBe` [Ping anotherHost]
 
@@ -49,7 +49,7 @@ spec = describe "Heartbeat" $ do
             broadcast someMessage
             threadDelay 1
 
-          atomically $ readTVar sentMessages
+          readTVarIO sentMessages
 
     sentHeartbeats `shouldBe` [someMessage, Ping testHost]
 

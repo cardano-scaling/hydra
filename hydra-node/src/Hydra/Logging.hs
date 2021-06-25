@@ -50,7 +50,7 @@ import Control.Tracer (
 
 import qualified Cardano.BM.Configuration.Model as CM
 import qualified Cardano.BM.Data.BackendKind as CM
-import Control.Monad.Class.MonadSTM (modifyTVar, newTVarIO, readTVar)
+import Control.Monad.Class.MonadSTM (modifyTVar, newTVarIO)
 import Control.Monad.Class.MonadSay (MonadSay, say)
 
 data Verbosity = Quiet | Verbose LoggerName
@@ -103,4 +103,4 @@ showLogsOnFailure ::
 showLogsOnFailure action = do
   tvar <- newTVarIO []
   action (traceInTVar tvar)
-    `onException` (atomically (readTVar tvar) >>= mapM_ (say . show) . reverse)
+    `onException` (readTVarIO tvar >>= mapM_ (say . show) . reverse)

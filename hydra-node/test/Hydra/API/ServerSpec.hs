@@ -9,7 +9,6 @@ import Control.Monad.Class.MonadSTM (
   newTQueue,
   newTVarIO,
   readTQueue,
-  readTVar,
   tryReadTQueue,
   writeTQueue,
  )

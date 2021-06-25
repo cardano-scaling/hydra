@@ -2,7 +2,7 @@ module Hydra.Network.BroadcastToSelfSpec where
 
 import Hydra.Prelude
 
-import Control.Monad.Class.MonadSTM (modifyTVar', newTVarIO, readTVar)
+import Control.Monad.Class.MonadSTM (modifyTVar', newTVarIO)
 import Control.Monad.IOSim (runSimOrThrow)
 import Hydra.Network (Network (..))
 import Hydra.Network.BroadcastToSelf (withBroadcastToSelf)
@@ -20,6 +20,6 @@ spec = describe "Broadcast To Self" $ do
           withBroadcastToSelf noopNetwork receive $ \Network{broadcast} -> do
             broadcast 42
 
-          atomically $ readTVar receivedMessages
+          readTVarIO receivedMessages
 
     received `shouldBe` [42]

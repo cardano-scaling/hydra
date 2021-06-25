@@ -13,7 +13,7 @@ module Hydra.Network.Heartbeat where
 
 import Hydra.Prelude
 
-import Control.Monad.Class.MonadSTM (newTVarIO, readTVar, writeTVar)
+import Control.Monad.Class.MonadSTM (newTVarIO, writeTVar)
 import Hydra.HeadLogic (HydraMessage (..))
 import Hydra.Network (Host, Network (..), NetworkComponent)
 
@@ -59,5 +59,5 @@ sendHeartbeatFor ::
 sendHeartbeatFor localhost heartbeatState Network{broadcast} =
   forever $ do
     threadDelay 0.5
-    st <- atomically $ readTVar heartbeatState
+    st <- readTVarIO heartbeatState
     when (st == SendHeartbeat) $ broadcast (Ping localhost)
