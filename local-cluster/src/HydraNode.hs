@@ -195,7 +195,10 @@ waitForNodesConnected = mapM_ waitForOtherNodesConnected
 
 waitForOtherNodesConnected :: HydraNode -> IO ()
 waitForOtherNodesConnected n@HydraNode{hydraNodeId} =
-  forM_ otherNodeIds $ \otherNode ->
-    waitForResponse 10 [n] $ "PeerConnected 127.0.0.1@" <> show (5000 + otherNode)
+  forM_ otherNodeIds $ \otherParty ->
+    -- HACK(AB): This is gross, we hijack the node ids and because we know
+    -- keys are just integers we can compute them but that's ugly -> use property
+    -- party identifiers everywhere
+    waitForResponse 10 [n] $ "PeerConnected (VerKeyMockDSIGN " <> show (otherParty * 10) <> ")"
  where
   otherNodeIds = filter (/= hydraNodeId) allNodeIds

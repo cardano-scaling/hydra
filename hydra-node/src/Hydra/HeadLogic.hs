@@ -24,7 +24,6 @@ import Hydra.Ledger (
   sign,
   verify,
  )
-import Hydra.Network (Host)
 
 data Event tx
   = ClientEvent (ClientRequest tx)
@@ -70,7 +69,7 @@ instance Tx tx => SignableRepresentation (Snapshot tx) where
   getSignableRepresentation = encodeUtf8 . show @Text
 
 data ClientResponse tx
-  = PeerConnected Host
+  = PeerConnected Party
   | ReadyToCommit [Party]
   | HeadIsOpen (UTxO tx)
   | HeadIsClosed DiffTime (Snapshot tx)
@@ -87,17 +86,17 @@ deriving instance Tx tx => Read (ClientResponse tx)
 -- NOTE(SN): Every message comes from a 'Party', we might want to move it out of
 -- here into the 'NetworkEvent'
 data HydraMessage tx
-  = ReqTx tx
+  = ReqTx Party tx
   | ReqSn Party SnapshotNumber [tx]
   | AckSn Party (Signed (Snapshot tx)) SnapshotNumber
-  | Connected Host
+  | Connected Party
   deriving (Eq, Show)
 
 deriving stock instance Generic (HydraMessage tx)
 
 instance (ToCBOR tx, ToCBOR (UTxO tx)) => ToCBOR (HydraMessage tx) where
   toCBOR = \case
-    ReqTx tx -> toCBOR ("ReqTx" :: Text) <> toCBOR tx
+    ReqTx party tx -> toCBOR ("ReqTx" :: Text) <> toCBOR party <> toCBOR tx
     ReqSn party sn txs -> toCBOR ("ReqSn" :: Text) <> toCBOR party <> toCBOR sn <> toCBOR txs
     AckSn party sig sn -> toCBOR ("AckSn" :: Text) <> toCBOR party <> toCBOR sig <> toCBOR sn
     Connected host -> toCBOR ("Connected" :: Text) <> toCBOR host
@@ -108,7 +107,7 @@ instance (ToCBOR tx, ToCBOR (UTxO tx)) => ToCBOR (Snapshot tx) where
 instance (FromCBOR tx, FromCBOR (UTxO tx)) => FromCBOR (HydraMessage tx) where
   fromCBOR =
     fromCBOR >>= \case
-      ("ReqTx" :: Text) -> ReqTx <$> fromCBOR
+      ("ReqTx" :: Text) -> ReqTx <$> fromCBOR <*> fromCBOR
       "ReqSn" -> ReqSn <$> fromCBOR <*> fromCBOR <*> fromCBOR
       "AckSn" -> AckSn <$> fromCBOR <*> fromCBOR <*> fromCBOR
       "Connected" -> Connected <$> fromCBOR
@@ -274,8 +273,8 @@ update Environment{party, signingKey, otherParties, snapshotStrategy} ledger (He
     --   (b) It makes testing of the logic more complicated, for we can't
     --       send not-yet-valid transactions and simulate messages out of
     --       order
-    newState st [NetworkEffect $ ReqTx tx]
-  (OpenState headState@CoordinatedHeadState{confirmedSnapshot, seenTxs, seenUTxO}, NetworkEvent (ReqTx tx)) ->
+    newState st [NetworkEffect $ ReqTx party tx]
+  (OpenState headState@CoordinatedHeadState{confirmedSnapshot, seenTxs, seenUTxO}, NetworkEvent (ReqTx _ tx)) ->
     case applyTransactions ledger seenUTxO [tx] of
       Left _err -> Wait
       Right utxo' ->

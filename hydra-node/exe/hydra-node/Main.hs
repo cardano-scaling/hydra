@@ -7,6 +7,7 @@ import Hydra.Prelude
 import Hydra.API.Server (withAPIServer)
 import Hydra.Chain.ZeroMQ (createMockChainClient)
 import Hydra.HeadLogic (
+  Environment (party),
   Event (..),
   HeadParameters (..),
   createHeadState,
@@ -39,15 +40,15 @@ main = do
       let headState = createHeadState [] (HeadParameters 3 mempty)
       hh <- createHydraHead headState Ledger.simpleLedger
       oc <- createMockChainClient eq (contramap MockChain tracer)
-      withNetwork (contramap Network tracer) host port peers (putEvent eq . NetworkEvent) $
+      withNetwork (contramap Network tracer) (party env) host port peers (putEvent eq . NetworkEvent) $
         \hn ->
           withAPIServer apiHost apiPort (contramap APIServer tracer) (putEvent eq . ClientEvent) $
             \sendResponse ->
               runHydraNode (contramap Node tracer) $ HydraNode{eq, hn, hh, oc, sendResponse, env}
  where
-  withNetwork tracer host port peers =
+  withNetwork tracer party host port peers =
     let localhost = Host{hostName = show host, portNumber = port}
-     in withHeartbeat localhost $ withBroadcastToSelf $ withOuroborosNetwork tracer localhost peers
+     in withHeartbeat party $ withBroadcastToSelf $ withOuroborosNetwork tracer localhost peers
 
 identifyNode :: Options -> Options
 identifyNode opt@Options{verbosity = Verbose "HydraNode", nodeId} = opt{verbosity = Verbose $ "HydraNode-" <> show nodeId}

@@ -16,7 +16,8 @@ import Hydra.Prelude
 import Cardano.Binary (FromCBOR (fromCBOR), ToCBOR (..))
 import Control.Monad.Class.MonadSTM (newTVarIO, writeTVar)
 import Hydra.HeadLogic (HydraMessage (..))
-import Hydra.Network (Host, Network (..), NetworkCallback, NetworkComponent)
+import Hydra.Ledger (Party)
+import Hydra.Network (Network (..), NetworkCallback, NetworkComponent)
 
 data HeartbeatState
   = SendHeartbeat
@@ -25,7 +26,7 @@ data HeartbeatState
 
 data Heartbeat msg
   = Message msg
-  | Ping Host
+  | Ping Party
   deriving (Eq, Show)
 
 instance (ToCBOR msg) => ToCBOR (Heartbeat msg) where
@@ -45,13 +46,13 @@ withHeartbeat ::
   ( MonadAsync m
   , MonadDelay m
   ) =>
-  Host ->
+  Party ->
   NetworkComponent m (Heartbeat (HydraMessage msg)) ->
   NetworkComponent m (HydraMessage msg)
-withHeartbeat localhost withNetwork callback action = do
+withHeartbeat party withNetwork callback action = do
   heartbeat <- newTVarIO SendHeartbeat
   withNetwork (fromHeartbeat callback) $ \network ->
-    withAsync (sendHeartbeatFor localhost heartbeat network) $ \_ ->
+    withAsync (sendHeartbeatFor party heartbeat network) $ \_ ->
       action (checkMessages network heartbeat)
 
 fromHeartbeat :: NetworkCallback (HydraMessage msg) m -> NetworkCallback (Heartbeat (HydraMessage msg)) m
@@ -73,7 +74,7 @@ sendHeartbeatFor ::
   ( MonadDelay m
   , MonadSTM m
   ) =>
-  Host ->
+  Party ->
   TVar m HeartbeatState ->
   Network m (Heartbeat (HydraMessage msg)) ->
   m ()

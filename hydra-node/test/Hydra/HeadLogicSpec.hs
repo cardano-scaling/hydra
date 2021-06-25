@@ -10,7 +10,6 @@ import Hydra.HeadLogic (ClientResponse (PeerConnected), CoordinatedHeadState (..
 import Hydra.Ledger (Ledger (..), Party, Tx, deriveParty, generateKey, sign)
 import Hydra.Ledger.Builder (aValidTx, utxoRef)
 import Hydra.Ledger.Simple (SimpleTx (..), TxIn (..), simpleLedger)
-import Hydra.Network (Host (Host, hostName, portNumber))
 import Test.Hspec (
   Expectation,
   Spec,
@@ -53,14 +52,14 @@ spec = describe "Hydra Coordinated Head Protocol" $ do
       simpleTx = SimpleTx 1 mempty (Set.fromList [TxIn 3, TxIn 4])
 
   it "waits if a requested tx is not (yet) applicable" $ do
-    let reqTx = NetworkEvent $ ReqTx $ SimpleTx 2 inputs mempty
+    let reqTx = NetworkEvent $ ReqTx 1 $ SimpleTx 2 inputs mempty
         inputs = utxoRef 1
         s0 = initialState threeParties ledger
 
     update env ledger s0 reqTx `shouldBe` Wait
 
   it "requests snapshot when receives ReqTx given node is leader" $ do
-    let reqTx = NetworkEvent $ ReqTx simpleTx
+    let reqTx = NetworkEvent $ ReqTx 1 simpleTx
         leader = 1
         leaderEnv = envFor leader
         s0 = initialState threeParties ledger
@@ -71,7 +70,7 @@ spec = describe "Hydra Coordinated Head Protocol" $ do
   it "does not request multiple snapshots" pending
 
   it "does not request snapshots as non-leader" $ do
-    let reqTx = NetworkEvent $ ReqTx simpleTx
+    let reqTx = NetworkEvent $ ReqTx 1 simpleTx
         leaderEnv = envFor 2
         s0 = initialState threeParties ledger
 
@@ -162,9 +161,8 @@ spec = describe "Hydra Coordinated Head Protocol" $ do
     update env ledger s1 secondReqSn `shouldBe` Error (InvalidEvent secondReqSn s1)
 
   it "notifies client when it receives a ping" $ do
-    let host = Host{hostName = "0.0.0.0", portNumber = 4000}
-    update env ledger (initialState threeParties ledger) (NetworkEvent $ Connected host)
-      `hasEffect` ClientEffect (PeerConnected host)
+    update env ledger (initialState threeParties ledger) (NetworkEvent $ Connected 1)
+      `hasEffect` ClientEffect (PeerConnected 1)
 
   prop "can handle OnChainEvent in any state" prop_handleOnChainEventInAnyState
 

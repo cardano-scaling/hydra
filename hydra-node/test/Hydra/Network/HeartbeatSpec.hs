@@ -18,39 +18,38 @@ spec = describe "Heartbeat" $ do
     let sentHeartbeats = runSimOrThrow $ do
           sentMessages <- newTVarIO ([] :: [Heartbeat (HydraMessage Integer)])
 
-          withHeartbeat testHost (dummyNetwork sentMessages) noop $ \_ -> do
+          withHeartbeat 1 (dummyNetwork sentMessages) noop $ \_ ->
             threadDelay 1.1
 
           readTVarIO sentMessages
 
-    sentHeartbeats `shouldBe` replicate 2 (Ping testHost)
+    sentHeartbeats `shouldBe` replicate 2 (Ping 1)
 
   it "propagates Heartbeat received from other parties" $ do
-    let anotherHost = Host{hostName = "0.0.0.0", portNumber = 4001}
     let receivedHeartbeats = runSimOrThrow $ do
           receivedMessages <- newTVarIO ([] :: [HydraMessage Integer])
 
           let receive msg = atomically $ modifyTVar' receivedMessages (msg :)
-          withHeartbeat testHost (\cb action -> action (Network noop) >> cb (Message $ Connected anotherHost)) receive $ \_ -> do
+          withHeartbeat 1 (\cb action -> action (Network noop) >> cb (Ping 2)) receive $ \_ ->
             threadDelay 1
 
           readTVarIO receivedMessages
 
-    receivedHeartbeats `shouldBe` [Connected anotherHost]
+    receivedHeartbeats `shouldBe` [Connected 2]
 
   it "stop sending heartbeat message given action sends a message" $ do
-    let someMessage = ReqTx 1
+    let someMessage = ReqTx 1 1
         sentHeartbeats = runSimOrThrow $ do
           sentMessages <- newTVarIO ([] :: [Heartbeat (HydraMessage Integer)])
 
-          withHeartbeat testHost (dummyNetwork sentMessages) noop $ \Network{broadcast} -> do
+          withHeartbeat 1 (dummyNetwork sentMessages) noop $ \Network{broadcast} -> do
             threadDelay 0.6
             broadcast someMessage
             threadDelay 1
 
           readTVarIO sentMessages
 
-    sentHeartbeats `shouldBe` [Message someMessage, Ping testHost]
+    sentHeartbeats `shouldBe` [Message someMessage, Ping 1]
 
 testHost :: Host
 testHost = Host{hostName = "0.0.0.0", portNumber = 4000}
