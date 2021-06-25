@@ -48,8 +48,9 @@ Documentation is published online at https://input-output-hk.github.io/hydra-poc
 
 ## Try it out
 
-When in the `nix-shell`, you can start a demo scenario with three parties using
-the following commands each in a separate shell:
+Either using the `demo/docker-compose.yaml` or when in the `nix-shell`, you can
+start a demo scenario with three parties using the following commands each in a
+separate shell:
 
 ``` sh
 $ cabal exec mock-chain
