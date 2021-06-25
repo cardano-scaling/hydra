@@ -10,7 +10,6 @@ import Hydra.Prelude
 import Cardano.Crypto.DSIGN (DSIGNAlgorithm (rawDeserialiseVerKeyDSIGN), deriveVerKeyDSIGN, rawDeserialiseSignKeyDSIGN)
 import Control.Monad.Class.MonadAsync (async)
 import Control.Monad.Class.MonadSTM (newTQueue, newTVarIO, readTQueue, stateTVar, writeTQueue)
-import qualified Data.Set as Set
 import Hydra.Chain (Chain (..))
 import Hydra.HeadLogic (
   ClientRequest (..),
@@ -42,7 +41,7 @@ initEnvironment Options{me, parties} = do
     Environment
       { party = UnsafeParty vk
       , signingKey = sk
-      , otherParties = Set.fromList . map UnsafeParty $ otherVKeys
+      , otherParties = UnsafeParty <$> otherVKeys
       , snapshotStrategy = NoSnapshots
       }
  where

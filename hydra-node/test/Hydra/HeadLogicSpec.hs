@@ -37,16 +37,17 @@ import Test.Hspec.QuickCheck (prop)
 import Test.QuickCheck (Gen, Property, elements, forAll)
 import Test.QuickCheck.Instances.Time ()
 import Test.QuickCheck.Property (collect)
+import qualified Data.List as List
 
 spec :: Spec
 spec = describe "Hydra Coordinated Head Protocol" $ do
-  let threeParties = Set.fromList [1, 2, 3]
+  let threeParties = [1, 2, 3]
       ledger = simpleLedger
       env =
         Environment
           { party = 2
           , signingKey = 2
-          , otherParties = Set.fromList [1, 3]
+          , otherParties = [1, 3]
           , snapshotStrategy = NoSnapshots
           }
 
@@ -56,7 +57,7 @@ spec = describe "Hydra Coordinated Head Protocol" $ do
          in Environment
               { party
               , signingKey
-              , otherParties = threeParties Set.\\ Set.singleton party
+              , otherParties = List.delete party threeParties
               , snapshotStrategy = SnapshotAfterEachTx
               }
 
@@ -179,7 +180,7 @@ genHeadStatus =
 
 defaultHeadParameters :: HeadParameters
 defaultHeadParameters =
-  HeadParameters 3600 (Set.singleton 1)
+  HeadParameters 3600 [1]
 
 prop_handleOnChainEventInAnyState :: Property
 prop_handleOnChainEventInAnyState =
@@ -207,7 +208,7 @@ hasEffect (NewState _ effects) effect
 hasEffect _ _ = expectationFailure "Unexpected outcome"
 
 initialState ::
-  Set Party ->
+  [Party] ->
   Ledger tx ->
   HeadState tx
 initialState parties Ledger{initUTxO} =

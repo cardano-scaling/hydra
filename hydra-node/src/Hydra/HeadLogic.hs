@@ -120,7 +120,7 @@ instance (FromCBOR tx, FromCBOR (UTxO tx)) => FromCBOR (Snapshot tx) where
 -- transactions could be parameterized using such data types, but they are not
 -- fully recoverable from transactions observed on chain
 data OnChainTx tx
-  = InitTx (Set Party)
+  = InitTx [Party] -- NOTE(SN): The order of this list is important for leader selection.
   | CommitTx Party (UTxO tx)
   | CollectComTx (UTxO tx)
   | CloseTx (Snapshot tx)
@@ -165,7 +165,7 @@ type PendingCommits = Set Party
 -- | Contains at least the contestation period and other things.
 data HeadParameters = HeadParameters
   { contestationPeriod :: DiffTime
-  , parties :: Set Party
+  , parties :: [Party]
   }
   deriving (Eq, Show)
 
@@ -204,7 +204,7 @@ data Environment = Environment
   , -- NOTE(MB): In the long run we would not want to keep the signing key in
     -- memory, i.e. have an 'Effect' for signing or so.
     signingKey :: SigningKey
-  , otherParties :: Set Party
+  , otherParties :: [Party]
   , snapshotStrategy :: SnapshotStrategy
   }
 
@@ -221,17 +221,17 @@ update ::
   Outcome tx
 update Environment{party, signingKey, otherParties, snapshotStrategy} ledger (HeadState parameters st) ev = case (st, ev) of
   (InitState, ClientEvent Init) ->
-    newState InitState [OnChainEffect (InitTx (Set.singleton party <> otherParties))]
+    newState InitState [OnChainEffect (InitTx $ party : otherParties)]
   (_, OnChainEvent (InitTx parties)) ->
     -- NOTE(SN): Eventually we won't be able to construct 'HeadParameters' from
     -- the 'InitTx'
     NewState
       ( HeadState
           { headParameters = parameters{parties}
-          , headStatus = CollectingState parties mempty
+          , headStatus = CollectingState (Set.fromList parties) mempty
           }
       )
-      [ClientEffect $ ReadyToCommit (Set.toList parties)]
+      [ClientEffect $ ReadyToCommit parties]
   --
   (CollectingState remainingParties _, ClientEvent (Commit utxo)) ->
     if canCommit
@@ -309,7 +309,7 @@ update Environment{party, signingKey, otherParties, snapshotStrategy} ledger (He
                 -- TODO: Must check whether we know the 'otherParty' signing the snapshot
                 | verify snapshotSignature otherParty snapshot = otherParty `Set.insert` sigs
                 | otherwise = sigs
-           in if sigs' == parties parameters
+           in if sigs' == Set.fromList (parties parameters)
                 then
                   newState
                     ( OpenState $

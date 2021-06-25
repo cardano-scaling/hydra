@@ -16,7 +16,6 @@ import Control.Monad.Class.MonadSTM (
  )
 import Control.Monad.Class.MonadTimer (timeout)
 import Control.Monad.IOSim (IOSim, runSimTrace, selectTraceEventsDynamic, traceM)
-import qualified Data.Set as Set
 import Hydra.Chain (Chain (..))
 import Hydra.HeadLogic (
   ClientRequest (..),
@@ -319,7 +318,7 @@ withHydraNode signingKey otherParties snapshotStrategy connectToChain action = d
           Environment
             { party
             , signingKey
-            , otherParties = Set.fromList otherParties
+            , otherParties
             , snapshotStrategy
             }
     eq <- createEventQueue
