@@ -287,8 +287,8 @@ update Environment{party, signingKey, otherParties, snapshotStrategy} ledger (He
               | otherwise =
                 []
          in newState (OpenState $ headState{seenTxs = newSeenTxs, seenUTxO = utxo'}) (ClientEffect (TxSeen tx) : snapshotEffects)
-  (OpenState s@CoordinatedHeadState{confirmedSnapshot}, NetworkEvent (ReqSn otherParty sn txs))
-    | number confirmedSnapshot + 1 == sn && isLeader otherParty sn ->
+  (OpenState s@CoordinatedHeadState{confirmedSnapshot, seenSnapshot}, NetworkEvent (ReqSn otherParty sn txs))
+    | number confirmedSnapshot + 1 == sn && isLeader otherParty sn && isNothing seenSnapshot ->
       -- TODO: Verify the request is signed by (?) / comes from the leader
       -- (Can we prove a message comes from a given peer, without signature?)
       case applyTransactions ledger (utxo confirmedSnapshot) txs of

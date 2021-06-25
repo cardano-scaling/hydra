@@ -28,11 +28,13 @@ import Hydra.Ledger.Builder (aValidTx, utxoRef)
 import Hydra.Ledger.Simple (SimpleTx (..), TxIn (..), simpleLedger)
 import Hydra.Network (Host (Host, hostName, portNumber))
 import Test.Hspec (
+  Expectation,
   Spec,
   describe,
   expectationFailure,
   it,
-  shouldBe, pending, Expectation
+  pending,
+  shouldBe,
  )
 import Test.Hspec.QuickCheck (prop)
 import Test.QuickCheck (Gen, Property, elements, forAll)
@@ -156,7 +158,7 @@ spec = describe "Hydra Coordinated Head Protocol" $ do
         st = initialState threeParties ledger
     update env ledger st event `shouldBe` Error (InvalidEvent event st)
 
-  it "does handle overlapping snapshot requests" $ do
+  it "rejects overlapping snapshot requests from the leader" $ do
     let s0 = initialState threeParties ledger
         theLeader = 1
         nextSN = 1
@@ -164,7 +166,7 @@ spec = describe "Hydra Coordinated Head Protocol" $ do
         secondReqSn = NetworkEvent $ ReqSn theLeader nextSN [aValidTx 51]
 
     s1 <- assertNewState $ update env ledger s0 firstReqSn
-    assertStateUnchangedFrom s1 $ update env ledger s1 secondReqSn
+    update env ledger s1 secondReqSn `shouldBe` Error (InvalidEvent secondReqSn s1)
 
   it "notifies client when it receives a ping" $ do
     let host = Host{hostName = "0.0.0.0", portNumber = 4000}
