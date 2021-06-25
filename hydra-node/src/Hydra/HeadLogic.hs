@@ -156,9 +156,9 @@ deriving instance Tx tx => Eq (HeadStatus tx)
 deriving instance Tx tx => Show (HeadStatus tx)
 
 data SimpleHeadState tx = SimpleHeadState
-  { confirmedUTxO :: UTxO tx
+  { seenUTxO :: UTxO tx
   , -- TODO: tx should be an abstract 'TxId'
-    unconfirmedTxs :: Map tx (Set Party)
+    seenTxs :: [tx]
   , confirmedTxs :: [tx]
   , confirmedSnapshot :: Snapshot tx
   , seenSnapshot :: Maybe (Snapshot tx, Set Party)
@@ -283,42 +283,50 @@ update Environment{party, signingKey, allParties, snapshotStrategy} ledger (Head
     --       send not-yet-valid transactions and simulate messages out of
     --       order
     newState st [NetworkEffect $ ReqTx tx]
-  (OpenState headState, NetworkEvent (ReqTx tx)) ->
-    case canApply ledger (confirmedUTxO headState) tx of
-      Invalid _ -> Wait
-      Valid -> newState st [NetworkEffect $ AckTx party tx]
-  (OpenState headState@SimpleHeadState{confirmedUTxO, confirmedTxs, confirmedSnapshot, unconfirmedTxs}, NetworkEvent (AckTx otherParty tx)) ->
-    -- TODO(SN): check signature of AckTx and we would not send the tx around, so some more bookkeeping is required here
-    case applyTransactions ledger confirmedUTxO [tx] of
-      Left err -> error $ "TODO: validation error: " <> show err
-      Right utxo' -> do
-        let sigs =
-              Set.insert
-                otherParty
-                (fromMaybe Set.empty $ Map.lookup tx unconfirmedTxs)
-            sn' = number confirmedSnapshot + 1
+  (OpenState headState@SimpleHeadState{confirmedSnapshot, seenTxs, seenUTxO}, NetworkEvent (ReqTx tx)) ->
+    case applyTransactions ledger seenUTxO [tx] of
+      Left _err -> Wait
+      Right utxo' ->
+        let sn' = number confirmedSnapshot + 1
+            newSeenTxs = tx : seenTxs
             snapshotEffects
               | isLeader party sn' && snapshotStrategy == SnapshotAfterEachTx =
-                [NetworkEffect $ ReqSn party sn' (tx : confirmedTxs)]
+                [NetworkEffect $ ReqSn party sn' newSeenTxs]
               | otherwise =
                 []
-        if sigs == parties parameters
-          then
-            newState
-              ( OpenState $
-                  headState
-                    { confirmedUTxO = utxo'
-                    , unconfirmedTxs = Map.delete tx unconfirmedTxs
-                    , confirmedTxs = tx : confirmedTxs
-                    }
-              )
-              ( ClientEffect (TxConfirmed tx) : snapshotEffects
-              )
-          else
-            newState
-              ( OpenState headState{unconfirmedTxs = Map.insert tx sigs unconfirmedTxs}
-              )
-              []
+         in newState (OpenState $ headState{seenTxs = newSeenTxs, seenUTxO = utxo'}) snapshotEffects
+  -- (OpenState headState@SimpleHeadState{confirmedUTxO, confirmedTxs, confirmedSnapshot, unconfirmedTxs}, NetworkEvent (AckTx otherParty tx)) ->
+  --   -- TODO(SN): check signature of AckTx and we would not send the tx around, so some more bookkeeping is required here
+  --   case applyTransactions ledger confirmedUTxO [tx] of
+  --     Left err -> error $ "TODO: validation error: " <> show err
+  --     Right utxo' -> do
+  --       let sigs =
+  --             Set.insert
+  --               otherParty
+  --               (fromMaybe Set.empty $ Map.lookup tx unconfirmedTxs)
+  --           sn' = number confirmedSnapshot + 1
+  --           snapshotEffects
+  --             | isLeader party sn' && snapshotStrategy == SnapshotAfterEachTx =
+  --               [NetworkEffect $ ReqSn party sn' (tx : confirmedTxs)]
+  --             | otherwise =
+  --               []
+  --       if sigs == parties parameters
+  --         then
+  --           newState
+  --             ( OpenState $
+  --                 headState
+  --                   { confirmedUTxO = utxo'
+  --                   , unconfirmedTxs = Map.delete tx unconfirmedTxs
+  --                   , confirmedTxs = tx : confirmedTxs
+  --                   }
+  --             )
+  --             ( ClientEffect (TxConfirmed tx) : snapshotEffects
+  --             )
+  --         else
+  --           newState
+  --             ( OpenState headState{unconfirmedTxs = Map.insert tx sigs unconfirmedTxs}
+  --             )
+  --             []
   (OpenState s@SimpleHeadState{confirmedSnapshot}, NetworkEvent (ReqSn otherParty sn txs))
     | number confirmedSnapshot + 1 == sn && isLeader otherParty sn ->
       -- TODO: Verify the request is signed by (?) / comes from the leader
@@ -374,9 +382,9 @@ update Environment{party, signingKey, allParties, snapshotStrategy} ledger (Head
     case applyTransactions ledger (utxo snapshot) txs of
       Left e ->
         error $ "Stored not applicable snapshot (" <> show (number snapshot) <> ") " <> show txs <> ": " <> show e
-      Right confirmedUTxO ->
+      Right utxo ->
         newState
-          (ClosedState confirmedUTxO)
+          (ClosedState utxo)
           [ClientEffect $ HeadIsClosed (contestationPeriod parameters) snapshot txs]
   --
   (_, OnChainEvent ContestTx{}) ->

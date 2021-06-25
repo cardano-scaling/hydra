@@ -22,7 +22,7 @@ import Hydra.HeadLogic (
   SnapshotStrategy (..),
   update,
  )
-import Hydra.Ledger (Ledger (..), Party, Tx, sign)
+import Hydra.Ledger (Ledger (..), Party, Tx, deriveParty, generateKey, sign)
 import Hydra.Ledger.Builder (utxoRef)
 import Hydra.Ledger.Simple (SimpleTx (..), TxIn (..), simpleLedger)
 import Hydra.Network (Host (Host, hostName, portNumber))
@@ -39,7 +39,7 @@ import Test.QuickCheck.Instances.Time ()
 import Test.QuickCheck.Property (collect)
 
 spec :: Spec
-spec = describe "Hydra Head Logic" $ do
+spec = describe "Hydra Coordinated Head Protocol" $ do
   let threeParties = Set.fromList [1, 2, 3]
       ledger = simpleLedger
       env =
@@ -49,6 +49,16 @@ spec = describe "Hydra Head Logic" $ do
           , allParties = threeParties
           , snapshotStrategy = NoSnapshots
           }
+
+      envFor n =
+        let signingKey = generateKey n
+         in Environment
+              { party = deriveParty signingKey
+              , signingKey
+              , allParties = threeParties
+              , snapshotStrategy = SnapshotAfterEachTx
+              }
+
       -- NOTE: This unrealistic Tx is just there to be always valid as
       -- it does not require any input
       simpleTx = SimpleTx 1 mempty (Set.fromList [TxIn 3, TxIn 4])
@@ -72,6 +82,15 @@ spec = describe "Hydra Head Logic" $ do
         s0 = initialState threeParties ledger
 
     update env ledger s0 reqTx `shouldBe` Wait
+
+  it "requests snapshot when receives ReqTx given node is leader" $ do
+    let reqTx = NetworkEvent $ ReqTx simpleTx
+        leader = 1
+        leaderEnv = envFor leader
+        s0 = initialState threeParties ledger
+
+    update leaderEnv ledger s0 reqTx
+      `hasEffect` NetworkEffect (ReqSn (party leaderEnv) 1 [simpleTx])
 
   it "notifies client when it receives a ping" $ do
     let host = Host{hostName = "0.0.0.0", portNumber = 4000}
