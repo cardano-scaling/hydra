@@ -68,7 +68,7 @@ else
 fi
 
 
-COMMAND="cabal exec ghci -- -ihydra-plutus/src -ihydra-plutus/test -ihydra-node/src -ihydra-node/test -idist-newstyle/build/x86_64-linux/ghc-8.10.4/hydra-node-0.1.0/build/autogen/  $FLAGS $(git ls-files 'hydra-node/**/*.hs'  'hydra-plutus/**/*.hs'  | grep -v Main.hs| grep -v Repl | tr -s '\012' ' ')"
+COMMAND="cabal exec ghci -- -ihydra-plutus/src -ihydra-prelude/src -ihydra-plutus/test -ihydra-node/src -ihydra-node/test -idist-newstyle/build/x86_64-linux/ghc-8.10.4/hydra-node-0.1.0/build/autogen/  $FLAGS $(git ls-files 'hydra-node/**/*.hs'  'hydra-plutus/**/*.hs'  | grep -v Main.hs| grep -v Repl | tr -s '\012' ' ')"
 
 if [ $1 == "repl" ]; then
   exec $COMMAND
