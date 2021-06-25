@@ -22,11 +22,14 @@ let
 in
 pkgs.haskell-nix.project {
   src = pkgs.haskell-nix.haskellLib.cleanGit {
-    name = "haskell-poc";
+    name = "hydra-poc";
     src = ./.;
   };
-
   compiler-nix-name = compiler;
+
+  # Fixed output derivation for plan-nix
+  plan-sha256 = "1qxi7q9c89fqsdpx49xr9fs2w45avnwwsdwy6v7r1kf7mvykn7ks";
+  materialized = ./nix/hydra-poc.materialized;
 
   sha256map = {
     "https://github.com/Quid2/flat.git"."95e5d7488451e43062ca84d5376b3adcc465f1cd" = "06l31x3y93rjpryvlxnpsyq2zyxvb0z6lik6yq2fvh36i5zwvwa3";
