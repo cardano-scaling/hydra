@@ -204,7 +204,7 @@ data Environment = Environment
   , -- NOTE(MB): In the long run we would not want to keep the signing key in
     -- memory, i.e. have an 'Effect' for signing or so.
     signingKey :: SigningKey
-  , allParties :: Set Party
+  , otherParties :: Set Party
   , snapshotStrategy :: SnapshotStrategy
   }
 
@@ -219,9 +219,9 @@ update ::
   HeadState tx ->
   Event tx ->
   Outcome tx
-update Environment{party, signingKey, allParties, snapshotStrategy} ledger (HeadState parameters st) ev = case (st, ev) of
+update Environment{party, signingKey, otherParties, snapshotStrategy} ledger (HeadState parameters st) ev = case (st, ev) of
   (InitState, ClientEvent Init) ->
-    newState InitState [OnChainEffect (InitTx allParties)]
+    newState InitState [OnChainEffect (InitTx (Set.singleton party <> otherParties))]
   (_, OnChainEvent (InitTx parties)) ->
     -- NOTE(SN): Eventually we won't be able to construct 'HeadParameters' from
     -- the 'InitTx'

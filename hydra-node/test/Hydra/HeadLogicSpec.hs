@@ -7,6 +7,7 @@ import Hydra.Prelude
 import qualified Data.Set as Set
 import Hydra.HeadLogic (
   ClientResponse (PeerConnected),
+  CoordinatedHeadState (..),
   Effect (ClientEffect, NetworkEffect),
   Environment (..),
   Event (..),
@@ -17,7 +18,6 @@ import Hydra.HeadLogic (
   LogicError (..),
   OnChainTx (..),
   Outcome (..),
-  CoordinatedHeadState (..),
   Snapshot (..),
   SnapshotStrategy (..),
   update,
@@ -46,16 +46,17 @@ spec = describe "Hydra Coordinated Head Protocol" $ do
         Environment
           { party = 2
           , signingKey = 2
-          , allParties = threeParties
+          , otherParties = Set.fromList [1, 3]
           , snapshotStrategy = NoSnapshots
           }
 
       envFor n =
         let signingKey = generateKey n
+            party = deriveParty signingKey
          in Environment
-              { party = deriveParty signingKey
+              { party
               , signingKey
-              , allParties = threeParties
+              , otherParties = threeParties Set.\\ Set.singleton party
               , snapshotStrategy = SnapshotAfterEachTx
               }
 
@@ -194,7 +195,7 @@ prop_handleOnChainEventInAnyState =
     Environment
       { party = 1
       , signingKey = 1
-      , allParties = mempty -- TODO(SN): This is a big smell, make this impossible!
+      , otherParties = mempty
       , snapshotStrategy = NoSnapshots
       }
   ledger = simpleLedger

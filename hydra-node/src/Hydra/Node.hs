@@ -42,7 +42,7 @@ initEnvironment Options{me, parties} = do
     Environment
       { party = UnsafeParty vk
       , signingKey = sk
-      , allParties = Set.fromList . map UnsafeParty $ vk : otherVKeys
+      , otherParties = Set.fromList . map UnsafeParty $ otherVKeys
       , snapshotStrategy = NoSnapshots
       }
  where

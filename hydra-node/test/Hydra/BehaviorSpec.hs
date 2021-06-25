@@ -315,16 +315,15 @@ withHydraNode signingKey otherParties snapshotStrategy connectToChain action = d
   party = deriveParty signingKey
 
   createHydraNode response = do
-    let parties = Set.fromList (party : otherParties)
     let env =
           Environment
             { party
             , signingKey
-            , allParties = parties
+            , otherParties = Set.fromList otherParties
             , snapshotStrategy
             }
     eq <- createEventQueue
-    let headState = createHeadState [] (HeadParameters testContestationPeriod parties)
+    let headState = createHeadState [] (HeadParameters testContestationPeriod mempty)
     hh <- createHydraHead headState simpleLedger
     let hn' = Network{broadcast = const $ pure ()}
     let node = HydraNode{eq, hn = hn', hh, oc = Chain (const $ pure ()), sendResponse = atomically . writeTQueue response, env}
