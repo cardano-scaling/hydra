@@ -87,7 +87,6 @@ deriving instance Tx tx => Read (ClientResponse tx)
 -- here into the 'NetworkEvent'
 data HydraMessage tx
   = ReqTx tx
-  | AckTx Party tx
   | ReqSn Party SnapshotNumber [tx]
   | AckSn Party (Signed (Snapshot tx)) SnapshotNumber
   | Ping Host
@@ -98,7 +97,6 @@ deriving stock instance Generic (HydraMessage tx)
 instance (ToCBOR tx, ToCBOR (UTxO tx)) => ToCBOR (HydraMessage tx) where
   toCBOR = \case
     ReqTx tx -> toCBOR ("ReqTx" :: Text) <> toCBOR tx
-    AckTx party tx -> toCBOR ("AckTx" :: Text) <> toCBOR party <> toCBOR tx
     ReqSn party sn txs -> toCBOR ("ReqSn" :: Text) <> toCBOR party <> toCBOR sn <> toCBOR txs
     AckSn party sig sn -> toCBOR ("AckSn" :: Text) <> toCBOR party <> toCBOR sig <> toCBOR sn
     Ping host -> toCBOR ("Ping" :: Text) <> toCBOR host
@@ -110,7 +108,6 @@ instance (FromCBOR tx, FromCBOR (UTxO tx)) => FromCBOR (HydraMessage tx) where
   fromCBOR =
     fromCBOR >>= \case
       ("ReqTx" :: Text) -> ReqTx <$> fromCBOR
-      "AckTx" -> AckTx <$> fromCBOR <*> fromCBOR
       "ReqSn" -> ReqSn <$> fromCBOR <*> fromCBOR <*> fromCBOR
       "AckSn" -> AckSn <$> fromCBOR <*> fromCBOR <*> fromCBOR
       "Ping" -> Ping <$> fromCBOR
@@ -289,38 +286,6 @@ update Environment{party, signingKey, allParties, snapshotStrategy} ledger (Head
               | otherwise =
                 []
          in newState (OpenState $ headState{seenTxs = newSeenTxs, seenUTxO = utxo'}) (ClientEffect (TxSeen tx) : snapshotEffects)
-  -- (OpenState headState@CoordinatedHeadState{confirmedUTxO, confirmedTxs, confirmedSnapshot, unconfirmedTxs}, NetworkEvent (AckTx otherParty tx)) ->
-  --   -- TODO(SN): check signature of AckTx and we would not send the tx around, so some more bookkeeping is required here
-  --   case applyTransactions ledger confirmedUTxO [tx] of
-  --     Left err -> error $ "TODO: validation error: " <> show err
-  --     Right utxo' -> do
-  --       let sigs =
-  --             Set.insert
-  --               otherParty
-  --               (fromMaybe Set.empty $ Map.lookup tx unconfirmedTxs)
-  --           sn' = number confirmedSnapshot + 1
-  --           snapshotEffects
-  --             | isLeader party sn' && snapshotStrategy == SnapshotAfterEachTx =
-  --               [NetworkEffect $ ReqSn party sn' (tx : confirmedTxs)]
-  --             | otherwise =
-  --               []
-  --       if sigs == parties parameters
-  --         then
-  --           newState
-  --             ( OpenState $
-  --                 headState
-  --                   { confirmedUTxO = utxo'
-  --                   , unconfirmedTxs = Map.delete tx unconfirmedTxs
-  --                   , confirmedTxs = tx : confirmedTxs
-  --                   }
-  --             )
-  --             ( ClientEffect (TxSeen tx) : snapshotEffects
-  --             )
-  --         else
-  --           newState
-  --             ( OpenState headState{unconfirmedTxs = Map.insert tx sigs unconfirmedTxs}
-  --             )
-  --             []
   (OpenState s@CoordinatedHeadState{confirmedSnapshot}, NetworkEvent (ReqSn otherParty sn txs))
     | number confirmedSnapshot + 1 == sn && isLeader otherParty sn ->
       -- TODO: Verify the request is signed by (?) / comes from the leader

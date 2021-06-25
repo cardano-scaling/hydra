@@ -45,7 +45,7 @@ spec = describe "Networking layer" $ do
       received <- atomically newTQueue
       showLogsOnFailure $ \tracer -> failAfter 30 $ do
         [port1, port2] <- fmap fromIntegral <$> randomUnusedTCPPorts 2
-        withOuroborosNetwork tracer (Host lo port1) [(Host lo port2)] (const @_ @Integer $ pure ()) $ \hn1 ->
+        withOuroborosNetwork tracer (Host lo port1) [Host lo port2] (const @_ @Integer $ pure ()) $ \hn1 ->
           withOuroborosNetwork @Integer tracer (Host lo port2) [Host lo port1] (atomically . writeTQueue received) $ \_ -> do
             withAsync (1 `broadcastFrom` hn1) $ \_ ->
               atomically (readTQueue received) `shouldReturn` 1
@@ -56,9 +56,9 @@ spec = describe "Networking layer" $ do
       node3received <- atomically newTQueue
       showLogsOnFailure $ \tracer -> failAfter 30 $ do
         [port1, port2, port3] <- fmap fromIntegral <$> randomUnusedTCPPorts 3
-        withOuroborosNetwork @Integer tracer (Host lo port1) [(Host lo port2), (Host lo port3)] (atomically . writeTQueue node1received) $ \hn1 ->
-          withOuroborosNetwork tracer (Host lo port2) [(Host lo port1), (Host lo port3)] (atomically . writeTQueue node2received) $ \hn2 -> do
-            withOuroborosNetwork tracer (Host lo port3) [(Host lo port1), (Host lo port2)] (atomically . writeTQueue node3received) $ \hn3 -> do
+        withOuroborosNetwork @Integer tracer (Host lo port1) [Host lo port2, Host lo port3] (atomically . writeTQueue node1received) $ \hn1 ->
+          withOuroborosNetwork tracer (Host lo port2) [Host lo port1, Host lo port3] (atomically . writeTQueue node2received) $ \hn2 -> do
+            withOuroborosNetwork tracer (Host lo port3) [Host lo port1, Host lo port2] (atomically . writeTQueue node3received) $ \hn3 -> do
               assertAllNodesBroadcast
                 [ (port1, hn1, node1received)
                 , (port2, hn2, node2received)
@@ -72,9 +72,9 @@ spec = describe "Networking layer" $ do
       node3received <- atomically newTQueue
       showLogsOnFailure $ \tracer -> failAfter 10 $ do
         [port1, port2, port3] <- fmap fromIntegral <$> randomUnusedTCPPorts 3
-        withZeroMQNetwork tracer (Host lo port1) [(Host lo port2), (Host lo port3)] (atomically . writeTQueue node1received) $ \hn1 ->
-          withZeroMQNetwork tracer (Host lo port2) [(Host lo port1), (Host lo port3)] (atomically . writeTQueue node2received) $ \hn2 ->
-            withZeroMQNetwork tracer (Host lo port3) [(Host lo port1), (Host lo port2)] (atomically . writeTQueue node3received) $ \hn3 -> do
+        withZeroMQNetwork tracer (Host lo port1) [Host lo port2, Host lo port3] (atomically . writeTQueue node1received) $ \hn1 ->
+          withZeroMQNetwork tracer (Host lo port2) [Host lo port1, Host lo port3] (atomically . writeTQueue node2received) $ \hn2 ->
+            withZeroMQNetwork tracer (Host lo port3) [Host lo port1, Host lo port2] (atomically . writeTQueue node3received) $ \hn3 -> do
               assertAllNodesBroadcast
                 [ (port1, hn1, node1received)
                 , (port2, hn2, node2received)
@@ -133,7 +133,6 @@ instance Arbitrary (HydraMessage SimpleTx) where
   arbitrary =
     oneof
       [ ReqTx <$> genSimpleTx
-      , AckTx <$> genParty <*> genSimpleTx
       , ReqSn <$> genParty <*> arbitraryNatural <*> vectorOf 10 genSimpleTx
       , AckSn <$> genParty <*> genSignature <*> arbitraryNatural
       , Ping <$> genHost
