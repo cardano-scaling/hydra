@@ -11,10 +11,11 @@ import Control.Monad.Class.MonadSTM (
   newTQueue,
   newTVarIO,
   readTQueue,
-  writeTQueue, readTVarIO
+  readTVarIO,
+  writeTQueue,
  )
 import Control.Monad.Class.MonadTimer (timeout)
-import Control.Monad.IOSim (IOSim, runSimTrace, selectTraceEventsDynamic, traceM)
+import Control.Monad.IOSim (IOSim, runSimTrace, selectTraceEventsDynamic)
 import Hydra.Chain (Chain (..))
 import Hydra.HeadLogic (
   ClientRequest (..),
@@ -30,7 +31,6 @@ import Hydra.HeadLogic (
 import Hydra.Ledger (Party, SigningKey, Tx, deriveParty)
 import Hydra.Ledger.Builder (aValidTx, utxoRef, utxoRefs)
 import Hydra.Ledger.Simple (SimpleTx (..), simpleLedger)
-import Hydra.Logging (Tracer (..))
 import Hydra.Network (Network (..))
 import Hydra.Node (
   HydraNode (..),
@@ -43,10 +43,10 @@ import Hydra.Node (
   runHydraNode,
  )
 import Test.Hspec (Spec, describe, it, shouldContain)
-import Test.Util (failAfter, shouldNotBe, shouldReturn, shouldRunInSim)
+import Test.Util (failAfter, shouldNotBe, shouldReturn, shouldRunInSim, traceInIOSim)
 
 spec :: Spec
-spec = describe "Behavior of one ore more hydra-nodes" $ do
+spec = describe "Behavior of one ore more hydra nodes" $ do
   describe "Sanity tests of test suite" $
     it "does not delay for real" $
       shouldRunInSim $
@@ -326,10 +326,3 @@ withHydraNode signingKey otherParties snapshotStrategy connectToChain action = d
     let hn' = Network{broadcast = const $ pure ()}
     let node = HydraNode{eq, hn = hn', hh, oc = Chain (const $ pure ()), sendResponse = atomically . writeTQueue response, env}
     connectToChain node
-
--- | A 'Tracer' that works in 'IOSim' monad.
--- This tracer uses the 'Output' event which uses converts value traced to 'Dynamic'
--- which requires 'Typeable' constraint. To retrieve the trace use 'selectTraceEventsDynamic'
--- applied to the correct type.
-traceInIOSim :: Typeable a => Tracer (IOSim s) a
-traceInIOSim = Tracer $ \a -> traceM a

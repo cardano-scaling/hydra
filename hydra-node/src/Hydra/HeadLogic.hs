@@ -8,7 +8,7 @@ import Hydra.Prelude
 
 import Cardano.Binary (FromCBOR (..), ToCBOR (..))
 import Cardano.Crypto.Util (SignableRepresentation (..))
-import Data.List (elemIndex)
+import Data.List (elemIndex, (\\))
 import qualified Data.Map.Strict as Map
 import qualified Data.Set as Set
 import Hydra.Ledger (
@@ -287,14 +287,14 @@ update Environment{party, signingKey, otherParties, snapshotStrategy} ledger (He
     --       send not-yet-valid transactions and simulate messages out of
     --       order
     newState st [NetworkEffect $ ReqTx party tx]
-  (OpenState headState@CoordinatedHeadState{confirmedSnapshot, seenTxs, seenUTxO}, NetworkEvent (ReqTx _ tx)) ->
+  (OpenState headState@CoordinatedHeadState{confirmedSnapshot, seenTxs, seenUTxO, seenSnapshot}, NetworkEvent (ReqTx _ tx)) ->
     case applyTransactions ledger seenUTxO [tx] of
       Left _err -> Wait
       Right utxo' ->
         let sn' = number confirmedSnapshot + 1
             newSeenTxs = tx : seenTxs
             snapshotEffects
-              | isLeader party sn' && snapshotStrategy == SnapshotAfterEachTx =
+              | isLeader party sn' && snapshotStrategy == SnapshotAfterEachTx && isNothing seenSnapshot =
                 [NetworkEffect $ ReqSn party sn' newSeenTxs]
               | otherwise =
                 []
@@ -312,7 +312,7 @@ update Environment{party, signingKey, otherParties, snapshotStrategy} ledger (He
            in newState
                 (OpenState $ s{seenSnapshot = Just (nextSnapshot, mempty)})
                 [NetworkEffect $ AckSn party snapshotSignature sn]
-  (OpenState headState@CoordinatedHeadState{seenSnapshot}, NetworkEvent (AckSn otherParty snapshotSignature sn)) ->
+  (OpenState headState@CoordinatedHeadState{seenSnapshot, seenTxs}, NetworkEvent (AckSn otherParty snapshotSignature sn)) ->
     -- TODO: Verify snapshot signatures.
     case seenSnapshot of
       Nothing -> error "TODO: wait until reqSn is seen (and seenSnapshot created)"
@@ -329,6 +329,7 @@ update Environment{party, signingKey, otherParties, snapshotStrategy} ledger (He
                         headState
                           { confirmedSnapshot = snapshot
                           , seenSnapshot = Nothing
+                          , seenTxs = seenTxs \\ confirmed snapshot
                           }
                     )
                     [ClientEffect $ SnapshotConfirmed sn]
@@ -376,7 +377,7 @@ update Environment{party, signingKey, otherParties, snapshotStrategy} ledger (He
   newState s = NewState (HeadState parameters s)
 
   isLeader :: Party -> SnapshotNumber -> Bool
-  isLeader p _alwayssn =
+  isLeader p _sn =
     case p `elemIndex` parties parameters of
       Just i -> i == 0
       _ -> False
