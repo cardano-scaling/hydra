@@ -57,7 +57,7 @@ $ cabal exec mock-chain
 ```
 
 ``` sh
-$ abal exec hydra-node -- --node-id 1 --api-port 4001 \
+$ cabal exec hydra-node -- --node-id 1 --api-port 4001 \
   --port 5001 --peer "localhost@5002" --peer "localhost@5003" \
   --me "demo/alice.sk" --party "demo/bob.vk" --party "demo/carol.vk"
 ```
