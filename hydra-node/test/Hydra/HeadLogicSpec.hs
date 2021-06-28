@@ -1,8 +1,9 @@
 {-# LANGUAGE TypeApplications #-}
 
 -- | Unit tests of the the protocol logic in 'HeadLogic'. These are very fine
--- grained and specific to individual steps in the protocol. More higher-level
--- tests to this can be found in 'Hydra.NodeSpec' and 'Hydra.BehaviorSpec'.
+-- grained and specific to individual steps in the protocol. More high-level of
+-- the protocol logic, especially between multiple parties can be found in
+-- 'Hydra.BehaviorSpec'.
 module Hydra.HeadLogicSpec where
 
 import Hydra.Prelude
