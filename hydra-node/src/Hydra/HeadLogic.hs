@@ -70,6 +70,7 @@ instance Tx tx => SignableRepresentation (Snapshot tx) where
 
 data ClientResponse tx
   = PeerConnected Party
+  | PeerDisconnected Party
   | ReadyToCommit [Party]
   | HeadIsOpen (UTxO tx)
   | HeadIsClosed DiffTime (Snapshot tx)
@@ -357,6 +358,8 @@ update Environment{party, signingKey, otherParties, snapshotStrategy} ledger (He
     newState st [ClientEffect CommandFailed]
   (_, NetworkEvent (Connected host)) ->
     newState st [ClientEffect $ PeerConnected host]
+  (_, NetworkEvent (Disconnected host)) ->
+    newState st [ClientEffect $ PeerDisconnected host]
   _ ->
     Error $ InvalidEvent ev (HeadState parameters st)
  where
