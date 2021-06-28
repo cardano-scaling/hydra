@@ -14,14 +14,17 @@ import Test.Hspec (Spec, describe, it, shouldBe)
 
 spec :: Spec
 spec = describe "Heartbeat" $ do
-  let dummyNetwork msgqueue _cb action =
+  let captureOutgoing msgqueue _cb action =
         action $ Network{broadcast = \msg -> atomically $ modifyTVar' msgqueue (msg :)}
+
+      captureIncoming receivedMessages msg =
+        atomically $ modifyTVar' receivedMessages (msg :)
 
   it "sends a heartbeat message with own party id after 500 ms" $ do
     let sentHeartbeats = runSimOrThrow $ do
           sentMessages <- newTVarIO ([] :: [Heartbeat (HydraMessage Integer)])
 
-          withHeartbeat 1 (dummyNetwork sentMessages) noop $ \_ ->
+          withHeartbeat 1 (captureOutgoing sentMessages) noop $ \_ ->
             threadDelay 1.1
 
           readTVarIO sentMessages
@@ -32,8 +35,7 @@ spec = describe "Heartbeat" $ do
     let receivedHeartbeats = runSimOrThrow $ do
           receivedMessages <- newTVarIO ([] :: [HydraMessage Integer])
 
-          let receive msg = atomically $ modifyTVar' receivedMessages (msg :)
-          withHeartbeat 1 (\cb action -> action (Network noop) >> cb (Ping 2)) receive $ \_ ->
+          withHeartbeat 1 (\incoming _ -> incoming (Ping 2)) (captureIncoming receivedMessages) $ \_ ->
             threadDelay 1
 
           readTVarIO receivedMessages
@@ -44,8 +46,7 @@ spec = describe "Heartbeat" $ do
     let receivedHeartbeats = runSimOrThrow $ do
           receivedMessages <- newTVarIO ([] :: [HydraMessage Integer])
 
-          let receive msg = atomically $ modifyTVar' receivedMessages (msg :)
-          withHeartbeat 1 (\cb action -> action (Network noop) >> cb (Message $ ReqTx 2 1)) receive $ \_ ->
+          withHeartbeat 1 (\incoming _ -> incoming (Message $ ReqTx 2 1)) (captureIncoming receivedMessages) $ \_ ->
             threadDelay 1
 
           readTVarIO receivedMessages
@@ -56,21 +57,24 @@ spec = describe "Heartbeat" $ do
     let receivedHeartbeats = runSimOrThrow $ do
           receivedMessages <- newTVarIO ([] :: [HydraMessage Integer])
 
-          let receive msg = atomically $ modifyTVar' receivedMessages (msg :)
-          withHeartbeat 1 (\cb action -> action (Network noop) >> cb (Message $ ReqTx 2 1) >> cb (Ping 2)) receive $ \_ ->
+          withHeartbeat 1 (\incoming _ -> incoming (Message $ ReqTx 2 1) >> incoming (Ping 2)) (captureIncoming receivedMessages) $ \_ ->
             threadDelay 1
 
           readTVarIO receivedMessages
 
     receivedHeartbeats `shouldBe` [ReqTx 2 1, Connected 2]
 
-  it "sends Disconnected given no messages has been received from known peer within 3s" $ do
+  it "sends Disconnected given no messages has been received from known party within twice heartbeat delay" $ do
     let receivedHeartbeats = runSimOrThrow $ do
           receivedMessages <- newTVarIO ([] :: [HydraMessage Integer])
 
-          let receive msg = atomically $ modifyTVar' receivedMessages (msg :)
-          withHeartbeat 1 (\cb action -> race_ (action (Network noop)) (cb (Ping 2) >> threadDelay 4)) receive $ \_ ->
-            threadDelay 10
+          let component incoming action =
+                race_
+                  (action (Network noop))
+                  (incoming (Ping 2) >> threadDelay 4 >> incoming (Ping 2) >> threadDelay 7)
+
+          withHeartbeat 1 component (captureIncoming receivedMessages) $ \_ ->
+            threadDelay 20
 
           readTVarIO receivedMessages
 
@@ -81,7 +85,7 @@ spec = describe "Heartbeat" $ do
         sentHeartbeats = runSimOrThrow $ do
           sentMessages <- newTVarIO ([] :: [Heartbeat (HydraMessage Integer)])
 
-          withHeartbeat 1 (dummyNetwork sentMessages) noop $ \Network{broadcast} -> do
+          withHeartbeat 1 (captureOutgoing sentMessages) noop $ \Network{broadcast} -> do
             threadDelay 0.6
             broadcast someMessage
             threadDelay 1
@@ -90,12 +94,12 @@ spec = describe "Heartbeat" $ do
 
     sentHeartbeats `shouldBe` [Message someMessage, Ping 1]
 
-  it "restart sending heartbeat messages given last message sent is older than 3s" $ do
+  it "restart sending heartbeat messages given last message sent is older than heartbeat delay" $ do
     let someMessage = ReqTx 1 1
         sentHeartbeats = runSimOrThrow $ do
           sentMessages <- newTVarIO ([] :: [Heartbeat (HydraMessage Integer)])
 
-          withHeartbeat 1 (dummyNetwork sentMessages) noop $ \Network{broadcast} -> do
+          withHeartbeat 1 (captureOutgoing sentMessages) noop $ \Network{broadcast} -> do
             threadDelay 0.6
             broadcast someMessage
             threadDelay 3.6

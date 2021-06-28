@@ -143,7 +143,7 @@ updateSuspected :: MonadSTM m => TVar m HeartbeatState -> Time -> m (Set Party)
 updateSuspected heartbeatState now =
   atomically $ do
     aliveParties <- alive <$> readTVar heartbeatState
-    let timedOutParties = Map.filter (livenessTimeout now) aliveParties
+    let timedOutParties = Map.filter (checkTimeout (2 *) now) aliveParties
     unless (Map.null timedOutParties) $
       modifyTVar' heartbeatState $ \s ->
         s
@@ -154,7 +154,7 @@ updateSuspected heartbeatState now =
 
 shouldSendHeartbeat :: Time -> HeartbeatState -> Bool
 shouldSendHeartbeat now HeartbeatState{lastSent} =
-  maybe True (livenessTimeout now) lastSent
+  maybe True (checkTimeout id now) lastSent
 
-livenessTimeout :: Time -> Time -> Bool
-livenessTimeout now seen = diffTime now seen > livenessDelay
+checkTimeout :: (DiffTime -> DiffTime) -> Time -> Time -> Bool
+checkTimeout delayFn now seen = diffTime now seen > delayFn livenessDelay
