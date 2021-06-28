@@ -1,3 +1,4 @@
+{-# LANGUAGE TypeApplications #-}
 {-# OPTIONS_GHC -Wno-deprecations #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 
@@ -7,8 +8,6 @@ import Hydra.Prelude
 
 import Cardano.Crypto.DSIGN (DSIGNAlgorithm (..), MockDSIGN, SignKeyDSIGN, VerKeyDSIGN (VerKeyMockDSIGN), signDSIGN)
 import Cardano.Crypto.Util (SignableRepresentation)
-import Data.Aeson (withText)
-import Data.ByteString.Base16 (decodeBase16, encodeBase16)
 
 -- NOTE(MB): We probably want to move these common types somewhere else. Putting
 -- here to avoid circular dependencies with Hydra.Logic
@@ -28,19 +27,10 @@ instance Arbitrary Party where
   arbitrary = deriveParty . generateKey <$> arbitrary
 
 instance ToJSON Party where
-  toJSON (UnsafeParty vk) = toJSON (encodeBase16 $ rawSerialiseVerKeyDSIGN vk)
+  toJSON (UnsafeParty (VerKeyMockDSIGN i)) = toJSON i
 
 instance FromJSON Party where
-  parseJSON = withText "Party" (decodeBase16' >=> deserialiseParty)
-   where
-    decodeBase16' :: MonadFail f => Text -> f ByteString
-    decodeBase16' =
-      either (fail . show) pure . decodeBase16 . encodeUtf8
-
-    deserialiseParty :: MonadFail f => ByteString -> f Party
-    deserialiseParty =
-      let err = "Unable to decode verification key"
-       in maybe (fail err) (pure . UnsafeParty) . rawDeserialiseVerKeyDSIGN
+  parseJSON = fmap fromInteger . parseJSON
 
 instance FromCBOR Party where
   fromCBOR = UnsafeParty <$> fromCBOR

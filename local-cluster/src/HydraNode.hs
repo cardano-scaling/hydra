@@ -219,7 +219,7 @@ waitForNodeConnected n@HydraNode{hydraNodeId} =
       ( \party ->
           object
             [ "response" .= String "peerConnected"
-            , "peer" .= party * 10
+            , "peer" .= (party * 10)
             ]
       )
       (filter (/= hydraNodeId) allNodeIds)
