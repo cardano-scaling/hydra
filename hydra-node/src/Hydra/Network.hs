@@ -27,6 +27,7 @@ module Hydra.Network (
 import Hydra.Prelude hiding (show)
 
 import Cardano.Binary (FromCBOR (fromCBOR), ToCBOR (toCBOR))
+import Data.Aeson (FromJSON (..), ToJSON (..), object, withObject, (.:), (.=))
 import Data.IP (IP)
 import Data.Text (pack, unpack)
 import Network.Socket (PortNumber, close)
@@ -66,6 +67,19 @@ instance Read Host where
   readsPrec _ s = case readHost s of
     Just h -> [(h, "")]
     Nothing -> []
+
+instance ToJSON Host where
+  toJSON h =
+    object
+      [ "hostname" .= hostName h
+      , "portNumber" .= fromIntegral @_ @Integer (portNumber h)
+      ]
+
+instance FromJSON Host where
+  parseJSON = withObject "Host" $ \obj ->
+    Host
+      <$> (obj .: "hostname")
+      <*> (fromIntegral @Integer <$> (obj .: "portNumber"))
 
 instance ToCBOR Host where
   toCBOR Host{hostName, portNumber} = toCBOR hostName <> toCBOR (toInteger portNumber)

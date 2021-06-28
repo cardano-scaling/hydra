@@ -3,10 +3,13 @@
 
 module Hydra.Ledger where
 
+import Hydra.Prelude
+
 import Cardano.Binary (FromCBOR (fromCBOR), ToCBOR (toCBOR))
 import Cardano.Crypto.DSIGN (DSIGNAlgorithm (..), MockDSIGN, SignKeyDSIGN, VerKeyDSIGN (VerKeyMockDSIGN), signDSIGN)
 import Cardano.Crypto.Util (SignableRepresentation)
-import Hydra.Prelude hiding (show)
+import Data.Aeson (FromJSON (..), ToJSON (..), withText)
+import Data.ByteString.Base16 (decodeBase16, encodeBase16)
 
 -- NOTE(MB): We probably want to move these common types somewhere else. Putting
 -- here to avoid circular dependencies with Hydra.Logic
@@ -21,6 +24,21 @@ deriving instance Read (VerKeyDSIGN MockDSIGN)
 instance Ord Party where
   (UnsafeParty a) <= (UnsafeParty b) =
     rawSerialiseVerKeyDSIGN a <= rawSerialiseVerKeyDSIGN b
+
+instance ToJSON Party where
+  toJSON (UnsafeParty vk) = toJSON (encodeBase16 $ rawSerialiseVerKeyDSIGN vk)
+
+instance FromJSON Party where
+  parseJSON = withText "Party" (decodeBase16' >=> deserialiseParty)
+   where
+    decodeBase16' :: MonadFail f => Text -> f ByteString
+    decodeBase16' =
+      either (fail . show) pure . decodeBase16 . encodeUtf8
+
+    deserialiseParty :: MonadFail f => ByteString -> f Party
+    deserialiseParty =
+      let err = "Unable to decode verification key"
+       in maybe (fail err) (pure . UnsafeParty) . rawDeserialiseVerKeyDSIGN
 
 instance FromCBOR Party where
   fromCBOR = UnsafeParty <$> fromCBOR

@@ -56,7 +56,6 @@ data ClientRequest tx
   | NewTx tx
   | Close
   | Contest
-  deriving (Generic)
 
 deriving instance Tx tx => Eq (ClientRequest tx)
 deriving instance Tx tx => Show (ClientRequest tx)
@@ -69,24 +68,24 @@ instance (ToJSON tx, ToJSON (UTxO tx)) => ToJSON (ClientRequest tx) where
     Commit u ->
       object [tagFieldName .= s "commit", "utxo" .= u]
     NewTx tx ->
-      object [tagFieldName .= s "new-tx", "transaction" .= tx]
+      object [tagFieldName .= s "newTransaction", "transaction" .= tx]
     Close ->
       object [tagFieldName .= s "close"]
     Contest ->
       object [tagFieldName .= s "contest"]
    where
     s = Aeson.String
-    tagFieldName = "req"
+    tagFieldName = "request"
 
 instance (FromJSON tx, FromJSON (UTxO tx)) => FromJSON (ClientRequest tx) where
   parseJSON = withObject "ClientRequest" $ \obj -> do
-    tag <- obj .: "req"
+    tag <- obj .: "request"
     case tag of
       "init" ->
         pure Init
       "commit" ->
         Commit <$> (obj .: "utxo")
-      "new-tx" ->
+      "newTransaction" ->
         NewTx <$> (obj .: "transaction")
       "close" ->
         pure Close
@@ -111,6 +110,21 @@ deriving instance Tx tx => Read (Snapshot tx)
 instance Tx tx => SignableRepresentation (Snapshot tx) where
   getSignableRepresentation = encodeUtf8 . show @Text
 
+instance (ToJSON tx, ToJSON (UTxO tx)) => ToJSON (Snapshot tx) where
+  toJSON s =
+    object
+      [ "snapshotNumber" .= number s
+      , "utxo" .= utxo s
+      , "confirmedTransactions" .= confirmed s
+      ]
+
+instance (FromJSON tx, FromJSON (UTxO tx)) => FromJSON (Snapshot tx) where
+  parseJSON = withObject "Snapshot" $ \obj ->
+    Snapshot
+      <$> (obj .: "snapshotNumber")
+      <*> (obj .: "utxo")
+      <*> (obj .: "confirmedTransactions")
+
 data ClientResponse tx
   = PeerConnected Party
   | PeerDisconnected Party
@@ -126,6 +140,59 @@ data ClientResponse tx
 deriving instance Tx tx => Eq (ClientResponse tx)
 deriving instance Tx tx => Show (ClientResponse tx)
 deriving instance Tx tx => Read (ClientResponse tx)
+
+instance (ToJSON tx, ToJSON (Snapshot tx), ToJSON (UTxO tx)) => ToJSON (ClientResponse tx) where
+  toJSON = \case
+    PeerConnected host ->
+      object [tagFieldName .= s "peerConnected", "host" .= host]
+    ReadyToCommit parties ->
+      object [tagFieldName .= s "readyToCommit", "parties" .= parties]
+    HeadIsOpen utxo ->
+      object [tagFieldName .= s "headIsOpen", "utxo" .= utxo]
+    HeadIsClosed contestationPeriod latestSnapshot ->
+      object
+        [ tagFieldName .= s "headIsClosed"
+        , "contestationPeriod" .= contestationPeriod
+        , "latestSnapshot" .= latestSnapshot
+        ]
+    HeadIsFinalized utxo ->
+      object [tagFieldName .= s "headIsFinalized", "utxo" .= utxo]
+    CommandFailed ->
+      object [tagFieldName .= s "commandFailed"]
+    TxSeen tx ->
+      object [tagFieldName .= s "transactionSeen", "transaction" .= tx]
+    TxInvalid tx ->
+      object [tagFieldName .= s "transactionInvalid", "transaction" .= tx]
+    SnapshotConfirmed snapshotNumber ->
+      object [tagFieldName .= s "snapshotConfirmed", "snapshotNumber" .= snapshotNumber]
+   where
+    s = Aeson.String
+    tagFieldName = "response"
+
+instance (FromJSON tx, FromJSON (Snapshot tx), FromJSON (UTxO tx)) => FromJSON (ClientResponse tx) where
+  parseJSON = withObject "ClientResponse" $ \obj -> do
+    tag <- obj .: "response"
+    case tag of
+      "peerConnected" ->
+        PeerConnected <$> (obj .: "host")
+      "readyToCommit" ->
+        ReadyToCommit <$> (obj .: "parties")
+      "headIsOpen" ->
+        HeadIsOpen <$> (obj .: "utxo")
+      "headIsClosed" ->
+        HeadIsClosed <$> (obj .: "contestationPeriod") <*> (obj .: "latestSnapshot")
+      "headIsFinalized" ->
+        HeadIsFinalized <$> (obj .: "utxo")
+      "commandFailed" ->
+        pure CommandFailed
+      "transactionSeen" ->
+        TxSeen <$> (obj .: "transaction")
+      "transactionInvalid" ->
+        TxInvalid <$> (obj .: "transaction")
+      "snapshotConfirmed" ->
+        SnapshotConfirmed <$> (obj .: "snapshotNumber")
+      _ ->
+        fail $ "unknown response type: " <> toString @Text tag
 
 -- NOTE(SN): Every message comes from a 'Party', we might want to move it out of
 -- here into the 'NetworkEvent'

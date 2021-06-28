@@ -103,6 +103,7 @@ library
     Paths_hydra_node
   build-depends: base
     , aeson
+    , base16
     , cardano-binary
     , cardano-crypto-class
     , cardano-ledger-core
