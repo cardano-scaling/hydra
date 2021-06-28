@@ -5,7 +5,10 @@ import Hydra.Prelude
 import Control.Monad.Class.MonadSTM (modifyTVar', newTVarIO)
 import Control.Monad.IOSim (runSimOrThrow)
 import Hydra.HeadLogic (HydraMessage (..))
-import Hydra.Network (Host (..), Network (..))
+import Hydra.Network (
+  Host (..),
+  Network (..),
+ )
 import Hydra.Network.Heartbeat (Heartbeat (..), withHeartbeat)
 import Test.Hspec (Spec, describe, it, shouldBe)
 
@@ -60,6 +63,18 @@ spec = describe "Heartbeat" $ do
           readTVarIO receivedMessages
 
     receivedHeartbeats `shouldBe` [ReqTx 2 1, Connected 2]
+
+  it "sends Disconnected given no messages has been received from known peer within 3s" $ do
+    let receivedHeartbeats = runSimOrThrow $ do
+          receivedMessages <- newTVarIO ([] :: [HydraMessage Integer])
+
+          let receive msg = atomically $ modifyTVar' receivedMessages (msg :)
+          withHeartbeat 1 (\cb action -> race_ (action (Network noop)) (cb (Ping 2) >> threadDelay 4)) receive $ \_ ->
+            threadDelay 10
+
+          readTVarIO receivedMessages
+
+    receivedHeartbeats `shouldBe` [Disconnected 2, Connected 2]
 
   it "stop sending heartbeat message given action sends a message" $ do
     let someMessage = ReqTx 1 1

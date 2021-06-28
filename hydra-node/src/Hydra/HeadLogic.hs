@@ -90,6 +90,7 @@ data HydraMessage tx
   | ReqSn Party SnapshotNumber [tx]
   | AckSn Party (Signed (Snapshot tx)) SnapshotNumber
   | Connected Party
+  | Disconnected Party
   deriving (Eq, Show)
 
 deriving stock instance Generic (HydraMessage tx)
@@ -100,6 +101,7 @@ instance (ToCBOR tx, ToCBOR (UTxO tx)) => ToCBOR (HydraMessage tx) where
     ReqSn party sn txs -> toCBOR ("ReqSn" :: Text) <> toCBOR party <> toCBOR sn <> toCBOR txs
     AckSn party sig sn -> toCBOR ("AckSn" :: Text) <> toCBOR party <> toCBOR sig <> toCBOR sn
     Connected host -> toCBOR ("Connected" :: Text) <> toCBOR host
+    Disconnected host -> toCBOR ("Disconnected" :: Text) <> toCBOR host
 
 instance (ToCBOR tx, ToCBOR (UTxO tx)) => ToCBOR (Snapshot tx) where
   toCBOR Snapshot{number, utxo, confirmed} = toCBOR number <> toCBOR utxo <> toCBOR confirmed
@@ -111,6 +113,7 @@ instance (FromCBOR tx, FromCBOR (UTxO tx)) => FromCBOR (HydraMessage tx) where
       "ReqSn" -> ReqSn <$> fromCBOR <*> fromCBOR <*> fromCBOR
       "AckSn" -> AckSn <$> fromCBOR <*> fromCBOR <*> fromCBOR
       "Connected" -> Connected <$> fromCBOR
+      "Disconnected" -> Disconnected <$> fromCBOR
       msg -> fail $ show msg <> " is not a proper CBOR-encoded HydraMessage"
 
 instance (FromCBOR tx, FromCBOR (UTxO tx)) => FromCBOR (Snapshot tx) where
