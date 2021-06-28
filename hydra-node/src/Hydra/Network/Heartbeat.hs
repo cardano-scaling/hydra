@@ -106,8 +106,11 @@ checkMessages ::
 checkMessages heartbeatState Network{broadcast} =
   Network $ \msg -> do
     now <- getMonotonicTime
-    atomically (modifyTVar' heartbeatState $ \s -> s{lastSent = Just now})
+    updateLastSent heartbeatState now
     broadcast (Message msg)
+
+updateLastSent :: MonadSTM m => TVar m HeartbeatState -> Time -> m ()
+updateLastSent heartbeatState now = atomically (modifyTVar' heartbeatState $ \s -> s{lastSent = Just now})
 
 sendHeartbeatFor ::
   ( MonadDelay m
@@ -124,7 +127,9 @@ sendHeartbeatFor localhost heartbeatState callback Network{broadcast} =
     threadDelay 0.5
     st <- readTVarIO heartbeatState
     now <- getMonotonicTime
-    when (shouldSendHeartbeat now st) $ broadcast (Ping localhost)
+    when (shouldSendHeartbeat now st) $ do
+      updateLastSent heartbeatState now
+      broadcast (Ping localhost)
     suspectedParties <- updateSuspected heartbeatState now
     forM_ suspectedParties $ callback . Disconnected
 

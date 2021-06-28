@@ -17,7 +17,7 @@ spec = describe "Heartbeat" $ do
   let dummyNetwork msgqueue _cb action =
         action $ Network{broadcast = \msg -> atomically $ modifyTVar' msgqueue (msg :)}
 
-  it "sends a heartbeat message with own party id every 500 ms" $ do
+  it "sends a heartbeat message with own party id after 500 ms" $ do
     let sentHeartbeats = runSimOrThrow $ do
           sentMessages <- newTVarIO ([] :: [Heartbeat (HydraMessage Integer)])
 
@@ -26,7 +26,7 @@ spec = describe "Heartbeat" $ do
 
           readTVarIO sentMessages
 
-    sentHeartbeats `shouldBe` replicate 2 (Ping 1)
+    sentHeartbeats `shouldBe` [Ping 1]
 
   it "sends Connected when Ping received from other party" $ do
     let receivedHeartbeats = runSimOrThrow $ do
