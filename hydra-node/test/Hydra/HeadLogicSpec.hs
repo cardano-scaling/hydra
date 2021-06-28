@@ -90,11 +90,8 @@ spec = describe "Hydra Coordinated Head Protocol" $ do
         nonLeaderEnv = envFor 2
         s0 = initialState threeParties ledger
 
-        s1 = update nonLeaderEnv ledger s0 reqTx
-
-    s1 `hasNoEffectSatisfying` \case
-      NetworkEffect ReqSn{} -> True
-      _ -> False
+    update nonLeaderEnv ledger s0 reqTx
+      `hasNoEffectSatisfying` isReqSn
 
   it "does not request snapshot when already having one in flight" $ do
     let leaderEnv = envFor 1
@@ -112,13 +109,9 @@ spec = describe "Hydra Coordinated Head Protocol" $ do
     -- AckSn and no further ReqTx should result in a ReqSn
     s3 <-
       update leaderEnv ledger s2 (NetworkEvent firstReqSn)
-        `hasEffectSatisfying` \case
-          NetworkEffect AckSn{} -> True
-          _ -> False
+        `hasEffectSatisfying` isAckSn
     update leaderEnv ledger s3 (NetworkEvent $ ReqTx (aValidTx 3))
-      `hasNoEffectSatisfying` \case
-        NetworkEffect ReqSn{} -> True
-        _ -> False
+      `hasNoEffectSatisfying` isReqSn
 
   it "confirms snapshot given it receives AckSn from all parties" $ do
     let s0 = initialState threeParties ledger
@@ -226,10 +219,6 @@ genHeadStatus =
     , OpenState (CoordinatedHeadState mempty mempty (Snapshot 0 mempty mempty) Nothing)
     ]
 
-defaultHeadParameters :: HeadParameters
-defaultHeadParameters =
-  HeadParameters 3600 [1]
-
 prop_handleOnChainEventInAnyState :: Property
 prop_handleOnChainEventInAnyState =
   forAll genHeadStatus $ \st ->
@@ -247,7 +236,10 @@ prop_handleOnChainEventInAnyState =
       , otherParties = mempty
       , snapshotStrategy = NoSnapshots
       }
+
   ledger = simpleLedger
+
+  defaultHeadParameters = HeadParameters 3600 [1]
 
 -- ** Assertion utilities
 
@@ -270,6 +262,16 @@ hasNoEffectSatisfying :: (HasCallStack, Tx tx) => Outcome tx -> (Effect tx -> Bo
 hasNoEffectSatisfying (NewState _ effects) predicate
   | any predicate effects = failure $ "Found unwanted effect in: " <> show effects
 hasNoEffectSatisfying _ _ = pure ()
+
+isReqSn :: Effect tx -> Bool
+isReqSn = \case
+  NetworkEffect ReqSn{} -> True
+  _ -> False
+
+isAckSn :: Effect tx -> Bool
+isAckSn = \case
+  NetworkEffect AckSn{} -> True
+  _ -> False
 
 initialState ::
   [Party] ->
