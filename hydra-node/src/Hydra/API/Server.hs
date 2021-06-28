@@ -11,7 +11,7 @@ import Hydra.Prelude
 import Control.Concurrent.STM (TChan, dupTChan, readTChan)
 import qualified Control.Concurrent.STM as STM
 import Control.Concurrent.STM.TChan (newBroadcastTChanIO, writeTChan)
-import Data.Aeson (FromJSON, eitherDecode)
+import Data.Aeson (eitherDecode)
 import Hydra.HeadLogic (
   ClientRequest,
   ClientResponse,
@@ -30,7 +30,7 @@ data APIServerLog
   deriving (Eq, Show)
 
 withAPIServer ::
-  (Tx tx, FromJSON tx, FromJSON (UTxO tx)) =>
+  Tx tx =>
   IP ->
   PortNumber ->
   Tracer IO APIServerLog ->
@@ -45,7 +45,7 @@ withAPIServer host port tracer requests continuation = do
     (continuation sendResponse)
 
 runAPIServer ::
-  (Tx tx, FromJSON tx, FromJSON (UTxO tx)) =>
+  Tx tx =>
   IP ->
   PortNumber ->
   Tracer IO APIServerLog ->

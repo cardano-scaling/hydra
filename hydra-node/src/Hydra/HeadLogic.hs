@@ -6,16 +6,8 @@ module Hydra.HeadLogic where
 
 import Hydra.Prelude
 
-import Cardano.Binary (FromCBOR (..), ToCBOR (..))
 import Cardano.Crypto.Util (SignableRepresentation (..))
-import Data.Aeson (
-  FromJSON (..),
-  ToJSON (..),
-  object,
-  withObject,
-  (.:),
-  (.=),
- )
+import Data.Aeson (object, withObject, (.:), (.=))
 import qualified Data.Aeson as Aeson
 import Data.List (elemIndex, (\\))
 import qualified Data.Map.Strict as Map
@@ -77,7 +69,7 @@ instance (ToJSON tx, ToJSON (UTxO tx)) => ToJSON (ClientRequest tx) where
     s = Aeson.String
     tagFieldName = "request"
 
-instance (FromJSON tx, FromJSON (UTxO tx)) => FromJSON (ClientRequest tx) where
+instance Tx tx => FromJSON (ClientRequest tx) where
   parseJSON = withObject "ClientRequest" $ \obj -> do
     tag <- obj .: "request"
     case tag of
@@ -110,7 +102,7 @@ deriving instance Tx tx => Read (Snapshot tx)
 instance Tx tx => SignableRepresentation (Snapshot tx) where
   getSignableRepresentation = encodeUtf8 . show @Text
 
-instance (ToJSON tx, ToJSON (UTxO tx)) => ToJSON (Snapshot tx) where
+instance Tx tx => ToJSON (Snapshot tx) where
   toJSON s =
     object
       [ "snapshotNumber" .= number s
@@ -118,7 +110,7 @@ instance (ToJSON tx, ToJSON (UTxO tx)) => ToJSON (Snapshot tx) where
       , "confirmedTransactions" .= confirmed s
       ]
 
-instance (FromJSON tx, FromJSON (UTxO tx)) => FromJSON (Snapshot tx) where
+instance Tx tx => FromJSON (Snapshot tx) where
   parseJSON = withObject "Snapshot" $ \obj ->
     Snapshot
       <$> (obj .: "snapshotNumber")

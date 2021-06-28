@@ -11,10 +11,7 @@ module Hydra.Ledger.Simple where
 
 import Hydra.Prelude
 
-import Cardano.Binary (FromCBOR (..), ToCBOR (..))
 import Data.Aeson (
-  FromJSON (..),
-  ToJSON (..),
   object,
   withObject,
   (.:),

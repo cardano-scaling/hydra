@@ -7,7 +7,6 @@ module Hydra.Network.Ouroboros (
 
 import Hydra.Prelude
 
-import Cardano.Binary (FromCBOR, ToCBOR)
 import qualified Codec.CBOR.Term as CBOR
 import Control.Concurrent.STM (
   TChan,

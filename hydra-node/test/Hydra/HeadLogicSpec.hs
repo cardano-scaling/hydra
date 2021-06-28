@@ -8,7 +8,6 @@ module Hydra.HeadLogicSpec where
 
 import Hydra.Prelude
 
-import Data.Aeson (FromJSON, ToJSON)
 import qualified Data.Aeson as Aeson
 import qualified Data.List as List
 import qualified Data.Set as Set

@@ -4,10 +4,6 @@ module Hydra.Network.ZeroMQ where
 
 import Hydra.Prelude
 
-import Cardano.Binary (
-  FromCBOR (..),
-  ToCBOR (..),
- )
 import qualified Codec.CBOR.Read as CBOR
 import qualified Codec.CBOR.Write as CBOR
 import Control.Monad.Class.MonadSTM (newEmptyTMVarIO, putTMVar, takeTMVar)

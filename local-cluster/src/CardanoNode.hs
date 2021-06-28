@@ -12,7 +12,7 @@ import Control.Tracer (
   Tracer,
   traceWith,
  )
-import Data.Aeson (FromJSON (..), ToJSON (..), (.=))
+import Data.Aeson ((.=))
 import qualified Data.Aeson as Aeson
 import qualified Data.HashMap.Strict as HM
 import Data.Time.Clock.POSIX (posixSecondsToUTCTime, utcTimeToPOSIXSeconds)

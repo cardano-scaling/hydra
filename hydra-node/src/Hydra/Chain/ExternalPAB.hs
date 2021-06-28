@@ -5,7 +5,7 @@ module Hydra.Chain.ExternalPAB where
 import Hydra.Prelude
 
 import Control.Monad.Class.MonadSay (say)
-import Data.Aeson (Result (Error, Success), ToJSON, eitherDecodeStrict)
+import Data.Aeson (Result (Error, Success), eitherDecodeStrict)
 import Data.Aeson.Types (fromJSON)
 import qualified Data.Map as Map
 import Hydra.Chain (Chain (Chain, postTx))

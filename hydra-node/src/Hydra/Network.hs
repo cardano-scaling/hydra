@@ -26,9 +26,8 @@ module Hydra.Network (
 
 import Hydra.Prelude hiding (show)
 
-import Cardano.Binary (FromCBOR (fromCBOR), ToCBOR (toCBOR))
-import Data.Aeson (FromJSON (..), ToJSON (..), object, withObject, (.:), (.=))
-import Data.IP (IP)
+import Data.Aeson (object, withObject, (.:), (.=))
+import Data.IP (IP, toIPv4w)
 import Data.Text (pack, unpack)
 import Network.Socket (PortNumber, close)
 import Network.TypedProtocol.Pipelined ()

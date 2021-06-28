@@ -5,10 +5,9 @@ module Hydra.Ledger where
 
 import Hydra.Prelude
 
-import Cardano.Binary (FromCBOR (fromCBOR), ToCBOR (toCBOR))
 import Cardano.Crypto.DSIGN (DSIGNAlgorithm (..), MockDSIGN, SignKeyDSIGN, VerKeyDSIGN (VerKeyMockDSIGN), signDSIGN)
 import Cardano.Crypto.Util (SignableRepresentation)
-import Data.Aeson (FromJSON (..), ToJSON (..), withText)
+import Data.Aeson (withText)
 import Data.ByteString.Base16 (decodeBase16, encodeBase16)
 
 -- NOTE(MB): We probably want to move these common types somewhere else. Putting
@@ -86,6 +85,10 @@ class
   , Read (UTxO tx)
   , Monoid (UTxO tx)
   , Typeable tx
+  , FromJSON tx
+  , FromJSON (UTxO tx)
+  , ToJSON tx
+  , ToJSON (UTxO tx)
   ) =>
   Tx tx
   where
