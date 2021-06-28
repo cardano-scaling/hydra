@@ -14,7 +14,7 @@ import Control.Monad.Class.MonadSTM (
  )
 import qualified Data.Aeson as Aeson
 import Hydra.API.Server (withAPIServer)
-import Hydra.HeadLogic (ClientResponse (..))
+import Hydra.HeadLogic (ServerOutput (..))
 import Hydra.Ledger.Simple (SimpleTx)
 import Hydra.Logging (nullTracer)
 import Hydra.Network.Ports (withFreePort)
@@ -43,7 +43,7 @@ spec = describe "API Server" $ do
 noop :: Applicative m => a -> m ()
 noop = const $ pure ()
 
-testClient :: HasCallStack => Int -> TQueue IO (ClientResponse SimpleTx) -> TVar IO Int -> IO ()
+testClient :: HasCallStack => Int -> TQueue IO (ServerOutput SimpleTx) -> TVar IO Int -> IO ()
 testClient port queue semaphore =
   failAfter 5 tryClient
  where

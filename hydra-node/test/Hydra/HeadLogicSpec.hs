@@ -12,8 +12,7 @@ import qualified Data.Aeson as Aeson
 import qualified Data.List as List
 import qualified Data.Set as Set
 import Hydra.HeadLogic (
-  ClientRequest (..),
-  ClientResponse (..),
+  ClientInput (..),
   CoordinatedHeadState (..),
   Effect (ClientEffect, NetworkEffect),
   Environment (..),
@@ -25,6 +24,7 @@ import Hydra.HeadLogic (
   LogicError (..),
   OnChainTx (..),
   Outcome (..),
+  ServerOutput (..),
   Snapshot (..),
   SnapshotStrategy (..),
   update,
@@ -210,10 +210,10 @@ spec = describe "Hydra Coordinated Head Protocol" $ do
 
   -- TOOD: Replace with: https://hackage.haskell.org/package/hspec-golden-aeson
   describe "JSON instances" $ do
-    prop "ClientRequest - JSON roundtrips" $
-      prop_roundtripJSON (Proxy @(ClientRequest SimpleTx))
-    prop "ClientResponse - JSON roundtrips" $
-      prop_roundtripJSON (Proxy @(ClientResponse SimpleTx))
+    prop "ClientInput - JSON roundtrips" $
+      prop_roundtripJSON (Proxy @(ClientInput SimpleTx))
+    prop "ServerOutput - JSON roundtrips" $
+      prop_roundtripJSON (Proxy @(ServerOutput SimpleTx))
 
 prop_roundtripJSON ::
   forall a.

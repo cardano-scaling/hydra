@@ -13,8 +13,8 @@ import qualified Control.Concurrent.STM as STM
 import Control.Concurrent.STM.TChan (newBroadcastTChanIO, writeTChan)
 import qualified Data.Aeson as Aeson
 import Hydra.HeadLogic (
-  ClientRequest,
-  ClientResponse,
+  ClientInput,
+  ServerOutput,
  )
 import Hydra.Ledger (Tx (..))
 import Hydra.Logging (Tracer, traceWith)
@@ -34,8 +34,8 @@ withAPIServer ::
   IP ->
   PortNumber ->
   Tracer IO APIServerLog ->
-  (ClientRequest tx -> IO ()) ->
-  ((ClientResponse tx -> IO ()) -> IO ()) ->
+  (ClientInput tx -> IO ()) ->
+  ((ServerOutput tx -> IO ()) -> IO ()) ->
   IO ()
 withAPIServer host port tracer requests continuation = do
   responseChannel <- newBroadcastTChanIO
@@ -49,8 +49,8 @@ runAPIServer ::
   IP ->
   PortNumber ->
   Tracer IO APIServerLog ->
-  (ClientRequest tx -> IO ()) ->
-  TChan (ClientResponse tx) ->
+  (ClientInput tx -> IO ()) ->
+  TChan (ServerOutput tx) ->
   IO ()
 runAPIServer host port tracer requestHandler responseChannel = do
   traceWith tracer (APIServerStarted port)

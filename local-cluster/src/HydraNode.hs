@@ -218,7 +218,7 @@ waitForNodeConnected n@HydraNode{hydraNodeId} =
     fmap
       ( \party ->
           object
-            [ "response" .= String "peerConnected"
+            [ "output" .= String "peerConnected"
             , "peer" .= (party * 10)
             ]
       )

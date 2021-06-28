@@ -18,12 +18,12 @@ import Control.Monad.Class.MonadTimer (timeout)
 import Control.Monad.IOSim (IOSim, runSimTrace, selectTraceEventsDynamic)
 import Hydra.Chain (Chain (..))
 import Hydra.HeadLogic (
-  ClientRequest (..),
-  ClientResponse (..),
+  ClientInput (..),
   Effect (ClientEffect),
   Environment (..),
   Event (ClientEvent),
   HeadParameters (..),
+  ServerOutput (..),
   Snapshot (..),
   SnapshotStrategy (..),
   createHeadState,
@@ -38,7 +38,7 @@ import Hydra.Node (
   createEventQueue,
   createHydraHead,
   handleChainTx,
-  handleClientRequest,
+  handleClientInput,
   handleMessage,
   runHydraNode,
  )
@@ -238,8 +238,8 @@ sendRequestAndWaitFor ::
   , Tx tx
   ) =>
   TestHydraNode tx m ->
-  ClientRequest tx ->
-  ClientResponse tx ->
+  ClientInput tx ->
+  ServerOutput tx ->
   m ()
 sendRequestAndWaitFor node req expected = do
   sendRequest node req
@@ -247,8 +247,8 @@ sendRequestAndWaitFor node req expected = do
 
 -- | A thin layer around 'HydraNode' to be able to 'waitForResponse'.
 data TestHydraNode tx m = TestHydraNode
-  { sendRequest :: ClientRequest tx -> m ()
-  , waitForResponse :: m (ClientResponse tx)
+  { sendRequest :: ClientInput tx -> m ()
+  , waitForResponse :: m (ServerOutput tx)
   }
 
 type ConnectToChain tx m = (HydraNode tx m -> m (HydraNode tx m))
@@ -306,7 +306,7 @@ withHydraNode signingKey otherParties snapshotStrategy connectToChain action = d
   withAsync (runHydraNode traceInIOSim node) $ \_ ->
     action $
       TestHydraNode
-        { sendRequest = handleClientRequest node
+        { sendRequest = handleClientInput node
         , waitForResponse = atomically $ readTQueue response
         }
  where
