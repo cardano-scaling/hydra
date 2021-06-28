@@ -25,7 +25,7 @@ spec = describe "Heartbeat" $ do
 
     sentHeartbeats `shouldBe` replicate 2 (Ping 1)
 
-  it "propagates Heartbeat received from other parties" $ do
+  it "sends Connected when Ping received from other party" $ do
     let receivedHeartbeats = runSimOrThrow $ do
           receivedMessages <- newTVarIO ([] :: [HydraMessage Integer])
 
@@ -36,6 +36,30 @@ spec = describe "Heartbeat" $ do
           readTVarIO receivedMessages
 
     receivedHeartbeats `shouldBe` [Connected 2]
+
+  it "sends Connected when any message received from other party" $ do
+    let receivedHeartbeats = runSimOrThrow $ do
+          receivedMessages <- newTVarIO ([] :: [HydraMessage Integer])
+
+          let receive msg = atomically $ modifyTVar' receivedMessages (msg :)
+          withHeartbeat 1 (\cb action -> action (Network noop) >> cb (Message $ ReqTx 2 1)) receive $ \_ ->
+            threadDelay 1
+
+          readTVarIO receivedMessages
+
+    receivedHeartbeats `shouldBe` [ReqTx 2 1, Connected 2]
+
+  it "do not send Connected on subsequent messages from already Connected party" $ do
+    let receivedHeartbeats = runSimOrThrow $ do
+          receivedMessages <- newTVarIO ([] :: [HydraMessage Integer])
+
+          let receive msg = atomically $ modifyTVar' receivedMessages (msg :)
+          withHeartbeat 1 (\cb action -> action (Network noop) >> cb (Message $ ReqTx 2 1) >> cb (Ping 2)) receive $ \_ ->
+            threadDelay 1
+
+          readTVarIO receivedMessages
+
+    receivedHeartbeats `shouldBe` [ReqTx 2 1, Connected 2]
 
   it "stop sending heartbeat message given action sends a message" $ do
     let someMessage = ReqTx 1 1
