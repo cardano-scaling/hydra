@@ -12,7 +12,8 @@ import Cardano.Crypto.DSIGN (
   SignKeyDSIGN,
   VerKeyDSIGN,
  )
-import Data.Aeson (Value (String), object, (.=))
+import Data.Aeson (Value, object, (.=))
+import Data.Aeson.Types (Pair)
 import qualified Data.ByteString as BS
 import HydraNode (
   failAfter,
@@ -55,18 +56,18 @@ spec = describe "End-to-end test using a mocked chain though" $ do
               withHydraNode 3 carolSk [aliceVk, bobVk] $ \n3 -> do
                 waitForNodesConnected [n1, n2, n3]
                 let contestationPeriod = 3 -- TODO: Should be part of init
-                sendRequest n1 $ object ["request" .= String "init"]
+                sendRequest n1 $ request "init" []
                 waitForResponse 3 [n1, n2, n3] "ReadyToCommit [VerKeyMockDSIGN 10,VerKeyMockDSIGN 20,VerKeyMockDSIGN 30]"
-                sendRequest n1 $ object ["request" .= String "commit", "utxo" .= [1 :: Int]]
-                sendRequest n2 $ object ["request" .= String "commit", "utxo" .= [2 :: Int]]
-                sendRequest n3 $ object ["request" .= String "commit", "utxo" .= [3 :: Int]]
+                sendRequest n1 $ request "commit" ["utxo" .= [1 :: Int]]
+                sendRequest n2 $ request "commit" ["utxo" .= [2 :: Int]]
+                sendRequest n3 $ request "commit" ["utxo" .= [3 :: Int]]
 
                 waitForResponse 3 [n1, n2, n3] "HeadIsOpen (fromList [1,2,3])"
 
                 sendRequest n1 $
-                  object
-                    [ "request" .= String "newTransaction"
-                    , "transaction"
+                  request
+                    "newTransaction"
+                    [ "transaction"
                         .= object
                           [ "id" .= (42 :: Int)
                           , "inputs" .= [1 :: Int]
@@ -75,7 +76,7 @@ spec = describe "End-to-end test using a mocked chain though" $ do
                     ]
                 waitForResponse 10 [n1, n2, n3] "TxSeen (SimpleTx {txId = 42, txInputs = fromList [1], txOutputs = fromList [4]})"
                 waitForResponse 10 [n1, n2, n3] "SnapshotConfirmed 1"
-                sendRequest n1 $ object ["request" .= String "close"]
+                sendRequest n1 $ request "close" []
                 waitForResponse 3 [n1] "HeadIsClosed 3s (Snapshot {number = 1, utxo = fromList [2,3,4], confirmed = [SimpleTx {txId = 42, txInputs = fromList [1], txOutputs = fromList [4]}]})"
                 waitForResponse (contestationPeriod + 3) [n1] "HeadIsFinalized (fromList [2,3,4])"
 
@@ -87,7 +88,7 @@ spec = describe "End-to-end test using a mocked chain though" $ do
             withHydraNode 2 bobSk [aliceVk, carolVk] $ \_n2 ->
               withHydraNode 3 carolSk [aliceVk, bobVk] $ \_n3 -> do
                 waitForNodesConnected [n1]
-                sendRequest n1 $ object ["request" .= String "init"]
+                sendRequest n1 $ request "init" []
                 waitForResponse 3 [n1] "ReadyToCommit [VerKeyMockDSIGN 10,VerKeyMockDSIGN 20,VerKeyMockDSIGN 30]"
 
                 metrics <- getMetrics n1
@@ -98,3 +99,6 @@ spec = describe "End-to-end test using a mocked chain though" $ do
       failAfter 5 $ do
         version <- readCreateProcess (hydraNodeProcess ["--version"]) ""
         version `shouldSatisfy` (=~ ("[0-9]+\\.[0-9]+\\.[0-9]+(-[a-zA-Z0-9]+)?" :: String))
+
+request :: Text -> [Pair] -> Value
+request tag pairs = object $ ("request" .= tag) : pairs
