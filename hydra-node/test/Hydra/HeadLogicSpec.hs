@@ -100,17 +100,17 @@ spec = describe "Hydra Coordinated Head Protocol" $ do
         firstReqSn = ReqSn p 1 [aValidTx 1]
     -- In the first processing loop, all ReqTx will lead to a ReqSn
     s1 <-
-      update leaderEnv ledger s0 (NetworkEvent $ ReqTx (aValidTx 1))
+      update leaderEnv ledger s0 (NetworkEvent $ ReqTx p (aValidTx 1))
         `hasEffect` NetworkEffect firstReqSn
     s2 <-
-      update leaderEnv ledger s1 (NetworkEvent $ ReqTx (aValidTx 2))
+      update leaderEnv ledger s1 (NetworkEvent $ ReqTx p (aValidTx 2))
         `hasEffect` NetworkEffect (ReqSn p 1 [aValidTx 2, aValidTx 1])
     -- Eventually, the leader's own ReqSn will be processed, resulting in an
     -- AckSn and no further ReqTx should result in a ReqSn
     s3 <-
       update leaderEnv ledger s2 (NetworkEvent firstReqSn)
         `hasEffectSatisfying` isAckSn
-    update leaderEnv ledger s3 (NetworkEvent $ ReqTx (aValidTx 3))
+    update leaderEnv ledger s3 (NetworkEvent $ ReqTx p (aValidTx 3))
       `hasNoEffectSatisfying` isReqSn
 
   it "confirms snapshot given it receives AckSn from all parties" $ do
