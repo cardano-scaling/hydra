@@ -32,6 +32,10 @@ data SimpleTx = SimpleTx
   }
   deriving stock (Eq, Ord, Generic, Read, Show)
 
+instance Arbitrary SimpleTx where
+  shrink = genericShrink
+  arbitrary = genericArbitrary
+
 instance ToJSON SimpleTx where
   toJSON tx =
     object
@@ -58,7 +62,12 @@ type TxId = Integer
 
 -- |An identifier for a single output of a 'SimpleTx'.
 newtype TxIn = TxIn {unTxIn :: Integer}
+  deriving stock (Generic)
   deriving newtype (Eq, Ord, Read, Show, ToJSON, FromJSON)
+
+instance Arbitrary TxIn where
+  shrink = genericShrink
+  arbitrary = genericArbitrary
 
 instance ToCBOR TxIn where
   toCBOR (TxIn inId) = toCBOR inId

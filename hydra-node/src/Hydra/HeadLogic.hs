@@ -48,12 +48,26 @@ data ClientRequest tx
   | NewTx tx
   | Close
   | Contest
+  deriving (Generic)
 
 deriving instance Tx tx => Eq (ClientRequest tx)
 deriving instance Tx tx => Show (ClientRequest tx)
 deriving instance Tx tx => Read (ClientRequest tx)
 
-instance (ToJSON tx, ToJSON (UTxO tx)) => ToJSON (ClientRequest tx) where
+instance (Arbitrary tx, Arbitrary (UTxO tx)) => Arbitrary (ClientRequest tx) where
+  arbitrary = genericArbitrary
+
+  -- NOTE: Somehow, can't use 'genericShrink' here as GHC is complaining about
+  -- Overlapping instances with 'UTxO tx' even though for a fixed `tx`, there
+  -- should be only one 'UTxO tx'
+  shrink = \case
+    Init -> []
+    Commit xs -> Commit <$> shrink xs
+    NewTx tx -> NewTx <$> shrink tx
+    Close -> []
+    Contest -> []
+
+instance Tx tx => ToJSON (ClientRequest tx) where
   toJSON = \case
     Init ->
       object [tagFieldName .= s "init"]
@@ -94,10 +108,21 @@ data Snapshot tx = Snapshot
   , -- | The set of transactions that lead to 'utxo'
     confirmed :: [tx]
   }
+  deriving (Generic)
 
 deriving instance Tx tx => Eq (Snapshot tx)
 deriving instance Tx tx => Show (Snapshot tx)
 deriving instance Tx tx => Read (Snapshot tx)
+
+instance (Arbitrary tx, Arbitrary (UTxO tx)) => Arbitrary (Snapshot tx) where
+  arbitrary = genericArbitrary
+
+  -- NOTE: See note on 'Arbitrary (ClientRequest tx)'
+  shrink s =
+    [ Snapshot (number s) utxo' confirmed'
+    | utxo' <- shrink (utxo s)
+    , confirmed' <- shrink (confirmed s)
+    ]
 
 instance Tx tx => SignableRepresentation (Snapshot tx) where
   getSignableRepresentation = encodeUtf8 . show @Text
@@ -128,10 +153,27 @@ data ClientResponse tx
   | TxSeen tx
   | TxInvalid tx
   | SnapshotConfirmed SnapshotNumber
+  deriving (Generic)
 
 deriving instance Tx tx => Eq (ClientResponse tx)
 deriving instance Tx tx => Show (ClientResponse tx)
 deriving instance Tx tx => Read (ClientResponse tx)
+
+instance (Arbitrary tx, Arbitrary (UTxO tx)) => Arbitrary (ClientResponse tx) where
+  arbitrary = genericArbitrary
+
+  -- NOTE: See note on 'Arbitrary (ClientRequest tx)'
+  shrink = \case
+    PeerConnected p -> PeerConnected <$> shrink p
+    PeerDisconnected p -> PeerDisconnected <$> shrink p
+    ReadyToCommit xs -> ReadyToCommit <$> shrink xs
+    HeadIsOpen u -> HeadIsOpen <$> shrink u
+    HeadIsClosed t s -> HeadIsClosed t <$> shrink s
+    HeadIsFinalized u -> HeadIsFinalized <$> shrink u
+    CommandFailed -> []
+    TxSeen tx -> TxSeen <$> shrink tx
+    TxInvalid tx -> TxInvalid <$> shrink tx
+    SnapshotConfirmed{} -> []
 
 instance (ToJSON tx, ToJSON (Snapshot tx), ToJSON (UTxO tx)) => ToJSON (ClientResponse tx) where
   toJSON = \case
@@ -194,9 +236,7 @@ data HydraMessage tx
   | AckSn Party (Signed (Snapshot tx)) SnapshotNumber
   | Connected Party
   | Disconnected Party
-  deriving (Eq, Show)
-
-deriving stock instance Generic (HydraMessage tx)
+  deriving (Generic, Eq, Show)
 
 instance (ToCBOR tx, ToCBOR (UTxO tx)) => ToCBOR (HydraMessage tx) where
   toCBOR = \case

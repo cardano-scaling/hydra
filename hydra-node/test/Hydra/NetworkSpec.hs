@@ -6,17 +6,14 @@ module Hydra.NetworkSpec where
 
 import Hydra.Prelude
 
-import Cardano.Binary (FromCBOR, ToCBOR, fromCBOR, toCBOR)
 import Cardano.Crypto.DSIGN (DSIGNAlgorithm (signDSIGN), genKeyDSIGN)
 import Cardano.Crypto.Seed (mkSeedFromBytes)
 import Codec.CBOR.Read (deserialiseFromBytes)
 import Codec.CBOR.Write (toLazyByteString)
 import Control.Monad.Class.MonadSTM (newTQueue, readTQueue, writeTQueue)
-import Data.IP (toIPv4w)
-import Hydra.HeadLogic (HydraMessage (..), Snapshot (..))
-import Hydra.Ledger (Party (..), Signed (UnsafeSigned))
+import Hydra.HeadLogic (HydraMessage (..))
+import Hydra.Ledger (Signed (UnsafeSigned))
 import Hydra.Ledger.Simple (SimpleTx (..))
-import Hydra.Ledger.SimpleSpec (genSimpleTx, genUtxo)
 import Hydra.Logging (showLogsOnFailure)
 import Hydra.Network (Host (..), Network, PortNumber)
 import Hydra.Network.Ouroboros (broadcast, withOuroborosNetwork)
@@ -24,17 +21,13 @@ import Hydra.Network.Ports (randomUnusedTCPPorts)
 import Hydra.Network.ZeroMQ (withZeroMQNetwork)
 import Test.Hspec (Expectation, Spec, describe, it, shouldReturn)
 import Test.QuickCheck (
-  Arbitrary (..),
-  arbitrary,
-  chooseBoundedIntegral,
-  getPositive,
   oneof,
   property,
   vectorOf,
  )
 import Test.QuickCheck.Gen (Gen)
 import Test.QuickCheck.Instances.ByteString ()
-import Test.Util (arbitraryNatural, failAfter)
+import Test.Util (failAfter)
 
 spec :: Spec
 spec = describe "Networking layer" $ do
@@ -113,9 +106,6 @@ shouldEventuallyReceive queue numNode value = do
   val <- atomically $ readTQueue queue
   unless (val == value) $ shouldEventuallyReceive queue numNode value
 
-genParty :: Gen Party
-genParty = UnsafeParty . fromInteger . getPositive <$> arbitrary
-
 -- | Some random signature, for any type 'a'.
 genSignature :: Gen (Signed a)
 genSignature = do
@@ -123,23 +113,15 @@ genSignature = do
   a <- arbitrary @ByteString
   pure . UnsafeSigned $ signDSIGN () a key
 
-genHost :: Gen Host
-genHost = do
-  ip <- toIPv4w <$> arbitrary
-  port <- fromIntegral <$> chooseBoundedIntegral (1, maxBound @Word16)
-  pure $ Host (show ip) port
-
 instance Arbitrary (HydraMessage SimpleTx) where
   arbitrary =
     oneof
-      [ ReqTx <$> genParty <*> genSimpleTx
-      , ReqSn <$> genParty <*> arbitraryNatural <*> vectorOf 10 genSimpleTx
-      , AckSn <$> genParty <*> genSignature <*> arbitraryNatural
-      , Connected <$> genParty
+      [ ReqTx <$> arbitrary <*> arbitrary
+      , ReqSn <$> arbitrary <*> arbitrary <*> vectorOf 10 arbitrary
+      , AckSn <$> arbitrary <*> genSignature <*> arbitrary
+      , Connected <$> arbitrary
+      , Disconnected <$> arbitrary
       ]
-
-instance Arbitrary (Snapshot SimpleTx) where
-  arbitrary = Snapshot <$> arbitraryNatural <*> genUtxo <*> vectorOf 10 genSimpleTx
 
 prop_canRoundtripCBOREncoding ::
   (ToCBOR a, FromCBOR a, Eq a) => a -> Bool

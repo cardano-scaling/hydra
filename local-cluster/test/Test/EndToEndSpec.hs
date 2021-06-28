@@ -55,17 +55,17 @@ spec = describe "End-to-end test using a mocked chain though" $ do
               withHydraNode 3 carolSk [aliceVk, bobVk] $ \n3 -> do
                 waitForNodesConnected [n1, n2, n3]
                 let contestationPeriod = 3 -- TODO: Should be part of init
-                sendRequest n1 $ object ["req" .= String "init"]
+                sendRequest n1 $ object ["request" .= String "init"]
                 waitForResponse 3 [n1, n2, n3] "ReadyToCommit [VerKeyMockDSIGN 10,VerKeyMockDSIGN 20,VerKeyMockDSIGN 30]"
-                sendRequest n1 $ object ["req" .= String "commit", "utxo" .= [1 :: Int]]
-                sendRequest n2 $ object ["req" .= String "commit", "utxo" .= [2 :: Int]]
-                sendRequest n3 $ object ["req" .= String "commit", "utxo" .= [3 :: Int]]
+                sendRequest n1 $ object ["request" .= String "commit", "utxo" .= [1 :: Int]]
+                sendRequest n2 $ object ["request" .= String "commit", "utxo" .= [2 :: Int]]
+                sendRequest n3 $ object ["request" .= String "commit", "utxo" .= [3 :: Int]]
 
                 waitForResponse 3 [n1, n2, n3] "HeadIsOpen (fromList [1,2,3])"
 
                 sendRequest n1 $
                   object
-                    [ "req" .= String "new-tx"
+                    [ "request" .= String "newTransaction"
                     , "transaction"
                         .= object
                           [ "id" .= (42 :: Int)
@@ -75,7 +75,7 @@ spec = describe "End-to-end test using a mocked chain though" $ do
                     ]
                 waitForResponse 10 [n1, n2, n3] "TxSeen (SimpleTx {txId = 42, txInputs = fromList [1], txOutputs = fromList [4]})"
                 waitForResponse 10 [n1, n2, n3] "SnapshotConfirmed 1"
-                sendRequest n1 $ object ["req" .= String "close"]
+                sendRequest n1 $ object ["request" .= String "close"]
                 waitForResponse 3 [n1] "HeadIsClosed 3s (Snapshot {number = 1, utxo = fromList [2,3,4], confirmed = [SimpleTx {txId = 42, txInputs = fromList [1], txOutputs = fromList [4]}]})"
                 waitForResponse (contestationPeriod + 3) [n1] "HeadIsFinalized (fromList [2,3,4])"
 
@@ -87,7 +87,7 @@ spec = describe "End-to-end test using a mocked chain though" $ do
             withHydraNode 2 bobSk [aliceVk, carolVk] $ \_n2 ->
               withHydraNode 3 carolSk [aliceVk, bobVk] $ \_n3 -> do
                 waitForNodesConnected [n1]
-                sendRequest n1 $ object ["req" .= String "init"]
+                sendRequest n1 $ object ["request" .= String "init"]
                 waitForResponse 3 [n1] "ReadyToCommit [VerKeyMockDSIGN 10,VerKeyMockDSIGN 20,VerKeyMockDSIGN 30]"
 
                 metrics <- getMetrics n1

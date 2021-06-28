@@ -43,20 +43,12 @@ import Test.Hspec.QuickCheck (prop)
 import Test.QuickCheck (
   Gen,
   Property,
-  arbitrary,
   counterexample,
   elements,
   forAll,
   forAllShrink,
-  listOf,
-  listOf1,
-  oneof,
-  shrinkList,
   (===),
  )
-import Test.QuickCheck.Instances.Natural ()
-import Test.QuickCheck.Instances.Text ()
-import Test.QuickCheck.Instances.Time ()
 import Test.QuickCheck.Property (collect)
 import Test.Util (failure)
 
@@ -216,18 +208,19 @@ spec = describe "Hydra Coordinated Head Protocol" $ do
 
   prop "can handle OnChainEvent in any state" prop_handleOnChainEventInAnyState
 
+  -- TOOD: Replace with: https://hackage.haskell.org/package/hspec-golden-aeson
   describe "JSON instances" $ do
     prop "ClientRequest - JSON roundtrips" $
-      prop_roundtripJSON genClientRequest shrinkClientRequest
+      prop_roundtripJSON (Proxy @(ClientRequest SimpleTx))
     prop "ClientResponse - JSON roundtrips" $
-      prop_roundtripJSON genClientResponse shrinkClientResponse
+      prop_roundtripJSON (Proxy @(ClientResponse SimpleTx))
 
 prop_roundtripJSON ::
-  (Show a, Eq a, ToJSON a, FromJSON a) =>
-  Gen a ->
-  (a -> [a]) ->
+  forall a.
+  (Show a, Eq a, ToJSON a, FromJSON a, Arbitrary a) =>
+  Proxy a ->
   Property
-prop_roundtripJSON genA shrinkA = forAllShrink genA shrinkA $ \a ->
+prop_roundtripJSON _proxy = forAllShrink arbitrary shrink $ \(a :: a) ->
   let encoded = Aeson.encode a
    in counterexample (show encoded) $ Aeson.eitherDecode' encoded === Right a
 
@@ -241,98 +234,6 @@ genOnChainTx =
     , ContestTx (Snapshot 0 mempty mempty)
     , FanoutTx (Set.fromList [TxIn 1, TxIn 2])
     ]
-
-genClientResponse :: Gen (ClientResponse SimpleTx)
-genClientResponse =
-  oneof
-    [ PeerConnected <$> genHost
-    , ReadyToCommit <$> listOf1 genParty
-    , HeadIsOpen <$> genSimpleUTxO
-    , HeadIsClosed <$> arbitrary <*> genSimpleSnapshot
-    , HeadIsFinalized <$> genSimpleUTxO
-    , pure CommandFailed
-    , TxSeen <$> genSimpleTx
-    , TxInvalid <$> genSimpleTx
-    , SnapshotConfirmed <$> arbitrary
-    ]
-
-shrinkClientResponse :: ClientResponse SimpleTx -> [ClientResponse SimpleTx]
-shrinkClientResponse = \case
-  PeerConnected{} -> []
-  ReadyToCommit xs -> ReadyToCommit <$> shrinkList pure xs
-  HeadIsOpen u -> HeadIsOpen <$> shrinkSimpleUTxO u
-  HeadIsClosed t s -> HeadIsClosed t <$> shrinkSimpleSnapshot s
-  HeadIsFinalized u -> HeadIsFinalized <$> shrinkSimpleUTxO u
-  CommandFailed -> []
-  TxSeen tx -> TxSeen <$> shrinkSimpleTx tx
-  TxInvalid tx -> TxInvalid <$> shrinkSimpleTx tx
-  SnapshotConfirmed{} -> []
-
-genHost :: Gen Host
-genHost =
-  Host
-    <$> arbitrary
-    <*> (fromIntegral @Word <$> arbitrary)
-
-genParty :: Gen Party
-genParty =
-  deriveParty . generateKey <$> arbitrary
-
-genSimpleSnapshot :: Gen (Snapshot SimpleTx)
-genSimpleSnapshot =
-  Snapshot
-    <$> arbitrary
-    <*> genSimpleUTxO
-    <*> listOf genSimpleTx
-
-shrinkSimpleSnapshot :: Snapshot SimpleTx -> [Snapshot SimpleTx]
-shrinkSimpleSnapshot s =
-  [ Snapshot (number s) u txs
-  | u <- shrinkSimpleUTxO (utxo s)
-  , txs <- shrinkList shrinkSimpleTx (confirmed s)
-  ]
-
-genClientRequest :: Gen (ClientRequest SimpleTx)
-genClientRequest =
-  oneof
-    [ pure Init
-    , Commit <$> genSimpleUTxO
-    , NewTx <$> genSimpleTx
-    , pure Close
-    , pure Contest
-    ]
-
-shrinkClientRequest :: ClientRequest SimpleTx -> [ClientRequest SimpleTx]
-shrinkClientRequest = \case
-  Init -> []
-  Commit xs -> Commit <$> shrinkSimpleUTxO xs
-  NewTx tx -> NewTx <$> shrinkSimpleTx tx
-  Close -> []
-  Contest -> []
-
-genSimpleTx :: Gen SimpleTx
-genSimpleTx =
-  SimpleTx
-    <$> arbitrary
-    <*> genSimpleUTxO
-    <*> genSimpleUTxO
-
-shrinkSimpleTx :: SimpleTx -> [SimpleTx]
-shrinkSimpleTx tx =
-  [ SimpleTx (txId tx) inps outs
-  | inps <- shrinkSimpleUTxO (txInputs tx)
-  , outs <- shrinkSimpleUTxO (txOutputs tx)
-  ]
-
-genSimpleUTxO :: Gen (UTxO SimpleTx)
-genSimpleUTxO =
-  Set.fromList <$> listOf1 genTxIn
- where
-  genTxIn = TxIn <$> arbitrary
-
-shrinkSimpleUTxO :: UTxO SimpleTx -> [UTxO SimpleTx]
-shrinkSimpleUTxO =
-  fmap Set.fromList . shrinkList pure . Set.toList
 
 genHeadStatus :: Gen (HeadStatus SimpleTx)
 genHeadStatus =

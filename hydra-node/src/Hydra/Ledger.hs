@@ -15,7 +15,7 @@ import Data.ByteString.Base16 (decodeBase16, encodeBase16)
 
 -- | Identifies a party in a Hydra head.
 newtype Party = UnsafeParty (VerKeyDSIGN MockDSIGN)
-  deriving (Eq)
+  deriving stock (Eq, Generic)
   deriving newtype (Show, Read, Num)
 
 deriving instance Read (VerKeyDSIGN MockDSIGN)
@@ -23,6 +23,9 @@ deriving instance Read (VerKeyDSIGN MockDSIGN)
 instance Ord Party where
   (UnsafeParty a) <= (UnsafeParty b) =
     rawSerialiseVerKeyDSIGN a <= rawSerialiseVerKeyDSIGN b
+
+instance Arbitrary Party where
+  arbitrary = deriveParty . generateKey <$> arbitrary
 
 instance ToJSON Party where
   toJSON (UnsafeParty vk) = toJSON (encodeBase16 $ rawSerialiseVerKeyDSIGN vk)

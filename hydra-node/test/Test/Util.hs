@@ -5,13 +5,12 @@ module Test.Util where
 import Hydra.Prelude
 
 import Control.Monad.Class.MonadTimer (timeout)
-import Control.Monad.IOSim (IOSim, runSim, traceM, Failure (FailureException))
+import Control.Monad.IOSim (Failure (FailureException), IOSim, runSim, traceM)
+import Control.Tracer (Tracer (Tracer))
 import Data.List (isInfixOf)
+import Data.Typeable (cast)
 import GHC.Stack (SrcLoc)
 import Test.HUnit.Lang (FailureReason (ExpectedButGot, Reason), HUnitFailure (HUnitFailure), formatFailureReason)
-import Test.QuickCheck (Gen, Positive (getPositive), arbitrary)
-import Control.Tracer (Tracer(Tracer))
-import Data.Typeable (cast)
 
 failure :: (HasCallStack, MonadThrow m) => String -> m a
 failure msg =
@@ -70,9 +69,6 @@ shouldContain :: (HasCallStack, MonadThrow m, Eq a, Show a) => [a] -> [a] -> m (
 shouldContain actual expected
   | expected `isInfixOf` actual = pure ()
   | otherwise = failure $ show actual <> " does not contain " <> show expected
-
-arbitraryNatural :: Gen Natural
-arbitraryNatural = fromIntegral . getPositive <$> arbitrary @(Positive Integer)
 
 -- | A 'Tracer' that works in 'IOSim' monad.
 -- This tracer uses the 'Output' event which uses converts value traced to 'Dynamic'
