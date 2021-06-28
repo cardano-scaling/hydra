@@ -3,12 +3,13 @@
 
 module Test.EndToEndSpec where
 
-import Hydra.Prelude ( ($), Num((+)), String )
+import Hydra.Prelude (Num ((+)), String, ($))
 
 import Cardano.Crypto.DSIGN (
+  DSIGNAlgorithm (deriveVerKeyDSIGN),
   MockDSIGN,
   SignKeyDSIGN,
-  VerKeyDSIGN, DSIGNAlgorithm (deriveVerKeyDSIGN)
+  VerKeyDSIGN,
  )
 import qualified Data.ByteString as BS
 import HydraNode (
@@ -28,7 +29,7 @@ import Test.Hspec (
   it,
   shouldSatisfy,
  )
-import Text.Regex.TDFA ( (=~) )
+import Text.Regex.TDFA ((=~))
 import Text.Regex.TDFA.Text ()
 
 aliceSk, bobSk, carolSk :: SignKeyDSIGN MockDSIGN
@@ -78,7 +79,7 @@ spec = describe "End-to-end test using a mocked chain though" $ do
                 waitForResponse 3 [n1] "ReadyToCommit [VerKeyMockDSIGN 10,VerKeyMockDSIGN 20,VerKeyMockDSIGN 30]"
 
                 metrics <- getMetrics n1
-                metrics `shouldSatisfy` ("hydra_head_events  5" `BS.isInfixOf`)
+                metrics `shouldSatisfy` ("hydra_head_events  4" `BS.isInfixOf`)
 
   describe "hydra-node executable" $ do
     it "display proper semantic version given it is passed --version argument" $ do

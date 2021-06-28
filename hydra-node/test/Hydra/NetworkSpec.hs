@@ -132,10 +132,10 @@ genHost = do
 instance Arbitrary (HydraMessage SimpleTx) where
   arbitrary =
     oneof
-      [ ReqTx <$> genSimpleTx
+      [ ReqTx <$> genParty <*> genSimpleTx
       , ReqSn <$> genParty <*> arbitraryNatural <*> vectorOf 10 genSimpleTx
       , AckSn <$> genParty <*> genSignature <*> arbitraryNatural
-      , Ping <$> genHost
+      , Connected <$> genParty
       ]
 
 instance Arbitrary (Snapshot SimpleTx) where

@@ -28,6 +28,7 @@ import Control.Concurrent.Async (
  )
 import Control.Exception (IOException)
 import qualified Data.ByteString as BS
+import Data.List (delete)
 import Data.Text.IO (hPutStrLn)
 import GHC.IO.Handle (hDuplicate)
 import Network.HTTP.Conduit (HttpExceptionContent (ConnectionFailure), parseRequest)
@@ -75,27 +76,35 @@ failAfter seconds action =
     Just a -> pure a
     Nothing -> error $ "Timed out after " <> show seconds <> " second(s)"
 
+-- | Wait some time for a single response from each of given nodes.
+-- This function waits for @delay@ seconds for message @expected@  to be seen by all
+-- given @nodes@.
 waitForResponse :: HasCallStack => Natural -> [HydraNode] -> Text -> IO ()
-waitForResponse delay nodes expected = do
+waitForResponse delay nodes expected = waitForResponses delay nodes [expected]
+
+-- |Wait some time for a list of responses from each of given nodes.
+-- This function is the generalised version of 'waitForResponse', allowing several messages
+-- to be waited for and received in /any order/.
+waitForResponses :: HasCallStack => Natural -> [HydraNode] -> [Text] -> IO ()
+waitForResponses delay nodes expected = do
   forConcurrently_ nodes $ \HydraNode{hydraNodeId, connection} -> do
     msgs <- newIORef []
     -- The chain is slow...
-    result <- timeout (fromIntegral delay * 1_000_000) $ tryNext msgs connection
+    result <- timeout (fromIntegral delay * 1_000_000) $ tryNext msgs expected connection
     case result of
       Just x -> pure x
       Nothing -> do
         actualMsgs <- readIORef msgs
-        expectationFailure $ show $ WaitForResponseTimeout hydraNodeId expected actualMsgs
+        expectationFailure $ show $ WaitForResponseTimeout hydraNodeId (show expected) actualMsgs
  where
-  tryNext msgs c = do
+  tryNext _ [] _ = pure ()
+  tryNext msgs stillExpected c = do
     msg <-
       receiveDataMessage c >>= \case
         Text b _mt -> pure $ decodeUtf8 b
         Binary b -> pure $ decodeUtf8 b
     modifyIORef' msgs (msg :)
-    if msg == expected
-      then pure ()
-      else tryNext msgs c
+    tryNext msgs (delete msg stillExpected) c
 
 getMetrics :: HasCallStack => HydraNode -> IO ByteString
 getMetrics HydraNode{hydraNodeId} = do
@@ -191,11 +200,14 @@ allNodeIds :: [Int]
 allNodeIds = [1 .. 3]
 
 waitForNodesConnected :: [HydraNode] -> IO ()
-waitForNodesConnected = mapM_ waitForOtherNodesConnected
+waitForNodesConnected = mapM_ waitForNodeConnected
 
-waitForOtherNodesConnected :: HydraNode -> IO ()
-waitForOtherNodesConnected n@HydraNode{hydraNodeId} =
-  forM_ otherNodeIds $ \otherNode ->
-    waitForResponse 10 [n] $ "PeerConnected 127.0.0.1@" <> show (5000 + otherNode)
- where
-  otherNodeIds = filter (/= hydraNodeId) allNodeIds
+waitForNodeConnected :: HydraNode -> IO ()
+waitForNodeConnected n@HydraNode{hydraNodeId} =
+  -- HACK(AB): This is gross, we hijack the node ids and because we know
+  -- keys are just integers we can compute them but that's ugly -> use property
+  -- party identifiers everywhere
+  waitForResponses 10 [n] $
+    fmap
+      (\party -> "PeerConnected (VerKeyMockDSIGN " <> show (party * 10) <> ")")
+      (filter (/= hydraNodeId) allNodeIds)
