@@ -1,5 +1,4 @@
 {-# LANGUAGE TypeApplications #-}
-{-# OPTIONS_GHC -Wno-deprecations #-}
 
 -- | An implementation of an application-level failure detector.
 -- This module exposes a /Component/ 'withHeartbeat' than can be used to
@@ -86,7 +85,7 @@ withHeartbeat party withNetwork callback action = do
       action (updateStateFromOutboundMessages heartbeat network)
 
 updateStateFromIncomingMessages ::
-  (Monad m, MonadSTM m, MonadMonotonicTime m) =>
+  (MonadSTM m, MonadMonotonicTime m) =>
   TVar m HeartbeatState ->
   NetworkCallback (HydraMessage msg) m ->
   NetworkCallback (Heartbeat (HydraMessage msg)) m
