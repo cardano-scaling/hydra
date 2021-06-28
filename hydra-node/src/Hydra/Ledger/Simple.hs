@@ -13,13 +13,13 @@ import Hydra.Prelude
 
 import Cardano.Binary (FromCBOR (..), ToCBOR (..))
 import Data.Aeson (
-  FromJSON,
-  ToJSON,
-  genericParseJSON,
-  genericToJSON,
+  FromJSON (..),
+  ToJSON (..),
+  object,
+  withObject,
+  (.:),
+  (.=),
  )
-import qualified Data.Aeson as Aeson
-import Data.Aeson.Casing (aesonPrefix, camelCase)
 import qualified Data.Set as Set
 import Hydra.Ledger
 
@@ -36,10 +36,19 @@ data SimpleTx = SimpleTx
   deriving stock (Eq, Ord, Generic, Read, Show)
 
 instance ToJSON SimpleTx where
-  toJSON = genericToJSON (aesonPrefix camelCase)
+  toJSON tx =
+    object
+      [ "id" .= txId tx
+      , "inputs" .= txInputs tx
+      , "outputs" .= txOutputs tx
+      ]
 
 instance FromJSON SimpleTx where
-  parseJSON = genericParseJSON (aesonPrefix camelCase)
+  parseJSON = withObject "SimpleTx" $ \obj ->
+    SimpleTx
+      <$> (obj .: "id")
+      <*> (obj .: "inputs")
+      <*> (obj .: "outputs")
 
 instance ToCBOR SimpleTx where
   toCBOR (SimpleTx txid inputs outputs) =

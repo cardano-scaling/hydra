@@ -8,19 +8,16 @@ import Hydra.Prelude
 
 import Cardano.Binary (FromCBOR (..), ToCBOR (..))
 import Cardano.Crypto.Util (SignableRepresentation (..))
-import Data.List (elemIndex, (\\))
 import Data.Aeson (
-  FromJSON,
-  SumEncoding (..),
-  ToJSON,
-  constructorTagModifier,
-  genericParseJSON,
-  genericToJSON,
-  sumEncoding,
-  tagSingleConstructors,
+  FromJSON (..),
+  ToJSON (..),
+  object,
+  withObject,
+  (.:),
+  (.=),
  )
 import qualified Data.Aeson as Aeson
-import Data.Aeson.Casing (camelCase)
+import Data.List (elemIndex, (\\))
 import qualified Data.Map.Strict as Map
 import qualified Data.Set as Set
 import Hydra.Ledger (
@@ -62,22 +59,37 @@ data ClientRequest tx
   deriving (Generic)
 
 instance (ToJSON tx, ToJSON (UTxO tx)) => ToJSON (ClientRequest tx) where
-  toJSON = genericToJSON clientRequestJsonOptions
+  toJSON = \case
+    Init ->
+      object [tagFieldName .= s "init"]
+    Commit u ->
+      object [tagFieldName .= s "commit", "utxo" .= u]
+    NewTx tx ->
+      object [tagFieldName .= s "new-tx", "transaction" .= tx]
+    Close ->
+      object [tagFieldName .= s "close"]
+    Contest ->
+      object [tagFieldName .= s "contest"]
+   where
+    s = Aeson.String
+    tagFieldName = "req"
 
 instance (FromJSON tx, FromJSON (UTxO tx)) => FromJSON (ClientRequest tx) where
-  parseJSON = genericParseJSON clientRequestJsonOptions
-
-clientRequestJsonOptions :: Aeson.Options
-clientRequestJsonOptions =
-  Aeson.defaultOptions
-    { constructorTagModifier = camelCase
-    , tagSingleConstructors = True
-    , sumEncoding =
-        TaggedObject
-          { tagFieldName = "req"
-          , contentsFieldName = "args"
-          }
-    }
+  parseJSON = withObject "ClientRequest" $ \obj -> do
+    tag <- obj .: "req"
+    case tag of
+      "init" ->
+        pure Init
+      "commit" ->
+        Commit <$> (obj .: "utxo")
+      "new-tx" ->
+        NewTx <$> (obj .: "transaction")
+      "close" ->
+        pure Close
+      "contest" ->
+        pure Contest
+      _ ->
+        fail $ "unknown request type: " <> toString @Text tag
 
 deriving instance Tx tx => Eq (ClientRequest tx)
 deriving instance Tx tx => Show (ClientRequest tx)

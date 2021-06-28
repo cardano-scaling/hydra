@@ -4,7 +4,7 @@
 
 module Test.EndToEndSpec where
 
-import Hydra.Prelude (Num ((+)), String, ($))
+import Hydra.Prelude
 
 import Cardano.Crypto.DSIGN (
   DSIGNAlgorithm (deriveVerKeyDSIGN),
