@@ -1,4 +1,5 @@
 {-# LANGUAGE TypeApplications #-}
+{-# OPTIONS_GHC -Wno-deprecations #-}
 
 -- | A naive implementation of an application-level Heartbeat
 -- This module exposes a /Component/ 'withHeartbeat' than can be used to
@@ -21,7 +22,7 @@ import Hydra.Network (Network (..), NetworkCallback, NetworkComponent)
 
 data HeartbeatState
   = SendHeartbeat
-  | StopHeartbeat
+  | LastSent Time
   deriving (Eq)
 
 data Heartbeat msg
@@ -45,6 +46,7 @@ instance (FromCBOR msg) => FromCBOR (Heartbeat msg) where
 withHeartbeat ::
   ( MonadAsync m
   , MonadDelay m
+  , MonadMonotonicTime m
   ) =>
   Party ->
   NetworkComponent m (Heartbeat (HydraMessage msg)) ->
@@ -61,18 +63,20 @@ fromHeartbeat callback = \case
   Ping host -> callback (Connected host)
 
 checkMessages ::
-  MonadSTM m =>
+  (MonadSTM m, MonadMonotonicTime m) =>
   Network m (Heartbeat (HydraMessage msg)) ->
   TVar m HeartbeatState ->
   Network m (HydraMessage msg)
 checkMessages Network{broadcast} heartbeatState =
   Network $ \msg -> do
-    atomically (writeTVar heartbeatState StopHeartbeat)
+    now <- getMonotonicTime
+    atomically (writeTVar heartbeatState $ LastSent now)
     broadcast (Message msg)
 
 sendHeartbeatFor ::
   ( MonadDelay m
   , MonadSTM m
+  , MonadMonotonicTime m
   ) =>
   Party ->
   TVar m HeartbeatState ->
@@ -82,4 +86,11 @@ sendHeartbeatFor localhost heartbeatState Network{broadcast} =
   forever $ do
     threadDelay 0.5
     st <- readTVarIO heartbeatState
-    when (st == SendHeartbeat) $ broadcast (Ping localhost)
+    now <- getMonotonicTime
+    when (shouldSendHeartbeat now st) $ broadcast (Ping localhost)
+
+shouldSendHeartbeat :: Time -> HeartbeatState -> Bool
+shouldSendHeartbeat now =
+  \case
+    SendHeartbeat -> True
+    LastSent seen -> diffTime now seen > 3

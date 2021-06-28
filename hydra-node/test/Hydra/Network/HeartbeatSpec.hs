@@ -51,6 +51,20 @@ spec = describe "Heartbeat" $ do
 
     sentHeartbeats `shouldBe` [Message someMessage, Ping 1]
 
+  it "restart sending heartbeat messages given last message sent is older than 3s" $ do
+    let someMessage = ReqTx 1 1
+        sentHeartbeats = runSimOrThrow $ do
+          sentMessages <- newTVarIO ([] :: [Heartbeat (HydraMessage Integer)])
+
+          withHeartbeat 1 (dummyNetwork sentMessages) noop $ \Network{broadcast} -> do
+            threadDelay 0.6
+            broadcast someMessage
+            threadDelay 3.6
+
+          readTVarIO sentMessages
+
+    sentHeartbeats `shouldBe` [Ping 1, Message someMessage, Ping 1]
+
 testHost :: Host
 testHost = Host{hostName = "0.0.0.0", portNumber = 4000}
 

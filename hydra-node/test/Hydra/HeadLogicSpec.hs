@@ -6,7 +6,23 @@ import Hydra.Prelude
 
 import qualified Data.List as List
 import qualified Data.Set as Set
-import Hydra.HeadLogic (ClientResponse (PeerConnected), CoordinatedHeadState (..), Effect (ClientEffect, NetworkEffect), Environment (..), Event (..), HeadParameters (..), HeadState (..), HeadStatus (..), HydraMessage (..), LogicError (..), OnChainTx (..), Outcome (..), Snapshot (..), SnapshotStrategy (..), update)
+import Hydra.HeadLogic (
+  ClientResponse (PeerConnected),
+  CoordinatedHeadState (..),
+  Effect (ClientEffect, NetworkEffect),
+  Environment (..),
+  Event (..),
+  HeadParameters (..),
+  HeadState (..),
+  HeadStatus (..),
+  HydraMessage (..),
+  LogicError (..),
+  OnChainTx (..),
+  Outcome (..),
+  Snapshot (..),
+  SnapshotStrategy (..),
+  update,
+ )
 import Hydra.Ledger (Ledger (..), Party, Tx, deriveParty, generateKey, sign)
 import Hydra.Ledger.Builder (aValidTx, utxoRef)
 import Hydra.Ledger.Simple (SimpleTx (..), TxIn (..), simpleLedger)
