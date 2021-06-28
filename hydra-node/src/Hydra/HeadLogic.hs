@@ -58,6 +58,10 @@ data ClientRequest tx
   | Contest
   deriving (Generic)
 
+deriving instance Tx tx => Eq (ClientRequest tx)
+deriving instance Tx tx => Show (ClientRequest tx)
+deriving instance Tx tx => Read (ClientRequest tx)
+
 instance (ToJSON tx, ToJSON (UTxO tx)) => ToJSON (ClientRequest tx) where
   toJSON = \case
     Init ->
@@ -90,10 +94,6 @@ instance (FromJSON tx, FromJSON (UTxO tx)) => FromJSON (ClientRequest tx) where
         pure Contest
       _ ->
         fail $ "unknown request type: " <> toString @Text tag
-
-deriving instance Tx tx => Eq (ClientRequest tx)
-deriving instance Tx tx => Show (ClientRequest tx)
-deriving instance Tx tx => Read (ClientRequest tx)
 
 type SnapshotNumber = Natural
 

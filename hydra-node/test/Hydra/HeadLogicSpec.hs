@@ -8,9 +8,12 @@ module Hydra.HeadLogicSpec where
 
 import Hydra.Prelude
 
+import Data.Aeson (FromJSON, ToJSON)
+import qualified Data.Aeson as Aeson
 import qualified Data.List as List
 import qualified Data.Set as Set
 import Hydra.HeadLogic (
+  ClientRequest (..),
   ClientResponse (PeerConnected),
   CoordinatedHeadState (..),
   Effect (ClientEffect, NetworkEffect),
@@ -27,7 +30,7 @@ import Hydra.HeadLogic (
   SnapshotStrategy (..),
   update,
  )
-import Hydra.Ledger (Ledger (..), Party, Tx, deriveParty, generateKey, sign)
+import Hydra.Ledger (Ledger (..), Party, Tx (..), deriveParty, generateKey, sign)
 import Hydra.Ledger.Builder (aValidTx, utxoRef)
 import Hydra.Ledger.Simple (SimpleTx (..), TxIn (..), simpleLedger)
 import Test.Hspec (
@@ -38,7 +41,19 @@ import Test.Hspec (
   shouldBe,
  )
 import Test.Hspec.QuickCheck (prop)
-import Test.QuickCheck (Gen, Property, elements, forAll)
+import Test.QuickCheck (
+  Gen,
+  Property,
+  arbitrary,
+  counterexample,
+  elements,
+  forAll,
+  forAllShrink,
+  listOf1,
+  oneof,
+  shrinkList,
+  (===),
+ )
 import Test.QuickCheck.Instances.Time ()
 import Test.QuickCheck.Property (collect)
 import Test.Util (failure)
@@ -199,6 +214,19 @@ spec = describe "Hydra Coordinated Head Protocol" $ do
 
   prop "can handle OnChainEvent in any state" prop_handleOnChainEventInAnyState
 
+  describe "JSON instances" $ do
+    prop "ClientRequest - JSON roundtrips" $
+      prop_roundtripJSON genClientRequest shrinkClientRequest
+
+prop_roundtripJSON ::
+  (Show a, Eq a, ToJSON a, FromJSON a) =>
+  Gen a ->
+  (a -> [a]) ->
+  Property
+prop_roundtripJSON genA shrinkA = forAllShrink genA shrinkA $ \a ->
+  let encoded = Aeson.encode a
+   in counterexample (show encoded) $ Aeson.eitherDecode' encoded === Right a
+
 genOnChainTx :: Gen (OnChainTx SimpleTx)
 genOnChainTx =
   elements
@@ -209,6 +237,48 @@ genOnChainTx =
     , ContestTx (Snapshot 0 mempty mempty)
     , FanoutTx (Set.fromList [TxIn 1, TxIn 2])
     ]
+
+genClientRequest :: Gen (ClientRequest SimpleTx)
+genClientRequest =
+  oneof
+    [ pure Init
+    , Commit <$> genSimpleUTxO
+    , NewTx <$> genSimpleTx
+    , pure Close
+    , pure Contest
+    ]
+
+shrinkClientRequest :: ClientRequest SimpleTx -> [ClientRequest SimpleTx]
+shrinkClientRequest = \case
+  Init -> []
+  Commit xs -> Commit <$> shrinkSimpleUTxO xs
+  NewTx tx -> NewTx <$> shrinkSimpleTx tx
+  Close -> []
+  Contest -> []
+
+genSimpleTx :: Gen SimpleTx
+genSimpleTx =
+  SimpleTx
+    <$> arbitrary
+    <*> genSimpleUTxO
+    <*> genSimpleUTxO
+
+shrinkSimpleTx :: SimpleTx -> [SimpleTx]
+shrinkSimpleTx tx =
+  [ SimpleTx (txId tx) inps outs
+  | inps <- shrinkSimpleUTxO (txInputs tx)
+  , outs <- shrinkSimpleUTxO (txOutputs tx)
+  ]
+
+genSimpleUTxO :: Gen (UTxO SimpleTx)
+genSimpleUTxO =
+  Set.fromList <$> listOf1 genTxIn
+ where
+  genTxIn = TxIn <$> arbitrary
+
+shrinkSimpleUTxO :: UTxO SimpleTx -> [UTxO SimpleTx]
+shrinkSimpleUTxO =
+  fmap Set.fromList . shrinkList pure . Set.toList
 
 genHeadStatus :: Gen (HeadStatus SimpleTx)
 genHeadStatus =
