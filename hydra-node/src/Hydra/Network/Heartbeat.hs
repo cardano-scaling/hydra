@@ -26,7 +26,7 @@ import Cardano.Binary (FromCBOR (fromCBOR), ToCBOR (..))
 import Control.Monad.Class.MonadSTM (modifyTVar', newTVarIO)
 import qualified Data.Map as Map
 import qualified Data.Set as Set
-import Hydra.HeadLogic (HydraMessage (..))
+import Hydra.HeadLogic (HydraMessage (..), getParty)
 import Hydra.Ledger (Party)
 import Hydra.Network (Network (..), NetworkCallback, NetworkComponent)
 
