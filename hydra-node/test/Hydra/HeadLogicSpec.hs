@@ -4,9 +4,11 @@ module Hydra.HeadLogicSpec where
 
 import Hydra.Prelude
 
+import qualified Data.List as List
 import qualified Data.Set as Set
 import Hydra.HeadLogic (
   ClientResponse (PeerConnected),
+  CoordinatedHeadState (..),
   Effect (ClientEffect, NetworkEffect),
   Environment (..),
   Event (..),
@@ -17,54 +19,54 @@ import Hydra.HeadLogic (
   LogicError (..),
   OnChainTx (..),
   Outcome (..),
-  SimpleHeadState (..),
   Snapshot (..),
   SnapshotStrategy (..),
   update,
  )
-import Hydra.Ledger (Ledger (..), Party, Tx, sign)
-import Hydra.Ledger.Builder (utxoRef)
+import Hydra.Ledger (Ledger (..), Party, Tx, deriveParty, generateKey, sign)
+import Hydra.Ledger.Builder (aValidTx, utxoRef)
 import Hydra.Ledger.Simple (SimpleTx (..), TxIn (..), simpleLedger)
 import Hydra.Network (Host (Host, hostName, portNumber))
 import Test.Hspec (
+  Expectation,
   Spec,
   describe,
   expectationFailure,
   it,
+  pending,
   shouldBe,
  )
 import Test.Hspec.QuickCheck (prop)
 import Test.QuickCheck (Gen, Property, elements, forAll)
 import Test.QuickCheck.Instances.Time ()
 import Test.QuickCheck.Property (collect)
+import Test.Util (failure)
 
 spec :: Spec
-spec = describe "Hydra Head Logic" $ do
-  let threeParties = Set.fromList [1, 2, 3]
+spec = describe "Hydra Coordinated Head Protocol" $ do
+  let threeParties = [1, 2, 3]
       ledger = simpleLedger
       env =
         Environment
           { party = 2
           , signingKey = 2
-          , allParties = threeParties
+          , otherParties = [1, 3]
           , snapshotStrategy = NoSnapshots
           }
+
+      envFor n =
+        let signingKey = generateKey n
+            party = deriveParty signingKey
+         in Environment
+              { party
+              , signingKey
+              , otherParties = List.delete party threeParties
+              , snapshotStrategy = SnapshotAfterEachTx
+              }
+
       -- NOTE: This unrealistic Tx is just there to be always valid as
       -- it does not require any input
       simpleTx = SimpleTx 1 mempty (Set.fromList [TxIn 3, TxIn 4])
-
-  it "confirms tx given it receives AckTx from all parties" $ do
-    let reqTx = NetworkEvent $ ReqTx simpleTx
-        ackFrom p = NetworkEvent $ AckTx p simpleTx
-        s0 = initialState threeParties ledger
-
-    s1 <- assertNewState $ update env ledger s0 reqTx
-    s2 <- assertNewState $ update env ledger s1 (ackFrom 3)
-    s3 <- assertNewState $ update env ledger s2 (ackFrom 1)
-    getConfirmedTransactions s3 `shouldBe` []
-
-    s4 <- assertNewState $ update env ledger s3 (ackFrom 2)
-    getConfirmedTransactions s4 `shouldBe` [simpleTx]
 
   it "waits if a requested tx is not (yet) applicable" $ do
     let reqTx = NetworkEvent $ ReqTx $ SimpleTx 2 inputs mempty
@@ -73,10 +75,27 @@ spec = describe "Hydra Head Logic" $ do
 
     update env ledger s0 reqTx `shouldBe` Wait
 
-  it "notifies client when it receives a ping" $ do
-    let host = Host{hostName = "0.0.0.0", portNumber = 4000}
-    update env ledger (initialState threeParties ledger) (NetworkEvent $ Ping host)
-      `hasEffect` ClientEffect (PeerConnected host)
+  it "requests snapshot when receives ReqTx given node is leader" $ do
+    let reqTx = NetworkEvent $ ReqTx simpleTx
+        leader = 1
+        leaderEnv = envFor leader
+        s0 = initialState threeParties ledger
+
+    update leaderEnv ledger s0 reqTx
+      `hasEffect` NetworkEffect (ReqSn (party leaderEnv) 1 [simpleTx])
+
+  it "does not request multiple snapshots" pending
+
+  it "does not request snapshots as non-leader" $ do
+    let reqTx = NetworkEvent $ ReqTx simpleTx
+        leaderEnv = envFor 2
+        s0 = initialState threeParties ledger
+
+        s1 = update leaderEnv ledger s0 reqTx
+
+    s1 `hasNoEffectSatisfying` \case
+      NetworkEffect ReqSn{} -> True
+      _ -> False
 
   it "confirms snapshot given it receives AckSn from all parties" $ do
     let s0 = initialState threeParties ledger
@@ -148,6 +167,21 @@ spec = describe "Hydra Head Logic" $ do
         st = initialState threeParties ledger
     update env ledger st event `shouldBe` Error (InvalidEvent event st)
 
+  it "rejects overlapping snapshot requests from the leader" $ do
+    let s0 = initialState threeParties ledger
+        theLeader = 1
+        nextSN = 1
+        firstReqSn = NetworkEvent $ ReqSn theLeader nextSN [aValidTx 42]
+        secondReqSn = NetworkEvent $ ReqSn theLeader nextSN [aValidTx 51]
+
+    s1 <- assertNewState $ update env ledger s0 firstReqSn
+    update env ledger s1 secondReqSn `shouldBe` Error (InvalidEvent secondReqSn s1)
+
+  it "notifies client when it receives a ping" $ do
+    let host = Host{hostName = "0.0.0.0", portNumber = 4000}
+    update env ledger (initialState threeParties ledger) (NetworkEvent $ Ping host)
+      `hasEffect` ClientEffect (PeerConnected host)
+
   prop "can handle OnChainEvent in any state" prop_handleOnChainEventInAnyState
 
 genOnChainTx :: Gen (OnChainTx SimpleTx)
@@ -156,8 +190,8 @@ genOnChainTx =
     [ InitTx mempty
     , CommitTx 1 (Set.fromList [TxIn 1, TxIn 2])
     , CollectComTx mempty
-    , CloseTx (Snapshot 0 mempty mempty) mempty
-    , ContestTx (Snapshot 0 mempty mempty) mempty
+    , CloseTx (Snapshot 0 mempty mempty)
+    , ContestTx (Snapshot 0 mempty mempty)
     , FanoutTx (Set.fromList [TxIn 1, TxIn 2])
     ]
 
@@ -167,12 +201,12 @@ genHeadStatus =
     [ InitState
     , FinalState
     , CollectingState mempty mempty
-    , OpenState (SimpleHeadState mempty mempty mempty (Snapshot 0 mempty mempty) Nothing)
+    , OpenState (CoordinatedHeadState mempty mempty (Snapshot 0 mempty mempty) Nothing)
     ]
 
 defaultHeadParameters :: HeadParameters
 defaultHeadParameters =
-  HeadParameters 3600 (Set.singleton 1)
+  HeadParameters 3600 [1]
 
 prop_handleOnChainEventInAnyState :: Property
 prop_handleOnChainEventInAnyState =
@@ -188,7 +222,7 @@ prop_handleOnChainEventInAnyState =
     Environment
       { party = 1
       , signingKey = 1
-      , allParties = mempty -- TODO(SN): This is a big smell, make this impossible!
+      , otherParties = mempty
       , snapshotStrategy = NoSnapshots
       }
   ledger = simpleLedger
@@ -199,16 +233,20 @@ hasEffect (NewState _ effects) effect
   | otherwise = expectationFailure $ "Missing effect " <> show effect <> " in produced effects:  " <> show effects
 hasEffect _ _ = expectationFailure "Unexpected outcome"
 
+hasNoEffectSatisfying :: Tx tx => Outcome tx -> (Effect tx -> Bool) -> IO ()
+hasNoEffectSatisfying (NewState _ effects) predicate
+  | any predicate effects = expectationFailure $ "Found unwanted effect in: " <> show effects
+hasNoEffectSatisfying _ _ = pure ()
+
 initialState ::
-  Ord tx =>
-  Set Party ->
+  [Party] ->
   Ledger tx ->
   HeadState tx
 initialState parties Ledger{initUTxO} =
   let u0 = initUTxO
       snapshot0 = Snapshot 0 u0 mempty
    in HeadState
-        { headStatus = OpenState $ SimpleHeadState u0 mempty mempty snapshot0 Nothing
+        { headStatus = OpenState $ CoordinatedHeadState u0 mempty snapshot0 Nothing
         , headParameters =
             HeadParameters
               { contestationPeriod = 42
@@ -216,14 +254,9 @@ initialState parties Ledger{initUTxO} =
               }
         }
 
-getConfirmedTransactions :: HeadState tx -> [tx]
-getConfirmedTransactions HeadState{headStatus} = case headStatus of
-  OpenState SimpleHeadState{confirmedTxs} -> confirmedTxs
-  _ -> []
-
 getConfirmedSnapshot :: HeadState tx -> Maybe (Snapshot tx)
 getConfirmedSnapshot HeadState{headStatus} = case headStatus of
-  OpenState SimpleHeadState{confirmedSnapshot} -> Just confirmedSnapshot
+  OpenState CoordinatedHeadState{confirmedSnapshot} -> Just confirmedSnapshot
   _ -> Nothing
 
 assertNewState :: Outcome SimpleTx -> IO (HeadState SimpleTx)
@@ -231,3 +264,10 @@ assertNewState = \case
   NewState st _ -> pure st
   Error e -> fail (show e)
   Wait -> fail "Found 'Wait'"
+
+assertStateUnchangedFrom :: HeadState SimpleTx -> Outcome SimpleTx -> Expectation
+assertStateUnchangedFrom st = \case
+  NewState st' eff -> do
+    st' `shouldBe` st
+    eff `shouldBe` []
+  anything -> failure $ "unexpected outcome: " <> show anything

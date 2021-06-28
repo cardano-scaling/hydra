@@ -3,21 +3,19 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE TypeApplications #-}
 
-module Node where
+module CardanoNode where
 
 import Hydra.Prelude
 
 import Control.Retry (constantDelay, limitRetriesByCumulativeDelay, retrying)
+import Control.Tracer (
+  Tracer,
+  traceWith,
+ )
 import Data.Aeson (FromJSON (..), ToJSON (..), (.=))
 import qualified Data.Aeson as Aeson
 import qualified Data.HashMap.Strict as HM
 import Data.Time.Clock.POSIX (posixSecondsToUTCTime, utcTimeToPOSIXSeconds)
-import Logging (
-  HasSeverityAnnotation (..),
-  Severity (Debug, Error, Info),
-  Tracer,
-  traceWith,
- )
 import System.Exit (ExitCode (..))
 import System.FilePath ((</>))
 import System.Process (
@@ -257,16 +255,6 @@ data NodeLog
   | MsgCLIRetryResult Text Int
   | MsgSocketIsReady FilePath
   deriving (Show)
-
-instance HasSeverityAnnotation NodeLog where
-  getSeverityAnnotation = \case
-    MsgNodeCmdSpec{} -> Debug
-    MsgCLI{} -> Debug
-    MsgCLIStatus _ ExitSuccess -> Debug
-    MsgCLIStatus _ (ExitFailure _) -> Error
-    MsgCLIRetry _ -> Info
-    MsgCLIRetryResult{} -> Info
-    MsgSocketIsReady{} -> Info
 
 --
 -- Helpers

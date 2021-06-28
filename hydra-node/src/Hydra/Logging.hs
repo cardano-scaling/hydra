@@ -15,6 +15,8 @@ module Hydra.Logging (
   -- * Using it
   Verbosity (..),
   withTracer,
+  contramap,
+  showLogsOnFailure,
 ) where
 
 import Hydra.Prelude
@@ -48,7 +50,8 @@ import Control.Tracer (
 
 import qualified Cardano.BM.Configuration.Model as CM
 import qualified Cardano.BM.Data.BackendKind as CM
-import Control.Monad.Class.MonadSTM (modifyTVar)
+import Control.Monad.Class.MonadSTM (modifyTVar, newTVarIO)
+import Control.Monad.Class.MonadSay (MonadSay, say)
 
 data Verbosity = Quiet | Verbose LoggerName
   deriving (Eq, Show)
@@ -92,3 +95,12 @@ transformLogObject transform tr = Tracer $ \a -> do
 traceInTVar :: MonadSTM m => TVar m [a] -> Tracer m a
 traceInTVar tvar = Tracer $ \a ->
   atomically $ modifyTVar tvar (a :)
+
+showLogsOnFailure ::
+  (MonadSTM m, MonadCatch m, Show msg, MonadSay m) =>
+  (Tracer m msg -> m a) ->
+  m a
+showLogsOnFailure action = do
+  tvar <- newTVarIO []
+  action (traceInTVar tvar)
+    `onException` (readTVarIO tvar >>= mapM_ (say . show) . reverse)

@@ -2,17 +2,16 @@ module Test.LocalClusterSpec where
 
 import Hydra.Prelude
 
-import Lib (ClusterConfig (..), ClusterLog (..), RunningCluster (..), withCluster)
-import Logging (Severity (..), Tracer, withTVarTracer)
-import Node (ChainTip (..), RunningNode (..), cliQueryTip)
-import Say (say)
+import CardanoCluster (ClusterConfig (..), ClusterLog (..), RunningCluster (..), withCluster)
+import CardanoNode (ChainTip (..), RunningNode (..), cliQueryTip)
+import Hydra.Logging (Tracer, showLogsOnFailure)
 import System.IO.Temp (withSystemTempDirectory)
 import Test.Hspec (Spec, describe, it, shouldBe)
 
 spec :: Spec
 spec = describe "Hydra local cluster" $ do
   it "should produce blocks" $ do
-    withTVarTracer "local-cluster" Info sshow $ \(tr, getLogs) -> traceOnFailure getLogs $
+    showLogsOnFailure $ \tr ->
       withSystemTempDirectory "hydra-local-cluster" $ \tmp -> do
         withCluster tr (ClusterConfig tmp) $ assertNetworkIsProducingBlock tr
 
@@ -25,10 +24,6 @@ assertNetworkIsProducingBlock tracer = \case
     on (>) block anotherTip initialTip `shouldBe` True
   _ ->
     error "empty cluster?"
-
-traceOnFailure :: Show msg => IO [msg] -> IO a -> IO a
-traceOnFailure getLogs action = do
-  action `onException` (getLogs >>= say . sshow)
 
 waitForNewBlock :: IO ()
 waitForNewBlock = threadDelay (2 * slotLength)

@@ -143,7 +143,7 @@ withHydraNode hydraNodeId sKey vKeys action = do
   traceOnFailure f io = do
     io `onException` (readFileText f >>= say)
 
-data CannotStartHydraNode = CannotStartHydraNode Int deriving (Show)
+newtype CannotStartHydraNode = CannotStartHydraNode Int deriving (Show)
 instance Exception CannotStartHydraNode
 
 hydraNodeProcess :: [String] -> CreateProcess

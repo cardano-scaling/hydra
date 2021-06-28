@@ -68,10 +68,8 @@ library
   hs-source-dirs: src
   exposed-modules:
     HydraNode
-    Lib
-    Logging
-    Ports
-    Node
+    CardanoCluster
+    CardanoNode
   build-depends:
       base >=4.7 && <5
     , aeson
@@ -84,6 +82,7 @@ library
     , hspec-expectations
     , http-conduit
     , hydra-prelude
+    , hydra-node
     , io-sim-classes
     , iohk-monitoring
     , network
@@ -109,8 +108,9 @@ executable local-cluster
     -threaded
     -rtsopts
   build-depends: base >=4.7 && <5
-               , local-cluster
+               , contra-tracer
                , hydra-prelude
+               , local-cluster
                , temporary
 
 test-suite integration
@@ -128,6 +128,7 @@ test-suite integration
     , hspec
     , hspec-core
     , hydra-prelude
+    , hydra-node
     , local-cluster
     , regex-tdfa
     , say

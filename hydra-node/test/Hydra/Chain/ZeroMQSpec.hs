@@ -7,7 +7,6 @@ import Hydra.Prelude
 import Control.Concurrent (newChan, readChan, writeChan)
 import Control.Monad.Class.MonadSTM (newEmptyTMVarIO, putTMVar, takeTMVar)
 import Control.Monad.Class.MonadTimer (timeout)
-import qualified Data.Set as Set
 import Hydra.Chain.ZeroMQ (catchUpTransactions, mockChainClient, runChainSync, startChain)
 import Hydra.HeadLogic (OnChainTx (InitTx))
 import Hydra.Ledger.Simple (SimpleTx)
@@ -18,7 +17,7 @@ import Test.Util (shouldReturn)
 spec :: Spec
 spec =
   describe "Mock 0MQ-Based Chain" $ do
-    let tx = InitTx (Set.fromList [1, 2])
+    let tx = InitTx [1, 2]
         numberOfTxs :: Int
         numberOfTxs = 3
 

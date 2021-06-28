@@ -42,6 +42,9 @@ type SigningKey = SignKeyDSIGN MockDSIGN
 deriveParty :: SigningKey -> Party
 deriveParty = coerce . deriveVerKeyDSIGN
 
+generateKey :: Integer -> SigningKey
+generateKey = fromInteger
+
 sign :: SignableRepresentation a => SigningKey -> a -> Signed a
 sign signingKey signable = UnsafeSigned $ signDSIGN () signable signingKey
 

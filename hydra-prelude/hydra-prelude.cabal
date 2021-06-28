@@ -21,10 +21,14 @@ library
     src
   exposed-modules:
     Hydra.Prelude
+    Hydra.Network.Ports
   build-depends:
     base,
     relude,
     io-sim-classes,
+    network,
+    warp,
+    random-shuffle,
   default-extensions:
     NoImplicitPrelude
   ghc-options:

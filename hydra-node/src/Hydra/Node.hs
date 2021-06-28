@@ -10,7 +10,6 @@ import Hydra.Prelude
 import Cardano.Crypto.DSIGN (DSIGNAlgorithm (rawDeserialiseVerKeyDSIGN), deriveVerKeyDSIGN, rawDeserialiseSignKeyDSIGN)
 import Control.Monad.Class.MonadAsync (async)
 import Control.Monad.Class.MonadSTM (newTQueue, newTVarIO, readTQueue, stateTVar, writeTQueue)
-import qualified Data.Set as Set
 import Hydra.Chain (Chain (..))
 import Hydra.HeadLogic (
   ClientRequest (..),
@@ -23,10 +22,10 @@ import Hydra.HeadLogic (
   LogicError (..),
   OnChainTx (..),
   Outcome (..),
-  SnapshotStrategy (NoSnapshots),
+  SnapshotStrategy (SnapshotAfterEachTx),
  )
 import qualified Hydra.HeadLogic as Logic
-import Hydra.Ledger
+import Hydra.Ledger (Ledger, Party (..), Tx)
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Network (Network (..))
 import Hydra.Options (Options (..))
@@ -42,8 +41,8 @@ initEnvironment Options{me, parties} = do
     Environment
       { party = UnsafeParty vk
       , signingKey = sk
-      , allParties = Set.fromList . map UnsafeParty $ vk : otherVKeys
-      , snapshotStrategy = NoSnapshots
+      , otherParties = UnsafeParty <$> otherVKeys
+      , snapshotStrategy = SnapshotAfterEachTx
       }
  where
   loadSigningKey p = do
@@ -92,7 +91,6 @@ runHydraNode ::
   , MonadAsync m
   , MonadTimer m
   , Tx tx
-  , Ord tx
   ) =>
   Tracer m (HydraNodeLog tx) ->
   HydraNode tx m ->
@@ -110,7 +108,6 @@ runHydraNode tracer node@HydraNode{eq, env = Environment{party}} = do
 -- | Monadic interface around 'Hydra.Logic.update'.
 processNextEvent ::
   ( Tx tx
-  , Ord tx
   , MonadSTM m
   ) =>
   HydraNode tx m ->

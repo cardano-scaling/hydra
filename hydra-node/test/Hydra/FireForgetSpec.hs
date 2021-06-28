@@ -2,7 +2,7 @@ module Hydra.FireForgetSpec where
 
 import Hydra.Prelude
 
-import Control.Monad.Class.MonadSTM (MonadSTM (..), readTVar, writeTVar)
+import Control.Monad.Class.MonadSTM (newTVarIO, writeTVar)
 import Control.Tracer (nullTracer)
 import Hydra.Network.Ouroboros.Client (FireForgetClient (..), fireForgetClientPeer)
 import Hydra.Network.Ouroboros.Server (FireForgetServer (..), fireForgetServerPeer)
@@ -39,5 +39,5 @@ newServer = do
           atomically (writeTVar tvar msg)
           pure (server tvar)
       , recvMsgDone =
-          atomically (readTVar tvar)
+          readTVarIO tvar
       }

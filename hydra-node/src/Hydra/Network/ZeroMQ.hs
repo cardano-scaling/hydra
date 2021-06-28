@@ -27,9 +27,9 @@ import System.ZMQ4.Monadic (
 
 data NetworkLog
   = PublisherStarted Host
-  | MessageSent LByteString
-  | LogMessageReceived Text
-  | SubscribedTo [String]
+  | MessageSent Host LByteString
+  | LogMessageReceived Host Text
+  | SubscribedTo Host [String]
   deriving (Show)
 
 withZeroMQNetwork ::
@@ -60,17 +60,17 @@ withZeroMQNetwork tracer localHost remoteHosts incomingCallback continuation = d
       hydraMessage <- liftIO $ atomically $ takeTMVar queue
       let encoded = CBOR.toLazyByteString $ toCBOR hydraMessage
       send pub [] $ toStrict encoded
-      liftIO $ traceWith tracer (MessageSent encoded)
+      liftIO $ traceWith tracer (MessageSent localHost encoded)
 
   runClients callback = runZMQ $ do
     sub <- socket Sub
     subscribe sub ""
     forM_ peerAddresses (connect sub)
-    liftIO $ traceWith tracer (SubscribedTo peerAddresses)
+    liftIO $ traceWith tracer (SubscribedTo localHost peerAddresses)
     forever $ do
       msg <- receive sub
       case CBOR.deserialiseFromBytes fromCBOR (fromStrict msg) of
         Left err -> error $ "failed to decode msg " <> show msg <> " : " <> show err
         Right (_, hydraMessage) -> liftIO $ do
-          traceWith tracer (LogMessageReceived $ show hydraMessage)
+          traceWith tracer (LogMessageReceived localHost $ show hydraMessage)
           callback hydraMessage

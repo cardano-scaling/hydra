@@ -11,12 +11,10 @@ import Control.Monad.Class.MonadSTM (
   newTQueue,
   newTVarIO,
   readTQueue,
-  readTVar,
   writeTQueue,
  )
 import Control.Monad.Class.MonadTimer (timeout)
 import Control.Monad.IOSim (IOSim, runSimTrace, selectTraceEventsDynamic, traceM)
-import qualified Data.Set as Set
 import Hydra.Chain (Chain (..))
 import Hydra.HeadLogic (
   ClientRequest (..),
@@ -82,7 +80,7 @@ spec = describe "Behavior of one ore more hydra-nodes" $ do
         withHydraNode 1 [] NoSnapshots chain $ \n1 -> do
           sendRequestAndWaitFor n1 Init (ReadyToCommit [1])
           sendRequestAndWaitFor n1 (Commit (utxoRef 1)) (HeadIsOpen (utxoRef 1))
-          sendRequestAndWaitFor n1 Close (HeadIsClosed testContestationPeriod (Snapshot 0 (utxoRef 1) []) [])
+          sendRequestAndWaitFor n1 Close (HeadIsClosed testContestationPeriod (Snapshot 0 (utxoRef 1) []))
 
   it "does finalize head after contestation period" $
     shouldRunInSim $ do
@@ -93,7 +91,7 @@ spec = describe "Behavior of one ore more hydra-nodes" $ do
         sendRequest n1 (Commit (utxoRef 1))
         failAfter 1 $ waitForResponse n1 `shouldReturn` HeadIsOpen (utxoRef 1)
         sendRequest n1 Close
-        failAfter 1 $ waitForResponse n1 `shouldReturn` HeadIsClosed testContestationPeriod (Snapshot 0 (utxoRef 1) []) []
+        failAfter 1 $ waitForResponse n1 `shouldReturn` HeadIsClosed testContestationPeriod (Snapshot 0 (utxoRef 1) [])
         threadDelay testContestationPeriod
         failAfter 1 $ waitForResponse n1 `shouldReturn` HeadIsFinalized (utxoRef 1)
 
@@ -130,8 +128,8 @@ spec = describe "Behavior of one ore more hydra-nodes" $ do
             sendRequest n2 (NewTx secondTx)
             sendRequest n1 (NewTx firstTx)
             failAfter 1 $ do
-              waitForResponse n1 `shouldReturn` TxConfirmed firstTx
-              waitForResponse n1 `shouldReturn` TxConfirmed secondTx
+              waitForResponse n1 `shouldReturn` TxSeen firstTx
+              waitForResponse n1 `shouldReturn` TxSeen secondTx
 
     it "sees the head closed by other nodes" $
       shouldRunInSim $ do
@@ -149,7 +147,7 @@ spec = describe "Behavior of one ore more hydra-nodes" $ do
 
             failAfter 1 $
               waitForResponse n2
-                `shouldReturn` HeadIsClosed testContestationPeriod (Snapshot 0 (utxoRefs [1, 2]) []) []
+                `shouldReturn` HeadIsClosed testContestationPeriod (Snapshot 0 (utxoRefs [1, 2]) [])
 
     it "only opens the head after all nodes committed" $
       shouldRunInSim $ do
@@ -165,7 +163,7 @@ spec = describe "Behavior of one ore more hydra-nodes" $ do
 
             failAfter 1 $ waitForResponse n1 `shouldReturn` HeadIsOpen (utxoRefs [1, 2])
 
-    it "valid new transactions get confirmed without snapshotting" $
+    it "valid new transactions are seen by all parties" $
       shouldRunInSim $ do
         chain <- simulatedChainAndNetwork
         withHydraNode 1 [2] NoSnapshots chain $ \n1 ->
@@ -177,13 +175,8 @@ spec = describe "Behavior of one ore more hydra-nodes" $ do
             failAfter 1 $ waitForResponse n1 `shouldReturn` HeadIsOpen (utxoRefs [1, 2])
 
             sendRequest n1 (NewTx (aValidTx 42))
-            failAfter 1 $ waitForResponse n1 `shouldReturn` TxConfirmed (aValidTx 42)
-            failAfter 1 $ waitForResponse n2 `shouldReturn` TxConfirmed (aValidTx 42)
-
-            sendRequest n1 Close
-            failAfter 1 $
-              waitForResponse n1
-                `shouldReturn` HeadIsClosed testContestationPeriod (Snapshot 0 (utxoRefs [1, 2]) []) [aValidTx 42]
+            failAfter 1 $ waitForResponse n1 `shouldReturn` TxSeen (aValidTx 42)
+            failAfter 1 $ waitForResponse n2 `shouldReturn` TxSeen (aValidTx 42)
 
     it "valid new transactions get snapshotted" $
       shouldRunInSim $ do
@@ -197,8 +190,8 @@ spec = describe "Behavior of one ore more hydra-nodes" $ do
             failAfter 1 $ waitForResponse n1 `shouldReturn` HeadIsOpen (utxoRefs [1, 2])
 
             sendRequest n1 (NewTx (aValidTx 42))
-            failAfter 1 $ waitForResponse n1 `shouldReturn` TxConfirmed (aValidTx 42)
-            failAfter 1 $ waitForResponse n2 `shouldReturn` TxConfirmed (aValidTx 42)
+            failAfter 1 $ waitForResponse n1 `shouldReturn` TxSeen (aValidTx 42)
+            failAfter 1 $ waitForResponse n2 `shouldReturn` TxSeen (aValidTx 42)
 
             failAfter 1 $ waitForResponse n1 `shouldReturn` SnapshotConfirmed 1
 
@@ -211,7 +204,7 @@ spec = describe "Behavior of one ore more hydra-nodes" $ do
                       , confirmed = [aValidTx 42]
                       }
               waitForResponse n1
-                `shouldReturn` HeadIsClosed testContestationPeriod expectedSnapshot []
+                `shouldReturn` HeadIsClosed testContestationPeriod expectedSnapshot
 
   describe "Hydra Node Logging" $ do
     it "traces processing of events" $ do
@@ -292,7 +285,7 @@ simulatedChainAndNetwork = do
       Nothing -> pure ()
       Just ns -> mapM_ (`handleChainTx` tx) ns
 
-  broadcast nodes msg = atomically (readTVar nodes) >>= mapM_ (`handleMessage` msg)
+  broadcast nodes msg = readTVarIO nodes >>= mapM_ (`handleMessage` msg)
 
 -- NOTE(SN): Deliberately not configurable via 'startHydraNode'
 testContestationPeriod :: DiffTime
@@ -320,16 +313,15 @@ withHydraNode signingKey otherParties snapshotStrategy connectToChain action = d
   party = deriveParty signingKey
 
   createHydraNode response = do
-    let parties = Set.fromList (party : otherParties)
     let env =
           Environment
             { party
             , signingKey
-            , allParties = parties
+            , otherParties
             , snapshotStrategy
             }
     eq <- createEventQueue
-    let headState = createHeadState [] (HeadParameters testContestationPeriod parties)
+    let headState = createHeadState [] (HeadParameters testContestationPeriod mempty)
     hh <- createHydraHead headState simpleLedger
     let hn' = Network{broadcast = const $ pure ()}
     let node = HydraNode{eq, hn = hn', hh, oc = Chain (const $ pure ()), sendResponse = atomically . writeTQueue response, env}
