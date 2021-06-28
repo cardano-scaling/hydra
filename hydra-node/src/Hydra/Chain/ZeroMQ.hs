@@ -10,7 +10,7 @@ module Hydra.Chain.ZeroMQ where
 import Hydra.Prelude
 
 import Control.Monad.Class.MonadAsync (async, link)
-import Control.Monad.Class.MonadSTM (modifyTVar', newTBQueue, newTVarIO, readTBQueue, writeTBQueue)
+import Control.Monad.Class.MonadSTM (modifyTVar', newTBQueue, newTVarIO, readTBQueue, writeTBQueue, readTVarIO)
 import qualified Data.Text.Encoding as Enc
 import Hydra.Chain (Chain (..))
 import Hydra.HeadLogic (Event (OnChainEvent), OnChainTx)

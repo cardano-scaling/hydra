@@ -50,7 +50,7 @@ import Control.Tracer (
 
 import qualified Cardano.BM.Configuration.Model as CM
 import qualified Cardano.BM.Data.BackendKind as CM
-import Control.Monad.Class.MonadSTM (modifyTVar, newTVarIO)
+import Control.Monad.Class.MonadSTM (modifyTVar, newTVarIO, readTVarIO)
 import Control.Monad.Class.MonadSay (MonadSay, say)
 
 data Verbosity = Quiet | Verbose LoggerName

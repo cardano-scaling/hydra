@@ -2,7 +2,7 @@ module Hydra.Network.BroadcastToSelfSpec where
 
 import Hydra.Prelude
 
-import Control.Monad.Class.MonadSTM (modifyTVar', newTVarIO)
+import Control.Monad.Class.MonadSTM (modifyTVar', newTVarIO, readTVarIO)
 import Control.Monad.IOSim (runSimOrThrow)
 import Hydra.Network (Network (..))
 import Hydra.Network.BroadcastToSelf (withBroadcastToSelf)

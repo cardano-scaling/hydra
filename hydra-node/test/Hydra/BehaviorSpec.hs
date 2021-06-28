@@ -11,7 +11,7 @@ import Control.Monad.Class.MonadSTM (
   newTQueue,
   newTVarIO,
   readTQueue,
-  writeTQueue,
+  writeTQueue, readTVarIO
  )
 import Control.Monad.Class.MonadTimer (timeout)
 import Control.Monad.IOSim (IOSim, runSimTrace, selectTraceEventsDynamic, traceM)

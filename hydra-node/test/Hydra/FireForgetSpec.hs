@@ -2,7 +2,7 @@ module Hydra.FireForgetSpec where
 
 import Hydra.Prelude
 
-import Control.Monad.Class.MonadSTM (newTVarIO, writeTVar)
+import Control.Monad.Class.MonadSTM (newTVarIO, writeTVar, readTVarIO)
 import Control.Tracer (nullTracer)
 import Hydra.Network.Ouroboros.Client (FireForgetClient (..), fireForgetClientPeer)
 import Hydra.Network.Ouroboros.Server (FireForgetServer (..), fireForgetServerPeer)
