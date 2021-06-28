@@ -48,7 +48,7 @@ main = do
  where
   withNetwork tracer party host port peers =
     let localhost = Host{hostName = show host, portNumber = port}
-     in withHeartbeat party $ withBroadcastToSelf $ withOuroborosNetwork tracer localhost peers
+     in withBroadcastToSelf $ withHeartbeat party $ withOuroborosNetwork tracer localhost peers
 
 identifyNode :: Options -> Options
 identifyNode opt@Options{verbosity = Verbose "HydraNode", nodeId} = opt{verbosity = Verbose $ "HydraNode-" <> show nodeId}

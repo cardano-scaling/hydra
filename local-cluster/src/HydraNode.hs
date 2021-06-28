@@ -203,8 +203,11 @@ waitForNodesConnected :: [HydraNode] -> IO ()
 waitForNodesConnected = mapM_ waitForNodeConnected
 
 waitForNodeConnected :: HydraNode -> IO ()
-waitForNodeConnected n =
+waitForNodeConnected n@HydraNode{hydraNodeId} =
   -- HACK(AB): This is gross, we hijack the node ids and because we know
   -- keys are just integers we can compute them but that's ugly -> use property
   -- party identifiers everywhere
-  waitForResponses 10 [n] $ fmap (\party -> "PeerConnected (VerKeyMockDSIGN " <> show (party * 10) <> ")") allNodeIds
+  waitForResponses 10 [n] $
+    fmap
+      (\party -> "PeerConnected (VerKeyMockDSIGN " <> show (party * 10) <> ")")
+      (filter (/= hydraNodeId) allNodeIds)
