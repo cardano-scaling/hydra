@@ -120,6 +120,15 @@ instance (FromCBOR tx, FromCBOR (UTxO tx)) => FromCBOR (HydraMessage tx) where
 instance (FromCBOR tx, FromCBOR (UTxO tx)) => FromCBOR (Snapshot tx) where
   fromCBOR = Snapshot <$> fromCBOR <*> fromCBOR <*> fromCBOR
 
+getParty :: HydraMessage msg -> Party
+getParty =
+  \case
+    (ReqTx p _) -> p
+    (ReqSn p _ _) -> p
+    (AckSn p _ _) -> p
+    (Connected p) -> p
+    (Disconnected p) -> p
+
 -- NOTE(SN): Might not be symmetric in a real chain client, i.e. posting
 -- transactions could be parameterized using such data types, but they are not
 -- fully recoverable from transactions observed on chain

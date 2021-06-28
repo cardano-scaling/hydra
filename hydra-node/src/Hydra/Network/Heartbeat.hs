@@ -1,15 +1,23 @@
 {-# LANGUAGE TypeApplications #-}
 {-# OPTIONS_GHC -Wno-deprecations #-}
 
--- | A naive implementation of an application-level Heartbeat
+-- | An implementation of an application-level failure detector.
 -- This module exposes a /Component/ 'withHeartbeat' than can be used to
 -- wrap another 'NetworkComponent' and piggy-back on it to send and propagate
--- 'HeartbeatMessage's.
+-- 'Heartbeat' messages and detect other parties' liveness.
 --
--- Its current behavior is very simple: When it starts, it sends a 'Heartbeat' message
--- with its own identifier every 500ms, until the wrapped component sends another message.
--- `Heartbeat` messages received from other components are simply propagated to the
--- wrapped component.
+-- It is inspired by the /Increasing timeout/ algorithms from the book <https://www.distributedprogramming.net/index.shtml Introduction to Reliable and Secure Distributed Programming>
+-- by /Cachin et al./ which is an /Eventually Perfect Failure Detector/ suitable for
+-- partially synchronous network settings. It has the following behaviour:
+--
+--  * It broadcasts a 'Ping' to other parties through the underlying 'Network' implementation
+--    if the last message has been sent more than 3s ago
+--  * When receiving messages from other parties, it records reception time and notifies underlying
+--    node with a 'Connected' message
+--  * If new messages are received from 'alive' parties before 3s timeout expires no new 'Connected'
+--    message is sent
+-- *  If main thread detects that a formerly 'alive' party has not been seen for more than 3s, it is
+--    marked as 'suspected' and a 'Disconnected' message is sent to the node.
 module Hydra.Network.Heartbeat where
 
 import Hydra.Prelude
@@ -54,6 +62,14 @@ instance (FromCBOR msg) => FromCBOR (Heartbeat msg) where
       1 -> Ping <$> fromCBOR
       other -> fail $ "Unknown tag " <> show other <> " trying to deserialise value to Heartbeat"
 
+-- | Delay between each heartbeat check.
+heartbeatDelay :: DiffTime
+heartbeatDelay = 0.5
+
+-- | Maximal delay between expected and sent heartbeats.
+livenessDelay :: DiffTime
+livenessDelay = 3
+
 -- | Wrap a `NetworkComponent` and handle sending/receiving of heartbeats.
 withHeartbeat ::
   ( MonadAsync m
@@ -65,16 +81,16 @@ withHeartbeat ::
   NetworkComponent m (HydraMessage msg)
 withHeartbeat party withNetwork callback action = do
   heartbeat <- newTVarIO initialHeartbeatState
-  withNetwork (fromHeartbeat heartbeat callback) $ \network ->
-    withAsync (sendHeartbeatFor party heartbeat callback network) $ \_ ->
-      action (checkMessages heartbeat network)
+  withNetwork (updateStateFromIncomingMessages heartbeat callback) $ \network ->
+    withAsync (checkHeartbeatState party heartbeat callback network) $ \_ ->
+      action (updateStateFromOutboundMessages heartbeat network)
 
-fromHeartbeat ::
+updateStateFromIncomingMessages ::
   (Monad m, MonadSTM m, MonadMonotonicTime m) =>
   TVar m HeartbeatState ->
   NetworkCallback (HydraMessage msg) m ->
   NetworkCallback (Heartbeat (HydraMessage msg)) m
-fromHeartbeat heartbeatState callback = \case
+updateStateFromIncomingMessages heartbeatState callback = \case
   Message msg -> notifyAlive (getParty msg) >> callback msg
   Ping party -> notifyAlive party
  where
@@ -89,21 +105,12 @@ fromHeartbeat heartbeatState callback = \case
           , suspected = party `Set.delete` suspected s
           }
 
-getParty :: HydraMessage msg -> Party
-getParty =
-  \case
-    (ReqTx p _) -> p
-    (ReqSn p _ _) -> p
-    (AckSn p _ _) -> p
-    (Connected p) -> p
-    (Disconnected p) -> p
-
-checkMessages ::
+updateStateFromOutboundMessages ::
   (MonadSTM m, MonadMonotonicTime m) =>
   TVar m HeartbeatState ->
   Network m (Heartbeat (HydraMessage msg)) ->
   Network m (HydraMessage msg)
-checkMessages heartbeatState Network{broadcast} =
+updateStateFromOutboundMessages heartbeatState Network{broadcast} =
   Network $ \msg -> do
     now <- getMonotonicTime
     updateLastSent heartbeatState now
@@ -112,7 +119,7 @@ checkMessages heartbeatState Network{broadcast} =
 updateLastSent :: MonadSTM m => TVar m HeartbeatState -> Time -> m ()
 updateLastSent heartbeatState now = atomically (modifyTVar' heartbeatState $ \s -> s{lastSent = Just now})
 
-sendHeartbeatFor ::
+checkHeartbeatState ::
   ( MonadDelay m
   , MonadSTM m
   , MonadMonotonicTime m
@@ -122,9 +129,9 @@ sendHeartbeatFor ::
   NetworkCallback (HydraMessage msg) m ->
   Network m (Heartbeat (HydraMessage msg)) ->
   m ()
-sendHeartbeatFor localhost heartbeatState callback Network{broadcast} =
+checkHeartbeatState localhost heartbeatState callback Network{broadcast} =
   forever $ do
-    threadDelay 0.5
+    threadDelay heartbeatDelay
     st <- readTVarIO heartbeatState
     now <- getMonotonicTime
     when (shouldSendHeartbeat now st) $ do
