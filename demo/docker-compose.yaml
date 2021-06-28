@@ -1,0 +1,54 @@
+version: "3.5"
+
+services:
+  hydra-node-1:
+    image: inputoutput/hydra:hydra-node-latest
+    volumes:
+      - "$PWD:/keys:ro"
+    command:
+      [ "--node-id", "1"
+      , "--api-port", "4001"
+      , "--port", "5001"
+      , "--peer", "localhost@5002"
+      , "--peer", "localhost@5003"
+      , "--me", "/keys/alice.sk"
+      , "--party", "/keys/bob.vk"
+      , "--party", "/keys/carol.vk"
+      ]
+    network_mode: host # Required as mock-chain not configurable
+
+  hydra-node-2:
+    image: inputoutput/hydra:hydra-node-latest
+    volumes:
+      - "$PWD:/keys:ro"
+    command:
+      [ "--node-id", "2"
+      , "--api-port", "4002"
+      , "--port", "5002"
+      , "--peer", "localhost@5001"
+      , "--peer", "localhost@5003"
+      , "--me", "/keys/bob.sk"
+      , "--party", "/keys/alice.vk"
+      , "--party", "/keys/carol.vk"
+      ]
+    network_mode: host # Required as mock-chain not configurable
+
+  hydra-node-3:
+    image: inputoutput/hydra:hydra-node-latest
+    volumes:
+      - "$PWD:/keys:ro"
+    command:
+      [ "--node-id", "3"
+      , "--api-port", "4003"
+      , "--port", "5003"
+      , "--peer", "localhost@5001"
+      , "--peer", "localhost@5002"
+      , "--me", "/keys/carol.sk"
+      , "--party", "/keys/alice.vk"
+      , "--party", "/keys/bob.vk"
+      ]
+    network_mode: host # Required as mock-chain not configurable
+      
+  mock-chain:
+    image: inputoutput/hydra:mock-chain-latest
+    network_mode: host # Required as not configurable on node-side
