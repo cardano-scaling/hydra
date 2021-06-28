@@ -81,8 +81,9 @@ withHeartbeat ::
 withHeartbeat party withNetwork callback action = do
   heartbeat <- newTVarIO initialHeartbeatState
   withNetwork (updateStateFromIncomingMessages heartbeat callback) $ \network ->
-    withAsync (checkHeartbeatState party heartbeat callback network) $ \_ ->
-      action (updateStateFromOutboundMessages heartbeat network)
+    withAsync (checkRemoteParties heartbeat callback) $ \_ ->
+      withAsync (checkHeartbeatState party heartbeat network) $ \_ ->
+        action (updateStateFromOutgoingMessages heartbeat network)
 
 updateStateFromIncomingMessages ::
   (MonadSTM m, MonadMonotonicTime m) =>
@@ -104,12 +105,12 @@ updateStateFromIncomingMessages heartbeatState callback = \case
           , suspected = party `Set.delete` suspected s
           }
 
-updateStateFromOutboundMessages ::
+updateStateFromOutgoingMessages ::
   (MonadSTM m, MonadMonotonicTime m) =>
   TVar m HeartbeatState ->
   Network m (Heartbeat (HydraMessage msg)) ->
   Network m (HydraMessage msg)
-updateStateFromOutboundMessages heartbeatState Network{broadcast} =
+updateStateFromOutgoingMessages heartbeatState Network{broadcast} =
   Network $ \msg -> do
     now <- getMonotonicTime
     updateLastSent heartbeatState now
@@ -125,10 +126,9 @@ checkHeartbeatState ::
   ) =>
   Party ->
   TVar m HeartbeatState ->
-  NetworkCallback (HydraMessage msg) m ->
   Network m (Heartbeat (HydraMessage msg)) ->
   m ()
-checkHeartbeatState localhost heartbeatState callback Network{broadcast} =
+checkHeartbeatState localhost heartbeatState Network{broadcast} =
   forever $ do
     threadDelay heartbeatDelay
     st <- readTVarIO heartbeatState
@@ -136,8 +136,25 @@ checkHeartbeatState localhost heartbeatState callback Network{broadcast} =
     when (shouldSendHeartbeat now st) $ do
       updateLastSent heartbeatState now
       broadcast (Ping localhost)
-    suspectedParties <- updateSuspected heartbeatState now
-    forM_ suspectedParties $ callback . Disconnected
+
+shouldSendHeartbeat :: Time -> HeartbeatState -> Bool
+shouldSendHeartbeat now HeartbeatState{lastSent} =
+  maybe True (checkTimeout id now) lastSent
+
+checkRemoteParties ::
+  ( MonadDelay m
+  , MonadSTM m
+  , MonadMonotonicTime m
+  ) =>
+  TVar m HeartbeatState ->
+  NetworkCallback (HydraMessage msg) m ->
+  m ()
+checkRemoteParties heartbeatState callback =
+  forever $ do
+    threadDelay (heartbeatDelay * 2)
+    now <- getMonotonicTime
+    updateSuspected heartbeatState now
+      >>= mapM_ (callback . Disconnected)
 
 updateSuspected :: MonadSTM m => TVar m HeartbeatState -> Time -> m (Set Party)
 updateSuspected heartbeatState now =
@@ -151,10 +168,6 @@ updateSuspected heartbeatState now =
           , alive = aliveParties `Map.difference` timedOutParties
           }
     pure $ Map.keysSet timedOutParties
-
-shouldSendHeartbeat :: Time -> HeartbeatState -> Bool
-shouldSendHeartbeat now HeartbeatState{lastSent} =
-  maybe True (checkTimeout id now) lastSent
 
 checkTimeout :: (DiffTime -> DiffTime) -> Time -> Time -> Bool
 checkTimeout delayFn now seen = diffTime now seen > delayFn livenessDelay
