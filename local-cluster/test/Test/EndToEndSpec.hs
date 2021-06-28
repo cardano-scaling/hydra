@@ -56,29 +56,43 @@ spec = describe "End-to-end test using a mocked chain though" $ do
               withHydraNode 3 carolSk [aliceVk, bobVk] $ \n3 -> do
                 waitForNodesConnected [n1, n2, n3]
                 let contestationPeriod = 3 -- TODO: Should be part of init
-                sendRequest n1 $ request "init" []
-                waitForResponse 3 [n1, n2, n3] "ReadyToCommit [VerKeyMockDSIGN 10,VerKeyMockDSIGN 20,VerKeyMockDSIGN 30]"
-                sendRequest n1 $ request "commit" ["utxo" .= [1 :: Int]]
-                sendRequest n2 $ request "commit" ["utxo" .= [2 :: Int]]
-                sendRequest n3 $ request "commit" ["utxo" .= [3 :: Int]]
-
-                waitForResponse 3 [n1, n2, n3] "HeadIsOpen (fromList [1,2,3])"
-
                 sendRequest n1 $
-                  request
-                    "newTransaction"
-                    [ "transaction"
+                  request "init" []
+                waitForResponse 3 [n1, n2, n3] $
+                  response "readyToCommit" ["parties" .= [10, 20, 30 :: Int]]
+                sendRequest n1 $
+                  request "commit" ["utxo" .= [1 :: Int]]
+                sendRequest n2 $
+                  request "commit" ["utxo" .= [2 :: Int]]
+                sendRequest n3 $
+                  request "commit" ["utxo" .= [3 :: Int]]
+
+                waitForResponse 3 [n1, n2, n3] $
+                  response "headIsOpen" ["utxo" .= [1, 2, 3 :: Int]]
+
+                let tx = object ["id" .= (42 :: Int), "inputs" .= [1 :: Int], "outputs" .= [4 :: Int]]
+                sendRequest n1 $
+                  request "newTransaction" ["transaction" .= tx]
+
+                waitForResponse 10 [n1, n2, n3] $
+                  response "transactionSeen" ["transaction" .= tx]
+                waitForResponse 10 [n1, n2, n3] $
+                  response "snapshotConfirmed" ["snapshotNumber" .= (1 :: Int)]
+                sendRequest n1 $
+                  request "close" []
+                waitForResponse 3 [n1] $
+                  response
+                    "headIsClosed"
+                    [ "contestationPeriod" .= contestationPeriod
+                    , "latestSnapshot"
                         .= object
-                          [ "id" .= (42 :: Int)
-                          , "inputs" .= [1 :: Int]
-                          , "outputs" .= [4 :: Int]
+                          [ "snapshotNumber" .= (1 :: Int)
+                          , "utxo" .= [2, 3, 4 :: Int]
+                          , "confirmedTransactions" .= [tx]
                           ]
                     ]
-                waitForResponse 10 [n1, n2, n3] "TxSeen (SimpleTx {txId = 42, txInputs = fromList [1], txOutputs = fromList [4]})"
-                waitForResponse 10 [n1, n2, n3] "SnapshotConfirmed 1"
-                sendRequest n1 $ request "close" []
-                waitForResponse 3 [n1] "HeadIsClosed 3s (Snapshot {number = 1, utxo = fromList [2,3,4], confirmed = [SimpleTx {txId = 42, txInputs = fromList [1], txOutputs = fromList [4]}]})"
-                waitForResponse (contestationPeriod + 3) [n1] "HeadIsFinalized (fromList [2,3,4])"
+                waitForResponse (contestationPeriod + 3) [n1] $
+                  response "headIsFinalized" ["utxo" .= [2, 3, 4 :: Int]]
 
   describe "Monitoring" $ do
     it "Node exposes Prometheus metrics on port 6001" $ do
@@ -89,8 +103,7 @@ spec = describe "End-to-end test using a mocked chain though" $ do
               withHydraNode 3 carolSk [aliceVk, bobVk] $ \_n3 -> do
                 waitForNodesConnected [n1]
                 sendRequest n1 $ request "init" []
-                waitForResponse 3 [n1] "ReadyToCommit [VerKeyMockDSIGN 10,VerKeyMockDSIGN 20,VerKeyMockDSIGN 30]"
-
+                waitForResponse 3 [n1] $ response "readyToCommit" ["parties" .= [10, 20, 30 :: Int]]
                 metrics <- getMetrics n1
                 metrics `shouldSatisfy` ("hydra_head_events  4" `BS.isInfixOf`)
 
@@ -100,5 +113,12 @@ spec = describe "End-to-end test using a mocked chain though" $ do
         version <- readCreateProcess (hydraNodeProcess ["--version"]) ""
         version `shouldSatisfy` (=~ ("[0-9]+\\.[0-9]+\\.[0-9]+(-[a-zA-Z0-9]+)?" :: String))
 
+--
+-- Helpers
+--
+
 request :: Text -> [Pair] -> Value
 request tag pairs = object $ ("request" .= tag) : pairs
+
+response :: Text -> [Pair] -> Value
+response tag pairs = object $ ("response" .= tag) : pairs

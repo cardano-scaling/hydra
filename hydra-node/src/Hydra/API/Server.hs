@@ -11,7 +11,7 @@ import Hydra.Prelude
 import Control.Concurrent.STM (TChan, dupTChan, readTChan)
 import qualified Control.Concurrent.STM as STM
 import Control.Concurrent.STM.TChan (newBroadcastTChanIO, writeTChan)
-import Data.Aeson (eitherDecode)
+import qualified Data.Aeson as Aeson
 import Hydra.HeadLogic (
   ClientRequest,
   ClientResponse,
@@ -24,7 +24,7 @@ import Network.WebSockets (acceptRequest, receiveData, runServer, sendTextData, 
 data APIServerLog
   = APIServerStarted {listeningPort :: PortNumber}
   | NewAPIConnection
-  | APIResponseSent {sentResponse :: Text}
+  | APIResponseSent {sentResponse :: LByteString}
   | APIRequestReceived {receivedRequest :: LByteString}
   | APIInvalidRequest {receivedRequest :: LByteString}
   deriving (Eq, Show)
@@ -63,13 +63,13 @@ runAPIServer host port tracer requestHandler responseChannel = do
  where
   sendResponses chan con = forever $ do
     response <- STM.atomically $ readTChan chan
-    let sentResponse = show response
+    let sentResponse = Aeson.encode response
     sendTextData con sentResponse
     traceWith tracer (APIResponseSent sentResponse)
 
   receiveRequests con = forever $ do
     msg <- receiveData con
-    case eitherDecode msg of
+    case Aeson.eitherDecode msg of
       Right request -> do
         traceWith tracer (APIRequestReceived msg)
         requestHandler request

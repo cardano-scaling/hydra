@@ -208,7 +208,9 @@ instance (FromJSON tx, FromJSON (Snapshot tx), FromJSON (UTxO tx)) => FromJSON (
     tag <- obj .: "response"
     case tag of
       "peerConnected" ->
-        PeerConnected <$> (obj .: "host")
+        PeerConnected <$> (obj .: "peer")
+      "peerDisconnected" ->
+        PeerDisconnected <$> (obj .: "peer")
       "readyToCommit" ->
         ReadyToCommit <$> (obj .: "parties")
       "headIsOpen" ->
