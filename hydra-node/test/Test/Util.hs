@@ -5,11 +5,13 @@ module Test.Util where
 import Hydra.Prelude
 
 import Control.Monad.Class.MonadTimer (timeout)
-import Control.Monad.IOSim (IOSim, runSim)
+import Control.Monad.IOSim (IOSim, runSim, traceM, Failure (FailureException))
 import Data.List (isInfixOf)
 import GHC.Stack (SrcLoc)
-import Test.HUnit.Lang (FailureReason (ExpectedButGot, Reason), HUnitFailure (HUnitFailure))
+import Test.HUnit.Lang (FailureReason (ExpectedButGot, Reason), HUnitFailure (HUnitFailure), formatFailureReason)
 import Test.QuickCheck (Gen, Positive (getPositive), arbitrary)
+import Control.Tracer (Tracer(Tracer))
+import Data.Typeable (cast)
 
 failure :: (HasCallStack, MonadThrow m) => String -> m a
 failure msg =
@@ -31,7 +33,13 @@ shouldRunInSim :: HasCallStack => (forall s. IOSim s a) -> IO a
 shouldRunInSim action =
   case runSim action of
     Right x -> pure x
-    Left f -> failure $ "Failed in io-sim: " <> show f
+    Left f -> failure $ "Failed in io-sim: " <> msg f
+ where
+  msg f@(FailureException ex) =
+    case cast ex of
+      Just (HUnitFailure _loc reason) -> formatFailureReason reason
+      _ -> show f
+  msg f = show f
 
 -- | Lifted variant of Hspec's 'shouldBe'.
 shouldBe :: (HasCallStack, MonadThrow m, Eq a, Show a) => a -> a -> m ()
@@ -65,3 +73,10 @@ shouldContain actual expected
 
 arbitraryNatural :: Gen Natural
 arbitraryNatural = fromIntegral . getPositive <$> arbitrary @(Positive Integer)
+
+-- | A 'Tracer' that works in 'IOSim' monad.
+-- This tracer uses the 'Output' event which uses converts value traced to 'Dynamic'
+-- which requires 'Typeable' constraint. To retrieve the trace use 'selectTraceEventsDynamic'
+-- applied to the correct type.
+traceInIOSim :: Typeable a => Tracer (IOSim s) a
+traceInIOSim = Tracer $ \a -> traceM a

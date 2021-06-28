@@ -8,7 +8,6 @@ module Hydra.Prelude (
   module Control.Monad.Class.MonadTimer,
   module Control.Monad.Class.MonadFork,
   module Control.Monad.Class.MonadThrow,
-  readTVarIO,
 ) where
 
 import Control.Monad.Class.MonadAsync (
@@ -96,9 +95,3 @@ import Relude hiding (
   tryTakeTMVar,
   writeTVar,
  )
-
--- | Read a 'TVar' in the undelrying "IO" monad.
--- This should really be exported by 'io-sim-classes' as it's a common pattern and one
--- hlint warns about.
-readTVarIO :: MonadSTM m => TVar m a -> m a
-readTVarIO = atomically . readTVar

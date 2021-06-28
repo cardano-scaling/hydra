@@ -184,7 +184,6 @@ test-suite tests
     Hydra.NetworkSpec
     Hydra.Network.HeartbeatSpec
     Hydra.Network.BroadcastToSelfSpec
-    Hydra.NodeSpec
     Hydra.OptionsSpec
     Test.Util
   main-is: Main.hs

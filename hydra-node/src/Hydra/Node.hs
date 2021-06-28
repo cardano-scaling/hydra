@@ -113,7 +113,7 @@ processNextEvent ::
   HydraNode tx m ->
   Event tx ->
   m (Either (LogicError tx) [Effect tx])
-processNextEvent HydraNode{hh, env} e = do
+processNextEvent HydraNode{hh, env} e =
   atomically $
     modifyHeadState hh $ \s ->
       case Logic.update env (ledger hh) s e of

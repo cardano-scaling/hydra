@@ -1,5 +1,9 @@
 {-# LANGUAGE TypeApplications #-}
 
+-- | Unit tests of the the protocol logic in 'HeadLogic'. These are very fine
+-- grained and specific to individual steps in the protocol. More high-level of
+-- the protocol logic, especially between multiple parties can be found in
+-- 'Hydra.BehaviorSpec'.
 module Hydra.HeadLogicSpec where
 
 import Hydra.Prelude
@@ -30,9 +34,7 @@ import Test.Hspec (
   Expectation,
   Spec,
   describe,
-  expectationFailure,
   it,
-  pending,
   shouldBe,
  )
 import Test.Hspec.QuickCheck (prop)
@@ -81,20 +83,35 @@ spec = describe "Hydra Coordinated Head Protocol" $ do
         s0 = initialState threeParties ledger
 
     update leaderEnv ledger s0 reqTx
-      `hasEffect` NetworkEffect (ReqSn (party leaderEnv) 1 [simpleTx])
-
-  it "does not request multiple snapshots" pending
+      `hasEffect_` NetworkEffect (ReqSn (party leaderEnv) 1 [simpleTx])
 
   it "does not request snapshots as non-leader" $ do
     let reqTx = NetworkEvent $ ReqTx 1 simpleTx
-        leaderEnv = envFor 2
+        nonLeaderEnv = envFor 2
         s0 = initialState threeParties ledger
 
-        s1 = update leaderEnv ledger s0 reqTx
+    update nonLeaderEnv ledger s0 reqTx
+      `hasNoEffectSatisfying` isReqSn
 
-    s1 `hasNoEffectSatisfying` \case
-      NetworkEffect ReqSn{} -> True
-      _ -> False
+  it "does not request snapshot when already having one in flight" $ do
+    let leaderEnv = envFor 1
+        p = party leaderEnv
+        s0 = initialState threeParties ledger
+        firstReqSn = ReqSn p 1 [aValidTx 1]
+    -- In the first processing loop, all ReqTx will lead to a ReqSn
+    s1 <-
+      update leaderEnv ledger s0 (NetworkEvent $ ReqTx p (aValidTx 1))
+        `hasEffect` NetworkEffect firstReqSn
+    s2 <-
+      update leaderEnv ledger s1 (NetworkEvent $ ReqTx p (aValidTx 2))
+        `hasEffect` NetworkEffect (ReqSn p 1 [aValidTx 2, aValidTx 1])
+    -- Eventually, the leader's own ReqSn will be processed, resulting in an
+    -- AckSn and no further ReqTx should result in a ReqSn
+    s3 <-
+      update leaderEnv ledger s2 (NetworkEvent firstReqSn)
+        `hasEffectSatisfying` isAckSn
+    update leaderEnv ledger s3 (NetworkEvent $ ReqTx p (aValidTx 3))
+      `hasNoEffectSatisfying` isReqSn
 
   it "confirms snapshot given it receives AckSn from all parties" $ do
     let s0 = initialState threeParties ledger
@@ -152,7 +169,7 @@ spec = describe "Hydra Coordinated Head Protocol" $ do
         sig = sign 2 snapshot
         st = initialState threeParties ledger
         ack = AckSn (party env) sig (number snapshot)
-    update env ledger st event `hasEffect` NetworkEffect ack
+    update env ledger st event `hasEffect_` NetworkEffect ack
 
   it "does not ack snapshots from non-leaders" $ do
     let event = NetworkEvent $ ReqSn notTheLeader 1 []
@@ -178,7 +195,7 @@ spec = describe "Hydra Coordinated Head Protocol" $ do
 
   it "notifies client when it receives a ping" $ do
     update env ledger (initialState threeParties ledger) (NetworkEvent $ Connected 1)
-      `hasEffect` ClientEffect (PeerConnected 1)
+      `hasEffect_` ClientEffect (PeerConnected 1)
 
   prop "can handle OnChainEvent in any state" prop_handleOnChainEventInAnyState
 
@@ -202,10 +219,6 @@ genHeadStatus =
     , OpenState (CoordinatedHeadState mempty mempty (Snapshot 0 mempty mempty) Nothing)
     ]
 
-defaultHeadParameters :: HeadParameters
-defaultHeadParameters =
-  HeadParameters 3600 [1]
-
 prop_handleOnChainEventInAnyState :: Property
 prop_handleOnChainEventInAnyState =
   forAll genHeadStatus $ \st ->
@@ -223,18 +236,42 @@ prop_handleOnChainEventInAnyState =
       , otherParties = mempty
       , snapshotStrategy = NoSnapshots
       }
+
   ledger = simpleLedger
 
-hasEffect :: Tx tx => Outcome tx -> Effect tx -> IO ()
-hasEffect (NewState _ effects) effect
-  | effect `elem` effects = pure ()
-  | otherwise = expectationFailure $ "Missing effect " <> show effect <> " in produced effects:  " <> show effects
-hasEffect _ _ = expectationFailure "Unexpected outcome"
+  defaultHeadParameters = HeadParameters 3600 [1]
 
-hasNoEffectSatisfying :: Tx tx => Outcome tx -> (Effect tx -> Bool) -> IO ()
+-- ** Assertion utilities
+
+hasEffect :: (HasCallStack, Tx tx) => Outcome tx -> Effect tx -> IO (HeadState tx)
+hasEffect (NewState s effects) effect
+  | effect `elem` effects = pure s
+  | otherwise = failure $ "Missing effect " <> show effect <> " in produced effects: " <> show effects
+hasEffect o _ = failure $ "Unexpected outcome: " <> show o
+
+hasEffect_ :: (HasCallStack, Tx tx) => Outcome tx -> Effect tx -> IO ()
+hasEffect_ o e = void $ hasEffect o e
+
+hasEffectSatisfying :: (HasCallStack, Tx tx) => Outcome tx -> (Effect tx -> Bool) -> IO (HeadState tx)
+hasEffectSatisfying (NewState s effects) match
+  | any match effects = pure s
+  | otherwise = failure $ "No effect matching predicate in produced effects: " <> show effects
+hasEffectSatisfying o _ = failure $ "Unexpected outcome: " <> show o
+
+hasNoEffectSatisfying :: (HasCallStack, Tx tx) => Outcome tx -> (Effect tx -> Bool) -> IO ()
 hasNoEffectSatisfying (NewState _ effects) predicate
-  | any predicate effects = expectationFailure $ "Found unwanted effect in: " <> show effects
+  | any predicate effects = failure $ "Found unwanted effect in: " <> show effects
 hasNoEffectSatisfying _ _ = pure ()
+
+isReqSn :: Effect tx -> Bool
+isReqSn = \case
+  NetworkEffect ReqSn{} -> True
+  _ -> False
+
+isAckSn :: Effect tx -> Bool
+isAckSn = \case
+  NetworkEffect AckSn{} -> True
+  _ -> False
 
 initialState ::
   [Party] ->
@@ -257,13 +294,13 @@ getConfirmedSnapshot HeadState{headStatus} = case headStatus of
   OpenState CoordinatedHeadState{confirmedSnapshot} -> Just confirmedSnapshot
   _ -> Nothing
 
-assertNewState :: Outcome SimpleTx -> IO (HeadState SimpleTx)
+assertNewState :: Tx tx => Outcome tx -> IO (HeadState tx)
 assertNewState = \case
   NewState st _ -> pure st
   Error e -> fail (show e)
   Wait -> fail "Found 'Wait'"
 
-assertStateUnchangedFrom :: HeadState SimpleTx -> Outcome SimpleTx -> Expectation
+assertStateUnchangedFrom :: Tx tx => HeadState tx -> Outcome tx -> Expectation
 assertStateUnchangedFrom st = \case
   NewState st' eff -> do
     st' `shouldBe` st

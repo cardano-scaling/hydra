@@ -22,7 +22,7 @@ module Hydra.Network.Heartbeat where
 import Hydra.Prelude
 
 import Cardano.Binary (FromCBOR (fromCBOR), ToCBOR (..))
-import Control.Monad.Class.MonadSTM (modifyTVar', newTVarIO)
+import Control.Monad.Class.MonadSTM (modifyTVar', newTVarIO, readTVarIO)
 import qualified Data.Map as Map
 import qualified Data.Set as Set
 import Hydra.HeadLogic (HydraMessage (..), getParty)
