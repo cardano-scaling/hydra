@@ -43,7 +43,7 @@ import Hydra.Node (
   runHydraNode,
  )
 import Test.Hspec (Spec, describe, it, shouldContain, shouldThrow)
-import Test.Util (failAfter, shouldNotBe, shouldReturn, shouldRunInSim, traceInIOSim)
+import Test.Util (failAfter, shouldNotBe, shouldReturn, shouldRunInSim, traceInIOSim, failure)
 
 spec :: Spec
 spec = describe "Behavior of one ore more hydra nodes" $ do
@@ -55,7 +55,7 @@ spec = describe "Behavior of one ore more hydra nodes" $ do
       let action = shouldRunInSim $ do
             chain <- simulatedChainAndNetwork
             withHydraNode 1 [] NoSnapshots chain $ \n ->
-              waitForResponse n `shouldReturn` ReadyToCommit []
+              waitForNext n >> failure "unexpected output"
       action `shouldThrow` \case
         FailureDeadlock _ -> True
         _ -> False
@@ -65,55 +65,55 @@ spec = describe "Behavior of one ore more hydra nodes" $ do
       shouldRunInSim $ do
         chain <- simulatedChainAndNetwork
         withHydraNode 1 [] NoSnapshots chain $ \n ->
-          sendRequest n Init
+          send n Init
 
     it "accepts Commit after successful Init" $
       shouldRunInSim $ do
         chain <- simulatedChainAndNetwork
         withHydraNode 1 [] NoSnapshots chain $ \n1 -> do
-          sendRequest n1 Init
-          waitForResponse n1 `shouldReturn` ReadyToCommit [1]
-          sendRequest n1 (Commit (utxoRef 1))
-          waitForResponse n1 `shouldReturn` Committed 1 (utxoRef 1)
+          send n1 Init
+          waitFor n1 $ ReadyToCommit [1]
+          send n1 (Commit (utxoRef 1))
+          waitFor n1 $ Committed 1 (utxoRef 1)
 
     it "not accepts commits when the head is open" $
       shouldRunInSim $ do
         chain <- simulatedChainAndNetwork
         withHydraNode 1 [] NoSnapshots chain $ \n1 -> do
-          sendRequest n1 Init
-          waitForResponse n1 `shouldReturn` ReadyToCommit [1]
-          sendRequest n1 (Commit (utxoRef 1))
-          waitForResponse n1 `shouldReturn` Committed 1 (utxoRef 1)
-          waitForResponse n1 `shouldReturn` HeadIsOpen (utxoRef 1)
-          sendRequest n1 (Commit (utxoRef 2))
-          waitForResponse n1 `shouldReturn` CommandFailed
+          send n1 Init
+          waitFor n1 $ ReadyToCommit [1]
+          send n1 (Commit (utxoRef 1))
+          waitFor n1 $ Committed 1 (utxoRef 1)
+          waitFor n1 $ HeadIsOpen (utxoRef 1)
+          send n1 (Commit (utxoRef 2))
+          waitFor n1 $ CommandFailed
 
     it "can close an open head" $
       shouldRunInSim $ do
         chain <- simulatedChainAndNetwork
         withHydraNode 1 [] NoSnapshots chain $ \n1 -> do
-          sendRequest n1 Init
-          waitForResponse n1 `shouldReturn` ReadyToCommit [1]
-          sendRequest n1 (Commit (utxoRef 1))
-          waitForResponse n1 `shouldReturn` Committed 1 (utxoRef 1)
-          waitForResponse n1 `shouldReturn` HeadIsOpen (utxoRef 1)
-          sendRequest n1 Close
-          waitForResponse n1 `shouldReturn` HeadIsClosed testContestationPeriod (Snapshot 0 (utxoRef 1) [])
+          send n1 Init
+          waitFor n1 $ ReadyToCommit [1]
+          send n1 (Commit (utxoRef 1))
+          waitFor n1 $ Committed 1 (utxoRef 1)
+          waitFor n1 $ HeadIsOpen (utxoRef 1)
+          send n1 Close
+          waitFor n1 $ HeadIsClosed testContestationPeriod (Snapshot 0 (utxoRef 1) [])
 
   it "does finalize head after contestation period" $
     failAfter 5 $
       shouldRunInSim $ do
         chain <- simulatedChainAndNetwork
         withHydraNode 1 [] NoSnapshots chain $ \n1 -> do
-          sendRequest n1 Init
-          waitForResponse n1 `shouldReturn` ReadyToCommit [1]
-          sendRequest n1 (Commit (utxoRef 1))
-          waitForResponse n1 `shouldReturn` Committed 1 (utxoRef 1)
-          waitForResponse n1 `shouldReturn` HeadIsOpen (utxoRef 1)
-          sendRequest n1 Close
-          waitForResponse n1 `shouldReturn` HeadIsClosed testContestationPeriod (Snapshot 0 (utxoRef 1) [])
+          send n1 Init
+          waitFor n1 $ ReadyToCommit [1]
+          send n1 (Commit (utxoRef 1))
+          waitFor n1 $ Committed 1 (utxoRef 1)
+          waitFor n1 $ HeadIsOpen (utxoRef 1)
+          send n1 Close
+          waitFor n1 $ HeadIsClosed testContestationPeriod (Snapshot 0 (utxoRef 1) [])
           threadDelay testContestationPeriod
-          waitForResponse n1 `shouldReturn` HeadIsFinalized (utxoRef 1)
+          waitFor n1 $ HeadIsFinalized (utxoRef 1)
 
   describe "Two participant Head" $ do
     it "accepts a tx after the head was opened between two nodes" $
@@ -121,135 +121,133 @@ spec = describe "Behavior of one ore more hydra nodes" $ do
         chain <- simulatedChainAndNetwork
         withHydraNode 1 [2] NoSnapshots chain $ \n1 ->
           withHydraNode 2 [1] NoSnapshots chain $ \n2 -> do
-            sendRequest n1 Init
-            waitForResponse n1 `shouldReturn` ReadyToCommit [1, 2]
-            waitForResponse n2 `shouldReturn` ReadyToCommit [1, 2]
+            send n1 Init
+            waitFor n1 $ ReadyToCommit [1, 2]
+            waitFor n2 $ ReadyToCommit [1, 2]
 
-            sendRequest n1 (Commit (utxoRef 1))
-            waitForResponse n1 `shouldReturn` Committed 1 (utxoRef 1)
-            waitForResponse n2 `shouldReturn` Committed 1 (utxoRef 1)
+            send n1 (Commit (utxoRef 1))
+            waitFor n1 $ Committed 1 (utxoRef 1)
+            waitFor n2 $ Committed 1 (utxoRef 1)
 
-            sendRequest n2 (Commit (utxoRef 2))
-            waitForResponse n2 `shouldReturn` Committed 2 (utxoRef 2)
-            waitForResponse n2 `shouldReturn` HeadIsOpen (utxoRefs [1, 2])
+            send n2 (Commit (utxoRef 2))
+            waitFor n2 $ Committed 2 (utxoRef 2)
+            waitFor n2 $ HeadIsOpen (utxoRefs [1, 2])
 
-            sendRequest n2 (NewTx $ aValidTx 3)
+            send n2 (NewTx $ aValidTx 3)
 
     it "confirms depending transactions" $
       shouldRunInSim $ do
         chain <- simulatedChainAndNetwork
         withHydraNode 1 [2] NoSnapshots chain $ \n1 ->
           withHydraNode 2 [1] NoSnapshots chain $ \n2 -> do
-            sendRequest n1 Init
-            waitForResponse n1 `shouldReturn` ReadyToCommit [1, 2]
-            sendRequest n1 (Commit (utxoRef 1))
-            waitForResponse n2 `shouldReturn` ReadyToCommit [1, 2]
-            sendRequest n2 (Commit (utxoRef 2))
+            send n1 Init
+            waitFor n1 $ ReadyToCommit [1, 2]
+            send n1 (Commit (utxoRef 1))
+            waitFor n2 $ ReadyToCommit [1, 2]
+            send n2 (Commit (utxoRef 2))
             do
-              waitForResponse n1 `shouldReturn` Committed 1 (utxoRef 1)
-              waitForResponse n2 `shouldReturn` Committed 1 (utxoRef 1)
-              waitForResponse n1 `shouldReturn` Committed 2 (utxoRef 2)
-              waitForResponse n2 `shouldReturn` Committed 2 (utxoRef 2)
-              waitForResponse n1 `shouldReturn` HeadIsOpen (utxoRefs [1, 2])
-              waitForResponse n2 `shouldReturn` HeadIsOpen (utxoRefs [1, 2])
+              waitFor n1 $ Committed 1 (utxoRef 1)
+              waitFor n2 $ Committed 1 (utxoRef 1)
+              waitFor n1 $ Committed 2 (utxoRef 2)
+              waitFor n2 $ Committed 2 (utxoRef 2)
+              waitFor n1 $ HeadIsOpen (utxoRefs [1, 2])
+              waitFor n2 $ HeadIsOpen (utxoRefs [1, 2])
             -- XXX(SN): ^^ Boilerplate!
 
             let firstTx = SimpleTx 3 (utxoRef 1) (utxoRef 3)
                 secondTx = SimpleTx 4 (utxoRef 3) (utxoRef 4)
 
-            sendRequest n2 (NewTx secondTx)
-            sendRequest n1 (NewTx firstTx)
+            send n2 (NewTx secondTx)
+            send n1 (NewTx firstTx)
             do
-              waitForResponse n1 `shouldReturn` TxSeen firstTx
-              waitForResponse n1 `shouldReturn` TxSeen secondTx
+              waitFor n1 $ TxSeen firstTx
+              waitFor n1 $ TxSeen secondTx
 
     it "sees the head closed by other nodes" $
       shouldRunInSim $ do
         chain <- simulatedChainAndNetwork
         withHydraNode 1 [2] NoSnapshots chain $ \n1 ->
           withHydraNode 2 [1] NoSnapshots chain $ \n2 -> do
-            sendRequest n1 Init
-            waitForResponse n1 `shouldReturn` ReadyToCommit [1, 2]
-            sendRequest n1 (Commit (utxoRef 1))
-            waitForResponse n1 `shouldReturn` Committed 1 (utxoRef 1)
+            send n1 Init
+            waitFor n1 $ ReadyToCommit [1, 2]
+            send n1 (Commit (utxoRef 1))
+            waitFor n1 $ Committed 1 (utxoRef 1)
 
-            waitForResponse n2 `shouldReturn` ReadyToCommit [1, 2]
-            waitForResponse n2 `shouldReturn` Committed 1 (utxoRef 1)
-            sendRequest n2 (Commit (utxoRef 2))
-            waitForResponse n2 `shouldReturn` Committed 2 (utxoRef 2)
-            waitForResponse n2 `shouldReturn` HeadIsOpen (utxoRefs [1, 2])
+            waitFor n2 $ ReadyToCommit [1, 2]
+            waitFor n2 $ Committed 1 (utxoRef 1)
+            send n2 (Commit (utxoRef 2))
+            waitFor n2 $ Committed 2 (utxoRef 2)
+            waitFor n2 $ HeadIsOpen (utxoRefs [1, 2])
 
-            waitForResponse n1 `shouldReturn` Committed 2 (utxoRef 2)
-            waitForResponse n1 `shouldReturn` HeadIsOpen (utxoRefs [1, 2])
-            sendRequest n1 Close
+            waitFor n1 $ Committed 2 (utxoRef 2)
+            waitFor n1 $ HeadIsOpen (utxoRefs [1, 2])
+            send n1 Close
 
-            failAfter 1 $
-              waitForResponse n2
-                `shouldReturn` HeadIsClosed testContestationPeriod (Snapshot 0 (utxoRefs [1, 2]) [])
+            waitFor n2 $ HeadIsClosed testContestationPeriod (Snapshot 0 (utxoRefs [1, 2]) [])
 
     it "only opens the head after all nodes committed" $
       shouldRunInSim $ do
         chain <- simulatedChainAndNetwork
         withHydraNode 1 [2] NoSnapshots chain $ \n1 ->
           withHydraNode 2 [1] NoSnapshots chain $ \n2 -> do
-            sendRequest n1 Init
-            waitForResponse n1 `shouldReturn` ReadyToCommit [1, 2]
-            sendRequest n1 (Commit (utxoRef 1))
-            waitForResponse n1 `shouldReturn` Committed 1 (utxoRef 1)
-            timeout 1 (waitForResponse n1) >>= (`shouldNotBe` Just (HeadIsOpen (utxoRef 1)))
+            send n1 Init
+            waitFor n1 $ ReadyToCommit [1, 2]
+            send n1 (Commit (utxoRef 1))
+            waitFor n1 $ Committed 1 (utxoRef 1)
+            timeout 1 (waitForNext n1) >>= (`shouldNotBe` Just (HeadIsOpen (utxoRef 1)))
 
-            waitForResponse n2 `shouldReturn` ReadyToCommit [1, 2]
-            sendRequest n2 (Commit (utxoRef 2))
-            waitForResponse n1 `shouldReturn` Committed 2 (utxoRef 2)
-            waitForResponse n1 `shouldReturn` HeadIsOpen (utxoRefs [1, 2])
+            waitFor n2 $ ReadyToCommit [1, 2]
+            send n2 (Commit (utxoRef 2))
+            waitFor n1 $ Committed 2 (utxoRef 2)
+            waitFor n1 $ HeadIsOpen (utxoRefs [1, 2])
 
     it "valid new transactions are seen by all parties" $
       shouldRunInSim $ do
         chain <- simulatedChainAndNetwork
         withHydraNode 1 [2] NoSnapshots chain $ \n1 ->
           withHydraNode 2 [1] NoSnapshots chain $ \n2 -> do
-            sendRequest n1 Init
-            waitForResponse n1 `shouldReturn` ReadyToCommit [1, 2]
-            sendRequest n1 (Commit (utxoRef 1))
-            waitForResponse n1 `shouldReturn` Committed 1 (utxoRef 1)
-            waitForResponse n2 `shouldReturn` ReadyToCommit [1, 2]
-            waitForResponse n2 `shouldReturn` Committed 1 (utxoRef 1)
-            sendRequest n2 (Commit (utxoRef 2))
-            waitForResponse n2 `shouldReturn` Committed 2 (utxoRef 2)
-            waitForResponse n2 `shouldReturn` HeadIsOpen (utxoRefs [1, 2])
-            waitForResponse n1 `shouldReturn` Committed 2 (utxoRef 2)
-            waitForResponse n1 `shouldReturn` HeadIsOpen (utxoRefs [1, 2])
+            send n1 Init
+            waitFor n1 $ ReadyToCommit [1, 2]
+            send n1 (Commit (utxoRef 1))
+            waitFor n1 $ Committed 1 (utxoRef 1)
+            waitFor n2 $ ReadyToCommit [1, 2]
+            waitFor n2 $ Committed 1 (utxoRef 1)
+            send n2 (Commit (utxoRef 2))
+            waitFor n2 $ Committed 2 (utxoRef 2)
+            waitFor n2 $ HeadIsOpen (utxoRefs [1, 2])
+            waitFor n1 $ Committed 2 (utxoRef 2)
+            waitFor n1 $ HeadIsOpen (utxoRefs [1, 2])
             -- XXX(SN): ^^ Boilerplate!
 
-            sendRequest n1 (NewTx (aValidTx 42))
-            waitForResponse n1 `shouldReturn` TxSeen (aValidTx 42)
-            waitForResponse n2 `shouldReturn` TxSeen (aValidTx 42)
+            send n1 (NewTx (aValidTx 42))
+            waitFor n1 $ TxSeen (aValidTx 42)
+            waitFor n2 $ TxSeen (aValidTx 42)
 
     it "valid new transactions get snapshotted" $
       shouldRunInSim $ do
         chain <- simulatedChainAndNetwork
         withHydraNode 1 [2] SnapshotAfterEachTx chain $ \n1 ->
           withHydraNode 2 [1] NoSnapshots chain $ \n2 -> do
-            sendRequest n1 Init
-            waitForResponse n1 `shouldReturn` ReadyToCommit [1, 2]
-            sendRequest n1 (Commit (utxoRef 1))
-            waitForResponse n1 `shouldReturn` Committed 1 (utxoRef 1)
-            waitForResponse n2 `shouldReturn` ReadyToCommit [1, 2]
-            waitForResponse n2 `shouldReturn` Committed 1 (utxoRef 1)
-            sendRequest n2 (Commit (utxoRef 2))
-            waitForResponse n2 `shouldReturn` Committed 2 (utxoRef 2)
-            waitForResponse n2 `shouldReturn` HeadIsOpen (utxoRefs [1, 2])
-            waitForResponse n1 `shouldReturn` Committed 2 (utxoRef 2)
-            waitForResponse n1 `shouldReturn` HeadIsOpen (utxoRefs [1, 2])
+            send n1 Init
+            waitFor n1 $ ReadyToCommit [1, 2]
+            send n1 (Commit (utxoRef 1))
+            waitFor n1 $ Committed 1 (utxoRef 1)
+            waitFor n2 $ ReadyToCommit [1, 2]
+            waitFor n2 $ Committed 1 (utxoRef 1)
+            send n2 (Commit (utxoRef 2))
+            waitFor n2 $ Committed 2 (utxoRef 2)
+            waitFor n2 $ HeadIsOpen (utxoRefs [1, 2])
+            waitFor n1 $ Committed 2 (utxoRef 2)
+            waitFor n1 $ HeadIsOpen (utxoRefs [1, 2])
             -- XXX(SN): ^^ Boilerplate!
 
-            sendRequest n1 (NewTx (aValidTx 42))
-            waitForResponse n1 `shouldReturn` TxSeen (aValidTx 42)
-            waitForResponse n2 `shouldReturn` TxSeen (aValidTx 42)
+            send n1 (NewTx (aValidTx 42))
+            waitFor n1 $ TxSeen (aValidTx 42)
+            waitFor n2 $ TxSeen (aValidTx 42)
 
-            waitForResponse n1 `shouldReturn` SnapshotConfirmed 1
+            waitFor n1 $ SnapshotConfirmed 1
 
-            sendRequest n1 Close
+            send n1 Close
             do
               let expectedSnapshot =
                     Snapshot
@@ -257,17 +255,16 @@ spec = describe "Behavior of one ore more hydra nodes" $ do
                       , utxo = utxoRefs [42, 1, 2]
                       , confirmed = [aValidTx 42]
                       }
-              waitForResponse n1
-                `shouldReturn` HeadIsClosed testContestationPeriod expectedSnapshot
+              waitFor n1 $ HeadIsClosed testContestationPeriod expectedSnapshot
 
   describe "Hydra Node Logging" $ do
     it "traces processing of events" $ do
       let result = runSimTrace $ do
             chain <- simulatedChainAndNetwork
             withHydraNode 1 [] NoSnapshots chain $ \n1 -> do
-              sendRequest n1 Init
-              waitForResponse n1 `shouldReturn` ReadyToCommit [1]
-              sendRequest n1 (Commit (utxoRef 1))
+              send n1 Init
+              waitFor n1 $ ReadyToCommit [1]
+              send n1 (Commit (utxoRef 1))
 
           logs = selectTraceEventsDynamic @_ @(HydraNodeLog SimpleTx) result
 
@@ -278,19 +275,22 @@ spec = describe "Behavior of one ore more hydra nodes" $ do
       let result = runSimTrace $ do
             chain <- simulatedChainAndNetwork
             withHydraNode 1 [] NoSnapshots chain $ \n1 -> do
-              sendRequest n1 Init
-              waitForResponse n1 `shouldReturn` ReadyToCommit [1]
-              sendRequest n1 (Commit (utxoRef 1))
+              send n1 Init
+              waitFor n1 $ ReadyToCommit [1]
+              send n1 (Commit (utxoRef 1))
 
           logs = selectTraceEventsDynamic @_ @(HydraNodeLog SimpleTx) result
 
       logs `shouldContain` [ProcessingEffect 1 (ClientEffect $ ReadyToCommit [1])]
       logs `shouldContain` [ProcessedEffect 1 (ClientEffect $ ReadyToCommit [1])]
 
--- | A thin layer around 'HydraNode' to be able to 'waitForResponse'.
+waitFor :: (MonadThrow m, Tx tx) => TestHydraNode tx m -> ServerOutput tx -> m ()
+waitFor n expected = waitForNext n `shouldReturn` expected
+
+-- | A thin layer around 'HydraNode' to be able to 'waitFor'.
 data TestHydraNode tx m = TestHydraNode
-  { sendRequest :: ClientInput tx -> m ()
-  , waitForResponse :: m (ServerOutput tx)
+  { send :: ClientInput tx -> m ()
+  , waitForNext :: m (ServerOutput tx)
   }
 
 type ConnectToChain tx m = (HydraNode tx m -> m (HydraNode tx m))
@@ -348,8 +348,8 @@ withHydraNode signingKey otherParties snapshotStrategy connectToChain action = d
   withAsync (runHydraNode traceInIOSim node) $ \_ ->
     action $
       TestHydraNode
-        { sendRequest = handleClientInput node
-        , waitForResponse = atomically $ readTQueue outputs
+        { send = handleClientInput node
+        , waitForNext = atomically $ readTQueue outputs
         }
  where
   party = deriveParty signingKey
