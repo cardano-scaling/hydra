@@ -1,6 +1,7 @@
 *
 
 !*.nix
+!/nix
 
 !cabal.project
 !/hydra-node
