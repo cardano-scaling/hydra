@@ -44,6 +44,7 @@
           (hsPkgs."hspec-expectations" or (errorHandler.buildDepError "hspec-expectations"))
           (hsPkgs."http-conduit" or (errorHandler.buildDepError "http-conduit"))
           (hsPkgs."hydra-prelude" or (errorHandler.buildDepError "hydra-prelude"))
+          (hsPkgs."hydra-node" or (errorHandler.buildDepError "hydra-node"))
           (hsPkgs."io-sim-classes" or (errorHandler.buildDepError "io-sim-classes"))
           (hsPkgs."iohk-monitoring" or (errorHandler.buildDepError "iohk-monitoring"))
           (hsPkgs."network" or (errorHandler.buildDepError "network"))
@@ -60,15 +61,16 @@
           (hsPkgs."websockets" or (errorHandler.buildDepError "websockets"))
           ];
         buildable = true;
-        modules = [ "HydraNode" "Lib" "Logging" "Ports" "Node" ];
+        modules = [ "HydraNode" "CardanoCluster" "CardanoNode" ];
         hsSourceDirs = [ "src" ];
         };
       exes = {
         "local-cluster" = {
           depends = [
             (hsPkgs."base" or (errorHandler.buildDepError "base"))
-            (hsPkgs."local-cluster" or (errorHandler.buildDepError "local-cluster"))
+            (hsPkgs."contra-tracer" or (errorHandler.buildDepError "contra-tracer"))
             (hsPkgs."hydra-prelude" or (errorHandler.buildDepError "hydra-prelude"))
+            (hsPkgs."local-cluster" or (errorHandler.buildDepError "local-cluster"))
             (hsPkgs."temporary" or (errorHandler.buildDepError "temporary"))
             ];
           buildable = true;
@@ -80,11 +82,13 @@
         "integration" = {
           depends = [
             (hsPkgs."base" or (errorHandler.buildDepError "base"))
+            (hsPkgs."aeson" or (errorHandler.buildDepError "aeson"))
             (hsPkgs."bytestring" or (errorHandler.buildDepError "bytestring"))
             (hsPkgs."cardano-crypto-class" or (errorHandler.buildDepError "cardano-crypto-class"))
             (hsPkgs."hspec" or (errorHandler.buildDepError "hspec"))
             (hsPkgs."hspec-core" or (errorHandler.buildDepError "hspec-core"))
             (hsPkgs."hydra-prelude" or (errorHandler.buildDepError "hydra-prelude"))
+            (hsPkgs."hydra-node" or (errorHandler.buildDepError "hydra-node"))
             (hsPkgs."local-cluster" or (errorHandler.buildDepError "local-cluster"))
             (hsPkgs."regex-tdfa" or (errorHandler.buildDepError "regex-tdfa"))
             (hsPkgs."say" or (errorHandler.buildDepError "say"))

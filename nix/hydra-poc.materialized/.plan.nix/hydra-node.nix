@@ -33,8 +33,8 @@
     components = {
       "library" = {
         depends = [
-          (hsPkgs."aeson" or (errorHandler.buildDepError "aeson"))
           (hsPkgs."base" or (errorHandler.buildDepError "base"))
+          (hsPkgs."aeson" or (errorHandler.buildDepError "aeson"))
           (hsPkgs."cardano-binary" or (errorHandler.buildDepError "cardano-binary"))
           (hsPkgs."cardano-crypto-class" or (errorHandler.buildDepError "cardano-crypto-class"))
           (hsPkgs."cardano-ledger-core" or (errorHandler.buildDepError "cardano-ledger-core"))
@@ -45,7 +45,6 @@
           (hsPkgs."cborg" or (errorHandler.buildDepError "cborg"))
           (hsPkgs."containers" or (errorHandler.buildDepError "containers"))
           (hsPkgs."contra-tracer" or (errorHandler.buildDepError "contra-tracer"))
-          (hsPkgs."cryptonite" or (errorHandler.buildDepError "cryptonite"))
           (hsPkgs."data-default" or (errorHandler.buildDepError "data-default"))
           (hsPkgs."gitrev" or (errorHandler.buildDepError "gitrev"))
           (hsPkgs."hydra-prelude" or (errorHandler.buildDepError "hydra-prelude"))
@@ -132,6 +131,7 @@
         "tests" = {
           depends = [
             (hsPkgs."base" or (errorHandler.buildDepError "base"))
+            (hsPkgs."aeson" or (errorHandler.buildDepError "aeson"))
             (hsPkgs."cardano-binary" or (errorHandler.buildDepError "cardano-binary"))
             (hsPkgs."cardano-crypto-class" or (errorHandler.buildDepError "cardano-crypto-class"))
             (hsPkgs."cborg" or (errorHandler.buildDepError "cborg"))
@@ -139,6 +139,7 @@
             (hsPkgs."contra-tracer" or (errorHandler.buildDepError "contra-tracer"))
             (hsPkgs."hspec" or (errorHandler.buildDepError "hspec"))
             (hsPkgs."hspec-core" or (errorHandler.buildDepError "hspec-core"))
+            (hsPkgs."HUnit" or (errorHandler.buildDepError "HUnit"))
             (hsPkgs."hydra-node" or (errorHandler.buildDepError "hydra-node"))
             (hsPkgs."hydra-prelude" or (errorHandler.buildDepError "hydra-prelude"))
             (hsPkgs."io-sim" or (errorHandler.buildDepError "io-sim"))
@@ -147,12 +148,9 @@
             (hsPkgs."network" or (errorHandler.buildDepError "network"))
             (hsPkgs."process" or (errorHandler.buildDepError "process"))
             (hsPkgs."quickcheck-instances" or (errorHandler.buildDepError "quickcheck-instances"))
-            (hsPkgs."say" or (errorHandler.buildDepError "say"))
             (hsPkgs."text" or (errorHandler.buildDepError "text"))
             (hsPkgs."typed-protocols-examples" or (errorHandler.buildDepError "typed-protocols-examples"))
-            (hsPkgs."warp" or (errorHandler.buildDepError "warp"))
             (hsPkgs."websockets" or (errorHandler.buildDepError "websockets"))
-            (hsPkgs."HUnit" or (errorHandler.buildDepError "HUnit"))
             (hsPkgs."QuickCheck" or (errorHandler.buildDepError "QuickCheck"))
             ];
           build-tools = [
@@ -173,7 +171,6 @@
             "Hydra/NetworkSpec"
             "Hydra/Network/HeartbeatSpec"
             "Hydra/Network/BroadcastToSelfSpec"
-            "Hydra/NodeSpec"
             "Hydra/OptionsSpec"
             "Test/Util"
             ];

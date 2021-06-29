@@ -33,12 +33,20 @@
     components = {
       "library" = {
         depends = [
+          (hsPkgs."aeson" or (errorHandler.buildDepError "aeson"))
           (hsPkgs."base" or (errorHandler.buildDepError "base"))
-          (hsPkgs."relude" or (errorHandler.buildDepError "relude"))
+          (hsPkgs."cardano-binary" or (errorHandler.buildDepError "cardano-binary"))
+          (hsPkgs."generic-random" or (errorHandler.buildDepError "generic-random"))
           (hsPkgs."io-sim-classes" or (errorHandler.buildDepError "io-sim-classes"))
+          (hsPkgs."network" or (errorHandler.buildDepError "network"))
+          (hsPkgs."QuickCheck" or (errorHandler.buildDepError "QuickCheck"))
+          (hsPkgs."quickcheck-instances" or (errorHandler.buildDepError "quickcheck-instances"))
+          (hsPkgs."random-shuffle" or (errorHandler.buildDepError "random-shuffle"))
+          (hsPkgs."relude" or (errorHandler.buildDepError "relude"))
+          (hsPkgs."warp" or (errorHandler.buildDepError "warp"))
           ];
         buildable = true;
-        modules = [ "Hydra/Prelude" ];
+        modules = [ "Hydra/Prelude" "Hydra/Network/Ports" ];
         hsSourceDirs = [ "src" ];
         };
       };
