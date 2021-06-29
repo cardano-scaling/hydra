@@ -37,7 +37,7 @@ shouldRunInSim action =
       case cast ex of
         Just f@HUnitFailure{} -> throwIO f
         _ -> failure $ "Exception in io-sim: " <> show ex
-    Left f -> failure $ "Other error in io-sim: " <> show f
+    Left f -> throwIO f
 
 -- | Lifted variant of Hspec's 'shouldBe'.
 shouldBe :: (HasCallStack, MonadThrow m, Eq a, Show a) => a -> a -> m ()
