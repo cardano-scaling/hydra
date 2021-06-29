@@ -44,6 +44,7 @@ import Hydra.Node (
  )
 import Test.Hspec (Spec, describe, it, shouldContain, shouldThrow)
 import Test.Util (failAfter, shouldNotBe, shouldReturn, shouldRunInSim, traceInIOSim, failure)
+import Control.Monad.Class.MonadAsync (forConcurrently_)
 
 spec :: Spec
 spec = describe "Behavior of one ore more hydra nodes" $ do
@@ -72,33 +73,33 @@ spec = describe "Behavior of one ore more hydra nodes" $ do
         chain <- simulatedChainAndNetwork
         withHydraNode 1 [] NoSnapshots chain $ \n1 -> do
           send n1 Init
-          waitFor n1 $ ReadyToCommit [1]
+          waitFor [n1] $ ReadyToCommit [1]
           send n1 (Commit (utxoRef 1))
-          waitFor n1 $ Committed 1 (utxoRef 1)
+          waitFor [n1] $ Committed 1 (utxoRef 1)
 
     it "not accepts commits when the head is open" $
       shouldRunInSim $ do
         chain <- simulatedChainAndNetwork
         withHydraNode 1 [] NoSnapshots chain $ \n1 -> do
           send n1 Init
-          waitFor n1 $ ReadyToCommit [1]
+          waitFor [n1] $ ReadyToCommit [1]
           send n1 (Commit (utxoRef 1))
-          waitFor n1 $ Committed 1 (utxoRef 1)
-          waitFor n1 $ HeadIsOpen (utxoRef 1)
+          waitFor [n1] $ Committed 1 (utxoRef 1)
+          waitFor [n1] $ HeadIsOpen (utxoRef 1)
           send n1 (Commit (utxoRef 2))
-          waitFor n1 $ CommandFailed
+          waitFor [n1] CommandFailed
 
     it "can close an open head" $
       shouldRunInSim $ do
         chain <- simulatedChainAndNetwork
         withHydraNode 1 [] NoSnapshots chain $ \n1 -> do
           send n1 Init
-          waitFor n1 $ ReadyToCommit [1]
+          waitFor [n1] $ ReadyToCommit [1]
           send n1 (Commit (utxoRef 1))
-          waitFor n1 $ Committed 1 (utxoRef 1)
-          waitFor n1 $ HeadIsOpen (utxoRef 1)
+          waitFor [n1] $ Committed 1 (utxoRef 1)
+          waitFor [n1] $ HeadIsOpen (utxoRef 1)
           send n1 Close
-          waitFor n1 $ HeadIsClosed testContestationPeriod (Snapshot 0 (utxoRef 1) [])
+          waitFor [n1] $ HeadIsClosed testContestationPeriod (Snapshot 0 (utxoRef 1) [])
 
   it "does finalize head after contestation period" $
     failAfter 5 $
@@ -106,14 +107,14 @@ spec = describe "Behavior of one ore more hydra nodes" $ do
         chain <- simulatedChainAndNetwork
         withHydraNode 1 [] NoSnapshots chain $ \n1 -> do
           send n1 Init
-          waitFor n1 $ ReadyToCommit [1]
+          waitFor [n1] $ ReadyToCommit [1]
           send n1 (Commit (utxoRef 1))
-          waitFor n1 $ Committed 1 (utxoRef 1)
-          waitFor n1 $ HeadIsOpen (utxoRef 1)
+          waitFor [n1] $ Committed 1 (utxoRef 1)
+          waitFor [n1] $ HeadIsOpen (utxoRef 1)
           send n1 Close
-          waitFor n1 $ HeadIsClosed testContestationPeriod (Snapshot 0 (utxoRef 1) [])
+          waitFor [n1] $ HeadIsClosed testContestationPeriod (Snapshot 0 (utxoRef 1) [])
           threadDelay testContestationPeriod
-          waitFor n1 $ HeadIsFinalized (utxoRef 1)
+          waitFor [n1] $ HeadIsFinalized (utxoRef 1)
 
   describe "Two participant Head" $ do
     it "accepts a tx after the head was opened between two nodes" $
@@ -122,16 +123,16 @@ spec = describe "Behavior of one ore more hydra nodes" $ do
         withHydraNode 1 [2] NoSnapshots chain $ \n1 ->
           withHydraNode 2 [1] NoSnapshots chain $ \n2 -> do
             send n1 Init
-            waitFor n1 $ ReadyToCommit [1, 2]
-            waitFor n2 $ ReadyToCommit [1, 2]
+            waitFor [n1] $ ReadyToCommit [1, 2]
+            waitFor [n2] $ ReadyToCommit [1, 2]
 
             send n1 (Commit (utxoRef 1))
-            waitFor n1 $ Committed 1 (utxoRef 1)
-            waitFor n2 $ Committed 1 (utxoRef 1)
+            waitFor [n1] $ Committed 1 (utxoRef 1)
+            waitFor [n2] $ Committed 1 (utxoRef 1)
 
             send n2 (Commit (utxoRef 2))
-            waitFor n2 $ Committed 2 (utxoRef 2)
-            waitFor n2 $ HeadIsOpen (utxoRefs [1, 2])
+            waitFor [n2] $ Committed 2 (utxoRef 2)
+            waitFor [n2] $ HeadIsOpen (utxoRefs [1, 2])
 
             send n2 (NewTx $ aValidTx 3)
 
@@ -141,17 +142,17 @@ spec = describe "Behavior of one ore more hydra nodes" $ do
         withHydraNode 1 [2] NoSnapshots chain $ \n1 ->
           withHydraNode 2 [1] NoSnapshots chain $ \n2 -> do
             send n1 Init
-            waitFor n1 $ ReadyToCommit [1, 2]
+            waitFor [n1] $ ReadyToCommit [1, 2]
             send n1 (Commit (utxoRef 1))
-            waitFor n2 $ ReadyToCommit [1, 2]
+            waitFor [n2] $ ReadyToCommit [1, 2]
             send n2 (Commit (utxoRef 2))
             do
-              waitFor n1 $ Committed 1 (utxoRef 1)
-              waitFor n2 $ Committed 1 (utxoRef 1)
-              waitFor n1 $ Committed 2 (utxoRef 2)
-              waitFor n2 $ Committed 2 (utxoRef 2)
-              waitFor n1 $ HeadIsOpen (utxoRefs [1, 2])
-              waitFor n2 $ HeadIsOpen (utxoRefs [1, 2])
+              waitFor [n1] $ Committed 1 (utxoRef 1)
+              waitFor [n2] $ Committed 1 (utxoRef 1)
+              waitFor [n1] $ Committed 2 (utxoRef 2)
+              waitFor [n2] $ Committed 2 (utxoRef 2)
+              waitFor [n1] $ HeadIsOpen (utxoRefs [1, 2])
+              waitFor [n2] $ HeadIsOpen (utxoRefs [1, 2])
             -- XXX(SN): ^^ Boilerplate!
 
             let firstTx = SimpleTx 3 (utxoRef 1) (utxoRef 3)
@@ -160,8 +161,8 @@ spec = describe "Behavior of one ore more hydra nodes" $ do
             send n2 (NewTx secondTx)
             send n1 (NewTx firstTx)
             do
-              waitFor n1 $ TxSeen firstTx
-              waitFor n1 $ TxSeen secondTx
+              waitFor [n1] $ TxSeen firstTx
+              waitFor [n1] $ TxSeen secondTx
 
     it "sees the head closed by other nodes" $
       shouldRunInSim $ do
@@ -169,21 +170,21 @@ spec = describe "Behavior of one ore more hydra nodes" $ do
         withHydraNode 1 [2] NoSnapshots chain $ \n1 ->
           withHydraNode 2 [1] NoSnapshots chain $ \n2 -> do
             send n1 Init
-            waitFor n1 $ ReadyToCommit [1, 2]
+            waitFor [n1] $ ReadyToCommit [1, 2]
             send n1 (Commit (utxoRef 1))
-            waitFor n1 $ Committed 1 (utxoRef 1)
+            waitFor [n1] $ Committed 1 (utxoRef 1)
 
-            waitFor n2 $ ReadyToCommit [1, 2]
-            waitFor n2 $ Committed 1 (utxoRef 1)
+            waitFor [n2] $ ReadyToCommit [1, 2]
+            waitFor [n2] $ Committed 1 (utxoRef 1)
             send n2 (Commit (utxoRef 2))
-            waitFor n2 $ Committed 2 (utxoRef 2)
-            waitFor n2 $ HeadIsOpen (utxoRefs [1, 2])
+            waitFor [n2] $ Committed 2 (utxoRef 2)
+            waitFor [n2] $ HeadIsOpen (utxoRefs [1, 2])
 
-            waitFor n1 $ Committed 2 (utxoRef 2)
-            waitFor n1 $ HeadIsOpen (utxoRefs [1, 2])
+            waitFor [n1] $ Committed 2 (utxoRef 2)
+            waitFor [n1] $ HeadIsOpen (utxoRefs [1, 2])
             send n1 Close
 
-            waitFor n2 $ HeadIsClosed testContestationPeriod (Snapshot 0 (utxoRefs [1, 2]) [])
+            waitFor [n2] $ HeadIsClosed testContestationPeriod (Snapshot 0 (utxoRefs [1, 2]) [])
 
     it "only opens the head after all nodes committed" $
       shouldRunInSim $ do
@@ -191,15 +192,15 @@ spec = describe "Behavior of one ore more hydra nodes" $ do
         withHydraNode 1 [2] NoSnapshots chain $ \n1 ->
           withHydraNode 2 [1] NoSnapshots chain $ \n2 -> do
             send n1 Init
-            waitFor n1 $ ReadyToCommit [1, 2]
+            waitFor [n1] $ ReadyToCommit [1, 2]
             send n1 (Commit (utxoRef 1))
-            waitFor n1 $ Committed 1 (utxoRef 1)
+            waitFor [n1] $ Committed 1 (utxoRef 1)
             timeout 1 (waitForNext n1) >>= (`shouldNotBe` Just (HeadIsOpen (utxoRef 1)))
 
-            waitFor n2 $ ReadyToCommit [1, 2]
+            waitFor [n2] $ ReadyToCommit [1, 2]
             send n2 (Commit (utxoRef 2))
-            waitFor n1 $ Committed 2 (utxoRef 2)
-            waitFor n1 $ HeadIsOpen (utxoRefs [1, 2])
+            waitFor [n1] $ Committed 2 (utxoRef 2)
+            waitFor [n1] $ HeadIsOpen (utxoRefs [1, 2])
 
     it "valid new transactions are seen by all parties" $
       shouldRunInSim $ do
@@ -207,21 +208,21 @@ spec = describe "Behavior of one ore more hydra nodes" $ do
         withHydraNode 1 [2] NoSnapshots chain $ \n1 ->
           withHydraNode 2 [1] NoSnapshots chain $ \n2 -> do
             send n1 Init
-            waitFor n1 $ ReadyToCommit [1, 2]
+            waitFor [n1] $ ReadyToCommit [1, 2]
             send n1 (Commit (utxoRef 1))
-            waitFor n1 $ Committed 1 (utxoRef 1)
-            waitFor n2 $ ReadyToCommit [1, 2]
-            waitFor n2 $ Committed 1 (utxoRef 1)
+            waitFor [n1] $ Committed 1 (utxoRef 1)
+            waitFor [n2] $ ReadyToCommit [1, 2]
+            waitFor [n2] $ Committed 1 (utxoRef 1)
             send n2 (Commit (utxoRef 2))
-            waitFor n2 $ Committed 2 (utxoRef 2)
-            waitFor n2 $ HeadIsOpen (utxoRefs [1, 2])
-            waitFor n1 $ Committed 2 (utxoRef 2)
-            waitFor n1 $ HeadIsOpen (utxoRefs [1, 2])
+            waitFor [n2] $ Committed 2 (utxoRef 2)
+            waitFor [n2] $ HeadIsOpen (utxoRefs [1, 2])
+            waitFor [n1] $ Committed 2 (utxoRef 2)
+            waitFor [n1] $ HeadIsOpen (utxoRefs [1, 2])
             -- XXX(SN): ^^ Boilerplate!
 
             send n1 (NewTx (aValidTx 42))
-            waitFor n1 $ TxSeen (aValidTx 42)
-            waitFor n2 $ TxSeen (aValidTx 42)
+            waitFor [n1] $ TxSeen (aValidTx 42)
+            waitFor [n2] $ TxSeen (aValidTx 42)
 
     it "valid new transactions get snapshotted" $
       shouldRunInSim $ do
@@ -229,23 +230,23 @@ spec = describe "Behavior of one ore more hydra nodes" $ do
         withHydraNode 1 [2] SnapshotAfterEachTx chain $ \n1 ->
           withHydraNode 2 [1] NoSnapshots chain $ \n2 -> do
             send n1 Init
-            waitFor n1 $ ReadyToCommit [1, 2]
+            waitFor [n1] $ ReadyToCommit [1, 2]
             send n1 (Commit (utxoRef 1))
-            waitFor n1 $ Committed 1 (utxoRef 1)
-            waitFor n2 $ ReadyToCommit [1, 2]
-            waitFor n2 $ Committed 1 (utxoRef 1)
+            waitFor [n1] $ Committed 1 (utxoRef 1)
+            waitFor [n2] $ ReadyToCommit [1, 2]
+            waitFor [n2] $ Committed 1 (utxoRef 1)
             send n2 (Commit (utxoRef 2))
-            waitFor n2 $ Committed 2 (utxoRef 2)
-            waitFor n2 $ HeadIsOpen (utxoRefs [1, 2])
-            waitFor n1 $ Committed 2 (utxoRef 2)
-            waitFor n1 $ HeadIsOpen (utxoRefs [1, 2])
+            waitFor [n2] $ Committed 2 (utxoRef 2)
+            waitFor [n2] $ HeadIsOpen (utxoRefs [1, 2])
+            waitFor [n1] $ Committed 2 (utxoRef 2)
+            waitFor [n1] $ HeadIsOpen (utxoRefs [1, 2])
             -- XXX(SN): ^^ Boilerplate!
 
             send n1 (NewTx (aValidTx 42))
-            waitFor n1 $ TxSeen (aValidTx 42)
-            waitFor n2 $ TxSeen (aValidTx 42)
+            waitFor [n1] $ TxSeen (aValidTx 42)
+            waitFor [n2] $ TxSeen (aValidTx 42)
 
-            waitFor n1 $ SnapshotConfirmed 1
+            waitFor [n1] $ SnapshotConfirmed 1
 
             send n1 Close
             do
@@ -255,7 +256,7 @@ spec = describe "Behavior of one ore more hydra nodes" $ do
                       , utxo = utxoRefs [42, 1, 2]
                       , confirmed = [aValidTx 42]
                       }
-              waitFor n1 $ HeadIsClosed testContestationPeriod expectedSnapshot
+              waitFor [n1] $ HeadIsClosed testContestationPeriod expectedSnapshot
 
   describe "Hydra Node Logging" $ do
     it "traces processing of events" $ do
@@ -263,7 +264,7 @@ spec = describe "Behavior of one ore more hydra nodes" $ do
             chain <- simulatedChainAndNetwork
             withHydraNode 1 [] NoSnapshots chain $ \n1 -> do
               send n1 Init
-              waitFor n1 $ ReadyToCommit [1]
+              waitFor [n1] $ ReadyToCommit [1]
               send n1 (Commit (utxoRef 1))
 
           logs = selectTraceEventsDynamic @_ @(HydraNodeLog SimpleTx) result
@@ -276,7 +277,7 @@ spec = describe "Behavior of one ore more hydra nodes" $ do
             chain <- simulatedChainAndNetwork
             withHydraNode 1 [] NoSnapshots chain $ \n1 -> do
               send n1 Init
-              waitFor n1 $ ReadyToCommit [1]
+              waitFor [n1] $ ReadyToCommit [1]
               send n1 (Commit (utxoRef 1))
 
           logs = selectTraceEventsDynamic @_ @(HydraNodeLog SimpleTx) result
@@ -284,8 +285,10 @@ spec = describe "Behavior of one ore more hydra nodes" $ do
       logs `shouldContain` [ProcessingEffect 1 (ClientEffect $ ReadyToCommit [1])]
       logs `shouldContain` [ProcessedEffect 1 (ClientEffect $ ReadyToCommit [1])]
 
-waitFor :: (MonadThrow m, Tx tx) => TestHydraNode tx m -> ServerOutput tx -> m ()
-waitFor n expected = waitForNext n `shouldReturn` expected
+waitFor :: (MonadThrow m, Tx tx, MonadAsync m) => [TestHydraNode tx m] -> ServerOutput tx -> m ()
+waitFor nodes expected =
+  forConcurrently_ nodes $ \n ->
+    waitForNext n `shouldReturn` expected
 
 -- | A thin layer around 'HydraNode' to be able to 'waitFor'.
 data TestHydraNode tx m = TestHydraNode
