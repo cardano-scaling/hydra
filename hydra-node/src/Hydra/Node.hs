@@ -65,7 +65,7 @@ data HydraNode tx m = HydraNode
   , hn :: Network m (HydraMessage tx)
   , hh :: HydraHead tx m
   , oc :: Chain tx m
-  , sendResponse :: ServerOutput tx -> m ()
+  , sendOutput :: ServerOutput tx -> m ()
   , env :: Environment
   }
 
@@ -130,10 +130,10 @@ processEffect ::
   Tracer m (HydraNodeLog tx) ->
   Effect tx ->
   m ()
-processEffect HydraNode{hn, oc, sendResponse, eq, env = Environment{party}} tracer e = do
+processEffect HydraNode{hn, oc, sendOutput, eq, env = Environment{party}} tracer e = do
   traceWith tracer $ ProcessingEffect party e
   case e of
-    ClientEffect i -> sendResponse i
+    ClientEffect i -> sendOutput i
     NetworkEffect msg -> broadcast hn msg
     OnChainEffect tx -> postTx oc tx
     Delay after event -> void . async $ threadDelay after >> putEvent eq event

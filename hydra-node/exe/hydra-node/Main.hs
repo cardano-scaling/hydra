@@ -44,8 +44,8 @@ main = do
       withNetwork (contramap Network tracer) (party env) host port peers (putEvent eq . NetworkEvent) $
         \hn ->
           withAPIServer apiHost apiPort (contramap APIServer tracer) (putEvent eq . ClientEvent) $
-            \sendResponse ->
-              runHydraNode (contramap Node tracer) $ HydraNode{eq, hn, hh, oc, sendResponse, env}
+            \sendOutput ->
+              runHydraNode (contramap Node tracer) $ HydraNode{eq, hn, hh, oc, sendOutput, env}
  where
   withNetwork tracer party host port peers =
     let localhost = Host{hostName = show host, portNumber = port}

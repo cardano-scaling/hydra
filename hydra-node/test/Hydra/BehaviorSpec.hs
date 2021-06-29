@@ -300,19 +300,19 @@ withHydraNode ::
   (TestHydraNode SimpleTx (IOSim s) -> IOSim s a) ->
   IOSim s a
 withHydraNode signingKey otherParties snapshotStrategy connectToChain action = do
-  response <- atomically newTQueue
-  node <- createHydraNode response
+  outputs <- atomically newTQueue
+  node <- createHydraNode outputs
 
   withAsync (runHydraNode traceInIOSim node) $ \_ ->
     action $
       TestHydraNode
         { sendRequest = handleClientInput node
-        , waitForResponse = atomically $ readTQueue response
+        , waitForResponse = atomically $ readTQueue outputs
         }
  where
   party = deriveParty signingKey
 
-  createHydraNode response = do
+  createHydraNode outputs = do
     let env =
           Environment
             { party
@@ -324,5 +324,13 @@ withHydraNode signingKey otherParties snapshotStrategy connectToChain action = d
     let headState = createHeadState [] (HeadParameters testContestationPeriod mempty)
     hh <- createHydraHead headState simpleLedger
     let hn' = Network{broadcast = const $ pure ()}
-    let node = HydraNode{eq, hn = hn', hh, oc = Chain (const $ pure ()), sendResponse = atomically . writeTQueue response, env}
+    let node =
+          HydraNode
+            { eq
+            , hn = hn'
+            , hh
+            , oc = Chain (const $ pure ())
+            , sendOutput = atomically . writeTQueue outputs
+            , env
+            }
     connectToChain node

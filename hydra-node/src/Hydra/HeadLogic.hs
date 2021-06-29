@@ -153,6 +153,7 @@ data ServerOutput tx
   | TxSeen tx
   | TxInvalid tx
   | SnapshotConfirmed SnapshotNumber
+  | InvalidInput Text
   deriving (Generic)
 
 deriving instance Tx tx => Eq (ServerOutput tx)
@@ -174,6 +175,7 @@ instance (Arbitrary tx, Arbitrary (UTxO tx)) => Arbitrary (ServerOutput tx) wher
     TxSeen tx -> TxSeen <$> shrink tx
     TxInvalid tx -> TxInvalid <$> shrink tx
     SnapshotConfirmed{} -> []
+    InvalidInput{} -> []
 
 instance (ToJSON tx, ToJSON (Snapshot tx), ToJSON (UTxO tx)) => ToJSON (ServerOutput tx) where
   toJSON = \case
@@ -201,6 +203,8 @@ instance (ToJSON tx, ToJSON (Snapshot tx), ToJSON (UTxO tx)) => ToJSON (ServerOu
       object [tagFieldName .= s "transactionInvalid", "transaction" .= tx]
     SnapshotConfirmed snapshotNumber ->
       object [tagFieldName .= s "snapshotConfirmed", "snapshotNumber" .= snapshotNumber]
+    InvalidInput input ->
+      object [tagFieldName .= s "invalidInput", "input" .= input]
    where
     s = Aeson.String
     tagFieldName = "output"
@@ -229,6 +233,8 @@ instance (FromJSON tx, FromJSON (Snapshot tx), FromJSON (UTxO tx)) => FromJSON (
         TxInvalid <$> (obj .: "transaction")
       "snapshotConfirmed" ->
         SnapshotConfirmed <$> (obj .: "snapshotNumber")
+      "invalidInput" ->
+        InvalidInput <$> (obj .: "input")
       _ ->
         fail $ "unknown output type: " <> toString @Text tag
 

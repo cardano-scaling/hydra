@@ -39,10 +39,10 @@ withAPIServer ::
   IO ()
 withAPIServer host port tracer requests continuation = do
   responseChannel <- newBroadcastTChanIO
-  let sendResponse = atomically . writeTChan responseChannel
+  let sendOutput = atomically . writeTChan responseChannel
   race_
     (runAPIServer host port tracer requests responseChannel)
-    (continuation sendResponse)
+    (continuation sendOutput)
 
 runAPIServer ::
   Tx tx =>
@@ -59,9 +59,9 @@ runAPIServer host port tracer requestHandler responseChannel = do
     chan <- STM.atomically $ dupTChan responseChannel
     traceWith tracer NewAPIConnection
     withPingThread con 30 (pure ()) $
-      race_ (receiveRequests con) (sendResponses chan con)
+      race_ (receiveRequests con) (sendOutputs chan con)
  where
-  sendResponses chan con = forever $ do
+  sendOutputs chan con = forever $ do
     response <- STM.atomically $ readTChan chan
     let sentResponse = Aeson.encode response
     sendTextData con sentResponse
