@@ -5,8 +5,8 @@ module HydraNode (
   HydraNode (..),
   withHydraNode,
   failAfter,
-  waitForResponse,
-  sendRequest,
+  waitForOutput,
+  sendInput,
   getMetrics,
   queryNode,
   defaultArguments,
@@ -52,6 +52,7 @@ import System.Process (
  )
 import System.Timeout (timeout)
 import Test.Hspec.Expectations (expectationFailure)
+import Data.Aeson.Types (Pair)
 
 data HydraNode = HydraNode
   { hydraNodeId :: Int
@@ -59,10 +60,12 @@ data HydraNode = HydraNode
   , nodeStdout :: Handle
   }
 
-sendRequest :: HydraNode -> Aeson.Value -> IO ()
-sendRequest HydraNode{hydraNodeId, connection, nodeStdout} request = do
-  hPutStrLn nodeStdout ("Tester sending to " <> show hydraNodeId <> ": " <> show request)
-  sendTextData connection (Aeson.encode request)
+sendInput :: HydraNode -> Text -> [Pair] -> IO ()
+sendInput HydraNode{hydraNodeId, connection, nodeStdout} tag pairs = do
+  hPutStrLn nodeStdout ("Tester sending to " <> show hydraNodeId <> ": " <> show input)
+  sendTextData connection (Aeson.encode input)
+ where
+  input = object $ ("input" .= tag) : pairs
 
 failAfter :: HasCallStack => Natural -> IO a -> IO a
 failAfter seconds action =
@@ -70,17 +73,20 @@ failAfter seconds action =
     Just a -> pure a
     Nothing -> error $ "Timed out after " <> show seconds <> " second(s)"
 
--- | Wait some time for a single response from each of given nodes.
+output :: Text -> [Pair] -> Value
+output tag pairs = object $ ("output" .= tag) : pairs
+
+-- | Wait some time for a single output from each of given nodes.
 -- This function waits for @delay@ seconds for message @expected@  to be seen by all
 -- given @nodes@.
-waitForResponse :: HasCallStack => Natural -> [HydraNode] -> Aeson.Value -> IO ()
-waitForResponse delay nodes expected = waitForResponses delay nodes [expected]
+waitForOutput :: HasCallStack => Natural -> [HydraNode] -> Text -> [Pair] -> IO ()
+waitForOutput delay nodes tag pairs = waitForOutputs delay nodes [output tag pairs]
 
--- |Wait some time for a list of responses from each of given nodes.
--- This function is the generalised version of 'waitForResponse', allowing several messages
+-- | Wait some time for a list of outputs from each of given nodes.
+-- This function is the generalised version of 'waitForOutput', allowing several messages
 -- to be waited for and received in /any order/.
-waitForResponses :: HasCallStack => Natural -> [HydraNode] -> [Aeson.Value] -> IO ()
-waitForResponses delay nodes expected = do
+waitForOutputs :: HasCallStack => Natural -> [HydraNode] -> [Aeson.Value] -> IO ()
+waitForOutputs delay nodes expected = do
   forConcurrently_ nodes $ \HydraNode{hydraNodeId, connection} -> do
     msgs <- newIORef []
     -- The chain is slow...
@@ -92,7 +98,7 @@ waitForResponses delay nodes expected = do
         expectationFailure $
           toString $
             unlines
-              [ "waitForResponse... timeout!"
+              [ "waitForOutput... timeout!"
               , padRight " " 20 "  nodeId:"
                   <> show hydraNodeId
               , padRight " " 20 "  expected:"
@@ -214,7 +220,7 @@ waitForNodeConnected n@HydraNode{hydraNodeId} =
   -- HACK(AB): This is gross, we hijack the node ids and because we know
   -- keys are just integers we can compute them but that's ugly -> use property
   -- party identifiers everywhere
-  waitForResponses 10 [n] $
+  waitForOutputs 10 [n] $
     fmap
       ( \party ->
           object
