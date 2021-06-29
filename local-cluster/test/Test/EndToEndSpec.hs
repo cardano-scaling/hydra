@@ -18,10 +18,12 @@ import HydraNode (
   failAfter,
   getMetrics,
   hydraNodeProcess,
+  input,
+  output,
   readCreateProcess,
-  sendInput,
+  send,
+  waitFor,
   waitForNodesConnected,
-  waitForOutput,
   withHydraNode,
   withMockChain,
  )
@@ -55,33 +57,33 @@ spec = describe "End-to-end test using a mocked chain though" $ do
               withHydraNode 3 carolSk [aliceVk, bobVk] $ \n3 -> do
                 waitForNodesConnected [n1, n2, n3]
                 let contestationPeriod = 3 -- TODO: Should be part of init
-                sendInput n1 "init" []
-                waitForOutput 3 [n1, n2, n3] "readyToCommit" ["parties" .= [int 10, 20, 30]]
-                sendInput n1 "commit" ["utxo" .= [int 1]]
-                sendInput n2 "commit" ["utxo" .= [int 2]]
-                sendInput n3 "commit" ["utxo" .= [int 3]]
+                send n1 $ input "init" []
+                waitFor 3 [n1, n2, n3] $
+                  output "readyToCommit" ["parties" .= [int 10, 20, 30]]
+                send n1 $ input "commit" ["utxo" .= [int 1]]
+                send n2 $ input "commit" ["utxo" .= [int 2]]
+                send n3 $ input "commit" ["utxo" .= [int 3]]
 
-                waitForOutput 3 [n1, n2, n3] "headIsOpen" ["utxo" .= [int 1, 2, 3]]
+                waitFor 3 [n1, n2, n3] $ output "headIsOpen" ["utxo" .= [int 1, 2, 3]]
 
                 let tx = object ["id" .= int 42, "inputs" .= [int 1], "outputs" .= [int 4]]
-                sendInput n1 "newTransaction" ["transaction" .= tx]
+                send n1 $ input "newTransaction" ["transaction" .= tx]
 
-                waitForOutput 10 [n1, n2, n3] "transactionSeen" ["transaction" .= tx]
-                waitForOutput 10 [n1, n2, n3] "snapshotConfirmed" ["snapshotNumber" .= int 1]
-                sendInput n1 "close" []
-                waitForOutput
-                  3
-                  [n1]
-                  "headIsClosed"
-                  [ "contestationPeriod" .= contestationPeriod
-                  , "latestSnapshot"
-                      .= object
-                        [ "snapshotNumber" .= int 1
-                        , "utxo" .= [int 2, 3, 4]
-                        , "confirmedTransactions" .= [tx]
-                        ]
-                  ]
-                waitForOutput (contestationPeriod + 3) [n1] "headIsFinalized" ["utxo" .= [int 2, 3, 4]]
+                waitFor 10 [n1, n2, n3] $ output "transactionSeen" ["transaction" .= tx]
+                waitFor 10 [n1, n2, n3] $ output "snapshotConfirmed" ["snapshotNumber" .= int 1]
+                send n1 $ input "close" []
+                waitFor 3 [n1] $
+                  output
+                    "headIsClosed"
+                    [ "contestationPeriod" .= contestationPeriod
+                    , "latestSnapshot"
+                        .= object
+                          [ "snapshotNumber" .= int 1
+                          , "utxo" .= [int 2, 3, 4]
+                          , "confirmedTransactions" .= [tx]
+                          ]
+                    ]
+                waitFor (contestationPeriod + 3) [n1] $ output "headIsFinalized" ["utxo" .= [int 2, 3, 4]]
 
   describe "Monitoring" $ do
     it "Node exposes Prometheus metrics on port 6001" $ do
@@ -91,8 +93,8 @@ spec = describe "End-to-end test using a mocked chain though" $ do
             withHydraNode 2 bobSk [aliceVk, carolVk] $ \_n2 ->
               withHydraNode 3 carolSk [aliceVk, bobVk] $ \_n3 -> do
                 waitForNodesConnected [n1]
-                sendInput n1 "init" []
-                waitForOutput 3 [n1] "readyToCommit" ["parties" .= [int 10, 20, 30]]
+                send n1 $ input "init" []
+                waitFor 3 [n1] $ output "readyToCommit" ["parties" .= [int 10, 20, 30]]
                 metrics <- getMetrics n1
                 metrics `shouldSatisfy` ("hydra_head_events  4" `BS.isInfixOf`)
 
