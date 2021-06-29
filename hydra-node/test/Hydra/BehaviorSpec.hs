@@ -1,4 +1,5 @@
 {-# LANGUAGE TypeApplications #-}
+{-# OPTIONS_GHC -Wno-deprecations #-}
 {-# OPTIONS_GHC -Wno-unused-matches #-}
 
 module Hydra.BehaviorSpec where
@@ -219,6 +220,20 @@ spec = describe "Behavior of one ore more hydra nodes" $ do
                       }
               waitFor [n1] $ HeadIsClosed testContestationPeriod expectedSnapshot
 
+      it "outputs current UTxO when client requests them" $
+        shouldRunInSim $ do
+          chain <- simulatedChainAndNetwork
+          withHydraNode 1 [2] SnapshotAfterEachTx chain $ \n1 ->
+            withHydraNode 2 [1] NoSnapshots chain $ \n2 -> do
+              openHead n1 n2
+
+              send n1 (NewTx (aValidTx 42){txInputs = utxoRefs [1]})
+              waitUntil [n1, n2] $ SnapshotConfirmed 1
+
+              send n1 GetLatestSnapshot
+
+              waitFor [n1] $ LatestSnapshot (utxoRefs [2, 42])
+
   describe "Hydra Node Logging" $ do
     it "traces processing of events" $ do
       let result = runSimTrace $ do
@@ -256,6 +271,22 @@ waitFor nodes expected =
     forConcurrently_ nodes $ \n ->
       waitForNext n `shouldReturn` expected
 
+-- | Wait for some output at some node(s) to be produced /eventually/.
+-- The difference with 'waitFor' is that there can be other messages in between which
+-- are simply discarded.
+waitUntil ::
+  (HasCallStack, MonadThrow m, Tx tx, MonadAsync m, MonadTimer m) =>
+  [TestHydraNode tx m] ->
+  ServerOutput tx ->
+  m ()
+waitUntil nodes expected =
+  failAfter 1 $ forConcurrently_ nodes $ go
+ where
+  go n = do
+    next <- waitForNext n
+    unless (next == expected) $ go n
+
+-- | A thin layer around 'HydraNode' to be able to 'waitFor'.
 -- | A thin layer around 'HydraNode' to be able to 'waitFor'.
 data TestHydraNode tx m = TestHydraNode
   { send :: ClientInput tx -> m ()
