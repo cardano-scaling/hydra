@@ -23,7 +23,7 @@ import Test.Util (failAfter)
 
 spec :: Spec
 spec = describe "Prometheus Metrics" $ do
-  it "provides count of confirmed transactions from ReqTx and SnapshotConfirmed events" $ do
+  it "provides count of confirmed transactions from traces" $ do
     failAfter 3 $
       withFreePort $ \p ->
         withMonitoring (Just $ fromIntegral p) nullTracer $ \tracer -> do
@@ -34,3 +34,15 @@ spec = describe "Prometheus Metrics" $ do
           response <- runReq @IO defaultHttpConfig $ req GET (http "localhost" /: "metrics") NoReqBody bsResponse (port p)
 
           Text.lines (decodeUtf8 $ responseBody response) `shouldContain` ["hydra_head_confirmed_tx  2"]
+
+  it "provides histogram of txs confirmation time from traces" $ do
+    failAfter 3 $
+      withFreePort $ \p ->
+        withMonitoring (Just $ fromIntegral p) nullTracer $ \tracer -> do
+          traceWith tracer (Node $ ProcessingEvent 1 (NetworkEvent (ReqTx 1 (aValidTx 42))))
+          threadDelay 0.1
+          traceWith tracer (Node $ ProcessedEffect 1 (ClientEffect (SnapshotConfirmed $ Snapshot 1 (utxoRefs [1]) [aValidTx 42])))
+
+          response <- runReq @IO defaultHttpConfig $ req GET (http "localhost" /: "metrics") NoReqBody bsResponse (port p)
+
+          Text.lines (decodeUtf8 $ responseBody response) `shouldContain` ["hydra_head_tx_confirmation_time_ms_bucket{le=\"200.0\"} 1.0"]

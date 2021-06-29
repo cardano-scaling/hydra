@@ -38,7 +38,6 @@ import Shelley.Spec.Ledger.API (
   LedgerEnv (..),
   Network (Testnet),
   StrictMaybe (SNothing),
-  TxId,
   TxIn (TxIn),
   TxOut (..),
   Wdrl (..),
@@ -64,6 +63,9 @@ instance Monoid (Ledger.UTxO MaryTest) where
 
 instance Tx MaryTestTx where
   type UTxO MaryTestTx = Ledger.UTxO MaryTest
+  type TxId MaryTestTx = Ledger.TxId MaryTest
+
+  txId = error "txId : MaryTestTx"
 
 instance Read MaryTestTx where
   readPrec = error "Read: MaryTestTx"
@@ -74,14 +76,23 @@ instance Read (Ledger.UTxO era) where
 instance ToJSON MaryTestTx where
   toJSON = error "toJSON: MaryTestTx"
 
-instance ToJSON (Ledger.UTxO era) where
-  toJSON = error "toJSON: Ledger.UTxO"
-
 instance FromJSON MaryTestTx where
   parseJSON = error "parseJSON: MaryTestTx"
 
+instance ToJSON (Ledger.UTxO era) where
+  toJSON = error "toJSON: Ledger.UTxO"
+
 instance FromJSON (Ledger.UTxO era) where
   parseJSON = error "parseJSON: Ledger.UTxO"
+
+instance Read (Ledger.TxId era) where
+  readPrec = error "Read: Ledger.TxId"
+
+instance ToJSON (Ledger.TxId era) where
+  toJSON = error "toJSON: Ledger.TxId"
+
+instance FromJSON (Ledger.TxId era) where
+  parseJSON = error "parseJSON: Ledger.TxId"
 
 cardanoLedger :: Ledger.LedgerEnv MaryTest -> Ledger (Ledger.Tx MaryTest)
 cardanoLedger env =
@@ -159,7 +170,7 @@ bobInitCoin = Coin $ 1 * 1000 * 1000 * 1000 * 1000 * 1000
 unboundedInterval :: ValidityInterval
 unboundedInterval = ValidityInterval SNothing SNothing
 
-bootstrapTxId :: TxId TestCrypto
+bootstrapTxId :: Ledger.TxId TestCrypto
 bootstrapTxId = txid @MaryTest txb
  where
   txb :: TxBody MaryTest
