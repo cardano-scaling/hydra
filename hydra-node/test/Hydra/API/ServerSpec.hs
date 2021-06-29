@@ -19,7 +19,7 @@ import Hydra.Ledger.Simple (SimpleTx)
 import Hydra.Logging (nullTracer)
 import Hydra.Network.Ports (withFreePort)
 import Hydra.Prelude
-import Network.WebSockets ( runClient, sendBinaryData )
+import Network.WebSockets (runClient, sendBinaryData)
 import Network.WebSockets.Connection (receiveData)
 import Test.Hspec
 import Test.Util (failAfter, failure)
@@ -47,7 +47,7 @@ spec = describe "API Server" $ do
 sendsAnErrorWhenInputCannotBeDecoded :: Int -> Expectation
 sendsAnErrorWhenInputCannotBeDecoded port = do
   withAPIServer @SimpleTx "127.0.0.1" (fromIntegral port) nullTracer noop $ \_sendOutput -> do
-    tryClient `shouldReturn` InvalidInput invalidInput
+    tryClient `shouldReturn` InvalidInput
  where
   tryClient :: IO (ServerOutput SimpleTx)
   tryClient =

@@ -75,5 +75,5 @@ runAPIServer host port tracer requestHandler responseChannel = do
         traceWith tracer (APIRequestReceived msg)
         requestHandler request
       Left{} -> do
-        sendTextData con $ Aeson.encode $ InvalidInput @tx (decodeUtf8 msg)
+        sendTextData con $ Aeson.encode $ InvalidInput @tx
         traceWith tracer (APIInvalidRequest msg)
