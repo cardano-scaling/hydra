@@ -15,7 +15,7 @@ import Control.Monad.Class.MonadSTM (
   writeTQueue,
  )
 import Control.Monad.Class.MonadTimer (timeout)
-import Control.Monad.IOSim (IOSim, runSimTrace, selectTraceEventsDynamic)
+import Control.Monad.IOSim (Failure (FailureDeadlock), IOSim, runSimTrace, selectTraceEventsDynamic)
 import Hydra.Chain (Chain (..))
 import Hydra.HeadLogic (
   ClientInput (..),
@@ -42,15 +42,23 @@ import Hydra.Node (
   handleMessage,
   runHydraNode,
  )
-import Test.Hspec (Spec, describe, it, shouldContain)
+import Test.Hspec (Spec, describe, it, shouldContain, shouldThrow)
 import Test.Util (failAfter, shouldNotBe, shouldReturn, shouldRunInSim, traceInIOSim)
 
 spec :: Spec
 spec = describe "Behavior of one ore more hydra nodes" $ do
-  describe "Sanity tests of test suite" $
+  describe "Sanity tests of test suite" $ do
     it "does not delay for real" $
-      shouldRunInSim $
-        threadDelay 600
+      failAfter 1 $ shouldRunInSim $ threadDelay 600
+
+    it "does detect when no responses are sent" $ do
+      let action = shouldRunInSim $ do
+            chain <- simulatedChainAndNetwork
+            withHydraNode 1 [] NoSnapshots chain $ \n ->
+              waitForResponse n `shouldReturn` ReadyToCommit []
+      action `shouldThrow` \case
+        FailureDeadlock _ -> True
+        _ -> False
 
   describe "Single participant Head" $ do
     it "accepts Init command" $
