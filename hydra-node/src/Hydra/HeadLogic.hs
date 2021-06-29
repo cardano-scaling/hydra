@@ -411,14 +411,15 @@ update Environment{party, signingKey, otherParties, snapshotStrategy} ledger (He
    where
     canCommit = party `Set.member` remainingParties
   (CollectingState remainingParties committed, OnChainEvent (CommitTx pt utxo)) ->
-    if canCollectCom
-      then newState newHeadState [OnChainEffect $ CollectComTx $ mconcat $ Map.elems newCommitted]
-      else newState newHeadState []
+    newState newHeadState $
+      [ClientEffect $ Committed pt utxo]
+      <> [OnChainEffect $ CollectComTx collectedUtxo | canCollectCom]
    where
+    newHeadState = CollectingState remainingParties' newCommitted
     remainingParties' = Set.delete pt remainingParties
     newCommitted = Map.insert pt utxo committed
-    newHeadState = CollectingState remainingParties' newCommitted
     canCollectCom = null remainingParties' && pt == party
+    collectedUtxo = mconcat $ Map.elems newCommitted
   (_, OnChainEvent CommitTx{}) ->
     -- TODO: This should warn the user / client that something went _terribly_ wrong
     --       We shouldn't see any commit outside of the collecting state, if we do,

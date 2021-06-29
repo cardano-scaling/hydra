@@ -63,7 +63,7 @@ spec = describe "Behavior of one ore more hydra nodes" $ do
       shouldRunInSim $ do
         chain <- simulatedChainAndNetwork
         withHydraNode 1 [] NoSnapshots chain $ \n -> do
-          sendRequest n Init
+          sendRequestAndWaitFor n Init (ReadyToCommit [1])
           sendRequestAndWaitFor n (Commit (utxoRef 1)) (Committed 1 (utxoRef 1))
 
     it "not accepts commits when the head is open" $
@@ -71,7 +71,9 @@ spec = describe "Behavior of one ore more hydra nodes" $ do
         chain <- simulatedChainAndNetwork
         withHydraNode 1 [] NoSnapshots chain $ \n1 -> do
           sendRequestAndWaitFor n1 Init (ReadyToCommit [1])
-          sendRequestAndWaitFor n1 (Commit (utxoRef 1)) (HeadIsOpen (utxoRef 1))
+          sendRequest n1 (Commit (utxoRef 1))
+          failAfter 1 $ waitForResponse n1 `shouldReturn` Committed 1 (utxoRef 1)
+          failAfter 1 $ waitForResponse n1 `shouldReturn` HeadIsOpen (utxoRef 1)
           sendRequestAndWaitFor n1 (Commit (utxoRef 2)) CommandFailed
 
     it "can close an open head" $
@@ -79,16 +81,19 @@ spec = describe "Behavior of one ore more hydra nodes" $ do
         chain <- simulatedChainAndNetwork
         withHydraNode 1 [] NoSnapshots chain $ \n1 -> do
           sendRequestAndWaitFor n1 Init (ReadyToCommit [1])
-          sendRequestAndWaitFor n1 (Commit (utxoRef 1)) (HeadIsOpen (utxoRef 1))
+          sendRequest n1 (Commit (utxoRef 1))
+          failAfter 1 $ waitForResponse n1 `shouldReturn` Committed 1 (utxoRef 1)
+          failAfter 1 $ waitForResponse n1 `shouldReturn` HeadIsOpen (utxoRef 1)
           sendRequestAndWaitFor n1 Close (HeadIsClosed testContestationPeriod (Snapshot 0 (utxoRef 1) []))
 
   it "does finalize head after contestation period" $
-    shouldRunInSim $ do
+    failAfter 5 $ shouldRunInSim $ do
       chain <- simulatedChainAndNetwork
       withHydraNode 1 [] NoSnapshots chain $ \n1 -> do
         sendRequest n1 Init
         sendRequestAndWaitFor n1 Init (ReadyToCommit [1])
         sendRequest n1 (Commit (utxoRef 1))
+        failAfter 1 $ waitForResponse n1 `shouldReturn` Committed 1 (utxoRef 1)
         failAfter 1 $ waitForResponse n1 `shouldReturn` HeadIsOpen (utxoRef 1)
         sendRequest n1 Close
         failAfter 1 $ waitForResponse n1 `shouldReturn` HeadIsClosed testContestationPeriod (Snapshot 0 (utxoRef 1) [])
@@ -102,11 +107,16 @@ spec = describe "Behavior of one ore more hydra nodes" $ do
         withHydraNode 1 [2] NoSnapshots chain $ \n1 ->
           withHydraNode 2 [1] NoSnapshots chain $ \n2 -> do
             sendRequestAndWaitFor n1 Init (ReadyToCommit [1, 2])
-            sendRequest n1 (Commit (utxoRef 1))
-
             failAfter 1 $ waitForResponse n2 `shouldReturn` ReadyToCommit [1, 2]
+
+            sendRequest n1 (Commit (utxoRef 1))
+            failAfter 1 $ waitForResponse n1 `shouldReturn` Committed 1 (utxoRef 1)
+            failAfter 1 $ waitForResponse n2 `shouldReturn` Committed 1 (utxoRef 1)
+
             sendRequest n2 (Commit (utxoRef 2))
+            failAfter 1 $ waitForResponse n2 `shouldReturn` Committed 2 (utxoRef 2)
             failAfter 1 $ waitForResponse n2 `shouldReturn` HeadIsOpen (utxoRefs [1, 2])
+
             sendRequest n2 (NewTx $ aValidTx 3)
 
     it "confirms depending transactions" $
@@ -119,8 +129,13 @@ spec = describe "Behavior of one ore more hydra nodes" $ do
             failAfter 1 $ waitForResponse n2 `shouldReturn` ReadyToCommit [1, 2]
             sendRequest n2 (Commit (utxoRef 2))
             failAfter 1 $ do
+              waitForResponse n1 `shouldReturn` Committed 1 (utxoRef 1)
+              waitForResponse n2 `shouldReturn` Committed 1 (utxoRef 1)
+              waitForResponse n1 `shouldReturn` Committed 2 (utxoRef 2)
+              waitForResponse n2 `shouldReturn` Committed 2 (utxoRef 2)
               waitForResponse n1 `shouldReturn` HeadIsOpen (utxoRefs [1, 2])
               waitForResponse n2 `shouldReturn` HeadIsOpen (utxoRefs [1, 2])
+            -- XXX(SN): ^^ Boilerplate!
 
             let firstTx = SimpleTx 3 (utxoRef 1) (utxoRef 3)
                 secondTx = SimpleTx 4 (utxoRef 3) (utxoRef 4)
@@ -138,10 +153,15 @@ spec = describe "Behavior of one ore more hydra nodes" $ do
           withHydraNode 2 [1] NoSnapshots chain $ \n2 -> do
             sendRequestAndWaitFor n1 Init (ReadyToCommit [1, 2])
             sendRequest n1 (Commit (utxoRef 1))
+            failAfter 1 $ waitForResponse n1 `shouldReturn` Committed 1 (utxoRef 1)
 
             failAfter 1 $ waitForResponse n2 `shouldReturn` ReadyToCommit [1, 2]
-            sendRequestAndWaitFor n2 (Commit (utxoRef 2)) (HeadIsOpen (utxoRefs [1, 2]))
+            failAfter 1 $ waitForResponse n2 `shouldReturn` Committed 1 (utxoRef 1)
+            sendRequest n2 (Commit (utxoRef 2))
+            failAfter 1 $ waitForResponse n2 `shouldReturn` Committed 2 (utxoRef 2)
+            failAfter 1 $ waitForResponse n2 `shouldReturn` HeadIsOpen (utxoRefs [1, 2])
 
+            failAfter 1 $ waitForResponse n1 `shouldReturn` Committed 2 (utxoRef 2)
             failAfter 1 $ waitForResponse n1 `shouldReturn` HeadIsOpen (utxoRefs [1, 2])
             sendRequest n1 Close
 
@@ -156,11 +176,12 @@ spec = describe "Behavior of one ore more hydra nodes" $ do
           withHydraNode 2 [1] NoSnapshots chain $ \n2 -> do
             sendRequestAndWaitFor n1 Init (ReadyToCommit [1, 2])
             sendRequest n1 (Commit (utxoRef 1))
+            failAfter 1 $ waitForResponse n1 `shouldReturn` Committed 1 (utxoRef 1)
             timeout 1 (waitForResponse n1) >>= (`shouldNotBe` Just (HeadIsOpen (utxoRef 1)))
 
             failAfter 1 $ waitForResponse n2 `shouldReturn` ReadyToCommit [1, 2]
-            sendRequestAndWaitFor n2 (Commit (utxoRef 2)) (HeadIsOpen (utxoRefs [1, 2]))
-
+            sendRequest n2 (Commit (utxoRef 2))
+            failAfter 1 $ waitForResponse n1 `shouldReturn` Committed 2 (utxoRef 2)
             failAfter 1 $ waitForResponse n1 `shouldReturn` HeadIsOpen (utxoRefs [1, 2])
 
     it "valid new transactions are seen by all parties" $
@@ -170,9 +191,15 @@ spec = describe "Behavior of one ore more hydra nodes" $ do
           withHydraNode 2 [1] NoSnapshots chain $ \n2 -> do
             sendRequestAndWaitFor n1 Init (ReadyToCommit [1, 2])
             sendRequest n1 (Commit (utxoRef 1))
+            failAfter 1 $ waitForResponse n1 `shouldReturn` Committed 1 (utxoRef 1)
             failAfter 1 $ waitForResponse n2 `shouldReturn` ReadyToCommit [1, 2]
-            sendRequestAndWaitFor n2 (Commit (utxoRef 2)) (HeadIsOpen (utxoRefs [1, 2]))
+            failAfter 1 $ waitForResponse n2 `shouldReturn` Committed 1 (utxoRef 1)
+            sendRequest n2 (Commit (utxoRef 2))
+            failAfter 1 $ waitForResponse n2 `shouldReturn` Committed 2 (utxoRef 2)
+            failAfter 1 $ waitForResponse n2 `shouldReturn` HeadIsOpen (utxoRefs [1, 2])
+            failAfter 1 $ waitForResponse n1 `shouldReturn` Committed 2 (utxoRef 2)
             failAfter 1 $ waitForResponse n1 `shouldReturn` HeadIsOpen (utxoRefs [1, 2])
+            -- XXX(SN): ^^ Boilerplate!
 
             sendRequest n1 (NewTx (aValidTx 42))
             failAfter 1 $ waitForResponse n1 `shouldReturn` TxSeen (aValidTx 42)
@@ -185,9 +212,15 @@ spec = describe "Behavior of one ore more hydra nodes" $ do
           withHydraNode 2 [1] NoSnapshots chain $ \n2 -> do
             sendRequestAndWaitFor n1 Init (ReadyToCommit [1, 2])
             sendRequest n1 (Commit (utxoRef 1))
+            failAfter 1 $ waitForResponse n1 `shouldReturn` Committed 1 (utxoRef 1)
             failAfter 1 $ waitForResponse n2 `shouldReturn` ReadyToCommit [1, 2]
-            sendRequestAndWaitFor n2 (Commit (utxoRef 2)) (HeadIsOpen (utxoRefs [1, 2]))
+            failAfter 1 $ waitForResponse n2 `shouldReturn` Committed 1 (utxoRef 1)
+            sendRequest n2 (Commit (utxoRef 2))
+            failAfter 1 $ waitForResponse n2 `shouldReturn` Committed 2 (utxoRef 2)
+            failAfter 1 $ waitForResponse n2 `shouldReturn` HeadIsOpen (utxoRefs [1, 2])
+            failAfter 1 $ waitForResponse n1 `shouldReturn` Committed 2 (utxoRef 2)
             failAfter 1 $ waitForResponse n1 `shouldReturn` HeadIsOpen (utxoRefs [1, 2])
+            -- XXX(SN): ^^ Boilerplate!
 
             sendRequest n1 (NewTx (aValidTx 42))
             failAfter 1 $ waitForResponse n1 `shouldReturn` TxSeen (aValidTx 42)
