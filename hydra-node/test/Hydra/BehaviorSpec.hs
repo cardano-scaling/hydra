@@ -135,7 +135,7 @@ spec = describe "Behavior of one ore more hydra nodes" $ do
             waitFor [n1] $ HeadIsOpen (utxoRefs [1, 2])
 
     describe "in an open head" $ do
-      let openHead n1 n2 =  do
+      let openHead n1 n2 = do
             send n1 Init
             waitFor [n1, n2] $ ReadyToCommit [1, 2]
             send n1 (Commit (utxoRef 1))
@@ -154,6 +154,7 @@ spec = describe "Behavior of one ore more hydra nodes" $ do
               send n1 Close
               waitFor [n2] $ HeadIsClosed testContestationPeriod (Snapshot 0 (utxoRefs [1, 2]) [])
 
+      -- TODO(SN): does not really assert anything
       it "accepts valid new transactions" $
         shouldRunInSim $ do
           chain <- simulatedChainAndNetwork
@@ -162,7 +163,6 @@ spec = describe "Behavior of one ore more hydra nodes" $ do
               openHead n1 n2
 
               send n2 (NewTx $ aValidTx 3)
-              -- TODO(SN): does not really assert anything
 
       it "valid new transactions are seen by all parties" $
         shouldRunInSim $ do
@@ -236,10 +236,15 @@ spec = describe "Behavior of one ore more hydra nodes" $ do
       logs `shouldContain` [ProcessingEffect 1 (ClientEffect $ ReadyToCommit [1])]
       logs `shouldContain` [ProcessedEffect 1 (ClientEffect $ ReadyToCommit [1])]
 
-waitFor :: (MonadThrow m, Tx tx, MonadAsync m) => [TestHydraNode tx m] -> ServerOutput tx -> m ()
+waitFor ::
+  (HasCallStack, MonadThrow m, Tx tx, MonadAsync m, MonadTimer m) =>
+  [TestHydraNode tx m] ->
+  ServerOutput tx ->
+  m ()
 waitFor nodes expected =
-  forConcurrently_ nodes $ \n ->
-    waitForNext n `shouldReturn` expected
+  failAfter 1 $
+    forConcurrently_ nodes $ \n ->
+      waitForNext n `shouldReturn` expected
 
 -- | A thin layer around 'HydraNode' to be able to 'waitFor'.
 data TestHydraNode tx m = TestHydraNode
