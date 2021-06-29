@@ -10,7 +10,7 @@ import Control.Tracer (Tracer (Tracer))
 import Data.List (isInfixOf)
 import Data.Typeable (cast)
 import GHC.Stack (SrcLoc)
-import Test.HUnit.Lang (FailureReason (ExpectedButGot, Reason), HUnitFailure (HUnitFailure), formatFailureReason)
+import Test.HUnit.Lang (FailureReason (ExpectedButGot, Reason), HUnitFailure (HUnitFailure))
 
 failure :: (HasCallStack, MonadThrow m) => String -> m a
 failure msg =
@@ -27,18 +27,17 @@ failAfter seconds action =
     Nothing -> failure $ "Test timed out after " <> show seconds <> " seconds"
     Just _ -> pure ()
 
--- | Run given 'action' in 'IOSim' and fail on exceptions.
+-- | Run given 'action' in 'IOSim' and fail on exceptions. This runner has
+-- special support for detecting and re-throwing 'HUnitFailure' exceptions.
 shouldRunInSim :: HasCallStack => (forall s. IOSim s a) -> IO a
 shouldRunInSim action =
   case runSim action of
     Right x -> pure x
-    Left f -> failure $ "Failed in io-sim: " <> msg f
- where
-  msg f@(FailureException ex) =
-    case cast ex of
-      Just (HUnitFailure _loc reason) -> formatFailureReason reason
-      _ -> show f
-  msg f = show f
+    Left (FailureException (SomeException ex)) ->
+      case cast ex of
+        Just f@HUnitFailure{} -> throwIO f
+        _ -> failure $ "Exception in io-sim: " <> show ex
+    Left f -> failure $ "Other error in io-sim: " <> show f
 
 -- | Lifted variant of Hspec's 'shouldBe'.
 shouldBe :: (HasCallStack, MonadThrow m, Eq a, Show a) => a -> a -> m ()
