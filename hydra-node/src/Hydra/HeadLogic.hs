@@ -46,7 +46,7 @@ data ClientInput tx
   = Init
   | Commit (UTxO tx)
   | NewTx tx
-  | GetLatestSnapshot
+  | GetConfirmedUtxo
   | Close
   | Contest
   deriving (Generic)
@@ -65,7 +65,7 @@ instance (Arbitrary tx, Arbitrary (UTxO tx)) => Arbitrary (ClientInput tx) where
     Init -> []
     Commit xs -> Commit <$> shrink xs
     NewTx tx -> NewTx <$> shrink tx
-    GetLatestSnapshot -> []
+    GetConfirmedUtxo -> []
     Close -> []
     Contest -> []
 
@@ -77,8 +77,8 @@ instance Tx tx => ToJSON (ClientInput tx) where
       object [tagFieldName .= s "commit", "utxo" .= u]
     NewTx tx ->
       object [tagFieldName .= s "newTransaction", "transaction" .= tx]
-    GetLatestSnapshot ->
-      object [tagFieldName .= s "latestSnapshot"]
+    GetConfirmedUtxo ->
+      object [tagFieldName .= s "confirmedUtxo"]
     Close ->
       object [tagFieldName .= s "close"]
     Contest ->
@@ -97,8 +97,8 @@ instance Tx tx => FromJSON (ClientInput tx) where
         Commit <$> (obj .: "utxo")
       "newTransaction" ->
         NewTx <$> (obj .: "transaction")
-      "latestSnapshot" ->
-        pure GetLatestSnapshot
+      "confirmedUtxo" ->
+        pure GetConfirmedUtxo
       "close" ->
         pure Close
       "contest" ->
@@ -160,7 +160,7 @@ data ServerOutput tx
   | TxSeen tx
   | TxInvalid tx
   | SnapshotConfirmed SnapshotNumber
-  | LatestSnapshot (UTxO tx)
+  | ConfirmedUtxo (UTxO tx)
   | InvalidInput
   deriving (Generic)
 
@@ -184,7 +184,7 @@ instance (Arbitrary tx, Arbitrary (UTxO tx)) => Arbitrary (ServerOutput tx) wher
     TxSeen tx -> TxSeen <$> shrink tx
     TxInvalid tx -> TxInvalid <$> shrink tx
     SnapshotConfirmed{} -> []
-    LatestSnapshot u -> LatestSnapshot <$> shrink u
+    ConfirmedUtxo u -> ConfirmedUtxo <$> shrink u
     InvalidInput -> []
 
 instance (ToJSON tx, ToJSON (Snapshot tx), ToJSON (UTxO tx)) => ToJSON (ServerOutput tx) where
@@ -215,8 +215,8 @@ instance (ToJSON tx, ToJSON (Snapshot tx), ToJSON (UTxO tx)) => ToJSON (ServerOu
       object [tagFieldName .= s "transactionInvalid", "transaction" .= tx]
     SnapshotConfirmed snapshotNumber ->
       object [tagFieldName .= s "snapshotConfirmed", "snapshotNumber" .= snapshotNumber]
-    LatestSnapshot utxo ->
-      object [tagFieldName .= s "latestSnapshot", "utxo" .= utxo]
+    ConfirmedUtxo utxo ->
+      object [tagFieldName .= s "confirmedUtxo", "utxo" .= utxo]
     InvalidInput ->
       object [tagFieldName .= s "invalidInput"]
    where
@@ -249,8 +249,8 @@ instance (FromJSON tx, FromJSON (Snapshot tx), FromJSON (UTxO tx)) => FromJSON (
         TxInvalid <$> (obj .: "transaction")
       "snapshotConfirmed" ->
         SnapshotConfirmed <$> (obj .: "snapshotNumber")
-      "latestSnapshot" ->
-        LatestSnapshot <$> (obj .: "utxo")
+      "confirmedUtxo" ->
+        ConfirmedUtxo <$> (obj .: "utxo")
       "invalidInput" ->
         pure InvalidInput
       _ ->
@@ -447,9 +447,9 @@ update Environment{party, signingKey, otherParties, snapshotStrategy} ledger (He
       , Delay (contestationPeriod parameters) ShouldPostFanout
       ]
   --
-  (OpenState CoordinatedHeadState{confirmedSnapshot}, ClientEvent GetLatestSnapshot) ->
+  (OpenState CoordinatedHeadState{confirmedSnapshot}, ClientEvent GetConfirmedUtxo) ->
     sameState
-      [ClientEffect $ LatestSnapshot (utxo confirmedSnapshot)]
+      [ClientEffect $ ConfirmedUtxo (utxo confirmedSnapshot)]
   --
   (OpenState CoordinatedHeadState{}, ClientEvent (NewTx tx)) ->
     -- NOTE: We deliberately do not perform any validation because:

@@ -220,7 +220,7 @@ spec = describe "Behavior of one ore more hydra nodes" $ do
                       }
               waitFor [n1] $ HeadIsClosed testContestationPeriod expectedSnapshot
 
-      it "outputs current UTxO when client requests them" $
+      it "outputs utxo from confirmed snapshot when client requests it" $
         shouldRunInSim $ do
           chain <- simulatedChainAndNetwork
           withHydraNode 1 [2] SnapshotAfterEachTx chain $ \n1 ->
@@ -230,9 +230,9 @@ spec = describe "Behavior of one ore more hydra nodes" $ do
               send n1 (NewTx (aValidTx 42){txInputs = utxoRefs [1]})
               waitUntil [n1, n2] $ SnapshotConfirmed 1
 
-              send n1 GetLatestSnapshot
+              send n1 GetConfirmedUtxo
 
-              waitFor [n1] $ LatestSnapshot (utxoRefs [2, 42])
+              waitFor [n1] $ ConfirmedUtxo (utxoRefs [2, 42])
 
   describe "Hydra Node Logging" $ do
     it "traces processing of events" $ do
