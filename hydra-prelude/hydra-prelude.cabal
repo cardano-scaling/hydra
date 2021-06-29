@@ -23,14 +23,20 @@ library
     Hydra.Prelude
     Hydra.Network.Ports
   build-depends:
+    aeson,
     base,
-    relude,
+    cardano-binary,
+    generic-random,
     io-sim-classes,
     network,
-    warp,
+    QuickCheck,
+    quickcheck-instances,
     random-shuffle,
+    relude,
+    warp,
   default-extensions:
     NoImplicitPrelude
+    FlexibleContexts
   ghc-options:
     -Wall
     -Wcompat

@@ -6,8 +6,9 @@ module Hydra.HeadLogic where
 
 import Hydra.Prelude
 
-import Cardano.Binary (FromCBOR (..), ToCBOR (..))
 import Cardano.Crypto.Util (SignableRepresentation (..))
+import Data.Aeson (object, withObject, (.:), (.=))
+import qualified Data.Aeson as Aeson
 import Data.List (elemIndex, (\\))
 import qualified Data.Map.Strict as Map
 import qualified Data.Set as Set
@@ -26,14 +27,14 @@ import Hydra.Ledger (
  )
 
 data Event tx
-  = ClientEvent (ClientRequest tx)
+  = ClientEvent (ClientInput tx)
   | NetworkEvent (HydraMessage tx)
   | OnChainEvent (OnChainTx tx)
   | ShouldPostFanout
   deriving (Eq, Show)
 
 data Effect tx
-  = ClientEffect (ClientResponse tx)
+  = ClientEffect (ServerOutput tx)
   | NetworkEffect (HydraMessage tx)
   | OnChainEffect (OnChainTx tx)
   | Delay DiffTime (Event tx)
@@ -41,16 +42,63 @@ data Effect tx
 deriving instance Tx tx => Eq (Effect tx)
 deriving instance Tx tx => Show (Effect tx)
 
-data ClientRequest tx
+data ClientInput tx
   = Init
   | Commit (UTxO tx)
   | NewTx tx
   | Close
   | Contest
+  deriving (Generic)
 
-deriving instance Tx tx => Eq (ClientRequest tx)
-deriving instance Tx tx => Show (ClientRequest tx)
-deriving instance Tx tx => Read (ClientRequest tx)
+deriving instance Tx tx => Eq (ClientInput tx)
+deriving instance Tx tx => Show (ClientInput tx)
+deriving instance Tx tx => Read (ClientInput tx)
+
+instance (Arbitrary tx, Arbitrary (UTxO tx)) => Arbitrary (ClientInput tx) where
+  arbitrary = genericArbitrary
+
+  -- NOTE: Somehow, can't use 'genericShrink' here as GHC is complaining about
+  -- Overlapping instances with 'UTxO tx' even though for a fixed `tx`, there
+  -- should be only one 'UTxO tx'
+  shrink = \case
+    Init -> []
+    Commit xs -> Commit <$> shrink xs
+    NewTx tx -> NewTx <$> shrink tx
+    Close -> []
+    Contest -> []
+
+instance Tx tx => ToJSON (ClientInput tx) where
+  toJSON = \case
+    Init ->
+      object [tagFieldName .= s "init"]
+    Commit u ->
+      object [tagFieldName .= s "commit", "utxo" .= u]
+    NewTx tx ->
+      object [tagFieldName .= s "newTransaction", "transaction" .= tx]
+    Close ->
+      object [tagFieldName .= s "close"]
+    Contest ->
+      object [tagFieldName .= s "contest"]
+   where
+    s = Aeson.String
+    tagFieldName = "input"
+
+instance Tx tx => FromJSON (ClientInput tx) where
+  parseJSON = withObject "ClientInput" $ \obj -> do
+    tag <- obj .: "input"
+    case tag of
+      "init" ->
+        pure Init
+      "commit" ->
+        Commit <$> (obj .: "utxo")
+      "newTransaction" ->
+        NewTx <$> (obj .: "transaction")
+      "close" ->
+        pure Close
+      "contest" ->
+        pure Contest
+      _ ->
+        fail $ "unknown input type: " <> toString @Text tag
 
 type SnapshotNumber = Natural
 
@@ -60,15 +108,41 @@ data Snapshot tx = Snapshot
   , -- | The set of transactions that lead to 'utxo'
     confirmed :: [tx]
   }
+  deriving (Generic)
 
 deriving instance Tx tx => Eq (Snapshot tx)
 deriving instance Tx tx => Show (Snapshot tx)
 deriving instance Tx tx => Read (Snapshot tx)
 
+instance (Arbitrary tx, Arbitrary (UTxO tx)) => Arbitrary (Snapshot tx) where
+  arbitrary = genericArbitrary
+
+  -- NOTE: See note on 'Arbitrary (ClientInput tx)'
+  shrink s =
+    [ Snapshot (number s) utxo' confirmed'
+    | utxo' <- shrink (utxo s)
+    , confirmed' <- shrink (confirmed s)
+    ]
+
 instance Tx tx => SignableRepresentation (Snapshot tx) where
   getSignableRepresentation = encodeUtf8 . show @Text
 
-data ClientResponse tx
+instance Tx tx => ToJSON (Snapshot tx) where
+  toJSON s =
+    object
+      [ "snapshotNumber" .= number s
+      , "utxo" .= utxo s
+      , "confirmedTransactions" .= confirmed s
+      ]
+
+instance Tx tx => FromJSON (Snapshot tx) where
+  parseJSON = withObject "Snapshot" $ \obj ->
+    Snapshot
+      <$> (obj .: "snapshotNumber")
+      <*> (obj .: "utxo")
+      <*> (obj .: "confirmedTransactions")
+
+data ServerOutput tx
   = PeerConnected Party
   | PeerDisconnected Party
   | ReadyToCommit [Party]
@@ -79,10 +153,84 @@ data ClientResponse tx
   | TxSeen tx
   | TxInvalid tx
   | SnapshotConfirmed SnapshotNumber
+  deriving (Generic)
 
-deriving instance Tx tx => Eq (ClientResponse tx)
-deriving instance Tx tx => Show (ClientResponse tx)
-deriving instance Tx tx => Read (ClientResponse tx)
+deriving instance Tx tx => Eq (ServerOutput tx)
+deriving instance Tx tx => Show (ServerOutput tx)
+deriving instance Tx tx => Read (ServerOutput tx)
+
+instance (Arbitrary tx, Arbitrary (UTxO tx)) => Arbitrary (ServerOutput tx) where
+  arbitrary = genericArbitrary
+
+  -- NOTE: See note on 'Arbitrary (ClientInput tx)'
+  shrink = \case
+    PeerConnected p -> PeerConnected <$> shrink p
+    PeerDisconnected p -> PeerDisconnected <$> shrink p
+    ReadyToCommit xs -> ReadyToCommit <$> shrink xs
+    HeadIsOpen u -> HeadIsOpen <$> shrink u
+    HeadIsClosed t s -> HeadIsClosed t <$> shrink s
+    HeadIsFinalized u -> HeadIsFinalized <$> shrink u
+    CommandFailed -> []
+    TxSeen tx -> TxSeen <$> shrink tx
+    TxInvalid tx -> TxInvalid <$> shrink tx
+    SnapshotConfirmed{} -> []
+
+instance (ToJSON tx, ToJSON (Snapshot tx), ToJSON (UTxO tx)) => ToJSON (ServerOutput tx) where
+  toJSON = \case
+    PeerConnected peer ->
+      object [tagFieldName .= s "peerConnected", "peer" .= peer]
+    PeerDisconnected peer ->
+      object [tagFieldName .= s "peerDisconnected", "peer" .= peer]
+    ReadyToCommit parties ->
+      object [tagFieldName .= s "readyToCommit", "parties" .= parties]
+    HeadIsOpen utxo ->
+      object [tagFieldName .= s "headIsOpen", "utxo" .= utxo]
+    HeadIsClosed contestationPeriod latestSnapshot ->
+      object
+        [ tagFieldName .= s "headIsClosed"
+        , "contestationPeriod" .= contestationPeriod
+        , "latestSnapshot" .= latestSnapshot
+        ]
+    HeadIsFinalized utxo ->
+      object [tagFieldName .= s "headIsFinalized", "utxo" .= utxo]
+    CommandFailed ->
+      object [tagFieldName .= s "commandFailed"]
+    TxSeen tx ->
+      object [tagFieldName .= s "transactionSeen", "transaction" .= tx]
+    TxInvalid tx ->
+      object [tagFieldName .= s "transactionInvalid", "transaction" .= tx]
+    SnapshotConfirmed snapshotNumber ->
+      object [tagFieldName .= s "snapshotConfirmed", "snapshotNumber" .= snapshotNumber]
+   where
+    s = Aeson.String
+    tagFieldName = "output"
+
+instance (FromJSON tx, FromJSON (Snapshot tx), FromJSON (UTxO tx)) => FromJSON (ServerOutput tx) where
+  parseJSON = withObject "ServerOutput" $ \obj -> do
+    tag <- obj .: "output"
+    case tag of
+      "peerConnected" ->
+        PeerConnected <$> (obj .: "peer")
+      "peerDisconnected" ->
+        PeerDisconnected <$> (obj .: "peer")
+      "readyToCommit" ->
+        ReadyToCommit <$> (obj .: "parties")
+      "headIsOpen" ->
+        HeadIsOpen <$> (obj .: "utxo")
+      "headIsClosed" ->
+        HeadIsClosed <$> (obj .: "contestationPeriod") <*> (obj .: "latestSnapshot")
+      "headIsFinalized" ->
+        HeadIsFinalized <$> (obj .: "utxo")
+      "commandFailed" ->
+        pure CommandFailed
+      "transactionSeen" ->
+        TxSeen <$> (obj .: "transaction")
+      "transactionInvalid" ->
+        TxInvalid <$> (obj .: "transaction")
+      "snapshotConfirmed" ->
+        SnapshotConfirmed <$> (obj .: "snapshotNumber")
+      _ ->
+        fail $ "unknown output type: " <> toString @Text tag
 
 -- NOTE(SN): Every message comes from a 'Party', we might want to move it out of
 -- here into the 'NetworkEvent'
@@ -92,9 +240,7 @@ data HydraMessage tx
   | AckSn Party (Signed (Snapshot tx)) SnapshotNumber
   | Connected Party
   | Disconnected Party
-  deriving (Eq, Show)
-
-deriving stock instance Generic (HydraMessage tx)
+  deriving (Generic, Eq, Show)
 
 instance (ToCBOR tx, ToCBOR (UTxO tx)) => ToCBOR (HydraMessage tx) where
   toCBOR = \case

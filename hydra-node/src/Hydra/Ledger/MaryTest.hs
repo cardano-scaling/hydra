@@ -71,6 +71,18 @@ instance Read MaryTestTx where
 instance Read (Ledger.UTxO era) where
   readPrec = error "Read: Ledger.UTxO"
 
+instance ToJSON MaryTestTx where
+  toJSON = error "toJSON: MaryTestTx"
+
+instance ToJSON (Ledger.UTxO era) where
+  toJSON = error "toJSON: Ledger.UTxO"
+
+instance FromJSON MaryTestTx where
+  parseJSON = error "parseJSON: MaryTestTx"
+
+instance FromJSON (Ledger.UTxO era) where
+  parseJSON = error "parseJSON: Ledger.UTxO"
+
 cardanoLedger :: Ledger.LedgerEnv MaryTest -> Ledger (Ledger.Tx MaryTest)
 cardanoLedger env =
   Ledger

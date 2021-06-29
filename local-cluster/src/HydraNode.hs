@@ -27,13 +27,16 @@ import Control.Concurrent.Async (
   forConcurrently_,
  )
 import Control.Exception (IOException)
+import Data.Aeson (Value (String), object, (.=))
+import qualified Data.Aeson as Aeson
 import qualified Data.ByteString as BS
 import Data.List (delete)
+import qualified Data.Text as T
 import Data.Text.IO (hPutStrLn)
 import GHC.IO.Handle (hDuplicate)
 import Network.HTTP.Conduit (HttpExceptionContent (ConnectionFailure), parseRequest)
 import Network.HTTP.Simple (HttpException (HttpExceptionRequest), Response, getResponseBody, getResponseStatusCode, httpBS)
-import Network.WebSockets (Connection, DataMessage (Binary, Text), receiveDataMessage, runClient, sendClose, sendTextData)
+import Network.WebSockets (Connection, receiveData, runClient, sendClose, sendTextData)
 import Say (say)
 import System.Exit (ExitCode (..))
 import System.FilePath ((</>))
@@ -56,19 +59,10 @@ data HydraNode = HydraNode
   , nodeStdout :: Handle
   }
 
-sendRequest :: HydraNode -> Text -> IO ()
+sendRequest :: HydraNode -> Aeson.Value -> IO ()
 sendRequest HydraNode{hydraNodeId, connection, nodeStdout} request = do
   hPutStrLn nodeStdout ("Tester sending to " <> show hydraNodeId <> ": " <> show request)
-  sendTextData connection request
-
-data WaitForResponseTimeout = WaitForResponseTimeout
-  { nodeId :: Int
-  , expectedResponse :: Text
-  , actualMessages :: [Text]
-  }
-  deriving (Show)
-
-instance Exception WaitForResponseTimeout
+  sendTextData connection (Aeson.encode request)
 
 failAfter :: HasCallStack => Natural -> IO a -> IO a
 failAfter seconds action =
@@ -79,13 +73,13 @@ failAfter seconds action =
 -- | Wait some time for a single response from each of given nodes.
 -- This function waits for @delay@ seconds for message @expected@  to be seen by all
 -- given @nodes@.
-waitForResponse :: HasCallStack => Natural -> [HydraNode] -> Text -> IO ()
+waitForResponse :: HasCallStack => Natural -> [HydraNode] -> Aeson.Value -> IO ()
 waitForResponse delay nodes expected = waitForResponses delay nodes [expected]
 
 -- |Wait some time for a list of responses from each of given nodes.
 -- This function is the generalised version of 'waitForResponse', allowing several messages
 -- to be waited for and received in /any order/.
-waitForResponses :: HasCallStack => Natural -> [HydraNode] -> [Text] -> IO ()
+waitForResponses :: HasCallStack => Natural -> [HydraNode] -> [Aeson.Value] -> IO ()
 waitForResponses delay nodes expected = do
   forConcurrently_ nodes $ \HydraNode{hydraNodeId, connection} -> do
     msgs <- newIORef []
@@ -95,14 +89,27 @@ waitForResponses delay nodes expected = do
       Just x -> pure x
       Nothing -> do
         actualMsgs <- readIORef msgs
-        expectationFailure $ show $ WaitForResponseTimeout hydraNodeId (show expected) actualMsgs
+        expectationFailure $
+          toString $
+            unlines
+              [ "waitForResponse... timeout!"
+              , padRight " " 20 "  nodeId:"
+                  <> show hydraNodeId
+              , padRight " " 20 "  expected:"
+                  <> unlines (align 20 (decodeUtf8 . Aeson.encode <$> expected))
+              , padRight " " 20 "  seen messages:"
+                  <> unlines (align 20 (decodeUtf8 . Aeson.encode <$> actualMsgs))
+              ]
  where
+  padRight c n str = T.take n (str <> T.replicate n c)
+  align _ [] = []
+  align n (h : q) = h : fmap (T.replicate n " " <>) q
   tryNext _ [] _ = pure ()
   tryNext msgs stillExpected c = do
-    msg <-
-      receiveDataMessage c >>= \case
-        Text b _mt -> pure $ decodeUtf8 b
-        Binary b -> pure $ decodeUtf8 b
+    bytes <- receiveData c
+    msg <- case Aeson.decode' bytes of
+      Nothing -> fail $ "received non-JSON message from the server: " <> show bytes
+      Just m -> pure m
     modifyIORef' msgs (msg :)
     tryNext msgs (delete msg stillExpected) c
 
@@ -209,5 +216,10 @@ waitForNodeConnected n@HydraNode{hydraNodeId} =
   -- party identifiers everywhere
   waitForResponses 10 [n] $
     fmap
-      (\party -> "PeerConnected (VerKeyMockDSIGN " <> show (party * 10) <> ")")
+      ( \party ->
+          object
+            [ "output" .= String "peerConnected"
+            , "peer" .= (party * 10)
+            ]
+      )
       (filter (/= hydraNodeId) allNodeIds)

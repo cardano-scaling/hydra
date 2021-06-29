@@ -6,7 +6,6 @@ module Hydra.Network.Ouroboros.Type where
 
 import Hydra.Prelude
 
-import Cardano.Binary (FromCBOR, ToCBOR, fromCBOR, toCBOR)
 import qualified Cardano.Binary as CBOR
 import qualified Codec.CBOR.Read as CBOR
 import GHC.Show (Show (show))

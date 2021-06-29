@@ -8,10 +8,11 @@ module Hydra.HeadLogicSpec where
 
 import Hydra.Prelude
 
+import qualified Data.Aeson as Aeson
 import qualified Data.List as List
 import qualified Data.Set as Set
 import Hydra.HeadLogic (
-  ClientResponse (PeerConnected),
+  ClientInput (..),
   CoordinatedHeadState (..),
   Effect (ClientEffect, NetworkEffect),
   Environment (..),
@@ -23,11 +24,12 @@ import Hydra.HeadLogic (
   LogicError (..),
   OnChainTx (..),
   Outcome (..),
+  ServerOutput (..),
   Snapshot (..),
   SnapshotStrategy (..),
   update,
  )
-import Hydra.Ledger (Ledger (..), Party, Tx, deriveParty, generateKey, sign)
+import Hydra.Ledger (Ledger (..), Party, Tx (..), deriveParty, generateKey, sign)
 import Hydra.Ledger.Builder (aValidTx, utxoRef)
 import Hydra.Ledger.Simple (SimpleTx (..), TxIn (..), simpleLedger)
 import Test.Hspec (
@@ -38,8 +40,15 @@ import Test.Hspec (
   shouldBe,
  )
 import Test.Hspec.QuickCheck (prop)
-import Test.QuickCheck (Gen, Property, elements, forAll)
-import Test.QuickCheck.Instances.Time ()
+import Test.QuickCheck (
+  Gen,
+  Property,
+  counterexample,
+  elements,
+  forAll,
+  forAllShrink,
+  (===),
+ )
 import Test.QuickCheck.Property (collect)
 import Test.Util (failure)
 
@@ -198,6 +207,22 @@ spec = describe "Hydra Coordinated Head Protocol" $ do
       `hasEffect_` ClientEffect (PeerConnected 1)
 
   prop "can handle OnChainEvent in any state" prop_handleOnChainEventInAnyState
+
+  -- TOOD: Replace with: https://hackage.haskell.org/package/hspec-golden-aeson
+  describe "JSON instances" $ do
+    prop "ClientInput - JSON roundtrips" $
+      prop_roundtripJSON (Proxy @(ClientInput SimpleTx))
+    prop "ServerOutput - JSON roundtrips" $
+      prop_roundtripJSON (Proxy @(ServerOutput SimpleTx))
+
+prop_roundtripJSON ::
+  forall a.
+  (Show a, Eq a, ToJSON a, FromJSON a, Arbitrary a) =>
+  Proxy a ->
+  Property
+prop_roundtripJSON _proxy = forAllShrink arbitrary shrink $ \(a :: a) ->
+  let encoded = Aeson.encode a
+   in counterexample (show encoded) $ Aeson.eitherDecode' encoded === Right a
 
 genOnChainTx :: Gen (OnChainTx SimpleTx)
 genOnChainTx =

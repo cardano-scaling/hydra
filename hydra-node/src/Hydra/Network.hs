@@ -26,8 +26,8 @@ module Hydra.Network (
 
 import Hydra.Prelude hiding (show)
 
-import Cardano.Binary (FromCBOR (fromCBOR), ToCBOR (toCBOR))
-import Data.IP (IP)
+import Data.Aeson (object, withObject, (.:), (.=))
+import Data.IP (IP, toIPv4w)
 import Data.Text (pack, unpack)
 import Network.Socket (PortNumber, close)
 import Network.TypedProtocol.Pipelined ()
@@ -57,7 +57,7 @@ data Host = Host
   { hostName :: Text
   , portNumber :: PortNumber
   }
-  deriving (Eq)
+  deriving (Generic, Eq)
 
 instance Show Host where
   show = showHost
@@ -67,14 +67,41 @@ instance Read Host where
     Just h -> [(h, "")]
     Nothing -> []
 
+instance Arbitrary Host where
+  arbitrary = do
+    ip <- toIPv4w <$> arbitrary
+    port <- fromIntegral @Word16 <$> arbitrary
+    pure $ Host (toText $ show ip) port
+
+instance ToJSON Host where
+  toJSON h =
+    object
+      [ "hostname" .= hostName h
+      , "portNumber" .= toInteger (portNumber h)
+      ]
+
+instance FromJSON Host where
+  parseJSON = withObject "Host" $ \obj ->
+    Host
+      <$> (obj .: "hostname")
+      <*> (fromInteger <$> (obj .: "portNumber"))
+
 instance ToCBOR Host where
-  toCBOR Host{hostName, portNumber} = toCBOR hostName <> toCBOR (toInteger portNumber)
+  toCBOR Host{hostName, portNumber} =
+    mconcat
+      [ toCBOR hostName
+      , toCBOR (toInteger portNumber)
+      ]
 
 instance FromCBOR Host where
-  fromCBOR = Host <$> fromCBOR <*> (fromInteger <$> fromCBOR)
+  fromCBOR =
+    Host
+      <$> fromCBOR
+      <*> (fromInteger <$> fromCBOR)
 
 showHost :: Host -> String
-showHost Host{hostName, portNumber} = unpack hostName <> "@" <> show portNumber
+showHost Host{hostName, portNumber} =
+  unpack hostName <> "@" <> show portNumber
 
 readHost :: String -> Maybe Host
 readHost s =

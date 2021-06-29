@@ -1,19 +1,20 @@
+{-# LANGUAGE TypeApplications #-}
 {-# OPTIONS_GHC -Wno-deprecations #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 
 module Hydra.Ledger where
 
-import Cardano.Binary (FromCBOR (fromCBOR), ToCBOR (toCBOR))
+import Hydra.Prelude
+
 import Cardano.Crypto.DSIGN (DSIGNAlgorithm (..), MockDSIGN, SignKeyDSIGN, VerKeyDSIGN (VerKeyMockDSIGN), signDSIGN)
 import Cardano.Crypto.Util (SignableRepresentation)
-import Hydra.Prelude hiding (show)
 
 -- NOTE(MB): We probably want to move these common types somewhere else. Putting
 -- here to avoid circular dependencies with Hydra.Logic
 
 -- | Identifies a party in a Hydra head.
 newtype Party = UnsafeParty (VerKeyDSIGN MockDSIGN)
-  deriving (Eq)
+  deriving stock (Eq, Generic)
   deriving newtype (Show, Read, Num)
 
 deriving instance Read (VerKeyDSIGN MockDSIGN)
@@ -21,6 +22,15 @@ deriving instance Read (VerKeyDSIGN MockDSIGN)
 instance Ord Party where
   (UnsafeParty a) <= (UnsafeParty b) =
     rawSerialiseVerKeyDSIGN a <= rawSerialiseVerKeyDSIGN b
+
+instance Arbitrary Party where
+  arbitrary = deriveParty . generateKey <$> arbitrary
+
+instance ToJSON Party where
+  toJSON (UnsafeParty (VerKeyMockDSIGN i)) = toJSON i
+
+instance FromJSON Party where
+  parseJSON = fmap fromInteger . parseJSON
 
 instance FromCBOR Party where
   fromCBOR = UnsafeParty <$> fromCBOR
@@ -68,6 +78,10 @@ class
   , Read (UTxO tx)
   , Monoid (UTxO tx)
   , Typeable tx
+  , FromJSON tx
+  , FromJSON (UTxO tx)
+  , ToJSON tx
+  , ToJSON (UTxO tx)
   ) =>
   Tx tx
   where

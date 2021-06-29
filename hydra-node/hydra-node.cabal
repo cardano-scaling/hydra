@@ -101,9 +101,8 @@ library
     Hydra.Options
   other-modules:
     Paths_hydra_node
-  build-depends:
-      aeson
-    , base
+  build-depends: base
+    , aeson
     , cardano-binary
     , cardano-crypto-class
     , cardano-ledger-core
@@ -188,8 +187,8 @@ test-suite tests
     Test.Util
   main-is: Main.hs
   type: exitcode-stdio-1.0
-  build-depends:
-      base
+  build-depends: base
+    , aeson
     , cardano-binary
     , cardano-crypto-class
     , cborg

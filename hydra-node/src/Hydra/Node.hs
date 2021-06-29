@@ -12,8 +12,7 @@ import Control.Monad.Class.MonadAsync (async)
 import Control.Monad.Class.MonadSTM (newTQueue, newTVarIO, readTQueue, stateTVar, writeTQueue)
 import Hydra.Chain (Chain (..))
 import Hydra.HeadLogic (
-  ClientRequest (..),
-  ClientResponse (..),
+  ClientInput (..),
   Effect (..),
   Environment (..),
   Event (..),
@@ -22,6 +21,7 @@ import Hydra.HeadLogic (
   LogicError (..),
   OnChainTx (..),
   Outcome (..),
+  ServerOutput (..),
   SnapshotStrategy (SnapshotAfterEachTx),
  )
 import qualified Hydra.HeadLogic as Logic
@@ -65,7 +65,7 @@ data HydraNode tx m = HydraNode
   , hn :: Network m (HydraMessage tx)
   , hh :: HydraHead tx m
   , oc :: Chain tx m
-  , sendResponse :: ClientResponse tx -> m ()
+  , sendResponse :: ServerOutput tx -> m ()
   , env :: Environment
   }
 
@@ -77,8 +77,8 @@ data HydraNodeLog tx
   | ProcessedEffect Party (Effect tx)
   deriving (Eq, Show)
 
-handleClientRequest :: HydraNode tx m -> ClientRequest tx -> m ()
-handleClientRequest HydraNode{eq} = putEvent eq . ClientEvent
+handleClientInput :: HydraNode tx m -> ClientInput tx -> m ()
+handleClientInput HydraNode{eq} = putEvent eq . ClientEvent
 
 handleChainTx :: HydraNode tx m -> OnChainTx tx -> m ()
 handleChainTx HydraNode{eq} = putEvent eq . OnChainEvent

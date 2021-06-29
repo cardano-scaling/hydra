@@ -12,9 +12,9 @@ import Control.Monad.Class.MonadSTM (
   tryReadTQueue,
   writeTQueue,
  )
-import qualified Data.Text as Text
+import qualified Data.Aeson as Aeson
 import Hydra.API.Server (withAPIServer)
-import Hydra.HeadLogic (ClientResponse (..))
+import Hydra.HeadLogic (ServerOutput (..))
 import Hydra.Ledger.Simple (SimpleTx)
 import Hydra.Logging (nullTracer)
 import Hydra.Network.Ports (withFreePort)
@@ -43,7 +43,7 @@ spec = describe "API Server" $ do
 noop :: Applicative m => a -> m ()
 noop = const $ pure ()
 
-testClient :: HasCallStack => Int -> TQueue IO (ClientResponse SimpleTx) -> TVar IO Int -> IO ()
+testClient :: HasCallStack => Int -> TQueue IO (ServerOutput SimpleTx) -> TVar IO Int -> IO ()
 testClient port queue semaphore =
   failAfter 5 tryClient
  where
@@ -55,8 +55,8 @@ testClient port queue semaphore =
       ( \cnx -> do
           atomically $ modifyTVar' semaphore (+ 1)
           msg <- receiveData cnx
-          case readMaybe (Text.unpack msg) of
-            Just resp -> atomically (writeTQueue queue resp)
-            Nothing -> expectationFailure (show $ "Failed to decode message " <> msg)
+          case Aeson.eitherDecode msg of
+            Right resp -> atomically (writeTQueue queue resp)
+            Left{} -> expectationFailure ("Failed to decode message " <> show msg)
       )
       `catch` \(_ :: IOException) -> tryClient
