@@ -154,6 +154,20 @@ spec = describe "Behavior of one ore more hydra nodes" $ do
             send n1 (Commit (utxoRef 11))
             waitFor [n1] CommandFailed
 
+    it "outputs committed utxo when client requests it" $
+      shouldRunInSim $ do
+        chain <- simulatedChainAndNetwork
+        withHydraNode 1 [2] SnapshotAfterEachTx chain $ \n1 ->
+          withHydraNode 2 [1] NoSnapshots chain $ \n2 -> do
+            send n1 Init
+            waitFor [n1, n2] $ ReadyToCommit [1, 2]
+            send n1 (Commit (utxoRef 1))
+
+            waitFor [n2] $ Committed 1 (utxoRef 1)
+            send n2 GetUtxo
+
+            waitFor [n2] $ Utxo (utxoRefs [1])
+
     describe "in an open head" $ do
       let openHead n1 n2 = do
             send n1 Init
@@ -173,16 +187,6 @@ spec = describe "Behavior of one ore more hydra nodes" $ do
 
               send n1 Close
               waitFor [n2] $ HeadIsClosed testContestationPeriod (Snapshot 0 (utxoRefs [1, 2]) [])
-
-      -- TODO(SN): does not really assert anything
-      it "accepts valid new transactions" $
-        shouldRunInSim $ do
-          chain <- simulatedChainAndNetwork
-          withHydraNode 1 [2] NoSnapshots chain $ \n1 ->
-            withHydraNode 2 [1] NoSnapshots chain $ \n2 -> do
-              openHead n1 n2
-
-              send n2 (NewTx $ aValidTx 3)
 
       it "valid new transactions are seen by all parties" $
         shouldRunInSim $ do
@@ -229,6 +233,19 @@ spec = describe "Behavior of one ore more hydra nodes" $ do
                       }
               waitFor [n1] $ HeadIsClosed testContestationPeriod expectedSnapshot
 
+      it "outputs utxo from confirmed snapshot when client requests it" $
+        shouldRunInSim $ do
+          chain <- simulatedChainAndNetwork
+          withHydraNode 1 [2] SnapshotAfterEachTx chain $ \n1 ->
+            withHydraNode 2 [1] NoSnapshots chain $ \n2 -> do
+              openHead n1 n2
+              send n1 (NewTx (aValidTx 42){txInputs = utxoRefs [1]})
+              waitUntil [n1, n2] $ SnapshotConfirmed 1
+
+              send n1 GetUtxo
+
+              waitFor [n1] $ Utxo (utxoRefs [2, 42])
+
   describe "Hydra Node Logging" $ do
     it "traces processing of events" $ do
       let result = runSimTrace $ do
@@ -265,6 +282,21 @@ waitFor nodes expected =
   failAfter 1 $
     forConcurrently_ nodes $ \n ->
       waitForNext n `shouldReturn` expected
+
+-- | Wait for some output at some node(s) to be produced /eventually/.
+-- The difference with 'waitFor' is that there can be other messages in between which
+-- are simply discarded.
+waitUntil ::
+  (HasCallStack, MonadThrow m, Tx tx, MonadAsync m, MonadTimer m) =>
+  [TestHydraNode tx m] ->
+  ServerOutput tx ->
+  m ()
+waitUntil nodes expected =
+  failAfter 1 $ forConcurrently_ nodes $ go
+ where
+  go n = do
+    next <- waitForNext n
+    unless (next == expected) $ go n
 
 -- | A thin layer around 'HydraNode' to be able to 'waitFor'.
 data TestHydraNode tx m = TestHydraNode

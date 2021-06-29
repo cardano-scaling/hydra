@@ -46,6 +46,7 @@ data ClientInput tx
   = Init
   | Commit (UTxO tx)
   | NewTx tx
+  | GetUtxo
   | Close
   | Contest
   deriving (Generic)
@@ -64,6 +65,7 @@ instance (Arbitrary tx, Arbitrary (UTxO tx)) => Arbitrary (ClientInput tx) where
     Init -> []
     Commit xs -> Commit <$> shrink xs
     NewTx tx -> NewTx <$> shrink tx
+    GetUtxo -> []
     Close -> []
     Contest -> []
 
@@ -75,6 +77,8 @@ instance Tx tx => ToJSON (ClientInput tx) where
       object [tagFieldName .= s "commit", "utxo" .= u]
     NewTx tx ->
       object [tagFieldName .= s "newTransaction", "transaction" .= tx]
+    GetUtxo ->
+      object [tagFieldName .= s "getUtxo"]
     Close ->
       object [tagFieldName .= s "close"]
     Contest ->
@@ -93,6 +97,8 @@ instance Tx tx => FromJSON (ClientInput tx) where
         Commit <$> (obj .: "utxo")
       "newTransaction" ->
         NewTx <$> (obj .: "transaction")
+      "getUtxo" ->
+        pure GetUtxo
       "close" ->
         pure Close
       "contest" ->
@@ -154,6 +160,7 @@ data ServerOutput tx
   | TxSeen tx
   | TxInvalid tx
   | SnapshotConfirmed SnapshotNumber
+  | Utxo (UTxO tx)
   | InvalidInput
   deriving (Generic)
 
@@ -177,6 +184,7 @@ instance (Arbitrary tx, Arbitrary (UTxO tx)) => Arbitrary (ServerOutput tx) wher
     TxSeen tx -> TxSeen <$> shrink tx
     TxInvalid tx -> TxInvalid <$> shrink tx
     SnapshotConfirmed{} -> []
+    Utxo u -> Utxo <$> shrink u
     InvalidInput -> []
 
 instance (ToJSON tx, ToJSON (Snapshot tx), ToJSON (UTxO tx)) => ToJSON (ServerOutput tx) where
@@ -207,6 +215,8 @@ instance (ToJSON tx, ToJSON (Snapshot tx), ToJSON (UTxO tx)) => ToJSON (ServerOu
       object [tagFieldName .= s "transactionInvalid", "transaction" .= tx]
     SnapshotConfirmed snapshotNumber ->
       object [tagFieldName .= s "snapshotConfirmed", "snapshotNumber" .= snapshotNumber]
+    Utxo utxo ->
+      object [tagFieldName .= s "Utxo", "utxo" .= utxo]
     InvalidInput ->
       object [tagFieldName .= s "invalidInput"]
    where
@@ -239,6 +249,8 @@ instance (FromJSON tx, FromJSON (Snapshot tx), FromJSON (UTxO tx)) => FromJSON (
         TxInvalid <$> (obj .: "transaction")
       "snapshotConfirmed" ->
         SnapshotConfirmed <$> (obj .: "snapshotNumber")
+      "Utxo" ->
+        Utxo <$> (obj .: "utxo")
       "invalidInput" ->
         pure InvalidInput
       _ ->
@@ -411,13 +423,15 @@ update Environment{party, signingKey, otherParties, snapshotStrategy} ledger (He
   (CollectingState remainingParties committed, OnChainEvent (CommitTx pt utxo)) ->
     newState newHeadState $
       [ClientEffect $ Committed pt utxo]
-      <> [OnChainEffect $ CollectComTx collectedUtxo | canCollectCom]
+        <> [OnChainEffect $ CollectComTx collectedUtxo | canCollectCom]
    where
     newHeadState = CollectingState remainingParties' newCommitted
     remainingParties' = Set.delete pt remainingParties
     newCommitted = Map.insert pt utxo committed
     canCollectCom = null remainingParties' && pt == party
     collectedUtxo = mconcat $ Map.elems newCommitted
+  (CollectingState _ committed, ClientEvent GetUtxo) ->
+    sameState [ClientEffect $ Utxo (mconcat $ Map.elems committed)]
   (_, OnChainEvent CommitTx{}) ->
     -- TODO: This should warn the user / client that something went _terribly_ wrong
     --       We shouldn't see any commit outside of the collecting state, if we do,
@@ -434,6 +448,10 @@ update Environment{party, signingKey, otherParties, snapshotStrategy} ledger (He
       [ OnChainEffect (CloseTx confirmedSnapshot)
       , Delay (contestationPeriod parameters) ShouldPostFanout
       ]
+  --
+  (OpenState CoordinatedHeadState{confirmedSnapshot}, ClientEvent GetUtxo) ->
+    sameState
+      [ClientEffect $ Utxo (utxo confirmedSnapshot)]
   --
   (OpenState CoordinatedHeadState{}, ClientEvent (NewTx tx)) ->
     -- NOTE: We deliberately do not perform any validation because:
