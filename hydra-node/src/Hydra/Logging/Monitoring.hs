@@ -60,7 +60,7 @@ prepareRegistry txMap = first monitor <$> registerMetrics
         Nothing -> pure ()
     tickN (length $ confirmed snapshot) "hydra_head_confirmed_tx" metricsMap
   monitor metricsMap (Node (ProcessedEvent _ _)) =
-    tick "hydra_head_event" metricsMap
+    tick "hydra_head_events" metricsMap
   monitor _ _ = pure ()
 
   tick metricName metricsMap =
