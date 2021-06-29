@@ -3,6 +3,9 @@ version: "3.5"
 services:
   hydra-node-1:
     image: inputoutput/hydra:hydra-node-latest
+    build:
+      context: ../
+      target: hydra-node
     volumes:
       - "$PWD:/keys:ro"
     command:
@@ -19,6 +22,9 @@ services:
 
   hydra-node-2:
     image: inputoutput/hydra:hydra-node-latest
+    build:
+      context: ../
+      target: hydra-node
     volumes:
       - "$PWD:/keys:ro"
     command:
@@ -35,6 +41,9 @@ services:
 
   hydra-node-3:
     image: inputoutput/hydra:hydra-node-latest
+    build:
+      context: ../
+      target: hydra-node
     volumes:
       - "$PWD:/keys:ro"
     command:
@@ -51,4 +60,7 @@ services:
       
   mock-chain:
     image: inputoutput/hydra:mock-chain-latest
+    build:
+      context: ../
+      target: mock-chain
     network_mode: host # Required as not configurable on node-side
