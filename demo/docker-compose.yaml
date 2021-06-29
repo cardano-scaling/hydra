@@ -12,6 +12,7 @@ services:
       [ "--node-id", "1"
       , "--api-port", "4001"
       , "--port", "5001"
+      , "--monitoring-port", "6001"
       , "--peer", "localhost@5002"
       , "--peer", "localhost@5003"
       , "--me", "/keys/alice.sk"
@@ -31,6 +32,7 @@ services:
       [ "--node-id", "2"
       , "--api-port", "4002"
       , "--port", "5002"
+      , "--monitoring-port", "6002"
       , "--peer", "localhost@5001"
       , "--peer", "localhost@5003"
       , "--me", "/keys/bob.sk"
@@ -50,6 +52,7 @@ services:
       [ "--node-id", "3"
       , "--api-port", "4003"
       , "--port", "5003"
+      , "--monitoring-port", "6003"
       , "--peer", "localhost@5001"
       , "--peer", "localhost@5002"
       , "--me", "/keys/carol.sk"
@@ -57,10 +60,33 @@ services:
       , "--party", "/keys/bob.vk"
       ]
     network_mode: host # Required as mock-chain not configurable
-      
+
   mock-chain:
     image: inputoutput/hydra:mock-chain-latest
     build:
       context: ../
       target: mock-chain
     network_mode: host # Required as not configurable on node-side
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prometheus
+    ports:
+    - 9090:9090
+    command:
+    - --config.file=/etc/prometheus/prometheus.yml
+    volumes:
+    - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    depends_on:
+    - cadvisor
+
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:latest
+    container_name: cadvisor
+    ports:
+    - 8080:8080
+    volumes:
+    - /:/rootfs:ro
+    - /var/run:/var/run:rw
+    - /sys:/sys:ro
+    - /var/lib/docker/:/var/lib/docker:ro
