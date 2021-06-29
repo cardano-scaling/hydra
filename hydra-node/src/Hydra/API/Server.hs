@@ -14,7 +14,7 @@ import Control.Concurrent.STM.TChan (newBroadcastTChanIO, writeTChan)
 import qualified Data.Aeson as Aeson
 import Hydra.HeadLogic (
   ClientInput,
-  ServerOutput,
+  ServerOutput (..),
  )
 import Hydra.Ledger (Tx (..))
 import Hydra.Logging (Tracer, traceWith)
@@ -45,6 +45,7 @@ withAPIServer host port tracer requests continuation = do
     (continuation sendOutput)
 
 runAPIServer ::
+  forall tx.
   Tx tx =>
   IP ->
   PortNumber ->
@@ -73,5 +74,6 @@ runAPIServer host port tracer requestHandler responseChannel = do
       Right request -> do
         traceWith tracer (APIRequestReceived msg)
         requestHandler request
-      Left{} ->
+      Left{} -> do
+        sendTextData con $ Aeson.encode $ InvalidInput @tx (decodeUtf8 msg)
         traceWith tracer (APIInvalidRequest msg)
