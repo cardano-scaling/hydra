@@ -46,7 +46,7 @@ data ClientInput tx
   = Init
   | Commit (UTxO tx)
   | NewTx tx
-  | GetConfirmedUtxo
+  | GetCurrentUtxo
   | Close
   | Contest
   deriving (Generic)
@@ -65,7 +65,7 @@ instance (Arbitrary tx, Arbitrary (UTxO tx)) => Arbitrary (ClientInput tx) where
     Init -> []
     Commit xs -> Commit <$> shrink xs
     NewTx tx -> NewTx <$> shrink tx
-    GetConfirmedUtxo -> []
+    GetCurrentUtxo -> []
     Close -> []
     Contest -> []
 
@@ -77,8 +77,8 @@ instance Tx tx => ToJSON (ClientInput tx) where
       object [tagFieldName .= s "commit", "utxo" .= u]
     NewTx tx ->
       object [tagFieldName .= s "newTransaction", "transaction" .= tx]
-    GetConfirmedUtxo ->
-      object [tagFieldName .= s "confirmedUtxo"]
+    GetCurrentUtxo ->
+      object [tagFieldName .= s "currentUtxo"]
     Close ->
       object [tagFieldName .= s "close"]
     Contest ->
@@ -97,8 +97,8 @@ instance Tx tx => FromJSON (ClientInput tx) where
         Commit <$> (obj .: "utxo")
       "newTransaction" ->
         NewTx <$> (obj .: "transaction")
-      "confirmedUtxo" ->
-        pure GetConfirmedUtxo
+      "currentUtxo" ->
+        pure GetCurrentUtxo
       "close" ->
         pure Close
       "contest" ->
@@ -160,7 +160,7 @@ data ServerOutput tx
   | TxSeen tx
   | TxInvalid tx
   | SnapshotConfirmed SnapshotNumber
-  | ConfirmedUtxo (UTxO tx)
+  | CurrentUtxo (UTxO tx)
   | InvalidInput
   deriving (Generic)
 
@@ -184,7 +184,7 @@ instance (Arbitrary tx, Arbitrary (UTxO tx)) => Arbitrary (ServerOutput tx) wher
     TxSeen tx -> TxSeen <$> shrink tx
     TxInvalid tx -> TxInvalid <$> shrink tx
     SnapshotConfirmed{} -> []
-    ConfirmedUtxo u -> ConfirmedUtxo <$> shrink u
+    CurrentUtxo u -> CurrentUtxo <$> shrink u
     InvalidInput -> []
 
 instance (ToJSON tx, ToJSON (Snapshot tx), ToJSON (UTxO tx)) => ToJSON (ServerOutput tx) where
@@ -215,8 +215,8 @@ instance (ToJSON tx, ToJSON (Snapshot tx), ToJSON (UTxO tx)) => ToJSON (ServerOu
       object [tagFieldName .= s "transactionInvalid", "transaction" .= tx]
     SnapshotConfirmed snapshotNumber ->
       object [tagFieldName .= s "snapshotConfirmed", "snapshotNumber" .= snapshotNumber]
-    ConfirmedUtxo utxo ->
-      object [tagFieldName .= s "confirmedUtxo", "utxo" .= utxo]
+    CurrentUtxo utxo ->
+      object [tagFieldName .= s "currentUtxo", "utxo" .= utxo]
     InvalidInput ->
       object [tagFieldName .= s "invalidInput"]
    where
@@ -249,8 +249,8 @@ instance (FromJSON tx, FromJSON (Snapshot tx), FromJSON (UTxO tx)) => FromJSON (
         TxInvalid <$> (obj .: "transaction")
       "snapshotConfirmed" ->
         SnapshotConfirmed <$> (obj .: "snapshotNumber")
-      "confirmedUtxo" ->
-        ConfirmedUtxo <$> (obj .: "utxo")
+      "currentUtxo" ->
+        CurrentUtxo <$> (obj .: "utxo")
       "invalidInput" ->
         pure InvalidInput
       _ ->
@@ -430,6 +430,8 @@ update Environment{party, signingKey, otherParties, snapshotStrategy} ledger (He
     newCommitted = Map.insert pt utxo committed
     canCollectCom = null remainingParties' && pt == party
     collectedUtxo = mconcat $ Map.elems newCommitted
+  (CollectingState _ committed, ClientEvent GetCurrentUtxo) ->
+    sameState [ClientEffect $ CurrentUtxo (mconcat $ Map.elems committed)]
   (_, OnChainEvent CommitTx{}) ->
     -- TODO: This should warn the user / client that something went _terribly_ wrong
     --       We shouldn't see any commit outside of the collecting state, if we do,
@@ -447,9 +449,9 @@ update Environment{party, signingKey, otherParties, snapshotStrategy} ledger (He
       , Delay (contestationPeriod parameters) ShouldPostFanout
       ]
   --
-  (OpenState CoordinatedHeadState{confirmedSnapshot}, ClientEvent GetConfirmedUtxo) ->
+  (OpenState CoordinatedHeadState{confirmedSnapshot}, ClientEvent GetCurrentUtxo) ->
     sameState
-      [ClientEffect $ ConfirmedUtxo (utxo confirmedSnapshot)]
+      [ClientEffect $ CurrentUtxo (utxo confirmedSnapshot)]
   --
   (OpenState CoordinatedHeadState{}, ClientEvent (NewTx tx)) ->
     -- NOTE: We deliberately do not perform any validation because:

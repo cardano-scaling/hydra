@@ -155,6 +155,20 @@ spec = describe "Behavior of one ore more hydra nodes" $ do
             send n1 (Commit (utxoRef 11))
             waitFor [n1] CommandFailed
 
+    it "outputs committed utxo when client requests it" $
+      shouldRunInSim $ do
+        chain <- simulatedChainAndNetwork
+        withHydraNode 1 [2] SnapshotAfterEachTx chain $ \n1 ->
+          withHydraNode 2 [1] NoSnapshots chain $ \n2 -> do
+            send n1 Init
+            waitFor [n1, n2] $ ReadyToCommit [1, 2]
+            send n1 (Commit (utxoRef 1))
+
+            waitFor [n2] $ Committed 1 (utxoRef 1)
+            send n2 GetCurrentUtxo
+
+            waitFor [n2] $ CurrentUtxo (utxoRefs [1])
+
     describe "in an open head" $ do
       let openHead n1 n2 = do
             send n1 Init
@@ -226,13 +240,12 @@ spec = describe "Behavior of one ore more hydra nodes" $ do
           withHydraNode 1 [2] SnapshotAfterEachTx chain $ \n1 ->
             withHydraNode 2 [1] NoSnapshots chain $ \n2 -> do
               openHead n1 n2
-
               send n1 (NewTx (aValidTx 42){txInputs = utxoRefs [1]})
               waitUntil [n1, n2] $ SnapshotConfirmed 1
 
-              send n1 GetConfirmedUtxo
+              send n1 GetCurrentUtxo
 
-              waitFor [n1] $ ConfirmedUtxo (utxoRefs [2, 42])
+              waitFor [n1] $ CurrentUtxo (utxoRefs [2, 42])
 
   describe "Hydra Node Logging" $ do
     it "traces processing of events" $ do
