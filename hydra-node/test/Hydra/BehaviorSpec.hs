@@ -101,20 +101,20 @@ spec = describe "Behavior of one ore more hydra nodes" $ do
           send n1 Close
           waitFor [n1] $ HeadIsClosed testContestationPeriod (Snapshot 0 (utxoRef 1) [])
 
-  it "does finalize head after contestation period" $
-    failAfter 5 $
-      shouldRunInSim $ do
-        chain <- simulatedChainAndNetwork
-        withHydraNode 1 [] NoSnapshots chain $ \n1 -> do
-          send n1 Init
-          waitFor [n1] $ ReadyToCommit [1]
-          send n1 (Commit (utxoRef 1))
-          waitFor [n1] $ Committed 1 (utxoRef 1)
-          waitFor [n1] $ HeadIsOpen (utxoRef 1)
-          send n1 Close
-          waitFor [n1] $ HeadIsClosed testContestationPeriod (Snapshot 0 (utxoRef 1) [])
-          threadDelay testContestationPeriod
-          waitFor [n1] $ HeadIsFinalized (utxoRef 1)
+    it "does finalize head after contestation period" $
+      failAfter 5 $
+        shouldRunInSim $ do
+          chain <- simulatedChainAndNetwork
+          withHydraNode 1 [] NoSnapshots chain $ \n1 -> do
+            send n1 Init
+            waitFor [n1] $ ReadyToCommit [1]
+            send n1 (Commit (utxoRef 1))
+            waitFor [n1] $ Committed 1 (utxoRef 1)
+            waitFor [n1] $ HeadIsOpen (utxoRef 1)
+            send n1 Close
+            waitFor [n1] $ HeadIsClosed testContestationPeriod (Snapshot 0 (utxoRef 1) [])
+            threadDelay testContestationPeriod
+            waitFor [n1] $ HeadIsFinalized (utxoRef 1)
 
   describe "Two participant Head" $ do
     it "only opens the head after all nodes committed" $
@@ -133,6 +133,26 @@ spec = describe "Behavior of one ore more hydra nodes" $ do
             send n2 (Commit (utxoRef 2))
             waitFor [n1] $ Committed 2 (utxoRef 2)
             waitFor [n1] $ HeadIsOpen (utxoRefs [1, 2])
+
+    it "cannot commit twice" $
+      shouldRunInSim $ do
+        chain <- simulatedChainAndNetwork
+        withHydraNode 1 [2] NoSnapshots chain $ \n1 ->
+          withHydraNode 2 [1] NoSnapshots chain $ \n2 -> do
+            send n1 Init
+            waitFor [n1, n2] $ ReadyToCommit [1, 2]
+
+            send n1 (Commit (utxoRef 1))
+            waitFor [n1] $ Committed 1 (utxoRef 1)
+            send n1 (Commit (utxoRef 11))
+            waitFor [n1] CommandFailed
+
+            send n2 (Commit (utxoRef 2))
+            waitFor [n1] $ Committed 2 (utxoRef 2)
+            waitFor [n1] $ HeadIsOpen (utxoRefs [1, 2])
+
+            send n1 (Commit (utxoRef 11))
+            waitFor [n1] CommandFailed
 
     describe "in an open head" $ do
       let openHead n1 n2 = do

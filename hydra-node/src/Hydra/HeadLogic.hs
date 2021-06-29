@@ -404,10 +404,8 @@ update Environment{party, signingKey, otherParties, snapshotStrategy} ledger (He
       )
       [ClientEffect $ ReadyToCommit parties]
   --
-  (CollectingState remainingParties _, ClientEvent (Commit utxo)) ->
-    if canCommit
-      then newState st [OnChainEffect (CommitTx party utxo)]
-      else error $ "you're not allowed to commit (anymore): remainingParties : " <> show remainingParties <> ", party:  " <> show party
+  (CollectingState remainingParties _, ClientEvent (Commit utxo))
+    | canCommit -> sameState [OnChainEffect (CommitTx party utxo)]
    where
     canCommit = party `Set.member` remainingParties
   (CollectingState remainingParties committed, OnChainEvent (CommitTx pt utxo)) ->
@@ -424,7 +422,7 @@ update Environment{party, signingKey, otherParties, snapshotStrategy} ledger (He
     -- TODO: This should warn the user / client that something went _terribly_ wrong
     --       We shouldn't see any commit outside of the collecting state, if we do,
     --       there's an issue our logic or onChain layer.
-    newState st []
+    sameState []
   (_, OnChainEvent (CollectComTx utxo)) ->
     let u0 = utxo
      in newState
@@ -432,8 +430,7 @@ update Environment{party, signingKey, otherParties, snapshotStrategy} ledger (He
           [ClientEffect $ HeadIsOpen u0]
   --
   (OpenState CoordinatedHeadState{confirmedSnapshot}, ClientEvent Close) ->
-    newState
-      st
+    sameState
       [ OnChainEffect (CloseTx confirmedSnapshot)
       , Delay (contestationPeriod parameters) ShouldPostFanout
       ]
@@ -445,7 +442,7 @@ update Environment{party, signingKey, otherParties, snapshotStrategy} ledger (He
     --   (b) It makes testing of the logic more complicated, for we can't
     --       send not-yet-valid transactions and simulate messages out of
     --       order
-    newState st [NetworkEffect $ ReqTx party tx]
+    sameState [NetworkEffect $ ReqTx party tx]
   (OpenState headState@CoordinatedHeadState{confirmedSnapshot, seenTxs, seenUTxO, seenSnapshot}, NetworkEvent (ReqTx _ tx)) ->
     case applyTransactions ledger seenUTxO [tx] of
       Left _err -> Wait
@@ -516,24 +513,25 @@ update Environment{party, signingKey, otherParties, snapshotStrategy} ledger (He
   --
   (_, OnChainEvent ContestTx{}) ->
     -- TODO: Handle contest tx
-    newState st []
+    sameState []
   (ClosedState utxo, ShouldPostFanout) ->
-    newState st [OnChainEffect (FanoutTx utxo)]
+    sameState [OnChainEffect (FanoutTx utxo)]
   (_, OnChainEvent (FanoutTx utxo)) ->
     -- NOTE(SN): we might care if we are not in ClosedState
     newState FinalState [ClientEffect $ HeadIsFinalized utxo]
   --
   (_, ClientEvent{}) ->
-    newState st [ClientEffect CommandFailed]
+    sameState [ClientEffect CommandFailed]
   (_, NetworkEvent (Connected host)) ->
-    newState st [ClientEffect $ PeerConnected host]
+    sameState [ClientEffect $ PeerConnected host]
   (_, NetworkEvent (Disconnected host)) ->
-    newState st [ClientEffect $ PeerDisconnected host]
+    sameState [ClientEffect $ PeerDisconnected host]
   _ ->
     Error $ InvalidEvent ev (HeadState parameters st)
  where
-  newState :: HeadStatus tx -> [Effect tx] -> Outcome tx
   newState s = NewState (HeadState parameters s)
+
+  sameState = newState st
 
   isLeader :: Party -> SnapshotNumber -> Bool
   isLeader p _sn =
