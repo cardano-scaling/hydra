@@ -69,6 +69,7 @@ common project-config
     -Wincomplete-uni-patterns
     -Wpartial-fields
     -Wredundant-constraints
+    -fprint-potential-instances
 
   if !flag(development)
       ghc-options: -Werror

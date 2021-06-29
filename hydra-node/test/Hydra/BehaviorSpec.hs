@@ -64,7 +64,7 @@ spec = describe "Behavior of one ore more hydra nodes" $ do
         chain <- simulatedChainAndNetwork
         withHydraNode 1 [] NoSnapshots chain $ \n -> do
           sendRequest n Init
-          sendRequest n (Commit (utxoRef 1))
+          sendRequestAndWaitFor n (Commit (utxoRef 1)) (Committed 1 (utxoRef 1))
 
     it "not accepts commits when the head is open" $
       shouldRunInSim $ do

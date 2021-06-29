@@ -146,6 +146,7 @@ data ServerOutput tx
   = PeerConnected Party
   | PeerDisconnected Party
   | ReadyToCommit [Party]
+  | Committed Party (UTxO tx)
   | HeadIsOpen (UTxO tx)
   | HeadIsClosed DiffTime (Snapshot tx)
   | HeadIsFinalized (UTxO tx)
@@ -168,6 +169,7 @@ instance (Arbitrary tx, Arbitrary (UTxO tx)) => Arbitrary (ServerOutput tx) wher
     PeerConnected p -> PeerConnected <$> shrink p
     PeerDisconnected p -> PeerDisconnected <$> shrink p
     ReadyToCommit xs -> ReadyToCommit <$> shrink xs
+    Committed p u -> Committed <$> shrink p <*> shrink u
     HeadIsOpen u -> HeadIsOpen <$> shrink u
     HeadIsClosed t s -> HeadIsClosed t <$> shrink s
     HeadIsFinalized u -> HeadIsFinalized <$> shrink u
@@ -185,6 +187,8 @@ instance (ToJSON tx, ToJSON (Snapshot tx), ToJSON (UTxO tx)) => ToJSON (ServerOu
       object [tagFieldName .= s "peerDisconnected", "peer" .= peer]
     ReadyToCommit parties ->
       object [tagFieldName .= s "readyToCommit", "parties" .= parties]
+    Committed party utxo ->
+      object [tagFieldName .= s "committed", "party" .= party, "utxo" .= utxo]
     HeadIsOpen utxo ->
       object [tagFieldName .= s "headIsOpen", "utxo" .= utxo]
     HeadIsClosed contestationPeriod latestSnapshot ->
@@ -219,6 +223,8 @@ instance (FromJSON tx, FromJSON (Snapshot tx), FromJSON (UTxO tx)) => FromJSON (
         PeerDisconnected <$> (obj .: "peer")
       "readyToCommit" ->
         ReadyToCommit <$> (obj .: "parties")
+      "committed" ->
+        Committed <$> (obj .: "party") <*> (obj .: "utxo")
       "headIsOpen" ->
         HeadIsOpen <$> (obj .: "utxo")
       "headIsClosed" ->
