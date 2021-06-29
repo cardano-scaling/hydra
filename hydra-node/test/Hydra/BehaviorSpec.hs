@@ -1,5 +1,4 @@
 {-# LANGUAGE TypeApplications #-}
-{-# OPTIONS_GHC -Wno-deprecations #-}
 {-# OPTIONS_GHC -Wno-unused-matches #-}
 
 module Hydra.BehaviorSpec where
@@ -165,9 +164,9 @@ spec = describe "Behavior of one ore more hydra nodes" $ do
             send n1 (Commit (utxoRef 1))
 
             waitFor [n2] $ Committed 1 (utxoRef 1)
-            send n2 GetCurrentUtxo
+            send n2 GetUtxo
 
-            waitFor [n2] $ CurrentUtxo (utxoRefs [1])
+            waitFor [n2] $ Utxo (utxoRefs [1])
 
     describe "in an open head" $ do
       let openHead n1 n2 = do
@@ -243,9 +242,9 @@ spec = describe "Behavior of one ore more hydra nodes" $ do
               send n1 (NewTx (aValidTx 42){txInputs = utxoRefs [1]})
               waitUntil [n1, n2] $ SnapshotConfirmed 1
 
-              send n1 GetCurrentUtxo
+              send n1 GetUtxo
 
-              waitFor [n1] $ CurrentUtxo (utxoRefs [2, 42])
+              waitFor [n1] $ Utxo (utxoRefs [2, 42])
 
   describe "Hydra Node Logging" $ do
     it "traces processing of events" $ do
@@ -299,7 +298,6 @@ waitUntil nodes expected =
     next <- waitForNext n
     unless (next == expected) $ go n
 
--- | A thin layer around 'HydraNode' to be able to 'waitFor'.
 -- | A thin layer around 'HydraNode' to be able to 'waitFor'.
 data TestHydraNode tx m = TestHydraNode
   { send :: ClientInput tx -> m ()
