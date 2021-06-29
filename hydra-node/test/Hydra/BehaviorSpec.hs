@@ -174,16 +174,6 @@ spec = describe "Behavior of one ore more hydra nodes" $ do
               send n1 Close
               waitFor [n2] $ HeadIsClosed testContestationPeriod (Snapshot 0 (utxoRefs [1, 2]) [])
 
-      -- TODO(SN): does not really assert anything
-      it "accepts valid new transactions" $
-        shouldRunInSim $ do
-          chain <- simulatedChainAndNetwork
-          withHydraNode 1 [2] NoSnapshots chain $ \n1 ->
-            withHydraNode 2 [1] NoSnapshots chain $ \n2 -> do
-              openHead n1 n2
-
-              send n2 (NewTx $ aValidTx 3)
-
       it "valid new transactions are seen by all parties" $
         shouldRunInSim $ do
           chain <- simulatedChainAndNetwork
