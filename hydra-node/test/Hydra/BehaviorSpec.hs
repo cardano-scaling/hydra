@@ -117,60 +117,6 @@ spec = describe "Behavior of one ore more hydra nodes" $ do
           waitFor [n1] $ HeadIsFinalized (utxoRef 1)
 
   describe "Two participant Head" $ do
-    it "accepts a tx after the head was opened between two nodes" $
-      shouldRunInSim $ do
-        chain <- simulatedChainAndNetwork
-        withHydraNode 1 [2] NoSnapshots chain $ \n1 ->
-          withHydraNode 2 [1] NoSnapshots chain $ \n2 -> do
-            send n1 Init
-            waitFor [n1, n2] $ ReadyToCommit [1, 2]
-
-            send n1 (Commit (utxoRef 1))
-            waitFor [n1, n2] $ Committed 1 (utxoRef 1)
-
-            send n2 (Commit (utxoRef 2))
-            waitFor [n2] $ Committed 2 (utxoRef 2)
-            waitFor [n2] $ HeadIsOpen (utxoRefs [1, 2])
-
-            send n2 (NewTx $ aValidTx 3)
-
-    it "confirms depending transactions" $
-      shouldRunInSim $ do
-        chain <- simulatedChainAndNetwork
-        withHydraNode 1 [2] NoSnapshots chain $ \n1 ->
-          withHydraNode 2 [1] NoSnapshots chain $ \n2 -> do
-            send n1 Init
-            waitFor [n1, n2] $ ReadyToCommit [1, 2]
-            send n1 (Commit (utxoRef 1))
-            send n2 (Commit (utxoRef 2))
-            waitFor [n1, n2] $ Committed 1 (utxoRef 1)
-            waitFor [n1, n2] $ Committed 2 (utxoRef 2)
-            waitFor [n1, n2] $ HeadIsOpen (utxoRefs [1, 2])
-            -- XXX(SN): ^^ Boilerplate!
-
-            let firstTx = SimpleTx 3 (utxoRef 1) (utxoRef 3)
-                secondTx = SimpleTx 4 (utxoRef 3) (utxoRef 4)
-            send n2 (NewTx secondTx)
-            send n1 (NewTx firstTx)
-            waitFor [n1] $ TxSeen firstTx
-            waitFor [n1] $ TxSeen secondTx
-
-    it "sees the head closed by other nodes" $
-      shouldRunInSim $ do
-        chain <- simulatedChainAndNetwork
-        withHydraNode 1 [2] NoSnapshots chain $ \n1 ->
-          withHydraNode 2 [1] NoSnapshots chain $ \n2 -> do
-            send n1 Init
-            waitFor [n1, n2] $ ReadyToCommit [1, 2]
-            send n1 (Commit (utxoRef 1))
-            waitFor [n1, n2] $ Committed 1 (utxoRef 1)
-            send n2 (Commit (utxoRef 2))
-            waitFor [n1, n2] $ Committed 2 (utxoRef 2)
-            waitFor [n1, n2] $ HeadIsOpen (utxoRefs [1, 2])
-
-            send n1 Close
-            waitFor [n2] $ HeadIsClosed testContestationPeriod (Snapshot 0 (utxoRefs [1, 2]) [])
-
     it "only opens the head after all nodes committed" $
       shouldRunInSim $ do
         chain <- simulatedChainAndNetwork
@@ -188,11 +134,8 @@ spec = describe "Behavior of one ore more hydra nodes" $ do
             waitFor [n1] $ Committed 2 (utxoRef 2)
             waitFor [n1] $ HeadIsOpen (utxoRefs [1, 2])
 
-    it "valid new transactions are seen by all parties" $
-      shouldRunInSim $ do
-        chain <- simulatedChainAndNetwork
-        withHydraNode 1 [2] NoSnapshots chain $ \n1 ->
-          withHydraNode 2 [1] NoSnapshots chain $ \n2 -> do
+    describe "in an open head" $ do
+      let openHead n1 n2 =  do
             send n1 Init
             waitFor [n1, n2] $ ReadyToCommit [1, 2]
             send n1 (Commit (utxoRef 1))
@@ -200,38 +143,71 @@ spec = describe "Behavior of one ore more hydra nodes" $ do
             send n2 (Commit (utxoRef 2))
             waitFor [n1, n2] $ Committed 2 (utxoRef 2)
             waitFor [n1, n2] $ HeadIsOpen (utxoRefs [1, 2])
-            -- XXX(SN): ^^ Boilerplate!
 
-            send n1 (NewTx (aValidTx 42))
-            waitFor [n1, n2] $ TxSeen (aValidTx 42)
+      it "sees the head closed by other nodes" $
+        shouldRunInSim $ do
+          chain <- simulatedChainAndNetwork
+          withHydraNode 1 [2] NoSnapshots chain $ \n1 ->
+            withHydraNode 2 [1] NoSnapshots chain $ \n2 -> do
+              openHead n1 n2
 
-    it "valid new transactions get snapshotted" $
-      shouldRunInSim $ do
-        chain <- simulatedChainAndNetwork
-        withHydraNode 1 [2] SnapshotAfterEachTx chain $ \n1 ->
-          withHydraNode 2 [1] NoSnapshots chain $ \n2 -> do
-            send n1 Init
-            waitFor [n1, n2] $ ReadyToCommit [1, 2]
-            send n1 (Commit (utxoRef 1))
-            waitFor [n1, n2] $ Committed 1 (utxoRef 1)
-            send n2 (Commit (utxoRef 2))
-            waitFor [n1, n2] $ Committed 2 (utxoRef 2)
-            waitFor [n1, n2] $ HeadIsOpen (utxoRefs [1, 2])
-            -- XXX(SN): ^^ Boilerplate!
+              send n1 Close
+              waitFor [n2] $ HeadIsClosed testContestationPeriod (Snapshot 0 (utxoRefs [1, 2]) [])
 
-            send n1 (NewTx (aValidTx 42))
-            waitFor [n1, n2] $ TxSeen (aValidTx 42)
+      it "accepts valid new transactions" $
+        shouldRunInSim $ do
+          chain <- simulatedChainAndNetwork
+          withHydraNode 1 [2] NoSnapshots chain $ \n1 ->
+            withHydraNode 2 [1] NoSnapshots chain $ \n2 -> do
+              openHead n1 n2
 
-            waitFor [n1] $ SnapshotConfirmed 1
+              send n2 (NewTx $ aValidTx 3)
+              -- TODO(SN): does not really assert anything
 
-            send n1 Close
-            let expectedSnapshot =
-                  Snapshot
-                    { number = 1
-                    , utxo = utxoRefs [42, 1, 2]
-                    , confirmed = [aValidTx 42]
-                    }
-            waitFor [n1] $ HeadIsClosed testContestationPeriod expectedSnapshot
+      it "valid new transactions are seen by all parties" $
+        shouldRunInSim $ do
+          chain <- simulatedChainAndNetwork
+          withHydraNode 1 [2] NoSnapshots chain $ \n1 ->
+            withHydraNode 2 [1] NoSnapshots chain $ \n2 -> do
+              openHead n1 n2
+
+              send n1 (NewTx (aValidTx 42))
+              waitFor [n1, n2] $ TxSeen (aValidTx 42)
+
+      it "reports transactions as seen only when they are applicable" $
+        shouldRunInSim $ do
+          chain <- simulatedChainAndNetwork
+          withHydraNode 1 [2] NoSnapshots chain $ \n1 ->
+            withHydraNode 2 [1] NoSnapshots chain $ \n2 -> do
+              openHead n1 n2
+
+              let firstTx = SimpleTx 3 (utxoRef 1) (utxoRef 3)
+                  secondTx = SimpleTx 4 (utxoRef 3) (utxoRef 4)
+              send n2 (NewTx secondTx)
+              send n1 (NewTx firstTx)
+              waitFor [n1] $ TxSeen firstTx
+              waitFor [n1] $ TxSeen secondTx
+
+      it "valid new transactions get snapshotted" $
+        shouldRunInSim $ do
+          chain <- simulatedChainAndNetwork
+          withHydraNode 1 [2] SnapshotAfterEachTx chain $ \n1 ->
+            withHydraNode 2 [1] NoSnapshots chain $ \n2 -> do
+              openHead n1 n2
+
+              send n1 (NewTx (aValidTx 42))
+              waitFor [n1, n2] $ TxSeen (aValidTx 42)
+
+              waitFor [n1] $ SnapshotConfirmed 1
+
+              send n1 Close
+              let expectedSnapshot =
+                    Snapshot
+                      { number = 1
+                      , utxo = utxoRefs [42, 1, 2]
+                      , confirmed = [aValidTx 42]
+                      }
+              waitFor [n1] $ HeadIsClosed testContestationPeriod expectedSnapshot
 
   describe "Hydra Node Logging" $ do
     it "traces processing of events" $ do
