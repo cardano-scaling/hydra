@@ -181,6 +181,7 @@ test-suite tests
     Hydra.LedgerSpec
     Hydra.Ledger.Builder
     Hydra.Ledger.SimpleSpec
+    Hydra.Logging.MonitoringSpec
     Hydra.NetworkSpec
     Hydra.Network.HeartbeatSpec
     Hydra.Network.BroadcastToSelfSpec
@@ -206,6 +207,7 @@ test-suite tests
     , network
     , process
     , quickcheck-instances
+    , req
     , text
     , typed-protocols-examples
     , websockets
