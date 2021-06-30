@@ -19,7 +19,7 @@ import Control.Concurrent.STM (
   writeTChan,
  )
 import Control.Monad.Class.MonadAsync (wait)
-import Hydra.Logging (Tracer)
+import Hydra.Logging (Tracer, nullTracer)
 import Hydra.Network (
   Host (..),
   Network (..),
@@ -169,8 +169,8 @@ withOuroborosNetwork tracer localHost remoteHosts networkCallback between = do
    where
     networkConnectTracers =
       NetworkConnectTracers
-        { nctMuxTracer = contramap (WithHost localHost . TraceMux) tracer
-        , nctHandshakeTracer = contramap (WithHost localHost . TraceHandshake) tracer
+        { nctMuxTracer = nullTracer
+        , nctHandshakeTracer = nullTracer
         }
 
   listen iomgr app = do
@@ -193,8 +193,8 @@ withOuroborosNetwork tracer localHost remoteHosts networkCallback between = do
    where
     networkServerTracers =
       NetworkServerTracers
-        { nstMuxTracer = contramap (WithHost localHost . TraceMux) tracer
-        , nstHandshakeTracer = contramap (WithHost localHost . TraceHandshake) tracer
+        { nstMuxTracer = nullTracer
+        , nstHandshakeTracer = nullTracer
         , nstErrorPolicyTracer = contramap (WithHost localHost . TraceErrorPolicy) tracer
         , nstAcceptPolicyTracer = contramap (WithHost localHost . TraceAcceptPolicy) tracer
         }
