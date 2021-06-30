@@ -102,7 +102,9 @@ runHydraNode tracer node@HydraNode{eq, env = Environment{party}} = do
     e <- nextEvent eq
     traceWith tracer $ ProcessingEvent party e
     processNextEvent node e >>= \case
-      Left err -> traceWith tracer (ErrorHandlingEvent party e err) >> throwIO err
+      -- TODO(SN): Handling of 'Left' is untested, i.e. the fact that it only
+      -- does trace and not throw!
+      Left err -> traceWith tracer (ErrorHandlingEvent party e err)
       Right effs -> forM_ effs (processEffect node tracer) >> traceWith tracer (ProcessedEvent party e)
 
 -- | Monadic interface around 'Hydra.Logic.update'.
