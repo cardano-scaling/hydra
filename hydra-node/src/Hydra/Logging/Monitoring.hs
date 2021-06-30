@@ -72,7 +72,7 @@ allMetrics =
   [ MetricDefinition (Name "hydra_head_events") CounterMetric $ flip registerCounter mempty
   , MetricDefinition (Name "hydra_head_requested_tx") CounterMetric $ flip registerCounter mempty
   , MetricDefinition (Name "hydra_head_confirmed_tx") CounterMetric $ flip registerCounter mempty
-  , MetricDefinition (Name "hydra_head_tx_confirmation_time_ms") HistogramMetric $ \n -> registerHistogram n mempty [100, 200 .. 2000]
+  , MetricDefinition (Name "hydra_head_tx_confirmation_time_ms") HistogramMetric $ \n -> registerHistogram n mempty [5, 10, 50, 100, 1000]
   ]
 
 -- | Main monitoring function that updates metrics store given some log entries.
