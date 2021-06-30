@@ -70,7 +70,16 @@ spec = describe "End-to-end test using a mocked chain though" $ do
                 send n1 $ input "newTransaction" ["transaction" .= tx]
 
                 waitFor 10 [n1, n2, n3] $ output "transactionSeen" ["transaction" .= tx]
-                waitFor 10 [n1, n2, n3] $ output "snapshotConfirmed" ["snapshotNumber" .= int 1]
+                waitFor 10 [n1, n2, n3] $
+                  output
+                    "snapshotConfirmed"
+                    [ "snapshot"
+                        .= object
+                          [ "confirmedTransactions" .= [tx]
+                          , "snapshotNumber" .= int 1
+                          , "utxo" .= [int 2, 3, 4]
+                          ]
+                    ]
 
                 send n1 $ input "getUtxo" []
                 waitFor 10 [n1] $ output "Utxo" ["utxo" .= [int 2, 3, 4]]

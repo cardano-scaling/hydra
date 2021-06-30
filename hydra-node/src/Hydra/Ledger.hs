@@ -72,20 +72,30 @@ type Committed tx = Map Party (UTxO tx)
 class
   ( Eq tx
   , Eq (UTxO tx)
+  , Eq (TxId tx)
   , Show tx
   , Show (UTxO tx)
+  , Show (TxId tx)
   , Read tx
   , Read (UTxO tx)
+  , Read (TxId tx)
   , Monoid (UTxO tx)
   , Typeable tx
+  , Typeable (TxId tx)
   , FromJSON tx
   , FromJSON (UTxO tx)
+  , FromJSON (TxId tx)
   , ToJSON tx
   , ToJSON (UTxO tx)
+  , ToJSON (TxId tx)
+  , Ord (TxId tx)
   ) =>
   Tx tx
   where
   type UTxO tx
+  type TxId tx
+
+  txId :: tx -> TxId tx
 
 data Ledger tx = Ledger
   { applyTransactions :: UTxO tx -> [tx] -> Either ValidationError (UTxO tx)

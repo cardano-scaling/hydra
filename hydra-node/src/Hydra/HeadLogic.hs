@@ -159,7 +159,7 @@ data ServerOutput tx
   | CommandFailed
   | TxSeen tx
   | TxInvalid tx
-  | SnapshotConfirmed SnapshotNumber
+  | SnapshotConfirmed (Snapshot tx)
   | Utxo (UTxO tx)
   | InvalidInput
   deriving (Generic)
@@ -214,7 +214,7 @@ instance (ToJSON tx, ToJSON (Snapshot tx), ToJSON (UTxO tx)) => ToJSON (ServerOu
     TxInvalid tx ->
       object [tagFieldName .= s "transactionInvalid", "transaction" .= tx]
     SnapshotConfirmed snapshotNumber ->
-      object [tagFieldName .= s "snapshotConfirmed", "snapshotNumber" .= snapshotNumber]
+      object [tagFieldName .= s "snapshotConfirmed", "snapshot" .= snapshotNumber]
     Utxo utxo ->
       object [tagFieldName .= s "Utxo", "utxo" .= utxo]
     InvalidInput ->
@@ -248,7 +248,7 @@ instance (FromJSON tx, FromJSON (Snapshot tx), FromJSON (UTxO tx)) => FromJSON (
       "transactionInvalid" ->
         TxInvalid <$> (obj .: "transaction")
       "snapshotConfirmed" ->
-        SnapshotConfirmed <$> (obj .: "snapshotNumber")
+        SnapshotConfirmed <$> (obj .: "snapshot")
       "Utxo" ->
         Utxo <$> (obj .: "utxo")
       "invalidInput" ->
@@ -506,7 +506,7 @@ update Environment{party, signingKey, otherParties, snapshotStrategy} ledger (He
                           , seenTxs = seenTxs \\ confirmed snapshot
                           }
                     )
-                    [ClientEffect $ SnapshotConfirmed sn]
+                    [ClientEffect $ SnapshotConfirmed snapshot]
                 else
                   newState
                     ( OpenState $

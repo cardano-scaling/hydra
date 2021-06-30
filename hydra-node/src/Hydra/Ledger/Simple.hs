@@ -22,11 +22,14 @@ import Hydra.Ledger
 
 instance Tx SimpleTx where
   type UTxO SimpleTx = Set TxIn
+  type TxId SimpleTx = SimpleId
+
+  txId (SimpleTx tid _ _) = tid
 
 -- | Simple transaction.
--- A transaction is a 'TxId', a list of inputs and a list of outputs.
+-- A transaction is a 'SimpleId', a list of inputs and a list of outputs.
 data SimpleTx = SimpleTx
-  { txId :: TxId
+  { txSimpleId :: SimpleId
   , txInputs :: UTxO SimpleTx
   , txOutputs :: UTxO SimpleTx
   }
@@ -58,7 +61,7 @@ instance ToCBOR SimpleTx where
 instance FromCBOR SimpleTx where
   fromCBOR = SimpleTx <$> fromCBOR <*> fromCBOR <*> fromCBOR
 
-type TxId = Integer
+type SimpleId = Integer
 
 -- |An identifier for a single output of a 'SimpleTx'.
 newtype TxIn = TxIn {unTxIn :: Integer}

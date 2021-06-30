@@ -222,7 +222,7 @@ spec = describe "Behavior of one ore more hydra nodes" $ do
               send n1 (NewTx (aValidTx 42))
               waitFor [n1, n2] $ TxSeen (aValidTx 42)
 
-              waitFor [n1] $ SnapshotConfirmed 1
+              waitFor [n1] $ SnapshotConfirmed (Snapshot 1 (utxoRefs [1, 2, 42]) [aValidTx 42])
 
               send n1 Close
               let expectedSnapshot =
@@ -239,8 +239,9 @@ spec = describe "Behavior of one ore more hydra nodes" $ do
           withHydraNode 1 [2] SnapshotAfterEachTx chain $ \n1 ->
             withHydraNode 2 [1] NoSnapshots chain $ \n2 -> do
               openHead n1 n2
-              send n1 (NewTx (aValidTx 42){txInputs = utxoRefs [1]})
-              waitUntil [n1, n2] $ SnapshotConfirmed 1
+              let newTx = (aValidTx 42){txInputs = utxoRefs [1]}
+              send n1 (NewTx newTx)
+              waitUntil [n1, n2] $ SnapshotConfirmed (Snapshot 1 (utxoRefs [2, 42]) [newTx])
 
               send n1 GetUtxo
 
@@ -292,7 +293,7 @@ waitUntil ::
   ServerOutput tx ->
   m ()
 waitUntil nodes expected =
-  failAfter 1 $ forConcurrently_ nodes $ go
+  failAfter 1 $ forConcurrently_ nodes go
  where
   go n = do
     next <- waitForNext n
