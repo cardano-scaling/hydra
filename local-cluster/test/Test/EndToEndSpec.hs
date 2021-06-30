@@ -82,7 +82,7 @@ spec = describe "End-to-end test using a mocked chain though" $ do
                     ]
 
                 send n1 $ input "getUtxo" []
-                waitFor 10 [n1] $ output "Utxo" ["utxo" .= [int 2, 3, 4]]
+                waitFor 10 [n1] $ output "utxo" ["utxo" .= [int 2, 3, 4]]
 
                 send n1 $ input "close" []
                 waitFor 3 [n1] $

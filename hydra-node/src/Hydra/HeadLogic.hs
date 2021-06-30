@@ -216,7 +216,7 @@ instance (ToJSON tx, ToJSON (Snapshot tx), ToJSON (UTxO tx)) => ToJSON (ServerOu
     SnapshotConfirmed snapshotNumber ->
       object [tagFieldName .= s "snapshotConfirmed", "snapshot" .= snapshotNumber]
     Utxo utxo ->
-      object [tagFieldName .= s "Utxo", "utxo" .= utxo]
+      object [tagFieldName .= s "utxo", "utxo" .= utxo]
     InvalidInput ->
       object [tagFieldName .= s "invalidInput"]
    where
@@ -249,7 +249,7 @@ instance (FromJSON tx, FromJSON (Snapshot tx), FromJSON (UTxO tx)) => FromJSON (
         TxInvalid <$> (obj .: "transaction")
       "snapshotConfirmed" ->
         SnapshotConfirmed <$> (obj .: "snapshot")
-      "Utxo" ->
+      "utxo" ->
         Utxo <$> (obj .: "utxo")
       "invalidInput" ->
         pure InvalidInput
