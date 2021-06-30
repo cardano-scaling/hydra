@@ -38,7 +38,7 @@ main = do
     withMonitoring monitoringPort tracer' $ \tracer -> do
       eq <- createEventQueue
        -- XXX(SN): this is soo weird, [] and mempty are both `parties`
-      let headState = createHeadState [] (HeadParameters 3 mempty)
+      let headState = createHeadState [] (HeadParameters 10 mempty)
       hh <- createHydraHead headState Ledger.simpleLedger
       oc <- createMockChainClient eq (contramap MockChain tracer)
       withNetwork (contramap Network tracer) (party env) host port peers (putEvent eq . NetworkEvent) $
