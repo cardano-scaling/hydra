@@ -21,7 +21,9 @@ import Hydra.Ledger (
   Tx,
   UTxO,
   ValidationError,
+  ValidationResult (Invalid, Valid),
   applyTransactions,
+  canApply,
   sign,
   verify,
  )
@@ -158,6 +160,7 @@ data ServerOutput tx
   | HeadIsFinalized (UTxO tx)
   | CommandFailed
   | TxSeen tx
+  | TxValid tx
   | TxInvalid tx
   | SnapshotConfirmed (Snapshot tx)
   | Utxo (UTxO tx)
@@ -182,6 +185,7 @@ instance (Arbitrary tx, Arbitrary (UTxO tx)) => Arbitrary (ServerOutput tx) wher
     HeadIsFinalized u -> HeadIsFinalized <$> shrink u
     CommandFailed -> []
     TxSeen tx -> TxSeen <$> shrink tx
+    TxValid tx -> TxValid <$> shrink tx
     TxInvalid tx -> TxInvalid <$> shrink tx
     SnapshotConfirmed{} -> []
     Utxo u -> Utxo <$> shrink u
@@ -211,6 +215,8 @@ instance (ToJSON tx, ToJSON (Snapshot tx), ToJSON (UTxO tx)) => ToJSON (ServerOu
       object [tagFieldName .= s "commandFailed"]
     TxSeen tx ->
       object [tagFieldName .= s "transactionSeen", "transaction" .= tx]
+    TxValid tx ->
+      object [tagFieldName .= s "transactionValid", "transaction" .= tx]
     TxInvalid tx ->
       object [tagFieldName .= s "transactionInvalid", "transaction" .= tx]
     SnapshotConfirmed snapshotNumber ->
@@ -245,6 +251,8 @@ instance (FromJSON tx, FromJSON (Snapshot tx), FromJSON (UTxO tx)) => FromJSON (
         pure CommandFailed
       "transactionSeen" ->
         TxSeen <$> (obj .: "transaction")
+      "transactionValid" ->
+        TxValid <$> (obj .: "transaction")
       "transactionInvalid" ->
         TxInvalid <$> (obj .: "transaction")
       "snapshotConfirmed" ->
@@ -453,14 +461,19 @@ update Environment{party, signingKey, otherParties, snapshotStrategy} ledger (He
     sameState
       [ClientEffect $ Utxo (utxo confirmedSnapshot)]
   --
-  (OpenState CoordinatedHeadState{}, ClientEvent (NewTx tx)) ->
+  (OpenState CoordinatedHeadState{seenUTxO}, ClientEvent (NewTx tx)) ->
     -- NOTE: We deliberately do not perform any validation because:
     --
     --   (a) The validation is already done when handling ReqTx
     --   (b) It makes testing of the logic more complicated, for we can't
     --       send not-yet-valid transactions and simulate messages out of
     --       order
-    sameState [NetworkEffect $ ReqTx party tx]
+    sameState $ [NetworkEffect $ ReqTx party tx, ClientEffect clientFeedback]
+   where
+    clientFeedback =
+      case canApply ledger seenUTxO tx of
+        Valid -> TxValid tx
+        Invalid _err -> TxInvalid tx
   (OpenState headState@CoordinatedHeadState{confirmedSnapshot, seenTxs, seenUTxO, seenSnapshot}, NetworkEvent (ReqTx _ tx)) ->
     case applyTransactions ledger seenUTxO [tx] of
       Left _err -> Wait

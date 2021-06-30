@@ -196,6 +196,7 @@ spec = describe "Behavior of one ore more hydra nodes" $ do
               openHead n1 n2
 
               send n1 (NewTx (aValidTx 42))
+              waitFor [n1] $ TxValid (aValidTx 42)
               waitFor [n1, n2] $ TxSeen (aValidTx 42)
 
       it "reports transactions as seen only when they are applicable" $
@@ -207,10 +208,14 @@ spec = describe "Behavior of one ore more hydra nodes" $ do
 
               let firstTx = SimpleTx 3 (utxoRef 1) (utxoRef 3)
                   secondTx = SimpleTx 4 (utxoRef 3) (utxoRef 4)
+
               send n2 (NewTx secondTx)
+              waitFor [n2] $ TxInvalid secondTx
               send n1 (NewTx firstTx)
-              waitFor [n1] $ TxSeen firstTx
-              waitFor [n1] $ TxSeen secondTx
+              waitFor [n1] $ TxValid firstTx
+
+              waitFor [n1, n2] $ TxSeen firstTx
+              waitFor [n1, n2] $ TxSeen secondTx
 
       it "valid new transactions get snapshotted" $
         shouldRunInSim $ do
@@ -220,6 +225,7 @@ spec = describe "Behavior of one ore more hydra nodes" $ do
               openHead n1 n2
 
               send n1 (NewTx (aValidTx 42))
+              waitFor [n1] $ TxValid (aValidTx 42)
               waitFor [n1, n2] $ TxSeen (aValidTx 42)
 
               waitFor [n1] $ SnapshotConfirmed (Snapshot 1 (utxoRefs [1, 2, 42]) [aValidTx 42])
