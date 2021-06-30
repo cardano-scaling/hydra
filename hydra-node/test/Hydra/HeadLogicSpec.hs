@@ -202,8 +202,13 @@ spec = describe "Hydra Coordinated Head Protocol" $ do
     s1 <- assertNewState $ update env ledger s0 firstReqSn
     update env ledger s1 secondReqSn `shouldBe` Error (InvalidEvent secondReqSn s1)
 
+  it "ignores in-flight ReqTx when closed" $ do
+    let s0 = inClosedState threeParties
+        event = NetworkEvent $ ReqTx 1 (aValidTx 42)
+    update env ledger s0 event `shouldBe` Error (InvalidEvent event s0)
+
   it "notifies client when it receives a ping" $ do
-    update env ledger (initialState threeParties ledger) (NetworkEvent $ Connected 1)
+    update env ledger (inOpenState threeParties ledger) (NetworkEvent $ Connected 1)
       `hasEffect_` ClientEffect (PeerConnected 1)
 
   prop "can handle OnChainEvent in any state" prop_handleOnChainEventInAnyState
@@ -313,6 +318,17 @@ initialState parties Ledger{initUTxO} =
               , parties
               }
         }
+
+inClosedState :: [Party] -> HeadState SimpleTx
+inClosedState parties =
+  HeadState
+    { headStatus = ClosedState mempty
+    , headParameters =
+        HeadParameters
+          { contestationPeriod = 42
+          , parties
+          }
+    }
 
 getConfirmedSnapshot :: HeadState tx -> Maybe (Snapshot tx)
 getConfirmedSnapshot HeadState{headStatus} = case headStatus of
