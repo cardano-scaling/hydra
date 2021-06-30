@@ -49,11 +49,12 @@ data Options = Options
   , monitoringPort :: Maybe PortNumber
   , me :: FilePath
   , parties :: [FilePath]
+  , mockChainPorts :: [PortNumber]
   }
   deriving (Eq, Show)
 
 defaultOptions :: Options
-defaultOptions = Options (Verbose "HydraNode") 1 "127.0.0.1" 5001 [] "127.0.0.1" 4001 Nothing "me.sk" []
+defaultOptions = Options (Verbose "HydraNode") 1 "127.0.0.1" 5001 [] "127.0.0.1" 4001 Nothing "me.sk" [] [56789, 56790, 56791]
 
 hydraNodeParser :: Parser Options
 hydraNodeParser =
@@ -68,6 +69,7 @@ hydraNodeParser =
     <*> optional monitoringPortParser
     <*> signingKeyFileParser
     <*> many verificationKeyFileParser
+    <*> mockChainPortsParser
 
 signingKeyFileParser :: Parser FilePath
 signingKeyFileParser =
@@ -167,6 +169,15 @@ monitoringPortParser =
     ( long "monitoring-port"
         <> metavar "PORT"
         <> help "The port this node listens on for monitoring and metrics. If left empty, monitoring server is not started"
+    )
+
+mockChainPortsParser :: Parser [PortNumber]
+mockChainPortsParser =
+  option
+    auto
+    ( long "mock-chain-ports"
+        <> metavar "[PORT]"
+        <> help "The list of ports to connect to mock-chain, in the order: sync, catch-up, post."
     )
 
 hydraNodeOptions :: ParserInfo Options

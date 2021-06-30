@@ -32,7 +32,7 @@ import Hydra.Options (Options (..), parseHydraOptions)
 
 main :: IO ()
 main = do
-  o@Options{verbosity, host, port, peers, apiHost, apiPort, monitoringPort} <- identifyNode <$> parseHydraOptions
+  o@Options{verbosity, host, port, peers, apiHost, apiPort, monitoringPort, mockChainPorts} <- identifyNode <$> parseHydraOptions
   env <- initEnvironment o
   withTracer verbosity $ \tracer' ->
     withMonitoring monitoringPort tracer' $ \tracer -> do
@@ -40,7 +40,7 @@ main = do
       -- XXX(SN): this is soo weird, [] and mempty are both `parties`
       let headState = createHeadState [] (HeadParameters 10 mempty)
       hh <- createHydraHead headState Ledger.simpleLedger
-      oc <- createMockChainClient eq (contramap MockChain tracer)
+      oc <- createMockChainClient mockChainPorts eq (contramap MockChain tracer)
       withNetwork (contramap Network tracer) (party env) host port peers (putEvent eq . NetworkEvent) $
         \hn ->
           withAPIServer apiHost apiPort (contramap APIServer tracer) (putEvent eq . ClientEvent) $
