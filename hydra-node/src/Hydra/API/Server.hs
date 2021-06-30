@@ -32,9 +32,9 @@ import Network.WebSockets (
 data APIServerLog
   = APIServerStarted {listeningPort :: PortNumber}
   | NewAPIConnection
-  | APIResponseSent {sentResponse :: LByteString}
-  | APIRequestReceived {receivedRequest :: LByteString}
-  | APIInvalidRequest {receivedRequest :: LByteString}
+  | APIOutputSent {sendOutput :: LByteString}
+  | APIInputReceived {receivedInput :: LByteString}
+  | APIInvalidInput {receivedInput :: LByteString}
   deriving (Eq, Show)
 
 withAPIServer ::
@@ -49,13 +49,10 @@ withAPIServer host port tracer inputHandler continuation = do
   responseChannel <- newBroadcastTChanIO
   history <- newTVarIO []
   let sendOutput output = atomically $ do
-        modifyTVar' history (Right output :)
+        modifyTVar' history (output :)
         writeTChan responseChannel output
-  let recvInput input = do
-        atomically $ modifyTVar' history (Left input :)
-        inputHandler input
   race_
-    (runAPIServer host port tracer history recvInput responseChannel)
+    (runAPIServer host port tracer history inputHandler responseChannel)
     (continuation sendOutput)
 
 runAPIServer ::
@@ -64,11 +61,11 @@ runAPIServer ::
   IP ->
   PortNumber ->
   Tracer IO APIServerLog ->
-  TVar [Either (ClientInput tx) (ServerOutput tx)] ->
+  TVar [ServerOutput tx] ->
   (ClientInput tx -> IO ()) ->
   TChan (ServerOutput tx) ->
   IO ()
-runAPIServer host port tracer history recvInput responseChannel = do
+runAPIServer host port tracer history inputHandler responseChannel = do
   traceWith tracer (APIServerStarted port)
   runServer (show host) (fromIntegral port) $ \pending -> do
     con <- acceptRequest pending
@@ -76,27 +73,25 @@ runAPIServer host port tracer history recvInput responseChannel = do
     traceWith tracer NewAPIConnection
     forwardHistory con
     withPingThread con 30 (pure ()) $
-      race_ (receiveRequests con) (sendOutputs chan con)
+      race_ (receiveInputs con) (sendOutputs chan con)
  where
   sendOutputs chan con = forever $ do
     response <- STM.atomically $ readTChan chan
     let sentResponse = Aeson.encode response
     sendTextData con sentResponse
-    traceWith tracer (APIResponseSent sentResponse)
+    traceWith tracer (APIOutputSent sentResponse)
 
-  receiveRequests con = forever $ do
+  receiveInputs con = forever $ do
     msg <- receiveData con
     case Aeson.eitherDecode msg of
-      Right request -> do
-        traceWith tracer (APIRequestReceived msg)
-        recvInput request
+      Right input -> do
+        traceWith tracer (APIInputReceived msg)
+        inputHandler input
       Left{} -> do
         sendTextData con $ Aeson.encode $ InvalidInput @tx
-        traceWith tracer (APIInvalidRequest msg)
+        traceWith tracer (APIInvalidInput msg)
 
   forwardHistory con = do
     hist <- STM.atomically (readTVar history)
-    let encodeAndReverse xs = \case
-          Left clientOutput -> Aeson.encode clientOutput : xs
-          Right serverOutput -> Aeson.encode serverOutput : xs
+    let encodeAndReverse xs serverOutput = Aeson.encode serverOutput : xs
     sendTextDatas con $ foldl' encodeAndReverse [] hist
