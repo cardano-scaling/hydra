@@ -28,8 +28,7 @@ scrape_configs:
     static_configs:
     - targets: [
       'localhost:9090', # prometheus server
-      'localhost:8080', # cAdvisor
-      'localhost:6001', # hydra-nodes 
+      'localhost:6001', # hydra-nodes
       'localhost:6002', 
       'localhost:6003' 
       ]
