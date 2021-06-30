@@ -81,7 +81,7 @@ spec = describe "Hydra Coordinated Head Protocol" $ do
   it "waits if a requested tx is not (yet) applicable" $ do
     let reqTx = NetworkEvent $ ReqTx 1 $ SimpleTx 2 inputs mempty
         inputs = utxoRef 1
-        s0 = initialState threeParties ledger
+        s0 = inOpenState threeParties ledger
 
     update env ledger s0 reqTx `shouldBe` Wait
 
@@ -89,7 +89,7 @@ spec = describe "Hydra Coordinated Head Protocol" $ do
     let reqTx = NetworkEvent $ ReqTx 1 simpleTx
         leader = 1
         leaderEnv = envFor leader
-        s0 = initialState threeParties ledger
+        s0 = inOpenState threeParties ledger
 
     update leaderEnv ledger s0 reqTx
       `hasEffect_` NetworkEffect (ReqSn (party leaderEnv) 1 [simpleTx])
@@ -97,7 +97,7 @@ spec = describe "Hydra Coordinated Head Protocol" $ do
   it "does not request snapshots as non-leader" $ do
     let reqTx = NetworkEvent $ ReqTx 1 simpleTx
         nonLeaderEnv = envFor 2
-        s0 = initialState threeParties ledger
+        s0 = inOpenState threeParties ledger
 
     update nonLeaderEnv ledger s0 reqTx
       `hasNoEffectSatisfying` isReqSn
@@ -105,7 +105,7 @@ spec = describe "Hydra Coordinated Head Protocol" $ do
   it "does not request snapshot when already having one in flight" $ do
     let leaderEnv = envFor 1
         p = party leaderEnv
-        s0 = initialState threeParties ledger
+        s0 = inOpenState threeParties ledger
         firstReqSn = ReqSn p 1 [aValidTx 1]
     -- In the first processing loop, all ReqTx will lead to a ReqSn
     s1 <-
@@ -123,7 +123,7 @@ spec = describe "Hydra Coordinated Head Protocol" $ do
       `hasNoEffectSatisfying` isReqSn
 
   it "confirms snapshot given it receives AckSn from all parties" $ do
-    let s0 = initialState threeParties ledger
+    let s0 = inOpenState threeParties ledger
         reqSn = NetworkEvent $ ReqSn 1 1 []
         snapshot1 = Snapshot 1 mempty []
         ackFrom sk vk = NetworkEvent $ AckSn vk (sign sk snapshot1) 1
@@ -137,7 +137,7 @@ spec = describe "Hydra Coordinated Head Protocol" $ do
     getConfirmedSnapshot s4 `shouldBe` Just snapshot1
 
   it "does not confirm snapshot when given a non-matching signature produced from a different message" $ do
-    let s0 = initialState threeParties ledger
+    let s0 = inOpenState threeParties ledger
         reqSn = NetworkEvent $ ReqSn 1 1 []
         snapshot = Snapshot 1 mempty []
         snapshot' = Snapshot 2 mempty []
@@ -151,7 +151,7 @@ spec = describe "Hydra Coordinated Head Protocol" $ do
     getConfirmedSnapshot s4 `shouldBe` getConfirmedSnapshot s3
 
   it "does not confirm snapshot when given a non-matching signature produced from a different key" $ do
-    let s0 = initialState threeParties ledger
+    let s0 = inOpenState threeParties ledger
         reqSn = NetworkEvent $ ReqSn 1 1 []
         snapshot = Snapshot 1 mempty []
         ackFrom sk vk = NetworkEvent $ AckSn vk (sign sk snapshot) 1
@@ -164,11 +164,11 @@ spec = describe "Hydra Coordinated Head Protocol" $ do
 
   it "waits if we receive a snapshot with not-yet-seen transactions" $ do
     let event = NetworkEvent $ ReqSn 1 1 [SimpleTx 1 (utxoRef 1) (utxoRef 2)]
-    update env ledger (initialState threeParties ledger) event `shouldBe` Wait
+    update env ledger (inOpenState threeParties ledger) event `shouldBe` Wait
 
   it "returns logic error if we receive a far-away snapshot (not the direct successor)" $ do
     let event = NetworkEvent $ ReqSn 1 2 []
-        st = initialState threeParties ledger
+        st = inOpenState threeParties ledger
     update env ledger st event `shouldBe` Error (InvalidEvent event st)
 
   it "acks signed snapshot from the constant leader" $ do
@@ -176,24 +176,24 @@ spec = describe "Hydra Coordinated Head Protocol" $ do
         snapshot = Snapshot 1 mempty []
         event = NetworkEvent $ ReqSn leader (number snapshot) []
         sig = sign 2 snapshot
-        st = initialState threeParties ledger
+        st = inOpenState threeParties ledger
         ack = AckSn (party env) sig (number snapshot)
     update env ledger st event `hasEffect_` NetworkEffect ack
 
   it "does not ack snapshots from non-leaders" $ do
     let event = NetworkEvent $ ReqSn notTheLeader 1 []
         notTheLeader = 2
-        st = initialState threeParties ledger
+        st = inOpenState threeParties ledger
     update env ledger st event `shouldBe` Error (InvalidEvent event st)
 
   it "does not ack too new snapshots" $ do
     let event = NetworkEvent $ ReqSn theLeader 3 []
         theLeader = 1
-        st = initialState threeParties ledger
+        st = inOpenState threeParties ledger
     update env ledger st event `shouldBe` Error (InvalidEvent event st)
 
   it "rejects overlapping snapshot requests from the leader" $ do
-    let s0 = initialState threeParties ledger
+    let s0 = inOpenState threeParties ledger
         theLeader = 1
         nextSN = 1
         firstReqSn = NetworkEvent $ ReqSn theLeader nextSN [aValidTx 42]
@@ -303,11 +303,11 @@ isAckSn = \case
   NetworkEffect AckSn{} -> True
   _ -> False
 
-initialState ::
+inOpenState ::
   [Party] ->
   Ledger tx ->
   HeadState tx
-initialState parties Ledger{initUTxO} =
+inOpenState parties Ledger{initUTxO} =
   let u0 = initUTxO
       snapshot0 = Snapshot 0 u0 mempty
    in HeadState
