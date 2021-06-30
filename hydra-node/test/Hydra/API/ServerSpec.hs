@@ -21,6 +21,9 @@ import Hydra.Network.Ports (withFreePort)
 import Hydra.Prelude
 import Network.WebSockets (Connection, receiveData, runClient, sendBinaryData)
 import Test.Hspec
+import Test.Hspec.QuickCheck (prop)
+import Test.QuickCheck (cover)
+import Test.QuickCheck.Monadic (monadicIO, monitor, run)
 import Test.Util (failAfter, failure)
 
 spec :: Spec
@@ -43,6 +46,20 @@ spec = describe "API Server" $ do
 
               atomically (replicateM 2 (readTQueue queue)) `shouldReturn` [arbitraryMsg, arbitraryMsg]
               atomically (tryReadTQueue queue) `shouldReturn` Nothing
+
+  prop "echoes history (past outputs) to client upon reconnection" $ \msgs -> monadicIO $ do
+    monitor $ cover 1 (null msgs) "no message when reconnecting"
+    monitor $ cover 1 (length msgs == 1) "only one message when reconnecting"
+    monitor $ cover 1 (length msgs > 1) "more than one message when reconnecting"
+    run . failAfter 5 $ do
+      withFreePort $ \port ->
+        withAPIServer @SimpleTx "127.0.0.1" (fromIntegral port) nullTracer noop $ \sendOutput -> do
+          mapM_ sendOutput (msgs :: [ServerOutput SimpleTx])
+          withClient port $ \conn -> do
+            received <- replicateM (length msgs) (receiveData conn)
+            case traverse Aeson.eitherDecode received of
+              Right msgs' -> msgs' `shouldBe` msgs
+              Left{} -> expectationFailure ("Failed to decode messages " <> show msgs)
 
   it "sends an error when input cannot be decoded" $
     failAfter 5 $
