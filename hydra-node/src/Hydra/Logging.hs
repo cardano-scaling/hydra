@@ -13,7 +13,9 @@ module Hydra.Logging (
   LoggerName,
 
   -- * Using it
+  ToObject (..),
   Verbosity (..),
+  TracingVerbosity (..),
   withTracer,
   contramap,
   showLogsOnFailure,
@@ -36,6 +38,10 @@ import Cardano.BM.Data.LogItem (
  )
 import Cardano.BM.Data.Severity (
   Severity (..),
+ )
+import Cardano.BM.Data.Tracer (
+  ToObject (..),
+  TracingVerbosity (..),
  )
 import Cardano.BM.Setup (
   setupTrace_,
@@ -60,37 +66,41 @@ data Verbosity = Quiet | Verbose LoggerName
 -- bracket-style allocation.
 withTracer ::
   forall m msg a.
-  MonadIO m =>
+  (MonadIO m, ToObject msg) =>
   Verbosity ->
-  (msg -> Text) ->
   (Tracer m msg -> IO a) ->
   IO a
-withTracer Quiet _ between = between nullTracer
-withTracer (Verbose name) transform between = do
+withTracer Quiet between = between nullTracer
+withTracer (Verbose name) between = do
   bracket before after (between . natTracer liftIO . fst)
  where
-  before :: IO (Tracer IO msg, Switchboard Text)
+  before :: IO (Tracer IO msg, Switchboard ())
   before = do
     config <- defaultConfigStdout
     CM.setSetupBackends config [CM.KatipBK]
+    CM.setMinSeverity config Debug
+    CM.setDefaultScribes config ["StdoutSK::json"]
+    -- TODO: Pass those down from parent context, to appear in the logs:
+    --
+    -- CM.setTextOption config "appversion" version
+    -- CM.setTextOption config "appcommit" commit
     (tr, sb) <- setupTrace_ config name
-    pure (transformLogObject transform tr, sb)
+    pure (transformLogObject tr, sb)
 
-  after :: (Tracer IO msg, Switchboard Text) -> IO ()
+  after :: (tracer, Switchboard ()) -> IO ()
   after = shutdown . snd
 
 -- | Tracer transformer which converts 'Trace m a' to 'Tracer m a' by wrapping
 -- typed log messages into a 'LogObject'. NOTE: All log messages are of severity
 -- 'Debug'.
 transformLogObject ::
-  MonadIO m =>
-  (msg -> Text) ->
-  Tracer m (LoggerName, LogObject Text) ->
+  (MonadIO m, ToObject msg) =>
+  Tracer m (LoggerName, LogObject ()) ->
   Tracer m msg
-transformLogObject transform tr = Tracer $ \a -> do
+transformLogObject tr = Tracer $ \msg -> do
   traceWith tr . (mempty,) =<< LogObject mempty
     <$> mkLOMeta Debug Public
-    <*> pure (LogMessage (transform a))
+    <*> pure (LogStructured (toObject MaximalVerbosity msg))
 
 traceInTVar :: MonadSTM m => TVar m [a] -> Tracer m a
 traceInTVar tvar = Tracer $ \a ->
