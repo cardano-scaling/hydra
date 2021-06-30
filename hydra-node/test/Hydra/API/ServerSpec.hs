@@ -19,9 +19,11 @@ import Hydra.Ledger.Simple (SimpleTx)
 import Hydra.Logging (nullTracer)
 import Hydra.Network.Ports (withFreePort)
 import Hydra.Prelude
-import Network.WebSockets (runClient, sendBinaryData)
-import Network.WebSockets.Connection (receiveData)
+import Network.WebSockets (Connection, receiveData, runClient, sendBinaryData)
 import Test.Hspec
+import Test.Hspec.QuickCheck (prop)
+import Test.QuickCheck (cover)
+import Test.QuickCheck.Monadic (monadicIO, monitor, run)
 import Test.Util (failAfter, failure)
 
 spec :: Spec
@@ -32,13 +34,32 @@ spec = describe "API Server" $ do
       withFreePort $ \port ->
         withAPIServer @SimpleTx "127.0.0.1" (fromIntegral port) nullTracer noop $ \sendOutput -> do
           semaphore <- newTVarIO 0
-          withAsync (concurrently_ (testClient port queue semaphore) (testClient port queue semaphore)) $ \_ -> do
-            atomically $ readTVar semaphore >>= \n -> check (n == 2)
-            let arbitraryMsg = ReadyToCommit []
-            sendOutput arbitraryMsg
+          withAsync
+            ( concurrently_
+                (withClient port $ testClient queue semaphore)
+                (withClient port $ testClient queue semaphore)
+            )
+            $ \_ -> do
+              atomically $ readTVar semaphore >>= \n -> check (n == 2)
+              let arbitraryMsg = ReadyToCommit []
+              sendOutput arbitraryMsg
 
-            atomically (replicateM 2 (readTQueue queue)) `shouldReturn` [arbitraryMsg, arbitraryMsg]
-            atomically (tryReadTQueue queue) `shouldReturn` Nothing
+              atomically (replicateM 2 (readTQueue queue)) `shouldReturn` [arbitraryMsg, arbitraryMsg]
+              atomically (tryReadTQueue queue) `shouldReturn` Nothing
+
+  prop "echoes history (past outputs) to client upon reconnection" $ \msgs -> monadicIO $ do
+    monitor $ cover 1 (null msgs) "no message when reconnecting"
+    monitor $ cover 1 (length msgs == 1) "only one message when reconnecting"
+    monitor $ cover 1 (length msgs > 1) "more than one message when reconnecting"
+    run . failAfter 5 $ do
+      withFreePort $ \port ->
+        withAPIServer @SimpleTx "127.0.0.1" (fromIntegral port) nullTracer noop $ \sendOutput -> do
+          mapM_ sendOutput (msgs :: [ServerOutput SimpleTx])
+          withClient port $ \conn -> do
+            received <- replicateM (length msgs) (receiveData conn)
+            case traverse Aeson.eitherDecode received of
+              Right msgs' -> msgs' `shouldBe` msgs
+              Left{} -> expectationFailure ("Failed to decode messages " <> show msgs)
 
   it "sends an error when input cannot be decoded" $
     failAfter 5 $
@@ -47,42 +68,28 @@ spec = describe "API Server" $ do
 sendsAnErrorWhenInputCannotBeDecoded :: Int -> Expectation
 sendsAnErrorWhenInputCannotBeDecoded port = do
   withAPIServer @SimpleTx "127.0.0.1" (fromIntegral port) nullTracer noop $ \_sendOutput -> do
-    tryClient `shouldReturn` InvalidInput
+    withClient port $ \con -> do
+      sendBinaryData @Text con invalidInput
+      msg <- receiveData con
+      case Aeson.eitherDecode msg of
+        Right resp -> resp `shouldBe` (InvalidInput :: ServerOutput SimpleTx)
+        Left{} -> failure $ "Failed to decode output " <> show msg
  where
-  tryClient :: IO (ServerOutput SimpleTx)
-  tryClient =
-    runClient
-      "127.0.0.1"
-      port
-      "/"
-      ( \con -> do
-          sendBinaryData @Text con invalidInput
-          msg <- receiveData con
-          case Aeson.eitherDecode msg of
-            Right resp -> pure resp
-            Left{} -> failure $ "Failed to decode output " <> show msg
-      )
-      `catch` \(_ :: IOException) -> tryClient
-
   invalidInput = "not a valid message"
+
+testClient :: TQueue IO (ServerOutput SimpleTx) -> TVar IO Int -> Connection -> IO ()
+testClient queue semaphore cnx = do
+  atomically $ modifyTVar' semaphore (+ 1)
+  msg <- receiveData cnx
+  case Aeson.eitherDecode msg of
+    Right resp -> atomically (writeTQueue queue resp)
+    Left{} -> expectationFailure ("Failed to decode message " <> show msg)
 
 noop :: Applicative m => a -> m ()
 noop = const $ pure ()
 
-testClient :: HasCallStack => Int -> TQueue IO (ServerOutput SimpleTx) -> TVar IO Int -> IO ()
-testClient port queue semaphore =
-  failAfter 5 tryClient
+withClient :: HasCallStack => Int -> (Connection -> IO ()) -> IO ()
+withClient port action = do
+  failAfter 5 retry
  where
-  tryClient =
-    runClient
-      "127.0.0.1"
-      port
-      "/"
-      ( \cnx -> do
-          atomically $ modifyTVar' semaphore (+ 1)
-          msg <- receiveData cnx
-          case Aeson.eitherDecode msg of
-            Right resp -> atomically (writeTQueue queue resp)
-            Left{} -> expectationFailure ("Failed to decode message " <> show msg)
-      )
-      `catch` \(_ :: IOException) -> tryClient
+  retry = runClient "127.0.0.1" port "/" action `catch` \(_ :: IOException) -> retry

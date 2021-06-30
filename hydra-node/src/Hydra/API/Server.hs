@@ -6,11 +6,12 @@ module Hydra.API.Server (
   APIServerLog,
 ) where
 
-import Hydra.Prelude
+import Hydra.Prelude hiding (TVar, readTVar)
 
 import Control.Concurrent.STM (TChan, dupTChan, readTChan)
 import qualified Control.Concurrent.STM as STM
 import Control.Concurrent.STM.TChan (newBroadcastTChanIO, writeTChan)
+import Control.Concurrent.STM.TVar (TVar, modifyTVar', newTVarIO, readTVar)
 import qualified Data.Aeson as Aeson
 import Hydra.HeadLogic (
   ClientInput,
@@ -19,14 +20,21 @@ import Hydra.HeadLogic (
 import Hydra.Ledger (Tx (..))
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Network (IP, PortNumber)
-import Network.WebSockets (acceptRequest, receiveData, runServer, sendTextData, withPingThread)
+import Network.WebSockets (
+  acceptRequest,
+  receiveData,
+  runServer,
+  sendTextData,
+  sendTextDatas,
+  withPingThread,
+ )
 
 data APIServerLog
   = APIServerStarted {listeningPort :: PortNumber}
   | NewAPIConnection
-  | APIResponseSent {sentResponse :: LByteString}
-  | APIRequestReceived {receivedRequest :: LByteString}
-  | APIInvalidRequest {receivedRequest :: LByteString}
+  | APIOutputSent {sendOutput :: LByteString}
+  | APIInputReceived {receivedInput :: LByteString}
+  | APIInvalidInput {receivedInput :: LByteString}
   deriving (Eq, Show)
 
 withAPIServer ::
@@ -37,11 +45,14 @@ withAPIServer ::
   (ClientInput tx -> IO ()) ->
   ((ServerOutput tx -> IO ()) -> IO ()) ->
   IO ()
-withAPIServer host port tracer requests continuation = do
+withAPIServer host port tracer inputHandler continuation = do
   responseChannel <- newBroadcastTChanIO
-  let sendOutput = atomically . writeTChan responseChannel
+  history <- newTVarIO []
+  let sendOutput output = atomically $ do
+        modifyTVar' history (output :)
+        writeTChan responseChannel output
   race_
-    (runAPIServer host port tracer requests responseChannel)
+    (runAPIServer host port tracer history inputHandler responseChannel)
     (continuation sendOutput)
 
 runAPIServer ::
@@ -50,30 +61,37 @@ runAPIServer ::
   IP ->
   PortNumber ->
   Tracer IO APIServerLog ->
+  TVar [ServerOutput tx] ->
   (ClientInput tx -> IO ()) ->
   TChan (ServerOutput tx) ->
   IO ()
-runAPIServer host port tracer requestHandler responseChannel = do
+runAPIServer host port tracer history inputHandler responseChannel = do
   traceWith tracer (APIServerStarted port)
   runServer (show host) (fromIntegral port) $ \pending -> do
     con <- acceptRequest pending
     chan <- STM.atomically $ dupTChan responseChannel
     traceWith tracer NewAPIConnection
+    forwardHistory con
     withPingThread con 30 (pure ()) $
-      race_ (receiveRequests con) (sendOutputs chan con)
+      race_ (receiveInputs con) (sendOutputs chan con)
  where
   sendOutputs chan con = forever $ do
     response <- STM.atomically $ readTChan chan
     let sentResponse = Aeson.encode response
     sendTextData con sentResponse
-    traceWith tracer (APIResponseSent sentResponse)
+    traceWith tracer (APIOutputSent sentResponse)
 
-  receiveRequests con = forever $ do
+  receiveInputs con = forever $ do
     msg <- receiveData con
     case Aeson.eitherDecode msg of
-      Right request -> do
-        traceWith tracer (APIRequestReceived msg)
-        requestHandler request
+      Right input -> do
+        traceWith tracer (APIInputReceived msg)
+        inputHandler input
       Left{} -> do
         sendTextData con $ Aeson.encode $ InvalidInput @tx
-        traceWith tracer (APIInvalidRequest msg)
+        traceWith tracer (APIInvalidInput msg)
+
+  forwardHistory con = do
+    hist <- STM.atomically (readTVar history)
+    let encodeAndReverse xs serverOutput = Aeson.encode serverOutput : xs
+    sendTextDatas con $ foldl' encodeAndReverse [] hist
