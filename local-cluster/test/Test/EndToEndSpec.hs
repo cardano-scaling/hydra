@@ -56,7 +56,7 @@ spec = describe "End-to-end test using a mocked chain though" $ do
             withHydraNode 2 bobSk [aliceVk, carolVk] $ \n2 ->
               withHydraNode 3 carolSk [aliceVk, bobVk] $ \n3 -> do
                 waitForNodesConnected [n1, n2, n3]
-                let contestationPeriod = 3 -- TODO: Should be part of init
+                let contestationPeriod = 10 -- TODO: Should be part of init
                 send n1 $ input "init" []
                 waitFor 3 [n1, n2, n3] $
                   output "readyToCommit" ["parties" .= [int 10, 20, 30]]
