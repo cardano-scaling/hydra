@@ -45,4 +45,4 @@ spec = describe "Prometheus Metrics" $ do
 
           response <- runReq @IO defaultHttpConfig $ req GET (http "localhost" /: "metrics") NoReqBody bsResponse (port p)
 
-          Text.lines (decodeUtf8 $ responseBody response) `shouldContain` ["hydra_head_tx_confirmation_time_ms_bucket{le=\"200.0\"} 1.0"]
+          Text.lines (decodeUtf8 $ responseBody response) `shouldContain` ["hydra_head_tx_confirmation_time_ms_bucket{le=\"1000.0\"} 1.0"]
