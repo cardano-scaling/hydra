@@ -75,7 +75,8 @@ data HydraNodeLog tx
   | ProcessedEvent Party (Event tx)
   | ProcessingEffect Party (Effect tx)
   | ProcessedEffect Party (Effect tx)
-  deriving (Eq, Show)
+  deriving stock (Eq, Show, Generic)
+  deriving anyclass (ToJSON, FromJSON)
 
 handleClientInput :: HydraNode tx m -> ClientInput tx -> m ()
 handleClientInput HydraNode{eq} = putEvent eq . ClientEvent

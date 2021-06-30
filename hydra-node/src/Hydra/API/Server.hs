@@ -12,7 +12,10 @@ import Control.Concurrent.STM (TChan, dupTChan, readTChan)
 import qualified Control.Concurrent.STM as STM
 import Control.Concurrent.STM.TChan (newBroadcastTChanIO, writeTChan)
 import Control.Concurrent.STM.TVar (TVar, modifyTVar', newTVarIO, readTVar)
+import Data.Aeson (object, (.=))
 import qualified Data.Aeson as Aeson
+import qualified Data.Aeson.Types as Aeson
+import Data.ByteString.Base16 (encodeBase16)
 import Hydra.HeadLogic (
   ClientInput,
   ServerOutput (..),
@@ -32,10 +35,32 @@ import Network.WebSockets (
 data APIServerLog
   = APIServerStarted {listeningPort :: PortNumber}
   | NewAPIConnection
-  | APIOutputSent {sendOutput :: LByteString}
+  | APIOutputSent {sentOutput :: LByteString}
   | APIInputReceived {receivedInput :: LByteString}
   | APIInvalidInput {receivedInput :: LByteString}
-  deriving (Eq, Show)
+  deriving (Eq, Show, Generic)
+
+instance ToJSON APIServerLog where
+  toJSON = \case
+    APIServerStarted{listeningPort} ->
+      tagged "APIServerStarted" ["listeningPort" .= toInteger listeningPort]
+    NewAPIConnection ->
+      tagged "NewAPIConnection" []
+    APIOutputSent{sentOutput} ->
+      tagged "APIOutputSent" ["sentOutput" .= encodeLByteString sentOutput]
+    APIInputReceived{receivedInput} ->
+      tagged "APIInputReceived" ["receivedInput" .= encodeLByteString receivedInput]
+    APIInvalidInput{receivedInput} ->
+      tagged "APIInvalidInput" ["receivedInput" .= encodeLByteString receivedInput]
+   where
+    tagged :: Text -> [Aeson.Pair] -> Aeson.Value
+    tagged tag pairs = object (("tag" .= tag) : pairs)
+
+    encodeLByteString :: LByteString -> Aeson.Value
+    encodeLByteString (toStrict -> bytes) =
+      case decodeUtf8' bytes of
+        Left{} -> toJSON (encodeBase16 bytes)
+        Right txt -> toJSON txt
 
 withAPIServer ::
   Tx tx =>

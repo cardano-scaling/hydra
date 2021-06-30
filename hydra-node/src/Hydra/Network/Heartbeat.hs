@@ -46,7 +46,8 @@ initialHeartbeatState = HeartbeatState{alive = mempty, suspected = mempty, lastS
 data Heartbeat msg
   = Message msg
   | Ping Party
-  deriving (Eq, Show)
+  deriving stock (Eq, Show, Generic)
+  deriving anyclass (ToJSON, FromJSON)
 
 instance (ToCBOR msg) => ToCBOR (Heartbeat msg) where
   toCBOR = \case

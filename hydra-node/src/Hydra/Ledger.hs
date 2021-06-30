@@ -6,8 +6,17 @@ module Hydra.Ledger where
 
 import Hydra.Prelude
 
-import Cardano.Crypto.DSIGN (DSIGNAlgorithm (..), MockDSIGN, SignKeyDSIGN, VerKeyDSIGN (VerKeyMockDSIGN), signDSIGN)
+import Cardano.Crypto.DSIGN (
+  DSIGNAlgorithm (..),
+  MockDSIGN,
+  SigDSIGN (..),
+  SignKeyDSIGN,
+  VerKeyDSIGN (VerKeyMockDSIGN),
+  signDSIGN,
+ )
 import Cardano.Crypto.Util (SignableRepresentation)
+import Data.Aeson (FromJSONKey (..), ToJSONKey (..), withText)
+import Data.ByteString.Base16 (decodeBase16, encodeBase16)
 
 -- NOTE(MB): We probably want to move these common types somewhere else. Putting
 -- here to avoid circular dependencies with Hydra.Logic
@@ -26,9 +35,11 @@ instance Ord Party where
 instance Arbitrary Party where
   arbitrary = deriveParty . generateKey <$> arbitrary
 
+instance ToJSONKey Party
 instance ToJSON Party where
   toJSON (UnsafeParty (VerKeyMockDSIGN i)) = toJSON i
 
+instance FromJSONKey Party
 instance FromJSON Party where
   parseJSON = fmap fromInteger . parseJSON
 
@@ -40,6 +51,21 @@ instance ToCBOR Party where
 
 newtype Signed a = UnsafeSigned (SigDSIGN MockDSIGN)
   deriving (Eq, Show)
+
+instance ToJSON a => ToJSON (Signed a) where
+  toJSON (UnsafeSigned sig) = toJSON . encodeBase16 . rawSerialiseSigDSIGN $ sig
+
+instance FromJSON a => FromJSON (Signed a) where
+  parseJSON = withText "Signed" $ decodeBase16' >=> deserialiseSigned
+   where
+    decodeBase16' :: MonadFail f => Text -> f ByteString
+    decodeBase16' =
+      either (fail . show) pure . decodeBase16 . encodeUtf8
+
+    deserialiseSigned :: MonadFail f => ByteString -> f (Signed a)
+    deserialiseSigned =
+      let err = "Unable to decode signature"
+       in maybe (fail err) (pure . UnsafeSigned) . rawDeserialiseSigDSIGN
 
 instance Typeable a => FromCBOR (Signed a) where
   fromCBOR = UnsafeSigned <$> fromCBOR
@@ -110,6 +136,10 @@ canApply ledger utxo tx =
 data ValidationResult
   = Valid
   | Invalid ValidationError
-  deriving (Eq, Show)
+  deriving stock (Eq, Show, Generic)
+  deriving anyclass (ToJSON, FromJSON)
 
-data ValidationError = ValidationError deriving (Eq, Show)
+data ValidationError
+  = ValidationError
+  deriving stock (Eq, Show, Generic)
+  deriving anyclass (ToJSON, FromJSON)

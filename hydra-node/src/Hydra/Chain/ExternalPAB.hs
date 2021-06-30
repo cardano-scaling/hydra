@@ -23,8 +23,9 @@ import Plutus.PAB.Webserver.Types (InstanceStatusToClient (NewObservableState))
 import Wallet.Emulator.Types (Wallet (..))
 import Wallet.Types (ContractInstanceId, unContractInstanceId)
 
-data ExternalPABLog
-  deriving (Eq, Show)
+data ExternalPABLog = ExternalPABLog
+  deriving stock (Eq, Show, Generic)
+  deriving anyclass (ToJSON, FromJSON)
 
 withExternalPAB ::
   Tx tx =>

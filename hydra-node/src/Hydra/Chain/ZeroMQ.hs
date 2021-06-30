@@ -10,12 +10,12 @@ module Hydra.Chain.ZeroMQ where
 import Hydra.Prelude
 
 import Control.Monad.Class.MonadAsync (async, link)
-import Control.Monad.Class.MonadSTM (modifyTVar', newTBQueue, newTVarIO, readTBQueue, writeTBQueue, readTVarIO)
+import Control.Monad.Class.MonadSTM (modifyTVar', newTBQueue, newTVarIO, readTBQueue, readTVarIO, writeTBQueue)
 import qualified Data.Text.Encoding as Enc
 import Hydra.Chain (Chain (..))
 import Hydra.HeadLogic (Event (OnChainEvent), OnChainTx)
 import Hydra.Ledger (Tx)
-import Hydra.Logging (Tracer, traceWith)
+import Hydra.Logging (ToObject, Tracer, traceWith)
 import Hydra.Node (EventQueue (..))
 import System.ZMQ4.Monadic (
   Pub (..),
@@ -45,7 +45,8 @@ data MockChainLog tx
   | ChainSyncStarted {syncAddress :: String}
   | ReceivedTransaction {transaction :: OnChainTx tx}
   | CatchingUpTransactions {catchupAddress :: String, numberOfTransactions :: Int}
-  deriving (Eq, Show)
+  deriving stock (Eq, Show, Generic)
+  deriving anyclass (ToJSON, FromJSON, ToObject)
 
 startChain :: Tx tx => String -> String -> String -> Tracer IO (MockChainLog tx) -> IO ()
 startChain chainSyncAddress chainCatchupAddress postTxAddress tracer = do

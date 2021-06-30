@@ -33,16 +33,20 @@ data Event tx
   | NetworkEvent (HydraMessage tx)
   | OnChainEvent (OnChainTx tx)
   | ShouldPostFanout
-  deriving (Eq, Show)
+  deriving stock (Eq, Show, Generic)
+  deriving anyclass (ToJSON, FromJSON)
 
 data Effect tx
   = ClientEffect (ServerOutput tx)
   | NetworkEffect (HydraMessage tx)
   | OnChainEffect (OnChainTx tx)
   | Delay DiffTime (Event tx)
+  deriving stock (Generic)
 
 deriving instance Tx tx => Eq (Effect tx)
 deriving instance Tx tx => Show (Effect tx)
+deriving instance Tx tx => ToJSON (Effect tx)
+deriving instance Tx tx => FromJSON (Effect tx)
 
 data ClientInput tx
   = Init
@@ -284,7 +288,8 @@ data HydraMessage tx
   | AckSn Party (Signed (Snapshot tx)) SnapshotNumber
   | Connected Party
   | Disconnected Party
-  deriving (Generic, Eq, Show)
+  deriving stock (Generic, Eq, Show)
+  deriving anyclass (ToJSON, FromJSON)
 
 instance (ToCBOR tx, ToCBOR (UTxO tx)) => ToCBOR (HydraMessage tx) where
   toCBOR = \case
@@ -330,27 +335,36 @@ data OnChainTx tx
   | CloseTx (Snapshot tx)
   | ContestTx (Snapshot tx)
   | FanoutTx (UTxO tx)
+  deriving stock (Generic)
 
 deriving instance Tx tx => Eq (OnChainTx tx)
 deriving instance Tx tx => Show (OnChainTx tx)
 deriving instance Tx tx => Read (OnChainTx tx)
+deriving instance Tx tx => ToJSON (OnChainTx tx)
+deriving instance Tx tx => FromJSON (OnChainTx tx)
 
 data HeadState tx = HeadState
   { headParameters :: HeadParameters
   , headStatus :: HeadStatus tx
   }
+  deriving stock (Generic)
 
 deriving instance Tx tx => Eq (HeadState tx)
 deriving instance Tx tx => Show (HeadState tx)
+deriving instance Tx tx => ToJSON (HeadState tx)
+deriving instance Tx tx => FromJSON (HeadState tx)
 
 data HeadStatus tx
   = ReadyState
   | InitialState PendingCommits (Committed tx)
   | OpenState (CoordinatedHeadState tx)
   | ClosedState (UTxO tx)
+  deriving stock (Generic)
 
 deriving instance Tx tx => Eq (HeadStatus tx)
 deriving instance Tx tx => Show (HeadStatus tx)
+deriving instance Tx tx => ToJSON (HeadStatus tx)
+deriving instance Tx tx => FromJSON (HeadStatus tx)
 
 data CoordinatedHeadState tx = CoordinatedHeadState
   { seenUTxO :: UTxO tx
@@ -359,9 +373,12 @@ data CoordinatedHeadState tx = CoordinatedHeadState
   , confirmedSnapshot :: Snapshot tx
   , seenSnapshot :: Maybe (Snapshot tx, Set Party)
   }
+  deriving stock (Generic)
 
 deriving instance Tx tx => Eq (CoordinatedHeadState tx)
 deriving instance Tx tx => Show (CoordinatedHeadState tx)
+deriving instance Tx tx => ToJSON (CoordinatedHeadState tx)
+deriving instance Tx tx => FromJSON (CoordinatedHeadState tx)
 
 type PendingCommits = Set Party
 
@@ -370,7 +387,8 @@ data HeadParameters = HeadParameters
   { contestationPeriod :: DiffTime
   , parties :: [Party]
   }
-  deriving (Eq, Show)
+  deriving stock (Eq, Show, Generic)
+  deriving anyclass (ToJSON, FromJSON)
 
 -- | Decides if snapshots should be done, or not.
 data SnapshotStrategy = NoSnapshots | SnapshotAfterEachTx
@@ -387,9 +405,12 @@ data LogicError tx
   = InvalidEvent (Event tx) (HeadState tx)
   | InvalidState (HeadState tx)
   | LedgerError ValidationError
+  deriving stock (Generic)
 
 instance Tx tx => Exception (LogicError tx)
 
+deriving instance Tx tx => ToJSON (LogicError tx)
+deriving instance Tx tx => FromJSON (LogicError tx)
 deriving instance (Eq (HeadState tx), Eq (Event tx)) => Eq (LogicError tx)
 deriving instance (Show (HeadState tx), Show (Event tx)) => Show (LogicError tx)
 

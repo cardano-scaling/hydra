@@ -7,6 +7,10 @@ module Hydra.Network.Ouroboros (
 
 import Hydra.Prelude
 
+import Cardano.Tracing.OrphanInstances.Network ()
+import Codec.CBOR.Term (
+  Term,
+ )
 import qualified Codec.CBOR.Term as CBOR
 import Control.Concurrent.STM (
   TChan,
@@ -19,7 +23,11 @@ import Control.Concurrent.STM (
   writeTChan,
  )
 import Control.Monad.Class.MonadAsync (wait)
-import Hydra.Logging (Tracer, nullTracer)
+import Data.Aeson (object, withObject, (.:), (.=))
+import qualified Data.Aeson as Aeson
+import qualified Data.Aeson.Types as Aeson
+import Data.Map.Strict as Map
+import Hydra.Logging (ToObject (..), Tracer, TracingVerbosity (..), nullTracer)
 import Hydra.Network (
   Host (..),
   Network (..),
@@ -35,12 +43,13 @@ import Hydra.Network.Ouroboros.Server as FireForget (
   fireForgetServerPeer,
  )
 import Hydra.Network.Ouroboros.Type (
-  FireForget,
+  FireForget (..),
+  Message (..),
   codecFireForget,
  )
 import Network.Mux.Compat (
   MuxTrace,
-  WithMuxBearer,
+  WithMuxBearer (..),
  )
 import Network.Socket (
   AddrInfo (addrAddress),
@@ -48,9 +57,12 @@ import Network.Socket (
   defaultHints,
   getAddrInfo,
  )
+import Network.TypedProtocol.Codec (
+  AnyMessageAndAgency (..),
+ )
 import Network.TypedProtocol.Pipelined ()
 import Ouroboros.Network.Driver.Simple (
-  TraceSendRecv,
+  TraceSendRecv (..),
  )
 import Ouroboros.Network.ErrorPolicy (
   ErrorPolicyTrace,
@@ -73,7 +85,7 @@ import Ouroboros.Network.Mux (
   RunMiniProtocol (..),
  )
 import Ouroboros.Network.Protocol.Handshake.Codec (cborTermVersionDataCodec, noTimeLimitsHandshake)
-import Ouroboros.Network.Protocol.Handshake.Type (Handshake)
+import Ouroboros.Network.Protocol.Handshake.Type (Handshake, Message (..), RefuseReason (..))
 import Ouroboros.Network.Protocol.Handshake.Unversioned (
   UnversionedProtocol,
   unversionedHandshakeCodec,
@@ -258,6 +270,19 @@ withOuroborosNetwork tracer localHost remoteHosts networkCallback between = do
 data WithHost trace = WithHost Host trace
   deriving (Show)
 
+instance ToJSON trace => ToJSON (WithHost trace) where
+  toJSON (WithHost h tr) =
+    object
+      [ "host" .= h
+      , "data" .= tr
+      ]
+
+instance FromJSON trace => FromJSON (WithHost trace) where
+  parseJSON = withObject "WithHost" $ \obj ->
+    WithHost
+      <$> (obj .: "host")
+      <*> (obj .: "data")
+
 data TraceOuroborosNetwork msg
   = TraceSubscriptions (WithIPList (SubscriptionTrace SockAddr))
   | TraceErrorPolicy (WithAddr SockAddr ErrorPolicyTrace)
@@ -265,4 +290,93 @@ data TraceOuroborosNetwork msg
   | TraceHandshake (WithMuxBearer (ConnectionId SockAddr) (TraceSendRecv (Handshake UnversionedProtocol CBOR.Term)))
   | TraceMux (WithMuxBearer (ConnectionId SockAddr) MuxTrace)
   | TraceSendRecv (TraceSendRecv (FireForget msg))
-  deriving (Show)
+  deriving stock (Show, Generic)
+
+instance ToJSON msg => ToJSON (TraceOuroborosNetwork msg) where
+  toJSON = \case
+    TraceSubscriptions withIpList ->
+      tagged "TraceSubscriptions" ["subscriptions" .= toObject MaximalVerbosity withIpList]
+    TraceErrorPolicy withAddr ->
+      tagged "TraceErrorPolicy" ["errors" .= toObject MaximalVerbosity withAddr]
+    TraceAcceptPolicy accept ->
+      tagged "TraceAcceptPolicy" ["accept" .= toObject MaximalVerbosity accept]
+    TraceHandshake handshake ->
+      tagged "TraceHandshake" ["handshake" .= encodeTraceSendRecvHandshake handshake]
+    TraceMux withMuxBearer ->
+      tagged "TraceMux" ["mux" .= toObject MaximalVerbosity withMuxBearer]
+    TraceSendRecv sndRcv ->
+      tagged "TraceSendRecv" ["trace" .= encodeTraceSendRecvFireForget sndRcv]
+   where
+    tagged :: Text -> [Aeson.Pair] -> Aeson.Value
+    tagged tag pairs = object (("tag" .= tag) : pairs)
+
+-- NOTE: No instances for those traces in cardano-node or ouroboros-network :(
+encodeTraceSendRecvHandshake ::
+  WithMuxBearer (ConnectionId SockAddr) (TraceSendRecv (Handshake UnversionedProtocol CBOR.Term)) ->
+  [Aeson.Pair]
+encodeTraceSendRecvHandshake = \case
+  WithMuxBearer peerId (TraceSendMsg (AnyMessageAndAgency agency msg)) ->
+    [ "event" .= ("send" :: String)
+    , "agency" .= (show agency :: Text)
+    , "peer" .= (show peerId :: Text)
+    ]
+      ++ encodeMsg msg
+  WithMuxBearer peerId (TraceRecvMsg (AnyMessageAndAgency agency msg)) ->
+    [ "event" .= ("receive" :: Text)
+    , "agency" .= (show agency :: Text)
+    , "peer" .= (show peerId :: Text)
+    ]
+      ++ encodeMsg msg
+ where
+  encodeMsg ::
+    Message (Handshake UnversionedProtocol Term) from to ->
+    [Aeson.Pair]
+  encodeMsg = \case
+    MsgProposeVersions versions ->
+      [ "tag" .= ("ProposeVersions" :: String)
+      , "versions" .= (show <$> Map.keys versions :: [Text])
+      ]
+    MsgAcceptVersion v _ ->
+      [ "tag" .= ("AcceptVersion" :: String)
+      , "version" .= (show v :: Text)
+      ]
+    MsgRefuse reason ->
+      [ "tag" .= ("RefuseVersions" :: String)
+      , "reason" .= encodeRefuseReason reason
+      ]
+
+  encodeRefuseReason ::
+    RefuseReason vNumber ->
+    Aeson.Value
+  encodeRefuseReason = \case
+    VersionMismatch{} -> Aeson.String "VersionMismatchOrUnknown"
+    HandshakeDecodeError{} -> Aeson.String "HandshakeDecodeError"
+    Refused{} -> Aeson.String "ServerRejected"
+
+encodeTraceSendRecvFireForget ::
+  forall msg.
+  ToJSON msg =>
+  TraceSendRecv (FireForget msg) ->
+  [Aeson.Pair]
+encodeTraceSendRecvFireForget = \case
+  TraceSendMsg (AnyMessageAndAgency agency msg) ->
+    [ "event" .= ("send" :: String)
+    , "agency" .= (show agency :: Text)
+    ]
+      ++ encodeMsg msg
+  TraceRecvMsg (AnyMessageAndAgency agency msg) ->
+    [ "event" .= ("receive" :: Text)
+    , "agency" .= (show agency :: Text)
+    ]
+      ++ encodeMsg msg
+ where
+  encodeMsg ::
+    Message (FireForget msg) from to ->
+    [Aeson.Pair]
+  encodeMsg = \case
+    MsgSend msg ->
+      [ "send" .= msg
+      ]
+    MsgDone ->
+      [ "done" .= ()
+      ]
