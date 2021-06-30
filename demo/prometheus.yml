@@ -26,8 +26,15 @@ scrape_configs:
     # scheme defaults to 'http'.
 
     static_configs:
+    - targets: ['localhost:9090']
+
+  - job_name: 'hydra_nodes'
+
+    # metrics_path defaults to '/metrics'
+    # scheme defaults to 'http'.
+
+    static_configs:
     - targets: [
-      'localhost:9090', # prometheus server
       'localhost:6001', # hydra-nodes
       'localhost:6002', 
       'localhost:6003' 
