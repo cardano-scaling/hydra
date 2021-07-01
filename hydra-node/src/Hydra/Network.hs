@@ -53,6 +53,25 @@ type NetworkComponent m msg = NetworkCallback msg m -> (Network m msg -> m ()) -
 
 -- * Types used by concrete implementations
 
+-- ** PortNumber (Orphans)
+
+instance ToJSON PortNumber where
+  toJSON = toJSON . toInteger
+
+instance FromJSON PortNumber where
+  parseJSON = fmap fromInteger . parseJSON
+
+instance Arbitrary PortNumber where
+  arbitrary = fromIntegral @Word16 <$> arbitrary
+
+instance ToCBOR PortNumber where
+  toCBOR = toCBOR . toInteger
+
+instance FromCBOR PortNumber where
+  fromCBOR = fmap fromInteger fromCBOR
+
+-- ** Host
+
 data Host = Host
   { hostName :: Text
   , portNumber :: PortNumber
@@ -70,27 +89,27 @@ instance Read Host where
 instance Arbitrary Host where
   arbitrary = do
     ip <- toIPv4w <$> arbitrary
-    port <- fromIntegral @Word16 <$> arbitrary
+    port <- arbitrary
     pure $ Host (toText $ show ip) port
 
 instance ToJSON Host where
   toJSON h =
     object
       [ "hostname" .= hostName h
-      , "portNumber" .= toInteger (portNumber h)
+      , "portNumber" .= portNumber h
       ]
 
 instance FromJSON Host where
   parseJSON = withObject "Host" $ \obj ->
     Host
       <$> (obj .: "hostname")
-      <*> (fromInteger <$> (obj .: "portNumber"))
+      <*> (obj .: "portNumber")
 
 instance ToCBOR Host where
   toCBOR Host{hostName, portNumber} =
     mconcat
       [ toCBOR hostName
-      , toCBOR (toInteger portNumber)
+      , toCBOR portNumber
       ]
 
 instance FromCBOR Host where
