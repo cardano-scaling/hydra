@@ -91,7 +91,7 @@ mockChainOptions =
 main :: IO ()
 main = do
   Option{mode, chainSyncAddress, catchUpAddress, postTxAddress, verbosity} <- execParser mockChainOptions
-  withTracer verbosity show $ \tracer -> case mode of
+  withTracer verbosity $ \tracer -> case mode of
     NodeMode ->
       startChain @SimpleTx chainSyncAddress catchUpAddress postTxAddress tracer
     CatchUpMode -> catchUpTransactions catchUpAddress print tracer

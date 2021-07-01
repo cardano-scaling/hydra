@@ -11,6 +11,7 @@ import Hydra.Prelude
 import Hydra.API.Server (APIServerLog)
 import Hydra.Chain.ExternalPAB (ExternalPABLog)
 import Hydra.Chain.ZeroMQ (MockChainLog)
+import Hydra.Logging (ToObject)
 import Hydra.Node (HydraNodeLog)
 
 data HydraLog tx net
@@ -19,4 +20,5 @@ data HydraLog tx net
   | Network net
   | Node (HydraNodeLog tx)
   | Chain ExternalPABLog
-  deriving (Eq, Show)
+  deriving stock (Eq, Show, Generic)
+  deriving anyclass (ToJSON, ToObject)

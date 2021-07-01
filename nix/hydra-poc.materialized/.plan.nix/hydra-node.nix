@@ -35,11 +35,13 @@
         depends = [
           (hsPkgs."base" or (errorHandler.buildDepError "base"))
           (hsPkgs."aeson" or (errorHandler.buildDepError "aeson"))
+          (hsPkgs."base16" or (errorHandler.buildDepError "base16"))
           (hsPkgs."cardano-binary" or (errorHandler.buildDepError "cardano-binary"))
           (hsPkgs."cardano-crypto-class" or (errorHandler.buildDepError "cardano-crypto-class"))
           (hsPkgs."cardano-ledger-core" or (errorHandler.buildDepError "cardano-ledger-core"))
           (hsPkgs."cardano-ledger-shelley-ma" or (errorHandler.buildDepError "cardano-ledger-shelley-ma"))
           (hsPkgs."cardano-ledger-shelley-ma-test" or (errorHandler.buildDepError "cardano-ledger-shelley-ma-test"))
+          (hsPkgs."cardano-node" or (errorHandler.buildDepError "cardano-node"))
           (hsPkgs."cardano-prelude" or (errorHandler.buildDepError "cardano-prelude"))
           (hsPkgs."cardano-slotting" or (errorHandler.buildDepError "cardano-slotting"))
           (hsPkgs."cborg" or (errorHandler.buildDepError "cborg"))
@@ -55,6 +57,7 @@
           (hsPkgs."network" or (errorHandler.buildDepError "network"))
           (hsPkgs."network-mux" or (errorHandler.buildDepError "network-mux"))
           (hsPkgs."optparse-applicative" or (errorHandler.buildDepError "optparse-applicative"))
+          (hsPkgs."ouroboros-network" or (errorHandler.buildDepError "ouroboros-network"))
           (hsPkgs."ouroboros-network-framework" or (errorHandler.buildDepError "ouroboros-network-framework"))
           (hsPkgs."plutus-contract" or (errorHandler.buildDepError "plutus-contract"))
           (hsPkgs."plutus-ledger" or (errorHandler.buildDepError "plutus-ledger"))
@@ -148,6 +151,7 @@
             (hsPkgs."network" or (errorHandler.buildDepError "network"))
             (hsPkgs."process" or (errorHandler.buildDepError "process"))
             (hsPkgs."quickcheck-instances" or (errorHandler.buildDepError "quickcheck-instances"))
+            (hsPkgs."req" or (errorHandler.buildDepError "req"))
             (hsPkgs."text" or (errorHandler.buildDepError "text"))
             (hsPkgs."typed-protocols-examples" or (errorHandler.buildDepError "typed-protocols-examples"))
             (hsPkgs."websockets" or (errorHandler.buildDepError "websockets"))
@@ -168,6 +172,7 @@
             "Hydra/LedgerSpec"
             "Hydra/Ledger/Builder"
             "Hydra/Ledger/SimpleSpec"
+            "Hydra/Logging/MonitoringSpec"
             "Hydra/NetworkSpec"
             "Hydra/Network/HeartbeatSpec"
             "Hydra/Network/BroadcastToSelfSpec"

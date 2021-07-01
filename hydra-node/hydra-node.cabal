@@ -104,11 +104,13 @@ library
     Paths_hydra_node
   build-depends: base
     , aeson
+    , base16
     , cardano-binary
     , cardano-crypto-class
     , cardano-ledger-core
     , cardano-ledger-shelley-ma
     , cardano-ledger-shelley-ma-test
+    , cardano-node
     , cardano-prelude
     , cardano-slotting
     , cborg
@@ -124,6 +126,7 @@ library
     , network
     , network-mux
     , optparse-applicative
+    , ouroboros-network
     , ouroboros-network-framework
     , plutus-contract
     , plutus-ledger

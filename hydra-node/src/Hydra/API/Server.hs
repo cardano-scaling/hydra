@@ -13,6 +13,7 @@ import qualified Control.Concurrent.STM as STM
 import Control.Concurrent.STM.TChan (newBroadcastTChanIO, writeTChan)
 import Control.Concurrent.STM.TVar (TVar, modifyTVar', newTVarIO, readTVar)
 import qualified Data.Aeson as Aeson
+import Data.ByteString.Base16 (encodeBase16)
 import Hydra.HeadLogic (
   ClientInput,
   ServerOutput (..),
@@ -32,10 +33,20 @@ import Network.WebSockets (
 data APIServerLog
   = APIServerStarted {listeningPort :: PortNumber}
   | NewAPIConnection
-  | APIOutputSent {sendOutput :: LByteString}
-  | APIInputReceived {receivedInput :: LByteString}
-  | APIInvalidInput {receivedInput :: LByteString}
-  deriving (Eq, Show)
+  | APIOutputSent {sentOutput :: Aeson.Value}
+  | APIInputReceived {receivedInput :: Aeson.Value}
+  | APIInvalidInput InvalidClientInput
+  deriving stock (Eq, Show, Generic)
+  deriving anyclass (ToJSON)
+
+newtype InvalidClientInput = InvalidClientInput {invalidInput :: LByteString}
+  deriving stock (Eq, Show, Generic)
+
+instance ToJSON InvalidClientInput where
+  toJSON (toStrict . invalidInput -> bytes) =
+    case decodeUtf8' bytes of
+      Left{} -> toJSON (encodeBase16 bytes)
+      Right txt -> toJSON txt
 
 withAPIServer ::
   Tx tx =>
@@ -79,17 +90,17 @@ runAPIServer host port tracer history inputHandler responseChannel = do
     response <- STM.atomically $ readTChan chan
     let sentResponse = Aeson.encode response
     sendTextData con sentResponse
-    traceWith tracer (APIOutputSent sentResponse)
+    traceWith tracer (APIOutputSent $ toJSON response)
 
   receiveInputs con = forever $ do
     msg <- receiveData con
     case Aeson.eitherDecode msg of
       Right input -> do
-        traceWith tracer (APIInputReceived msg)
+        traceWith tracer (APIInputReceived $ toJSON input)
         inputHandler input
       Left{} -> do
         sendTextData con $ Aeson.encode $ InvalidInput @tx
-        traceWith tracer (APIInvalidInput msg)
+        traceWith tracer (APIInvalidInput $ InvalidClientInput msg)
 
   forwardHistory con = do
     hist <- STM.atomically (readTVar history)

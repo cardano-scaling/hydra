@@ -145,7 +145,10 @@ source-repository-package
     iohk-monitoring
     tracer-transformers
     contra-tracer
+    plugins/backend-aggregation
     plugins/backend-ekg
+    plugins/backend-monitoring
+    plugins/backend-trace-forwarder
 
 source-repository-package
   type: git
@@ -177,6 +180,8 @@ source-repository-package
   tag: b3cabae6b3bf30a0b1b4e78bc4b67282dabad0a6
   subdir:
     cardano-api
+    cardano-config
+    cardano-node
 
 source-repository-package
   type: git

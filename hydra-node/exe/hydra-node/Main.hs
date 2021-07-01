@@ -34,10 +34,10 @@ main :: IO ()
 main = do
   o@Options{verbosity, host, port, peers, apiHost, apiPort, monitoringPort} <- identifyNode <$> parseHydraOptions
   env <- initEnvironment o
-  withTracer verbosity show $ \tracer' ->
+  withTracer verbosity $ \tracer' ->
     withMonitoring monitoringPort tracer' $ \tracer -> do
       eq <- createEventQueue
-       -- XXX(SN): this is soo weird, [] and mempty are both `parties`
+      -- XXX(SN): this is soo weird, [] and mempty are both `parties`
       let headState = createHeadState [] (HeadParameters 10 mempty)
       hh <- createHydraHead headState Ledger.simpleLedger
       oc <- createMockChainClient eq (contramap MockChain tracer)
