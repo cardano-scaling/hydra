@@ -325,6 +325,7 @@ getParty =
 data OnChainTx tx
   = InitTx [Party] -- NOTE(SN): The order of this list is important for leader selection.
   | CommitTx Party (UTxO tx)
+  | AbortTx (UTxO tx)
   | CollectComTx (UTxO tx)
   | CloseTx (Snapshot tx)
   | ContestTx (Snapshot tx)
@@ -452,6 +453,8 @@ update Environment{party, signingKey, otherParties, snapshotStrategy} ledger (He
     collectedUtxo = mconcat $ Map.elems newCommitted
   (CollectingState _ committed, ClientEvent GetUtxo) ->
     sameState [ClientEffect $ Utxo (mconcat $ Map.elems committed)]
+  (CollectingState _ committed, ClientEvent Abort) ->
+    sameState [OnChainEffect $ AbortTx (mconcat $ Map.elems committed)]
   (_, OnChainEvent CommitTx{}) ->
     -- TODO: This should warn the user / client that something went _terribly_ wrong
     --       We shouldn't see any commit outside of the collecting state, if we do,
@@ -462,6 +465,8 @@ update Environment{party, signingKey, otherParties, snapshotStrategy} ledger (He
      in newState
           (OpenState $ CoordinatedHeadState u0 mempty (Snapshot 0 u0 mempty) Nothing)
           [ClientEffect $ HeadIsOpen u0]
+  (_, OnChainEvent (AbortTx utxo)) ->
+    newState (ClosedState utxo) [ClientEffect $ HeadIsAborted utxo]
   --
   (OpenState CoordinatedHeadState{confirmedSnapshot}, ClientEvent Close) ->
     sameState
@@ -480,7 +485,7 @@ update Environment{party, signingKey, otherParties, snapshotStrategy} ledger (He
     --   (b) It makes testing of the logic more complicated, for we can't
     --       send not-yet-valid transactions and simulate messages out of
     --       order
-    sameState $ [NetworkEffect $ ReqTx party tx, ClientEffect clientFeedback]
+    sameState [NetworkEffect $ ReqTx party tx, ClientEffect clientFeedback]
    where
     clientFeedback =
       case canApply ledger seenUTxO tx of
