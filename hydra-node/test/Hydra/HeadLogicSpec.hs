@@ -22,6 +22,7 @@ import Hydra.HeadLogic (
   HeadStatus (..),
   HydraMessage (..),
   LogicError (..),
+  OnChainTx (..),
   Outcome (..),
   ServerOutput (..),
   Snapshot (..),
@@ -206,6 +207,20 @@ spec = describe "Hydra Coordinated Head Protocol" $ do
     update env ledger (inOpenState threeParties ledger) (NetworkEvent $ Connected 1)
       `hasEffect_` ClientEffect (PeerConnected 1)
 
+  it "cannot observe abort after collect com" $ do
+    let s0 = inInitialState threeParties
+    s1 <- assertNewState $ update env ledger s0 (OnChainEvent $ CollectComTx mempty)
+    let invalidEvent = OnChainEvent $ AbortTx mempty
+    let s2 = update env ledger s1 invalidEvent
+    s2 `shouldBe` Error (InvalidEvent invalidEvent s1)
+
+  it "cannot observe collect com after abort" $ do
+    let s0 = inInitialState threeParties
+    s1 <- assertNewState $ update env ledger s0 (OnChainEvent $ AbortTx mempty)
+    let invalidEvent = OnChainEvent $ CollectComTx mempty
+    let s2 = update env ledger s1 invalidEvent
+    s2 `shouldBe` Error (InvalidEvent invalidEvent s1)
+
   -- TOOD: Replace with: https://hackage.haskell.org/package/hspec-golden-aeson
   describe "JSON instances" $ do
     prop "ClientInput - JSON roundtrips" $
@@ -255,6 +270,17 @@ isAckSn :: Effect tx -> Bool
 isAckSn = \case
   NetworkEffect AckSn{} -> True
   _ -> False
+
+inInitialState :: [Party] -> HeadState SimpleTx
+inInitialState parties =
+  HeadState
+    { headStatus = InitialState (Set.fromList parties) mempty
+    , headParameters =
+        HeadParameters
+          { contestationPeriod = 42
+          , parties
+          }
+    }
 
 inOpenState ::
   [Party] ->

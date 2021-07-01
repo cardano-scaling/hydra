@@ -459,12 +459,12 @@ update Environment{party, signingKey, otherParties, snapshotStrategy} ledger (He
     --       We shouldn't see any commit outside of the collecting state, if we do,
     --       there's an issue our logic or onChain layer.
     sameState []
-  (_, OnChainEvent (CollectComTx utxo)) ->
+  (InitialState{}, OnChainEvent (CollectComTx utxo)) ->
     let u0 = utxo
      in newState
           (OpenState $ CoordinatedHeadState u0 mempty (Snapshot 0 u0 mempty) Nothing)
           [ClientEffect $ HeadIsOpen u0]
-  (_, OnChainEvent (AbortTx utxo)) ->
+  (InitialState{}, OnChainEvent (AbortTx utxo)) ->
     newState ReadyState [ClientEffect $ HeadIsAborted utxo]
   --
   (OpenState CoordinatedHeadState{confirmedSnapshot}, ClientEvent Close) ->
