@@ -134,7 +134,7 @@ spec = describe "Behavior of one ore more hydra nodes" $ do
             waitFor [n1] $ Committed 2 (utxoRef 2)
             waitFor [n1] $ HeadIsOpen (utxoRefs [1, 2])
 
-    it "can abort head when one party has not committed" $
+    it "can abort and re-open a head when one party has not committed" $
       shouldRunInSim $ do
         chain <- simulatedChainAndNetwork
         withHydraNode 1 [2] NoSnapshots chain $ \n1 ->
@@ -142,11 +142,11 @@ spec = describe "Behavior of one ore more hydra nodes" $ do
             send n1 Init
             waitFor [n1, n2] $ ReadyToCommit [1, 2]
             send n1 (Commit (utxoRefs [1, 2]))
-            waitFor [n1] $ Committed 1 (utxoRefs [1, 2])
-
+            waitFor [n1, n2] $ Committed 1 (utxoRefs [1, 2])
             send n2 Abort
-
-            waitFor [n1] $ HeadIsAborted (utxoRefs [1, 2])
+            waitFor [n1, n2] $ HeadIsAborted (utxoRefs [1, 2])
+            send n1 Init
+            waitFor [n1, n2] $ ReadyToCommit [1, 2]
 
     it "cannot abort head when commits have been collected" $
       shouldRunInSim $ do
@@ -346,11 +346,7 @@ type ConnectToChain tx m = (HydraNode tx m -> m (HydraNode tx m))
 -- patch" a 'HydraNode' such that it is connected. This is necessary, to get to
 -- know all nodes which use this function and simulate network and chain
 -- messages being sent around.
---
--- NOTE: This implementation currently ensures that no two equal 'OnChainTx' can
--- be posted on chain assuming the construction of the real transaction is
--- referentially transparent.
-simulatedChainAndNetwork :: (Tx tx, MonadSTM m) => m (ConnectToChain tx m)
+simulatedChainAndNetwork :: (MonadSTM m) => m (ConnectToChain tx m)
 simulatedChainAndNetwork = do
   refHistory <- newTVarIO []
   nodes <- newTVarIO []
@@ -365,11 +361,8 @@ simulatedChainAndNetwork = do
   postTx nodes refHistory tx = do
     res <- atomically $ do
       h <- readTVar refHistory
-      if tx `elem` h
-        then pure Nothing
-        else do
-          modifyTVar' refHistory (tx :)
-          Just <$> readTVar nodes
+      modifyTVar' refHistory (tx :)
+      Just <$> readTVar nodes
     case res of
       Nothing -> pure ()
       Just ns -> mapM_ (`handleChainTx` tx) ns
