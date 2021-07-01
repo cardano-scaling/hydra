@@ -344,11 +344,10 @@ deriving instance Tx tx => Eq (HeadState tx)
 deriving instance Tx tx => Show (HeadState tx)
 
 data HeadStatus tx
-  = InitState
-  | CollectingState PendingCommits (Committed tx)
+  = ReadyState
+  | InitialState PendingCommits (Committed tx)
   | OpenState (CoordinatedHeadState tx)
   | ClosedState (UTxO tx)
-  | FinalState
 
 deriving instance Tx tx => Eq (HeadStatus tx)
 deriving instance Tx tx => Show (HeadStatus tx)
@@ -380,7 +379,7 @@ data SnapshotStrategy = NoSnapshots | SnapshotAfterEachTx
 -- | Assume: We know the party members and their verification keys. These need
 -- to be exchanged somehow, eventually.
 createHeadState :: [Party] -> HeadParameters -> HeadState tx
-createHeadState _ parameters = HeadState parameters InitState
+createHeadState _ parameters = HeadState parameters ReadyState
 
 -- | Preliminary type for collecting errors occurring during 'update'. Might
 -- make sense to merge this (back) into 'Outcome'.
@@ -424,36 +423,36 @@ update ::
   Event tx ->
   Outcome tx
 update Environment{party, signingKey, otherParties, snapshotStrategy} ledger (HeadState parameters st) ev = case (st, ev) of
-  (InitState, ClientEvent Init) ->
-    newState InitState [OnChainEffect (InitTx $ party : otherParties)]
+  (ReadyState, ClientEvent Init) ->
+    newState ReadyState [OnChainEffect (InitTx $ party : otherParties)]
   (_, OnChainEvent (InitTx parties)) ->
     -- NOTE(SN): Eventually we won't be able to construct 'HeadParameters' from
     -- the 'InitTx'
     NewState
       ( HeadState
           { headParameters = parameters{parties}
-          , headStatus = CollectingState (Set.fromList parties) mempty
+          , headStatus = InitialState (Set.fromList parties) mempty
           }
       )
       [ClientEffect $ ReadyToCommit parties]
   --
-  (CollectingState remainingParties _, ClientEvent (Commit utxo))
+  (InitialState remainingParties _, ClientEvent (Commit utxo))
     | canCommit -> sameState [OnChainEffect (CommitTx party utxo)]
    where
     canCommit = party `Set.member` remainingParties
-  (CollectingState remainingParties committed, OnChainEvent (CommitTx pt utxo)) ->
+  (InitialState remainingParties committed, OnChainEvent (CommitTx pt utxo)) ->
     newState newHeadState $
       [ClientEffect $ Committed pt utxo]
         <> [OnChainEffect $ CollectComTx collectedUtxo | canCollectCom]
    where
-    newHeadState = CollectingState remainingParties' newCommitted
+    newHeadState = InitialState remainingParties' newCommitted
     remainingParties' = Set.delete pt remainingParties
     newCommitted = Map.insert pt utxo committed
     canCollectCom = null remainingParties' && pt == party
     collectedUtxo = mconcat $ Map.elems newCommitted
-  (CollectingState _ committed, ClientEvent GetUtxo) ->
+  (InitialState _ committed, ClientEvent GetUtxo) ->
     sameState [ClientEffect $ Utxo (mconcat $ Map.elems committed)]
-  (CollectingState _ committed, ClientEvent Abort) ->
+  (InitialState _ committed, ClientEvent Abort) ->
     sameState [OnChainEffect $ AbortTx (mconcat $ Map.elems committed)]
   (_, OnChainEvent CommitTx{}) ->
     -- TODO: This should warn the user / client that something went _terribly_ wrong
@@ -466,7 +465,7 @@ update Environment{party, signingKey, otherParties, snapshotStrategy} ledger (He
           (OpenState $ CoordinatedHeadState u0 mempty (Snapshot 0 u0 mempty) Nothing)
           [ClientEffect $ HeadIsOpen u0]
   (_, OnChainEvent (AbortTx utxo)) ->
-    newState (ClosedState utxo) [ClientEffect $ HeadIsAborted utxo]
+    newState ReadyState [ClientEffect $ HeadIsAborted utxo]
   --
   (OpenState CoordinatedHeadState{confirmedSnapshot}, ClientEvent Close) ->
     sameState
@@ -566,7 +565,7 @@ update Environment{party, signingKey, otherParties, snapshotStrategy} ledger (He
     sameState [OnChainEffect (FanoutTx utxo)]
   (_, OnChainEvent (FanoutTx utxo)) ->
     -- NOTE(SN): we might care if we are not in ClosedState
-    newState FinalState [ClientEffect $ HeadIsFinalized utxo]
+    newState ReadyState [ClientEffect $ HeadIsFinalized utxo]
   --
   (_, ClientEvent{}) ->
     sameState [ClientEffect CommandFailed]

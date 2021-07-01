@@ -243,9 +243,8 @@ genOnChainTx =
 genHeadStatus :: Gen (HeadStatus SimpleTx)
 genHeadStatus =
   elements
-    [ InitState
-    , FinalState
-    , CollectingState mempty mempty
+    [ ReadyState
+    , InitialState mempty mempty
     , OpenState (CoordinatedHeadState mempty mempty (Snapshot 0 mempty mempty) Nothing)
     ]
 
