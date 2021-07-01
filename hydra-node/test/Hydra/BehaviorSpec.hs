@@ -134,6 +134,20 @@ spec = describe "Behavior of one ore more hydra nodes" $ do
             waitFor [n1] $ Committed 2 (utxoRef 2)
             waitFor [n1] $ HeadIsOpen (utxoRefs [1, 2])
 
+    it "can abort head when one node has not committed" $
+      shouldRunInSim $ do
+        chain <- simulatedChainAndNetwork
+        withHydraNode 1 [2] NoSnapshots chain $ \n1 ->
+          withHydraNode 2 [1] NoSnapshots chain $ \n2 -> do
+            send n1 Init
+            waitFor [n1, n2] $ ReadyToCommit [1, 2]
+            send n1 (Commit (utxoRefs [1, 2]))
+            waitFor [n1] $ Committed 1 (utxoRefs [1, 2])
+
+            send n2 Abort
+
+            waitFor [n1] $ HeadIsAborted (utxoRefs [1, 2])
+
     it "cannot commit twice" $
       shouldRunInSim $ do
         chain <- simulatedChainAndNetwork

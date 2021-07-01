@@ -46,6 +46,7 @@ deriving instance Tx tx => Show (Effect tx)
 
 data ClientInput tx
   = Init
+  | Abort
   | Commit (UTxO tx)
   | NewTx tx
   | GetUtxo
@@ -65,6 +66,7 @@ instance (Arbitrary tx, Arbitrary (UTxO tx)) => Arbitrary (ClientInput tx) where
   -- should be only one 'UTxO tx'
   shrink = \case
     Init -> []
+    Abort -> []
     Commit xs -> Commit <$> shrink xs
     NewTx tx -> NewTx <$> shrink tx
     GetUtxo -> []
@@ -75,6 +77,8 @@ instance Tx tx => ToJSON (ClientInput tx) where
   toJSON = \case
     Init ->
       object [tagFieldName .= s "init"]
+    Abort ->
+      object [tagFieldName .= s "abort"]
     Commit u ->
       object [tagFieldName .= s "commit", "utxo" .= u]
     NewTx tx ->
@@ -95,6 +99,8 @@ instance Tx tx => FromJSON (ClientInput tx) where
     case tag of
       "init" ->
         pure Init
+      "abort" ->
+        pure Abort
       "commit" ->
         Commit <$> (obj .: "utxo")
       "newTransaction" ->
@@ -157,6 +163,7 @@ data ServerOutput tx
   | Committed Party (UTxO tx)
   | HeadIsOpen (UTxO tx)
   | HeadIsClosed DiffTime (Snapshot tx)
+  | HeadIsAborted (UTxO tx)
   | HeadIsFinalized (UTxO tx)
   | CommandFailed
   | TxSeen tx
@@ -183,6 +190,7 @@ instance (Arbitrary tx, Arbitrary (UTxO tx)) => Arbitrary (ServerOutput tx) wher
     HeadIsOpen u -> HeadIsOpen <$> shrink u
     HeadIsClosed t s -> HeadIsClosed t <$> shrink s
     HeadIsFinalized u -> HeadIsFinalized <$> shrink u
+    HeadIsAborted u -> HeadIsAborted <$> shrink u
     CommandFailed -> []
     TxSeen tx -> TxSeen <$> shrink tx
     TxValid tx -> TxValid <$> shrink tx
@@ -211,6 +219,8 @@ instance (ToJSON tx, ToJSON (Snapshot tx), ToJSON (UTxO tx)) => ToJSON (ServerOu
         ]
     HeadIsFinalized utxo ->
       object [tagFieldName .= s "headIsFinalized", "utxo" .= utxo]
+    HeadIsAborted utxo ->
+      object [tagFieldName .= s "headIsAborted", "utxo" .= utxo]
     CommandFailed ->
       object [tagFieldName .= s "commandFailed"]
     TxSeen tx ->
@@ -247,6 +257,8 @@ instance (FromJSON tx, FromJSON (Snapshot tx), FromJSON (UTxO tx)) => FromJSON (
         HeadIsClosed <$> (obj .: "contestationPeriod") <*> (obj .: "latestSnapshot")
       "headIsFinalized" ->
         HeadIsFinalized <$> (obj .: "utxo")
+      "headIsAborted" ->
+        HeadIsAborted <$> (obj .: "utxo")
       "commandFailed" ->
         pure CommandFailed
       "transactionSeen" ->
