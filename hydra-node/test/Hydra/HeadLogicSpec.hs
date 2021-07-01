@@ -22,7 +22,6 @@ import Hydra.HeadLogic (
   HeadStatus (..),
   HydraMessage (..),
   LogicError (..),
-  OnChainTx (..),
   Outcome (..),
   ServerOutput (..),
   Snapshot (..),
@@ -41,15 +40,11 @@ import Test.Hspec (
  )
 import Test.Hspec.QuickCheck (prop)
 import Test.QuickCheck (
-  Gen,
   Property,
   counterexample,
-  elements,
-  forAll,
   forAllShrink,
   (===),
  )
-import Test.QuickCheck.Property (collect)
 import Test.Util (failure)
 
 spec :: Spec
@@ -211,8 +206,6 @@ spec = describe "Hydra Coordinated Head Protocol" $ do
     update env ledger (inOpenState threeParties ledger) (NetworkEvent $ Connected 1)
       `hasEffect_` ClientEffect (PeerConnected 1)
 
-  prop "can handle OnChainEvent in any state" prop_handleOnChainEventInAnyState
-
   -- TOOD: Replace with: https://hackage.haskell.org/package/hspec-golden-aeson
   describe "JSON instances" $ do
     prop "ClientInput - JSON roundtrips" $
@@ -229,48 +222,9 @@ prop_roundtripJSON _proxy = forAllShrink arbitrary shrink $ \(a :: a) ->
   let encoded = Aeson.encode a
    in counterexample (show encoded) $ Aeson.eitherDecode' encoded === Right a
 
-genOnChainTx :: Gen (OnChainTx SimpleTx)
-genOnChainTx =
-  elements
-    [ InitTx mempty
-    , CommitTx 1 (Set.fromList [TxIn 1, TxIn 2])
-    , CollectComTx mempty
-    , CloseTx (Snapshot 0 mempty mempty)
-    , ContestTx (Snapshot 0 mempty mempty)
-    , FanoutTx (Set.fromList [TxIn 1, TxIn 2])
-    ]
-
-genHeadStatus :: Gen (HeadStatus SimpleTx)
-genHeadStatus =
-  elements
-    [ ReadyState
-    , InitialState mempty mempty
-    , OpenState (CoordinatedHeadState mempty mempty (Snapshot 0 mempty mempty) Nothing)
-    ]
-
-prop_handleOnChainEventInAnyState :: Property
-prop_handleOnChainEventInAnyState =
-  forAll genHeadStatus $ \st ->
-    forAll genOnChainTx $ \tx ->
-      collect (tx, st) $
-        case update env ledger (HeadState defaultHeadParameters st) (OnChainEvent tx) of
-          NewState _ _ -> True
-          Wait -> True
-          Error _ -> False
- where
-  env =
-    Environment
-      { party = 1
-      , signingKey = 1
-      , otherParties = mempty
-      , snapshotStrategy = NoSnapshots
-      }
-
-  ledger = simpleLedger
-
-  defaultHeadParameters = HeadParameters 3600 [1]
-
--- ** Assertion utilities
+--
+-- Assertion utilities
+--
 
 hasEffect :: (HasCallStack, Tx tx) => Outcome tx -> Effect tx -> IO (HeadState tx)
 hasEffect (NewState s effects) effect
