@@ -16,7 +16,7 @@ import Hydra.Chain (Chain (..))
 import Hydra.HeadLogic (Event (OnChainEvent), OnChainTx)
 import Hydra.Ledger (Tx)
 import Hydra.Logging (ToObject, Tracer, traceWith)
-import Hydra.Network (PortNumber)
+import Hydra.Network (MockChainPorts (..))
 import Hydra.Node (EventQueue (..))
 import System.ZMQ4.Monadic (
   Pub (..),
@@ -158,11 +158,11 @@ catchUpTransactions catchUpAddress handler tracer = runZMQ $ do
 
 createMockChainClient ::
   Tx tx =>
-  [PortNumber] ->
+  MockChainPorts ->
   EventQueue IO (Event tx) ->
   Tracer IO (MockChainLog tx) ->
   IO (Chain tx IO)
-createMockChainClient mockChainPorts EventQueue{putEvent} tracer = do
+createMockChainClient (MockChainPorts (syncPort, catchUpPort, postPort)) EventQueue{putEvent} tracer = do
   -- TODO: Do a proper cleanup of threads and what not
   -- BUG(SN): This should wait until we are connected to the chain, otherwise we
   -- might think that the 'OnChain' is ready, but it in fact would not see any
@@ -172,9 +172,4 @@ createMockChainClient mockChainPorts EventQueue{putEvent} tracer = do
   threadDelay 0.1
   pure Chain{postTx = mockChainClient ("tcp://127.0.0.1:" <> show postPort) tracer}
  where
-  (syncPort, catchUpPort, postPort) =
-    case mockChainPorts of
-      [s, c, p] -> (s, c, p)
-      _ -> (56789, 56790, 56791)
-
   onTx tx = putEvent $ OnChainEvent tx

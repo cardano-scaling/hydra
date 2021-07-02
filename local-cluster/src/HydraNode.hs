@@ -144,7 +144,7 @@ queryNode nodeId =
     (HttpExceptionRequest _ (ConnectionFailure _)) -> threadDelay 100_000 >> cont
     e -> throwIO e
 
-withHydraNode :: forall alg. DSIGNAlgorithm alg => [Int] -> Int -> SignKeyDSIGN alg -> [VerKeyDSIGN alg] -> (HydraNode -> IO ()) -> IO ()
+withHydraNode :: forall alg. DSIGNAlgorithm alg => (Int, Int, Int) -> Int -> SignKeyDSIGN alg -> [VerKeyDSIGN alg] -> (HydraNode -> IO ()) -> IO ()
 withHydraNode mockChainPorts hydraNodeId sKey vKeys action = do
   withSystemTempFile "hydra-node" $ \f out -> traceOnFailure f $ do
     out' <- hDuplicate out
@@ -182,7 +182,7 @@ defaultArguments ::
   Int ->
   FilePath ->
   [FilePath] ->
-  [Int] ->
+  (Int, Int, Int) ->
   [String]
 defaultArguments nodeId sKey vKeys ports =
   [ "--node-id"
@@ -204,12 +204,12 @@ defaultArguments nodeId sKey vKeys ports =
     <> concat [["--party", vKey] | vKey <- vKeys]
     <> ["--mock-chain-ports", show ports]
 
-withMockChain :: ([Int] -> IO ()) -> IO ()
+withMockChain :: ((Int, Int, Int) -> IO ()) -> IO ()
 withMockChain action = do
-  ps@[sync, catchUp, post] <- randomUnusedTCPPorts 3
+  [sync, catchUp, post] <- randomUnusedTCPPorts 3
   withCreateProcess (proc "mock-chain" (arguments sync catchUp post)) $
     \_in _out _err processHandle -> do
-      race_ (checkProcessHasNotDied processHandle) (action ps)
+      race_ (checkProcessHasNotDied processHandle) (action (sync, catchUp, post))
  where
   arguments s c p =
     [ "--quiet"

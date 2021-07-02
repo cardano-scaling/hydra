@@ -19,6 +19,7 @@ module Hydra.Network (
   readHost,
   PortNumber,
   readPort,
+  MockChainPorts (..),
 
   -- * Utility functions
   close,
@@ -89,8 +90,7 @@ instance Read Host where
 instance Arbitrary Host where
   arbitrary = do
     ip <- toIPv4w <$> arbitrary
-    port <- arbitrary
-    pure $ Host (toText $ show ip) port
+    Host (toText $ show ip) <$> arbitrary
 
 instance ToJSON Host where
   toJSON h =
@@ -138,3 +138,8 @@ readPort s =
         else fail $ "readPort: " <> show n <> " not within " <> show maxPort
  where
   maxPort = fromIntegral (maxBound :: Word16)
+
+-- | Ports definition for Mock Chain client.
+-- HACK: This is a temporary solution until we wire in a real chain client.
+newtype MockChainPorts = MockChainPorts (PortNumber, PortNumber, PortNumber)
+  deriving newtype (Eq, Show, Read)

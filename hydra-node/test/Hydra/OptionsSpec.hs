@@ -1,6 +1,6 @@
 module Hydra.OptionsSpec where
 
-import Hydra.Network (Host (Host))
+import Hydra.Network (Host (Host), MockChainPorts (..))
 import Hydra.Options (Options (..), ParserResult (..), defaultOptions, parseHydraOptionsFromString)
 import Hydra.Prelude
 import Test.Hspec (Expectation, Spec, describe, expectationFailure, it, shouldBe)
@@ -54,6 +54,9 @@ spec = describe "Hydra Node Options" $ do
 
   it "parses --me option as a filepath" $
     ["--me", "./alice.sk"] `shouldParse` defaultOptions{me = "./alice.sk"}
+
+  it "parses --mock-chain-ports option as a list of ports to connect to" $
+    ["--mock-chain-ports", "(1,2,3)"] `shouldParse` defaultOptions{mockChainPorts = MockChainPorts (1, 2, 3)}
 
 shouldParse :: [String] -> Options -> Expectation
 shouldParse args options =
