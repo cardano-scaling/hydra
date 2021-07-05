@@ -163,13 +163,9 @@ createMockChainClient ::
   Tracer IO (MockChainLog tx) ->
   IO (Chain tx IO)
 createMockChainClient (MockChainPorts (syncPort, catchUpPort, postPort)) EventQueue{putEvent} tracer = do
-  -- TODO: Do a proper cleanup of threads and what not
-  -- BUG(SN): This should wait until we are connected to the chain, otherwise we
-  -- might think that the 'OnChain' is ready, but it in fact would not see any
-  -- txs from the chain. For now, we assume it takes 1 sec to connect.
+  -- TODO: Structure mock chain client as a component
   catchUpTransactions ("tcp://127.0.0.1:" <> show catchUpPort) onTx tracer
   link =<< async (runChainSync ("tcp://127.0.0.1:" <> show syncPort) onTx tracer)
-  threadDelay 0.1
   pure Chain{postTx = mockChainClient ("tcp://127.0.0.1:" <> show postPort) tracer}
  where
   onTx tx = putEvent $ OnChainEvent tx

@@ -21,3 +21,4 @@ result*
 .history
 *.hi
 *.o
+test-results.xml
