@@ -16,6 +16,7 @@ import Hydra.Chain (Chain (..))
 import Hydra.HeadLogic (Event (OnChainEvent), OnChainTx)
 import Hydra.Ledger (Tx)
 import Hydra.Logging (ToObject, Tracer, traceWith)
+import Hydra.Network (MockChainPorts (..))
 import Hydra.Node (EventQueue (..))
 import System.ZMQ4.Monadic (
   Pub (..),
@@ -155,17 +156,16 @@ catchUpTransactions catchUpAddress handler tracer = runZMQ $ do
       forM_ txs handler
     Nothing -> error $ "cannot decode catch-up transactions  " <> show message
 
-createMockChainClient :: Tx tx => EventQueue IO (Event tx) -> Tracer IO (MockChainLog tx) -> IO (Chain tx IO)
-createMockChainClient EventQueue{putEvent} tracer = do
-  -- TODO: Do a proper cleanup of threads and what not
-  -- BUG(SN): This should wait until we are connected to the chain, otherwise we
-  -- might think that the 'OnChain' is ready, but it in fact would not see any
-  -- txs from the chain. For now, we assume it takes 1 sec to connect.
-  catchUpTransactions "tcp://127.0.0.1:56790" onTx tracer
-  link =<< async (runChainSync "tcp://127.0.0.1:56789" onTx tracer)
-  threadDelay 0.1
-  pure Chain{postTx = sendTx}
+createMockChainClient ::
+  Tx tx =>
+  MockChainPorts ->
+  EventQueue IO (Event tx) ->
+  Tracer IO (MockChainLog tx) ->
+  IO (Chain tx IO)
+createMockChainClient (MockChainPorts (syncPort, catchUpPort, postPort)) EventQueue{putEvent} tracer = do
+  -- TODO: Structure mock chain client as a component
+  catchUpTransactions ("tcp://127.0.0.1:" <> show catchUpPort) onTx tracer
+  link =<< async (runChainSync ("tcp://127.0.0.1:" <> show syncPort) onTx tracer)
+  pure Chain{postTx = mockChainClient ("tcp://127.0.0.1:" <> show postPort) tracer}
  where
-  sendTx tx = mockChainClient "tcp://127.0.0.1:56791" tracer tx
-
   onTx tx = putEvent $ OnChainEvent tx

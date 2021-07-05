@@ -51,10 +51,10 @@ spec = describe "End-to-end test using a mocked chain though" $ do
   describe "three hydra nodes scenario" $ do
     it "inits and closes a head with a single mock transaction" $ do
       failAfter 30 $
-        withMockChain $
-          withHydraNode 1 aliceSk [bobVk, carolVk] $ \n1 ->
-            withHydraNode 2 bobSk [aliceVk, carolVk] $ \n2 ->
-              withHydraNode 3 carolSk [aliceVk, bobVk] $ \n3 -> do
+        withMockChain $ \chainPorts ->
+          withHydraNode chainPorts 1 aliceSk [bobVk, carolVk] $ \n1 ->
+            withHydraNode chainPorts 2 bobSk [aliceVk, carolVk] $ \n2 ->
+              withHydraNode chainPorts 3 carolSk [aliceVk, bobVk] $ \n3 -> do
                 waitForNodesConnected [n1, n2, n3]
                 let contestationPeriod = 10 -- TODO: Should be part of init
                 send n1 $ input "init" []
@@ -101,10 +101,10 @@ spec = describe "End-to-end test using a mocked chain though" $ do
   describe "Monitoring" $ do
     it "Node exposes Prometheus metrics on port 6001" $ do
       failAfter 20 $
-        withMockChain $
-          withHydraNode 1 aliceSk [bobVk, carolVk] $ \n1 ->
-            withHydraNode 2 bobSk [aliceVk, carolVk] $ \_n2 ->
-              withHydraNode 3 carolSk [aliceVk, bobVk] $ \_n3 -> do
+        withMockChain $ \mockPorts ->
+          withHydraNode mockPorts 1 aliceSk [bobVk, carolVk] $ \n1 ->
+            withHydraNode mockPorts 2 bobSk [aliceVk, carolVk] $ \_n2 ->
+              withHydraNode mockPorts 3 carolSk [aliceVk, bobVk] $ \_n3 -> do
                 waitForNodesConnected [n1]
                 send n1 $ input "init" []
                 waitFor 3 [n1] $ output "readyToCommit" ["parties" .= [int 10, 20, 30]]

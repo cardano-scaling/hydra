@@ -33,6 +33,11 @@ jobs:
 
     - run: nix-shell --run 'build-ci.sh'
 
+    - name: Publish Unit Test Results
+      uses: EnricoMi/publish-unit-test-result-action@v1
+      with:
+        files: ./**/test-results.xml
+
     - uses: peaceiris/actions-gh-pages@v3
       name: Publish Documentation
       if: github.event_name == 'push'

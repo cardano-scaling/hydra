@@ -1,5 +1,6 @@
 {-# LANGUAGE NumericUnderscores #-}
 {-# LANGUAGE TypeApplications #-}
+{-# OPTIONS_GHC -Wno-incomplete-uni-patterns #-}
 
 module HydraNode (
   HydraNode (..),
@@ -31,11 +32,13 @@ import Control.Concurrent.Async (
 import Control.Exception (IOException)
 import Data.Aeson (Value (String), object, (.=))
 import qualified Data.Aeson as Aeson
+import Data.Aeson.Types (Pair)
 import qualified Data.ByteString as BS
 import Data.List (delete)
 import qualified Data.Text as T
 import Data.Text.IO (hPutStrLn)
 import GHC.IO.Handle (hDuplicate)
+import Hydra.Network.Ports (randomUnusedTCPPorts)
 import Network.HTTP.Conduit (HttpExceptionContent (ConnectionFailure), parseRequest)
 import Network.HTTP.Simple (HttpException (HttpExceptionRequest), Response, getResponseBody, getResponseStatusCode, httpBS)
 import Network.WebSockets (Connection, receiveData, runClient, sendClose, sendTextData)
@@ -54,7 +57,6 @@ import System.Process (
  )
 import System.Timeout (timeout)
 import Test.Hspec.Expectations (expectationFailure)
-import Data.Aeson.Types (Pair)
 
 data HydraNode = HydraNode
   { hydraNodeId :: Int
@@ -142,8 +144,8 @@ queryNode nodeId =
     (HttpExceptionRequest _ (ConnectionFailure _)) -> threadDelay 100_000 >> cont
     e -> throwIO e
 
-withHydraNode :: forall alg. DSIGNAlgorithm alg => Int -> SignKeyDSIGN alg -> [VerKeyDSIGN alg] -> (HydraNode -> IO ()) -> IO ()
-withHydraNode hydraNodeId sKey vKeys action = do
+withHydraNode :: forall alg. DSIGNAlgorithm alg => (Int, Int, Int) -> Int -> SignKeyDSIGN alg -> [VerKeyDSIGN alg] -> (HydraNode -> IO ()) -> IO ()
+withHydraNode mockChainPorts hydraNodeId sKey vKeys action = do
   withSystemTempFile "hydra-node" $ \f out -> traceOnFailure f $ do
     out' <- hDuplicate out
     withSystemTempDirectory "hydra-node" $ \dir -> do
@@ -154,7 +156,7 @@ withHydraNode hydraNodeId sKey vKeys action = do
         filepath <$ BS.writeFile filepath (rawSerialiseVerKeyDSIGN vKey)
 
       let p =
-            (hydraNodeProcess $ defaultArguments hydraNodeId sKeyPath vKeysPaths)
+            (hydraNodeProcess $ defaultArguments hydraNodeId sKeyPath vKeysPaths mockChainPorts)
               { std_out = UseHandle out
               }
       withCreateProcess p $
@@ -180,8 +182,9 @@ defaultArguments ::
   Int ->
   FilePath ->
   [FilePath] ->
+  (Int, Int, Int) ->
   [String]
-defaultArguments nodeId sKey vKeys =
+defaultArguments nodeId sKey vKeys ports =
   [ "--node-id"
   , show nodeId
   , "--host"
@@ -199,12 +202,24 @@ defaultArguments nodeId sKey vKeys =
   ]
     <> concat [["--peer", "127.0.0.1@" <> show (5000 + i)] | i <- allNodeIds, i /= nodeId]
     <> concat [["--party", vKey] | vKey <- vKeys]
+    <> ["--mock-chain-ports", show ports]
 
-withMockChain :: IO () -> IO ()
+withMockChain :: ((Int, Int, Int) -> IO ()) -> IO ()
 withMockChain action = do
-  withCreateProcess (proc "mock-chain" ["--quiet"]) $
+  [sync, catchUp, post] <- randomUnusedTCPPorts 3
+  withCreateProcess (proc "mock-chain" (arguments sync catchUp post)) $
     \_in _out _err processHandle -> do
-      race_ (checkProcessHasNotDied processHandle) action
+      race_ (checkProcessHasNotDied processHandle) (action (sync, catchUp, post))
+ where
+  arguments s c p =
+    [ "--quiet"
+    , "--sync-address"
+    , "tcp://127.0.0.1:" <> show s
+    , "--catch-up-address"
+    , "tcp://127.0.0.1:" <> show c
+    , "--post-address"
+    , "tcp://127.0.0.1:" <> show p
+    ]
 
 checkProcessHasNotDied :: ProcessHandle -> IO ()
 checkProcessHasNotDied processHandle =

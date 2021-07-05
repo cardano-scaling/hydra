@@ -121,6 +121,7 @@ test-suite integration
   other-modules:
     Test.EndToEndSpec
     Test.LocalClusterSpec
+    Spec
   build-depends:
       base >=4.7 && <5
     , aeson
@@ -128,6 +129,7 @@ test-suite integration
     , cardano-crypto-class
     , hspec
     , hspec-core
+    , hspec-junit-formatter
     , hydra-prelude
     , hydra-node
     , local-cluster

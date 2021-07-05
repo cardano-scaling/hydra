@@ -190,6 +190,7 @@ test-suite tests
     Hydra.Network.BroadcastToSelfSpec
     Hydra.OptionsSpec
     Test.Util
+    Spec
   main-is: Main.hs
   type: exitcode-stdio-1.0
   build-depends: base
@@ -201,6 +202,7 @@ test-suite tests
     , contra-tracer
     , hspec
     , hspec-core
+    , hspec-junit-formatter
     , HUnit
     , hydra-node
     , hydra-prelude
