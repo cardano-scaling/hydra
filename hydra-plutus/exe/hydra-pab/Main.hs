@@ -64,7 +64,11 @@ handleStarterContract = Builtin.handleBuiltin getSchema getContract
     WatchInit -> SomeBuiltin watchInit
 
 hydraContract :: Contract () BlockchainActions ContractSM.HydraPlutusError ()
-hydraContract = ContractSM.init
+hydraContract =
+  -- NOTE(SN): This is obviously not what we want, as it does initialize a new
+  -- hydra main chain state machine on every contract activation and we might
+  -- want to use endpoints instead.
+  ContractSM.init
 
 getUtxo :: Contract (Last UtxoMap) BlockchainActions ContractError ()
 getUtxo = do
