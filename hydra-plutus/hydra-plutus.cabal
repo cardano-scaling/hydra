@@ -83,6 +83,7 @@ library
   exposed-modules:
       Hydra.Contract.OnChain
       Hydra.Contract.OffChain
+      Hydra.ContractSM
       Hydra.Contract.PAB
   hs-source-dirs: src
   build-depends:
