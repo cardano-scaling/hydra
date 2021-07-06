@@ -14,6 +14,8 @@ import System.Process (CreateProcess (std_in, std_out), StdStream (CreatePipe), 
 import Test.Hspec (shouldReturn)
 import Test.Hspec.Core.Spec (Spec, describe, it)
 import Test.Util (failAfter)
+import Cardano.Crypto.DSIGN (VerKeyDSIGN, MockDSIGN, DSIGNAlgorithm (deriveVerKeyDSIGN), SignKeyDSIGN)
+import Hydra.Ledger (Party (UnsafeParty))
 
 spec :: Spec
 spec =
@@ -23,10 +25,25 @@ spec =
         withHydraPAB $ do
           calledBack <- newEmptyMVar
           withExternalPAB nullTracer (putMVar calledBack) $ \Chain{postTx} -> do
-            let parties = mempty
+            let parties = [alice, bob, carol]
             postTx $ InitTx @SimpleTx parties
             failAfter 3 $
               takeMVar calledBack `shouldReturn` InitTx parties
+
+aliceSk, bobSk, carolSk :: SignKeyDSIGN MockDSIGN
+aliceSk = 10
+bobSk = 20
+carolSk = 30
+
+aliceVk, bobVk, carolVk :: VerKeyDSIGN MockDSIGN
+aliceVk = deriveVerKeyDSIGN aliceSk
+bobVk = deriveVerKeyDSIGN bobSk
+carolVk = deriveVerKeyDSIGN carolSk
+
+alice, bob, carol :: Party
+alice = UnsafeParty aliceVk
+bob = UnsafeParty bobVk
+carol = UnsafeParty carolVk
 
 withHydraPAB :: IO a -> IO a
 withHydraPAB action =
