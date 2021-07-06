@@ -9,6 +9,7 @@ module Hydra.ContractSM where
 import Control.Lens (makeClassyPrisms)
 import Data.Aeson (FromJSON, ToJSON)
 import GHC.Generics (Generic)
+import Hydra.Contract.Party (Party (..))
 import Hydra.Prelude (Eq, Show, String, show, void)
 import Ledger (AssetClass)
 import qualified Ledger.Typed.Scripts as Scripts
@@ -17,6 +18,7 @@ import Plutus.Contract (
   BlockchainActions,
   Contract,
   ContractError (..),
+  logError,
   logInfo,
   mapError,
  )
@@ -27,7 +29,8 @@ import qualified PlutusTx
 import PlutusTx.Prelude hiding (Eq)
 
 data State
-  = Initial
+  = Setup
+  | Initial
   | Open
   | Final
   deriving stock (Generic, Show)
@@ -37,9 +40,10 @@ PlutusTx.makeLift ''State
 PlutusTx.unstableMakeIsData ''State
 
 data Input
-  = CollectCom
+  = Init [Party]
+  | CollectCom
   | Abort
-  deriving (Generic)
+  deriving (Generic, Show)
 
 PlutusTx.makeLift ''Input
 PlutusTx.unstableMakeIsData ''Input
@@ -98,11 +102,19 @@ machineClient threadToken =
       inst = typedValidator threadToken
    in SM.mkStateMachineClient (SM.StateMachineInstance machine inst)
 
-init :: Contract () BlockchainActions HydraPlutusError ()
-init = do
-  logInfo @String "init hydra contract"
+setup :: Contract () BlockchainActions HydraPlutusError ()
+setup = do
+  logInfo @String "setup hydra contract"
   threadToken <- mapError ThreadTokenError Currency.createThreadToken
   logInfo $ "Obtained thread token: " <> show @String threadToken
 
   let client = machineClient threadToken
-  void $ SM.runInitialise client Initial mempty
+  void $ SM.runInitialise client Setup mempty
+
+  -- TODO: Obviously remove hardcoded parties...
+  let parties = [UnsafeParty 10, UnsafeParty 20, UnsafeParty 30]
+  result <- SM.runStep client (Init parties)
+
+  case result of
+    (SM.TransitionFailure _isi) -> logError @String "initialisation failed"
+    (SM.TransitionSuccess _) -> pure ()
