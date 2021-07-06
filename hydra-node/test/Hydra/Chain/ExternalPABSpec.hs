@@ -21,7 +21,7 @@ spec :: Spec
 spec =
   describe "ExternalPAB" $ do
     it "publishes init tx using wallet 1 and observes it also" $ do
-      failAfter 10 $
+      failAfter 20 $
         withHydraPAB $ do
           calledBack <- newEmptyMVar
           withExternalPAB nullTracer (putMVar calledBack) $ \Chain{postTx} -> do

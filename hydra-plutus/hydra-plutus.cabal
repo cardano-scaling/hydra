@@ -92,12 +92,14 @@ library
       cardano-crypto-class,
       containers,
       hydra-prelude,
+      lens,
       playground-common,
       plutus-core,
       plutus-tx,
       plutus-contract,
       plutus-ledger,
       plutus-tx-plugin,
+      plutus-use-cases,
       prettyprinter,
       template-haskell
 
