@@ -6,17 +6,25 @@
 -- between Node and Chain
 module Hydra.ContractSM where
 
+import Control.Lens (makeClassyPrisms)
 import Data.Aeson (FromJSON, ToJSON)
 import GHC.Generics (Generic)
+import Hydra.Prelude (Eq, Show, String, show, void)
 import Ledger (AssetClass)
 import qualified Ledger.Typed.Scripts as Scripts
-import Plutus.Contract (BlockchainActions)
-import Plutus.Contract.StateMachine (StateMachine)
+import Plutus.Contract (
+  AsContractError (..),
+  BlockchainActions,
+  Contract,
+  ContractError (..),
+  logInfo,
+  mapError,
+ )
+import Plutus.Contract.StateMachine (StateMachine, StateMachineClient)
 import qualified Plutus.Contract.StateMachine as SM
-import Plutus.Contract.Types (Contract)
+import qualified Plutus.Contracts.Currency as Currency
 import qualified PlutusTx
-import PlutusTx.Prelude
-import Text.Show (Show)
+import PlutusTx.Prelude hiding (Eq)
 
 data State
   = Initial
@@ -35,6 +43,24 @@ data Input
 
 PlutusTx.makeLift ''Input
 PlutusTx.unstableMakeIsData ''Input
+
+data HydraPlutusError
+  = -- | State machine operation failed
+    SMError SM.SMContractError
+  | -- | Endpoint, coin selection, etc. failed
+    PlutusError ContractError
+  | -- | Thread token could not be created
+    ThreadTokenError Currency.CurrencyError
+  deriving stock (Eq, Show, Generic)
+  deriving anyclass (ToJSON, FromJSON)
+
+makeClassyPrisms ''HydraPlutusError
+
+instance AsContractError HydraPlutusError where
+  _ContractError = _PlutusError
+
+instance SM.AsSMContractError HydraPlutusError where
+  _SMContractError = _SMError
 
 {-# INLINEABLE hydraStateMachine #-}
 hydraStateMachine :: AssetClass -> StateMachine State Input
@@ -60,5 +86,23 @@ typedValidator currency =
         val
         $$(PlutusTx.compile [||wrap||])
 
-init :: Contract () BlockchainActions e ()
-init = pure ()
+-- | The machine client of the hydra state machine. It contains both, the script
+--   instance with the on-chain code, and the Haskell definition of the state
+--   machine for off-chain use.
+machineClient ::
+  -- | Thread token of the instance
+  AssetClass ->
+  StateMachineClient State Input
+machineClient threadToken =
+  let machine = hydraStateMachine threadToken
+      inst = typedValidator threadToken
+   in SM.mkStateMachineClient (SM.StateMachineInstance machine inst)
+
+init :: Contract () BlockchainActions HydraPlutusError ()
+init = do
+  logInfo @String "init hydra contract"
+  threadToken <- mapError ThreadTokenError Currency.createThreadToken
+  logInfo $ "Obtained thread token: " <> show @String threadToken
+
+  let client = machineClient threadToken
+  void $ SM.runInitialise client Initial mempty

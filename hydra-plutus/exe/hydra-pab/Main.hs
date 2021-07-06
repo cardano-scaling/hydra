@@ -9,7 +9,6 @@ import Control.Monad.Freer (Eff, Member, interpret, type (~>))
 import Control.Monad.Freer.Error (Error)
 import Control.Monad.Freer.Extras.Log (LogMsg)
 import qualified Data.Map as Map
-import qualified Hydra.Contract.OffChain as OffChain
 import qualified Hydra.Contract.OnChain as OnChain
 import Hydra.Contract.PAB (PABContract (..))
 import Ledger (MonetaryPolicy, MonetaryPolicyHash, PubKeyHash, TxOut, TxOutRef, TxOutTx, monetaryPolicyHash, pubKeyAddress, pubKeyHash)
@@ -19,7 +18,7 @@ import Ledger.Typed.Tx (tyTxOutData, typeScriptTxOut)
 import Plutus.Contract (BlockchainActions, Contract, ContractError, Empty, logInfo, nextTransactionsAt, ownPubKey, tell, utxoAt, waitNSlots)
 import Plutus.Contract.Test (walletPubKey)
 import Plutus.PAB.Effects.Contract (ContractEffect (..))
-import Plutus.PAB.Effects.Contract.Builtin (Builtin, SomeBuiltin (..), endpointsToSchemas, type (.\\))
+import Plutus.PAB.Effects.Contract.Builtin (Builtin, SomeBuiltin (..), endpointsToSchemas)
 import qualified Plutus.PAB.Effects.Contract.Builtin as Builtin
 import Plutus.PAB.Monitoring.PABLogMsg (PABMultiAgentMsg)
 import Plutus.PAB.Simulator (SimulatorEffectHandlers)
@@ -28,6 +27,7 @@ import Plutus.PAB.Types (PABError (..))
 import qualified Plutus.PAB.Webserver.Server as PAB.Server
 import Schema (FormSchema (..), ToSchema (..))
 import Wallet.Emulator.Types (Wallet (..))
+import qualified Hydra.ContractSM as ContractSM
 
 main :: IO ()
 main = void $
@@ -55,7 +55,7 @@ handleStarterContract ::
 handleStarterContract = Builtin.handleBuiltin getSchema getContract
  where
   getSchema = \case
-    HydraContract -> Builtin.endpointsToSchemas @(OffChain.Schema .\\ BlockchainActions)
+    HydraContract -> endpointsToSchemas @Empty
     GetUtxos -> endpointsToSchemas @Empty
     WatchInit -> endpointsToSchemas @Empty
   getContract = \case
@@ -63,12 +63,8 @@ handleStarterContract = Builtin.handleBuiltin getSchema getContract
     GetUtxos -> SomeBuiltin getUtxo
     WatchInit -> SomeBuiltin watchInit
 
-hydraContract :: Contract [OnChain.State] OffChain.Schema ContractError ()
-hydraContract = OffChain.contract headParameters
- where
-  -- TODO(SN): Do not hard-code headParameters
-  headParameters :: OffChain.HeadParameters
-  headParameters = OffChain.mkHeadParameters [vk alice, vk bob] testPolicy
+hydraContract :: Contract () BlockchainActions ContractSM.HydraPlutusError ()
+hydraContract = ContractSM.init
 
 getUtxo :: Contract (Last UtxoMap) BlockchainActions ContractError ()
 getUtxo = do
