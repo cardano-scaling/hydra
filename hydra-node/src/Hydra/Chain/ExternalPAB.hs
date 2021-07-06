@@ -11,7 +11,7 @@ import qualified Data.Map as Map
 import Hydra.Chain (Chain (Chain, postTx))
 import Hydra.Contract.PAB (PABContract (..))
 import Hydra.HeadLogic (OnChainTx (InitTx))
-import Hydra.Ledger (Tx)
+import Hydra.Ledger (Tx, Party)
 import Hydra.Logging (Tracer)
 import Ledger (PubKeyHash, TxOut (txOutValue), txOutTxOut)
 import Ledger.AddressMap (UtxoMap)
@@ -40,7 +40,7 @@ withExternalPAB _tracer callback action = do
       action $ Chain{postTx = postTx hydraCid}
  where
   postTx cid = \case
-    InitTx _ -> postInitTx cid
+    InitTx parties -> postInitTx cid parties
     tx -> error $ "should post " <> show tx
 
   -- TODO(SN): Parameterize with nodeId
@@ -64,15 +64,15 @@ activateContract contract wallet =
   reqBody = ActivateContractRequest (show contract) wallet
 
 -- TODO(SN): use MonadHttp, but clashes with MonadThrow
-postInitTx :: ContractInstanceId -> IO ()
-postInitTx cid =
+postInitTx :: ContractInstanceId -> [Party] -> IO ()
+postInitTx cid parties =
   retryOnAnyHttpException $
     runReq defaultHttpConfig $ do
       res <-
         req
           POST
           (http "127.0.0.1" /: "api" /: "new" /: "contract" /: "instance" /: cidText /: "endpoint" /: "init")
-          (ReqBodyJson ()) -- TODO(SN): this should contain the hydra verification keys and pack them into metadata
+          (ReqBodyJson parties)
           jsonResponse
           (port 8080)
       when (responseStatusCode res /= 200) $

@@ -88,6 +88,7 @@ library
   build-depends:
       aeson,
       base,
+      cardano-crypto-class,
       containers,
       hydra-prelude,
       playground-common,
