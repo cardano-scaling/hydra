@@ -9,11 +9,6 @@ import Hydra.Prelude hiding (init)
 
 import Ledger
 
-import Cardano.Crypto.DSIGN (
-  DSIGNAlgorithm (..),
-  MockDSIGN,
-  VerKeyDSIGN (..),
- )
 import Hydra.Contract.OnChain as OnChain (asDatum, asRedeemer)
 import Ledger.Ada (lovelaceValueOf)
 import Ledger.AddressMap (UtxoMap)
@@ -48,7 +43,6 @@ import Plutus.Contract (
  )
 import Plutus.Contract.Effects.AwaitTxConfirmed (awaitTxConfirmed)
 import Plutus.Contract.Effects.UtxoAt (HasUtxoAt)
-import Schema (FormSchema (..), ToSchema (..))
 
 import qualified Data.Map.Strict as Map
 import qualified Hydra.Contract.OnChain as OnChain
@@ -87,7 +81,7 @@ init ::
   HeadParameters ->
   Contract [OnChain.State] Schema e ()
 init params@HeadParameters{participants, policy, policyId} = do
-  parties <- endpoint @"init" @[Party]
+  parties <- endpoint @"init" @()
   logInfo $ "init: should post tx announcing these parties: " <> show @Text parties
   void $ submitTxConstraintsWith lookups constraints
   tell [OnChain.Initial]
@@ -312,7 +306,7 @@ setupForTesting params = do
 type Schema =
   BlockchainActions
     .\/ Endpoint "setupForTesting" (PubKeyHash, [Value])
-    .\/ Endpoint "init" [Party]
+    .\/ Endpoint "init" ()
     .\/ Endpoint "commit" (PubKeyHash, (TxOutRef, TxOutTx))
     .\/ Endpoint "collectCom" (PubKeyHash, [TxOut])
     .\/ Endpoint "abort" (PubKeyHash, [TxOut])
@@ -407,19 +401,3 @@ zipOnParty policyId vks utxo =
     let currency = Value.mpsSymbol policyId
         token = OnChain.mkPartyName vk
      in Value.valueOf (txOutValue txOut) currency token > 0
-
--- TODO(SN): Copied party + json instances for deserializing in 'init' endpoint
--- -> DRY
-
-newtype Party = UnsafeParty (VerKeyDSIGN MockDSIGN)
-  deriving stock (Eq, Generic)
-  deriving newtype (Show, Num)
-
-instance ToJSON Party where
-  toJSON (UnsafeParty (VerKeyMockDSIGN i)) = toJSON i
-
-instance FromJSON Party where
-  parseJSON = fmap fromInteger . parseJSON
-
-instance ToSchema Party where
-  toSchema = FormSchemaUnsupported "Party"
