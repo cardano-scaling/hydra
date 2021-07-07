@@ -11,12 +11,25 @@ import qualified Data.Map as Map
 import Hydra.Chain (Chain (Chain, postTx))
 import Hydra.Contract.PAB (PABContract (..))
 import Hydra.HeadLogic (OnChainTx (InitTx))
-import Hydra.Ledger (Tx, Party)
+import Hydra.Ledger (Party, Tx)
 import Hydra.Logging (Tracer)
 import Ledger (PubKeyHash, TxOut (txOutValue), txOutTxOut)
 import Ledger.AddressMap (UtxoMap)
 import Ledger.Value as Value
-import Network.HTTP.Req (HttpException (VanillaHttpException), POST (..), ReqBodyJson (..), defaultHttpConfig, http, jsonResponse, port, req, responseBody, responseStatusCode, runReq, (/:))
+import Network.HTTP.Req (
+  HttpException (VanillaHttpException),
+  POST (..),
+  ReqBodyJson (..),
+  defaultHttpConfig,
+  http,
+  jsonResponse,
+  port,
+  req,
+  responseBody,
+  responseStatusCode,
+  runReq,
+  (/:),
+ )
 import Network.WebSockets (receiveData)
 import Network.WebSockets.Client (runClient)
 import Plutus.PAB.Webserver.Types (InstanceStatusToClient (NewObservableState))
@@ -34,10 +47,8 @@ withExternalPAB ::
   (Chain tx IO -> IO a) ->
   IO a
 withExternalPAB _tracer callback action = do
-  hydraCid <- activateContract HydraContract wallet
-  withAsync (utxoSubscriber wallet) $ \_ ->
-    withAsync (initTxSubscriber wallet callback) $ \_ ->
-      action $ Chain{postTx = postTx hydraCid}
+  withAsync (utxoSubscriber wallet) $ \_ -> do
+    action $ Chain{postTx = postTx hydraCid}
  where
   postTx cid = \case
     InitTx parties -> postInitTx cid parties
@@ -85,9 +96,9 @@ data ActivateContractRequest = ActivateContractRequest {caID :: Text, caWallet :
   deriving (Generic, ToJSON)
 
 -- TODO(SN): DRY subscribers
-initTxSubscriber :: Wallet -> (OnChainTx tx -> IO ()) -> IO ()
-initTxSubscriber wallet callback = do
-  cid <- unContractInstanceId <$> activateContract WatchInit wallet
+initTxSubscriber :: Wallet -> AssetClass -> (OnChainTx tx -> IO ()) -> IO ()
+initTxSubscriber wallet token callback = do
+  cid <- unContractInstanceId <$> activateContract (WatchInit token) wallet
   runClient "127.0.0.1" 8080 ("/ws/" <> show cid) $ \con -> forever $ do
     msg <- receiveData con
     case eitherDecodeStrict msg of

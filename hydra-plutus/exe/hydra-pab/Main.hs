@@ -11,7 +11,9 @@ import Control.Monad.Freer.Extras.Log (LogMsg)
 import qualified Data.Map as Map
 import qualified Hydra.Contract.OnChain as OnChain
 import Hydra.Contract.PAB (PABContract (..))
-import Ledger (MonetaryPolicy, MonetaryPolicyHash, PubKeyHash, TxOut, TxOutRef, TxOutTx, monetaryPolicyHash, pubKeyAddress, pubKeyHash)
+import Hydra.Contract.Party (Party)
+import qualified Hydra.ContractSM as ContractSM
+import Ledger (AssetClass, MonetaryPolicy, MonetaryPolicyHash, PubKeyHash, TxOut, TxOutRef, TxOutTx, monetaryPolicyHash, pubKeyAddress, pubKeyHash)
 import Ledger.AddressMap (UtxoMap, outputsMapFromTxForAddress)
 import qualified Ledger.Typed.Scripts as Scripts
 import Ledger.Typed.Tx (tyTxOutData, typeScriptTxOut)
@@ -27,7 +29,6 @@ import Plutus.PAB.Types (PABError (..))
 import qualified Plutus.PAB.Webserver.Server as PAB.Server
 import Schema (FormSchema (..), ToSchema (..))
 import Wallet.Emulator.Types (Wallet (..))
-import qualified Hydra.ContractSM as ContractSM
 
 main :: IO ()
 main = void $
@@ -46,6 +47,11 @@ main = void $
  where
   log = Simulator.logString @(Builtin PABContract)
 
+handlers :: SimulatorEffectHandlers (Builtin PABContract)
+handlers =
+  Simulator.mkSimulatorHandlers @(Builtin PABContract) [] $
+    interpret handleStarterContract
+
 handleStarterContract ::
   ( Member (Error PABError) effs
   , Member (LogMsg (PABMultiAgentMsg (Builtin PABContract))) effs
@@ -55,20 +61,20 @@ handleStarterContract ::
 handleStarterContract = Builtin.handleBuiltin getSchema getContract
  where
   getSchema = \case
-    HydraContract -> endpointsToSchemas @Empty
+    Init _ -> endpointsToSchemas @Empty
     GetUtxos -> endpointsToSchemas @Empty
-    WatchInit -> endpointsToSchemas @Empty
+    WatchInit _ -> endpointsToSchemas @Empty
   getContract = \case
-    HydraContract -> SomeBuiltin hydraContract
+    Init parties -> SomeBuiltin (hydraContract parties)
     GetUtxos -> SomeBuiltin getUtxo
-    WatchInit -> SomeBuiltin watchInit
+    WatchInit token -> SomeBuiltin (ContractSM.watchInit token)
 
-hydraContract :: Contract () BlockchainActions ContractSM.HydraPlutusError ()
-hydraContract =
+hydraContract :: [Party] -> Contract () BlockchainActions ContractSM.HydraPlutusError AssetClass
+hydraContract parties = do
   -- NOTE(SN): This is obviously not what we want, as it does initialize a new
   -- hydra main chain state machine on every contract activation and we might
   -- want to use endpoints instead.
-  ContractSM.setup
+  ContractSM.setup parties
 
 getUtxo :: Contract (Last UtxoMap) BlockchainActions ContractError ()
 getUtxo = do
@@ -81,34 +87,6 @@ getUtxo = do
     tell . Last $ Just utxos
     void $ waitNSlots 1
     loop address
-
--- | Watch 'initialAddress' (with hard-coded parameters) and report all datums
--- seen on each run.
-watchInit :: Contract (Last [PubKeyHash]) BlockchainActions ContractError ()
-watchInit = do
-  logInfo @Text $ "watchInit: Looking for an init tx"
-  forever $ do
-    -- NOTE(SN): this is essentially 'Plutus.Contract.StateMachine.waitForUpdate'
-    txs <- nextTransactionsAt initialAddress
-    let datums = txs >>= rights . fmap lookupDatum . Map.elems . outputsMapFromTxForAddress initialAddress
-    logInfo @Text $ "found init tx(s) with datums: " <> show datums
-    tell . Last $ Just datums
-    void $ waitNSlots 1 -- TODO(SN): really wait?
- where
-  validator = OnChain.initialTypedValidator headParameters
-
-  initialAddress = Scripts.validatorAddress validator
-
-  lookupDatum txOutTx = tyTxOutData <$> typeScriptTxOut validator txOutTx
-
-  -- TODO(SN): Do not hard-code headParameters
-  headParameters = OnChain.HeadParameters [vk alice, vk bob] testPolicyId
-
-handlers :: SimulatorEffectHandlers (Builtin PABContract)
-handlers =
-  -- REVIEW(SN): only HydraContract required here?
-  Simulator.mkSimulatorHandlers @(Builtin PABContract) [HydraContract] $
-    interpret handleStarterContract
 
 testPolicy :: MonetaryPolicy
 testPolicy = OnChain.hydraMonetaryPolicy 42

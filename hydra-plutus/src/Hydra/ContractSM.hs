@@ -18,11 +18,12 @@ import Plutus.Contract (
   BlockchainActions,
   Contract,
   ContractError (..),
-  logError,
+  currentSlot,
   logInfo,
   mapError,
+  throwError,
  )
-import Plutus.Contract.StateMachine (StateMachine, StateMachineClient)
+import Plutus.Contract.StateMachine (StateMachine, StateMachineClient, WaitingResult (..))
 import qualified Plutus.Contract.StateMachine as SM
 import qualified Plutus.Contracts.Currency as Currency
 import qualified PlutusTx
@@ -55,6 +56,8 @@ data HydraPlutusError
     PlutusError ContractError
   | -- | Thread token could not be created
     ThreadTokenError Currency.CurrencyError
+  | -- | Arbitrary error
+    HydraError String
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON, FromJSON)
 
@@ -102,8 +105,8 @@ machineClient threadToken =
       inst = typedValidator threadToken
    in SM.mkStateMachineClient (SM.StateMachineInstance machine inst)
 
-setup :: Contract () BlockchainActions HydraPlutusError ()
-setup = do
+setup :: [Party] -> Contract () BlockchainActions HydraPlutusError AssetClass
+setup parties = do
   logInfo @String "setup hydra contract"
   threadToken <- mapError ThreadTokenError Currency.createThreadToken
   logInfo $ "Obtained thread token: " <> show @String threadToken
@@ -111,10 +114,17 @@ setup = do
   let client = machineClient threadToken
   void $ SM.runInitialise client Setup mempty
 
-  -- TODO: Obviously remove hardcoded parties...
-  let parties = [UnsafeParty 10, UnsafeParty 20, UnsafeParty 30]
-  result <- SM.runStep client (Init parties)
+  _ <- SM.runStep client (Init parties)
 
-  case result of
-    (SM.TransitionFailure _isi) -> logError @String "initialisation failed"
-    (SM.TransitionSuccess _) -> pure ()
+  pure threadToken
+
+-- | Wait for 'Init' transaction to appear on chain and return the observed state of the state machine
+watchInit :: AssetClass -> Contract () BlockchainActions HydraPlutusError State
+watchInit threadToken = do
+  logInfo @String $ "watchInit: Looking for an init tx for SM: " <> show threadToken
+  let client = machineClient threadToken
+  sl <- currentSlot
+  SM.waitForUpdateUntil client (sl + 10) >>= \case
+    (Timeout _s) -> throwError $ HydraError "Timed out waiting for transaction"
+    ContractEnded -> throwError $ HydraError "Contract ended"
+    (WaitingResult s) -> pure s
