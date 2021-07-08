@@ -40,23 +40,26 @@ data ExternalPABLog = ExternalPABLog
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON, FromJSON)
 
+type WalletId = Integer
+
 withExternalPAB ::
   Tx tx =>
+  WalletId ->
   Tracer IO ExternalPABLog ->
   (OnChainTx tx -> IO ()) ->
   (Chain tx IO -> IO a) ->
   IO a
-withExternalPAB _tracer _callback action = do
-  cid <- activateContract Setup wallet
+withExternalPAB walletId _tracer _callback action = do
   withAsync (utxoSubscriber wallet) $ \_ -> do
-    action $ Chain{postTx = postTx cid}
+    action $ Chain{postTx = postTx}
  where
-  postTx cid = \case
-    InitTx _parties -> postInitTx cid (pubKeyHash <$> pubKeys)
+  postTx = \case
+    InitTx _parties -> do
+      cid <- activateContract Setup wallet
+      postInitTx cid (pubKeyHash <$> pubKeys)
     tx -> error $ "should post " <> show tx
 
-  -- TODO(SN): Parameterize with nodeId
-  wallet = Wallet 1
+  wallet = Wallet walletId
 
   -- TODO(SN): Parameterize this
   allWallets = [Wallet 1, Wallet 2, Wallet 3]
