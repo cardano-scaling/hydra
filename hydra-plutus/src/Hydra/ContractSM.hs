@@ -10,10 +10,11 @@ import Control.Lens (makeClassyPrisms)
 import Data.Aeson (FromJSON, ToJSON)
 import GHC.Generics (Generic)
 import Hydra.Prelude (Eq, Show, String, show, void)
-import Ledger (AssetClass, PubKeyHash)
+import Ledger (PubKeyHash (..), pubKeyHash)
 import Ledger.Ada (lovelaceValueOf)
 import Ledger.Constraints (mustPayToPubKey)
 import qualified Ledger.Typed.Scripts as Scripts
+import Ledger.Value (AssetClass, TokenName (..), assetClass)
 import Plutus.Contract (
   AsContractError (..),
   BlockchainActions,
@@ -23,7 +24,7 @@ import Plutus.Contract (
   currentSlot,
   endpoint,
   logInfo,
-  mapError,
+  ownPubKey,
   throwError,
   type (.\/),
  )
@@ -73,6 +74,9 @@ instance AsContractError HydraPlutusError where
 instance SM.AsSMContractError HydraPlutusError where
   _SMContractError = _SMError
 
+instance Currency.AsCurrencyError HydraPlutusError where
+  _CurrencyError = _ThreadTokenError
+
 {-# INLINEABLE hydraStateMachine #-}
 hydraStateMachine :: AssetClass -> StateMachine State Input
 hydraStateMachine _threadToken =
@@ -106,10 +110,10 @@ hydraTransition oldState input =
 --   transactions transitioning the state machine and provide "contract
 --   continuity"
 typedValidator :: AssetClass -> Scripts.TypedValidator (StateMachine State Input)
-typedValidator currency =
+typedValidator threadToken =
   let val =
         $$(PlutusTx.compile [||validatorParam||])
-          `PlutusTx.applyCode` PlutusTx.liftCode currency
+          `PlutusTx.applyCode` PlutusTx.liftCode threadToken
       validatorParam c = SM.mkValidator (hydraStateMachine c)
       wrap = Scripts.wrapValidator @State @Input
    in Scripts.mkTypedValidator @(StateMachine State Input)
@@ -128,25 +132,28 @@ machineClient threadToken =
       inst = typedValidator threadToken
    in SM.mkStateMachineClient (SM.StateMachineInstance machine inst)
 
-setup :: Contract () (BlockchainActions .\/ Endpoint "init" [PubKeyHash]) HydraPlutusError AssetClass
+setup :: Contract () (BlockchainActions .\/ Endpoint "init" [PubKeyHash]) HydraPlutusError ()
 setup = do
-  logInfo @String "setup hydra contract"
-  threadToken <- mapError ThreadTokenError Currency.createThreadToken
-  logInfo $ "Obtained thread token: " <> show @String threadToken
+  -- NOTE: These are the cardano/chain keys to send PTs to
+  pubkeyHashes <- endpoint @"init" @[PubKeyHash]
+
+  let threadTokenName = "thread token"
+      stateThreadToken = (threadTokenName, 1) -- XXX: dry with above
+      participationTokens = map ((,1) . TokenName . getPubKeyHash) pubkeyHashes
+      tokens = stateThreadToken : participationTokens
+
+  logInfo $ "Forging tokens: " <> show @String tokens
+  ownPK <- pubKeyHash <$> ownPubKey
+  symbol <- Currency.currencySymbol <$> Currency.forgeContract ownPK tokens
+  let threadToken = assetClass symbol threadTokenName
+
+  logInfo $ "Done, our currency symbol: " <> show @String symbol
 
   let client = machineClient threadToken
   void $ SM.runInitialise client Setup mempty
 
-  logInfo @String "SM initialised, waiting for pubkeys"
-  -- NOTE: These are the cardano/chain keys to send PTs to
-  pubkeyHashes <- endpoint @"init" @[PubKeyHash]
-
-  logInfo $ "Got pubkeys :" <> show @String pubkeyHashes
-
   void $ SM.runStep client (Init pubkeyHashes)
   logInfo $ "Triggering Init " <> show @String pubkeyHashes
-
-  pure threadToken
 
 -- | Wait for 'Init' transaction to appear on chain and return the observed state of the state machine
 watchInit :: AssetClass -> Contract () BlockchainActions HydraPlutusError State
