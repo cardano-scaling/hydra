@@ -75,7 +75,12 @@ instance SM.AsSMContractError HydraPlutusError where
 
 {-# INLINEABLE hydraStateMachine #-}
 hydraStateMachine :: AssetClass -> StateMachine State Input
-hydraStateMachine threadToken = SM.mkStateMachine (Just threadToken) hydraTransition isFinal
+hydraStateMachine _threadToken =
+  -- XXX(SN): This should actually be '(Just threadToken)' as we wan't to have
+  -- "contract continuity" as described in the EUTXO paper. Unfortunately we did
+  -- not get this yet to work with 'runStep', or at least we were expecting the
+  -- statemachine library would handle it for us.
+  SM.mkStateMachine Nothing hydraTransition isFinal
  where
   isFinal Final{} = True
   isFinal _ = False
@@ -91,7 +96,15 @@ hydraTransition oldState input =
     _ -> Nothing
 
 -- | The script instance of the auction state machine. It contains the state
---   machine compiled to a Plutus core validator script.
+-- machine compiled to a Plutus core validator script. The 'AssetClass' serves
+-- two roles here:
+--
+--   1. Parameterizing the script, such that we get a unique address and allow
+--   for multiple instances of it
+--
+--   2. Identify the 'state thread token', which should be passed in
+--   transactions transitioning the state machine and provide "contract
+--   continuity"
 typedValidator :: AssetClass -> Scripts.TypedValidator (StateMachine State Input)
 typedValidator currency =
   let val =
@@ -104,8 +117,8 @@ typedValidator currency =
         $$(PlutusTx.compile [||wrap||])
 
 -- | The machine client of the hydra state machine. It contains both, the script
---   instance with the on-chain code, and the Haskell definition of the state
---   machine for off-chain use.
+-- instance with the on-chain code, and the Haskell definition of the state
+-- machine for off-chain use.
 machineClient ::
   -- | Thread token of the instance
   AssetClass ->
