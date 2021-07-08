@@ -22,7 +22,7 @@ spec :: Spec
 spec =
   describe "ExternalPAB" $ do
     it "publishes init tx using wallet 1 and observes it also" $ do
-      failAfter 20 $
+      failAfter 40 $
         withHydraPAB $ do
           calledBack <- newEmptyMVar
           -- NOTE(SN): The cardano pubkeys and which wallet is used, is

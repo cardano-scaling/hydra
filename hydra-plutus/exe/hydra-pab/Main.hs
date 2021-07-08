@@ -57,6 +57,9 @@ handleStarterContract ::
 handleStarterContract = Builtin.handleBuiltin getSchema getContract
  where
   getSchema = \case
+    -- NOTE: There are actual endpoints defined in contracts  code but they
+    -- are not exposed here -> "different" schemas can exist between the "server"
+    -- side code (off-chain contracts) and what the PAB webserver exposes
     Setup -> endpointsToSchemas @Empty
     GetUtxos -> endpointsToSchemas @Empty
   getContract = \case
