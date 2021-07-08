@@ -12,6 +12,7 @@ import Data.Aeson (FromJSON, ToJSON)
 import Data.Either (rights)
 import qualified Data.Map as Map
 import GHC.Generics (Generic)
+import Hydra.Contract.Party (Party)
 import Hydra.Prelude (Eq, Last (..), Show, String, show, uncurry, void)
 import Ledger (CurrencySymbol, PubKeyHash (..), TxOut (txOutValue), TxOutTx (txOutTxOut), Value, pubKeyAddress, pubKeyHash)
 import Ledger.AddressMap (outputsMapFromTxForAddress)
@@ -42,7 +43,7 @@ import PlutusTx.Prelude hiding (Eq)
 
 data State
   = Setup
-  | Initial
+  | Initial [Party]
   | Open
   | Final
   deriving stock (Generic, Show)
@@ -100,7 +101,7 @@ hydraTransition :: SM.State State -> Input -> Maybe (SM.TxConstraints SM.Void SM
 hydraTransition oldState input =
   case (SM.stateData oldState, input) of
     (Setup, Init participationTokens) ->
-      Just (constraints, oldState{SM.stateData = Initial})
+      Just (constraints, oldState{SM.stateData = Initial []})
      where
       constraints = foldMap (uncurry mustPayToPubKey) participationTokens
     _ -> Nothing
@@ -148,13 +149,23 @@ mkThreadToken :: CurrencySymbol -> AssetClass
 mkThreadToken symbol =
   assetClass symbol threadTokenName
 
-setup :: Contract () (BlockchainActions .\/ Endpoint "init" [PubKeyHash]) HydraPlutusError ()
+-- | Parameters for starting a head.
+-- NOTE: kinda makes sense to have them separate because it couuld be the
+-- case that the parties (hdyra nodes taking part in the head consensus) and th
+-- participants (people commiting UTxOs) and posting transaction in the head
+-- are different
+data InitParams = InitParams
+  { cardanoPubKeys :: [PubKeyHash]
+  , hydraParties :: [Party]
+  }
+
+setup :: Contract () (BlockchainActions .\/ Endpoint "init" InitParams) HydraPlutusError ()
 setup = do
   -- NOTE: These are the cardano/chain keys to send PTs to
-  pubkeyHashes <- endpoint @"init" @[PubKeyHash]
+  InitParams{cardanoPubKeys, hydraParties} <- endpoint @"init" @InitParams
 
   let stateThreadToken = (threadTokenName, 1) -- XXX: dry with above
-      participationTokens = map ((,1) . participationTokenName) pubkeyHashes
+      participationTokens = map ((,1) . participationTokenName) cardanoPubKeys
       tokens = stateThreadToken : participationTokens
 
   logInfo $ "Forging tokens: " <> show @String tokens
@@ -168,8 +179,8 @@ setup = do
   let client = machineClient threadToken
   void $ SM.runInitialise client Setup mempty
 
-  void $ SM.runStep client (Init $ zip pubkeyHashes tokenValues)
-  logInfo $ "Triggering Init " <> show @String pubkeyHashes
+  void $ SM.runStep client (Init $ zip cardanoPubKeys tokenValues)
+  logInfo $ "Triggered Init " <> show @String cardanoPubKeys
 
 -- | Watch 'initialAddress' (with hard-coded parameters) and report all datums
 -- seen on each run.
