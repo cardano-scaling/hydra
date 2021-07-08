@@ -9,12 +9,11 @@ module Hydra.ContractSM where
 import Control.Lens (makeClassyPrisms)
 import Data.Aeson (FromJSON, ToJSON)
 import GHC.Generics (Generic)
-import Hydra.Prelude (Eq, Show, String, show, void)
-import Ledger (PubKeyHash (..), pubKeyHash)
-import Ledger.Ada (lovelaceValueOf)
+import Hydra.Prelude (Eq, Show, String, show, uncurry, void)
+import Ledger (PubKeyHash (..), Value, pubKeyHash)
 import Ledger.Constraints (mustPayToPubKey)
 import qualified Ledger.Typed.Scripts as Scripts
-import Ledger.Value (AssetClass, TokenName (..), assetClass)
+import Ledger.Value (AssetClass, TokenName (..), assetClass, singleton)
 import Plutus.Contract (
   AsContractError (..),
   BlockchainActions,
@@ -46,7 +45,7 @@ PlutusTx.makeLift ''State
 PlutusTx.unstableMakeIsData ''State
 
 data Input
-  = Init [PubKeyHash]
+  = Init [(PubKeyHash, Value)]
   | CollectCom
   | Abort
   deriving (Generic, Show)
@@ -93,10 +92,10 @@ hydraStateMachine _threadToken =
 hydraTransition :: SM.State State -> Input -> Maybe (SM.TxConstraints SM.Void SM.Void, SM.State State)
 hydraTransition oldState input =
   case (SM.stateData oldState, input) of
-    (Setup, Init pubKeyHashes) ->
-      Just (mempty, oldState{SM.stateData = Initial})
+    (Setup, Init participationTokens) ->
+      Just (constraints, oldState{SM.stateData = Initial})
      where
-      _constraints = foldMap (\pubKey -> mustPayToPubKey pubKey (lovelaceValueOf 1)) pubKeyHashes
+      constraints = foldMap (uncurry mustPayToPubKey) participationTokens
     _ -> Nothing
 
 -- | The script instance of the auction state machine. It contains the state
@@ -146,13 +145,14 @@ setup = do
   ownPK <- pubKeyHash <$> ownPubKey
   symbol <- Currency.currencySymbol <$> Currency.forgeContract ownPK tokens
   let threadToken = assetClass symbol threadTokenName
+      tokenValues = map (uncurry (singleton symbol)) participationTokens
 
   logInfo $ "Done, our currency symbol: " <> show @String symbol
 
   let client = machineClient threadToken
   void $ SM.runInitialise client Setup mempty
 
-  void $ SM.runStep client (Init pubkeyHashes)
+  void $ SM.runStep client (Init $ zip pubkeyHashes tokenValues)
   logInfo $ "Triggering Init " <> show @String pubkeyHashes
 
 -- | Wait for 'Init' transaction to appear on chain and return the observed state of the state machine
