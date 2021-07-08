@@ -27,10 +27,11 @@ spec =
           calledBack <- newEmptyMVar
           -- NOTE(SN): The cardano pubkeys and which wallet is used, is
           -- hard-coded in 'withExternalPAB'!
-          withExternalPAB nullTracer (putMVar calledBack) $ \Chain{postTx} -> do
-            let parties = [alice, bob, carol]
-            postTx $ InitTx @SimpleTx parties
-            takeMVar calledBack `shouldReturn` InitTx parties
+          withExternalPAB @SimpleTx 1 nullTracer (putMVar calledBack) $ \_ ->
+            withExternalPAB 2 nullTracer (const $ pure ()) $ \Chain{postTx} -> do
+              let parties = [alice, bob, carol]
+              postTx $ InitTx @SimpleTx parties
+              takeMVar calledBack `shouldReturn` InitTx parties
 
 alice, bob, carol :: Party
 alice = UnsafeParty aliceVk
