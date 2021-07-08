@@ -8,6 +8,7 @@ import Data.Text.Prettyprint.Doc (Pretty (..), viaShow)
 data PABContract
   = Setup
   | GetUtxos
+  | WatchInit
   deriving (Eq, Show, Generic)
   deriving anyclass (ToJSON, FromJSON)
 

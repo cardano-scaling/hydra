@@ -9,6 +9,7 @@ module Hydra.ContractSM where
 import Control.Lens (makeClassyPrisms)
 import Control.Monad (forever)
 import Data.Aeson (FromJSON, ToJSON)
+import Data.Either (rights)
 import qualified Data.Map as Map
 import GHC.Generics (Generic)
 import Hydra.Prelude (Eq, Last (..), Show, String, show, uncurry, void)
@@ -16,6 +17,7 @@ import Ledger (CurrencySymbol, PubKeyHash (..), TxOut (txOutValue), TxOutTx (txO
 import Ledger.AddressMap (outputsMapFromTxForAddress)
 import Ledger.Constraints (mustPayToPubKey)
 import qualified Ledger.Typed.Scripts as Scripts
+import Ledger.Typed.Tx (tyTxOutData, typeScriptTxOut)
 import Ledger.Value (AssetClass, TokenName (..), assetClass, flattenValue, singleton)
 import Plutus.Contract (
   AsContractError (..),
@@ -28,6 +30,7 @@ import Plutus.Contract (
   logInfo,
   nextTransactionsAt,
   ownPubKey,
+  tell,
   throwError,
   type (.\/),
  )
@@ -180,11 +183,13 @@ watchInit = do
     txs <- nextTransactionsAt address
     let foundTokens = txs >>= mapMaybe (findToken pkh) . Map.elems . outputsMapFromTxForAddress address
     logInfo $ "found tokens: " <> show @String foundTokens
+    case foundTokens of
+      [token] -> do
+        let datums = txs >>= rights . fmap (lookupDatum token) . Map.elems . outputsMapFromTxForAddress (scriptAddress token)
+        logInfo @String $ "found init tx(s) with datums: " <> show datums
+        tell $ Last $ Just ()
+      _ -> pure ()
  where
-  -- let datums = txs >>= rights . fmap lookupDatum . Map.elems . outputsMapFromTxForAddress scriptAddress
-  -- logInfo @String $ "found init tx(s) with datums: " <> show datums
-  -- tell $ Last $ Just ()
-
   -- Find candidates for a Hydra Head threadToken 'AssetClass', that is if the
   -- 'TokenName' matches our public key
   findToken :: PubKeyHash -> TxOutTx -> Maybe AssetClass
@@ -196,11 +201,9 @@ watchInit = do
           Just (symbol, _, _) -> Just $ mkThreadToken symbol
           Nothing -> Nothing
 
--- validator = typedValidator threadToken
+  scriptAddress = Scripts.validatorAddress . typedValidator
 
--- scriptAddress = Scripts.validatorAddress validator
-
--- lookupDatum txOutTx = tyTxOutData <$> typeScriptTxOut validator txOutTx
+  lookupDatum token txOutTx = tyTxOutData <$> typeScriptTxOut (typedValidator token) txOutTx
 
 -- | Wait for 'Init' transaction to appear on chain and return the observed state of the state machine
 watchStateMachine :: AssetClass -> Contract () BlockchainActions HydraPlutusError State

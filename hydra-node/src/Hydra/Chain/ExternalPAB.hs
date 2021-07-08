@@ -50,6 +50,7 @@ withExternalPAB ::
   (Chain tx IO -> IO a) ->
   IO a
 withExternalPAB walletId _tracer _callback action = do
+  void $ activateContract WatchInit wallet
   withAsync (utxoSubscriber wallet) $ \_ -> do
     action $ Chain{postTx = postTx}
  where
