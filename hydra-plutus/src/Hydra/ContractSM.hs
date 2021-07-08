@@ -53,7 +53,7 @@ PlutusTx.makeLift ''State
 PlutusTx.unstableMakeIsData ''State
 
 data Input
-  = Init [(PubKeyHash, Value)]
+  = Init [(PubKeyHash, Value)] [Party]
   | CollectCom
   | Abort
   deriving (Generic, Show)
@@ -100,8 +100,8 @@ hydraStateMachine _threadToken =
 hydraTransition :: SM.State State -> Input -> Maybe (SM.TxConstraints SM.Void SM.Void, SM.State State)
 hydraTransition oldState input =
   case (SM.stateData oldState, input) of
-    (Setup, Init participationTokens) ->
-      Just (constraints, oldState{SM.stateData = Initial []})
+    (Setup, Init participationTokens parties) ->
+      Just (constraints, oldState{SM.stateData = Initial parties})
      where
       constraints = foldMap (uncurry mustPayToPubKey) participationTokens
     _ -> Nothing
@@ -158,6 +158,7 @@ data InitParams = InitParams
   { cardanoPubKeys :: [PubKeyHash]
   , hydraParties :: [Party]
   }
+  deriving (Generic, FromJSON, ToJSON)
 
 setup :: Contract () (BlockchainActions .\/ Endpoint "init" InitParams) HydraPlutusError ()
 setup = do
@@ -179,7 +180,7 @@ setup = do
   let client = machineClient threadToken
   void $ SM.runInitialise client Setup mempty
 
-  void $ SM.runStep client (Init $ zip cardanoPubKeys tokenValues)
+  void $ SM.runStep client (Init (zip cardanoPubKeys tokenValues) hydraParties)
   logInfo $ "Triggered Init " <> show @String cardanoPubKeys
 
 -- | Watch 'initialAddress' (with hard-coded parameters) and report all datums
