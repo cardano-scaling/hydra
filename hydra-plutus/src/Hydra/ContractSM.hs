@@ -105,17 +105,14 @@ machineClient threadToken =
       inst = typedValidator threadToken
    in SM.mkStateMachineClient (SM.StateMachineInstance machine inst)
 
-setup :: [Party] -> Contract () BlockchainActions HydraPlutusError AssetClass
-setup parties = do
+setup :: Contract () BlockchainActions HydraPlutusError AssetClass
+setup = do
   logInfo @String "setup hydra contract"
   threadToken <- mapError ThreadTokenError Currency.createThreadToken
   logInfo $ "Obtained thread token: " <> show @String threadToken
 
   let client = machineClient threadToken
   void $ SM.runInitialise client Setup mempty
-
-  _ <- SM.runStep client (Init parties)
-
   pure threadToken
 
 -- | Wait for 'Init' transaction to appear on chain and return the observed state of the state machine
