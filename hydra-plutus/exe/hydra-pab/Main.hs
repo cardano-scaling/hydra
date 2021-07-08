@@ -8,16 +8,12 @@ import Cardano.Prelude hiding (log)
 import Control.Monad.Freer (Eff, Member, interpret, type (~>))
 import Control.Monad.Freer.Error (Error)
 import Control.Monad.Freer.Extras.Log (LogMsg)
-import qualified Data.Map as Map
 import qualified Hydra.Contract.OnChain as OnChain
 import Hydra.Contract.PAB (PABContract (..))
-import Hydra.Contract.Party (Party)
 import qualified Hydra.ContractSM as ContractSM
-import Ledger (AssetClass, MonetaryPolicy, MonetaryPolicyHash, PubKeyHash, TxOut, TxOutRef, TxOutTx, monetaryPolicyHash, pubKeyAddress, pubKeyHash)
-import Ledger.AddressMap (UtxoMap, outputsMapFromTxForAddress)
-import qualified Ledger.Typed.Scripts as Scripts
-import Ledger.Typed.Tx (tyTxOutData, typeScriptTxOut)
-import Plutus.Contract (BlockchainActions, Contract, ContractError, Empty, logInfo, nextTransactionsAt, ownPubKey, tell, utxoAt, waitNSlots)
+import Ledger (MonetaryPolicy, MonetaryPolicyHash, PubKeyHash, TxOut, TxOutRef, TxOutTx, monetaryPolicyHash, pubKeyAddress, pubKeyHash)
+import Ledger.AddressMap (UtxoMap)
+import Plutus.Contract (BlockchainActions, Contract, ContractError, Empty, logInfo, ownPubKey, tell, utxoAt, waitNSlots)
 import Plutus.Contract.Test (walletPubKey)
 import Plutus.PAB.Effects.Contract (ContractEffect (..))
 import Plutus.PAB.Effects.Contract.Builtin (Builtin, SomeBuiltin (..), endpointsToSchemas)
@@ -61,20 +57,11 @@ handleStarterContract ::
 handleStarterContract = Builtin.handleBuiltin getSchema getContract
  where
   getSchema = \case
-    Init _ -> endpointsToSchemas @Empty
+    Setup -> endpointsToSchemas @Empty
     GetUtxos -> endpointsToSchemas @Empty
-    WatchInit _ -> endpointsToSchemas @Empty
   getContract = \case
-    Init parties -> SomeBuiltin (hydraContract parties)
+    Setup -> SomeBuiltin ContractSM.setup
     GetUtxos -> SomeBuiltin getUtxo
-    WatchInit token -> SomeBuiltin (ContractSM.watchInit token)
-
-hydraContract :: [Party] -> Contract () BlockchainActions ContractSM.HydraPlutusError AssetClass
-hydraContract parties = do
-  -- NOTE(SN): This is obviously not what we want, as it does initialize a new
-  -- hydra main chain state machine on every contract activation and we might
-  -- want to use endpoints instead.
-  ContractSM.setup parties
 
 getUtxo :: Contract (Last UtxoMap) BlockchainActions ContractError ()
 getUtxo = do

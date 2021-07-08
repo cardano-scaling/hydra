@@ -13,7 +13,7 @@ import Hydra.Contract.PAB (PABContract (..))
 import Hydra.HeadLogic (OnChainTx (InitTx))
 import Hydra.Ledger (Party, Tx)
 import Hydra.Logging (Tracer)
-import Ledger (PubKeyHash, TxOut (txOutValue), txOutTxOut)
+import Ledger (TxOut (txOutValue), txOutTxOut)
 import Ledger.AddressMap (UtxoMap)
 import Ledger.Value as Value
 import Network.HTTP.Req (
@@ -33,7 +33,7 @@ import Network.HTTP.Req (
 import Network.WebSockets (receiveData)
 import Network.WebSockets.Client (runClient)
 import Plutus.PAB.Webserver.Types (InstanceStatusToClient (NewObservableState))
-import Wallet.Emulator.Types (Wallet (..))
+import Wallet.Emulator.Types (Wallet (..), walletPubKey)
 import Wallet.Types (ContractInstanceId, unContractInstanceId)
 
 data ExternalPABLog = ExternalPABLog
@@ -46,16 +46,21 @@ withExternalPAB ::
   (OnChainTx tx -> IO ()) ->
   (Chain tx IO -> IO a) ->
   IO a
-withExternalPAB _tracer callback action = do
+withExternalPAB _tracer _callback action = do
+  void $ activateContract Setup wallet
   withAsync (utxoSubscriber wallet) $ \_ -> do
-    action $ Chain{postTx = postTx hydraCid}
+    action $ Chain{postTx = postTx}
  where
-  postTx cid = \case
-    InitTx parties -> postInitTx cid parties
+  postTx = \case
+    InitTx _parties -> pure ()
     tx -> error $ "should post " <> show tx
 
   -- TODO(SN): Parameterize with nodeId
   wallet = Wallet 1
+
+  -- TODO(SN): Parameterize this
+  allWallets = [Wallet 1, Wallet 2, Wallet 3]
+  pubKeys = map walletPubKey allWallets
 
 activateContract :: PABContract -> Wallet -> IO ContractInstanceId
 activateContract contract wallet =
@@ -96,23 +101,23 @@ data ActivateContractRequest = ActivateContractRequest {caID :: Text, caWallet :
   deriving (Generic, ToJSON)
 
 -- TODO(SN): DRY subscribers
-initTxSubscriber :: Wallet -> AssetClass -> (OnChainTx tx -> IO ()) -> IO ()
-initTxSubscriber wallet token callback = do
-  cid <- unContractInstanceId <$> activateContract (WatchInit token) wallet
-  runClient "127.0.0.1" 8080 ("/ws/" <> show cid) $ \con -> forever $ do
-    msg <- receiveData con
-    case eitherDecodeStrict msg of
-      Right (NewObservableState val) -> do
-        case fromJSON val of
-          Error err -> say $ "decoding error json: " <> show err
-          Success res -> case getLast res of
-            Nothing -> pure ()
-            Just (pubKeyHashes :: [PubKeyHash]) -> do
-              say $ "Observed Init tx with datums (pubkeyhashes): " ++ show pubKeyHashes
-              -- TODO(SN): pack hydra verification keys into metadata and callback with these
-              callback $ InitTx mempty
-      Right _ -> pure ()
-      Left err -> say $ "error decoding msg: " <> show err
+-- initTxSubscriber :: Wallet -> AssetClass -> (OnChainTx tx -> IO ()) -> IO ()
+-- initTxSubscriber wallet token callback = do
+--   cid <- unContractInstanceId <$> activateContract (WatchInit token) wallet
+--   runClient "127.0.0.1" 8080 ("/ws/" <> show cid) $ \con -> forever $ do
+--     msg <- receiveData con
+--     case eitherDecodeStrict msg of
+--       Right (NewObservableState val) -> do
+--         case fromJSON val of
+--           Error err -> say $ "decoding error json: " <> show err
+--           Success res -> case getLast res of
+--             Nothing -> pure ()
+--             Just (pubKeyHashes :: [PubKeyHash]) -> do
+--               say $ "Observed Init tx with datums (pubkeyhashes): " ++ show pubKeyHashes
+--               -- TODO(SN): pack hydra verification keys into metadata and callback with these
+--               callback $ InitTx mempty
+--       Right _ -> pure ()
+--       Left err -> say $ "error decoding msg: " <> show err
 
 utxoSubscriber :: Wallet -> IO ()
 utxoSubscriber wallet = do
