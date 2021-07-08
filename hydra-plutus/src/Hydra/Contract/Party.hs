@@ -12,7 +12,7 @@ import PlutusTx.IsData
 import Schema (FormSchema (..), ToSchema (..))
 
 -- TODO(SN): Copied party + json instances for deserializing in 'init' endpoint
--- -> DRY
+-- and we were struggling to define 'Lift' and 'IsData'
 
 newtype Party = UnsafeParty Integer -- (VerKeyDSIGN MockDSIGN)
   deriving stock (Eq, Generic)

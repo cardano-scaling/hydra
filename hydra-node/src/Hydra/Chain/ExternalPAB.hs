@@ -9,11 +9,10 @@ import Data.Aeson (Result (Error, Success), eitherDecodeStrict)
 import Data.Aeson.Types (fromJSON)
 import qualified Data.Map as Map
 import Hydra.Chain (Chain (Chain, postTx))
-import Hydra.Contract.PAB (PABContract (..))
 import Hydra.HeadLogic (OnChainTx (InitTx))
 import Hydra.Ledger (Party, Tx)
 import Hydra.Logging (Tracer)
-import Ledger (PubKeyHash, TxOut (txOutValue), pubKeyHash, txOutTxOut)
+import Ledger (TxOut (txOutValue), pubKeyHash, txOutTxOut, PubKeyHash)
 import Ledger.AddressMap (UtxoMap)
 import Ledger.Value as Value
 import Network.HTTP.Req (
@@ -35,6 +34,7 @@ import Network.WebSockets.Client (runClient)
 import Plutus.PAB.Webserver.Types (InstanceStatusToClient (NewObservableState))
 import Wallet.Emulator.Types (Wallet (..), walletPubKey)
 import Wallet.Types (ContractInstanceId, unContractInstanceId)
+import Hydra.Contract.PAB (PABContract (Setup, GetUtxos, WatchInit))
 
 data ExternalPABLog = ExternalPABLog
   deriving stock (Eq, Show, Generic)
@@ -55,9 +55,13 @@ withExternalPAB walletId _tracer callback action = do
       action $ Chain{postTx = postTx}
  where
   postTx = \case
-    InitTx _parties -> do
+    InitTx parties -> do
       cid <- activateContract Setup wallet
-      postInitTx cid (pubKeyHash <$> pubKeys)
+      postInitTx cid $
+        PostInitParams
+          { cardanoPubKeys = pubKeyHash <$> pubKeys
+          , hydraParties = parties
+          }
     tx -> error $ "should post " <> show tx
 
   wallet = Wallet walletId
@@ -83,16 +87,25 @@ activateContract contract wallet =
  where
   reqBody = ActivateContractRequest (show contract) wallet
 
+-- XXX(SN): Not using the same type on both ends as we are having a too
+-- complicated 'Party' type to be able to use it properly in plutus ('Lift' and
+-- 'IsData' instances) This is relying on the same wire format on both ends!
+data PostInitParams = PostInitParams
+  { cardanoPubKeys :: [PubKeyHash]
+  , hydraParties :: [Party]
+  }
+  deriving (Generic, ToJSON)
+
 -- TODO(SN): use MonadHttp, but clashes with MonadThrow
-postInitTx :: ContractInstanceId -> [PubKeyHash] -> IO ()
-postInitTx cid pubkeys =
+postInitTx :: ContractInstanceId -> PostInitParams -> IO ()
+postInitTx cid params =
   retryOnAnyHttpException $
     runReq defaultHttpConfig $ do
       res <-
         req
           POST
           (http "127.0.0.1" /: "api" /: "new" /: "contract" /: "instance" /: cidText /: "endpoint" /: "init")
-          (ReqBodyJson pubkeys)
+          (ReqBodyJson params)
           jsonResponse
           (port 8080)
       when (responseStatusCode res /= 200) $
