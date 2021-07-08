@@ -185,9 +185,9 @@ setup = do
 
 -- | Watch 'initialAddress' (with hard-coded parameters) and report all datums
 -- seen on each run.
-watchInit :: Contract (Last ()) BlockchainActions ContractError ()
+watchInit :: Contract (Last [Party]) BlockchainActions ContractError ()
 watchInit = do
-  logInfo @String $ "watchInit: Looking for an init tx"
+  logInfo @String $ "watchInit: Looking for an init tx and it's parties"
   pubKey <- ownPubKey
   let address = pubKeyAddress pubKey
       pkh = pubKeyHash pubKey
@@ -199,7 +199,9 @@ watchInit = do
       [token] -> do
         let datums = txs >>= rights . fmap (lookupDatum token) . Map.elems . outputsMapFromTxForAddress (scriptAddress token)
         logInfo @String $ "found init tx(s) with datums: " <> show datums
-        tell $ Last $ Just ()
+        case datums of
+          [Initial parties] -> tell $ Last $ Just parties
+          _ -> pure ()
       _ -> pure ()
  where
   -- Find candidates for a Hydra Head threadToken 'AssetClass', that is if the
