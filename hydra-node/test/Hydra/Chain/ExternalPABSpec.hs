@@ -52,4 +52,9 @@ withHydraPAB :: IO a -> IO a
 withHydraPAB action =
   withCreateProcess pab $ \_ _ _ _ -> action
  where
-  pab = proc "hydra-pab" []
+  -- Open a stdin, as pab tries to read from it and a std_out to silence output
+  pab =
+    (proc "hydra-pab" [])
+      { std_in = CreatePipe
+      , std_out = CreatePipe
+      }

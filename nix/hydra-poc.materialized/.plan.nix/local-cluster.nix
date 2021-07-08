@@ -87,6 +87,7 @@
             (hsPkgs."cardano-crypto-class" or (errorHandler.buildDepError "cardano-crypto-class"))
             (hsPkgs."hspec" or (errorHandler.buildDepError "hspec"))
             (hsPkgs."hspec-core" or (errorHandler.buildDepError "hspec-core"))
+            (hsPkgs."hspec-junit-formatter" or (errorHandler.buildDepError "hspec-junit-formatter"))
             (hsPkgs."hydra-prelude" or (errorHandler.buildDepError "hydra-prelude"))
             (hsPkgs."hydra-node" or (errorHandler.buildDepError "hydra-node"))
             (hsPkgs."local-cluster" or (errorHandler.buildDepError "local-cluster"))
@@ -100,7 +101,7 @@
             (hsPkgs.buildPackages.hydra-node.components.exes.mock-chain or (pkgs.buildPackages.mock-chain or (errorHandler.buildToolDepError "hydra-node:mock-chain")))
             ];
           buildable = true;
-          modules = [ "Test/EndToEndSpec" "Test/LocalClusterSpec" ];
+          modules = [ "Test/EndToEndSpec" "Test/LocalClusterSpec" "Spec" ];
           hsSourceDirs = [ "test" ];
           mainPath = [ "Main.hs" ];
           };

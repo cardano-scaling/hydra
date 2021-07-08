@@ -142,6 +142,7 @@
             (hsPkgs."contra-tracer" or (errorHandler.buildDepError "contra-tracer"))
             (hsPkgs."hspec" or (errorHandler.buildDepError "hspec"))
             (hsPkgs."hspec-core" or (errorHandler.buildDepError "hspec-core"))
+            (hsPkgs."hspec-junit-formatter" or (errorHandler.buildDepError "hspec-junit-formatter"))
             (hsPkgs."HUnit" or (errorHandler.buildDepError "HUnit"))
             (hsPkgs."hydra-node" or (errorHandler.buildDepError "hydra-node"))
             (hsPkgs."hydra-prelude" or (errorHandler.buildDepError "hydra-prelude"))
@@ -178,6 +179,7 @@
             "Hydra/Network/BroadcastToSelfSpec"
             "Hydra/OptionsSpec"
             "Test/Util"
+            "Spec"
             ];
           hsSourceDirs = [ "test" ];
           mainPath = [ "Main.hs" ];

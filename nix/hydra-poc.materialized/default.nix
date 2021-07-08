@@ -72,6 +72,7 @@
         "deriving-aeson".revision = (((hackage."deriving-aeson")."0.2.6.1").revisions).default;
         "ghc-prim".revision = (((hackage."ghc-prim")."0.6.1").revisions).default;
         "eventful-memory".revision = (((hackage."eventful-memory")."0.2.0").revisions).default;
+        "xml-types".revision = (((hackage."xml-types")."0.3.8").revisions).default;
         "utf8-string".revision = (((hackage."utf8-string")."1.0.2").revisions).default;
         "old-time".revision = (((hackage."old-time")."1.1.0.3").revisions).default;
         "bifunctors".revision = (((hackage."bifunctors")."5.5.7").revisions).default;
@@ -119,6 +120,7 @@
         "network-byte-order".revision = (((hackage."network-byte-order")."0.1.6").revisions).default;
         "sop-core".revision = (((hackage."sop-core")."0.5.0.1").revisions).default;
         "unliftio".revision = (((hackage."unliftio")."0.2.18").revisions).default;
+        "xml-conduit".revision = (((hackage."xml-conduit")."1.9.1.1").revisions).default;
         "servant-websockets".revision = (((hackage."servant-websockets")."2.0.0").revisions).default;
         "indexed-traversable-instances".revision = (((hackage."indexed-traversable-instances")."0.1").revisions).default;
         "extensible-exceptions".revision = (((hackage."extensible-exceptions")."0.1.1.4").revisions).default;
@@ -298,6 +300,7 @@
         "ap-normalize".flags.test-with-clang = false;
         "http-media".revision = (((hackage."http-media")."0.8.0.0").revisions).default;
         "reducers".revision = (((hackage."reducers")."3.12.3").revisions).default;
+        "hspec-junit-formatter".revision = (((hackage."hspec-junit-formatter")."1.0.1.0").revisions).default;
         "hsc2hs".revision = (((hackage."hsc2hs")."0.68.7").revisions).default;
         "hsc2hs".flags.in-ghc-tree = false;
         "directory".revision = (((hackage."directory")."1.3.6.0").revisions).default;
@@ -833,7 +836,7 @@
           "cardano-crypto-praos" = {
             flags = {
               "development" = lib.mkOverride 900 false;
-              "external-libsodium-vrf" = lib.mkOverride 900 false;
+              "external-libsodium-vrf" = lib.mkOverride 900 true;
               };
             };
           "plutus-ledger" = {
@@ -922,7 +925,7 @@
             flags = { "development" = lib.mkOverride 900 false; };
             };
           "hydra-node" = {
-            flags = { "development" = lib.mkOverride 900 false; };
+            flags = { "development" = lib.mkOverride 900 true; };
             };
           "network-mux" = {
             flags = {

@@ -35,14 +35,17 @@
         depends = [
           (hsPkgs."aeson" or (errorHandler.buildDepError "aeson"))
           (hsPkgs."base" or (errorHandler.buildDepError "base"))
+          (hsPkgs."cardano-crypto-class" or (errorHandler.buildDepError "cardano-crypto-class"))
           (hsPkgs."containers" or (errorHandler.buildDepError "containers"))
           (hsPkgs."hydra-prelude" or (errorHandler.buildDepError "hydra-prelude"))
+          (hsPkgs."lens" or (errorHandler.buildDepError "lens"))
           (hsPkgs."playground-common" or (errorHandler.buildDepError "playground-common"))
           (hsPkgs."plutus-core" or (errorHandler.buildDepError "plutus-core"))
           (hsPkgs."plutus-tx" or (errorHandler.buildDepError "plutus-tx"))
           (hsPkgs."plutus-contract" or (errorHandler.buildDepError "plutus-contract"))
           (hsPkgs."plutus-ledger" or (errorHandler.buildDepError "plutus-ledger"))
           (hsPkgs."plutus-tx-plugin" or (errorHandler.buildDepError "plutus-tx-plugin"))
+          (hsPkgs."plutus-use-cases" or (errorHandler.buildDepError "plutus-use-cases"))
           (hsPkgs."prettyprinter" or (errorHandler.buildDepError "prettyprinter"))
           (hsPkgs."template-haskell" or (errorHandler.buildDepError "template-haskell"))
           ];
@@ -50,6 +53,8 @@
         modules = [
           "Hydra/Contract/OnChain"
           "Hydra/Contract/OffChain"
+          "Hydra/Contract/Party"
+          "Hydra/ContractSM"
           "Hydra/Contract/PAB"
           ];
         hsSourceDirs = [ "src" ];
