@@ -11,9 +11,9 @@ import qualified Data.Map as Map
 import Hydra.Chain (Chain (Chain, postTx))
 import Hydra.Contract.PAB (PABContract (..))
 import Hydra.HeadLogic (OnChainTx (InitTx))
-import Hydra.Ledger (Party, Tx)
+import Hydra.Ledger (Tx)
 import Hydra.Logging (Tracer)
-import Ledger (TxOut (txOutValue), txOutTxOut)
+import Ledger (PubKeyHash, TxOut (txOutValue), pubKeyHash, txOutTxOut)
 import Ledger.AddressMap (UtxoMap)
 import Ledger.Value as Value
 import Network.HTTP.Req (
@@ -47,12 +47,12 @@ withExternalPAB ::
   (Chain tx IO -> IO a) ->
   IO a
 withExternalPAB _tracer _callback action = do
-  void $ activateContract Setup wallet
+  cid <- activateContract Setup wallet
   withAsync (utxoSubscriber wallet) $ \_ -> do
-    action $ Chain{postTx = postTx}
+    action $ Chain{postTx = postTx cid}
  where
-  postTx = \case
-    InitTx _parties -> pure ()
+  postTx cid = \case
+    InitTx _parties -> postInitTx cid (pubKeyHash <$> pubKeys)
     tx -> error $ "should post " <> show tx
 
   -- TODO(SN): Parameterize with nodeId
@@ -80,15 +80,15 @@ activateContract contract wallet =
   reqBody = ActivateContractRequest (show contract) wallet
 
 -- TODO(SN): use MonadHttp, but clashes with MonadThrow
-postInitTx :: ContractInstanceId -> [Party] -> IO ()
-postInitTx cid parties =
+postInitTx :: ContractInstanceId -> [PubKeyHash] -> IO ()
+postInitTx cid pubkeys =
   retryOnAnyHttpException $
     runReq defaultHttpConfig $ do
       res <-
         req
           POST
           (http "127.0.0.1" /: "api" /: "new" /: "contract" /: "instance" /: cidText /: "endpoint" /: "init")
-          (ReqBodyJson parties)
+          (ReqBodyJson pubkeys)
           jsonResponse
           (port 8080)
       when (responseStatusCode res /= 200) $

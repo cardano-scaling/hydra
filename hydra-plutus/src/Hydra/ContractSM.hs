@@ -9,19 +9,23 @@ module Hydra.ContractSM where
 import Control.Lens (makeClassyPrisms)
 import Data.Aeson (FromJSON, ToJSON)
 import GHC.Generics (Generic)
-import Hydra.Contract.Party (Party (..))
 import Hydra.Prelude (Eq, Show, String, show, void)
-import Ledger (AssetClass)
+import Ledger (AssetClass, PubKeyHash)
+import Ledger.Ada (lovelaceValueOf)
+import Ledger.Constraints (mustPayToPubKey)
 import qualified Ledger.Typed.Scripts as Scripts
 import Plutus.Contract (
   AsContractError (..),
   BlockchainActions,
   Contract,
   ContractError (..),
+  Endpoint,
   currentSlot,
+  endpoint,
   logInfo,
   mapError,
   throwError,
+  type (.\/),
  )
 import Plutus.Contract.StateMachine (StateMachine, StateMachineClient, WaitingResult (..))
 import qualified Plutus.Contract.StateMachine as SM
@@ -41,7 +45,7 @@ PlutusTx.makeLift ''State
 PlutusTx.unstableMakeIsData ''State
 
 data Input
-  = Init [Party]
+  = Init [PubKeyHash]
   | CollectCom
   | Abort
   deriving (Generic, Show)
@@ -78,7 +82,13 @@ hydraStateMachine threadToken = SM.mkStateMachine (Just threadToken) hydraTransi
 
 {-# INLINEABLE hydraTransition #-}
 hydraTransition :: SM.State State -> Input -> Maybe (SM.TxConstraints SM.Void SM.Void, SM.State State)
-hydraTransition _state _input = Nothing
+hydraTransition oldState input =
+  case (SM.stateData oldState, input) of
+    (Setup, Init pubKeyHashes) ->
+      Just (mempty, oldState{SM.stateData = Initial})
+     where
+      _constraints = foldMap (\pubKey -> mustPayToPubKey pubKey (lovelaceValueOf 1)) pubKeyHashes
+    _ -> Nothing
 
 -- | The script instance of the auction state machine. It contains the state
 --   machine compiled to a Plutus core validator script.
@@ -105,7 +115,7 @@ machineClient threadToken =
       inst = typedValidator threadToken
    in SM.mkStateMachineClient (SM.StateMachineInstance machine inst)
 
-setup :: Contract () BlockchainActions HydraPlutusError AssetClass
+setup :: Contract () (BlockchainActions .\/ Endpoint "init" [PubKeyHash]) HydraPlutusError AssetClass
 setup = do
   logInfo @String "setup hydra contract"
   threadToken <- mapError ThreadTokenError Currency.createThreadToken
@@ -113,6 +123,16 @@ setup = do
 
   let client = machineClient threadToken
   void $ SM.runInitialise client Setup mempty
+
+  logInfo @String "SM initialised, waiting for pubkeys"
+  -- NOTE: These are the cardano/chain keys to send PTs to
+  pubkeyHashes <- endpoint @"init" @[PubKeyHash]
+
+  logInfo $ "Got pubkeys :" <> show @String pubkeyHashes
+
+  void $ SM.runStep client (Init pubkeyHashes)
+  logInfo $ "Triggering Init " <> show @String pubkeyHashes
+
   pure threadToken
 
 -- | Wait for 'Init' transaction to appear on chain and return the observed state of the state machine
