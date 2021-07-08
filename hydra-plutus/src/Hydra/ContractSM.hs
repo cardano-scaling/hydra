@@ -7,13 +7,16 @@
 module Hydra.ContractSM where
 
 import Control.Lens (makeClassyPrisms)
+import Control.Monad (forever)
 import Data.Aeson (FromJSON, ToJSON)
+import qualified Data.Map as Map
 import GHC.Generics (Generic)
-import Hydra.Prelude (Eq, Show, String, show, uncurry, void)
-import Ledger (PubKeyHash (..), Value, pubKeyHash)
+import Hydra.Prelude (Eq, Last (..), Show, String, show, uncurry, void)
+import Ledger (CurrencySymbol, PubKeyHash (..), TxOut (txOutValue), TxOutTx (txOutTxOut), Value, pubKeyAddress, pubKeyHash)
+import Ledger.AddressMap (outputsMapFromTxForAddress)
 import Ledger.Constraints (mustPayToPubKey)
 import qualified Ledger.Typed.Scripts as Scripts
-import Ledger.Value (AssetClass, TokenName (..), assetClass, singleton)
+import Ledger.Value (AssetClass, TokenName (..), assetClass, flattenValue, singleton)
 import Plutus.Contract (
   AsContractError (..),
   BlockchainActions,
@@ -23,6 +26,7 @@ import Plutus.Contract (
   currentSlot,
   endpoint,
   logInfo,
+  nextTransactionsAt,
   ownPubKey,
   throwError,
   type (.\/),
@@ -131,20 +135,29 @@ machineClient threadToken =
       inst = typedValidator threadToken
    in SM.mkStateMachineClient (SM.StateMachineInstance machine inst)
 
+participationTokenName :: PubKeyHash -> TokenName
+participationTokenName = TokenName . getPubKeyHash
+
+threadTokenName :: TokenName
+threadTokenName = "thread token"
+
+mkThreadToken :: CurrencySymbol -> AssetClass
+mkThreadToken symbol =
+  assetClass symbol threadTokenName
+
 setup :: Contract () (BlockchainActions .\/ Endpoint "init" [PubKeyHash]) HydraPlutusError ()
 setup = do
   -- NOTE: These are the cardano/chain keys to send PTs to
   pubkeyHashes <- endpoint @"init" @[PubKeyHash]
 
-  let threadTokenName = "thread token"
-      stateThreadToken = (threadTokenName, 1) -- XXX: dry with above
-      participationTokens = map ((,1) . TokenName . getPubKeyHash) pubkeyHashes
+  let stateThreadToken = (threadTokenName, 1) -- XXX: dry with above
+      participationTokens = map ((,1) . participationTokenName) pubkeyHashes
       tokens = stateThreadToken : participationTokens
 
   logInfo $ "Forging tokens: " <> show @String tokens
   ownPK <- pubKeyHash <$> ownPubKey
   symbol <- Currency.currencySymbol <$> Currency.forgeContract ownPK tokens
-  let threadToken = assetClass symbol threadTokenName
+  let threadToken = mkThreadToken symbol
       tokenValues = map (uncurry (singleton symbol)) participationTokens
 
   logInfo $ "Done, our currency symbol: " <> show @String symbol
@@ -155,10 +168,44 @@ setup = do
   void $ SM.runStep client (Init $ zip pubkeyHashes tokenValues)
   logInfo $ "Triggering Init " <> show @String pubkeyHashes
 
+-- | Watch 'initialAddress' (with hard-coded parameters) and report all datums
+-- seen on each run.
+watchInit :: Contract (Last ()) BlockchainActions ContractError ()
+watchInit = do
+  logInfo @String $ "watchInit: Looking for an init tx"
+  pubKey <- ownPubKey
+  let address = pubKeyAddress pubKey
+      pkh = pubKeyHash pubKey
+  forever $ do
+    txs <- nextTransactionsAt address
+    let foundTokens = txs >>= mapMaybe (findToken pkh) . Map.elems . outputsMapFromTxForAddress address
+    logInfo $ "found tokens: " <> show @String foundTokens
+ where
+  -- let datums = txs >>= rights . fmap lookupDatum . Map.elems . outputsMapFromTxForAddress scriptAddress
+  -- logInfo @String $ "found init tx(s) with datums: " <> show datums
+  -- tell $ Last $ Just ()
+
+  -- Find candidates for a Hydra Head threadToken 'AssetClass', that is if the
+  -- 'TokenName' matches our public key
+  findToken :: PubKeyHash -> TxOutTx -> Maybe AssetClass
+  findToken pkh txout =
+    let value = txOutValue $ txOutTxOut txout
+        flat = flattenValue value
+        mres = find (\(_, tokenName, amount) -> amount == 1 && tokenName == participationTokenName pkh) flat
+     in case mres of
+          Just (symbol, _, _) -> Just $ mkThreadToken symbol
+          Nothing -> Nothing
+
+-- validator = typedValidator threadToken
+
+-- scriptAddress = Scripts.validatorAddress validator
+
+-- lookupDatum txOutTx = tyTxOutData <$> typeScriptTxOut validator txOutTx
+
 -- | Wait for 'Init' transaction to appear on chain and return the observed state of the state machine
-watchInit :: AssetClass -> Contract () BlockchainActions HydraPlutusError State
-watchInit threadToken = do
-  logInfo @String $ "watchInit: Looking for an init tx for SM: " <> show threadToken
+watchStateMachine :: AssetClass -> Contract () BlockchainActions HydraPlutusError State
+watchStateMachine threadToken = do
+  logInfo @String $ "watchStateMachine: Looking for transitions of SM: " <> show threadToken
   let client = machineClient threadToken
   sl <- currentSlot
   SM.waitForUpdateUntil client (sl + 10) >>= \case
