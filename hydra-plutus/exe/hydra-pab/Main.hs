@@ -62,9 +62,11 @@ handleStarterContract = Builtin.handleBuiltin getSchema getContract
     -- side code (off-chain contracts) and what the PAB webserver exposes
     Setup -> endpointsToSchemas @Empty
     GetUtxos -> endpointsToSchemas @Empty
+    WatchInit -> endpointsToSchemas @Empty
   getContract = \case
     Setup -> SomeBuiltin ContractSM.setup
     GetUtxos -> SomeBuiltin getUtxo
+    WatchInit -> SomeBuiltin ContractSM.watchInit
 
 getUtxo :: Contract (Last UtxoMap) BlockchainActions ContractError ()
 getUtxo = do
