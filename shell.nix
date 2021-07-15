@@ -32,29 +32,15 @@
     configureFlags = "--enable-static";
   })
 }:
-hsPkgs.shellFor {
-  packages = ps: with ps; [
-    hydra-prelude
-    hydra-node
-    hydra-plutus
-    local-cluster
-  ];
-
-  # Haskell.nix managed tools (via hackage)
-  tools = {
-    cabal = "3.4.0.0";
-    fourmolu = "latest";
-    haskell-language-server = "latest";
-  };
-
-  # REVIEW(SN): Libs and pkgconfig still required with haskell.nix?
-  buildInputs = [
-    # Libraries
+let
+  libs = [
     libsodium-vrf
     pkgs.systemd
     pkgs.zlib
     pkgs.zeromq
-    # Tools
+  ];
+
+  tools = [
     pkgs.pkgconfig
     pkgs.haskellPackages.ghcid
     pkgs.haskellPackages.hspec-discover
@@ -67,6 +53,49 @@ hsPkgs.shellFor {
     cardanoNodePkgs.cardano-cli
   ];
 
-  # Disable haddocks as it's currently failing for the 'plutus-ledger' package
-  withHoogle = false;
-}
+  haskellNixShell = hsPkgs.shellFor {
+    packages = ps: with ps; [
+      hydra-prelude
+      hydra-node
+      hydra-plutus
+      local-cluster
+    ];
+
+    # Haskell.nix managed tools (via hackage)
+    tools = {
+      cabal = "3.4.0.0";
+      fourmolu = "latest";
+      haskell-language-server = "latest";
+    };
+
+    buildInputs = libs ++ tools;
+
+    # Disable haddocks as it's currently failing for the 'plutus-ledger' package
+    withHoogle = false;
+  };
+
+  # A "cabal-only" shell which does not use haskell.nix
+  cabalShell = pkgs.mkShell {
+    name = "hydra-node-cabal-shell";
+
+    buildInputs = libs ++ [
+      pkgs.haskell.compiler.${compiler}
+      pkgs.cabal-install
+      pkgs.git
+    ];
+
+    # Ensure that libz.so and other libraries are available to TH splices.
+    LD_LIBRARY_PATH = pkgs.lib.makeLibraryPath libs;
+
+    # Force a UTF-8 locale because many Haskell programs and tests
+    # assume this.
+    LANG = "en_US.UTF-8";
+
+    # Make the shell suitable for the stack nix integration
+    # <nixpkgs/pkgs/development/haskell-modules/generic-stack-builder.nix>
+    GIT_SSL_CAINFO = "${pkgs.cacert}/etc/ssl/certs/ca-bundle.crt";
+    STACK_IN_NIX_SHELL = "true";
+  };
+
+in
+haskellNixShell // { cabalOnly = cabalShell; }
