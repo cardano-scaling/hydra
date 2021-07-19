@@ -1,9 +1,8 @@
-index-state: 2021-06-02T00:00:00Z
+index-state: 2021-07-07T00:00:00Z
 
 packages:
-  -- NOTE(SN): disabled for repro (some conflict because cardano-node dep)
-  -- local-cluster
-  -- hydra-node
+  local-cluster
+  hydra-node
   hydra-plutus
   hydra-prelude
 
@@ -25,7 +24,7 @@ allow-newer:
   -- 'iohk-monitoring' -> 'ekg' -> 'snap-server' which has a < 0.14 upper bound for attoparsec
   attoparsec
 
--- NOTE: The following is taken from plutus from 2021-07-12
+-- NOTE: The following is taken from plutus master at 2021-07-19
 
 source-repository-package
   type: git
