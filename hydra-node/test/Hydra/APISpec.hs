@@ -13,22 +13,22 @@ import System.Exit (ExitCode (..))
 import System.FilePath ((</>))
 import System.IO.Temp (withSystemTempDirectory)
 import System.Process (readProcessWithExitCode)
-import Test.Hspec (Spec, aroundAll, context, parallel, pendingWith, runIO, specify)
+import Test.Hspec (Spec, aroundAll, context, parallel, pendingWith, specify)
 import Test.QuickCheck (Property, counterexample, property)
 import Test.QuickCheck.Monadic (assert, monadicIO, monitor, run)
 
 import qualified Data.Aeson as Aeson
+import qualified Data.Yaml as Yaml
 import qualified Paths_hydra_node as Pkg
 
 spec :: Spec
 spec = do
-  specs <- runIO (Pkg.getDataFileName "api.json")
-  aroundAll (withSystemTempDirectory "prop_validateToJSON") $ do
+  aroundAll withJsonSpecifications $ do
     context "Validate JSON representations with API specification" $
       parallel $ do
-        specify "ServerOutput" $ \tmp ->
+        specify "ServerOutput" $ \(specs, tmp) ->
           property $ prop_validateToJSON @(ServerOutput SimpleTx) specs (tmp </> "ServerOutput")
-        specify "ClientInput" $ \tmp ->
+        specify "ClientInput" $ \(specs, tmp) ->
           property $ prop_validateToJSON @(ClientInput SimpleTx) specs (tmp </> "ClientInput")
 
 -- | Generate arbitrary serializable (JSON) value, and check their validity
@@ -47,6 +47,20 @@ prop_validateToJSON specs inputFile a = monadicIO $ do
     readProcessWithExitCode "jsonschema" ["-i", inputFile, specs] mempty
   monitor $ counterexample err
   assert (exitCode == ExitSuccess)
+
+-- | Prepare the environment (temp directory) with the JSON specification. We
+-- maintain a YAML version of a JSON-schema, for it is more convenient to write.
+-- But tools (and in particular jsonschema) only works from JSON, so this
+-- function makes sure to also convert our local yaml into JSON.
+withJsonSpecifications ::
+  ((FilePath, FilePath) -> IO ()) ->
+  IO ()
+withJsonSpecifications action = do
+  specs <- Yaml.decodeFileThrow @_ @Aeson.Value =<< Pkg.getDataFileName "api.yaml"
+  withSystemTempDirectory "Hydra_APISpec" $ \tmp -> do
+    let specsFile = tmp </> "api.json"
+    Aeson.encodeFile specsFile specs
+    action (specsFile, tmp)
 
 -- | Make sure that the required python library is available on the system.
 -- Mark a test as pending when not available.
