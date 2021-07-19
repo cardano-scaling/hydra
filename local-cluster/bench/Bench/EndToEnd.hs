@@ -62,7 +62,8 @@ bench = do
 
             waitFor 3 [n1, n2, n3] $ output "headIsOpen" ["utxo" .= [int 1, 2, 3]]
 
-            tx <- newTx registry n1 42 [1] [4]
+            let txId = 42
+            tx <- newTx registry n1 txId [1] [4]
 
             waitFor 10 [n1, n2, n3] $ output "transactionSeen" ["transaction" .= tx]
             waitFor 10 [n1, n2, n3] $
@@ -75,6 +76,8 @@ bench = do
                       , "utxo" .= [int 2, 3, 4]
                       ]
                 ]
+
+            confirmTx registry txId
 
             send n1 $ input "getUtxo" []
             waitFor 10 [n1] $ output "utxo" ["utxo" .= [int 2, 3, 4]]
@@ -116,3 +119,11 @@ newTx registry client txId inputs outputs = do
   let tx = object ["id" .= txId, "inputs" .= inputs, "outputs" .= outputs]
   send client $ input "newTransaction" ["transaction" .= tx]
   pure tx
+
+confirmTx ::  TVar IO (Map.Map (TxId SimpleTx) Event)
+  -> Integer -- | Transaction Id
+  -> IO ()
+confirmTx registry txId = do
+  now <- getCurrentTime
+  atomically $ modifyTVar registry $
+    Map.adjust (\e -> e { confirmedAt = Just now}) txId
