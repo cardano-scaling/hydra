@@ -27,7 +27,7 @@ library
     base,
     cardano-binary,
     generic-random,
-    io-sim-classes,
+    io-classes,
     network,
     QuickCheck,
     quickcheck-instances,
