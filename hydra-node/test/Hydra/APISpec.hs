@@ -22,14 +22,13 @@ import qualified Data.Yaml as Yaml
 import qualified Paths_hydra_node as Pkg
 
 spec :: Spec
-spec = do
+spec = parallel $ do
   aroundAll withJsonSpecifications $ do
-    context "Validate JSON representations with API specification" $
-      parallel $ do
-        specify "ServerOutput" $ \(specs, tmp) ->
-          property $ prop_validateToJSON @(ServerOutput SimpleTx) specs (tmp </> "ServerOutput")
-        specify "ClientInput" $ \(specs, tmp) ->
-          property $ prop_validateToJSON @(ClientInput SimpleTx) specs (tmp </> "ClientInput")
+    context "Validate JSON representations with API specification" $ do
+      specify "ServerOutput" $ \(specs, tmp) ->
+        property $ prop_validateToJSON @(ServerOutput SimpleTx) specs (tmp </> "ServerOutput")
+      specify "ClientInput" $ \(specs, tmp) ->
+        property $ prop_validateToJSON @(ClientInput SimpleTx) specs (tmp </> "ClientInput")
 
 -- | Generate arbitrary serializable (JSON) value, and check their validity
 -- against a known JSON schema.
