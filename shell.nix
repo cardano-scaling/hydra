@@ -51,6 +51,8 @@ let
     # Used in local-cluster
     cardanoNodePkgs.cardano-node
     cardanoNodePkgs.cardano-cli
+    # For validating JSON instances against a pre-defined schema
+    pkgs.python3Packages.jsonschema
   ];
 
   haskellNixShell = hsPkgs.shellFor {
