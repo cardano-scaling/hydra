@@ -154,9 +154,11 @@ benchmark bench-e2e
     , aeson
     , bytestring
     , cardano-crypto-class
-    , hydra-prelude
     , hydra-node
+    , hydra-prelude
+    , io-classes
     , local-cluster
+    , time
   build-tool-depends:
     hydra-node:hydra-node, hydra-node:mock-chain
   ghc-options:
