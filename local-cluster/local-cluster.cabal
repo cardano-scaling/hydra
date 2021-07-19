@@ -141,3 +141,24 @@ test-suite integration
   ghc-options:
     -threaded
     -rtsopts
+
+benchmark bench-e2e
+  import: project-config
+  hs-source-dirs: bench
+  main-is: Main.hs
+  type: exitcode-stdio-1.0
+  other-modules:
+    Bench.EndToEnd
+  build-depends:
+      base >=4.7 && <5
+    , aeson
+    , bytestring
+    , cardano-crypto-class
+    , hydra-prelude
+    , hydra-node
+    , local-cluster
+  build-tool-depends:
+    hydra-node:hydra-node, hydra-node:mock-chain
+  ghc-options:
+    -threaded
+    -rtsopts
