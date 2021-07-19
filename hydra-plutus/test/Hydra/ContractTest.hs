@@ -47,11 +47,11 @@ alice = Wallet 1
 bob :: Wallet
 bob = Wallet 2
 
-testPolicy :: MonetaryPolicy
-testPolicy = OnChain.hydraMonetaryPolicy 42
+testPolicy :: MintingPolicy
+testPolicy = OnChain.hydraMintingPolicy 42
 
-testPolicyId :: MonetaryPolicyHash
-testPolicyId = monetaryPolicyHash testPolicy
+testPolicyId :: MintingPolicyHash
+testPolicyId = mintingPolicyHash testPolicy
 
 contract :: Contract [OnChain.State] OffChain.Schema ContractError ()
 contract = OffChain.contract headParameters

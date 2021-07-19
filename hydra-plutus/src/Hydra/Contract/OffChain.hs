@@ -16,8 +16,8 @@ import Ledger.Constraints.OffChain (ScriptLookups (..))
 import Ledger.Constraints.TxConstraints (
   TxConstraints,
   mustBeSignedBy,
-  mustForgeCurrency,
-  mustForgeValue,
+  mustMintCurrency,
+  mustMintValue,
   mustIncludeDatum,
   mustPayToOtherScript,
   mustPayToPubKey,
@@ -29,7 +29,6 @@ import Ledger.Credential (Credential (..))
 import Ledger.Typed.Scripts (TypedValidator, ValidatorTypes (..))
 import Plutus.Contract (
   AsContractError,
-  BlockchainActions,
   Contract,
   Endpoint,
   endpoint,
@@ -40,9 +39,8 @@ import Plutus.Contract (
   tell,
   utxoAt,
   type (.\/),
+  awaitTxConfirmed,
  )
-import Plutus.Contract.Effects.AwaitTxConfirmed (awaitTxConfirmed)
-import Plutus.Contract.Effects.UtxoAt (HasUtxoAt)
 
 import qualified Data.Map.Strict as Map
 import qualified Hydra.Contract.OnChain as OnChain
@@ -55,15 +53,15 @@ import qualified Ledger.Value as Value
 
 data HeadParameters = HeadParameters
   { participants :: [PubKeyHash]
-  , policy :: MonetaryPolicy
-  , policyId :: MonetaryPolicyHash
+  , policy :: MintingPolicy
+  , policyId :: MintingPolicyHash
   }
 
-mkHeadParameters :: [PubKeyHash] -> MonetaryPolicy -> HeadParameters
+mkHeadParameters :: [PubKeyHash] -> MintingPolicy -> HeadParameters
 mkHeadParameters participants policy =
   HeadParameters{participants, policy, policyId}
  where
-  policyId = monetaryPolicyHash policy
+  policyId = mintingPolicyHash policy
 
 --
 -- Init
@@ -104,7 +102,7 @@ init params@HeadParameters{participants, policy, policyId} = do
                         (Scripts.validatorHash $ initialTypedValidator params)
                         (asDatum @(DatumType OnChain.Initial) vk)
                         participationToken
-                    , mustForgeValue
+                    , mustMintValue
                         participationToken
                     ]
           )
@@ -274,7 +272,7 @@ abort params@HeadParameters{participants, policy, policyId} = do
       [ mustBeSignedBy headMember
       , mustPayToTheScript OnChain.Final (lovelaceValueOf 0)
       , foldMap
-          (\vk -> mustForgeCurrency policyId (OnChain.mkPartyName vk) (-1))
+          (\vk -> mustMintCurrency policyId (OnChain.mkPartyName vk) (-1))
           participants
       , foldMap mustRefund toRefund
       , foldMap
@@ -304,8 +302,7 @@ setupForTesting params = do
     foldMap (mustPayToPubKey vk)
 
 type Schema =
-  BlockchainActions
-    .\/ Endpoint "setupForTesting" (PubKeyHash, [Value])
+    Endpoint "setupForTesting" (PubKeyHash, [Value])
     .\/ Endpoint "init" ()
     .\/ Endpoint "commit" (PubKeyHash, (TxOutRef, TxOutTx))
     .\/ Endpoint "collectCom" (PubKeyHash, [TxOut])
@@ -363,7 +360,7 @@ mustRefund txOut =
 
 utxoAtWithDatum ::
   forall w s e.
-  (AsContractError e, HasUtxoAt s) =>
+  (AsContractError e) =>
   Address ->
   Datum ->
   Contract w s e UtxoMap
@@ -382,7 +379,7 @@ utxoAtWithDatum addr datum = do
 -- Instead, we must associate each commited utxo to their key using the
 -- participation token that they all carry.
 zipOnParty ::
-  MonetaryPolicyHash ->
+  MintingPolicyHash ->
   [PubKeyHash] ->
   UtxoMap ->
   [(PubKeyHash, TxOutRef)]

@@ -30,6 +30,8 @@ instance ToSchema Party where
   toSchema = FormSchemaUnsupported "Party"
 
 instance PlutusTx.IsData Party where
-  toData (UnsafeParty k) = toData k
+  toBuiltinData (UnsafeParty k) = toBuiltinData k
 
-  fromData = fmap fromInteger . fromData
+  fromBuiltinData = fmap fromInteger . fromBuiltinData
+
+  unsafeFromBuiltinData = fromInteger . unsafeFromBuiltinData

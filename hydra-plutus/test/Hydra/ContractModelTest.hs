@@ -10,7 +10,7 @@ import qualified Hydra.Contract.OffChain as OffChain
 import qualified Hydra.Contract.OnChain as OnChain
 import Ledger (pubKeyHash)
 import Ledger.Ada as Ada
-import Ledger.Typed.Scripts (MonetaryPolicy)
+import Ledger.Typed.Scripts (MintingPolicy)
 import Plutus.Contract (Contract)
 import Plutus.Contract.Test (Wallet, walletPubKey)
 import Plutus.Contract.Test.ContractModel
@@ -58,8 +58,8 @@ instance Show (ContractInstanceKey HydraModel w schema err) where
 instanceSpec :: [ContractInstanceSpec HydraModel]
 instanceSpec = [ContractInstanceSpec (HeadParty w) w hydraContract | w <- wallets]
  where
-  testPolicy :: MonetaryPolicy
-  testPolicy = OnChain.hydraMonetaryPolicy 42
+  testPolicy :: MintingPolicy
+  testPolicy = OnChain.hydraMintingPolicy 42
 
   hydraContract :: Contract [OnChain.State] OffChain.Schema ContractError ()
   hydraContract = OffChain.contract headParameters

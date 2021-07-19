@@ -22,9 +22,9 @@ import Ledger.Typed.Tx (tyTxOutData, typeScriptTxOut)
 import Ledger.Value (AssetClass, TokenName (..), assetClass, flattenValue, singleton)
 import Plutus.Contract (
   AsContractError (..),
-  BlockchainActions,
   Contract,
   ContractError (..),
+  Empty,
   Endpoint,
   currentSlot,
   endpoint,
@@ -33,7 +33,6 @@ import Plutus.Contract (
   ownPubKey,
   tell,
   throwError,
-  type (.\/),
  )
 import Plutus.Contract.StateMachine (StateMachine, StateMachineClient, WaitingResult (..))
 import qualified Plutus.Contract.StateMachine as SM
@@ -160,7 +159,7 @@ data InitParams = InitParams
   }
   deriving (Generic, FromJSON, ToJSON)
 
-setup :: Contract () (BlockchainActions .\/ Endpoint "init" InitParams) HydraPlutusError ()
+setup :: Contract () (Endpoint "init" InitParams) HydraPlutusError ()
 setup = do
   -- NOTE: These are the cardano/chain keys to send PTs to
   InitParams{cardanoPubKeys, hydraParties} <- endpoint @"init" @InitParams
@@ -169,9 +168,10 @@ setup = do
       participationTokens = map ((,1) . participationTokenName) cardanoPubKeys
       tokens = stateThreadToken : participationTokens
 
+  -- TODO(SN): replace with SM.getThreadToken
   logInfo $ "Forging tokens: " <> show @String tokens
   ownPK <- pubKeyHash <$> ownPubKey
-  symbol <- Currency.currencySymbol <$> Currency.forgeContract ownPK tokens
+  symbol <- Currency.currencySymbol <$> Currency.mintContract ownPK tokens
   let threadToken = mkThreadToken symbol
       tokenValues = map (uncurry (singleton symbol)) participationTokens
 
@@ -185,7 +185,7 @@ setup = do
 
 -- | Watch 'initialAddress' (with hard-coded parameters) and report all datums
 -- seen on each run.
-watchInit :: Contract (Last [Party]) BlockchainActions ContractError ()
+watchInit :: Contract (Last [Party]) Empty ContractError ()
 watchInit = do
   logInfo @String $ "watchInit: Looking for an init tx and it's parties"
   pubKey <- ownPubKey
@@ -220,12 +220,12 @@ watchInit = do
   lookupDatum token txOutTx = tyTxOutData <$> typeScriptTxOut (typedValidator token) txOutTx
 
 -- | Wait for 'Init' transaction to appear on chain and return the observed state of the state machine
-watchStateMachine :: AssetClass -> Contract () BlockchainActions HydraPlutusError State
+watchStateMachine :: AssetClass -> Contract () Empty HydraPlutusError State
 watchStateMachine threadToken = do
   logInfo @String $ "watchStateMachine: Looking for transitions of SM: " <> show threadToken
   let client = machineClient threadToken
   sl <- currentSlot
-  SM.waitForUpdateUntil client (sl + 10) >>= \case
+  SM.waitForUpdateUntilSlot client (sl + 10) >>= \case
     (Timeout _s) -> throwError $ HydraError "Timed out waiting for transaction"
     ContractEnded -> throwError $ HydraError "Contract ended"
     (WaitingResult s) -> pure s
