@@ -9,6 +9,7 @@ packages:
 tests: False
 package local-cluster
   tests: True
+  benchmarks: True
 
 package hydra-node
   tests: True

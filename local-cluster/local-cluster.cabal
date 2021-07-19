@@ -154,9 +154,10 @@ benchmark bench-e2e
     , aeson
     , bytestring
     , cardano-crypto-class
+    , containers
     , hydra-node
     , hydra-prelude
-    , io-classes
+    , io-sim-classes
     , local-cluster
     , time
   build-tool-depends:

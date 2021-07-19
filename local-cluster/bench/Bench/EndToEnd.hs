@@ -9,15 +9,14 @@ import Cardano.Crypto.DSIGN (
   VerKeyDSIGN,
  )
 import Control.Monad.Class.MonadSTM (
-  TVar,
   newTVarIO,
+  modifyTVar,
  )
-import Data.Aeson (object, (.=))
-import Data.Time.Clock (
-  getCurrentTime,
- )
+import Data.Aeson (object, (.=), Value)
+import qualified Data.Map as Map
 import HydraNode (
   failAfter,
+  HydraClient,
   input,
   output,
   send,
@@ -26,6 +25,8 @@ import HydraNode (
   withHydraNode,
   withMockChain,
  )
+import Hydra.Ledger(TxId)
+import Hydra.Ledger.Simple(SimpleTx)
 
 aliceSk, bobSk, carolSk :: SignKeyDSIGN MockDSIGN
 aliceSk = 10
@@ -44,7 +45,7 @@ data Event = Event
 
 bench :: IO ()
 bench = do
-  registry <- newTVarIO mempty :: IO (TVar IO (TxId SimpleTx) Event)
+  registry <- newTVarIO mempty :: IO (TVar IO (Map.Map (TxId SimpleTx) Event))
   failAfter 30 $
     withMockChain $ \chainPorts ->
       withHydraNode chainPorts 1 aliceSk [bobVk, carolVk] $ \n1 ->
@@ -61,7 +62,7 @@ bench = do
 
             waitFor 3 [n1, n2, n3] $ output "headIsOpen" ["utxo" .= [int 1, 2, 3]]
 
-            newTx registry n1 42 [1] [4]
+            tx <- newTx registry n1 42 [1] [4]
 
             waitFor 10 [n1, n2, n3] $ output "transactionSeen" ["transaction" .= tx]
             waitFor 10 [n1, n2, n3] $
@@ -100,17 +101,18 @@ int :: Int -> Int
 int = id
 
 newTx
-  :: TVar IO (Map (TxId SimpleTx) Event)
+  :: TVar IO (Map.Map (TxId SimpleTx) Event)
   -> HydraClient
   -> Integer -- | Transaction Id
   -> [Int] -- | Transaction inputs
   -> [Int] -- | Transaction outputs
-  -> IO ()
+  -> IO Value
 newTx registry client txId inputs outputs = do
   now <- getCurrentTime
-  modifyTVar registry $ Map.insert txId $ Event
+  atomically $ modifyTVar registry $ Map.insert txId $ Event
     { submittedAt = now
     , confirmedAt = Nothing
     }
   let tx = object ["id" .= txId, "inputs" .= inputs, "outputs" .= outputs]
   send client $ input "newTransaction" ["transaction" .= tx]
+  pure tx
