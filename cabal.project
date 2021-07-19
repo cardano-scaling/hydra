@@ -20,9 +20,22 @@ package hydra-plutus
 -- Always show detailed output for tests
 test-show-details: direct
 
+-- This is the incantation which seems to be pleasing the cabal gods, given the
+-- current 'index-state' and versions of 'plutus' and 'cardano-node'. Possible
+-- explanation why this is necessary: we need a more recent 'index-state'
+-- (because of plutus) than cardano-node et al and some of their dependencies do
+-- not have behave well.
+constraints:
+  attoparsec == 0.13.2.5,
+  cryptonite == 0.27,
+  dlist == 0.8.0.8,
+  dns == 3.0.4,
+  semialign == 1.1.0.1,
+  lens == 4.19.2,
+  dependent-sum == 0.7.1.0
+
 allow-newer:
-  -- 'iohk-monitoring' -> 'ekg' -> 'snap-server' which has a < 0.14 upper bound for attoparsec
-  attoparsec
+  some
 
 -- NOTE: The following is taken from plutus master at 2021-07-19
 
@@ -77,10 +90,6 @@ constraints:
   singletons < 3.0
   -- breaks eventful even more than it already was
   , persistent-template < 2.12
-  -- bizarre issue: in earlier versions they define their own 'GEq', in newer
-  -- ones they reuse the one from 'some', but there isn't e.g. a proper version
-  -- constraint from dependent-sum-template (which is the library we actually use).
-  , dependent-sum > 0.6.2.0
 
 -- Drops an instance breaking our code. Should be released to Hackage eventually.
 source-repository-package

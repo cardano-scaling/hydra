@@ -8,6 +8,7 @@ import Cardano.Prelude hiding (log)
 import Control.Monad.Freer (Eff, Member, interpret, type (~>))
 import Control.Monad.Freer.Error (Error)
 import Control.Monad.Freer.Extras.Log (LogMsg)
+import Data.Default (def)
 import qualified Hydra.Contract.OnChain as OnChain
 import Hydra.Contract.PAB (PABContract (..))
 import qualified Hydra.ContractSM as ContractSM
@@ -25,7 +26,6 @@ import Plutus.PAB.Types (PABError (..))
 import qualified Plutus.PAB.Webserver.Server as PAB.Server
 import Schema (FormSchema (..), ToSchema (..))
 import Wallet.Emulator.Types (Wallet (..))
-import Data.Default (def)
 
 main :: IO ()
 main = void $
