@@ -1,3 +1,5 @@
+{-# LANGUAGE DeriveAnyClass #-}
+
 module Bench.EndToEnd where
 
 import Hydra.Prelude
@@ -9,10 +11,11 @@ import Cardano.Crypto.DSIGN (
   VerKeyDSIGN,
  )
 import Control.Monad.Class.MonadSTM (
+  MonadSTM (readTVarIO),
   modifyTVar,
   newTVarIO,
  )
-import Data.Aeson (Value, object, (.=))
+import Data.Aeson (Value, encode, object, (.=))
 import qualified Data.Map as Map
 import Hydra.Ledger (TxId)
 import Hydra.Ledger.Simple (SimpleTx)
@@ -27,6 +30,7 @@ import HydraNode (
   withHydraNode,
   withMockChain,
  )
+import Data.ByteString.Lazy (hPut)
 
 aliceSk, bobSk, carolSk :: SignKeyDSIGN MockDSIGN
 aliceSk = 10
@@ -42,10 +46,12 @@ data Event = Event
   { submittedAt :: UTCTime
   , confirmedAt :: Maybe UTCTime
   }
+  deriving (Generic, Eq, Show, ToJSON)
 
 bench :: IO ()
 bench = do
   registry <- newTVarIO mempty :: IO (TVar IO (Map.Map (TxId SimpleTx) Event))
+
   failAfter 30 $
     withMockChain $ \chainPorts ->
       withHydraNode chainPorts 1 aliceSk [bobVk, carolVk] $ \n1 ->
@@ -96,6 +102,8 @@ bench = do
                 ]
             waitFor (contestationPeriod + 3) [n1] $ output "headIsFinalized" ["utxo" .= [int 2, 3, 4]]
 
+  hPut stderr . encode . mapMaybe analyze . Map.toList =<< readTVarIO registry
+
 --
 -- Helpers
 --
@@ -136,3 +144,8 @@ confirmTx registry txId = do
   atomically $
     modifyTVar registry $
       Map.adjust (\e -> e{confirmedAt = Just now}) txId
+
+analyze :: (TxId SimpleTx,Event) -> Maybe (UTCTime, NominalDiffTime)
+analyze = \case
+  (_, Event{submittedAt, confirmedAt = Just conf}) -> Just (submittedAt, conf `diffUTCTime` submittedAt)
+  _ -> Nothing
