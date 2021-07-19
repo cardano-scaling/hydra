@@ -16,6 +16,8 @@ import Control.Monad.Class.MonadSTM (
   newTVarIO,
  )
 import Data.Aeson (Value, encode, object, (.=))
+import Data.Aeson.Lens (key, values, (^.))
+import Data.ByteString.Lazy (hPut)
 import qualified Data.Map as Map
 import Hydra.Ledger (TxId)
 import Hydra.Ledger.Simple (SimpleTx)
@@ -30,7 +32,6 @@ import HydraNode (
   withHydraNode,
   withMockChain,
  )
-import Data.ByteString.Lazy (hPut)
 
 aliceSk, bobSk, carolSk :: SignKeyDSIGN MockDSIGN
 aliceSk = 10
@@ -71,17 +72,9 @@ bench = do
             let txId = 42
             tx <- newTx registry n1 txId [1] [4]
 
-            waitFor 10 [n1, n2, n3] $ output "transactionSeen" ["transaction" .= tx]
-            waitFor 10 [n1, n2, n3] $
-              output
-                "snapshotConfirmed"
-                [ "snapshot"
-                    .= object
-                      [ "confirmedTransactions" .= [tx]
-                      , "snapshotNumber" .= int 1
-                      , "utxo" .= [int 2, 3, 4]
-                      ]
-                ]
+            _txs <- waitMatch n1 $ \v -> do
+              guard (v ^. key "output" == Just "snapshotConfirmed")
+              v ^. key "snapshot" . key "confirmedTransactions" . values
 
             confirmTx registry txId
 
@@ -145,7 +138,7 @@ confirmTx registry txId = do
     modifyTVar registry $
       Map.adjust (\e -> e{confirmedAt = Just now}) txId
 
-analyze :: (TxId SimpleTx,Event) -> Maybe (UTCTime, NominalDiffTime)
+analyze :: (TxId SimpleTx, Event) -> Maybe (UTCTime, NominalDiffTime)
 analyze = \case
   (_, Event{submittedAt, confirmedAt = Just conf}) -> Just (submittedAt, conf `diffUTCTime` submittedAt)
   _ -> Nothing
