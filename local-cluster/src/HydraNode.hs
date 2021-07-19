@@ -9,6 +9,7 @@ module HydraNode (
   send,
   input,
   waitFor,
+  waitMatch,
   output,
   getMetrics,
   queryNode,
@@ -88,6 +89,18 @@ output tag pairs = object $ ("output" .= tag) : pairs
 -- given @nodes@.
 waitFor :: HasCallStack => Natural -> [HydraClient] -> Value -> IO ()
 waitFor delay nodes v = waitForAll delay nodes [v]
+
+waitMatch :: HydraClient -> (Value -> Maybe a) -> IO a
+waitMatch HydraClient{connection} match = do
+  timeout 1_000_000 go >>= \case
+    Just x -> pure x
+    -- TODO: May want to do something better for debugging, e.g. collect and
+    -- print seen (but not matched) messages.
+    Nothing -> fail "Didn't match within allocated time."
+ where
+  go = do
+    bytes <- receiveData connection
+    maybe go pure (match =<< Aeson.decode' bytes)
 
 -- | Wait some time for a list of outputs from each of given nodes.
 -- This function is the generalised version of 'waitFor', allowing several messages
