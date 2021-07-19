@@ -120,7 +120,7 @@ library
     , gitrev
     , hydra-prelude
     , hydra-plutus
-    , io-sim-classes
+    , io-classes
     , iohk-monitoring
     , iproute
     , network
@@ -207,7 +207,7 @@ test-suite tests
     , hydra-node
     , hydra-prelude
     , io-sim
-    , io-sim-classes
+    , io-classes
     , iproute
     , network
     , process

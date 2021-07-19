@@ -6,6 +6,6 @@ Here is a list of currently accepted or discussed **Architecture Decision Record
 2. Hydra Node is designed around a [Reactive Core](./0002-reactive-core.md)
 3. It exposes a [Duplex Asynchronous API](./0003-asynchronous-duplex-api.md) using WebSockets protocol
 4. We use the [Handle pattern](./0004-use-handle-to-model-effects.md) for effectful computations
-5. We use [io-sim-classes](./0005-use-io-sim-classes.md) for all abstracting concurrency primitives
+5. We use [io-classes](./0005-use-io-sim-classes.md) for all abstracting concurrency primitives
 6. Network [broadcasts all messages](./0006-network-broadcasts-all-messages.md)
 7. _Components are defined using [with-pattern](./0007-with-pattern-component-interfaces.md)_

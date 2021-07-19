@@ -19,7 +19,7 @@ All-in-all, while it _does the job_, the base `Prelude` may not necessarily be t
 
 ## Decision
 
-We'll use a custom prelude to help us get more productive and more importantly, to reduce the daily friction of our interactions with the base prelude. While [`relude`](https://hackage.haskell.org/package/relude) makes for a good candidate, we still chose to re-wrap it in a custom `Hydra.Prelude` module to grant us the ability to add or remove a few things specifics to Hydra and Cardano in general. In particular, we will hide from `relude` all the re-exports of the [`stm`](https://hackage.haskell.org/package/stm) library in favor of [`io-sim-classes`](https://github.com/input-output-hk/ouroboros-network/tree/36d8a4b7792ffcfa0c70eb56065071fbfa59af36/io-sim-classes) which we already use pervasively and which provides (among other things) most of the same capabilities.
+We'll use a custom prelude to help us get more productive and more importantly, to reduce the daily friction of our interactions with the base prelude. While [`relude`](https://hackage.haskell.org/package/relude) makes for a good candidate, we still chose to re-wrap it in a custom `Hydra.Prelude` module to grant us the ability to add or remove a few things specifics to Hydra and Cardano in general. In particular, we will hide from `relude` all the re-exports of the [`stm`](https://hackage.haskell.org/package/stm) library in favor of [`io-classes`](https://github.com/input-output-hk/ouroboros-network/tree/e338f2cf8e1078fbda9555dd2b169c6737ef6774/io-classes) which we already use pervasively and which provides (among other things) most of the same capabilities.
 
 ## Consequences
 

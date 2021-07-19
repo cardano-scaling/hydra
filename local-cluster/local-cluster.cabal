@@ -90,7 +90,7 @@ library
     , http-conduit
     , hydra-prelude
     , hydra-node
-    , io-sim-classes
+    , io-classes
     , iohk-monitoring
     , network
     , process
@@ -164,7 +164,7 @@ benchmark bench-e2e
     , containers
     , hydra-node
     , hydra-prelude
-    , io-sim-classes
+    , io-classes
     , lens
     , lens-aeson
     , local-cluster

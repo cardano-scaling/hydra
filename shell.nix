@@ -5,7 +5,7 @@
   # Latest haskell.nix for more likely cache hits
 , haskellNix ? import
     (builtins.fetchTarball
-      "https://github.com/input-output-hk/haskell.nix/archive/87084d65a476cc826a0e8c5d281d494254f5bc7a.tar.gz")
+      "https://github.com/input-output-hk/haskell.nix/archive/3856d2d24dca0ecc71fcfc314253a2a2d07a3c4f.tar.gz")
     { }
   # Use same pkgs as haskell.nix for more likely cache hits
 , nixpkgsSrc ? haskellNix.sources.nixpkgs-2009
@@ -82,6 +82,7 @@ let
       pkgs.haskell.compiler.${compiler}
       pkgs.cabal-install
       pkgs.git
+      pkgs.pkgconfig
     ];
 
     # Ensure that libz.so and other libraries are available to TH splices.
