@@ -1,4 +1,5 @@
 {-# LANGUAGE DeriveAnyClass #-}
+{-# LANGUAGE TypeApplications #-}
 
 module Bench.EndToEnd where
 
@@ -10,15 +11,17 @@ import Cardano.Crypto.DSIGN (
   SignKeyDSIGN,
   VerKeyDSIGN,
  )
+import Control.Lens ((^?))
 import Control.Monad.Class.MonadSTM (
   MonadSTM (readTVarIO),
   modifyTVar,
   newTVarIO,
  )
 import Data.Aeson (Value, encode, object, (.=))
-import Data.Aeson.Lens (key, values, (^.))
+import Data.Aeson.Lens (key, _Array, _Number)
 import Data.ByteString.Lazy (hPut)
 import qualified Data.Map as Map
+import Data.Scientific (floatingOrInteger)
 import Hydra.Ledger (TxId)
 import Hydra.Ledger.Simple (SimpleTx)
 import HydraNode (
@@ -29,6 +32,7 @@ import HydraNode (
   send,
   waitFor,
   waitForNodesConnected,
+  waitMatch,
   withHydraNode,
   withMockChain,
  )
@@ -72,11 +76,11 @@ bench = do
             let txId = 42
             tx <- newTx registry n1 txId [1] [4]
 
-            _txs <- waitMatch n1 $ \v -> do
-              guard (v ^. key "output" == Just "snapshotConfirmed")
-              v ^. key "snapshot" . key "confirmedTransactions" . values
+            txs <- waitMatch n1 $ \v -> do
+              guard (v ^? key "output" == Just "snapshotConfirmed")
+              v ^? key "snapshot" . key "confirmedTransactions" . _Array
 
-            confirmTx registry txId
+            mapM_ (confirmTx registry) txs
 
             send n1 $ input "getUtxo" []
             waitFor 10 [n1] $ output "utxo" ["utxo" .= [int 2, 3, 4]]
@@ -130,13 +134,16 @@ newTx registry client txId inputs outputs = do
 
 confirmTx ::
   TVar IO (Map.Map (TxId SimpleTx) Event) ->
-  TransactionId ->
+  Value ->
   IO ()
-confirmTx registry txId = do
-  now <- getCurrentTime
-  atomically $
-    modifyTVar registry $
-      Map.adjust (\e -> e{confirmedAt = Just now}) txId
+confirmTx registry tx = do
+  case floatingOrInteger @Double <$> tx ^? key "id" . _Number of
+    Just (Right txId) -> do
+      now <- getCurrentTime
+      atomically $
+        modifyTVar registry $
+          Map.adjust (\e -> e{confirmedAt = Just now}) txId
+    _ -> error $ "incorrect Txid" <> show tx
 
 analyze :: (TxId SimpleTx, Event) -> Maybe (UTCTime, NominalDiffTime)
 analyze = \case

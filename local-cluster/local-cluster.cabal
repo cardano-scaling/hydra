@@ -158,7 +158,10 @@ benchmark bench-e2e
     , hydra-node
     , hydra-prelude
     , io-sim-classes
+    , lens
+    , lens-aeson
     , local-cluster
+    , scientific
     , time
   build-tool-depends:
     hydra-node:hydra-node, hydra-node:mock-chain
