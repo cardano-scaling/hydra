@@ -9,14 +9,16 @@ import Cardano.Crypto.DSIGN (
   VerKeyDSIGN,
  )
 import Control.Monad.Class.MonadSTM (
-  newTVarIO,
   modifyTVar,
+  newTVarIO,
  )
-import Data.Aeson (object, (.=), Value)
+import Data.Aeson (Value, object, (.=))
 import qualified Data.Map as Map
+import Hydra.Ledger (TxId)
+import Hydra.Ledger.Simple (SimpleTx)
 import HydraNode (
-  failAfter,
   HydraClient,
+  failAfter,
   input,
   output,
   send,
@@ -25,8 +27,6 @@ import HydraNode (
   withHydraNode,
   withMockChain,
  )
-import Hydra.Ledger(TxId)
-import Hydra.Ledger.Simple(SimpleTx)
 
 aliceSk, bobSk, carolSk :: SignKeyDSIGN MockDSIGN
 aliceSk = 10
@@ -103,27 +103,36 @@ bench = do
 int :: Int -> Int
 int = id
 
-newTx
-  :: TVar IO (Map.Map (TxId SimpleTx) Event)
-  -> HydraClient
-  -> Integer -- | Transaction Id
-  -> [Int] -- | Transaction inputs
-  -> [Int] -- | Transaction outputs
-  -> IO Value
+type TransactionId = Integer
+type TransactionInput = Int
+type TransactionOutput = Int
+
+newTx ::
+  TVar IO (Map.Map (TxId SimpleTx) Event) ->
+  HydraClient ->
+  TransactionId ->
+  [TransactionInput] ->
+  [TransactionOutput] ->
+  IO Value
 newTx registry client txId inputs outputs = do
   now <- getCurrentTime
-  atomically $ modifyTVar registry $ Map.insert txId $ Event
-    { submittedAt = now
-    , confirmedAt = Nothing
-    }
+  atomically $
+    modifyTVar registry $
+      Map.insert txId $
+        Event
+          { submittedAt = now
+          , confirmedAt = Nothing
+          }
   let tx = object ["id" .= txId, "inputs" .= inputs, "outputs" .= outputs]
   send client $ input "newTransaction" ["transaction" .= tx]
   pure tx
 
-confirmTx ::  TVar IO (Map.Map (TxId SimpleTx) Event)
-  -> Integer -- | Transaction Id
-  -> IO ()
+confirmTx ::
+  TVar IO (Map.Map (TxId SimpleTx) Event) ->
+  TransactionId ->
+  IO ()
 confirmTx registry txId = do
   now <- getCurrentTime
-  atomically $ modifyTVar registry $
-    Map.adjust (\e -> e { confirmedAt = Just now}) txId
+  atomically $
+    modifyTVar registry $
+      Map.adjust (\e -> e{confirmedAt = Just now}) txId
