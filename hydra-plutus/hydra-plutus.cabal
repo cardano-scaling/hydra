@@ -96,8 +96,8 @@ library
       lens,
       playground-common,
       plutus-core,
-      plutus-tx,
       plutus-contract,
+      plutus-tx,
       plutus-ledger,
       plutus-tx-plugin,
       plutus-use-cases,
@@ -148,6 +148,7 @@ executable hydra-pab
       aeson
     , base
     , cardano-prelude
+    , data-default
     , containers
     , directory
     , freer-extras

@@ -13,7 +13,7 @@ import Ledger.Ada (lovelaceValueOf)
 import Ledger.Constraints (checkScriptContext)
 import Ledger.Constraints.TxConstraints (
   mustBeSignedBy,
-  mustForgeCurrency,
+  mustMintCurrency,
   mustPayToOtherScript,
   mustPayToTheScript,
   mustProduceAtLeast,
@@ -39,7 +39,7 @@ import Text.Show (Show)
 
 data HeadParameters = HeadParameters
   { participants :: [PubKeyHash]
-  , policyId :: MonetaryPolicyHash
+  , policyId :: MintingPolicyHash
   }
 
 PlutusTx.makeLift ''HeadParameters
@@ -113,7 +113,7 @@ hydraValidator HeadParameters{participants, policyId} s i ctx =
   decodeCommit =
     txOutDatumHash
       >=> (`findDatum` scriptContextTxInfo ctx)
-      >=> (fromData @(DatumType Commit) . getDatum)
+      >=> (fromBuiltinData @(DatumType Commit) . getDatum)
 
 {- ORMOLU_DISABLE -}
 hydraTypedValidator
@@ -270,11 +270,13 @@ type FakeTxOutRef = Integer
 -- has been partially applied. This is similar to what is called 'closures' in
 -- some languages. Fundamentally, the parameter 'FakeTxOutRef' is embedded within the
 -- policy and is part of the on-chain code itself!
-validateMonetaryPolicy ::
+validateMintingPolicy ::
   FakeTxOutRef ->
+  -- | REVIEW(SN): Second context added in recent dependency update!?
+  ScriptContext ->
   ScriptContext ->
   Bool
-validateMonetaryPolicy _outRef _ctx =
+validateMintingPolicy _outRef _ctx _ctx2 =
   validateMinting || validateBurning
  where
   -- FIXME
@@ -288,12 +290,12 @@ validateMonetaryPolicy _outRef _ctx =
   validateMinting =
     True
 
-hydraMonetaryPolicy ::
+hydraMintingPolicy ::
   FakeTxOutRef ->
-  MonetaryPolicy
-hydraMonetaryPolicy outRef =
-  mkMonetaryPolicyScript $
-    $$(PlutusTx.compile [||Scripts.wrapMonetaryPolicy . validateMonetaryPolicy||])
+  MintingPolicy
+hydraMintingPolicy outRef =
+  mkMintingPolicyScript $
+    $$(PlutusTx.compile [||Scripts.wrapMintingPolicy . validateMintingPolicy||])
       `PlutusTx.applyCode` PlutusTx.liftCode outRef
 
 --
@@ -319,12 +321,12 @@ hydraMonetaryPolicy outRef =
 -- always explicitly specify the source type when using this function,
 -- preferably using the data-family from the 'ValidatorTypes' instance.
 asDatum :: IsData a => a -> Datum
-asDatum = Datum . toData
+asDatum = Datum . toBuiltinData
 {-# INLINEABLE asDatum #-}
 
 -- | Always use with explicit type-annotation, See warnings on 'asDatum'.
 asRedeemer :: IsData a => a -> Redeemer
-asRedeemer = Redeemer . toData
+asRedeemer = Redeemer . toBuiltinData
 {-# INLINEABLE asRedeemer #-}
 
 mustBeSignedByOneOf ::
@@ -365,7 +367,7 @@ mustRunContract script redeemer ctx =
 
 mustForwardParty ::
   ScriptContext ->
-  MonetaryPolicyHash ->
+  MintingPolicyHash ->
   PubKeyHash ->
   Bool
 mustForwardParty ctx policyId vk =
@@ -381,16 +383,16 @@ mustForwardParty ctx policyId vk =
 
 mustBurnParty ::
   ScriptContext ->
-  MonetaryPolicyHash ->
+  MintingPolicyHash ->
   PubKeyHash ->
   Bool
 mustBurnParty ctx policyId vk =
   let assetName = mkPartyName vk
-   in checkScriptContext @() @() (mustForgeCurrency policyId assetName (-1)) ctx
+   in checkScriptContext @() @() (mustMintCurrency policyId assetName (-1)) ctx
 {-# INLINEABLE mustBurnParty #-}
 
 mkParty ::
-  MonetaryPolicyHash ->
+  MintingPolicyHash ->
   PubKeyHash ->
   Value
 mkParty policyId vk =
@@ -404,7 +406,7 @@ mkPartyName =
   TokenName . getPubKeyHash
 {-# INLINEABLE mkPartyName #-}
 
-hasParty :: MonetaryPolicyHash -> TxInInfo -> Bool
+hasParty :: MintingPolicyHash -> TxInInfo -> Bool
 hasParty policyId input =
   let currency = Value.mpsSymbol policyId
    in currency `elem` symbols (txOutValue $ txInInfoResolved input)

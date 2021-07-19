@@ -48,7 +48,7 @@ datumAtAddress :: IsData a => Address -> a -> TracePredicate
 datumAtAddress address expected =
   flip postMapM (L.generalize $ Folds.utxoAtAddress address) $ \utxo -> do
     let datums = findAllDatums utxo
-        expectedDatum = datumHash $ Datum $ toData expected
+        expectedDatum = datumHash $ Datum $ toBuiltinData expected
     if expectedDatum `elem` datums
       then return True
       else do
@@ -86,7 +86,7 @@ assertLastLog expected = do
 
 -- | A tiny wrapper around 'assertAccumState' but when the state is a list.
 assertFinalState ::
-  (ContractConstraints schema, Show st) =>
+  Show st =>
   Contract [st] schema e a ->
   Wallet ->
   (st -> Bool) ->
@@ -126,6 +126,7 @@ callEndpoint ::
   , HasEndpoint l ep s
   , Member RunContract effs
   , Member Waiting effs
+  , ToJSON ep
   ) =>
   ContractHandle w s e ->
   ep ->
