@@ -163,6 +163,7 @@ benchmark bench-e2e
     , local-cluster
     , scientific
     , time
+    , QuickCheck
   build-tool-depends:
     hydra-node:hydra-node, hydra-node:mock-chain
   ghc-options:

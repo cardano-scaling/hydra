@@ -10,7 +10,7 @@ import Hydra.HeadLogic (
   ServerOutput (SnapshotConfirmed),
   Snapshot (..),
  )
-import Hydra.Ledger.Builder (aValidTx, utxoRefs)
+import Hydra.Ledger.Simple (aValidTx, utxoRefs)
 import Hydra.Logging (nullTracer, traceWith)
 import Hydra.Logging.Messages (HydraLog (Node))
 import Hydra.Logging.Monitoring

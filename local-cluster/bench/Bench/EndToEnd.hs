@@ -17,13 +17,13 @@ import Control.Monad.Class.MonadSTM (
   modifyTVar,
   newTVarIO,
  )
-import Data.Aeson (Value, encode, object, (.=))
+import Data.Aeson (Value, encode, (.=))
 import Data.Aeson.Lens (key, _Array, _Number)
 import Data.ByteString.Lazy (hPut)
 import qualified Data.Map as Map
 import Data.Scientific (floatingOrInteger)
-import Hydra.Ledger (Tx, TxId)
-import Hydra.Ledger.Simple (SimpleTx)
+import Hydra.Ledger (Tx, TxId, txId)
+import Hydra.Ledger.Simple (SimpleTx, genSequenceOfValidTransactions, utxoRefs)
 import HydraNode (
   HydraClient,
   failAfter,
@@ -36,6 +36,7 @@ import HydraNode (
   withHydraNode,
   withMockChain,
  )
+import Test.QuickCheck (generate)
 
 aliceSk, bobSk, carolSk :: SignKeyDSIGN MockDSIGN
 aliceSk = 10
@@ -73,34 +74,18 @@ bench = do
 
             waitFor 3 [n1, n2, n3] $ output "headIsOpen" ["utxo" .= [int 1, 2, 3]]
 
-            let initialUtxo = [1, 2, 3]
-
-            txs <- genSequenceOfValidTransactions initialUtxo
-
+            let initialUtxo = utxoRefs [1, 2, 3]
+            txs <- generate $ genSequenceOfValidTransactions initialUtxo
+            putText $ "Submitting " <> show (length txs) <> " transactions"
             for_ txs $ \tx -> do
-              tx <- newTx registry n1 tx
-
-              txs <- waitMatch n1 $ \v -> do
+              newTx registry n1 tx
+              res <- waitMatch n1 $ \v -> do
                 guard (v ^? key "output" == Just "snapshotConfirmed")
                 v ^? key "snapshot" . key "confirmedTransactions" . _Array
-
-              mapM_ (confirmTx registry) txs
-
-            send n1 $ input "getUtxo" []
-            waitFor 10 [n1] $ output "utxo" ["utxo" .= [int 2, 3, 4]]
+              mapM_ (confirmTx registry) res
 
             send n1 $ input "close" []
-            waitFor 3 [n1] $
-              output
-                "headIsClosed"
-                [ "contestationPeriod" .= contestationPeriod
-                , "latestSnapshot"
-                    .= object
-                      [ "snapshotNumber" .= int 1
-                      , "utxo" .= [int 2, 3, 4]
-                      , "confirmedTransactions" .= [tx]
-                      ]
-                ]
+            waitMatch n1 $ \v -> guard (v ^? key "output" == Just "headIsClosed")
             waitFor (contestationPeriod + 3) [n1] $ output "headIsFinalized" ["utxo" .= [int 2, 3, 4]]
 
   hPut stderr . encode . mapMaybe analyze . Map.toList =<< readTVarIO registry
@@ -126,7 +111,7 @@ newTx registry client tx = do
   now <- getCurrentTime
   atomically $
     modifyTVar registry $
-      Map.insert txId $
+      Map.insert (txId tx) $
         Event
           { submittedAt = now
           , confirmedAt = Nothing
@@ -139,11 +124,11 @@ confirmTx ::
   IO ()
 confirmTx registry tx = do
   case floatingOrInteger @Double <$> tx ^? key "id" . _Number of
-    Just (Right txId) -> do
+    Just (Right identifier) -> do
       now <- getCurrentTime
       atomically $
         modifyTVar registry $
-          Map.adjust (\e -> e{confirmedAt = Just now}) txId
+          Map.adjust (\e -> e{confirmedAt = Just now}) identifier
     _ -> error $ "incorrect Txid" <> show tx
 
 analyze :: (TxId SimpleTx, Event) -> Maybe (UTCTime, NominalDiffTime)

@@ -30,8 +30,7 @@ import Hydra.HeadLogic (
   update,
  )
 import Hydra.Ledger (Ledger (..), Party, Tx (..), deriveParty, generateKey, sign)
-import Hydra.Ledger.Builder (aValidTx, utxoRef)
-import Hydra.Ledger.Simple (SimpleTx (..), TxIn (..), simpleLedger)
+import Hydra.Ledger.Simple (SimpleTx (..), TxIn (..), simpleLedger, aValidTx, utxoRef)
 import Test.Hspec (
   Expectation,
   Spec,

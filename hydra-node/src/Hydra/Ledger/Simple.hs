@@ -91,6 +91,17 @@ simpleLedger =
     , initUTxO = mempty
     }
 
+-- * Builders
+
+utxoRef :: Integer -> UTxO SimpleTx
+utxoRef = Set.singleton . TxIn
+
+utxoRefs :: [Integer] -> UTxO SimpleTx
+utxoRefs = Set.fromList . fmap TxIn
+
+aValidTx :: Integer -> SimpleTx
+aValidTx n = SimpleTx n mempty (utxoRef n)
+
 -- * Generators
 
 listOfCommittedUtxos :: Integer -> Gen [UTxO SimpleTx]

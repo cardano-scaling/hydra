@@ -30,8 +30,7 @@ import Hydra.HeadLogic (
   createHeadState,
  )
 import Hydra.Ledger (Party, SigningKey, Tx, deriveParty)
-import Hydra.Ledger.Builder (aValidTx, utxoRef, utxoRefs)
-import Hydra.Ledger.Simple (SimpleTx (..), simpleLedger)
+import Hydra.Ledger.Simple (SimpleTx (..), aValidTx, simpleLedger, utxoRef, utxoRefs)
 import Hydra.Network (Network (..))
 import Hydra.Node (
   HydraNode (..),
