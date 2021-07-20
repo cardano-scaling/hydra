@@ -37,6 +37,7 @@ import HydraNode (
   withMockChain,
  )
 import Test.QuickCheck (generate)
+import Test.QuickCheck.Gen (scale)
 
 aliceSk, bobSk, carolSk :: SignKeyDSIGN MockDSIGN
 aliceSk = 10
@@ -75,8 +76,7 @@ bench = do
             waitFor 3 [n1, n2, n3] $ output "headIsOpen" ["utxo" .= [int 1, 2, 3]]
 
             let initialUtxo = utxoRefs [1, 2, 3]
-            txs <- generate $ genSequenceOfValidTransactions initialUtxo
-            putText $ "Submitting " <> show (length txs) <> " transactions"
+            txs <- generate $ scale (*10) $ genSequenceOfValidTransactions initialUtxo
             for_ txs $ \tx -> do
               newTx registry n1 tx
               res <- waitMatch 1 n1 $ \v -> do

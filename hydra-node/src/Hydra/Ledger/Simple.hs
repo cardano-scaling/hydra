@@ -10,7 +10,7 @@
 module Hydra.Ledger.Simple where
 
 import Hydra.Prelude
-import Test.QuickCheck (Gen, choose, sublistOf)
+import Test.QuickCheck (Gen, choose, sublistOf, getSize)
 
 import Data.Aeson (
   object,
@@ -110,8 +110,9 @@ listOfCommittedUtxos numCommits =
 
 genSequenceOfValidTransactions :: UTxO SimpleTx -> Gen [SimpleTx]
 genSequenceOfValidTransactions initialUtxo = do
+  n <- fromIntegral <$> getSize
   let maxId = if Set.null initialUtxo then 0 else unTxIn (maximum initialUtxo)
-  numTxs <- choose (1, 10)
+  numTxs <- choose (1, n)
   foldlM newTx (maxId, initialUtxo, mempty) [1 .. numTxs] >>= \(_, _, txs) -> pure (reverse txs)
  where
   newTx :: (Integer, UTxO SimpleTx, [SimpleTx]) -> Integer -> Gen (Integer, UTxO SimpleTx, [SimpleTx])

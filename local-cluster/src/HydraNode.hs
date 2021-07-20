@@ -174,11 +174,20 @@ withHydraNode mockChainPorts hydraNodeId sKey vKeys action = do
               }
       withCreateProcess p $
         \_stdin _stdout _stderr processHandle -> do
-          race_ (checkProcessHasNotDied processHandle) (tryConnect out')
+          race_ (checkProcessHasNotDied processHandle) (startConnect out')
  where
-  tryConnect out = doConnect out `catch` \(_ :: IOException) -> tryConnect out
+  startConnect out = do
+    connectedOnce <- newIORef False
+    tryConnect connectedOnce out
 
-  doConnect out = runClient "127.0.0.1" (4000 + hydraNodeId) "/" $ \con -> do
+  tryConnect connectedOnce out =
+    doConnect connectedOnce out `catch` \(e :: IOException) -> do
+      readIORef connectedOnce >>= \case
+        False -> tryConnect connectedOnce out
+        True -> throwIO e
+
+  doConnect connectedOnce out = runClient "127.0.0.1" (4000 + hydraNodeId) "/" $ \con -> do
+    atomicWriteIORef connectedOnce True
     action $ HydraClient hydraNodeId con out
     sendClose con ("Bye" :: Text)
 
