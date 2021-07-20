@@ -56,4 +56,4 @@
           ];
         };
       };
-    } // rec { src = (pkgs.lib).mkDefault .././.source-repository-packages/47; }
+    } // rec { src = (pkgs.lib).mkDefault .././.source-repository-packages/49; }

@@ -35,7 +35,6 @@
         depends = [
           (hsPkgs."base" or (errorHandler.buildDepError "base"))
           (hsPkgs."bytestring" or (errorHandler.buildDepError "bytestring"))
-          (hsPkgs."cborg" or (errorHandler.buildDepError "cborg"))
           (hsPkgs."deepseq" or (errorHandler.buildDepError "deepseq"))
           (hsPkgs."template-haskell" or (errorHandler.buildDepError "template-haskell"))
           (hsPkgs."th-abstraction" or (errorHandler.buildDepError "th-abstraction"))
@@ -44,7 +43,6 @@
           (hsPkgs."mtl" or (errorHandler.buildDepError "mtl"))
           (hsPkgs."containers" or (errorHandler.buildDepError "containers"))
           (hsPkgs."flat" or (errorHandler.buildDepError "flat"))
-          (hsPkgs."serialise" or (errorHandler.buildDepError "serialise"))
           (hsPkgs."plutus-core" or (errorHandler.buildDepError "plutus-core"))
           (hsPkgs."lens" or (errorHandler.buildDepError "lens"))
           (hsPkgs."ghc-prim" or (errorHandler.buildDepError "ghc-prim"))
@@ -65,6 +63,7 @@
           "PlutusTx/IsData"
           "PlutusTx/IsData/Class"
           "PlutusTx/Eq"
+          "PlutusTx/Enum"
           "PlutusTx/Either"
           "PlutusTx/Foldable"
           "PlutusTx/Functor"
@@ -81,13 +80,13 @@
           "PlutusTx/AssocMap"
           "PlutusTx/These"
           "PlutusTx/Code"
-          "PlutusTx/Data"
           "PlutusTx/Lift"
           "PlutusTx/Lift/Class"
           "PlutusTx/Builtins"
+          "PlutusTx/Builtins/Class"
+          "PlutusTx/Builtins/Internal"
           "PlutusTx/Plugin/Utils"
           "PlutusTx/Utils"
-          "PlutusTx/String"
           ];
         hsSourceDirs = [ "src" ];
         };
@@ -95,6 +94,7 @@
         "plutus-tx-test" = {
           depends = [
             (hsPkgs."base" or (errorHandler.buildDepError "base"))
+            (hsPkgs."plutus-core" or (errorHandler.buildDepError "plutus-core"))
             (hsPkgs."plutus-tx" or (errorHandler.buildDepError "plutus-tx"))
             (hsPkgs."hedgehog" or (errorHandler.buildDepError "hedgehog"))
             (hsPkgs."tasty" or (errorHandler.buildDepError "tasty"))
@@ -111,4 +111,4 @@
           };
         };
       };
-    } // rec { src = (pkgs.lib).mkDefault .././.source-repository-packages/6; }
+    } // rec { src = (pkgs.lib).mkDefault .././.source-repository-packages/7; }
