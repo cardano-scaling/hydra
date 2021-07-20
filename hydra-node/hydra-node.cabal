@@ -132,6 +132,7 @@ library
     , plutus-ledger
     , plutus-pab
     , prometheus
+    , QuickCheck
     , req
     , shelley-spec-ledger
     , shelley-spec-ledger-test

@@ -22,7 +22,7 @@ import Data.Aeson.Lens (key, _Array, _Number)
 import Data.ByteString.Lazy (hPut)
 import qualified Data.Map as Map
 import Data.Scientific (floatingOrInteger)
-import Hydra.Ledger (TxId)
+import Hydra.Ledger (Tx, TxId)
 import Hydra.Ledger.Simple (SimpleTx)
 import HydraNode (
   HydraClient,
@@ -73,14 +73,18 @@ bench = do
 
             waitFor 3 [n1, n2, n3] $ output "headIsOpen" ["utxo" .= [int 1, 2, 3]]
 
-            let txId = 42
-            tx <- newTx registry n1 txId [1] [4]
+            let initialUtxo = [1, 2, 3]
 
-            txs <- waitMatch n1 $ \v -> do
-              guard (v ^? key "output" == Just "snapshotConfirmed")
-              v ^? key "snapshot" . key "confirmedTransactions" . _Array
+            txs <- genSequenceOfValidTransactions initialUtxo
 
-            mapM_ (confirmTx registry) txs
+            for_ txs $ \tx -> do
+              tx <- newTx registry n1 tx
+
+              txs <- waitMatch n1 $ \v -> do
+                guard (v ^? key "output" == Just "snapshotConfirmed")
+                v ^? key "snapshot" . key "confirmedTransactions" . _Array
+
+              mapM_ (confirmTx registry) txs
 
             send n1 $ input "getUtxo" []
             waitFor 10 [n1] $ output "utxo" ["utxo" .= [int 2, 3, 4]]
@@ -113,13 +117,12 @@ type TransactionInput = Int
 type TransactionOutput = Int
 
 newTx ::
-  TVar IO (Map.Map (TxId SimpleTx) Event) ->
+  Tx tx =>
+  TVar IO (Map.Map (TxId tx) Event) ->
   HydraClient ->
-  TransactionId ->
-  [TransactionInput] ->
-  [TransactionOutput] ->
-  IO Value
-newTx registry client txId inputs outputs = do
+  tx ->
+  IO ()
+newTx registry client tx = do
   now <- getCurrentTime
   atomically $
     modifyTVar registry $
@@ -128,9 +131,7 @@ newTx registry client txId inputs outputs = do
           { submittedAt = now
           , confirmedAt = Nothing
           }
-  let tx = object ["id" .= txId, "inputs" .= inputs, "outputs" .= outputs]
   send client $ input "newTransaction" ["transaction" .= tx]
-  pure tx
 
 confirmTx ::
   TVar IO (Map.Map (TxId SimpleTx) Event) ->
