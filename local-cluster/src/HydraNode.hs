@@ -90,9 +90,9 @@ output tag pairs = object $ ("output" .= tag) : pairs
 waitFor :: HasCallStack => Natural -> [HydraClient] -> Value -> IO ()
 waitFor delay nodes v = waitForAll delay nodes [v]
 
-waitMatch :: HydraClient -> (Value -> Maybe a) -> IO a
-waitMatch HydraClient{connection} match = do
-  timeout 1_000_000 go >>= \case
+waitMatch :: Natural -> HydraClient -> (Value -> Maybe a) -> IO a
+waitMatch delay HydraClient{connection} match = do
+  timeout (fromIntegral delay * 1_000_000) go >>= \case
     Just x -> pure x
     -- TODO: May want to do something better for debugging, e.g. collect and
     -- print seen (but not matched) messages.

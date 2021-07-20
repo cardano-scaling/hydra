@@ -79,14 +79,14 @@ bench = do
             putText $ "Submitting " <> show (length txs) <> " transactions"
             for_ txs $ \tx -> do
               newTx registry n1 tx
-              res <- waitMatch n1 $ \v -> do
+              res <- waitMatch 1 n1 $ \v -> do
                 guard (v ^? key "output" == Just "snapshotConfirmed")
                 v ^? key "snapshot" . key "confirmedTransactions" . _Array
               mapM_ (confirmTx registry) res
 
             send n1 $ input "close" []
-            waitMatch n1 $ \v -> guard (v ^? key "output" == Just "headIsClosed")
-            waitFor (contestationPeriod + 3) [n1] $ output "headIsFinalized" ["utxo" .= [int 2, 3, 4]]
+            waitMatch (contestationPeriod + 3) n1 $ \v ->
+              guard (v ^? key "output" == Just "headIsFinalized")
 
   hPut stderr . encode . mapMaybe analyze . Map.toList =<< readTVarIO registry
 
