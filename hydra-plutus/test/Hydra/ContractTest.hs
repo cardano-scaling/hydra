@@ -119,8 +119,7 @@ tests =
           callEndpoint @"abort" aliceH (vk alice, [txOutTxOut $ snd utxoAlice])
     , checkPredicate
         "Init > Commit > CollectCom: CollectCom is not allowed when not all parties have committed"
-        ( assertNoFailedTransactions
-            .&&. assertFinalState contract alice stateIsInitial
+        ( assertFinalState contract alice stateIsInitial
             .&&. walletFundsChange alice (inv fixtureAmount)
             .&&. assertContractError
               contract

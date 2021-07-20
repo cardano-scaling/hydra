@@ -266,14 +266,16 @@ type FakeTxOutRef = Integer
 -- can only happen *once*).
 --
 -- What it not necessarily transparent here is that, the on-chain code is really
--- made of the curried function 'ScriptContext -> Bool', after the first parameter
+-- made of the curried function '() -> ScriptContext -> Bool', after the first parameter
 -- has been partially applied. This is similar to what is called 'closures' in
 -- some languages. Fundamentally, the parameter 'FakeTxOutRef' is embedded within the
 -- policy and is part of the on-chain code itself!
+--
+-- The type of minting policy validators is defined in 'Ledger.Typed.Scripts.MonetaryPolicies'
 validateMintingPolicy ::
   FakeTxOutRef ->
-  -- | REVIEW(SN): Second context added in recent dependency update!?
-  ScriptContext ->
+  -- there is no redeemer type for validating minting policy
+  () ->
   ScriptContext ->
   Bool
 validateMintingPolicy _outRef _ctx _ctx2 =
