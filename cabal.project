@@ -58,6 +58,7 @@ source-repository-package
     quickcheck-dynamic
     word-array
   tag: e3e220f5434d5cc01d613e656dc661acbadd55a5
+  --sha256: 12268e6c6b5fe34499a1a9ad2bbba6547a00edd231aa810de40ab36a2cd91e42
 
 -- The following sections are copied from the 'plutus' repository cabal.project at the revision
 -- given above.
@@ -96,27 +97,32 @@ source-repository-package
   type: git
   location: https://github.com/Quid2/flat.git
   tag: 95e5d7488451e43062ca84d5376b3adcc465f1cd
+  --sha256: 06l31x3y93rjpryvlxnpsyq2zyxvb0z6lik6yq2fvh36i5zwvwa3
 
 -- Needs some patches, but upstream seems to be fairly dead (no activity in > 1 year)
 source-repository-package
   type: git
   location: https://github.com/shmish111/purescript-bridge.git
   tag: 6a92d7853ea514be8b70bab5e72077bf5a510596
+  --sha256: 13j64vv116in3c204qsl1v0ajphac9fqvsjp7x3zzfr7n7g61drb
 
 source-repository-package
   type: git
   location: https://github.com/shmish111/servant-purescript.git
   tag: a76104490499aa72d40c2790d10e9383e0dbde63
+  --sha256: 11nxxmi5bw66va7psvrgrw7b7n85fvqgfp58yva99w3v9q3a50v9
 
 source-repository-package
   type: git
   location: https://github.com/input-output-hk/cardano-crypto.git
   tag: ce8f1934e4b6252084710975bd9bbc0a4648ece4
+  --sha256: 1v2laq04piyj511b2m77hxjh9l1yd6k9kc7g6bjala4w3zdwa4ni
 
 source-repository-package
   type: git
   location: https://github.com/input-output-hk/cardano-base
   tag: a715c7f420770b70bbe95ca51d3dec83866cb1bd
+  --sha256: 06l06mmb8cd4q37bnvfpgx1c5zgsl4xaf106dqva98738i8asj7j
   subdir:
     binary
     binary/test
@@ -130,6 +136,7 @@ source-repository-package
   type: git
   location: https://github.com/input-output-hk/cardano-prelude
   tag: fd773f7a58412131512b9f694ab95653ac430852
+  --sha256: 02jddik1yw0222wd6q0vv10f7y8rdgrlqaiy83ph002f9kjx7mh6
   subdir:
     cardano-prelude
     cardano-prelude-test
@@ -138,6 +145,7 @@ source-repository-package
   type: git
   location: https://github.com/input-output-hk/ouroboros-network
   tag: e338f2cf8e1078fbda9555dd2b169c6737ef6774
+  --sha256: 0dabe7a4de732a47b3a09d56bb4e57263f2ef8329f2af7d5bc4c702f2f0ca88b
   subdir:
     monoidal-synchronisation
     typed-protocols
@@ -157,6 +165,7 @@ source-repository-package
   type: git
   location: https://github.com/input-output-hk/iohk-monitoring-framework
   tag: 34abfb7f4f5610cabb45396e0496472446a0b2ca
+  --sha256: 1fdc0a02ipa385dnwa6r6jyc8jlg537i12hflfglkhjs2b7i92gs
   subdir:
     iohk-monitoring
     tracer-transformers
@@ -170,6 +179,7 @@ source-repository-package
   type: git
   location: https://github.com/input-output-hk/cardano-ledger-specs
   tag: 6b0fca7a73c317f3af7c14dd4dc38178cc78a6c8
+  --sha256: 99beac3d43014f0c018a4992ee30ce09206009d4f60c053f701c3135c479e014
   subdir:
     byron/chain/executable-spec
     byron/crypto
@@ -194,6 +204,7 @@ source-repository-package
   type: git
   location: https://github.com/input-output-hk/cardano-node.git
   tag: f3ef4ed72894499160f2330b91572a159005c148
+  --sha256: 783bd008c54cab411ef676c8f07f994b9ead35edf9c957491992e03a0d8ce8d6
   subdir:
     cardano-api
     cardano-node
@@ -204,11 +215,13 @@ source-repository-package
   type: git
   location: https://github.com/input-output-hk/Win32-network
   tag: 5b3d08c454f425da5cf045fe7865950d7c806691
+  --sha256: 9cdd6dd7da71e840ec46fe339557a113c050692844aad5964a3052ac168cfe5a
 
--- source-repository-package
---   type: git
---   location: https://github.com/input-output-hk/hedgehog-extras
---   tag: 8bcd3c9dc22cc44f9fcfe161f4638a384fc7a187
+source-repository-package
+  type: git
+  location: https://github.com/input-output-hk/hedgehog-extras
+  tag: 8bcd3c9dc22cc44f9fcfe161f4638a384fc7a187
+  --sha256: 12viwpahjdfvlqpnzdgjp40nw31rvyznnab1hml9afpaxd6ixh70
 
 -- The following two dependencies are not mirrored in the
 -- stack.yaml file, but they are needed regardless by cabal.
@@ -216,3 +229,4 @@ source-repository-package
   type: git
   location: https://github.com/input-output-hk/goblins
   tag: cde90a2b27f79187ca8310b6549331e59595e7ba
+  --sha256: 17c88rbva3iw82yg9srlxjv2ia5wjb9cyqw44hik565f5v9svnyg
