@@ -92,6 +92,7 @@
             ];
           buildable = true;
           modules = [
+            "IsData/Spec"
             "Lift/Spec"
             "Plugin/Spec"
             "Plugin/Basic/Spec"
@@ -113,4 +114,4 @@
           };
         };
       };
-    } // rec { src = (pkgs.lib).mkDefault .././.source-repository-packages/7; }
+    } // rec { src = (pkgs.lib).mkDefault .././.source-repository-packages/8; }

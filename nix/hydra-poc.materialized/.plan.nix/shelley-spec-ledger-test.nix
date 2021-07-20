@@ -61,7 +61,9 @@
           (hsPkgs."iproute" or (errorHandler.buildDepError "iproute"))
           (hsPkgs."nothunks" or (errorHandler.buildDepError "nothunks"))
           (hsPkgs."process-extras" or (errorHandler.buildDepError "process-extras"))
+          (hsPkgs."plutus-ledger-api" or (errorHandler.buildDepError "plutus-ledger-api"))
           (hsPkgs."QuickCheck" or (errorHandler.buildDepError "QuickCheck"))
+          (hsPkgs."serialise" or (errorHandler.buildDepError "serialise"))
           (hsPkgs."shelley-spec-ledger" or (errorHandler.buildDepError "shelley-spec-ledger"))
           (hsPkgs."small-steps-test" or (errorHandler.buildDepError "small-steps-test"))
           (hsPkgs."small-steps" or (errorHandler.buildDepError "small-steps"))
@@ -72,6 +74,7 @@
           (hsPkgs."text" or (errorHandler.buildDepError "text"))
           (hsPkgs."time" or (errorHandler.buildDepError "time"))
           (hsPkgs."transformers" or (errorHandler.buildDepError "transformers"))
+          (hsPkgs."tree-diff" or (errorHandler.buildDepError "tree-diff"))
           ];
         buildable = true;
         modules = [
@@ -159,6 +162,7 @@
             (hsPkgs."tasty" or (errorHandler.buildDepError "tasty"))
             (hsPkgs."time" or (errorHandler.buildDepError "time"))
             (hsPkgs."transformers" or (errorHandler.buildDepError "transformers"))
+            (hsPkgs."tree-diff" or (errorHandler.buildDepError "tree-diff"))
             ];
           buildable = true;
           modules = [
@@ -243,4 +247,4 @@
           };
         };
       };
-    } // rec { src = (pkgs.lib).mkDefault .././.source-repository-packages/55; }
+    } // rec { src = (pkgs.lib).mkDefault .././.source-repository-packages/57; }

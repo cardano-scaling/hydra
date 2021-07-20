@@ -28,7 +28,7 @@ pkgs.haskell-nix.project {
   compiler-nix-name = compiler;
 
   # Fixed output derivation for plan-nix
-  plan-sha256 = "0vzj2h9nvm86fhq6kd755d6rvvc2fm7zfkjds328fzbyj5wx8pnc";
+  plan-sha256 = "0ijw3a3vnrl2ivv3jhrn3fbx6wpl4rwzg0ljar21c1zgkvyjhra9";
   materialized = ./nix/hydra-poc.materialized;
 
   modules = [{
