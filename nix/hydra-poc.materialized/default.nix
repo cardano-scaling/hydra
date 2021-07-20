@@ -367,6 +367,7 @@
         "canonical-json".revision = (((hackage."canonical-json")."0.6.0.0").revisions).default;
         "witherable".revision = (((hackage."witherable")."0.4.1").revisions).default;
         "pipes".revision = (((hackage."pipes")."4.3.16").revisions).default;
+        "lens-aeson".revision = (((hackage."lens-aeson")."1.1.1").revisions).default;
         "ansi-wl-pprint".revision = (((hackage."ansi-wl-pprint")."0.6.9").revisions).default;
         "ansi-wl-pprint".flags.example = false;
         "reflection".revision = (((hackage."reflection")."2.1.6").revisions).default;
@@ -888,7 +889,9 @@
           "plutus-pab" = {
             flags = { "defer-plugin-errors" = lib.mkOverride 900 false; };
             };
-          "local-cluster" = { flags = {}; };
+          "local-cluster" = {
+            flags = { "development" = lib.mkOverride 900 true; };
+            };
           "typed-protocols-examples" = { flags = {}; };
           "cardano-crypto-tests" = {
             flags = { "development" = lib.mkOverride 900 false; };

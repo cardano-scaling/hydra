@@ -8,7 +8,7 @@
   , config
   , ... }:
   {
-    flags = {};
+    flags = { development = false; };
     package = {
       specVersion = "2.2";
       identifier = { name = "local-cluster"; version = "0.1.0"; };
@@ -75,7 +75,9 @@
             ];
           buildable = true;
           hsSourceDirs = [ "exe" ];
-          mainPath = [ "local-cluster.hs" ];
+          mainPath = [
+            "local-cluster.hs"
+            ] ++ (pkgs.lib).optional (!flags.development) "";
           };
         };
       tests = {
@@ -104,6 +106,33 @@
           modules = [ "Test/EndToEndSpec" "Test/LocalClusterSpec" "Spec" ];
           hsSourceDirs = [ "test" ];
           mainPath = [ "Main.hs" ];
+          };
+        };
+      benchmarks = {
+        "bench-e2e" = {
+          depends = [
+            (hsPkgs."base" or (errorHandler.buildDepError "base"))
+            (hsPkgs."aeson" or (errorHandler.buildDepError "aeson"))
+            (hsPkgs."bytestring" or (errorHandler.buildDepError "bytestring"))
+            (hsPkgs."cardano-crypto-class" or (errorHandler.buildDepError "cardano-crypto-class"))
+            (hsPkgs."containers" or (errorHandler.buildDepError "containers"))
+            (hsPkgs."hydra-node" or (errorHandler.buildDepError "hydra-node"))
+            (hsPkgs."hydra-prelude" or (errorHandler.buildDepError "hydra-prelude"))
+            (hsPkgs."io-classes" or (errorHandler.buildDepError "io-classes"))
+            (hsPkgs."lens" or (errorHandler.buildDepError "lens"))
+            (hsPkgs."lens-aeson" or (errorHandler.buildDepError "lens-aeson"))
+            (hsPkgs."local-cluster" or (errorHandler.buildDepError "local-cluster"))
+            (hsPkgs."scientific" or (errorHandler.buildDepError "scientific"))
+            (hsPkgs."time" or (errorHandler.buildDepError "time"))
+            (hsPkgs."QuickCheck" or (errorHandler.buildDepError "QuickCheck"))
+            ];
+          build-tools = [
+            (hsPkgs.buildPackages.hydra-node.components.exes.hydra-node or (pkgs.buildPackages.hydra-node or (errorHandler.buildToolDepError "hydra-node:hydra-node")))
+            (hsPkgs.buildPackages.hydra-node.components.exes.mock-chain or (pkgs.buildPackages.mock-chain or (errorHandler.buildToolDepError "hydra-node:mock-chain")))
+            ];
+          buildable = true;
+          modules = [ "Bench/EndToEnd" ];
+          hsSourceDirs = [ "bench" ];
           };
         };
       };
