@@ -110,6 +110,7 @@ library
     , cardano-ledger-core
     , cardano-ledger-shelley-ma
     , cardano-ledger-shelley-ma-test
+    , cardano-node
     , cardano-prelude
     , cardano-slotting
     , cborg
