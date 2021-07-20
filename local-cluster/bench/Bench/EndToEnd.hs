@@ -22,6 +22,7 @@ import Data.Aeson.Lens (key, _Array, _Number)
 import Data.ByteString.Lazy (hPut)
 import qualified Data.Map as Map
 import Data.Scientific (floatingOrInteger)
+import qualified Data.Set as Set
 import Hydra.Ledger (Tx, TxId, txId)
 import Hydra.Ledger.Simple (SimpleTx, genSequenceOfValidTransactions, utxoRefs)
 import HydraNode (
@@ -37,6 +38,7 @@ import HydraNode (
   withMockChain,
  )
 import Test.QuickCheck (generate)
+import Data.Set ((\\))
 
 aliceSk, bobSk, carolSk :: SignKeyDSIGN MockDSIGN
 aliceSk = 10
@@ -76,13 +78,9 @@ bench = do
 
             let initialUtxo = utxoRefs [1, 2, 3]
             txs <- generate $ genSequenceOfValidTransactions initialUtxo
-            putText $ "Submitting " <> show (length txs) <> " transactions"
-            for_ txs $ \tx -> do
-              newTx registry n1 tx
-              res <- waitMatch 1 n1 $ \v -> do
-                guard (v ^? key "output" == Just "snapshotConfirmed")
-                v ^? key "snapshot" . key "confirmedTransactions" . _Array
-              mapM_ (confirmTx registry) res
+
+            for_ txs (newTx registry n1)
+              `concurrently_` waitForAllConfirmations n1 registry txs
 
             send n1 $ input "close" []
             waitMatch (contestationPeriod + 3) n1 $ \v ->
@@ -121,7 +119,7 @@ newTx registry client tx = do
 confirmTx ::
   TVar IO (Map.Map (TxId SimpleTx) Event) ->
   Value ->
-  IO ()
+  IO (TxId SimpleTx)
 confirmTx registry tx = do
   case floatingOrInteger @Double <$> tx ^? key "id" . _Number of
     Just (Right identifier) -> do
@@ -129,9 +127,25 @@ confirmTx registry tx = do
       atomically $
         modifyTVar registry $
           Map.adjust (\e -> e{confirmedAt = Just now}) identifier
+      pure identifier
     _ -> error $ "incorrect Txid" <> show tx
 
 analyze :: (TxId SimpleTx, Event) -> Maybe (UTCTime, NominalDiffTime)
 analyze = \case
   (_, Event{submittedAt, confirmedAt = Just conf}) -> Just (submittedAt, conf `diffUTCTime` submittedAt)
   _ -> Nothing
+
+waitForAllConfirmations :: HydraClient -> TVar IO (Map.Map (TxId SimpleTx) Event) -> [SimpleTx] -> IO ()
+waitForAllConfirmations n1 registry txs =
+  go allIds
+ where
+  allIds = Set.fromList $ map txId txs
+
+  go remainingIds
+    | Set.null remainingIds = pure ()
+    | otherwise = do
+      res <- waitMatch 1 n1 $ \v -> do
+        guard (v ^? key "output" == Just "snapshotConfirmed")
+        v ^? key "snapshot" . key "confirmedTransactions" . _Array
+      confirmedIds <- mapM (confirmTx registry) res
+      go (remainingIds \\ Set.fromList (toList confirmedIds))

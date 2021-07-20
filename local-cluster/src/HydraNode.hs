@@ -245,10 +245,10 @@ checkProcessHasNotDied processHandle =
 allNodeIds :: [Int]
 allNodeIds = [1 .. 3]
 
-waitForNodesConnected :: [HydraClient] -> IO ()
+waitForNodesConnected :: HasCallStack => [HydraClient] -> IO ()
 waitForNodesConnected = mapM_ waitForNodeConnected
 
-waitForNodeConnected :: HydraClient -> IO ()
+waitForNodeConnected :: HasCallStack => HydraClient -> IO ()
 waitForNodeConnected n@HydraClient{hydraNodeId} =
   -- HACK(AB): This is gross, we hijack the node ids and because we know
   -- keys are just integers we can compute them but that's ugly -> use property
