@@ -63,6 +63,7 @@
           (hsPkgs."plutus-ledger" or (errorHandler.buildDepError "plutus-ledger"))
           (hsPkgs."plutus-pab" or (errorHandler.buildDepError "plutus-pab"))
           (hsPkgs."prometheus" or (errorHandler.buildDepError "prometheus"))
+          (hsPkgs."QuickCheck" or (errorHandler.buildDepError "QuickCheck"))
           (hsPkgs."req" or (errorHandler.buildDepError "req"))
           (hsPkgs."shelley-spec-ledger" or (errorHandler.buildDepError "shelley-spec-ledger"))
           (hsPkgs."shelley-spec-ledger-test" or (errorHandler.buildDepError "shelley-spec-ledger-test"))
@@ -171,7 +172,6 @@
             "Hydra/BehaviorSpec"
             "Hydra/HeadLogicSpec"
             "Hydra/LedgerSpec"
-            "Hydra/Ledger/Builder"
             "Hydra/Ledger/SimpleSpec"
             "Hydra/Logging/MonitoringSpec"
             "Hydra/NetworkSpec"
