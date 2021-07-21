@@ -1,0 +1,325 @@
+---
+"$schema": http://json-schema.org/draft/2020-12/schema
+"$id": https://raw.githubusercontent.com/input-output-hk/hydra-poc/master/docs/api.json
+"$comment": A synthetic description of the WebSocket API for Hydra Head nodes.
+title: Hydra WebSocket API
+description: >
+  This schema documents the Client API of Hydra Node's Head  protocol, allowing
+  clients to:
+
+    * Perform operations on the head itself, like initialising or closing it,
+    * Submit transactions once the head is open,
+    * Receive notifications from the server node.
+
+  This API takes the form of various JSON data structures that represent either inputs
+  from the client or outputs from the server. It is served over a websocket connection
+  and is fully asynchronous: Inputs from the client are queued for later processing on
+  the server-side, and outputs can occur at any time.
+
+oneOf:
+
+#
+# CLIENT INPUT
+#
+
+- title: Init
+  type: object
+  description: >
+    Initialises a new Head. This command is a no-op when a Head is already open and
+    the server will output an 'CommandFailed' message should this happen.
+
+  required:
+  - input
+  properties:
+    input:
+      type: string
+      enum: ["init"]
+
+- title: Abort
+  type: object
+  required:
+  - input
+  properties:
+    input:
+      type: string
+      enum: ["abort"]
+
+- title: Commit
+  type: object
+  required:
+  - input
+  - utxo
+  properties:
+    input:
+      type: string
+      enum: ["commit"]
+    utxo:
+      $ref: "#/definitions/Utxo"
+
+- title: NewTransaction
+  type: object
+  required:
+  - input
+  properties:
+    input:
+      type: string
+      enum: ["newTransaction"]
+    transaction:
+      $ref: "#/definitions/Transaction"
+
+- title: GetUtxo
+  type: object
+  required:
+  - input
+  properties:
+    input:
+      type: string
+      enum: ["getUtxo"]
+
+- title: Close
+  type: object
+  required:
+  - input
+  properties:
+    input:
+      type: string
+      enum: ["close"]
+
+- title: Contest
+  type: object
+  required:
+  - input
+  properties:
+    input:
+      type: string
+      enum: ["contest"]
+
+#
+# SERVER OUTPUTS
+#
+
+- title: PeerConnected
+  type: object
+  required:
+  - output
+  - peer
+  properties:
+    output:
+      type: string
+      enum: ["peerConnected"]
+    peer: { "$ref": "#/definitions/Peer" }
+
+- title: PeerDisconnected
+  type: object
+  required:
+  - output
+  - peer
+  properties:
+    output:
+      type: string
+      enum: ["peerDisconnected"]
+    peer:
+      $ref: "#/definitions/Peer"
+
+- title: ReadyToCommit
+  type: object
+  required:
+  - output
+  - parties
+  properties:
+    output:
+      type: string
+      enum: ["readyToCommit"]
+    parties:
+      type: array
+      items:
+        $ref: "#/definitions/Peer"
+
+- title: Committed
+  type: object
+  required:
+  - output
+  - party
+  - utxo
+  properties:
+    output:
+      type: string
+      enum: ["committed"]
+    party:
+      $ref: "#/definitions/Peer"
+    utxo:
+      $ref: "#/definitions/Utxo"
+
+- title: HeadIsOpen
+  type: object
+  required:
+  - output
+  - utxo
+  properties:
+    output:
+      type: string
+      enum: ["headIsOpen"]
+    utxo:
+      $ref: "#/definitions/Utxo"
+
+- title: HeadIsClosed
+  type: object
+  required:
+  - output
+  - contestationPeriod
+  - latestSnapshot
+  properties:
+    output:
+      type: string
+      enum: ["headIsClosed"]
+    contestationPeriod:
+      $ref: "#/definitions/DiffTime"
+    latestSnapshot:
+      $ref: "#/definitions/Snapshot"
+
+- title: HeadIsFinalized
+  type: object
+  required:
+  - output
+  - utxo
+  properties:
+    output:
+      type: string
+      enum: ["headIsFinalized"]
+    utxo:
+      $ref: "#/definitions/Utxo"
+
+- title: HeadIsAborted
+  type: object
+  required:
+  - output
+  - utxo
+  properties:
+    output:
+      type: string
+      enum: ["headIsAborted"]
+    utxo:
+      $ref: "#/definitions/Utxo"
+
+- title: TransactionSeen
+  type: object
+  required:
+  - output
+  - transaction
+  properties:
+    output:
+      type: string
+      enum: ["transactionSeen"]
+    transaction:
+      $ref: "#/definitions/Transaction"
+
+- title: TransactionValid
+  type: object
+  required:
+  - output
+  - transaction
+  properties:
+    output:
+      type: string
+      enum: ["transactionValid"]
+    transaction:
+      $ref: "#/definitions/Transaction"
+
+- title: TransactionInvalid
+  type: object
+  required:
+  - output
+  - transaction
+  properties:
+    output:
+      type: string
+      enum: ["transactionInvalid"]
+    transaction:
+      $ref: "#/definitions/Transaction"
+
+- title: SnapshotConfirmed
+  type: object
+  required:
+  - output
+  - snapshot
+  properties:
+    output:
+      type: string
+      enum: ["snapshotConfirmed"]
+    snapshot:
+      $ref: "#/definitions/Snapshot"
+
+- title: Utxo
+  type: object
+  required:
+  - output
+  properties:
+    output:
+      type: string
+      enum: ["utxo"]
+    utxo:
+      $ref: "#/definitions/Utxo"
+
+- title: CommandFailed
+  type: object
+  required:
+  - output
+  properties:
+    output:
+      type: string
+      enum: ["commandFailed"]
+
+- title: InvalidInput
+  type: object
+  required:
+  - output
+  properties:
+    output:
+      type: string
+      enum: ["invalidInput"]
+
+#
+# DEFINITIONS
+#
+
+definitions:
+  DiffTime:
+    type: number
+
+  Peer:
+    type: integer
+
+  Snapshot:
+    type: object
+    required:
+    - snapshotNumber
+    - utxo
+    - confirmedTransactions
+    properties:
+      snapshotNumber:
+        type: integer
+      utxo:
+        $ref: "#/definitions/Utxo"
+      confirmedTransactions:
+        type: array
+        items:
+          $ref: "#/definitions/Transaction"
+
+  Transaction:
+    type: object
+    required:
+    - id
+    - inputs
+    - outputs
+    properties:
+      id:
+        type: integer
+      inputs:
+        $ref: "#/definitions/Utxo"
+      outputs:
+        $ref: "#/definitions/Utxo"
+
+  Utxo:
+    type: array
+    items:
+      type: integer
