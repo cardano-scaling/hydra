@@ -84,8 +84,7 @@ withTracer (Verbose name) between = do
     --
     -- CM.setTextOption config "appversion" version
     -- CM.setTextOption config "appcommit" commit
-    (tr, sb) <- setupTrace_ config name
-    pure (transformLogObject tr, sb)
+    first transformLogObject <$> setupTrace_ config name
 
   after :: (tracer, Switchboard ()) -> IO ()
   after = shutdown . snd
