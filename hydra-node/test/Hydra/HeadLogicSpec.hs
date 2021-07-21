@@ -30,7 +30,7 @@ import Hydra.HeadLogic (
   update,
  )
 import Hydra.Ledger (Ledger (..), Party, Tx (..), deriveParty, generateKey, sign)
-import Hydra.Ledger.Simple (SimpleTx (..), TxIn (..), simpleLedger, aValidTx, utxoRef)
+import Hydra.Ledger.Simple (SimpleTx (..), TxIn (..), aValidTx, simpleLedger, utxoRef)
 import Test.Hspec (
   Expectation,
   Spec,
@@ -159,6 +159,11 @@ spec = describe "Hydra Coordinated Head Protocol" $ do
 
   it "waits if we receive a snapshot with not-yet-seen transactions" $ do
     let event = NetworkEvent $ ReqSn 1 1 [SimpleTx 1 (utxoRef 1) (utxoRef 2)]
+    update env ledger (inOpenState threeParties ledger) event `shouldBe` Wait
+
+  it "waits if we receive an AckSn for an unseen snapshot" $ do
+    let snapshot = Snapshot 1 mempty []
+        event = NetworkEvent $ AckSn 1 (sign 1 snapshot) 1
     update env ledger (inOpenState threeParties ledger) event `shouldBe` Wait
 
   it "returns logic error if we receive a far-away snapshot (not the direct successor)" $ do

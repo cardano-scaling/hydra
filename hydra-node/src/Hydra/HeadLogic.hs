@@ -538,7 +538,7 @@ update Environment{party, signingKey, otherParties, snapshotStrategy} ledger (He
                 [NetworkEffect $ AckSn party snapshotSignature sn]
   (OpenState headState@CoordinatedHeadState{seenSnapshot, seenTxs}, NetworkEvent (AckSn otherParty snapshotSignature sn)) ->
     case seenSnapshot of
-      Nothing -> error "TODO: wait until reqSn is seen (and seenSnapshot created)"
+      Nothing -> Wait
       Just (snapshot, sigs)
         | number snapshot == sn ->
           let sigs'
