@@ -8,6 +8,10 @@ module Hydra.Prelude (
   module Control.Monad.Class.MonadTimer,
   module Control.Monad.Class.MonadFork,
   module Control.Monad.Class.MonadThrow,
+  StaticMap (..),
+  DynamicMap (..),
+  keys,
+  elems,
   FromCBOR (..),
   ToCBOR (..),
   FromJSON (..),
@@ -112,6 +116,12 @@ import Relude hiding (
   tryTakeMVar,
   tryTakeTMVar,
   writeTVar,
+ )
+import Relude.Extra.Map (
+  DynamicMap (..),
+  StaticMap (..),
+  elems,
+  keys,
  )
 import Test.QuickCheck (
   Arbitrary (..),

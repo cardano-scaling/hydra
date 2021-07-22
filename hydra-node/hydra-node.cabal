@@ -216,6 +216,8 @@ test-suite tests
     , io-sim
     , io-classes
     , iproute
+    , lens
+    , lens-aeson
     , network
     , process
     , quickcheck-instances

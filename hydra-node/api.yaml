@@ -55,7 +55,7 @@ properties:
           utxo:
             $ref: "#/definitions/Utxo"
 
-      - title: NewTransaction
+      - title: NewTx
         type: object
         required:
         - input
@@ -66,7 +66,7 @@ properties:
           transaction:
             $ref: "#/definitions/Transaction"
 
-      - title: NewSnapshot
+      - title: NewSn
         type: object
         description: >-
           Request creation of a new snapshot.
@@ -213,7 +213,7 @@ properties:
           utxo:
             $ref: "#/definitions/Utxo"
 
-      - title: TransactionSeen
+      - title: TxSeen
         type: object
         required:
         - output
@@ -225,7 +225,7 @@ properties:
           transaction:
             $ref: "#/definitions/Transaction"
 
-      - title: TransactionValid
+      - title: TxValid
         type: object
         required:
         - output
@@ -237,7 +237,7 @@ properties:
           transaction:
             $ref: "#/definitions/Transaction"
 
-      - title: TransactionInvalid
+      - title: TxInvalid
         type: object
         required:
         - output
