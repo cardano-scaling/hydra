@@ -97,6 +97,7 @@ library
     Hydra.Network
     Hydra.Network.BroadcastToSelf
     Hydra.Network.Heartbeat
+    Hydra.Network.Message
     Hydra.Network.Ouroboros
     Hydra.Network.Ouroboros.Client
     Hydra.Network.Ouroboros.Server

@@ -20,11 +20,11 @@ import Data.Map.Strict as Map
 import Hydra.HeadLogic (
   Effect (ClientEffect),
   Event (NetworkEvent),
-  HydraMessage (ReqTx),
  )
 import Hydra.Ledger (Tx (TxId), txId)
 import Hydra.Logging.Messages (HydraLog (..))
 import Hydra.Network (PortNumber)
+import Hydra.Network.Message (Message (ReqTx))
 import Hydra.Node (HydraNodeLog (ProcessedEffect, ProcessedEvent, ProcessingEvent))
 import Hydra.ServerOutput (ServerOutput (..))
 import Hydra.Snapshot (Snapshot (confirmed))

@@ -6,12 +6,12 @@ import qualified Data.Text as Text
 import Hydra.HeadLogic (
   Effect (ClientEffect),
   Event (NetworkEvent),
-  HydraMessage (ReqTx),
  )
 import Hydra.Ledger.Simple (aValidTx, utxoRefs)
 import Hydra.Logging (nullTracer, traceWith)
 import Hydra.Logging.Messages (HydraLog (Node))
 import Hydra.Logging.Monitoring
+import Hydra.Network.Message (Message (ReqTx))
 import Hydra.Network.Ports (withFreePort)
 import Hydra.Node (HydraNodeLog (ProcessedEffect, ProcessingEvent))
 import Hydra.Prelude

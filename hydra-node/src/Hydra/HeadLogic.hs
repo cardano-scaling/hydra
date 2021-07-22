@@ -1,4 +1,3 @@
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE UndecidableInstances #-}
 
@@ -14,7 +13,6 @@ import Hydra.Ledger (
   Committed,
   Ledger,
   Party,
-  Signed,
   SigningKey,
   Tx,
   UTxO,
@@ -25,12 +23,13 @@ import Hydra.Ledger (
   sign,
   verify,
  )
+import Hydra.Network.Message (Message (..))
 import Hydra.ServerOutput (ServerOutput (..))
 import Hydra.Snapshot (Snapshot (..), SnapshotNumber)
 
 data Event tx
   = ClientEvent (ClientInput tx)
-  | NetworkEvent (HydraMessage tx)
+  | NetworkEvent (Message tx)
   | OnChainEvent (OnChainTx tx)
   | ShouldPostFanout
   | DoSnapshot
@@ -39,7 +38,7 @@ data Event tx
 
 data Effect tx
   = ClientEffect (ServerOutput tx)
-  | NetworkEffect (HydraMessage tx)
+  | NetworkEffect (Message tx)
   | OnChainEffect (OnChainTx tx)
   | Delay DiffTime (Event tx)
   deriving stock (Generic)
@@ -48,44 +47,6 @@ deriving instance Tx tx => Eq (Effect tx)
 deriving instance Tx tx => Show (Effect tx)
 deriving instance Tx tx => ToJSON (Effect tx)
 deriving instance Tx tx => FromJSON (Effect tx)
-
--- NOTE(SN): Every message comes from a 'Party', we might want to move it out of
--- here into the 'NetworkEvent'
-data HydraMessage tx
-  = ReqTx Party tx
-  | ReqSn Party SnapshotNumber [tx]
-  | AckSn Party (Signed (Snapshot tx)) SnapshotNumber
-  | Connected Party
-  | Disconnected Party
-  deriving stock (Generic, Eq, Show)
-  deriving anyclass (ToJSON, FromJSON)
-
-instance (ToCBOR tx, ToCBOR (UTxO tx)) => ToCBOR (HydraMessage tx) where
-  toCBOR = \case
-    ReqTx party tx -> toCBOR ("ReqTx" :: Text) <> toCBOR party <> toCBOR tx
-    ReqSn party sn txs -> toCBOR ("ReqSn" :: Text) <> toCBOR party <> toCBOR sn <> toCBOR txs
-    AckSn party sig sn -> toCBOR ("AckSn" :: Text) <> toCBOR party <> toCBOR sig <> toCBOR sn
-    Connected host -> toCBOR ("Connected" :: Text) <> toCBOR host
-    Disconnected host -> toCBOR ("Disconnected" :: Text) <> toCBOR host
-
-instance (FromCBOR tx, FromCBOR (UTxO tx)) => FromCBOR (HydraMessage tx) where
-  fromCBOR =
-    fromCBOR >>= \case
-      ("ReqTx" :: Text) -> ReqTx <$> fromCBOR <*> fromCBOR
-      "ReqSn" -> ReqSn <$> fromCBOR <*> fromCBOR <*> fromCBOR
-      "AckSn" -> AckSn <$> fromCBOR <*> fromCBOR <*> fromCBOR
-      "Connected" -> Connected <$> fromCBOR
-      "Disconnected" -> Disconnected <$> fromCBOR
-      msg -> fail $ show msg <> " is not a proper CBOR-encoded HydraMessage"
-
-getParty :: HydraMessage msg -> Party
-getParty =
-  \case
-    (ReqTx p _) -> p
-    (ReqSn p _ _) -> p
-    (AckSn p _ _) -> p
-    (Connected p) -> p
-    (Disconnected p) -> p
 
 -- NOTE(SN): Might not be symmetric in a real chain client, i.e. posting
 -- transactions could be parameterized using such data types, but they are not

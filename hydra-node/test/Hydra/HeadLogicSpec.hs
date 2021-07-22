@@ -20,7 +20,6 @@ import Hydra.HeadLogic (
   HeadParameters (..),
   HeadState (..),
   HeadStatus (..),
-  HydraMessage (..),
   LogicError (..),
   OnChainTx (..),
   Outcome (..),
@@ -29,6 +28,7 @@ import Hydra.HeadLogic (
  )
 import Hydra.Ledger (Ledger (..), Party, Tx (..), deriveParty, generateKey, sign)
 import Hydra.Ledger.Simple (SimpleTx (..), TxIn (..), aValidTx, simpleLedger, utxoRef)
+import Hydra.Network.Message (Message (AckSn, Connected, ReqSn, ReqTx))
 import Hydra.ServerOutput (ServerOutput (PeerConnected))
 import Hydra.Snapshot (Snapshot (..))
 import Test.Hspec (
