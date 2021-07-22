@@ -32,7 +32,8 @@ constraints:
   dns == 3.0.4,
   semialign == 1.1.0.1,
   lens == 4.19.2,
-  dependent-sum == 0.7.1.0
+  dependent-sum == 0.7.1.0,
+  recursion-schemes == 5.1.3
 
 allow-newer:
   some
