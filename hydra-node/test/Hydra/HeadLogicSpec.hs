@@ -294,7 +294,7 @@ inOpenState parties Ledger{initUTxO} =
   let u0 = initUTxO
       snapshot0 = Snapshot 0 u0 mempty
    in HeadState
-        { headStatus = OpenState $ CoordinatedHeadState u0 mempty snapshot0 mempty
+        { headStatus = OpenState $ CoordinatedHeadState u0 mempty snapshot0 Nothing
         , headParameters =
             HeadParameters
               { contestationPeriod = 42
