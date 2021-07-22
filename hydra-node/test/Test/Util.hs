@@ -5,11 +5,13 @@ module Test.Util where
 import Hydra.Prelude
 
 import Control.Monad.Class.MonadTimer (timeout)
-import Control.Monad.IOSim (Failure (FailureException), IOSim, runSim, traceM)
+import Control.Monad.IOSim (Failure (FailureException), IOSim, runSimTrace, selectTraceEventsDynamic, traceM, traceResult)
 import Control.Tracer (Tracer (Tracer))
 import Data.List (isInfixOf)
 import Data.Typeable (cast)
 import GHC.Stack (SrcLoc)
+import Hydra.Ledger.Simple (SimpleTx)
+import Hydra.Node (HydraNodeLog)
 import Test.HUnit.Lang (FailureReason (ExpectedButGot, Reason), HUnitFailure (HUnitFailure))
 
 failure :: (HasCallStack, MonadThrow m) => String -> m a
@@ -31,13 +33,19 @@ failAfter seconds action =
 -- special support for detecting and re-throwing 'HUnitFailure' exceptions.
 shouldRunInSim :: HasCallStack => (forall s. IOSim s a) -> IO a
 shouldRunInSim action =
-  case runSim action of
+  case traceResult False tr of
     Right x -> pure x
     Left (FailureException (SomeException ex)) ->
       case cast ex of
-        Just f@HUnitFailure{} -> throwIO f
+        Just f@HUnitFailure{} -> printTrace >> throwIO f
         _ -> failure $ "Exception in io-sim: " <> show ex
-    Left f -> throwIO f
+    Left f -> do
+      printTrace
+      throwIO f
+ where
+  tr = runSimTrace action
+  -- TODO(SN): take a proxy
+  printTrace = mapM_ print $ selectTraceEventsDynamic @_ @(HydraNodeLog SimpleTx) tr
 
 -- | Lifted variant of Hspec's 'shouldBe'.
 shouldBe :: (HasCallStack, MonadThrow m, Eq a, Show a) => a -> a -> m ()

@@ -511,11 +511,11 @@ update Environment{party, signingKey, otherParties, snapshotStrategy} ledger (He
       case canApply ledger seenUTxO tx of
         Valid -> TxValid tx
         Invalid _err -> TxInvalid tx
-  (OpenState headState@CoordinatedHeadState{confirmedSnapshot, seenTxs, seenUTxO}, NetworkEvent (ReqTx _ tx)) ->
+  (OpenState headState@CoordinatedHeadState{seenTxs, seenUTxO}, NetworkEvent (ReqTx _ tx)) ->
     case applyTransactions ledger seenUTxO [tx] of
       Left _err -> Wait
       Right utxo' ->
-        let sn' = number confirmedSnapshot + 1
+        let sn' = nextSnapshotNumber headState
             newSeenTxs = tx : seenTxs
             snapshotEffects
               | isLeader party sn' && snapshotStrategy == SnapshotAfterEachTx =
@@ -524,7 +524,7 @@ update Environment{party, signingKey, otherParties, snapshotStrategy} ledger (He
                 []
          in newState (OpenState $ headState{seenTxs = newSeenTxs, seenUTxO = utxo'}) (ClientEffect (TxSeen tx) : snapshotEffects)
   (OpenState s@CoordinatedHeadState{confirmedSnapshot, seenSnapshots}, NetworkEvent (ReqSn otherParty sn txs))
-    | maximum (number confirmedSnapshot : Map.keys seenSnapshots) + 1 == sn && isLeader otherParty sn ->
+    | nextSnapshotNumber s == sn && isLeader otherParty sn ->
       -- TODO: Verify the request is signed by (?) / comes from the leader
       -- (Can we prove a message comes from a given peer, without signature?)
       case applyTransactions ledger (utxo confirmedSnapshot) txs of
@@ -605,3 +605,7 @@ update Environment{party, signingKey, otherParties, snapshotStrategy} ledger (He
     case p `elemIndex` parties parameters of
       Just i -> i == 0
       _ -> False
+
+  nextSnapshotNumber :: CoordinatedHeadState tx -> SnapshotNumber
+  nextSnapshotNumber CoordinatedHeadState{confirmedSnapshot, seenSnapshots} =
+    maximum (number confirmedSnapshot : Map.keys seenSnapshots) + 1
