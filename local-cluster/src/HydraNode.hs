@@ -31,6 +31,7 @@ import Control.Concurrent.Async (
   forConcurrently_,
  )
 import Control.Exception (IOException)
+import Control.Monad.Class.MonadSTM (modifyTVar', newTVarIO, readTVarIO)
 import Data.Aeson (Value (String), object, (.=))
 import qualified Data.Aeson as Aeson
 import Data.Aeson.Types (Pair)
@@ -90,17 +91,23 @@ output tag pairs = object $ ("output" .= tag) : pairs
 waitFor :: HasCallStack => Natural -> [HydraClient] -> Value -> IO ()
 waitFor delay nodes v = waitForAll delay nodes [v]
 
-waitMatch :: Natural -> HydraClient -> (Value -> Maybe a) -> IO a
+waitMatch :: HasCallStack => Natural -> HydraClient -> (Value -> Maybe a) -> IO a
 waitMatch delay HydraClient{connection} match = do
-  timeout (fromIntegral delay * 1_000_000) go >>= \case
+  seenMsgs <- newTVarIO []
+  timeout (fromIntegral delay * 1_000_000) (go seenMsgs) >>= \case
     Just x -> pure x
-    -- TODO: May want to do something better for debugging, e.g. collect and
-    -- print seen (but not matched) messages.
-    Nothing -> fail "Didn't match within allocated time."
+    Nothing -> do
+      msgs <- readTVarIO seenMsgs
+      expectationFailure $ "Didn't match within allocated time, received messages: " <> show msgs
+      error "should never get there"
  where
-  go = do
+  go seenMsgs = do
     bytes <- receiveData connection
-    maybe go pure (match =<< Aeson.decode' bytes)
+    case Aeson.decode' bytes of
+      Nothing -> go seenMsgs
+      Just msg -> do
+        atomically (modifyTVar' seenMsgs (msg :))
+        maybe (go seenMsgs) pure (match msg)
 
 -- | Wait some time for a list of outputs from each of given nodes.
 -- This function is the generalised version of 'waitFor', allowing several messages
@@ -254,10 +261,10 @@ checkProcessHasNotDied processHandle =
 allNodeIds :: [Int]
 allNodeIds = [1 .. 3]
 
-waitForNodesConnected :: [HydraClient] -> IO ()
+waitForNodesConnected :: HasCallStack => [HydraClient] -> IO ()
 waitForNodesConnected = mapM_ waitForNodeConnected
 
-waitForNodeConnected :: HydraClient -> IO ()
+waitForNodeConnected :: HasCallStack => HydraClient -> IO ()
 waitForNodeConnected n@HydraClient{hydraNodeId} =
   -- HACK(AB): This is gross, we hijack the node ids and because we know
   -- keys are just integers we can compute them but that's ugly -> use property
