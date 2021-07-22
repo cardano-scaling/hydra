@@ -66,18 +66,6 @@ properties:
           transaction:
             $ref: "#/definitions/Transaction"
 
-      - title: NewSn
-        type: object
-        description: >-
-          Request creation of a new snapshot.
-          TODO: This is not really a client message and we should remove it from here.
-        required:
-        - input
-        properties:
-          input:
-            type: string
-            enum: ["newSnapshot"]
-
       - title: GetUtxo
         type: object
         required:
