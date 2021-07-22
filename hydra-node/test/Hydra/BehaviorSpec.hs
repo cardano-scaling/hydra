@@ -283,7 +283,7 @@ spec = describe "Behavior of one ore more hydra nodes" $ do
               waitFor [n1] $ TxSeen (aValidTx 42)
               waitFor [n1] $ TxSeen (aValidTx 43)
 
-              waitFor [n1] $ SnapshotConfirmed (Snapshot 1 (utxoRefs [1, 2, 42, 43]) [aValidTx 43, aValidTx 42])
+              waitFor [n1] $ SnapshotConfirmed (Snapshot 1 (utxoRefs [1, 2, 42, 43]) [aValidTx 42, aValidTx 43])
 
       it "outputs utxo from confirmed snapshot when client requests it" $
         shouldRunInSim $ do
