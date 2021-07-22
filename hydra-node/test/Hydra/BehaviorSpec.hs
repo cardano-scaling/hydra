@@ -267,6 +267,25 @@ spec = describe "Behavior of one ore more hydra nodes" $ do
                       }
               waitFor [n1] $ HeadIsClosed testContestationPeriod expectedSnapshot
 
+      it "multiple transactions get snapshotted" $
+        shouldRunInSim $ do
+          chain <- simulatedChainAndNetwork
+          withHydraNode 1 [2] SnapshotAfterEachTx chain $ \n1 ->
+            withHydraNode 2 [1] NoSnapshots chain $ \n2 -> do
+              openHead n1 n2
+
+              send n1 (NewTx (aValidTx 42))
+              send n1 (NewTx (aValidTx 43))
+
+              waitFor [n1] $ TxValid (aValidTx 42)
+              waitFor [n1] $ TxValid (aValidTx 43)
+
+              waitFor [n1] $ TxSeen (aValidTx 42)
+              waitFor [n1] $ TxSeen (aValidTx 43)
+
+              waitFor [n1] $ SnapshotConfirmed (Snapshot 1 (utxoRefs [1, 2, 42]) [aValidTx 42])
+              waitFor [n1] $ SnapshotConfirmed (Snapshot 2 (utxoRefs [1, 2, 42, 43]) [aValidTx 43])
+
       it "outputs utxo from confirmed snapshot when client requests it" $
         shouldRunInSim $ do
           chain <- simulatedChainAndNetwork
