@@ -26,7 +26,6 @@ import Hydra.HeadLogic (
   OnChainTx (..),
   Outcome (..),
   ServerOutput (..),
-  Snapshot (..),
   SnapshotStrategy (..),
   update,
  )
@@ -47,6 +46,7 @@ import Test.QuickCheck (
   (===),
  )
 import Test.Util (failure)
+import Hydra.Snapshot (Snapshot)
 
 spec :: Spec
 spec = describe "Hydra Coordinated Head Protocol" $ do
@@ -325,7 +325,7 @@ getConfirmedSnapshot HeadState{headStatus} = case headStatus of
 assertNewState :: Tx tx => Outcome tx -> IO (HeadState tx)
 assertNewState = \case
   NewState st _ -> pure st
-  Error e -> failure $ "Unexpected 'Error' outcome: " <> (show e)
+  Error e -> failure $ "Unexpected 'Error' outcome: " <> show e
   Wait -> failure "Unexpected 'Wait' outcome"
 
 assertStateUnchangedFrom :: Tx tx => HeadState tx -> Outcome tx -> Expectation

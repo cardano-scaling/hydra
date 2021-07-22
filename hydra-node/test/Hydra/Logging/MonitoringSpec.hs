@@ -8,7 +8,6 @@ import Hydra.HeadLogic (
   Event (NetworkEvent),
   HydraMessage (ReqTx),
   ServerOutput (SnapshotConfirmed),
-  Snapshot (..),
  )
 import Hydra.Ledger.Simple (aValidTx, utxoRefs)
 import Hydra.Logging (nullTracer, traceWith)
@@ -17,6 +16,7 @@ import Hydra.Logging.Monitoring
 import Hydra.Network.Ports (withFreePort)
 import Hydra.Node (HydraNodeLog (ProcessedEffect, ProcessingEvent))
 import Hydra.Prelude
+import Hydra.Snapshot (Snapshot (Snapshot))
 import Network.HTTP.Req (GET (..), NoReqBody (..), bsResponse, defaultHttpConfig, http, port, req, responseBody, runReq, (/:))
 import Test.Hspec
 import Test.Util (failAfter)

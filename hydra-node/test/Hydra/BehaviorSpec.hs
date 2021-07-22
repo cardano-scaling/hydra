@@ -25,7 +25,6 @@ import Hydra.HeadLogic (
   Event (ClientEvent),
   HeadParameters (..),
   ServerOutput (..),
-  Snapshot (..),
   SnapshotStrategy (..),
   createHeadState,
  )
@@ -42,6 +41,7 @@ import Hydra.Node (
   handleMessage,
   runHydraNode,
  )
+import Hydra.Snapshot (Snapshot (..))
 import Test.Hspec (Spec, describe, it, shouldContain, shouldThrow)
 import Test.Util (failAfter, failure, shouldNotBe, shouldReturn, shouldRunInSim, traceInIOSim)
 
