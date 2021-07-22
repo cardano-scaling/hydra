@@ -88,7 +88,7 @@ spec = describe "Hydra Coordinated Head Protocol" $ do
         s0 = inOpenState threeParties ledger
 
     update leaderEnv ledger s0 reqTx
-      `hasEffect_` Delay 0 (ClientEvent NewSn)
+      `hasEffect_` Delay 0 DoSnapshot
 
   it "does not request new snapshot as non-leader" $ do
     let reqTx = NetworkEvent $ ReqTx 1 simpleTx
@@ -96,7 +96,7 @@ spec = describe "Hydra Coordinated Head Protocol" $ do
         s0 = inOpenState threeParties ledger
 
     update nonLeaderEnv ledger s0 reqTx
-      `hasNoEffectSatisfying` isNewSn
+      `hasNoEffectSatisfying` isDoSnapshot
 
   it "delay snapshot request when already having one in flight" $ do
     let leaderEnv = envFor 1
@@ -106,14 +106,14 @@ spec = describe "Hydra Coordinated Head Protocol" $ do
 
     s1 <- assertNewState $ update leaderEnv ledger s0 (NetworkEvent firstReqSn)
 
-    update leaderEnv ledger s1 (ClientEvent NewSn)
+    update leaderEnv ledger s1 DoSnapshot
       `shouldBe` Wait
 
   it "drop snapshot request when there's no seen transactions" $ do
     let leaderEnv = envFor 1
         s0 = inOpenState threeParties ledger
 
-    update leaderEnv ledger s0 (ClientEvent NewSn)
+    update leaderEnv ledger s0 DoSnapshot
       `hasNoEffectSatisfying` isReqSn
 
   it "confirms snapshot given it receives AckSn from all parties" $ do
@@ -269,9 +269,9 @@ isReqSn = \case
   NetworkEffect ReqSn{} -> True
   _ -> False
 
-isNewSn :: Effect tx -> Bool
-isNewSn = \case
-  Delay _ (ClientEvent NewSn{}) -> True
+isDoSnapshot :: Effect tx -> Bool
+isDoSnapshot = \case
+  Delay _ DoSnapshot -> True
   _ -> False
 
 isAckSn :: Effect tx -> Bool
