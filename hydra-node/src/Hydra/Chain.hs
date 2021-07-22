@@ -39,3 +39,9 @@ newtype Chain tx m = Chain
     -- Does at least throw 'ChainError'.
     postTx :: MonadThrow m => OnChainTx tx -> m ()
   }
+
+-- | Handle to interface observed transactions.
+type ChainCallback tx m = OnChainTx tx -> m ()
+
+-- | A type tying both posting and observing transactions into a single /Component/.
+type ChainComponent tx m a = ChainCallback tx m -> (Chain tx m -> m a) -> m a

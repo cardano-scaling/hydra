@@ -50,7 +50,7 @@ instance Contravariant (Network m) where
 type NetworkCallback msg m = msg -> m ()
 
 -- | A type tying both inbound and outbound messages sending in a single /Component/.
-type NetworkComponent m msg = NetworkCallback msg m -> (Network m msg -> m ()) -> m ()
+type NetworkComponent m msg a = NetworkCallback msg m -> (Network m msg -> m a) -> m a
 
 -- * Types used by concrete implementations
 

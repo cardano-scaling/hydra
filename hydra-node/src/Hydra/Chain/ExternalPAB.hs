@@ -8,7 +8,7 @@ import Control.Monad.Class.MonadSay (say)
 import Data.Aeson (Result (Error, Success), eitherDecodeStrict)
 import Data.Aeson.Types (fromJSON)
 import qualified Data.Map as Map
-import Hydra.Chain (Chain (Chain, postTx), OnChainTx (InitTx))
+import Hydra.Chain (Chain (Chain, postTx), OnChainTx (InitTx), ChainComponent)
 import Hydra.Contract.PAB (PABContract (GetUtxos, Setup, WatchInit))
 import Hydra.Ledger (Party, Tx)
 import Hydra.Logging (Tracer)
@@ -45,9 +45,7 @@ withExternalPAB ::
   Tx tx =>
   WalletId ->
   Tracer IO ExternalPABLog ->
-  (OnChainTx tx -> IO ()) ->
-  (Chain tx IO -> IO a) ->
-  IO a
+  ChainComponent tx IO ()
 withExternalPAB walletId _tracer callback action = do
   withAsync (initTxSubscriber wallet callback) $ \_ ->
     withAsync (utxoSubscriber wallet) $ \_ -> do

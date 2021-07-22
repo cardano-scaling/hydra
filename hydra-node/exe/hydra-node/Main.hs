@@ -5,7 +5,6 @@ module Main where
 import Hydra.Prelude
 
 import Hydra.API.Server (withAPIServer)
-import Hydra.Chain.ZeroMQ (createMockChainClient)
 import Hydra.HeadLogic (
   Environment (party),
   Event (..),
@@ -29,6 +28,7 @@ import Hydra.Node (
   runHydraNode,
  )
 import Hydra.Options (Options (..), parseHydraOptions)
+import Hydra.Chain.ZeroMQ (withMockChain)
 
 main :: IO ()
 main = do
@@ -40,12 +40,10 @@ main = do
       -- XXX(SN): this is soo weird, [] and mempty are both `parties`
       let headState = createHeadState [] (HeadParameters 10 mempty)
       hh <- createHydraHead headState Ledger.simpleLedger
-      oc <- createMockChainClient mockChainPorts eq (contramap MockChain tracer)
-      withNetwork (contramap Network tracer) (party env) host port peers (putEvent eq . NetworkEvent) $
-        \hn ->
-          withAPIServer apiHost apiPort (contramap APIServer tracer) (putEvent eq . ClientEvent) $
-            \sendOutput ->
-              runHydraNode (contramap Node tracer) $ HydraNode{eq, hn, hh, oc, sendOutput, env}
+      withMockChain (contramap MockChain tracer) mockChainPorts (putEvent eq . OnChainEvent) $ \oc ->
+        withNetwork (contramap Network tracer) (party env) host port peers (putEvent eq . NetworkEvent) $ \hn ->
+          withAPIServer apiHost apiPort (contramap APIServer tracer) (putEvent eq . ClientEvent) $ \sendOutput ->
+            runHydraNode (contramap Node tracer) $ HydraNode{eq, hn, hh, oc, sendOutput, env}
  where
   withNetwork tracer party host port peers =
     let localhost = Host{hostName = show host, portNumber = port}

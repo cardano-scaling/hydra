@@ -76,8 +76,8 @@ withHeartbeat ::
   , MonadMonotonicTime m
   ) =>
   Party ->
-  NetworkComponent m (Heartbeat (Message tx)) ->
-  NetworkComponent m (Message tx)
+  NetworkComponent m (Heartbeat (Message tx)) a ->
+  NetworkComponent m (Message tx) a
 withHeartbeat party withNetwork callback action = do
   heartbeat <- newTVarIO initialHeartbeatState
   withNetwork (updateStateFromIncomingMessages heartbeat callback) $ \network ->
