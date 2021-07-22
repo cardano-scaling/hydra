@@ -9,7 +9,7 @@ import Hydra.Prelude
 import Cardano.Crypto.Util (SignableRepresentation (..))
 import Data.Aeson (object, withObject, (.:), (.=))
 import qualified Data.Aeson as Aeson
-import Data.List (elemIndex, (\\))
+import Data.List (elemIndex, maximum, (\\))
 import qualified Data.Map.Strict as Map
 import qualified Data.Set as Set
 import Hydra.Ledger (
@@ -371,7 +371,7 @@ data CoordinatedHeadState tx = CoordinatedHeadState
   , -- TODO: tx should be an abstract 'TxId'
     seenTxs :: [tx]
   , confirmedSnapshot :: Snapshot tx
-  , seenSnapshot :: Maybe (Snapshot tx, Set Party)
+  , seenSnapshots :: Map SnapshotNumber (Snapshot tx, Set Party)
   }
   deriving stock (Generic)
 
@@ -483,7 +483,7 @@ update Environment{party, signingKey, otherParties, snapshotStrategy} ledger (He
   (InitialState{}, OnChainEvent (CollectComTx utxo)) ->
     let u0 = utxo
      in newState
-          (OpenState $ CoordinatedHeadState u0 mempty (Snapshot 0 u0 mempty) Nothing)
+          (OpenState $ CoordinatedHeadState u0 mempty (Snapshot 0 u0 mempty) mempty)
           [ClientEffect $ HeadIsOpen u0]
   (InitialState{}, OnChainEvent (AbortTx utxo)) ->
     newState ReadyState [ClientEffect $ HeadIsAborted utxo]
@@ -511,20 +511,20 @@ update Environment{party, signingKey, otherParties, snapshotStrategy} ledger (He
       case canApply ledger seenUTxO tx of
         Valid -> TxValid tx
         Invalid _err -> TxInvalid tx
-  (OpenState headState@CoordinatedHeadState{confirmedSnapshot, seenTxs, seenUTxO, seenSnapshot}, NetworkEvent (ReqTx _ tx)) ->
+  (OpenState headState@CoordinatedHeadState{confirmedSnapshot, seenTxs, seenUTxO}, NetworkEvent (ReqTx _ tx)) ->
     case applyTransactions ledger seenUTxO [tx] of
       Left _err -> Wait
       Right utxo' ->
         let sn' = number confirmedSnapshot + 1
             newSeenTxs = tx : seenTxs
             snapshotEffects
-              | isLeader party sn' && snapshotStrategy == SnapshotAfterEachTx && isNothing seenSnapshot =
+              | isLeader party sn' && snapshotStrategy == SnapshotAfterEachTx =
                 [NetworkEffect $ ReqSn party sn' newSeenTxs]
               | otherwise =
                 []
          in newState (OpenState $ headState{seenTxs = newSeenTxs, seenUTxO = utxo'}) (ClientEffect (TxSeen tx) : snapshotEffects)
-  (OpenState s@CoordinatedHeadState{confirmedSnapshot, seenSnapshot}, NetworkEvent (ReqSn otherParty sn txs))
-    | number confirmedSnapshot + 1 == sn && isLeader otherParty sn && isNothing seenSnapshot ->
+  (OpenState s@CoordinatedHeadState{confirmedSnapshot, seenSnapshots}, NetworkEvent (ReqSn otherParty sn txs))
+    | maximum (number confirmedSnapshot : Map.keys seenSnapshots) + 1 == sn && isLeader otherParty sn ->
       -- TODO: Verify the request is signed by (?) / comes from the leader
       -- (Can we prove a message comes from a given peer, without signature?)
       case applyTransactions ledger (utxo confirmedSnapshot) txs of
@@ -534,10 +534,10 @@ update Environment{party, signingKey, otherParties, snapshotStrategy} ledger (He
           let nextSnapshot = Snapshot sn u txs
               snapshotSignature = sign signingKey nextSnapshot
            in newState
-                (OpenState $ s{seenSnapshot = Just (nextSnapshot, mempty)})
+                (OpenState $ s{seenSnapshots = Map.insert sn (nextSnapshot, mempty) seenSnapshots})
                 [NetworkEffect $ AckSn party snapshotSignature sn]
-  (OpenState headState@CoordinatedHeadState{seenSnapshot, seenTxs}, NetworkEvent (AckSn otherParty snapshotSignature sn)) ->
-    case seenSnapshot of
+  (OpenState headState@CoordinatedHeadState{seenSnapshots, seenTxs}, NetworkEvent (AckSn otherParty snapshotSignature sn)) ->
+    case Map.lookup sn seenSnapshots of
       Nothing -> Wait
       Just (snapshot, sigs)
         | number snapshot == sn ->
@@ -551,7 +551,7 @@ update Environment{party, signingKey, otherParties, snapshotStrategy} ledger (He
                     ( OpenState $
                         headState
                           { confirmedSnapshot = snapshot
-                          , seenSnapshot = Nothing
+                          , seenSnapshots = Map.delete sn seenSnapshots
                           , seenTxs = seenTxs \\ confirmed snapshot
                           }
                     )
@@ -560,12 +560,12 @@ update Environment{party, signingKey, otherParties, snapshotStrategy} ledger (He
                   newState
                     ( OpenState $
                         headState
-                          { seenSnapshot = Just (snapshot, sigs')
+                          { seenSnapshots = Map.insert sn (snapshot, sigs') seenSnapshots
                           }
                     )
                     []
-      Just (snapshot, _) ->
-        error $ "Received ack for unknown unconfirmed snapshot. Unconfirmed snapshot: " <> show (number snapshot) <> ", Requested snapshot: " <> show sn
+        | otherwise ->
+          error $ "Inconsistent seenSnapshots. Looked up snapshot: " <> show sn <> ", but " <> show (number snapshot) <> " was in the map."
   (_, OnChainEvent (CloseTx snapshot)) ->
     -- TODO(1): Should check whether we want / can contest the close snapshot by
     --       comparing with our local state / utxo.
