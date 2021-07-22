@@ -20,7 +20,6 @@ import Hydra.HeadLogic (
   LogicError (..),
   OnChainTx (..),
   Outcome (..),
-  ServerOutput (..),
   SnapshotStrategy (SnapshotAfterEachTx),
  )
 import qualified Hydra.HeadLogic as Logic
@@ -29,6 +28,7 @@ import Hydra.Logging (Tracer, traceWith)
 import Hydra.Network (Network (..))
 import Hydra.Options (Options (..))
 import Hydra.ClientInput (ClientInput)
+import Hydra.ServerOutput (ServerOutput)
 
 -- * Environment Handling
 

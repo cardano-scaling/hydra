@@ -98,13 +98,14 @@ library
     Hydra.Network.BroadcastToSelf
     Hydra.Network.Heartbeat
     Hydra.Network.Ouroboros
-    Hydra.Network.Ouroboros.Type
     Hydra.Network.Ouroboros.Client
     Hydra.Network.Ouroboros.Server
+    Hydra.Network.Ouroboros.Type
     Hydra.Network.ZeroMQ
     Hydra.Node
     Hydra.Node.Version
     Hydra.Options
+    Hydra.ServerOutput
     Hydra.Snapshot
   other-modules:
     Paths_hydra_node

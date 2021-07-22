@@ -1,5 +1,4 @@
 {-# LANGUAGE TypeApplications #-}
-{-# OPTIONS_GHC -Wno-deferred-type-errors #-}
 
 -- | Unit tests of the the protocol logic in 'HeadLogic'. These are very fine
 -- grained and specific to individual steps in the protocol. More high-level of
@@ -12,7 +11,7 @@ import Hydra.Prelude
 import qualified Data.Aeson as Aeson
 import qualified Data.List as List
 import qualified Data.Set as Set
-import Hydra.ClientInput (ClientInput(..))
+import Hydra.ClientInput (ClientInput (..))
 import Hydra.HeadLogic (
   CoordinatedHeadState (..),
   Effect (ClientEffect, Delay, NetworkEffect),
@@ -25,12 +24,13 @@ import Hydra.HeadLogic (
   LogicError (..),
   OnChainTx (..),
   Outcome (..),
-  ServerOutput (..),
   SnapshotStrategy (..),
   update,
  )
 import Hydra.Ledger (Ledger (..), Party, Tx (..), deriveParty, generateKey, sign)
 import Hydra.Ledger.Simple (SimpleTx (..), TxIn (..), aValidTx, simpleLedger, utxoRef)
+import Hydra.ServerOutput (ServerOutput (PeerConnected))
+import Hydra.Snapshot (Snapshot (..))
 import Test.Hspec (
   Expectation,
   Spec,
@@ -46,7 +46,6 @@ import Test.QuickCheck (
   (===),
  )
 import Test.Util (failure)
-import Hydra.Snapshot (Snapshot)
 
 spec :: Spec
 spec = describe "Hydra Coordinated Head Protocol" $ do
