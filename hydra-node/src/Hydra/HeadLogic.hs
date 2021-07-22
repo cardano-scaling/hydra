@@ -33,6 +33,7 @@ data Event tx
   | NetworkEvent (HydraMessage tx)
   | OnChainEvent (OnChainTx tx)
   | ShouldPostFanout
+  | DoSnapshot
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON, FromJSON)
 
@@ -53,7 +54,6 @@ data ClientInput tx
   | Abort
   | Commit (UTxO tx)
   | NewTx tx
-  | NewSn
   | GetUtxo
   | Close
   | Contest
@@ -74,7 +74,6 @@ instance (Arbitrary tx, Arbitrary (UTxO tx)) => Arbitrary (ClientInput tx) where
     Abort -> []
     Commit xs -> Commit <$> shrink xs
     NewTx tx -> NewTx <$> shrink tx
-    NewSn -> []
     GetUtxo -> []
     Close -> []
     Contest -> []
@@ -89,8 +88,6 @@ instance Tx tx => ToJSON (ClientInput tx) where
       object [tagFieldName .= s "commit", "utxo" .= u]
     NewTx tx ->
       object [tagFieldName .= s "newTransaction", "transaction" .= tx]
-    NewSn ->
-      object [tagFieldName .= s "newSnapshot"]
     GetUtxo ->
       object [tagFieldName .= s "getUtxo"]
     Close ->
@@ -113,8 +110,6 @@ instance Tx tx => FromJSON (ClientInput tx) where
         Commit <$> (obj .: "utxo")
       "newTransaction" ->
         NewTx <$> (obj .: "transaction")
-      "newSnapshot" ->
-        pure NewSn
       "getUtxo" ->
         pure GetUtxo
       "close" ->
@@ -525,11 +520,11 @@ update Environment{party, signingKey, otherParties, snapshotStrategy} ledger (He
             newSeenTxs = seenTxs <> [tx]
             snapshotEffects
               | isLeader party sn' && snapshotStrategy == SnapshotAfterEachTx =
-                [Delay 0 $ ClientEvent NewSn]
+                [Delay 0 DoSnapshot]
               | otherwise =
                 []
          in newState (OpenState $ headState{seenTxs = newSeenTxs, seenUTxO = utxo'}) (ClientEffect (TxSeen tx) : snapshotEffects)
-  (OpenState CoordinatedHeadState{confirmedSnapshot, seenTxs, seenSnapshot}, ClientEvent NewSn)
+  (OpenState CoordinatedHeadState{confirmedSnapshot, seenTxs, seenSnapshot}, DoSnapshot)
     | isNothing seenSnapshot ->
       let sn' = number confirmedSnapshot + 1
           effects
