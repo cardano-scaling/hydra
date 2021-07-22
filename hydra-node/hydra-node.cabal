@@ -86,6 +86,7 @@ library
     Hydra.Chain
     Hydra.Chain.ExternalPAB
     Hydra.Chain.ZeroMQ
+    Hydra.ClientInput
     Hydra.HeadLogic
     Hydra.Ledger
     Hydra.Ledger.MaryTest

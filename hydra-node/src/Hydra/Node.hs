@@ -12,7 +12,6 @@ import Control.Monad.Class.MonadAsync (async)
 import Control.Monad.Class.MonadSTM (newTQueue, newTVarIO, readTQueue, stateTVar, writeTQueue)
 import Hydra.Chain (Chain (..))
 import Hydra.HeadLogic (
-  ClientInput (..),
   Effect (..),
   Environment (..),
   Event (..),
@@ -29,6 +28,7 @@ import Hydra.Ledger (Ledger, Party (..), Tx)
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Network (Network (..))
 import Hydra.Options (Options (..))
+import Hydra.ClientInput (ClientInput)
 
 -- * Environment Handling
 

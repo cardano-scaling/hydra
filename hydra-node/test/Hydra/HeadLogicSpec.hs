@@ -12,8 +12,8 @@ import Hydra.Prelude
 import qualified Data.Aeson as Aeson
 import qualified Data.List as List
 import qualified Data.Set as Set
+import Hydra.ClientInput (ClientInput(..))
 import Hydra.HeadLogic (
-  ClientInput (..),
   CoordinatedHeadState (..),
   Effect (ClientEffect, Delay, NetworkEffect),
   Environment (..),

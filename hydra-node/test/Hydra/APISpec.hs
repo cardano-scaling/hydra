@@ -8,10 +8,14 @@ import Hydra.Prelude
 import Control.Lens ((^?))
 import Data.Aeson ((.=))
 import Data.Aeson.Lens (key, _Array, _String)
+import qualified Data.Aeson as Aeson
 import Data.Char (isSpace)
 import Data.List (dropWhileEnd)
-import Hydra.HeadLogic (ClientInput (..), ServerOutput (..))
+import qualified Data.Yaml as Yaml
+import Hydra.ClientInput (ClientInput)
+import Hydra.HeadLogic (ServerOutput (..))
 import Hydra.Ledger.Simple (SimpleTx)
+import qualified Paths_hydra_node as Pkg
 import System.Exit (ExitCode (..))
 import System.FilePath ((</>))
 import System.IO.Temp (withSystemTempDirectory)
@@ -20,8 +24,6 @@ import Test.Hspec (Spec, aroundAll, context, parallel, pendingWith, specify)
 import Test.QuickCheck (Property, conjoin, counterexample, forAllBlind, forAllShrink, property, vectorOf, withMaxSuccess)
 import Test.QuickCheck.Monadic (assert, monadicIO, monitor, run)
 import qualified Prelude
-
-import qualified Data.Aeson as Aeson
 import qualified Data.Map.Strict as Map
 import qualified Data.Yaml as Yaml
 import qualified Paths_hydra_node as Pkg

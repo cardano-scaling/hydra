@@ -18,8 +18,8 @@ import Control.Monad.Class.MonadSTM (
 import Control.Monad.Class.MonadTimer (timeout)
 import Control.Monad.IOSim (Failure (FailureDeadlock), IOSim, runSimTrace, selectTraceEventsDynamic)
 import Hydra.Chain (Chain (..))
+import Hydra.ClientInput
 import Hydra.HeadLogic (
-  ClientInput (..),
   Effect (ClientEffect),
   Environment (..),
   Event (ClientEvent),
