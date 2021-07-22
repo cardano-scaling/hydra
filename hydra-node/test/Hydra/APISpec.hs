@@ -5,6 +5,7 @@ module Hydra.APISpec where
 
 import Hydra.Prelude
 
+import Data.Aeson ((.=))
 import Data.Char (isSpace)
 import Data.List (dropWhileEnd)
 import Hydra.HeadLogic (ClientInput (..), ServerOutput (..))
@@ -14,7 +15,7 @@ import System.FilePath ((</>))
 import System.IO.Temp (withSystemTempDirectory)
 import System.Process (readProcessWithExitCode)
 import Test.Hspec (Spec, aroundAll, context, parallel, pendingWith, specify)
-import Test.QuickCheck (Property, counterexample, property)
+import Test.QuickCheck (Property, counterexample, forAllShrink, property, vectorOf, withMaxSuccess)
 import Test.QuickCheck.Monadic (assert, monadicIO, monitor, run)
 
 import qualified Data.Aeson as Aeson
@@ -26,26 +27,32 @@ spec = parallel $ do
   aroundAll withJsonSpecifications $ do
     context "Validate JSON representations with API specification" $ do
       specify "ServerOutput" $ \(specs, tmp) ->
-        property $ prop_validateToJSON @(ServerOutput SimpleTx) specs (tmp </> "ServerOutput")
+        property $ prop_validateToJSON @(ServerOutput SimpleTx) specs "outputs" (tmp </> "ServerOutput")
       specify "ClientInput" $ \(specs, tmp) ->
-        property $ prop_validateToJSON @(ClientInput SimpleTx) specs (tmp </> "ClientInput")
+        property $ prop_validateToJSON @(ClientInput SimpleTx) specs "inputs" (tmp </> "ClientInput")
 
 -- | Generate arbitrary serializable (JSON) value, and check their validity
 -- against a known JSON schema.
 prop_validateToJSON ::
   forall a.
-  (ToJSON a) =>
+  (ToJSON a, Arbitrary a, Show a) =>
   FilePath ->
+  Text ->
   FilePath ->
-  a ->
   Property
-prop_validateToJSON specs inputFile a = monadicIO $ do
-  run ensureSystemRequirements
-  (exitCode, _out, err) <- run $ do
-    Aeson.encodeFile inputFile a
-    readProcessWithExitCode "jsonschema" ["-i", inputFile, specs] mempty
-  monitor $ counterexample err
-  assert (exitCode == ExitSuccess)
+prop_validateToJSON specs namespace inputFile =
+  withMaxSuccess 1 $
+    forAllShrink (vectorOf 100 arbitrary) shrink $ \(a :: [a]) ->
+      monadicIO $ do
+        run ensureSystemRequirements
+        (exitCode, _out, err) <- run $ do
+          Aeson.encodeFile inputFile (Aeson.object [namespace .= a])
+          readProcessWithExitCode "jsonschema" ["-i", inputFile, specs] mempty
+        -- run $ print (Aeson.encode [Aeson.object [namespace .= a]])
+        -- run $ print (exitCode, _out, err)
+        monitor $ counterexample err
+        monitor $ counterexample (show a)
+        assert (exitCode == ExitSuccess)
 
 -- | Prepare the environment (temp directory) with the JSON specification. We
 -- maintain a YAML version of a JSON-schema, for it is more convenient to write.
