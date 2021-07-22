@@ -10,7 +10,7 @@ import Hydra.Prelude
 import Cardano.Crypto.DSIGN (DSIGNAlgorithm (rawDeserialiseVerKeyDSIGN), deriveVerKeyDSIGN, rawDeserialiseSignKeyDSIGN)
 import Control.Monad.Class.MonadAsync (async)
 import Control.Monad.Class.MonadSTM (newTQueue, newTVarIO, readTQueue, stateTVar, writeTQueue)
-import Hydra.Chain (Chain (..))
+import Hydra.Chain (Chain (..), OnChainTx)
 import Hydra.ClientInput (ClientInput)
 import Hydra.HeadLogic (
   Effect (..),
@@ -18,7 +18,6 @@ import Hydra.HeadLogic (
   Event (..),
   HeadState (..),
   LogicError (..),
-  OnChainTx (..),
   Outcome (..),
   SnapshotStrategy (SnapshotAfterEachTx),
  )

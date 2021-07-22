@@ -11,6 +11,7 @@ import Hydra.Prelude
 import qualified Data.Aeson as Aeson
 import qualified Data.List as List
 import qualified Data.Set as Set
+import Hydra.Chain (OnChainTx (AbortTx, CollectComTx))
 import Hydra.ClientInput (ClientInput (..))
 import Hydra.HeadLogic (
   CoordinatedHeadState (..),
@@ -21,7 +22,6 @@ import Hydra.HeadLogic (
   HeadState (..),
   HeadStatus (..),
   LogicError (..),
-  OnChainTx (..),
   Outcome (..),
   SnapshotStrategy (..),
   update,

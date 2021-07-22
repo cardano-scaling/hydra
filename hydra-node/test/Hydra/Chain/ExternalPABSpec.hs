@@ -7,9 +7,8 @@ import Hydra.Prelude
 
 import Cardano.Crypto.DSIGN (DSIGNAlgorithm (deriveVerKeyDSIGN), MockDSIGN, SignKeyDSIGN, VerKeyDSIGN)
 import Control.Concurrent (newEmptyMVar, putMVar, takeMVar)
-import Hydra.Chain (Chain (..))
+import Hydra.Chain (Chain (..), OnChainTx (InitTx))
 import Hydra.Chain.ExternalPAB (withExternalPAB)
-import Hydra.HeadLogic (OnChainTx (..))
 import Hydra.Ledger (Party (UnsafeParty))
 import Hydra.Ledger.Simple (SimpleTx)
 import Hydra.Logging (nullTracer)

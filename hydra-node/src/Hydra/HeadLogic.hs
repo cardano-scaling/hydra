@@ -8,6 +8,7 @@ import Hydra.Prelude
 import Data.List (elemIndex, (\\))
 import qualified Data.Map.Strict as Map
 import qualified Data.Set as Set
+import Hydra.Chain (OnChainTx (..))
 import Hydra.ClientInput (ClientInput (..))
 import Hydra.Ledger (
   Committed,
@@ -47,25 +48,6 @@ deriving instance Tx tx => Eq (Effect tx)
 deriving instance Tx tx => Show (Effect tx)
 deriving instance Tx tx => ToJSON (Effect tx)
 deriving instance Tx tx => FromJSON (Effect tx)
-
--- NOTE(SN): Might not be symmetric in a real chain client, i.e. posting
--- transactions could be parameterized using such data types, but they are not
--- fully recoverable from transactions observed on chain
-data OnChainTx tx
-  = InitTx [Party] -- NOTE(SN): The order of this list is important for leader selection.
-  | CommitTx Party (UTxO tx)
-  | AbortTx (UTxO tx)
-  | CollectComTx (UTxO tx)
-  | CloseTx (Snapshot tx)
-  | ContestTx (Snapshot tx)
-  | FanoutTx (UTxO tx)
-  deriving stock (Generic)
-
-deriving instance Tx tx => Eq (OnChainTx tx)
-deriving instance Tx tx => Show (OnChainTx tx)
-deriving instance Tx tx => Read (OnChainTx tx)
-deriving instance Tx tx => ToJSON (OnChainTx tx)
-deriving instance Tx tx => FromJSON (OnChainTx tx)
 
 data HeadState tx = HeadState
   { headParameters :: HeadParameters

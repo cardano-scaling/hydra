@@ -12,8 +12,8 @@ import Hydra.Prelude
 import Control.Monad.Class.MonadAsync (async, link)
 import Control.Monad.Class.MonadSTM (modifyTVar', newTBQueue, newTVarIO, readTBQueue, readTVarIO, writeTBQueue)
 import qualified Data.Text.Encoding as Enc
-import Hydra.Chain (Chain (..))
-import Hydra.HeadLogic (Event (OnChainEvent), OnChainTx)
+import Hydra.Chain (Chain (..), OnChainTx)
+import Hydra.HeadLogic (Event (OnChainEvent))
 import Hydra.Ledger (Tx)
 import Hydra.Logging (ToObject, Tracer, traceWith)
 import Hydra.Network (MockChainPorts (..))
