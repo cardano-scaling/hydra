@@ -63,7 +63,7 @@ bench = do
 
   -- NOTE(SN): Maybe put these into a golden data set as soon as we are happy
   let initialUtxo = utxoRefs [1, 2, 3]
-  txs <- generate $ genSequenceOfValidTransactions initialUtxo
+  txs <- generate $ scale (* 100) $ genSequenceOfValidTransactions initialUtxo
 
   failAfter 300 $
     withMockChain $ \chainPorts ->
@@ -118,6 +118,22 @@ newTx registry client tx = do
           }
   send client $ input "newTransaction" ["transaction" .= tx]
 
+waitForAllConfirmations :: HydraClient -> TVar IO (Map.Map (TxId SimpleTx) Event) -> [SimpleTx] -> IO ()
+waitForAllConfirmations n1 registry txs =
+  go allIds
+ where
+  allIds = Set.fromList $ map txId txs
+
+  go remainingIds
+    | Set.null remainingIds = pure ()
+    | otherwise = do
+      res <- waitMatch 10 n1 $ \v -> do
+        guard (v ^? key "output" == Just "snapshotConfirmed")
+        v ^? key "snapshot" . key "confirmedTransactions" . _Array
+      putTextLn $ ">> test received confirmed transactions " <> show res <> ", remaining Ids: " <> show remainingIds
+      confirmedIds <- mapM (confirmTx registry) res
+      go (remainingIds \\ Set.fromList (toList confirmedIds))
+
 confirmTx ::
   TVar IO (Map.Map (TxId SimpleTx) Event) ->
   Value ->
@@ -136,19 +152,3 @@ analyze :: (TxId SimpleTx, Event) -> Maybe (UTCTime, NominalDiffTime)
 analyze = \case
   (_, Event{submittedAt, confirmedAt = Just conf}) -> Just (submittedAt, conf `diffUTCTime` submittedAt)
   _ -> Nothing
-
-waitForAllConfirmations :: HydraClient -> TVar IO (Map.Map (TxId SimpleTx) Event) -> [SimpleTx] -> IO ()
-waitForAllConfirmations n1 registry txs =
-  go allIds
- where
-  allIds = Set.fromList $ map txId txs
-
-  go remainingIds
-    | Set.null remainingIds = pure ()
-    | otherwise = do
-      res <- waitMatch 100 n1 $ \v -> do
-        guard (v ^? key "output" == Just "snapshotConfirmed")
-        v ^? key "snapshot" . key "confirmedTransactions" . _Array
-      putTextLn $ ">> test received confirmed transactions " <> show res <> ", remaining Ids: " <> show remainingIds
-      confirmedIds <- mapM (confirmTx registry) res
-      go (remainingIds \\ Set.fromList (toList confirmedIds))

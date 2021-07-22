@@ -53,6 +53,7 @@ data ClientInput tx
   | Abort
   | Commit (UTxO tx)
   | NewTx tx
+  | NewSn
   | GetUtxo
   | Close
   | Contest
@@ -73,6 +74,7 @@ instance (Arbitrary tx, Arbitrary (UTxO tx)) => Arbitrary (ClientInput tx) where
     Abort -> []
     Commit xs -> Commit <$> shrink xs
     NewTx tx -> NewTx <$> shrink tx
+    NewSn -> []
     GetUtxo -> []
     Close -> []
     Contest -> []
@@ -87,6 +89,8 @@ instance Tx tx => ToJSON (ClientInput tx) where
       object [tagFieldName .= s "commit", "utxo" .= u]
     NewTx tx ->
       object [tagFieldName .= s "newTransaction", "transaction" .= tx]
+    NewSn ->
+      object [tagFieldName .= s "newSnapshot"]
     GetUtxo ->
       object [tagFieldName .= s "getUtxo"]
     Close ->
@@ -109,6 +113,8 @@ instance Tx tx => FromJSON (ClientInput tx) where
         Commit <$> (obj .: "utxo")
       "newTransaction" ->
         NewTx <$> (obj .: "transaction")
+      "newSnapshot" ->
+        pure NewSn
       "getUtxo" ->
         pure GetUtxo
       "close" ->
@@ -511,25 +517,32 @@ update Environment{party, signingKey, otherParties, snapshotStrategy} ledger (He
       case canApply ledger seenUTxO tx of
         Valid -> TxValid tx
         Invalid _err -> TxInvalid tx
-  (OpenState headState@CoordinatedHeadState{confirmedSnapshot, seenTxs, seenUTxO, seenSnapshot}, NetworkEvent (ReqTx _ tx)) ->
+  (OpenState headState@CoordinatedHeadState{confirmedSnapshot, seenTxs, seenUTxO}, NetworkEvent (ReqTx _ tx)) ->
     case applyTransactions ledger seenUTxO [tx] of
       Left _err -> Wait
       Right utxo' ->
         let sn' = number confirmedSnapshot + 1
-            newSeenTxs = tx : seenTxs
+            newSeenTxs = seenTxs <> [tx]
             snapshotEffects
-              | isLeader party sn' && snapshotStrategy == SnapshotAfterEachTx && isNothing seenSnapshot =
-                [NetworkEffect $ ReqSn party sn' newSeenTxs]
+              | isLeader party sn' && snapshotStrategy == SnapshotAfterEachTx =
+                [Delay 0 $ ClientEvent NewSn]
               | otherwise =
                 []
          in newState (OpenState $ headState{seenTxs = newSeenTxs, seenUTxO = utxo'}) (ClientEffect (TxSeen tx) : snapshotEffects)
+  (OpenState CoordinatedHeadState{confirmedSnapshot, seenTxs, seenSnapshot}, ClientEvent NewSn)
+    | isNothing seenSnapshot ->
+      let sn' = number confirmedSnapshot + 1
+          effects
+            | not (null seenTxs) = [NetworkEffect $ ReqSn party sn' seenTxs]
+            | otherwise = []
+       in sameState effects
+    | otherwise -> Wait
   (OpenState s@CoordinatedHeadState{confirmedSnapshot, seenSnapshot}, NetworkEvent (ReqSn otherParty sn txs))
     | number confirmedSnapshot + 1 == sn && isLeader otherParty sn && isNothing seenSnapshot ->
       -- TODO: Verify the request is signed by (?) / comes from the leader
       -- (Can we prove a message comes from a given peer, without signature?)
       case applyTransactions ledger (utxo confirmedSnapshot) txs of
-        Left{} ->
-          Wait
+        Left err -> Wait
         Right u ->
           let nextSnapshot = Snapshot sn u txs
               snapshotSignature = sign signingKey nextSnapshot
