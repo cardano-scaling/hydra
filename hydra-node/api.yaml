@@ -293,9 +293,15 @@ properties:
 definitions:
   DiffTime:
     type: number
+    examples:
+      - 60
 
   Peer:
     type: integer
+    examples:
+      - 1
+      - 2
+      - 3
 
   Snapshot:
     type: object
@@ -331,3 +337,5 @@ definitions:
     type: array
     items:
       type: integer
+    examples:
+      - [ 14, 42, 1337 ]
