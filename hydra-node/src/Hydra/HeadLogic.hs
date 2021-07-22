@@ -542,7 +542,7 @@ update Environment{party, signingKey, otherParties, snapshotStrategy} ledger (He
       -- TODO: Verify the request is signed by (?) / comes from the leader
       -- (Can we prove a message comes from a given peer, without signature?)
       case applyTransactions ledger (utxo confirmedSnapshot) txs of
-        Left _err -> Wait
+        Left _ -> Wait
         Right u ->
           let nextSnapshot = Snapshot sn u txs
               snapshotSignature = sign signingKey nextSnapshot
