@@ -55,21 +55,15 @@ data Event = Event
   }
   deriving (Generic, Eq, Show, ToJSON)
 
-bench :: [SimpleTx] -> IO ()
-bench txs = do
-  tmpDir <- createSystemTempDirectory "bench"
+bench :: FilePath -> [SimpleTx] -> IO ()
+bench workDir txs = do
   registry <- newTVarIO mempty :: IO (TVar IO (Map.Map (TxId SimpleTx) Event))
-
-  let txsFile = tmpDir </> "txs.json"
-  putStrLn $ "Writing transactions to: " <> txsFile
-  encodeFile txsFile txs
-
   failAfter 300 $
     showLogsOnFailure $ \tracer ->
       withMockChain $ \chainPorts ->
-        withHydraNode tracer tmpDir chainPorts 1 aliceSk [bobVk, carolVk] $ \n1 ->
-          withHydraNode tracer tmpDir chainPorts 2 bobSk [aliceVk, carolVk] $ \n2 ->
-            withHydraNode tracer tmpDir chainPorts 3 carolSk [aliceVk, bobVk] $ \n3 -> do
+        withHydraNode tracer workDir chainPorts 1 aliceSk [bobVk, carolVk] $ \n1 ->
+          withHydraNode tracer workDir chainPorts 2 bobSk [aliceVk, carolVk] $ \n2 ->
+            withHydraNode tracer workDir chainPorts 3 carolSk [aliceVk, bobVk] $ \n3 -> do
               waitForNodesConnected tracer [n1, n2, n3]
               let contestationPeriod = 10 -- TODO: Should be part of init
               send n1 $ input "init" []
@@ -89,7 +83,7 @@ bench txs = do
                 guard (v ^? key "output" == Just "headIsFinalized")
 
   res <- mapMaybe analyze . Map.toList <$> readTVarIO registry
-  let resFile = tmpDir </> "results.json"
+  let resFile = workDir </> "results.json"
   putStrLn $ "Writing results to: " <> resFile
   encodeFile resFile res
 
