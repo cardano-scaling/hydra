@@ -137,8 +137,8 @@ test-suite integration
     , hspec
     , hspec-core
     , hspec-junit-formatter
-    , hydra-prelude
     , hydra-node
+    , hydra-prelude
     , local-cluster
     , regex-tdfa
     , say

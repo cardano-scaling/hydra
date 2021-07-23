@@ -53,11 +53,12 @@ spec = around showLogsOnFailure $
   describe "End-to-end test using a mocked chain though" $ do
     describe "three hydra nodes scenario" $ do
       it "inits and closes a head with a single mock transaction" $ \tracer -> do
+        tmpDir <- createSystemTempDirectory "end-to-end-inits-and-closes"
         failAfter 30 $
           withMockChain $ \chainPorts ->
-            withHydraNode tracer chainPorts 1 aliceSk [bobVk, carolVk] $ \n1 ->
-              withHydraNode tracer chainPorts 2 bobSk [aliceVk, carolVk] $ \n2 ->
-                withHydraNode tracer chainPorts 3 carolSk [aliceVk, bobVk] $ \n3 -> do
+            withHydraNode tracer tmpDir chainPorts 1 aliceSk [bobVk, carolVk] $ \n1 ->
+              withHydraNode tracer tmpDir chainPorts 2 bobSk [aliceVk, carolVk] $ \n2 ->
+                withHydraNode tracer tmpDir chainPorts 3 carolSk [aliceVk, bobVk] $ \n3 -> do
                   waitForNodesConnected tracer [n1, n2, n3]
                   let contestationPeriod = 10 -- TODO: Should be part of init
                   send n1 $ input "init" []
@@ -103,11 +104,12 @@ spec = around showLogsOnFailure $
 
     describe "Monitoring" $ do
       it "Node exposes Prometheus metrics on port 6001" $ \tracer -> do
+        tmpDir <- createSystemTempDirectory "end-to-end-prometheus-metrics"
         failAfter 20 $
           withMockChain $ \mockPorts ->
-            withHydraNode tracer mockPorts 1 aliceSk [bobVk, carolVk] $ \n1 ->
-              withHydraNode tracer mockPorts 2 bobSk [aliceVk, carolVk] $ \_n2 ->
-                withHydraNode tracer mockPorts 3 carolSk [aliceVk, bobVk] $ \_n3 -> do
+            withHydraNode tracer tmpDir mockPorts 1 aliceSk [bobVk, carolVk] $ \n1 ->
+              withHydraNode tracer tmpDir mockPorts 2 bobSk [aliceVk, carolVk] $ \_n2 ->
+                withHydraNode tracer tmpDir mockPorts 3 carolSk [aliceVk, bobVk] $ \_n3 -> do
                   waitForNodesConnected tracer [n1]
                   send n1 $ input "init" []
                   waitFor tracer 3 [n1] $ output "readyToCommit" ["parties" .= [int 10, 20, 30]]

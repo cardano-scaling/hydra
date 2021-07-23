@@ -47,10 +47,9 @@ import Hydra.Network.Ports (randomUnusedTCPPorts)
 import Network.HTTP.Conduit (HttpExceptionContent (ConnectionFailure), parseRequest)
 import Network.HTTP.Simple (HttpException (HttpExceptionRequest), Response, getResponseBody, getResponseStatusCode, httpBS)
 import Network.WebSockets (Connection, receiveData, runClient, sendClose, sendTextData)
-import Say (say)
 import System.Exit (ExitCode (..))
 import System.FilePath ((</>))
-import System.IO.Temp (withSystemTempDirectory, withSystemTempFile)
+import System.IO.Temp (withSystemTempDirectory)
 import System.Process (
   CreateProcess (..),
   ProcessHandle,
@@ -66,7 +65,9 @@ import Test.Hspec.Expectations (expectationFailure)
 data HydraClient = HydraClient
   { hydraNodeId :: Int
   , connection :: Connection
-  , nodeStdout :: Handle
+  , -- TODO: Why is this needed? Only use in 'send' to dump some debug line.
+    -- Weird.
+    nodeStdout :: Handle
   }
 
 failAfter :: HasCallStack => Natural -> IO a -> IO a
@@ -182,14 +183,16 @@ withHydraNode ::
   forall alg.
   DSIGNAlgorithm alg =>
   Tracer IO EndToEndLog ->
+  FilePath ->
   (Int, Int, Int) ->
   Int ->
   SignKeyDSIGN alg ->
   [VerKeyDSIGN alg] ->
   (HydraClient -> IO ()) ->
   IO ()
-withHydraNode tracer mockChainPorts hydraNodeId sKey vKeys action = do
-  withSystemTempFile "hydra-node" $ \f out -> traceOnFailure f $ do
+withHydraNode tracer workDir mockChainPorts hydraNodeId sKey vKeys action = do
+  let logFile = workDir </> show hydraNodeId
+  withFile' logFile $ \out -> do
     out' <- hDuplicate out
     withSystemTempDirectory "hydra-node" $ \dir -> do
       let sKeyPath = dir </> (show hydraNodeId <> ".sk")
@@ -222,8 +225,9 @@ withHydraNode tracer mockChainPorts hydraNodeId sKey vKeys action = do
     action $ HydraClient hydraNodeId con out
     sendClose con ("Bye" :: Text)
 
-  traceOnFailure f io = do
-    io `onException` (readFileText f >>= say)
+  withFile' filepath io =
+    withFile filepath ReadWriteMode io
+      `onException` (putStrLn $ "Logfile written to: " <> show filepath)
 
 newtype CannotStartHydraClient = CannotStartHydraClient Int deriving (Show)
 instance Exception CannotStartHydraClient

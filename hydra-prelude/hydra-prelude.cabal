@@ -33,6 +33,7 @@ library
     quickcheck-instances,
     random-shuffle,
     relude,
+    temporary,
     warp,
   default-extensions:
     NoImplicitPrelude

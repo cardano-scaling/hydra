@@ -66,12 +66,13 @@ bench = do
   let initialUtxo = utxoRefs [1, 2, 3]
   txs <- generate $ scale (* 100) $ genSequenceOfValidTransactions initialUtxo
 
+  tmpDir <- createSystemTempDirectory "bench"
   failAfter 300 $
     showLogsOnFailure $ \tracer ->
       withMockChain $ \chainPorts ->
-        withHydraNode tracer chainPorts 1 aliceSk [bobVk, carolVk] $ \n1 ->
-          withHydraNode tracer chainPorts 2 bobSk [aliceVk, carolVk] $ \n2 ->
-            withHydraNode tracer chainPorts 3 carolSk [aliceVk, bobVk] $ \n3 -> do
+        withHydraNode tracer tmpDir chainPorts 1 aliceSk [bobVk, carolVk] $ \n1 ->
+          withHydraNode tracer tmpDir chainPorts 2 bobSk [aliceVk, carolVk] $ \n2 ->
+            withHydraNode tracer tmpDir chainPorts 3 carolSk [aliceVk, bobVk] $ \n3 -> do
               waitForNodesConnected tracer [n1, n2, n3]
               let contestationPeriod = 10 -- TODO: Should be part of init
               send n1 $ input "init" []
