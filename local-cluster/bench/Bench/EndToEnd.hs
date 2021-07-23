@@ -24,7 +24,7 @@ import Data.Scientific (floatingOrInteger)
 import Data.Set ((\\))
 import qualified Data.Set as Set
 import Hydra.Ledger (Tx, TxId, txId)
-import Hydra.Ledger.Simple (SimpleTx, genSequenceOfValidTransactions, utxoRefs)
+import Hydra.Ledger.Simple (SimpleTx)
 import Hydra.Logging (showLogsOnFailure)
 import HydraNode (
   HydraClient,
@@ -38,8 +38,6 @@ import HydraNode (
   withHydraNode,
   withMockChain,
  )
-import Test.QuickCheck (generate)
-import Test.QuickCheck.Gen (scale)
 
 aliceSk, bobSk, carolSk :: SignKeyDSIGN MockDSIGN
 aliceSk = 10
@@ -57,14 +55,11 @@ data Event = Event
   }
   deriving (Generic, Eq, Show, ToJSON)
 
-bench :: IO ()
-bench = do
+bench :: [SimpleTx] -> IO ()
+bench txs = do
   tmpDir <- createSystemTempDirectory "bench"
   registry <- newTVarIO mempty :: IO (TVar IO (Map.Map (TxId SimpleTx) Event))
 
-  -- NOTE(SN): Maybe put these into a golden data set as soon as we are happy
-  let initialUtxo = utxoRefs [1, 2, 3]
-  txs <- generate $ scale (* 100) $ genSequenceOfValidTransactions initialUtxo
   let txsFile = tmpDir </> "txs.json"
   putStrLn $ "Writing transactions to: " <> txsFile
   encodeFile txsFile txs
