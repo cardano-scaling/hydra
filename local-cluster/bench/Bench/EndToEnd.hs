@@ -84,7 +84,7 @@ bench = do
 
               waitFor tracer 3 [n1, n2, n3] $ output "headIsOpen" ["utxo" .= [int 1, 2, 3]]
 
-              for_ txs (newTx registry n1)
+              for_ txs (\tx -> newTx registry n1 tx >> threadDelay 0.001)
                 `concurrently_` waitForAllConfirmations n1 registry txs
 
               send n1 $ input "close" []

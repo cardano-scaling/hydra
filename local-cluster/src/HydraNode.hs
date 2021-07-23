@@ -227,7 +227,7 @@ withHydraNode tracer workDir mockChainPorts hydraNodeId sKey vKeys action = do
 
   withFile' filepath io =
     withFile filepath ReadWriteMode io
-      `onException` (putStrLn $ "Logfile written to: " <> show filepath)
+      `onException` (putStrLn $ "Logfile written to: " <> filepath)
 
 newtype CannotStartHydraClient = CannotStartHydraClient Int deriving (Show)
 instance Exception CannotStartHydraClient
