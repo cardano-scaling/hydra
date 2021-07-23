@@ -1,3 +1,4 @@
+{-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE NumericUnderscores #-}
 {-# LANGUAGE TypeApplications #-}
 {-# OPTIONS_GHC -Wno-incomplete-uni-patterns #-}
@@ -22,6 +23,7 @@ module HydraNode (
 
 import Hydra.Prelude hiding (delete)
 
+import Cardano.BM.Tracing (ToObject)
 import Cardano.Crypto.DSIGN (
   DSIGNAlgorithm (..),
   SignKeyDSIGN,
@@ -36,10 +38,11 @@ import Data.Aeson (Value (String), object, (.=))
 import qualified Data.Aeson as Aeson
 import Data.Aeson.Types (Pair)
 import qualified Data.ByteString as BS
-import Data.List (delete)
+import qualified Data.List as List
 import qualified Data.Text as T
 import Data.Text.IO (hPutStrLn)
 import GHC.IO.Handle (hDuplicate)
+import Hydra.Logging (Tracer, traceWith)
 import Hydra.Network.Ports (randomUnusedTCPPorts)
 import Network.HTTP.Conduit (HttpExceptionContent (ConnectionFailure), parseRequest)
 import Network.HTTP.Simple (HttpException (HttpExceptionRequest), Response, getResponseBody, getResponseStatusCode, httpBS)
@@ -88,8 +91,8 @@ output tag pairs = object $ ("output" .= tag) : pairs
 -- | Wait some time for a single output from each of given nodes.
 -- This function waits for @delay@ seconds for message @expected@  to be seen by all
 -- given @nodes@.
-waitFor :: HasCallStack => Natural -> [HydraClient] -> Value -> IO ()
-waitFor delay nodes v = waitForAll delay nodes [v]
+waitFor :: HasCallStack => Tracer IO EndToEndLog -> Natural -> [HydraClient] -> Value -> IO ()
+waitFor tracer delay nodes v = waitForAll tracer delay nodes [v]
 
 waitMatch :: HasCallStack => Natural -> HydraClient -> (Value -> Maybe a) -> IO a
 waitMatch delay HydraClient{connection} match = do
@@ -112,12 +115,13 @@ waitMatch delay HydraClient{connection} match = do
 -- | Wait some time for a list of outputs from each of given nodes.
 -- This function is the generalised version of 'waitFor', allowing several messages
 -- to be waited for and received in /any order/.
-waitForAll :: HasCallStack => Natural -> [HydraClient] -> [Value] -> IO ()
-waitForAll delay nodes expected = do
+waitForAll :: HasCallStack => Tracer IO EndToEndLog -> Natural -> [HydraClient] -> [Value] -> IO ()
+waitForAll tracer delay nodes expected = do
+  traceWith tracer (StartWaiting (map hydraNodeId nodes) expected)
   forConcurrently_ nodes $ \HydraClient{hydraNodeId, connection} -> do
     msgs <- newIORef []
     -- The chain is slow...
-    result <- timeout (fromIntegral delay * 1_000_000) $ tryNext msgs expected connection
+    result <- timeout (fromIntegral delay * 1_000_000) $ tryNext hydraNodeId msgs expected connection
     case result of
       Just x -> pure x
       Nothing -> do
@@ -135,16 +139,19 @@ waitForAll delay nodes expected = do
               ]
  where
   padRight c n str = T.take n (str <> T.replicate n c)
+
   align _ [] = []
   align n (h : q) = h : fmap (T.replicate n " " <>) q
-  tryNext _ [] _ = pure ()
-  tryNext msgs stillExpected c = do
+
+  tryNext nodeId _ [] _ = traceWith tracer (EndWaiting nodeId)
+  tryNext nodeId msgs stillExpected c = do
     bytes <- receiveData c
     msg <- case Aeson.decode' bytes of
       Nothing -> fail $ "received non-JSON message from the server: " <> show bytes
       Just m -> pure m
+    traceWith tracer (ReceivedMessage nodeId msg)
     modifyIORef' msgs (msg :)
-    tryNext msgs (delete msg stillExpected) c
+    tryNext nodeId msgs (List.delete msg stillExpected) c
 
 getMetrics :: HasCallStack => HydraClient -> IO ByteString
 getMetrics HydraClient{hydraNodeId} = do
@@ -164,8 +171,24 @@ queryNode nodeId =
     (HttpExceptionRequest _ (ConnectionFailure _)) -> threadDelay 100_000 >> cont
     e -> throwIO e
 
-withHydraNode :: forall alg. DSIGNAlgorithm alg => (Int, Int, Int) -> Int -> SignKeyDSIGN alg -> [VerKeyDSIGN alg] -> (HydraClient -> IO ()) -> IO ()
-withHydraNode mockChainPorts hydraNodeId sKey vKeys action = do
+data EndToEndLog
+  = NodeStarted Int
+  | StartWaiting [Int] [Value]
+  | ReceivedMessage Int Value
+  | EndWaiting Int
+  deriving (Eq, Show, Generic, ToJSON, FromJSON, ToObject)
+
+withHydraNode ::
+  forall alg.
+  DSIGNAlgorithm alg =>
+  Tracer IO EndToEndLog ->
+  (Int, Int, Int) ->
+  Int ->
+  SignKeyDSIGN alg ->
+  [VerKeyDSIGN alg] ->
+  (HydraClient -> IO ()) ->
+  IO ()
+withHydraNode tracer mockChainPorts hydraNodeId sKey vKeys action = do
   withSystemTempFile "hydra-node" $ \f out -> traceOnFailure f $ do
     out' <- hDuplicate out
     withSystemTempDirectory "hydra-node" $ \dir -> do
@@ -195,6 +218,7 @@ withHydraNode mockChainPorts hydraNodeId sKey vKeys action = do
 
   doConnect connectedOnce out = runClient "127.0.0.1" (4000 + hydraNodeId) "/" $ \con -> do
     atomicWriteIORef connectedOnce True
+    traceWith tracer (NodeStarted hydraNodeId)
     action $ HydraClient hydraNodeId con out
     sendClose con ("Bye" :: Text)
 
@@ -261,15 +285,15 @@ checkProcessHasNotDied processHandle =
 allNodeIds :: [Int]
 allNodeIds = [1 .. 3]
 
-waitForNodesConnected :: HasCallStack => [HydraClient] -> IO ()
-waitForNodesConnected = mapM_ waitForNodeConnected
+waitForNodesConnected :: HasCallStack => Tracer IO EndToEndLog -> [HydraClient] -> IO ()
+waitForNodesConnected tracer = mapM_ (waitForNodeConnected tracer)
 
-waitForNodeConnected :: HasCallStack => HydraClient -> IO ()
-waitForNodeConnected n@HydraClient{hydraNodeId} =
+waitForNodeConnected :: HasCallStack => Tracer IO EndToEndLog -> HydraClient -> IO ()
+waitForNodeConnected tracer n@HydraClient{hydraNodeId} =
   -- HACK(AB): This is gross, we hijack the node ids and because we know
   -- keys are just integers we can compute them but that's ugly -> use property
   -- party identifiers everywhere
-  waitForAll 10 [n] $
+  waitForAll tracer 10 [n] $
     fmap
       ( \party ->
           object

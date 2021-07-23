@@ -26,6 +26,7 @@ import Data.Set ((\\))
 import qualified Data.Set as Set
 import Hydra.Ledger (Tx, TxId, txId)
 import Hydra.Ledger.Simple (SimpleTx, genSequenceOfValidTransactions, utxoRefs)
+import Hydra.Logging (showLogsOnFailure)
 import HydraNode (
   HydraClient,
   failAfter,
@@ -66,27 +67,28 @@ bench = do
   txs <- generate $ scale (* 100) $ genSequenceOfValidTransactions initialUtxo
 
   failAfter 300 $
-    withMockChain $ \chainPorts ->
-      withHydraNode chainPorts 1 aliceSk [bobVk, carolVk] $ \n1 ->
-        withHydraNode chainPorts 2 bobSk [aliceVk, carolVk] $ \n2 ->
-          withHydraNode chainPorts 3 carolSk [aliceVk, bobVk] $ \n3 -> do
-            waitForNodesConnected [n1, n2, n3]
-            let contestationPeriod = 10 -- TODO: Should be part of init
-            send n1 $ input "init" []
-            waitFor 3 [n1, n2, n3] $
-              output "readyToCommit" ["parties" .= [int 10, 20, 30]]
-            send n1 $ input "commit" ["utxo" .= [int 1]]
-            send n2 $ input "commit" ["utxo" .= [int 2]]
-            send n3 $ input "commit" ["utxo" .= [int 3]]
+    showLogsOnFailure $ \tracer ->
+      withMockChain $ \chainPorts ->
+        withHydraNode tracer chainPorts 1 aliceSk [bobVk, carolVk] $ \n1 ->
+          withHydraNode tracer chainPorts 2 bobSk [aliceVk, carolVk] $ \n2 ->
+            withHydraNode tracer chainPorts 3 carolSk [aliceVk, bobVk] $ \n3 -> do
+              waitForNodesConnected tracer [n1, n2, n3]
+              let contestationPeriod = 10 -- TODO: Should be part of init
+              send n1 $ input "init" []
+              waitFor tracer 3 [n1, n2, n3] $
+                output "readyToCommit" ["parties" .= [int 10, 20, 30]]
+              send n1 $ input "commit" ["utxo" .= [int 1]]
+              send n2 $ input "commit" ["utxo" .= [int 2]]
+              send n3 $ input "commit" ["utxo" .= [int 3]]
 
-            waitFor 3 [n1, n2, n3] $ output "headIsOpen" ["utxo" .= [int 1, 2, 3]]
+              waitFor tracer 3 [n1, n2, n3] $ output "headIsOpen" ["utxo" .= [int 1, 2, 3]]
 
-            for_ txs (newTx registry n1)
-              `concurrently_` waitForAllConfirmations n1 registry txs
+              for_ txs (newTx registry n1)
+                `concurrently_` waitForAllConfirmations n1 registry txs
 
-            send n1 $ input "close" []
-            waitMatch (contestationPeriod + 3) n1 $ \v ->
-              guard (v ^? key "output" == Just "headIsFinalized")
+              send n1 $ input "close" []
+              waitMatch (contestationPeriod + 3) n1 $ \v ->
+                guard (v ^? key "output" == Just "headIsFinalized")
 
   hPut stderr . encode . mapMaybe analyze . Map.toList =<< readTVarIO registry
 
@@ -130,7 +132,6 @@ waitForAllConfirmations n1 registry txs =
       res <- waitMatch 10 n1 $ \v -> do
         guard (v ^? key "output" == Just "snapshotConfirmed")
         v ^? key "snapshot" . key "confirmedTransactions" . _Array
-      putTextLn $ ">> test received confirmed transactions " <> show res <> ", remaining Ids: " <> show remainingIds
       confirmedIds <- mapM (confirmTx registry) res
       go (remainingIds \\ Set.fromList (toList confirmedIds))
 
