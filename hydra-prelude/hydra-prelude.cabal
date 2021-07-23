@@ -26,6 +26,7 @@ library
     aeson,
     base,
     cardano-binary,
+    filepath,
     generic-random,
     io-classes,
     network,

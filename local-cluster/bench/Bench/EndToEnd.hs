@@ -17,9 +17,8 @@ import Control.Monad.Class.MonadSTM (
   modifyTVar,
   newTVarIO,
  )
-import Data.Aeson (Value, encode, (.=))
+import Data.Aeson (Value, (.=), encodeFile)
 import Data.Aeson.Lens (key, _Array, _Number)
-import Data.ByteString.Lazy (hPut)
 import qualified Data.Map as Map
 import Data.Scientific (floatingOrInteger)
 import Data.Set ((\\))
@@ -60,13 +59,16 @@ data Event = Event
 
 bench :: IO ()
 bench = do
+  tmpDir <- createSystemTempDirectory "bench"
   registry <- newTVarIO mempty :: IO (TVar IO (Map.Map (TxId SimpleTx) Event))
 
   -- NOTE(SN): Maybe put these into a golden data set as soon as we are happy
   let initialUtxo = utxoRefs [1, 2, 3]
   txs <- generate $ scale (* 100) $ genSequenceOfValidTransactions initialUtxo
+  let txsFile = tmpDir </> "txs.json"
+  putStrLn $ "Writing transactions to: " <> txsFile
+  encodeFile txsFile txs
 
-  tmpDir <- createSystemTempDirectory "bench"
   failAfter 300 $
     showLogsOnFailure $ \tracer ->
       withMockChain $ \chainPorts ->
@@ -91,7 +93,10 @@ bench = do
               waitMatch (contestationPeriod + 3) n1 $ \v ->
                 guard (v ^? key "output" == Just "headIsFinalized")
 
-  hPut stderr . encode . mapMaybe analyze . Map.toList =<< readTVarIO registry
+  res <- mapMaybe analyze . Map.toList <$> readTVarIO registry
+  let resFile = tmpDir </> "results.json"
+  putStrLn $ "Writing results to: " <> resFile
+  encodeFile resFile res
 
 --
 -- Helpers
