@@ -18,14 +18,12 @@ import Control.Monad.Class.MonadSTM (
 import Control.Monad.Class.MonadTimer (timeout)
 import Control.Monad.IOSim (Failure (FailureDeadlock), IOSim, runSimTrace, selectTraceEventsDynamic)
 import Hydra.Chain (Chain (..))
+import Hydra.ClientInput
 import Hydra.HeadLogic (
-  ClientInput (..),
   Effect (ClientEffect),
   Environment (..),
   Event (ClientEvent),
   HeadParameters (..),
-  ServerOutput (..),
-  Snapshot (..),
   SnapshotStrategy (..),
   createHeadState,
  )
@@ -42,6 +40,8 @@ import Hydra.Node (
   handleMessage,
   runHydraNode,
  )
+import Hydra.ServerOutput (ServerOutput (..))
+import Hydra.Snapshot (Snapshot (..))
 import Test.Hspec (Spec, describe, it, shouldContain, shouldThrow)
 import Test.Util (failAfter, failure, shouldNotBe, shouldReturn, shouldRunInSim, traceInIOSim)
 

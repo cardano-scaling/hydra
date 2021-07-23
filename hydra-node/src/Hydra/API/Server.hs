@@ -14,13 +14,11 @@ import Control.Concurrent.STM.TChan (newBroadcastTChanIO, writeTChan)
 import Control.Concurrent.STM.TVar (TVar, modifyTVar', newTVarIO, readTVar)
 import qualified Data.Aeson as Aeson
 import Data.ByteString.Base16 (encodeBase16)
-import Hydra.HeadLogic (
-  ClientInput,
-  ServerOutput (..),
- )
+import Hydra.ClientInput (ClientInput)
 import Hydra.Ledger (Tx (..))
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Network (IP, PortNumber)
+import Hydra.ServerOutput (ServerOutput (InvalidInput))
 import Network.WebSockets (
   acceptRequest,
   receiveData,

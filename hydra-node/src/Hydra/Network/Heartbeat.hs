@@ -24,9 +24,9 @@ import Hydra.Prelude
 import Control.Monad.Class.MonadSTM (modifyTVar', newTVarIO, readTVarIO)
 import qualified Data.Map as Map
 import qualified Data.Set as Set
-import Hydra.HeadLogic (HydraMessage (..), getParty)
 import Hydra.Ledger (Party)
 import Hydra.Network (Network (..), NetworkCallback, NetworkComponent)
+import Hydra.Network.Message (Message (Connected, Disconnected), getParty)
 
 data HeartbeatState = HeartbeatState
   { -- | The map of known 'Connected' parties with the last time they've been "seen".
@@ -44,20 +44,20 @@ initialHeartbeatState :: HeartbeatState
 initialHeartbeatState = HeartbeatState{alive = mempty, suspected = mempty, lastSent = Nothing}
 
 data Heartbeat msg
-  = Message msg
+  = Data msg
   | Ping Party
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON, FromJSON)
 
 instance (ToCBOR msg) => ToCBOR (Heartbeat msg) where
   toCBOR = \case
-    (Message hmsg) -> toCBOR (0 :: Int) <> toCBOR hmsg
+    (Data hmsg) -> toCBOR (0 :: Int) <> toCBOR hmsg
     (Ping host) -> toCBOR (1 :: Int) <> toCBOR host
 
 instance (FromCBOR msg) => FromCBOR (Heartbeat msg) where
   fromCBOR =
     fromCBOR >>= \case
-      (0 :: Int) -> Message <$> fromCBOR
+      (0 :: Int) -> Data <$> fromCBOR
       1 -> Ping <$> fromCBOR
       other -> fail $ "Unknown tag " <> show other <> " trying to deserialise value to Heartbeat"
 
@@ -76,8 +76,8 @@ withHeartbeat ::
   , MonadMonotonicTime m
   ) =>
   Party ->
-  NetworkComponent m (Heartbeat (HydraMessage msg)) ->
-  NetworkComponent m (HydraMessage msg)
+  NetworkComponent m (Heartbeat (Message tx)) a ->
+  NetworkComponent m (Message tx) a
 withHeartbeat party withNetwork callback action = do
   heartbeat <- newTVarIO initialHeartbeatState
   withNetwork (updateStateFromIncomingMessages heartbeat callback) $ \network ->
@@ -88,10 +88,10 @@ withHeartbeat party withNetwork callback action = do
 updateStateFromIncomingMessages ::
   (MonadSTM m, MonadMonotonicTime m) =>
   TVar m HeartbeatState ->
-  NetworkCallback (HydraMessage msg) m ->
-  NetworkCallback (Heartbeat (HydraMessage msg)) m
+  NetworkCallback (Message tx) m ->
+  NetworkCallback (Heartbeat (Message tx)) m
 updateStateFromIncomingMessages heartbeatState callback = \case
-  Message msg -> notifyAlive (getParty msg) >> callback msg
+  Data msg -> notifyAlive (getParty msg) >> callback msg
   Ping party -> notifyAlive party
  where
   notifyAlive party = do
@@ -108,13 +108,13 @@ updateStateFromIncomingMessages heartbeatState callback = \case
 updateStateFromOutgoingMessages ::
   (MonadSTM m, MonadMonotonicTime m) =>
   TVar m HeartbeatState ->
-  Network m (Heartbeat (HydraMessage msg)) ->
-  Network m (HydraMessage msg)
+  Network m (Heartbeat (Message msg)) ->
+  Network m (Message msg)
 updateStateFromOutgoingMessages heartbeatState Network{broadcast} =
   Network $ \msg -> do
     now <- getMonotonicTime
     updateLastSent heartbeatState now
-    broadcast (Message msg)
+    broadcast (Data msg)
 
 updateLastSent :: MonadSTM m => TVar m HeartbeatState -> Time -> m ()
 updateLastSent heartbeatState now = atomically (modifyTVar' heartbeatState $ \s -> s{lastSent = Just now})
@@ -126,7 +126,7 @@ checkHeartbeatState ::
   ) =>
   Party ->
   TVar m HeartbeatState ->
-  Network m (Heartbeat (HydraMessage msg)) ->
+  Network m (Heartbeat (Message msg)) ->
   m ()
 checkHeartbeatState localhost heartbeatState Network{broadcast} =
   forever $ do
@@ -147,7 +147,7 @@ checkRemoteParties ::
   , MonadMonotonicTime m
   ) =>
   TVar m HeartbeatState ->
-  NetworkCallback (HydraMessage msg) m ->
+  NetworkCallback (Message msg) m ->
   m ()
 checkRemoteParties heartbeatState callback =
   forever $ do

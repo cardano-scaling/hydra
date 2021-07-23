@@ -14,7 +14,6 @@ import Control.Monad.Class.MonadSTM (
  )
 import qualified Data.Aeson as Aeson
 import Hydra.API.Server (withAPIServer)
-import Hydra.HeadLogic (ServerOutput (..))
 import Hydra.Ledger.Simple (SimpleTx)
 import Hydra.Logging (nullTracer)
 import Hydra.Network.Ports (withFreePort)
@@ -25,6 +24,7 @@ import Test.Hspec.QuickCheck (prop)
 import Test.QuickCheck (cover)
 import Test.QuickCheck.Monadic (monadicIO, monitor, run)
 import Test.Util (failAfter, failure)
+import Hydra.ServerOutput (ServerOutput (InvalidInput, ReadyToCommit))
 
 spec :: Spec
 spec = describe "API Server" $ do

@@ -8,8 +8,8 @@ import Hydra.Network (Network (..), NetworkCallback, NetworkComponent)
 -- also sent back to "self" through passed `NetworkCallback`.
 withBroadcastToSelf ::
   MonadThrow m =>
-  NetworkComponent m msg ->
-  NetworkComponent m msg
+  NetworkComponent m msg a ->
+  NetworkComponent m msg a
 withBroadcastToSelf withNetwork callback action =
   withNetwork callback $ \network -> action (sendbackMessages network callback)
 

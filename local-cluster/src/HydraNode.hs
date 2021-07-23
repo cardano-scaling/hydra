@@ -20,7 +20,7 @@ module HydraNode (
   waitForNodesConnected,
 ) where
 
-import Hydra.Prelude
+import Hydra.Prelude hiding (delete)
 
 import Cardano.Crypto.DSIGN (
   DSIGNAlgorithm (..),

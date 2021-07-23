@@ -1,5 +1,4 @@
 {-# LANGUAGE TypeApplications #-}
-{-# OPTIONS_GHC -Wno-deferred-type-errors #-}
 
 -- | Unit tests of the the protocol logic in 'HeadLogic'. These are very fine
 -- grained and specific to individual steps in the protocol. More high-level of
@@ -12,8 +11,9 @@ import Hydra.Prelude
 import qualified Data.Aeson as Aeson
 import qualified Data.List as List
 import qualified Data.Set as Set
+import Hydra.Chain (OnChainTx (AbortTx, CollectComTx))
+import Hydra.ClientInput (ClientInput (..))
 import Hydra.HeadLogic (
-  ClientInput (..),
   CoordinatedHeadState (..),
   Effect (ClientEffect, Delay, NetworkEffect),
   Environment (..),
@@ -21,17 +21,16 @@ import Hydra.HeadLogic (
   HeadParameters (..),
   HeadState (..),
   HeadStatus (..),
-  HydraMessage (..),
   LogicError (..),
-  OnChainTx (..),
   Outcome (..),
-  ServerOutput (..),
-  Snapshot (..),
   SnapshotStrategy (..),
   update,
  )
 import Hydra.Ledger (Ledger (..), Party, Tx (..), deriveParty, generateKey, sign)
 import Hydra.Ledger.Simple (SimpleTx (..), TxIn (..), aValidTx, simpleLedger, utxoRef)
+import Hydra.Network.Message (Message (AckSn, Connected, ReqSn, ReqTx))
+import Hydra.ServerOutput (ServerOutput (PeerConnected))
+import Hydra.Snapshot (Snapshot (..))
 import Test.Hspec (
   Expectation,
   Spec,
@@ -325,7 +324,7 @@ getConfirmedSnapshot HeadState{headStatus} = case headStatus of
 assertNewState :: Tx tx => Outcome tx -> IO (HeadState tx)
 assertNewState = \case
   NewState st _ -> pure st
-  Error e -> failure $ "Unexpected 'Error' outcome: " <> (show e)
+  Error e -> failure $ "Unexpected 'Error' outcome: " <> show e
   Wait -> failure "Unexpected 'Wait' outcome"
 
 assertStateUnchangedFrom :: Tx tx => HeadState tx -> Outcome tx -> Expectation

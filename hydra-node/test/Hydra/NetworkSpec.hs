@@ -11,11 +11,11 @@ import Cardano.Crypto.Seed (mkSeedFromBytes)
 import Codec.CBOR.Read (deserialiseFromBytes)
 import Codec.CBOR.Write (toLazyByteString)
 import Control.Monad.Class.MonadSTM (newTQueue, readTQueue, writeTQueue)
-import Hydra.HeadLogic (HydraMessage (..))
 import Hydra.Ledger (Signed (UnsafeSigned))
 import Hydra.Ledger.Simple (SimpleTx (..))
 import Hydra.Logging (showLogsOnFailure)
 import Hydra.Network (Host (..), Network, PortNumber)
+import Hydra.Network.Message (Message (..))
 import Hydra.Network.Ouroboros (broadcast, withOuroborosNetwork)
 import Hydra.Network.Ports (randomUnusedTCPPorts)
 import Hydra.Network.ZeroMQ (withZeroMQNetwork)
@@ -75,7 +75,7 @@ spec = describe "Networking layer" $ do
                 ]
 
   describe "Serialisation" $
-    it "can roundtrip CBOR encoding/decoding of HydraMessage" $ property $ prop_canRoundtripCBOREncoding @(HydraMessage SimpleTx)
+    it "can roundtrip CBOR encoding/decoding of Hydra Message" $ property $ prop_canRoundtripCBOREncoding @(Message SimpleTx)
 
 assertAllNodesBroadcast ::
   [(PortNumber, Network IO Integer, TQueue IO Integer)] ->
@@ -113,7 +113,9 @@ genSignature = do
   a <- arbitrary @ByteString
   pure . UnsafeSigned $ signDSIGN () a key
 
-instance Arbitrary (HydraMessage SimpleTx) where
+-- TODO(SN): can we write a generic 'Arbitrary (Message tx)' instance and then
+-- move it to the data type?
+instance Arbitrary (Message SimpleTx) where
   arbitrary =
     oneof
       [ ReqTx <$> arbitrary <*> arbitrary

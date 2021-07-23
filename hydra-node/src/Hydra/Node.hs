@@ -10,25 +10,24 @@ import Hydra.Prelude
 import Cardano.Crypto.DSIGN (DSIGNAlgorithm (rawDeserialiseVerKeyDSIGN), deriveVerKeyDSIGN, rawDeserialiseSignKeyDSIGN)
 import Control.Monad.Class.MonadAsync (async)
 import Control.Monad.Class.MonadSTM (newTQueue, newTVarIO, readTQueue, stateTVar, writeTQueue)
-import Hydra.Chain (Chain (..))
+import Hydra.Chain (Chain (..), OnChainTx)
+import Hydra.ClientInput (ClientInput)
 import Hydra.HeadLogic (
-  ClientInput (..),
   Effect (..),
   Environment (..),
   Event (..),
   HeadState (..),
-  HydraMessage,
   LogicError (..),
-  OnChainTx (..),
   Outcome (..),
-  ServerOutput (..),
   SnapshotStrategy (SnapshotAfterEachTx),
  )
 import qualified Hydra.HeadLogic as Logic
 import Hydra.Ledger (Ledger, Party (..), Tx)
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Network (Network (..))
+import Hydra.Network.Message (Message)
 import Hydra.Options (Options (..))
+import Hydra.ServerOutput (ServerOutput)
 
 -- * Environment Handling
 
@@ -62,7 +61,7 @@ initEnvironment Options{me, parties} = do
 
 data HydraNode tx m = HydraNode
   { eq :: EventQueue m (Event tx)
-  , hn :: Network m (HydraMessage tx)
+  , hn :: Network m (Message tx)
   , hh :: HydraHead tx m
   , oc :: Chain tx m
   , sendOutput :: ServerOutput tx -> m ()
@@ -84,7 +83,7 @@ handleClientInput HydraNode{eq} = putEvent eq . ClientEvent
 handleChainTx :: HydraNode tx m -> OnChainTx tx -> m ()
 handleChainTx HydraNode{eq} = putEvent eq . OnChainEvent
 
-handleMessage :: HydraNode tx m -> Logic.HydraMessage tx -> m ()
+handleMessage :: HydraNode tx m -> Message tx -> m ()
 handleMessage HydraNode{eq} = putEvent eq . NetworkEvent
 
 runHydraNode ::

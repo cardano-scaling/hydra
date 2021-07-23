@@ -8,13 +8,13 @@ import Control.Monad.Class.MonadSay (say)
 import Data.Aeson (Result (Error, Success), eitherDecodeStrict)
 import Data.Aeson.Types (fromJSON)
 import qualified Data.Map as Map
-import Hydra.Chain (Chain (Chain, postTx))
-import Hydra.HeadLogic (OnChainTx (InitTx))
+import Hydra.Chain (Chain (Chain, postTx), OnChainTx (InitTx), ChainComponent)
+import Hydra.Contract.PAB (PABContract (GetUtxos, Setup, WatchInit))
 import Hydra.Ledger (Party, Tx)
 import Hydra.Logging (Tracer)
-import Ledger (TxOut (txOutValue), pubKeyHash, txOutTxOut, PubKeyHash)
+import Ledger (PubKeyHash, TxOut (txOutValue), pubKeyHash, txOutTxOut)
 import Ledger.AddressMap (UtxoMap)
-import Ledger.Value as Value
+import Ledger.Value (flattenValue)
 import Network.HTTP.Req (
   HttpException (VanillaHttpException),
   POST (..),
@@ -34,7 +34,6 @@ import Network.WebSockets.Client (runClient)
 import Plutus.PAB.Webserver.Types (InstanceStatusToClient (NewObservableState))
 import Wallet.Emulator.Types (Wallet (..), walletPubKey)
 import Wallet.Types (ContractInstanceId, unContractInstanceId)
-import Hydra.Contract.PAB (PABContract (Setup, GetUtxos, WatchInit))
 
 data ExternalPABLog = ExternalPABLog
   deriving stock (Eq, Show, Generic)
@@ -46,9 +45,7 @@ withExternalPAB ::
   Tx tx =>
   WalletId ->
   Tracer IO ExternalPABLog ->
-  (OnChainTx tx -> IO ()) ->
-  (Chain tx IO -> IO a) ->
-  IO a
+  ChainComponent tx IO ()
 withExternalPAB walletId _tracer callback action = do
   withAsync (initTxSubscriber wallet callback) $ \_ ->
     withAsync (utxoSubscriber wallet) $ \_ -> do

@@ -32,6 +32,7 @@ import Hydra.Network (
   Host (..),
   Network (..),
   NetworkCallback,
+  NetworkComponent,
   PortNumber,
  )
 import Hydra.Network.Ouroboros.Client as FireForget (
