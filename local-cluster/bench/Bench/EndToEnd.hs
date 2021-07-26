@@ -38,6 +38,7 @@ import HydraNode (
   withHydraNode,
   withMockChain,
  )
+import System.FilePath ((</>))
 
 aliceSk, bobSk, carolSk :: SignKeyDSIGN MockDSIGN
 aliceSk = 10

@@ -8,7 +8,6 @@ module Hydra.Prelude (
   module Control.Monad.Class.MonadTimer,
   module Control.Monad.Class.MonadFork,
   module Control.Monad.Class.MonadThrow,
-  module System.FilePath,
   StaticMap (..),
   DynamicMap (..),
   keys,
@@ -23,7 +22,6 @@ module Hydra.Prelude (
   createSystemTempDirectory,
 ) where
 
-import System.FilePath ((</>))
 import Cardano.Binary (
   FromCBOR (..),
   ToCBOR (..),
