@@ -36,6 +36,7 @@
           (hsPkgs."aeson" or (errorHandler.buildDepError "aeson"))
           (hsPkgs."base" or (errorHandler.buildDepError "base"))
           (hsPkgs."cardano-binary" or (errorHandler.buildDepError "cardano-binary"))
+          (hsPkgs."filepath" or (errorHandler.buildDepError "filepath"))
           (hsPkgs."generic-random" or (errorHandler.buildDepError "generic-random"))
           (hsPkgs."io-classes" or (errorHandler.buildDepError "io-classes"))
           (hsPkgs."network" or (errorHandler.buildDepError "network"))
@@ -43,6 +44,7 @@
           (hsPkgs."quickcheck-instances" or (errorHandler.buildDepError "quickcheck-instances"))
           (hsPkgs."random-shuffle" or (errorHandler.buildDepError "random-shuffle"))
           (hsPkgs."relude" or (errorHandler.buildDepError "relude"))
+          (hsPkgs."temporary" or (errorHandler.buildDepError "temporary"))
           (hsPkgs."warp" or (errorHandler.buildDepError "warp"))
           ];
         buildable = true;

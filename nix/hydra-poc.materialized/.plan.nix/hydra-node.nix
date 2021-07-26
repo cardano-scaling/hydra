@@ -83,6 +83,7 @@
           "Hydra/Chain"
           "Hydra/Chain/ExternalPAB"
           "Hydra/Chain/ZeroMQ"
+          "Hydra/ClientInput"
           "Hydra/HeadLogic"
           "Hydra/Ledger"
           "Hydra/Ledger/MaryTest"
@@ -93,14 +94,17 @@
           "Hydra/Network"
           "Hydra/Network/BroadcastToSelf"
           "Hydra/Network/Heartbeat"
+          "Hydra/Network/Message"
           "Hydra/Network/Ouroboros"
-          "Hydra/Network/Ouroboros/Type"
           "Hydra/Network/Ouroboros/Client"
           "Hydra/Network/Ouroboros/Server"
+          "Hydra/Network/Ouroboros/Type"
           "Hydra/Network/ZeroMQ"
           "Hydra/Node"
           "Hydra/Node/Version"
           "Hydra/Options"
+          "Hydra/ServerOutput"
+          "Hydra/Snapshot"
           ];
         hsSourceDirs = [ "src" ];
         };
