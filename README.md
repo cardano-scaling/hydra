@@ -35,7 +35,28 @@ import the nix-shell environment into our favorite shell or editor.
 
 ### Building & Testing
 
-`cabal build` and `cabal test` should work as expected
+Within the `nix-shell`, `cabal build` and `cabal test` should work as expected.
+
+You can also use `nix-build` to build the project and all its executables. You
+will find them in `result/bin/` after the build.
+
+### Updating nix materialization
+
+We rely on haskell.nix's "materialization" to not needing to create cabal build
+plans on every invocation of a nix-build (as this would take > 15mins for our
+huge dependency tree).
+
+Thus, the build plan is persisted into the repository at
+`nix/hydra-poc.materialized/` and needs to be bumped whenever _anything_ in the
+`cabal.project` or any of the `.cabal` files changes.
+
+If the `cabal build` succeeds, but the `nix-build` fails, it's usually a good
+idea to do the following:
+
+* Uncomment `checkMaterialization = true;` in `default.nix`
+* Execute `nix-build -A hydra-node.components.exes.hydra-node`
+* Follow the instructions in the output by updating `plan-sha256` and running the `/nix/store/<somehash>-updateMaterialized` script.
+* Comment out `checkMaterialization = true;` again and commit the changes
 
 ## Documentation
 
