@@ -54,7 +54,6 @@ spec = describe "Hydra Coordinated Head Protocol" $ do
           { party = 2
           , signingKey = 2
           , otherParties = [1, 3]
-          , contestationPeriod = 42
           , snapshotStrategy = NoSnapshots
           }
 
@@ -65,7 +64,6 @@ spec = describe "Hydra Coordinated Head Protocol" $ do
               { party
               , signingKey
               , otherParties = List.delete party threeParties
-              , contestationPeriod = 42
               , snapshotStrategy = SnapshotAfterEachTx
               }
 

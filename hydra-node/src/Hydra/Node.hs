@@ -41,7 +41,6 @@ initEnvironment Options{me, parties} = do
       { party = UnsafeParty vk
       , signingKey = sk
       , otherParties = UnsafeParty <$> otherVKeys
-      , contestationPeriod = 10
       , snapshotStrategy = SnapshotAfterEachTx
       }
  where

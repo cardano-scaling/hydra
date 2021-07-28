@@ -5,11 +5,12 @@ module Hydra.ClientInput where
 
 import Data.Aeson (object, withObject, (.:), (.=))
 import qualified Data.Aeson as Aeson
+import Hydra.Chain (ContestationPeriod)
 import Hydra.Ledger (Tx, UTxO)
 import Hydra.Prelude
 
 data ClientInput tx
-  = Init
+  = Init ContestationPeriod
   | Abort
   | Commit (UTxO tx)
   | NewTx tx
@@ -29,7 +30,7 @@ instance (Arbitrary tx, Arbitrary (UTxO tx)) => Arbitrary (ClientInput tx) where
   -- Overlapping instances with 'UTxO tx' even though for a fixed `tx`, there
   -- should be only one 'UTxO tx'
   shrink = \case
-    Init -> []
+    Init{} -> []
     Abort -> []
     Commit xs -> Commit <$> shrink xs
     NewTx tx -> NewTx <$> shrink tx
@@ -39,8 +40,8 @@ instance (Arbitrary tx, Arbitrary (UTxO tx)) => Arbitrary (ClientInput tx) where
 
 instance Tx tx => ToJSON (ClientInput tx) where
   toJSON = \case
-    Init ->
-      object [tagFieldName .= s "init"]
+    Init t ->
+      object [tagFieldName .= s "init", "contestationPeriod" .= t]
     Abort ->
       object [tagFieldName .= s "abort"]
     Commit u ->
@@ -62,7 +63,7 @@ instance Tx tx => FromJSON (ClientInput tx) where
     tag <- obj .: "input"
     case tag of
       "init" ->
-        pure Init
+        Init <$> (obj .: "contestationPeriod")
       "abort" ->
         pure Abort
       "commit" ->
