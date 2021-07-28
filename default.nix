@@ -25,6 +25,7 @@ pkgs.haskell-nix.project {
     name = "hydra-poc";
     src = ./.;
   };
+  projectFileName = "cabal.project";
   compiler-nix-name = compiler;
 
   # Fixed output derivation for plan-nix
