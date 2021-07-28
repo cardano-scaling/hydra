@@ -87,10 +87,10 @@ instance Currency.AsCurrencyError HydraPlutusError where
 hydraStateMachine :: AssetClass -> StateMachine State Input
 hydraStateMachine _threadToken =
   -- XXX(SN): This should actually be '(Just threadToken)' as we wan't to have
-  -- "contract continuity" as described in the EUTXO paper. Unfortunately we did
-  -- not get this yet to work with 'runStep', or at least we were expecting the
-  -- statemachine library would handle it for us.
-  -- https://github.com/input-output-hk/plutus/issues/3546
+  -- "contract continuity" as described in the EUTXO paper. While we do have a
+  -- fix for the 'runStep' handling now, the current version of plutus does
+  -- forge a given 'ThreadToken' upon 'runInitialise' now.. which is not what we
+  -- want as we need additional tokens being forged as well (see 'watchInit').
   SM.mkStateMachine Nothing hydraTransition isFinal
  where
   isFinal Final{} = True
