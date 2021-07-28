@@ -11,16 +11,14 @@ import Hydra.Prelude
 import qualified Data.Aeson as Aeson
 import qualified Data.List as List
 import qualified Data.Set as Set
-import Hydra.Chain (OnChainTx (AbortTx, CollectComTx))
+import Hydra.Chain (HeadParameters (HeadParameters), OnChainTx (AbortTx, CollectComTx))
 import Hydra.ClientInput (ClientInput (..))
 import Hydra.HeadLogic (
   CoordinatedHeadState (..),
   Effect (ClientEffect, Delay, NetworkEffect),
   Environment (..),
   Event (..),
-  HeadParameters (..),
   HeadState (..),
-  HeadStatus (..),
   LogicError (..),
   Outcome (..),
   SnapshotStrategy (..),
@@ -56,6 +54,7 @@ spec = describe "Hydra Coordinated Head Protocol" $ do
           { party = 2
           , signingKey = 2
           , otherParties = [1, 3]
+          , contestationPeriod = 42
           , snapshotStrategy = NoSnapshots
           }
 
@@ -66,6 +65,7 @@ spec = describe "Hydra Coordinated Head Protocol" $ do
               { party
               , signingKey
               , otherParties = List.delete party threeParties
+              , contestationPeriod = 42
               , snapshotStrategy = SnapshotAfterEachTx
               }
 
@@ -280,45 +280,30 @@ isAckSn = \case
 
 inInitialState :: [Party] -> HeadState SimpleTx
 inInitialState parties =
-  HeadState
-    { headStatus = InitialState (Set.fromList parties) mempty
-    , headParameters =
-        HeadParameters
-          { contestationPeriod = 42
-          , parties
-          }
-    }
+  InitialState parameters (Set.fromList parties) mempty
+ where
+  parameters = HeadParameters 42 parties
 
 inOpenState ::
   [Party] ->
   Ledger tx ->
   HeadState tx
 inOpenState parties Ledger{initUTxO} =
-  let u0 = initUTxO
-      snapshot0 = Snapshot 0 u0 mempty
-   in HeadState
-        { headStatus = OpenState $ CoordinatedHeadState u0 mempty snapshot0 Nothing
-        , headParameters =
-            HeadParameters
-              { contestationPeriod = 42
-              , parties
-              }
-        }
+  OpenState parameters $ CoordinatedHeadState u0 mempty snapshot0 Nothing
+ where
+  u0 = initUTxO
+  snapshot0 = Snapshot 0 u0 mempty
+  parameters = HeadParameters 42 parties
 
 inClosedState :: [Party] -> HeadState SimpleTx
 inClosedState parties =
-  HeadState
-    { headStatus = ClosedState mempty
-    , headParameters =
-        HeadParameters
-          { contestationPeriod = 42
-          , parties
-          }
-    }
+  ClosedState parameters mempty
+ where
+  parameters = HeadParameters 42 parties
 
 getConfirmedSnapshot :: HeadState tx -> Maybe (Snapshot tx)
-getConfirmedSnapshot HeadState{headStatus} = case headStatus of
-  OpenState CoordinatedHeadState{confirmedSnapshot} -> Just confirmedSnapshot
+getConfirmedSnapshot = \case
+  OpenState _ CoordinatedHeadState{confirmedSnapshot} -> Just confirmedSnapshot
   _ -> Nothing
 
 assertNewState :: Tx tx => Outcome tx -> IO (HeadState tx)
