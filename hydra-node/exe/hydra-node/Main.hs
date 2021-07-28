@@ -9,7 +9,7 @@ import Hydra.Chain.ZeroMQ (withMockChain)
 import Hydra.HeadLogic (
   Environment (party),
   Event (..),
-  createHeadState,
+  HeadState(ReadyState),
  )
 import qualified Hydra.Ledger.Simple as Ledger
 import Hydra.Logging (Verbosity (..), withTracer)
@@ -36,8 +36,7 @@ main = do
   withTracer verbosity $ \tracer' ->
     withMonitoring monitoringPort tracer' $ \tracer -> do
       eq <- createEventQueue
-      let headState = createHeadState 10
-      hh <- createHydraHead headState Ledger.simpleLedger
+      hh <- createHydraHead ReadyState Ledger.simpleLedger
       withMockChain (contramap MockChain tracer) mockChainPorts (putEvent eq . OnChainEvent) $ \oc ->
         withNetwork (contramap Network tracer) (party env) host port peers (putEvent eq . NetworkEvent) $ \hn ->
           withAPIServer apiHost apiPort (contramap APIServer tracer) (putEvent eq . ClientEvent) $ \sendOutput ->

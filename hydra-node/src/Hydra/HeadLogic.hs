@@ -8,7 +8,7 @@ import Hydra.Prelude
 import Data.List (elemIndex, (\\))
 import qualified Data.Map.Strict as Map
 import qualified Data.Set as Set
-import Hydra.Chain (OnChainTx (..))
+import Hydra.Chain (ContestationPeriod, HeadParameters (..), OnChainTx (..))
 import Hydra.ClientInput (ClientInput (..))
 import Hydra.Ledger (
   Committed,
@@ -27,6 +27,7 @@ import Hydra.Ledger (
 import Hydra.Network.Message (Message (..))
 import Hydra.ServerOutput (ServerOutput (..))
 import Hydra.Snapshot (Snapshot (..), SnapshotNumber)
+import GHC.Records (getField)
 
 data Event tx
   = ClientEvent (ClientInput tx)
@@ -49,42 +50,17 @@ deriving instance Tx tx => Show (Effect tx)
 deriving instance Tx tx => ToJSON (Effect tx)
 deriving instance Tx tx => FromJSON (Effect tx)
 
-data HeadState tx = HeadState
-  { headParameters :: HeadParameters
-  , headStatus :: HeadStatus tx
-  }
+data HeadState tx
+  = ReadyState
+  | InitialState HeadParameters PendingCommits (Committed tx)
+  | OpenState HeadParameters (CoordinatedHeadState tx)
+  | ClosedState HeadParameters (UTxO tx)
   deriving stock (Generic)
 
 deriving instance Tx tx => Eq (HeadState tx)
 deriving instance Tx tx => Show (HeadState tx)
 deriving instance Tx tx => ToJSON (HeadState tx)
 deriving instance Tx tx => FromJSON (HeadState tx)
-
--- | Contains at least the contestation period and other things.
-data HeadParameters = HeadParameters
-  { contestationPeriod :: DiffTime
-  , parties :: [Party]
-  }
-  deriving stock (Eq, Show, Generic)
-  deriving anyclass (ToJSON, FromJSON)
-
-type ContestationPeriod = DiffTime
-
-createHeadState :: ContestationPeriod -> HeadState tx
-createHeadState contestationPeriod =
-  HeadState (HeadParameters{contestationPeriod, parties = mempty}) ReadyState
-
-data HeadStatus tx
-  = ReadyState
-  | InitialState PendingCommits (Committed tx)
-  | OpenState (CoordinatedHeadState tx)
-  | ClosedState (UTxO tx)
-  deriving stock (Generic)
-
-deriving instance Tx tx => Eq (HeadStatus tx)
-deriving instance Tx tx => Show (HeadStatus tx)
-deriving instance Tx tx => ToJSON (HeadStatus tx)
-deriving instance Tx tx => FromJSON (HeadStatus tx)
 
 data CoordinatedHeadState tx = CoordinatedHeadState
   { seenUTxO :: UTxO tx
@@ -136,6 +112,8 @@ data Environment = Environment
     -- memory, i.e. have an 'Effect' for signing or so.
     signingKey :: SigningKey
   , otherParties :: [Party]
+  , -- | Configured 'T' to use when initiating a Head
+    contestationPeriod :: ContestationPeriod
   , snapshotStrategy :: SnapshotStrategy
   }
 
@@ -150,62 +128,58 @@ update ::
   HeadState tx ->
   Event tx ->
   Outcome tx
-update Environment{party, signingKey, otherParties, snapshotStrategy} ledger (HeadState parameters st) ev = case (st, ev) of
+update env@Environment{party, signingKey, otherParties, snapshotStrategy} ledger st ev = case (st, ev) of
   (ReadyState, ClientEvent Init) ->
-    newState ReadyState [OnChainEffect (InitTx $ party : otherParties)]
-  (_, OnChainEvent (InitTx parties)) ->
-    -- NOTE(SN): Eventually we won't be able to construct 'HeadParameters' from
-    -- the 'InitTx'
+    nextState ReadyState [OnChainEffect (InitTx parameters)]
+   where
+    parameters = HeadParameters (getField @"contestationPeriod" env) (party : otherParties)
+  (_, OnChainEvent (InitTx parameters@HeadParameters{parties})) ->
     NewState
-      ( HeadState
-          { headParameters = parameters{parties}
-          , headStatus = InitialState (Set.fromList parties) mempty
-          }
-      )
+      (InitialState parameters (Set.fromList parties) mempty)
       [ClientEffect $ ReadyToCommit parties]
   --
-  (InitialState remainingParties _, ClientEvent (Commit utxo))
+  (InitialState _ remainingParties _, ClientEvent (Commit utxo))
     | canCommit -> sameState [OnChainEffect (CommitTx party utxo)]
    where
     canCommit = party `Set.member` remainingParties
-  (InitialState remainingParties committed, OnChainEvent (CommitTx pt utxo)) ->
-    newState newHeadState $
+  (InitialState parameters remainingParties committed, OnChainEvent (CommitTx pt utxo)) ->
+    nextState newHeadState $
       [ClientEffect $ Committed pt utxo]
         <> [OnChainEffect $ CollectComTx collectedUtxo | canCollectCom]
    where
-    newHeadState = InitialState remainingParties' newCommitted
+    newHeadState = InitialState parameters remainingParties' newCommitted
     remainingParties' = Set.delete pt remainingParties
     newCommitted = Map.insert pt utxo committed
     canCollectCom = null remainingParties' && pt == party
     collectedUtxo = mconcat $ Map.elems newCommitted
-  (InitialState _ committed, ClientEvent GetUtxo) ->
+  (InitialState _ _ committed, ClientEvent GetUtxo) ->
     sameState [ClientEffect $ Utxo (mconcat $ Map.elems committed)]
-  (InitialState _ committed, ClientEvent Abort) ->
+  (InitialState _ _ committed, ClientEvent Abort) ->
     sameState [OnChainEffect $ AbortTx (mconcat $ Map.elems committed)]
   (_, OnChainEvent CommitTx{}) ->
     -- TODO: This should warn the user / client that something went _terribly_ wrong
     --       We shouldn't see any commit outside of the collecting state, if we do,
     --       there's an issue our logic or onChain layer.
     sameState []
-  (InitialState{}, OnChainEvent (CollectComTx utxo)) ->
+  (InitialState parameters _ _, OnChainEvent (CollectComTx utxo)) ->
     let u0 = utxo
-     in newState
-          (OpenState $ CoordinatedHeadState u0 mempty (Snapshot 0 u0 mempty) Nothing)
+     in nextState
+          (OpenState parameters $ CoordinatedHeadState u0 mempty (Snapshot 0 u0 mempty) Nothing)
           [ClientEffect $ HeadIsOpen u0]
   (InitialState{}, OnChainEvent (AbortTx utxo)) ->
-    newState ReadyState [ClientEffect $ HeadIsAborted utxo]
+    nextState ReadyState [ClientEffect $ HeadIsAborted utxo]
   --
-  (OpenState CoordinatedHeadState{confirmedSnapshot}, ClientEvent Close) ->
+  (OpenState parameters CoordinatedHeadState{confirmedSnapshot}, ClientEvent Close) ->
     sameState
       [ OnChainEffect (CloseTx confirmedSnapshot)
-      , Delay (contestationPeriod parameters) ShouldPostFanout
+      , Delay (getField @"contestationPeriod" parameters) ShouldPostFanout
       ]
   --
-  (OpenState CoordinatedHeadState{confirmedSnapshot}, ClientEvent GetUtxo) ->
+  (OpenState _ CoordinatedHeadState{confirmedSnapshot}, ClientEvent GetUtxo) ->
     sameState
       [ClientEffect $ Utxo (utxo confirmedSnapshot)]
   --
-  (OpenState CoordinatedHeadState{seenUTxO}, ClientEvent (NewTx tx)) ->
+  (OpenState _ CoordinatedHeadState{seenUTxO}, ClientEvent (NewTx tx)) ->
     -- NOTE: We deliberately do not perform any validation because:
     --
     --   (a) The validation is already done when handling ReqTx
@@ -218,19 +192,19 @@ update Environment{party, signingKey, otherParties, snapshotStrategy} ledger (He
       case canApply ledger seenUTxO tx of
         Valid -> TxValid tx
         Invalid _err -> TxInvalid tx
-  (OpenState headState@CoordinatedHeadState{confirmedSnapshot, seenTxs, seenUTxO}, NetworkEvent (ReqTx _ tx)) ->
+  (OpenState parameters headState@CoordinatedHeadState{confirmedSnapshot, seenTxs, seenUTxO}, NetworkEvent (ReqTx _ tx)) ->
     case applyTransactions ledger seenUTxO [tx] of
       Left _err -> Wait
       Right utxo' ->
         let sn' = number confirmedSnapshot + 1
             newSeenTxs = seenTxs <> [tx]
             snapshotEffects
-              | isLeader party sn' && snapshotStrategy == SnapshotAfterEachTx =
+              | isLeader parameters party sn' && snapshotStrategy == SnapshotAfterEachTx =
                 [Delay 0 DoSnapshot]
               | otherwise =
                 []
-         in newState (OpenState $ headState{seenTxs = newSeenTxs, seenUTxO = utxo'}) (ClientEffect (TxSeen tx) : snapshotEffects)
-  (OpenState CoordinatedHeadState{confirmedSnapshot, seenTxs, seenSnapshot}, DoSnapshot)
+         in nextState (OpenState parameters $ headState{seenTxs = newSeenTxs, seenUTxO = utxo'}) (ClientEffect (TxSeen tx) : snapshotEffects)
+  (OpenState _ CoordinatedHeadState{confirmedSnapshot, seenTxs, seenSnapshot}, DoSnapshot)
     | isNothing seenSnapshot ->
       let sn' = number confirmedSnapshot + 1
           effects
@@ -238,8 +212,8 @@ update Environment{party, signingKey, otherParties, snapshotStrategy} ledger (He
             | otherwise = []
        in sameState effects
     | otherwise -> Wait
-  (OpenState s@CoordinatedHeadState{confirmedSnapshot, seenSnapshot}, NetworkEvent (ReqSn otherParty sn txs))
-    | number confirmedSnapshot + 1 == sn && isLeader otherParty sn && isNothing seenSnapshot ->
+  (OpenState parameters s@CoordinatedHeadState{confirmedSnapshot, seenSnapshot}, NetworkEvent (ReqSn otherParty sn txs))
+    | number confirmedSnapshot + 1 == sn && isLeader parameters otherParty sn && isNothing seenSnapshot ->
       -- TODO: Verify the request is signed by (?) / comes from the leader
       -- (Can we prove a message comes from a given peer, without signature?)
       case applyTransactions ledger (utxo confirmedSnapshot) txs of
@@ -247,10 +221,10 @@ update Environment{party, signingKey, otherParties, snapshotStrategy} ledger (He
         Right u ->
           let nextSnapshot = Snapshot sn u txs
               snapshotSignature = sign signingKey nextSnapshot
-           in newState
-                (OpenState $ s{seenSnapshot = Just (nextSnapshot, mempty)})
+           in nextState
+                (OpenState parameters $ s{seenSnapshot = Just (nextSnapshot, mempty)})
                 [NetworkEffect $ AckSn party snapshotSignature sn]
-  (OpenState headState@CoordinatedHeadState{seenSnapshot, seenTxs}, NetworkEvent (AckSn otherParty snapshotSignature sn)) ->
+  (OpenState parameters headState@CoordinatedHeadState{seenSnapshot, seenTxs}, NetworkEvent (AckSn otherParty snapshotSignature sn)) ->
     case seenSnapshot of
       Nothing -> Wait
       Just (snapshot, sigs)
@@ -261,8 +235,8 @@ update Environment{party, signingKey, otherParties, snapshotStrategy} ledger (He
                 | otherwise = sigs
            in if sigs' == Set.fromList (parties parameters)
                 then
-                  newState
-                    ( OpenState $
+                  nextState
+                    ( OpenState parameters $
                         headState
                           { confirmedSnapshot = snapshot
                           , seenSnapshot = Nothing
@@ -271,8 +245,8 @@ update Environment{party, signingKey, otherParties, snapshotStrategy} ledger (He
                     )
                     [ClientEffect $ SnapshotConfirmed snapshot]
                 else
-                  newState
-                    ( OpenState $
+                  nextState
+                    ( OpenState parameters $
                         headState
                           { seenSnapshot = Just (snapshot, sigs')
                           }
@@ -280,7 +254,7 @@ update Environment{party, signingKey, otherParties, snapshotStrategy} ledger (He
                     []
       Just (snapshot, _) ->
         error $ "Received ack for unknown unconfirmed snapshot. Unconfirmed snapshot: " <> show (number snapshot) <> ", Requested snapshot: " <> show sn
-  (_, OnChainEvent (CloseTx snapshot)) ->
+  (OpenState parameters _, OnChainEvent (CloseTx snapshot)) ->
     -- TODO(1): Should check whether we want / can contest the close snapshot by
     --       comparing with our local state / utxo.
     --
@@ -288,18 +262,18 @@ update Environment{party, signingKey, otherParties, snapshotStrategy} ledger (He
     --
     --   a) Warn the user about a close tx outside of an open state
     --   b) Move to close state, using information from the close tx
-    newState
-      (ClosedState $ utxo snapshot)
-      [ClientEffect $ HeadIsClosed (contestationPeriod parameters) snapshot]
+    nextState
+      (ClosedState parameters $ utxo snapshot)
+      [ClientEffect $ HeadIsClosed (getField @"contestationPeriod" parameters) snapshot]
   --
   (_, OnChainEvent ContestTx{}) ->
     -- TODO: Handle contest tx
     sameState []
-  (ClosedState utxo, ShouldPostFanout) ->
+  (ClosedState _ utxo, ShouldPostFanout) ->
     sameState [OnChainEffect (FanoutTx utxo)]
   (_, OnChainEvent (FanoutTx utxo)) ->
     -- NOTE(SN): we might care if we are not in ClosedState
-    newState ReadyState [ClientEffect $ HeadIsFinalized utxo]
+    nextState ReadyState [ClientEffect $ HeadIsFinalized utxo]
   --
   (_, ClientEvent{}) ->
     sameState [ClientEffect CommandFailed]
@@ -308,14 +282,14 @@ update Environment{party, signingKey, otherParties, snapshotStrategy} ledger (He
   (_, NetworkEvent (Disconnected host)) ->
     sameState [ClientEffect $ PeerDisconnected host]
   _ ->
-    Error $ InvalidEvent ev (HeadState parameters st)
+    Error $ InvalidEvent ev st
  where
-  newState s = NewState (HeadState parameters s)
+  nextState s = NewState s
 
-  sameState = newState st
+  sameState = nextState st
 
-  isLeader :: Party -> SnapshotNumber -> Bool
-  isLeader p _sn =
+  isLeader :: HeadParameters -> Party -> SnapshotNumber -> Bool
+  isLeader parameters p _sn =
     case p `elemIndex` parties parameters of
       Just i -> i == 0
       _ -> False

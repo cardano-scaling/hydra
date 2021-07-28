@@ -7,6 +7,17 @@ import Control.Monad.Class.MonadThrow (MonadThrow)
 import Data.Aeson (FromJSON, ToJSON)
 import Hydra.Ledger (Party, Tx, UTxO)
 import Hydra.Snapshot (Snapshot)
+import Data.Time (DiffTime)
+
+-- | Contains the head's parameters as established in the initial transaction.
+data HeadParameters = HeadParameters
+  { contestationPeriod :: DiffTime
+  , parties :: [Party] -- NOTE(SN): The order of this list is important for leader selection.
+  }
+  deriving stock (Eq, Read, Show, Generic)
+  deriving anyclass (ToJSON, FromJSON)
+
+type ContestationPeriod = DiffTime
 
 -- NOTE(SN): Might not be symmetric in a real chain client, i.e. posting
 -- transactions could be parameterized using such data types, but they are not
@@ -14,7 +25,7 @@ import Hydra.Snapshot (Snapshot)
 -- REVIEW(SN): There is a similarly named type in plutus-ledger, so we might
 -- want to rename this
 data OnChainTx tx
-  = InitTx [Party] -- NOTE(SN): The order of this list is important for leader selection.
+  = InitTx HeadParameters
   | CommitTx Party (UTxO tx)
   | AbortTx (UTxO tx)
   | CollectComTx (UTxO tx)

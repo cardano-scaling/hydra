@@ -8,7 +8,7 @@ import Control.Monad.Class.MonadSay (say)
 import Data.Aeson (Result (Error, Success), eitherDecodeStrict)
 import Data.Aeson.Types (fromJSON)
 import qualified Data.Map as Map
-import Hydra.Chain (Chain (Chain, postTx), OnChainTx (InitTx), ChainComponent)
+import Hydra.Chain (Chain (Chain, postTx), ChainComponent, HeadParameters (..), OnChainTx (InitTx))
 import Hydra.Contract.PAB (PABContract (GetUtxos, Setup, WatchInit))
 import Hydra.Ledger (Party, Tx)
 import Hydra.Logging (Tracer)
@@ -52,7 +52,7 @@ withExternalPAB walletId _tracer callback action = do
       action $ Chain{postTx = postTx}
  where
   postTx = \case
-    InitTx parties -> do
+    InitTx HeadParameters{parties} -> do
       cid <- activateContract Setup wallet
       postInitTx cid $
         PostInitParams
@@ -128,8 +128,9 @@ initTxSubscriber wallet callback = do
             Nothing -> pure ()
             Just (parties :: [Party]) -> do
               say $ "Observed Init tx with datums (parties): " ++ show parties
-              -- TODO(SN): pack hydra verification keys into metadata and callback with these
-              callback $ InitTx parties
+              -- TODO(SN): pack hydra verification keys and contestation period
+              -- into metadata and callback with these
+              callback $ InitTx (HeadParameters 42 parties)
       Right _ -> pure ()
       Left err -> say $ "error decoding msg: " <> show err
 

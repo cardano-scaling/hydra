@@ -23,8 +23,7 @@ import Hydra.HeadLogic (
   Effect (ClientEffect),
   Environment (..),
   Event (ClientEvent),
-  SnapshotStrategy (..),
-  createHeadState,
+  SnapshotStrategy (..), HeadState (ReadyState)
  )
 import Hydra.Ledger (Party, SigningKey, Tx, deriveParty)
 import Hydra.Ledger.Simple (SimpleTx (..), aValidTx, simpleLedger, utxoRef, utxoRefs)
@@ -416,11 +415,11 @@ withHydraNode signingKey otherParties snapshotStrategy connectToChain action = d
             { party
             , signingKey
             , otherParties
+            , contestationPeriod = testContestationPeriod
             , snapshotStrategy
             }
     eq <- createEventQueue
-    let headState = createHeadState testContestationPeriod
-    hh <- createHydraHead headState simpleLedger
+    hh <- createHydraHead ReadyState simpleLedger
     let hn' = Network{broadcast = const $ pure ()}
     let node =
           HydraNode

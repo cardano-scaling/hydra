@@ -7,7 +7,7 @@ import Hydra.Prelude
 
 import Cardano.Crypto.DSIGN (DSIGNAlgorithm (deriveVerKeyDSIGN), MockDSIGN, SignKeyDSIGN, VerKeyDSIGN)
 import Control.Concurrent (newEmptyMVar, putMVar, takeMVar)
-import Hydra.Chain (Chain (..), OnChainTx (InitTx))
+import Hydra.Chain (Chain (..), OnChainTx (InitTx), HeadParameters (HeadParameters, contestationPeriod))
 import Hydra.Chain.ExternalPAB (withExternalPAB)
 import Hydra.Ledger (Party (UnsafeParty))
 import Hydra.Ledger.Simple (SimpleTx)
@@ -28,9 +28,10 @@ spec =
           -- hard-coded in 'withExternalPAB'!
           withExternalPAB @SimpleTx 1 nullTracer (putMVar calledBack) $ \_ ->
             withExternalPAB 2 nullTracer (const $ pure ()) $ \Chain{postTx} -> do
-              let parties = [alice, bob, carol]
-              postTx $ InitTx @SimpleTx parties
-              takeMVar calledBack `shouldReturn` InitTx parties
+              let parameters = HeadParameters 42 [alice, bob, carol]
+              -- HACK(SN): contestationPeriod = 42 is currently hard-coded!
+              postTx $ InitTx @SimpleTx parameters
+              takeMVar calledBack `shouldReturn` InitTx parameters
 
 alice, bob, carol :: Party
 alice = UnsafeParty aliceVk
