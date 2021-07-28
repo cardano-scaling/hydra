@@ -60,6 +60,20 @@ deriving instance Tx tx => Show (HeadState tx)
 deriving instance Tx tx => ToJSON (HeadState tx)
 deriving instance Tx tx => FromJSON (HeadState tx)
 
+-- | Contains at least the contestation period and other things.
+data HeadParameters = HeadParameters
+  { contestationPeriod :: DiffTime
+  , parties :: [Party]
+  }
+  deriving stock (Eq, Show, Generic)
+  deriving anyclass (ToJSON, FromJSON)
+
+type ContestationPeriod = DiffTime
+
+createHeadState :: ContestationPeriod -> HeadState tx
+createHeadState contestationPeriod =
+  HeadState (HeadParameters{contestationPeriod, parties = mempty}) ReadyState
+
 data HeadStatus tx
   = ReadyState
   | InitialState PendingCommits (Committed tx)
@@ -88,22 +102,9 @@ deriving instance Tx tx => FromJSON (CoordinatedHeadState tx)
 
 type PendingCommits = Set Party
 
--- | Contains at least the contestation period and other things.
-data HeadParameters = HeadParameters
-  { contestationPeriod :: DiffTime
-  , parties :: [Party]
-  }
-  deriving stock (Eq, Show, Generic)
-  deriving anyclass (ToJSON, FromJSON)
-
 -- | Decides if snapshots should be done, or not.
 data SnapshotStrategy = NoSnapshots | SnapshotAfterEachTx
   deriving (Eq)
-
--- | Assume: We know the party members and their verification keys. These need
--- to be exchanged somehow, eventually.
-createHeadState :: [Party] -> HeadParameters -> HeadState tx
-createHeadState _ parameters = HeadState parameters ReadyState
 
 -- | Preliminary type for collecting errors occurring during 'update'. Might
 -- make sense to merge this (back) into 'Outcome'.
