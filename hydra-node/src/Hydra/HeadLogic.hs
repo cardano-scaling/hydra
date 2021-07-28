@@ -1,3 +1,4 @@
+{-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE UndecidableInstances #-}
 
@@ -8,6 +9,7 @@ import Hydra.Prelude
 import Data.List (elemIndex, (\\))
 import qualified Data.Map.Strict as Map
 import qualified Data.Set as Set
+import GHC.Records (getField)
 import Hydra.Chain (ContestationPeriod, HeadParameters (..), OnChainTx (..))
 import Hydra.ClientInput (ClientInput (..))
 import Hydra.Ledger (
@@ -27,7 +29,6 @@ import Hydra.Ledger (
 import Hydra.Network.Message (Message (..))
 import Hydra.ServerOutput (ServerOutput (..))
 import Hydra.Snapshot (Snapshot (..), SnapshotNumber)
-import GHC.Records (getField)
 
 data Event tx
   = ClientEvent (ClientInput tx)
@@ -129,10 +130,15 @@ update ::
   Event tx ->
   Outcome tx
 update env@Environment{party, signingKey, otherParties, snapshotStrategy} ledger st ev = case (st, ev) of
+  -- TODO(SN) at least contestation period could be easily moved into the 'Init' client input
   (ReadyState, ClientEvent Init) ->
     nextState ReadyState [OnChainEffect (InitTx parameters)]
    where
-    parameters = HeadParameters (getField @"contestationPeriod" env) (party : otherParties)
+    parameters =
+      HeadParameters
+        { contestationPeriod = getField @"contestationPeriod" env
+        , parties = party : otherParties
+        }
   (_, OnChainEvent (InitTx parameters@HeadParameters{parties})) ->
     NewState
       (InitialState parameters (Set.fromList parties) mempty)
@@ -169,10 +175,10 @@ update env@Environment{party, signingKey, otherParties, snapshotStrategy} ledger
   (InitialState{}, OnChainEvent (AbortTx utxo)) ->
     nextState ReadyState [ClientEffect $ HeadIsAborted utxo]
   --
-  (OpenState parameters CoordinatedHeadState{confirmedSnapshot}, ClientEvent Close) ->
+  (OpenState HeadParameters{contestationPeriod} CoordinatedHeadState{confirmedSnapshot}, ClientEvent Close) ->
     sameState
       [ OnChainEffect (CloseTx confirmedSnapshot)
-      , Delay (getField @"contestationPeriod" parameters) ShouldPostFanout
+      , Delay contestationPeriod ShouldPostFanout
       ]
   --
   (OpenState _ CoordinatedHeadState{confirmedSnapshot}, ClientEvent GetUtxo) ->
@@ -254,7 +260,7 @@ update env@Environment{party, signingKey, otherParties, snapshotStrategy} ledger
                     []
       Just (snapshot, _) ->
         error $ "Received ack for unknown unconfirmed snapshot. Unconfirmed snapshot: " <> show (number snapshot) <> ", Requested snapshot: " <> show sn
-  (OpenState parameters _, OnChainEvent (CloseTx snapshot)) ->
+  (OpenState parameters@HeadParameters{contestationPeriod} _, OnChainEvent (CloseTx snapshot)) ->
     -- TODO(1): Should check whether we want / can contest the close snapshot by
     --       comparing with our local state / utxo.
     --
@@ -264,7 +270,7 @@ update env@Environment{party, signingKey, otherParties, snapshotStrategy} ledger
     --   b) Move to close state, using information from the close tx
     nextState
       (ClosedState parameters $ utxo snapshot)
-      [ClientEffect $ HeadIsClosed (getField @"contestationPeriod" parameters) snapshot]
+      [ClientEffect $ HeadIsClosed contestationPeriod snapshot]
   --
   (_, OnChainEvent ContestTx{}) ->
     -- TODO: Handle contest tx
