@@ -17,7 +17,7 @@ import Plutus.Contract (Contract, HasEndpoint)
 import Plutus.Trace.Effects.RunContract (ContractConstraints, RunContract)
 import Plutus.Trace.Effects.Waiting (Waiting)
 import Plutus.Trace.Emulator.Types (ContractHandle, UserThreadMsg (..), walletInstanceTag)
-import PlutusTx (CompiledCode, IsData (..), getPir)
+import PlutusTx (CompiledCode, ToData (..), getPir)
 import Prettyprinter (pretty)
 import Test.Tasty (TestTree)
 import Test.Tasty.Golden (goldenVsString)
@@ -44,7 +44,7 @@ import qualified Wallet.Emulator.Folds as Folds
 --
 
 -- | Check that the given script address has some `DatumHash`.
-datumAtAddress :: IsData a => Address -> a -> TracePredicate
+datumAtAddress :: ToData a => Address -> a -> TracePredicate
 datumAtAddress address expected =
   flip postMapM (L.generalize $ Folds.utxoAtAddress address) $ \utxo -> do
     let datums = findAllDatums utxo

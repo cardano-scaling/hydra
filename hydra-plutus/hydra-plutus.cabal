@@ -88,21 +88,27 @@ library
       Hydra.Contract.PAB
   hs-source-dirs: src
   build-depends:
-      aeson,
-      base,
-      cardano-crypto-class,
-      containers,
-      hydra-prelude,
-      lens,
-      playground-common,
-      plutus-core,
-      plutus-contract,
-      plutus-tx,
-      plutus-ledger,
-      plutus-tx-plugin,
-      plutus-use-cases,
-      prettyprinter,
-      template-haskell
+      aeson
+    , base
+    , cardano-crypto-class
+    , containers
+    , directory
+    , freer-extras
+    , freer-simple
+    , hydra-prelude
+    , lens
+    , playground-common
+    , playground-common
+    , plutus-contract
+    , plutus-core
+    , plutus-ledger
+    , plutus-pab
+    , plutus-tx
+    , plutus-tx-plugin
+    , plutus-use-cases
+    , prettyprinter
+    , template-haskell
+    , text
 
   if flag(defer-plutus-plugin-errors)
       ghc-options: -fplugin-opt PlutusTx.Plugin:defer-errors
@@ -117,28 +123,28 @@ test-suite hydra-plutus-test
       Hydra.ContractModelTest
       Hydra.Test.Utils
   build-depends:
-      base >=4.9 && <5,
-      containers,
-      foldl,
-      freer-extras,
-      freer-simple,
-      hydra-plutus,
-      hydra-prelude,
-      lens,
-      plutus-contract,
-      plutus-core,
-      plutus-ledger,
-      plutus-tx,
-      plutus-tx-plugin,
-      prettyprinter,
-      QuickCheck,
-      streaming,
-      tasty,
-      tasty-expected-failure,
-      tasty-golden,
-      tasty-hunit,
-      tasty-quickcheck,
-      text
+      base >=4.9 && <5
+    , containers
+    , foldl
+    , freer-extras
+    , freer-simple
+    , hydra-plutus
+    , hydra-prelude
+    , lens
+    , plutus-contract
+    , plutus-core
+    , plutus-ledger
+    , plutus-tx
+    , plutus-tx-plugin
+    , prettyprinter
+    , QuickCheck
+    , streaming
+    , tasty
+    , tasty-expected-failure
+    , tasty-golden
+    , tasty-hunit
+    , tasty-quickcheck
+    , text
 
 executable hydra-pab
   import: project-config
@@ -147,13 +153,13 @@ executable hydra-pab
   build-depends:
       aeson
     , base
-    , cardano-prelude
     , data-default
     , containers
     , directory
     , freer-extras
     , freer-simple
     , hydra-plutus
+    , hydra-prelude
     , optparse-applicative
     , plutus-contract
     , plutus-ledger
