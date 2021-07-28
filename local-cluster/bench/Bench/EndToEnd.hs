@@ -17,7 +17,7 @@ import Control.Monad.Class.MonadSTM (
   modifyTVar,
   newTVarIO,
  )
-import Data.Aeson (Value, (.=), encodeFile)
+import Data.Aeson (Value, encodeFile, (.=))
 import Data.Aeson.Lens (key, _Array, _Number)
 import qualified Data.Map as Map
 import Data.Scientific (floatingOrInteger)
@@ -66,8 +66,8 @@ bench workDir txs = do
           withHydraNode tracer workDir chainPorts 2 bobSk [aliceVk, carolVk] $ \n2 ->
             withHydraNode tracer workDir chainPorts 3 carolSk [aliceVk, bobVk] $ \n3 -> do
               waitForNodesConnected tracer [n1, n2, n3]
-              let contestationPeriod = 10 -- TODO: Should be part of init
-              send n1 $ input "init" []
+              let contestationPeriod = 10 :: Natural
+              send n1 $ input "init" ["contestationPeriod" .= contestationPeriod]
               waitFor tracer 3 [n1, n2, n3] $
                 output "readyToCommit" ["parties" .= [int 10, 20, 30]]
               send n1 $ input "commit" ["utxo" .= [int 1]]

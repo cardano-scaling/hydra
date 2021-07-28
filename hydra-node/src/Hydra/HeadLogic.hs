@@ -9,8 +9,7 @@ import Hydra.Prelude
 import Data.List (elemIndex, (\\))
 import qualified Data.Map.Strict as Map
 import qualified Data.Set as Set
-import GHC.Records (getField)
-import Hydra.Chain (ContestationPeriod, HeadParameters (..), OnChainTx (..))
+import Hydra.Chain (HeadParameters (..), OnChainTx (..))
 import Hydra.ClientInput (ClientInput (..))
 import Hydra.Ledger (
   Committed,
@@ -113,8 +112,6 @@ data Environment = Environment
     -- memory, i.e. have an 'Effect' for signing or so.
     signingKey :: SigningKey
   , otherParties :: [Party]
-  , -- | Configured 'T' to use when initiating a Head
-    contestationPeriod :: ContestationPeriod
   , snapshotStrategy :: SnapshotStrategy
   }
 
@@ -129,14 +126,14 @@ update ::
   HeadState tx ->
   Event tx ->
   Outcome tx
-update env@Environment{party, signingKey, otherParties, snapshotStrategy} ledger st ev = case (st, ev) of
+update Environment{party, signingKey, otherParties, snapshotStrategy} ledger st ev = case (st, ev) of
   -- TODO(SN) at least contestation period could be easily moved into the 'Init' client input
-  (ReadyState, ClientEvent Init) ->
+  (ReadyState, ClientEvent (Init contestationPeriod)) ->
     nextState ReadyState [OnChainEffect (InitTx parameters)]
    where
     parameters =
       HeadParameters
-        { contestationPeriod = getField @"contestationPeriod" env
+        { contestationPeriod
         , parties = party : otherParties
         }
   (_, OnChainEvent (InitTx parameters@HeadParameters{parties})) ->

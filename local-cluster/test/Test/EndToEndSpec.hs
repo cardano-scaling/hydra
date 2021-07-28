@@ -60,8 +60,8 @@ spec = around showLogsOnFailure $
               withHydraNode tracer tmpDir chainPorts 2 bobSk [aliceVk, carolVk] $ \n2 ->
                 withHydraNode tracer tmpDir chainPorts 3 carolSk [aliceVk, bobVk] $ \n3 -> do
                   waitForNodesConnected tracer [n1, n2, n3]
-                  let contestationPeriod = 10 -- TODO: Should be part of init
-                  send n1 $ input "init" []
+                  let contestationPeriod = 10 :: Natural
+                  send n1 $ input "init" ["contestationPeriod" .= contestationPeriod]
                   waitFor tracer 3 [n1, n2, n3] $
                     output "readyToCommit" ["parties" .= [int 10, 20, 30]]
                   send n1 $ input "commit" ["utxo" .= [int 1]]
@@ -111,7 +111,7 @@ spec = around showLogsOnFailure $
               withHydraNode tracer tmpDir mockPorts 2 bobSk [aliceVk, carolVk] $ \_n2 ->
                 withHydraNode tracer tmpDir mockPorts 3 carolSk [aliceVk, bobVk] $ \_n3 -> do
                   waitForNodesConnected tracer [n1]
-                  send n1 $ input "init" []
+                  send n1 $ input "init" ["contestationPeriod" .= int 10]
                   waitFor tracer 3 [n1] $ output "readyToCommit" ["parties" .= [int 10, 20, 30]]
                   metrics <- getMetrics n1
                   metrics `shouldSatisfy` ("hydra_head_events  4" `BS.isInfixOf`)

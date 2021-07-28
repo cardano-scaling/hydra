@@ -23,7 +23,8 @@ import Hydra.HeadLogic (
   Effect (ClientEffect),
   Environment (..),
   Event (ClientEvent),
-  SnapshotStrategy (..), HeadState (ReadyState)
+  HeadState (ReadyState),
+  SnapshotStrategy (..),
  )
 import Hydra.Ledger (Party, SigningKey, Tx, deriveParty)
 import Hydra.Ledger.Simple (SimpleTx (..), aValidTx, simpleLedger, utxoRef, utxoRefs)
@@ -63,13 +64,13 @@ spec = describe "Behavior of one ore more hydra nodes" $ do
       shouldRunInSim $ do
         chain <- simulatedChainAndNetwork
         withHydraNode 1 [] NoSnapshots chain $ \n ->
-          send n Init
+          send n (Init testContestationPeriod)
 
     it "accepts Commit after successful Init" $
       shouldRunInSim $ do
         chain <- simulatedChainAndNetwork
         withHydraNode 1 [] NoSnapshots chain $ \n1 -> do
-          send n1 Init
+          send n1 (Init testContestationPeriod)
           waitFor [n1] $ ReadyToCommit [1]
           send n1 (Commit (utxoRef 1))
           waitFor [n1] $ Committed 1 (utxoRef 1)
@@ -78,7 +79,7 @@ spec = describe "Behavior of one ore more hydra nodes" $ do
       shouldRunInSim $ do
         chain <- simulatedChainAndNetwork
         withHydraNode 1 [] NoSnapshots chain $ \n1 -> do
-          send n1 Init
+          send n1 (Init testContestationPeriod)
           waitFor [n1] $ ReadyToCommit [1]
           send n1 (Commit (utxoRef 1))
           waitFor [n1] $ Committed 1 (utxoRef 1)
@@ -90,7 +91,7 @@ spec = describe "Behavior of one ore more hydra nodes" $ do
       shouldRunInSim $ do
         chain <- simulatedChainAndNetwork
         withHydraNode 1 [] NoSnapshots chain $ \n1 -> do
-          send n1 Init
+          send n1 (Init testContestationPeriod)
           waitFor [n1] $ ReadyToCommit [1]
           send n1 (Commit (utxoRef 1))
           waitFor [n1] $ Committed 1 (utxoRef 1)
@@ -103,7 +104,7 @@ spec = describe "Behavior of one ore more hydra nodes" $ do
         shouldRunInSim $ do
           chain <- simulatedChainAndNetwork
           withHydraNode 1 [] NoSnapshots chain $ \n1 -> do
-            send n1 Init
+            send n1 (Init testContestationPeriod)
             waitFor [n1] $ ReadyToCommit [1]
             send n1 (Commit (utxoRef 1))
             waitFor [n1] $ Committed 1 (utxoRef 1)
@@ -119,7 +120,7 @@ spec = describe "Behavior of one ore more hydra nodes" $ do
         chain <- simulatedChainAndNetwork
         withHydraNode 1 [2] NoSnapshots chain $ \n1 ->
           withHydraNode 2 [1] NoSnapshots chain $ \n2 -> do
-            send n1 Init
+            send n1 (Init testContestationPeriod)
             waitFor [n1, n2] $ ReadyToCommit [1, 2]
 
             send n1 (Commit (utxoRef 1))
@@ -136,13 +137,13 @@ spec = describe "Behavior of one ore more hydra nodes" $ do
         chain <- simulatedChainAndNetwork
         withHydraNode 1 [2] NoSnapshots chain $ \n1 ->
           withHydraNode 2 [1] NoSnapshots chain $ \n2 -> do
-            send n1 Init
+            send n1 (Init testContestationPeriod)
             waitFor [n1, n2] $ ReadyToCommit [1, 2]
             send n1 (Commit (utxoRefs [1, 2]))
             waitFor [n1, n2] $ Committed 1 (utxoRefs [1, 2])
             send n2 Abort
             waitFor [n1, n2] $ HeadIsAborted (utxoRefs [1, 2])
-            send n1 Init
+            send n1 (Init testContestationPeriod)
             waitFor [n1, n2] $ ReadyToCommit [1, 2]
 
     it "cannot abort head when commits have been collected" $
@@ -150,7 +151,7 @@ spec = describe "Behavior of one ore more hydra nodes" $ do
         chain <- simulatedChainAndNetwork
         withHydraNode 1 [2] NoSnapshots chain $ \n1 ->
           withHydraNode 2 [1] NoSnapshots chain $ \n2 -> do
-            send n1 Init
+            send n1 (Init testContestationPeriod)
             waitFor [n1, n2] $ ReadyToCommit [1, 2]
             send n1 (Commit (utxoRef 1))
             send n2 (Commit (utxoRef 2))
@@ -165,7 +166,7 @@ spec = describe "Behavior of one ore more hydra nodes" $ do
         chain <- simulatedChainAndNetwork
         withHydraNode 1 [2] NoSnapshots chain $ \n1 ->
           withHydraNode 2 [1] NoSnapshots chain $ \n2 -> do
-            send n1 Init
+            send n1 (Init testContestationPeriod)
             waitFor [n1, n2] $ ReadyToCommit [1, 2]
 
             send n1 (Commit (utxoRef 1))
@@ -185,7 +186,7 @@ spec = describe "Behavior of one ore more hydra nodes" $ do
         chain <- simulatedChainAndNetwork
         withHydraNode 1 [2] SnapshotAfterEachTx chain $ \n1 ->
           withHydraNode 2 [1] NoSnapshots chain $ \n2 -> do
-            send n1 Init
+            send n1 (Init testContestationPeriod)
             waitFor [n1, n2] $ ReadyToCommit [1, 2]
             send n1 (Commit (utxoRef 1))
 
@@ -196,7 +197,7 @@ spec = describe "Behavior of one ore more hydra nodes" $ do
 
     describe "in an open head" $ do
       let openHead n1 n2 = do
-            send n1 Init
+            send n1 (Init testContestationPeriod)
             waitFor [n1, n2] $ ReadyToCommit [1, 2]
             send n1 (Commit (utxoRef 1))
             waitFor [n1, n2] $ Committed 1 (utxoRef 1)
@@ -302,20 +303,22 @@ spec = describe "Behavior of one ore more hydra nodes" $ do
       let result = runSimTrace $ do
             chain <- simulatedChainAndNetwork
             withHydraNode 1 [] NoSnapshots chain $ \n1 -> do
-              send n1 Init
+              send n1 (Init testContestationPeriod)
               waitFor [n1] $ ReadyToCommit [1]
               send n1 (Commit (utxoRef 1))
 
           logs = selectTraceEventsDynamic @_ @(HydraNodeLog SimpleTx) result
 
-      logs `shouldContain` [ProcessingEvent 1 (ClientEvent Init)]
-      logs `shouldContain` [ProcessedEvent 1 (ClientEvent Init)]
+      logs
+        `shouldContain` [ProcessingEvent 1 $ ClientEvent $ Init testContestationPeriod]
+      logs
+        `shouldContain` [ProcessedEvent 1 $ ClientEvent $ Init testContestationPeriod]
 
     it "traces handling of effects" $ do
       let result = runSimTrace $ do
             chain <- simulatedChainAndNetwork
             withHydraNode 1 [] NoSnapshots chain $ \n1 -> do
-              send n1 Init
+              send n1 (Init testContestationPeriod)
               waitFor [n1] $ ReadyToCommit [1]
               send n1 (Commit (utxoRef 1))
 
@@ -415,7 +418,6 @@ withHydraNode signingKey otherParties snapshotStrategy connectToChain action = d
             { party
             , signingKey
             , otherParties
-            , contestationPeriod = testContestationPeriod
             , snapshotStrategy
             }
     eq <- createEventQueue
