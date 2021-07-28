@@ -5,10 +5,10 @@ module Main where
 import Hydra.Prelude
 
 import Hydra.API.Server (withAPIServer)
+import Hydra.Chain.ZeroMQ (withMockChain)
 import Hydra.HeadLogic (
   Environment (party),
   Event (..),
-  HeadParameters (..),
   createHeadState,
  )
 import qualified Hydra.Ledger.Simple as Ledger
@@ -28,7 +28,6 @@ import Hydra.Node (
   runHydraNode,
  )
 import Hydra.Options (Options (..), parseHydraOptions)
-import Hydra.Chain.ZeroMQ (withMockChain)
 
 main :: IO ()
 main = do
@@ -37,8 +36,7 @@ main = do
   withTracer verbosity $ \tracer' ->
     withMonitoring monitoringPort tracer' $ \tracer -> do
       eq <- createEventQueue
-      -- XXX(SN): this is soo weird, [] and mempty are both `parties`
-      let headState = createHeadState [] (HeadParameters 10 mempty)
+      let headState = createHeadState 10
       hh <- createHydraHead headState Ledger.simpleLedger
       withMockChain (contramap MockChain tracer) mockChainPorts (putEvent eq . OnChainEvent) $ \oc ->
         withNetwork (contramap Network tracer) (party env) host port peers (putEvent eq . NetworkEvent) $ \hn ->

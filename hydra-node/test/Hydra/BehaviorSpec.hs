@@ -23,7 +23,6 @@ import Hydra.HeadLogic (
   Effect (ClientEffect),
   Environment (..),
   Event (ClientEvent),
-  HeadParameters (..),
   SnapshotStrategy (..),
   createHeadState,
  )
@@ -386,7 +385,7 @@ simulatedChainAndNetwork = do
 
   broadcast nodes msg = readTVarIO nodes >>= mapM_ (`handleMessage` msg)
 
--- NOTE(SN): Deliberately not configurable via 'startHydraNode'
+-- NOTE(SN): Deliberately not configurable via 'withHydraNode'
 testContestationPeriod :: DiffTime
 testContestationPeriod = 3600
 
@@ -420,7 +419,7 @@ withHydraNode signingKey otherParties snapshotStrategy connectToChain action = d
             , snapshotStrategy
             }
     eq <- createEventQueue
-    let headState = createHeadState [] (HeadParameters testContestationPeriod mempty)
+    let headState = createHeadState testContestationPeriod
     hh <- createHydraHead headState simpleLedger
     let hn' = Network{broadcast = const $ pure ()}
     let node =
