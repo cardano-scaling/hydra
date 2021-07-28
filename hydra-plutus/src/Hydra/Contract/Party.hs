@@ -29,9 +29,11 @@ instance FromJSON Party where
 instance ToSchema Party where
   toSchema = FormSchemaUnsupported "Party"
 
-instance PlutusTx.IsData Party where
+instance PlutusTx.ToData Party where
   toBuiltinData (UnsafeParty k) = toBuiltinData k
 
+instance PlutusTx.FromData Party where
   fromBuiltinData = fmap fromInteger . fromBuiltinData
 
+instance PlutusTx.UnsafeFromData Party where
   unsafeFromBuiltinData = fromInteger . unsafeFromBuiltinData

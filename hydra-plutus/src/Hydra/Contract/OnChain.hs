@@ -30,7 +30,7 @@ import PlutusPrelude (Generic, (>=>))
 import qualified PlutusTx
 import PlutusTx.AssocMap (Map)
 import qualified PlutusTx.AssocMap as Map
-import PlutusTx.IsData.Class (IsData (..))
+import PlutusTx.IsData.Class (ToData (..), fromBuiltinData)
 import Text.Show (Show)
 
 --
@@ -322,12 +322,12 @@ hydraMintingPolicy outRef =
 -- expected by the underlying script. So, save you some hours of debugging and
 -- always explicitly specify the source type when using this function,
 -- preferably using the data-family from the 'ValidatorTypes' instance.
-asDatum :: IsData a => a -> Datum
+asDatum :: ToData a => a -> Datum
 asDatum = Datum . toBuiltinData
 {-# INLINEABLE asDatum #-}
 
 -- | Always use with explicit type-annotation, See warnings on 'asDatum'.
-asRedeemer :: IsData a => a -> Redeemer
+asRedeemer :: ToData a => a -> Redeemer
 asRedeemer = Redeemer . toBuiltinData
 {-# INLINEABLE asRedeemer #-}
 
@@ -349,7 +349,7 @@ mustReimburse txOut =
 
 mustRunContract ::
   forall redeemer.
-  (IsData redeemer) =>
+  (ToData redeemer) =>
   ValidatorHash ->
   redeemer ->
   ScriptContext ->
