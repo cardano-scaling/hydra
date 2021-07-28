@@ -90,6 +90,7 @@ hydraStateMachine _threadToken =
   -- "contract continuity" as described in the EUTXO paper. Unfortunately we did
   -- not get this yet to work with 'runStep', or at least we were expecting the
   -- statemachine library would handle it for us.
+  -- https://github.com/input-output-hk/plutus/issues/3546
   SM.mkStateMachine Nothing hydraTransition isFinal
  where
   isFinal Final{} = True
@@ -164,7 +165,7 @@ setup = do
   -- NOTE: These are the cardano/chain keys to send PTs to
   InitParams{cardanoPubKeys, hydraParties} <- endpoint @"init" @InitParams
 
-  let stateThreadToken = (threadTokenName, 1) -- XXX: dry with above
+  let stateThreadToken = (threadTokenName, 1)
       participationTokens = map ((,1) . participationTokenName) cardanoPubKeys
       tokens = stateThreadToken : participationTokens
 
