@@ -98,13 +98,11 @@ hydraValidator HeadParameters{participants, policyId} s i ctx =
             Final
           amountPaid =
             lovelaceValueOf 0
-       in and
-            [ mustBeSignedByOneOf participants ctx
-            , all (mustBurnParty ctx policyId) participants
-            , checkScriptContext @(RedeemerType Hydra) @(DatumType Hydra)
-                (mustPayToTheScript newState amountPaid)
-                ctx
-            ]
+       in mustBeSignedByOneOf participants ctx
+            && all (mustBurnParty ctx policyId) participants
+            && checkScriptContext @(RedeemerType Hydra) @(DatumType Hydra)
+              (mustPayToTheScript newState amountPaid)
+              ctx
     _ ->
       False
  where
@@ -372,6 +370,7 @@ mustForwardParty ::
   Bool
 mustForwardParty ctx policyId vk =
   traceIfFalse "PT not spent" mustSpendToken
+  -- TODO(SN): mustProduceToken
  where
   info = scriptContextTxInfo ctx
 
