@@ -98,11 +98,13 @@ hydraValidator HeadParameters{participants, policyId} s i ctx =
             Final
           amountPaid =
             lovelaceValueOf 0
-       in mustBeSignedByOneOf participants ctx
-            && all (mustBurnParty ctx policyId) participants
-            && checkScriptContext @(RedeemerType Hydra) @(DatumType Hydra)
-              (mustPayToTheScript newState amountPaid)
-              ctx
+       in and
+            [ mustBeSignedByOneOf participants ctx
+            , all (mustBurnParty ctx policyId) participants
+            , checkScriptContext @(RedeemerType Hydra) @(DatumType Hydra)
+                (mustPayToTheScript newState amountPaid)
+                ctx
+            ]
     _ ->
       False
  where
@@ -370,12 +372,15 @@ mustForwardParty ::
   Bool
 mustForwardParty ctx policyId vk =
   traceIfFalse "PT not spent" mustSpendToken
-  -- TODO(SN): mustProduceToken
+    && traceIfFalse "PT not produced" mustProduceToken
  where
   info = scriptContextTxInfo ctx
 
   mustSpendToken =
-    assetClassValueOf (valueSpent info) participationToken >= 1
+    assetClassValueOf (valueSpent info) participationToken == 1
+
+  mustProduceToken =
+    assetClassValueOf (valueProduced info) participationToken == 1
 
   participationToken = assetClass (mpsSymbol policyId) (mkPartyName vk)
 {-# INLINEABLE mustForwardParty #-}
