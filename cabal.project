@@ -59,7 +59,7 @@ source-repository-package
     quickcheck-dynamic
     word-array
   tag: 35b1e41b162a5bae87955a86e5eea33535130ff9
-  --sha256: 0hhyv4n6mcqawh6q3aiisbnh0yjllsxjpbd9l6cl9qszddn8w9hj
+  --sha256: 0fl4cimcf6lk9h67psqzcsgw3gqnkdrhnf4v4mzf9nrs8hdr3j9c
 
 -- The following sections are copied from the 'plutus' repository cabal.project at the revision
 -- given above.
