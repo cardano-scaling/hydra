@@ -16,15 +16,13 @@ import Ledger.Constraints.TxConstraints (
   mustMintCurrency,
   mustPayToOtherScript,
   mustPayToTheScript,
-  mustProduceAtLeast,
-  mustSpendAtLeast,
   mustSpendPubKeyOutput,
   mustSpendScriptOutput,
  )
 import Ledger.Credential (Credential (..))
 import Ledger.Typed.Scripts (ValidatorTypes (..))
 import qualified Ledger.Typed.Scripts as Scripts
-import Ledger.Value (TokenName (..))
+import Ledger.Value (TokenName (..), assetClass, assetClassValueOf, mpsSymbol)
 import qualified Ledger.Value as Value
 import PlutusPrelude (Generic, (>=>))
 import qualified PlutusTx
@@ -88,11 +86,13 @@ hydraValidator HeadParameters{participants, policyId} s i ctx =
             Open committedOutputs
           amountPaid =
             foldMap txOutValue collectComUtxos
-        in mustBeSignedByOneOf participants ctx
-            && all (mustForwardParty ctx policyId) participants
-            && checkScriptContext @(RedeemerType Hydra) @(DatumType Hydra)
-              (mustPayToTheScript newState amountPaid)
-              ctx
+       in and
+            [ mustBeSignedByOneOf participants ctx
+            , all (mustForwardParty ctx policyId) participants
+            , checkScriptContext @(RedeemerType Hydra) @(DatumType Hydra)
+                (mustPayToTheScript newState amountPaid)
+                ctx
+            ]
     (Initial, Abort) ->
       let newState =
             Final
@@ -371,14 +371,18 @@ mustForwardParty ::
   PubKeyHash ->
   Bool
 mustForwardParty ctx policyId vk =
-  let participationToken = mkParty policyId vk
-   in checkScriptContext @() @()
-        ( mconcat
-            [ mustSpendAtLeast participationToken
-            , mustProduceAtLeast participationToken
-            ]
-        )
-        ctx
+  traceIfFalse "PT not spent" mustSpendToken
+    && traceIfFalse "PT not produced" mustProduceToken
+ where
+  info = scriptContextTxInfo ctx
+
+  mustSpendToken =
+    assetClassValueOf (valueSpent info) participationToken >= 1
+
+  mustProduceToken =
+    assetClassValueOf (valueProduced info) participationToken >= 1
+
+  participationToken = assetClass (mpsSymbol policyId) (mkPartyName vk)
 {-# INLINEABLE mustForwardParty #-}
 
 mustBurnParty ::
