@@ -372,15 +372,11 @@ mustForwardParty ::
   Bool
 mustForwardParty ctx policyId vk =
   traceIfFalse "PT not spent" mustSpendToken
-    && traceIfFalse "PT not produced" mustProduceToken
  where
   info = scriptContextTxInfo ctx
 
   mustSpendToken =
     assetClassValueOf (valueSpent info) participationToken >= 1
-
-  mustProduceToken =
-    assetClassValueOf (valueProduced info) participationToken >= 1
 
   participationToken = assetClass (mpsSymbol policyId) (mkPartyName vk)
 {-# INLINEABLE mustForwardParty #-}
