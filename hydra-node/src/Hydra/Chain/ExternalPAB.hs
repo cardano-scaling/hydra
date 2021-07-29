@@ -1,3 +1,4 @@
+{-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE EmptyDataDeriving #-}
 
 module Hydra.Chain.ExternalPAB where
@@ -8,7 +9,7 @@ import Control.Monad.Class.MonadSay (say)
 import Data.Aeson (Result (Error, Success), eitherDecodeStrict)
 import Data.Aeson.Types (fromJSON)
 import qualified Data.Map as Map
-import Hydra.Chain (Chain (Chain, postTx), ChainComponent, HeadParameters (..), OnChainTx (InitTx))
+import Hydra.Chain (Chain (Chain, postTx), ChainComponent, ContestationPeriod, HeadParameters (..), OnChainTx (InitTx))
 import Hydra.Contract.PAB (PABContract (GetUtxos, Setup, WatchInit))
 import Hydra.Ledger (Party, Tx)
 import Hydra.Logging (Tracer)
@@ -52,11 +53,12 @@ withExternalPAB walletId _tracer callback action = do
       action $ Chain{postTx = postTx}
  where
   postTx = \case
-    InitTx HeadParameters{parties} -> do
+    InitTx HeadParameters{contestationPeriod, parties} -> do
       cid <- activateContract Setup wallet
       postInitTx cid $
         PostInitParams
-          { cardanoPubKeys = pubKeyHash <$> pubKeys
+          { contestationPeriod
+          , cardanoPubKeys = pubKeyHash <$> pubKeys
           , hydraParties = parties
           }
     tx -> error $ "should post " <> show tx
@@ -84,11 +86,12 @@ activateContract contract wallet =
  where
   reqBody = ActivateContractRequest (show contract) wallet
 
--- XXX(SN): Not using the same type on both ends as we are having a too
--- complicated 'Party' type to be able to use it properly in plutus ('Lift' and
--- 'IsData' instances) This is relying on the same wire format on both ends!
+-- XXX(SN): Not using the same type on both ends as having a too complicated
+-- 'Party' type to be able to use it properly in plutus ('Lift' and 'IsData'
+-- instances), and this would also be annoying in the dependency management.
 data PostInitParams = PostInitParams
-  { cardanoPubKeys :: [PubKeyHash]
+  { contestationPeriod :: ContestationPeriod
+  , cardanoPubKeys :: [PubKeyHash]
   , hydraParties :: [Party]
   }
   deriving (Generic, ToJSON)
@@ -126,11 +129,10 @@ initTxSubscriber wallet callback = do
           Error err -> say $ "decoding error json: " <> show err
           Success res -> case getLast res of
             Nothing -> pure ()
-            Just (parties :: [Party]) -> do
-              say $ "Observed Init tx with datums (parties): " ++ show parties
-              -- TODO(SN): pack hydra verification keys and contestation period
-              -- into metadata and callback with these
-              callback $ InitTx (HeadParameters 42 parties)
+            Just ((contestationPeriod, parties) :: (ContestationPeriod, [Party])) -> do
+              -- TODO(SN): add tests for checking correspondence of json serialization
+              say $ "Observed Init tx with datum:" ++ show (contestationPeriod, parties)
+              callback $ InitTx (HeadParameters contestationPeriod parties)
       Right _ -> pure ()
       Left err -> say $ "error decoding msg: " <> show err
 

@@ -12,6 +12,7 @@ import Data.Aeson (FromJSON, ToJSON)
 import Data.Either (rights)
 import qualified Data.Map as Map
 import GHC.Generics (Generic)
+import Hydra.Contract.ContestationPeriod (ContestationPeriod)
 import Hydra.Contract.Party (Party)
 import Hydra.Prelude (Eq, Last (..), Show, String, show, uncurry, void)
 import Ledger (CurrencySymbol, PubKeyHash (..), TxOut (txOutValue), TxOutTx (txOutTxOut), Value, pubKeyAddress, pubKeyHash)
@@ -42,7 +43,7 @@ import PlutusTx.Prelude hiding (Eq)
 
 data State
   = Setup
-  | Initial [Party]
+  | Initial ContestationPeriod [Party]
   | Open
   | Final
   deriving stock (Generic, Show)
@@ -51,7 +52,7 @@ data State
 PlutusTx.unstableMakeIsData ''State
 
 data Input
-  = Init [(PubKeyHash, Value)] [Party]
+  = Init ContestationPeriod [(PubKeyHash, Value)] [Party]
   | CollectCom
   | Abort
   deriving (Generic, Show)
@@ -98,8 +99,8 @@ hydraStateMachine _threadToken =
 hydraTransition :: SM.State State -> Input -> Maybe (SM.TxConstraints SM.Void SM.Void, SM.State State)
 hydraTransition oldState input =
   case (SM.stateData oldState, input) of
-    (Setup, Init participationTokens parties) ->
-      Just (constraints, oldState{SM.stateData = Initial parties})
+    (Setup, Init contestationPeriod participationTokens parties) ->
+      Just (constraints, oldState{SM.stateData = Initial contestationPeriod parties})
      where
       constraints = foldMap (uncurry mustPayToPubKey) participationTokens
     _ -> Nothing
@@ -153,7 +154,8 @@ mkThreadToken symbol =
 -- participants (people commiting UTxOs) and posting transaction in the head
 -- are different
 data InitParams = InitParams
-  { cardanoPubKeys :: [PubKeyHash]
+  { contestationPeriod :: ContestationPeriod
+  , cardanoPubKeys :: [PubKeyHash]
   , hydraParties :: [Party]
   }
   deriving (Generic, FromJSON, ToJSON)
@@ -161,7 +163,8 @@ data InitParams = InitParams
 setup :: Contract () (Endpoint "init" InitParams) HydraPlutusError ()
 setup = do
   -- NOTE: These are the cardano/chain keys to send PTs to
-  InitParams{cardanoPubKeys, hydraParties} <- endpoint @"init" @InitParams
+  InitParams{contestationPeriod, cardanoPubKeys, hydraParties}
+    <- endpoint @"init" @InitParams
 
   let stateThreadToken = (threadTokenName, 1)
       participationTokens = map ((,1) . participationTokenName) cardanoPubKeys
@@ -179,12 +182,12 @@ setup = do
   let client = machineClient threadToken
   void $ SM.runInitialise client Setup mempty
 
-  void $ SM.runStep client (Init (zip cardanoPubKeys tokenValues) hydraParties)
+  void $ SM.runStep client (Init contestationPeriod (zip cardanoPubKeys tokenValues) hydraParties)
   logInfo $ "Triggered Init " <> show @String cardanoPubKeys
 
 -- | Watch 'initialAddress' (with hard-coded parameters) and report all datums
 -- seen on each run.
-watchInit :: Contract (Last [Party]) Empty ContractError ()
+watchInit :: Contract (Last (ContestationPeriod, [Party])) Empty ContractError ()
 watchInit = do
   logInfo @String $ "watchInit: Looking for an init tx and it's parties"
   pubKey <- ownPubKey
@@ -199,7 +202,7 @@ watchInit = do
         let datums = txs >>= rights . fmap (lookupDatum token) . Map.elems . outputsMapFromTxForAddress (scriptAddress token)
         logInfo @String $ "found init tx(s) with datums: " <> show datums
         case datums of
-          [Initial parties] -> tell $ Last $ Just parties
+          [Initial contestationPeriod parties] -> tell $ Last $ Just (contestationPeriod, parties)
           _ -> pure ()
       _ -> pure ()
  where

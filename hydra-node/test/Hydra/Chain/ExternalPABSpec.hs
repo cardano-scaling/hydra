@@ -28,8 +28,7 @@ spec =
           -- hard-coded in 'withExternalPAB'!
           withExternalPAB @SimpleTx 1 nullTracer (putMVar calledBack) $ \_ ->
             withExternalPAB 2 nullTracer (const $ pure ()) $ \Chain{postTx} -> do
-              let parameters = HeadParameters 42 [alice, bob, carol]
-              -- HACK(SN): contestationPeriod = 42 is currently hard-coded!
+              let parameters = HeadParameters 100 [alice, bob, carol]
               postTx $ InitTx @SimpleTx parameters
               takeMVar calledBack `shouldReturn` InitTx parameters
 
