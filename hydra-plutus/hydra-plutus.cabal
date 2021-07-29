@@ -81,6 +81,7 @@ common project-config
 library
   import: project-config
   exposed-modules:
+      Hydra.Contract.ContestationPeriod
       Hydra.Contract.OnChain
       Hydra.Contract.OffChain
       Hydra.Contract.Party
@@ -109,6 +110,7 @@ library
     , prettyprinter
     , template-haskell
     , text
+    , time
 
   if flag(defer-plutus-plugin-errors)
       ghc-options: -fplugin-opt PlutusTx.Plugin:defer-errors
