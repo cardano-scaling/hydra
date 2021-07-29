@@ -7,18 +7,34 @@ import Hydra.Prelude
 
 import Cardano.Crypto.DSIGN (DSIGNAlgorithm (deriveVerKeyDSIGN), MockDSIGN, SignKeyDSIGN, VerKeyDSIGN)
 import Control.Concurrent (newEmptyMVar, putMVar, takeMVar)
-import Hydra.Chain (Chain (..), OnChainTx (InitTx), HeadParameters (HeadParameters, contestationPeriod))
-import Hydra.Chain.ExternalPAB (withExternalPAB)
+import qualified Data.Aeson as Aeson
+import Hydra.Chain (Chain (..), HeadParameters (HeadParameters, contestationPeriod), OnChainTx (InitTx))
+import Hydra.Chain.ExternalPAB (PostInitParams, withExternalPAB)
+import qualified Hydra.ContractSM as OnChain
 import Hydra.Ledger (Party (UnsafeParty))
 import Hydra.Ledger.Simple (SimpleTx)
 import Hydra.Logging (nullTracer)
 import System.Process (CreateProcess (std_in, std_out), StdStream (CreatePipe), proc, withCreateProcess)
 import Test.Hspec (shouldReturn)
 import Test.Hspec.Core.Spec (Spec, describe, it)
+import Test.Hspec.QuickCheck (prop)
+import Test.QuickCheck (counterexample, property)
 import Test.Util (failAfter)
 
 spec :: Spec
-spec =
+spec = do
+  -- We use slightly different types in off-chain and on-chain code, BUT, they
+  -- have identical wire formats. We use (JSON) serialization as a mean to turn
+  -- one into the other.
+  describe "OnChain / OffChain Serialization Roundtrips" $
+    prop "PostInitParams -> InitParams" $ \(params :: PostInitParams) ->
+      let bytes = Aeson.encode params
+       in counterexample (decodeUtf8 bytes) $ case Aeson.eitherDecode bytes of
+            Left e ->
+              counterexample ("Failed to decode: " <> show e) $ property False
+            Right (_ :: OnChain.InitParams) ->
+              property True
+
   describe "ExternalPAB" $ do
     it "publishes init tx using wallet 1 and observes it also" $ do
       failAfter 40 $

@@ -216,6 +216,7 @@ test-suite tests
     , hspec-junit-formatter
     , HUnit
     , hydra-node
+    , hydra-plutus
     , hydra-prelude
     , io-sim
     , io-classes

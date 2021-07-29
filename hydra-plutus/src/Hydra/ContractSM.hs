@@ -158,13 +158,13 @@ data InitParams = InitParams
   , cardanoPubKeys :: [PubKeyHash]
   , hydraParties :: [Party]
   }
-  deriving (Generic, FromJSON, ToJSON)
+  deriving (Show, Generic, FromJSON, ToJSON)
 
 setup :: Contract () (Endpoint "init" InitParams) HydraPlutusError ()
 setup = do
   -- NOTE: These are the cardano/chain keys to send PTs to
-  InitParams{contestationPeriod, cardanoPubKeys, hydraParties}
-    <- endpoint @"init" @InitParams
+  InitParams{contestationPeriod, cardanoPubKeys, hydraParties} <-
+    endpoint @"init" @InitParams
 
   let stateThreadToken = (threadTokenName, 1)
       participationTokens = map ((,1) . participationTokenName) cardanoPubKeys

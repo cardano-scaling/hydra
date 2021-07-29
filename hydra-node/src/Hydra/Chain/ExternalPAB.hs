@@ -94,7 +94,11 @@ data PostInitParams = PostInitParams
   , cardanoPubKeys :: [PubKeyHash]
   , hydraParties :: [Party]
   }
-  deriving (Generic, ToJSON)
+  deriving (Show, Generic, ToJSON)
+
+instance Arbitrary PostInitParams where
+  shrink = genericShrink
+  arbitrary = genericArbitrary
 
 -- TODO(SN): use MonadHttp, but clashes with MonadThrow
 postInitTx :: ContractInstanceId -> PostInitParams -> IO ()
