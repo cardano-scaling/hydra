@@ -10,12 +10,44 @@ import Cardano.Crypto.DSIGN (
   DSIGNAlgorithm (..),
   MockDSIGN,
   SigDSIGN (..),
+  SignKeyDSIGN,
+  VerKeyDSIGN (VerKeyMockDSIGN),
   signDSIGN,
  )
 import Cardano.Crypto.Util (SignableRepresentation)
-import Data.Aeson (withText)
+import Data.Aeson (FromJSONKey (..), ToJSONKey (..), withText)
 import Data.ByteString.Base16 (decodeBase16, encodeBase16)
-import Hydra.Contract.Party (SigningKey, Party (UnsafeParty))
+
+-- NOTE(MB): We probably want to move these common types somewhere else. Putting
+-- here to avoid circular dependencies with Hydra.Logic
+
+-- | Identifies a party in a Hydra head.
+newtype Party = UnsafeParty (VerKeyDSIGN MockDSIGN)
+  deriving stock (Eq, Generic)
+  deriving newtype (Show, Read, Num)
+
+deriving instance Read (VerKeyDSIGN MockDSIGN)
+
+instance Ord Party where
+  (UnsafeParty a) <= (UnsafeParty b) =
+    rawSerialiseVerKeyDSIGN a <= rawSerialiseVerKeyDSIGN b
+
+instance Arbitrary Party where
+  arbitrary = deriveParty . generateKey <$> arbitrary
+
+instance ToJSONKey Party
+instance ToJSON Party where
+  toJSON (UnsafeParty (VerKeyMockDSIGN i)) = toJSON i
+
+instance FromJSONKey Party
+instance FromJSON Party where
+  parseJSON = fmap fromInteger . parseJSON
+
+instance FromCBOR Party where
+  fromCBOR = UnsafeParty <$> fromCBOR
+
+instance ToCBOR Party where
+  toCBOR (UnsafeParty vk) = toCBOR vk
 
 newtype Signed a = UnsafeSigned (SigDSIGN MockDSIGN)
   deriving (Eq, Show)
@@ -40,6 +72,14 @@ instance Typeable a => FromCBOR (Signed a) where
 
 instance Typeable a => ToCBOR (Signed a) where
   toCBOR (UnsafeSigned sig) = toCBOR sig
+
+type SigningKey = SignKeyDSIGN MockDSIGN
+
+deriveParty :: SigningKey -> Party
+deriveParty = coerce . deriveVerKeyDSIGN
+
+generateKey :: Integer -> SigningKey
+generateKey = fromInteger
 
 sign :: SignableRepresentation a => SigningKey -> a -> Signed a
 sign signingKey signable = UnsafeSigned $ signDSIGN () signable signingKey

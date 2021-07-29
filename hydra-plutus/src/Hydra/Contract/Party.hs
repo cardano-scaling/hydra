@@ -2,8 +2,6 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeApplications #-}
-{-# OPTIONS_GHC -Wno-orphans #-}
-{-# OPTIONS_GHC -Wno-deferred-type-errors #-}
 
 module Hydra.Contract.Party where
 
@@ -11,55 +9,31 @@ import Hydra.Prelude hiding (init)
 
 import qualified PlutusTx
 import PlutusTx.IsData
-import Cardano.Crypto.DSIGN (VerKeyDSIGN (VerKeyMockDSIGN), MockDSIGN, DSIGNAlgorithm (rawSerialiseVerKeyDSIGN, SignKeyDSIGN, rawDeserialiseVerKeyDSIGN), deriveVerKeyDSIGN)
-import Data.Aeson (ToJSONKey, FromJSONKey)
+import Schema (FormSchema (..), ToSchema (..))
 
-type SigningKey = SignKeyDSIGN MockDSIGN
+-- TODO(SN): Copied party + json instances for deserializing in 'init' endpoint
+-- and we were struggling to define 'Lift' and 'IsData'
 
--- | Identifies a party in a Hydra head.
-newtype Party = UnsafeParty (VerKeyDSIGN MockDSIGN)
+newtype Party = UnsafeParty Integer -- (VerKeyDSIGN MockDSIGN)
   deriving stock (Eq, Generic)
-  deriving newtype (Show, Read, Num)
+  deriving newtype (Show, Num)
 
-deriving instance Read (VerKeyDSIGN MockDSIGN)
+PlutusTx.makeLift ''Party
 
-instance Ord Party where
-  (UnsafeParty a) <= (UnsafeParty b) =
-    rawSerialiseVerKeyDSIGN a <= rawSerialiseVerKeyDSIGN b
-
-instance Arbitrary Party where
-  arbitrary = deriveParty . generateKey <$> arbitrary
-
-instance ToJSONKey Party
 instance ToJSON Party where
-  toJSON (UnsafeParty (VerKeyMockDSIGN i)) = toJSON i
+  toJSON (UnsafeParty i) = toJSON i
 
-instance FromJSONKey Party
 instance FromJSON Party where
   parseJSON = fmap fromInteger . parseJSON
 
-instance FromCBOR Party where
-  fromCBOR = UnsafeParty <$> fromCBOR
-
-instance ToCBOR Party where
-  toCBOR (UnsafeParty vk) = toCBOR vk
+instance ToSchema Party where
+  toSchema = FormSchemaUnsupported "Party"
 
 instance PlutusTx.ToData Party where
-  toBuiltinData (UnsafeParty k) =
-    toBuiltinData $ rawSerialiseVerKeyDSIGN k
+  toBuiltinData (UnsafeParty k) = toBuiltinData k
 
 instance PlutusTx.FromData Party where
-  fromBuiltinData =
-    fromBuiltinData >=> fmap UnsafeParty . rawDeserialiseVerKeyDSIGN
+  fromBuiltinData = fmap fromInteger . fromBuiltinData
 
 instance PlutusTx.UnsafeFromData Party where
-  unsafeFromBuiltinData d =
-    case rawDeserialiseVerKeyDSIGN $ unsafeFromBuiltinData d of
-      Just k -> UnsafeParty k
-      Nothing -> error "not a VerKeyDSIGNKey"
-
-deriveParty :: SigningKey -> Party
-deriveParty = coerce . deriveVerKeyDSIGN
-
-generateKey :: Integer -> SigningKey
-generateKey = fromInteger
+  unsafeFromBuiltinData = fromInteger . unsafeFromBuiltinData

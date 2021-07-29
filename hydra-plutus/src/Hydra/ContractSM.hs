@@ -48,6 +48,7 @@ data State
   deriving stock (Generic, Show)
   deriving anyclass (FromJSON, ToJSON)
 
+PlutusTx.makeLift ''State
 PlutusTx.unstableMakeIsData ''State
 
 data Input
@@ -56,6 +57,7 @@ data Input
   | Abort
   deriving (Generic, Show)
 
+PlutusTx.makeLift ''Input
 PlutusTx.unstableMakeIsData ''Input
 
 data HydraPlutusError
