@@ -88,13 +88,11 @@ hydraValidator HeadParameters{participants, policyId} s i ctx =
             Open committedOutputs
           amountPaid =
             foldMap txOutValue collectComUtxos
-       in and
-            [ mustBeSignedByOneOf participants ctx
-            , all (mustForwardParty ctx policyId) participants
-            , checkScriptContext @(RedeemerType Hydra) @(DatumType Hydra)
-                (mustPayToTheScript newState amountPaid)
-                ctx
-            ]
+        in mustBeSignedByOneOf participants ctx
+            && all (mustForwardParty ctx policyId) participants
+            && checkScriptContext @(RedeemerType Hydra) @(DatumType Hydra)
+              (mustPayToTheScript newState amountPaid)
+              ctx
     (Initial, Abort) ->
       let newState =
             Final
