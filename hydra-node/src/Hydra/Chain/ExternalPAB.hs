@@ -86,7 +86,7 @@ activateContract contract wallet =
  where
   reqBody = ActivateContractRequest (show contract) wallet
 
--- XXX(SN): Not using the same type on both ends as having a too complicated
+-- NOTE(SN): Not using the same type on both ends as having a too complicated
 -- 'Party' type to be able to use it properly in plutus ('Lift' and 'IsData'
 -- instances), and this would also be annoying in the dependency management.
 data PostInitParams = PostInitParams
@@ -121,7 +121,8 @@ postInitTx cid params =
 data ActivateContractRequest = ActivateContractRequest {caID :: Text, caWallet :: Wallet}
   deriving (Generic, ToJSON)
 
--- TODO(SN): DRY subscribers
+-- TODO(SN): DRY subscribers and proper error handling
+
 initTxSubscriber :: Wallet -> (OnChainTx tx -> IO ()) -> IO ()
 initTxSubscriber wallet callback = do
   cid <- unContractInstanceId <$> activateContract WatchInit wallet
@@ -133,10 +134,9 @@ initTxSubscriber wallet callback = do
           Error err -> say $ "decoding error json: " <> show err
           Success res -> case getLast res of
             Nothing -> pure ()
-            Just ((contestationPeriod, parties) :: (ContestationPeriod, [Party])) -> do
-              -- TODO(SN): add tests for checking correspondence of json serialization
-              say $ "Observed Init tx with datum:" ++ show (contestationPeriod, parties)
-              callback $ InitTx (HeadParameters contestationPeriod parties)
+            Just (parameters :: HeadParameters) -> do
+              say $ "Observed Init tx with parameters:" ++ show parameters
+              callback $ InitTx parameters
       Right _ -> pure ()
       Left err -> say $ "error decoding msg: " <> show err
 

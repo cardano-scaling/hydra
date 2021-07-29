@@ -20,6 +20,10 @@ newtype Party = UnsafeParty Integer -- (VerKeyDSIGN MockDSIGN)
 
 PlutusTx.makeLift ''Party
 
+instance Arbitrary Party where
+  shrink = genericShrink
+  arbitrary = genericArbitrary
+
 instance ToJSON Party where
   toJSON (UnsafeParty i) = toJSON i
 

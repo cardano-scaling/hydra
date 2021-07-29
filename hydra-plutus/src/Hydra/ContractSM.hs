@@ -1,3 +1,4 @@
+{-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeApplications #-}
 {-# OPTIONS_GHC -fno-specialize #-}
@@ -6,15 +7,13 @@
 -- between Node and Chain
 module Hydra.ContractSM where
 
+import Hydra.Prelude hiding (State, find, fmap, foldMap, map, mapMaybe, mempty, pure, zip, ($), (&&), (+), (<$>), (<>), (==))
+import PlutusTx.Prelude hiding (Eq)
+
 import Control.Lens (makeClassyPrisms)
-import Control.Monad (forever)
-import Data.Aeson (FromJSON, ToJSON)
-import Data.Either (rights)
 import qualified Data.Map as Map
-import GHC.Generics (Generic)
 import Hydra.Contract.ContestationPeriod (ContestationPeriod)
 import Hydra.Contract.Party (Party)
-import Hydra.Prelude (Eq, Last (..), Show, String, show, uncurry, void)
 import Ledger (CurrencySymbol, PubKeyHash (..), TxOut (txOutValue), TxOutTx (txOutTxOut), Value, pubKeyAddress, pubKeyHash)
 import Ledger.AddressMap (outputsMapFromTxForAddress)
 import Ledger.Constraints (mustPayToPubKey)
@@ -39,7 +38,6 @@ import Plutus.Contract.StateMachine (StateMachine, StateMachineClient, WaitingRe
 import qualified Plutus.Contract.StateMachine as SM
 import qualified Plutus.Contracts.Currency as Currency
 import qualified PlutusTx
-import PlutusTx.Prelude hiding (Eq)
 
 data State
   = Setup
@@ -158,7 +156,7 @@ data InitParams = InitParams
   , cardanoPubKeys :: [PubKeyHash]
   , hydraParties :: [Party]
   }
-  deriving (Show, Generic, FromJSON, ToJSON)
+  deriving (Generic, Show, FromJSON, ToJSON)
 
 setup :: Contract () (Endpoint "init" InitParams) HydraPlutusError ()
 setup = do
@@ -185,9 +183,20 @@ setup = do
   void $ SM.runStep client (Init contestationPeriod (zip cardanoPubKeys tokenValues) hydraParties)
   logInfo $ "Triggered Init " <> show @String cardanoPubKeys
 
+-- | Parameters as they are available in the 'Initial' state.
+data InitialParams = InitialParams
+  { contestationPeriod :: ContestationPeriod
+  , parties :: [Party]
+  }
+  deriving (Generic, Show, FromJSON, ToJSON)
+
+instance Arbitrary InitialParams where
+  shrink = genericShrink
+  arbitrary = genericArbitrary
+
 -- | Watch 'initialAddress' (with hard-coded parameters) and report all datums
 -- seen on each run.
-watchInit :: Contract (Last (ContestationPeriod, [Party])) Empty ContractError ()
+watchInit :: Contract (Last InitialParams) Empty ContractError ()
 watchInit = do
   logInfo @String $ "watchInit: Looking for an init tx and it's parties"
   pubKey <- ownPubKey
@@ -202,7 +211,8 @@ watchInit = do
         let datums = txs >>= rights . fmap (lookupDatum token) . Map.elems . outputsMapFromTxForAddress (scriptAddress token)
         logInfo @String $ "found init tx(s) with datums: " <> show datums
         case datums of
-          [Initial contestationPeriod parties] -> tell $ Last $ Just (contestationPeriod, parties)
+          [Initial contestationPeriod parties] ->
+            tell . Last . Just $ InitialParams{contestationPeriod, parties}
           _ -> pure ()
       _ -> pure ()
  where

@@ -26,13 +26,21 @@ spec = do
   -- We use slightly different types in off-chain and on-chain code, BUT, they
   -- have identical wire formats. We use (JSON) serialization as a mean to turn
   -- one into the other.
-  describe "OnChain / OffChain Serialization Roundtrips" $
-    prop "PostInitParams -> InitParams" $ \(params :: PostInitParams) ->
+  describe "OffChain <-> OnChain Serialization" $ do
+    prop "PostInitParams -> Onchain.InitParams" $ \(params :: PostInitParams) ->
       let bytes = Aeson.encode params
        in counterexample (decodeUtf8 bytes) $ case Aeson.eitherDecode bytes of
             Left e ->
               counterexample ("Failed to decode: " <> show e) $ property False
             Right (_ :: OnChain.InitParams) ->
+              property True
+
+    prop "HeadParameters <- Onchain.InitialParams" $ \(params :: OnChain.InitialParams) ->
+      let bytes = Aeson.encode params
+       in counterexample (decodeUtf8 bytes) $ case Aeson.eitherDecode bytes of
+            Left e ->
+              counterexample ("Failed to decode: " <> show e) $ property False
+            Right (_ :: HeadParameters) ->
               property True
 
   describe "ExternalPAB" $ do

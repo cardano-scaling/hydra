@@ -14,6 +14,10 @@ newtype ContestationPeriod = UnsafeContestationPeriod {picoseconds :: Integer}
 
 PlutusTx.unstableMakeIsData ''ContestationPeriod
 
+instance Arbitrary ContestationPeriod where
+  shrink = genericShrink
+  arbitrary = genericArbitrary
+
 instance FromJSON ContestationPeriod where
   parseJSON =
     fmap (UnsafeContestationPeriod . diffTimeToPicoseconds) . parseJSON
