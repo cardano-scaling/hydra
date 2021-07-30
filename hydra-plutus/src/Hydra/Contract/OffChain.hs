@@ -89,27 +89,26 @@ init params@HeadParameters{participants, policy, policyId} = do
       { slMPS =
           Map.singleton policyId policy
       , slTypedValidator =
-          Just (hydraTypedValidator params)
+          Just OnChain.hydraTypedValidator
       }
 
   constraints =
-    let datumInitial = OnChain.mkDatumInitial (toOnChainHeadParameters params)
-     in mconcat
-          [ foldMap
-              ( \vk ->
-                  let participationToken = OnChain.mkParty policyId vk
-                   in mconcat
-                        [ mustPayToOtherScript
-                            (Scripts.validatorHash $ initialTypedValidator params)
-                            (asDatum @(DatumType OnChain.Initial) (datumInitial vk))
-                            participationToken
-                        , mustMintValue
-                            participationToken
-                        ]
-              )
-              participants
-          , mustPayToTheScript OnChain.Initial (lovelaceValueOf 0)
-          ]
+    mconcat
+      [ foldMap
+          ( \vk ->
+              let participationToken = OnChain.mkParty policyId vk
+               in mconcat
+                    [ mustPayToOtherScript
+                        OnChain.initialValidatorHash
+                        (asDatum @(DatumType OnChain.Initial) (datumInitial params vk))
+                        participationToken
+                    , mustMintValue
+                        participationToken
+                    ]
+          )
+          participants
+      , mustPayToTheScript (datumHydra params OnChain.Initial) (lovelaceValueOf 0)
+      ]
 
 -- To lock outputs for a Hydra head, the i-th head member will attach a commit
 -- transaction to the i-th output of the initial transaction.
@@ -124,28 +123,26 @@ commit params@HeadParameters{policy, policyId} = do
   (vk, toCommit) <- endpoint @"commit" @(PubKeyHash, (TxOutRef, TxOutTx))
   initial <-
     utxoAtWithDatum
-      (Scripts.validatorAddress $ initialTypedValidator params)
-      (asDatum @(DatumType OnChain.Initial) (datumInitial vk))
+      (Scripts.validatorAddress OnChain.initialTypedValidator)
+      (asDatum @(DatumType OnChain.Initial) (datumInitial params vk))
   void $
     submitTxConstraintsWith
       (lookups vk toCommit initial)
       (constraints vk toCommit initial)
  where
-  datumInitial = OnChain.mkDatumInitial (toOnChainHeadParameters params)
-
   lookups vk (ref, txOut) initial =
     mempty
       { slMPS =
           Map.singleton policyId policy
       , slTypedValidator =
-          Just (hydraTypedValidator params)
+          Just OnChain.hydraTypedValidator
       , slTxOutputs =
           initial <> Map.singleton ref txOut
       , slOtherScripts =
           Map.fromList
             [ (Scripts.validatorAddress script, Scripts.validatorScript script)
             | SomeTypedValidator script <-
-                [ SomeTypedValidator $ initialTypedValidator params
+                [ SomeTypedValidator OnChain.initialTypedValidator
                 ]
             ]
       , slOwnPubkey =
@@ -163,8 +160,8 @@ commit params@HeadParameters{policy, policyId} = do
               (Map.keys initial)
           , mustSpendPubKeyOutput ref
           , mustPayToOtherScript
-              (Scripts.validatorHash $ commitTypedValidator params)
-              (asDatum @(DatumType OnChain.Commit) (txOutTxOut txOut))
+              OnChain.commitValidatorHash
+              (asDatum @(DatumType OnChain.Commit) $ datumCommit params (txOutTxOut txOut))
               amount
           ]
 
@@ -188,8 +185,8 @@ collectCom ::
   Contract [OnChain.State] Schema e ()
 collectCom params@HeadParameters{participants, policy, policyId} = do
   (headMember, storedOutputs) <- endpoint @"collectCom" @(PubKeyHash, [TxOut])
-  commits <- utxoAt (Scripts.validatorAddress $ commitTypedValidator params)
-  stateMachine <- utxoAt (Scripts.validatorAddress $ hydraTypedValidator params)
+  commits <- utxoAt (Scripts.validatorAddress OnChain.commitTypedValidator)
+  stateMachine <- utxoAt (Scripts.validatorAddress OnChain.hydraTypedValidator)
   tx <-
     submitTxConstraintsWith @OnChain.Hydra
       (lookups commits stateMachine headMember)
@@ -202,13 +199,13 @@ collectCom params@HeadParameters{participants, policy, policyId} = do
       { slMPS =
           Map.singleton policyId policy
       , slTypedValidator =
-          Just (hydraTypedValidator params)
+          Just OnChain.hydraTypedValidator
       , slOtherScripts =
           Map.fromList
             [ (Scripts.validatorAddress script, Scripts.validatorScript script)
             | SomeTypedValidator script <-
-                [ SomeTypedValidator $ commitTypedValidator params
-                , SomeTypedValidator $ hydraTypedValidator params
+                [ SomeTypedValidator OnChain.commitTypedValidator
+                , SomeTypedValidator OnChain.hydraTypedValidator
                 ]
             ]
       , slTxOutputs =
@@ -228,9 +225,9 @@ collectCom params@HeadParameters{participants, policy, policyId} = do
               (\(_, ref) -> mustSpendScriptOutput ref $ asRedeemer @(RedeemerType OnChain.Commit) ())
               (zipOnParty policyId participants commits)
           , foldMap
-              (mustIncludeDatum . asDatum @(DatumType OnChain.Commit))
+              (mustIncludeDatum . asDatum @(DatumType OnChain.Commit) . datumCommit params)
               storedOutputs
-          , mustPayToTheScript (OnChain.Open $ reverse storedOutputs) amount
+          , mustPayToTheScript (datumHydra params $ OnChain.Open (reverse storedOutputs)) amount
           ]
 
 abort ::
@@ -239,9 +236,9 @@ abort ::
   Contract [OnChain.State] Schema e ()
 abort params@HeadParameters{participants, policy, policyId} = do
   (headMember, toRefund) <- endpoint @"abort" @(PubKeyHash, [TxOut])
-  initial <- utxoAt (Scripts.validatorAddress $ initialTypedValidator params)
-  commits <- utxoAt (Scripts.validatorAddress $ commitTypedValidator params)
-  stateMachine <- utxoAt (Scripts.validatorAddress $ hydraTypedValidator params)
+  initial <- utxoAt (Scripts.validatorAddress OnChain.initialTypedValidator)
+  commits <- utxoAt (Scripts.validatorAddress OnChain.commitTypedValidator)
+  stateMachine <- utxoAt (Scripts.validatorAddress OnChain.hydraTypedValidator)
   tx <-
     submitTxConstraintsWith @OnChain.Hydra
       (lookups initial commits stateMachine headMember)
@@ -254,14 +251,14 @@ abort params@HeadParameters{participants, policy, policyId} = do
       { slMPS =
           Map.singleton policyId policy
       , slTypedValidator =
-          Just (hydraTypedValidator params)
+          Just OnChain.hydraTypedValidator
       , slOtherScripts =
           Map.fromList
             [ (Scripts.validatorAddress script, Scripts.validatorScript script)
             | SomeTypedValidator script <-
-                [ SomeTypedValidator $ initialTypedValidator params
-                , SomeTypedValidator $ commitTypedValidator params
-                , SomeTypedValidator $ hydraTypedValidator params
+                [ SomeTypedValidator OnChain.initialTypedValidator
+                , SomeTypedValidator OnChain.commitTypedValidator
+                , SomeTypedValidator OnChain.hydraTypedValidator
                 ]
             ]
       , slTxOutputs =
@@ -273,7 +270,7 @@ abort params@HeadParameters{participants, policy, policyId} = do
   constraints initial commits stateMachine toRefund headMember =
     mconcat
       [ mustBeSignedBy headMember
-      , mustPayToTheScript OnChain.Final (lovelaceValueOf 0)
+      , mustPayToTheScript (datumHydra params OnChain.Final) (lovelaceValueOf 0)
       , foldMap
           (\vk -> mustMintCurrency policyId (OnChain.mkPartyName vk) (-1))
           participants
@@ -294,11 +291,10 @@ abort params@HeadParameters{participants, policy, policyId} = do
 -- for fees.
 setupForTesting ::
   (AsContractError e) =>
-  HeadParameters ->
   Contract [OnChain.State] Schema e ()
-setupForTesting params = do
+setupForTesting = do
   (vk, coins) <- endpoint @"setupForTesting" @(PubKeyHash, [Value])
-  tx <- submitTxConstraints (hydraTypedValidator params) (constraints vk coins)
+  tx <- submitTxConstraints OnChain.hydraTypedValidator (constraints vk coins)
   awaitTxConfirmed (txId tx)
  where
   constraints vk =
@@ -318,7 +314,7 @@ contract ::
 contract params = forever endpoints
  where
   endpoints =
-    setupForTesting params
+    setupForTesting
       `select` init params
       `select` commit params
       `select` collectCom params
@@ -330,17 +326,26 @@ contract params = forever endpoints
 
 data SomeTypedValidator = forall a. SomeTypedValidator (TypedValidator a)
 
-hydraTypedValidator :: HeadParameters -> Scripts.TypedValidator OnChain.Hydra
-hydraTypedValidator =
-  OnChain.hydraTypedValidator . toOnChainHeadParameters
+datumInitial :: HeadParameters -> PubKeyHash -> DatumType OnChain.Initial
+datumInitial params vk =
+  ( toOnChainHeadParameters params
+  , OnChain.hydraValidatorHash
+  , OnChain.commitValidatorHash
+  , vk
+  )
 
-initialTypedValidator :: HeadParameters -> Scripts.TypedValidator OnChain.Initial
-initialTypedValidator =
-  OnChain.initialTypedValidator . toOnChainHeadParameters
+datumCommit :: HeadParameters -> TxOut -> DatumType OnChain.Commit
+datumCommit params txOut =
+  ( toOnChainHeadParameters params
+  , OnChain.hydraValidatorHash
+  , txOut
+  )
 
-commitTypedValidator :: HeadParameters -> Scripts.TypedValidator OnChain.Commit
-commitTypedValidator =
-  OnChain.commitTypedValidator . toOnChainHeadParameters
+datumHydra :: HeadParameters -> OnChain.State -> DatumType OnChain.Hydra
+datumHydra params st =
+  ( toOnChainHeadParameters params
+  , st
+  )
 
 toOnChainHeadParameters :: HeadParameters -> OnChain.HeadParameters
 toOnChainHeadParameters HeadParameters{participants, policyId} =

@@ -68,8 +68,64 @@ PlutusTx.unstableMakeIsData ''Transition
 
 data Hydra
 instance Scripts.ValidatorTypes Hydra where
-  type DatumType Hydra = State
+  type DatumType Hydra = (HeadParameters, State)
   type RedeemerType Hydra = Transition
+
+hydraValidator ::
+  (HeadParameters, State) ->
+  Transition ->
+  ScriptContext ->
+  Bool
+hydraValidator (params@HeadParameters{participants, policyId}, s) i ctx =
+  case (s, i) of
+    (Initial, CollectCom) ->
+      let collectComUtxos =
+            snd <$> filterInputs (hasParty policyId) ctx
+          committedOutputs =
+            mapMaybe decodeCommit collectComUtxos
+          newState =
+            (params, Open committedOutputs)
+          amountPaid =
+            foldMap txOutValue collectComUtxos
+       in and
+            [ mustBeSignedByOneOf participants ctx
+            , all (mustForwardParty ctx policyId) participants
+            , checkScriptContext @(RedeemerType Hydra) @(DatumType Hydra)
+                (mustPayToTheScript newState amountPaid)
+                ctx
+            ]
+    (Initial, Abort) ->
+      let newState =
+            (params, Final)
+          amountPaid =
+            lovelaceValueOf 0
+       in and
+            [ mustBeSignedByOneOf participants ctx
+            , all (mustBurnParty ctx policyId) participants
+            , checkScriptContext @(RedeemerType Hydra) @(DatumType Hydra)
+                (mustPayToTheScript newState amountPaid)
+                ctx
+            ]
+    _ ->
+      False
+ where
+  decodeCommit =
+    txOutDatumHash
+      >=> (`findDatum` scriptContextTxInfo ctx)
+      >=> (fmap (\(_, _, c) -> c) . fromBuiltinData @(DatumType Commit) . getDatum)
+
+{- ORMOLU_DISABLE -}
+hydraTypedValidator :: Scripts.TypedValidator Hydra
+hydraTypedValidator = Scripts.mkTypedValidator @Hydra
+    $$(PlutusTx.compile [|| hydraValidator ||])
+    $$(PlutusTx.compile [|| wrap ||])
+    where
+        wrap = Scripts.wrapValidator @(DatumType Hydra) @(RedeemerType Hydra)
+{- ORMOLU_ENABLE -}
+
+hydraValidatorHash :: ValidatorHash
+hydraValidatorHash = Scripts.validatorHash hydraTypedValidator
+{-# INLINEABLE hydraValidatorHash #-}
 
 --
 -- Initial Validator
@@ -77,26 +133,66 @@ instance Scripts.ValidatorTypes Hydra where
 
 data Initial
 instance Scripts.ValidatorTypes Initial where
-  type DatumType Initial = DatumInitial
+  -- NOTE: Ideally, we would like to get rid of validator hashes in here,
+  -- because they are statically known!
+  -- So instead of passing them around, we could simply call
+  -- `hydraValidatorHash` and `commitValidatorHash` in the `initialValidator`...
+  --
+  -- However, this makes the compiler chokes with:
+  --
+  --     GHC Core to PLC plugin: E042:Error: Unsupported feature: Type constructor: GHC.Prim.ByteArray#
+  --
+  -- Hence their presence here.
+  type DatumType Initial = (HeadParameters, ValidatorHash, ValidatorHash, PubKeyHash)
   type RedeemerType Initial = TxOutRef
 
-data DatumInitial = DatumInitial
-  { policyId :: MintingPolicyHash
-  , hydraScript :: ValidatorHash
-  , commitScript :: ValidatorHash
-  , vk :: PubKeyHash
-  }
+-- | The Validator 'initial' ensures that the input is consumed by a commit or
+-- an abort transaction.
+initialValidator ::
+  (HeadParameters, ValidatorHash, ValidatorHash, PubKeyHash) ->
+  TxOutRef ->
+  ScriptContext ->
+  Bool
+initialValidator (params@HeadParameters{policyId}, hydraScript, commitScript, vk) ref ctx =
+  consumedByCommit || consumedByAbort
+ where
+  -- A commit transaction, identified by:
+  --    (a) A signature that verifies as valid with verification key defined as datum
+  --    (b) Spending a UTxO also referenced as redeemer.
+  --    (c) Having the commit validator in its only output, with a valid
+  --        participation token for the associated key, and the total value of the
+  --        committed UTxO.
+  consumedByCommit =
+    case findUtxo ref ctx of
+      Nothing ->
+        False
+      Just utxo ->
+        let commitDatum = asDatum @(DatumType Commit) (params, hydraScript, snd utxo)
+            commitValue = txOutValue (snd utxo) <> mkParty policyId vk
+         in checkScriptContext @(RedeemerType Initial) @(DatumType Initial)
+              ( mconcat
+                  [ mustBeSignedBy vk
+                  , mustSpendPubKeyOutput (fst utxo)
+                  , mustPayToOtherScript commitScript commitDatum commitValue
+                  ]
+              )
+              ctx
 
-PlutusTx.unstableMakeIsData ''DatumInitial
+  consumedByAbort =
+    mustRunContract (hydraScript, params) Abort ctx
 
-mkDatumInitial ::
-  HeadParameters ->
-  PubKeyHash ->
-  DatumType Initial
-mkDatumInitial headParams@HeadParameters{policyId} vk =
-  let hydraScript = hydraValidatorHash headParams
-      commitScript = commitValidatorHash headParams
-   in DatumInitial{policyId, hydraScript, commitScript, vk}
+{- ORMOLU_DISABLE -}
+initialTypedValidator :: Scripts.TypedValidator Initial
+initialTypedValidator = Scripts.mkTypedValidator @Initial
+  $$(PlutusTx.compile [|| initialValidator ||])
+  $$(PlutusTx.compile [|| wrap ||])
+ where
+  wrap = Scripts.wrapValidator @(DatumType Initial) @(RedeemerType Initial)
+{- ORMOLU_ENABLE -}
+
+initialValidatorHash :: ValidatorHash
+initialValidatorHash = Scripts.validatorHash initialTypedValidator
+{-# INLINEABLE initialValidatorHash #-}
 
 --
 -- Commit Validator
@@ -104,8 +200,50 @@ mkDatumInitial headParams@HeadParameters{policyId} vk =
 
 data Commit
 instance Scripts.ValidatorTypes Commit where
-  type DatumType Commit = TxOut
+  type DatumType Commit = (HeadParameters, ValidatorHash, TxOut)
   type RedeemerType Commit = ()
+
+-- |  To lock outputs for a Hydra head, the ith head member will attach a commit
+-- transaction to the i-th output of the initial transaction.
+-- Validator 'commit' ensures that the commit transaction correctly records the
+-- partial UTxO set Ui committed by the party.
+--
+-- The data field of the output of the commit transaction is
+--
+--     Ui = makeUTxO(o_1 , . . . , o_m),
+--
+-- where the o_j are the outputs referenced by the commit transaction’s inputs
+-- and makeUTxO stores pairs (out-ref_j , o_j) of outputs o_j with the
+-- corresponding output reference out-ref_j .
+commitValidator ::
+  (HeadParameters, ValidatorHash, TxOut) ->
+  () ->
+  ScriptContext ->
+  Bool
+commitValidator (params, hydraScript, committedOut) () ctx =
+  consumedByCollectCom || consumedByAbort
+ where
+  consumedByCollectCom =
+    mustRunContract (hydraScript, params) CollectCom ctx
+
+  consumedByAbort =
+    and
+      [ mustRunContract (hydraScript, params) Abort ctx
+      , mustReimburse committedOut ctx
+      ]
+
+{- ORMOLU_DISABLE -}
+commitTypedValidator :: Scripts.TypedValidator Commit
+commitTypedValidator = Scripts.mkTypedValidator @Commit
+  $$(PlutusTx.compile [|| commitValidator ||])
+  $$(PlutusTx.compile [|| wrap ||])
+ where
+  wrap = Scripts.wrapValidator @(DatumType Commit) @(RedeemerType Commit)
+{- ORMOLU_ENABLE -}
+
+commitValidatorHash :: ValidatorHash
+commitValidatorHash = Scripts.validatorHash commitTypedValidator
+{-# INLINEABLE commitValidatorHash #-}
 
 --
 -- Monetary Policy
@@ -205,13 +343,15 @@ mustReimburse txOut =
 {-# INLINEABLE mustReimburse #-}
 
 mustRunContract ::
-  forall redeemer.
-  (ToData redeemer) =>
-  ValidatorHash ->
+  forall datum redeemer.
+  ToData redeemer =>
+  -- (ToData datum, ToData redeemer) =>
+  (ValidatorHash, datum) ->
   redeemer ->
   ScriptContext ->
   Bool
-mustRunContract script redeemer ctx =
+--FIXME: we should also control the datum here!
+mustRunContract (script, _datum) redeemer ctx =
   case findContractInput script ctx of
     Nothing ->
       False
@@ -326,161 +466,3 @@ symbols = foldr normalize [] . Map.toList . Value.getValue
       let elems = snd <$> Map.toList tokens
        in if sum elems == 0 then acc else currency : acc
 {-# INLINEABLE symbols #-}
-
---
--- Validators
---
-
-hydraValidator ::
-  HeadParameters ->
-  State ->
-  Transition ->
-  ScriptContext ->
-  Bool
-hydraValidator HeadParameters{participants, policyId} s i ctx =
-  case (s, i) of
-    (Initial, CollectCom) ->
-      let collectComUtxos =
-            snd <$> filterInputs (hasParty policyId) ctx
-          committedOutputs =
-            mapMaybe decodeCommit collectComUtxos
-          newState =
-            Open committedOutputs
-          amountPaid =
-            foldMap txOutValue collectComUtxos
-       in and
-            [ mustBeSignedByOneOf participants ctx
-            , all (mustForwardParty ctx policyId) participants
-            , checkScriptContext @(RedeemerType Hydra) @(DatumType Hydra)
-                (mustPayToTheScript newState amountPaid)
-                ctx
-            ]
-    (Initial, Abort) ->
-      let newState =
-            Final
-          amountPaid =
-            lovelaceValueOf 0
-       in and
-            [ mustBeSignedByOneOf participants ctx
-            , all (mustBurnParty ctx policyId) participants
-            , checkScriptContext @(RedeemerType Hydra) @(DatumType Hydra)
-                (mustPayToTheScript newState amountPaid)
-                ctx
-            ]
-    _ ->
-      False
- where
-  decodeCommit =
-    txOutDatumHash
-      >=> (`findDatum` scriptContextTxInfo ctx)
-      >=> (fromBuiltinData @(DatumType Commit) . getDatum)
-
-{- ORMOLU_DISABLE -}
-hydraTypedValidator
-  :: HeadParameters
-  -> Scripts.TypedValidator Hydra
-hydraTypedValidator params = Scripts.mkTypedValidator @Hydra
-    ( $$(PlutusTx.compile [|| hydraValidator ||])
-      `PlutusTx.applyCode` PlutusTx.liftCode params
-    )
-    $$(PlutusTx.compile [|| wrap ||])
-    where
-        wrap = Scripts.wrapValidator @(DatumType Hydra) @(RedeemerType Hydra)
-{- ORMOLU_ENABLE -}
-
-hydraValidatorHash :: HeadParameters -> ValidatorHash
-hydraValidatorHash = Scripts.validatorHash . hydraTypedValidator
-{-# INLINEABLE hydraValidatorHash #-}
-
--- | The Validator 'initial' ensures that the input is consumed by a commit or
--- an abort transaction.
-initialValidator ::
-  DatumInitial ->
-  TxOutRef ->
-  ScriptContext ->
-  Bool
-initialValidator DatumInitial{policyId, hydraScript, commitScript, vk} ref ctx =
-  consumedByCommit || consumedByAbort
- where
-  -- A commit transaction, identified by:
-  --    (a) A signature that verifies as valid with verification key defined as datum
-  --    (b) Spending a UTxO also referenced as redeemer.
-  --    (c) Having the commit validator in its only output, with a valid
-  --        participation token for the associated key, and the total value of the
-  --        committed UTxO.
-  consumedByCommit =
-    case findUtxo ref ctx of
-      Nothing ->
-        False
-      Just utxo ->
-        let commitDatum = asDatum @(DatumType Commit) (snd utxo)
-            commitValue = txOutValue (snd utxo) <> mkParty policyId vk
-         in checkScriptContext @(RedeemerType Initial) @(DatumType Initial)
-              ( mconcat
-                  [ mustBeSignedBy vk
-                  , mustSpendPubKeyOutput (fst utxo)
-                  , mustPayToOtherScript commitScript commitDatum commitValue
-                  ]
-              )
-              ctx
-
-  consumedByAbort =
-    mustRunContract hydraScript Abort ctx
-
-{- ORMOLU_DISABLE -}
-initialTypedValidator
-  :: HeadParameters
-  -> Scripts.TypedValidator Initial
-initialTypedValidator policyId = Scripts.mkTypedValidator @Initial
-  $$(PlutusTx.compile [|| initialValidator ||])
-  $$(PlutusTx.compile [|| wrap ||])
- where
-  wrap = Scripts.wrapValidator @(DatumType Initial) @(RedeemerType Initial)
-{- ORMOLU_ENABLE -}
-
--- |  To lock outputs for a Hydra head, the ith head member will attach a commit
--- transaction to the i-th output of the initial transaction.
--- Validator 'commit' ensures that the commit transaction correctly records the
--- partial UTxO set Ui committed by the party.
---
--- The data field of the output of the commit transaction is
---
---     Ui = makeUTxO(o_1 , . . . , o_m),
---
--- where the o_j are the outputs referenced by the commit transaction’s inputs
--- and makeUTxO stores pairs (out-ref_j , o_j) of outputs o_j with the
--- corresponding output reference out-ref_j .
-commitValidator ::
-  ValidatorHash ->
-  TxOut ->
-  () ->
-  ScriptContext ->
-  Bool
-commitValidator hydraScript committedOut () ctx =
-  consumedByCollectCom || consumedByAbort
- where
-  consumedByCollectCom =
-    mustRunContract hydraScript CollectCom ctx
-
-  consumedByAbort =
-    and
-      [ mustRunContract hydraScript Abort ctx
-      , mustReimburse committedOut ctx
-      ]
-
-{- ORMOLU_DISABLE -}
-commitTypedValidator
-  :: HeadParameters
-  -> Scripts.TypedValidator Commit
-commitTypedValidator params = Scripts.mkTypedValidator @Commit
-  ($$(PlutusTx.compile [|| commitValidator ||])
-    `PlutusTx.applyCode` PlutusTx.liftCode (hydraValidatorHash params)
-  )
-  $$(PlutusTx.compile [|| wrap ||])
- where
-  wrap = Scripts.wrapValidator @(DatumType Commit) @(RedeemerType Commit)
-{- ORMOLU_ENABLE -}
-
-commitValidatorHash :: HeadParameters -> ValidatorHash
-commitValidatorHash = Scripts.validatorHash . commitTypedValidator
-{-# INLINEABLE commitValidatorHash #-}
