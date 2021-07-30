@@ -16,9 +16,9 @@ import Ledger.Constraints.OffChain (ScriptLookups (..))
 import Ledger.Constraints.TxConstraints (
   TxConstraints,
   mustBeSignedBy,
+  mustIncludeDatum,
   mustMintCurrency,
   mustMintValue,
-  mustIncludeDatum,
   mustPayToOtherScript,
   mustPayToPubKey,
   mustPayToTheScript,
@@ -31,6 +31,7 @@ import Plutus.Contract (
   AsContractError,
   Contract,
   Endpoint,
+  awaitTxConfirmed,
   endpoint,
   logInfo,
   select,
@@ -39,7 +40,6 @@ import Plutus.Contract (
   tell,
   utxoAt,
   type (.\/),
-  awaitTxConfirmed,
  )
 
 import qualified Data.Map.Strict as Map
@@ -93,22 +93,23 @@ init params@HeadParameters{participants, policy, policyId} = do
       }
 
   constraints =
-    mconcat
-      [ foldMap
-          ( \vk ->
-              let participationToken = OnChain.mkParty policyId vk
-               in mconcat
-                    [ mustPayToOtherScript
-                        (Scripts.validatorHash $ initialTypedValidator params)
-                        (asDatum @(DatumType OnChain.Initial) vk)
-                        participationToken
-                    , mustMintValue
-                        participationToken
-                    ]
-          )
-          participants
-      , mustPayToTheScript OnChain.Initial (lovelaceValueOf 0)
-      ]
+    let datumInitial = OnChain.mkDatumInitial (toOnChainHeadParameters params)
+     in mconcat
+          [ foldMap
+              ( \vk ->
+                  let participationToken = OnChain.mkParty policyId vk
+                   in mconcat
+                        [ mustPayToOtherScript
+                            (Scripts.validatorHash $ initialTypedValidator params)
+                            (asDatum @(DatumType OnChain.Initial) (datumInitial vk))
+                            participationToken
+                        , mustMintValue
+                            participationToken
+                        ]
+              )
+              participants
+          , mustPayToTheScript OnChain.Initial (lovelaceValueOf 0)
+          ]
 
 -- To lock outputs for a Hydra head, the i-th head member will attach a commit
 -- transaction to the i-th output of the initial transaction.
@@ -124,12 +125,14 @@ commit params@HeadParameters{policy, policyId} = do
   initial <-
     utxoAtWithDatum
       (Scripts.validatorAddress $ initialTypedValidator params)
-      (asDatum @(DatumType OnChain.Initial) vk)
+      (asDatum @(DatumType OnChain.Initial) (datumInitial vk))
   void $
     submitTxConstraintsWith
       (lookups vk toCommit initial)
       (constraints vk toCommit initial)
  where
+  datumInitial = OnChain.mkDatumInitial (toOnChainHeadParameters params)
+
   lookups vk (ref, txOut) initial =
     mempty
       { slMPS =
@@ -302,7 +305,7 @@ setupForTesting params = do
     foldMap (mustPayToPubKey vk)
 
 type Schema =
-    Endpoint "setupForTesting" (PubKeyHash, [Value])
+  Endpoint "setupForTesting" (PubKeyHash, [Value])
     .\/ Endpoint "init" ()
     .\/ Endpoint "commit" (PubKeyHash, (TxOutRef, TxOutTx))
     .\/ Endpoint "collectCom" (PubKeyHash, [TxOut])
