@@ -16,17 +16,20 @@ import Data.List (
 import Data.Maybe (fromMaybe, isJust, isNothing)
 import Data.Tree.MerklePatricia (
   Blake2b_160,
+  Blake2b_224,
   HashAlgorithm,
   MerklePatriciaTree,
   Proof,
   Serialise,
   add,
   delete,
+  depth,
   dropPrefix,
   fromList,
   member,
   null,
   pretty,
+  proofSize,
   root,
   size,
   toList,
@@ -56,6 +59,7 @@ import Test.QuickCheck (
   property,
   shrinkList,
   vectorOf,
+  withMaxSuccess,
   (===),
   (==>),
  )
@@ -98,7 +102,7 @@ spec = parallel $ do
 
       specify "changing key invalidates proof" $ do
         forAllNonEmptyMPT @Int $ \mpt (k, v) proof ->
-          forAllBlind genReference $ \k' ->
+          forAllBlind (genReference $ length k) $ \k' ->
             member (k', v) (root mpt) proof === (k == k')
               & counterexample ("proof:        " <> show proof)
               & counterexample ("key':         " <> show k')
@@ -136,7 +140,7 @@ spec = parallel $ do
 
       specify "adding unknown element gives Nothing" $ do
         forAllNonEmptyMPT @Int $ \mpt' (k, v) proof ->
-          forAllBlind genReference $ \k' ->
+          forAllBlind (genReference $ length k) $ \k' ->
             (k /= k')
               ==> let mpt = fromList (toList mpt' \\ [(k, v)])
                    in add (k', v) (root mpt) proof === Nothing
@@ -152,7 +156,7 @@ spec = parallel $ do
 
       specify "cannot delete an element that isn't there" $ do
         forAllNonEmptyMPT @Int $ \mpt' (k, v) proof ->
-          forAllBlind genReference $ \k' ->
+          forAllBlind (genReference $ length k) $ \k' ->
             (k /= k')
               ==> delete (k', v) (root mpt') proof === Nothing
               & counterexample ("key': " <> show k')
@@ -173,9 +177,34 @@ spec = parallel $ do
               add (k, v) newRoot proof === Just (root mpt)
                 & counterexample ("newRoot: " <> show newRoot)
 
+    context "size  & depth" $ do
+      specify "trees aren't too deep (<= 1 + log(D))" $ do
+        withMaxSuccess 1000 $
+          forAllBlind (genLargeMPT @() arbitrary) $ \mpt ->
+            let sup = ceiling @Double (1 + log (fromIntegral $ size mpt))
+             in depth mpt <= sup
+                  & counterexample ("MPT's depth:      " <> show (depth mpt))
+                  & counterexample ("MPT's size:       " <> show (size mpt))
+                  & counterexample ("sup:              " <> show sup)
+
+      specify "proofs aren't too large (<= 15 * (depth - 1))" $ do
+        withMaxSuccess 1000 $
+          forAllBlind (genLargeMPT @() arbitrary) $ \mpt ->
+            forAllBlind (elements $ toList mpt) $ \(k, _v) ->
+              let proof = unsafeMkProof k mpt
+                  alphabetSize = 16
+                  -- This is a pessimistic upper bound, in practice, it turns out
+                  -- to be less.
+                  sup = (alphabetSize - 1) * (depth mpt - 1)
+               in proofSize proof <= sup
+                    & counterexample ("proof size:     " <> show (proofSize proof))
+                    & counterexample ("MPT's size:     " <> show (size mpt))
+                    & counterexample ("MPT's depth:    " <> show (depth mpt))
+                    & counterexample ("sup:            " <> show sup)
+
   context "Prefixes" $ do
     specify "compare with oracle" $
-      forAllShrink genReference shrinkReference $ \ref ->
+      forAllShrink (genReference 8) shrinkReference $ \ref ->
         forAll (genPrefix ref) $ \pre ->
           let result = dropPrefix pre ref
               oracle = stripPrefix pre ref
@@ -222,9 +251,9 @@ forAllNonEmptyMPT prop =
 -- Generators
 --
 
-genReference :: Gen String
-genReference =
-  vectorOf 8 (elements $ ['0' .. '9'] ++ ['a' .. 'f'])
+genReference :: Int -> Gen String
+genReference n =
+  vectorOf n (elements $ ['0' .. '9'] ++ ['a' .. 'f'])
 
 shrinkReference :: String -> [String]
 shrinkReference = shrink
@@ -234,12 +263,17 @@ genPrefix ref = do
   n <- choose (0, length ref)
   frequency
     [ (10, pure (take n ref))
-    , (1, take n <$> genReference)
+    , (1, take n <$> genReference (length ref))
     ]
 
 genMPT :: Serialise a => Gen a -> Gen (MerklePatriciaTree Blake2b_160 a)
 genMPT genA = do
-  fromList <$> listOf ((,) <$> genReference <*> genA)
+  fromList <$> listOf ((,) <$> genReference 8 <*> genA)
+
+genLargeMPT :: Serialise a => Gen a -> Gen (MerklePatriciaTree Blake2b_224 a)
+genLargeMPT genA = do
+  n <- choose (100, 1000)
+  fromList <$> vectorOf n ((,) <$> genReference 32 <*> genA)
 
 shrinkMPT ::
   (Serialise a, HashAlgorithm alg) =>

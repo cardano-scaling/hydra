@@ -24,6 +24,7 @@ module Data.Tree.MerklePatricia (
   root,
   null,
   size,
+  depth,
 
   -- * Proof
 
@@ -37,6 +38,7 @@ module Data.Tree.MerklePatricia (
   delete,
 
   -- * Debugging
+  proofSize,
   pretty,
 
   -- * Re-Exports
@@ -197,6 +199,16 @@ size = \case
   Node _ _ children ->
     foldl' (\sz (_, mpt) -> sz + size mpt) 0 children
 
+-- | Count the maximum number of levels in the tree.
+depth :: MerklePatriciaTree alg a -> Int
+depth = \case
+  Empty{} ->
+    0
+  Leaf{} ->
+    1
+  Node _ _ children ->
+    1 + foldl' (\sup (_, mpt) -> max sup (depth mpt)) 0 children
+
 --
 -- Proof
 --
@@ -240,6 +252,17 @@ unsafeMkProof ::
   Proof alg
 unsafeMkProof ref =
   fromMaybe (error "unsafeMkProof: Nothing") . mkProof ref
+
+-- | Size of a 'Proof'. Returns the number of hashes needed for the proof.
+proofSize ::
+  forall alg.
+  Proof alg ->
+  Int
+proofSize (Proof proof) = case proof of
+  [] ->
+    0
+  ((_pre, children) : rest) ->
+    length children + proofSize (Proof rest)
 
 -- | Check whether an element exists in the 'MerklePatriciaTree'.
 --
