@@ -6,6 +6,7 @@ packages:
   hydra-plutus
   hydra-prelude
   hydra-test-utils
+  merkle-patricia-tree
 
 tests: False
 package local-cluster
@@ -16,6 +17,9 @@ package hydra-node
   tests: True
 
 package hydra-plutus
+  tests: True
+
+package merkle-patricia-tree
   tests: True
 
 -- Always show detailed output for tests
