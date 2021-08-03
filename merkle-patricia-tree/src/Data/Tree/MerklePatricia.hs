@@ -205,7 +205,7 @@ depth = \case
   Empty{} ->
     0
   Leaf{} ->
-    1
+    0
   Node _ _ children ->
     1 + foldl' (\sup (_, mpt) -> max sup (depth mpt)) 0 children
 

@@ -177,11 +177,10 @@ spec = parallel $ do
               add (k, v) newRoot proof === Just (root mpt)
                 & counterexample ("newRoot: " <> show newRoot)
 
-    context "size  & depth" $ do
       specify "trees aren't too deep (<= 1 + log(D))" $ do
         withMaxSuccess 1000 $
           forAllBlind (genLargeMPT @() arbitrary) $ \mpt ->
-            let sup = ceiling @Double (1 + log (fromIntegral $ size mpt))
+            let sup = ceiling @Double $ log $ fromIntegral $ size mpt
              in depth mpt <= sup
                   & counterexample ("MPT's depth:      " <> show (depth mpt))
                   & counterexample ("MPT's size:       " <> show (size mpt))
