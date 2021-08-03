@@ -46,6 +46,7 @@ import Test.QuickCheck (
   Gen,
   Property,
   Testable,
+  checkCoverage,
   choose,
   counterexample,
   cover,
@@ -177,7 +178,8 @@ spec = parallel $ do
               add (k, v) newRoot proof === Just (root mpt)
                 & counterexample ("newRoot: " <> show newRoot)
 
-      specify "trees aren't too deep (<= 1 + log(D))" $ do
+    context "Sizes" $ do
+      specify "trees aren't too deep (<= log(U))" $ do
         withMaxSuccess 1000 $
           forAllBlind (genLargeMPT @() arbitrary) $ \mpt ->
             let sup = ceiling @Double $ log $ fromIntegral $ size mpt
@@ -186,20 +188,45 @@ spec = parallel $ do
                   & counterexample ("MPT's size:       " <> show (size mpt))
                   & counterexample ("sup:              " <> show sup)
 
-      specify "proofs aren't too large (<= 15 * (depth - 1))" $ do
-        withMaxSuccess 1000 $
-          forAllBlind (genLargeMPT @() arbitrary) $ \mpt ->
-            forAllBlind (elements $ toList mpt) $ \(k, _v) ->
-              let proof = unsafeMkProof k mpt
-                  alphabetSize = 16
-                  -- This is a pessimistic upper bound, in practice, it turns out
-                  -- to be less.
-                  sup = (alphabetSize - 1) * (depth mpt - 1)
-               in proofSize proof <= sup
-                    & counterexample ("proof size:     " <> show (proofSize proof))
-                    & counterexample ("MPT's size:     " <> show (size mpt))
-                    & counterexample ("MPT's depth:    " <> show (depth mpt))
-                    & counterexample ("sup:            " <> show sup)
+      specify "proofs aren't too large)" $ do
+        forAllBlind (genLargeMPT @() arbitrary) $ \mpt ->
+          forAllBlind (elements $ toList mpt) $ \(k, _v) ->
+            let proof = unsafeMkProof k mpt
+
+                alphabetSize = 16
+                s = fromIntegral (size mpt)
+                d = fromIntegral (depth mpt)
+                p = proofSize proof
+
+                -- This calculation stems from:
+                --
+                -- - The probability of finding a collision between two digits (1/16)
+                -- - The probability of finding multiple successive collisions
+                -- - The fact that, at each level, a node may have up to 16
+                --   children, but only 15 are necessary to construct a proof.
+                --
+                -- Note that, since this is probabilistic, it's hard to come up
+                -- with a property which is always true since the equation:
+                --
+                --   p <= sup
+                --
+                -- may be sometimes false. We can however leverage QuickCheck
+                -- coverage for that which will check that our label meets
+                -- certain coverage requirements, according to some
+                -- distribution which tolerates a few results off.
+                sup =
+                  ( ceiling @Double $
+                      sum $
+                        flip map [1 .. d] $ \i ->
+                          (alphabetSize - 1) * min 1 (s / (alphabetSize ** i))
+                  )
+             in property (p < 2 * sup) -- No proof is larger than 2 * sup
+                  & cover 1.0 (p <= sup) "Most proofs are smaller than sup"
+                  & counterexample ("proof size:     " <> show p)
+                  & counterexample ("MPT's size:     " <> show s)
+                  & counterexample ("MPT's depth:    " <> show d)
+                  & counterexample ("sup:            " <> show sup)
+                  & checkCoverage
 
   context "Prefixes" $ do
     specify "compare with oracle" $
