@@ -255,6 +255,7 @@
         "cryptohash-md5".revision = (((hackage."cryptohash-md5")."0.11.100.1").revisions).default;
         "generic-deriving".revision = (((hackage."generic-deriving")."1.13.1").revisions).default;
         "generic-deriving".flags.base-4-9 = true;
+        "hspec-golden-aeson".revision = (((hackage."hspec-golden-aeson")."0.9.0.0").revisions).default;
         "base64-bytestring-type".revision = (((hackage."base64-bytestring-type")."1.0.1").revisions).default;
         "base64-bytestring-type".flags.cereal = true;
         "base64-bytestring-type".flags.serialise = true;
@@ -492,6 +493,7 @@
         "crypto-api".revision = (((hackage."crypto-api")."0.13.3").revisions).default;
         "crypto-api".flags.all_cpolys = false;
         "data-default".revision = (((hackage."data-default")."0.7.1.1").revisions).default;
+        "quickcheck-arbitrary-adt".revision = (((hackage."quickcheck-arbitrary-adt")."0.3.1.0").revisions).default;
         "connection".revision = (((hackage."connection")."0.3.1").revisions).default;
         "finite-typelits".revision = (((hackage."finite-typelits")."0.1.4.2").revisions).default;
         "typerep-map".revision = (((hackage."typerep-map")."0.3.3.0").revisions).default;
@@ -746,6 +748,7 @@
         tracer-transformers = ./.plan.nix/tracer-transformers.nix;
         plutus-tx-plugin = ./.plan.nix/plutus-tx-plugin.nix;
         quickcheck-dynamic = ./.plan.nix/quickcheck-dynamic.nix;
+        merkle-patricia-tree = ./.plan.nix/merkle-patricia-tree.nix;
         cardano-config = ./.plan.nix/cardano-config.nix;
         network-mux = ./.plan.nix/network-mux.nix;
         lobemo-backend-ekg = ./.plan.nix/lobemo-backend-ekg.nix;
@@ -765,6 +768,7 @@
         cardano-ledger-byron-test = ./.plan.nix/cardano-ledger-byron-test.nix;
         plutus-tx = ./.plan.nix/plutus-tx.nix;
         hedgehog-extras = ./.plan.nix/hedgehog-extras.nix;
+        hydra-test-utils = ./.plan.nix/hydra-test-utils.nix;
         plutus-contract = ./.plan.nix/plutus-contract.nix;
         iohk-monitoring = ./.plan.nix/iohk-monitoring.nix;
         io-sim = ./.plan.nix/io-sim.nix;
@@ -850,6 +854,9 @@
           "tracer-transformers" = { flags = {}; };
           "plutus-tx-plugin" = { flags = {}; };
           "quickcheck-dynamic" = { flags = {}; };
+          "merkle-patricia-tree" = {
+            flags = { "development" = lib.mkOverride 900 false; };
+            };
           "cardano-config" = {
             flags = { "systemd" = lib.mkOverride 900 true; };
             };
@@ -875,7 +882,7 @@
           "cardano-crypto-praos" = {
             flags = {
               "development" = lib.mkOverride 900 false;
-              "external-libsodium-vrf" = lib.mkOverride 900 true;
+              "external-libsodium-vrf" = lib.mkOverride 900 false;
               };
             };
           "monoidal-synchronisation" = { flags = {}; };
@@ -890,7 +897,7 @@
             flags = { "defer-plugin-errors" = lib.mkOverride 900 false; };
             };
           "local-cluster" = {
-            flags = { "development" = lib.mkOverride 900 true; };
+            flags = { "development" = lib.mkOverride 900 false; };
             };
           "typed-protocols-examples" = { flags = {}; };
           "cardano-crypto-tests" = {
@@ -902,6 +909,7 @@
             };
           "plutus-tx" = { flags = {}; };
           "hedgehog-extras" = { flags = {}; };
+          "hydra-test-utils" = { flags = {}; };
           "plutus-contract" = {
             flags = { "defer-plugin-errors" = lib.mkOverride 900 false; };
             };
@@ -948,7 +956,7 @@
             flags = { "asserts" = lib.mkOverride 900 false; };
             };
           "hydra-node" = {
-            flags = { "development" = lib.mkOverride 900 true; };
+            flags = { "development" = lib.mkOverride 900 false; };
             };
           "contra-tracer" = { flags = {}; };
           "shelley-spec-non-integral" = {
