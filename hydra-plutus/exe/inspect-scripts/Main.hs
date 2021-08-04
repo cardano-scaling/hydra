@@ -3,13 +3,10 @@ module Main where
 import Prelude
 
 import Codec.Serialise
-import Data.Maybe (fromJust)
-import Data.Text.Prettyprint.Doc (pretty)
 import Hydra.Contract.Initial as Initial
 import Hydra.Contract.OnChain
 import Ledger.Typed.Scripts
 import Ledger.Value
-import PlutusTx (getPir)
 
 import qualified Data.ByteString.Lazy as BL
 import qualified Hydra.ContractSM as HydraSM
@@ -22,7 +19,6 @@ main = do
   putStrLn $ ""
   putStrLn $ "Hydra Script (SM):  " <> sizeInKb hydraScriptSM
   putStrLn $ "Initial Script (2): " <> sizeInKb initialScript'
-  print $ pretty $ fromJust $ getPir $ Initial.compiledValidator
  where
   sizeInKb = (<> " KB") . show . (`div` 1024) . BL.length
 
