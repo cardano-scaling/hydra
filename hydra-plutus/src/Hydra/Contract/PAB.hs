@@ -16,7 +16,7 @@ import Ledger (CurrencySymbol, PubKeyHash (..), TxOut (txOutValue), TxOutTx (txO
 import Ledger.AddressMap (UtxoMap, outputsMapFromTxForAddress)
 import qualified Ledger.Typed.Scripts as Scripts
 import Ledger.Typed.Tx (tyTxOutData, typeScriptTxOut)
-import Ledger.Value (AssetClass, TokenName (..), assetClass, flattenValue, singleton)
+import Ledger.Value (AssetClass, TokenName (..), assetClass, flattenValue)
 import Plutus.Contract (
   AsContractError (..),
   Contract,
@@ -92,17 +92,13 @@ setup = do
   ownPK <- pubKeyHash <$> ownPubKey
   symbol <- Currency.currencySymbol <$> Currency.mintContract ownPK tokens
   let threadToken = mkThreadToken symbol
-      tokenValues = map (uncurry (singleton symbol)) participationTokens
+  -- tokenValues = map (uncurry (singleton symbol)) participationTokens
 
   logInfo $ "Done, our currency symbol: " <> show @String symbol
 
   let client = machineClient threadToken
-  void $ SM.runInitialise client ContractSM.Setup mempty
+  void $ SM.runInitialise client (ContractSM.Initial contestationPeriod hydraParties) mempty
 
-  void $
-    SM.runStep
-      client
-      (ContractSM.Init contestationPeriod (zip cardanoPubKeys tokenValues) hydraParties)
   logInfo $ "Triggered Init " <> show @String cardanoPubKeys
 
 --

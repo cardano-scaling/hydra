@@ -13,8 +13,6 @@ import GHC.Generics (Generic)
 import GHC.Show (Show)
 import Hydra.Contract.ContestationPeriod (ContestationPeriod)
 import Hydra.Contract.Party (Party)
-import Ledger (PubKeyHash, Value)
-import Ledger.Constraints (mustPayToPubKey)
 import qualified Ledger.Typed.Scripts as Scripts
 import Ledger.Value (AssetClass)
 import Plutus.Contract.StateMachine (StateMachine)
@@ -22,8 +20,7 @@ import qualified Plutus.Contract.StateMachine as SM
 import qualified PlutusTx
 
 data State
-  = Setup
-  | Initial ContestationPeriod [Party]
+  = Initial ContestationPeriod [Party]
   | Open
   | Final
   deriving stock (Generic, Show)
@@ -32,8 +29,7 @@ data State
 PlutusTx.unstableMakeIsData ''State
 
 data Input
-  = Init ContestationPeriod [(PubKeyHash, Value)] [Party]
-  | CollectCom
+  = CollectCom
   | Abort
   deriving (Generic, Show)
 
@@ -56,10 +52,6 @@ hydraStateMachine _threadToken =
 hydraTransition :: SM.State State -> Input -> Maybe (SM.TxConstraints SM.Void SM.Void, SM.State State)
 hydraTransition oldState input =
   case (SM.stateData oldState, input) of
-    (Setup, Init contestationPeriod participationTokens parties) ->
-      Just (constraints, oldState{SM.stateData = Initial contestationPeriod parties})
-     where
-      constraints = foldMap (\(a, b) -> mustPayToPubKey a b) participationTokens
     _ -> Nothing
 
 -- | The script instance of the auction state machine. It contains the state
