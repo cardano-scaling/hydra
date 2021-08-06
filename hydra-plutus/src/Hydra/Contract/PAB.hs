@@ -10,13 +10,14 @@ import Control.Lens (makeClassyPrisms)
 import qualified Data.Map as Map
 import Data.Text.Prettyprint.Doc (Pretty (..), viaShow)
 import Hydra.Contract.ContestationPeriod (ContestationPeriod)
+import qualified Hydra.Contract.Initial as Initial
 import Hydra.Contract.Party (Party)
 import qualified Hydra.ContractSM as ContractSM
 import Ledger (CurrencySymbol, PubKeyHash (..), TxOut (txOutValue), TxOutTx (txOutTxOut), pubKeyAddress, pubKeyHash)
 import Ledger.AddressMap (UtxoMap, outputsMapFromTxForAddress)
 import qualified Ledger.Typed.Scripts as Scripts
 import Ledger.Typed.Tx (tyTxOutData, typeScriptTxOut)
-import Ledger.Value (AssetClass, TokenName (..), assetClass, flattenValue)
+import Ledger.Value (AssetClass, TokenName (..), assetClass, flattenValue, singleton)
 import Plutus.Contract (
   AsContractError (..),
   Contract,
@@ -92,12 +93,22 @@ setup = do
   ownPK <- pubKeyHash <$> ownPubKey
   symbol <- Currency.currencySymbol <$> Currency.mintContract ownPK tokens
   let threadToken = mkThreadToken symbol
-  -- tokenValues = map (uncurry (singleton symbol)) participationTokens
 
   logInfo $ "Done, our currency symbol: " <> show @String symbol
 
+  let additionalLookups = mempty
+  let additionalConstraints =
+        foldMap
+          (\(t, n) -> Initial.mustPayToScript (singleton symbol t n))
+          participationTokens
   let client = machineClient threadToken
-  void $ SM.runInitialise client (ContractSM.Initial contestationPeriod hydraParties) mempty
+  void $
+    SM.runInitialiseWith
+      additionalLookups
+      additionalConstraints
+      client
+      (ContractSM.Initial contestationPeriod hydraParties)
+      mempty
 
   logInfo $ "Triggered Init " <> show @String cardanoPubKeys
 
@@ -138,11 +149,10 @@ watchInit :: Contract (Last InitialParams) Empty ContractError ()
 watchInit = do
   logInfo @String $ "watchInit: Looking for an init tx and it's parties"
   pubKey <- ownPubKey
-  let address = pubKeyAddress pubKey
-      pkh = pubKeyHash pubKey
+  let pkh = pubKeyHash pubKey
   forever $ do
-    txs <- nextTransactionsAt address
-    let foundTokens = txs >>= mapMaybe (findToken pkh) . Map.elems . outputsMapFromTxForAddress address
+    txs <- nextTransactionsAt Initial.address
+    let foundTokens = txs >>= mapMaybe (findToken pkh) . Map.elems . outputsMapFromTxForAddress Initial.address
     logInfo $ "found tokens: " <> show @String foundTokens
     case foundTokens of
       [token] -> do

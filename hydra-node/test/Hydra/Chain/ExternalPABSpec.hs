@@ -10,7 +10,7 @@ import Control.Concurrent (newEmptyMVar, putMVar, takeMVar)
 import qualified Data.Aeson as Aeson
 import Hydra.Chain (Chain (..), HeadParameters (HeadParameters, contestationPeriod), OnChainTx (InitTx))
 import Hydra.Chain.ExternalPAB (PostInitParams, withExternalPAB)
-import qualified Hydra.ContractSM as OnChain
+import qualified Hydra.Contract.PAB as PAB
 import Hydra.Ledger (Party (UnsafeParty))
 import Hydra.Ledger.Simple (SimpleTx)
 import Hydra.Logging (nullTracer)
@@ -32,10 +32,10 @@ spec = do
        in counterexample (decodeUtf8 bytes) $ case Aeson.eitherDecode bytes of
             Left e ->
               counterexample ("Failed to decode: " <> show e) $ property False
-            Right (_ :: OnChain.InitParams) ->
+            Right (_ :: PAB.InitParams) ->
               property True
 
-    prop "HeadParameters <- Onchain.InitialParams" $ \(params :: OnChain.InitialParams) ->
+    prop "HeadParameters <- Onchain.InitialParams" $ \(params :: PAB.InitialParams) ->
       let bytes = Aeson.encode params
        in counterexample (decodeUtf8 bytes) $ case Aeson.eitherDecode bytes of
             Left e ->

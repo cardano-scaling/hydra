@@ -5,13 +5,15 @@
 -- | Contract for Hydra controlling the redemption of participation tokens.
 module Hydra.Contract.Initial where
 
-import Ledger
+import Ledger hiding (validatorHash)
 import PlutusTx.Prelude
 
+import Ledger.Constraints.TxConstraints (TxConstraints, mustPayToOtherScript)
 import Ledger.Typed.Scripts (ValidatorType, ValidatorTypes (..))
 import qualified Ledger.Typed.Scripts as Scripts
 import PlutusTx (CompiledCode)
 import qualified PlutusTx
+import PlutusTx.IsData.Class (ToData (..))
 
 data Initial
 
@@ -38,3 +40,15 @@ typedValidator = Scripts.mkTypedValidator @Initial
  where
   wrap = Scripts.wrapValidator @(DatumType Initial) @(RedeemerType Initial)
 {- ORMOLU_ENABLE -}
+
+validatorHash :: ValidatorHash
+validatorHash = Scripts.validatorHash typedValidator
+
+datum :: Datum
+datum = Datum (toBuiltinData ())
+
+address :: Address
+address = scriptHashAddress validatorHash
+
+mustPayToScript :: forall i o. Value -> TxConstraints i o
+mustPayToScript = mustPayToOtherScript validatorHash datum
