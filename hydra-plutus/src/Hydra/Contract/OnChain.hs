@@ -80,7 +80,7 @@ hydraValidator (params@HeadParameters{participants, policyId}, s) i ctx =
   case (s, i) of
     (Initial, CollectCom) ->
       let collectComUtxos =
-            snd <$> filterInputs (hasParty policyId) ctx
+            snd <$> filterInputs (hasParticipationToken policyId) ctx
           committedOutputs =
             mapMaybe decodeCommit collectComUtxos
           newState =
@@ -89,7 +89,7 @@ hydraValidator (params@HeadParameters{participants, policyId}, s) i ctx =
             foldMap txOutValue collectComUtxos
        in and
             [ mustBeSignedByOneOf participants ctx
-            , all (mustForwardParty ctx policyId) participants
+            , all (mustForwardParticipationToken ctx policyId) participants
             , checkScriptContext @(RedeemerType Hydra) @(DatumType Hydra)
                 (mustPayToTheScript newState amountPaid)
                 ctx
@@ -101,7 +101,7 @@ hydraValidator (params@HeadParameters{participants, policyId}, s) i ctx =
             lovelaceValueOf 0
        in and
             [ mustBeSignedByOneOf participants ctx
-            , all (mustBurnParty ctx policyId) participants
+            , all (mustBurnParticipationToken ctx policyId) participants
             , checkScriptContext @(RedeemerType Hydra) @(DatumType Hydra)
                 (mustPayToTheScript newState amountPaid)
                 ctx
@@ -168,7 +168,7 @@ initialValidator (params@HeadParameters{policyId}, hydraScript, commitScript, vk
         False
       Just utxo ->
         let commitDatum = asDatum @(DatumType Commit) (params, hydraScript, snd utxo)
-            commitValue = txOutValue (snd utxo) <> mkParty policyId vk
+            commitValue = txOutValue (snd utxo) <> mkParticipationToken policyId vk
          in checkScriptContext @(RedeemerType Initial) @(DatumType Initial)
               ( mconcat
                   [ mustBeSignedBy vk
@@ -364,12 +364,12 @@ mustRunContract (script, _datum) redeemer ctx =
         ctx
 {-# INLINEABLE mustRunContract #-}
 
-mustForwardParty ::
+mustForwardParticipationToken ::
   ScriptContext ->
   MintingPolicyHash ->
   PubKeyHash ->
   Bool
-mustForwardParty ctx policyId vk =
+mustForwardParticipationToken ctx policyId vk =
   traceIfFalse "PT not spent" mustSpendToken
     && traceIfFalse "PT not produced" mustProduceToken
  where
@@ -381,39 +381,39 @@ mustForwardParty ctx policyId vk =
   mustProduceToken =
     assetClassValueOf (valueProduced info) participationToken == 1
 
-  participationToken = assetClass (mpsSymbol policyId) (mkPartyName vk)
-{-# INLINEABLE mustForwardParty #-}
+  participationToken = assetClass (mpsSymbol policyId) (mkParticipationTokenName vk)
+{-# INLINEABLE mustForwardParticipationToken #-}
 
-mustBurnParty ::
+mustBurnParticipationToken ::
   ScriptContext ->
   MintingPolicyHash ->
   PubKeyHash ->
   Bool
-mustBurnParty ctx policyId vk =
-  let assetName = mkPartyName vk
+mustBurnParticipationToken ctx policyId vk =
+  let assetName = mkParticipationTokenName vk
    in checkScriptContext @() @() (mustMintCurrency policyId assetName (-1)) ctx
-{-# INLINEABLE mustBurnParty #-}
+{-# INLINEABLE mustBurnParticipationToken #-}
 
-mkParty ::
+mkParticipationToken ::
   MintingPolicyHash ->
   PubKeyHash ->
   Value
-mkParty policyId vk =
-  Value.singleton (Value.mpsSymbol policyId) (mkPartyName vk) 1
-{-# INLINEABLE mkParty #-}
+mkParticipationToken policyId vk =
+  Value.singleton (Value.mpsSymbol policyId) (mkParticipationTokenName vk) 1
+{-# INLINEABLE mkParticipationToken #-}
 
-mkPartyName ::
+mkParticipationTokenName ::
   PubKeyHash ->
   TokenName
-mkPartyName =
+mkParticipationTokenName =
   TokenName . getPubKeyHash
-{-# INLINEABLE mkPartyName #-}
+{-# INLINEABLE mkParticipationTokenName #-}
 
-hasParty :: MintingPolicyHash -> TxInInfo -> Bool
-hasParty policyId input =
+hasParticipationToken :: MintingPolicyHash -> TxInInfo -> Bool
+hasParticipationToken policyId input =
   let currency = Value.mpsSymbol policyId
    in currency `elem` symbols (txOutValue $ txInInfoResolved input)
-{-# INLINEABLE hasParty #-}
+{-# INLINEABLE hasParticipationToken #-}
 
 filterInputs :: (TxInInfo -> Bool) -> ScriptContext -> [(TxOutRef, TxOut)]
 filterInputs predicate =

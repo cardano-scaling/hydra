@@ -96,7 +96,7 @@ init params@HeadParameters{participants, policy, policyId} = do
     mconcat
       [ foldMap
           ( \vk ->
-              let participationToken = OnChain.mkParty policyId vk
+              let participationToken = OnChain.mkParticipationToken policyId vk
                in mconcat
                     [ mustPayToOtherScript
                         OnChain.initialValidatorHash
@@ -150,7 +150,7 @@ commit params@HeadParameters{policy, policyId} = do
       }
 
   constraints vk (ref, txOut) initial =
-    let amount = txOutValue (txOutTxOut txOut) <> OnChain.mkParty policyId vk
+    let amount = txOutValue (txOutTxOut txOut) <> OnChain.mkParticipationToken policyId vk
      in mconcat
           [ mustBeSignedBy vk
           , -- NOTE: using a 'foldMap' here but that 'initial' utxo really has only one
@@ -272,7 +272,7 @@ abort params@HeadParameters{participants, policy, policyId} = do
       [ mustBeSignedBy headMember
       , mustPayToTheScript (datumHydra params OnChain.Final) (lovelaceValueOf 0)
       , foldMap
-          (\vk -> mustMintCurrency policyId (OnChain.mkPartyName vk) (-1))
+          (\vk -> mustMintCurrency policyId (OnChain.mkParticipationTokenName vk) (-1))
           participants
       , foldMap mustRefund toRefund
       , foldMap
@@ -397,12 +397,12 @@ zipOnParty policyId vks utxo =
   go acc [] _ _ = acc
   go acc _ [] _ = acc
   go acc (u : qu) (vk : qv) qv' =
-    if u `hasParty` vk
+    if u `isParty` vk
       then go ((vk, fst u) : acc) qu (qv ++ qv') []
       else go acc (u : qu) qv (vk : qv')
 
-  hasParty :: (TxOutRef, TxOut) -> PubKeyHash -> Bool
-  hasParty (_, txOut) vk =
+  isParty :: (TxOutRef, TxOut) -> PubKeyHash -> Bool
+  isParty (_, txOut) vk =
     let currency = Value.mpsSymbol policyId
-        token = OnChain.mkPartyName vk
+        token = OnChain.mkParticipationTokenName vk
      in Value.valueOf (txOutValue txOut) currency token > 0
