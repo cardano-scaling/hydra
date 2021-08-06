@@ -82,11 +82,12 @@ library
   import: project-config
   exposed-modules:
       Hydra.Contract.ContestationPeriod
-      Hydra.Contract.OnChain
+      Hydra.Contract.Initial
       Hydra.Contract.OffChain
+      Hydra.Contract.OnChain
+      Hydra.Contract.PAB
       Hydra.Contract.Party
       Hydra.ContractSM
-      Hydra.Contract.PAB
   hs-source-dirs: src
   build-depends:
       aeson
@@ -171,3 +172,13 @@ executable hydra-pab
   ghc-options:
     -threaded
     -rtsopts
+
+executable inspect-scripts
+  import: project-config
+  hs-source-dirs: exe/inspect-scripts
+  main-is: Main.hs
+  build-depends: base
+    , bytestring
+    , hydra-plutus
+    , plutus-ledger
+    , serialise
