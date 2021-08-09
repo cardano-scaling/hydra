@@ -19,6 +19,7 @@ module HydraNode (
   hydraNodeProcess,
   module System.Process,
   waitForNodesConnected,
+  withTempDir,
 ) where
 
 import Hydra.Prelude hiding (delete)
@@ -47,6 +48,7 @@ import Hydra.Network.Ports (randomUnusedTCPPorts)
 import Network.HTTP.Conduit (HttpExceptionContent (ConnectionFailure), parseRequest)
 import Network.HTTP.Simple (HttpException (HttpExceptionRequest), Response, getResponseBody, getResponseStatusCode, httpBS)
 import Network.WebSockets (Connection, receiveData, runClient, sendClose, sendTextData)
+import System.Directory (removePathForcibly)
 import System.Exit (ExitCode (..))
 import System.FilePath ((</>))
 import System.IO.Temp (withSystemTempDirectory)
@@ -227,7 +229,16 @@ withHydraNode tracer workDir mockChainPorts hydraNodeId sKey vKeys action = do
 
   withFile' filepath io =
     withFile filepath ReadWriteMode io
-      `onException` (putStrLn $ "Logfile written to: " <> filepath)
+      `onException` putStrLn ("Logfile written to: " <> filepath)
+
+-- | Create a temporary directory for the given 'action' to use.
+-- The directory is removed if and only if the action completes successfuly.
+withTempDir :: String -> (FilePath -> IO r) -> IO r
+withTempDir baseName action = do
+  tmpDir <- createSystemTempDirectory baseName
+  res <- action tmpDir
+  removePathForcibly tmpDir
+  pure res
 
 newtype CannotStartHydraClient = CannotStartHydraClient Int deriving (Show)
 instance Exception CannotStartHydraClient

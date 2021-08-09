@@ -27,6 +27,7 @@ import HydraNode (
   waitForNodesConnected,
   withHydraNode,
   withMockChain,
+  withTempDir,
  )
 import Test.Hspec (
   Spec,
@@ -53,68 +54,68 @@ spec = around showLogsOnFailure $
   describe "End-to-end test using a mocked chain though" $ do
     describe "three hydra nodes scenario" $ do
       it "inits and closes a head with a single mock transaction" $ \tracer -> do
-        tmpDir <- createSystemTempDirectory "end-to-end-inits-and-closes"
         failAfter 30 $
-          withMockChain $ \chainPorts ->
-            withHydraNode tracer tmpDir chainPorts 1 aliceSk [bobVk, carolVk] $ \n1 ->
-              withHydraNode tracer tmpDir chainPorts 2 bobSk [aliceVk, carolVk] $ \n2 ->
-                withHydraNode tracer tmpDir chainPorts 3 carolSk [aliceVk, bobVk] $ \n3 -> do
-                  waitForNodesConnected tracer [n1, n2, n3]
-                  let contestationPeriod = 10 :: Natural
-                  send n1 $ input "init" ["contestationPeriod" .= contestationPeriod]
-                  waitFor tracer 3 [n1, n2, n3] $
-                    output "readyToCommit" ["parties" .= [int 10, 20, 30]]
-                  send n1 $ input "commit" ["utxo" .= [int 1]]
-                  send n2 $ input "commit" ["utxo" .= [int 2]]
-                  send n3 $ input "commit" ["utxo" .= [int 3]]
+          withTempDir "end-to-end-inits-and-closes" $ \tmpDir ->
+            withMockChain $ \chainPorts ->
+              withHydraNode tracer tmpDir chainPorts 1 aliceSk [bobVk, carolVk] $ \n1 ->
+                withHydraNode tracer tmpDir chainPorts 2 bobSk [aliceVk, carolVk] $ \n2 ->
+                  withHydraNode tracer tmpDir chainPorts 3 carolSk [aliceVk, bobVk] $ \n3 -> do
+                    waitForNodesConnected tracer [n1, n2, n3]
+                    let contestationPeriod = 10 :: Natural
+                    send n1 $ input "init" ["contestationPeriod" .= contestationPeriod]
+                    waitFor tracer 3 [n1, n2, n3] $
+                      output "readyToCommit" ["parties" .= [int 10, 20, 30]]
+                    send n1 $ input "commit" ["utxo" .= [int 1]]
+                    send n2 $ input "commit" ["utxo" .= [int 2]]
+                    send n3 $ input "commit" ["utxo" .= [int 3]]
 
-                  waitFor tracer 3 [n1, n2, n3] $ output "headIsOpen" ["utxo" .= [int 1, 2, 3]]
+                    waitFor tracer 3 [n1, n2, n3] $ output "headIsOpen" ["utxo" .= [int 1, 2, 3]]
 
-                  let tx = object ["id" .= int 42, "inputs" .= [int 1], "outputs" .= [int 4]]
-                  send n1 $ input "newTransaction" ["transaction" .= tx]
+                    let tx = object ["id" .= int 42, "inputs" .= [int 1], "outputs" .= [int 4]]
+                    send n1 $ input "newTransaction" ["transaction" .= tx]
 
-                  waitFor tracer 10 [n1, n2, n3] $ output "transactionSeen" ["transaction" .= tx]
-                  waitFor tracer 10 [n1, n2, n3] $
-                    output
-                      "snapshotConfirmed"
-                      [ "snapshot"
-                          .= object
-                            [ "confirmedTransactions" .= [tx]
-                            , "snapshotNumber" .= int 1
-                            , "utxo" .= [int 2, 3, 4]
-                            ]
-                      ]
+                    waitFor tracer 10 [n1, n2, n3] $ output "transactionSeen" ["transaction" .= tx]
+                    waitFor tracer 10 [n1, n2, n3] $
+                      output
+                        "snapshotConfirmed"
+                        [ "snapshot"
+                            .= object
+                              [ "confirmedTransactions" .= [tx]
+                              , "snapshotNumber" .= int 1
+                              , "utxo" .= [int 2, 3, 4]
+                              ]
+                        ]
 
-                  send n1 $ input "getUtxo" []
-                  waitFor tracer 10 [n1] $ output "utxo" ["utxo" .= [int 2, 3, 4]]
+                    send n1 $ input "getUtxo" []
+                    waitFor tracer 10 [n1] $ output "utxo" ["utxo" .= [int 2, 3, 4]]
 
-                  send n1 $ input "close" []
-                  waitFor tracer 3 [n1] $
-                    output
-                      "headIsClosed"
-                      [ "contestationPeriod" .= contestationPeriod
-                      , "latestSnapshot"
-                          .= object
-                            [ "snapshotNumber" .= int 1
-                            , "utxo" .= [int 2, 3, 4]
-                            , "confirmedTransactions" .= [tx]
-                            ]
-                      ]
-                  waitFor tracer (contestationPeriod + 3) [n1] $ output "headIsFinalized" ["utxo" .= [int 2, 3, 4]]
+                    send n1 $ input "close" []
+                    waitFor tracer 3 [n1] $
+                      output
+                        "headIsClosed"
+                        [ "contestationPeriod" .= contestationPeriod
+                        , "latestSnapshot"
+                            .= object
+                              [ "snapshotNumber" .= int 1
+                              , "utxo" .= [int 2, 3, 4]
+                              , "confirmedTransactions" .= [tx]
+                              ]
+                        ]
+                    waitFor tracer (contestationPeriod + 3) [n1] $ output "headIsFinalized" ["utxo" .= [int 2, 3, 4]]
 
     describe "Monitoring" $ do
       it "Node exposes Prometheus metrics on port 6001" $ \tracer -> do
-        tmpDir <- createSystemTempDirectory "end-to-end-prometheus-metrics"
-        failAfter 20 $
-          withMockChain $ \mockPorts ->
-            withHydraNode tracer tmpDir mockPorts 1 aliceSk [bobVk, carolVk] $ \n1 ->
-              withHydraNode tracer tmpDir mockPorts 2 bobSk [aliceVk, carolVk] $ \_n2 ->
-                withHydraNode tracer tmpDir mockPorts 3 carolSk [aliceVk, bobVk] $ \_n3 -> do
-                  waitForNodesConnected tracer [n1]
-                  send n1 $ input "init" ["contestationPeriod" .= int 10]
-                  waitFor tracer 3 [n1] $ output "readyToCommit" ["parties" .= [int 10, 20, 30]]
-                  metrics <- getMetrics n1
-                  metrics `shouldSatisfy` ("hydra_head_events  4" `BS.isInfixOf`)
+        withTempDir "end-to-end-prometheus-metrics" $ \tmpDir ->
+          failAfter 20 $
+            withMockChain $ \mockPorts ->
+              withHydraNode tracer tmpDir mockPorts 1 aliceSk [bobVk, carolVk] $ \n1 ->
+                withHydraNode tracer tmpDir mockPorts 2 bobSk [aliceVk, carolVk] $ \_n2 ->
+                  withHydraNode tracer tmpDir mockPorts 3 carolSk [aliceVk, bobVk] $ \_n3 -> do
+                    waitForNodesConnected tracer [n1]
+                    send n1 $ input "init" ["contestationPeriod" .= int 10]
+                    waitFor tracer 3 [n1] $ output "readyToCommit" ["partie" .= [int 10, 20, 30]]
+                    metrics <- getMetrics n1
+                    metrics `shouldSatisfy` ("hydra_head_events  4" `BS.isInfixOf`)
 
     describe "hydra-node executable" $ do
       it "display proper semantic version given it is passed --version argument" $ \_ -> do
