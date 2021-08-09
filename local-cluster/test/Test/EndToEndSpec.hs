@@ -113,7 +113,7 @@ spec = around showLogsOnFailure $
                   withHydraNode tracer tmpDir mockPorts 3 carolSk [aliceVk, bobVk] $ \_n3 -> do
                     waitForNodesConnected tracer [n1]
                     send n1 $ input "init" ["contestationPeriod" .= int 10]
-                    waitFor tracer 3 [n1] $ output "readyToCommit" ["partie" .= [int 10, 20, 30]]
+                    waitFor tracer 3 [n1] $ output "readyToCommit" ["parties" .= [int 10, 20, 30]]
                     metrics <- getMetrics n1
                     metrics `shouldSatisfy` ("hydra_head_events  4" `BS.isInfixOf`)
 
