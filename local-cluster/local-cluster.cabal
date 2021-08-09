@@ -167,6 +167,7 @@ benchmark bench-e2e
     , filepath
     , hydra-node
     , hydra-prelude
+    , hydra-test-utils
     , io-classes
     , lens
     , lens-aeson
