@@ -279,12 +279,12 @@ proofSize (Proof proof) = case proof of
 member ::
   forall alg a.
   (Serialise a, HashAlgorithm alg) =>
-  (String, a) ->
   -- | The (key, value) to check
-  Digest alg ->
+  (String, a) ->
   -- | The root of the target 'MerklePatriciaTree'
-  Proof alg ->
+  Digest alg ->
   -- | A proof constructed from the original 'MerklePatriciaTree'
+  Proof alg ->
   Bool
 member el newRoot proofs = fromMaybe False $ do
   (newRoot', _oldRoot) <- walkBackwards el proofs
@@ -303,12 +303,12 @@ member el newRoot proofs = fromMaybe False $ do
 add ::
   forall alg a.
   (Serialise a, HashAlgorithm alg) =>
-  (String, a) ->
   -- | The (key, value) to add
-  Digest alg ->
+  (String, a) ->
   -- | The root of the 'MerklePatriciaTree' into which to add the pair
-  Proof alg ->
+  Digest alg ->
   -- | A proof constructed from the __final__ 'MerklePatriciaTree'
+  Proof alg ->
   Maybe (Digest alg)
 add el oldRoot proofs = do
   (newRoot, oldRoot') <- walkBackwards el proofs
@@ -333,12 +333,12 @@ add el oldRoot proofs = do
 delete ::
   forall alg a.
   (Serialise a, HashAlgorithm alg) =>
-  (String, a) ->
   -- | The (key, value) to delete
-  Digest alg ->
+  (String, a) ->
   -- | The root of the 'MerklePatriciaTree' from which to remove the pair
-  Proof alg ->
+  Digest alg ->
   -- | A proof constructed from the __original__ 'MerklePatriciaTree'
+  Proof alg ->
   Maybe (Digest alg)
 delete el newRoot proofs = do
   (newRoot', oldRoot) <- walkBackwards el proofs
@@ -402,10 +402,10 @@ emptyRoot = hashNode "" []
 walkBackwards ::
   forall alg a.
   (Serialise a, HashAlgorithm alg) =>
-  (String, a) ->
   -- | leaf (key, value) to lookup
-  Proof alg ->
+  (String, a) ->
   -- | Proof of existence of the (key, value) into the MPT
+  Proof alg ->
   Maybe (Digest alg, Digest alg)
 walkBackwards (reverse -> ref0, a) (reverse . unProof -> proofs0) =
   -- The proof contains all the (other) nodes in the path from the root to the leaf
