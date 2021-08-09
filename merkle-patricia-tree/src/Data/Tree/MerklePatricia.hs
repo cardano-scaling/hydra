@@ -89,7 +89,6 @@ type Prefix = String
 data MerklePatriciaTree alg a
   = Leaf Prefix (Digest alg) a
   | Node Prefix (Digest alg) [(Char, MerklePatriciaTree alg a)]
-  | Empty (Digest alg)
   deriving (Show)
 
 instance HashAlgorithm alg => Eq (MerklePatriciaTree alg a) where
@@ -122,7 +121,7 @@ fromList = go "" . fmap (first toBits)
   alphabet = ['0' .. '1']
   go c = \case
     [] ->
-      Empty emptyRoot
+      Node "" (hashNode c []) []
     [(pre, a)] ->
       Leaf pre (hashLeaf (c ++ pre) a) a
     xs ->
@@ -136,7 +135,7 @@ fromList = go "" . fmap (first toBits)
     [(i, MerklePatriciaTree alg a)]
   mapNonEmptyWithIndex fn =
     mapMaybe $ \i -> case fn i of
-      Empty{} -> Nothing
+      mpt | null mpt -> Nothing
       mpt -> Just (i, mpt)
 
   project :: Char -> (String, a) -> Maybe (String, a)
@@ -153,8 +152,6 @@ toList :: forall alg a. MerklePatriciaTree alg a -> [(ByteString, a)]
 toList = fmap (first unsafeFromBits) . go
  where
   go = \case
-    Empty{} ->
-      []
     Leaf pre _ a ->
       [(pre, a)]
     Node pre _ children ->
@@ -170,7 +167,6 @@ root :: forall alg a. MerklePatriciaTree alg a -> Digest alg
 root = \case
   Leaf _ h _ -> h
   Node _ h _ -> h
-  Empty h -> h
 
 -- | True if the given 'MerklePatriciaTree' is empty.
 --
@@ -180,7 +176,7 @@ root = \case
 --     True
 null :: MerklePatriciaTree alg a -> Bool
 null = \case
-  Empty{} -> True
+  Node _ _ [] -> True
   _ -> False
 
 -- | Count the number of values stored in the tree (that is, number of non-empty
@@ -195,8 +191,6 @@ null = \case
 --     True
 size :: MerklePatriciaTree alg a -> Int
 size = \case
-  Empty{} ->
-    0
   Leaf{} ->
     1
   Node _ _ children ->
@@ -205,8 +199,6 @@ size = \case
 -- | Count the maximum number of levels in the tree.
 depth :: MerklePatriciaTree alg a -> Int
 depth = \case
-  Empty{} ->
-    0
   Leaf{} ->
     0
   Node _ _ children ->
@@ -230,8 +222,6 @@ mkProof (toBits -> ref0) =
   go ref0
  where
   go ref = \case
-    Empty{} ->
-      Nothing
     Leaf pre _ _ ->
       if pre == ref
         then Just $ Proof [(pre, [])]
@@ -367,13 +357,10 @@ pretty mpt =
     intercalate "\n" $ flip fmap (zip hs (lines bs)) $ \(h, b) -> shortHash h <> ": " <> b
 
   hashes = \case
-    Empty h -> [h]
     Leaf _ h _ -> [h]
     Node _ h children -> let hs = concatMap (hashes . snd) children in h : hs
 
   body n = \case
-    Empty{} ->
-      "ø"
     Leaf pre _ a ->
       pre <> " ↦ " <> take 5 (show a)
     Node pre _ children ->
