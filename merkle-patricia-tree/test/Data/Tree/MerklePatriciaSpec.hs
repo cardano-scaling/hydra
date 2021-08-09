@@ -6,6 +6,9 @@ module Data.Tree.MerklePatriciaSpec (
 
 import Prelude hiding (null)
 
+import Control.Monad (forM_)
+import Data.ByteString (ByteString)
+import qualified Data.ByteString as BS
 import Data.Function (
   (&),
  )
@@ -32,13 +35,16 @@ import Data.Tree.MerklePatricia (
   proofSize,
   root,
   size,
+  toBits,
   toList,
+  unsafeFromBits,
   unsafeMkProof,
  )
 import Test.Hspec (
   Spec,
   context,
   parallel,
+  shouldBe,
   specify,
  )
 import Test.QuickCheck (
@@ -56,6 +62,7 @@ import Test.QuickCheck (
   forAllShrink,
   forAllShrinkBlind,
   frequency,
+  label,
   listOf,
   property,
   shrinkList,
@@ -103,7 +110,7 @@ spec = parallel $ do
 
       specify "changing key invalidates proof" $ do
         forAllNonEmptyMPT @Int $ \mpt (k, v) proof ->
-          forAllBlind (genReference $ length k) $ \k' ->
+          forAllBlind (genReference $ BS.length k) $ \k' ->
             member (k', v) (root mpt) proof === (k == k')
               & counterexample ("proof:        " <> show proof)
               & counterexample ("key':         " <> show k')
@@ -141,7 +148,7 @@ spec = parallel $ do
 
       specify "adding unknown element gives Nothing" $ do
         forAllNonEmptyMPT @Int $ \mpt' (k, v) proof ->
-          forAllBlind (genReference $ length k) $ \k' ->
+          forAllBlind (genReference $ BS.length k) $ \k' ->
             (k /= k')
               ==> let mpt = fromList (toList mpt' \\ [(k, v)])
                    in add (k', v) (root mpt) proof === Nothing
@@ -157,7 +164,7 @@ spec = parallel $ do
 
       specify "cannot delete an element that isn't there" $ do
         forAllNonEmptyMPT @Int $ \mpt' (k, v) proof ->
-          forAllBlind (genReference $ length k) $ \k' ->
+          forAllBlind (genReference $ BS.length k) $ \k' ->
             (k /= k')
               ==> delete (k', v) (root mpt') proof === Nothing
               & counterexample ("key': " <> show k')
@@ -179,10 +186,16 @@ spec = parallel $ do
                 & counterexample ("newRoot: " <> show newRoot)
 
     context "Sizes" $ do
-      specify "trees aren't too deep (<= log(U))" $ do
+      specify "trees aren't too deep (<= 4 * log(U))" $ do
         withMaxSuccess 1000 $
           forAllBlind (genLargeMPT @() arbitrary) $ \mpt ->
-            let upperBound = ceiling @Double $ log $ fromIntegral $ size mpt
+            -- NOTE: We know the depth to be < log(|U|) for alphabet of size 16,
+            -- so for alphabet of size 2, we have to multiple by 4 (2**4 = 16)
+            -- to keep the same probabilities:
+            --
+            --     log (16^x) = log (2^4x) = 4*log(2^x)
+            --
+            let upperBound = 4 * ceiling @Double (log $ fromIntegral $ size mpt)
              in depth mpt <= upperBound
                   & counterexample ("MPT's depth: " <> show (depth mpt))
                   & counterexample ("MPT's size:  " <> show (size mpt))
@@ -193,7 +206,7 @@ spec = parallel $ do
           forAllBlind (elements $ toList mpt) $ \(k, _v) ->
             let proof = unsafeMkProof k mpt
 
-                alphabetSize = 16
+                alphabetSize = 2
                 s = fromIntegral (size mpt)
                 d = fromIntegral (depth mpt)
                 p = proofSize proof
@@ -222,15 +235,32 @@ spec = parallel $ do
                   )
              in property (p < 2 * upperBound) -- No proof is larger than 2 * upperBound
                   & cover 1.0 (p <= upperBound) "Most proofs are smaller than upperBound"
+                  & label (show p)
                   & counterexample ("proof size:     " <> show p)
                   & counterexample ("MPT's size:     " <> show s)
                   & counterexample ("MPT's depth:    " <> show d)
                   & counterexample ("upperBound:     " <> show upperBound)
                   & checkCoverage
 
+  context "bits from strings" $ do
+    let matrix =
+          [ ("", "")
+          , ("a", "10000110")
+          , ("abc", "100001100100011011000110")
+          ]
+    forM_ matrix $ \(input, output) ->
+      specify (show input) $ toBits input `shouldBe` output
+
+  context "toBits" $ do
+    specify "should roundtrip with unsafeFromBits" $
+      forAllShrink (genReference 8) shrinkReference $ \ref ->
+        let bits = toBits ref
+         in unsafeFromBits bits === ref
+              & counterexample bits
+
   context "Prefixes" $ do
     specify "compare with oracle" $
-      forAllShrink (genReference 8) shrinkReference $ \ref ->
+      forAllShrink (genReference 8) shrinkReference $ \(toBits -> ref) ->
         forAll (genPrefix ref) $ \pre ->
           let result = dropPrefix pre ref
               oracle = stripPrefix pre ref
@@ -266,7 +296,7 @@ forAllNonEmptyMPT ::
   forall a prop alg.
   (alg ~ Blake2b_160) =>
   (Arbitrary a, Serialise a, Show a, Testable prop) =>
-  (MerklePatriciaTree alg a -> (String, a) -> Proof alg -> prop) ->
+  (MerklePatriciaTree alg a -> (ByteString, a) -> Proof alg -> prop) ->
   Property
 forAllNonEmptyMPT prop =
   forAllMPT $ \mpt ->
@@ -277,19 +307,20 @@ forAllNonEmptyMPT prop =
 -- Generators
 --
 
-genReference :: Int -> Gen String
+genReference :: Int -> Gen ByteString
 genReference n =
-  vectorOf n (elements $ ['0' .. '9'] ++ ['a' .. 'f'])
+  BS.pack <$> vectorOf n arbitrary
 
-shrinkReference :: String -> [String]
-shrinkReference = shrink
+shrinkReference :: ByteString -> [ByteString]
+shrinkReference =
+  fmap BS.pack . shrinkList pure . BS.unpack
 
 genPrefix :: String -> Gen String
 genPrefix ref = do
   n <- choose (0, length ref)
   frequency
-    [ (10, pure (take n ref))
-    , (1, take n <$> genReference (length ref))
+    [ (10, pure $ take n ref)
+    , (1, take n . toBits <$> genReference (length ref))
     ]
 
 genMPT :: Serialise a => Gen a -> Gen (MerklePatriciaTree Blake2b_160 a)

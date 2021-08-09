@@ -56,12 +56,11 @@ module Data.Tree.MerklePatricia (
   -- Internals
   stripCommonPrefix,
   dropPrefix,
+  toBits,
+  unsafeFromBits,
 ) where
 
 import Prelude hiding (null)
-
--- import Data.Function
--- import Debug.Trace
 
 import Codec.Serialise (Serialise, serialise)
 import Control.Arrow (first, second)
@@ -69,11 +68,13 @@ import Control.Monad (guard, join)
 import Crypto.Hash (Digest, hash, hashlazy)
 import Crypto.Hash.Algorithms (Blake2b_160, Blake2b_224, Blake2b_256)
 import Crypto.Hash.IO (HashAlgorithm)
+import Data.Bits (shiftL, testBit, (.|.))
 import Data.ByteArray (convert)
 import Data.ByteArray.Encoding (Base (..), convertToBase)
 import Data.ByteString (ByteString)
 import Data.List (foldl', intercalate, sortOn, stripPrefix)
 import Data.Maybe (fromMaybe, mapMaybe)
+import Data.Word (Word8)
 import GHC.Stack (HasCallStack)
 
 import qualified Data.ByteString as BS
@@ -114,11 +115,11 @@ newtype Proof alg = Proof {unProof :: [(Prefix, [(Char, Digest alg)])]}
 fromList ::
   forall alg a.
   (HashAlgorithm alg, Serialise a) =>
-  [(String, a)] ->
+  [(ByteString, a)] ->
   MerklePatriciaTree alg a
-fromList = go ""
+fromList = go "" . fmap (first toBits)
  where
-  alphabet = ['0' .. '9'] ++ ['a' .. 'f']
+  alphabet = ['0' .. '1']
   go c = \case
     [] ->
       Empty emptyRoot
@@ -148,14 +149,16 @@ fromList = go ""
 -- __properties:__
 --
 --     >>> ∀xs. toList (fromList xs) == xs
-toList :: forall alg a. MerklePatriciaTree alg a -> [(String, a)]
-toList = \case
-  Empty{} ->
-    []
-  Leaf pre _ a ->
-    [(pre, a)]
-  Node pre _ children ->
-    mconcat [first ((pre <> [c]) <>) <$> toList mpt | (c, mpt) <- children]
+toList :: forall alg a. MerklePatriciaTree alg a -> [(ByteString, a)]
+toList = fmap (first unsafeFromBits) . go
+ where
+  go = \case
+    Empty{} ->
+      []
+    Leaf pre _ a ->
+      [(pre, a)]
+    Node pre _ children ->
+      mconcat [first ((pre <> [c]) <>) <$> go mpt | (c, mpt) <- children]
 
 --
 -- Analyzing
@@ -218,36 +221,36 @@ depth = \case
 -- information embedded in the element itself. This means that, the
 -- corresponding (key, value) is necessary for any use of the proof.
 mkProof ::
-  forall alg a.
-  (HashAlgorithm alg, Serialise a) =>
-  String ->
+  ByteString ->
   -- | A key pointing to one element in the tree
   MerklePatriciaTree alg a ->
   -- | The target tree
   Maybe (Proof alg)
-mkProof ref = \case
-  Empty{} ->
-    Nothing
-  Leaf pre _ _ ->
-    if pre == ref
-      then Just $ Proof [(pre, [])]
-      else Nothing
-  Node pre _ children ->
-    case stripPrefix pre ref of
-      Just (c : ref') -> do
-        child <- lookup c children
-        let others = flip mapMaybe children $ \(i, mpt) ->
-              if i == c then Nothing else Just (i, root mpt)
-        Proof proof <- mkProof ref' child
-        pure $ Proof $ (pre, others) : proof
-      _ ->
-        Nothing
+mkProof (toBits -> ref0) =
+  go ref0
+ where
+  go ref = \case
+    Empty{} ->
+      Nothing
+    Leaf pre _ _ ->
+      if pre == ref
+        then Just $ Proof [(pre, [])]
+        else Nothing
+    Node pre _ children ->
+      case stripPrefix pre ref of
+        Just (c : ref') -> do
+          child <- lookup c children
+          let others = flip mapMaybe children $ \(i, mpt) ->
+                if i == c then Nothing else Just (i, root mpt)
+          Proof proof <- go ref' child
+          pure $ Proof $ (pre, others) : proof
+        _ ->
+          Nothing
 
 -- An unsafe version of 'mkProof', for testing only.
 unsafeMkProof ::
-  forall alg a.
-  (HashAlgorithm alg, Serialise a, HasCallStack) =>
-  String ->
+  HasCallStack =>
+  ByteString ->
   MerklePatriciaTree alg a ->
   Proof alg
 unsafeMkProof ref =
@@ -280,7 +283,7 @@ member ::
   forall alg a.
   (Serialise a, HashAlgorithm alg) =>
   -- | The (key, value) to check
-  (String, a) ->
+  (ByteString, a) ->
   -- | The root of the target 'MerklePatriciaTree'
   Digest alg ->
   -- | A proof constructed from the original 'MerklePatriciaTree'
@@ -304,7 +307,7 @@ add ::
   forall alg a.
   (Serialise a, HashAlgorithm alg) =>
   -- | The (key, value) to add
-  (String, a) ->
+  (ByteString, a) ->
   -- | The root of the 'MerklePatriciaTree' into which to add the pair
   Digest alg ->
   -- | A proof constructed from the __final__ 'MerklePatriciaTree'
@@ -334,7 +337,7 @@ delete ::
   forall alg a.
   (Serialise a, HashAlgorithm alg) =>
   -- | The (key, value) to delete
-  (String, a) ->
+  (ByteString, a) ->
   -- | The root of the 'MerklePatriciaTree' from which to remove the pair
   Digest alg ->
   -- | A proof constructed from the __original__ 'MerklePatriciaTree'
@@ -403,11 +406,11 @@ walkBackwards ::
   forall alg a.
   (Serialise a, HashAlgorithm alg) =>
   -- | leaf (key, value) to lookup
-  (String, a) ->
+  (ByteString, a) ->
   -- | Proof of existence of the (key, value) into the MPT
   Proof alg ->
   Maybe (Digest alg, Digest alg)
-walkBackwards (reverse -> ref0, a) (reverse . unProof -> proofs0) =
+walkBackwards (reverse . toBits -> ref0, a) (reverse . unProof -> proofs0) =
   -- The proof contains all the (other) nodes in the path from the root to the leaf
   -- containing the element 'a'. Thus, checking membership boils down to trying
   -- to re-construct the root hash from the leaf.
@@ -530,3 +533,33 @@ stripCommonPrefix = \case
 dropPrefix :: String -> String -> String
 dropPrefix pre str =
   fromMaybe str (stripPrefix pre str)
+
+toBits :: ByteString -> String
+toBits = foldMap bits . BS.unpack
+ where
+  bits :: Word8 -> String
+  bits b = [if testBit b i then '1' else '0' | i <- [0 .. 7]]
+
+unsafeFromBits :: HasCallStack => String -> ByteString
+unsafeFromBits = BS.pack . go
+ where
+  go = \case
+    b0 : b1 : b2 : b3 : b4 : b5 : b6 : b7 : q ->
+      let shiftL' '1' = shiftL 1
+          shiftL' _ = const 0
+          digit =
+            shiftL' b0 0
+              .|. shiftL' b1 1
+              .|. shiftL' b2 2
+              .|. shiftL' b3 3
+              .|. shiftL' b4 4
+              .|. shiftL' b5 5
+              .|. shiftL' b6 6
+              .|. shiftL' b7 7
+
+          str = go q
+       in digit : str
+    [] ->
+      []
+    _ ->
+      error "fromBits: wrong number of bits."
