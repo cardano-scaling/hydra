@@ -218,6 +218,7 @@ test-suite tests
     , hydra-node
     , hydra-plutus
     , hydra-prelude
+    , hydra-test-utils
     , io-sim
     , io-classes
     , iproute

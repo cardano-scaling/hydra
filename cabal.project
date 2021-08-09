@@ -5,6 +5,7 @@ packages:
   hydra-node
   hydra-plutus
   hydra-prelude
+  hydra-test-utils
 
 tests: False
 package local-cluster

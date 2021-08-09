@@ -1,8 +1,8 @@
 cabal-version: 2.2
 
-name: hydra-prelude
+name: hydra-test-utils
 version: 1.0.0
-description: Custom Hydra Prelude used across other Hydra packages.
+description: Hydra utilities for testing, aka. "Test Prelude"
 author: IOG
 copyright: 2021 IOG
 license: Apache-2.0
@@ -14,23 +14,29 @@ extra-source-files: README.md
 
 source-repository head
   type: git
-  location: https://github.com/input-output-hk/hydra-node
+  location: https://github.com/input-output-hk/hydra-poc
 
 library
   hs-source-dirs:
     src
   exposed-modules:
-    Hydra.Prelude
+    Hydra.Test.Prelude
+    Hydra.Network.Ports
   build-depends:
     aeson,
     base,
     cardano-binary,
+    filepath,
     generic-random,
+    hydra-prelude,
     io-classes,
+    network,
     QuickCheck,
     quickcheck-instances,
     random-shuffle,
     relude,
+    temporary,
+    warp,
   default-extensions:
     NoImplicitPrelude
     FlexibleContexts
