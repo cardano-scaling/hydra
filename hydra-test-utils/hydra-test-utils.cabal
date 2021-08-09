@@ -29,6 +29,7 @@ library
     filepath,
     generic-random,
     hydra-prelude,
+    HUnit,
     io-classes,
     network,
     QuickCheck,

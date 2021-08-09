@@ -9,19 +9,10 @@ import Control.Monad.IOSim (Failure (FailureException), IOSim, runSimTrace, sele
 import Control.Tracer (Tracer (Tracer))
 import Data.List (isInfixOf)
 import Data.Typeable (cast)
-import GHC.Stack (SrcLoc)
 import Hydra.Ledger.Simple (SimpleTx)
 import Hydra.Node (HydraNodeLog)
-import Test.HUnit.Lang (FailureReason (ExpectedButGot, Reason), HUnitFailure (HUnitFailure))
-
-failure :: (HasCallStack, MonadThrow m) => String -> m a
-failure msg =
-  throwIO (HUnitFailure location $ Reason msg)
-
-location :: HasCallStack => Maybe SrcLoc
-location = case reverse $ getCallStack callStack of
-  (_, loc) : _ -> Just loc
-  _ -> Nothing
+import Hydra.Test.Prelude (failure, location)
+import Test.HUnit.Lang (FailureReason (ExpectedButGot), HUnitFailure (HUnitFailure))
 
 failAfter :: (HasCallStack, MonadTimer m, MonadThrow m) => DiffTime -> m () -> m ()
 failAfter seconds action =

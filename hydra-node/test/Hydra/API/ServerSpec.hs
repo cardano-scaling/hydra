@@ -18,13 +18,14 @@ import Hydra.Ledger.Simple (SimpleTx)
 import Hydra.Logging (nullTracer)
 import Hydra.Network.Ports (withFreePort)
 import Hydra.Prelude
+import Hydra.ServerOutput (ServerOutput (InvalidInput, ReadyToCommit))
+import Hydra.Test.Prelude (failure)
 import Network.WebSockets (Connection, receiveData, runClient, sendBinaryData)
 import Test.Hspec
 import Test.Hspec.QuickCheck (prop)
 import Test.QuickCheck (cover)
 import Test.QuickCheck.Monadic (monadicIO, monitor, run)
-import Test.Util (failAfter, failure)
-import Hydra.ServerOutput (ServerOutput (InvalidInput, ReadyToCommit))
+import Test.Util (failAfter)
 
 spec :: Spec
 spec = describe "API Server" $ do
@@ -59,7 +60,7 @@ spec = describe "API Server" $ do
             received <- replicateM (length msgs) (receiveData conn)
             case traverse Aeson.eitherDecode received of
               Right msgs' -> msgs' `shouldBe` msgs
-              Left{} -> expectationFailure ("Failed to decode messages " <> show msgs)
+              Left{} -> failure $ "Failed to decode messages " <> show msgs
 
   it "sends an error when input cannot be decoded" $
     failAfter 5 $
@@ -83,7 +84,7 @@ testClient queue semaphore cnx = do
   msg <- receiveData cnx
   case Aeson.eitherDecode msg of
     Right resp -> atomically (writeTQueue queue resp)
-    Left{} -> expectationFailure ("Failed to decode message " <> show msg)
+    Left{} -> failure $ "Failed to decode message " <> show msg
 
 noop :: Applicative m => a -> m ()
 noop = const $ pure ()

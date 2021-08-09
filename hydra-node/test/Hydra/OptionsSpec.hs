@@ -3,7 +3,8 @@ module Hydra.OptionsSpec where
 import Hydra.Network (Host (Host), MockChainPorts (..))
 import Hydra.Options (Options (..), ParserResult (..), defaultOptions, parseHydraOptionsFromString)
 import Hydra.Prelude
-import Test.Hspec (Expectation, Spec, describe, expectationFailure, it, shouldBe)
+import Hydra.Test.Prelude (failure)
+import Test.Hspec (Expectation, Spec, describe, it, shouldBe)
 
 spec :: Spec
 spec = describe "Hydra Node Options" $ do
@@ -62,11 +63,11 @@ shouldParse :: [String] -> Options -> Expectation
 shouldParse args options =
   case parseHydraOptionsFromString args of
     Success a -> a `shouldBe` options
-    err -> expectationFailure (show err)
+    err -> failure (show err)
 
 shouldNotParse :: [String] -> Expectation
 shouldNotParse args =
   case parseHydraOptionsFromString args of
-    Success a -> expectationFailure $ "Unexpected successful parse to " <> show a
+    Success a -> failure $ "Unexpected successful parse to " <> show a
     Failure _ -> pure ()
-    CompletionInvoked _ -> expectationFailure "Unexpected completion invocation"
+    CompletionInvoked _ -> failure "Unexpected completion invocation"
