@@ -3,7 +3,7 @@ module Hydra.OptionsSpec where
 import Hydra.Network (Host (Host), MockChainPorts (..))
 import Hydra.Options (Options (..), ParserResult (..), defaultOptions, parseHydraOptionsFromString)
 import Hydra.Prelude
-import Hydra.Test.Prelude (failure)
+import Test.Hydra.Prelude (failure)
 import Test.Hspec (Expectation, Spec, describe, it, shouldBe)
 
 spec :: Spec

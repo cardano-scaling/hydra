@@ -14,7 +14,7 @@ import CardanoNode (
   withCardanoNode,
  )
 import Control.Tracer (Tracer, traceWith)
-import Hydra.Network.Ports (randomUnusedTCPPorts)
+import Test.Network.Ports (randomUnusedTCPPorts)
 import System.Directory (copyFile, createDirectoryIfMissing)
 import System.FilePath ((</>))
 import System.Posix.Files (

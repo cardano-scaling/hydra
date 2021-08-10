@@ -26,7 +26,7 @@ import qualified Data.Set as Set
 import Hydra.Ledger (Tx, TxId, txId)
 import Hydra.Ledger.Simple (SimpleTx)
 import Hydra.Logging (showLogsOnFailure)
-import Hydra.Test.Prelude (failAfter)
+import Test.Hydra.Prelude (failAfter)
 import HydraNode (
   HydraClient,
   input,

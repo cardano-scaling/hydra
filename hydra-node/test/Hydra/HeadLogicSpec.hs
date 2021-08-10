@@ -29,7 +29,7 @@ import Hydra.Ledger.Simple (SimpleTx (..), TxIn (..), aValidTx, simpleLedger, ut
 import Hydra.Network.Message (Message (AckSn, Connected, ReqSn, ReqTx))
 import Hydra.ServerOutput (ServerOutput (PeerConnected))
 import Hydra.Snapshot (Snapshot (..))
-import Hydra.Test.Prelude (failure)
+import Test.Hydra.Prelude (failure)
 import Test.Hspec (
   Expectation,
   Spec,

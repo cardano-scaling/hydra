@@ -20,8 +20,8 @@ library
   hs-source-dirs:
     src
   exposed-modules:
-    Hydra.Test.Prelude
-    Hydra.Network.Ports
+    Test.Hydra.Prelude
+    Test.Network.Ports
   build-depends:
     base,
     filepath,

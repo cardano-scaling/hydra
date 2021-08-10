@@ -12,12 +12,12 @@ import Hydra.Logging (nullTracer, traceWith)
 import Hydra.Logging.Messages (HydraLog (Node))
 import Hydra.Logging.Monitoring
 import Hydra.Network.Message (Message (ReqTx))
-import Hydra.Network.Ports (withFreePort)
+import Test.Network.Ports (withFreePort)
 import Hydra.Node (HydraNodeLog (ProcessedEffect, ProcessingEvent))
 import Hydra.Prelude
 import Hydra.ServerOutput (ServerOutput (SnapshotConfirmed))
 import Hydra.Snapshot (Snapshot (Snapshot))
-import Hydra.Test.Prelude (failAfter)
+import Test.Hydra.Prelude (failAfter)
 import Network.HTTP.Req (GET (..), NoReqBody (..), bsResponse, defaultHttpConfig, http, port, req, responseBody, runReq, (/:))
 import Test.Hspec
 

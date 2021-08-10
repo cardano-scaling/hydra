@@ -41,7 +41,7 @@ import Hydra.Node (
  )
 import Hydra.ServerOutput (ServerOutput (..))
 import Hydra.Snapshot (Snapshot (..))
-import Hydra.Test.Prelude (failAfter, failure)
+import Test.Hydra.Prelude (failAfter, failure)
 import Test.Hspec (Spec, describe, it, shouldContain, shouldThrow)
 import Test.Util (shouldNotBe, shouldReturn, shouldRunInSim, traceInIOSim)
 

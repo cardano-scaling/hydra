@@ -10,7 +10,7 @@ import Data.List (isInfixOf)
 import Data.Typeable (cast)
 import Hydra.Ledger.Simple (SimpleTx)
 import Hydra.Node (HydraNodeLog)
-import Hydra.Test.Prelude (failure, location)
+import Test.Hydra.Prelude (failure, location)
 import Test.HUnit.Lang (FailureReason (ExpectedButGot), HUnitFailure (HUnitFailure))
 
 -- | Run given 'action' in 'IOSim' and fail on exceptions. This runner has

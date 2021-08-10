@@ -14,7 +14,7 @@ import qualified Hydra.ContractSM as OnChain
 import Hydra.Ledger (Party (UnsafeParty))
 import Hydra.Ledger.Simple (SimpleTx)
 import Hydra.Logging (nullTracer)
-import Hydra.Test.Prelude (failAfter)
+import Test.Hydra.Prelude (failAfter)
 import System.Process (CreateProcess (std_in, std_out), StdStream (CreatePipe), proc, withCreateProcess)
 import Test.Hspec (shouldReturn)
 import Test.Hspec.Core.Spec (Spec, describe, it)

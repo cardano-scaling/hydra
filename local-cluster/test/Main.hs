@@ -11,7 +11,7 @@ main :: IO ()
 main = hspecWith defaultConfig{configFormat = Just dualFormatter} Spec.spec
 
 -- NOTE: This is duplicated from hydra-node's tests, we should provide this as part
--- of a standard 'Hydra.Test.Prelude' but should this live in hydra-prelude or in
+-- of a standard 'Test.Hydra.Prelude' but should this live in hydra-prelude or in
 -- a new package?
 dualFormatter :: FormatConfig -> IO Format
 dualFormatter config = do

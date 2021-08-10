@@ -1,6 +1,6 @@
 {-# LANGUAGE LambdaCase #-}
 
-module Hydra.Test.Prelude (
+module Test.Hydra.Prelude (
   createSystemTempDirectory,
   failure,
   location,
