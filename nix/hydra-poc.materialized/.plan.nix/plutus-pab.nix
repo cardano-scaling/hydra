@@ -171,7 +171,6 @@
           "Plutus/PAB/Db/Memory/ContractStore"
           "Plutus/PAB/Effects/Contract"
           "Plutus/PAB/Effects/Contract/Builtin"
-          "Plutus/PAB/Effects/ContractRuntime"
           "Plutus/PAB/Effects/DbStore"
           "Plutus/PAB/Effects/TimeEffect"
           "Plutus/PAB/Effects/UUID"
@@ -262,10 +261,10 @@
             ];
           buildable = true;
           modules = [
-            "ContractExample"
             "ContractExample/AtomicSwap"
             "ContractExample/PayToWallet"
             "ContractExample/WaitForTx"
+            "ContractExample"
             ];
           hsSourceDirs = [ "examples" ];
           mainPath = [ "Main.hs" ];
@@ -465,12 +464,23 @@
             (hsPkgs."row-types" or (errorHandler.buildDepError "row-types"))
             (hsPkgs."plutus-tx" or (errorHandler.buildDepError "plutus-tx"))
             (hsPkgs."playground-common" or (errorHandler.buildDepError "playground-common"))
+            (hsPkgs."yaml" or (errorHandler.buildDepError "yaml"))
+            (hsPkgs."iohk-monitoring" or (errorHandler.buildDepError "iohk-monitoring"))
+            (hsPkgs."servant-server" or (errorHandler.buildDepError "servant-server"))
+            (hsPkgs."purescript-bridge" or (errorHandler.buildDepError "purescript-bridge"))
+            (hsPkgs."async" or (errorHandler.buildDepError "async"))
+            (hsPkgs."servant-client" or (errorHandler.buildDepError "servant-client"))
+            (hsPkgs."uuid" or (errorHandler.buildDepError "uuid"))
             ];
           buildable = true;
           modules = [
+            "ContractExample"
+            "ContractExample/WaitForTx"
             "ContractExample/AtomicSwap"
             "ContractExample/PayToWallet"
             "Plutus/PAB/CoreSpec"
+            "Plutus/PAB/CliSpec"
+            "Plutus/PAB/Effects/Contract/BuiltinSpec"
             "Plutus/PAB/Effects/Contract/ContractTest"
             "Plutus/PAB/Simulator/Test"
             ];
