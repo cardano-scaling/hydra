@@ -2,9 +2,9 @@
 
 module Hydra.Network.Message where
 
-import Hydra.Prelude
 import Hydra.Ledger (Party, Signed, UTxO)
-import Hydra.Snapshot (SnapshotNumber, Snapshot)
+import Hydra.Prelude
+import Hydra.Snapshot (Snapshot, SnapshotNumber)
 
 -- NOTE(SN): Every message comes from a 'Party', we might want to move it out of
 -- here into the 'NetworkEvent'
@@ -16,6 +16,9 @@ data Message tx
   | Disconnected Party
   deriving stock (Generic, Eq, Show)
   deriving anyclass (ToJSON, FromJSON)
+
+instance Arbitrary tx => Arbitrary (Message tx) where
+  arbitrary = genericArbitrary
 
 instance (ToCBOR tx, ToCBOR (UTxO tx)) => ToCBOR (Message tx) where
   toCBOR = \case

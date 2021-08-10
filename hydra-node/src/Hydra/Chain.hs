@@ -1,13 +1,15 @@
 {-# LANGUAGE DeriveAnyClass #-}
+{-# LANGUAGE UndecidableInstances #-}
 
 module Hydra.Chain where
 
 import Cardano.Prelude
 import Control.Monad.Class.MonadThrow (MonadThrow)
 import Data.Aeson (FromJSON, ToJSON)
-import Hydra.Ledger (Party, Tx, UTxO)
-import Hydra.Snapshot (Snapshot)
 import Data.Time (DiffTime)
+import Hydra.Ledger (Party, Tx, UTxO)
+import Hydra.Prelude (Arbitrary (arbitrary), genericArbitrary)
+import Hydra.Snapshot (Snapshot)
 
 -- | Contains the head's parameters as established in the initial transaction.
 data HeadParameters = HeadParameters
@@ -16,6 +18,9 @@ data HeadParameters = HeadParameters
   }
   deriving stock (Eq, Read, Show, Generic)
   deriving anyclass (ToJSON, FromJSON)
+
+instance Arbitrary HeadParameters where
+  arbitrary = genericArbitrary
 
 type ContestationPeriod = DiffTime
 
@@ -39,6 +44,9 @@ deriving instance Tx tx => Show (OnChainTx tx)
 deriving instance Tx tx => Read (OnChainTx tx)
 deriving instance Tx tx => ToJSON (OnChainTx tx)
 deriving instance Tx tx => FromJSON (OnChainTx tx)
+
+instance (Arbitrary tx, Arbitrary (UTxO tx)) => Arbitrary (OnChainTx tx) where
+  arbitrary = genericArbitrary
 
 data ChainError = ChainError
   deriving (Exception, Show)

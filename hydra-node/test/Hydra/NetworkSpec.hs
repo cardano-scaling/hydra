@@ -6,12 +6,9 @@ module Hydra.NetworkSpec where
 
 import Hydra.Prelude
 
-import Cardano.Crypto.DSIGN (DSIGNAlgorithm (signDSIGN), genKeyDSIGN)
-import Cardano.Crypto.Seed (mkSeedFromBytes)
 import Codec.CBOR.Read (deserialiseFromBytes)
 import Codec.CBOR.Write (toLazyByteString)
 import Control.Monad.Class.MonadSTM (newTQueue, readTQueue, writeTQueue)
-import Hydra.Ledger (Signed (UnsafeSigned))
 import Hydra.Ledger.Simple (SimpleTx (..))
 import Hydra.Logging (showLogsOnFailure)
 import Hydra.Network (Host (..), Network, PortNumber)
@@ -22,11 +19,8 @@ import Hydra.Network.ZeroMQ (withZeroMQNetwork)
 import Test.Hydra.Prelude (failAfter)
 import Test.Hspec (Expectation, Spec, describe, it, shouldReturn)
 import Test.QuickCheck (
-  oneof,
   property,
-  vectorOf,
  )
-import Test.QuickCheck.Gen (Gen)
 import Test.QuickCheck.Instances.ByteString ()
 
 spec :: Spec
@@ -105,25 +99,6 @@ shouldEventuallyReceive :: TQueue IO Integer -> PortNumber -> Integer -> Expecta
 shouldEventuallyReceive queue numNode value = do
   val <- atomically $ readTQueue queue
   unless (val == value) $ shouldEventuallyReceive queue numNode value
-
--- | Some random signature, for any type 'a'.
-genSignature :: Gen (Signed a)
-genSignature = do
-  key <- genKeyDSIGN . mkSeedFromBytes . fromList <$> vectorOf 8 arbitrary
-  a <- arbitrary @ByteString
-  pure . UnsafeSigned $ signDSIGN () a key
-
--- TODO(SN): can we write a generic 'Arbitrary (Message tx)' instance and then
--- move it to the data type?
-instance Arbitrary (Message SimpleTx) where
-  arbitrary =
-    oneof
-      [ ReqTx <$> arbitrary <*> arbitrary
-      , ReqSn <$> arbitrary <*> arbitrary <*> vectorOf 10 arbitrary
-      , AckSn <$> arbitrary <*> genSignature <*> arbitrary
-      , Connected <$> arbitrary
-      , Disconnected <$> arbitrary
-      ]
 
 prop_canRoundtripCBOREncoding ::
   (ToCBOR a, FromCBOR a, Eq a) => a -> Bool

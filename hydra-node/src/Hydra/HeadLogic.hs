@@ -38,6 +38,9 @@ data Event tx
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON, FromJSON)
 
+instance (Arbitrary tx, Arbitrary (UTxO tx)) => Arbitrary (Event tx) where
+  arbitrary = genericArbitrary
+
 data Effect tx
   = ClientEffect (ServerOutput tx)
   | NetworkEffect (Message tx)

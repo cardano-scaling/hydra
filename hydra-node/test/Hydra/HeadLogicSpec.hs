@@ -28,8 +28,7 @@ import Hydra.Ledger.Simple (SimpleTx (..), TxIn (..), aValidTx, simpleLedger, ut
 import Hydra.Network.Message (Message (AckSn, Connected, ReqSn, ReqTx))
 import Hydra.ServerOutput (ServerOutput (PeerConnected))
 import Hydra.Snapshot (Snapshot (..))
-import Test.Hydra.Prelude (failure)
-import Test.Aeson.GenericSpecs (defaultSettings, goldenSpecs, roundtripSpecs)
+import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
 import Test.Hspec (
   Expectation,
   Spec,
@@ -37,6 +36,7 @@ import Test.Hspec (
   it,
   shouldBe,
  )
+import Test.Hydra.Prelude (failure)
 
 spec :: Spec
 spec = describe "Hydra Coordinated Head Protocol" $ do
@@ -215,10 +215,9 @@ spec = describe "Hydra Coordinated Head Protocol" $ do
     s2 `shouldBe` Error (InvalidEvent invalidEvent s1)
 
   describe "JSON instances" $ do
-    goldenSpecs defaultSettings (Proxy @(ClientInput SimpleTx))
-    roundtripSpecs (Proxy @(ClientInput SimpleTx))
-    goldenSpecs defaultSettings (Proxy @(ServerOutput SimpleTx))
-    roundtripSpecs (Proxy @(ServerOutput SimpleTx))
+    roundtripAndGoldenSpecs (Proxy @(ClientInput SimpleTx))
+    roundtripAndGoldenSpecs (Proxy @(ServerOutput SimpleTx))
+    roundtripAndGoldenSpecs (Proxy @(Event SimpleTx))
 
 --
 -- Assertion utilities

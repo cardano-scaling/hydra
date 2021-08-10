@@ -14,9 +14,11 @@ import Cardano.Crypto.DSIGN (
   VerKeyDSIGN (VerKeyMockDSIGN),
   signDSIGN,
  )
+import Cardano.Crypto.Seed (mkSeedFromBytes)
 import Cardano.Crypto.Util (SignableRepresentation)
 import Data.Aeson (FromJSONKey (..), ToJSONKey (..), withText)
 import Data.ByteString.Base16 (decodeBase16, encodeBase16)
+import Test.QuickCheck (vectorOf)
 
 -- NOTE(MB): We probably want to move these common types somewhere else. Putting
 -- here to avoid circular dependencies with Hydra.Logic
@@ -51,6 +53,12 @@ instance ToCBOR Party where
 
 newtype Signed a = UnsafeSigned (SigDSIGN MockDSIGN)
   deriving (Eq, Show)
+
+instance Arbitrary (Signed a) where
+  arbitrary = do
+    key <- genKeyDSIGN . mkSeedFromBytes . fromList <$> vectorOf 8 arbitrary
+    a <- arbitrary @ByteString
+    pure . UnsafeSigned $ signDSIGN () a key
 
 instance ToJSON a => ToJSON (Signed a) where
   toJSON (UnsafeSigned sig) = toJSON . encodeBase16 . rawSerialiseSigDSIGN $ sig
