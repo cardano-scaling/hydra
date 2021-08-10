@@ -45,7 +45,7 @@ deriving instance Tx tx => Read (OnChainTx tx)
 deriving instance Tx tx => ToJSON (OnChainTx tx)
 deriving instance Tx tx => FromJSON (OnChainTx tx)
 
-instance (Arbitrary tx, Arbitrary (UTxO tx)) => Arbitrary (OnChainTx tx) where
+instance (Arbitrary tx, Arbitrary (Utxo tx)) => Arbitrary (OnChainTx tx) where
   arbitrary = genericArbitrary
 
 data ChainError = ChainError

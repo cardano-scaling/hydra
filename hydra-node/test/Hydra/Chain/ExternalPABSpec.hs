@@ -9,7 +9,7 @@ import Cardano.Crypto.DSIGN (DSIGNAlgorithm (deriveVerKeyDSIGN), MockDSIGN, Sign
 import Control.Concurrent (newEmptyMVar, putMVar, takeMVar)
 import qualified Data.Aeson as Aeson
 import Hydra.Chain (Chain (..), HeadParameters (HeadParameters, contestationPeriod), OnChainTx (..))
-import Hydra.Chain.ExternalPAB (PostInitParams, withExternalPAB)
+import Hydra.Chain.ExternalPAB (PostInitParams, withExternalPab)
 import Hydra.Contract.PAB (InitParams, InitialParams)
 import Hydra.Ledger (Party (UnsafeParty))
 import Hydra.Ledger.Simple (SimpleTx)
@@ -46,14 +46,14 @@ spec = do
   describe "ExternalPAB" $ do
     it "publishes init tx using wallet 1 and observes it also" $ do
       failAfter 40 $
-        withHydraPAB $ do
+        withHydraPab $ do
           calledBack1 <- newEmptyMVar
           calledBack2 <- newEmptyMVar
 
           -- NOTE(SN): The cardano pubkeys and which wallet is used, is
           -- hard-coded in 'withExternalPAB'!
-          withExternalPAB @SimpleTx 1 nullTracer (putMVar calledBack1) $ \_ ->
-            withExternalPAB 2 nullTracer (putMVar calledBack2) $ \Chain{postTx} -> do
+          withExternalPab @SimpleTx 1 nullTracer (putMVar calledBack1) $ \_ ->
+            withExternalPab 2 nullTracer (putMVar calledBack2) $ \Chain{postTx} -> do
               let parameters = HeadParameters 100 [alice, bob, carol]
               postTx $ InitTx @SimpleTx parameters
               takeMVar calledBack1 `shouldReturn` InitTx parameters
@@ -61,13 +61,13 @@ spec = do
 
     it "publishes init tx, observes it and abort" $ do
       failAfter 40 $
-        withHydraPAB $ do
+        withHydraPab $ do
           calledBack1 <- newEmptyMVar
           calledBack2 <- newEmptyMVar
           -- NOTE(SN): The cardano pubkeys and which wallet is used, is
-          -- hard-coded in 'withExternalPAB'!
-          withExternalPAB @SimpleTx 1 nullTracer (putMVar calledBack1) $ \client1 ->
-            withExternalPAB 2 nullTracer (putMVar calledBack2) $ \client2 -> do
+          -- hard-coded in 'withExternalPab'!
+          withExternalPab @SimpleTx 1 nullTracer (putMVar calledBack1) $ \client1 ->
+            withExternalPab 2 nullTracer (putMVar calledBack2) $ \client2 -> do
               let parameters = HeadParameters 100 [alice, bob, carol]
               postTx client1 $ InitTx @SimpleTx parameters
               takeMVar calledBack1 `shouldReturn` InitTx parameters
@@ -90,8 +90,8 @@ aliceSk = 10
 bobSk = 20
 carolSk = 30
 
-withHydraPAB :: IO a -> IO a
-withHydraPAB action =
+withHydraPab :: IO a -> IO a
+withHydraPab action =
   withCreateProcess pab $ \_ _ _ _ -> action
  where
   -- Open a stdin, as pab tries to read from it and a std_out to silence output

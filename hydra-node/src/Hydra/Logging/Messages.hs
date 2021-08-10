@@ -9,7 +9,7 @@ module Hydra.Logging.Messages where
 import Hydra.Prelude
 
 import Hydra.API.Server (APIServerLog)
-import Hydra.Chain.ExternalPAB (ExternalPABLog)
+import Hydra.Chain.ExternalPAB (ExternalPabLog)
 import Hydra.Chain.ZeroMQ (MockChainLog)
 import Hydra.Logging (ToObject)
 import Hydra.Node (HydraNodeLog)
@@ -19,6 +19,6 @@ data HydraLog tx net
   | APIServer {api :: APIServerLog}
   | Network {network :: net}
   | Node {node :: HydraNodeLog tx}
-  | Chain {pab :: ExternalPABLog}
+  | Chain {pab :: ExternalPabLog}
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON, ToObject)

@@ -38,7 +38,7 @@ data Event tx
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON, FromJSON)
 
-instance (Arbitrary tx, Arbitrary (UTxO tx)) => Arbitrary (Event tx) where
+instance (Arbitrary tx, Arbitrary (Utxo tx)) => Arbitrary (Event tx) where
   arbitrary = genericArbitrary
 
 data Effect tx
@@ -48,7 +48,7 @@ data Effect tx
   | Delay {delay :: DiffTime, event :: Event tx}
   deriving stock (Generic)
 
-instance (Arbitrary tx, Arbitrary (UTxO tx)) => Arbitrary (Effect tx) where
+instance (Arbitrary tx, Arbitrary (Utxo tx)) => Arbitrary (Effect tx) where
   arbitrary = genericArbitrary
 
 deriving instance Tx tx => Eq (Effect tx)
@@ -63,7 +63,7 @@ data HeadState tx
   | ClosedState {parameters :: HeadParameters, utxos :: Utxo tx}
   deriving stock (Generic)
 
-instance (Arbitrary (UTxO tx), Arbitrary tx) => Arbitrary (HeadState tx) where
+instance (Arbitrary (Utxo tx), Arbitrary tx) => Arbitrary (HeadState tx) where
   arbitrary = genericArbitrary
 
 deriving instance Tx tx => Eq (HeadState tx)
@@ -80,7 +80,7 @@ data CoordinatedHeadState tx = CoordinatedHeadState
   }
   deriving stock (Generic)
 
-instance (Arbitrary (UTxO tx), Arbitrary tx) => Arbitrary (CoordinatedHeadState tx) where
+instance (Arbitrary (Utxo tx), Arbitrary tx) => Arbitrary (CoordinatedHeadState tx) where
   arbitrary = genericArbitrary
 
 deriving instance Tx tx => Eq (CoordinatedHeadState tx)
@@ -104,7 +104,7 @@ data LogicError tx
 
 instance Tx tx => Exception (LogicError tx)
 
-instance (Arbitrary tx, Arbitrary (UTxO tx)) => Arbitrary (LogicError tx) where
+instance (Arbitrary tx, Arbitrary (Utxo tx)) => Arbitrary (LogicError tx) where
   arbitrary = genericArbitrary
 
 deriving instance Tx tx => ToJSON (LogicError tx)

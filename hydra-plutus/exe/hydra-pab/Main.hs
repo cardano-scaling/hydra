@@ -7,7 +7,7 @@ import Hydra.Prelude
 
 import Control.Monad.Freer (interpret)
 import Data.Default (def)
-import Hydra.Contract.PAB (PABContract (..), pabPort)
+import Hydra.Contract.PAB (PabContract (..), pabPort)
 import Plutus.PAB.Effects.Contract.Builtin (Builtin)
 import qualified Plutus.PAB.Effects.Contract.Builtin as Builtin
 import Plutus.PAB.Simulator (SimulatorEffectHandlers)
@@ -30,13 +30,13 @@ main = void $
 
     log "Balances at the end of the simulation"
     b <- Simulator.currentBalances
-    Simulator.logBalances @(Builtin PABContract) b
+    Simulator.logBalances @(Builtin PabContract) b
 
     shutdown
  where
-  log = Simulator.logString @(Builtin PABContract)
+  log = Simulator.logString @(Builtin PabContract)
 
-handlers :: SimulatorEffectHandlers (Builtin PABContract)
+handlers :: SimulatorEffectHandlers (Builtin PabContract)
 handlers =
   Simulator.mkSimulatorHandlers def def $
     interpret (Builtin.contractHandler Builtin.handleBuiltin)

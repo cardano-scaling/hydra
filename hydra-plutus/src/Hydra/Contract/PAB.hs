@@ -44,17 +44,17 @@ pabPort :: Int
 pabPort = 8888
 
 -- | Enumeration of contracts available in the PAB.
-data PABContract
+data PabContract
   = GetUtxos
   | Init
   | Watch
   deriving (Eq, Show, Generic)
   deriving anyclass (ToJSON, FromJSON)
 
-instance Pretty PABContract where
+instance Pretty PabContract where
   pretty = viaShow
 
-instance HasDefinitions PABContract where
+instance HasDefinitions PabContract where
   getDefinitions =
     [ GetUtxos
     , Init

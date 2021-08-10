@@ -18,8 +18,8 @@ import Hydra.Chain (
   HeadParameters (..),
   OnChainTx (..),
  )
-import Hydra.Contract.PAB (PABContract (..), pabPort)
-import Hydra.Ledger (Party, Tx, UTxO)
+import Hydra.Contract.PAB (PabContract (..), pabPort)
+import Hydra.Ledger (Party, Tx, Utxo)
 import Hydra.Logging (Tracer)
 import Ledger (PubKeyHash, TxOut (txOutValue), pubKeyHash, txOutTxOut)
 import Ledger.AddressMap (UtxoMap)
@@ -44,19 +44,19 @@ import Plutus.PAB.Webserver.Types (InstanceStatusToClient (NewObservableState))
 import Wallet.Emulator.Types (Wallet (..), walletPubKey)
 import Wallet.Types (ContractInstanceId (..))
 
-data ExternalPABLog = ExternalPABLog
+data ExternalPabLog = ExternalPabLog
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON, FromJSON)
 
 type WalletId = Integer
 
-withExternalPAB ::
+withExternalPab ::
   forall tx.
   Tx tx =>
   WalletId ->
-  Tracer IO ExternalPABLog ->
+  Tracer IO ExternalPabLog ->
   ChainComponent tx IO ()
-withExternalPAB walletId _tracer callback action = do
+withExternalPab walletId _tracer callback action = do
   cid <- activateContract Watch wallet
   withAsync (initTxSubscriber cid callback) $ \_ ->
     withAsync (utxoSubscriber wallet) $ \_ -> do
@@ -82,7 +82,7 @@ withExternalPAB walletId _tracer callback action = do
   allWallets = [Wallet 1, Wallet 2, Wallet 3]
   pubKeys = map walletPubKey allWallets
 
-activateContract :: PABContract -> Wallet -> IO ContractInstanceId
+activateContract :: PabContract -> Wallet -> IO ContractInstanceId
 activateContract contract wallet =
   retryOnAnyHttpException $ do
     res <-
@@ -132,7 +132,7 @@ postInitTx cid params =
   cidText = show $ unContractInstanceId cid
 
 -- TODO(SN): use MonadHttp, but clashes with MonadThrow
-postAbortTx :: ContractInstanceId -> UTxO tx -> IO ()
+postAbortTx :: ContractInstanceId -> Utxo tx -> IO ()
 postAbortTx cid _utxo =
   retryOnAnyHttpException $ do
     say "send abort http request"
