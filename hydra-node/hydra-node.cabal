@@ -213,6 +213,7 @@ test-suite tests
     , filepath
     , hspec
     , hspec-core
+    , hspec-golden-aeson
     , hspec-junit-formatter
     , HUnit
     , hydra-node
