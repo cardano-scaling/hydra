@@ -14,10 +14,11 @@ import Hydra.Logging (showLogsOnFailure)
 import Hydra.Network (Host (..), Network, PortNumber)
 import Hydra.Network.Message (Message (..))
 import Hydra.Network.Ouroboros (broadcast, withOuroborosNetwork)
-import Test.Network.Ports (randomUnusedTCPPorts)
 import Hydra.Network.ZeroMQ (withZeroMQNetwork)
-import Test.Hydra.Prelude (failAfter)
+import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
 import Test.Hspec (Expectation, Spec, describe, it, shouldReturn)
+import Test.Hydra.Prelude (failAfter)
+import Test.Network.Ports (randomUnusedTCPPorts)
 import Test.QuickCheck (
   property,
  )
@@ -68,8 +69,9 @@ spec = describe "Networking layer" $ do
                 , (port3, hn3, node3received)
                 ]
 
-  describe "Serialisation" $
+  describe "Serialisation" $ do
     it "can roundtrip CBOR encoding/decoding of Hydra Message" $ property $ prop_canRoundtripCBOREncoding @(Message SimpleTx)
+    roundtripAndGoldenSpecs (Proxy @(Message SimpleTx))
 
 assertAllNodesBroadcast ::
   [(PortNumber, Network IO Integer, TQueue IO Integer)] ->

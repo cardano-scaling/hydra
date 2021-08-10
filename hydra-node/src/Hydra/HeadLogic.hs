@@ -1,6 +1,7 @@
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE UndecidableInstances #-}
+{-# OPTIONS_GHC -Wno-partial-fields #-}
 
 module Hydra.HeadLogic where
 
@@ -30,9 +31,9 @@ import Hydra.ServerOutput (ServerOutput (..))
 import Hydra.Snapshot (Snapshot (..), SnapshotNumber)
 
 data Event tx
-  = ClientEvent (ClientInput tx)
-  | NetworkEvent (Message tx)
-  | OnChainEvent (OnChainTx tx)
+  = ClientEvent {clientInput :: ClientInput tx}
+  | NetworkEvent {message :: Message tx}
+  | OnChainEvent {onChainTx :: OnChainTx tx}
   | ShouldPostFanout
   | DoSnapshot
   deriving stock (Eq, Show, Generic)
