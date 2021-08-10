@@ -6,13 +6,13 @@ module Hydra.ClientInput where
 import Data.Aeson (object, withObject, (.:), (.=))
 import qualified Data.Aeson as Aeson
 import Hydra.Chain (ContestationPeriod)
-import Hydra.Ledger (Tx, UTxO)
+import Hydra.Ledger (Tx, Utxo)
 import Hydra.Prelude
 
 data ClientInput tx
   = Init ContestationPeriod
   | Abort
-  | Commit (UTxO tx)
+  | Commit (Utxo tx)
   | NewTx tx
   | GetUtxo
   | Close
@@ -23,12 +23,12 @@ deriving instance Tx tx => Eq (ClientInput tx)
 deriving instance Tx tx => Show (ClientInput tx)
 deriving instance Tx tx => Read (ClientInput tx)
 
-instance (Arbitrary tx, Arbitrary (UTxO tx)) => Arbitrary (ClientInput tx) where
+instance (Arbitrary tx, Arbitrary (Utxo tx)) => Arbitrary (ClientInput tx) where
   arbitrary = genericArbitrary
 
   -- NOTE: Somehow, can't use 'genericShrink' here as GHC is complaining about
-  -- Overlapping instances with 'UTxO tx' even though for a fixed `tx`, there
-  -- should be only one 'UTxO tx'
+  -- Overlapping instances with 'Utxo tx' even though for a fixed `tx`, there
+  -- should be only one 'Utxo tx'
   shrink = \case
     Init{} -> []
     Abort -> []

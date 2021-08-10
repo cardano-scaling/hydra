@@ -17,7 +17,7 @@ import Hydra.Ledger (
   Party,
   SigningKey,
   Tx,
-  UTxO,
+  Utxo,
   ValidationError,
   ValidationResult (Invalid, Valid),
   applyTransactions,
@@ -60,7 +60,7 @@ data HeadState tx
   = ReadyState
   | InitialState {parameters :: HeadParameters, pendingCommits :: PendingCommits, committed :: Committed tx}
   | OpenState {parameters :: HeadParameters, coordinatedHeadState :: CoordinatedHeadState tx}
-  | ClosedState {parameters :: HeadParameters, utxos :: UTxO tx}
+  | ClosedState {parameters :: HeadParameters, utxos :: Utxo tx}
   deriving stock (Generic)
 
 instance (Arbitrary (UTxO tx), Arbitrary tx) => Arbitrary (HeadState tx) where
@@ -72,7 +72,7 @@ deriving instance Tx tx => ToJSON (HeadState tx)
 deriving instance Tx tx => FromJSON (HeadState tx)
 
 data CoordinatedHeadState tx = CoordinatedHeadState
-  { seenUTxO :: UTxO tx
+  { seenUtxo :: Utxo tx
   , -- TODO: tx should be an abstract 'TxId'
     seenTxs :: [tx]
   , confirmedSnapshot :: Snapshot tx
@@ -197,7 +197,7 @@ update Environment{party, signingKey, otherParties, snapshotStrategy} ledger st 
     sameState
       [ClientEffect $ Utxo (utxo confirmedSnapshot)]
   --
-  (OpenState _ CoordinatedHeadState{seenUTxO}, ClientEvent (NewTx tx)) ->
+  (OpenState _ CoordinatedHeadState{seenUtxo}, ClientEvent (NewTx tx)) ->
     -- NOTE: We deliberately do not perform any validation because:
     --
     --   (a) The validation is already done when handling ReqTx
@@ -207,11 +207,11 @@ update Environment{party, signingKey, otherParties, snapshotStrategy} ledger st 
     sameState [NetworkEffect $ ReqTx party tx, ClientEffect clientFeedback]
    where
     clientFeedback =
-      case canApply ledger seenUTxO tx of
+      case canApply ledger seenUtxo tx of
         Valid -> TxValid tx
         Invalid _err -> TxInvalid tx
-  (OpenState parameters headState@CoordinatedHeadState{confirmedSnapshot, seenTxs, seenUTxO}, NetworkEvent (ReqTx _ tx)) ->
-    case applyTransactions ledger seenUTxO [tx] of
+  (OpenState parameters headState@CoordinatedHeadState{confirmedSnapshot, seenTxs, seenUtxo}, NetworkEvent (ReqTx _ tx)) ->
+    case applyTransactions ledger seenUtxo [tx] of
       Left _err -> Wait
       Right utxo' ->
         let sn' = number confirmedSnapshot + 1
@@ -221,7 +221,7 @@ update Environment{party, signingKey, otherParties, snapshotStrategy} ledger st 
                 [Delay 0 DoSnapshot]
               | otherwise =
                 []
-         in nextState (OpenState parameters $ headState{seenTxs = newSeenTxs, seenUTxO = utxo'}) (ClientEffect (TxSeen tx) : snapshotEffects)
+         in nextState (OpenState parameters $ headState{seenTxs = newSeenTxs, seenUtxo = utxo'}) (ClientEffect (TxSeen tx) : snapshotEffects)
   (OpenState _ CoordinatedHeadState{confirmedSnapshot, seenTxs, seenSnapshot}, DoSnapshot)
     | isNothing seenSnapshot ->
       let sn' = number confirmedSnapshot + 1

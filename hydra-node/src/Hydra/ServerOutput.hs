@@ -3,7 +3,7 @@
 module Hydra.ServerOutput where
 
 import Hydra.Prelude
-import Hydra.Ledger (Party, UTxO, Tx)
+import Hydra.Ledger (Party, Utxo, Tx)
 import Hydra.Snapshot (Snapshot)
 import qualified Data.Aeson as Aeson
 import Data.Aeson (object, (.=), withObject, (.:))
@@ -12,17 +12,17 @@ data ServerOutput tx
   = PeerConnected Party
   | PeerDisconnected Party
   | ReadyToCommit [Party]
-  | Committed Party (UTxO tx)
-  | HeadIsOpen (UTxO tx)
+  | Committed Party (Utxo tx)
+  | HeadIsOpen (Utxo tx)
   | HeadIsClosed DiffTime (Snapshot tx)
-  | HeadIsAborted (UTxO tx)
-  | HeadIsFinalized (UTxO tx)
+  | HeadIsAborted (Utxo tx)
+  | HeadIsFinalized (Utxo tx)
   | CommandFailed
   | TxSeen tx
   | TxValid tx
   | TxInvalid tx
   | SnapshotConfirmed (Snapshot tx)
-  | Utxo (UTxO tx)
+  | Utxo (Utxo tx)
   | InvalidInput
   deriving (Generic)
 
@@ -30,7 +30,7 @@ deriving instance Tx tx => Eq (ServerOutput tx)
 deriving instance Tx tx => Show (ServerOutput tx)
 deriving instance Tx tx => Read (ServerOutput tx)
 
-instance (Arbitrary tx, Arbitrary (UTxO tx)) => Arbitrary (ServerOutput tx) where
+instance (Arbitrary tx, Arbitrary (Utxo tx)) => Arbitrary (ServerOutput tx) where
   arbitrary = genericArbitrary
 
   -- NOTE: See note on 'Arbitrary (ClientInput tx)'
@@ -51,7 +51,7 @@ instance (Arbitrary tx, Arbitrary (UTxO tx)) => Arbitrary (ServerOutput tx) wher
     Utxo u -> Utxo <$> shrink u
     InvalidInput -> []
 
-instance (ToJSON tx, ToJSON (Snapshot tx), ToJSON (UTxO tx)) => ToJSON (ServerOutput tx) where
+instance (ToJSON tx, ToJSON (Snapshot tx), ToJSON (Utxo tx)) => ToJSON (ServerOutput tx) where
   toJSON = \case
     PeerConnected peer ->
       object [tagFieldName .= s "peerConnected", "peer" .= peer]
@@ -91,7 +91,7 @@ instance (ToJSON tx, ToJSON (Snapshot tx), ToJSON (UTxO tx)) => ToJSON (ServerOu
     s = Aeson.String
     tagFieldName = "output"
 
-instance (FromJSON tx, FromJSON (Snapshot tx), FromJSON (UTxO tx)) => FromJSON (ServerOutput tx) where
+instance (FromJSON tx, FromJSON (Snapshot tx), FromJSON (Utxo tx)) => FromJSON (ServerOutput tx) where
   parseJSON = withObject "ServerOutput" $ \obj -> do
     tag <- obj .: "output"
     case tag of

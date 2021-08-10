@@ -268,10 +268,10 @@ inOpenState ::
   [Party] ->
   Ledger tx ->
   HeadState tx
-inOpenState parties Ledger{initUTxO} =
+inOpenState parties Ledger{initUtxo} =
   OpenState parameters $ CoordinatedHeadState u0 mempty snapshot0 Nothing
  where
-  u0 = initUTxO
+  u0 = initUtxo
   snapshot0 = Snapshot 0 u0 mempty
   parameters = HeadParameters 42 parties
 

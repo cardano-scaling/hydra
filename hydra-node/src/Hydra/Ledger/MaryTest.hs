@@ -62,7 +62,7 @@ instance Monoid (Ledger.UTxO MaryTest) where
   mempty = Ledger.UTxO mempty
 
 instance Tx MaryTestTx where
-  type UTxO MaryTestTx = Ledger.UTxO MaryTest
+  type Utxo MaryTestTx = Ledger.UTxO MaryTest
   type TxId MaryTestTx = Ledger.TxId MaryTest
 
   txId = error "txId : MaryTestTx"
@@ -98,7 +98,7 @@ cardanoLedger :: Ledger.LedgerEnv MaryTest -> Ledger (Ledger.Tx MaryTest)
 cardanoLedger env =
   Ledger
     { applyTransactions = applyTx env
-    , initUTxO = Ledger._utxo def
+    , initUtxo = Ledger._utxo def
     }
 
 applyTx ::
@@ -181,8 +181,8 @@ bootstrapTxId = txid @MaryTest txb
       SNothing
       (Val.inject (Coin 0))
 
-testUTxO :: Ledger.UTxO MaryTest
-testUTxO =
+testUtxo :: Ledger.UTxO MaryTest
+testUtxo =
   UTxO $
     Map.fromList
       [ (TxIn bootstrapTxId 0, TxOut aliceAddr (Val.inject aliceInitCoin))

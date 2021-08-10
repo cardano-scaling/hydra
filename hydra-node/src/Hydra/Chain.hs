@@ -7,7 +7,7 @@ import Cardano.Prelude
 import Control.Monad.Class.MonadThrow (MonadThrow)
 import Data.Aeson (FromJSON, ToJSON)
 import Data.Time (DiffTime)
-import Hydra.Ledger (Party, Tx, UTxO)
+import Hydra.Ledger (Party, Tx, Utxo)
 import Hydra.Prelude (Arbitrary (arbitrary), genericArbitrary)
 import Hydra.Snapshot (Snapshot)
 
@@ -31,12 +31,12 @@ type ContestationPeriod = DiffTime
 -- want to rename this
 data OnChainTx tx
   = InitTx HeadParameters
-  | CommitTx Party (UTxO tx)
-  | AbortTx (UTxO tx)
-  | CollectComTx (UTxO tx)
+  | CommitTx Party (Utxo tx)
+  | AbortTx (Utxo tx)
+  | CollectComTx (Utxo tx)
   | CloseTx (Snapshot tx)
   | ContestTx (Snapshot tx)
-  | FanoutTx (UTxO tx)
+  | FanoutTx (Utxo tx)
   deriving stock (Generic)
 
 deriving instance Tx tx => Eq (OnChainTx tx)

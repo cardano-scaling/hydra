@@ -23,7 +23,7 @@ import qualified Data.Set as Set
 import Hydra.Ledger
 
 instance Tx SimpleTx where
-  type UTxO SimpleTx = Set TxIn
+  type Utxo SimpleTx = Set TxIn
   type TxId SimpleTx = SimpleId
 
   txId (SimpleTx tid _ _) = tid
@@ -32,8 +32,8 @@ instance Tx SimpleTx where
 -- A transaction is a 'SimpleId', a list of inputs and a list of outputs.
 data SimpleTx = SimpleTx
   { txSimpleId :: SimpleId
-  , txInputs :: UTxO SimpleTx
-  , txOutputs :: UTxO SimpleTx
+  , txInputs :: Utxo SimpleTx
+  , txOutputs :: Utxo SimpleTx
   }
   deriving stock (Eq, Ord, Generic, Read, Show)
 
@@ -88,15 +88,15 @@ simpleLedger =
           if ins `Set.isSubsetOf` utxo && utxo `Set.disjoint` outs
             then Right $ (utxo Set.\\ ins) `Set.union` outs
             else Left ValidationError
-    , initUTxO = mempty
+    , initUtxo = mempty
     }
 
 -- * Builders
 
-utxoRef :: Integer -> UTxO SimpleTx
+utxoRef :: Integer -> Utxo SimpleTx
 utxoRef = Set.singleton . TxIn
 
-utxoRefs :: [Integer] -> UTxO SimpleTx
+utxoRefs :: [Integer] -> Utxo SimpleTx
 utxoRefs = Set.fromList . fmap TxIn
 
 aValidTx :: Integer -> SimpleTx
@@ -104,18 +104,18 @@ aValidTx n = SimpleTx n mempty (utxoRef n)
 
 -- * Generators
 
-listOfCommittedUtxos :: Integer -> Gen [UTxO SimpleTx]
+listOfCommittedUtxos :: Integer -> Gen [Utxo SimpleTx]
 listOfCommittedUtxos numCommits =
   pure $ Set.singleton . TxIn <$> [1 .. numCommits]
 
-genSequenceOfValidTransactions :: UTxO SimpleTx -> Gen [SimpleTx]
+genSequenceOfValidTransactions :: Utxo SimpleTx -> Gen [SimpleTx]
 genSequenceOfValidTransactions initialUtxo = do
   n <- fromIntegral <$> getSize
   let maxId = if Set.null initialUtxo then 0 else unTxIn (maximum initialUtxo)
   numTxs <- choose (1, n)
   foldlM newTx (maxId, initialUtxo, mempty) [1 .. numTxs] >>= \(_, _, txs) -> pure (reverse txs)
  where
-  newTx :: (Integer, UTxO SimpleTx, [SimpleTx]) -> Integer -> Gen (Integer, UTxO SimpleTx, [SimpleTx])
+  newTx :: (Integer, Utxo SimpleTx, [SimpleTx]) -> Integer -> Gen (Integer, Utxo SimpleTx, [SimpleTx])
   newTx (maxId, utxo, txs) txid = do
     (newMax, ins, outs) <- genInputsAndOutputs maxId utxo
     pure (newMax, (utxo Set.\\ ins) `Set.union` outs, SimpleTx txid ins outs : txs)
