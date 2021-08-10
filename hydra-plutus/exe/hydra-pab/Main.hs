@@ -33,5 +33,5 @@ main = void $
 
 handlers :: SimulatorEffectHandlers (Builtin PABContract)
 handlers =
-  Simulator.mkSimulatorHandlers @(Builtin PABContract) def $
+  Simulator.mkSimulatorHandlers def def $
     interpret (Builtin.contractHandler Builtin.handleBuiltin)
