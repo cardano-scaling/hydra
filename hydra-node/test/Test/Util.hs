@@ -4,7 +4,6 @@ module Test.Util where
 
 import Hydra.Prelude
 
-import Control.Monad.Class.MonadTimer (timeout)
 import Control.Monad.IOSim (Failure (FailureException), IOSim, runSimTrace, selectTraceEventsDynamic, traceM, traceResult)
 import Control.Tracer (Tracer (Tracer))
 import Data.List (isInfixOf)
@@ -13,12 +12,6 @@ import Hydra.Ledger.Simple (SimpleTx)
 import Hydra.Node (HydraNodeLog)
 import Hydra.Test.Prelude (failure, location)
 import Test.HUnit.Lang (FailureReason (ExpectedButGot), HUnitFailure (HUnitFailure))
-
-failAfter :: (HasCallStack, MonadTimer m, MonadThrow m) => DiffTime -> m () -> m ()
-failAfter seconds action =
-  timeout seconds action >>= \case
-    Nothing -> failure $ "Test timed out after " <> show seconds <> " seconds"
-    Just _ -> pure ()
 
 -- | Run given 'action' in 'IOSim' and fail on exceptions. This runner has
 -- special support for detecting and re-throwing 'HUnitFailure' exceptions.

@@ -14,12 +14,12 @@ import qualified Hydra.ContractSM as OnChain
 import Hydra.Ledger (Party (UnsafeParty))
 import Hydra.Ledger.Simple (SimpleTx)
 import Hydra.Logging (nullTracer)
+import Hydra.Test.Prelude (failAfter)
 import System.Process (CreateProcess (std_in, std_out), StdStream (CreatePipe), proc, withCreateProcess)
 import Test.Hspec (shouldReturn)
 import Test.Hspec.Core.Spec (Spec, describe, it)
 import Test.Hspec.QuickCheck (prop)
 import Test.QuickCheck (counterexample, property)
-import Test.Util (failAfter)
 
 spec :: Spec
 spec = do

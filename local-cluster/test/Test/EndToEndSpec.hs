@@ -15,8 +15,8 @@ import Cardano.Crypto.DSIGN (
 import Data.Aeson (object, (.=))
 import qualified Data.ByteString as BS
 import Hydra.Logging (showLogsOnFailure)
+import Hydra.Test.Prelude (failAfter)
 import HydraNode (
-  failAfter,
   getMetrics,
   hydraNodeProcess,
   input,

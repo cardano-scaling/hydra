@@ -17,9 +17,9 @@ import Hydra.Node (HydraNodeLog (ProcessedEffect, ProcessingEvent))
 import Hydra.Prelude
 import Hydra.ServerOutput (ServerOutput (SnapshotConfirmed))
 import Hydra.Snapshot (Snapshot (Snapshot))
+import Hydra.Test.Prelude (failAfter)
 import Network.HTTP.Req (GET (..), NoReqBody (..), bsResponse, defaultHttpConfig, http, port, req, responseBody, runReq, (/:))
 import Test.Hspec
-import Test.Util (failAfter)
 
 spec :: Spec
 spec = describe "Prometheus Metrics" $ do

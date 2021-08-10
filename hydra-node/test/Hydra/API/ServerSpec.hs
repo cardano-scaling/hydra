@@ -19,13 +19,12 @@ import Hydra.Logging (nullTracer)
 import Hydra.Network.Ports (withFreePort)
 import Hydra.Prelude
 import Hydra.ServerOutput (ServerOutput (InvalidInput, ReadyToCommit))
-import Hydra.Test.Prelude (failure)
+import Hydra.Test.Prelude (failAfter, failure)
 import Network.WebSockets (Connection, receiveData, runClient, sendBinaryData)
 import Test.Hspec
 import Test.Hspec.QuickCheck (prop)
 import Test.QuickCheck (cover)
 import Test.QuickCheck.Monadic (monadicIO, monitor, run)
-import Test.Util (failAfter)
 
 spec :: Spec
 spec = describe "API Server" $ do

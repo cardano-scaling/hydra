@@ -19,6 +19,7 @@ import Hydra.Network.Message (Message (..))
 import Hydra.Network.Ouroboros (broadcast, withOuroborosNetwork)
 import Hydra.Network.Ports (randomUnusedTCPPorts)
 import Hydra.Network.ZeroMQ (withZeroMQNetwork)
+import Hydra.Test.Prelude (failAfter)
 import Test.Hspec (Expectation, Spec, describe, it, shouldReturn)
 import Test.QuickCheck (
   oneof,
@@ -27,7 +28,6 @@ import Test.QuickCheck (
  )
 import Test.QuickCheck.Gen (Gen)
 import Test.QuickCheck.Instances.ByteString ()
-import Test.Util (failAfter)
 
 spec :: Spec
 spec = describe "Networking layer" $ do

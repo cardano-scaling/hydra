@@ -6,7 +6,6 @@
 module HydraNode (
   HydraClient (..),
   withHydraNode,
-  failAfter,
   send,
   input,
   waitFor,
@@ -45,7 +44,7 @@ import Data.Text.IO (hPutStrLn)
 import GHC.IO.Handle (hDuplicate)
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Network.Ports (randomUnusedTCPPorts)
-import Hydra.Test.Prelude (createSystemTempDirectory, failure)
+import Hydra.Test.Prelude (createSystemTempDirectory, failAfter, failure)
 import Network.HTTP.Conduit (HttpExceptionContent (ConnectionFailure), parseRequest)
 import Network.HTTP.Simple (HttpException (HttpExceptionRequest), Response, getResponseBody, getResponseStatusCode, httpBS)
 import Network.WebSockets (Connection, receiveData, runClient, sendClose, sendTextData)
@@ -71,12 +70,6 @@ data HydraClient = HydraClient
     -- Weird.
     nodeStdout :: Handle
   }
-
-failAfter :: HasCallStack => Natural -> IO a -> IO a
-failAfter seconds action =
-  timeout (fromIntegral seconds * 1_000_000) action >>= \case
-    Just a -> pure a
-    Nothing -> error $ "Timed out after " <> show seconds <> " second(s)"
 
 -- | Create an input as expected by 'send'.
 input :: Text -> [Pair] -> Value

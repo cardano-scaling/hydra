@@ -23,17 +23,12 @@ library
     Hydra.Test.Prelude
     Hydra.Network.Ports
   build-depends:
-    aeson,
     base,
-    cardano-binary,
     filepath,
-    generic-random,
     hydra-prelude,
     HUnit,
     io-classes,
     network,
-    QuickCheck,
-    quickcheck-instances,
     random-shuffle,
     relude,
     temporary,
