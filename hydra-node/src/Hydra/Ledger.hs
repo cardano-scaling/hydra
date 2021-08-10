@@ -151,3 +151,6 @@ data ValidationError
   = ValidationError
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON, FromJSON)
+
+instance Arbitrary ValidationError where
+  arbitrary = pure ValidationError
