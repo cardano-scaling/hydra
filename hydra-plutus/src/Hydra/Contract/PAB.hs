@@ -11,6 +11,10 @@ import Ledger.AddressMap (UtxoMap)
 import Plutus.Contract (Contract, ContractError, Empty, logInfo, ownPubKey, tell, utxoAt, waitNSlots)
 import Plutus.PAB.Effects.Contract.Builtin (HasDefinitions (..), SomeBuiltin (..))
 
+-- | Hard-coded port used between hydra-node and the PAB server.
+pabPort :: Int
+pabPort = 8888
+
 -- | Enumeration of contracts available in the PAB.
 data PABContract
   = Setup

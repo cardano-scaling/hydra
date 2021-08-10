@@ -10,7 +10,7 @@ import Data.Aeson (Result (Error, Success), eitherDecodeStrict)
 import Data.Aeson.Types (fromJSON)
 import qualified Data.Map as Map
 import Hydra.Chain (Chain (Chain, postTx), ChainComponent, ContestationPeriod, HeadParameters (..), OnChainTx (InitTx))
-import Hydra.Contract.PAB (PABContract (GetUtxos, Setup, WatchInit))
+import Hydra.Contract.PAB (PABContract (GetUtxos, Setup, WatchInit), pabPort)
 import Hydra.Ledger (Party, Tx)
 import Hydra.Logging (Tracer)
 import Ledger (PubKeyHash, TxOut (txOutValue), pubKeyHash, txOutTxOut)
@@ -79,7 +79,7 @@ activateContract contract wallet =
           (http "127.0.0.1" /: "api" /: "new" /: "contract" /: "activate")
           (ReqBodyJson reqBody)
           jsonResponse
-          (port 8080)
+          (port pabPort)
     when (responseStatusCode res /= 200) $
       error "failed to activateContract"
     pure $ responseBody res
@@ -111,7 +111,7 @@ postInitTx cid params =
           (http "127.0.0.1" /: "api" /: "new" /: "contract" /: "instance" /: cidText /: "endpoint" /: "init")
           (ReqBodyJson params)
           jsonResponse
-          (port 8080)
+          (port pabPort)
       when (responseStatusCode res /= 200) $
         error "failed to postInitTx"
       pure $ responseBody res
@@ -126,7 +126,7 @@ data ActivateContractRequest = ActivateContractRequest {caID :: Text, caWallet :
 initTxSubscriber :: Wallet -> (OnChainTx tx -> IO ()) -> IO ()
 initTxSubscriber wallet callback = do
   cid <- unContractInstanceId <$> activateContract WatchInit wallet
-  runClient "127.0.0.1" 8080 ("/ws/" <> show cid) $ \con -> forever $ do
+  runClient "127.0.0.1" pabPort ("/ws/" <> show cid) $ \con -> forever $ do
     msg <- receiveData con
     case eitherDecodeStrict msg of
       Right (NewObservableState val) -> do
@@ -143,7 +143,7 @@ initTxSubscriber wallet callback = do
 utxoSubscriber :: Wallet -> IO ()
 utxoSubscriber wallet = do
   cid <- unContractInstanceId <$> activateContract GetUtxos wallet
-  runClient "127.0.0.1" 8080 ("/ws/" <> show cid) $ \con -> forever $ do
+  runClient "127.0.0.1" pabPort ("/ws/" <> show cid) $ \con -> forever $ do
     msg <- receiveData con
     case eitherDecodeStrict msg of
       Right (NewObservableState val) ->
