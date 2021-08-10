@@ -151,6 +151,7 @@
             (hsPkgs."hspec-junit-formatter" or (errorHandler.buildDepError "hspec-junit-formatter"))
             (hsPkgs."HUnit" or (errorHandler.buildDepError "HUnit"))
             (hsPkgs."hydra-node" or (errorHandler.buildDepError "hydra-node"))
+            (hsPkgs."hydra-plutus" or (errorHandler.buildDepError "hydra-plutus"))
             (hsPkgs."hydra-prelude" or (errorHandler.buildDepError "hydra-prelude"))
             (hsPkgs."io-sim" or (errorHandler.buildDepError "io-sim"))
             (hsPkgs."io-classes" or (errorHandler.buildDepError "io-classes"))

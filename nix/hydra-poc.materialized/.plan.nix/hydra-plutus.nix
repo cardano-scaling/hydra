@@ -53,9 +53,11 @@
           (hsPkgs."prettyprinter" or (errorHandler.buildDepError "prettyprinter"))
           (hsPkgs."template-haskell" or (errorHandler.buildDepError "template-haskell"))
           (hsPkgs."text" or (errorHandler.buildDepError "text"))
+          (hsPkgs."time" or (errorHandler.buildDepError "time"))
           ];
         buildable = true;
         modules = [
+          "Hydra/Contract/ContestationPeriod"
           "Hydra/Contract/OnChain"
           "Hydra/Contract/OffChain"
           "Hydra/Contract/Party"
