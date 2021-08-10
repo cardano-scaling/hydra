@@ -38,6 +38,7 @@ import Plutus.Contract.StateMachine (StateMachine, StateMachineClient, WaitingRe
 import qualified Plutus.Contract.StateMachine as SM
 import qualified Plutus.Contracts.Currency as Currency
 import qualified PlutusTx
+import Plutus.Contract.Types (Promise)
 
 data State
   = Setup
@@ -158,12 +159,8 @@ data InitParams = InitParams
   }
   deriving (Generic, Show, FromJSON, ToJSON)
 
-setup :: Contract () (Endpoint "init" InitParams) HydraPlutusError ()
-setup = do
-  -- NOTE: These are the cardano/chain keys to send PTs to
-  InitParams{contestationPeriod, cardanoPubKeys, hydraParties} <-
-    endpoint @"init" @InitParams
-
+setup :: Promise () (Endpoint "init" InitParams) HydraPlutusError ()
+setup = endpoint @"init" $ \InitParams{contestationPeriod, cardanoPubKeys, hydraParties} -> do
   let stateThreadToken = (threadTokenName, 1)
       participationTokens = map ((,1) . participationTokenName) cardanoPubKeys
       tokens = stateThreadToken : participationTokens

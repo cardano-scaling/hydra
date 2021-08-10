@@ -16,9 +16,9 @@ import Ledger.Constraints.OffChain (ScriptLookups (..))
 import Ledger.Constraints.TxConstraints (
   TxConstraints,
   mustBeSignedBy,
+  mustIncludeDatum,
   mustMintCurrency,
   mustMintValue,
-  mustIncludeDatum,
   mustPayToOtherScript,
   mustPayToPubKey,
   mustPayToTheScript,
@@ -31,15 +31,16 @@ import Plutus.Contract (
   AsContractError,
   Contract,
   Endpoint,
+  Promise,
+  awaitTxConfirmed,
   endpoint,
   logInfo,
-  select,
+  selectList,
   submitTxConstraints,
   submitTxConstraintsWith,
   tell,
   utxoAt,
   type (.\/),
-  awaitTxConfirmed,
  )
 
 import qualified Data.Map.Strict as Map
@@ -77,12 +78,12 @@ mkHeadParameters participants policy =
 init ::
   (AsContractError e) =>
   HeadParameters ->
-  Contract [OnChain.State] Schema e ()
-init params@HeadParameters{participants, policy, policyId} = do
-  parties <- endpoint @"init" @()
-  logInfo $ "init: should post tx announcing these parties: " <> show @Text parties
-  void $ submitTxConstraintsWith lookups constraints
-  tell [OnChain.Initial]
+  Promise [OnChain.State] Schema e ()
+init params@HeadParameters{participants, policy, policyId} =
+  endpoint @"init" $ \() -> do
+    logInfo @String "init: should post tx"
+    void $ submitTxConstraintsWith lookups constraints
+    tell [OnChain.Initial]
  where
   lookups =
     mempty
@@ -118,17 +119,17 @@ init params@HeadParameters{participants, policy, policyId} = do
 commit ::
   (AsContractError e) =>
   HeadParameters ->
-  Contract [OnChain.State] Schema e ()
-commit params@HeadParameters{policy, policyId} = do
-  (vk, toCommit) <- endpoint @"commit" @(PubKeyHash, (TxOutRef, TxOutTx))
-  initial <-
-    utxoAtWithDatum
-      (Scripts.validatorAddress $ initialTypedValidator params)
-      (asDatum @(DatumType OnChain.Initial) vk)
-  void $
-    submitTxConstraintsWith
-      (lookups vk toCommit initial)
-      (constraints vk toCommit initial)
+  Promise [OnChain.State] Schema e ()
+commit params@HeadParameters{policy, policyId} =
+  endpoint @"commit" @(PubKeyHash, (TxOutRef, TxOutTx)) $ \(vk, toCommit) -> do
+    initial <-
+      utxoAtWithDatum
+        (Scripts.validatorAddress $ initialTypedValidator params)
+        (asDatum @(DatumType OnChain.Initial) vk)
+    void $
+      submitTxConstraintsWith
+        (lookups vk toCommit initial)
+        (constraints vk toCommit initial)
  where
   lookups vk (ref, txOut) initial =
     mempty
@@ -182,17 +183,17 @@ commit params@HeadParameters{policy, policyId} = do
 collectCom ::
   (AsContractError e) =>
   HeadParameters ->
-  Contract [OnChain.State] Schema e ()
-collectCom params@HeadParameters{participants, policy, policyId} = do
-  (headMember, storedOutputs) <- endpoint @"collectCom" @(PubKeyHash, [TxOut])
-  commits <- utxoAt (Scripts.validatorAddress $ commitTypedValidator params)
-  stateMachine <- utxoAt (Scripts.validatorAddress $ hydraTypedValidator params)
-  tx <-
-    submitTxConstraintsWith @OnChain.Hydra
-      (lookups commits stateMachine headMember)
-      (constraints commits stateMachine headMember storedOutputs)
-  awaitTxConfirmed (txId tx)
-  tell [OnChain.Open storedOutputs]
+  Promise [OnChain.State] Schema e ()
+collectCom params@HeadParameters{participants, policy, policyId} =
+  endpoint @"collectCom" @(PubKeyHash, [TxOut]) $ \(headMember, storedOutputs) -> do
+    commits <- utxoAt (Scripts.validatorAddress $ commitTypedValidator params)
+    stateMachine <- utxoAt (Scripts.validatorAddress $ hydraTypedValidator params)
+    tx <-
+      submitTxConstraintsWith @OnChain.Hydra
+        (lookups commits stateMachine headMember)
+        (constraints commits stateMachine headMember storedOutputs)
+    awaitTxConfirmed (txId tx)
+    tell [OnChain.Open storedOutputs]
  where
   lookups commits stateMachine headMember =
     mempty
@@ -233,18 +234,18 @@ collectCom params@HeadParameters{participants, policy, policyId} = do
 abort ::
   (AsContractError e) =>
   HeadParameters ->
-  Contract [OnChain.State] Schema e ()
-abort params@HeadParameters{participants, policy, policyId} = do
-  (headMember, toRefund) <- endpoint @"abort" @(PubKeyHash, [TxOut])
-  initial <- utxoAt (Scripts.validatorAddress $ initialTypedValidator params)
-  commits <- utxoAt (Scripts.validatorAddress $ commitTypedValidator params)
-  stateMachine <- utxoAt (Scripts.validatorAddress $ hydraTypedValidator params)
-  tx <-
-    submitTxConstraintsWith @OnChain.Hydra
-      (lookups initial commits stateMachine headMember)
-      (constraints initial commits stateMachine toRefund headMember)
-  awaitTxConfirmed (txId tx)
-  tell [OnChain.Final]
+  Promise [OnChain.State] Schema e ()
+abort params@HeadParameters{participants, policy, policyId} =
+  endpoint @"abort" @(PubKeyHash, [TxOut]) $ \(headMember, toRefund) -> do
+    initial <- utxoAt (Scripts.validatorAddress $ initialTypedValidator params)
+    commits <- utxoAt (Scripts.validatorAddress $ commitTypedValidator params)
+    stateMachine <- utxoAt (Scripts.validatorAddress $ hydraTypedValidator params)
+    tx <-
+      submitTxConstraintsWith @OnChain.Hydra
+        (lookups initial commits stateMachine headMember)
+        (constraints initial commits stateMachine toRefund headMember)
+    awaitTxConfirmed (txId tx)
+    tell [OnChain.Final]
  where
   lookups initial commits stateMachine headMember =
     mempty
@@ -292,17 +293,17 @@ abort params@HeadParameters{participants, policy, policyId} = do
 setupForTesting ::
   (AsContractError e) =>
   HeadParameters ->
-  Contract [OnChain.State] Schema e ()
-setupForTesting params = do
-  (vk, coins) <- endpoint @"setupForTesting" @(PubKeyHash, [Value])
-  tx <- submitTxConstraints (hydraTypedValidator params) (constraints vk coins)
-  awaitTxConfirmed (txId tx)
+  Promise [OnChain.State] Schema e ()
+setupForTesting params =
+  endpoint @"setupForTesting" @(PubKeyHash, [Value]) $ \(vk, coins) -> do
+    tx <- submitTxConstraints (hydraTypedValidator params) (constraints vk coins)
+    awaitTxConfirmed (txId tx)
  where
   constraints vk =
     foldMap (mustPayToPubKey vk)
 
 type Schema =
-    Endpoint "setupForTesting" (PubKeyHash, [Value])
+  Endpoint "setupForTesting" (PubKeyHash, [Value])
     .\/ Endpoint "init" ()
     .\/ Endpoint "commit" (PubKeyHash, (TxOutRef, TxOutTx))
     .\/ Endpoint "collectCom" (PubKeyHash, [TxOut])
@@ -315,11 +316,13 @@ contract ::
 contract params = forever endpoints
  where
   endpoints =
-    setupForTesting params
-      `select` init params
-      `select` commit params
-      `select` collectCom params
-      `select` abort params
+    selectList
+      [ setupForTesting params
+      , init params
+      , commit params
+      , collectCom params
+      , abort params
+      ]
 
 --
 -- Helpers
