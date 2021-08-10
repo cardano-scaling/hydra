@@ -76,7 +76,7 @@ activateContract contract wallet =
       runReq defaultHttpConfig $
         req
           POST
-          (http "127.0.0.1" /: "api" /: "new" /: "contract" /: "activate")
+          (http "127.0.0.1" /: "api" /: "contract" /: "activate")
           (ReqBodyJson reqBody)
           jsonResponse
           (port pabPort)
@@ -108,7 +108,7 @@ postInitTx cid params =
       res <-
         req
           POST
-          (http "127.0.0.1" /: "api" /: "new" /: "contract" /: "instance" /: cidText /: "endpoint" /: "init")
+          (http "127.0.0.1" /: "api" /: "contract" /: "instance" /: cidText /: "endpoint" /: "init")
           (ReqBodyJson params)
           jsonResponse
           (port pabPort)
