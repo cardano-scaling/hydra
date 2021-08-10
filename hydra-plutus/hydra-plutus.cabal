@@ -167,6 +167,7 @@ executable hydra-pab
     , plutus-ledger
     , plutus-pab
     , playground-common
+    , servant-client
     , text
   ghc-options:
     -threaded
