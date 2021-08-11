@@ -1,0 +1,87 @@
+{
+    "samples": [
+        {
+            "output": "headIsFinalized",
+            "utxo": [
+                -23,
+                -15,
+                1,
+                10,
+                22,
+                25
+            ]
+        },
+        {
+            "output": "commandFailed"
+        },
+        {
+            "output": "transactionInvalid",
+            "transaction": {
+                "id": 4,
+                "inputs": [],
+                "outputs": [
+                    -29,
+                    -26,
+                    -12,
+                    12,
+                    16,
+                    20
+                ]
+            }
+        },
+        {
+            "output": "transactionValid",
+            "transaction": {
+                "id": 19,
+                "inputs": [
+                    -29,
+                    -25,
+                    -23,
+                    -19,
+                    -13,
+                    -12,
+                    -10,
+                    -6,
+                    -4,
+                    -3,
+                    4,
+                    7,
+                    8,
+                    10,
+                    19,
+                    23,
+                    26
+                ],
+                "outputs": [
+                    -28,
+                    -27,
+                    -25,
+                    -23,
+                    -21,
+                    -18,
+                    -16,
+                    -14,
+                    -11,
+                    -6,
+                    -3,
+                    -1,
+                    0,
+                    6,
+                    8,
+                    10,
+                    12,
+                    13,
+                    14,
+                    15,
+                    20,
+                    25
+                ]
+            }
+        },
+        {
+            "output": "peerDisconnected",
+            "peer": 3
+        }
+    ],
+    "seed": 2132402681
+}

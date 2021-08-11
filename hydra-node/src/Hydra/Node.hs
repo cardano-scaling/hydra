@@ -22,7 +22,7 @@ import Hydra.HeadLogic (
   SnapshotStrategy (SnapshotAfterEachTx),
  )
 import qualified Hydra.HeadLogic as Logic
-import Hydra.Ledger (Ledger, Party (..), Tx)
+import Hydra.Ledger (Ledger, Party (..), Tx, UTxO)
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Network (Network (..))
 import Hydra.Network.Message (Message)
@@ -68,14 +68,19 @@ data HydraNode tx m = HydraNode
   , env :: Environment
   }
 
+-- NOTE(AB): we use partial fields access here for convenience purpose, to
+-- make serialisation To/From JSON straightforward
 data HydraNodeLog tx
-  = ErrorHandlingEvent Party (Event tx) (LogicError tx)
-  | ProcessingEvent Party (Event tx)
-  | ProcessedEvent Party (Event tx)
-  | ProcessingEffect Party (Effect tx)
-  | ProcessedEffect Party (Effect tx)
+  = ErrorHandlingEvent {emitter :: Party, event :: Event tx, reason :: LogicError tx}
+  | ProcessingEvent {emitter :: Party, event :: Event tx}
+  | ProcessedEvent {emitter :: Party, event :: Event tx}
+  | ProcessingEffect {emitter :: Party, effect :: Effect tx}
+  | ProcessedEffect {emitter :: Party, effect :: Effect tx}
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON, FromJSON)
+
+instance (Arbitrary tx, Arbitrary (UTxO tx)) => Arbitrary (HydraNodeLog tx) where
+  arbitrary = genericArbitrary
 
 handleClientInput :: HydraNode tx m -> ClientInput tx -> m ()
 handleClientInput HydraNode{eq} = putEvent eq . ClientEvent

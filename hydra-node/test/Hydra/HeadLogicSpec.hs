@@ -8,7 +8,6 @@ module Hydra.HeadLogicSpec where
 
 import Hydra.Prelude
 
-import qualified Data.Aeson as Aeson
 import qualified Data.List as List
 import qualified Data.Set as Set
 import Hydra.Chain (HeadParameters (HeadParameters), OnChainTx (AbortTx, CollectComTx))
@@ -29,7 +28,7 @@ import Hydra.Ledger.Simple (SimpleTx (..), TxIn (..), aValidTx, simpleLedger, ut
 import Hydra.Network.Message (Message (AckSn, Connected, ReqSn, ReqTx))
 import Hydra.ServerOutput (ServerOutput (PeerConnected))
 import Hydra.Snapshot (Snapshot (..))
-import Test.Hydra.Prelude (failure)
+import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
 import Test.Hspec (
   Expectation,
   Spec,
@@ -37,13 +36,7 @@ import Test.Hspec (
   it,
   shouldBe,
  )
-import Test.Hspec.QuickCheck (prop)
-import Test.QuickCheck (
-  Property,
-  counterexample,
-  forAllShrink,
-  (===),
- )
+import Test.Hydra.Prelude (failure)
 
 spec :: Spec
 spec = describe "Hydra Coordinated Head Protocol" $ do
@@ -221,21 +214,10 @@ spec = describe "Hydra Coordinated Head Protocol" $ do
     let s2 = update env ledger s1 invalidEvent
     s2 `shouldBe` Error (InvalidEvent invalidEvent s1)
 
-  -- TOOD: Replace with: https://hackage.haskell.org/package/hspec-golden-aeson
   describe "JSON instances" $ do
-    prop "ClientInput - JSON roundtrips" $
-      prop_roundtripJSON (Proxy @(ClientInput SimpleTx))
-    prop "ServerOutput - JSON roundtrips" $
-      prop_roundtripJSON (Proxy @(ServerOutput SimpleTx))
-
-prop_roundtripJSON ::
-  forall a.
-  (Show a, Eq a, ToJSON a, FromJSON a, Arbitrary a) =>
-  Proxy a ->
-  Property
-prop_roundtripJSON _proxy = forAllShrink arbitrary shrink $ \(a :: a) ->
-  let encoded = Aeson.encode a
-   in counterexample (show encoded) $ Aeson.eitherDecode' encoded === Right a
+    roundtripAndGoldenSpecs (Proxy @(ClientInput SimpleTx))
+    roundtripAndGoldenSpecs (Proxy @(ServerOutput SimpleTx))
+    roundtripAndGoldenSpecs (Proxy @(Event SimpleTx))
 
 --
 -- Assertion utilities

@@ -41,8 +41,9 @@ import Hydra.Node (
  )
 import Hydra.ServerOutput (ServerOutput (..))
 import Hydra.Snapshot (Snapshot (..))
-import Test.Hydra.Prelude (failAfter, failure)
+import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
 import Test.Hspec (Spec, describe, it, shouldContain, shouldThrow)
+import Test.Hydra.Prelude (failAfter, failure)
 import Test.Util (shouldNotBe, shouldReturn, shouldRunInSim, traceInIOSim)
 
 spec :: Spec
@@ -327,6 +328,8 @@ spec = describe "Behavior of one ore more hydra nodes" $ do
 
       logs `shouldContain` [ProcessingEffect 1 (ClientEffect $ ReadyToCommit [1])]
       logs `shouldContain` [ProcessedEffect 1 (ClientEffect $ ReadyToCommit [1])]
+
+    roundtripAndGoldenSpecs (Proxy @(HydraNodeLog SimpleTx))
 
 waitFor ::
   (HasCallStack, MonadThrow m, Tx tx, MonadAsync m, MonadTimer m) =>

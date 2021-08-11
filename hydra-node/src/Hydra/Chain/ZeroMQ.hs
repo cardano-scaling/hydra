@@ -1,5 +1,4 @@
 {-# LANGUAGE TypeApplications #-}
-{-# OPTIONS_GHC -Wno-partial-fields #-}
 
 -- | A 0MQ based mock chain implementation.
 --
