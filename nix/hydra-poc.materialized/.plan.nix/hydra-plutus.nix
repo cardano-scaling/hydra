@@ -83,6 +83,7 @@
             (hsPkgs."plutus-ledger" or (errorHandler.buildDepError "plutus-ledger"))
             (hsPkgs."plutus-pab" or (errorHandler.buildDepError "plutus-pab"))
             (hsPkgs."playground-common" or (errorHandler.buildDepError "playground-common"))
+            (hsPkgs."servant-client" or (errorHandler.buildDepError "servant-client"))
             (hsPkgs."text" or (errorHandler.buildDepError "text"))
             ];
           buildable = true;
