@@ -274,9 +274,9 @@ member ::
   (Serialise a, HashAlgorithm alg) =>
   -- | The (key, value) to check
   (ByteString, a) ->
-  -- | The root of the target 'MerklePatriciaTree'
+  -- | The root of the 'MerklePatriciaTree' with (supposedly) the (key, value)
   Digest alg ->
-  -- | A proof constructed from the original 'MerklePatriciaTree'
+  -- | A proof for the (key, value) in the corresponding 'MerklePatriciaTree'
   Proof alg ->
   Bool
 member el newRoot proofs = fromMaybe False $ do
@@ -296,12 +296,14 @@ member el newRoot proofs = fromMaybe False $ do
 add ::
   forall alg a.
   (Serialise a, HashAlgorithm alg) =>
-  -- | The (key, value) to add
+  -- | The (key, value) to add.
   (ByteString, a) ->
-  -- | The root of the 'MerklePatriciaTree' into which to add the pair
+  -- | The root of the 'MerklePatriciaTree' __without__ the (key, value)
   Digest alg ->
-  -- | A proof constructed from the __final__ 'MerklePatriciaTree'
+  -- | A proof for the (key, value) in the resulting 'MerklePatriciaTree'
   Proof alg ->
+  -- | Returns, the root of the 'MerklePatriciaTree' __with__ the (key, value)
+  -- added, or 'Nothing' if the proof is invalid for the given root.
   Maybe (Digest alg)
 add el oldRoot proofs = do
   (newRoot, oldRoot') <- walkBackwards el proofs
@@ -326,12 +328,14 @@ add el oldRoot proofs = do
 delete ::
   forall alg a.
   (Serialise a, HashAlgorithm alg) =>
-  -- | The (key, value) to delete
+  -- | The (key, value) to delete.
   (ByteString, a) ->
-  -- | The root of the 'MerklePatriciaTree' from which to remove the pair
+  -- | The root of the 'MerklePatriciaTree' __with__ the (key, value)
   Digest alg ->
-  -- | A proof constructed from the __original__ 'MerklePatriciaTree'
+  -- | A proof for the (key, value) in the original 'MerklePatriciaTree'
   Proof alg ->
+  -- | Returns, the root of the 'MerklePatriciaTree' __without__ the (key, value),
+  -- or 'Nothing' if the (key, value) is not present in the original tree.
   Maybe (Digest alg)
 delete el newRoot proofs = do
   (newRoot', oldRoot) <- walkBackwards el proofs
@@ -343,7 +347,40 @@ delete el newRoot proofs = do
 
 -- | Pretty-print a 'MerklePatriciaTree' in ascii, such that levels are aligned
 -- horizontally (one identation-level per level in the tree), and prefixes are
--- positioned such that they are visually easy to follow.
+-- positioned such that they are visually easy to follow. The outputs look like
+-- this:
+--
+-- @
+-- *--- Root hash
+-- |                      *---- Values at the leaves
+-- |                      |
+-- *-> #3801f:            |
+--     #ee41c: \\0         |
+--     #16944:  \\0      vvvvv
+--     #9d288:   \\001100 ↦ ()
+--     #d0bd1:   \\100110 ↦ ()
+--     #38e90:  \\1000110 ↦ ()
+--     #978d8: \\1
+--     #5ac65:  \\0
+--     #6f2de:   \\00
+--     #4fe20:     \\0110 ↦ ()
+--     #d1489:     \\1100 ↦ ()
+--     #d0bd1:   \\100110 ↦ ()
+--     #22882:  \\100
+--     #4fe20:   ^ \\0110 ↦ ()
+--     #d1489:   | \\1100 ↦ ()
+--      ^^^^^    |   ^^^
+--        |      |    |
+--        |      |    *--- Leaf or node's prefix
+--        |      |
+--        |      *---- Branch digit
+--        |
+--        |
+--        |
+--        *----- Nodes / Leaves' hashes
+-- @
+--
+-- Useful for debugging / reasonning.
 pretty :: forall alg a. (Show a) => MerklePatriciaTree alg a -> String
 pretty mpt =
   combine (hashes mpt) (body 0 mpt)
@@ -381,14 +418,110 @@ emptyRoot = hashNode "" []
 
 -- Walks a proof backwards and returns a root with element and root without element.
 --
--- The 'root with element' is calculated by walking the proofs from the leaf,
--- reconstructing the tree as the proof is walked backwards. This can be
--- compared to a root hash to prove existence.
+-- Let's take an example, with the following MPT of size 5 and all values are
+-- simply units (see also 'pretty' for explanation about how to read the
+-- pretty-printed MPTs). We'll walk the proof for '00100110', so let's also put
+-- side-by-side the same MPT with that element removed as it helps reasonning.
 --
--- The 'root without element' is calculated by walking the proofs from the leaf,
--- but, discarding the leaf itself. The resulting root can be compared to a
--- known root hash to see whether the proof is a direct extension of a given
--- MPT.
+--     #dddda:
+--     #a7b9e: \0
+--     #93119:  \0100110 ↦ ()              #6d40d:
+--     #38e90:  \1000110 ↦ ()              #ceb6f: \01000110 ↦ ()
+--     #fa61b: \1                          #fa61b: \1
+--     #3e241:  \0                         #3e241:  \0
+--     #25f0c:   \000110 ↦ ()              #25f0c:   \000110 ↦ ()
+--     #d0bd1:   \100110 ↦ ()              #d0bd1:   \100110 ↦ ()
+--     #38e90:  \1000110 ↦ ()              #38e90:  \1000110 ↦ ()
+--
+-- Let's now consider the proof for the key '00100110':
+--
+-- - (ø, [(1,fa61b)])
+-- - (ø, [(1,38e90)])
+-- - (100110, [])
+--
+-- At each level (visible through indentation), the proof contains the common
+-- prefix for that level, as well as the _other_ children needed to reconstruct
+-- the hash. We need therefore to reconstruct the proof from the _end_, and to
+-- go up one level at the time until we reach the root. Note however that we
+-- calculate __two hashes__ at the same time:
+--
+-- - The resulting root hash reconstructed from the proof, with the element.
+-- - The resulting root hash reconstructed from the proof, _without the element_.
+--
+-- Both results are useful to determine whether a modification (addition /
+-- deletion) in the tree is legal.
+--
+-- The first part of the proof being considered is (100110, []) which
+-- represents the leaf and the suffix of the reference (or the leaf's prefix).
+-- There's no children and no value, because the value is provided by the caller
+-- for verification. From there, we can easily calculate the resulting leaf hash
+-- by re-hashing the value and the corresponding part of the suffix and then go
+-- recursively through each node levels above, in reverse order.
+--
+-- The next one is (ø, [(1,38e90)]) which indeed correspond to the _other_branch
+-- once we have consumed '100110' from the end of the reference. The path to the
+-- element is on the branch `0`, thus we need the branch `1` to continue the
+-- proof.
+--
+-- This is also where it gets interesting. Calculating the root hash for
+-- the sub-MPT _with_ the element is trivial. We can re-construct the hash for the
+-- branch on our path, and the proof contains the hash of the other branch.
+-- Calculating the hash of the sub-MPT _without_ the element is more complex
+-- because, the structure of the tree changes. When the element is present, we
+-- have a Node with no prefix, and two branches on '0' and '1'. When the element
+-- is not present, we have a leaf, with '1000110' as prefix.
+--
+-- What is perhaps taken for granted at the moment (and quite convenient you'll
+-- admit!) is that, the hash of the Leaf with prefix 1000110 and the hash of the
+-- node from the branch '1' with a single leaf with prefix 000110 are actually
+-- the same!
+-- This is done _by construction_ to make it possible to reconstruct hashes even
+-- if the structure of the tree changes! For more details, see the doc-string on
+-- the 'hashPrefix' function, but in short: a prefix is hashed in multiple rounds,
+-- one hash per digit, all nested. Such that it's easy to add or peel a layer
+-- from the oignon-hash. To get a sense of this, imagine for a moment that this
+-- wasn't the case, and that the hash of the leaf would be different than the
+-- hash of a node with leaf... how would you reconstruct the hash of the MPT
+-- with the target element removed? When constructed "naively", we would typically
+-- construct the node hash as:
+--
+--        *--- Node's prefix
+--        v
+--   hash(ø|hash(000110|hash(value)))
+--                 ^
+--                 *--- Leaf's prefix
+--
+-- But now, to reconstruct the tree _without_ the element, we would need to
+-- construct (still naively) the hash as:
+--
+--           *--- Leaf's prefix
+--           v
+--   hash(1000110|hash(value))
+--
+-- We don't have hash(value) in the proof, and we don't really have a way to get
+-- from the former to the latter. So, the trick in the construction of the tree
+-- and all the hashes is to (a) include the branch digit in the hash and (b) hash
+-- every digit separately, in an oignon pattern such that, the proof has
+-- actually the following shape:
+--
+--   hash(1|hash(0|hash(0|hash(0|hash(1|hash(1|hash(0|hash(value))))))))
+--
+-- And now, it becomes trivial to move forward since, with both representation,
+-- hashes become equal and we can easily add new layers on top if needed. As
+-- this is the case for the _next_ node. The first node is easy to re-calculate
+-- because, it is transformed into a leaf in the absence of the proved element.
+--
+-- Then, the next (and last) part of the proof is indeed (ø, [(1,38e90)]). The
+-- case where the element is present is trivial. When it's absent however, we
+-- need to calculate the hash of the '0' branch, which is straightforward with
+-- the way we construct hashes:
+--
+--    hash(0|prev_hash)  *where prev_hash is the hash we calculated just above.
+--
+-- This wouldn't be possible with a naive hash construction, but is rendered
+-- easy by hashing each digit separately. Doing this recursively up to the top
+-- yields two root hashes which can then be used for membership verification,
+-- addition or deletion.
 walkBackwards ::
   forall alg a.
   (Serialise a, HashAlgorithm alg) =>
