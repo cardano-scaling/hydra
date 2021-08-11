@@ -10,15 +10,15 @@ import Control.Concurrent (newEmptyMVar, putMVar, takeMVar)
 import qualified Data.Aeson as Aeson
 import Hydra.Chain (Chain (..), HeadParameters (HeadParameters, contestationPeriod), OnChainTx (InitTx))
 import Hydra.Chain.ExternalPAB (PostInitParams, withExternalPAB)
-import qualified Hydra.ContractSM as OnChain
+import Hydra.Contract.PAB (InitParams, InitialParams)
 import Hydra.Ledger (Party (UnsafeParty))
 import Hydra.Ledger.Simple (SimpleTx)
 import Hydra.Logging (nullTracer)
-import Test.Hydra.Prelude (failAfter)
 import System.Process (CreateProcess (std_in, std_out), StdStream (CreatePipe), proc, withCreateProcess)
 import Test.Hspec (shouldReturn)
 import Test.Hspec.Core.Spec (Spec, describe, it)
 import Test.Hspec.QuickCheck (prop)
+import Test.Hydra.Prelude (failAfter)
 import Test.QuickCheck (counterexample, property)
 
 spec :: Spec
@@ -32,10 +32,10 @@ spec = do
        in counterexample (decodeUtf8 bytes) $ case Aeson.eitherDecode bytes of
             Left e ->
               counterexample ("Failed to decode: " <> show e) $ property False
-            Right (_ :: OnChain.InitParams) ->
+            Right (_ :: InitParams) ->
               property True
 
-    prop "HeadParameters <- Onchain.InitialParams" $ \(params :: OnChain.InitialParams) ->
+    prop "HeadParameters <- Onchain.InitialParams" $ \(params :: InitialParams) ->
       let bytes = Aeson.encode params
        in counterexample (decodeUtf8 bytes) $ case Aeson.eitherDecode bytes of
             Left e ->
