@@ -16,8 +16,9 @@ import Data.List (
   stripPrefix,
   (\\),
  )
-import Data.Maybe (fromMaybe, isJust, isNothing)
+import Data.Maybe (isJust, isNothing)
 import Data.Tree.MerklePatricia (
+  Bit (..),
   Blake2b_160,
   Blake2b_224,
   HashAlgorithm,
@@ -25,6 +26,7 @@ import Data.Tree.MerklePatricia (
   Proof,
   Serialise,
   add,
+  bitToChar,
   delete,
   depth,
   dropPrefix,
@@ -244,9 +246,9 @@ spec = parallel $ do
 
   context "bits from strings" $ do
     let matrix =
-          [ ("", "")
-          , ("a", "10000110")
-          , ("abc", "100001100100011011000110")
+          [ ("", [])
+          , ("a", [Hi, Lo, Lo, Lo, Lo, Hi, Hi, Lo])
+          , ("abc", [Hi, Lo, Lo, Lo, Lo, Hi, Hi, Lo, Lo, Hi, Lo, Lo, Lo, Hi, Hi, Lo, Hi, Hi, Lo, Lo, Lo, Hi, Hi, Lo])
           ]
     forM_ matrix $ \(input, output) ->
       specify (show input) $ toBits input `shouldBe` output
@@ -256,7 +258,7 @@ spec = parallel $ do
       forAllShrink (genReference 8) shrinkReference $ \ref ->
         let bits = toBits ref
          in unsafeFromBits bits === ref
-              & counterexample bits
+              & counterexample (fmap bitToChar bits)
 
   context "Prefixes" $ do
     specify "compare with oracle" $
@@ -272,8 +274,8 @@ spec = parallel $ do
            in prop
                 & cover 5 (isNothing oracle) "no common prefix"
                 & cover 80 (isJust oracle) "has common prefix"
-                & counterexample ("result: " <> result)
-                & counterexample ("oracle: " <> fromMaybe "ø" oracle)
+                & counterexample ("result: " <> fmap bitToChar result)
+                & counterexample ("oracle: " <> maybe "ø" (fmap bitToChar) oracle)
 
 --
 -- Helpers
@@ -315,7 +317,7 @@ shrinkReference :: ByteString -> [ByteString]
 shrinkReference =
   fmap BS.pack . shrinkList pure . BS.unpack
 
-genPrefix :: String -> Gen String
+genPrefix :: [Bit] -> Gen [Bit]
 genPrefix ref = do
   n <- choose (0, length ref)
   frequency

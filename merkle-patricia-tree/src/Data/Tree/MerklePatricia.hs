@@ -54,10 +54,13 @@ module Data.Tree.MerklePatricia (
   -- | - 'Blake2b_256'
   Blake2b_256,
   -- Internals
-  stripCommonPrefix,
-  dropPrefix,
+  Bit (..),
+  bitToChar,
+  bitToByteString,
   toBits,
   unsafeFromBits,
+  stripCommonPrefix,
+  dropPrefix,
 ) where
 
 import Prelude hiding (null)
@@ -82,13 +85,11 @@ import qualified Data.ByteString.Char8 as B8
 
 -- * Type
 
-type Prefix = String
-
 -- | An opaque 'MerklePatriciaTree', parameterized by a hash algorithm and a
 -- type for its values.
 data MerklePatriciaTree alg a
-  = Leaf Prefix (Digest alg) a
-  | Node Prefix (Digest alg) [(Char, MerklePatriciaTree alg a)]
+  = Leaf [Bit] (Digest alg) a
+  | Node [Bit] (Digest alg) [(Bit, MerklePatriciaTree alg a)]
   deriving (Show)
 
 instance HashAlgorithm alg => Eq (MerklePatriciaTree alg a) where
@@ -96,8 +97,49 @@ instance HashAlgorithm alg => Eq (MerklePatriciaTree alg a) where
 
 -- | An opaque 'Proof' which can be used to prove membership or atomic
 -- operations such as 'add' or 'delete'
-newtype Proof alg = Proof {unProof :: [(Prefix, [(Char, Digest alg)])]}
+newtype Proof alg = Proof {unProof :: [([Bit], [(Bit, Digest alg)])]}
   deriving stock (Show)
+
+data Bit = Hi | Lo deriving (Show, Eq, Ord)
+
+bitToChar :: Bit -> Char
+bitToChar = \case
+  Hi -> '1'
+  Lo -> '0'
+
+bitToByteString :: Bit -> ByteString
+bitToByteString =
+  B8.singleton . bitToChar
+
+toBits :: ByteString -> [Bit]
+toBits = foldMap bits . BS.unpack
+ where
+  bits :: Word8 -> [Bit]
+  bits b = [if testBit b i then Hi else Lo | i <- [0 .. 7]]
+
+unsafeFromBits :: HasCallStack => [Bit] -> ByteString
+unsafeFromBits = BS.pack . go
+ where
+  go = \case
+    b0 : b1 : b2 : b3 : b4 : b5 : b6 : b7 : q ->
+      let shiftL' Hi = shiftL 1
+          shiftL' _ = const 0
+          bit =
+            shiftL' b0 0
+              .|. shiftL' b1 1
+              .|. shiftL' b2 2
+              .|. shiftL' b3 3
+              .|. shiftL' b4 4
+              .|. shiftL' b5 5
+              .|. shiftL' b6 6
+              .|. shiftL' b7 7
+
+          str = go q
+       in bit : str
+    [] ->
+      []
+    _ ->
+      error "fromBits: wrong number of bits."
 
 --
 -- Constructing
@@ -116,12 +158,12 @@ fromList ::
   (HashAlgorithm alg, Serialise a) =>
   [(ByteString, a)] ->
   MerklePatriciaTree alg a
-fromList = go "" . fmap (first toBits)
+fromList = go [] . fmap (first toBits)
  where
-  alphabet = ['0' .. '1']
+  alphabet = [Lo, Hi]
   go c = \case
     [] ->
-      Node "" (hashNode c []) []
+      Node [] (hashNode c []) []
     [(pre, a)] ->
       Leaf pre (hashLeaf (c ++ pre) a) a
     xs ->
@@ -138,7 +180,7 @@ fromList = go "" . fmap (first toBits)
       mpt | null mpt -> Nothing
       mpt -> Just (i, mpt)
 
-  project :: Char -> (String, a) -> Maybe (String, a)
+  project :: Bit -> ([Bit], a) -> Maybe ([Bit], a)
   project i = \case
     (h : q, a) | h == i -> Just (q, a)
     _ -> Nothing
@@ -373,7 +415,7 @@ delete el newRoot proofs = do
 --        |      |    |
 --        |      |    *--- Leaf or node's prefix
 --        |      |
---        |      *---- Branch digit
+--        |      *---- Branch bit
 --        |
 --        |
 --        |
@@ -399,14 +441,15 @@ pretty mpt =
 
   body n = \case
     Leaf pre _ a ->
-      pre <> " ↦ " <> take 5 (show a)
+      fmap bitToChar pre <> " ↦ " <> take 5 (show a)
     Node pre _ children ->
       let t = n + length pre - 1
-       in pre <> join ["\n" <> indent t (prettyElement 2 el) | el <- children]
+       in fmap bitToChar pre
+            <> join ["\n" <> indent t (prettyElement 2 el) | el <- children]
 
-  prettyElement :: Int -> (Char, MerklePatriciaTree alg a) -> String
+  prettyElement :: Int -> (Bit, MerklePatriciaTree alg a) -> String
   prettyElement n (i, sub) =
-    ['\\', i] <> body n sub
+    ['\\', bitToChar i] <> body n sub
 
 --
 -- Helper / Internal
@@ -414,7 +457,7 @@ pretty mpt =
 
 -- The root hash of every empty tree.
 emptyRoot :: forall alg. HashAlgorithm alg => Digest alg
-emptyRoot = hashNode "" []
+emptyRoot = hashNode [] []
 
 -- Walks a proof backwards and returns a root with element and root without element.
 --
@@ -478,7 +521,7 @@ emptyRoot = hashNode "" []
 -- This is done _by construction_ to make it possible to reconstruct hashes even
 -- if the structure of the tree changes! For more details, see the doc-string on
 -- the 'hashPrefix' function, but in short: a prefix is hashed in multiple rounds,
--- one hash per digit, all nested. Such that it's easy to add or peel a layer
+-- one hash per bit, all nested. Such that it's easy to add or peel a layer
 -- from the oignon-hash. To get a sense of this, imagine for a moment that this
 -- wasn't the case, and that the hash of the leaf would be different than the
 -- hash of a node with leaf... how would you reconstruct the hash of the MPT
@@ -500,8 +543,8 @@ emptyRoot = hashNode "" []
 --
 -- We don't have hash(value) in the proof, and we don't really have a way to get
 -- from the former to the latter. So, the trick in the construction of the tree
--- and all the hashes is to (a) include the branch digit in the hash and (b) hash
--- every digit separately, in an oignon pattern such that, the proof has
+-- and all the hashes is to (a) include the branch bit in the hash and (b) hash
+-- every bit separately, in an oignon pattern such that, the proof has
 -- actually the following shape:
 --
 --   hash(1|hash(0|hash(0|hash(0|hash(1|hash(1|hash(0|hash(value))))))))
@@ -519,7 +562,7 @@ emptyRoot = hashNode "" []
 --    hash(0|prev_hash)  *where prev_hash is the hash we calculated just above.
 --
 -- This wouldn't be possible with a naive hash construction, but is rendered
--- easy by hashing each digit separately. Doing this recursively up to the top
+-- easy by hashing each bit separately. Doing this recursively up to the top
 -- yields two root hashes which can then be used for membership verification,
 -- addition or deletion.
 walkBackwards ::
@@ -555,11 +598,11 @@ walkBackwards (reverse . toBits -> ref0, a) (reverse . unProof -> proofs0) =
     _ ->
       Nothing
   -- This is the main part, which walks backward from the leaf through each stage
-  -- of the tree. In this branch, the ref is necessarily at least one digit
+  -- of the tree. In this branch, the ref is necessarily at least one bit
   -- (which corresponds to the branch choice of the MPT). The current stage may
-  -- also have a prefix. Each call to this function consumes both the digit and
+  -- also have a prefix. Each call to this function consumes both the bit and
   -- the prefix from the reference. The proof contains all _other_ hashes and
-  -- digits for this level, the missing one being re-computed from the provided
+  -- bits for this level, the missing one being re-computed from the provided
   -- element.
   go h prev (c : ref) = \case
     [] -> Nothing
@@ -593,17 +636,17 @@ walkBackwards (reverse . toBits -> ref0, a) (reverse . unProof -> proofs0) =
 -- tree while still allowing to re-computing hashes as necessary. As an obvious
 -- downside, inserting any element with references of size `n` requires exactly
 -- `n` hashes __per element__
-hashPrefix :: forall alg. HashAlgorithm alg => String -> Digest alg -> Digest alg
+hashPrefix :: forall alg. HashAlgorithm alg => [Bit] -> Digest alg -> Digest alg
 hashPrefix pre payload0 = go payload0 (reverse pre)
  where
   go payload = \case
     [] ->
       payload
     (h : q) ->
-      go (hash (B8.singleton h <> convert payload)) q
+      go (hash (bitToByteString h <> convert payload)) q
 
 -- See notes on 'hashPrefix'
-hashLeaf :: forall alg a. (HashAlgorithm alg, Serialise a) => String -> a -> Digest alg
+hashLeaf :: forall alg a. (HashAlgorithm alg, Serialise a) => [Bit] -> a -> Digest alg
 hashLeaf pre a =
   hashPrefix pre (hashlazy $ serialise a)
 
@@ -611,14 +654,14 @@ hashLeaf pre a =
 hashNode ::
   forall alg a.
   (HashAlgorithm alg) =>
-  String ->
-  [(Char, Digest a)] ->
+  [Bit] ->
+  [(Bit, Digest a)] ->
   Digest alg
 hashNode pre (sortOn fst -> children) =
   let hashes =
         BS.concat $
           fmap
-            (\(c, child) -> convert $ hash @_ @alg $ B8.singleton c <> convert child)
+            (\(c, child) -> convert $ hash @_ @alg $ bitToByteString c <> convert child)
             children
    in hashPrefix pre (hashlazy $ serialise hashes)
 
@@ -632,17 +675,17 @@ shortHash =
     . convertToBase Base16
     . convert @_ @ByteString
 
-stripCommonPrefix :: [(String, a)] -> (String, [(String, a)])
+stripCommonPrefix :: forall a v. Eq a => [([a], v)] -> ([a], [([a], v)])
 stripCommonPrefix = \case
   [] ->
-    ("", [])
+    ([], [])
   [(pre, a)] ->
-    (pre, [("", a)])
+    (pre, [([], a)])
   h : q ->
     let pre = foldr (\(e, _) -> intersectPrefix e) (fst h) q
      in (pre, first (dropPrefix pre) <$> (h : q))
  where
-  intersectPrefix :: String -> String -> String
+  intersectPrefix :: [a] -> [a] -> [a]
   intersectPrefix xs ys = case (xs, ys) of
     (x : qx, y : qy)
       | x == y ->
@@ -650,36 +693,6 @@ stripCommonPrefix = \case
     _ ->
       []
 
-dropPrefix :: String -> String -> String
+dropPrefix :: Eq a => [a] -> [a] -> [a]
 dropPrefix pre str =
   fromMaybe str (stripPrefix pre str)
-
-toBits :: ByteString -> String
-toBits = foldMap bits . BS.unpack
- where
-  bits :: Word8 -> String
-  bits b = [if testBit b i then '1' else '0' | i <- [0 .. 7]]
-
-unsafeFromBits :: HasCallStack => String -> ByteString
-unsafeFromBits = BS.pack . go
- where
-  go = \case
-    b0 : b1 : b2 : b3 : b4 : b5 : b6 : b7 : q ->
-      let shiftL' '1' = shiftL 1
-          shiftL' _ = const 0
-          digit =
-            shiftL' b0 0
-              .|. shiftL' b1 1
-              .|. shiftL' b2 2
-              .|. shiftL' b3 3
-              .|. shiftL' b4 4
-              .|. shiftL' b5 5
-              .|. shiftL' b6 6
-              .|. shiftL' b7 7
-
-          str = go q
-       in digit : str
-    [] ->
-      []
-    _ ->
-      error "fromBits: wrong number of bits."
