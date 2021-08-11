@@ -1,3 +1,5 @@
+{-# OPTIONS_GHC -Wno-partial-fields #-}
+
 -- | Aggregates all tracing messages in a single type.
 --
 -- This module provides a central point where top-level traced messages are
@@ -15,10 +17,10 @@ import Hydra.Logging (ToObject)
 import Hydra.Node (HydraNodeLog)
 
 data HydraLog tx net
-  = MockChain (MockChainLog tx)
-  | APIServer APIServerLog
-  | Network net
-  | Node (HydraNodeLog tx)
-  | Chain ExternalPABLog
+  = MockChain {chain :: MockChainLog tx}
+  | APIServer {api :: APIServerLog}
+  | Network {network :: net}
+  | Node {node :: HydraNodeLog tx}
+  | Chain {pab :: ExternalPABLog}
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON, ToObject)

@@ -43,10 +43,10 @@ instance (Arbitrary tx, Arbitrary (UTxO tx)) => Arbitrary (Event tx) where
   arbitrary = genericArbitrary
 
 data Effect tx
-  = ClientEffect (ServerOutput tx)
-  | NetworkEffect (Message tx)
-  | OnChainEffect (OnChainTx tx)
-  | Delay DiffTime (Event tx)
+  = ClientEffect {serverOutput :: ServerOutput tx}
+  | NetworkEffect {message :: Message tx}
+  | OnChainEffect {onChainTx :: OnChainTx tx}
+  | Delay {delay :: DiffTime, event :: Event tx}
   deriving stock (Generic)
 
 instance (Arbitrary tx, Arbitrary (UTxO tx)) => Arbitrary (Effect tx) where
@@ -59,9 +59,9 @@ deriving instance Tx tx => FromJSON (Effect tx)
 
 data HeadState tx
   = ReadyState
-  | InitialState HeadParameters PendingCommits (Committed tx)
-  | OpenState HeadParameters (CoordinatedHeadState tx)
-  | ClosedState HeadParameters (UTxO tx)
+  | InitialState {parameters :: HeadParameters, pendingCommits :: PendingCommits, committed :: Committed tx}
+  | OpenState {parameters :: HeadParameters, coordinatedHeadState :: CoordinatedHeadState tx}
+  | ClosedState {parameters :: HeadParameters, utxos :: UTxO tx}
   deriving stock (Generic)
 
 instance (Arbitrary (UTxO tx), Arbitrary tx) => Arbitrary (HeadState tx) where
