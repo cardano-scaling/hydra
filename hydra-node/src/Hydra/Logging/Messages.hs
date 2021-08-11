@@ -1,5 +1,3 @@
-{-# OPTIONS_GHC -Wno-partial-fields #-}
-
 -- | Aggregates all tracing messages in a single type.
 --
 -- This module provides a central point where top-level traced messages are

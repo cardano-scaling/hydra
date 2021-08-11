@@ -1,67 +1,57 @@
 {
     "samples": [
         {
-            "clientInput": {
-                "input": "newTransaction",
-                "transaction": {
-                    "id": 17,
-                    "inputs": [
-                        20
-                    ],
-                    "outputs": [
-                        -28,
-                        -21,
-                        -20,
-                        -7,
-                        -3,
-                        1,
-                        6,
-                        7,
-                        22
-                    ]
-                }
-            },
-            "tag": "ClientEvent"
+            "tag": "ShouldPostFanout"
         },
         {
-            "message": {
-                "party": 13,
-                "tag": "connected"
-            },
-            "tag": "NetworkEvent"
-        },
-        {
-            "message": {
-                "party": 3,
-                "tag": "reqTx",
-                "transaction": {
-                    "id": 20,
-                    "inputs": [],
-                    "outputs": [
-                        -27,
-                        -24,
-                        -14,
-                        -12,
-                        -8,
-                        -3,
-                        1,
-                        21,
-                        24
+            "onChainTx": {
+                "contents": {
+                    "contestationPeriod": -22.002678473622,
+                    "parties": [
+                        13,
+                        1.8446744073709551613e19,
+                        1.8446744073709551588e19,
+                        1.8446744073709551611e19,
+                        12,
+                        17,
+                        12,
+                        2,
+                        12,
+                        18,
+                        14,
+                        4,
+                        1.8446744073709551615e19,
+                        19,
+                        1.844674407370955159e19,
+                        1.8446744073709551612e19,
+                        4,
+                        28,
+                        20,
+                        24,
+                        5,
+                        20,
+                        9,
+                        26,
+                        1.8446744073709551607e19,
+                        18,
+                        1.8446744073709551606e19,
+                        1.8446744073709551606e19,
+                        4
                     ]
-                }
+                },
+                "tag": "InitTx"
             },
-            "tag": "NetworkEvent"
+            "tag": "OnChainEvent"
         },
         {
             "tag": "ShouldPostFanout"
         },
         {
-            "message": {
-                "party": 15,
-                "tag": "connected"
-            },
-            "tag": "NetworkEvent"
+            "tag": "DoSnapshot"
+        },
+        {
+            "tag": "DoSnapshot"
         }
     ],
-    "seed": 1961268069
+    "seed": -213000305
 }

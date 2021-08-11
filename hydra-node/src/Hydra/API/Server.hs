@@ -1,5 +1,4 @@
 {-# LANGUAGE TypeApplications #-}
-{-# OPTIONS_GHC -Wno-partial-fields #-}
 
 module Hydra.API.Server (
   withAPIServer,

@@ -71,7 +71,6 @@ common project-config
     -Widentities
     -Wincomplete-record-updates
     -Wincomplete-uni-patterns
-    -Wpartial-fields
     -Wredundant-constraints
     -fprint-potential-instances
 
