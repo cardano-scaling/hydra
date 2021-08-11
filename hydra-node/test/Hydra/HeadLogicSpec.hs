@@ -29,6 +29,7 @@ import Hydra.Ledger.Simple (SimpleTx (..), TxIn (..), aValidTx, simpleLedger, ut
 import Hydra.Network.Message (Message (AckSn, Connected, ReqSn, ReqTx))
 import Hydra.ServerOutput (ServerOutput (PeerConnected))
 import Hydra.Snapshot (Snapshot (..))
+import Test.Hydra.Prelude (failure)
 import Test.Hspec (
   Expectation,
   Spec,
@@ -43,7 +44,6 @@ import Test.QuickCheck (
   forAllShrink,
   (===),
  )
-import Test.Util (failure)
 
 spec :: Spec
 spec = describe "Hydra Coordinated Head Protocol" $ do

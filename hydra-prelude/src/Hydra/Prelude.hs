@@ -19,7 +19,6 @@ module Hydra.Prelude (
   Arbitrary (..),
   genericArbitrary,
   genericShrink,
-  createSystemTempDirectory,
 ) where
 
 import Cardano.Binary (
@@ -124,7 +123,6 @@ import Relude.Extra.Map (
   elems,
   keys,
  )
-import System.IO.Temp (createTempDirectory, getCanonicalTemporaryDirectory)
 import Test.QuickCheck (
   Arbitrary (..),
   Gen,
@@ -144,13 +142,3 @@ genericArbitrary ::
   Gen a
 genericArbitrary =
   Random.genericArbitrary Random.uniform
-
--- | FIXME: Move into test-utils as soon as test-utils exists "globally"
--- And, really this should only be used in test code, when we want to preserve
--- log / tmp files on failure, but files should be cleaned up on success.
---
--- In brief: do not use.
-createSystemTempDirectory :: String -> IO FilePath
-createSystemTempDirectory template =
-  getCanonicalTemporaryDirectory >>= \tmpDir ->
-    createTempDirectory tmpDir template

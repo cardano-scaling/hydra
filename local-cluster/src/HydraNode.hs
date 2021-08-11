@@ -6,7 +6,6 @@
 module HydraNode (
   HydraClient (..),
   withHydraNode,
-  failAfter,
   send,
   input,
   waitFor,
@@ -44,7 +43,8 @@ import qualified Data.Text as T
 import Data.Text.IO (hPutStrLn)
 import GHC.IO.Handle (hDuplicate)
 import Hydra.Logging (Tracer, traceWith)
-import Hydra.Network.Ports (randomUnusedTCPPorts)
+import Test.Network.Ports (randomUnusedTCPPorts)
+import Test.Hydra.Prelude (createSystemTempDirectory, failAfter, failure)
 import Network.HTTP.Conduit (HttpExceptionContent (ConnectionFailure), parseRequest)
 import Network.HTTP.Simple (HttpException (HttpExceptionRequest), Response, getResponseBody, getResponseStatusCode, httpBS)
 import Network.WebSockets (Connection, receiveData, runClient, sendClose, sendTextData)
@@ -62,7 +62,6 @@ import System.Process (
   withCreateProcess,
  )
 import System.Timeout (timeout)
-import Test.Hspec.Expectations (expectationFailure)
 
 data HydraClient = HydraClient
   { hydraNodeId :: Int
@@ -71,12 +70,6 @@ data HydraClient = HydraClient
     -- Weird.
     nodeStdout :: Handle
   }
-
-failAfter :: HasCallStack => Natural -> IO a -> IO a
-failAfter seconds action =
-  timeout (fromIntegral seconds * 1_000_000) action >>= \case
-    Just a -> pure a
-    Nothing -> error $ "Timed out after " <> show seconds <> " second(s)"
 
 -- | Create an input as expected by 'send'.
 input :: Text -> [Pair] -> Value
@@ -104,7 +97,7 @@ waitMatch delay HydraClient{connection} match = do
     Just x -> pure x
     Nothing -> do
       msgs <- readTVarIO seenMsgs
-      expectationFailure $ "Didn't match within allocated time, received messages: " <> show msgs
+      void $ failure $ "Didn't match within allocated time, received messages: " <> show msgs
       error "should never get there"
  where
   go seenMsgs = do
@@ -129,7 +122,7 @@ waitForAll tracer delay nodes expected = do
       Just x -> pure x
       Nothing -> do
         actualMsgs <- readIORef msgs
-        expectationFailure $
+        failure $
           toString $
             unlines
               [ "waitFor... timeout!"
@@ -160,7 +153,7 @@ getMetrics :: HasCallStack => HydraClient -> IO ByteString
 getMetrics HydraClient{hydraNodeId} = do
   response <-
     failAfter 3 $ queryNode hydraNodeId
-  when (getResponseStatusCode response /= 200) $ expectationFailure ("Request for Hydra-node metrics failed :" <> show (getResponseBody response))
+  when (getResponseStatusCode response /= 200) $ failure ("Request for Hydra-node metrics failed :" <> show (getResponseBody response))
   pure $ getResponseBody response
 
 queryNode :: Int -> IO (Response ByteString)
@@ -293,7 +286,7 @@ checkProcessHasNotDied :: ProcessHandle -> IO ()
 checkProcessHasNotDied processHandle =
   waitForProcess processHandle >>= \case
     ExitSuccess -> pure ()
-    ExitFailure exit -> expectationFailure $ "Process exited with failure code: " <> show exit
+    ExitFailure exit -> failure $ "Process exited with failure code: " <> show exit
 
 -- HACK(SN): These functions here are hard-coded for three nodes, but the tests
 -- are somewhat parameterized -> make it all or nothing hard-coded

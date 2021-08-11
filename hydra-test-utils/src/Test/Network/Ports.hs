@@ -2,7 +2,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 
 -- | Utility module providing functions to find and allocate random ports.
-module Hydra.Network.Ports where
+module Test.Network.Ports where
 
 import Hydra.Prelude
 

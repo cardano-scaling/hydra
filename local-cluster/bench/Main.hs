@@ -5,6 +5,7 @@ import Hydra.Prelude
 import Bench.EndToEnd (bench)
 import Data.Aeson (eitherDecodeFileStrict', encodeFile)
 import Hydra.Ledger.Simple (genSequenceOfValidTransactions, utxoRefs)
+import Test.Hydra.Prelude (createSystemTempDirectory)
 import System.FilePath (takeDirectory, (</>))
 import Test.QuickCheck (generate, scale)
 

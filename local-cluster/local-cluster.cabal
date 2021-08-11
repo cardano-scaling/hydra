@@ -90,6 +90,7 @@ library
     , http-conduit
     , hydra-prelude
     , hydra-node
+    , hydra-test-utils
     , io-classes
     , iohk-monitoring
     , network
@@ -139,6 +140,7 @@ test-suite integration
     , hspec-junit-formatter
     , hydra-node
     , hydra-prelude
+    , hydra-test-utils
     , local-cluster
     , regex-tdfa
     , say
@@ -165,6 +167,7 @@ benchmark bench-e2e
     , filepath
     , hydra-node
     , hydra-prelude
+    , hydra-test-utils
     , io-classes
     , lens
     , lens-aeson

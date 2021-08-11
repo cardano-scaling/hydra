@@ -41,8 +41,9 @@ import Hydra.Node (
  )
 import Hydra.ServerOutput (ServerOutput (..))
 import Hydra.Snapshot (Snapshot (..))
+import Test.Hydra.Prelude (failAfter, failure)
 import Test.Hspec (Spec, describe, it, shouldContain, shouldThrow)
-import Test.Util (failAfter, failure, shouldNotBe, shouldReturn, shouldRunInSim, traceInIOSim)
+import Test.Util (shouldNotBe, shouldReturn, shouldRunInSim, traceInIOSim)
 
 spec :: Spec
 spec = describe "Behavior of one ore more hydra nodes" $ do
