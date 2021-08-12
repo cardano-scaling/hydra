@@ -12,6 +12,7 @@ import Data.Text.Prettyprint.Doc (Pretty (..), viaShow)
 import Hydra.Contract.ContestationPeriod (ContestationPeriod)
 import qualified Hydra.Contract.Head as Head
 import Hydra.Contract.Party (Party)
+import Ledger.Constraints (mustPayToPubKey)
 import Ledger (CurrencySymbol, PubKeyHash (..), TxOut (txOutValue), TxOutTx (txOutTxOut), pubKeyAddress, pubKeyHash)
 import Ledger.AddressMap (UtxoMap, outputsMapFromTxForAddress)
 import qualified Ledger.Typed.Scripts as Scripts
@@ -114,13 +115,11 @@ setup = endpoint @"init" $ \InitParams{contestationPeriod, cardanoPubKeys, hydra
   symbol <- Currency.currencySymbol <$> Currency.mintContract ownPK tokens
   let threadToken = mkThreadToken symbol
       tokenValues = map (uncurry (Value.singleton symbol)) participationTokens
-
   logInfo $ "Done, our currency symbol: " <> show @String symbol
 
   let client = Head.machineClient threadToken
-  void $ SM.runInitialise client Head.Setup mempty
-
-  void $ SM.runStep client (Head.Init contestationPeriod (zip cardanoPubKeys tokenValues) hydraParties)
+  let constraints = foldMap (uncurry mustPayToPubKey) $ zip cardanoPubKeys tokenValues
+  void $ SM.runInitialiseWith mempty constraints client (Head.Initial contestationPeriod hydraParties) mempty
   logInfo $ "Triggered Init " <> show @String cardanoPubKeys
 
 -- | Parameters as they are available in the 'Initial' state.
@@ -134,8 +133,9 @@ instance Arbitrary InitialParams where
   shrink = genericShrink
   arbitrary = genericArbitrary
 
--- | Watch 'initialAddress' (with hard-coded parameters) and report all datums
--- seen on each run.
+-- | Watch own pubkey address and report all datums seen on each run. This
+-- relies on the fact that a participation token (payed to the address) uses the
+-- same 'CurrencySymbol' as the thread token.
 watchInit :: Contract (Last InitialParams) Empty ContractError ()
 watchInit = do
   logInfo @String $ "watchInit: Looking for an init tx and it's parties"
