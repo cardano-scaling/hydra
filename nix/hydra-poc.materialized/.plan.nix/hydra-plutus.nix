@@ -58,10 +58,10 @@
         buildable = true;
         modules = [
           "Hydra/Contract/ContestationPeriod"
+          "Hydra/Contract/Head"
           "Hydra/Contract/OnChain"
           "Hydra/Contract/OffChain"
           "Hydra/Contract/Party"
-          "Hydra/ContractSM"
           "Hydra/Contract/PAB"
           ];
         hsSourceDirs = [ "src" ];

@@ -255,6 +255,7 @@
         "cryptohash-md5".revision = (((hackage."cryptohash-md5")."0.11.100.1").revisions).default;
         "generic-deriving".revision = (((hackage."generic-deriving")."1.13.1").revisions).default;
         "generic-deriving".flags.base-4-9 = true;
+        "hspec-golden-aeson".revision = (((hackage."hspec-golden-aeson")."0.9.0.0").revisions).default;
         "base64-bytestring-type".revision = (((hackage."base64-bytestring-type")."1.0.1").revisions).default;
         "base64-bytestring-type".flags.cereal = true;
         "base64-bytestring-type".flags.serialise = true;
@@ -492,6 +493,7 @@
         "crypto-api".revision = (((hackage."crypto-api")."0.13.3").revisions).default;
         "crypto-api".flags.all_cpolys = false;
         "data-default".revision = (((hackage."data-default")."0.7.1.1").revisions).default;
+        "quickcheck-arbitrary-adt".revision = (((hackage."quickcheck-arbitrary-adt")."0.3.1.0").revisions).default;
         "connection".revision = (((hackage."connection")."0.3.1").revisions).default;
         "finite-typelits".revision = (((hackage."finite-typelits")."0.1.4.2").revisions).default;
         "typerep-map".revision = (((hackage."typerep-map")."0.3.3.0").revisions).default;
@@ -765,6 +767,7 @@
         cardano-ledger-byron-test = ./.plan.nix/cardano-ledger-byron-test.nix;
         plutus-tx = ./.plan.nix/plutus-tx.nix;
         hedgehog-extras = ./.plan.nix/hedgehog-extras.nix;
+        hydra-test-utils = ./.plan.nix/hydra-test-utils.nix;
         plutus-contract = ./.plan.nix/plutus-contract.nix;
         iohk-monitoring = ./.plan.nix/iohk-monitoring.nix;
         io-sim = ./.plan.nix/io-sim.nix;
@@ -902,6 +905,7 @@
             };
           "plutus-tx" = { flags = {}; };
           "hedgehog-extras" = { flags = {}; };
+          "hydra-test-utils" = { flags = {}; };
           "plutus-contract" = {
             flags = { "defer-plugin-errors" = lib.mkOverride 900 false; };
             };
