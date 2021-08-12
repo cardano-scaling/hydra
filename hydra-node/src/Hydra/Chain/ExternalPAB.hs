@@ -26,7 +26,6 @@ import Ledger.AddressMap (UtxoMap)
 import Ledger.Value (flattenValue)
 import Network.HTTP.Req (
   HttpException (VanillaHttpException),
-  NoReqBody (..),
   POST (..),
   ReqBodyJson (..),
   defaultHttpConfig,
@@ -135,13 +134,14 @@ postInitTx cid params =
 -- TODO(SN): use MonadHttp, but clashes with MonadThrow
 postAbortTx :: ContractInstanceId -> UTxO tx -> IO ()
 postAbortTx cid _utxo =
-  retryOnAnyHttpException $
+  retryOnAnyHttpException $ do
+    say "send abort http request"
     runReq defaultHttpConfig $ do
       res <-
         req
           POST
           (http "127.0.0.1" /: "api" /: "contract" /: "instance" /: cidText /: "endpoint" /: "abort")
-          NoReqBody
+          (ReqBodyJson ())
           jsonResponse
           (port pabPort)
       when (responseStatusCode res /= 200) $
