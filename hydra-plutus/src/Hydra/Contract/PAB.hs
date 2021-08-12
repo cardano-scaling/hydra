@@ -69,7 +69,7 @@ instance HasDefinitions PABContract where
   getContract = \case
     GetUtxos -> SomeBuiltin getUtxo
     Init -> SomeBuiltin init
-    WatchInit -> SomeBuiltin watchInit
+    WatchInit -> SomeBuiltin watch
     Abort -> SomeBuiltin $ abort (error "don't expose this as full contract")
 
 getUtxo :: Contract (Last UtxoMap) Empty ContractError ()
@@ -136,16 +136,21 @@ instance Arbitrary InitialParams where
   shrink = genericShrink
   arbitrary = genericArbitrary
 
--- | Watch own pubkey address and report all datums seen on each run. This
--- relies on the fact that a participation token (payed to the address) uses the
+watch :: Contract (Last InitialParams) Empty ContractError ()
+watch = do
+  params <- fst <$> watchInit
+  tell $ Last $ Just params
+
+-- | Watch Initial script address to extract head's initial parameters and thread token.
+-- Relies on the fact that a participation token (payed to the address) uses the
 -- same 'CurrencySymbol' as the thread token.
-watchInit :: Contract (Last InitialParams) Empty ContractError ()
+watchInit :: Contract s Empty ContractError (InitialParams, AssetClass)
 watchInit = do
   logInfo @String $ "watchInit: Looking for an init tx and it's parties"
   pubKey <- ownPubKey
   let address = Initial.address
       pkh = pubKeyHash pubKey
-  forever $ do
+  loop $ do
     txs <- nextTransactionsAt address
     let foundTokens = txs >>= mapMaybe (findToken pkh) . Map.elems . outputsMapFromTxForAddress address
     logInfo $ "found tokens: " <> show @String foundTokens
@@ -155,10 +160,15 @@ watchInit = do
         logInfo @String $ "found init tx(s) with datums: " <> show datums
         case datums of
           [Head.Initial contestationPeriod parties] ->
-            tell . Last . Just $ InitialParams{contestationPeriod, parties}
-          _ -> pure ()
-      _ -> pure ()
+            pure $ Just (InitialParams{contestationPeriod, parties}, token)
+          _ -> pure Nothing
+      _ -> pure Nothing
  where
+  loop action =
+    action >>= \case
+      Nothing -> loop action
+      Just result -> pure result
+
   -- Find candidates for a Hydra Head threadToken 'AssetClass', that is if the
   -- 'TokenName' matches our public key
   findToken :: PubKeyHash -> TxOutTx -> Maybe AssetClass
