@@ -1,5 +1,4 @@
 {-# LANGUAGE TypeApplications #-}
-{-# OPTIONS_GHC -Wno-unused-imports #-}
 
 module Hydra.Chain.ExternalPABSpec where
 
@@ -8,13 +7,14 @@ import Hydra.Prelude
 import Cardano.Crypto.DSIGN (DSIGNAlgorithm (deriveVerKeyDSIGN), MockDSIGN, SignKeyDSIGN, VerKeyDSIGN)
 import Control.Concurrent (newEmptyMVar, putMVar, takeMVar)
 import qualified Data.Aeson as Aeson
-import Hydra.Chain (Chain (..), HeadParameters (HeadParameters, contestationPeriod), OnChainTx (..))
+import Hydra.Chain (Chain (..), HeadParameters (..), OnChainTx (..))
 import Hydra.Chain.ExternalPAB (PostInitParams, withExternalPab)
 import Hydra.Contract.PAB (InitParams, InitialParams)
 import Hydra.Ledger (Party (UnsafeParty))
 import Hydra.Ledger.Simple (SimpleTx)
 import Hydra.Logging (nullTracer)
-import System.Process (CreateProcess (std_in, std_out), StdStream (CreatePipe), proc, withCreateProcess)
+import System.IO.Temp (withSystemTempFile)
+import System.Process (CreateProcess (std_in, std_out), StdStream (CreatePipe, UseHandle), proc, withCreateProcess)
 import Test.Hspec (pendingWith, shouldReturn)
 import Test.Hspec.Core.Spec (Spec, describe, it)
 import Test.Hspec.QuickCheck (prop)
@@ -92,13 +92,19 @@ aliceSk = 10
 bobSk = 20
 carolSk = 30
 
+-- TODO(SN): This is not printing the full stdout on failure
 withHydraPab :: IO a -> IO a
 withHydraPab action =
-  withCreateProcess pab $ \_ _ _ _ -> action
+  withSystemTempFile "hydra-pab" $ \fn h -> do
+    withCreateProcess (pab h) $ \_ _ _ _ ->
+      action `onException` printStdout fn
  where
-  -- Open a stdin, as pab tries to read from it and a std_out to silence output
-  pab =
+  pab h =
     (proc "hydra-pab" [])
-      { std_in = CreatePipe
-      , std_out = CreatePipe
+      { std_in = CreatePipe -- Open a stdin as pab tries to read from it
+      , std_out = UseHandle h -- Gets closed by withCreateProcess
       }
+
+  printStdout fn = do
+    putTextLn "This was the stdout of hydra-pab:"
+    readFileText fn >>= putText
