@@ -4,7 +4,7 @@
 
 module Hydra.Contract.PAB where
 
-import Hydra.Prelude
+import Hydra.Prelude hiding (init)
 
 import Control.Lens (makeClassyPrisms)
 import qualified Data.Map as Map
@@ -45,7 +45,7 @@ pabPort = 8888
 -- | Enumeration of contracts available in the PAB.
 data PABContract
   = GetUtxos
-  | Setup
+  | Init
   | WatchInit
   deriving (Eq, Show, Generic)
   deriving anyclass (ToJSON, FromJSON)
@@ -56,7 +56,7 @@ instance Pretty PABContract where
 instance HasDefinitions PABContract where
   getDefinitions =
     [ GetUtxos
-    , Setup
+    , Init
     , WatchInit
     ]
 
@@ -66,7 +66,7 @@ instance HasDefinitions PABContract where
 
   getContract = \case
     GetUtxos -> SomeBuiltin getUtxo
-    Setup -> SomeBuiltin setup
+    Init -> SomeBuiltin init
     WatchInit -> SomeBuiltin watchInit
 
 getUtxo :: Contract (Last UtxoMap) Empty ContractError ()
@@ -103,8 +103,8 @@ mkThreadToken :: CurrencySymbol -> AssetClass
 mkThreadToken symbol =
   Value.assetClass symbol threadTokenName
 
-setup :: Promise () (Endpoint "init" InitParams) HydraPlutusError ()
-setup = endpoint @"init" $ \InitParams{contestationPeriod, cardanoPubKeys, hydraParties} -> do
+init :: Promise () (Endpoint "init" InitParams) HydraPlutusError ()
+init = endpoint @"init" $ \InitParams{contestationPeriod, cardanoPubKeys, hydraParties} -> do
   let stateThreadToken = (threadTokenName, 1)
       participationTokens = map ((,1) . participationTokenName) cardanoPubKeys
       tokens = stateThreadToken : participationTokens

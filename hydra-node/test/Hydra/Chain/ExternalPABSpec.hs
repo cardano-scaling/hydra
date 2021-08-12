@@ -8,7 +8,7 @@ import Hydra.Prelude
 import Cardano.Crypto.DSIGN (DSIGNAlgorithm (deriveVerKeyDSIGN), MockDSIGN, SignKeyDSIGN, VerKeyDSIGN)
 import Control.Concurrent (newEmptyMVar, putMVar, takeMVar)
 import qualified Data.Aeson as Aeson
-import Hydra.Chain (Chain (..), HeadParameters (HeadParameters, contestationPeriod), OnChainTx (InitTx))
+import Hydra.Chain (Chain (..), HeadParameters (HeadParameters, contestationPeriod), OnChainTx (..))
 import Hydra.Chain.ExternalPAB (PostInitParams, withExternalPAB)
 import Hydra.Contract.PAB (InitParams, InitialParams)
 import Hydra.Ledger (Party (UnsafeParty))

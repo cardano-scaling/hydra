@@ -10,7 +10,7 @@ import Data.Aeson (Result (Error, Success), eitherDecodeStrict)
 import Data.Aeson.Types (fromJSON)
 import qualified Data.Map as Map
 import Hydra.Chain (Chain (Chain, postTx), ChainComponent, ContestationPeriod, HeadParameters (..), OnChainTx (InitTx))
-import Hydra.Contract.PAB (PABContract (GetUtxos, Setup, WatchInit), pabPort)
+import Hydra.Contract.PAB (PABContract (..), pabPort)
 import Hydra.Ledger (Party, Tx)
 import Hydra.Logging (Tracer)
 import Ledger (PubKeyHash, TxOut (txOutValue), pubKeyHash, txOutTxOut)
@@ -54,7 +54,7 @@ withExternalPAB walletId _tracer callback action = do
  where
   postTx = \case
     InitTx HeadParameters{contestationPeriod, parties} -> do
-      cid <- activateContract Setup wallet
+      cid <- activateContract Init wallet
       postInitTx cid $
         PostInitParams
           { contestationPeriod
