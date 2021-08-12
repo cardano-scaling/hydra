@@ -29,13 +29,13 @@ library
     io-classes,
     QuickCheck,
     quickcheck-instances,
-    random-shuffle,
     relude,
   default-extensions:
     NoImplicitPrelude
     FlexibleContexts
   ghc-options:
     -Wall
+    -Werror
     -Wcompat
     -Wunused-packages
   default-language:

@@ -40,7 +40,6 @@
           (hsPkgs."io-classes" or (errorHandler.buildDepError "io-classes"))
           (hsPkgs."QuickCheck" or (errorHandler.buildDepError "QuickCheck"))
           (hsPkgs."quickcheck-instances" or (errorHandler.buildDepError "quickcheck-instances"))
-          (hsPkgs."random-shuffle" or (errorHandler.buildDepError "random-shuffle"))
           (hsPkgs."relude" or (errorHandler.buildDepError "relude"))
           ];
         buildable = true;

@@ -1,14 +1,40 @@
+{-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeApplications #-}
 
 module Hydra.Contract.PAB where
 
 import Hydra.Prelude
 
+import Control.Lens (makeClassyPrisms)
+import qualified Data.Map as Map
 import Data.Text.Prettyprint.Doc (Pretty (..), viaShow)
-import qualified Hydra.ContractSM as ContractSM
-import Ledger (pubKeyAddress)
-import Ledger.AddressMap (UtxoMap)
-import Plutus.Contract (Contract, ContractError, Empty, logInfo, ownPubKey, tell, utxoAt, waitNSlots)
+import Hydra.Contract.ContestationPeriod (ContestationPeriod)
+import qualified Hydra.Contract.Head as Head
+import Hydra.Contract.Party (Party)
+import Ledger (CurrencySymbol, PubKeyHash (..), TxOut (txOutValue), TxOutTx (txOutTxOut), pubKeyAddress, pubKeyHash)
+import Ledger.AddressMap (UtxoMap, outputsMapFromTxForAddress)
+import qualified Ledger.Typed.Scripts as Scripts
+import Ledger.Typed.Tx (tyTxOutData, typeScriptTxOut)
+import Ledger.Value (AssetClass, TokenName (..), flattenValue)
+import qualified Ledger.Value as Value
+import Plutus.Contract (
+  AsContractError (..),
+  Contract,
+  ContractError (..),
+  Empty,
+  Endpoint,
+  Promise,
+  endpoint,
+  logInfo,
+  nextTransactionsAt,
+  ownPubKey,
+  tell,
+  utxoAt,
+  waitNSlots,
+ )
+import qualified Plutus.Contract.StateMachine as SM
+import qualified Plutus.Contracts.Currency as Currency
 import Plutus.PAB.Effects.Contract.Builtin (HasDefinitions (..), SomeBuiltin (..))
 
 -- | Hard-coded port used between hydra-node and the PAB server.
@@ -17,8 +43,8 @@ pabPort = 8888
 
 -- | Enumeration of contracts available in the PAB.
 data PABContract
-  = Setup
-  | GetUtxos
+  = GetUtxos
+  | Setup
   | WatchInit
   deriving (Eq, Show, Generic)
   deriving anyclass (ToJSON, FromJSON)
@@ -28,8 +54,8 @@ instance Pretty PABContract where
 
 instance HasDefinitions PABContract where
   getDefinitions =
-    [ Setup
-    , GetUtxos
+    [ GetUtxos
+    , Setup
     , WatchInit
     ]
 
@@ -38,9 +64,9 @@ instance HasDefinitions PABContract where
   getSchema = const []
 
   getContract = \case
-    Setup -> SomeBuiltin ContractSM.setup
     GetUtxos -> SomeBuiltin getUtxo
-    WatchInit -> SomeBuiltin ContractSM.watchInit
+    Setup -> SomeBuiltin setup
+    WatchInit -> SomeBuiltin watchInit
 
 getUtxo :: Contract (Last UtxoMap) Empty ContractError ()
 getUtxo = do
@@ -53,3 +79,117 @@ getUtxo = do
     tell . Last $ Just utxos
     void $ waitNSlots 1
     loop address
+
+-- | Parameters for starting a head.
+-- NOTE: kinda makes sense to have them separate because it couuld be the
+-- case that the parties (hdyra nodes taking part in the head consensus) and th
+-- participants (people commiting UTxOs) and posting transaction in the head
+-- are different
+data InitParams = InitParams
+  { contestationPeriod :: ContestationPeriod
+  , cardanoPubKeys :: [PubKeyHash]
+  , hydraParties :: [Party]
+  }
+  deriving (Generic, Show, FromJSON, ToJSON)
+
+threadTokenName :: TokenName
+threadTokenName = "thread token"
+
+participationTokenName :: PubKeyHash -> TokenName
+participationTokenName = TokenName . getPubKeyHash
+
+mkThreadToken :: CurrencySymbol -> AssetClass
+mkThreadToken symbol =
+  Value.assetClass symbol threadTokenName
+
+setup :: Promise () (Endpoint "init" InitParams) HydraPlutusError ()
+setup = endpoint @"init" $ \InitParams{contestationPeriod, cardanoPubKeys, hydraParties} -> do
+  let stateThreadToken = (threadTokenName, 1)
+      participationTokens = map ((,1) . participationTokenName) cardanoPubKeys
+      tokens = stateThreadToken : participationTokens
+
+  -- TODO(SN): replace with SM.getThreadToken
+  logInfo $ "Forging tokens: " <> show @String tokens
+  ownPK <- pubKeyHash <$> ownPubKey
+  symbol <- Currency.currencySymbol <$> Currency.mintContract ownPK tokens
+  let threadToken = mkThreadToken symbol
+      tokenValues = map (uncurry (Value.singleton symbol)) participationTokens
+
+  logInfo $ "Done, our currency symbol: " <> show @String symbol
+
+  let client = Head.machineClient threadToken
+  void $ SM.runInitialise client Head.Setup mempty
+
+  void $ SM.runStep client (Head.Init contestationPeriod (zip cardanoPubKeys tokenValues) hydraParties)
+  logInfo $ "Triggered Init " <> show @String cardanoPubKeys
+
+-- | Parameters as they are available in the 'Initial' state.
+data InitialParams = InitialParams
+  { contestationPeriod :: ContestationPeriod
+  , parties :: [Party]
+  }
+  deriving (Generic, Show, FromJSON, ToJSON)
+
+instance Arbitrary InitialParams where
+  shrink = genericShrink
+  arbitrary = genericArbitrary
+
+-- | Watch 'initialAddress' (with hard-coded parameters) and report all datums
+-- seen on each run.
+watchInit :: Contract (Last InitialParams) Empty ContractError ()
+watchInit = do
+  logInfo @String $ "watchInit: Looking for an init tx and it's parties"
+  pubKey <- ownPubKey
+  let address = pubKeyAddress pubKey
+      pkh = pubKeyHash pubKey
+  forever $ do
+    txs <- nextTransactionsAt address
+    let foundTokens = txs >>= mapMaybe (findToken pkh) . Map.elems . outputsMapFromTxForAddress address
+    logInfo $ "found tokens: " <> show @String foundTokens
+    case foundTokens of
+      [token] -> do
+        let datums = txs >>= rights . fmap (lookupDatum token) . Map.elems . outputsMapFromTxForAddress (scriptAddress token)
+        logInfo @String $ "found init tx(s) with datums: " <> show datums
+        case datums of
+          [Head.Initial contestationPeriod parties] ->
+            tell . Last . Just $ InitialParams{contestationPeriod, parties}
+          _ -> pure ()
+      _ -> pure ()
+ where
+  -- Find candidates for a Hydra Head threadToken 'AssetClass', that is if the
+  -- 'TokenName' matches our public key
+  findToken :: PubKeyHash -> TxOutTx -> Maybe AssetClass
+  findToken pkh txout =
+    let value = txOutValue $ txOutTxOut txout
+        flat = flattenValue value
+        mres = find (\(_, tokenName, amount) -> amount == 1 && tokenName == participationTokenName pkh) flat
+     in case mres of
+          Just (symbol, _, _) -> Just $ mkThreadToken symbol
+          Nothing -> Nothing
+
+  scriptAddress = Scripts.validatorAddress . Head.typedValidator
+
+  lookupDatum token txOutTx = tyTxOutData <$> typeScriptTxOut (Head.typedValidator token) txOutTx
+
+data HydraPlutusError
+  = -- | State machine operation failed
+    SMError SM.SMContractError
+  | -- | Endpoint, coin selection, etc. failed
+    PlutusError ContractError
+  | -- | Thread token could not be created
+    ThreadTokenError Currency.CurrencyError
+  | -- | Arbitrary error
+    HydraError String
+  deriving stock (Eq, Show, Generic)
+  deriving anyclass (ToJSON, FromJSON)
+
+makeClassyPrisms ''HydraPlutusError
+
+instance AsContractError HydraPlutusError where
+  _ContractError = _PlutusError
+
+instance SM.AsSMContractError HydraPlutusError where
+  _SMContractError = _SMError
+
+instance Currency.AsCurrencyError HydraPlutusError where
+  _CurrencyError = _ThreadTokenError
