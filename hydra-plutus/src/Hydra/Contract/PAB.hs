@@ -30,6 +30,7 @@ import Plutus.Contract (
   logInfo,
   nextTransactionsAt,
   ownPubKey,
+  selectList,
   tell,
   utxoAt,
   waitNSlots,
@@ -47,7 +48,6 @@ data PABContract
   = GetUtxos
   | Init
   | WatchInit
-  | Abort
   deriving (Eq, Show, Generic)
   deriving anyclass (ToJSON, FromJSON)
 
@@ -59,7 +59,6 @@ instance HasDefinitions PABContract where
     [ GetUtxos
     , Init
     , WatchInit
-    , Abort
     ]
 
   -- REVIEW(SN): There are actual endpoints defined in contracts code but they
@@ -70,7 +69,6 @@ instance HasDefinitions PABContract where
     GetUtxos -> SomeBuiltin getUtxo
     Init -> SomeBuiltin init
     WatchInit -> SomeBuiltin watch
-    Abort -> SomeBuiltin $ abort (error "don't expose this as full contract")
 
 getUtxo :: Contract (Last UtxoMap) Empty ContractError ()
 getUtxo = do
@@ -136,15 +134,16 @@ instance Arbitrary InitialParams where
   shrink = genericShrink
   arbitrary = genericArbitrary
 
-watch :: Contract (Last InitialParams) Empty ContractError ()
+watch :: Contract (Last InitialParams) (Endpoint "abort" ()) HydraPlutusError ()
 watch = do
-  params <- fst <$> watchInit
+  (params, token) <- watchInit
   tell $ Last $ Just params
+  selectList [abort token]
 
 -- | Watch Initial script address to extract head's initial parameters and thread token.
 -- Relies on the fact that a participation token (payed to the address) uses the
 -- same 'CurrencySymbol' as the thread token.
-watchInit :: Contract s Empty ContractError (InitialParams, AssetClass)
+watchInit :: Contract w s HydraPlutusError (InitialParams, AssetClass)
 watchInit = do
   logInfo @String $ "watchInit: Looking for an init tx and it's parties"
   pubKey <- ownPubKey
@@ -185,7 +184,7 @@ watchInit = do
   lookupDatum token txOutTx = tyTxOutData <$> typeScriptTxOut (Head.typedValidator token) txOutTx
 
 -- TODO(SN): use this in a greate contract which 'watchInit' first and then does this
-abort :: AssetClass -> Promise () (Endpoint "abort" ()) HydraPlutusError ()
+abort :: AssetClass -> Promise w (Endpoint "abort" ()) HydraPlutusError ()
 abort threadToken = endpoint @"abort" $ \_ -> do
   logInfo @String $ "abort: which contract now?"
   let client = Head.machineClient threadToken
