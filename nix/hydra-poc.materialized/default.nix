@@ -748,6 +748,7 @@
         tracer-transformers = ./.plan.nix/tracer-transformers.nix;
         plutus-tx-plugin = ./.plan.nix/plutus-tx-plugin.nix;
         quickcheck-dynamic = ./.plan.nix/quickcheck-dynamic.nix;
+        merkle-patricia-tree = ./.plan.nix/merkle-patricia-tree.nix;
         cardano-config = ./.plan.nix/cardano-config.nix;
         network-mux = ./.plan.nix/network-mux.nix;
         lobemo-backend-ekg = ./.plan.nix/lobemo-backend-ekg.nix;
@@ -853,6 +854,9 @@
           "tracer-transformers" = { flags = {}; };
           "plutus-tx-plugin" = { flags = {}; };
           "quickcheck-dynamic" = { flags = {}; };
+          "merkle-patricia-tree" = {
+            flags = { "development" = lib.mkOverride 900 false; };
+            };
           "cardano-config" = {
             flags = { "systemd" = lib.mkOverride 900 true; };
             };
@@ -878,7 +882,7 @@
           "cardano-crypto-praos" = {
             flags = {
               "development" = lib.mkOverride 900 false;
-              "external-libsodium-vrf" = lib.mkOverride 900 true;
+              "external-libsodium-vrf" = lib.mkOverride 900 false;
               };
             };
           "monoidal-synchronisation" = { flags = {}; };
@@ -893,7 +897,7 @@
             flags = { "defer-plugin-errors" = lib.mkOverride 900 false; };
             };
           "local-cluster" = {
-            flags = { "development" = lib.mkOverride 900 true; };
+            flags = { "development" = lib.mkOverride 900 false; };
             };
           "typed-protocols-examples" = { flags = {}; };
           "cardano-crypto-tests" = {
@@ -952,7 +956,7 @@
             flags = { "asserts" = lib.mkOverride 900 false; };
             };
           "hydra-node" = {
-            flags = { "development" = lib.mkOverride 900 true; };
+            flags = { "development" = lib.mkOverride 900 false; };
             };
           "contra-tracer" = { flags = {}; };
           "shelley-spec-non-integral" = {

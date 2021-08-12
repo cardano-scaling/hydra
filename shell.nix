@@ -56,6 +56,7 @@ let
       hydra-node
       hydra-plutus
       local-cluster
+      merkle-patricia-tree
     ];
 
     # Haskell.nix managed tools (via hackage)

@@ -1,0 +1,108 @@
+cabal-version: 2.2
+
+name:               merkle-patricia-tree
+version:            0.1.0
+description:        An implementation of the Merkle Patricia Tree algorithm.
+author:             IOHK
+copyright:          2021 IOHK
+license:            Apache-2.0
+license-files:
+  LICENSE
+  NOTICE
+build-type:         Simple
+
+source-repository head
+  type: git
+  location: https://github.com/input-output-hk/hydra-node
+
+flag development
+     description: Disable -Werror for development
+     default: False
+     manual: True
+
+common project-config
+  default-language: Haskell2010
+  default-extensions:
+    BangPatterns
+    BinaryLiterals
+    ConstraintKinds
+    DataKinds
+    DefaultSignatures
+    DeriveAnyClass
+    DerivingStrategies
+    DeriveDataTypeable
+    DeriveFoldable
+    DeriveFunctor
+    DeriveGeneric
+    DeriveTraversable
+    EmptyDataDecls
+    ExistentialQuantification
+    FlexibleContexts
+    FlexibleInstances
+    FunctionalDependencies
+    GADTs
+    GeneralizedNewtypeDeriving
+    InstanceSigs
+    KindSignatures
+    LambdaCase
+    MultiParamTypeClasses
+    MultiWayIf
+    NamedFieldPuns
+    NoImplicitPrelude
+    NumericUnderscores
+    OverloadedStrings
+    PartialTypeSignatures
+    PatternGuards
+    RankNTypes
+    ScopedTypeVariables
+    StandaloneDeriving
+    TupleSections
+    TypeFamilies
+    TypeSynonymInstances
+    ViewPatterns
+  ghc-options:
+    -Wall
+    -Wcompat
+    -Widentities
+    -Wincomplete-record-updates
+    -Wincomplete-uni-patterns
+    -Wpartial-fields
+    -Wredundant-constraints
+    -fprint-potential-instances
+
+  if !flag(development)
+      ghc-options: -Werror
+
+library
+  import: project-config
+  hs-source-dirs: src
+  exposed-modules:
+    Data.Tree.MerklePatricia
+  other-modules:
+    Paths_merkle_patricia_tree
+  build-depends: base
+    , bytestring
+    , containers
+    , cryptonite
+    , memory
+    , serialise
+  ghc-options:
+    -haddock
+
+test-suite unit
+  import: project-config
+  hs-source-dirs: test
+  other-modules:
+    Data.Tree.MerklePatriciaSpec
+  main-is: Spec.hs
+  type: exitcode-stdio-1.0
+  build-depends: base
+    , bytestring
+    , QuickCheck
+    , hspec
+    , merkle-patricia-tree
+  build-tool-depends:
+    hspec-discover:hspec-discover
+  ghc-options:
+    -threaded
+    -rtsopts

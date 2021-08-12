@@ -55,7 +55,9 @@ idea to do the following:
 
 * Uncomment `checkMaterialization = true;` in `default.nix`
 * Execute `nix-build -A hydra-node.components.exes.hydra-node`
-* Follow the instructions in the output by updating `plan-sha256` and running the `/nix/store/<somehash>-updateMaterialized` script.
+* Update `plan-sha256` in `default.nix` to the expected hash value
+* Execute `nix-build -A hydra-node.project.plan-nix.passthru.updateMaterialized | bash`
+* Follow the instructions in the output by running the `/nix/store/<somehash>-updateMaterialized` script.
 * Comment out `checkMaterialization = true;` again and commit the changes
 
 ## Documentation
