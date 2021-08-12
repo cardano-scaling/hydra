@@ -24,6 +24,8 @@ library
     Test.Network.Ports
   build-depends:
     base,
+    hspec-core,
+    hspec-junit-formatter,
     hydra-prelude,
     HUnit,
     io-classes,

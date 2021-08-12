@@ -5,13 +5,17 @@ module Test.Hydra.Prelude (
   failure,
   location,
   failAfter,
+  dualFormatter,
 ) where
 
 import Control.Monad.Class.MonadTimer (timeout)
 import GHC.Exception (SrcLoc)
 import Hydra.Prelude
 import System.IO.Temp (createTempDirectory, getCanonicalTemporaryDirectory)
+import Test.HSpec.JUnit (junitFormat)
 import Test.HUnit.Lang (FailureReason (Reason), HUnitFailure (HUnitFailure))
+import Test.Hspec.Core.Format (Format, FormatConfig)
+import Test.Hspec.Core.Formatters (formatterToFormat, specdoc)
 
 -- | Create a unique temporary directory.
 createSystemTempDirectory :: String -> IO FilePath
@@ -43,3 +47,15 @@ location :: HasCallStack => Maybe SrcLoc
 location = case reverse $ getCallStack callStack of
   (_, loc) : _ -> Just loc
   _ -> Nothing
+
+-- | An HSpec test formatter that outputs __both__ a JUnit formatted file and stdout test results.
+dualFormatter ::
+  -- | The name of the test suite run, for reporting purpose.
+  String ->
+  -- | Configuration, will be passed by the HSpec test runner.
+  FormatConfig ->
+  IO Format
+dualFormatter suiteName config = do
+  junit <- junitFormat "test-results.xml" suiteName config
+  docSpec <- formatterToFormat specdoc config
+  pure $ \e -> junit e >> docSpec e

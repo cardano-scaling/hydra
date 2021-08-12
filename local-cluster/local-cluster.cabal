@@ -137,7 +137,6 @@ test-suite integration
     , cardano-crypto-class
     , hspec
     , hspec-core
-    , hspec-junit-formatter
     , hydra-node
     , hydra-prelude
     , hydra-test-utils
