@@ -11,8 +11,8 @@ import qualified Data.Map as Map
 import Data.Text.Prettyprint.Doc (Pretty (..), viaShow)
 import Hydra.Contract.ContestationPeriod (ContestationPeriod)
 import qualified Hydra.Contract.Head as Head
+import qualified Hydra.Contract.Initial as Initial
 import Hydra.Contract.Party (Party)
-import Ledger.Constraints (mustPayToPubKey)
 import Ledger (CurrencySymbol, PubKeyHash (..), TxOut (txOutValue), TxOutTx (txOutTxOut), pubKeyAddress, pubKeyHash)
 import Ledger.AddressMap (UtxoMap, outputsMapFromTxForAddress)
 import qualified Ledger.Typed.Scripts as Scripts
@@ -118,7 +118,7 @@ setup = endpoint @"init" $ \InitParams{contestationPeriod, cardanoPubKeys, hydra
   logInfo $ "Done, our currency symbol: " <> show @String symbol
 
   let client = Head.machineClient threadToken
-  let constraints = foldMap (uncurry mustPayToPubKey) $ zip cardanoPubKeys tokenValues
+  let constraints = foldMap (uncurry Initial.mustPayToScript) $ zip cardanoPubKeys tokenValues
   void $ SM.runInitialiseWith mempty constraints client (Head.Initial contestationPeriod hydraParties) mempty
   logInfo $ "Triggered Init " <> show @String cardanoPubKeys
 
@@ -140,7 +140,7 @@ watchInit :: Contract (Last InitialParams) Empty ContractError ()
 watchInit = do
   logInfo @String $ "watchInit: Looking for an init tx and it's parties"
   pubKey <- ownPubKey
-  let address = pubKeyAddress pubKey
+  let address = Initial.address
       pkh = pubKeyHash pubKey
   forever $ do
     txs <- nextTransactionsAt address
