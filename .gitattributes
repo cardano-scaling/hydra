@@ -1,2 +1,2 @@
-./nix/*.materialized/*.nix linguist-generated=true merge=binary
-./nix/*.materialized/.plan.nix/*.nix linguist-generated=true merge=binary
+./nix/*.materialized/*.nix linguist-generated=true merge=binary linguist-vendored
+./nix/*.materialized/.plan.nix/*.nix linguist-generated=true merge=binary linguist-vendored
