@@ -47,6 +47,7 @@ data PABContract
   = GetUtxos
   | Init
   | WatchInit
+  | Abort
   deriving (Eq, Show, Generic)
   deriving anyclass (ToJSON, FromJSON)
 
@@ -58,6 +59,7 @@ instance HasDefinitions PABContract where
     [ GetUtxos
     , Init
     , WatchInit
+    , Abort
     ]
 
   -- REVIEW(SN): There are actual endpoints defined in contracts code but they
@@ -68,6 +70,7 @@ instance HasDefinitions PABContract where
     GetUtxos -> SomeBuiltin getUtxo
     Init -> SomeBuiltin init
     WatchInit -> SomeBuiltin watchInit
+    Abort -> SomeBuiltin abort
 
 getUtxo :: Contract (Last UtxoMap) Empty ContractError ()
 getUtxo = do
@@ -170,6 +173,10 @@ watchInit = do
   scriptAddress = Scripts.validatorAddress . Head.typedValidator
 
   lookupDatum token txOutTx = tyTxOutData <$> typeScriptTxOut (Head.typedValidator token) txOutTx
+
+abort :: Contract () Empty ContractError ()
+abort =
+  logInfo @String $ "abort: which contract now?"
 
 data HydraPlutusError
   = -- | State machine operation failed

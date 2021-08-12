@@ -9,7 +9,13 @@ import Control.Monad.Class.MonadSay (say)
 import Data.Aeson (Result (Error, Success), eitherDecodeStrict)
 import Data.Aeson.Types (fromJSON)
 import qualified Data.Map as Map
-import Hydra.Chain (Chain (Chain, postTx), ChainComponent, ContestationPeriod, HeadParameters (..), OnChainTx (InitTx))
+import Hydra.Chain (
+  Chain (Chain, postTx),
+  ChainComponent,
+  ContestationPeriod,
+  HeadParameters (..),
+  OnChainTx (..),
+ )
 import Hydra.Contract.PAB (PABContract (..), pabPort)
 import Hydra.Ledger (Party, Tx)
 import Hydra.Logging (Tracer)
@@ -42,6 +48,7 @@ data ExternalPABLog = ExternalPABLog
 
 type WalletId = Integer
 
+-- XXX(SN): stop contract instances
 withExternalPAB ::
   Tx tx =>
   WalletId ->
@@ -61,6 +68,8 @@ withExternalPAB walletId _tracer callback action = do
           , cardanoPubKeys = pubKeyHash <$> pubKeys
           , hydraParties = parties
           }
+    AbortTx _ -> do
+      void $ activateContract Abort wallet
     tx -> error $ "should post " <> show tx
 
   wallet = Wallet walletId
