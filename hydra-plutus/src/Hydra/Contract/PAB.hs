@@ -70,7 +70,7 @@ instance HasDefinitions PABContract where
     GetUtxos -> SomeBuiltin getUtxo
     Init -> SomeBuiltin init
     WatchInit -> SomeBuiltin watchInit
-    Abort -> SomeBuiltin abort
+    Abort -> SomeBuiltin $ abort (error "don't expose this as full contract")
 
 getUtxo :: Contract (Last UtxoMap) Empty ContractError ()
 getUtxo = do
@@ -174,9 +174,12 @@ watchInit = do
 
   lookupDatum token txOutTx = tyTxOutData <$> typeScriptTxOut (Head.typedValidator token) txOutTx
 
-abort :: Contract () Empty ContractError ()
-abort =
+-- TODO(SN): use this in a greate contract which 'watchInit' first and then does this
+abort :: AssetClass -> Promise () (Endpoint "abort" ()) HydraPlutusError ()
+abort threadToken = endpoint @"abort" $ \_ -> do
   logInfo @String $ "abort: which contract now?"
+  let client = Head.machineClient threadToken
+  void $ SM.runStep client Head.Abort
 
 data HydraPlutusError
   = -- | State machine operation failed
