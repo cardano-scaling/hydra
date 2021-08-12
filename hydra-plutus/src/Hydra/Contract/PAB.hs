@@ -25,7 +25,6 @@ import Plutus.Contract (
   ContractError (..),
   Empty,
   Endpoint,
-  Promise,
   endpoint,
   logInfo,
   nextTransactionsAt,
@@ -36,6 +35,7 @@ import Plutus.Contract (
   waitNSlots,
  )
 import qualified Plutus.Contract.StateMachine as SM
+import Plutus.Contract.Types (Promise (..))
 import qualified Plutus.Contracts.Currency as Currency
 import Plutus.PAB.Effects.Contract.Builtin (HasDefinitions (..), SomeBuiltin (..))
 
@@ -134,16 +134,25 @@ instance Arbitrary InitialParams where
   shrink = genericShrink
   arbitrary = genericArbitrary
 
-watch :: Contract (Last InitialParams) (Endpoint "abort" ()) HydraPlutusError ()
+watch :: Contract (Last Head.State) (Endpoint "abort" ()) HydraPlutusError ()
 watch = do
-  (params, token) <- watchInit
-  tell $ Last $ Just params
-  selectList [abort token]
+  (headState, threadToken) <- watchInit
+  tell $ Last $ Just headState
+  selectList
+    [ Promise (watchForSM threadToken)
+    , abort threadToken
+    ]
+
+watchForSM :: AssetClass -> Contract (Last Head.State) s HydraPlutusError ()
+watchForSM threadToken = do
+  let client = Head.machineClient threadToken
+  mstate <- SM.waitForUpdate client
+  logInfo @String $ "watchForSM: " <> show (tyTxOutData . fst <$> mstate)
 
 -- | Watch Initial script address to extract head's initial parameters and thread token.
 -- Relies on the fact that a participation token (payed to the address) uses the
 -- same 'CurrencySymbol' as the thread token.
-watchInit :: Contract w s HydraPlutusError (InitialParams, AssetClass)
+watchInit :: Contract w s HydraPlutusError (Head.State, AssetClass)
 watchInit = do
   logInfo @String $ "watchInit: Looking for an init tx and it's parties"
   pubKey <- ownPubKey
@@ -158,8 +167,8 @@ watchInit = do
         let datums = txs >>= rights . fmap (lookupDatum token) . Map.elems . outputsMapFromTxForAddress (scriptAddress token)
         logInfo @String $ "found init tx(s) with datums: " <> show datums
         case datums of
-          [Head.Initial contestationPeriod parties] ->
-            pure $ Just (InitialParams{contestationPeriod, parties}, token)
+          [headState] ->
+            pure $ Just (headState, token)
           _ -> pure Nothing
       _ -> pure Nothing
  where
