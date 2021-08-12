@@ -24,7 +24,6 @@ library
     Test.Network.Ports
   build-depends:
     base,
-    filepath,
     hydra-prelude,
     HUnit,
     io-classes,
@@ -38,6 +37,7 @@ library
     FlexibleContexts
   ghc-options:
     -Wall
+    -Werror
     -Wcompat
     -Wunused-packages
   default-language:
