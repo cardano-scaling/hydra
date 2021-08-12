@@ -94,12 +94,15 @@ test-suite unit
   hs-source-dirs: test
   other-modules:
     Data.Tree.MerklePatriciaSpec
-  main-is: Spec.hs
+    Spec
+  main-is: Main.hs
   type: exitcode-stdio-1.0
   build-depends: base
     , bytestring
     , QuickCheck
     , hspec
+    , hydra-prelude
+    , hydra-test-utils
     , merkle-patricia-tree
   build-tool-depends:
     hspec-discover:hspec-discover
