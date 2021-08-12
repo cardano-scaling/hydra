@@ -1,2 +1,7 @@
-./nix/*.materialized/*.nix linguist-generated=true merge=binary linguist-vendored
-./nix/*.materialized/.plan.nix/*.nix linguist-generated=true merge=binary linguist-vendored
+# GitHub Linguist annotations
+# - influences how files are shown in the GitHub diff view
+# - influences how the language stats are calculated for the repo
+
+
+nix/*.materialized/*.nix linguist-generated=true merge=binary linguist-vendored
+nix/*.materialized/.plan.nix/*.nix linguist-generated=true merge=binary linguist-vendored
