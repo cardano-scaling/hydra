@@ -11,7 +11,7 @@ import Hydra.Ledger (ValidationError (..))
 import Hydra.Ledger.MaryTest (
   applyTx,
   mkLedgerEnv,
-  testUTxO,
+  testUtxo,
   txInvalid,
   txSimpleTransfer,
  )
@@ -20,7 +20,7 @@ import Test.Hspec (Spec, describe, it, shouldBe, shouldSatisfy)
 spec :: Spec
 spec = describe "Hydra Ledger (Mary)" $ do
   it "should reject invalid transactions" $ do
-    applyTx mkLedgerEnv testUTxO [txInvalid] `shouldBe` Left ValidationError
+    applyTx mkLedgerEnv testUtxo [txInvalid] `shouldBe` Left ValidationError
 
   it "should validate transactions which simply transfer value" $ do
-    applyTx mkLedgerEnv testUTxO [txSimpleTransfer] `shouldSatisfy` isRight
+    applyTx mkLedgerEnv testUtxo [txSimpleTransfer] `shouldSatisfy` isRight

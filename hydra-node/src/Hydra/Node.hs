@@ -22,7 +22,7 @@ import Hydra.HeadLogic (
   SnapshotStrategy (SnapshotAfterEachTx),
  )
 import qualified Hydra.HeadLogic as Logic
-import Hydra.Ledger (Ledger, Party (..), Tx, UTxO)
+import Hydra.Ledger (Ledger, Party (..), Tx, Utxo)
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Network (Network (..))
 import Hydra.Network.Message (Message)
@@ -79,7 +79,7 @@ data HydraNodeLog tx
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON, FromJSON)
 
-instance (Arbitrary tx, Arbitrary (UTxO tx)) => Arbitrary (HydraNodeLog tx) where
+instance (Arbitrary tx, Arbitrary (Utxo tx)) => Arbitrary (HydraNodeLog tx) where
   arbitrary = genericArbitrary
 
 handleClientInput :: HydraNode tx m -> ClientInput tx -> m ()

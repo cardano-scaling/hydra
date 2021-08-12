@@ -99,44 +99,44 @@ verify (UnsafeSigned sig) (UnsafeParty vk) msg =
 -- TODO:
 -- deriving instance Read (SigDSIGN MockDSIGN)
 
-type Committed tx = Map Party (UTxO tx)
+type Committed tx = Map Party (Utxo tx)
 
 -- * Ledger interface
 
 class
   ( Eq tx
-  , Eq (UTxO tx)
+  , Eq (Utxo tx)
   , Eq (TxId tx)
   , Show tx
-  , Show (UTxO tx)
+  , Show (Utxo tx)
   , Show (TxId tx)
   , Read tx
-  , Read (UTxO tx)
+  , Read (Utxo tx)
   , Read (TxId tx)
-  , Monoid (UTxO tx)
+  , Monoid (Utxo tx)
   , Typeable tx
   , Typeable (TxId tx)
   , FromJSON tx
-  , FromJSON (UTxO tx)
+  , FromJSON (Utxo tx)
   , FromJSON (TxId tx)
   , ToJSON tx
-  , ToJSON (UTxO tx)
+  , ToJSON (Utxo tx)
   , ToJSON (TxId tx)
   , Ord (TxId tx)
   ) =>
   Tx tx
   where
-  type UTxO tx
+  type Utxo tx
   type TxId tx
 
   txId :: tx -> TxId tx
 
 data Ledger tx = Ledger
-  { applyTransactions :: UTxO tx -> [tx] -> Either ValidationError (UTxO tx)
-  , initUTxO :: UTxO tx
+  { applyTransactions :: Utxo tx -> [tx] -> Either ValidationError (Utxo tx)
+  , initUtxo :: Utxo tx
   }
 
-canApply :: Ledger tx -> UTxO tx -> tx -> ValidationResult
+canApply :: Ledger tx -> Utxo tx -> tx -> ValidationResult
 canApply ledger utxo tx =
   either Invalid (const Valid) $ applyTransactions ledger utxo (pure tx)
 

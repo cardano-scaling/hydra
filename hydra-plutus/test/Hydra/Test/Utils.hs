@@ -106,7 +106,7 @@ checkCompiledContractPIR path code =
 -- In Emulator
 --
 
--- | Inspect the current UTxO of a wallet in an Emulator scenario.
+-- | Inspect the current Utxo of a wallet in an Emulator scenario.
 utxoOf :: Wallet -> Trace.EmulatorTrace UtxoMap
 utxoOf w = do
   st <- emulatorState . view chainNewestFirst <$> Trace.chainState
