@@ -56,6 +56,22 @@ spec = do
               postTx $ InitTx @SimpleTx parameters
               takeMVar calledBack `shouldReturn` InitTx parameters
 
+    it "publishes init tx, observes it and abort" $ do
+      failAfter 40 $
+        withHydraPAB $ do
+          callback1 <- newEmptyMVar
+          callback2 <- newEmptyMVar
+          -- NOTE(SN): The cardano pubkeys and which wallet is used, is
+          -- hard-coded in 'withExternalPAB'!
+          withExternalPAB @SimpleTx 1 nullTracer (putMVar callback1) $ \client1 ->
+            withExternalPAB 2 nullTracer (putMVar callback2) $ \client2 -> do
+              let parameters = HeadParameters 100 [alice, bob, carol]
+              postTx client1 $ InitTx @SimpleTx parameters
+              takeMVar callback1 `shouldReturn` InitTx parameters
+              takeMVar callback2 `shouldReturn` InitTx parameters
+              postTx client2 $ AbortTx @SimpleTx mempty
+              takeMVar callback1 `shouldReturn` AbortTx @SimpleTx mempty
+
 alice, bob, carol :: Party
 alice = UnsafeParty aliceVk
 bob = UnsafeParty bobVk
