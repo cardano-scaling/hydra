@@ -53,6 +53,8 @@ hydraTransition oldState input =
   case (SM.stateData oldState, input) of
     (Initial{}, CollectCom) ->
       Just (mempty, oldState{SM.stateData = Open})
+    (Initial{}, Abort) ->
+      Just (mempty, oldState{SM.stateData = Final})
     _ -> Nothing
 
 -- | The script instance of the auction state machine. It contains the state

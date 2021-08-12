@@ -47,7 +47,7 @@ pabPort = 8888
 data PABContract
   = GetUtxos
   | Init
-  | WatchInit
+  | Watch
   deriving (Eq, Show, Generic)
   deriving anyclass (ToJSON, FromJSON)
 
@@ -58,7 +58,7 @@ instance HasDefinitions PABContract where
   getDefinitions =
     [ GetUtxos
     , Init
-    , WatchInit
+    , Watch
     ]
 
   -- REVIEW(SN): There are actual endpoints defined in contracts code but they
@@ -68,7 +68,7 @@ instance HasDefinitions PABContract where
   getContract = \case
     GetUtxos -> SomeBuiltin getUtxo
     Init -> SomeBuiltin init
-    WatchInit -> SomeBuiltin watch
+    Watch -> SomeBuiltin watch
 
 getUtxo :: Contract (Last UtxoMap) Empty ContractError ()
 getUtxo = do

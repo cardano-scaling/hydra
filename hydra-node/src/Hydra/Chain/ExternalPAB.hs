@@ -1,5 +1,7 @@
+{-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE EmptyDataDeriving #-}
+{-# LANGUAGE TypeApplications #-}
 
 module Hydra.Chain.ExternalPAB where
 
@@ -17,13 +19,14 @@ import Hydra.Chain (
   OnChainTx (..),
  )
 import Hydra.Contract.PAB (PABContract (..), pabPort)
-import Hydra.Ledger (Party, Tx)
+import Hydra.Ledger (Party, Tx, UTxO)
 import Hydra.Logging (Tracer)
 import Ledger (PubKeyHash, TxOut (txOutValue), pubKeyHash, txOutTxOut)
 import Ledger.AddressMap (UtxoMap)
 import Ledger.Value (flattenValue)
 import Network.HTTP.Req (
   HttpException (VanillaHttpException),
+  NoReqBody (..),
   POST (..),
   ReqBodyJson (..),
   defaultHttpConfig,
@@ -40,7 +43,7 @@ import Network.WebSockets (receiveData)
 import Network.WebSockets.Client (runClient)
 import Plutus.PAB.Webserver.Types (InstanceStatusToClient (NewObservableState))
 import Wallet.Emulator.Types (Wallet (..), walletPubKey)
-import Wallet.Types (ContractInstanceId, unContractInstanceId)
+import Wallet.Types (ContractInstanceId (..))
 
 data ExternalPABLog = ExternalPABLog
   deriving stock (Eq, Show, Generic)
@@ -48,28 +51,30 @@ data ExternalPABLog = ExternalPABLog
 
 type WalletId = Integer
 
--- XXX(SN): stop contract instances
 withExternalPAB ::
+  forall tx.
   Tx tx =>
   WalletId ->
   Tracer IO ExternalPABLog ->
   ChainComponent tx IO ()
 withExternalPAB walletId _tracer callback action = do
-  withAsync (initTxSubscriber wallet callback) $ \_ ->
+  cid <- activateContract Watch wallet
+  withAsync (initTxSubscriber cid callback) $ \_ ->
     withAsync (utxoSubscriber wallet) $ \_ -> do
-      action $ Chain{postTx = postTx}
+      action $ Chain{postTx = postTx cid}
  where
-  postTx = \case
+  postTx cid = \case
     InitTx HeadParameters{contestationPeriod, parties} -> do
-      cid <- activateContract Init wallet
-      postInitTx cid $
+      -- XXX(SN): stop contract instances
+      oneTimeCid <- activateContract Init wallet
+      postInitTx oneTimeCid $
         PostInitParams
           { contestationPeriod
           , cardanoPubKeys = pubKeyHash <$> pubKeys
           , hydraParties = parties
           }
-    AbortTx _ -> do
-      void $ activateContract Abort wallet
+    AbortTx utxo -> do
+      postAbortTx @tx cid utxo
     tx -> error $ "should post " <> show tx
 
   wallet = Wallet walletId
@@ -127,14 +132,31 @@ postInitTx cid params =
  where
   cidText = show $ unContractInstanceId cid
 
+-- TODO(SN): use MonadHttp, but clashes with MonadThrow
+postAbortTx :: ContractInstanceId -> UTxO tx -> IO ()
+postAbortTx cid _utxo =
+  retryOnAnyHttpException $
+    runReq defaultHttpConfig $ do
+      res <-
+        req
+          POST
+          (http "127.0.0.1" /: "api" /: "contract" /: "instance" /: cidText /: "endpoint" /: "abort")
+          NoReqBody
+          jsonResponse
+          (port pabPort)
+      when (responseStatusCode res /= 200) $
+        error "failed to postAbortTx"
+      pure $ responseBody res
+ where
+  cidText = show $ unContractInstanceId cid
+
 data ActivateContractRequest = ActivateContractRequest {caID :: Text, caWallet :: Wallet}
   deriving (Generic, ToJSON)
 
 -- TODO(SN): DRY subscribers and proper error handling
 
-initTxSubscriber :: Wallet -> (OnChainTx tx -> IO ()) -> IO ()
-initTxSubscriber wallet callback = do
-  cid <- unContractInstanceId <$> activateContract WatchInit wallet
+initTxSubscriber :: ContractInstanceId -> (OnChainTx tx -> IO ()) -> IO ()
+initTxSubscriber (ContractInstanceId cid) callback = do
   runClient "127.0.0.1" pabPort ("/ws/" <> show cid) $ \con -> forever $ do
     msg <- receiveData con
     case eitherDecodeStrict msg of
