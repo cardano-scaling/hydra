@@ -185,8 +185,8 @@ update Environment{party, signingKey, otherParties, snapshotStrategy} ledger st 
        in nextState
             (OpenState parameters $ CoordinatedHeadState u0 mempty (Snapshot 0 u0 mempty) Nothing)
             [ClientEffect $ HeadIsOpen u0]
-  (InitialState{}, OnChainEvent OnAbortTx) ->
-    nextState ReadyState [ClientEffect $ HeadIsAborted utxo]
+  (InitialState _ _ committed, OnChainEvent OnAbortTx) ->
+    nextState ReadyState [ClientEffect $ HeadIsAborted $ fold committed]
   --
   (OpenState HeadParameters{contestationPeriod} CoordinatedHeadState{confirmedSnapshot}, ClientEvent Close) ->
     sameState
@@ -273,7 +273,7 @@ update Environment{party, signingKey, otherParties, snapshotStrategy} ledger st 
                     []
       Just (snapshot, _) ->
         error $ "Received ack for unknown unconfirmed snapshot. Unconfirmed snapshot: " <> show (number snapshot) <> ", Requested snapshot: " <> show sn
-  (OpenState parameters@HeadParameters{contestationPeriod} _, OnChainEvent OnCloseTx) ->
+  (OpenState parameters@HeadParameters{contestationPeriod} CoordinatedHeadState{confirmedSnapshot}, OnChainEvent OnCloseTx{}) ->
     -- TODO(1): Should check whether we want / can contest the close snapshot by
     --       comparing with our local state / utxo.
     --
@@ -282,17 +282,16 @@ update Environment{party, signingKey, otherParties, snapshotStrategy} ledger st 
     --   a) Warn the user about a close tx outside of an open state
     --   b) Move to close state, using information from the close tx
     nextState
-      (ClosedState parameters $ utxo snapshot)
-      [ClientEffect $ HeadIsClosed contestationPeriod snapshot]
+      (ClosedState parameters $ utxo confirmedSnapshot)
+      [ClientEffect $ HeadIsClosed contestationPeriod confirmedSnapshot]
   --
   (_, OnChainEvent OnContestTx{}) ->
     -- TODO: Handle contest tx
     sameState []
   (ClosedState _ utxo, ShouldPostFanout) ->
     sameState [OnChainEffect (FanoutTx utxo)]
-  (_, OnChainEvent OnFanoutTx) ->
-    -- NOTE(SN): we might care if we are not in ClosedState
-    nextState ReadyState [ClientEffect $ HeadIsFinalized utxo]
+  (ClosedState _ utxos, OnChainEvent OnFanoutTx) ->
+    nextState ReadyState [ClientEffect $ HeadIsFinalized utxos]
   --
   (_, ClientEvent{}) ->
     sameState [ClientEffect CommandFailed]

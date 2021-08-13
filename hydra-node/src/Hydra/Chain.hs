@@ -9,7 +9,7 @@ import Data.Aeson (FromJSON, ToJSON)
 import Data.Time (DiffTime)
 import Hydra.Ledger (Party, Tx, Utxo)
 import Hydra.Prelude (Arbitrary (arbitrary), genericArbitrary)
-import Hydra.Snapshot (Snapshot)
+import Hydra.Snapshot (Snapshot, SnapshotNumber)
 
 -- | Contains the head's parameters as established in the initial transaction.
 data HeadParameters = HeadParameters
@@ -56,7 +56,7 @@ data OnChainTx tx
   | OnCommitTx {party :: Party, committed :: Utxo tx}
   | OnAbortTx
   | OnCollectComTx
-  | OnCloseTx
+  | OnCloseTx {snapshotNumber :: SnapshotNumber}
   | OnContestTx
   | OnFanoutTx
   deriving (Generic)

@@ -16,7 +16,7 @@ import Hydra.Chain (
   ChainComponent,
   ContestationPeriod,
   HeadParameters (..),
-  OnChainTx (..),
+  PostChainTx (..),
  )
 import Hydra.Contract.PAB (PabContract (..), pabPort)
 import Hydra.Ledger (Party, Tx, Utxo)
