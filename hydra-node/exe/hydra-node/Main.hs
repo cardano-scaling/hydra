@@ -9,7 +9,7 @@ import Hydra.Chain.ZeroMQ (withMockChain)
 import Hydra.HeadLogic (
   Environment (party),
   Event (..),
-  HeadState(ReadyState),
+  HeadState (ReadyState),
  )
 import qualified Hydra.Ledger.Simple as Ledger
 import Hydra.Logging (Verbosity (..), withTracer)
