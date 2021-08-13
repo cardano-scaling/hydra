@@ -113,7 +113,7 @@ transactionSyncer chainCatchupAddress transactionLog tracer = do
     _ <- receive rep
     txs <- liftIO $ readTVarIO transactionLog
     liftIO $ traceWith tracer (SyncingTransactions $ length txs)
-    send rep [] (Enc.encodeUtf8 $ show txs)
+    send rep [] (Enc.encodeUtf8 $ show $ map toOnChainTx txs)
 
 mockChainClient :: (Tx tx, MonadIO m) => String -> Tracer IO (MockChainLog tx) -> PostChainTx tx -> m ()
 mockChainClient postTxAddress tracer tx = runZMQ $ do
