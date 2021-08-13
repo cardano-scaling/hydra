@@ -156,21 +156,29 @@ data ActivateContractRequest = ActivateContractRequest {caID :: Text, caWallet :
 
 -- TODO(SN): DRY subscribers and proper error handling
 
-initTxSubscriber :: ContractInstanceId -> (OnChainTx tx -> IO ()) -> IO ()
+data ErrDecoding
+  = ErrDecodingJson String
+  | ErrDecodingMsg String
+  deriving (Show)
+
+instance Exception ErrDecoding
+
+initTxSubscriber :: Tx tx => ContractInstanceId -> (OnChainTx tx -> IO ()) -> IO ()
 initTxSubscriber (ContractInstanceId cid) callback = do
   runClient "127.0.0.1" pabPort ("/ws/" <> show cid) $ \con -> forever $ do
     msg <- receiveData con
     case eitherDecodeStrict msg of
       Right (NewObservableState val) -> do
         case fromJSON val of
-          Error err -> say $ "decoding error json: " <> show err
+          Error err -> throwIO $ ErrDecodingJson $ show err
           Success res -> case getLast res of
             Nothing -> pure ()
-            Just (parameters :: HeadParameters) -> do
-              say $ "Observed Init tx with parameters:" ++ show parameters
-              callback $ OnInitTx parameters
+            Just (tx :: OnChainTx tx) -> do
+              say $ "Observed on-chain transaction: " ++ show tx
+              callback tx
       Right _ -> pure ()
-      Left err -> say $ "error decoding msg: " <> show err
+      Left err ->
+        throwIO $ ErrDecodingMsg $ show err
 
 utxoSubscriber :: Wallet -> IO ()
 utxoSubscriber wallet = do
