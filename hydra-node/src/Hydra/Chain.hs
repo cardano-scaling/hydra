@@ -24,12 +24,9 @@ instance Arbitrary HeadParameters where
 
 type ContestationPeriod = DiffTime
 
--- NOTE(SN): Might not be symmetric in a real chain client, i.e. posting
--- transactions could be parameterized using such data types, but they are not
--- fully recoverable from transactions observed on chain
--- REVIEW(SN): There is a similarly named type in plutus-ledger, so we might
--- want to rename this
-data OnChainTx tx
+-- | Data type used to post transactions on chain. It holds everything to
+-- construct corresponding Head protocol transactions.
+data PostChainTx tx
   = InitTx HeadParameters
   | CommitTx Party (Utxo tx)
   | AbortTx (Utxo tx)
@@ -39,13 +36,31 @@ data OnChainTx tx
   | FanoutTx (Utxo tx)
   deriving stock (Generic)
 
-deriving instance Tx tx => Eq (OnChainTx tx)
-deriving instance Tx tx => Show (OnChainTx tx)
-deriving instance Tx tx => Read (OnChainTx tx)
-deriving instance Tx tx => ToJSON (OnChainTx tx)
-deriving instance Tx tx => FromJSON (OnChainTx tx)
+deriving instance Tx tx => Eq (PostChainTx tx)
+deriving instance Tx tx => Show (PostChainTx tx)
+deriving instance Tx tx => Read (PostChainTx tx)
+deriving instance Tx tx => ToJSON (PostChainTx tx)
+deriving instance Tx tx => FromJSON (PostChainTx tx)
 
-instance (Arbitrary tx, Arbitrary (Utxo tx)) => Arbitrary (OnChainTx tx) where
+instance (Arbitrary tx, Arbitrary (Utxo tx)) => Arbitrary (PostChainTx tx) where
+  arbitrary = genericArbitrary
+
+-- REVIEW(SN): There is a similarly named type in plutus-ledger, so we might
+-- want to rename this
+-- TODO(SN): incomplete
+-- | Describes transactions as seen on chain. Holds as minimal information as
+-- possible to simplify observing the chain.
+data OnChainTx
+  = OnInitTx HeadParameters
+  | OnCommitTx
+  | OnAbortTx
+  | OnCollectComTx
+  | OnCloseTx
+  | OnContestTx
+  | OnFanoutTx
+  deriving (Eq, Show, Generic, ToJSON, FromJSON)
+
+instance Arbitrary OnChainTx where
   arbitrary = genericArbitrary
 
 data ChainError = ChainError
@@ -56,11 +71,11 @@ newtype Chain tx m = Chain
   { -- | Construct and send a transaction to the main chain corresponding to the
     -- given 'OnChainTx' event.
     -- Does at least throw 'ChainError'.
-    postTx :: MonadThrow m => OnChainTx tx -> m ()
+    postTx :: MonadThrow m => PostChainTx tx -> m ()
   }
 
 -- | Handle to interface observed transactions.
-type ChainCallback tx m = OnChainTx tx -> m ()
+type ChainCallback m = OnChainTx -> m ()
 
 -- | A type tying both posting and observing transactions into a single /Component/.
-type ChainComponent tx m a = ChainCallback tx m -> (Chain tx m -> m a) -> m a
+type ChainComponent tx m a = ChainCallback m -> (Chain tx m -> m a) -> m a
