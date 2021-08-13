@@ -9,7 +9,7 @@ import Control.Concurrent (newEmptyMVar, putMVar, takeMVar)
 import qualified Data.Aeson as Aeson
 import Hydra.Chain (Chain (..), HeadParameters (..), OnChainTx (..), PostChainTx (..))
 import Hydra.Chain.ExternalPAB (PostInitParams, withExternalPab)
-import Hydra.Contract.PAB (InitParams, InitialParams)
+import Hydra.Contract.PAB (InitParams, ObservedTx)
 import Hydra.Ledger (Party (UnsafeParty))
 import Hydra.Ledger.Simple (SimpleTx)
 import Hydra.Logging (nullTracer)
@@ -35,17 +35,16 @@ spec = do
             Right (_ :: InitParams) ->
               property True
 
-    prop "HeadParameters <- Onchain.InitialParams" $ \(params :: InitialParams) ->
-      let bytes = Aeson.encode params
+    prop "OnChainTx <- Onchain.ObservedTx" $ \(tx :: ObservedTx) ->
+      let bytes = Aeson.encode tx
        in counterexample (decodeUtf8 bytes) $ case Aeson.eitherDecode bytes of
             Left e ->
               counterexample ("Failed to decode: " <> show e) $ property False
-            Right (_ :: HeadParameters) ->
+            Right (_ :: OnChainTx SimpleTx) ->
               property True
 
   describe "ExternalPAB" $ do
     it "publishes init tx using wallet 1 and observes it also" $ do
-      pendingWith "currently failing"
       failAfter 40 $
         withHydraPab $ do
           calledBack1 <- newEmptyMVar
@@ -57,11 +56,10 @@ spec = do
             withExternalPab 2 nullTracer (putMVar calledBack2) $ \Chain{postTx} -> do
               let parameters = HeadParameters 100 [alice, bob, carol]
               postTx $ InitTx @SimpleTx parameters
-              takeMVar calledBack1 `shouldReturn` OnInitTx parameters
-              takeMVar calledBack2 `shouldReturn` OnInitTx parameters
+              takeMVar calledBack1 `shouldReturn` OnInitTx 100 [alice, bob, carol]
+              takeMVar calledBack2 `shouldReturn` OnInitTx 100 [alice, bob, carol]
 
     it "publishes init tx, observes it and abort" $ do
-      pendingWith "currently failing"
       failAfter 40 $
         withHydraPab $ do
           calledBack1 <- newEmptyMVar
@@ -72,8 +70,8 @@ spec = do
             withExternalPab 2 nullTracer (putMVar calledBack2) $ \client2 -> do
               let parameters = HeadParameters 100 [alice, bob, carol]
               postTx client1 $ InitTx @SimpleTx parameters
-              takeMVar calledBack1 `shouldReturn` OnInitTx parameters
-              takeMVar calledBack2 `shouldReturn` OnInitTx parameters
+              takeMVar calledBack1 `shouldReturn` OnInitTx 100 [alice, bob, carol]
+              takeMVar calledBack2 `shouldReturn` OnInitTx 100 [alice, bob, carol]
               postTx client2 $ AbortTx @SimpleTx mempty
               takeMVar calledBack1 `shouldReturn` OnAbortTx
 

@@ -1,4 +1,5 @@
 {-# LANGUAGE DeriveAnyClass #-}
+{-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE UndecidableInstances #-}
 
 module Hydra.Chain where
@@ -47,12 +48,11 @@ instance (Arbitrary tx, Arbitrary (Utxo tx)) => Arbitrary (PostChainTx tx) where
 
 -- REVIEW(SN): There is a similarly named type in plutus-ledger, so we might
 -- want to rename this
--- TODO(SN): incomplete
 
 -- | Describes transactions as seen on chain. Holds as minimal information as
 -- possible to simplify observing the chain.
 data OnChainTx tx
-  = OnInitTx HeadParameters
+  = OnInitTx {contestationPeriod :: ContestationPeriod, parties :: [Party]}
   | OnCommitTx {party :: Party, committed :: Utxo tx}
   | OnAbortTx
   | OnCollectComTx
@@ -74,7 +74,7 @@ instance (Arbitrary tx, Arbitrary (Utxo tx)) => Arbitrary (OnChainTx tx) where
 -- and simplified "chains".
 toOnChainTx :: PostChainTx tx -> OnChainTx tx
 toOnChainTx = \case
-  (InitTx hp) -> OnInitTx hp
+  InitTx HeadParameters{contestationPeriod, parties} -> OnInitTx{contestationPeriod, parties}
   (CommitTx pa ut) -> OnCommitTx pa ut
   AbortTx{} -> OnAbortTx
   CollectComTx{} -> OnCollectComTx

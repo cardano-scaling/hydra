@@ -123,14 +123,16 @@ init = endpoint @"init" $ \InitParams{contestationPeriod, cardanoPubKeys, hydraP
   void $ SM.runInitialiseWith mempty constraints client (Head.Initial contestationPeriod hydraParties) mempty
   logInfo $ "Triggered Init " <> show @String cardanoPubKeys
 
--- | Parameters as they are available in the 'Initial' state.
-data InitialParams = InitialParams
-  { contestationPeriod :: ContestationPeriod
-  , parties :: [Party]
-  }
-  deriving (Generic, Show, FromJSON, ToJSON)
+-- | Transactions as they are observed by the PAB. We use a distinct type from
+-- the 'Hydra.Chain' as we want to keep hydra-node not tied to hydra-plutus.
+-- Tests are ensuring that this type as the same wire format as 'OnChainTx'.
+data ObservedTx
+  = OnInitTx {contestationPeriod :: ContestationPeriod, parties :: [Party]}
+  | OnAbortTx
+  -- TODO(SN): incomplete (obviously)
+  deriving (Eq, Show, Generic, ToJSON, FromJSON)
 
-instance Arbitrary InitialParams where
+instance Arbitrary ObservedTx where
   shrink = genericShrink
   arbitrary = genericArbitrary
 

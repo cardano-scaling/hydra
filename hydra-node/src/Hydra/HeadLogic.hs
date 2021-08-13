@@ -151,9 +151,9 @@ update Environment{party, signingKey, otherParties, snapshotStrategy} ledger st 
         { contestationPeriod
         , parties = party : otherParties
         }
-  (_, OnChainEvent (OnInitTx parameters@HeadParameters{parties})) ->
+  (_, OnChainEvent OnInitTx{contestationPeriod, parties}) ->
     NewState
-      (InitialState parameters (Set.fromList parties) mempty)
+      (InitialState (HeadParameters{contestationPeriod, parties}) (Set.fromList parties) mempty)
       [ClientEffect $ ReadyToCommit parties]
   --
   (InitialState _ remainingParties _, ClientEvent (Commit utxo))
@@ -245,7 +245,7 @@ update Environment{party, signingKey, otherParties, snapshotStrategy} ledger st 
            in nextState
                 (OpenState parameters $ s{seenSnapshot = Just (nextSnapshot, mempty)})
                 [NetworkEffect $ AckSn party snapshotSignature sn]
-  (OpenState parameters headState@CoordinatedHeadState{seenSnapshot, seenTxs}, NetworkEvent (AckSn otherParty snapshotSignature sn)) ->
+  (OpenState parameters@HeadParameters{parties} headState@CoordinatedHeadState{seenSnapshot, seenTxs}, NetworkEvent (AckSn otherParty snapshotSignature sn)) ->
     case seenSnapshot of
       Nothing -> Wait
       Just (snapshot, sigs)
@@ -254,7 +254,7 @@ update Environment{party, signingKey, otherParties, snapshotStrategy} ledger st 
                 -- TODO: Must check whether we know the 'otherParty' signing the snapshot
                 | verify snapshotSignature otherParty snapshot = otherParty `Set.insert` sigs
                 | otherwise = sigs
-           in if sigs' == Set.fromList (parties parameters)
+           in if sigs' == Set.fromList parties
                 then
                   nextState
                     ( OpenState parameters $
@@ -309,7 +309,7 @@ update Environment{party, signingKey, otherParties, snapshotStrategy} ledger st 
   sameState = nextState st
 
   isLeader :: HeadParameters -> Party -> SnapshotNumber -> Bool
-  isLeader parameters p _sn =
-    case p `elemIndex` parties parameters of
+  isLeader HeadParameters{parties} p _sn =
+    case p `elemIndex` parties of
       Just i -> i == 0
       _ -> False

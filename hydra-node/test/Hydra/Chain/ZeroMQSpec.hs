@@ -18,7 +18,7 @@ spec :: Spec
 spec =
   describe "Mock 0MQ-Based Chain" $ do
     let sentTx = InitTx $ HeadParameters 10 [1, 2]
-        receivedTx = OnInitTx $ HeadParameters 10 [1, 2]
+        receivedTx = OnInitTx 10 [1, 2]
         numberOfTxs :: Int
         numberOfTxs = 3
 
