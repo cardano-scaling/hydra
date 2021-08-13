@@ -106,6 +106,7 @@ library
     , aeson
     , base
     , base16
+    , bytestring
     , cardano-binary
     , cardano-crypto-class
     , cardano-ledger-core
