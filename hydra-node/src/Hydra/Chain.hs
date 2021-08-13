@@ -48,19 +48,26 @@ instance (Arbitrary tx, Arbitrary (Utxo tx)) => Arbitrary (PostChainTx tx) where
 -- REVIEW(SN): There is a similarly named type in plutus-ledger, so we might
 -- want to rename this
 -- TODO(SN): incomplete
+
 -- | Describes transactions as seen on chain. Holds as minimal information as
 -- possible to simplify observing the chain.
-data OnChainTx
+data OnChainTx tx
   = OnInitTx HeadParameters
-  | OnCommitTx
+  | OnCommitTx {party :: Party, committed :: Utxo tx}
   | OnAbortTx
   | OnCollectComTx
   | OnCloseTx
   | OnContestTx
   | OnFanoutTx
-  deriving (Eq, Show, Generic, ToJSON, FromJSON)
+  deriving (Generic)
 
-instance Arbitrary OnChainTx where
+deriving instance Tx tx => Eq (OnChainTx tx)
+deriving instance Tx tx => Show (OnChainTx tx)
+deriving instance Tx tx => Read (OnChainTx tx)
+deriving instance Tx tx => ToJSON (OnChainTx tx)
+deriving instance Tx tx => FromJSON (OnChainTx tx)
+
+instance (Arbitrary tx, Arbitrary (Utxo tx)) => Arbitrary (OnChainTx tx) where
   arbitrary = genericArbitrary
 
 data ChainError = ChainError
@@ -75,7 +82,7 @@ newtype Chain tx m = Chain
   }
 
 -- | Handle to interface observed transactions.
-type ChainCallback m = OnChainTx -> m ()
+type ChainCallback tx m = OnChainTx tx -> m ()
 
 -- | A type tying both posting and observing transactions into a single /Component/.
-type ChainComponent tx m a = ChainCallback m -> (Chain tx m -> m a) -> m a
+type ChainComponent tx m a = ChainCallback tx m -> (Chain tx m -> m a) -> m a

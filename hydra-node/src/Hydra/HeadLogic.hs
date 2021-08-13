@@ -9,7 +9,7 @@ import Hydra.Prelude
 import Data.List (elemIndex, (\\))
 import qualified Data.Map.Strict as Map
 import qualified Data.Set as Set
-import Hydra.Chain (HeadParameters (..), OnChainTx (..))
+import Hydra.Chain (HeadParameters (..), OnChainTx (..), PostChainTx (..))
 import Hydra.ClientInput (ClientInput (..))
 import Hydra.Ledger (
   Committed,
@@ -44,7 +44,7 @@ instance (Arbitrary tx, Arbitrary (Utxo tx)) => Arbitrary (Event tx) where
 data Effect tx
   = ClientEffect {serverOutput :: ServerOutput tx}
   | NetworkEffect {message :: Message tx}
-  | OnChainEffect {onChainTx :: OnChainTx tx}
+  | OnChainEffect {onChainTx :: PostChainTx tx}
   | Delay {delay :: DiffTime, event :: Event tx}
   deriving stock (Generic)
 
@@ -151,7 +151,7 @@ update Environment{party, signingKey, otherParties, snapshotStrategy} ledger st 
         { contestationPeriod
         , parties = party : otherParties
         }
-  (_, OnChainEvent (InitTx parameters@HeadParameters{parties})) ->
+  (_, OnChainEvent (OnInitTx parameters@HeadParameters{parties})) ->
     NewState
       (InitialState parameters (Set.fromList parties) mempty)
       [ClientEffect $ ReadyToCommit parties]
@@ -160,7 +160,7 @@ update Environment{party, signingKey, otherParties, snapshotStrategy} ledger st 
     | canCommit -> sameState [OnChainEffect (CommitTx party utxo)]
    where
     canCommit = party `Set.member` remainingParties
-  (InitialState parameters remainingParties committed, OnChainEvent (CommitTx pt utxo)) ->
+  (InitialState parameters remainingParties committed, OnChainEvent (OnCommitTx pt utxo)) ->
     nextState newHeadState $
       [ClientEffect $ Committed pt utxo]
         <> [OnChainEffect $ CollectComTx collectedUtxo | canCollectCom]
@@ -174,17 +174,18 @@ update Environment{party, signingKey, otherParties, snapshotStrategy} ledger st 
     sameState [ClientEffect $ Utxo (mconcat $ Map.elems committed)]
   (InitialState _ _ committed, ClientEvent Abort) ->
     sameState [OnChainEffect $ AbortTx (mconcat $ Map.elems committed)]
-  (_, OnChainEvent CommitTx{}) ->
+  (_, OnChainEvent OnCommitTx{}) ->
     -- TODO: This should warn the user / client that something went _terribly_ wrong
     --       We shouldn't see any commit outside of the collecting state, if we do,
     --       there's an issue our logic or onChain layer.
     sameState []
-  (InitialState parameters _ _, OnChainEvent (CollectComTx utxo)) ->
-    let u0 = utxo
-     in nextState
-          (OpenState parameters $ CoordinatedHeadState u0 mempty (Snapshot 0 u0 mempty) Nothing)
-          [ClientEffect $ HeadIsOpen u0]
-  (InitialState{}, OnChainEvent (AbortTx utxo)) ->
+  (InitialState parameters remainingParties committed, OnChainEvent OnCollectComTx)
+    | null remainingParties ->
+      let u0 = fold committed
+       in nextState
+            (OpenState parameters $ CoordinatedHeadState u0 mempty (Snapshot 0 u0 mempty) Nothing)
+            [ClientEffect $ HeadIsOpen u0]
+  (InitialState{}, OnChainEvent OnAbortTx) ->
     nextState ReadyState [ClientEffect $ HeadIsAborted utxo]
   --
   (OpenState HeadParameters{contestationPeriod} CoordinatedHeadState{confirmedSnapshot}, ClientEvent Close) ->
@@ -272,7 +273,7 @@ update Environment{party, signingKey, otherParties, snapshotStrategy} ledger st 
                     []
       Just (snapshot, _) ->
         error $ "Received ack for unknown unconfirmed snapshot. Unconfirmed snapshot: " <> show (number snapshot) <> ", Requested snapshot: " <> show sn
-  (OpenState parameters@HeadParameters{contestationPeriod} _, OnChainEvent (CloseTx snapshot)) ->
+  (OpenState parameters@HeadParameters{contestationPeriod} _, OnChainEvent OnCloseTx) ->
     -- TODO(1): Should check whether we want / can contest the close snapshot by
     --       comparing with our local state / utxo.
     --
@@ -284,12 +285,12 @@ update Environment{party, signingKey, otherParties, snapshotStrategy} ledger st 
       (ClosedState parameters $ utxo snapshot)
       [ClientEffect $ HeadIsClosed contestationPeriod snapshot]
   --
-  (_, OnChainEvent ContestTx{}) ->
+  (_, OnChainEvent OnContestTx{}) ->
     -- TODO: Handle contest tx
     sameState []
   (ClosedState _ utxo, ShouldPostFanout) ->
     sameState [OnChainEffect (FanoutTx utxo)]
-  (_, OnChainEvent (FanoutTx utxo)) ->
+  (_, OnChainEvent OnFanoutTx) ->
     -- NOTE(SN): we might care if we are not in ClosedState
     nextState ReadyState [ClientEffect $ HeadIsFinalized utxo]
   --
