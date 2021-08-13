@@ -2,9 +2,10 @@ module Hydra.TUI where
 
 import Hydra.Prelude hiding (State)
 
-import Brick (App (..), AttrMap, BrickEvent, EventM, Next, Widget, defaultMain, halt, showFirstCursor, str, vBox)
+import Brick (App (..), AttrMap, BrickEvent (VtyEvent), EventM, Next, Widget, continue, defaultMain, halt, showFirstCursor, str, vBox)
 import Brick.AttrMap (attrMap)
 import Data.Version (showVersion)
+import Graphics.Vty (Event (EvKey), Key (KChar), Modifier (MCtrl))
 import Graphics.Vty.Attributes (defAttr)
 import Paths_hydra_tui (version)
 
@@ -35,7 +36,12 @@ draw _ =
       ]
 
 handleEvent :: State -> BrickEvent n e -> EventM n (Next State)
-handleEvent s _ = halt s
+handleEvent s = \case
+  -- Quit
+  VtyEvent (EvKey (KChar 'c') [MCtrl]) -> halt s
+  VtyEvent (EvKey (KChar 'd') [MCtrl]) -> halt s
+  VtyEvent (EvKey (KChar 'q') _) -> halt s
+  _ -> continue s
 
 style :: State -> AttrMap
 style _ = attrMap defAttr []
