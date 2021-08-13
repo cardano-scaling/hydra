@@ -1,16 +1,13 @@
-cabal-version: 2.2
-
-name: hydra-test-utils
-version: 1.0.0
-description: Hydra utilities for testing, aka. "Test Prelude"
-author: IOG
-copyright: 2021 IOG
-license: Apache-2.0
+cabal-version:      2.2
+name:               hydra-test-utils
+version:            0.1.0
+synopsis:           Hydra utilities for testing, aka. "Test Prelude"
+author:             IOHK
+copyright:          2021 IOHK
+license:            Apache-2.0
 license-files:
   LICENSE
   NOTICE
-build-type: Simple
-extra-source-files: README.md
 
 source-repository head
   type: git

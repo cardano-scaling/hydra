@@ -1,14 +1,13 @@
-cabal-version: 2.2
-name: hydra-plutus
-version: 0.1.0
-description:        Hydra Plutus Contracts
+cabal-version:      2.2
+name:               hydra-plutus
+version:            0.1.0
+synopsis:           Hydra Plutus Contracts
 author:             IOHK
 copyright:          2021 IOHK
 license:            Apache-2.0
 license-files:
   LICENSE
   NOTICE
-build-type:         Simple
 
 source-repository head
     type: git

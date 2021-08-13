@@ -1,20 +1,19 @@
-cabal-version: 2.2
-
+cabal-version:      2.2
 name:               local-cluster
 version:            0.1.0
-description:        Integration test suite using a local cluster of cardano and hydra nodes
+synopsis:           Integration test suite using a local cluster of cardano and hydra nodes
 author:             IOHK
 copyright:          2021 IOHK
 license:            Apache-2.0
 license-files:
   LICENSE
   NOTICE
-build-type:         Simple
-extra-source-files: README.md
+extra-source-files:
+  README.md
 
 source-repository head
   type: git
-  location: https://github.com/input-output-hk/hydra-node
+  location: https://github.com/input-output-hk/hydra-poc
 
 flag development
      description: Disable -Werror for development

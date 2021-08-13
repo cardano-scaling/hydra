@@ -1,19 +1,17 @@
-cabal-version: 2.2
-
+cabal-version:      2.2
 name:               merkle-patricia-tree
 version:            0.1.0
-description:        An implementation of the Merkle Patricia Tree algorithm.
+synopsis:           An implementation of the Merkle Patricia Tree algorithm.
 author:             IOHK
 copyright:          2021 IOHK
 license:            Apache-2.0
 license-files:
   LICENSE
   NOTICE
-build-type:         Simple
 
 source-repository head
   type: git
-  location: https://github.com/input-output-hk/hydra-node
+  location: https://github.com/input-output-hk/hydra-poc
 
 flag development
      description: Disable -Werror for development
