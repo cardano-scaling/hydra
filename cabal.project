@@ -6,6 +6,7 @@ packages:
   hydra-plutus
   hydra-prelude
   hydra-test-utils
+  hydra-tui
   merkle-patricia-tree
 
 tests: False
@@ -17,6 +18,9 @@ package hydra-node
   tests: True
 
 package hydra-plutus
+  tests: True
+
+package hydra-tui
   tests: True
 
 package merkle-patricia-tree

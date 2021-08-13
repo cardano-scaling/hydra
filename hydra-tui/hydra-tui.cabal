@@ -1,0 +1,108 @@
+cabal-version:      2.2
+name:               hydra-tui
+version:            0.1.0.0
+synopsis:           TUI for managing a Hydra node
+description:        TUI for managing a Hydra node
+author:             IOHK
+copyright:          2021 IOHK
+license:            Apache-2.0
+license-files:
+  LICENSE
+  NOTICE
+
+source-repository head
+  type: git
+  location: https://github.com/input-output-hk/hydra-poc
+
+flag development
+     description: Disable -Werror for development
+     default: False
+     manual: True
+
+common project-config
+  default-language: Haskell2010
+  default-extensions:
+    BangPatterns
+    BinaryLiterals
+    ConstraintKinds
+    DataKinds
+    DefaultSignatures
+    DeriveAnyClass
+    DerivingStrategies
+    DeriveDataTypeable
+    DeriveFoldable
+    DeriveFunctor
+    DeriveGeneric
+    DeriveTraversable
+    EmptyDataDecls
+    ExistentialQuantification
+    FlexibleContexts
+    FlexibleInstances
+    FunctionalDependencies
+    GADTs
+    GeneralizedNewtypeDeriving
+    InstanceSigs
+    KindSignatures
+    LambdaCase
+    MultiParamTypeClasses
+    MultiWayIf
+    NamedFieldPuns
+    NoImplicitPrelude
+    NumericUnderscores
+    OverloadedStrings
+    PartialTypeSignatures
+    PatternGuards
+    RankNTypes
+    ScopedTypeVariables
+    StandaloneDeriving
+    TupleSections
+    TypeFamilies
+    TypeSynonymInstances
+    ViewPatterns
+  ghc-options:
+    -Wall
+    -Wcompat
+    -Widentities
+    -Wincomplete-record-updates
+    -Wincomplete-uni-patterns
+    -Wredundant-constraints
+    -fprint-potential-instances
+
+  if !flag(development)
+      ghc-options: -Werror
+
+library
+  import: project-config
+  hs-source-dirs:   src
+  exposed-modules:
+    Hydra.TUI
+  build-depends: base
+    , brick
+    , hydra-prelude
+
+executable hydra-tui
+  import: project-config
+  hs-source-dirs:   exe
+  main-is:          Main.hs
+  build-depends: base
+    , hydra-prelude
+    , hydra-tui
+
+test-suite unit
+  import: project-config
+  hs-source-dirs: test
+  other-modules:
+    Hydra.TUISpec
+    Spec
+  main-is: Main.hs
+  type: exitcode-stdio-1.0
+  build-depends: base
+    , hspec
+    , hydra-prelude
+    , hydra-test-utils
+    , hydra-tui
+  build-tool-depends:
+    hspec-discover:hspec-discover
+  ghc-options:
+    -threaded
+    -rtsopts
