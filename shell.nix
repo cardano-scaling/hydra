@@ -40,6 +40,7 @@ let
     pkgs.haskellPackages.hspec-discover
     pkgs.haskellPackages.graphmod
     pkgs.haskellPackages.cabal-plan
+    pkgs.haskellPackages.cabal-fmt
     # Handy to interact with the hydra-node via websockets
     pkgs.ws
     # Used in local-cluster
