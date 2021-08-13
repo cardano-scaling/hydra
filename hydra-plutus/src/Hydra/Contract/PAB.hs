@@ -136,25 +136,29 @@ instance Arbitrary ObservedTx where
   shrink = genericShrink
   arbitrary = genericArbitrary
 
-watch :: Contract (Last Head.State) (Endpoint "abort" ()) HydraPlutusError ()
+watch :: Contract (Last ObservedTx) (Endpoint "abort" ()) HydraPlutusError ()
 watch = do
-  (headState, threadToken) <- watchInit
-  tell $ Last $ Just headState
+  (contestationPeriod, parties, threadToken) <- watchInit
+  tell $ Last $ Just $ OnInitTx contestationPeriod parties
   selectList
     [ Promise (watchForSM threadToken)
     , abort threadToken
     ]
 
-watchForSM :: AssetClass -> Contract (Last Head.State) s HydraPlutusError ()
+watchForSM :: AssetClass -> Contract (Last ObservedTx) s HydraPlutusError ()
 watchForSM threadToken = do
+  logInfo @String $ "watchForSM"
   let client = Head.machineClient threadToken
-  mstate <- SM.waitForUpdate client
-  logInfo @String $ "watchForSM: " <> show (tyTxOutData . fst <$> mstate)
+  smState <- SM.waitForUpdate client
+  let mstate = tyTxOutData . fst <$> smState
+  case mstate of
+    Just Head.Final -> tell . Last $ Just OnAbortTx
+    _ -> logInfo @String $ "uninferrable state"
 
 -- | Watch Initial script address to extract head's initial parameters and thread token.
 -- Relies on the fact that a participation token (payed to the address) uses the
 -- same 'CurrencySymbol' as the thread token.
-watchInit :: Contract w s HydraPlutusError (Head.State, AssetClass)
+watchInit :: Contract w s HydraPlutusError (ContestationPeriod, [Party], AssetClass)
 watchInit = do
   logInfo @String $ "watchInit: Looking for an init tx and it's parties"
   pubKey <- ownPubKey
@@ -169,8 +173,8 @@ watchInit = do
         let datums = txs >>= rights . fmap (lookupDatum token) . Map.elems . outputsMapFromTxForAddress (scriptAddress token)
         logInfo @String $ "found init tx(s) with datums: " <> show datums
         case datums of
-          [headState] ->
-            pure $ Just (headState, token)
+          [Head.Initial contestationPeriod parties] ->
+            pure $ Just (contestationPeriod, parties, token)
           _ -> pure Nothing
       _ -> pure Nothing
  where
