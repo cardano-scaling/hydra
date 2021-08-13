@@ -23,6 +23,7 @@ module Hydra.Logging (
 import Hydra.Prelude
 
 import Cardano.BM.Tracing (ToObject (..), TracingVerbosity (..))
+import Control.Monad.Class.MonadAsync (async)
 import Control.Monad.Class.MonadFork (myThreadId)
 import Control.Monad.Class.MonadSTM (flushTBQueue, modifyTVar, newTBQueueIO, newTVarIO, readTVarIO, writeTBQueue)
 import Control.Monad.Class.MonadSay (MonadSay, say)
@@ -55,8 +56,10 @@ withTracer ::
 withTracer Quiet action = action nullTracer
 withTracer (Verbose name) action = do
   msgQueue <- newTBQueueIO defaultQueueSize
-  withAsync (logMessagesToStdout msgQueue) $ \_ -> do
-    action (tracer msgQueue)
+  bracket_
+    (async $ logMessagesToStdout msgQueue)
+    (flushLogs msgQueue)
+    (action (tracer msgQueue))
  where
   tracer queue = Tracer $ \msg -> liftIO $ do
     entry <- LBS.toStrict . encode <$> mkEnvelop msg
@@ -73,11 +76,12 @@ withTracer (Verbose name) action = do
         , "message" .= msg
         ]
 
-logMessagesToStdout :: TBQueue IO ByteString -> IO ()
-logMessagesToStdout queue = forever $ do
-  entries <- atomically $ flushTBQueue queue
-  forM_ entries (TIO.putStrLn . decodeUtf8With lenientDecode)
-  hFlush stdout
+  logMessagesToStdout queue = forever $ flushLogs queue
+
+  flushLogs queue = do
+    entries <- atomically $ flushTBQueue queue
+    forM_ entries (TIO.putStrLn . decodeUtf8With lenientDecode)
+    hFlush stdout
 
 traceInTVar :: MonadSTM m => TVar m [a] -> Tracer m a
 traceInTVar tvar = Tracer $ \a ->
