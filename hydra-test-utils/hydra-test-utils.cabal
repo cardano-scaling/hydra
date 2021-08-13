@@ -1,43 +1,40 @@
-cabal-version:      2.2
-name:               hydra-test-utils
-version:            0.1.0
-synopsis:           Hydra utilities for testing, aka. "Test Prelude"
-author:             IOHK
-copyright:          2021 IOHK
-license:            Apache-2.0
+cabal-version: 2.2
+name:          hydra-test-utils
+version:       0.1.0
+synopsis:      Hydra utilities for testing, aka. "Test Prelude"
+author:        IOHK
+copyright:     2021 IOHK
+license:       Apache-2.0
 license-files:
   LICENSE
   NOTICE
 
 source-repository head
-  type: git
+  type:     git
   location: https://github.com/input-output-hk/hydra-poc
 
 library
-  hs-source-dirs:
-    src
+  hs-source-dirs:     src
   exposed-modules:
     Test.Hydra.Prelude
     Test.Network.Ports
+
   build-depends:
-    base,
-    hspec-core,
-    hspec-junit-formatter,
-    hydra-prelude,
-    HUnit,
-    io-classes,
-    network,
-    random-shuffle,
-    relude,
-    temporary,
-    warp,
+    , base
+    , hspec-core
+    , hspec-junit-formatter
+    , HUnit
+    , hydra-prelude
+    , io-classes
+    , network
+    , random-shuffle
+    , relude
+    , temporary
+    , warp
+
   default-extensions:
     NoImplicitPrelude
     FlexibleContexts
-  ghc-options:
-    -Wall
-    -Werror
-    -Wcompat
-    -Wunused-packages
-  default-language:
-    Haskell2010
+
+  ghc-options:        -Wall -Werror -Wcompat -Wunused-packages
+  default-language:   Haskell2010

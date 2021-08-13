@@ -1,38 +1,39 @@
-cabal-version:      2.2
-name:               merkle-patricia-tree
-version:            0.1.0
-synopsis:           An implementation of the Merkle Patricia Tree algorithm.
-author:             IOHK
-copyright:          2021 IOHK
-license:            Apache-2.0
+cabal-version: 2.2
+name:          merkle-patricia-tree
+version:       0.1.0
+synopsis:      An implementation of the Merkle Patricia Tree algorithm.
+author:        IOHK
+copyright:     2021 IOHK
+license:       Apache-2.0
 license-files:
   LICENSE
   NOTICE
 
 source-repository head
-  type: git
+  type:     git
   location: https://github.com/input-output-hk/hydra-poc
 
 flag development
-     description: Disable -Werror for development
-     default: False
-     manual: True
+  description: Disable -Werror for development
+  default:     False
+  manual:      True
 
 common project-config
-  default-language: Haskell2010
+  default-language:   Haskell2010
   default-extensions:
+    NoImplicitPrelude
     BangPatterns
     BinaryLiterals
     ConstraintKinds
     DataKinds
     DefaultSignatures
     DeriveAnyClass
-    DerivingStrategies
     DeriveDataTypeable
     DeriveFoldable
     DeriveFunctor
     DeriveGeneric
     DeriveTraversable
+    DerivingStrategies
     EmptyDataDecls
     ExistentialQuantification
     FlexibleContexts
@@ -46,7 +47,6 @@ common project-config
     MultiParamTypeClasses
     MultiWayIf
     NamedFieldPuns
-    NoImplicitPrelude
     NumericUnderscores
     OverloadedStrings
     PartialTypeSignatures
@@ -58,52 +58,47 @@ common project-config
     TypeFamilies
     TypeSynonymInstances
     ViewPatterns
+
   ghc-options:
-    -Wall
-    -Wcompat
-    -Widentities
-    -Wincomplete-record-updates
-    -Wincomplete-uni-patterns
-    -Wpartial-fields
-    -Wredundant-constraints
+    -Wall -Wcompat -Widentities -Wincomplete-record-updates
+    -Wincomplete-uni-patterns -Wpartial-fields -Wredundant-constraints
     -fprint-potential-instances
 
   if !flag(development)
-      ghc-options: -Werror
+    ghc-options: -Werror
 
 library
-  import: project-config
-  hs-source-dirs: src
-  exposed-modules:
-    Data.Tree.MerklePatricia
-  other-modules:
-    Paths_merkle_patricia_tree
-  build-depends: base
+  import:          project-config
+  hs-source-dirs:  src
+  exposed-modules: Data.Tree.MerklePatricia
+  other-modules:   Paths_merkle_patricia_tree
+  build-depends:
+    , base
     , bytestring
     , containers
     , cryptonite
     , memory
     , serialise
-  ghc-options:
-    -haddock
+
+  ghc-options:     -haddock
 
 test-suite unit
-  import: project-config
-  hs-source-dirs: test
+  import:             project-config
+  hs-source-dirs:     test
   other-modules:
     Data.Tree.MerklePatriciaSpec
     Spec
-  main-is: Main.hs
-  type: exitcode-stdio-1.0
-  build-depends: base
+
+  main-is:            Main.hs
+  type:               exitcode-stdio-1.0
+  build-depends:
+    , base
     , bytestring
-    , QuickCheck
     , hspec
     , hydra-prelude
     , hydra-test-utils
     , merkle-patricia-tree
-  build-tool-depends:
-    hspec-discover:hspec-discover
-  ghc-options:
-    -threaded
-    -rtsopts
+    , QuickCheck
+
+  build-tool-depends: hspec-discover:hspec-discover -any
+  ghc-options:        -threaded -rtsopts
