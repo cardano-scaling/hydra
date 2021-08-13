@@ -16,6 +16,7 @@ import Hydra.Chain (
   ChainComponent,
   ContestationPeriod,
   HeadParameters (..),
+  OnChainTx (..),
   PostChainTx (..),
  )
 import Hydra.Contract.PAB (PabContract (..), pabPort)
@@ -167,7 +168,7 @@ initTxSubscriber (ContractInstanceId cid) callback = do
             Nothing -> pure ()
             Just (parameters :: HeadParameters) -> do
               say $ "Observed Init tx with parameters:" ++ show parameters
-              callback $ InitTx parameters
+              callback $ OnInitTx parameters
       Right _ -> pure ()
       Left err -> say $ "error decoding msg: " <> show err
 

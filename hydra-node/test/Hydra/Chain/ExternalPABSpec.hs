@@ -7,7 +7,7 @@ import Hydra.Prelude
 import Cardano.Crypto.DSIGN (DSIGNAlgorithm (deriveVerKeyDSIGN), MockDSIGN, SignKeyDSIGN, VerKeyDSIGN)
 import Control.Concurrent (newEmptyMVar, putMVar, takeMVar)
 import qualified Data.Aeson as Aeson
-import Hydra.Chain (Chain (..), HeadParameters (..), OnChainTx (..))
+import Hydra.Chain (Chain (..), HeadParameters (..), OnChainTx (..), PostChainTx (..))
 import Hydra.Chain.ExternalPAB (PostInitParams, withExternalPab)
 import Hydra.Contract.PAB (InitParams, InitialParams)
 import Hydra.Ledger (Party (UnsafeParty))
@@ -57,8 +57,8 @@ spec = do
             withExternalPab 2 nullTracer (putMVar calledBack2) $ \Chain{postTx} -> do
               let parameters = HeadParameters 100 [alice, bob, carol]
               postTx $ InitTx @SimpleTx parameters
-              takeMVar calledBack1 `shouldReturn` InitTx parameters
-              takeMVar calledBack2 `shouldReturn` InitTx parameters
+              takeMVar calledBack1 `shouldReturn` OnInitTx parameters
+              takeMVar calledBack2 `shouldReturn` OnInitTx parameters
 
     it "publishes init tx, observes it and abort" $ do
       pendingWith "currently failing"
@@ -72,10 +72,10 @@ spec = do
             withExternalPab 2 nullTracer (putMVar calledBack2) $ \client2 -> do
               let parameters = HeadParameters 100 [alice, bob, carol]
               postTx client1 $ InitTx @SimpleTx parameters
-              takeMVar calledBack1 `shouldReturn` InitTx parameters
-              takeMVar calledBack2 `shouldReturn` InitTx parameters
+              takeMVar calledBack1 `shouldReturn` OnInitTx parameters
+              takeMVar calledBack2 `shouldReturn` OnInitTx parameters
               postTx client2 $ AbortTx @SimpleTx mempty
-              takeMVar calledBack1 `shouldReturn` AbortTx @SimpleTx mempty
+              takeMVar calledBack1 `shouldReturn` OnAbortTx
 
 alice, bob, carol :: Party
 alice = UnsafeParty aliceVk

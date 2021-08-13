@@ -7,7 +7,7 @@ import Hydra.Prelude
 import Control.Concurrent (newChan, readChan, writeChan)
 import Control.Monad.Class.MonadSTM (newEmptyTMVarIO, putTMVar, takeTMVar)
 import Control.Monad.Class.MonadTimer (timeout)
-import Hydra.Chain (OnChainTx (InitTx), HeadParameters (HeadParameters))
+import Hydra.Chain (HeadParameters (HeadParameters), OnChainTx (OnInitTx), PostChainTx (InitTx))
 import Hydra.Chain.ZeroMQ (catchUpTransactions, mockChainClient, runChainSync, startChain)
 import Hydra.Ledger.Simple (SimpleTx)
 import Hydra.Logging (nullTracer)
@@ -17,7 +17,8 @@ import Test.Util (shouldReturn)
 spec :: Spec
 spec =
   describe "Mock 0MQ-Based Chain" $ do
-    let tx = InitTx (HeadParameters 10 [1, 2])
+    let sentTx = InitTx $ HeadParameters 10 [1, 2]
+        receivedTx = OnInitTx $ HeadParameters 10 [1, 2]
         numberOfTxs :: Int
         numberOfTxs = 3
 
@@ -27,18 +28,19 @@ spec =
         void $
           concurrently
             ( -- we lack proper synchronisation so better give chain sync time to join the party
-              threadDelay 0.5 >> mockChainClient @SimpleTx postAddress nullTracer tx
+              threadDelay 0.5 >> mockChainClient @SimpleTx postAddress nullTracer sentTx
             )
             (within3second $ runChainSync @SimpleTx syncAddress (atomically . putTMVar mvar) nullTracer)
 
-        within3second (atomically $ takeTMVar mvar) `shouldReturn` Just tx
+        within3second (atomically $ takeTMVar mvar) `shouldReturn` Just receivedTx
 
     it "catches up transacions with mock chain" $ do
       chan <- newChan
       withMockZMQChain 54324 54325 54326 $ \_syncAddress catchUpAddress postAddress -> do
-        forM_ [1 .. numberOfTxs] $ const $ mockChainClient @SimpleTx postAddress nullTracer tx
+        forM_ [1 .. numberOfTxs] $ const $ mockChainClient @SimpleTx postAddress nullTracer sentTx
         catchUpTransactions @SimpleTx catchUpAddress (writeChan chan) nullTracer
-        within3second (forM [1 .. numberOfTxs] (const $ readChan chan)) `shouldReturn` Just [tx, tx, tx]
+        within3second (forM [1 .. numberOfTxs] (const $ readChan chan))
+          `shouldReturn` Just [receivedTx, receivedTx, receivedTx]
 
 withMockZMQChain :: Int -> Int -> Int -> (String -> String -> String -> IO ()) -> IO ()
 withMockZMQChain syncPort catchUpPort postPort action =

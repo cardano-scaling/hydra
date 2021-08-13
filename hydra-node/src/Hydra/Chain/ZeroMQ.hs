@@ -10,7 +10,7 @@ import Hydra.Prelude
 
 import Control.Monad.Class.MonadSTM (modifyTVar', newTBQueue, newTVarIO, readTBQueue, readTVarIO, writeTBQueue)
 import qualified Data.Text.Encoding as Enc
-import Hydra.Chain (Chain (..), ChainComponent, OnChainTx, PostChainTx)
+import Hydra.Chain (Chain (..), ChainComponent, OnChainTx, PostChainTx, toOnChainTx)
 import Hydra.Ledger (Tx)
 import Hydra.Logging (ToObject, Tracer, traceWith)
 import Hydra.Network (MockChainPorts (..))
@@ -102,7 +102,7 @@ transactionPublisher chainSyncAddress txQueue tracer = do
   forever $ do
     tx <- liftIO $ atomically $ readTBQueue txQueue
     liftIO $ traceWith tracer (PublishingTransaction tx)
-    send pub [] (Enc.encodeUtf8 $ show tx)
+    send pub [] (Enc.encodeUtf8 $ show $ toOnChainTx tx)
 
 transactionSyncer :: Tx tx => String -> TVar IO [PostChainTx tx] -> Tracer IO (MockChainLog tx) -> ZMQ z ()
 transactionSyncer chainCatchupAddress transactionLog tracer = do

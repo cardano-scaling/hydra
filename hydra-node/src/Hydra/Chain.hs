@@ -9,7 +9,7 @@ import Data.Aeson (FromJSON, ToJSON)
 import Data.Time (DiffTime)
 import Hydra.Ledger (Party, Tx, Utxo)
 import Hydra.Prelude (Arbitrary (arbitrary), genericArbitrary)
-import Hydra.Snapshot (Snapshot, SnapshotNumber)
+import Hydra.Snapshot (Snapshot (number), SnapshotNumber)
 
 -- | Contains the head's parameters as established in the initial transaction.
 data HeadParameters = HeadParameters
@@ -69,6 +69,18 @@ deriving instance Tx tx => FromJSON (OnChainTx tx)
 
 instance (Arbitrary tx, Arbitrary (Utxo tx)) => Arbitrary (OnChainTx tx) where
   arbitrary = genericArbitrary
+
+-- | Derive an 'OnChainTx' from 'PostChainTx'. This is primarily used in tests
+-- and simplified "chains".
+toOnChainTx :: PostChainTx tx -> OnChainTx tx
+toOnChainTx = \case
+  (InitTx hp) -> OnInitTx hp
+  (CommitTx pa ut) -> OnCommitTx pa ut
+  AbortTx{} -> OnAbortTx
+  CollectComTx{} -> OnCollectComTx
+  (CloseTx snap) -> OnCloseTx (number snap)
+  ContestTx{} -> OnContestTx
+  FanoutTx{} -> OnFanoutTx
 
 data ChainError = ChainError
   deriving (Exception, Show)

@@ -1,57 +1,49 @@
 {
     "samples": [
         {
-            "tag": "ShouldPostFanout"
-        },
-        {
-            "onChainTx": {
-                "contents": {
-                    "contestationPeriod": -22.002678473622,
-                    "parties": [
-                        13,
-                        1.8446744073709551613e19,
-                        1.8446744073709551588e19,
-                        1.8446744073709551611e19,
-                        12,
-                        17,
-                        12,
-                        2,
-                        12,
-                        18,
-                        14,
-                        4,
-                        1.8446744073709551615e19,
-                        19,
-                        1.844674407370955159e19,
-                        1.8446744073709551612e19,
-                        4,
-                        28,
-                        20,
-                        24,
-                        5,
-                        20,
-                        9,
-                        26,
-                        1.8446744073709551607e19,
-                        18,
-                        1.8446744073709551606e19,
-                        1.8446744073709551606e19,
-                        4
-                    ]
-                },
-                "tag": "InitTx"
+            "message": {
+                "party": 6,
+                "signed": "2daa215394a592f59bb115510945873d",
+                "snapshotNumber": 23,
+                "tag": "AckSn"
             },
-            "tag": "OnChainEvent"
+            "tag": "NetworkEvent"
+        },
+        {
+            "clientInput": {
+                "input": "abort"
+            },
+            "tag": "ClientEvent"
+        },
+        {
+            "tag": "DoSnapshot"
+        },
+        {
+            "message": {
+                "party": 1.8446744073709551597e19,
+                "tag": "ReqTx",
+                "transaction": {
+                    "id": 24,
+                    "inputs": [],
+                    "outputs": [
+                        -30,
+                        -28,
+                        -25,
+                        -21,
+                        -13,
+                        -1,
+                        5,
+                        6,
+                        15,
+                        16
+                    ]
+                }
+            },
+            "tag": "NetworkEvent"
         },
         {
             "tag": "ShouldPostFanout"
-        },
-        {
-            "tag": "DoSnapshot"
-        },
-        {
-            "tag": "DoSnapshot"
         }
     ],
-    "seed": -213000305
+    "seed": 233608483
 }

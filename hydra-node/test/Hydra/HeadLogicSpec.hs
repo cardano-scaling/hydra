@@ -10,7 +10,7 @@ import Hydra.Prelude
 
 import qualified Data.List as List
 import qualified Data.Set as Set
-import Hydra.Chain (HeadParameters (HeadParameters), OnChainTx (AbortTx, CollectComTx))
+import Hydra.Chain (HeadParameters (HeadParameters), OnChainTx (OnCollectComTx, OnAbortTx))
 import Hydra.ClientInput (ClientInput (..))
 import Hydra.HeadLogic (
   CoordinatedHeadState (..),
@@ -202,15 +202,15 @@ spec = describe "Hydra Coordinated Head Protocol" $ do
 
   it "cannot observe abort after collect com" $ do
     let s0 = inInitialState threeParties
-    s1 <- assertNewState $ update env ledger s0 (OnChainEvent $ CollectComTx mempty)
-    let invalidEvent = OnChainEvent $ AbortTx mempty
+    s1 <- assertNewState $ update env ledger s0 (OnChainEvent OnCollectComTx)
+    let invalidEvent = OnChainEvent OnAbortTx
     let s2 = update env ledger s1 invalidEvent
     s2 `shouldBe` Error (InvalidEvent invalidEvent s1)
 
   it "cannot observe collect com after abort" $ do
     let s0 = inInitialState threeParties
-    s1 <- assertNewState $ update env ledger s0 (OnChainEvent $ AbortTx mempty)
-    let invalidEvent = OnChainEvent $ CollectComTx mempty
+    s1 <- assertNewState $ update env ledger s0 (OnChainEvent OnAbortTx)
+    let invalidEvent = OnChainEvent OnCollectComTx
     let s2 = update env ledger s1 invalidEvent
     s2 `shouldBe` Error (InvalidEvent invalidEvent s1)
 

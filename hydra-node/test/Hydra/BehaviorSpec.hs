@@ -17,7 +17,7 @@ import Control.Monad.Class.MonadSTM (
  )
 import Control.Monad.Class.MonadTimer (timeout)
 import Control.Monad.IOSim (Failure (FailureDeadlock), IOSim, runSimTrace, selectTraceEventsDynamic)
-import Hydra.Chain (Chain (..))
+import Hydra.Chain (Chain (..), toOnChainTx)
 import Hydra.ClientInput
 import Hydra.HeadLogic (
   Effect (ClientEffect),
@@ -387,7 +387,7 @@ simulatedChainAndNetwork = do
       Just <$> readTVar nodes
     case res of
       Nothing -> pure ()
-      Just ns -> mapM_ (`handleChainTx` tx) ns
+      Just ns -> mapM_ (`handleChainTx` toOnChainTx tx) ns
 
   broadcast nodes msg = readTVarIO nodes >>= mapM_ (`handleMessage` msg)
 
