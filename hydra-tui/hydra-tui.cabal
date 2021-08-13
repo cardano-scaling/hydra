@@ -77,8 +77,9 @@ library
   exposed-modules:
     Hydra.TUI
   build-depends: base
-    , brick
-    , hydra-prelude
+               , brick
+               , hydra-prelude
+               , vty
 
 executable hydra-tui
   import: project-config
@@ -87,6 +88,9 @@ executable hydra-tui
   build-depends: base
     , hydra-prelude
     , hydra-tui
+  ghc-options:
+    -threaded
+    -rtsopts
 
 test-suite unit
   import: project-config
