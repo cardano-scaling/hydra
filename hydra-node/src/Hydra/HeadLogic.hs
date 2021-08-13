@@ -179,12 +179,14 @@ update Environment{party, signingKey, otherParties, snapshotStrategy} ledger st 
     --       We shouldn't see any commit outside of the collecting state, if we do,
     --       there's an issue our logic or onChain layer.
     sameState []
-  (InitialState parameters remainingParties committed, OnChainEvent OnCollectComTx)
-    | null remainingParties ->
-      let u0 = fold committed
-       in nextState
-            (OpenState parameters $ CoordinatedHeadState u0 mempty (Snapshot 0 u0 mempty) Nothing)
-            [ClientEffect $ HeadIsOpen u0]
+  (InitialState parameters _remainingParties committed, OnChainEvent OnCollectComTx) ->
+    -- TODO: We would want to check whether this even matches our local state.
+    -- For example, we do expect `null remainingParties` but what happens if
+    -- it's untrue?
+    let u0 = fold committed
+     in nextState
+          (OpenState parameters $ CoordinatedHeadState u0 mempty (Snapshot 0 u0 mempty) Nothing)
+          [ClientEffect $ HeadIsOpen u0]
   (InitialState _ _ committed, OnChainEvent OnAbortTx) ->
     nextState ReadyState [ClientEffect $ HeadIsAborted $ fold committed]
   --
