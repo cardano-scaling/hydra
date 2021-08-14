@@ -20,7 +20,7 @@ cabal haddock all -fdefer-plutus-plugin-errors
 doc_indices=$(find dist-newstyle/build  -name index.html)
 
 for index in ${doc_indices}; do
-  echo "Copying ${index}"
   parent=$(dirname ${index})
-  cp -r ${parent} docs/haddock
+  echo "Copying ${parent} to docs/haddock"
+  cp -fr ${parent} docs/haddock
 done

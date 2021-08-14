@@ -70,6 +70,7 @@ The latest specification for the `hydra-node` WebSocket API can be viewed [here]
 * [hydra-node](https://input-output-hk.github.io/hydra-poc/haddock/hydra-node/index.html)
 * [hydra-plutus](https://input-output-hk.github.io/hydra-poc/haddock/hydra-plutus/index.html)
 * [local-cluster](https://input-output-hk.github.io/hydra-poc/haddock/local-cluster/index.html)
+* [merkle-patricia-tree](https://input-output-hk.github.io/hydra-poc/haddock/merkle-patricia-tree/index.html)
 
 ## Try it out
 
