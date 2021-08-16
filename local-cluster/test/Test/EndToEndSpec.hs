@@ -11,8 +11,16 @@ import Cardano.Crypto.DSIGN (
   MockDSIGN,
   SignKeyDSIGN,
   VerKeyDSIGN,
+  genKeyDSIGN,
  )
-import Data.Aeson (object, (.=))
+import Cardano.Crypto.DSIGN.Ed25519 (Ed25519DSIGN)
+import Cardano.Crypto.Seed (mkSeedFromBytes)
+import Cardano.Ledger.Address (Addr (Addr), toCred)
+import Cardano.Ledger.BaseTypes (Network (Mainnet))
+import Cardano.Ledger.Credential (StakeReference (StakeRefNull))
+import Cardano.Ledger.Crypto (StandardCrypto)
+import Cardano.Ledger.Keys (KeyPair (..), VKey (VKey))
+import Data.Aeson (Value (String), object, (.=))
 import qualified Data.ByteString as BS
 import Hydra.Logging (showLogsOnFailure)
 import HydraNode (
@@ -68,7 +76,7 @@ someUtxo =
 someOutput :: Value
 someOutput =
   object
-    [ "address" .= anyoneCanSpend
+    [ "address" .= inHeadAliceAddress
     , "value"
         .= object
           [ "coins" .= int 14
@@ -81,6 +89,16 @@ someOutputRef =
     [ "txId" .= String "9fdc525c20bc00d9dfa9d14904b65e01910c0dfe3bb39865523c1e20eaeb0903"
     , "index" .= int 0
     ]
+
+inHeadAliceSk :: SignKeyDSIGN Ed25519DSIGN
+inHeadAliceSk = genKeyDSIGN $ mkSeedFromBytes "alice"
+
+inHeadAliceAddress :: Value
+inHeadAliceAddress =
+  let pubKey = deriveVerKeyDSIGN inHeadAliceSk
+      creds = toCred @StandardCrypto $ KeyPair{vKey = VKey pubKey, sKey = inHeadAliceSk}
+      ref = StakeRefNull
+   in toJSON $ Addr Mainnet creds ref
 
 spec :: Spec
 spec = around showLogsOnFailure $
@@ -104,15 +122,19 @@ spec = around showLogsOnFailure $
 
                     waitFor tracer 3 [n1, n2, n3] $ output "headIsOpen" ["utxo" .= [someUtxo]]
 
-                    let tx =
+                    let txBody = object ["inputs" .= [someOutputRef], "outputs" .= [someOutput]]
+
+                        signedTxBody = error "not implemented: use cardano-api to sign a tx body (not the above JSON thing) with alice key"
+
+                        tx =
                           object
-                            [ "body" .= object ["inputs" .= [someOutputRef], "outputs" .= [someOutput]]
+                            [ "body" .= txBody
                             , "witnesses"
                                 .= object
                                   [ "verificationKeys"
                                       .= [ object
-                                            [ "key" .= String ""
-                                            , "signature" .= String ""
+                                            [ "key" .= inHeadAliceSk
+                                            , "signature" .= signedTxBody
                                             ]
                                          ]
                                   ]
