@@ -40,11 +40,8 @@ import Data.Aeson.Types (Pair)
 import qualified Data.ByteString as BS
 import qualified Data.List as List
 import qualified Data.Text as T
-import Data.Text.IO (hPutStrLn)
 import GHC.IO.Handle (hDuplicate)
 import Hydra.Logging (Tracer, traceWith)
-import Test.Network.Ports (randomUnusedTCPPorts)
-import Test.Hydra.Prelude (createSystemTempDirectory, failAfter, failure)
 import Network.HTTP.Conduit (HttpExceptionContent (ConnectionFailure), parseRequest)
 import Network.HTTP.Simple (HttpException (HttpExceptionRequest), Response, getResponseBody, getResponseStatusCode, httpBS)
 import Network.WebSockets (Connection, receiveData, runClient, sendClose, sendTextData)
@@ -62,6 +59,8 @@ import System.Process (
   withCreateProcess,
  )
 import System.Timeout (timeout)
+import Test.Hydra.Prelude (createSystemTempDirectory, failAfter, failure)
+import Test.Network.Ports (randomUnusedTCPPorts)
 
 data HydraClient = HydraClient
   { hydraNodeId :: Int
@@ -76,8 +75,7 @@ input :: Text -> [Pair] -> Value
 input tag pairs = object $ ("input" .= tag) : pairs
 
 send :: HydraClient -> Value -> IO ()
-send HydraClient{hydraNodeId, connection, nodeStdout} v = do
-  hPutStrLn nodeStdout ("Tester sending to " <> show hydraNodeId <> ": " <> show v)
+send HydraClient{connection} v =
   sendTextData connection (Aeson.encode v)
 
 -- | Create an output as expected by 'waitFor' and 'waitForAll'.

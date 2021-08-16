@@ -106,6 +106,7 @@ library
     , aeson
     , base
     , base16
+    , bytestring
     , cardano-binary
     , cardano-crypto-class
     , cardano-ledger-core
@@ -185,6 +186,7 @@ test-suite tests
     Hydra.Ledger.SimpleSpec
     Hydra.LedgerSpec
     Hydra.Logging.MonitoringSpec
+    Hydra.LoggingSpec
     Hydra.Network.BroadcastToSelfSpec
     Hydra.Network.HeartbeatSpec
     Hydra.NetworkSpec
@@ -222,6 +224,7 @@ test-suite tests
     , QuickCheck
     , quickcheck-instances
     , req
+    , silently
     , temporary
     , text
     , typed-protocols-examples

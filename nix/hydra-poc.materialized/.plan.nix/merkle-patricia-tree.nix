@@ -18,8 +18,8 @@
       author = "IOHK";
       homepage = "";
       url = "";
-      synopsis = "";
-      description = "An implementation of the Merkle Patricia Tree algorithm.";
+      synopsis = "An implementation of the Merkle Patricia Tree algorithm.";
+      description = "";
       buildType = "Simple";
       isLocal = true;
       detailLevel = "FullDetails";
@@ -51,15 +51,17 @@
             (hsPkgs."bytestring" or (errorHandler.buildDepError "bytestring"))
             (hsPkgs."QuickCheck" or (errorHandler.buildDepError "QuickCheck"))
             (hsPkgs."hspec" or (errorHandler.buildDepError "hspec"))
+            (hsPkgs."hydra-prelude" or (errorHandler.buildDepError "hydra-prelude"))
+            (hsPkgs."hydra-test-utils" or (errorHandler.buildDepError "hydra-test-utils"))
             (hsPkgs."merkle-patricia-tree" or (errorHandler.buildDepError "merkle-patricia-tree"))
             ];
           build-tools = [
             (hsPkgs.buildPackages.hspec-discover.components.exes.hspec-discover or (pkgs.buildPackages.hspec-discover or (errorHandler.buildToolDepError "hspec-discover:hspec-discover")))
             ];
           buildable = true;
-          modules = [ "Data/Tree/MerklePatriciaSpec" ];
+          modules = [ "Data/Tree/MerklePatriciaSpec" "Spec" ];
           hsSourceDirs = [ "test" ];
-          mainPath = [ "Spec.hs" ];
+          mainPath = [ "Main.hs" ];
           };
         };
       };

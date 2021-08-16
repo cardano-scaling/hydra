@@ -18,8 +18,8 @@
       author = "IOHK";
       homepage = "";
       url = "";
-      synopsis = "";
-      description = "Hydra node executable (server";
+      synopsis = "The Hydra node";
+      description = "";
       buildType = "Simple";
       isLocal = true;
       detailLevel = "FullDetails";
@@ -36,6 +36,7 @@
           (hsPkgs."base" or (errorHandler.buildDepError "base"))
           (hsPkgs."aeson" or (errorHandler.buildDepError "aeson"))
           (hsPkgs."base16" or (errorHandler.buildDepError "base16"))
+          (hsPkgs."bytestring" or (errorHandler.buildDepError "bytestring"))
           (hsPkgs."cardano-binary" or (errorHandler.buildDepError "cardano-binary"))
           (hsPkgs."cardano-crypto-class" or (errorHandler.buildDepError "cardano-crypto-class"))
           (hsPkgs."cardano-ledger-core" or (errorHandler.buildDepError "cardano-ledger-core"))
@@ -138,8 +139,10 @@
       tests = {
         "tests" = {
           depends = [
-            (hsPkgs."base" or (errorHandler.buildDepError "base"))
+            (hsPkgs."HUnit" or (errorHandler.buildDepError "HUnit"))
+            (hsPkgs."QuickCheck" or (errorHandler.buildDepError "QuickCheck"))
             (hsPkgs."aeson" or (errorHandler.buildDepError "aeson"))
+            (hsPkgs."base" or (errorHandler.buildDepError "base"))
             (hsPkgs."cardano-binary" or (errorHandler.buildDepError "cardano-binary"))
             (hsPkgs."cardano-crypto-class" or (errorHandler.buildDepError "cardano-crypto-class"))
             (hsPkgs."cborg" or (errorHandler.buildDepError "cborg"))
@@ -149,14 +152,12 @@
             (hsPkgs."hspec" or (errorHandler.buildDepError "hspec"))
             (hsPkgs."hspec-core" or (errorHandler.buildDepError "hspec-core"))
             (hsPkgs."hspec-golden-aeson" or (errorHandler.buildDepError "hspec-golden-aeson"))
-            (hsPkgs."hspec-junit-formatter" or (errorHandler.buildDepError "hspec-junit-formatter"))
-            (hsPkgs."HUnit" or (errorHandler.buildDepError "HUnit"))
             (hsPkgs."hydra-node" or (errorHandler.buildDepError "hydra-node"))
             (hsPkgs."hydra-plutus" or (errorHandler.buildDepError "hydra-plutus"))
             (hsPkgs."hydra-prelude" or (errorHandler.buildDepError "hydra-prelude"))
             (hsPkgs."hydra-test-utils" or (errorHandler.buildDepError "hydra-test-utils"))
-            (hsPkgs."io-sim" or (errorHandler.buildDepError "io-sim"))
             (hsPkgs."io-classes" or (errorHandler.buildDepError "io-classes"))
+            (hsPkgs."io-sim" or (errorHandler.buildDepError "io-sim"))
             (hsPkgs."iproute" or (errorHandler.buildDepError "iproute"))
             (hsPkgs."lens" or (errorHandler.buildDepError "lens"))
             (hsPkgs."lens-aeson" or (errorHandler.buildDepError "lens-aeson"))
@@ -164,12 +165,12 @@
             (hsPkgs."process" or (errorHandler.buildDepError "process"))
             (hsPkgs."quickcheck-instances" or (errorHandler.buildDepError "quickcheck-instances"))
             (hsPkgs."req" or (errorHandler.buildDepError "req"))
+            (hsPkgs."silently" or (errorHandler.buildDepError "silently"))
             (hsPkgs."temporary" or (errorHandler.buildDepError "temporary"))
             (hsPkgs."text" or (errorHandler.buildDepError "text"))
             (hsPkgs."typed-protocols-examples" or (errorHandler.buildDepError "typed-protocols-examples"))
-            (hsPkgs."yaml" or (errorHandler.buildDepError "yaml"))
             (hsPkgs."websockets" or (errorHandler.buildDepError "websockets"))
-            (hsPkgs."QuickCheck" or (errorHandler.buildDepError "QuickCheck"))
+            (hsPkgs."yaml" or (errorHandler.buildDepError "yaml"))
             ];
           build-tools = [
             (hsPkgs.buildPackages.hspec-discover.components.exes.hspec-discover or (pkgs.buildPackages.hspec-discover or (errorHandler.buildToolDepError "hspec-discover:hspec-discover")))
@@ -187,6 +188,7 @@
             "Hydra/HeadLogicSpec"
             "Hydra/LedgerSpec"
             "Hydra/Ledger/SimpleSpec"
+            "Hydra/LoggingSpec"
             "Hydra/Logging/MonitoringSpec"
             "Hydra/NetworkSpec"
             "Hydra/Network/HeartbeatSpec"

@@ -1,4 +1,5 @@
 {-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE UndecidableInstances #-}
 
 -- | Adapter module to the actual logging framework. For now we are using the
@@ -10,12 +11,11 @@ module Hydra.Logging (
   nullTracer,
   traceWith,
   traceInTVar,
-  LoggerName,
+  ToObject (..),
+  TracingVerbosity (..),
 
   -- * Using it
-  ToObject (..),
   Verbosity (..),
-  TracingVerbosity (..),
   withTracer,
   contramap,
   showLogsOnFailure,
@@ -23,83 +23,66 @@ module Hydra.Logging (
 
 import Hydra.Prelude
 
-import Cardano.BM.Backend.Switchboard (
-  Switchboard,
- )
-import Cardano.BM.Configuration.Static (
-  defaultConfigStdout,
- )
-import Cardano.BM.Data.LogItem (
-  LOContent (..),
-  LogObject (..),
-  LoggerName,
-  PrivacyAnnotation (..),
-  mkLOMeta,
- )
-import Cardano.BM.Data.Severity (
-  Severity (..),
- )
-import Cardano.BM.Data.Tracer (
-  ToObject (..),
-  TracingVerbosity (..),
- )
-import Cardano.BM.Setup (
-  setupTrace_,
-  shutdown,
- )
+import Cardano.BM.Tracing (ToObject (..), TracingVerbosity (..))
+import Control.Monad.Class.MonadFork (myThreadId)
+import Control.Monad.Class.MonadSTM (flushTBQueue, modifyTVar, newTBQueueIO, newTVarIO, readTVarIO, writeTBQueue)
+import Control.Monad.Class.MonadSay (MonadSay, say)
 import Control.Tracer (
   Tracer (..),
   natTracer,
   nullTracer,
   traceWith,
  )
+import Data.Aeson (Value, encode, object, (.=))
+import qualified Data.ByteString.Lazy as LBS
+import qualified Data.Text as Text
+import qualified Data.Text.IO as TIO
 
-import qualified Cardano.BM.Configuration.Model as CM
-import qualified Cardano.BM.Data.BackendKind as CM
-import Control.Monad.Class.MonadSTM (modifyTVar, newTVarIO, readTVarIO)
-import Control.Monad.Class.MonadSay (MonadSay, say)
-
-data Verbosity = Quiet | Verbose LoggerName
+data Verbosity = Quiet | Verbose Text
   deriving (Eq, Show)
 
--- | Acquire a tracer that automatically shutdown once the action is done via
--- bracket-style allocation.
+defaultQueueSize :: Natural
+defaultQueueSize = 500
+
+-- | Start logging thread and acquire a 'Tracer'.
+-- This tracer will dump all messsages on @stdout@, one message per line,
+-- formatted as JSON.
 withTracer ::
   forall m msg a.
-  (MonadIO m, ToObject msg) =>
+  (MonadIO m, ToJSON msg) =>
   Verbosity ->
   (Tracer m msg -> IO a) ->
   IO a
-withTracer Quiet between = between nullTracer
-withTracer (Verbose name) between = do
-  bracket before after (between . natTracer liftIO . fst)
+withTracer Quiet action = action nullTracer
+withTracer (Verbose name) action = do
+  msgQueue <- newTBQueueIO @_ @Value defaultQueueSize
+  withAsync (logMessagesToStdout msgQueue) $ \_ ->
+    action (tracer msgQueue) `finally` flushLogs msgQueue
  where
-  before :: IO (Tracer IO msg, Switchboard ())
-  before = do
-    config <- defaultConfigStdout
-    CM.setSetupBackends config [CM.KatipBK]
-    CM.setMinSeverity config Debug
-    CM.setDefaultScribes config ["StdoutSK::json"]
-    -- TODO: Pass those down from parent context, to appear in the logs:
-    --
-    -- CM.setTextOption config "appversion" version
-    -- CM.setTextOption config "appcommit" commit
-    first transformLogObject <$> setupTrace_ config name
+  tracer queue =
+    Tracer
+      ( \msg ->
+          liftIO (mkEnvelop msg >>= atomically . writeTBQueue queue)
+      )
 
-  after :: (tracer, Switchboard ()) -> IO ()
-  after = shutdown . snd
+  mkEnvelop :: msg -> IO Value
+  mkEnvelop msg = do
+    timestamp <- liftIO getCurrentTime
+    threadId <- Text.drop 9 . show <$> liftIO myThreadId
+    pure $
+      object
+        [ "namespace" .= name
+        , "timestamp" .= timestamp
+        , "thread" .= threadId
+        , "message" .= msg
+        ]
 
--- | Tracer transformer which converts 'Trace m a' to 'Tracer m a' by wrapping
--- typed log messages into a 'LogObject'. NOTE: All log messages are of severity
--- 'Debug'.
-transformLogObject ::
-  (MonadIO m, ToObject msg) =>
-  Tracer m (LoggerName, LogObject ()) ->
-  Tracer m msg
-transformLogObject tr = Tracer $ \msg -> do
-  traceWith tr . (mempty,) =<< LogObject mempty
-    <$> mkLOMeta Debug Public
-    <*> pure (LogStructured (toObject MaximalVerbosity msg))
+  logMessagesToStdout queue = forever $ flushLogs queue
+
+  flushLogs queue = do
+    entries <- atomically $ flushTBQueue queue
+    forM_ entries (TIO.putStrLn . decodeUtf8With lenientDecode . LBS.toStrict . encode)
+    hFlush stdout
 
 traceInTVar :: MonadSTM m => TVar m [a] -> Tracer m a
 traceInTVar tvar = Tracer $ \a ->

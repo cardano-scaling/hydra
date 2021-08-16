@@ -18,8 +18,8 @@
       author = "IOHK";
       homepage = "";
       url = "";
-      synopsis = "";
-      description = "Integration test suite using a local cluster of cardano and hydra nodes";
+      synopsis = "Integration test suite using a local cluster of cardano and hydra nodes";
+      description = "";
       buildType = "Simple";
       isLocal = true;
       detailLevel = "FullDetails";
@@ -90,7 +90,6 @@
             (hsPkgs."cardano-crypto-class" or (errorHandler.buildDepError "cardano-crypto-class"))
             (hsPkgs."hspec" or (errorHandler.buildDepError "hspec"))
             (hsPkgs."hspec-core" or (errorHandler.buildDepError "hspec-core"))
-            (hsPkgs."hspec-junit-formatter" or (errorHandler.buildDepError "hspec-junit-formatter"))
             (hsPkgs."hydra-node" or (errorHandler.buildDepError "hydra-node"))
             (hsPkgs."hydra-prelude" or (errorHandler.buildDepError "hydra-prelude"))
             (hsPkgs."hydra-test-utils" or (errorHandler.buildDepError "hydra-test-utils"))
