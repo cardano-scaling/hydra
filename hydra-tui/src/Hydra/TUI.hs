@@ -5,22 +5,30 @@ module Hydra.TUI where
 
 import Hydra.Prelude hiding (State)
 
-import Brick (App (..), AttrMap, BrickEvent (VtyEvent), EventM, Next, Widget, continue, defaultMain, hBox, hLimit, halt, joinBorders, showFirstCursor, str, withBorderStyle, (<=>))
+import Brick (App (..), AttrMap, BrickEvent (AppEvent, VtyEvent), EventM, Next, Widget, continue, customMain, hBox, hLimit, halt, joinBorders, showFirstCursor, str, withBorderStyle, (<=>))
 import Brick.AttrMap (attrMap)
+import Brick.BChan (newBChan, writeBChan)
 import Brick.Widgets.Border (hBorder, vBorder)
 import Brick.Widgets.Border.Style (ascii)
 import Data.Version (showVersion)
-import Graphics.Vty (Event (EvKey), Key (KChar), Modifier (MCtrl))
+import Graphics.Vty (Event (EvKey), Key (KChar), Modifier (MCtrl), defaultConfig, mkVty)
 import Graphics.Vty.Attributes (defAttr)
-import Paths_hydra_tui (version)
 import Hydra.Client (withClient)
 import Hydra.Ledger.Simple (SimpleTx)
+import Hydra.ServerOutput (ServerOutput (PeerConnected))
+import Paths_hydra_tui (version)
+import Hydra.Ledger (Tx)
 
 run :: IO State
-run =
-  withClient @SimpleTx print $ \_client ->
-    defaultMain app initialState
+run = do
+  eventChan <- newBChan 10
+  -- REVIEW(SN): what happens if callback blocks?
+  withClient @SimpleTx (writeBChan eventChan) $ \_client -> do
+    initialVty <- buildVty
+    customMain initialVty buildVty (Just eventChan) app initialState
  where
+  buildVty = mkVty defaultConfig
+
   initialState = State
 
   app =
@@ -34,9 +42,9 @@ run =
 
 data State = State
 
-type ResourceName = ()
+type Name = ()
 
-draw :: State -> [Widget ResourceName]
+draw :: State -> [Widget Name]
 draw _ =
   pure $
     withBorderStyle ascii $
@@ -55,13 +63,15 @@ draw _ =
 
   commands = str "Commands:" <=> str "[q]uit"
 
-handleEvent :: State -> BrickEvent n e -> EventM n (Next State)
+handleEvent :: Tx tx => State -> BrickEvent Name (ServerOutput tx) -> EventM Name (Next State)
 handleEvent s = \case
   -- Quit
   VtyEvent (EvKey (KChar 'c') [MCtrl]) -> halt s
   VtyEvent (EvKey (KChar 'd') [MCtrl]) -> halt s
   VtyEvent (EvKey (KChar 'q') _) -> halt s
-  _ -> continue s
+  -- App events
+  AppEvent (PeerConnected _) -> continue s
+  e -> error $ "unhandled event: " <> show e
 
 style :: State -> AttrMap
 style _ = attrMap defAttr []
