@@ -16,7 +16,7 @@ import Control.Monad.Class.MonadSTM (
   writeTQueue,
  )
 import qualified Data.Aeson as Aeson
-import Hydra.API.Server (withAPIServer)
+import Hydra.API.Server (Server(Server,sendOutput), withAPIServer)
 import Hydra.Ledger.Simple (SimpleTx)
 import Hydra.Logging (nullTracer)
 import Hydra.ServerOutput (ServerOutput (InvalidInput, ReadyToCommit), input)
@@ -31,7 +31,7 @@ spec = describe "API Server" $ do
     queue <- atomically newTQueue
     failAfter 5 $
       withFreePort $ \port ->
-        withAPIServer @SimpleTx "127.0.0.1" (fromIntegral port) nullTracer noop $ \sendOutput -> do
+        withAPIServer @SimpleTx "127.0.0.1" (fromIntegral port) nullTracer noop $ \Server{sendOutput} -> do
           semaphore <- newTVarIO 0
           withAsync
             ( concurrently_
@@ -52,7 +52,7 @@ spec = describe "API Server" $ do
     monitor $ cover 1 (length msgs > 1) "more than one message when reconnecting"
     run . failAfter 5 $ do
       withFreePort $ \port ->
-        withAPIServer @SimpleTx "127.0.0.1" (fromIntegral port) nullTracer noop $ \sendOutput -> do
+        withAPIServer @SimpleTx "127.0.0.1" (fromIntegral port) nullTracer noop $ \Server{sendOutput} -> do
           mapM_ sendOutput (msgs :: [ServerOutput SimpleTx])
           withClient port $ \conn -> do
             received <- replicateM (length msgs) (receiveData conn)
@@ -66,7 +66,7 @@ spec = describe "API Server" $ do
 
 sendsAnErrorWhenInputCannotBeDecoded :: Int -> Expectation
 sendsAnErrorWhenInputCannotBeDecoded port = do
-  withAPIServer @SimpleTx "127.0.0.1" (fromIntegral port) nullTracer noop $ \_sendOutput -> do
+  withAPIServer @SimpleTx "127.0.0.1" (fromIntegral port) nullTracer noop $ \_server -> do
     withClient port $ \con -> do
       sendBinaryData con invalidInput
       msg <- receiveData con

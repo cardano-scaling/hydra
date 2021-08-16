@@ -19,6 +19,7 @@ import Control.Monad.Class.MonadSTM (
  )
 import Control.Monad.Class.MonadTimer (timeout)
 import Control.Monad.IOSim (Failure (FailureDeadlock), IOSim, runSimTrace, selectTraceEventsDynamic)
+import Hydra.API.Server (Server (..))
 import Hydra.Chain (Chain (..), toOnChainTx)
 import Hydra.ClientInput
 import Hydra.HeadLogic (
@@ -433,7 +434,7 @@ withHydraNode signingKey otherParties snapshotStrategy connectToChain action = d
             , hn = hn'
             , hh
             , oc = Chain (const $ pure ())
-            , sendOutput = atomically . writeTQueue outputs
+            , server = Server{sendOutput = atomically . writeTQueue outputs}
             , env
             }
     connectToChain node

@@ -27,7 +27,7 @@ import Hydra.Logging (Tracer, traceWith)
 import Hydra.Network (Network (..))
 import Hydra.Network.Message (Message)
 import Hydra.Options (Options (..))
-import Hydra.ServerOutput (ServerOutput)
+import Hydra.API.Server (sendOutput, Server)
 
 -- * Environment Handling
 
@@ -64,7 +64,7 @@ data HydraNode tx m = HydraNode
   , hn :: Network m (Message tx)
   , hh :: HydraHead tx m
   , oc :: Chain tx m
-  , sendOutput :: ServerOutput tx -> m ()
+  , server :: Server tx m
   , env :: Environment
   }
 
@@ -148,10 +148,10 @@ processEffect ::
   Tracer m (HydraNodeLog tx) ->
   Effect tx ->
   m ()
-processEffect HydraNode{hn, oc, sendOutput, eq, env = Environment{party}} tracer e = do
+processEffect HydraNode{hn, oc, server, eq, env = Environment{party}} tracer e = do
   traceWith tracer $ ProcessingEffect party e
   case e of
-    ClientEffect i -> sendOutput i
+    ClientEffect i -> sendOutput server i
     NetworkEffect msg -> broadcast hn msg
     OnChainEffect tx -> postTx oc tx
     Delay after event -> void . async $ threadDelay after >> putEvent eq event

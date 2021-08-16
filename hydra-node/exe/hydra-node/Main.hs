@@ -39,8 +39,8 @@ main = do
       hh <- createHydraHead ReadyState Ledger.cardanoLedger
       withMockChain (contramap MockChain tracer) mockChainPorts (putEvent eq . OnChainEvent) $ \oc ->
         withNetwork (contramap Network tracer) (party env) host port peers (putEvent eq . NetworkEvent) $ \hn ->
-          withAPIServer apiHost apiPort (contramap APIServer tracer) (putEvent eq . ClientEvent) $ \sendOutput ->
-            runHydraNode (contramap Node tracer) $ HydraNode{eq, hn, hh, oc, sendOutput, env}
+          withAPIServer apiHost apiPort (contramap APIServer tracer) (putEvent eq . ClientEvent) $ \server ->
+            runHydraNode (contramap Node tracer) $ HydraNode{eq, hn, hh, oc, server, env}
  where
   withNetwork tracer party host port peers =
     let localhost = Host{hostName = show host, portNumber = port}
