@@ -5,14 +5,14 @@ module Hydra.TUI where
 
 import Hydra.Prelude hiding (State)
 
-import Brick (App (..), AttrMap, BrickEvent (AppEvent, VtyEvent), EventM, Next, Widget, continue, customMain, hBox, hLimit, halt, joinBorders, showFirstCursor, str, vBox, withBorderStyle, (<=>))
+import Brick (App (..), AttrMap, AttrName, BrickEvent (AppEvent, VtyEvent), EventM, Next, Widget, continue, customMain, fg, hBox, hLimit, halt, joinBorders, showFirstCursor, str, vBox, withAttr, withBorderStyle, (<+>), (<=>))
 import Brick.AttrMap (attrMap)
 import Brick.BChan (newBChan, writeBChan)
 import Brick.Widgets.Border (hBorder, vBorder)
 import Brick.Widgets.Border.Style (ascii)
 import Data.List (nub, (\\))
 import Data.Version (showVersion)
-import Graphics.Vty (Event (EvKey), Key (KChar), Modifier (MCtrl), defaultConfig, mkVty)
+import Graphics.Vty (Event (EvKey), Key (KChar), Modifier (MCtrl), blue, defaultConfig, green, mkVty, red)
 import Graphics.Vty.Attributes (defAttr)
 import Hydra.Client (HydraEvent (..), withClient)
 import Hydra.Ledger (Party, Tx)
@@ -75,22 +75,21 @@ draw s =
     withBorderStyle ascii $
       joinBorders $
         hBox
-          [ versions
+          [ drawInfo
           , vBorder
-          , commands
+          , drawCommands
           ]
  where
-  versions = hLimit 30 (tuiVersion <=> nodeVersion <=> hBorder <=> drawPeers)
+  drawInfo = hLimit 30 (tuiVersion <=> nodeStatus <=> hBorder <=> drawPeers)
 
-  tuiVersion = str $ "Hydra TUI " <> showVersion version
+  tuiVersion = str "TUI  " <+> withAttr info (str (showVersion version))
 
-  nodeVersion =
-    str $
-      "Hydra Node: " <> case s of
-        Disconnected -> "disconnected"
-        Connected{} -> "connected"
+  nodeStatus =
+    str "Node " <+> case s of
+      Disconnected -> withAttr negative $ str "disconnected"
+      Connected{} -> withAttr positive $ str "connected"
 
-  commands = str "Commands:" <=> str "[q]uit"
+  drawCommands = str "Commands:" <=> str "[q]uit"
 
   drawPeers = vBox $ case s of
     Connected{connectedPeers} -> str "Connected peers:" : map drawPeer connectedPeers
@@ -99,4 +98,19 @@ draw s =
   drawPeer = str . show
 
 style :: State -> AttrMap
-style _ = attrMap defAttr []
+style _ =
+  attrMap
+    defAttr
+    [ (info, fg blue)
+    , (negative, fg red)
+    , (positive, fg green)
+    ]
+
+info :: AttrName
+info = "info"
+
+positive :: AttrName
+positive = "positive"
+
+negative :: AttrName
+negative = "negative"
