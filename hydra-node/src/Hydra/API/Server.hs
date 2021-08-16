@@ -1,6 +1,9 @@
 {-# LANGUAGE TypeApplications #-}
 
 module Hydra.API.Server (
+  Server (..),
+  ServerCallback,
+  ServerComponent,
   withAPIServer,
   APIServerLog,
 ) where
@@ -35,23 +38,35 @@ data APIServerLog
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON)
 
+-- | Handle to provide a means for sending server outputs to clients.
+newtype Server tx m = Server
+  { -- | Send some output to all connected clients.
+    sendOutput :: ServerOutput tx -> m ()
+  }
+
+-- | Callback for receiving client inputs.
+type ServerCallback tx m = ClientInput tx -> m ()
+
+-- | A type tying both receiving input and sending output into a /Component/.
+type ServerComponent tx m a = ServerCallback tx m -> (Server tx m -> m a) -> m a
+
 withAPIServer ::
   Tx tx =>
   IP ->
   PortNumber ->
   Tracer IO APIServerLog ->
-  (ClientInput tx -> IO ()) ->
-  ((ServerOutput tx -> IO ()) -> IO ()) ->
-  IO ()
-withAPIServer host port tracer inputHandler continuation = do
+  ServerComponent tx IO ()
+withAPIServer host port tracer callback action = do
   responseChannel <- newBroadcastTChanIO
   history <- newTVarIO []
-  let sendOutput output = atomically $ do
-        modifyTVar' history (output :)
-        writeTChan responseChannel output
   race_
-    (runAPIServer host port tracer history inputHandler responseChannel)
-    (continuation sendOutput)
+    (runAPIServer host port tracer history callback responseChannel)
+    . action
+    $ Server
+      { sendOutput = \output -> atomically $ do
+          modifyTVar' history (output :)
+          writeTChan responseChannel output
+      }
 
 runAPIServer ::
   forall tx.
@@ -63,7 +78,7 @@ runAPIServer ::
   (ClientInput tx -> IO ()) ->
   TChan (ServerOutput tx) ->
   IO ()
-runAPIServer host port tracer history inputHandler responseChannel = do
+runAPIServer host port tracer history callback responseChannel = do
   traceWith tracer (APIServerStarted port)
   runServer (show host) (fromIntegral port) $ \pending -> do
     con <- acceptRequest pending
@@ -84,7 +99,7 @@ runAPIServer host port tracer history inputHandler responseChannel = do
     case Aeson.eitherDecode msg of
       Right input -> do
         traceWith tracer (APIInputReceived $ toJSON input)
-        inputHandler input
+        callback input
       Left e -> do
         -- XXX(AB): toStrict might be problematic as it implies consuming the full
         -- message to memory
