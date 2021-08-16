@@ -75,13 +75,17 @@ library
   import: project-config
   hs-source-dirs:   src
   exposed-modules:
+    Hydra.Client
     Hydra.TUI
   other-modules:
     Paths_hydra_tui
-  build-depends: base
+  build-depends: aeson
+               , base
                , brick
+               , hydra-node
                , hydra-prelude
                , vty
+               , websockets
 
 executable hydra-tui
   import: project-config

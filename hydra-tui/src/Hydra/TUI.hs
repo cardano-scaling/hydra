@@ -1,21 +1,25 @@
 {-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE TypeApplications #-}
 
 module Hydra.TUI where
 
 import Hydra.Prelude hiding (State)
 
-import Brick (App (..), AttrMap, BrickEvent (VtyEvent), EventM, Next, Widget, continue, defaultMain, hBox, hLimit, halt, joinBorders, showFirstCursor, str, vBox, withBorderStyle, (<+>), (<=>))
+import Brick (App (..), AttrMap, BrickEvent (VtyEvent), EventM, Next, Widget, continue, defaultMain, hBox, hLimit, halt, joinBorders, showFirstCursor, str, withBorderStyle, (<=>))
 import Brick.AttrMap (attrMap)
-import Brick.Widgets.Border (border, hBorder, vBorder)
-import Brick.Widgets.Border.Style (ascii, unicodeBold, unicodeRounded)
-import Brick.Widgets.Center (hCenter)
+import Brick.Widgets.Border (hBorder, vBorder)
+import Brick.Widgets.Border.Style (ascii)
 import Data.Version (showVersion)
 import Graphics.Vty (Event (EvKey), Key (KChar), Modifier (MCtrl))
 import Graphics.Vty.Attributes (defAttr)
 import Paths_hydra_tui (version)
+import Hydra.Client (withClient)
+import Hydra.Ledger.Simple (SimpleTx)
 
 run :: IO State
-run = defaultMain app initialState
+run =
+  withClient @SimpleTx print $ \_client ->
+    defaultMain app initialState
  where
   initialState = State
 
