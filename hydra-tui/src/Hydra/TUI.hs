@@ -14,7 +14,7 @@ import Data.List (nub, (\\))
 import Data.Version (showVersion)
 import Graphics.Vty (Event (EvKey), Key (KChar), Modifier (MCtrl), defaultConfig, mkVty)
 import Graphics.Vty.Attributes (defAttr)
-import Hydra.Client (withClient)
+import Hydra.Client (HydraEvent (..), withClient)
 import Hydra.Ledger (Party, Tx)
 import Hydra.Ledger.Simple (SimpleTx)
 import Hydra.ServerOutput (ServerOutput (..))
@@ -39,14 +39,38 @@ run = do
       , appAttrMap = style
       }
 
-  initialState = State{connectedPeers = mempty}
+  initialState = Disconnected
 
-newtype State = State {connectedPeers :: [Party]}
+data State
+  = Disconnected
+  | Connected {connectedPeers :: [Party]}
 
 type Name = ()
 
+handleEvent :: Tx tx => State -> BrickEvent Name (HydraEvent tx) -> EventM Name (Next State)
+handleEvent s = \case
+  -- Quit
+  VtyEvent (EvKey (KChar 'c') [MCtrl]) -> halt s
+  VtyEvent (EvKey (KChar 'd') [MCtrl]) -> halt s
+  VtyEvent (EvKey (KChar 'q') _) -> halt s
+  -- App events
+  AppEvent ClientConnected ->
+    continue $ Connected{connectedPeers = mempty}
+  AppEvent ClientDisconnected ->
+    continue Disconnected
+  AppEvent (Update (PeerConnected p)) ->
+    continue $ modifyConnectedPeers $ \cp -> nub $ cp <> [p]
+  AppEvent (Update (PeerDisconnected p)) ->
+    continue $ modifyConnectedPeers $ \cp -> cp \\ [p]
+  -- TODO(SN): continue s here, once all implemented
+  e -> error $ "unhandled event: " <> show e
+ where
+  modifyConnectedPeers f = case s of
+    Disconnected -> Disconnected
+    Connected{connectedPeers = cp} -> Connected{connectedPeers = f cp}
+
 draw :: State -> [Widget Name]
-draw State{connectedPeers} =
+draw s =
   pure $
     withBorderStyle ascii $
       joinBorders $
@@ -60,26 +84,19 @@ draw State{connectedPeers} =
 
   tuiVersion = str $ "Hydra TUI " <> showVersion version
 
-  nodeVersion = str "Hydra Node ..."
+  nodeVersion =
+    str $
+      "Hydra Node: " <> case s of
+        Disconnected -> "disconnected"
+        Connected{} -> "connected"
 
   commands = str "Commands:" <=> str "[q]uit"
 
-  drawPeers = vBox $ str "Connected peers:" : map drawPeer connectedPeers
+  drawPeers = vBox $ case s of
+    Connected{connectedPeers} -> str "Connected peers:" : map drawPeer connectedPeers
+    _ -> []
 
   drawPeer = str . show
-
-handleEvent :: Tx tx => State -> BrickEvent Name (ServerOutput tx) -> EventM Name (Next State)
-handleEvent s = \case
-  -- Quit
-  VtyEvent (EvKey (KChar 'c') [MCtrl]) -> halt s
-  VtyEvent (EvKey (KChar 'd') [MCtrl]) -> halt s
-  VtyEvent (EvKey (KChar 'q') _) -> halt s
-  -- App events
-  AppEvent (PeerConnected p) ->
-    continue $ s{connectedPeers = nub $ connectedPeers s <> [p]}
-  AppEvent (PeerDisconnected p) ->
-    continue $ s{connectedPeers = connectedPeers s \\ [p]}
-  e -> error $ "unhandled event: " <> show e
 
 style :: State -> AttrMap
 style _ = attrMap defAttr []
