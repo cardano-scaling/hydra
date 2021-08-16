@@ -5,19 +5,20 @@ module Hydra.TUI where
 
 import Hydra.Prelude hiding (State)
 
-import Brick (App (..), AttrMap, BrickEvent (AppEvent, VtyEvent), EventM, Next, Widget, continue, customMain, hBox, hLimit, halt, joinBorders, showFirstCursor, str, withBorderStyle, (<=>))
+import Brick (App (..), AttrMap, BrickEvent (AppEvent, VtyEvent), EventM, Next, Widget, continue, customMain, hBox, hLimit, halt, joinBorders, showFirstCursor, str, vBox, withBorderStyle, (<=>))
 import Brick.AttrMap (attrMap)
 import Brick.BChan (newBChan, writeBChan)
 import Brick.Widgets.Border (hBorder, vBorder)
 import Brick.Widgets.Border.Style (ascii)
+import Data.List (nub, (\\))
 import Data.Version (showVersion)
 import Graphics.Vty (Event (EvKey), Key (KChar), Modifier (MCtrl), defaultConfig, mkVty)
 import Graphics.Vty.Attributes (defAttr)
 import Hydra.Client (withClient)
+import Hydra.Ledger (Party, Tx)
 import Hydra.Ledger.Simple (SimpleTx)
-import Hydra.ServerOutput (ServerOutput (PeerConnected))
+import Hydra.ServerOutput (ServerOutput (..))
 import Paths_hydra_tui (version)
-import Hydra.Ledger (Tx)
 
 run :: IO State
 run = do
@@ -29,8 +30,6 @@ run = do
  where
   buildVty = mkVty defaultConfig
 
-  initialState = State
-
   app =
     App
       { appDraw = draw
@@ -40,12 +39,14 @@ run = do
       , appAttrMap = style
       }
 
-data State = State
+  initialState = State{connectedPeers = mempty}
+
+newtype State = State {connectedPeers :: [Party]}
 
 type Name = ()
 
 draw :: State -> [Widget Name]
-draw _ =
+draw State{connectedPeers} =
   pure $
     withBorderStyle ascii $
       joinBorders $
@@ -55,13 +56,17 @@ draw _ =
           , commands
           ]
  where
-  versions = hLimit 30 (tuiVersion <=> nodeVersion <=> hBorder)
+  versions = hLimit 30 (tuiVersion <=> nodeVersion <=> hBorder <=> drawPeers)
 
   tuiVersion = str $ "Hydra TUI " <> showVersion version
 
   nodeVersion = str "Hydra Node ..."
 
   commands = str "Commands:" <=> str "[q]uit"
+
+  drawPeers = vBox $ str "Connected peers:" : map drawPeer connectedPeers
+
+  drawPeer = str . show
 
 handleEvent :: Tx tx => State -> BrickEvent Name (ServerOutput tx) -> EventM Name (Next State)
 handleEvent s = \case
@@ -70,7 +75,10 @@ handleEvent s = \case
   VtyEvent (EvKey (KChar 'd') [MCtrl]) -> halt s
   VtyEvent (EvKey (KChar 'q') _) -> halt s
   -- App events
-  AppEvent (PeerConnected _) -> continue s
+  AppEvent (PeerConnected p) ->
+    continue $ s{connectedPeers = nub $ connectedPeers s <> [p]}
+  AppEvent (PeerDisconnected p) ->
+    continue $ s{connectedPeers = connectedPeers s \\ [p]}
   e -> error $ "unhandled event: " <> show e
 
 style :: State -> AttrMap
