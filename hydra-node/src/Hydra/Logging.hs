@@ -1,4 +1,5 @@
 {-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE UndecidableInstances #-}
 
 -- | Adapter module to the actual logging framework. For now we are using the
@@ -23,7 +24,6 @@ module Hydra.Logging (
 import Hydra.Prelude
 
 import Cardano.BM.Tracing (ToObject (..), TracingVerbosity (..))
-import Control.Monad.Class.MonadAsync (async)
 import Control.Monad.Class.MonadFork (myThreadId)
 import Control.Monad.Class.MonadSTM (flushTBQueue, modifyTVar, newTBQueueIO, newTVarIO, readTVarIO, writeTBQueue)
 import Control.Monad.Class.MonadSay (MonadSay, say)
@@ -33,7 +33,7 @@ import Control.Tracer (
   nullTracer,
   traceWith,
  )
-import Data.Aeson (encode, object, (.=))
+import Data.Aeson (Value, encode, object, (.=))
 import qualified Data.ByteString.Lazy as LBS
 import qualified Data.Text as Text
 import qualified Data.Text.IO as TIO
@@ -55,16 +55,17 @@ withTracer ::
   IO a
 withTracer Quiet action = action nullTracer
 withTracer (Verbose name) action = do
-  msgQueue <- newTBQueueIO defaultQueueSize
-  bracket_
-    (async $ logMessagesToStdout msgQueue)
-    (flushLogs msgQueue)
-    (action (tracer msgQueue))
+  msgQueue <- newTBQueueIO @_ @Value defaultQueueSize
+  withAsync (logMessagesToStdout msgQueue) $ \_ ->
+    action (tracer msgQueue) `finally` flushLogs msgQueue
  where
-  tracer queue = Tracer $ \msg -> liftIO $ do
-    entry <- LBS.toStrict . encode <$> mkEnvelop msg
-    atomically $ writeTBQueue queue entry
+  tracer queue =
+    Tracer
+      ( \msg ->
+          liftIO (mkEnvelop msg >>= atomically . writeTBQueue queue)
+      )
 
+  mkEnvelop :: msg -> IO Value
   mkEnvelop msg = do
     timestamp <- liftIO getCurrentTime
     threadId <- Text.drop 9 . show <$> liftIO myThreadId
@@ -80,7 +81,7 @@ withTracer (Verbose name) action = do
 
   flushLogs queue = do
     entries <- atomically $ flushTBQueue queue
-    forM_ entries (TIO.putStrLn . decodeUtf8With lenientDecode)
+    forM_ entries (TIO.putStrLn . decodeUtf8With lenientDecode . LBS.toStrict . encode)
     hFlush stdout
 
 traceInTVar :: MonadSTM m => TVar m [a] -> Tracer m a
