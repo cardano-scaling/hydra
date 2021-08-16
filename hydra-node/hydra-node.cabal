@@ -9,35 +9,34 @@ license-files:
   LICENSE
   NOTICE
 
-extra-source-files:
-  README.md
-data-files:
-  api.yaml
+extra-source-files: README.md
+data-files:         api.yaml
 
 source-repository head
-  type: git
+  type:     git
   location: https://github.com/input-output-hk/hydra-poc
 
 flag development
-     description: Disable -Werror for development
-     default: False
-     manual: True
+  description: Disable -Werror for development
+  default:     False
+  manual:      True
 
 common project-config
-  default-language: Haskell2010
+  default-language:   Haskell2010
   default-extensions:
+    NoImplicitPrelude
     BangPatterns
     BinaryLiterals
     ConstraintKinds
     DataKinds
     DefaultSignatures
     DeriveAnyClass
-    DerivingStrategies
     DeriveDataTypeable
     DeriveFoldable
     DeriveFunctor
     DeriveGeneric
     DeriveTraversable
+    DerivingStrategies
     EmptyDataDecls
     ExistentialQuantification
     FlexibleContexts
@@ -51,7 +50,6 @@ common project-config
     MultiParamTypeClasses
     MultiWayIf
     NamedFieldPuns
-    NoImplicitPrelude
     NumericUnderscores
     OverloadedStrings
     PartialTypeSignatures
@@ -63,21 +61,18 @@ common project-config
     TypeFamilies
     TypeSynonymInstances
     ViewPatterns
+
   ghc-options:
-    -Wall
-    -Wcompat
-    -Widentities
-    -Wincomplete-record-updates
-    -Wincomplete-uni-patterns
-    -Wredundant-constraints
+    -Wall -Wcompat -Widentities -Wincomplete-record-updates
+    -Wincomplete-uni-patterns -Wredundant-constraints
     -fprint-potential-instances
 
   if !flag(development)
-      ghc-options: -Werror
+    ghc-options: -Werror
 
 library
-  import: project-config
-  hs-source-dirs: src
+  import:          project-config
+  hs-source-dirs:  src
   exposed-modules:
     Hydra.API.Server
     Hydra.Chain
@@ -105,10 +100,11 @@ library
     Hydra.Options
     Hydra.ServerOutput
     Hydra.Snapshot
-  other-modules:
-    Paths_hydra_node
-  build-depends: base
+
+  other-modules:   Paths_hydra_node
+  build-depends:
     , aeson
+    , base
     , base16
     , cardano-binary
     , cardano-crypto-class
@@ -123,8 +119,8 @@ library
     , contra-tracer
     , data-default
     , gitrev
-    , hydra-prelude
     , hydra-plutus
+    , hydra-prelude
     , io-classes
     , iohk-monitoring
     , iproute
@@ -149,59 +145,59 @@ library
     , typed-protocols-examples
     , websockets
     , zeromq4-haskell
-  ghc-options:
-    -haddock
+
+  ghc-options:     -haddock
 
 executable hydra-node
-  import: project-config
+  import:         project-config
   hs-source-dirs: exe/hydra-node
-  main-is: Main.hs
+  main-is:        Main.hs
   build-depends:
-      base
-    , hydra-prelude
+    , base
     , hydra-node
-  ghc-options:
-    -threaded
-    -rtsopts
+    , hydra-prelude
+
+  ghc-options:    -threaded -rtsopts
 
 executable mock-chain
-  import: project-config
+  import:         project-config
   hs-source-dirs: exe/mock-chain
-  main-is: Main.hs
+  main-is:        Main.hs
   build-depends:
-      base
-    , hydra-prelude
+    , base
     , hydra-node
+    , hydra-prelude
     , optparse-applicative
-  ghc-options:
-    -threaded
-    -rtsopts
+
+  ghc-options:    -threaded -rtsopts
 
 test-suite tests
-  import: project-config
-  hs-source-dirs: test
+  import:             project-config
+  hs-source-dirs:     test
   other-modules:
-    Paths_hydra_node
-    Hydra.APISpec
     Hydra.API.ServerSpec
+    Hydra.APISpec
+    Hydra.BehaviorSpec
     Hydra.Chain.ExternalPABSpec
     Hydra.Chain.ZeroMQSpec
     Hydra.FireForgetSpec
-    Hydra.BehaviorSpec
     Hydra.HeadLogicSpec
-    Hydra.LedgerSpec
     Hydra.Ledger.SimpleSpec
+    Hydra.LedgerSpec
     Hydra.Logging.MonitoringSpec
-    Hydra.NetworkSpec
-    Hydra.Network.HeartbeatSpec
     Hydra.Network.BroadcastToSelfSpec
+    Hydra.Network.HeartbeatSpec
+    Hydra.NetworkSpec
     Hydra.OptionsSpec
-    Test.Util
+    Paths_hydra_node
     Spec
-  main-is: Main.hs
-  type: exitcode-stdio-1.0
-  build-depends: base
+    Test.Util
+
+  main-is:            Main.hs
+  type:               exitcode-stdio-1.0
+  build-depends:
     , aeson
+    , base
     , cardano-binary
     , cardano-crypto-class
     , cborg
@@ -216,24 +212,23 @@ test-suite tests
     , hydra-plutus
     , hydra-prelude
     , hydra-test-utils
-    , io-sim
     , io-classes
+    , io-sim
     , iproute
     , lens
     , lens-aeson
     , network
     , process
+    , QuickCheck
     , quickcheck-instances
     , req
     , temporary
     , text
     , typed-protocols-examples
-    , yaml
     , websockets
-    , HUnit
-    , QuickCheck
+    , yaml
+
   build-tool-depends:
-    hspec-discover:hspec-discover, hydra-plutus:hydra-pab
-  ghc-options:
-    -threaded
-    -rtsopts
+    hspec-discover:hspec-discover -any, hydra-plutus:hydra-pab -any
+
+  ghc-options:        -threaded -rtsopts

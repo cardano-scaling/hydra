@@ -1,31 +1,33 @@
-cabal-version:      2.2
-name:               hydra-plutus
-version:            0.1.0
-synopsis:           Hydra Plutus Contracts
-author:             IOHK
-copyright:          2021 IOHK
-license:            Apache-2.0
+cabal-version: 2.2
+name:          hydra-plutus
+version:       0.1.0
+synopsis:      Hydra Plutus Contracts
+author:        IOHK
+copyright:     2021 IOHK
+license:       Apache-2.0
 license-files:
   LICENSE
   NOTICE
 
 source-repository head
-    type: git
-    location: https://github.com/input-output-hk/hydra-poc
+  type:     git
+  location: https://github.com/input-output-hk/hydra-poc
 
 flag development
-     description: Disable -Werror for development
-     default: False
-     manual: True
+  description: Disable -Werror for development
+  default:     False
+  manual:      True
 
 flag defer-plutus-plugin-errors
-    description:
-        Defer errors from the plugin, useful for things like Haddock that can't handle it.
-    default: False
-    manual: True
+  description:
+    Defer errors from the plugin, useful for things like Haddock that can't handle it.
+
+  default:     False
+  manual:      True
 
 common project-config
   default-extensions:
+    NoImplicitPrelude
     BangPatterns
     BinaryLiterals
     ConstraintKinds
@@ -50,7 +52,6 @@ common project-config
     MultiParamTypeClasses
     MultiWayIf
     NamedFieldPuns
-    NoImplicitPrelude
     NumericUnderscores
     OverloadedStrings
     PartialTypeSignatures
@@ -63,32 +64,31 @@ common project-config
     TypeOperators
     TypeSynonymInstances
     ViewPatterns
+
   ghc-options:
-    -Wall
-    -Wcompat
-    -Widentities
-    -Wincomplete-record-updates
-    -Wincomplete-uni-patterns
-    -Wredundant-constraints
-    -Wnoncanonical-monad-instances
-    -fobject-code -fno-ignore-interface-pragmas -fno-omit-interface-pragmas -fno-strictness
+    -Wall -Wcompat -Widentities -Wincomplete-record-updates
+    -Wincomplete-uni-patterns -Wredundant-constraints
+    -Wnoncanonical-monad-instances -fobject-code
+    -fno-ignore-interface-pragmas -fno-omit-interface-pragmas
+    -fno-strictness
 
   if !flag(development)
-      ghc-options: -Werror
+    ghc-options: -Werror
 
 library
-  import: project-config
+  import:          project-config
   exposed-modules:
-      Hydra.Contract.ContestationPeriod
-      Hydra.Contract.Head
-      Hydra.Contract.Initial
-      Hydra.Contract.OnChain
-      Hydra.Contract.OffChain
-      Hydra.Contract.Party
-      Hydra.Contract.PAB
-  hs-source-dirs: src
+    Hydra.Contract.ContestationPeriod
+    Hydra.Contract.Head
+    Hydra.Contract.Initial
+    Hydra.Contract.OffChain
+    Hydra.Contract.OnChain
+    Hydra.Contract.PAB
+    Hydra.Contract.Party
+
+  hs-source-dirs:  src
   build-depends:
-      aeson
+    , aeson
     , base
     , cardano-crypto-class
     , containers
@@ -97,7 +97,6 @@ library
     , freer-simple
     , hydra-prelude
     , lens
-    , playground-common
     , playground-common
     , plutus-contract
     , plutus-core
@@ -112,19 +111,20 @@ library
     , time
 
   if flag(defer-plutus-plugin-errors)
-      ghc-options: -fplugin-opt PlutusTx.Plugin:defer-errors
+    ghc-options: -fplugin-opt PlutusTx.Plugin:defer-errors
 
 test-suite hydra-plutus-test
-  import: project-config
-  type: exitcode-stdio-1.0
-  main-is: Test.hs
+  import:         project-config
+  type:           exitcode-stdio-1.0
+  main-is:        Test.hs
   hs-source-dirs: test
   other-modules:
-      Hydra.ContractTest
-      Hydra.ContractModelTest
-      Hydra.Test.Utils
+    Hydra.ContractModelTest
+    Hydra.ContractTest
+    Hydra.Test.Utils
+
   build-depends:
-      base >=4.9 && <5
+    , base                    >=4.9 && <5
     , containers
     , foldl
     , freer-extras
@@ -148,26 +148,25 @@ test-suite hydra-plutus-test
     , text
 
 executable hydra-pab
-  import: project-config
+  import:         project-config
   hs-source-dirs: exe/hydra-pab
-  main-is: Main.hs
+  main-is:        Main.hs
   build-depends:
-      aeson
+    , aeson
     , base
-    , data-default
     , containers
+    , data-default
     , directory
     , freer-extras
     , freer-simple
     , hydra-plutus
     , hydra-prelude
     , optparse-applicative
+    , playground-common
     , plutus-contract
     , plutus-ledger
     , plutus-pab
-    , playground-common
     , servant-client
     , text
-  ghc-options:
-    -threaded
-    -rtsopts
+
+  ghc-options:    -threaded -rtsopts
