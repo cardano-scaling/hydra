@@ -70,6 +70,9 @@ data HydraNode tx m = HydraNode
 
 -- NOTE(AB): we use partial fields access here for convenience purpose, to
 -- make serialisation To/From JSON straightforward
+-- NOTE(AB): It's not needed to log the full events and effects both when starting
+-- and ending the action, we should rather reference the event/effect processed
+-- using some id when the action completest
 data HydraNodeLog tx
   = ErrorHandlingEvent {emitter :: Party, event :: Event tx, reason :: LogicError tx}
   | ProcessingEvent {emitter :: Party, event :: Event tx}
@@ -106,7 +109,7 @@ runHydraNode tracer node@HydraNode{eq, env = Environment{party}} = do
   forever $ do
     e <- nextEvent eq
     traceWith tracer $ ProcessingEvent party e
-    processNextEvent node e >>= \case
+    atomically (processNextEvent node e) >>= \case
       -- TODO(SN): Handling of 'Left' is untested, i.e. the fact that it only
       -- does trace and not throw!
       Left err -> traceWith tracer (ErrorHandlingEvent party e err)
@@ -114,19 +117,16 @@ runHydraNode tracer node@HydraNode{eq, env = Environment{party}} = do
 
 -- | Monadic interface around 'Hydra.Logic.update'.
 processNextEvent ::
-  ( Tx tx
-  , MonadSTM m
-  ) =>
+  Tx tx =>
   HydraNode tx m ->
   Event tx ->
-  m (Either (LogicError tx) [Effect tx])
+  STM m (Either (LogicError tx) [Effect tx])
 processNextEvent HydraNode{hh, env} e =
-  atomically $
-    modifyHeadState hh $ \s ->
-      case Logic.update env (ledger hh) s e of
-        NewState s' effects -> (Right effects, s')
-        Error err -> (Left err, s)
-        Wait -> (Right [Delay 0.1 e], s)
+  modifyHeadState hh $ \s ->
+    case Logic.update env (ledger hh) s e of
+      NewState s' effects -> (Right effects, s')
+      Error err -> (Left err, s)
+      Wait -> (Right [Delay 0.1 e], s)
 
 processEffect ::
   ( MonadAsync m
