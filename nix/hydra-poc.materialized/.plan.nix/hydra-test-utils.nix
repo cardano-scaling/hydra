@@ -11,22 +11,22 @@
     flags = {};
     package = {
       specVersion = "2.2";
-      identifier = { name = "hydra-test-utils"; version = "1.0.0"; };
+      identifier = { name = "hydra-test-utils"; version = "0.1.0"; };
       license = "Apache-2.0";
-      copyright = "2021 IOG";
+      copyright = "2021 IOHK";
       maintainer = "";
-      author = "IOG";
+      author = "IOHK";
       homepage = "";
       url = "";
-      synopsis = "";
-      description = "Hydra utilities for testing, aka. \"Test Prelude\"";
+      synopsis = "Hydra utilities for testing, aka. \"Test Prelude\"";
+      description = "";
       buildType = "Simple";
       isLocal = true;
       detailLevel = "FullDetails";
       licenseFiles = [ "LICENSE" "NOTICE" ];
       dataDir = ".";
       dataFiles = [];
-      extraSrcFiles = [ "README.md" ];
+      extraSrcFiles = [];
       extraTmpFiles = [];
       extraDocFiles = [];
       };
@@ -34,7 +34,8 @@
       "library" = {
         depends = [
           (hsPkgs."base" or (errorHandler.buildDepError "base"))
-          (hsPkgs."filepath" or (errorHandler.buildDepError "filepath"))
+          (hsPkgs."hspec-core" or (errorHandler.buildDepError "hspec-core"))
+          (hsPkgs."hspec-junit-formatter" or (errorHandler.buildDepError "hspec-junit-formatter"))
           (hsPkgs."hydra-prelude" or (errorHandler.buildDepError "hydra-prelude"))
           (hsPkgs."HUnit" or (errorHandler.buildDepError "HUnit"))
           (hsPkgs."io-classes" or (errorHandler.buildDepError "io-classes"))

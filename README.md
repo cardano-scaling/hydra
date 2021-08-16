@@ -54,7 +54,7 @@ If the `cabal build` succeeds, but the `nix-build` fails, it's usually a good
 idea to do the following:
 
 * Uncomment `checkMaterialization = true;` in `default.nix`
-* Execute `nix-build -A hydra-node.components.exes.hydra-node`
+* Execute `nix-build -A hydra-node.components.exes.hydra-node`. This command should fail because of an incorrect sha256 value.
 * Update `plan-sha256` in `default.nix` to the expected hash value
 * Execute `nix-build -A hydra-node.project.plan-nix.passthru.updateMaterialized | bash`
 * Follow the instructions in the output by running the `/nix/store/<somehash>-updateMaterialized` script.

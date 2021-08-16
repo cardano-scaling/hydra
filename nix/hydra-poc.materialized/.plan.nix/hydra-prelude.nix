@@ -11,22 +11,22 @@
     flags = {};
     package = {
       specVersion = "2.2";
-      identifier = { name = "hydra-prelude"; version = "1.0.0"; };
+      identifier = { name = "hydra-prelude"; version = "0.1.0"; };
       license = "Apache-2.0";
-      copyright = "2021 IOG";
+      copyright = "2021 IOHK";
       maintainer = "";
-      author = "IOG";
+      author = "IOHK";
       homepage = "";
       url = "";
-      synopsis = "";
-      description = "Custom Hydra Prelude used across other Hydra packages.";
+      synopsis = "Custom Hydra Prelude used across other Hydra packages.";
+      description = "";
       buildType = "Simple";
       isLocal = true;
       detailLevel = "FullDetails";
       licenseFiles = [ "LICENSE" "NOTICE" ];
       dataDir = ".";
       dataFiles = [];
-      extraSrcFiles = [ "README.md" ];
+      extraSrcFiles = [];
       extraTmpFiles = [];
       extraDocFiles = [];
       };

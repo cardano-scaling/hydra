@@ -18,8 +18,8 @@
       author = "IOHK";
       homepage = "";
       url = "";
-      synopsis = "";
-      description = "Hydra Plutus Contracts";
+      synopsis = "Hydra Plutus Contracts";
+      description = "";
       buildType = "Simple";
       isLocal = true;
       detailLevel = "FullDetails";
@@ -59,6 +59,7 @@
         modules = [
           "Hydra/Contract/ContestationPeriod"
           "Hydra/Contract/Head"
+          "Hydra/Contract/Initial"
           "Hydra/Contract/OnChain"
           "Hydra/Contract/OffChain"
           "Hydra/Contract/Party"
