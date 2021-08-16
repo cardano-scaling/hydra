@@ -15,7 +15,6 @@ import Cardano.Crypto.DSIGN (
 import Data.Aeson (object, (.=))
 import qualified Data.ByteString as BS
 import Hydra.Logging (showLogsOnFailure)
-import Test.Hydra.Prelude (failAfter)
 import HydraNode (
   getMetrics,
   hydraNodeProcess,
@@ -36,6 +35,7 @@ import Test.Hspec (
   it,
   shouldSatisfy,
  )
+import Test.Hydra.Prelude (failAfter)
 import Text.Regex.TDFA ((=~))
 import Text.Regex.TDFA.Text ()
 
@@ -48,6 +48,39 @@ aliceVk, bobVk, carolVk :: VerKeyDSIGN MockDSIGN
 aliceVk = deriveVerKeyDSIGN aliceSk
 bobVk = deriveVerKeyDSIGN bobSk
 carolVk = deriveVerKeyDSIGN carolSk
+
+-- | This address was created from a dummy phase-1 monetary script which always
+-- validates. This is handy in testing to have addresses for which we need not
+-- to worry about signatures.
+--
+--     $ cardano-address script hash 'all []' | cardano-address address payment --network-tag mainnet
+--     addr1w82yzgn42ws0r2t9lmnavzs0wf9ndrw3hhduyzrnplxwhncxvfgxz"
+anyoneCanSpend :: String
+anyoneCanSpend = "addr1w82yzgn42ws0r2t9lmnavzs0wf9ndrw3hhduyzrnplxwhncxvfgxz"
+
+someUtxo :: Value
+someUtxo =
+  object
+    [ "outputRef" .= someOutputRef
+    , "output" .= someOutput
+    ]
+
+someOutput :: Value
+someOutput =
+  object
+    [ "address" .= anyoneCanSpend
+    , "value"
+        .= object
+          [ "coins" .= int 14
+          ]
+    ]
+
+someOutputRef :: Value
+someOutputRef =
+  object
+    [ "txId" .= String "9fdc525c20bc00d9dfa9d14904b65e01910c0dfe3bb39865523c1e20eaeb0903"
+    , "index" .= int 0
+    ]
 
 spec :: Spec
 spec = around showLogsOnFailure $
@@ -65,13 +98,25 @@ spec = around showLogsOnFailure $
                     send n1 $ input "init" ["contestationPeriod" .= contestationPeriod]
                     waitFor tracer 3 [n1, n2, n3] $
                       output "readyToCommit" ["parties" .= [int 10, 20, 30]]
-                    send n1 $ input "commit" ["utxo" .= [int 1]]
-                    send n2 $ input "commit" ["utxo" .= [int 2]]
-                    send n3 $ input "commit" ["utxo" .= [int 3]]
+                    send n1 $ input "commit" ["utxo" .= [someUtxo]]
+                    send n2 $ input "commit" ["utxo" .= []]
+                    send n3 $ input "commit" ["utxo" .= []]
 
-                    waitFor tracer 3 [n1, n2, n3] $ output "headIsOpen" ["utxo" .= [int 1, 2, 3]]
+                    waitFor tracer 3 [n1, n2, n3] $ output "headIsOpen" ["utxo" .= [someUtxo]]
 
-                    let tx = object ["id" .= int 42, "inputs" .= [int 1], "outputs" .= [int 4]]
+                    let tx =
+                          object
+                            [ "body" .= object ["inputs" .= [someOutputRef], "outputs" .= [someOutput]]
+                            , "witnesses"
+                                .= object
+                                  [ "verificationKeys"
+                                      .= [ object
+                                            [ "key" .= String ""
+                                            , "signature" .= String ""
+                                            ]
+                                         ]
+                                  ]
+                            ]
                     send n1 $ input "newTransaction" ["transaction" .= tx]
 
                     waitFor tracer 10 [n1, n2, n3] $ output "transactionSeen" ["transaction" .= tx]
@@ -87,7 +132,7 @@ spec = around showLogsOnFailure $
                         ]
 
                     send n1 $ input "getUtxo" []
-                    waitFor tracer 10 [n1] $ output "utxo" ["utxo" .= [int 2, 3, 4]]
+                    waitFor tracer 10 [n1] $ output "utxo" ["utxo" .= utxo]
 
                     send n1 $ input "close" []
                     waitFor tracer 3 [n1] $
