@@ -53,7 +53,7 @@ spec :: Spec
 spec = around showLogsOnFailure $
   describe "End-to-end test using a mocked chain though" $ do
     describe "three hydra nodes scenario" $ do
-      it "inits and closes a head with a single mock transaction" $ \tracer -> do
+      it "inits a Head, processes a single Cardano transaction and closes it again" $ \tracer -> do
         failAfter 30 $
           withTempDir "end-to-end-inits-and-closes" $ \tmpDir ->
             withMockChain $ \chainPorts ->
