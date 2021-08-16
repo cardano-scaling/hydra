@@ -194,6 +194,7 @@ test-suite tests
     Hydra.Network.BroadcastToSelfSpec
     Hydra.Network.HeartbeatSpec
     Hydra.NetworkSpec
+    Hydra.NodeSpec
     Hydra.OptionsSpec
     Hydra.ServerOutputSpec
     Paths_hydra_node

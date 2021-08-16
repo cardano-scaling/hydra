@@ -100,6 +100,7 @@ data SnapshotStrategy = NoSnapshots | SnapshotAfterEachTx
 data LogicError tx
   = InvalidEvent (Event tx) (HeadState tx)
   | InvalidState (HeadState tx)
+  | InvalidSnapshot {expected :: SnapshotNumber, actual :: SnapshotNumber}
   | LedgerError ValidationError
   deriving stock (Generic)
 
@@ -275,7 +276,7 @@ update Environment{party, signingKey, otherParties, snapshotStrategy} ledger st 
                     )
                     []
       Just (snapshot, _) ->
-        error $ "Received ack for unknown unconfirmed snapshot. Unconfirmed snapshot: " <> show (number snapshot) <> ", Requested snapshot: " <> show sn
+        error $ "Invalid snapshot number, expected: " <> show (number snapshot) <> ", got: " <> show sn
   (OpenState parameters@HeadParameters{contestationPeriod} CoordinatedHeadState{confirmedSnapshot}, OnChainEvent OnCloseTx{}) ->
     -- TODO(1): Should check whether we want / can contest the close snapshot by
     --       comparing with our local state / utxo.
