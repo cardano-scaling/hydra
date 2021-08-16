@@ -80,6 +80,7 @@ library
   other-modules:
     Paths_hydra_tui
   build-depends: aeson
+               , async
                , base
                , brick
                , hydra-node

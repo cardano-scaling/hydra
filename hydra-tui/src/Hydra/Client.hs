@@ -2,11 +2,19 @@ module Hydra.Client where
 
 import Hydra.Prelude
 
+import Control.Concurrent.Async (link)
+import Control.Exception (Handler (Handler), IOException, catches)
+import Data.Aeson (eitherDecodeStrict)
 import Hydra.ClientInput (ClientInput)
 import Hydra.Ledger (Tx)
 import Hydra.ServerOutput (ServerOutput)
-import Network.WebSockets (receiveData, runClient)
-import Data.Aeson (eitherDecodeStrict)
+import Network.WebSockets (ConnectionException, receiveData, runClient)
+
+data HydraEvent tx
+  = ClientConnected
+  | ClientDisconnected
+  | Update (ServerOutput tx)
+  deriving (Eq, Show, Generic)
 
 -- | Handle to provide a means for sending inputs to the server.
 newtype Client tx m = Client
@@ -15,7 +23,7 @@ newtype Client tx m = Client
   }
 
 -- | Callback for receiving server outputs.
-type ClientCallback tx m = ServerOutput tx -> m ()
+type ClientCallback tx m = HydraEvent tx -> m ()
 
 -- | A type tying both receiving output and sending input into a /Component/.
 type ClientComponent tx m a = ClientCallback tx m -> (Client tx m -> m a) -> m a
@@ -24,23 +32,35 @@ type ClientComponent tx m a = ClientCallback tx m -> (Client tx m -> m a) -> m a
 -- sending client inputs, as well as receiving server outputs.
 withClient :: Tx tx => ClientComponent tx IO a
 withClient callback action =
-  withAsync client $ \_ ->
+  withAsync client $ \thread -> do
+    link thread -- Make sure it does not silently die
     action $
       Client
         { sendInput = \input ->
             putText $ "should send: " <> show input
         }
  where
+  client =
+    connect
+      `catches` [ Handler $ \(_ :: IOException) -> handleDisconnect -- Initially
+                , Handler $ \(_ :: ConnectionException) -> handleDisconnect -- Later
+                ]
+
+  handleDisconnect = do
+    callback ClientDisconnected
+    threadDelay 1
+    client
+
   -- TODO(SN): parameterize
-  -- TODO(SN): re-establish connection on error
   -- TODO(SN): ping thread?
-  client = runClient "127.0.0.1" 4001 "/" $ \con ->
+  connect = runClient "127.0.0.1" 4001 "/" $ \con -> do
+    callback ClientConnected
     forever $ do
       msg <- receiveData con
       case eitherDecodeStrict msg of
-        Right output -> callback output
+        Right output -> callback $ Update output
         Left err -> throwIO $ ClientJSONDecodeError err
 
 newtype ClientError = ClientJSONDecodeError String
   deriving (Eq, Show, Generic)
-  deriving anyclass Exception
+  deriving anyclass (Exception)
