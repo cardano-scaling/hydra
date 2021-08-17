@@ -130,11 +130,13 @@ test-suite integration
 
   build-depends:
     , aeson
-    , base                  >=4.7 && <5
+    , base                       >=4.7 && <5
     , base16
     , bytestring
     , cardano-crypto-class
     , cardano-ledger-core
+    , cardano-ledger-shelley-ma
+    , containers
     , hspec
     , hspec-core
     , hydra-node
@@ -143,6 +145,8 @@ test-suite integration
     , local-cluster
     , regex-tdfa
     , say
+    , shelley-spec-ledger
+    , strict-containers
     , temporary
 
   build-tool-depends:
@@ -173,6 +177,7 @@ benchmark bench-e2e
     , local-cluster
     , QuickCheck
     , scientific
+    , strict-containers
     , time
 
   build-tool-depends: hydra-node:hydra-node -any, hydra-node:mock-chain -any

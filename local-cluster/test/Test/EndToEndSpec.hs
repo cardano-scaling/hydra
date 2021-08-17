@@ -16,13 +16,20 @@ import Cardano.Crypto.DSIGN (
 import Cardano.Crypto.DSIGN.Ed25519 (Ed25519DSIGN)
 import Cardano.Crypto.Seed (mkSeedFromBytes)
 import Cardano.Ledger.Address (Addr (Addr), toCred)
-import Cardano.Ledger.BaseTypes (Network (Mainnet))
+import Cardano.Ledger.BaseTypes (Network (Mainnet), StrictMaybe (SNothing))
 import Cardano.Ledger.Credential (StakeReference (StakeRefNull))
 import Cardano.Ledger.Crypto (StandardCrypto)
-import Cardano.Ledger.Keys (KeyPair (..), VKey (VKey))
+import Cardano.Ledger.Keys (KeyPair (..), KeyRole (Payment), VKey (VKey), asWitness)
+import Cardano.Ledger.Mary (MaryEra)
+import Cardano.Ledger.SafeHash (hashAnnotated)
+import Cardano.Ledger.ShelleyMA.TxBody (TxBody (TxBody), ValidityInterval (ValidityInterval))
+import qualified Cardano.Ledger.Val as Val
 import Data.Aeson (Value (Array, String), object, (.=))
 import qualified Data.ByteString as BS
 import Data.ByteString.Base16 (encodeBase16)
+import qualified Data.Map as Map
+import qualified Data.Sequence.Strict as StrictSeq
+import qualified Data.Set as Set
 import Hydra.Logging (showLogsOnFailure)
 import HydraNode (
   getMetrics,
@@ -37,6 +44,9 @@ import HydraNode (
   withMockChain,
   withTempDir,
  )
+import qualified Shelley.Spec.Ledger.API as Ledger
+import Shelley.Spec.Ledger.Tx (addrWits)
+import Shelley.Spec.Ledger.UTxO (makeWitnessesVKey)
 import Test.Hspec (
   Spec,
   around,
@@ -75,6 +85,12 @@ someOutput =
           ]
     ]
 
+someTxIn :: Ledger.TxIn StandardCrypto
+someTxIn = Ledger.TxIn (Ledger.TxId $ hashAnnotated emptyTxBody) 0
+ where
+  emptyTxBody :: TxBody (MaryEra StandardCrypto)
+  emptyTxBody = error "TODO: this is not fun"
+
 someOutputRef :: Value
 someOutputRef =
   object
@@ -94,6 +110,33 @@ inHeadAliceAddress =
       creds = toCred @StandardCrypto $ KeyPair{vKey = VKey pubKey, sKey = inHeadAliceSk}
       ref = StakeRefNull
    in toJSON $ Addr Mainnet creds ref
+
+txAlicePaysHerself :: KeyPair 'Payment StandardCrypto -> Ledger.Tx (MaryEra StandardCrypto)
+txAlicePaysHerself keyPair =
+  Ledger.Tx
+    txbody
+    mempty{addrWits = makeWitnessesVKey (hashAnnotated txbody) [asWitness keyPair]}
+    SNothing
+ where
+  addr = Addr Mainnet (toCred keyPair) StakeRefNull
+
+  txbody :: TxBody (MaryEra StandardCrypto)
+  txbody =
+    TxBody
+      (Set.fromList [someTxIn])
+      ( StrictSeq.fromList [Ledger.TxOut addr $ Val.inject transferred]
+      )
+      StrictSeq.empty
+      (Ledger.Wdrl Map.empty)
+      fee
+      (ValidityInterval SNothing SNothing)
+      SNothing
+      SNothing
+      Val.zero
+
+  fee = Ledger.Coin 0
+
+  transferred = Ledger.Coin 14
 
 spec :: Spec
 spec = around showLogsOnFailure $
