@@ -87,6 +87,7 @@ import Test.Hspec (
   around,
   describe,
   it,
+  pendingWith,
   shouldSatisfy,
  )
 import Test.Hydra.Prelude (failAfter)
@@ -98,6 +99,7 @@ spec = around showLogsOnFailure $
   describe "End-to-end test using a mocked chain though" $ do
     describe "three hydra nodes scenario" $ do
       it "inits a Head, processes a single Cardano transaction and closes it again" $ \tracer -> do
+        pendingWith "requires Cardano ledger in hydra-node"
         failAfter 30 $
           withTempDir "end-to-end-inits-and-closes" $ \tmpDir ->
             withMockChain $ \chainPorts ->
