@@ -215,13 +215,6 @@ carolVk = deriveVerKeyDSIGN carolSk
 someTxId :: IsString s => s
 someTxId = "9fdc525c20bc00d9dfa9d14904b65e01910c0dfe3bb39865523c1e20eaeb0903"
 
-outputRef :: TxId -> Natural -> Value
-outputRef txId txIx =
-  object
-    [ "txId" .= txId
-    , "index" .= txIx
-    ]
-
 -- | Signing key used by alice "in head". This is distinct from the keys used to
 -- do multi signatures for the Head protocol.
 inHeadAliceSk :: SigningKey PaymentKey
@@ -281,6 +274,13 @@ txAlicePaysHerself =
 
 int :: Int -> Int
 int = id
+
+outputRef :: TxId -> Natural -> Value
+outputRef txId txIx =
+  object
+    [ "txId" .= txId
+    , "index" .= txIx
+    ]
 
 txToJson :: Tx MaryEra -> Value
 txToJson tx =
