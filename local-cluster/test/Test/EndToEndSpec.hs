@@ -7,7 +7,7 @@ module Test.EndToEndSpec where
 import Hydra.Prelude
 
 import Cardano.Crypto.DSIGN (
-  DSIGNAlgorithm (deriveVerKeyDSIGN),
+  DSIGNAlgorithm (deriveVerKeyDSIGN, rawSerialiseVerKeyDSIGN),
   MockDSIGN,
   SignKeyDSIGN,
   VerKeyDSIGN,
@@ -20,8 +20,9 @@ import Cardano.Ledger.BaseTypes (Network (Mainnet))
 import Cardano.Ledger.Credential (StakeReference (StakeRefNull))
 import Cardano.Ledger.Crypto (StandardCrypto)
 import Cardano.Ledger.Keys (KeyPair (..), VKey (VKey))
-import Data.Aeson (Value (String), object, (.=))
+import Data.Aeson (Value (Array, String), object, (.=))
 import qualified Data.ByteString as BS
+import Data.ByteString.Base16 (encodeBase16)
 import Hydra.Logging (showLogsOnFailure)
 import HydraNode (
   getMetrics,
@@ -57,15 +58,6 @@ aliceVk = deriveVerKeyDSIGN aliceSk
 bobVk = deriveVerKeyDSIGN bobSk
 carolVk = deriveVerKeyDSIGN carolSk
 
--- | This address was created from a dummy phase-1 monetary script which always
--- validates. This is handy in testing to have addresses for which we need not
--- to worry about signatures.
---
---     $ cardano-address script hash 'all []' | cardano-address address payment --network-tag mainnet
---     addr1w82yzgn42ws0r2t9lmnavzs0wf9ndrw3hhduyzrnplxwhncxvfgxz"
-anyoneCanSpend :: String
-anyoneCanSpend = "addr1w82yzgn42ws0r2t9lmnavzs0wf9ndrw3hhduyzrnplxwhncxvfgxz"
-
 someUtxo :: Value
 someUtxo =
   object
@@ -90,9 +82,12 @@ someOutputRef =
     , "index" .= int 0
     ]
 
+-- | Signing key used by alice "in head". This is distinct from the keys used to
+-- do multi signatures for the Head protocol.
 inHeadAliceSk :: SignKeyDSIGN Ed25519DSIGN
 inHeadAliceSk = genKeyDSIGN $ mkSeedFromBytes "alice"
 
+-- | Pay to pubkey address of alice using her "in head" credential.
 inHeadAliceAddress :: Value
 inHeadAliceAddress =
   let pubKey = deriveVerKeyDSIGN inHeadAliceSk
@@ -117,14 +112,14 @@ spec = around showLogsOnFailure $
                     waitFor tracer 3 [n1, n2, n3] $
                       output "readyToCommit" ["parties" .= [int 10, 20, 30]]
                     send n1 $ input "commit" ["utxo" .= [someUtxo]]
-                    send n2 $ input "commit" ["utxo" .= []]
-                    send n3 $ input "commit" ["utxo" .= []]
+                    send n2 $ input "commit" ["utxo" .= Array mempty]
+                    send n3 $ input "commit" ["utxo" .= Array mempty]
 
                     waitFor tracer 3 [n1, n2, n3] $ output "headIsOpen" ["utxo" .= [someUtxo]]
 
                     let txBody = object ["inputs" .= [someOutputRef], "outputs" .= [someOutput]]
 
-                        signedTxBody = error "not implemented: use cardano-api to sign a tx body (not the above JSON thing) with alice key"
+                        signedTxBody = error "not implemented: use signShelleyTransaction"
 
                         tx =
                           object
@@ -133,8 +128,8 @@ spec = around showLogsOnFailure $
                                 .= object
                                   [ "verificationKeys"
                                       .= [ object
-                                            [ "key" .= inHeadAliceSk
-                                            , "signature" .= signedTxBody
+                                            [ "key" .= encodeBase16 (rawSerialiseVerKeyDSIGN $ deriveVerKeyDSIGN inHeadAliceSk)
+                                            , "signature" .= String signedTxBody
                                             ]
                                          ]
                                   ]
@@ -154,7 +149,7 @@ spec = around showLogsOnFailure $
                         ]
 
                     send n1 $ input "getUtxo" []
-                    waitFor tracer 10 [n1] $ output "utxo" ["utxo" .= utxo]
+                    waitFor tracer 10 [n1] $ output "utxo" ["utxo" .= String (error "construct expected utxo using new utxoref")]
 
                     send n1 $ input "close" []
                     waitFor tracer 3 [n1] $
