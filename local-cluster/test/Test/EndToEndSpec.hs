@@ -29,6 +29,7 @@ import Cardano.Api (
   TxExtraScriptData (TxExtraScriptDataNone),
   TxFee (TxFeeExplicit),
   TxFeesExplicitInEra (TxFeesExplicitInMaryEra),
+  TxId,
   TxIn (..),
   TxInsCollateral (TxInsCollateralNone),
   TxMetadataInEra (TxMetadataNone),
@@ -112,6 +113,18 @@ spec = around showLogsOnFailure $
                     waitFor tracer 3 [n1, n2, n3] $
                       output "readyToCommit" ["parties" .= [int 10, 20, 30]]
 
+                    let someUtxo =
+                          object
+                            [ "outputRef" .= outputRef someTxId 0
+                            , "output"
+                                .= object
+                                  [ "address" .= String (serialiseAddress inHeadAliceAddress)
+                                  , "value"
+                                      .= object
+                                        [ "coins" .= int 14
+                                        ]
+                                  ]
+                            ]
                     send n1 $ input "commit" ["utxo" .= [someUtxo]]
                     send n2 $ input "commit" ["utxo" .= Array mempty]
                     send n3 $ input "commit" ["utxo" .= Array mempty]
@@ -119,6 +132,20 @@ spec = around showLogsOnFailure $
 
                     let tx = txToJson txAlicePaysHerself
                     send n1 $ input "newTransaction" ["transaction" .= tx]
+
+                    let newTxId = getTxId (getTxBody txAlicePaysHerself)
+                        newUtxo =
+                          object
+                            [ "outputRef" .= outputRef newTxId 0
+                            , "output"
+                                .= object
+                                  [ "address" .= String (serialiseAddress inHeadAliceAddress)
+                                  , "value"
+                                      .= object
+                                        [ "coins" .= int 14
+                                        ]
+                                  ]
+                            ]
 
                     waitFor tracer 10 [n1, n2, n3] $
                       output "transactionSeen" ["transaction" .= tx]
@@ -129,12 +156,12 @@ spec = around showLogsOnFailure $
                             .= object
                               [ "confirmedTransactions" .= [tx]
                               , "snapshotNumber" .= int 1
-                              , "utxo" .= [int 2, 3, 4]
+                              , "utxo" .= [newUtxo]
                               ]
                         ]
 
                     send n1 $ input "getUtxo" []
-                    waitFor tracer 10 [n1] $ output "utxo" ["utxo" .= String (error "construct expected utxo using new utxoref")]
+                    waitFor tracer 10 [n1] $ output "utxo" ["utxo" .= [newUtxo]]
 
                     send n1 $ input "close" []
                     waitFor tracer 3 [n1] $
@@ -144,11 +171,12 @@ spec = around showLogsOnFailure $
                         , "latestSnapshot"
                             .= object
                               [ "snapshotNumber" .= int 1
-                              , "utxo" .= [int 2, 3, 4]
+                              , "utxo" .= [newUtxo]
                               , "confirmedTransactions" .= [tx]
                               ]
                         ]
-                    waitFor tracer (contestationPeriod + 3) [n1] $ output "headIsFinalized" ["utxo" .= [int 2, 3, 4]]
+                    waitFor tracer (contestationPeriod + 3) [n1] $
+                      output "headIsFinalized" ["utxo" .= [newUtxo]]
 
     describe "Monitoring" $ do
       it "Node exposes Prometheus metrics on port 6001" $ \tracer -> do
@@ -184,31 +212,14 @@ aliceVk = deriveVerKeyDSIGN aliceSk
 bobVk = deriveVerKeyDSIGN bobSk
 carolVk = deriveVerKeyDSIGN carolSk
 
-someUtxo :: Value
-someUtxo =
-  object
-    [ "outputRef" .= someOutputRef
-    , "output" .= someOutput
-    ]
-
-someOutput :: Value
-someOutput =
-  object
-    [ "address" .= String (serialiseAddress inHeadAliceAddress)
-    , "value"
-        .= object
-          [ "coins" .= int 14
-          ]
-    ]
-
 someTxId :: IsString s => s
 someTxId = "9fdc525c20bc00d9dfa9d14904b65e01910c0dfe3bb39865523c1e20eaeb0903"
 
-someOutputRef :: Value
-someOutputRef =
+outputRef :: TxId -> Natural -> Value
+outputRef txId txIx =
   object
-    [ "txId" .= String someTxId
-    , "index" .= int 0
+    [ "txId" .= txId
+    , "index" .= txIx
     ]
 
 -- | Signing key used by alice "in head". This is distinct from the keys used to
