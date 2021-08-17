@@ -21,13 +21,28 @@ import Cardano.Api (
   SigningKey,
   StakeAddressReference (NoStakeAddress),
   Tx,
+  TxAuxScripts (TxAuxScriptsNone),
   TxBodyContent (..),
+  TxCertificates (TxCertificatesNone),
+  TxExtraKeyWitnesses (TxExtraKeyWitnessesNone),
+  TxExtraScriptData (TxExtraScriptDataNone),
+  TxFee (TxFeeExplicit),
+  TxFeesExplicitInEra (TxFeesExplicitInMaryEra),
   TxIn (..),
   TxInsCollateral (TxInsCollateralNone),
+  TxMetadataInEra (TxMetadataNone),
+  TxMintValue (TxMintNone),
   TxOut (TxOut),
+  TxOutDatumHash (TxOutDatumHashNone),
   TxOutValue (TxOutValue),
+  TxUpdateProposal (TxUpdateProposalNone),
+  TxValidityLowerBound (TxValidityNoLowerBound),
+  TxValidityUpperBound (TxValidityNoUpperBound),
+  TxWithdrawals (TxWithdrawalsNone),
+  ValidityNoUpperBoundSupportedInEra (ValidityNoUpperBoundInMaryEra),
   Witness (KeyWitness),
   deterministicSigningKey,
+  deterministicSigningKeySeedSize,
   getTxBody,
   getTxWitnesses,
   getVerificationKey,
@@ -96,7 +111,7 @@ someUtxo =
 someOutput :: Value
 someOutput =
   object
-    [ "address" .= String . serialiseAddress $ inHeadAliceAddress
+    [ "address" .= String (serialiseAddress inHeadAliceAddress)
     , "value"
         .= object
           [ "coins" .= int 14
@@ -116,7 +131,10 @@ someOutputRef =
 -- | Signing key used by alice "in head". This is distinct from the keys used to
 -- do multi signatures for the Head protocol.
 inHeadAliceSk :: SigningKey PaymentKey
-inHeadAliceSk = deterministicSigningKey AsPaymentKey $ mkSeedFromBytes "alice"
+inHeadAliceSk =
+  deterministicSigningKey AsPaymentKey $ mkSeedFromBytes $ BS.replicate seedBytes 65
+ where
+  seedBytes = fromIntegral $ deterministicSigningKeySeedSize AsPaymentKey
 
 inHeadAliceVk :: VerificationKey PaymentKey
 inHeadAliceVk = getVerificationKey inHeadAliceSk
@@ -134,47 +152,34 @@ txAlicePaysHerself :: Tx MaryEra
 txAlicePaysHerself =
   signShelleyTransaction body [WitnessPaymentKey inHeadAliceSk]
  where
-  txIn = TxIn someTxId (toEnum 0)
-  txInWitness = KeyWitness KeyWitnessForSpending
-  txOut = TxOut (shelleyAddressInEra inHeadAliceAddress) (TxOutValue MultiAssetInMaryEra (lovelaceToValue 14)) _
   Right body =
     makeTransactionBody $
       TxBodyContent
         { txIns = [(txIn, BuildTxWith txInWitness)]
         , txInsCollateral = TxInsCollateralNone
         , txOuts = [txOut]
-        , txFee = error "undefined"
-        , txValidityRange = error "undefined"
-        , txWithdrawals = error "undefined"
-        , txCertificates = error "undefined"
-        , txUpdateProposal = error "undefined"
-        , txMintValue = error "undefined"
-        , txExtraKeyWits = error "undefined"
-        , txProtocolParams = error "undefined"
-        , txMetadata = error "undefined"
-        , txAuxScripts = error "undefined"
-        , txExtraScriptData = error "undefined"
+        , txFee = TxFeeExplicit TxFeesExplicitInMaryEra 0
+        , txValidityRange = (TxValidityNoLowerBound, TxValidityNoUpperBound ValidityNoUpperBoundInMaryEra)
+        , txMetadata = TxMetadataNone
+        , txAuxScripts = TxAuxScriptsNone
+        , txExtraScriptData = BuildTxWith TxExtraScriptDataNone
+        , txExtraKeyWits = TxExtraKeyWitnessesNone
+        , txProtocolParams = BuildTxWith Nothing
+        , txWithdrawals = TxWithdrawalsNone
+        , txCertificates = TxCertificatesNone
+        , txUpdateProposal = TxUpdateProposalNone
+        , txMintValue = TxMintNone
         }
 
--- addr = Addr Mainnet (toCred keyPair) StakeRefNull
+  txIn = TxIn someTxId (toEnum 0)
 
--- txbody :: TxBody (MaryEra StandardCrypto)
--- txbody =
---   TxBody
---     (Set.fromList [someTxIn])
---     ( StrictSeq.fromList [Ledger.TxOut addr $ Val.inject transferred]
---     )
---     StrictSeq.empty
---     (Ledger.Wdrl Map.empty)
---     fee
---     (ValidityInterval SNothing SNothing)
---     SNothing
---     SNothing
---     Val.zero
+  txInWitness = KeyWitness KeyWitnessForSpending
 
--- fee = Ledger.Coin 0
-
--- transferred = Ledger.Coin 14
+  txOut =
+    TxOut
+      (shelleyAddressInEra inHeadAliceAddress)
+      (TxOutValue MultiAssetInMaryEra (lovelaceToValue 14))
+      TxOutDatumHashNone
 
 spec :: Spec
 spec = around showLogsOnFailure $
