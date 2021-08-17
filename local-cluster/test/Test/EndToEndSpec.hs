@@ -22,6 +22,7 @@ import Cardano.Api (
   StakeAddressReference (NoStakeAddress),
   Tx,
   TxAuxScripts (TxAuxScriptsNone),
+  TxBody (TxBody),
   TxBodyContent (..),
   TxCertificates (TxCertificatesNone),
   TxExtraKeyWitnesses (TxExtraKeyWitnessesNone),
@@ -44,6 +45,7 @@ import Cardano.Api (
   deterministicSigningKey,
   deterministicSigningKeySeedSize,
   getTxBody,
+  getTxId,
   getTxWitnesses,
   getVerificationKey,
   lovelaceToValue,
@@ -63,7 +65,7 @@ import Cardano.Crypto.DSIGN (
   VerKeyDSIGN,
  )
 import Cardano.Crypto.Seed (mkSeedFromBytes)
-import Data.Aeson (Value (Array, String), encode, object, (.=))
+import Data.Aeson (Value (Array, String), object, (.=))
 import qualified Data.ByteString as BS
 import Data.ByteString.Base16 (encodeBase16)
 import Hydra.Logging (showLogsOnFailure)
@@ -181,6 +183,24 @@ txAlicePaysHerself =
       (TxOutValue MultiAssetInMaryEra (lovelaceToValue 14))
       TxOutDatumHashNone
 
+txToJson :: Tx MaryEra -> Value
+txToJson tx =
+  object
+    [ "id" .= getTxId txBody
+    , "body"
+        .= object
+          [ "inputs" .= map fst (txIns content)
+          , "outputs" .= txOuts content
+          ]
+    , "witnesses" .= map (encodeBase16 . serialiseToCBOR) txWitnesses
+    ]
+ where
+  txBody = getTxBody tx
+
+  TxBody content = txBody
+
+  txWitnesses = getTxWitnesses tx
+
 spec :: Spec
 spec = around showLogsOnFailure $
   describe "End-to-end test using a mocked chain though" $ do
@@ -197,27 +217,17 @@ spec = around showLogsOnFailure $
                     send n1 $ input "init" ["contestationPeriod" .= contestationPeriod]
                     waitFor tracer 3 [n1, n2, n3] $
                       output "readyToCommit" ["parties" .= [int 10, 20, 30]]
+
                     send n1 $ input "commit" ["utxo" .= [someUtxo]]
                     send n2 $ input "commit" ["utxo" .= Array mempty]
                     send n3 $ input "commit" ["utxo" .= Array mempty]
-
                     waitFor tracer 3 [n1, n2, n3] $ output "headIsOpen" ["utxo" .= [someUtxo]]
 
-                    let txBody = getTxBody txAlicePaysHerself
-                        txWitnesses = getTxWitnesses txAlicePaysHerself
-                        tx =
-                          object
-                            -- TODO(SN): we might want to have a full json
-                            -- representation as we need one for
-                            -- "seenTransaction" anyway
-                            [ "body" .= encodeBase16 (serialiseToCBOR txBody)
-                            , "witnesses" .= map (encodeBase16 . serialiseToCBOR) txWitnesses
-                            ]
-                    putLBS $ encode tx
-                    void $ error "we really want to not have CBOR above"
+                    let tx = txToJson txAlicePaysHerself
                     send n1 $ input "newTransaction" ["transaction" .= tx]
 
-                    waitFor tracer 10 [n1, n2, n3] $ output "transactionSeen" ["transaction" .= tx]
+                    waitFor tracer 10 [n1, n2, n3] $
+                      output "transactionSeen" ["transaction" .= tx]
                     waitFor tracer 10 [n1, n2, n3] $
                       output
                         "snapshotConfirmed"
