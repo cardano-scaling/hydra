@@ -6,30 +6,37 @@ module Test.EndToEndSpec where
 
 import Hydra.Prelude
 
+import Cardano.Api (
+  AsType (AsPaymentKey),
+  Key (VerificationKey),
+  MaryEra,
+  NetworkId (Mainnet),
+  PaymentCredential (PaymentCredentialByKey),
+  PaymentKey,
+  ShelleyWitnessSigningKey (WitnessPaymentKey),
+  SigningKey,
+  StakeAddressReference (NoStakeAddress),
+  Tx,
+  deterministicSigningKey,
+  getTxBody,
+  getTxWitnesses,
+  getVerificationKey,
+  makeShelleyAddress,
+  serialiseAddress,
+  serialiseToCBOR,
+  signShelleyTransaction,
+  verificationKeyHash,
+ )
 import Cardano.Crypto.DSIGN (
-  DSIGNAlgorithm (deriveVerKeyDSIGN, rawSerialiseVerKeyDSIGN),
+  DSIGNAlgorithm (deriveVerKeyDSIGN),
   MockDSIGN,
   SignKeyDSIGN,
   VerKeyDSIGN,
-  genKeyDSIGN,
  )
-import Cardano.Crypto.DSIGN.Ed25519 (Ed25519DSIGN)
 import Cardano.Crypto.Seed (mkSeedFromBytes)
-import Cardano.Ledger.Address (Addr (Addr), toCred)
-import Cardano.Ledger.BaseTypes (Network (Mainnet), StrictMaybe (SNothing))
-import Cardano.Ledger.Credential (StakeReference (StakeRefNull))
-import Cardano.Ledger.Crypto (StandardCrypto)
-import Cardano.Ledger.Keys (KeyPair (..), KeyRole (Payment), VKey (VKey), asWitness)
-import Cardano.Ledger.Mary (MaryEra)
-import Cardano.Ledger.SafeHash (hashAnnotated)
-import Cardano.Ledger.ShelleyMA.TxBody (TxBody (TxBody), ValidityInterval (ValidityInterval))
-import qualified Cardano.Ledger.Val as Val
-import Data.Aeson (Value (Array, String), object, (.=))
+import Data.Aeson (Value (Array, String), encode, object, (.=))
 import qualified Data.ByteString as BS
 import Data.ByteString.Base16 (encodeBase16)
-import qualified Data.Map as Map
-import qualified Data.Sequence.Strict as StrictSeq
-import qualified Data.Set as Set
 import Hydra.Logging (showLogsOnFailure)
 import HydraNode (
   getMetrics,
@@ -44,9 +51,6 @@ import HydraNode (
   withMockChain,
   withTempDir,
  )
-import qualified Shelley.Spec.Ledger.API as Ledger
-import Shelley.Spec.Ledger.Tx (addrWits)
-import Shelley.Spec.Ledger.UTxO (makeWitnessesVKey)
 import Test.Hspec (
   Spec,
   around,
@@ -85,12 +89,6 @@ someOutput =
           ]
     ]
 
-someTxIn :: Ledger.TxIn StandardCrypto
-someTxIn = Ledger.TxIn (Ledger.TxId $ hashAnnotated emptyTxBody) 0
- where
-  emptyTxBody :: TxBody (MaryEra StandardCrypto)
-  emptyTxBody = error "TODO: this is not fun"
-
 someOutputRef :: Value
 someOutputRef =
   object
@@ -100,43 +98,46 @@ someOutputRef =
 
 -- | Signing key used by alice "in head". This is distinct from the keys used to
 -- do multi signatures for the Head protocol.
-inHeadAliceSk :: SignKeyDSIGN Ed25519DSIGN
-inHeadAliceSk = genKeyDSIGN $ mkSeedFromBytes "alice"
+inHeadAliceSk :: SigningKey PaymentKey
+inHeadAliceSk = deterministicSigningKey AsPaymentKey $ mkSeedFromBytes "alice"
+
+inHeadAliceVk :: VerificationKey PaymentKey
+inHeadAliceVk = getVerificationKey inHeadAliceSk
 
 -- | Pay to pubkey address of alice using her "in head" credential.
 inHeadAliceAddress :: Value
 inHeadAliceAddress =
-  let pubKey = deriveVerKeyDSIGN inHeadAliceSk
-      creds = toCred @StandardCrypto $ KeyPair{vKey = VKey pubKey, sKey = inHeadAliceSk}
-      ref = StakeRefNull
-   in toJSON $ Addr Mainnet creds ref
-
-txAlicePaysHerself :: KeyPair 'Payment StandardCrypto -> Ledger.Tx (MaryEra StandardCrypto)
-txAlicePaysHerself keyPair =
-  Ledger.Tx
-    txbody
-    mempty{addrWits = makeWitnessesVKey (hashAnnotated txbody) [asWitness keyPair]}
-    SNothing
+  String . serialiseAddress $ makeShelleyAddress network credential reference
  where
-  addr = Addr Mainnet (toCred keyPair) StakeRefNull
+  network = Mainnet
+  credential = PaymentCredentialByKey $ verificationKeyHash inHeadAliceVk
+  reference = NoStakeAddress
 
-  txbody :: TxBody (MaryEra StandardCrypto)
-  txbody =
-    TxBody
-      (Set.fromList [someTxIn])
-      ( StrictSeq.fromList [Ledger.TxOut addr $ Val.inject transferred]
-      )
-      StrictSeq.empty
-      (Ledger.Wdrl Map.empty)
-      fee
-      (ValidityInterval SNothing SNothing)
-      SNothing
-      SNothing
-      Val.zero
+txAlicePaysHerself :: Tx MaryEra
+txAlicePaysHerself =
+  signShelleyTransaction body [WitnessPaymentKey inHeadAliceSk]
+ where
+  body = error "TODO"
 
-  fee = Ledger.Coin 0
+-- addr = Addr Mainnet (toCred keyPair) StakeRefNull
 
-  transferred = Ledger.Coin 14
+-- txbody :: TxBody (MaryEra StandardCrypto)
+-- txbody =
+--   TxBody
+--     (Set.fromList [someTxIn])
+--     ( StrictSeq.fromList [Ledger.TxOut addr $ Val.inject transferred]
+--     )
+--     StrictSeq.empty
+--     (Ledger.Wdrl Map.empty)
+--     fee
+--     (ValidityInterval SNothing SNothing)
+--     SNothing
+--     SNothing
+--     Val.zero
+
+-- fee = Ledger.Coin 0
+
+-- transferred = Ledger.Coin 14
 
 spec :: Spec
 spec = around showLogsOnFailure $
@@ -160,23 +161,18 @@ spec = around showLogsOnFailure $
 
                     waitFor tracer 3 [n1, n2, n3] $ output "headIsOpen" ["utxo" .= [someUtxo]]
 
-                    let txBody = object ["inputs" .= [someOutputRef], "outputs" .= [someOutput]]
-
-                        signedTxBody = error "not implemented: use signShelleyTransaction"
-
+                    let txBody = getTxBody txAlicePaysHerself
+                        txWitnesses = getTxWitnesses txAlicePaysHerself
                         tx =
                           object
-                            [ "body" .= txBody
-                            , "witnesses"
-                                .= object
-                                  [ "verificationKeys"
-                                      .= [ object
-                                            [ "key" .= encodeBase16 (rawSerialiseVerKeyDSIGN $ deriveVerKeyDSIGN inHeadAliceSk)
-                                            , "signature" .= String signedTxBody
-                                            ]
-                                         ]
-                                  ]
+                            -- TODO(SN): we might want to have a full json
+                            -- representation as we need one for
+                            -- "seenTransaction" anyway
+                            [ "body" .= encodeBase16 (serialiseToCBOR txBody)
+                            , "witnesses" .= map (encodeBase16 . serialiseToCBOR) txWitnesses
                             ]
+                    putLBS $ encode tx
+                    void $ error "we really want to not have CBOR above"
                     send n1 $ input "newTransaction" ["transaction" .= tx]
 
                     waitFor tracer 10 [n1, n2, n3] $ output "transactionSeen" ["transaction" .= tx]

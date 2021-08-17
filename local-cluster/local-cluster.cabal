@@ -133,9 +133,8 @@ test-suite integration
     , base                       >=4.7 && <5
     , base16
     , bytestring
+    , cardano-api
     , cardano-crypto-class
-    , cardano-ledger-core
-    , cardano-ledger-shelley-ma
     , containers
     , hspec
     , hspec-core
@@ -145,7 +144,6 @@ test-suite integration
     , local-cluster
     , regex-tdfa
     , say
-    , shelley-spec-ledger
     , strict-containers
     , temporary
 
