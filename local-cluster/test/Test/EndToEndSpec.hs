@@ -7,9 +7,13 @@ module Test.EndToEndSpec where
 import Hydra.Prelude
 
 import Cardano.Api (
+  Address,
   AsType (AsPaymentKey),
+  BuildTxWith (BuildTxWith),
   Key (VerificationKey),
+  KeyWitnessInCtx (KeyWitnessForSpending),
   MaryEra,
+  MultiAssetSupportedInEra (MultiAssetInMaryEra),
   NetworkId (Mainnet),
   PaymentCredential (PaymentCredentialByKey),
   PaymentKey,
@@ -17,16 +21,26 @@ import Cardano.Api (
   SigningKey,
   StakeAddressReference (NoStakeAddress),
   Tx,
+  TxBodyContent (..),
+  TxIn (..),
+  TxInsCollateral (TxInsCollateralNone),
+  TxOut (TxOut),
+  TxOutValue (TxOutValue),
+  Witness (KeyWitness),
   deterministicSigningKey,
   getTxBody,
   getTxWitnesses,
   getVerificationKey,
+  lovelaceToValue,
   makeShelleyAddress,
+  makeTransactionBody,
   serialiseAddress,
   serialiseToCBOR,
+  shelleyAddressInEra,
   signShelleyTransaction,
   verificationKeyHash,
  )
+import Cardano.Api.Shelley (ShelleyAddr)
 import Cardano.Crypto.DSIGN (
   DSIGNAlgorithm (deriveVerKeyDSIGN),
   MockDSIGN,
@@ -82,17 +96,20 @@ someUtxo =
 someOutput :: Value
 someOutput =
   object
-    [ "address" .= inHeadAliceAddress
+    [ "address" .= String . serialiseAddress $ inHeadAliceAddress
     , "value"
         .= object
           [ "coins" .= int 14
           ]
     ]
 
+someTxId :: IsString s => s
+someTxId = "9fdc525c20bc00d9dfa9d14904b65e01910c0dfe3bb39865523c1e20eaeb0903"
+
 someOutputRef :: Value
 someOutputRef =
   object
-    [ "txId" .= String "9fdc525c20bc00d9dfa9d14904b65e01910c0dfe3bb39865523c1e20eaeb0903"
+    [ "txId" .= String someTxId
     , "index" .= int 0
     ]
 
@@ -105,9 +122,9 @@ inHeadAliceVk :: VerificationKey PaymentKey
 inHeadAliceVk = getVerificationKey inHeadAliceSk
 
 -- | Pay to pubkey address of alice using her "in head" credential.
-inHeadAliceAddress :: Value
+inHeadAliceAddress :: Address ShelleyAddr
 inHeadAliceAddress =
-  String . serialiseAddress $ makeShelleyAddress network credential reference
+  makeShelleyAddress network credential reference
  where
   network = Mainnet
   credential = PaymentCredentialByKey $ verificationKeyHash inHeadAliceVk
@@ -117,7 +134,27 @@ txAlicePaysHerself :: Tx MaryEra
 txAlicePaysHerself =
   signShelleyTransaction body [WitnessPaymentKey inHeadAliceSk]
  where
-  body = error "TODO"
+  txIn = TxIn someTxId (toEnum 0)
+  txInWitness = KeyWitness KeyWitnessForSpending
+  txOut = TxOut (shelleyAddressInEra inHeadAliceAddress) (TxOutValue MultiAssetInMaryEra (lovelaceToValue 14)) _
+  Right body =
+    makeTransactionBody $
+      TxBodyContent
+        { txIns = [(txIn, BuildTxWith txInWitness)]
+        , txInsCollateral = TxInsCollateralNone
+        , txOuts = [txOut]
+        , txFee = error "undefined"
+        , txValidityRange = error "undefined"
+        , txWithdrawals = error "undefined"
+        , txCertificates = error "undefined"
+        , txUpdateProposal = error "undefined"
+        , txMintValue = error "undefined"
+        , txExtraKeyWits = error "undefined"
+        , txProtocolParams = error "undefined"
+        , txMetadata = error "undefined"
+        , txAuxScripts = error "undefined"
+        , txExtraScriptData = error "undefined"
+        }
 
 -- addr = Addr Mainnet (toCred keyPair) StakeRefNull
 
