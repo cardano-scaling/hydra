@@ -93,6 +93,85 @@ import Test.Hydra.Prelude (failAfter)
 import Text.Regex.TDFA ((=~))
 import Text.Regex.TDFA.Text ()
 
+spec :: Spec
+spec = around showLogsOnFailure $
+  describe "End-to-end test using a mocked chain though" $ do
+    describe "three hydra nodes scenario" $ do
+      it "inits a Head, processes a single Cardano transaction and closes it again" $ \tracer -> do
+        failAfter 30 $
+          withTempDir "end-to-end-inits-and-closes" $ \tmpDir ->
+            withMockChain $ \chainPorts ->
+              withHydraNode tracer tmpDir chainPorts 1 aliceSk [bobVk, carolVk] $ \n1 ->
+                withHydraNode tracer tmpDir chainPorts 2 bobSk [aliceVk, carolVk] $ \n2 ->
+                  withHydraNode tracer tmpDir chainPorts 3 carolSk [aliceVk, bobVk] $ \n3 -> do
+                    waitForNodesConnected tracer [n1, n2, n3]
+                    let contestationPeriod = 10 :: Natural
+                    send n1 $ input "init" ["contestationPeriod" .= contestationPeriod]
+                    waitFor tracer 3 [n1, n2, n3] $
+                      output "readyToCommit" ["parties" .= [int 10, 20, 30]]
+
+                    send n1 $ input "commit" ["utxo" .= [someUtxo]]
+                    send n2 $ input "commit" ["utxo" .= Array mempty]
+                    send n3 $ input "commit" ["utxo" .= Array mempty]
+                    waitFor tracer 3 [n1, n2, n3] $ output "headIsOpen" ["utxo" .= [someUtxo]]
+
+                    let tx = txToJson txAlicePaysHerself
+                    send n1 $ input "newTransaction" ["transaction" .= tx]
+
+                    waitFor tracer 10 [n1, n2, n3] $
+                      output "transactionSeen" ["transaction" .= tx]
+                    waitFor tracer 10 [n1, n2, n3] $
+                      output
+                        "snapshotConfirmed"
+                        [ "snapshot"
+                            .= object
+                              [ "confirmedTransactions" .= [tx]
+                              , "snapshotNumber" .= int 1
+                              , "utxo" .= [int 2, 3, 4]
+                              ]
+                        ]
+
+                    send n1 $ input "getUtxo" []
+                    waitFor tracer 10 [n1] $ output "utxo" ["utxo" .= String (error "construct expected utxo using new utxoref")]
+
+                    send n1 $ input "close" []
+                    waitFor tracer 3 [n1] $
+                      output
+                        "headIsClosed"
+                        [ "contestationPeriod" .= contestationPeriod
+                        , "latestSnapshot"
+                            .= object
+                              [ "snapshotNumber" .= int 1
+                              , "utxo" .= [int 2, 3, 4]
+                              , "confirmedTransactions" .= [tx]
+                              ]
+                        ]
+                    waitFor tracer (contestationPeriod + 3) [n1] $ output "headIsFinalized" ["utxo" .= [int 2, 3, 4]]
+
+    describe "Monitoring" $ do
+      it "Node exposes Prometheus metrics on port 6001" $ \tracer -> do
+        withTempDir "end-to-end-prometheus-metrics" $ \tmpDir ->
+          failAfter 20 $
+            withMockChain $ \mockPorts ->
+              withHydraNode tracer tmpDir mockPorts 1 aliceSk [bobVk, carolVk] $ \n1 ->
+                withHydraNode tracer tmpDir mockPorts 2 bobSk [aliceVk, carolVk] $ \_n2 ->
+                  withHydraNode tracer tmpDir mockPorts 3 carolSk [aliceVk, bobVk] $ \_n3 -> do
+                    waitForNodesConnected tracer [n1]
+                    send n1 $ input "init" ["contestationPeriod" .= int 10]
+                    waitFor tracer 3 [n1] $ output "readyToCommit" ["parties" .= [int 10, 20, 30]]
+                    metrics <- getMetrics n1
+                    metrics `shouldSatisfy` ("hydra_head_events  4" `BS.isInfixOf`)
+
+    describe "hydra-node executable" $ do
+      it "display proper semantic version given it is passed --version argument" $ \_ -> do
+        failAfter 5 $ do
+          version <- readCreateProcess (hydraNodeProcess ["--version"]) ""
+          version `shouldSatisfy` (=~ ("[0-9]+\\.[0-9]+\\.[0-9]+(-[a-zA-Z0-9]+)?" :: String))
+
+--
+-- Fixtures
+--
+
 aliceSk, bobSk, carolSk :: SignKeyDSIGN MockDSIGN
 aliceSk = 10
 bobSk = 20
@@ -183,6 +262,13 @@ txAlicePaysHerself =
       (TxOutValue MultiAssetInMaryEra (lovelaceToValue 14))
       TxOutDatumHashNone
 
+--
+-- Helpers
+--
+
+int :: Int -> Int
+int = id
+
 txToJson :: Tx MaryEra -> Value
 txToJson tx =
   object
@@ -200,85 +286,3 @@ txToJson tx =
   TxBody content = txBody
 
   txWitnesses = getTxWitnesses tx
-
-spec :: Spec
-spec = around showLogsOnFailure $
-  describe "End-to-end test using a mocked chain though" $ do
-    describe "three hydra nodes scenario" $ do
-      it "inits a Head, processes a single Cardano transaction and closes it again" $ \tracer -> do
-        failAfter 30 $
-          withTempDir "end-to-end-inits-and-closes" $ \tmpDir ->
-            withMockChain $ \chainPorts ->
-              withHydraNode tracer tmpDir chainPorts 1 aliceSk [bobVk, carolVk] $ \n1 ->
-                withHydraNode tracer tmpDir chainPorts 2 bobSk [aliceVk, carolVk] $ \n2 ->
-                  withHydraNode tracer tmpDir chainPorts 3 carolSk [aliceVk, bobVk] $ \n3 -> do
-                    waitForNodesConnected tracer [n1, n2, n3]
-                    let contestationPeriod = 10 :: Natural
-                    send n1 $ input "init" ["contestationPeriod" .= contestationPeriod]
-                    waitFor tracer 3 [n1, n2, n3] $
-                      output "readyToCommit" ["parties" .= [int 10, 20, 30]]
-
-                    send n1 $ input "commit" ["utxo" .= [someUtxo]]
-                    send n2 $ input "commit" ["utxo" .= Array mempty]
-                    send n3 $ input "commit" ["utxo" .= Array mempty]
-                    waitFor tracer 3 [n1, n2, n3] $ output "headIsOpen" ["utxo" .= [someUtxo]]
-
-                    let tx = txToJson txAlicePaysHerself
-                    send n1 $ input "newTransaction" ["transaction" .= tx]
-
-                    waitFor tracer 10 [n1, n2, n3] $
-                      output "transactionSeen" ["transaction" .= tx]
-                    waitFor tracer 10 [n1, n2, n3] $
-                      output
-                        "snapshotConfirmed"
-                        [ "snapshot"
-                            .= object
-                              [ "confirmedTransactions" .= [tx]
-                              , "snapshotNumber" .= int 1
-                              , "utxo" .= [int 2, 3, 4]
-                              ]
-                        ]
-
-                    send n1 $ input "getUtxo" []
-                    waitFor tracer 10 [n1] $ output "utxo" ["utxo" .= String (error "construct expected utxo using new utxoref")]
-
-                    send n1 $ input "close" []
-                    waitFor tracer 3 [n1] $
-                      output
-                        "headIsClosed"
-                        [ "contestationPeriod" .= contestationPeriod
-                        , "latestSnapshot"
-                            .= object
-                              [ "snapshotNumber" .= int 1
-                              , "utxo" .= [int 2, 3, 4]
-                              , "confirmedTransactions" .= [tx]
-                              ]
-                        ]
-                    waitFor tracer (contestationPeriod + 3) [n1] $ output "headIsFinalized" ["utxo" .= [int 2, 3, 4]]
-
-    describe "Monitoring" $ do
-      it "Node exposes Prometheus metrics on port 6001" $ \tracer -> do
-        withTempDir "end-to-end-prometheus-metrics" $ \tmpDir ->
-          failAfter 20 $
-            withMockChain $ \mockPorts ->
-              withHydraNode tracer tmpDir mockPorts 1 aliceSk [bobVk, carolVk] $ \n1 ->
-                withHydraNode tracer tmpDir mockPorts 2 bobSk [aliceVk, carolVk] $ \_n2 ->
-                  withHydraNode tracer tmpDir mockPorts 3 carolSk [aliceVk, bobVk] $ \_n3 -> do
-                    waitForNodesConnected tracer [n1]
-                    send n1 $ input "init" ["contestationPeriod" .= int 10]
-                    waitFor tracer 3 [n1] $ output "readyToCommit" ["parties" .= [int 10, 20, 30]]
-                    metrics <- getMetrics n1
-                    metrics `shouldSatisfy` ("hydra_head_events  4" `BS.isInfixOf`)
-
-    describe "hydra-node executable" $ do
-      it "display proper semantic version given it is passed --version argument" $ \_ -> do
-        failAfter 5 $ do
-          version <- readCreateProcess (hydraNodeProcess ["--version"]) ""
-          version `shouldSatisfy` (=~ ("[0-9]+\\.[0-9]+\\.[0-9]+(-[a-zA-Z0-9]+)?" :: String))
-
---
--- Helpers
---
-
-int :: Int -> Int
-int = id
