@@ -16,3 +16,5 @@ import Test.Hspec
 spec :: Spec
 spec = describe "Cardano Head Ledger" $ do
   roundtripAndGoldenSpecs (Proxy @(Cardano.UTxO (MaryEra TestCrypto)))
+
+--roundtripAndGoldenSpecs (Proxy @(CardanoTxWitnesses TestCrypto))

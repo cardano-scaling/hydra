@@ -31,6 +31,9 @@ import qualified Data.Text as Text
 import Hydra.Ledger (Ledger (..), Tx (..))
 import qualified Shelley.Spec.Ledger.API as Cardano
 
+-- WitnessSet pattern is not reexported in API??
+import Shelley.Spec.Ledger.Tx (WitnessSetHKD (WitnessSet))
+
 type CardanoEra = MaryEra StandardCrypto
 
 data CardanoTx crypto = CardanoTx
@@ -171,8 +174,8 @@ instance Crypto crypto => FromJSON (Cardano.UTxO (MaryEra crypto)) where
 -- witnesses
 --
 
-instance ToJSON (CardanoTxWitnesses crypto) where
-  toJSON = error "toJSON: CardanoTxWitnesses"
+instance Crypto crypto => ToJSON (CardanoTxWitnesses crypto) where
+  toJSON (WitnessSet addrWitnesses _ _) = toJSON $ map (encodeBase16 . serialize') $ toList addrWitnesses
 
 instance FromJSON (CardanoTxWitnesses crypto) where
   parseJSON = error "parseJSON: CardanoTxWitnesses"
