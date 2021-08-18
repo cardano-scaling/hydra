@@ -69,6 +69,7 @@ import Cardano.Crypto.Seed (mkSeedFromBytes)
 import Data.Aeson (Value (Array, String), object, (.=))
 import qualified Data.ByteString as BS
 import Data.ByteString.Base16 (encodeBase16)
+import qualified Data.Map as Map
 import Hydra.Logging (showLogsOnFailure)
 import HydraNode (
   getMetrics,
@@ -114,17 +115,15 @@ spec = around showLogsOnFailure $
                       output "readyToCommit" ["parties" .= [int 10, 20, 30]]
 
                     let someUtxo =
-                          object
-                            [ "outputRef" .= outputRef someTxId 0
-                            , "output"
-                                .= object
-                                  [ "address" .= String (serialiseAddress inHeadAliceAddress)
-                                  , "value"
-                                      .= object
-                                        [ "coins" .= int 14
-                                        ]
-                                  ]
-                            ]
+                          Map.singleton
+                            (TxIn someTxId $ toEnum 0)
+                            $ object
+                              [ "address" .= String (serialiseAddress inHeadAliceAddress)
+                              , "value"
+                                  .= object
+                                    [ "lovelace" .= int 14
+                                    ]
+                              ]
                     send n1 $ input "commit" ["utxo" .= [someUtxo]]
                     send n2 $ input "commit" ["utxo" .= Array mempty]
                     send n3 $ input "commit" ["utxo" .= Array mempty]
@@ -135,17 +134,15 @@ spec = around showLogsOnFailure $
 
                     let newTxId = getTxId (getTxBody txAlicePaysHerself)
                         newUtxo =
-                          object
-                            [ "outputRef" .= outputRef newTxId 0
-                            , "output"
-                                .= object
-                                  [ "address" .= String (serialiseAddress inHeadAliceAddress)
-                                  , "value"
-                                      .= object
-                                        [ "coins" .= int 14
-                                        ]
-                                  ]
-                            ]
+                          Map.singleton
+                            (TxIn newTxId $ toEnum 0)
+                            $ object
+                              [ "address" .= String (serialiseAddress inHeadAliceAddress)
+                              , "value"
+                                  .= object
+                                    [ "lovelace" .= int 14
+                                    ]
+                              ]
 
                     waitFor tracer 10 [n1, n2, n3] $
                       output "transactionSeen" ["transaction" .= tx]
