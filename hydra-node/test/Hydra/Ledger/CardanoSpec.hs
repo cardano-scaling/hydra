@@ -6,7 +6,7 @@ module Hydra.Ledger.CardanoSpec where
 
 import Hydra.Prelude
 
-import Hydra.Ledger.Cardano ()
+import Hydra.Ledger.Cardano (CardanoTxWitnesses)
 import qualified Shelley.Spec.Ledger.API as Cardano
 import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
 import Test.Cardano.Ledger.EraBuffet (MaryEra, TestCrypto)
@@ -16,5 +16,4 @@ import Test.Hspec
 spec :: Spec
 spec = describe "Cardano Head Ledger" $ do
   roundtripAndGoldenSpecs (Proxy @(Cardano.UTxO (MaryEra TestCrypto)))
-
---roundtripAndGoldenSpecs (Proxy @(CardanoTxWitnesses TestCrypto))
+  roundtripAndGoldenSpecs (Proxy @(CardanoTxWitnesses TestCrypto))

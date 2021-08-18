@@ -6,7 +6,7 @@ module Hydra.Ledger.Cardano where
 
 import Hydra.Prelude hiding (id)
 
-import Cardano.Binary (decodeFull', serialize')
+import Cardano.Binary (Annotator, FullByteString (Full), decodeFull', runAnnotator, serialize')
 import Cardano.Ledger.Crypto (Crypto, StandardCrypto)
 import Cardano.Ledger.Mary (MaryEra)
 import qualified Cardano.Ledger.Mary.Value as Cardano
@@ -18,6 +18,7 @@ import Data.Aeson (
   decode,
   object,
   toJSONKey,
+  withArray,
   withObject,
   withText,
   (.:),
@@ -177,8 +178,23 @@ instance Crypto crypto => FromJSON (Cardano.UTxO (MaryEra crypto)) where
 instance Crypto crypto => ToJSON (CardanoTxWitnesses crypto) where
   toJSON (WitnessSet addrWitnesses _ _) = toJSON $ map (encodeBase16 . serialize') $ toList addrWitnesses
 
-instance FromJSON (CardanoTxWitnesses crypto) where
-  parseJSON = error "parseJSON: CardanoTxWitnesses"
+instance
+  ( Crypto crypto
+  , FromCBOR (Annotator (Cardano.WitVKey 'Cardano.Witness crypto))
+  ) =>
+  FromJSON (CardanoTxWitnesses crypto)
+  where
+  parseJSON = withArray "CardanoTxWitnesses" $ \a -> do
+    wits <- toList <$> traverse parseAddressWitness a
+    pure $ WitnessSet (Set.fromList wits) mempty mempty
+   where
+    parseAddressWitness = withText "AddrWitness" $ \t ->
+      -- TODO(AB): this is ugly
+      case decodeBase16 $ encodeUtf8 t of
+        Left err -> fail $ show err
+        Right bs' -> case decodeFull' bs' of
+          Left err -> fail $ show err
+          Right v -> pure $ runAnnotator v (Full $ fromStrict bs')
 
 instance Crypto crypto => Tx (CardanoTx crypto) where
   type Utxo (CardanoTx crypto) = Cardano.UTxO (MaryEra crypto)
