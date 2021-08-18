@@ -81,6 +81,7 @@ library
     Hydra.ClientInput
     Hydra.HeadLogic
     Hydra.Ledger
+    Hydra.Ledger.Cardano
     Hydra.Ledger.MaryTest
     Hydra.Ledger.Simple
     Hydra.Logging
