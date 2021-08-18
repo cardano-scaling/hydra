@@ -14,6 +14,7 @@ import Data.Aeson (Value (String), object, withObject, withText, (.:), (.=))
 import Data.ByteString.Base16 (decodeBase16, encodeBase16)
 import qualified Data.Sequence.Strict as StrictSeq
 import qualified Data.Set as Set
+import qualified Data.Text as Text
 import Hydra.Ledger (Tx (..))
 import qualified Shelley.Spec.Ledger.API as Cardano
 import Text.Read (readPrec)
@@ -59,8 +60,8 @@ instance Crypto crypto => FromJSON (Cardano.TxId crypto) where
 
 instance FromJSON CardanoTxBody where
   parseJSON = withObject "CardanoTxBody" $ \o -> do
-    inputs <- o .: "inputs"
-    outputs <- o .: "outputs"
+    inputs <- o .: "inputs" >>= traverse inputParseJson
+    outputs <- o .: "outputs" >>= traverse outputParseJson
     pure $
       Cardano.TxBody
         (Set.fromList inputs)
@@ -71,6 +72,20 @@ instance FromJSON CardanoTxBody where
         maxBound
         Cardano.SNothing
         Cardano.SNothing
+   where
+    inputParseJson = withText "TxIn" $ \t -> do
+      let (txIdText, txIxText) = Text.breakOn "#" t
+      Cardano.TxIn
+        <$> txIdFromText txIdText
+        <*> parseJSON (String txIxText)
+
+    outputParseJson = withObject "TxOut" $ \o -> do
+      address <- o .: "address"
+      value <- o .: "value" >>= valueParseJson
+      pure $ Cardano.TxOut address value
+
+    valueParseJson = withObject "Value" $ \o ->
+      Cardano.Value <$> o .: "lovelace" <*> pure mempty
 
 instance ToJSON CardanoTxBody where
   toJSON (Cardano.TxBody inputs outputs _certs _wdrls _txfee _ttl _update _mdHash) =
