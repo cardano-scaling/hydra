@@ -3,10 +3,10 @@
 
 module Hydra.Snapshot where
 
+import Cardano.Crypto.Util (SignableRepresentation (..))
+import Data.Aeson (object, withObject, (.:), (.=))
+import Hydra.Ledger (Tx, Utxo)
 import Hydra.Prelude
-import Hydra.Ledger (Utxo, Tx)
-import Cardano.Crypto.Util (SignableRepresentation(..))
-import Data.Aeson (object, (.=), withObject, (.:))
 
 type SnapshotNumber = Natural
 
@@ -20,7 +20,6 @@ data Snapshot tx = Snapshot
 
 deriving instance Tx tx => Eq (Snapshot tx)
 deriving instance Tx tx => Show (Snapshot tx)
-deriving instance Tx tx => Read (Snapshot tx)
 
 instance (Arbitrary tx, Arbitrary (Utxo tx)) => Arbitrary (Snapshot tx) where
   arbitrary = genericArbitrary

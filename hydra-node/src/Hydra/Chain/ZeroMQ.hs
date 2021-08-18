@@ -9,6 +9,7 @@ module Hydra.Chain.ZeroMQ where
 import Hydra.Prelude
 
 import Control.Monad.Class.MonadSTM (modifyTVar', newTBQueue, newTVarIO, readTBQueue, readTVarIO, writeTBQueue)
+import Data.Aeson (eitherDecodeStrict, encode)
 import qualified Data.Text.Encoding as Enc
 import Hydra.Chain (Chain (..), ChainComponent, OnChainTx, PostChainTx, toOnChainTx)
 import Hydra.Ledger (Tx)
@@ -81,17 +82,17 @@ transactionListener postTxAddress transactionLog txQueue tracer = do
   bind rep postTxAddress
   liftIO $ traceWith tracer (TransactionListenerStarted postTxAddress)
   forever $ do
-    msg <- toString . Enc.decodeUtf8 <$> receive rep
-    liftIO $ traceWith tracer (MessageReceived msg)
-    case reads msg of
-      (tx, "") : _ -> do
+    msg <- receive rep
+    liftIO $ traceWith tracer (MessageReceived $ toString . Enc.decodeUtf8 $ msg)
+    case eitherDecodeStrict msg of
+      Right tx -> do
         liftIO $
           atomically $ do
             writeTBQueue txQueue tx
             modifyTVar' transactionLog (<> [tx])
         send rep [] "OK"
-      other -> do
-        liftIO $ traceWith tracer (FailedToDecodeMessage (msg <> ", error: " <> show other))
+      Left other -> do
+        liftIO $ traceWith tracer (FailedToDecodeMessage (show msg <> ", error: " <> show other))
         send rep [] "KO"
 
 transactionPublisher :: Tx tx => String -> TBQueue IO (PostChainTx tx) -> Tracer IO (MockChainLog tx) -> ZMQ z ()
@@ -102,7 +103,7 @@ transactionPublisher chainSyncAddress txQueue tracer = do
   forever $ do
     tx <- liftIO $ atomically $ readTBQueue txQueue
     liftIO $ traceWith tracer (PublishingTransaction tx)
-    send pub [] (Enc.encodeUtf8 $ show $ toOnChainTx tx)
+    send pub [] (toStrict . encode $ toOnChainTx tx)
 
 transactionSyncer :: Tx tx => String -> TVar IO [PostChainTx tx] -> Tracer IO (MockChainLog tx) -> ZMQ z ()
 transactionSyncer chainCatchupAddress transactionLog tracer = do
@@ -113,13 +114,13 @@ transactionSyncer chainCatchupAddress transactionLog tracer = do
     _ <- receive rep
     txs <- liftIO $ readTVarIO transactionLog
     liftIO $ traceWith tracer (SyncingTransactions $ length txs)
-    send rep [] (Enc.encodeUtf8 $ show $ map toOnChainTx txs)
+    send rep [] (toStrict . encode $ map toOnChainTx txs)
 
 mockChainClient :: (Tx tx, MonadIO m) => String -> Tracer IO (MockChainLog tx) -> PostChainTx tx -> m ()
 mockChainClient postTxAddress tracer tx = runZMQ $ do
   req <- socket Req
   connect req postTxAddress
-  send req [] (Enc.encodeUtf8 $ show tx)
+  send req [] (toStrict $ encode tx)
   resp <- receive req
   case resp of
     "OK" -> liftIO (traceWith tracer (TransactionPosted postTxAddress tx)) >> pure ()
@@ -133,24 +134,24 @@ runChainSync chainSyncAddress handler tracer = do
     connect sub chainSyncAddress
     liftIO (traceWith tracer (ChainSyncStarted chainSyncAddress))
     forever $ do
-      msg <- toString . Enc.decodeUtf8 <$> receive sub
-      case reads msg of
-        (tx, "") : _ -> liftIO $ do
+      msg <- receive sub
+      case eitherDecodeStrict msg of
+        Right tx -> liftIO $ do
           traceWith tracer (ReceivedTransaction tx)
           handler tx
-        _ -> error $ "cannot decode transaction " <> show msg
+        Left{} -> error $ "cannot decode transaction " <> show msg
 
 catchUpTransactions :: Tx tx => String -> (OnChainTx tx -> IO ()) -> Tracer IO (MockChainLog tx) -> IO ()
 catchUpTransactions catchUpAddress handler tracer = runZMQ $ do
   req <- socket Req
   connect req catchUpAddress
   send req [] "Hello"
-  message <- toString . Enc.decodeUtf8 <$> receive req
-  case readMaybe message of
-    Just (txs :: [OnChainTx tx]) -> liftIO $ do
+  message <- receive req
+  case eitherDecodeStrict message of
+    Right (txs :: [OnChainTx tx]) -> liftIO $ do
       traceWith tracer (CatchingUpTransactions catchUpAddress $ length txs)
       forM_ txs handler
-    Nothing -> error $ "cannot decode catch-up transactions  " <> show message
+    Left{} -> error $ "cannot decode catch-up transactions  " <> show message
 
 withMockChain ::
   Tx tx =>

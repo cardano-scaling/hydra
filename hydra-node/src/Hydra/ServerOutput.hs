@@ -1,12 +1,13 @@
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE UndecidableInstances #-}
+
 module Hydra.ServerOutput where
 
-import Hydra.Prelude
-import Hydra.Ledger (Party, Utxo, Tx)
-import Hydra.Snapshot (Snapshot)
+import Data.Aeson (object, withObject, (.:), (.=))
 import qualified Data.Aeson as Aeson
-import Data.Aeson (object, (.=), withObject, (.:))
+import Hydra.Ledger (Party, Tx, Utxo)
+import Hydra.Prelude
+import Hydra.Snapshot (Snapshot)
 
 data ServerOutput tx
   = PeerConnected Party
@@ -28,7 +29,6 @@ data ServerOutput tx
 
 deriving instance Tx tx => Eq (ServerOutput tx)
 deriving instance Tx tx => Show (ServerOutput tx)
-deriving instance Tx tx => Read (ServerOutput tx)
 
 instance (Arbitrary tx, Arbitrary (Utxo tx)) => Arbitrary (ServerOutput tx) where
   arbitrary = genericArbitrary

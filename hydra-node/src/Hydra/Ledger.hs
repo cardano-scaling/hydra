@@ -26,9 +26,7 @@ import Test.QuickCheck (vectorOf)
 -- | Identifies a party in a Hydra head.
 newtype Party = UnsafeParty (VerKeyDSIGN MockDSIGN)
   deriving stock (Eq, Generic)
-  deriving newtype (Show, Read, Num)
-
-deriving instance Read (VerKeyDSIGN MockDSIGN)
+  deriving newtype (Show, Num)
 
 instance Ord Party where
   (UnsafeParty a) <= (UnsafeParty b) =
@@ -96,9 +94,6 @@ verify :: SignableRepresentation a => Signed a -> Party -> a -> Bool
 verify (UnsafeSigned sig) (UnsafeParty vk) msg =
   isRight (verifyDSIGN () vk msg sig)
 
--- TODO:
--- deriving instance Read (SigDSIGN MockDSIGN)
-
 type Committed tx = Map Party (Utxo tx)
 
 -- * Ledger interface
@@ -110,9 +105,6 @@ class
   , Show tx
   , Show (Utxo tx)
   , Show (TxId tx)
-  , Read tx
-  , Read (Utxo tx)
-  , Read (TxId tx)
   , Monoid (Utxo tx)
   , Typeable tx
   , Typeable (TxId tx)

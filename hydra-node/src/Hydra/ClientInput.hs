@@ -21,7 +21,6 @@ data ClientInput tx
 
 deriving instance Tx tx => Eq (ClientInput tx)
 deriving instance Tx tx => Show (ClientInput tx)
-deriving instance Tx tx => Read (ClientInput tx)
 
 instance (Arbitrary tx, Arbitrary (Utxo tx)) => Arbitrary (ClientInput tx) where
   arbitrary = genericArbitrary

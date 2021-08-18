@@ -166,6 +166,7 @@ executable mock-chain
   hs-source-dirs: exe/mock-chain
   main-is:        Main.hs
   build-depends:
+    , aeson
     , base
     , hydra-node
     , hydra-prelude

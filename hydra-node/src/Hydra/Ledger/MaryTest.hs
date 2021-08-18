@@ -47,8 +47,7 @@ import Shelley.Spec.Ledger.LedgerState (UTxOState (..))
 import Shelley.Spec.Ledger.Tx (addrWits)
 import Shelley.Spec.Ledger.UTxO (UTxO (..), makeWitnessesVKey, txid)
 import Test.Cardano.Ledger.EraBuffet (MaryEra, TestCrypto, Value)
-import Test.Shelley.Spec.Ledger.Utils (RawSeed(..), mkAddr, mkKeyPair, unsafeBoundRational)
-import Text.Read (Read (..))
+import Test.Shelley.Spec.Ledger.Utils (RawSeed (..), mkAddr, mkKeyPair, unsafeBoundRational)
 
 type MaryTest = MaryEra TestCrypto
 
@@ -67,12 +66,6 @@ instance Tx MaryTestTx where
 
   txId = error "txId : MaryTestTx"
 
-instance Read MaryTestTx where
-  readPrec = error "Read: MaryTestTx"
-
-instance Read (Ledger.UTxO era) where
-  readPrec = error "Read: Ledger.UTxO"
-
 instance ToJSON MaryTestTx where
   toJSON = error "toJSON: MaryTestTx"
 
@@ -84,9 +77,6 @@ instance ToJSON (Ledger.UTxO era) where
 
 instance FromJSON (Ledger.UTxO era) where
   parseJSON = error "parseJSON: Ledger.UTxO"
-
-instance Read (Ledger.TxId era) where
-  readPrec = error "Read: Ledger.TxId"
 
 instance ToJSON (Ledger.TxId era) where
   toJSON = error "toJSON: Ledger.TxId"
@@ -192,14 +182,14 @@ testUtxo =
 -- | Alice's payment key pair
 alicePay :: KeyPair 'Payment TestCrypto
 alicePay = KeyPair vk sk
-  where
-    (sk, vk) = mkKeyPair (RawSeed 0 0 0 0 0)
+ where
+  (sk, vk) = mkKeyPair (RawSeed 0 0 0 0 0)
 
 -- | Alice's stake key pair
 aliceStake :: KeyPair 'Staking TestCrypto
 aliceStake = KeyPair vk sk
-  where
-    (sk, vk) = mkKeyPair (RawSeed 1 1 1 1 1)
+ where
+  (sk, vk) = mkKeyPair (RawSeed 1 1 1 1 1)
 
 -- | Alice's base address
 aliceAddr :: Addr TestCrypto
@@ -208,14 +198,14 @@ aliceAddr = mkAddr (alicePay, aliceStake)
 -- | Bob's payment key pair
 bobPay :: KeyPair 'Payment TestCrypto
 bobPay = KeyPair vk sk
-  where
-    (sk, vk) = mkKeyPair (RawSeed 2 2 2 2 2)
+ where
+  (sk, vk) = mkKeyPair (RawSeed 2 2 2 2 2)
 
 -- | Bob's stake key pair
 bobStake :: KeyPair 'Staking TestCrypto
 bobStake = KeyPair vk sk
-  where
-    (sk, vk) = mkKeyPair (RawSeed 3 3 3 3 3)
+ where
+  (sk, vk) = mkKeyPair (RawSeed 3 3 3 3 3)
 
 -- | Bob's address
 bobAddr :: Addr TestCrypto

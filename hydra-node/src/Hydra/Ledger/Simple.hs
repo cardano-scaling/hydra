@@ -10,7 +10,7 @@
 module Hydra.Ledger.Simple where
 
 import Hydra.Prelude
-import Test.QuickCheck (Gen, choose, sublistOf, getSize)
+import Test.QuickCheck (Gen, choose, getSize, sublistOf)
 
 import Data.Aeson (
   object,
@@ -35,7 +35,7 @@ data SimpleTx = SimpleTx
   , txInputs :: Utxo SimpleTx
   , txOutputs :: Utxo SimpleTx
   }
-  deriving stock (Eq, Ord, Generic, Read, Show)
+  deriving stock (Eq, Ord, Generic, Show)
 
 instance Arbitrary SimpleTx where
   shrink = genericShrink
@@ -68,7 +68,7 @@ type SimpleId = Integer
 -- |An identifier for a single output of a 'SimpleTx'.
 newtype TxIn = TxIn {unTxIn :: Integer}
   deriving stock (Generic)
-  deriving newtype (Eq, Ord, Read, Show, ToJSON, FromJSON)
+  deriving newtype (Eq, Ord, Show, ToJSON, FromJSON)
 
 instance Arbitrary TxIn where
   shrink = genericShrink
@@ -101,7 +101,6 @@ utxoRefs = Set.fromList . fmap TxIn
 
 aValidTx :: Integer -> SimpleTx
 aValidTx n = SimpleTx n mempty (utxoRef n)
-
 -- * Generators
 
 listOfCommittedUtxos :: Integer -> Gen [Utxo SimpleTx]

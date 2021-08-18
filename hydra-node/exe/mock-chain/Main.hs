@@ -3,6 +3,7 @@
 
 import Hydra.Prelude
 
+import Data.Aeson (eitherDecode)
 import Hydra.Chain.ZeroMQ (
   catchUpTransactions,
   mockChainClient,
@@ -98,6 +99,6 @@ main = do
     ClientMode -> do
       withAsync (runChainSync chainSyncAddress print tracer) $ \_async -> forever $ do
         msg <- getLine
-        case reads (toString msg) of
-          (tx, "") : _ -> liftIO $ mockChainClient postTxAddress tracer tx
-          _ -> print $ "failed to read command: " <> msg
+        case eitherDecode (encodeUtf8 msg) of
+          Right tx -> liftIO $ mockChainClient postTxAddress tracer tx
+          Left _ -> print $ "failed to read command: " <> msg

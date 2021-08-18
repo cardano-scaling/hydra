@@ -17,7 +17,7 @@ data HeadParameters = HeadParameters
   { contestationPeriod :: DiffTime
   , parties :: [Party] -- NOTE(SN): The order of this list is important for leader selection.
   }
-  deriving stock (Eq, Read, Show, Generic)
+  deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON, FromJSON)
 
 instance Arbitrary HeadParameters where
@@ -39,7 +39,6 @@ data PostChainTx tx
 
 deriving instance Tx tx => Eq (PostChainTx tx)
 deriving instance Tx tx => Show (PostChainTx tx)
-deriving instance Tx tx => Read (PostChainTx tx)
 deriving instance Tx tx => ToJSON (PostChainTx tx)
 deriving instance Tx tx => FromJSON (PostChainTx tx)
 
@@ -63,7 +62,6 @@ data OnChainTx tx
 
 deriving instance Tx tx => Eq (OnChainTx tx)
 deriving instance Tx tx => Show (OnChainTx tx)
-deriving instance Tx tx => Read (OnChainTx tx)
 deriving instance Tx tx => ToJSON (OnChainTx tx)
 deriving instance Tx tx => FromJSON (OnChainTx tx)
 
