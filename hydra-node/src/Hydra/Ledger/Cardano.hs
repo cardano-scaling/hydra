@@ -22,6 +22,7 @@ data CardanoTx = CardanoTx
   , witnesses :: CardanoTxWitnesses
   }
   deriving stock (Eq, Show, Generic)
+  deriving anyclass (ToJSON, FromJSON)
 
 -- TODO(SN): ditch these and use To/FromJSON instead
 instance Read CardanoTx where
