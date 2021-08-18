@@ -185,6 +185,7 @@ test-suite tests
     Hydra.Chain.ZeroMQSpec
     Hydra.FireForgetSpec
     Hydra.HeadLogicSpec
+    Hydra.Ledger.CardanoSpec
     Hydra.Ledger.SimpleSpec
     Hydra.LedgerSpec
     Hydra.Logging.MonitoringSpec
@@ -204,6 +205,8 @@ test-suite tests
     , base
     , cardano-binary
     , cardano-crypto-class
+    , cardano-ledger-core
+    , cardano-ledger-shelley-ma-test
     , cborg
     , containers
     , contra-tracer
@@ -226,6 +229,8 @@ test-suite tests
     , QuickCheck
     , quickcheck-instances
     , req
+    , shelley-spec-ledger
+    , shelley-spec-ledger-test
     , silently
     , temporary
     , text

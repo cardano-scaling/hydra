@@ -10,36 +10,50 @@ import Cardano.Binary (decodeFull', serialize')
 import Cardano.Ledger.Crypto (Crypto, StandardCrypto)
 import Cardano.Ledger.Mary (MaryEra)
 import qualified Cardano.Ledger.Mary.Value as Cardano
-import Data.Aeson (Value (String), object, withObject, withText, (.:), (.=))
+import Data.Aeson (
+  FromJSONKey (fromJSONKey),
+  FromJSONKeyFunction (FromJSONKeyTextParser),
+  ToJSONKey,
+  Value (String),
+  decode,
+  object,
+  toJSONKey,
+  withObject,
+  withText,
+  (.:),
+  (.=),
+ )
+import Data.Aeson.Types (Parser, toJSONKeyText)
 import Data.ByteString.Base16 (decodeBase16, encodeBase16)
 import qualified Data.Sequence.Strict as StrictSeq
 import qualified Data.Set as Set
 import qualified Data.Text as Text
-import Hydra.Ledger (Tx (..))
+import Hydra.Ledger (Ledger (..), Tx (..))
 import qualified Shelley.Spec.Ledger.API as Cardano
-import Text.Read (readPrec)
 
 type CardanoEra = MaryEra StandardCrypto
 
-data CardanoTx = CardanoTx
-  { id :: Cardano.TxId StandardCrypto
-  , body :: CardanoTxBody
-  , witnesses :: CardanoTxWitnesses
+data CardanoTx crypto = CardanoTx
+  { id :: Cardano.TxId crypto
+  , body :: CardanoTxBody crypto
+  , witnesses :: CardanoTxWitnesses crypto
   }
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON, FromJSON)
 
--- TODO(SN): ditch these and use To/FromJSON instead
-instance Read CardanoTx where
-  readPrec = error "Read: CardanoTx"
+type CardanoTxBody crypto = Cardano.TxBody (MaryEra crypto)
 
--- TODO(SN): ditch these and use To/FromJSON instead
-instance Read (Cardano.UTxO era) where
-  readPrec = error "Read: Cardano.UTxO"
+type CardanoTxWitnesses crypto = Cardano.WitnessSet (MaryEra crypto)
 
--- TODO(SN): ditch these and use To/FromJSON instead
-instance Read (Cardano.TxId era) where
-  readPrec = error "Read: Cardano.TxId"
+--
+--  Transaction Id
+--
+
+instance Crypto crypto => ToJSON (Cardano.TxId crypto) where
+  toJSON = String . txIdToText @crypto
+
+instance Crypto crypto => FromJSON (Cardano.TxId crypto) where
+  parseJSON = withText "base16 encoded TxId" txIdFromText
 
 txIdToText :: forall crypto. Crypto crypto => Cardano.TxId crypto -> Text
 txIdToText = encodeBase16 . serialize'
@@ -52,16 +66,14 @@ txIdFromText t =
       Left e -> fail $ show e
       Right a -> pure a
 
-instance Crypto crypto => ToJSON (Cardano.TxId crypto) where
-  toJSON = String . txIdToText @crypto
+--
+-- Transaction Body
+--
 
-instance Crypto crypto => FromJSON (Cardano.TxId crypto) where
-  parseJSON = withText "base16 encoded TxId" txIdFromText
-
-instance FromJSON CardanoTxBody where
+instance Crypto crypto => FromJSON (CardanoTxBody crypto) where
   parseJSON = withObject "CardanoTxBody" $ \o -> do
-    inputs <- o .: "inputs" >>= traverse inputParseJson
-    outputs <- o .: "outputs" >>= traverse outputParseJson
+    inputs <- o .: "inputs" >>= traverse parseJSON
+    outputs <- o .: "outputs" >>= traverse parseJSON
     pure $
       Cardano.TxBody
         (Set.fromList inputs)
@@ -72,70 +84,108 @@ instance FromJSON CardanoTxBody where
         maxBound
         Cardano.SNothing
         Cardano.SNothing
+
+instance Crypto crypto => ToJSON (CardanoTxBody crypto) where
+  toJSON (Cardano.TxBody inputs outputs _certs _wdrls _txfee _ttl _update _mdHash) =
+    object
+      [ "inputs" .= inputs
+      , "outputs" .= outputs
+      ]
+
+--
+-- Input
+--
+
+instance Crypto crypto => ToJSON (Cardano.TxIn crypto) where
+  toJSON = toJSON . txInToText
+
+instance Crypto crypto => FromJSON (Cardano.TxIn crypto) where
+  parseJSON = withText "TxIn" textToTxIn
+
+textToTxIn :: Crypto crypto => Text -> Parser (Cardano.TxIn crypto)
+textToTxIn t = do
+  let (txIdText, txIxText) = Text.breakOn "#" t
+  Cardano.TxIn
+    <$> txIdFromText txIdText
+    <*> parseIndex txIxText
+ where
+  parseIndex txIxText =
+    maybe
+      (fail $ "cannot parse " <> show txIxText <> " as a natural index")
+      pure
+      (decode (encodeUtf8 $ Text.drop 1 txIxText))
+
+txInToText :: Crypto crypto => Cardano.TxIn crypto -> Text
+txInToText (Cardano.TxIn id ix) = txIdToText id <> "#" <> show ix
+
+instance Crypto crypto => FromJSONKey (Cardano.TxIn crypto) where
+  fromJSONKey = FromJSONKeyTextParser textToTxIn
+
+instance Crypto crypto => ToJSONKey (Cardano.TxIn crypto) where
+  toJSONKey = toJSONKeyText txInToText
+
+--
+-- Output
+--
+
+instance Crypto crypto => ToJSON (Cardano.TxOut (MaryEra crypto)) where
+  toJSON (Cardano.TxOut addr value) =
+    object
+      -- TODO: Use ledger's instance, which is a base16-encoded
+      -- serialized address. We might want to use bech32
+      -- serialization in the end.
+      [ "address" .= addr
+      , "value" .= valueToJson value
+      ]
+
+instance Crypto crypto => FromJSON (Cardano.TxOut (MaryEra crypto)) where
+  parseJSON = withObject "TxOut" $ \o -> do
+    address <- o .: "address"
+    value <- o .: "value" >>= valueParseJson
+    pure $ Cardano.TxOut address value
    where
-    inputParseJson = withText "TxIn" $ \t -> do
-      let (txIdText, txIxText) = Text.breakOn "#" t
-      Cardano.TxIn
-        <$> txIdFromText txIdText
-        <*> parseJSON (String txIxText)
-
-    outputParseJson = withObject "TxOut" $ \o -> do
-      address <- o .: "address"
-      value <- o .: "value" >>= valueParseJson
-      pure $ Cardano.TxOut address value
-
     valueParseJson = withObject "Value" $ \o ->
       Cardano.Value <$> o .: "lovelace" <*> pure mempty
 
-instance ToJSON CardanoTxBody where
-  toJSON (Cardano.TxBody inputs outputs _certs _wdrls _txfee _ttl _update _mdHash) =
-    object
-      [ "inputs" .= Set.map inputToJson inputs
-      , "outputs" .= fmap outputToJson outputs
-      ]
-
-inputToJson :: Cardano.TxIn StandardCrypto -> Value
-inputToJson (Cardano.TxIn id ix) =
-  toJSON (txIdToText id <> "#" <> show ix)
-
-outputToJson :: Cardano.TxOut CardanoEra -> Value
-outputToJson (Cardano.TxOut addr value) =
-  object
-    -- TODO: Use ledger's instance, which is a base16-encoded
-    -- serialized address. We might want to use bech32
-    -- serialization in the end.
-    [ "address" .= addr
-    , "value" .= valueToJson value
-    ]
-
-valueToJson :: Cardano.Value StandardCrypto -> Value
+valueToJson :: Cardano.Value crypto -> Value
 valueToJson (Cardano.Value lovelace _assets) =
   object ["lovelace" .= lovelace]
 
-instance Semigroup (Cardano.UTxO CardanoEra) where
+--
+-- Utxo
+--
+
+instance Semigroup (Cardano.UTxO (MaryEra crypto)) where
   Cardano.UTxO u1 <> Cardano.UTxO u2 = Cardano.UTxO (u1 <> u2)
 
-instance Monoid (Cardano.UTxO CardanoEra) where
+instance Monoid (Cardano.UTxO (MaryEra crypto)) where
   mempty = Cardano.UTxO mempty
 
-instance ToJSON (Cardano.UTxO era) where
-  toJSON = error "toJSON: Cardano.UTxO"
+instance Crypto crypto => ToJSON (Cardano.UTxO (MaryEra crypto)) where
+  toJSON = toJSON . Cardano.unUTxO
 
-instance FromJSON (Cardano.UTxO era) where
-  parseJSON = error "parseJSON: Cardano.UTxO"
+instance Crypto crypto => FromJSON (Cardano.UTxO (MaryEra crypto)) where
+  parseJSON v = Cardano.UTxO <$> parseJSON v
 
-instance ToJSON CardanoTxWitnesses where
+--
+-- witnesses
+--
+
+instance ToJSON (CardanoTxWitnesses crypto) where
   toJSON = error "toJSON: CardanoTxWitnesses"
 
-instance FromJSON CardanoTxWitnesses where
+instance FromJSON (CardanoTxWitnesses crypto) where
   parseJSON = error "parseJSON: CardanoTxWitnesses"
 
-type CardanoTxBody = Cardano.TxBody CardanoEra
-
-type CardanoTxWitnesses = Cardano.WitnessSet CardanoEra
-
-instance Tx CardanoTx where
-  type Utxo CardanoTx = Cardano.UTxO CardanoEra
-  type TxId CardanoTx = Cardano.TxId StandardCrypto
+instance Crypto crypto => Tx (CardanoTx crypto) where
+  type Utxo (CardanoTx crypto) = Cardano.UTxO (MaryEra crypto)
+  type TxId (CardanoTx crypto) = Cardano.TxId crypto
 
   txId = id
+
+cardanoLedger :: Ledger (CardanoTx crypto)
+cardanoLedger =
+  Ledger
+    { applyTransactions = error "not implemented"
+    , initUtxo = mempty
+    }
