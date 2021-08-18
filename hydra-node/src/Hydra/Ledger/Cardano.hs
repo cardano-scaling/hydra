@@ -5,8 +5,11 @@ module Hydra.Ledger.Cardano where
 
 import Hydra.Prelude hiding (id)
 
-import Cardano.Ledger.Crypto (StandardCrypto)
+import Cardano.Binary (decodeFull', serialize')
+import Cardano.Ledger.Crypto (Crypto, StandardCrypto)
 import Cardano.Ledger.Mary (MaryEra)
+import Data.Aeson (Value (String), withText)
+import Data.ByteString.Base16 (decodeBase16, encodeBase16)
 import Hydra.Ledger (Tx (..))
 import qualified Shelley.Spec.Ledger.API as Cardano
 import Text.Read (readPrec)
@@ -20,20 +23,34 @@ data CardanoTx = CardanoTx
   }
   deriving stock (Eq, Show, Generic)
 
+-- TODO(SN): ditch these and use To/FromJSON instead
 instance Read CardanoTx where
   readPrec = error "Read: CardanoTx"
 
+-- TODO(SN): ditch these and use To/FromJSON instead
 instance Read (Cardano.UTxO era) where
   readPrec = error "Read: Cardano.UTxO"
 
-instance Monoid (Cardano.UTxO era)
-instance Semigroup (Cardano.UTxO era)
+-- TODO(SN): ditch these and use To/FromJSON instead
+instance Read (Cardano.TxId era) where
+  readPrec = error "Read: Cardano.TxId"
 
-instance ToJSON CardanoTx where
-  toJSON = error "toJSON: CardanoTx"
+instance Crypto crypto => ToJSON (Cardano.TxId crypto) where
+  toJSON = String . encodeBase16 . serialize'
 
-instance FromJSON CardanoTx where
-  parseJSON = error "parseJSON: CardanoTx"
+instance Crypto crypto => FromJSON (Cardano.TxId crypto) where
+  parseJSON = withText "base16 encoded TxId" $ \t ->
+    case decodeBase16 (encodeUtf8 t) of
+      Left e -> fail $ show e
+      Right bytes -> case decodeFull' bytes of
+        Left e -> fail $ show e
+        Right a -> pure a
+
+instance Semigroup (Cardano.UTxO CardanoEra) where
+  Cardano.UTxO u1 <> Cardano.UTxO u2 = Cardano.UTxO (u1 <> u2)
+
+instance Monoid (Cardano.UTxO CardanoEra) where
+  mempty = Cardano.UTxO mempty
 
 instance ToJSON (Cardano.UTxO era) where
   toJSON = error "toJSON: Cardano.UTxO"
@@ -41,14 +58,11 @@ instance ToJSON (Cardano.UTxO era) where
 instance FromJSON (Cardano.UTxO era) where
   parseJSON = error "parseJSON: Cardano.UTxO"
 
-instance Read (Cardano.TxId era) where
-  readPrec = error "Read: Cardano.TxId"
+instance ToJSON CardanoTxWitnesses where
+  toJSON = error "toJSON: CardanoTxWitnesses"
 
-instance ToJSON (Cardano.TxId era) where
-  toJSON = error "toJSON: Cardano.TxId"
-
-instance FromJSON (Cardano.TxId era) where
-  parseJSON = error "parseJSON: Ledger.TxId"
+instance FromJSON CardanoTxWitnesses where
+  parseJSON = error "parseJSON: CardanoTxWitnesses"
 
 type CardanoTxBody = Cardano.TxBody CardanoEra
 
