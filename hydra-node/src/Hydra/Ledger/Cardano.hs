@@ -10,8 +10,9 @@ import Cardano.Binary (decodeFull', serialize')
 import Cardano.Ledger.Crypto (Crypto, StandardCrypto)
 import Cardano.Ledger.Mary (MaryEra)
 import qualified Cardano.Ledger.Mary.Value as Cardano
-import Data.Aeson (Value (String), object, withText, (.=))
+import Data.Aeson (Value (String), object, withObject, withText, (.:), (.=))
 import Data.ByteString.Base16 (decodeBase16, encodeBase16)
+import qualified Data.Sequence.Strict as StrictSeq
 import qualified Data.Set as Set
 import Hydra.Ledger (Tx (..))
 import qualified Shelley.Spec.Ledger.API as Cardano
@@ -57,10 +58,22 @@ instance Crypto crypto => FromJSON (Cardano.TxId crypto) where
   parseJSON = withText "base16 encoded TxId" txIdFromText
 
 instance FromJSON CardanoTxBody where
-  parseJSON = error "TODO: FromJSON CardanoTxBody"
+  parseJSON = withObject "CardanoTxBody" $ \o -> do
+    inputs <- o .: "inputs"
+    outputs <- o .: "outputs"
+    pure $
+      Cardano.TxBody
+        (Set.fromList inputs)
+        (StrictSeq.fromList outputs)
+        mempty
+        (Cardano.Wdrl mempty)
+        mempty
+        maxBound
+        Cardano.SNothing
+        Cardano.SNothing
 
 instance ToJSON CardanoTxBody where
-  toJSON (Cardano.TxBody inputs outputs _certs _wdrls _txfee _vldt _update _mdHash) =
+  toJSON (Cardano.TxBody inputs outputs _certs _wdrls _txfee _ttl _update _mdHash) =
     object
       [ "inputs" .= Set.map inputToJson inputs
       , "outputs" .= fmap outputToJson outputs
@@ -81,8 +94,8 @@ outputToJson (Cardano.TxOut addr value) =
     ]
 
 valueToJson :: Cardano.Value StandardCrypto -> Value
-valueToJson =
-  error "TODO: valueToJson"
+valueToJson (Cardano.Value lovelace _assets) =
+  object ["lovelace" .= lovelace]
 
 instance Semigroup (Cardano.UTxO CardanoEra) where
   Cardano.UTxO u1 <> Cardano.UTxO u2 = Cardano.UTxO (u1 <> u2)
