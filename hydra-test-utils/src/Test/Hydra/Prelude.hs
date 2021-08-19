@@ -6,6 +6,10 @@ module Test.Hydra.Prelude (
   location,
   failAfter,
   dualFormatter,
+
+  -- * HSpec re-exports
+  module Test.Hspec,
+  module Test.Hspec.QuickCheck,
 ) where
 
 import Control.Monad.Class.MonadTimer (timeout)
@@ -14,8 +18,10 @@ import Hydra.Prelude
 import System.IO.Temp (createTempDirectory, getCanonicalTemporaryDirectory)
 import Test.HSpec.JUnit (junitFormat)
 import Test.HUnit.Lang (FailureReason (Reason), HUnitFailure (HUnitFailure))
+import Test.Hspec
 import Test.Hspec.Core.Format (Format, FormatConfig)
 import Test.Hspec.Core.Formatters (formatterToFormat, specdoc)
+import Test.Hspec.QuickCheck
 
 -- | Create a unique temporary directory.
 createSystemTempDirectory :: String -> IO FilePath

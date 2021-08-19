@@ -2,6 +2,9 @@
 
 module Hydra.API.ServerSpec where
 
+import Hydra.Prelude
+import Test.Hydra.Prelude
+
 import Control.Exception (IOException)
 import Control.Monad.Class.MonadSTM (
   check,
@@ -16,13 +19,9 @@ import qualified Data.Aeson as Aeson
 import Hydra.API.Server (withAPIServer)
 import Hydra.Ledger.Simple (SimpleTx)
 import Hydra.Logging (nullTracer)
-import Test.Network.Ports (withFreePort)
-import Hydra.Prelude
 import Hydra.ServerOutput (ServerOutput (InvalidInput, ReadyToCommit))
-import Test.Hydra.Prelude (failAfter, failure)
 import Network.WebSockets (Connection, receiveData, runClient, sendBinaryData)
-import Test.Hspec
-import Test.Hspec.QuickCheck (prop)
+import Test.Network.Ports (withFreePort)
 import Test.QuickCheck (cover)
 import Test.QuickCheck.Monadic (monadicIO, monitor, run)
 

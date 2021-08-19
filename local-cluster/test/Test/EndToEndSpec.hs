@@ -5,6 +5,7 @@
 module Test.EndToEndSpec where
 
 import Hydra.Prelude
+import Test.Hydra.Prelude
 
 import Cardano.Api (
   Address,
@@ -84,14 +85,6 @@ import HydraNode (
   withMockChain,
   withTempDir,
  )
-import Test.Hspec (
-  Spec,
-  around,
-  describe,
-  it,
-  shouldSatisfy,
- )
-import Test.Hydra.Prelude (failAfter)
 import Text.Regex.TDFA ((=~))
 import Text.Regex.TDFA.Text ()
 

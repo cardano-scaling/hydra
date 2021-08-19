@@ -3,6 +3,7 @@
 module Hydra.Chain.ExternalPABSpec where
 
 import Hydra.Prelude
+import Test.Hydra.Prelude
 
 import Cardano.Crypto.DSIGN (DSIGNAlgorithm (deriveVerKeyDSIGN), MockDSIGN, SignKeyDSIGN, VerKeyDSIGN)
 import Control.Concurrent (newEmptyMVar, putMVar, takeMVar)
@@ -15,10 +16,6 @@ import Hydra.Ledger.Simple (SimpleTx)
 import Hydra.Logging (nullTracer)
 import System.IO.Temp (withSystemTempFile)
 import System.Process (CreateProcess (std_in, std_out), StdStream (CreatePipe, UseHandle), proc, withCreateProcess)
-import Test.Hspec (pendingWith, shouldReturn)
-import Test.Hspec.Core.Spec (Spec, describe, it)
-import Test.Hspec.QuickCheck (prop)
-import Test.Hydra.Prelude (failAfter)
 import Test.QuickCheck (counterexample, property)
 
 spec :: Spec

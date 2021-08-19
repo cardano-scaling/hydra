@@ -4,6 +4,7 @@
 module Hydra.BehaviorSpec where
 
 import Hydra.Prelude
+import Test.Hydra.Prelude hiding (shouldNotBe, shouldReturn)
 
 import Control.Monad.Class.MonadAsync (forConcurrently_)
 import Control.Monad.Class.MonadSTM (
@@ -42,8 +43,6 @@ import Hydra.Node (
 import Hydra.ServerOutput (ServerOutput (..))
 import Hydra.Snapshot (Snapshot (..))
 import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
-import Test.Hspec (Spec, describe, it, shouldContain, shouldThrow)
-import Test.Hydra.Prelude (failAfter, failure)
 import Test.Util (shouldNotBe, shouldReturn, shouldRunInSim, traceInIOSim)
 
 spec :: Spec
