@@ -33,6 +33,9 @@ import Hydra.Ledger (Ledger (..), Tx (..))
 import qualified Shelley.Spec.Ledger.API as Cardano
 
 -- REVIEW(SN): WitnessSet pattern is not reexported in API??
+
+import qualified Cardano.Ledger.Address as Cardano
+import qualified Codec.Binary.Bech32 as Bech32
 import Shelley.Spec.Ledger.Tx (WitnessSetHKD (WitnessSet))
 
 type CardanoEra = MaryEra StandardCrypto
@@ -141,12 +144,24 @@ instance Crypto crypto => ToJSONKey (Cardano.TxIn crypto) where
 instance Crypto crypto => ToJSON (Cardano.TxOut (MaryEra crypto)) where
   toJSON (Cardano.TxOut addr value) =
     object
-      -- TODO: Use ledger's instance, which is a base16-encoded
-      -- serialized address. We might want to use bech32
-      -- serialization in the end.
-      [ "address" .= addr
+      [ "address" .= serialiseAddressBech32
       , "value" .= valueToJson value
       ]
+   where
+    -- Serialise addresses in bech32 including the prefix as standardized:
+    -- https://github.com/cardano-foundation/CIPs/blob/master/CIP-0005/CIP-0005.md
+    serialiseAddressBech32 =
+      case Bech32.humanReadablePartFromText prefix of
+        Left err -> error $ "serialiseAddressBech32: invalid prefix " <> show prefix <> ", " <> show err
+        Right p -> Bech32.encodeLenient p . Bech32.dataPartFromBytes $ Cardano.serialiseAddr addr
+
+    -- REVIEW(SN): The ledger's 'Addr' type is bigger than we need here and what
+    -- is an 'AddrBootstrap'. Needed to come with a prefix for them for
+    -- quickcheck.
+    prefix = case addr of
+      (Cardano.Addr Cardano.Mainnet _ _) -> "addr"
+      (Cardano.Addr Cardano.Testnet _ _) -> "addr_test"
+      (Cardano.AddrBootstrap _) -> "addr_boot"
 
 instance Crypto crypto => FromJSON (Cardano.TxOut (MaryEra crypto)) where
   parseJSON = withObject "TxOut" $ \o -> do
