@@ -1,3 +1,4 @@
+{-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE TypeApplications #-}
 {-# OPTIONS_GHC -Wno-missing-methods #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
@@ -7,9 +8,12 @@ module Hydra.Ledger.Cardano where
 import Hydra.Prelude hiding (id)
 
 import Cardano.Binary (Annotator, FullByteString (Full), decodeFull', runAnnotator, serialize')
+import qualified Cardano.Ledger.Address as Cardano
 import Cardano.Ledger.Crypto (Crypto, StandardCrypto)
 import Cardano.Ledger.Mary (MaryEra)
 import qualified Cardano.Ledger.Mary.Value as Cardano
+import qualified Codec.Binary.Bech32 as Bech32
+import qualified Codec.Binary.Bech32.TH as Bech32
 import Data.Aeson (
   FromJSONKey (fromJSONKey),
   FromJSONKeyFunction (FromJSONKeyTextParser),
@@ -31,12 +35,7 @@ import qualified Data.Set as Set
 import qualified Data.Text as Text
 import Hydra.Ledger (Ledger (..), Tx (..))
 import qualified Shelley.Spec.Ledger.API as Cardano
-
--- REVIEW(SN): WitnessSet pattern is not reexported in API??
-
-import qualified Cardano.Ledger.Address as Cardano
-import qualified Codec.Binary.Bech32 as Bech32
-import Shelley.Spec.Ledger.Tx (WitnessSetHKD (WitnessSet))
+import Shelley.Spec.Ledger.Tx (WitnessSetHKD (WitnessSet)) -- REVIEW(SN): WitnessSet pattern is not reexported in API??
 
 type CardanoEra = MaryEra StandardCrypto
 
@@ -151,17 +150,16 @@ instance Crypto crypto => ToJSON (Cardano.TxOut (MaryEra crypto)) where
     -- Serialise addresses in bech32 including the prefix as standardized:
     -- https://github.com/cardano-foundation/CIPs/blob/master/CIP-0005/CIP-0005.md
     serialiseAddressBech32 =
-      case Bech32.humanReadablePartFromText prefix of
-        Left err -> error $ "serialiseAddressBech32: invalid prefix " <> show prefix <> ", " <> show err
-        Right p -> Bech32.encodeLenient p . Bech32.dataPartFromBytes $ Cardano.serialiseAddr addr
+      Bech32.encodeLenient prefix . Bech32.dataPartFromBytes $ Cardano.serialiseAddr addr
 
-    -- REVIEW(SN): The ledger's 'Addr' type is bigger than we need here and what
-    -- is an 'AddrBootstrap'. Needed to come with a prefix for them for
-    -- quickcheck.
+    -- REVIEW(SN): The ledger's 'Addr' type is bigger than we need here and we
+    -- are forced to come up with a prefix for Byron "bootstrap" addresses,
+    -- although they should actually be serialised differently..and would not be
+    -- relevant for Hydra in the first place.
     prefix = case addr of
-      (Cardano.Addr Cardano.Mainnet _ _) -> "addr"
-      (Cardano.Addr Cardano.Testnet _ _) -> "addr_test"
-      (Cardano.AddrBootstrap _) -> "addr_boot"
+      (Cardano.Addr Cardano.Mainnet _ _) -> [Bech32.humanReadablePart|addr|]
+      (Cardano.Addr Cardano.Testnet _ _) -> [Bech32.humanReadablePart|addr_test|]
+      (Cardano.AddrBootstrap _) -> [Bech32.humanReadablePart|addr_boot|]
 
 instance Crypto crypto => FromJSON (Cardano.TxOut (MaryEra crypto)) where
   parseJSON = withObject "TxOut" $ \o -> do

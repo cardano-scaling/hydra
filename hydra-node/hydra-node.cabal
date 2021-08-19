@@ -104,11 +104,12 @@ library
 
   other-modules:   Paths_hydra_node
   build-depends:
-                    QuickCheck
+                      QuickCheck
                 , aeson
                 , base
                 , base16
                 , bech32
+                , bech32-th
                 , bytestring
                 , cardano-binary
                 , cardano-crypto-class
