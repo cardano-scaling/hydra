@@ -11,7 +11,7 @@ import Hydra.HeadLogic (
   Event (..),
   HeadState (ReadyState),
  )
-import qualified Hydra.Ledger.Simple as Ledger
+import qualified Hydra.Ledger.Cardano as Ledger
 import Hydra.Logging (Verbosity (..), withTracer)
 import Hydra.Logging.Messages (HydraLog (..))
 import Hydra.Logging.Monitoring (withMonitoring)
@@ -36,7 +36,7 @@ main = do
   withTracer verbosity $ \tracer' ->
     withMonitoring monitoringPort tracer' $ \tracer -> do
       eq <- createEventQueue
-      hh <- createHydraHead ReadyState Ledger.simpleLedger
+      hh <- createHydraHead ReadyState Ledger.cardanoLedger
       withMockChain (contramap MockChain tracer) mockChainPorts (putEvent eq . OnChainEvent) $ \oc ->
         withNetwork (contramap Network tracer) (party env) host port peers (putEvent eq . NetworkEvent) $ \hn ->
           withAPIServer apiHost apiPort (contramap APIServer tracer) (putEvent eq . ClientEvent) $ \sendOutput ->

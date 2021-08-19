@@ -32,10 +32,15 @@ data APIServerLog
   | NewAPIConnection
   | APIOutputSent {sentOutput :: Aeson.Value}
   | APIInputReceived {receivedInput :: Aeson.Value}
-  | APIInvalidInput InvalidClientInput
+  | APIInvalidInput String InvalidClientInput
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON)
 
+-- NOTE: Wrapping the ByteString for two reasons:
+--
+-- (a) There's no ToJSON instance for ByteStrings.
+-- (b) It allows for conditional encoding depending on whether the bytestring
+-- can be viewed as a UTF-8 strings or not.
 newtype InvalidClientInput = InvalidClientInput {invalidInput :: LByteString}
   deriving stock (Eq, Show, Generic)
 
@@ -95,9 +100,9 @@ runAPIServer host port tracer history inputHandler responseChannel = do
       Right input -> do
         traceWith tracer (APIInputReceived $ toJSON input)
         inputHandler input
-      Left{} -> do
+      Left e -> do
         sendTextData con $ Aeson.encode $ InvalidInput @tx
-        traceWith tracer (APIInvalidInput $ InvalidClientInput msg)
+        traceWith tracer (APIInvalidInput e $ InvalidClientInput msg)
 
   forwardHistory con = do
     hist <- STM.atomically (readTVar history)

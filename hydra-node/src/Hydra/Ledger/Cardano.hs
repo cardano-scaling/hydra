@@ -49,6 +49,12 @@ type CardanoTxBody crypto = Cardano.TxBody (MaryEra crypto)
 
 type CardanoTxWitnesses crypto = Cardano.WitnessSet (MaryEra crypto)
 
+instance Crypto crypto => ToCBOR (CardanoTx crypto) where
+  toCBOR = error "TODO: toCBOR CardanoTx"
+
+instance Crypto crypto => FromCBOR (CardanoTx crypto) where
+  fromCBOR = error "TODO: fromCBOR CardanoTx"
+
 --
 --  Transaction Id
 --
@@ -202,7 +208,7 @@ instance Crypto crypto => Tx (CardanoTx crypto) where
 
   txId = id
 
-cardanoLedger :: Ledger (CardanoTx crypto)
+cardanoLedger :: Ledger (CardanoTx StandardCrypto)
 cardanoLedger =
   Ledger
     { applyTransactions = error "not implemented"
