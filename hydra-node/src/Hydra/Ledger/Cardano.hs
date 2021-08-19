@@ -11,6 +11,7 @@ import Cardano.Binary (Annotator, FullByteString (Full), decodeFull', runAnnotat
 import qualified Cardano.Ledger.Address as Cardano
 import Cardano.Ledger.Crypto (Crypto, StandardCrypto)
 import Cardano.Ledger.Mary (MaryEra)
+import qualified Cardano.Crypto.Hash.Class as Crypto
 import qualified Cardano.Ledger.Mary.Value as Cardano
 import qualified Codec.Binary.Bech32 as Bech32
 import qualified Codec.Binary.Bech32.TH as Bech32
@@ -28,7 +29,7 @@ import Data.Aeson (
   (.:),
   (.=),
  )
-import Data.Aeson.Types (Parser, toJSONKeyText)
+import Data.Aeson.Types (toJSONKeyText)
 import Data.ByteString.Base16 (decodeBase16, encodeBase16)
 import qualified Data.Sequence.Strict as StrictSeq
 import qualified Data.Set as Set
@@ -36,6 +37,7 @@ import qualified Data.Text as Text
 import Hydra.Ledger (Ledger (..), Tx (..))
 import qualified Shelley.Spec.Ledger.API as Cardano
 import Shelley.Spec.Ledger.Tx (WitnessSetHKD (WitnessSet)) -- REVIEW(SN): WitnessSet pattern is not reexported in API??
+import qualified Cardano.Ledger.SafeHash as SafeHash
 
 type CardanoEra = MaryEra StandardCrypto
 
@@ -67,16 +69,18 @@ instance Crypto crypto => ToJSON (Cardano.TxId crypto) where
 instance Crypto crypto => FromJSON (Cardano.TxId crypto) where
   parseJSON = withText "base16 encoded TxId" txIdFromText
 
-txIdToText :: forall crypto. Crypto crypto => Cardano.TxId crypto -> Text
-txIdToText = encodeBase16 . serialize'
+txIdToText :: Cardano.TxId crypto -> Text
+txIdToText (Cardano.TxId h) =
+  encodeBase16 $ Crypto.hashToBytes $ SafeHash.extractHash h
 
-txIdFromText :: (MonadFail m, Crypto crypto) => Text -> m (Cardano.TxId crypto)
+txIdFromText :: (Crypto crypto, MonadFail m) => Text -> m (Cardano.TxId crypto)
 txIdFromText t =
   case decodeBase16 (encodeUtf8 t) of
-    Left e -> fail $ show e
-    Right bytes -> case decodeFull' bytes of
-      Left e -> fail $ show e
-      Right a -> pure a
+    Left e -> fail $ "decoding base16: " <> show e
+    Right bytes ->
+      case Crypto.hashFromBytes bytes of
+        Nothing -> fail "hashFromBytes yielded Nothing"
+        Just h -> pure . Cardano.TxId $ SafeHash.unsafeMakeSafeHash h
 
 --
 -- Transaction Body
@@ -112,10 +116,10 @@ instance Crypto crypto => ToJSON (Cardano.TxIn crypto) where
   toJSON = toJSON . txInToText
 
 instance Crypto crypto => FromJSON (Cardano.TxIn crypto) where
-  parseJSON = withText "TxIn" textToTxIn
+  parseJSON = withText "TxIn" txInFromText
 
-textToTxIn :: Crypto crypto => Text -> Parser (Cardano.TxIn crypto)
-textToTxIn t = do
+txInFromText :: (Crypto crypto, MonadFail m) => Text -> m (Cardano.TxIn crypto)
+txInFromText t = do
   let (txIdText, txIxText) = Text.breakOn "#" t
   Cardano.TxIn
     <$> txIdFromText txIdText
@@ -131,7 +135,7 @@ txInToText :: Crypto crypto => Cardano.TxIn crypto -> Text
 txInToText (Cardano.TxIn id ix) = txIdToText id <> "#" <> show ix
 
 instance Crypto crypto => FromJSONKey (Cardano.TxIn crypto) where
-  fromJSONKey = FromJSONKeyTextParser textToTxIn
+  fromJSONKey = FromJSONKeyTextParser txInFromText
 
 instance Crypto crypto => ToJSONKey (Cardano.TxIn crypto) where
   toJSONKey = toJSONKeyText txInToText
