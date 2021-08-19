@@ -7,10 +7,11 @@
 module Hydra.HeadLogicSpec where
 
 import Hydra.Prelude
+import Test.Hydra.Prelude
 
 import qualified Data.List as List
 import qualified Data.Set as Set
-import Hydra.Chain (HeadParameters (HeadParameters), OnChainTx (OnCollectComTx, OnAbortTx))
+import Hydra.Chain (HeadParameters (HeadParameters), OnChainTx (OnAbortTx, OnCollectComTx))
 import Hydra.ClientInput (ClientInput (..))
 import Hydra.HeadLogic (
   CoordinatedHeadState (..),
@@ -29,14 +30,6 @@ import Hydra.Network.Message (Message (AckSn, Connected, ReqSn, ReqTx))
 import Hydra.ServerOutput (ServerOutput (PeerConnected))
 import Hydra.Snapshot (Snapshot (..))
 import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
-import Test.Hspec (
-  Expectation,
-  Spec,
-  describe,
-  it,
-  shouldBe,
- )
-import Test.Hydra.Prelude (failure)
 
 spec :: Spec
 spec = describe "Hydra Coordinated Head Protocol" $ do

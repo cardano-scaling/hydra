@@ -1,10 +1,10 @@
 module Hydra.OptionsSpec where
 
+import Hydra.Prelude
+import Test.Hydra.Prelude
+
 import Hydra.Network (Host (Host), MockChainPorts (..))
 import Hydra.Options (Options (..), ParserResult (..), defaultOptions, parseHydraOptionsFromString)
-import Hydra.Prelude
-import Test.Hydra.Prelude (failure)
-import Test.Hspec (Expectation, Spec, describe, it, shouldBe)
 
 spec :: Spec
 spec = describe "Hydra Node Options" $ do

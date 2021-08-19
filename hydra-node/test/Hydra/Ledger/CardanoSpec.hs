@@ -14,7 +14,6 @@ import qualified Shelley.Spec.Ledger.API as Cardano
 import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
 import Test.Cardano.Ledger.EraBuffet (MaryEra)
 import Test.Cardano.Ledger.MaryEraGen ()
-import Test.Hspec (Spec, describe, it)
 
 spec :: Spec
 spec = describe "Cardano Head Ledger" $ do

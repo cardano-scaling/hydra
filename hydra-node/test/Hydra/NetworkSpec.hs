@@ -5,6 +5,7 @@
 module Hydra.NetworkSpec where
 
 import Hydra.Prelude
+import Test.Hydra.Prelude
 
 import Codec.CBOR.Read (deserialiseFromBytes)
 import Codec.CBOR.Write (toLazyByteString)
@@ -16,8 +17,6 @@ import Hydra.Network.Message (Message (..))
 import Hydra.Network.Ouroboros (broadcast, withOuroborosNetwork)
 import Hydra.Network.ZeroMQ (withZeroMQNetwork)
 import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
-import Test.Hspec (Expectation, Spec, describe, it, shouldReturn)
-import Test.Hydra.Prelude (failAfter)
 import Test.Network.Ports (randomUnusedTCPPorts)
 import Test.QuickCheck (
   property,

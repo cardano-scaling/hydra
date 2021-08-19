@@ -2,6 +2,9 @@
 
 module Hydra.Logging.MonitoringSpec where
 
+import Hydra.Prelude
+import Test.Hydra.Prelude
+
 import qualified Data.Text as Text
 import Hydra.HeadLogic (
   Effect (ClientEffect),
@@ -12,14 +15,11 @@ import Hydra.Logging (nullTracer, traceWith)
 import Hydra.Logging.Messages (HydraLog (Node))
 import Hydra.Logging.Monitoring
 import Hydra.Network.Message (Message (ReqTx))
-import Test.Network.Ports (withFreePort)
 import Hydra.Node (HydraNodeLog (ProcessedEffect, ProcessingEvent))
-import Hydra.Prelude
 import Hydra.ServerOutput (ServerOutput (SnapshotConfirmed))
 import Hydra.Snapshot (Snapshot (Snapshot))
-import Test.Hydra.Prelude (failAfter)
 import Network.HTTP.Req (GET (..), NoReqBody (..), bsResponse, defaultHttpConfig, http, port, req, responseBody, runReq, (/:))
-import Test.Hspec
+import Test.Network.Ports (withFreePort)
 
 spec :: Spec
 spec = describe "Prometheus Metrics" $ do
