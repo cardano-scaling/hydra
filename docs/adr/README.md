@@ -9,3 +9,5 @@ Here is a list of currently accepted or discussed **Architecture Decision Record
 5. We use [io-classes](./0005-use-io-sim-classes.md) for all abstracting concurrency primitives
 6. Network [broadcasts all messages](./0006-network-broadcasts-all-messages.md)
 7. _Components are defined using [with-pattern](./0007-with-pattern-component-interfaces.md)_
+8. [Use custom Prelude](./0008-custom-prelude.md)
+9. [Simplify logging](./0009-simplify-logging.md)
