@@ -163,12 +163,24 @@ instance Crypto crypto => ToJSON (Cardano.TxOut (MaryEra crypto)) where
 
 instance Crypto crypto => FromJSON (Cardano.TxOut (MaryEra crypto)) where
   parseJSON = withObject "TxOut" $ \o -> do
-    address <- o .: "address"
+    address <- o .: "address" >>= deserialiseAddressBech32
     value <- o .: "value" >>= valueParseJson
     pure $ Cardano.TxOut address value
    where
     valueParseJson = withObject "Value" $ \o ->
       Cardano.Value <$> o .: "lovelace" <*> pure mempty
+
+    deserialiseAddressBech32 t =
+      case Bech32.decodeLenient t of
+        Left err -> fail $ "failed to decode bech32: " <> show err
+        Right (prefix, dataPart) ->
+          let mAddr = Bech32.dataPartToBytes dataPart >>= Cardano.deserialiseAddr
+           in case (Bech32.humanReadablePartToText prefix, mAddr) of
+                ("addr", Just addr@(Cardano.Addr Cardano.Mainnet _ _)) -> pure addr
+                ("addr_test", Just addr@(Cardano.Addr Cardano.Testnet _ _)) -> pure addr
+                ("addr_boot", Just addr@(Cardano.AddrBootstrap _)) -> pure addr
+                (p, Just _) -> fail $ "invalid bech32 prefix: " <> show p
+                (_, Nothing) -> fail "failed to decode data part"
 
 valueToJson :: Cardano.Value crypto -> Value
 valueToJson (Cardano.Value lovelace _assets) =
