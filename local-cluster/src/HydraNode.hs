@@ -200,7 +200,9 @@ withHydraNode tracer workDir mockChainPorts hydraNodeId sKey vKeys action = do
               }
       withCreateProcess p $
         \_stdin _stdout _stderr processHandle -> do
-          race_ (checkProcessHasNotDied processHandle) (startConnect out')
+          race_
+            (checkProcessHasNotDied ("hydra-node (" <> show hydraNodeId <> ")") processHandle)
+            (startConnect out')
  where
   startConnect out = do
     connectedOnce <- newIORef False
@@ -268,7 +270,7 @@ withMockChain action = do
   [sync, catchUp, post] <- randomUnusedTCPPorts 3
   withCreateProcess (proc "mock-chain" (arguments sync catchUp post)) $
     \_in _out _err processHandle -> do
-      race_ (checkProcessHasNotDied processHandle) (action (sync, catchUp, post))
+      race_ (checkProcessHasNotDied "mock-chain" processHandle) (action (sync, catchUp, post))
  where
   arguments s c p =
     [ "--quiet"
@@ -280,11 +282,11 @@ withMockChain action = do
     , "tcp://127.0.0.1:" <> show p
     ]
 
-checkProcessHasNotDied :: ProcessHandle -> IO ()
-checkProcessHasNotDied processHandle =
+checkProcessHasNotDied :: Text -> ProcessHandle -> IO ()
+checkProcessHasNotDied name processHandle =
   waitForProcess processHandle >>= \case
     ExitSuccess -> pure ()
-    ExitFailure exit -> failure $ "Process exited with failure code: " <> show exit
+    ExitFailure exit -> failure $ "Process " <> show name <> " exited with failure code: " <> show exit
 
 -- HACK(SN): These functions here are hard-coded for three nodes, but the tests
 -- are somewhat parameterized -> make it all or nothing hard-coded
