@@ -32,7 +32,7 @@ import qualified Data.Text as Text
 import Hydra.Ledger (Ledger (..), Tx (..))
 import qualified Shelley.Spec.Ledger.API as Cardano
 
--- WitnessSet pattern is not reexported in API??
+-- REVIEW(SN): WitnessSet pattern is not reexported in API??
 import Shelley.Spec.Ledger.Tx (WitnessSetHKD (WitnessSet))
 
 type CardanoEra = MaryEra StandardCrypto

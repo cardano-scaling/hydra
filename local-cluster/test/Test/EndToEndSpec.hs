@@ -66,7 +66,7 @@ import Cardano.Crypto.DSIGN (
   VerKeyDSIGN,
  )
 import Cardano.Crypto.Seed (mkSeedFromBytes)
-import Data.Aeson (Value (Array, String), object, (.=))
+import Data.Aeson (Value (Object, String), object, (.=))
 import qualified Data.ByteString as BS
 import Data.ByteString.Base16 (encodeBase16)
 import qualified Data.Map as Map
@@ -89,7 +89,6 @@ import Test.Hspec (
   around,
   describe,
   it,
-  pendingWith,
   shouldSatisfy,
  )
 import Test.Hydra.Prelude (failAfter)
@@ -101,7 +100,6 @@ spec = around showLogsOnFailure $
   describe "End-to-end test using a mocked chain though" $ do
     describe "three hydra nodes scenario" $ do
       it "inits a Head, processes a single Cardano transaction and closes it again" $ \tracer -> do
-        pendingWith "requires Cardano ledger in hydra-node"
         failAfter 30 $
           withTempDir "end-to-end-inits-and-closes" $ \tmpDir ->
             withMockChain $ \chainPorts ->
@@ -124,10 +122,10 @@ spec = around showLogsOnFailure $
                                     [ "lovelace" .= int 14
                                     ]
                               ]
-                    send n1 $ input "commit" ["utxo" .= [someUtxo]]
-                    send n2 $ input "commit" ["utxo" .= Array mempty]
-                    send n3 $ input "commit" ["utxo" .= Array mempty]
-                    waitFor tracer 3 [n1, n2, n3] $ output "headIsOpen" ["utxo" .= [someUtxo]]
+                    send n1 $ input "commit" ["utxo" .= someUtxo]
+                    send n2 $ input "commit" ["utxo" .= Object mempty]
+                    send n3 $ input "commit" ["utxo" .= Object mempty]
+                    waitFor tracer 3 [n1, n2, n3] $ output "headIsOpen" ["utxo" .= someUtxo]
 
                     let tx = txToJson txAlicePaysHerself
                     send n1 $ input "newTransaction" ["transaction" .= tx]
@@ -153,7 +151,7 @@ spec = around showLogsOnFailure $
                             .= object
                               [ "confirmedTransactions" .= [tx]
                               , "snapshotNumber" .= int 1
-                              , "utxo" .= [newUtxo]
+                              , "utxo" .= newUtxo
                               ]
                         ]
 
