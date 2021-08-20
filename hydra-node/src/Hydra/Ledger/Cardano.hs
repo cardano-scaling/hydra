@@ -9,7 +9,6 @@ import Hydra.Prelude hiding (id)
 
 import Cardano.Binary (
   Annotator,
-  Decoder,
   decodeAnnotator,
   decodeBytes,
   decodeListLenOf,
@@ -75,12 +74,12 @@ cardanoLedger =
   convertTx CardanoTx{body, witnesses, auxiliaryData} =
     Cardano.Tx body witnesses auxiliaryData
 
-type CardanoEra = MaryEra StandardCrypto
+-- * The 'CardanoTx' and associated types
 
 data CardanoTx = CardanoTx
   { id :: Cardano.TxId StandardCrypto -- XXX(SN): make invalid values impossible to represent
-  , body :: CardanoTxBody StandardCrypto
-  , witnesses :: CardanoTxWitnesses StandardCrypto
+  , body :: CardanoTxBody
+  , witnesses :: CardanoTxWitnesses
   , auxiliaryData :: CardanoAuxiliaryData
   }
   deriving stock (Eq, Show, Generic)
@@ -133,9 +132,11 @@ genCardanoTx utxos = do
           wits
           aux
 
-type CardanoTxBody crypto = Cardano.TxBody (MaryEra crypto)
+type CardanoEra = MaryEra StandardCrypto
 
-type CardanoTxWitnesses crypto = Cardano.WitnessSet (MaryEra crypto)
+type CardanoTxBody = Cardano.TxBody CardanoEra
+
+type CardanoTxWitnesses = Cardano.WitnessSet CardanoEra
 
 type CardanoAuxiliaryData = StrictMaybe (AuxiliaryData CardanoEra)
 
@@ -166,7 +167,7 @@ txIdFromText t =
 -- Transaction Body
 --
 
-instance Crypto crypto => FromJSON (CardanoTxBody crypto) where
+instance FromJSON CardanoTxBody where
   parseJSON = withObject "CardanoTxBody" $ \o -> do
     inputs <- o .: "inputs" >>= traverse parseJSON
     outputs <- o .: "outputs" >>= traverse parseJSON
@@ -182,7 +183,7 @@ instance Crypto crypto => FromJSON (CardanoTxBody crypto) where
         Cardano.SNothing
         mempty
 
-instance Crypto crypto => ToJSON (CardanoTxBody crypto) where
+instance ToJSON CardanoTxBody where
   toJSON (Cardano.TxBody inputs outputs _certs _wdrls _txfee _vldt _update _adHash _mint) =
     object
       [ "inputs" .= inputs
@@ -288,20 +289,18 @@ instance Crypto crypto => FromJSON (Cardano.UTxO (MaryEra crypto)) where
   parseJSON v = Cardano.UTxO <$> parseJSON v
 
 --
--- witnesses
+-- Witnesses
 --
 
-instance Crypto crypto => ToJSON (CardanoTxWitnesses crypto) where
+instance ToJSON CardanoTxWitnesses where
   toJSON (WitnessSet addrWitnesses _ _) =
     toJSON $ map (encodeBase16 . serializeEncoding' . prefixWithTag) $ toList addrWitnesses
    where
     prefixWithTag wit = encodeListLen 2 <> encodeWord 0 <> toCBOR wit
 
 instance
-  ( Crypto crypto
-  , FromCBOR (Annotator (Cardano.WitVKey 'Cardano.Witness crypto))
-  ) =>
-  FromJSON (CardanoTxWitnesses crypto)
+  (FromCBOR (Annotator (Cardano.WitVKey 'Cardano.Witness StandardCrypto))) =>
+  FromJSON CardanoTxWitnesses
   where
   parseJSON = withArray "CardanoTxWitnesses" $ \a -> do
     wits <- toList <$> traverse parseAddressWitness a
@@ -315,7 +314,6 @@ instance
           Left err -> fail $ show err
           Right v -> pure v
 
-    decoder :: Decoder s (Annotator (Cardano.WitVKey 'Cardano.Witness crypto))
     decoder = do
       decodeListLenOf 2
       t <- decodeWord

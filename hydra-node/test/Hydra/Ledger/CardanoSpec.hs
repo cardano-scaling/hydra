@@ -8,7 +8,6 @@ import Hydra.Prelude
 import Test.Hydra.Prelude
 
 import Cardano.Binary (decodeFull, serialize')
-import Cardano.Ledger.Crypto (StandardCrypto)
 import qualified Data.Aeson as Aeson
 import Hydra.Ledger.Cardano (CardanoEra, CardanoTx (..), CardanoTxWitnesses)
 import qualified Shelley.Spec.Ledger.API as Cardano
@@ -19,7 +18,7 @@ import Test.QuickCheck (Property, counterexample)
 spec :: Spec
 spec = describe "Cardano Head Ledger" $ do
   roundtripAndGoldenSpecs (Proxy @(Cardano.UTxO CardanoEra))
-  roundtripAndGoldenSpecs (Proxy @(CardanoTxWitnesses StandardCrypto))
+  roundtripAndGoldenSpecs (Proxy @CardanoTxWitnesses)
   roundtripAndGoldenSpecs (Proxy @CardanoTx)
 
   prop "CBOR encoding of CardanoTx" $ roundtripCBOR @CardanoTx
@@ -55,4 +54,4 @@ roundtripCBOR a =
   let encoded = serialize' a
       decoded = decodeFull $ fromStrict encoded
    in decoded == Right a
-        & counterexample ("encoded: " <> show encoded <> ". decode: " <> show decoded)
+        & counterexample ("encoded: " <> show encoded <> ", decoded: " <> show decoded)

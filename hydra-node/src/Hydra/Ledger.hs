@@ -100,21 +100,23 @@ type Committed tx = Map Party (Utxo tx)
 
 class
   ( Eq tx
-  , Eq (Utxo tx)
   , Eq (TxId tx)
-  , Show tx
-  , Show (Utxo tx)
-  , Show (TxId tx)
-  , Monoid (Utxo tx)
-  , Typeable tx
-  , Typeable (TxId tx)
-  , FromJSON tx
-  , FromJSON (Utxo tx)
+  , Eq (Utxo tx)
+  , FromCBOR tx
   , FromJSON (TxId tx)
-  , ToJSON tx
-  , ToJSON (Utxo tx)
-  , ToJSON (TxId tx)
+  , FromJSON (Utxo tx)
+  , FromJSON tx
+  , Monoid (Utxo tx)
   , Ord (TxId tx)
+  , Show (TxId tx)
+  , Show (Utxo tx)
+  , Show tx
+  , ToCBOR tx
+  , ToJSON (TxId tx)
+  , ToJSON (Utxo tx)
+  , ToJSON tx
+  , Typeable (TxId tx)
+  , Typeable tx
   ) =>
   Tx tx
   where
