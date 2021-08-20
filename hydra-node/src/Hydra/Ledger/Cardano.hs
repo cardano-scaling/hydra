@@ -24,7 +24,7 @@ import qualified Cardano.Crypto.Hash.Class as Crypto
 import qualified Cardano.Ledger.Address as Cardano
 import Cardano.Ledger.BaseTypes (StrictMaybe (SNothing), boundRational, mkActiveSlotCoeff)
 import Cardano.Ledger.Crypto (Crypto, StandardCrypto)
-import Cardano.Ledger.Mary (MaryEra)
+import Cardano.Ledger.Mary (AuxiliaryData, MaryEra)
 import qualified Cardano.Ledger.Mary.Value as Cardano
 import qualified Cardano.Ledger.SafeHash as SafeHash
 import qualified Cardano.Ledger.ShelleyMA.TxBody as Cardano
@@ -72,8 +72,8 @@ cardanoLedger =
     , initUtxo = mempty
     }
  where
-  convertTx CardanoTx{body, witnesses} =
-    Cardano.Tx body witnesses SNothing
+  convertTx CardanoTx{body, witnesses, auxiliaryData} =
+    Cardano.Tx body witnesses auxiliaryData
 
 type CardanoEra = MaryEra StandardCrypto
 
@@ -81,6 +81,7 @@ data CardanoTx = CardanoTx
   { id :: Cardano.TxId StandardCrypto -- XXX(SN): make invalid values impossible to represent
   , body :: CardanoTxBody StandardCrypto
   , witnesses :: CardanoTxWitnesses StandardCrypto
+  , auxiliaryData :: CardanoAuxiliaryData
   }
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON, FromJSON)
@@ -95,20 +96,21 @@ instance Tx CardanoTx where
 -- (Tx era))' instance from the Cardano.Ledger.Tx
 
 instance ToCBOR CardanoTx where
-  toCBOR CardanoTx{body, witnesses} =
-    encodeBytes $ serialize' $ Cardano.Tx @CardanoEra body witnesses SNothing
+  toCBOR CardanoTx{body, witnesses, auxiliaryData} =
+    encodeBytes $ serialize' $ Cardano.Tx @CardanoEra body witnesses auxiliaryData
 
 instance FromCBOR CardanoTx where
   fromCBOR = do
     bs <- decodeBytes
     case decodeAnnotator "Cardano.Tx" fromCBOR (fromStrict bs) of
       Left err -> fail $ show err
-      Right (Cardano.Tx body witnesses _aux :: Cardano.Tx CardanoEra) ->
+      Right (Cardano.Tx body witnesses auxiliaryData :: Cardano.Tx CardanoEra) ->
         pure $
           CardanoTx
             { id = Cardano.TxId $ SafeHash.hashAnnotated body
             , body
             , witnesses
+            , auxiliaryData
             }
 
 instance Arbitrary CardanoTx where
@@ -123,16 +125,19 @@ genCardanoTx utxos = do
       dpState = Cardano.DPState def def
   tx <- genTx (genEnv Proxy) ledgerEnv (utxoState, dpState)
   case tx of
-    (Cardano.Tx body wits _) ->
+    (Cardano.Tx body wits aux) ->
       pure $
         CardanoTx
           (Cardano.TxId $ SafeHash.hashAnnotated body)
           body
           wits
+          aux
 
 type CardanoTxBody crypto = Cardano.TxBody (MaryEra crypto)
 
 type CardanoTxWitnesses crypto = Cardano.WitnessSet (MaryEra crypto)
+
+type CardanoAuxiliaryData = StrictMaybe (AuxiliaryData CardanoEra)
 
 --
 --  Transaction Id
@@ -317,6 +322,21 @@ instance
       case t of
         0 -> fromCBOR
         _ -> fail $ "Invalid tag decoding witness, only support 1: " <> show t
+
+--
+-- AuxiliaryData
+--
+
+instance ToJSON (AuxiliaryData CardanoEra) where
+  toJSON = String . encodeBase16 . serialize'
+
+instance FromJSON (AuxiliaryData CardanoEra) where
+  parseJSON = withText "Hex-encoded auxiliary data" $ \t ->
+    case decodeBase16 $ encodeUtf8 t of
+      Left err -> fail $ show err
+      Right bs' -> case decodeAnnotator "AuxiliaryData" fromCBOR (fromStrict bs') of
+        Left err -> fail $ show err
+        Right v -> pure v
 
 -- * Calling the Cardano ledger
 

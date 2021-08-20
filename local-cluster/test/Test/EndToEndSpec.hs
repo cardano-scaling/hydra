@@ -67,7 +67,7 @@ import Cardano.Crypto.DSIGN (
   VerKeyDSIGN,
  )
 import Cardano.Crypto.Seed (mkSeedFromBytes)
-import Data.Aeson (Value (Object, String), object, (.=))
+import Data.Aeson (Value (Object, String, Null), object, (.=))
 import qualified Data.ByteString as BS
 import Data.ByteString.Base16 (encodeBase16)
 import qualified Data.Map as Map
@@ -280,6 +280,7 @@ txToJson tx =
           , "outputs" .= txOuts content
           ]
     , "witnesses" .= map (encodeBase16 . serialiseToCBOR) txWitnesses
+    , "auxiliaryData" .= Null
     ]
  where
   txBody = getTxBody tx
