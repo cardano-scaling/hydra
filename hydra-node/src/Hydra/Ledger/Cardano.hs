@@ -7,7 +7,16 @@ module Hydra.Ledger.Cardano where
 
 import Hydra.Prelude hiding (id)
 
-import Cardano.Binary (Annotator, FullByteString (Full), decodeFull', runAnnotator, serialize')
+import Cardano.Binary (
+  Annotator,
+  Decoder,
+  decodeAnnotator,
+  decodeListLenOf,
+  decodeWord,
+  encodeListLen,
+  encodeWord,
+  serializeEncoding',
+ )
 import qualified Cardano.Crypto.Hash.Class as Crypto
 import qualified Cardano.Ledger.Address as Cardano
 import Cardano.Ledger.Crypto (Crypto, StandardCrypto)
@@ -224,7 +233,10 @@ instance Crypto crypto => FromJSON (Cardano.UTxO (MaryEra crypto)) where
 --
 
 instance Crypto crypto => ToJSON (CardanoTxWitnesses crypto) where
-  toJSON (WitnessSet addrWitnesses _ _) = toJSON $ map (encodeBase16 . serialize') $ toList addrWitnesses
+  toJSON (WitnessSet addrWitnesses _ _) =
+    toJSON $ map (encodeBase16 . serializeEncoding' . prefixWithTag) $ toList addrWitnesses
+   where
+    prefixWithTag wit = encodeListLen 2 <> encodeWord 0 <> toCBOR wit
 
 instance
   ( Crypto crypto
@@ -240,6 +252,14 @@ instance
       -- TODO(AB): this is ugly
       case decodeBase16 $ encodeUtf8 t of
         Left err -> fail $ show err
-        Right bs' -> case decodeFull' bs' of
+        Right bs' -> case decodeAnnotator "ShelleyKeyWitness" decoder (fromStrict bs') of
           Left err -> fail $ show err
-          Right v -> pure $ runAnnotator v (Full $ fromStrict bs')
+          Right v -> pure v
+
+    decoder :: Decoder s (Annotator (Cardano.WitVKey 'Cardano.Witness crypto))
+    decoder = do
+      decodeListLenOf 2
+      t <- decodeWord
+      case t of
+        0 -> fromCBOR
+        _ -> fail $ "Invalid tag decoding witness, only support 1: " <> show t
