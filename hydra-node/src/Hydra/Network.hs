@@ -73,6 +73,7 @@ instance FromCBOR PortNumber where
 
 -- ** Host
 
+-- REVIEW(SN): This is also used in hydra-tui
 data Host = Host
   { hostName :: Text
   , portNumber :: PortNumber
@@ -120,13 +121,13 @@ instance FromCBOR Host where
 
 showHost :: Host -> String
 showHost Host{hostName, portNumber} =
-  unpack hostName <> "@" <> show portNumber
+  unpack hostName <> ":" <> show portNumber
 
-readHost :: String -> Maybe Host
+readHost :: MonadFail m => String -> m Host
 readHost s =
-  case break (== '@') s of
-    (h, '@' : p) -> Host (pack h) <$> readPort p
-    _ -> fail $ "readHost: missing @ in " <> s
+  case break (== ':') s of
+    (h, ':' : p) -> Host (pack h) <$> readPort p
+    _ -> fail $ "readHost: missing : in " <> s
 
 readPort :: MonadFail m => String -> m PortNumber
 readPort s =

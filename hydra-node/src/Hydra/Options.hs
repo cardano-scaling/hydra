@@ -96,7 +96,7 @@ peerParser =
     (maybeReader readHost)
     ( long "peer"
         <> short 'P'
-        <> help "A peer address in the form <host>@<port>, where <host> can be an IP address, or a host name"
+        <> help "A peer address in the form <host>:<port>, where <host> can be an IP address, or a host name"
     )
 
 nodeIdParser :: Parser Natural

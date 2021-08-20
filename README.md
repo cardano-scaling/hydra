@@ -85,19 +85,19 @@ $ cabal exec mock-chain
 
 ``` sh
 $ cabal exec hydra-node -- --node-id 1 --api-port 4001 \
-  --port 5001 --peer "localhost@5002" --peer "localhost@5003" \
+  --port 5001 --peer "localhost:5002" --peer "localhost:5003" \
   --me "demo/alice.sk" --party "demo/bob.vk" --party "demo/carol.vk"
 ```
 
 ``` sh
 $ cabal exec hydra-node -- --node-id 2 --api-port 4002 \
-  --port 5002 --peer "localhost@5001" --peer "localhost@5003" \
+  --port 5002 --peer "localhost:5001" --peer "localhost:5003" \
   --me "demo/bob.sk" --party "demo/alice.vk" --party "demo/carol.vk"
 ```
 
 ``` sh
 $ cabal exec hydra-node -- --node-id 3 --api-port 4003 \
-  --port 5003 --peer "localhost@5001" --peer "localhost@5002" \
+  --port 5003 --peer "localhost:5001" --peer "localhost:5002" \
   --me "demo/carol.sk" --party "demo/alice.vk" --party "demo/bob.vk"
 ```
 

@@ -26,16 +26,20 @@ spec = describe "Hydra Node Options" $ do
       `shouldParse` defaultOptions{port = 0}
     shouldNotParse ["--port", "-42"]
 
-  it "parses --peer <host>@<port> option" $ do
-    ["--peer", "1.2.3.4@4567"]
+  -- TODO(SN): Move thes examples rather into a 'instance Read Host' test and
+  -- only check for correct format / wiring here using a single test case This
+  -- became evident when realizing that the 'hydra-tui' is also relying on this
+  -- Read instance for parsing, but in a different command line flag.
+  it "parses --peer <host>:<port> option" $ do
+    ["--peer", "1.2.3.4:4567"]
       `shouldParse` defaultOptions{peers = [Host "1.2.3.4" 4567]}
-    ["--peer", ":::1@4567"]
+    ["--peer", ":::1:4567"]
       `shouldParse` defaultOptions{peers = [Host ":::1" 4567]}
-    ["--peer", "1.2.3.4@4567", "--peer", "1.2.3.5@4568"]
+    ["--peer", "1.2.3.4:4567", "--peer", "1.2.3.5:4568"]
       `shouldParse` defaultOptions{peers = [Host "1.2.3.4" 4567, Host "1.2.3.5" 4568]}
-    ["--peer", "foo.com@4567"]
+    ["--peer", "foo.com:4567"]
       `shouldParse` defaultOptions{peers = [Host "foo.com" 4567]}
-    shouldNotParse ["--peer", "foo.com@456789"]
+    shouldNotParse ["--peer", "foo.com:456789"]
 
   it "parses --monitoring-port option given valid port number" $ do
     []
