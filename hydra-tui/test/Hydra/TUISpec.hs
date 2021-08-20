@@ -1,8 +1,7 @@
 module Hydra.TUISpec where
 
-import Hydra.Prelude (Bool (True), ($))
-
-import Test.Hspec (Spec, it, parallel)
+import Hydra.Prelude
+import Test.Hydra.Prelude
 
 spec :: Spec
 spec = parallel $

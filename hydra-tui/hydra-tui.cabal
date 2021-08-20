@@ -113,8 +113,10 @@ test-suite unit
     , base
     , hspec
     , hydra-prelude
+    , hydra-node
     , hydra-test-utils
     , hydra-tui
+    , optparse-applicative
 
   build-tool-depends: hspec-discover:hspec-discover -any
   ghc-options:        -threaded -rtsopts
