@@ -184,6 +184,7 @@ test-suite tests
     Hydra.BehaviorSpec
     Hydra.Chain.ExternalPABSpec
     Hydra.Chain.ZeroMQSpec
+    Hydra.ClientInputSpec
     Hydra.FireForgetSpec
     Hydra.HeadLogicSpec
     Hydra.Ledger.CardanoSpec
@@ -194,6 +195,7 @@ test-suite tests
     Hydra.Network.HeartbeatSpec
     Hydra.NetworkSpec
     Hydra.OptionsSpec
+    Hydra.ServerOutputSpec
     Paths_hydra_node
     Spec
     Test.Util
