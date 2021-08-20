@@ -36,20 +36,6 @@ data APIServerLog
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON)
 
--- NOTE: Wrapping the ByteString for two reasons:
---
--- (a) There's no ToJSON instance for ByteStrings.
--- (b) It allows for conditional encoding depending on whether the bytestring
--- can be viewed as a UTF-8 strings or not.
-newtype InvalidClientInput = InvalidClientInput {invalidInput :: LByteString}
-  deriving stock (Eq, Show, Generic)
-
-instance ToJSON InvalidClientInput where
-  toJSON (toStrict . invalidInput -> bytes) =
-    case decodeUtf8' bytes of
-      Left{} -> toJSON (encodeBase16 bytes)
-      Right txt -> toJSON txt
-
 withAPIServer ::
   Tx tx =>
   IP ->

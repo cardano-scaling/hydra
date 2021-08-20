@@ -3,8 +3,9 @@
 
 module Hydra.ServerOutput where
 
-import Data.Aeson (object, withObject, (.:), (.=))
+import Data.Aeson (object, withObject, withText, (.:), (.=))
 import qualified Data.Aeson as Aeson
+import Data.ByteString.Base16 (decodeBase16Lenient, encodeBase16)
 import Hydra.Ledger (Party, Tx, Utxo)
 import Hydra.Prelude
 import Hydra.Snapshot (Snapshot)
@@ -24,7 +25,7 @@ data ServerOutput tx
   | TxInvalid tx
   | SnapshotConfirmed (Snapshot tx)
   | Utxo (Utxo tx)
-  | InvalidInput
+  | InvalidInput String InvalidClientInput
   deriving (Generic)
 
 deriving instance Tx tx => Eq (ServerOutput tx)
@@ -49,7 +50,7 @@ instance (Arbitrary tx, Arbitrary (Utxo tx)) => Arbitrary (ServerOutput tx) wher
     TxInvalid tx -> TxInvalid <$> shrink tx
     SnapshotConfirmed{} -> []
     Utxo u -> Utxo <$> shrink u
-    InvalidInput -> []
+    InvalidInput{} -> []
 
 instance (ToJSON tx, ToJSON (Snapshot tx), ToJSON (Utxo tx)) => ToJSON (ServerOutput tx) where
   toJSON = \case
@@ -85,8 +86,8 @@ instance (ToJSON tx, ToJSON (Snapshot tx), ToJSON (Utxo tx)) => ToJSON (ServerOu
       object [tagFieldName .= s "snapshotConfirmed", "snapshot" .= snapshotNumber]
     Utxo utxo ->
       object [tagFieldName .= s "utxo", "utxo" .= utxo]
-    InvalidInput ->
-      object [tagFieldName .= s "invalidInput"]
+    InvalidInput err input ->
+      object [tagFieldName .= s "invalidInput", "error" .= err, "input" .= input]
    where
     s = Aeson.String
     tagFieldName = "output"
@@ -124,6 +125,32 @@ instance (FromJSON tx, FromJSON (Snapshot tx), FromJSON (Utxo tx)) => FromJSON (
       "utxo" ->
         Utxo <$> (obj .: "utxo")
       "invalidInput" ->
-        pure InvalidInput
+        InvalidInput <$> obj .: "error" <*> obj .: "input"
       _ ->
         fail $ "unknown output type: " <> toString @Text tag
+
+-- NOTE: Wrapping the ByteString for two reasons:
+--
+-- (a) There's no ToJSON instance for ByteStrings.
+-- (b) It allows for conditional encoding depending on whether the bytestring
+-- can be viewed as a UTF-8 strings or not.
+newtype InvalidClientInput = InvalidClientInput {invalidInput :: LByteString}
+  deriving stock (Eq, Show, Generic)
+
+instance ToJSON InvalidClientInput where
+  toJSON (toStrict . invalidInput -> bytes) =
+    case decodeUtf8' bytes of
+      Left{} -> toJSON (encodeBase16 bytes)
+      Right txt -> toJSON txt
+
+instance FromJSON InvalidClientInput where
+  parseJSON v =
+    parseText <|> parseHex v
+   where
+    parseText = do
+      t <- parseJSON @Text v
+      pure $ InvalidClientInput . fromStrict $ encodeUtf8 t
+
+    parseHex = withText "base16 text" $ \t -> do
+      let base16Bytes = encodeUtf8 t
+      pure . InvalidClientInput . fromStrict $ decodeBase16Lenient base16Bytes
