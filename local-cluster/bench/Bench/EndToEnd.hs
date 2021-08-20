@@ -4,6 +4,7 @@
 module Bench.EndToEnd where
 
 import Hydra.Prelude
+import Test.Hydra.Prelude
 
 import Cardano.Crypto.DSIGN (
   DSIGNAlgorithm (deriveVerKeyDSIGN),
@@ -26,7 +27,6 @@ import qualified Data.Set as Set
 import Hydra.Ledger (Tx, TxId, txId)
 import Hydra.Ledger.Simple (SimpleTx)
 import Hydra.Logging (showLogsOnFailure)
-import Test.Hydra.Prelude (failAfter)
 import HydraNode (
   HydraClient,
   input,
@@ -67,21 +67,21 @@ bench workDir txs = do
             withHydraNode tracer workDir chainPorts 3 carolSk [aliceVk, bobVk] $ \n3 -> do
               waitForNodesConnected tracer [n1, n2, n3]
               let contestationPeriod = 10 :: Natural
-              send n1 $ input "init" ["contestationPeriod" .= contestationPeriod]
+              send n1 $ input "Init" ["contestationPeriod" .= contestationPeriod]
               waitFor tracer 3 [n1, n2, n3] $
-                output "readyToCommit" ["parties" .= [int 10, 20, 30]]
-              send n1 $ input "commit" ["utxo" .= [int 1]]
-              send n2 $ input "commit" ["utxo" .= [int 2]]
-              send n3 $ input "commit" ["utxo" .= [int 3]]
+                output "ReadyToCommit" ["parties" .= [int 10, 20, 30]]
+              send n1 $ input "Commit" ["utxo" .= [int 1]]
+              send n2 $ input "Commit" ["utxo" .= [int 2]]
+              send n3 $ input "Commit" ["utxo" .= [int 3]]
 
-              waitFor tracer 3 [n1, n2, n3] $ output "headIsOpen" ["utxo" .= [int 1, 2, 3]]
+              waitFor tracer 3 [n1, n2, n3] $ output "HeadIsOpen" ["utxo" .= [int 1, 2, 3]]
 
               for_ txs (\tx -> newTx registry n1 tx >> threadDelay 0.001)
                 `concurrently_` waitForAllConfirmations n1 registry txs
 
-              send n1 $ input "close" []
+              send n1 $ input "Close" []
               waitMatch (contestationPeriod + 3) n1 $ \v ->
-                guard (v ^? key "output" == Just "headIsFinalized")
+                guard (v ^? key "tag" == Just "HeadIsFinalized")
 
   res <- mapMaybe analyze . Map.toList <$> readTVarIO registry
   let resFile = workDir </> "results.json"
@@ -114,7 +114,7 @@ newTx registry client tx = do
           { submittedAt = now
           , confirmedAt = Nothing
           }
-  send client $ input "newTransaction" ["transaction" .= tx]
+  send client $ input "NewTx" ["transaction" .= tx]
 
 waitForAllConfirmations :: HydraClient -> TVar IO (Map.Map (TxId SimpleTx) Event) -> [SimpleTx] -> IO ()
 waitForAllConfirmations n1 registry txs =
@@ -126,7 +126,7 @@ waitForAllConfirmations n1 registry txs =
     | Set.null remainingIds = pure ()
     | otherwise = do
       res <- waitMatch 10 n1 $ \v -> do
-        guard (v ^? key "output" == Just "snapshotConfirmed")
+        guard (v ^? key "tag" == Just "snapshotConfirmed")
         v ^? key "snapshot" . key "confirmedTransactions" . _Array
       confirmedIds <- mapM (confirmTx registry) res
       go (remainingIds \\ Set.fromList (toList confirmedIds))

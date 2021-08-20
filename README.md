@@ -107,6 +107,6 @@ and connecting to the individual port, e.g. to initiate a head via alice's
 
 ``` sh
 $ ws ws://127.0.0.1:4001
-> {"input":"init"}
-< {"parties":[42,51,66],"output":"readyToCommit"}
+> {"tag":"Init"}
+< {"parties":[42,51,66],"tag":"ReadyToCommit"}
 ```

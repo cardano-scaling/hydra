@@ -67,7 +67,7 @@ import Cardano.Crypto.DSIGN (
   VerKeyDSIGN,
  )
 import Cardano.Crypto.Seed (mkSeedFromBytes)
-import Data.Aeson (Value (Object, String, Null), object, (.=))
+import Data.Aeson (Value (Null, Object, String), object, (.=))
 import qualified Data.ByteString as BS
 import Data.ByteString.Base16 (encodeBase16)
 import qualified Data.Map as Map
@@ -101,9 +101,9 @@ spec = around showLogsOnFailure $
                   withHydraNode tracer tmpDir chainPorts 3 carolSk [aliceVk, bobVk] $ \n3 -> do
                     waitForNodesConnected tracer [n1, n2, n3]
                     let contestationPeriod = 10 :: Natural
-                    send n1 $ input "init" ["contestationPeriod" .= contestationPeriod]
+                    send n1 $ input "Init" ["contestationPeriod" .= contestationPeriod]
                     waitFor tracer 3 [n1, n2, n3] $
-                      output "readyToCommit" ["parties" .= [int 10, 20, 30]]
+                      output "ReadyToCommit" ["parties" .= [int 10, 20, 30]]
 
                     let someUtxo =
                           Map.singleton
@@ -115,13 +115,13 @@ spec = around showLogsOnFailure $
                                     [ "lovelace" .= int 14
                                     ]
                               ]
-                    send n1 $ input "commit" ["utxo" .= someUtxo]
-                    send n2 $ input "commit" ["utxo" .= Object mempty]
-                    send n3 $ input "commit" ["utxo" .= Object mempty]
-                    waitFor tracer 3 [n1, n2, n3] $ output "headIsOpen" ["utxo" .= someUtxo]
+                    send n1 $ input "Commit" ["utxo" .= someUtxo]
+                    send n2 $ input "Commit" ["utxo" .= Object mempty]
+                    send n3 $ input "Commit" ["utxo" .= Object mempty]
+                    waitFor tracer 3 [n1, n2, n3] $ output "HeadIsOpen" ["utxo" .= someUtxo]
 
                     let tx = txToJson txAlicePaysHerself
-                    send n1 $ input "newTransaction" ["transaction" .= tx]
+                    send n1 $ input "NewTx" ["transaction" .= tx]
 
                     let newTxId = getTxId (getTxBody txAlicePaysHerself)
                         newUtxo =
@@ -136,10 +136,10 @@ spec = around showLogsOnFailure $
                               ]
 
                     waitFor tracer 10 [n1, n2, n3] $
-                      output "transactionSeen" ["transaction" .= tx]
+                      output "TxSeen" ["transaction" .= tx]
                     waitFor tracer 10 [n1, n2, n3] $
                       output
-                        "snapshotConfirmed"
+                        "SnapshotConfirmed"
                         [ "snapshot"
                             .= object
                               [ "confirmedTransactions" .= [tx]
@@ -148,13 +148,13 @@ spec = around showLogsOnFailure $
                               ]
                         ]
 
-                    send n1 $ input "getUtxo" []
-                    waitFor tracer 10 [n1] $ output "utxo" ["utxo" .= newUtxo]
+                    send n1 $ input "GetUtxo" []
+                    waitFor tracer 10 [n1] $ output "Utxo" ["utxo" .= newUtxo]
 
-                    send n1 $ input "close" []
+                    send n1 $ input "Close" []
                     waitFor tracer 3 [n1] $
                       output
-                        "headIsClosed"
+                        "HeadIsClosed"
                         [ "contestationPeriod" .= contestationPeriod
                         , "latestSnapshot"
                             .= object
@@ -164,7 +164,7 @@ spec = around showLogsOnFailure $
                               ]
                         ]
                     waitFor tracer (contestationPeriod + 3) [n1] $
-                      output "headIsFinalized" ["utxo" .= newUtxo]
+                      output "HeadIsFinalized" ["utxo" .= newUtxo]
 
     describe "Monitoring" $ do
       it "Node exposes Prometheus metrics on port 6001" $ \tracer -> do
@@ -175,8 +175,8 @@ spec = around showLogsOnFailure $
                 withHydraNode tracer tmpDir mockPorts 2 bobSk [aliceVk, carolVk] $ \_n2 ->
                   withHydraNode tracer tmpDir mockPorts 3 carolSk [aliceVk, bobVk] $ \_n3 -> do
                     waitForNodesConnected tracer [n1]
-                    send n1 $ input "init" ["contestationPeriod" .= int 10]
-                    waitFor tracer 3 [n1] $ output "readyToCommit" ["parties" .= [int 10, 20, 30]]
+                    send n1 $ input "Init" ["contestationPeriod" .= int 10]
+                    waitFor tracer 3 [n1] $ output "ReadyToCommit" ["parties" .= [int 10, 20, 30]]
                     metrics <- getMetrics n1
                     metrics `shouldSatisfy` ("hydra_head_events  4" `BS.isInfixOf`)
 

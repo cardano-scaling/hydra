@@ -72,7 +72,7 @@ data HydraClient = HydraClient
 
 -- | Create an input as expected by 'send'.
 input :: Text -> [Pair] -> Value
-input tag pairs = object $ ("input" .= tag) : pairs
+input tag pairs = object $ ("tag" .= tag) : pairs
 
 send :: HydraClient -> Value -> IO ()
 send HydraClient{connection} v =
@@ -80,7 +80,7 @@ send HydraClient{connection} v =
 
 -- | Create an output as expected by 'waitFor' and 'waitForAll'.
 output :: Text -> [Pair] -> Value
-output tag pairs = object $ ("output" .= tag) : pairs
+output tag pairs = object $ ("tag" .= tag) : pairs
 
 -- | Wait some time for a single output from each of given nodes.
 -- This function waits for @delay@ seconds for message @expected@  to be seen by all
@@ -305,7 +305,7 @@ waitForNodeConnected tracer n@HydraClient{hydraNodeId} =
     fmap
       ( \party ->
           object
-            [ "output" .= String "peerConnected"
+            [ "tag" .= String "PeerConnected"
             , "peer" .= (party * 10)
             ]
       )
