@@ -19,10 +19,15 @@ import Cardano.Binary (
  )
 import qualified Cardano.Crypto.Hash.Class as Crypto
 import qualified Cardano.Ledger.Address as Cardano
+import Cardano.Ledger.BaseTypes (StrictMaybe (SNothing), boundRational, mkActiveSlotCoeff)
 import Cardano.Ledger.Crypto (Crypto, StandardCrypto)
 import Cardano.Ledger.Mary (MaryEra)
 import qualified Cardano.Ledger.Mary.Value as Cardano
 import qualified Cardano.Ledger.SafeHash as SafeHash
+import qualified Cardano.Ledger.ShelleyMA.TxBody as Cardano
+import Cardano.Ledger.Slot (EpochSize (EpochSize), SlotNo (SlotNo))
+import Cardano.Slotting.EpochInfo (fixedEpochInfo)
+import Cardano.Slotting.Time (SystemStart (SystemStart), mkSlotLength)
 import qualified Codec.Binary.Bech32 as Bech32
 import qualified Codec.Binary.Bech32.TH as Bech32
 import Data.Aeson (
@@ -41,19 +46,27 @@ import Data.Aeson (
  )
 import Data.Aeson.Types (toJSONKeyText)
 import Data.ByteString.Base16 (decodeBase16, encodeBase16)
+import Data.Default (Default, def)
+import qualified Data.Sequence as Seq
 import qualified Data.Sequence.Strict as StrictSeq
 import qualified Data.Set as Set
 import qualified Data.Text as Text
-import Hydra.Ledger (Ledger (..), Tx (..))
-import qualified Shelley.Spec.Ledger.API as Cardano
-import Shelley.Spec.Ledger.Tx (WitnessSetHKD (WitnessSet)) -- REVIEW(SN): WitnessSet pattern is not reexported in API??
+import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
+import Hydra.Ledger (Ledger (..), Tx (..), ValidationError (ValidationError))
+import qualified Shelley.Spec.Ledger.API as Cardano hiding (TxBody)
+import Shelley.Spec.Ledger.API.Mempool (ApplyTx)
+import Shelley.Spec.Ledger.Tx (WitnessSetHKD (WitnessSet))
 
 cardanoLedger :: Ledger CardanoTx
 cardanoLedger =
   Ledger
-    { applyTransactions = error "not implemented"
+    { applyTransactions = \utxo ->
+        applyTx ledgerEnv utxo . map convertTx
     , initUtxo = mempty
     }
+ where
+  convertTx CardanoTx{body, witnesses} =
+    Cardano.Tx body witnesses SNothing
 
 type CardanoEra = MaryEra StandardCrypto
 
@@ -119,12 +132,13 @@ instance Crypto crypto => FromJSON (CardanoTxBody crypto) where
         mempty
         (Cardano.Wdrl mempty)
         mempty
-        maxBound
+        (Cardano.ValidityInterval SNothing SNothing)
         Cardano.SNothing
         Cardano.SNothing
+        mempty
 
 instance Crypto crypto => ToJSON (CardanoTxBody crypto) where
-  toJSON (Cardano.TxBody inputs outputs _certs _wdrls _txfee _ttl _update _mdHash) =
+  toJSON (Cardano.TxBody inputs outputs _certs _wdrls _txfee _vldt _update _adHash _mint) =
     object
       [ "inputs" .= inputs
       , "outputs" .= outputs
@@ -263,3 +277,55 @@ instance
       case t of
         0 -> fromCBOR
         _ -> fail $ "Invalid tag decoding witness, only support 1: " <> show t
+
+-- * Calling the Cardano ledger
+
+applyTx ::
+  ( Default (Cardano.UTxOState era)
+  , ApplyTx era
+  ) =>
+  Cardano.LedgerEnv era ->
+  Cardano.UTxO era ->
+  [Cardano.Tx era] ->
+  Either ValidationError (Cardano.UTxO era)
+applyTx env utxo txs =
+  case Cardano.applyTxsTransition globals env (Seq.fromList txs) memPoolState of
+    Left err -> Left $ toValidationError err
+    Right (ls, _ds) -> Right $ Cardano._utxo ls
+ where
+  -- toValidationError :: ApplyTxError -> ValidationError
+  toValidationError = const ValidationError
+
+  memPoolState = (def{Cardano._utxo = utxo}, def)
+
+-- TODO(SN): not hard-code these obviously
+-- From: shelley/chain-and-ledger/shelley-spec-ledger-test/src/Test/Shelley/Spec/Ledger/Utils.hs
+globals :: Cardano.Globals
+globals =
+  Cardano.Globals
+    { Cardano.epochInfoWithErr = fixedEpochInfo (EpochSize 100) (mkSlotLength 1)
+    , Cardano.slotsPerKESPeriod = 20
+    , Cardano.stabilityWindow = 33
+    , Cardano.randomnessStabilisationWindow = 33
+    , Cardano.securityParameter = 10
+    , Cardano.maxKESEvo = 10
+    , Cardano.quorum = 5
+    , Cardano.maxMajorPV = 1000
+    , Cardano.maxLovelaceSupply = 45 * 1000 * 1000 * 1000 * 1000 * 1000
+    , Cardano.activeSlotCoeff = mkActiveSlotCoeff . unsafeBoundRational $ 0.9
+    , Cardano.networkId = Cardano.Testnet
+    , Cardano.systemStart = SystemStart $ posixSecondsToUTCTime 0
+    }
+ where
+  unsafeBoundRational r =
+    fromMaybe (error $ "Could not convert from Rational: " <> show r) $ boundRational r
+
+-- TODO(SN): not hard-code this
+ledgerEnv :: Cardano.LedgerEnv CardanoEra
+ledgerEnv =
+  Cardano.LedgerEnv
+    { Cardano.ledgerSlotNo = SlotNo 1
+    , Cardano.ledgerIx = error "ledgerEnv ledgerIx undefinex"
+    , Cardano.ledgerPp = def
+    , Cardano.ledgerAccount = error "mkLedgerenv ledgersAccount undefined"
+    }

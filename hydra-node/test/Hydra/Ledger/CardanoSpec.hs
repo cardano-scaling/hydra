@@ -21,6 +21,8 @@ spec = describe "Cardano Head Ledger" $ do
   roundtripAndGoldenSpecs (Proxy @(Cardano.UTxO (MaryEra StandardCrypto)))
   roundtripAndGoldenSpecs (Proxy @(CardanoTxWitnesses StandardCrypto))
 
+  -- TODO(SN): unit test transaction application, ideally using a 'Gen CardanoTx'
+
   -- TODO(SN): rather ensure we use bech32 for addresses as a test
   it "should parse a Cardano.UTxO" $ do
     let bs =
