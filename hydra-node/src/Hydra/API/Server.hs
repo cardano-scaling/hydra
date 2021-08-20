@@ -12,7 +12,6 @@ import qualified Control.Concurrent.STM as STM
 import Control.Concurrent.STM.TChan (newBroadcastTChanIO, writeTChan)
 import Control.Concurrent.STM.TVar (TVar, modifyTVar', newTVarIO, readTVar)
 import qualified Data.Aeson as Aeson
-import Data.ByteString.Base16 (encodeBase16)
 import Hydra.ClientInput (ClientInput)
 import Hydra.Ledger (Tx (..))
 import Hydra.Logging (Tracer, traceWith)
@@ -32,7 +31,7 @@ data APIServerLog
   | NewAPIConnection
   | APIOutputSent {sentOutput :: Aeson.Value}
   | APIInputReceived {receivedInput :: Aeson.Value}
-  | APIInvalidInput String InvalidClientInput
+  | APIInvalidInput String Text
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON)
 
@@ -87,8 +86,11 @@ runAPIServer host port tracer history inputHandler responseChannel = do
         traceWith tracer (APIInputReceived $ toJSON input)
         inputHandler input
       Left e -> do
-        sendTextData con $ Aeson.encode $ InvalidInput @tx
-        traceWith tracer (APIInvalidInput e $ InvalidClientInput msg)
+        -- XXX(AB): toStrict might be problematic as it implies consuming the full
+        -- message to memory
+        let clientInput = decodeUtf8With lenientDecode $ toStrict msg
+        sendTextData con $ Aeson.encode $ InvalidInput @tx e clientInput
+        traceWith tracer (APIInvalidInput e clientInput)
 
   forwardHistory con = do
     hist <- STM.atomically (readTVar history)

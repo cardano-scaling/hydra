@@ -19,7 +19,7 @@ import qualified Data.Aeson as Aeson
 import Hydra.API.Server (withAPIServer)
 import Hydra.Ledger.Simple (SimpleTx)
 import Hydra.Logging (nullTracer)
-import Hydra.ServerOutput (ServerOutput (InvalidInput, ReadyToCommit))
+import Hydra.ServerOutput (ServerOutput (InvalidInput, ReadyToCommit), input)
 import Network.WebSockets (Connection, receiveData, runClient, sendBinaryData)
 import Test.Network.Ports (withFreePort)
 import Test.QuickCheck (cover)
@@ -68,13 +68,16 @@ sendsAnErrorWhenInputCannotBeDecoded :: Int -> Expectation
 sendsAnErrorWhenInputCannotBeDecoded port = do
   withAPIServer @SimpleTx "127.0.0.1" (fromIntegral port) nullTracer noop $ \_sendOutput -> do
     withClient port $ \con -> do
-      sendBinaryData @Text con invalidInput
+      sendBinaryData con invalidInput
       msg <- receiveData con
-      case Aeson.eitherDecode msg of
-        Right resp -> resp `shouldBe` (InvalidInput :: ServerOutput SimpleTx)
+      case Aeson.eitherDecode @(ServerOutput SimpleTx) msg of
+        Right resp -> resp `shouldSatisfy` isInvalidInput
         Left{} -> failure $ "Failed to decode output " <> show msg
  where
   invalidInput = "not a valid message"
+  isInvalidInput = \case
+    InvalidInput{input} -> input == invalidInput
+    _ -> False
 
 testClient :: TQueue IO (ServerOutput SimpleTx) -> TVar IO Int -> Connection -> IO ()
 testClient queue semaphore cnx = do

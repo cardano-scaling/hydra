@@ -207,6 +207,8 @@ spec = describe "Hydra Coordinated Head Protocol" $ do
     let s2 = update env ledger s1 invalidEvent
     s2 `shouldBe` Error (InvalidEvent invalidEvent s1)
 
+  -- TODO(AB): Should be moved to their corresponding modules as they are
+  -- not defined in HeadLogic anymore
   describe "JSON instances" $ do
     roundtripAndGoldenSpecs (Proxy @(ClientInput SimpleTx))
     roundtripAndGoldenSpecs (Proxy @(ServerOutput SimpleTx))
