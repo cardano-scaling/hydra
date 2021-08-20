@@ -10,7 +10,7 @@ import Hydra.Chain.ZeroMQ (
   runChainSync,
   startChain,
  )
-import Hydra.Ledger.Simple (SimpleTx)
+import Hydra.Ledger.Cardano (CardanoTx)
 import Hydra.Logging (Verbosity (Quiet, Verbose), withTracer)
 import Options.Applicative (
   Parser,
@@ -94,7 +94,7 @@ main = do
   Option{mode, chainSyncAddress, catchUpAddress, postTxAddress, verbosity} <- execParser mockChainOptions
   withTracer verbosity $ \tracer -> case mode of
     NodeMode ->
-      startChain @SimpleTx chainSyncAddress catchUpAddress postTxAddress tracer
+      startChain @CardanoTx chainSyncAddress catchUpAddress postTxAddress tracer
     CatchUpMode -> catchUpTransactions catchUpAddress print tracer
     ClientMode -> do
       withAsync (runChainSync chainSyncAddress print tracer) $ \_async -> forever $ do

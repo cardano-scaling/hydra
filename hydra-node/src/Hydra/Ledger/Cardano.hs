@@ -8,11 +8,12 @@ module Hydra.Ledger.Cardano where
 import Hydra.Prelude hiding (id)
 
 import Cardano.Binary (Annotator, FullByteString (Full), decodeFull', runAnnotator, serialize')
+import qualified Cardano.Crypto.Hash.Class as Crypto
 import qualified Cardano.Ledger.Address as Cardano
 import Cardano.Ledger.Crypto (Crypto, StandardCrypto)
 import Cardano.Ledger.Mary (MaryEra)
-import qualified Cardano.Crypto.Hash.Class as Crypto
 import qualified Cardano.Ledger.Mary.Value as Cardano
+import qualified Cardano.Ledger.SafeHash as SafeHash
 import qualified Codec.Binary.Bech32 as Bech32
 import qualified Codec.Binary.Bech32.TH as Bech32
 import Data.Aeson (
@@ -37,27 +38,39 @@ import qualified Data.Text as Text
 import Hydra.Ledger (Ledger (..), Tx (..))
 import qualified Shelley.Spec.Ledger.API as Cardano
 import Shelley.Spec.Ledger.Tx (WitnessSetHKD (WitnessSet)) -- REVIEW(SN): WitnessSet pattern is not reexported in API??
-import qualified Cardano.Ledger.SafeHash as SafeHash
+
+cardanoLedger :: Ledger CardanoTx
+cardanoLedger =
+  Ledger
+    { applyTransactions = error "not implemented"
+    , initUtxo = mempty
+    }
 
 type CardanoEra = MaryEra StandardCrypto
 
-data CardanoTx crypto = CardanoTx
-  { id :: Cardano.TxId crypto
-  , body :: CardanoTxBody crypto
-  , witnesses :: CardanoTxWitnesses crypto
+data CardanoTx = CardanoTx
+  { id :: Cardano.TxId StandardCrypto
+  , body :: CardanoTxBody StandardCrypto
+  , witnesses :: CardanoTxWitnesses StandardCrypto
   }
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON, FromJSON)
 
+instance Tx CardanoTx where
+  type Utxo CardanoTx = Cardano.UTxO CardanoEra
+  type TxId CardanoTx = Cardano.TxId StandardCrypto
+
+  txId = id
+
+instance ToCBOR CardanoTx where
+  toCBOR = error "TODO: toCBOR CardanoTx"
+
+instance FromCBOR CardanoTx where
+  fromCBOR = error "TODO: fromCBOR CardanoTx"
+
 type CardanoTxBody crypto = Cardano.TxBody (MaryEra crypto)
 
 type CardanoTxWitnesses crypto = Cardano.WitnessSet (MaryEra crypto)
-
-instance Crypto crypto => ToCBOR (CardanoTx crypto) where
-  toCBOR = error "TODO: toCBOR CardanoTx"
-
-instance Crypto crypto => FromCBOR (CardanoTx crypto) where
-  fromCBOR = error "TODO: fromCBOR CardanoTx"
 
 --
 --  Transaction Id
@@ -230,16 +243,3 @@ instance
         Right bs' -> case decodeFull' bs' of
           Left err -> fail $ show err
           Right v -> pure $ runAnnotator v (Full $ fromStrict bs')
-
-instance Crypto crypto => Tx (CardanoTx crypto) where
-  type Utxo (CardanoTx crypto) = Cardano.UTxO (MaryEra crypto)
-  type TxId (CardanoTx crypto) = Cardano.TxId crypto
-
-  txId = id
-
-cardanoLedger :: Ledger (CardanoTx StandardCrypto)
-cardanoLedger =
-  Ledger
-    { applyTransactions = error "not implemented"
-    , initUtxo = mempty
-    }
