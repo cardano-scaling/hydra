@@ -308,7 +308,7 @@ globals =
     , Cardano.maxMajorPV = 1000
     , Cardano.maxLovelaceSupply = 45 * 1000 * 1000 * 1000 * 1000 * 1000
     , Cardano.activeSlotCoeff = mkActiveSlotCoeff . unsafeBoundRational $ 0.9
-    , Cardano.networkId = Cardano.Testnet
+    , Cardano.networkId = Cardano.Mainnet
     , Cardano.systemStart = SystemStart $ posixSecondsToUTCTime 0
     }
  where
