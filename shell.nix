@@ -71,6 +71,9 @@ let
 
     # Disable haddocks as it's currently failing for the 'plutus-ledger' package
     withHoogle = false;
+
+    # Always create missing golden files
+    CREATE_MISSING_GOLDEN = 1;
   };
 
   # A "cabal-only" shell which does not use haskell.nix
