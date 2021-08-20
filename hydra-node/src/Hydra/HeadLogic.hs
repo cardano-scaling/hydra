@@ -9,6 +9,7 @@ import Hydra.Prelude
 import Data.List (elemIndex, (\\))
 import qualified Data.Map.Strict as Map
 import qualified Data.Set as Set
+import GHC.Records (getField)
 import Hydra.Chain (HeadParameters (..), OnChainTx (..), PostChainTx (..))
 import Hydra.ClientInput (ClientInput (..))
 import Hydra.Ledger (
@@ -198,7 +199,7 @@ update Environment{party, signingKey, otherParties, snapshotStrategy} ledger st 
   --
   (OpenState _ CoordinatedHeadState{confirmedSnapshot}, ClientEvent GetUtxo) ->
     sameState
-      [ClientEffect $ Utxo (utxo confirmedSnapshot)]
+      [ClientEffect . Utxo $ getField @"utxo" confirmedSnapshot]
   --
   (OpenState _ CoordinatedHeadState{seenUtxo}, ClientEvent (NewTx tx)) ->
     -- NOTE: We deliberately do not perform any validation because:
@@ -237,7 +238,7 @@ update Environment{party, signingKey, otherParties, snapshotStrategy} ledger st 
     | number confirmedSnapshot + 1 == sn && isLeader parameters otherParty sn && isNothing seenSnapshot ->
       -- TODO: Verify the request is signed by (?) / comes from the leader
       -- (Can we prove a message comes from a given peer, without signature?)
-      case applyTransactions ledger (utxo confirmedSnapshot) txs of
+      case applyTransactions ledger (getField @"utxo" confirmedSnapshot) txs of
         Left _ -> Wait
         Right u ->
           let nextSnapshot = Snapshot sn u txs
@@ -284,7 +285,7 @@ update Environment{party, signingKey, otherParties, snapshotStrategy} ledger st 
     --   a) Warn the user about a close tx outside of an open state
     --   b) Move to close state, using information from the close tx
     nextState
-      (ClosedState parameters $ utxo confirmedSnapshot)
+      (ClosedState parameters $ getField @"utxo" confirmedSnapshot)
       [ClientEffect $ HeadIsClosed contestationPeriod confirmedSnapshot]
   --
   (_, OnChainEvent OnContestTx{}) ->

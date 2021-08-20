@@ -59,7 +59,6 @@ prop_validateToJSON specFile namespace inputFile =
                 Aeson.encodeFile inputFile (Aeson.object [namespace .= a])
                 readProcessWithExitCode "jsonschema" ["-i", inputFile, specFile] mempty
               monitor $ counterexample err
-              monitor $ counterexample (show a)
               assert (exitCode == ExitSuccess)
       , -- This second sub-property ensures that any key found in the
         -- specification corresponds to a constructor in the corresponding
@@ -69,7 +68,7 @@ prop_validateToJSON specFile namespace inputFile =
           \(a :: [a]) -> monadicIO $ do
             specs <- run $ Aeson.decodeFileStrict specFile
             let unknownConstructors = Map.keys $ Map.filter (== 0) $ classify specs a
-            when (length unknownConstructors > 0) $ do
+            unless (null unknownConstructors) $ do
               let commaSeparated = intercalate ", " (toString <$> unknownConstructors)
               monitor $ counterexample $ "Unimplemented constructors present in specification: " <> commaSeparated
               assert False

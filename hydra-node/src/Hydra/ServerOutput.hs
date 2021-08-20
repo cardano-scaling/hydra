@@ -3,32 +3,32 @@
 
 module Hydra.ServerOutput where
 
-import Data.Aeson (object, withObject, (.:), (.=))
-import qualified Data.Aeson as Aeson
 import Hydra.Ledger (Party, Tx, Utxo, ValidationError)
 import Hydra.Prelude
 import Hydra.Snapshot (Snapshot)
 
 data ServerOutput tx
-  = PeerConnected Party
-  | PeerDisconnected Party
-  | ReadyToCommit [Party]
-  | Committed Party (Utxo tx)
-  | HeadIsOpen (Utxo tx)
-  | HeadIsClosed DiffTime (Snapshot tx)
-  | HeadIsAborted (Utxo tx)
-  | HeadIsFinalized (Utxo tx)
+  = PeerConnected {peer :: Party}
+  | PeerDisconnected {peer :: Party}
+  | ReadyToCommit {parties :: [Party]}
+  | Committed {party :: Party, utxo :: Utxo tx}
+  | HeadIsOpen {utxo :: Utxo tx}
+  | HeadIsClosed {contestationPeriod :: DiffTime, latestSnapshot :: Snapshot tx}
+  | HeadIsAborted {utxo :: Utxo tx}
+  | HeadIsFinalized {utxo :: Utxo tx}
   | CommandFailed
-  | TxSeen tx
-  | TxValid tx
+  | TxSeen {transaction :: tx}
+  | TxValid {transaction :: tx}
   | TxInvalid {transaction :: tx, validationError :: ValidationError}
-  | SnapshotConfirmed (Snapshot tx)
-  | Utxo (Utxo tx)
+  | SnapshotConfirmed {snapshot :: Snapshot tx}
+  | Utxo {utxo :: Utxo tx}
   | InvalidInput {reason :: String, input :: Text}
   deriving (Generic)
 
 deriving instance Tx tx => Eq (ServerOutput tx)
 deriving instance Tx tx => Show (ServerOutput tx)
+deriving instance Tx tx => ToJSON (ServerOutput tx)
+deriving instance Tx tx => FromJSON (ServerOutput tx)
 
 instance (Arbitrary tx, Arbitrary (Utxo tx)) => Arbitrary (ServerOutput tx) where
   arbitrary = genericArbitrary
@@ -47,83 +47,6 @@ instance (Arbitrary tx, Arbitrary (Utxo tx)) => Arbitrary (ServerOutput tx) wher
     TxSeen tx -> TxSeen <$> shrink tx
     TxValid tx -> TxValid <$> shrink tx
     TxInvalid tx err -> TxInvalid <$> shrink tx <*> shrink err
-    SnapshotConfirmed{} -> []
+    SnapshotConfirmed s -> SnapshotConfirmed <$> shrink s
     Utxo u -> Utxo <$> shrink u
-    InvalidInput{} -> []
-
-instance (ToJSON tx, ToJSON (Snapshot tx), ToJSON (Utxo tx)) => ToJSON (ServerOutput tx) where
-  toJSON = \case
-    PeerConnected peer ->
-      object [tagFieldName .= s "peerConnected", "peer" .= peer]
-    PeerDisconnected peer ->
-      object [tagFieldName .= s "peerDisconnected", "peer" .= peer]
-    ReadyToCommit parties ->
-      object [tagFieldName .= s "readyToCommit", "parties" .= parties]
-    Committed party utxo ->
-      object [tagFieldName .= s "committed", "party" .= party, "utxo" .= utxo]
-    HeadIsOpen utxo ->
-      object [tagFieldName .= s "headIsOpen", "utxo" .= utxo]
-    HeadIsClosed contestationPeriod latestSnapshot ->
-      object
-        [ tagFieldName .= s "headIsClosed"
-        , "contestationPeriod" .= contestationPeriod
-        , "latestSnapshot" .= latestSnapshot
-        ]
-    HeadIsFinalized utxo ->
-      object [tagFieldName .= s "headIsFinalized", "utxo" .= utxo]
-    HeadIsAborted utxo ->
-      object [tagFieldName .= s "headIsAborted", "utxo" .= utxo]
-    CommandFailed ->
-      object [tagFieldName .= s "commandFailed"]
-    TxSeen tx ->
-      object [tagFieldName .= s "transactionSeen", "transaction" .= tx]
-    TxValid tx ->
-      object [tagFieldName .= s "transactionValid", "transaction" .= tx]
-    TxInvalid tx err ->
-      object [tagFieldName .= s "transactionInvalid", "transaction" .= tx, "validationError" .= err]
-    SnapshotConfirmed snapshotNumber ->
-      object [tagFieldName .= s "snapshotConfirmed", "snapshot" .= snapshotNumber]
-    Utxo utxo ->
-      object [tagFieldName .= s "utxo", "utxo" .= utxo]
-    InvalidInput err input ->
-      object [tagFieldName .= s "invalidInput", "reason" .= err, "input" .= input]
-   where
-    s = Aeson.String
-    tagFieldName = "output"
-
-instance (FromJSON tx, FromJSON (Snapshot tx), FromJSON (Utxo tx)) => FromJSON (ServerOutput tx) where
-  parseJSON = withObject "ServerOutput" $ \obj -> do
-    tag <- obj .: "output"
-    case tag of
-      "peerConnected" ->
-        PeerConnected <$> (obj .: "peer")
-      "peerDisconnected" ->
-        PeerDisconnected <$> (obj .: "peer")
-      "readyToCommit" ->
-        ReadyToCommit <$> (obj .: "parties")
-      "committed" ->
-        Committed <$> (obj .: "party") <*> (obj .: "utxo")
-      "headIsOpen" ->
-        HeadIsOpen <$> (obj .: "utxo")
-      "headIsClosed" ->
-        HeadIsClosed <$> (obj .: "contestationPeriod") <*> (obj .: "latestSnapshot")
-      "headIsFinalized" ->
-        HeadIsFinalized <$> (obj .: "utxo")
-      "headIsAborted" ->
-        HeadIsAborted <$> (obj .: "utxo")
-      "commandFailed" ->
-        pure CommandFailed
-      "transactionSeen" ->
-        TxSeen <$> (obj .: "transaction")
-      "transactionValid" ->
-        TxValid <$> (obj .: "transaction")
-      "transactionInvalid" ->
-        TxInvalid <$> obj .: "transaction" <*> obj .: "validationError"
-      "snapshotConfirmed" ->
-        SnapshotConfirmed <$> (obj .: "snapshot")
-      "utxo" ->
-        Utxo <$> (obj .: "utxo")
-      "invalidInput" ->
-        InvalidInput <$> obj .: "reason" <*> obj .: "input"
-      _ ->
-        fail $ "unknown output type: " <> toString @Text tag
+    InvalidInput r i -> InvalidInput <$> shrink r <*> shrink i

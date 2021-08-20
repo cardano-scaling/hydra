@@ -1,49 +1,57 @@
 {
     "samples": [
         {
-            "message": {
-                "party": 6,
-                "signed": "2daa215394a592f59bb115510945873d",
-                "snapshotNumber": 23,
-                "tag": "AckSn"
+            "onChainTx": {
+                "tag": "OnAbortTx"
             },
-            "tag": "NetworkEvent"
+            "tag": "OnChainEvent"
         },
         {
-            "clientInput": {
-                "input": "abort"
+            "onChainTx": {
+                "snapshotNumber": 9,
+                "tag": "OnCloseTx"
             },
-            "tag": "ClientEvent"
+            "tag": "OnChainEvent"
         },
         {
-            "tag": "DoSnapshot"
-        },
-        {
-            "message": {
-                "party": 1.8446744073709551597e19,
-                "tag": "ReqTx",
-                "transaction": {
-                    "id": 24,
-                    "inputs": [],
-                    "outputs": [
-                        -30,
-                        -28,
-                        -25,
-                        -21,
-                        -13,
-                        -1,
-                        5,
-                        6,
-                        15,
-                        16
-                    ]
-                }
+            "onChainTx": {
+                "committed": [
+                    -28,
+                    -26,
+                    -24,
+                    -23,
+                    -21,
+                    -19,
+                    -16,
+                    -14,
+                    -11,
+                    -7,
+                    -6,
+                    -4,
+                    -3,
+                    6,
+                    11,
+                    13,
+                    15,
+                    17,
+                    20,
+                    22,
+                    26
+                ],
+                "party": 1.8446744073709551601e19,
+                "tag": "OnCommitTx"
             },
-            "tag": "NetworkEvent"
+            "tag": "OnChainEvent"
         },
         {
             "tag": "ShouldPostFanout"
+        },
+        {
+            "onChainTx": {
+                "tag": "OnContestTx"
+            },
+            "tag": "OnChainEvent"
         }
     ],
-    "seed": 233608483
+    "seed": 691239354
 }

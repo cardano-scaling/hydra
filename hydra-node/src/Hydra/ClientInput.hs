@@ -3,17 +3,15 @@
 
 module Hydra.ClientInput where
 
-import Data.Aeson (object, withObject, (.:), (.=))
-import qualified Data.Aeson as Aeson
 import Hydra.Chain (ContestationPeriod)
 import Hydra.Ledger (Tx, Utxo)
 import Hydra.Prelude
 
 data ClientInput tx
-  = Init ContestationPeriod
+  = Init {contestationPeriod :: ContestationPeriod}
   | Abort
-  | Commit (Utxo tx)
-  | NewTx tx
+  | Commit {utxo :: Utxo tx}
+  | NewTx {transaction :: tx}
   | GetUtxo
   | Close
   | Contest
@@ -21,6 +19,8 @@ data ClientInput tx
 
 deriving instance Tx tx => Eq (ClientInput tx)
 deriving instance Tx tx => Show (ClientInput tx)
+deriving instance Tx tx => ToJSON (ClientInput tx)
+deriving instance Tx tx => FromJSON (ClientInput tx)
 
 instance (Arbitrary tx, Arbitrary (Utxo tx)) => Arbitrary (ClientInput tx) where
   arbitrary = genericArbitrary
@@ -36,44 +36,3 @@ instance (Arbitrary tx, Arbitrary (Utxo tx)) => Arbitrary (ClientInput tx) where
     GetUtxo -> []
     Close -> []
     Contest -> []
-
-instance Tx tx => ToJSON (ClientInput tx) where
-  toJSON = \case
-    Init t ->
-      object [tagFieldName .= s "init", "contestationPeriod" .= t]
-    Abort ->
-      object [tagFieldName .= s "abort"]
-    Commit u ->
-      object [tagFieldName .= s "commit", "utxo" .= u]
-    NewTx tx ->
-      object [tagFieldName .= s "newTransaction", "transaction" .= tx]
-    GetUtxo ->
-      object [tagFieldName .= s "getUtxo"]
-    Close ->
-      object [tagFieldName .= s "close"]
-    Contest ->
-      object [tagFieldName .= s "contest"]
-   where
-    s = Aeson.String
-    tagFieldName = "input"
-
-instance Tx tx => FromJSON (ClientInput tx) where
-  parseJSON = withObject "ClientInput" $ \obj -> do
-    tag <- obj .: "input"
-    case tag of
-      "init" ->
-        Init <$> (obj .: "contestationPeriod")
-      "abort" ->
-        pure Abort
-      "commit" ->
-        Commit <$> (obj .: "utxo")
-      "newTransaction" ->
-        NewTx <$> (obj .: "transaction")
-      "getUtxo" ->
-        pure GetUtxo
-      "close" ->
-        pure Close
-      "contest" ->
-        pure Contest
-      _ ->
-        fail $ "unknown input type: " <> toString @Text tag

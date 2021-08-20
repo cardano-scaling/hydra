@@ -28,70 +28,70 @@ properties:
           Initialises a new Head. This command is a no-op when a Head is already open and
           the server will output an 'CommandFailed' message should this happen.
         required:
-        - input
+        - tag
         properties:
-          input:
+          tag:
             type: string
-            enum: ["init"]
+            enum: ["Init"]
 
       - title: Abort
         type: object
         required:
-        - input
+        - tag
         properties:
-          input:
+          tag:
             type: string
-            enum: ["abort"]
+            enum: ["Abort"]
 
       - title: Commit
         type: object
         required:
-        - input
+        - tag
         - utxo
         properties:
-          input:
+          tag:
             type: string
-            enum: ["commit"]
+            enum: ["Commit"]
           utxo:
             $ref: "#/definitions/Utxo"
 
       - title: NewTx
         type: object
         required:
-        - input
+        - tag
         properties:
-          input:
+          tag:
             type: string
-            enum: ["newTransaction"]
+            enum: ["NewTx"]
           transaction:
             $ref: "#/definitions/Transaction"
 
       - title: GetUtxo
         type: object
         required:
-        - input
+        - tag
         properties:
-          input:
+          tag:
             type: string
-            enum: ["getUtxo"]
+            enum: ["GetUtxo"]
 
       - title: Close
         type: object
         required:
-        - input
+        - tag
         properties:
-          input:
+          tag:
             type: string
-            enum: ["close"]
+            enum: ["Close"]
 
       - title: Contest
         type: object
         required:
-        - input
+        - tag
         properties:
-          input:
+          tag:
             type: string
-            enum: ["contest"]
+            enum: ["Contest"]
 
   outputs:
     type: array
@@ -101,35 +101,35 @@ properties:
       - title: PeerConnected
         type: object
         required:
-        - output
+        - tag
         - peer
         properties:
-          output:
+          tag:
             type: string
-            enum: ["peerConnected"]
+            enum: ["PeerConnected"]
           peer: { "$ref": "#/definitions/Peer" }
 
       - title: PeerDisconnected
         type: object
         required:
-        - output
+        - tag
         - peer
         properties:
-          output:
+          tag:
             type: string
-            enum: ["peerDisconnected"]
+            enum: ["PeerDisconnected"]
           peer:
             $ref: "#/definitions/Peer"
 
       - title: ReadyToCommit
         type: object
         required:
-        - output
+        - tag
         - parties
         properties:
-          output:
+          tag:
             type: string
-            enum: ["readyToCommit"]
+            enum: ["ReadyToCommit"]
           parties:
             type: array
             items:
@@ -138,13 +138,13 @@ properties:
       - title: Committed
         type: object
         required:
-        - output
+        - tag
         - party
         - utxo
         properties:
-          output:
+          tag:
             type: string
-            enum: ["committed"]
+            enum: ["Committed"]
           party:
             $ref: "#/definitions/Peer"
           utxo:
@@ -153,25 +153,25 @@ properties:
       - title: HeadIsOpen
         type: object
         required:
-        - output
+        - tag
         - utxo
         properties:
-          output:
+          tag:
             type: string
-            enum: ["headIsOpen"]
+            enum: ["HeadIsOpen"]
           utxo:
             $ref: "#/definitions/Utxo"
 
       - title: HeadIsClosed
         type: object
         required:
-        - output
+        - tag
         - contestationPeriod
         - latestSnapshot
         properties:
-          output:
+          tag:
             type: string
-            enum: ["headIsClosed"]
+            enum: ["HeadIsClosed"]
           contestationPeriod:
             $ref: "#/definitions/DiffTime"
           latestSnapshot:
@@ -180,103 +180,103 @@ properties:
       - title: HeadIsAborted
         type: object
         required:
-        - output
+        - tag
         - utxo
         properties:
-          output:
+          tag:
             type: string
-            enum: ["headIsAborted"]
+            enum: ["HeadIsAborted"]
           utxo:
             $ref: "#/definitions/Utxo"
 
       - title: HeadIsFinalized
         type: object
         required:
-        - output
+        - tag
         - utxo
         properties:
-          output:
+          tag:
             type: string
-            enum: ["headIsFinalized"]
+            enum: ["HeadIsFinalized"]
           utxo:
             $ref: "#/definitions/Utxo"
 
       - title: TxSeen
         type: object
         required:
-        - output
+        - tag
         - transaction
         properties:
-          output:
+          tag:
             type: string
-            enum: ["transactionSeen"]
+            enum: ["TxSeen"]
           transaction:
             $ref: "#/definitions/Transaction"
 
       - title: TxValid
         type: object
         required:
-        - output
+        - tag
         - transaction
         properties:
-          output:
+          tag:
             type: string
-            enum: ["transactionValid"]
+            enum: ["TxValid"]
           transaction:
             $ref: "#/definitions/Transaction"
 
       - title: TxInvalid
         type: object
         required:
-        - output
+        - tag
         - transaction
         properties:
-          output:
+          tag:
             type: string
-            enum: ["transactionInvalid"]
+            enum: ["TxInvalid"]
           transaction:
             $ref: "#/definitions/Transaction"
 
       - title: SnapshotConfirmed
         type: object
         required:
-        - output
+        - tag
         - snapshot
         properties:
-          output:
+          tag:
             type: string
-            enum: ["snapshotConfirmed"]
+            enum: ["SnapshotConfirmed"]
           snapshot:
             $ref: "#/definitions/Snapshot"
 
       - title: Utxo
         type: object
         required:
-        - output
+        - tag
         properties:
-          output:
+          tag:
             type: string
-            enum: ["utxo"]
+            enum: ["Utxo"]
           utxo:
             $ref: "#/definitions/Utxo"
 
       - title: CommandFailed
         type: object
         required:
-        - output
+        - tag
         properties:
-          output:
+          tag:
             type: string
-            enum: ["commandFailed"]
+            enum: ["CommandFailed"]
 
       - title: InvalidInput
         type: object
         required:
-        - output
+        - tag
         properties:
-          output:
+          tag:
             type: string
-            enum: ["invalidInput"]
+            enum: ["InvalidInput"]
 
 definitions:
   DiffTime:
