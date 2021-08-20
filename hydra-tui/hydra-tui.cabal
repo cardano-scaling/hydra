@@ -1,39 +1,40 @@
-cabal-version:      2.2
-name:               hydra-tui
-version:            0.1.0
-synopsis:           TUI for managing a Hydra node
-description:        TUI for managing a Hydra node
-author:             IOHK
-copyright:          2021 IOHK
-license:            Apache-2.0
+cabal-version: 2.2
+name:          hydra-tui
+version:       0.1.0
+synopsis:      TUI for managing a Hydra node
+description:   TUI for managing a Hydra node
+author:        IOHK
+copyright:     2021 IOHK
+license:       Apache-2.0
 license-files:
   LICENSE
   NOTICE
 
 source-repository head
-  type: git
+  type:     git
   location: https://github.com/input-output-hk/hydra-poc
 
 flag development
-     description: Disable -Werror for development
-     default: False
-     manual: True
+  description: Disable -Werror for development
+  default:     False
+  manual:      True
 
 common project-config
-  default-language: Haskell2010
+  default-language:   Haskell2010
   default-extensions:
+    NoImplicitPrelude
     BangPatterns
     BinaryLiterals
     ConstraintKinds
     DataKinds
     DefaultSignatures
     DeriveAnyClass
-    DerivingStrategies
     DeriveDataTypeable
     DeriveFoldable
     DeriveFunctor
     DeriveGeneric
     DeriveTraversable
+    DerivingStrategies
     EmptyDataDecls
     ExistentialQuantification
     FlexibleContexts
@@ -47,7 +48,6 @@ common project-config
     MultiParamTypeClasses
     MultiWayIf
     NamedFieldPuns
-    NoImplicitPrelude
     NumericUnderscores
     OverloadedStrings
     PartialTypeSignatures
@@ -59,61 +59,62 @@ common project-config
     TypeFamilies
     TypeSynonymInstances
     ViewPatterns
+
   ghc-options:
-    -Wall
-    -Wcompat
-    -Widentities
-    -Wincomplete-record-updates
-    -Wincomplete-uni-patterns
-    -Wredundant-constraints
+    -Wall -Wcompat -Widentities -Wincomplete-record-updates
+    -Wincomplete-uni-patterns -Wredundant-constraints
     -fprint-potential-instances
 
   if !flag(development)
-      ghc-options: -Werror
+    ghc-options: -Werror
 
 library
-  import: project-config
-  hs-source-dirs:   src
+  import:          project-config
+  hs-source-dirs:  src
   exposed-modules:
     Hydra.Client
     Hydra.TUI
-  other-modules:
-    Paths_hydra_tui
-  build-depends: aeson
-               , async
-               , base
-               , brick
-               , hydra-node
-               , hydra-prelude
-               , vty
-               , websockets
+    Hydra.TUI.Options
+
+  other-modules:   Paths_hydra_tui
+  build-depends:
+    , aeson
+    , async
+    , base
+    , brick
+    , hydra-node
+    , hydra-prelude
+    , optparse-applicative
+    , vty
+    , websockets
 
 executable hydra-tui
-  import: project-config
-  hs-source-dirs:   exe
-  main-is:          Main.hs
-  build-depends: base
+  import:         project-config
+  hs-source-dirs: exe
+  main-is:        Main.hs
+  build-depends:
+    , base
     , hydra-prelude
     , hydra-tui
-  ghc-options:
-    -threaded
-    -rtsopts
+
+  ghc-options:    -threaded -rtsopts
 
 test-suite unit
-  import: project-config
-  hs-source-dirs: test
+  import:             project-config
+  hs-source-dirs:     test
   other-modules:
+    Hydra.TUI.OptionsSpec
     Hydra.TUISpec
     Spec
-  main-is: Main.hs
-  type: exitcode-stdio-1.0
-  build-depends: base
+
+  main-is:            Main.hs
+  type:               exitcode-stdio-1.0
+  build-depends:
+    , base
     , hspec
     , hydra-prelude
     , hydra-test-utils
     , hydra-tui
-  build-tool-depends:
-    hspec-discover:hspec-discover
-  ghc-options:
-    -threaded
-    -rtsopts
+
+  build-tool-depends: hspec-discover:hspec-discover -any
+  ghc-options:        -threaded -rtsopts
