@@ -60,10 +60,10 @@
           "Hydra/Contract/ContestationPeriod"
           "Hydra/Contract/Head"
           "Hydra/Contract/Initial"
-          "Hydra/Contract/OnChain"
           "Hydra/Contract/OffChain"
-          "Hydra/Contract/Party"
+          "Hydra/Contract/OnChain"
           "Hydra/Contract/PAB"
+          "Hydra/Contract/Party"
           ];
         hsSourceDirs = [ "src" ];
         };
@@ -72,18 +72,18 @@
           depends = [
             (hsPkgs."aeson" or (errorHandler.buildDepError "aeson"))
             (hsPkgs."base" or (errorHandler.buildDepError "base"))
-            (hsPkgs."data-default" or (errorHandler.buildDepError "data-default"))
             (hsPkgs."containers" or (errorHandler.buildDepError "containers"))
+            (hsPkgs."data-default" or (errorHandler.buildDepError "data-default"))
             (hsPkgs."directory" or (errorHandler.buildDepError "directory"))
             (hsPkgs."freer-extras" or (errorHandler.buildDepError "freer-extras"))
             (hsPkgs."freer-simple" or (errorHandler.buildDepError "freer-simple"))
             (hsPkgs."hydra-plutus" or (errorHandler.buildDepError "hydra-plutus"))
             (hsPkgs."hydra-prelude" or (errorHandler.buildDepError "hydra-prelude"))
             (hsPkgs."optparse-applicative" or (errorHandler.buildDepError "optparse-applicative"))
+            (hsPkgs."playground-common" or (errorHandler.buildDepError "playground-common"))
             (hsPkgs."plutus-contract" or (errorHandler.buildDepError "plutus-contract"))
             (hsPkgs."plutus-ledger" or (errorHandler.buildDepError "plutus-ledger"))
             (hsPkgs."plutus-pab" or (errorHandler.buildDepError "plutus-pab"))
-            (hsPkgs."playground-common" or (errorHandler.buildDepError "playground-common"))
             (hsPkgs."servant-client" or (errorHandler.buildDepError "servant-client"))
             (hsPkgs."text" or (errorHandler.buildDepError "text"))
             ];
@@ -122,8 +122,8 @@
             ];
           buildable = true;
           modules = [
-            "Hydra/ContractTest"
             "Hydra/ContractModelTest"
+            "Hydra/ContractTest"
             "Hydra/Test/Utils"
             ];
           hsSourceDirs = [ "test" ];

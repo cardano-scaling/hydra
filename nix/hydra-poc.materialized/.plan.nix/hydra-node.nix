@@ -33,9 +33,11 @@
     components = {
       "library" = {
         depends = [
-          (hsPkgs."base" or (errorHandler.buildDepError "base"))
           (hsPkgs."aeson" or (errorHandler.buildDepError "aeson"))
+          (hsPkgs."base" or (errorHandler.buildDepError "base"))
           (hsPkgs."base16" or (errorHandler.buildDepError "base16"))
+          (hsPkgs."bech32" or (errorHandler.buildDepError "bech32"))
+          (hsPkgs."bech32-th" or (errorHandler.buildDepError "bech32-th"))
           (hsPkgs."bytestring" or (errorHandler.buildDepError "bytestring"))
           (hsPkgs."cardano-binary" or (errorHandler.buildDepError "cardano-binary"))
           (hsPkgs."cardano-crypto-class" or (errorHandler.buildDepError "cardano-crypto-class"))
@@ -50,8 +52,8 @@
           (hsPkgs."contra-tracer" or (errorHandler.buildDepError "contra-tracer"))
           (hsPkgs."data-default" or (errorHandler.buildDepError "data-default"))
           (hsPkgs."gitrev" or (errorHandler.buildDepError "gitrev"))
-          (hsPkgs."hydra-prelude" or (errorHandler.buildDepError "hydra-prelude"))
           (hsPkgs."hydra-plutus" or (errorHandler.buildDepError "hydra-plutus"))
+          (hsPkgs."hydra-prelude" or (errorHandler.buildDepError "hydra-prelude"))
           (hsPkgs."io-classes" or (errorHandler.buildDepError "io-classes"))
           (hsPkgs."iohk-monitoring" or (errorHandler.buildDepError "iohk-monitoring"))
           (hsPkgs."iproute" or (errorHandler.buildDepError "iproute"))
@@ -87,7 +89,7 @@
           "Hydra/ClientInput"
           "Hydra/HeadLogic"
           "Hydra/Ledger"
-          "Hydra/Ledger/MaryTest"
+          "Hydra/Ledger/Cardano"
           "Hydra/Ledger/Simple"
           "Hydra/Logging"
           "Hydra/Logging/Messages"
@@ -113,8 +115,8 @@
         "hydra-node" = {
           depends = [
             (hsPkgs."base" or (errorHandler.buildDepError "base"))
-            (hsPkgs."hydra-prelude" or (errorHandler.buildDepError "hydra-prelude"))
             (hsPkgs."hydra-node" or (errorHandler.buildDepError "hydra-node"))
+            (hsPkgs."hydra-prelude" or (errorHandler.buildDepError "hydra-prelude"))
             ];
           buildable = true;
           hsSourceDirs = [ "exe/hydra-node" ];
@@ -124,9 +126,10 @@
           };
         "mock-chain" = {
           depends = [
+            (hsPkgs."aeson" or (errorHandler.buildDepError "aeson"))
             (hsPkgs."base" or (errorHandler.buildDepError "base"))
-            (hsPkgs."hydra-prelude" or (errorHandler.buildDepError "hydra-prelude"))
             (hsPkgs."hydra-node" or (errorHandler.buildDepError "hydra-node"))
+            (hsPkgs."hydra-prelude" or (errorHandler.buildDepError "hydra-prelude"))
             (hsPkgs."optparse-applicative" or (errorHandler.buildDepError "optparse-applicative"))
             ];
           buildable = true;
@@ -139,19 +142,21 @@
       tests = {
         "tests" = {
           depends = [
-            (hsPkgs."HUnit" or (errorHandler.buildDepError "HUnit"))
-            (hsPkgs."QuickCheck" or (errorHandler.buildDepError "QuickCheck"))
             (hsPkgs."aeson" or (errorHandler.buildDepError "aeson"))
             (hsPkgs."base" or (errorHandler.buildDepError "base"))
             (hsPkgs."cardano-binary" or (errorHandler.buildDepError "cardano-binary"))
             (hsPkgs."cardano-crypto-class" or (errorHandler.buildDepError "cardano-crypto-class"))
+            (hsPkgs."cardano-ledger-core" or (errorHandler.buildDepError "cardano-ledger-core"))
+            (hsPkgs."cardano-ledger-shelley-ma-test" or (errorHandler.buildDepError "cardano-ledger-shelley-ma-test"))
             (hsPkgs."cborg" or (errorHandler.buildDepError "cborg"))
             (hsPkgs."containers" or (errorHandler.buildDepError "containers"))
             (hsPkgs."contra-tracer" or (errorHandler.buildDepError "contra-tracer"))
+            (hsPkgs."data-default" or (errorHandler.buildDepError "data-default"))
             (hsPkgs."filepath" or (errorHandler.buildDepError "filepath"))
             (hsPkgs."hspec" or (errorHandler.buildDepError "hspec"))
             (hsPkgs."hspec-core" or (errorHandler.buildDepError "hspec-core"))
             (hsPkgs."hspec-golden-aeson" or (errorHandler.buildDepError "hspec-golden-aeson"))
+            (hsPkgs."HUnit" or (errorHandler.buildDepError "HUnit"))
             (hsPkgs."hydra-node" or (errorHandler.buildDepError "hydra-node"))
             (hsPkgs."hydra-plutus" or (errorHandler.buildDepError "hydra-plutus"))
             (hsPkgs."hydra-prelude" or (errorHandler.buildDepError "hydra-prelude"))
@@ -163,8 +168,11 @@
             (hsPkgs."lens-aeson" or (errorHandler.buildDepError "lens-aeson"))
             (hsPkgs."network" or (errorHandler.buildDepError "network"))
             (hsPkgs."process" or (errorHandler.buildDepError "process"))
+            (hsPkgs."QuickCheck" or (errorHandler.buildDepError "QuickCheck"))
             (hsPkgs."quickcheck-instances" or (errorHandler.buildDepError "quickcheck-instances"))
             (hsPkgs."req" or (errorHandler.buildDepError "req"))
+            (hsPkgs."shelley-spec-ledger" or (errorHandler.buildDepError "shelley-spec-ledger"))
+            (hsPkgs."shelley-spec-ledger-test" or (errorHandler.buildDepError "shelley-spec-ledger-test"))
             (hsPkgs."silently" or (errorHandler.buildDepError "silently"))
             (hsPkgs."temporary" or (errorHandler.buildDepError "temporary"))
             (hsPkgs."text" or (errorHandler.buildDepError "text"))
@@ -178,24 +186,26 @@
             ];
           buildable = true;
           modules = [
-            "Paths_hydra_node"
-            "Hydra/APISpec"
             "Hydra/API/ServerSpec"
+            "Hydra/APISpec"
+            "Hydra/BehaviorSpec"
             "Hydra/Chain/ExternalPABSpec"
             "Hydra/Chain/ZeroMQSpec"
+            "Hydra/ClientInputSpec"
             "Hydra/FireForgetSpec"
-            "Hydra/BehaviorSpec"
             "Hydra/HeadLogicSpec"
-            "Hydra/LedgerSpec"
+            "Hydra/Ledger/CardanoSpec"
             "Hydra/Ledger/SimpleSpec"
-            "Hydra/LoggingSpec"
             "Hydra/Logging/MonitoringSpec"
-            "Hydra/NetworkSpec"
-            "Hydra/Network/HeartbeatSpec"
+            "Hydra/LoggingSpec"
             "Hydra/Network/BroadcastToSelfSpec"
+            "Hydra/Network/HeartbeatSpec"
+            "Hydra/NetworkSpec"
             "Hydra/OptionsSpec"
-            "Test/Util"
+            "Hydra/ServerOutputSpec"
+            "Paths_hydra_node"
             "Spec"
+            "Test/Util"
             ];
           hsSourceDirs = [ "test" ];
           mainPath = [ "Main.hs" ];

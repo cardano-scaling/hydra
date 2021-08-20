@@ -34,10 +34,11 @@
       "library" = {
         depends = [
           (hsPkgs."base" or (errorHandler.buildDepError "base"))
+          (hsPkgs."hspec" or (errorHandler.buildDepError "hspec"))
           (hsPkgs."hspec-core" or (errorHandler.buildDepError "hspec-core"))
           (hsPkgs."hspec-junit-formatter" or (errorHandler.buildDepError "hspec-junit-formatter"))
-          (hsPkgs."hydra-prelude" or (errorHandler.buildDepError "hydra-prelude"))
           (hsPkgs."HUnit" or (errorHandler.buildDepError "HUnit"))
+          (hsPkgs."hydra-prelude" or (errorHandler.buildDepError "hydra-prelude"))
           (hsPkgs."io-classes" or (errorHandler.buildDepError "io-classes"))
           (hsPkgs."network" or (errorHandler.buildDepError "network"))
           (hsPkgs."random-shuffle" or (errorHandler.buildDepError "random-shuffle"))

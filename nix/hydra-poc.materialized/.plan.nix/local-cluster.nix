@@ -33,9 +33,9 @@
     components = {
       "library" = {
         depends = [
-          (hsPkgs."base" or (errorHandler.buildDepError "base"))
           (hsPkgs."aeson" or (errorHandler.buildDepError "aeson"))
           (hsPkgs."async" or (errorHandler.buildDepError "async"))
+          (hsPkgs."base" or (errorHandler.buildDepError "base"))
           (hsPkgs."bytestring" or (errorHandler.buildDepError "bytestring"))
           (hsPkgs."cardano-crypto-class" or (errorHandler.buildDepError "cardano-crypto-class"))
           (hsPkgs."contra-tracer" or (errorHandler.buildDepError "contra-tracer"))
@@ -43,8 +43,8 @@
           (hsPkgs."filepath" or (errorHandler.buildDepError "filepath"))
           (hsPkgs."hspec-expectations" or (errorHandler.buildDepError "hspec-expectations"))
           (hsPkgs."http-conduit" or (errorHandler.buildDepError "http-conduit"))
-          (hsPkgs."hydra-prelude" or (errorHandler.buildDepError "hydra-prelude"))
           (hsPkgs."hydra-node" or (errorHandler.buildDepError "hydra-node"))
+          (hsPkgs."hydra-prelude" or (errorHandler.buildDepError "hydra-prelude"))
           (hsPkgs."hydra-test-utils" or (errorHandler.buildDepError "hydra-test-utils"))
           (hsPkgs."io-classes" or (errorHandler.buildDepError "io-classes"))
           (hsPkgs."iohk-monitoring" or (errorHandler.buildDepError "iohk-monitoring"))
@@ -54,15 +54,15 @@
           (hsPkgs."retry" or (errorHandler.buildDepError "retry"))
           (hsPkgs."say" or (errorHandler.buildDepError "say"))
           (hsPkgs."streaming-commons" or (errorHandler.buildDepError "streaming-commons"))
-          (hsPkgs."time" or (errorHandler.buildDepError "time"))
           (hsPkgs."temporary" or (errorHandler.buildDepError "temporary"))
           (hsPkgs."text" or (errorHandler.buildDepError "text"))
+          (hsPkgs."time" or (errorHandler.buildDepError "time"))
           (hsPkgs."unix" or (errorHandler.buildDepError "unix"))
           (hsPkgs."unordered-containers" or (errorHandler.buildDepError "unordered-containers"))
           (hsPkgs."websockets" or (errorHandler.buildDepError "websockets"))
           ];
         buildable = true;
-        modules = [ "HydraNode" "CardanoCluster" "CardanoNode" ];
+        modules = [ "CardanoCluster" "CardanoNode" "HydraNode" ];
         hsSourceDirs = [ "src" ];
         };
       exes = {
@@ -84,10 +84,13 @@
       tests = {
         "integration" = {
           depends = [
-            (hsPkgs."base" or (errorHandler.buildDepError "base"))
             (hsPkgs."aeson" or (errorHandler.buildDepError "aeson"))
+            (hsPkgs."base" or (errorHandler.buildDepError "base"))
+            (hsPkgs."base16" or (errorHandler.buildDepError "base16"))
             (hsPkgs."bytestring" or (errorHandler.buildDepError "bytestring"))
+            (hsPkgs."cardano-api" or (errorHandler.buildDepError "cardano-api"))
             (hsPkgs."cardano-crypto-class" or (errorHandler.buildDepError "cardano-crypto-class"))
+            (hsPkgs."containers" or (errorHandler.buildDepError "containers"))
             (hsPkgs."hspec" or (errorHandler.buildDepError "hspec"))
             (hsPkgs."hspec-core" or (errorHandler.buildDepError "hspec-core"))
             (hsPkgs."hydra-node" or (errorHandler.buildDepError "hydra-node"))
@@ -96,6 +99,7 @@
             (hsPkgs."local-cluster" or (errorHandler.buildDepError "local-cluster"))
             (hsPkgs."regex-tdfa" or (errorHandler.buildDepError "regex-tdfa"))
             (hsPkgs."say" or (errorHandler.buildDepError "say"))
+            (hsPkgs."strict-containers" or (errorHandler.buildDepError "strict-containers"))
             (hsPkgs."temporary" or (errorHandler.buildDepError "temporary"))
             ];
           build-tools = [
@@ -104,7 +108,7 @@
             (hsPkgs.buildPackages.hydra-node.components.exes.mock-chain or (pkgs.buildPackages.mock-chain or (errorHandler.buildToolDepError "hydra-node:mock-chain")))
             ];
           buildable = true;
-          modules = [ "Test/EndToEndSpec" "Test/LocalClusterSpec" "Spec" ];
+          modules = [ "Spec" "Test/EndToEndSpec" "Test/LocalClusterSpec" ];
           hsSourceDirs = [ "test" ];
           mainPath = [ "Main.hs" ];
           };
@@ -112,8 +116,8 @@
       benchmarks = {
         "bench-e2e" = {
           depends = [
-            (hsPkgs."base" or (errorHandler.buildDepError "base"))
             (hsPkgs."aeson" or (errorHandler.buildDepError "aeson"))
+            (hsPkgs."base" or (errorHandler.buildDepError "base"))
             (hsPkgs."bytestring" or (errorHandler.buildDepError "bytestring"))
             (hsPkgs."cardano-crypto-class" or (errorHandler.buildDepError "cardano-crypto-class"))
             (hsPkgs."containers" or (errorHandler.buildDepError "containers"))
@@ -125,9 +129,10 @@
             (hsPkgs."lens" or (errorHandler.buildDepError "lens"))
             (hsPkgs."lens-aeson" or (errorHandler.buildDepError "lens-aeson"))
             (hsPkgs."local-cluster" or (errorHandler.buildDepError "local-cluster"))
-            (hsPkgs."scientific" or (errorHandler.buildDepError "scientific"))
-            (hsPkgs."time" or (errorHandler.buildDepError "time"))
             (hsPkgs."QuickCheck" or (errorHandler.buildDepError "QuickCheck"))
+            (hsPkgs."scientific" or (errorHandler.buildDepError "scientific"))
+            (hsPkgs."strict-containers" or (errorHandler.buildDepError "strict-containers"))
+            (hsPkgs."time" or (errorHandler.buildDepError "time"))
             ];
           build-tools = [
             (hsPkgs.buildPackages.hydra-node.components.exes.hydra-node or (pkgs.buildPackages.hydra-node or (errorHandler.buildToolDepError "hydra-node:hydra-node")))

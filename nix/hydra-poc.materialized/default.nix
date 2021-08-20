@@ -104,6 +104,8 @@
         "mtl-compat".revision = (((hackage."mtl-compat")."0.2.2").revisions).default;
         "mtl-compat".flags.two-point-two = false;
         "mtl-compat".flags.two-point-one = false;
+        "bech32-th".revision = (((hackage."bech32-th")."1.1.1").revisions).default;
+        "bech32-th".flags.release = false;
         "yaml".revision = (((hackage."yaml")."0.11.5.0").revisions).default;
         "yaml".flags.no-exe = true;
         "yaml".flags.no-examples = true;
@@ -898,7 +900,7 @@
             flags = { "defer-plugin-errors" = lib.mkOverride 900 false; };
             };
           "local-cluster" = {
-            flags = { "development" = lib.mkOverride 900 false; };
+            flags = { "development" = lib.mkOverride 900 true; };
             };
           "typed-protocols-examples" = { flags = {}; };
           "cardano-crypto-tests" = {
@@ -957,7 +959,7 @@
             flags = { "asserts" = lib.mkOverride 900 false; };
             };
           "hydra-node" = {
-            flags = { "development" = lib.mkOverride 900 false; };
+            flags = { "development" = lib.mkOverride 900 true; };
             };
           "contra-tracer" = { flags = {}; };
           "shelley-spec-non-integral" = {
