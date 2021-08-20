@@ -81,19 +81,32 @@ cardanoLedger =
 -- * The 'CardanoTx' and associated types
 
 data CardanoTx = CardanoTx
-  { id :: Cardano.TxId StandardCrypto -- XXX(SN): make invalid values impossible to represent
-  , body :: CardanoTxBody
+  { body :: CardanoTxBody
   , witnesses :: CardanoTxWitnesses
   , auxiliaryData :: CardanoAuxiliaryData
   }
   deriving stock (Eq, Show, Generic)
-  deriving anyclass (ToJSON, FromJSON)
 
 instance Tx CardanoTx where
   type Utxo CardanoTx = Cardano.UTxO CardanoEra
   type TxId CardanoTx = Cardano.TxId StandardCrypto
 
   txId CardanoTx{body} = Cardano.TxId $ SafeHash.hashAnnotated body
+
+instance ToJSON CardanoTx where
+  toJSON tx@CardanoTx{body, witnesses, auxiliaryData} =
+    object
+      [ "id" .= txId tx
+      , "body" .= body
+      , "witnesses" .= witnesses
+      , "auxiliaryData" .= auxiliaryData
+      ]
+
+instance FromJSON CardanoTx where
+  parseJSON = withObject "CardanoTx" $ \o ->
+    CardanoTx <$> o .: "body"
+      <*> o .: "witnesses"
+      <*> o .: "auxiliaryData"
 
 -- NOTE(SN): We do serialize CBOR-in-CBOR to utilize the 'FromCBOR (Annotator
 -- (Tx era))' instance from the Cardano.Ledger.Tx
@@ -110,8 +123,7 @@ instance FromCBOR CardanoTx where
       Right (Cardano.Tx body witnesses auxiliaryData :: Cardano.Tx CardanoEra) ->
         pure $
           CardanoTx
-            { id = Cardano.TxId $ SafeHash.hashAnnotated body
-            , body
+            { body
             , witnesses
             , auxiliaryData
             }
@@ -134,13 +146,8 @@ genCardanoTx utxos = do
       generatorEnv = (genEnv Proxy){geConstants = noPPUpdatesTransactions}
   tx <- genTx generatorEnv ledgerEnv (utxoState, dpState)
   case tx of
-    (Cardano.Tx body wits aux) ->
-      pure $
-        CardanoTx
-          (Cardano.TxId $ SafeHash.hashAnnotated body)
-          body
-          wits
-          aux
+    (Cardano.Tx body witnesses auxiliaryData) ->
+      pure $ CardanoTx{body, witnesses, auxiliaryData}
 
 noPPUpdatesTransactions :: Constants.Constants
 noPPUpdatesTransactions =
