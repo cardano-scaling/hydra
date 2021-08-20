@@ -87,7 +87,7 @@ simpleLedger =
         foldlM $ \utxo (SimpleTx _ ins outs) ->
           if ins `Set.isSubsetOf` utxo && utxo `Set.disjoint` outs
             then Right $ (utxo Set.\\ ins) `Set.union` outs
-            else Left ValidationError
+            else Left $ ValidationError "cannot apply transaction"
     , initUtxo = mempty
     }
 

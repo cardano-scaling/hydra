@@ -5,7 +5,7 @@ module Hydra.ServerOutput where
 
 import Data.Aeson (object, withObject, (.:), (.=))
 import qualified Data.Aeson as Aeson
-import Hydra.Ledger (Party, Tx, Utxo)
+import Hydra.Ledger (Party, Tx, Utxo, ValidationError)
 import Hydra.Prelude
 import Hydra.Snapshot (Snapshot)
 
@@ -21,7 +21,7 @@ data ServerOutput tx
   | CommandFailed
   | TxSeen tx
   | TxValid tx
-  | TxInvalid tx
+  | TxInvalid {transaction :: tx, validationError :: ValidationError}
   | SnapshotConfirmed (Snapshot tx)
   | Utxo (Utxo tx)
   | InvalidInput {reason :: String, input :: Text}
@@ -46,7 +46,7 @@ instance (Arbitrary tx, Arbitrary (Utxo tx)) => Arbitrary (ServerOutput tx) wher
     CommandFailed -> []
     TxSeen tx -> TxSeen <$> shrink tx
     TxValid tx -> TxValid <$> shrink tx
-    TxInvalid tx -> TxInvalid <$> shrink tx
+    TxInvalid tx err -> TxInvalid <$> shrink tx <*> shrink err
     SnapshotConfirmed{} -> []
     Utxo u -> Utxo <$> shrink u
     InvalidInput{} -> []
@@ -79,8 +79,8 @@ instance (ToJSON tx, ToJSON (Snapshot tx), ToJSON (Utxo tx)) => ToJSON (ServerOu
       object [tagFieldName .= s "transactionSeen", "transaction" .= tx]
     TxValid tx ->
       object [tagFieldName .= s "transactionValid", "transaction" .= tx]
-    TxInvalid tx ->
-      object [tagFieldName .= s "transactionInvalid", "transaction" .= tx]
+    TxInvalid tx err ->
+      object [tagFieldName .= s "transactionInvalid", "transaction" .= tx, "validationError" .= err]
     SnapshotConfirmed snapshotNumber ->
       object [tagFieldName .= s "snapshotConfirmed", "snapshot" .= snapshotNumber]
     Utxo utxo ->
@@ -118,7 +118,7 @@ instance (FromJSON tx, FromJSON (Snapshot tx), FromJSON (Utxo tx)) => FromJSON (
       "transactionValid" ->
         TxValid <$> (obj .: "transaction")
       "transactionInvalid" ->
-        TxInvalid <$> (obj .: "transaction")
+        TxInvalid <$> obj .: "transaction" <*> obj .: "validationError"
       "snapshotConfirmed" ->
         SnapshotConfirmed <$> (obj .: "snapshot")
       "utxo" ->

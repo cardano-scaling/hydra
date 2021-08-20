@@ -46,7 +46,7 @@ import Data.Aeson (
  )
 import Data.Aeson.Types (toJSONKeyText)
 import Data.ByteString.Base16 (decodeBase16, encodeBase16)
-import Data.Default (Default, def)
+import Data.Default (def)
 import qualified Data.Sequence as Seq
 import qualified Data.Sequence.Strict as StrictSeq
 import qualified Data.Set as Set
@@ -54,7 +54,6 @@ import qualified Data.Text as Text
 import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
 import Hydra.Ledger (Ledger (..), Tx (..), ValidationError (ValidationError))
 import qualified Shelley.Spec.Ledger.API as Cardano hiding (TxBody)
-import Shelley.Spec.Ledger.API.Mempool (ApplyTx)
 import Shelley.Spec.Ledger.Tx (WitnessSetHKD (WitnessSet))
 
 cardanoLedger :: Ledger CardanoTx
@@ -281,20 +280,16 @@ instance
 -- * Calling the Cardano ledger
 
 applyTx ::
-  ( Default (Cardano.UTxOState era)
-  , ApplyTx era
-  ) =>
-  Cardano.LedgerEnv era ->
-  Cardano.UTxO era ->
-  [Cardano.Tx era] ->
-  Either ValidationError (Cardano.UTxO era)
+  Cardano.LedgerEnv CardanoEra ->
+  Cardano.UTxO CardanoEra ->
+  [Cardano.Tx CardanoEra] ->
+  Either ValidationError (Cardano.UTxO CardanoEra)
 applyTx env utxo txs =
   case Cardano.applyTxsTransition globals env (Seq.fromList txs) memPoolState of
     Left err -> Left $ toValidationError err
     Right (ls, _ds) -> Right $ Cardano._utxo ls
  where
-  -- toValidationError :: ApplyTxError -> ValidationError
-  toValidationError = const ValidationError
+  toValidationError = ValidationError . show
 
   memPoolState = (def{Cardano._utxo = utxo}, def)
 

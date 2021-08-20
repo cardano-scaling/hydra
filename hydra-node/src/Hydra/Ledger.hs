@@ -139,10 +139,9 @@ data ValidationResult
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON, FromJSON)
 
-data ValidationError
-  = ValidationError
+newtype ValidationError = ValidationError {reason :: Text}
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON, FromJSON)
 
 instance Arbitrary ValidationError where
-  arbitrary = pure ValidationError
+  arbitrary = genericArbitrary
