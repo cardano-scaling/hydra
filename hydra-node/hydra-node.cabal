@@ -82,7 +82,6 @@ library
     Hydra.HeadLogic
     Hydra.Ledger
     Hydra.Ledger.Cardano
-    Hydra.Ledger.MaryTest
     Hydra.Ledger.Simple
     Hydra.Logging
     Hydra.Logging.Messages
@@ -189,7 +188,6 @@ test-suite tests
     Hydra.HeadLogicSpec
     Hydra.Ledger.CardanoSpec
     Hydra.Ledger.SimpleSpec
-    Hydra.LedgerSpec
     Hydra.Logging.MonitoringSpec
     Hydra.LoggingSpec
     Hydra.Network.BroadcastToSelfSpec
