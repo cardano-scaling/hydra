@@ -11,10 +11,13 @@ import Cardano.Binary (
   Annotator,
   Decoder,
   decodeAnnotator,
+  decodeBytes,
   decodeListLenOf,
   decodeWord,
+  encodeBytes,
   encodeListLen,
   encodeWord,
+  serialize',
   serializeEncoding',
  )
 import qualified Cardano.Crypto.Hash.Class as Crypto
@@ -70,7 +73,7 @@ cardanoLedger =
 type CardanoEra = MaryEra StandardCrypto
 
 data CardanoTx = CardanoTx
-  { id :: Cardano.TxId StandardCrypto
+  { id :: Cardano.TxId StandardCrypto -- XXX(SN): make invalid values impossible to represent
   , body :: CardanoTxBody StandardCrypto
   , witnesses :: CardanoTxWitnesses StandardCrypto
   }
@@ -81,13 +84,27 @@ instance Tx CardanoTx where
   type Utxo CardanoTx = Cardano.UTxO CardanoEra
   type TxId CardanoTx = Cardano.TxId StandardCrypto
 
-  txId = id
+  txId CardanoTx{body} = Cardano.TxId $ SafeHash.hashAnnotated body
+
+-- NOTE(SN): We do serialize CBOR-in-CBOR to utilize the 'FromCBOR (Annotator
+-- (Tx era))' instance from the Cardano.Ledger.Tx
 
 instance ToCBOR CardanoTx where
-  toCBOR = error "TODO: toCBOR CardanoTx"
+  toCBOR CardanoTx{body, witnesses} =
+    encodeBytes $ serialize' $ Cardano.Tx @CardanoEra body witnesses SNothing
 
 instance FromCBOR CardanoTx where
-  fromCBOR = error "TODO: fromCBOR CardanoTx"
+  fromCBOR = do
+    bs <- decodeBytes
+    case decodeAnnotator "Cardano.Tx" fromCBOR (fromStrict bs) of
+      Left err -> fail $ show err
+      Right (Cardano.Tx body witnesses _aux :: Cardano.Tx CardanoEra) ->
+        pure $
+          CardanoTx
+            { id = Cardano.TxId $ SafeHash.hashAnnotated body
+            , body
+            , witnesses
+            }
 
 type CardanoTxBody crypto = Cardano.TxBody (MaryEra crypto)
 
