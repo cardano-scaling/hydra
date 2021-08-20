@@ -58,6 +58,11 @@ import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
 import Hydra.Ledger (Ledger (..), Tx (..), ValidationError (ValidationError))
 import qualified Shelley.Spec.Ledger.API as Cardano hiding (TxBody)
 import Shelley.Spec.Ledger.Tx (WitnessSetHKD (WitnessSet))
+import Test.Cardano.Ledger.MaryEraGen ()
+import Test.QuickCheck (Gen)
+import Test.Shelley.Spec.Ledger.Generator.EraGen (genUtxo0)
+import Test.Shelley.Spec.Ledger.Generator.Presets (genEnv)
+import Test.Shelley.Spec.Ledger.Generator.Utxo (genTx)
 
 cardanoLedger :: Ledger CardanoTx
 cardanoLedger =
@@ -105,6 +110,25 @@ instance FromCBOR CardanoTx where
             , body
             , witnesses
             }
+
+instance Arbitrary CardanoTx where
+  arbitrary = genUtxo >>= genCardanoTx
+
+genUtxo :: Gen (Utxo CardanoTx)
+genUtxo = genUtxo0 (genEnv Proxy)
+
+genCardanoTx :: Utxo CardanoTx -> Gen CardanoTx
+genCardanoTx utxos = do
+  let utxoState = def{Cardano._utxo = utxos}
+      dpState = Cardano.DPState def def
+  tx <- genTx (genEnv Proxy) ledgerEnv (utxoState, dpState)
+  case tx of
+    (Cardano.Tx body wits _) ->
+      pure $
+        CardanoTx
+          (Cardano.TxId $ SafeHash.hashAnnotated body)
+          body
+          wits
 
 type CardanoTxBody crypto = Cardano.TxBody (MaryEra crypto)
 
@@ -337,7 +361,7 @@ ledgerEnv :: Cardano.LedgerEnv CardanoEra
 ledgerEnv =
   Cardano.LedgerEnv
     { Cardano.ledgerSlotNo = SlotNo 1
-    , Cardano.ledgerIx = error "ledgerEnv ledgerIx undefinex"
+    , Cardano.ledgerIx = 0
     , Cardano.ledgerPp = def
     , Cardano.ledgerAccount = error "mkLedgerenv ledgersAccount undefined"
     }

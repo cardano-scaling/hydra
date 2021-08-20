@@ -1,6 +1,5 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE TypeApplications #-}
-{-# OPTIONS_GHC -Wno-incomplete-uni-patterns #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 
 module Hydra.Ledger.CardanoSpec where
@@ -10,16 +9,16 @@ import Test.Hydra.Prelude
 
 import Cardano.Ledger.Crypto (StandardCrypto)
 import qualified Data.Aeson as Aeson
-import Hydra.Ledger.Cardano (CardanoTx, CardanoTxWitnesses)
+import Hydra.Ledger.Cardano (CardanoEra, CardanoTx (..), CardanoTxWitnesses)
 import qualified Shelley.Spec.Ledger.API as Cardano
 import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
-import Test.Cardano.Ledger.EraBuffet (MaryEra)
 import Test.Cardano.Ledger.MaryEraGen ()
 
 spec :: Spec
 spec = describe "Cardano Head Ledger" $ do
-  roundtripAndGoldenSpecs (Proxy @(Cardano.UTxO (MaryEra StandardCrypto)))
+  roundtripAndGoldenSpecs (Proxy @(Cardano.UTxO CardanoEra))
   roundtripAndGoldenSpecs (Proxy @(CardanoTxWitnesses StandardCrypto))
+  roundtripAndGoldenSpecs (Proxy @CardanoTx)
 
   -- TODO(SN): unit test transaction application, ideally using a 'Gen CardanoTx'
 
@@ -29,7 +28,7 @@ spec = describe "Cardano Head Ledger" $ do
           "{\"9fdc525c20bc00d9dfa9d14904b65e01910c0dfe3bb39865523c1e20eaeb0903#0\":\
           \  {\"address\":\"addr1vx35vu6aqmdw6uuc34gkpdymrpsd3lsuh6ffq6d9vja0s6spkenss\",\
           \   \"value\":{\"lovelace\":14}}}"
-    shouldParseJSONAs @(Cardano.UTxO (MaryEra StandardCrypto)) bs
+    shouldParseJSONAs @(Cardano.UTxO CardanoEra) bs
 
   -- TODO(SN): rather ensure we use the right (cardano-api's) witness format as a test
   it "should parse a CardanoTx" $ do
