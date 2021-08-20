@@ -261,7 +261,7 @@ defaultArguments nodeId sKey vKeys ports =
   , "--me"
   , sKey
   ]
-    <> concat [["--peer", "127.0.0.1@" <> show (5000 + i)] | i <- allNodeIds, i /= nodeId]
+    <> concat [["--peer", "127.0.0.1:" <> show (5000 + i)] | i <- allNodeIds, i /= nodeId]
     <> concat [["--party", vKey] | vKey <- vKeys]
     <> ["--mock-chain-ports", show ports]
 
