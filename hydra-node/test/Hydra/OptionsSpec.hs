@@ -33,13 +33,15 @@ spec = describe "Hydra Node Options" $ do
   it "parses --peer <host>:<port> option" $ do
     ["--peer", "1.2.3.4:4567"]
       `shouldParse` defaultOptions{peers = [Host "1.2.3.4" 4567]}
-    ["--peer", ":::1:4567"]
-      `shouldParse` defaultOptions{peers = [Host ":::1" 4567]}
     ["--peer", "1.2.3.4:4567", "--peer", "1.2.3.5:4568"]
       `shouldParse` defaultOptions{peers = [Host "1.2.3.4" 4567, Host "1.2.3.5" 4568]}
     ["--peer", "foo.com:4567"]
       `shouldParse` defaultOptions{peers = [Host "foo.com" 4567]}
     shouldNotParse ["--peer", "foo.com:456789"]
+  it "does parse --peer given ipv6 addresses" $ do
+    pendingWith "we do not support it"
+    ["--peer", ":::1:4567"]
+      `shouldParse` defaultOptions{peers = [Host ":::1" 4567]}
 
   it "parses --monitoring-port option given valid port number" $ do
     []

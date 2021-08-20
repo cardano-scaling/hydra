@@ -149,7 +149,7 @@ spec = around showLogsOnFailure $
                         ]
 
                     send n1 $ input "getUtxo" []
-                    waitFor tracer 10 [n1] $ output "utxo" ["utxo" .= [newUtxo]]
+                    waitFor tracer 10 [n1] $ output "utxo" ["utxo" .= newUtxo]
 
                     send n1 $ input "close" []
                     waitFor tracer 3 [n1] $
@@ -159,12 +159,12 @@ spec = around showLogsOnFailure $
                         , "latestSnapshot"
                             .= object
                               [ "snapshotNumber" .= int 1
-                              , "utxo" .= [newUtxo]
+                              , "utxo" .= newUtxo
                               , "confirmedTransactions" .= [tx]
                               ]
                         ]
                     waitFor tracer (contestationPeriod + 3) [n1] $
-                      output "headIsFinalized" ["utxo" .= [newUtxo]]
+                      output "headIsFinalized" ["utxo" .= newUtxo]
 
     describe "Monitoring" $ do
       it "Node exposes Prometheus metrics on port 6001" $ \tracer -> do
