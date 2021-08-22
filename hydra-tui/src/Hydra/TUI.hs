@@ -16,7 +16,7 @@ import Data.Version (showVersion)
 import Graphics.Vty (Event (EvKey), Key (KChar), Modifier (MCtrl), blue, defaultConfig, green, mkVty, red)
 import Graphics.Vty.Attributes (defAttr)
 import Hydra.Client (Client (Client, sendInput), HydraEvent (..), withClient)
-import Hydra.ClientInput (ClientInput (Init))
+import Hydra.ClientInput (ClientInput (Abort, Init))
 import Hydra.Ledger (Party, Tx)
 import Hydra.Ledger.Simple (SimpleTx)
 import Hydra.Network (Host)
@@ -55,6 +55,7 @@ data State
 
 data HeadState
   = Unknown
+  | Ready
   | Initializing Natural
   deriving (Eq, Show)
 
@@ -72,9 +73,11 @@ handleEvent Client{sendInput} s = \case
   VtyEvent (EvKey (KChar 'd') [MCtrl]) -> halt s
   VtyEvent (EvKey (KChar 'q') _) -> halt s
   -- Commands
-  VtyEvent (EvKey (KChar 'i') _) -> do
-    liftIO . sendInput $ Init 10 -- TODO(SN): hardcoded contestation period
-    continue s
+  VtyEvent (EvKey (KChar 'i') _) ->
+    -- TODO(SN): hardcoded contestation period
+    liftIO (sendInput $ Init 10) >> continue s
+  VtyEvent (EvKey (KChar 'a') _) ->
+    liftIO (sendInput Abort) >> continue s
   -- App events
   AppEvent ClientConnected ->
     continue $ Connected{nodeHost = nh s, connectedPeers = mempty, headState = Unknown}
@@ -86,6 +89,8 @@ handleEvent Client{sendInput} s = \case
     continue $ modifyConnectedPeers $ \cp -> cp \\ [p]
   AppEvent (Update (ReadyToCommit parties)) ->
     continue $ newHeadState $ Initializing $ fromIntegral $ length parties
+  AppEvent (Update (HeadIsAborted _utxo)) ->
+    continue $ newHeadState Ready
   -- TODO(SN): continue s here, once all implemented
   e -> error $ "unhandled event: " <> show e
  where
@@ -129,6 +134,7 @@ draw s =
     vBox
       [ str "Commands:"
       , str "[i]init"
+      , str "[a]abort"
       , str "[q]uit"
       ]
 
