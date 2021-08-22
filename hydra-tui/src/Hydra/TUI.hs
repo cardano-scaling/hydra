@@ -55,7 +55,7 @@ data State
 
 data HeadState
   = Unknown
-  | Initializing
+  | Initializing Natural
   deriving (Eq, Show)
 
 type Name = ()
@@ -84,12 +84,18 @@ handleEvent Client{sendInput} s = \case
     continue $ modifyConnectedPeers $ \cp -> nub $ cp <> [p]
   AppEvent (Update (PeerDisconnected p)) ->
     continue $ modifyConnectedPeers $ \cp -> cp \\ [p]
+  AppEvent (Update (ReadyToCommit parties)) ->
+    continue $ newHeadState $ Initializing $ fromIntegral $ length parties
   -- TODO(SN): continue s here, once all implemented
   e -> error $ "unhandled event: " <> show e
  where
   modifyConnectedPeers f = case s of
     Connected{nodeHost, connectedPeers, headState} -> Connected{nodeHost, connectedPeers = f connectedPeers, headState}
     Disconnected{} -> s
+
+  newHeadState hs = case s of
+    Connected{nodeHost, connectedPeers} -> Connected{nodeHost, connectedPeers, headState = hs}
+    Disconnected{} -> error "should be connected"
 
   nh = \case
     Disconnected{nodeHost} -> nodeHost
