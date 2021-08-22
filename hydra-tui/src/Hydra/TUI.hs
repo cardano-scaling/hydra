@@ -1,5 +1,6 @@
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeApplications #-}
 
 module Hydra.TUI where
@@ -22,28 +23,11 @@ import Hydra.Ledger.Cardano (CardanoTx)
 import Hydra.Network (Host)
 import Hydra.ServerOutput (ServerOutput (..))
 import Hydra.TUI.Options (Options (..))
+import Lens.Micro ((%~), (.~), (^.), (^?))
+import Lens.Micro.TH (makeLensesFor)
 import Paths_hydra_tui (version)
 
-run :: Options -> IO State
-run Options{nodeHost} = do
-  eventChan <- newBChan 10
-  -- REVIEW(SN): what happens if callback blocks?
-  withClient @CardanoTx nodeHost (writeBChan eventChan) $ \client -> do
-    initialVty <- buildVty
-    customMain initialVty buildVty (Just eventChan) (app client) initialState
- where
-  buildVty = mkVty defaultConfig
-
-  app client =
-    App
-      { appDraw = draw
-      , appChooseCursor = showFirstCursor
-      , appHandleEvent = handleEvent client
-      , appStartEvent = pure
-      , appAttrMap = style
-      }
-
-  initialState = Disconnected nodeHost
+-- * Types
 
 data State
   = Disconnected {nodeHost :: Host}
@@ -62,6 +46,16 @@ data HeadState
   deriving (Eq, Show, Generic)
 
 type Name = ()
+
+makeLensesFor
+  [ ("nodeHost", "nodeHostL")
+  , ("connectedPeers", "connectedPeersL")
+  , ("headState", "headStateL")
+  , ("commandFailed", "commandFailedL")
+  ]
+  ''State
+
+-- * Event handling
 
 handleEvent ::
   Tx tx =>
@@ -86,51 +80,29 @@ handleEvent Client{sendInput} s = \case
   AppEvent ClientDisconnected ->
     continue disconnected
   AppEvent (Update (PeerConnected p)) ->
-    continue $ modifyConnectedPeers $ \cp -> nub $ cp <> [p]
+    continue $ s & connectedPeersL %~ \cp -> nub $ cp <> [p]
   AppEvent (Update (PeerDisconnected p)) ->
-    continue $ modifyConnectedPeers $ \cp -> cp \\ [p]
+    continue $ s & connectedPeersL %~ \cp -> cp \\ [p]
   AppEvent (Update CommandFailed) -> do
-    continue setCommandFailed
+    continue $ s & commandFailedL .~ True
   AppEvent (Update (ReadyToCommit parties)) ->
-    continue $ newHeadState $ Initializing $ length parties
+    continue $ s & headStateL .~ Initializing (length parties)
   AppEvent (Update (HeadIsAborted _utxo)) ->
-    continue $ newHeadState Ready
+    continue $ s & headStateL .~ Ready
   -- TODO(SN): continue s here, once all implemented
   e -> error $ "unhandled event: " <> show e
  where
   connected =
     Connected
-      { nodeHost = nh s
+      { nodeHost = s ^. nodeHostL
       , connectedPeers = mempty
       , headState = Unknown
       , commandFailed = False
       }
 
   disconnected =
-    Disconnected{nodeHost = nh s}
-
-  modifyConnectedPeers f = case s of
-    Connected{nodeHost, connectedPeers, headState} ->
-      Connected
-        { nodeHost
-        , connectedPeers = f connectedPeers
-        , headState
-        , commandFailed = False
-        }
-    Disconnected{} -> s
-
-  nh = \case
-    Disconnected{nodeHost} -> nodeHost
-    Connected{nodeHost} -> nodeHost
-
-  -- TODO(SN): create dedicated types to use cleaner record updates or use lenses
-  newHeadState hs = case s of
-    Connected{nodeHost, connectedPeers} -> Connected{nodeHost, connectedPeers, headState = hs, commandFailed = False}
-    Disconnected{} -> error "should be connected"
-
-  setCommandFailed = case s of
-    Connected{nodeHost, connectedPeers, headState} -> Connected{nodeHost, connectedPeers, headState, commandFailed = True}
-    Disconnected{} -> error "should be connected"
+    Disconnected{nodeHost = s ^. nodeHostL}
+-- * Drawing
 
 draw :: State -> [Widget Name]
 draw s =
@@ -164,14 +136,12 @@ draw s =
       , str "[q]uit"
       ]
 
-  drawCommandFailed = case s of
-    Connected{commandFailed}
-      | commandFailed -> withAttr negative $ str "Last command failed"
-    _ -> emptyWidget
+  drawCommandFailed =
+    if s ^? commandFailedL == Just True
+      then withAttr negative $ str "Last command failed"
+      else emptyWidget
 
-  drawPeers = vBox $ case s of
-    Connected{connectedPeers} -> str "Connected peers:" : map drawPeer connectedPeers
-    _ -> []
+  drawPeers = vBox $ str "Connected peers:" : map drawPeer (s ^. connectedPeersL)
 
   drawPeer = str . show
 
@@ -192,3 +162,27 @@ positive = "positive"
 
 negative :: AttrName
 negative = "negative"
+
+-- * Run it
+
+-- NOTE(SN): At the end of the module because of TH
+run :: Options -> IO State
+run Options{nodeHost} = do
+  eventChan <- newBChan 10
+  -- REVIEW(SN): what happens if callback blocks?
+  withClient @CardanoTx nodeHost (writeBChan eventChan) $ \client -> do
+    initialVty <- buildVty
+    customMain initialVty buildVty (Just eventChan) (app client) initialState
+ where
+  buildVty = mkVty defaultConfig
+
+  app client =
+    App
+      { appDraw = draw
+      , appChooseCursor = showFirstCursor
+      , appHandleEvent = handleEvent client
+      , appStartEvent = pure
+      , appAttrMap = style
+      }
+
+  initialState = Disconnected nodeHost
