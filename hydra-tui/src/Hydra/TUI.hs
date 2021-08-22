@@ -18,7 +18,7 @@ import Graphics.Vty.Attributes (defAttr)
 import Hydra.Client (Client (Client, sendInput), HydraEvent (..), withClient)
 import Hydra.ClientInput (ClientInput (Abort, Init))
 import Hydra.Ledger (Party, Tx)
-import Hydra.Ledger.Simple (SimpleTx)
+import Hydra.Ledger.Cardano (CardanoTx)
 import Hydra.Network (Host)
 import Hydra.ServerOutput (ServerOutput (..))
 import Hydra.TUI.Options (Options (..))
@@ -28,7 +28,7 @@ run :: Options -> IO State
 run Options{nodeHost} = do
   eventChan <- newBChan 10
   -- REVIEW(SN): what happens if callback blocks?
-  withClient @SimpleTx nodeHost (writeBChan eventChan) $ \client -> do
+  withClient @CardanoTx nodeHost (writeBChan eventChan) $ \client -> do
     initialVty <- buildVty
     customMain initialVty buildVty (Just eventChan) (app client) initialState
  where
