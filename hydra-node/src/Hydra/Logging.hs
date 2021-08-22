@@ -77,7 +77,9 @@ withTracer (Verbose name) action = do
         , "message" .= msg
         ]
 
-  logMessagesToStdout queue = forever $ flushLogs queue
+  logMessagesToStdout queue =
+    forever $
+      flushLogs queue >> threadDelay 0.1
 
   flushLogs queue = do
     entries <- atomically $ flushTBQueue queue
