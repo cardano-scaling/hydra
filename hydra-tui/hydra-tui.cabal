@@ -84,6 +84,7 @@ library
     , brick
     , hydra-node
     , hydra-prelude
+    , io-classes
     , optparse-applicative
     , vty
     , websockets
