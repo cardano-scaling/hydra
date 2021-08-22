@@ -85,6 +85,8 @@ library
     , hydra-node
     , hydra-prelude
     , io-classes
+    , microlens
+    , microlens-th
     , optparse-applicative
     , vty
     , websockets
