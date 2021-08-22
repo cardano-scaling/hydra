@@ -1,3 +1,4 @@
+{-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE TypeApplications #-}
 
@@ -17,14 +18,16 @@ import Graphics.Vty.Attributes (defAttr)
 import Hydra.Client (HydraEvent (..), withClient)
 import Hydra.Ledger (Party, Tx)
 import Hydra.Ledger.Simple (SimpleTx)
+import Hydra.Network (Host)
 import Hydra.ServerOutput (ServerOutput (..))
+import Hydra.TUI.Options (Options (..))
 import Paths_hydra_tui (version)
 
-run :: IO State
-run = do
+run :: Options -> IO State
+run Options{nodeHost} = do
   eventChan <- newBChan 10
   -- REVIEW(SN): what happens if callback blocks?
-  withClient @SimpleTx (writeBChan eventChan) $ \_client -> do
+  withClient @SimpleTx nodeHost (writeBChan eventChan) $ \_client -> do
     initialVty <- buildVty
     customMain initialVty buildVty (Just eventChan) app initialState
  where
@@ -39,11 +42,14 @@ run = do
       , appAttrMap = style
       }
 
-  initialState = Disconnected
+  initialState = Disconnected nodeHost
 
 data State
-  = Disconnected
-  | Connected {connectedPeers :: [Party]}
+  = Disconnected {nodeHost :: Host}
+  | Connected
+      { nodeHost :: Host
+      , connectedPeers :: [Party]
+      }
 
 type Name = ()
 
@@ -55,9 +61,9 @@ handleEvent s = \case
   VtyEvent (EvKey (KChar 'q') _) -> halt s
   -- App events
   AppEvent ClientConnected ->
-    continue $ Connected{connectedPeers = mempty}
+    continue $ Connected{nodeHost = nh s, connectedPeers = mempty}
   AppEvent ClientDisconnected ->
-    continue Disconnected
+    continue $ Disconnected{nodeHost = nh s}
   AppEvent (Update (PeerConnected p)) ->
     continue $ modifyConnectedPeers $ \cp -> nub $ cp <> [p]
   AppEvent (Update (PeerDisconnected p)) ->
@@ -66,8 +72,12 @@ handleEvent s = \case
   e -> error $ "unhandled event: " <> show e
  where
   modifyConnectedPeers f = case s of
-    Disconnected -> Disconnected
-    Connected{connectedPeers = cp} -> Connected{connectedPeers = f cp}
+    Connected{nodeHost, connectedPeers} -> Connected{nodeHost, connectedPeers = f connectedPeers}
+    Disconnected{} -> s
+
+  nh = \case
+    Disconnected{nodeHost} -> nodeHost
+    Connected{nodeHost} -> nodeHost
 
 draw :: State -> [Widget Name]
 draw s =
@@ -86,8 +96,8 @@ draw s =
 
   nodeStatus =
     str "Node " <+> case s of
-      Disconnected -> withAttr negative $ str "disconnected"
-      Connected{} -> withAttr positive $ str "connected"
+      Disconnected{nodeHost} -> withAttr negative $ str $ show nodeHost
+      Connected{nodeHost} -> withAttr positive $ str $ show nodeHost
 
   drawCommands = str "Commands:" <=> str "[q]uit"
 

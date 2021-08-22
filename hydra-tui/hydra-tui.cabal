@@ -96,6 +96,7 @@ executable hydra-tui
     , base
     , hydra-prelude
     , hydra-tui
+    , optparse-applicative
 
   ghc-options:    -threaded -rtsopts
 
@@ -112,8 +113,8 @@ test-suite unit
   build-depends:
     , base
     , hspec
-    , hydra-prelude
     , hydra-node
+    , hydra-prelude
     , hydra-test-utils
     , hydra-tui
     , optparse-applicative
