@@ -49,7 +49,13 @@ data State
   | Connected
       { nodeHost :: Host
       , connectedPeers :: [Party]
+      , headState :: HeadState
       }
+
+data HeadState
+  = Unknown
+  | Initializing
+  deriving (Eq, Show)
 
 type Name = ()
 
@@ -61,7 +67,7 @@ handleEvent s = \case
   VtyEvent (EvKey (KChar 'q') _) -> halt s
   -- App events
   AppEvent ClientConnected ->
-    continue $ Connected{nodeHost = nh s, connectedPeers = mempty}
+    continue $ Connected{nodeHost = nh s, connectedPeers = mempty, headState = Unknown}
   AppEvent ClientDisconnected ->
     continue $ Disconnected{nodeHost = nh s}
   AppEvent (Update (PeerConnected p)) ->
@@ -72,7 +78,7 @@ handleEvent s = \case
   e -> error $ "unhandled event: " <> show e
  where
   modifyConnectedPeers f = case s of
-    Connected{nodeHost, connectedPeers} -> Connected{nodeHost, connectedPeers = f connectedPeers}
+    Connected{nodeHost, connectedPeers, headState} -> Connected{nodeHost, connectedPeers = f connectedPeers, headState}
     Disconnected{} -> s
 
   nh = \case
@@ -90,7 +96,7 @@ draw s =
           , drawCommands
           ]
  where
-  drawInfo = hLimit 30 (tuiVersion <=> nodeStatus <=> hBorder <=> drawPeers)
+  drawInfo = hLimit 30 $ vBox [tuiVersion, nodeStatus, hBorder, drawPeers, hBorder, drawHeadState s]
 
   tuiVersion = str "TUI  " <+> withAttr info (str (showVersion version))
 
@@ -98,6 +104,10 @@ draw s =
     str "Node " <+> case s of
       Disconnected{nodeHost} -> withAttr negative $ str $ show nodeHost
       Connected{nodeHost} -> withAttr positive $ str $ show nodeHost
+
+  drawHeadState = \case
+    Connected{headState} -> vBox [str "HeadState: " <=> str (show headState)]
+    Disconnected{} -> vBox []
 
   drawCommands = str "Commands:" <=> str "[q]uit"
 
