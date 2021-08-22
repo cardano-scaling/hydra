@@ -35,7 +35,7 @@ type ClientComponent tx m a = ClientCallback tx m -> (Client tx m -> m a) -> m a
 withClient :: Tx tx => Host -> ClientComponent tx IO a
 withClient Host{hostName, portNumber} callback action = do
   q <- newTBQueueIO 10
-  withAsync (reconnecting $ client q) $ \thread -> do
+  withAsync (reconnect $ client q) $ \thread -> do
     -- NOTE(SN): message formats are not compatible, this will terminate the TUI
     -- with a quite cryptic message (to users)
     link thread -- Make sure it does not silently die
@@ -60,14 +60,14 @@ withClient Host{hostName, portNumber} callback action = do
     input <- atomically $ readTBQueue q
     sendBinaryData con $ encode input
 
-  reconnecting f =
+  reconnect f =
     f
       `catches` [ Handler $ \(_ :: IOException) -> handleDisconnect f -- Initially
                 , Handler $ \(_ :: ConnectionException) -> handleDisconnect f -- Later
                 ]
 
   handleDisconnect f =
-    callback ClientDisconnected >> threadDelay 1 >> f
+    callback ClientDisconnected >> threadDelay 1 >> reconnect f
 
 data ClientError = ClientJSONDecodeError String ByteString
   deriving (Eq, Show, Generic)
