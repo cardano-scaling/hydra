@@ -6,7 +6,7 @@ module Hydra.TUI where
 
 import Hydra.Prelude hiding (State)
 
-import Brick (App (..), AttrMap, AttrName, BrickEvent (AppEvent, VtyEvent), EventM, Next, Widget, continue, customMain, fg, hBox, hLimit, halt, joinBorders, showFirstCursor, str, vBox, withAttr, withBorderStyle, (<+>), (<=>))
+import Brick (App (..), AttrMap, AttrName, BrickEvent (AppEvent, VtyEvent), EventM, Next, Padding (Pad), Widget, continue, customMain, emptyWidget, fg, hBox, hLimit, halt, joinBorders, padTop, showFirstCursor, str, vBox, withAttr, withBorderStyle, (<+>), (<=>))
 import Brick.AttrMap (attrMap)
 import Brick.BChan (newBChan, writeBChan)
 import Brick.Widgets.Border (hBorder, vBorder)
@@ -51,13 +51,15 @@ data State
       { nodeHost :: Host
       , connectedPeers :: [Party]
       , headState :: HeadState
+      , commandFailed :: Bool
       }
+  deriving (Eq, Show, Generic)
 
 data HeadState
   = Unknown
   | Ready
-  | Initializing Natural
-  deriving (Eq, Show)
+  | Initializing Int
+  deriving (Eq, Show, Generic)
 
 type Name = ()
 
@@ -80,31 +82,55 @@ handleEvent Client{sendInput} s = \case
     liftIO (sendInput Abort) >> continue s
   -- App events
   AppEvent ClientConnected ->
-    continue $ Connected{nodeHost = nh s, connectedPeers = mempty, headState = Unknown}
+    continue connected
   AppEvent ClientDisconnected ->
-    continue $ Disconnected{nodeHost = nh s}
+    continue disconnected
   AppEvent (Update (PeerConnected p)) ->
     continue $ modifyConnectedPeers $ \cp -> nub $ cp <> [p]
   AppEvent (Update (PeerDisconnected p)) ->
     continue $ modifyConnectedPeers $ \cp -> cp \\ [p]
+  AppEvent (Update CommandFailed) -> do
+    continue setCommandFailed
   AppEvent (Update (ReadyToCommit parties)) ->
-    continue $ newHeadState $ Initializing $ fromIntegral $ length parties
+    continue $ newHeadState $ Initializing $ length parties
   AppEvent (Update (HeadIsAborted _utxo)) ->
     continue $ newHeadState Ready
   -- TODO(SN): continue s here, once all implemented
   e -> error $ "unhandled event: " <> show e
  where
-  modifyConnectedPeers f = case s of
-    Connected{nodeHost, connectedPeers, headState} -> Connected{nodeHost, connectedPeers = f connectedPeers, headState}
-    Disconnected{} -> s
+  connected =
+    Connected
+      { nodeHost = nh s
+      , connectedPeers = mempty
+      , headState = Unknown
+      , commandFailed = False
+      }
 
-  newHeadState hs = case s of
-    Connected{nodeHost, connectedPeers} -> Connected{nodeHost, connectedPeers, headState = hs}
-    Disconnected{} -> error "should be connected"
+  disconnected =
+    Disconnected{nodeHost = nh s}
+
+  modifyConnectedPeers f = case s of
+    Connected{nodeHost, connectedPeers, headState} ->
+      Connected
+        { nodeHost
+        , connectedPeers = f connectedPeers
+        , headState
+        , commandFailed = False
+        }
+    Disconnected{} -> s
 
   nh = \case
     Disconnected{nodeHost} -> nodeHost
     Connected{nodeHost} -> nodeHost
+
+  -- TODO(SN): create dedicated types to use cleaner record updates or use lenses
+  newHeadState hs = case s of
+    Connected{nodeHost, connectedPeers} -> Connected{nodeHost, connectedPeers, headState = hs, commandFailed = False}
+    Disconnected{} -> error "should be connected"
+
+  setCommandFailed = case s of
+    Connected{nodeHost, connectedPeers, headState} -> Connected{nodeHost, connectedPeers, headState, commandFailed = True}
+    Disconnected{} -> error "should be connected"
 
 draw :: State -> [Widget Name]
 draw s =
@@ -114,7 +140,7 @@ draw s =
         hBox
           [ drawInfo
           , vBorder
-          , drawCommands
+          , drawCommands <=> padTop (Pad 1) drawCommandFailed
           ]
  where
   drawInfo = hLimit 30 $ vBox [tuiVersion, nodeStatus, hBorder, drawPeers, hBorder, drawHeadState s]
@@ -137,6 +163,11 @@ draw s =
       , str "[a]abort"
       , str "[q]uit"
       ]
+
+  drawCommandFailed = case s of
+    Connected{commandFailed}
+      | commandFailed -> withAttr negative $ str "Last command failed"
+    _ -> emptyWidget
 
   drawPeers = vBox $ case s of
     Connected{connectedPeers} -> str "Connected peers:" : map drawPeer connectedPeers
