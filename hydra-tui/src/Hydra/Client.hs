@@ -34,6 +34,8 @@ type ClientComponent tx m a = ClientCallback tx m -> (Client tx m -> m a) -> m a
 withClient :: Tx tx => Host -> ClientComponent tx IO a
 withClient Host{hostName, portNumber} callback action = do
   withAsync client $ \thread -> do
+    -- NOTE(SN): message formats are not compatible, this will terminate the TUI
+    -- with a quite cryptic message (to users)
     link thread -- Make sure it does not silently die
     action $
       Client
@@ -59,8 +61,8 @@ withClient Host{hostName, portNumber} callback action = do
       msg <- receiveData con
       case eitherDecodeStrict msg of
         Right output -> callback $ Update output
-        Left err -> throwIO $ ClientJSONDecodeError err
+        Left err -> throwIO $ ClientJSONDecodeError err msg
 
-newtype ClientError = ClientJSONDecodeError String
+data ClientError = ClientJSONDecodeError String ByteString
   deriving (Eq, Show, Generic)
   deriving anyclass (Exception)
