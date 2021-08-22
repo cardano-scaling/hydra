@@ -15,7 +15,8 @@ import Data.List (nub, (\\))
 import Data.Version (showVersion)
 import Graphics.Vty (Event (EvKey), Key (KChar), Modifier (MCtrl), blue, defaultConfig, green, mkVty, red)
 import Graphics.Vty.Attributes (defAttr)
-import Hydra.Client (HydraEvent (..), withClient)
+import Hydra.Client (Client (Client, sendInput), HydraEvent (..), withClient)
+import Hydra.ClientInput (ClientInput (Init))
 import Hydra.Ledger (Party, Tx)
 import Hydra.Ledger.Simple (SimpleTx)
 import Hydra.Network (Host)
@@ -27,17 +28,17 @@ run :: Options -> IO State
 run Options{nodeHost} = do
   eventChan <- newBChan 10
   -- REVIEW(SN): what happens if callback blocks?
-  withClient @SimpleTx nodeHost (writeBChan eventChan) $ \_client -> do
+  withClient @SimpleTx nodeHost (writeBChan eventChan) $ \client -> do
     initialVty <- buildVty
-    customMain initialVty buildVty (Just eventChan) app initialState
+    customMain initialVty buildVty (Just eventChan) (app client) initialState
  where
   buildVty = mkVty defaultConfig
 
-  app =
+  app client =
     App
       { appDraw = draw
       , appChooseCursor = showFirstCursor
-      , appHandleEvent = handleEvent
+      , appHandleEvent = handleEvent client
       , appStartEvent = pure
       , appAttrMap = style
       }
@@ -59,12 +60,21 @@ data HeadState
 
 type Name = ()
 
-handleEvent :: Tx tx => State -> BrickEvent Name (HydraEvent tx) -> EventM Name (Next State)
-handleEvent s = \case
+handleEvent ::
+  Tx tx =>
+  Client tx IO ->
+  State ->
+  BrickEvent Name (HydraEvent tx) ->
+  EventM Name (Next State)
+handleEvent Client{sendInput} s = \case
   -- Quit
   VtyEvent (EvKey (KChar 'c') [MCtrl]) -> halt s
   VtyEvent (EvKey (KChar 'd') [MCtrl]) -> halt s
   VtyEvent (EvKey (KChar 'q') _) -> halt s
+  -- Commands
+  VtyEvent (EvKey (KChar 'i') _) -> do
+    liftIO . sendInput $ Init 10 -- TODO(SN): hardcoded contestation period
+    continue s
   -- App events
   AppEvent ClientConnected ->
     continue $ Connected{nodeHost = nh s, connectedPeers = mempty, headState = Unknown}
@@ -109,7 +119,12 @@ draw s =
     Connected{headState} -> vBox [str "HeadState: " <=> str (show headState)]
     Disconnected{} -> vBox []
 
-  drawCommands = str "Commands:" <=> str "[q]uit"
+  drawCommands =
+    vBox
+      [ str "Commands:"
+      , str "[i]init"
+      , str "[q]uit"
+      ]
 
   drawPeers = vBox $ case s of
     Connected{connectedPeers} -> str "Connected peers:" : map drawPeer connectedPeers
