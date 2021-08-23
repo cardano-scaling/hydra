@@ -237,6 +237,9 @@ update Environment{party, signingKey, otherParties, snapshotStrategy} ledger st 
     | otherwise -> Wait
   (OpenState parameters s@CoordinatedHeadState{confirmedSnapshot, seenSnapshot}, NetworkEvent (ReqSn otherParty sn txs))
     | number confirmedSnapshot + 1 == sn && isLeader parameters otherParty sn && isNothing seenSnapshot ->
+      -- TODO: How to handle ReqSN with sn > confirmed + 1 - Wait?
+      -- TODO: Also we might be robust against multiple ReqSn for otherwise
+      -- valid request, which is currently leading to 'Error'
       -- TODO: Verify the request is signed by (?) / comes from the leader
       -- (Can we prove a message comes from a given peer, without signature?)
       case applyTransactions ledger (getField @"utxo" confirmedSnapshot) txs of
