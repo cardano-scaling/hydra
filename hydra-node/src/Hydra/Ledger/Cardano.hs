@@ -26,6 +26,7 @@ import Cardano.Ledger.Crypto (Crypto, StandardCrypto)
 import Cardano.Ledger.Mary (AuxiliaryData, MaryEra)
 import qualified Cardano.Ledger.Mary.Value as Cardano
 import qualified Cardano.Ledger.SafeHash as SafeHash
+import qualified Cardano.Ledger.ShelleyMA.Timelocks as Cardano
 import qualified Cardano.Ledger.ShelleyMA.TxBody as Cardano
 import Cardano.Ledger.Slot (EpochSize (EpochSize), SlotNo (SlotNo))
 import Cardano.Slotting.EpochInfo (fixedEpochInfo)
@@ -55,10 +56,13 @@ import qualified Data.Set as Set
 import qualified Data.Text as Text
 import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
 import Hydra.Ledger (Ledger (..), Tx (..), ValidationError (ValidationError))
+import Shelley.Spec.Ledger.API (_maxTxSize)
 import qualified Shelley.Spec.Ledger.API as Cardano hiding (TxBody)
 import Shelley.Spec.Ledger.Tx (WitnessSetHKD (WitnessSet))
 import Test.Cardano.Ledger.MaryEraGen ()
 import Test.QuickCheck (Gen)
+import qualified Test.Shelley.Spec.Ledger.Generator.Constants as Constants
+import Test.Shelley.Spec.Ledger.Generator.Core (geConstants)
 import Test.Shelley.Spec.Ledger.Generator.EraGen (genUtxo0)
 import Test.Shelley.Spec.Ledger.Generator.Presets (genEnv)
 import Test.Shelley.Spec.Ledger.Generator.Utxo (genTx)
@@ -122,7 +126,13 @@ genCardanoTx :: Utxo CardanoTx -> Gen CardanoTx
 genCardanoTx utxos = do
   let utxoState = def{Cardano._utxo = utxos}
       dpState = Cardano.DPState def def
-  tx <- genTx (genEnv Proxy) ledgerEnv (utxoState, dpState)
+      -- NOTE(AB): This sets some parameters for the tx generator that will
+      -- affect the structure of generated trasactions. In our case, we want
+      -- to remove "special" capabilities which are irrelevant in the context
+      -- of a Hydra head
+      -- see https://github.com/input-output-hk/cardano-ledger-specs/blob/nil/shelley/chain-and-ledger/shelley-spec-ledger-test/src/Test/Shelley/Spec/Ledger/Generator/Constants.hs#L10
+      generatorEnv = (genEnv Proxy){geConstants = noPPUpdatesTransactions}
+  tx <- genTx generatorEnv ledgerEnv (utxoState, dpState)
   case tx of
     (Cardano.Tx body wits aux) ->
       pure $
@@ -131,6 +141,10 @@ genCardanoTx utxos = do
           body
           wits
           aux
+
+noPPUpdatesTransactions :: Constants.Constants
+noPPUpdatesTransactions =
+  Constants.defaultConstants{Constants.frequencyTxUpdates = 0}
 
 type CardanoEra = MaryEra StandardCrypto
 
@@ -167,6 +181,7 @@ txIdFromText t =
 -- Transaction Body
 --
 
+-- TODO(AB): serialise more fields from the transaction body
 instance FromJSON CardanoTxBody where
   parseJSON = withObject "CardanoTxBody" $ \o -> do
     inputs <- o .: "inputs" >>= traverse parseJSON
@@ -293,19 +308,27 @@ instance Crypto crypto => FromJSON (Cardano.UTxO (MaryEra crypto)) where
 --
 
 instance ToJSON CardanoTxWitnesses where
-  toJSON (WitnessSet addrWitnesses _ _) =
-    toJSON $ map (encodeBase16 . serializeEncoding' . prefixWithTag) $ toList addrWitnesses
+  toJSON (WitnessSet addrWitnesses scriptWitnesses _) =
+    object
+      [ "addresses" .= addrWitnessesAsJSON
+      , "scripts" .= scriptWitnesses
+      ]
    where
+    addrWitnessesAsJSON = toJSON $ map (encodeBase16 . serializeEncoding' . prefixWithTag) $ toList addrWitnesses
     prefixWithTag wit = encodeListLen 2 <> encodeWord 0 <> toCBOR wit
 
 instance
   (FromCBOR (Annotator (Cardano.WitVKey 'Cardano.Witness StandardCrypto))) =>
   FromJSON CardanoTxWitnesses
   where
-  parseJSON = withArray "CardanoTxWitnesses" $ \a -> do
-    wits <- toList <$> traverse parseAddressWitness a
-    pure $ WitnessSet (Set.fromList wits) mempty mempty
+  parseJSON = withObject "CardanoTxWitnesses" $ \obj -> do
+    addrWits <- obj .: "addresses" >>= parseAddressWitnesses
+    scriptWits <- obj .: "scripts"
+    pure $ WitnessSet addrWits scriptWits mempty
    where
+    parseAddressWitnesses = withArray "CardanoTxWitnesses" $ \a -> do
+      Set.fromList . toList <$> traverse parseAddressWitness a
+
     parseAddressWitness = withText "AddrWitness" $ \t ->
       -- TODO(AB): this is ugly
       case decodeBase16 $ encodeUtf8 t of
@@ -320,6 +343,31 @@ instance
       case t of
         0 -> fromCBOR
         _ -> fail $ "Invalid tag decoding witness, only support 1: " <> show t
+
+instance ToJSON (Cardano.Timelock StandardCrypto) where
+  toJSON = String . encodeBase16 . serialize'
+
+instance FromJSON (Cardano.Timelock StandardCrypto) where
+  parseJSON = withText "Timelock" $ \t ->
+    case decodeBase16 $ encodeUtf8 t of
+      Left err -> fail $ show err
+      Right bs' -> case decodeAnnotator "ShelleyKeyWitness" fromCBOR (fromStrict bs') of
+        Left err -> fail $ show err
+        Right v -> pure v
+
+instance ToJSONKey (Cardano.ScriptHash StandardCrypto) where
+  toJSONKey = toJSONKeyText (\(Cardano.ScriptHash h) -> encodeBase16 (Crypto.hashToBytes h))
+
+instance FromJSONKey (Cardano.ScriptHash StandardCrypto) where
+  fromJSONKey = FromJSONKeyTextParser hashFromText
+   where
+    hashFromText t =
+      case decodeBase16 (encodeUtf8 t) of
+        Left e -> fail $ "decoding base16: " <> show e
+        Right bytes ->
+          case Crypto.hashFromBytes bytes of
+            Nothing -> fail "hashFromBytes yielded Nothing"
+            Just h -> pure $ Cardano.ScriptHash h
 
 --
 -- AuxiliaryData
@@ -367,7 +415,7 @@ globals =
     , Cardano.maxMajorPV = 1000
     , Cardano.maxLovelaceSupply = 45 * 1000 * 1000 * 1000 * 1000 * 1000
     , Cardano.activeSlotCoeff = mkActiveSlotCoeff . unsafeBoundRational $ 0.9
-    , Cardano.networkId = Cardano.Mainnet
+    , Cardano.networkId = Cardano.Testnet
     , Cardano.systemStart = SystemStart $ posixSecondsToUTCTime 0
     }
  where
@@ -380,6 +428,7 @@ ledgerEnv =
   Cardano.LedgerEnv
     { Cardano.ledgerSlotNo = SlotNo 1
     , Cardano.ledgerIx = 0
-    , Cardano.ledgerPp = def
+    , -- TODO(AB): should be parameterized
+      Cardano.ledgerPp = def{_maxTxSize = 1024 * 1024}
     , Cardano.ledgerAccount = error "mkLedgerenv ledgersAccount undefined"
     }
