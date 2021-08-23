@@ -21,23 +21,22 @@ import Hydra.Node (EventQueue (EventQueue, putEvent), HydraNode (..), createEven
 
 spec :: Spec
 spec =
-  describe "Hydra Node" $ do
-    it "emits only one ReqSn as leader even after multiple ReqTxs" $ do
-      -- NOTE(SN): Sequence of parties in OnInitTx of 'prefix' is relevant, so
-      -- 10 is the (initial) snapshot leader
-      let tx1 = SimpleTx{txSimpleId = 1, txInputs = utxoRefs [2], txOutputs = utxoRefs [4, 5, 6, 7, 8, 9, 10, 11, 12, 13]}
-          tx2 = SimpleTx{txSimpleId = 2, txInputs = utxoRefs [1, 3, 4, 5, 6, 8, 9, 10, 11, 13], txOutputs = utxoRefs [14, 15]}
-          tx3 = SimpleTx{txSimpleId = 3, txInputs = utxoRefs [7, 14], txOutputs = utxoRefs [16, 17, 18, 19, 20, 21, 22, 23]}
-          events =
-            prefix
-              <> [ NetworkEvent{message = ReqTx{Msg.party = 10, Msg.transaction = tx1}}
-                 , NetworkEvent{message = ReqTx{Msg.party = 10, Msg.transaction = tx2}}
-                 , NetworkEvent{message = ReqTx{Msg.party = 10, Msg.transaction = tx3}}
-                 ]
-      node <- createHydraNode 10 [20, 30] SnapshotAfterEachTx events
-      (node', getNetworkMessages) <- recordNetwork node
-      runToCompletion node'
-      getNetworkMessages `shouldReturn` [ReqSn 10 1 [tx1, tx2, tx3]]
+  it "emits only one ReqSn as leader even after multiple ReqTxs" $ do
+    -- NOTE(SN): Sequence of parties in OnInitTx of 'prefix' is relevant, so
+    -- 10 is the (initial) snapshot leader
+    let tx1 = SimpleTx{txSimpleId = 1, txInputs = utxoRefs [2], txOutputs = utxoRefs [4, 5, 6, 7, 8, 9, 10, 11, 12, 13]}
+        tx2 = SimpleTx{txSimpleId = 2, txInputs = utxoRefs [1, 3, 4, 5, 6, 8, 9, 10, 11, 13], txOutputs = utxoRefs [14, 15]}
+        tx3 = SimpleTx{txSimpleId = 3, txInputs = utxoRefs [7, 14], txOutputs = utxoRefs [16, 17, 18, 19, 20, 21, 22, 23]}
+        events =
+          prefix
+            <> [ NetworkEvent{message = ReqTx{Msg.party = 10, Msg.transaction = tx1}}
+               , NetworkEvent{message = ReqTx{Msg.party = 10, Msg.transaction = tx2}}
+               , NetworkEvent{message = ReqTx{Msg.party = 10, Msg.transaction = tx3}}
+               ]
+    node <- createHydraNode 10 [20, 30] SnapshotAfterEachTx events
+    (node', getNetworkMessages) <- recordNetwork node
+    runToCompletion node'
+    getNetworkMessages `shouldReturn` [ReqSn 10 1 [tx1, tx2, tx3]]
 
 oneReqSn :: [Message tx] -> Bool
 oneReqSn = (== 1) . length . filter isReqSn
