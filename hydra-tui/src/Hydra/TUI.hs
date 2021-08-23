@@ -86,9 +86,13 @@ handleEvent Client{sendInput} s = \case
   AppEvent (Update CommandFailed) -> do
     continue $ s & commandFailedL .~ True
   AppEvent (Update (ReadyToCommit parties)) ->
-    continue $ s & headStateL .~ Initializing (length parties)
+    continue $
+      s & headStateL .~ Initializing (length parties)
+        & commandFailedL .~ False
   AppEvent (Update (HeadIsAborted _utxo)) ->
-    continue $ s & headStateL .~ Ready
+    continue $
+      s & headStateL .~ Ready
+        & commandFailedL .~ False
   -- TODO(SN): continue s here, once all implemented
   e -> error $ "unhandled event: " <> show e
  where
