@@ -103,10 +103,10 @@ runHydraNode ::
   Tracer m (HydraNodeLog tx) ->
   HydraNode tx m ->
   m ()
-runHydraNode =
+runHydraNode tracer node =
   -- NOTE(SN): here we could introduce concurrent head processing, e.g. with
   -- something like 'forM_ [0..1] $ async'
-  forever . stepHydraNode
+  forever $ stepHydraNode tracer node
 
 stepHydraNode ::
   ( MonadThrow m
