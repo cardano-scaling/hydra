@@ -25,7 +25,7 @@ import Hydra.Prelude
 
 import Cardano.BM.Tracing (ToObject (..), TracingVerbosity (..))
 import Control.Monad.Class.MonadFork (myThreadId)
-import Control.Monad.Class.MonadSTM (flushTBQueue, modifyTVar, newTBQueueIO, newTVarIO, readTVarIO, writeTBQueue)
+import Control.Monad.Class.MonadSTM (MonadSTMTx (readTBQueue), flushTBQueue, modifyTVar, newTBQueueIO, newTVarIO, readTVarIO, writeTBQueue)
 import Control.Monad.Class.MonadSay (MonadSay, say)
 import Control.Tracer (
   Tracer (..),
@@ -56,7 +56,7 @@ withTracer ::
 withTracer Quiet action = action nullTracer
 withTracer (Verbose name) action = do
   msgQueue <- newTBQueueIO @_ @Value defaultQueueSize
-  withAsync (logMessagesToStdout msgQueue) $ \_ ->
+  withAsync (writeLogs msgQueue) $ \_ ->
     action (tracer msgQueue) `finally` flushLogs msgQueue
  where
   tracer queue =
@@ -77,13 +77,14 @@ withTracer (Verbose name) action = do
         , "message" .= msg
         ]
 
-  logMessagesToStdout queue =
-    forever $
-      flushLogs queue >> threadDelay 0.1
+  writeLogs queue =
+    forever $ do
+      atomically (readTBQueue queue) >>= putLBSLn . encode
+      hFlush stdout
 
   flushLogs queue = do
     entries <- atomically $ flushTBQueue queue
-    forM_ entries (TIO.putStrLn . decodeUtf8With lenientDecode . LBS.toStrict . encode)
+    forM_ entries (putLBSLn . encode)
     hFlush stdout
 
 traceInTVar :: MonadSTM m => TVar m [a] -> Tracer m a
