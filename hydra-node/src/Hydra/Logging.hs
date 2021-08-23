@@ -34,9 +34,7 @@ import Control.Tracer (
   traceWith,
  )
 import Data.Aeson (Value, encode, object, (.=))
-import qualified Data.ByteString.Lazy as LBS
 import qualified Data.Text as Text
-import qualified Data.Text.IO as TIO
 
 data Verbosity = Quiet | Verbose Text
   deriving (Eq, Show)
