@@ -9,7 +9,7 @@ import Hydra.Prelude
 
 import Cardano.Crypto.DSIGN (DSIGNAlgorithm (rawDeserialiseVerKeyDSIGN), deriveVerKeyDSIGN, rawDeserialiseSignKeyDSIGN)
 import Control.Monad.Class.MonadAsync (async)
-import Control.Monad.Class.MonadSTM (newTQueue, newTVarIO, readTQueue, stateTVar, writeTQueue)
+import Control.Monad.Class.MonadSTM (isEmptyTQueue, newTQueue, newTVarIO, readTQueue, stateTVar, writeTQueue)
 import Hydra.Chain (Chain (..), OnChainTx)
 import Hydra.ClientInput (ClientInput)
 import Hydra.HeadLogic (
@@ -103,17 +103,28 @@ runHydraNode ::
   Tracer m (HydraNodeLog tx) ->
   HydraNode tx m ->
   m ()
-runHydraNode tracer node@HydraNode{eq, env = Environment{party}} = do
+runHydraNode =
   -- NOTE(SN): here we could introduce concurrent head processing, e.g. with
   -- something like 'forM_ [0..1] $ async'
-  forever $ do
-    e <- nextEvent eq
-    traceWith tracer $ ProcessingEvent party e
-    atomically (processNextEvent node e) >>= \case
-      -- TODO(SN): Handling of 'Left' is untested, i.e. the fact that it only
-      -- does trace and not throw!
-      Left err -> traceWith tracer (ErrorHandlingEvent party e err)
-      Right effs -> forM_ effs (processEffect node tracer) >> traceWith tracer (ProcessedEvent party e)
+  forever . stepHydraNode
+
+stepHydraNode ::
+  ( MonadThrow m
+  , MonadAsync m
+  , MonadTimer m
+  , Tx tx
+  ) =>
+  Tracer m (HydraNodeLog tx) ->
+  HydraNode tx m ->
+  m ()
+stepHydraNode tracer node@HydraNode{eq, env = Environment{party}} = do
+  e <- nextEvent eq
+  traceWith tracer $ ProcessingEvent party e
+  atomically (processNextEvent node e) >>= \case
+    -- TODO(SN): Handling of 'Left' is untested, i.e. the fact that it only
+    -- does trace and not throw!
+    Left err -> traceWith tracer (ErrorHandlingEvent party e err)
+    Right effs -> forM_ effs (processEffect node tracer) >> traceWith tracer (ProcessedEvent party e)
 
 -- | Monadic interface around 'Hydra.Logic.update'.
 processNextEvent ::
@@ -154,6 +165,7 @@ processEffect HydraNode{hn, oc, sendOutput, eq, env = Environment{party}} tracer
 data EventQueue m e = EventQueue
   { putEvent :: e -> m ()
   , nextEvent :: m e
+  , isEmpty :: m Bool
   }
 
 createEventQueue :: MonadSTM m => m (EventQueue m e)
@@ -163,6 +175,7 @@ createEventQueue = do
     EventQueue
       { putEvent = atomically . writeTQueue q
       , nextEvent = atomically $ readTQueue q
+      , isEmpty = atomically $ isEmptyTQueue q
       }
 
 -- ** HydraHead handle to manage a single hydra head state concurrently

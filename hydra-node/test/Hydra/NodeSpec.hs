@@ -7,6 +7,7 @@ import Cardano.Crypto.DSIGN (SigDSIGN (SigMockDSIGN))
 import Hydra.Chain (Chain (Chain), OnChainTx (..))
 import Hydra.ClientInput (ClientInput (..))
 import Hydra.HeadLogic (
+  Effect,
   Environment (Environment),
   Event (..),
   HeadState (..),
@@ -15,19 +16,45 @@ import Hydra.HeadLogic (
  )
 import Hydra.Ledger (Party, Signed (UnsafeSigned), SigningKey, Tx, deriveParty)
 import Hydra.Ledger.Simple (SimpleTx (..), simpleLedger, utxoRef, utxoRefs)
+import Hydra.Logging (nullTracer)
 import Hydra.Network (Network (..))
 import Hydra.Network.Message (Message (..))
 import qualified Hydra.Network.Message as Msg
-import Hydra.Node (HydraNode (..), createEventQueue, createHydraHead, processNextEvent)
+import Hydra.Node (EventQueue (EventQueue, putEvent), HydraNode (..), createEventQueue, createHydraHead, isEmpty, processNextEvent, stepHydraNode)
 
 spec :: Spec
 spec =
-  describe "Hydra Node" $
+  describe "Hydra Node" $ do
     it "throws an error given next snapshot is acked before current snapshot finishes" $ do
       pendingWith "Fix protocol error on out of order snapshot signing"
-      node <- createHydraNode 20 [30, 10] SnapshotAfterEachTx
+      -- TODO(SN): this is weird now
+      node <- createHydraNode 20 [30, 10] SnapshotAfterEachTx []
       feedEvents node (prefix <> reducedEvents)
-        `shouldReturn` Nothing
+        >>= (`shouldSatisfy` isRight)
+
+    it "emits only one ReqSn as leader even after multiple ReqTxs" $ do
+      -- NOTE(SN): Sequence of parties in OnInitTx of 'prefix' is relevant, so
+      -- 10 is the (initial) snapshot leader
+      let tx1 = SimpleTx{txSimpleId = 1, txInputs = utxoRefs [2], txOutputs = utxoRefs [4, 5, 6, 7, 8, 9, 10, 11, 12, 13]}
+          tx2 = SimpleTx{txSimpleId = 2, txInputs = utxoRefs [1, 3, 4, 5, 6, 8, 9, 10, 11, 13], txOutputs = utxoRefs [14, 15]}
+          tx3 = SimpleTx{txSimpleId = 3, txInputs = utxoRefs [7, 14], txOutputs = utxoRefs [16, 17, 18, 19, 20, 21, 22, 23]}
+          events =
+            prefix
+              <> [ NetworkEvent{message = ReqTx{Msg.party = 10, Msg.transaction = tx1}}
+                 , NetworkEvent{message = ReqTx{Msg.party = 10, Msg.transaction = tx2}}
+                 , NetworkEvent{message = ReqTx{Msg.party = 10, Msg.transaction = tx3}}
+                 ]
+      node <- createHydraNode 10 [20, 30] SnapshotAfterEachTx events
+      (node', getNetworkMessages) <- recordNetwork node
+      runToCompletion node'
+      getNetworkMessages `shouldReturn` [ReqSn 10 1 [tx1, tx2, tx3]]
+
+oneReqSn :: [Message tx] -> Bool
+oneReqSn = (== 1) . length . filter isReqSn
+ where
+  isReqSn = \case
+    ReqSn{} -> True
+    _ -> False
 
 prefix :: [Event SimpleTx]
 prefix =
@@ -58,6 +85,11 @@ reducedEvents =
   , NetworkEvent{message = AckSn{Msg.party = 30, signed = UnsafeSigned (SigMockDSIGN "7d81c3daff6fe561" 30), Msg.snapshotNumber = 3}}
   ]
 
+runToCompletion :: Tx tx => HydraNode tx IO -> IO ()
+runToCompletion node@HydraNode{eq = EventQueue{isEmpty}} =
+  unlessM isEmpty $
+    stepHydraNode nullTracer node >> runToCompletion node
+
 -- | Try to update state of a node with a list of 'Event'
 -- Returns Nothing if no event results in an 'Error' out come, or 'Just FeedError' if there's
 -- any error.
@@ -67,35 +99,40 @@ feedEvents ::
   ) =>
   HydraNode tx IO ->
   t (Event tx) ->
-  IO (Maybe (FeedError tx))
+  IO (Either (FeedError tx) [Effect tx])
 feedEvents node eventsList =
   atomically $ do
-    (errs, _) <- partitionEithers . toList <$> traverse (processNextEvent node) eventsList
+    (errs, effs) <- partitionEithers . toList <$> traverse (processNextEvent node) eventsList
     if null errs
-      then pure Nothing
-      else pure $ Just $ FeedError errs
+      then pure $ Right $ concat effs
+      else pure $ Left $ FeedError errs
 
 newtype FeedError tx = FeedError [LogicError tx]
   deriving stock (Eq, Show, Generic)
 
 instance Tx tx => Exception (FeedError tx)
 
-createHydraNode :: MonadSTM m => SigningKey -> [Party] -> SnapshotStrategy -> m (HydraNode SimpleTx m)
-createHydraNode signingKey otherParties snapshotStrategy = do
+createHydraNode ::
+  MonadSTM m =>
+  SigningKey ->
+  [Party] ->
+  SnapshotStrategy ->
+  [Event SimpleTx] ->
+  m (HydraNode SimpleTx m)
+createHydraNode signingKey otherParties snapshotStrategy events = do
   let env =
         Environment
           party
           signingKey
           otherParties
           snapshotStrategy
-
-  eq <- createEventQueue
+  eq@EventQueue{putEvent} <- createEventQueue
+  forM_ events putEvent
   hh <- createHydraHead ReadyState simpleLedger
-  let hn' = Network{broadcast = const $ pure ()}
   pure $
     HydraNode
       { eq
-      , hn = hn'
+      , hn = Network{broadcast = const $ pure ()}
       , hh
       , oc = Chain (const $ pure ())
       , sendOutput = const $ pure ()
@@ -103,3 +140,14 @@ createHydraNode signingKey otherParties snapshotStrategy = do
       }
  where
   party = deriveParty signingKey
+
+recordNetwork :: HydraNode tx IO -> IO (HydraNode tx IO, IO [Message tx])
+recordNetwork node = do
+  ref <- newIORef []
+  pure (patchedNode ref, queryMsgs ref)
+ where
+  recordMsg ref x = atomicModifyIORef' ref $ \old -> (old <> [x], ())
+
+  patchedNode ref = node{hn = Network{broadcast = recordMsg ref}}
+
+  queryMsgs = readIORef
