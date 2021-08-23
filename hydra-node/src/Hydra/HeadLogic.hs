@@ -77,7 +77,7 @@ data CoordinatedHeadState tx = CoordinatedHeadState
   , -- TODO: tx should be an abstract 'TxId'
     seenTxs :: [tx]
   , confirmedSnapshot :: Snapshot tx
-  , seenSnapshot :: Maybe (Snapshot tx, Set Party)
+  , seenSnapshot :: SeenSnapshot tx
   }
   deriving stock (Generic)
 
@@ -88,6 +88,20 @@ deriving instance Tx tx => Eq (CoordinatedHeadState tx)
 deriving instance Tx tx => Show (CoordinatedHeadState tx)
 deriving instance Tx tx => ToJSON (CoordinatedHeadState tx)
 deriving instance Tx tx => FromJSON (CoordinatedHeadState tx)
+
+data SeenSnapshot tx
+  = NoSeenSnapshot
+  | RequestedSnapshot
+  | SeenSnapshot {snapshot :: Snapshot tx, signatories :: Set Party}
+  deriving stock (Generic)
+
+instance (Arbitrary (Utxo tx), Arbitrary tx) => Arbitrary (SeenSnapshot tx) where
+  arbitrary = genericArbitrary
+
+deriving instance Tx tx => Eq (SeenSnapshot tx)
+deriving instance Tx tx => Show (SeenSnapshot tx)
+deriving instance Tx tx => ToJSON (SeenSnapshot tx)
+deriving instance Tx tx => FromJSON (SeenSnapshot tx)
 
 type PendingCommits = Set Party
 
@@ -187,7 +201,7 @@ update Environment{party, signingKey, otherParties, snapshotStrategy} ledger st 
     -- it's untrue?
     let u0 = fold committed
      in nextState
-          (OpenState parameters $ CoordinatedHeadState u0 mempty (Snapshot 0 u0 mempty) Nothing)
+          (OpenState parameters $ CoordinatedHeadState u0 mempty (Snapshot 0 u0 mempty) NoSeenSnapshot)
           [ClientEffect $ HeadIsOpen u0]
   (InitialState _ _ committed, OnChainEvent OnAbortTx) ->
     nextState ReadyState [ClientEffect $ HeadIsAborted $ fold committed]
@@ -227,16 +241,16 @@ update Environment{party, signingKey, otherParties, snapshotStrategy} ledger st 
               | otherwise =
                 []
          in nextState (OpenState parameters $ headState{seenTxs = newSeenTxs, seenUtxo = utxo'}) (ClientEffect (TxSeen tx) : snapshotEffects)
-  (OpenState _ CoordinatedHeadState{confirmedSnapshot, seenTxs, seenSnapshot}, DoSnapshot)
-    | isNothing seenSnapshot ->
+  (OpenState parameters headState@CoordinatedHeadState{confirmedSnapshot, seenTxs, seenSnapshot}, DoSnapshot)
+    | seenSnapshot == NoSeenSnapshot ->
       let sn' = number confirmedSnapshot + 1
           effects
             | not (null seenTxs) = [NetworkEffect $ ReqSn party sn' seenTxs]
             | otherwise = []
-       in sameState effects
+       in nextState (OpenState parameters $ headState{seenSnapshot = RequestedSnapshot}) effects
     | otherwise -> Wait
   (OpenState parameters s@CoordinatedHeadState{confirmedSnapshot, seenSnapshot}, NetworkEvent (ReqSn otherParty sn txs))
-    | number confirmedSnapshot + 1 == sn && isLeader parameters otherParty sn && isNothing seenSnapshot ->
+    | number confirmedSnapshot + 1 == sn && isLeader parameters otherParty sn && not (snapshotPending seenSnapshot) ->
       -- TODO: How to handle ReqSN with sn > confirmed + 1 - Wait?
       -- TODO: Also we might be robust against multiple ReqSn for otherwise
       -- valid request, which is currently leading to 'Error'
@@ -248,13 +262,15 @@ update Environment{party, signingKey, otherParties, snapshotStrategy} ledger st 
           let nextSnapshot = Snapshot sn u txs
               snapshotSignature = sign signingKey nextSnapshot
            in nextState
-                (OpenState parameters $ s{seenSnapshot = Just (nextSnapshot, mempty)})
+                (OpenState parameters $ s{seenSnapshot = SeenSnapshot nextSnapshot mempty})
                 [NetworkEffect $ AckSn party snapshotSignature sn]
   (OpenState parameters@HeadParameters{parties} headState@CoordinatedHeadState{seenSnapshot, seenTxs}, NetworkEvent (AckSn otherParty snapshotSignature sn)) ->
     case seenSnapshot of
-      Nothing -> Wait
-      Just (snapshot, sigs)
-        | number snapshot == sn ->
+      NoSeenSnapshot -> Wait
+      RequestedSnapshot -> Wait
+      SeenSnapshot snapshot sigs
+        | number snapshot /= sn -> Wait
+        | otherwise ->
           let sigs'
                 -- TODO: Must check whether we know the 'otherParty' signing the snapshot
                 | verify snapshotSignature otherParty snapshot = otherParty `Set.insert` sigs
@@ -265,7 +281,7 @@ update Environment{party, signingKey, otherParties, snapshotStrategy} ledger st 
                     ( OpenState parameters $
                         headState
                           { confirmedSnapshot = snapshot
-                          , seenSnapshot = Nothing
+                          , seenSnapshot = NoSeenSnapshot
                           , seenTxs = seenTxs \\ confirmed snapshot
                           }
                     )
@@ -274,12 +290,10 @@ update Environment{party, signingKey, otherParties, snapshotStrategy} ledger st 
                   nextState
                     ( OpenState parameters $
                         headState
-                          { seenSnapshot = Just (snapshot, sigs')
+                          { seenSnapshot = SeenSnapshot snapshot sigs'
                           }
                     )
                     []
-      Just (snapshot, _) ->
-        error $ "Invalid snapshot number, expected: " <> show (number snapshot) <> ", got: " <> show sn
   (OpenState parameters@HeadParameters{contestationPeriod} CoordinatedHeadState{confirmedSnapshot}, OnChainEvent OnCloseTx{}) ->
     -- TODO(1): Should check whether we want / can contest the close snapshot by
     --       comparing with our local state / utxo.
@@ -318,3 +332,8 @@ update Environment{party, signingKey, otherParties, snapshotStrategy} ledger st 
     case p `elemIndex` parties of
       Just i -> i == 0
       _ -> False
+
+  snapshotPending :: SeenSnapshot tx -> Bool
+  snapshotPending = \case
+    SeenSnapshot{} -> True
+    _ -> False

@@ -20,6 +20,7 @@ import Hydra.HeadLogic (
   HeadState (..),
   LogicError (..),
   Outcome (..),
+  SeenSnapshot (NoSeenSnapshot),
   SnapshotStrategy (..),
   update,
  )
@@ -260,7 +261,7 @@ inOpenState ::
   Ledger tx ->
   HeadState tx
 inOpenState parties Ledger{initUtxo} =
-  OpenState parameters $ CoordinatedHeadState u0 mempty snapshot0 Nothing
+  OpenState parameters $ CoordinatedHeadState u0 mempty snapshot0 NoSeenSnapshot
  where
   u0 = initUtxo
   snapshot0 = Snapshot 0 u0 mempty
