@@ -4,28 +4,32 @@ import Hydra.Prelude
 
 import Bench.EndToEnd (bench)
 import Data.Aeson (eitherDecodeFileStrict', encodeFile)
-import Hydra.Ledger.Simple (genSequenceOfValidTransactions, utxoRefs)
-import Test.Hydra.Prelude (createSystemTempDirectory)
+import Hydra.Ledger.Cardano (genSequenceOfValidTransactions, genUtxo)
 import System.FilePath (takeDirectory, (</>))
+import Test.Hydra.Prelude (createSystemTempDirectory)
 import Test.QuickCheck (generate, scale)
 
 main :: IO ()
 main =
   getArgs >>= \case
-    [txsFile] ->
-      eitherDecodeFileStrict' txsFile >>= \case
-        Left err -> die err
-        Right txs -> do
-          putStrLn $ "Using transactions from: " <> txsFile
-          bench (takeDirectory txsFile) txs
+    [utxosFile, txsFile] ->
+      eitherDecodeFileStrict' txsFile
+        >>= \ts ->
+          eitherDecodeFileStrict' utxosFile >>= \us ->
+            case (ts, us) of
+              (Right txs, Right utxos) -> do
+                putStrLn $ "Using transactions from: " <> txsFile
+                putStrLn $ "Using UTxOs from: " <> utxosFile
+                bench (takeDirectory txsFile) utxos txs
+              err -> die (show err)
     _ -> do
       tmpDir <- createSystemTempDirectory "bench"
 
-      let initialUtxo = utxoRefs [1, 2, 3]
+      initialUtxo <- generate genUtxo
       txs <- generate $ scale (* 100) $ genSequenceOfValidTransactions initialUtxo
 
       let txsFile = tmpDir </> "txs.json"
       putStrLn $ "Writing transactions to: " <> txsFile
       encodeFile txsFile txs
 
-      bench tmpDir txs
+      bench tmpDir initialUtxo txs

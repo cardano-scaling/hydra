@@ -18,14 +18,13 @@ import Control.Monad.Class.MonadSTM (
   modifyTVar,
   newTVarIO,
  )
-import Data.Aeson (Value, encodeFile, (.=))
-import Data.Aeson.Lens (key, _Array, _Number)
+import Data.Aeson (Result (Success), Value, encodeFile, fromJSON, (.=))
+import Data.Aeson.Lens (key, _Array)
 import qualified Data.Map as Map
-import Data.Scientific (floatingOrInteger)
 import Data.Set ((\\))
 import qualified Data.Set as Set
-import Hydra.Ledger (Tx, TxId, txId)
-import Hydra.Ledger.Simple (SimpleTx)
+import Hydra.Ledger (Tx, TxId, Utxo, txId)
+import Hydra.Ledger.Cardano (CardanoTx)
 import Hydra.Logging (showLogsOnFailure)
 import HydraNode (
   HydraClient,
@@ -56,9 +55,9 @@ data Event = Event
   }
   deriving (Generic, Eq, Show, ToJSON)
 
-bench :: FilePath -> [SimpleTx] -> IO ()
-bench workDir txs = do
-  registry <- newTVarIO mempty :: IO (TVar IO (Map.Map (TxId SimpleTx) Event))
+bench :: FilePath -> Utxo CardanoTx -> [CardanoTx] -> IO ()
+bench workDir initialUtxo txs = do
+  registry <- newTVarIO mempty :: IO (TVar IO (Map.Map (TxId CardanoTx) Event))
   failAfter 300 $
     showLogsOnFailure $ \tracer ->
       withMockChain $ \chainPorts ->
@@ -70,11 +69,12 @@ bench workDir txs = do
               send n1 $ input "Init" ["contestationPeriod" .= contestationPeriod]
               waitFor tracer 3 [n1, n2, n3] $
                 output "ReadyToCommit" ["parties" .= [int 10, 20, 30]]
-              send n1 $ input "Commit" ["utxo" .= [int 1]]
-              send n2 $ input "Commit" ["utxo" .= [int 2]]
-              send n3 $ input "Commit" ["utxo" .= [int 3]]
 
-              waitFor tracer 3 [n1, n2, n3] $ output "HeadIsOpen" ["utxo" .= [int 1, 2, 3]]
+              send n1 $ input "Commit" ["utxo" .= initialUtxo]
+              send n2 $ input "Commit" ["utxo" .= noUtxos]
+              send n3 $ input "Commit" ["utxo" .= noUtxos]
+
+              waitFor tracer 3 [n1, n2, n3] $ output "HeadIsOpen" ["utxo" .= initialUtxo]
 
               for_ txs (\tx -> newTx registry n1 tx >> threadDelay 0.001)
                 `concurrently_` waitForAllConfirmations n1 registry txs
@@ -92,6 +92,8 @@ bench workDir txs = do
 -- Helpers
 --
 
+noUtxos :: Utxo CardanoTx
+noUtxos = mempty
 int :: Int -> Int
 int = id
 
@@ -116,7 +118,7 @@ newTx registry client tx = do
           }
   send client $ input "NewTx" ["transaction" .= tx]
 
-waitForAllConfirmations :: HydraClient -> TVar IO (Map.Map (TxId SimpleTx) Event) -> [SimpleTx] -> IO ()
+waitForAllConfirmations :: HydraClient -> TVar IO (Map.Map (TxId CardanoTx) Event) -> [CardanoTx] -> IO ()
 waitForAllConfirmations n1 registry txs =
   go allIds
  where
@@ -137,12 +139,12 @@ waitForAllConfirmations n1 registry txs =
       go $ remainingIds \\ Set.fromList (toList confirmedIds)
 
 confirmTx ::
-  TVar IO (Map.Map (TxId SimpleTx) Event) ->
+  TVar IO (Map.Map (TxId CardanoTx) Event) ->
   Value ->
-  IO (TxId SimpleTx)
+  IO (TxId CardanoTx)
 confirmTx registry tx = do
-  case floatingOrInteger @Double <$> tx ^? key "id" . _Number of
-    Just (Right identifier) -> do
+  case fromJSON @(TxId CardanoTx) <$> tx ^? key "id" of
+    Just (Success identifier) -> do
       now <- getCurrentTime
       atomically $
         modifyTVar registry $
@@ -150,7 +152,7 @@ confirmTx registry tx = do
       pure identifier
     _ -> error $ "incorrect Txid" <> show tx
 
-analyze :: (TxId SimpleTx, Event) -> Maybe (UTCTime, NominalDiffTime)
+analyze :: (TxId CardanoTx, Event) -> Maybe (UTCTime, NominalDiffTime)
 analyze = \case
   (_, Event{submittedAt, confirmedAt = Just conf}) -> Just (submittedAt, conf `diffUTCTime` submittedAt)
   _ -> Nothing

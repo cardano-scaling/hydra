@@ -33,6 +33,7 @@ import Cardano.Slotting.EpochInfo (fixedEpochInfo)
 import Cardano.Slotting.Time (SystemStart (SystemStart), mkSlotLength)
 import qualified Codec.Binary.Bech32 as Bech32
 import qualified Codec.Binary.Bech32.TH as Bech32
+import Control.Monad (foldM)
 import Data.Aeson (
   FromJSONKey (fromJSONKey),
   FromJSONKeyFunction (FromJSONKeyTextParser),
@@ -60,7 +61,7 @@ import Shelley.Spec.Ledger.API (_maxTxSize)
 import qualified Shelley.Spec.Ledger.API as Cardano hiding (TxBody)
 import Shelley.Spec.Ledger.Tx (WitnessSetHKD (WitnessSet))
 import Test.Cardano.Ledger.MaryEraGen ()
-import Test.QuickCheck (Gen)
+import Test.QuickCheck (Gen, choose, getSize)
 import qualified Test.Shelley.Spec.Ledger.Generator.Constants as Constants
 import Test.Shelley.Spec.Ledger.Generator.Core (geConstants)
 import Test.Shelley.Spec.Ledger.Generator.EraGen (genUtxo0)
@@ -141,6 +142,18 @@ genCardanoTx utxos = do
           body
           wits
           aux
+
+genSequenceOfValidTransactions :: Utxo CardanoTx -> Gen [CardanoTx]
+genSequenceOfValidTransactions initialUtxos = do
+  n <- getSize
+  numTxs <- choose (1, n)
+  reverse . snd <$> foldM newTx (initialUtxos, []) [1 .. numTxs]
+ where
+  newTx (utxos, acc) _ = do
+    tx <- genCardanoTx utxos
+    case applyTransactions cardanoLedger utxos [tx] of
+      Left err -> error $ show err
+      Right newUtxos -> pure (newUtxos, tx : acc)
 
 noPPUpdatesTransactions :: Constants.Constants
 noPPUpdatesTransactions =
