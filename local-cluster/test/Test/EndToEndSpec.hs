@@ -15,7 +15,8 @@ import Cardano.Api (
   KeyWitnessInCtx (KeyWitnessForSpending),
   MaryEra,
   MultiAssetSupportedInEra (MultiAssetInMaryEra),
-  NetworkId (Mainnet),
+  NetworkId (Testnet),
+  NetworkMagic (NetworkMagic),
   PaymentCredential (PaymentCredentialByKey),
   PaymentKey,
   ShelleyWitnessSigningKey (WitnessPaymentKey),
@@ -219,7 +220,7 @@ inHeadAliceAddress :: Address ShelleyAddr
 inHeadAliceAddress =
   makeShelleyAddress network credential reference
  where
-  network = Mainnet
+  network = Testnet (NetworkMagic 14) -- Magic is ignored in Shelley and Ledger aPI but required in cardano-api
   credential = PaymentCredentialByKey $ verificationKeyHash inHeadAliceVk
   reference = NoStakeAddress
 
@@ -279,7 +280,11 @@ txToJson tx =
           [ "inputs" .= map fst (txIns content)
           , "outputs" .= txOuts content
           ]
-    , "witnesses" .= map (encodeBase16 . serialiseToCBOR) txWitnesses
+    , "witnesses"
+        .= object
+          [ "addresses" .= map (encodeBase16 . serialiseToCBOR) txWitnesses
+          , "scripts" .= object []
+          ]
     , "auxiliaryData" .= Null
     ]
  where
