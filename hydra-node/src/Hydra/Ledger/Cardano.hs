@@ -11,6 +11,7 @@ import Cardano.Binary (
   Annotator,
   decodeAnnotator,
   decodeBytes,
+  decodeFull,
   decodeListLenOf,
   decodeWord,
   encodeBytes,
@@ -199,11 +200,12 @@ instance FromJSON CardanoTxBody where
   parseJSON = withObject "CardanoTxBody" $ \o -> do
     inputs <- o .: "inputs" >>= traverse parseJSON
     outputs <- o .: "outputs" >>= traverse parseJSON
+    certificates <- o .: "certificates" <|> pure mempty
     pure $
       Cardano.TxBody
         (Set.fromList inputs)
         (StrictSeq.fromList outputs)
-        mempty
+        certificates
         (Cardano.Wdrl mempty)
         mempty
         (Cardano.ValidityInterval SNothing SNothing)
@@ -212,10 +214,11 @@ instance FromJSON CardanoTxBody where
         mempty
 
 instance ToJSON CardanoTxBody where
-  toJSON (Cardano.TxBody inputs outputs _certs _wdrls _txfee _vldt _update _adHash _mint) =
+  toJSON (Cardano.TxBody inputs outputs certificates _wdrls _txfee _vldt _update _adHash _mint) =
     object
       [ "inputs" .= inputs
       , "outputs" .= outputs
+      , "certificates" .= certificates
       ]
 
 --
@@ -300,6 +303,21 @@ valueToJson :: Cardano.Value crypto -> Value
 valueToJson (Cardano.Value lovelace _assets) =
   object ["lovelace" .= lovelace]
 
+---
+--- Certificates
+---
+
+instance ToJSON (Cardano.DCert StandardCrypto) where
+  toJSON = String . encodeBase16 . serialize'
+
+instance FromJSON (Cardano.DCert StandardCrypto) where
+  parseJSON = withText "DCert" $ \t ->
+    case decodeBase16 $ encodeUtf8 t of
+      Left err -> fail $ show err
+      Right bs' -> case decodeFull (fromStrict bs') of
+        Left err -> fail $ show err
+        Right v -> pure v
+
 --
 -- Utxo
 --
@@ -364,7 +382,7 @@ instance FromJSON (Cardano.Timelock StandardCrypto) where
   parseJSON = withText "Timelock" $ \t ->
     case decodeBase16 $ encodeUtf8 t of
       Left err -> fail $ show err
-      Right bs' -> case decodeAnnotator "ShelleyKeyWitness" fromCBOR (fromStrict bs') of
+      Right bs' -> case decodeAnnotator "Timelock" fromCBOR (fromStrict bs') of
         Left err -> fail $ show err
         Right v -> pure v
 
