@@ -205,6 +205,7 @@ instance FromJSON CardanoTxBody where
     -- does not produce txs with withdrawals
     withdrawals <- o .: "withdrawals" <|> pure noWithdrawals
     fees <- o .: "fees" <|> pure mempty
+    validity <- o .: "validity" <|> pure (Cardano.ValidityInterval SNothing SNothing)
     pure $
       Cardano.TxBody
         (Set.fromList inputs)
@@ -212,7 +213,7 @@ instance FromJSON CardanoTxBody where
         certificates
         withdrawals
         fees
-        (Cardano.ValidityInterval SNothing SNothing)
+        validity
         Cardano.SNothing
         Cardano.SNothing
         mempty
@@ -220,13 +221,14 @@ instance FromJSON CardanoTxBody where
     noWithdrawals = Wdrl mempty
 
 instance ToJSON CardanoTxBody where
-  toJSON (Cardano.TxBody inputs outputs certificates withdrawals fees _vldt _update _adHash _mint) =
+  toJSON (Cardano.TxBody inputs outputs certificates withdrawals fees validity _update _adHash _mint) =
     object
       [ "inputs" .= inputs
       , "outputs" .= outputs
       , "certificates" .= certificates
       , "withdrawals" .= withdrawals
       , "fees" .= fees
+      , "validity" .= validity
       ]
 
 instance Crypto crypto => ToJSON (Cardano.Wdrl crypto) where
@@ -234,6 +236,17 @@ instance Crypto crypto => ToJSON (Cardano.Wdrl crypto) where
 
 instance Crypto crypto => FromJSON (Cardano.Wdrl crypto) where
   parseJSON v = Cardano.Wdrl <$> parseJSON v
+
+instance ToJSON Cardano.ValidityInterval where
+  toJSON (Cardano.ValidityInterval notBefore notAfter) =
+    object
+      [ "notBefore" .= notBefore
+      , "notAfter" .= notAfter
+      ]
+
+instance FromJSON Cardano.ValidityInterval where
+  parseJSON = withObject "ValidityInterval" $ \obj ->
+    Cardano.ValidityInterval <$> obj .: "notBefore" <*> obj .: "notAfter"
 
 --
 -- Input
