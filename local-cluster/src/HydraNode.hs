@@ -95,8 +95,9 @@ waitMatch delay HydraClient{connection} match = do
     Just x -> pure x
     Nothing -> do
       msgs <- readTVarIO seenMsgs
-      void $ failure $ "Didn't match within allocated time, received messages: " <> show msgs
-      error "should never get there"
+      failure $
+        "Didn't match within allocated time. \nHere are the first 10 received messages: "
+          <> show (take 10 msgs)
  where
   go seenMsgs = do
     bytes <- receiveData connection
