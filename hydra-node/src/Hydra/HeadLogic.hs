@@ -242,12 +242,10 @@ update Environment{party, signingKey, otherParties, snapshotStrategy} ledger st 
                 []
          in nextState (OpenState parameters $ headState{seenTxs = newSeenTxs, seenUtxo = utxo'}) (ClientEffect (TxSeen tx) : snapshotEffects)
   (OpenState parameters headState@CoordinatedHeadState{confirmedSnapshot, seenTxs, seenSnapshot}, DoSnapshot)
-    | seenSnapshot == NoSeenSnapshot ->
-      let sn' = number confirmedSnapshot + 1
-          effects
-            | not (null seenTxs) = [NetworkEffect $ ReqSn party sn' seenTxs]
-            | otherwise = []
-       in nextState (OpenState parameters $ headState{seenSnapshot = RequestedSnapshot}) effects
+    | seenSnapshot == NoSeenSnapshot && not (null seenTxs) ->
+      nextState
+        (OpenState parameters $ headState{seenSnapshot = RequestedSnapshot})
+        [NetworkEffect $ ReqSn party (number confirmedSnapshot + 1) seenTxs]
     | otherwise -> Wait
   (OpenState parameters s@CoordinatedHeadState{confirmedSnapshot, seenSnapshot}, e@(NetworkEvent (ReqSn otherParty sn txs)))
     | number confirmedSnapshot + 1 == sn && isLeader parameters otherParty sn && not (snapshotPending seenSnapshot) ->
