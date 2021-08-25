@@ -157,6 +157,13 @@ spec = do
           st = inOpenState threeParties ledger
       update env ledger st event `shouldBe` Error (InvalidEvent event st)
 
+    it "waits if we receive a ReqSn while collecting signatures" $ do
+      let s0 = inOpenState threeParties ledger
+          reqSn1 = NetworkEvent $ ReqSn 1 1 []
+          reqSn2 = NetworkEvent $ ReqSn 1 2 []
+      s1 <- assertNewState $ update env ledger s0 reqSn1
+      update env ledger s1 reqSn2 `shouldBe` Wait
+
     it "acks signed snapshot from the constant leader" $ do
       let leader = 1
           snapshot = Snapshot 1 mempty []
