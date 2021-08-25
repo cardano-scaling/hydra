@@ -250,6 +250,7 @@ update Environment{party, signingKey, otherParties, snapshotStrategy} ledger st 
        in nextState (OpenState parameters $ headState{seenSnapshot = RequestedSnapshot}) effects
     | otherwise -> Wait
   (OpenState parameters s@CoordinatedHeadState{confirmedSnapshot, seenSnapshot}, NetworkEvent (ReqSn otherParty sn txs))
+    | sn > number confirmedSnapshot && isLeader parameters otherParty sn && snapshotPending seenSnapshot -> Wait
     | number confirmedSnapshot + 1 == sn && isLeader parameters otherParty sn && not (snapshotPending seenSnapshot) ->
       -- TODO: How to handle ReqSN with sn > confirmed + 1 - Wait?
       -- TODO: Also we might be robust against multiple ReqSn for otherwise

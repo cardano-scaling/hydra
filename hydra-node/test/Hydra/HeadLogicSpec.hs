@@ -20,7 +20,7 @@ import Hydra.HeadLogic (
   HeadState (..),
   LogicError (..),
   Outcome (..),
-  SeenSnapshot (NoSeenSnapshot),
+  SeenSnapshot (NoSeenSnapshot, SeenSnapshot),
   SnapshotStrategy (..),
   update,
  )
@@ -152,6 +152,7 @@ spec = do
           event = NetworkEvent $ AckSn 1 (sign 1 snapshot) 1
       update env ledger (inOpenState threeParties ledger) event `shouldBe` Wait
 
+    -- TODO(SN): what is far-away? Maybe drop this expectation
     it "returns logic error if we receive a far-away snapshot (not the direct successor)" $ do
       let event = NetworkEvent $ ReqSn 1 2 []
           st = inOpenState threeParties ledger
@@ -179,7 +180,37 @@ spec = do
           st = inOpenState threeParties ledger
       update env ledger st event `shouldBe` Error (InvalidEvent event st)
 
-    it "does not ack too new snapshots" $ do
+    -- TODO(SN): maybe this and the next are a property! at least DRY
+
+    it "rejects too-old snapshots" $ do
+      let event = NetworkEvent $ ReqSn theLeader 2 []
+          theLeader = 1
+          snapshot = Snapshot 2 mempty []
+          st =
+            inOpenState' threeParties $
+              CoordinatedHeadState
+                { seenUtxo = mempty
+                , seenTxs = mempty
+                , confirmedSnapshot = snapshot
+                , seenSnapshot = NoSeenSnapshot
+                }
+      update env ledger st event `shouldBe` Error (InvalidEvent event st)
+
+    it "rejects too-old snapshots when collecting signatures" $ do
+      let event = NetworkEvent $ ReqSn theLeader 2 []
+          theLeader = 1
+          snapshot = Snapshot 2 mempty []
+          st =
+            inOpenState' threeParties $
+              CoordinatedHeadState
+                { seenUtxo = mempty
+                , seenTxs = mempty
+                , confirmedSnapshot = snapshot
+                , seenSnapshot = SeenSnapshot (Snapshot 3 mempty []) mempty
+                }
+      update env ledger st event `shouldBe` Error (InvalidEvent event st)
+
+    it "rejects too new snapshots" $ do
       let event = NetworkEvent $ ReqSn theLeader 3 []
           theLeader = 1
           st = inOpenState threeParties ledger
@@ -268,10 +299,17 @@ inOpenState ::
   Ledger tx ->
   HeadState tx
 inOpenState parties Ledger{initUtxo} =
-  OpenState parameters $ CoordinatedHeadState u0 mempty snapshot0 NoSeenSnapshot
+  inOpenState' parties $ CoordinatedHeadState u0 mempty snapshot0 NoSeenSnapshot
  where
   u0 = initUtxo
   snapshot0 = Snapshot 0 u0 mempty
+
+inOpenState' ::
+  [Party] ->
+  CoordinatedHeadState tx ->
+  HeadState tx
+inOpenState' parties = OpenState parameters
+ where
   parameters = HeadParameters 42 parties
 
 inClosedState :: [Party] -> HeadState SimpleTx
