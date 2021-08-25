@@ -152,13 +152,13 @@ spec = do
           event = NetworkEvent $ AckSn 1 (sign 1 snapshot) 1
       update env ledger (inOpenState threeParties ledger) event `shouldBe` Wait
 
-    -- TODO(SN): what is far-away? Maybe drop this expectation
-    it "returns logic error if we receive a far-away snapshot (not the direct successor)" $ do
+    -- TODO: write a property test for various future snapshots
+    it "waits if we receive a future snapshot" $ do
       let event = NetworkEvent $ ReqSn 1 2 []
           st = inOpenState threeParties ledger
-      update env ledger st event `shouldBe` Error (InvalidEvent event st)
+      update env ledger st event `shouldBe` Wait
 
-    it "waits if we receive a ReqSn while collecting signatures" $ do
+    it "waits if we receive a future snapshot while collecting signatures" $ do
       let s0 = inOpenState threeParties ledger
           reqSn1 = NetworkEvent $ ReqSn 1 1 []
           reqSn2 = NetworkEvent $ ReqSn 1 2 []
@@ -181,7 +181,8 @@ spec = do
       update env ledger st event `shouldBe` Error (InvalidEvent event st)
 
     -- TODO(SN): maybe this and the next are a property! at least DRY
-
+    -- NOTE(AB): we should cover variations of snapshot numbers and state of snapshot
+    -- collection
     it "rejects too-old snapshots" $ do
       let event = NetworkEvent $ ReqSn theLeader 2 []
           theLeader = 1
@@ -210,11 +211,11 @@ spec = do
                 }
       update env ledger st event `shouldBe` Error (InvalidEvent event st)
 
-    it "rejects too new snapshots" $ do
+    it "wait given too new snapshots from the leader" $ do
       let event = NetworkEvent $ ReqSn theLeader 3 []
           theLeader = 1
           st = inOpenState threeParties ledger
-      update env ledger st event `shouldBe` Error (InvalidEvent event st)
+      update env ledger st event `shouldBe` Wait
 
     it "rejects overlapping snapshot requests from the leader" $ do
       let s0 = inOpenState threeParties ledger

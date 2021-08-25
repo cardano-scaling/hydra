@@ -249,10 +249,8 @@ update Environment{party, signingKey, otherParties, snapshotStrategy} ledger st 
             | otherwise = []
        in nextState (OpenState parameters $ headState{seenSnapshot = RequestedSnapshot}) effects
     | otherwise -> Wait
-  (OpenState parameters s@CoordinatedHeadState{confirmedSnapshot, seenSnapshot}, NetworkEvent (ReqSn otherParty sn txs))
-    | sn > number confirmedSnapshot && isLeader parameters otherParty sn && snapshotPending seenSnapshot -> Wait
+  (OpenState parameters s@CoordinatedHeadState{confirmedSnapshot, seenSnapshot}, e@(NetworkEvent (ReqSn otherParty sn txs)))
     | number confirmedSnapshot + 1 == sn && isLeader parameters otherParty sn && not (snapshotPending seenSnapshot) ->
-      -- TODO: How to handle ReqSN with sn > confirmed + 1 - Wait?
       -- TODO: Also we might be robust against multiple ReqSn for otherwise
       -- valid request, which is currently leading to 'Error'
       -- TODO: Verify the request is signed by (?) / comes from the leader
@@ -265,6 +263,14 @@ update Environment{party, signingKey, otherParties, snapshotStrategy} ledger st 
            in nextState
                 (OpenState parameters $ s{seenSnapshot = SeenSnapshot nextSnapshot mempty})
                 [NetworkEffect $ AckSn party snapshotSignature sn]
+    | sn > number confirmedSnapshot && isLeader parameters otherParty sn ->
+      -- TODO: How to handle ReqSN with sn > confirmed + 1
+      -- This code feels contrived
+      case seenSnapshot of
+        SeenSnapshot{snapshot}
+          | number snapshot == sn -> Error (InvalidEvent e st)
+          | otherwise -> Wait
+        _ -> Wait
   (OpenState parameters@HeadParameters{parties} headState@CoordinatedHeadState{seenSnapshot, seenTxs}, NetworkEvent (AckSn otherParty snapshotSignature sn)) ->
     case seenSnapshot of
       NoSeenSnapshot -> Wait
