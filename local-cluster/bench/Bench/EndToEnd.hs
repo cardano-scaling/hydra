@@ -18,7 +18,7 @@ import Control.Monad.Class.MonadSTM (
   modifyTVar,
   newTVarIO,
  )
-import Data.Aeson (Result (Error, Success), Value, encodeFile, fromJSON, (.=))
+import Data.Aeson (Result (Error, Success), Value, encode, fromJSON, (.=))
 import Data.Aeson.Lens (key, _Array, _Number, _String)
 import qualified Data.Map as Map
 import Data.Scientific (Scientific)
@@ -86,9 +86,7 @@ bench workDir initialUtxo txs =
                   guard (v ^? key "tag" == Just "HeadIsFinalized")
 
     res <- mapMaybe analyze . Map.toList <$> readTVarIO registry
-    let resFile = workDir </> "results.json"
-    putStrLn $ "Writing results to: " <> resFile
-    encodeFile resFile res
+    writeResultsCsv (workDir </> "results.csv") res
 
 --
 -- Helpers
@@ -180,3 +178,12 @@ analyze :: (TxId CardanoTx, Event) -> Maybe (UTCTime, NominalDiffTime)
 analyze = \case
   (_, Event{submittedAt, confirmedAt = Just conf}) -> Just (submittedAt, conf `diffUTCTime` submittedAt)
   _ -> Nothing
+
+writeResultsCsv :: FilePath -> [(UTCTime, NominalDiffTime)] -> IO ()
+writeResultsCsv fp res = do
+  putStrLn $ "Writing results to: " <> fp
+  writeFileLBS fp $ headers <> "\n" <> foldMap toCsv res
+ where
+  headers = "txId,confirmationTime"
+
+  toCsv (a, b) = encode a <> "," <> encode b <> "\n"
