@@ -125,11 +125,16 @@ waitForAllConfirmations n1 registry txs =
   go remainingIds
     | Set.null remainingIds = pure ()
     | otherwise = do
-      res <- waitMatch 10 n1 $ \v -> do
-        guard (v ^? key "tag" == Just "snapshotConfirmed")
-        v ^? key "snapshot" . key "confirmedTransactions" . _Array
-      confirmedIds <- mapM (confirmTx registry) res
-      go (remainingIds \\ Set.fromList (toList confirmedIds))
+      (confirmedTxs, confirmedSnapshotNumber) <- waitMatch 20 n1 $ \v -> do
+        guard (v ^? key "tag" == Just "SnapshotConfirmed")
+        snapshot <- v ^? key "snapshot"
+        (,)
+          <$> snapshot ^? key "confirmedTransactions" . _Array
+          <*> snapshot ^? key "snapshotNumber" . _Number
+      -- TODO(SN): use a tracer for this
+      putTextLn $ "Snapshot confirmed: " <> show confirmedSnapshotNumber
+      confirmedIds <- mapM (confirmTx registry) confirmedTxs
+      go $ remainingIds \\ Set.fromList (toList confirmedIds)
 
 confirmTx ::
   TVar IO (Map.Map (TxId SimpleTx) Event) ->
