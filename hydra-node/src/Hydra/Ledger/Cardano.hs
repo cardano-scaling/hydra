@@ -58,7 +58,7 @@ import qualified Data.Set as Set
 import qualified Data.Text as Text
 import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
 import Hydra.Ledger (Ledger (..), Tx (..), ValidationError (ValidationError))
-import Shelley.Spec.Ledger.API (_maxTxSize)
+import Shelley.Spec.Ledger.API (Wdrl (Wdrl), unWdrl, _maxTxSize)
 import qualified Shelley.Spec.Ledger.API as Cardano hiding (TxBody)
 import Shelley.Spec.Ledger.Tx (WitnessSetHKD (WitnessSet))
 import Test.Cardano.Ledger.MaryEraGen ()
@@ -201,25 +201,39 @@ instance FromJSON CardanoTxBody where
     inputs <- o .: "inputs" >>= traverse parseJSON
     outputs <- o .: "outputs" >>= traverse parseJSON
     certificates <- o .: "certificates" <|> pure mempty
+    -- NOTE(AB): added for completeness' sake but generator
+    -- does not produce txs with withdrawals
+    withdrawals <- o .: "withdrawals" <|> pure noWithdrawals
+    fees <- o .: "fees" <|> pure mempty
     pure $
       Cardano.TxBody
         (Set.fromList inputs)
         (StrictSeq.fromList outputs)
         certificates
-        (Cardano.Wdrl mempty)
-        mempty
+        withdrawals
+        fees
         (Cardano.ValidityInterval SNothing SNothing)
         Cardano.SNothing
         Cardano.SNothing
         mempty
+   where
+    noWithdrawals = Wdrl mempty
 
 instance ToJSON CardanoTxBody where
-  toJSON (Cardano.TxBody inputs outputs certificates _wdrls _txfee _vldt _update _adHash _mint) =
+  toJSON (Cardano.TxBody inputs outputs certificates withdrawals fees _vldt _update _adHash _mint) =
     object
       [ "inputs" .= inputs
       , "outputs" .= outputs
       , "certificates" .= certificates
+      , "withdrawals" .= withdrawals
+      , "fees" .= fees
       ]
+
+instance Crypto crypto => ToJSON (Cardano.Wdrl crypto) where
+  toJSON = toJSON . unWdrl
+
+instance Crypto crypto => FromJSON (Cardano.Wdrl crypto) where
+  parseJSON v = Cardano.Wdrl <$> parseJSON v
 
 --
 -- Input
