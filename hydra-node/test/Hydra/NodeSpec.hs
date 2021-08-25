@@ -11,16 +11,17 @@ import Hydra.HeadLogic (
   HeadState (..),
   SnapshotStrategy (..),
  )
-import Hydra.Ledger (Party, SigningKey, Tx, deriveParty)
+import Hydra.Ledger (Party, SigningKey, Tx, deriveParty, sign)
 import Hydra.Ledger.Simple (SimpleTx (..), simpleLedger, utxoRef, utxoRefs)
 import Hydra.Logging (showLogsOnFailure)
 import Hydra.Network (Network (..))
 import Hydra.Network.Message (Message (..))
 import qualified Hydra.Network.Message as Msg
 import Hydra.Node (EventQueue (EventQueue, putEvent), HydraNode (..), createEventQueue, createHydraHead, isEmpty, stepHydraNode)
+import Hydra.Snapshot (Snapshot (Snapshot))
 
 spec :: Spec
-spec =
+spec = do
   it "emits only one ReqSn as leader even after multiple ReqTxs" $ do
     -- NOTE(SN): Sequence of parties in OnInitTx of 'prefix' is relevant, so
     -- 10 is the (initial) snapshot leader
@@ -37,6 +38,20 @@ spec =
     (node', getNetworkMessages) <- recordNetwork node
     runToCompletion node'
     getNetworkMessages `shouldReturn` [ReqSn 10 1 [tx1, tx2, tx3]]
+
+  it "processes out-of-order AckSn" $ do
+    let snapshot = Snapshot 1 mempty []
+        sig20 = sign 20 snapshot
+        sig10 = sign 10 snapshot
+        events =
+          prefix
+            <> [ NetworkEvent{message = AckSn{Msg.party = 20, Msg.signed = sig20, Msg.snapshotNumber = 1}}
+               , NetworkEvent{message = ReqSn{Msg.party = 10, Msg.snapshotNumber = 1, Msg.transactions = []}}
+               ]
+    node <- createHydraNode 10 [20, 30] SnapshotAfterEachTx events
+    (node', getNetworkMessages) <- recordNetwork node
+    runToCompletion node'
+    getNetworkMessages `shouldReturn` [AckSn{Msg.party = 10, Msg.signed = sig10, Msg.snapshotNumber = 1}]
 
 oneReqSn :: [Message tx] -> Bool
 oneReqSn = (== 1) . length . filter isReqSn
