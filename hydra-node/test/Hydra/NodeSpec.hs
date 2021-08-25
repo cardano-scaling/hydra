@@ -24,6 +24,7 @@ import Hydra.Snapshot (Snapshot (Snapshot))
 spec :: Spec
 spec = do
   it "emits only one ReqSn as leader even after multiple ReqTxs" $ do
+    pendingWith "need to push BroadcastToSelf into node for this to work"
     -- NOTE(SN): Sequence of parties in OnInitTx of 'prefix' is relevant, so
     -- 10 is the (initial) snapshot leader
     let tx1 = SimpleTx{txSimpleId = 1, txInputs = utxoRefs [2], txOutputs = utxoRefs [4]}
