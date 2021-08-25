@@ -282,7 +282,7 @@ txToJson tx =
           ]
     , "witnesses"
         .= object
-          [ "addresses" .= map (encodeBase16 . serialiseToCBOR) txWitnesses
+          [ "keys" .= map (encodeBase16 . serialiseToCBOR) txWitnesses
           , "scripts" .= object []
           ]
     , "auxiliaryData" .= Null

@@ -341,11 +341,11 @@ instance Crypto crypto => FromJSON (Cardano.UTxO (MaryEra crypto)) where
 instance ToJSON CardanoTxWitnesses where
   toJSON (WitnessSet addrWitnesses scriptWitnesses _) =
     object
-      [ "addresses" .= addrWitnessesAsJSON
+      [ "keys" .= keyWitnessesAsJSON
       , "scripts" .= scriptWitnesses
       ]
    where
-    addrWitnessesAsJSON = toJSON $ map (encodeBase16 . serializeEncoding' . prefixWithTag) $ toList addrWitnesses
+    keyWitnessesAsJSON = toJSON $ map (encodeBase16 . serializeEncoding' . prefixWithTag) $ toList addrWitnesses
     prefixWithTag wit = encodeListLen 2 <> encodeWord 0 <> toCBOR wit
 
 instance
@@ -353,14 +353,14 @@ instance
   FromJSON CardanoTxWitnesses
   where
   parseJSON = withObject "CardanoTxWitnesses" $ \obj -> do
-    addrWits <- obj .: "addresses" >>= parseAddressWitnesses
+    addrWits <- obj .: "keys" >>= parseKeyWitnesses
     scriptWits <- obj .: "scripts"
     pure $ WitnessSet addrWits scriptWits mempty
    where
-    parseAddressWitnesses = withArray "CardanoTxWitnesses" $ \a -> do
-      Set.fromList . toList <$> traverse parseAddressWitness a
+    parseKeyWitnesses = withArray "CardanoTxWitnesses" $ \a -> do
+      Set.fromList . toList <$> traverse parseKeyWitness a
 
-    parseAddressWitness = withText "AddrWitness" $ \t ->
+    parseKeyWitness = withText "KeyWitness" $ \t ->
       -- TODO(AB): this is ugly
       case decodeBase16 $ encodeUtf8 t of
         Left err -> fail $ show err
@@ -373,7 +373,7 @@ instance
       t <- decodeWord
       case t of
         0 -> fromCBOR
-        _ -> fail $ "Invalid tag decoding witness, only support 1: " <> show t
+        _ -> fail $ "Invalid tag decoding key witness, only support 1: " <> show t
 
 instance ToJSON (Cardano.Timelock StandardCrypto) where
   toJSON = String . encodeBase16 . serialize'
