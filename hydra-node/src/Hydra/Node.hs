@@ -10,6 +10,7 @@ import Hydra.Prelude
 import Cardano.Crypto.DSIGN (DSIGNAlgorithm (rawDeserialiseVerKeyDSIGN), deriveVerKeyDSIGN, rawDeserialiseSignKeyDSIGN)
 import Control.Monad.Class.MonadAsync (async)
 import Control.Monad.Class.MonadSTM (isEmptyTQueue, newTQueue, newTVarIO, readTQueue, stateTVar, writeTQueue)
+import Hydra.API.Server (Server, sendOutput)
 import Hydra.Chain (Chain (..), OnChainTx)
 import Hydra.ClientInput (ClientInput)
 import Hydra.HeadLogic (
@@ -27,7 +28,6 @@ import Hydra.Logging (Tracer, traceWith)
 import Hydra.Network (Network (..))
 import Hydra.Network.Message (Message)
 import Hydra.Options (Options (..))
-import Hydra.API.Server (sendOutput, Server)
 
 -- * Environment Handling
 
@@ -84,6 +84,19 @@ data HydraNodeLog tx
 
 instance (Arbitrary tx, Arbitrary (Utxo tx)) => Arbitrary (HydraNodeLog tx) where
   arbitrary = genericArbitrary
+
+createHydraNode ::
+  MonadSTM m =>
+  EventQueue m (Event tx) ->
+  Network m (Message tx) ->
+  Ledger tx ->
+  Chain tx m ->
+  Server tx m ->
+  Environment ->
+  m (HydraNode tx m)
+createHydraNode eq hn ledger oc server env = do
+  hh <- createHydraHead ReadyState ledger
+  pure HydraNode{eq, hn, hh, oc, server, env}
 
 handleClientInput :: HydraNode tx m -> ClientInput tx -> m ()
 handleClientInput HydraNode{eq} = putEvent eq . ClientEvent

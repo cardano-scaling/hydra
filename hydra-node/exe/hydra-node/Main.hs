@@ -9,7 +9,6 @@ import Hydra.Chain.ZeroMQ (withMockChain)
 import Hydra.HeadLogic (
   Environment (party),
   Event (..),
-  HeadState (ReadyState),
  )
 import qualified Hydra.Ledger.Cardano as Ledger
 import Hydra.Logging (Verbosity (..), withTracer)
@@ -21,9 +20,8 @@ import Hydra.Network.Heartbeat (withHeartbeat)
 import Hydra.Network.Ouroboros (withOuroborosNetwork)
 import Hydra.Node (
   EventQueue (..),
-  HydraNode (..),
   createEventQueue,
-  createHydraHead,
+  createHydraNode,
   initEnvironment,
   runHydraNode,
  )
@@ -36,11 +34,10 @@ main = do
   withTracer verbosity $ \tracer' ->
     withMonitoring monitoringPort tracer' $ \tracer -> do
       eq <- createEventQueue
-      hh <- createHydraHead ReadyState Ledger.cardanoLedger
       withMockChain (contramap MockChain tracer) mockChainPorts (putEvent eq . OnChainEvent) $ \oc ->
         withNetwork (contramap Network tracer) (party env) host port peers (putEvent eq . NetworkEvent) $ \hn ->
           withAPIServer apiHost apiPort (contramap APIServer tracer) (putEvent eq . ClientEvent) $ \server ->
-            runHydraNode (contramap Node tracer) $ HydraNode{eq, hn, hh, oc, server, env}
+            createHydraNode eq hn Ledger.cardanoLedger oc server env >>= runHydraNode (contramap Node tracer)
  where
   withNetwork tracer party host port peers =
     let localhost = Host{hostName = show host, portNumber = port}
