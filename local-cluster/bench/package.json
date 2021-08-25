@@ -1,0 +1,13 @@
+{
+  "name": "local-cluster",
+  "version": "1.0.0",
+  "description": "Local cluster benchmarking scripts.",
+  "main": "bench/plot.mjs",
+  "author": "IOHK",
+  "license": "Apache-2.0",
+  "private": true,
+  "dependencies": {
+    "chart.js": "^2.9.4",
+    "chartjs-node-canvas": "^3.2.0"
+  }
+}

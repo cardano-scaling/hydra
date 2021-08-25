@@ -32,6 +32,8 @@ let
     pkgs.systemd
     pkgs.zlib
     pkgs.zeromq
+    # Used by charting library to plot local-cluster benchmarks
+    pkgs.libuuid
   ];
 
   tools = [
@@ -49,6 +51,8 @@ let
     # For validating JSON instances against a pre-defined schema
     pkgs.python3Packages.jsonschema
     pkgs.yq
+    # For plotting results of local-cluster benchmarks
+    pkgs.nodejs_latest
   ];
 
   haskellNixShell = hsPkgs.shellFor {
@@ -68,6 +72,9 @@ let
     };
 
     buildInputs = libs ++ tools;
+
+    # Ensure that libuuid.so and other libraries are available
+    LD_LIBRARY_PATH = pkgs.lib.makeLibraryPath [pkgs.libuuid];
 
     # Disable haddocks as it's currently failing for the 'plutus-ledger' package
     withHoogle = false;
