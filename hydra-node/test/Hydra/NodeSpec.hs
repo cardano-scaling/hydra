@@ -3,7 +3,8 @@ module Hydra.NodeSpec where
 import Hydra.Prelude
 import Test.Hydra.Prelude
 
-import Hydra.Chain (Chain (Chain), OnChainTx (..))
+import Hydra.API.Server (Server (..))
+import Hydra.Chain (Chain (..), OnChainTx (..))
 import Hydra.ClientInput (ClientInput (..))
 import Hydra.HeadLogic (
   Environment (Environment),
@@ -89,8 +90,8 @@ createHydraNode signingKey otherParties snapshotStrategy events = do
       { eq
       , hn = Network{broadcast = const $ pure ()}
       , hh
-      , oc = Chain (const $ pure ())
-      , sendOutput = const $ pure ()
+      , oc = Chain{postTx = const $ pure ()}
+      , server = Server{sendOutput = const $ pure ()}
       , env
       }
  where
