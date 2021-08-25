@@ -237,11 +237,12 @@ update Environment{party, signingKey, otherParties, snapshotStrategy} ledger st 
             newSeenTxs = seenTxs <> [tx]
             snapshotEffects
               | isLeader parameters party sn' && snapshotStrategy == SnapshotAfterEachTx =
-                [Delay 0 DoSnapshot]
+                [Delay 0 DoSnapshot] -- XXX(SN): this is a dirty hack, maybe re-enqueue ReqTx instead?
               | otherwise =
                 []
          in nextState (OpenState parameters $ headState{seenTxs = newSeenTxs, seenUtxo = utxo'}) (ClientEffect (TxSeen tx) : snapshotEffects)
   (OpenState parameters headState@CoordinatedHeadState{confirmedSnapshot, seenTxs, seenSnapshot}, DoSnapshot)
+    -- TODO: We had a bug here and it's untested that this case really emits a `ReqSn` when it matches
     | seenSnapshot == NoSeenSnapshot && not (null seenTxs) ->
       nextState
         (OpenState parameters $ headState{seenSnapshot = RequestedSnapshot})
