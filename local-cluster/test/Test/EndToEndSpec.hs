@@ -279,6 +279,15 @@ txToJson tx =
         .= object
           [ "inputs" .= map fst (txIns content)
           , "outputs" .= txOuts content
+          , "auxiliaryDataHash" .= Null
+          , "withdrawals" .= (mempty :: [Value])
+          , "certificates" .= (mempty :: [Value])
+          , "fees" .= int 0
+          , "validity"
+              .= object
+                [ "notBefore" .= Null
+                , "notAfter" .= Null
+                ]
           ]
     , "witnesses"
         .= object

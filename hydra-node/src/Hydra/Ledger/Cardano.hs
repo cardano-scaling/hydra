@@ -22,6 +22,7 @@ import Cardano.Binary (
  )
 import qualified Cardano.Crypto.Hash.Class as Crypto
 import qualified Cardano.Ledger.Address as Cardano
+import Cardano.Ledger.AuxiliaryData (AuxiliaryDataHash (AuxiliaryDataHash), unsafeAuxiliaryDataHash)
 import Cardano.Ledger.BaseTypes (StrictMaybe (SNothing), boundRational, mkActiveSlotCoeff)
 import Cardano.Ledger.Crypto (Crypto, StandardCrypto)
 import Cardano.Ledger.Mary (AuxiliaryData, MaryEra)
@@ -206,6 +207,7 @@ instance FromJSON CardanoTxBody where
     withdrawals <- o .: "withdrawals" <|> pure noWithdrawals
     fees <- o .: "fees" <|> pure mempty
     validity <- o .: "validity" <|> pure (Cardano.ValidityInterval SNothing SNothing)
+    auxiliaryDataHash <- o .: "auxiliaryDataHash" <|> pure SNothing
     pure $
       Cardano.TxBody
         (Set.fromList inputs)
@@ -215,13 +217,13 @@ instance FromJSON CardanoTxBody where
         fees
         validity
         Cardano.SNothing
-        Cardano.SNothing
+        auxiliaryDataHash
         mempty
    where
     noWithdrawals = Wdrl mempty
 
 instance ToJSON CardanoTxBody where
-  toJSON (Cardano.TxBody inputs outputs certificates withdrawals fees validity _update _adHash _mint) =
+  toJSON (Cardano.TxBody inputs outputs certificates withdrawals fees validity _update auxiliaryDataHash _mint) =
     object
       [ "inputs" .= inputs
       , "outputs" .= outputs
@@ -229,6 +231,7 @@ instance ToJSON CardanoTxBody where
       , "withdrawals" .= withdrawals
       , "fees" .= fees
       , "validity" .= validity
+      , "auxiliaryDataHash" .= auxiliaryDataHash
       ]
 
 instance Crypto crypto => ToJSON (Cardano.Wdrl crypto) where
@@ -247,6 +250,18 @@ instance ToJSON Cardano.ValidityInterval where
 instance FromJSON Cardano.ValidityInterval where
   parseJSON = withObject "ValidityInterval" $ \obj ->
     Cardano.ValidityInterval <$> obj .: "notBefore" <*> obj .: "notAfter"
+
+instance ToJSON (AuxiliaryDataHash crypto) where
+  toJSON = toJSON . encodeBase16 . Crypto.hashToBytes . SafeHash.extractHash . unsafeAuxiliaryDataHash
+
+instance Crypto crypto => FromJSON (AuxiliaryDataHash crypto) where
+  parseJSON = withText "AuxiliaryDataHash" $ \t ->
+    case decodeBase16 (encodeUtf8 t) of
+      Left e -> fail $ "decoding base16: " <> show e
+      Right bytes ->
+        case Crypto.hashFromBytes bytes of
+          Nothing -> fail "hashFromBytes yielded Nothing"
+          Just h -> pure . AuxiliaryDataHash $ SafeHash.unsafeMakeSafeHash h
 
 --
 -- Input
@@ -288,7 +303,7 @@ instance Crypto crypto => ToJSON (Cardano.TxOut (MaryEra crypto)) where
   toJSON (Cardano.TxOut addr value) =
     object
       [ "address" .= serialiseAddressBech32
-      , "value" .= valueToJson value
+      , "value" .= value
       ]
    where
     -- Serialise addresses in bech32 including the prefix as standardized:
@@ -308,12 +323,9 @@ instance Crypto crypto => ToJSON (Cardano.TxOut (MaryEra crypto)) where
 instance Crypto crypto => FromJSON (Cardano.TxOut (MaryEra crypto)) where
   parseJSON = withObject "TxOut" $ \o -> do
     address <- o .: "address" >>= deserialiseAddressBech32
-    value <- o .: "value" >>= valueParseJson
+    value <- o .: "value"
     pure $ Cardano.TxOut address value
    where
-    valueParseJson = withObject "Value" $ \o ->
-      Cardano.Value <$> o .: "lovelace" <*> pure mempty
-
     deserialiseAddressBech32 t =
       case Bech32.decodeLenient t of
         Left err -> fail $ "failed to decode bech32: " <> show err
@@ -326,9 +338,13 @@ instance Crypto crypto => FromJSON (Cardano.TxOut (MaryEra crypto)) where
                 (p, Just _) -> fail $ "invalid bech32 prefix: " <> show p
                 (_, Nothing) -> fail "failed to decode data part"
 
-valueToJson :: Cardano.Value crypto -> Value
-valueToJson (Cardano.Value lovelace _assets) =
-  object ["lovelace" .= lovelace]
+instance ToJSON (Cardano.Value crypto) where
+  toJSON (Cardano.Value lovelace _assets) =
+    object ["lovelace" .= lovelace]
+
+instance FromJSON (Cardano.Value crypto) where
+  parseJSON = withObject "Value" $ \o ->
+    Cardano.Value <$> o .: "lovelace" <*> pure mempty
 
 ---
 --- Certificates
