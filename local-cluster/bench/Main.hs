@@ -42,6 +42,6 @@ main =
     encodeFile txsFile txs
 
   saveUtxos tmpDir utxos = do
-    let utxosFile = tmpDir </> "utxos.json"
+    let utxosFile = tmpDir </> "utxo.json"
     putStrLn $ "Writing UTxO set to: " <> utxosFile
     encodeFile utxosFile utxos

@@ -113,8 +113,7 @@ spec = around showLogsOnFailure $
                               [ "address" .= String (serialiseAddress inHeadAliceAddress)
                               , "value"
                                   .= object
-                                    [ "lovelace" .= int 14
-                                    ]
+                                    ["lovelace" .= int 14]
                               ]
                     send n1 $ input "Commit" ["utxo" .= someUtxo]
                     send n2 $ input "Commit" ["utxo" .= Object mempty]
@@ -132,8 +131,7 @@ spec = around showLogsOnFailure $
                               [ "address" .= String (serialiseAddress inHeadAliceAddress)
                               , "value"
                                   .= object
-                                    [ "lovelace" .= int 14
-                                    ]
+                                    ["lovelace" .= int 14]
                               ]
 
                     waitFor tracer 10 [n1, n2, n3] $
@@ -288,7 +286,9 @@ txToJson tx =
                 [ "notBefore" .= Null
                 , "notAfter" .= Null
                 ]
-          , "mint" .= object ["lovelace" .= int 0]
+          , "mint"
+              .= object
+                ["lovelace" .= int 0]
           ]
     , "witnesses"
         .= object

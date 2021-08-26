@@ -355,10 +355,12 @@ instance Crypto crypto => FromJSON (Cardano.TxOut (MaryEra crypto)) where
 
 instance ToJSON (Cardano.Value crypto) where
   toJSON (Cardano.Value lovelace assets) =
-    object
+    object $
       [ "lovelace" .= lovelace
-      , "assets" .= assets
       ]
+        <> addedAssets
+   where
+    addedAssets = ["assets" .= assets | assets /= mempty]
 
 instance Crypto crypto => FromJSON (Cardano.Value crypto) where
   parseJSON = withObject "Value" $ \o ->
