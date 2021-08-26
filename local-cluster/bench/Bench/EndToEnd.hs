@@ -57,9 +57,9 @@ data Event = Event
   deriving (Generic, Eq, Show, ToJSON)
 
 bench :: FilePath -> Utxo CardanoTx -> [CardanoTx] -> IO ()
-bench workDir initialUtxo txs = do
-  registry <- newTVarIO mempty :: IO (TVar IO (Map.Map (TxId CardanoTx) Event))
-  formatFailure "Benchmark" $
+bench workDir initialUtxo txs =
+  formatFailure "Benchmark three local nodes" $ do
+    registry <- newTVarIO mempty :: IO (TVar IO (Map.Map (TxId CardanoTx) Event))
     showLogsOnFailure $ \tracer ->
       failAfter 300 $ do
         withMockChain $ \chainPorts ->
@@ -85,10 +85,10 @@ bench workDir initialUtxo txs = do
                 waitMatch (contestationPeriod + 3) n1 $ \v ->
                   guard (v ^? key "tag" == Just "HeadIsFinalized")
 
-  res <- mapMaybe analyze . Map.toList <$> readTVarIO registry
-  let resFile = workDir </> "results.json"
-  putStrLn $ "Writing results to: " <> resFile
-  encodeFile resFile res
+    res <- mapMaybe analyze . Map.toList <$> readTVarIO registry
+    let resFile = workDir </> "results.json"
+    putStrLn $ "Writing results to: " <> resFile
+    encodeFile resFile res
 
 --
 -- Helpers
@@ -137,7 +137,12 @@ waitForAllConfirmations n1 registry txs =
       waitForSnapshotConfirmation >>= \case
         TxInvalid{utxo, transaction, reason} ->
           failure . toString $
-            decodeUtf8 (encode utxo) <> "\n" <> decodeUtf8 (encode transaction) <> "\n" <> reason
+            "Received TxInvalid:\n"
+              <> decodeUtf8 (encode utxo)
+              <> "\n"
+              <> decodeUtf8 (encode transaction)
+              <> "\n"
+              <> reason
         SnapshotConfirmed{transactions, snapshotNumber} -> do
           -- TODO(SN): use a tracer for this
           putTextLn $ "Snapshot confirmed: " <> show snapshotNumber

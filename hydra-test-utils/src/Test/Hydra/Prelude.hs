@@ -22,10 +22,9 @@ import GHC.Exception (SrcLoc (..))
 import System.IO.Temp (createTempDirectory, getCanonicalTemporaryDirectory)
 import Test.HSpec.JUnit (junitFormat)
 import Test.HUnit.Lang (FailureReason (Reason), HUnitFailure (HUnitFailure))
-import qualified Test.HUnit.Lang as HUnit
-import Test.Hspec.Core.Format (Event (ItemDone), Format, FormatConfig (..), Item (..), Location (..), Result (Failure))
-import qualified Test.Hspec.Core.Format as Hspec
+import Test.Hspec.Core.Format (Format, FormatConfig (..))
 import Test.Hspec.Core.Formatters (formatterToFormat, specdoc)
+import Test.Hspec.Runner (defaultConfig, evaluateSummary, runSpec)
 
 -- | Create a unique temporary directory.
 createSystemTempDirectory :: String -> IO FilePath
@@ -70,46 +69,8 @@ dualFormatter suiteName config = do
   docSpec <- formatterToFormat specdoc config
   pure $ \e -> junit e >> docSpec e
 
--- | Format any 'failure' ('HUnitFailure' exceptions) like 'hspec' inside a given context.
-formatFailure :: String -> IO a -> IO a
+-- | Format any 'failure' ('HUnitFailure' exceptions) using 'hspec' inside a
+-- given context.
+formatFailure :: String -> IO () -> IO ()
 formatFailure ctx action = do
-  action `catch` go
- where
-  go :: HUnitFailure -> IO a
-  go e = do
-    format <- formatterToFormat specdoc config
-    format $ failureEvent e
-    print e
-    exitFailure
-
-  failureEvent :: HUnitFailure -> Event
-  failureEvent (HUnitFailure mloc reason) =
-    ItemDone ([], ctx) $
-      Item
-        { itemLocation = convertLoc <$> mloc
-        , itemDuration = 0 -- TODO(SN): measure duration of 'action'?
-        , itemInfo = ""
-        , itemResult = Failure (convertLoc <$> mloc) (convertReason reason)
-        }
-
-  convertLoc loc =
-    Location
-      { locationFile = srcLocFile loc
-      , locationLine = srcLocStartLine loc
-      , locationColumn = srcLocStartCol loc
-      }
-
-  convertReason = \case
-    HUnit.Reason s -> Hspec.Reason s
-    HUnit.ExpectedButGot ms e a -> Hspec.ExpectedButGot ms e a
-
-  config =
-    FormatConfig
-      { formatConfigUseColor = True
-      , formatConfigUseDiff = True
-      , formatConfigPrintTimes = True
-      , formatConfigHtmlOutput = False
-      , formatConfigPrintCpuTime = False
-      , formatConfigUsedSeed = 0 -- XXX(SN): pass this here?
-      , formatConfigItemCount = 0 -- XXX(SN): required?
-      }
+  runSpec (it ctx action) defaultConfig >>= evaluateSummary
