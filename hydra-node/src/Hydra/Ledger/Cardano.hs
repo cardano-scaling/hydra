@@ -69,6 +69,8 @@ import Test.Shelley.Spec.Ledger.Generator.EraGen (genUtxo0)
 import Test.Shelley.Spec.Ledger.Generator.Presets (genEnv)
 import Test.Shelley.Spec.Ledger.Generator.Utxo (genTx)
 
+-- TODO(SN): Pre-validate transactions to get less confusing errors on
+-- transactions which are not expected to working on a layer-2
 cardanoLedger :: Ledger CardanoTx
 cardanoLedger =
   Ledger
@@ -76,6 +78,8 @@ cardanoLedger =
     , initUtxo = mempty
     }
  where
+  -- NOTE(SN): See full note on 'applyTx' why we only have a single transaction
+  -- application here.
   applyAll utxo = \case
     [] -> Right utxo
     (tx : txs) -> do
@@ -504,10 +508,14 @@ instance FromJSON (AuxiliaryData CardanoEra) where
 
 -- * Calling the Cardano ledger
 
--- XXX(SN): The Cardano.applyTxsTransition behaves different when applying some
--- txs all at once vs. calling the function in sequence. We unify the behavior
--- here by constraining to take only a single tx, but are also checking back
--- with #ledger on this.
+-- NOTE(SN): This is will fail on any transaction requiring the 'DPState' to be
+-- in a certain state as we do throw away the resulting 'DPState' and only take
+-- the ledger's 'UTxO' forward.
+--
+-- We came to this signature of only applying a single transaction because we
+-- got confused why a sequence of transactions worked but sequentially applying
+-- single transactions didn't. This was because of this not-keeping the'DPState'
+-- as described above.
 applyTx ::
   Cardano.LedgerEnv CardanoEra ->
   Cardano.UTxO CardanoEra ->
