@@ -47,7 +47,9 @@ import Data.Aeson (
   withArray,
   withObject,
   withText,
+  (.!=),
   (.:),
+  (.:?),
   (.=),
  )
 import Data.Aeson.Types (toJSONKeyText)
@@ -144,6 +146,8 @@ genCardanoTx utxos = do
           body
           wits
           aux
+ where
+  noPPUpdatesTransactions = Constants.defaultConstants{Constants.frequencyTxUpdates = 0}
 
 genSequenceOfValidTransactions :: Utxo CardanoTx -> Gen [CardanoTx]
 genSequenceOfValidTransactions initialUtxos = do
@@ -156,10 +160,6 @@ genSequenceOfValidTransactions initialUtxos = do
     case applyTransactions cardanoLedger utxos [tx] of
       Left err -> error $ show err
       Right newUtxos -> pure (newUtxos, tx : acc)
-
-noPPUpdatesTransactions :: Constants.Constants
-noPPUpdatesTransactions =
-  Constants.defaultConstants{Constants.frequencyTxUpdates = 0}
 
 type CardanoEra = MaryEra StandardCrypto
 
@@ -201,13 +201,13 @@ instance FromJSON CardanoTxBody where
   parseJSON = withObject "CardanoTxBody" $ \o -> do
     inputs <- o .: "inputs" >>= traverse parseJSON
     outputs <- o .: "outputs" >>= traverse parseJSON
-    certificates <- o .: "certificates" <|> pure mempty
+    certificates <- o .:? "certificates" .!= mempty
     -- NOTE(AB): added for completeness' sake but generator
     -- does not produce txs with withdrawals
-    withdrawals <- o .: "withdrawals" <|> pure noWithdrawals
-    fees <- o .: "fees" <|> pure mempty
-    validity <- o .: "validity" <|> pure (Cardano.ValidityInterval SNothing SNothing)
-    auxiliaryDataHash <- o .: "auxiliaryDataHash" <|> pure SNothing
+    withdrawals <- o .:? "withdrawals" .!= noWithdrawals
+    fees <- o .:? "fees" .!= mempty
+    validity <- o .:? "validity" .!= Cardano.ValidityInterval SNothing SNothing
+    auxiliaryDataHash <- o .:? "auxiliaryDataHash" .!= SNothing
     pure $
       Cardano.TxBody
         (Set.fromList inputs)
