@@ -19,7 +19,7 @@ import Control.Monad.Class.MonadSTM (
   newTVarIO,
  )
 import Data.Aeson (Result (Success), Value, encodeFile, fromJSON, (.=))
-import Data.Aeson.Lens (key, _Array)
+import Data.Aeson.Lens (key, _Array, _Number)
 import qualified Data.Map as Map
 import Data.Set ((\\))
 import qualified Data.Set as Set
@@ -94,6 +94,7 @@ bench workDir initialUtxo txs = do
 
 noUtxos :: Utxo CardanoTx
 noUtxos = mempty
+
 int :: Int -> Int
 int = id
 
