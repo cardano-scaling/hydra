@@ -18,7 +18,7 @@ import Control.Monad.Class.MonadSTM (
   modifyTVar,
   newTVarIO,
  )
-import Data.Aeson (Result (Success), Value, encodeFile, fromJSON, (.=))
+import Data.Aeson (Result (Success), Value, encode, encodeFile, fromJSON, (.=))
 import Data.Aeson.Lens (key, _Array, _Number, _String)
 import qualified Data.Map as Map
 import Data.Set ((\\))
@@ -129,7 +129,7 @@ waitForAllConfirmations n1 registry txs =
     | Set.null remainingIds = pure ()
     | otherwise = do
       waitForSnapshotConfirmation >>= \case
-        Left txInvalid -> failure $ toString txInvalid
+        Left (txValue, errorReason) -> failure . toString $ errorReason <> "\n" <> decodeUtf8 (encode txValue)
         Right (confirmedTxs, confirmedSnapshotNumber) -> do
           -- TODO(SN): use a tracer for this
           putTextLn $ "Snapshot confirmed: " <> show confirmedSnapshotNumber
@@ -141,7 +141,9 @@ waitForAllConfirmations n1 registry txs =
 
   maybeTxInvalid v = do
     guard (v ^? key "tag" == Just "TxInvalid")
-    v ^? key "validationError" . key "reason" . _String
+    (,)
+      <$> v ^? key "transaction"
+      <*> v ^? key "validationError" . key "reason" . _String
 
   maybeSnapshotConfirmed v = do
     guard (v ^? key "tag" == Just "SnapshotConfirmed")
