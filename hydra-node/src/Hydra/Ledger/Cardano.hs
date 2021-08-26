@@ -43,7 +43,6 @@ import Data.Aeson (
   decode,
   object,
   toJSONKey,
-  withArray,
   withObject,
   withText,
   (.!=),
@@ -51,7 +50,7 @@ import Data.Aeson (
   (.:?),
   (.=),
  )
-import Data.Aeson.Types (toJSONKeyText)
+import Data.Aeson.Types (mapFromJSONKeyFunction, toJSONKeyText)
 import Data.ByteString.Base16 (decodeBase16, encodeBase16)
 import Data.Default (def)
 import qualified Data.Sequence.Strict as StrictSeq
@@ -142,7 +141,11 @@ genCardanoTx utxos = do
           wits
           aux
  where
-  noPPUpdatesTransactions = Constants.defaultConstants{Constants.frequencyTxUpdates = 0}
+  noPPUpdatesTransactions =
+    Constants.defaultConstants
+      { Constants.frequencyTxUpdates = 0
+      , Constants.maxCertsPerTx = 0
+      }
 
   utxoState = def{Cardano._utxo = utxos}
 
@@ -347,12 +350,47 @@ instance Crypto crypto => FromJSON (Cardano.TxOut (MaryEra crypto)) where
                 (_, Nothing) -> fail "failed to decode data part"
 
 instance ToJSON (Cardano.Value crypto) where
-  toJSON (Cardano.Value lovelace _assets) =
-    object ["lovelace" .= lovelace]
+  toJSON (Cardano.Value lovelace assets) =
+    object
+      [ "lovelace" .= lovelace
+      , "assets" .= assets
+      ]
 
-instance FromJSON (Cardano.Value crypto) where
+instance Crypto crypto => FromJSON (Cardano.Value crypto) where
   parseJSON = withObject "Value" $ \o ->
-    Cardano.Value <$> o .: "lovelace" <*> pure mempty
+    Cardano.Value <$> o .: "lovelace" <*> o .:? "assets" .!= mempty
+
+instance ToJSON (Cardano.PolicyID crypto) where
+  toJSON (Cardano.PolicyID h) = toJSON h
+
+instance Crypto crypto => FromJSON (Cardano.PolicyID crypto) where
+  parseJSON v = Cardano.PolicyID <$> parseJSON v
+
+instance ToJSONKey (Cardano.PolicyID crypto) where
+  toJSONKey = contramap (\(Cardano.PolicyID h) -> h) toJSONKey
+
+instance Crypto crypto => FromJSONKey (Cardano.PolicyID crypto) where
+  fromJSONKey = mapFromJSONKeyFunction Cardano.PolicyID fromJSONKey
+
+instance ToJSON Cardano.AssetName where
+  toJSON (Cardano.AssetName bytes) = String $ encodeBase16 bytes
+
+instance FromJSON Cardano.AssetName where
+  parseJSON = withText "AssetName" $ \t ->
+    case decodeBase16 $ encodeUtf8 t of
+      Left err -> fail $ show err
+      Right bs -> pure $ Cardano.AssetName bs
+
+instance ToJSONKey Cardano.AssetName where
+  toJSONKey = toJSONKeyText $ \(Cardano.AssetName bytes) -> encodeBase16 bytes
+
+instance FromJSONKey Cardano.AssetName where
+  fromJSONKey = FromJSONKeyTextParser nameFromText
+   where
+    nameFromText t =
+      case decodeBase16 (encodeUtf8 t) of
+        Left e -> fail $ "decoding base16: " <> show e
+        Right bytes -> pure $ Cardano.AssetName bytes
 
 ---
 --- Certificates
@@ -392,20 +430,16 @@ instance Crypto crypto => FromJSON (Cardano.UTxO (MaryEra crypto)) where
 instance ToJSON CardanoTxWitnesses where
   toJSON (WitnessSet addrWitnesses scriptWitnesses _) =
     object
-      [ "keys" .= keyWitnessesAsJSON
+      [ "keys" .= addrWitnesses
       , "scripts" .= scriptWitnesses
       ]
-   where
-    keyWitnessesAsJSON = toJSON $ toList addrWitnesses
 
 instance FromJSON CardanoTxWitnesses where
   parseJSON = withObject "CardanoTxWitnesses" $ \obj -> do
-    addrWits <- obj .: "keys" >>= parseKeyWitnesses
-    scriptWits <- obj .: "scripts"
-    pure $ WitnessSet addrWits scriptWits mempty
-   where
-    parseKeyWitnesses = withArray "CardanoTxWitnesses" $ \a -> do
-      Set.fromList . toList <$> traverse parseJSON a
+    WitnessSet
+      <$> obj .: "keys"
+      <*> obj .: "scripts"
+      <*> pure mempty
 
 instance ToJSON (Cardano.WitVKey 'Cardano.Witness StandardCrypto) where
   toJSON = String . encodeBase16 . serializeEncoding' . prefixWithTag
@@ -439,10 +473,10 @@ instance FromJSON (Cardano.Timelock StandardCrypto) where
         Left err -> fail $ show err
         Right v -> pure v
 
-instance ToJSONKey (Cardano.ScriptHash StandardCrypto) where
+instance ToJSONKey (Cardano.ScriptHash crypto) where
   toJSONKey = toJSONKeyText (\(Cardano.ScriptHash h) -> encodeBase16 (Crypto.hashToBytes h))
 
-instance FromJSONKey (Cardano.ScriptHash StandardCrypto) where
+instance Crypto crypto => FromJSONKey (Cardano.ScriptHash crypto) where
   fromJSONKey = FromJSONKeyTextParser hashFromText
    where
     hashFromText t =

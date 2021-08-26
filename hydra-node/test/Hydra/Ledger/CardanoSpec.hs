@@ -9,17 +9,11 @@ import Hydra.Prelude
 import Test.Hydra.Prelude
 
 import Cardano.Binary (decodeFull, serialize')
-import Cardano.Crypto.DSIGN (SigDSIGN (SigEd25519DSIGN), VerKeyDSIGN (VerKeyEd25519DSIGN))
-import Cardano.Crypto.DSIGN.Class (SignedDSIGN (SignedDSIGN))
-import Cardano.Ledger.Crypto (StandardCrypto)
-import Crypto.Error (CryptoFailable, throwCryptoErrorIO)
-import Crypto.PubKey.Ed25519 (publicKey, signature)
 import Data.Aeson (eitherDecode, encode)
 import qualified Data.Aeson as Aeson
 import Data.Text (unpack)
 import Hydra.Ledger (applyTransactions)
 import Hydra.Ledger.Cardano (CardanoEra, CardanoTx (..), CardanoTxWitnesses, cardanoLedger, genSequenceOfValidTransactions, genUtxo)
-import Shelley.Spec.Ledger.API (KeyRole (Witness), VKey (VKey), WitVKey)
 import qualified Shelley.Spec.Ledger.API as Cardano
 import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
 import Test.Cardano.Ledger.MaryEraGen ()
@@ -59,10 +53,6 @@ spec = do
           \ \"auxiliaryData\":null}"
     shouldParseJSONAs @CardanoTx bs
 
-  it "should parse a WitVKey" $ do
-    key <- throwCryptoErrorIO someKey
-    eitherDecode (encode key) `shouldBe` Right key
-
 shouldParseJSONAs :: forall a. FromJSON a => LByteString -> Expectation
 shouldParseJSONAs bs =
   case Aeson.eitherDecode bs of
@@ -96,9 +86,3 @@ appliesValidTransactionFromJSON =
             & counterexample ("Error: " <> show result)
             & counterexample ("JSON for txs: " <> unpack (decodeUtf8With lenientDecode $ toStrict encoded))
             & counterexample ("JSON for utxo: " <> unpack (decodeUtf8With lenientDecode $ toStrict $ Aeson.encode utxo))
-
-someKey :: CryptoFailable (WitVKey 'Witness StandardCrypto)
-someKey = do
-  pubkey <- publicKey @ByteString "\150\f[\192l\179\v\136%\182%\137 \STX\215\229up\228$V\157?F\151i\236\144\SI;e\142"
-  sig <- signature @ByteString "\160r\240\221\191\ACK\221*\193\178>\SUB\USL\252HAID0\DC1\NUL~\131\&0\DLEy\188\187\197u\236\&8\201\175aNK\150\141\224\190\EM\141\129\STX\155\231\226N'E\DLEZ\249\131,ao\156\156\CANA\t"
-  pure $ Cardano.WitVKey (VKey $ VerKeyEd25519DSIGN pubkey) (SignedDSIGN $ SigEd25519DSIGN sig)
