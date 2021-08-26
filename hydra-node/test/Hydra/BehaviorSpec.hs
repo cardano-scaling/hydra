@@ -240,7 +240,7 @@ spec = describe "Behavior of one ore more hydra nodes" $ do
                   secondTx = SimpleTx 4 (utxoRef 3) (utxoRef 4)
 
               send n2 (NewTx secondTx)
-              waitFor [n2] $ TxInvalid secondTx (ValidationError "cannot apply transaction")
+              waitFor [n2] $ TxInvalid (utxoRefs [1, 2, 3]) secondTx (ValidationError "cannot apply transaction")
               send n1 (NewTx firstTx)
               waitFor [n1] $ TxValid firstTx
 
