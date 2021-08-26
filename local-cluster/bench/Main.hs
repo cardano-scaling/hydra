@@ -32,8 +32,16 @@ main =
       case applyTransactions cardanoLedger initialUtxo txs of
         Left err -> die $ "Generated invalid transactions: " <> show err
         Right _ -> do
-          let txsFile = tmpDir </> "txs.json"
-          putStrLn $ "Writing transactions to: " <> txsFile
-          encodeFile txsFile txs
-
+          saveTransactions tmpDir txs
+          saveUtxos tmpDir initialUtxo
           bench tmpDir initialUtxo txs
+ where
+  saveTransactions tmpDir txs = do
+    let txsFile = tmpDir </> "txs.json"
+    putStrLn $ "Writing transactions to: " <> txsFile
+    encodeFile txsFile txs
+
+  saveUtxos tmpDir utxos = do
+    let utxosFile = tmpDir </> "utxos.json"
+    putStrLn $ "Writing UTxO set to: " <> utxosFile
+    encodeFile utxosFile utxos
