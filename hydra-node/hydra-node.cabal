@@ -87,7 +87,6 @@ library
     Hydra.Logging.Messages
     Hydra.Logging.Monitoring
     Hydra.Network
-    Hydra.Network.BroadcastToSelf
     Hydra.Network.Heartbeat
     Hydra.Network.Message
     Hydra.Network.Ouroboros
@@ -191,7 +190,6 @@ test-suite tests
     Hydra.Ledger.SimpleSpec
     Hydra.Logging.MonitoringSpec
     Hydra.LoggingSpec
-    Hydra.Network.BroadcastToSelfSpec
     Hydra.Network.HeartbeatSpec
     Hydra.NetworkSpec
     Hydra.NodeSpec
