@@ -9,7 +9,6 @@ import Hydra.Prelude
 import Test.Hydra.Prelude
 
 import Cardano.Binary (decodeFull, serialize')
-import Data.Aeson (eitherDecode)
 import qualified Data.Aeson as Aeson
 import Data.Text (unpack)
 import Hydra.Ledger (applyTransactions)
@@ -17,7 +16,8 @@ import Hydra.Ledger.Cardano (CardanoEra, CardanoTx (..), CardanoTxWitnesses, car
 import qualified Shelley.Spec.Ledger.API as Cardano
 import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
 import Test.Cardano.Ledger.MaryEraGen ()
-import Test.QuickCheck (Property, counterexample, forAll, forAllShrink)
+import Test.QuickCheck (Property, counterexample, forAllShrink)
+import Test.QuickCheck.Property (forAll)
 
 spec :: Spec
 spec = do

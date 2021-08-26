@@ -4,7 +4,8 @@ import Hydra.Prelude
 
 import Bench.EndToEnd (bench)
 import Data.Aeson (eitherDecodeFileStrict', encodeFile)
-import Hydra.Ledger.Cardano (genSequenceOfValidTransactions, genUtxo)
+import Hydra.Ledger (applyTransactions)
+import Hydra.Ledger.Cardano (cardanoLedger, genSequenceOfValidTransactions, genUtxo)
 import System.FilePath (takeDirectory, (</>))
 import Test.Hydra.Prelude (createSystemTempDirectory)
 import Test.QuickCheck (generate, scale)
@@ -27,9 +28,12 @@ main =
 
       initialUtxo <- generate genUtxo
       txs <- generate $ scale (* 100) $ genSequenceOfValidTransactions initialUtxo
+      -- Sanity check the generated txs
+      case applyTransactions cardanoLedger initialUtxo txs of
+        Left err -> die $ "Generated invalid transactions: " <> show err
+        Right _ -> do
+          let txsFile = tmpDir </> "txs.json"
+          putStrLn $ "Writing transactions to: " <> txsFile
+          encodeFile txsFile txs
 
-      let txsFile = tmpDir </> "txs.json"
-      putStrLn $ "Writing transactions to: " <> txsFile
-      encodeFile txsFile txs
-
-      bench tmpDir initialUtxo txs
+          bench tmpDir initialUtxo txs

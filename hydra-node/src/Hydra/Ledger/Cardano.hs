@@ -55,7 +55,6 @@ import Data.Aeson (
 import Data.Aeson.Types (toJSONKeyText)
 import Data.ByteString.Base16 (decodeBase16, encodeBase16)
 import Data.Default (def)
-import qualified Data.Sequence as Seq
 import qualified Data.Sequence.Strict as StrictSeq
 import qualified Data.Set as Set
 import qualified Data.Text as Text
@@ -75,11 +74,16 @@ import Test.Shelley.Spec.Ledger.Generator.Utxo (genTx)
 cardanoLedger :: Ledger CardanoTx
 cardanoLedger =
   Ledger
-    { applyTransactions = \utxo ->
-        applyTx ledgerEnv utxo . map convertTx
+    { applyTransactions = applyAll
     , initUtxo = mempty
     }
  where
+  applyAll utxo = \case
+    [] -> Right utxo
+    (tx : txs) -> do
+      utxo' <- applyTx ledgerEnv utxo (convertTx tx)
+      applyAll utxo' txs
+
   convertTx CardanoTx{body, witnesses, auxiliaryData} =
     Cardano.Tx body witnesses auxiliaryData
 
@@ -153,10 +157,12 @@ genCardanoTx utxos = do
   generatorEnv = (genEnv Proxy){geConstants = noPPUpdatesTransactions}
 
 genSequenceOfValidTransactions :: Utxo CardanoTx -> Gen [CardanoTx]
-genSequenceOfValidTransactions initialUtxos = do
-  n <- getSize
-  numTxs <- choose (1, n)
-  reverse . snd <$> foldM newTx (initialUtxos, []) [1 .. numTxs]
+genSequenceOfValidTransactions initialUtxo
+  | initialUtxo == mempty = pure []
+  | otherwise = do
+    n <- getSize
+    numTxs <- choose (1, n)
+    reverse . snd <$> foldM newTx (initialUtxo, []) [1 .. numTxs]
  where
   newTx (utxos, acc) _ = do
     tx <- genCardanoTx utxos
@@ -463,13 +469,17 @@ instance FromJSON (AuxiliaryData CardanoEra) where
 
 -- * Calling the Cardano ledger
 
+-- XXX(SN): The Cardano.applyTxsTransition behaves different when applying some
+-- txs all at once vs. calling the function in sequence. We unify the behavior
+-- here by constraining to take only a single tx, but are also checking back
+-- with #ledger on this.
 applyTx ::
   Cardano.LedgerEnv CardanoEra ->
   Cardano.UTxO CardanoEra ->
-  [Cardano.Tx CardanoEra] ->
+  Cardano.Tx CardanoEra ->
   Either ValidationError (Cardano.UTxO CardanoEra)
-applyTx env utxo txs =
-  case Cardano.applyTxsTransition globals env (Seq.fromList txs) memPoolState of
+applyTx env utxo tx =
+  case Cardano.applyTxsTransition globals env (pure tx) memPoolState of
     Left err -> Left $ toValidationError err
     Right (ls, _ds) -> Right $ Cardano._utxo ls
  where
