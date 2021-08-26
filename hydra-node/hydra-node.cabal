@@ -211,6 +211,7 @@ test-suite tests
     , cborg
     , containers
     , contra-tracer
+    , cryptonite
     , data-default
     , filepath
     , hspec

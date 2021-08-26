@@ -8,7 +8,6 @@ module Hydra.Ledger.Cardano where
 import Hydra.Prelude hiding (id)
 
 import Cardano.Binary (
-  Annotator,
   decodeAnnotator,
   decodeBytes,
   decodeFull,
@@ -397,29 +396,31 @@ instance ToJSON CardanoTxWitnesses where
       , "scripts" .= scriptWitnesses
       ]
    where
-    keyWitnessesAsJSON = toJSON $ map (encodeBase16 . serializeEncoding' . prefixWithTag) $ toList addrWitnesses
-    prefixWithTag wit = encodeListLen 2 <> encodeWord 0 <> toCBOR wit
+    keyWitnessesAsJSON = toJSON $ toList addrWitnesses
 
-instance
-  (FromCBOR (Annotator (Cardano.WitVKey 'Cardano.Witness StandardCrypto))) =>
-  FromJSON CardanoTxWitnesses
-  where
+instance FromJSON CardanoTxWitnesses where
   parseJSON = withObject "CardanoTxWitnesses" $ \obj -> do
     addrWits <- obj .: "keys" >>= parseKeyWitnesses
     scriptWits <- obj .: "scripts"
     pure $ WitnessSet addrWits scriptWits mempty
    where
     parseKeyWitnesses = withArray "CardanoTxWitnesses" $ \a -> do
-      Set.fromList . toList <$> traverse parseKeyWitness a
+      Set.fromList . toList <$> traverse parseJSON a
 
-    parseKeyWitness = withText "KeyWitness" $ \t ->
-      -- TODO(AB): this is ugly
-      case decodeBase16 $ encodeUtf8 t of
+instance ToJSON (Cardano.WitVKey 'Cardano.Witness StandardCrypto) where
+  toJSON = String . encodeBase16 . serializeEncoding' . prefixWithTag
+   where
+    prefixWithTag wit = encodeListLen 2 <> encodeWord 0 <> toCBOR wit
+
+instance FromJSON (Cardano.WitVKey 'Cardano.Witness StandardCrypto) where
+  parseJSON = withText "KeyWitness" $ \t ->
+    -- TODO(AB): this is ugly
+    case decodeBase16 $ encodeUtf8 t of
+      Left err -> fail $ show err
+      Right bs' -> case decodeAnnotator "ShelleyKeyWitness" decoder (fromStrict bs') of
         Left err -> fail $ show err
-        Right bs' -> case decodeAnnotator "ShelleyKeyWitness" decoder (fromStrict bs') of
-          Left err -> fail $ show err
-          Right v -> pure v
-
+        Right v -> pure v
+   where
     decoder = do
       decodeListLenOf 2
       t <- decodeWord
