@@ -12,7 +12,7 @@ import Cardano.Crypto.DSIGN (
   SignKeyDSIGN,
   VerKeyDSIGN,
  )
-import Control.Lens ((^?))
+import Control.Lens (to, (^?))
 import Control.Monad.Class.MonadSTM (
   MonadSTM (readTVarIO),
   modifyTVar,
@@ -21,6 +21,7 @@ import Control.Monad.Class.MonadSTM (
 import Data.Aeson (Result (Success), Value, encode, encodeFile, fromJSON, (.=))
 import Data.Aeson.Lens (key, _Array, _Number, _String)
 import qualified Data.Map as Map
+import Data.Scientific (Scientific)
 import Data.Set ((\\))
 import qualified Data.Set as Set
 import Hydra.Ledger (Tx, TxId, Utxo, txId)
@@ -119,6 +120,10 @@ newTx registry client tx = do
           }
   send client $ input "NewTx" ["transaction" .= tx]
 
+data WaitResult
+  = TxInvalid {utxo :: Value, transaction :: Value, reason :: Text}
+  | SnapshotConfirmed {transactions :: [Value], snapshotNumber :: Scientific}
+
 waitForAllConfirmations :: HydraClient -> TVar IO (Map.Map (TxId CardanoTx) Event) -> [CardanoTx] -> IO ()
 waitForAllConfirmations n1 registry txs =
   go allIds
@@ -129,27 +134,30 @@ waitForAllConfirmations n1 registry txs =
     | Set.null remainingIds = pure ()
     | otherwise = do
       waitForSnapshotConfirmation >>= \case
-        Left (txValue, errorReason) -> failure . toString $ errorReason <> "\n" <> decodeUtf8 (encode txValue)
-        Right (confirmedTxs, confirmedSnapshotNumber) -> do
+        TxInvalid{utxo, transaction, reason} ->
+          failure . toString $
+            decodeUtf8 (encode utxo) <> "\n" <> decodeUtf8 (encode transaction) <> "\n" <> reason
+        SnapshotConfirmed{transactions, snapshotNumber} -> do
           -- TODO(SN): use a tracer for this
-          putTextLn $ "Snapshot confirmed: " <> show confirmedSnapshotNumber
-          confirmedIds <- mapM (confirmTx registry) confirmedTxs
-          go $ remainingIds \\ Set.fromList (toList confirmedIds)
+          putTextLn $ "Snapshot confirmed: " <> show snapshotNumber
+          confirmedIds <- mapM (confirmTx registry) transactions
+          go $ remainingIds \\ Set.fromList confirmedIds
 
   waitForSnapshotConfirmation = waitMatch 20 n1 $ \v ->
-    Left <$> maybeTxInvalid v <|> Right <$> maybeSnapshotConfirmed v
+    maybeTxInvalid v <|> maybeSnapshotConfirmed v
 
   maybeTxInvalid v = do
     guard (v ^? key "tag" == Just "TxInvalid")
-    (,)
-      <$> v ^? key "transaction"
+    TxInvalid
+      <$> v ^? key "utxo"
+      <*> v ^? key "transaction"
       <*> v ^? key "validationError" . key "reason" . _String
 
   maybeSnapshotConfirmed v = do
     guard (v ^? key "tag" == Just "SnapshotConfirmed")
     snapshot <- v ^? key "snapshot"
-    (,)
-      <$> snapshot ^? key "confirmedTransactions" . _Array
+    SnapshotConfirmed
+      <$> snapshot ^? key "confirmedTransactions" . _Array . to toList
       <*> snapshot ^? key "snapshotNumber" . _Number
 
 confirmTx ::

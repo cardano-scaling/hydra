@@ -228,7 +228,7 @@ update Environment{party, signingKey, otherParties, snapshotStrategy} ledger st 
     clientFeedback =
       case canApply ledger seenUtxo tx of
         Valid -> TxValid tx
-        Invalid err -> TxInvalid{transaction = tx, validationError = err}
+        Invalid err -> TxInvalid{utxo = seenUtxo, transaction = tx, validationError = err}
   (OpenState parameters headState@CoordinatedHeadState{confirmedSnapshot, seenTxs, seenUtxo}, NetworkEvent (ReqTx _ tx)) ->
     case applyTransactions ledger seenUtxo [tx] of
       Left _err -> Wait

@@ -19,7 +19,7 @@ data ServerOutput tx
   | CommandFailed
   | TxSeen {transaction :: tx}
   | TxValid {transaction :: tx}
-  | TxInvalid {transaction :: tx, validationError :: ValidationError}
+  | TxInvalid {utxo :: Utxo tx, transaction :: tx, validationError :: ValidationError}
   | SnapshotConfirmed {snapshot :: Snapshot tx}
   | Utxo {utxo :: Utxo tx}
   | InvalidInput {reason :: String, input :: Text}
@@ -46,7 +46,7 @@ instance (Arbitrary tx, Arbitrary (Utxo tx)) => Arbitrary (ServerOutput tx) wher
     CommandFailed -> []
     TxSeen tx -> TxSeen <$> shrink tx
     TxValid tx -> TxValid <$> shrink tx
-    TxInvalid tx err -> TxInvalid <$> shrink tx <*> shrink err
+    TxInvalid u tx err -> TxInvalid <$> shrink u <*> shrink tx <*> shrink err
     SnapshotConfirmed s -> SnapshotConfirmed <$> shrink s
     Utxo u -> Utxo <$> shrink u
     InvalidInput r i -> InvalidInput <$> shrink r <*> shrink i
