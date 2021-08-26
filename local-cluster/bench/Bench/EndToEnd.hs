@@ -59,30 +59,31 @@ data Event = Event
 bench :: FilePath -> Utxo CardanoTx -> [CardanoTx] -> IO ()
 bench workDir initialUtxo txs = do
   registry <- newTVarIO mempty :: IO (TVar IO (Map.Map (TxId CardanoTx) Event))
-  failAfter 300 $
+  formatFailure "Benchmark" $
     showLogsOnFailure $ \tracer ->
-      withMockChain $ \chainPorts ->
-        withHydraNode tracer workDir chainPorts 1 aliceSk [bobVk, carolVk] $ \n1 ->
-          withHydraNode tracer workDir chainPorts 2 bobSk [aliceVk, carolVk] $ \n2 ->
-            withHydraNode tracer workDir chainPorts 3 carolSk [aliceVk, bobVk] $ \n3 -> do
-              waitForNodesConnected tracer [n1, n2, n3]
-              let contestationPeriod = 10 :: Natural
-              send n1 $ input "Init" ["contestationPeriod" .= contestationPeriod]
-              waitFor tracer 3 [n1, n2, n3] $
-                output "ReadyToCommit" ["parties" .= [int 10, 20, 30]]
+      failAfter 300 $ do
+        withMockChain $ \chainPorts ->
+          withHydraNode tracer workDir chainPorts 1 aliceSk [bobVk, carolVk] $ \n1 ->
+            withHydraNode tracer workDir chainPorts 2 bobSk [aliceVk, carolVk] $ \n2 ->
+              withHydraNode tracer workDir chainPorts 3 carolSk [aliceVk, bobVk] $ \n3 -> do
+                waitForNodesConnected tracer [n1, n2, n3]
+                let contestationPeriod = 10 :: Natural
+                send n1 $ input "Init" ["contestationPeriod" .= contestationPeriod]
+                waitFor tracer 3 [n1, n2, n3] $
+                  output "ReadyToCommit" ["parties" .= [int 10, 20, 30]]
 
-              send n1 $ input "Commit" ["utxo" .= initialUtxo]
-              send n2 $ input "Commit" ["utxo" .= noUtxos]
-              send n3 $ input "Commit" ["utxo" .= noUtxos]
+                send n1 $ input "Commit" ["utxo" .= initialUtxo]
+                send n2 $ input "Commit" ["utxo" .= noUtxos]
+                send n3 $ input "Commit" ["utxo" .= noUtxos]
 
-              waitFor tracer 3 [n1, n2, n3] $ output "HeadIsOpen" ["utxo" .= initialUtxo]
+                waitFor tracer 3 [n1, n2, n3] $ output "HeadIsOpen" ["utxo" .= initialUtxo]
 
-              for_ txs (\tx -> newTx registry n1 tx >> threadDelay 0.001)
-                `concurrently_` waitForAllConfirmations n1 registry txs
+                for_ txs (\tx -> newTx registry n1 tx >> threadDelay 0.001)
+                  `concurrently_` waitForAllConfirmations n1 registry txs
 
-              send n1 $ input "Close" []
-              waitMatch (contestationPeriod + 3) n1 $ \v ->
-                guard (v ^? key "tag" == Just "HeadIsFinalized")
+                send n1 $ input "Close" []
+                waitMatch (contestationPeriod + 3) n1 $ \v ->
+                  guard (v ^? key "tag" == Just "HeadIsFinalized")
 
   res <- mapMaybe analyze . Map.toList <$> readTVarIO registry
   let resFile = workDir </> "results.json"
