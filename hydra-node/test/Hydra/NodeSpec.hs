@@ -24,9 +24,8 @@ import Hydra.Snapshot (Snapshot (Snapshot))
 spec :: Spec
 spec = do
   it "emits only one ReqSn as leader even after multiple ReqTxs" $ do
-    pendingWith "need to push BroadcastToSelf into node for this to work"
-    -- NOTE(SN): Sequence of parties in OnInitTx of 'prefix' is relevant, so
-    -- 10 is the (initial) snapshot leader
+    -- NOTE(SN): Sequence of parties in OnInitTx of
+    -- 'prefix' is relevant, so 10 is the (initial) snapshot leader
     let tx1 = SimpleTx{txSimpleId = 1, txInputs = utxoRefs [2], txOutputs = utxoRefs [4]}
         tx2 = SimpleTx{txSimpleId = 2, txInputs = utxoRefs [4], txOutputs = utxoRefs [5]}
         tx3 = SimpleTx{txSimpleId = 3, txInputs = utxoRefs [5], txOutputs = utxoRefs [6]}
@@ -36,10 +35,12 @@ spec = do
                , NetworkEvent{message = ReqTx{Msg.party = 10, Msg.transaction = tx2}}
                , NetworkEvent{message = ReqTx{Msg.party = 10, Msg.transaction = tx3}}
                ]
-        signedSnapshot = sign 10 $ Snapshot 1 (utxoRefs [1, 3, 4, 5, 6]) [tx1, tx2, tx3]
+        signedSnapshot = sign 10 $ Snapshot 1 (utxoRefs [1, 3, 6]) [tx1, tx2, tx3]
     node <- createHydraNode 10 [20, 30] SnapshotAfterEachTx events
     (node', getNetworkMessages) <- recordNetwork node
     runToCompletion node'
+    -- NOTE(SN): This includes the expectation that the leader broadcasts the
+    -- ReqSn also to itself and thus produces an AckSn
     getNetworkMessages `shouldReturn` [ReqSn 10 1 [tx1, tx2, tx3], AckSn 10 signedSnapshot 1]
 
   it "processes out-of-order AckSn" $ do
