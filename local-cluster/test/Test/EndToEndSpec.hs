@@ -288,6 +288,7 @@ txToJson tx =
                 [ "notBefore" .= Null
                 , "notAfter" .= Null
                 ]
+          , "mint" .= object ["lovelace" .= int 0]
           ]
     , "witnesses"
         .= object

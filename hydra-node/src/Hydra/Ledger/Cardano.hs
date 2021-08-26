@@ -129,14 +129,6 @@ genUtxo = genUtxo0 (genEnv Proxy)
 
 genCardanoTx :: Utxo CardanoTx -> Gen CardanoTx
 genCardanoTx utxos = do
-  let utxoState = def{Cardano._utxo = utxos}
-      dpState = Cardano.DPState def def
-      -- NOTE(AB): This sets some parameters for the tx generator that will
-      -- affect the structure of generated trasactions. In our case, we want
-      -- to remove "special" capabilities which are irrelevant in the context
-      -- of a Hydra head
-      -- see https://github.com/input-output-hk/cardano-ledger-specs/blob/nil/shelley/chain-and-ledger/shelley-spec-ledger-test/src/Test/Shelley/Spec/Ledger/Generator/Constants.hs#L10
-      generatorEnv = (genEnv Proxy){geConstants = noPPUpdatesTransactions}
   tx <- genTx generatorEnv ledgerEnv (utxoState, dpState)
   case tx of
     (Cardano.Tx body wits aux) ->
@@ -148,6 +140,17 @@ genCardanoTx utxos = do
           aux
  where
   noPPUpdatesTransactions = Constants.defaultConstants{Constants.frequencyTxUpdates = 0}
+
+  utxoState = def{Cardano._utxo = utxos}
+
+  dpState = Cardano.DPState def def
+
+  -- NOTE(AB): This sets some parameters for the tx generator that will
+  -- affect the structure of generated trasactions. In our case, we want
+  -- to remove "special" capabilities which are irrelevant in the context
+  -- of a Hydra head
+  -- see https://github.com/input-output-hk/cardano-ledger-specs/blob/nil/shelley/chain-and-ledger/shelley-spec-ledger-test/src/Test/Shelley/Spec/Ledger/Generator/Constants.hs#L10
+  generatorEnv = (genEnv Proxy){geConstants = noPPUpdatesTransactions}
 
 genSequenceOfValidTransactions :: Utxo CardanoTx -> Gen [CardanoTx]
 genSequenceOfValidTransactions initialUtxos = do
@@ -202,12 +205,11 @@ instance FromJSON CardanoTxBody where
     inputs <- o .: "inputs" >>= traverse parseJSON
     outputs <- o .: "outputs" >>= traverse parseJSON
     certificates <- o .:? "certificates" .!= mempty
-    -- NOTE(AB): added for completeness' sake but generator
-    -- does not produce txs with withdrawals
     withdrawals <- o .:? "withdrawals" .!= noWithdrawals
     fees <- o .:? "fees" .!= mempty
     validity <- o .:? "validity" .!= Cardano.ValidityInterval SNothing SNothing
     auxiliaryDataHash <- o .:? "auxiliaryDataHash" .!= SNothing
+    mint <- o .:? "mint" .!= mempty
     pure $
       Cardano.TxBody
         (Set.fromList inputs)
@@ -218,12 +220,12 @@ instance FromJSON CardanoTxBody where
         validity
         Cardano.SNothing
         auxiliaryDataHash
-        mempty
+        mint
    where
     noWithdrawals = Wdrl mempty
 
 instance ToJSON CardanoTxBody where
-  toJSON (Cardano.TxBody inputs outputs certificates withdrawals fees validity _update auxiliaryDataHash _mint) =
+  toJSON (Cardano.TxBody inputs outputs certificates withdrawals fees validity _update auxiliaryDataHash mint) =
     object
       [ "inputs" .= inputs
       , "outputs" .= outputs
@@ -232,6 +234,7 @@ instance ToJSON CardanoTxBody where
       , "fees" .= fees
       , "validity" .= validity
       , "auxiliaryDataHash" .= auxiliaryDataHash
+      , "mint" .= mint
       ]
 
 instance Crypto crypto => ToJSON (Cardano.Wdrl crypto) where
