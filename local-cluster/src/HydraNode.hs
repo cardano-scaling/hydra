@@ -19,6 +19,7 @@ module HydraNode (
   module System.Process,
   waitForNodesConnected,
   withTempDir,
+  waitNext,
 ) where
 
 import Hydra.Prelude hiding (delete)
@@ -87,6 +88,14 @@ output tag pairs = object $ ("tag" .= tag) : pairs
 -- given @nodes@.
 waitFor :: HasCallStack => Tracer IO EndToEndLog -> Natural -> [HydraClient] -> Value -> IO ()
 waitFor tracer delay nodes v = waitForAll tracer delay nodes [v]
+
+-- TODO(AB): reuse waitNext in other waiters
+waitNext :: HasCallStack => HydraClient -> IO Value
+waitNext HydraClient{connection} = do
+  bytes <- receiveData connection
+  case Aeson.eitherDecode' bytes of
+    Left err -> failure $ "WaitNext failed to decode msg: " <> err
+    Right value -> pure value
 
 waitMatch :: HasCallStack => Natural -> HydraClient -> (Value -> Maybe a) -> IO a
 waitMatch delay HydraClient{connection} match = do
