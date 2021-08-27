@@ -74,11 +74,11 @@ data HydraNode tx m = HydraNode
 -- and ending the action, we should rather reference the event/effect processed
 -- using some id when the action completest
 data HydraNodeLog tx
-  = ErrorHandlingEvent {emitter :: Party, event :: Event tx, reason :: LogicError tx}
-  | ProcessingEvent {emitter :: Party, event :: Event tx}
-  | ProcessedEvent {emitter :: Party, event :: Event tx}
-  | ProcessingEffect {emitter :: Party, effect :: Effect tx}
-  | ProcessedEffect {emitter :: Party, effect :: Effect tx}
+  = ErrorHandlingEvent {by :: Party, event :: Event tx, reason :: LogicError tx}
+  | ProcessingEvent {by :: Party, event :: Event tx}
+  | ProcessedEvent {by :: Party, event :: Event tx}
+  | ProcessingEffect {by :: Party, effect :: Effect tx}
+  | ProcessedEffect {by :: Party, effect :: Effect tx}
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON, FromJSON)
 
