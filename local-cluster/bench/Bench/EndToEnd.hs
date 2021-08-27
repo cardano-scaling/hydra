@@ -24,6 +24,7 @@ import qualified Data.Map as Map
 import Data.Scientific (Scientific)
 import Data.Set ((\\))
 import qualified Data.Set as Set
+import Data.Time (nominalDiffTimeToSeconds)
 import Hydra.Ledger (Tx, TxId, Utxo, txId)
 import Hydra.Ledger.Cardano (CardanoTx)
 import Hydra.Logging (showLogsOnFailure)
@@ -58,7 +59,7 @@ data Event = Event
 
 bench :: FilePath -> Utxo CardanoTx -> [CardanoTx] -> Spec
 bench workDir initialUtxo txs =
-  it ("Benchmarks three local nodes in " <> workDir) $ do
+  specify "Load test on three local nodes" $ do
     registry <- newTVarIO mempty :: IO (TVar IO (Map.Map (TxId CardanoTx) Event))
     showLogsOnFailure $ \tracer ->
       failAfter 300 $ do
@@ -88,6 +89,15 @@ bench workDir initialUtxo txs =
 
     res <- mapMaybe analyze . Map.toList <$> readTVarIO registry
     writeResultsCsv (workDir </> "results.csv") res
+    -- TODO: Create a proper summary
+    let confTimes = map snd res
+        below1Sec = filter (< 1) confTimes
+        avgConfirmation = double (nominalDiffTimeToSeconds $ sum confTimes) / double (length confTimes)
+        percentBelow1Sec = double (length below1Sec) / double (length confTimes) * 100
+    putTextLn $ "Confirmed txs: " <> show (length confTimes)
+    putTextLn $ "Average confirmation time: " <> show avgConfirmation
+    putTextLn $ "Confirmed below 1 sec: " <> show percentBelow1Sec <> "%"
+    percentBelow1Sec `shouldSatisfy` (> 90)
 
 --
 -- Helpers
@@ -95,6 +105,9 @@ bench workDir initialUtxo txs =
 
 noUtxos :: Utxo CardanoTx
 noUtxos = mempty
+
+double :: Real a => a -> Double
+double = realToFrac
 
 int :: Int -> Int
 int = id
