@@ -186,6 +186,11 @@
         },
         {
             "tag": "TxInvalid",
+            "utxo": [
+              18,
+              19,
+              21
+            ],
             "transaction": {
                 "id": -28,
                 "inputs": [
