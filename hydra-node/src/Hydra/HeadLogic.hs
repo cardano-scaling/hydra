@@ -216,19 +216,13 @@ update Environment{party, signingKey, otherParties, snapshotStrategy} ledger st 
     sameState
       [ClientEffect . Utxo $ getField @"utxo" confirmedSnapshot]
   --
-  (OpenState _ CoordinatedHeadState{seenUtxo}, ClientEvent (NewTx tx)) ->
-    -- NOTE: We deliberately do not perform any validation because:
-    --
-    --   (a) The validation is already done when handling ReqTx
-    --   (b) It makes testing of the logic more complicated, for we can't
-    --       send not-yet-valid transactions and simulate messages out of
-    --       order
-    sameState [NetworkEffect $ ReqTx party tx, ClientEffect clientFeedback]
+  (OpenState _ CoordinatedHeadState{seenUtxo, confirmedSnapshot = Snapshot{utxo}}, ClientEvent (NewTx tx)) ->
+    sameState effects
    where
-    clientFeedback =
-      case canApply ledger seenUtxo tx of
-        Valid -> TxValid tx
-        Invalid err -> TxInvalid{utxo = seenUtxo, transaction = tx, validationError = err}
+    effects =
+      case canApply ledger utxo tx of
+        Valid -> [ClientEffect $ TxValid tx, NetworkEffect $ ReqTx party tx]
+        Invalid err -> [ClientEffect $ TxInvalid{utxo = seenUtxo, transaction = tx, validationError = err}]
   (OpenState parameters headState@CoordinatedHeadState{confirmedSnapshot, seenTxs, seenUtxo}, NetworkEvent (ReqTx _ tx)) ->
     case applyTransactions ledger seenUtxo [tx] of
       Left _err -> Wait

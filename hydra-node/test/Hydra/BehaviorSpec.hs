@@ -229,7 +229,7 @@ spec = describe "Behavior of one ore more hydra nodes" $ do
               waitFor [n1] $ TxValid (aValidTx 42)
               waitFor [n1, n2] $ TxSeen (aValidTx 42)
 
-      it "reports transactions as seen only when they are applicable" $
+      it "reports transactions as seen only when they are valid" $
         shouldRunInSim $ do
           chain <- simulatedChainAndNetwork
           withHydraNode 1 [2] NoSnapshots chain $ \n1 ->
@@ -240,11 +240,14 @@ spec = describe "Behavior of one ore more hydra nodes" $ do
                   secondTx = SimpleTx 4 (utxoRef 3) (utxoRef 4)
 
               send n2 (NewTx secondTx)
-              waitFor [n2] $ TxInvalid (utxoRefs [1, 2, 3]) secondTx (ValidationError "cannot apply transaction")
+              waitFor [n2] $ TxInvalid (utxoRefs [1, 2]) secondTx (ValidationError "cannot apply transaction")
               send n1 (NewTx firstTx)
               waitFor [n1] $ TxValid firstTx
 
               waitFor [n1, n2] $ TxSeen firstTx
+
+              send n2 (NewTx secondTx)
+              waitFor [n2] $ TxValid secondTx
               waitFor [n1, n2] $ TxSeen secondTx
 
       it "valid new transactions get snapshotted" $
