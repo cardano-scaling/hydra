@@ -216,13 +216,13 @@ update Environment{party, signingKey, otherParties, snapshotStrategy} ledger st 
     sameState
       [ClientEffect . Utxo $ getField @"utxo" confirmedSnapshot]
   --
-  (OpenState _ CoordinatedHeadState{seenUtxo, confirmedSnapshot = Snapshot{utxo}}, ClientEvent (NewTx tx)) ->
+  (OpenState _ CoordinatedHeadState{confirmedSnapshot = Snapshot{utxo}}, ClientEvent (NewTx tx)) ->
     sameState effects
    where
     effects =
       case canApply ledger utxo tx of
         Valid -> [ClientEffect $ TxValid tx, NetworkEffect $ ReqTx party tx]
-        Invalid err -> [ClientEffect $ TxInvalid{utxo = seenUtxo, transaction = tx, validationError = err}]
+        Invalid err -> [ClientEffect $ TxInvalid{utxo = utxo, transaction = tx, validationError = err}]
   (OpenState parameters headState@CoordinatedHeadState{confirmedSnapshot, seenTxs, seenUtxo}, NetworkEvent (ReqTx _ tx)) ->
     case applyTransactions ledger seenUtxo [tx] of
       Left _err -> Wait
