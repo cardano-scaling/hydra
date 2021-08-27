@@ -6,7 +6,6 @@ module Test.Hydra.Prelude (
   location,
   failAfter,
   dualFormatter,
-  formatFailure,
 
   -- * HSpec re-exports
   module Test.Hspec,
@@ -24,7 +23,6 @@ import Test.HSpec.JUnit (junitFormat)
 import Test.HUnit.Lang (FailureReason (Reason), HUnitFailure (HUnitFailure))
 import Test.Hspec.Core.Format (Format, FormatConfig (..))
 import Test.Hspec.Core.Formatters (formatterToFormat, specdoc)
-import Test.Hspec.Runner (defaultConfig, evaluateSummary, runSpec)
 
 -- | Create a unique temporary directory.
 createSystemTempDirectory :: String -> IO FilePath
@@ -68,9 +66,3 @@ dualFormatter suiteName config = do
   junit <- junitFormat "test-results.xml" suiteName config
   docSpec <- formatterToFormat specdoc config
   pure $ \e -> junit e >> docSpec e
-
--- | Format any 'failure' ('HUnitFailure' exceptions) using 'hspec' inside a
--- given context.
-formatFailure :: String -> IO () -> IO ()
-formatFailure ctx action = do
-  runSpec (it ctx action) defaultConfig >>= evaluateSummary

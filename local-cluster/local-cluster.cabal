@@ -166,6 +166,7 @@ benchmark bench-e2e
     , cardano-crypto-class
     , containers
     , filepath
+    , hspec
     , hydra-node
     , hydra-prelude
     , hydra-test-utils

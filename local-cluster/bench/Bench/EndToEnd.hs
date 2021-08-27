@@ -56,9 +56,9 @@ data Event = Event
   }
   deriving (Generic, Eq, Show, ToJSON)
 
-bench :: FilePath -> Utxo CardanoTx -> [CardanoTx] -> IO ()
+bench :: FilePath -> Utxo CardanoTx -> [CardanoTx] -> Spec
 bench workDir initialUtxo txs =
-  formatFailure "Benchmark three local nodes" $ do
+  it ("Benchmarks three local nodes in " <> workDir) $ do
     registry <- newTVarIO mempty :: IO (TVar IO (Map.Map (TxId CardanoTx) Event))
     showLogsOnFailure $ \tracer ->
       failAfter 300 $ do
