@@ -59,7 +59,7 @@ data Event = Event
 
 bench :: FilePath -> Utxo CardanoTx -> [CardanoTx] -> Spec
 bench workDir initialUtxo txs =
-  specify "Load test on three local nodes" $ do
+  specify ("Load test on three local nodes (" <> workDir <> ")") $ do
     registry <- newTVarIO mempty :: IO (TVar IO (Map.Map (TxId CardanoTx) Event))
     showLogsOnFailure $ \tracer ->
       failAfter 300 $ do
