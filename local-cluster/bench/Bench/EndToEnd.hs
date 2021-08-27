@@ -18,7 +18,7 @@ import Control.Monad.Class.MonadSTM (
   modifyTVar,
   newTVarIO,
  )
-import Data.Aeson (Result (Success), Value, encode, encodeFile, fromJSON, (.=))
+import Data.Aeson (Result (Error, Success), Value, encodeFile, fromJSON, (.=))
 import Data.Aeson.Lens (key, _Array, _Number, _String)
 import qualified Data.Map as Map
 import Data.Scientific (Scientific)
@@ -136,13 +136,9 @@ waitForAllConfirmations n1 registry txs =
     | otherwise = do
       waitForSnapshotConfirmation >>= \case
         TxInvalid{transaction, reason} -> do
-          atomically $
-            modifyTVar registry $
-              Map.delete (txId transaction)
+          atomically $ modifyTVar registry $ Map.delete (txId transaction)
           putTextLn $
-            "Received TxInvalid for transaction id:\n" <> show (txId transaction)
-              <> "\n"
-              <> reason
+            "TxInvalid: " <> show (txId transaction) <> "\nReason: " <> reason
         SnapshotConfirmed{transactions, snapshotNumber} -> do
           -- TODO(SN): use a tracer for this
           putTextLn $ "Snapshot confirmed: " <> show snapshotNumber
@@ -154,9 +150,10 @@ waitForAllConfirmations n1 registry txs =
 
   maybeTxInvalid v = do
     guard (v ^? key "tag" == Just "TxInvalid")
-    TxInvalid
-      <$> v ^? key "transaction" . to fromJSON
-      <*> v ^? key "validationError" . key "reason" . _String
+    v ^? key "transaction" . to fromJSON >>= \case
+      Error _ -> Nothing
+      Success tx ->
+        TxInvalid tx <$> v ^? key "validationError" . key "reason" . _String
 
   maybeSnapshotConfirmed v = do
     guard (v ^? key "tag" == Just "SnapshotConfirmed")
