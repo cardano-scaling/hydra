@@ -14,7 +14,8 @@ import Data.List (dropWhileEnd)
 import qualified Data.Map.Strict as Map
 import qualified Data.Yaml as Yaml
 import Hydra.ClientInput (ClientInput)
-import Hydra.Ledger.Simple (SimpleTx)
+import Hydra.Ledger (Utxo)
+import Hydra.Ledger.Cardano (CardanoTx)
 import Hydra.ServerOutput (ServerOutput)
 import qualified Paths_hydra_node as Pkg
 import System.Exit (ExitCode (..))
@@ -29,11 +30,15 @@ import qualified Prelude
 spec :: Spec
 spec = parallel $ do
   aroundAll withJsonSpecifications $ do
-    context "Validate JSON representations with API specification" $ do
+    context "validates JSON representations against API specification" $ do
       specify "ClientInput" $ \(specs, tmp) ->
-        property $ prop_validateToJSON @(ClientInput SimpleTx) specs "inputs" (tmp </> "ClientInput")
+        property $ prop_validateToJSON @(ClientInput CardanoTx) specs "inputs" (tmp </> "ClientInput")
       specify "ServerOutput" $ \(specs, tmp) ->
-        property $ prop_validateToJSON @(ServerOutput SimpleTx) specs "outputs" (tmp </> "ServerOutput")
+        property $ prop_validateToJSON @(ServerOutput CardanoTx) specs "outputs" (tmp </> "ServerOutput")
+      specify "Utxo" $ \(specs, tmp) ->
+        property $ prop_validateToJSON @(Utxo CardanoTx) specs "utxo" (tmp </> "Utxo")
+      specify "CardanoTx" $ \(specs, tmp) ->
+        property $ prop_validateToJSON @CardanoTx specs "txs" (tmp </> "CardanoTx")
 
 -- | Generate arbitrary serializable (JSON) value, and check their validity
 -- against a known JSON schema.

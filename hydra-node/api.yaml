@@ -29,10 +29,13 @@ properties:
           the server will output an 'CommandFailed' message should this happen.
         required:
         - tag
+        - contestationPeriod
         properties:
           tag:
             type: string
             enum: ["Init"]
+          contestationPeriod:
+            type: number
 
       - title: Abort
         type: object
@@ -133,6 +136,7 @@ properties:
           parties:
             type: array
             items:
+              $comment: "TODO: should be Party"
               $ref: "#/definitions/Peer"
 
       - title: Committed
@@ -146,6 +150,7 @@ properties:
             type: string
             enum: ["Committed"]
           party:
+            $comment: "TODO: should be Party"
             $ref: "#/definitions/Peer"
           utxo:
             $ref: "#/definitions/Utxo"
@@ -229,13 +234,22 @@ properties:
         type: object
         required:
         - tag
+        - utxo
         - transaction
+        - validationError
         properties:
           tag:
             type: string
             enum: ["TxInvalid"]
+          utxo:
+            $ref: "#/definitions/Utxo"
           transaction:
             $ref: "#/definitions/Transaction"
+          validationError:
+            type: object
+            properties:
+              reason:
+                type: string
 
       - title: SnapshotConfirmed
         type: object
@@ -273,10 +287,28 @@ properties:
         type: object
         required:
         - tag
+        - reason
+        - input
         properties:
           tag:
             type: string
             enum: ["InvalidInput"]
+          reason:
+            type: string
+          input:
+            type: string
+
+  utxo:
+    type: array
+    items:
+      $ref: "#/definitions/Utxo"
+    additionalItems: false
+
+  txs:
+    type: array
+    items:
+      $ref: "#/definitions/Transaction"
+    additionalItems: false
 
 definitions:
   DiffTime:
@@ -308,11 +340,18 @@ definitions:
           $ref: "#/definitions/Transaction"
 
   Utxo:
-    type: array
+    type: object
+    description: >-
+      Cardano Unspent transaction outputs (Utxo), mapping from TxId#index to TxOut
     items:
-      type: integer
+      $ref: "#/definitions/TxOut"
+    propertyNames:
+      pattern: "^[0-9a-f]{64}#[0-9]+$"
     examples:
-      - [ 14, 42, 1337 ]
+      - "09d34606abdcd0b10ebc89307cbfa0b469f9144194137b45b7a04b273961add8#687":
+          "address": "addr1w9htvds89a78ex2uls5y969ttry9s3k9etww0staxzndwlgmzuul5"
+          "value":
+            "lovelace": 7620669
 
   Transaction:
     type: object
@@ -321,20 +360,19 @@ definitions:
     required:
     - id
     - body
-    - auxiliaryData
+    $comment: "TODO: auxiliaryData and witnesses not covered"
     properties:
       id:
         $ref: "#/definitions/TxId"
       body:
         $ref: "#/definitions/TxBody"
-      auxiliaryData:
-        $ref: "#/definitions/Cbor"
 
   TxId:
     type: string
+    pattern: "^[0-9a-f]{64}"
     description: >-
-      A transaction unique identifier as the hex-encoded hash of the
-      transaction's body
+      A Cardano transaction identifier. This is the hex-encoded hash of the
+      transaction's body.
     examples:
       - "8df1616d4337ede40bbad2914f12977815234b83951bcce3bfcd735aed3f63e4"
 
@@ -355,10 +393,11 @@ definitions:
 
   TxIn:
     type: string
+    pattern: "^[0-9a-f]{64}#[0-9]+$"
     description: >-
-      A string representing a reference to some transaction output,
-      built by concatenating the transaction's id and the ouput
-      index, separated by a '#' sign
+      A reference to a Cardano transaction output, commonly used as transaction
+      input and thus named TxIn. Constructed from the transaction's id and
+      the ouput index, separated by a '#'.
     examples:
       - "03170a2e7597b7b7e3d84c05391d139a62b157e78786d8c082f29dcf4c111314#4"
 
@@ -378,9 +417,12 @@ definitions:
   Address:
     type: string
     description: >-
-      bech-32 encoding of Cardano addres, see https://github.com/bitcoin/bips/blob/master/bip-0173.mediawiki#Bech32s
+      A bech-32 encoded Cardano address, see
+      https://github.com/bitcoin/bips/blob/master/bip-0173.mediawiki#Bech32s and
+      https://github.com/cardano-foundation/CIPs/blob/master/CIP-0005/CIP-0005.md
     examples:
-      - "addr_test1qplr25ppgay5480h7lpwragcwu9tyjglhp7hc4v7j3lavk00ggp4ns6zcn4kxhvzxr8gpsuwtv50prku9cdtrs2d2cvq2mz6e6"
+      - "addr1w9htvds89a78ex2uls5y969ttry9s3k9etww0staxzndwlgmzuul5"
+      - "addr_test1gpr87kyn9d2fzpvy5r5w5fdzyhsx59znpvhfd6fcc5ar7g5yl33cdg0cq24ewdshsutgm"
 
   Value:
     type: object
@@ -398,18 +440,18 @@ definitions:
         type: integer
         minimum: 0
         description: >-
-          A (positive) number of lovelaces
+          A (positive) amount of lovelace
       assets:
         type: object
         patternProperties:
-          .*:
+          "[0-9a-f]+":
             type: object
             description: >-
               A map of 'asset names' to integral values. The key for this
               object is the monetary policy id for those assets which is a
               hex-encoded string of some arbitrary underlying bytes.
             patternProperties:
-              .*:
+              "[0-9a-f]*":
                 type: integer
                 minimum: 0
                 description: >-
