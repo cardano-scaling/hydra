@@ -78,7 +78,7 @@ bench workDir initialUtxo txs =
 
                 waitFor tracer 3 [n1, n2, n3] $ output "HeadIsOpen" ["utxo" .= initialUtxo]
 
-                for_ txs (\tx -> newTx registry n1 tx >> threadDelay 0.001)
+                for_ txs (\tx -> newTx registry n1 tx >> threadDelay 0.1)
                   `concurrently_` waitForAllConfirmations n1 registry txs
 
                 send n1 $ input "Close" []
@@ -133,10 +133,10 @@ waitForAllConfirmations n1 registry txs =
     | Set.null remainingIds = pure ()
     | otherwise = do
       waitForSnapshotConfirmation >>= \case
-        TxInvalid{transaction, reason} -> do
-          atomically $ modifyTVar registry $ Map.delete (txId transaction)
-          putTextLn $ "TxInvalid: " <> show (txId transaction) <> "\nReason: " <> reason
-          go $ Set.delete (txId transaction) remainingIds
+        TxInvalid{transaction} -> do
+          putTextLn $ "TxInvalid: " <> show (txId transaction) <> ", resubmitting"
+          newTx registry n1 transaction
+          go remainingIds
         SnapshotConfirmed{transactions, snapshotNumber} -> do
           -- TODO(SN): use a tracer for this
           putTextLn $ "Snapshot confirmed: " <> show snapshotNumber
