@@ -122,7 +122,7 @@ newTx registry client tx = do
   send client $ input "NewTx" ["transaction" .= tx]
 
 data WaitResult
-  = TxInvalid {utxo :: Value, transaction :: Value, reason :: Text}
+  = TxInvalid {transaction :: CardanoTx, reason :: Text}
   | SnapshotConfirmed {transactions :: [Value], snapshotNumber :: Scientific}
 
 waitForAllConfirmations :: HydraClient -> TVar IO (Map.Map (TxId CardanoTx) Event) -> [CardanoTx] -> IO ()
@@ -135,12 +135,12 @@ waitForAllConfirmations n1 registry txs =
     | Set.null remainingIds = pure ()
     | otherwise = do
       waitForSnapshotConfirmation >>= \case
-        TxInvalid{utxo, transaction, reason} ->
-          failure . toString $
-            "Received TxInvalid:\n"
-              <> decodeUtf8 (encode utxo)
-              <> "\n"
-              <> decodeUtf8 (encode transaction)
+        TxInvalid{transaction, reason} -> do
+          atomically $
+            modifyTVar registry $
+              Map.delete (txId transaction)
+          putTextLn $
+            "Received TxInvalid for transaction id:\n" <> show (txId transaction)
               <> "\n"
               <> reason
         SnapshotConfirmed{transactions, snapshotNumber} -> do
@@ -155,8 +155,7 @@ waitForAllConfirmations n1 registry txs =
   maybeTxInvalid v = do
     guard (v ^? key "tag" == Just "TxInvalid")
     TxInvalid
-      <$> v ^? key "utxo"
-      <*> v ^? key "transaction"
+      <$> v ^? key "transaction" . to fromJSON
       <*> v ^? key "validationError" . key "reason" . _String
 
   maybeSnapshotConfirmed v = do
