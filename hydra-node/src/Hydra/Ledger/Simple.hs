@@ -68,7 +68,7 @@ type SimpleId = Integer
 -- |An identifier for a single output of a 'SimpleTx'.
 newtype TxIn = TxIn {unTxIn :: Integer}
   deriving stock (Generic)
-  deriving newtype (Eq, Ord, Show, ToJSON, FromJSON)
+  deriving newtype (Eq, Ord, Show, Num, ToJSON, FromJSON)
 
 instance Arbitrary TxIn where
   shrink = genericShrink
