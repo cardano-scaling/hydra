@@ -137,8 +137,8 @@ waitForAllConfirmations n1 registry txs =
       waitForSnapshotConfirmation >>= \case
         TxInvalid{transaction, reason} -> do
           atomically $ modifyTVar registry $ Map.delete (txId transaction)
-          putTextLn $
-            "TxInvalid: " <> show (txId transaction) <> "\nReason: " <> reason
+          putTextLn $ "TxInvalid: " <> show (txId transaction) <> "\nReason: " <> reason
+          go $ Set.delete (txId transaction) remainingIds
         SnapshotConfirmed{transactions, snapshotNumber} -> do
           -- TODO(SN): use a tracer for this
           putTextLn $ "Snapshot confirmed: " <> show snapshotNumber
