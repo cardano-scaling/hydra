@@ -8,22 +8,17 @@ import Data.Aeson (eitherDecodeFileStrict', encodeFile)
 import Hydra.Ledger (applyTransactions)
 import Hydra.Ledger.Cardano (cardanoLedger, genSequenceOfValidTransactions, genUtxo)
 import System.Environment (withArgs)
-import System.FilePath (takeDirectory, (</>))
+import System.FilePath ((</>))
 import Test.QuickCheck (generate, scale)
 
 main :: IO ()
 main =
   getArgs >>= \case
-    [utxosFile, txsFile] ->
-      eitherDecodeFileStrict' txsFile
-        >>= \ts ->
-          eitherDecodeFileStrict' utxosFile >>= \us ->
-            case (ts, us) of
-              (Right txs, Right utxos) -> do
-                putStrLn $ "Using transactions from: " <> txsFile
-                putStrLn $ "Using UTxOs from: " <> utxosFile
-                run (takeDirectory txsFile) utxos txs
-              err -> die (show err)
+    [benchDir] -> do
+      txs <- either die pure =<< eitherDecodeFileStrict' (benchDir </> "txs.json")
+      utxo <- either die pure =<< eitherDecodeFileStrict' (benchDir </> "utxo.json")
+      putStrLn $ "Using UTxO and Transactions from: " <> benchDir
+      run benchDir utxo txs
     _ -> do
       tmpDir <- createSystemTempDirectory "bench"
 
@@ -37,6 +32,7 @@ main =
           saveUtxos tmpDir initialUtxo
           run tmpDir initialUtxo txs
  where
+  -- TODO(SN): Ideally we would like to say "to re-run use ... " on errors
   run fp utxo txs =
     withArgs [] . hspec $ bench fp utxo txs
 

@@ -81,6 +81,7 @@ bench workDir initialUtxo txs =
                 for_ txs (\tx -> newTx registry n1 tx >> threadDelay 0.1)
                   `concurrently_` waitForAllConfirmations n1 registry txs
 
+                putTextLn "Closing the Head..."
                 send n1 $ input "Close" []
                 waitMatch (contestationPeriod + 3) n1 $ \v ->
                   guard (v ^? key "tag" == Just "HeadIsFinalized")
