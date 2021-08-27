@@ -19,6 +19,7 @@ import Control.Monad.Class.MonadSTM (
  )
 import Control.Monad.Class.MonadTimer (timeout)
 import Control.Monad.IOSim (Failure (FailureDeadlock), IOSim, runSimTrace, selectTraceEventsDynamic)
+import GHC.Records (getField)
 import Hydra.API.Server (Server (..))
 import Hydra.Chain (Chain (..), toOnChainTx)
 import Hydra.ClientInput
@@ -381,7 +382,7 @@ simulatedChainAndNetwork = do
     pure $
       node
         { oc = Chain{postTx = postTx nodes refHistory}
-        , hn = Network{broadcast = broadcast nodes}
+        , hn = Network{broadcast = broadcast node nodes}
         }
  where
   postTx nodes refHistory tx = do
@@ -393,7 +394,12 @@ simulatedChainAndNetwork = do
       Nothing -> pure ()
       Just ns -> mapM_ (`handleChainTx` toOnChainTx tx) ns
 
-  broadcast nodes msg = readTVarIO nodes >>= mapM_ (`handleMessage` msg)
+  broadcast node nodes msg = do
+    allNodes <- readTVarIO nodes
+    let otherNodes = filter (\n -> getNodeId n /= getNodeId node) allNodes
+    mapM_ (`handleMessage` msg) otherNodes
+
+  getNodeId = getField @"party" . env
 
 -- NOTE(SN): Deliberately not configurable via 'withHydraNode'
 testContestationPeriod :: DiffTime
@@ -421,23 +427,20 @@ withHydraNode signingKey otherParties snapshotStrategy connectToChain action = d
   party = deriveParty signingKey
 
   createHydraNode outputs = do
-    let env =
-          Environment
-            { party
-            , signingKey
-            , otherParties
-            , snapshotStrategy
-            }
     eq <- createEventQueue
     hh <- createHydraHead ReadyState simpleLedger
-    let hn' = Network{broadcast = const $ pure ()}
-    let node =
-          HydraNode
-            { eq
-            , hn = hn'
-            , hh
-            , oc = Chain (const $ pure ())
-            , server = Server{sendOutput = atomically . writeTQueue outputs}
-            , env
-            }
-    connectToChain node
+    connectToChain $
+      HydraNode
+        { eq
+        , hn = Network{broadcast = const $ pure ()}
+        , hh
+        , oc = Chain (const $ pure ())
+        , server = Server{sendOutput = atomically . writeTQueue outputs}
+        , env =
+            Environment
+              { party
+              , signingKey
+              , otherParties
+              , snapshotStrategy
+              }
+        }

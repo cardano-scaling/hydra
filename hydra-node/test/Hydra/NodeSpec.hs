@@ -1,3 +1,5 @@
+{-# LANGUAGE DuplicateRecordFields #-}
+
 module Hydra.NodeSpec where
 
 import Hydra.Prelude
@@ -7,7 +9,7 @@ import Hydra.API.Server (Server (..))
 import Hydra.Chain (Chain (..), OnChainTx (..))
 import Hydra.ClientInput (ClientInput (..))
 import Hydra.HeadLogic (
-  Environment (Environment),
+  Environment (..),
   Event (..),
   HeadState (..),
   SnapshotStrategy (..),
@@ -17,7 +19,6 @@ import Hydra.Ledger.Simple (SimpleTx (..), simpleLedger, utxoRef, utxoRefs)
 import Hydra.Logging (showLogsOnFailure)
 import Hydra.Network (Network (..))
 import Hydra.Network.Message (Message (..))
-import qualified Hydra.Network.Message as Msg
 import Hydra.Node (EventQueue (EventQueue, putEvent), HydraNode (..), createEventQueue, createHydraHead, isEmpty, stepHydraNode)
 import Hydra.Snapshot (Snapshot (Snapshot))
 
@@ -31,9 +32,9 @@ spec = do
         tx3 = SimpleTx{txSimpleId = 3, txInputs = utxoRefs [5], txOutputs = utxoRefs [6]}
         events =
           prefix
-            <> [ NetworkEvent{message = ReqTx{Msg.party = 10, Msg.transaction = tx1}}
-               , NetworkEvent{message = ReqTx{Msg.party = 10, Msg.transaction = tx2}}
-               , NetworkEvent{message = ReqTx{Msg.party = 10, Msg.transaction = tx3}}
+            <> [ NetworkEvent{message = ReqTx{party = 10, transaction = tx1}}
+               , NetworkEvent{message = ReqTx{party = 10, transaction = tx2}}
+               , NetworkEvent{message = ReqTx{party = 10, transaction = tx3}}
                ]
         signedSnapshot = sign 10 $ Snapshot 1 (utxoRefs [1, 3, 6]) [tx1, tx2, tx3]
     node <- createHydraNode 10 [20, 30] SnapshotAfterEachTx events
@@ -47,13 +48,13 @@ spec = do
         sig10 = sign 10 snapshot
         events =
           prefix
-            <> [ NetworkEvent{message = AckSn{Msg.party = 20, Msg.signed = sig20, Msg.snapshotNumber = 1}}
-               , NetworkEvent{message = ReqSn{Msg.party = 10, Msg.snapshotNumber = 1, Msg.transactions = []}}
+            <> [ NetworkEvent{message = AckSn{party = 20, signed = sig20, snapshotNumber = 1}}
+               , NetworkEvent{message = ReqSn{party = 10, snapshotNumber = 1, transactions = []}}
                ]
     node <- createHydraNode 10 [20, 30] SnapshotAfterEachTx events
     (node', getNetworkMessages) <- recordNetwork node
     runToCompletion node'
-    getNetworkMessages `shouldReturn` [AckSn{Msg.party = 10, Msg.signed = sig10, Msg.snapshotNumber = 1}]
+    getNetworkMessages `shouldReturn` [AckSn{party = 10, signed = sig10, snapshotNumber = 1}]
 
 oneReqSn :: [Message tx] -> Bool
 oneReqSn = (== 1) . length . filter isReqSn
@@ -64,8 +65,8 @@ oneReqSn = (== 1) . length . filter isReqSn
 
 prefix :: [Event SimpleTx]
 prefix =
-  [ NetworkEvent{message = Connected{Msg.party = 30}}
-  , NetworkEvent{message = Connected{Msg.party = 10}}
+  [ NetworkEvent{message = Connected{party = 30}}
+  , NetworkEvent{message = Connected{party = 10}}
   , OnChainEvent
       { onChainTx = OnInitTx 10 [10, 20, 30]
       }
@@ -92,12 +93,6 @@ createHydraNode ::
   [Event SimpleTx] ->
   m (HydraNode SimpleTx m)
 createHydraNode signingKey otherParties snapshotStrategy events = do
-  let env =
-        Environment
-          party
-          signingKey
-          otherParties
-          snapshotStrategy
   eq@EventQueue{putEvent} <- createEventQueue
   forM_ events putEvent
   hh <- createHydraHead ReadyState simpleLedger
@@ -108,7 +103,13 @@ createHydraNode signingKey otherParties snapshotStrategy events = do
       , hh
       , oc = Chain{postTx = const $ pure ()}
       , server = Server{sendOutput = const $ pure ()}
-      , env
+      , env =
+          Environment
+            { party
+            , signingKey
+            , otherParties
+            , snapshotStrategy
+            }
       }
  where
   party = deriveParty signingKey
