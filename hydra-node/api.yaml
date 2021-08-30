@@ -356,7 +356,8 @@ definitions:
   Transaction:
     type: object
     description: >-
-      A full Mary-era Cardano transaction
+      A full Mary-era Cardano transaction. This is a simplification over the full definition of a Cardano Transaction,
+      whose grammar is described using CDDL here: https://github.com/input-output-hk/cardano-ledger-specs/blob/master/shelley-ma/shelley-ma-test/cddl-files/shelley-ma.cddl#L13
     required:
     - id
     - body
@@ -384,12 +385,29 @@ definitions:
     properties:
       inputs:
         type: array
+        description: >-
+          A list of inputs for this transaction. Technically, this is actually a Set, eg. the order of elements does not matter and they must be unique.
         items:
           $ref: "#/definitions/TxIn"
       outputs:
         type: array
+        description: >-
+          A list of outputs. Ordering is important here because a TxOut is referenced by its
+          position in the inputs of subsequent transactions.
         items:
           $ref: "#/definitions/TxOut"
+      certificates:
+        type: array
+        description: >-
+          An array of certificates, encoded as hexadecimal representation of CBOR serialisation.
+        items:
+          $ref: "#/definitions/CBOR"
+      withdrawals:
+        type: array
+        description: >-
+          An array of withdrawal.
+        items:
+          $ref: "#/definitions/Wdrl"
 
   TxIn:
     type: string
@@ -443,19 +461,21 @@ definitions:
           A (positive) amount of lovelace
       assets:
         type: object
+        description: >-
+          A map from monetary policy id to assets. A policy id is a
+          hex-encoded string of some arbitrary bytes.
         patternProperties:
           "[0-9a-f]+":
             type: object
             description: >-
-              A map of 'asset names' to integral values. The key for this
-              object is the monetary policy id for those assets which is a
-              hex-encoded string of some arbitrary underlying bytes.
+              A map of 'asset names' to integral values. The key is
+              the hex-encoded name of the asset.
             patternProperties:
               "[0-9a-f]*":
                 type: integer
                 minimum: 0
                 description: >-
-                  Some positive number of some coin. The key is the hex-encoded name of the asset.
+                  Some positive number of some 'coin'.
 
   Cbor:
     type: string
@@ -463,3 +483,36 @@ definitions:
       The hex-encoding of the CBOR encoding of some binary data
     examples:
       - "820082582089ff4f3ff4a6052ec9d073b3be68b5e7596bd74a04e7b74504a8302fb2278cd95840f66eb3cd160372d617411408792c0ebd9791968e9948112894e2706697a55c10296b04019ed2f146f4d81e8ab17b9d14cf99569a2f85cbfa32320127831db202"
+
+  Wdrl:
+    type: array
+    description: >-
+      A withdrawal of some number of coins to some reward address, expressed as a pair.
+    prefixItems:
+    - type: object
+      required:
+      - network
+      - credential
+      properties:
+        network:
+          type: string
+          description: >-
+            Identification of the network the address is valid for
+          enum: ["Mainnet", "Testnet"]
+        credential:
+          type: object
+          minProperties: 1
+          maxProperties: 1
+          properties:
+            "script hash":
+              type: string
+              description: >-
+                Hexadecimal string of the hash of a script
+            "key hash":
+              type: string
+              description: >-
+                Hexadecimal string of the hash of a public key
+    - type: integer
+      minimum: 0
+      description:  >-
+        Number of ADAs withdrawn to the given address
