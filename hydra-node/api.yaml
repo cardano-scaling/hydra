@@ -431,8 +431,8 @@ definitions:
         - "9b258583229a324c3021d036e83f3c1e69ca4a586a91fad0bc9e4ce79f7411e0"
       mint:
         description: >-
-          Values minted by this transaction"
-        ref: "#/definitions/Value"
+          Values minted by this transaction
+        $ref: "#/definitions/Value"
 
   TxIn:
     type: string
