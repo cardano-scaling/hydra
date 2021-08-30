@@ -1,0 +1,120 @@
+---
+"$schema": http://json-schema.org/draft/2020-12/schema
+"$id": https://raw.githubusercontent.com/input-output-hk/hydra-poc/master/docs/api-log.json
+"$comment": A description of the log items produced by a Hydra node
+title: Hydra Logs API
+description: >
+  This schema documents the structure of the Log items produced by a running Hydra node
+  and output to its standard output stream. Items are output as JSON data, separated by
+  a newline which makes it easy to ingest by thirdparty tools and services.
+
+required:
+- namespace
+- timestamp
+- thread
+- message
+properties:
+  namespace:
+    type: string
+    description: >-
+      An arbitrary string identifying the tracer generating this entry. For a node, this
+      is always 'HydraNode'.
+
+  timestamp:
+    type: string
+    format: "date-time"
+    description: >-
+      Timestamp denoting the wall-clock time at which this log entry was recoded
+
+  thread:
+    type: integer
+    description: >-
+      The id of the thread which produced the log entry.
+
+  message:
+    oneOf:
+      - title: APIServer
+        type: object
+        required:
+        - tag
+        description: >-
+          A log entry produced by the API server
+        properties:
+          tag:
+            type: string
+            enum: ["APIServer"]
+          api:
+            $ref: "#/definitions/APIServer"
+
+definitions:
+  APIServer:
+    oneOf:
+    - title: APIServerStarted
+      description: >-
+        API Server has started and is ready, listening for incoming client connections
+        on given port.
+      type: object
+      required:
+      - tag
+      - listeningPort
+      properties:
+        tag:
+          type: string
+          enum: ["APIServerStarted"]
+        listeningPort:
+          type: integer
+          minimum: 0
+          maximum: 65535
+    - title: NewAPIConnection
+      description: >-
+        A new client has connected to the API Server.
+      required:
+      - tag
+      properties:
+        tag:
+          type: string
+          enum: ["NewAPIConnection"]
+    - title: APIOutputSent
+      description: >-
+        Some output has been sent to a client.
+      required:
+      - tag
+      - sentOutput
+      properties:
+        tag:
+          type: string
+          enum: ["APIOutputSent"]
+        sentOutput:
+          type: any
+    - title: APIInputReceived
+      description: >-
+        Some input has been received from a client.
+      required:
+      - tag
+      - receivedInput
+      properties:
+        tag:
+          type: string
+          enum: ["APIInputReceived"]
+        receivedInput:
+          type: any
+    - title: APIInvalidInput
+      description: >-
+        Some input sent by a client is invalid.
+      required:
+      - tag
+      - reason
+      - inputReceived
+      properties:
+        tag:
+          type: string
+          enum: ["APIInvalidInput"]
+        reason:
+          type: string
+          description: >-
+            A textual description of the reason why this input is invalid
+        inputReceived:
+          type: string
+          description: >-
+            A rendering in text of the input received. This input is invalid hence it's
+            potentially invalid JSON so we just encode it as a proper JSON string. Note that if the input contained invalid UTF-8 characters they will be ignored.

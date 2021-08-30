@@ -34,7 +34,7 @@ data APIServerLog
   | NewAPIConnection
   | APIOutputSent {sentOutput :: Aeson.Value}
   | APIInputReceived {receivedInput :: Aeson.Value}
-  | APIInvalidInput String Text
+  | APIInvalidInput {reason :: String, inputReceived :: Text}
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON)
 
