@@ -49,6 +49,9 @@ data ExternalPabLog = ExternalPabLog
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON, FromJSON)
 
+instance Arbitrary ExternalPabLog where
+  arbitrary = genericArbitrary
+
 type WalletId = Integer
 
 withExternalPab ::

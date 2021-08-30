@@ -85,7 +85,7 @@ definitions:
           type: string
           enum: ["APIOutputSent"]
         sentOutput:
-          type: any
+          type: object
     - title: APIInputReceived
       description: >-
         Some input has been received from a client.
@@ -97,7 +97,7 @@ definitions:
           type: string
           enum: ["APIInputReceived"]
         receivedInput:
-          type: any
+          type: object
     - title: APIInvalidInput
       description: >-
         Some input sent by a client is invalid.

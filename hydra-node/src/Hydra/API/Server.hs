@@ -1,4 +1,5 @@
 {-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE UndecidableInstances #-}
 
 module Hydra.API.Server (
   Server (..),
@@ -14,6 +15,7 @@ import Control.Concurrent.STM (TChan, dupTChan, readTChan)
 import qualified Control.Concurrent.STM as STM
 import Control.Concurrent.STM.TChan (newBroadcastTChanIO, writeTChan)
 import Control.Concurrent.STM.TVar (TVar, modifyTVar', newTVarIO, readTVar)
+import Data.Aeson (Value)
 import qualified Data.Aeson as Aeson
 import Hydra.ClientInput (ClientInput)
 import Hydra.Ledger (Tx (..))
@@ -37,6 +39,9 @@ data APIServerLog
   | APIInvalidInput {reason :: String, inputReceived :: Text}
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON)
+
+instance Arbitrary Value => Arbitrary APIServerLog where
+  arbitrary = genericArbitrary
 
 -- | Handle to provide a means for sending server outputs to clients.
 newtype Server tx m = Server
