@@ -401,7 +401,7 @@ definitions:
         description: >-
           An array of certificates, encoded as hexadecimal representation of CBOR serialisation.
         items:
-          $ref: "#/definitions/CBOR"
+          $ref: "#/definitions/Cbor"
       withdrawals:
         type: array
         description: >-
