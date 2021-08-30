@@ -37,6 +37,7 @@ properties:
         type: object
         required:
         - tag
+        - api
         description: >-
           A log entry produced by the API server
         properties:
@@ -45,8 +46,79 @@ properties:
             enum: ["APIServer"]
           api:
             $ref: "#/definitions/APIServer"
+      - title: Node
+        type: object
+        required:
+        - tag
+        - node
+        description: >-
+          A log entry denoting events and effects processed by the Node as part of the
+          Head protocol.
+        properties:
+          tag:
+            type: string
+            enum: ["Node"]
+          node:
+            $ref: "#/definitions/Node"
 
 definitions:
+  Node:
+    oneOf:
+    - title: ErrorHandlingEvent
+      comment: >-
+        This should be removed from the Log's description as soon as we have some proper
+        error handling strategy in place, be it simply "Close the head" and bail out.
+      description: >-
+        Some error happened while processing an event, provides enough context information
+        to troubleshoot the origin of the error
+      type: object
+      required:
+      - by
+      - event
+      - reason
+      properties:
+        by:
+          description: >-
+            The Party emitting the log entry
+          $ref: "#/definitions/Party"
+        event:
+          description: >-
+            The event causing the error
+          $ref: "#/definitions/Event"
+        reason:
+          description: >-
+            Structured description of the cause of the error
+          $ref: "#/definitions/LogicError"
+    - title: ProcessingEvent
+      description: >-
+        Head has started processing an event drawn from some pool or queue of events to
+        process
+      type: object
+      required:
+      - by
+      - event
+      properties:
+        by:
+          description: >-
+            The Party emitting the log entry
+          $ref: "#/definitions/Party"
+        event:
+          $ref: "#/definitions/Event"
+    - title: ProcessedEvent
+      description: >-
+        Head has succesfully finished processing an event
+      type: object
+      required:
+      - by
+      - event
+      properties:
+        by:
+          description: >-
+            The Party emitting the log entry
+          $ref: "#/definitions/Party"
+        event:
+          $ref: "#/definitions/Event"
+
   APIServer:
     oneOf:
     - title: APIServerStarted
@@ -118,3 +190,257 @@ definitions:
           description: >-
             A rendering in text of the input received. This input is invalid hence it's
             potentially invalid JSON so we just encode it as a proper JSON string. Note that if the input contained invalid UTF-8 characters they will be ignored.
+  Party:
+    type: integer
+    comment: >-
+      Signing is currently implemented using mock crypto hence party is just an integer
+    description: >-
+      The verification key for some Party in the Head protocol, uniquely identifying it
+    examples: [10,20,30]
+  Event:
+    description: >-
+      Events (with Effects) are the atomic elements of the Hydra Head protocol which is
+      basically a state-machine consuming events and producing effects. Events can come
+      from different sources representing the various components a Head needs to interact
+      with: Clients, other peers through the Network, main Chain.
+    oneOf:
+    - title: ClientEvent
+      type: object
+      required:
+      - tag
+      - clientInput
+      description: >-
+        An event representing some input from a client
+      properties:
+        tag:
+          type: string
+          enum: ["ClientEvent"]
+        clientInput:
+          $ref: "https://raw.githubusercontent.com/input-output-hk/hydra-poc/master/docs/api-log.json#/definitions/ClientInput"
+    - title: NetworkEvent
+      type: object
+      required:
+      - tag
+      - message
+      description: >-
+        An event representing some message received from peers in the network.
+      properties:
+        tag:
+          type: string
+          enum: ["NetworkEvent"]
+        message:
+          $ref: "#/definitions/Message"
+    - title: OnChainEvent
+      type: object
+      required:
+      - tag
+      - onChainTx
+      description: >-
+        An event representing the confirmation that some transaction part of the Head protocol
+        has been confirmed on the main chain.
+      properties:
+        tag:
+          type: string
+          enum: ["OnChainEvent"]
+        onChainTx:
+          $ref: "#/definitions/OnChainTx"
+    - title: ShouldPostFanout
+      type: object
+      required:
+      - tag
+      description: >-
+        An placeholder event denoting the Head should post a Fanout transaction to close the head.
+      properties:
+        tag:
+          type: string
+          enum: ["ShouldPostFanout"]
+    - title: DoSnapshot
+      type: object
+      required:
+      - tag
+      description: >-
+        An internal event dependent on the snapshot strategy of the node, requesting some snapshot
+        to be emitted.
+      properties:
+        tag:
+          type: string
+          enum: ["DoSnapshot"]
+
+  Message:
+    description: >-
+      Messages exchanged by Hydra network peers over a broadcasting network.
+    oneOf:
+      - title: ReqTx
+        type: object
+        required:
+        - tag
+        - party
+        - transaction
+        description: >-
+          Request to sign some transaction and add it to the confirmed Head ledger.
+        properties:
+          tag:
+            type: string
+            enum: ["ReqTx"]
+          party:
+            $ref: "#/definitions/Party"
+          transaction:
+            $ref: "https://raw.githubusercontent.com/input-output-hk/hydra-poc/master/docs/api-log.json#/definitions/Transaction"
+      - title: ReqSn
+        type: object
+        required:
+        - tag
+        - party
+        - snapshotNumber
+        - transactions
+        description: >-
+          Request from the current snapshot leader to sign some snapshot, eg. a bunch of transactions.
+        properties:
+          tag:
+            type: string
+            enum: ["ReqSn"]
+          party:
+            $ref: "#/definitions/Party"
+          snapshotNumber:
+            type: integer
+            minimum: 0
+          transactions:
+            type: array
+            items:
+              $ref: "https://raw.githubusercontent.com/input-output-hk/hydra-poc/master/docs/api-log.json#/definitions/Transaction"
+      - title: AckSn
+        type: object
+        required:
+        - tag
+        - party
+        - signed
+        - snapshotNumber
+        description: >-
+          Signature of a snapshot by a party
+        properties:
+          tag:
+            type: string
+            enum: ["AckSn"]
+          party:
+            $ref: "#/definitions/Party"
+          snapshotNumber:
+            type: integer
+            minimum: 0
+          signed:
+            type: string
+            contentEncoding: base16
+            description: >-
+              Signature from given party of the snapshot. The bytes representing the signature are hex-encoded.
+      - title: Connected
+        type: object
+        required:
+        - tag
+        - party
+        description: >-
+          Given party is known to be connected to the network.
+        properties:
+          tag:
+            type: string
+            enum: ["Connected"]
+          party:
+            $ref: "#/definitions/Party"
+      - title: Disconnected
+        type: object
+        required:
+        - tag
+        - party
+        description: >-
+          Given party is probably disconnected from the network.
+        properties:
+          tag:
+            type: string
+            enum: ["Disconnected"]
+          party:
+            $ref: "#/definitions/Party"
+  OnChainTx:
+    description: >-
+      On-Chain transactions for the Head protocol. These data structures completely abstract away the
+      actual structure of the transaction and only represent the data relevant for the protocol to
+      make some progress.
+    oneOf:
+      - title: OnInitTx
+        type: object
+        required:
+        - tag
+        - contestationPeriod
+        - parties
+        description: >-
+          The initial transaction of the Head announcing various parameters and the parties has been
+          posted on-chain.
+        properties:
+          tag:
+            type: string
+            enum: ["OnInitTx"]
+          contestationPeriod:
+            type: number
+            description: >-
+              The length of the contestaion period, in seconds, represented as a decimal number.
+          parties:
+            type: array
+            items:
+              $ref: "#/definitions/Party"
+      - title: OnCommitTx
+        type: object
+        required:
+        - tag
+        - party
+        - committed
+        description: >-
+          The commit transaction from a party, committing some UTxOs to the Head
+        properties:
+          tag:
+            type: string
+            enum: ["OnCommitTx"]
+          party:
+            $ref: "#/definitions/Party"
+          committed:
+            $ref: "https://raw.githubusercontent.com/input-output-hk/hydra-poc/master/docs/api-log.json#/definitions/Utxo"
+      - title: OnAbortTx
+        type: object
+        required:
+        - tag
+        properties:
+          tag:
+            type: string
+            enum: ["OnAbortTx"]
+      - title: OnCollectComTx
+        type: object
+        required:
+        - tag
+        properties:
+          tag:
+            type: string
+            enum: ["OnCollectComTx"]
+      - title: OnCloseTx
+        type: object
+        required:
+        - tag
+        - snapshotNumber
+        properties:
+          tag:
+            type: string
+            enum: ["OnCloseTx"]
+          snapshotNumber:
+            type: integer
+            minimum: 0
+      - title: OnContestTx
+        type: object
+        required:
+        - tag
+        properties:
+          tag:
+            type: string
+            enum: ["OnContestTx"]
+      - title: OnFanoutTx
+        type: object
+        required:
+        - tag
+        properties:
+          tag:
+            type: string
+            enum: ["OnFanoutTx"]
