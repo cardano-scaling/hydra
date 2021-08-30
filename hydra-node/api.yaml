@@ -408,6 +408,31 @@ definitions:
           An array of withdrawal.
         items:
           $ref: "#/definitions/Wdrl"
+      fees:
+        type: number
+        minimum: 0
+        description: >-
+          Fees paid for this transaction, in ADA
+      validity:
+        type: object
+        description: >-
+          Validity interval of this transaction. Both bounds can be omitted in which case the transaction
+          has unlimited validity. Each bound is a slot number.
+        properties:
+          notBefore:
+            type: integer
+          notAfter:
+            type: integer
+      auxiliaryDataHash:
+        type: string
+        description: >-
+          Hex-encoding of the hash of auxiliary data section of the transactions.
+        examples:
+        - "9b258583229a324c3021d036e83f3c1e69ca4a586a91fad0bc9e4ce79f7411e0"
+      mint:
+        description: >-
+          Values minted by this transaction"
+        ref: "#/definitions/Value"
 
   TxIn:
     type: string
