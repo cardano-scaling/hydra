@@ -186,6 +186,7 @@ test-suite tests
     Hydra.ClientInputSpec
     Hydra.FireForgetSpec
     Hydra.HeadLogicSpec
+    Hydra.JSONSchema
     Hydra.Ledger.CardanoSpec
     Hydra.Ledger.SimpleSpec
     Hydra.Logging.MonitoringSpec
