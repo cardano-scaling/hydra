@@ -1,3 +1,5 @@
+{-# LANGUAGE UndecidableInstances #-}
+
 -- | Aggregates all tracing messages in a single type.
 --
 -- This module provides a central point where top-level traced messages are
@@ -11,7 +13,7 @@ import Hydra.Prelude
 import Hydra.API.Server (APIServerLog)
 import Hydra.Chain.ExternalPAB (ExternalPabLog)
 import Hydra.Chain.ZeroMQ (MockChainLog)
-import Hydra.Logging (ToObject)
+import Hydra.Ledger (Utxo)
 import Hydra.Node (HydraNodeLog)
 
 data HydraLog tx net
@@ -21,4 +23,16 @@ data HydraLog tx net
   | Node {node :: HydraNodeLog tx}
   | Chain {pab :: ExternalPabLog}
   deriving stock (Eq, Show, Generic)
-  deriving anyclass (ToJSON, ToObject)
+  deriving anyclass (ToJSON)
+
+instance
+  ( Arbitrary net
+  , Arbitrary tx
+  , Arbitrary (MockChainLog tx)
+  , Arbitrary (Utxo tx)
+  , Arbitrary APIServerLog
+  , Arbitrary ExternalPabLog
+  ) =>
+  Arbitrary (HydraLog tx net)
+  where
+  arbitrary = genericArbitrary

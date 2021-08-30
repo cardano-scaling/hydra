@@ -1,4 +1,5 @@
 {-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE UndecidableInstances #-}
 
 -- | A 0MQ based mock chain implementation.
 --
@@ -46,7 +47,10 @@ data MockChainLog tx
   | ReceivedTransaction {receivedTransaction :: OnChainTx tx}
   | CatchingUpTransactions {catchupAddress :: String, numberOfTransactions :: Int}
   deriving stock (Eq, Show, Generic)
-  deriving anyclass (ToJSON, FromJSON, ToObject)
+  deriving anyclass (ToJSON, FromJSON)
+
+instance (Arbitrary tx, Arbitrary (Utxo tx)) => Arbitrary (MockChainLog tx) where
+  arbitrary = genericArbitrary
 
 startChain :: Tx tx => String -> String -> String -> Tracer IO (MockChainLog tx) -> IO ()
 startChain chainSyncAddress chainCatchupAddress postTxAddress tracer = do
