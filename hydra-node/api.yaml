@@ -361,12 +361,37 @@ definitions:
     required:
     - id
     - body
-    $comment: "TODO: auxiliaryData and witnesses not covered"
+    - witnesses
+    - auxiliaryData
     properties:
       id:
         $ref: "#/definitions/TxId"
       body:
         $ref: "#/definitions/TxBody"
+      witnesses:
+        type: object
+        required:
+        - keys
+        - scripts
+        properties:
+          keys:
+            type: array
+            description: >-
+              List of public keys witnessing pay-to-pubkey inputs.
+            items:
+              $ref: "#/definitions/Cbor"
+          scripts:
+            type: object
+            description: >-
+              An object mapping script hashes to script definitions, encoded in CBOR.
+            patternProperties:
+              "[0-9a-f]+":
+                $ref: "#/definitions/Cbor"
+
+      auxiliaryData:
+        description: >-
+          Hex-encoding of CBOR encoding of auxiliary data attached to this transaction.
+        $ref: "#/definitions/Cbor"
 
   TxId:
     type: string
