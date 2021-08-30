@@ -216,7 +216,7 @@ definitions:
           type: string
           enum: ["ClientEvent"]
         clientInput:
-          $ref: "https://raw.githubusercontent.com/input-output-hk/hydra-poc/master/docs/api.json#/definitions/ClientInput"
+          $ref: "https://raw.githubusercontent.com/input-output-hk/hydra-poc/master/hydra-node/api.yaml#/definitions/ClientInput"
     - title: NetworkEvent
       type: object
       required:
@@ -285,7 +285,7 @@ definitions:
           party:
             $ref: "#/definitions/Party"
           transaction:
-            $ref: "https://raw.githubusercontent.com/input-output-hk/hydra-poc/master/docs/api.json#/definitions/Transaction"
+            $ref: "https://raw.githubusercontent.com/input-output-hk/hydra-poc/master/hydra-node/api.yaml#/definitions/Transaction"
       - title: ReqSn
         type: object
         required:
@@ -307,7 +307,7 @@ definitions:
           transactions:
             type: array
             items:
-              $ref: "https://raw.githubusercontent.com/input-output-hk/hydra-poc/master/docs/api.json#/definitions/Transaction"
+              $ref: "https://raw.githubusercontent.com/input-output-hk/hydra-poc/master/hydra-node/api.yaml#/definitions/Transaction"
       - title: AckSn
         type: object
         required:
@@ -399,7 +399,7 @@ definitions:
           party:
             $ref: "#/definitions/Party"
           committed:
-            $ref: "https://raw.githubusercontent.com/input-output-hk/hydra-poc/master/docs/api.json#/definitions/Utxo"
+            $ref: "https://raw.githubusercontent.com/input-output-hk/hydra-poc/master/hydra-node/api.yaml#/definitions/Utxo"
       - title: OnAbortTx
         type: object
         required:
