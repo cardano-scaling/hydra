@@ -390,8 +390,11 @@ definitions:
 
       auxiliaryData:
         description: >-
-          Hex-encoding of CBOR encoding of auxiliary data attached to this transaction.
-        $ref: "#/definitions/Cbor"
+          Hex-encoding of CBOR encoding of auxiliary data attached to this transaction. Can be null if
+          there's no auxiliary data
+        oneOf:
+        - type: "null"
+        - $ref: "#/definitions/Cbor"
 
   TxId:
     type: string
@@ -449,7 +452,7 @@ definitions:
           notAfter:
             type: integer
       auxiliaryDataHash:
-        type: string
+        type: [ "string", "null"]
         description: >-
           Hex-encoding of the hash of auxiliary data section of the transactions.
         examples:
