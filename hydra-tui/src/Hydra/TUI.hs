@@ -7,7 +7,7 @@ module Hydra.TUI where
 
 import Hydra.Prelude hiding (State)
 
-import Brick (App (..), AttrMap, AttrName, BrickEvent (AppEvent, VtyEvent), EventM, Next, Padding (Pad), Widget, continue, customMain, emptyWidget, fg, hBox, hLimit, halt, joinBorders, padTop, showFirstCursor, str, vBox, withAttr, withBorderStyle, (<+>), (<=>))
+import Brick (App (..), AttrMap, AttrName, BrickEvent (AppEvent, VtyEvent), EventM, Next, Padding (Pad), Widget, continue, customMain, emptyWidget, fg, hBox, hLimit, halt, joinBorders, padLeftRight, padTop, showFirstCursor, str, vBox, withAttr, withBorderStyle, (<+>), (<=>))
 import Brick.AttrMap (attrMap)
 import Brick.BChan (newBChan, writeBChan)
 import Brick.Widgets.Border (hBorder, vBorder)
@@ -17,7 +17,7 @@ import Data.Version (showVersion)
 import Graphics.Vty (Event (EvKey), Key (KChar), Modifier (MCtrl), blue, defaultConfig, green, mkVty, red)
 import Graphics.Vty.Attributes (defAttr)
 import Hydra.Client (Client (Client, sendInput), HydraEvent (..), withClient)
-import Hydra.ClientInput (ClientInput (Abort, Init))
+import Hydra.ClientInput (ClientInput (Abort, Commit, Init))
 import Hydra.Ledger (Party, Tx)
 import Hydra.Ledger.Cardano (CardanoTx)
 import Hydra.Network (Host)
@@ -42,7 +42,7 @@ data State
 data HeadState
   = Unknown
   | Ready
-  | Initializing Int
+  | Initializing {notYetCommitted :: [Party]}
   deriving (Eq, Show, Generic)
 
 type Name = ()
@@ -74,6 +74,9 @@ handleEvent Client{sendInput} s = \case
     liftIO (sendInput $ Init 10) >> continue s
   VtyEvent (EvKey (KChar 'a') _) ->
     liftIO (sendInput Abort) >> continue s
+  VtyEvent (EvKey (KChar 'c') _) ->
+    -- TODO(SN): ask for some value and create one according output?
+    liftIO (sendInput $ Commit mempty) >> continue s
   -- App events
   AppEvent ClientConnected ->
     continue connected
@@ -85,9 +88,13 @@ handleEvent Client{sendInput} s = \case
     continue $ s & connectedPeersL %~ \cp -> cp \\ [p]
   AppEvent (Update CommandFailed) -> do
     continue $ s & commandFailedL .~ True
-  AppEvent (Update (ReadyToCommit parties)) ->
+  AppEvent (Update ReadyToCommit{parties}) ->
     continue $
-      s & headStateL .~ Initializing (length parties)
+      s & headStateL .~ Initializing parties
+        & commandFailedL .~ False
+  AppEvent (Update Committed{party}) ->
+    continue $
+      s & headStateL %~ partyCommitted party
         & commandFailedL .~ False
   AppEvent (Update (HeadIsAborted _utxo)) ->
     continue $
@@ -106,6 +113,10 @@ handleEvent Client{sendInput} s = \case
 
   disconnected =
     Disconnected{nodeHost = s ^. nodeHostL}
+
+  partyCommitted party = \case
+    Initializing{notYetCommitted} -> Initializing{notYetCommitted = notYetCommitted \\ [party]}
+    hs -> hs
 -- * Drawing
 
 draw :: State -> [Widget Name]
@@ -129,13 +140,19 @@ draw s =
       Connected{nodeHost} -> withAttr positive $ str $ show nodeHost
 
   drawHeadState = \case
-    Connected{headState} -> vBox [str "HeadState: " <=> str (show headState)]
-    Disconnected{} -> vBox []
+    Disconnected{} -> emptyWidget
+    Connected{headState} -> case headState of
+      Initializing{notYetCommitted} ->
+        str "HeadState: Initializing"
+          <=> str "Not yet committed:"
+          <=> padLeftRight 1 (vBox $ map drawParty notYetCommitted)
+      _ -> str "HeadState: " <+> str (show headState)
 
   drawCommands =
     vBox
       [ str "Commands:"
       , str "[i]init"
+      , str "[c]ommit nothing"
       , str "[a]abort"
       , str "[q]uit"
       ]
@@ -145,9 +162,9 @@ draw s =
       then withAttr negative $ str "Last command failed"
       else emptyWidget
 
-  drawPeers = vBox $ str "Connected peers:" : map drawPeer (s ^. connectedPeersL)
+  drawPeers = vBox $ str "Connected peers:" : map drawParty (s ^. connectedPeersL)
 
-  drawPeer = str . show
+  drawParty = str . show
 
 style :: State -> AttrMap
 style _ =
