@@ -32,8 +32,6 @@ let
     pkgs.systemd
     pkgs.zlib
     pkgs.zeromq
-    # Used by charting library to plot local-cluster benchmarks
-    pkgs.libuuid
   ];
 
   tools = [
