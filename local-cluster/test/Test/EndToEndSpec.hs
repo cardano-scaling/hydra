@@ -68,7 +68,9 @@ import Cardano.Crypto.DSIGN (
   VerKeyDSIGN,
  )
 import Cardano.Crypto.Seed (mkSeedFromBytes)
+import Control.Lens ((^?))
 import Data.Aeson (Value (Null, Object, String), object, (.=))
+import Data.Aeson.Lens (key)
 import qualified Data.ByteString as BS
 import Data.ByteString.Base16 (encodeBase16)
 import qualified Data.Map as Map
@@ -82,6 +84,7 @@ import HydraNode (
   send,
   waitFor,
   waitForNodesConnected,
+  waitMatch,
   withHydraNode,
   withMockChain,
   withTempDir,
@@ -151,17 +154,16 @@ spec = around showLogsOnFailure $
                     waitFor tracer 10 [n1] $ output "Utxo" ["utxo" .= newUtxo]
 
                     send n1 $ input "Close" []
-                    waitFor tracer 3 [n1] $
-                      output
-                        "HeadIsClosed"
-                        [ "contestationPeriod" .= contestationPeriod
-                        , "latestSnapshot"
-                            .= object
-                              [ "snapshotNumber" .= int 1
-                              , "utxo" .= newUtxo
-                              , "confirmedTransactions" .= [tx]
-                              ]
-                        ]
+                    waitMatch 3 n1 $ \v -> do
+                      guard $ v ^? key "tag" == Just "HeadIsClosed"
+                      snapshot <- v ^? key "latestSnapshot"
+                      guard $
+                        snapshot
+                          == object
+                            [ "snapshotNumber" .= int 1
+                            , "utxo" .= newUtxo
+                            , "confirmedTransactions" .= [tx]
+                            ]
                     waitFor tracer (contestationPeriod + 3) [n1] $
                       output "HeadIsFinalized" ["utxo" .= newUtxo]
 

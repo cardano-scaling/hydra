@@ -1,11 +1,10 @@
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE TypeApplications #-}
-{-# OPTIONS_GHC -Wno-unused-matches #-}
 
 module Hydra.BehaviorSpec where
 
 import Hydra.Prelude
-import Test.Hydra.Prelude hiding (shouldNotBe, shouldReturn)
+import Test.Hydra.Prelude hiding (shouldBe, shouldNotBe, shouldReturn, shouldSatisfy)
 
 import Control.Monad.Class.MonadAsync (forConcurrently_)
 import Control.Monad.Class.MonadSTM (
@@ -46,7 +45,7 @@ import Hydra.Node (
 import Hydra.ServerOutput (ServerOutput (..))
 import Hydra.Snapshot (Snapshot (..))
 import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
-import Test.Util (shouldNotBe, shouldReturn, shouldRunInSim, traceInIOSim)
+import Test.Util (shouldBe, shouldNotBe, shouldReturn, shouldRunInSim, shouldSatisfy, traceInIOSim)
 
 spec :: Spec
 spec = describe "Behavior of one ore more hydra nodes" $ do
@@ -101,7 +100,7 @@ spec = describe "Behavior of one ore more hydra nodes" $ do
           waitFor [n1] $ Committed 1 (utxoRef 1)
           waitFor [n1] $ HeadIsOpen (utxoRef 1)
           send n1 Close
-          waitFor [n1] $ HeadIsClosed testContestationPeriod (Snapshot 0 (utxoRef 1) [])
+          waitForNext n1 >>= assertHeadIsClosed
 
     it "does finalize head after contestation period" $
       failAfter 5 $
@@ -114,7 +113,7 @@ spec = describe "Behavior of one ore more hydra nodes" $ do
             waitFor [n1] $ Committed 1 (utxoRef 1)
             waitFor [n1] $ HeadIsOpen (utxoRef 1)
             send n1 Close
-            waitFor [n1] $ HeadIsClosed testContestationPeriod (Snapshot 0 (utxoRef 1) [])
+            waitForNext n1 >>= assertHeadIsClosed
             threadDelay testContestationPeriod
             waitFor [n1] $ HeadIsFinalized (utxoRef 1)
 
@@ -217,7 +216,8 @@ spec = describe "Behavior of one ore more hydra nodes" $ do
               openHead n1 n2
 
               send n1 Close
-              waitFor [n2] $ HeadIsClosed testContestationPeriod (Snapshot 0 (utxoRefs [1, 2]) [])
+              waitForNext n2
+                >>= assertHeadIsClosedWith (Snapshot 0 (utxoRefs [1, 2]) [])
 
       it "valid new transactions are seen by all parties" $
         shouldRunInSim $ do
@@ -250,7 +250,7 @@ spec = describe "Behavior of one ore more hydra nodes" $ do
                       , utxo = utxoRefs [42, 1, 2]
                       , confirmed = [aValidTx 42]
                       }
-              waitFor [n1] $ HeadIsClosed testContestationPeriod expectedSnapshot
+              waitForNext n1 >>= assertHeadIsClosedWith expectedSnapshot
 
       it "reports transactions as seen only when they validate (against the confirmed ledger)" $
         shouldRunInSim $ do
@@ -374,7 +374,7 @@ type ConnectToChain tx m = (HydraNode tx m -> m (HydraNode tx m))
 -- patch" a 'HydraNode' such that it is connected. This is necessary, to get to
 -- know all nodes which use this function and simulate network and chain
 -- messages being sent around.
-simulatedChainAndNetwork :: (MonadSTM m) => m (ConnectToChain tx m)
+simulatedChainAndNetwork :: (MonadSTM m, MonadTime m) => m (ConnectToChain tx m)
 simulatedChainAndNetwork = do
   refHistory <- newTVarIO []
   nodes <- newTVarIO []
@@ -388,12 +388,13 @@ simulatedChainAndNetwork = do
  where
   postTx nodes refHistory tx = do
     res <- atomically $ do
-      h <- readTVar refHistory
       modifyTVar' refHistory (tx :)
       Just <$> readTVar nodes
     case res of
       Nothing -> pure ()
-      Just ns -> mapM_ (`handleChainTx` toOnChainTx tx) ns
+      Just ns -> do
+        time <- getCurrentTime
+        mapM_ (`handleChainTx` toOnChainTx time tx) ns
 
   broadcast node nodes msg = do
     allNodes <- readTVarIO nodes
@@ -402,7 +403,7 @@ simulatedChainAndNetwork = do
 
   getNodeId = getField @"party" . env
 
--- NOTE(SN): Deliberately not configurable via 'withHydraNode'
+-- NOTE(SN): Deliberately long to emphasize that we run these tests in IOSim.
 testContestationPeriod :: DiffTime
 testContestationPeriod = 3600
 
@@ -445,3 +446,16 @@ withHydraNode signingKey otherParties snapshotStrategy connectToChain action = d
               , snapshotStrategy
               }
         }
+
+assertHeadIsClosed :: (HasCallStack, MonadThrow m, MonadTime m) => ServerOutput tx -> m ()
+assertHeadIsClosed = \case
+  HeadIsClosed{contestationDeadline} -> do
+    getCurrentTime >>= \t -> contestationDeadline `shouldSatisfy` (> t)
+  _ -> failure "expected HeadIsClosed"
+
+assertHeadIsClosedWith :: (HasCallStack, MonadThrow m, MonadTime m, Tx tx) => Snapshot tx -> ServerOutput tx -> m ()
+assertHeadIsClosedWith expectedSnapshot = \case
+  HeadIsClosed{contestationDeadline, latestSnapshot} -> do
+    getCurrentTime >>= \t -> contestationDeadline `shouldSatisfy` (> t)
+    latestSnapshot `shouldBe` expectedSnapshot
+  _ -> failure "expected HeadIsClosed"

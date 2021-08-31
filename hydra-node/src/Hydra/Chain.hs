@@ -7,7 +7,7 @@ module Hydra.Chain where
 import Cardano.Prelude
 import Control.Monad.Class.MonadThrow (MonadThrow)
 import Data.Aeson (FromJSON, ToJSON)
-import Data.Time (DiffTime)
+import Data.Time (DiffTime, UTCTime, addUTCTime)
 import Hydra.Ledger (Party, Tx, Utxo)
 import Hydra.Prelude (Arbitrary (arbitrary), genericArbitrary)
 import Hydra.Snapshot (Snapshot (number), SnapshotNumber)
@@ -55,7 +55,7 @@ data OnChainTx tx
   | OnCommitTx {party :: Party, committed :: Utxo tx}
   | OnAbortTx
   | OnCollectComTx
-  | OnCloseTx {snapshotNumber :: SnapshotNumber}
+  | OnCloseTx {contestationDeadline :: UTCTime, snapshotNumber :: SnapshotNumber}
   | OnContestTx
   | OnFanoutTx
   deriving (Generic)
@@ -69,14 +69,19 @@ instance (Arbitrary tx, Arbitrary (Utxo tx)) => Arbitrary (OnChainTx tx) where
   arbitrary = genericArbitrary
 
 -- | Derive an 'OnChainTx' from 'PostChainTx'. This is primarily used in tests
--- and simplified "chains".
-toOnChainTx :: PostChainTx tx -> OnChainTx tx
-toOnChainTx = \case
+-- and simplified "chains". NOTE(SN): This implementation does *NOT* honor the
+-- 'HeadParameters' and announce hard-coded contestationDeadlines.
+toOnChainTx :: UTCTime -> PostChainTx tx -> OnChainTx tx
+toOnChainTx currentTime = \case
   InitTx HeadParameters{contestationPeriod, parties} -> OnInitTx{contestationPeriod, parties}
   (CommitTx pa ut) -> OnCommitTx pa ut
   AbortTx{} -> OnAbortTx
   CollectComTx{} -> OnCollectComTx
-  (CloseTx snap) -> OnCloseTx (number snap)
+  (CloseTx snap) ->
+    OnCloseTx
+      { contestationDeadline = addUTCTime 10 currentTime
+      , snapshotNumber = number snap
+      }
   ContestTx{} -> OnContestTx
   FanoutTx{} -> OnFanoutTx
 

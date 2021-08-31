@@ -1,57 +1,26 @@
 {
     "samples": [
         {
-            "onChainTx": {
-                "tag": "OnAbortTx"
-            },
-            "tag": "OnChainEvent"
-        },
-        {
-            "onChainTx": {
-                "snapshotNumber": 9,
-                "tag": "OnCloseTx"
-            },
-            "tag": "OnChainEvent"
-        },
-        {
-            "onChainTx": {
-                "committed": [
-                    -28,
-                    -26,
-                    -24,
-                    -23,
-                    -21,
-                    -19,
-                    -16,
-                    -14,
-                    -11,
-                    -7,
-                    -6,
-                    -4,
-                    -3,
-                    6,
-                    11,
-                    13,
-                    15,
-                    17,
-                    20,
-                    22,
-                    26
-                ],
-                "party": 1.8446744073709551601e19,
-                "tag": "OnCommitTx"
-            },
-            "tag": "OnChainEvent"
-        },
-        {
             "tag": "ShouldPostFanout"
         },
         {
-            "onChainTx": {
-                "tag": "OnContestTx"
+            "tag": "DoSnapshot"
+        },
+        {
+            "message": {
+                "party": 10,
+                "signed": "ace7a7cff05fd695f70c33e00a30193f",
+                "snapshotNumber": 28,
+                "tag": "AckSn"
             },
-            "tag": "OnChainEvent"
+            "tag": "NetworkEvent"
+        },
+        {
+            "tag": "DoSnapshot"
+        },
+        {
+            "tag": "ShouldPostFanout"
         }
     ],
-    "seed": 691239354
+    "seed": 1091015584
 }

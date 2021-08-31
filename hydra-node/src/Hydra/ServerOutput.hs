@@ -13,7 +13,7 @@ data ServerOutput tx
   | ReadyToCommit {parties :: [Party]}
   | Committed {party :: Party, utxo :: Utxo tx}
   | HeadIsOpen {utxo :: Utxo tx}
-  | HeadIsClosed {contestationPeriod :: DiffTime, latestSnapshot :: Snapshot tx}
+  | HeadIsClosed {contestationDeadline :: UTCTime, latestSnapshot :: Snapshot tx}
   | HeadIsAborted {utxo :: Utxo tx}
   | HeadIsFinalized {utxo :: Utxo tx}
   | CommandFailed

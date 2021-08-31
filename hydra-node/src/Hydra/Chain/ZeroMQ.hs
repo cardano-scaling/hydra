@@ -77,7 +77,7 @@ startChain chainSyncAddress chainCatchupAddress postTxAddress tracer = do
           )
       )
 
-transactionListener :: Tx tx => String -> TVar IO [PostChainTx tx] -> TBQueue IO (PostChainTx tx) -> Tracer IO (MockChainLog tx) -> ZMQ z ()
+transactionListener :: Tx tx => String -> TVar IO [OnChainTx tx] -> TBQueue IO (PostChainTx tx) -> Tracer IO (MockChainLog tx) -> ZMQ z ()
 transactionListener postTxAddress transactionLog txQueue tracer = do
   rep <- socket Rep
   bind rep postTxAddress
@@ -87,10 +87,11 @@ transactionListener postTxAddress transactionLog txQueue tracer = do
     liftIO $ traceWith tracer (MessageReceived $ toString . Enc.decodeUtf8 $ msg)
     case eitherDecodeStrict msg of
       Right tx -> do
-        liftIO $
+        liftIO $ do
+          time <- getCurrentTime
           atomically $ do
             writeTBQueue txQueue tx
-            modifyTVar' transactionLog (<> [tx])
+            modifyTVar' transactionLog (<> [toOnChainTx time tx])
         send rep [] "OK"
       Left other -> do
         liftIO $ traceWith tracer (FailedToDecodeMessage (show msg <> ", error: " <> show other))
@@ -104,9 +105,10 @@ transactionPublisher chainSyncAddress txQueue tracer = do
   forever $ do
     tx <- liftIO $ atomically $ readTBQueue txQueue
     liftIO $ traceWith tracer (PublishingTransaction tx)
-    send pub [] (toStrict . encode $ toOnChainTx tx)
+    time <- liftIO getCurrentTime
+    send pub [] (toStrict . encode $ toOnChainTx time tx)
 
-transactionSyncer :: Tx tx => String -> TVar IO [PostChainTx tx] -> Tracer IO (MockChainLog tx) -> ZMQ z ()
+transactionSyncer :: Tx tx => String -> TVar IO [OnChainTx tx] -> Tracer IO (MockChainLog tx) -> ZMQ z ()
 transactionSyncer chainCatchupAddress transactionLog tracer = do
   rep <- socket Rep
   bind rep chainCatchupAddress
@@ -115,7 +117,7 @@ transactionSyncer chainCatchupAddress transactionLog tracer = do
     _ <- receive rep
     txs <- liftIO $ readTVarIO transactionLog
     liftIO $ traceWith tracer (SyncingTransactions $ length txs)
-    send rep [] (toStrict . encode $ map toOnChainTx txs)
+    send rep [] (toStrict $ encode txs)
 
 mockChainClient :: (Tx tx, MonadIO m) => String -> Tracer IO (MockChainLog tx) -> PostChainTx tx -> m ()
 mockChainClient postTxAddress tracer tx = runZMQ $ do
