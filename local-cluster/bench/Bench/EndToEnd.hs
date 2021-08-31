@@ -200,4 +200,4 @@ writeResultsCsv fp res = do
  where
   headers = "txId,confirmationTime"
 
-  toCsv (a, b) = encode a <> "," <> encode b <> "\n"
+  toCsv (a, b) = show a <> "," <> encode b <> "\n"
