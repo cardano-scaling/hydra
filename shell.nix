@@ -73,9 +73,6 @@ let
 
     buildInputs = libs ++ tools;
 
-    # Ensure that libuuid.so and other libraries are available
-    LD_LIBRARY_PATH = pkgs.lib.makeLibraryPath [pkgs.libuuid];
-
     # Disable haddocks as it's currently failing for the 'plutus-ledger' package
     withHoogle = false;
 
