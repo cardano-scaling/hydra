@@ -14,10 +14,7 @@ For now, we use a static scenario in which we first develop the Hydra node:
 
 ## Benchmarks
 
-The benchmark can be run using `cabal bench` and produces a `results.csv` file. To plot the transaction confirmation times you can use the `bench/plot.js` script.
-
-Nodejs is provided by the `nix-shell`, but we need to install some dependencies with `npm install` (from within the `bench/` directory).
-> TODO(SN): can we use nix/-shell to provide npm dependencies?)
+The benchmark can be run using `cabal bench` and produces a `results.csv` file. To plot the transaction confirmation times you can use the `bench/plot.sh` script, passing it the directory containing the benchmark's results.
 
 To run and plot results of the benchmark:
 ``` sh
@@ -28,6 +25,6 @@ Writing transactions to: /run/user/1000/bench-83d18973f95a554d/txs.json
 [...]
 Writing results to: /run/user/1000/bench-6b772589d08f82a5/results.csv
 Benchmark bench-e2e: FINISH
-$ node bench/plot.mjs /run/user/1000/bench-6b772589d08f82a5/results.csv
-Created plot: /run/user/1000/bench-6b772589d08f82a5/results.svg
+$ bench/plot.sh /run/user/1000/bench-6b772589d08f82a5/
+Created plot: /run/user/1000/bench-6b772589d08f82a5/results.png
 ```
