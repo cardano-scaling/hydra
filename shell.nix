@@ -52,7 +52,7 @@ let
     pkgs.python3Packages.jsonschema
     pkgs.yq
     # For plotting results of local-cluster benchmarks
-    pkgs.nodejs_latest
+    pkgs.gnuplot
   ];
 
   haskellNixShell = hsPkgs.shellFor {
