@@ -118,6 +118,21 @@ definitions:
           $ref: "#/definitions/Party"
         event:
           $ref: "#/definitions/Event"
+    - title: ProcessingEffect
+      description: >-
+        Head has started processing an effect produced by some transition in the
+        protocol
+      type: object
+      required:
+      - by
+      - effect
+      properties:
+        by:
+          description: >-
+            The Party emitting the log entry
+          $ref: "#/definitions/Party"
+        event:
+          $ref: "#/definitions/Effect"
 
   APIServer:
     oneOf:
@@ -196,7 +211,11 @@ definitions:
       Signing is currently implemented using mock crypto hence party is just an integer
     description: >-
       The verification key for some Party in the Head protocol, uniquely identifying it
-    examples: [10,20,30]
+    examples:
+      - 10
+      - 20
+      - 30
+
   Event:
     description: >-
       Events (with Effects) are the atomic elements of the Hydra Head protocol which is
@@ -399,7 +418,8 @@ definitions:
           party:
             $ref: "#/definitions/Party"
           committed:
-            $ref: "https://raw.githubusercontent.com/input-output-hk/hydra-poc/master/hydra-node/api.yaml#/definitions/Utxo"
+            $ref: "https://raw.githubusercontent.com/input-output-hk/hydra-poc/master/hydra-node/api.ya
+ml#/definitions/Utxo"
       - title: OnAbortTx
         type: object
         required:
@@ -444,3 +464,173 @@ definitions:
           tag:
             type: string
             enum: ["OnFanoutTx"]
+
+  Effect:
+    description: >-
+      Effects are the outcome of Head protocol processing Events. Each Effect represents a message that needs
+      to be sent somewhere, either to clients for notification purpose, to other heads, or to the chain as part
+      of the protocol.
+    oneOf:
+    - title: ClientEffect
+      type: object
+      required:
+      - tag
+      - serverOutput
+      description: >-
+        An effect representing some output to send to the client
+      properties:
+        tag:
+          type: string
+          enum: ["ClientEffect"]
+        clientInput:
+          $ref: "https://raw.githubusercontent.com/input-output-hk/hydra-poc/master/hydra-node/api.yaml#/definitions/ServerOutput"
+    - title: NetworkEffect
+      type: object
+      required:
+      - tag
+      - message
+      description: >-
+        An effect representing some message to broadcast to other parties in the Head
+      properties:
+        tag:
+          type: string
+          enum: ["NetworkEffect"]
+        message:
+          $ref: "#/definitions/Message"
+    - title: OnChainEffect
+      type: object
+      required:
+      - tag
+      - onChainTx
+      description: >-
+        An effect representing some transaction must be posted on-chain. Note that incoming transactions
+        are represented by OnChainEvent which can be different from outgoing transactions.
+      properties:
+        tag:
+          type: string
+          enum: ["OnChainEffect"]
+        onChainTx:
+          $ref: "#/definitions/PostChainTx"
+    - title: Delay
+      type: object
+      required:
+      - tag
+      - delay
+      - event
+      description: >-
+        A special effect requesting the given event to be delayed from processing for some amount of
+        time. Delays can happen in the protocol because messages can be received out-of-order due to
+        the asynchronous nature of the network, hence an otherwise invalid event could become invalid
+        in the future.
+      properties:
+        tag:
+          type: string
+          enum: ["Delay"]
+        delay:
+          type: number
+          minimum: 0
+          description: >-
+            The length of the delay, in seconds.
+        event:
+          $ref: "#/definitions/Event"
+
+  PostChainTx:
+    description: >-
+      Description of outgoing On-Chain transactions for the Head protocol. As is the case for
+      OnChainTx, these data structures completely abstract away the actual details of the
+      transaction and only represent data relevant for the protocol to make some progress.
+    oneOf:
+      - title: InitTx
+        type: object
+        required:
+        - tag
+        - headParameters
+        description: >-
+          The initial transaction of the Head defining its parameters.
+        properties:
+          tag:
+            type: string
+            enum: ["InitTx"]
+          headParameters:
+            $ref: "#/definitions/HeadParameters"
+      - title: CommitTx
+        type: object
+        required:
+        - tag
+        - party
+        - committed
+        description: >-
+          Commit some UTxO set to the opening Head, signed by this party.
+        properties:
+          tag:
+            type: string
+            enum: ["CommitTx"]
+          party:
+            $ref: "#/definitions/Party"
+          committed:
+            $ref: "https://raw.githubusercontent.com/input-output-hk/hydra-poc/master/hydra-node/api.yaml#/definitions/Utxo"
+      - title: AbortTx
+        type: object
+        required:
+        - tag
+        - utxos
+        description: >-
+          Abort the opening of the Head process.
+        properties:
+          tag:
+            type: string
+            enum: ["AbortTx"]
+          committed:
+            $ref: "https://raw.githubusercontent.com/input-output-hk/hydra-poc/master/hydra-node/api.yaml#/definitions/Utxo"
+      - title: CollectComTx
+        type: object
+        required:
+        - tag
+        - utxos
+        description: >-
+          Confirm the opening of the Head collecting all committed UTxOs.
+        properties:
+          tag:
+            type: string
+            enum: ["CollectComTx"]
+          utxos:
+            $ref: "https://raw.githubusercontent.com/input-output-hk/hydra-poc/master/hydra-node/api.yaml#/definitions/Utxo"
+      - title: CloseTx
+        type: object
+        required:
+        - tag
+        - snapshot
+        description: >-
+          Close the currently open Head with the given snapshot.
+        properties:
+          tag:
+            type: string
+            enum: ["CloseTx"]
+          snapshot:
+            $ref: "https://raw.githubusercontent.com/input-output-hk/hydra-poc/master/hydra-node/api.yaml#/definitions/Snapshot"
+      - title: ContestTx
+        type: object
+        required:
+        - tag
+        - snapshot
+        description: >-
+          Contest a previously posted snapshot (from a Close or Contest transaction) with a newer snapshot.
+        properties:
+          tag:
+            type: string
+            enum: ["ContestTx"]
+          snapshot:
+            $ref: "https://raw.githubusercontent.com/input-output-hk/hydra-poc/master/hydra-node/api.yaml#/definitions/Snapshot"
+      - title: FanoutTx
+        type: object
+        required:
+        - tag
+        - utxos
+        description: >-
+          Finalise the Head posting all UTxO from the Head on-chain.
+        properties:
+          tag:
+            type: string
+            enum: ["FanoutTx"]
+          utxos:
+            $ref: "https://raw.githubusercontent.com/input-output-hk/hydra-poc/master/hydra-node/api.yaml#/definitions/Utxo"
