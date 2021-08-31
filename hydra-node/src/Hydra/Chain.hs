@@ -28,13 +28,13 @@ type ContestationPeriod = DiffTime
 -- | Data type used to post transactions on chain. It holds everything to
 -- construct corresponding Head protocol transactions.
 data PostChainTx tx
-  = InitTx HeadParameters
-  | CommitTx Party (Utxo tx)
-  | AbortTx (Utxo tx)
-  | CollectComTx (Utxo tx)
-  | CloseTx (Snapshot tx)
-  | ContestTx (Snapshot tx)
-  | FanoutTx (Utxo tx)
+  = InitTx {headParameters :: HeadParameters}
+  | CommitTx {party :: Party, committed :: Utxo tx}
+  | AbortTx {utxos :: Utxo tx}
+  | CollectComTx {utxos :: Utxo tx}
+  | CloseTx {snapshot :: Snapshot tx}
+  | ContestTx {snapshot :: Snapshot tx}
+  | FanoutTx {utxos :: Utxo tx}
   deriving stock (Generic)
 
 deriving instance Tx tx => Eq (PostChainTx tx)
