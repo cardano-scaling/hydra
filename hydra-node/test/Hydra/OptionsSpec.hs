@@ -3,7 +3,7 @@ module Hydra.OptionsSpec where
 import Hydra.Prelude
 import Test.Hydra.Prelude
 
-import Hydra.Network (Host (Host), MockChainPorts (..))
+import Hydra.Network (Host (Host), MockChain (..), defaultMockChain)
 import Hydra.Options (Options (..), ParserResult (..), defaultOptions, parseHydraOptionsFromString)
 
 spec :: Spec
@@ -63,7 +63,10 @@ spec = describe "Hydra Node Options" $ do
     ["--me", "./alice.sk"] `shouldParse` defaultOptions{me = "./alice.sk"}
 
   it "parses --mock-chain-ports option as a list of ports to connect to" $
-    ["--mock-chain-ports", "(1,2,3)"] `shouldParse` defaultOptions{mockChainPorts = MockChainPorts (1, 2, 3)}
+    ["--mock-chain-ports", "(1,2,3)"] `shouldParse` defaultOptions{mockChain = defaultMockChain{syncPort = 1, catchUpPort = 2, postTxPort = 3}}
+
+  it "parses --mock-chain-host option as the mock-chain host to connect to" $
+    ["--mock-chain-host", "1.2.3.4"] `shouldParse` defaultOptions{mockChain = defaultMockChain{mockChainHost = "1.2.3.4"}}
 
 shouldParse :: [String] -> Options -> Expectation
 shouldParse args options =
