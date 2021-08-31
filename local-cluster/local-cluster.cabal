@@ -141,6 +141,8 @@ test-suite integration
     , hydra-node
     , hydra-prelude
     , hydra-test-utils
+    , lens
+    , lens-aeson
     , local-cluster
     , regex-tdfa
     , say

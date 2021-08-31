@@ -44,7 +44,7 @@ data HeadState
   | Ready
   | Initializing {notYetCommitted :: [Party]}
   | Open
-  | Closed
+  | Closed {contestationDeadline :: UTCTime}
   | Finalized
   deriving (Eq, Show, Generic)
 
@@ -105,9 +105,9 @@ handleEvent Client{sendInput} s = \case
     continue $
       s & headStateL .~ Open
         & commandFailedL .~ False
-  AppEvent (Update HeadIsClosed{}) ->
+  AppEvent (Update HeadIsClosed{contestationDeadline}) ->
     continue $
-      s & headStateL .~ Closed
+      s & headStateL .~ Closed{contestationDeadline}
         & commandFailedL .~ False
   AppEvent (Update HeadIsFinalized{}) ->
     continue $
@@ -147,7 +147,7 @@ draw s =
           , drawCommands <=> padTop (Pad 1) drawCommandFailed
           ]
  where
-  drawInfo = hLimit 30 $ vBox [tuiVersion, nodeStatus, hBorder, drawPeers, hBorder, drawHeadState s]
+  drawInfo = hLimit 50 $ vBox [tuiVersion, nodeStatus, hBorder, drawPeers, hBorder, drawHeadState s]
 
   tuiVersion = str "TUI  " <+> withAttr info (str (showVersion version))
 
@@ -163,6 +163,9 @@ draw s =
         str "HeadState: Initializing"
           <=> str "Not yet committed:"
           <=> vBox (map drawParty notYetCommitted)
+      Closed{contestationDeadline} ->
+        str "HeadState: Closed"
+          <=> str ("Contestation deadline: " <> show contestationDeadline)
       _ -> str "HeadState: " <+> str (show headState)
 
   drawCommands =

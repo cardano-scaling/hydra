@@ -294,7 +294,7 @@ update Environment{party, signingKey, otherParties, snapshotStrategy} ledger st 
                           }
                     )
                     []
-  (OpenState parameters@HeadParameters{contestationPeriod} CoordinatedHeadState{confirmedSnapshot}, OnChainEvent OnCloseTx{}) ->
+  (OpenState parameters CoordinatedHeadState{confirmedSnapshot}, OnChainEvent OnCloseTx{contestationDeadline}) ->
     -- TODO(1): Should check whether we want / can contest the close snapshot by
     --       comparing with our local state / utxo.
     --
@@ -304,7 +304,7 @@ update Environment{party, signingKey, otherParties, snapshotStrategy} ledger st 
     --   b) Move to close state, using information from the close tx
     nextState
       (ClosedState parameters $ getField @"utxo" confirmedSnapshot)
-      [ClientEffect $ HeadIsClosed contestationPeriod confirmedSnapshot]
+      [ClientEffect $ HeadIsClosed{contestationDeadline, latestSnapshot = confirmedSnapshot}]
   --
   (_, OnChainEvent OnContestTx{}) ->
     -- TODO: Handle contest tx

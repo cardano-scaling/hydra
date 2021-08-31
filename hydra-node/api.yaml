@@ -171,14 +171,15 @@ properties:
         type: object
         required:
         - tag
-        - contestationPeriod
+        - contestationDeadline
         - latestSnapshot
         properties:
           tag:
             type: string
             enum: ["HeadIsClosed"]
-          contestationPeriod:
-            $ref: "#/definitions/DiffTime"
+          contestationDeadline:
+            type: string
+            format: date-time
           latestSnapshot:
             $ref: "#/definitions/Snapshot"
 
@@ -311,11 +312,6 @@ properties:
     additionalItems: false
 
 definitions:
-  DiffTime:
-    type: number
-    examples:
-      - 60
-
   Peer:
     type: integer
     examples:
