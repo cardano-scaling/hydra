@@ -25,6 +25,6 @@ Writing transactions to: /run/user/1000/bench-83d18973f95a554d/txs.json
 [...]
 Writing results to: /run/user/1000/bench-6b772589d08f82a5/results.csv
 Benchmark bench-e2e: FINISH
-$ bench/plot.sh /run/user/1000/bench-6b772589d08f82a5/
+$ bench/plot.sh /run/user/1000/bench-6b772589d08f82a5/results.csv
 Created plot: /run/user/1000/bench-6b772589d08f82a5/results.png
 ```
