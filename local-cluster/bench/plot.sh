@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # Plot each transaction confirmation time using gnuplot
 
 set -e
