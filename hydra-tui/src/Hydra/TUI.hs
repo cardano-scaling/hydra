@@ -44,6 +44,8 @@ data HeadState
   | Ready
   | Initializing {notYetCommitted :: [Party]}
   | Open
+  | Closed
+  | Finalized
   deriving (Eq, Show, Generic)
 
 type Name = ()
@@ -102,6 +104,14 @@ handleEvent Client{sendInput} s = \case
   AppEvent (Update HeadIsOpen{}) ->
     continue $
       s & headStateL .~ Open
+        & commandFailedL .~ False
+  AppEvent (Update HeadIsClosed{}) ->
+    continue $
+      s & headStateL .~ Closed
+        & commandFailedL .~ False
+  AppEvent (Update HeadIsFinalized{}) ->
+    continue $
+      s & headStateL .~ Finalized
         & commandFailedL .~ False
   AppEvent (Update HeadIsAborted{}) ->
     continue $
