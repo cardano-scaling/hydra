@@ -9,7 +9,7 @@ module Hydra.Options (
 
 import Data.IP (IP)
 import Hydra.Logging (Verbosity (..))
-import Hydra.Network (Host, MockChainPorts (..), PortNumber, readHost, readPort)
+import Hydra.Network (Host, MockChain (..), PortNumber, defaultMockChain, readHost, readPort)
 import Hydra.Node.Version (gitRevision, showFullVersion, version)
 import Hydra.Prelude
 import Options.Applicative (
@@ -34,6 +34,7 @@ import Options.Applicative (
   option,
   progDesc,
   short,
+  strOption,
   value,
  )
 import Options.Applicative.Builder (str)
@@ -49,12 +50,12 @@ data Options = Options
   , monitoringPort :: Maybe PortNumber
   , me :: FilePath
   , parties :: [FilePath]
-  , mockChainPorts :: MockChainPorts
+  , mockChain :: MockChain
   }
   deriving (Eq, Show)
 
 defaultOptions :: Options
-defaultOptions = Options (Verbose "HydraNode") 1 "127.0.0.1" 5001 [] "127.0.0.1" 4001 Nothing "me.sk" [] (MockChainPorts (56789, 56790, 56791))
+defaultOptions = Options (Verbose "HydraNode") 1 "127.0.0.1" 5001 [] "127.0.0.1" 4001 Nothing "me.sk" [] defaultMockChain
 
 hydraNodeParser :: Parser Options
 hydraNodeParser =
@@ -69,7 +70,10 @@ hydraNodeParser =
     <*> optional monitoringPortParser
     <*> signingKeyFileParser
     <*> many verificationKeyFileParser
-    <*> mockChainPortsParser
+    <*> (makeMockChain <$> mockChainHostParser <*> mockChainPortsParser)
+ where
+  makeMockChain :: String -> (PortNumber, PortNumber, PortNumber) -> MockChain
+  makeMockChain mockChainHost (syncPort, catchUpPort, postTxPort) = MockChain{mockChainHost, syncPort, catchUpPort, postTxPort}
 
 signingKeyFileParser :: Parser FilePath
 signingKeyFileParser =
@@ -171,12 +175,21 @@ monitoringPortParser =
         <> help "The port this node listens on for monitoring and metrics. If left empty, monitoring server is not started"
     )
 
-mockChainPortsParser :: Parser MockChainPorts
-mockChainPortsParser =
+mockChainHostParser :: Parser String
+mockChainHostParser = do
+  strOption
+    ( long "mock-chain-host"
+        <> value "localhost"
+        <> metavar "HOSTNAME"
+        <> help "Address or hostname of the mock-chain (default: 'localhost')"
+    )
+
+mockChainPortsParser :: Parser (PortNumber, PortNumber, PortNumber)
+mockChainPortsParser = do
   option
     auto
     ( long "mock-chain-ports"
-        <> value (MockChainPorts (56789, 56790, 56791))
+        <> value (56789, 56790, 56791)
         <> metavar "[PORT]"
         <> help "The 3-tuple of ports to connect to mock-chain, in the order: sync, catch-up, post (default: (56789, 56790, 56791))"
     )

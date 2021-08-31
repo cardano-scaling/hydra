@@ -19,7 +19,8 @@ module Hydra.Network (
   readHost,
   PortNumber,
   readPort,
-  MockChainPorts (..),
+  MockChain (..),
+  defaultMockChain,
 
   -- * Utility functions
   close,
@@ -128,5 +129,19 @@ readPort s =
 
 -- | Ports definition for Mock Chain client.
 -- HACK: This is a temporary solution until we wire in a real chain client.
-newtype MockChainPorts = MockChainPorts (PortNumber, PortNumber, PortNumber)
-  deriving newtype (Eq, Show, Read)
+data MockChain = MockChain
+  { mockChainHost :: String
+  , syncPort :: PortNumber
+  , catchUpPort :: PortNumber
+  , postTxPort :: PortNumber
+  }
+  deriving stock (Eq, Show, Generic)
+
+defaultMockChain :: MockChain
+defaultMockChain =
+  MockChain
+    { mockChainHost = "localhost"
+    , syncPort = 56789
+    , catchUpPort = 56790
+    , postTxPort = 56791
+    }
