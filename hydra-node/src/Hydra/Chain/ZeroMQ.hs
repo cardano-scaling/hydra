@@ -14,7 +14,7 @@ import qualified Data.Text.Encoding as Enc
 import Hydra.Chain (Chain (..), ChainComponent, OnChainTx, PostChainTx, toOnChainTx)
 import Hydra.Ledger (Tx)
 import Hydra.Logging (ToObject, Tracer, traceWith)
-import Hydra.Network (MockChain (..), PortNumber)
+import Hydra.Network (MockChain (..))
 import qualified Hydra.Network as Network
 import System.ZMQ4.Monadic (
   Pub (..),
@@ -32,7 +32,7 @@ import System.ZMQ4.Monadic (
  )
 
 data MockChainLog tx
-  = ConnectingToMockChain {syncPort :: PortNumber, catchupPort :: PortNumber, postPort :: PortNumber}
+  = ConnectingToMockChain {chain :: MockChain}
   | MockChainStarted {syncAddress :: String, catchupAddress :: String, postAddress :: String}
   | TransactionListenerStarted {postAddress :: String}
   | MessageReceived {message :: String}
@@ -162,10 +162,10 @@ withMockChain ::
   Tracer IO (MockChainLog tx) ->
   MockChain ->
   ChainComponent tx IO ()
-withMockChain tracer MockChain{mockChainHost, Network.syncPort = chainSyncPort, catchUpPort, postTxPort} callback action = do
-  traceWith tracer $ ConnectingToMockChain chainSyncPort catchUpPort postTxPort
-  catchUpTransactions ("tcp://" <> show mockChainHost <> ":" <> show catchUpPort) callback tracer
-  runChainSync ("tcp://" <> show mockChainHost <> ":" <> show chainSyncPort) callback tracer
+withMockChain tracer mockChain@MockChain{mockChainHost, Network.syncPort = chainSyncPort, catchUpPort, postTxPort} callback action = do
+  traceWith tracer $ ConnectingToMockChain mockChain
+  catchUpTransactions ("tcp://" <> mockChainHost <> ":" <> show catchUpPort) callback tracer
+  runChainSync ("tcp://" <> mockChainHost <> ":" <> show chainSyncPort) callback tracer
     `race_` action chain
  where
-  chain = Chain{postTx = mockChainClient ("tcp://" <> show mockChainHost <> ":" <> show postTxPort) tracer}
+  chain = Chain{postTx = mockChainClient ("tcp://" <> mockChainHost <> ":" <> show postTxPort) tracer}
