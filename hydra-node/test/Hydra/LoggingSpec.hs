@@ -10,10 +10,9 @@ import Hydra.JSONSchema (prop_validateToJSON, withJsonSpecifications)
 import Hydra.Ledger.Simple (SimpleTx)
 import Hydra.Logging (Verbosity (Verbose), traceWith, withTracer)
 import Hydra.Logging.Messages (HydraLog)
-
 import System.FilePath ((</>))
 import System.IO.Silently (capture_)
-import Test.QuickCheck (property)
+import Test.QuickCheck.Property (withMaxSuccess)
 
 spec :: Spec
 spec = do
@@ -27,7 +26,7 @@ spec = do
   aroundAll (withJsonSpecifications "api-log.yaml") $ do
     specify "HydraLog" $ \(specs, tmp) ->
       -- TODO(AB): Add arbitrary instances for network log entries
-      property $ prop_validateToJSON @(Enveloppe (HydraLog SimpleTx ())) specs "logs" (tmp </> "HydraLog")
+      withMaxSuccess 1 $ prop_validateToJSON @(Enveloppe (HydraLog SimpleTx ())) specs (tmp </> "HydraLog")
 
 -- NOTE(AB): This type is used currently only for testing purpose in
 -- to provide a simple way to generate arbitrary log entries. In the

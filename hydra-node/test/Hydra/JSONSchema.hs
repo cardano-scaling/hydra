@@ -1,6 +1,8 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications #-}
+{-# OPTIONS_GHC -Wno-unused-imports #-}
+{-# OPTIONS_GHC -Wno-unused-local-binds #-}
 
 module Hydra.JSONSchema where
 
@@ -25,44 +27,55 @@ import qualified Prelude
 
 -- | Generate arbitrary serializable (JSON) value, and check their validity
 -- against a known JSON schema.
+-- This property ensures that JSON instances we produce abide by
+-- the specification. Note this, because this uses an external tool each
+-- property iteration is pretty slow. So instead, we run the property only
+-- once, but on a list of 100 elements all arbitrarily generated.
 prop_validateToJSON ::
   forall a.
   (ToJSON a, Arbitrary a, Show a) =>
   FilePath ->
-  Text ->
   FilePath ->
   Property
-prop_validateToJSON specFile namespace inputFile =
-  withMaxSuccess 1 $
-    conjoin
-      -- This first sub-property ensures that JSON instances we produce abide by
-      -- the specification. Note this, because this uses an external tool each
-      -- property iteration is pretty slow. So instead, we run the property only
-      -- once, but on a list of 100 elements all arbitrarily generated.
-      [ forAllShrink (vectorOf 100 arbitrary) shrink $ \(a :: [a]) ->
-          monadicIO $
-            do
-              run ensureSystemRequirements
-              let obj = Aeson.encode a
-              (exitCode, _out, err) <- run $ do
-                writeFileLBS inputFile obj
-                readProcessWithExitCode "jsonschema" ["-i", inputFile, specFile] mempty
-              monitor $ counterexample err
-              monitor $ counterexample (decodeUtf8 obj)
-              assert (exitCode == ExitSuccess)
-      , -- This second sub-property ensures that any key found in the
-        -- specification corresponds to a constructor in the corresponding
-        -- data-type. This in order the document in sync and make sure we don't
-        -- left behind constructors which no longer exists.
-        forAllBlind (vectorOf 1000 arbitrary) $
-          \(a :: [a]) -> monadicIO $ do
-            specs <- run $ Aeson.decodeFileStrict specFile
-            let unknownConstructors = Map.keys $ Map.filter (== 0) $ classify specs a
-            unless (null unknownConstructors) $ do
-              let commaSeparated = intercalate ", " (toString <$> unknownConstructors)
-              monitor $ counterexample $ "Unimplemented constructors present in specification: " <> commaSeparated
-              assert False
-      ]
+prop_validateToJSON specFile inputFile =
+  forAllShrink (vectorOf 100 arbitrary) shrink $ \(a :: [a]) ->
+    monadicIO $
+      do
+        run ensureSystemRequirements
+        let obj = Aeson.encode a
+        (exitCode, _out, err) <- run $ do
+          writeFileLBS inputFile obj
+          readProcessWithExitCode "jsonschema" ["-i", inputFile, specFile] mempty
+        monitor $ counterexample err
+        monitor $ counterexample (decodeUtf8 obj)
+        assert (exitCode == ExitSuccess)
+
+-- | Check specification is complete wr.t. to generated data
+-- This second sub-property ensures that any key found in the
+-- specification corresponds to a constructor in the corresponding
+-- data-type. This in order the document in sync and make sure we don't
+-- left behind constructors which no longer exists.
+prop_specIsComplete ::
+  forall a.
+  (Arbitrary a, Show a) =>
+  FilePath ->
+  Text ->
+  Property
+prop_specIsComplete specFile namespace =
+  forAllBlind (vectorOf 1000 arbitrary) $ \(a :: [a]) ->
+    monadicIO $ do
+      specs <- run $ Aeson.decodeFileStrict specFile
+      let knownKeys = classify specs a
+      let unknownConstructors = Map.keys $ Map.filter (== 0) knownKeys
+
+      when (null knownKeys) $ do
+        monitor $ counterexample $ "No keys found in given namespace: " <> toString namespace
+        assert False
+
+      unless (null unknownConstructors) $ do
+        let commaSeparated = intercalate ", " (toString <$> unknownConstructors)
+        monitor $ counterexample $ "Unimplemented constructors present in specification: " <> commaSeparated
+        assert False
  where
   -- Like Generics, if you squint hard-enough.
   strawmanGetConstr :: a -> Text
