@@ -78,7 +78,7 @@ data Host = Host
   { hostName :: Text
   , portNumber :: PortNumber
   }
-  deriving (Generic, Eq)
+  deriving (Ord, Generic, Eq)
 
 instance Show Host where
   show = showHost

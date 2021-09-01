@@ -26,6 +26,7 @@ import Hydra.HeadLogic (
  )
 import Hydra.Ledger (Ledger (..), Party, Tx (..), deriveParty, generateKey, sign)
 import Hydra.Ledger.Simple (SimpleTx (..), TxIn (..), aValidTx, simpleLedger, utxoRef)
+import Hydra.Network (Host (..))
 import Hydra.Network.Message (Message (AckSn, Connected, ReqSn, ReqTx))
 import Hydra.ServerOutput (ServerOutput (PeerConnected))
 import Hydra.Snapshot (Snapshot (..))
@@ -233,8 +234,9 @@ spec = do
       update env ledger s0 event `shouldBe` Error (InvalidEvent event s0)
 
     it "notifies client when it receives a ping" $ do
-      update env ledger (inOpenState threeParties ledger) (NetworkEvent $ Connected 1)
-        `hasEffect_` ClientEffect (PeerConnected 1)
+      let peer = Host{hostName = "1.2.3.4", portNumber = 1}
+      update env ledger (inOpenState threeParties ledger) (NetworkEvent $ Connected peer)
+        `hasEffect_` ClientEffect (PeerConnected peer)
 
     it "cannot observe abort after collect com" $ do
       let s0 = inInitialState threeParties

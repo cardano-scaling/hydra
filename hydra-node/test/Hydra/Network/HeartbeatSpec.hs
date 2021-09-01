@@ -17,49 +17,53 @@ spec = describe "Heartbeat" $ do
       captureIncoming receivedMessages msg =
         atomically $ modifyTVar' receivedMessages (msg :)
 
-  it "sends a heartbeat message with own party id after 500 ms" $ do
+      localhost = Host{hostName = "1.2.3.4", portNumber = 1}
+
+      otherPeer = Host{hostName = "2.3.4.5", portNumber = 1}
+
+  it "sends a heartbeat message with local host after 500 ms" $ do
     let sentHeartbeats = runSimOrThrow $ do
           sentMessages <- newTVarIO ([] :: [Heartbeat (Message Integer)])
 
-          withHeartbeat 1 (captureOutgoing sentMessages) noop $ \_ ->
+          withHeartbeat localhost (captureOutgoing sentMessages) noop $ \_ ->
             threadDelay 1.1
 
           readTVarIO sentMessages
 
-    sentHeartbeats `shouldBe` [Ping 1]
+    sentHeartbeats `shouldBe` [Ping localhost]
 
-  it "sends Connected when Ping received from other party" $ do
+  it "sends Connected when Ping received from other peer" $ do
     let receivedHeartbeats = runSimOrThrow $ do
           receivedMessages <- newTVarIO ([] :: [Message Integer])
 
-          withHeartbeat 1 (\incoming _ -> incoming (Ping 2)) (captureIncoming receivedMessages) $ \_ ->
+          withHeartbeat localhost (\incoming _ -> incoming (Ping otherPeer)) (captureIncoming receivedMessages) $ \_ ->
             threadDelay 1
 
           readTVarIO receivedMessages
 
-    receivedHeartbeats `shouldBe` [Connected 2]
+    receivedHeartbeats `shouldBe` [Connected otherPeer]
 
   it "sends Connected when any message received from other party" $ do
     let receivedHeartbeats = runSimOrThrow $ do
           receivedMessages <- newTVarIO ([] :: [Message Integer])
 
-          withHeartbeat 1 (\incoming _ -> incoming (Data $ ReqTx 2 1)) (captureIncoming receivedMessages) $ \_ ->
+          withHeartbeat localhost (\incoming _ -> incoming (Data otherPeer $ ReqTx 2 1)) (captureIncoming receivedMessages) $ \_ ->
             threadDelay 1
 
           readTVarIO receivedMessages
 
-    receivedHeartbeats `shouldBe` [ReqTx 2 1, Connected 2]
+    receivedHeartbeats `shouldBe` [ReqTx 2 1, Connected otherPeer]
 
   it "do not send Connected on subsequent messages from already Connected party" $ do
     let receivedHeartbeats = runSimOrThrow $ do
           receivedMessages <- newTVarIO ([] :: [Message Integer])
 
-          withHeartbeat 1 (\incoming _ -> incoming (Data $ ReqTx 2 1) >> incoming (Ping 2)) (captureIncoming receivedMessages) $ \_ ->
+          withHeartbeat localhost (\incoming _ -> incoming (Data otherPeer $ ReqTx 2 1) >> incoming (Ping otherPeer)) (captureIncoming receivedMessages) $ \_ ->
             threadDelay 1
 
           readTVarIO receivedMessages
 
-    receivedHeartbeats `shouldBe` [ReqTx 2 1, Connected 2]
+    receivedHeartbeats `shouldBe` [ReqTx 2 1, Connected otherPeer]
 
   it "sends Disconnected given no messages has been received from known party within twice heartbeat delay" $ do
     let receivedHeartbeats = runSimOrThrow $ do
@@ -68,42 +72,42 @@ spec = describe "Heartbeat" $ do
           let component incoming action =
                 race_
                   (action (Network noop))
-                  (incoming (Ping 2) >> threadDelay 4 >> incoming (Ping 2) >> threadDelay 7)
+                  (incoming (Ping otherPeer) >> threadDelay 4 >> incoming (Ping otherPeer) >> threadDelay 7)
 
-          withHeartbeat 1 component (captureIncoming receivedMessages) $ \_ ->
+          withHeartbeat localhost component (captureIncoming receivedMessages) $ \_ ->
             threadDelay 20
 
           readTVarIO receivedMessages
 
-    receivedHeartbeats `shouldBe` [Disconnected 2, Connected 2]
+    receivedHeartbeats `shouldBe` [Disconnected otherPeer, Connected otherPeer]
 
   it "stop sending heartbeat message given action sends a message" $ do
     let someMessage = ReqTx 1 1
         sentHeartbeats = runSimOrThrow $ do
           sentMessages <- newTVarIO ([] :: [Heartbeat (Message Integer)])
 
-          withHeartbeat 1 (captureOutgoing sentMessages) noop $ \Network{broadcast} -> do
+          withHeartbeat localhost (captureOutgoing sentMessages) noop $ \Network{broadcast} -> do
             threadDelay 0.6
             broadcast someMessage
             threadDelay 1
 
           readTVarIO sentMessages
 
-    sentHeartbeats `shouldBe` [Data someMessage, Ping 1]
+    sentHeartbeats `shouldBe` [Data localhost someMessage, Ping localhost]
 
   it "restart sending heartbeat messages given last message sent is older than heartbeat delay" $ do
     let someMessage = ReqTx 1 1
         sentHeartbeats = runSimOrThrow $ do
           sentMessages <- newTVarIO ([] :: [Heartbeat (Message Integer)])
 
-          withHeartbeat 1 (captureOutgoing sentMessages) noop $ \Network{broadcast} -> do
+          withHeartbeat localhost (captureOutgoing sentMessages) noop $ \Network{broadcast} -> do
             threadDelay 0.6
             broadcast someMessage
             threadDelay 3.6
 
           readTVarIO sentMessages
 
-    sentHeartbeats `shouldBe` [Ping 1, Data someMessage, Ping 1]
+    sentHeartbeats `shouldBe` [Ping localhost, Data localhost someMessage, Ping localhost]
 
 testHost :: Host
 testHost = Host{hostName = "0.0.0.0", portNumber = 4000}

@@ -4,6 +4,7 @@
 module Hydra.ServerOutput where
 
 import Hydra.Ledger (Party, Tx, Utxo, ValidationError)
+import Hydra.Network (Host)
 import Hydra.Prelude
 import Hydra.Snapshot (Snapshot)
 

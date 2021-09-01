@@ -17,7 +17,7 @@ import Hydra.HeadLogic (
 import Hydra.Ledger (Party, SigningKey, Tx, deriveParty, sign)
 import Hydra.Ledger.Simple (SimpleTx (..), simpleLedger, utxoRef, utxoRefs)
 import Hydra.Logging (showLogsOnFailure)
-import Hydra.Network (Network (..))
+import Hydra.Network (Host (..), Network (..))
 import Hydra.Network.Message (Message (..))
 import Hydra.Node (EventQueue (EventQueue, putEvent), HydraNode (..), createEventQueue, createHydraHead, isEmpty, stepHydraNode)
 import Hydra.Snapshot (Snapshot (Snapshot))
@@ -65,8 +65,8 @@ oneReqSn = (== 1) . length . filter isReqSn
 
 prefix :: [Event SimpleTx]
 prefix =
-  [ NetworkEvent{message = Connected{party = 30}}
-  , NetworkEvent{message = Connected{party = 10}}
+  [ NetworkEvent{message = Connected{peer = Host{hostName = "10.0.0.30", portNumber = 5000}}}
+  , NetworkEvent{message = Connected{peer = Host{hostName = "10.0.0.10", portNumber = 5000}}}
   , OnChainEvent
       { onChainTx = OnInitTx 10 [10, 20, 30]
       }
