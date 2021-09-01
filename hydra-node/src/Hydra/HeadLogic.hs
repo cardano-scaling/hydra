@@ -328,9 +328,9 @@ update Environment{party, signingKey, otherParties, snapshotStrategy} ledger st 
   sameState = nextState st
 
   isLeader :: HeadParameters -> Party -> SnapshotNumber -> Bool
-  isLeader HeadParameters{parties} p _sn =
+  isLeader HeadParameters{parties} p sn =
     case p `elemIndex` parties of
-      Just i -> i == 0
+      Just i -> ((fromIntegral @Natural @Int sn - 1) `mod` length parties) == i
       _ -> False
 
   snapshotPending :: SeenSnapshot tx -> Bool

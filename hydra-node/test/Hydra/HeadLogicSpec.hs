@@ -24,7 +24,7 @@ import Hydra.HeadLogic (
   SnapshotStrategy (..),
   update,
  )
-import Hydra.Ledger (Ledger (..), Party, Tx (..), deriveParty, generateKey, sign)
+import Hydra.Ledger (Ledger (..), Party, Tx (..), deriveParty, sign)
 import Hydra.Ledger.Simple (SimpleTx (..), TxIn (..), aValidTx, simpleLedger, utxoRef)
 import Hydra.Network (Host (..))
 import Hydra.Network.Message (Message (AckSn, Connected, ReqSn, ReqTx))
@@ -48,9 +48,8 @@ spec = do
             , snapshotStrategy = NoSnapshots
             }
 
-        envFor n =
-          let signingKey = generateKey n
-              party = deriveParty signingKey
+        envFor signingKey =
+          let party = deriveParty signingKey
            in Environment
                 { party
                 , signingKey
@@ -155,14 +154,14 @@ spec = do
 
     -- TODO: write a property test for various future snapshots
     it "waits if we receive a future snapshot" $ do
-      let event = NetworkEvent $ ReqSn 1 2 []
+      let event = NetworkEvent $ ReqSn 2 2 []
           st = inOpenState threeParties ledger
       update env ledger st event `shouldBe` Wait
 
     it "waits if we receive a future snapshot while collecting signatures" $ do
       let s0 = inOpenState threeParties ledger
           reqSn1 = NetworkEvent $ ReqSn 1 1 []
-          reqSn2 = NetworkEvent $ ReqSn 1 2 []
+          reqSn2 = NetworkEvent $ ReqSn 2 2 []
       s1 <- assertNewState $ update env ledger s0 reqSn1
       update env ledger s1 reqSn2 `shouldBe` Wait
 
@@ -180,6 +179,36 @@ spec = do
           notTheLeader = 2
           st = inOpenState threeParties ledger
       update env ledger st event `shouldBe` Error (InvalidEvent event st)
+
+    it "consecutive snapshots are signed by different leaders" $ do
+      let (alice, bob, carole) = (envFor 1, envFor 2, envFor 3)
+          st0 = inOpenState threeParties ledger
+          sn1 = Snapshot 1 mempty mempty
+          sn2 = Snapshot 2 mempty mempty
+
+      st' <- flip execStateT st0 $ do
+        -- Alice is leader and request snapshot
+        applyEvent (update bob ledger) $
+          NetworkEvent $ ReqSn (party alice) (number sn1) mempty
+
+        -- Everyone signs
+        applyEvent (update bob ledger) $
+          NetworkEvent $ AckSn (party alice) (sign (signingKey alice) sn1) (number sn1)
+        applyEvent (update bob ledger) $
+          NetworkEvent $ AckSn (party bob) (sign (signingKey bob) sn1) (number sn1)
+        applyEvent (update bob ledger) $
+          NetworkEvent $ AckSn (party carole) (sign (signingKey carole) sn1) (number sn1)
+
+        -- It's now Bob's turn
+        applyEvent (update bob ledger) $
+          NetworkEvent $ ReqSn (party bob) (number sn2) mempty
+
+      case st' of
+        OpenState{coordinatedHeadState} -> do
+          confirmedSnapshot coordinatedHeadState `shouldBe` sn1
+          seenSnapshot coordinatedHeadState `shouldBe` (SeenSnapshot sn2 mempty)
+        someSt ->
+          fail $ "Expected 'OpenState' but got: " <> show someSt
 
     -- TODO(SN): maybe this and the next are a property! at least DRY
     -- NOTE(AB): we should cover variations of snapshot numbers and state of snapshot
@@ -214,7 +243,7 @@ spec = do
 
     it "wait given too new snapshots from the leader" $ do
       let event = NetworkEvent $ ReqSn theLeader 3 []
-          theLeader = 1
+          theLeader = 3
           st = inOpenState threeParties ledger
       update env ledger st event `shouldBe` Wait
 
@@ -331,6 +360,16 @@ assertNewState = \case
   NewState st _ -> pure st
   Error e -> failure $ "Unexpected 'Error' outcome: " <> show e
   Wait -> failure "Unexpected 'Wait' outcome"
+
+applyEvent ::
+  Tx tx =>
+  (HeadState tx -> Event tx -> Outcome tx) ->
+  Event tx ->
+  StateT (HeadState tx) IO ()
+applyEvent action e = do
+  s <- get
+  s' <- lift $ assertNewState (action s e)
+  put s'
 
 assertStateUnchangedFrom :: Tx tx => HeadState tx -> Outcome tx -> Expectation
 assertStateUnchangedFrom st = \case
