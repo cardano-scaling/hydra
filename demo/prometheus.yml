@@ -26,7 +26,7 @@ scrape_configs:
     # scheme defaults to 'http'.
 
     static_configs:
-    - targets: ['localhost:9090']
+    - targets: ['0.0.0.0:9090']
 
   - job_name: 'hydra_nodes'
 
@@ -35,7 +35,7 @@ scrape_configs:
 
     static_configs:
     - targets: [
-      'localhost:6001', # hydra-nodes
-      'localhost:6002', 
-      'localhost:6003' 
+      'hydra-node-1:6001', # hydra-nodes
+      'hydra-node-2:6001',
+      'hydra-node-3:6001'
       ]

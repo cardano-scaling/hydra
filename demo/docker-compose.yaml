@@ -8,18 +8,23 @@ services:
       target: hydra-node
     volumes:
       - "$PWD:/keys:ro"
+    ports:
+      - "4001:4001"
     command:
       [ "--node-id", "1"
-      , "--api-port", "4001"
-      , "--port", "5001"
+      , "--api-host", "0.0.0.0"
+      , "--host", "172.16.238.10"
       , "--monitoring-port", "6001"
-      , "--peer", "localhost:5002"
-      , "--peer", "localhost:5003"
+      , "--peer", "hydra-node-2:5001"
+      , "--peer", "hydra-node-3:5001"
       , "--me", "/keys/alice.sk"
       , "--party", "/keys/bob.vk"
       , "--party", "/keys/carol.vk"
+      , "--mock-chain-host", "172.16.238.4"
       ]
-    network_mode: host # Required as mock-chain not configurable
+    networks:
+      hydra_net:
+        ipv4_address: 172.16.238.10
 
   hydra-node-2:
     image: inputoutput/hydra:hydra-node-latest
@@ -28,18 +33,23 @@ services:
       target: hydra-node
     volumes:
       - "$PWD:/keys:ro"
+    ports:
+      - "4002:4001"
     command:
       [ "--node-id", "2"
-      , "--api-port", "4002"
-      , "--port", "5002"
-      , "--monitoring-port", "6002"
-      , "--peer", "localhost:5001"
-      , "--peer", "localhost:5003"
+      , "--api-host", "0.0.0.0"
+      , "--host", "172.16.238.20"
+      , "--monitoring-port", "6001"
+      , "--peer", "hydra-node-1:5001"
+      , "--peer", "hydra-node-3:5001"
       , "--me", "/keys/bob.sk"
       , "--party", "/keys/alice.vk"
       , "--party", "/keys/carol.vk"
+      , "--mock-chain-host", "172.16.238.4"
       ]
-    network_mode: host # Required as mock-chain not configurable
+    networks:
+      hydra_net:
+        ipv4_address: 172.16.238.20
 
   hydra-node-3:
     image: inputoutput/hydra:hydra-node-latest
@@ -48,31 +58,57 @@ services:
       target: hydra-node
     volumes:
       - "$PWD:/keys:ro"
+    ports:
+      - "4003:4001"
     command:
       [ "--node-id", "3"
-      , "--api-port", "4003"
-      , "--port", "5003"
-      , "--monitoring-port", "6003"
-      , "--peer", "localhost:5001"
-      , "--peer", "localhost:5002"
+      , "--api-host", "0.0.0.0"
+      , "--host", "172.16.238.30"
+      , "--monitoring-port", "6001"
+      , "--peer", "hydra-node-1:5001"
+      , "--peer", "hydra-node-2:5001"
       , "--me", "/keys/carol.sk"
       , "--party", "/keys/alice.vk"
       , "--party", "/keys/bob.vk"
+      , "--mock-chain-host", "172.16.238.4"
       ]
-    network_mode: host # Required as mock-chain not configurable
+    networks:
+      hydra_net:
+        ipv4_address: 172.16.238.30
 
   mock-chain:
     image: inputoutput/hydra:mock-chain-latest
     build:
       context: ../
       target: mock-chain
-    network_mode: host # Required as not configurable on node-side
+    command:
+      [ "--sync-address", "tcp://0.0.0.0:56789"
+      , "--catch-up-address", "tcp://0.0.0.0:56790"
+      , "--post-address", "tcp://0.0.0.0:56791"
+      ]
+    networks:
+      hydra_net:
+        ipv4_address: 172.16.238.4
 
   prometheus:
     image: prom/prometheus:latest
     container_name: prometheus
+    ports:
+      - "9090:9090"
     command:
     - --config.file=/etc/prometheus/prometheus.yml
     volumes:
     - $PWD/prometheus.yml:/etc/prometheus/prometheus.yml:ro
-    network_mode: host
+    networks:
+      hydra_net:
+        ipv4_address: 172.16.238.5
+
+
+networks:
+  hydra_net:
+    driver: bridge
+    ipam:
+      driver: default
+      config:
+        - subnet: 172.16.238.0/24
+          gateway: 172.16.238.1
