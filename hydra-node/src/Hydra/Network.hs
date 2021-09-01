@@ -135,7 +135,7 @@ data MockChain = MockChain
   , catchUpPort :: PortNumber
   , postTxPort :: PortNumber
   }
-  deriving stock (Eq, Show, Generic)
+  deriving (Eq, Show, Generic, ToJSON, FromJSON)
 
 defaultMockChain :: MockChain
 defaultMockChain =
