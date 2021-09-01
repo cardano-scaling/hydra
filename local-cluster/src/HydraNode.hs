@@ -316,7 +316,11 @@ waitForNodeConnected tracer n@HydraClient{hydraNodeId} =
       ( \party ->
           object
             [ "tag" .= String "PeerConnected"
-            , "peer" .= (party * 10)
+            , "peer"
+                .= object
+                  [ "hostname" .= ("127.0.0.1" :: Text)
+                  , "port" .= (5000 + party)
+                  ]
             ]
       )
       (filter (/= hydraNodeId) allNodeIds)
