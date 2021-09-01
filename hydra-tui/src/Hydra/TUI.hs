@@ -14,7 +14,7 @@ import Brick.Widgets.Border (hBorder, vBorder)
 import Brick.Widgets.Border.Style (ascii)
 import Data.List (nub, (\\))
 import Data.Version (showVersion)
-import Graphics.Vty (Event (EvKey), Key (KChar), Modifier (MCtrl), blue, defaultConfig, green, mkVty, red)
+import Graphics.Vty (Event (EvKey), Key (KChar), Modifier (..), blue, defaultConfig, green, mkVty, red)
 import Graphics.Vty.Attributes (defAttr)
 import Hydra.Client (Client (Client, sendInput), HydraEvent (..), withClient)
 import Hydra.ClientInput (ClientInput (Abort, Close, Commit, Init))
@@ -77,10 +77,10 @@ handleEvent Client{sendInput} s = \case
     liftIO (sendInput $ Init 10) >> continue s
   VtyEvent (EvKey (KChar 'a') _) ->
     liftIO (sendInput Abort) >> continue s
-  VtyEvent (EvKey (KChar 'o') _) ->
+  VtyEvent (EvKey (KChar 'c') _) ->
     -- TODO(SN): ask for some value and create one according output?
     liftIO (sendInput $ Commit mempty) >> continue s
-  VtyEvent (EvKey (KChar 'c') _) ->
+  VtyEvent (EvKey (KChar 'C') _) ->
     liftIO (sendInput Close) >> continue s
   -- App events
   AppEvent ClientConnected ->
@@ -171,10 +171,10 @@ draw s =
   drawCommands =
     vBox
       [ str "Commands:"
-      , str " - [i]init"
-      , str " - c[o]mmit nothing"
-      , str " - [c]lose"
-      , str " - [a]abort"
+      , str " - [i]nit"
+      , str " - [c]ommit nothing"
+      , str " - [C]lose"
+      , str " - [a]bort"
       , str " - [q]uit"
       ]
 
@@ -185,6 +185,7 @@ draw s =
 
   drawPeers = vBox $ str "Connected peers:" : map drawShow (s ^. connectedPeersL)
 
+  drawShow :: forall a n. Show a => a -> Widget n
   drawShow = str . (" - " <>) . show
 
 style :: State -> AttrMap
