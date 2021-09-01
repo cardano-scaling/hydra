@@ -5,8 +5,10 @@ module Hydra.APISpec where
 
 import Hydra.Prelude
 
+import Control.Lens (to)
+import Data.Aeson.Lens (key, _Array)
 import Hydra.ClientInput (ClientInput)
-import Hydra.JSONSchema (prop_specIsComplete, prop_validateToJSON, withJsonSpecifications)
+import Hydra.JSONSchema (SpecificationSelector, prop_specIsComplete, prop_validateToJSON, withJsonSpecifications)
 import Hydra.Ledger (Utxo)
 import Hydra.Ledger.Cardano (CardanoTx)
 import Hydra.ServerOutput (ServerOutput)
@@ -22,15 +24,19 @@ spec = parallel $ do
         withMaxSuccess 1 $
           conjoin
             [ prop_validateToJSON @(ClientInput CardanoTx) specs (tmp </> "ClientInput")
-            , prop_specIsComplete @(ClientInput CardanoTx) specs "inputs"
+            , prop_specIsComplete @(ClientInput CardanoTx) specs (apiSpecificationSelector "inputs")
             ]
       specify "ServerOutput" $ \(specs, tmp) ->
         withMaxSuccess 1 $
           conjoin
             [ prop_validateToJSON @(ServerOutput CardanoTx) specs (tmp </> "ServerOutput")
-            , prop_specIsComplete @(ServerOutput CardanoTx) specs "outputs"
+            , prop_specIsComplete @(ServerOutput CardanoTx) specs (apiSpecificationSelector "outputs")
             ]
       specify "Utxo" $ \(specs, tmp) ->
         withMaxSuccess 1 $ prop_validateToJSON @(Utxo CardanoTx) specs (tmp </> "Utxo")
       specify "CardanoTx" $ \(specs, tmp) ->
         withMaxSuccess 1 $prop_validateToJSON @CardanoTx specs (tmp </> "CardanoTx")
+
+apiSpecificationSelector ::
+  Text -> SpecificationSelector a
+apiSpecificationSelector namespace = key "properties" . key namespace . key "items" . key "oneOf" . _Array . to toList
