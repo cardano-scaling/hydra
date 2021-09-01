@@ -8,7 +8,7 @@ import Control.Monad.Class.MonadSTM (MonadSTM (newTBQueueIO), MonadSTMTx (readTB
 import Data.Aeson (eitherDecodeStrict, encode)
 import Hydra.ClientInput (ClientInput)
 import Hydra.Ledger (Tx)
-import Hydra.Network (Host (Host, hostName, portNumber))
+import Hydra.Network (Host (Host, hostname, port))
 import Hydra.ServerOutput (ServerOutput)
 import Network.WebSockets (ConnectionException, receiveData, runClient, sendBinaryData)
 
@@ -33,7 +33,7 @@ type ClientComponent tx m a = ClientCallback tx m -> (Client tx m -> m a) -> m a
 -- | Connect to a hydra-node using a websocket and provide a /Component/ for
 -- sending client inputs, as well as receiving server outputs.
 withClient :: Tx tx => Host -> ClientComponent tx IO a
-withClient Host{hostName, portNumber} callback action = do
+withClient Host{hostname, port} callback action = do
   q <- newTBQueueIO 10
   withAsync (reconnect $ client q) $ \thread -> do
     -- NOTE(SN): message formats are not compatible, this will terminate the TUI
@@ -45,7 +45,7 @@ withClient Host{hostName, portNumber} callback action = do
         }
  where
   -- TODO(SN): ping thread?
-  client q = runClient (toString hostName) (fromIntegral portNumber) "/" $ \con -> do
+  client q = runClient (toString hostname) (fromIntegral port) "/" $ \con -> do
     -- REVIEW(SN): is sharing the 'con' fine?
     callback ClientConnected
     race_ (receiveOutputs con) (sendInputs q con)

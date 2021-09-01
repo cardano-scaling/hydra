@@ -234,7 +234,7 @@ spec = do
       update env ledger s0 event `shouldBe` Error (InvalidEvent event s0)
 
     it "notifies client when it receives a ping" $ do
-      let peer = Host{hostName = "1.2.3.4", portNumber = 1}
+      let peer = Host{hostname = "1.2.3.4", port = 1}
       update env ledger (inOpenState threeParties ledger) (NetworkEvent $ Connected peer)
         `hasEffect_` ClientEffect (PeerConnected peer)
 

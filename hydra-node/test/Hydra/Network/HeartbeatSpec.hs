@@ -17,9 +17,9 @@ spec = describe "Heartbeat" $ do
       captureIncoming receivedMessages msg =
         atomically $ modifyTVar' receivedMessages (msg :)
 
-      localhost = Host{hostName = "1.2.3.4", portNumber = 1}
+      localhost = Host{hostname = "1.2.3.4", port = 1}
 
-      otherPeer = Host{hostName = "2.3.4.5", portNumber = 1}
+      otherPeer = Host{hostname = "2.3.4.5", port = 1}
 
   it "sends a heartbeat message with local host after 500 ms" $ do
     let sentHeartbeats = runSimOrThrow $ do
@@ -110,7 +110,7 @@ spec = describe "Heartbeat" $ do
     sentHeartbeats `shouldBe` [Ping localhost, Data localhost someMessage, Ping localhost]
 
 testHost :: Host
-testHost = Host{hostName = "0.0.0.0", portNumber = 4000}
+testHost = Host{hostname = "0.0.0.0", port = 4000}
 
 noop :: Monad m => b -> m ()
 noop = const $ pure ()

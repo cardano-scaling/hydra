@@ -27,7 +27,6 @@ module Hydra.Network (
 
 import Hydra.Prelude hiding (show)
 
-import Data.Aeson (object, withObject, (.:), (.=))
 import Data.IP (IP, toIPv4w)
 import Data.Text (pack, unpack)
 import Network.Socket (PortNumber, close)
@@ -75,10 +74,10 @@ instance FromCBOR PortNumber where
 
 -- REVIEW(SN): This is also used in hydra-tui
 data Host = Host
-  { hostName :: Text
-  , portNumber :: PortNumber
+  { hostname :: Text
+  , port :: PortNumber
   }
-  deriving (Ord, Generic, Eq)
+  deriving (Ord, Generic, Eq, ToJSON, FromJSON)
 
 instance Show Host where
   show = showHost
@@ -93,24 +92,11 @@ instance Arbitrary Host where
     ip <- toIPv4w <$> arbitrary
     Host (toText $ show ip) <$> arbitrary
 
-instance ToJSON Host where
-  toJSON h =
-    object
-      [ "hostname" .= hostName h
-      , "portNumber" .= portNumber h
-      ]
-
-instance FromJSON Host where
-  parseJSON = withObject "Host" $ \obj ->
-    Host
-      <$> (obj .: "hostname")
-      <*> (obj .: "portNumber")
-
 instance ToCBOR Host where
-  toCBOR Host{hostName, portNumber} =
+  toCBOR Host{hostname, port} =
     mconcat
-      [ toCBOR hostName
-      , toCBOR portNumber
+      [ toCBOR hostname
+      , toCBOR port
       ]
 
 instance FromCBOR Host where
@@ -120,8 +106,8 @@ instance FromCBOR Host where
       <*> (fromInteger <$> fromCBOR)
 
 showHost :: Host -> String
-showHost Host{hostName, portNumber} =
-  unpack hostName <> ":" <> show portNumber
+showHost Host{hostname, port} =
+  unpack hostname <> ":" <> show port
 
 readHost :: MonadFail m => String -> m Host
 readHost s =

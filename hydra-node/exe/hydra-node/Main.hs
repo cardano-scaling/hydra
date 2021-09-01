@@ -39,7 +39,7 @@ main = do
             createHydraNode eq hn Ledger.cardanoLedger oc server env >>= runHydraNode (contramap Node tracer)
  where
   withNetwork tracer party host port peers =
-    let localhost = Host{hostName = show host, portNumber = port}
+    let localhost = Host{hostname = show host, port}
      in withHeartbeat party $ withOuroborosNetwork tracer localhost peers
 
 identifyNode :: Options -> Options

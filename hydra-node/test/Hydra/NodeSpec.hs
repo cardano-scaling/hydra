@@ -65,8 +65,8 @@ oneReqSn = (== 1) . length . filter isReqSn
 
 prefix :: [Event SimpleTx]
 prefix =
-  [ NetworkEvent{message = Connected{peer = Host{hostName = "10.0.0.30", portNumber = 5000}}}
-  , NetworkEvent{message = Connected{peer = Host{hostName = "10.0.0.10", portNumber = 5000}}}
+  [ NetworkEvent{message = Connected{peer = Host{hostname = "10.0.0.30", port = 5000}}}
+  , NetworkEvent{message = Connected{peer = Host{hostname = "10.0.0.10", port = 5000}}}
   , OnChainEvent
       { onChainTx = OnInitTx 10 [10, 20, 30]
       }

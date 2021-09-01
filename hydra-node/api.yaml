@@ -136,8 +136,7 @@ properties:
           parties:
             type: array
             items:
-              $comment: "TODO: should be Party"
-              $ref: "#/definitions/Peer"
+              $ref: "#/definitions/Party"
 
       - title: Committed
         type: object
@@ -150,8 +149,7 @@ properties:
             type: string
             enum: ["Committed"]
           party:
-            $comment: "TODO: should be Party"
-            $ref: "#/definitions/Peer"
+            $ref: "#/definitions/Party"
           utxo:
             $ref: "#/definitions/Utxo"
 
@@ -313,6 +311,18 @@ properties:
 
 definitions:
   Peer:
+    type: object
+    properties:
+      hostname:
+        type: string
+        format: hostname
+      port:
+        type: number
+    examples:
+      - hostname: "10.0.0.10"
+        port: 5001
+
+  Party:
     type: integer
     examples:
       - 1

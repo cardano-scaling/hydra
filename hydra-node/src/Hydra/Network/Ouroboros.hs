@@ -139,8 +139,8 @@ withOuroborosNetwork tracer localHost remoteHosts networkCallback between = do
             { broadcast = atomically . writeTChan bchan
             }
  where
-  resolveSockAddr Host{hostName, portNumber} = do
-    is <- getAddrInfo (Just defaultHints) (Just $ toString hostName) (Just $ show portNumber)
+  resolveSockAddr Host{hostname, port} = do
+    is <- getAddrInfo (Just defaultHints) (Just $ toString hostname) (Just $ show port)
     case is of
       (info : _) -> pure $ addrAddress info
       _ -> error "getAdrrInfo failed.. do proper error handling"
@@ -149,7 +149,7 @@ withOuroborosNetwork tracer localHost remoteHosts networkCallback between = do
     -- REVIEW(SN): move outside to have this information available?
     networkState <- newNetworkMutableState
     -- Using port number 0 to let the operating system pick a random port
-    localAddr <- resolveSockAddr localHost{portNumber = 0}
+    localAddr <- resolveSockAddr localHost{port = 0}
     remoteAddrs <- forM remoteHosts resolveSockAddr
     let sn = socketSnocket iomgr
     Subscription.ipSubscriptionWorker

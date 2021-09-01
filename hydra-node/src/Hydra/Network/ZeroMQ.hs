@@ -43,7 +43,7 @@ withZeroMQNetwork tracer localHost remoteHosts incomingCallback continuation = d
           { broadcast = atomically . putTMVar mvar
           }
  where
-  toZMQAddress Host{hostName, portNumber} = "tcp://" <> toString hostName <> ":" <> show portNumber
+  toZMQAddress Host{hostname, port} = "tcp://" <> toString hostname <> ":" <> show port
   peerAddresses = map toZMQAddress remoteHosts
 
   runServer queue = runZMQ $ do
