@@ -8,9 +8,9 @@ module Hydra.JSONSchema where
 
 import Hydra.Prelude
 
-import Control.Lens ((^?))
+import Control.Lens (Lens', to, (^?))
 import qualified Data.Aeson as Aeson
-import Data.Aeson.Lens (key, _Array, _String)
+import Data.Aeson.Lens (AsValue, key, _Array, _String)
 import Data.Char (isSpace)
 import Data.List (dropWhileEnd)
 import qualified Data.Map.Strict as Map
@@ -55,13 +55,24 @@ prop_validateToJSON specFile inputFile =
 -- specification corresponds to a constructor in the corresponding
 -- data-type. This in order the document in sync and make sure we don't
 -- left behind constructors which no longer exists.
+--
+-- The second argument is a lens-like function that says which part of the
+-- specification to select to check completeness of the specification w.r.t.
+-- constructors for the datatype, for example:
+--
+-- @@
+-- key "properties" . key "message" . key "oneOf" . _Array . to toList
+-- @@
+--
+-- which selects the list of elements under @properties > message > oneOf@ path
+-- in the specification file.
 prop_specIsComplete ::
   forall a.
   (Arbitrary a, Show a) =>
   FilePath ->
-  Text ->
+  SpecificationSelector Yaml.Value ->
   Property
-prop_specIsComplete specFile namespace =
+prop_specIsComplete specFile typeSpecificationSelector =
   forAllBlind (vectorOf 1000 arbitrary) $ \(a :: [a]) ->
     monadicIO $ do
       specs <- run $ Aeson.decodeFileStrict specFile
@@ -69,12 +80,13 @@ prop_specIsComplete specFile namespace =
       let unknownConstructors = Map.keys $ Map.filter (== 0) knownKeys
 
       when (null knownKeys) $ do
-        monitor $ counterexample $ "No keys found in given namespace: " <> toString namespace
+        monitor $ counterexample "No keys found in given specification fragment"
         assert False
 
       unless (null unknownConstructors) $ do
         let commaSeparated = intercalate ", " (toString <$> unknownConstructors)
         monitor $ counterexample $ "Unimplemented constructors present in specification: " <> commaSeparated
+        monitor $ counterexample $ show a
         assert False
  where
   -- Like Generics, if you squint hard-enough.
@@ -84,8 +96,8 @@ prop_specIsComplete specFile namespace =
   classify :: Maybe Aeson.Value -> [a] -> Map Text Integer
   classify (Just specs) =
     let knownKeys =
-          case specs ^? key "properties" . key namespace . key "items" . key "oneOf" . _Array of
-            Just (toList -> es) ->
+          case specs ^? typeSpecificationSelector of
+            Just es ->
               let ks = mapMaybe (\(e :: Aeson.Value) -> e ^? key "title" . _String) es
                in Map.fromList $ zip ks (repeat @Integer 0)
             _ ->
@@ -96,6 +108,15 @@ prop_specIsComplete specFile namespace =
      in foldr countMatch knownKeys
   classify _ =
     error $ "Invalid specification file. Does not decode to an object: " <> show specFile
+
+type SpecificationSelector t =
+  forall f.
+  ( Applicative f
+  , Contravariant f
+  ) =>
+  ([Yaml.Value] -> f [Yaml.Value]) ->
+  Yaml.Value ->
+  f Yaml.Value
 
 -- | Prepare the environment (temp directory) with the JSON specification. We
 -- maintain a YAML version of a JSON-schema, for it is more convenient to write.
