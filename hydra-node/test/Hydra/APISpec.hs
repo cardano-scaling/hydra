@@ -6,23 +6,31 @@ module Hydra.APISpec where
 import Hydra.Prelude
 
 import Hydra.ClientInput (ClientInput)
-import Hydra.JSONSchema (prop_validateToJSON, withJsonSpecifications)
+import Hydra.JSONSchema (prop_specIsComplete, prop_validateToJSON, withJsonSpecifications)
 import Hydra.Ledger (Utxo)
 import Hydra.Ledger.Cardano (CardanoTx)
 import Hydra.ServerOutput (ServerOutput)
 import System.FilePath ((</>))
 import Test.Hspec (Spec, aroundAll, context, parallel, specify)
-import Test.QuickCheck (property)
+import Test.QuickCheck.Property (conjoin, withMaxSuccess)
 
 spec :: Spec
 spec = parallel $ do
   context "validates JSON representations against API specification" $ do
     aroundAll (withJsonSpecifications "api.yaml") $ do
       specify "ClientInput" $ \(specs, tmp) ->
-        property $ prop_validateToJSON @(ClientInput CardanoTx) specs "inputs" (tmp </> "ClientInput")
+        withMaxSuccess 1 $
+          conjoin
+            [ prop_validateToJSON @(ClientInput CardanoTx) specs (tmp </> "ClientInput")
+            , prop_specIsComplete @(ClientInput CardanoTx) specs "inputs"
+            ]
       specify "ServerOutput" $ \(specs, tmp) ->
-        property $ prop_validateToJSON @(ServerOutput CardanoTx) specs "outputs" (tmp </> "ServerOutput")
+        withMaxSuccess 1 $
+          conjoin
+            [ prop_validateToJSON @(ServerOutput CardanoTx) specs (tmp </> "ServerOutput")
+            , prop_specIsComplete @(ServerOutput CardanoTx) specs "outputs"
+            ]
       specify "Utxo" $ \(specs, tmp) ->
-        property $ prop_validateToJSON @(Utxo CardanoTx) specs "utxo" (tmp </> "Utxo")
+        withMaxSuccess 1 $ prop_validateToJSON @(Utxo CardanoTx) specs (tmp </> "Utxo")
       specify "CardanoTx" $ \(specs, tmp) ->
-        property $ prop_validateToJSON @CardanoTx specs "txs" (tmp </> "CardanoTx")
+        withMaxSuccess 1 $prop_validateToJSON @CardanoTx specs (tmp </> "CardanoTx")
