@@ -3,8 +3,10 @@
 module Hydra.Network.Message where
 
 import Hydra.Prelude
+
 import Hydra.Ledger (Party, Signed, Utxo)
-import Hydra.Snapshot (SnapshotNumber, Snapshot)
+import Hydra.Network (Host)
+import Hydra.Snapshot (Snapshot, SnapshotNumber)
 
 -- NOTE(SN): Every message comes from a 'Party', we might want to move it out of
 -- here into the 'NetworkEvent'
@@ -12,8 +14,8 @@ data Message tx
   = ReqTx {party :: Party, transaction :: tx}
   | ReqSn {party :: Party, snapshotNumber :: SnapshotNumber, transactions :: [tx]}
   | AckSn {party :: Party, signed :: Signed (Snapshot tx), snapshotNumber :: SnapshotNumber}
-  | Connected {party :: Party}
-  | Disconnected {party :: Party}
+  | Connected {peer :: Host}
+  | Disconnected {peer :: Host}
   deriving stock (Generic, Eq, Show)
   deriving anyclass (ToJSON, FromJSON)
 
@@ -37,12 +39,3 @@ instance (FromCBOR tx, FromCBOR (Utxo tx)) => FromCBOR (Message tx) where
       "Connected" -> Connected <$> fromCBOR
       "Disconnected" -> Disconnected <$> fromCBOR
       msg -> fail $ show msg <> " is not a proper CBOR-encoded Message"
-
-getParty :: Message msg -> Party
-getParty =
-  \case
-    (ReqTx p _) -> p
-    (ReqSn p _ _) -> p
-    (AckSn p _ _) -> p
-    (Connected p) -> p
-    (Disconnected p) -> p

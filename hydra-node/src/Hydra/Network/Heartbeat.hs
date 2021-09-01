@@ -24,17 +24,16 @@ import Hydra.Prelude
 import Control.Monad.Class.MonadSTM (modifyTVar', newTVarIO, readTVarIO)
 import qualified Data.Map as Map
 import qualified Data.Set as Set
-import Hydra.Ledger (Party)
-import Hydra.Network (Network (..), NetworkCallback, NetworkComponent)
-import Hydra.Network.Message (Message (Connected, Disconnected), getParty)
+import Hydra.Network (Host, Network (..), NetworkCallback, NetworkComponent)
+import Hydra.Network.Message (Message (Connected, Disconnected))
 
 data HeartbeatState = HeartbeatState
   { -- | The map of known 'Connected' parties with the last time they've been "seen".
-    -- This is updated when we see a message from another 'Party'
-    alive :: Map Party Time
+    -- This is updated when we see a message from another 'Host'
+    alive :: Map Host Time
   , -- | The set of known parties which might be 'Disconnected'
-    -- This is updated after some time no message has been received from a 'Party'.
-    suspected :: Set Party
+    -- This is updated after some time no message has been received from a 'Host'.
+    suspected :: Set Host
   , -- | The timestamp of the last sent message.
     lastSent :: Maybe Time
   }
@@ -44,20 +43,20 @@ initialHeartbeatState :: HeartbeatState
 initialHeartbeatState = HeartbeatState{alive = mempty, suspected = mempty, lastSent = Nothing}
 
 data Heartbeat msg
-  = Data msg
-  | Ping Party
+  = Data Host msg
+  | Ping Host
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON, FromJSON)
 
 instance (ToCBOR msg) => ToCBOR (Heartbeat msg) where
   toCBOR = \case
-    (Data hmsg) -> toCBOR (0 :: Int) <> toCBOR hmsg
+    (Data host hmsg) -> toCBOR (0 :: Int) <> toCBOR host <> toCBOR hmsg
     (Ping host) -> toCBOR (1 :: Int) <> toCBOR host
 
 instance (FromCBOR msg) => FromCBOR (Heartbeat msg) where
   fromCBOR =
     fromCBOR >>= \case
-      (0 :: Int) -> Data <$> fromCBOR
+      (0 :: Int) -> Data <$> fromCBOR <*> fromCBOR
       1 -> Ping <$> fromCBOR
       other -> fail $ "Unknown tag " <> show other <> " trying to deserialise value to Heartbeat"
 
@@ -75,15 +74,15 @@ withHeartbeat ::
   , MonadDelay m
   , MonadMonotonicTime m
   ) =>
-  Party ->
+  Host ->
   NetworkComponent m (Heartbeat (Message tx)) a ->
   NetworkComponent m (Message tx) a
-withHeartbeat party withNetwork callback action = do
+withHeartbeat peer withNetwork callback action = do
   heartbeat <- newTVarIO initialHeartbeatState
   withNetwork (updateStateFromIncomingMessages heartbeat callback) $ \network ->
     withAsync (checkRemoteParties heartbeat callback) $ \_ ->
-      withAsync (checkHeartbeatState party heartbeat network) $ \_ ->
-        action (updateStateFromOutgoingMessages heartbeat network)
+      withAsync (checkHeartbeatState peer heartbeat network) $ \_ ->
+        action (updateStateFromOutgoingMessages peer heartbeat network)
 
 updateStateFromIncomingMessages ::
   (MonadSTM m, MonadMonotonicTime m) =>
@@ -91,30 +90,31 @@ updateStateFromIncomingMessages ::
   NetworkCallback (Message tx) m ->
   NetworkCallback (Heartbeat (Message tx)) m
 updateStateFromIncomingMessages heartbeatState callback = \case
-  Data msg -> notifyAlive (getParty msg) >> callback msg
-  Ping party -> notifyAlive party
+  Data peer msg -> notifyAlive peer >> callback msg
+  Ping peer -> notifyAlive peer
  where
-  notifyAlive party = do
+  notifyAlive peer = do
     now <- getMonotonicTime
     aliveSet <- alive <$> readTVarIO heartbeatState
-    unless (party `Map.member` aliveSet) $ callback (Connected party)
+    unless (peer `Map.member` aliveSet) $ callback (Connected peer)
     atomically $
       modifyTVar' heartbeatState $ \s ->
         s
-          { alive = Map.insert party now (alive s)
-          , suspected = party `Set.delete` suspected s
+          { alive = Map.insert peer now (alive s)
+          , suspected = peer `Set.delete` suspected s
           }
 
 updateStateFromOutgoingMessages ::
   (MonadSTM m, MonadMonotonicTime m) =>
+  Host ->
   TVar m HeartbeatState ->
   Network m (Heartbeat (Message msg)) ->
   Network m (Message msg)
-updateStateFromOutgoingMessages heartbeatState Network{broadcast} =
+updateStateFromOutgoingMessages localhost heartbeatState Network{broadcast} =
   Network $ \msg -> do
     now <- getMonotonicTime
     updateLastSent heartbeatState now
-    broadcast (Data msg)
+    broadcast (Data localhost msg)
 
 updateLastSent :: MonadSTM m => TVar m HeartbeatState -> Time -> m ()
 updateLastSent heartbeatState now = atomically (modifyTVar' heartbeatState $ \s -> s{lastSent = Just now})
@@ -124,7 +124,7 @@ checkHeartbeatState ::
   , MonadSTM m
   , MonadMonotonicTime m
   ) =>
-  Party ->
+  Host ->
   TVar m HeartbeatState ->
   Network m (Heartbeat (Message msg)) ->
   m ()
@@ -156,7 +156,7 @@ checkRemoteParties heartbeatState callback =
     updateSuspected heartbeatState now
       >>= mapM_ (callback . Disconnected)
 
-updateSuspected :: MonadSTM m => TVar m HeartbeatState -> Time -> m (Set Party)
+updateSuspected :: MonadSTM m => TVar m HeartbeatState -> Time -> m (Set Host)
 updateSuspected heartbeatState now =
   atomically $ do
     aliveParties <- alive <$> readTVar heartbeatState

@@ -8,8 +8,8 @@ import Hydra.Prelude
 import Hydra.Snapshot (Snapshot)
 
 data ServerOutput tx
-  = PeerConnected {peer :: Party}
-  | PeerDisconnected {peer :: Party}
+  = PeerConnected {peer :: Host}
+  | PeerDisconnected {peer :: Host}
   | ReadyToCommit {parties :: [Party]}
   | Committed {party :: Party, utxo :: Utxo tx}
   | HeadIsOpen {utxo :: Utxo tx}
