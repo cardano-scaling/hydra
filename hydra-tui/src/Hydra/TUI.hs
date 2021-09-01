@@ -33,7 +33,7 @@ data State
   = Disconnected {nodeHost :: Host}
   | Connected
       { nodeHost :: Host
-      , connectedPeers :: [Party]
+      , connectedPeers :: [Host]
       , headState :: HeadState
       , commandFailed :: Bool
       }
@@ -162,7 +162,7 @@ draw s =
       Initializing{notYetCommitted} ->
         str "HeadState: Initializing"
           <=> str "Not yet committed:"
-          <=> vBox (map drawParty notYetCommitted)
+          <=> vBox (map drawShow notYetCommitted)
       Closed{contestationDeadline} ->
         str "HeadState: Closed"
           <=> str ("Contestation deadline: " <> show contestationDeadline)
@@ -183,9 +183,9 @@ draw s =
       then withAttr negative $ str "Command not possible"
       else emptyWidget
 
-  drawPeers = vBox $ str "Connected peers:" : map drawParty (s ^. connectedPeersL)
+  drawPeers = vBox $ str "Connected peers:" : map drawShow (s ^. connectedPeersL)
 
-  drawParty = str . (" - " <>) . show
+  drawShow = str . (" - " <>) . show
 
 style :: State -> AttrMap
 style _ =
