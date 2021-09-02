@@ -13,6 +13,9 @@ cabal build --enable-tests all
 
 cabal test all
 
+# Sanity check benchmark still runs fine
+cabal bench local-cluster --benchmark-options '--scaling-factor 1'
+
 cabal haddock all -fdefer-plutus-plugin-errors
 
 [ ! -d docs/haddock ] && mkdir -p docs/haddock
