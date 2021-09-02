@@ -30,11 +30,11 @@ type ContestationPeriod = DiffTime
 data PostChainTx tx
   = InitTx {headParameters :: HeadParameters}
   | CommitTx {party :: Party, committed :: Utxo tx}
-  | AbortTx {utxos :: Utxo tx}
-  | CollectComTx {utxos :: Utxo tx}
+  | AbortTx {utxo :: Utxo tx}
+  | CollectComTx {utxo :: Utxo tx}
   | CloseTx {snapshot :: Snapshot tx}
   | ContestTx {snapshot :: Snapshot tx}
-  | FanoutTx {utxos :: Utxo tx}
+  | FanoutTx {utxo :: Utxo tx}
   deriving stock (Generic)
 
 deriving instance Tx tx => Eq (PostChainTx tx)
