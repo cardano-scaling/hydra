@@ -72,7 +72,7 @@ import Control.Lens ((^?))
 import Data.Aeson (Value (Null, Object, String), object, (.=))
 import Data.Aeson.Lens (key)
 import qualified Data.ByteString as BS
-import Data.ByteString.Base16 (encodeBase16)
+import qualified Data.ByteString.Base16 as Base16
 import qualified Data.Map as Map
 import Hydra.Logging (showLogsOnFailure)
 import HydraNode (
@@ -294,7 +294,7 @@ txToJson tx =
           ]
     , "witnesses"
         .= object
-          [ "keys" .= map (encodeBase16 . serialiseToCBOR) txWitnesses
+          [ "keys" .= map (String . decodeUtf8 . Base16.encode . serialiseToCBOR) txWitnesses
           , "scripts" .= object []
           ]
     , "auxiliaryData" .= Null
