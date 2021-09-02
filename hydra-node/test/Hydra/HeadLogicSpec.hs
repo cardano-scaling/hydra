@@ -190,36 +190,6 @@ spec = do
           st = inOpenState threeParties ledger
       update env ledger st event `shouldBe` Error (InvalidEvent event st)
 
-    it "consecutive snapshots are signed by different leaders" $ do
-      let (alice, bob, carole) = (envFor 1, envFor 2, envFor 3)
-          st0 = inOpenState threeParties ledger
-          sn1 = Snapshot 1 mempty mempty
-          sn2 = Snapshot 2 mempty mempty
-
-      st' <- flip execStateT st0 $ do
-        -- Alice is leader and request snapshot
-        applyEvent (update bob ledger) $
-          NetworkEvent $ ReqSn (party alice) (number sn1) mempty
-
-        -- Everyone signs
-        applyEvent (update bob ledger) $
-          NetworkEvent $ AckSn (party alice) (sign (signingKey alice) sn1) (number sn1)
-        applyEvent (update bob ledger) $
-          NetworkEvent $ AckSn (party bob) (sign (signingKey bob) sn1) (number sn1)
-        applyEvent (update bob ledger) $
-          NetworkEvent $ AckSn (party carole) (sign (signingKey carole) sn1) (number sn1)
-
-        -- It's now Bob's turn
-        applyEvent (update bob ledger) $
-          NetworkEvent $ ReqSn (party bob) (number sn2) mempty
-
-      case st' of
-        OpenState{coordinatedHeadState} -> do
-          confirmedSnapshot coordinatedHeadState `shouldBe` sn1
-          seenSnapshot coordinatedHeadState `shouldBe` (SeenSnapshot sn2 mempty)
-        someSt ->
-          fail $ "Expected 'OpenState' but got: " <> show someSt
-
     -- TODO(SN): maybe this and the next are a property! at least DRY
     -- NOTE(AB): we should cover variations of snapshot numbers and state of snapshot
     -- collection
