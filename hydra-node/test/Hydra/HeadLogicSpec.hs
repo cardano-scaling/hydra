@@ -85,6 +85,16 @@ spec = do
       update nonLeaderEnv ledger s0 reqTx
         `hasNoEffectSatisfying` isDoSnapshot
 
+    it "requests new snapshot as leader of a later snapshots" $ do
+      let reqTx = NetworkEvent $ ReqTx 1 simpleTx
+          bob = envFor 2
+          -- Bob is the leader in a three party round for snapshot 5
+          snapshot4 = Snapshot 4 mempty mempty
+          s0 = inOpenState' threeParties $ CoordinatedHeadState mempty mempty snapshot4 NoSeenSnapshot
+
+      update bob ledger s0 reqTx
+        `hasEffect_` Delay 0 DoSnapshot
+
     it "delay snapshot request when already having one in flight" $ do
       let leaderEnv = envFor 1
           p = party leaderEnv
