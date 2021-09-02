@@ -5,8 +5,7 @@ module Hydra.APISpec where
 
 import Hydra.Prelude
 
-import Control.Lens (to)
-import Data.Aeson.Lens (key, _Array)
+import Data.Aeson.Lens (key)
 import Hydra.ClientInput (ClientInput)
 import Hydra.JSONSchema (SpecificationSelector, prop_specIsComplete, prop_validateToJSON, withJsonSpecifications)
 import Hydra.Ledger (Utxo)
@@ -38,5 +37,5 @@ spec = parallel $ do
         withMaxSuccess 1 $prop_validateToJSON @CardanoTx specs (tmp </> "CardanoTx")
 
 apiSpecificationSelector ::
-  Text -> SpecificationSelector a
-apiSpecificationSelector namespace = key "properties" . key namespace . key "items" . key "oneOf" . _Array . to toList
+  Text -> SpecificationSelector
+apiSpecificationSelector namespace = key "properties" . key namespace . key "items"

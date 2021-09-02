@@ -8,7 +8,7 @@ module Hydra.JSONSchema where
 
 import Hydra.Prelude
 
-import Control.Lens (Lens', to, (^?))
+import Control.Lens (Traversal', to, (^..), (^?))
 import qualified Data.Aeson as Aeson
 import Data.Aeson.Lens (AsValue, key, _Array, _String)
 import Data.Char (isSpace)
@@ -53,24 +53,36 @@ prop_validateToJSON specFile inputFile =
 -- | Check specification is complete wr.t. to generated data
 -- This second sub-property ensures that any key found in the
 -- specification corresponds to a constructor in the corresponding
--- data-type. This in order the document in sync and make sure we don't
+-- data-type. This makes sure the document is kept in sync and make sure we don't
 -- left behind constructors which no longer exists.
 --
--- The second argument is a lens-like function that says which part of the
+-- The second argument is a lens that says which part of the
 -- specification to select to check completeness of the specification w.r.t.
 -- constructors for the datatype, for example:
 --
 -- @@
--- key "properties" . key "message" . key "oneOf" . _Array . to toList
+-- key "properties" . key "message"
 -- @@
 --
--- which selects the list of elements under @properties > message > oneOf@ path
--- in the specification file.
+-- which selects the list of elements under @properties > message@ path
+-- in the specification file. This element should be a schema fragment that has
+-- a property @oneOf@ containing a list of objects having a @title@ property.
+--
+-- Given the above selector, this schema fragment is fine:
+--
+-- @@
+-- properties:
+--  message:
+--    oneOf:
+--      - title: APIServer
+--        type: object
+--  ...
+-- @@
 prop_specIsComplete ::
   forall a.
   (Arbitrary a, Show a) =>
   FilePath ->
-  SpecificationSelector Yaml.Value ->
+  SpecificationSelector ->
   Property
 prop_specIsComplete specFile typeSpecificationSelector =
   forAllBlind (vectorOf 1000 arbitrary) $ \(a :: [a]) ->
@@ -90,33 +102,25 @@ prop_specIsComplete specFile typeSpecificationSelector =
         assert False
  where
   -- Like Generics, if you squint hard-enough.
-  strawmanGetConstr :: a -> Text
-  strawmanGetConstr = toText . Prelude.head . words . show
+  poormansGetConstr :: a -> Text
+  poormansGetConstr = toText . Prelude.head . words . show
 
   classify :: Maybe Aeson.Value -> [a] -> Map Text Integer
   classify (Just specs) =
-    let knownKeys =
-          case specs ^? typeSpecificationSelector of
-            Just es ->
-              let ks = mapMaybe (\(e :: Aeson.Value) -> e ^? key "title" . _String) es
-               in Map.fromList $ zip ks (repeat @Integer 0)
-            _ ->
-              mempty
+    let ks = specs ^.. typeSpecificationSelector . key "oneOf" . _Array . traverse . key "title" . _String
 
-        countMatch (strawmanGetConstr -> tag) =
+        knownKeys = Map.fromList $ zip ks (repeat @Integer 0)
+
+        countMatch (poormansGetConstr -> tag) =
           Map.alter (Just . maybe 1 (+ 1)) tag
      in foldr countMatch knownKeys
   classify _ =
     error $ "Invalid specification file. Does not decode to an object: " <> show specFile
 
-type SpecificationSelector t =
-  forall f.
-  ( Applicative f
-  , Contravariant f
-  ) =>
-  ([Yaml.Value] -> f [Yaml.Value]) ->
-  Yaml.Value ->
-  f Yaml.Value
+-- | An alias for a traversal selecting some part of a 'Value'
+-- This alleviates the need for users of this module to import explicitly the types
+-- from aeson and lens.
+type SpecificationSelector = Traversal' Aeson.Value Aeson.Value
 
 -- | Prepare the environment (temp directory) with the JSON specification. We
 -- maintain a YAML version of a JSON-schema, for it is more convenient to write.
