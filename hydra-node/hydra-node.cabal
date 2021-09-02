@@ -104,7 +104,7 @@ library
   build-depends:
     , aeson
     , base
-    , base16
+    , base16-bytestring
     , bech32
     , bech32-th
     , bytestring

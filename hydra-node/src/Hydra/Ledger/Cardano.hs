@@ -51,7 +51,7 @@ import Data.Aeson (
   (.=),
  )
 import Data.Aeson.Types (mapFromJSONKeyFunction, toJSONKeyText)
-import Data.ByteString.Base16 (decodeBase16, encodeBase16)
+import qualified Data.ByteString.Base16 as Base16
 import Data.Default (def)
 import qualified Data.Sequence.Strict as StrictSeq
 import qualified Data.Set as Set
@@ -196,11 +196,11 @@ instance Crypto crypto => FromJSON (Cardano.TxId crypto) where
 
 txIdToText :: Cardano.TxId crypto -> Text
 txIdToText (Cardano.TxId h) =
-  encodeBase16 $ Crypto.hashToBytes $ SafeHash.extractHash h
+  decodeUtf8 . Base16.encode $ Crypto.hashToBytes $ SafeHash.extractHash h
 
 txIdFromText :: (Crypto crypto, MonadFail m) => Text -> m (Cardano.TxId crypto)
 txIdFromText t =
-  case decodeBase16 (encodeUtf8 t) of
+  case Base16.decode (encodeUtf8 t) of
     Left e -> fail $ "decoding base16: " <> show e
     Right bytes ->
       case Crypto.hashFromBytes bytes of
@@ -267,11 +267,11 @@ instance FromJSON Cardano.ValidityInterval where
     Cardano.ValidityInterval <$> obj .: "notBefore" <*> obj .: "notAfter"
 
 instance ToJSON (AuxiliaryDataHash crypto) where
-  toJSON = toJSON . encodeBase16 . Crypto.hashToBytes . SafeHash.extractHash . unsafeAuxiliaryDataHash
+  toJSON = String . decodeUtf8 . Base16.encode . Crypto.hashToBytes . SafeHash.extractHash . unsafeAuxiliaryDataHash
 
 instance Crypto crypto => FromJSON (AuxiliaryDataHash crypto) where
   parseJSON = withText "AuxiliaryDataHash" $ \t ->
-    case decodeBase16 (encodeUtf8 t) of
+    case Base16.decode (encodeUtf8 t) of
       Left e -> fail $ "decoding base16: " <> show e
       Right bytes ->
         case Crypto.hashFromBytes bytes of
@@ -379,22 +379,22 @@ instance Crypto crypto => FromJSONKey (Cardano.PolicyID crypto) where
   fromJSONKey = mapFromJSONKeyFunction Cardano.PolicyID fromJSONKey
 
 instance ToJSON Cardano.AssetName where
-  toJSON (Cardano.AssetName bytes) = String $ encodeBase16 bytes
+  toJSON (Cardano.AssetName bytes) = String $ decodeUtf8 $ Base16.encode bytes
 
 instance FromJSON Cardano.AssetName where
   parseJSON = withText "AssetName" $ \t ->
-    case decodeBase16 $ encodeUtf8 t of
+    case Base16.decode $ encodeUtf8 t of
       Left err -> fail $ show err
       Right bs -> pure $ Cardano.AssetName bs
 
 instance ToJSONKey Cardano.AssetName where
-  toJSONKey = toJSONKeyText $ \(Cardano.AssetName bytes) -> encodeBase16 bytes
+  toJSONKey = toJSONKeyText $ \(Cardano.AssetName bytes) -> decodeUtf8 $ Base16.encode bytes
 
 instance FromJSONKey Cardano.AssetName where
   fromJSONKey = FromJSONKeyTextParser nameFromText
    where
     nameFromText t =
-      case decodeBase16 (encodeUtf8 t) of
+      case Base16.decode (encodeUtf8 t) of
         Left e -> fail $ "decoding base16: " <> show e
         Right bytes -> pure $ Cardano.AssetName bytes
 
@@ -403,11 +403,11 @@ instance FromJSONKey Cardano.AssetName where
 ---
 
 instance ToJSON (Cardano.DCert StandardCrypto) where
-  toJSON = String . encodeBase16 . serialize'
+  toJSON = String . decodeUtf8 . Base16.encode . serialize'
 
 instance FromJSON (Cardano.DCert StandardCrypto) where
   parseJSON = withText "DCert" $ \t ->
-    case decodeBase16 $ encodeUtf8 t of
+    case Base16.decode $ encodeUtf8 t of
       Left err -> fail $ show err
       Right bs' -> case decodeFull (fromStrict bs') of
         Left err -> fail $ show err
@@ -448,14 +448,14 @@ instance FromJSON CardanoTxWitnesses where
       <*> pure mempty
 
 instance ToJSON (Cardano.WitVKey 'Cardano.Witness StandardCrypto) where
-  toJSON = String . encodeBase16 . serializeEncoding' . prefixWithTag
+  toJSON = String . decodeUtf8 . Base16.encode . serializeEncoding' . prefixWithTag
    where
     prefixWithTag wit = encodeListLen 2 <> encodeWord 0 <> toCBOR wit
 
 instance FromJSON (Cardano.WitVKey 'Cardano.Witness StandardCrypto) where
   parseJSON = withText "KeyWitness" $ \t ->
     -- TODO(AB): this is ugly
-    case decodeBase16 $ encodeUtf8 t of
+    case Base16.decode $ encodeUtf8 t of
       Left err -> fail $ show err
       Right bs' -> case decodeAnnotator "ShelleyKeyWitness" decoder (fromStrict bs') of
         Left err -> fail $ show err
@@ -469,24 +469,24 @@ instance FromJSON (Cardano.WitVKey 'Cardano.Witness StandardCrypto) where
         _ -> fail $ "Invalid tag decoding key witness, only support 1: " <> show t
 
 instance ToJSON (Cardano.Timelock StandardCrypto) where
-  toJSON = String . encodeBase16 . serialize'
+  toJSON = String . decodeUtf8 . Base16.encode . serialize'
 
 instance FromJSON (Cardano.Timelock StandardCrypto) where
   parseJSON = withText "Timelock" $ \t ->
-    case decodeBase16 $ encodeUtf8 t of
+    case Base16.decode $ encodeUtf8 t of
       Left err -> fail $ show err
       Right bs' -> case decodeAnnotator "Timelock" fromCBOR (fromStrict bs') of
         Left err -> fail $ show err
         Right v -> pure v
 
 instance ToJSONKey (Cardano.ScriptHash crypto) where
-  toJSONKey = toJSONKeyText (\(Cardano.ScriptHash h) -> encodeBase16 (Crypto.hashToBytes h))
+  toJSONKey = toJSONKeyText (\(Cardano.ScriptHash h) -> decodeUtf8 $ Base16.encode (Crypto.hashToBytes h))
 
 instance Crypto crypto => FromJSONKey (Cardano.ScriptHash crypto) where
   fromJSONKey = FromJSONKeyTextParser hashFromText
    where
     hashFromText t =
-      case decodeBase16 (encodeUtf8 t) of
+      case Base16.decode (encodeUtf8 t) of
         Left e -> fail $ "decoding base16: " <> show e
         Right bytes ->
           case Crypto.hashFromBytes bytes of
@@ -498,11 +498,11 @@ instance Crypto crypto => FromJSONKey (Cardano.ScriptHash crypto) where
 --
 
 instance ToJSON (AuxiliaryData CardanoEra) where
-  toJSON = String . encodeBase16 . serialize'
+  toJSON = String . decodeUtf8 . Base16.encode . serialize'
 
 instance FromJSON (AuxiliaryData CardanoEra) where
   parseJSON = withText "Hex-encoded auxiliary data" $ \t ->
-    case decodeBase16 $ encodeUtf8 t of
+    case Base16.decode $ encodeUtf8 t of
       Left err -> fail $ show err
       Right bs' -> case decodeAnnotator "AuxiliaryData" fromCBOR (fromStrict bs') of
         Left err -> fail $ show err

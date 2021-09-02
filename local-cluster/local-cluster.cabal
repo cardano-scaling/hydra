@@ -131,7 +131,7 @@ test-suite integration
   build-depends:
     , aeson
     , base                  >=4.7 && <5
-    , base16
+    , base16-bytestring
     , bytestring
     , cardano-api
     , cardano-crypto-class

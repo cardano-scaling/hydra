@@ -16,8 +16,8 @@ import Cardano.Crypto.DSIGN (
  )
 import Cardano.Crypto.Seed (mkSeedFromBytes)
 import Cardano.Crypto.Util (SignableRepresentation)
-import Data.Aeson (FromJSONKey (..), ToJSONKey (..), withText)
-import Data.ByteString.Base16 (decodeBase16, encodeBase16)
+import Data.Aeson (FromJSONKey (..), ToJSONKey (..), Value (String), withText)
+import qualified Data.ByteString.Base16 as Base16
 import Test.QuickCheck (vectorOf)
 
 -- NOTE(MB): We probably want to move these common types somewhere else. Putting
@@ -59,14 +59,14 @@ instance Arbitrary (Signed a) where
     pure . UnsafeSigned $ signDSIGN () a key
 
 instance ToJSON a => ToJSON (Signed a) where
-  toJSON (UnsafeSigned sig) = toJSON . encodeBase16 . rawSerialiseSigDSIGN $ sig
+  toJSON (UnsafeSigned sig) = String . decodeUtf8 . Base16.encode . rawSerialiseSigDSIGN $ sig
 
 instance FromJSON a => FromJSON (Signed a) where
   parseJSON = withText "Signed" $ decodeBase16' >=> deserialiseSigned
    where
     decodeBase16' :: MonadFail f => Text -> f ByteString
     decodeBase16' =
-      either (fail . show) pure . decodeBase16 . encodeUtf8
+      either (fail . show) pure . Base16.decode . encodeUtf8
 
     deserialiseSigned :: MonadFail f => ByteString -> f (Signed a)
     deserialiseSigned =
