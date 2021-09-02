@@ -52,9 +52,9 @@ FLAGS=$(echo "
     -Widentities
     -Wincomplete-record-updates
     -Wincomplete-uni-patterns
-    -Wpartial-fields
+    -Wno-partial-fields
     -Wredundant-constraints
-    -Wunused-packages" | tr -s '\012' ' ')
+    -Wno-unused-packages" | tr -s '\012' ' ')
 
 # List all hspec modules in the given packages and turn those into something
 # that can be put into a Haskell list
