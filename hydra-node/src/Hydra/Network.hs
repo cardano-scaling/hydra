@@ -137,6 +137,9 @@ data MockChain = MockChain
   }
   deriving (Eq, Show, Generic, ToJSON, FromJSON)
 
+instance Arbitrary MockChain where
+  arbitrary = genericArbitrary
+
 defaultMockChain :: MockChain
 defaultMockChain =
   MockChain

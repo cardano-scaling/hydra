@@ -13,8 +13,8 @@ import Control.Monad.Class.MonadSTM (modifyTVar', newTBQueue, newTVarIO, readTBQ
 import Data.Aeson (eitherDecodeStrict, encode)
 import qualified Data.Text.Encoding as Enc
 import Hydra.Chain (Chain (..), ChainComponent, OnChainTx, PostChainTx, toOnChainTx)
-import Hydra.Ledger (Tx)
-import Hydra.Logging (ToObject, Tracer, traceWith)
+import Hydra.Ledger (Tx, Utxo)
+import Hydra.Logging (Tracer, traceWith)
 import Hydra.Network (MockChain (..))
 import qualified Hydra.Network as Network
 import System.ZMQ4.Monadic (
