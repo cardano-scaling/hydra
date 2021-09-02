@@ -5,7 +5,6 @@ module Hydra.NodeSpec where
 import Hydra.Prelude
 import Test.Hydra.Prelude
 
-import Data.List (nub)
 import Hydra.API.Server (Server (..))
 import Hydra.Chain (Chain (..), OnChainTx (..))
 import Hydra.ClientInput (ClientInput (..))
@@ -20,8 +19,8 @@ import Hydra.Ledger.Simple (SimpleTx (..), simpleLedger, utxoRef, utxoRefs)
 import Hydra.Logging (showLogsOnFailure)
 import Hydra.Network (Host (..), Network (..))
 import Hydra.Network.Message (Message (..))
-import Hydra.Node (EventQueue (..), HydraNode (..), createEventQueue, createHydraHead, handleMessage, isEmpty, stepHydraNode)
-import Hydra.Snapshot (Snapshot (Snapshot))
+import Hydra.Node (EventQueue (..), HydraNode (..), createEventQueue, createHydraHead, isEmpty, stepHydraNode)
+import Hydra.Snapshot (Snapshot (..))
 
 spec :: Spec
 spec = do
@@ -43,23 +42,22 @@ spec = do
     runToCompletion node'
     getNetworkMessages `shouldReturn` [ReqSn 10 1 [tx1, tx2, tx3], AckSn 10 signedSnapshot 1]
 
-  it "consecutive snapshots are signed by different leaders" $ do
+  it "rotates snapshot leaders" $ do
     let tx1 = SimpleTx{txSimpleId = 1, txInputs = utxoRefs [2], txOutputs = utxoRefs [4]}
-        tx2 = SimpleTx{txSimpleId = 2, txInputs = utxoRefs [4], txOutputs = utxoRefs [5]}
-        ev1 = ReqTx{party = 10, transaction = tx1}
-        ev2 = ReqTx{party = 10, transaction = tx2}
+        sn1 = Snapshot 1 (utxoRefs [1, 2, 3]) mempty
+        events =
+          prefix
+            <> [ NetworkEvent{message = ReqSn{party = 10, snapshotNumber = 1, transactions = mempty}}
+               , NetworkEvent{message = AckSn 10 (sign 10 sn1) 1}
+               , NetworkEvent{message = AckSn 30 (sign 30 sn1) 1}
+               , NetworkEvent{message = ReqTx{party = 10, transaction = tx1}}
+               ]
 
-    node <- createHydraNode 10 [20, 30] SnapshotAfterEachTx prefix
+    node <- createHydraNode 20 [10, 30] SnapshotAfterEachTx events
     (node', getNetworkMessages) <- recordNetwork node
     runToCompletion node'
-    forM_ [ev1, ev2] $ \e -> do
-      handleMessage node' e >> runToCompletion node'
 
-    msgs <- getNetworkMessages
-    let snapshotLeaders = flip mapMaybe msgs $ \case
-          ReqSn{party} -> Just party
-          _ -> Nothing
-    length (nub snapshotLeaders) `shouldBe` 2
+    getNetworkMessages `shouldReturn` [AckSn 20 (sign 20 sn1) 1, ReqSn 20 2 [tx1]]
 
   it "processes out-of-order AckSn" $ do
     let snapshot = Snapshot 1 (utxoRefs [1, 2, 3]) []
