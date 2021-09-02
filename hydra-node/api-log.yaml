@@ -4,8 +4,8 @@
 "$comment": A description of the log items produced by a Hydra node
 title: Hydra Logs API
 description: >
-  This schema documents the structure of the Log items produced by a running Hydra node
-  and output to its standard output stream. Items are output as JSON data, separated by
+  This schema documents the structure of the Log items produced by a Hydra node
+  via its standard output stream. Items are emitted as individual JSON objects, separated by
   a newline which makes it easy to ingest by thirdparty tools and services.
 
 required:
@@ -24,7 +24,7 @@ properties:
     type: string
     format: "date-time"
     description: >-
-      Timestamp denoting the wall-clock time at which this log entry was recoded
+      Timestamp denoting the wall-clock time at which this log entry was recorded.
 
   thread:
     type: integer
@@ -39,7 +39,7 @@ properties:
         - tag
         - api
         description: >-
-          A log entry produced by the API server
+          A log entry produced by the API server.
         properties:
           tag:
             type: string
@@ -279,7 +279,7 @@ definitions:
       - tag
       description: >-
         An internal event dependent on the snapshot strategy of the node, requesting some snapshot
-        to be emitted.
+        to be performed.
       properties:
         tag:
           type: string
@@ -389,7 +389,7 @@ definitions:
         - contestationPeriod
         - parties
         description: >-
-          The initial transaction of the Head announcing various parameters and the parties has been
+          The initial transaction of the Head, announcing various parameters and the parties, has been
           posted on-chain.
         properties:
           tag:

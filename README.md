@@ -65,7 +65,7 @@ idea to do the following:
 Documentation is published online at https://input-output-hk.github.io/hydra-poc from the [docs](docs/README.md) directory.
 
 API Documentations are available for:
-* The [API WebSocket API](https://input-output-hk.github.io/json-schema-viewer/#/?url=https://raw.githubusercontent.com/input-output-hk/hydra-poc/master/hydra-node/api.yaml)
+* The [WebSocket API](https://input-output-hk.github.io/json-schema-viewer/#/?url=https://raw.githubusercontent.com/input-output-hk/hydra-poc/master/hydra-node/api.yaml)
 * The [Log API](https://input-output-hk.github.io/json-schema-viewer/#/?url=https://raw.githubusercontent.com/input-output-hk/hydra-poc/master/hydra-node/api-log.yaml)
 
 [Haddock](https://www.haskell.org/haddock/) documentation is also published for each package:
