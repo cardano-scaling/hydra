@@ -65,12 +65,11 @@ definitions:
   Node:
     oneOf:
     - title: ErrorHandlingEvent
-      comment: >-
-        This should be removed from the Log's description as soon as we have some proper
-        error handling strategy in place, be it simply "Close the head" and bail out.
+      # This should be removed from the Log's description as soon as we have some proper
+      # error handling strategy in place, be it simply "Close the head" and bail out.
       description: >-
         Some error happened while processing an event, provides enough context information
-        to troubleshoot the origin of the error
+        to troubleshoot the origin of the error.
       type: object
       required:
       - by
@@ -79,20 +78,20 @@ definitions:
       properties:
         by:
           description: >-
-            The Party emitting the log entry
+            The Party emitting the log entry.
           $ref: "#/definitions/Party"
         event:
           description: >-
-            The event causing the error
+            The event causing the error.
           $ref: "#/definitions/Event"
         reason:
           description: >-
-            Structured description of the cause of the error
+            Structured description of the cause of the error.
           $ref: "#/definitions/LogicError"
     - title: ProcessingEvent
       description: >-
         Head has started processing an event drawn from some pool or queue of events to
-        process
+        process.
       type: object
       required:
       - by
@@ -100,13 +99,13 @@ definitions:
       properties:
         by:
           description: >-
-            The Party emitting the log entry
+            The Party emitting the log entry.
           $ref: "#/definitions/Party"
         event:
           $ref: "#/definitions/Event"
     - title: ProcessedEvent
       description: >-
-        Head has succesfully finished processing an event
+        Head has succesfully finished processing an event.
       type: object
       required:
       - by
@@ -114,14 +113,14 @@ definitions:
       properties:
         by:
           description: >-
-            The Party emitting the log entry
+            The Party emitting the log entry.
           $ref: "#/definitions/Party"
         event:
           $ref: "#/definitions/Event"
     - title: ProcessingEffect
       description: >-
         Head has started processing an effect produced by some transition in the
-        protocol
+        protocol.
       type: object
       required:
       - by
@@ -129,7 +128,7 @@ definitions:
       properties:
         by:
           description: >-
-            The Party emitting the log entry
+            The Party emitting the log entry.
           $ref: "#/definitions/Party"
         event:
           $ref: "#/definitions/Effect"
@@ -199,7 +198,7 @@ definitions:
         reason:
           type: string
           description: >-
-            A textual description of the reason why this input is invalid
+            A textual description of the reason why this input is invalid.
         inputReceived:
           type: string
           description: >-
@@ -207,10 +206,9 @@ definitions:
             potentially invalid JSON so we just encode it as a proper JSON string. Note that if the input contained invalid UTF-8 characters they will be ignored.
   Party:
     type: integer
-    comment: >-
-      Signing is currently implemented using mock crypto hence party is just an integer
+    # Signing is currently implemented using mock crypto hence party is just an integer
     description: >-
-      The verification key for some Party in the Head protocol, uniquely identifying it
+      The verification key for some Party in the Head protocol, uniquely identifying it.
     examples:
       - 10
       - 20
@@ -229,7 +227,7 @@ definitions:
       - tag
       - clientInput
       description: >-
-        An event representing some input from a client
+        An event representing some input from a client.
       properties:
         tag:
           type: string
@@ -268,7 +266,7 @@ definitions:
       required:
       - tag
       description: >-
-        An placeholder event denoting the Head should post a Fanout transaction to close the head.
+        An placeholder event denoting the Head should post a Fanout transaction to finalize the head.
       properties:
         tag:
           type: string
@@ -335,7 +333,7 @@ definitions:
         - signed
         - snapshotNumber
         description: >-
-          Signature of a snapshot by a party
+          Signature of a snapshot by a party.
         properties:
           tag:
             type: string
@@ -410,7 +408,7 @@ definitions:
         - party
         - committed
         description: >-
-          The commit transaction from a party, committing some UTxOs to the Head
+          The commit transaction from a party, committing some UTxO set to the Head.
         properties:
           tag:
             type: string
@@ -477,7 +475,7 @@ ml#/definitions/Utxo"
       - tag
       - serverOutput
       description: >-
-        An effect representing some output to send to the client
+        An effect representing some output to send to the client.
       properties:
         tag:
           type: string
@@ -490,7 +488,7 @@ ml#/definitions/Utxo"
       - tag
       - message
       description: >-
-        An effect representing some message to broadcast to other parties in the Head
+        An effect representing some message to broadcast to other parties in the Head.
       properties:
         tag:
           type: string
@@ -588,7 +586,7 @@ ml#/definitions/Utxo"
         - tag
         - utxos
         description: >-
-          Confirm the opening of the Head collecting all committed UTxOs.
+          Confirm the opening of the Head collecting the committed UTxO set combined from all individual commits.
         properties:
           tag:
             type: string

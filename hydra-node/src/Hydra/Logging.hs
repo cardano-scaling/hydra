@@ -16,6 +16,7 @@ module Hydra.Logging (
 
   -- * Using it
   Verbosity (..),
+  Envelope (..),
   withTracer,
   contramap,
   showLogsOnFailure,
@@ -33,11 +34,26 @@ import Control.Tracer (
   nullTracer,
   traceWith,
  )
-import Data.Aeson (Value, encode, object, (.=))
+import Data.Aeson (encode)
 import qualified Data.Text as Text
 
 data Verbosity = Quiet | Verbose Text
   deriving (Eq, Show)
+
+-- | Provides logging metadata for entries.
+-- NOTE(AB): setting the `message` to be `HydraLog` would require to pass along
+-- @tx@ and @net@ type arguments which is useless in the context, hence the more
+-- generic type.
+data Envelope a = Envelope
+  { namespace :: Text
+  , timestamp :: UTCTime
+  , threadId :: Int
+  , message :: a
+  }
+  deriving (Eq, Show, Generic, ToJSON, FromJSON)
+
+instance Arbitrary a => Arbitrary (Envelope a) where
+  arbitrary = genericArbitrary
 
 defaultQueueSize :: Natural
 defaultQueueSize = 500
@@ -52,8 +68,8 @@ withTracer ::
   (Tracer m msg -> IO a) ->
   IO a
 withTracer Quiet action = action nullTracer
-withTracer (Verbose name) action = do
-  msgQueue <- newTBQueueIO @_ @Value defaultQueueSize
+withTracer (Verbose namespace) action = do
+  msgQueue <- newTBQueueIO @_ @(Envelope msg) defaultQueueSize
   withAsync (writeLogs msgQueue) $ \_ ->
     action (tracer msgQueue) `finally` flushLogs msgQueue
  where
@@ -63,17 +79,15 @@ withTracer (Verbose name) action = do
           liftIO (mkEnvelop msg >>= atomically . writeTBQueue queue)
       )
 
-  mkEnvelop :: msg -> IO Value
-  mkEnvelop msg = do
+  mkEnvelop :: msg -> IO (Envelope msg)
+  mkEnvelop message = do
     timestamp <- liftIO getCurrentTime
-    threadId <- Text.drop 9 . show <$> liftIO myThreadId
-    pure $
-      object
-        [ "namespace" .= name
-        , "timestamp" .= timestamp
-        , "thread" .= threadId
-        , "message" .= msg
-        ]
+    threadId <- mkThreadId <$> liftIO myThreadId
+    pure $ Envelope{namespace, timestamp, threadId, message}
+
+  -- NOTE(AB): This is a bit contrived but we want a numeric threadId and we
+  -- get some text which we know the structure of
+  mkThreadId = fromMaybe 0 . readMaybe . Text.unpack . Text.drop 9 . show
 
   writeLogs queue =
     forever $ do
