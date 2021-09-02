@@ -223,17 +223,21 @@ update Environment{party, signingKey, otherParties, snapshotStrategy} ledger st 
       case canApply ledger utxo tx of
         Valid -> [ClientEffect $ TxValid tx, NetworkEffect $ ReqTx party tx]
         Invalid err -> [ClientEffect $ TxInvalid{utxo = utxo, transaction = tx, validationError = err}]
-  (OpenState parameters headState@CoordinatedHeadState{confirmedSnapshot, seenTxs, seenUtxo}, NetworkEvent (ReqTx _ tx)) ->
+  (OpenState parameters headState@CoordinatedHeadState{confirmedSnapshot, seenSnapshot, seenTxs, seenUtxo}, NetworkEvent (ReqTx _ tx)) ->
     case applyTransactions ledger seenUtxo [tx] of
       Left _err -> Wait
       Right utxo' ->
-        let sn' = number confirmedSnapshot + 1
+        let --sn' = number confirmedSnapshot + 1
             newSeenTxs = seenTxs <> [tx]
-            snapshotEffects
-              | isLeader parameters party sn' && snapshotStrategy == SnapshotAfterEachTx =
-                [Delay 0 DoSnapshot] -- XXX(SN): this is a dirty hack, maybe re-enqueue ReqTx instead?
-              | otherwise =
-                []
+            snapshotEffects =
+              case seenSnapshot of
+                SeenSnapshot{snapshot}
+                  | isLeader parameters party (number snapshot + 1) && snapshotStrategy == SnapshotAfterEachTx ->
+                    [Delay 0 DoSnapshot] -- XXX(SN): this is a dirty hack, maybe re-enqueue ReqTx instead?
+                NoSeenSnapshot
+                  | isLeader parameters party (number confirmedSnapshot + 1) && snapshotStrategy == SnapshotAfterEachTx ->
+                    [Delay 0 DoSnapshot]
+                _ -> []
          in nextState (OpenState parameters $ headState{seenTxs = newSeenTxs, seenUtxo = utxo'}) (ClientEffect (TxSeen tx) : snapshotEffects)
   (OpenState parameters headState@CoordinatedHeadState{confirmedSnapshot, seenTxs, seenSnapshot}, DoSnapshot)
     -- TODO: We had a bug here and it's untested that this case really emits a `ReqSn` when it matches
