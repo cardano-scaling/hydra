@@ -47,7 +47,7 @@ constraints:
 allow-newer:
   some
 
--- NOTE: The following is taken from plutus master at 2021-07-28
+-- NOTE: The following is taken from plutus master at 2021-09-03
 
 source-repository-package
   type: git
@@ -67,8 +67,8 @@ source-repository-package
     prettyprinter-configurable
     quickcheck-dynamic
     word-array
-  tag: f174d2700e3a4ae9378870b1968521a88f0f2801
-  --sha256: 1d8l3rnn5cp9wkwy32kgmzx11301ig8c16ny6v18j698i7vqdfs1
+  tag: 36dcbb9140af0c9b5b741b6f7704497d901c9c65
+  --sha256: 0261wrf9v8c1qm8q31bd2f7sjdchmv6my3gz9r9948hk32j52bnx
 
 -- The following sections are copied from the 'plutus' repository cabal.project at the revision
 -- given above.
@@ -100,8 +100,8 @@ constraints:
 source-repository-package
   type: git
   location: https://github.com/Quid2/flat.git
-  tag: 95e5d7488451e43062ca84d5376b3adcc465f1cd
-  --sha256: 06l31x3y93rjpryvlxnpsyq2zyxvb0z6lik6yq2fvh36i5zwvwa3
+  tag: ee59880f47ab835dbd73bea0847dab7869fc20d8
+  --sha256: 1lrzknw765pz2j97nvv9ip3l1mcpf2zr4n56hwlz0rk7wq7ls4cm
 
 -- Needs some patches, but upstream seems to be fairly dead (no activity in > 1 year)
 source-repository-package
@@ -119,21 +119,24 @@ source-repository-package
 source-repository-package
   type: git
   location: https://github.com/input-output-hk/cardano-crypto.git
-  tag: ce8f1934e4b6252084710975bd9bbc0a4648ece4
-  --sha256: 1v2laq04piyj511b2m77hxjh9l1yd6k9kc7g6bjala4w3zdwa4ni
+  tag: 07397f0e50da97eaa0575d93bee7ac4b2b2576ec
+  --sha256: 06sdx5ndn2g722jhpicmg96vsrys89fl81k8290b3lr6b1b0w4m3
 
 source-repository-package
   type: git
   location: https://github.com/input-output-hk/cardano-base
-  tag: a715c7f420770b70bbe95ca51d3dec83866cb1bd
-  --sha256: 06l06mmb8cd4q37bnvfpgx1c5zgsl4xaf106dqva98738i8asj7j
+  tag: cb0f19c85e5bb5299839ad4ed66af6fa61322cc4
+  --sha256: 0dnkfqcvbifbk3m5pg8kyjqjy0zj1l4vd23p39n6ym4q0bnib1cq
   subdir:
+    base-deriving-via
     binary
     binary/test
-    slotting
     cardano-crypto-class
     cardano-crypto-praos
     cardano-crypto-tests
+    measures
+    orphans-deriving-via
+    slotting
     strict-containers
 
 source-repository-package
@@ -148,8 +151,8 @@ source-repository-package
 source-repository-package
   type: git
   location: https://github.com/input-output-hk/ouroboros-network
-  tag: e338f2cf8e1078fbda9555dd2b169c6737ef6774
-  --sha256: 0dabe7a4de732a47b3a09d56bb4e57263f2ef8329f2af7d5bc4c702f2f0ca88b
+  tag: 877ce057ff6fb086474c8eaad53f2b7f0e0fce6b
+  --sha256: 1kp0qysfy3hl96a3a61rijascq36f1imh3z4jy0vyiygb6qrv47z
   subdir:
     monoidal-synchronisation
     typed-protocols
@@ -168,8 +171,8 @@ source-repository-package
 source-repository-package
   type: git
   location: https://github.com/input-output-hk/iohk-monitoring-framework
-  tag: 34abfb7f4f5610cabb45396e0496472446a0b2ca
-  --sha256: 1fdc0a02ipa385dnwa6r6jyc8jlg537i12hflfglkhjs2b7i92gs
+  tag: 808724ff8a19a33d0ed06f9ef59fbd900b08553c
+  --sha256: 0298dpl29gxzs9as9ha6y0w18hqwc00ipa3hzkxv7nlfrjjz8hmz
   subdir:
     iohk-monitoring
     tracer-transformers
@@ -182,8 +185,8 @@ source-repository-package
 source-repository-package
   type: git
   location: https://github.com/input-output-hk/cardano-ledger-specs
-  tag: 09433fe537a4ab57df19e70be309c48d832f6576
-  --sha256: 0f69mgdc50lv0cdmrfa3whpqvdijjmlzqgybijsk3lbpra20z3zl
+  tag: d5b184a820853c7ba202efd615b8fadca1acb52c
+  --sha256: 04k5p6qwmfdza65gl5319r1ahdfwjnyqgzpfxdx0x2g5jcbimar4
   subdir:
     byron/chain/executable-spec
     byron/crypto
@@ -207,8 +210,8 @@ source-repository-package
 source-repository-package
   type: git
   location: https://github.com/input-output-hk/cardano-node.git
-  tag: f72c6272eb58a43cd1d2ef4f4381f3822b3c60c6
-  --sha256: 13q312z7q4avnkk0i5jl9g4idskdz3azq9xgm447ld8mwcvchdha
+  tag: ed11e8b6429d4af1cb2539460e5cb2283a06b2dc
+  --sha256: 1wvr3zzl37i1fn5y9ni027rqw5bhh25z1bacvcaapxxjgdn38lbq
   subdir:
     cardano-api
     cardano-node
@@ -217,15 +220,21 @@ source-repository-package
 
 source-repository-package
   type: git
+  location: https://github.com/input-output-hk/optparse-applicative
+  tag: 7497a29cb998721a9068d5725d49461f2bba0e7a
+  --sha256: 1gvsrg925vynwgqwplgjmp53vj953qyh3wbdf34pw21c8r47w35r
+
+source-repository-package
+  type: git
   location: https://github.com/input-output-hk/Win32-network
-  tag: 5b3d08c454f425da5cf045fe7865950d7c806691
-  --sha256: 9cdd6dd7da71e840ec46fe339557a113c050692844aad5964a3052ac168cfe5a
+  tag: 3825d3abf75f83f406c1f7161883c438dac7277d
+  --sha256: 19wahfv726fa3mqajpqdqhnl9ica3xmf68i254q45iyjcpj1psqx
 
 source-repository-package
   type: git
   location: https://github.com/input-output-hk/hedgehog-extras
-  tag: 8bcd3c9dc22cc44f9fcfe161f4638a384fc7a187
-  --sha256: 12viwpahjdfvlqpnzdgjp40nw31rvyznnab1hml9afpaxd6ixh70
+  tag: edf6945007177a638fbeb8802397f3a6f4e47c14
+  --sha256: 0wc7qzkc7j4ns2rz562h6qrx2f8xyq7yjcb7zidnj7f6j0pcd0i9
 
 -- The following two dependencies are not mirrored in the
 -- stack.yaml file, but they are needed regardless by cabal.
