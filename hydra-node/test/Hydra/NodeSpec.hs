@@ -23,7 +23,7 @@ import Hydra.Node (EventQueue (..), HydraNode (..), HydraNodeLog, createEventQue
 import Hydra.Snapshot (Snapshot (..))
 
 spec :: Spec
-spec = do
+spec = parallel $ do
   it "emits a single ReqSn and AckSn as leader, even after multiple ReqTxs" $
     showLogsOnFailure $ \tracer -> do
       -- NOTE(SN): Sequence of parties in OnInitTx of
@@ -62,7 +62,7 @@ spec = do
 
       getNetworkMessages `shouldReturn` [AckSn 20 (sign 20 sn1) 1, ReqSn 20 2 [tx1], AckSn 20 (sign 20 sn2) 2]
 
-  it "processes out-of-order AckSn" $
+  xit "processes out-of-order AckSn" $
     showLogsOnFailure $ \tracer -> do
       let snapshot = Snapshot 1 (utxoRefs [1, 2, 3]) []
           sig20 = sign 20 snapshot
@@ -107,7 +107,7 @@ runToCompletion tracer node@HydraNode{eq = EventQueue{isEmpty}} = go
       stepHydraNode tracer node >> go
 
 createHydraNode ::
-  MonadSTM m =>
+  (MonadSTM m, MonadDelay m, MonadAsync m) =>
   SigningKey ->
   [Party] ->
   SnapshotStrategy ->

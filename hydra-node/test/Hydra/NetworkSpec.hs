@@ -24,53 +24,54 @@ import Test.QuickCheck (
 import Test.QuickCheck.Instances.ByteString ()
 
 spec :: Spec
-spec = describe "Networking layer" $ do
-  let lo = "127.0.0.1"
+spec = parallel $
+  describe "Networking layer" $ do
+    let lo = "127.0.0.1"
 
-  describe "Ouroboros Network" $ do
-    it "broadcasts messages to single connected peer" $ do
-      received <- atomically newTQueue
-      showLogsOnFailure $ \tracer -> failAfter 30 $ do
-        [port1, port2] <- fmap fromIntegral <$> randomUnusedTCPPorts 2
-        withOuroborosNetwork tracer (Host lo port1) [Host lo port2] (const @_ @Integer $ pure ()) $ \hn1 ->
-          withOuroborosNetwork @Integer tracer (Host lo port2) [Host lo port1] (atomically . writeTQueue received) $ \_ -> do
-            withAsync (1 `broadcastFrom` hn1) $ \_ ->
-              atomically (readTQueue received) `shouldReturn` 1
+    describe "Ouroboros Network" $ do
+      it "broadcasts messages to single connected peer" $ do
+        received <- atomically newTQueue
+        showLogsOnFailure $ \tracer -> failAfter 30 $ do
+          [port1, port2] <- fmap fromIntegral <$> randomUnusedTCPPorts 2
+          withOuroborosNetwork tracer (Host lo port1) [Host lo port2] (const @_ @Integer $ pure ()) $ \hn1 ->
+            withOuroborosNetwork @Integer tracer (Host lo port2) [Host lo port1] (atomically . writeTQueue received) $ \_ -> do
+              withAsync (1 `broadcastFrom` hn1) $ \_ ->
+                atomically (readTQueue received) `shouldReturn` 1
 
-    it "broadcasts messages between 3 connected peers" $ do
-      node1received <- atomically newTQueue
-      node2received <- atomically newTQueue
-      node3received <- atomically newTQueue
-      showLogsOnFailure $ \tracer -> failAfter 30 $ do
-        [port1, port2, port3] <- fmap fromIntegral <$> randomUnusedTCPPorts 3
-        withOuroborosNetwork @Integer tracer (Host lo port1) [Host lo port2, Host lo port3] (atomically . writeTQueue node1received) $ \hn1 ->
-          withOuroborosNetwork tracer (Host lo port2) [Host lo port1, Host lo port3] (atomically . writeTQueue node2received) $ \hn2 -> do
-            withOuroborosNetwork tracer (Host lo port3) [Host lo port1, Host lo port2] (atomically . writeTQueue node3received) $ \hn3 -> do
-              assertAllNodesBroadcast
-                [ (port1, hn1, node1received)
-                , (port2, hn2, node2received)
-                , (port3, hn3, node3received)
-                ]
+      it "broadcasts messages between 3 connected peers" $ do
+        node1received <- atomically newTQueue
+        node2received <- atomically newTQueue
+        node3received <- atomically newTQueue
+        showLogsOnFailure $ \tracer -> failAfter 30 $ do
+          [port1, port2, port3] <- fmap fromIntegral <$> randomUnusedTCPPorts 3
+          withOuroborosNetwork @Integer tracer (Host lo port1) [Host lo port2, Host lo port3] (atomically . writeTQueue node1received) $ \hn1 ->
+            withOuroborosNetwork tracer (Host lo port2) [Host lo port1, Host lo port3] (atomically . writeTQueue node2received) $ \hn2 -> do
+              withOuroborosNetwork tracer (Host lo port3) [Host lo port1, Host lo port2] (atomically . writeTQueue node3received) $ \hn3 -> do
+                assertAllNodesBroadcast
+                  [ (port1, hn1, node1received)
+                  , (port2, hn2, node2received)
+                  , (port3, hn3, node3received)
+                  ]
 
-  describe "0MQ Network" $
-    it "broadcasts messages between 3 connected peers" $ do
-      node1received <- atomically newTQueue
-      node2received <- atomically newTQueue
-      node3received <- atomically newTQueue
-      showLogsOnFailure $ \tracer -> failAfter 10 $ do
-        [port1, port2, port3] <- fmap fromIntegral <$> randomUnusedTCPPorts 3
-        withZeroMQNetwork tracer (Host lo port1) [Host lo port2, Host lo port3] (atomically . writeTQueue node1received) $ \hn1 ->
-          withZeroMQNetwork tracer (Host lo port2) [Host lo port1, Host lo port3] (atomically . writeTQueue node2received) $ \hn2 ->
-            withZeroMQNetwork tracer (Host lo port3) [Host lo port1, Host lo port2] (atomically . writeTQueue node3received) $ \hn3 -> do
-              assertAllNodesBroadcast
-                [ (port1, hn1, node1received)
-                , (port2, hn2, node2received)
-                , (port3, hn3, node3received)
-                ]
+    describe "0MQ Network" $
+      it "broadcasts messages between 3 connected peers" $ do
+        node1received <- atomically newTQueue
+        node2received <- atomically newTQueue
+        node3received <- atomically newTQueue
+        showLogsOnFailure $ \tracer -> failAfter 10 $ do
+          [port1, port2, port3] <- fmap fromIntegral <$> randomUnusedTCPPorts 3
+          withZeroMQNetwork tracer (Host lo port1) [Host lo port2, Host lo port3] (atomically . writeTQueue node1received) $ \hn1 ->
+            withZeroMQNetwork tracer (Host lo port2) [Host lo port1, Host lo port3] (atomically . writeTQueue node2received) $ \hn2 ->
+              withZeroMQNetwork tracer (Host lo port3) [Host lo port1, Host lo port2] (atomically . writeTQueue node3received) $ \hn3 -> do
+                assertAllNodesBroadcast
+                  [ (port1, hn1, node1received)
+                  , (port2, hn2, node2received)
+                  , (port3, hn3, node3received)
+                  ]
 
-  describe "Serialisation" $ do
-    it "can roundtrip CBOR encoding/decoding of Hydra Message" $ property $ prop_canRoundtripCBOREncoding @(Message SimpleTx)
-    roundtripAndGoldenSpecs (Proxy @(Message SimpleTx))
+    describe "Serialisation" $ do
+      it "can roundtrip CBOR encoding/decoding of Hydra Message" $ property $ prop_canRoundtripCBOREncoding @(Message SimpleTx)
+      roundtripAndGoldenSpecs (Proxy @(Message SimpleTx))
 
 assertAllNodesBroadcast ::
   [(PortNumber, Network IO Integer, TQueue IO Integer)] ->

@@ -10,4 +10,4 @@ import Hydra.ServerOutput (ServerOutput)
 import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
 
 spec :: Spec
-spec = roundtripAndGoldenSpecs (Proxy @(ServerOutput SimpleTx))
+spec = parallel $ roundtripAndGoldenSpecs (Proxy @(ServerOutput SimpleTx))

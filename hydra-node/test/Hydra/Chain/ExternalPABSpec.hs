@@ -23,56 +23,58 @@ spec = do
   -- We use slightly different types in off-chain and on-chain code, BUT, they
   -- have identical wire formats. We use (JSON) serialization as a mean to turn
   -- one into the other.
-  describe "OffChain <-> OnChain Serialization" $ do
-    prop "PostInitParams -> Onchain.InitParams" $ \(params :: PostInitParams) ->
-      let bytes = Aeson.encode params
-       in counterexample (decodeUtf8 bytes) $ case Aeson.eitherDecode bytes of
-            Left e ->
-              counterexample ("Failed to decode: " <> show e) $ property False
-            Right (_ :: InitParams) ->
-              property True
+  parallel $
+    describe "OffChain <-> OnChain Serialization" $ do
+      prop "PostInitParams -> Onchain.InitParams" $ \(params :: PostInitParams) ->
+        let bytes = Aeson.encode params
+         in counterexample (decodeUtf8 bytes) $ case Aeson.eitherDecode bytes of
+              Left e ->
+                counterexample ("Failed to decode: " <> show e) $ property False
+              Right (_ :: InitParams) ->
+                property True
 
-    prop "OnChainTx <- Onchain.ObservedTx" $ \(tx :: ObservedTx) ->
-      let bytes = Aeson.encode tx
-       in counterexample (decodeUtf8 bytes) $ case Aeson.eitherDecode bytes of
-            Left e ->
-              counterexample ("Failed to decode: " <> show e) $ property False
-            Right (_ :: OnChainTx SimpleTx) ->
-              property True
+      prop "OnChainTx <- Onchain.ObservedTx" $ \(tx :: ObservedTx) ->
+        let bytes = Aeson.encode tx
+         in counterexample (decodeUtf8 bytes) $ case Aeson.eitherDecode bytes of
+              Left e ->
+                counterexample ("Failed to decode: " <> show e) $ property False
+              Right (_ :: OnChainTx SimpleTx) ->
+                property True
 
-  describe "ExternalPAB" $ do
-    it "publishes init tx using wallet 1 and observes it also" $ do
-      pendingWith "fails currently"
-      failAfter 40 $
-        withHydraPab $ do
-          calledBack1 <- newEmptyMVar
-          calledBack2 <- newEmptyMVar
+  parallel $
+    describe "ExternalPAB" $ do
+      it "publishes init tx using wallet 1 and observes it also" $ do
+        pendingWith "fails currently"
+        failAfter 40 $
+          withHydraPab $ do
+            calledBack1 <- newEmptyMVar
+            calledBack2 <- newEmptyMVar
 
-          -- NOTE(SN): The cardano pubkeys and which wallet is used, is
-          -- hard-coded in 'withExternalPAB'!
-          withExternalPab @SimpleTx 1 nullTracer (putMVar calledBack1) $ \_ ->
-            withExternalPab 2 nullTracer (putMVar calledBack2) $ \Chain{postTx} -> do
-              let parameters = HeadParameters 100 [alice, bob, carol]
-              postTx $ InitTx @SimpleTx parameters
-              takeMVar calledBack1 `shouldReturn` OnInitTx 100 [alice, bob, carol]
-              takeMVar calledBack2 `shouldReturn` OnInitTx 100 [alice, bob, carol]
+            -- NOTE(SN): The cardano pubkeys and which wallet is used, is
+            -- hard-coded in 'withExternalPAB'!
+            withExternalPab @SimpleTx 1 nullTracer (putMVar calledBack1) $ \_ ->
+              withExternalPab 2 nullTracer (putMVar calledBack2) $ \Chain{postTx} -> do
+                let parameters = HeadParameters 100 [alice, bob, carol]
+                postTx $ InitTx @SimpleTx parameters
+                takeMVar calledBack1 `shouldReturn` OnInitTx 100 [alice, bob, carol]
+                takeMVar calledBack2 `shouldReturn` OnInitTx 100 [alice, bob, carol]
 
-    it "publishes init tx, observes it and abort" $ do
-      pendingWith "fails currently"
-      failAfter 40 $
-        withHydraPab $ do
-          calledBack1 <- newEmptyMVar
-          calledBack2 <- newEmptyMVar
-          -- NOTE(SN): The cardano pubkeys and which wallet is used, is
-          -- hard-coded in 'withExternalPab'!
-          withExternalPab @SimpleTx 1 nullTracer (putMVar calledBack1) $ \client1 ->
-            withExternalPab 2 nullTracer (putMVar calledBack2) $ \client2 -> do
-              let parameters = HeadParameters 100 [alice, bob, carol]
-              postTx client1 $ InitTx @SimpleTx parameters
-              takeMVar calledBack1 `shouldReturn` OnInitTx 100 [alice, bob, carol]
-              takeMVar calledBack2 `shouldReturn` OnInitTx 100 [alice, bob, carol]
-              postTx client2 $ AbortTx @SimpleTx mempty
-              takeMVar calledBack1 `shouldReturn` OnAbortTx
+      it "publishes init tx, observes it and abort" $ do
+        pendingWith "fails currently"
+        failAfter 40 $
+          withHydraPab $ do
+            calledBack1 <- newEmptyMVar
+            calledBack2 <- newEmptyMVar
+            -- NOTE(SN): The cardano pubkeys and which wallet is used, is
+            -- hard-coded in 'withExternalPab'!
+            withExternalPab @SimpleTx 1 nullTracer (putMVar calledBack1) $ \client1 ->
+              withExternalPab 2 nullTracer (putMVar calledBack2) $ \client2 -> do
+                let parameters = HeadParameters 100 [alice, bob, carol]
+                postTx client1 $ InitTx @SimpleTx parameters
+                takeMVar calledBack1 `shouldReturn` OnInitTx 100 [alice, bob, carol]
+                takeMVar calledBack2 `shouldReturn` OnInitTx 100 [alice, bob, carol]
+                postTx client2 $ AbortTx @SimpleTx mempty
+                takeMVar calledBack1 `shouldReturn` OnAbortTx
 
 alice, bob, carol :: Party
 alice = UnsafeParty aliceVk
