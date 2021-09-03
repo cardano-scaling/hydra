@@ -161,11 +161,12 @@ stateIsFinal = \case
   OnChain.Final{} -> True
   _ -> False
 
-selectOne :: UtxoMap -> (TxOutRef, TxOutTx)
+selectOne :: UtxoMap -> (TxOutRef, TxOut)
 selectOne =
   Prelude.head
     . Map.toList
-    . Map.filter ((== fixtureAmount) . txOutValue . txOutTxOut)
+    . Map.filter ((== fixtureAmount) . txOutValue)
+    . Map.map txOutTxOut
 
 setupWallet ::
   Wallet ->
