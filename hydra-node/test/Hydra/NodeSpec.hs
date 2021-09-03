@@ -37,11 +37,11 @@ spec = parallel $ do
                  , NetworkEvent{message = ReqTx{party = 10, transaction = tx2}}
                  , NetworkEvent{message = ReqTx{party = 10, transaction = tx3}}
                  ]
-          signedSnapshot = sign 10 $ Snapshot 1 (utxoRefs [1, 3, 6]) [tx1, tx2, tx3]
+          signedSnapshot = sign 10 $ Snapshot 1 (utxoRefs [1, 3, 4]) [tx1]
       node <- createHydraNode 10 [20, 30] SnapshotAfterEachTx events
       (node', getNetworkMessages) <- recordNetwork node
       runToCompletion tracer node'
-      getNetworkMessages `shouldReturn` [ReqSn 10 1 [tx1, tx2, tx3], AckSn 10 signedSnapshot 1]
+      getNetworkMessages `shouldReturn` [ReqSn 10 1 [tx1], AckSn 10 signedSnapshot 1]
 
   it "rotates snapshot leaders" $
     showLogsOnFailure $ \tracer -> do
@@ -62,7 +62,7 @@ spec = parallel $ do
 
       getNetworkMessages `shouldReturn` [AckSn 20 (sign 20 sn1) 1, ReqSn 20 2 [tx1], AckSn 20 (sign 20 sn2) 2]
 
-  xit "processes out-of-order AckSn" $
+  it "processes out-of-order AckSn" $
     showLogsOnFailure $ \tracer -> do
       let snapshot = Snapshot 1 (utxoRefs [1, 2, 3]) []
           sig20 = sign 20 snapshot

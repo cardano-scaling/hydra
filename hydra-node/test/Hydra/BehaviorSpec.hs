@@ -279,7 +279,8 @@ spec = parallel $
                     waitFor [n2] $ TxValid secondTx
                     waitFor [n1, n2] $ TxSeen secondTx
 
-            it "multiple transactions get snapshotted" $
+            it "multiple transactions get snapshotted" $ do
+              pendingWith "This test is not longer true after recent changes which simplify the snapshot construction."
               shouldRunInSim $ do
                 chain <- simulatedChainAndNetwork
                 withHydraNode 1 [2] SnapshotAfterEachTx chain $ \n1 ->

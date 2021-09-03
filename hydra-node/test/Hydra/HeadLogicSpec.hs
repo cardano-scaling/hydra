@@ -14,7 +14,7 @@ import qualified Data.Set as Set
 import Hydra.Chain (HeadParameters (HeadParameters), OnChainTx (OnAbortTx, OnCollectComTx))
 import Hydra.HeadLogic (
   CoordinatedHeadState (..),
-  Effect (ClientEffect, Delay, NetworkEffect),
+  Effect (..),
   Environment (..),
   Event (..),
   HeadState (..),
@@ -77,7 +77,7 @@ spec = do
             s0 = inOpenState threeParties ledger
 
         update leaderEnv ledger s0 reqTx
-          `hasEffect_` Delay 0 DoSnapshot
+          `hasEffect_` NetworkEffect (ReqSn (party leaderEnv) 1 [simpleTx])
 
       it "does not request new snapshot as non-leader" $ do
         let reqTx = NetworkEvent $ ReqTx 1 simpleTx
@@ -85,9 +85,9 @@ spec = do
             s0 = inOpenState threeParties ledger
 
         update nonLeaderEnv ledger s0 reqTx
-          `hasNoEffectSatisfying` isDoSnapshot
+          `hasNoEffectSatisfying` isReqSn
 
-      it "requests new snapshot as leader of a later snapshots" $ do
+      it "Wait when leader of later snapshots" $ do
         let reqTx = NetworkEvent $ ReqTx 1 simpleTx
             bob = envFor 2
             -- Bob is the leader in a three party round for snapshot 5
@@ -95,25 +95,7 @@ spec = do
             s0 = inOpenState' threeParties $ CoordinatedHeadState mempty mempty snapshot4 NoSeenSnapshot
 
         update bob ledger s0 reqTx
-          `hasEffect_` Delay 0 DoSnapshot
-
-      it "delay snapshot request when already having one in flight" $ do
-        let leaderEnv = envFor 1
-            p = party leaderEnv
-            s0 = inOpenState threeParties ledger
-            firstReqSn = ReqSn p 1 [aValidTx 1]
-
-        s1 <- assertNewState $ update leaderEnv ledger s0 (NetworkEvent firstReqSn)
-
-        update leaderEnv ledger s1 DoSnapshot
-          `shouldBe` Wait
-
-      it "drop snapshot request when there's no seen transactions" $ do
-        let leaderEnv = envFor 1
-            s0 = inOpenState threeParties ledger
-
-        update leaderEnv ledger s0 DoSnapshot
-          `hasNoEffectSatisfying` isReqSn
+          `hasEffect_` NetworkEffect (ReqSn (party bob) 5 [simpleTx])
 
       it "confirms snapshot given it receives AckSn from all parties" $ do
         let s0 = inOpenState threeParties ledger
@@ -290,11 +272,6 @@ hasNoEffectSatisfying _ _ = pure ()
 isReqSn :: Effect tx -> Bool
 isReqSn = \case
   NetworkEffect ReqSn{} -> True
-  _ -> False
-
-isDoSnapshot :: Effect tx -> Bool
-isDoSnapshot = \case
-  Delay _ DoSnapshot -> True
   _ -> False
 
 isAckSn :: Effect tx -> Bool
