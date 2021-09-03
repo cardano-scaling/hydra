@@ -1,54 +1,174 @@
 {
     "samples": [
         {
-            "by": 24,
+            "by": 1.8446744073709551593e19,
             "effect": {
-                "delay": -25.366480666689,
+                "delay": 3.39082607697,
                 "event": {
-                    "tag": "ShouldPostFanout"
+                    "clientInput": {
+                        "tag": "Commit",
+                        "utxo": [
+                            -26,
+                            -24,
+                            -21,
+                            -15,
+                            -14,
+                            -13,
+                            -7,
+                            -6,
+                            1,
+                            7,
+                            10,
+                            12,
+                            13,
+                            14,
+                            15,
+                            16,
+                            18,
+                            21,
+                            26
+                        ]
+                    },
+                    "tag": "ClientEvent"
                 },
                 "tag": "Delay"
-            },
-            "tag": "ProcessingEffect"
-        },
-        {
-            "by": 1.8446744073709551615e19,
-            "effect": {
-                "onChainTx": {
-                    "committed": [
-                        -30,
-                        -5,
-                        8,
-                        11
-                    ],
-                    "party": 1.8446744073709551604e19,
-                    "tag": "CommitTx"
-                },
-                "tag": "OnChainEffect"
             },
             "tag": "ProcessedEffect"
         },
         {
-            "by": 6,
-            "event": {
-                "tag": "DoSnapshot"
+            "by": 1.8446744073709551607e19,
+            "effect": {
+                "onChainTx": {
+                    "headParameters": {
+                        "contestationPeriod": -21.598070262458,
+                        "parties": [
+                            1.8446744073709551589e19,
+                            30,
+                            5,
+                            1.8446744073709551601e19,
+                            11,
+                            1.8446744073709551601e19,
+                            7,
+                            1.8446744073709551596e19,
+                            1.844674407370955159e19,
+                            19,
+                            1.8446744073709551593e19,
+                            1.8446744073709551607e19,
+                            28,
+                            1.8446744073709551589e19,
+                            20,
+                            19,
+                            1.84467440737095516e19
+                        ]
+                    },
+                    "tag": "InitTx"
+                },
+                "tag": "OnChainEffect"
             },
-            "tag": "ProcessedEvent"
+            "tag": "ProcessingEffect"
         },
         {
             "by": 1.8446744073709551613e19,
-            "event": {
-                "tag": "ShouldPostFanout"
+            "effect": {
+                "serverOutput": {
+                    "tag": "HeadIsOpen",
+                    "utxo": [
+                        -30,
+                        -21,
+                        -16,
+                        -12,
+                        -2,
+                        5,
+                        6,
+                        8,
+                        11,
+                        12,
+                        15,
+                        16,
+                        17,
+                        19,
+                        21,
+                        24,
+                        25
+                    ]
+                },
+                "tag": "ClientEffect"
             },
-            "tag": "ProcessedEvent"
+            "tag": "ProcessingEffect"
         },
         {
-            "by": 12,
+            "by": 0,
             "event": {
-                "tag": "DoSnapshot"
+                "clientInput": {
+                    "tag": "Commit",
+                    "utxo": [
+                        -29,
+                        -25,
+                        -24,
+                        -18,
+                        -17,
+                        -6,
+                        -3,
+                        -1,
+                        1,
+                        2,
+                        3,
+                        5,
+                        7,
+                        8,
+                        9,
+                        11,
+                        20,
+                        22,
+                        24,
+                        29,
+                        30
+                    ]
+                },
+                "tag": "ClientEvent"
             },
-            "tag": "ProcessedEvent"
+            "tag": "ProcessingEvent"
+        },
+        {
+            "by": 1.8446744073709551602e19,
+            "effect": {
+                "serverOutput": {
+                    "tag": "TxValid",
+                    "transaction": {
+                        "id": -11,
+                        "inputs": [
+                            -1,
+                            4,
+                            23,
+                            25,
+                            26,
+                            29
+                        ],
+                        "outputs": [
+                            -29,
+                            -28,
+                            -25,
+                            -22,
+                            -13,
+                            -7,
+                            -4,
+                            -1,
+                            1,
+                            2,
+                            7,
+                            13,
+                            19,
+                            21,
+                            26,
+                            28,
+                            29
+                        ]
+                    }
+                },
+                "tag": "ClientEffect"
+            },
+            "tag": "ProcessingEffect"
         }
     ],
-    "seed": -2119469220
+    "seed": 893708772
 }
