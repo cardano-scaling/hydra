@@ -60,6 +60,7 @@
           (hsPkgs."deriving-aeson" or (errorHandler.buildDepError "deriving-aeson"))
           (hsPkgs."deriving-compat" or (errorHandler.buildDepError "deriving-compat"))
           (hsPkgs."dlist" or (errorHandler.buildDepError "dlist"))
+          (hsPkgs."dom-lt" or (errorHandler.buildDepError "dom-lt"))
           (hsPkgs."exceptions" or (errorHandler.buildDepError "exceptions"))
           (hsPkgs."extra" or (errorHandler.buildDepError "extra"))
           (hsPkgs."filepath" or (errorHandler.buildDepError "filepath"))
@@ -150,6 +151,7 @@
           "PlutusCore/TypeCheck"
           "PlutusCore/TypeCheck/Internal"
           "PlutusIR/Analysis/Dependencies"
+          "PlutusIR/Analysis/Size"
           "PlutusIR/Analysis/Usages"
           "PlutusIR/Compiler/Datatype"
           "PlutusIR/Compiler/Error"
@@ -255,6 +257,10 @@
           "PlutusCore/StdLib/Type"
           "PlutusCore/Subst"
           "PlutusIR"
+          "PlutusIR/Analysis/RetainedSize"
+          "PlutusIR/Compiler"
+          "PlutusIR/Compiler/Definitions"
+          "PlutusIR/Compiler/Names"
           "PlutusIR/Core"
           "PlutusIR/Core/Instance"
           "PlutusIR/Core/Instance/Flat"
@@ -262,24 +268,23 @@
           "PlutusIR/Core/Instance/Scoping"
           "PlutusIR/Core/Plated"
           "PlutusIR/Core/Type"
-          "PlutusIR/Compiler"
-          "PlutusIR/Compiler/Names"
-          "PlutusIR/Compiler/Definitions"
           "PlutusIR/Error"
           "PlutusIR/Generators/AST"
-          "PlutusIR/Parser"
           "PlutusIR/Mark"
           "PlutusIR/MkPir"
+          "PlutusIR/Parser"
           "PlutusIR/Purity"
           "PlutusIR/Subst"
+          "PlutusIR/Transform/Beta"
           "PlutusIR/Transform/DeadCode"
+          "PlutusIR/Transform/Inline"
+          "PlutusIR/Transform/LetFloat"
+          "PlutusIR/Transform/LetMerge"
+          "PlutusIR/Transform/RecSplit"
+          "PlutusIR/Transform/NonStrict"
+          "PlutusIR/Transform/Rename"
           "PlutusIR/Transform/Substitute"
           "PlutusIR/Transform/ThunkRecursions"
-          "PlutusIR/Transform/Rename"
-          "PlutusIR/Transform/NonStrict"
-          "PlutusIR/Transform/LetFloat"
-          "PlutusIR/Transform/Inline"
-          "PlutusIR/Transform/Beta"
           "PlutusIR/Transform/Unwrap"
           "PlutusIR/TypeCheck"
           "UntypedPlutusCore"
@@ -347,6 +352,7 @@
         "uplc" = {
           depends = [
             (hsPkgs."plutus-core" or (errorHandler.buildDepError "plutus-core"))
+            (hsPkgs."aeson" or (errorHandler.buildDepError "aeson"))
             (hsPkgs."base" or (errorHandler.buildDepError "base"))
             (hsPkgs."bytestring" or (errorHandler.buildDepError "bytestring"))
             (hsPkgs."deepseq" or (errorHandler.buildDepError "deepseq"))
@@ -460,6 +466,7 @@
             (hsPkgs."base" or (errorHandler.buildDepError "base"))
             (hsPkgs."bytestring" or (errorHandler.buildDepError "bytestring"))
             (hsPkgs."hedgehog" or (errorHandler.buildDepError "hedgehog"))
+            (hsPkgs."flat" or (errorHandler.buildDepError "flat"))
             (hsPkgs."mtl" or (errorHandler.buildDepError "mtl"))
             (hsPkgs."plutus-core" or (errorHandler.buildDepError "plutus-core"))
             (hsPkgs."prettyprinter" or (errorHandler.buildDepError "prettyprinter"))
@@ -502,11 +509,16 @@
             (hsPkgs."base" or (errorHandler.buildDepError "base"))
             (hsPkgs."bytestring" or (errorHandler.buildDepError "bytestring"))
             (hsPkgs."criterion" or (errorHandler.buildDepError "criterion"))
+            (hsPkgs."criterion-measurement" or (errorHandler.buildDepError "criterion-measurement"))
+            (hsPkgs."deepseq" or (errorHandler.buildDepError "deepseq"))
             (hsPkgs."directory" or (errorHandler.buildDepError "directory"))
             (hsPkgs."hedgehog" or (errorHandler.buildDepError "hedgehog"))
+            (hsPkgs."mtl" or (errorHandler.buildDepError "mtl"))
+            (hsPkgs."optparse-applicative" or (errorHandler.buildDepError "optparse-applicative"))
             (hsPkgs."random" or (errorHandler.buildDepError "random"))
             ];
           buildable = true;
+          modules = [ "CriterionExtensions" "Nops" ];
           hsSourceDirs = [ "cost-model/budgeting-bench" ];
           };
         "update-cost-model" = {
@@ -517,7 +529,6 @@
             (hsPkgs."base" or (errorHandler.buildDepError "base"))
             (hsPkgs."bytestring" or (errorHandler.buildDepError "bytestring"))
             (hsPkgs."cassava" or (errorHandler.buildDepError "cassava"))
-            (hsPkgs."data-default" or (errorHandler.buildDepError "data-default"))
             (hsPkgs."exceptions" or (errorHandler.buildDepError "exceptions"))
             (hsPkgs."extra" or (errorHandler.buildDepError "extra"))
             (hsPkgs."inline-r" or (errorHandler.buildDepError "inline-r"))
@@ -535,7 +546,6 @@
             (hsPkgs."barbies" or (errorHandler.buildDepError "barbies"))
             (hsPkgs."bytestring" or (errorHandler.buildDepError "bytestring"))
             (hsPkgs."cassava" or (errorHandler.buildDepError "cassava"))
-            (hsPkgs."data-default" or (errorHandler.buildDepError "data-default"))
             (hsPkgs."exceptions" or (errorHandler.buildDepError "exceptions"))
             (hsPkgs."extra" or (errorHandler.buildDepError "extra"))
             (hsPkgs."hedgehog" or (errorHandler.buildDepError "hedgehog"))
