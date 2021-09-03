@@ -5,9 +5,25 @@ import Test.Hydra.Prelude
 
 import Bench.EndToEnd (bench)
 import Data.Aeson (eitherDecodeFileStrict', encodeFile)
-import Hydra.Ledger (applyTransactions)
-import Hydra.Ledger.Cardano (cardanoLedger, genSequenceOfValidTransactions, genUtxo)
-import Options.Applicative (Parser, ParserInfo, auto, execParser, fullDesc, header, help, helper, info, long, metavar, option, progDesc, strOption, value)
+import Hydra.Ledger.Cardano (genSequenceOfValidTransactions, genUtxo)
+import Options.Applicative (
+  Parser,
+  ParserInfo,
+  auto,
+  execParser,
+  fullDesc,
+  header,
+  help,
+  helper,
+  info,
+  long,
+  metavar,
+  option,
+  progDesc,
+  strOption,
+  value,
+ )
+import System.Directory (createDirectory, doesDirectoryExist)
 import System.Environment (withArgs)
 import System.FilePath ((</>))
 import Test.QuickCheck (generate, scale)
@@ -23,7 +39,13 @@ benchOptionsParser =
     <$> optional
       ( strOption
           ( long "output-directory"
-              <> help "Directory containing generated transactions and UTxO set to use for replaying a previous benchmark."
+              <> help
+                "Directory containing generated transactions and UTxO set. \
+                \ * If the directory exists, it's assumed to be used for replaying \
+                \   a previous benchmark and is expected to contain 'txs.json' and \
+                \   'utxo.json' files, \
+                \ * If the directory does not exist, it will be created and \
+                \   populated with new transactions and UTxO set."
           )
       )
       <*> option
@@ -50,24 +72,27 @@ benchOptions =
 main :: IO ()
 main =
   execParser benchOptions >>= \case
-    Options{outputDirectory = Just benchDir} -> do
-      txs <- either die pure =<< eitherDecodeFileStrict' (benchDir </> "txs.json")
-      utxo <- either die pure =<< eitherDecodeFileStrict' (benchDir </> "utxo.json")
-      putStrLn $ "Using UTxO and Transactions from: " <> benchDir
-      run benchDir utxo txs
-    Options{scalingFactor} -> do
-      tmpDir <- createSystemTempDirectory "bench"
-
-      initialUtxo <- generate genUtxo
-      txs <- generate $ scale (* scalingFactor) $ genSequenceOfValidTransactions initialUtxo
-      -- Sanity check the generated txs
-      case applyTransactions cardanoLedger initialUtxo txs of
-        Left err -> die $ "Generated invalid transactions: " <> show err
-        Right _ -> do
-          saveTransactions tmpDir txs
-          saveUtxos tmpDir initialUtxo
-          run tmpDir initialUtxo txs
+    Options{outputDirectory = Just benchDir, scalingFactor} -> do
+      existsDir <- doesDirectoryExist benchDir
+      if existsDir
+        then replay benchDir
+        else createDirectory benchDir >> play scalingFactor benchDir
+    Options{scalingFactor} ->
+      createSystemTempDirectory "bench" >>= play scalingFactor
  where
+  replay benchDir = do
+    txs <- either die pure =<< eitherDecodeFileStrict' (benchDir </> "txs.json")
+    utxo <- either die pure =<< eitherDecodeFileStrict' (benchDir </> "utxo.json")
+    putStrLn $ "Using UTxO and Transactions from: " <> benchDir
+    run benchDir utxo txs
+
+  play scalingFactor benchDir = do
+    initialUtxo <- generate genUtxo
+    txs <- generate $ scale (* scalingFactor) $ genSequenceOfValidTransactions initialUtxo
+    saveTransactions benchDir txs
+    saveUtxos benchDir initialUtxo
+    run benchDir initialUtxo txs
+
   -- TODO(SN): Ideally we would like to say "to re-run use ... " on errors
   run fp utxo txs =
     withArgs [] . hspec $ bench fp utxo txs

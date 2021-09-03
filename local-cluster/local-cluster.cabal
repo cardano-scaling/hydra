@@ -167,6 +167,7 @@ benchmark bench-e2e
     , bytestring
     , cardano-crypto-class
     , containers
+    , directory
     , filepath
     , hspec
     , hydra-node
