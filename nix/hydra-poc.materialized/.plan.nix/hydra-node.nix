@@ -95,7 +95,6 @@
           "Hydra/Logging/Messages"
           "Hydra/Logging/Monitoring"
           "Hydra/Network"
-          "Hydra/Network/BroadcastToSelf"
           "Hydra/Network/Heartbeat"
           "Hydra/Network/Message"
           "Hydra/Network/Ouroboros"
@@ -151,6 +150,7 @@
             (hsPkgs."cborg" or (errorHandler.buildDepError "cborg"))
             (hsPkgs."containers" or (errorHandler.buildDepError "containers"))
             (hsPkgs."contra-tracer" or (errorHandler.buildDepError "contra-tracer"))
+            (hsPkgs."cryptonite" or (errorHandler.buildDepError "cryptonite"))
             (hsPkgs."data-default" or (errorHandler.buildDepError "data-default"))
             (hsPkgs."filepath" or (errorHandler.buildDepError "filepath"))
             (hsPkgs."hspec" or (errorHandler.buildDepError "hspec"))
@@ -198,9 +198,9 @@
             "Hydra/Ledger/SimpleSpec"
             "Hydra/Logging/MonitoringSpec"
             "Hydra/LoggingSpec"
-            "Hydra/Network/BroadcastToSelfSpec"
             "Hydra/Network/HeartbeatSpec"
             "Hydra/NetworkSpec"
+            "Hydra/NodeSpec"
             "Hydra/OptionsSpec"
             "Hydra/ServerOutputSpec"
             "Paths_hydra_node"

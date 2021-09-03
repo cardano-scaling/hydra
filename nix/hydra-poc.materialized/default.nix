@@ -90,7 +90,9 @@
         "test-framework-hunit".flags.base4 = true;
         "test-framework-hunit".flags.base3 = false;
         "free".revision = (((hackage."free")."5.1.3").revisions).default;
+        "data-clist".revision = (((hackage."data-clist")."0.1.2.3").revisions).default;
         "tasty-bench".revision = (((hackage."tasty-bench")."0.3").revisions).default;
+        "text-zipper".revision = (((hackage."text-zipper")."0.11").revisions).default;
         "exceptions".revision = (((hackage."exceptions")."0.10.4").revisions).default;
         "time-compat".revision = (((hackage."time-compat")."1.9.6").revisions).default;
         "time-compat".flags.old-locale = false;
@@ -190,14 +192,13 @@
         "http-conduit".revision = (((hackage."http-conduit")."2.3.8").revisions).default;
         "http-conduit".flags.aeson = true;
         "monad-control".revision = (((hackage."monad-control")."1.0.2.3").revisions).default;
+        "vty".revision = (((hackage."vty")."5.33").revisions).default;
         "random".revision = (((hackage."random")."1.2.0").revisions).default;
         "code-page".revision = (((hackage."code-page")."0.2.1").revisions).default;
         "string-conversions".revision = (((hackage."string-conversions")."0.4.0.1").revisions).default;
         "quickcheck-text".revision = (((hackage."quickcheck-text")."0.1.2.1").revisions).default;
-        "errors".revision = (((hackage."errors")."2.3.0").revisions).default;
         "unix-compat".revision = (((hackage."unix-compat")."0.5.3").revisions).default;
         "unix-compat".flags.old-time = false;
-        "generics-sop".revision = (((hackage."generics-sop")."0.5.1.0").revisions).default;
         "optparse-applicative".revision = (((hackage."optparse-applicative")."0.16.1.0").revisions).default;
         "optparse-applicative".flags.process = true;
         "time-manager".revision = (((hackage."time-manager")."0.0.0").revisions).default;
@@ -246,8 +247,6 @@
         "transformers-base".flags.orphaninstances = true;
         "base16-bytestring".revision = (((hackage."base16-bytestring")."1.0.1.0").revisions).default;
         "nicify-lib".revision = (((hackage."nicify-lib")."1.0.1").revisions).default;
-        "operational".revision = (((hackage."operational")."0.2.3.5").revisions).default;
-        "operational".flags.buildexamples = true;
         "wai-extra".revision = (((hackage."wai-extra")."3.1.6").revisions).default;
         "wai-extra".flags.build-example = false;
         "RSA".revision = (((hackage."RSA")."2.4.1").revisions).default;
@@ -304,7 +303,6 @@
         "bech32".flags.static = false;
         "bech32".flags.release = false;
         "servant-client".revision = (((hackage."servant-client")."0.18.3").revisions).default;
-        "optics-extra".revision = (((hackage."optics-extra")."0.3").revisions).default;
         "uuid".revision = (((hackage."uuid")."1.3.15").revisions).default;
         "unordered-containers".revision = (((hackage."unordered-containers")."0.2.14.0").revisions).default;
         "unordered-containers".flags.debug = false;
@@ -361,6 +359,7 @@
         "extensible-effects".flags.dump-core = false;
         "http-client-tls".revision = (((hackage."http-client-tls")."0.3.5.3").revisions).default;
         "fail".revision = (((hackage."fail")."4.9.0.0").revisions).default;
+        "word-wrap".revision = (((hackage."word-wrap")."0.4.1").revisions).default;
         "microlens-th".revision = (((hackage."microlens-th")."0.4.3.6").revisions).default;
         "fingertree".revision = (((hackage."fingertree")."0.1.4.2").revisions).default;
         "tasty-smallcheck".revision = (((hackage."tasty-smallcheck")."0.8.2").revisions).default;
@@ -433,7 +432,6 @@
         "math-functions".flags.system-erf = true;
         "byteorder".revision = (((hackage."byteorder")."1.0.4").revisions).default;
         "ekg-json".revision = (((hackage."ekg-json")."0.1.0.6").revisions).default;
-        "optics-core".revision = (((hackage."optics-core")."0.3.0.1").revisions).default;
         "some".revision = (((hackage."some")."1.0.3").revisions).default;
         "some".flags.newtype-unsafe = true;
         "tagged".revision = (((hackage."tagged")."0.8.6.1").revisions).default;
@@ -450,7 +448,6 @@
         "silently".revision = (((hackage."silently")."1.2.5.1").revisions).default;
         "criterion-measurement".revision = (((hackage."criterion-measurement")."0.1.3.0").revisions).default;
         "criterion-measurement".flags.fast = false;
-        "insert-ordered-containers".revision = (((hackage."insert-ordered-containers")."0.2.5").revisions).default;
         "show-combinators".revision = (((hackage."show-combinators")."0.2.0.0").revisions).default;
         "base-orphans".revision = (((hackage."base-orphans")."0.8.4").revisions).default;
         "fin".revision = (((hackage."fin")."0.1.1").revisions).default;
@@ -458,6 +455,8 @@
         "primitive".revision = (((hackage."primitive")."0.7.1.0").revisions).default;
         "servant-server".revision = (((hackage."servant-server")."0.18.3").revisions).default;
         "pqueue".revision = (((hackage."pqueue")."1.4.1.3").revisions).default;
+        "brick".revision = (((hackage."brick")."0.62").revisions).default;
+        "brick".flags.demos = false;
         "smallcheck".revision = (((hackage."smallcheck")."1.2.1").revisions).default;
         "dns".revision = (((hackage."dns")."3.0.4").revisions).default;
         "directory".revision = (((hackage."directory")."1.3.6.0").revisions).default;
@@ -480,6 +479,8 @@
         "profunctors".revision = (((hackage."profunctors")."5.6").revisions).default;
         "bsb-http-chunked".revision = (((hackage."bsb-http-chunked")."0.0.0.4").revisions).default;
         "th-abstraction".revision = (((hackage."th-abstraction")."0.3.2.0").revisions).default;
+        "config-ini".revision = (((hackage."config-ini")."0.2.4.0").revisions).default;
+        "config-ini".flags.enable-doctests = false;
         "microlens".revision = (((hackage."microlens")."0.4.12.0").revisions).default;
         "nonempty-vector".revision = (((hackage."nonempty-vector")."0.2.1.0").revisions).default;
         "microlens-mtl".revision = (((hackage."microlens-mtl")."0.2.0.1").revisions).default;
@@ -537,6 +538,7 @@
         "system-filepath".revision = (((hackage."system-filepath")."0.4.14").revisions).default;
         "recursion-schemes".revision = (((hackage."recursion-schemes")."5.1.3").revisions).default;
         "recursion-schemes".flags.template-haskell = true;
+        "dom-lt".revision = (((hackage."dom-lt")."0.2.2.1").revisions).default;
         "gitrev".revision = (((hackage."gitrev")."1.3.1").revisions).default;
         "hspec-core".revision = (((hackage."hspec-core")."2.8.2").revisions).default;
         "asn1-types".revision = (((hackage."asn1-types")."0.3.4").revisions).default;
@@ -555,7 +557,6 @@
         "foundation".flags.bounds-check = false;
         "test-framework-quickcheck2".revision = (((hackage."test-framework-quickcheck2")."0.3.0.5").revisions).default;
         "temporary".revision = (((hackage."temporary")."1.3").revisions).default;
-        "optics-th".revision = (((hackage."optics-th")."0.3.0.2").revisions).default;
         "unbounded-delays".revision = (((hackage."unbounded-delays")."0.1.1.1").revisions).default;
         "tasty".revision = (((hackage."tasty")."1.4.1").revisions).default;
         "tasty".flags.unix = true;
@@ -605,7 +606,6 @@
         "clock".flags.llvm = false;
         "retry".revision = (((hackage."retry")."0.8.1.2").revisions).default;
         "retry".flags.lib-werror = false;
-        "swagger2".revision = (((hackage."swagger2")."2.6").revisions).default;
         "adjunctions".revision = (((hackage."adjunctions")."4.4").revisions).default;
         "comonad".revision = (((hackage."comonad")."5.0.8").revisions).default;
         "comonad".flags.distributive = true;
@@ -750,6 +750,7 @@
         lobemo-backend-monitoring = ./.plan.nix/lobemo-backend-monitoring.nix;
         tracer-transformers = ./.plan.nix/tracer-transformers.nix;
         plutus-tx-plugin = ./.plan.nix/plutus-tx-plugin.nix;
+        measures = ./.plan.nix/measures.nix;
         quickcheck-dynamic = ./.plan.nix/quickcheck-dynamic.nix;
         merkle-patricia-tree = ./.plan.nix/merkle-patricia-tree.nix;
         cardano-config = ./.plan.nix/cardano-config.nix;
@@ -772,6 +773,7 @@
         plutus-tx = ./.plan.nix/plutus-tx.nix;
         hedgehog-extras = ./.plan.nix/hedgehog-extras.nix;
         hydra-test-utils = ./.plan.nix/hydra-test-utils.nix;
+        base-deriving-via = ./.plan.nix/base-deriving-via.nix;
         plutus-contract = ./.plan.nix/plutus-contract.nix;
         iohk-monitoring = ./.plan.nix/iohk-monitoring.nix;
         io-sim = ./.plan.nix/io-sim.nix;
@@ -783,13 +785,16 @@
         ouroboros-consensus = ./.plan.nix/ouroboros-consensus.nix;
         cardano-binary = ./.plan.nix/cardano-binary.nix;
         cardano-prelude = ./.plan.nix/cardano-prelude.nix;
+        optparse-applicative-fork = ./.plan.nix/optparse-applicative-fork.nix;
         ouroboros-network-framework = ./.plan.nix/ouroboros-network-framework.nix;
         lobemo-backend-aggregation = ./.plan.nix/lobemo-backend-aggregation.nix;
         plutus-ledger-api = ./.plan.nix/plutus-ledger-api.nix;
         io-classes = ./.plan.nix/io-classes.nix;
+        hydra-tui = ./.plan.nix/hydra-tui.nix;
         ouroboros-consensus-byron = ./.plan.nix/ouroboros-consensus-byron.nix;
         hydra-node = ./.plan.nix/hydra-node.nix;
         contra-tracer = ./.plan.nix/contra-tracer.nix;
+        orphans-deriving-via = ./.plan.nix/orphans-deriving-via.nix;
         shelley-spec-non-integral = ./.plan.nix/shelley-spec-non-integral.nix;
         plutus-ledger = ./.plan.nix/plutus-ledger.nix;
         cardano-ledger-alonzo = ./.plan.nix/cardano-ledger-alonzo.nix;
@@ -855,7 +860,12 @@
             };
           "lobemo-backend-monitoring" = { flags = {}; };
           "tracer-transformers" = { flags = {}; };
-          "plutus-tx-plugin" = { flags = {}; };
+          "plutus-tx-plugin" = {
+            flags = { "use-ghc-stub" = lib.mkOverride 900 false; };
+            };
+          "measures" = {
+            flags = { "development" = lib.mkOverride 900 false; };
+            };
           "quickcheck-dynamic" = { flags = {}; };
           "merkle-patricia-tree" = {
             flags = { "development" = lib.mkOverride 900 false; };
@@ -913,6 +923,9 @@
           "plutus-tx" = { flags = {}; };
           "hedgehog-extras" = { flags = {}; };
           "hydra-test-utils" = { flags = {}; };
+          "base-deriving-via" = {
+            flags = { "development" = lib.mkOverride 900 false; };
+            };
           "plutus-contract" = {
             flags = { "defer-plugin-errors" = lib.mkOverride 900 false; };
             };
@@ -946,6 +959,9 @@
           "cardano-prelude" = {
             flags = { "development" = lib.mkOverride 900 false; };
             };
+          "optparse-applicative-fork" = {
+            flags = { "process" = lib.mkOverride 900 true; };
+            };
           "ouroboros-network-framework" = { flags = {}; };
           "lobemo-backend-aggregation" = { flags = {}; };
           "plutus-ledger-api" = { flags = {}; };
@@ -955,6 +971,9 @@
               "asserts" = lib.mkOverride 900 false;
               };
             };
+          "hydra-tui" = {
+            flags = { "development" = lib.mkOverride 900 true; };
+            };
           "ouroboros-consensus-byron" = {
             flags = { "asserts" = lib.mkOverride 900 false; };
             };
@@ -962,6 +981,9 @@
             flags = { "development" = lib.mkOverride 900 true; };
             };
           "contra-tracer" = { flags = {}; };
+          "orphans-deriving-via" = {
+            flags = { "development" = lib.mkOverride 900 false; };
+            };
           "shelley-spec-non-integral" = {
             flags = { "development" = lib.mkOverride 900 false; };
             };

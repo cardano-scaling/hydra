@@ -8,17 +8,17 @@
   , config
   , ... }:
   {
-    flags = {};
+    flags = { development = false; };
     package = {
-      specVersion = "2.4";
-      identifier = { name = "monoidal-synchronisation"; version = "0.1.0.0"; };
+      specVersion = "1.10";
+      identifier = { name = "measures"; version = "0.1.0.0"; };
       license = "Apache-2.0";
-      copyright = "2021 Input Output (Hong Kong) Ltd.";
-      maintainer = "coot@coot.me";
-      author = "Marcin Szamotulski";
+      copyright = "IOHK";
+      maintainer = "operations@iohk.io";
+      author = "IOHK";
       homepage = "";
       url = "";
-      synopsis = "";
+      synopsis = "An abstraction for (tuples of) measured quantities";
       description = "";
       buildType = "Simple";
       isLocal = true;
@@ -26,15 +26,18 @@
       licenseFiles = [ "LICENSE" "NOTICE" ];
       dataDir = ".";
       dataFiles = [];
-      extraSrcFiles = [ "CHANGELOG.md" ];
+      extraSrcFiles = [];
       extraTmpFiles = [];
       extraDocFiles = [];
       };
     components = {
       "library" = {
-        depends = [ (hsPkgs."base" or (errorHandler.buildDepError "base")) ];
+        depends = [
+          (hsPkgs."base" or (errorHandler.buildDepError "base"))
+          (hsPkgs."base-deriving-via" or (errorHandler.buildDepError "base-deriving-via"))
+          ];
         buildable = true;
-        modules = [ "Data/Monoid/Synchronisation" ];
+        modules = [ "Data/Measure" "Data/Measure/Class" ];
         hsSourceDirs = [ "src" ];
         };
       tests = {
@@ -44,15 +47,13 @@
             (hsPkgs."QuickCheck" or (errorHandler.buildDepError "QuickCheck"))
             (hsPkgs."tasty" or (errorHandler.buildDepError "tasty"))
             (hsPkgs."tasty-quickcheck" or (errorHandler.buildDepError "tasty-quickcheck"))
-            (hsPkgs."io-classes" or (errorHandler.buildDepError "io-classes"))
-            (hsPkgs."io-sim" or (errorHandler.buildDepError "io-sim"))
-            (hsPkgs."monoidal-synchronisation" or (errorHandler.buildDepError "monoidal-synchronisation"))
+            (hsPkgs."measures" or (errorHandler.buildDepError "measures"))
             ];
           buildable = true;
-          modules = [ "Test/Data/Monoid/Synchronisation" ];
+          modules = [ "Test/Data/Measure" ];
           hsSourceDirs = [ "test" ];
           mainPath = [ "Main.hs" ];
           };
         };
       };
-    } // rec { src = (pkgs.lib).mkDefault .././.source-repository-packages/30; }
+    } // rec { src = (pkgs.lib).mkDefault .././.source-repository-packages/24; }

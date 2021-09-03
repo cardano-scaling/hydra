@@ -11,14 +11,14 @@
     flags = { development = false; };
     package = {
       specVersion = "1.10";
-      identifier = { name = "strict-containers"; version = "0.1.0.0"; };
+      identifier = { name = "orphans-deriving-via"; version = "0.1.0.0"; };
       license = "Apache-2.0";
       copyright = "IOHK";
       maintainer = "operations@iohk.io";
       author = "IOHK";
       homepage = "";
       url = "";
-      synopsis = "Various strict container types";
+      synopsis = "Orphan instances for the base-deriving-via hooks";
       description = "";
       buildType = "Simple";
       isLocal = true;
@@ -33,25 +33,14 @@
     components = {
       "library" = {
         depends = [
-          (hsPkgs."aeson" or (errorHandler.buildDepError "aeson"))
           (hsPkgs."base" or (errorHandler.buildDepError "base"))
-          (hsPkgs."cardano-binary" or (errorHandler.buildDepError "cardano-binary"))
-          (hsPkgs."cborg" or (errorHandler.buildDepError "cborg"))
-          (hsPkgs."containers" or (errorHandler.buildDepError "containers"))
-          (hsPkgs."data-default-class" or (errorHandler.buildDepError "data-default-class"))
+          (hsPkgs."base-deriving-via" or (errorHandler.buildDepError "base-deriving-via"))
           (hsPkgs."deepseq" or (errorHandler.buildDepError "deepseq"))
-          (hsPkgs."fingertree" or (errorHandler.buildDepError "fingertree"))
           (hsPkgs."nothunks" or (errorHandler.buildDepError "nothunks"))
-          (hsPkgs."serialise" or (errorHandler.buildDepError "serialise"))
           ];
         buildable = true;
-        modules = [
-          "Data/FingerTree/Strict"
-          "Data/Maybe/Strict"
-          "Data/Sequence/Strict"
-          "Data/Unit/Strict"
-          ];
+        modules = [ "Data/DerivingVia/DeepSeq" "Data/DerivingVia/NoThunks" ];
         hsSourceDirs = [ "src" ];
         };
       };
-    } // rec { src = (pkgs.lib).mkDefault .././.source-repository-packages/27; }
+    } // rec { src = (pkgs.lib).mkDefault .././.source-repository-packages/25; }
