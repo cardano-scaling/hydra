@@ -11,7 +11,6 @@ import Ledger
 
 import Hydra.Contract.OnChain as OnChain (asDatum, asRedeemer)
 import Ledger.Ada (lovelaceValueOf)
-import Ledger.AddressMap (UtxoMap)
 import Ledger.Constraints.OffChain (ScriptLookups (..))
 import Ledger.Constraints.TxConstraints (
   TxConstraints,
@@ -39,7 +38,7 @@ import Plutus.Contract (
   submitTxConstraints,
   submitTxConstraintsWith,
   tell,
-  utxoAt,
+  utxosAt,
   type (.\/),
  )
 
@@ -121,7 +120,7 @@ commit ::
   HeadParameters ->
   Promise [OnChain.State] Schema e ()
 commit params@HeadParameters{policy, policyId} =
-  endpoint @"commit" @(PubKeyHash, (TxOutRef, TxOutTx)) $ \(vk, toCommit) -> do
+  endpoint @"commit" @(PubKeyHash, (TxOutRef, TxOut)) $ \(vk, toCommit) -> do
     initial <-
       utxoAtWithDatum
         (Scripts.validatorAddress $ initialTypedValidator params)
@@ -138,10 +137,10 @@ commit params@HeadParameters{policy, policyId} =
       , slTypedValidator =
           Just (hydraTypedValidator params)
       , slTxOutputs =
-          initial <> Map.singleton ref txOut
+          Map.mapMaybe fromTxOut $ initial <> Map.singleton ref txOut
       , slOtherScripts =
           Map.fromList
-            [ (Scripts.validatorAddress script, Scripts.validatorScript script)
+            [ (Scripts.validatorHash script, Scripts.validatorScript script)
             | SomeTypedValidator script <-
                 [ SomeTypedValidator $ initialTypedValidator params
                 ]
@@ -151,7 +150,7 @@ commit params@HeadParameters{policy, policyId} =
       }
 
   constraints vk (ref, txOut) initial =
-    let amount = txOutValue (txOutTxOut txOut) <> OnChain.mkParty policyId vk
+    let amount = txOutValue txOut <> OnChain.mkParty policyId vk
      in mconcat
           [ mustBeSignedBy vk
           , -- NOTE: using a 'foldMap' here but that 'initial' utxo really has only one
@@ -162,7 +161,7 @@ commit params@HeadParameters{policy, policyId} =
           , mustSpendPubKeyOutput ref
           , mustPayToOtherScript
               (Scripts.validatorHash $ commitTypedValidator params)
-              (asDatum @(DatumType OnChain.Commit) (txOutTxOut txOut))
+              (asDatum @(DatumType OnChain.Commit) txOut)
               amount
           ]
 
@@ -186,7 +185,7 @@ collectCom ::
   Promise [OnChain.State] Schema e ()
 collectCom params@HeadParameters{participants, policy, policyId} =
   endpoint @"collectCom" @(PubKeyHash, [TxOut]) $ \(headMember, storedOutputs) -> do
-    commits <- utxoAt (Scripts.validatorAddress $ commitTypedValidator params)
+    commits <- Map.map toTxOut <$> utxosAt (Scripts.validatorAddress $ commitTypedValidator params)
     stateMachine <- utxoAt (Scripts.validatorAddress $ hydraTypedValidator params)
     tx <-
       submitTxConstraintsWith @OnChain.Hydra
@@ -203,20 +202,20 @@ collectCom params@HeadParameters{participants, policy, policyId} =
           Just (hydraTypedValidator params)
       , slOtherScripts =
           Map.fromList
-            [ (Scripts.validatorAddress script, Scripts.validatorScript script)
+            [ (Scripts.validatorHash script, Scripts.validatorScript script)
             | SomeTypedValidator script <-
                 [ SomeTypedValidator $ commitTypedValidator params
                 , SomeTypedValidator $ hydraTypedValidator params
                 ]
             ]
       , slTxOutputs =
-          commits <> stateMachine
+          Map.mapMaybe fromTxOut $ commits <> stateMachine
       , slOwnPubkey =
           Just headMember
       }
 
   constraints commits stateMachine headMember storedOutputs =
-    let amount = foldMap (txOutValue . snd) $ flattenUtxo (commits <> stateMachine)
+    let amount = foldMap txOutValue (commits <> stateMachine)
      in mconcat
           [ mustBeSignedBy headMember
           , foldMap
@@ -255,7 +254,7 @@ abort params@HeadParameters{participants, policy, policyId} =
           Just (hydraTypedValidator params)
       , slOtherScripts =
           Map.fromList
-            [ (Scripts.validatorAddress script, Scripts.validatorScript script)
+            [ (Scripts.validatorHash script, Scripts.validatorScript script)
             | SomeTypedValidator script <-
                 [ SomeTypedValidator $ initialTypedValidator params
                 , SomeTypedValidator $ commitTypedValidator params
@@ -263,7 +262,7 @@ abort params@HeadParameters{participants, policy, policyId} =
                 ]
             ]
       , slTxOutputs =
-          initial <> commits <> stateMachine
+          Map.mapMaybe fromTxOut $ initial <> commits <> stateMachine
       , slOwnPubkey =
           Just headMember
       }
@@ -305,7 +304,7 @@ setupForTesting params =
 type Schema =
   Endpoint "setupForTesting" (PubKeyHash, [Value])
     .\/ Endpoint "init" ()
-    .\/ Endpoint "commit" (PubKeyHash, (TxOutRef, TxOutTx))
+    .\/ Endpoint "commit" (PubKeyHash, (TxOutRef, TxOut))
     .\/ Endpoint "collectCom" (PubKeyHash, [TxOut])
     .\/ Endpoint "abort" (PubKeyHash, [TxOut])
 
@@ -346,10 +345,6 @@ toOnChainHeadParameters :: HeadParameters -> OnChain.HeadParameters
 toOnChainHeadParameters HeadParameters{participants, policyId} =
   OnChain.HeadParameters participants policyId
 
-flattenUtxo :: UtxoMap -> [(TxOutRef, TxOut)]
-flattenUtxo =
-  fmap (second txOutTxOut) . Map.assocs
-
 mustRefund ::
   forall i o.
   TxOut ->
@@ -361,18 +356,27 @@ mustRefund txOut =
     (Address ScriptCredential{} _) ->
       error "mustRefund: committing script output isn't allowed."
 
+-- | Thin wrapper around 'utxosAt' to just get a 'Map TxOutRef TxOut'. Created
+-- to avoid corruptions into 'ChainIndexTxOut'.
+utxoAt ::
+  forall w s e.
+  (AsContractError e) =>
+  Address ->
+  Contract w s e (Map TxOutRef TxOut)
+utxoAt = fmap (Map.map toTxOut) . utxosAt
+
 utxoAtWithDatum ::
   forall w s e.
   (AsContractError e) =>
   Address ->
   Datum ->
-  Contract w s e UtxoMap
+  Contract w s e (Map TxOutRef TxOut)
 utxoAtWithDatum addr datum = do
   utxo <- utxoAt addr
   pure $ Map.filter matchDatum utxo
  where
   matchDatum txOut =
-    txOutDatumHash (txOutTxOut txOut) == Just (datumHash datum)
+    txOutDatumHash txOut == Just (datumHash datum)
 
 -- When collecting commits, we need to associate each commit utxo to the
 -- corresponding head member keys. There's no guarantee that head members will
@@ -384,10 +388,10 @@ utxoAtWithDatum addr datum = do
 zipOnParty ::
   MintingPolicyHash ->
   [PubKeyHash] ->
-  UtxoMap ->
+  Map TxOutRef TxOut ->
   [(PubKeyHash, TxOutRef)]
 zipOnParty policyId vks utxo =
-  go [] (flattenUtxo utxo) vks []
+  go [] (Map.assocs utxo) vks []
  where
   go acc [] _ _ = acc
   go acc _ [] _ = acc

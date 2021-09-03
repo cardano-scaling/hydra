@@ -31,7 +31,7 @@ import Plutus.Contract (
   ownPubKey,
   selectList,
   tell,
-  utxoAt,
+  utxosAt,
   waitNSlots,
  )
 import qualified Plutus.Contract.StateMachine as SM
@@ -77,7 +77,7 @@ getUtxo = do
   loop address
  where
   loop address = do
-    utxos <- utxoAt address
+    utxos <- utxosAt address
     tell . Last $ Just utxos
     void $ waitNSlots 1
     loop address
