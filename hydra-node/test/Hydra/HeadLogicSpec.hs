@@ -22,10 +22,11 @@ import Hydra.HeadLogic (
   SeenSnapshot (NoSeenSnapshot, SeenSnapshot),
   update,
  )
-import Hydra.Ledger (Ledger (..), Party, Tx (..), sign)
+import Hydra.Ledger (Ledger (..), Tx (..))
 import Hydra.Ledger.Simple (SimpleTx (..), aValidTx, simpleLedger, utxoRef)
 import Hydra.Network (Host (..))
 import Hydra.Network.Message (Message (AckSn, Connected, ReqSn, ReqTx))
+import Hydra.Party (Party, sign)
 import Hydra.ServerOutput (ServerOutput (PeerConnected))
 import Hydra.Snapshot (Snapshot (..))
 import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)

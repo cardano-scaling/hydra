@@ -5,15 +5,14 @@ module Hydra.Chain.ExternalPABSpec where
 import Hydra.Prelude
 import Test.Hydra.Prelude
 
-import Cardano.Crypto.DSIGN (DSIGNAlgorithm (deriveVerKeyDSIGN), MockDSIGN, SignKeyDSIGN, VerKeyDSIGN)
 import Control.Concurrent (newEmptyMVar, putMVar, takeMVar)
 import qualified Data.Aeson as Aeson
 import Hydra.Chain (Chain (..), HeadParameters (..), OnChainTx (..), PostChainTx (..))
 import Hydra.Chain.ExternalPAB (PostInitParams, withExternalPab)
 import Hydra.Contract.PAB (InitParams, ObservedTx)
-import Hydra.Ledger (Party (UnsafeParty))
 import Hydra.Ledger.Simple (SimpleTx)
 import Hydra.Logging (nullTracer)
+import Hydra.Party (Party, deriveParty)
 import System.IO.Temp (withSystemTempFile)
 import System.Process (CreateProcess (std_in, std_out), StdStream (CreatePipe, UseHandle), proc, withCreateProcess)
 import Test.QuickCheck (counterexample, property)
@@ -75,14 +74,9 @@ spec = parallel $ do
               takeMVar calledBack1 `shouldReturn` OnAbortTx
 
 alice, bob, carol :: Party
-alice = UnsafeParty aliceVk
-bob = UnsafeParty bobVk
-carol = UnsafeParty carolVk
-
-aliceVk, bobVk, carolVk :: VerKeyDSIGN MockDSIGN
-aliceVk = deriveVerKeyDSIGN aliceSk
-bobVk = deriveVerKeyDSIGN bobSk
-carolVk = deriveVerKeyDSIGN carolSk
+alice = deriveParty aliceSk
+bob = deriveParty bobSk
+carol = deriveParty carolSk
 
 aliceSk, bobSk, carolSk :: SignKeyDSIGN MockDSIGN
 aliceSk = 10

@@ -4,8 +4,9 @@ module Hydra.Network.Message where
 
 import Hydra.Prelude
 
-import Hydra.Ledger (Party, Signed, Utxo)
+import Hydra.Ledger (Utxo)
 import Hydra.Network (Host)
+import Hydra.Party (Party, Signed)
 import Hydra.Snapshot (Snapshot, SnapshotNumber)
 
 -- NOTE(SN): Every message comes from a 'Party', we might want to move it out of

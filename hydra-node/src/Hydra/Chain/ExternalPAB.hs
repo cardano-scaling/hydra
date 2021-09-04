@@ -20,8 +20,9 @@ import Hydra.Chain (
   PostChainTx (..),
  )
 import Hydra.Contract.PAB (PabContract (..), pabPort)
-import Hydra.Ledger (Party, Tx, Utxo)
+import Hydra.Ledger (Tx, Utxo)
 import Hydra.Logging (Tracer)
+import Hydra.Party (Party)
 import Ledger (PubKeyHash, TxOut (txOutValue), TxOutRef, pubKeyHash)
 import Ledger.Value (flattenValue)
 import Network.HTTP.Req (

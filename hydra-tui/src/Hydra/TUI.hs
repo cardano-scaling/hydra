@@ -22,7 +22,7 @@ import qualified Graphics.Vty as Vty
 import Graphics.Vty.Attributes (defAttr)
 import Hydra.Client (Client (Client, sendInput), HydraEvent (..), withClient)
 import Hydra.ClientInput (ClientInput (..))
-import Hydra.Ledger (Party, Tx (..))
+import Hydra.Ledger (Tx (..))
 import Hydra.Ledger.Cardano (
   CardanoAddress,
   CardanoKeyPair,
@@ -38,6 +38,7 @@ import Hydra.Ledger.Cardano (
   prettyUtxo,
  )
 import Hydra.Network (Host (..))
+import Hydra.Party (Party)
 import Hydra.ServerOutput (ServerOutput (..))
 import Hydra.Snapshot (Snapshot (..))
 import Hydra.TUI.Options (Options (..))
