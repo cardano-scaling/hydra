@@ -13,12 +13,13 @@ import Hydra.HeadLogic (
   Event (..),
   HeadState (..),
  )
-import Hydra.Ledger (Party, SigningKey, Tx, deriveParty, sign)
+import Hydra.Ledger (Tx)
 import Hydra.Ledger.Simple (SimpleTx (..), simpleLedger, utxoRef, utxoRefs)
 import Hydra.Logging (Tracer, showLogsOnFailure)
 import Hydra.Network (Host (..), Network (..))
 import Hydra.Network.Message (Message (..))
 import Hydra.Node (EventQueue (..), HydraNode (..), HydraNodeLog, createEventQueue, createHydraHead, isEmpty, stepHydraNode)
+import Hydra.Party (Party, SigningKey, deriveParty, sign)
 import Hydra.Snapshot (Snapshot (..))
 
 spec :: Spec

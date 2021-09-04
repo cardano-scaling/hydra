@@ -13,20 +13,16 @@ import GHC.Records (getField)
 import Hydra.Chain (HeadParameters (..), OnChainTx (..), PostChainTx (..))
 import Hydra.ClientInput (ClientInput (..))
 import Hydra.Ledger (
-  Committed,
   Ledger,
-  Party,
-  SigningKey,
   Tx,
   Utxo,
   ValidationError,
   ValidationResult (Invalid, Valid),
   applyTransactions,
   canApply,
-  sign,
-  verify,
  )
 import Hydra.Network.Message (Message (..))
+import Hydra.Party (Party, SigningKey, sign, verify)
 import Hydra.ServerOutput (ServerOutput (..))
 import Hydra.Snapshot (Snapshot (..), SnapshotNumber)
 
@@ -70,6 +66,8 @@ deriving instance Tx tx => Eq (HeadState tx)
 deriving instance Tx tx => Show (HeadState tx)
 deriving instance Tx tx => ToJSON (HeadState tx)
 deriving instance Tx tx => FromJSON (HeadState tx)
+
+type Committed tx = Map Party (Utxo tx)
 
 data CoordinatedHeadState tx = CoordinatedHeadState
   { seenUtxo :: Utxo tx

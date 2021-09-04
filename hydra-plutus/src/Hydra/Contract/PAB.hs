@@ -207,13 +207,8 @@ watchInit = do
 
   lookupDatum token (txOutRef, txOutTx) = do
     chainIndexTxOut <- fromTxOut $ txOutTxOut txOutTx
-    typedTxOut <- hush $ typeScriptTxOut (Head.typedValidator token) txOutRef chainIndexTxOut
+    typedTxOut <- rightToMaybe $ typeScriptTxOut (Head.typedValidator token) txOutRef chainIndexTxOut
     pure $ tyTxOutData typedTxOut
-
-  -- TODO(SN): had no internet and no clue where this is -> replace
-  hush = \case
-    Left _ -> Nothing
-    Right x -> Just x
 
 -- TODO(SN): use this in a greate contract which 'watchInit' first and then does this
 abort :: AssetClass -> Promise w (Endpoint "abort" ()) HydraPlutusError ()

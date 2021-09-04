@@ -97,6 +97,7 @@ library
     Hydra.Node
     Hydra.Node.Version
     Hydra.Options
+    Hydra.Party
     Hydra.ServerOutput
     Hydra.Snapshot
 
@@ -196,6 +197,7 @@ test-suite tests
     Hydra.NetworkSpec
     Hydra.NodeSpec
     Hydra.OptionsSpec
+    Hydra.PartySpec
     Hydra.ServerOutputSpec
     Hydra.SnapshotStrategySpec
     Paths_hydra_node

@@ -8,7 +8,8 @@ import Cardano.Prelude
 import Control.Monad.Class.MonadThrow (MonadThrow)
 import Data.Aeson (FromJSON, ToJSON)
 import Data.Time (DiffTime, UTCTime, addUTCTime)
-import Hydra.Ledger (Party, Tx, Utxo)
+import Hydra.Ledger (Tx, Utxo)
+import Hydra.Party (Party)
 import Hydra.Prelude (Arbitrary (arbitrary), genericArbitrary)
 import Hydra.Snapshot (Snapshot (number), SnapshotNumber)
 

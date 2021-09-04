@@ -22,9 +22,10 @@ import Hydra.HeadLogic (
   emitSnapshot,
   newSn,
  )
-import Hydra.Ledger (Ledger (..), Party, Tx (..), deriveParty)
+import Hydra.Ledger (Ledger (..), Tx (..))
 import Hydra.Ledger.Simple (SimpleTx (..), aValidTx, simpleLedger)
 import Hydra.Network.Message (Message (..))
+import Hydra.Party (Party, deriveParty)
 import Hydra.Snapshot (Snapshot (..))
 
 spec :: Spec

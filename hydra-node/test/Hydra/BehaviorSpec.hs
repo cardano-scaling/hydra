@@ -28,7 +28,7 @@ import Hydra.HeadLogic (
   Event (ClientEvent),
   HeadState (ReadyState),
  )
-import Hydra.Ledger (Party, SigningKey, Tx, ValidationError (ValidationError), deriveParty)
+import Hydra.Ledger (Tx, ValidationError (ValidationError))
 import Hydra.Ledger.Simple (SimpleTx (..), aValidTx, simpleLedger, utxoRef, utxoRefs)
 import Hydra.Network (Network (..))
 import Hydra.Node (
@@ -41,6 +41,7 @@ import Hydra.Node (
   handleMessage,
   runHydraNode,
  )
+import Hydra.Party (Party, SigningKey, deriveParty)
 import Hydra.ServerOutput (ServerOutput (..))
 import Hydra.Snapshot (Snapshot (..))
 import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)

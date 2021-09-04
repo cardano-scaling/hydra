@@ -32,11 +32,12 @@ import Hydra.HeadLogic (
   emitSnapshot,
  )
 import qualified Hydra.HeadLogic as Logic
-import Hydra.Ledger (Ledger, Party (..), Tx, Utxo)
+import Hydra.Ledger (Ledger, Tx, Utxo)
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Network (Network (..))
 import Hydra.Network.Message (Message)
 import Hydra.Options (Options (..))
+import Hydra.Party (Party (UnsafeParty))
 
 -- * Environment Handling
 
