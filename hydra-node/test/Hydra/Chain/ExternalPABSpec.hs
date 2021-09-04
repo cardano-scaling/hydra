@@ -12,7 +12,7 @@ import Hydra.Chain.ExternalPAB (PostInitParams, withExternalPab)
 import Hydra.Contract.PAB (InitParams, ObservedTx)
 import Hydra.Ledger.Simple (SimpleTx)
 import Hydra.Logging (nullTracer)
-import Hydra.Party (Party, deriveParty)
+import Hydra.Party (Party, deriveParty, generateKey)
 import System.IO.Temp (withSystemTempFile)
 import System.Process (CreateProcess (std_in, std_out), StdStream (CreatePipe, UseHandle), proc, withCreateProcess)
 import Test.QuickCheck (counterexample, property)
@@ -74,14 +74,9 @@ spec = parallel $ do
               takeMVar calledBack1 `shouldReturn` OnAbortTx
 
 alice, bob, carol :: Party
-alice = deriveParty aliceSk
-bob = deriveParty bobSk
-carol = deriveParty carolSk
-
-aliceSk, bobSk, carolSk :: SignKeyDSIGN MockDSIGN
-aliceSk = 10
-bobSk = 20
-carolSk = 30
+alice = deriveParty $ generateKey 10
+bob = deriveParty $ generateKey 20
+carol = deriveParty $ generateKey 30
 
 -- TODO(SN): This is not printing the full stdout on failure
 withHydraPab :: IO a -> IO a
