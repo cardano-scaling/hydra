@@ -21,7 +21,7 @@ import Test.QuickCheck (Property, counterexample, forAllShrink)
 import Test.QuickCheck.Property (forAll)
 
 spec :: Spec
-spec = do
+spec = parallel $ do
   roundtripAndGoldenSpecs (Proxy @(Cardano.UTxO CardanoEra))
   roundtripAndGoldenSpecs (Proxy @CardanoTxWitnesses)
   roundtripAndGoldenSpecs (Proxy @CardanoTx)

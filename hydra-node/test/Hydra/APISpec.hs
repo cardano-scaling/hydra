@@ -4,6 +4,7 @@
 module Hydra.APISpec where
 
 import Hydra.Prelude
+import Test.Hydra.Prelude
 
 import Data.Aeson.Lens (key)
 import Hydra.ClientInput (ClientInput)
@@ -12,7 +13,6 @@ import Hydra.Ledger (Utxo)
 import Hydra.Ledger.Cardano (CardanoTx)
 import Hydra.ServerOutput (ServerOutput)
 import System.FilePath ((</>))
-import Test.Hspec (Spec, aroundAll, context, parallel, specify)
 import Test.QuickCheck.Property (conjoin, withMaxSuccess)
 
 spec :: Spec

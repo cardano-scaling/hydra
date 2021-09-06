@@ -1,21 +1,29 @@
 {
     "samples": [
         {
-            "tag": "Close"
+            "tag": "Commit",
+            "utxo": [
+                -14,
+                -10,
+                -7,
+                -5,
+                4,
+                23,
+                26
+            ]
+        },
+        {
+            "tag": "GetUtxo"
         },
         {
             "tag": "Close"
         },
         {
-            "contestationPeriod": 5.259709532366,
-            "tag": "Init"
+            "tag": "GetUtxo"
         },
         {
-            "tag": "Close"
-        },
-        {
-            "tag": "Close"
+            "tag": "Contest"
         }
     ],
-    "seed": 1469128199
+    "seed": 1389026635
 }

@@ -19,7 +19,7 @@ import System.Process (CreateProcess (std_in, std_out), StdStream (CreatePipe, U
 import Test.QuickCheck (counterexample, property)
 
 spec :: Spec
-spec = do
+spec = parallel $ do
   -- We use slightly different types in off-chain and on-chain code, BUT, they
   -- have identical wire formats. We use (JSON) serialization as a mean to turn
   -- one into the other.

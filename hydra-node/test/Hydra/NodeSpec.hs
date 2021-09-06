@@ -23,7 +23,7 @@ import Hydra.Node (EventQueue (..), HydraNode (..), HydraNodeLog, createEventQue
 import Hydra.Snapshot (Snapshot (..))
 
 spec :: Spec
-spec = do
+spec = parallel $ do
   it "emits a single ReqSn and AckSn as leader, even after multiple ReqTxs" $
     showLogsOnFailure $ \tracer -> do
       -- NOTE(SN): Sequence of parties in OnInitTx of
@@ -37,11 +37,11 @@ spec = do
                  , NetworkEvent{message = ReqTx{party = 10, transaction = tx2}}
                  , NetworkEvent{message = ReqTx{party = 10, transaction = tx3}}
                  ]
-          signedSnapshot = sign 10 $ Snapshot 1 (utxoRefs [1, 3, 6]) [tx1, tx2, tx3]
+          signedSnapshot = sign 10 $ Snapshot 1 (utxoRefs [1, 3, 4]) [tx1]
       node <- createHydraNode 10 [20, 30] SnapshotAfterEachTx events
       (node', getNetworkMessages) <- recordNetwork node
       runToCompletion tracer node'
-      getNetworkMessages `shouldReturn` [ReqSn 10 1 [tx1, tx2, tx3], AckSn 10 signedSnapshot 1]
+      getNetworkMessages `shouldReturn` [ReqSn 10 1 [tx1], AckSn 10 signedSnapshot 1]
 
   it "rotates snapshot leaders" $
     showLogsOnFailure $ \tracer -> do
@@ -107,7 +107,7 @@ runToCompletion tracer node@HydraNode{eq = EventQueue{isEmpty}} = go
       stepHydraNode tracer node >> go
 
 createHydraNode ::
-  MonadSTM m =>
+  (MonadSTM m, MonadDelay m, MonadAsync m) =>
   SigningKey ->
   [Party] ->
   SnapshotStrategy ->

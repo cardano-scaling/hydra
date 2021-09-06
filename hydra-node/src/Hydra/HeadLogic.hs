@@ -35,7 +35,6 @@ data Event tx
   | NetworkEvent {message :: Message tx}
   | OnChainEvent {onChainTx :: OnChainTx tx}
   | ShouldPostFanout
-  | DoSnapshot
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON, FromJSON)
 
@@ -224,28 +223,44 @@ update Environment{party, signingKey, otherParties, snapshotStrategy} ledger st 
         Valid -> [ClientEffect $ TxValid tx, NetworkEffect $ ReqTx party tx]
         Invalid err -> [ClientEffect $ TxInvalid{utxo = utxo, transaction = tx, validationError = err}]
   (OpenState parameters headState@CoordinatedHeadState{confirmedSnapshot, seenSnapshot, seenTxs, seenUtxo}, NetworkEvent (ReqTx _ tx)) ->
-    case applyTransactions ledger seenUtxo [tx] of
-      Left _err -> Wait
-      Right utxo' ->
-        let --sn' = number confirmedSnapshot + 1
-            newSeenTxs = seenTxs <> [tx]
-            snapshotEffects =
-              case seenSnapshot of
-                SeenSnapshot{snapshot}
-                  | isLeader parameters party (number snapshot + 1) && snapshotStrategy == SnapshotAfterEachTx ->
-                    [Delay 0 DoSnapshot] -- XXX(SN): this is a dirty hack, maybe re-enqueue ReqTx instead?
-                NoSeenSnapshot
-                  | isLeader parameters party (number confirmedSnapshot + 1) && snapshotStrategy == SnapshotAfterEachTx ->
-                    [Delay 0 DoSnapshot]
-                _ -> []
-         in nextState (OpenState parameters $ headState{seenTxs = newSeenTxs, seenUtxo = utxo'}) (ClientEffect (TxSeen tx) : snapshotEffects)
-  (OpenState parameters headState@CoordinatedHeadState{confirmedSnapshot, seenTxs, seenSnapshot}, DoSnapshot)
-    -- TODO: We had a bug here and it's untested that this case really emits a `ReqSn` when it matches
-    | seenSnapshot == NoSeenSnapshot && not (null seenTxs) ->
-      nextState
-        (OpenState parameters $ headState{seenSnapshot = RequestedSnapshot})
-        [NetworkEffect $ ReqSn party (number confirmedSnapshot + 1) seenTxs]
-    | otherwise -> Wait
+    let shouldDoSnapshot lastSeenSnapshot =
+          isLeader parameters party (number lastSeenSnapshot + 1) && snapshotStrategy == SnapshotAfterEachTx
+     in case seenSnapshot of
+          -- NOTE: In case where we are leader of the *next* snapshot, we
+          -- wait and do not process this transaction yet. This will allow us to
+          -- re-process the transaction at a time where we may be able to request a
+          -- snapshot. If we processed the transaction right away, then we may miss
+          -- the opportunity to make a snapshot.
+          SeenSnapshot{snapshot}
+            | shouldDoSnapshot snapshot ->
+              Wait
+          _ ->
+            case applyTransactions ledger seenUtxo [tx] of
+              Left _err -> Wait -- The transaction may not be applicable yet.
+              Right utxo' ->
+                let newSeenTxs = seenTxs <> [tx]
+                    (newSeenSnapshot, effects) = case seenSnapshot of
+                      NoSeenSnapshot
+                        | shouldDoSnapshot confirmedSnapshot ->
+                          ( RequestedSnapshot
+                          ,
+                            [ ClientEffect $ TxSeen tx
+                            , NetworkEffect $ ReqSn party (number confirmedSnapshot + 1) newSeenTxs
+                            ]
+                          )
+                      _ ->
+                        ( seenSnapshot
+                        , [ClientEffect $ TxSeen tx]
+                        )
+                 in nextState
+                      ( OpenState parameters $
+                          headState
+                            { seenTxs = newSeenTxs
+                            , seenUtxo = utxo'
+                            , seenSnapshot = newSeenSnapshot
+                            }
+                      )
+                      effects
   (OpenState parameters s@CoordinatedHeadState{confirmedSnapshot, seenSnapshot}, e@(NetworkEvent (ReqSn otherParty sn txs)))
     | number confirmedSnapshot + 1 == sn && isLeader parameters otherParty sn && not (snapshotPending seenSnapshot) ->
       -- TODO: Also we might be robust against multiple ReqSn for otherwise

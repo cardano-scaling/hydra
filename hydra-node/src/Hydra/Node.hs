@@ -9,7 +9,16 @@ import Hydra.Prelude
 
 import Cardano.Crypto.DSIGN (DSIGNAlgorithm (rawDeserialiseVerKeyDSIGN), deriveVerKeyDSIGN, rawDeserialiseSignKeyDSIGN)
 import Control.Monad.Class.MonadAsync (async)
-import Control.Monad.Class.MonadSTM (isEmptyTQueue, newTQueue, newTVarIO, readTQueue, stateTVar, writeTQueue)
+import Control.Monad.Class.MonadSTM (
+  isEmptyTQueue,
+  modifyTVar',
+  newTQueue,
+  newTVar,
+  newTVarIO,
+  readTQueue,
+  stateTVar,
+  writeTQueue,
+ )
 import Hydra.API.Server (Server, sendOutput)
 import Hydra.Chain (Chain (..), OnChainTx)
 import Hydra.ClientInput (ClientInput)
@@ -110,7 +119,6 @@ handleMessage HydraNode{eq} = putEvent eq . NetworkEvent
 runHydraNode ::
   ( MonadThrow m
   , MonadAsync m
-  , MonadTimer m
   , Tx tx
   ) =>
   Tracer m (HydraNodeLog tx) ->
@@ -124,7 +132,6 @@ runHydraNode tracer node =
 stepHydraNode ::
   ( MonadThrow m
   , MonadAsync m
-  , MonadTimer m
   , Tx tx
   ) =>
   Tracer m (HydraNodeLog tx) ->
@@ -154,7 +161,6 @@ processNextEvent HydraNode{hh, env} e =
 
 processEffect ::
   ( MonadAsync m
-  , MonadTimer m
   , MonadThrow m
   ) =>
   HydraNode tx m ->
@@ -167,7 +173,7 @@ processEffect HydraNode{hn, oc, server, eq, env = Environment{party}} tracer e =
     ClientEffect i -> sendOutput server i
     NetworkEffect msg -> broadcast hn msg >> putEvent eq (NetworkEvent msg)
     OnChainEffect tx -> postTx oc tx
-    Delay after event -> void . async $ threadDelay after >> putEvent eq event
+    Delay after event -> putEventAfter eq after event
   traceWith tracer $ ProcessedEffect party e
 -- ** Some general event queue from which the Hydra head is "fed"
 
@@ -177,18 +183,33 @@ processEffect HydraNode{hn, oc, server, eq, env = Environment{party}} tracer e =
 -- alternative implementation
 data EventQueue m e = EventQueue
   { putEvent :: e -> m ()
+  , putEventAfter :: DiffTime -> e -> m ()
   , nextEvent :: m e
   , isEmpty :: m Bool
   }
 
-createEventQueue :: MonadSTM m => m (EventQueue m e)
+createEventQueue :: (MonadSTM m, MonadDelay m, MonadAsync m) => m (EventQueue m e)
 createEventQueue = do
+  numThreads <- atomically (newTVar (0 :: Integer))
   q <- atomically newTQueue
   pure
     EventQueue
-      { putEvent = atomically . writeTQueue q
-      , nextEvent = atomically $ readTQueue q
-      , isEmpty = atomically $ isEmptyTQueue q
+      { putEvent =
+          atomically . writeTQueue q
+      , putEventAfter = \delay e -> do
+          atomically $ modifyTVar' numThreads succ
+          void . async $ do
+            threadDelay delay
+            atomically $ do
+              modifyTVar' numThreads pred
+              writeTQueue q e
+      , nextEvent =
+          atomically $ readTQueue q
+      , isEmpty = do
+          atomically $ do
+            n <- readTVar numThreads
+            isEmpty' <- isEmptyTQueue q
+            pure (isEmpty' && n == 0)
       }
 
 -- ** HydraHead handle to manage a single hydra head state concurrently

@@ -271,17 +271,6 @@ definitions:
         tag:
           type: string
           enum: ["ShouldPostFanout"]
-    - title: DoSnapshot
-      type: object
-      required:
-      - tag
-      description: >-
-        An internal event dependent on the snapshot strategy of the node, requesting some snapshot
-        to be performed.
-      properties:
-        tag:
-          type: string
-          enum: ["DoSnapshot"]
 
   Message:
     description: >-
