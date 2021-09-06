@@ -197,11 +197,11 @@ createEventQueue = do
       { putEvent =
           atomically . writeTQueue q
       , putEventAfter = \delay e -> do
-          atomically $ modifyTVar' numThreads (+ 1)
+          atomically $ modifyTVar' numThreads succ
           void . async $ do
             threadDelay delay
             atomically $ do
-              modifyTVar' numThreads (\n -> n - 1)
+              modifyTVar' numThreads pred
               writeTQueue q e
       , nextEvent =
           atomically $ readTQueue q

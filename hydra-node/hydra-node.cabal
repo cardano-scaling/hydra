@@ -176,7 +176,7 @@ executable mock-chain
 
 test-suite tests
   import:             project-config
-  ghc-options:        -threaded -rtsopts -with-rtsopts=-N2
+  ghc-options:        -threaded -rtsopts -with-rtsopts=-N
   hs-source-dirs:     test
   other-modules:
     Hydra.API.ServerSpec
