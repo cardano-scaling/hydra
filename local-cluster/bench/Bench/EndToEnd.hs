@@ -17,6 +17,7 @@ import Control.Monad.Class.MonadSTM (
   MonadSTM (readTVarIO),
   isEmptyTBQueue,
   modifyTVar,
+  modifyTVar',
   newTBQueueIO,
   newTVarIO,
   readTBQueue,
@@ -57,6 +58,7 @@ carolVk = deriveVerKeyDSIGN carolSk
 
 data Event = Event
   { submittedAt :: UTCTime
+  , submittedAtSnapshot :: Scientific
   , confirmedAt :: Maybe UTCTime
   }
   deriving (Generic, Eq, Show, ToJSON)
@@ -124,15 +126,17 @@ newTx ::
   Tx tx =>
   TVar IO (Map.Map (TxId tx) Event) ->
   HydraClient ->
+  Scientific ->
   tx ->
   IO ()
-newTx registry client tx = do
+newTx registry client sn tx = do
   now <- getCurrentTime
   atomically $
     modifyTVar registry $
       Map.insert (txId tx) $
         Event
           { submittedAt = now
+          , submittedAtSnapshot = sn
           , confirmedAt = Nothing
           }
   send client $ input "NewTx" ["transaction" .= tx]
@@ -144,6 +148,7 @@ data WaitResult
 data Registry tx = Registry
   { confirmedTxs :: TVar IO (Map.Map (TxId tx) Event)
   , submissionQ :: TBQueue IO CardanoTx
+  , latestSnapshot :: TVar IO Scientific
   }
 
 newRegistry ::
@@ -153,13 +158,14 @@ newRegistry txs = do
   confirmedTxs <- newTVarIO mempty
   submissionQ <- newTBQueueIO (fromIntegral $ length txs)
   atomically $ mapM_ (writeTBQueue submissionQ) txs
-  pure $ Registry{confirmedTxs, submissionQ}
+  latestSnapshot <- newTVarIO 0
+  pure $ Registry{confirmedTxs, submissionQ, latestSnapshot}
 
 submitTxs ::
   HydraClient ->
   Registry CardanoTx ->
   IO ()
-submitTxs client registry@Registry{confirmedTxs, submissionQ} = do
+submitTxs client registry@Registry{confirmedTxs, submissionQ, latestSnapshot} = do
   shouldStop <- atomically $ do
     unconfirmedIds <- Map.keys . Map.filter (isNothing . confirmedAt) <$> readTVar confirmedTxs
     queueEmpty <- isEmptyTBQueue submissionQ
@@ -167,7 +173,17 @@ submitTxs client registry@Registry{confirmedTxs, submissionQ} = do
   if shouldStop
     then pure ()
     else do
-      atomically (readTBQueue submissionQ) >>= newTx confirmedTxs client
+      (tx, latestSn, txs) <-
+        atomically $
+          (,,)
+            <$> readTBQueue submissionQ
+            <*> readTVar latestSnapshot
+            <*> readTVar confirmedTxs
+      case Map.lookup (txId tx) txs of
+        Just e | submittedAtSnapshot e < latestSn -> do
+          atomically $ writeTBQueue submissionQ tx
+        _ -> do
+          newTx confirmedTxs client latestSn tx
       submitTxs client registry
 
 waitForAllConfirmations ::
@@ -175,7 +191,7 @@ waitForAllConfirmations ::
   Registry CardanoTx ->
   Set (TxId CardanoTx) ->
   IO ()
-waitForAllConfirmations n1 Registry{confirmedTxs, submissionQ} allIds = do
+waitForAllConfirmations n1 Registry{confirmedTxs, submissionQ, latestSnapshot} allIds = do
   go allIds
  where
   go remainingIds
@@ -189,6 +205,7 @@ waitForAllConfirmations n1 Registry{confirmedTxs, submissionQ} allIds = do
         SnapshotConfirmed{transactions, snapshotNumber} -> do
           -- TODO(SN): use a tracer for this
           putTextLn $ "Snapshot confirmed: " <> show snapshotNumber
+          atomically $ modifyTVar' latestSnapshot (max snapshotNumber)
           confirmedIds <- mapM (confirmTx confirmedTxs) transactions
           go $ remainingIds \\ Set.fromList confirmedIds
 
