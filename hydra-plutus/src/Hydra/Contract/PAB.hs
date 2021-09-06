@@ -13,8 +13,18 @@ import Hydra.Contract.ContestationPeriod (ContestationPeriod)
 import qualified Hydra.Contract.Head as Head
 import qualified Hydra.Contract.Initial as Initial
 import Hydra.Contract.Party (Party)
-import Ledger (CurrencySymbol, PubKeyHash (..), TxOut (txOutValue), TxOutTx (txOutTxOut), pubKeyAddress, pubKeyHash)
-import Ledger.AddressMap (UtxoMap, outputsMapFromTxForAddress)
+import Ledger (
+  CurrencySymbol,
+  PubKeyHash (..),
+  TxOut (txOutValue),
+  TxOutRef,
+  TxOutTx (txOutTxOut),
+  fromTxOut,
+  pubKeyAddress,
+  pubKeyHash,
+  toTxOut,
+ )
+import Ledger.AddressMap (outputsMapFromTxForAddress)
 import qualified Ledger.Typed.Scripts as Scripts
 import Ledger.Typed.Tx (tyTxOutData, typeScriptTxOut)
 import Ledger.Value (AssetClass, TokenName (..), flattenValue)
@@ -27,7 +37,6 @@ import Plutus.Contract (
   Endpoint,
   endpoint,
   logInfo,
-  nextTransactionsAt,
   ownPubKey,
   selectList,
   tell,
@@ -70,14 +79,14 @@ instance HasDefinitions PabContract where
     Init -> SomeBuiltin init
     Watch -> SomeBuiltin watch
 
-getUtxo :: Contract (Last UtxoMap) Empty ContractError ()
+getUtxo :: Contract (Last (Map TxOutRef TxOut)) Empty ContractError ()
 getUtxo = do
   logInfo @Text $ "getUtxo: Starting to get and report utxo map every slot"
   address <- pubKeyAddress <$> ownPubKey
   loop address
  where
   loop address = do
-    utxos <- utxosAt address
+    utxos <- Map.map toTxOut <$> utxosAt address
     tell . Last $ Just utxos
     void $ waitNSlots 1
     loop address
@@ -150,7 +159,7 @@ watchForSM threadToken = do
   logInfo @String $ "watchForSM"
   let client = Head.machineClient threadToken
   smState <- SM.waitForUpdate client
-  let mstate = tyTxOutData . fst <$> smState
+  let mstate = tyTxOutData . SM.ocsTxOut <$> smState
   case mstate of
     Just Head.Final -> tell . Last $ Just OnAbortTx
     _ -> logInfo @String $ "uninferrable state"
@@ -165,12 +174,12 @@ watchInit = do
   let address = Initial.address
       pkh = pubKeyHash pubKey
   loop $ do
-    txs <- nextTransactionsAt address
+    txs <- error "nextTransactionsAt missing"
     let foundTokens = txs >>= mapMaybe (findToken pkh) . Map.elems . outputsMapFromTxForAddress address
     logInfo $ "found tokens: " <> show @String foundTokens
     case foundTokens of
       [token] -> do
-        let datums = txs >>= rights . fmap (lookupDatum token) . Map.elems . outputsMapFromTxForAddress (scriptAddress token)
+        let datums = txs >>= mapMaybe (lookupDatum token) . Map.assocs . outputsMapFromTxForAddress (scriptAddress token)
         logInfo @String $ "found init tx(s) with datums: " <> show datums
         case datums of
           [Head.Initial contestationPeriod parties] ->
@@ -196,7 +205,15 @@ watchInit = do
 
   scriptAddress = Scripts.validatorAddress . Head.typedValidator
 
-  lookupDatum token txOutTx = tyTxOutData <$> typeScriptTxOut (Head.typedValidator token) txOutTx
+  lookupDatum token (txOutRef, txOutTx) = do
+    chainIndexTxOut <- fromTxOut $ txOutTxOut txOutTx
+    typedTxOut <- hush $ typeScriptTxOut (Head.typedValidator token) txOutRef chainIndexTxOut
+    pure $ tyTxOutData typedTxOut
+
+  -- TODO(SN): had no internet and no clue where this is -> replace
+  hush = \case
+    Left _ -> Nothing
+    Right x -> Just x
 
 -- TODO(SN): use this in a greate contract which 'watchInit' first and then does this
 abort :: AssetClass -> Promise w (Endpoint "abort" ()) HydraPlutusError ()

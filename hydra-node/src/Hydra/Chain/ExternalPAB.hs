@@ -22,8 +22,7 @@ import Hydra.Chain (
 import Hydra.Contract.PAB (PabContract (..), pabPort)
 import Hydra.Ledger (Party, Tx, Utxo)
 import Hydra.Logging (Tracer)
-import Ledger (PubKeyHash, TxOut (txOutValue), pubKeyHash, txOutTxOut)
-import Ledger.AddressMap (UtxoMap)
+import Ledger (PubKeyHash, TxOut (txOutValue), TxOutRef, pubKeyHash)
 import Ledger.Value (flattenValue)
 import Network.HTTP.Req (
   HttpException (VanillaHttpException),
@@ -194,8 +193,8 @@ utxoSubscriber wallet = do
           Error err -> error $ "decoding error json: " <> show err
           Success res -> case getLast res of
             Nothing -> pure ()
-            Just (utxos :: UtxoMap) -> do
-              let v = mconcat $ Map.elems $ txOutValue . txOutTxOut <$> utxos
+            Just (utxos :: Map TxOutRef TxOut) -> do
+              let v = mconcat $ Map.elems $ txOutValue <$> utxos
               say $ "Own funds changed: " ++ show (flattenValue v)
       Right _ -> pure ()
       Left err -> error $ "error decoding msg: " <> show err
