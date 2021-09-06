@@ -79,7 +79,7 @@ bench workDir initialUtxo txs =
 
                 waitFor tracer 3 [n1, n2, n3] $ output "HeadIsOpen" ["utxo" .= initialUtxo]
 
-                for_ txs (\tx -> newTx registry n1 tx >> threadDelay 0.1)
+                submitTxs n1 registry txs
                   `concurrently_` waitForAllConfirmations n1 registry txs
 
                 putTextLn "Closing the Head..."
@@ -137,7 +137,17 @@ data WaitResult
   = TxInvalid {transaction :: CardanoTx, reason :: Text}
   | SnapshotConfirmed {transactions :: [Value], snapshotNumber :: Scientific}
 
-waitForAllConfirmations :: HydraClient -> TVar IO (Map.Map (TxId CardanoTx) Event) -> [CardanoTx] -> IO ()
+type Registry tx = TVar IO (Map.Map (TxId tx) Event)
+
+submitTxs ::
+  HydraClient ->
+  Registry CardanoTx ->
+  [CardanoTx] ->
+  IO ()
+submitTxs client registry =
+  mapM_ (\tx -> newTx registry client tx >> threadDelay 0.1)
+
+waitForAllConfirmations :: HydraClient -> Registry CardanoTx -> [CardanoTx] -> IO ()
 waitForAllConfirmations n1 registry txs =
   go allIds
  where
