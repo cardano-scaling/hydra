@@ -15,10 +15,11 @@ import Cardano.Crypto.DSIGN (
 import Control.Lens (to, (^?))
 import Control.Monad.Class.MonadSTM (
   MonadSTM (readTVarIO),
+  isEmptyTBQueue,
   modifyTVar,
   newTBQueueIO,
   newTVarIO,
-  tryReadTBQueue,
+  readTBQueue,
   writeTBQueue,
  )
 import Data.Aeson (Result (Error, Success), Value, encode, fromJSON, (.=))
@@ -159,12 +160,14 @@ submitTxs ::
   Registry CardanoTx ->
   IO ()
 submitTxs client registry@Registry{confirmedTxs, submissionQ} = do
-  -- FIXME: This is the wrong termination condition,
-  -- 'waitForAllConfirmations' may still have transactions to push.
-  atomically (tryReadTBQueue submissionQ) >>= \case
-    Nothing -> pure ()
-    Just tx -> do
-      newTx confirmedTxs client tx
+  shouldStop <- atomically $ do
+    unconfirmedIds <- Map.keys . Map.filter (isNothing . confirmedAt) <$> readTVar confirmedTxs
+    queueEmpty <- isEmptyTBQueue submissionQ
+    pure $ null unconfirmedIds && queueEmpty
+  if shouldStop
+    then pure ()
+    else do
+      atomically (readTBQueue submissionQ) >>= newTx confirmedTxs client
       submitTxs client registry
 
 waitForAllConfirmations ::
