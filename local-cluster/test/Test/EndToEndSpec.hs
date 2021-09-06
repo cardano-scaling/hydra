@@ -39,6 +39,7 @@ import Cardano.Api (
   TxOut (TxOut),
   TxOutDatumHash (TxOutDatumHashNone),
   TxOutValue (TxOutValue),
+  TxScriptValidity (TxScriptValidityNone),
   TxUpdateProposal (TxUpdateProposalNone),
   TxValidityLowerBound (TxValidityNoLowerBound),
   TxValidityUpperBound (TxValidityNoUpperBound),
@@ -245,6 +246,7 @@ txAlicePaysHerself =
         , txCertificates = TxCertificatesNone
         , txUpdateProposal = TxUpdateProposalNone
         , txMintValue = TxMintNone
+        , txScriptValidity = BuildTxWith TxScriptValidityNone
         }
 
   txIn = TxIn someTxId (toEnum 0)
