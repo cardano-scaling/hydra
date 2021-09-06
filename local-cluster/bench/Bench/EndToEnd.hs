@@ -16,7 +16,10 @@ import Control.Lens (to, (^?))
 import Control.Monad.Class.MonadSTM (
   MonadSTM (readTVarIO),
   modifyTVar,
+  newTBQueueIO,
   newTVarIO,
+  tryReadTBQueue,
+  writeTBQueue,
  )
 import Data.Aeson (Result (Error, Success), Value, encode, fromJSON, (.=))
 import Data.Aeson.Lens (key, _Array, _Number, _String)
@@ -60,7 +63,7 @@ data Event = Event
 bench :: FilePath -> Utxo CardanoTx -> [CardanoTx] -> Spec
 bench workDir initialUtxo txs =
   specify ("Load test on three local nodes (" <> workDir <> ")") $ do
-    registry <- newTVarIO mempty :: IO (TVar IO (Map.Map (TxId CardanoTx) Event))
+    registry <- newRegistry txs
     showLogsOnFailure $ \tracer ->
       failAfter 300 $ do
         withMockChain $ \chainPorts ->
@@ -79,15 +82,15 @@ bench workDir initialUtxo txs =
 
                 waitFor tracer 3 [n1, n2, n3] $ output "HeadIsOpen" ["utxo" .= initialUtxo]
 
-                submitTxs n1 registry txs
-                  `concurrently_` waitForAllConfirmations n1 registry txs
+                submitTxs n1 registry
+                  `concurrently_` waitForAllConfirmations n1 registry (Set.fromList . map txId $ txs)
 
                 putTextLn "Closing the Head..."
                 send n1 $ input "Close" []
                 waitMatch (contestationPeriod + 3) n1 $ \v ->
                   guard (v ^? key "tag" == Just "HeadIsFinalized")
 
-    res <- mapMaybe analyze . Map.toList <$> readTVarIO registry
+    res <- mapMaybe analyze . Map.toList <$> readTVarIO (confirmedTxs registry)
     writeResultsCsv (workDir </> "results.csv") res
     -- TODO: Create a proper summary
     let confTimes = map snd res
@@ -137,34 +140,53 @@ data WaitResult
   = TxInvalid {transaction :: CardanoTx, reason :: Text}
   | SnapshotConfirmed {transactions :: [Value], snapshotNumber :: Scientific}
 
-type Registry tx = TVar IO (Map.Map (TxId tx) Event)
+data Registry tx = Registry
+  { confirmedTxs :: TVar IO (Map.Map (TxId tx) Event)
+  , submissionQ :: TBQueue IO CardanoTx
+  }
+
+newRegistry ::
+  [CardanoTx] ->
+  IO (Registry CardanoTx)
+newRegistry txs = do
+  confirmedTxs <- newTVarIO mempty
+  submissionQ <- newTBQueueIO (fromIntegral $ length txs)
+  atomically $ mapM_ (writeTBQueue submissionQ) txs
+  pure $ Registry{confirmedTxs, submissionQ}
 
 submitTxs ::
   HydraClient ->
   Registry CardanoTx ->
-  [CardanoTx] ->
   IO ()
-submitTxs client registry =
-  mapM_ (\tx -> newTx registry client tx >> threadDelay 0.1)
+submitTxs client registry@Registry{confirmedTxs, submissionQ} = do
+  -- FIXME: This is the wrong termination condition,
+  -- 'waitForAllConfirmations' may still have transactions to push.
+  atomically (tryReadTBQueue submissionQ) >>= \case
+    Nothing -> pure ()
+    Just tx -> do
+      newTx confirmedTxs client tx
+      submitTxs client registry
 
-waitForAllConfirmations :: HydraClient -> Registry CardanoTx -> [CardanoTx] -> IO ()
-waitForAllConfirmations n1 registry txs =
+waitForAllConfirmations ::
+  HydraClient ->
+  Registry CardanoTx ->
+  Set (TxId CardanoTx) ->
+  IO ()
+waitForAllConfirmations n1 Registry{confirmedTxs, submissionQ} allIds = do
   go allIds
  where
-  allIds = Set.fromList $ map txId txs
-
   go remainingIds
     | Set.null remainingIds = pure ()
     | otherwise = do
       waitForSnapshotConfirmation >>= \case
         TxInvalid{transaction} -> do
           putTextLn $ "TxInvalid: " <> show (txId transaction) <> ", resubmitting"
-          newTx registry n1 transaction
+          atomically $ writeTBQueue submissionQ transaction
           go remainingIds
         SnapshotConfirmed{transactions, snapshotNumber} -> do
           -- TODO(SN): use a tracer for this
           putTextLn $ "Snapshot confirmed: " <> show snapshotNumber
-          confirmedIds <- mapM (confirmTx registry) transactions
+          confirmedIds <- mapM (confirmTx confirmedTxs) transactions
           go $ remainingIds \\ Set.fromList confirmedIds
 
   waitForSnapshotConfirmation = waitMatch 20 n1 $ \v ->
