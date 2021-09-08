@@ -12,15 +12,15 @@ import Cardano.Crypto.DSIGN (
   SignKeyDSIGN,
   VerKeyDSIGN,
  )
+import Control.Concurrent.STM (check)
 import Control.Lens (to, (^?))
 import Control.Monad.Class.MonadSTM (
   MonadSTM (readTVarIO),
-  isEmptyTBQueue,
   modifyTVar,
   modifyTVar',
   newTBQueueIO,
   newTVarIO,
-  readTBQueue,
+  tryReadTBQueue,
   writeTBQueue,
  )
 import Data.Aeson (Result (Error, Success), Value, encode, fromJSON, (.=))
@@ -58,7 +58,6 @@ carolVk = deriveVerKeyDSIGN carolSk
 
 data Event = Event
   { submittedAt :: UTCTime
-  , submittedAtSnapshot :: Scientific
   , confirmedAt :: Maybe UTCTime
   }
   deriving (Generic, Eq, Show, ToJSON)
@@ -68,7 +67,7 @@ bench workDir initialUtxo txs =
   specify ("Load test on three local nodes (" <> workDir <> ")") $ do
     registry <- newRegistry txs
     showLogsOnFailure $ \tracer ->
-      failAfter 300 $ do
+      failAfter 600 $ do
         withMockChain $ \chainPorts ->
           withHydraNode tracer workDir chainPorts 1 aliceSk [bobVk, carolVk] $ \n1 ->
             withHydraNode tracer workDir chainPorts 2 bobSk [aliceVk, carolVk] $ \n2 ->
@@ -126,20 +125,19 @@ newTx ::
   Tx tx =>
   TVar IO (Map.Map (TxId tx) Event) ->
   HydraClient ->
-  Scientific ->
   tx ->
   IO ()
-newTx registry client sn tx = do
+newTx registry client tx = do
   now <- getCurrentTime
   atomically $
     modifyTVar registry $
       Map.insert (txId tx) $
         Event
           { submittedAt = now
-          , submittedAtSnapshot = sn
           , confirmedAt = Nothing
           }
   send client $ input "NewTx" ["transaction" .= tx]
+  putTextLn $ "Submitted tx " <> show (txId tx)
 
 data WaitResult
   = TxInvalid {transaction :: CardanoTx, reason :: Text}
@@ -165,32 +163,16 @@ submitTxs ::
   HydraClient ->
   Registry CardanoTx ->
   IO ()
-submitTxs client registry@Registry{confirmedTxs, submissionQ, latestSnapshot} = do
-  (queueEmpty, unconfirmedIds) <- atomically $ do
-    unconfirmedIds <- Map.keys . Map.filter (isNothing . confirmedAt) <$> readTVar confirmedTxs
-    queueEmpty <- isEmptyTBQueue submissionQ
-    pure (queueEmpty, unconfirmedIds)
-
-  if
-      | queueEmpty && null unconfirmedIds -> do
-        putStrLn "Done submitting transactions."
-      | queueEmpty -> do
-        threadDelay 0.1 >> submitTxs client registry
-      | otherwise -> do
-        (tx, latestSn, txs) <-
-          atomically $
-            (,,)
-              <$> readTBQueue submissionQ
-              <*> readTVar latestSnapshot
-              <*> readTVar confirmedTxs
-        case Map.lookup (txId tx) txs of
-          Nothing ->
-            newTx confirmedTxs client latestSn tx
-          Just e | submittedAtSnapshot e < latestSn -> do
-            newTx confirmedTxs client latestSn tx
-          _ -> do
-            atomically $ writeTBQueue submissionQ tx
-        submitTxs client registry
+submitTxs client registry@Registry{confirmedTxs, submissionQ} = do
+  txToSubmit <- atomically $ tryReadTBQueue submissionQ
+  case txToSubmit of
+    Just tx -> do
+      newTx confirmedTxs client tx
+      atomically $ do
+        event <- Map.lookup (txId tx) <$> readTVar confirmedTxs
+        check (isJust $ confirmedAt =<< event)
+      submitTxs client registry
+    Nothing -> pure ()
 
 waitForAllConfirmations ::
   HydraClient ->
