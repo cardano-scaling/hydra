@@ -166,25 +166,31 @@ submitTxs ::
   Registry CardanoTx ->
   IO ()
 submitTxs client registry@Registry{confirmedTxs, submissionQ, latestSnapshot} = do
-  shouldStop <- atomically $ do
+  (queueEmpty, unconfirmedIds) <- atomically $ do
     unconfirmedIds <- Map.keys . Map.filter (isNothing . confirmedAt) <$> readTVar confirmedTxs
     queueEmpty <- isEmptyTBQueue submissionQ
-    pure $ null unconfirmedIds && queueEmpty
-  if shouldStop
-    then pure ()
-    else do
-      (tx, latestSn, txs) <-
-        atomically $
-          (,,)
-            <$> readTBQueue submissionQ
-            <*> readTVar latestSnapshot
-            <*> readTVar confirmedTxs
-      case Map.lookup (txId tx) txs of
-        Just e | submittedAtSnapshot e < latestSn -> do
-          atomically $ writeTBQueue submissionQ tx
-        _ -> do
-          newTx confirmedTxs client latestSn tx
-      submitTxs client registry
+    pure (queueEmpty, unconfirmedIds)
+
+  if
+      | queueEmpty && null unconfirmedIds -> do
+        putStrLn "Done submitting transactions."
+      | queueEmpty -> do
+        threadDelay 0.1 >> submitTxs client registry
+      | otherwise -> do
+        (tx, latestSn, txs) <-
+          atomically $
+            (,,)
+              <$> readTBQueue submissionQ
+              <*> readTVar latestSnapshot
+              <*> readTVar confirmedTxs
+        case Map.lookup (txId tx) txs of
+          Nothing ->
+            newTx confirmedTxs client latestSn tx
+          Just e | submittedAtSnapshot e < latestSn -> do
+            newTx confirmedTxs client latestSn tx
+          _ -> do
+            atomically $ writeTBQueue submissionQ tx
+        submitTxs client registry
 
 waitForAllConfirmations ::
   HydraClient ->
@@ -195,7 +201,8 @@ waitForAllConfirmations n1 Registry{confirmedTxs, submissionQ, latestSnapshot} a
   go allIds
  where
   go remainingIds
-    | Set.null remainingIds = pure ()
+    | Set.null remainingIds = do
+      putStrLn "All transactions confirmed. Sweet!"
     | otherwise = do
       waitForSnapshotConfirmation >>= \case
         TxInvalid{transaction} -> do
@@ -204,13 +211,17 @@ waitForAllConfirmations n1 Registry{confirmedTxs, submissionQ, latestSnapshot} a
           go remainingIds
         SnapshotConfirmed{transactions, snapshotNumber} -> do
           -- TODO(SN): use a tracer for this
-          putTextLn $ "Snapshot confirmed: " <> show snapshotNumber
           atomically $ modifyTVar' latestSnapshot (max snapshotNumber)
           confirmedIds <- mapM (confirmTx confirmedTxs) transactions
+          putTextLn $ "Snapshot confirmed: " <> show snapshotNumber
+          putTextLn $ "Transaction(s) confirmed: " <> fmtIds confirmedIds
           go $ remainingIds \\ Set.fromList confirmedIds
 
   waitForSnapshotConfirmation = waitMatch 20 n1 $ \v ->
     maybeTxInvalid v <|> maybeSnapshotConfirmed v
+
+  fmtIds =
+    toText . intercalate "" . fmap (("\n    - " <>) . show)
 
   maybeTxInvalid v = do
     guard (v ^? key "tag" == Just "TxInvalid")
