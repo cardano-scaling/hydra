@@ -359,13 +359,17 @@ isLeader HeadParameters{parties} p sn =
     _ -> False
 
 -- | Snapshot emission decider
-newSn :: Environment -> HeadState tx -> SnapshotOutcome tx
+newSn :: Tx tx => Environment -> HeadState tx -> SnapshotOutcome tx
 newSn Environment{party} = \case
-  OpenState{parameters, coordinatedHeadState} ->
-    let Snapshot{number} = confirmedSnapshot coordinatedHeadState
+  OpenState{parameters, coordinatedHeadState = CoordinatedHeadState{confirmedSnapshot, seenSnapshot, seenTxs}} ->
+    let Snapshot{number} = confirmedSnapshot
         nextSnapshotNumber = succ number
-     in if isLeader parameters party nextSnapshotNumber
-          then SendReqSn nextSnapshotNumber (seenTxs coordinatedHeadState)
-          else NotLeader nextSnapshotNumber
+     in if
+            | not (isLeader parameters party nextSnapshotNumber) ->
+              NotLeader nextSnapshotNumber
+            | seenSnapshot /= NoSeenSnapshot ->
+              SnapshotInFlight nextSnapshotNumber
+            | otherwise ->
+              SendReqSn nextSnapshotNumber seenTxs
   _ ->
     error "Not in OpenState"

@@ -1,3 +1,4 @@
+{-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE TypeApplications #-}
 
 module Hydra.SnapshotStrategySpec where
@@ -5,6 +6,7 @@ module Hydra.SnapshotStrategySpec where
 import Hydra.Prelude
 import Test.Hydra.Prelude
 
+import qualified Data.List as List
 import qualified Data.Set as Set
 import Hydra.Chain (HeadParameters (HeadParameters))
 import Hydra.HeadLogic (
@@ -17,56 +19,61 @@ import Hydra.HeadLogic (
   SeenSnapshot (NoSeenSnapshot, SeenSnapshot),
   SnapshotOutcome (..),
   newSn,
-  update,
  )
-import Hydra.Ledger (Ledger (..), Party, Tx (..))
+import Hydra.Ledger (Ledger (..), Party, Tx (..), deriveParty)
 import Hydra.Ledger.Simple (SimpleTx (..), aValidTx, simpleLedger)
-import Hydra.Network.Message (Message (AckSn, ReqSn, ReqTx))
+import Hydra.Network.Message (Message (..))
 import Hydra.Snapshot (Snapshot (..))
 
 spec :: Spec
 spec = do
   parallel $ do
     let threeParties = [1, 2, 3]
-        ledger = simpleLedger
-        envIsLeader =
-          Environment
-            { party = 1
-            , signingKey = 1
-            , otherParties = [2, 3]
-            }
-
-        envNotLeader =
-          Environment
-            { party = 2
-            , signingKey = 2
-            , otherParties = [1, 3]
-            }
+        Ledger{initUtxo} = simpleLedger
+        envFor signingKey =
+          let party = deriveParty signingKey
+           in Environment
+                { party
+                , signingKey
+                , otherParties = List.delete party threeParties
+                }
 
     it "sends ReqSn given is leader and no snapshot in flight and there's a seen tx" $ do
-      let s0 = inOpenState threeParties ledger
-          tx = aValidTx 1
-          reqTx = NetworkEvent $ ReqTx 1 tx
-      s1 <- assertNewState $ update envIsLeader ledger s0 reqTx
-      newSn envIsLeader s1 `shouldBe` SendReqSn 1 [tx]
+      let tx = aValidTx 1
+          st =
+            inOpenState' @SimpleTx threeParties $
+              CoordinatedHeadState
+                { seenUtxo = initUtxo
+                , seenTxs = [tx]
+                , confirmedSnapshot = Snapshot 0 initUtxo mempty
+                , seenSnapshot = NoSeenSnapshot
+                }
+      newSn (envFor 1) st `shouldBe` SendReqSn 1 [tx]
 
     it "do not send ReqSn when we aren't leader" $ do
-      let s0 = inOpenState threeParties ledger
-          tx = aValidTx 1
-          reqTx = NetworkEvent $ ReqTx 1 tx
-      s1 <- assertNewState $ update envNotLeader ledger s0 reqTx
-      newSn envNotLeader s1 `shouldBe` NotLeader 1
+      let tx = aValidTx 1
+          st =
+            inOpenState' @SimpleTx threeParties $
+              CoordinatedHeadState
+                { seenUtxo = initUtxo
+                , seenTxs = [tx]
+                , confirmedSnapshot = Snapshot 0 initUtxo mempty
+                , seenSnapshot = NoSeenSnapshot
+                }
+      newSn (envFor 2) st `shouldBe` NotLeader 1
 
     it "do not send ReqSn when there is a snapshot in flight" $ do
-      let Ledger{initUtxo} = ledger
-          sn1 = Snapshot 1 initUtxo mempty
-          s0 = inOpenState' threeParties $ CoordinatedHeadState initUtxo mempty (Snapshot 0 initUtxo mempty) (SeenSnapshot sn1 (Set.fromList []))
-          tx = aValidTx 1
-          reqTx = NetworkEvent $ ReqTx 1 tx
+      let sn1 = Snapshot 1 initUtxo mempty
+          st =
+            inOpenState' @SimpleTx threeParties $
+              CoordinatedHeadState
+                { seenUtxo = initUtxo
+                , seenTxs = mempty
+                , confirmedSnapshot = Snapshot 0 initUtxo mempty
+                , seenSnapshot = SeenSnapshot sn1 (Set.fromList [])
+                }
 
-      s1 <- assertNewState $ update envNotLeader ledger s0 reqTx
-
-      newSn envNotLeader s1 `shouldBe` SnapshotInFlight 1
+      newSn (envFor 1) st `shouldBe` SnapshotInFlight 1
 
 --
 -- Assertion utilities
