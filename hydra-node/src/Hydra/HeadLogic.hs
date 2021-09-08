@@ -329,7 +329,6 @@ data NoSnapshotReason
   = NotLeader SnapshotNumber
   | SnapshotInFlight SnapshotNumber
   | NoTransactionsToSnapshot
-  | NotInOpenState
   deriving (Eq, Show, Generic)
 
 isLeader :: HeadParameters -> Party -> SnapshotNumber -> Bool
@@ -339,29 +338,30 @@ isLeader HeadParameters{parties} p sn =
     _ -> False
 
 -- | Snapshot emission decider
-newSn :: Tx tx => Environment -> HeadState tx -> SnapshotOutcome tx
-newSn Environment{party} = \case
-  OpenState{parameters, coordinatedHeadState = CoordinatedHeadState{confirmedSnapshot, seenSnapshot, seenTxs}} ->
-    let Snapshot{number} = confirmedSnapshot
-        nextSnapshotNumber = succ number
-     in if
-            | not (isLeader parameters party nextSnapshotNumber) ->
-              ShouldNotSnapshot $ NotLeader nextSnapshotNumber
-            | seenSnapshot /= NoSeenSnapshot ->
-              ShouldNotSnapshot $ SnapshotInFlight nextSnapshotNumber
-            | null seenTxs ->
-              ShouldNotSnapshot NoTransactionsToSnapshot
-            | otherwise ->
-              ShouldSnapshot nextSnapshotNumber seenTxs
-  _ ->
-    ShouldNotSnapshot NotInOpenState
+newSn :: Tx tx => Environment -> HeadParameters -> CoordinatedHeadState tx -> SnapshotOutcome tx
+newSn Environment{party} parameters CoordinatedHeadState{confirmedSnapshot, seenSnapshot, seenTxs} =
+  let Snapshot{number} = confirmedSnapshot
+      nextSnapshotNumber = succ number
+   in if
+          | not (isLeader parameters party nextSnapshotNumber) ->
+            ShouldNotSnapshot $ NotLeader nextSnapshotNumber
+          | seenSnapshot /= NoSeenSnapshot ->
+            ShouldNotSnapshot $ SnapshotInFlight nextSnapshotNumber
+          | null seenTxs ->
+            ShouldNotSnapshot NoTransactionsToSnapshot
+          | otherwise ->
+            ShouldSnapshot nextSnapshotNumber seenTxs
 
 emitSnapshot :: Tx tx => Environment -> [Effect tx] -> HeadState tx -> (HeadState tx, [Effect tx])
-emitSnapshot env@Environment{party} effects st@OpenState{coordinatedHeadState} =
-  case newSn env st of
-    ShouldSnapshot sn txs ->
-      ( st{coordinatedHeadState = coordinatedHeadState{seenSnapshot = RequestedSnapshot}}
-      , NetworkEffect (ReqSn party sn txs) : effects
-      )
-    _ -> (st, effects)
-emitSnapshot _env effects st = (st, effects)
+emitSnapshot env@Environment{party} effects = \case
+  st@OpenState{parameters, coordinatedHeadState} ->
+    case newSn env parameters coordinatedHeadState of
+      ShouldSnapshot sn txs ->
+        ( OpenState
+            { parameters
+            , coordinatedHeadState = coordinatedHeadState{seenSnapshot = RequestedSnapshot}
+            }
+        , NetworkEffect (ReqSn party sn txs) : effects
+        )
+      _ -> (st, effects)
+  st -> (st, effects)

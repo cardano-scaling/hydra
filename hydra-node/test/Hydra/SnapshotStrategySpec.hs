@@ -40,57 +40,52 @@ spec = do
                 , otherParties = List.delete party threeParties
                 }
 
+    let params = HeadParameters 42 threeParties
+
     describe "New Snapshot Decision" $ do
       it "sends ReqSn given is leader and no snapshot in flight and there's a seen tx" $ do
         let tx = aValidTx 1
             st =
-              inOpenState' @SimpleTx threeParties $
-                CoordinatedHeadState
-                  { seenUtxo = initUtxo
-                  , seenTxs = [tx]
-                  , confirmedSnapshot = Snapshot 0 initUtxo mempty
-                  , seenSnapshot = NoSeenSnapshot
-                  }
-        newSn (envFor 1) st `shouldBe` ShouldSnapshot 1 [tx]
+              CoordinatedHeadState
+                { seenUtxo = initUtxo
+                , seenTxs = [tx]
+                , confirmedSnapshot = Snapshot 0 initUtxo mempty
+                , seenSnapshot = NoSeenSnapshot
+                }
+        newSn (envFor 1) params st `shouldBe` ShouldSnapshot 1 [tx]
 
       it "do not send ReqSn when we aren't leader" $ do
         let tx = aValidTx 1
             st =
-              inOpenState' @SimpleTx threeParties $
-                CoordinatedHeadState
-                  { seenUtxo = initUtxo
-                  , seenTxs = [tx]
-                  , confirmedSnapshot = Snapshot 0 initUtxo mempty
-                  , seenSnapshot = NoSeenSnapshot
-                  }
-        newSn (envFor 2) st `shouldBe` ShouldNotSnapshot (NotLeader 1)
+              CoordinatedHeadState
+                { seenUtxo = initUtxo
+                , seenTxs = [tx]
+                , confirmedSnapshot = Snapshot 0 initUtxo mempty
+                , seenSnapshot = NoSeenSnapshot
+                }
+        newSn (envFor 2) params st `shouldBe` ShouldNotSnapshot (NotLeader 1)
 
       it "do not send ReqSn when there is a snapshot in flight" $ do
-        let sn1 = Snapshot 1 initUtxo mempty
+        let sn1 = Snapshot 1 initUtxo mempty :: Snapshot SimpleTx
             st =
-              inOpenState' @SimpleTx threeParties $
-                CoordinatedHeadState
-                  { seenUtxo = initUtxo
-                  , seenTxs = mempty
-                  , confirmedSnapshot = Snapshot 0 initUtxo mempty
-                  , seenSnapshot = SeenSnapshot sn1 (Set.fromList [])
-                  }
-        newSn (envFor 1) st `shouldBe` ShouldNotSnapshot (SnapshotInFlight 1)
+              CoordinatedHeadState
+                { seenUtxo = initUtxo
+                , seenTxs = mempty
+                , confirmedSnapshot = Snapshot 0 initUtxo mempty
+                , seenSnapshot = SeenSnapshot sn1 (Set.fromList [])
+                }
+        newSn (envFor 1) params st `shouldBe` ShouldNotSnapshot (SnapshotInFlight 1)
 
       it "do not send ReqSn when there's no seen transactions" $ do
         let st =
-              inOpenState' @SimpleTx threeParties $
-                CoordinatedHeadState
-                  { seenUtxo = initUtxo
-                  , seenTxs = mempty
-                  , confirmedSnapshot = Snapshot 0 initUtxo mempty
-                  , seenSnapshot = NoSeenSnapshot
-                  }
-        newSn (envFor 1) st `shouldBe` ShouldNotSnapshot NoTransactionsToSnapshot
-
-      it "do not send snapshot when not in Open state" $ do
-        let st = inInitialState threeParties
-        newSn (envFor 1) st `shouldBe` ShouldNotSnapshot NotInOpenState
+              CoordinatedHeadState
+                { seenUtxo = initUtxo
+                , seenTxs = mempty
+                , confirmedSnapshot = Snapshot 0 initUtxo mempty
+                , seenSnapshot = NoSeenSnapshot
+                } ::
+                CoordinatedHeadState SimpleTx
+        newSn (envFor 1) params st `shouldBe` ShouldNotSnapshot NoTransactionsToSnapshot
 
       describe "Snapshot Emission" $ do
         it "update seenSnapshot state when sending ReqSn" $ do
