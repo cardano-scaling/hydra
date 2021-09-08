@@ -17,8 +17,9 @@ import Hydra.HeadLogic (
   HeadState (..),
   NoSnapshotReason (..),
   Outcome (..),
-  SeenSnapshot (NoSeenSnapshot, SeenSnapshot),
+  SeenSnapshot (..),
   SnapshotOutcome (..),
+  emitSnapshot,
   newSn,
  )
 import Hydra.Ledger (Ledger (..), Party, Tx (..), deriveParty)
@@ -39,56 +40,76 @@ spec = do
                 , otherParties = List.delete party threeParties
                 }
 
-    it "sends ReqSn given is leader and no snapshot in flight and there's a seen tx" $ do
-      let tx = aValidTx 1
-          st =
-            inOpenState' @SimpleTx threeParties $
-              CoordinatedHeadState
-                { seenUtxo = initUtxo
-                , seenTxs = [tx]
-                , confirmedSnapshot = Snapshot 0 initUtxo mempty
-                , seenSnapshot = NoSeenSnapshot
-                }
-      newSn (envFor 1) st `shouldBe` ShouldSnapshot 1 [tx]
+    describe "New Snapshot Decision" $ do
+      it "sends ReqSn given is leader and no snapshot in flight and there's a seen tx" $ do
+        let tx = aValidTx 1
+            st =
+              inOpenState' @SimpleTx threeParties $
+                CoordinatedHeadState
+                  { seenUtxo = initUtxo
+                  , seenTxs = [tx]
+                  , confirmedSnapshot = Snapshot 0 initUtxo mempty
+                  , seenSnapshot = NoSeenSnapshot
+                  }
+        newSn (envFor 1) st `shouldBe` ShouldSnapshot 1 [tx]
 
-    it "do not send ReqSn when we aren't leader" $ do
-      let tx = aValidTx 1
-          st =
-            inOpenState' @SimpleTx threeParties $
-              CoordinatedHeadState
-                { seenUtxo = initUtxo
-                , seenTxs = [tx]
-                , confirmedSnapshot = Snapshot 0 initUtxo mempty
-                , seenSnapshot = NoSeenSnapshot
-                }
-      newSn (envFor 2) st `shouldBe` ShouldNotSnapshot (NotLeader 1)
+      it "do not send ReqSn when we aren't leader" $ do
+        let tx = aValidTx 1
+            st =
+              inOpenState' @SimpleTx threeParties $
+                CoordinatedHeadState
+                  { seenUtxo = initUtxo
+                  , seenTxs = [tx]
+                  , confirmedSnapshot = Snapshot 0 initUtxo mempty
+                  , seenSnapshot = NoSeenSnapshot
+                  }
+        newSn (envFor 2) st `shouldBe` ShouldNotSnapshot (NotLeader 1)
 
-    it "do not send ReqSn when there is a snapshot in flight" $ do
-      let sn1 = Snapshot 1 initUtxo mempty
-          st =
-            inOpenState' @SimpleTx threeParties $
-              CoordinatedHeadState
-                { seenUtxo = initUtxo
-                , seenTxs = mempty
-                , confirmedSnapshot = Snapshot 0 initUtxo mempty
-                , seenSnapshot = SeenSnapshot sn1 (Set.fromList [])
-                }
-      newSn (envFor 1) st `shouldBe` ShouldNotSnapshot (SnapshotInFlight 1)
+      it "do not send ReqSn when there is a snapshot in flight" $ do
+        let sn1 = Snapshot 1 initUtxo mempty
+            st =
+              inOpenState' @SimpleTx threeParties $
+                CoordinatedHeadState
+                  { seenUtxo = initUtxo
+                  , seenTxs = mempty
+                  , confirmedSnapshot = Snapshot 0 initUtxo mempty
+                  , seenSnapshot = SeenSnapshot sn1 (Set.fromList [])
+                  }
+        newSn (envFor 1) st `shouldBe` ShouldNotSnapshot (SnapshotInFlight 1)
 
-    it "do not send ReqSn when there's no seen transactions" $ do
-      let st =
-            inOpenState' @SimpleTx threeParties $
-              CoordinatedHeadState
-                { seenUtxo = initUtxo
-                , seenTxs = mempty
-                , confirmedSnapshot = Snapshot 0 initUtxo mempty
-                , seenSnapshot = NoSeenSnapshot
-                }
-      newSn (envFor 1) st `shouldBe` ShouldNotSnapshot NoTransactionsToSnapshot
+      it "do not send ReqSn when there's no seen transactions" $ do
+        let st =
+              inOpenState' @SimpleTx threeParties $
+                CoordinatedHeadState
+                  { seenUtxo = initUtxo
+                  , seenTxs = mempty
+                  , confirmedSnapshot = Snapshot 0 initUtxo mempty
+                  , seenSnapshot = NoSeenSnapshot
+                  }
+        newSn (envFor 1) st `shouldBe` ShouldNotSnapshot NoTransactionsToSnapshot
 
-    it "do not send snapshot when not in Open state" $ do
-      let st = inInitialState threeParties
-      newSn (envFor 1) st `shouldBe` ShouldNotSnapshot NotInOpenState
+      it "do not send snapshot when not in Open state" $ do
+        let st = inInitialState threeParties
+        newSn (envFor 1) st `shouldBe` ShouldNotSnapshot NotInOpenState
+
+      describe "Snapshot Emission" $ do
+        it "update seenSnapshot state when sending ReqSn" $ do
+          let tx = aValidTx 1
+              coordinatedState =
+                CoordinatedHeadState
+                  { seenUtxo = initUtxo
+                  , seenTxs = [tx]
+                  , confirmedSnapshot = Snapshot 0 initUtxo mempty
+                  , seenSnapshot = NoSeenSnapshot
+                  }
+              st =
+                inOpenState' @SimpleTx threeParties coordinatedState
+              st' =
+                inOpenState' @SimpleTx threeParties $
+                  coordinatedState{seenSnapshot = RequestedSnapshot}
+
+          emitSnapshot (envFor 1) [] st
+            `shouldBe` (st', [NetworkEffect $ ReqSn 1 1 [tx]])
 
 --
 -- Assertion utilities

@@ -155,7 +155,9 @@ processNextEvent ::
 processNextEvent HydraNode{hh, env} e =
   modifyHeadState hh $ \s ->
     case Logic.update env (ledger hh) s e of
-      NewState s' effects -> (Right $ emitSnapshot env s' effects, s')
+      NewState s' effects ->
+        let (s'', effects') = emitSnapshot env effects s'
+         in (Right effects', s'')
       Error err -> (Left err, s)
       Wait -> (Right [Delay 0.1 e], s)
 

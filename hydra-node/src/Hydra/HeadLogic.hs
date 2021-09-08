@@ -90,6 +90,7 @@ deriving instance Tx tx => FromJSON (CoordinatedHeadState tx)
 
 data SeenSnapshot tx
   = NoSeenSnapshot
+  | RequestedSnapshot
   | SeenSnapshot {snapshot :: Snapshot tx, signatories :: Set Party}
   deriving stock (Generic)
 
@@ -254,6 +255,7 @@ update Environment{party, signingKey, otherParties} ledger st ev = case (st, ev)
   (OpenState parameters@HeadParameters{parties} headState@CoordinatedHeadState{seenSnapshot, seenTxs}, NetworkEvent (AckSn otherParty snapshotSignature sn)) ->
     case seenSnapshot of
       NoSeenSnapshot -> Wait
+      RequestedSnapshot -> Wait
       SeenSnapshot snapshot sigs
         | number snapshot /= sn -> Wait
         | otherwise ->
@@ -354,8 +356,12 @@ newSn Environment{party} = \case
   _ ->
     ShouldNotSnapshot NotInOpenState
 
-emitSnapshot :: Tx tx => Environment -> HeadState tx -> [Effect tx] -> [Effect tx]
-emitSnapshot env@Environment{party} st effects =
+emitSnapshot :: Tx tx => Environment -> [Effect tx] -> HeadState tx -> (HeadState tx, [Effect tx])
+emitSnapshot env@Environment{party} effects st@OpenState{coordinatedHeadState} =
   case newSn env st of
-    ShouldSnapshot sn txs -> NetworkEffect (ReqSn party sn txs) : effects
-    _ -> effects
+    ShouldSnapshot sn txs ->
+      ( st{coordinatedHeadState = coordinatedHeadState{seenSnapshot = RequestedSnapshot}}
+      , NetworkEffect (ReqSn party sn txs) : effects
+      )
+    _ -> (st, effects)
+emitSnapshot _env effects st = (st, effects)
