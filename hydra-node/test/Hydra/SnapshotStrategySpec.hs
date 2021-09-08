@@ -21,17 +21,12 @@ import Hydra.HeadLogic (
   update,
  )
 import Hydra.Ledger (Ledger (..), Party, Tx (..))
-import Hydra.Ledger.Simple (SimpleTx (..), simpleLedger, utxoRef)
+import Hydra.Ledger.Simple (SimpleTx (..), aValidTx, simpleLedger)
 import Hydra.Network.Message (Message (AckSn, ReqSn, ReqTx))
 import Hydra.Snapshot (Snapshot (..))
-import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
 
 spec :: Spec
 spec = do
-  parallel $
-    describe "Event" $ do
-      roundtripAndGoldenSpecs (Proxy @(Event SimpleTx))
-
   parallel $ do
     let threeParties = [1, 2, 3]
         ledger = simpleLedger
@@ -45,9 +40,8 @@ spec = do
 
     it "sends ReqSn given is leader and no snapshot in flight and there's a seen tx" $ do
       let s0 = inOpenState threeParties ledger
-          tx = SimpleTx 2 inputs mempty
+          tx = aValidTx 1
           reqTx = NetworkEvent $ ReqTx 1 tx
-          inputs = utxoRef 1
 
       s1 <- assertNewState $ update env ledger s0 reqTx
 

@@ -363,4 +363,9 @@ data SnapshotOutcome tx
 
 -- | Snapshot emission decider
 newSn :: Environment -> HeadState tx -> SnapshotOutcome tx
-newSn _env _st = error "undefined"
+newSn _env = \case
+  OpenState{coordinatedHeadState} ->
+    let Snapshot{number} = confirmedSnapshot coordinatedHeadState
+     in SendReqSn (succ number) (seenTxs coordinatedHeadState)
+  _ ->
+    error "TODO: no outcome"
