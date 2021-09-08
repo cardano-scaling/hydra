@@ -346,12 +346,6 @@ update Environment{party, signingKey, otherParties, snapshotStrategy} ledger st 
 
   sameState = nextState st
 
-  isLeader :: HeadParameters -> Party -> SnapshotNumber -> Bool
-  isLeader HeadParameters{parties} p sn =
-    case p `elemIndex` parties of
-      Just i -> ((fromIntegral @Natural @Int sn - 1) `mod` length parties) == i
-      _ -> False
-
   snapshotPending :: SeenSnapshot tx -> Bool
   snapshotPending = \case
     SeenSnapshot{} -> True
@@ -359,13 +353,23 @@ update Environment{party, signingKey, otherParties, snapshotStrategy} ledger st 
 
 data SnapshotOutcome tx
   = SendReqSn SnapshotNumber [tx] -- TODO(AB) : should really be a Set (TxId tx)
+  | NotLeader SnapshotNumber
   deriving (Eq, Show, Generic)
+
+isLeader :: HeadParameters -> Party -> SnapshotNumber -> Bool
+isLeader HeadParameters{parties} p sn =
+  case p `elemIndex` parties of
+    Just i -> ((fromIntegral @Natural @Int sn - 1) `mod` length parties) == i
+    _ -> False
 
 -- | Snapshot emission decider
 newSn :: Environment -> HeadState tx -> SnapshotOutcome tx
-newSn _env = \case
-  OpenState{coordinatedHeadState} ->
+newSn Environment{party} = \case
+  OpenState{parameters, coordinatedHeadState} ->
     let Snapshot{number} = confirmedSnapshot coordinatedHeadState
-     in SendReqSn (succ number) (seenTxs coordinatedHeadState)
+        nextSnapshotNumber = succ number
+     in if isLeader parameters party nextSnapshotNumber
+          then SendReqSn nextSnapshotNumber (seenTxs coordinatedHeadState)
+          else NotLeader nextSnapshotNumber
   _ ->
-    error "TODO: no outcome"
+    error "Not in OpenState"

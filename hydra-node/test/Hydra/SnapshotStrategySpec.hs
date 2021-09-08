@@ -15,8 +15,7 @@ import Hydra.HeadLogic (
   HeadState (..),
   Outcome (..),
   SeenSnapshot (NoSeenSnapshot),
-  SnapshotOutcome (SendReqSn),
-  SnapshotStrategy (..),
+  SnapshotOutcome (..),
   newSn,
   update,
  )
@@ -30,22 +29,35 @@ spec = do
   parallel $ do
     let threeParties = [1, 2, 3]
         ledger = simpleLedger
-        env =
+        envIsLeader =
+          Environment
+            { party = 1
+            , signingKey = 1
+            , otherParties = [2, 3]
+            , snapshotStrategy = error "Not used yet."
+            }
+
+        envNotLeader =
           Environment
             { party = 2
             , signingKey = 2
             , otherParties = [1, 3]
-            , snapshotStrategy = NoSnapshots
+            , snapshotStrategy = error "Not used yet."
             }
 
     it "sends ReqSn given is leader and no snapshot in flight and there's a seen tx" $ do
       let s0 = inOpenState threeParties ledger
           tx = aValidTx 1
           reqTx = NetworkEvent $ ReqTx 1 tx
+      s1 <- assertNewState $ update envIsLeader ledger s0 reqTx
+      newSn envIsLeader s1 `shouldBe` SendReqSn 1 [tx]
 
-      s1 <- assertNewState $ update env ledger s0 reqTx
-
-      newSn env s1 `shouldBe` SendReqSn 1 [tx]
+    it "do not send ReqSn when we aren't leader" $ do
+      let s0 = inOpenState threeParties ledger
+          tx = aValidTx 1
+          reqTx = NetworkEvent $ ReqTx 1 tx
+      s1 <- assertNewState $ update envNotLeader ledger s0 reqTx
+      newSn envNotLeader s1 `shouldBe` NotLeader 1
 
 --
 -- Assertion utilities
