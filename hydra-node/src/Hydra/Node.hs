@@ -29,6 +29,7 @@ import Hydra.HeadLogic (
   HeadState (..),
   LogicError (..),
   Outcome (..),
+  emitSnapshot,
  )
 import qualified Hydra.HeadLogic as Logic
 import Hydra.Ledger (Ledger, Party (..), Tx, Utxo)
@@ -142,7 +143,8 @@ stepHydraNode tracer node@HydraNode{eq, env = Environment{party}} = do
     -- TODO(SN): Handling of 'Left' is untested, i.e. the fact that it only
     -- does trace and not throw!
     Left err -> traceWith tracer (ErrorHandlingEvent party e err)
-    Right effs -> forM_ effs (processEffect node tracer) >> traceWith tracer (ProcessedEvent party e)
+    Right effs ->
+      forM_ effs (processEffect node tracer) >> traceWith tracer (ProcessedEvent party e)
 
 -- | Monadic interface around 'Hydra.Logic.update'.
 processNextEvent ::
@@ -153,7 +155,7 @@ processNextEvent ::
 processNextEvent HydraNode{hh, env} e =
   modifyHeadState hh $ \s ->
     case Logic.update env (ledger hh) s e of
-      NewState s' effects -> (Right effects, s')
+      NewState s' effects -> (Right $ emitSnapshot env s' effects, s')
       Error err -> (Left err, s)
       Wait -> (Right [Delay 0.1 e], s)
 

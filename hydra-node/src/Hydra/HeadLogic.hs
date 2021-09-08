@@ -90,7 +90,6 @@ deriving instance Tx tx => FromJSON (CoordinatedHeadState tx)
 
 data SeenSnapshot tx
   = NoSeenSnapshot
-  | RequestedSnapshot
   | SeenSnapshot {snapshot :: Snapshot tx, signatories :: Set Party}
   deriving stock (Generic)
 
@@ -217,45 +216,19 @@ update Environment{party, signingKey, otherParties} ledger st ev = case (st, ev)
       case canApply ledger utxo tx of
         Valid -> [ClientEffect $ TxValid tx, NetworkEffect $ ReqTx party tx]
         Invalid err -> [ClientEffect $ TxInvalid{utxo = utxo, transaction = tx, validationError = err}]
-  (OpenState parameters headState@CoordinatedHeadState{confirmedSnapshot, seenSnapshot, seenTxs, seenUtxo}, NetworkEvent (ReqTx _ tx)) ->
-    let shouldDoSnapshot lastSeenSnapshot =
-          isLeader parameters party (number lastSeenSnapshot + 1)
-     in case seenSnapshot of
-          -- NOTE: In case where we are leader of the *next* snapshot, we
-          -- wait and do not process this transaction yet. This will allow us to
-          -- re-process the transaction at a time where we may be able to request a
-          -- snapshot. If we processed the transaction right away, then we may miss
-          -- the opportunity to make a snapshot.
-          SeenSnapshot{snapshot}
-            | shouldDoSnapshot snapshot ->
-              Wait
-          _ ->
-            case applyTransactions ledger seenUtxo [tx] of
-              Left _err -> Wait -- The transaction may not be applicable yet.
-              Right utxo' ->
-                let newSeenTxs = seenTxs <> [tx]
-                    (newSeenSnapshot, effects) = case seenSnapshot of
-                      NoSeenSnapshot
-                        | shouldDoSnapshot confirmedSnapshot ->
-                          ( RequestedSnapshot
-                          ,
-                            [ ClientEffect $ TxSeen tx
-                            , NetworkEffect $ ReqSn party (number confirmedSnapshot + 1) newSeenTxs
-                            ]
-                          )
-                      _ ->
-                        ( seenSnapshot
-                        , [ClientEffect $ TxSeen tx]
-                        )
-                 in nextState
-                      ( OpenState parameters $
-                          headState
-                            { seenTxs = newSeenTxs
-                            , seenUtxo = utxo'
-                            , seenSnapshot = newSeenSnapshot
-                            }
-                      )
-                      effects
+  (OpenState parameters headState@CoordinatedHeadState{seenTxs, seenUtxo}, NetworkEvent (ReqTx _ tx)) ->
+    case applyTransactions ledger seenUtxo [tx] of
+      Left _err -> Wait -- The transaction may not be applicable yet.
+      Right utxo' ->
+        let newSeenTxs = seenTxs <> [tx]
+         in nextState
+              ( OpenState parameters $
+                  headState
+                    { seenTxs = newSeenTxs
+                    , seenUtxo = utxo'
+                    }
+              )
+              [ClientEffect $ TxSeen tx]
   (OpenState parameters s@CoordinatedHeadState{confirmedSnapshot, seenSnapshot}, e@(NetworkEvent (ReqSn otherParty sn txs)))
     | number confirmedSnapshot + 1 == sn && isLeader parameters otherParty sn && not (snapshotPending seenSnapshot) ->
       -- TODO: Also we might be robust against multiple ReqSn for otherwise
@@ -281,7 +254,6 @@ update Environment{party, signingKey, otherParties} ledger st ev = case (st, ev)
   (OpenState parameters@HeadParameters{parties} headState@CoordinatedHeadState{seenSnapshot, seenTxs}, NetworkEvent (AckSn otherParty snapshotSignature sn)) ->
     case seenSnapshot of
       NoSeenSnapshot -> Wait
-      RequestedSnapshot -> Wait
       SeenSnapshot snapshot sigs
         | number snapshot /= sn -> Wait
         | otherwise ->
@@ -378,3 +350,9 @@ newSn Environment{party} = \case
               ShouldSnapshot nextSnapshotNumber seenTxs
   _ ->
     ShouldNotSnapshot NotInOpenState
+
+emitSnapshot :: Tx tx => Environment -> HeadState tx -> [Effect tx] -> [Effect tx]
+emitSnapshot env@Environment{party} st effects =
+  case newSn env st of
+    ShouldSnapshot sn txs -> NetworkEffect (ReqSn party sn txs) : effects
+    _ -> effects
