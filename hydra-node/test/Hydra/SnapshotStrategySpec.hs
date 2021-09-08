@@ -15,6 +15,7 @@ import Hydra.HeadLogic (
   Environment (..),
   Event (..),
   HeadState (..),
+  NoSnapshotReason (..),
   Outcome (..),
   SeenSnapshot (NoSeenSnapshot, SeenSnapshot),
   SnapshotOutcome (..),
@@ -48,7 +49,7 @@ spec = do
                 , confirmedSnapshot = Snapshot 0 initUtxo mempty
                 , seenSnapshot = NoSeenSnapshot
                 }
-      newSn (envFor 1) st `shouldBe` SendReqSn 1 [tx]
+      newSn (envFor 1) st `shouldBe` ShouldSnapshot 1 [tx]
 
     it "do not send ReqSn when we aren't leader" $ do
       let tx = aValidTx 1
@@ -60,7 +61,7 @@ spec = do
                 , confirmedSnapshot = Snapshot 0 initUtxo mempty
                 , seenSnapshot = NoSeenSnapshot
                 }
-      newSn (envFor 2) st `shouldBe` NotLeader 1
+      newSn (envFor 2) st `shouldBe` ShouldNotSnapshot (NotLeader 1)
 
     it "do not send ReqSn when there is a snapshot in flight" $ do
       let sn1 = Snapshot 1 initUtxo mempty
@@ -73,7 +74,12 @@ spec = do
                 , seenSnapshot = SeenSnapshot sn1 (Set.fromList [])
                 }
 
-      newSn (envFor 1) st `shouldBe` SnapshotInFlight 1
+      newSn (envFor 1) st `shouldBe` ShouldNotSnapshot (SnapshotInFlight 1)
+
+    it "do not send snapshot when not in Open state" $ do
+      let st = inInitialState threeParties
+
+      newSn (envFor 1) st `shouldBe` ShouldNotSnapshot NotInOpenState
 
 --
 -- Assertion utilities

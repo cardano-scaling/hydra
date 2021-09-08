@@ -347,9 +347,14 @@ update Environment{party, signingKey, otherParties} ledger st ev = case (st, ev)
     _ -> False
 
 data SnapshotOutcome tx
-  = SendReqSn SnapshotNumber [tx] -- TODO(AB) : should really be a Set (TxId tx)
-  | NotLeader SnapshotNumber
+  = ShouldSnapshot SnapshotNumber [tx] -- TODO(AB) : should really be a Set (TxId tx)
+  | ShouldNotSnapshot NoSnapshotReason
+  deriving (Eq, Show, Generic)
+
+data NoSnapshotReason
+  = NotLeader SnapshotNumber
   | SnapshotInFlight SnapshotNumber
+  | NotInOpenState
   deriving (Eq, Show, Generic)
 
 isLeader :: HeadParameters -> Party -> SnapshotNumber -> Bool
@@ -366,10 +371,10 @@ newSn Environment{party} = \case
         nextSnapshotNumber = succ number
      in if
             | not (isLeader parameters party nextSnapshotNumber) ->
-              NotLeader nextSnapshotNumber
+              ShouldNotSnapshot $ NotLeader nextSnapshotNumber
             | seenSnapshot /= NoSeenSnapshot ->
-              SnapshotInFlight nextSnapshotNumber
+              ShouldNotSnapshot $ SnapshotInFlight nextSnapshotNumber
             | otherwise ->
-              SendReqSn nextSnapshotNumber seenTxs
+              ShouldSnapshot nextSnapshotNumber seenTxs
   _ ->
-    error "Not in OpenState"
+    ShouldNotSnapshot NotInOpenState
