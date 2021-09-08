@@ -4,7 +4,7 @@
 module Test.LogFilterSpec where
 
 import Control.Lens ((^?))
-import Data.Aeson (Value (Array, String), decode)
+import Data.Aeson (Value (..), decode)
 import Data.Aeson.Lens (key)
 import qualified Data.ByteString.Lazy as LBS
 import Hydra.LogFilter (filterLog)
@@ -16,10 +16,17 @@ entry = "{\"message\":{\"node\":{\"by\":10,\"event\":{\"message\":{\"transaction
 
 spec :: Spec
 spec = parallel $ do
-  it "injects timestamp, threadId and namespace" $ do
-    (decode entry >>= filterLog >>= (^? key "timestamp"))
+  it "keeps basic structure of entry" $ do
+    let filtered = decode entry >>= filterLog
+    (filtered >>= (^? key "timestamp"))
       `shouldBe` Just (String "2021-09-08T10:05:05.919304349Z")
 
+    (filtered >>= (^? key "threadId"))
+      `shouldBe` Just (Number 18)
+
+    (filtered >>= (^? key "namespace"))
+      `shouldBe` Just (String "HydraNode-1")
+
   it "replaces transactions by their ids in ReqSn" $ do
-    (decode entry >>= filterLog >>= (^? key "event" . key "message" . key "transactions"))
+    (decode entry >>= filterLog >>= (^? key "message" . key "event" . key "message" . key "transactions"))
       `shouldBe` Just (Array [String "6cba5394ec8a1a1161758a33089661383143283d0121e4a293ed51a0272cfbc4"])

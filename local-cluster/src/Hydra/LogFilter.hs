@@ -9,7 +9,6 @@ import Hydra.Prelude
 filterLog :: Value -> Maybe Value
 filterLog entry = do
   guard (entry ^? key "message" . key "tag" == Just "Node")
-  timestamp <- entry ^? key "timestamp"
   node <- entry ^? key "message" . key "node"
   result <- case node ^? key "tag" of
     Just "ProcessingEvent" -> do
@@ -45,7 +44,7 @@ filterLog entry = do
         Just "ReqSn" -> replaceTransactionsWithTxIds node networkEffect
         _ -> pure node
     _ -> pure node
-  pure $ result & _Object . at "timestamp" ?~ timestamp
+  pure $ entry & _Object . at "message" ?~ result
  where
   processReqTx node = do
     txid <- node ^? networkMessage . key "transaction" . key "id"
