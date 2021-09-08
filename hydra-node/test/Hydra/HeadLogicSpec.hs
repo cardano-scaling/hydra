@@ -9,7 +9,6 @@ module Hydra.HeadLogicSpec where
 import Hydra.Prelude
 import Test.Hydra.Prelude
 
-import qualified Data.List as List
 import qualified Data.Set as Set
 import Hydra.Chain (HeadParameters (HeadParameters), OnChainTx (OnAbortTx, OnCollectComTx))
 import Hydra.HeadLogic (
@@ -23,8 +22,8 @@ import Hydra.HeadLogic (
   SeenSnapshot (NoSeenSnapshot, SeenSnapshot),
   update,
  )
-import Hydra.Ledger (Ledger (..), Party, Tx (..), deriveParty, sign)
-import Hydra.Ledger.Simple (SimpleTx (..), TxIn (..), aValidTx, simpleLedger, utxoRef)
+import Hydra.Ledger (Ledger (..), Party, Tx (..), sign)
+import Hydra.Ledger.Simple (SimpleTx (..), aValidTx, simpleLedger, utxoRef)
 import Hydra.Network (Host (..))
 import Hydra.Network.Message (Message (AckSn, Connected, ReqSn, ReqTx))
 import Hydra.ServerOutput (ServerOutput (PeerConnected))
@@ -48,51 +47,12 @@ spec = do
               , otherParties = [1, 3]
               }
 
-          envFor signingKey =
-            let party = deriveParty signingKey
-             in Environment
-                  { party
-                  , signingKey
-                  , otherParties = List.delete party threeParties
-                  }
-
-          -- NOTE: This unrealistic Tx is just there to be always valid as
-          -- it does not require any input
-          simpleTx = SimpleTx 1 mempty (Set.fromList [TxIn 3, TxIn 4])
-
       it "waits if a requested tx is not (yet) applicable" $ do
         let reqTx = NetworkEvent $ ReqTx 1 $ SimpleTx 2 inputs mempty
             inputs = utxoRef 1
             s0 = inOpenState threeParties ledger
 
         update env ledger s0 reqTx `shouldBe` Wait
-
-      it "requests new snapshot when receives ReqTx given node is leader" $ do
-        let reqTx = NetworkEvent $ ReqTx 1 simpleTx
-            leader = 1
-            leaderEnv = envFor leader
-            s0 = inOpenState threeParties ledger
-
-        update leaderEnv ledger s0 reqTx
-          `hasEffect_` NetworkEffect (ReqSn (party leaderEnv) 1 [simpleTx])
-
-      it "does not request new snapshot as non-leader" $ do
-        let reqTx = NetworkEvent $ ReqTx 1 simpleTx
-            nonLeaderEnv = envFor 2
-            s0 = inOpenState threeParties ledger
-
-        update nonLeaderEnv ledger s0 reqTx
-          `hasNoEffectSatisfying` isReqSn
-
-      it "Wait when leader of later snapshots" $ do
-        let reqTx = NetworkEvent $ ReqTx 1 simpleTx
-            bob = envFor 2
-            -- Bob is the leader in a three party round for snapshot 5
-            snapshot4 = Snapshot 4 mempty mempty
-            s0 = inOpenState' threeParties $ CoordinatedHeadState mempty mempty snapshot4 NoSeenSnapshot
-
-        update bob ledger s0 reqTx
-          `hasEffect_` NetworkEffect (ReqSn (party bob) 5 [simpleTx])
 
       it "confirms snapshot given it receives AckSn from all parties" $ do
         let s0 = inOpenState threeParties ledger

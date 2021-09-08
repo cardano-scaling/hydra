@@ -73,12 +73,21 @@ spec = do
                 , confirmedSnapshot = Snapshot 0 initUtxo mempty
                 , seenSnapshot = SeenSnapshot sn1 (Set.fromList [])
                 }
-
       newSn (envFor 1) st `shouldBe` ShouldNotSnapshot (SnapshotInFlight 1)
+
+    it "do not send ReqSn when there's no seen transactions" $ do
+      let st =
+            inOpenState' @SimpleTx threeParties $
+              CoordinatedHeadState
+                { seenUtxo = initUtxo
+                , seenTxs = mempty
+                , confirmedSnapshot = Snapshot 0 initUtxo mempty
+                , seenSnapshot = NoSeenSnapshot
+                }
+      newSn (envFor 1) st `shouldBe` ShouldNotSnapshot NoTransactionsToSnapshot
 
     it "do not send snapshot when not in Open state" $ do
       let st = inInitialState threeParties
-
       newSn (envFor 1) st `shouldBe` ShouldNotSnapshot NotInOpenState
 
 --

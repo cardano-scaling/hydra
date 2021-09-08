@@ -326,6 +326,7 @@ data SnapshotOutcome tx
 data NoSnapshotReason
   = NotLeader SnapshotNumber
   | SnapshotInFlight SnapshotNumber
+  | NoTransactionsToSnapshot
   | NotInOpenState
   deriving (Eq, Show, Generic)
 
@@ -346,6 +347,8 @@ newSn Environment{party} = \case
               ShouldNotSnapshot $ NotLeader nextSnapshotNumber
             | seenSnapshot /= NoSeenSnapshot ->
               ShouldNotSnapshot $ SnapshotInFlight nextSnapshotNumber
+            | null seenTxs ->
+              ShouldNotSnapshot NoTransactionsToSnapshot
             | otherwise ->
               ShouldSnapshot nextSnapshotNumber seenTxs
   _ ->
