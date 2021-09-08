@@ -14,7 +14,7 @@ import Hydra.HeadLogic (
   Event (..),
   HeadState (..),
   Outcome (..),
-  SeenSnapshot (NoSeenSnapshot),
+  SeenSnapshot (NoSeenSnapshot, SeenSnapshot),
   SnapshotOutcome (..),
   newSn,
   update,
@@ -56,6 +56,17 @@ spec = do
           reqTx = NetworkEvent $ ReqTx 1 tx
       s1 <- assertNewState $ update envNotLeader ledger s0 reqTx
       newSn envNotLeader s1 `shouldBe` NotLeader 1
+
+    it "do not send ReqSn when there is a snapshot in flight" $ do
+      let Ledger{initUtxo} = ledger
+          sn1 = Snapshot 1 initUtxo mempty
+          s0 = inOpenState' threeParties $ CoordinatedHeadState initUtxo mempty (Snapshot 0 initUtxo mempty) (SeenSnapshot sn1 (Set.fromList []))
+          tx = aValidTx 1
+          reqTx = NetworkEvent $ ReqTx 1 tx
+
+      s1 <- assertNewState $ update envNotLeader ledger s0 reqTx
+
+      newSn envNotLeader s1 `shouldBe` SnapshotInFlight 1
 
 --
 -- Assertion utilities
