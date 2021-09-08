@@ -10,8 +10,9 @@ import System.IO.Error (isEOFError)
 
 main :: IO ()
 main = do
-  [logFile] <- getArgs
-  withFile logFile ReadMode $ \hdl -> go hdl
+  getArgs >>= \case
+    [logFile] -> withFile logFile ReadMode $ \hdl -> go hdl
+    _ -> go stdin
  where
   go hdl =
     try (LBS.hGetLine hdl) >>= \case
