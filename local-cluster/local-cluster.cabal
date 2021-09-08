@@ -74,6 +74,7 @@ library
     CardanoCluster
     CardanoNode
     Hydra.Generator
+    Hydra.LogFilter
     HydraNode
 
   build-depends:
@@ -94,6 +95,8 @@ library
     , hydra-test-utils
     , io-classes
     , iohk-monitoring
+    , lens
+    , lens-aeson
     , network
     , process
     , QuickCheck
@@ -122,6 +125,22 @@ executable local-cluster
     , local-cluster
     , temporary
 
+executable log-filter
+  import:         project-config
+  hs-source-dirs: exe
+  main-is:        log-filter.hs
+  ghc-options:    -threaded -rtsopts
+  build-depends:
+    , aeson
+    , base           >=4.7 && <5
+    , bytestring
+    , contra-tracer
+    , hydra-prelude
+    , lens
+    , lens-aeson
+    , local-cluster
+    , temporary
+
 test-suite integration
   import:             project-config
   hs-source-dirs:     test
@@ -132,6 +151,7 @@ test-suite integration
     Test.EndToEndSpec
     Test.GeneratorSpec
     Test.LocalClusterSpec
+    Test.LogFilterSpec
 
   build-depends:
     , aeson
