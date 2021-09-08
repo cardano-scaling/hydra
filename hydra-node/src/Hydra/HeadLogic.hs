@@ -356,3 +356,11 @@ update Environment{party, signingKey, otherParties, snapshotStrategy} ledger st 
   snapshotPending = \case
     SeenSnapshot{} -> True
     _ -> False
+
+data SnapshotOutcome tx
+  = SendReqSn SnapshotNumber [tx] -- TODO(AB) : should really be a Set (TxId tx)
+  deriving (Eq, Show, Generic)
+
+-- | Snapshot emission decider
+newSn :: Environment -> HeadState tx -> SnapshotOutcome tx
+newSn _env _st = error "undefined"
