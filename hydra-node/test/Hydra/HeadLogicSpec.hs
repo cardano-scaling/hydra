@@ -21,7 +21,6 @@ import Hydra.HeadLogic (
   LogicError (..),
   Outcome (..),
   SeenSnapshot (NoSeenSnapshot, SeenSnapshot),
-  SnapshotStrategy (..),
   update,
  )
 import Hydra.Ledger (Ledger (..), Party, Tx (..), deriveParty, sign)
@@ -47,7 +46,6 @@ spec = do
               { party = 2
               , signingKey = 2
               , otherParties = [1, 3]
-              , snapshotStrategy = NoSnapshots
               }
 
           envFor signingKey =
@@ -56,7 +54,6 @@ spec = do
                   { party
                   , signingKey
                   , otherParties = List.delete party threeParties
-                  , snapshotStrategy = SnapshotAfterEachTx
                   }
 
           -- NOTE: This unrealistic Tx is just there to be always valid as

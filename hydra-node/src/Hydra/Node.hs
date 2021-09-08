@@ -29,7 +29,6 @@ import Hydra.HeadLogic (
   HeadState (..),
   LogicError (..),
   Outcome (..),
-  SnapshotStrategy (SnapshotAfterEachTx),
  )
 import qualified Hydra.HeadLogic as Logic
 import Hydra.Ledger (Ledger, Party (..), Tx, Utxo)
@@ -50,7 +49,6 @@ initEnvironment Options{me, parties} = do
       { party = UnsafeParty vk
       , signingKey = sk
       , otherParties = UnsafeParty <$> otherVKeys
-      , snapshotStrategy = SnapshotAfterEachTx
       }
  where
   loadSigningKey p = do

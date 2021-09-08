@@ -104,10 +104,6 @@ deriving instance Tx tx => FromJSON (SeenSnapshot tx)
 
 type PendingCommits = Set Party
 
--- | Decides if snapshots should be done, or not.
-data SnapshotStrategy = NoSnapshots | SnapshotAfterEachTx
-  deriving (Eq)
-
 -- | Preliminary type for collecting errors occurring during 'update'. Might
 -- make sense to merge this (back) into 'Outcome'.
 data LogicError tx
@@ -142,7 +138,6 @@ data Environment = Environment
     -- memory, i.e. have an 'Effect' for signing or so.
     signingKey :: SigningKey
   , otherParties :: [Party]
-  , snapshotStrategy :: SnapshotStrategy
   }
 
 -- | The heart of the Hydra head logic, a handler of all kinds of 'Event' in the
@@ -156,7 +151,7 @@ update ::
   HeadState tx ->
   Event tx ->
   Outcome tx
-update Environment{party, signingKey, otherParties, snapshotStrategy} ledger st ev = case (st, ev) of
+update Environment{party, signingKey, otherParties} ledger st ev = case (st, ev) of
   -- TODO(SN) at least contestation period could be easily moved into the 'Init' client input
   (ReadyState, ClientEvent (Init contestationPeriod)) ->
     nextState ReadyState [OnChainEffect (InitTx parameters)]
@@ -224,7 +219,7 @@ update Environment{party, signingKey, otherParties, snapshotStrategy} ledger st 
         Invalid err -> [ClientEffect $ TxInvalid{utxo = utxo, transaction = tx, validationError = err}]
   (OpenState parameters headState@CoordinatedHeadState{confirmedSnapshot, seenSnapshot, seenTxs, seenUtxo}, NetworkEvent (ReqTx _ tx)) ->
     let shouldDoSnapshot lastSeenSnapshot =
-          isLeader parameters party (number lastSeenSnapshot + 1) && snapshotStrategy == SnapshotAfterEachTx
+          isLeader parameters party (number lastSeenSnapshot + 1)
      in case seenSnapshot of
           -- NOTE: In case where we are leader of the *next* snapshot, we
           -- wait and do not process this transaction yet. This will allow us to
@@ -354,6 +349,7 @@ update Environment{party, signingKey, otherParties, snapshotStrategy} ledger st 
 data SnapshotOutcome tx
   = SendReqSn SnapshotNumber [tx] -- TODO(AB) : should really be a Set (TxId tx)
   | NotLeader SnapshotNumber
+  | SnapshotInFlight SnapshotNumber
   deriving (Eq, Show, Generic)
 
 isLeader :: HeadParameters -> Party -> SnapshotNumber -> Bool

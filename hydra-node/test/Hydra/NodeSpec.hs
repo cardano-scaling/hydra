@@ -12,7 +12,6 @@ import Hydra.HeadLogic (
   Environment (..),
   Event (..),
   HeadState (..),
-  SnapshotStrategy (..),
  )
 import Hydra.Ledger (Party, SigningKey, Tx, deriveParty, sign)
 import Hydra.Ledger.Simple (SimpleTx (..), simpleLedger, utxoRef, utxoRefs)
@@ -38,7 +37,7 @@ spec = parallel $ do
                  , NetworkEvent{message = ReqTx{party = 10, transaction = tx3}}
                  ]
           signedSnapshot = sign 10 $ Snapshot 1 (utxoRefs [1, 3, 4]) [tx1]
-      node <- createHydraNode 10 [20, 30] SnapshotAfterEachTx events
+      node <- createHydraNode 10 [20, 30] events
       (node', getNetworkMessages) <- recordNetwork node
       runToCompletion tracer node'
       getNetworkMessages `shouldReturn` [ReqSn 10 1 [tx1], AckSn 10 signedSnapshot 1]
@@ -56,7 +55,7 @@ spec = parallel $ do
                  , NetworkEvent{message = ReqTx{party = 10, transaction = tx1}}
                  ]
 
-      node <- createHydraNode 20 [10, 30] SnapshotAfterEachTx events
+      node <- createHydraNode 20 [10, 30] events
       (node', getNetworkMessages) <- recordNetwork node
       runToCompletion tracer node'
 
@@ -72,7 +71,7 @@ spec = parallel $ do
               <> [ NetworkEvent{message = AckSn{party = 20, signed = sig20, snapshotNumber = 1}}
                  , NetworkEvent{message = ReqSn{party = 10, snapshotNumber = 1, transactions = []}}
                  ]
-      node <- createHydraNode 10 [20, 30] SnapshotAfterEachTx events
+      node <- createHydraNode 10 [20, 30] events
       (node', getNetworkMessages) <- recordNetwork node
       runToCompletion tracer node'
       getNetworkMessages `shouldReturn` [AckSn{party = 10, signed = sig10, snapshotNumber = 1}]
@@ -110,10 +109,9 @@ createHydraNode ::
   (MonadSTM m, MonadDelay m, MonadAsync m) =>
   SigningKey ->
   [Party] ->
-  SnapshotStrategy ->
   [Event SimpleTx] ->
   m (HydraNode SimpleTx m)
-createHydraNode signingKey otherParties snapshotStrategy events = do
+createHydraNode signingKey otherParties events = do
   eq@EventQueue{putEvent} <- createEventQueue
   forM_ events putEvent
   hh <- createHydraHead ReadyState simpleLedger
@@ -129,7 +127,6 @@ createHydraNode signingKey otherParties snapshotStrategy events = do
             { party
             , signingKey
             , otherParties
-            , snapshotStrategy
             }
       }
  where

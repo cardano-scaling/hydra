@@ -34,7 +34,6 @@ spec = do
             { party = 1
             , signingKey = 1
             , otherParties = [2, 3]
-            , snapshotStrategy = error "Not used yet."
             }
 
         envNotLeader =
@@ -42,7 +41,6 @@ spec = do
             { party = 2
             , signingKey = 2
             , otherParties = [1, 3]
-            , snapshotStrategy = error "Not used yet."
             }
 
     it "sends ReqSn given is leader and no snapshot in flight and there's a seen tx" $ do
