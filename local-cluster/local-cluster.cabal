@@ -132,13 +132,14 @@ executable log-filter
   ghc-options:    -threaded -rtsopts
   build-depends:
     , aeson
-    , base           >=4.7 && <5
+    , base                  >=4.7 && <5
     , bytestring
     , contra-tracer
     , hydra-prelude
     , lens
     , lens-aeson
     , local-cluster
+    , optparse-applicative
     , temporary
 
 test-suite integration
