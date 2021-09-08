@@ -177,21 +177,6 @@ executable hydra-node
 
   ghc-options:    -threaded -rtsopts
 
-executable log-filter
-  import:         project-config
-  hs-source-dirs: exe/log-filter
-  main-is:        Main.hs
-  build-depends:
-    , aeson
-    , base
-    , bytestring
-    , hydra-node
-    , hydra-prelude
-    , lens
-    , lens-aeson
-
-  ghc-options:    -threaded -rtsopts
-
 executable mock-chain
   import:         project-config
   hs-source-dirs: exe/mock-chain

@@ -1,48 +1,30 @@
-{-# LANGUAGE TypeApplications #-}
+-- | Utility functions to filter and simplify raw logs.
+module Hydra.LogFilter where
 
-import Control.Lens (Traversal', (.~), (^?))
-import Data.Aeson (Value (Null), decode, encode)
-import Data.Aeson.Lens (key, _Array)
-import qualified Data.ByteString.Char8 as LBS
-import qualified Data.ByteString.Lazy as LBS
+import Control.Lens (Traversal', at, (.~), (?~), (^..), (^?))
+import Data.Aeson (Value (Array, Null))
+import Data.Aeson.Lens (key, values, _Object)
 import Hydra.Prelude
-import System.IO.Error (isEOFError)
-
-main :: IO ()
-main = do
-  getArgs >>= \case
-    [logFile] -> withFile logFile ReadMode $ \hdl -> go hdl
-    _ -> go stdin
- where
-  go hdl =
-    try (LBS.hGetLine hdl) >>= \case
-      Left err | isEOFError err -> pure ()
-      Left err -> throwIO err
-      Right line -> do
-        case filterLog =<< decode @Value (LBS.fromStrict line) of
-          Nothing -> pure ()
-          Just v -> LBS.hPutStrLn stdout (LBS.toStrict $ encode v)
-        go hdl
 
 filterLog :: Value -> Maybe Value
 filterLog entry = do
   guard (entry ^? key "message" . key "tag" == Just "Node")
+  timestamp <- entry ^? key "timestamp"
   node <- entry ^? key "message" . key "node"
-  tag <- node ^? key "tag"
-  case tag of
-    "ProcessingEvent" -> do
+  result <- case node ^? key "tag" of
+    Just "ProcessingEvent" -> do
       case (node ^? networkMessage . key "tag") <|> (node ^? clientEvent . key "tag") of
         Just "ReqTx" -> processReqTx node
         Just "NewTx" -> replaceTransactionWithTxId node clientEvent
         Just "ReqSn" -> replaceTransactionsWithTxIds node networkMessage
         _ -> pure node
-    "ProcessedEvent" -> do
+    Just "ProcessedEvent" -> do
       case (node ^? networkMessage . key "tag") <|> (node ^? clientEvent . key "tag") of
         Just "ReqTx" -> processReqTx node
         Just "NewTx" -> replaceTransactionWithTxId node clientEvent
         Just "ReqSn" -> replaceTransactionsWithTxIds node networkMessage
         _ -> pure node
-    "ProcessingEffect" -> do
+    Just "ProcessingEffect" -> do
       case node ^? clientEffect . key "tag" <|> node ^? networkEffect . key "tag" of
         Just "SnapshotConfirmed" -> processSnapshotConfirmed node
         Just "Committed" -> replaceUtxoWithNull node
@@ -52,7 +34,7 @@ filterLog entry = do
         Just "ReqTx" -> replaceTransactionWithTxId node networkEffect
         Just "ReqSn" -> replaceTransactionsWithTxIds node networkEffect
         _ -> pure node
-    "ProcessedEffect" -> do
+    Just "ProcessedEffect" -> do
       case node ^? clientEffect . key "tag" <|> node ^? networkEffect . key "tag" of
         Just "SnapshotConfirmed" -> processSnapshotConfirmed node
         Just "Committed" -> replaceUtxoWithNull node
@@ -63,6 +45,7 @@ filterLog entry = do
         Just "ReqSn" -> replaceTransactionsWithTxIds node networkEffect
         _ -> pure node
     _ -> pure node
+  pure $ result & _Object . at "timestamp" ?~ timestamp
  where
   processReqTx node = do
     txid <- node ^? networkMessage . key "transaction" . key "id"
@@ -70,14 +53,14 @@ filterLog entry = do
 
   replaceTransactionsWithTxIds :: Value -> Traversal' Value Value -> Maybe Value
   replaceTransactionsWithTxIds node path = do
-    txids <- node ^? path . key "transactions" . _Array . traverse . key "id"
-    pure $ node & path . key "transactions" .~ txids
+    let txids = node ^.. path . key "transactions" . values . key "id"
+    pure $ node & path . key "transactions" .~ Array (fromList txids)
 
   processSnapshotConfirmed node = do
-    txids <- node ^? clientEffect . key "snapshot" . key "confirmedTransactions" . _Array . traverse . key "id"
+    let txids = node ^.. clientEffect . key "snapshot" . key "confirmedTransactions" . values . key "id"
     pure $
       node
-        & clientEffect . key "snapshot" . key "confirmedTransactions" .~ txids
+        & clientEffect . key "snapshot" . key "confirmedTransactions" .~ Array (fromList txids)
         & clientEffect . key "snapshot" . key "utxo" .~ Null
 
   replaceUtxoWithNull node = pure $ node & clientEffect . key "utxo" .~ Null
