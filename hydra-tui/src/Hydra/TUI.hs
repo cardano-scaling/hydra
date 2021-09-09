@@ -9,23 +9,29 @@ import Hydra.Prelude hiding (State)
 
 import Brick
 import Brick.BChan (newBChan, writeBChan)
+import Brick.Forms (Form, checkboxField, formState, handleFormEvent, newForm, renderForm)
 import Brick.Widgets.Border (hBorder, vBorder)
 import Brick.Widgets.Border.Style (ascii)
+
 import Data.List (nub, (\\))
 import qualified Data.Map.Strict as Map
+import qualified Data.Text as T
 import Data.Version (showVersion)
-import Graphics.Vty (Event (EvKey), Key (KChar), Modifier (..), blue, defaultConfig, green, mkVty, red)
+import Graphics.Vty (Event (EvKey), Key (..), Modifier (..), blue, defaultConfig, green, mkVty, red)
 import Graphics.Vty.Attributes (defAttr)
 import Hydra.Client (Client (Client, sendInput), HydraEvent (..), withClient)
-import Hydra.ClientInput (ClientInput (Abort, Close, Commit, Init))
+import Hydra.ClientInput (ClientInput (..))
 import Hydra.Ledger (Balance (..), Party, Tx (..))
-import Hydra.Ledger.Cardano (CardanoTx)
-import Hydra.Network (Host)
+import Hydra.Ledger.Cardano (CardanoTx, TxIn, TxOut, genUtxo, txInToText)
+import Hydra.Network (Host (..))
 import Hydra.ServerOutput (ServerOutput (..))
 import Hydra.TUI.Options (Options (..))
-import Lens.Micro ((%~), (.~), (?~), (^.), (^?))
+import Lens.Micro (Lens', lens, (%~), (.~), (?~), (^.), (^?))
 import Lens.Micro.TH (makeLensesFor)
 import Paths_hydra_tui (version)
+import Shelley.Spec.Ledger.API (UTxO (..))
+import Test.QuickCheck.Gen (Gen (..))
+import Test.QuickCheck.Random (mkQCGen)
 
 -- * Types
 
@@ -35,9 +41,15 @@ data State
       { nodeHost :: Host
       , connectedPeers :: [Host]
       , headState :: HeadState
+      , dialogState :: DialogState
       , feedback :: Maybe UserFeedback
       }
-  deriving (Eq, Show, Generic)
+  deriving (Generic)
+
+data DialogState
+  = None
+  | Committing (Form (Map TxIn (TxOut, Bool)) (HydraEvent CardanoTx) Name)
+  deriving (Generic)
 
 data UserFeedback = UserFeedback
   { severity :: Severity
@@ -75,12 +87,13 @@ data HeadState
   | Finalized
   deriving (Eq, Show, Generic)
 
-type Name = ()
+type Name = Text
 
 makeLensesFor
   [ ("nodeHost", "nodeHostL")
   , ("connectedPeers", "connectedPeersL")
   , ("headState", "headStateL")
+  , ("dialogState", "dialogStateL")
   , ("feedback", "feedbackL")
   ]
   ''State
@@ -88,74 +101,113 @@ makeLensesFor
 -- * Event handling
 
 handleEvent ::
-  forall tx.
-  (Tx tx) =>
-  Client tx IO ->
+  Client CardanoTx IO ->
   State ->
-  BrickEvent Name (HydraEvent tx) ->
+  BrickEvent Name (HydraEvent CardanoTx) ->
   EventM Name (Next State)
-handleEvent Client{sendInput} (clearFeedback -> s) = \case
-  -- Quit
-  VtyEvent (EvKey (KChar 'c') [MCtrl]) -> halt s
-  VtyEvent (EvKey (KChar 'd') [MCtrl]) -> halt s
-  VtyEvent (EvKey (KChar 'q') _) -> halt s
-  -- Commands
-  VtyEvent (EvKey (KChar 'i') _) ->
-    -- TODO(SN): hardcoded contestation period
-    liftIO (sendInput $ Init 10) >> continue s
-  VtyEvent (EvKey (KChar 'a') _) ->
-    liftIO (sendInput Abort) >> continue s
-  VtyEvent (EvKey (KChar 'c') _) ->
-    -- TODO(SN): ask for some value and create one according output?
-    liftIO (sendInput $ Commit mempty) >> continue s
-  VtyEvent (EvKey (KChar 'C') _) ->
-    liftIO (sendInput Close) >> continue s
-  -- App events
-  AppEvent ClientConnected ->
-    continue connected
-  AppEvent ClientDisconnected ->
-    continue disconnected
-  AppEvent (Update (PeerConnected p)) ->
-    continue $ s & connectedPeersL %~ \cp -> nub $ cp <> [p]
-  AppEvent (Update (PeerDisconnected p)) ->
-    continue $ s & connectedPeersL %~ \cp -> cp \\ [p]
-  AppEvent (Update CommandFailed) -> do
-    continue $
-      s & feedbackL ?~ UserFeedback Error "Invalid command."
-  AppEvent (Update ReadyToCommit{parties}) ->
-    continue $
-      s & headStateL .~ Initializing parties
-        & feedbackL ?~ UserFeedback Info "Head initialized, ready for commit(s)."
-  AppEvent (Update Committed{party, utxo}) ->
-    continue $
-      s & headStateL %~ partyCommitted party
-        & feedbackL ?~ UserFeedback Info (show party <> " committed " <> prettyBalance (balance @tx utxo))
-  AppEvent (Update HeadIsOpen{}) ->
-    continue $
-      s & headStateL .~ Open
-        & feedbackL ?~ UserFeedback Info "Head is now opened!"
-  AppEvent (Update HeadIsClosed{contestationDeadline}) ->
-    continue $
-      s & headStateL .~ Closed{contestationDeadline}
-        & feedbackL ?~ UserFeedback Info "Head closed."
-  AppEvent (Update HeadIsFinalized{}) ->
-    continue $
-      s & headStateL .~ Finalized
-        & feedbackL ?~ UserFeedback Info "Head finalized."
-  AppEvent (Update HeadIsAborted{}) ->
-    continue $
-      s & headStateL .~ Ready
-        & feedbackL ?~ UserFeedback Info "Head aborted, back to square one."
-  -- TODO(SN): continue s here, once all implemented
-  e ->
-    continue $
-      s & feedbackL ?~ UserFeedback Error ("unhandled event: " <> show e)
+handleEvent client@Client{sendInput} (clearFeedback -> s) =
+  case s ^? dialogStateL of
+    Just (Committing form) -> \case
+      VtyEvent (EvKey KEsc []) ->
+        continue $ s & dialogStateL .~ None
+      VtyEvent (EvKey (KChar '>') []) ->
+        let u = UTxO (fst <$> formState form)
+         in liftIO (sendInput $ Commit u) >> continue (s & dialogStateL .~ None)
+      -- NOTE: Field focus is changed using Tab / Shift-Tab, but arrows are more
+      -- intuitive, so we forward them. Same for Space <-> Enter
+      VtyEvent (EvKey KUp []) ->
+        handleEvent client s (VtyEvent (EvKey KBackTab []))
+      VtyEvent (EvKey KDown []) ->
+        handleEvent client s (VtyEvent (EvKey (KChar '\t') []))
+      VtyEvent (EvKey KEnter []) ->
+        handleEvent client s (VtyEvent (EvKey (KChar ' ') []))
+      e -> do
+        form' <- handleFormEvent e form
+        continue $ s & dialogStateL .~ Committing form'
+    _ -> \case
+      -- Quit
+      VtyEvent (EvKey (KChar 'c') [MCtrl]) -> halt s
+      VtyEvent (EvKey (KChar 'd') [MCtrl]) -> halt s
+      VtyEvent (EvKey (KChar 'q') _) -> halt s
+      -- Commands
+      VtyEvent (EvKey (KChar 'i') _) ->
+        -- TODO(SN): hardcoded contestation period
+        liftIO (sendInput $ Init 10) >> continue s
+      VtyEvent (EvKey (KChar 'a') _) ->
+        liftIO (sendInput Abort) >> continue s
+      VtyEvent (EvKey (KChar 'c') _) ->
+        case s ^? headStateL of
+          Just Initializing{} ->
+            -- We use the host's port number as a seed for generating the utxo,
+            -- such that it's different across clients and consistent if a
+            -- client restarts.
+            let seed = maybe 0 (fromIntegral . port) (s ^? nodeHostL)
+                -- Somehow, 'scale' from QC does not work here. The generator is
+                -- probably ignoring it and generates LARGE utxos, too large.
+                utxo_ = (\(UTxO u) -> Map.fromList $ take 5 $ Map.toList u) $ generateWith genUtxo seed
+                fields =
+                  [ checkboxField
+                    (checkboxLens k)
+                    ("checkboxField@" <> show k)
+                    (T.drop 48 (txInToText k) <> " ↦ " <> value)
+                  | (k, v) <- Map.toList utxo_
+                  , let value = prettyBalance $ balance @CardanoTx $ UTxO (Map.singleton k v)
+                  ]
+             in continue $
+                  s & dialogStateL
+                    .~ Committing (newForm fields ((,False) <$> utxo_))
+          _ ->
+            continue $
+              s & feedbackL ?~ UserFeedback Error "Invalid command."
+      VtyEvent (EvKey (KChar 'C') _) ->
+        liftIO (sendInput Close) >> continue s
+      -- App events
+      AppEvent ClientConnected ->
+        continue connected
+      AppEvent ClientDisconnected ->
+        continue disconnected
+      AppEvent (Update (PeerConnected p)) ->
+        continue $ s & connectedPeersL %~ \cp -> nub $ cp <> [p]
+      AppEvent (Update (PeerDisconnected p)) ->
+        continue $ s & connectedPeersL %~ \cp -> cp \\ [p]
+      AppEvent (Update CommandFailed) -> do
+        continue $
+          s & feedbackL ?~ UserFeedback Error "Invalid command."
+      AppEvent (Update ReadyToCommit{parties}) ->
+        continue $
+          s & headStateL .~ Initializing parties
+            & feedbackL ?~ UserFeedback Info "Head initialized, ready for commit(s)."
+      AppEvent (Update Committed{party, utxo}) ->
+        continue $
+          s & headStateL %~ partyCommitted party
+            & feedbackL ?~ UserFeedback Info (show party <> " committed " <> prettyBalance (balance @CardanoTx utxo))
+      AppEvent (Update HeadIsOpen{}) ->
+        continue $
+          s & headStateL .~ Open
+            & feedbackL ?~ UserFeedback Info "Head is now opened!"
+      AppEvent (Update HeadIsClosed{contestationDeadline}) ->
+        continue $
+          s & headStateL .~ Closed{contestationDeadline}
+            & feedbackL ?~ UserFeedback Info "Head closed."
+      AppEvent (Update HeadIsFinalized{}) ->
+        continue $
+          s & headStateL .~ Finalized
+            & feedbackL ?~ UserFeedback Info "Head finalized."
+      AppEvent (Update HeadIsAborted{}) ->
+        continue $
+          s & headStateL .~ Ready
+            & feedbackL ?~ UserFeedback Info "Head aborted, back to square one."
+      -- TODO(SN): continue s here, once all implemented
+      e ->
+        continue $
+          s & feedbackL ?~ UserFeedback Error ("unhandled event: " <> show e)
  where
   connected =
     Connected
       { nodeHost = s ^. nodeHostL
       , connectedPeers = mempty
       , headState = Unknown
+      , dialogState = None
       , feedback = empty
       }
 
@@ -221,25 +273,38 @@ draw s =
 
   drawHeadState = \case
     Disconnected{} -> emptyWidget
-    Connected{headState} -> case headState of
-      Initializing{notYetCommitted} ->
-        str "Head status: Initializing"
-          <=> str "Not yet committed:"
-          <=> vBox (map drawShow notYetCommitted)
-      Closed{contestationDeadline} ->
-        str "Head status: Closed"
-          <=> str ("Contestation deadline: " <> show contestationDeadline)
-      _ -> str "Head status: " <+> str (show headState)
+    Connected{headState} ->
+      case headState of
+        Initializing{notYetCommitted} ->
+          str "Head status: Initializing"
+            <=> str "Not yet committed:"
+            <=> vBox (map drawShow notYetCommitted)
+        Closed{contestationDeadline} ->
+          str "Head status: Closed"
+            <=> str ("Contestation deadline: " <> show contestationDeadline)
+        _ -> str "Head status: " <+> str (show headState)
 
   drawCommands =
-    vBox
-      [ str "Commands:"
-      , str " - [i]nit"
-      , str " - [c]ommit nothing"
-      , str " - [C]lose"
-      , str " - [a]bort"
-      , str " - [q]uit"
-      ]
+    case s ^? dialogStateL of
+      Just (Committing form) ->
+        vBox
+          [ renderForm form
+          , padTop (Pad 1) $
+              hBox
+                [ padLeft (Pad 5) $ str "[Esc] Cancel"
+                , padLeft (Pad 5) $ str "[>] Confirm"
+                ]
+          ]
+      _ ->
+        -- TODO: Only show available commands.
+        vBox
+          [ str "Commands:"
+          , str " - [i]nit"
+          , str " - [c]ommit"
+          , str " - [C]lose"
+          , str " - [a]bort"
+          , str " - [q]uit"
+          ]
 
   drawErrorMessage =
     case s ^? feedbackL of
@@ -252,6 +317,16 @@ draw s =
 
   drawShow :: forall a n. Show a => a -> Widget n
   drawShow = str . (" - " <>) . show
+
+checkboxLens :: Ord k => k -> Lens' (Map k (v, Bool)) Bool
+checkboxLens i =
+  lens
+    (maybe False snd . Map.lookup i)
+    (\s b -> Map.adjust (second (const b)) i s)
+
+generateWith :: Gen a -> Int -> a
+generateWith (MkGen runGen) seed =
+  runGen (mkQCGen seed) 30
 
 style :: State -> AttrMap
 style _ =

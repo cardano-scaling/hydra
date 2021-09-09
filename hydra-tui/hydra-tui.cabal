@@ -82,6 +82,7 @@ library
     , async
     , base
     , brick
+    , cardano-ledger-shelley-ma
     , containers
     , hydra-node
     , hydra-prelude
@@ -89,6 +90,9 @@ library
     , microlens
     , microlens-th
     , optparse-applicative
+    , QuickCheck
+    , shelley-spec-ledger
+    , text
     , vty
     , websockets
 
