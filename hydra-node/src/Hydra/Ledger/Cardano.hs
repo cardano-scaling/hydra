@@ -24,7 +24,6 @@ import Cardano.Crypto.DSIGN (
   deriveVerKeyDSIGN,
  )
 import qualified Cardano.Crypto.Hash.Class as Crypto
-import Cardano.Crypto.Seed (mkSeedFromBytes)
 import qualified Cardano.Ledger.Address as Cardano
 import Cardano.Ledger.AuxiliaryData (AuxiliaryDataHash (AuxiliaryDataHash), unsafeAuxiliaryDataHash)
 import Cardano.Ledger.BaseTypes (StrictMaybe (SNothing), boundRational, mkActiveSlotCoeff)
@@ -61,6 +60,7 @@ import Data.Aeson.Types (mapFromJSONKeyFunction, toJSONKeyText)
 import qualified Data.ByteString.Base16 as Base16
 import Data.Default (def)
 import qualified Data.Map.Strict as Map
+import Data.Maybe (fromJust)
 import qualified Data.Sequence.Strict as StrictSeq
 import qualified Data.Set as Set
 import qualified Data.Text as Text
@@ -71,7 +71,7 @@ import qualified Shelley.Spec.Ledger.API as Cardano hiding (TxBody)
 import Shelley.Spec.Ledger.Tx (WitnessSetHKD (WitnessSet))
 import Shelley.Spec.Ledger.TxBody (TxId (..))
 import Test.Cardano.Ledger.MaryEraGen ()
-import Test.QuickCheck (Gen, choose, getSize, vectorOf)
+import Test.QuickCheck (Gen, choose, getSize, suchThat, vectorOf)
 import qualified Test.Shelley.Spec.Ledger.Generator.Constants as Constants
 import Test.Shelley.Spec.Ledger.Generator.Core (geConstants)
 import Test.Shelley.Spec.Ledger.Generator.EraGen (genUtxo0)
@@ -154,24 +154,22 @@ instance Arbitrary CardanoTx where
 
 genKeyPair :: Gen (Cardano.KeyPair 'Cardano.Payment StandardCrypto)
 genKeyPair = do
-  sk <- genKeyDSIGN . mkSeedFromBytes . fromList <$> vectorOf 16 arbitrary
+  -- NOTE: not using 'genKeyDSIGN' purposely here, it is not pure and does not
+  -- play well with pure generation from seed.
+  sk <- fromJust . rawDeserialiseSignKeyDSIGN . fromList <$> vectorOf 64 arbitrary
   pure $ Cardano.KeyPair (Cardano.VKey (deriveVerKeyDSIGN sk)) sk
 
 -- | Generate utxos owned by the given 'Party'
 genUtxoFor :: Cardano.VKey 'Cardano.Payment StandardCrypto -> Gen (Utxo CardanoTx)
 genUtxoFor vk = do
-  n <- arbitrary
+  n <- arbitrary `suchThat` (> 0)
   inputs <- vectorOf n arbitrary
   outputs <- vectorOf n genOutput
   pure $ Cardano.UTxO $ Map.fromList $ zip inputs outputs
  where
   genOutput :: Gen TxOut
-  genOutput = do
-    value <- arbitrary
-    let paymentCredential = Cardano.KeyHashObj $ Cardano.hashKey vk
-    let stakeReference = Cardano.StakeRefNull
-    let addr = Cardano.Addr Cardano.Mainnet paymentCredential stakeReference
-    pure $ Cardano.TxOut addr value
+  genOutput =
+    Cardano.TxOut (mkVkAddress vk) <$> arbitrary
 
 genUtxo :: Gen (Utxo CardanoTx)
 genUtxo = do
@@ -182,12 +180,22 @@ genUtxo = do
   setTxId :: Cardano.TxId StandardCrypto -> Cardano.TxIn StandardCrypto -> Cardano.TxIn StandardCrypto
   setTxId baseId (Cardano.TxInCompact _ti wo) = Cardano.TxInCompact baseId wo
 
--- Construct a simple transaction which spends a UTXO, signed by the given key.
+mkVkAddress ::
+  Cardano.VKey 'Cardano.Payment StandardCrypto ->
+  Cardano.Addr StandardCrypto
+mkVkAddress vk =
+  let paymentCredential = Cardano.KeyHashObj $ Cardano.hashKey vk
+      stakeReference = Cardano.StakeRefNull
+   in Cardano.Addr Cardano.Testnet paymentCredential stakeReference
+
+-- Construct a simple transaction which spends a UTXO, to the given address,
+-- signed by the given key.
 mkSimpleCardanoTx ::
   (TxIn, TxOut) ->
+  Cardano.Addr StandardCrypto ->
   Cardano.KeyPair 'Cardano.Payment StandardCrypto ->
   CardanoTx
-mkSimpleCardanoTx (i, o) credentials =
+mkSimpleCardanoTx (i, Cardano.TxOut owner value) recipient credentials =
   CardanoTx{id, body, witnesses, auxiliaryData}
  where
   id = Cardano.TxId $ SafeHash.hashAnnotated body
@@ -195,7 +203,7 @@ mkSimpleCardanoTx (i, o) credentials =
   body =
     Cardano.TxBody
       (Set.singleton i)
-      (StrictSeq.fromList [o]) -- TODO: Define a recipient & change
+      (StrictSeq.fromList [Cardano.TxOut recipient value])
       mempty
       (Cardano.Wdrl mempty)
       fees
@@ -266,6 +274,10 @@ type CardanoTxBody = Cardano.TxBody CardanoEra
 type CardanoTxWitnesses = Cardano.WitnessSet CardanoEra
 
 type CardanoAuxiliaryData = StrictMaybe (AuxiliaryData CardanoEra)
+
+type CardanoAddress = Cardano.Addr StandardCrypto
+
+type CardanoKeyPair = Cardano.KeyPair 'Cardano.Payment StandardCrypto
 
 type TxIn = Cardano.TxIn StandardCrypto
 
