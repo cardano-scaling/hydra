@@ -11,8 +11,11 @@ set -e
 
 RESULTS=$1
 DIR=$(dirname ${RESULTS})
+COUNT=$(cat ${RESULTS} | wc -l)
+NAME=$(basename ${DIR})
 
 gnuplot <<EOF
+set title "Hydra Load Run - ${NAME} - ${COUNT} txs"
 set term pngcairo size 2048,1532
 set output "${DIR}/results.png"
 set xlabel "Time"
