@@ -81,8 +81,8 @@ negative = "negative"
 data HeadState
   = Unknown
   | Ready
-  | Initializing {notYetCommitted :: [Party]}
-  | Open
+  | Initializing {parties :: [Party], utxo :: Utxo CardanoTx}
+  | Open {utxo :: Utxo CardanoTx}
   | Closed {contestationDeadline :: UTCTime}
   | Finalized
   deriving (Eq, Show, Generic)
@@ -110,9 +110,9 @@ handleEvent client@Client{sendInput} (clearFeedback -> s) =
     Just (Committing form) -> \case
       VtyEvent (EvKey KEsc []) ->
         continue $ s & dialogStateL .~ None
-      VtyEvent (EvKey (KChar '>') []) ->
-        let u = UTxO (fst <$> formState form)
-         in liftIO (sendInput $ Commit u) >> continue (s & dialogStateL .~ None)
+      VtyEvent (EvKey (KChar '>') []) -> do
+        liftIO (sendInput $ Commit $ doCommit form)
+        continue (s & dialogStateL .~ None)
       -- NOTE: Field focus is changed using Tab / Shift-Tab, but arrows are more
       -- intuitive, so we forward them. Same for Space <-> Enter
       VtyEvent (EvKey KUp []) ->
@@ -138,24 +138,9 @@ handleEvent client@Client{sendInput} (clearFeedback -> s) =
       VtyEvent (EvKey (KChar 'c') _) ->
         case s ^? headStateL of
           Just Initializing{} ->
-            -- We use the host's port number as a seed for generating the utxo,
-            -- such that it's different across clients and consistent if a
-            -- client restarts.
-            let seed = maybe 0 (fromIntegral . port) (s ^? nodeHostL)
-                -- Somehow, 'scale' from QC does not work here. The generator is
-                -- probably ignoring it and generates LARGE utxos, too large.
-                utxo_ = (\(UTxO u) -> Map.fromList $ take 5 $ Map.toList u) $ generateWith genUtxo seed
-                fields =
-                  [ checkboxField
-                    (checkboxLens k)
-                    ("checkboxField@" <> show k)
-                    (T.drop 48 (txInToText k) <> " ↦ " <> value)
-                  | (k, v) <- Map.toList utxo_
-                  , let value = prettyBalance $ balance @CardanoTx $ UTxO (Map.singleton k v)
-                  ]
-             in continue $
-                  s & dialogStateL
-                    .~ Committing (newForm fields ((,False) <$> utxo_))
+            continue $
+              s & dialogStateL
+                .~ Committing newCommitDialog
           _ ->
             continue $
               s & feedbackL ?~ UserFeedback Error "Invalid command."
@@ -174,16 +159,17 @@ handleEvent client@Client{sendInput} (clearFeedback -> s) =
         continue $
           s & feedbackL ?~ UserFeedback Error "Invalid command."
       AppEvent (Update ReadyToCommit{parties}) ->
-        continue $
-          s & headStateL .~ Initializing parties
-            & feedbackL ?~ UserFeedback Info "Head initialized, ready for commit(s)."
+        let utxo = mempty
+         in continue $
+              s & headStateL .~ Initializing{parties, utxo}
+                & feedbackL ?~ UserFeedback Info "Head initialized, ready for commit(s)."
       AppEvent (Update Committed{party, utxo}) ->
         continue $
-          s & headStateL %~ partyCommitted party
+          s & headStateL %~ partyCommitted party utxo
             & feedbackL ?~ UserFeedback Info (show party <> " committed " <> prettyBalance (balance @CardanoTx utxo))
-      AppEvent (Update HeadIsOpen{}) ->
+      AppEvent (Update HeadIsOpen{utxo}) ->
         continue $
-          s & headStateL .~ Open
+          s & headStateL .~ Open{utxo}
             & feedbackL ?~ UserFeedback Info "Head is now opened!"
       AppEvent (Update HeadIsClosed{contestationDeadline}) ->
         continue $
@@ -214,24 +200,49 @@ handleEvent client@Client{sendInput} (clearFeedback -> s) =
   disconnected =
     Disconnected{nodeHost = s ^. nodeHostL}
 
-  partyCommitted party = \case
-    Initializing{notYetCommitted} -> Initializing{notYetCommitted = notYetCommitted \\ [party]}
+  partyCommitted party commit = \case
+    Initializing{parties, utxo} ->
+      Initializing
+        { parties = parties \\ [party]
+        , utxo = utxo <> commit
+        }
     hs -> hs
 
-  prettyBalance :: Balance tx -> Text
-  prettyBalance Balance{lovelace, assets} =
-    let (ada, decimal) = lovelace `quotRem` 1000000
-     in unwords $
-          [ show ada <> "." <> show decimal
-          , "₳"
+  newCommitDialog =
+    -- We use the host's port number as a seed for generating the utxo,
+    -- such that it's different across clients and consistent if a
+    -- client restarts.
+    let seed = maybe 0 (fromIntegral . port) (s ^? nodeHostL)
+        -- Somehow, 'scale' from QC does not work here. The generator is
+        -- probably ignoring it and generates LARGE utxos, too large.
+        utxo_ = (\(UTxO u) -> Map.fromList $ take 5 $ Map.toList u) $ generateWith genUtxo seed
+        fields =
+          [ checkboxField
+            (checkboxLens k)
+            ("checkboxField@" <> show k)
+            (T.drop 48 (txInToText k) <> " ↦ " <> value)
+          | (k, v) <- Map.toList utxo_
+          , let value = prettyBalance $ balance @CardanoTx $ UTxO (Map.singleton k v)
           ]
-            ++ if null assets
-              then mempty
-              else
-                [ "and"
-                , show (Map.size assets)
-                , "asset(s)"
-                ]
+     in newForm fields ((,False) <$> utxo_)
+
+  doCommit =
+    UTxO . Map.mapMaybe (\(v, p) -> if p then Just v else Nothing) . formState
+
+prettyBalance :: Balance tx -> Text
+prettyBalance Balance{lovelace, assets} =
+  let (ada, decimal) = lovelace `quotRem` 1000000
+   in unwords $
+        [ show ada <> "." <> show decimal
+        , "₳"
+        ]
+          ++ if null assets
+            then mempty
+            else
+              [ "and"
+              , show (Map.size assets)
+              , "asset(s)"
+              ]
 
 clearFeedback :: State -> State
 clearFeedback = feedbackL .~ empty
@@ -275,14 +286,19 @@ draw s =
     Disconnected{} -> emptyWidget
     Connected{headState} ->
       case headState of
-        Initializing{notYetCommitted} ->
+        Initializing{parties, utxo} ->
           str "Head status: Initializing"
-            <=> str "Not yet committed:"
-            <=> vBox (map drawShow notYetCommitted)
+            <=> str ("Total committed: " <> toString (prettyBalance (balance @CardanoTx utxo)))
+            <=> str "Waiting for parties to commit:"
+            <=> vBox (map drawShow parties)
+        Open{utxo} ->
+          str "Head status: Open"
+            <=> str ("Head balance: " <> toString (prettyBalance (balance @CardanoTx utxo)))
         Closed{contestationDeadline} ->
           str "Head status: Closed"
             <=> str ("Contestation deadline: " <> show contestationDeadline)
-        _ -> str "Head status: " <+> str (show headState)
+        _ ->
+          str "Head status: " <+> str (show headState)
 
   drawCommands =
     case s ^? dialogStateL of
