@@ -25,6 +25,7 @@ import Hydra.Ledger (Balance (..), Party, Tx (..))
 import Hydra.Ledger.Cardano (CardanoAddress, CardanoKeyPair, CardanoTx, TxIn, TxOut, genKeyPair, genUtxoFor, mkSimpleCardanoTx, mkVkAddress, txInToText)
 import Hydra.Network (Host (..))
 import Hydra.ServerOutput (ServerOutput (..))
+import Hydra.Snapshot (Snapshot (..))
 import Hydra.TUI.Options (Options (..))
 import Lens.Micro (Lens', lens, (%~), (.~), (?~), (^.), (^?))
 import Lens.Micro.TH (makeLensesFor)
@@ -170,7 +171,7 @@ handleEvent client@Client{sendInput} (clearFeedback -> s) =
                             "Select a recipient"
                             newRecipientsDialog
                             ( \s2 (getAddress -> recipient) -> do
-                                let myCredentials = getCredentials (traceShow nodeHost nodeHost)
+                                let myCredentials = getCredentials nodeHost
                                     tx = mkSimpleCardanoTx input recipient myCredentials
                                  in do
                                       liftIO (sendInput (NewTx tx))
@@ -215,6 +216,24 @@ handleEvent client@Client{sendInput} (clearFeedback -> s) =
         continue $
           s & headStateL .~ Finalized
             & feedbackL ?~ UserFeedback Info "Head finalized."
+      AppEvent (Update TxSeen{}) ->
+        continue s
+      AppEvent (Update TxInvalid{validationError}) ->
+        continue $
+          s & feedbackL ?~ UserFeedback Error (show validationError)
+      AppEvent (Update TxValid{}) ->
+        continue $
+          s & feedbackL ?~ UserFeedback Success "Transaction submitted successfully!"
+      AppEvent (Update SnapshotConfirmed{snapshot}) ->
+        case s ^? headStateL of
+          Just Open{} ->
+            let Snapshot{utxo, number} = snapshot
+             in continue $
+                  s & headStateL .~ Open{utxo}
+                    & feedbackL ?~ UserFeedback Info ("Snapshot #" <> show number <> " confirmed.")
+          _ ->
+            -- TODO: There is a better way...
+            continue s
       AppEvent (Update HeadIsAborted{}) ->
         continue $
           s & headStateL .~ Ready
