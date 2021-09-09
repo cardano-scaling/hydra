@@ -195,7 +195,7 @@ mkSimpleCardanoTx ::
   Cardano.Addr StandardCrypto ->
   Cardano.KeyPair 'Cardano.Payment StandardCrypto ->
   CardanoTx
-mkSimpleCardanoTx (i, Cardano.TxOut owner value) recipient credentials =
+mkSimpleCardanoTx (i, Cardano.TxOut _owner value) recipient credentials =
   CardanoTx{id, body, witnesses, auxiliaryData}
  where
   id = Cardano.TxId $ SafeHash.hashAnnotated body
