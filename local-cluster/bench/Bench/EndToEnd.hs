@@ -77,12 +77,12 @@ data Event = Event
   }
   deriving (Generic, Eq, Show, ToJSON)
 
-bench :: FilePath -> [Dataset] -> Spec
-bench workDir dataset =
+bench :: DiffTime -> FilePath -> [Dataset] -> Spec
+bench timeoutSeconds workDir dataset =
   specify ("Load test on three local nodes (" <> workDir <> ")") $ do
     registry <- newRegistry
     showLogsOnFailure $ \tracer ->
-      failAfter 600 $ do
+      failAfter timeoutSeconds $ do
         withMockChain $ \chainPorts ->
           withHydraNode tracer workDir chainPorts 1 aliceSk [bobVk, carolVk] $ \n1 ->
             withHydraNode tracer workDir chainPorts 2 bobSk [aliceVk, carolVk] $ \n2 ->

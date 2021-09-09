@@ -30,6 +30,7 @@ data Options = Options
   { outputDirectory :: Maybe FilePath
   , scalingFactor :: Int
   , concurrency :: Int
+  , timeoutSeconds :: DiffTime
   }
 
 benchOptionsParser :: Parser Options
@@ -64,6 +65,14 @@ benchOptionsParser =
               \ define how many independent UTXO set and transaction sequences will be \
               \ generated and concurrently submitted to the nodes (default: 1)"
         )
+      <*> option
+        auto
+        ( long "timeout"
+            <> value 600.0
+            <> metavar "SECONDS"
+            <> help
+              "The timeout for the run, in seconds (default: '600s')"
+        )
 
 benchOptions :: ParserInfo Options
 benchOptions =
@@ -81,27 +90,27 @@ benchOptions =
 main :: IO ()
 main =
   execParser benchOptions >>= \case
-    Options{outputDirectory = Just benchDir, scalingFactor, concurrency} -> do
+    Options{outputDirectory = Just benchDir, scalingFactor, concurrency, timeoutSeconds} -> do
       existsDir <- doesDirectoryExist benchDir
       if existsDir
-        then replay benchDir
-        else createDirectory benchDir >> play scalingFactor concurrency benchDir
-    Options{scalingFactor, concurrency} ->
-      createSystemTempDirectory "bench" >>= play scalingFactor concurrency
+        then replay timeoutSeconds benchDir
+        else createDirectory benchDir >> play scalingFactor concurrency timeoutSeconds benchDir
+    Options{scalingFactor, concurrency, timeoutSeconds} ->
+      createSystemTempDirectory "bench" >>= play scalingFactor concurrency timeoutSeconds
  where
-  replay benchDir = do
+  replay timeoutSeconds benchDir = do
     datasets <- either die pure =<< eitherDecodeFileStrict' (benchDir </> "dataset.json")
     putStrLn $ "Using UTxO and Transactions from: " <> benchDir
-    run benchDir datasets
+    run timeoutSeconds benchDir datasets
 
-  play scalingFactor concurrency benchDir = do
+  play scalingFactor concurrency timeoutSeconds benchDir = do
     dataset <- replicateM concurrency (generateDataset scalingFactor)
     saveDataset benchDir dataset
-    run benchDir dataset
+    run timeoutSeconds benchDir dataset
 
   -- TODO(SN): Ideally we would like to say "to re-run use ... " on errors
-  run fp datasets =
-    withArgs [] . hspec $ bench fp datasets
+  run timeoutSeconds benchDir datasets =
+    withArgs [] . hspec $ bench timeoutSeconds benchDir datasets
 
   saveDataset tmpDir dataset = do
     let txsFile = tmpDir </> "dataset.json"
