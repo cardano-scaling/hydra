@@ -145,7 +145,13 @@ instance Arbitrary CardanoTx where
   arbitrary = genUtxo >>= genCardanoTx
 
 genUtxo :: Gen (Utxo CardanoTx)
-genUtxo = genUtxo0 (genEnv Proxy)
+genUtxo = do
+  genesisTxId <- arbitrary
+  utxo <- genUtxo0 (genEnv Proxy)
+  pure $ Cardano.UTxO $ Map.mapKeys (setTxId genesisTxId) $ Cardano.unUTxO utxo
+ where
+  setTxId :: Cardano.TxId StandardCrypto -> Cardano.TxIn StandardCrypto -> Cardano.TxIn StandardCrypto
+  setTxId baseId (Cardano.TxInCompact _ti wo) = Cardano.TxInCompact baseId wo
 
 genCardanoTx :: Utxo CardanoTx -> Gen CardanoTx
 genCardanoTx utxos = do
