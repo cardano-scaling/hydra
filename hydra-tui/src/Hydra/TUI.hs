@@ -9,12 +9,11 @@ import Hydra.Prelude hiding (State)
 
 import Brick
 import Brick.BChan (newBChan, writeBChan)
-import Brick.Forms (Form, checkboxField, formState, handleFormEvent, newForm, renderForm)
+import Brick.Forms (Form, FormFieldState, checkboxField, formState, handleFormEvent, newForm, radioField, renderForm)
 import Brick.Widgets.Border (hBorder, vBorder)
 import Brick.Widgets.Border.Style (ascii)
-
 import Cardano.Ledger.Keys (KeyPair (..))
-import Data.List (nub, (\\))
+import Data.List (nub, (!!), (\\))
 import qualified Data.Map.Strict as Map
 import qualified Data.Text as T
 import Data.Version (showVersion)
@@ -23,7 +22,7 @@ import Graphics.Vty.Attributes (defAttr)
 import Hydra.Client (Client (Client, sendInput), HydraEvent (..), withClient)
 import Hydra.ClientInput (ClientInput (..))
 import Hydra.Ledger (Balance (..), Party, Tx (..))
-import Hydra.Ledger.Cardano (CardanoTx, TxIn, TxOut, genKeyPair, genUtxoFor, txInToText)
+import Hydra.Ledger.Cardano (CardanoAddress, CardanoKeyPair, CardanoTx, TxIn, TxOut, genKeyPair, genUtxoFor, mkSimpleCardanoTx, mkVkAddress, txInToText)
 import Hydra.Network (Host (..))
 import Hydra.ServerOutput (ServerOutput (..))
 import Hydra.TUI.Options (Options (..))
@@ -31,7 +30,7 @@ import Lens.Micro (Lens', lens, (%~), (.~), (?~), (^.), (^?))
 import Lens.Micro.TH (makeLensesFor)
 import Paths_hydra_tui (version)
 import Shelley.Spec.Ledger.API (UTxO (..))
-import Test.QuickCheck.Gen (Gen (..))
+import Test.QuickCheck.Gen (Gen (..), scale)
 import Test.QuickCheck.Random (mkQCGen)
 
 -- * Types
@@ -47,10 +46,15 @@ data State
       }
   deriving (Generic)
 
-data DialogState
-  = None
-  | Committing (Form (Map TxIn (TxOut, Bool)) (HydraEvent CardanoTx) Name)
-  deriving (Generic)
+data DialogState where
+  NoDialog :: DialogState
+  Dialog ::
+    forall s e n.
+    (n ~ Name, e ~ HydraEvent CardanoTx) =>
+    Text ->
+    Form s e n ->
+    (State -> s -> EventM n (Next State)) ->
+    DialogState
 
 data UserFeedback = UserFeedback
   { severity :: Severity
@@ -108,12 +112,11 @@ handleEvent ::
   EventM Name (Next State)
 handleEvent client@Client{sendInput} (clearFeedback -> s) =
   case s ^? dialogStateL of
-    Just (Committing form) -> \case
+    Just (Dialog title form continuation) -> \case
       VtyEvent (EvKey KEsc []) ->
-        continue $ s & dialogStateL .~ None
+        continue $ s & dialogStateL .~ NoDialog
       VtyEvent (EvKey (KChar '>') []) -> do
-        liftIO (sendInput $ Commit $ doCommit form)
-        continue (s & dialogStateL .~ None)
+        continuation s (formState form)
       -- NOTE: Field focus is changed using Tab / Shift-Tab, but arrows are more
       -- intuitive, so we forward them. Same for Space <-> Enter
       VtyEvent (EvKey KUp []) ->
@@ -124,7 +127,7 @@ handleEvent client@Client{sendInput} (clearFeedback -> s) =
         handleEvent client s (VtyEvent (EvKey (KChar ' ') []))
       e -> do
         form' <- handleFormEvent e form
-        continue $ s & dialogStateL .~ Committing form'
+        continue $ s & dialogStateL .~ Dialog title form' continuation
     _ -> \case
       -- Quit
       VtyEvent (EvKey (KChar 'c') [MCtrl]) -> halt s
@@ -141,7 +144,39 @@ handleEvent client@Client{sendInput} (clearFeedback -> s) =
           Just Initializing{} ->
             continue $
               s & dialogStateL
-                .~ Committing newCommitDialog
+                .~ Dialog
+                  "Select UTXO to commit"
+                  newCommitDialog
+                  ( \s' st -> do
+                      let commit = UTxO . Map.mapMaybe (\(v, p) -> if p then Just v else Nothing) $ st
+                      liftIO (sendInput $ Commit commit)
+                      continue (s' & dialogStateL .~ NoDialog)
+                  )
+          _ ->
+            continue $
+              s & feedbackL ?~ UserFeedback Error "Invalid command."
+      VtyEvent (EvKey (KChar 'n') _) ->
+        case (s, s ^? headStateL) of
+          (Connected{nodeHost}, Just Open{}) ->
+            continue $
+              s & dialogStateL
+                .~ Dialog
+                  "Select UTXO to spend"
+                  newTransactionBuilderDialog
+                  ( \s1 input ->
+                      continue $
+                        s1 & dialogStateL
+                          .~ Dialog
+                            "Select a recipient"
+                            newRecipientsDialog
+                            ( \s2 (getAddress -> recipient) -> do
+                                let myCredentials = getCredentials (traceShow nodeHost nodeHost)
+                                    tx = mkSimpleCardanoTx input recipient myCredentials
+                                 in do
+                                      liftIO (sendInput (NewTx tx))
+                                      continue $ s2 & dialogStateL .~ NoDialog
+                            )
+                  )
           _ ->
             continue $
               s & feedbackL ?~ UserFeedback Error "Invalid command."
@@ -194,7 +229,7 @@ handleEvent client@Client{sendInput} (clearFeedback -> s) =
       { nodeHost = s ^. nodeHostL
       , connectedPeers = mempty
       , headState = Unknown
-      , dialogState = None
+      , dialogState = NoDialog
       , feedback = empty
       }
 
@@ -210,26 +245,18 @@ handleEvent client@Client{sendInput} (clearFeedback -> s) =
     hs -> hs
 
   newCommitDialog =
-    -- We use the host's port number as a seed for generating the utxo,
-    -- such that it's different across clients and consistent if a
-    -- client restarts.
-    let seed = getSeed s
-        -- Somehow, 'scale' from QC does not work here. The generator is
-        -- probably ignoring it and generates LARGE utxos, too large.
-        vk = vKey $ generateWith genKeyPair seed
-        utxo_ = (\(UTxO u) -> Map.fromList $ take 5 $ Map.toList u) $ generateWith (genUtxoFor vk) seed
-        fields =
-          [ checkboxField
-            (checkboxLens k)
-            ("checkboxField@" <> show k)
-            (T.drop 48 (txInToText k) <> " ↦ " <> value)
-          | (k, v) <- Map.toList utxo_
-          , let value = prettyBalance $ balance @CardanoTx $ UTxO (Map.singleton k v)
-          ]
-     in newForm fields ((,False) <$> utxo_)
+    let u = myTotalUtxo s in newForm (utxoCheckboxField u) ((,False) <$> u)
 
-  doCommit =
-    UTxO . Map.mapMaybe (\(v, p) -> if p then Just v else Nothing) . formState
+  newTransactionBuilderDialog =
+    let u = myAvailableUtxo s in newForm (utxoRadioField u) (Map.toList u !! 0)
+
+  newRecipientsDialog =
+    let peers = fromMaybe [] (s ^? connectedPeersL)
+        field =
+          radioField
+            (lens id const)
+            [(peer, show peer, show peer) | peer <- peers]
+     in newForm [field] (peers !! 0)
 
 prettyBalance :: Balance tx -> Text
 prettyBalance Balance{lovelace, assets} =
@@ -304,9 +331,10 @@ draw s =
 
   drawCommands =
     case s ^? dialogStateL of
-      Just (Committing form) ->
+      Just (Dialog title form _) ->
         vBox
-          [ renderForm form
+          [ str (toString title)
+          , padTop (Pad 1) $ renderForm form
           , padTop (Pad 1) $
               hBox
                 [ padLeft (Pad 5) $ str "[Esc] Cancel"
@@ -319,6 +347,7 @@ draw s =
           [ str "Commands:"
           , str " - [i]nit"
           , str " - [c]ommit"
+          , str " - [n]ew transaction"
           , str " - [C]lose"
           , str " - [a]bort"
           , str " - [q]uit"
@@ -336,15 +365,70 @@ draw s =
   drawShow :: forall a n. Show a => a -> Widget n
   drawShow = str . (" - " <>) . show
 
-checkboxLens :: Ord k => k -> Lens' (Map k (v, Bool)) Bool
-checkboxLens i =
-  lens
-    (maybe False snd . Map.lookup i)
-    (\s b -> Map.adjust (second (const b)) i s)
+myTotalUtxo :: State -> Map TxIn TxOut
+myTotalUtxo s =
+  let host@Host{port} = s ^. nodeHostL
+      vk = vKey $ getCredentials host
+      UTxO u = generateWith (scale (const 5) $ genUtxoFor vk) (fromIntegral port)
+   in u
 
-getSeed :: State -> Int
-getSeed s =
-  maybe 0 (fromIntegral . port) (s ^? nodeHostL)
+myAvailableUtxo :: State -> Map TxIn TxOut
+myAvailableUtxo s =
+  case s ^? headStateL of
+    Just Open{utxo = UTxO u'} ->
+      let u = myTotalUtxo s in u' `Map.intersection` u
+    _ ->
+      mempty
+
+-- A helper for creating multiple form fields from a UTXO set.
+utxoCheckboxField ::
+  forall s e n.
+  ( s ~ Map TxIn (TxOut, Bool)
+  , n ~ Name
+  ) =>
+  Map TxIn TxOut ->
+  [s -> FormFieldState s e n]
+utxoCheckboxField u =
+  [ checkboxField
+    (checkboxLens k)
+    ("checkboxField@" <> show k)
+    (prettyUtxo (k, v))
+  | (k, v) <- Map.toList u
+  ]
+ where
+  checkboxLens :: Ord k => k -> Lens' (Map k (v, Bool)) Bool
+  checkboxLens i =
+    lens
+      (maybe False snd . Map.lookup i)
+      (\s b -> Map.adjust (second (const b)) i s)
+
+utxoRadioField ::
+  forall s e n.
+  ( s ~ (TxIn, TxOut)
+  , n ~ Name
+  ) =>
+  Map TxIn TxOut ->
+  [s -> FormFieldState s e n]
+utxoRadioField u =
+  [ radioField
+      (lens id const)
+      [ (i, show i, prettyUtxo i)
+      | i <- Map.toList u
+      ]
+  ]
+
+prettyUtxo :: (TxIn, TxOut) -> Text
+prettyUtxo (k, v) =
+  let value = prettyBalance $ balance @CardanoTx $ UTxO (Map.singleton k v)
+   in T.drop 48 (txInToText k) <> " ↦ " <> value
+
+getCredentials :: Host -> CardanoKeyPair
+getCredentials Host{port} =
+  let seed = fromIntegral port in generateWith genKeyPair seed
+
+getAddress :: Host -> CardanoAddress
+getAddress =
+  mkVkAddress . vKey . getCredentials
 
 generateWith :: Gen a -> Int -> a
 generateWith (MkGen runGen) seed =
