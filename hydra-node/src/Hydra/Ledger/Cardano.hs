@@ -29,8 +29,10 @@ import qualified Cardano.Ledger.Address as Cardano
 import Cardano.Ledger.AuxiliaryData (AuxiliaryDataHash (AuxiliaryDataHash), unsafeAuxiliaryDataHash)
 import Cardano.Ledger.BaseTypes (StrictMaybe (SNothing), boundRational, mkActiveSlotCoeff)
 import Cardano.Ledger.Crypto (Crypto, StandardCrypto)
+import Cardano.Ledger.Keys (asWitness, signedDSIGN)
 import Cardano.Ledger.Mary (AuxiliaryData, MaryEra)
 import qualified Cardano.Ledger.Mary.Value as Cardano
+import Cardano.Ledger.SafeHash (extractHash)
 import qualified Cardano.Ledger.SafeHash as SafeHash
 import qualified Cardano.Ledger.ShelleyMA.Timelocks as Cardano
 import qualified Cardano.Ledger.ShelleyMA.TxBody as Cardano
@@ -67,6 +69,7 @@ import Hydra.Ledger (Balance (..), Ledger (..), Tx (..), ValidationError (Valida
 import Shelley.Spec.Ledger.API (Wdrl (Wdrl), unWdrl, _maxTxSize)
 import qualified Shelley.Spec.Ledger.API as Cardano hiding (TxBody)
 import Shelley.Spec.Ledger.Tx (WitnessSetHKD (WitnessSet))
+import Shelley.Spec.Ledger.TxBody (TxId (..))
 import Test.Cardano.Ledger.MaryEraGen ()
 import Test.QuickCheck (Gen, choose, getSize, vectorOf)
 import qualified Test.Shelley.Spec.Ledger.Generator.Constants as Constants
@@ -179,6 +182,40 @@ genUtxo = do
   setTxId :: Cardano.TxId StandardCrypto -> Cardano.TxIn StandardCrypto -> Cardano.TxIn StandardCrypto
   setTxId baseId (Cardano.TxInCompact _ti wo) = Cardano.TxInCompact baseId wo
 
+-- Construct a simple transaction which spends a UTXO, signed by the given key.
+mkSimpleCardanoTx ::
+  (TxIn, TxOut) ->
+  Cardano.KeyPair 'Cardano.Payment StandardCrypto ->
+  CardanoTx
+mkSimpleCardanoTx (i, o) credentials =
+  CardanoTx{id, body, witnesses, auxiliaryData}
+ where
+  id = Cardano.TxId $ SafeHash.hashAnnotated body
+
+  body =
+    Cardano.TxBody
+      (Set.singleton i)
+      (StrictSeq.fromList [o]) -- TODO: Define a recipient & change
+      mempty
+      (Cardano.Wdrl mempty)
+      fees
+      (Cardano.ValidityInterval Cardano.SNothing Cardano.SNothing)
+      Cardano.SNothing
+      Cardano.SNothing
+      mempty
+   where
+    fees = Cardano.Coin 0
+
+  witnesses =
+    WitnessSet addrWits scriptWits bootWits
+   where
+    addrWits = Set.singleton (id `signWith` credentials)
+    scriptWits = mempty
+    bootWits = Set.empty
+
+  auxiliaryData =
+    Cardano.SNothing
+
 genCardanoTx :: Utxo CardanoTx -> Gen CardanoTx
 genCardanoTx utxos = do
   tx <- genTx generatorEnv ledgerEnv (utxoState, dpState)
@@ -233,6 +270,15 @@ type CardanoAuxiliaryData = StrictMaybe (AuxiliaryData CardanoEra)
 type TxIn = Cardano.TxIn StandardCrypto
 
 type TxOut = Cardano.TxOut CardanoEra
+
+signWith ::
+  Cardano.TxId StandardCrypto ->
+  Cardano.KeyPair 'Cardano.Payment StandardCrypto ->
+  Cardano.WitVKey 'Cardano.Witness StandardCrypto
+signWith (_unTxId -> safeHash) credentials =
+  Cardano.WitVKey
+    (asWitness $ Cardano.vKey credentials)
+    (signedDSIGN @StandardCrypto (Cardano.sKey credentials) (extractHash safeHash))
 
 --
 --  Transaction Id
