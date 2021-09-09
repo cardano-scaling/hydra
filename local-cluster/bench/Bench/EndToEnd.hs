@@ -73,6 +73,7 @@ generateDataset scalingFactor = do
 
 data Event = Event
   { submittedAt :: UTCTime
+  , validAt :: Maybe UTCTime
   , confirmedAt :: Maybe UTCTime
   }
   deriving (Generic, Eq, Show, ToJSON)
@@ -107,7 +108,7 @@ bench timeoutSeconds workDir dataset =
     res <- mapMaybe analyze . Map.toList <$> readTVarIO (processedTxs registry)
     writeResultsCsv (workDir </> "results.csv") res
     -- TODO: Create a proper summary
-    let confTimes = map snd res
+    let confTimes = map (\(_, _, a) -> a) res
         below1Sec = filter (< 1) confTimes
         avgConfirmation = double (nominalDiffTimeToSeconds $ sum confTimes) / double (length confTimes)
         percentBelow1Sec = double (length below1Sec) / double (length confTimes) * 100
@@ -173,6 +174,7 @@ newTx registry client tx = do
       Map.insert (txId tx) $
         Event
           { submittedAt = now
+          , validAt = Nothing
           , confirmedAt = Nothing
           }
   send client $ input "NewTx" ["transaction" .= tx]
@@ -180,6 +182,7 @@ newTx registry client tx = do
 
 data WaitResult
   = TxInvalid {transaction :: CardanoTx, reason :: Text}
+  | TxValid {transaction :: CardanoTx}
   | SnapshotConfirmed {transactions :: [Value], snapshotNumber :: Scientific}
 
 data Registry tx = Registry
@@ -227,6 +230,9 @@ waitForAllConfirmations n1 Registry{processedTxs} submissionQ allIds = do
       putStrLn "All transactions confirmed. Sweet!"
     | otherwise = do
       waitForSnapshotConfirmation >>= \case
+        TxValid{transaction} -> do
+          validTx processedTxs (txId transaction)
+          go remainingIds
         TxInvalid{transaction} -> do
           putTextLn $ "TxInvalid: " <> show (txId transaction) <> ", resubmitting"
           atomically $ writeTBQueue submissionQ transaction
@@ -239,10 +245,16 @@ waitForAllConfirmations n1 Registry{processedTxs} submissionQ allIds = do
           go $ remainingIds \\ Set.fromList confirmedIds
 
   waitForSnapshotConfirmation = waitMatch 20 n1 $ \v ->
-    maybeTxInvalid v <|> maybeSnapshotConfirmed v
+    maybeTxValid v <|> maybeTxInvalid v <|> maybeSnapshotConfirmed v
 
   fmtIds =
     toText . intercalate "" . fmap (("\n    - " <>) . show)
+
+  maybeTxValid v = do
+    guard (v ^? key "tag" == Just "TxValid")
+    v ^? key "transaction" . to fromJSON >>= \case
+      Error _ -> Nothing
+      Success tx -> pure $ TxValid tx
 
   maybeTxInvalid v = do
     guard (v ^? key "tag" == Just "TxInvalid")
@@ -272,16 +284,26 @@ confirmTx registry tx = do
       pure identifier
     _ -> error $ "incorrect Txid" <> show tx
 
-analyze :: (TxId CardanoTx, Event) -> Maybe (UTCTime, NominalDiffTime)
+validTx ::
+  TVar IO (Map.Map (TxId CardanoTx) Event) ->
+  TxId CardanoTx ->
+  IO ()
+validTx registry txid = do
+  now <- getCurrentTime
+  atomically $
+    modifyTVar registry $
+      Map.adjust (\e -> e{validAt = Just now}) txid
+
+analyze :: (TxId CardanoTx, Event) -> Maybe (UTCTime, NominalDiffTime, NominalDiffTime)
 analyze = \case
-  (_, Event{submittedAt, confirmedAt = Just conf}) -> Just (submittedAt, conf `diffUTCTime` submittedAt)
+  (_, Event{submittedAt, validAt = Just valid, confirmedAt = Just conf}) -> Just (submittedAt, valid `diffUTCTime` submittedAt, conf `diffUTCTime` submittedAt)
   _ -> Nothing
 
-writeResultsCsv :: FilePath -> [(UTCTime, NominalDiffTime)] -> IO ()
+writeResultsCsv :: FilePath -> [(UTCTime, NominalDiffTime, NominalDiffTime)] -> IO ()
 writeResultsCsv fp res = do
   putStrLn $ "Writing results to: " <> fp
   writeFileLBS fp $ headers <> "\n" <> foldMap toCsv res
  where
   headers = "txId,confirmationTime"
 
-  toCsv (a, b) = show a <> "," <> encode b <> "\n"
+  toCsv (a, b, c) = show a <> "," <> encode b <> "," <> encode c <> "\n"
