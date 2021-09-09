@@ -1,3 +1,4 @@
+{-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE TypeApplications #-}
 {-# OPTIONS_GHC -Wno-deprecations #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
@@ -96,6 +97,11 @@ verify (UnsafeSigned sig) (UnsafeParty vk) msg =
 
 type Committed tx = Map Party (Utxo tx)
 
+data Balance tx = Balance
+  { lovelace :: Natural
+  , assets :: Map (AssetId tx) Integer
+  }
+
 -- * Ledger interface
 
 class
@@ -122,8 +128,11 @@ class
   where
   type Utxo tx
   type TxId tx
+  type AssetId tx
 
   txId :: tx -> TxId tx
+
+  balance :: Utxo tx -> Balance tx
 
 data Ledger tx = Ledger
   { applyTransactions :: Utxo tx -> [tx] -> Either ValidationError (Utxo tx)

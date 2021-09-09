@@ -53,11 +53,12 @@ import Data.Aeson (
 import Data.Aeson.Types (mapFromJSONKeyFunction, toJSONKeyText)
 import qualified Data.ByteString.Base16 as Base16
 import Data.Default (def)
+import qualified Data.Map.Strict as Map
 import qualified Data.Sequence.Strict as StrictSeq
 import qualified Data.Set as Set
 import qualified Data.Text as Text
 import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
-import Hydra.Ledger (Ledger (..), Tx (..), ValidationError (ValidationError))
+import Hydra.Ledger (Balance (..), Ledger (..), Tx (..), ValidationError (ValidationError))
 import Shelley.Spec.Ledger.API (Wdrl (Wdrl), unWdrl, _maxTxSize)
 import qualified Shelley.Spec.Ledger.API as Cardano hiding (TxBody)
 import Shelley.Spec.Ledger.Tx (WitnessSetHKD (WitnessSet))
@@ -103,8 +104,21 @@ data CardanoTx = CardanoTx
 instance Tx CardanoTx where
   type Utxo CardanoTx = Cardano.UTxO CardanoEra
   type TxId CardanoTx = Cardano.TxId StandardCrypto
+  type AssetId CardanoTx = (Cardano.PolicyID StandardCrypto, Cardano.AssetName)
 
   txId CardanoTx{body} = Cardano.TxId $ SafeHash.hashAnnotated body
+  balance (Cardano.UTxO u) =
+    let aggregate (Cardano.TxOut _ value) = (<>) value
+        valueToBalance (Cardano.Value (fromIntegral -> lovelace) assetsByPolicy) =
+          Balance
+            { lovelace
+            , assets =
+                Map.foldrWithKey
+                  (\k v -> Map.union (Map.mapKeys (k,) v))
+                  mempty
+                  assetsByPolicy
+            }
+     in valueToBalance $ Map.foldr aggregate mempty u
 
 -- NOTE(SN): We do serialize CBOR-in-CBOR to utilize the 'FromCBOR (Annotator
 -- (Tx era))' instance from the Cardano.Ledger.Tx
