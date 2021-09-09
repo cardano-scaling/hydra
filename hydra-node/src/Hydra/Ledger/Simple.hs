@@ -25,8 +25,13 @@ import Hydra.Ledger
 instance Tx SimpleTx where
   type Utxo SimpleTx = Set TxIn
   type TxId SimpleTx = SimpleId
+  type AssetId SimpleTx = SimpleId
 
   txId (SimpleTx tid _ _) = tid
+  balance u =
+    let lovelace = fromIntegral (Set.size u)
+        assets = mempty
+     in Balance{lovelace, assets}
 
 -- | Simple transaction.
 -- A transaction is a 'SimpleId', a list of inputs and a list of outputs.

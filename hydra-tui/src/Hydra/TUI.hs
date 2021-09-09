@@ -7,23 +7,23 @@ module Hydra.TUI where
 
 import Hydra.Prelude hiding (State)
 
-import Brick (App (..), AttrMap, AttrName, BrickEvent (AppEvent, VtyEvent), EventM, Next, Padding (Pad), Widget, continue, customMain, emptyWidget, fg, hBox, hLimit, halt, joinBorders, padTop, showFirstCursor, str, vBox, withAttr, withBorderStyle, (<+>), (<=>))
-import Brick.AttrMap (attrMap)
+import Brick
 import Brick.BChan (newBChan, writeBChan)
 import Brick.Widgets.Border (hBorder, vBorder)
 import Brick.Widgets.Border.Style (ascii)
 import Data.List (nub, (\\))
+import qualified Data.Map.Strict as Map
 import Data.Version (showVersion)
 import Graphics.Vty (Event (EvKey), Key (KChar), Modifier (..), blue, defaultConfig, green, mkVty, red)
 import Graphics.Vty.Attributes (defAttr)
 import Hydra.Client (Client (Client, sendInput), HydraEvent (..), withClient)
 import Hydra.ClientInput (ClientInput (Abort, Close, Commit, Init))
-import Hydra.Ledger (Party, Tx)
+import Hydra.Ledger (Balance (..), Party, Tx (..))
 import Hydra.Ledger.Cardano (CardanoTx)
 import Hydra.Network (Host)
 import Hydra.ServerOutput (ServerOutput (..))
 import Hydra.TUI.Options (Options (..))
-import Lens.Micro ((%~), (.~), (^.), (^?))
+import Lens.Micro ((%~), (.~), (?~), (^.), (^?))
 import Lens.Micro.TH (makeLensesFor)
 import Paths_hydra_tui (version)
 
@@ -35,9 +35,36 @@ data State
       { nodeHost :: Host
       , connectedPeers :: [Host]
       , headState :: HeadState
-      , commandFailed :: Bool
+      , feedback :: Maybe UserFeedback
       }
   deriving (Eq, Show, Generic)
+
+data UserFeedback = UserFeedback
+  { severity :: Severity
+  , message :: Text
+  }
+  deriving (Eq, Show, Generic)
+
+data Severity
+  = Success
+  | Info
+  | Error
+  deriving (Eq, Show, Generic)
+
+severityToAttr :: Severity -> AttrName
+severityToAttr = \case
+  Success -> positive
+  Info -> info
+  Error -> negative
+
+info :: AttrName
+info = "info"
+
+positive :: AttrName
+positive = "positive"
+
+negative :: AttrName
+negative = "negative"
 
 data HeadState
   = Unknown
@@ -54,19 +81,20 @@ makeLensesFor
   [ ("nodeHost", "nodeHostL")
   , ("connectedPeers", "connectedPeersL")
   , ("headState", "headStateL")
-  , ("commandFailed", "commandFailedL")
+  , ("feedback", "feedbackL")
   ]
   ''State
 
 -- * Event handling
 
 handleEvent ::
-  Tx tx =>
+  forall tx.
+  (Tx tx) =>
   Client tx IO ->
   State ->
   BrickEvent Name (HydraEvent tx) ->
   EventM Name (Next State)
-handleEvent Client{sendInput} s = \case
+handleEvent Client{sendInput} (clearFeedback -> s) = \case
   -- Quit
   VtyEvent (EvKey (KChar 'c') [MCtrl]) -> halt s
   VtyEvent (EvKey (KChar 'd') [MCtrl]) -> halt s
@@ -92,40 +120,43 @@ handleEvent Client{sendInput} s = \case
   AppEvent (Update (PeerDisconnected p)) ->
     continue $ s & connectedPeersL %~ \cp -> cp \\ [p]
   AppEvent (Update CommandFailed) -> do
-    continue $ s & commandFailedL .~ True
+    continue $
+      s & feedbackL ?~ UserFeedback Error "Invalid command."
   AppEvent (Update ReadyToCommit{parties}) ->
     continue $
       s & headStateL .~ Initializing parties
-        & commandFailedL .~ False
-  AppEvent (Update Committed{party}) ->
+        & feedbackL ?~ UserFeedback Info "Head initialized, ready for commit(s)."
+  AppEvent (Update Committed{party, utxo}) ->
     continue $
       s & headStateL %~ partyCommitted party
-        & commandFailedL .~ False
+        & feedbackL ?~ UserFeedback Info (show party <> " committed " <> prettyBalance (balance @tx utxo))
   AppEvent (Update HeadIsOpen{}) ->
     continue $
       s & headStateL .~ Open
-        & commandFailedL .~ False
+        & feedbackL ?~ UserFeedback Info "Head is now opened!"
   AppEvent (Update HeadIsClosed{contestationDeadline}) ->
     continue $
       s & headStateL .~ Closed{contestationDeadline}
-        & commandFailedL .~ False
+        & feedbackL ?~ UserFeedback Info "Head closed."
   AppEvent (Update HeadIsFinalized{}) ->
     continue $
       s & headStateL .~ Finalized
-        & commandFailedL .~ False
+        & feedbackL ?~ UserFeedback Info "Head finalized."
   AppEvent (Update HeadIsAborted{}) ->
     continue $
       s & headStateL .~ Ready
-        & commandFailedL .~ False
+        & feedbackL ?~ UserFeedback Info "Head aborted, back to square one."
   -- TODO(SN): continue s here, once all implemented
-  e -> error $ "unhandled event: " <> show e
+  e ->
+    continue $
+      s & feedbackL ?~ UserFeedback Error ("unhandled event: " <> show e)
  where
   connected =
     Connected
       { nodeHost = s ^. nodeHostL
       , connectedPeers = mempty
       , headState = Unknown
-      , commandFailed = False
+      , feedback = empty
       }
 
   disconnected =
@@ -134,6 +165,25 @@ handleEvent Client{sendInput} s = \case
   partyCommitted party = \case
     Initializing{notYetCommitted} -> Initializing{notYetCommitted = notYetCommitted \\ [party]}
     hs -> hs
+
+  prettyBalance :: Balance tx -> Text
+  prettyBalance Balance{lovelace, assets} =
+    let (ada, decimal) = lovelace `quotRem` 1000000
+     in unwords $
+          [ show ada <> "." <> show decimal
+          , "₳"
+          ]
+            ++ if null assets
+              then mempty
+              else
+                [ "and"
+                , show (Map.size assets)
+                , "asset(s)"
+                ]
+
+clearFeedback :: State -> State
+clearFeedback = feedbackL .~ empty
+
 -- * Drawing
 
 draw :: State -> [Widget Name]
@@ -141,15 +191,28 @@ draw s =
   pure $
     withBorderStyle ascii $
       joinBorders $
-        hBox
-          [ drawInfo
-          , vBorder
-          , drawCommands <=> padTop (Pad 1) drawCommandFailed
+        vBox
+          [ hBox
+              [ drawInfo
+              , vBorder
+              , drawCommands
+              ]
+          , hBorder
+          , drawErrorMessage
           ]
  where
-  drawInfo = hLimit 50 $ vBox [tuiVersion, nodeStatus, hBorder, drawPeers, hBorder, drawHeadState s]
+  drawInfo =
+    hLimit 50 $
+      vBox
+        [ tuiVersion
+        , nodeStatus
+        , hBorder
+        , drawPeers
+        , hBorder
+        , drawHeadState s
+        ]
 
-  tuiVersion = str "TUI  " <+> withAttr info (str (showVersion version))
+  tuiVersion = str "Hydra TUI  " <+> withAttr info (str (showVersion version))
 
   nodeStatus =
     str "Node " <+> case s of
@@ -160,13 +223,13 @@ draw s =
     Disconnected{} -> emptyWidget
     Connected{headState} -> case headState of
       Initializing{notYetCommitted} ->
-        str "HeadState: Initializing"
+        str "Head status: Initializing"
           <=> str "Not yet committed:"
           <=> vBox (map drawShow notYetCommitted)
       Closed{contestationDeadline} ->
-        str "HeadState: Closed"
+        str "Head status: Closed"
           <=> str ("Contestation deadline: " <> show contestationDeadline)
-      _ -> str "HeadState: " <+> str (show headState)
+      _ -> str "Head status: " <+> str (show headState)
 
   drawCommands =
     vBox
@@ -178,10 +241,12 @@ draw s =
       , str " - [q]uit"
       ]
 
-  drawCommandFailed =
-    if s ^? commandFailedL == Just True
-      then withAttr negative $ str "Command not possible"
-      else emptyWidget
+  drawErrorMessage =
+    case s ^? feedbackL of
+      Just (Just UserFeedback{message, severity}) ->
+        withAttr (severityToAttr severity) $ str (toString message)
+      _ ->
+        emptyWidget
 
   drawPeers = vBox $ str "Connected peers:" : map drawShow (s ^. connectedPeersL)
 
@@ -196,16 +261,6 @@ style _ =
     , (negative, fg red)
     , (positive, fg green)
     ]
-
-info :: AttrName
-info = "info"
-
-positive :: AttrName
-positive = "positive"
-
-negative :: AttrName
-negative = "negative"
-
 -- * Run it
 
 -- NOTE(SN): At the end of the module because of TH

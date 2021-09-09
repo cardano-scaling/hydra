@@ -82,6 +82,7 @@ library
     , async
     , base
     , brick
+    , containers
     , hydra-node
     , hydra-prelude
     , io-classes
