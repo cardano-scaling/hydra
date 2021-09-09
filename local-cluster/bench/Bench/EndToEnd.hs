@@ -12,10 +12,10 @@ import Cardano.Crypto.DSIGN (
   SignKeyDSIGN,
   VerKeyDSIGN,
  )
-import Control.Concurrent.STM (check)
 import Control.Lens (to, (^?))
 import Control.Monad.Class.MonadSTM (
   MonadSTM (readTVarIO),
+  check,
   modifyTVar,
   modifyTVar',
   newTBQueueIO,
@@ -92,7 +92,7 @@ bench workDir initialUtxo txs =
                 waitMatch (contestationPeriod + 3) n1 $ \v ->
                   guard (v ^? key "tag" == Just "HeadIsFinalized")
 
-    res <- mapMaybe analyze . Map.toList <$> readTVarIO (confirmedTxs registry)
+    res <- mapMaybe analyze . Map.toList <$> readTVarIO (processedTxs registry)
     writeResultsCsv (workDir </> "results.csv") res
     -- TODO: Create a proper summary
     let confTimes = map snd res
@@ -144,7 +144,7 @@ data WaitResult
   | SnapshotConfirmed {transactions :: [Value], snapshotNumber :: Scientific}
 
 data Registry tx = Registry
-  { confirmedTxs :: TVar IO (Map.Map (TxId tx) Event)
+  { processedTxs :: TVar IO (Map.Map (TxId tx) Event)
   , submissionQ :: TBQueue IO CardanoTx
   , latestSnapshot :: TVar IO Scientific
   }
@@ -153,33 +153,36 @@ newRegistry ::
   [CardanoTx] ->
   IO (Registry CardanoTx)
 newRegistry txs = do
-  confirmedTxs <- newTVarIO mempty
+  processedTxs <- newTVarIO mempty
   submissionQ <- newTBQueueIO (fromIntegral $ length txs)
   atomically $ mapM_ (writeTBQueue submissionQ) txs
   latestSnapshot <- newTVarIO 0
-  pure $ Registry{confirmedTxs, submissionQ, latestSnapshot}
+  pure $ Registry{processedTxs, submissionQ, latestSnapshot}
 
 submitTxs ::
   HydraClient ->
   Registry CardanoTx ->
   IO ()
-submitTxs client registry@Registry{confirmedTxs, submissionQ} = do
+submitTxs client registry@Registry{processedTxs, submissionQ} = do
   txToSubmit <- atomically $ tryReadTBQueue submissionQ
   case txToSubmit of
     Just tx -> do
-      newTx confirmedTxs client tx
-      atomically $ do
-        event <- Map.lookup (txId tx) <$> readTVar confirmedTxs
-        check (isJust $ confirmedAt =<< event)
+      newTx processedTxs client tx
+      waitTxIsConfirmed (txId tx)
       submitTxs client registry
     Nothing -> pure ()
+ where
+  waitTxIsConfirmed txid =
+    atomically $ do
+      event <- Map.lookup txid <$> readTVar processedTxs
+      check (isJust $ confirmedAt =<< event)
 
 waitForAllConfirmations ::
   HydraClient ->
   Registry CardanoTx ->
   Set (TxId CardanoTx) ->
   IO ()
-waitForAllConfirmations n1 Registry{confirmedTxs, submissionQ, latestSnapshot} allIds = do
+waitForAllConfirmations n1 Registry{processedTxs, submissionQ, latestSnapshot} allIds = do
   go allIds
  where
   go remainingIds
@@ -194,7 +197,7 @@ waitForAllConfirmations n1 Registry{confirmedTxs, submissionQ, latestSnapshot} a
         SnapshotConfirmed{transactions, snapshotNumber} -> do
           -- TODO(SN): use a tracer for this
           atomically $ modifyTVar' latestSnapshot (max snapshotNumber)
-          confirmedIds <- mapM (confirmTx confirmedTxs) transactions
+          confirmedIds <- mapM (confirmTx processedTxs) transactions
           putTextLn $ "Snapshot confirmed: " <> show snapshotNumber
           putTextLn $ "Transaction(s) confirmed: " <> fmtIds confirmedIds
           go $ remainingIds \\ Set.fromList confirmedIds
