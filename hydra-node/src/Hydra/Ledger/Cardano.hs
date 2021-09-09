@@ -198,6 +198,10 @@ type CardanoTxWitnesses = Cardano.WitnessSet CardanoEra
 
 type CardanoAuxiliaryData = StrictMaybe (AuxiliaryData CardanoEra)
 
+type TxIn = Cardano.TxIn StandardCrypto
+
+type TxOut = Cardano.TxOut CardanoEra
+
 --
 --  Transaction Id
 --
