@@ -3,9 +3,8 @@ module Main where
 import Hydra.Prelude
 import Test.Hydra.Prelude
 
-import Bench.EndToEnd (Dataset (..), bench)
+import Bench.EndToEnd (bench, generateDataset)
 import Data.Aeson (eitherDecodeFileStrict', encodeFile)
-import Hydra.Ledger.Cardano (genSequenceOfValidTransactions, genUtxo)
 import Options.Applicative (
   Parser,
   ParserInfo,
@@ -26,7 +25,6 @@ import Options.Applicative (
 import System.Directory (createDirectory, doesDirectoryExist)
 import System.Environment (withArgs)
 import System.FilePath ((</>))
-import Test.QuickCheck (generate, scale)
 
 data Options = Options
   { outputDirectory :: Maybe FilePath
@@ -96,10 +94,8 @@ main =
     putStrLn $ "Using UTxO and Transactions from: " <> benchDir
     run benchDir datasets
 
-  play scalingFactor _concurrency benchDir = do
-    initialUtxo <- generate genUtxo
-    transactionsSequence <- generate $ scale (* scalingFactor) $ genSequenceOfValidTransactions initialUtxo
-    let dataset = [Dataset{initialUtxo, transactionsSequence}]
+  play scalingFactor concurrency benchDir = do
+    dataset <- replicateM concurrency (generateDataset scalingFactor)
     saveDataset benchDir dataset
     run benchDir dataset
 

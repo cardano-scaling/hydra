@@ -14,11 +14,11 @@ import Cardano.Crypto.DSIGN (
   VerKeyDSIGN,
  )
 import Control.Lens (to, (^?))
+import Control.Monad.Class.MonadAsync (mapConcurrently_)
 import Control.Monad.Class.MonadSTM (
   MonadSTM (readTVarIO),
   check,
   modifyTVar,
-  modifyTVar',
   newTBQueueIO,
   newTVarIO,
   tryReadTBQueue,
@@ -32,7 +32,7 @@ import Data.Set ((\\))
 import qualified Data.Set as Set
 import Data.Time (nominalDiffTimeToSeconds)
 import Hydra.Ledger (Tx, TxId, Utxo, txId)
-import Hydra.Ledger.Cardano (CardanoTx)
+import Hydra.Ledger.Cardano (CardanoTx, genSequenceOfValidTransactions, genUtxo)
 import Hydra.Logging (showLogsOnFailure)
 import HydraNode (
   HydraClient,
@@ -47,6 +47,7 @@ import HydraNode (
   withMockChain,
  )
 import System.FilePath ((</>))
+import Test.QuickCheck (generate, scale)
 
 aliceSk, bobSk, carolSk :: SignKeyDSIGN MockDSIGN
 aliceSk = 10
@@ -64,6 +65,12 @@ data Dataset = Dataset
   }
   deriving (Eq, Show, Generic, ToJSON, FromJSON)
 
+generateDataset :: Int -> IO Dataset
+generateDataset scalingFactor = do
+  initialUtxo <- generate genUtxo
+  transactionsSequence <- generate $ scale (* scalingFactor) $ genSequenceOfValidTransactions initialUtxo
+  pure Dataset{initialUtxo, transactionsSequence}
+
 data Event = Event
   { submittedAt :: UTCTime
   , confirmedAt :: Maybe UTCTime
@@ -73,7 +80,7 @@ data Event = Event
 bench :: FilePath -> [Dataset] -> Spec
 bench workDir dataset =
   specify ("Load test on three local nodes (" <> workDir <> ")") $ do
-    registry <- newRegistry dataset
+    registry <- newRegistry
     showLogsOnFailure $ \tracer ->
       failAfter 600 $ do
         withMockChain $ \chainPorts ->
@@ -90,8 +97,7 @@ bench workDir dataset =
 
                 waitFor tracer 3 [n1, n2, n3] $ output "HeadIsOpen" ["utxo" .= expectedUtxo]
 
-                submitTxs n1 registry
-                  `concurrently_` waitForAllConfirmations n1 registry (Set.fromList . map txId $ concatMap transactionsSequence dataset)
+                processTransactions registry [n1, n2, n3] dataset
 
                 putTextLn "Closing the Head..."
                 send n1 $ input "Close" []
@@ -109,6 +115,17 @@ bench workDir dataset =
     putTextLn $ "Average confirmation time: " <> show avgConfirmation
     putTextLn $ "Confirmed below 1 sec: " <> show percentBelow1Sec <> "%"
     percentBelow1Sec `shouldSatisfy` (> 90)
+
+processTransactions :: Registry CardanoTx -> [HydraClient] -> [Dataset] -> IO ()
+processTransactions registry clients dataset = do
+  let processors = zip dataset (cycle clients)
+  mapConcurrently_ clientProcessTransactionsSequence processors
+ where
+  clientProcessTransactionsSequence (Dataset{transactionsSequence}, client) = do
+    submissionQ <- newTBQueueIO (fromIntegral $ length transactionsSequence)
+    atomically $ forM_ transactionsSequence $ writeTBQueue submissionQ
+    submitTxs client registry submissionQ
+      `concurrently_` waitForAllConfirmations client registry submissionQ (Set.fromList $ map txId transactionsSequence)
 
 --
 -- Helpers
@@ -167,32 +184,28 @@ data WaitResult
 
 data Registry tx = Registry
   { processedTxs :: TVar IO (Map.Map (TxId tx) Event)
-  , submissionQ :: TBQueue IO CardanoTx
   , latestSnapshot :: TVar IO Scientific
   }
 
 newRegistry ::
-  [Dataset] ->
   IO (Registry CardanoTx)
-newRegistry dataset = do
-  let txs = concatMap transactionsSequence dataset
+newRegistry = do
   processedTxs <- newTVarIO mempty
-  submissionQ <- newTBQueueIO (fromIntegral $ length txs)
-  atomically $ mapM_ (writeTBQueue submissionQ) txs
   latestSnapshot <- newTVarIO 0
-  pure $ Registry{processedTxs, submissionQ, latestSnapshot}
+  pure $ Registry{processedTxs, latestSnapshot}
 
 submitTxs ::
   HydraClient ->
   Registry CardanoTx ->
+  TBQueue IO CardanoTx ->
   IO ()
-submitTxs client registry@Registry{processedTxs, submissionQ} = do
+submitTxs client registry@Registry{processedTxs} submissionQ = do
   txToSubmit <- atomically $ tryReadTBQueue submissionQ
   case txToSubmit of
     Just tx -> do
       newTx processedTxs client tx
       waitTxIsConfirmed (txId tx)
-      submitTxs client registry
+      submitTxs client registry submissionQ
     Nothing -> pure ()
  where
   waitTxIsConfirmed txid =
@@ -203,9 +216,10 @@ submitTxs client registry@Registry{processedTxs, submissionQ} = do
 waitForAllConfirmations ::
   HydraClient ->
   Registry CardanoTx ->
+  TBQueue IO CardanoTx ->
   Set (TxId CardanoTx) ->
   IO ()
-waitForAllConfirmations n1 Registry{processedTxs, submissionQ, latestSnapshot} allIds = do
+waitForAllConfirmations n1 Registry{processedTxs} submissionQ allIds = do
   go allIds
  where
   go remainingIds
@@ -219,7 +233,6 @@ waitForAllConfirmations n1 Registry{processedTxs, submissionQ, latestSnapshot} a
           go remainingIds
         SnapshotConfirmed{transactions, snapshotNumber} -> do
           -- TODO(SN): use a tracer for this
-          atomically $ modifyTVar' latestSnapshot (max snapshotNumber)
           confirmedIds <- mapM (confirmTx processedTxs) transactions
           putTextLn $ "Snapshot confirmed: " <> show snapshotNumber
           putTextLn $ "Transaction(s) confirmed: " <> fmtIds confirmedIds
