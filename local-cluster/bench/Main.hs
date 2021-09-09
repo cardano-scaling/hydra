@@ -3,7 +3,7 @@ module Main where
 import Hydra.Prelude
 import Test.Hydra.Prelude
 
-import Bench.EndToEnd (bench)
+import Bench.EndToEnd (Dataset (..), bench)
 import Data.Aeson (eitherDecodeFileStrict', encodeFile)
 import Hydra.Ledger.Cardano (genSequenceOfValidTransactions, genUtxo)
 import Options.Applicative (
@@ -31,6 +31,7 @@ import Test.QuickCheck (generate, scale)
 data Options = Options
   { outputDirectory :: Maybe FilePath
   , scalingFactor :: Int
+  , concurrency :: Int
   }
 
 benchOptionsParser :: Parser Options
@@ -55,6 +56,16 @@ benchOptionsParser =
             <> metavar "INT"
             <> help "The scaling factor to apply to transactions generator (default: 100)"
         )
+      <*> option
+        auto
+        ( long "concurrency"
+            <> value 1
+            <> metavar "INT"
+            <> help
+              "The concurrency level in the generated dataset. This number is used to \
+              \ define how many independent UTXO set and transaction sequences will be \
+              \ generated and concurrently submitted to the nodes (default: 1)"
+        )
 
 benchOptions :: ParserInfo Options
 benchOptions =
@@ -72,37 +83,31 @@ benchOptions =
 main :: IO ()
 main =
   execParser benchOptions >>= \case
-    Options{outputDirectory = Just benchDir, scalingFactor} -> do
+    Options{outputDirectory = Just benchDir, scalingFactor, concurrency} -> do
       existsDir <- doesDirectoryExist benchDir
       if existsDir
         then replay benchDir
-        else createDirectory benchDir >> play scalingFactor benchDir
-    Options{scalingFactor} ->
-      createSystemTempDirectory "bench" >>= play scalingFactor
+        else createDirectory benchDir >> play scalingFactor concurrency benchDir
+    Options{scalingFactor, concurrency} ->
+      createSystemTempDirectory "bench" >>= play scalingFactor concurrency
  where
   replay benchDir = do
-    txs <- either die pure =<< eitherDecodeFileStrict' (benchDir </> "txs.json")
-    utxo <- either die pure =<< eitherDecodeFileStrict' (benchDir </> "utxo.json")
+    datasets <- either die pure =<< eitherDecodeFileStrict' (benchDir </> "dataset.json")
     putStrLn $ "Using UTxO and Transactions from: " <> benchDir
-    run benchDir utxo txs
+    run benchDir datasets
 
-  play scalingFactor benchDir = do
+  play scalingFactor _concurrency benchDir = do
     initialUtxo <- generate genUtxo
-    txs <- generate $ scale (* scalingFactor) $ genSequenceOfValidTransactions initialUtxo
-    saveTransactions benchDir txs
-    saveUtxos benchDir initialUtxo
-    run benchDir initialUtxo txs
+    transactionsSequence <- generate $ scale (* scalingFactor) $ genSequenceOfValidTransactions initialUtxo
+    let dataset = [Dataset{initialUtxo, transactionsSequence}]
+    saveDataset benchDir dataset
+    run benchDir dataset
 
   -- TODO(SN): Ideally we would like to say "to re-run use ... " on errors
-  run fp utxo txs =
-    withArgs [] . hspec $ bench fp utxo txs
+  run fp datasets =
+    withArgs [] . hspec $ bench fp datasets
 
-  saveTransactions tmpDir txs = do
-    let txsFile = tmpDir </> "txs.json"
-    putStrLn $ "Writing transactions to: " <> txsFile
-    encodeFile txsFile txs
-
-  saveUtxos tmpDir utxos = do
-    let utxosFile = tmpDir </> "utxo.json"
-    putStrLn $ "Writing UTxO set to: " <> utxosFile
-    encodeFile utxosFile utxos
+  saveDataset tmpDir dataset = do
+    let txsFile = tmpDir </> "dataset.json"
+    putStrLn $ "Writing dataset to: " <> txsFile
+    encodeFile txsFile dataset

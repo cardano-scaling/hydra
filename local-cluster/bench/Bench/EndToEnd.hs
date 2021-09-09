@@ -1,4 +1,5 @@
 {-# LANGUAGE DeriveAnyClass #-}
+{-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE TypeApplications #-}
 
 module Bench.EndToEnd where
@@ -35,6 +36,7 @@ import Hydra.Ledger.Cardano (CardanoTx)
 import Hydra.Logging (showLogsOnFailure)
 import HydraNode (
   HydraClient,
+  hydraNodeId,
   input,
   output,
   send,
@@ -56,16 +58,22 @@ aliceVk = deriveVerKeyDSIGN aliceSk
 bobVk = deriveVerKeyDSIGN bobSk
 carolVk = deriveVerKeyDSIGN carolSk
 
+data Dataset = Dataset
+  { initialUtxo :: Utxo CardanoTx
+  , transactionsSequence :: [CardanoTx]
+  }
+  deriving (Eq, Show, Generic, ToJSON, FromJSON)
+
 data Event = Event
   { submittedAt :: UTCTime
   , confirmedAt :: Maybe UTCTime
   }
   deriving (Generic, Eq, Show, ToJSON)
 
-bench :: FilePath -> Utxo CardanoTx -> [CardanoTx] -> Spec
-bench workDir initialUtxo txs =
+bench :: FilePath -> [Dataset] -> Spec
+bench workDir dataset =
   specify ("Load test on three local nodes (" <> workDir <> ")") $ do
-    registry <- newRegistry txs
+    registry <- newRegistry dataset
     showLogsOnFailure $ \tracer ->
       failAfter 600 $ do
         withMockChain $ \chainPorts ->
@@ -78,14 +86,12 @@ bench workDir initialUtxo txs =
                 waitFor tracer 3 [n1, n2, n3] $
                   output "ReadyToCommit" ["parties" .= [int 10, 20, 30]]
 
-                send n1 $ input "Commit" ["utxo" .= initialUtxo]
-                send n2 $ input "Commit" ["utxo" .= noUtxos]
-                send n3 $ input "Commit" ["utxo" .= noUtxos]
+                expectedUtxo <- commit [n1, n2, n3] dataset
 
-                waitFor tracer 3 [n1, n2, n3] $ output "HeadIsOpen" ["utxo" .= initialUtxo]
+                waitFor tracer 3 [n1, n2, n3] $ output "HeadIsOpen" ["utxo" .= expectedUtxo]
 
                 submitTxs n1 registry
-                  `concurrently_` waitForAllConfirmations n1 registry (Set.fromList . map txId $ txs)
+                  `concurrently_` waitForAllConfirmations n1 registry (Set.fromList . map txId $ concatMap transactionsSequence dataset)
 
                 putTextLn "Closing the Head..."
                 send n1 $ input "Close" []
@@ -107,6 +113,22 @@ bench workDir initialUtxo txs =
 --
 -- Helpers
 --
+
+commit :: [HydraClient] -> [Dataset] -> IO (Utxo CardanoTx)
+commit clients dataset = do
+  let initialMap = Map.fromList $ map (\node -> (hydraNodeId node, (node, noUtxos))) clients
+      distributeUtxo = zip (initialUtxo <$> dataset) (cycle $ hydraNodeId <$> clients)
+      clientsToUtxo = foldr assignUtxo initialMap distributeUtxo
+
+  forM_ (Map.elems clientsToUtxo) $ \(n, utxo) ->
+    send n $ input "Commit" ["utxo" .= utxo]
+
+  pure $ mconcat $ snd <$> Map.elems clientsToUtxo
+
+assignUtxo :: (Utxo CardanoTx, Int) -> Map.Map Int (HydraClient, Utxo CardanoTx) -> Map.Map Int (HydraClient, Utxo CardanoTx)
+assignUtxo (utxo, clientId) = Map.adjust appendUtxo clientId
+ where
+  appendUtxo (client, utxo') = (client, utxo <> utxo')
 
 noUtxos :: Utxo CardanoTx
 noUtxos = mempty
@@ -150,9 +172,10 @@ data Registry tx = Registry
   }
 
 newRegistry ::
-  [CardanoTx] ->
+  [Dataset] ->
   IO (Registry CardanoTx)
-newRegistry txs = do
+newRegistry dataset = do
+  let txs = concatMap transactionsSequence dataset
   processedTxs <- newTVarIO mempty
   submissionQ <- newTBQueueIO (fromIntegral $ length txs)
   atomically $ mapM_ (writeTBQueue submissionQ) txs
