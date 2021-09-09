@@ -19,7 +19,12 @@ import Cardano.Binary (
   serialize',
   serializeEncoding',
  )
+import Cardano.Crypto.DSIGN (
+  DSIGNAlgorithm (..),
+  deriveVerKeyDSIGN,
+ )
 import qualified Cardano.Crypto.Hash.Class as Crypto
+import Cardano.Crypto.Seed (mkSeedFromBytes)
 import qualified Cardano.Ledger.Address as Cardano
 import Cardano.Ledger.AuxiliaryData (AuxiliaryDataHash (AuxiliaryDataHash), unsafeAuxiliaryDataHash)
 import Cardano.Ledger.BaseTypes (StrictMaybe (SNothing), boundRational, mkActiveSlotCoeff)
@@ -63,7 +68,7 @@ import Shelley.Spec.Ledger.API (Wdrl (Wdrl), unWdrl, _maxTxSize)
 import qualified Shelley.Spec.Ledger.API as Cardano hiding (TxBody)
 import Shelley.Spec.Ledger.Tx (WitnessSetHKD (WitnessSet))
 import Test.Cardano.Ledger.MaryEraGen ()
-import Test.QuickCheck (Gen, choose, getSize)
+import Test.QuickCheck (Gen, choose, getSize, vectorOf)
 import qualified Test.Shelley.Spec.Ledger.Generator.Constants as Constants
 import Test.Shelley.Spec.Ledger.Generator.Core (geConstants)
 import Test.Shelley.Spec.Ledger.Generator.EraGen (genUtxo0)
@@ -143,6 +148,27 @@ instance FromCBOR CardanoTx where
 
 instance Arbitrary CardanoTx where
   arbitrary = genUtxo >>= genCardanoTx
+
+genKeyPair :: Gen (Cardano.KeyPair 'Cardano.Payment StandardCrypto)
+genKeyPair = do
+  sk <- genKeyDSIGN . mkSeedFromBytes . fromList <$> vectorOf 16 arbitrary
+  pure $ Cardano.KeyPair (Cardano.VKey (deriveVerKeyDSIGN sk)) sk
+
+-- | Generate utxos owned by the given 'Party'
+genUtxoFor :: Cardano.VKey 'Cardano.Payment StandardCrypto -> Gen (Utxo CardanoTx)
+genUtxoFor vk = do
+  n <- arbitrary
+  inputs <- vectorOf n arbitrary
+  outputs <- vectorOf n genOutput
+  pure $ Cardano.UTxO $ Map.fromList $ zip inputs outputs
+ where
+  genOutput :: Gen TxOut
+  genOutput = do
+    value <- arbitrary
+    let paymentCredential = Cardano.KeyHashObj $ Cardano.hashKey vk
+    let stakeReference = Cardano.StakeRefNull
+    let addr = Cardano.Addr Cardano.Mainnet paymentCredential stakeReference
+    pure $ Cardano.TxOut addr value
 
 genUtxo :: Gen (Utxo CardanoTx)
 genUtxo = do

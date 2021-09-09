@@ -13,6 +13,7 @@ import Brick.Forms (Form, checkboxField, formState, handleFormEvent, newForm, re
 import Brick.Widgets.Border (hBorder, vBorder)
 import Brick.Widgets.Border.Style (ascii)
 
+import Cardano.Ledger.Keys (KeyPair (..))
 import Data.List (nub, (\\))
 import qualified Data.Map.Strict as Map
 import qualified Data.Text as T
@@ -22,7 +23,7 @@ import Graphics.Vty.Attributes (defAttr)
 import Hydra.Client (Client (Client, sendInput), HydraEvent (..), withClient)
 import Hydra.ClientInput (ClientInput (..))
 import Hydra.Ledger (Balance (..), Party, Tx (..))
-import Hydra.Ledger.Cardano (CardanoTx, TxIn, TxOut, genUtxo, txInToText)
+import Hydra.Ledger.Cardano (CardanoTx, TxIn, TxOut, genKeyPair, genUtxoFor, txInToText)
 import Hydra.Network (Host (..))
 import Hydra.ServerOutput (ServerOutput (..))
 import Hydra.TUI.Options (Options (..))
@@ -212,10 +213,11 @@ handleEvent client@Client{sendInput} (clearFeedback -> s) =
     -- We use the host's port number as a seed for generating the utxo,
     -- such that it's different across clients and consistent if a
     -- client restarts.
-    let seed = maybe 0 (fromIntegral . port) (s ^? nodeHostL)
+    let seed = getSeed s
         -- Somehow, 'scale' from QC does not work here. The generator is
         -- probably ignoring it and generates LARGE utxos, too large.
-        utxo_ = (\(UTxO u) -> Map.fromList $ take 5 $ Map.toList u) $ generateWith genUtxo seed
+        vk = vKey $ generateWith genKeyPair seed
+        utxo_ = (\(UTxO u) -> Map.fromList $ take 5 $ Map.toList u) $ generateWith (genUtxoFor vk) seed
         fields =
           [ checkboxField
             (checkboxLens k)
@@ -339,6 +341,10 @@ checkboxLens i =
   lens
     (maybe False snd . Map.lookup i)
     (\s b -> Map.adjust (second (const b)) i s)
+
+getSeed :: State -> Int
+getSeed s =
+  maybe 0 (fromIntegral . port) (s ^? nodeHostL)
 
 generateWith :: Gen a -> Int -> a
 generateWith (MkGen runGen) seed =
