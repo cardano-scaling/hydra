@@ -82,6 +82,7 @@ library
     , async
     , base
     , brick
+    , cardano-ledger-core
     , cardano-ledger-shelley-ma
     , containers
     , hydra-node
