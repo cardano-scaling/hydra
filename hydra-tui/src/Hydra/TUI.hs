@@ -143,10 +143,11 @@ handleEvent client@Client{sendInput} (clearFeedback -> s) = \case
       -- Quit
       EvKey (KChar 'c') [MCtrl] -> halt s
       EvKey (KChar 'd') [MCtrl] -> halt s
-      EvKey (KChar 'q') _ -> halt s
       -- Commands
       EvKey (KChar c) _ ->
         if
+            | c `elem` ['q', 'Q'] ->
+              halt s
             | c `elem` ['i', 'I'] ->
               -- TODO(SN): hardcoded contestation period
               liftIO (sendInput $ Init 10) >> continue s
@@ -338,19 +339,15 @@ draw s =
           ]
  where
   drawInfo =
-    hLimit 71 $
+    hLimit 75 $
       vBox $
         mconcat
           [
-            [ tuiVersion
-            , nodeStatus
-            , ownAddress
+            [ padLeftRight 1 $ tuiVersion
+            , padLeftRight 1 $ nodeStatus
+            , padLeftRight 1 $ ownAddress
             ]
           , drawPeers
-          ,
-            [ hBorder
-            , drawHeadState
-            ]
           ]
    where
     tuiVersion = str "Hydra TUI  " <+> withAttr info (str (showVersion version))
@@ -359,18 +356,19 @@ draw s =
       str "Node " <+> case s ^. clientStateL of
         Disconnected -> withAttr negative $ str $ show (s ^. meL)
         Connected -> withAttr positive $ str $ show (s ^. meL)
-    drawHeadState = case s ^. clientStateL of
-      Disconnected -> emptyWidget
-      Connected -> str $ "Head status: " <> toString (Prelude.head $ words $ show $ s ^. headStateL)
 
   drawRightPanel =
     case s ^? dialogStateL of
       Just (Dialog title form _) ->
         withCommands
-          [ str (toString title)
-          , padTop (Pad 1) $ renderForm form
+          [ drawHeadState
+          , padLeftRight 1 $ str (toString title)
+          , padLeftRight 1 $ padTop (Pad 1) $ renderForm form
           ]
           [ "[Esc] Cancel"
+          , "[↑] Move Up"
+          , "[↓] Move Down"
+          , "[↲] Select"
           , "[>] Confirm"
           ]
       _ ->
@@ -378,15 +376,16 @@ draw s =
         case s ^. headStateL of
           Ready ->
             withCommands
-              []
+              [drawHeadState]
               [ "[I]nit"
               , "[Q]uit"
               ]
           Initializing{parties, utxo} ->
             withCommands
-              [ str ("Total committed: " <> toString (prettyBalance (balance @CardanoTx utxo)))
-              , str "Waiting for parties to commit:"
-              , vBox (map drawShow parties)
+              [ drawHeadState
+              , padLeftRight 1 $ str ("Total committed: " <> toString (prettyBalance (balance @CardanoTx utxo)))
+              , padLeftRight 1 $ str "Waiting for parties to commit:"
+              , padLeftRight 1 $ vBox (map drawShow parties)
               ]
               [ "[C]ommit"
               , "[A]bort"
@@ -394,7 +393,8 @@ draw s =
               ]
           Open{utxo} ->
             withCommands
-              [ drawUtxo utxo
+              [ drawHeadState
+              , padLeftRight 1 $ drawUtxo utxo
               ]
               [ "[N]ew Transaction"
               , "[C]lose"
@@ -402,10 +402,19 @@ draw s =
               ]
           Closed{contestationDeadline} ->
             withCommands
-              [ str $ "Contestation deadline: " <> show contestationDeadline
+              [ drawHeadState
+              , padLeftRight 1 $ str $ "Contestation deadline: " <> show contestationDeadline
               ]
               [ "[Q]uit"
               ]
+
+  drawHeadState = case s ^. clientStateL of
+    Disconnected -> emptyWidget
+    Connected ->
+      vBox
+        [ padLeftRight 1 $ str $ "Head status: " <> toString (Prelude.head $ words $ show $ s ^. headStateL)
+        , hBorder
+        ]
 
   drawUtxo (UTxO m) =
     let byAddress =
@@ -427,18 +436,11 @@ draw s =
           ]
 
   withCommands panel cmds =
-    vBox $
-      panel
-        ++ [ if null panel then emptyWidget else hBorder
-           , hBox
-              [ ( if (i :: Word) > 0
-                    then padLeft (Pad 5)
-                    else id
-                )
-                $ str cmd
-              | (i, cmd) <- zip [0 ..] cmds
-              ]
-           ]
+    hBox
+      [ hLimit 80 (vBox panel)
+      , vBorder
+      , padLeftRight 1 $ vBox (str <$> cmds)
+      ]
 
   drawErrorMessage =
     case s ^? feedbackL of
@@ -453,7 +455,7 @@ draw s =
         []
       Connected ->
         [ hBorder
-        , vBox $ str "Connected peers:" : map drawShow (s ^. peersL)
+        , padLeftRight 1 $ vBox $ str "Connected peers:" : map drawShow (s ^. peersL)
         ]
 
   drawShow :: forall a n. Show a => a -> Widget n
@@ -555,7 +557,7 @@ run Options{nodeHost} = do
   -- we report peers by their peer hosts (and not API host) and we use these
   -- host to map peers to their credentials. This isn't ideal, and we should
   -- have a better way to identify peers...
-  let apiHost = nodeHost{port = port nodeHost + 1000}
+  let apiHost = nodeHost{port = port nodeHost - 1000}
   withClient @CardanoTx apiHost (writeBChan eventChan) $ \client -> do
     initialVty <- buildVty
     customMain initialVty buildVty (Just eventChan) (app client) initialState
