@@ -283,8 +283,7 @@ defaultArguments ::
   [Int] ->
   [String]
 defaultArguments nodeId sKey vKeys ports allNodeIds =
-  [ "--quiet"
-  , "--node-id"
+  [ "--node-id"
   , show nodeId
   , "--host"
   , "127.0.0.1"
@@ -334,7 +333,7 @@ waitForNodeConnected tracer allNodeIds n@HydraClient{hydraNodeId} =
   -- HACK(AB): This is gross, we hijack the node ids and because we know
   -- keys are just integers we can compute them but that's ugly -> use property
   -- party identifiers everywhere
-  waitForAll tracer 10 [n] $
+  waitForAll tracer (fromIntegral $ 20 * length allNodeIds) [n] $
     fmap
       ( \party ->
           object
