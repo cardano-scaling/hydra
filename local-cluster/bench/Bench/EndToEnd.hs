@@ -14,7 +14,7 @@ import Cardano.Crypto.DSIGN (
   VerKeyDSIGN,
  )
 import Control.Lens (to, (^?))
-import Control.Monad.Class.MonadAsync (mapConcurrently_)
+import Control.Monad.Class.MonadAsync (mapConcurrently)
 import Control.Monad.Class.MonadSTM (
   MonadSTM (readTVarIO),
   check,
@@ -81,7 +81,6 @@ data Event = Event
 bench :: DiffTime -> FilePath -> [Dataset] -> Spec
 bench timeoutSeconds workDir dataset =
   specify ("Load test on three local nodes (" <> workDir <> ")") $ do
-    registry <- newRegistry
     showLogsOnFailure $ \tracer ->
       failAfter timeoutSeconds $ do
         withMockChain $ \chainPorts ->
@@ -98,35 +97,37 @@ bench timeoutSeconds workDir dataset =
 
                 waitFor tracer 3 [n1, n2, n3] $ output "HeadIsOpen" ["utxo" .= expectedUtxo]
 
-                processTransactions registry [n1, n2, n3] dataset
+                processedTransactions <- processTransactions [n1, n2, n3] dataset
 
                 putTextLn "Closing the Head..."
                 send n1 $ input "Close" []
                 waitMatch (contestationPeriod + 3) n1 $ \v ->
                   guard (v ^? key "tag" == Just "HeadIsFinalized")
 
-    res <- mapMaybe analyze . Map.toList <$> readTVarIO (processedTxs registry)
-    writeResultsCsv (workDir </> "results.csv") res
-    -- TODO: Create a proper summary
-    let confTimes = map (\(_, _, a) -> a) res
-        below1Sec = filter (< 1) confTimes
-        avgConfirmation = double (nominalDiffTimeToSeconds $ sum confTimes) / double (length confTimes)
-        percentBelow1Sec = double (length below1Sec) / double (length confTimes) * 100
-    putTextLn $ "Confirmed txs: " <> show (length confTimes)
-    putTextLn $ "Average confirmation time: " <> show avgConfirmation
-    putTextLn $ "Confirmed below 1 sec: " <> show percentBelow1Sec <> "%"
-    percentBelow1Sec `shouldSatisfy` (> 90)
+                let res = mapMaybe analyze . Map.toList $ processedTransactions
+                writeResultsCsv (workDir </> "results.csv") res
+                -- TODO: Create a proper summary
+                let confTimes = map (\(_, _, a) -> a) res
+                    below1Sec = filter (< 1) confTimes
+                    avgConfirmation = double (nominalDiffTimeToSeconds $ sum confTimes) / double (length confTimes)
+                    percentBelow1Sec = double (length below1Sec) / double (length confTimes) * 100
+                putTextLn $ "Confirmed txs: " <> show (length confTimes)
+                putTextLn $ "Average confirmation time: " <> show avgConfirmation
+                putTextLn $ "Confirmed below 1 sec: " <> show percentBelow1Sec <> "%"
+                percentBelow1Sec `shouldSatisfy` (> 90)
 
-processTransactions :: Registry CardanoTx -> [HydraClient] -> [Dataset] -> IO ()
-processTransactions registry clients dataset = do
+processTransactions :: [HydraClient] -> [Dataset] -> IO (Map.Map (TxId CardanoTx) Event)
+processTransactions clients dataset = do
   let processors = zip dataset (cycle clients)
-  mapConcurrently_ clientProcessTransactionsSequence processors
+  mconcat <$> mapConcurrently clientProcessTransactionsSequence processors
  where
   clientProcessTransactionsSequence (Dataset{transactionsSequence}, client) = do
     submissionQ <- newTBQueueIO (fromIntegral $ length transactionsSequence)
+    registry <- newRegistry
     atomically $ forM_ transactionsSequence $ writeTBQueue submissionQ
     submitTxs client registry submissionQ
       `concurrently_` waitForAllConfirmations client registry submissionQ (Set.fromList $ map txId transactionsSequence)
+    readTVarIO (processedTxs registry)
 
 --
 -- Helpers
