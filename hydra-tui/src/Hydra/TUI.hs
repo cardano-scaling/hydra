@@ -23,7 +23,20 @@ import Graphics.Vty.Attributes (defAttr)
 import Hydra.Client (Client (Client, sendInput), HydraEvent (..), withClient)
 import Hydra.ClientInput (ClientInput (..))
 import Hydra.Ledger (Party, Tx (..))
-import Hydra.Ledger.Cardano (CardanoAddress, CardanoKeyPair, CardanoTx, TxIn, TxOut, encodeAddress, genKeyPair, genUtxoFor, mkSimpleCardanoTx, mkVkAddress, prettyBalance, prettyUtxo)
+import Hydra.Ledger.Cardano (
+  CardanoAddress,
+  CardanoKeyPair,
+  CardanoTx,
+  TxIn,
+  TxOut,
+  encodeAddress,
+  genKeyPair,
+  genUtxoFor,
+  mkSimpleCardanoTx,
+  mkVkAddress,
+  prettyBalance,
+  prettyUtxo,
+ )
 import Hydra.Network (Host (..))
 import Hydra.ServerOutput (ServerOutput (..))
 import Hydra.Snapshot (Snapshot (..))
@@ -176,7 +189,7 @@ handleAppEvent s = \case
      in s & headStateL .~ Initializing{parties = toList parties, utxo}
           & feedbackL ?~ UserFeedback Info "Head initialized, ready for commit(s)."
   Update Committed{party, utxo} ->
-    s & headStateL %~ partyCommitted party utxo
+    s & headStateL %~ partyCommitted [party] utxo
       & feedbackL ?~ UserFeedback Info (show party <> " committed " <> prettyBalance (balance @CardanoTx utxo))
   Update HeadIsOpen{utxo} ->
     s & headStateL .~ Open{utxo}
@@ -204,7 +217,7 @@ handleAppEvent s = \case
   partyCommitted party commit = \case
     Initializing{parties, utxo} ->
       Initializing
-        { parties = parties \\ [party]
+        { parties = parties \\ party
         , utxo = utxo <> commit
         }
     hs -> hs
