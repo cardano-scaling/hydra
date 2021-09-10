@@ -43,7 +43,7 @@ import HydraNode (
   waitFor,
   waitForNodesConnected,
   waitMatch,
-  withHydraNode,
+  withHydraCluster,
   withMockChain,
   withNewClient,
  )
@@ -79,43 +79,42 @@ data Event = Event
   }
   deriving (Generic, Eq, Show, ToJSON)
 
-bench :: DiffTime -> FilePath -> [Dataset] -> Spec
-bench timeoutSeconds workDir dataset =
+bench :: DiffTime -> FilePath -> [Dataset] -> Word64 -> Spec
+bench timeoutSeconds workDir dataset clusterSize =
   specify ("Load test on three local nodes (" <> workDir <> ")") $ do
     showLogsOnFailure $ \tracer ->
       failAfter timeoutSeconds $ do
         withMockChain $ \chainPorts ->
-          withHydraNode tracer workDir chainPorts 1 aliceSk [bobVk, carolVk] $ \n1 ->
-            withHydraNode tracer workDir chainPorts 2 bobSk [aliceVk, carolVk] $ \n2 ->
-              withHydraNode tracer workDir chainPorts 3 carolSk [aliceVk, bobVk] $ \n3 -> do
-                waitForNodesConnected tracer [n1, n2, n3]
-                let contestationPeriod = 10 :: Natural
-                send n1 $ input "Init" ["contestationPeriod" .= contestationPeriod]
-                waitFor tracer 3 [n1, n2, n3] $
-                  output "ReadyToCommit" ["parties" .= [int 10, 20, 30]]
+          withHydraCluster tracer workDir chainPorts clusterSize $ \(leader :| followers) -> do
+            let nodes = leader : followers
+            waitForNodesConnected tracer [1 .. fromIntegral clusterSize] nodes
+            let contestationPeriod = 100 :: Natural
+            send leader $ input "Init" ["contestationPeriod" .= contestationPeriod]
+            waitFor tracer 3 nodes $
+              output "ReadyToCommit" ["parties" .= map int [1 .. fromIntegral clusterSize]]
 
-                expectedUtxo <- commit [n1, n2, n3] dataset
+            expectedUtxo <- commit nodes dataset
 
-                waitFor tracer 3 [n1, n2, n3] $ output "HeadIsOpen" ["utxo" .= expectedUtxo]
+            waitFor tracer 3 nodes $ output "HeadIsOpen" ["utxo" .= expectedUtxo]
 
-                processedTransactions <- processTransactions [n1, n2, n3] dataset
+            processedTransactions <- processTransactions nodes dataset
 
-                putTextLn "Closing the Head..."
-                send n1 $ input "Close" []
-                waitMatch (contestationPeriod + 3) n1 $ \v ->
-                  guard (v ^? key "tag" == Just "HeadIsFinalized")
+            putTextLn "Closing the Head..."
+            send leader $ input "Close" []
+            waitMatch (contestationPeriod + 3) leader $ \v ->
+              guard (v ^? key "tag" == Just "HeadIsFinalized")
 
-                let res = mapMaybe analyze . Map.toList $ processedTransactions
-                writeResultsCsv (workDir </> "results.csv") res
-                -- TODO: Create a proper summary
-                let confTimes = map (\(_, _, a) -> a) res
-                    below1Sec = filter (< 1) confTimes
-                    avgConfirmation = double (nominalDiffTimeToSeconds $ sum confTimes) / double (length confTimes)
-                    percentBelow1Sec = double (length below1Sec) / double (length confTimes) * 100
-                putTextLn $ "Confirmed txs: " <> show (length confTimes)
-                putTextLn $ "Average confirmation time: " <> show avgConfirmation
-                putTextLn $ "Confirmed below 1 sec: " <> show percentBelow1Sec <> "%"
-                percentBelow1Sec `shouldSatisfy` (> 90)
+            let res = mapMaybe analyze . Map.toList $ processedTransactions
+            writeResultsCsv (workDir </> "results.csv") res
+            -- TODO: Create a proper summary
+            let confTimes = map (\(_, _, a) -> a) res
+                below1Sec = filter (< 1) confTimes
+                avgConfirmation = double (nominalDiffTimeToSeconds $ sum confTimes) / double (length confTimes)
+                percentBelow1Sec = double (length below1Sec) / double (length confTimes) * 100
+            putTextLn $ "Confirmed txs: " <> show (length confTimes)
+            putTextLn $ "Average confirmation time: " <> show avgConfirmation
+            putTextLn $ "Confirmed below 1 sec: " <> show percentBelow1Sec <> "%"
+            percentBelow1Sec `shouldSatisfy` (> 90)
 
 processTransactions :: [HydraClient] -> [Dataset] -> IO (Map.Map (TxId CardanoTx) Event)
 processTransactions clients dataset = do

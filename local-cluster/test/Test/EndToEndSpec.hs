@@ -93,6 +93,9 @@ import HydraNode (
 import Text.Regex.TDFA ((=~))
 import Text.Regex.TDFA.Text ()
 
+allNodeIds :: [Int]
+allNodeIds = [1 .. 3]
+
 spec :: Spec
 spec = around showLogsOnFailure $
   describe "End-to-end test using a mocked chain though" $ do
@@ -101,10 +104,10 @@ spec = around showLogsOnFailure $
         failAfter 30 $
           withTempDir "end-to-end-inits-and-closes" $ \tmpDir ->
             withMockChain $ \chainPorts ->
-              withHydraNode tracer tmpDir chainPorts 1 aliceSk [bobVk, carolVk] $ \n1 ->
-                withHydraNode tracer tmpDir chainPorts 2 bobSk [aliceVk, carolVk] $ \n2 ->
-                  withHydraNode tracer tmpDir chainPorts 3 carolSk [aliceVk, bobVk] $ \n3 -> do
-                    waitForNodesConnected tracer [n1, n2, n3]
+              withHydraNode tracer tmpDir chainPorts 1 aliceSk [bobVk, carolVk] allNodeIds $ \n1 ->
+                withHydraNode tracer tmpDir chainPorts 2 bobSk [aliceVk, carolVk] allNodeIds $ \n2 ->
+                  withHydraNode tracer tmpDir chainPorts 3 carolSk [aliceVk, bobVk] allNodeIds $ \n3 -> do
+                    waitForNodesConnected tracer allNodeIds [n1, n2, n3]
                     let contestationPeriod = 10 :: Natural
                     send n1 $ input "Init" ["contestationPeriod" .= contestationPeriod]
                     waitFor tracer 3 [n1, n2, n3] $
@@ -173,10 +176,10 @@ spec = around showLogsOnFailure $
         withTempDir "end-to-end-prometheus-metrics" $ \tmpDir ->
           failAfter 20 $
             withMockChain $ \mockPorts ->
-              withHydraNode tracer tmpDir mockPorts 1 aliceSk [bobVk, carolVk] $ \n1 ->
-                withHydraNode tracer tmpDir mockPorts 2 bobSk [aliceVk, carolVk] $ \_n2 ->
-                  withHydraNode tracer tmpDir mockPorts 3 carolSk [aliceVk, bobVk] $ \_n3 -> do
-                    waitForNodesConnected tracer [n1]
+              withHydraNode tracer tmpDir mockPorts 1 aliceSk [bobVk, carolVk] allNodeIds $ \n1 ->
+                withHydraNode tracer tmpDir mockPorts 2 bobSk [aliceVk, carolVk] allNodeIds $ \_n2 ->
+                  withHydraNode tracer tmpDir mockPorts 3 carolSk [aliceVk, bobVk] allNodeIds $ \_n3 -> do
+                    waitForNodesConnected tracer allNodeIds [n1]
                     send n1 $ input "Init" ["contestationPeriod" .= int 10]
                     waitFor tracer 3 [n1] $ output "ReadyToCommit" ["parties" .= [int 10, 20, 30]]
                     metrics <- getMetrics n1

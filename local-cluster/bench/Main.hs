@@ -31,6 +31,7 @@ data Options = Options
   , scalingFactor :: Int
   , concurrency :: Int
   , timeoutSeconds :: DiffTime
+  , clusterSize :: Word64
   }
 
 benchOptionsParser :: Parser Options
@@ -73,6 +74,14 @@ benchOptionsParser =
             <> help
               "The timeout for the run, in seconds (default: '600s')"
         )
+      <*> option
+        auto
+        ( long "cluster-size"
+            <> value 3
+            <> metavar "INT"
+            <> help
+              "The number of Hydra nodes to start and connect (default: 3)"
+        )
 
 benchOptions :: ParserInfo Options
 benchOptions =
@@ -90,27 +99,27 @@ benchOptions =
 main :: IO ()
 main =
   execParser benchOptions >>= \case
-    Options{outputDirectory = Just benchDir, scalingFactor, concurrency, timeoutSeconds} -> do
+    Options{outputDirectory = Just benchDir, scalingFactor, concurrency, timeoutSeconds, clusterSize} -> do
       existsDir <- doesDirectoryExist benchDir
       if existsDir
-        then replay timeoutSeconds benchDir
-        else createDirectory benchDir >> play scalingFactor concurrency timeoutSeconds benchDir
-    Options{scalingFactor, concurrency, timeoutSeconds} ->
-      createSystemTempDirectory "bench" >>= play scalingFactor concurrency timeoutSeconds
+        then replay timeoutSeconds clusterSize benchDir
+        else createDirectory benchDir >> play scalingFactor concurrency timeoutSeconds clusterSize benchDir
+    Options{scalingFactor, concurrency, timeoutSeconds, clusterSize} ->
+      createSystemTempDirectory "bench" >>= play scalingFactor concurrency timeoutSeconds clusterSize
  where
-  replay timeoutSeconds benchDir = do
+  replay timeoutSeconds clusterSize benchDir = do
     datasets <- either die pure =<< eitherDecodeFileStrict' (benchDir </> "dataset.json")
     putStrLn $ "Using UTxO and Transactions from: " <> benchDir
-    run timeoutSeconds benchDir datasets
+    run timeoutSeconds benchDir datasets clusterSize
 
-  play scalingFactor concurrency timeoutSeconds benchDir = do
+  play scalingFactor concurrency timeoutSeconds clusterSize benchDir = do
     dataset <- replicateM concurrency (generateDataset scalingFactor)
     saveDataset benchDir dataset
-    run timeoutSeconds benchDir dataset
+    run timeoutSeconds benchDir dataset clusterSize
 
   -- TODO(SN): Ideally we would like to say "to re-run use ... " on errors
-  run timeoutSeconds benchDir datasets =
-    withArgs [] . hspec $ bench timeoutSeconds benchDir datasets
+  run timeoutSeconds benchDir datasets clusterSize =
+    withArgs [] . hspec $ bench timeoutSeconds benchDir datasets clusterSize
 
   saveDataset tmpDir dataset = do
     let txsFile = tmpDir </> "dataset.json"

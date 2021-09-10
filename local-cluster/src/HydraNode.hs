@@ -21,6 +21,7 @@ module HydraNode (
   withTempDir,
   waitNext,
   withNewClient,
+  withHydraCluster,
 ) where
 
 import Hydra.Prelude hiding (delete)
@@ -28,8 +29,8 @@ import Hydra.Prelude hiding (delete)
 import Cardano.BM.Tracing (ToObject)
 import Cardano.Crypto.DSIGN (
   DSIGNAlgorithm (..),
-  SignKeyDSIGN,
-  VerKeyDSIGN,
+  SignKeyDSIGN (SignKeyMockDSIGN),
+  VerKeyDSIGN (VerKeyMockDSIGN),
  )
 import Control.Concurrent.Async (
   forConcurrently_,
@@ -179,6 +180,27 @@ data EndToEndLog
   | EndWaiting Int
   deriving (Eq, Show, Generic, ToJSON, FromJSON, ToObject)
 
+withHydraCluster ::
+  Tracer IO EndToEndLog ->
+  FilePath ->
+  (Int, Int, Int) ->
+  Word64 ->
+  (NonEmpty HydraClient -> IO ()) ->
+  IO ()
+withHydraCluster tracer workDir mockChainPorts clusterSize action =
+  case clusterSize of
+    0 -> error "Cannot run a cluster with 0 number of nodes"
+    n -> go n [] [1 .. n]
+ where
+  go n clients = \case
+    [] -> action (fromList clients)
+    (nodeId : rest) ->
+      let vKeys = map VerKeyMockDSIGN $ filter (/= nodeId) allNodeIds
+          key = SignKeyMockDSIGN nodeId
+       in withHydraNode tracer workDir mockChainPorts (fromIntegral nodeId) key vKeys (map fromIntegral allNodeIds) (\c -> go n (c : clients) rest)
+     where
+      allNodeIds = [1 .. n]
+
 withHydraNode ::
   forall alg.
   DSIGNAlgorithm alg =>
@@ -188,9 +210,10 @@ withHydraNode ::
   Int ->
   SignKeyDSIGN alg ->
   [VerKeyDSIGN alg] ->
+  [Int] ->
   (HydraClient -> IO ()) ->
   IO ()
-withHydraNode tracer workDir mockChainPorts hydraNodeId sKey vKeys action = do
+withHydraNode tracer workDir mockChainPorts hydraNodeId sKey vKeys allNodeIds action = do
   let logFile = workDir </> show hydraNodeId
   withFile' logFile $ \out -> do
     withSystemTempDirectory "hydra-node" $ \dir -> do
@@ -201,7 +224,7 @@ withHydraNode tracer workDir mockChainPorts hydraNodeId sKey vKeys action = do
         filepath <$ BS.writeFile filepath (rawSerialiseVerKeyDSIGN vKey)
 
       let p =
-            (hydraNodeProcess $ defaultArguments hydraNodeId sKeyPath vKeysPaths mockChainPorts)
+            (hydraNodeProcess $ defaultArguments hydraNodeId sKeyPath vKeysPaths mockChainPorts allNodeIds)
               { std_out = UseHandle out
               }
       withCreateProcess p $
@@ -257,8 +280,9 @@ defaultArguments ::
   FilePath ->
   [FilePath] ->
   (Int, Int, Int) ->
+  [Int] ->
   [String]
-defaultArguments nodeId sKey vKeys ports =
+defaultArguments nodeId sKey vKeys ports allNodeIds =
   [ "--quiet"
   , "--node-id"
   , show nodeId
@@ -302,16 +326,11 @@ checkProcessHasNotDied name processHandle =
     ExitSuccess -> pure ()
     ExitFailure exit -> failure $ "Process " <> show name <> " exited with failure code: " <> show exit
 
--- HACK(SN): These functions here are hard-coded for three nodes, but the tests
--- are somewhat parameterized -> make it all or nothing hard-coded
-allNodeIds :: [Int]
-allNodeIds = [1 .. 3]
+waitForNodesConnected :: HasCallStack => Tracer IO EndToEndLog -> [Int] -> [HydraClient] -> IO ()
+waitForNodesConnected tracer allNodeIds = mapM_ (waitForNodeConnected tracer allNodeIds)
 
-waitForNodesConnected :: HasCallStack => Tracer IO EndToEndLog -> [HydraClient] -> IO ()
-waitForNodesConnected tracer = mapM_ (waitForNodeConnected tracer)
-
-waitForNodeConnected :: HasCallStack => Tracer IO EndToEndLog -> HydraClient -> IO ()
-waitForNodeConnected tracer n@HydraClient{hydraNodeId} =
+waitForNodeConnected :: HasCallStack => Tracer IO EndToEndLog -> [Int] -> HydraClient -> IO ()
+waitForNodeConnected tracer allNodeIds n@HydraClient{hydraNodeId} =
   -- HACK(AB): This is gross, we hijack the node ids and because we know
   -- keys are just integers we can compute them but that's ugly -> use property
   -- party identifiers everywhere
