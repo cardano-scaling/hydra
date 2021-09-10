@@ -667,7 +667,6 @@
         "http2".flags.doc = false;
         "generic-monoid".revision = (((hackage."generic-monoid")."0.1.0.1").revisions).default;
         "data-default-instances-dlist".revision = (((hackage."data-default-instances-dlist")."0.0.1").revisions).default;
-        "base16".revision = (((hackage."base16")."0.3.0.1").revisions).default;
         "microstache".revision = (((hackage."microstache")."1.0.1.2").revisions).default;
         "unix-time".revision = (((hackage."unix-time")."0.4.7").revisions).default;
         "base-compat-batteries".revision = (((hackage."base-compat-batteries")."0.11.2").revisions).default;
@@ -895,7 +894,7 @@
           "cardano-crypto-praos" = {
             flags = {
               "development" = lib.mkOverride 900 false;
-              "external-libsodium-vrf" = lib.mkOverride 900 true;
+              "external-libsodium-vrf" = lib.mkOverride 900 false;
               };
             };
           "monoidal-synchronisation" = { flags = {}; };
@@ -910,7 +909,7 @@
             flags = { "defer-plugin-errors" = lib.mkOverride 900 false; };
             };
           "local-cluster" = {
-            flags = { "development" = lib.mkOverride 900 true; };
+            flags = { "development" = lib.mkOverride 900 false; };
             };
           "typed-protocols-examples" = { flags = {}; };
           "cardano-crypto-tests" = {
@@ -972,13 +971,13 @@
               };
             };
           "hydra-tui" = {
-            flags = { "development" = lib.mkOverride 900 true; };
+            flags = { "development" = lib.mkOverride 900 false; };
             };
           "ouroboros-consensus-byron" = {
             flags = { "asserts" = lib.mkOverride 900 false; };
             };
           "hydra-node" = {
-            flags = { "development" = lib.mkOverride 900 true; };
+            flags = { "development" = lib.mkOverride 900 false; };
             };
           "contra-tracer" = { flags = {}; };
           "orphans-deriving-via" = {

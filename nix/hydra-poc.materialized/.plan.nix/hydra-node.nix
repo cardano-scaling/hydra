@@ -35,7 +35,7 @@
         depends = [
           (hsPkgs."aeson" or (errorHandler.buildDepError "aeson"))
           (hsPkgs."base" or (errorHandler.buildDepError "base"))
-          (hsPkgs."base16" or (errorHandler.buildDepError "base16"))
+          (hsPkgs."base16-bytestring" or (errorHandler.buildDepError "base16-bytestring"))
           (hsPkgs."bech32" or (errorHandler.buildDepError "bech32"))
           (hsPkgs."bech32-th" or (errorHandler.buildDepError "bech32-th"))
           (hsPkgs."bytestring" or (errorHandler.buildDepError "bytestring"))
@@ -194,6 +194,7 @@
             "Hydra/ClientInputSpec"
             "Hydra/FireForgetSpec"
             "Hydra/HeadLogicSpec"
+            "Hydra/JSONSchema"
             "Hydra/Ledger/CardanoSpec"
             "Hydra/Ledger/SimpleSpec"
             "Hydra/Logging/MonitoringSpec"
@@ -203,6 +204,7 @@
             "Hydra/NodeSpec"
             "Hydra/OptionsSpec"
             "Hydra/ServerOutputSpec"
+            "Hydra/SnapshotStrategySpec"
             "Paths_hydra_node"
             "Spec"
             "Test/Util"

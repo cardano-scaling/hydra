@@ -37,12 +37,18 @@
           (hsPkgs."async" or (errorHandler.buildDepError "async"))
           (hsPkgs."base" or (errorHandler.buildDepError "base"))
           (hsPkgs."brick" or (errorHandler.buildDepError "brick"))
+          (hsPkgs."cardano-ledger-core" or (errorHandler.buildDepError "cardano-ledger-core"))
+          (hsPkgs."cardano-ledger-shelley-ma" or (errorHandler.buildDepError "cardano-ledger-shelley-ma"))
+          (hsPkgs."containers" or (errorHandler.buildDepError "containers"))
           (hsPkgs."hydra-node" or (errorHandler.buildDepError "hydra-node"))
           (hsPkgs."hydra-prelude" or (errorHandler.buildDepError "hydra-prelude"))
           (hsPkgs."io-classes" or (errorHandler.buildDepError "io-classes"))
           (hsPkgs."microlens" or (errorHandler.buildDepError "microlens"))
           (hsPkgs."microlens-th" or (errorHandler.buildDepError "microlens-th"))
           (hsPkgs."optparse-applicative" or (errorHandler.buildDepError "optparse-applicative"))
+          (hsPkgs."QuickCheck" or (errorHandler.buildDepError "QuickCheck"))
+          (hsPkgs."shelley-spec-ledger" or (errorHandler.buildDepError "shelley-spec-ledger"))
+          (hsPkgs."text" or (errorHandler.buildDepError "text"))
           (hsPkgs."vty" or (errorHandler.buildDepError "vty"))
           (hsPkgs."websockets" or (errorHandler.buildDepError "websockets"))
           ];
@@ -65,9 +71,7 @@
             ];
           buildable = true;
           hsSourceDirs = [ "exe" ];
-          mainPath = [
-            "Main.hs"
-            ] ++ (pkgs.lib).optional (!flags.development) "";
+          mainPath = [ "Main.hs" ];
           };
         };
       tests = {
