@@ -88,7 +88,7 @@ bench timeoutSeconds workDir dataset clusterSize =
           withHydraCluster tracer workDir chainPorts clusterSize $ \(leader :| followers) -> do
             let nodes = leader : followers
             waitForNodesConnected tracer [1 .. fromIntegral clusterSize] nodes
-            let contestationPeriod = 100 :: Natural
+            let contestationPeriod = 10 :: Natural
             send leader $ input "Init" ["contestationPeriod" .= contestationPeriod]
             waitFor tracer 3 nodes $
               output "ReadyToCommit" ["parties" .= Set.fromList (map int [1 .. fromIntegral clusterSize])]
@@ -101,7 +101,7 @@ bench timeoutSeconds workDir dataset clusterSize =
 
             putTextLn "Closing the Head..."
             send leader $ input "Close" []
-            waitMatch (contestationPeriod + 3) leader $ \v ->
+            waitMatch (contestationPeriod * 3) leader $ \v ->
               guard (v ^? key "tag" == Just "HeadIsFinalized")
 
             let res = mapMaybe analyze . Map.toList $ processedTransactions
