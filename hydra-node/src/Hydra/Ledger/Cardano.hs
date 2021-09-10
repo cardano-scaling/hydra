@@ -442,26 +442,29 @@ instance Crypto crypto => ToJSONKey (Cardano.TxIn crypto) where
 -- Output
 --
 
+-- Serialise addresses in bech32 including the prefix as standardized:
+-- https://github.com/cardano-foundation/CIPs/blob/master/CIP-0005/CIP-0005.md
+encodeAddress ::
+  Cardano.Addr crypto ->
+  Text
+encodeAddress addr =
+  Bech32.encodeLenient prefix . Bech32.dataPartFromBytes $ Cardano.serialiseAddr addr
+ where
+  -- REVIEW(SN): The ledger's 'Addr' type is bigger than we need here and we
+  -- are forced to come up with a prefix for Byron "bootstrap" addresses,
+  -- although they should actually be serialised differently..and would not be
+  -- relevant for Hydra in the first place.
+  prefix = case addr of
+    (Cardano.Addr Cardano.Mainnet _ _) -> [Bech32.humanReadablePart|addr|]
+    (Cardano.Addr Cardano.Testnet _ _) -> [Bech32.humanReadablePart|addr_test|]
+    (Cardano.AddrBootstrap _) -> [Bech32.humanReadablePart|addr_boot|]
+
 instance Crypto crypto => ToJSON (Cardano.TxOut (MaryEra crypto)) where
   toJSON (Cardano.TxOut addr value) =
     object
-      [ "address" .= serialiseAddressBech32
+      [ "address" .= encodeAddress addr
       , "value" .= value
       ]
-   where
-    -- Serialise addresses in bech32 including the prefix as standardized:
-    -- https://github.com/cardano-foundation/CIPs/blob/master/CIP-0005/CIP-0005.md
-    serialiseAddressBech32 =
-      Bech32.encodeLenient prefix . Bech32.dataPartFromBytes $ Cardano.serialiseAddr addr
-
-    -- REVIEW(SN): The ledger's 'Addr' type is bigger than we need here and we
-    -- are forced to come up with a prefix for Byron "bootstrap" addresses,
-    -- although they should actually be serialised differently..and would not be
-    -- relevant for Hydra in the first place.
-    prefix = case addr of
-      (Cardano.Addr Cardano.Mainnet _ _) -> [Bech32.humanReadablePart|addr|]
-      (Cardano.Addr Cardano.Testnet _ _) -> [Bech32.humanReadablePart|addr_test|]
-      (Cardano.AddrBootstrap _) -> [Bech32.humanReadablePart|addr_boot|]
 
 instance Crypto crypto => FromJSON (Cardano.TxOut (MaryEra crypto)) where
   parseJSON = withObject "TxOut" $ \o -> do

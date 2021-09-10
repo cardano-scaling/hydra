@@ -22,7 +22,7 @@ import Graphics.Vty.Attributes (defAttr)
 import Hydra.Client (Client (Client, sendInput), HydraEvent (..), withClient)
 import Hydra.ClientInput (ClientInput (..))
 import Hydra.Ledger (Party, Tx (..))
-import Hydra.Ledger.Cardano (CardanoAddress, CardanoKeyPair, CardanoTx, TxIn, TxOut, genKeyPair, genUtxoFor, mkSimpleCardanoTx, mkVkAddress, prettyBalance, prettyUtxo)
+import Hydra.Ledger.Cardano (CardanoAddress, CardanoKeyPair, CardanoTx, TxIn, TxOut, encodeAddress, genKeyPair, genUtxoFor, mkSimpleCardanoTx, mkVkAddress, prettyBalance, prettyUtxo)
 import Hydra.Network (Host (..))
 import Hydra.ServerOutput (ServerOutput (..))
 import Hydra.Snapshot (Snapshot (..))
@@ -31,8 +31,10 @@ import Lens.Micro (Lens', lens, (%~), (.~), (?~), (^.), (^?))
 import Lens.Micro.TH (makeLensesFor)
 import Paths_hydra_tui (version)
 import Shelley.Spec.Ledger.API (UTxO (..))
+import qualified Shelley.Spec.Ledger.API as Cardano
 import Test.QuickCheck.Gen (Gen (..), scale)
 import Test.QuickCheck.Random (mkQCGen)
+import qualified Prelude
 
 --
 -- Model
@@ -283,7 +285,7 @@ handleNewTxEvent Client{sendInput} = \case
     title = "Select a recipient"
     -- FIXME: This crashes if peers are empty!
     form =
-      let field = radioField (lens id const) [(p, show p, show p) | p <- peers]
+      let field = radioField (lens id seq) [(p, show p, show p) | p <- peers]
        in newForm [field] (peers !! 0)
     submit s (getAddress -> recipient) = do
       liftIO (sendInput (NewTx tx))
@@ -505,7 +507,8 @@ myAvailableUtxo :: State -> Map TxIn TxOut
 myAvailableUtxo s =
   case s ^? headStateL of
     Just Open{utxo = UTxO u'} ->
-      let u = myTotalUtxo s in u' `Map.intersection` u
+      let myAddress = getAddress (s ^. meL)
+       in Map.filter (\(Cardano.TxOut addr _) -> addr == myAddress) u'
     _ ->
       mempty
 
