@@ -41,7 +41,7 @@ spec = parallel $
               )
               $ \_ -> do
                 atomically $ readTVar semaphore >>= \n -> check (n == 2)
-                let arbitraryMsg = ReadyToCommit []
+                let arbitraryMsg = ReadyToCommit mempty
                 sendOutput arbitraryMsg
 
                 atomically (replicateM 2 (readTQueue queue)) `shouldReturn` [arbitraryMsg, arbitraryMsg]

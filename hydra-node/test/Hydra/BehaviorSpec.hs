@@ -74,7 +74,7 @@ spec = parallel $ do
           chain <- simulatedChainAndNetwork
           withHydraNode 1 [] chain $ \n1 -> do
             send n1 (Init testContestationPeriod)
-            waitFor [n1] $ ReadyToCommit [1]
+            waitFor [n1] $ ReadyToCommit (fromList [1])
             send n1 (Commit (utxoRef 1))
             waitFor [n1] $ Committed 1 (utxoRef 1)
 
@@ -83,7 +83,7 @@ spec = parallel $ do
           chain <- simulatedChainAndNetwork
           withHydraNode 1 [] chain $ \n1 -> do
             send n1 (Init testContestationPeriod)
-            waitFor [n1] $ ReadyToCommit [1]
+            waitFor [n1] $ ReadyToCommit (fromList [1])
             send n1 (Commit (utxoRef 1))
             waitFor [n1] $ Committed 1 (utxoRef 1)
             waitFor [n1] $ HeadIsOpen (utxoRef 1)
@@ -95,7 +95,7 @@ spec = parallel $ do
           chain <- simulatedChainAndNetwork
           withHydraNode 1 [] chain $ \n1 -> do
             send n1 (Init testContestationPeriod)
-            waitFor [n1] $ ReadyToCommit [1]
+            waitFor [n1] $ ReadyToCommit (fromList [1])
             send n1 (Commit (utxoRef 1))
             waitFor [n1] $ Committed 1 (utxoRef 1)
             waitFor [n1] $ HeadIsOpen (utxoRef 1)
@@ -108,7 +108,7 @@ spec = parallel $ do
             chain <- simulatedChainAndNetwork
             withHydraNode 1 [] chain $ \n1 -> do
               send n1 (Init testContestationPeriod)
-              waitFor [n1] $ ReadyToCommit [1]
+              waitFor [n1] $ ReadyToCommit (fromList [1])
               send n1 (Commit (utxoRef 1))
               waitFor [n1] $ Committed 1 (utxoRef 1)
               waitFor [n1] $ HeadIsOpen (utxoRef 1)
@@ -124,7 +124,7 @@ spec = parallel $ do
           withHydraNode 1 [2] chain $ \n1 ->
             withHydraNode 2 [1] chain $ \n2 -> do
               send n1 (Init testContestationPeriod)
-              waitFor [n1, n2] $ ReadyToCommit [1, 2]
+              waitFor [n1, n2] $ ReadyToCommit (fromList [1, 2])
 
               send n1 (Commit (utxoRef 1))
               waitFor [n1] $ Committed 1 (utxoRef 1)
@@ -141,13 +141,13 @@ spec = parallel $ do
           withHydraNode 1 [2] chain $ \n1 ->
             withHydraNode 2 [1] chain $ \n2 -> do
               send n1 (Init testContestationPeriod)
-              waitFor [n1, n2] $ ReadyToCommit [1, 2]
+              waitFor [n1, n2] $ ReadyToCommit (fromList [1, 2])
               send n1 (Commit (utxoRefs [1, 2]))
               waitFor [n1, n2] $ Committed 1 (utxoRefs [1, 2])
               send n2 Abort
               waitFor [n1, n2] $ HeadIsAborted (utxoRefs [1, 2])
               send n1 (Init testContestationPeriod)
-              waitFor [n1, n2] $ ReadyToCommit [1, 2]
+              waitFor [n1, n2] $ ReadyToCommit (fromList [1, 2])
 
       it "cannot abort head when commits have been collected" $
         shouldRunInSim $ do
@@ -155,7 +155,7 @@ spec = parallel $ do
           withHydraNode 1 [2] chain $ \n1 ->
             withHydraNode 2 [1] chain $ \n2 -> do
               send n1 (Init testContestationPeriod)
-              waitFor [n1, n2] $ ReadyToCommit [1, 2]
+              waitFor [n1, n2] $ ReadyToCommit (fromList [1, 2])
               send n1 (Commit (utxoRef 1))
               send n2 (Commit (utxoRef 2))
 
@@ -170,7 +170,7 @@ spec = parallel $ do
           withHydraNode 1 [2] chain $ \n1 ->
             withHydraNode 2 [1] chain $ \n2 -> do
               send n1 (Init testContestationPeriod)
-              waitFor [n1, n2] $ ReadyToCommit [1, 2]
+              waitFor [n1, n2] $ ReadyToCommit (fromList [1, 2])
 
               send n1 (Commit (utxoRef 1))
               waitFor [n1] $ Committed 1 (utxoRef 1)
@@ -191,7 +191,7 @@ spec = parallel $ do
             withHydraNode 1 [2] chain $ \n1 ->
               withHydraNode 2 [1] chain $ \n2 -> do
                 send n1 (Init testContestationPeriod)
-                waitFor [n1, n2] $ ReadyToCommit [1, 2]
+                waitFor [n1, n2] $ ReadyToCommit (fromList [1, 2])
                 send n1 (Commit (utxoRef 1))
 
                 waitFor [n2] $ Committed 1 (utxoRef 1)
@@ -202,7 +202,7 @@ spec = parallel $ do
     describe "in an open head" $ do
       let openHead n1 n2 = do
             send n1 (Init testContestationPeriod)
-            waitFor [n1, n2] $ ReadyToCommit [1, 2]
+            waitFor [n1, n2] $ ReadyToCommit (fromList [1, 2])
             send n1 (Commit (utxoRef 1))
             waitFor [n1, n2] $ Committed 1 (utxoRef 1)
             send n2 (Commit (utxoRef 2))
@@ -314,7 +314,7 @@ spec = parallel $ do
               chain <- simulatedChainAndNetwork
               withHydraNode 1 [] chain $ \n1 -> do
                 send n1 (Init testContestationPeriod)
-                waitFor [n1] $ ReadyToCommit [1]
+                waitFor [n1] $ ReadyToCommit (fromList [1])
                 send n1 (Commit (utxoRef 1))
 
             logs = selectTraceEventsDynamic @_ @(HydraNodeLog SimpleTx) result
@@ -329,13 +329,13 @@ spec = parallel $ do
               chain <- simulatedChainAndNetwork
               withHydraNode 1 [] chain $ \n1 -> do
                 send n1 (Init testContestationPeriod)
-                waitFor [n1] $ ReadyToCommit [1]
+                waitFor [n1] $ ReadyToCommit (fromList [1])
                 send n1 (Commit (utxoRef 1))
 
             logs = selectTraceEventsDynamic @_ @(HydraNodeLog SimpleTx) result
 
-        logs `shouldContain` [ProcessingEffect 1 (ClientEffect $ ReadyToCommit [1])]
-        logs `shouldContain` [ProcessedEffect 1 (ClientEffect $ ReadyToCommit [1])]
+        logs `shouldContain` [ProcessingEffect 1 (ClientEffect $ ReadyToCommit $ fromList [1])]
+        logs `shouldContain` [ProcessedEffect 1 (ClientEffect $ ReadyToCommit $ fromList [1])]
 
       roundtripAndGoldenSpecs (Proxy @(HydraNodeLog SimpleTx))
 
