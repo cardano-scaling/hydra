@@ -20,6 +20,7 @@ module HydraNode (
   waitForNodesConnected,
   withTempDir,
   waitNext,
+  withNewClient,
 ) where
 
 import Hydra.Prelude hiding (delete)
@@ -41,7 +42,6 @@ import Data.Aeson.Types (Pair)
 import qualified Data.ByteString as BS
 import qualified Data.List as List
 import qualified Data.Text as T
-import GHC.IO.Handle (hDuplicate)
 import Hydra.Logging (Tracer, traceWith)
 import Network.HTTP.Conduit (HttpExceptionContent (ConnectionFailure), parseRequest)
 import Network.HTTP.Simple (HttpException (HttpExceptionRequest), Response, getResponseBody, getResponseStatusCode, httpBS)
@@ -66,9 +66,7 @@ import Test.Network.Ports (randomUnusedTCPPorts)
 data HydraClient = HydraClient
   { hydraNodeId :: Int
   , connection :: Connection
-  , -- TODO: Why is this needed? Only use in 'send' to dump some debug line.
-    -- Weird.
-    nodeStdout :: Handle
+  , tracer :: Tracer IO EndToEndLog
   }
 
 -- | Create an input as expected by 'send'.
@@ -105,8 +103,7 @@ waitMatch delay HydraClient{connection} match = do
     Nothing -> do
       msgs <- readTVarIO seenMsgs
       failure $
-        "Didn't match within allocated time. \nHere are the first 10 received messages: "
-          <> show (take 10 msgs)
+        "Didn't match within allocated time. There were some messages " <> show (length msgs) <> " messages received though"
  where
   go seenMsgs = do
     bytes <- receiveData connection
@@ -196,7 +193,6 @@ withHydraNode ::
 withHydraNode tracer workDir mockChainPorts hydraNodeId sKey vKeys action = do
   let logFile = workDir </> show hydraNodeId
   withFile' logFile $ \out -> do
-    out' <- hDuplicate out
     withSystemTempDirectory "hydra-node" $ \dir -> do
       let sKeyPath = dir </> (show hydraNodeId <> ".sk")
       BS.writeFile sKeyPath (rawSerialiseSignKeyDSIGN sKey)
@@ -212,27 +208,34 @@ withHydraNode tracer workDir mockChainPorts hydraNodeId sKey vKeys action = do
         \_stdin _stdout _stderr processHandle -> do
           race_
             (checkProcessHasNotDied ("hydra-node (" <> show hydraNodeId <> ")") processHandle)
-            (startConnect out')
+            (withConnectionToNode tracer hydraNodeId action)
  where
-  startConnect out = do
-    connectedOnce <- newIORef False
-    tryConnect connectedOnce out
-
-  tryConnect connectedOnce out =
-    doConnect connectedOnce out `catch` \(e :: IOException) -> do
-      readIORef connectedOnce >>= \case
-        False -> tryConnect connectedOnce out
-        True -> throwIO e
-
-  doConnect connectedOnce out = runClient "127.0.0.1" (4000 + hydraNodeId) "/" $ \con -> do
-    atomicWriteIORef connectedOnce True
-    traceWith tracer (NodeStarted hydraNodeId)
-    action $ HydraClient hydraNodeId con out
-    sendClose con ("Bye" :: Text)
-
   withFile' filepath io =
     withFile filepath ReadWriteMode io
       `onException` putStrLn ("Logfile written to: " <> filepath)
+
+withConnectionToNode :: Tracer IO EndToEndLog -> Int -> (HydraClient -> IO a) -> IO a
+withConnectionToNode tracer hydraNodeId action = do
+  connectedOnce <- newIORef False
+  tryConnect connectedOnce
+ where
+  tryConnect connectedOnce =
+    doConnect connectedOnce `catch` \(e :: IOException) -> do
+      readIORef connectedOnce >>= \case
+        False -> tryConnect connectedOnce
+        True -> throwIO e
+
+  doConnect connectedOnce = runClient "127.0.0.1" (4000 + hydraNodeId) "/" $ \connection -> do
+    atomicWriteIORef connectedOnce True
+    traceWith tracer (NodeStarted hydraNodeId)
+    res <- action $ HydraClient{hydraNodeId, connection, tracer}
+    sendClose connection ("Bye" :: Text)
+    pure res
+
+-- | Runs an action with a new connection to given Hydra node.
+withNewClient :: HydraClient -> (HydraClient -> IO a) -> IO a
+withNewClient HydraClient{hydraNodeId, tracer} =
+  withConnectionToNode tracer hydraNodeId
 
 -- | Create a temporary directory for the given 'action' to use.
 -- The directory is removed if and only if the action completes successfuly.
@@ -256,7 +259,8 @@ defaultArguments ::
   (Int, Int, Int) ->
   [String]
 defaultArguments nodeId sKey vKeys ports =
-  [ "--node-id"
+  [ "--quiet"
+  , "--node-id"
   , show nodeId
   , "--host"
   , "127.0.0.1"

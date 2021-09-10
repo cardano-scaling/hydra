@@ -45,6 +45,7 @@ import HydraNode (
   waitMatch,
   withHydraNode,
   withMockChain,
+  withNewClient,
  )
 import System.FilePath ((</>))
 import Test.QuickCheck (generate, scale)
@@ -124,10 +125,11 @@ processTransactions clients dataset = do
   clientProcessTransactionsSequence (Dataset{transactionsSequence}, client) = do
     submissionQ <- newTBQueueIO (fromIntegral $ length transactionsSequence)
     registry <- newRegistry
-    atomically $ forM_ transactionsSequence $ writeTBQueue submissionQ
-    submitTxs client registry submissionQ
-      `concurrently_` waitForAllConfirmations client registry submissionQ (Set.fromList $ map txId transactionsSequence)
-    readTVarIO (processedTxs registry)
+    withNewClient client $ \client' -> do
+      atomically $ forM_ transactionsSequence $ writeTBQueue submissionQ
+      submitTxs client' registry submissionQ
+        `concurrently_` waitForAllConfirmations client' registry submissionQ (Set.fromList $ map txId transactionsSequence)
+      readTVarIO (processedTxs registry)
 
 --
 -- Helpers
