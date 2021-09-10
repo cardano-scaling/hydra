@@ -25,6 +25,7 @@ import Options.Applicative (
 import System.Directory (createDirectory, doesDirectoryExist)
 import System.Environment (withArgs)
 import System.FilePath ((</>))
+import Test.QuickCheck (generate, getSize, scale)
 
 data Options = Options
   { outputDirectory :: Maybe FilePath
@@ -113,7 +114,8 @@ main =
     run timeoutSeconds benchDir datasets clusterSize
 
   play scalingFactor concurrency timeoutSeconds clusterSize benchDir = do
-    dataset <- replicateM concurrency (generateDataset scalingFactor)
+    numberOfTxs <- generate $ scale (* scalingFactor) getSize
+    dataset <- replicateM concurrency (generateDataset numberOfTxs)
     saveDataset benchDir dataset
     run timeoutSeconds benchDir dataset clusterSize
 

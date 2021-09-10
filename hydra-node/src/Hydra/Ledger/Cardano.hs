@@ -268,6 +268,12 @@ genSequenceOfValidTransactions initialUtxo
   | otherwise = do
     n <- getSize
     numTxs <- choose (1, n)
+    genFixedSizeSequenceOfValidTransactions numTxs initialUtxo
+
+genFixedSizeSequenceOfValidTransactions :: Int -> Utxo CardanoTx -> Gen [CardanoTx]
+genFixedSizeSequenceOfValidTransactions numTxs initialUtxo
+  | initialUtxo == mempty = pure []
+  | otherwise = do
     reverse . snd <$> foldM newTx (initialUtxo, []) [1 .. numTxs]
  where
   newTx (utxos, acc) _ = do
