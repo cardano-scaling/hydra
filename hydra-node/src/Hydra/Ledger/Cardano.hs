@@ -36,6 +36,7 @@ import qualified Cardano.Ledger.SafeHash as SafeHash
 import qualified Cardano.Ledger.ShelleyMA.Timelocks as Cardano
 import qualified Cardano.Ledger.ShelleyMA.TxBody as Cardano
 import Cardano.Ledger.Slot (EpochSize (EpochSize), SlotNo (SlotNo))
+import Cardano.Ledger.Val (invert)
 import Cardano.Slotting.EpochInfo (fixedEpochInfo)
 import Cardano.Slotting.Time (SystemStart (SystemStart), mkSlotLength)
 import qualified Codec.Binary.Bech32 as Bech32
@@ -72,7 +73,7 @@ import qualified Shelley.Spec.Ledger.API as Cardano hiding (TxBody)
 import Shelley.Spec.Ledger.Tx (WitnessSetHKD (WitnessSet))
 import Shelley.Spec.Ledger.TxBody (TxId (..))
 import Test.Cardano.Ledger.MaryEraGen ()
-import Test.QuickCheck (Gen, choose, getSize, suchThat, vectorOf)
+import Test.QuickCheck (Gen, choose, getSize, scale, suchThat, vectorOf)
 import qualified Test.Shelley.Spec.Ledger.Generator.Constants as Constants
 import Test.Shelley.Spec.Ledger.Generator.Core (geConstants)
 import Test.Shelley.Spec.Ledger.Generator.EraGen (genUtxo0)
@@ -170,7 +171,9 @@ genUtxoFor vk = do
  where
   genOutput :: Gen TxOut
   genOutput =
-    Cardano.TxOut (mkVkAddress vk) <$> arbitrary
+    -- NOTE: Scaling a bit the generator to get non-trivial outputs with some
+    -- funds, and not just a few lovelaces.
+    Cardano.TxOut (mkVkAddress vk) <$> scale (* 8) arbitrary
 
 genUtxo :: Gen (Utxo CardanoTx)
 genUtxo = do
@@ -193,10 +196,10 @@ mkVkAddress vk =
 -- signed by the given key.
 mkSimpleCardanoTx ::
   (TxIn, TxOut) ->
-  Cardano.Addr StandardCrypto ->
+  (Cardano.Addr StandardCrypto, Cardano.Value StandardCrypto) ->
   Cardano.KeyPair 'Cardano.Payment StandardCrypto ->
   CardanoTx
-mkSimpleCardanoTx (i, Cardano.TxOut _owner value) recipient credentials =
+mkSimpleCardanoTx (i, Cardano.TxOut owner valueIn) (recipient, valueOut) credentials =
   CardanoTx{id, body, witnesses, auxiliaryData}
  where
   id = Cardano.TxId $ SafeHash.hashAnnotated body
@@ -204,7 +207,12 @@ mkSimpleCardanoTx (i, Cardano.TxOut _owner value) recipient credentials =
   body =
     Cardano.TxBody
       (Set.singleton i)
-      (StrictSeq.fromList [Cardano.TxOut recipient value])
+      ( StrictSeq.fromList $
+          Cardano.TxOut recipient valueOut :
+            [ Cardano.TxOut owner (valueIn <> invert valueOut)
+            | valueOut /= valueIn
+            ]
+      )
       mempty
       (Cardano.Wdrl mempty)
       fees
@@ -300,8 +308,9 @@ signWith (_unTxId -> safeHash) credentials =
 prettyBalance :: Balance tx -> Text
 prettyBalance Balance{lovelace, assets} =
   let (ada, decimal) = lovelace `quotRem` 1000000
+      padLeft c n str = T.takeEnd n (T.replicate n c <> str)
    in unwords $
-        [ show ada <> "." <> show decimal
+        [ show ada <> "." <> padLeft "0" 6 (show decimal)
         , "₳"
         ]
           ++ if null assets

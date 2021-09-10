@@ -9,10 +9,11 @@ import Hydra.Prelude hiding (State)
 
 import Brick
 import Brick.BChan (newBChan, writeBChan)
-import Brick.Forms (Form, FormFieldState, checkboxField, formState, handleFormEvent, newForm, radioField, renderForm)
+import Brick.Forms (Form, FormFieldState, checkboxField, editShowableFieldWithValidate, formState, handleFormEvent, newForm, radioField, renderForm)
 import Brick.Widgets.Border (hBorder, vBorder)
 import Brick.Widgets.Border.Style (ascii)
 import Cardano.Ledger.Keys (KeyPair (..))
+import Cardano.Ledger.Val (coin, inject)
 import Data.List (nub, (!!), (\\))
 import qualified Data.Map.Strict as Map
 import Data.Version (showVersion)
@@ -172,7 +173,7 @@ handleAppEvent s = \case
     s & feedbackL ?~ UserFeedback Error "Invalid command."
   Update ReadyToCommit{parties} ->
     let utxo = mempty
-     in s & headStateL .~ Initializing{parties, utxo}
+     in s & headStateL .~ Initializing{parties = toList parties, utxo}
           & feedbackL ?~ UserFeedback Info "Head initialized, ready for commit(s)."
   Update Committed{party, utxo} ->
     s & headStateL %~ partyCommitted party utxo
@@ -246,11 +247,11 @@ handleCommitEvent ::
   EventM n (Next State)
 handleCommitEvent Client{sendInput} = \case
   s@State{headState = Initializing{}} ->
-    continue $ s & dialogStateL .~ newCommitDialog (myTotalUtxo s)
+    continue $ s & dialogStateL .~ commitDialog (myTotalUtxo s)
   s ->
     continue $ s & feedbackL ?~ UserFeedback Error "Invalid command."
  where
-  newCommitDialog u =
+  commitDialog u =
     Dialog title form submit
    where
     title = "Select UTXO to commit"
@@ -266,20 +267,20 @@ handleNewTxEvent ::
   EventM n (Next State)
 handleNewTxEvent Client{sendInput} = \case
   s@State{headState = Open{}} ->
-    continue $ s & dialogStateL .~ newTransactionBuilderDialog (myAvailableUtxo s)
+    continue $ s & dialogStateL .~ transactionBuilderDialog (myAvailableUtxo s)
   s ->
     continue $ s & feedbackL ?~ UserFeedback Error "Invalid command."
  where
-  newTransactionBuilderDialog u =
+  transactionBuilderDialog u =
     Dialog title form submit
    where
     title = "Select UTXO to spend"
     -- FIXME: This crashes if the utxo is empty
     form = newForm (utxoRadioField u) (Map.toList u !! 0)
     submit s input = do
-      continue $ s & dialogStateL .~ newRecipientsDialog input (s ^. peersL)
+      continue $ s & dialogStateL .~ recipientsDialog input (s ^. peersL)
 
-  newRecipientsDialog input peers =
+  recipientsDialog input peers =
     Dialog title form submit
    where
     title = "Select a recipient"
@@ -288,10 +289,21 @@ handleNewTxEvent Client{sendInput} = \case
       let field = radioField (lens id seq) [(p, show p, show p) | p <- peers]
        in newForm [field] (peers !! 0)
     submit s (getAddress -> recipient) = do
+      continue $ s & dialogStateL .~ amountDialog input recipient
+
+  amountDialog input@(_, Cardano.TxOut _ v) recipient =
+    Dialog title form submit
+   where
+    title = "Choose an amount"
+    form =
+      let limit = Cardano.unCoin $ coin v
+          field = editShowableFieldWithValidate (lens id seq) "amount" (\n -> n > 0 && n <= limit)
+       in newForm [field] limit
+    submit s (inject . Cardano.Coin -> amount) = do
       liftIO (sendInput (NewTx tx))
       continue $ s & dialogStateL .~ NoDialog
      where
-      tx = mkSimpleCardanoTx input recipient (myCredentials s)
+      tx = mkSimpleCardanoTx input (recipient, amount) (myCredentials s)
 
 --
 -- View
@@ -313,7 +325,7 @@ draw s =
           ]
  where
   drawInfo =
-    hLimit 72 $
+    hLimit 71 $
       vBox $
         mconcat
           [
