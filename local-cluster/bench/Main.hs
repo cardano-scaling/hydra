@@ -3,9 +3,8 @@ module Main where
 import Hydra.Prelude
 import Test.Hydra.Prelude
 
-import Bench.EndToEnd (bench)
+import Bench.EndToEnd (bench, generateDataset)
 import Data.Aeson (eitherDecodeFileStrict', encodeFile)
-import Hydra.Ledger.Cardano (genSequenceOfValidTransactions, genUtxo)
 import Options.Applicative (
   Parser,
   ParserInfo,
@@ -26,11 +25,12 @@ import Options.Applicative (
 import System.Directory (createDirectory, doesDirectoryExist)
 import System.Environment (withArgs)
 import System.FilePath ((</>))
-import Test.QuickCheck (generate, scale)
 
 data Options = Options
   { outputDirectory :: Maybe FilePath
   , scalingFactor :: Int
+  , concurrency :: Int
+  , timeoutSeconds :: DiffTime
   }
 
 benchOptionsParser :: Parser Options
@@ -55,6 +55,24 @@ benchOptionsParser =
             <> metavar "INT"
             <> help "The scaling factor to apply to transactions generator (default: 100)"
         )
+      <*> option
+        auto
+        ( long "concurrency"
+            <> value 1
+            <> metavar "INT"
+            <> help
+              "The concurrency level in the generated dataset. This number is used to \
+              \ define how many independent UTXO set and transaction sequences will be \
+              \ generated and concurrently submitted to the nodes (default: 1)"
+        )
+      <*> option
+        auto
+        ( long "timeout"
+            <> value 600.0
+            <> metavar "SECONDS"
+            <> help
+              "The timeout for the run, in seconds (default: '600s')"
+        )
 
 benchOptions :: ParserInfo Options
 benchOptions =
@@ -72,37 +90,29 @@ benchOptions =
 main :: IO ()
 main =
   execParser benchOptions >>= \case
-    Options{outputDirectory = Just benchDir, scalingFactor} -> do
+    Options{outputDirectory = Just benchDir, scalingFactor, concurrency, timeoutSeconds} -> do
       existsDir <- doesDirectoryExist benchDir
       if existsDir
-        then replay benchDir
-        else createDirectory benchDir >> play scalingFactor benchDir
-    Options{scalingFactor} ->
-      createSystemTempDirectory "bench" >>= play scalingFactor
+        then replay timeoutSeconds benchDir
+        else createDirectory benchDir >> play scalingFactor concurrency timeoutSeconds benchDir
+    Options{scalingFactor, concurrency, timeoutSeconds} ->
+      createSystemTempDirectory "bench" >>= play scalingFactor concurrency timeoutSeconds
  where
-  replay benchDir = do
-    txs <- either die pure =<< eitherDecodeFileStrict' (benchDir </> "txs.json")
-    utxo <- either die pure =<< eitherDecodeFileStrict' (benchDir </> "utxo.json")
+  replay timeoutSeconds benchDir = do
+    datasets <- either die pure =<< eitherDecodeFileStrict' (benchDir </> "dataset.json")
     putStrLn $ "Using UTxO and Transactions from: " <> benchDir
-    run benchDir utxo txs
+    run timeoutSeconds benchDir datasets
 
-  play scalingFactor benchDir = do
-    initialUtxo <- generate genUtxo
-    txs <- generate $ scale (* scalingFactor) $ genSequenceOfValidTransactions initialUtxo
-    saveTransactions benchDir txs
-    saveUtxos benchDir initialUtxo
-    run benchDir initialUtxo txs
+  play scalingFactor concurrency timeoutSeconds benchDir = do
+    dataset <- replicateM concurrency (generateDataset scalingFactor)
+    saveDataset benchDir dataset
+    run timeoutSeconds benchDir dataset
 
   -- TODO(SN): Ideally we would like to say "to re-run use ... " on errors
-  run fp utxo txs =
-    withArgs [] . hspec $ bench fp utxo txs
+  run timeoutSeconds benchDir datasets =
+    withArgs [] . hspec $ bench timeoutSeconds benchDir datasets
 
-  saveTransactions tmpDir txs = do
-    let txsFile = tmpDir </> "txs.json"
-    putStrLn $ "Writing transactions to: " <> txsFile
-    encodeFile txsFile txs
-
-  saveUtxos tmpDir utxos = do
-    let utxosFile = tmpDir </> "utxo.json"
-    putStrLn $ "Writing UTxO set to: " <> utxosFile
-    encodeFile utxosFile utxos
+  saveDataset tmpDir dataset = do
+    let txsFile = tmpDir </> "dataset.json"
+    putStrLn $ "Writing dataset to: " <> txsFile
+    encodeFile txsFile dataset
