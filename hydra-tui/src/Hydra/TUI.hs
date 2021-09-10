@@ -87,12 +87,10 @@ negative :: AttrName
 negative = "negative"
 
 data HeadState
-  = Unknown
-  | Ready
+  = Ready
   | Initializing {parties :: [Party], utxo :: Utxo CardanoTx}
   | Open {utxo :: Utxo CardanoTx}
   | Closed {contestationDeadline :: UTCTime}
-  | Finalized
   deriving (Eq, Show, Generic)
 
 type Name = Text
@@ -131,17 +129,25 @@ handleEvent client@Client{sendInput} (clearFeedback -> s) = \case
       EvKey (KChar 'd') [MCtrl] -> halt s
       EvKey (KChar 'q') _ -> halt s
       -- Commands
-      EvKey (KChar 'i') _ ->
-        -- TODO(SN): hardcoded contestation period
-        liftIO (sendInput $ Init 10) >> continue s
-      EvKey (KChar 'a') _ ->
-        liftIO (sendInput Abort) >> continue s
-      EvKey (KChar 'c') _ ->
-        handleCommitEvent client s
-      EvKey (KChar 'n') _ ->
-        handleNewTxEvent client s
-      EvKey (KChar 'C') _ ->
-        liftIO (sendInput Close) >> continue s
+      EvKey (KChar c) _ ->
+        if
+            | c `elem` ['i', 'I'] ->
+              -- TODO(SN): hardcoded contestation period
+              liftIO (sendInput $ Init 10) >> continue s
+            | c `elem` ['a', 'A'] ->
+              liftIO (sendInput Abort) >> continue s
+            | c `elem` ['c', 'C'] ->
+              case s ^. headStateL of
+                Initializing{} ->
+                  handleCommitEvent client s
+                Open{} ->
+                  liftIO (sendInput Close) >> continue s
+                _ ->
+                  continue s
+            | c `elem` ['n', 'N'] ->
+              handleNewTxEvent client s
+            | otherwise ->
+              continue s
       _ ->
         continue s
   e ->
@@ -176,7 +182,7 @@ handleAppEvent s = \case
     s & headStateL .~ Closed{contestationDeadline}
       & feedbackL ?~ UserFeedback Info "Head closed."
   Update HeadIsFinalized{} ->
-    s & headStateL .~ Finalized
+    s & headStateL .~ Ready
       & feedbackL ?~ UserFeedback Info "Head finalized."
   Update TxSeen{} ->
     s
@@ -298,19 +304,20 @@ draw s =
           [ hBox
               [ drawInfo
               , vBorder
-              , drawCommands
+              , drawRightPanel
               ]
           , hBorder
           , drawErrorMessage
           ]
  where
   drawInfo =
-    hLimit 50 $
+    hLimit 72 $
       vBox $
         mconcat
           [
             [ tuiVersion
             , nodeStatus
+            , ownAddress
             ]
           , drawPeers
           ,
@@ -318,55 +325,93 @@ draw s =
             , drawHeadState
             ]
           ]
+   where
+    tuiVersion = str "Hydra TUI  " <+> withAttr info (str (showVersion version))
+    ownAddress = str "Address " <+> withAttr info (str $ toString $ encodeAddress (getAddress (s ^. meL)))
+    nodeStatus =
+      str "Node " <+> case s ^. clientStateL of
+        Disconnected -> withAttr negative $ str $ show (s ^. meL)
+        Connected -> withAttr positive $ str $ show (s ^. meL)
+    drawHeadState = case s ^. clientStateL of
+      Disconnected -> emptyWidget
+      Connected -> str $ "Head status: " <> toString (Prelude.head $ words $ show $ s ^. headStateL)
 
-  tuiVersion = str "Hydra TUI  " <+> withAttr info (str (showVersion version))
-
-  nodeStatus =
-    str "Node " <+> case s ^. clientStateL of
-      Disconnected -> withAttr negative $ str $ show (s ^. meL)
-      Connected -> withAttr positive $ str $ show (s ^. meL)
-
-  drawHeadState = case s ^. clientStateL of
-    Disconnected -> emptyWidget
-    Connected ->
-      case s ^. headStateL of
-        Initializing{parties, utxo} ->
-          str "Head status: Initializing"
-            <=> str ("Total committed: " <> toString (prettyBalance (balance @CardanoTx utxo)))
-            <=> str "Waiting for parties to commit:"
-            <=> vBox (map drawShow parties)
-        Open{utxo} ->
-          str "Head status: Open"
-            <=> str ("Head balance: " <> toString (prettyBalance (balance @CardanoTx utxo)))
-        Closed{contestationDeadline} ->
-          str "Head status: Closed"
-            <=> str ("Contestation deadline: " <> show contestationDeadline)
-        _ ->
-          str "Head status: " <+> str (show $ s ^. headStateL)
-
-  drawCommands =
+  drawRightPanel =
     case s ^? dialogStateL of
       Just (Dialog title form _) ->
-        vBox
+        withCommands
           [ str (toString title)
           , padTop (Pad 1) $ renderForm form
-          , padTop (Pad 1) $
-              hBox
-                [ padLeft (Pad 5) $ str "[Esc] Cancel"
-                , padLeft (Pad 5) $ str "[>] Confirm"
-                ]
+          ]
+          [ "[Esc] Cancel"
+          , "[>] Confirm"
           ]
       _ ->
         -- TODO: Only show available commands.
-        vBox
-          [ str "Commands:"
-          , str " - [i]nit"
-          , str " - [c]ommit"
-          , str " - [n]ew transaction"
-          , str " - [C]lose"
-          , str " - [a]bort"
-          , str " - [q]uit"
+        case s ^. headStateL of
+          Ready ->
+            withCommands
+              []
+              [ "[I]nit"
+              , "[Q]uit"
+              ]
+          Initializing{parties, utxo} ->
+            withCommands
+              [ str ("Total committed: " <> toString (prettyBalance (balance @CardanoTx utxo)))
+              , str "Waiting for parties to commit:"
+              , vBox (map drawShow parties)
+              ]
+              [ "[C]ommit"
+              , "[A]bort"
+              , "[Q]uit"
+              ]
+          Open{utxo} ->
+            withCommands
+              [ drawUtxo utxo
+              ]
+              [ "[N]ew Transaction"
+              , "[C]lose"
+              , "[Q]uit"
+              ]
+          Closed{contestationDeadline} ->
+            withCommands
+              [ str $ "Contestation deadline: " <> show contestationDeadline
+              ]
+              [ "[Q]uit"
+              ]
+
+  drawUtxo (UTxO m) =
+    let byAddress =
+          Map.foldrWithKey
+            (\k v@(Cardano.TxOut addr _) -> Map.unionWith (++) (Map.singleton addr [(k, v)]))
+            mempty
+            m
+     in vBox
+          [ str $ toString $ "Head UTXO (" <> prettyBalance (balance @CardanoTx (UTxO m)) <> ")"
+          , padLeft (Pad 2) $
+              vBox
+                [ padTop (Pad 1) $
+                  vBox
+                    [ str (toString $ encodeAddress addr)
+                    , padLeft (Pad 2) $ vBox (str . toString . prettyUtxo <$> u)
+                    ]
+                | (addr, u) <- Map.toList byAddress
+                ]
           ]
+
+  withCommands panel cmds =
+    vBox $
+      panel
+        ++ [ if null panel then emptyWidget else hBorder
+           , hBox
+              [ ( if (i :: Word) > 0
+                    then padLeft (Pad 5)
+                    else id
+                )
+                $ str cmd
+              | (i, cmd) <- zip [0 ..] cmds
+              ]
+           ]
 
   drawErrorMessage =
     case s ^? feedbackL of
@@ -477,7 +522,13 @@ run :: Options -> IO State
 run Options{nodeHost} = do
   eventChan <- newBChan 10
   -- REVIEW(SN): what happens if callback blocks?
-  withClient @CardanoTx nodeHost (writeBChan eventChan) $ \client -> do
+
+  -- TODO: This follows an implicit convention. Note that, in the application,
+  -- we report peers by their peer hosts (and not API host) and we use these
+  -- host to map peers to their credentials. This isn't ideal, and we should
+  -- have a better way to identify peers...
+  let apiHost = nodeHost{port = port nodeHost + 1000}
+  withClient @CardanoTx apiHost (writeBChan eventChan) $ \client -> do
     initialVty <- buildVty
     customMain initialVty buildVty (Just eventChan) (app client) initialState
  where
@@ -505,7 +556,7 @@ run Options{nodeHost} = do
     State
       { me = nodeHost
       , peers = mempty
-      , headState = Unknown
+      , headState = Ready
       , dialogState = NoDialog
       , clientState = Disconnected
       , feedback = empty

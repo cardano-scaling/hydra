@@ -560,7 +560,7 @@ instance Crypto crypto => FromJSON (Cardano.UTxO (MaryEra crypto)) where
 prettyUtxo :: (TxIn, TxOut) -> Text
 prettyUtxo (k, v) =
   let value = prettyBalance $ balance @CardanoTx $ Cardano.UTxO (Map.singleton k v)
-   in T.drop 48 (txInToText k) <> " ↦ " <> value
+   in T.drop 54 (txInToText k) <> " ↦ " <> value
 
 --
 -- Witnesses
