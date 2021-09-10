@@ -482,7 +482,7 @@ utxoRadioField ::
   [s -> FormFieldState s e n]
 utxoRadioField u =
   [ radioField
-      (lens id const)
+      (lens id seq)
       [ (i, show i, prettyUtxo i)
       | i <- Map.toList u
       ]
