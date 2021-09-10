@@ -63,6 +63,7 @@ import qualified Data.Map.Strict as Map
 import Data.Maybe (fromJust)
 import qualified Data.Sequence.Strict as StrictSeq
 import qualified Data.Set as Set
+import qualified Data.Text as T
 import qualified Data.Text as Text
 import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
 import Hydra.Ledger (Balance (..), Ledger (..), Tx (..), ValidationError (ValidationError))
@@ -291,6 +292,25 @@ signWith (_unTxId -> safeHash) credentials =
   Cardano.WitVKey
     (asWitness $ Cardano.vKey credentials)
     (signedDSIGN @StandardCrypto (Cardano.sKey credentials) (extractHash safeHash))
+
+--
+-- Balance
+--
+
+prettyBalance :: Balance tx -> Text
+prettyBalance Balance{lovelace, assets} =
+  let (ada, decimal) = lovelace `quotRem` 1000000
+   in unwords $
+        [ show ada <> "." <> show decimal
+        , "₳"
+        ]
+          ++ if null assets
+            then mempty
+            else
+              [ "and"
+              , show (Map.size assets)
+              , "asset(s)"
+              ]
 
 --
 --  Transaction Id
@@ -536,6 +556,11 @@ instance Crypto crypto => ToJSON (Cardano.UTxO (MaryEra crypto)) where
 
 instance Crypto crypto => FromJSON (Cardano.UTxO (MaryEra crypto)) where
   parseJSON v = Cardano.UTxO <$> parseJSON v
+
+prettyUtxo :: (TxIn, TxOut) -> Text
+prettyUtxo (k, v) =
+  let value = prettyBalance $ balance @CardanoTx $ Cardano.UTxO (Map.singleton k v)
+   in T.drop 48 (txInToText k) <> " ↦ " <> value
 
 --
 -- Witnesses

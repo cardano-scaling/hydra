@@ -15,14 +15,14 @@ import Brick.Widgets.Border.Style (ascii)
 import Cardano.Ledger.Keys (KeyPair (..))
 import Data.List (nub, (!!), (\\))
 import qualified Data.Map.Strict as Map
-import qualified Data.Text as T
 import Data.Version (showVersion)
 import Graphics.Vty (Event (EvKey), Key (..), Modifier (..), blue, defaultConfig, green, mkVty, red)
+import qualified Graphics.Vty as Vty
 import Graphics.Vty.Attributes (defAttr)
 import Hydra.Client (Client (Client, sendInput), HydraEvent (..), withClient)
 import Hydra.ClientInput (ClientInput (..))
-import Hydra.Ledger (Balance (..), Party, Tx (..))
-import Hydra.Ledger.Cardano (CardanoAddress, CardanoKeyPair, CardanoTx, TxIn, TxOut, genKeyPair, genUtxoFor, mkSimpleCardanoTx, mkVkAddress, txInToText)
+import Hydra.Ledger (Party, Tx (..))
+import Hydra.Ledger.Cardano (CardanoAddress, CardanoKeyPair, CardanoTx, TxIn, TxOut, genKeyPair, genUtxoFor, mkSimpleCardanoTx, mkVkAddress, prettyBalance, prettyUtxo)
 import Hydra.Network (Host (..))
 import Hydra.ServerOutput (ServerOutput (..))
 import Hydra.Snapshot (Snapshot (..))
@@ -34,18 +34,20 @@ import Shelley.Spec.Ledger.API (UTxO (..))
 import Test.QuickCheck.Gen (Gen (..), scale)
 import Test.QuickCheck.Random (mkQCGen)
 
--- * Types
+--
+-- Model
+--
 
-data State
-  = Disconnected {nodeHost :: Host}
-  | Connected
-      { nodeHost :: Host
-      , connectedPeers :: [Host]
-      , headState :: HeadState
-      , dialogState :: DialogState
-      , feedback :: Maybe UserFeedback
-      }
-  deriving (Generic)
+data State = State
+  { me :: Host
+  , peers :: [Host]
+  , headState :: HeadState
+  , dialogState :: DialogState
+  , clientState :: ClientState
+  , feedback :: Maybe UserFeedback
+  }
+
+data ClientState = Connected | Disconnected
 
 data DialogState where
   NoDialog :: DialogState
@@ -96,165 +98,100 @@ data HeadState
 type Name = Text
 
 makeLensesFor
-  [ ("nodeHost", "nodeHostL")
-  , ("connectedPeers", "connectedPeersL")
+  [ ("me", "meL")
+  , ("peers", "peersL")
   , ("headState", "headStateL")
+  , ("clientState", "clientStateL")
   , ("dialogState", "dialogStateL")
   , ("feedback", "feedbackL")
   ]
   ''State
 
--- * Event handling
+--
+-- Update
+--
+
+clearFeedback :: State -> State
+clearFeedback = feedbackL .~ empty
 
 handleEvent ::
   Client CardanoTx IO ->
   State ->
   BrickEvent Name (HydraEvent CardanoTx) ->
   EventM Name (Next State)
-handleEvent client@Client{sendInput} (clearFeedback -> s) =
-  case s ^? dialogStateL of
-    Just (Dialog title form continuation) -> \case
-      VtyEvent (EvKey KEsc []) ->
-        continue $ s & dialogStateL .~ NoDialog
-      VtyEvent (EvKey (KChar '>') []) -> do
-        continuation s (formState form)
-      -- NOTE: Field focus is changed using Tab / Shift-Tab, but arrows are more
-      -- intuitive, so we forward them. Same for Space <-> Enter
-      VtyEvent (EvKey KUp []) ->
-        handleEvent client s (VtyEvent (EvKey KBackTab []))
-      VtyEvent (EvKey KDown []) ->
-        handleEvent client s (VtyEvent (EvKey (KChar '\t') []))
-      VtyEvent (EvKey KEnter []) ->
-        handleEvent client s (VtyEvent (EvKey (KChar ' ') []))
-      e -> do
-        form' <- handleFormEvent e form
-        continue $ s & dialogStateL .~ Dialog title form' continuation
-    _ -> \case
+handleEvent client@Client{sendInput} (clearFeedback -> s) = \case
+  AppEvent e ->
+    continue (handleAppEvent s e)
+  VtyEvent e -> case s ^. dialogStateL of
+    Dialog title form submit ->
+      handleDialogEvent (title, form, submit) s e
+    NoDialog -> case e of
       -- Quit
-      VtyEvent (EvKey (KChar 'c') [MCtrl]) -> halt s
-      VtyEvent (EvKey (KChar 'd') [MCtrl]) -> halt s
-      VtyEvent (EvKey (KChar 'q') _) -> halt s
+      EvKey (KChar 'c') [MCtrl] -> halt s
+      EvKey (KChar 'd') [MCtrl] -> halt s
+      EvKey (KChar 'q') _ -> halt s
       -- Commands
-      VtyEvent (EvKey (KChar 'i') _) ->
+      EvKey (KChar 'i') _ ->
         -- TODO(SN): hardcoded contestation period
         liftIO (sendInput $ Init 10) >> continue s
-      VtyEvent (EvKey (KChar 'a') _) ->
+      EvKey (KChar 'a') _ ->
         liftIO (sendInput Abort) >> continue s
-      VtyEvent (EvKey (KChar 'c') _) ->
-        case s ^? headStateL of
-          Just Initializing{} ->
-            continue $
-              s & dialogStateL
-                .~ Dialog
-                  "Select UTXO to commit"
-                  newCommitDialog
-                  ( \s' st -> do
-                      let commit = UTxO . Map.mapMaybe (\(v, p) -> if p then Just v else Nothing) $ st
-                      liftIO (sendInput $ Commit commit)
-                      continue (s' & dialogStateL .~ NoDialog)
-                  )
-          _ ->
-            continue $
-              s & feedbackL ?~ UserFeedback Error "Invalid command."
-      VtyEvent (EvKey (KChar 'n') _) ->
-        case (s, s ^? headStateL) of
-          (Connected{nodeHost}, Just Open{}) ->
-            continue $
-              s & dialogStateL
-                .~ Dialog
-                  "Select UTXO to spend"
-                  newTransactionBuilderDialog
-                  ( \s1 input ->
-                      continue $
-                        s1 & dialogStateL
-                          .~ Dialog
-                            "Select a recipient"
-                            newRecipientsDialog
-                            ( \s2 (getAddress -> recipient) -> do
-                                let myCredentials = getCredentials nodeHost
-                                    tx = mkSimpleCardanoTx input recipient myCredentials
-                                 in do
-                                      liftIO (sendInput (NewTx tx))
-                                      continue $ s2 & dialogStateL .~ NoDialog
-                            )
-                  )
-          _ ->
-            continue $
-              s & feedbackL ?~ UserFeedback Error "Invalid command."
-      VtyEvent (EvKey (KChar 'C') _) ->
+      EvKey (KChar 'c') _ ->
+        handleCommitEvent client s
+      EvKey (KChar 'n') _ ->
+        handleNewTxEvent client s
+      EvKey (KChar 'C') _ ->
         liftIO (sendInput Close) >> continue s
-      -- App events
-      AppEvent ClientConnected ->
-        continue connected
-      AppEvent ClientDisconnected ->
-        continue disconnected
-      AppEvent (Update (PeerConnected p)) ->
-        continue $ s & connectedPeersL %~ \cp -> nub $ cp <> [p]
-      AppEvent (Update (PeerDisconnected p)) ->
-        continue $ s & connectedPeersL %~ \cp -> cp \\ [p]
-      AppEvent (Update CommandFailed) -> do
-        continue $
-          s & feedbackL ?~ UserFeedback Error "Invalid command."
-      AppEvent (Update ReadyToCommit{parties}) ->
-        let utxo = mempty
-         in continue $
-              s & headStateL .~ Initializing{parties, utxo}
-                & feedbackL ?~ UserFeedback Info "Head initialized, ready for commit(s)."
-      AppEvent (Update Committed{party, utxo}) ->
-        continue $
-          s & headStateL %~ partyCommitted party utxo
-            & feedbackL ?~ UserFeedback Info (show party <> " committed " <> prettyBalance (balance @CardanoTx utxo))
-      AppEvent (Update HeadIsOpen{utxo}) ->
-        continue $
-          s & headStateL .~ Open{utxo}
-            & feedbackL ?~ UserFeedback Info "Head is now opened!"
-      AppEvent (Update HeadIsClosed{contestationDeadline}) ->
-        continue $
-          s & headStateL .~ Closed{contestationDeadline}
-            & feedbackL ?~ UserFeedback Info "Head closed."
-      AppEvent (Update HeadIsFinalized{}) ->
-        continue $
-          s & headStateL .~ Finalized
-            & feedbackL ?~ UserFeedback Info "Head finalized."
-      AppEvent (Update TxSeen{}) ->
+      _ ->
         continue s
-      AppEvent (Update TxInvalid{validationError}) ->
-        continue $
-          s & feedbackL ?~ UserFeedback Error (show validationError)
-      AppEvent (Update TxValid{}) ->
-        continue $
-          s & feedbackL ?~ UserFeedback Success "Transaction submitted successfully!"
-      AppEvent (Update SnapshotConfirmed{snapshot}) ->
-        case s ^? headStateL of
-          Just Open{} ->
-            let Snapshot{utxo, number} = snapshot
-             in continue $
-                  s & headStateL .~ Open{utxo}
-                    & feedbackL ?~ UserFeedback Info ("Snapshot #" <> show number <> " confirmed.")
-          _ ->
-            -- TODO: There is a better way...
-            continue s
-      AppEvent (Update HeadIsAborted{}) ->
-        continue $
-          s & headStateL .~ Ready
-            & feedbackL ?~ UserFeedback Info "Head aborted, back to square one."
-      -- TODO(SN): continue s here, once all implemented
-      e ->
-        continue $
-          s & feedbackL ?~ UserFeedback Error ("unhandled event: " <> show e)
+  e ->
+    continue $ s & feedbackL ?~ UserFeedback Error ("unhandled event: " <> show e)
+
+handleAppEvent ::
+  State ->
+  HydraEvent CardanoTx ->
+  State
+handleAppEvent s = \case
+  ClientConnected ->
+    s & clientStateL .~ Connected
+  ClientDisconnected ->
+    s & clientStateL .~ Disconnected
+  Update (PeerConnected p) ->
+    s & peersL %~ \cp -> nub $ cp <> [p]
+  Update (PeerDisconnected p) ->
+    s & peersL %~ \cp -> cp \\ [p]
+  Update CommandFailed -> do
+    s & feedbackL ?~ UserFeedback Error "Invalid command."
+  Update ReadyToCommit{parties} ->
+    let utxo = mempty
+     in s & headStateL .~ Initializing{parties, utxo}
+          & feedbackL ?~ UserFeedback Info "Head initialized, ready for commit(s)."
+  Update Committed{party, utxo} ->
+    s & headStateL %~ partyCommitted party utxo
+      & feedbackL ?~ UserFeedback Info (show party <> " committed " <> prettyBalance (balance @CardanoTx utxo))
+  Update HeadIsOpen{utxo} ->
+    s & headStateL .~ Open{utxo}
+      & feedbackL ?~ UserFeedback Info "Head is now open!"
+  Update HeadIsClosed{contestationDeadline} ->
+    s & headStateL .~ Closed{contestationDeadline}
+      & feedbackL ?~ UserFeedback Info "Head closed."
+  Update HeadIsFinalized{} ->
+    s & headStateL .~ Finalized
+      & feedbackL ?~ UserFeedback Info "Head finalized."
+  Update TxSeen{} ->
+    s
+  Update TxInvalid{validationError} ->
+    s & feedbackL ?~ UserFeedback Error (show validationError)
+  Update TxValid{} ->
+    s & feedbackL ?~ UserFeedback Success "Transaction submitted successfully!"
+  Update SnapshotConfirmed{snapshot} ->
+    snapshotConfirmed snapshot
+  Update HeadIsAborted{} ->
+    s & headStateL .~ Ready
+      & feedbackL ?~ UserFeedback Info "Head aborted, back to square one."
+  Update anyUpdate ->
+    s & feedbackL ?~ UserFeedback Error ("Unhandled app event: " <> show anyUpdate)
  where
-  connected =
-    Connected
-      { nodeHost = s ^. nodeHostL
-      , connectedPeers = mempty
-      , headState = Unknown
-      , dialogState = NoDialog
-      , feedback = empty
-      }
-
-  disconnected =
-    Disconnected{nodeHost = s ^. nodeHostL}
-
   partyCommitted party commit = \case
     Initializing{parties, utxo} ->
       Initializing
@@ -263,39 +200,94 @@ handleEvent client@Client{sendInput} (clearFeedback -> s) =
         }
     hs -> hs
 
-  newCommitDialog =
-    let u = myTotalUtxo s in newForm (utxoCheckboxField u) ((,False) <$> u)
+  snapshotConfirmed Snapshot{utxo, number} =
+    case s ^? headStateL of
+      Just Open{} ->
+        s & headStateL .~ Open{utxo}
+          & feedbackL ?~ UserFeedback Info ("Snapshot #" <> show number <> " confirmed.")
+      _ ->
+        s & feedbackL ?~ UserFeedback Error "Snapshot confirmed but head is not open?"
 
-  newTransactionBuilderDialog =
-    let u = myAvailableUtxo s in newForm (utxoRadioField u) (Map.toList u !! 0)
+handleDialogEvent ::
+  forall s e n.
+  (n ~ Name, e ~ HydraEvent CardanoTx) =>
+  (Text, Form s e n, State -> s -> EventM n (Next State)) ->
+  State ->
+  Vty.Event ->
+  EventM n (Next State)
+handleDialogEvent (title, form, submit) s = \case
+  -- NOTE: Field focus is changed using Tab / Shift-Tab, but arrows are more
+  -- intuitive, so we forward them. Same for Space <-> Enter
+  EvKey KUp [] ->
+    handleDialogEvent (title, form, submit) s (EvKey KBackTab [])
+  EvKey KDown [] ->
+    handleDialogEvent (title, form, submit) s (EvKey (KChar '\t') [])
+  EvKey KEnter [] ->
+    handleDialogEvent (title, form, submit) s (EvKey (KChar ' ') [])
+  EvKey KEsc [] ->
+    continue $ s & dialogStateL .~ NoDialog
+  EvKey (KChar '>') [] -> do
+    submit s (formState form)
+  e -> do
+    form' <- handleFormEvent (VtyEvent e) form
+    continue $ s & dialogStateL .~ Dialog title form' submit
 
-  newRecipientsDialog =
-    let peers = fromMaybe [] (s ^? connectedPeersL)
-        field =
-          radioField
-            (lens id const)
-            [(peer, show peer, show peer) | peer <- peers]
-     in newForm [field] (peers !! 0)
+handleCommitEvent ::
+  Client CardanoTx IO ->
+  State ->
+  EventM n (Next State)
+handleCommitEvent Client{sendInput} = \case
+  s@State{headState = Initializing{}} ->
+    continue $ s & dialogStateL .~ newCommitDialog (myTotalUtxo s)
+  s ->
+    continue $ s & feedbackL ?~ UserFeedback Error "Invalid command."
+ where
+  newCommitDialog u =
+    Dialog title form submit
+   where
+    title = "Select UTXO to commit"
+    form = newForm (utxoCheckboxField u) ((,False) <$> u)
+    submit s selected = do
+      let commit = UTxO . Map.mapMaybe (\(v, p) -> if p then Just v else Nothing) $ selected
+      liftIO (sendInput $ Commit commit)
+      continue (s & dialogStateL .~ NoDialog)
 
-prettyBalance :: Balance tx -> Text
-prettyBalance Balance{lovelace, assets} =
-  let (ada, decimal) = lovelace `quotRem` 1000000
-   in unwords $
-        [ show ada <> "." <> show decimal
-        , "₳"
-        ]
-          ++ if null assets
-            then mempty
-            else
-              [ "and"
-              , show (Map.size assets)
-              , "asset(s)"
-              ]
+handleNewTxEvent ::
+  Client CardanoTx IO ->
+  State ->
+  EventM n (Next State)
+handleNewTxEvent Client{sendInput} = \case
+  s@State{headState = Open{}} ->
+    continue $ s & dialogStateL .~ newTransactionBuilderDialog (myAvailableUtxo s)
+  s ->
+    continue $ s & feedbackL ?~ UserFeedback Error "Invalid command."
+ where
+  newTransactionBuilderDialog u =
+    Dialog title form submit
+   where
+    title = "Select UTXO to spend"
+    -- FIXME: This crashes if the utxo is empty
+    form = newForm (utxoRadioField u) (Map.toList u !! 0)
+    submit s input = do
+      continue $ s & dialogStateL .~ newRecipientsDialog input (s ^. peersL)
 
-clearFeedback :: State -> State
-clearFeedback = feedbackL .~ empty
+  newRecipientsDialog input peers =
+    Dialog title form submit
+   where
+    title = "Select a recipient"
+    -- FIXME: This crashes if peers are empty!
+    form =
+      let field = radioField (lens id const) [(p, show p, show p) | p <- peers]
+       in newForm [field] (peers !! 0)
+    submit s (getAddress -> recipient) = do
+      liftIO (sendInput (NewTx tx))
+      continue $ s & dialogStateL .~ NoDialog
+     where
+      tx = mkSimpleCardanoTx input recipient (myCredentials s)
 
--- * Drawing
+--
+-- View
+--
 
 draw :: State -> [Widget Name]
 draw s =
@@ -314,26 +306,30 @@ draw s =
  where
   drawInfo =
     hLimit 50 $
-      vBox
-        [ tuiVersion
-        , nodeStatus
-        , hBorder
-        , drawPeers
-        , hBorder
-        , drawHeadState s
-        ]
+      vBox $
+        mconcat
+          [
+            [ tuiVersion
+            , nodeStatus
+            ]
+          , drawPeers
+          ,
+            [ hBorder
+            , drawHeadState
+            ]
+          ]
 
   tuiVersion = str "Hydra TUI  " <+> withAttr info (str (showVersion version))
 
   nodeStatus =
-    str "Node " <+> case s of
-      Disconnected{nodeHost} -> withAttr negative $ str $ show nodeHost
-      Connected{nodeHost} -> withAttr positive $ str $ show nodeHost
+    str "Node " <+> case s ^. clientStateL of
+      Disconnected -> withAttr negative $ str $ show (s ^. meL)
+      Connected -> withAttr positive $ str $ show (s ^. meL)
 
-  drawHeadState = \case
-    Disconnected{} -> emptyWidget
-    Connected{headState} ->
-      case headState of
+  drawHeadState = case s ^. clientStateL of
+    Disconnected -> emptyWidget
+    Connected ->
+      case s ^. headStateL of
         Initializing{parties, utxo} ->
           str "Head status: Initializing"
             <=> str ("Total committed: " <> toString (prettyBalance (balance @CardanoTx utxo)))
@@ -346,7 +342,7 @@ draw s =
           str "Head status: Closed"
             <=> str ("Contestation deadline: " <> show contestationDeadline)
         _ ->
-          str "Head status: " <+> str (show headState)
+          str "Head status: " <+> str (show $ s ^. headStateL)
 
   drawCommands =
     case s ^? dialogStateL of
@@ -379,25 +375,21 @@ draw s =
       _ ->
         emptyWidget
 
-  drawPeers = vBox $ str "Connected peers:" : map drawShow (s ^. connectedPeersL)
+  drawPeers =
+    case s ^. clientStateL of
+      Disconnected ->
+        []
+      Connected ->
+        [ hBorder
+        , vBox $ str "Connected peers:" : map drawShow (s ^. peersL)
+        ]
 
   drawShow :: forall a n. Show a => a -> Widget n
   drawShow = str . (" - " <>) . show
 
-myTotalUtxo :: State -> Map TxIn TxOut
-myTotalUtxo s =
-  let host@Host{port} = s ^. nodeHostL
-      vk = vKey $ getCredentials host
-      UTxO u = generateWith (scale (const 5) $ genUtxoFor vk) (fromIntegral port)
-   in u
-
-myAvailableUtxo :: State -> Map TxIn TxOut
-myAvailableUtxo s =
-  case s ^? headStateL of
-    Just Open{utxo = UTxO u'} ->
-      let u = myTotalUtxo s in u' `Map.intersection` u
-    _ ->
-      mempty
+--
+-- Forms additional widgets
+--
 
 -- A helper for creating multiple form fields from a UTXO set.
 utxoCheckboxField ::
@@ -421,6 +413,7 @@ utxoCheckboxField u =
       (maybe False snd . Map.lookup i)
       (\s b -> Map.adjust (second (const b)) i s)
 
+-- A helper for creating a radio form fields for selecting a UTXO in a given set
 utxoRadioField ::
   forall s e n.
   ( s ~ (TxIn, TxOut)
@@ -436,10 +429,13 @@ utxoRadioField u =
       ]
   ]
 
-prettyUtxo :: (TxIn, TxOut) -> Text
-prettyUtxo (k, v) =
-  let value = prettyBalance $ balance @CardanoTx $ UTxO (Map.singleton k v)
-   in T.drop 48 (txInToText k) <> " ↦ " <> value
+-- UTXO Faucet / Credentials
+--
+-- For now, we _fake it until we make it_ ^TM. Credentials and initial UTXO are
+-- generated *deterministically* from the Host (the port number exactly).
+-- Ideally, we need the client to figure out credentials and UTXO via some other
+-- means. Likely, the credentials will be user-provided, whereas the UTXO would
+-- come from a local node + chain sync.
 
 getCredentials :: Host -> CardanoKeyPair
 getCredentials Host{port} =
@@ -449,21 +445,34 @@ getAddress :: Host -> CardanoAddress
 getAddress =
   mkVkAddress . vKey . getCredentials
 
+myCredentials :: State -> CardanoKeyPair
+myCredentials =
+  getCredentials . (^. meL)
+
+myTotalUtxo :: State -> Map TxIn TxOut
+myTotalUtxo s =
+  let host@Host{port} = s ^. meL
+      vk = vKey $ getCredentials host
+      UTxO u = generateWith (scale (const 5) $ genUtxoFor vk) (fromIntegral port)
+   in u
+
+myAvailableUtxo :: State -> Map TxIn TxOut
+myAvailableUtxo s =
+  case s ^? headStateL of
+    Just Open{utxo = UTxO u'} ->
+      let u = myTotalUtxo s in u' `Map.intersection` u
+    _ ->
+      mempty
+
 generateWith :: Gen a -> Int -> a
 generateWith (MkGen runGen) seed =
   runGen (mkQCGen seed) 30
 
-style :: State -> AttrMap
-style _ =
-  attrMap
-    defAttr
-    [ (info, fg blue)
-    , (negative, fg red)
-    , (positive, fg green)
-    ]
--- * Run it
-
+--
+-- Run it
+--
 -- NOTE(SN): At the end of the module because of TH
+
 run :: Options -> IO State
 run Options{nodeHost} = do
   eventChan <- newBChan 10
@@ -483,4 +492,21 @@ run Options{nodeHost} = do
       , appAttrMap = style
       }
 
-  initialState = Disconnected nodeHost
+  style :: State -> AttrMap
+  style _ =
+    attrMap
+      defAttr
+      [ (info, fg blue)
+      , (negative, fg red)
+      , (positive, fg green)
+      ]
+
+  initialState =
+    State
+      { me = nodeHost
+      , peers = mempty
+      , headState = Unknown
+      , dialogState = NoDialog
+      , clientState = Disconnected
+      , feedback = empty
+      }
