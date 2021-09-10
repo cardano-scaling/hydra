@@ -11,7 +11,7 @@ import Hydra.Snapshot (Snapshot)
 data ServerOutput tx
   = PeerConnected {peer :: Host}
   | PeerDisconnected {peer :: Host}
-  | ReadyToCommit {parties :: [Party]}
+  | ReadyToCommit {parties :: Set Party}
   | Committed {party :: Party, utxo :: Utxo tx}
   | HeadIsOpen {utxo :: Utxo tx}
   | HeadIsClosed {contestationDeadline :: UTCTime, latestSnapshot :: Snapshot tx}

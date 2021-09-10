@@ -91,7 +91,7 @@ bench timeoutSeconds workDir dataset clusterSize =
             let contestationPeriod = 100 :: Natural
             send leader $ input "Init" ["contestationPeriod" .= contestationPeriod]
             waitFor tracer 3 nodes $
-              output "ReadyToCommit" ["parties" .= map int [1 .. fromIntegral clusterSize]]
+              output "ReadyToCommit" ["parties" .= Set.fromList (map int [1 .. fromIntegral clusterSize])]
 
             expectedUtxo <- commit nodes dataset
 

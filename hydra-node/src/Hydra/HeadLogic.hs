@@ -164,7 +164,7 @@ update Environment{party, signingKey, otherParties} ledger st ev = case (st, ev)
   (_, OnChainEvent OnInitTx{contestationPeriod, parties}) ->
     NewState
       (InitialState (HeadParameters{contestationPeriod, parties}) (Set.fromList parties) mempty)
-      [ClientEffect $ ReadyToCommit parties]
+      [ClientEffect $ ReadyToCommit $ fromList parties]
   --
   (InitialState _ remainingParties _, ClientEvent (Commit utxo))
     | canCommit -> sameState [OnChainEffect (CommitTx party utxo)]
