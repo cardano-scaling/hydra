@@ -344,9 +344,9 @@ draw s =
       vBox $
         mconcat
           [
-            [ padLeftRight 1 $ tuiVersion
-            , padLeftRight 1 $ nodeStatus
-            , padLeftRight 1 $ ownAddress
+            [ padLeftRight 1 tuiVersion
+            , padLeftRight 1 nodeStatus
+            , padLeftRight 1 ownAddress
             ]
           , drawPeers
           ]
@@ -553,13 +553,7 @@ run :: Options -> IO State
 run Options{nodeHost} = do
   eventChan <- newBChan 10
   -- REVIEW(SN): what happens if callback blocks?
-
-  -- TODO: This follows an implicit convention. Note that, in the application,
-  -- we report peers by their peer hosts (and not API host) and we use these
-  -- host to map peers to their credentials. This isn't ideal, and we should
-  -- have a better way to identify peers...
-  let apiHost = nodeHost{port = port nodeHost - 1000}
-  withClient @CardanoTx apiHost (writeBChan eventChan) $ \client -> do
+  withClient @CardanoTx nodeHost (writeBChan eventChan) $ \client -> do
     initialVty <- buildVty
     customMain initialVty buildVty (Just eventChan) (app client) initialState
  where
