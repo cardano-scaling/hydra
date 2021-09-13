@@ -64,6 +64,10 @@ data State = State
   , feedback :: Maybe UserFeedback
   }
 
+-- XXX(SN): This is what I had tried to avoid in the past.. refactor back into a
+-- "make impossible states unrepresentable". Allowing 'Disconnected' + other
+-- info we still have around in the 'State' brings us into the uncomfortable
+-- situation of needing to decide which of the values are not stale.
 data ClientState = Connected | Disconnected
 
 data DialogState where
@@ -365,9 +369,9 @@ draw s =
     tuiVersion = str "Hydra TUI  " <+> withAttr info (str (showVersion version))
     ownAddress = str "Address " <+> withAttr info (str $ toString $ encodeAddress (getAddress (s ^. meL)))
     nodeStatus =
-      str "Node " <+> case s ^. clientStateL of
-        Disconnected -> withAttr negative $ str $ show (s ^. meL)
-        Connected -> withAttr positive $ str $ show (s ^. meL)
+      case s ^. clientStateL of
+        Disconnected -> withAttr negative $ str $ "Connecting to " <> show (s ^. meL)
+        Connected -> withAttr positive $ str $ "Connected to " <> show (s ^. meL)
 
   drawRightPanel =
     case s ^? dialogStateL of
