@@ -38,6 +38,7 @@ import Hydra.Network (Network (..))
 import Hydra.Network.Message (Message)
 import Hydra.Options (Options (..))
 import Hydra.Party (Party (..))
+import System.FilePath (takeBaseName)
 
 -- * Environment Handling
 
@@ -45,12 +46,12 @@ initEnvironment :: Options -> IO Environment
 initEnvironment Options{me, parties} = do
   sk <- loadSigningKey me
   let vk = deriveVerKeyDSIGN sk
-  otherVKeys <- mapM loadVerificationKey parties
+  otherParties <- mapM loadParty parties
   pure $
     Environment
-      { party = Party Nothing vk
+      { party = Party (Just . toText $ takeBaseName me) vk
       , signingKey = sk
-      , otherParties = Party Nothing <$> otherVKeys
+      , otherParties
       }
  where
   loadSigningKey p = do
@@ -58,6 +59,9 @@ initEnvironment Options{me, parties} = do
     case mKey of
       Nothing -> fail $ "Failed to decode signing key from " <> p
       Just key -> pure key
+
+  loadParty p =
+    Party (Just . toText $ takeBaseName p) <$> loadVerificationKey p
 
   loadVerificationKey p = do
     mKey <- rawDeserialiseVerKeyDSIGN <$> readFileBS p
