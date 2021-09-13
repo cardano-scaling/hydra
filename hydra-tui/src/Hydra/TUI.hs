@@ -12,7 +12,6 @@ import Brick.BChan (newBChan, writeBChan)
 import Brick.Forms (Form, FormFieldState, checkboxField, editShowableFieldWithValidate, formState, handleFormEvent, newForm, radioField, renderForm)
 import Brick.Widgets.Border (hBorder, vBorder)
 import Brick.Widgets.Border.Style (ascii)
-import Cardano.Ledger.Keys (KeyPair (..))
 import Cardano.Ledger.Val (coin, inject)
 import Data.List (nub, (!!), (\\))
 import qualified Data.Map.Strict as Map
@@ -24,16 +23,14 @@ import Hydra.Client (Client (Client, sendInput), HydraEvent (..), withClient)
 import Hydra.ClientInput (ClientInput (..))
 import Hydra.Ledger (Tx (..))
 import Hydra.Ledger.Cardano (
-  CardanoAddress,
-  CardanoKeyPair,
   CardanoTx,
   TxIn,
   TxOut,
   encodeAddress,
-  genKeyPair,
-  genUtxoFor,
+  faucetUtxo,
+  getAddress,
+  getCredentials,
   mkSimpleCardanoTx,
-  mkVkAddress,
   prettyBalance,
   prettyUtxo,
  )
@@ -47,8 +44,6 @@ import Lens.Micro.TH (makeLensesFor)
 import Paths_hydra_tui (version)
 import Shelley.Spec.Ledger.API (UTxO (..))
 import qualified Shelley.Spec.Ledger.API as Cardano
-import Test.QuickCheck.Gen (Gen (..), scale)
-import Test.QuickCheck.Random (mkQCGen)
 import qualified Prelude
 
 --
@@ -56,7 +51,10 @@ import qualified Prelude
 --
 
 data State = State
-  { me :: Host
+  { me :: Maybe Party -- TODO(SN): we could make a nicer type if refactor like
+  -- below as we would know the party always when
+  -- 'Connected'
+  , nodeHost :: Host
   , peers :: [Host]
   , headState :: HeadState
   , dialogState :: DialogState
@@ -118,6 +116,7 @@ type Name = Text
 
 makeLensesFor
   [ ("me", "meL")
+  , ("nodeHost", "nodeHostL")
   , ("peers", "peersL")
   , ("headState", "headStateL")
   , ("clientState", "clientStateL")
@@ -279,7 +278,7 @@ handleCommitEvent ::
   EventM n (Next State)
 handleCommitEvent Client{sendInput} = \case
   s@State{headState = Initializing{}} ->
-    continue $ s & dialogStateL .~ commitDialog (myTotalUtxo s)
+    continue $ s & dialogStateL .~ commitDialog (faucetUtxo $ s ^. meL)
   s ->
     continue $ s & feedbackL ?~ UserFeedback Error "Invalid command."
  where
@@ -298,28 +297,28 @@ handleNewTxEvent ::
   State ->
   EventM n (Next State)
 handleNewTxEvent Client{sendInput} = \case
-  s@State{headState = Open{}} ->
-    continue $ s & dialogStateL .~ transactionBuilderDialog (myAvailableUtxo s)
+  s@State{headState = Open{parties}} ->
+    continue $ s & dialogStateL .~ transactionBuilderDialog (myAvailableUtxo s) parties
   s ->
     continue $ s & feedbackL ?~ UserFeedback Error "Invalid command."
  where
-  transactionBuilderDialog u =
+  transactionBuilderDialog u parties =
     Dialog title form submit
    where
     title = "Select UTXO to spend"
     -- FIXME: This crashes if the utxo is empty
     form = newForm (utxoRadioField u) (Map.toList u !! 0)
     submit s input = do
-      continue $ s & dialogStateL .~ recipientsDialog input (s ^. peersL)
+      continue $ s & dialogStateL .~ recipientsDialog input parties
 
-  recipientsDialog input peers =
+  recipientsDialog input parties =
     Dialog title form submit
    where
     title = "Select a recipient"
     -- FIXME: This crashes if peers are empty!
     form =
-      let field = radioField (lens id seq) [(p, show p, show p) | p <- peers]
-       in newForm [field] (peers !! 0)
+      let field = radioField (lens id seq) [(p, show p, show p) | p <- parties]
+       in newForm [field] (parties !! 0)
     submit s (getAddress -> recipient) = do
       continue $ s & dialogStateL .~ amountDialog input recipient
 
@@ -335,7 +334,7 @@ handleNewTxEvent Client{sendInput} = \case
       liftIO (sendInput (NewTx tx))
       continue $ s & dialogStateL .~ NoDialog
      where
-      tx = mkSimpleCardanoTx input (recipient, amount) (myCredentials s)
+      tx = mkSimpleCardanoTx input (recipient, amount) (getCredentials $ s ^. meL)
 
 --
 -- View
@@ -370,8 +369,8 @@ draw s =
     ownAddress = str "Address " <+> withAttr info (str $ toString $ encodeAddress (getAddress (s ^. meL)))
     nodeStatus =
       case s ^. clientStateL of
-        Disconnected -> withAttr negative $ str $ "Connecting to " <> show (s ^. meL)
-        Connected -> withAttr positive $ str $ "Connected to " <> show (s ^. meL)
+        Disconnected -> withAttr negative $ str $ "Connecting to " <> show (s ^. nodeHostL)
+        Connected -> withAttr positive $ str $ "Connected to " <> show (s ^. nodeHostL)
 
   drawRightPanel =
     case s ^? dialogStateL of
@@ -522,33 +521,6 @@ utxoRadioField u =
       ]
   ]
 
--- UTXO Faucet / Credentials
---
--- For now, we _fake it until we make it_ ^TM. Credentials and initial UTXO are
--- generated *deterministically* from the Host (the port number exactly).
--- Ideally, we need the client to figure out credentials and UTXO via some other
--- means. Likely, the credentials will be user-provided, whereas the UTXO would
--- come from a local node + chain sync.
-
-getCredentials :: Host -> CardanoKeyPair
-getCredentials Host{port} =
-  let seed = fromIntegral port in generateWith genKeyPair seed
-
-getAddress :: Host -> CardanoAddress
-getAddress =
-  mkVkAddress . vKey . getCredentials
-
-myCredentials :: State -> CardanoKeyPair
-myCredentials =
-  getCredentials . (^. meL)
-
-myTotalUtxo :: State -> Map TxIn TxOut
-myTotalUtxo s =
-  let host@Host{port} = s ^. meL
-      vk = vKey $ getCredentials host
-      UTxO u = generateWith (scale (const 5) $ genUtxoFor vk) (fromIntegral port)
-   in u
-
 myAvailableUtxo :: State -> Map TxIn TxOut
 myAvailableUtxo s =
   case s ^? headStateL of
@@ -557,10 +529,6 @@ myAvailableUtxo s =
        in Map.filter (\(Cardano.TxOut addr _) -> addr == myAddress) u'
     _ ->
       mempty
-
-generateWith :: Gen a -> Int -> a
-generateWith (MkGen runGen) seed =
-  runGen (mkQCGen seed) 30
 
 --
 -- Run it
@@ -597,7 +565,8 @@ run Options{nodeHost} = do
 
   initialState =
     State
-      { me = nodeHost
+      { me = Nothing
+      , nodeHost
       , peers = mempty
       , headState = Ready
       , dialogState = NoDialog

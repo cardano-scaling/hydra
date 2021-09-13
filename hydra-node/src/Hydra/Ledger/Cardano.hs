@@ -21,6 +21,7 @@ import Cardano.Binary (
  )
 import Cardano.Crypto.DSIGN (
   DSIGNAlgorithm (..),
+  VerKeyDSIGN (VerKeyMockDSIGN),
   deriveVerKeyDSIGN,
  )
 import qualified Cardano.Crypto.Hash.Class as Crypto
@@ -28,7 +29,7 @@ import qualified Cardano.Ledger.Address as Cardano
 import Cardano.Ledger.AuxiliaryData (AuxiliaryDataHash (AuxiliaryDataHash), unsafeAuxiliaryDataHash)
 import Cardano.Ledger.BaseTypes (StrictMaybe (SNothing), boundRational, mkActiveSlotCoeff)
 import Cardano.Ledger.Crypto (Crypto, StandardCrypto)
-import Cardano.Ledger.Keys (asWitness, signedDSIGN)
+import Cardano.Ledger.Keys (KeyPair (vKey), asWitness, signedDSIGN)
 import Cardano.Ledger.Mary (AuxiliaryData, MaryEra)
 import qualified Cardano.Ledger.Mary.Value as Cardano
 import Cardano.Ledger.SafeHash (extractHash)
@@ -68,12 +69,15 @@ import qualified Data.Text as T
 import qualified Data.Text as Text
 import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
 import Hydra.Ledger (Balance (..), Ledger (..), Tx (..), ValidationError (ValidationError))
+import Hydra.Party (Party (Party), vkey)
 import Shelley.Spec.Ledger.API (Wdrl (Wdrl), unWdrl, _maxTxSize)
 import qualified Shelley.Spec.Ledger.API as Cardano hiding (TxBody)
 import Shelley.Spec.Ledger.Tx (WitnessSetHKD (WitnessSet))
 import Shelley.Spec.Ledger.TxBody (TxId (..))
 import Test.Cardano.Ledger.MaryEraGen ()
 import Test.QuickCheck (Gen, choose, getSize, scale, suchThat, vectorOf)
+import Test.QuickCheck.Gen (Gen (MkGen))
+import Test.QuickCheck.Random (mkQCGen)
 import qualified Test.Shelley.Spec.Ledger.Generator.Constants as Constants
 import Test.Shelley.Spec.Ledger.Generator.Core (geConstants)
 import Test.Shelley.Spec.Ledger.Generator.EraGen (genUtxo0)
@@ -154,50 +158,12 @@ instance FromCBOR CardanoTx where
 instance Arbitrary CardanoTx where
   arbitrary = genUtxo >>= genCardanoTx
 
-genKeyPair :: Gen (Cardano.KeyPair 'Cardano.Payment StandardCrypto)
-genKeyPair = do
-  -- NOTE: not using 'genKeyDSIGN' purposely here, it is not pure and does not
-  -- play well with pure generation from seed.
-  sk <- fromJust . rawDeserialiseSignKeyDSIGN . fromList <$> vectorOf 64 arbitrary
-  pure $ Cardano.KeyPair (Cardano.VKey (deriveVerKeyDSIGN sk)) sk
-
--- | Generate utxos owned by the given 'Party'
-genUtxoFor :: Cardano.VKey 'Cardano.Payment StandardCrypto -> Gen (Utxo CardanoTx)
-genUtxoFor vk = do
-  n <- arbitrary `suchThat` (> 0)
-  inputs <- vectorOf n arbitrary
-  outputs <- vectorOf n genOutput
-  pure $ Cardano.UTxO $ Map.fromList $ zip inputs outputs
- where
-  genOutput :: Gen TxOut
-  genOutput =
-    -- NOTE: Scaling a bit the generator to get non-trivial outputs with some
-    -- funds, and not just a few lovelaces.
-    Cardano.TxOut (mkVkAddress vk) <$> scale (* 8) arbitrary
-
-genUtxo :: Gen (Utxo CardanoTx)
-genUtxo = do
-  genesisTxId <- arbitrary
-  utxo <- genUtxo0 (genEnv Proxy)
-  pure $ Cardano.UTxO $ Map.mapKeys (setTxId genesisTxId) $ Cardano.unUTxO utxo
- where
-  setTxId :: Cardano.TxId StandardCrypto -> Cardano.TxIn StandardCrypto -> Cardano.TxIn StandardCrypto
-  setTxId baseId (Cardano.TxInCompact _ti wo) = Cardano.TxInCompact baseId wo
-
-mkVkAddress ::
-  Cardano.VKey 'Cardano.Payment StandardCrypto ->
-  Cardano.Addr StandardCrypto
-mkVkAddress vk =
-  let paymentCredential = Cardano.KeyHashObj $ Cardano.hashKey vk
-      stakeReference = Cardano.StakeRefNull
-   in Cardano.Addr Cardano.Testnet paymentCredential stakeReference
-
--- Construct a simple transaction which spends a UTXO, to the given address,
+-- | Construct a simple transaction which spends a UTXO, to the given address,
 -- signed by the given key.
 mkSimpleCardanoTx ::
   (TxIn, TxOut) ->
-  (Cardano.Addr StandardCrypto, Cardano.Value StandardCrypto) ->
-  Cardano.KeyPair 'Cardano.Payment StandardCrypto ->
+  (CardanoAddress, Cardano.Value StandardCrypto) ->
+  CardanoKeyPair ->
   CardanoTx
 mkSimpleCardanoTx (i, Cardano.TxOut owner valueIn) (recipient, valueOut) credentials =
   CardanoTx{id, body, witnesses, auxiliaryData}
@@ -454,8 +420,16 @@ instance Crypto crypto => ToJSONKey (Cardano.TxIn crypto) where
   toJSONKey = toJSONKeyText txInToText
 
 --
--- Output
+-- Address
 --
+
+mkVkAddress ::
+  Cardano.VKey 'Cardano.Payment StandardCrypto ->
+  CardanoAddress
+mkVkAddress vk =
+  let paymentCredential = Cardano.KeyHashObj $ Cardano.hashKey vk
+      stakeReference = Cardano.StakeRefNull
+   in Cardano.Addr Cardano.Testnet paymentCredential stakeReference
 
 -- Serialise addresses in bech32 including the prefix as standardized:
 -- https://github.com/cardano-foundation/CIPs/blob/master/CIP-0005/CIP-0005.md
@@ -473,6 +447,10 @@ encodeAddress addr =
     (Cardano.Addr Cardano.Mainnet _ _) -> [Bech32.humanReadablePart|addr|]
     (Cardano.Addr Cardano.Testnet _ _) -> [Bech32.humanReadablePart|addr_test|]
     (Cardano.AddrBootstrap _) -> [Bech32.humanReadablePart|addr_boot|]
+
+--
+-- Output
+--
 
 instance Crypto crypto => ToJSON (Cardano.TxOut (MaryEra crypto)) where
   toJSON (Cardano.TxOut addr value) =
@@ -579,6 +557,29 @@ prettyUtxo :: (TxIn, TxOut) -> Text
 prettyUtxo (k, v) =
   let value = prettyBalance $ balance @CardanoTx $ Cardano.UTxO (Map.singleton k v)
    in T.drop 54 (txInToText k) <> " ↦ " <> value
+
+genUtxo :: Gen (Utxo CardanoTx)
+genUtxo = do
+  genesisTxId <- arbitrary
+  utxo <- genUtxo0 (genEnv Proxy)
+  pure $ Cardano.UTxO $ Map.mapKeys (setTxId genesisTxId) $ Cardano.unUTxO utxo
+ where
+  setTxId :: Cardano.TxId StandardCrypto -> Cardano.TxIn StandardCrypto -> Cardano.TxIn StandardCrypto
+  setTxId baseId (Cardano.TxInCompact _ti wo) = Cardano.TxInCompact baseId wo
+
+-- | Generate utxos owned by the given cardano key.
+genUtxoFor :: Cardano.VKey 'Cardano.Payment StandardCrypto -> Gen (Utxo CardanoTx)
+genUtxoFor vk = do
+  n <- arbitrary `suchThat` (> 0)
+  inputs <- vectorOf n arbitrary
+  outputs <- vectorOf n genOutput
+  pure $ Cardano.UTxO $ Map.fromList $ zip inputs outputs
+ where
+  genOutput :: Gen TxOut
+  genOutput =
+    -- NOTE: Scaling a bit the generator to get non-trivial outputs with some
+    -- funds, and not just a few lovelaces.
+    Cardano.TxOut (mkVkAddress vk) <$> scale (* 8) arbitrary
 
 --
 -- Witnesses
@@ -715,3 +716,48 @@ ledgerEnv =
       Cardano.ledgerPp = def{_maxTxSize = 1024 * 1024}
     , Cardano.ledgerAccount = error "mkLedgerenv ledgersAccount undefined"
     }
+
+-- * UTXO Faucet & Converting credentials
+
+-- | For now, we _fake it until we make it_ ^TM. Credentials and initial UTXO are
+-- generated *deterministically* from Hydra verification keys (the 'Party').
+-- Thus, coupling Hydra keys (signing the Head itself) with Cardano keys
+-- (signing transactions in a Head). In the end, the client will figure out
+-- credentials and UTXO via some other means. Likely, the credentials will be
+-- user-provided, whereas the UTXO would come from a local node + chain sync.
+
+-- | Create a cardano key pair from a party. This would not be done in a real
+-- application and we'd manage the Cardano keys separate from the Hydra keys.
+-- For now though, this makes it easy to create assets for Head participants and
+-- send values between "them".
+getCredentials :: Party -> CardanoKeyPair
+getCredentials Party{vkey} =
+  let VerKeyMockDSIGN word = vkey
+      seed = fromIntegral word
+   in generateWith genKeyPair seed
+ where
+  genKeyPair = do
+    -- NOTE: not using 'genKeyDSIGN' purposely here, it is not pure and does not
+    -- play well with pure generation from seed.
+    sk <- fromJust . rawDeserialiseSignKeyDSIGN . fromList <$> vectorOf 64 arbitrary
+    pure $ Cardano.KeyPair (Cardano.VKey (deriveVerKeyDSIGN sk)) sk
+
+-- | Similarly to 'getCredentials', this gives us "the" Cardano address given a
+-- Hydra 'Party'. In a real world deployment it would make no sense to send a
+-- Head participant something, the ledger would be fully decoupled.
+getAddress :: Party -> CardanoAddress
+getAddress =
+  mkVkAddress . vKey . getCredentials
+
+-- | Generate a Utxo set for a given party "out of thin air".
+faucetUtxo :: Party -> Map TxIn TxOut
+faucetUtxo party@Party{vkey} =
+  let VerKeyMockDSIGN word = vkey
+      seed = fromIntegral word
+      vk = vKey $ getCredentials party
+      Cardano.UTxO u = generateWith (scale (const 5) $ genUtxoFor vk) seed
+   in u
+
+generateWith :: Gen a -> Int -> a
+generateWith (MkGen runGen) seed =
+  runGen (mkQCGen seed) 30
