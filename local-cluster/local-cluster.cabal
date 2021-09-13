@@ -73,6 +73,7 @@ library
   exposed-modules:
     CardanoCluster
     CardanoNode
+    Hydra.Generator
     HydraNode
 
   build-depends:
@@ -80,7 +81,9 @@ library
     , async
     , base                  >=4.7 && <5
     , bytestring
+    , cardano-api
     , cardano-crypto-class
+    , containers
     , contra-tracer
     , directory
     , filepath
@@ -93,6 +96,7 @@ library
     , iohk-monitoring
     , network
     , process
+    , QuickCheck
     , random-shuffle
     , retry
     , say
@@ -126,6 +130,7 @@ test-suite integration
   other-modules:
     Spec
     Test.EndToEndSpec
+    Test.GeneratorSpec
     Test.LocalClusterSpec
 
   build-depends:
@@ -144,10 +149,12 @@ test-suite integration
     , lens
     , lens-aeson
     , local-cluster
+    , QuickCheck
     , regex-tdfa
     , say
     , strict-containers
     , temporary
+    , text
 
   build-tool-depends:
     hspec-discover:hspec-discover -any, hydra-node:hydra-node -any,

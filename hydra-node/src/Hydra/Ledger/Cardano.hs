@@ -68,6 +68,7 @@ import qualified Data.Set as Set
 import qualified Data.Text as T
 import qualified Data.Text as Text
 import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
+import GHC.Records (getField)
 import Hydra.Ledger (Balance (..), Ledger (..), Tx (..), ValidationError (ValidationError))
 import Hydra.Party (Party (Party), vkey)
 import Shelley.Spec.Ledger.API (Wdrl (Wdrl), unWdrl, _maxTxSize)
@@ -164,9 +165,6 @@ genKeyPair = do
   -- play well with pure generation from seed.
   sk <- fromJust . rawDeserialiseSignKeyDSIGN . fromList <$> vectorOf 64 arbitrary
   pure $ Cardano.KeyPair (Cardano.VKey (deriveVerKeyDSIGN sk)) sk
-
-size :: Utxo CardanoTx -> Int
-size = length . Cardano.unUTxO
 
 -- Construct a simple transaction which spends a UTXO, to the given address,
 -- signed by the given key.
@@ -532,6 +530,12 @@ instance FromJSONKey Cardano.AssetName where
         Left e -> fail $ "decoding base16: " <> show e
         Right bytes -> pure $ Cardano.AssetName bytes
 
+genOutput :: Cardano.VKey 'Cardano.Payment StandardCrypto -> Gen TxOut
+genOutput vk =
+  -- NOTE: Scaling a bit the generator to get non-trivial outputs with some
+  -- funds, and not just a few lovelaces.
+  Cardano.TxOut (mkVkAddress vk) <$> scale (* 8) arbitrary
+
 ---
 --- Certificates
 ---
@@ -582,14 +586,33 @@ genUtxoFor :: Cardano.VKey 'Cardano.Payment StandardCrypto -> Gen (Utxo CardanoT
 genUtxoFor vk = do
   n <- arbitrary `suchThat` (> 0)
   inputs <- vectorOf n arbitrary
-  outputs <- vectorOf n genOutput
+  outputs <- vectorOf n (genOutput vk)
   pure $ Cardano.UTxO $ Map.fromList $ zip inputs outputs
- where
-  genOutput :: Gen TxOut
-  genOutput =
-    -- NOTE: Scaling a bit the generator to get non-trivial outputs with some
-    -- funds, and not just a few lovelaces.
-    Cardano.TxOut (mkVkAddress vk) <$> scale (* 8) arbitrary
+
+-- | Generate a single UTXO owned by 'vk'.
+genOneUtxoFor :: Cardano.VKey 'Cardano.Payment StandardCrypto -> Gen (Utxo CardanoTx)
+genOneUtxoFor vk = do
+  input <- arbitrary
+  -- NOTE(AB): calling this generator while running a property will yield larger and larger
+  -- values (quikcheck increases the 'size' parameter upon success) up to the point they are
+  -- too large to fit in a transaction and validation fails in the ledger
+  output <- scale (const 1) $ genOutput vk
+  pure $ Cardano.UTxO $ Map.singleton input output
+
+size :: Utxo CardanoTx -> Int
+size = length . Cardano.unUTxO
+
+utxoToList :: Utxo CardanoTx -> [(TxIn, TxOut)]
+utxoToList = Map.toList . Cardano.unUTxO
+
+utxoValue :: Utxo CardanoTx -> Cardano.Value StandardCrypto
+utxoValue = mconcat . map (getField @"value") . Map.elems . Cardano.unUTxO
+
+utxoFromTx :: CardanoTx -> Utxo CardanoTx
+utxoFromTx CardanoTx{id, body = (Cardano.TxBody _ outputs _ _ _ _ _ _ _)} =
+  let txOuts = toList outputs
+      txIns = map (Cardano.TxIn id) [0 .. fromIntegral (length txOuts)]
+   in Cardano.UTxO $ Map.fromList $ zip txIns txOuts
 
 --
 -- Witnesses
@@ -758,6 +781,9 @@ getCredentials Party{vkey} =
 getAddress :: Party -> CardanoAddress
 getAddress =
   mkVkAddress . vKey . getCredentials
+
+verificationKey :: Cardano.KeyPair r crypto -> Cardano.VKey r crypto
+verificationKey = Cardano.vKey
 
 -- | Generate a Utxo set for a given party "out of thin air".
 faucetUtxo :: Party -> Map TxIn TxOut
