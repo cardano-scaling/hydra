@@ -90,6 +90,7 @@ library
   build-depends:
     , aeson
     , base
+    , base16-bytestring
     , cardano-crypto-class
     , containers
     , directory
