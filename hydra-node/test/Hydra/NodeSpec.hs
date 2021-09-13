@@ -5,6 +5,7 @@ module Hydra.NodeSpec where
 import Hydra.Prelude
 import Test.Hydra.Prelude
 
+import Cardano.Crypto.DSIGN (DSIGNAlgorithm (deriveVerKeyDSIGN, rawSerialiseVerKeyDSIGN), rawSerialiseSignKeyDSIGN)
 import Hydra.API.Server (Server (..))
 import Hydra.Chain (Chain (..), OnChainTx (..))
 import Hydra.ClientInput (ClientInput (..))
@@ -18,12 +19,38 @@ import Hydra.Ledger.Simple (SimpleTx (..), simpleLedger, utxoRef, utxoRefs)
 import Hydra.Logging (Tracer, showLogsOnFailure)
 import Hydra.Network (Host (..), Network (..))
 import Hydra.Network.Message (Message (..))
-import Hydra.Node (EventQueue (..), HydraNode (..), HydraNodeLog, createEventQueue, createHydraHead, isEmpty, stepHydraNode)
-import Hydra.Party (Party, SigningKey, deriveParty, sign)
+import Hydra.Node (EventQueue (..), HydraNode (..), HydraNodeLog, createEventQueue, createHydraHead, initEnvironment, isEmpty, stepHydraNode)
+import Hydra.Options (Options (..), defaultOptions)
+import Hydra.Party (Party, SigningKey, alias, deriveParty, generateKey, sign)
 import Hydra.Snapshot (Snapshot (..))
+import System.FilePath ((</>))
+import System.IO.Temp (withSystemTempDirectory)
 
 spec :: Spec
 spec = parallel $ do
+  describe "initEnvironment" $ do
+    -- TODO(SN): maybe we should rather create some 'loadParty' from file
+    -- functions and unit test them instead?
+    it "only aliases parties which start with a letter" $ do
+      withSystemTempDirectory "hydra-node-init-environment" $ \tmp -> do
+        -- Store some SigningKey and VerificationKeys (the same)
+        let sk = generateKey 4711
+        writeFileBS (tmp </> "_me.sk") $ rawSerialiseSignKeyDSIGN sk
+        let vkBytes = rawSerialiseVerKeyDSIGN $ deriveVerKeyDSIGN sk
+        writeFileBS (tmp </> "alice.vk") vkBytes
+        writeFileBS (tmp </> "2.vk") vkBytes
+        writeFileBS (tmp </> "~charlie.vk") vkBytes
+
+        Environment{party, otherParties} <-
+          initEnvironment $
+            defaultOptions
+              { me = tmp </> "_me.sk"
+              , parties = [tmp </> "alice.vk", tmp </> "2.vk", tmp </> "~charlie.vk"]
+              }
+
+        alias party `shouldBe` Nothing
+        map alias otherParties `shouldBe` [Just "alice", Nothing, Nothing]
+
   it "emits a single ReqSn and AckSn as leader, even after multiple ReqTxs" $
     showLogsOnFailure $ \tracer -> do
       -- NOTE(SN): Sequence of parties in OnInitTx of
