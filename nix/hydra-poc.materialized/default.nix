@@ -894,7 +894,7 @@
           "cardano-crypto-praos" = {
             flags = {
               "development" = lib.mkOverride 900 false;
-              "external-libsodium-vrf" = lib.mkOverride 900 false;
+              "external-libsodium-vrf" = lib.mkOverride 900 true;
               };
             };
           "monoidal-synchronisation" = { flags = {}; };
@@ -909,7 +909,7 @@
             flags = { "defer-plugin-errors" = lib.mkOverride 900 false; };
             };
           "local-cluster" = {
-            flags = { "development" = lib.mkOverride 900 false; };
+            flags = { "development" = lib.mkOverride 900 true; };
             };
           "typed-protocols-examples" = { flags = {}; };
           "cardano-crypto-tests" = {
@@ -971,13 +971,13 @@
               };
             };
           "hydra-tui" = {
-            flags = { "development" = lib.mkOverride 900 false; };
+            flags = { "development" = lib.mkOverride 900 true; };
             };
           "ouroboros-consensus-byron" = {
             flags = { "asserts" = lib.mkOverride 900 false; };
             };
           "hydra-node" = {
-            flags = { "development" = lib.mkOverride 900 false; };
+            flags = { "development" = lib.mkOverride 900 true; };
             };
           "contra-tracer" = { flags = {}; };
           "orphans-deriving-via" = {
