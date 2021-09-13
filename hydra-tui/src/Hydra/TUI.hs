@@ -190,6 +190,8 @@ handleAppEvent s = \case
     s & clientStateL .~ Connected
   ClientDisconnected ->
     s & clientStateL .~ Disconnected
+  Update Greetings{me} ->
+    s & meL ?~ me
   Update (PeerConnected p) ->
     s & peersL %~ \cp -> nub $ cp <> [p]
   Update (PeerDisconnected p) ->
@@ -367,16 +369,27 @@ draw s =
       vBox
         [ padLeftRight 1 tuiVersion
         , padLeftRight 1 nodeStatus
+        , hBorder
+        , padLeftRight 1 ownParty
         , padLeftRight 1 ownAddress
-        , hBorder <=> padLeftRight 1 drawPeers
-        , hBorder <=> padLeftRight 1 drawParties
+        , hBorder
+        , padLeftRight 1 drawPeers
+        , hBorder
+        , padLeftRight 1 drawParties
         ]
    where
     tuiVersion = str "Hydra TUI  " <+> withAttr info (str (showVersion version))
+
+    ownParty =
+      case s ^. meL of
+        Nothing -> emptyWidget
+        Just me -> str "Party " <+> txt (show me)
+
     ownAddress =
       case s ^. meL of
         Nothing -> emptyWidget
         Just me -> str "Address " <+> withAttr info (txt $ encodeAddress (getAddress me))
+
     nodeStatus =
       case s ^. clientStateL of
         Disconnected -> withAttr negative $ str $ "Connecting to " <> show (s ^. nodeHostL)
