@@ -7,6 +7,9 @@ module Hydra.Contract.Party where
 
 import Hydra.Prelude hiding (init)
 
+import Cardano.Crypto.DSIGN (DSIGNAlgorithm (rawDeserialiseVerKeyDSIGN, rawSerialiseVerKeyDSIGN), MockDSIGN, VerKeyDSIGN (VerKeyMockDSIGN))
+import Data.Aeson (Value (String), object, withObject, (.:), (.=))
+import qualified Data.ByteString.Base16 as Base16
 import qualified PlutusTx
 import PlutusTx.IsData
 import Schema (FormSchema (..), ToSchema (..))
@@ -25,10 +28,17 @@ instance Arbitrary Party where
   arbitrary = genericArbitrary
 
 instance ToJSON Party where
-  toJSON (UnsafeParty i) = toJSON i
+  toJSON (UnsafeParty i) =
+    object ["vkey" .= (String . decodeUtf8 . Base16.encode $ rawSerialiseVerKeyDSIGN vkey)]
+   where
+    vkey = fromInteger i :: VerKeyDSIGN MockDSIGN
 
 instance FromJSON Party where
-  parseJSON = fmap fromInteger . parseJSON
+  parseJSON = withObject "Party" $ \o -> do
+    vkeyHex :: Text <- o .: "vkey"
+    vkeyBytes <- either fail pure . Base16.decode $ encodeUtf8 vkeyHex
+    (VerKeyMockDSIGN w) <- maybe (fail "deserialize verification key") pure $ rawDeserialiseVerKeyDSIGN vkeyBytes
+    pure $ UnsafeParty $ fromIntegral w
 
 instance ToSchema Party where
   toSchema = FormSchemaUnsupported "Party"
