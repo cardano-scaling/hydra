@@ -158,7 +158,17 @@ instance FromCBOR CardanoTx where
 instance Arbitrary CardanoTx where
   arbitrary = genUtxo >>= genCardanoTx
 
--- | Construct a simple transaction which spends a UTXO, to the given address,
+genKeyPair :: Gen (Cardano.KeyPair 'Cardano.Payment StandardCrypto)
+genKeyPair = do
+  -- NOTE: not using 'genKeyDSIGN' purposely here, it is not pure and does not
+  -- play well with pure generation from seed.
+  sk <- fromJust . rawDeserialiseSignKeyDSIGN . fromList <$> vectorOf 64 arbitrary
+  pure $ Cardano.KeyPair (Cardano.VKey (deriveVerKeyDSIGN sk)) sk
+
+size :: Utxo CardanoTx -> Int
+size = length . Cardano.unUTxO
+
+-- Construct a simple transaction which spends a UTXO, to the given address,
 -- signed by the given key.
 mkSimpleCardanoTx ::
   (TxIn, TxOut) ->
@@ -734,9 +744,9 @@ getCredentials :: Party -> CardanoKeyPair
 getCredentials Party{vkey} =
   let VerKeyMockDSIGN word = vkey
       seed = fromIntegral word
-   in generateWith genKeyPair seed
+   in generateWith generateKeyPair seed
  where
-  genKeyPair = do
+  generateKeyPair = do
     -- NOTE: not using 'genKeyDSIGN' purposely here, it is not pure and does not
     -- play well with pure generation from seed.
     sk <- fromJust . rawDeserialiseSignKeyDSIGN . fromList <$> vectorOf 64 arbitrary
