@@ -278,7 +278,11 @@ handleCommitEvent ::
   EventM n (Next State)
 handleCommitEvent Client{sendInput} = \case
   s@State{headState = Initializing{}} ->
-    continue $ s & dialogStateL .~ commitDialog (faucetUtxo $ s ^. meL)
+    case s ^. meL of
+      -- XXX(SN): this is just..not cool
+      Nothing -> continue $ s & feedbackL ?~ UserFeedback Error "Missing identity, so can't commit from faucet."
+      Just me ->
+        continue $ s & dialogStateL .~ commitDialog (faucetUtxo me)
   s ->
     continue $ s & feedbackL ?~ UserFeedback Error "Invalid command."
  where
@@ -298,20 +302,24 @@ handleNewTxEvent ::
   EventM n (Next State)
 handleNewTxEvent Client{sendInput} = \case
   s@State{headState = Open{parties}} ->
-    continue $ s & dialogStateL .~ transactionBuilderDialog (myAvailableUtxo s) parties
+    case s ^. meL of
+      -- XXX(SN): this is just..not cool
+      Nothing -> continue $ s & feedbackL ?~ UserFeedback Error "Missing identity, so can't create a tx."
+      Just me -> do
+        continue $ s & dialogStateL .~ transactionBuilderDialog (myAvailableUtxo me s) parties me
   s ->
     continue $ s & feedbackL ?~ UserFeedback Error "Invalid command."
  where
-  transactionBuilderDialog u parties =
+  transactionBuilderDialog u parties me =
     Dialog title form submit
    where
     title = "Select UTXO to spend"
     -- FIXME: This crashes if the utxo is empty
     form = newForm (utxoRadioField u) (Map.toList u !! 0)
     submit s input = do
-      continue $ s & dialogStateL .~ recipientsDialog input parties
+      continue $ s & dialogStateL .~ recipientsDialog input parties me
 
-  recipientsDialog input parties =
+  recipientsDialog input parties me =
     Dialog title form submit
    where
     title = "Select a recipient"
@@ -320,9 +328,9 @@ handleNewTxEvent Client{sendInput} = \case
       let field = radioField (lens id seq) [(p, show p, show p) | p <- parties]
        in newForm [field] (parties !! 0)
     submit s (getAddress -> recipient) = do
-      continue $ s & dialogStateL .~ amountDialog input recipient
+      continue $ s & dialogStateL .~ amountDialog input recipient me
 
-  amountDialog input@(_, Cardano.TxOut _ v) recipient =
+  amountDialog input@(_, Cardano.TxOut _ v) recipient me =
     Dialog title form submit
    where
     title = "Choose an amount"
@@ -331,10 +339,9 @@ handleNewTxEvent Client{sendInput} = \case
           field = editShowableFieldWithValidate (lens id seq) "amount" (\n -> n > 0 && n <= limit)
        in newForm [field] limit
     submit s (inject . Cardano.Coin -> amount) = do
+      let tx = mkSimpleCardanoTx input (recipient, amount) (getCredentials me)
       liftIO (sendInput (NewTx tx))
       continue $ s & dialogStateL .~ NoDialog
-     where
-      tx = mkSimpleCardanoTx input (recipient, amount) (getCredentials $ s ^. meL)
 
 --
 -- View
@@ -366,7 +373,10 @@ draw s =
         ]
    where
     tuiVersion = str "Hydra TUI  " <+> withAttr info (str (showVersion version))
-    ownAddress = str "Address " <+> withAttr info (str $ toString $ encodeAddress (getAddress (s ^. meL)))
+    ownAddress =
+      case s ^. meL of
+        Nothing -> emptyWidget
+        Just me -> str "Address " <+> withAttr info (txt $ encodeAddress (getAddress me))
     nodeStatus =
       case s ^. clientStateL of
         Disconnected -> withAttr negative $ str $ "Connecting to " <> show (s ^. nodeHostL)
@@ -521,11 +531,11 @@ utxoRadioField u =
       ]
   ]
 
-myAvailableUtxo :: State -> Map TxIn TxOut
-myAvailableUtxo s =
+myAvailableUtxo :: Party -> State -> Map TxIn TxOut
+myAvailableUtxo me s =
   case s ^? headStateL of
     Just Open{utxo = UTxO u'} ->
-      let myAddress = getAddress (s ^. meL)
+      let myAddress = getAddress me
        in Map.filter (\(Cardano.TxOut addr _) -> addr == myAddress) u'
     _ ->
       mempty
