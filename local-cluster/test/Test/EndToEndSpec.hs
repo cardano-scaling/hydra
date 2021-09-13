@@ -76,6 +76,7 @@ import qualified Data.ByteString as BS
 import qualified Data.ByteString.Base16 as Base16
 import qualified Data.Map as Map
 import Hydra.Logging (showLogsOnFailure)
+import Hydra.Party (Party, deriveParty)
 import HydraNode (
   getMetrics,
   hydraNodeProcess,
@@ -111,7 +112,7 @@ spec = around showLogsOnFailure $
                     let contestationPeriod = 10 :: Natural
                     send n1 $ input "Init" ["contestationPeriod" .= contestationPeriod]
                     waitFor tracer 3 [n1, n2, n3] $
-                      output "ReadyToCommit" ["parties" .= [int 10, 20, 30]]
+                      output "ReadyToCommit" ["parties" .= [alice, bob, carol]]
 
                     let someUtxo =
                           Map.singleton
@@ -181,7 +182,7 @@ spec = around showLogsOnFailure $
                   withHydraNode tracer tmpDir mockPorts 3 carolSk [aliceVk, bobVk] allNodeIds $ \_n3 -> do
                     waitForNodesConnected tracer allNodeIds [n1]
                     send n1 $ input "Init" ["contestationPeriod" .= int 10]
-                    waitFor tracer 3 [n1] $ output "ReadyToCommit" ["parties" .= [int 10, 20, 30]]
+                    waitFor tracer 3 [n1] $ output "ReadyToCommit" ["parties" .= [alice, bob, carol]]
                     metrics <- getMetrics n1
                     metrics `shouldSatisfy` ("hydra_head_events  4" `BS.isInfixOf`)
 
@@ -204,6 +205,11 @@ aliceVk, bobVk, carolVk :: VerKeyDSIGN MockDSIGN
 aliceVk = deriveVerKeyDSIGN aliceSk
 bobVk = deriveVerKeyDSIGN bobSk
 carolVk = deriveVerKeyDSIGN carolSk
+
+alice, bob, carol :: Party
+alice = deriveParty aliceSk
+bob = deriveParty bobSk
+carol = deriveParty carolSk
 
 someTxId :: IsString s => s
 someTxId = "9fdc525c20bc00d9dfa9d14904b65e01910c0dfe3bb39865523c1e20eaeb0903"
