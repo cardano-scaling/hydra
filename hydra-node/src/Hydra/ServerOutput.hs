@@ -25,6 +25,10 @@ data ServerOutput tx
   | SnapshotConfirmed {snapshot :: Snapshot tx}
   | Utxo {utxo :: Utxo tx}
   | InvalidInput {reason :: String, input :: Text}
+  | -- | A friendly welcome message which tells a client something about the
+    -- node. Currently used for knowing what signing key the server uses (it
+    -- only knows one).
+    Greetings {me :: Party}
   deriving (Generic)
 
 deriving instance Tx tx => Eq (ServerOutput tx)
@@ -52,3 +56,4 @@ instance (Arbitrary tx, Arbitrary (Utxo tx)) => Arbitrary (ServerOutput tx) wher
     SnapshotConfirmed s -> SnapshotConfirmed <$> shrink s
     Utxo u -> Utxo <$> shrink u
     InvalidInput r i -> InvalidInput <$> shrink r <*> shrink i
+    Greetings me -> Greetings <$> shrink me

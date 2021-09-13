@@ -297,6 +297,22 @@ properties:
           input:
             type: string
 
+      - title: Greetings
+        description: >-
+          A friendly welcome message which tells a client something about the
+          node. Currently used for knowing what signing key the server uses (it
+          only knows one).
+        type: object
+        required:
+        - tag
+        - me
+        properties:
+          tag:
+            type: string
+            enum: ["Greetings"]
+          me:
+            $ref: "#/definitions/Party"
+
   utxo:
     type: array
     items:
