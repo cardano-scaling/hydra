@@ -105,8 +105,8 @@ negative = "negative"
 
 data HeadState
   = Ready
-  | Initializing {parties :: [Party], utxo :: Utxo CardanoTx}
-  | Open {utxo :: Utxo CardanoTx}
+  | Initializing {parties :: [Party], remainingParties :: [Party], utxo :: Utxo CardanoTx}
+  | Open {parties :: [Party], utxo :: Utxo CardanoTx}
   | Closed {contestationDeadline :: UTCTime}
   deriving (Eq, Show, Generic)
 
@@ -121,6 +121,13 @@ makeLensesFor
   , ("feedback", "feedbackL")
   ]
   ''State
+
+makeLensesFor
+  [ ("remainingParties", "remainingPartiesL")
+  , ("parties", "partiesL")
+  , ("utxo", "utxoL")
+  ]
+  ''HeadState
 
 --
 -- Update
@@ -188,13 +195,14 @@ handleAppEvent s = \case
     s & feedbackL ?~ UserFeedback Error "Invalid command."
   Update ReadyToCommit{parties} ->
     let utxo = mempty
-     in s & headStateL .~ Initializing{parties = toList parties, utxo}
+        ps = toList parties
+     in s & headStateL .~ Initializing{parties = ps, remainingParties = ps, utxo}
           & feedbackL ?~ UserFeedback Info "Head initialized, ready for commit(s)."
   Update Committed{party, utxo} ->
     s & headStateL %~ partyCommitted [party] utxo
       & feedbackL ?~ UserFeedback Info (show party <> " committed " <> prettyBalance (balance @CardanoTx utxo))
   Update HeadIsOpen{utxo} ->
-    s & headStateL .~ Open{utxo}
+    s & headStateL %~ headIsOpen utxo
       & feedbackL ?~ UserFeedback Info "Head is now open!"
   Update HeadIsClosed{contestationDeadline} ->
     s & headStateL .~ Closed{contestationDeadline}
@@ -217,17 +225,22 @@ handleAppEvent s = \case
     s & feedbackL ?~ UserFeedback Error ("Unhandled app event: " <> show anyUpdate)
  where
   partyCommitted party commit = \case
-    Initializing{parties, utxo} ->
+    Initializing{parties, remainingParties, utxo} ->
       Initializing
-        { parties = parties \\ party
+        { parties = parties
+        , remainingParties = remainingParties \\ party
         , utxo = utxo <> commit
         }
+    hs -> hs
+
+  headIsOpen utxo = \case
+    Initializing{parties} -> Open{parties, utxo}
     hs -> hs
 
   snapshotConfirmed Snapshot{utxo, number} =
     case s ^? headStateL of
       Just Open{} ->
-        s & headStateL .~ Open{utxo}
+        s & headStateL . utxoL .~ utxo
           & feedbackL ?~ UserFeedback Info ("Snapshot #" <> show number <> " confirmed.")
       _ ->
         s & feedbackL ?~ UserFeedback Error "Snapshot confirmed but head is not open?"
@@ -341,15 +354,13 @@ draw s =
  where
   drawInfo =
     hLimit 75 $
-      vBox $
-        mconcat
-          [
-            [ padLeftRight 1 tuiVersion
-            , padLeftRight 1 nodeStatus
-            , padLeftRight 1 ownAddress
-            ]
-          , drawPeers
-          ]
+      vBox
+        [ padLeftRight 1 tuiVersion
+        , padLeftRight 1 nodeStatus
+        , padLeftRight 1 ownAddress
+        , hBorder <=> padLeftRight 1 drawPeers
+        , hBorder <=> padLeftRight 1 drawParties
+        ]
    where
     tuiVersion = str "Hydra TUI  " <+> withAttr info (str (showVersion version))
     ownAddress = str "Address " <+> withAttr info (str $ toString $ encodeAddress (getAddress (s ^. meL)))
@@ -381,12 +392,12 @@ draw s =
               [ "[I]nit"
               , "[Q]uit"
               ]
-          Initializing{parties, utxo} ->
+          Initializing{remainingParties, utxo} ->
             withCommands
               [ drawHeadState
               , padLeftRight 1 $ str ("Total committed: " <> toString (prettyBalance (balance @CardanoTx utxo)))
-              , padLeftRight 1 $ str "Waiting for parties to commit:"
-              , padLeftRight 1 $ vBox (map drawShow parties)
+              , padLeftRight 1 $ padTop (Pad 1) $ str "Waiting for parties to commit:"
+              , padLeftRight 1 $ vBox (map drawShow remainingParties)
               ]
               [ "[C]ommit"
               , "[A]bort"
@@ -448,16 +459,19 @@ draw s =
       Just (Just UserFeedback{message, severity}) ->
         withAttr (severityToAttr severity) $ str (toString message)
       _ ->
-        emptyWidget
+        str ""
+
+  drawParties =
+    case s ^? headStateL . partiesL of
+      Nothing -> emptyWidget
+      Just ps -> vBox $ str "Head participants:" : map drawShow ps
 
   drawPeers =
     case s ^. clientStateL of
       Disconnected ->
-        []
+        emptyWidget
       Connected ->
-        [ hBorder
-        , padLeftRight 1 $ vBox $ str "Connected peers:" : map drawShow (s ^. peersL)
-        ]
+        vBox $ str "Connected peers:" : map drawShow (s ^. peersL)
 
   drawShow :: forall a n. Show a => a -> Widget n
   drawShow = str . (" - " <>) . show
