@@ -1,10 +1,25 @@
 {
     "samples": [
-        15,
-        30,
-        1.8446744073709551613e19,
-        1.8446744073709551599e19,
-        9
+        {
+            "alias": null,
+            "vkey": "0000000000000016"
+        },
+        {
+            "alias": null,
+            "vkey": "0000000000000015"
+        },
+        {
+            "alias": null,
+            "vkey": "0000000000000005"
+        },
+        {
+            "alias": null,
+            "vkey": "fffffffffffffff6"
+        },
+        {
+            "alias": null,
+            "vkey": "fffffffffffffff1"
+        }
     ],
-    "seed": -350964969
+    "seed": 1775166664
 }
