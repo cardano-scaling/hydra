@@ -16,7 +16,7 @@ import Cardano.Ledger.Val (coin, inject)
 import Data.List (nub, (!!), (\\))
 import qualified Data.Map.Strict as Map
 import Data.Version (showVersion)
-import Graphics.Vty (Event (EvKey), Key (..), Modifier (..), blue, defaultConfig, green, mkVty, red)
+import Graphics.Vty (Event (EvKey), Key (..), Modifier (..), blue, defaultConfig, green, mkVty, red, yellow)
 import qualified Graphics.Vty as Vty
 import Graphics.Vty.Attributes (defAttr)
 import Hydra.Client (Client (Client, sendInput), HydraEvent (..), withClient)
@@ -104,6 +104,9 @@ positive = "positive"
 
 negative :: AttrName
 negative = "negative"
+
+own :: AttrName
+own = "own"
 
 data HeadState
   = Ready
@@ -383,12 +386,12 @@ draw s =
     ownParty =
       case s ^. meL of
         Nothing -> emptyWidget
-        Just me -> str "Party " <+> txt (show me)
+        Just me -> str "Party " <+> withAttr own (txt $ show me)
 
     ownAddress =
       case s ^. meL of
         Nothing -> emptyWidget
-        Just me -> str "Address " <+> withAttr info (txt $ encodeAddress (getAddress me))
+        Just me -> str "Address " <+> withAttr own (txt $ encodeAddress (getAddress me))
 
     nodeStatus =
       case s ^. clientStateL of
@@ -422,8 +425,10 @@ draw s =
             withCommands
               [ drawHeadState
               , padLeftRight 1 $ str ("Total committed: " <> toString (prettyBalance (balance @CardanoTx utxo)))
-              , padLeftRight 1 $ padTop (Pad 1) $ str "Waiting for parties to commit:"
-              , padLeftRight 1 $ vBox (map drawShow remainingParties)
+              , padLeftRight 1 $
+                  padTop (Pad 1) $
+                    str "Waiting for parties to commit:"
+                      <=> vBox (map drawParty remainingParties)
               ]
               [ "[C]ommit"
               , "[A]bort"
@@ -466,12 +471,18 @@ draw s =
               vBox
                 [ padTop (Pad 1) $
                   vBox
-                    [ str (toString $ encodeAddress addr)
+                    [ drawAddress addr
                     , padLeft (Pad 2) $ vBox (str . toString . prettyUtxo <$> u)
                     ]
                 | (addr, u) <- Map.toList byAddress
                 ]
           ]
+
+  drawAddress addr =
+    let widget = txt $ encodeAddress addr
+     in case s ^. meL of
+          Just me | getAddress me == addr -> withAttr own widget
+          _ -> widget
 
   withCommands panel cmds =
     hBox
@@ -490,7 +501,12 @@ draw s =
   drawParties =
     case s ^? headStateL . partiesL of
       Nothing -> emptyWidget
-      Just ps -> vBox $ str "Head participants:" : map drawShow ps
+      Just ps -> vBox $ str "Head participants:" : map drawParty ps
+
+  drawParty p =
+    case s ^. meL of
+      Just me | p == me -> withAttr own $ drawShow p
+      _ -> drawShow p
 
   drawPeers =
     case s ^. clientStateL of
@@ -554,6 +570,20 @@ myAvailableUtxo me s =
       mempty
 
 --
+-- Style
+--
+
+style :: State -> AttrMap
+style _ =
+  attrMap
+    defAttr
+    [ (info, fg blue)
+    , (negative, fg red)
+    , (positive, fg green)
+    , (own, fg yellow)
+    ]
+
+--
 -- Run it
 --
 -- NOTE(SN): At the end of the module because of TH
@@ -576,15 +606,6 @@ run Options{nodeHost} = do
       , appStartEvent = pure
       , appAttrMap = style
       }
-
-  style :: State -> AttrMap
-  style _ =
-    attrMap
-      defAttr
-      [ (info, fg blue)
-      , (negative, fg red)
-      , (positive, fg green)
-      ]
 
   initialState =
     State
