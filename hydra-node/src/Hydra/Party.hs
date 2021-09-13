@@ -20,7 +20,7 @@ import Cardano.Crypto.DSIGN (
  )
 import Cardano.Crypto.Seed (mkSeedFromBytes)
 import Cardano.Crypto.Util (SignableRepresentation)
-import Data.Aeson (ToJSONKey, Value (String), withText)
+import Data.Aeson (ToJSONKey, Value (String), object, withText, (.=))
 import Data.Aeson.Types (FromJSONKey)
 import qualified Data.ByteString.Base16 as Base16
 import Test.QuickCheck (vectorOf)
@@ -31,7 +31,7 @@ data Party = Party
   { alias :: Maybe Text
   , vkey :: VerificationKey
   }
-  deriving (Eq, Generic, FromJSON, ToJSON)
+  deriving (Eq, Generic, FromJSON)
 
 instance Show Party where
   show Party{alias, vkey} =
@@ -69,6 +69,14 @@ instance ToCBOR Party where
 -- REVIEW(SN): are default instances using 'Show' or 'ToJSON'?
 instance FromJSONKey Party
 instance ToJSONKey Party
+
+instance ToJSON Party where
+  toJSON Party{alias, vkey} =
+    object $ ["vkey" .= vkey] <> maybeAlias
+   where
+    maybeAlias = case alias of
+      Nothing -> []
+      Just a -> ["alias" .= a]
 
 -- NOTE(SN): Convenience type class to be able to quickly create parties from
 -- integer literals using 'fromInteger', e.g. `let alice = 10`. This will be
