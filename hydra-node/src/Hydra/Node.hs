@@ -37,7 +37,7 @@ import Hydra.Logging (Tracer, traceWith)
 import Hydra.Network (Network (..))
 import Hydra.Network.Message (Message)
 import Hydra.Options (Options (..))
-import Hydra.Party (Party (UnsafeParty))
+import Hydra.Party (Party (..))
 
 -- * Environment Handling
 
@@ -48,9 +48,9 @@ initEnvironment Options{me, parties} = do
   otherVKeys <- mapM loadVerificationKey parties
   pure $
     Environment
-      { party = UnsafeParty vk
+      { party = Party Nothing vk
       , signingKey = sk
-      , otherParties = UnsafeParty <$> otherVKeys
+      , otherParties = Party Nothing <$> otherVKeys
       }
  where
   loadSigningKey p = do
