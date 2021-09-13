@@ -121,6 +121,7 @@ library
     , containers
     , contra-tracer
     , data-default
+    , filepath
     , gitrev
     , hydra-plutus
     , hydra-prelude
