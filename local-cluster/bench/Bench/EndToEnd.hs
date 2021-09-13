@@ -35,6 +35,7 @@ import Data.Time (nominalDiffTimeToSeconds)
 import Hydra.Ledger (Tx, TxId, Utxo, txId)
 import Hydra.Ledger.Cardano (CardanoTx, genFixedSizeSequenceOfValidTransactions, genUtxo)
 import Hydra.Logging (showLogsOnFailure)
+import Hydra.Party (deriveParty, generateKey)
 import HydraNode (
   HydraClient,
   hydraNodeId,
@@ -92,8 +93,9 @@ bench timeoutSeconds workDir dataset clusterSize =
             waitForNodesConnected tracer [1 .. fromIntegral clusterSize] nodes
             let contestationPeriod = 10 :: Natural
             send leader $ input "Init" ["contestationPeriod" .= contestationPeriod]
+            let parties = Set.fromList $ map (deriveParty . generateKey) [1 .. fromIntegral clusterSize]
             waitFor tracer 3 nodes $
-              output "ReadyToCommit" ["parties" .= Set.fromList (map int [1 .. fromIntegral clusterSize])]
+              output "ReadyToCommit" ["parties" .= parties]
 
             expectedUtxo <- commit nodes dataset
 
