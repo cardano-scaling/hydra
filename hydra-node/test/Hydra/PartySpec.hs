@@ -43,4 +43,7 @@ spec = do
     prop "is antisymmetric" $ \(x :: Party, y) ->
       (x <= y && y <= x) == (x == y)
 
+  prop "implements Eq and Ord correspondingly" $ \(x :: Party, y) ->
+    (compare x y == EQ) == (x == y)
+
   roundtripAndGoldenSpecs (Proxy @Party)
