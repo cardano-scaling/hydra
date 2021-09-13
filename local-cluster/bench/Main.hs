@@ -3,8 +3,9 @@ module Main where
 import Hydra.Prelude
 import Test.Hydra.Prelude
 
-import Bench.EndToEnd (bench, generateDataset)
+import Bench.EndToEnd (bench)
 import Data.Aeson (eitherDecodeFileStrict', encodeFile)
+import Hydra.Generator (generateConstantUtxoDataset)
 import Options.Applicative (
   Parser,
   ParserInfo,
@@ -115,7 +116,7 @@ main =
 
   play scalingFactor concurrency timeoutSeconds clusterSize benchDir = do
     numberOfTxs <- generate $ scale (* scalingFactor) getSize
-    dataset <- replicateM concurrency (generateDataset numberOfTxs)
+    dataset <- replicateM concurrency (generateConstantUtxoDataset numberOfTxs)
     saveDataset benchDir dataset
     run timeoutSeconds benchDir dataset clusterSize
 
