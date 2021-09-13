@@ -51,6 +51,7 @@
           (hsPkgs."containers" or (errorHandler.buildDepError "containers"))
           (hsPkgs."contra-tracer" or (errorHandler.buildDepError "contra-tracer"))
           (hsPkgs."data-default" or (errorHandler.buildDepError "data-default"))
+          (hsPkgs."filepath" or (errorHandler.buildDepError "filepath"))
           (hsPkgs."gitrev" or (errorHandler.buildDepError "gitrev"))
           (hsPkgs."hydra-plutus" or (errorHandler.buildDepError "hydra-plutus"))
           (hsPkgs."hydra-prelude" or (errorHandler.buildDepError "hydra-prelude"))
@@ -105,6 +106,7 @@
           "Hydra/Node"
           "Hydra/Node/Version"
           "Hydra/Options"
+          "Hydra/Party"
           "Hydra/ServerOutput"
           "Hydra/Snapshot"
           ];
@@ -203,6 +205,7 @@
             "Hydra/NetworkSpec"
             "Hydra/NodeSpec"
             "Hydra/OptionsSpec"
+            "Hydra/PartySpec"
             "Hydra/ServerOutputSpec"
             "Hydra/SnapshotStrategySpec"
             "Paths_hydra_node"
