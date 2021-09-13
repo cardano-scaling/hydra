@@ -32,8 +32,9 @@ import Data.Scientific (Scientific)
 import Data.Set ((\\))
 import qualified Data.Set as Set
 import Data.Time (nominalDiffTimeToSeconds)
+import Hydra.Generator (Dataset (..))
 import Hydra.Ledger (Tx, TxId, Utxo, txId)
-import Hydra.Ledger.Cardano (CardanoTx, genFixedSizeSequenceOfValidTransactions, genUtxo)
+import Hydra.Ledger.Cardano (CardanoTx)
 import Hydra.Logging (showLogsOnFailure)
 import Hydra.Party (deriveParty, generateKey)
 import HydraNode (
@@ -50,7 +51,6 @@ import HydraNode (
   withNewClient,
  )
 import System.FilePath ((</>))
-import Test.QuickCheck (generate)
 import Text.Printf (printf)
 
 aliceSk, bobSk, carolSk :: SignKeyDSIGN MockDSIGN
@@ -62,18 +62,6 @@ aliceVk, bobVk, carolVk :: VerKeyDSIGN MockDSIGN
 aliceVk = deriveVerKeyDSIGN aliceSk
 bobVk = deriveVerKeyDSIGN bobSk
 carolVk = deriveVerKeyDSIGN carolSk
-
-data Dataset = Dataset
-  { initialUtxo :: Utxo CardanoTx
-  , transactionsSequence :: [CardanoTx]
-  }
-  deriving (Eq, Show, Generic, ToJSON, FromJSON)
-
-generateDataset :: Int -> IO Dataset
-generateDataset sequenceLength = do
-  initialUtxo <- generate genUtxo
-  transactionsSequence <- generate $ genFixedSizeSequenceOfValidTransactions sequenceLength initialUtxo
-  pure Dataset{initialUtxo, transactionsSequence}
 
 data Event = Event
   { submittedAt :: UTCTime
