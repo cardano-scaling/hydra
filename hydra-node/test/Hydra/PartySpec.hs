@@ -7,6 +7,7 @@ import Test.Hydra.Prelude
 
 import Hydra.Party (Party (..))
 import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
+import Test.QuickCheck ((==>))
 
 spec :: Spec
 spec = do
@@ -24,11 +25,22 @@ spec = do
       Party{alias = Nothing, vkey = 10} /= Party{alias = Just "Bob", vkey = 10}
 
   describe "Ord" $ do
-    it "first orders aliases" $
+    it "orders by alias first" $
       Party{alias = Just "Alice", vkey = 20} <= Party{alias = Just "Bob", vkey = 10}
+    it "orders by vkey second" $
+      Party{alias = Just "Alice", vkey = 20} <= Party{alias = Just "Alice", vkey = 30}
     it "prefers aliased keys" $
-      Party{alias = Just "Alice", vkey = 10} <= Party{alias = Nothing, vkey = 10}
+      Party{alias = Just "Alice", vkey = 20} <= Party{alias = Nothing, vkey = 10}
     it "orders by vkey otherwise" $
       Party{alias = Nothing, vkey = 10} <= Party{alias = Nothing, vkey = 20}
+    it "orders by vkey otherwise 2" $
+      Party{alias = Nothing, vkey = 20} >= Party{alias = Nothing, vkey = 10}
+
+    prop "is transitive" $ \(x :: Party, y, z) ->
+      x <= y && y <= z ==> x <= z
+    prop "is reflexive" $ \(x :: Party) ->
+      x <= x
+    prop "is antisymmetric" $ \(x :: Party, y) ->
+      (x <= y && y <= x) == (x == y)
 
   roundtripAndGoldenSpecs (Proxy @Party)

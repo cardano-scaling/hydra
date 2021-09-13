@@ -41,10 +41,20 @@ instance Show Party where
       Nothing -> ""
       Just a -> a <> "@"
 
+-- NOTE(SN): This instance is ordering aliased parties in front of unaliased
+-- parties. It is covered well by tests, but I don't feel too comfortable in
+-- implementing such low-level instances, which could impact 'Set' behavior.
 instance Ord Party where
   a <= b =
-    alias a <= alias b
-      || rawSerialiseVerKeyDSIGN (vkey a) <= rawSerialiseVerKeyDSIGN (vkey b)
+    case (alias a, alias b) of
+      (Just _, Just _) -> compareAliases || compareKeys
+      (Just _, Nothing) -> True
+      (Nothing, Just _) -> True
+      _ -> compareKeys
+   where
+    compareAliases = alias a <= alias b
+
+    compareKeys = rawSerialiseVerKeyDSIGN (vkey a) <= rawSerialiseVerKeyDSIGN (vkey b)
 
 instance Arbitrary Party where
   arbitrary = deriveParty . generateKey <$> arbitrary
