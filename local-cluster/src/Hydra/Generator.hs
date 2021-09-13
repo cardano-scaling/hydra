@@ -60,7 +60,7 @@ genConstantUtxoDataset len = do
     let txin = List.head $ utxoToList utxo
         tx = mkSimpleCardanoTx txin (mkVkAddress (verificationKey recipient), utxoValue utxo) keyPair
         utxo' = utxoFromTx tx
-    pure $ (utxo', recipient, tx : txs)
+    pure (utxo', recipient, tx : txs)
 
 mkCredentials :: Int -> CardanoKeyPair
 mkCredentials = generateWith genKeyPair
