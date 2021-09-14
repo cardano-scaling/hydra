@@ -16,7 +16,7 @@ import Cardano.Ledger.Val (coin, inject)
 import Data.List (nub, (!!), (\\))
 import qualified Data.Map.Strict as Map
 import Data.Version (showVersion)
-import Graphics.Vty (Event (EvKey), Key (..), Modifier (..), blue, defaultConfig, green, mkVty, red, yellow)
+import Graphics.Vty (Event (EvKey), Key (..), Modifier (..), brightBlue, defaultConfig, green, mkVty, red, yellow)
 import qualified Graphics.Vty as Vty
 import Graphics.Vty.Attributes (defAttr)
 import Hydra.Client (Client (Client, sendInput), HydraEvent (..), withClient)
@@ -371,7 +371,7 @@ draw s =
   drawInfo =
     hLimit 75 $
       vBox
-        [ padLeftRight 1 $ tuiVersion <+> nodeStatus
+        [ padLeftRight 1 $ tuiVersion <+> padLeft (Pad 1) nodeStatus
         , hBorder
         , padLeftRight 1 ownParty
         , padLeftRight 1 ownAddress
@@ -381,7 +381,7 @@ draw s =
         , padLeftRight 1 drawParties
         ]
    where
-    tuiVersion = str "Hydra TUI " <+> withAttr info (str (showVersion version))
+    tuiVersion = str "Hydra TUI " <+> str (showVersion version)
 
     ownParty =
       case s ^. meL of
@@ -467,7 +467,7 @@ draw s =
     Disconnected -> emptyWidget
     Connected ->
       vBox
-        [ padLeftRight 1 $ str $ "Head status: " <> toString (Prelude.head $ words $ show $ s ^. headStateL)
+        [ padLeftRight 1 $ txt "Head status: " <+> withAttr info (txt $ Prelude.head (words $ show $ s ^. headStateL))
         , hBorder
         ]
 
@@ -585,7 +585,7 @@ style :: State -> AttrMap
 style _ =
   attrMap
     defAttr
-    [ (info, fg blue)
+    [ (info, fg brightBlue)
     , (negative, fg red)
     , (positive, fg green)
     , (own, fg yellow)
