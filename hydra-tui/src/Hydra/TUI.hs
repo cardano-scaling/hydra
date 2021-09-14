@@ -113,6 +113,7 @@ data HeadState
   | Initializing {parties :: [Party], remainingParties :: [Party], utxo :: Utxo CardanoTx}
   | Open {parties :: [Party], utxo :: Utxo CardanoTx}
   | Closed {contestationDeadline :: UTCTime}
+  | Final {utxo :: Utxo CardanoTx}
   deriving (Eq, Show, Generic)
 
 type Name = Text
@@ -215,8 +216,8 @@ handleAppEvent s = \case
   Update HeadIsClosed{contestationDeadline} ->
     s & headStateL .~ Closed{contestationDeadline}
       & feedbackL ?~ UserFeedback Info "Head closed."
-  Update HeadIsFinalized{} ->
-    s & headStateL .~ Ready
+  Update HeadIsFinalized{utxo} ->
+    s & headStateL .~ Final{utxo}
       & feedbackL ?~ UserFeedback Info "Head finalized."
   Update TxSeen{} ->
     s
@@ -370,8 +371,7 @@ draw s =
   drawInfo =
     hLimit 75 $
       vBox
-        [ padLeftRight 1 tuiVersion
-        , padLeftRight 1 nodeStatus
+        [ padLeftRight 1 $ tuiVersion <+> nodeStatus
         , hBorder
         , padLeftRight 1 ownParty
         , padLeftRight 1 ownAddress
@@ -381,7 +381,7 @@ draw s =
         , padLeftRight 1 drawParties
         ]
    where
-    tuiVersion = str "Hydra TUI  " <+> withAttr info (str (showVersion version))
+    tuiVersion = str "Hydra TUI " <+> withAttr info (str (showVersion version))
 
     ownParty =
       case s ^. meL of
@@ -395,8 +395,8 @@ draw s =
 
     nodeStatus =
       case s ^. clientStateL of
-        Disconnected -> withAttr negative $ str $ "Connecting to " <> show (s ^. nodeHostL)
-        Connected -> withAttr positive $ str $ "Connected to " <> show (s ^. nodeHostL)
+        Disconnected -> withAttr negative $ str $ "connecting to " <> show (s ^. nodeHostL)
+        Connected -> withAttr positive $ str $ "connected to " <> show (s ^. nodeHostL)
 
   drawRightPanel =
     case s ^? dialogStateL of
@@ -437,7 +437,9 @@ draw s =
           Open{utxo} ->
             withCommands
               [ drawHeadState
-              , padLeftRight 1 $ drawUtxo utxo
+              , padLeftRight 1 $
+                  txt ("Head UTXO (" <> prettyBalance (balance @CardanoTx utxo) <> ")")
+                    <=> padLeft (Pad 2) (drawUtxo utxo)
               ]
               [ "[N]ew Transaction"
               , "[C]lose"
@@ -449,6 +451,16 @@ draw s =
               , padLeftRight 1 $ str $ "Contestation deadline: " <> show contestationDeadline
               ]
               [ "[Q]uit"
+              ]
+          Final{utxo} ->
+            withCommands
+              [ drawHeadState
+              , padLeftRight 1 $
+                  txt ("Distributed UTXO (" <> prettyBalance (balance @CardanoTx utxo) <> ")")
+                    <=> padLeft (Pad 2) (drawUtxo utxo)
+              ]
+              [ "[I]nit"
+              , "[Q]uit"
               ]
 
   drawHeadState = case s ^. clientStateL of
@@ -466,16 +478,12 @@ draw s =
             mempty
             m
      in vBox
-          [ str $ toString $ "Head UTXO (" <> prettyBalance (balance @CardanoTx (UTxO m)) <> ")"
-          , padLeft (Pad 2) $
-              vBox
-                [ padTop (Pad 1) $
-                  vBox
-                    [ drawAddress addr
-                    , padLeft (Pad 2) $ vBox (str . toString . prettyUtxo <$> u)
-                    ]
-                | (addr, u) <- Map.toList byAddress
-                ]
+          [ padTop (Pad 1) $
+            vBox
+              [ drawAddress addr
+              , padLeft (Pad 2) $ vBox (str . toString . prettyUtxo <$> u)
+              ]
+          | (addr, u) <- Map.toList byAddress
           ]
 
   drawAddress addr =
