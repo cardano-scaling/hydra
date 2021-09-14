@@ -15,6 +15,7 @@ import Brick.Widgets.Border.Style (ascii)
 import Cardano.Ledger.Val (coin, inject)
 import Data.List (nub, (!!), (\\))
 import qualified Data.Map.Strict as Map
+import qualified Data.Text as Text
 import Data.Version (showVersion)
 import Graphics.Vty (Event (EvKey), Key (..), Modifier (..), brightBlue, defaultConfig, green, mkVty, red, yellow)
 import qualified Graphics.Vty as Vty
@@ -367,15 +368,13 @@ draw s =
           ]
  where
   drawInfo =
-    hLimit 75 $
+    hLimit 50 $
       vBox
         [ padLeftRight 1 $ tuiVersion <+> padLeft (Pad 1) nodeStatus
+        , padLeftRight 1 drawPeers
         , hBorder
         , padLeftRight 1 ownParty
         , padLeftRight 1 ownAddress
-        , hBorder
-        , padLeftRight 1 drawPeers
-        , hBorder
         , padLeftRight 1 drawParties
         ]
    where
@@ -389,7 +388,9 @@ draw s =
     ownAddress =
       case s ^. meL of
         Nothing -> emptyWidget
-        Just me -> str "Address " <+> withAttr own (txt $ encodeAddress (getAddress me))
+        Just me -> str "Address " <+> withAttr own (txt $ ellipsize 40 $ encodeAddress (getAddress me))
+
+    ellipsize n t = Text.take (n -2) t <> ".."
 
     nodeStatus =
       case s ^. clientStateL of
@@ -436,7 +437,7 @@ draw s =
             withCommands
               [ drawHeadState
               , padLeftRight 1 $
-                  txt ("Head UTXO (" <> prettyBalance (balance @CardanoTx utxo) <> ")")
+                  txt ("Head UTXO, total: " <> prettyBalance (balance @CardanoTx utxo))
                     <=> padLeft (Pad 2) (drawUtxo utxo)
               ]
               [ "[N]ew Transaction"
@@ -454,7 +455,7 @@ draw s =
             withCommands
               [ drawHeadState
               , padLeftRight 1 $
-                  txt ("Distributed UTXO (" <> prettyBalance (balance @CardanoTx utxo) <> ")")
+                  txt ("Distributed UTXO, total: " <> prettyBalance (balance @CardanoTx utxo))
                     <=> padLeft (Pad 2) (drawUtxo utxo)
               ]
               [ "[I]nit"
@@ -492,7 +493,7 @@ draw s =
 
   withCommands panel cmds =
     hBox
-      [ hLimit 80 (vBox panel)
+      [ hLimit 70 (vBox panel)
       , vBorder
       , padLeftRight 1 $ vBox (str <$> cmds)
       ]
