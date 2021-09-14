@@ -268,11 +268,9 @@ handleDialogEvent (title, form, submit) s = \case
     handleDialogEvent (title, form, submit) s (EvKey KBackTab [])
   EvKey KDown [] ->
     handleDialogEvent (title, form, submit) s (EvKey (KChar '\t') [])
-  EvKey KEnter [] ->
-    handleDialogEvent (title, form, submit) s (EvKey (KChar ' ') [])
   EvKey KEsc [] ->
     continue $ s & dialogStateL .~ NoDialog
-  EvKey (KChar '>') [] -> do
+  EvKey KEnter [] -> do
     submit s (formState form)
   e -> do
     form' <- handleFormEvent (VtyEvent e) form
@@ -409,8 +407,8 @@ draw s =
           [ "[Esc] Cancel"
           , "[↑] Move Up"
           , "[↓] Move Down"
-          , "[↲] Select"
-          , "[>] Confirm"
+          , "[Space] Select"
+          , "[Enter] Confirm"
           ]
       _ ->
         -- TODO: Only show available commands.
