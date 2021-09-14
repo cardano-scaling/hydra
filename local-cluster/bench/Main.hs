@@ -5,12 +5,13 @@ import Test.Hydra.Prelude
 
 import Bench.EndToEnd (bench)
 import Data.Aeson (eitherDecodeFileStrict', encodeFile)
-import Hydra.Generator (generateConstantUtxoDataset)
+import Hydra.Generator (generateConstantUtxoDataset, generateDataset)
 import Options.Applicative (
   Parser,
   ParserInfo,
   auto,
   execParser,
+  flag,
   fullDesc,
   header,
   help,
@@ -34,7 +35,10 @@ data Options = Options
   , concurrency :: Int
   , timeoutSeconds :: DiffTime
   , clusterSize :: Word64
+  , constantUtxo :: GeneratorType
   }
+
+data GeneratorType = LargeTxs | ConstantUtxo
 
 benchOptionsParser :: Parser Options
 benchOptionsParser =
@@ -84,6 +88,13 @@ benchOptionsParser =
             <> help
               "The number of Hydra nodes to start and connect (default: 3)"
         )
+      <*> flag
+        LargeTxs
+        ConstantUtxo
+        ( long "constant-utxo"
+            <> help
+              "If set, generate transactions s.t. the size of UTXO set stays small and constant"
+        )
 
 benchOptions :: ParserInfo Options
 benchOptions =
@@ -94,31 +105,36 @@ benchOptions =
           "Starts a cluster of Hydra nodes interconnected through a network and \
           \ talking to mock-chain, generates an initial UTxO set and a bunch \
           \ of valid transactions, and send those transactions to the cluster as \
-          \ fast as possible."
+          \ fast as possible.\n \
+          \ Arguments can control various parameters of the run, like number of ndoes, \
+          \ number of clients or type of transactions generater..."
         <> header "bench - load tester for Hydra node cluster"
     )
 
 main :: IO ()
 main =
   execParser benchOptions >>= \case
-    Options{outputDirectory = Just benchDir, scalingFactor, concurrency, timeoutSeconds, clusterSize} -> do
+    Options{outputDirectory = Just benchDir, scalingFactor, concurrency, timeoutSeconds, clusterSize, constantUtxo} -> do
       existsDir <- doesDirectoryExist benchDir
       if existsDir
         then replay timeoutSeconds clusterSize benchDir
-        else createDirectory benchDir >> play scalingFactor concurrency timeoutSeconds clusterSize benchDir
-    Options{scalingFactor, concurrency, timeoutSeconds, clusterSize} ->
-      createSystemTempDirectory "bench" >>= play scalingFactor concurrency timeoutSeconds clusterSize
+        else createDirectory benchDir >> play scalingFactor concurrency timeoutSeconds clusterSize constantUtxo benchDir
+    Options{scalingFactor, concurrency, timeoutSeconds, clusterSize, constantUtxo} ->
+      createSystemTempDirectory "bench" >>= play scalingFactor concurrency timeoutSeconds clusterSize constantUtxo
  where
+  play scalingFactor concurrency timeoutSeconds clusterSize constantUtxo benchDir = do
+    let generator = case constantUtxo of
+          LargeTxs -> generateDataset
+          ConstantUtxo -> generateConstantUtxoDataset
+    numberOfTxs <- generate $ scale (* scalingFactor) getSize
+    dataset <- replicateM concurrency (generator numberOfTxs)
+    saveDataset benchDir dataset
+    run timeoutSeconds benchDir dataset clusterSize
+
   replay timeoutSeconds clusterSize benchDir = do
     datasets <- either die pure =<< eitherDecodeFileStrict' (benchDir </> "dataset.json")
     putStrLn $ "Using UTxO and Transactions from: " <> benchDir
     run timeoutSeconds benchDir datasets clusterSize
-
-  play scalingFactor concurrency timeoutSeconds clusterSize benchDir = do
-    numberOfTxs <- generate $ scale (* scalingFactor) getSize
-    dataset <- replicateM concurrency (generateConstantUtxoDataset numberOfTxs)
-    saveDataset benchDir dataset
-    run timeoutSeconds benchDir dataset clusterSize
 
   -- TODO(SN): Ideally we would like to say "to re-run use ... " on errors
   run timeoutSeconds benchDir datasets clusterSize =
