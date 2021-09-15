@@ -116,15 +116,15 @@ benchOptions =
 main :: IO ()
 main =
   execParser benchOptions >>= \case
-    Options{outputDirectory = Just benchDir, scalingFactor, concurrency, timeoutSeconds, clusterSize, generatorScenario} -> do
+    o@Options{outputDirectory = Just benchDir} -> do
       existsDir <- doesDirectoryExist benchDir
       if existsDir
-        then replay timeoutSeconds clusterSize benchDir
-        else createDirectory benchDir >> play scalingFactor concurrency timeoutSeconds clusterSize generatorScenario benchDir
-    Options{scalingFactor, concurrency, timeoutSeconds, clusterSize, generatorScenario} ->
-      createSystemTempDirectory "bench" >>= play scalingFactor concurrency timeoutSeconds clusterSize generatorScenario
+        then replay o benchDir
+        else createDirectory benchDir >> play o benchDir
+    o ->
+      createSystemTempDirectory "bench" >>= play o
  where
-  play scalingFactor concurrency timeoutSeconds clusterSize generatorScenario benchDir = do
+  play Options{scalingFactor, concurrency, timeoutSeconds, clusterSize, generatorScenario} benchDir = do
     let generator = case generatorScenario of
           GrowingUtxo -> generateDataset
           ConstantUtxo -> generateConstantUtxoDataset
@@ -133,7 +133,7 @@ main =
     saveDataset benchDir dataset
     run timeoutSeconds benchDir dataset clusterSize
 
-  replay timeoutSeconds clusterSize benchDir = do
+  replay Options{timeoutSeconds, clusterSize} benchDir = do
     datasets <- either die pure =<< eitherDecodeFileStrict' (benchDir </> "dataset.json")
     putStrLn $ "Using UTxO and Transactions from: " <> benchDir
     run timeoutSeconds benchDir datasets clusterSize
