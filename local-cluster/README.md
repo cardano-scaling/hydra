@@ -30,3 +30,5 @@ Created plot: /run/user/1000/bench-6b772589d08f82a5/results.png
 ```
 
 The benchmark provides several options for running, check `cabal bench --benchmark-options --help` for details.
+
+See [this README](./bench/README.md) for more details on benchmark run results interpretation.
