@@ -24,6 +24,7 @@ import Ouroboros.Network.Channel (Channel (..))
 spec :: Spec
 spec = parallel $ do
   it "publishes init tx and observes it also" $ do
+    pendingWith "not implemented"
     withTestNodeToClientServer $ \connectToChain -> do
       calledBackAlice <- newEmptyMVar
       calledBackBob <- newEmptyMVar

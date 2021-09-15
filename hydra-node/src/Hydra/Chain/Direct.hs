@@ -5,13 +5,11 @@ module Hydra.Chain.Direct where
 
 import Cardano.Binary (serialize)
 import Hydra.Chain (Chain (..), ChainComponent, toOnChainTx)
-import Hydra.Ledger (Tx)
 import Hydra.Logging (Tracer)
 import Hydra.Prelude
 import Ouroboros.Network.Channel (Channel (Channel, send))
 
 withDirectChain ::
-  Tx tx =>
   IO (Channel IO LByteString) ->
   Tracer IO DirectChainLog ->
   ChainComponent tx IO ()
