@@ -19,24 +19,33 @@ import Hydra.Chain.Direct (withDirectChain)
 import Hydra.Ledger.Simple (SimpleTx)
 import Hydra.Logging (nullTracer)
 import Hydra.Party (Party, deriveParty, generateKey)
-import Ouroboros.Network.Channel (Channel)
+import Ouroboros.Network.Channel (Channel (..))
 
 spec :: Spec
 spec = parallel $ do
-  it "publishes init tx and observes it also" $
-    failAfter 10 $
-      withTestServer $ \connectToChain -> do
-        calledBackAlice <- newEmptyMVar
-        calledBackBob <- newEmptyMVar
-        withDirectChain connectToChain nullTracer (putMVar calledBackAlice) $ \Chain{postTx} -> do
-          withDirectChain connectToChain nullTracer (putMVar calledBackBob) $ \_ -> do
-            let parameters = HeadParameters 100 [alice, bob, carol]
-            postTx $ InitTx @SimpleTx parameters
+  it "publishes init tx and observes it also" $ do
+    withTestServer $ \connectToChain -> do
+      calledBackAlice <- newEmptyMVar
+      calledBackBob <- newEmptyMVar
+      withDirectChain connectToChain nullTracer (putMVar calledBackAlice) $ \Chain{postTx} -> do
+        withDirectChain connectToChain nullTracer (putMVar calledBackBob) $ \_ -> do
+          let parameters = HeadParameters 100 [alice, bob, carol]
+          postTx $ InitTx @SimpleTx parameters
+          failAfter 5 $
             takeMVar calledBackAlice `shouldReturn` OnInitTx 100 [alice, bob, carol]
+          failAfter 5 $
             takeMVar calledBackBob `shouldReturn` OnInitTx @SimpleTx 100 [alice, bob, carol]
 
-withTestServer :: (m (Channel m LByteString) -> m ()) -> m ()
-withTestServer _action = error "undefined"
+withTestServer :: (IO (Channel IO LByteString) -> IO ()) -> IO ()
+withTestServer action = do
+  action connect
+ where
+  connect =
+    pure $
+      Channel
+        { send = const $ pure ()
+        , recv = pure Nothing
+        }
 
 alice, bob, carol :: Party
 alice = deriveParty $ generateKey 10
