@@ -599,8 +599,8 @@ genOneUtxoFor vk = do
   output <- scale (const 1) $ genOutput vk
   pure $ Cardano.UTxO $ Map.singleton input output
 
-size :: Utxo CardanoTx -> Int
-size = length . Cardano.unUTxO
+utxoSize :: Utxo CardanoTx -> Int
+utxoSize = length . Cardano.unUTxO
 
 utxoToList :: Utxo CardanoTx -> [(TxIn, TxOut)]
 utxoToList = Map.toList . Cardano.unUTxO

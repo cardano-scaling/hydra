@@ -35,10 +35,10 @@ data Options = Options
   , concurrency :: Int
   , timeoutSeconds :: DiffTime
   , clusterSize :: Word64
-  , constantUtxo :: GeneratorType
+  , generatorScenario :: GeneratorScenario
   }
 
-data GeneratorType = LargeTxs | ConstantUtxo
+data GeneratorScenario = GrowingUtxo | ConstantUtxo
 
 benchOptionsParser :: Parser Options
 benchOptionsParser =
@@ -89,11 +89,13 @@ benchOptionsParser =
               "The number of Hydra nodes to start and connect (default: 3)"
         )
       <*> flag
-        LargeTxs
+        GrowingUtxo
         ConstantUtxo
         ( long "constant-utxo"
             <> help
-              "If set, generate transactions s.t. the size of UTXO set stays small and constant"
+              "If set, generates transactions s.t. the size of UTXO set stays small and constant. \
+              \ If not set, generates 'arbitrary' and potentially large transactions that make the \
+              \ UTXO set grow."
         )
 
 benchOptions :: ParserInfo Options
@@ -106,25 +108,25 @@ benchOptions =
           \ talking to mock-chain, generates an initial UTxO set and a bunch \
           \ of valid transactions, and send those transactions to the cluster as \
           \ fast as possible.\n \
-          \ Arguments can control various parameters of the run, like number of ndoes, \
-          \ number of clients or type of transactions generater..."
+          \ Arguments can control various parameters of the run, like number of nodes, \
+          \ number of clients or type of transactions generated..."
         <> header "bench - load tester for Hydra node cluster"
     )
 
 main :: IO ()
 main =
   execParser benchOptions >>= \case
-    Options{outputDirectory = Just benchDir, scalingFactor, concurrency, timeoutSeconds, clusterSize, constantUtxo} -> do
+    Options{outputDirectory = Just benchDir, scalingFactor, concurrency, timeoutSeconds, clusterSize, generatorScenario} -> do
       existsDir <- doesDirectoryExist benchDir
       if existsDir
         then replay timeoutSeconds clusterSize benchDir
-        else createDirectory benchDir >> play scalingFactor concurrency timeoutSeconds clusterSize constantUtxo benchDir
-    Options{scalingFactor, concurrency, timeoutSeconds, clusterSize, constantUtxo} ->
-      createSystemTempDirectory "bench" >>= play scalingFactor concurrency timeoutSeconds clusterSize constantUtxo
+        else createDirectory benchDir >> play scalingFactor concurrency timeoutSeconds clusterSize generatorScenario benchDir
+    Options{scalingFactor, concurrency, timeoutSeconds, clusterSize, generatorScenario} ->
+      createSystemTempDirectory "bench" >>= play scalingFactor concurrency timeoutSeconds clusterSize generatorScenario
  where
-  play scalingFactor concurrency timeoutSeconds clusterSize constantUtxo benchDir = do
-    let generator = case constantUtxo of
-          LargeTxs -> generateDataset
+  play scalingFactor concurrency timeoutSeconds clusterSize generatorScenario benchDir = do
+    let generator = case generatorScenario of
+          GrowingUtxo -> generateDataset
           ConstantUtxo -> generateConstantUtxoDataset
     numberOfTxs <- generate $ scale (* scalingFactor) getSize
     dataset <- replicateM concurrency (generator numberOfTxs)
