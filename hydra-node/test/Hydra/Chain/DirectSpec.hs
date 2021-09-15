@@ -19,16 +19,24 @@ import Hydra.Chain.Direct (withDirectChain)
 import Hydra.Ledger.Simple (SimpleTx)
 import Hydra.Logging (nullTracer)
 import Hydra.Party (Party, deriveParty, generateKey)
+import Ouroboros.Network.Channel (Channel)
 
 spec :: Spec
 spec = parallel $ do
-  it "publishes init tx and observes it also" $ do
-    calledBackAlice <- newEmptyMVar
-    -- calledBackBob <- newEmptyMVar
-    withDirectChain nullTracer (putMVar calledBackAlice) $ \Chain{postTx} -> do
-      let parameters = HeadParameters 100 [alice, bob, carol]
-      postTx $ InitTx @SimpleTx parameters
-      takeMVar calledBackAlice `shouldReturn` OnInitTx 100 [alice, bob, carol]
+  it "publishes init tx and observes it also" $
+    failAfter 10 $
+      withTestServer $ \connectToChain -> do
+        calledBackAlice <- newEmptyMVar
+        calledBackBob <- newEmptyMVar
+        withDirectChain connectToChain nullTracer (putMVar calledBackAlice) $ \Chain{postTx} -> do
+          withDirectChain connectToChain nullTracer (putMVar calledBackBob) $ \_ -> do
+            let parameters = HeadParameters 100 [alice, bob, carol]
+            postTx $ InitTx @SimpleTx parameters
+            takeMVar calledBackAlice `shouldReturn` OnInitTx 100 [alice, bob, carol]
+            takeMVar calledBackBob `shouldReturn` OnInitTx @SimpleTx 100 [alice, bob, carol]
+
+withTestServer :: (m (Channel m LByteString) -> m ()) -> m ()
+withTestServer _action = error "undefined"
 
 alice, bob, carol :: Party
 alice = deriveParty $ generateKey 10

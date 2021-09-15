@@ -6,11 +6,13 @@ module Hydra.Chain.Direct where
 import Hydra.Chain (Chain (..), ChainComponent, OnChainTx, PostChainTx, toOnChainTx)
 import Hydra.Logging (Tracer)
 import Hydra.Prelude
+import Ouroboros.Network.Channel (Channel)
 
 withDirectChain ::
+  IO (Channel IO LByteString) ->
   Tracer IO DirectChainLog ->
   ChainComponent tx IO ()
-withDirectChain _tracer callback action = do
+withDirectChain _connect _tracer callback action = do
   let chain =
         Chain
           { postTx = postTxToOnChainTx >=> callback
