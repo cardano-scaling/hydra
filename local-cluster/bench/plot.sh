@@ -11,7 +11,7 @@ set -e
 
 RESULTS=$1
 DIR=$(dirname ${RESULTS})
-COUNT=$(cat ${RESULTS} | wc -l)
+COUNT=$(tail -n +2 ${RESULTS} | wc -l)
 NAME=$(basename ${DIR})
 
 gnuplot <<EOF
