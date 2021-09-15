@@ -3,17 +3,23 @@
 -- observing the chain using it as well.
 module Hydra.Chain.Direct where
 
-import Hydra.Chain (ChainComponent)
-import Hydra.Ledger (Tx)
+import Hydra.Chain (Chain (..), ChainComponent, OnChainTx, PostChainTx, toOnChainTx)
 import Hydra.Logging (Tracer)
 import Hydra.Prelude
 
 withDirectChain ::
-  forall tx.
-  Tx tx =>
   Tracer IO DirectChainLog ->
   ChainComponent tx IO ()
-withDirectChain _tracer _callback _action =
-  error "not implemented"
+withDirectChain _tracer callback action = do
+  let chain =
+        Chain
+          { postTx = postTxToOnChainTx >=> callback
+          }
+  action chain
+ where
+  postTxToOnChainTx :: (MonadTime m) => PostChainTx tx -> m (OnChainTx tx)
+  postTxToOnChainTx tx = do
+    now <- getCurrentTime
+    pure (toOnChainTx now tx)
 
 data DirectChainLog

@@ -23,11 +23,12 @@ import Hydra.Party (Party, deriveParty, generateKey)
 spec :: Spec
 spec = parallel $ do
   it "publishes init tx and observes it also" $ do
-    calledBack <- newEmptyMVar
-    withDirectChain nullTracer (putMVar calledBack) $ \Chain{postTx} -> do
+    calledBackAlice <- newEmptyMVar
+    -- calledBackBob <- newEmptyMVar
+    withDirectChain nullTracer (putMVar calledBackAlice) $ \Chain{postTx} -> do
       let parameters = HeadParameters 100 [alice, bob, carol]
       postTx $ InitTx @SimpleTx parameters
-      takeMVar calledBack `shouldReturn` OnInitTx 100 [alice, bob, carol]
+      takeMVar calledBackAlice `shouldReturn` OnInitTx 100 [alice, bob, carol]
 
 alice, bob, carol :: Party
 alice = deriveParty $ generateKey 10
