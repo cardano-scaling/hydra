@@ -26,11 +26,11 @@ set format x "%H:%M:%S"
 set ytics nomirror
 set y2tics 0, 10
 set y2range [0:]
-set y2label "Tx submitted/time interval (5s)"
+set y2label "Submitted Tx / s"
 set datafile separator ","
 plot "${RESULTS}" u (timecolumn(1,"%Y-%m-%d %H:%M:%S")):3 t 'Tx Confirmation over time' axis x1y1, \
      "${RESULTS}" u (timecolumn(1,"%Y-%m-%d %H:%M:%S")):2 t 'Tx Validation time' w histeps axis x1y1, \
-     "${RESULTS}" u (timecolumn(1, "%Y-%m-%d %H:%M:%S UTC")):(1.0) bins binwidth=5 w histeps axis x1y2 t '# Tx submitted'
+     "${RESULTS}" u (timecolumn(1, "%Y-%m-%d %H:%M:%S UTC")):(1.0) bins binwidth=1 w histeps axis x1y2 t 'Submitted Tx/s'
 EOF
 
 echo "Created plot: ${DIR}/results.png"
