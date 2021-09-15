@@ -72,7 +72,7 @@ data Event = Event
 
 bench :: DiffTime -> FilePath -> [Dataset] -> Word64 -> Spec
 bench timeoutSeconds workDir dataset clusterSize =
-  specify ("Load test on three local nodes (" <> workDir <> ")") $ do
+  specify ("Load test on " <> show clusterSize <> " local nodes in " <> workDir) $ do
     showLogsOnFailure $ \tracer ->
       failAfter timeoutSeconds $ do
         withMockChain $ \chainPorts ->
