@@ -103,7 +103,11 @@ This one a is a bit involved as it requires both extracting information from the
   ```
   $ cat log.1 | grep ProcessedEffect | grep SnapshotConfirmed | jq -cr '{ts:.timestamp, txs: .message.effect.serverOutput.snapshot.confirmedTransactions[]}' | jq -cr '[.txs, .ts]' > tx-confirmed-time.json
   ```
-* Generate a UTXO size growth per transaction id (see [this haskell script](./utxo-size.hs)),
+* Generate a UTXO size growth per transaction id (see [this haskell script](./utxo-size.hs))
+  ```
+  cd local-cluster
+  cabal run runghc utxo-size.hs -- tx-confirmed-time.json test/dataset.json
+  ```
 * Convert the 2 JSON files to CSV (exercise left to the reader):
   ```
   cat utxo-size.json | jq -cr '.[] | @csv' > utxo-size.csv
@@ -111,7 +115,7 @@ This one a is a bit involved as it requires both extracting information from the
   ```
 * Combine the two pieces into a single data file:
   ```
-  $ join -t ',' utxo-size.csv confirmed-txs.csv  | cut -d ',' -f 2- | tr -d \" | awk -F ',' '{ print $2, $1 }' | sort > utxo-time
+  $ join -t ',' utxo-size.csv confirmed-txs.csv  | cut -d ',' -f 2- | tr -d \" | awk -F ',' '{ print $2, $1 }' | sort > utxo-time.csv
   ```
 * Plot the data using this gnuplot script:
   ```
@@ -123,5 +127,5 @@ This one a is a bit involved as it requires both extracting information from the
   set xdata time
   set format x "%H:%M:%S"
   set ylabel "# UTXO"
-  plot 'utxo-time' u  (timecolumn(1,"%Y-%m-%dT%H:%M:%SZ")):2 w l t 'UTXO Set'
+  plot 'utxo-time'.csv u  (timecolumn(1,"%Y-%m-%dT%H:%M:%SZ")):2 w l t 'UTXO Set'
   ```
