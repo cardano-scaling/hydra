@@ -76,6 +76,7 @@ library
   exposed-modules:
     Hydra.API.Server
     Hydra.Chain
+    Hydra.Chain.Direct
     Hydra.Chain.ExternalPAB
     Hydra.Chain.ZeroMQ
     Hydra.ClientInput
@@ -184,6 +185,7 @@ test-suite tests
     Hydra.API.ServerSpec
     Hydra.APISpec
     Hydra.BehaviorSpec
+    Hydra.Chain.DirectSpec
     Hydra.Chain.ExternalPABSpec
     Hydra.Chain.ZeroMQSpec
     Hydra.ClientInputSpec
