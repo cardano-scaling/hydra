@@ -24,7 +24,7 @@ import Ouroboros.Network.Channel (Channel (..))
 spec :: Spec
 spec = parallel $ do
   it "publishes init tx and observes it also" $ do
-    withTestServer $ \connectToChain -> do
+    withTestNodeToClientServer $ \connectToChain -> do
       calledBackAlice <- newEmptyMVar
       calledBackBob <- newEmptyMVar
       withDirectChain connectToChain nullTracer (putMVar calledBackAlice) $ \Chain{postTx} -> do
@@ -36,10 +36,13 @@ spec = parallel $ do
           failAfter 5 $
             takeMVar calledBackBob `shouldReturn` OnInitTx @SimpleTx 100 [alice, bob, carol]
 
-withTestServer :: (IO (Channel IO LByteString) -> IO ()) -> IO ()
-withTestServer action = do
+-- | Mock implementation of for a Node-to-Client protocol server which should be
+-- accepting transactions and responding with new blocks containing them.
+withTestNodeToClientServer :: (IO (Channel IO LByteString) -> IO ()) -> IO ()
+withTestNodeToClientServer action = do
   action connect
  where
+  -- Provide a channel to a newly connected "component"
   connect =
     pure $
       Channel
