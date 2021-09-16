@@ -15,27 +15,41 @@ import Hydra.Chain (
   OnChainTx (OnInitTx),
   PostChainTx (InitTx),
  )
-import Hydra.Chain.Direct (withDirectChain)
+import Hydra.Chain.Direct (
+  defaultEpochSlots,
+  defaultNodeToClientVersionData,
+  withDirectChain,
+  withMockServer,
+ )
 import Hydra.Ledger.Simple (SimpleTx)
 import Hydra.Logging (nullTracer)
 import Hydra.Party (Party, deriveParty, generateKey)
 import Ouroboros.Network.Channel (Channel (..))
+import System.FilePath ((</>))
+import System.IO.Temp (withSystemTempDirectory)
 
 spec :: Spec
 spec = parallel $ do
   it "publishes init tx and observes it also" $ do
-    pendingWith "not implemented"
-    withTestNodeToClientServer $ \connectToChain -> do
-      calledBackAlice <- newEmptyMVar
-      calledBackBob <- newEmptyMVar
-      withDirectChain connectToChain nullTracer (putMVar calledBackAlice) $ \Chain{postTx} -> do
-        withDirectChain connectToChain nullTracer (putMVar calledBackBob) $ \_ -> do
-          let parameters = HeadParameters 100 [alice, bob, carol]
-          postTx $ InitTx @SimpleTx parameters
-          failAfter 5 $
-            takeMVar calledBackAlice `shouldReturn` OnInitTx 100 [alice, bob, carol]
-          failAfter 5 $
-            takeMVar calledBackBob `shouldReturn` OnInitTx @SimpleTx 100 [alice, bob, carol]
+    let params = (defaultNodeToClientVersionData, defaultEpochSlots)
+    withSystemTempDirectory "hydra-direct-spec" $ \dir -> do
+      let socket = dir </> "node.socket"
+      withMockServer params socket $ do
+        calledBackAlice <- newEmptyMVar
+        withDirectChain nullTracer params socket (putMVar calledBackAlice) $ \Chain{postTx} -> do
+          calledBackBob <- newEmptyMVar
+          withDirectChain nullTracer params socket (putMVar calledBackBob) $ \_ -> do
+            -- TODO: The server is still a mock at the moment, and returns
+            -- dummy data, but ideally we should have something like:
+            --
+            --   let paramaeters = HeadParameters 100 [alice, bob, carol]
+            --
+            let parameters = HeadParameters 42 []
+            postTx $ InitTx @SimpleTx parameters
+            failAfter 5 $
+              takeMVar calledBackAlice `shouldReturn` OnInitTx 42 []
+            failAfter 5 $
+              takeMVar calledBackBob `shouldReturn` OnInitTx @SimpleTx 42 []
 
 -- | Mock implementation of for a Node-to-Client protocol server which should be
 -- accepting transactions and responding with new blocks containing them.
