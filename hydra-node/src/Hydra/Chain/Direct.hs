@@ -17,6 +17,7 @@ import Cardano.Chain.Slotting (
 import Cardano.Ledger.Alonzo.Tx (
   ValidatedTx,
  )
+import Cardano.Ledger.Alonzo.TxSeq (txSeqTxns)
 import Cardano.Ledger.Crypto (
   StandardCrypto,
  )
@@ -88,8 +89,6 @@ import Ouroboros.Consensus.Network.NodeToClient (
 import Ouroboros.Consensus.Node.NetworkProtocolVersion (
   SupportedNetworkProtocolVersion (..),
  )
-
-import Cardano.Ledger.Alonzo.TxSeq (txSeqTxns)
 import Ouroboros.Consensus.Shelley.Ledger (
   ApplyTxError,
   ShelleyBlock (..),
@@ -100,6 +99,7 @@ import Ouroboros.Consensus.Shelley.Ledger.Config (
  )
 import Ouroboros.Consensus.Shelley.Ledger.Mempool (
   GenTx (..),
+  mkShelleyTx,
  )
 import Ouroboros.Network.Block (
   Point (..),
@@ -149,6 +149,7 @@ import Ouroboros.Network.Protocol.Handshake.Version (
   acceptableVersion,
  )
 import Ouroboros.Network.Protocol.LocalTxSubmission.Client (
+  LocalTxClientStIdle (..),
   LocalTxSubmissionClient (..),
   localTxSubmissionClientPeer,
  )
@@ -165,6 +166,7 @@ import Ouroboros.Network.Socket (
   withServerNode,
  )
 import qualified Shelley.Spec.Ledger.API as Ledger
+import Test.Cardano.Ledger.Alonzo.Serialisation.Generators ()
 
 data DirectChainLog
 
@@ -299,10 +301,28 @@ chainSyncClient callback =
      in OnInitTx contestationPeriod parties
 
 txSubmissionClient ::
+  forall m tx.
   MonadSTM m =>
   TQueue m (PostChainTx tx) ->
   LocalTxSubmissionClient (GenTx Block) (ApplyTxErr Block) m ()
-txSubmissionClient = undefined
+txSubmissionClient queue =
+  LocalTxSubmissionClient clientStIdle
+ where
+  clientStIdle :: m (LocalTxClientStIdle (GenTx Block) (ApplyTxErr Block) m ())
+  clientStIdle = do
+    tx <- atomically $ readTQueue queue
+    pure $ SendMsgSubmitTx (fromPostChainTx tx) (const clientStIdle)
+
+  -- FIXME
+  -- This is where we need signatures and client credentials. Ideally, we would
+  -- rather have this transaction constructed by clients, albeit with some help.
+  -- The hydra node could provide a pre-filled transaction body, and let the
+  -- client submit a signed transaction.
+  --
+  -- For now, it simply yields an arbitrary transaction...
+  fromPostChainTx :: PostChainTx tx -> GenTx Block
+  fromPostChainTx _ =
+    GenTxAlonzo $ mkShelleyTx $ generateWith arbitrary 42
 
 --
 -- Mock Server

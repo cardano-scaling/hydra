@@ -203,6 +203,7 @@ source-repository-package
     shelley-ma/shelley-ma-test
     cardano-ledger-core
     alonzo/impl
+    alonzo/test
 
 -- A lot of plutus dependencies have to be synchronized with the dependencies of
 -- cardano-node. If you update cardano-node, please make sure that all dependencies
