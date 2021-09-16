@@ -56,7 +56,6 @@ import Hydra.Ledger.Cardano (
 import Hydra.Logging (
   Tracer,
  )
-import Network.TypedProtocol.Codec
 import Ouroboros.Consensus.Byron.Ledger.Config (
   CodecConfig (..),
  )
@@ -92,10 +91,14 @@ import Ouroboros.Consensus.Shelley.Ledger.Config (
 import Ouroboros.Consensus.Shelley.Ledger.Mempool (
   GenTx (..),
  )
-import Ouroboros.Network.Block
-import Ouroboros.Network.Channel
-import Ouroboros.Network.Codec
-import Ouroboros.Network.Driver.Simple
+import Ouroboros.Network.Block (
+  Point (..),
+  Tip (..),
+  genesisPoint,
+ )
+import Ouroboros.Network.Channel (
+  Channel (..),
+ )
 import Ouroboros.Network.Magic (
   NetworkMagic (..),
  )
