@@ -112,6 +112,7 @@ library
     , bytestring
     , cardano-binary
     , cardano-crypto-class
+    , cardano-ledger-byron
     , cardano-ledger-core
     , cardano-ledger-shelley-ma
     , cardano-ledger-shelley-ma-test
@@ -132,6 +133,10 @@ library
     , network
     , network-mux
     , optparse-applicative
+    , ouroboros-consensus
+    , ouroboros-consensus-byron
+    , ouroboros-consensus-cardano
+    , ouroboros-consensus-shelley
     , ouroboros-network
     , ouroboros-network-framework
     , plutus-contract
