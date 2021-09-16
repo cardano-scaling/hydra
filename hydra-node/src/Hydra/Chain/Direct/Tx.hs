@@ -41,6 +41,7 @@ import Hydra.Chain (HeadParameters)
 
 -- * Hydra Head transactions
 
+-- TODO(SN): take a Utxo to pay back the change
 initTx :: HeadParameters -> TxIn -> Either TxBodyError (TxBody AlonzoEra)
 initTx _ feeInput =
   makeTransactionBody $

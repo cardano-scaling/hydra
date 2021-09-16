@@ -1,4 +1,4 @@
-cabal-version:      2.2
+cabal-version:      3.0
 name:               hydra-node
 version:            0.1.0
 synopsis:           The Hydra node
@@ -128,6 +128,7 @@ library
     , data-default
     , filepath
     , gitrev
+    , hedgehog-quickcheck
     , hydra-plutus
     , hydra-prelude
     , io-classes
@@ -221,6 +222,7 @@ test-suite tests
   build-depends:
     , aeson
     , base
+    , cardano-api:gen
     , cardano-binary
     , cardano-crypto-class
     , cardano-ledger-core
@@ -231,6 +233,7 @@ test-suite tests
     , cryptonite
     , data-default
     , filepath
+    , hedgehog-quickcheck
     , hspec
     , hspec-core
     , hspec-golden-aeson
