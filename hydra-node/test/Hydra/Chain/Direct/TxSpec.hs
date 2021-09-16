@@ -12,5 +12,5 @@ spec =
   parallel $ do
     prop "can construct initTx" $ \params ->
       case initTx params of
-        Left err -> counterexample (show err) False
+        Left err -> counterexample ("TxBodyError: " <> show err) False
         Right _ -> property True
