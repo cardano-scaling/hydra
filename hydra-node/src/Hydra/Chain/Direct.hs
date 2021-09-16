@@ -28,9 +28,10 @@ import Network.TypedProtocol.Codec
 import Ouroboros.Consensus.Byron.Ledger.Config (CodecConfig (..))
 import Ouroboros.Consensus.Cardano (CardanoBlock)
 import Ouroboros.Consensus.Cardano.Block (AlonzoEra, CodecConfig (..), GenTx (..), HardForkBlock (BlockAlonzo))
-import Ouroboros.Consensus.Network.NodeToClient (ClientCodecs, Codecs' (..), clientCodecs)
+import Ouroboros.Consensus.Ledger.SupportsMempool (ApplyTxErr)
+import Ouroboros.Consensus.Network.NodeToClient (Apps (aTxSubmissionServer), ClientCodecs, Codecs' (..), clientCodecs)
 import Ouroboros.Consensus.Node.NetworkProtocolVersion (SupportedNetworkProtocolVersion (..))
-import Ouroboros.Consensus.Shelley.Ledger (ShelleyBlock, mkShelleyBlock)
+import Ouroboros.Consensus.Shelley.Ledger (ApplyTxError, ShelleyBlock, mkShelleyBlock)
 import Ouroboros.Consensus.Shelley.Ledger.Config (CodecConfig (..))
 import Ouroboros.Consensus.Shelley.Ledger.Mempool (GenTx (..))
 import Ouroboros.Network.Block
@@ -91,6 +92,15 @@ type Block = CardanoBlock StandardCrypto
 
 type Era = AlonzoEra StandardCrypto
 
+runMockChainSyncServer ::
+  (MonadThrow m, MonadST m, MonadSTM m) =>
+  TQueue m (ValidatedTx Era) ->
+  Channel m LByteString ->
+  m ()
+runMockChainSyncServer queue channel =
+  void . runPeer nullTracer chainSyncCodec channel $
+    chainSyncServerPeer $ mockChainSyncServer queue
+
 mockChainSyncServer ::
   forall m.
   MonadSTM m =>
@@ -124,6 +134,15 @@ mockChainSyncServer queue =
           h : _ -> pure $ SendMsgIntersectFound h tip (ChainSyncServer $ pure serverStIdle)
       , recvMsgDoneClient = pure ()
       }
+
+runMockTxSubmissionServer ::
+  (MonadThrow m, MonadST m, MonadSTM m) =>
+  TQueue m (ValidatedTx Era) ->
+  Channel m LByteString ->
+  m ()
+runMockTxSubmissionServer queue channel =
+  void . runPeer nullTracer txSubmissionCodec channel $
+    localTxSubmissionServerPeer $ pure $ mockTxSubmissionServer queue
 
 mockTxSubmissionServer ::
   MonadSTM m =>
@@ -173,15 +192,12 @@ codecs epochSlots nodeToClientV =
     mary = ShelleyCodecConfig
     alonzo = ShelleyCodecConfig
 
---
--- Example
---
+chainSyncCodec ::
+  MonadST m =>
+  Codec (ChainSync.ChainSync Block (Point Block) (Tip Block)) DeserialiseFailure m LByteString
+chainSyncCodec = codecs (EpochSlots 432000) nodeToClientVLatest & cChainSyncCodec
 
--- main :: IO ()
--- main = do
---   (chanA, chanB) <- createConnectedChannels
---   concurrently_
---     (runPeer nullTracer codec chanA $ chainSyncClientPeer chainSyncClient)
---     (runPeer nullTracer codec chanB $ chainSyncServerPeer mockChainSyncServer)
---  where
---   codec = codecs (EpochSlots 432000) nodeToClientVLatest & cChainSyncCodec
+txSubmissionCodec ::
+  MonadST m =>
+  Codec (LocalTxSubmission.LocalTxSubmission (GenTx Block) (ApplyTxErr Block)) DeserialiseFailure m LByteString
+txSubmissionCodec = codecs (EpochSlots 432000) nodeToClientVLatest & cTxSubmissionCodec
