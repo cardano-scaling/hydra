@@ -43,12 +43,15 @@ import Data.Map.Strict (
   (!),
  )
 import qualified Data.Map.Strict as Map
+import Data.Sequence.Strict (
+  StrictSeq,
+ )
 import qualified Data.Sequence.Strict as StrictSeq
 import Hydra.Chain (
   Chain (..),
   ChainCallback,
   ChainComponent,
-  OnChainTx,
+  OnChainTx (..),
   PostChainTx (..),
   toOnChainTx,
  )
@@ -85,9 +88,11 @@ import Ouroboros.Consensus.Network.NodeToClient (
 import Ouroboros.Consensus.Node.NetworkProtocolVersion (
   SupportedNetworkProtocolVersion (..),
  )
+
+import Cardano.Ledger.Alonzo.TxSeq (txSeqTxns)
 import Ouroboros.Consensus.Shelley.Ledger (
   ApplyTxError,
-  ShelleyBlock,
+  ShelleyBlock (..),
   mkShelleyBlock,
  )
 import Ouroboros.Consensus.Shelley.Ledger.Config (
@@ -123,7 +128,9 @@ import Ouroboros.Network.Mux (
  )
 import Ouroboros.Network.NodeToClient
 import Ouroboros.Network.Protocol.ChainSync.Client (
-  ChainSyncClient,
+  ChainSyncClient (..),
+  ClientStIdle (..),
+  ClientStNext (..),
   chainSyncClientPeer,
  )
 import Ouroboros.Network.Protocol.ChainSync.Server (
@@ -237,9 +244,59 @@ client codecs queue callback =
         (localTxSubmissionClientPeer $ txSubmissionClient queue)
 
 chainSyncClient ::
+  forall m tx.
+  Monad m =>
   ChainCallback tx m ->
   ChainSyncClient Block (Point Block) (Tip Block) m ()
-chainSyncClient = undefined
+chainSyncClient callback =
+  ChainSyncClient (pure clientStIdle)
+ where
+  -- FIXME: This won't work well with real client. Without acquiring any point
+  -- (i.e. agreeing on a common state / intersection with the server), the
+  -- server will start streaming blocks from the origin.
+  --
+  -- Since Hydra heads are supposedly always online, it may be sufficient to
+  -- simply negotiate the intersection at the current tip, and then, continue
+  -- following the chain from that tip. The head, or more exactly, this client,
+  -- would not be able to yield on chain events happening in the past, but only
+  -- events which occur after the hydra-node is started. For now, since our test
+  -- code is unable to illustrate that problem, I'll leave it as it is.
+  clientStIdle :: ClientStIdle Block (Point Block) (Tip Block) m ()
+  clientStIdle = SendMsgRequestNext clientStNext (pure clientStNext)
+
+  -- FIXME: rolling forward with a transaction does not necessarily mean that we
+  -- can't roll backward. Or said differently, the block / transactions yielded
+  -- by the server are not necessarily settled. Settlement only happens after a
+  -- while and we will have to carefully consider how we want to handle
+  -- rollbacks. What happen if an 'init' transaction is rolled back?
+  --
+  -- At the moment, we trigger the callback directly, though we may want to
+  -- perhaps only yield transactions through the callback once they have
+  -- 'settled' and keep a short buffer of pending transactions in the network
+  -- layer directly? To be discussed.
+  clientStNext :: ClientStNext Block (Point Block) (Tip Block) m ()
+  clientStNext =
+    ClientStNext
+      { recvMsgRollForward = \blk _tip -> do
+          ChainSyncClient $ do
+            forM_ (getAlonzoTxs blk) (callback . fromLedgerTx)
+            pure clientStIdle
+      , recvMsgRollBackward =
+          error "Rolled backward!"
+      }
+
+  -- FIXME
+  -- There's more work required here to
+  --
+  -- (a) Identify whether a transaction from a block is a transaction relevant
+  -- to this head.
+  --
+  -- (b) Extract the right informations from the transaction.
+  fromLedgerTx :: ValidatedTx Era -> OnChainTx tx
+  fromLedgerTx _ =
+    let contestationPeriod = 42
+        parties = []
+     in OnInitTx contestationPeriod parties
 
 txSubmissionClient ::
   MonadSTM m =>
@@ -409,6 +466,19 @@ mockTxSubmissionServer db =
  where
   toValidatedTx :: GenTx (ShelleyBlock Era) -> ValidatedTx Era
   toValidatedTx (ShelleyTx _id tx) = tx
+
+--
+-- Helpers
+--
+
+-- | This extract __Alonzo__ transactions from a block. If the block wasn't
+-- produced in the Alonzo era, it returns a empty sequence.
+getAlonzoTxs :: Block -> StrictSeq (ValidatedTx Era)
+getAlonzoTxs = \case
+  BlockAlonzo (ShelleyBlock (Ledger.Block _ txsSeq) _) ->
+    txSeqTxns txsSeq
+  _ ->
+    mempty
 
 --
 -- Mux Helpers
