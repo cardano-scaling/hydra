@@ -28,9 +28,12 @@ import Cardano.Slotting.Slot (
  )
 import Control.Monad.Class.MonadSTM (
   modifyTVar',
+  newTQueueIO,
   newTVarIO,
+  readTQueue,
   readTVar,
   retry,
+  writeTQueue,
  )
 import Control.Tracer (
   nullTracer,
@@ -43,8 +46,10 @@ import qualified Data.Map.Strict as Map
 import qualified Data.Sequence.Strict as StrictSeq
 import Hydra.Chain (
   Chain (..),
+  ChainCallback,
   ChainComponent,
   OnChainTx,
+  PostChainTx (..),
   toOnChainTx,
  )
 import Hydra.Ledger (
@@ -154,28 +159,92 @@ import Ouroboros.Network.Socket (
  )
 import qualified Shelley.Spec.Ledger.API as Ledger
 
-withDirectChain ::
-  IO (Channel IO LByteString) ->
-  Tracer IO DirectChainLog ->
-  ChainComponent tx IO ()
-withDirectChain connect _tracer callback action = do
-  chan <- connect
-  action $ Chain{postTx = postTx chan}
- where
-  postTx Channel{send} tx = do
-    -- TODO(SN): convert 'postChainTx' to a Cardano tx and send it to the node
-    send $ serialize ()
-    now <- getCurrentTime
-    callback (toOnChainTx now tx)
-
 data DirectChainLog
 
+withDirectChain ::
+  -- | Tracer for logging
+  Tracer IO DirectChainLog ->
+  -- | Network configuration, defined by the genesis configuration.
+  --
+  -- See also 'defaultEpochSlots' and 'defaultNodeToClientVersionData' for playing
+  -- around.
+  (NodeToClientVersionData, EpochSlots) ->
+  -- | Socket used to connect to the server.
+  FilePath ->
+  ChainComponent tx IO ()
+withDirectChain _tracer (vData, epochSlots) addr callback action = do
+  queue <- newTQueueIO
+  withIOManager $ \iocp -> do
+    race_
+      (action $ Chain{postTx = atomically . writeTQueue queue})
+      (connectTo (localSnocket iocp addr) tracers (versions queue) addr)
+ where
+  -- NOTE: written in such a way to make it easier to add support for multiple
+  -- versions if needed. A bit YAGNI but also tiny enough to be too much
+  -- overhead.
+  versions queue =
+    combineVersions
+      [ simpleSingletonVersions v vData (client (defaultCodecs epochSlots v) queue callback)
+      | v <- [nodeToClientVLatest]
+      ]
+
+  -- TODO: Provide tracers for these.
+  tracers :: NetworkConnectTracers LocalAddress NodeToClientVersion
+  tracers =
+    NetworkConnectTracers
+      { nctMuxTracer = nullTracer
+      , nctHandshakeTracer = nullTracer
+      }
+
+client ::
+  MonadSTM m =>
+  ClientCodecs Block m ->
+  TQueue m (PostChainTx tx) ->
+  ChainCallback tx m ->
+  OuroborosApplication 'InitiatorMode LocalAddress LByteString m () Void
+client codecs queue callback =
+  OuroborosApplication $ \_connectionId _controlMessageSTM ->
+    [ localChainSyncMiniProtocol
+    , localTxSubmissionMiniProtocol
+    ]
+ where
+  -- TODO: Factor out the tracer work on Hydra.Network.Ouroboros and use it to
+  -- provide SendRecv traces for both protocols.
+  localChainSyncMiniProtocol =
+    MiniProtocol
+      { miniProtocolNum = MiniProtocolNum 5
+      , miniProtocolLimits = maximumMiniProtocolLimits
+      , miniProtocolRun = InitiatorProtocolOnly initiator
+      }
+   where
+    initiator =
+      MuxPeer
+        nullTracer
+        (cChainSyncCodec codecs)
+        (chainSyncClientPeer $ chainSyncClient callback)
+
+  localTxSubmissionMiniProtocol =
+    MiniProtocol
+      { miniProtocolNum = MiniProtocolNum 6
+      , miniProtocolLimits = maximumMiniProtocolLimits
+      , miniProtocolRun = InitiatorProtocolOnly initiator
+      }
+   where
+    initiator =
+      MuxPeer
+        nullTracer
+        (cTxSubmissionCodec codecs)
+        (localTxSubmissionClientPeer $ txSubmissionClient queue)
+
 chainSyncClient ::
-  ChainSyncClient header point tip m a
+  ChainCallback tx m ->
+  ChainSyncClient Block (Point Block) (Tip Block) m ()
 chainSyncClient = undefined
 
 txSubmissionClient ::
-  LocalTxSubmissionClient tx reject m a
+  MonadSTM m =>
+  TQueue m (PostChainTx tx) ->
+  LocalTxSubmissionClient (GenTx Block) (ApplyTxErr Block) m ()
 txSubmissionClient = undefined
 
 --
@@ -279,10 +348,6 @@ mockServer codecs db =
         (cTxSubmissionCodec codecs)
         (localTxSubmissionServerPeer $ pure $ mockTxSubmissionServer db)
 
-  maximumMiniProtocolLimits :: MiniProtocolLimits
-  maximumMiniProtocolLimits =
-    MiniProtocolLimits{maximumIngressQueue = maxBound}
-
 mockChainSyncServer ::
   forall m.
   MonadSTM m =>
@@ -344,6 +409,14 @@ mockTxSubmissionServer db =
  where
   toValidatedTx :: GenTx (ShelleyBlock Era) -> ValidatedTx Era
   toValidatedTx (ShelleyTx _id tx) = tx
+
+--
+-- Mux Helpers
+--
+
+maximumMiniProtocolLimits :: MiniProtocolLimits
+maximumMiniProtocolLimits =
+  MiniProtocolLimits{maximumIngressQueue = maxBound}
 
 --
 -- Codecs
