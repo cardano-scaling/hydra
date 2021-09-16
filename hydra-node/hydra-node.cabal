@@ -222,6 +222,7 @@ test-suite tests
   build-depends:
     , aeson
     , base
+    , cardano-api
     , cardano-api:gen
     , cardano-binary
     , cardano-crypto-class

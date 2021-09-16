@@ -13,6 +13,7 @@ import Cardano.Api (
   BuildTx,
   BuildTxWith (..),
   KeyWitnessInCtx (..),
+  MultiAssetSupportedInEra (MultiAssetInAlonzoEra),
   TxAuxScripts (..),
   TxBody,
   TxBodyContent (..),
@@ -27,6 +28,9 @@ import Cardano.Api (
   TxInsCollateral (..),
   TxMetadataInEra (..),
   TxMintValue (..),
+  TxOut (TxOut),
+  TxOutDatumHash (TxOutDatumHashNone),
+  TxOutValue (TxOutAdaOnly, TxOutValue),
   TxScriptValidity (..),
   TxUpdateProposal (..),
   TxValidityLowerBound (..),
@@ -35,20 +39,20 @@ import Cardano.Api (
   ValidityNoUpperBoundSupportedInEra (..),
   WitCtxTxIn,
   Witness (KeyWitness),
+  lovelaceToValue,
   makeTransactionBody,
  )
 import Hydra.Chain (HeadParameters)
 
 -- * Hydra Head transactions
 
--- TODO(SN): take a Utxo to pay back the change
-initTx :: HeadParameters -> TxIn -> Either TxBodyError (TxBody AlonzoEra)
-initTx _ feeInput =
+initTx :: HeadParameters -> (TxIn, TxOut AlonzoEra) -> Either TxBodyError (TxBody AlonzoEra)
+initTx _ utxo =
   makeTransactionBody $
     TxBodyContent
-      { txIns = [(feeInput, BuildTxWith (KeyWitness KeyWitnessForSpending))]
+      { txIns = [(feeIn, BuildTxWith (KeyWitness KeyWitnessForSpending))]
       , txInsCollateral = TxInsCollateralNone
-      , txOuts = []
+      , txOuts = [changeOut]
       , txFee = TxFeeExplicit TxFeesExplicitInAlonzoEra 0
       , txValidityRange = (TxValidityNoLowerBound, TxValidityNoUpperBound ValidityNoUpperBoundInAlonzoEra)
       , txMetadata = TxMetadataNone
@@ -62,3 +66,16 @@ initTx _ feeInput =
       , txMintValue = TxMintNone
       , txScriptValidity = BuildTxWith TxScriptValidityNone
       }
+ where
+  (feeIn, TxOut changeAddress startOutValue _) = utxo
+
+  changeOut = TxOut changeAddress changeValue TxOutDatumHashNone
+
+  startValue = case startOutValue of
+    TxOutAdaOnly _ l -> lovelaceToValue l
+    TxOutValue _ v -> v
+
+  changeValue = TxOutValue MultiAssetInAlonzoEra $ startValue <> lovelaceToValue (- fees)
+
+  -- TODO(SN): how high will be fees?
+  fees = 0
