@@ -8,39 +8,114 @@ module Hydra.Chain.Direct where
 
 import Hydra.Prelude
 
-import Cardano.Binary (serialize)
-import Hydra.Chain (Chain (..), ChainComponent, OnChainTx, toOnChainTx)
-import Hydra.Ledger (Tx)
-import Hydra.Logging (Tracer)
-
-import Cardano.Chain.Slotting (EpochSlots (..))
-import Cardano.Ledger.Alonzo.Tx (ValidatedTx)
-import Cardano.Ledger.Crypto (StandardCrypto)
-import Cardano.Ledger.Era (toTxSeq)
-import Cardano.Slotting.Slot (WithOrigin (Origin))
-import Control.Monad.Class.MonadSTM (readTQueue, writeTQueue)
-import Control.Tracer (nullTracer)
-import Data.Map.Strict ((!))
+import Cardano.Binary (
+  serialize,
+ )
+import Cardano.Chain.Slotting (
+  EpochSlots (..),
+ )
+import Cardano.Ledger.Alonzo.Tx (
+  ValidatedTx,
+ )
+import Cardano.Ledger.Crypto (
+  StandardCrypto,
+ )
+import Cardano.Ledger.Era (
+  toTxSeq,
+ )
+import Cardano.Slotting.Slot (
+  WithOrigin (Origin),
+ )
+import Control.Monad.Class.MonadSTM (
+  newTQueueIO,
+  readTQueue,
+  writeTQueue,
+ )
+import Control.Tracer (
+  nullTracer,
+ )
+import Data.Map.Strict (
+  (!),
+ )
 import qualified Data.Map.Strict as Map
 import qualified Data.Sequence.Strict as StrictSeq
-import Hydra.Ledger.Cardano (generateWith)
+import Hydra.Chain (
+  Chain (..),
+  ChainComponent,
+  OnChainTx,
+  toOnChainTx,
+ )
+import Hydra.Ledger (
+  Tx,
+ )
+import Hydra.Ledger.Cardano (
+  generateWith,
+ )
+import Hydra.Logging (
+  Tracer,
+ )
 import Network.TypedProtocol.Codec
-import Ouroboros.Consensus.Byron.Ledger.Config (CodecConfig (..))
-import Ouroboros.Consensus.Cardano (CardanoBlock)
-import Ouroboros.Consensus.Cardano.Block (AlonzoEra, CodecConfig (..), GenTx (..), HardForkBlock (BlockAlonzo))
-import Ouroboros.Consensus.Ledger.SupportsMempool (ApplyTxErr)
-import Ouroboros.Consensus.Network.NodeToClient (Apps (aTxSubmissionServer), ClientCodecs, Codecs' (..), clientCodecs)
-import Ouroboros.Consensus.Node.NetworkProtocolVersion (SupportedNetworkProtocolVersion (..))
-import Ouroboros.Consensus.Shelley.Ledger (ApplyTxError, ShelleyBlock, mkShelleyBlock)
-import Ouroboros.Consensus.Shelley.Ledger.Config (CodecConfig (..))
-import Ouroboros.Consensus.Shelley.Ledger.Mempool (GenTx (..))
+import Ouroboros.Consensus.Byron.Ledger.Config (
+  CodecConfig (..),
+ )
+import Ouroboros.Consensus.Cardano (
+  CardanoBlock,
+ )
+import Ouroboros.Consensus.Cardano.Block (
+  AlonzoEra,
+  CodecConfig (..),
+  GenTx (..),
+  HardForkBlock (BlockAlonzo),
+ )
+import Ouroboros.Consensus.Ledger.SupportsMempool (
+  ApplyTxErr,
+ )
+import Ouroboros.Consensus.Network.NodeToClient (
+  Apps (aTxSubmissionServer),
+  ClientCodecs,
+  Codecs' (..),
+  clientCodecs,
+ )
+import Ouroboros.Consensus.Node.NetworkProtocolVersion (
+  SupportedNetworkProtocolVersion (..),
+ )
+import Ouroboros.Consensus.Shelley.Ledger (
+  ApplyTxError,
+  ShelleyBlock,
+  mkShelleyBlock,
+ )
+import Ouroboros.Consensus.Shelley.Ledger.Config (
+  CodecConfig (..),
+ )
+import Ouroboros.Consensus.Shelley.Ledger.Mempool (
+  GenTx (..),
+ )
 import Ouroboros.Network.Block
 import Ouroboros.Network.Channel
 import Ouroboros.Network.Codec
 import Ouroboros.Network.Driver.Simple
-import Ouroboros.Network.Mux
+import Ouroboros.Network.Magic (
+  NetworkMagic (..),
+ )
+import Ouroboros.Network.Mux (
+  MiniProtocol (
+    MiniProtocol,
+    miniProtocolLimits,
+    miniProtocolNum,
+    miniProtocolRun
+  ),
+  MiniProtocolLimits (..),
+  MiniProtocolNum (MiniProtocolNum),
+  MuxMode (..),
+  MuxPeer (MuxPeer),
+  OuroborosApplication (..),
+  RunMiniProtocol (..),
+ )
 import Ouroboros.Network.NodeToClient
-import Ouroboros.Network.Protocol.ChainSync.Client (ChainSyncClient, chainSyncClientPeer)
+import Ouroboros.Network.Protocol.ChainSync.Client (
+  ChainSyncClient,
+  chainSyncClientPeer,
+ )
 import Ouroboros.Network.Protocol.ChainSync.Server (
   ChainSyncServer (..),
   ServerStIdle (..),
@@ -49,6 +124,13 @@ import Ouroboros.Network.Protocol.ChainSync.Server (
   chainSyncServerPeer,
  )
 import qualified Ouroboros.Network.Protocol.ChainSync.Type as ChainSync
+import Ouroboros.Network.Protocol.Handshake.Codec (
+  cborTermVersionDataCodec,
+  noTimeLimitsHandshake,
+ )
+import Ouroboros.Network.Protocol.Handshake.Version (
+  acceptableVersion,
+ )
 import Ouroboros.Network.Protocol.LocalTxSubmission.Client (
   LocalTxSubmissionClient (..),
   localTxSubmissionClientPeer,
@@ -58,6 +140,13 @@ import Ouroboros.Network.Protocol.LocalTxSubmission.Server (
   localTxSubmissionServerPeer,
  )
 import qualified Ouroboros.Network.Protocol.LocalTxSubmission.Type as LocalTxSubmission
+import Ouroboros.Network.Server.RateLimiting (
+  AcceptedConnectionsLimit (..),
+ )
+import Ouroboros.Network.Socket (
+  SomeResponderApplication (..),
+  withServerNode,
+ )
 import qualified Shelley.Spec.Ledger.API as Ledger
 
 withDirectChain ::
@@ -88,18 +177,106 @@ txSubmissionClient = undefined
 -- Mock Server
 --
 
+withMockServer ::
+  -- | Network configuration, defined by the genesis configuration.
+  --
+  -- See also 'defaultEpochSlots' and 'defaultNodeToClientVersionData' for playing
+  -- around.
+  (NodeToClientVersionData, EpochSlots) ->
+  -- | Socket used between clients.
+  FilePath ->
+  -- | Action to run in-between.
+  IO a ->
+  IO a
+withMockServer (vData, epochSlots) addr action = withIOManager $ \iocp -> do
+  let snocket = localSnocket iocp addr
+  networkState <- newNetworkMutableState
+  queue <- newTQueueIO
+  withServerNode
+    snocket
+    tracers
+    networkState
+    connLimit
+    (LocalAddress addr)
+    nodeToClientHandshakeCodec
+    noTimeLimitsHandshake
+    (cborTermVersionDataCodec nodeToClientCodecCBORTerm)
+    acceptableVersion
+    (SomeResponderApplication <$> versions queue)
+    errorPolicies
+    (\_ _ -> action)
+ where
+  -- NOTE: written in such a way to make it easier to add support for multiple
+  -- versions if needed. A bit YAGNI but also tiny enough to be too much
+  -- overhead.
+  versions queue =
+    combineVersions
+      [ simpleSingletonVersions v vData (mockServer (defaultCodecs epochSlots v) queue)
+      | v <- [nodeToClientVLatest]
+      ]
+
+  connLimit :: AcceptedConnectionsLimit
+  connLimit = AcceptedConnectionsLimit maxBound maxBound 0
+
+  errorPolicies :: ErrorPolicies
+  errorPolicies = nullErrorPolicies
+
+  -- TODO: Provide tracers for these.
+  tracers :: NetworkServerTracers LocalAddress NodeToClientVersion
+  tracers =
+    NetworkServerTracers
+      { nstMuxTracer = nullTracer
+      , nstHandshakeTracer = nullTracer
+      , nstErrorPolicyTracer = nullTracer
+      , nstAcceptPolicyTracer = nullTracer
+      }
+
 type Block = CardanoBlock StandardCrypto
 
 type Era = AlonzoEra StandardCrypto
 
-runMockChainSyncServer ::
-  (MonadThrow m, MonadST m, MonadSTM m) =>
+mockServer ::
+  MonadSTM m =>
+  ClientCodecs Block m ->
   TQueue m (ValidatedTx Era) ->
-  Channel m LByteString ->
-  m ()
-runMockChainSyncServer queue channel =
-  void . runPeer nullTracer chainSyncCodec channel $
-    chainSyncServerPeer $ mockChainSyncServer queue
+  OuroborosApplication 'ResponderMode LocalAddress LByteString m Void ()
+mockServer codecs queue =
+  OuroborosApplication $ \_connectionId _controlMessageSTM ->
+    [ localChainSyncMiniProtocol
+    , localTxSubmissionMiniProtocol
+    ]
+ where
+  -- TODO: Factor out the tracer work on Hydra.Network.Ouroboros and use it to
+  -- provide SendRecv traces for both protocols.
+  localChainSyncMiniProtocol =
+    MiniProtocol
+      { miniProtocolNum = MiniProtocolNum 5
+      , miniProtocolLimits = maximumMiniProtocolLimits
+      , miniProtocolRun = ResponderProtocolOnly responder
+      }
+   where
+    responder =
+      MuxPeer
+        nullTracer
+        (cChainSyncCodec codecs)
+        (chainSyncServerPeer $ mockChainSyncServer queue)
+
+  localTxSubmissionMiniProtocol =
+    MiniProtocol
+      { miniProtocolNum = MiniProtocolNum 6
+      , miniProtocolLimits = maximumMiniProtocolLimits
+      , miniProtocolRun = ResponderProtocolOnly responder
+      }
+   where
+    responder =
+      MuxPeer
+        nullTracer
+        (cTxSubmissionCodec codecs)
+        (localTxSubmissionServerPeer $ pure $ mockTxSubmissionServer queue)
+
+  maximumMiniProtocolLimits :: MiniProtocolLimits
+  maximumMiniProtocolLimits =
+    MiniProtocolLimits{maximumIngressQueue = maxBound}
 
 mockChainSyncServer ::
   forall m.
@@ -135,15 +312,6 @@ mockChainSyncServer queue =
       , recvMsgDoneClient = pure ()
       }
 
-runMockTxSubmissionServer ::
-  (MonadThrow m, MonadST m, MonadSTM m) =>
-  TQueue m (ValidatedTx Era) ->
-  Channel m LByteString ->
-  m ()
-runMockTxSubmissionServer queue channel =
-  void . runPeer nullTracer txSubmissionCodec channel $
-    localTxSubmissionServerPeer $ pure $ mockTxSubmissionServer queue
-
 mockTxSubmissionServer ::
   MonadSTM m =>
   TQueue m (ValidatedTx Era) ->
@@ -168,22 +336,15 @@ mockTxSubmissionServer queue =
 -- Codecs
 --
 
-nodeToClientVLatest :: NodeToClientVersion
-nodeToClientVLatest =
-  fst $ Map.findMax $ supportedNodeToClientVersions proxy
- where
-  proxy = Proxy @(CardanoBlock StandardCrypto)
-
-codecs ::
-  forall m block.
-  (MonadST m, block ~ CardanoBlock StandardCrypto) =>
+defaultCodecs ::
+  MonadST m =>
   EpochSlots ->
   NodeToClientVersion ->
-  ClientCodecs block m
-codecs epochSlots nodeToClientV =
+  ClientCodecs Block m
+defaultCodecs epochSlots nodeToClientV =
   clientCodecs cfg (supportedVersions ! nodeToClientV) nodeToClientV
  where
-  supportedVersions = supportedNodeToClientVersions (Proxy @block)
+  supportedVersions = supportedNodeToClientVersions (Proxy @Block)
   cfg = CardanoCodecConfig byron shelley allegra mary alonzo
    where
     byron = ByronCodecConfig epochSlots
@@ -192,12 +353,14 @@ codecs epochSlots nodeToClientV =
     mary = ShelleyCodecConfig
     alonzo = ShelleyCodecConfig
 
-chainSyncCodec ::
-  MonadST m =>
-  Codec (ChainSync.ChainSync Block (Point Block) (Tip Block)) DeserialiseFailure m LByteString
-chainSyncCodec = codecs (EpochSlots 432000) nodeToClientVLatest & cChainSyncCodec
+defaultNodeToClientVersionData :: NodeToClientVersionData
+defaultNodeToClientVersionData = NodeToClientVersionData (NetworkMagic 42)
 
-txSubmissionCodec ::
-  MonadST m =>
-  Codec (LocalTxSubmission.LocalTxSubmission (GenTx Block) (ApplyTxErr Block)) DeserialiseFailure m LByteString
-txSubmissionCodec = codecs (EpochSlots 432000) nodeToClientVLatest & cTxSubmissionCodec
+defaultEpochSlots :: EpochSlots
+defaultEpochSlots = EpochSlots 432000
+
+nodeToClientVLatest :: NodeToClientVersion
+nodeToClientVLatest =
+  fst $ Map.findMax $ supportedNodeToClientVersions proxy
+ where
+  proxy = Proxy @(CardanoBlock StandardCrypto)
