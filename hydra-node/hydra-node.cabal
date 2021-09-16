@@ -221,6 +221,7 @@ test-suite tests
   build-depends:
     , aeson
     , base
+    , bytestring
     , cardano-binary
     , cardano-crypto-class
     , cardano-ledger-core
