@@ -364,7 +364,7 @@ draw s =
               , drawRightPanel
               ]
           , hBorder
-          , drawErrorMessage
+          , padLeftRight 1 drawErrorMessage
           ]
  where
   drawInfo =
@@ -503,7 +503,8 @@ draw s =
       Just (Just UserFeedback{message, severity}) ->
         withAttr (severityToAttr severity) $ str (toString message)
       _ ->
-        str ""
+        -- Reserves the space and not have this area collapse
+        str " "
 
   drawParties =
     case s ^? headStateL . partiesL of
