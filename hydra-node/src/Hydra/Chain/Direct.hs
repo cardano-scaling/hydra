@@ -14,6 +14,7 @@ import Hydra.Logging (Tracer)
 
 import Cardano.Chain.Slotting (EpochSlots (..))
 import Cardano.Ledger.Crypto (StandardCrypto)
+import Control.Monad.Class.MonadSTM (readTQueue, writeTQueue)
 import Control.Tracer (nullTracer)
 import Data.Map.Strict ((!))
 import qualified Data.Map.Strict as Map
@@ -31,10 +32,23 @@ import Ouroboros.Network.Driver.Simple
 import Ouroboros.Network.Mux
 import Ouroboros.Network.NodeToClient
 import Ouroboros.Network.Protocol.ChainSync.Client (ChainSyncClient, chainSyncClientPeer)
-import Ouroboros.Network.Protocol.ChainSync.Server (ChainSyncServer, chainSyncServerPeer)
+import Ouroboros.Network.Protocol.ChainSync.Server (
+  ChainSyncServer (..),
+  ServerStIdle (..),
+  ServerStIntersect (..),
+  ServerStNext (..),
+  chainSyncServerPeer,
+ )
 import qualified Ouroboros.Network.Protocol.ChainSync.Type as ChainSync
-import Ouroboros.Network.Protocol.LocalTxSubmission.Client (LocalTxSubmissionClient, localTxSubmissionClientPeer)
-import Ouroboros.Network.Protocol.LocalTxSubmission.Server (LocalTxSubmissionServer, localTxSubmissionServerPeer)
+import Ouroboros.Network.Protocol.LocalTxSubmission.Client (
+  LocalTxSubmissionClient (..),
+  localTxSubmissionClientPeer,
+ )
+import Ouroboros.Network.Protocol.LocalTxSubmission.Server (
+  LocalTxSubmissionServer (..),
+  localTxSubmissionServerPeer,
+ )
+import qualified Ouroboros.Network.Protocol.LocalTxSubmission.Type as LocalTxSubmission
 
 withDirectChain ::
   IO (Channel IO LByteString) ->
@@ -64,15 +78,44 @@ txSubmissionClient = undefined
 -- Mock Server
 --
 
+type Block = CardanoBlock StandardCrypto
+
 mockChainSyncServer ::
+  forall m tx.
+  Monad m =>
   TQueue m tx ->
-  ChainSyncServer header point tip m a
-mockChainSyncServer = undefined
+  ChainSyncServer Block (Point Block) (Tip Block) m ()
+mockChainSyncServer queue =
+  ChainSyncServer (pure serverStIdle)
+ where
+  tip :: Tip Block
+  tip = TipGenesis
+
+  origin :: Point Block
+  origin = undefined
+
+  serverStIdle :: ServerStIdle Block (Point Block) (Tip Block) m ()
+  serverStIdle =
+    ServerStIdle
+      { -- recvMsgRequestNext   :: m (Either (ServerStNext header point tip m a) (m (ServerStNext header point tip m a))),
+        recvMsgRequestNext = undefined
+      , recvMsgFindIntersect = \case
+          [] -> pure $ SendMsgIntersectFound origin tip (ChainSyncServer $ pure serverStIdle)
+          h : _ -> pure $ SendMsgIntersectFound h tip (ChainSyncServer $ pure serverStIdle)
+      , recvMsgDoneClient = pure ()
+      }
 
 mockTxSubmissionServer ::
+  MonadSTM m =>
   TQueue m tx ->
-  LocalTxSubmissionServer tx reject m a
-mockTxSubmissionServer = undefined
+  LocalTxSubmissionServer tx reject m ()
+mockTxSubmissionServer queue =
+  LocalTxSubmissionServer
+    { recvMsgSubmitTx = \tx -> do
+        atomically $ writeTQueue queue tx
+        pure (LocalTxSubmission.SubmitSuccess, mockTxSubmissionServer queue)
+    , recvMsgDone = ()
+    }
 
 --
 -- Codecs
@@ -106,11 +149,11 @@ codecs epochSlots nodeToClientV =
 -- Example
 --
 
-main :: IO ()
-main = do
-  (chanA, chanB) <- createConnectedChannels
-  concurrently_
-    (runPeer nullTracer codec chanA $ chainSyncClientPeer chainSyncClient)
-    (runPeer nullTracer codec chanB $ chainSyncServerPeer mockChainSyncServer)
- where
-  codec = codecs (EpochSlots 432000) nodeToClientVLatest & cChainSyncCodec
+-- main :: IO ()
+-- main = do
+--   (chanA, chanB) <- createConnectedChannels
+--   concurrently_
+--     (runPeer nullTracer codec chanA $ chainSyncClientPeer chainSyncClient)
+--     (runPeer nullTracer codec chanB $ chainSyncServerPeer mockChainSyncServer)
+--  where
+--   codec = codecs (EpochSlots 432000) nodeToClientVLatest & cChainSyncCodec
