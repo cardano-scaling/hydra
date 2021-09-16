@@ -41,11 +41,11 @@ import Hydra.Chain (HeadParameters)
 
 -- * Hydra Head transactions
 
-initTx :: HeadParameters -> Either TxBodyError (TxBody AlonzoEra)
-initTx _ =
+initTx :: HeadParameters -> TxIn -> Either TxBodyError (TxBody AlonzoEra)
+initTx _ feeInput =
   makeTransactionBody $
     TxBodyContent
-      { txIns = []
+      { txIns = [(feeInput, BuildTxWith (KeyWitness KeyWitnessForSpending))]
       , txInsCollateral = TxInsCollateralNone
       , txOuts = []
       , txFee = TxFeeExplicit TxFeesExplicitInAlonzoEra 0

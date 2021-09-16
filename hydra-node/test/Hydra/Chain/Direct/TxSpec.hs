@@ -10,7 +10,7 @@ import Test.QuickCheck (counterexample, property)
 spec :: Spec
 spec =
   parallel $ do
-    prop "can construct initTx" $ \params ->
-      case initTx params of
+    prop "can construct initTx" $ \params txIn ->
+      case initTx params txIn of
         Left err -> counterexample ("TxBodyError: " <> show err) False
         Right _ -> property True
