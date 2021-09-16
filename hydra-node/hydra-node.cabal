@@ -112,6 +112,7 @@ library
     , bytestring
     , cardano-binary
     , cardano-crypto-class
+    , cardano-ledger-alonzo
     , cardano-ledger-byron
     , cardano-ledger-core
     , cardano-ledger-shelley-ma

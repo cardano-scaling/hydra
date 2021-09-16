@@ -14,18 +14,23 @@ import Hydra.Ledger (Tx)
 import Hydra.Logging (Tracer)
 
 import Cardano.Chain.Slotting (EpochSlots (..))
+import Cardano.Ledger.Alonzo.Tx (ValidatedTx)
 import Cardano.Ledger.Crypto (StandardCrypto)
+import Cardano.Ledger.Era (toTxSeq)
 import Cardano.Slotting.Slot (WithOrigin (Origin))
 import Control.Monad.Class.MonadSTM (readTQueue, writeTQueue)
 import Control.Tracer (nullTracer)
 import Data.Map.Strict ((!))
 import qualified Data.Map.Strict as Map
+import qualified Data.Sequence.Strict as StrictSeq
+import Hydra.Ledger.Cardano (generateWith)
 import Network.TypedProtocol.Codec
 import Ouroboros.Consensus.Byron.Ledger.Config (CodecConfig (..))
 import Ouroboros.Consensus.Cardano (CardanoBlock)
-import Ouroboros.Consensus.Cardano.Block (CodecConfig (..), GenTx)
+import Ouroboros.Consensus.Cardano.Block (AlonzoEra, CodecConfig (..), GenTx, HardForkBlock (BlockAlonzo))
 import Ouroboros.Consensus.Network.NodeToClient (ClientCodecs, Codecs' (..), clientCodecs)
 import Ouroboros.Consensus.Node.NetworkProtocolVersion (SupportedNetworkProtocolVersion (..))
+import Ouroboros.Consensus.Shelley.Ledger (mkShelleyBlock)
 import Ouroboros.Consensus.Shelley.Ledger.Config (CodecConfig (..))
 import Ouroboros.Network.Block
 import Ouroboros.Network.Channel
@@ -51,6 +56,7 @@ import Ouroboros.Network.Protocol.LocalTxSubmission.Server (
   localTxSubmissionServerPeer,
  )
 import qualified Ouroboros.Network.Protocol.LocalTxSubmission.Type as LocalTxSubmission
+import qualified Shelley.Spec.Ledger.API as Ledger
 
 withDirectChain ::
   IO (Channel IO LByteString) ->
@@ -82,11 +88,12 @@ txSubmissionClient = undefined
 
 type Block = CardanoBlock StandardCrypto
 
+type Era = AlonzoEra StandardCrypto
+
 mockChainSyncServer ::
-  forall m tx.
+  forall m.
   MonadSTM m =>
-  Monad m =>
-  TQueue m tx ->
+  TQueue m (ValidatedTx Era) ->
   ChainSyncServer Block (Point Block) (Tip Block) m ()
 mockChainSyncServer queue =
   ChainSyncServer (pure serverStIdle)
@@ -97,8 +104,12 @@ mockChainSyncServer queue =
   origin :: Point Block
   origin = genesisPoint
 
-  nextBlock :: tx -> Block
-  nextBlock = undefined
+  nextBlock :: ValidatedTx Era -> Block
+  nextBlock tx =
+    -- We will ignore the header so we generate an arbitrary one
+    let header = generateWith arbitrary 100
+        body = toTxSeq $ StrictSeq.singleton tx
+     in BlockAlonzo $ mkShelleyBlock $ Ledger.Block header body
 
   serverStIdle :: ServerStIdle Block (Point Block) (Tip Block) m ()
   serverStIdle =
