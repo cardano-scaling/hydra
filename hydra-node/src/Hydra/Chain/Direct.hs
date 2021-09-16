@@ -1,4 +1,5 @@
 {-# LANGUAGE TypeApplications #-}
+{-# OPTIONS_GHC -Wno-unused-imports #-}
 
 -- | Chain component implementation which uses directly the Node-to-Client
 -- protocols to submit "hand-rolled" transactions including Plutus validators and
@@ -14,6 +15,7 @@ import Hydra.Logging (Tracer)
 
 import Cardano.Chain.Slotting (EpochSlots (..))
 import Cardano.Ledger.Crypto (StandardCrypto)
+import Cardano.Slotting.Slot (WithOrigin (Origin))
 import Control.Monad.Class.MonadSTM (readTQueue, writeTQueue)
 import Control.Tracer (nullTracer)
 import Data.Map.Strict ((!))
@@ -82,6 +84,7 @@ type Block = CardanoBlock StandardCrypto
 
 mockChainSyncServer ::
   forall m tx.
+  MonadSTM m =>
   Monad m =>
   TQueue m tx ->
   ChainSyncServer Block (Point Block) (Tip Block) m ()
@@ -92,13 +95,18 @@ mockChainSyncServer queue =
   tip = TipGenesis
 
   origin :: Point Block
-  origin = undefined
+  origin = genesisPoint
+
+  nextBlock :: tx -> Block
+  nextBlock = undefined
 
   serverStIdle :: ServerStIdle Block (Point Block) (Tip Block) m ()
   serverStIdle =
     ServerStIdle
       { -- recvMsgRequestNext   :: m (Either (ServerStNext header point tip m a) (m (ServerStNext header point tip m a))),
-        recvMsgRequestNext = undefined
+        recvMsgRequestNext = do
+          tx <- atomically $ readTQueue queue
+          pure $ Left $ SendMsgRollForward (nextBlock tx) tip (mockChainSyncServer queue)
       , recvMsgFindIntersect = \case
           [] -> pure $ SendMsgIntersectFound origin tip (ChainSyncServer $ pure serverStIdle)
           h : _ -> pure $ SendMsgIntersectFound h tip (ChainSyncServer $ pure serverStIdle)
