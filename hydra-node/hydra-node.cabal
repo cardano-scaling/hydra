@@ -77,6 +77,7 @@ library
     Hydra.API.Server
     Hydra.Chain
     Hydra.Chain.Direct
+    Hydra.Chain.Direct.Tx
     Hydra.Chain.ExternalPAB
     Hydra.Chain.ZeroMQ
     Hydra.ClientInput
@@ -110,6 +111,7 @@ library
     , bech32
     , bech32-th
     , bytestring
+    , cardano-api
     , cardano-binary
     , cardano-crypto-class
     , cardano-ledger-alonzo
@@ -191,6 +193,7 @@ test-suite tests
     Hydra.API.ServerSpec
     Hydra.APISpec
     Hydra.BehaviorSpec
+    Hydra.Chain.Direct.TxSpec
     Hydra.Chain.DirectSpec
     Hydra.Chain.ExternalPABSpec
     Hydra.Chain.ZeroMQSpec
