@@ -8,29 +8,56 @@ module Hydra.Chain.Direct.Tx where
 
 import Hydra.Prelude
 
-import Cardano.Ledger.Alonzo (AlonzoEra)
-import Cardano.Ledger.Alonzo.TxBody (TxBody (TxBody))
-import Cardano.Ledger.Crypto (StandardCrypto)
-import Cardano.Ledger.ShelleyMA.Timelocks (ValidityInterval (ValidityInterval))
-import qualified Data.Set as Set
+import Cardano.Api (
+  AlonzoEra,
+  BuildTx,
+  BuildTxWith (..),
+  KeyWitnessInCtx (..),
+  TxAuxScripts (..),
+  TxBody,
+  TxBodyContent (..),
+  TxBodyError,
+  TxCertificates (..),
+  TxExtraKeyWitnesses (..),
+  TxExtraScriptData (..),
+  TxFee (TxFeeExplicit),
+  TxFeesExplicitInEra (..),
+  TxId (TxId),
+  TxIn (TxIn),
+  TxInsCollateral (..),
+  TxMetadataInEra (..),
+  TxMintValue (..),
+  TxScriptValidity (..),
+  TxUpdateProposal (..),
+  TxValidityLowerBound (..),
+  TxValidityUpperBound (..),
+  TxWithdrawals (..),
+  ValidityNoUpperBoundSupportedInEra (..),
+  WitCtxTxIn,
+  Witness (KeyWitness),
+  makeTransactionBody,
+ )
 import Hydra.Chain (HeadParameters)
-import Shelley.Spec.Ledger.API (Coin (Coin), StrictMaybe (SNothing), TxIn, Wdrl (Wdrl))
 
 -- * Hydra Head transactions
 
-initTx :: HeadParameters -> TxIn StandardCrypto -> TxBody (AlonzoEra StandardCrypto)
+initTx :: HeadParameters -> TxIn -> Either TxBodyError (TxBody AlonzoEra)
 initTx _ feeInput =
-  TxBody
-    (Set.singleton feeInput) -- inputs
-    mempty -- collateral
-    mempty -- outputs
-    mempty -- txcerts
-    (Wdrl mempty) -- txwdrls
-    (Coin 0) -- txfee
-    (ValidityInterval SNothing SNothing) -- txvldt
-    SNothing -- txUpdates
-    mempty -- reqSignerHashes
-    mempty -- mint
-    SNothing -- scriptIntegrityHash
-    SNothing -- adHash
-    SNothing -- txnetworkid
+  makeTransactionBody $
+    TxBodyContent
+      { txIns = [(feeInput, BuildTxWith (KeyWitness KeyWitnessForSpending))]
+      , txInsCollateral = TxInsCollateralNone
+      , txOuts = []
+      , txFee = TxFeeExplicit TxFeesExplicitInAlonzoEra 0
+      , txValidityRange = (TxValidityNoLowerBound, TxValidityNoUpperBound ValidityNoUpperBoundInAlonzoEra)
+      , txMetadata = TxMetadataNone
+      , txAuxScripts = TxAuxScriptsNone
+      , txExtraScriptData = BuildTxWith TxExtraScriptDataNone
+      , txExtraKeyWits = TxExtraKeyWitnessesNone
+      , txProtocolParams = BuildTxWith Nothing
+      , txWithdrawals = TxWithdrawalsNone
+      , txCertificates = TxCertificatesNone
+      , txUpdateProposal = TxUpdateProposalNone
+      , txMintValue = TxMintNone
+      , txScriptValidity = BuildTxWith TxScriptValidityNone
+      }
