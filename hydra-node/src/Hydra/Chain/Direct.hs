@@ -27,11 +27,12 @@ import Hydra.Ledger.Cardano (generateWith)
 import Network.TypedProtocol.Codec
 import Ouroboros.Consensus.Byron.Ledger.Config (CodecConfig (..))
 import Ouroboros.Consensus.Cardano (CardanoBlock)
-import Ouroboros.Consensus.Cardano.Block (AlonzoEra, CodecConfig (..), GenTx, HardForkBlock (BlockAlonzo))
+import Ouroboros.Consensus.Cardano.Block (AlonzoEra, CodecConfig (..), GenTx (..), HardForkBlock (BlockAlonzo))
 import Ouroboros.Consensus.Network.NodeToClient (ClientCodecs, Codecs' (..), clientCodecs)
 import Ouroboros.Consensus.Node.NetworkProtocolVersion (SupportedNetworkProtocolVersion (..))
-import Ouroboros.Consensus.Shelley.Ledger (mkShelleyBlock)
+import Ouroboros.Consensus.Shelley.Ledger (ShelleyBlock, mkShelleyBlock)
 import Ouroboros.Consensus.Shelley.Ledger.Config (CodecConfig (..))
+import Ouroboros.Consensus.Shelley.Ledger.Mempool (GenTx (..))
 import Ouroboros.Network.Block
 import Ouroboros.Network.Channel
 import Ouroboros.Network.Codec
@@ -126,15 +127,23 @@ mockChainSyncServer queue =
 
 mockTxSubmissionServer ::
   MonadSTM m =>
-  TQueue m tx ->
-  LocalTxSubmissionServer tx reject m ()
+  TQueue m (ValidatedTx Era) ->
+  LocalTxSubmissionServer (GenTx Block) reject m ()
 mockTxSubmissionServer queue =
   LocalTxSubmissionServer
     { recvMsgSubmitTx = \tx -> do
-        atomically $ writeTQueue queue tx
+        case tx of
+          GenTxAlonzo genTx ->
+            atomically $ writeTQueue queue (toValidatedTx genTx)
+          _ ->
+            -- FIXME: This should really fail? (i.e. SubmitFail)
+            pure ()
         pure (LocalTxSubmission.SubmitSuccess, mockTxSubmissionServer queue)
     , recvMsgDone = ()
     }
+ where
+  toValidatedTx :: GenTx (ShelleyBlock Era) -> ValidatedTx Era
+  toValidatedTx (ShelleyTx _id tx) = tx
 
 --
 -- Codecs
