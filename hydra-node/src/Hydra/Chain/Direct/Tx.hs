@@ -23,8 +23,12 @@ import Cardano.Ledger.Val (inject)
 import qualified Data.Map as Map
 import qualified Data.Sequence.Strict as StrictSeq
 import qualified Data.Set as Set
-import Hydra.Chain (HeadParameters, PostChainTx (InitTx))
-import qualified Plutus.V1.Ledger.Api as Plutus
+import Hydra.Chain (HeadParameters (..), PostChainTx (InitTx))
+import Hydra.Contract.ContestationPeriod (contestationPeriodFromDiffTime)
+import Hydra.Contract.Head (State (Initial))
+import Hydra.Contract.Party (partyFromVerKey)
+import Hydra.Party (vkey)
+import Plutus.V1.Ledger.Api (toBuiltinData, toData)
 import Shelley.Spec.Ledger.API (
   Coin (..),
   Credential (ScriptHashObj),
@@ -54,7 +58,7 @@ constructTx txIn = \case
 -- | Create the init transaction from some 'HeadParameters' and a single UTXO
 -- which will be used for minting NFTs.
 initTx :: HeadParameters -> TxIn StandardCrypto -> ValidatedTx (AlonzoEra StandardCrypto)
-initTx _ txIn =
+initTx HeadParameters{contestationPeriod, parties} txIn =
   mkUnsignedTx body dats
  where
   body =
@@ -93,7 +97,11 @@ initTx _ txIn =
 
   headDatumHash = hashData @(AlonzoEra StandardCrypto) headDatum
 
-  headDatum = Data $ Plutus.I 1337
+  headDatum =
+    Data . toData . toBuiltinData $
+      Initial
+        (contestationPeriodFromDiffTime contestationPeriod)
+        (map (partyFromVerKey . vkey) parties)
 
   headScript = PlutusScript "some invalid plutus script"
 
