@@ -37,7 +37,7 @@ import Hydra.Chain (
   OnChainTx (..),
   PostChainTx (..),
  )
-import Hydra.Chain.Direct.Tx (constructTx)
+import Hydra.Chain.Direct.Tx (constructTx, observeTx)
 import Hydra.Ledger.Cardano (generateWith)
 import Hydra.Logging (Tracer)
 import Ouroboros.Consensus.Byron.Ledger.Config (CodecConfig (..))
@@ -225,24 +225,13 @@ chainSyncClient callback =
     ClientStNext
       { recvMsgRollForward = \blk _tip -> do
           ChainSyncClient $ do
-            forM_ (getAlonzoTxs blk) (callback . fromLedgerTx)
+            -- REVIEW(SN): There seems to be no 'toList' for StrictSeq? That's
+            -- why I resorted to foldMap using the list monoid ('pure')
+            mapM_ callback . catMaybes . foldMap (pure . observeTx) $ getAlonzoTxs blk
             pure clientStIdle
       , recvMsgRollBackward =
           error "Rolled backward!"
       }
-
-  -- FIXME
-  -- There's more work required here to
-  --
-  -- (a) Identify whether a transaction from a block is a transaction relevant
-  -- to this head.
-  --
-  -- (b) Extract the right informations from the transaction.
-  fromLedgerTx :: ValidatedTx Era -> OnChainTx tx
-  fromLedgerTx _ =
-    let contestationPeriod = 42
-        parties = []
-     in OnInitTx contestationPeriod parties
 
 txSubmissionClient ::
   forall m tx.
