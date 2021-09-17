@@ -11,7 +11,7 @@ module Hydra.Chain.Direct (
 
 import Hydra.Prelude
 
-import Cardano.Api (CardanoEra (AlonzoEra), TxBodyError, makeTransactionBody, signShelleyTransaction)
+import Cardano.Api (TxBodyError, makeTransactionBody, signShelleyTransaction)
 import qualified Cardano.Api.Shelley as Api
 import Cardano.Chain.Slotting (EpochSlots (..))
 import Cardano.Ledger.Alonzo.Tx (ValidatedTx)
@@ -69,14 +69,6 @@ import Ouroboros.Consensus.Shelley.Ledger.Mempool (GenTx (..), mkShelleyTx)
 import Ouroboros.Network.Block (Point (..), Tip (..), genesisPoint)
 import Ouroboros.Network.Magic (NetworkMagic (..))
 import Ouroboros.Network.Mux (
-  MiniProtocol (
-    MiniProtocol,
-    miniProtocolLimits,
-    miniProtocolNum,
-    miniProtocolRun
-  ),
-  MiniProtocolLimits (..),
-  MiniProtocolNum (MiniProtocolNum),
   MuxMode (..),
   MuxPeer (MuxPeer),
   OuroborosApplication (..),
@@ -87,14 +79,17 @@ import Ouroboros.Network.NodeToClient (
   LocalAddress (LocalAddress),
   NetworkConnectTracers (..),
   NetworkServerTracers (..),
+  NodeToClientProtocols (..),
   NodeToClientVersion,
   NodeToClientVersionData (..),
   combineVersions,
   connectTo,
   localSnocket,
+  localStateQueryPeerNull,
   newNetworkMutableState,
   nodeToClientCodecCBORTerm,
   nodeToClientHandshakeCodec,
+  nodeToClientProtocols,
   nullErrorPolicies,
   simpleSingletonVersions,
   withIOManager,
@@ -153,7 +148,7 @@ withDirectChain _tracer magic addr callback action = do
   -- overhead.
   versions queue =
     combineVersions
-      [ simpleSingletonVersions v (NodeToClientVersionData magic) (client (defaultCodecs v) queue callback)
+      [ simpleSingletonVersions v (NodeToClientVersionData magic) (client v queue callback)
       | v <- [nodeToClientVLatest]
       ]
 
@@ -166,44 +161,37 @@ withDirectChain _tracer magic addr callback action = do
       }
 
 client ::
-  MonadSTM m =>
-  ClientCodecs Block m ->
+  (MonadST m, MonadTimer m) =>
+  NodeToClientVersion ->
   TQueue m (PostChainTx tx) ->
   ChainCallback tx m ->
   OuroborosApplication 'InitiatorMode LocalAddress LByteString m () Void
-client codecs queue callback =
-  OuroborosApplication $ \_connectionId _controlMessageSTM ->
-    [ localChainSyncMiniProtocol
-    , localTxSubmissionMiniProtocol
-    ]
+client nodeToClientV queue callback =
+  nodeToClientProtocols
+    ( const $
+        pure $
+          NodeToClientProtocols
+            { localChainSyncProtocol =
+                InitiatorProtocolOnly $
+                  let peer = chainSyncClientPeer $ chainSyncClient callback
+                   in MuxPeer nullTracer cChainSyncCodec peer
+            , localTxSubmissionProtocol =
+                InitiatorProtocolOnly $
+                  let peer = localTxSubmissionClientPeer $ txSubmissionClient queue
+                   in MuxPeer nullTracer cTxSubmissionCodec peer
+            , localStateQueryProtocol =
+                InitiatorProtocolOnly $
+                  let peer = localStateQueryPeerNull
+                   in MuxPeer nullTracer cStateQueryCodec peer
+            }
+    )
+    nodeToClientV
  where
-  -- TODO: Factor out the tracer work on Hydra.Network.Ouroboros and use it to
-  -- provide SendRecv traces for both protocols.
-  localChainSyncMiniProtocol =
-    MiniProtocol
-      { miniProtocolNum = MiniProtocolNum 5
-      , miniProtocolLimits = maximumMiniProtocolLimits
-      , miniProtocolRun = InitiatorProtocolOnly initiator
-      }
-   where
-    initiator =
-      MuxPeer
-        nullTracer
-        (cChainSyncCodec codecs)
-        (chainSyncClientPeer $ chainSyncClient callback)
-
-  localTxSubmissionMiniProtocol =
-    MiniProtocol
-      { miniProtocolNum = MiniProtocolNum 6
-      , miniProtocolLimits = maximumMiniProtocolLimits
-      , miniProtocolRun = InitiatorProtocolOnly initiator
-      }
-   where
-    initiator =
-      MuxPeer
-        nullTracer
-        (cTxSubmissionCodec codecs)
-        (localTxSubmissionClientPeer $ txSubmissionClient queue)
+  Codecs
+    { cChainSyncCodec
+    , cTxSubmissionCodec
+    , cStateQueryCodec
+    } = defaultCodecs nodeToClientV
 
 chainSyncClient ::
   forall m tx.
@@ -325,7 +313,7 @@ withMockServer magic addr action = withIOManager $ \iocp -> do
   -- overhead.
   versions db =
     combineVersions
-      [ simpleSingletonVersions v (NodeToClientVersionData magic) (mockServer (defaultCodecs v) db)
+      [ simpleSingletonVersions v (NodeToClientVersionData magic) (mockServer v db)
       | v <- [nodeToClientVLatest]
       ]
 
@@ -349,44 +337,39 @@ type Block = CardanoBlock StandardCrypto
 
 type Era = AlonzoEra StandardCrypto
 
+-- TODO: Factor out the tracer work on Hydra.Network.Ouroboros and use it to
+-- provide SendRecv traces for both protocols.
 mockServer ::
-  MonadSTM m =>
-  ClientCodecs Block m ->
+  (MonadST m, MonadTimer m) =>
+  NodeToClientVersion ->
   TVar m [ValidatedTx Era] ->
   OuroborosApplication 'ResponderMode LocalAddress LByteString m Void ()
-mockServer codecs db =
-  OuroborosApplication $ \_connectionId _controlMessageSTM ->
-    [ localChainSyncMiniProtocol
-    , localTxSubmissionMiniProtocol
-    ]
+mockServer nodeToClientV db =
+  nodeToClientProtocols
+    ( const $
+        pure $
+          NodeToClientProtocols
+            { localChainSyncProtocol =
+                ResponderProtocolOnly $
+                  let peer = chainSyncServerPeer $ mockChainSyncServer db
+                   in MuxPeer nullTracer cChainSyncCodec peer
+            , localTxSubmissionProtocol =
+                ResponderProtocolOnly $
+                  let peer = localTxSubmissionServerPeer $ pure $ mockTxSubmissionServer db
+                   in MuxPeer nullTracer cTxSubmissionCodec peer
+            , localStateQueryProtocol =
+                ResponderProtocolOnly $
+                  let peer = localStateQueryPeerNull
+                   in MuxPeer nullTracer cStateQueryCodec peer
+            }
+    )
+    nodeToClientV
  where
-  -- TODO: Factor out the tracer work on Hydra.Network.Ouroboros and use it to
-  -- provide SendRecv traces for both protocols.
-  localChainSyncMiniProtocol =
-    MiniProtocol
-      { miniProtocolNum = MiniProtocolNum 5
-      , miniProtocolLimits = maximumMiniProtocolLimits
-      , miniProtocolRun = ResponderProtocolOnly responder
-      }
-   where
-    responder =
-      MuxPeer
-        nullTracer
-        (cChainSyncCodec codecs)
-        (chainSyncServerPeer $ mockChainSyncServer db)
-
-  localTxSubmissionMiniProtocol =
-    MiniProtocol
-      { miniProtocolNum = MiniProtocolNum 6
-      , miniProtocolLimits = maximumMiniProtocolLimits
-      , miniProtocolRun = ResponderProtocolOnly responder
-      }
-   where
-    responder =
-      MuxPeer
-        nullTracer
-        (cTxSubmissionCodec codecs)
-        (localTxSubmissionServerPeer $ pure $ mockTxSubmissionServer db)
+  Codecs
+    { cChainSyncCodec
+    , cTxSubmissionCodec
+    , cStateQueryCodec
+    } = defaultCodecs nodeToClientV
 
 mockChainSyncServer ::
   forall m.
@@ -461,14 +444,6 @@ getAlonzoTxs = \case
     txSeqTxns txsSeq
   _ ->
     mempty
-
---
--- Mux Helpers
---
-
-maximumMiniProtocolLimits :: MiniProtocolLimits
-maximumMiniProtocolLimits =
-  MiniProtocolLimits{maximumIngressQueue = maxBound}
 
 --
 -- Codecs
