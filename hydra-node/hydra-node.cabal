@@ -112,6 +112,7 @@ library
     , bech32-th
     , bytestring
     , cardano-api
+    , cardano-api:gen
     , cardano-binary
     , cardano-crypto-class
     , cardano-ledger-alonzo
@@ -129,6 +130,7 @@ library
     , data-default
     , filepath
     , gitrev
+    , hedgehog-quickcheck
     , hydra-plutus
     , hydra-prelude
     , io-classes

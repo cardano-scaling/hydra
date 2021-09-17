@@ -32,9 +32,14 @@ import Cardano.Api (
   ValidityNoUpperBoundSupportedInEra (..),
   Witness (KeyWitness),
  )
-import Hydra.Chain (HeadParameters)
+import Hydra.Chain (HeadParameters, PostChainTx (InitTx))
 
 -- * Hydra Head transactions
+
+constructTx :: TxIn -> PostChainTx tx -> TxBodyContent BuildTx AlonzoEra
+constructTx txIn = \case
+  InitTx p -> initTx p txIn
+  _ -> error "not implemented"
 
 -- | Smart constructors for 'TxBodyContent' which should be used with
 -- 'makeTransactionBodyAutoBalance' to balance and account for fees accordingly.
