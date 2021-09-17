@@ -8,25 +8,13 @@ module Hydra.Chain.Direct where
 
 import Hydra.Prelude
 
-import Cardano.Binary (
-  serialize,
- )
-import Cardano.Chain.Slotting (
-  EpochSlots (..),
- )
-import Cardano.Ledger.Alonzo.Tx (
-  ValidatedTx,
- )
+import Cardano.Binary (serialize)
+import Cardano.Chain.Slotting (EpochSlots (..))
+import Cardano.Ledger.Alonzo.Tx (ValidatedTx)
 import Cardano.Ledger.Alonzo.TxSeq (txSeqTxns)
-import Cardano.Ledger.Crypto (
-  StandardCrypto,
- )
-import Cardano.Ledger.Era (
-  toTxSeq,
- )
-import Cardano.Slotting.Slot (
-  WithOrigin (Origin),
- )
+import Cardano.Ledger.Crypto (StandardCrypto)
+import Cardano.Ledger.Era (toTxSeq)
+import Cardano.Slotting.Slot (WithOrigin (Origin))
 import Control.Monad.Class.MonadSTM (
   modifyTVar',
   newTQueueIO,
@@ -36,17 +24,11 @@ import Control.Monad.Class.MonadSTM (
   retry,
   writeTQueue,
  )
-import Control.Tracer (
-  nullTracer,
- )
+import Control.Tracer (nullTracer)
 import Data.List ((!!))
-import Data.Map.Strict (
-  (!),
- )
+import Data.Map.Strict ((!))
 import qualified Data.Map.Strict as Map
-import Data.Sequence.Strict (
-  StrictSeq,
- )
+import Data.Sequence.Strict (StrictSeq)
 import qualified Data.Sequence.Strict as StrictSeq
 import Hydra.Chain (
   Chain (..),
@@ -56,30 +38,18 @@ import Hydra.Chain (
   PostChainTx (..),
   toOnChainTx,
  )
-import Hydra.Ledger (
-  Tx,
- )
-import Hydra.Ledger.Cardano (
-  generateWith,
- )
-import Hydra.Logging (
-  Tracer,
- )
-import Ouroboros.Consensus.Byron.Ledger.Config (
-  CodecConfig (..),
- )
-import Ouroboros.Consensus.Cardano (
-  CardanoBlock,
- )
+import Hydra.Ledger (Tx)
+import Hydra.Ledger.Cardano (generateWith)
+import Hydra.Logging (Tracer)
+import Ouroboros.Consensus.Byron.Ledger.Config (CodecConfig (..))
+import Ouroboros.Consensus.Cardano (CardanoBlock)
 import Ouroboros.Consensus.Cardano.Block (
   AlonzoEra,
   CodecConfig (..),
   GenTx (..),
   HardForkBlock (BlockAlonzo),
  )
-import Ouroboros.Consensus.Ledger.SupportsMempool (
-  ApplyTxErr,
- )
+import Ouroboros.Consensus.Ledger.SupportsMempool (ApplyTxErr)
 import Ouroboros.Consensus.Network.NodeToClient (
   Apps (aTxSubmissionServer),
   ClientCodecs,
@@ -94,24 +64,11 @@ import Ouroboros.Consensus.Shelley.Ledger (
   ShelleyBlock (..),
   mkShelleyBlock,
  )
-import Ouroboros.Consensus.Shelley.Ledger.Config (
-  CodecConfig (..),
- )
-import Ouroboros.Consensus.Shelley.Ledger.Mempool (
-  GenTx (..),
-  mkShelleyTx,
- )
-import Ouroboros.Network.Block (
-  Point (..),
-  Tip (..),
-  genesisPoint,
- )
-import Ouroboros.Network.Channel (
-  Channel (..),
- )
-import Ouroboros.Network.Magic (
-  NetworkMagic (..),
- )
+import Ouroboros.Consensus.Shelley.Ledger.Config (CodecConfig (..))
+import Ouroboros.Consensus.Shelley.Ledger.Mempool (GenTx (..), mkShelleyTx)
+import Ouroboros.Network.Block (Point (..), Tip (..), genesisPoint)
+import Ouroboros.Network.Channel (Channel (..))
+import Ouroboros.Network.Magic (NetworkMagic (..))
 import Ouroboros.Network.Mux (
   MiniProtocol (
     MiniProtocol,
@@ -126,7 +83,23 @@ import Ouroboros.Network.Mux (
   OuroborosApplication (..),
   RunMiniProtocol (..),
  )
-import Ouroboros.Network.NodeToClient
+import Ouroboros.Network.NodeToClient (
+  ErrorPolicies,
+  LocalAddress (LocalAddress),
+  NetworkConnectTracers (..),
+  NetworkServerTracers (..),
+  NodeToClientVersion,
+  NodeToClientVersionData (..),
+  combineVersions,
+  connectTo,
+  localSnocket,
+  newNetworkMutableState,
+  nodeToClientCodecCBORTerm,
+  nodeToClientHandshakeCodec,
+  nullErrorPolicies,
+  simpleSingletonVersions,
+  withIOManager,
+ )
 import Ouroboros.Network.Protocol.ChainSync.Client (
   ChainSyncClient (..),
   ClientStIdle (..),
@@ -145,9 +118,7 @@ import Ouroboros.Network.Protocol.Handshake.Codec (
   cborTermVersionDataCodec,
   noTimeLimitsHandshake,
  )
-import Ouroboros.Network.Protocol.Handshake.Version (
-  acceptableVersion,
- )
+import Ouroboros.Network.Protocol.Handshake.Version (acceptableVersion)
 import Ouroboros.Network.Protocol.LocalTxSubmission.Client (
   LocalTxClientStIdle (..),
   LocalTxSubmissionClient (..),
@@ -158,13 +129,8 @@ import Ouroboros.Network.Protocol.LocalTxSubmission.Server (
   localTxSubmissionServerPeer,
  )
 import qualified Ouroboros.Network.Protocol.LocalTxSubmission.Type as LocalTxSubmission
-import Ouroboros.Network.Server.RateLimiting (
-  AcceptedConnectionsLimit (..),
- )
-import Ouroboros.Network.Socket (
-  SomeResponderApplication (..),
-  withServerNode,
- )
+import Ouroboros.Network.Server.RateLimiting (AcceptedConnectionsLimit (..))
+import Ouroboros.Network.Socket (SomeResponderApplication (..), withServerNode)
 import qualified Shelley.Spec.Ledger.API as Ledger
 import Test.Cardano.Ledger.Alonzo.Serialisation.Generators ()
 
