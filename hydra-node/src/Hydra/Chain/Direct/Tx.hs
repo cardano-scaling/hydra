@@ -13,6 +13,15 @@ import Cardano.Api (
   BuildTx,
   BuildTxWith (..),
   KeyWitnessInCtx (..),
+  MultiAssetSupportedInEra (MultiAssetInAlonzoEra),
+  NetworkId (Testnet),
+  NetworkMagic (NetworkMagic),
+  PaymentCredential (PaymentCredentialByScript),
+  PlutusScriptVersion (PlutusScriptV1),
+  Script (PlutusScript),
+  ScriptData (ScriptDataNumber),
+  ScriptDataSupportedInEra (ScriptDataInAlonzoEra),
+  StakeAddressReference (NoStakeAddress),
   TxAuxScripts (..),
   TxBodyContent (..),
   TxCertificates (..),
@@ -24,17 +33,30 @@ import Cardano.Api (
   TxInsCollateral (..),
   TxMetadataInEra (..),
   TxMintValue (..),
+  TxOut (TxOut),
+  TxOutDatumHash (TxOutDatumHash),
+  TxOutValue (TxOutValue),
   TxScriptValidity (..),
   TxUpdateProposal (..),
   TxValidityLowerBound (..),
   TxValidityUpperBound (..),
   TxWithdrawals (..),
   ValidityNoUpperBoundSupportedInEra (..),
+  WitCtx (WitCtxTxIn),
   Witness (KeyWitness),
+  examplePlutusScriptAlwaysSucceeds,
+  hashScript,
+  hashScriptData,
+  lovelaceToValue,
+  makeShelleyAddressInEra,
  )
 import Hydra.Chain (HeadParameters, PostChainTx (InitTx))
 
 -- * Hydra Head transactions
+
+-- TODO(SN) parameterize this
+networkId :: NetworkId
+networkId = Testnet $ NetworkMagic 42
 
 constructTx :: TxIn -> PostChainTx tx -> TxBodyContent BuildTx AlonzoEra
 constructTx txIn = \case
@@ -51,7 +73,7 @@ initTx _ txIn =
   TxBodyContent
     { txIns = [(txIn, BuildTxWith (KeyWitness KeyWitnessForSpending))]
     , txInsCollateral = TxInsCollateralNone
-    , txOuts = []
+    , txOuts = [headOut]
     , txFee = TxFeeExplicit TxFeesExplicitInAlonzoEra 0
     , txValidityRange = (TxValidityNoLowerBound, TxValidityNoUpperBound ValidityNoUpperBoundInAlonzoEra)
     , txMetadata = TxMetadataNone
@@ -65,3 +87,28 @@ initTx _ txIn =
     , txMintValue = TxMintNone
     , txScriptValidity = BuildTxWith TxScriptValidityNone
     }
+ where
+  headOut = TxOut headAddress headValue headDatumHash
+
+  -- TODO(SN): The main Hydra Head script address. Will be parameterized by the
+  -- thread token eventually. For now, this is just some arbitrary address, as
+  -- it is also later quite arbitrary/different per Head.
+  headAddress =
+    makeShelleyAddressInEra
+      networkId
+      (PaymentCredentialByScript $ hashScript headScript)
+      -- REVIEW(SN): stake head funds?
+      NoStakeAddress
+
+  headScript =
+    PlutusScript PlutusScriptV1 $
+      examplePlutusScriptAlwaysSucceeds WitCtxTxIn
+
+  -- REVIEW(SN): do we need to consider min utxo value? that would also depend
+  -- on how many assets present in an output
+  headValue = TxOutValue MultiAssetInAlonzoEra $ lovelaceToValue 10
+
+  headDatumHash = TxOutDatumHash ScriptDataInAlonzoEra $ hashScriptData headDatum
+
+  -- TODO(SN): how to convert plutus 'Datum' to 'cardano-api' re-/serialize?
+  headDatum = ScriptDataNumber 1337
