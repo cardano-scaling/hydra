@@ -11,10 +11,8 @@ module Hydra.Chain.Direct (
 
 import Hydra.Prelude
 
-import Cardano.Chain.Slotting (EpochSlots (..))
 import Cardano.Ledger.Alonzo.Tx (ValidatedTx)
 import Cardano.Ledger.Alonzo.TxSeq (txSeqTxns)
-import Cardano.Ledger.Crypto (StandardCrypto)
 import Cardano.Ledger.Era (toTxSeq)
 import Control.Monad.Class.MonadSTM (
   modifyTVar',
@@ -26,8 +24,6 @@ import Control.Monad.Class.MonadSTM (
  )
 import Control.Tracer (nullTracer)
 import Data.List ((!!))
-import Data.Map.Strict ((!))
-import qualified Data.Map.Strict as Map
 import Data.Sequence.Strict (StrictSeq)
 import qualified Data.Sequence.Strict as StrictSeq
 import Hydra.Chain (
@@ -37,30 +33,26 @@ import Hydra.Chain (
   PostChainTx (..),
  )
 import Hydra.Chain.Direct.Tx (constructTx, observeTx)
+import Hydra.Chain.Direct.Util (
+  Block,
+  Era,
+  defaultCodecs,
+  nullConnectTracers,
+  nullServerTracers,
+  versions,
+ )
 import Hydra.Ledger.Cardano (generateWith)
 import Hydra.Logging (Tracer)
-import Ouroboros.Consensus.Byron.Ledger.Config (CodecConfig (..))
-import Ouroboros.Consensus.Cardano (CardanoBlock)
 import Ouroboros.Consensus.Cardano.Block (
-  AlonzoEra,
-  CodecConfig (..),
   GenTx (..),
   HardForkBlock (BlockAlonzo),
  )
 import Ouroboros.Consensus.Ledger.SupportsMempool (ApplyTxErr)
-import Ouroboros.Consensus.Network.NodeToClient (
-  ClientCodecs,
-  Codecs' (..),
-  clientCodecs,
- )
-import Ouroboros.Consensus.Node.NetworkProtocolVersion (
-  SupportedNetworkProtocolVersion (..),
- )
+import Ouroboros.Consensus.Network.NodeToClient (Codecs' (..))
 import Ouroboros.Consensus.Shelley.Ledger (
   ShelleyBlock (..),
   mkShelleyBlock,
  )
-import Ouroboros.Consensus.Shelley.Ledger.Config (CodecConfig (..))
 import Ouroboros.Consensus.Shelley.Ledger.Mempool (GenTx (..), mkShelleyTx)
 import Ouroboros.Network.Block (Point (..), Tip (..), genesisPoint)
 import Ouroboros.Network.Magic (NetworkMagic (..))
@@ -73,12 +65,8 @@ import Ouroboros.Network.Mux (
 import Ouroboros.Network.NodeToClient (
   ErrorPolicies,
   LocalAddress (LocalAddress),
-  NetworkConnectTracers (..),
-  NetworkServerTracers (..),
   NodeToClientProtocols (..),
   NodeToClientVersion,
-  NodeToClientVersionData (..),
-  combineVersions,
   connectTo,
   localSnocket,
   localStateQueryPeerNull,
@@ -87,7 +75,6 @@ import Ouroboros.Network.NodeToClient (
   nodeToClientHandshakeCodec,
   nodeToClientProtocols,
   nullErrorPolicies,
-  simpleSingletonVersions,
   withIOManager,
  )
 import Ouroboros.Network.Protocol.ChainSync.Client (
@@ -136,32 +123,20 @@ withDirectChain _tracer magic addr callback action = do
   withIOManager $ \iocp -> do
     race_
       (action $ Chain{postTx = atomically . writeTQueue queue})
-      (connectTo (localSnocket iocp addr) tracers (versions queue) addr)
- where
-  -- NOTE: written in such a way to make it easier to add support for multiple
-  -- versions if needed. A bit YAGNI but also tiny enough to be too much
-  -- overhead.
-  versions queue =
-    combineVersions
-      [ simpleSingletonVersions v (NodeToClientVersionData magic) (client v queue callback)
-      | v <- [nodeToClientVLatest]
-      ]
-
-  -- TODO: Provide tracers for these.
-  tracers :: NetworkConnectTracers LocalAddress NodeToClientVersion
-  tracers =
-    NetworkConnectTracers
-      { nctMuxTracer = nullTracer
-      , nctHandshakeTracer = nullTracer
-      }
+      ( connectTo
+          (localSnocket iocp addr)
+          nullConnectTracers
+          (versions magic (client queue callback))
+          addr
+      )
 
 client ::
   (MonadST m, MonadTimer m) =>
-  NodeToClientVersion ->
   TQueue m (PostChainTx tx) ->
   ChainCallback tx m ->
+  NodeToClientVersion ->
   OuroborosApplication 'InitiatorMode LocalAddress LByteString m () Void
-client nodeToClientV queue callback =
+client queue callback nodeToClientV =
   nodeToClientProtocols
     ( const $
         pure $
@@ -276,7 +251,7 @@ withMockServer magic addr action = withIOManager $ \iocp -> do
   db <- newTVarIO mempty
   withServerNode
     snocket
-    tracers
+    nullServerTracers
     networkState
     connLimit
     (LocalAddress addr)
@@ -284,47 +259,24 @@ withMockServer magic addr action = withIOManager $ \iocp -> do
     noTimeLimitsHandshake
     (cborTermVersionDataCodec nodeToClientCodecCBORTerm)
     acceptableVersion
-    (SomeResponderApplication <$> versions db)
+    (SomeResponderApplication <$> versions magic (mockServer db))
     errorPolicies
     (\_ _ -> action)
  where
-  -- NOTE: written in such a way to make it easier to add support for multiple
-  -- versions if needed. A bit YAGNI but also tiny enough to be too much
-  -- overhead.
-  versions db =
-    combineVersions
-      [ simpleSingletonVersions v (NodeToClientVersionData magic) (mockServer v db)
-      | v <- [nodeToClientVLatest]
-      ]
-
   connLimit :: AcceptedConnectionsLimit
   connLimit = AcceptedConnectionsLimit maxBound maxBound 0
 
   errorPolicies :: ErrorPolicies
   errorPolicies = nullErrorPolicies
 
-  -- TODO: Provide tracers for these.
-  tracers :: NetworkServerTracers LocalAddress NodeToClientVersion
-  tracers =
-    NetworkServerTracers
-      { nstMuxTracer = nullTracer
-      , nstHandshakeTracer = nullTracer
-      , nstErrorPolicyTracer = nullTracer
-      , nstAcceptPolicyTracer = nullTracer
-      }
-
-type Block = CardanoBlock StandardCrypto
-
-type Era = AlonzoEra StandardCrypto
-
 -- TODO: Factor out the tracer work on Hydra.Network.Ouroboros and use it to
 -- provide SendRecv traces for both protocols.
 mockServer ::
   (MonadST m, MonadTimer m) =>
-  NodeToClientVersion ->
   TVar m [ValidatedTx Era] ->
+  NodeToClientVersion ->
   OuroborosApplication 'ResponderMode LocalAddress LByteString m Void ()
-mockServer nodeToClientV db =
+mockServer db nodeToClientV =
   nodeToClientProtocols
     ( const $
         pure $
@@ -424,40 +376,6 @@ getAlonzoTxs = \case
     txSeqTxns txsSeq
   _ ->
     mempty
-
---
--- Codecs
---
-
--- | Fixed epoch slots used in the ByronCodecConfig.
-epochSlots :: EpochSlots
-epochSlots = EpochSlots 432000
-
--- TODO(SN): ^^^ This will make codecs fail on non-standard testnets and we
--- should check with networking whether we can opt-out / ignore blocks from
--- Byron instead of configuring this everywhere
-
-defaultCodecs ::
-  MonadST m =>
-  NodeToClientVersion ->
-  ClientCodecs Block m
-defaultCodecs nodeToClientV =
-  clientCodecs cfg (supportedVersions ! nodeToClientV) nodeToClientV
- where
-  supportedVersions = supportedNodeToClientVersions (Proxy @Block)
-  cfg = CardanoCodecConfig byron shelley allegra mary alonzo
-   where
-    byron = ByronCodecConfig epochSlots
-    shelley = ShelleyCodecConfig
-    allegra = ShelleyCodecConfig
-    mary = ShelleyCodecConfig
-    alonzo = ShelleyCodecConfig
-
-nodeToClientVLatest :: NodeToClientVersion
-nodeToClientVLatest =
-  fst $ Map.findMax $ supportedNodeToClientVersions proxy
- where
-  proxy = Proxy @(CardanoBlock StandardCrypto)
 
 --
 -- Tracing

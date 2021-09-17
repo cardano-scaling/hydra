@@ -78,6 +78,7 @@ library
     Hydra.Chain
     Hydra.Chain.Direct
     Hydra.Chain.Direct.Tx
+    Hydra.Chain.Direct.Util
     Hydra.Chain.ExternalPAB
     Hydra.Chain.ZeroMQ
     Hydra.ClientInput
