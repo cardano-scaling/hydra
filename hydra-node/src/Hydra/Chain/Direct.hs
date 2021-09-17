@@ -37,7 +37,7 @@ import Hydra.Chain (
   OnChainTx (..),
   PostChainTx (..),
  )
-import Hydra.Chain.Direct.Tx (constructTx, mkUnsignedTx)
+import Hydra.Chain.Direct.Tx (constructTx)
 import Hydra.Ledger.Cardano (generateWith)
 import Hydra.Logging (Tracer)
 import Ouroboros.Consensus.Byron.Ledger.Config (CodecConfig (..))
@@ -267,8 +267,8 @@ txSubmissionClient queue =
   fromPostChainTx :: PostChainTx tx -> GenTx Block
   fromPostChainTx postChainTx = do
     let txIn = generateWith arbitrary 42
-        body = constructTx txIn postChainTx
-    GenTxAlonzo $ mkShelleyTx $ mkUnsignedTx body
+        unsignedTx = constructTx txIn postChainTx
+    GenTxAlonzo $ mkShelleyTx unsignedTx
 
 --
 -- Mock Server
