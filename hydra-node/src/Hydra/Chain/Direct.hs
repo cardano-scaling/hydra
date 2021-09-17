@@ -1,5 +1,5 @@
+{-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE TypeApplications #-}
-{-# OPTIONS_GHC -Wno-unused-imports #-}
 
 -- | Chain component implementation which uses directly the Node-to-Client
 -- protocols to submit "hand-rolled" transactions including Plutus validators and
@@ -8,19 +8,16 @@ module Hydra.Chain.Direct where
 
 import Hydra.Prelude
 
-import Cardano.Binary (serialize)
 import Cardano.Chain.Slotting (EpochSlots (..))
 import Cardano.Ledger.Alonzo.Tx (ValidatedTx)
 import Cardano.Ledger.Alonzo.TxSeq (txSeqTxns)
 import Cardano.Ledger.Crypto (StandardCrypto)
 import Cardano.Ledger.Era (toTxSeq)
-import Cardano.Slotting.Slot (WithOrigin (Origin))
 import Control.Monad.Class.MonadSTM (
   modifyTVar',
   newTQueueIO,
   newTVarIO,
   readTQueue,
-  readTVar,
   retry,
   writeTQueue,
  )
@@ -36,9 +33,7 @@ import Hydra.Chain (
   ChainComponent,
   OnChainTx (..),
   PostChainTx (..),
-  toOnChainTx,
  )
-import Hydra.Ledger (Tx)
 import Hydra.Ledger.Cardano (generateWith)
 import Hydra.Logging (Tracer)
 import Ouroboros.Consensus.Byron.Ledger.Config (CodecConfig (..))
@@ -51,7 +46,6 @@ import Ouroboros.Consensus.Cardano.Block (
  )
 import Ouroboros.Consensus.Ledger.SupportsMempool (ApplyTxErr)
 import Ouroboros.Consensus.Network.NodeToClient (
-  Apps (aTxSubmissionServer),
   ClientCodecs,
   Codecs' (..),
   clientCodecs,
@@ -60,14 +54,12 @@ import Ouroboros.Consensus.Node.NetworkProtocolVersion (
   SupportedNetworkProtocolVersion (..),
  )
 import Ouroboros.Consensus.Shelley.Ledger (
-  ApplyTxError,
   ShelleyBlock (..),
   mkShelleyBlock,
  )
 import Ouroboros.Consensus.Shelley.Ledger.Config (CodecConfig (..))
 import Ouroboros.Consensus.Shelley.Ledger.Mempool (GenTx (..), mkShelleyTx)
 import Ouroboros.Network.Block (Point (..), Tip (..), genesisPoint)
-import Ouroboros.Network.Channel (Channel (..))
 import Ouroboros.Network.Magic (NetworkMagic (..))
 import Ouroboros.Network.Mux (
   MiniProtocol (
@@ -113,7 +105,6 @@ import Ouroboros.Network.Protocol.ChainSync.Server (
   ServerStNext (..),
   chainSyncServerPeer,
  )
-import qualified Ouroboros.Network.Protocol.ChainSync.Type as ChainSync
 import Ouroboros.Network.Protocol.Handshake.Codec (
   cborTermVersionDataCodec,
   noTimeLimitsHandshake,
@@ -140,7 +131,7 @@ nodeToClientVersion = NodeToClientVersionData $ NetworkMagic 42
 withDirectChain ::
   -- | Tracer for logging
   Tracer IO DirectChainLog ->
-  -- | Socket used to connect to the server.
+  -- | Path to a domain socket used to connect to the server.
   FilePath ->
   ChainComponent tx IO ()
 withDirectChain _tracer addr callback action = do
@@ -291,7 +282,7 @@ txSubmissionClient queue =
 --
 
 withMockServer ::
-  -- | Socket used to connect to the server.
+  -- | Path to a domain socket on which to listen.
   FilePath ->
   -- | Action to run in-between.
   IO a ->
@@ -404,10 +395,9 @@ mockChainSyncServer db =
      in BlockAlonzo $ mkShelleyBlock $ Ledger.Block header body
 
   serverStIdle :: Int -> ServerStIdle Block (Point Block) (Tip Block) m ()
-  serverStIdle cursor =
+  serverStIdle !cursor =
     ServerStIdle
-      { -- recvMsgRequestNext   :: m (Either (ServerStNext header point tip m a) (m (ServerStNext header point tip m a))),
-        recvMsgRequestNext = do
+      { recvMsgRequestNext = do
           tx <- atomically $ do
             txs <- readTVar db
             let ix = length txs - cursor
