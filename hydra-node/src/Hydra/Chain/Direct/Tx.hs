@@ -78,4 +78,4 @@ initTx _ utxo =
   changeValue = TxOutValue MultiAssetInAlonzoEra $ startValue <> lovelaceToValue (- fees)
 
   -- TODO(SN): how high will be fees?
-  fees = 0
+  fees = 10
