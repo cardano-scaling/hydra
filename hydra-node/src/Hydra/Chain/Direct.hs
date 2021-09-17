@@ -134,20 +134,16 @@ import Ouroboros.Network.Socket (SomeResponderApplication (..), withServerNode)
 import qualified Shelley.Spec.Ledger.API as Ledger
 import Test.Cardano.Ledger.Alonzo.Serialisation.Generators ()
 
-data DirectChainLog
+nodeToClientVersion :: NodeToClientVersionData
+nodeToClientVersion = NodeToClientVersionData $ NetworkMagic 42
 
 withDirectChain ::
   -- | Tracer for logging
   Tracer IO DirectChainLog ->
-  -- | Network configuration, defined by the genesis configuration.
-  --
-  -- See also 'defaultEpochSlots' and 'defaultNodeToClientVersionData' for playing
-  -- around.
-  (NodeToClientVersionData, EpochSlots) ->
   -- | Socket used to connect to the server.
   FilePath ->
   ChainComponent tx IO ()
-withDirectChain _tracer (vData, epochSlots) addr callback action = do
+withDirectChain _tracer addr callback action = do
   queue <- newTQueueIO
   withIOManager $ \iocp -> do
     race_
@@ -159,7 +155,7 @@ withDirectChain _tracer (vData, epochSlots) addr callback action = do
   -- overhead.
   versions queue =
     combineVersions
-      [ simpleSingletonVersions v vData (client (defaultCodecs epochSlots v) queue callback)
+      [ simpleSingletonVersions v nodeToClientVersion (client (defaultCodecs v) queue callback)
       | v <- [nodeToClientVLatest]
       ]
 
@@ -295,17 +291,12 @@ txSubmissionClient queue =
 --
 
 withMockServer ::
-  -- | Network configuration, defined by the genesis configuration.
-  --
-  -- See also 'defaultEpochSlots' and 'defaultNodeToClientVersionData' for playing
-  -- around.
-  (NodeToClientVersionData, EpochSlots) ->
   -- | Socket used to connect to the server.
   FilePath ->
   -- | Action to run in-between.
   IO a ->
   IO a
-withMockServer (vData, epochSlots) addr action = withIOManager $ \iocp -> do
+withMockServer addr action = withIOManager $ \iocp -> do
   let snocket = localSnocket iocp addr
   networkState <- newNetworkMutableState
   db <- newTVarIO mempty
@@ -328,7 +319,7 @@ withMockServer (vData, epochSlots) addr action = withIOManager $ \iocp -> do
   -- overhead.
   versions db =
     combineVersions
-      [ simpleSingletonVersions v vData (mockServer (defaultCodecs epochSlots v) db)
+      [ simpleSingletonVersions v nodeToClientVersion (mockServer (defaultCodecs v) db)
       | v <- [nodeToClientVLatest]
       ]
 
@@ -478,12 +469,15 @@ maximumMiniProtocolLimits =
 -- Codecs
 --
 
+-- | Fixed epoch slots used in the ByronCodecConfig
+epochSlots :: EpochSlots
+epochSlots = EpochSlots 432000
+
 defaultCodecs ::
   MonadST m =>
-  EpochSlots ->
   NodeToClientVersion ->
   ClientCodecs Block m
-defaultCodecs epochSlots nodeToClientV =
+defaultCodecs nodeToClientV =
   clientCodecs cfg (supportedVersions ! nodeToClientV) nodeToClientV
  where
   supportedVersions = supportedNodeToClientVersions (Proxy @Block)
@@ -495,14 +489,14 @@ defaultCodecs epochSlots nodeToClientV =
     mary = ShelleyCodecConfig
     alonzo = ShelleyCodecConfig
 
-defaultNodeToClientVersionData :: NodeToClientVersionData
-defaultNodeToClientVersionData = NodeToClientVersionData (NetworkMagic 42)
-
-defaultEpochSlots :: EpochSlots
-defaultEpochSlots = EpochSlots 432000
-
 nodeToClientVLatest :: NodeToClientVersion
 nodeToClientVLatest =
   fst $ Map.findMax $ supportedNodeToClientVersions proxy
  where
   proxy = Proxy @(CardanoBlock StandardCrypto)
+
+--
+-- Tracing
+--
+
+data DirectChainLog
