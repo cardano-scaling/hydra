@@ -25,3 +25,6 @@ instance FromJSON ContestationPeriod where
 instance ToJSON ContestationPeriod where
   toJSON =
     toJSON . picosecondsToDiffTime . picoseconds
+
+contestationPeriodFromDiffTime :: DiffTime -> ContestationPeriod
+contestationPeriodFromDiffTime = UnsafeContestationPeriod . diffTimeToPicoseconds

@@ -37,8 +37,8 @@ instance FromJSON Party where
   parseJSON = withObject "Party" $ \o -> do
     vkeyHex :: Text <- o .: "vkey"
     vkeyBytes <- either fail pure . Base16.decode $ encodeUtf8 vkeyHex
-    (VerKeyMockDSIGN w) <- maybe (fail "deserialize verification key") pure $ rawDeserialiseVerKeyDSIGN vkeyBytes
-    pure $ UnsafeParty $ fromIntegral w
+    verKey <- maybe (fail "deserialize verification key") pure $ rawDeserialiseVerKeyDSIGN vkeyBytes
+    pure $ partyFromVerKey verKey
 
 instance ToSchema Party where
   toSchema = FormSchemaUnsupported "Party"
@@ -51,3 +51,6 @@ instance PlutusTx.FromData Party where
 
 instance PlutusTx.UnsafeFromData Party where
   unsafeFromBuiltinData = fromInteger . unsafeFromBuiltinData
+
+partyFromVerKey :: VerKeyDSIGN MockDSIGN -> Party
+partyFromVerKey (VerKeyMockDSIGN w) = UnsafeParty $ fromIntegral w
