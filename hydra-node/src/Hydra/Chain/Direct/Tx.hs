@@ -23,11 +23,11 @@ import Cardano.Ledger.Val (inject)
 import qualified Data.Map as Map
 import qualified Data.Sequence.Strict as StrictSeq
 import qualified Data.Set as Set
-import Hydra.Chain (HeadParameters (..), PostChainTx (InitTx))
+import Hydra.Chain (ContestationPeriod, HeadParameters (..), OnChainTx (OnInitTx), PostChainTx (InitTx))
 import Hydra.Contract.ContestationPeriod (contestationPeriodFromDiffTime)
 import Hydra.Contract.Head (State (Initial))
 import Hydra.Contract.Party (partyFromVerKey)
-import Hydra.Party (vkey)
+import Hydra.Party (Party, vkey)
 import Plutus.V1.Ledger.Api (toBuiltinData, toData)
 import Shelley.Spec.Ledger.API (
   Coin (..),
@@ -44,7 +44,7 @@ import Shelley.Spec.Ledger.Tx (hashScript)
 network :: Network
 network = Testnet
 
--- * Hydra Head transactions
+-- * Post Hydra Head transactions
 
 -- | Construct the Head protocol transactions as Alonzo 'Tx'. Note that
 -- 'ValidatedTx' this produces an unbalanced, unsigned transaction and this type
@@ -104,6 +104,26 @@ initTx HeadParameters{contestationPeriod, parties} txIn =
         (map (partyFromVerKey . vkey) parties)
 
   headScript = PlutusScript "some invalid plutus script"
+
+-- * Observe Hydra Head transactions
+
+observeTx :: ValidatedTx (AlonzoEra StandardCrypto) -> Maybe (OnChainTx tx)
+observeTx tx =
+  observeInitTx tx
+    <|> observeCommitTx tx
+
+observeInitTx :: ValidatedTx (AlonzoEra StandardCrypto) -> Maybe (OnChainTx tx)
+observeInitTx _ =
+  Just $
+    OnInitTx contestationPeriod parties
+ where
+  contestationPeriod = 42
+
+  parties = []
+
+observeCommitTx :: ValidatedTx (AlonzoEra StandardCrypto) -> Maybe (OnChainTx tx)
+observeCommitTx _ = Nothing
+--
 
 -- * Helpers
 
