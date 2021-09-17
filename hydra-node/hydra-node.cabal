@@ -128,7 +128,6 @@ library
     , data-default
     , filepath
     , gitrev
-    , hedgehog-quickcheck
     , hydra-plutus
     , hydra-prelude
     , io-classes
