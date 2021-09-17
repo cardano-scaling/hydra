@@ -38,17 +38,12 @@ spec = parallel $ do
         withDirectChain nullTracer networkMagic socket (putMVar calledBackAlice) $ \Chain{postTx} -> do
           calledBackBob <- newEmptyMVar
           withDirectChain nullTracer networkMagic socket (putMVar calledBackBob) $ \_ -> do
-            -- TODO: The server is still a mock at the moment, and returns
-            -- dummy data, but ideally we should have something like:
-            --
-            --   let paramaeters = HeadParameters 100 [alice, bob, carol]
-            --
-            let parameters = HeadParameters 42 []
+            let parameters = HeadParameters 100 [alice, bob, carol]
             postTx $ InitTx @SimpleTx parameters
             failAfter 5 $
-              takeMVar calledBackAlice `shouldReturn` OnInitTx 42 []
+              takeMVar calledBackAlice `shouldReturn` OnInitTx 100 [alice, bob, carol]
             failAfter 5 $
-              takeMVar calledBackBob `shouldReturn` OnInitTx @SimpleTx 42 []
+              takeMVar calledBackBob `shouldReturn` OnInitTx @SimpleTx 100 [alice, bob, carol]
 
 -- | Mock implementation of for a Node-to-Client protocol server which should be
 -- accepting transactions and responding with new blocks containing them.
