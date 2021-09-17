@@ -11,8 +11,6 @@ module Hydra.Chain.Direct (
 
 import Hydra.Prelude
 
-import Cardano.Api (TxBodyError, makeTransactionBody, signShelleyTransaction)
-import qualified Cardano.Api.Shelley as Api
 import Cardano.Chain.Slotting (EpochSlots (..))
 import Cardano.Ledger.Alonzo.Tx (ValidatedTx)
 import Cardano.Ledger.Alonzo.TxSeq (txSeqTxns)
@@ -32,7 +30,6 @@ import Data.Map.Strict ((!))
 import qualified Data.Map.Strict as Map
 import Data.Sequence.Strict (StrictSeq)
 import qualified Data.Sequence.Strict as StrictSeq
-import Gen.Cardano.Api.Typed (genTxIn)
 import Hydra.Chain (
   Chain (..),
   ChainCallback,
@@ -40,7 +37,7 @@ import Hydra.Chain (
   OnChainTx (..),
   PostChainTx (..),
  )
-import Hydra.Chain.Direct.Tx (constructTx)
+import Hydra.Chain.Direct.Tx (constructTx, mkUnsignedTx)
 import Hydra.Ledger.Cardano (generateWith)
 import Hydra.Logging (Tracer)
 import Ouroboros.Consensus.Byron.Ledger.Config (CodecConfig (..))
@@ -126,7 +123,6 @@ import Ouroboros.Network.Server.RateLimiting (AcceptedConnectionsLimit (..))
 import Ouroboros.Network.Socket (SomeResponderApplication (..), withServerNode)
 import qualified Shelley.Spec.Ledger.API as Ledger
 import Test.Cardano.Ledger.Alonzo.Serialisation.Generators ()
-import Test.QuickCheck.Hedgehog (hedgehog)
 
 withDirectChain ::
   -- | Tracer for logging
@@ -259,9 +255,7 @@ txSubmissionClient queue =
   clientStIdle :: m (LocalTxClientStIdle (GenTx Block) (ApplyTxErr Block) m ())
   clientStIdle = do
     tx <- atomically $ readTQueue queue
-    case fromPostChainTx tx of
-      Left err -> error $ "failed to construct transaction: " <> show err
-      Right genTx -> pure $ SendMsgSubmitTx genTx (const clientStIdle)
+    pure $ SendMsgSubmitTx (fromPostChainTx tx) (const clientStIdle)
 
   -- FIXME
   -- This is where we need signatures and client credentials. Ideally, we would
@@ -269,14 +263,12 @@ txSubmissionClient queue =
   -- The hydra node could provide a pre-filled transaction body, and let the
   -- client submit a signed transaction.
   --
-  -- For now, it simply does not signs with no keys..
-  fromPostChainTx :: PostChainTx tx -> Either TxBodyError (GenTx Block)
+  -- For now, it simply does not sign..
+  fromPostChainTx :: PostChainTx tx -> GenTx Block
   fromPostChainTx postChainTx = do
-    let txIn = generateWith (hedgehog genTxIn) 42
-        txBodyContents = constructTx txIn postChainTx
-    makeTransactionBody txBodyContents <&> \txBody ->
-      case signShelleyTransaction txBody [] of
-        (Api.ShelleyTx _ tx) -> GenTxAlonzo $ mkShelleyTx tx
+    let txIn = generateWith arbitrary 42
+        body = constructTx txIn postChainTx
+    GenTxAlonzo $ mkShelleyTx $ mkUnsignedTx body
 
 --
 -- Mock Server
