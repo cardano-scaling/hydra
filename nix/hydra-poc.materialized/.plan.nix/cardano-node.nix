@@ -176,4 +176,4 @@
           };
         };
       };
-    } // rec { src = (pkgs.lib).mkDefault .././.source-repository-packages/66; }
+    } // rec { src = (pkgs.lib).mkDefault .././.source-repository-packages/67; }

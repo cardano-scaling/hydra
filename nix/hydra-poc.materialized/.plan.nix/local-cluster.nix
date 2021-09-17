@@ -37,7 +37,9 @@
           (hsPkgs."async" or (errorHandler.buildDepError "async"))
           (hsPkgs."base" or (errorHandler.buildDepError "base"))
           (hsPkgs."bytestring" or (errorHandler.buildDepError "bytestring"))
+          (hsPkgs."cardano-api" or (errorHandler.buildDepError "cardano-api"))
           (hsPkgs."cardano-crypto-class" or (errorHandler.buildDepError "cardano-crypto-class"))
+          (hsPkgs."containers" or (errorHandler.buildDepError "containers"))
           (hsPkgs."contra-tracer" or (errorHandler.buildDepError "contra-tracer"))
           (hsPkgs."directory" or (errorHandler.buildDepError "directory"))
           (hsPkgs."filepath" or (errorHandler.buildDepError "filepath"))
@@ -50,6 +52,7 @@
           (hsPkgs."iohk-monitoring" or (errorHandler.buildDepError "iohk-monitoring"))
           (hsPkgs."network" or (errorHandler.buildDepError "network"))
           (hsPkgs."process" or (errorHandler.buildDepError "process"))
+          (hsPkgs."QuickCheck" or (errorHandler.buildDepError "QuickCheck"))
           (hsPkgs."random-shuffle" or (errorHandler.buildDepError "random-shuffle"))
           (hsPkgs."retry" or (errorHandler.buildDepError "retry"))
           (hsPkgs."say" or (errorHandler.buildDepError "say"))
@@ -62,7 +65,12 @@
           (hsPkgs."websockets" or (errorHandler.buildDepError "websockets"))
           ];
         buildable = true;
-        modules = [ "CardanoCluster" "CardanoNode" "HydraNode" ];
+        modules = [
+          "CardanoCluster"
+          "CardanoNode"
+          "Hydra/Generator"
+          "HydraNode"
+          ];
         hsSourceDirs = [ "src" ];
         };
       exes = {
@@ -99,10 +107,12 @@
             (hsPkgs."lens" or (errorHandler.buildDepError "lens"))
             (hsPkgs."lens-aeson" or (errorHandler.buildDepError "lens-aeson"))
             (hsPkgs."local-cluster" or (errorHandler.buildDepError "local-cluster"))
+            (hsPkgs."QuickCheck" or (errorHandler.buildDepError "QuickCheck"))
             (hsPkgs."regex-tdfa" or (errorHandler.buildDepError "regex-tdfa"))
             (hsPkgs."say" or (errorHandler.buildDepError "say"))
             (hsPkgs."strict-containers" or (errorHandler.buildDepError "strict-containers"))
             (hsPkgs."temporary" or (errorHandler.buildDepError "temporary"))
+            (hsPkgs."text" or (errorHandler.buildDepError "text"))
             ];
           build-tools = [
             (hsPkgs.buildPackages.hspec-discover.components.exes.hspec-discover or (pkgs.buildPackages.hspec-discover or (errorHandler.buildToolDepError "hspec-discover:hspec-discover")))
@@ -110,7 +120,12 @@
             (hsPkgs.buildPackages.hydra-node.components.exes.mock-chain or (pkgs.buildPackages.mock-chain or (errorHandler.buildToolDepError "hydra-node:mock-chain")))
             ];
           buildable = true;
-          modules = [ "Spec" "Test/EndToEndSpec" "Test/LocalClusterSpec" ];
+          modules = [
+            "Spec"
+            "Test/EndToEndSpec"
+            "Test/GeneratorSpec"
+            "Test/LocalClusterSpec"
+            ];
           hsSourceDirs = [ "test" ];
           mainPath = [ "Main.hs" ];
           };

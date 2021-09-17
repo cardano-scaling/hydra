@@ -789,6 +789,7 @@
         lobemo-backend-aggregation = ./.plan.nix/lobemo-backend-aggregation.nix;
         plutus-ledger-api = ./.plan.nix/plutus-ledger-api.nix;
         io-classes = ./.plan.nix/io-classes.nix;
+        cardano-ledger-alonzo-test = ./.plan.nix/cardano-ledger-alonzo-test.nix;
         hydra-tui = ./.plan.nix/hydra-tui.nix;
         ouroboros-consensus-byron = ./.plan.nix/ouroboros-consensus-byron.nix;
         hydra-node = ./.plan.nix/hydra-node.nix;
@@ -970,6 +971,7 @@
               "asserts" = lib.mkOverride 900 false;
               };
             };
+          "cardano-ledger-alonzo-test" = { flags = {}; };
           "hydra-tui" = {
             flags = { "development" = lib.mkOverride 900 true; };
             };
