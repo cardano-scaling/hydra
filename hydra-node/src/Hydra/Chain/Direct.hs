@@ -4,7 +4,10 @@
 -- | Chain component implementation which uses directly the Node-to-Client
 -- protocols to submit "hand-rolled" transactions including Plutus validators and
 -- observing the chain using it as well.
-module Hydra.Chain.Direct where
+module Hydra.Chain.Direct (
+  NetworkMagic (NetworkMagic),
+  module Hydra.Chain.Direct,
+) where
 
 import Hydra.Prelude
 
@@ -125,16 +128,15 @@ import Ouroboros.Network.Socket (SomeResponderApplication (..), withServerNode)
 import qualified Shelley.Spec.Ledger.API as Ledger
 import Test.Cardano.Ledger.Alonzo.Serialisation.Generators ()
 
-nodeToClientVersion :: NodeToClientVersionData
-nodeToClientVersion = NodeToClientVersionData $ NetworkMagic 42
-
 withDirectChain ::
   -- | Tracer for logging
   Tracer IO DirectChainLog ->
+  -- | Network identifer to which we expect to connect.
+  NetworkMagic ->
   -- | Path to a domain socket used to connect to the server.
   FilePath ->
   ChainComponent tx IO ()
-withDirectChain _tracer addr callback action = do
+withDirectChain _tracer magic addr callback action = do
   queue <- newTQueueIO
   withIOManager $ \iocp -> do
     race_
@@ -146,7 +148,7 @@ withDirectChain _tracer addr callback action = do
   -- overhead.
   versions queue =
     combineVersions
-      [ simpleSingletonVersions v nodeToClientVersion (client (defaultCodecs v) queue callback)
+      [ simpleSingletonVersions v (NodeToClientVersionData magic) (client (defaultCodecs v) queue callback)
       | v <- [nodeToClientVLatest]
       ]
 
@@ -282,12 +284,14 @@ txSubmissionClient queue =
 --
 
 withMockServer ::
+  -- | Network identifer to which we expect to connect.
+  NetworkMagic ->
   -- | Path to a domain socket on which to listen.
   FilePath ->
   -- | Action to run in-between.
   IO a ->
   IO a
-withMockServer addr action = withIOManager $ \iocp -> do
+withMockServer magic addr action = withIOManager $ \iocp -> do
   let snocket = localSnocket iocp addr
   networkState <- newNetworkMutableState
   db <- newTVarIO mempty
@@ -310,7 +314,7 @@ withMockServer addr action = withIOManager $ \iocp -> do
   -- overhead.
   versions db =
     combineVersions
-      [ simpleSingletonVersions v nodeToClientVersion (mockServer (defaultCodecs v) db)
+      [ simpleSingletonVersions v (NodeToClientVersionData magic) (mockServer (defaultCodecs v) db)
       | v <- [nodeToClientVLatest]
       ]
 
@@ -459,9 +463,13 @@ maximumMiniProtocolLimits =
 -- Codecs
 --
 
--- | Fixed epoch slots used in the ByronCodecConfig
+-- | Fixed epoch slots used in the ByronCodecConfig.
 epochSlots :: EpochSlots
 epochSlots = EpochSlots 432000
+
+-- TODO(SN): ^^^ This will make codecs fail on non-standard testnets and we
+-- should check with networking whether we can opt-out / ignore blocks from
+-- Byron instead of configuring this everywhere
 
 defaultCodecs ::
   MonadST m =>

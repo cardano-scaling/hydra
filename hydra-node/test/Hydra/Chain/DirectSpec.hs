@@ -16,8 +16,7 @@ import Hydra.Chain (
   PostChainTx (InitTx),
  )
 import Hydra.Chain.Direct (
-  defaultEpochSlots,
-  defaultNodeToClientVersionData,
+  NetworkMagic (..),
   withDirectChain,
   withMockServer,
  )
@@ -31,14 +30,14 @@ import System.IO.Temp (withSystemTempDirectory)
 spec :: Spec
 spec = parallel $ do
   it "publishes init tx and observes it also" $ do
-    let params = (defaultNodeToClientVersionData, defaultEpochSlots)
+    let networkMagic = NetworkMagic 42
     withSystemTempDirectory "hydra-direct-spec" $ \dir -> do
       let socket = dir </> "node.socket"
-      withMockServer params socket $ do
+      withMockServer networkMagic socket $ do
         calledBackAlice <- newEmptyMVar
-        withDirectChain nullTracer params socket (putMVar calledBackAlice) $ \Chain{postTx} -> do
+        withDirectChain nullTracer networkMagic socket (putMVar calledBackAlice) $ \Chain{postTx} -> do
           calledBackBob <- newEmptyMVar
-          withDirectChain nullTracer params socket (putMVar calledBackBob) $ \_ -> do
+          withDirectChain nullTracer networkMagic socket (putMVar calledBackBob) $ \_ -> do
             -- TODO: The server is still a mock at the moment, and returns
             -- dummy data, but ideally we should have something like:
             --
