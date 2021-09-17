@@ -146,6 +146,7 @@ library
     , ouroboros-network-framework
     , plutus-contract
     , plutus-ledger
+    , plutus-ledger-api
     , plutus-pab
     , prometheus
     , QuickCheck
@@ -226,6 +227,7 @@ test-suite tests
     , bytestring
     , cardano-binary
     , cardano-crypto-class
+    , cardano-ledger-alonzo
     , cardano-ledger-alonzo-test
     , cardano-ledger-core
     , cardano-ledger-shelley-ma-test
@@ -250,6 +252,7 @@ test-suite tests
     , lens-aeson
     , network
     , ouroboros-network-framework
+    , plutus-ledger-api
     , process
     , QuickCheck
     , quickcheck-instances

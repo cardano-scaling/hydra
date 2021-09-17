@@ -1,3 +1,5 @@
+{-# LANGUAGE TypeApplications #-}
+
 -- | Smart constructors for creating Hydra protocol transactions to be used in
 -- the 'Hydra.Chain.Direct' way of talking to the main-chain.
 --
@@ -8,20 +10,100 @@ module Hydra.Chain.Direct.Tx where
 
 import Hydra.Prelude
 
+import Cardano.Ledger.Address (Addr (Addr))
 import Cardano.Ledger.Alonzo (AlonzoEra)
+import Cardano.Ledger.Alonzo.Data (Data (Data), hashData)
+import Cardano.Ledger.Alonzo.Scripts (Script (PlutusScript))
 import Cardano.Ledger.Alonzo.Tx (IsValid (IsValid), ValidatedTx (..))
-import Cardano.Ledger.Alonzo.TxBody (TxBody (..))
+import Cardano.Ledger.Alonzo.TxBody (TxBody (..), TxOut (TxOut))
 import Cardano.Ledger.Alonzo.TxWitness (Redeemers (..), TxDats (..), TxWitness (..))
 import Cardano.Ledger.Crypto (StandardCrypto)
 import Cardano.Ledger.ShelleyMA.Timelocks (ValidityInterval (..))
+import Cardano.Ledger.Val (inject)
+import qualified Data.Map as Map
+import qualified Data.Sequence.Strict as StrictSeq
 import qualified Data.Set as Set
 import Hydra.Chain (HeadParameters, PostChainTx (InitTx))
-import Shelley.Spec.Ledger.API (Coin (..), StrictMaybe (..), TxIn, Wdrl (Wdrl))
+import qualified Plutus.V1.Ledger.Api as Plutus
+import Shelley.Spec.Ledger.API (
+  Coin (..),
+  Credential (ScriptHashObj),
+  Network (Testnet),
+  StakeReference (StakeRefNull),
+  StrictMaybe (..),
+  TxIn,
+  Wdrl (Wdrl),
+ )
+import Shelley.Spec.Ledger.Tx (hashScript)
+
+-- TODO(SN): parameterize
+network :: Network
+network = Testnet
 
 -- * Hydra Head transactions
 
-mkUnsignedTx :: TxBody (AlonzoEra StandardCrypto) -> ValidatedTx (AlonzoEra StandardCrypto)
-mkUnsignedTx body =
+-- | Construct the Head protocol transactions as Alonzo 'Tx'. Note that
+-- 'ValidatedTx' this produces an unbalanced, unsigned transaction and this type
+-- was used (in contrast to 'TxBody') to be able to express included datums,
+-- onto which at least the 'initTx' relies on.
+constructTx :: TxIn StandardCrypto -> PostChainTx tx -> ValidatedTx (AlonzoEra StandardCrypto)
+constructTx txIn = \case
+  InitTx p -> initTx p txIn
+  _ -> error "not implemented"
+
+-- | Create the init transaction from some 'HeadParameters' and a single UTXO
+-- which will be used for minting NFTs.
+initTx :: HeadParameters -> TxIn StandardCrypto -> ValidatedTx (AlonzoEra StandardCrypto)
+initTx _ txIn =
+  mkUnsignedTx body dats
+ where
+  body =
+    TxBody
+      (Set.singleton txIn) -- inputs
+      mempty -- collateral
+      (StrictSeq.singleton headOut) -- outputs
+      mempty -- txcerts
+      (Wdrl mempty) -- txwdrls
+      (Coin 0) -- txfee
+      (ValidityInterval SNothing SNothing) -- txvldt
+      SNothing -- txUpdates
+      mempty -- reqSignerHashes
+      mempty -- mint
+      SNothing -- scriptIntegrityHash
+      SNothing -- adHash
+      SNothing -- txnetworkid
+      --
+  dats = TxDats $ Map.singleton headDatumHash headDatum
+
+  headOut = TxOut headAddress headValue (SJust headDatumHash)
+
+  -- TODO(SN): The main Hydra Head script address. Will be parameterized by the
+  -- thread token eventually. For now, this is just some arbitrary address, as
+  -- it is also later quite arbitrary/different per Head.
+  headAddress :: Addr StandardCrypto
+  headAddress =
+    Addr
+      network
+      (ScriptHashObj $ hashScript @(AlonzoEra StandardCrypto) headScript)
+      -- REVIEW(SN): stake head funds?
+      StakeRefNull
+
+  -- REVIEW(SN): how much to store here / minUtxoValue / depending on assets?
+  headValue = inject (Coin 0)
+
+  headDatumHash = hashData @(AlonzoEra StandardCrypto) headDatum
+
+  headDatum = Data $ Plutus.I 1337
+
+  headScript = PlutusScript "some invalid plutus script"
+
+-- * Helpers
+
+mkUnsignedTx ::
+  TxBody (AlonzoEra StandardCrypto) ->
+  TxDats (AlonzoEra StandardCrypto) ->
+  ValidatedTx (AlonzoEra StandardCrypto)
+mkUnsignedTx body datums =
   ValidatedTx
     { body
     , wits =
@@ -29,57 +111,8 @@ mkUnsignedTx body =
           mempty -- txwitsVKey
           mempty -- txwitsBoot
           mempty --txscripts
-          (TxDats mempty) -- txdats
+          datums -- txdats
           (Redeemers mempty) -- txrdmrs
     , isValid = IsValid True -- REVIEW(SN): no idea of the semantics of this
     , auxiliaryData = SNothing
     }
-
-constructTx :: TxIn StandardCrypto -> PostChainTx tx -> TxBody (AlonzoEra StandardCrypto)
-constructTx txIn = \case
-  InitTx p -> initTx p txIn
-  _ -> error "not implemented"
-
--- | Create the init transaction from some 'HeadParameters' and a single UTXO
--- which will be used for minting NFTs.
-initTx :: HeadParameters -> TxIn StandardCrypto -> TxBody (AlonzoEra StandardCrypto)
-initTx _ txIn =
-  TxBody
-    (Set.singleton txIn) -- inputs
-    mempty -- collateral
-    mempty -- outputs
-    mempty -- txcerts
-    (Wdrl mempty) -- txwdrls
-    (Coin 0) -- txfee
-    (ValidityInterval SNothing SNothing) -- txvldt
-    SNothing -- txUpdates
-    mempty -- reqSignerHashes
-    mempty -- mint
-    SNothing -- scriptIntegrityHash
-    SNothing -- adHash
-    SNothing -- txnetworkid
-    -- where
-    --  headOut = TxOut headAddress headValue headDatumHash
-
---  -- TODO(SN): The main Hydra Head script address. Will be parameterized by the
---  -- thread token eventually. For now, this is just some arbitrary address, as
---  -- it is also later quite arbitrary/different per Head.
---  headAddress =
---    makeShelleyAddressInEra
---      networkId
---      (PaymentCredentialByScript $ hashScript headScript)
---      -- REVIEW(SN): stake head funds?
---      NoStakeAddress
-
---  headScript =
---    PlutusScript PlutusScriptV1 $
---      examplePlutusScriptAlwaysSucceeds WitCtxTxIn
-
---  -- REVIEW(SN): do we need to consider min utxo value? that would also depend
---  -- on how many assets present in an output
---  headValue = TxOutValue MultiAssetInAlonzoEra $ lovelaceToValue 10
-
---  headDatumHash = TxOutDatumHash ScriptDataInAlonzoEra $ hashScriptData headDatum
-
---  -- TODO(SN): how to convert plutus 'Datum' to 'cardano-api' re-/serialize?
---  headDatum = ScriptDataNumber 1337
