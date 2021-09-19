@@ -15,9 +15,10 @@ import PlutusTx.IsData
 import Schema (FormSchema (..), ToSchema (..))
 
 -- TODO(SN): Copied party + json instances for deserializing in 'init' endpoint
--- and we were struggling to define 'Lift' and 'IsData'
+-- and we were struggling to define 'Lift' and 'IsData'. Ideally we would be
+-- able to define all necessary instances on 'Hydra.Party' directly
 
-newtype Party = UnsafeParty Integer -- (VerKeyDSIGN MockDSIGN)
+newtype Party = UnsafeParty Integer
   deriving stock (Eq, Generic)
   deriving newtype (Show, Num)
 
@@ -28,10 +29,10 @@ instance Arbitrary Party where
   arbitrary = genericArbitrary
 
 instance ToJSON Party where
-  toJSON (UnsafeParty i) =
+  toJSON p =
     object ["vkey" .= (String . decodeUtf8 . Base16.encode $ rawSerialiseVerKeyDSIGN vkey)]
    where
-    vkey = fromInteger i :: VerKeyDSIGN MockDSIGN
+    vkey = partyToVerKey p
 
 instance FromJSON Party where
   parseJSON = withObject "Party" $ \o -> do
@@ -54,3 +55,6 @@ instance PlutusTx.UnsafeFromData Party where
 
 partyFromVerKey :: VerKeyDSIGN MockDSIGN -> Party
 partyFromVerKey (VerKeyMockDSIGN w) = UnsafeParty $ fromIntegral w
+
+partyToVerKey :: Party -> VerKeyDSIGN MockDSIGN
+partyToVerKey (UnsafeParty i) = fromInteger i
