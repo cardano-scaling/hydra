@@ -26,7 +26,7 @@ import Hydra.Ledger.Simple (SimpleTx)
 spec :: Spec
 spec =
   parallel $ do
-    prop "observeTx . constructTx rountrip" $ \postTx txIn time ->
+    prop "observeTx . constructTx roundtrip" $ \postTx txIn time ->
       observeTx (constructTx txIn postTx) === Just (toOnChainTx @SimpleTx time postTx)
 
     describe "initTx" $ do

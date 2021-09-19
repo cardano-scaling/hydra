@@ -90,6 +90,12 @@ instance Num Party where
   signum = error "Party is not a proper Num"
   (-) = error "Party is not a proper Num"
 
+anonymousParty :: VerificationKey -> Party
+anonymousParty = Party Nothing
+
+deriveParty :: SigningKey -> Party
+deriveParty = anonymousParty . deriveVerKeyDSIGN
+
 type VerificationKey = VerKeyDSIGN MockDSIGN
 
 instance ToJSON VerificationKey where
@@ -105,9 +111,6 @@ showVerificationKey :: VerificationKey -> Text
 showVerificationKey = decodeUtf8 . Base16.encode . rawSerialiseVerKeyDSIGN
 
 type SigningKey = SignKeyDSIGN MockDSIGN
-
-deriveParty :: SigningKey -> Party
-deriveParty = Party Nothing . deriveVerKeyDSIGN
 
 generateKey :: Integer -> SigningKey
 generateKey = fromInteger

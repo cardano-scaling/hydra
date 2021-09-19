@@ -16,19 +16,19 @@ import Cardano.Ledger.Alonzo.Data (Data (Data), hashData)
 import Cardano.Ledger.Alonzo.Scripts (Script (PlutusScript))
 import Cardano.Ledger.Alonzo.Tx (IsValid (IsValid), ValidatedTx (..))
 import Cardano.Ledger.Alonzo.TxBody (TxBody (..), TxOut (TxOut))
-import Cardano.Ledger.Alonzo.TxWitness (Redeemers (..), TxDats (..), TxWitness (..))
+import Cardano.Ledger.Alonzo.TxWitness (Redeemers (..), TxDats (..), TxWitness (..), unTxDats)
 import Cardano.Ledger.Crypto (StandardCrypto)
 import Cardano.Ledger.ShelleyMA.Timelocks (ValidityInterval (..))
 import Cardano.Ledger.Val (inject)
 import qualified Data.Map as Map
 import qualified Data.Sequence.Strict as StrictSeq
 import qualified Data.Set as Set
-import Hydra.Chain (ContestationPeriod, HeadParameters (..), OnChainTx (OnInitTx), PostChainTx (InitTx))
-import Hydra.Contract.ContestationPeriod (contestationPeriodFromDiffTime)
+import Hydra.Chain (HeadParameters (..), OnChainTx (OnInitTx), PostChainTx (InitTx))
+import Hydra.Contract.ContestationPeriod (contestationPeriodFromDiffTime, contestationPeriodToDiffTime)
 import Hydra.Contract.Head (State (Initial))
-import Hydra.Contract.Party (partyFromVerKey)
-import Hydra.Party (Party, vkey)
-import Plutus.V1.Ledger.Api (toBuiltinData, toData)
+import Hydra.Contract.Party (partyFromVerKey, partyToVerKey)
+import Hydra.Party (vkey, anonymousParty)
+import Plutus.V1.Ledger.Api (toBuiltinData, toData, fromData)
 import Shelley.Spec.Ledger.API (
   Coin (..),
   Credential (ScriptHashObj),
@@ -113,13 +113,16 @@ observeTx tx =
     <|> observeCommitTx tx
 
 observeInitTx :: ValidatedTx (AlonzoEra StandardCrypto) -> Maybe (OnChainTx tx)
-observeInitTx _ =
-  Just $
-    OnInitTx contestationPeriod parties
+observeInitTx ValidatedTx{wits} = do
+  fromData plutusData >>= \case
+    Initial cp ps ->
+      pure $ OnInitTx (contestationPeriodToDiffTime cp) (map convertParty ps)
+    _ -> Nothing
  where
-  contestationPeriod = 42
+  -- TODO(SN): temporary hack
+  [(_, Data plutusData)] = Map.toList . unTxDats $ txdats wits
 
-  parties = []
+  convertParty = anonymousParty . partyToVerKey
 
 observeCommitTx :: ValidatedTx (AlonzoEra StandardCrypto) -> Maybe (OnChainTx tx)
 observeCommitTx _ = Nothing
