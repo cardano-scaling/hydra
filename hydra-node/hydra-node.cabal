@@ -230,6 +230,7 @@ test-suite tests
     , cardano-ledger-alonzo
     , cardano-ledger-alonzo-test
     , cardano-ledger-core
+    , cardano-ledger-shelley-ma
     , cardano-ledger-shelley-ma-test
     , cborg
     , containers
