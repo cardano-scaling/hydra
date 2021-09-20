@@ -9,16 +9,17 @@ import Test.Hydra.Prelude
 
 import Cardano.Binary (serialize)
 import Cardano.Ledger.Alonzo (TxOut)
-import Cardano.Ledger.Alonzo.Data (Data (Data))
+import Cardano.Ledger.Alonzo.Data (Data (Data), hashData)
 import Cardano.Ledger.Alonzo.Language (Language (PlutusV1))
 import Cardano.Ledger.Alonzo.Scripts (ExUnits)
 import Cardano.Ledger.Alonzo.Tools (ScriptFailure, evaluateTransactionExecutionUnits)
-import Cardano.Ledger.Alonzo.Tx (ValidatedTx (ValidatedTx, body, wits), outputs)
+import Cardano.Ledger.Alonzo.Tx (ValidatedTx (ValidatedTx, wits))
 import Cardano.Ledger.Alonzo.TxBody (TxOut (TxOut))
-import Cardano.Ledger.Alonzo.TxWitness (RdmrPtr, TxWitness (txdats), nullDats, unTxDats)
+import Cardano.Ledger.Alonzo.TxWitness (RdmrPtr, TxWitness (txdats), unTxDats)
 import Cardano.Ledger.Crypto (StandardCrypto)
 import Cardano.Ledger.Mary.Value (AssetName, PolicyID, Value (Value))
 import Cardano.Ledger.Slot (EpochSize (EpochSize))
+import Cardano.Ledger.Val (inject)
 import Cardano.Slotting.EpochInfo (fixedEpochInfo)
 import Cardano.Slotting.Time (SystemStart (..), mkSlotLength)
 import Data.Array (array)
@@ -35,8 +36,8 @@ import Hydra.Data.ContestationPeriod (contestationPeriodFromDiffTime)
 import Hydra.Data.Party (partyFromVerKey)
 import Hydra.Ledger.Simple (SimpleTx)
 import Hydra.Party (vkey)
-import Plutus.V1.Ledger.Api (toBuiltinData, toData)
-import Shelley.Spec.Ledger.API (UTxO)
+import Plutus.V1.Ledger.Api (PubKeyHash (PubKeyHash), toBuiltinData, toData)
+import Shelley.Spec.Ledger.API (Coin (Coin), StrictMaybe (SJust), UTxO (UTxO))
 import Test.Cardano.Ledger.Alonzo.PlutusScripts (defaultCostModel)
 import Test.Cardano.Ledger.Alonzo.Serialisation.Generators ()
 import Test.QuickCheck (counterexample, (===), (==>))
@@ -75,8 +76,8 @@ spec =
          in Map.elems (unTxDats dats) === [Data . toData $ toBuiltinData datum]
 
     describe "abortTx" $ do
-      it "transaction size below limit" $
-        let tx = abortTx
+      prop "transaction size below limit" $ \txIn ->
+        let tx = abortTx txIn
             cbor = serialize tx
             len = LBS.length cbor
          in counterexample ("Tx: " <> show tx) $
@@ -85,9 +86,15 @@ spec =
 
       -- TODO(SN): this requires the abortTx to include a redeemer, for a TxIn,
       -- spending an Initial-validated output
-      it "validates against 'initial' script in haskell (unlimited budget)" $
-        let tx = abortTx
-            results = validateTxScriptsUnlimited tx (error "utxo not provided")
+      prop "validates against 'initial' script in haskell (unlimited budget)" $ \txIn ->
+        let tx = abortTx txIn
+            -- input governed by initial script and a 'Plutus.PubKeyHash' datum
+            utxo = UTxO $ Map.singleton txIn txOut
+            txOut = TxOut initialAddress initialValue (SJust initialDatumHash)
+            initialAddress = validatorHashToAddr Initial.validatorHash
+            initialValue = inject (Coin 0)
+            initialDatumHash = hashData @Era . Data . toData $ PubKeyHash "not a PubKeyHash"
+            results = validateTxScriptsUnlimited tx utxo
          in -- TODO(SN): are the RdmrPtr keys useful?
             1 == length (rights $ Map.elems results)
               & counterexample ("Evaluation results: " <> show results)

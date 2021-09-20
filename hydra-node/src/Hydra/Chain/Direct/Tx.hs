@@ -10,17 +10,19 @@ module Hydra.Chain.Direct.Tx where
 
 import Hydra.Prelude
 
+import Cardano.Crypto.Hash (hashFromBytes)
 import Cardano.Ledger.Address (Addr (Addr))
 import Cardano.Ledger.Alonzo (AlonzoEra)
 import Cardano.Ledger.Alonzo.Data (Data (Data), hashData)
-import Cardano.Ledger.Alonzo.Scripts (Script (PlutusScript))
+import Cardano.Ledger.Alonzo.Scripts (ExUnits (..), Script (PlutusScript), Tag (Spend))
 import Cardano.Ledger.Alonzo.Tx (IsValid (IsValid), ValidatedTx (..))
 import Cardano.Ledger.Alonzo.TxBody (TxBody (..), TxOut (TxOut))
-import Cardano.Ledger.Alonzo.TxWitness (Redeemers (..), TxDats (..), TxWitness (..), unTxDats)
-import Cardano.Ledger.Crypto (StandardCrypto)
+import Cardano.Ledger.Alonzo.TxWitness (RdmrPtr (RdmrPtr), Redeemers (..), TxDats (..), TxWitness (..), unTxDats)
+import Cardano.Ledger.Crypto (Crypto (ADDRHASH), StandardCrypto)
 import Cardano.Ledger.ShelleyMA.Timelocks (ValidityInterval (..))
 import Cardano.Ledger.Val (inject)
 import qualified Data.Map as Map
+import Data.Maybe (fromJust)
 import qualified Data.Sequence.Strict as StrictSeq
 import qualified Data.Set as Set
 import Hydra.Chain (HeadParameters (..), OnChainTx (OnInitTx), PostChainTx (InitTx))
@@ -28,11 +30,12 @@ import Hydra.Contract.Head (State (Initial))
 import Hydra.Data.ContestationPeriod (contestationPeriodFromDiffTime, contestationPeriodToDiffTime)
 import Hydra.Data.Party (partyFromVerKey, partyToVerKey)
 import Hydra.Party (anonymousParty, vkey)
-import Plutus.V1.Ledger.Api (fromData, toBuiltinData, toData)
+import Plutus.V1.Ledger.Api (ValidatorHash (ValidatorHash), fromBuiltin, fromData, toBuiltinData, toData)
 import Shelley.Spec.Ledger.API (
   Coin (..),
   Credential (ScriptHashObj),
   Network (Testnet),
+  ScriptHash (ScriptHash),
   StakeReference (StakeRefNull),
   StrictMaybe (..),
   TxIn,
@@ -44,29 +47,32 @@ import Shelley.Spec.Ledger.Tx (hashScript)
 network :: Network
 network = Testnet
 
+type Era = AlonzoEra StandardCrypto
+
 -- * Post Hydra Head transactions
 
 -- | Construct the Head protocol transactions as Alonzo 'Tx'. Note that
 -- 'ValidatedTx' this produces an unbalanced, unsigned transaction and this type
 -- was used (in contrast to 'TxBody') to be able to express included datums,
 -- onto which at least the 'initTx' relies on.
-constructTx :: TxIn StandardCrypto -> PostChainTx tx -> ValidatedTx (AlonzoEra StandardCrypto)
+constructTx :: TxIn StandardCrypto -> PostChainTx tx -> ValidatedTx Era
 constructTx txIn = \case
   InitTx p -> initTx p txIn
-  AbortTx _utxo -> abortTx
+  AbortTx _utxo -> abortTx txIn
   _ -> error "not implemented"
 
 -- | Create the init transaction from some 'HeadParameters' and a single TxIn
 -- which will be used as unique parameter for minting NFTs.
-initTx :: HeadParameters -> TxIn StandardCrypto -> ValidatedTx (AlonzoEra StandardCrypto)
+initTx :: HeadParameters -> TxIn StandardCrypto -> ValidatedTx Era
 initTx HeadParameters{contestationPeriod, parties} txIn =
-  mkUnsignedTx body dats
+  mkUnsignedTx body dats mempty
  where
   body =
     TxBody
       { inputs = Set.singleton txIn
       , collateral = mempty
-      , outputs = StrictSeq.singleton headOut
+      , -- TODO(SN): of course this is missing the PT outputs
+        outputs = StrictSeq.singleton headOut
       , txcerts = mempty
       , txwdrls = Wdrl mempty
       , txfee = Coin 0
@@ -84,36 +90,29 @@ initTx HeadParameters{contestationPeriod, parties} txIn =
   headOut = TxOut headAddress headValue (SJust headDatumHash)
 
   -- TODO(SN): The main Hydra Head script address. Will be parameterized by the
-  -- thread token eventually. For now, this is just some arbitrary address, as
-  -- it is also later quite arbitrary/different per Head.
-  headAddress :: Addr StandardCrypto
-  headAddress =
-    Addr
-      network
-      (ScriptHashObj $ hashScript @(AlonzoEra StandardCrypto) headScript)
-      -- REVIEW(SN): stake head funds?
-      StakeRefNull
+  -- thread token eventually. For now, this is just the initial script as well,
+  -- although this could be really some arbitrary address. After all it is also
+  -- later quite arbitrary/different per Head.
+  headAddress = validatorHashToAddr Initial.validatorHash
 
   -- REVIEW(SN): how much to store here / minUtxoValue / depending on assets?
   headValue = inject (Coin 0)
 
-  headDatumHash = hashData @(AlonzoEra StandardCrypto) headDatum
+  headDatumHash = hashData @Era headDatum
 
   headDatum =
-    Data . toData . toBuiltinData $
+    Data . toData $
       Initial
         (contestationPeriodFromDiffTime contestationPeriod)
         (map (partyFromVerKey . vkey) parties)
 
-  headScript = PlutusScript "some invalid plutus script"
-
-abortTx :: ValidatedTx (AlonzoEra StandardCrypto)
-abortTx =
-  mkUnsignedTx body mempty
+abortTx :: TxIn StandardCrypto -> ValidatedTx Era
+abortTx txIn =
+  mkUnsignedTx body mempty redeemers
  where
   body =
     TxBody
-      { inputs = mempty
+      { inputs = Set.singleton txIn
       , collateral = mempty
       , outputs = mempty
       , txcerts = mempty
@@ -128,14 +127,22 @@ abortTx =
       , txnetworkid = SNothing
       }
 
+  -- TODO(SN): dummy exUnits, balancing overrides them?
+  redeemers = Map.singleton (RdmrPtr Spend 0) (redeemerData, ExUnits 0 0)
+
+  -- TODO(SN): This should be 'Abort' or so
+  redeemerData = Data $ toData ()
+
+--
+
 -- * Observe Hydra Head transactions
 
-observeTx :: ValidatedTx (AlonzoEra StandardCrypto) -> Maybe (OnChainTx tx)
+observeTx :: ValidatedTx Era -> Maybe (OnChainTx tx)
 observeTx tx =
   observeInitTx tx
     <|> observeAbortTx tx
 
-observeInitTx :: ValidatedTx (AlonzoEra StandardCrypto) -> Maybe (OnChainTx tx)
+observeInitTx :: ValidatedTx Era -> Maybe (OnChainTx tx)
 observeInitTx ValidatedTx{wits} = do
   (Data d) <- firstDatum
   fromData d >>= \case
@@ -149,26 +156,46 @@ observeInitTx ValidatedTx{wits} = do
 
   convertParty = anonymousParty . partyToVerKey
 
-observeAbortTx :: ValidatedTx (AlonzoEra StandardCrypto) -> Maybe (OnChainTx tx)
+observeAbortTx :: ValidatedTx Era -> Maybe (OnChainTx tx)
 observeAbortTx _ = Just OnAbortTx
 --
 
 -- * Helpers
 
 mkUnsignedTx ::
-  TxBody (AlonzoEra StandardCrypto) ->
-  TxDats (AlonzoEra StandardCrypto) ->
-  ValidatedTx (AlonzoEra StandardCrypto)
-mkUnsignedTx body datums =
+  TxBody Era ->
+  TxDats Era ->
+  Map RdmrPtr (Data Era, ExUnits) ->
+  ValidatedTx Era
+mkUnsignedTx body datums redeemers =
   ValidatedTx
     { body
     , wits =
         TxWitness
-          mempty -- txwitsVKey
-          mempty -- txwitsBoot
-          mempty --txscripts
-          datums -- txdats
-          (Redeemers mempty) -- txrdmrs
+          { txwitsVKey = mempty
+          , txwitsBoot = mempty
+          , txscripts = mempty
+          , txdats = datums
+          , txrdmrs = Redeemers redeemers
+          }
     , isValid = IsValid True -- REVIEW(SN): no idea of the semantics of this
     , auxiliaryData = SNothing
     }
+
+-- | Convert a plutus address to the ledger representation
+validatorHashToAddr :: ValidatorHash -> Addr StandardCrypto
+validatorHashToAddr (ValidatorHash builtinByteString) =
+  Addr
+    network
+    (ScriptHashObj $ ScriptHash hash)
+    -- REVIEW(SN): stake head funds?
+    StakeRefNull
+ where
+  -- TODO(SN): this will likely fail, StandardCrypto uses Blake2b_224 and Plutus
+  -- seems to be giving us SHA256?
+  hash =
+    fromJust
+      (error $ "ValidatorHash is not (the right) hash: " <> show bytes)
+      $ hashFromBytes @(ADDRHASH StandardCrypto) bytes
+
+  bytes = fromBuiltin builtinByteString
