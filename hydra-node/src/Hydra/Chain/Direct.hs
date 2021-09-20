@@ -14,6 +14,7 @@ import Hydra.Prelude
 import Cardano.Ledger.Alonzo.Tx (ValidatedTx)
 import Cardano.Ledger.Alonzo.TxSeq (txSeqTxns)
 import Cardano.Ledger.Era (toTxSeq)
+import Cardano.Slotting.Slot (WithOrigin (At))
 import Control.Monad.Class.MonadSTM (
   modifyTVar',
   newTQueueIO,
@@ -44,16 +45,20 @@ import Hydra.Chain.Direct.Util (
 import Hydra.Ledger.Cardano (generateWith)
 import Hydra.Logging (Tracer)
 import Ouroboros.Consensus.Cardano.Block (
+  BlockQuery (..),
   GenTx (..),
   HardForkBlock (BlockAlonzo),
  )
+import Ouroboros.Consensus.Ledger.Query (Query (..))
 import Ouroboros.Consensus.Ledger.SupportsMempool (ApplyTxErr)
 import Ouroboros.Consensus.Network.NodeToClient (Codecs' (..))
 import Ouroboros.Consensus.Shelley.Ledger (
   ShelleyBlock (..),
   mkShelleyBlock,
  )
+import Ouroboros.Consensus.Shelley.Ledger.Block (ShelleyHash (..))
 import Ouroboros.Consensus.Shelley.Ledger.Mempool (GenTx (..), mkShelleyTx)
+import Ouroboros.Consensus.Shelley.Ledger.Query (BlockQuery (..))
 import Ouroboros.Network.Block (Point (..), Tip (..), genesisPoint)
 import Ouroboros.Network.Magic (NetworkMagic (..))
 import Ouroboros.Network.Mux (
@@ -77,6 +82,7 @@ import Ouroboros.Network.NodeToClient (
   nullErrorPolicies,
   withIOManager,
  )
+import qualified Ouroboros.Network.Point as Point
 import Ouroboros.Network.Protocol.ChainSync.Client (
   ChainSyncClient (..),
   ClientStIdle (..),
@@ -95,6 +101,11 @@ import Ouroboros.Network.Protocol.Handshake.Codec (
   noTimeLimitsHandshake,
  )
 import Ouroboros.Network.Protocol.Handshake.Version (acceptableVersion)
+import Ouroboros.Network.Protocol.LocalStateQuery.Server (
+  LocalStateQueryServer (..),
+  localStateQueryServerPeer,
+ )
+import qualified Ouroboros.Network.Protocol.LocalStateQuery.Server as LSQ
 import Ouroboros.Network.Protocol.LocalTxSubmission.Client (
   LocalTxClientStIdle (..),
   LocalTxSubmissionClient (..),
@@ -291,7 +302,7 @@ mockServer db nodeToClientV =
                    in MuxPeer nullTracer cTxSubmissionCodec peer
             , localStateQueryProtocol =
                 ResponderProtocolOnly $
-                  let peer = localStateQueryPeerNull
+                  let peer = localStateQueryServerPeer $ mockStateQueryServer db
                    in MuxPeer nullTracer cStateQueryCodec peer
             }
     )
@@ -363,6 +374,39 @@ mockTxSubmissionServer db =
  where
   toValidatedTx :: GenTx (ShelleyBlock Era) -> ValidatedTx Era
   toValidatedTx (ShelleyTx _id tx) = tx
+
+mockStateQueryServer ::
+  forall m.
+  MonadSTM m =>
+  TVar m [ValidatedTx Era] ->
+  LocalStateQueryServer Block (Point Block) (Query Block) m ()
+mockStateQueryServer _db =
+  LocalStateQueryServer (pure serverStIdle)
+ where
+  serverStIdle :: LSQ.ServerStIdle Block (Point Block) (Query Block) m ()
+  serverStIdle =
+    LSQ.ServerStIdle
+      { LSQ.recvMsgAcquire = \_ -> pure $ LSQ.SendMsgAcquired serverStAcquired
+      , LSQ.recvMsgDone = pure ()
+      }
+
+  serverStAcquired :: LSQ.ServerStAcquired Block (Point Block) (Query Block) m ()
+  serverStAcquired =
+    LSQ.ServerStAcquired
+      { LSQ.recvMsgQuery = \case
+          BlockQuery (QueryIfCurrentAlonzo GetLedgerTip) -> do
+            let tip = flip generateWith 42 $ do
+                  slot <- arbitrary
+                  hash <- ShelleyHash <$> arbitrary
+                  pure $ Point $ At $ Point.Block slot hash
+            pure $ LSQ.SendMsgResult (Right tip) serverStAcquired
+          BlockQuery (QueryIfCurrentAlonzo GetUTxOByAddress{}) ->
+            pure $ LSQ.SendMsgResult (Right $ Ledger.UTxO mempty) serverStAcquired
+          _ ->
+            error "unsupported / unimplemented mock local state query."
+      , LSQ.recvMsgReAcquire = \_ -> pure $ LSQ.SendMsgAcquired serverStAcquired
+      , LSQ.recvMsgRelease = pure serverStIdle
+      }
 
 --
 -- Helpers
