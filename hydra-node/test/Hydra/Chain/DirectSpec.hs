@@ -15,36 +15,26 @@ import Hydra.Chain (
   OnChainTx (OnInitTx),
   PostChainTx (InitTx),
  )
-import Hydra.Chain.Direct (
-  NetworkMagic (..),
-  withDirectChain,
- )
-import Hydra.Chain.Direct.MockServer (
-  withMockServer,
- )
+import Hydra.Chain.Direct (withDirectChain)
+import Hydra.Chain.Direct.MockServer (withMockServer)
 import Hydra.Ledger.Simple (SimpleTx)
 import Hydra.Logging (nullTracer)
 import Hydra.Party (Party, deriveParty, generateKey)
-import System.FilePath ((</>))
-import System.IO.Temp (withSystemTempDirectory)
 
 spec :: Spec
 spec = parallel $ do
   it "publishes init tx and observes it also" $ do
-    let networkMagic = NetworkMagic 42
-    withSystemTempDirectory "hydra-direct-spec" $ \dir -> do
-      let socket = dir </> "node.socket"
-      withMockServer networkMagic socket $ do
-        calledBackAlice <- newEmptyMVar
-        withDirectChain nullTracer networkMagic socket (putMVar calledBackAlice) $ \Chain{postTx} -> do
-          calledBackBob <- newEmptyMVar
-          withDirectChain nullTracer networkMagic socket (putMVar calledBackBob) $ \_ -> do
-            let parameters = HeadParameters 100 [alice, bob, carol]
-            postTx $ InitTx @SimpleTx parameters
-            failAfter 5 $
-              takeMVar calledBackAlice `shouldReturn` OnInitTx 100 [alice, bob, carol]
-            failAfter 5 $
-              takeMVar calledBackBob `shouldReturn` OnInitTx @SimpleTx 100 [alice, bob, carol]
+    withMockServer $ \networkMagic socket _ -> do
+      calledBackAlice <- newEmptyMVar
+      withDirectChain nullTracer networkMagic socket (putMVar calledBackAlice) $ \Chain{postTx} -> do
+        calledBackBob <- newEmptyMVar
+        withDirectChain nullTracer networkMagic socket (putMVar calledBackBob) $ \_ -> do
+          let parameters = HeadParameters 100 [alice, bob, carol]
+          postTx $ InitTx @SimpleTx parameters
+          failAfter 5 $
+            takeMVar calledBackAlice `shouldReturn` OnInitTx 100 [alice, bob, carol]
+          failAfter 5 $
+            takeMVar calledBackBob `shouldReturn` OnInitTx @SimpleTx 100 [alice, bob, carol]
 
 alice, bob, carol :: Party
 alice = deriveParty $ generateKey 10

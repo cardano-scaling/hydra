@@ -95,33 +95,38 @@ import qualified Ouroboros.Network.Protocol.LocalTxSubmission.Type as LocalTxSub
 import Ouroboros.Network.Server.RateLimiting (AcceptedConnectionsLimit (..))
 import Ouroboros.Network.Socket (SomeResponderApplication (..), withServerNode)
 import qualified Shelley.Spec.Ledger.API as Ledger
+import System.FilePath ((</>))
+import System.IO.Temp (withSystemTempDirectory)
 import Test.Cardano.Ledger.Alonzo.Serialisation.Generators ()
 
+-- | A bracket-style resource acquisition for a mock server which responds to
+-- all three Ouroboros client mini-protocols. The callback includes the server
+-- fake network magic, the path to the server's socket and, a way to enqueue new
+-- transactions (and thus, force production of new blocks).
 withMockServer ::
-  -- | Network identifer to which we expect to connect.
-  NetworkMagic ->
-  -- | Path to a domain socket on which to listen.
-  FilePath ->
-  -- | Action to run in-between.
-  IO a ->
+  (NetworkMagic -> FilePath -> (ValidatedTx Era -> IO ()) -> IO a) ->
   IO a
-withMockServer magic addr action = withIOManager $ \iocp -> do
-  let snocket = localSnocket iocp addr
-  networkState <- newNetworkMutableState
-  db <- newTVarIO mempty
-  withServerNode
-    snocket
-    nullServerTracers
-    networkState
-    connLimit
-    (LocalAddress addr)
-    nodeToClientHandshakeCodec
-    noTimeLimitsHandshake
-    (cborTermVersionDataCodec nodeToClientCodecCBORTerm)
-    acceptableVersion
-    (SomeResponderApplication <$> versions magic (mockServer db))
-    errorPolicies
-    (\_ _ -> action)
+withMockServer action =
+  withSystemTempDirectory "withMockServer" $ \dir -> do
+    let magic = NetworkMagic 42
+    let addr = dir </> "node.socket"
+    withIOManager $ \iocp -> do
+      let snocket = localSnocket iocp addr
+      networkState <- newNetworkMutableState
+      db <- newTVarIO mempty
+      withServerNode
+        snocket
+        nullServerTracers
+        networkState
+        connLimit
+        (LocalAddress addr)
+        nodeToClientHandshakeCodec
+        noTimeLimitsHandshake
+        (cborTermVersionDataCodec nodeToClientCodecCBORTerm)
+        acceptableVersion
+        (SomeResponderApplication <$> versions magic (mockServer db))
+        errorPolicies
+        (\_ _ -> action magic addr (\tx -> atomically $ modifyTVar' db (tx :)))
  where
   connLimit :: AcceptedConnectionsLimit
   connLimit = AcceptedConnectionsLimit maxBound maxBound 0

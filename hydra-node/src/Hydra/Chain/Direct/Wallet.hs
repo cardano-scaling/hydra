@@ -93,7 +93,7 @@ type AlonzoPoint = Point (ShelleyBlock Era)
 --
 -- It can sign transactions and keeps track of its UTXO behind the scene.
 data TinyWallet m = TinyWallet
-  { getUtxo :: m (Maybe (TxIn, TxOut))
+  { getUtxo :: STM m (Map TxIn TxOut)
   , getAddress :: Address
   , sign :: TxBody -> VkWitness
   }
@@ -123,7 +123,7 @@ withTinyWallet magic (vk, sk) addr action = do
   newTinyWallet utxoVar =
     TinyWallet
       { getUtxo =
-          Map.lookupMax <$> atomically (readTMVar utxoVar)
+          readTMVar utxoVar
       , getAddress =
           address
       , sign = \body ->

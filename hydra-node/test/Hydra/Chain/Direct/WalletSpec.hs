@@ -9,12 +9,25 @@ import Test.Hydra.Prelude
 import Cardano.Ledger.Alonzo.Tx (ValidatedTx (..))
 import Cardano.Ledger.Alonzo.TxBody (TxBody (..), pattern TxOut)
 import Cardano.Ledger.Alonzo.TxSeq (TxSeq (..))
+import Cardano.Ledger.Keys (KeyPair (..), VKey (..))
 import qualified Cardano.Ledger.SafeHash as SafeHash
+import Control.Monad.Class.MonadSTM (check)
+import Control.Monad.Class.MonadTimer (timeout)
 import qualified Data.Map.Strict as Map
 import qualified Data.Sequence.Strict as StrictSeq
 import qualified Data.Set as Set
+import Hydra.Chain.Direct.MockServer (withMockServer)
 import Hydra.Chain.Direct.Util (Era)
-import Hydra.Chain.Direct.Wallet (Address, TxIn, TxOut, applyBlock)
+import Hydra.Chain.Direct.Wallet (
+  Address,
+  TinyWallet (..),
+  TxIn,
+  TxOut,
+  VerificationKey,
+  applyBlock,
+  withTinyWallet,
+ )
+import Hydra.Ledger.Cardano (genKeyPair, mkVkAddress)
 import Ouroboros.Consensus.Cardano.Block (HardForkBlock (..))
 import Ouroboros.Consensus.Shelley.Ledger (mkShelleyBlock)
 import qualified Shelley.Spec.Ledger.API as Ledger
@@ -30,6 +43,7 @@ import Test.QuickCheck (
   forAll,
   forAllBlind,
   frequency,
+  generate,
   getSize,
   property,
   scale,
@@ -37,11 +51,26 @@ import Test.QuickCheck (
  )
 
 spec :: Spec
-spec = parallel $
+spec = parallel $ do
   describe "applyBlock" $ do
     prop "uses a well-suited generator for testing" prop_wellSuitedGenerator
     prop "only reduces the UTXO set when no address is ours" prop_reducesWhenNotOurs
     prop "Seen inputs are consumed and not in the resulting UTXO" prop_seenInputsAreConsumed
+
+  describe "withTinyWallet" $ do
+    KeyPair (VKey vk) sk <- runIO $ generate genKeyPair
+    it "connects to server and returns UTXO in a timely manner" $ do
+      withMockServer $ \networkMagic socket _ -> do
+        withTinyWallet networkMagic (vk, sk) socket $ \wallet -> do
+          result <- timeout 1 $ watchUtxoUntil (const True) wallet
+          result `shouldSatisfy` isJust
+
+    it "tracks UTXO correctly when payments are received" $ do
+      withMockServer $ \networkMagic socket submitTx -> do
+        withTinyWallet networkMagic (vk, sk) socket $ \wallet -> do
+          generate (genPaymentTo vk) >>= submitTx
+          result <- timeout 1 $ watchUtxoUntil (not . null) wallet
+          result `shouldSatisfy` isJust
 
 prop_wellSuitedGenerator ::
   Property
@@ -140,6 +169,24 @@ genBlock utxo = scale (round @Double . sqrt . fromIntegral) $ do
 genUtxo :: Gen (Map TxIn TxOut)
 genUtxo = Map.fromList <$> vectorOf 1 arbitrary
 
+genPaymentTo :: VerificationKey -> Gen (ValidatedTx Era)
+genPaymentTo vk = do
+  let myAddr = mkVkAddress (VKey vk)
+  ValidatedTx{body, wits, isValid, auxiliaryData} <- arbitrary
+  arbitrary @TxOut >>= \case
+    TxOut _ value datum ->
+      pure $
+        ValidatedTx
+          { body =
+              body
+                { outputs =
+                    StrictSeq.fromList [TxOut myAddr value datum]
+                }
+          , wits
+          , isValid
+          , auxiliaryData
+          }
+
 --
 -- Helpers
 --
@@ -167,3 +214,8 @@ ourOutputs :: Map TxIn TxOut -> Ledger.Block Era -> [TxOut]
 ourOutputs utxo blk =
   let ours = Map.elems utxo
    in filter (`elem` ours) (allTxOuts blk)
+
+watchUtxoUntil :: (Map TxIn TxOut -> Bool) -> TinyWallet IO -> IO (Map TxIn TxOut)
+watchUtxoUntil predicate TinyWallet{getUtxo} = atomically $ do
+  u <- getUtxo
+  u <$ check (predicate u)
