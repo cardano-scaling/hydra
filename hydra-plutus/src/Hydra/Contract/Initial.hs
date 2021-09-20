@@ -105,3 +105,8 @@ mustPayToScript ::
   TxConstraints i o
 mustPayToScript policyId dependencies pubKey =
   mustPayToOtherScript validatorHash $ datum (policyId, dependencies, pubKey)
+
+-- | Get the actual plutus script. Mainly used to serialize and use in
+-- transactions.
+validatorScript :: Script
+validatorScript = unValidatorScript $ Scripts.validatorScript typedValidator
