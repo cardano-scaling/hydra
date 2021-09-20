@@ -9,18 +9,22 @@ import Test.Hydra.Prelude
 
 import Cardano.Binary (serialize)
 import Cardano.Ledger.Alonzo (TxOut)
-import Cardano.Ledger.Alonzo.Data (Data (Data), getPlutusData)
-import Cardano.Ledger.Alonzo.Tx (ScriptPurpose (Spending), ValidatedTx (ValidatedTx, body, wits), outputs)
+import Cardano.Ledger.Alonzo.Data (Data (Data))
+import Cardano.Ledger.Alonzo.Language (Language (PlutusV1))
+import Cardano.Ledger.Alonzo.Scripts (ExUnits)
+import Cardano.Ledger.Alonzo.Tools (ScriptFailure, evaluateTransactionExecutionUnits)
+import Cardano.Ledger.Alonzo.Tx (ValidatedTx (ValidatedTx, body, wits), outputs)
 import Cardano.Ledger.Alonzo.TxBody (TxOut (TxOut))
-import Cardano.Ledger.Alonzo.TxInfo (txInfo, valContext)
-import Cardano.Ledger.Alonzo.TxWitness (TxWitness (txdats), nullDats, unTxDats)
+import Cardano.Ledger.Alonzo.TxWitness (RdmrPtr, TxWitness (txdats), nullDats, unTxDats)
 import Cardano.Ledger.Crypto (StandardCrypto)
 import Cardano.Ledger.Mary.Value (AssetName, PolicyID, Value (Value))
 import Cardano.Ledger.Slot (EpochSize (EpochSize))
 import Cardano.Slotting.EpochInfo (fixedEpochInfo)
 import Cardano.Slotting.Time (SystemStart (..), mkSlotLength)
+import Data.Array (array)
 import qualified Data.ByteString.Lazy as LBS
 import qualified Data.Map as Map
+import Data.Maybe (fromJust)
 import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
 import Hydra.Chain (HeadParameters (..), PostChainTx (InitTx), toOnChainTx)
 import Hydra.Chain.Direct.Tx (constructTx, initTx, observeTx)
@@ -31,19 +35,11 @@ import Hydra.Data.ContestationPeriod (contestationPeriodFromDiffTime)
 import Hydra.Data.Party (partyFromVerKey)
 import Hydra.Ledger.Simple (SimpleTx)
 import Hydra.Party (vkey)
-import Plutus.V1.Ledger.Api (
-  EvaluationError,
-  ExBudget (..),
-  LogOutput,
-  VerboseMode (Verbose),
-  defaultCostModelParams,
-  evaluateScriptCounting,
-  toBuiltinData,
-  toData,
- )
-import qualified Plutus.V1.Ledger.Api as Plutus
+import Plutus.V1.Ledger.Api (toBuiltinData, toData)
+import Shelley.Spec.Ledger.API (UTxO)
+import Test.Cardano.Ledger.Alonzo.PlutusScripts (defaultCostModel)
 import Test.Cardano.Ledger.Alonzo.Serialisation.Generators ()
-import Test.QuickCheck (counterexample, property, (===), (==>))
+import Test.QuickCheck (counterexample, (===), (==>))
 
 -- TODO(SN): use real max tx size
 maxTxSize :: Int64
@@ -99,19 +95,14 @@ spec =
               counterexample ("Tx serialized size: " <> show len) $
                 len < maxTxSize
 
+      -- TODO(SN): this requires the abortTx to include a redeemer, for a TxIn,
+      -- spending an Initial-validated output
       it "validates against 'initial' script in haskell (unlimited budget)" $
         let tx = abortTx
-            redeemer = Plutus.I 42
-         in case validateTxWithScript tx Initial.validatorScript redeemer of
-              (out, Left err) ->
-                property False
-                  & counterexample ("EvaluationError: " <> show err)
-                  & counterexample ("LogOutput: " <> toString (unlines out))
-              (out, Right ExBudget{exBudgetCPU = usedCPU, exBudgetMemory = usedMemory}) ->
-                property (usedCPU < 1000 && usedMemory < 1000)
-                  & counterexample ("usedCPU: " <> show usedCPU)
-                  & counterexample ("usedMemory: " <> show usedMemory)
-                  & counterexample ("LogOutput: " <> toString (unlines out))
+            results = validateTxScriptsUnlimited tx (error "utxo not provided")
+         in -- TODO(SN): are the RdmrPtr keys useful?
+            1 == length (rights $ Map.elems results)
+              & counterexample ("Evaluation results: " <> show results)
 
 isImplemented :: PostChainTx tx -> Bool
 isImplemented = \case
@@ -119,35 +110,22 @@ isImplemented = \case
   AbortTx _ -> True
   _ -> False
 
-validateTxWithScript ::
+-- | Evaluate all plutus scripts and return execution budgets of a given
+-- transaction (any included budgets are ignored).
+validateTxScriptsUnlimited ::
   ValidatedTx Era ->
-  Plutus.Script ->
-  Plutus.Data ->
-  (LogOutput, Either EvaluationError ExBudget)
-validateTxWithScript tx script redeemer =
-  evaluateScriptCounting Verbose costModelParams serializedScript args
+  -- | Utxo set used to create context for any tx inputs.
+  UTxO Era ->
+  Map RdmrPtr (Either (ScriptFailure StandardCrypto) ExUnits)
+validateTxScriptsUnlimited tx utxo =
+  runIdentity $ evaluateTransactionExecutionUnits tx utxo epochInfo systemStart costmodels
  where
-  serializedScript = toShort . fromLazy $ serialize script
-
-  args = [datum, redeemer, ctx]
-
-  datum = error "extract datum from tx"
-
-  ctx = getPlutusData $ valContext @Era txinfo scriptPurpose
-
-  txinfo = runIdentity $ txInfo epochInfo sysStart utxo tx
-
-  scriptPurpose = Spending (error "which txIn here?")
-
   -- REVIEW(SN): taken from 'testGlobals'
   epochInfo = fixedEpochInfo (EpochSize 100) (mkSlotLength 1)
-
   -- REVIEW(SN): taken from 'testGlobals'
-  sysStart = SystemStart $ posixSecondsToUTCTime 0
-
-  utxo = error "needs to include any inputs of 'tx' (are looked up for txInfo)"
-
-  costModelParams = fromMaybe (error "corrupt default cost model") defaultCostModelParams
+  systemStart = SystemStart $ posixSecondsToUTCTime 0
+  -- NOTE(SN): copied from Test.Cardano.Ledger.Alonzo.Tools as not exported
+  costmodels = array (PlutusV1, PlutusV1) [(PlutusV1, fromJust defaultCostModel)]
 
 -- | Extract NFT candidates. any single quantity assets not being ADA is a
 -- candidate.
