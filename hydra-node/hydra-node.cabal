@@ -273,6 +273,7 @@ test-suite tests
     , strict-containers
     , temporary
     , text
+    , time
     , typed-protocols-examples
     , websockets
     , yaml
