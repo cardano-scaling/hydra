@@ -62,12 +62,9 @@ spec =
                     len < maxTxSize
 
     describe "initTx" $ do
-      prop "contains some datums" $ \txIn params ->
-        let ValidatedTx{wits} = initTx params txIn
-            dats = txdats wits
-         in counterexample ("TxDats: " <> show dats) $
-              not $ nullDats dats
-
+      -- NOTE(SN): We are relying in the inclusion of the datum in the "posting
+      -- tx" in order to 'observeTx'. This test is here to make this a bit more
+      -- explicit than the above general property.
       prop "contains HeadParameters as datums" $ \txIn params ->
         let ValidatedTx{wits} = initTx params txIn
             dats = txdats wits
@@ -76,15 +73,6 @@ spec =
             onChainParties = map (partyFromVerKey . vkey) parties
             datum = Initial onChainPeriod onChainParties
          in Map.elems (unTxDats dats) === [Data . toData $ toBuiltinData datum]
-
-      -- TODO(SN): assert monetary policy?
-      prop "distributes participation tokens (expected failure)" $ \txIn params ->
-        let ValidatedTx{body} = initTx params txIn
-            nfts = foldMap txOutNFT $ outputs body
-         in counterexample
-              ("NFTs: " <> show nfts)
-              -- TODO(SN): re-enable length nfts == length (parties params)
-              True
 
     describe "abortTx" $ do
       it "transaction size below limit" $
