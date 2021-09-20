@@ -18,6 +18,8 @@ import Hydra.Chain (
 import Hydra.Chain.Direct (
   NetworkMagic (..),
   withDirectChain,
+ )
+import Hydra.Chain.Direct.MockServer (
   withMockServer,
  )
 import Hydra.Ledger.Simple (SimpleTx)
