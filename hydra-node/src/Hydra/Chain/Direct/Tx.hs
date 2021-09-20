@@ -55,28 +55,29 @@ constructTx txIn = \case
   InitTx p -> initTx p txIn
   _ -> error "not implemented"
 
--- | Create the init transaction from some 'HeadParameters' and a single UTXO
--- which will be used for minting NFTs.
+-- | Create the init transaction from some 'HeadParameters' and a single TxIn
+-- which will be used as unique parameter for minting NFTs.
 initTx :: HeadParameters -> TxIn StandardCrypto -> ValidatedTx (AlonzoEra StandardCrypto)
 initTx HeadParameters{contestationPeriod, parties} txIn =
   mkUnsignedTx body dats
  where
   body =
     TxBody
-      (Set.singleton txIn) -- inputs
-      mempty -- collateral
-      (StrictSeq.singleton headOut) -- outputs
-      mempty -- txcerts
-      (Wdrl mempty) -- txwdrls
-      (Coin 0) -- txfee
-      (ValidityInterval SNothing SNothing) -- txvldt
-      SNothing -- txUpdates
-      mempty -- reqSignerHashes
-      mempty -- mint
-      SNothing -- scriptIntegrityHash
-      SNothing -- adHash
-      SNothing -- txnetworkid
-      --
+      { inputs = Set.singleton txIn
+      , collateral = mempty
+      , outputs = StrictSeq.singleton headOut
+      , txcerts = mempty
+      , txwdrls = Wdrl mempty
+      , txfee = Coin 0
+      , txvldt = ValidityInterval SNothing SNothing
+      , txUpdates = SNothing
+      , reqSignerHashes = mempty
+      , mint = mempty
+      , scriptIntegrityHash = SNothing
+      , adHash = SNothing
+      , txnetworkid = SNothing
+      }
+
   dats = TxDats $ Map.singleton headDatumHash headDatum
 
   headOut = TxOut headAddress headValue (SJust headDatumHash)
