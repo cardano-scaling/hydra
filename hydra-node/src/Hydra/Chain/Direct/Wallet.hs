@@ -1,3 +1,5 @@
+{-# LANGUAGE PatternSynonyms #-}
+
 -- | Companion tiny-wallet for the direct chain component. This module provide
 -- some useful utilities to tracking the wallet's UTXO, and accessing it
 module Hydra.Chain.Direct.Wallet where
@@ -5,6 +7,9 @@ module Hydra.Chain.Direct.Wallet where
 import qualified Cardano.Crypto.DSIGN as Crypto
 import Cardano.Crypto.Hash.Class (Hash (..))
 import qualified Cardano.Ledger.Address as Ledger
+import Cardano.Ledger.Alonzo.Tx (ValidatedTx (..))
+import Cardano.Ledger.Alonzo.TxBody (inputs, outputs, pattern TxOut)
+import Cardano.Ledger.Alonzo.TxSeq (TxSeq (..))
 import qualified Cardano.Ledger.Core as Ledger
 import Cardano.Ledger.Crypto (DSIGN, StandardCrypto)
 import qualified Cardano.Ledger.Keys as Ledger
@@ -21,6 +26,7 @@ import Control.Monad.Class.MonadSTM (
  )
 import Control.Tracer (nullTracer)
 import qualified Data.Map.Strict as Map
+import qualified Data.Sequence.Strict as StrictSeq
 import qualified Data.Set as Set
 import Hydra.Chain.Direct.Util (
   Block,
@@ -31,12 +37,12 @@ import Hydra.Chain.Direct.Util (
  )
 import Hydra.Ledger.Cardano (mkVkAddress, signWith)
 import Hydra.Prelude
-import Ouroboros.Consensus.Cardano.Block (BlockQuery (..), CardanoEras)
+import Ouroboros.Consensus.Cardano.Block (BlockQuery (..), CardanoEras, pattern BlockAlonzo)
 import Ouroboros.Consensus.HardFork.Combinator (MismatchEraInfo)
 import Ouroboros.Consensus.HardFork.Combinator.AcrossEras (OneEraHash (..))
 import Ouroboros.Consensus.Ledger.Query (Query (..))
 import Ouroboros.Consensus.Network.NodeToClient (Codecs' (..))
-import Ouroboros.Consensus.Shelley.Ledger.Block (ShelleyBlock, ShelleyHash (..))
+import Ouroboros.Consensus.Shelley.Ledger.Block (ShelleyBlock (..), ShelleyHash (..))
 import Ouroboros.Consensus.Shelley.Ledger.Query (BlockQuery (..))
 import Ouroboros.Network.Block (Point (..), Tip (..), castPoint, genesisPoint)
 import Ouroboros.Network.Magic (NetworkMagic (..))
@@ -66,9 +72,9 @@ import Ouroboros.Network.Protocol.LocalStateQuery.Client (
   localStateQueryClientPeer,
  )
 import qualified Ouroboros.Network.Protocol.LocalStateQuery.Client as LSQ
+import qualified Shelley.Spec.Ledger.API as Ledger hiding (TxBody, TxOut)
 import Shelley.Spec.Ledger.BlockChain (HashHeader (..))
-import qualified Shelley.Spec.Ledger.TxBody as Ledger hiding (TxBody, TxOut)
-import qualified Shelley.Spec.Ledger.UTxO as Ledger
+import Shelley.Spec.Ledger.TxBody (TxId (..), pattern TxIn)
 
 type Address = Ledger.Addr StandardCrypto
 type TxBody = Ledger.TxBody Era
@@ -131,7 +137,19 @@ withTinyWallet magic (vk, sk) addr action = do
 -- To determine whether a produced output is ours, we compare it to our unique
 -- address.
 applyBlock :: Block -> (Address -> Bool) -> Map TxIn TxOut -> Map TxIn TxOut
-applyBlock = error "TODO: applyBlock"
+applyBlock blk isOurs utxo = case blk of
+  BlockAlonzo (ShelleyBlock (Ledger.Block _ bbody) _) ->
+    flip execState utxo $ do
+      forM_ (txSeqTxns bbody) $ \tx -> do
+        let txId = TxId $ SafeHash.hashAnnotated (body tx)
+        modify (`Map.withoutKeys` inputs (body tx))
+        let indexedOutputs =
+              let outs = outputs (body tx)
+               in StrictSeq.zip (StrictSeq.fromList [0 .. length outs]) outs
+        forM_ indexedOutputs $ \(fromIntegral -> ix, out@(TxOut addr _ _)) ->
+          when (isOurs addr) $ modify (Map.insert (TxIn txId ix) out)
+  _ ->
+    utxo
 
 -- | The idea for this wallet client is rather simple:
 --
