@@ -45,22 +45,27 @@ import qualified Plutus.V1.Ledger.Api as Plutus
 import Test.Cardano.Ledger.Alonzo.Serialisation.Generators ()
 import Test.QuickCheck (counterexample, property, (===), (==>))
 
+-- TODO(SN): use real max tx size
+maxTxSize :: Int64
+maxTxSize = 16000
+
 spec :: Spec
 spec =
   parallel $ do
     prop "observeTx . constructTx roundtrip" $ \postTx txIn time ->
       isImplemented postTx -- TODO(SN): test all constructors
         ==> observeTx (constructTx txIn postTx) === Just (toOnChainTx @SimpleTx time postTx)
-    describe "initTx" $ do
-      prop "transaction size below limit" $ \txIn params ->
-        let tx = initTx params txIn
-            cbor = serialize tx
-            len = LBS.length cbor
-         in counterexample ("Tx: " <> show tx) $
-              counterexample ("Tx serialized size: " <> show len) $
-                -- TODO(SN): use real max tx size
-                len < 16000
 
+    prop "transaction size below limit" $ \postTx txIn ->
+      isImplemented postTx -- TODO(SN): test all constructors
+        ==> let tx = constructTx @SimpleTx txIn postTx
+                cbor = serialize tx
+                len = LBS.length cbor
+             in counterexample ("Tx: " <> show tx) $
+                  counterexample ("Tx serialized size: " <> show len) $
+                    len < maxTxSize
+
+    describe "initTx" $ do
       prop "contains some datums" $ \txIn params ->
         let ValidatedTx{wits} = initTx params txIn
             dats = txdats wits
@@ -85,8 +90,17 @@ spec =
               -- TODO(SN): re-enable length nfts == length (parties params)
               True
 
-      prop "validates against 'initial' script in haskell (unlimited budget)" $ \txIn params ->
-        let tx = initTx params txIn
+    describe "abortTx" $ do
+      it "transaction size below limit" $
+        let tx = abortTx
+            cbor = serialize tx
+            len = LBS.length cbor
+         in counterexample ("Tx: " <> show tx) $
+              counterexample ("Tx serialized size: " <> show len) $
+                len < maxTxSize
+
+      it "validates against 'initial' script in haskell (unlimited budget)" $
+        let tx = abortTx
             redeemer = Plutus.I 42
          in case validateTxWithScript tx Initial.validatorScript redeemer of
               (out, Left err) ->
@@ -102,6 +116,7 @@ spec =
 isImplemented :: PostChainTx tx -> Bool
 isImplemented = \case
   InitTx _ -> True
+  AbortTx _ -> True
   _ -> False
 
 validateTxWithScript ::

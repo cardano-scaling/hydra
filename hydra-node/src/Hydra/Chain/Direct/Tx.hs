@@ -53,6 +53,7 @@ network = Testnet
 constructTx :: TxIn StandardCrypto -> PostChainTx tx -> ValidatedTx (AlonzoEra StandardCrypto)
 constructTx txIn = \case
   InitTx p -> initTx p txIn
+  AbortTx _utxo -> abortTx
   _ -> error "not implemented"
 
 -- | Create the init transaction from some 'HeadParameters' and a single TxIn
@@ -106,12 +107,33 @@ initTx HeadParameters{contestationPeriod, parties} txIn =
 
   headScript = PlutusScript "some invalid plutus script"
 
+abortTx :: ValidatedTx (AlonzoEra StandardCrypto)
+abortTx =
+  mkUnsignedTx body mempty
+ where
+  body =
+    TxBody
+      { inputs = mempty
+      , collateral = mempty
+      , outputs = mempty
+      , txcerts = mempty
+      , txwdrls = Wdrl mempty
+      , txfee = Coin 0
+      , txvldt = ValidityInterval SNothing SNothing
+      , txUpdates = SNothing
+      , reqSignerHashes = mempty
+      , mint = mempty
+      , scriptIntegrityHash = SNothing
+      , adHash = SNothing
+      , txnetworkid = SNothing
+      }
+
 -- * Observe Hydra Head transactions
 
 observeTx :: ValidatedTx (AlonzoEra StandardCrypto) -> Maybe (OnChainTx tx)
 observeTx tx =
   observeInitTx tx
-    <|> observeCommitTx tx
+    <|> observeAbortTx tx
 
 observeInitTx :: ValidatedTx (AlonzoEra StandardCrypto) -> Maybe (OnChainTx tx)
 observeInitTx ValidatedTx{wits} = do
@@ -127,8 +149,8 @@ observeInitTx ValidatedTx{wits} = do
 
   convertParty = anonymousParty . partyToVerKey
 
-observeCommitTx :: ValidatedTx (AlonzoEra StandardCrypto) -> Maybe (OnChainTx tx)
-observeCommitTx _ = Nothing
+observeAbortTx :: ValidatedTx (AlonzoEra StandardCrypto) -> Maybe (OnChainTx tx)
+observeAbortTx _ = Just OnAbortTx
 --
 
 -- * Helpers
