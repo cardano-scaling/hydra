@@ -27,8 +27,8 @@ import Hydra.Chain (HeadParameters (..), OnChainTx (OnInitTx), PostChainTx (Init
 import Hydra.Contract.ContestationPeriod (contestationPeriodFromDiffTime, contestationPeriodToDiffTime)
 import Hydra.Contract.Head (State (Initial))
 import Hydra.Contract.Party (partyFromVerKey, partyToVerKey)
-import Hydra.Party (vkey, anonymousParty)
-import Plutus.V1.Ledger.Api (toBuiltinData, toData, fromData)
+import Hydra.Party (anonymousParty, vkey)
+import Plutus.V1.Ledger.Api (fromData, toBuiltinData, toData)
 import Shelley.Spec.Ledger.API (
   Coin (..),
   Credential (ScriptHashObj),
@@ -114,13 +114,15 @@ observeTx tx =
 
 observeInitTx :: ValidatedTx (AlonzoEra StandardCrypto) -> Maybe (OnChainTx tx)
 observeInitTx ValidatedTx{wits} = do
-  fromData plutusData >>= \case
+  (Data d) <- firstDatum
+  fromData d >>= \case
     Initial cp ps ->
       pure $ OnInitTx (contestationPeriodToDiffTime cp) (map convertParty ps)
     _ -> Nothing
  where
-  -- TODO(SN): temporary hack
-  [(_, Data plutusData)] = Map.toList . unTxDats $ txdats wits
+  firstDatum = snd . head <$> nonEmpty datums
+
+  datums = Map.toList . unTxDats $ txdats wits
 
   convertParty = anonymousParty . partyToVerKey
 
