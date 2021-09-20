@@ -199,6 +199,7 @@ test-suite tests
     Hydra.APISpec
     Hydra.BehaviorSpec
     Hydra.Chain.Direct.TxSpec
+    Hydra.Chain.Direct.WalletSpec
     Hydra.Chain.DirectSpec
     Hydra.Chain.ExternalPABSpec
     Hydra.Chain.ZeroMQSpec
@@ -256,6 +257,8 @@ test-suite tests
     , network
     , ouroboros-network-framework
     , plutus-ledger-api
+    , ouroboros-consensus-cardano
+    , ouroboros-consensus-shelley
     , process
     , QuickCheck
     , quickcheck-instances
@@ -263,6 +266,7 @@ test-suite tests
     , shelley-spec-ledger
     , shelley-spec-ledger-test
     , silently
+    , strict-containers
     , temporary
     , text
     , typed-protocols-examples

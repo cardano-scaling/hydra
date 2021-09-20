@@ -1,11 +1,6 @@
 -- | Companion tiny-wallet for the direct chain component. This module provide
 -- some useful utilities to tracking the wallet's UTXO, and accessing it
-module Hydra.Chain.Direct.Wallet (
-  withTinyWallet,
-  TinyWallet (..),
-  NetworkMagic (..),
-  applyBlock,
-) where
+module Hydra.Chain.Direct.Wallet where
 
 import qualified Cardano.Crypto.DSIGN as Crypto
 import Cardano.Crypto.Hash.Class (Hash (..))
@@ -135,7 +130,7 @@ withTinyWallet magic (vk, sk) addr action = do
 --
 -- To determine whether a produced output is ours, we compare it to our unique
 -- address.
-applyBlock :: Block -> Address -> Map TxIn TxOut -> Map TxIn TxOut
+applyBlock :: Block -> (Address -> Bool) -> Map TxIn TxOut -> Map TxIn TxOut
 applyBlock = error "TODO: applyBlock"
 
 -- | The idea for this wallet client is rather simple:
@@ -232,7 +227,7 @@ chainSyncClient tipVar utxoVar address =
       , ChainSync.recvMsgRollForward = \block _tip ->
           ChainSyncClient $ do
             utxo <- atomically (readTMVar utxoVar)
-            let utxo' = applyBlock block address utxo
+            let utxo' = applyBlock block (== address) utxo
             when (utxo' /= utxo) (void $ atomically $ swapTMVar utxoVar utxo')
             pure clientStIdle
       }
