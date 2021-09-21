@@ -77,8 +77,9 @@ spec =
          in Map.elems (unTxDats dats) === [Data . toData $ toBuiltinData datum]
 
     describe "abortTx" $ do
-      prop "transaction size below limit" $ \txIn ->
-        let tx = abortTx txIn
+      prop "transaction size below limit" $ \txIn bytes ->
+        let tx = abortTx (txIn, pkh)
+            pkh = PubKeyHash $ toBuiltin (bytes :: ByteString)
             cbor = serialize tx
             len = LBS.length cbor
          in counterexample ("Tx: " <> show tx) $
@@ -87,14 +88,15 @@ spec =
 
       -- TODO(SN): this requires the abortTx to include a redeemer, for a TxIn,
       -- spending an Initial-validated output
-      prop "validates against 'initial' script in haskell (unlimited budget)" $ \txIn pkh ->
-        let tx = abortTx txIn
+      prop "validates against 'initial' script in haskell (unlimited budget)" $ \txIn bytes ->
+        let tx = abortTx (txIn, pkh)
+            pkh = PubKeyHash $ toBuiltin (bytes :: ByteString)
             -- input governed by initial script and a 'Plutus.PubKeyHash' datum
             utxo = UTxO $ Map.singleton txIn txOut
             txOut = TxOut initialAddress initialValue (SJust initialDatumHash)
             initialAddress = validatorHashToAddr Initial.validatorHash
             initialValue = inject (Coin 0)
-            initialDatumHash = hashData @Era . Data . toData $ PubKeyHash $ toBuiltin (pkh :: ByteString)
+            initialDatumHash = hashData @Era . Data $ toData pkh
             results = validateTxScriptsUnlimited tx utxo
          in 1 == length (rights $ Map.elems results)
               & counterexample ("Evaluation results: " <> show results)
