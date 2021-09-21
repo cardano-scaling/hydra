@@ -7,8 +7,9 @@ module Hydra.Chain.ExternalPAB where
 
 import Hydra.Prelude
 
+import Control.Monad.Class.MonadSTM (MonadSTMTx (takeTMVar, tryReadTMVar), newEmptyTMVarIO, putTMVar)
 import Control.Monad.Class.MonadSay (say)
-import Data.Aeson (Result (Error, Success), eitherDecodeStrict)
+import Data.Aeson (Result (Error, Success), Value, eitherDecodeStrict)
 import Data.Aeson.Types (fromJSON)
 import qualified Data.Map as Map
 import Hydra.Chain (
@@ -19,11 +20,11 @@ import Hydra.Chain (
   OnChainTx (..),
   PostChainTx (..),
  )
-import Hydra.Contract.PAB (PabContract (..), pabPort)
+import Hydra.Contract.PAB (ObservedTx (), PabContract (..), pabPort)
 import Hydra.Ledger (Tx, Utxo)
 import Hydra.Logging (Tracer)
 import Hydra.Party (Party)
-import Ledger (PubKeyHash, TxOut (txOutValue), TxOutRef, pubKeyHash)
+import Ledger (AssetClass, PubKeyHash, TxOut (txOutValue), TxOutRef, pubKeyHash)
 import Ledger.Value (flattenValue)
 import Network.HTTP.Req (
   HttpException (VanillaHttpException),
@@ -61,23 +62,25 @@ withExternalPab ::
   Tracer IO ExternalPabLog ->
   ChainComponent tx IO ()
 withExternalPab walletId _tracer callback action = do
-  cid <- activateContract Watch wallet
-  withAsync (initTxSubscriber cid callback) $ \_ ->
-    withAsync (utxoSubscriber wallet) $ \_ -> do
-      action $ Chain{postTx = postTx cid}
+  threadToken <- newEmptyTMVarIO
+  withAsync (initTxSubscriber wallet threadToken callback) $ \_ ->
+    withAsync (headSubscriber wallet threadToken callback) $ \_ ->
+      withAsync (utxoSubscriber wallet) $ \_ -> do
+        action $ Chain{postTx = postTx threadToken}
  where
-  postTx cid = \case
+  postTx threadToken = \case
     InitTx HeadParameters{contestationPeriod, parties} -> do
-      -- XXX(SN): stop contract instances
-      oneTimeCid <- activateContract Init wallet
-      postInitTx oneTimeCid $
+      postInitTx wallet $
         PostInitParams
           { contestationPeriod
           , cardanoPubKeys = pubKeyHash <$> pubKeys
           , hydraParties = parties
           }
     AbortTx utxo -> do
-      postAbortTx @tx cid utxo
+      atomically (tryReadTMVar threadToken) >>= \case
+        -- XXX(SN): use MonadThrow and proper exceptions or even Either
+        Nothing -> error "cannot post abortTx , unknown head / no thread token yet!"
+        Just tt -> postAbortTx @tx wallet tt utxo
     tx -> error $ "should post " <> show tx
 
   wallet = Wallet walletId
@@ -118,41 +121,41 @@ instance Arbitrary PostInitParams where
   arbitrary = genericArbitrary
 
 -- TODO(SN): use MonadHttp, but clashes with MonadThrow
-postInitTx :: ContractInstanceId -> PostInitParams -> IO ()
-postInitTx cid params =
+postInitTx :: Wallet -> PostInitParams -> IO ()
+postInitTx wallet params = do
+  -- XXX(SN): stop contract instances?
+  (ContractInstanceId cid) <- activateContract Init wallet
   retryOnAnyHttpException $
     runReq defaultHttpConfig $ do
       res <-
         req
           POST
-          (http "127.0.0.1" /: "api" /: "contract" /: "instance" /: cidText /: "endpoint" /: "init")
+          (http "127.0.0.1" /: "api" /: "contract" /: "instance" /: show cid /: "endpoint" /: "init")
           (ReqBodyJson params)
           jsonResponse
           (port pabPort)
       when (responseStatusCode res /= 200) $
         error "failed to postInitTx"
       pure $ responseBody res
- where
-  cidText = show $ unContractInstanceId cid
 
 -- TODO(SN): use MonadHttp, but clashes with MonadThrow
-postAbortTx :: ContractInstanceId -> Utxo tx -> IO ()
-postAbortTx cid _utxo =
+postAbortTx :: Wallet -> AssetClass -> Utxo tx -> IO ()
+postAbortTx wallet threadToken _utxo = do
+  -- XXX(SN): stop contract instances?
+  (ContractInstanceId cid) <- activateContract Abort wallet
   retryOnAnyHttpException $ do
     say "send abort http request"
     runReq defaultHttpConfig $ do
       res <-
         req
           POST
-          (http "127.0.0.1" /: "api" /: "contract" /: "instance" /: cidText /: "endpoint" /: "abort")
-          (ReqBodyJson ())
+          (http "127.0.0.1" /: "api" /: "contract" /: "instance" /: show cid /: "endpoint" /: "abort")
+          (ReqBodyJson threadToken)
           jsonResponse
           (port pabPort)
       when (responseStatusCode res /= 200) $
         error "failed to postAbortTx"
       pure $ responseBody res
- where
-  cidText = show $ unContractInstanceId cid
 
 data ActivateContractRequest = ActivateContractRequest {caID :: Text, caWallet :: Wallet}
   deriving (Generic, ToJSON)
@@ -166,8 +169,42 @@ data ErrDecoding
 
 instance Exception ErrDecoding
 
-initTxSubscriber :: Tx tx => ContractInstanceId -> (OnChainTx tx -> IO ()) -> IO ()
-initTxSubscriber (ContractInstanceId cid) callback = do
+initTxSubscriber :: Wallet -> TMVar IO AssetClass -> (OnChainTx tx -> IO ()) -> IO ()
+initTxSubscriber wallet threadToken callback = do
+  (ContractInstanceId cid) <- activateContract WatchInit wallet
+  runClient "127.0.0.1" pabPort ("/ws/" <> show cid) $ \con -> forever $ do
+    msg <- receiveData con
+    print msg
+    case eitherDecodeStrict msg of
+      Right (NewObservableState val) -> do
+        case fromJSON val of
+          Error err -> throwIO $ ErrDecodingJson $ show err
+          Success res -> case getLast res of
+            Nothing -> pure ()
+            Just (tt :: AssetClass, cp :: ContestationPeriod, ps :: [Party]) -> do
+              say $ "Observed initTx " <> show tt <> ", " <> show cp <> ", " <> show ps
+              atomically $ putTMVar threadToken tt
+              callback $ OnInitTx cp ps
+      Right _ -> pure ()
+      Left err ->
+        throwIO $ ErrDecodingMsg $ show err
+
+headSubscriber :: Tx tx => Wallet -> TMVar IO AssetClass -> (OnChainTx tx -> IO ()) -> IO ()
+headSubscriber wallet threadToken callback = do
+  tt <- atomically $ takeTMVar threadToken >>= \tt -> putTMVar threadToken tt >> pure tt
+  say $ "Head subscriber: got thread token " <> show tt
+  (ContractInstanceId cid) <- activateContract WatchHead wallet
+  runReq defaultHttpConfig $ do
+    res <-
+      req
+        POST
+        (http "127.0.0.1" /: "api" /: "contract" /: "instance" /: show cid /: "endpoint" /: "watchHead")
+        (ReqBodyJson tt)
+        (jsonResponse @())
+        (port pabPort)
+    when (responseStatusCode res /= 200) $
+      error "failed to send threadToken to watchHead contract"
+  say "Head subscriber: start listening..."
   runClient "127.0.0.1" pabPort ("/ws/" <> show cid) $ \con -> forever $ do
     msg <- receiveData con
     case eitherDecodeStrict msg of
@@ -177,7 +214,7 @@ initTxSubscriber (ContractInstanceId cid) callback = do
           Success res -> case getLast res of
             Nothing -> pure ()
             Just (tx :: OnChainTx tx) -> do
-              say $ "Observed on-chain transaction: " ++ show tx
+              say $ "Observed head transaction " <> show tx
               callback tx
       Right _ -> pure ()
       Left err ->
