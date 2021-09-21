@@ -92,6 +92,7 @@ library
     , hydra-prelude
     , lens
     , playground-common
+    , plutus-chain-index
     , plutus-contract
     , plutus-core
     , plutus-ledger

@@ -18,23 +18,23 @@ import Ledger (
   PubKeyHash (..),
   TxOut (txOutValue),
   TxOutRef,
-  TxOutTx (txOutTxOut),
   fromTxOut,
   pubKeyAddress,
   pubKeyHash,
   toTxOut,
  )
-import Ledger.AddressMap (outputsMapFromTxForAddress)
 import qualified Ledger.Typed.Scripts as Scripts
 import Ledger.Typed.Tx (tyTxOutData, typeScriptTxOut)
 import Ledger.Value (AssetClass, TokenName (..), flattenValue)
 import qualified Ledger.Value as Value
+import Plutus.ChainIndex (ChainIndexTx, txOutRefMapForAddr)
 import Plutus.Contract (
   AsContractError (..),
   Contract,
   ContractError (..),
   Empty,
   Endpoint,
+  awaitUtxoProduced,
   endpoint,
   logInfo,
   ownPubKey,
@@ -174,12 +174,12 @@ watchInit = do
   let address = Initial.address
       pkh = pubKeyHash pubKey
   loop $ do
-    txs <- error "nextTransactionsAt missing"
-    let foundTokens = txs >>= mapMaybe (findToken pkh) . Map.elems . outputsMapFromTxForAddress address
+    txs <- awaitUtxoProduced address
+    let foundTokens = toList txs >>= mapMaybe (findToken pkh) . Map.elems . txOutRefMapForAddr address
     logInfo $ "found tokens: " <> show @String foundTokens
     case foundTokens of
       [token] -> do
-        let datums = txs >>= mapMaybe (lookupDatum token) . Map.assocs . outputsMapFromTxForAddress (scriptAddress token)
+        let datums = toList txs >>= mapMaybe (lookupDatum token) . Map.assocs . txOutRefMapForAddr (scriptAddress token)
         logInfo @String $ "found init tx(s) with datums: " <> show datums
         case datums of
           [Head.Initial contestationPeriod parties] ->
@@ -194,9 +194,9 @@ watchInit = do
 
   -- Find candidates for a Hydra Head threadToken 'AssetClass', that is if the
   -- 'TokenName' matches our public key
-  findToken :: PubKeyHash -> TxOutTx -> Maybe AssetClass
-  findToken pkh txout =
-    let value = txOutValue $ txOutTxOut txout
+  findToken :: PubKeyHash -> (TxOut, ChainIndexTx) -> Maybe AssetClass
+  findToken pkh (txout, _tx) =
+    let value = txOutValue txout
         flat = flattenValue value
         mres = find (\(_, tokenName, amount) -> amount == 1 && tokenName == participationTokenName pkh) flat
      in case mres of
@@ -205,8 +205,9 @@ watchInit = do
 
   scriptAddress = Scripts.validatorAddress . Head.typedValidator
 
-  lookupDatum token (txOutRef, txOutTx) = do
-    chainIndexTxOut <- fromTxOut $ txOutTxOut txOutTx
+  lookupDatum :: AssetClass -> (TxOutRef, (TxOut, ChainIndexTx)) -> Maybe Head.State
+  lookupDatum token (txOutRef, (txOut, _tx)) = do
+    chainIndexTxOut <- fromTxOut txOut
     typedTxOut <- rightToMaybe $ typeScriptTxOut (Head.typedValidator token) txOutRef chainIndexTxOut
     pure $ tyTxOutData typedTxOut
 
