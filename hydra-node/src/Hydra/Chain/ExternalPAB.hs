@@ -9,7 +9,7 @@ import Hydra.Prelude
 
 import Control.Monad.Class.MonadSTM (MonadSTMTx (takeTMVar, tryReadTMVar), newEmptyTMVarIO, putTMVar)
 import Control.Monad.Class.MonadSay (say)
-import Data.Aeson (Result (Error, Success), Value, eitherDecodeStrict)
+import Data.Aeson (Result (Error, Success), eitherDecodeStrict)
 import Data.Aeson.Types (fromJSON)
 import qualified Data.Map as Map
 import Hydra.Chain (
@@ -20,7 +20,7 @@ import Hydra.Chain (
   OnChainTx (..),
   PostChainTx (..),
  )
-import Hydra.Contract.PAB (ObservedTx (), PabContract (..), pabPort)
+import Hydra.Contract.PAB (PabContract (..), pabPort)
 import Hydra.Ledger (Tx, Utxo)
 import Hydra.Logging (Tracer)
 import Hydra.Party (Party)
@@ -144,7 +144,6 @@ postAbortTx wallet threadToken _utxo = do
   -- XXX(SN): stop contract instances?
   (ContractInstanceId cid) <- activateContract Abort wallet
   retryOnAnyHttpException $ do
-    say "send abort http request"
     runReq defaultHttpConfig $ do
       res <-
         req
@@ -174,7 +173,6 @@ initTxSubscriber wallet threadToken callback = do
   (ContractInstanceId cid) <- activateContract WatchInit wallet
   runClient "127.0.0.1" pabPort ("/ws/" <> show cid) $ \con -> forever $ do
     msg <- receiveData con
-    print msg
     case eitherDecodeStrict msg of
       Right (NewObservableState val) -> do
         case fromJSON val of
