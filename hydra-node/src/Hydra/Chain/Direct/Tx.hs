@@ -58,7 +58,7 @@ type Era = AlonzoEra StandardCrypto
 constructTx :: TxIn StandardCrypto -> PostChainTx tx -> ValidatedTx Era
 constructTx txIn = \case
   InitTx p -> initTx p txIn
-  AbortTx _utxo -> abortTx txIn
+  AbortTx _utxo -> abortTx (txIn, error "where is this coming from?")
   _ -> error "not implemented"
 
 -- | Create the init transaction from some 'HeadParameters' and a single TxIn
@@ -106,8 +106,12 @@ initTx HeadParameters{contestationPeriod, parties} txIn =
         (contestationPeriodFromDiffTime contestationPeriod)
         (map (partyFromVerKey . vkey) parties)
 
-abortTx :: TxIn StandardCrypto -> ValidatedTx Era
-abortTx txIn =
+-- | Create transaction which aborts by spending one input. This is currently
+-- only possible if this is governed by the initial script and only for a single
+-- input. Of course, the Head protocol specifies we need to spend ALL the Utxo
+-- containing PTs.
+abortTx :: (TxIn StandardCrypto, PubKeyHash) -> ValidatedTx Era
+abortTx (txIn, pkh) =
   mkUnsignedTx body dats redeemers scripts
  where
   body =
@@ -147,7 +151,7 @@ abortTx txIn =
 
   initialDatumHash = hashData @Era initialDatum
 
-  initialDatum = Data . toData $ PubKeyHash "not a PubKeyHash"
+  initialDatum = Data $ toData pkh
 
 --
 
