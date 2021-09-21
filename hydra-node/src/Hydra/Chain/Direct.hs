@@ -34,7 +34,6 @@ import Hydra.Chain (
   Chain (..),
   ChainCallback,
   ChainComponent,
-  OnChainTx (..),
   PostChainTx (..),
  )
 import Hydra.Chain.Direct.Tx (constructTx, observeTx)
