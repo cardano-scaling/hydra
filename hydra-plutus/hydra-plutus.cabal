@@ -18,13 +18,6 @@ flag development
   default:     False
   manual:      True
 
-flag defer-plutus-plugin-errors
-  description:
-    Defer errors from the plugin, useful for things like Haddock that can't handle it.
-
-  default:     False
-  manual:      True
-
 common project-config
   default-extensions:
     NoImplicitPrelude
@@ -111,7 +104,8 @@ library
     , text
     , time
 
-  if flag(defer-plutus-plugin-errors)
+  if flag(development)
+    -- NOTE(SN): should fix HLS choking on PlutusTx plugin
     ghc-options: -fplugin-opt PlutusTx.Plugin:defer-errors
 
 test-suite hydra-plutus-test
