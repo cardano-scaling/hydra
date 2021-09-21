@@ -1,4 +1,5 @@
 {-# LANGUAGE TypeApplications #-}
+{-# OPTIONS_GHC -Wno-orphans #-}
 
 -- | Unit tests for our "hand-rolled" transactions as they are used in the
 -- "direct" chain component.
@@ -30,7 +31,7 @@ import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
 import Hydra.Chain (HeadParameters (..), PostChainTx (InitTx), toOnChainTx)
 import Hydra.Chain.Direct.Tx (constructTx, initTx, observeTx)
 import Hydra.Chain.Direct.Util (Era)
-import Hydra.Contract.Head (State (Initial))
+import qualified Hydra.Contract.Head as Head
 import qualified Hydra.Contract.Initial as Initial
 import Hydra.Data.ContestationPeriod (contestationPeriodFromDiffTime)
 import Hydra.Data.Party (partyFromVerKey)
@@ -40,7 +41,7 @@ import Plutus.V1.Ledger.Api (PubKeyHash (PubKeyHash), toBuiltin, toBuiltinData, 
 import Shelley.Spec.Ledger.API (Coin (Coin), StrictMaybe (SJust), UTxO (UTxO))
 import Test.Cardano.Ledger.Alonzo.PlutusScripts (defaultCostModel)
 import Test.Cardano.Ledger.Alonzo.Serialisation.Generators ()
-import Test.QuickCheck (counterexample, (===), (==>))
+import Test.QuickCheck (Gen, counterexample, oneof, (===), (==>))
 import Test.QuickCheck.Instances ()
 
 -- TODO(SN): use real max tx size
@@ -51,11 +52,11 @@ spec :: Spec
 spec =
   parallel $ do
     prop "observeTx . constructTx roundtrip" $ \postTx txIn time ->
-      isImplemented postTx -- TODO(SN): test all constructors
+      isImplemented postTx txIn -- TODO(SN): test all constructors
         ==> observeTx (constructTx txIn postTx) === Just (toOnChainTx @SimpleTx time postTx)
 
     prop "transaction size below limit" $ \postTx txIn ->
-      isImplemented postTx -- TODO(SN): test all constructors
+      isImplemented postTx txIn -- TODO(SN): test all constructors
         ==> let tx = constructTx @SimpleTx txIn postTx
                 cbor = serialize tx
                 len = LBS.length cbor
@@ -73,7 +74,7 @@ spec =
             HeadParameters{contestationPeriod, parties} = params
             onChainPeriod = contestationPeriodFromDiffTime contestationPeriod
             onChainParties = map (partyFromVerKey . vkey) parties
-            datum = Initial onChainPeriod onChainParties
+            datum = Head.Initial onChainPeriod onChainParties
          in Map.elems (unTxDats dats) === [Data . toData $ toBuiltinData datum]
 
     describe "abortTx" $ do
@@ -103,11 +104,12 @@ spec =
               & counterexample ("Tx: " <> show tx)
               & counterexample ("Input utxo: " <> show utxo)
 
-isImplemented :: PostChainTx tx -> Bool
-isImplemented = \case
-  InitTx _ -> True
-  AbortTx _ -> True
-  _ -> False
+isImplemented :: PostChainTx tx -> OnChainHeadState -> Bool
+isImplemented tx st =
+  case (tx, st) of
+    (InitTx{}, Ready{}) -> True
+    (AbortTx{}, Initial{}) -> True
+    _ -> False
 
 -- | Evaluate all plutus scripts and return execution budgets of a given
 -- transaction (any included budgets are ignored).
@@ -139,3 +141,8 @@ txOutNFT (TxOut _ value _) =
     pure (policy, name)
 
   unitQuantity (_name, q) = q == 1
+
+instance Arbitrary OnChainHeadState where
+  arbitrary = oneof [Ready <$> arbitrary, Initial <$> ((,) <$> arbitrary <*> genPubKeyHash)]
+   where
+    genPubKeyHash = PubKeyHash . toBuiltin <$> (arbitrary :: Gen ByteString)
