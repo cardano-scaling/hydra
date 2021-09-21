@@ -7,6 +7,8 @@ module Hydra.Contract.PAB where
 import Hydra.Prelude hiding (init)
 
 import Control.Lens (makeClassyPrisms)
+import Data.List (nub)
+import qualified Data.List.NonEmpty as NonEmpty
 import qualified Data.Map as Map
 import Data.Text.Prettyprint.Doc (Pretty (..), viaShow)
 import Hydra.Contract.ContestationPeriod (ContestationPeriod)
@@ -174,13 +176,16 @@ watchInit = do
   let address = Initial.address
       pkh = pubKeyHash pubKey
   loop $ do
-    txs <- awaitUtxoProduced address
+    -- REVIEW(SN): we are given the same ChainIndexTx multiple times here, why?
+    txs <- NonEmpty.nub <$> awaitUtxoProduced address
+    forM_ txs $ \tx -> logInfo @String $ "watchInit: considering tx " <> show tx
     let foundTokens = toList txs >>= mapMaybe (findToken pkh) . Map.elems . txOutRefMapForAddr address
-    logInfo $ "found tokens: " <> show @String foundTokens
+    logInfo @String $ "watchInit: found tokens " <> show foundTokens
+    -- TODO(SN): in theory we could see multiple init txs, so fold and return first
     case foundTokens of
       [token] -> do
         let datums = toList txs >>= mapMaybe (lookupDatum token) . Map.assocs . txOutRefMapForAddr (scriptAddress token)
-        logInfo @String $ "found init tx(s) with datums: " <> show datums
+        logInfo @String $ "watchInit: found init tx(s) with datums: " <> show datums
         case datums of
           [Head.Initial contestationPeriod parties] ->
             pure $ Just (contestationPeriod, parties, token)
@@ -205,6 +210,7 @@ watchInit = do
 
   scriptAddress = Scripts.validatorAddress . Head.typedValidator
 
+  -- XXX(SN): Maybe is hard to debug
   lookupDatum :: AssetClass -> (TxOutRef, (TxOut, ChainIndexTx)) -> Maybe Head.State
   lookupDatum token (txOutRef, (txOut, _tx)) = do
     chainIndexTxOut <- fromTxOut txOut
