@@ -25,8 +25,9 @@ import Cardano.Ledger.Val (inject)
 import qualified Data.Map as Map
 import qualified Data.Sequence.Strict as StrictSeq
 import qualified Data.Set as Set
-import Hydra.Chain (HeadParameters (..), OnChainTx (OnInitTx), PostChainTx (InitTx))
-import Hydra.Contract.Head (State (Initial))
+import Hydra.Chain (HeadParameters (..), OnChainTx (OnAbortTx, OnInitTx), PostChainTx (..))
+import qualified Hydra.Contract.Head as Head
+import qualified Hydra.Contract.Initial as Initial
 import Hydra.Data.ContestationPeriod (contestationPeriodFromDiffTime, contestationPeriodToDiffTime)
 import Hydra.Data.Party (partyFromVerKey, partyToVerKey)
 import Hydra.Party (anonymousParty, vkey)
@@ -51,15 +52,23 @@ type Era = AlonzoEra StandardCrypto
 
 -- * Post Hydra Head transactions
 
+-- | Maintains information needed to construct on-chain transactions
+-- depending on the current state of the head.
+data OnChainHeadState
+  = Ready {seedTx :: TxIn StandardCrypto}
+  | Initial {commits :: (TxIn StandardCrypto, PubKeyHash)}
+  deriving (Eq, Show, Generic)
+
 -- | Construct the Head protocol transactions as Alonzo 'Tx'. Note that
 -- 'ValidatedTx' this produces an unbalanced, unsigned transaction and this type
 -- was used (in contrast to 'TxBody') to be able to express included datums,
 -- onto which at least the 'initTx' relies on.
-constructTx :: TxIn StandardCrypto -> PostChainTx tx -> ValidatedTx Era
-constructTx txIn = \case
-  InitTx p -> initTx p txIn
-  AbortTx _utxo -> abortTx (txIn, error "where is this coming from?")
-  _ -> error "not implemented"
+constructTx :: OnChainHeadState -> PostChainTx tx -> ValidatedTx Era
+constructTx txIn tx =
+  case (txIn, tx) of
+    (Ready{seedTx}, InitTx p) -> initTx p seedTx
+    (Initial{commits}, AbortTx _utxo) -> abortTx commits
+    _ -> error "not implemented"
 
 -- | Create the init transaction from some 'HeadParameters' and a single TxIn
 -- which will be used as unique parameter for minting NFTs.
@@ -102,7 +111,7 @@ initTx HeadParameters{contestationPeriod, parties} txIn =
 
   headDatum =
     Data . toData $
-      Initial
+      Head.Initial
         (contestationPeriodFromDiffTime contestationPeriod)
         (map (partyFromVerKey . vkey) parties)
 
@@ -162,7 +171,7 @@ observeInitTx :: ValidatedTx Era -> Maybe (OnChainTx tx)
 observeInitTx ValidatedTx{wits} = do
   (Data d) <- firstDatum
   fromData d >>= \case
-    Initial cp ps ->
+    Head.Initial cp ps ->
       pure $ OnInitTx (contestationPeriodToDiffTime cp) (map convertParty ps)
     _ -> Nothing
  where

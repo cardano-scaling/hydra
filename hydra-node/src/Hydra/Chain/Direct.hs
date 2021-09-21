@@ -23,14 +23,7 @@ import Hydra.Chain (
   ChainComponent,
   PostChainTx (..),
  )
-import Hydra.Chain.Direct.Tx (constructTx, observeTx)
-import Hydra.Chain.Direct.Util (
-  Block,
-  Era,
-  defaultCodecs,
-  nullConnectTracers,
-  versions,
- )
+import Hydra.Chain.Direct.Tx (OnChainHeadState (Ready), constructTx, observeTx)
 import Hydra.Ledger.Cardano (generateWith)
 import Hydra.Logging (Tracer)
 import Ouroboros.Consensus.Cardano.Block (GenTx (..), HardForkBlock (BlockAlonzo))
@@ -192,7 +185,7 @@ txSubmissionClient queue =
   fromPostChainTx :: PostChainTx tx -> GenTx Block
   fromPostChainTx postChainTx = do
     let txIn = generateWith arbitrary 42
-        unsignedTx = constructTx txIn postChainTx
+        unsignedTx = constructTx (Ready txIn) postChainTx
     GenTxAlonzo $ mkShelleyTx unsignedTx
 
 --
