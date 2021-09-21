@@ -7,6 +7,7 @@ module Hydra.Contract.PAB where
 import Hydra.Prelude hiding (init)
 
 import Control.Lens (makeClassyPrisms)
+import Data.Aeson (Options (..), defaultOptions, genericToJSON)
 import qualified Data.List.NonEmpty as NonEmpty
 import qualified Data.Map as Map
 import Data.Text.Prettyprint.Doc (Pretty (..), viaShow)
@@ -33,12 +34,12 @@ import Plutus.Contract (
   Contract,
   ContractError (..),
   Empty,
+  EmptySchema,
   Endpoint,
   awaitUtxoProduced,
   endpoint,
   logInfo,
   ownPubKey,
-  selectList,
   tell,
   utxosAt,
   utxosTxOutTxFromTx,
@@ -57,7 +58,9 @@ pabPort = 8888
 data PabContract
   = GetUtxos
   | Init
-  | Watch
+  | Abort
+  | WatchInit
+  | WatchHead
   deriving (Eq, Show, Generic)
   deriving anyclass (ToJSON, FromJSON)
 
@@ -68,7 +71,9 @@ instance HasDefinitions PabContract where
   getDefinitions =
     [ GetUtxos
     , Init
-    , Watch
+    , Abort
+    , WatchInit
+    , WatchHead
     ]
 
   -- REVIEW(SN): There are actual endpoints defined in contracts code but they
@@ -78,7 +83,9 @@ instance HasDefinitions PabContract where
   getContract = \case
     GetUtxos -> SomeBuiltin getUtxo
     Init -> SomeBuiltin init
-    Watch -> SomeBuiltin watch
+    Abort -> SomeBuiltin abort
+    WatchInit -> SomeBuiltin watchInit
+    WatchHead -> SomeBuiltin watchHead
 
 getUtxo :: Contract (Last (Map TxOutRef TxOut)) Empty ContractError ()
 getUtxo = do
@@ -133,48 +140,16 @@ init = endpoint @"init" $ \InitParams{contestationPeriod, cardanoPubKeys, hydraP
   void $ SM.runInitialiseWith mempty constraints client (Head.Initial contestationPeriod hydraParties) mempty
   logInfo $ "Triggered Init " <> show @String cardanoPubKeys
 
--- | Transactions as they are observed by the PAB. We use a distinct type from
--- the 'Hydra.Chain' as we want to keep hydra-node not tied to hydra-plutus.
--- Tests are ensuring that this type as the same wire format as 'OnChainTx'.
-data ObservedTx
-  = OnInitTx {contestationPeriod :: ContestationPeriod, parties :: [Party]}
-  | OnAbortTx
-  -- TODO(SN): incomplete (obviously)
-  deriving (Eq, Show, Generic, ToJSON, FromJSON)
-
-instance Arbitrary ObservedTx where
-  shrink = genericShrink
-  arbitrary = genericArbitrary
-
-watch :: Contract (Last ObservedTx) (Endpoint "abort" ()) HydraPlutusError ()
-watch = do
-  (contestationPeriod, parties, threadToken) <- watchInit
-  tell $ Last $ Just $ OnInitTx contestationPeriod parties
-  selectList
-    [ Promise (watchForSM threadToken)
-    , abort threadToken
-    ]
-
-watchForSM :: AssetClass -> Contract (Last ObservedTx) s HydraPlutusError ()
-watchForSM threadToken = do
-  logInfo @String $ "watchForSM"
-  let client = Head.machineClient threadToken
-  smState <- SM.waitForUpdate client
-  let mstate = tyTxOutData . SM.ocsTxOut <$> smState
-  case mstate of
-    Just Head.Final -> tell . Last $ Just OnAbortTx
-    _ -> logInfo @String $ "uninferrable state"
-
--- | Watch Initial script address to extract head's initial parameters and thread token.
+-- | Watch Initial script address to extract head's thread token and initial parameters.
 -- Relies on the fact that a participation token (payed to the address) uses the
 -- same 'CurrencySymbol' as the thread token.
-watchInit :: Contract w s HydraPlutusError (ContestationPeriod, [Party], AssetClass)
+watchInit :: Contract (Last (AssetClass, ContestationPeriod, [Party])) EmptySchema HydraPlutusError ()
 watchInit = do
   logInfo @String $ "watchInit: Looking for an init tx and it's parties"
   pubKey <- ownPubKey
   let address = Initial.address
       pkh = pubKeyHash pubKey
-  loop $ do
+  observedTx <- loop $ do
     -- REVIEW(SN): we are given the same ChainIndexTx multiple times here, why?
     txs <- NonEmpty.nub <$> awaitUtxoProduced address
     forM_ txs $ \tx -> logInfo @String $ "watchInit: considering tx " <> show tx
@@ -189,9 +164,10 @@ watchInit = do
         logInfo @String $ "watchInit: found init tx(s) with datums: " <> show datums
         case datums of
           [Head.Initial contestationPeriod parties] ->
-            pure $ Just (contestationPeriod, parties, token)
+            pure (Just (token, contestationPeriod, parties))
           _ -> pure Nothing
       _ -> pure Nothing
+  tell . Last $ Just observedTx
  where
   loop action =
     action >>= \case
@@ -215,10 +191,39 @@ watchInit = do
     typedTxOut <- rightToMaybe $ typeScriptTxOut (Head.typedValidator token) txOutRef txOut
     pure $ tyTxOutData typedTxOut
 
--- TODO(SN): use this in a greate contract which 'watchInit' first and then does this
-abort :: AssetClass -> Promise w (Endpoint "abort" ()) HydraPlutusError ()
-abort threadToken = endpoint @"abort" $ \_ -> do
-  logInfo @String $ "abort: which contract now?"
+-- | Transactions as they are observed by the PAB on the Head statemachine
+-- contract. We use a distinct type from the 'Hydra.Chain' as we want to keep
+-- hydra-node not tied to hydra-plutus. Tests are ensuring that this type as the
+-- same wire format as 'OnChainTx'.
+data ObservedTx
+  = OnAbortTx
+  | OnCollectComTx
+  -- TODO(SN): incomplete (obviously)
+  deriving (Eq, Show, Generic, FromJSON)
+
+instance ToJSON ObservedTx where
+  toJSON = genericToJSON (defaultOptions{allNullaryToStringTag = False})
+
+instance Arbitrary ObservedTx where
+  shrink = genericShrink
+  arbitrary = genericArbitrary
+
+-- | Watch for any updates to the Head statemachine contract. This requires the
+-- thread token as parameter to know the statemachine instance / address.
+watchHead :: Promise (Last ObservedTx) (Endpoint "watchHead" AssetClass) HydraPlutusError ()
+watchHead = endpoint @"watchHead" $ \threadToken -> do
+  logInfo @String $ "watchHead"
+  let client = Head.machineClient threadToken
+  smState <- SM.waitForUpdate client
+  let mstate = tyTxOutData . SM.ocsTxOut <$> smState
+  logInfo @String $ "watchHead: got state " <> show mstate
+  case mstate of
+    Just Head.Final -> tell . Last $ Just OnAbortTx
+    _ -> logInfo @String $ "uninferrable state"
+
+abort :: Promise () (Endpoint "abort" AssetClass) HydraPlutusError ()
+abort = endpoint @"abort" $ \threadToken -> do
+  logInfo @String $ "abort: using thread token " <> show threadToken
   let client = Head.machineClient threadToken
   void $ SM.runStep client Head.Abort
 

@@ -39,37 +39,36 @@ spec = do
             Right (_ :: OnChainTx SimpleTx) ->
               property True
 
-  describe "ExternalPAB" $ do
-    it "publishes init tx using wallet 1 and observes it also" $ do
-      failAfter 40 $
-        withHydraPab $ do
-          calledBack1 <- newEmptyMVar
-          calledBack2 <- newEmptyMVar
+  it "publishes init tx using wallet 1 and observes it also" $ do
+    failAfter 40 $
+      withHydraPab $ do
+        calledBack1 <- newEmptyMVar
+        calledBack2 <- newEmptyMVar
 
-          -- NOTE(SN): The cardano pubkeys and which wallet is used, is
-          -- hard-coded in 'withExternalPAB'!
-          withExternalPab @SimpleTx 1 nullTracer (putMVar calledBack1) $ \_ ->
-            withExternalPab 2 nullTracer (putMVar calledBack2) $ \Chain{postTx} -> do
-              let parameters = HeadParameters 100 [alice, bob, carol]
-              postTx $ InitTx @SimpleTx parameters
-              takeMVar calledBack1 `shouldReturn` OnInitTx 100 [alice, bob, carol]
-              takeMVar calledBack2 `shouldReturn` OnInitTx 100 [alice, bob, carol]
+        -- NOTE(SN): The cardano pubkeys and which wallet is used, is
+        -- hard-coded in 'withExternalPAB'!
+        withExternalPab @SimpleTx 1 nullTracer (putMVar calledBack1) $ \_ ->
+          withExternalPab 2 nullTracer (putMVar calledBack2) $ \Chain{postTx} -> do
+            let parameters = HeadParameters 100 [alice, bob, carol]
+            postTx $ InitTx @SimpleTx parameters
+            takeMVar calledBack1 `shouldReturn` OnInitTx 100 [alice, bob, carol]
+            takeMVar calledBack2 `shouldReturn` OnInitTx 100 [alice, bob, carol]
 
-    it "publishes init tx, observes it and abort" $ do
-      failAfter 40 $
-        withHydraPab $ do
-          calledBack1 <- newEmptyMVar
-          calledBack2 <- newEmptyMVar
-          -- NOTE(SN): The cardano pubkeys and which wallet is used, is
-          -- hard-coded in 'withExternalPab'!
-          withExternalPab @SimpleTx 1 nullTracer (putMVar calledBack1) $ \client1 ->
-            withExternalPab 2 nullTracer (putMVar calledBack2) $ \client2 -> do
-              let parameters = HeadParameters 100 [alice, bob, carol]
-              postTx client1 $ InitTx @SimpleTx parameters
-              takeMVar calledBack1 `shouldReturn` OnInitTx 100 [alice, bob, carol]
-              takeMVar calledBack2 `shouldReturn` OnInitTx 100 [alice, bob, carol]
-              postTx client2 $ AbortTx @SimpleTx mempty
-              takeMVar calledBack1 `shouldReturn` OnAbortTx
+  it "publishes init tx, observes it and abort" $ do
+    failAfter 40 $
+      withHydraPab $ do
+        calledBack1 <- newEmptyMVar
+        calledBack2 <- newEmptyMVar
+        -- NOTE(SN): The cardano pubkeys and which wallet is used, is
+        -- hard-coded in 'withExternalPab'!
+        withExternalPab @SimpleTx 1 nullTracer (putMVar calledBack1) $ \client1 ->
+          withExternalPab 2 nullTracer (putMVar calledBack2) $ \client2 -> do
+            let parameters = HeadParameters 100 [alice, bob, carol]
+            postTx client1 $ InitTx @SimpleTx parameters
+            takeMVar calledBack1 `shouldReturn` OnInitTx 100 [alice, bob, carol]
+            takeMVar calledBack2 `shouldReturn` OnInitTx 100 [alice, bob, carol]
+            postTx client2 $ AbortTx @SimpleTx mempty
+            takeMVar calledBack1 `shouldReturn` OnAbortTx
 
 alice, bob, carol :: Party
 alice = deriveParty $ generateKey 10
@@ -79,16 +78,16 @@ carol = deriveParty $ generateKey 30
 -- TODO(SN): This is not printing the full stdout on failure
 withHydraPab :: IO a -> IO a
 withHydraPab action =
-  withSystemTempFile "hydra-pab" $ \fn h -> do
-    withCreateProcess (pab h) $ \_ _ _ _ ->
-      action `onException` printStdout fn
+  withCreateProcess pab $ \_ _ _ _ ->
+    action
  where
-  pab h =
+  pab =
     (proc "hydra-pab" [])
-      { std_in = CreatePipe -- Open a stdin as pab tries to read from it
-      , std_out = UseHandle h -- Gets closed by withCreateProcess
-      }
 
-  printStdout fn = do
-    putTextLn "This was the stdout of hydra-pab:"
-    readFileText fn >>= putText
+-- { std_in = CreatePipe -- Open a stdin as pab tries to read from it
+-- , std_out = UseHandle h -- Gets closed by withCreateProcess
+-- }
+
+-- printStdout fn = do
+--   putTextLn "This was the stdout of hydra-pab:"
+--   readFileText fn >>= putText
