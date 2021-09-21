@@ -18,11 +18,10 @@ import Cardano.Ledger.Alonzo.Scripts (ExUnits (..), Script (PlutusScript), Tag (
 import Cardano.Ledger.Alonzo.Tx (IsValid (IsValid), ValidatedTx (..))
 import Cardano.Ledger.Alonzo.TxBody (TxBody (..), TxOut (TxOut))
 import Cardano.Ledger.Alonzo.TxWitness (RdmrPtr (RdmrPtr), Redeemers (..), TxDats (..), TxWitness (..), unTxDats)
-import Cardano.Ledger.Crypto (Crypto (ADDRHASH), StandardCrypto)
+import Cardano.Ledger.Crypto (ADDRHASH, StandardCrypto)
 import Cardano.Ledger.ShelleyMA.Timelocks (ValidityInterval (..))
 import Cardano.Ledger.Val (inject)
 import qualified Data.Map as Map
-import Data.Maybe (fromJust)
 import qualified Data.Sequence.Strict as StrictSeq
 import qualified Data.Set as Set
 import Hydra.Chain (HeadParameters (..), OnChainTx (OnInitTx), PostChainTx (InitTx))
@@ -182,7 +181,7 @@ mkUnsignedTx body datums redeemers =
     , auxiliaryData = SNothing
     }
 
--- | Convert a plutus address to the ledger representation
+-- | Convert a plutus address to its ledger representation.
 validatorHashToAddr :: ValidatorHash -> Addr StandardCrypto
 validatorHashToAddr (ValidatorHash builtinByteString) =
   Addr
@@ -191,11 +190,8 @@ validatorHashToAddr (ValidatorHash builtinByteString) =
     -- REVIEW(SN): stake head funds?
     StakeRefNull
  where
-  -- TODO(SN): this will likely fail, StandardCrypto uses Blake2b_224 and Plutus
-  -- seems to be giving us SHA256?
-  hash =
-    fromJust
-      (error $ "ValidatorHash is not (the right) hash: " <> show bytes)
-      $ hashFromBytes @(ADDRHASH StandardCrypto) bytes
+  hash = case hashFromBytes @(ADDRHASH StandardCrypto) bytes of
+    Nothing -> error $ "ValidatorHash is not (the right) hash: " <> show bytes
+    Just h -> h
 
   bytes = fromBuiltin builtinByteString
