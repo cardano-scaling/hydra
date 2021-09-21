@@ -78,16 +78,16 @@ carol = deriveParty $ generateKey 30
 -- TODO(SN): This is not printing the full stdout on failure
 withHydraPab :: IO a -> IO a
 withHydraPab action =
-  withCreateProcess pab $ \_ _ _ _ ->
-    action
+  withSystemTempFile "hydra-pab" $ \fn h -> do
+    withCreateProcess (pab h) $ \_ _ _ _ ->
+      action `onException` printStdout fn
  where
-  pab =
+  pab h =
     (proc "hydra-pab" [])
+      { std_in = CreatePipe -- Open a stdin as pab tries to read from it
+      , std_out = UseHandle h -- Gets closed by withCreateProcess
+      }
 
--- { std_in = CreatePipe -- Open a stdin as pab tries to read from it
--- , std_out = UseHandle h -- Gets closed by withCreateProcess
--- }
-
--- printStdout fn = do
---   putTextLn "This was the stdout of hydra-pab:"
---   readFileText fn >>= putText
+  printStdout fn = do
+    putTextLn "This was the stdout of hydra-pab:"
+    readFileText fn >>= putText
