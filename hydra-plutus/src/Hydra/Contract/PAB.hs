@@ -7,7 +7,6 @@ module Hydra.Contract.PAB where
 import Hydra.Prelude hiding (init)
 
 import Control.Lens (makeClassyPrisms)
-import Data.List (nub)
 import qualified Data.List.NonEmpty as NonEmpty
 import qualified Data.Map as Map
 import Data.Text.Prettyprint.Doc (Pretty (..), viaShow)
@@ -16,16 +15,15 @@ import qualified Hydra.Contract.Head as Head
 import qualified Hydra.Contract.Initial as Initial
 import Hydra.Contract.Party (Party)
 import Ledger (
+  ChainIndexTxOut,
   CurrencySymbol,
   PubKeyHash (..),
   TxOut (txOutValue),
   TxOutRef,
-  fromTxOut,
   pubKeyAddress,
   pubKeyHash,
   toTxOut,
  )
-import qualified Ledger.Typed.Scripts as Scripts
 import Ledger.Typed.Tx (tyTxOutData, typeScriptTxOut)
 import Ledger.Value (AssetClass, TokenName (..), flattenValue)
 import qualified Ledger.Value as Value
@@ -43,6 +41,7 @@ import Plutus.Contract (
   selectList,
   tell,
   utxosAt,
+  utxosTxOutTxFromTx,
   waitNSlots,
  )
 import qualified Plutus.Contract.StateMachine as SM
@@ -184,7 +183,9 @@ watchInit = do
     -- TODO(SN): in theory we could see multiple init txs, so fold and return first
     case foundTokens of
       [token] -> do
-        let datums = toList txs >>= mapMaybe (lookupDatum token) . Map.assocs . txOutRefMapForAddr (scriptAddress token)
+        -- NOTE(SN): it's important to not use 'txOutRefMapForAddr' here as it throws away the tx reference for 'TxOut'
+        allUtxos <- fmap concat . mapM utxosTxOutTxFromTx $ toList txs
+        let datums = mapMaybe (lookupDatum token) allUtxos
         logInfo @String $ "watchInit: found init tx(s) with datums: " <> show datums
         case datums of
           [Head.Initial contestationPeriod parties] ->
@@ -208,13 +209,10 @@ watchInit = do
           Just (symbol, _, _) -> Just $ mkThreadToken symbol
           Nothing -> Nothing
 
-  scriptAddress = Scripts.validatorAddress . Head.typedValidator
-
   -- XXX(SN): Maybe is hard to debug
-  lookupDatum :: AssetClass -> (TxOutRef, (TxOut, ChainIndexTx)) -> Maybe Head.State
+  lookupDatum :: AssetClass -> (TxOutRef, (ChainIndexTxOut, ChainIndexTx)) -> Maybe Head.State
   lookupDatum token (txOutRef, (txOut, _tx)) = do
-    chainIndexTxOut <- fromTxOut txOut
-    typedTxOut <- rightToMaybe $ typeScriptTxOut (Head.typedValidator token) txOutRef chainIndexTxOut
+    typedTxOut <- rightToMaybe $ typeScriptTxOut (Head.typedValidator token) txOutRef txOut
     pure $ tyTxOutData typedTxOut
 
 -- TODO(SN): use this in a greate contract which 'watchInit' first and then does this
