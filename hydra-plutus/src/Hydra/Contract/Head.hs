@@ -44,7 +44,9 @@ hydraStateMachine _threadToken =
   -- want as we need additional tokens being forged as well (see 'watchInit').
   SM.mkStateMachine Nothing hydraTransition isFinal
  where
-  isFinal Final{} = True
+  -- XXX(SN): This is currently required to be able to observe the 'Abort'
+  -- transition!?
+  -- isFinal Final{} = True
   isFinal _ = False
 
 {-# INLINEABLE hydraTransition #-}
