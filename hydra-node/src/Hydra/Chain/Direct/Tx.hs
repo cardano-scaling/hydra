@@ -31,7 +31,7 @@ import Hydra.Contract.Head (State (Initial))
 import Hydra.Data.ContestationPeriod (contestationPeriodFromDiffTime, contestationPeriodToDiffTime)
 import Hydra.Data.Party (partyFromVerKey, partyToVerKey)
 import Hydra.Party (anonymousParty, vkey)
-import Plutus.V1.Ledger.Api (ValidatorHash (ValidatorHash), fromBuiltin, fromData, toData)
+import Plutus.V1.Ledger.Api (PubKeyHash (..), ValidatorHash (ValidatorHash), fromBuiltin, fromData, toData)
 import Shelley.Spec.Ledger.API (
   Coin (..),
   Credential (ScriptHashObj),
@@ -42,7 +42,6 @@ import Shelley.Spec.Ledger.API (
   TxIn,
   Wdrl (Wdrl),
  )
-import Shelley.Spec.Ledger.Tx (hashScript)
 
 -- TODO(SN): parameterize
 network :: Network
@@ -109,7 +108,7 @@ initTx HeadParameters{contestationPeriod, parties} txIn =
 
 abortTx :: TxIn StandardCrypto -> ValidatedTx Era
 abortTx txIn =
-  mkUnsignedTx body mempty redeemers scripts
+  mkUnsignedTx body dats redeemers scripts
  where
   body =
     TxBody
@@ -143,6 +142,12 @@ abortTx txIn =
     Just h -> ScriptHash h
 
   initialScript = PlutusScript . toShort . fromLazy $ serialize Initial.validatorScript
+
+  dats = TxDats $ Map.singleton initialDatumHash initialDatum
+
+  initialDatumHash = hashData @Era initialDatum
+
+  initialDatum = Data . toData $ PubKeyHash "not a PubKeyHash"
 
 --
 

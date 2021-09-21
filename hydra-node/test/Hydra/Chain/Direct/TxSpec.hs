@@ -36,11 +36,12 @@ import Hydra.Data.ContestationPeriod (contestationPeriodFromDiffTime)
 import Hydra.Data.Party (partyFromVerKey)
 import Hydra.Ledger.Simple (SimpleTx)
 import Hydra.Party (vkey)
-import Plutus.V1.Ledger.Api (PubKeyHash (PubKeyHash), toBuiltinData, toData)
+import Plutus.V1.Ledger.Api (PubKeyHash (PubKeyHash), toBuiltin, toBuiltinData, toData)
 import Shelley.Spec.Ledger.API (Coin (Coin), StrictMaybe (SJust), UTxO (UTxO))
 import Test.Cardano.Ledger.Alonzo.PlutusScripts (defaultCostModel)
 import Test.Cardano.Ledger.Alonzo.Serialisation.Generators ()
 import Test.QuickCheck (counterexample, (===), (==>))
+import Test.QuickCheck.Instances ()
 
 -- TODO(SN): use real max tx size
 maxTxSize :: Int64
@@ -86,14 +87,14 @@ spec =
 
       -- TODO(SN): this requires the abortTx to include a redeemer, for a TxIn,
       -- spending an Initial-validated output
-      prop "validates against 'initial' script in haskell (unlimited budget)" $ \txIn ->
+      prop "validates against 'initial' script in haskell (unlimited budget)" $ \txIn pkh ->
         let tx = abortTx txIn
             -- input governed by initial script and a 'Plutus.PubKeyHash' datum
             utxo = UTxO $ Map.singleton txIn txOut
             txOut = TxOut initialAddress initialValue (SJust initialDatumHash)
             initialAddress = validatorHashToAddr Initial.validatorHash
             initialValue = inject (Coin 0)
-            initialDatumHash = hashData @Era . Data . toData $ PubKeyHash "not a PubKeyHash"
+            initialDatumHash = hashData @Era . Data . toData $ PubKeyHash $ toBuiltin (pkh :: ByteString)
             results = validateTxScriptsUnlimited tx utxo
          in 1 == length (rights $ Map.elems results)
               & counterexample ("Evaluation results: " <> show results)
