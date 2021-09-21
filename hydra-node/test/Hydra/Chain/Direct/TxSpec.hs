@@ -95,9 +95,10 @@ spec =
             initialValue = inject (Coin 0)
             initialDatumHash = hashData @Era . Data . toData $ PubKeyHash "not a PubKeyHash"
             results = validateTxScriptsUnlimited tx utxo
-         in -- TODO(SN): are the RdmrPtr keys useful?
-            1 == length (rights $ Map.elems results)
+         in 1 == length (rights $ Map.elems results)
               & counterexample ("Evaluation results: " <> show results)
+              & counterexample ("Tx: " <> show tx)
+              & counterexample ("Input utxo: " <> show utxo)
 
 isImplemented :: PostChainTx tx -> Bool
 isImplemented = \case

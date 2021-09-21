@@ -10,15 +10,17 @@ module Hydra.Chain.Direct.Tx where
 
 import Hydra.Prelude
 
-import Cardano.Crypto.Hash (hashFromBytes)
+import Cardano.Binary (serialize)
+import Cardano.Crypto.Hash (Hash, hashFromBytes)
 import Cardano.Ledger.Address (Addr (Addr))
-import Cardano.Ledger.Alonzo (AlonzoEra)
+import Cardano.Ledger.Alonzo (AlonzoEra, Script)
 import Cardano.Ledger.Alonzo.Data (Data (Data), hashData)
 import Cardano.Ledger.Alonzo.Scripts (ExUnits (..), Script (PlutusScript), Tag (Spend))
 import Cardano.Ledger.Alonzo.Tx (IsValid (IsValid), ValidatedTx (..))
 import Cardano.Ledger.Alonzo.TxBody (TxBody (..), TxOut (TxOut))
 import Cardano.Ledger.Alonzo.TxWitness (RdmrPtr (RdmrPtr), Redeemers (..), TxDats (..), TxWitness (..), unTxDats)
 import Cardano.Ledger.Crypto (ADDRHASH, StandardCrypto)
+import Cardano.Ledger.Hashes (EraIndependentScript)
 import Cardano.Ledger.ShelleyMA.Timelocks (ValidityInterval (..))
 import Cardano.Ledger.Val (inject)
 import qualified Data.Map as Map
@@ -29,7 +31,7 @@ import Hydra.Contract.Head (State (Initial))
 import Hydra.Data.ContestationPeriod (contestationPeriodFromDiffTime, contestationPeriodToDiffTime)
 import Hydra.Data.Party (partyFromVerKey, partyToVerKey)
 import Hydra.Party (anonymousParty, vkey)
-import Plutus.V1.Ledger.Api (ValidatorHash (ValidatorHash), fromBuiltin, fromData, toBuiltinData, toData)
+import Plutus.V1.Ledger.Api (ValidatorHash (ValidatorHash), fromBuiltin, fromData, toData)
 import Shelley.Spec.Ledger.API (
   Coin (..),
   Credential (ScriptHashObj),
@@ -64,7 +66,7 @@ constructTx txIn = \case
 -- which will be used as unique parameter for minting NFTs.
 initTx :: HeadParameters -> TxIn StandardCrypto -> ValidatedTx Era
 initTx HeadParameters{contestationPeriod, parties} txIn =
-  mkUnsignedTx body dats mempty
+  mkUnsignedTx body dats mempty mempty
  where
   body =
     TxBody
@@ -107,7 +109,7 @@ initTx HeadParameters{contestationPeriod, parties} txIn =
 
 abortTx :: TxIn StandardCrypto -> ValidatedTx Era
 abortTx txIn =
-  mkUnsignedTx body mempty redeemers
+  mkUnsignedTx body mempty redeemers scripts
  where
   body =
     TxBody
@@ -131,6 +133,16 @@ abortTx txIn =
 
   -- TODO(SN): This should be 'Abort' or so
   redeemerData = Data $ toData ()
+
+  scripts = Map.singleton initialScriptHash initialScript
+
+  -- FIXME(SN): Ideally use the ledgers `hashScript` here, but it seems to be
+  -- different from what the Plutus ValidatorHash wraps and fails lookup
+  initialScriptHash = case validatorHashToHash Initial.validatorHash of
+    Nothing -> error "ValidatorHash does not hold a proper hash" -- should not happen^TM
+    Just h -> ScriptHash h
+
+  initialScript = PlutusScript . toShort . fromLazy $ serialize Initial.validatorScript
 
 --
 
@@ -165,15 +177,16 @@ mkUnsignedTx ::
   TxBody Era ->
   TxDats Era ->
   Map RdmrPtr (Data Era, ExUnits) ->
+  Map (ScriptHash StandardCrypto) (Script Era) ->
   ValidatedTx Era
-mkUnsignedTx body datums redeemers =
+mkUnsignedTx body datums redeemers scripts =
   ValidatedTx
     { body
     , wits =
         TxWitness
           { txwitsVKey = mempty
           , txwitsBoot = mempty
-          , txscripts = mempty
+          , txscripts = scripts
           , txdats = datums
           , txrdmrs = Redeemers redeemers
           }
@@ -183,15 +196,17 @@ mkUnsignedTx body datums redeemers =
 
 -- | Convert a plutus address to its ledger representation.
 validatorHashToAddr :: ValidatorHash -> Addr StandardCrypto
-validatorHashToAddr (ValidatorHash builtinByteString) =
+validatorHashToAddr vh =
   Addr
     network
     (ScriptHashObj $ ScriptHash hash)
     -- REVIEW(SN): stake head funds?
     StakeRefNull
  where
-  hash = case hashFromBytes @(ADDRHASH StandardCrypto) bytes of
-    Nothing -> error $ "ValidatorHash is not (the right) hash: " <> show bytes
+  hash = case validatorHashToHash vh of
+    Nothing -> error $ "ValidatorHash is not (the right) hash: " <> show vh
     Just h -> h
 
-  bytes = fromBuiltin builtinByteString
+validatorHashToHash :: ValidatorHash -> Maybe (Hash (ADDRHASH StandardCrypto) EraIndependentScript)
+validatorHashToHash (ValidatorHash builtinByteString) =
+  hashFromBytes @(ADDRHASH StandardCrypto) (fromBuiltin builtinByteString)
