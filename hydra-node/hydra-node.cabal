@@ -78,6 +78,8 @@ library
     Hydra.Chain
     Hydra.Chain.Direct
     Hydra.Chain.Direct.Tx
+    Hydra.Chain.Direct.Util
+    Hydra.Chain.Direct.Wallet
     Hydra.Chain.ExternalPAB
     Hydra.Chain.ZeroMQ
     Hydra.ClientInput
@@ -196,7 +198,9 @@ test-suite tests
     Hydra.API.ServerSpec
     Hydra.APISpec
     Hydra.BehaviorSpec
+    Hydra.Chain.Direct.MockServer
     Hydra.Chain.Direct.TxSpec
+    Hydra.Chain.Direct.WalletSpec
     Hydra.Chain.DirectSpec
     Hydra.Chain.ExternalPABSpec
     Hydra.Chain.ZeroMQSpec
@@ -232,6 +236,7 @@ test-suite tests
     , cardano-ledger-core
     , cardano-ledger-shelley-ma
     , cardano-ledger-shelley-ma-test
+    , cardano-slotting
     , cborg
     , containers
     , contra-tracer
@@ -252,7 +257,11 @@ test-suite tests
     , lens
     , lens-aeson
     , network
+    , ouroboros-network
     , ouroboros-network-framework
+    , ouroboros-consensus
+    , ouroboros-consensus-cardano
+    , ouroboros-consensus-shelley
     , plutus-ledger-api
     , process
     , QuickCheck
@@ -261,6 +270,7 @@ test-suite tests
     , shelley-spec-ledger
     , shelley-spec-ledger-test
     , silently
+    , strict-containers
     , temporary
     , text
     , typed-protocols-examples
