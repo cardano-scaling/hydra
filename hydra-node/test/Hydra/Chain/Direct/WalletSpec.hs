@@ -3,14 +3,17 @@
 
 module Hydra.Chain.Direct.WalletSpec where
 
-import Hydra.Prelude
+import Hydra.Prelude hiding (label)
 import Test.Hydra.Prelude
 
 import Cardano.Ledger.Alonzo.Tx (ValidatedTx (..))
 import Cardano.Ledger.Alonzo.TxBody (TxBody (..), pattern TxOut)
 import Cardano.Ledger.Alonzo.TxSeq (TxSeq (..))
+import Cardano.Ledger.Coin (Coin (..))
+import Cardano.Ledger.Core (Value)
 import Cardano.Ledger.Keys (KeyPair (..), VKey (..))
 import qualified Cardano.Ledger.SafeHash as SafeHash
+import Cardano.Ledger.Val (Val (..), invert)
 import Control.Monad.Class.MonadSTM (check)
 import Control.Monad.Class.MonadTimer (timeout)
 import qualified Data.Map.Strict as Map
@@ -25,6 +28,7 @@ import Hydra.Chain.Direct.Wallet (
   TxOut,
   VerificationKey,
   applyBlock,
+  coverFee_,
   withTinyWallet,
  )
 import Hydra.Ledger.Cardano (genKeyPair, mkVkAddress)
@@ -38,6 +42,7 @@ import Test.QuickCheck (
   Gen,
   Property,
   checkCoverage,
+  conjoin,
   counterexample,
   cover,
   forAll,
@@ -45,6 +50,7 @@ import Test.QuickCheck (
   frequency,
   generate,
   getSize,
+  label,
   property,
   scale,
   vectorOf,
@@ -52,10 +58,15 @@ import Test.QuickCheck (
 
 spec :: Spec
 spec = parallel $ do
+  describe "genBlock / genUtxo" $ do
+    prop "are well-suited for testing" prop_wellSuitedGenerators
+
   describe "applyBlock" $ do
-    prop "uses a well-suited generator for testing" prop_wellSuitedGenerator
     prop "only reduces the UTXO set when no address is ours" prop_reducesWhenNotOurs
     prop "Seen inputs are consumed and not in the resulting UTXO" prop_seenInputsAreConsumed
+
+  describe "coverFee" $ do
+    prop "preserve funds after balancing" prop_preserveFunds
 
   describe "withTinyWallet" $ do
     KeyPair (VKey vk) sk <- runIO $ generate genKeyPair
@@ -72,9 +83,13 @@ spec = parallel $ do
           result <- timeout 1 $ watchUtxoUntil (not . null) wallet
           result `shouldSatisfy` isJust
 
-prop_wellSuitedGenerator ::
+--
+-- Generators
+--
+
+prop_wellSuitedGenerators ::
   Property
-prop_wellSuitedGenerator =
+prop_wellSuitedGenerators =
   forAll genUtxo $ \utxo ->
     forAllBlind (genBlock utxo) $ \blk ->
       property (smallTxSets blk)
@@ -94,6 +109,10 @@ prop_wellSuitedGenerator =
 
   someAreDependent utxo blk =
     length (ourDirectInputs utxo blk) < length (ourOutputs utxo blk)
+
+--
+-- applyBlocks
+--
 
 prop_reducesWhenNotOurs ::
   Property
@@ -116,6 +135,34 @@ prop_seenInputsAreConsumed =
        in null (Map.restrictKeys utxo' seenInputs)
             & counterexample ("Seen inputs: " <> show seenInputs)
             & counterexample ("New UTXO:    " <> show utxo')
+
+--
+-- coverFee
+--
+
+prop_preserveFunds ::
+  Property
+prop_preserveFunds =
+  forAllBlind genTxBody $ \body ->
+    forAllBlind genUtxo $ \utxo ->
+      prop' utxo body
+ where
+  prop' utxo body =
+    case coverFee_ utxo body of
+      Left{} ->
+        property True & label "Left"
+      Right body' ->
+        let inp' = knownInputBalance utxo body'
+            out' = outputBalance body'
+            out = outputBalance body
+         in conjoin
+              [ deltaValue out' inp' == out
+              ]
+              & label "Right"
+              & counterexample ("Delta value:     " <> show (coin $ deltaValue out' inp'))
+              & counterexample ("Added value:     " <> show (coin inp'))
+              & counterexample ("Outputs after:   " <> show (coin out'))
+              & counterexample ("Outputs before:  " <> show (coin out))
 
 --
 -- Generators
@@ -169,6 +216,11 @@ genBlock utxo = scale (round @Double . sqrt . fromIntegral) $ do
 genUtxo :: Gen (Map TxIn TxOut)
 genUtxo = Map.fromList <$> vectorOf 1 arbitrary
 
+genTxBody :: Gen (TxBody Era)
+genTxBody = do
+  tx <- arbitrary
+  pure $ tx{txfee = Coin 0}
+
 genPaymentTo :: VerificationKey -> Gen (ValidatedTx Era)
 genPaymentTo vk = do
   let myAddr = mkVkAddress (VKey vk)
@@ -214,6 +266,24 @@ ourOutputs :: Map TxIn TxOut -> Ledger.Block Era -> [TxOut]
 ourOutputs utxo blk =
   let ours = Map.elems utxo
    in filter (`elem` ours) (allTxOuts blk)
+
+getValue :: TxOut -> Value Era
+getValue (TxOut _ value _) = value
+
+deltaValue :: Value Era -> Value Era -> Value Era
+deltaValue a b = a <> invert b
+
+-- | NOTE: This does not account for withdrawals
+knownInputBalance :: Map TxIn TxOut -> TxBody Era -> Value Era
+knownInputBalance utxo = fold . fmap resolve . toList . inputs
+ where
+  resolve :: TxIn -> Value Era
+  resolve k = maybe zero getValue (Map.lookup k utxo)
+
+-- | NOTE: This does not account for deposits
+outputBalance :: TxBody Era -> Value Era
+outputBalance body =
+  (fold . fmap getValue . outputs) body <> (inject . txfee) body
 
 watchUtxoUntil :: (Map TxIn TxOut -> Bool) -> TinyWallet IO -> IO (Map TxIn TxOut)
 watchUtxoUntil predicate TinyWallet{getUtxo} = atomically $ do

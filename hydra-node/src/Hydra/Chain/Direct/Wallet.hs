@@ -8,12 +8,14 @@ import qualified Cardano.Crypto.DSIGN as Crypto
 import Cardano.Crypto.Hash.Class (Hash (..))
 import qualified Cardano.Ledger.Address as Ledger
 import Cardano.Ledger.Alonzo.Tx (ValidatedTx (..))
-import Cardano.Ledger.Alonzo.TxBody (inputs, outputs, pattern TxOut)
+import Cardano.Ledger.Alonzo.TxBody (collateral, inputs, outputs, txfee, pattern TxOut)
 import Cardano.Ledger.Alonzo.TxSeq (TxSeq (..))
+import Cardano.Ledger.Coin (Coin (..))
 import qualified Cardano.Ledger.Core as Ledger
 import Cardano.Ledger.Crypto (DSIGN, StandardCrypto)
 import qualified Cardano.Ledger.Keys as Ledger
 import qualified Cardano.Ledger.SafeHash as SafeHash
+import Cardano.Ledger.Val (Val (..), invert)
 import Control.Monad.Class.MonadSTM (
   check,
   newEmptyTMVarIO,
@@ -96,6 +98,7 @@ data TinyWallet m = TinyWallet
   { getUtxo :: STM m (Map TxIn TxOut)
   , getAddress :: Address
   , sign :: TxBody -> VkWitness
+  , coverFee :: TxBody -> STM m (Either ErrCoverFee TxBody)
   }
 
 withTinyWallet ::
@@ -133,6 +136,8 @@ withTinyWallet magic (vk, sk) iocp addr action = do
       , sign = \body ->
           let txid = Ledger.TxId (SafeHash.hashAnnotated body)
            in txid `signWith` Ledger.KeyPair (Ledger.VKey vk) sk
+      , coverFee = \body ->
+          coverFee_ <$> readTMVar utxoVar <*> pure body
       }
 
 -- | Apply a block to our wallet. Does nothing if the transaction does not
@@ -154,6 +159,50 @@ applyBlock blk isOurs utxo = case blk of
           when (isOurs addr) $ modify (Map.insert (TxIn txId ix) out)
   _ ->
     utxo
+
+data ErrCoverFee
+  = ErrNoAvailableUtxo
+  | ErrNotEnoughFunds {missingDelta :: Coin}
+  deriving (Show)
+
+-- | Cover fee for a transaction body using the given UTXO set. This calculate
+-- necessary fees and augments inputs / outputs / collateral accordingly to
+-- cover for the transaction cost and get the change back.
+--
+-- TODO: The fee calculation is currently very dumb and static.
+coverFee_ ::
+  Map TxIn TxOut ->
+  TxBody ->
+  Either ErrCoverFee TxBody
+coverFee_ utxo body = do
+  (input, output) <- case Map.lookupMax utxo of
+    Nothing ->
+      Left ErrNoAvailableUtxo
+    Just (i, o) ->
+      Right (i, o)
+  change <- first ErrNotEnoughFunds $ mkChange output needlesslyHighFee
+
+  let inputs' = inputs body <> Set.singleton input
+  let outputs' = outputs body <> StrictSeq.singleton change
+
+  pure $
+    body
+      { inputs = inputs'
+      , outputs = outputs'
+      , collateral = Set.singleton input
+      , txfee = needlesslyHighFee
+      }
+ where
+  -- TODO: Do a better fee estimation based on the transaction's content.
+  needlesslyHighFee :: Coin
+  needlesslyHighFee = Coin 2_000_000
+
+  mkChange :: TxOut -> Coin -> Either Coin TxOut
+  mkChange (TxOut addr value datum) fee
+    | coin value > fee =
+      Right $ TxOut addr (value <> invert (inject fee)) datum
+    | otherwise =
+      Left (fee <> invert (coin value))
 
 -- | The idea for this wallet client is rather simple:
 --
