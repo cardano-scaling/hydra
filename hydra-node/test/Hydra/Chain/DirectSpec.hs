@@ -24,11 +24,11 @@ import Hydra.Party (Party, deriveParty, generateKey)
 spec :: Spec
 spec = parallel $ do
   it "publishes init tx and observes it also" $ do
-    withMockServer $ \networkMagic socket _ -> do
+    withMockServer $ \networkMagic iocp socket _ -> do
       calledBackAlice <- newEmptyMVar
-      withDirectChain nullTracer networkMagic socket (putMVar calledBackAlice) $ \Chain{postTx} -> do
+      withDirectChain nullTracer networkMagic iocp socket (putMVar calledBackAlice) $ \Chain{postTx} -> do
         calledBackBob <- newEmptyMVar
-        withDirectChain nullTracer networkMagic socket (putMVar calledBackBob) $ \_ -> do
+        withDirectChain nullTracer networkMagic iocp socket (putMVar calledBackBob) $ \_ -> do
           let parameters = HeadParameters 100 [alice, bob, carol]
           postTx $ InitTx @SimpleTx parameters
           failAfter 5 $

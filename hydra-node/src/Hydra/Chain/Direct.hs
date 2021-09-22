@@ -6,6 +6,7 @@
 -- observing the chain using it as well.
 module Hydra.Chain.Direct (
   NetworkMagic (NetworkMagic),
+  withIOManager,
   module Hydra.Chain.Direct,
 ) where
 
@@ -46,6 +47,7 @@ import Ouroboros.Network.Mux (
   RunMiniProtocol (..),
  )
 import Ouroboros.Network.NodeToClient (
+  IOManager,
   LocalAddress,
   NodeToClientProtocols (..),
   NodeToClientVersion,
@@ -74,20 +76,21 @@ withDirectChain ::
   Tracer IO DirectChainLog ->
   -- | Network identifer to which we expect to connect.
   NetworkMagic ->
+  -- | A cross-platform abstraction for managing I/O operations on local sockets
+  IOManager ->
   -- | Path to a domain socket used to connect to the server.
   FilePath ->
   ChainComponent tx IO ()
-withDirectChain _tracer magic addr callback action = do
+withDirectChain _tracer magic iocp addr callback action = do
   queue <- newTQueueIO
-  withIOManager $ \iocp -> do
-    race_
-      (action $ Chain{postTx = atomically . writeTQueue queue})
-      ( connectTo
-          (localSnocket iocp addr)
-          nullConnectTracers
-          (versions magic (client queue callback))
-          addr
-      )
+  race_
+    (action $ Chain{postTx = atomically . writeTQueue queue})
+    ( connectTo
+        (localSnocket iocp addr)
+        nullConnectTracers
+        (versions magic (client queue callback))
+        addr
+    )
 
 client ::
   (MonadST m, MonadTimer m) =>

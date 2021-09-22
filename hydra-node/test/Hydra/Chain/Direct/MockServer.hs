@@ -58,6 +58,7 @@ import Ouroboros.Network.Mux (
  )
 import Ouroboros.Network.NodeToClient (
   ErrorPolicies,
+  IOManager,
   LocalAddress (LocalAddress),
   NodeToClientProtocols (..),
   NodeToClientVersion,
@@ -104,7 +105,7 @@ import Test.Cardano.Ledger.Alonzo.Serialisation.Generators ()
 -- fake network magic, the path to the server's socket and, a way to enqueue new
 -- transactions (and thus, force production of new blocks).
 withMockServer ::
-  (NetworkMagic -> FilePath -> (ValidatedTx Era -> IO ()) -> IO a) ->
+  (NetworkMagic -> IOManager -> FilePath -> (ValidatedTx Era -> IO ()) -> IO a) ->
   IO a
 withMockServer action =
   withSystemTempDirectory "withMockServer" $ \dir -> do
@@ -126,7 +127,7 @@ withMockServer action =
         acceptableVersion
         (SomeResponderApplication <$> versions magic (mockServer db))
         errorPolicies
-        (\_ _ -> action magic addr (\tx -> atomically $ modifyTVar' db (tx :)))
+        (\_ _ -> action magic iocp addr (\tx -> atomically $ modifyTVar' db (tx :)))
  where
   connLimit :: AcceptedConnectionsLimit
   connLimit = AcceptedConnectionsLimit maxBound maxBound 0

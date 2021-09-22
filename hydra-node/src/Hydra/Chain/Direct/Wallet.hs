@@ -53,6 +53,7 @@ import Ouroboros.Network.Mux (
   RunMiniProtocol (..),
  )
 import Ouroboros.Network.NodeToClient (
+  IOManager,
   LocalAddress (..),
   NodeToClientProtocols (..),
   NodeToClientVersion,
@@ -60,7 +61,6 @@ import Ouroboros.Network.NodeToClient (
   localSnocket,
   localTxSubmissionPeerNull,
   nodeToClientProtocols,
-  withIOManager,
  )
 import Ouroboros.Network.Protocol.ChainSync.Client (
   ChainSyncClient (..),
@@ -99,23 +99,27 @@ data TinyWallet m = TinyWallet
   }
 
 withTinyWallet ::
+  -- | Network identifier to which we expect to connect.
   NetworkMagic ->
+  -- | Credentials of the wallet.
   (VerificationKey, SigningKey) ->
+  -- | A cross-platform abstraction for managing I/O operations on local sockets
+  IOManager ->
+  -- | Path to a domain socket used to connect to the server.
   FilePath ->
   (TinyWallet IO -> IO ()) ->
   IO ()
-withTinyWallet magic (vk, sk) addr action = do
+withTinyWallet magic (vk, sk) iocp addr action = do
   utxoVar <- newEmptyTMVarIO
   tipVar <- newTVarIO genesisPoint
-  withIOManager $ \iocp -> do
-    race_
-      (action $ newTinyWallet utxoVar)
-      ( connectTo
-          (localSnocket iocp addr)
-          nullConnectTracers
-          (versions magic $ client tipVar utxoVar address)
-          addr
-      )
+  race_
+    (action $ newTinyWallet utxoVar)
+    ( connectTo
+        (localSnocket iocp addr)
+        nullConnectTracers
+        (versions magic $ client tipVar utxoVar address)
+        addr
+    )
  where
   address =
     mkVkAddress (Ledger.VKey vk)
