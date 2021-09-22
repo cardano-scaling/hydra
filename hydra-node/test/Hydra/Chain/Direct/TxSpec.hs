@@ -94,7 +94,7 @@ spec =
             -- input governed by initial script and a 'Plutus.PubKeyHash' datum
             utxo = UTxO $ Map.singleton txIn txOut
             txOut = TxOut initialAddress initialValue (SJust initialDatumHash)
-            initialAddress = validatorHashToAddr Initial.validatorHash
+            initialAddress = scriptAddr $ plutusScript Initial.validatorScript
             initialValue = inject (Coin 0)
             initialDatumHash = hashData @Era . Data $ toData pkh
             results = validateTxScriptsUnlimited tx utxo

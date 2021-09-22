@@ -11,7 +11,6 @@ module Hydra.Chain.Direct.Tx where
 import Hydra.Prelude
 
 import Cardano.Binary (serialize)
-import Cardano.Crypto.Hash (Hash, hashFromBytes)
 import Cardano.Ledger.Address (Addr (Addr))
 import Cardano.Ledger.Alonzo (AlonzoEra, Script)
 import Cardano.Ledger.Alonzo.Data (Data (Data), hashData)
@@ -19,8 +18,8 @@ import Cardano.Ledger.Alonzo.Scripts (ExUnits (..), Script (PlutusScript), Tag (
 import Cardano.Ledger.Alonzo.Tx (IsValid (IsValid), ValidatedTx (..))
 import Cardano.Ledger.Alonzo.TxBody (TxBody (..), TxOut (TxOut))
 import Cardano.Ledger.Alonzo.TxWitness (RdmrPtr (RdmrPtr), Redeemers (..), TxDats (..), TxWitness (..), unTxDats)
-import Cardano.Ledger.Crypto (ADDRHASH, StandardCrypto)
-import Cardano.Ledger.Hashes (EraIndependentScript)
+import Cardano.Ledger.Crypto (StandardCrypto)
+import Cardano.Ledger.Era (hashScript)
 import Cardano.Ledger.ShelleyMA.Timelocks (ValidityInterval (..))
 import Cardano.Ledger.Val (inject)
 import qualified Data.Map as Map
@@ -31,12 +30,13 @@ import Hydra.Contract.Head (State (Initial))
 import Hydra.Data.ContestationPeriod (contestationPeriodFromDiffTime, contestationPeriodToDiffTime)
 import Hydra.Data.Party (partyFromVerKey, partyToVerKey)
 import Hydra.Party (anonymousParty, vkey)
-import Plutus.V1.Ledger.Api (PubKeyHash (..), ValidatorHash (ValidatorHash), fromBuiltin, fromData, toData)
+import Plutus.V1.Ledger.Api (PubKeyHash (..), fromData, toData)
+import qualified Plutus.V1.Ledger.Api as Plutus
 import Shelley.Spec.Ledger.API (
   Coin (..),
   Credential (ScriptHashObj),
   Network (Testnet),
-  ScriptHash (ScriptHash),
+  ScriptHash,
   StakeReference (StakeRefNull),
   StrictMaybe (..),
   TxIn,
@@ -93,7 +93,7 @@ initTx HeadParameters{contestationPeriod, parties} txIn =
   -- thread token eventually. For now, this is just the initial script as well,
   -- although this could be really some arbitrary address. After all it is also
   -- later quite arbitrary/different per Head.
-  headAddress = validatorHashToAddr Initial.validatorHash
+  headAddress = scriptAddr $ PlutusScript "foo"
 
   -- REVIEW(SN): how much to store here / minUtxoValue / depending on assets?
   headValue = inject (Coin 0)
@@ -139,13 +139,9 @@ abortTx (txIn, pkh) =
 
   scripts = Map.singleton initialScriptHash initialScript
 
-  -- FIXME(SN): Ideally use the ledgers `hashScript` here, but it seems to be
-  -- different from what the Plutus ValidatorHash wraps and fails lookup
-  initialScriptHash = case validatorHashToHash Initial.validatorHash of
-    Nothing -> error "ValidatorHash does not hold a proper hash" -- should not happen^TM
-    Just h -> ScriptHash h
+  initialScriptHash = hashScript @Era initialScript
 
-  initialScript = PlutusScript . toShort . fromLazy $ serialize Initial.validatorScript
+  initialScript = plutusScript Initial.validatorScript
 
   dats = TxDats $ Map.singleton initialDatumHash initialDatum
 
@@ -203,19 +199,14 @@ mkUnsignedTx body datums redeemers scripts =
     , auxiliaryData = SNothing
     }
 
--- | Convert a plutus address to its ledger representation.
-validatorHashToAddr :: ValidatorHash -> Addr StandardCrypto
-validatorHashToAddr vh =
+-- | Get the ledger address for a given plutus script.
+scriptAddr :: Script Era -> Addr StandardCrypto
+scriptAddr script =
   Addr
     network
-    (ScriptHashObj $ ScriptHash hash)
+    (ScriptHashObj $ hashScript @Era script)
     -- REVIEW(SN): stake head funds?
     StakeRefNull
- where
-  hash = case validatorHashToHash vh of
-    Nothing -> error $ "ValidatorHash is not (the right) hash: " <> show vh
-    Just h -> h
 
-validatorHashToHash :: ValidatorHash -> Maybe (Hash (ADDRHASH StandardCrypto) EraIndependentScript)
-validatorHashToHash (ValidatorHash builtinByteString) =
-  hashFromBytes @(ADDRHASH StandardCrypto) (fromBuiltin builtinByteString)
+plutusScript :: Plutus.Script -> Script Era
+plutusScript = PlutusScript . toShort . fromLazy . serialize

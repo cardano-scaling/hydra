@@ -87,12 +87,15 @@ typedValidator = Scripts.mkTypedValidator @Initial
   wrap = Scripts.wrapValidator @(DatumType Initial) @(RedeemerType Initial)
 {- ORMOLU_ENABLE -}
 
+-- | Do not use this outside of plutus land.
 validatorHash :: ValidatorHash
 validatorHash = Scripts.validatorHash typedValidator
 
+-- | Do not use this outside of plutus land.
 datum :: DatumType Initial -> Datum
 datum a = Datum (toBuiltinData a)
 
+-- | Do not use this outside of plutus land.
 address :: Address
 address = scriptHashAddress validatorHash
 
