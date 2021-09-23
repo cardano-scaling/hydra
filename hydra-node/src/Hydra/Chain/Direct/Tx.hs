@@ -28,7 +28,7 @@ import Control.Monad.Class.MonadSTM (stateTVar)
 import qualified Data.Map as Map
 import qualified Data.Sequence.Strict as StrictSeq
 import qualified Data.Set as Set
-import Hydra.Chain (HeadParameters (..), OnChainTx (OnAbortTx, OnInitTx))
+import Hydra.Chain (HeadParameters (..), OnChainTx (OnInitTx))
 import qualified Hydra.Contract.Head as Head
 import qualified Hydra.Contract.Initial as Initial
 import Hydra.Data.ContestationPeriod (contestationPeriodFromDiffTime, contestationPeriodToDiffTime)
@@ -198,7 +198,7 @@ observeInitTx ValidatedTx{wits} st =
   _firstInput = error "undefined"
 
 observeAbortTx :: ValidatedTx Era -> OnChainHeadState -> (Maybe (OnChainTx tx), OnChainHeadState)
-observeAbortTx _ st = (Just OnAbortTx, st)
+observeAbortTx _ st = (Nothing, st)
 --
 
 -- * Helpers
