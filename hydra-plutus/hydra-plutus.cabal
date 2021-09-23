@@ -71,6 +71,7 @@ common project-config
 library
   import:          project-config
   exposed-modules:
+    Hydra.Contract.Commit
     Hydra.Contract.Head
     Hydra.Contract.Initial
     Hydra.Data.ContestationPeriod
