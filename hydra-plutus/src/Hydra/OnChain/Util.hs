@@ -64,6 +64,12 @@ mustReimburse txOut =
   elem txOut . txInfoOutputs . scriptContextTxInfo
 {-# INLINEABLE mustReimburse #-}
 
+-- /!\ IMPORTANT NOTICE /!\
+--
+-- This function does not check that a particular validator is executed with a
+-- known datum. That means, for validators that are not unique (e.g. the Hydra
+-- head contract parameterized with a unique policy ID), there's no guarantee
+-- that this executes the _right_ validator. To consider only with great care
 mustRunContract ::
   forall redeemer.
   (ToData redeemer) =>

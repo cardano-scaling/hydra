@@ -8,9 +8,9 @@ module Hydra.Contract.Initial where
 import Ledger hiding (validatorHash)
 import PlutusTx.Prelude
 
-import Hydra.Contract.Commit (Commit)
-import Hydra.Contract.Head (Input (..))
-import Hydra.OnChain.Util (asDatum, findUtxo, mkParty, mustRunContract)
+import qualified Hydra.Contract.Commit as Commit
+import Hydra.Contract.Head (Head, Input (..))
+import Hydra.OnChain.Util (findUtxo, mkParty, mustRunContract)
 import Ledger.Constraints (checkScriptContext)
 import Ledger.Constraints.TxConstraints (
   TxConstraints,
@@ -61,7 +61,7 @@ validator (policyId, Dependencies{headScript, commitScript}, vk) ref ctx =
       Nothing ->
         False
       Just utxo ->
-        let commitDatum = asDatum @(DatumType Commit) (snd utxo)
+        let commitDatum = Commit.datum (Commit.Dependencies headScript, snd utxo)
             commitValue = txOutValue (snd utxo) <> mkParty policyId vk
          in checkScriptContext @(RedeemerType Initial) @(DatumType Initial)
               ( mconcat
@@ -73,7 +73,7 @@ validator (policyId, Dependencies{headScript, commitScript}, vk) ref ctx =
               ctx
 
   consumedByAbort =
-    mustRunContract headScript Abort ctx
+    mustRunContract @(RedeemerType Head) headScript Abort ctx
 
 compiledValidator :: CompiledCode (ValidatorType Initial)
 compiledValidator = $$(PlutusTx.compile [||validator||])

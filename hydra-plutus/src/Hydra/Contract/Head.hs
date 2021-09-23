@@ -36,6 +36,8 @@ data Input
 
 PlutusTx.unstableMakeIsData ''Input
 
+type Head = StateMachine State Input
+
 {-# INLINEABLE hydraStateMachine #-}
 hydraStateMachine :: MintingPolicyHash -> StateMachine State Input
 hydraStateMachine _policyId =
