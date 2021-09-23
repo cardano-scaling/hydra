@@ -79,6 +79,7 @@ library
     Hydra.Data.Party
     Hydra.Depreciated.OffChain
     Hydra.Depreciated.OnChain
+    Hydra.OnChain.Util
     Hydra.PAB
 
   hs-source-dirs:  src
