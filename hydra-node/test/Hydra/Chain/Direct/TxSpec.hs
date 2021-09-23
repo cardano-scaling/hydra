@@ -30,7 +30,7 @@ import qualified Data.Map as Map
 import Data.Maybe (fromJust)
 import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
 import Hydra.Chain (HeadParameters (..), PostChainTx (..))
-import Hydra.Chain.Direct.Tx (OnChainHeadState (..), abortTx, initTx, observeInitTx, plutusScript, scriptAddr, threadToken)
+import Hydra.Chain.Direct.Tx (OnChainHeadState (..), abortTx, initTx, observeAbortTx, observeInitTx, plutusScript, scriptAddr, threadToken)
 import Hydra.Chain.Direct.Util (Era)
 import qualified Hydra.Contract.Initial as Initial
 import qualified Hydra.Contract.MockHead as Head
@@ -79,6 +79,11 @@ spec =
          in counterexample ("Tx: " <> show tx) $
               counterexample ("Tx serialized size: " <> show len) $
                 len < maxTxSize
+
+      prop "updates on-chain state to 'Final' given state is Initial" $ \txIn params (NonEmpty initials) ->
+        let tx = abortTx (txIn, threadToken, params) initials
+            st = snd $ observeAbortTx tx Initial{threadOutput = (txIn, threadToken, params), initials = initials}
+         in st === Final
 
       -- TODO(SN): this requires the abortTx to include a redeemer, for a TxIn,
       -- spending a Head-validated output

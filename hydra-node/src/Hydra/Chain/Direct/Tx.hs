@@ -1,5 +1,6 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE TypeApplications #-}
+{-# OPTIONS_GHC -Wno-incomplete-patterns #-}
 
 -- | Smart constructors for creating Hydra protocol transactions to be used in
 -- the 'Hydra.Chain.Direct' way of talking to the main-chain.
@@ -29,7 +30,7 @@ import Control.Monad.Class.MonadSTM (stateTVar)
 import qualified Data.Map as Map
 import qualified Data.Sequence.Strict as StrictSeq
 import qualified Data.Set as Set
-import Hydra.Chain (HeadParameters (..), OnChainTx (OnInitTx))
+import Hydra.Chain (HeadParameters (..), OnChainTx (OnAbortTx, OnInitTx))
 import qualified Hydra.Contract.Initial as Initial
 import qualified Hydra.Contract.MockHead as Head
 import Hydra.Data.ContestationPeriod (contestationPeriodFromDiffTime, contestationPeriodToDiffTime)
@@ -72,6 +73,7 @@ data OnChainHeadState
         -- TODO add commits
         initials :: [(TxIn StandardCrypto, PubKeyHash)]
       }
+  | Final
   deriving (Eq, Show, Generic)
 
 -- FIXME: should not be hardcoded, for testing purposes only
@@ -184,6 +186,7 @@ abortTx (txIn, token, HeadParameters{contestationPeriod, parties}) initInputs =
   dats =
     TxDats $
       Map.fromList $
+        (abortDatumHash, abortDatum) :
         (headDatumHash, headDatum) :
         map (initialDatum . snd) initInputs
 
@@ -199,6 +202,12 @@ abortTx (txIn, token, HeadParameters{contestationPeriod, parties}) initInputs =
   initialDatum pkh =
     let datum = Data $ toData pkh
      in (hashData @Era datum, datum)
+
+  abortDatumHash =
+    hashData @Era abortDatum
+
+  abortDatum =
+    Data $ toData Head.Final
 
 --
 
@@ -241,7 +250,19 @@ observeInitTx ValidatedTx{wits, body} st =
   firstInput = TxIn (TxId $ SafeHash.hashAnnotated body) 0
 
 observeAbortTx :: ValidatedTx Era -> OnChainHeadState -> (Maybe (OnChainTx tx), OnChainHeadState)
-observeAbortTx _ st = (Nothing, st)
+observeAbortTx ValidatedTx{wits} st =
+  case extractState of
+    Just Head.Final -> (Just OnAbortTx, Final)
+    _ -> (Nothing, st)
+ where
+  extractState = foldr decodeData Nothing firstDatum
+
+  -- NOTE: Pattern is not marked COMPLETE in source code hence the need for incomplete-pattern warning
+  decodeData (Data d) s = s <|> fromData d
+
+  firstDatum = snd <$> datums
+
+  datums = Map.toList . unTxDats $ txdats wits
 --
 
 -- * Helpers
