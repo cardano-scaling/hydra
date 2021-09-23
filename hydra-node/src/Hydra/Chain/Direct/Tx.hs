@@ -15,10 +15,10 @@ import Cardano.Binary (serialize)
 import Cardano.Ledger.Address (Addr (Addr))
 import Cardano.Ledger.Alonzo (AlonzoEra, Script)
 import Cardano.Ledger.Alonzo.Data (Data (Data), hashData)
-import Cardano.Ledger.Alonzo.Scripts (ExUnits (..), Script (PlutusScript), Tag (Spend))
-import Cardano.Ledger.Alonzo.Tx (IsValid (IsValid), ValidatedTx (..))
+import Cardano.Ledger.Alonzo.Scripts (ExUnits (..), Script (PlutusScript))
+import Cardano.Ledger.Alonzo.Tx (IsValid (IsValid), ScriptPurpose (Spending), ValidatedTx (..), rdptr)
 import Cardano.Ledger.Alonzo.TxBody (TxBody (..), TxOut (TxOut))
-import Cardano.Ledger.Alonzo.TxWitness (RdmrPtr (RdmrPtr), Redeemers (..), TxDats (..), TxWitness (..), unTxDats)
+import Cardano.Ledger.Alonzo.TxWitness (RdmrPtr, Redeemers (..), TxDats (..), TxWitness (..), unTxDats)
 import Cardano.Ledger.Crypto (StandardCrypto)
 import Cardano.Ledger.Era (hashScript)
 import qualified Cardano.Ledger.SafeHash as SafeHash
@@ -154,16 +154,20 @@ abortTx (txIn, token, HeadParameters{contestationPeriod, parties}) initInputs =
   -- TODO(SN): dummy exUnits, balancing overrides them?
   redeemers =
     Map.fromList $
-      (RdmrPtr Spend 0, (headRedeemer, ExUnits 0 0)) :
-      initialRedeemers
+      foldl' hasRdmrPtr [] $
+        (rdptr body (Spending txIn), (headRedeemer, ExUnits 0 0)) :
+        initialRedeemers
+
+  hasRdmrPtr acc = \case
+    (SNothing, _) -> acc
+    (SJust v, ex) -> (v, ex) : acc
 
   headRedeemer = Data $ toData Head.Abort
 
   initialRedeemers =
-    zipWith
-      (\rd n -> (RdmrPtr Spend n, (rd, ExUnits 0 0)))
-      (map (const $ Data $ toData ()) initInputs)
-      [1 ..]
+    map
+      (\(txin, _) -> (rdptr body (Spending txin), (Data $ toData (), ExUnits 0 0)))
+      initInputs
 
   scripts = Map.fromList $ map (\s -> (hashScript @Era s, s)) [initialScript, headScript]
 
