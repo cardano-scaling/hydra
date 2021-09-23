@@ -138,7 +138,13 @@ abortTx (txIn, token, HeadParameters{contestationPeriod, parties}) initInputs =
     TxBody
       { inputs = Set.fromList (txIn : map fst initInputs)
       , collateral = mempty
-      , outputs = mempty
+      , outputs =
+          StrictSeq.fromList
+            [ TxOut
+                (scriptAddr headScript)
+                (inject $ Coin 0) -- TODO: This really needs to be passed as argument
+                (SJust headDatumHash)
+            ]
       , txcerts = mempty
       , txwdrls = Wdrl mempty
       , txfee = Coin 0
