@@ -1,3 +1,4 @@
+{-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE TypeApplications #-}
 
 -- | Smart constructors for creating Hydra protocol transactions to be used in
@@ -22,6 +23,8 @@ import Cardano.Ledger.Crypto (StandardCrypto)
 import Cardano.Ledger.Era (hashScript)
 import Cardano.Ledger.ShelleyMA.Timelocks (ValidityInterval (..))
 import Cardano.Ledger.Val (inject)
+import Control.Monad (foldM)
+import Control.Monad.Class.MonadSTM (stateTVar)
 import qualified Data.Map as Map
 import qualified Data.Sequence.Strict as StrictSeq
 import qualified Data.Set as Set
@@ -55,8 +58,13 @@ type Era = AlonzoEra StandardCrypto
 -- | Maintains information needed to construct on-chain transactions
 -- depending on the current state of the head.
 data OnChainHeadState
-  = Ready {seedTx :: TxIn StandardCrypto}
-  | Initial {commits :: (TxIn StandardCrypto, PubKeyHash)}
+  = Closed
+  | Initial
+      { -- TODO add the output containing the SM token
+        -- TODO initials should be a list of inputs/PubKeyHas
+        -- TODO add commits
+        initials :: (TxIn StandardCrypto, PubKeyHash)
+      }
   deriving (Eq, Show, Generic)
 
 -- | Construct the Head protocol transactions as Alonzo 'Tx'. Note that
@@ -64,10 +72,10 @@ data OnChainHeadState
 -- was used (in contrast to 'TxBody') to be able to express included datums,
 -- onto which at least the 'initTx' relies on.
 constructTx :: OnChainHeadState -> PostChainTx tx -> ValidatedTx Era
-constructTx txIn tx =
-  case (txIn, tx) of
-    (Ready{seedTx}, InitTx p) -> initTx p seedTx
-    (Initial{commits}, AbortTx _utxo) -> abortTx commits
+constructTx st tx =
+  case (st, tx) of
+    (Closed, InitTx p) -> initTx p (error "undefined")
+    (Initial{initials}, AbortTx _utxo) -> uncurry abortTx initials
     _ -> error "not implemented"
 
 -- | Create the init transaction from some 'HeadParameters' and a single TxIn
@@ -119,8 +127,14 @@ initTx HeadParameters{contestationPeriod, parties} txIn =
 -- only possible if this is governed by the initial script and only for a single
 -- input. Of course, the Head protocol specifies we need to spend ALL the Utxo
 -- containing PTs.
-abortTx :: (TxIn StandardCrypto, PubKeyHash) -> ValidatedTx Era
-abortTx (txIn, pkh) =
+abortTx ::
+  -- | The input to be consumed by the abort transaction, locked by the validator
+  -- script
+  TxIn StandardCrypto ->
+  -- | The datum to provide to the validator script
+  PubKeyHash ->
+  ValidatedTx Era
+abortTx txIn pkh =
   mkUnsignedTx body dats redeemers scripts
  where
   body =
@@ -162,27 +176,40 @@ abortTx (txIn, pkh) =
 
 -- * Observe Hydra Head transactions
 
-observeTx :: ValidatedTx Era -> Maybe (OnChainTx tx)
-observeTx tx =
-  observeInitTx tx
-    <|> observeAbortTx tx
-
-observeInitTx :: ValidatedTx Era -> Maybe (OnChainTx tx)
-observeInitTx ValidatedTx{wits} = do
-  (Data d) <- firstDatum
-  fromData d >>= \case
-    Head.Initial cp ps ->
-      pure $ OnInitTx (contestationPeriodToDiffTime cp) (map convertParty ps)
-    _ -> Nothing
+-- | Update observable on-chain head state from on-chain transactions.
+-- NOTE(AB): I tried to separate the 2 functions, the one working on list of txs and the one
+-- working on single tx but I keep getting failed unification between `m` and `m0` which is
+-- puzzling...
+runOnChainTxs :: forall m tx. MonadSTM m => TVar m OnChainHeadState -> [ValidatedTx Era] -> m [OnChainTx tx]
+runOnChainTxs headState = atomically . foldM runOnChainTx []
  where
+  runOnChainTx :: [OnChainTx tx] -> ValidatedTx Era -> STM m [OnChainTx tx]
+  runOnChainTx observed tx = do
+    newObserved <- catMaybes <$> mapM (stateTVar headState) [observeInitTx tx, observeAbortTx tx]
+    pure $ observed <> newObserved
+
+observeInitTx :: ValidatedTx Era -> OnChainHeadState -> (Maybe (OnChainTx tx), OnChainHeadState)
+observeInitTx ValidatedTx{wits} st =
+  case extractParameters of
+    Just (Head.Initial cp ps) ->
+      ( Just $ OnInitTx (contestationPeriodToDiffTime cp) (map convertParty ps)
+      , st
+      )
+    _ -> (Nothing, st)
+ where
+  extractParameters = do
+    Data d <- firstDatum
+    fromData d
   firstDatum = snd . head <$> nonEmpty datums
 
   datums = Map.toList . unTxDats $ txdats wits
 
   convertParty = anonymousParty . partyToVerKey
 
-observeAbortTx :: ValidatedTx Era -> Maybe (OnChainTx tx)
-observeAbortTx _ = Just OnAbortTx
+  _firstInput = error "undefined"
+
+observeAbortTx :: ValidatedTx Era -> OnChainHeadState -> (Maybe (OnChainTx tx), OnChainHeadState)
+observeAbortTx _ st = (Just OnAbortTx, st)
 --
 
 -- * Helpers

@@ -28,8 +28,8 @@ import qualified Data.ByteString.Lazy as LBS
 import qualified Data.Map as Map
 import Data.Maybe (fromJust)
 import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
-import Hydra.Chain (HeadParameters (..), PostChainTx (InitTx), toOnChainTx)
-import Hydra.Chain.Direct.Tx (constructTx, initTx, observeTx)
+import Hydra.Chain (HeadParameters (..), PostChainTx (..), toOnChainTx)
+import Hydra.Chain.Direct.Tx (OnChainHeadState (..), abortTx, constructTx, initTx, observeInitTx, plutusScript, scriptAddr)
 import Hydra.Chain.Direct.Util (Era)
 import qualified Hydra.Contract.Head as Head
 import qualified Hydra.Contract.Initial as Initial
@@ -53,7 +53,7 @@ spec =
   parallel $ do
     prop "observeTx . constructTx roundtrip" $ \postTx txIn time ->
       isImplemented postTx txIn -- TODO(SN): test all constructors
-        ==> observeTx (constructTx txIn postTx) === Just (toOnChainTx @SimpleTx time postTx)
+        ==> fst (observeInitTx (constructTx txIn postTx) Closed) === Just (toOnChainTx @SimpleTx time postTx)
 
     prop "transaction size below limit" $ \postTx txIn ->
       isImplemented postTx txIn -- TODO(SN): test all constructors
@@ -79,7 +79,7 @@ spec =
 
     describe "abortTx" $ do
       prop "transaction size below limit" $ \txIn bytes ->
-        let tx = abortTx (txIn, pkh)
+        let tx = abortTx txIn pkh
             pkh = PubKeyHash $ toBuiltin (bytes :: ByteString)
             cbor = serialize tx
             len = LBS.length cbor
@@ -90,7 +90,7 @@ spec =
       -- TODO(SN): this requires the abortTx to include a redeemer, for a TxIn,
       -- spending an Initial-validated output
       prop "validates against 'initial' script in haskell (unlimited budget)" $ \txIn bytes ->
-        let tx = abortTx (txIn, pkh)
+        let tx = abortTx txIn pkh
             pkh = PubKeyHash $ toBuiltin (bytes :: ByteString)
             -- input governed by initial script and a 'Plutus.PubKeyHash' datum
             utxo = UTxO $ Map.singleton txIn txOut
@@ -107,7 +107,7 @@ spec =
 isImplemented :: PostChainTx tx -> OnChainHeadState -> Bool
 isImplemented tx st =
   case (tx, st) of
-    (InitTx{}, Ready{}) -> True
+    (InitTx{}, Closed) -> True
     (AbortTx{}, Initial{}) -> True
     _ -> False
 
@@ -143,6 +143,6 @@ txOutNFT (TxOut _ value _) =
   unitQuantity (_name, q) = q == 1
 
 instance Arbitrary OnChainHeadState where
-  arbitrary = oneof [Ready <$> arbitrary, Initial <$> ((,) <$> arbitrary <*> genPubKeyHash)]
+  arbitrary = oneof [pure Closed, Initial <$> ((,) <$> arbitrary <*> genPubKeyHash)]
    where
     genPubKeyHash = PubKeyHash . toBuiltin <$> (arbitrary :: Gen ByteString)
