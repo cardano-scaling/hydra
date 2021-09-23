@@ -216,7 +216,7 @@ txSubmissionClient tracer queue headState TinyWallet{getUtxo} =
         [] -> error "cannot find a seed input to pass to Init transaction"
     AbortTx _utxo -> do
       readTVarIO headState >>= \case
-        Initial{initials} -> pure $ uncurry abortTx initials
+        Initial{threadOutput, initials} -> pure $ abortTx threadOutput initials
         st -> error $ "cannot post Abort transaction in state " <> show st
     _ -> error "not implemented"
 

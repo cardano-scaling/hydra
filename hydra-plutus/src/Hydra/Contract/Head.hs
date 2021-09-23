@@ -13,6 +13,7 @@ import Data.Aeson (FromJSON, ToJSON)
 import GHC.Generics (Generic)
 import Hydra.Data.ContestationPeriod (ContestationPeriod)
 import Hydra.Data.Party (Party)
+import Ledger (Script, unValidatorScript)
 import qualified Ledger.Typed.Scripts as Scripts
 import Ledger.Value (AssetClass (..), currencyMPSHash)
 import Plutus.Contract.StateMachine (StateMachine, StateMachineClient)
@@ -89,6 +90,11 @@ validatorHash = Scripts.validatorHash . typedValidator
 
 address :: MintingPolicyHash -> Address
 address = scriptHashAddress . validatorHash
+
+-- | Get the actual plutus script. Mainly used to serialize and use in
+-- transactions.
+validatorScript :: MintingPolicyHash -> Script
+validatorScript = unValidatorScript . Scripts.validatorScript . typedValidator
 
 -- | The machine client of the hydra state machine. It contains both, the script
 -- instance with the on-chain code, and the Haskell definition of the state
