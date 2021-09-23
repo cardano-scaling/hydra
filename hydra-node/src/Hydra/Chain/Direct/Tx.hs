@@ -28,7 +28,7 @@ import Control.Monad.Class.MonadSTM (stateTVar)
 import qualified Data.Map as Map
 import qualified Data.Sequence.Strict as StrictSeq
 import qualified Data.Set as Set
-import Hydra.Chain (HeadParameters (..), OnChainTx (OnAbortTx, OnInitTx), PostChainTx (..))
+import Hydra.Chain (HeadParameters (..), OnChainTx (OnAbortTx, OnInitTx))
 import qualified Hydra.Contract.Head as Head
 import qualified Hydra.Contract.Initial as Initial
 import Hydra.Data.ContestationPeriod (contestationPeriodFromDiffTime, contestationPeriodToDiffTime)
@@ -66,17 +66,6 @@ data OnChainHeadState
         initials :: (TxIn StandardCrypto, PubKeyHash)
       }
   deriving (Eq, Show, Generic)
-
--- | Construct the Head protocol transactions as Alonzo 'Tx'. Note that
--- 'ValidatedTx' this produces an unbalanced, unsigned transaction and this type
--- was used (in contrast to 'TxBody') to be able to express included datums,
--- onto which at least the 'initTx' relies on.
-constructTx :: OnChainHeadState -> PostChainTx tx -> ValidatedTx Era
-constructTx st tx =
-  case (st, tx) of
-    (Closed, InitTx p) -> initTx p (error "undefined")
-    (Initial{initials}, AbortTx _utxo) -> uncurry abortTx initials
-    _ -> error "not implemented"
 
 -- | Create the init transaction from some 'HeadParameters' and a single TxIn
 -- which will be used as unique parameter for minting NFTs.

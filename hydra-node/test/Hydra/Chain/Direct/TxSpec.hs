@@ -28,8 +28,8 @@ import qualified Data.ByteString.Lazy as LBS
 import qualified Data.Map as Map
 import Data.Maybe (fromJust)
 import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
-import Hydra.Chain (HeadParameters (..), PostChainTx (..), toOnChainTx)
-import Hydra.Chain.Direct.Tx (OnChainHeadState (..), abortTx, constructTx, initTx, observeInitTx, plutusScript, scriptAddr)
+import Hydra.Chain (HeadParameters (..), PostChainTx (..))
+import Hydra.Chain.Direct.Tx (OnChainHeadState (..), abortTx, initTx, plutusScript, scriptAddr)
 import Hydra.Chain.Direct.Util (Era)
 import qualified Hydra.Contract.Head as Head
 import qualified Hydra.Contract.Initial as Initial
@@ -41,7 +41,7 @@ import Plutus.V1.Ledger.Api (PubKeyHash (PubKeyHash), toBuiltin, toBuiltinData, 
 import Shelley.Spec.Ledger.API (Coin (Coin), StrictMaybe (SJust), UTxO (UTxO))
 import Test.Cardano.Ledger.Alonzo.PlutusScripts (defaultCostModel)
 import Test.Cardano.Ledger.Alonzo.Serialisation.Generators ()
-import Test.QuickCheck (Gen, counterexample, oneof, (===), (==>))
+import Test.QuickCheck (Gen, counterexample, oneof, (===))
 import Test.QuickCheck.Instances ()
 
 -- TODO(SN): use real max tx size
@@ -51,19 +51,6 @@ maxTxSize = 16000
 spec :: Spec
 spec =
   parallel $ do
-    prop "observeTx . constructTx roundtrip" $ \postTx txIn time ->
-      isImplemented postTx txIn -- TODO(SN): test all constructors
-        ==> fst (observeInitTx (constructTx txIn postTx) Closed) === Just (toOnChainTx @SimpleTx time postTx)
-
-    prop "transaction size below limit" $ \postTx txIn ->
-      isImplemented postTx txIn -- TODO(SN): test all constructors
-        ==> let tx = constructTx @SimpleTx txIn postTx
-                cbor = serialize tx
-                len = LBS.length cbor
-             in counterexample ("Tx: " <> show tx) $
-                  counterexample ("Tx serialized size: " <> show len) $
-                    len < maxTxSize
-
     describe "initTx" $ do
       -- NOTE(SN): We are relying in the inclusion of the datum in the "posting
       -- tx" in order to 'observeTx'. This test is here to make this a bit more

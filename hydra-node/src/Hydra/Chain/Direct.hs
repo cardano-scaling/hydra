@@ -29,8 +29,9 @@ import Hydra.Chain (
   ChainComponent,
   PostChainTx (..),
  )
-import Hydra.Chain.Direct.Tx (OnChainHeadState (Closed), constructTx, runOnChainTxs)
+import Hydra.Chain.Direct.Tx (OnChainHeadState (..), abortTx, initTx, runOnChainTxs)
 import Hydra.Chain.Direct.Util (Block, Era, defaultCodecs, nullConnectTracers, versions)
+import Hydra.Chain.Direct.Wallet (SigningKey, TinyWallet (..), VerificationKey, withTinyWallet)
 import Hydra.Logging (Tracer)
 import Ouroboros.Consensus.Cardano.Block (GenTx (..), HardForkBlock (BlockAlonzo))
 import Ouroboros.Consensus.Ledger.SupportsMempool (ApplyTxErr)
@@ -79,27 +80,31 @@ withDirectChain ::
   IOManager ->
   -- | Path to a domain socket used to connect to the server.
   FilePath ->
+  -- | Key pair for the wallet
+  (VerificationKey, SigningKey) ->
   ChainComponent tx IO ()
-withDirectChain _tracer magic iocp addr callback action = do
+withDirectChain _tracer magic iocp addr keyPair callback action = do
   queue <- newTQueueIO
   headState <- newTVarIO Closed
-  race_
-    (action $ Chain{postTx = atomically . writeTQueue queue})
-    ( connectTo
-        (localSnocket iocp addr)
-        nullConnectTracers
-        (versions magic (client queue headState callback))
-        addr
-    )
+  withTinyWallet magic keyPair iocp addr $ \wallet ->
+    race_
+      (action $ Chain{postTx = atomically . writeTQueue queue})
+      ( connectTo
+          (localSnocket iocp addr)
+          nullConnectTracers
+          (versions magic (client queue headState wallet callback))
+          addr
+      )
 
 client ::
   (MonadST m, MonadTimer m) =>
   TQueue m (PostChainTx tx) ->
   TVar m OnChainHeadState ->
+  TinyWallet m ->
   ChainCallback tx m ->
   NodeToClientVersion ->
   OuroborosApplication 'InitiatorMode LocalAddress LByteString m () Void
-client queue headState callback nodeToClientV =
+client queue headState wallet callback nodeToClientV =
   nodeToClientProtocols
     ( const $
         pure $
@@ -110,7 +115,7 @@ client queue headState callback nodeToClientV =
                    in MuxPeer nullTracer cChainSyncCodec peer
             , localTxSubmissionProtocol =
                 InitiatorProtocolOnly $
-                  let peer = localTxSubmissionClientPeer $ txSubmissionClient queue headState
+                  let peer = localTxSubmissionClientPeer $ txSubmissionClient queue headState wallet
                    in MuxPeer nullTracer cTxSubmissionCodec peer
             , localStateQueryProtocol =
                 InitiatorProtocolOnly $
@@ -178,15 +183,16 @@ txSubmissionClient ::
   MonadSTM m =>
   TQueue m (PostChainTx tx) ->
   TVar m OnChainHeadState ->
+  TinyWallet m ->
   LocalTxSubmissionClient (GenTx Block) (ApplyTxErr Block) m ()
-txSubmissionClient queue headState =
+txSubmissionClient queue headState TinyWallet{getUtxo} =
   LocalTxSubmissionClient clientStIdle
  where
   clientStIdle :: m (LocalTxClientStIdle (GenTx Block) (ApplyTxErr Block) m ())
   clientStIdle = do
     tx <- atomically $ readTQueue queue
-    st <- readTVarIO headState
-    pure $ SendMsgSubmitTx (fromPostChainTx st tx) (const clientStIdle)
+    validatedTx <- fromPostChainTx tx
+    pure $ SendMsgSubmitTx validatedTx (const clientStIdle)
 
   -- FIXME
   -- This is where we need signatures and client credentials. Ideally, we would
@@ -196,11 +202,18 @@ txSubmissionClient queue headState =
   --
   -- For now, it simply does not sign..
   --
-  -- TODO inline constructTx to be able to decide here which side effect to do
-  -- eg. we need to ask the wallet for a TxIn to produce the transaction
-  fromPostChainTx :: OnChainHeadState -> PostChainTx tx -> GenTx Block
-  fromPostChainTx st postChainTx =
-    GenTxAlonzo $ mkShelleyTx $ constructTx st postChainTx
+  fromPostChainTx :: PostChainTx tx -> m (GenTx Block)
+  fromPostChainTx = \case
+    InitTx p -> do
+      txIns <- keys <$> atomically getUtxo
+      case txIns of
+        (seedInput : _) -> pure $ GenTxAlonzo $ mkShelleyTx $ initTx p seedInput
+        [] -> error "cannot find a seed input to pass to Init transaction"
+    AbortTx _utxo -> do
+      readTVarIO headState >>= \case
+        Initial{initials} -> pure $ GenTxAlonzo $ mkShelleyTx $ uncurry abortTx initials
+        st -> error $ "cannot post Abort transaction in state " <> show st
+    _ -> error "not implemented"
 
 --
 -- Helpers

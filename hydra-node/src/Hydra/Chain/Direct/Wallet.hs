@@ -37,7 +37,7 @@ import Hydra.Chain.Direct.Util (
   nullConnectTracers,
   versions,
  )
-import Hydra.Ledger.Cardano (mkVkAddress, signWith)
+import Hydra.Ledger.Cardano (genKeyPair, mkVkAddress, signWith)
 import Hydra.Prelude
 import Ouroboros.Consensus.Cardano.Block (BlockQuery (..), CardanoEras, pattern BlockAlonzo)
 import Ouroboros.Consensus.HardFork.Combinator (MismatchEraInfo)
@@ -77,6 +77,7 @@ import qualified Ouroboros.Network.Protocol.LocalStateQuery.Client as LSQ
 import qualified Shelley.Spec.Ledger.API as Ledger hiding (TxBody, TxOut)
 import Shelley.Spec.Ledger.BlockChain (HashHeader (..))
 import Shelley.Spec.Ledger.TxBody (TxId (..), pattern TxIn)
+import Test.QuickCheck (generate)
 
 type Address = Ledger.Addr StandardCrypto
 type TxBody = Ledger.TxBody Era
@@ -372,3 +373,12 @@ stateQueryClient tipVar utxoVar address =
     -- FIXME: log something before looping back?
     threadDelay 30
     reset
+
+--
+-- Keys
+--
+
+generateKeyPair :: IO (VerificationKey, SigningKey)
+generateKeyPair = do
+  Ledger.KeyPair (Ledger.VKey vk) sk <- generate genKeyPair
+  pure (vk, sk)
