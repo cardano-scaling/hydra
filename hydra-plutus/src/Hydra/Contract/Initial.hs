@@ -8,8 +8,17 @@ module Hydra.Contract.Initial where
 import Ledger hiding (validatorHash)
 import PlutusTx.Prelude
 
-import Ledger.Constraints.TxConstraints (TxConstraints, mustPayToOtherScript)
-import Ledger.Typed.Scripts (ValidatorType, ValidatorTypes (..))
+import Hydra.Contract.Commit (Commit)
+import Hydra.Contract.Head (Input (..))
+import Hydra.OnChain.Util (asDatum, findUtxo, mkParty, mustRunContract)
+import Ledger.Constraints (checkScriptContext)
+import Ledger.Constraints.TxConstraints (
+  TxConstraints,
+  mustBeSignedBy,
+  mustPayToOtherScript,
+  mustSpendPubKeyOutput,
+ )
+import Ledger.Typed.Scripts (TypedValidator, ValidatorType, ValidatorTypes (..))
 import qualified Ledger.Typed.Scripts as Scripts
 import PlutusTx (CompiledCode)
 import qualified PlutusTx
@@ -18,22 +27,59 @@ import PlutusTx.IsData.Class (ToData (..))
 data Initial
 
 instance Scripts.ValidatorTypes Initial where
-  type DatumType Initial = PubKeyHash
-  type RedeemerType Initial = ()
+  type DatumType Initial = (MintingPolicyHash, Dependencies, PubKeyHash)
+  type RedeemerType Initial = TxOutRef
+
+-- TODO: We should be able to get rid of this in principle and inject them
+-- directly at compile-time (since they are statically known). Somehow, this
+-- doesn't work out of the box with the Plutus plugin at the moment and we
+-- resort to inject them 'manually'.
+data Dependencies = Dependencies
+  { headScript :: ValidatorHash
+  , commitScript :: ValidatorHash
+  }
+
+PlutusTx.makeLift ''Dependencies
+PlutusTx.unstableMakeIsData ''Dependencies
 
 validator ::
-  PubKeyHash ->
-  () ->
+  (MintingPolicyHash, Dependencies, PubKeyHash) ->
+  TxOutRef ->
   ScriptContext ->
   Bool
-validator _ _ _ctx =
-  True
+validator (policyId, Dependencies{headScript, commitScript}, vk) ref ctx =
+  consumedByCommit || consumedByAbort
+ where
+  -- A commit transaction, identified by:
+  --    (a) A signature that verifies as valid with verification key defined as datum
+  --    (b) Spending a UTxO also referenced as redeemer.
+  --    (c) Having the commit validator in its only output, with a valid
+  --        participation token for the associated key, and the total value of the
+  --        committed UTxO.
+  consumedByCommit =
+    case findUtxo ref ctx of
+      Nothing ->
+        False
+      Just utxo ->
+        let commitDatum = asDatum @(DatumType Commit) (snd utxo)
+            commitValue = txOutValue (snd utxo) <> mkParty policyId vk
+         in checkScriptContext @(RedeemerType Initial) @(DatumType Initial)
+              ( mconcat
+                  [ mustBeSignedBy vk
+                  , mustSpendPubKeyOutput (fst utxo)
+                  , mustPayToOtherScript commitScript commitDatum commitValue
+                  ]
+              )
+              ctx
+
+  consumedByAbort =
+    mustRunContract headScript Abort ctx
 
 compiledValidator :: CompiledCode (ValidatorType Initial)
 compiledValidator = $$(PlutusTx.compile [||validator||])
 
 {- ORMOLU_DISABLE -}
-typedValidator :: Scripts.TypedValidator Initial
+typedValidator :: TypedValidator Initial
 typedValidator = Scripts.mkTypedValidator @Initial
   compiledValidator
   $$(PlutusTx.compile [|| wrap ||])
@@ -50,5 +96,12 @@ datum a = Datum (toBuiltinData a)
 address :: Address
 address = scriptHashAddress validatorHash
 
-mustPayToScript :: forall i o. PubKeyHash -> Value -> TxConstraints i o
-mustPayToScript pubKey = mustPayToOtherScript validatorHash (datum pubKey)
+mustPayToScript ::
+  forall i o.
+  MintingPolicyHash ->
+  Dependencies ->
+  PubKeyHash ->
+  Value ->
+  TxConstraints i o
+mustPayToScript policyId dependencies pubKey =
+  mustPayToOtherScript validatorHash $ datum (policyId, dependencies, pubKey)
