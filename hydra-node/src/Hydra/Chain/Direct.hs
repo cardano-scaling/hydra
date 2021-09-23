@@ -32,7 +32,7 @@ import Hydra.Chain (
 import Hydra.Chain.Direct.Tx (OnChainHeadState (..), abortTx, initTx, runOnChainTxs)
 import Hydra.Chain.Direct.Util (Block, Era, defaultCodecs, nullConnectTracers, versions)
 import Hydra.Chain.Direct.Wallet (SigningKey, TinyWallet (..), VerificationKey, withTinyWallet)
-import Hydra.Logging (Tracer)
+import Hydra.Logging (Tracer, traceWith)
 import Ouroboros.Consensus.Cardano.Block (GenTx (..), HardForkBlock (BlockAlonzo))
 import Ouroboros.Consensus.Ledger.SupportsMempool (ApplyTxErr)
 import Ouroboros.Consensus.Network.NodeToClient (Codecs' (..))
@@ -83,7 +83,7 @@ withDirectChain ::
   -- | Key pair for the wallet
   (VerificationKey, SigningKey) ->
   ChainComponent tx IO ()
-withDirectChain _tracer magic iocp addr keyPair callback action = do
+withDirectChain tracer magic iocp addr keyPair callback action = do
   queue <- newTQueueIO
   headState <- newTVarIO Closed
   withTinyWallet magic keyPair iocp addr $ \wallet ->
@@ -92,30 +92,31 @@ withDirectChain _tracer magic iocp addr keyPair callback action = do
       ( connectTo
           (localSnocket iocp addr)
           nullConnectTracers
-          (versions magic (client queue headState wallet callback))
+          (versions magic (client tracer queue headState wallet callback))
           addr
       )
 
 client ::
   (MonadST m, MonadTimer m) =>
+  Tracer m DirectChainLog ->
   TQueue m (PostChainTx tx) ->
   TVar m OnChainHeadState ->
   TinyWallet m ->
   ChainCallback tx m ->
   NodeToClientVersion ->
   OuroborosApplication 'InitiatorMode LocalAddress LByteString m () Void
-client queue headState wallet callback nodeToClientV =
+client tracer queue headState wallet callback nodeToClientV =
   nodeToClientProtocols
     ( const $
         pure $
           NodeToClientProtocols
             { localChainSyncProtocol =
                 InitiatorProtocolOnly $
-                  let peer = chainSyncClientPeer $ chainSyncClient callback headState
+                  let peer = chainSyncClientPeer $ chainSyncClient tracer callback headState
                    in MuxPeer nullTracer cChainSyncCodec peer
             , localTxSubmissionProtocol =
                 InitiatorProtocolOnly $
-                  let peer = localTxSubmissionClientPeer $ txSubmissionClient queue headState wallet
+                  let peer = localTxSubmissionClientPeer $ txSubmissionClient tracer queue headState wallet
                    in MuxPeer nullTracer cTxSubmissionCodec peer
             , localStateQueryProtocol =
                 InitiatorProtocolOnly $
@@ -134,10 +135,11 @@ client queue headState wallet callback nodeToClientV =
 chainSyncClient ::
   forall m tx.
   (MonadSTM m) =>
+  Tracer m DirectChainLog ->
   ChainCallback tx m ->
   TVar m OnChainHeadState ->
   ChainSyncClient Block (Point Block) (Tip Block) m ()
-chainSyncClient callback headState =
+chainSyncClient tracer callback headState =
   ChainSyncClient (pure clientStIdle)
  where
   -- FIXME: This won't work well with real client. Without acquiring any point
@@ -171,6 +173,7 @@ chainSyncClient callback headState =
             -- REVIEW(SN): There seems to be no 'toList' for StrictSeq? That's
             -- why I resorted to foldMap using the list monoid ('pure')
             let txs = toList $ getAlonzoTxs blk
+            traceWith tracer $ ReceiveTxs txs
             onChainTxs <- runOnChainTxs headState txs
             mapM_ callback onChainTxs
             pure clientStIdle
@@ -181,18 +184,20 @@ chainSyncClient callback headState =
 txSubmissionClient ::
   forall m tx.
   MonadSTM m =>
+  Tracer m DirectChainLog ->
   TQueue m (PostChainTx tx) ->
   TVar m OnChainHeadState ->
   TinyWallet m ->
   LocalTxSubmissionClient (GenTx Block) (ApplyTxErr Block) m ()
-txSubmissionClient queue headState TinyWallet{getUtxo} =
+txSubmissionClient tracer queue headState TinyWallet{getUtxo} =
   LocalTxSubmissionClient clientStIdle
  where
   clientStIdle :: m (LocalTxClientStIdle (GenTx Block) (ApplyTxErr Block) m ())
   clientStIdle = do
     tx <- atomically $ readTQueue queue
     validatedTx <- fromPostChainTx tx
-    pure $ SendMsgSubmitTx validatedTx (const clientStIdle)
+    traceWith tracer (PostTx validatedTx)
+    pure $ SendMsgSubmitTx (GenTxAlonzo . mkShelleyTx $ validatedTx) (const clientStIdle)
 
   -- FIXME
   -- This is where we need signatures and client credentials. Ideally, we would
@@ -202,16 +207,16 @@ txSubmissionClient queue headState TinyWallet{getUtxo} =
   --
   -- For now, it simply does not sign..
   --
-  fromPostChainTx :: PostChainTx tx -> m (GenTx Block)
+  fromPostChainTx :: PostChainTx tx -> m (ValidatedTx Era)
   fromPostChainTx = \case
     InitTx p -> do
       txIns <- keys <$> atomically getUtxo
       case txIns of
-        (seedInput : _) -> pure $ GenTxAlonzo $ mkShelleyTx $ initTx p seedInput
+        (seedInput : _) -> pure $ initTx p seedInput
         [] -> error "cannot find a seed input to pass to Init transaction"
     AbortTx _utxo -> do
       readTVarIO headState >>= \case
-        Initial{initials} -> pure $ GenTxAlonzo $ mkShelleyTx $ uncurry abortTx initials
+        Initial{initials} -> pure $ uncurry abortTx initials
         st -> error $ "cannot post Abort transaction in state " <> show st
     _ -> error "not implemented"
 
@@ -232,4 +237,8 @@ getAlonzoTxs = \case
 -- Tracing
 --
 
+-- TODO add  ToJSON, FromJSON instances
 data DirectChainLog
+  = PostTx {postedTx :: ValidatedTx Era}
+  | ReceiveTxs {receivedTxs :: [ValidatedTx Era]}
+  deriving (Eq, Show, Generic)
