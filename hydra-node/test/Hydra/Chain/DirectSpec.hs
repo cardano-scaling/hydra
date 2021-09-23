@@ -18,22 +18,25 @@ import Hydra.Chain (
 import Hydra.Chain.Direct (withDirectChain)
 import Hydra.Chain.Direct.MockServer (withMockServer)
 import Hydra.Chain.Direct.Wallet (generateKeyPair)
+import Hydra.Chain.Direct.WalletSpec (genPaymentTo)
 import Hydra.Ledger.Simple (SimpleTx)
 import Hydra.Logging (nullTracer)
 import Hydra.Party (Party, deriveParty, generateKey)
+import Test.QuickCheck (generate)
 
 spec :: Spec
 spec = parallel $ do
   it "publishes init tx and observes it also" $ do
     calledBackAlice <- newEmptyMVar
     calledBackBob <- newEmptyMVar
-    aliceKeys <- generateKeyPair
-    bobKeys <- generateKeyPair
-
-    withMockServer $ \networkMagic iocp socket _ -> do
-      withDirectChain nullTracer networkMagic iocp socket aliceKeys (putMVar calledBackAlice) $ \Chain{postTx} -> do
-        withDirectChain nullTracer networkMagic iocp socket bobKeys (putMVar calledBackBob) $ \_ -> do
+    aliceKeys@(aliceVk, _) <- generateKeyPair
+    bobKeys@(bobVk, _) <- generateKeyPair
+    withMockServer $ \networkMagic iocp socket submitTx -> do
+      withDirectChain (contramap show stdoutTracer) networkMagic iocp socket aliceKeys (putMVar calledBackAlice) $ \Chain{postTx} -> do
+        withDirectChain (contramap show stdoutTracer) networkMagic iocp socket bobKeys (putMVar calledBackBob) $ \_ -> do
           let parameters = HeadParameters 100 [alice, bob, carol]
+          generate (genPaymentTo aliceVk) >>= submitTx
+          generate (genPaymentTo bobVk) >>= submitTx
           postTx $ InitTx @SimpleTx parameters
           failAfter 5 $
             takeMVar calledBackAlice `shouldReturn` OnInitTx 100 [alice, bob, carol]
@@ -43,12 +46,14 @@ spec = parallel $ do
   it "can init and abort a head given nothing has been committed" $ do
     calledBackAlice <- newEmptyMVar
     calledBackBob <- newEmptyMVar
-    aliceKeys <- generateKeyPair
-    bobKeys <- generateKeyPair
-    withMockServer $ \networkMagic iocp socket _ -> do
-      withDirectChain nullTracer networkMagic iocp socket aliceKeys (putMVar calledBackAlice) $ \Chain{postTx} -> do
-        withDirectChain nullTracer networkMagic iocp socket bobKeys (putMVar calledBackBob) $ \_ -> do
+    aliceKeys@(aliceVk, _) <- generateKeyPair
+    bobKeys@(bobVk, _) <- generateKeyPair
+    withMockServer $ \networkMagic iocp socket submitTx -> do
+      withDirectChain (contramap show stdoutTracer) networkMagic iocp socket aliceKeys (putMVar calledBackAlice) $ \Chain{postTx} -> do
+        withDirectChain (contramap show stdoutTracer) networkMagic iocp socket bobKeys (putMVar calledBackBob) $ \_ -> do
           let parameters = HeadParameters 100 [alice, bob, carol]
+          generate (genPaymentTo aliceVk) >>= submitTx
+          generate (genPaymentTo bobVk) >>= submitTx
           postTx $ InitTx @SimpleTx parameters
           failAfter 5 $
             takeMVar calledBackAlice `shouldReturn` OnInitTx 100 [alice, bob, carol]
