@@ -227,8 +227,8 @@ runOnChainTxs headState = atomically . foldM runOnChainTx []
 
 observeInitTx :: ValidatedTx Era -> OnChainHeadState -> (Maybe (OnChainTx tx), OnChainHeadState)
 observeInitTx ValidatedTx{wits, body} st =
-  case extractParameters of
-    Just (Head.Initial cp ps) ->
+  case (st, extractParameters) of
+    (Closed, Just (Head.Initial cp ps)) ->
       ( Just $ OnInitTx (contestationPeriodToDiffTime cp) (map convertParty ps)
       , Initial
           { threadOutput =
@@ -251,8 +251,8 @@ observeInitTx ValidatedTx{wits, body} st =
 
 observeAbortTx :: ValidatedTx Era -> OnChainHeadState -> (Maybe (OnChainTx tx), OnChainHeadState)
 observeAbortTx ValidatedTx{wits} st =
-  case extractState of
-    Just Head.Final -> (Just OnAbortTx, Final)
+  case (st, extractState) of
+    (Initial{}, Just Head.Final) -> (Just OnAbortTx, Final)
     _ -> (Nothing, st)
  where
   extractState = foldr decodeData Nothing firstDatum
