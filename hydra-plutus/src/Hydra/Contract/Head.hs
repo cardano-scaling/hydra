@@ -5,14 +5,16 @@
 
 module Hydra.Contract.Head where
 
+import Ledger hiding (validatorHash)
 import PlutusTx.Prelude
 
+import Control.Arrow (first)
 import Data.Aeson (FromJSON, ToJSON)
 import GHC.Generics (Generic)
 import Hydra.Data.ContestationPeriod (ContestationPeriod)
 import Hydra.Data.Party (Party)
 import qualified Ledger.Typed.Scripts as Scripts
-import Ledger.Value (AssetClass)
+import Ledger.Value (AssetClass (..), currencyMPSHash)
 import Plutus.Contract.StateMachine (StateMachine, StateMachineClient)
 import qualified Plutus.Contract.StateMachine as SM
 import qualified PlutusTx
@@ -35,9 +37,9 @@ data Input
 PlutusTx.unstableMakeIsData ''Input
 
 {-# INLINEABLE hydraStateMachine #-}
-hydraStateMachine :: AssetClass -> StateMachine State Input
-hydraStateMachine _threadToken =
-  -- XXX(SN): This should actually be '(Just threadToken)' as we wan't to have
+hydraStateMachine :: MintingPolicyHash -> StateMachine State Input
+hydraStateMachine _policyId =
+  -- XXX(SN): This should actually be '(Just policyId)' as we wan't to have
   -- "contract continuity" as described in the EUTXO paper. While we do have a
   -- fix for the 'runStep' handling now, the current version of plutus does
   -- forge a given 'ThreadToken' upon 'runInitialise' now.. which is not what we
@@ -60,7 +62,7 @@ hydraTransition oldState input =
     _ -> Nothing
 
 -- | The script instance of the auction state machine. It contains the state
--- machine compiled to a Plutus core validator script. The 'AssetClass' serves
+-- machine compiled to a Plutus core validator script. The 'MintingPolicyHash' serves
 -- two roles here:
 --
 --   1. Parameterizing the script, such that we get a unique address and allow
@@ -69,25 +71,32 @@ hydraTransition oldState input =
 --   2. Identify the 'state thread token', which should be passed in
 --   transactions transitioning the state machine and provide "contract
 --   continuity"
-typedValidator :: AssetClass -> Scripts.TypedValidator (StateMachine State Input)
-typedValidator threadToken =
+typedValidator :: MintingPolicyHash -> Scripts.TypedValidator (StateMachine State Input)
+typedValidator policyId =
   let val =
         $$(PlutusTx.compile [||validatorParam||])
-          `PlutusTx.applyCode` PlutusTx.liftCode threadToken
+          `PlutusTx.applyCode` PlutusTx.liftCode policyId
       validatorParam c = SM.mkValidator (hydraStateMachine c)
       wrap = Scripts.wrapValidator @State @Input
    in Scripts.mkTypedValidator @(StateMachine State Input)
         val
         $$(PlutusTx.compile [||wrap||])
 
+validatorHash :: MintingPolicyHash -> ValidatorHash
+validatorHash = Scripts.validatorHash . typedValidator
+
+address :: MintingPolicyHash -> Address
+address = scriptHashAddress . validatorHash
+
 -- | The machine client of the hydra state machine. It contains both, the script
 -- instance with the on-chain code, and the Haskell definition of the state
 -- machine for off-chain use.
 machineClient ::
-  -- | Thread token of the instance
+  -- | PolicyId for the head instance
   AssetClass ->
   StateMachineClient State Input
-machineClient threadToken =
-  let machine = hydraStateMachine threadToken
-      inst = typedValidator threadToken
+machineClient token =
+  let (policyId, _) = first currencyMPSHash (unAssetClass token)
+      machine = hydraStateMachine policyId
+      inst = typedValidator policyId
    in SM.mkStateMachineClient (SM.StateMachineInstance machine inst)
