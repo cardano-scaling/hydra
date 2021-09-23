@@ -11,6 +11,7 @@ import Data.Aeson (Options (..), defaultOptions, genericToJSON)
 import qualified Data.List.NonEmpty as NonEmpty
 import qualified Data.Map as Map
 import Data.Text.Prettyprint.Doc (Pretty (..), viaShow)
+import qualified Hydra.Contract.Commit as Commit
 import qualified Hydra.Contract.Head as Head
 import qualified Hydra.Contract.Initial as Initial
 import Hydra.Data.ContestationPeriod (ContestationPeriod)
@@ -26,7 +27,7 @@ import Ledger (
   toTxOut,
  )
 import Ledger.Typed.Tx (tyTxOutData, typeScriptTxOut)
-import Ledger.Value (AssetClass, TokenName (..), flattenValue)
+import Ledger.Value (AssetClass (..), TokenName (..), currencyMPSHash, flattenValue)
 import qualified Ledger.Value as Value
 import Plutus.ChainIndex (ChainIndexTx, txOutRefMapForAddr)
 import Plutus.Contract (
@@ -131,12 +132,18 @@ init = endpoint @"init" $ \InitParams{contestationPeriod, cardanoPubKeys, hydraP
   logInfo $ "Forging tokens: " <> show @String tokens
   ownPK <- pubKeyHash <$> ownPubKey
   symbol <- Currency.currencySymbol <$> Currency.mintContract ownPK tokens
-  let threadToken = mkThreadToken symbol
-      tokenValues = map (uncurry (Value.singleton symbol)) participationTokens
+  let tokenValues = map (uncurry (Value.singleton symbol)) participationTokens
   logInfo $ "Done, our currency symbol: " <> show @String symbol
 
-  let client = Head.machineClient threadToken
-  let constraints = foldMap (uncurry Initial.mustPayToScript) $ zip cardanoPubKeys tokenValues
+  let policyId = currencyMPSHash symbol
+  let client = Head.machineClient (mkThreadToken symbol)
+  let mustPayToInitial =
+        Initial.mustPayToScript policyId $
+          Initial.Dependencies
+            { commitScript = Commit.validatorHash
+            , headScript = Head.validatorHash policyId
+            }
+  let constraints = foldMap (uncurry mustPayToInitial) $ zip cardanoPubKeys tokenValues
   void $ SM.runInitialiseWith mempty constraints client (Head.Initial contestationPeriod hydraParties) mempty
   logInfo $ "Triggered Init " <> show @String cardanoPubKeys
 
@@ -188,7 +195,8 @@ watchInit = do
   -- XXX(SN): Maybe is hard to debug
   lookupDatum :: AssetClass -> (TxOutRef, (ChainIndexTxOut, ChainIndexTx)) -> Maybe Head.State
   lookupDatum token (txOutRef, (txOut, _tx)) = do
-    typedTxOut <- rightToMaybe $ typeScriptTxOut (Head.typedValidator token) txOutRef txOut
+    let (policyId, _) = first currencyMPSHash (unAssetClass token)
+    typedTxOut <- rightToMaybe $ typeScriptTxOut (Head.typedValidator policyId) txOutRef txOut
     pure $ tyTxOutData typedTxOut
 
 -- | Transactions as they are observed by the PAB on the Head statemachine
