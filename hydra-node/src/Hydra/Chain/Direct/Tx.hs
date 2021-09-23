@@ -30,8 +30,8 @@ import qualified Data.Map as Map
 import qualified Data.Sequence.Strict as StrictSeq
 import qualified Data.Set as Set
 import Hydra.Chain (HeadParameters (..), OnChainTx (OnInitTx))
-import qualified Hydra.Contract.Head as Head
 import qualified Hydra.Contract.Initial as Initial
+import qualified Hydra.Contract.MockHead as Head
 import Hydra.Data.ContestationPeriod (contestationPeriodFromDiffTime, contestationPeriodToDiffTime)
 import Hydra.Data.Party (partyFromVerKey, partyToVerKey)
 import Hydra.Party (anonymousParty, vkey)
@@ -187,7 +187,7 @@ abortTx (txIn, token, HeadParameters{contestationPeriod, parties}) initInputs =
           (map (partyFromVerKey . vkey) parties)
 
   initialDatum pkh =
-    let datum = Data $ toData $ pkh
+    let datum = Data $ toData pkh
      in (hashData @Era datum, datum)
 
 --
