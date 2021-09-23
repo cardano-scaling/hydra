@@ -101,7 +101,7 @@ spec =
             utxo = UTxO $ Map.fromList $ (txIn, txOut) : map toTxOut initials
 
             results = validateTxScriptsUnlimited tx utxo
-         in 1 == length (rights $ Map.elems results)
+         in 1 + length initials == length (rights $ Map.elems results)
               & counterexample ("Evaluation results: " <> show results)
               & counterexample ("Tx: " <> show tx)
               & counterexample ("Input utxo: " <> show utxo)
