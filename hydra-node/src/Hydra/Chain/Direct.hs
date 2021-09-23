@@ -27,6 +27,7 @@ import Hydra.Chain (
   Chain (..),
   ChainCallback,
   ChainComponent,
+  OnChainTx,
   PostChainTx (..),
  )
 import Hydra.Chain.Direct.Tx (OnChainHeadState (..), abortTx, initTx, runOnChainTxs)
@@ -73,7 +74,7 @@ import Test.Cardano.Ledger.Alonzo.Serialisation.Generators ()
 
 withDirectChain ::
   -- | Tracer for logging
-  Tracer IO DirectChainLog ->
+  Tracer IO (DirectChainLog tx) ->
   -- | Network identifer to which we expect to connect.
   NetworkMagic ->
   -- | A cross-platform abstraction for managing I/O operations on local sockets
@@ -98,7 +99,7 @@ withDirectChain tracer magic iocp addr keyPair callback action = do
 
 client ::
   (MonadST m, MonadTimer m) =>
-  Tracer m DirectChainLog ->
+  Tracer m (DirectChainLog tx) ->
   TQueue m (PostChainTx tx) ->
   TVar m OnChainHeadState ->
   TinyWallet m ->
@@ -135,7 +136,7 @@ client tracer queue headState wallet callback nodeToClientV =
 chainSyncClient ::
   forall m tx.
   (MonadSTM m) =>
-  Tracer m DirectChainLog ->
+  Tracer m (DirectChainLog tx) ->
   ChainCallback tx m ->
   TVar m OnChainHeadState ->
   ChainSyncClient Block (Point Block) (Tip Block) m ()
@@ -173,8 +174,8 @@ chainSyncClient tracer callback headState =
             -- REVIEW(SN): There seems to be no 'toList' for StrictSeq? That's
             -- why I resorted to foldMap using the list monoid ('pure')
             let txs = toList $ getAlonzoTxs blk
-            traceWith tracer $ ReceiveTxs txs
             onChainTxs <- runOnChainTxs headState txs
+            traceWith tracer $ ReceiveTxs txs onChainTxs
             mapM_ callback onChainTxs
             pure clientStIdle
       , recvMsgRollBackward =
@@ -184,7 +185,7 @@ chainSyncClient tracer callback headState =
 txSubmissionClient ::
   forall m tx.
   MonadSTM m =>
-  Tracer m DirectChainLog ->
+  Tracer m (DirectChainLog tx) ->
   TQueue m (PostChainTx tx) ->
   TVar m OnChainHeadState ->
   TinyWallet m ->
@@ -196,7 +197,7 @@ txSubmissionClient tracer queue headState TinyWallet{getUtxo} =
   clientStIdle = do
     tx <- atomically $ readTQueue queue
     validatedTx <- fromPostChainTx tx
-    traceWith tracer (PostTx validatedTx)
+    traceWith tracer (PostTx tx validatedTx)
     pure $ SendMsgSubmitTx (GenTxAlonzo . mkShelleyTx $ validatedTx) (const clientStIdle)
 
   -- FIXME
@@ -238,7 +239,7 @@ getAlonzoTxs = \case
 --
 
 -- TODO add  ToJSON, FromJSON instances
-data DirectChainLog
-  = PostTx {postedTx :: ValidatedTx Era}
-  | ReceiveTxs {receivedTxs :: [ValidatedTx Era]}
+data DirectChainLog tx
+  = PostTx {toPost :: PostChainTx tx, postedTx :: ValidatedTx Era}
+  | ReceiveTxs {receivedTxs :: [ValidatedTx Era], onChainTxs :: [OnChainTx tx]}
   deriving (Eq, Show, Generic)
