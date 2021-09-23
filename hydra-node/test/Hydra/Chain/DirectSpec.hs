@@ -12,8 +12,8 @@ import Control.Concurrent (newEmptyMVar, putMVar, takeMVar)
 import Hydra.Chain (
   Chain (..),
   HeadParameters (HeadParameters),
-  OnChainTx (OnInitTx),
-  PostChainTx (InitTx),
+  OnChainTx (OnAbortTx, OnInitTx),
+  PostChainTx (AbortTx, InitTx),
  )
 import Hydra.Chain.Direct (withDirectChain)
 import Hydra.Chain.Direct.MockServer (withMockServer)
@@ -24,10 +24,10 @@ import Hydra.Party (Party, deriveParty, generateKey)
 spec :: Spec
 spec = parallel $ do
   it "publishes init tx and observes it also" $ do
+    calledBackAlice <- newEmptyMVar
+    calledBackBob <- newEmptyMVar
     withMockServer $ \networkMagic iocp socket _ -> do
-      calledBackAlice <- newEmptyMVar
       withDirectChain nullTracer networkMagic iocp socket (putMVar calledBackAlice) $ \Chain{postTx} -> do
-        calledBackBob <- newEmptyMVar
         withDirectChain nullTracer networkMagic iocp socket (putMVar calledBackBob) $ \_ -> do
           let parameters = HeadParameters 100 [alice, bob, carol]
           postTx $ InitTx @SimpleTx parameters
@@ -35,6 +35,22 @@ spec = parallel $ do
             takeMVar calledBackAlice `shouldReturn` OnInitTx 100 [alice, bob, carol]
           failAfter 5 $
             takeMVar calledBackBob `shouldReturn` OnInitTx @SimpleTx 100 [alice, bob, carol]
+
+  it "can init and abort a head given nothing has been committed" $ do
+    calledBackAlice <- newEmptyMVar
+    calledBackBob <- newEmptyMVar
+    withMockServer $ \networkMagic iocp socket _ -> do
+      withDirectChain nullTracer networkMagic iocp socket (putMVar calledBackAlice) $ \Chain{postTx} -> do
+        withDirectChain nullTracer networkMagic iocp socket (putMVar calledBackBob) $ \_ -> do
+          let parameters = HeadParameters 100 [alice, bob, carol]
+          postTx $ InitTx @SimpleTx parameters
+          failAfter 5 $
+            takeMVar calledBackAlice `shouldReturn` OnInitTx 100 [alice, bob, carol]
+
+          postTx $ AbortTx mempty
+
+          failAfter 5 $
+            takeMVar calledBackBob `shouldReturn` OnAbortTx @SimpleTx
 
 alice, bob, carol :: Party
 alice = deriveParty $ generateKey 10

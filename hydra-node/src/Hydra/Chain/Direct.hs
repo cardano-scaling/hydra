@@ -14,7 +14,13 @@ import Hydra.Prelude
 
 import Cardano.Ledger.Alonzo.Tx (ValidatedTx)
 import Cardano.Ledger.Alonzo.TxSeq (txSeqTxns)
-import Control.Monad.Class.MonadSTM (newTQueueIO, readTQueue, writeTQueue)
+import Control.Monad.Class.MonadSTM (
+  newTQueueIO,
+  newTVarIO,
+  readTQueue,
+  readTVarIO,
+  writeTQueue,
+ )
 import Control.Tracer (nullTracer)
 import Data.Sequence.Strict (StrictSeq)
 import Hydra.Chain (
@@ -23,8 +29,8 @@ import Hydra.Chain (
   ChainComponent,
   PostChainTx (..),
  )
-import Hydra.Chain.Direct.Tx (OnChainHeadState (Ready), constructTx, observeTx)
-import Hydra.Ledger.Cardano (generateWith)
+import Hydra.Chain.Direct.Tx (OnChainHeadState (Closed), constructTx, runOnChainTxs)
+import Hydra.Chain.Direct.Util (Block, Era, defaultCodecs, nullConnectTracers, versions)
 import Hydra.Logging (Tracer)
 import Ouroboros.Consensus.Cardano.Block (GenTx (..), HardForkBlock (BlockAlonzo))
 import Ouroboros.Consensus.Ledger.SupportsMempool (ApplyTxErr)
@@ -76,33 +82,35 @@ withDirectChain ::
   ChainComponent tx IO ()
 withDirectChain _tracer magic iocp addr callback action = do
   queue <- newTQueueIO
+  headState <- newTVarIO Closed
   race_
     (action $ Chain{postTx = atomically . writeTQueue queue})
     ( connectTo
         (localSnocket iocp addr)
         nullConnectTracers
-        (versions magic (client queue callback))
+        (versions magic (client queue headState callback))
         addr
     )
 
 client ::
   (MonadST m, MonadTimer m) =>
   TQueue m (PostChainTx tx) ->
+  TVar m OnChainHeadState ->
   ChainCallback tx m ->
   NodeToClientVersion ->
   OuroborosApplication 'InitiatorMode LocalAddress LByteString m () Void
-client queue callback nodeToClientV =
+client queue headState callback nodeToClientV =
   nodeToClientProtocols
     ( const $
         pure $
           NodeToClientProtocols
             { localChainSyncProtocol =
                 InitiatorProtocolOnly $
-                  let peer = chainSyncClientPeer $ chainSyncClient callback
+                  let peer = chainSyncClientPeer $ chainSyncClient callback headState
                    in MuxPeer nullTracer cChainSyncCodec peer
             , localTxSubmissionProtocol =
                 InitiatorProtocolOnly $
-                  let peer = localTxSubmissionClientPeer $ txSubmissionClient queue
+                  let peer = localTxSubmissionClientPeer $ txSubmissionClient queue headState
                    in MuxPeer nullTracer cTxSubmissionCodec peer
             , localStateQueryProtocol =
                 InitiatorProtocolOnly $
@@ -120,10 +128,11 @@ client queue callback nodeToClientV =
 
 chainSyncClient ::
   forall m tx.
-  Monad m =>
+  (MonadSTM m) =>
   ChainCallback tx m ->
+  TVar m OnChainHeadState ->
   ChainSyncClient Block (Point Block) (Tip Block) m ()
-chainSyncClient callback =
+chainSyncClient callback headState =
   ChainSyncClient (pure clientStIdle)
  where
   -- FIXME: This won't work well with real client. Without acquiring any point
@@ -156,7 +165,9 @@ chainSyncClient callback =
           ChainSyncClient $ do
             -- REVIEW(SN): There seems to be no 'toList' for StrictSeq? That's
             -- why I resorted to foldMap using the list monoid ('pure')
-            mapM_ callback . catMaybes . foldMap (pure . observeTx) $ getAlonzoTxs blk
+            let txs = toList $ getAlonzoTxs blk
+            onChainTxs <- runOnChainTxs headState txs
+            mapM_ callback onChainTxs
             pure clientStIdle
       , recvMsgRollBackward =
           error "Rolled backward!"
@@ -166,14 +177,16 @@ txSubmissionClient ::
   forall m tx.
   MonadSTM m =>
   TQueue m (PostChainTx tx) ->
+  TVar m OnChainHeadState ->
   LocalTxSubmissionClient (GenTx Block) (ApplyTxErr Block) m ()
-txSubmissionClient queue =
+txSubmissionClient queue headState =
   LocalTxSubmissionClient clientStIdle
  where
   clientStIdle :: m (LocalTxClientStIdle (GenTx Block) (ApplyTxErr Block) m ())
   clientStIdle = do
     tx <- atomically $ readTQueue queue
-    pure $ SendMsgSubmitTx (fromPostChainTx tx) (const clientStIdle)
+    st <- readTVarIO headState
+    pure $ SendMsgSubmitTx (fromPostChainTx st tx) (const clientStIdle)
 
   -- FIXME
   -- This is where we need signatures and client credentials. Ideally, we would
@@ -182,11 +195,12 @@ txSubmissionClient queue =
   -- client submit a signed transaction.
   --
   -- For now, it simply does not sign..
-  fromPostChainTx :: PostChainTx tx -> GenTx Block
-  fromPostChainTx postChainTx = do
-    let txIn = generateWith arbitrary 42
-        unsignedTx = constructTx (Ready txIn) postChainTx
-    GenTxAlonzo $ mkShelleyTx unsignedTx
+  --
+  -- TODO inline constructTx to be able to decide here which side effect to do
+  -- eg. we need to ask the wallet for a TxIn to produce the transaction
+  fromPostChainTx :: OnChainHeadState -> PostChainTx tx -> GenTx Block
+  fromPostChainTx st postChainTx =
+    GenTxAlonzo $ mkShelleyTx $ constructTx st postChainTx
 
 --
 -- Helpers
