@@ -17,6 +17,7 @@ import Hydra.Chain (
  )
 import Hydra.Chain.Direct (withDirectChain)
 import Hydra.Chain.Direct.MockServer (withMockServer)
+import Hydra.Chain.Direct.Wallet (generateKeyPair)
 import Hydra.Ledger.Simple (SimpleTx)
 import Hydra.Logging (nullTracer)
 import Hydra.Party (Party, deriveParty, generateKey)
@@ -26,9 +27,12 @@ spec = parallel $ do
   it "publishes init tx and observes it also" $ do
     calledBackAlice <- newEmptyMVar
     calledBackBob <- newEmptyMVar
+    aliceKeys <- generateKeyPair
+    bobKeys <- generateKeyPair
+
     withMockServer $ \networkMagic iocp socket _ -> do
-      withDirectChain nullTracer networkMagic iocp socket (putMVar calledBackAlice) $ \Chain{postTx} -> do
-        withDirectChain nullTracer networkMagic iocp socket (putMVar calledBackBob) $ \_ -> do
+      withDirectChain nullTracer networkMagic iocp socket aliceKeys (putMVar calledBackAlice) $ \Chain{postTx} -> do
+        withDirectChain nullTracer networkMagic iocp socket bobKeys (putMVar calledBackBob) $ \_ -> do
           let parameters = HeadParameters 100 [alice, bob, carol]
           postTx $ InitTx @SimpleTx parameters
           failAfter 5 $
@@ -39,9 +43,11 @@ spec = parallel $ do
   it "can init and abort a head given nothing has been committed" $ do
     calledBackAlice <- newEmptyMVar
     calledBackBob <- newEmptyMVar
+    aliceKeys <- generateKeyPair
+    bobKeys <- generateKeyPair
     withMockServer $ \networkMagic iocp socket _ -> do
-      withDirectChain nullTracer networkMagic iocp socket (putMVar calledBackAlice) $ \Chain{postTx} -> do
-        withDirectChain nullTracer networkMagic iocp socket (putMVar calledBackBob) $ \_ -> do
+      withDirectChain nullTracer networkMagic iocp socket aliceKeys (putMVar calledBackAlice) $ \Chain{postTx} -> do
+        withDirectChain nullTracer networkMagic iocp socket bobKeys (putMVar calledBackBob) $ \_ -> do
           let parameters = HeadParameters 100 [alice, bob, carol]
           postTx $ InitTx @SimpleTx parameters
           failAfter 5 $
