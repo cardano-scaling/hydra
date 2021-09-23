@@ -13,7 +13,6 @@ import Data.Aeson (FromJSON, ToJSON)
 import GHC.Generics (Generic)
 import Hydra.Data.ContestationPeriod (ContestationPeriod)
 import Hydra.Data.Party (Party)
-import Ledger (Script, unValidatorScript)
 import qualified Ledger.Typed.Scripts as Scripts
 import Ledger.Value (AssetClass (..), currencyMPSHash)
 import Plutus.Contract.StateMachine (StateMachine, StateMachineClient)
