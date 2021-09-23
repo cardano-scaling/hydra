@@ -7,7 +7,7 @@ import Hydra.Prelude
 
 import Control.Monad.Freer (interpret)
 import Data.Default (def)
-import Hydra.Contract.PAB (PabContract (..), pabPort)
+import Hydra.PAB (PabContract (..), pabPort)
 import Plutus.PAB.Effects.Contract.Builtin (Builtin)
 import qualified Plutus.PAB.Effects.Contract.Builtin as Builtin
 import Plutus.PAB.Simulator (SimulatorEffectHandlers)

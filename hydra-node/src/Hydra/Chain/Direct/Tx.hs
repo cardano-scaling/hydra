@@ -24,9 +24,9 @@ import qualified Data.Map as Map
 import qualified Data.Sequence.Strict as StrictSeq
 import qualified Data.Set as Set
 import Hydra.Chain (HeadParameters (..), OnChainTx (OnInitTx), PostChainTx (InitTx))
-import Hydra.Contract.ContestationPeriod (contestationPeriodFromDiffTime, contestationPeriodToDiffTime)
 import Hydra.Contract.Head (State (Initial))
-import Hydra.Contract.Party (partyFromVerKey, partyToVerKey)
+import Hydra.Data.ContestationPeriod (contestationPeriodFromDiffTime, contestationPeriodToDiffTime)
+import Hydra.Data.Party (partyFromVerKey, partyToVerKey)
 import Hydra.Party (anonymousParty, vkey)
 import Plutus.V1.Ledger.Api (fromData, toBuiltinData, toData)
 import Shelley.Spec.Ledger.API (

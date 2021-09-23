@@ -3,7 +3,7 @@
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeApplications #-}
 
-module Hydra.Contract.Party where
+module Hydra.Data.Party where
 
 import Hydra.Prelude hiding (init)
 

@@ -32,8 +32,8 @@ import Wallet.Types (ContractError (..))
 
 import qualified Control.Monad.Freer.Extras.Log as Trace
 import qualified Data.Map.Strict as Map
-import qualified Hydra.Contract.OffChain as OffChain
-import qualified Hydra.Contract.OnChain as OnChain
+import qualified Hydra.Depreciated.OffChain as OffChain
+import qualified Hydra.Depreciated.OnChain as OnChain
 import qualified Plutus.Trace.Emulator as Trace
 import Test.Tasty.ExpectedFailure (expectFailBecause)
 import qualified Prelude

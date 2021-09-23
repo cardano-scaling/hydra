@@ -3,7 +3,7 @@
 {-# LANGUAGE TypeApplications #-}
 {-# OPTIONS_GHC -fno-specialize #-}
 
-module Hydra.Contract.OnChain where
+module Hydra.Depreciated.OnChain where
 
 import Ledger
 import PlutusTx.Prelude

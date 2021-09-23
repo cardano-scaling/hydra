@@ -6,8 +6,8 @@ module Hydra.ContractModelTest where
 import Hydra.Prelude as Prelude
 
 import GHC.Show (Show (..))
-import qualified Hydra.Contract.OffChain as OffChain
-import qualified Hydra.Contract.OnChain as OnChain
+import qualified Hydra.Depreciated.OffChain as OffChain
+import qualified Hydra.Depreciated.OnChain as OnChain
 import Ledger (pubKeyHash)
 import Ledger.Ada as Ada
 import Ledger.Typed.Scripts (MintingPolicy)

@@ -9,8 +9,8 @@ import PlutusTx.Prelude
 
 import Data.Aeson (FromJSON, ToJSON)
 import GHC.Generics (Generic)
-import Hydra.Contract.ContestationPeriod (ContestationPeriod)
-import Hydra.Contract.Party (Party)
+import Hydra.Data.ContestationPeriod (ContestationPeriod)
+import Hydra.Data.Party (Party)
 import qualified Ledger.Typed.Scripts as Scripts
 import Ledger.Value (AssetClass)
 import Plutus.Contract.StateMachine (StateMachine, StateMachineClient)

@@ -3,13 +3,13 @@
 {-# LANGUAGE TypeApplications #-}
 {-# OPTIONS_GHC -fno-specialize #-}
 
-module Hydra.Contract.OffChain where
+module Hydra.Depreciated.OffChain where
 
 import Hydra.Prelude hiding (init)
 
 import Ledger
 
-import Hydra.Contract.OnChain as OnChain (asDatum, asRedeemer)
+import Hydra.Depreciated.OnChain as OnChain (asDatum, asRedeemer)
 import Ledger.Ada (lovelaceValueOf)
 import Ledger.Constraints.OffChain (ScriptLookups (..))
 import Ledger.Constraints.TxConstraints (
@@ -43,7 +43,7 @@ import Plutus.Contract (
  )
 
 import qualified Data.Map.Strict as Map
-import qualified Hydra.Contract.OnChain as OnChain
+import qualified Hydra.Depreciated.OnChain as OnChain
 import qualified Ledger.Typed.Scripts as Scripts
 import qualified Ledger.Value as Value
 

@@ -20,9 +20,9 @@ import Hydra.Chain (
   OnChainTx (..),
   PostChainTx (..),
  )
-import Hydra.Contract.PAB (PabContract (..), pabPort)
 import Hydra.Ledger (Tx, Utxo)
 import Hydra.Logging (Tracer)
+import Hydra.PAB (PabContract (..), pabPort)
 import Hydra.Party (Party)
 import Ledger (AssetClass, PubKeyHash, TxOut (txOutValue), TxOutRef, pubKeyHash)
 import Ledger.Value (flattenValue)

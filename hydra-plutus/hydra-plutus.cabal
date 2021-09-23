@@ -71,13 +71,14 @@ common project-config
 library
   import:          project-config
   exposed-modules:
-    Hydra.Contract.ContestationPeriod
     Hydra.Contract.Head
     Hydra.Contract.Initial
-    Hydra.Contract.OffChain
-    Hydra.Contract.OnChain
-    Hydra.Contract.PAB
-    Hydra.Contract.Party
+    Hydra.Data.ContestationPeriod
+    Hydra.Data.HeadParameters
+    Hydra.Data.Party
+    Hydra.Depreciated.OffChain
+    Hydra.Depreciated.OnChain
+    Hydra.PAB
 
   hs-source-dirs:  src
   build-depends:

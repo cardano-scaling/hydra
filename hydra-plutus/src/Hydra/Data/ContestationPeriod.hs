@@ -1,7 +1,7 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE TemplateHaskell #-}
 
-module Hydra.Contract.ContestationPeriod where
+module Hydra.Data.ContestationPeriod where
 
 import Hydra.Prelude
 

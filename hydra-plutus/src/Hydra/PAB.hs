@@ -2,7 +2,7 @@
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeApplications #-}
 
-module Hydra.Contract.PAB where
+module Hydra.PAB where
 
 import Hydra.Prelude hiding (init)
 
@@ -11,10 +11,10 @@ import Data.Aeson (Options (..), defaultOptions, genericToJSON)
 import qualified Data.List.NonEmpty as NonEmpty
 import qualified Data.Map as Map
 import Data.Text.Prettyprint.Doc (Pretty (..), viaShow)
-import Hydra.Contract.ContestationPeriod (ContestationPeriod)
 import qualified Hydra.Contract.Head as Head
 import qualified Hydra.Contract.Initial as Initial
-import Hydra.Contract.Party (Party)
+import Hydra.Data.ContestationPeriod (ContestationPeriod)
+import Hydra.Data.Party (Party)
 import Ledger (
   ChainIndexTxOut,
   CurrencySymbol,
