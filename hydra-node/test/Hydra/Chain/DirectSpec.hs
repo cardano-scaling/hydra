@@ -47,12 +47,6 @@ spec = parallel $ do
 
           postTx $ AbortTx mempty
 
-          -- FIXME(AB): This is a bug, the observation code thinks amn abort tx is actually
-          -- both an init and an abort tx, hence both are observed and returned
-          failAfter 5 $
-            takeMVar calledBackAlice `shouldReturn` OnInitTx 100 [alice, bob, carol]
-          failAfter 5 $
-            takeMVar calledBackBob `shouldReturn` OnInitTx 100 [alice, bob, carol]
           failAfter 5 $
             takeMVar calledBackAlice `shouldReturn` OnAbortTx @SimpleTx
           failAfter 5 $
