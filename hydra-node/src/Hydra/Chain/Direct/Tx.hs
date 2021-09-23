@@ -21,6 +21,7 @@ import Cardano.Ledger.Alonzo.TxBody (TxBody (..), TxOut (TxOut))
 import Cardano.Ledger.Alonzo.TxWitness (RdmrPtr (RdmrPtr), Redeemers (..), TxDats (..), TxWitness (..), unTxDats)
 import Cardano.Ledger.Crypto (StandardCrypto)
 import Cardano.Ledger.Era (hashScript)
+import qualified Cardano.Ledger.SafeHash as SafeHash
 import Cardano.Ledger.ShelleyMA.Timelocks (ValidityInterval (..))
 import Cardano.Ledger.Val (inject)
 import Control.Monad (foldM)
@@ -34,8 +35,10 @@ import qualified Hydra.Contract.Initial as Initial
 import Hydra.Data.ContestationPeriod (contestationPeriodFromDiffTime, contestationPeriodToDiffTime)
 import Hydra.Data.Party (partyFromVerKey, partyToVerKey)
 import Hydra.Party (anonymousParty, vkey)
+import Ledger (AssetClass)
 import Plutus.V1.Ledger.Api (PubKeyHash (..), fromData, toData)
 import qualified Plutus.V1.Ledger.Api as Plutus
+import Plutus.V1.Ledger.Value (assetClass, currencySymbol, tokenName)
 import Shelley.Spec.Ledger.API (
   Coin (..),
   Credential (ScriptHashObj),
@@ -43,7 +46,8 @@ import Shelley.Spec.Ledger.API (
   ScriptHash,
   StakeReference (StakeRefNull),
   StrictMaybe (..),
-  TxIn,
+  TxId (TxId),
+  TxIn (TxIn),
   Wdrl (Wdrl),
  )
 
@@ -60,12 +64,19 @@ type Era = AlonzoEra StandardCrypto
 data OnChainHeadState
   = Closed
   | Initial
-      { -- TODO add the output containing the SM token
-        -- TODO initials should be a list of inputs/PubKeyHas
+      { -- | The state machine UTxO produced by the Init transaction
+        -- This output should always be present and 'threaded' across all
+        -- transactions.
+        threadOutput :: (TxIn StandardCrypto, AssetClass, HeadParameters)
+      , -- TODO initials should be a list of inputs/PubKeyHas
         -- TODO add commits
-        initials :: (TxIn StandardCrypto, PubKeyHash)
+        initials :: [(TxIn StandardCrypto, PubKeyHash)]
       }
   deriving (Eq, Show, Generic)
+
+-- FIXME: should not be hardcoded, for testing purposes only
+threadToken :: AssetClass
+threadToken = assetClass (currencySymbol "hydra") (tokenName "thread token")
 
 -- | Create the init transaction from some 'HeadParameters' and a single TxIn
 -- which will be used as unique parameter for minting NFTs.
@@ -95,11 +106,8 @@ initTx HeadParameters{contestationPeriod, parties} txIn =
 
   headOut = TxOut headAddress headValue (SJust headDatumHash)
 
-  -- TODO(SN): The main Hydra Head script address. Will be parameterized by the
-  -- thread token eventually. For now, this is just the initial script as well,
-  -- although this could be really some arbitrary address. After all it is also
-  -- later quite arbitrary/different per Head.
-  headAddress = scriptAddr $ PlutusScript "foo"
+  -- TODO: replace hardcoded asset class with one derived from the txIn
+  headAddress = scriptAddr $ plutusScript $ Head.validatorScript threadToken
 
   -- REVIEW(SN): how much to store here / minUtxoValue / depending on assets?
   headValue = inject (Coin 0)
@@ -117,18 +125,18 @@ initTx HeadParameters{contestationPeriod, parties} txIn =
 -- input. Of course, the Head protocol specifies we need to spend ALL the Utxo
 -- containing PTs.
 abortTx ::
-  -- | The input to be consumed by the abort transaction, locked by the validator
-  -- script
-  TxIn StandardCrypto ->
-  -- | The datum to provide to the validator script
-  PubKeyHash ->
+  -- | The data needed to consume the state-machine output
+  (TxIn StandardCrypto, AssetClass, HeadParameters) ->
+  -- | Data needed to consume the inital output sent to each party to the Head
+  -- which should contain the PT and is locked by initial script
+  [(TxIn StandardCrypto, PubKeyHash)] ->
   ValidatedTx Era
-abortTx txIn pkh =
+abortTx (txIn, token, HeadParameters{contestationPeriod, parties}) initInputs =
   mkUnsignedTx body dats redeemers scripts
  where
   body =
     TxBody
-      { inputs = Set.singleton txIn
+      { inputs = Set.fromList (txIn : map fst initInputs)
       , collateral = mempty
       , outputs = mempty
       , txcerts = mempty
@@ -144,22 +152,43 @@ abortTx txIn pkh =
       }
 
   -- TODO(SN): dummy exUnits, balancing overrides them?
-  redeemers = Map.singleton (RdmrPtr Spend 0) (redeemerData, ExUnits 0 0)
+  redeemers =
+    Map.fromList $
+      (RdmrPtr Spend 0, (headRedeemer, ExUnits 0 0)) :
+      initialRedeemers
 
-  -- TODO(SN): This should be 'Abort' or so
-  redeemerData = Data $ toData ()
+  headRedeemer = Data $ toData Head.Abort
 
-  scripts = Map.singleton initialScriptHash initialScript
+  initialRedeemers =
+    zipWith
+      (\rd n -> (RdmrPtr Spend n, (rd, ExUnits 0 0)))
+      (map (const $ Data $ toData ()) initInputs)
+      [1 ..]
 
-  initialScriptHash = hashScript @Era initialScript
+  scripts = Map.fromList $ map (\s -> (hashScript @Era s, s)) [initialScript, headScript]
 
   initialScript = plutusScript Initial.validatorScript
 
-  dats = TxDats $ Map.singleton initialDatumHash initialDatum
+  headScript = plutusScript $ Head.validatorScript token
 
-  initialDatumHash = hashData @Era initialDatum
+  dats =
+    TxDats $
+      Map.fromList $
+        (headDatumHash, headDatum) :
+        map (initialDatum . snd) initInputs
 
-  initialDatum = Data $ toData pkh
+  headDatumHash = hashData @Era headDatum
+
+  headDatum =
+    Data $
+      toData $
+        Head.Initial
+          (contestationPeriodFromDiffTime contestationPeriod)
+          (map (partyFromVerKey . vkey) parties)
+
+  initialDatum pkh =
+    let datum = Data $ toData $ pkh
+     in (hashData @Era datum, datum)
 
 --
 
@@ -178,11 +207,15 @@ runOnChainTxs headState = atomically . foldM runOnChainTx []
     pure $ observed <> newObserved
 
 observeInitTx :: ValidatedTx Era -> OnChainHeadState -> (Maybe (OnChainTx tx), OnChainHeadState)
-observeInitTx ValidatedTx{wits} st =
+observeInitTx ValidatedTx{wits, body} st =
   case extractParameters of
     Just (Head.Initial cp ps) ->
       ( Just $ OnInitTx (contestationPeriodToDiffTime cp) (map convertParty ps)
-      , st
+      , Initial
+          { threadOutput =
+              (firstInput, threadToken, HeadParameters (contestationPeriodToDiffTime cp) (map convertParty ps))
+          , initials = []
+          }
       )
     _ -> (Nothing, st)
  where
@@ -195,7 +228,7 @@ observeInitTx ValidatedTx{wits} st =
 
   convertParty = anonymousParty . partyToVerKey
 
-  _firstInput = error "undefined"
+  firstInput = TxIn (TxId $ SafeHash.hashAnnotated body) 0
 
 observeAbortTx :: ValidatedTx Era -> OnChainHeadState -> (Maybe (OnChainTx tx), OnChainHeadState)
 observeAbortTx _ st = (Nothing, st)
