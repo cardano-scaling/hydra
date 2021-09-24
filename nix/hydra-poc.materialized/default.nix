@@ -996,10 +996,7 @@
             flags = { "development" = lib.mkOverride 900 false; };
             };
           "hydra-plutus" = {
-            flags = {
-              "defer-plutus-plugin-errors" = lib.mkOverride 900 false;
-              "development" = lib.mkOverride 900 false;
-              };
+            flags = { "hydra-development" = lib.mkOverride 900 false; };
             };
           "plutus-chain-index" = { flags = {}; };
           "Win32-network" = { flags = { "demo" = lib.mkOverride 900 false; }; };

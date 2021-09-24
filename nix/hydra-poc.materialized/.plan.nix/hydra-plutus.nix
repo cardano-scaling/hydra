@@ -8,7 +8,7 @@
   , config
   , ... }:
   {
-    flags = { development = false; defer-plutus-plugin-errors = false; };
+    flags = { hydra-development = false; };
     package = {
       specVersion = "2.2";
       identifier = { name = "hydra-plutus"; version = "0.1.0"; };
@@ -44,6 +44,7 @@
           (hsPkgs."hydra-prelude" or (errorHandler.buildDepError "hydra-prelude"))
           (hsPkgs."lens" or (errorHandler.buildDepError "lens"))
           (hsPkgs."playground-common" or (errorHandler.buildDepError "playground-common"))
+          (hsPkgs."plutus-chain-index" or (errorHandler.buildDepError "plutus-chain-index"))
           (hsPkgs."plutus-contract" or (errorHandler.buildDepError "plutus-contract"))
           (hsPkgs."plutus-core" or (errorHandler.buildDepError "plutus-core"))
           (hsPkgs."plutus-ledger" or (errorHandler.buildDepError "plutus-ledger"))
@@ -58,13 +59,16 @@
           ];
         buildable = true;
         modules = [
-          "Hydra/Contract/ContestationPeriod"
+          "Hydra/Contract/Commit"
           "Hydra/Contract/Head"
           "Hydra/Contract/Initial"
-          "Hydra/Contract/OffChain"
-          "Hydra/Contract/OnChain"
-          "Hydra/Contract/PAB"
-          "Hydra/Contract/Party"
+          "Hydra/Data/ContestationPeriod"
+          "Hydra/Data/HeadParameters"
+          "Hydra/Data/Party"
+          "Hydra/Depreciated/OffChain"
+          "Hydra/Depreciated/OnChain"
+          "Hydra/OnChain/Util"
+          "Hydra/PAB"
           ];
         hsSourceDirs = [ "src" ];
         };
@@ -92,7 +96,7 @@
           hsSourceDirs = [ "exe/hydra-pab" ];
           mainPath = [
             "Main.hs"
-            ] ++ (pkgs.lib).optional (!flags.development) "";
+            ] ++ (pkgs.lib).optional (!flags.hydra-development) "";
           };
         };
       tests = {
