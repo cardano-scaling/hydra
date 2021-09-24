@@ -7,6 +7,8 @@ import Hydra.Prelude
 import qualified Codec.CBOR.Read as CBOR
 import qualified Codec.CBOR.Write as CBOR
 import Control.Monad.Class.MonadSTM (newEmptyTMVarIO, putTMVar, takeTMVar)
+import Data.Aeson (Value (String), withText)
+import qualified Data.ByteString.Base16.Lazy as Base16
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Network
 import System.ZMQ4.Monadic (
@@ -21,12 +23,30 @@ import System.ZMQ4.Monadic (
   subscribe,
  )
 
+newtype MsgData = MsgData LByteString
+  deriving (Show)
+
+instance Arbitrary MsgData where
+  arbitrary = MsgData <$> arbitrary
+
+instance ToJSON MsgData where
+  toJSON (MsgData bs) = String $ decodeUtf8 $ Base16.encode bs
+
+instance FromJSON MsgData where
+  parseJSON = withText "MsgData" $ \t ->
+    case Base16.decode (encodeUtf8 t) of
+      Left err -> fail err
+      Right v -> pure $ MsgData v
+
 data NetworkLog
   = PublisherStarted Host
-  | MessageSent Host LByteString
+  | MessageSent Host MsgData
   | LogMessageReceived Host Text
   | SubscribedTo Host [String]
-  deriving (Show)
+  deriving (Show, Generic, ToJSON, FromJSON)
+
+instance Arbitrary NetworkLog where
+  arbitrary = genericArbitrary
 
 withZeroMQNetwork ::
   (Show msg, ToCBOR msg, FromCBOR msg) =>
@@ -54,7 +74,7 @@ withZeroMQNetwork tracer localHost remoteHosts incomingCallback continuation = d
       hydraMessage <- liftIO $ atomically $ takeTMVar queue
       let encoded = CBOR.toLazyByteString $ toCBOR hydraMessage
       send pub [] $ toStrict encoded
-      liftIO $ traceWith tracer (MessageSent localHost encoded)
+      liftIO $ traceWith tracer (MessageSent localHost $ MsgData encoded)
 
   runClients callback = runZMQ $ do
     sub <- socket Sub
