@@ -32,8 +32,8 @@ spec = parallel $ do
     aliceKeys@(aliceVk, _) <- generateKeyPair
     bobKeys@(bobVk, _) <- generateKeyPair
     withMockServer $ \networkMagic iocp socket submitTx -> do
-      withDirectChain (contramap show stdoutTracer) networkMagic iocp socket aliceKeys (putMVar calledBackAlice) $ \Chain{postTx} -> do
-        withDirectChain (contramap show stdoutTracer) networkMagic iocp socket bobKeys (putMVar calledBackBob) $ \_ -> do
+      withDirectChain nullTracer networkMagic iocp socket aliceKeys (putMVar calledBackAlice) $ \Chain{postTx} -> do
+        withDirectChain nullTracer networkMagic iocp socket bobKeys (putMVar calledBackBob) $ \_ -> do
           let parameters = HeadParameters 100 [alice, bob, carol]
           generate (genPaymentTo aliceVk) >>= submitTx
           generate (genPaymentTo bobVk) >>= submitTx
