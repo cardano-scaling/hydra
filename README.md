@@ -47,6 +47,16 @@ Later:
 - [ ] Optimistic Head closure and incremental de-/commit protocol extension
 - [ ] Relay-capable, mesh network
 
+## :rocket: Getting started
+
+The quickest way to get a `hydra-node` running is to use our [docker
+images](https://hub.docker.com/r/inputoutput/hydra/tags).
+
+```
+docker pull inputoutput/hydra:hydra-node-latest
+docker run -rm inputoutput/hydra:hydra-node-latest --help
+```
+
 ## :wrench: Development
 
 We provide a `shell.nix` to set up a development environment. So a simple call
