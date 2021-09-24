@@ -52,10 +52,30 @@ Later:
 The quickest way to get a `hydra-node` running is to use our [docker
 images](https://hub.docker.com/r/inputoutput/hydra/tags).
 
+```sh
+$ docker pull inputoutput/hydra:hydra-node-latest
+$ docker run -rm inputoutput/hydra:hydra-node-latest --help
 ```
-docker pull inputoutput/hydra:hydra-node-latest
-docker run -rm inputoutput/hydra:hydra-node-latest --help
+
+In the POC, a `hydra-node` can only participate in a single Head and thus needs
+a single signing key `--me`. Also, we use simplified keys for easier debugging.
+
+To generate a new key:
+
+``` sh
+$ head -c8 /dev/random > test.sk
 ```
+
+Using this you can now start a `hydra-node`, our (currently) stubbed
+`mock-chain` and connect a `hydra-tui` (or any websocket client) to it:
+
+``` sh
+$ docker run -d --name hydra-node --network host -v $PWD:/data inputoutput/hydra:hydra-node-latest --me data/test.sk 
+$ docker run -d --name mock-chain --network host inputoutput/hydra:mock-chain-latest
+$ docker run --rm -it --network host inputoutput/hydra:hydra-tui-latest
+```
+
+Now you should see the terminal user interface connected to your node and you can initialize a Head, commit (generated) funds to it, send transactions and close the Head using the Commands/Hotkeys shown. Admittedly, as there are no other participants, this is a bit pointless. For a more interesting scenario with three nodes connected off-chain and three Head participants, check out our [demo section](./demo).
 
 ## :wrench: Development
 
