@@ -19,14 +19,14 @@ import Hydra.Node (HydraNodeLog (ProcessedEffect, ProcessingEvent))
 import Hydra.ServerOutput (ServerOutput (SnapshotConfirmed))
 import Hydra.Snapshot (Snapshot (Snapshot))
 import Network.HTTP.Req (GET (..), NoReqBody (..), bsResponse, defaultHttpConfig, http, port, req, responseBody, runReq, (/:))
-import Test.Network.Ports (withFreePort)
+import Test.Network.Ports (randomUnusedTCPPorts)
 
 spec :: Spec
-spec =
+spec = parallel $
   describe "Prometheus Metrics" $ do
     it "provides count of confirmed transactions from traces" $ do
       failAfter 3 $
-        withFreePort $ \p ->
+        randomUnusedTCPPorts $ \[p] ->
           withMonitoring (Just $ fromIntegral p) nullTracer $ \tracer -> do
             traceWith tracer (Node $ ProcessingEvent 1 (NetworkEvent (ReqTx 1 (aValidTx 42))))
             traceWith tracer (Node $ ProcessingEvent 1 (NetworkEvent (ReqTx 1 (aValidTx 43))))
@@ -38,7 +38,7 @@ spec =
 
     it "provides histogram of txs confirmation time from traces" $ do
       failAfter 3 $
-        withFreePort $ \p ->
+        randomUnusedTCPPorts $ \[p] ->
           withMonitoring (Just $ fromIntegral p) nullTracer $ \tracer -> do
             traceWith tracer (Node $ ProcessingEvent 1 (NetworkEvent (ReqTx 1 (aValidTx 42))))
             threadDelay 0.1
