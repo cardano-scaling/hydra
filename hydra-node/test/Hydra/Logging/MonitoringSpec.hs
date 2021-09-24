@@ -22,7 +22,7 @@ import Network.HTTP.Req (GET (..), NoReqBody (..), bsResponse, defaultHttpConfig
 import Test.Network.Ports (withFreePort)
 
 spec :: Spec
-spec = parallel $
+spec =
   describe "Prometheus Metrics" $ do
     it "provides count of confirmed transactions from traces" $ do
       failAfter 3 $
