@@ -1,4 +1,4 @@
-# <p align="center">:construction: Hydra Proof of Concept (POC) 🚧</p>
+# <p align="center">Hydra Proof of Concept (POC)</p>
 
 <div align="center">
   <p>A home to our colorful experiments and prototypes.</p>
