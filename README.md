@@ -6,7 +6,7 @@
   <a href='https://hub.docker.com/r/inputoutput/hydra/tags'><img src="https://img.shields.io/github/workflow/status/input-output-hk/hydra-poc/Docker?label=Docker&style=for-the-badge" /></a>
 </div>
 
-## Introduction
+## :sunrise_over_mountains: Introduction
 
 Hydra is the layer-two scalability solution for Cardano, which aims to increase
 the speed of transactions (low latency, high throughput) and minimize
@@ -29,7 +29,7 @@ our best practices and you will find many code smells and dirty hacks.
 
 Thanks for visiting and enjoy!
 
-## Features
+## :rainbow: Features
 
 Proof of concept:
 - [x] Coordinated Hydra Head protocol
@@ -47,7 +47,7 @@ Later:
 - [ ] Optimistic Head closure and incremental de-/commit protocol extension
 - [ ] Relay-capable, mesh network
 
-## 👷‍♂️ Development
+## :wrench: Development
 
 We provide a `shell.nix` to set up a development environment. So a simple call
 to `nix-shell` should put everything in place for building, testing and
@@ -91,7 +91,7 @@ idea to do the following:
 * Follow the instructions in the output by running the `/nix/store/<somehash>-updateMaterialized` script.
 * Comment out `checkMaterialization = true;` again and commit the changes
 
-## Documentation
+## :books: Documentation
 
 Documentation is published online at https://input-output-hk.github.io/hydra-poc from the [docs](docs/README.md) directory.
 
@@ -105,41 +105,3 @@ API Documentations are available for:
 * [hydra-plutus](https://input-output-hk.github.io/hydra-poc/haddock/hydra-plutus/index.html)
 * [local-cluster](https://input-output-hk.github.io/hydra-poc/haddock/local-cluster/index.html)
 * [merkle-patricia-tree](https://input-output-hk.github.io/hydra-poc/haddock/merkle-patricia-tree/index.html)
-
-## Try it out
-
-Either using the `demo/docker-compose.yaml` or when in the `nix-shell`, you can
-start a demo scenario with three parties using the following commands each in a
-separate shell:
-
-``` sh
-$ cabal exec mock-chain
-```
-
-``` sh
-$ cabal exec hydra-node -- --node-id 1 --api-port 4001 \
-  --port 5001 --peer "localhost:5002" --peer "localhost:5003" \
-  --me "demo/alice.sk" --party "demo/bob.vk" --party "demo/carol.vk"
-```
-
-``` sh
-$ cabal exec hydra-node -- --node-id 2 --api-port 4002 \
-  --port 5002 --peer "localhost:5001" --peer "localhost:5003" \
-  --me "demo/bob.sk" --party "demo/alice.vk" --party "demo/carol.vk"
-```
-
-``` sh
-$ cabal exec hydra-node -- --node-id 3 --api-port 4003 \
-  --port 5003 --peer "localhost:5001" --peer "localhost:5002" \
-  --me "demo/carol.sk" --party "demo/alice.vk" --party "demo/bob.vk"
-```
-
-Then you can interact with any of the three `hydra-node` instances using `ws`
-and connecting to the individual port, e.g. to initiate a head via alice's
-`hydra-node`:
-
-``` sh
-$ ws ws://127.0.0.1:4001
-> {"tag":"Init"}
-< {"parties":[42,51,66],"tag":"ReadyToCommit"}
-```
