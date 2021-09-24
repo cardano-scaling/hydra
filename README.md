@@ -3,7 +3,26 @@
 <div align="center">
   <p>A home to our colorful experiments and prototypes.</p>
   <a href='https://github.com/input-output-hk/hydra-poc/actions'><img src="https://img.shields.io/github/workflow/status/input-output-hk/hydra-poc/CI?label=Tests&style=for-the-badge" /></a>
+  <a href='https://hub.docker.com/r/inputoutput/hydra/tags'><img src="https://img.shields.io/github/workflow/status/input-output-hk/hydra-poc/Docker?label=Docker&style=for-the-badge" /></a>
 </div>
+
+## Features
+
+Proof of concept:
+- [x] Coordinated Hydra Head protocol
+- [x] Single Head per hydra-node
+- [x] Stubbed chain using external process
+- [x] Network statically configured, direct TCP connections
+- [x] WebSocket, message-based API Server
+- [x] Terminal user interface client
+
+Later:
+- [ ] Cardano-node integration (direct or via PAB)
+- [ ] Persisted Head state
+- [ ] Multiple Heads per hydra-node, managed via API
+- [ ] Support for external wallets (e.g. hardware wallets)
+- [ ] Optimistic Head closure and incremental de-/commit protocol extension
+- [ ] Relay-capable, mesh network
 
 ## :warning: Disclaimer
 
