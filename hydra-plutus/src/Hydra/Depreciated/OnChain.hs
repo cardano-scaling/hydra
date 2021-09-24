@@ -355,14 +355,15 @@ mustRunContract ::
 mustRunContract script redeemer ctx =
   case findContractInput script ctx of
     Nothing ->
-      False
+      traceIfFalse "mustRunContract: script not found." False
     Just contractRef ->
-      checkScriptContext @() @()
-        ( mconcat
-            [ mustSpendScriptOutput contractRef (asRedeemer redeemer)
-            ]
-        )
-        ctx
+      traceIfFalse "mustRunContract: mustSpendScriptOutput failed for redeemer." $
+        checkScriptContext @() @()
+          ( mconcat
+              [ mustSpendScriptOutput contractRef (asRedeemer redeemer)
+              ]
+          )
+          ctx
 {-# INLINEABLE mustRunContract #-}
 
 mustForwardParty ::

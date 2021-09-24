@@ -59,6 +59,11 @@ typedValidator = Scripts.mkTypedValidator @Commit
   wrap = Scripts.wrapValidator @(DatumType Commit) @(RedeemerType Commit)
 {- ORMOLU_ENABLE -}
 
+-- | Get the actual plutus script. Mainly used to serialize and use in
+-- transactions.
+validatorScript :: Script
+validatorScript = unValidatorScript $ Scripts.validatorScript typedValidator
+
 validatorHash :: ValidatorHash
 validatorHash = Scripts.validatorHash typedValidator
 

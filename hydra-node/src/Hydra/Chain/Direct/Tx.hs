@@ -12,10 +12,10 @@ module Hydra.Chain.Direct.Tx where
 
 import Hydra.Prelude
 
-import Cardano.Binary (serialize)
+import Cardano.Binary (serialize, serialize')
 import Cardano.Ledger.Address (Addr (Addr))
 import Cardano.Ledger.Alonzo (AlonzoEra, Script)
-import Cardano.Ledger.Alonzo.Data (Data (Data), hashData)
+import Cardano.Ledger.Alonzo.Data (Data (Data), DataHash, hashData)
 import Cardano.Ledger.Alonzo.Scripts (ExUnits (..), Script (PlutusScript))
 import Cardano.Ledger.Alonzo.Tx (IsValid (IsValid), ScriptPurpose (Spending), ValidatedTx (..), rdptr)
 import Cardano.Ledger.Alonzo.TxBody (TxBody (..), TxOut (TxOut))
@@ -27,16 +27,18 @@ import Cardano.Ledger.ShelleyMA.Timelocks (ValidityInterval (..))
 import Cardano.Ledger.Val (inject)
 import Control.Monad (foldM)
 import Control.Monad.Class.MonadSTM (stateTVar)
+import Data.ByteArray (convert)
 import qualified Data.Map as Map
 import qualified Data.Sequence.Strict as StrictSeq
 import qualified Data.Set as Set
 import Hydra.Chain (HeadParameters (..), OnChainTx (OnAbortTx, OnInitTx))
+import qualified Hydra.Contract.Commit as Commit
 import qualified Hydra.Contract.Initial as Initial
 import qualified Hydra.Contract.MockHead as Head
 import Hydra.Data.ContestationPeriod (contestationPeriodFromDiffTime, contestationPeriodToDiffTime)
 import Hydra.Data.Party (partyFromVerKey, partyToVerKey)
 import Hydra.Party (anonymousParty, vkey)
-import Ledger (AssetClass)
+import Ledger.Value (AssetClass (..), currencyMPSHash)
 import Plutus.V1.Ledger.Api (PubKeyHash (..), fromData, toData)
 import qualified Plutus.V1.Ledger.Api as Plutus
 import Plutus.V1.Ledger.Value (assetClass, currencySymbol, tokenName)
@@ -84,7 +86,7 @@ threadToken = assetClass (currencySymbol "hydra") (tokenName "thread token")
 -- which will be used as unique parameter for minting NFTs.
 initTx :: HeadParameters -> TxIn StandardCrypto -> ValidatedTx Era
 initTx HeadParameters{contestationPeriod, parties} txIn =
-  mkUnsignedTx body dats mempty mempty
+  mkUnsignedTx body dats (Redeemers mempty) mempty
  where
   body =
     TxBody
@@ -109,7 +111,8 @@ initTx HeadParameters{contestationPeriod, parties} txIn =
   headOut = TxOut headAddress headValue (SJust headDatumHash)
 
   -- TODO: replace hardcoded asset class with one derived from the txIn
-  headAddress = scriptAddr $ plutusScript $ Head.validatorScript threadToken
+  (policyId, _) = first currencyMPSHash (unAssetClass threadToken)
+  headAddress = scriptAddr $ plutusScript $ Head.validatorScript policyId
 
   -- REVIEW(SN): how much to store here / minUtxoValue / depending on assets?
   headValue = inject (Coin 0)
@@ -133,19 +136,19 @@ abortTx ::
   -- which should contain the PT and is locked by initial script
   [(TxIn StandardCrypto, PubKeyHash)] ->
   ValidatedTx Era
-abortTx (txIn, token, HeadParameters{contestationPeriod, parties}) initInputs =
-  mkUnsignedTx body dats redeemers scripts
+abortTx (smInput, token, HeadParameters{contestationPeriod, parties}) initInputs =
+  mkUnsignedTx body datums redeemers scripts
  where
   body =
     TxBody
-      { inputs = Set.fromList (txIn : map fst initInputs)
+      { inputs = Set.fromList (smInput : map fst initInputs)
       , collateral = mempty
       , outputs =
           StrictSeq.fromList
             [ TxOut
                 (scriptAddr headScript)
                 (inject $ Coin 0) -- TODO: This really needs to be passed as argument
-                (SJust headDatumHash)
+                (SJust $ hashData @Era abortDatum)
             ]
       , txcerts = mempty
       , txwdrls = Wdrl mempty
@@ -159,57 +162,51 @@ abortTx (txIn, token, HeadParameters{contestationPeriod, parties}) initInputs =
       , txnetworkid = SNothing
       }
 
-  -- TODO(SN): dummy exUnits, balancing overrides them?
-  redeemers =
-    Map.fromList $
-      foldl' hasRdmrPtr [] $
-        (rdptr body (Spending txIn), (headRedeemer, ExUnits 0 0)) :
-        initialRedeemers
-
-  hasRdmrPtr acc = \case
-    (SNothing, _) -> acc
-    (SJust v, ex) -> (v, ex) : acc
-
-  headRedeemer = Data $ toData Head.Abort
-
-  initialRedeemers =
-    map
-      (\(txin, _) -> (rdptr body (Spending txin), (Data $ toData (), ExUnits 0 0)))
-      initInputs
-
-  scripts = Map.fromList $ map (\s -> (hashScript @Era s, s)) [initialScript, headScript]
+  (policyId, _) = first currencyMPSHash (unAssetClass token)
 
   initialScript = plutusScript Initial.validatorScript
+  commitScript = plutusScript Commit.validatorScript
+  headScript = plutusScript $ Head.validatorScript policyId
 
-  headScript = plutusScript $ Head.validatorScript token
+  scripts =
+    fromList $ map withScriptHash [initialScript, headScript]
 
-  dats =
-    TxDats $
-      Map.fromList $
-        (abortDatumHash, abortDatum) :
-        (headDatumHash, headDatum) :
-        map (initialDatum . snd) initInputs
+  -- TODO(SN): dummy exUnits, balancing overrides them?
+  redeemers =
+    redeemersFromList $
+      (rdptr body (Spending smInput), (headRedeemer, ExUnits 0 0)) : initialRedeemers
+   where
+    headRedeemer = Data $ toData Head.Abort
+    initialRedeemers =
+      map
+        ( \(txin, _) ->
+            ( rdptr body (Spending txin)
+            , (Data $ toData $ Plutus.getRedeemer $ Initial.redeemer Nothing, ExUnits 0 0)
+            )
+        )
+        initInputs
 
-  headDatumHash = hashData @Era headDatum
-
-  headDatum =
-    Data $
-      toData $
-        Head.Initial
-          (contestationPeriodFromDiffTime contestationPeriod)
-          (map (partyFromVerKey . vkey) parties)
-
-  initialDatum pkh =
-    let datum = Data $ toData pkh
-     in (hashData @Era datum, datum)
-
-  abortDatumHash =
-    hashData @Era abortDatum
-
+  datums =
+    datumsFromList $ abortDatum : headDatum : map initialDatum initInputs
+   where
+    headDatum =
+      Data $
+        toData $
+          Head.Initial
+            (contestationPeriodFromDiffTime contestationPeriod)
+            (map (partyFromVerKey . vkey) parties)
+    initialDatum (_, vkh) =
+      Data $ toData $ Initial.datum (policyId, dependencies, vkh)
+     where
+      dependencies =
+        Initial.Dependencies
+          { Initial.headScript =
+              Plutus.ValidatorHash $ convert $ serialize' $ hashScript @Era headScript
+          , Initial.commitScript =
+              Plutus.ValidatorHash $ convert $ serialize' $ hashScript @Era commitScript
+          }
   abortDatum =
     Data $ toData Head.Final
-
---
 
 -- * Observe Hydra Head transactions
 
@@ -270,7 +267,7 @@ observeAbortTx ValidatedTx{wits} st =
 mkUnsignedTx ::
   TxBody Era ->
   TxDats Era ->
-  Map RdmrPtr (Data Era, ExUnits) ->
+  Redeemers Era ->
   Map (ScriptHash StandardCrypto) (Script Era) ->
   ValidatedTx Era
 mkUnsignedTx body datums redeemers scripts =
@@ -282,7 +279,7 @@ mkUnsignedTx body datums redeemers scripts =
           , txwitsBoot = mempty
           , txscripts = scripts
           , txdats = datums
-          , txrdmrs = Redeemers redeemers
+          , txrdmrs = redeemers
           }
     , isValid = IsValid True -- REVIEW(SN): no idea of the semantics of this
     , auxiliaryData = SNothing
@@ -299,3 +296,23 @@ scriptAddr script =
 
 plutusScript :: Plutus.Script -> Script Era
 plutusScript = PlutusScript . toShort . fromLazy . serialize
+
+withDataHash :: Data Era -> (DataHash StandardCrypto, Data Era)
+withDataHash d = (hashData d, d)
+
+withScriptHash :: Script Era -> (ScriptHash StandardCrypto, Script Era)
+withScriptHash s = (hashScript @Era s, s)
+
+datumsFromList :: [Data Era] -> TxDats Era
+datumsFromList = TxDats . Map.fromList . fmap withDataHash
+
+-- | Slightly unsafe, as it drops `SNothing` values from the list silently.
+redeemersFromList ::
+  [(StrictMaybe RdmrPtr, (Data Era, ExUnits))] ->
+  Redeemers Era
+redeemersFromList =
+  Redeemers . Map.fromList . foldl' hasRdmrPtr []
+ where
+  hasRdmrPtr acc = \case
+    (SNothing, _) -> acc
+    (SJust v, ex) -> (v, ex) : acc
