@@ -28,7 +28,7 @@ data Initial
 
 instance Scripts.ValidatorTypes Initial where
   type DatumType Initial = (MintingPolicyHash, Dependencies, PubKeyHash)
-  type RedeemerType Initial = TxOutRef
+  type RedeemerType Initial = Maybe TxOutRef
 
 -- TODO: We should be able to get rid of this in principle and inject them
 -- directly at compile-time (since they are statically known). Somehow, this
@@ -44,10 +44,10 @@ PlutusTx.unstableMakeIsData ''Dependencies
 
 validator ::
   (MintingPolicyHash, Dependencies, PubKeyHash) ->
-  TxOutRef ->
+  Maybe TxOutRef ->
   ScriptContext ->
   Bool
-validator (policyId, Dependencies{headScript, commitScript}, vk) ref ctx =
+validator (policyId, Dependencies{headScript, commitScript}, vk) mref ctx =
   consumedByCommit || consumedByAbort
  where
   -- A commit transaction, identified by:
@@ -57,7 +57,7 @@ validator (policyId, Dependencies{headScript, commitScript}, vk) ref ctx =
   --        participation token for the associated key, and the total value of the
   --        committed UTxO.
   consumedByCommit =
-    case findUtxo ref ctx of
+    case mref >>= findUtxo ctx of
       Nothing ->
         False
       Just utxo ->
@@ -91,9 +91,11 @@ typedValidator = Scripts.mkTypedValidator @Initial
 validatorHash :: ValidatorHash
 validatorHash = Scripts.validatorHash typedValidator
 
--- | Do not use this outside of plutus land.
 datum :: DatumType Initial -> Datum
 datum a = Datum (toBuiltinData a)
+
+redeemer :: RedeemerType Initial -> Redeemer
+redeemer a = Redeemer (toBuiltinData a)
 
 -- | Do not use this outside of plutus land.
 address :: Address

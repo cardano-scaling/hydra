@@ -6,16 +6,15 @@
 -- | A mock Head contract not using a state machine for testing purpose.
 module Hydra.Contract.MockHead where
 
+import Ledger
 import PlutusTx.Prelude
 
 import Data.Aeson (FromJSON, ToJSON)
 import GHC.Generics (Generic)
 import Hydra.Data.ContestationPeriod (ContestationPeriod)
 import Hydra.Data.Party (Party)
-import Ledger (Script, ScriptContext, ValidatorHash, unValidatorScript)
 import Ledger.Typed.Scripts (ValidatorType, ValidatorTypes (DatumType, RedeemerType))
 import qualified Ledger.Typed.Scripts as Scripts
-import Ledger.Value (AssetClass)
 import PlutusTx (CompiledCode)
 import qualified PlutusTx
 import Text.Show (Show)
@@ -44,7 +43,7 @@ instance Scripts.ValidatorTypes Head where
 
 {-# INLINEABLE validator #-}
 validator ::
-  AssetClass ->
+  MintingPolicyHash ->
   State ->
   Input ->
   ScriptContext ->
@@ -52,13 +51,13 @@ validator ::
 validator _ _ _ _ctx =
   True
 
-compiledValidator :: AssetClass -> CompiledCode (ValidatorType Head)
+compiledValidator :: MintingPolicyHash -> CompiledCode (ValidatorType Head)
 compiledValidator token =
   $$(PlutusTx.compile [||validator||])
     `PlutusTx.applyCode` PlutusTx.liftCode token
 
 {- ORMOLU_DISABLE -}
-typedValidator :: AssetClass -> Scripts.TypedValidator Head
+typedValidator :: MintingPolicyHash -> Scripts.TypedValidator Head
 typedValidator token = Scripts.mkTypedValidator @Head
   (compiledValidator token)
   $$(PlutusTx.compile [|| wrap ||])
@@ -67,10 +66,10 @@ typedValidator token = Scripts.mkTypedValidator @Head
 {- ORMOLU_ENABLE -}
 
 -- | Do not use this outside of plutus land.
-validatorHash :: AssetClass -> ValidatorHash
+validatorHash :: MintingPolicyHash -> ValidatorHash
 validatorHash = Scripts.validatorHash . typedValidator
 
 -- | Get the actual plutus script. Mainly used to serialize and use in
 -- transactions.
-validatorScript :: AssetClass -> Script
+validatorScript :: MintingPolicyHash -> Script
 validatorScript = unValidatorScript . Scripts.validatorScript . typedValidator

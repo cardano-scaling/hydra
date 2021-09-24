@@ -80,14 +80,15 @@ mustRunContract ::
 mustRunContract script redeemer ctx =
   case findContractInput script ctx of
     Nothing ->
-      False
+      traceIfFalse "mustRunContract: script not found." False
     Just contractRef ->
-      checkScriptContext @() @()
-        ( mconcat
-            [ mustSpendScriptOutput contractRef (asRedeemer redeemer)
-            ]
-        )
-        ctx
+      traceIfFalse "mustRunContract: mustSpendScriptOutput failed for redeemer." $
+        checkScriptContext @() @()
+          ( mconcat
+              [ mustSpendScriptOutput contractRef (asRedeemer redeemer)
+              ]
+          )
+          ctx
 {-# INLINEABLE mustRunContract #-}
 
 mustForwardParty ::
@@ -150,8 +151,8 @@ filterInputs predicate =
     | otherwise = Nothing
 {-# INLINEABLE filterInputs #-}
 
-findUtxo :: TxOutRef -> ScriptContext -> Maybe (TxOutRef, TxOut)
-findUtxo ref ctx =
+findUtxo :: ScriptContext -> TxOutRef -> Maybe (TxOutRef, TxOut)
+findUtxo ctx ref =
   case filterInputs (\input -> ref == txInInfoOutRef input) ctx of
     [utxo] -> Just utxo
     _ -> Nothing

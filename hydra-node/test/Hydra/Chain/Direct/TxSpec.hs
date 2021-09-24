@@ -8,7 +8,7 @@ module Hydra.Chain.Direct.TxSpec where
 import Hydra.Prelude
 import Test.Hydra.Prelude
 
-import Cardano.Binary (serialize)
+import Cardano.Binary (serialize, serialize')
 import Cardano.Ledger.Alonzo (TxOut)
 import Cardano.Ledger.Alonzo.Data (Data (Data), hashData)
 import Cardano.Ledger.Alonzo.Language (Language (PlutusV1))
@@ -18,6 +18,7 @@ import Cardano.Ledger.Alonzo.Tx (ValidatedTx (ValidatedTx, body, wits))
 import Cardano.Ledger.Alonzo.TxBody (TxOut (TxOut))
 import Cardano.Ledger.Alonzo.TxWitness (RdmrPtr, TxWitness (txdats), unTxDats)
 import Cardano.Ledger.Crypto (StandardCrypto)
+import Cardano.Ledger.Era (hashScript)
 import Cardano.Ledger.Mary.Value (AssetName, PolicyID, Value (Value))
 import qualified Cardano.Ledger.SafeHash as SafeHash
 import Cardano.Ledger.Slot (EpochSize (EpochSize))
@@ -25,6 +26,7 @@ import Cardano.Ledger.Val (inject)
 import Cardano.Slotting.EpochInfo (fixedEpochInfo)
 import Cardano.Slotting.Time (SystemStart (..), mkSlotLength)
 import Data.Array (array)
+import Data.ByteArray (convert)
 import qualified Data.ByteString.Lazy as LBS
 import qualified Data.Map as Map
 import Data.Maybe (fromJust)
@@ -32,21 +34,23 @@ import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
 import Hydra.Chain (HeadParameters (..), PostChainTx (..))
 import Hydra.Chain.Direct.Tx (OnChainHeadState (..), abortTx, initTx, observeAbortTx, observeInitTx, plutusScript, scriptAddr, threadToken)
 import Hydra.Chain.Direct.Util (Era)
+import qualified Hydra.Contract.Commit as Commit
 import qualified Hydra.Contract.Initial as Initial
 import qualified Hydra.Contract.MockHead as Head
 import Hydra.Data.ContestationPeriod (contestationPeriodFromDiffTime)
 import Hydra.Data.Party (partyFromVerKey)
 import Hydra.Party (vkey)
+import Ledger.Value (currencyMPSHash, unAssetClass)
 import Plutus.V1.Ledger.Api (PubKeyHash (PubKeyHash), toBuiltin, toBuiltinData, toData)
+import qualified Plutus.V1.Ledger.Api as Plutus
 import Shelley.Spec.Ledger.API (Coin (Coin), StrictMaybe (SJust), TxId (TxId), TxIn (TxIn), UTxO (UTxO))
 import Test.Cardano.Ledger.Alonzo.PlutusScripts (defaultCostModel)
 import Test.Cardano.Ledger.Alonzo.Serialisation.Generators ()
 import Test.QuickCheck (Gen, NonEmptyList (NonEmpty), counterexample, listOf, oneof, (===))
 import Test.QuickCheck.Instances ()
 
--- TODO(SN): use real max tx size
 maxTxSize :: Int64
-maxTxSize = 16000
+maxTxSize = 16384 -- 2 ^ 14, as per current Mainnet
 
 spec :: Spec
 spec =
@@ -94,7 +98,8 @@ spec =
             -- redeemer : State
 
             txOut = TxOut headAddress headValue (SJust headDatumHash)
-            headAddress = scriptAddr $ plutusScript $ Head.validatorScript threadToken
+            (policyId, _) = first currencyMPSHash (unAssetClass threadToken)
+            headAddress = scriptAddr $ plutusScript $ Head.validatorScript policyId
             headValue = inject (Coin 0)
             headDatumHash =
               hashData @Era . Data $
@@ -117,7 +122,19 @@ toTxOut (txIn, pkh) =
  where
   initialAddress = scriptAddr $ plutusScript Initial.validatorScript
   initialValue = inject (Coin 0)
-  initialDatumHash = hashData @Era . Data $ toData pkh
+  initialDatumHash =
+    hashData @Era $ Data $ toData $ Initial.datum (policyId, dependencies, pkh)
+   where
+    (policyId, _) = first currencyMPSHash (unAssetClass threadToken)
+    headScript = plutusScript (Head.validatorScript policyId)
+    commitScript = plutusScript Commit.validatorScript
+    dependencies =
+      Initial.Dependencies
+        { Initial.headScript =
+            Plutus.ValidatorHash $ convert $ serialize' $ hashScript @Era headScript
+        , Initial.commitScript =
+            Plutus.ValidatorHash $ convert $ serialize' $ hashScript @Era commitScript
+        }
 
 isImplemented :: PostChainTx tx -> OnChainHeadState -> Bool
 isImplemented tx st =

@@ -137,6 +137,7 @@ library
     , io-classes
     , iohk-monitoring
     , iproute
+    , memory
     , network
     , network-mux
     , optparse-applicative
@@ -257,12 +258,14 @@ test-suite tests
     , iproute
     , lens
     , lens-aeson
+    , memory
     , network
-    , ouroboros-network
-    , ouroboros-network-framework
     , ouroboros-consensus
     , ouroboros-consensus-cardano
     , ouroboros-consensus-shelley
+    , ouroboros-network
+    , ouroboros-network-framework
+    , plutus-ledger
     , plutus-ledger-api
     , process
     , QuickCheck
