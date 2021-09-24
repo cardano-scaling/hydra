@@ -6,6 +6,29 @@
   <a href='https://hub.docker.com/r/inputoutput/hydra/tags'><img src="https://img.shields.io/github/workflow/status/input-output-hk/hydra-poc/Docker?label=Docker&style=for-the-badge" /></a>
 </div>
 
+## Introduction
+
+Hydra is the layer-two scalability solution for Cardano, which aims to increase
+the speed of transactions (low latency, high throughput) and minimize
+transaction cost.
+
+This repository contains the proof-of-concept implementation the Hydra
+engineering team has put together during exploration and can be considered a
+"developer preview". It outlines the basic architecture of a `hydra-node`, which
+runs a simplified (coordinated) [Hydra Head
+protocol](https://eprint.iacr.org/2020/299.pdf), connects to other hydra-nodes,
+interfaces the Cardano blockchain and provides an API to clients such as the
+included terminal user interface `hydra-tui`.
+
+:warning: This is still prototypical and exploratory work shared here for your
+interest - it is NOT ready for production (yet) :warning:
+
+Please also note that as we did develop this while in "move fast, break things"
+experimentation mode, the code quality seen around here may not always represent
+our best practices and you will find many code smells and dirty hacks.
+
+Thanks for visiting and enjoy!
+
 ## Features
 
 Proof of concept:
@@ -23,17 +46,6 @@ Later:
 - [ ] Support for external wallets (e.g. hardware wallets)
 - [ ] Optimistic Head closure and incremental de-/commit protocol extension
 - [ ] Relay-capable, mesh network
-
-## :warning: Disclaimer
-
-This is prototypical and exploratory work shared here for your interest.
-Although we might create a prototype for a `hydra-node` in here, some
-experiments have not a clear goal or usage in mind. We do not provide
-documentation or support for the artifacts created here by purpose as we
-also intend to throw away / discontinue use when we start building the
-final product. Please note the code quality seen around here is not
-representative of our best practices and you will find many code smells
-and dirtyhacks. Thanks for visiting and enjoy!
 
 ## 👷‍♂️ Development
 
