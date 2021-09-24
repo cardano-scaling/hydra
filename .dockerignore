@@ -1,15 +1,6 @@
-*
-
-!*.nix
-!/nix
-
-!cabal.project
-!/hydra-node
-!/hydra-plutus
-!/hydra-prelude
-!/local-cluster
-
-dist-newstyle/
+/.direnv/
+/.github
+/dist-newstyle/
 *.sock
 *.socket
 *.eventlog
@@ -17,3 +8,4 @@ dist-newstyle/
 *.prof
 *.hi
 *.o
+/test-results.xml
