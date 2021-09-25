@@ -1,8 +1,17 @@
-# Hydra Node Technical Architecture
+Welcome to the Hydra Proof-of-Concept (POC) documentation.
 
-This document is essentially a collection of links to other places in the source repository
+This technical documentation does contain some additional information about the
+architecture and inner workings of a `hydra-node` and the [Hydra Head
+protocol](https://eprint.iacr.org/2020/299.pdf).
 
-## Principles
+:warning: This project is still prototypical and exploratory work - it is NOT ready for production (yet). :warning:
+
+Thus, the documentation here is also a work in progress and is certainly not
+complete. However, we do want to improve it and would like to hear from any
+[questions](https://github.com/input-output-hk/hydra-poc/tree/ch1bo/docs#question-contributing)
+you might have (so we can at the very least compile an FAQ).
+
+# Hydra Node Architecture
 
 We use _Architecture Decision Records (ADR)_ for a lightweight technical
 documentation about our principles and significant design decisions. The
