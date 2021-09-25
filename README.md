@@ -77,6 +77,16 @@ docker run --rm -it --network host inputoutput/hydra:hydra-tui-latest
 
 Now you should see the terminal user interface connected to your node and you can initialize a Head, commit (generated) funds to it, send transactions and close the Head using the Commands/Hotkeys shown. Admittedly, as there are no other participants, this is a bit pointless. For a more interesting scenario with three nodes connected off-chain and three Head participants, check out our [demo section](./demo).
 
+## :question: Contributing
+
+The best way to contribute right now is to provide feedback. Give the
+[demo](./demo) a test drive and have a look at our [documentation](./docs).
+Should you have any questions, ideas or issues, we would like to hear from you:
+
+- #ask-hydra on the IOG [Discord server](https://discord.gg/Qq5vNTg9PT)
+- create a Github [Issue](https://github.com/input-output-hk/hydra-poc/issues/new)
+- or ask on Cardano [StackExchange](https://cardano.stackexchange.com/) using the `hydra` tag
+
 ## :wrench: Development
 
 We provide a `shell.nix` to set up a development environment. So a simple call
