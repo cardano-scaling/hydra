@@ -133,15 +133,16 @@ idea to do the following:
 
 ## :books: Documentation
 
-Documentation is published online at https://input-output-hk.github.io/hydra-poc from the [docs](docs/README.md) directory.
+[Documentation](./docs) is adding onto the information found here and the wiki, and is published online at https://input-output-hk.github.io/hydra-poc.
 
-API Documentations are available for:
+API Documentation is available for:
 * The [WebSocket API](https://input-output-hk.github.io/json-schema-viewer/#/?url=https://raw.githubusercontent.com/input-output-hk/hydra-poc/master/hydra-node/api.yaml)
 * The [Log API](https://input-output-hk.github.io/json-schema-viewer/#/?url=https://raw.githubusercontent.com/input-output-hk/hydra-poc/master/hydra-node/api-log.yaml)
 
 [Haddock](https://www.haskell.org/haddock/) documentation is also published for each package:
 * [hydra-prelude](https://input-output-hk.github.io/hydra-poc/haddock/hydra-prelude/index.html)
 * [hydra-node](https://input-output-hk.github.io/hydra-poc/haddock/hydra-node/index.html)
+* [hydra-tui](https://input-output-hk.github.io/hydra-poc/haddock/hydra-tui/index.html)
 * [hydra-plutus](https://input-output-hk.github.io/hydra-poc/haddock/hydra-plutus/index.html)
 * [local-cluster](https://input-output-hk.github.io/hydra-poc/haddock/local-cluster/index.html)
 * [merkle-patricia-tree](https://input-output-hk.github.io/hydra-poc/haddock/merkle-patricia-tree/index.html)
