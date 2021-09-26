@@ -60,8 +60,6 @@ architecture itself then is just a result of all accepted ADRs, which have not
 been deprecated or superseeded. An up-to-date index of still relevant ADRs is
 kept [here](./adr/README.md).
 
-## Overview
-
 The following diagram represents the internal structure of the Hydra Node and the interactions between its components.
 
 ![](images/hydra-components.jpg)
