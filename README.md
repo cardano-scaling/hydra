@@ -133,7 +133,9 @@ idea to do the following:
 
 ## :books: Documentation
 
-[Documentation](./docs) is adding onto the information found here and the wiki, and is published online at https://input-output-hk.github.io/hydra-poc.
+Adding onto the information found here and the wiki there is some [technical
+documentation](./docs), which is also published online at
+https://input-output-hk.github.io/hydra-poc.
 
 API Documentation is available for:
 * The [WebSocket API](https://input-output-hk.github.io/json-schema-viewer/#/?url=https://raw.githubusercontent.com/input-output-hk/hydra-poc/master/hydra-node/api.yaml)
