@@ -14,7 +14,7 @@ docker-compose up -d
 And attach three `hydra-tui` clients to each `hydra-node` (in three terminals):
 
 ``` sh
-docker run --rm it inputoutput/hydra:hydra-tui-latest --connect localhost:4001 # alice's hydra-node
-docker run --rm it inputoutput/hydra:hydra-tui-latest --connect localhost:4002 # bob's hydra-node
-docker run --rm it inputoutput/hydra:hydra-tui-latest --connect localhost:4003 # carol's hydra-node
+docker run --rm -it inputoutput/hydra:hydra-tui-latest --connect localhost:4001 # alice's hydra-node
+docker run --rm -it inputoutput/hydra:hydra-tui-latest --connect localhost:4002 # bob's hydra-node
+docker run --rm -it inputoutput/hydra:hydra-tui-latest --connect localhost:4003 # carol's hydra-node
 ```
