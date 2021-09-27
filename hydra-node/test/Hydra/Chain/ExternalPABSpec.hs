@@ -70,6 +70,20 @@ spec = do
             postTx client2 $ AbortTx @SimpleTx mempty
             takeMVar calledBack1 `shouldReturn` OnAbortTx
 
+  it "can start over the life cycle" $ do
+    failAfter 40 $
+      withHydraPab $ do
+        calledBack1 <- newEmptyMVar
+        -- NOTE(SN): The cardano pubkeys and which wallet is used, is
+        -- hard-coded in 'withExternalPab'!
+        withExternalPab @SimpleTx 1 nullTracer (putMVar calledBack1) $ \client1 -> do
+          postTx client1 $ InitTx @SimpleTx $ HeadParameters 100 [alice, bob, carol]
+          takeMVar calledBack1 `shouldReturn` OnInitTx 100 [alice, bob, carol]
+          postTx client1 $ AbortTx @SimpleTx mempty
+          takeMVar calledBack1 `shouldReturn` OnAbortTx
+          postTx client1 $ InitTx @SimpleTx $ HeadParameters 100 [alice, bob]
+          takeMVar calledBack1 `shouldReturn` OnInitTx 100 [alice, bob]
+
 alice, bob, carol :: Party
 alice = deriveParty $ generateKey 10
 bob = deriveParty $ generateKey 20

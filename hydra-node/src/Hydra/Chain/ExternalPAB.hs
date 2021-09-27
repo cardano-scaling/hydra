@@ -7,7 +7,7 @@ module Hydra.Chain.ExternalPAB where
 
 import Hydra.Prelude
 
-import Control.Monad.Class.MonadSTM (MonadSTMTx (takeTMVar, tryReadTMVar), newEmptyTMVarIO, putTMVar)
+import Control.Monad.Class.MonadSTM (newTVarIO, readTVarIO, retry, writeTVar)
 import Control.Monad.Class.MonadSay (say)
 import Data.Aeson (Result (Error, Success), eitherDecodeStrict)
 import Data.Aeson.Types (fromJSON)
@@ -62,8 +62,9 @@ withExternalPab ::
   Tracer IO ExternalPabLog ->
   ChainComponent tx IO ()
 withExternalPab walletId _tracer callback action = do
-  threadToken <- newEmptyTMVarIO
+  threadToken <- newTVarIO Nothing
   withAsync (initTxSubscriber wallet threadToken callback) $ \_ ->
+    -- FIXME(SN): this will only observe the first head discovered
     withAsync (headSubscriber wallet threadToken callback) $ \_ ->
       withAsync (utxoSubscriber wallet) $ \_ -> do
         action $ Chain{postTx = postTx threadToken}
@@ -77,7 +78,7 @@ withExternalPab walletId _tracer callback action = do
           , hydraParties = parties
           }
     AbortTx utxo -> do
-      atomically (tryReadTMVar threadToken) >>= \case
+      readTVarIO threadToken >>= \case
         -- XXX(SN): use MonadThrow and proper exceptions or even Either
         Nothing -> error "cannot post abortTx , unknown head / no thread token yet!"
         Just tt -> postAbortTx @tx wallet tt utxo
@@ -168,7 +169,7 @@ data ErrDecoding
 
 instance Exception ErrDecoding
 
-initTxSubscriber :: Wallet -> TMVar IO AssetClass -> (OnChainTx tx -> IO ()) -> IO ()
+initTxSubscriber :: Wallet -> TVar IO (Maybe AssetClass) -> (OnChainTx tx -> IO ()) -> IO ()
 initTxSubscriber wallet threadToken callback = do
   (ContractInstanceId cid) <- activateContract WatchInit wallet
   runClient "127.0.0.1" pabPort ("/ws/" <> show cid) $ \con -> forever $ do
@@ -181,15 +182,15 @@ initTxSubscriber wallet threadToken callback = do
             Nothing -> pure ()
             Just (tt :: AssetClass, cp :: ContestationPeriod, ps :: [Party]) -> do
               say $ "Observed initTx " <> show tt <> ", " <> show cp <> ", " <> show ps
-              atomically $ putTMVar threadToken tt
+              atomically $ writeTVar threadToken (Just tt)
               callback $ OnInitTx cp ps
       Right _ -> pure ()
       Left err ->
         throwIO $ ErrDecodingMsg $ show err
 
-headSubscriber :: Tx tx => Wallet -> TMVar IO AssetClass -> (OnChainTx tx -> IO ()) -> IO ()
+headSubscriber :: Tx tx => Wallet -> TVar IO (Maybe AssetClass) -> (OnChainTx tx -> IO ()) -> IO ()
 headSubscriber wallet threadToken callback = do
-  tt <- atomically $ takeTMVar threadToken >>= \tt -> putTMVar threadToken tt >> pure tt
+  tt <- atomically $ readTVar threadToken >>= maybe retry pure
   say $ "Head subscriber: got thread token " <> show tt
   (ContractInstanceId cid) <- activateContract WatchHead wallet
   runReq defaultHttpConfig $ do
