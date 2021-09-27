@@ -8,7 +8,7 @@ protocol](https://eprint.iacr.org/2020/299.pdf).
 
 Thus, the documentation here is also a work in progress and is certainly not
 complete. However, we do want to improve it and would like to hear from any
-[questions](https://github.com/input-output-hk/hydra-poc/tree/ch1bo/docs#question-contributing)
+[questions](https://github.com/input-output-hk/hydra-poc/#question-contributing)
 you might have (so we can at the very least compile an FAQ).
 
 # Hydra Head protocol
