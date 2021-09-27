@@ -7,7 +7,8 @@ module Hydra.Chain.ExternalPAB where
 
 import Hydra.Prelude
 
-import Control.Monad.Class.MonadSTM (newTVarIO, readTVarIO, retry, writeTVar)
+import Control.Monad.Class.MonadAsync (Async, async, cancel)
+import Control.Monad.Class.MonadSTM (modifyTVar, newTVarIO, readTVarIO)
 import Control.Monad.Class.MonadSay (say)
 import Data.Aeson (Result (Error, Success), eitherDecodeStrict)
 import Data.Aeson.Types (fromJSON)
@@ -62,14 +63,15 @@ withExternalPab ::
   Tracer IO ExternalPabLog ->
   ChainComponent tx IO ()
 withExternalPab walletId _tracer callback action = do
-  threadToken <- newTVarIO Nothing
-  withAsync (initTxSubscriber wallet threadToken callback) $ \_ ->
-    -- FIXME(SN): this will only observe the first head discovered
-    withAsync (headSubscriber wallet threadToken callback) $ \_ ->
-      withAsync (utxoSubscriber wallet) $ \_ -> do
-        action $ Chain{postTx = postTx threadToken}
+  bracket (newTVarIO mempty) stopObservers $ \headObservers ->
+    withAsync (initTxSubscriber wallet headObservers callback) $ \_ ->
+      withAsync (utxoSubscriber wallet) $ \_ ->
+        action $ Chain{postTx = postTx headObservers}
  where
-  postTx threadToken = \case
+  stopObservers obs =
+    readTVarIO obs >>= mapM_ (cancel . snd)
+
+  postTx headObservers = \case
     InitTx HeadParameters{contestationPeriod, parties} -> do
       postInitTx wallet $
         PostInitParams
@@ -78,10 +80,12 @@ withExternalPab walletId _tracer callback action = do
           , hydraParties = parties
           }
     AbortTx utxo -> do
-      readTVarIO threadToken >>= \case
+      readTVarIO headObservers >>= \case
         -- XXX(SN): use MonadThrow and proper exceptions or even Either
-        Nothing -> error "cannot post abortTx , unknown head / no thread token yet!"
-        Just tt -> postAbortTx @tx wallet tt utxo
+        [] -> error "cannot post AbortTx , unknown head / no thread token yet!"
+        -- FIXME(SN): AbortTx should contain info which head to abort, now we
+        -- need to guess (first is the latest)
+        ((tt, _) : _) -> postAbortTx @tx wallet tt utxo
     tx -> error $ "should post " <> show tx
 
   wallet = Wallet walletId
@@ -141,7 +145,7 @@ postInitTx wallet params = do
 
 -- TODO(SN): use MonadHttp, but clashes with MonadThrow
 postAbortTx :: Wallet -> AssetClass -> Utxo tx -> IO ()
-postAbortTx wallet threadToken _utxo = do
+postAbortTx wallet headObservers _utxo = do
   -- XXX(SN): stop contract instances?
   (ContractInstanceId cid) <- activateContract Abort wallet
   retryOnAnyHttpException $ do
@@ -150,7 +154,7 @@ postAbortTx wallet threadToken _utxo = do
         req
           POST
           (http "127.0.0.1" /: "api" /: "contract" /: "instance" /: show cid /: "endpoint" /: "abort")
-          (ReqBodyJson threadToken)
+          (ReqBodyJson headObservers)
           jsonResponse
           (port pabPort)
       when (responseStatusCode res /= 200) $
@@ -169,8 +173,8 @@ data ErrDecoding
 
 instance Exception ErrDecoding
 
-initTxSubscriber :: Wallet -> TVar IO (Maybe AssetClass) -> (OnChainTx tx -> IO ()) -> IO ()
-initTxSubscriber wallet threadToken callback = do
+initTxSubscriber :: Tx tx => Wallet -> TVar IO [(AssetClass, Async IO ())] -> (OnChainTx tx -> IO ()) -> IO ()
+initTxSubscriber wallet headObservers callback = do
   (ContractInstanceId cid) <- activateContract WatchInit wallet
   runClient "127.0.0.1" pabPort ("/ws/" <> show cid) $ \con -> forever $ do
     msg <- receiveData con
@@ -182,16 +186,17 @@ initTxSubscriber wallet threadToken callback = do
             Nothing -> pure ()
             Just (tt :: AssetClass, cp :: ContestationPeriod, ps :: [Party]) -> do
               say $ "Observed initTx " <> show tt <> ", " <> show cp <> ", " <> show ps
-              atomically $ writeTVar threadToken (Just tt)
+              -- XXX(SN): posting txs always uses first item in list
+              sub <- async $ headSubscriber wallet tt callback
+              atomically $ modifyTVar headObservers ((tt, sub) :)
               callback $ OnInitTx cp ps
       Right _ -> pure ()
       Left err ->
         throwIO $ ErrDecodingMsg $ show err
 
-headSubscriber :: Tx tx => Wallet -> TVar IO (Maybe AssetClass) -> (OnChainTx tx -> IO ()) -> IO ()
-headSubscriber wallet threadToken callback = do
-  tt <- atomically $ readTVar threadToken >>= maybe retry pure
-  say $ "Head subscriber: got thread token " <> show tt
+headSubscriber :: Tx tx => Wallet -> AssetClass -> (OnChainTx tx -> IO ()) -> IO ()
+headSubscriber wallet tt callback = do
+  say $ "Head subscriber: starting watch contract with thread token " <> show tt
   (ContractInstanceId cid) <- activateContract WatchHead wallet
   runReq defaultHttpConfig $ do
     res <-
@@ -203,7 +208,7 @@ headSubscriber wallet threadToken callback = do
         (port pabPort)
     when (responseStatusCode res /= 200) $
       error "failed to send threadToken to watchHead contract"
-  say "Head subscriber: start listening..."
+  say "Head subscriber: listening..."
   runClient "127.0.0.1" pabPort ("/ws/" <> show cid) $ \con -> forever $ do
     msg <- receiveData con
     case eitherDecodeStrict msg of

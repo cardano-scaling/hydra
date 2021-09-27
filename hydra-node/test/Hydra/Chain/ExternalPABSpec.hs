@@ -83,6 +83,8 @@ spec = do
           takeMVar calledBack1 `shouldReturn` OnAbortTx
           postTx client1 $ InitTx @SimpleTx $ HeadParameters 100 [alice, bob]
           takeMVar calledBack1 `shouldReturn` OnInitTx 100 [alice, bob]
+          postTx client1 $ AbortTx @SimpleTx mempty
+          takeMVar calledBack1 `shouldReturn` OnAbortTx
 
 alice, bob, carol :: Party
 alice = deriveParty $ generateKey 10
