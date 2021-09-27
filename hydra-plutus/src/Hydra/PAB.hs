@@ -156,7 +156,7 @@ watchInit = do
   pubKey <- ownPubKey
   let address = Initial.address
       pkh = pubKeyHash pubKey
-  observedTx <- loop $ do
+  forever $ do
     -- REVIEW(SN): we are given the same ChainIndexTx multiple times here, why?
     txs <- NonEmpty.nub <$> awaitUtxoProduced address
     forM_ txs $ \tx -> logInfo @String $ "watchInit: considering tx " <> show tx
@@ -171,16 +171,10 @@ watchInit = do
         logInfo @String $ "watchInit: found init tx(s) with datums: " <> show datums
         case datums of
           [Head.Initial contestationPeriod parties] ->
-            pure (Just (token, contestationPeriod, parties))
-          _ -> pure Nothing
-      _ -> pure Nothing
-  tell . Last $ Just observedTx
+            tell . Last $ Just (token, contestationPeriod, parties)
+          _ -> pure ()
+      _ -> pure ()
  where
-  loop action =
-    action >>= \case
-      Nothing -> loop action
-      Just result -> pure result
-
   -- Find candidates for a Hydra Head threadToken 'AssetClass', that is if the
   -- 'TokenName' matches our public key
   findToken :: PubKeyHash -> (TxOut, ChainIndexTx) -> Maybe AssetClass
