@@ -89,47 +89,7 @@ Should you have any questions, ideas or issues, we would like to hear from you:
 
 ## :wrench: Development
 
-We provide a `shell.nix` to set up a development environment. So a simple call
-to `nix-shell` should put everything in place for building, testing and
-general development.
-
-Make sure the following caches are listed in your `nix.conf` for a speedy setup:
-
-```
-substituters = https://cache.nixos.org https://iohk.cachix.org https://hydra.iohk.io
-trusted-public-keys = cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY= iohk.cachix.org-1:DpRUyj7h7V830dp/i6Nti+NEO2/nhblbov/8MW7Rqoo= hydra.iohk.io:f/Ea+s+dFdN+3Y/G+FDgSq+a5NEWhJGzdjvKNGv0/EQ=
-```
-
-Also, some of us use [direnv](https://direnv.net/) and
-[nix-direnv](https://github.com/nix-community/nix-direnv) to automatically
-import the nix-shell environment into our favorite shell or editor.
-
-### Building & Testing
-
-Within the `nix-shell`, `cabal build` and `cabal test` should work as expected.
-
-You can also use `nix-build` to build the project and all its executables. You
-will find them in `result/bin/` after the build.
-
-### Updating nix materialization
-
-We rely on haskell.nix's "materialization" to not needing to create cabal build
-plans on every invocation of a nix-build (as this would take > 15mins for our
-huge dependency tree).
-
-Thus, the build plan is persisted into the repository at
-`nix/hydra-poc.materialized/` and needs to be bumped whenever _anything_ in the
-`cabal.project` or any of the `.cabal` files changes.
-
-If the `cabal build` succeeds, but the `nix-build` fails, it's usually a good
-idea to do the following:
-
-* Uncomment `checkMaterialization = true;` in `default.nix`
-* Execute `nix-build -A hydra-node.components.exes.hydra-node`. This command should fail because of an incorrect sha256 value.
-* Update `plan-sha256` in `default.nix` to the expected hash value
-* Execute `nix-build -A hydra-node.project.plan-nix.passthru.updateMaterialized | bash`
-* Follow the instructions in the output by running the `/nix/store/<somehash>-updateMaterialized` script.
-* Comment out `checkMaterialization = true;` again and commit the changes
+See the [Wiki](https://github.com/input-output-hk/hydra-poc/wiki/For-maintainers)
 
 ## :books: Documentation
 
