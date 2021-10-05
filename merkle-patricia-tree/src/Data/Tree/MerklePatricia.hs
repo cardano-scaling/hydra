@@ -68,6 +68,23 @@ module Data.Tree.MerklePatricia (
 import Prelude hiding (null)
 
 import Codec.Serialise (Serialise (decode), deserialise, serialise)
+import Codec.Serialise.Class (Serialise (encode))
+import Codec.Serialise.Decoding (
+  decodeBool,
+  decodeBytes,
+  decodeListLen,
+  decodeMapLen,
+  decodeWord64,
+  decodeWord8,
+ )
+import Codec.Serialise.Encoding (
+  encodeBool,
+  encodeBytes,
+  encodeListLen,
+  encodeMapLen,
+  encodeWord64,
+  encodeWord8,
+ )
 import Control.Arrow (first, second)
 import Control.Monad (guard, join, replicateM)
 import Crypto.Hash (Digest, digestFromByteString, hash, hashlazy)
@@ -77,16 +94,12 @@ import Data.Bits (shiftL, testBit, (.|.))
 import Data.ByteArray (convert)
 import Data.ByteArray.Encoding (Base (..), convertToBase)
 import Data.ByteString (ByteString)
+import qualified Data.ByteString as BS
+import qualified Data.ByteString.Char8 as B8
 import Data.List (foldl', intercalate, sortOn, stripPrefix)
 import Data.Maybe (fromMaybe, mapMaybe)
 import Data.Word (Word8)
 import GHC.Stack (HasCallStack)
-
-import Codec.Serialise.Class (Serialise (encode))
-import Codec.Serialise.Decoding (decodeBool, decodeBytes, decodeListLen)
-import Codec.Serialise.Encoding (encodeBool, encodeBytes, encodeListLen)
-import qualified Data.ByteString as BS
-import qualified Data.ByteString.Char8 as B8
 
 -- * Type
 
@@ -108,20 +121,38 @@ newtype Proof alg = Proof {unProof :: [([Bit], [(Bit, Digest alg)])]}
 instance HashAlgorithm alg => Serialise (Proof alg) where
   encode (Proof prf) = encodeListLen (fromIntegral $ length prf) <> mconcat (map encodeItem prf)
    where
-    encodeItem (bits, digests) =
-      -- NOTE(AB): we need to pad the bits length to 8-bit words multiples, but we want
-      -- to keep track of the original length for deserialisation
+    encodeItem (prefix, digests) =
+      encodeMapLen 2
+        <> encodeWord8 0
+        <> encodePrefix prefix
+        <> encodeWord8 1
+        <> encodeDigests digests
+
+    encodePrefix prefix =
+      -- NOTE(AB): we need to pad the prefix length to 8-bit words multiples, but we want
+      -- to keep track of the original length for deserialisation, hence the need to add
+      -- both the actual padded bits and the exact length of the bits prefix
       -- TODO: Find a better encoding for the Proof object itself
-      encodeListLen (fromIntegral $ length bits)
-        <> encodeBytes (unsafeFromBits $ pad bits)
-        <> encodeListLen (fromIntegral $ length digests)
+      encodeMapLen 2
+        <> encodeWord8 0
+        <> encodeWord64 (fromIntegral $ length prefix)
+        <> encodeWord8 1
+        <> encodeBytes (unsafeFromBits $ pad prefix)
+
+    encodeDigests digests =
+      encodeListLen (fromIntegral $ length digests)
         <> mconcat (map encodeDigest digests)
+
     encodeDigest (bit, digest) =
-      ( case bit of
-          Hi -> encodeBool True
-          Lo -> encodeBool False
-      )
+      encodeMapLen 2
+        <> encodeWord8 0
+        <> encodeBit bit
+        <> encodeWord8 1
         <> encodeBytes (convert digest)
+
+    encodeBit = \case
+      Hi -> encodeBool True
+      Lo -> encodeBool False
 
     pad bits =
       let padding = length bits `mod` 8
@@ -134,17 +165,31 @@ instance HashAlgorithm alg => Serialise (Proof alg) where
     Proof <$> replicateM len decodeItem
    where
     decodeItem = do
-      nbits <- decodeListLen
-      bits <- take nbits . toBits <$> decodeBytes
-      digests <- decodeListLen >>= \len -> replicateM len decodeDigest
-      pure (bits, digests)
+      _ <- decodeMapLen
+      prefix <- decodeWord8 *> decodePrefix
+      digests <- decodeWord8 *> decodeDigests
+      pure (prefix, digests)
 
-    decodeDigest =
+    decodePrefix = do
+      _ <- decodeMapLen
+      nbits <- decodeWord8 *> decodeWord64
+      bits <- decodeWord8 *> decodeBytes
+      pure $ take (fromIntegral nbits) . toBits $ bits
+
+    decodeDigests = decodeListLen >>= \len -> replicateM len decodeDigest
+
+    decodeDigest = do
+      _ <- decodeMapLen
+      bit <- decodeWord8 *> decodeBit
+      digest <- decodeWord8 *> decodeDigestBytes
+      pure (bit, digest)
+
+    decodeBit =
       decodeBool >>= \case
-        True -> (Hi,) <$> decodeDigest'
-        False -> (Lo,) <$> decodeDigest'
+        True -> pure Hi
+        False -> pure Lo
 
-    decodeDigest' = do
+    decodeDigestBytes = do
       bytes <- decodeBytes
       maybe (fail $ "cannot decode digest from given bytes: " <> show bytes) pure $
         digestFromByteString bytes
