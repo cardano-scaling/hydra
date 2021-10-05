@@ -29,6 +29,7 @@ import Data.Tree.MerklePatricia (
   bitToChar,
   delete,
   depth,
+  deserialise,
   dropPrefix,
   fromList,
   member,
@@ -36,6 +37,7 @@ import Data.Tree.MerklePatricia (
   pretty,
   proofSize,
   root,
+  serialise,
   size,
   toBits,
   toList,
@@ -276,6 +278,16 @@ spec = parallel $ do
                 & cover 80 (isJust oracle) "has common prefix"
                 & counterexample ("result: " <> fmap bitToChar result)
                 & counterexample ("oracle: " <> maybe "ø" (fmap bitToChar) oracle)
+
+  context "Proof" $ do
+    specify "can serialise/deserialise" $
+      forAllNonEmptyMPT @Int $ \_ _ proof ->
+        let serialised = serialise proof
+            deserialised = deserialise serialised
+         in deserialised == proof
+              & counterexample ("serialised: " <> show serialised)
+              & counterexample ("deserialised: " <> show deserialised)
+              & counterexample ("proof: " <> show proof)
 
 --
 -- Helpers

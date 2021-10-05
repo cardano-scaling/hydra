@@ -45,6 +45,8 @@ module Data.Tree.MerklePatricia (
 
   -- | - 'Serialise'
   Serialise,
+  serialise,
+  deserialise,
   -- | - 'HashAlgorithm'
   HashAlgorithm,
   -- | - 'Blake2b_160'
@@ -65,10 +67,10 @@ module Data.Tree.MerklePatricia (
 
 import Prelude hiding (null)
 
-import Codec.Serialise (Serialise, serialise)
+import Codec.Serialise (Serialise (decode), deserialise, serialise)
 import Control.Arrow (first, second)
-import Control.Monad (guard, join)
-import Crypto.Hash (Digest, hash, hashlazy)
+import Control.Monad (guard, join, replicateM)
+import Crypto.Hash (Digest, digestFromByteString, hash, hashlazy)
 import Crypto.Hash.Algorithms (Blake2b_160, Blake2b_224, Blake2b_256)
 import Crypto.Hash.IO (HashAlgorithm)
 import Data.Bits (shiftL, testBit, (.|.))
@@ -80,6 +82,9 @@ import Data.Maybe (fromMaybe, mapMaybe)
 import Data.Word (Word8)
 import GHC.Stack (HasCallStack)
 
+import Codec.Serialise.Class (Serialise (encode))
+import Codec.Serialise.Decoding (decodeBool, decodeBytes, decodeListLen)
+import Codec.Serialise.Encoding (encodeBool, encodeBytes, encodeListLen)
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Char8 as B8
 
@@ -98,7 +103,51 @@ instance HashAlgorithm alg => Eq (MerklePatriciaTree alg a) where
 -- | An opaque 'Proof' which can be used to prove membership or atomic
 -- operations such as 'add' or 'delete'
 newtype Proof alg = Proof {unProof :: [([Bit], [(Bit, Digest alg)])]}
-  deriving stock (Show)
+  deriving stock (Eq, Show)
+
+instance HashAlgorithm alg => Serialise (Proof alg) where
+  encode (Proof prf) = encodeListLen (fromIntegral $ length prf) <> mconcat (map encodeItem prf)
+   where
+    encodeItem (bits, digests) =
+      -- NOTE(AB): we need to pad the bits length to 8-bit words multiples, but we want
+      -- to keep track of the original length for deserialisation
+      -- TODO: Find a better encoding for the Proof object itself
+      encodeListLen (fromIntegral $ length bits)
+        <> encodeBytes (unsafeFromBits $ pad bits)
+        <> encodeListLen (fromIntegral $ length digests)
+        <> mconcat (map encodeDigest digests)
+    encodeDigest (bit, digest) =
+      ( case bit of
+          Hi -> encodeBool True
+          Lo -> encodeBool False
+      )
+        <> encodeBytes (convert digest)
+
+    pad bits =
+      let padding = length bits `mod` 8
+       in if padding == 0
+            then bits
+            else bits <> replicate (8 - padding) Lo
+
+  decode = do
+    len <- decodeListLen
+    Proof <$> replicateM len decodeItem
+   where
+    decodeItem = do
+      nbits <- decodeListLen
+      bits <- take nbits . toBits <$> decodeBytes
+      digests <- decodeListLen >>= \len -> replicateM len decodeDigest
+      pure (bits, digests)
+
+    decodeDigest =
+      decodeBool >>= \case
+        True -> (Hi,) <$> decodeDigest'
+        False -> (Lo,) <$> decodeDigest'
+
+    decodeDigest' = do
+      bytes <- decodeBytes
+      maybe (fail $ "cannot decode digest from given bytes: " <> show bytes) pure $
+        digestFromByteString bytes
 
 data Bit = Hi | Lo deriving (Show, Eq, Ord)
 
@@ -138,8 +187,8 @@ unsafeFromBits = BS.pack . go
        in bit : str
     [] ->
       []
-    _ ->
-      error "fromBits: wrong number of bits."
+    bs ->
+      error $ "fromBits: wrong number of bits: " <> show (length bs) <> " is not a multiple of 8"
 
 --
 -- Constructing
