@@ -22,28 +22,19 @@ import Network.HTTP.Req (GET (..), NoReqBody (..), bsResponse, defaultHttpConfig
 import Test.Network.Ports (randomUnusedTCPPorts)
 
 spec :: Spec
-spec = parallel $
-  describe "Prometheus Metrics" $ do
-    it "provides count of confirmed transactions from traces" $ do
-      failAfter 3 $ do
-        [p] <- randomUnusedTCPPorts 1
-        withMonitoring (Just $ fromIntegral p) nullTracer $ \tracer -> do
-          traceWith tracer (Node $ ProcessingEvent 1 (NetworkEvent (ReqTx 1 (aValidTx 42))))
-          traceWith tracer (Node $ ProcessingEvent 1 (NetworkEvent (ReqTx 1 (aValidTx 43))))
-          traceWith tracer (Node $ ProcessedEffect 1 (ClientEffect (SnapshotConfirmed $ Snapshot 1 (utxoRefs [1]) [aValidTx 43, aValidTx 42])))
+spec = do
+  it "provides prometheus metrics from traces" $ do
+    failAfter 3 $ do
+      [p] <- randomUnusedTCPPorts 1
+      withMonitoring (Just $ fromIntegral p) nullTracer $ \tracer -> do
+        traceWith tracer (Node $ ProcessingEvent 1 (NetworkEvent (ReqTx 1 (aValidTx 42))))
+        traceWith tracer (Node $ ProcessingEvent 1 (NetworkEvent (ReqTx 1 (aValidTx 43))))
+        threadDelay 0.1
+        traceWith tracer (Node $ ProcessedEffect 1 (ClientEffect (SnapshotConfirmed $ Snapshot 1 (utxoRefs [1]) [aValidTx 43, aValidTx 42])))
 
-          response <- runReq @IO defaultHttpConfig $ req GET (http "localhost" /: "metrics") NoReqBody bsResponse (port p)
+        metrics <-
+          Text.lines . decodeUtf8 . responseBody
+            <$> runReq @IO defaultHttpConfig (req GET (http "localhost" /: "metrics") NoReqBody bsResponse (port p))
 
-          Text.lines (decodeUtf8 $ responseBody response) `shouldContain` ["hydra_head_confirmed_tx  2"]
-
-    it "provides histogram of txs confirmation time from traces" $ do
-      failAfter 3 $ do
-        [p] <- randomUnusedTCPPorts 1
-        withMonitoring (Just $ fromIntegral p) nullTracer $ \tracer -> do
-          traceWith tracer (Node $ ProcessingEvent 1 (NetworkEvent (ReqTx 1 (aValidTx 42))))
-          threadDelay 0.1
-          traceWith tracer (Node $ ProcessedEffect 1 (ClientEffect (SnapshotConfirmed $ Snapshot 1 (utxoRefs [1]) [aValidTx 42])))
-
-          response <- runReq @IO defaultHttpConfig $ req GET (http "localhost" /: "metrics") NoReqBody bsResponse (port p)
-
-          Text.lines (decodeUtf8 $ responseBody response) `shouldContain` ["hydra_head_tx_confirmation_time_ms_bucket{le=\"1000.0\"} 1.0"]
+        metrics `shouldContain` ["hydra_head_confirmed_tx  2"]
+        metrics `shouldContain` ["hydra_head_tx_confirmation_time_ms_bucket{le=\"1000.0\"} 2.0"]
