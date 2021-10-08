@@ -1,7 +1,7 @@
 # A shell setup providing build tools and utilities for a development
 # environment. This is now based on haskell.nix and it's haskell-nix.project
 # (see 'default.nix').
-{ compiler ? "ghc8104"
+{ compiler ? "ghc8107"
   # nixpkgs 21.05 at 2021-07-19
 , pkgs ? import (builtins.fetchTarball "https://github.com/NixOS/nixpkgs/archive/4181644d09b96af0f92c2f025d3463f9d19c7790.tar.gz") { }
 
@@ -31,6 +31,7 @@ let
     libsodium-vrf
     pkgs.systemd
     pkgs.zlib
+    pkgs.lzma
     pkgs.zeromq
   ];
 

@@ -113,4 +113,15 @@
           };
         };
       };
-    } // rec { src = (pkgs.lib).mkDefault .././.source-repository-packages/21; }
+    } // {
+    src = (pkgs.lib).mkDefault (pkgs.fetchgit {
+      url = "5";
+      rev = "minimal";
+      sha256 = "";
+      }) // {
+      url = "5";
+      rev = "minimal";
+      sha256 = "";
+      };
+    postUnpack = "sourceRoot+=/cardano-crypto-class; echo source root reset to \$sourceRoot";
+    }

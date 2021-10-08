@@ -284,4 +284,15 @@
           };
         };
       };
-    } // rec { src = (pkgs.lib).mkDefault .././.source-repository-packages/54; }
+    } // {
+    src = (pkgs.lib).mkDefault (pkgs.fetchgit {
+      url = "9";
+      rev = "minimal";
+      sha256 = "";
+      }) // {
+      url = "9";
+      rev = "minimal";
+      sha256 = "";
+      };
+    postUnpack = "sourceRoot+=/byron/ledger/impl; echo source root reset to \$sourceRoot";
+    }

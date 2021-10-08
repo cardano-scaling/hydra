@@ -230,4 +230,15 @@
           };
         };
       };
-    } // rec { src = (pkgs.lib).mkDefault .././.source-repository-packages/66; }
+    } // {
+    src = (pkgs.lib).mkDefault (pkgs.fetchgit {
+      url = "10";
+      rev = "minimal";
+      sha256 = "";
+      }) // {
+      url = "10";
+      rev = "minimal";
+      sha256 = "";
+      };
+    postUnpack = "sourceRoot+=/cardano-api; echo source root reset to \$sourceRoot";
+    }
