@@ -70,7 +70,7 @@ Using this you can now start a `hydra-node`, our (currently) stubbed
 `mock-chain` and connect a `hydra-tui` (or any websocket client) to it:
 
 ``` sh
-docker run -d --name hydra-node --network host -v $PWD:/data inputoutput/hydra:hydra-node-latest --me data/test.sk 
+docker run -d --name hydra-node --network host -v $PWD:/data inputoutput/hydra:hydra-node-latest --me data/test.sk
 docker run -d --name mock-chain --network host inputoutput/hydra:mock-chain-latest
 docker run --rm -it --network host inputoutput/hydra:hydra-tui-latest
 ```
@@ -86,6 +86,8 @@ Should you have any questions, ideas or issues, we would like to hear from you:
 - #ask-hydra on the IOG [Discord server](https://discord.gg/Qq5vNTg9PT)
 - create a Github [Issue](https://github.com/input-output-hk/hydra-poc/issues/new)
 - or ask on Cardano [StackExchange](https://cardano.stackexchange.com/) using the `hydra` tag
+
+When contributing to this project and interacting with other contributors, please follow our [Code of Conduct](./CODE-OF-CONDUCT.md).
 
 ## :wrench: Development
 
