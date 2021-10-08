@@ -19,7 +19,7 @@
       owner = "input-output-hk";
       repo = "libsodium";
       # branch tdammers/rebased-vrf
-      rev = "66f017f16633f2060db25e17c170c2afa0f2a8a1";
+      rev = "b397839b58ccfd09dde2191c7e1b67d47184f6b0";
       sha256 = "12g2wz3gyi69d87nipzqnq4xc6nky3xbmi2i2pb2hflddq8ck72f";
     };
     nativeBuildInputs = [ pkgs.autoreconfHook ];
