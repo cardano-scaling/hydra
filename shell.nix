@@ -1,34 +1,9 @@
-# A shell setup providing build tools and utilities for a development
-# environment. This is now based on haskell.nix and it's haskell-nix.project
-# (see 'default.nix').
-{ compiler ? "ghc8107"
-  # nixpkgs 21.05 at 2021-07-19
-, pkgs ? import (builtins.fetchTarball "https://github.com/NixOS/nixpkgs/archive/4181644d09b96af0f92c2f025d3463f9d19c7790.tar.gz") { }
-
-  # Use cardano-node master for more likely cache hits
-, cardanoNodePkgs ? import
-    (builtins.fetchTarball
-      "https://github.com/input-output-hk/cardano-node/archive/8fe46140a52810b6ca456be01d652ca08fe730bf.tar.gz")
-    { gitrev = "8fe46140a52810b6ca456be01d652ca08fe730bf"; }
-
-, hsPkgs ? import ./default.nix { }
-
-, libsodium-vrf ? pkgs.libsodium.overrideAttrs (oldAttrs: {
-    name = "libsodium-1.0.18-vrf";
-    src = pkgs.fetchFromGitHub {
-      owner = "input-output-hk";
-      repo = "libsodium";
-      # branch tdammers/rebased-vrf
-      rev = "b397839b58ccfd09dde2191c7e1b67d47184f6b0";
-      sha256 = "12g2wz3gyi69d87nipzqnq4xc6nky3xbmi2i2pb2hflddq8ck72f";
-    };
-    nativeBuildInputs = [ pkgs.autoreconfHook ];
-    configureFlags = "--enable-static";
-  })
-}:
 let
+  project = import ./default.nix { };
+  inherit (project) pkgs hydra cardano-node;
+
   libs = [
-    libsodium-vrf
+    pkgs.libsodium-vrf
     pkgs.systemd
     pkgs.zlib
     pkgs.lzma
@@ -45,8 +20,8 @@ let
     # Handy to interact with the hydra-node via websockets
     pkgs.ws
     # Used in local-cluster
-    cardanoNodePkgs.cardano-node
-    cardanoNodePkgs.cardano-cli
+    cardano-node.cardano-node
+    cardano-node.cardano-cli
     # For validating JSON instances against a pre-defined schema
     pkgs.python3Packages.jsonschema
     pkgs.yq
@@ -54,15 +29,7 @@ let
     pkgs.gnuplot
   ];
 
-  haskellNixShell = hsPkgs.shellFor {
-    packages = ps: with ps; [
-      hydra-prelude
-      hydra-node
-      hydra-plutus
-      local-cluster
-      merkle-patricia-tree
-    ];
-
+  haskellNixShell = hydra.shellFor {
     # Haskell.nix managed tools (via hackage)
     tools = {
       cabal = "3.4.0.0";
@@ -70,7 +37,7 @@ let
       haskell-language-server = "latest";
     };
 
-    buildInputs = libs ++ tools;
+    nativeBuildInputs = tools;
 
     # Disable haddocks as it's currently failing for the 'plutus-ledger' package
     withHoogle = false;
@@ -83,8 +50,9 @@ let
   cabalShell = pkgs.mkShell {
     name = "hydra-node-cabal-shell";
 
-    buildInputs = libs ++ [
-      pkgs.haskell.compiler.${compiler}
+    buildInputs = libs;
+    nativeBuildInputs = [
+      (hydra.ghcWithPackages (ps :[]))
       pkgs.cabal-install
       pkgs.git
       pkgs.pkgconfig
