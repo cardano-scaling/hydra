@@ -45,7 +45,8 @@ constraints:
   recursion-schemes == 5.1.3
 
 allow-newer:
-  some
+  some,
+  hspec-discover
 
 -- NOTE: The following is taken from plutus master at 2021-09-03
 
