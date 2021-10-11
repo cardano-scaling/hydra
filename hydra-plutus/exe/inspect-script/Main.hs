@@ -9,7 +9,7 @@ import Data.Text (pack)
 import Hydra.Contract.Commit as Commit
 import Hydra.Contract.Head as Head
 import Hydra.Contract.Initial as Initial
-import Ledger (Datum (..))
+import Ledger (Datum (..), datumHash)
 import Ledger.Value
 import Plutus.V1.Ledger.Api (Redeemer (Redeemer), dataToBuiltinData, toData)
 
@@ -35,6 +35,10 @@ main = do
 
   putTextLn "Serialise redeemers:"
   writeEnvelopes redeemers
+
+  putTextLn "Datum hashes:"
+  forM_ datums $ \(aDatum, datumName) ->
+    putTextLn $ toText $ datumName <> ": " <> show (datumHash aDatum)
  where
   writeEnvelopes :: HasTextEnvelope item => [(item, String)] -> IO ()
   writeEnvelopes plutus =
