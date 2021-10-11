@@ -170,3 +170,25 @@ executable hydra-pab
     , text
 
   ghc-options:    -threaded -rtsopts
+
+executable inspect-script
+  import:         project-config
+  hs-source-dirs: exe/inspect-script
+  main-is:        Main.hs
+  build-depends:
+    , aeson
+    , base
+    , bytestring
+    , cardano-api
+    , containers
+    , data-default
+    , directory
+    , hydra-plutus
+    , hydra-prelude
+    , optparse-applicative
+    , plutus-contract
+    , plutus-ledger
+    , serialise
+    , text
+
+  ghc-options:    -threaded -rtsopts
