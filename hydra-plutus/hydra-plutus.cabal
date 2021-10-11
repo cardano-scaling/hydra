@@ -188,6 +188,7 @@ executable inspect-script
     , optparse-applicative
     , plutus-contract
     , plutus-ledger
+    , plutus-ledger-api
     , serialise
     , text
 
