@@ -2,7 +2,7 @@ module Main where
 
 import Hydra.Prelude
 
-import Cardano.Api (serialiseToTextEnvelope)
+import Cardano.Api (HasTextEnvelope, serialiseToTextEnvelope)
 import qualified Data.Aeson as Aeson
 import qualified Data.ByteString.Lazy as BL
 import Data.Text (pack)
@@ -28,26 +28,22 @@ main = do
               assetClass (currencySymbol $ encodeUtf8 currency) (tokenName $ encodeUtf8 token)
           )
   putTextLn "Serialise scripts:"
-  forM_ (scripts policyId) $ \(script, scriptName) -> do
-    let scriptFile = scriptName <> ".plutus"
-        serialised = Aeson.encode $ serialiseToTextEnvelope (Just $ fromString scriptName) script
-    BL.writeFile scriptFile serialised
-    putTextLn $ "  " <> pack scriptFile <> ":     " <> sizeInKb serialised
+  writeEnvelopes (scripts policyId)
 
   putTextLn "Serialise datums:"
-  forM_ datums $ \(aDatum, datumName) -> do
-    let datumFile = datumName <> ".plutus"
-        serialised = Aeson.encode $ serialiseToTextEnvelope (Just $ fromString datumName) aDatum
-    BL.writeFile datumFile serialised
-    putTextLn $ "  " <> pack datumFile <> ":     " <> sizeInKb serialised
+  writeEnvelopes datums
 
   putTextLn "Serialise redeemers:"
-  forM_ redeemers $ \(aRedeemer, redeemerName) -> do
-    let redeemerFile = redeemerName <> ".plutus"
-        serialised = Aeson.encode $ serialiseToTextEnvelope (Just $ fromString redeemerName) aRedeemer
-    BL.writeFile redeemerFile serialised
-    putTextLn $ "  " <> pack redeemerFile <> ":     " <> sizeInKb serialised
+  writeEnvelopes redeemers
  where
+  writeEnvelopes :: HasTextEnvelope item => [(item, String)] -> IO ()
+  writeEnvelopes plutus =
+    forM_ plutus $ \(item, itemName) -> do
+      let itemFile = itemName <> ".plutus"
+          serialised = Aeson.encode $ serialiseToTextEnvelope (Just $ fromString itemName) item
+      BL.writeFile itemFile serialised
+      putTextLn $ "  " <> pack itemFile <> ":     " <> sizeInKb serialised
+
   sizeInKb = (<> " KB") . show . (`div` 1024) . BL.length
 
   scripts policyId =
