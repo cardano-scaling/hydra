@@ -67,8 +67,7 @@ source-repository-package
     prettyprinter-configurable
     quickcheck-dynamic
     word-array
-  tag: 36dcbb9140af0c9b5b741b6f7704497d901c9c65
-  --sha256: 0261wrf9v8c1qm8q31bd2f7sjdchmv6my3gz9r9948hk32j52bnx
+  tag: 5ffcfa6c0451b3b937c4b69d2575cd55adebe88b
 
 -- The following sections are copied from the 'plutus' repository cabal.project at the revision
 -- given above.
@@ -125,8 +124,7 @@ source-repository-package
 source-repository-package
   type: git
   location: https://github.com/input-output-hk/cardano-base
-  tag: cb0f19c85e5bb5299839ad4ed66af6fa61322cc4
-  --sha256: 0dnkfqcvbifbk3m5pg8kyjqjy0zj1l4vd23p39n6ym4q0bnib1cq
+  tag: 592aa61d657ad5935a33bace1243abce3728b643
   subdir:
     base-deriving-via
     binary
@@ -151,8 +149,7 @@ source-repository-package
 source-repository-package
   type: git
   location: https://github.com/input-output-hk/ouroboros-network
-  tag: 877ce057ff6fb086474c8eaad53f2b7f0e0fce6b
-  --sha256: 1kp0qysfy3hl96a3a61rijascq36f1imh3z4jy0vyiygb6qrv47z
+  tag: 5d37a927046bc7da2887830d8e35cf604622ce09
   subdir:
     monoidal-synchronisation
     typed-protocols
@@ -184,9 +181,8 @@ source-repository-package
 
 source-repository-package
   type: git
-  location: https://github.com/input-output-hk/cardano-ledger-specs
-  tag: d5b184a820853c7ba202efd615b8fadca1acb52c
-  --sha256: 04k5p6qwmfdza65gl5319r1ahdfwjnyqgzpfxdx0x2g5jcbimar4
+  location: https://github.com/raduom/cardano-ledger-specs
+  tag: ef6bb99782d61316da55470620c7da994cc352b2
   subdir:
     byron/chain/executable-spec
     byron/crypto
@@ -202,6 +198,7 @@ source-repository-package
     shelley-ma/impl
     shelley-ma/shelley-ma-test
     cardano-ledger-core
+    cardano-protocol-tpraos
     alonzo/impl
     alonzo/test
 
@@ -211,7 +208,7 @@ source-repository-package
 source-repository-package
   type: git
   location: https://github.com/input-output-hk/cardano-node.git
-  tag: ed11e8b6429d4af1cb2539460e5cb2283a06b2dc
+  tag: ed7fdbf65f40f8e194850b87dd8c631fe26154e6
   --sha256: 1wvr3zzl37i1fn5y9ni027rqw5bhh25z1bacvcaapxxjgdn38lbq
   subdir:
     cardano-api
