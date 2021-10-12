@@ -2,7 +2,8 @@ module Main where
 
 import Hydra.Prelude
 
-import Cardano.Api (HasTextEnvelope, serialiseToTextEnvelope)
+import Cardano.Api (scriptDataToJson, ScriptDataJsonSchema(ScriptDataJsonDetailedSchema), serialiseToTextEnvelope)
+import Cardano.Api.Shelley (fromPlutusData)
 import qualified Data.Aeson as Aeson
 import qualified Data.ByteString.Lazy as BL
 import Data.Text (pack)
@@ -11,7 +12,8 @@ import Hydra.Contract.Head as Head
 import Hydra.Contract.Initial as Initial
 import Ledger (Datum (..), datumHash)
 import Ledger.Value
-import Plutus.V1.Ledger.Api (Redeemer (Redeemer), dataToBuiltinData, toData)
+import Ledger.Scripts (toCardanoApiScript, Script)
+import Plutus.V1.Ledger.Api (dataToBuiltinData, toData, Data)
 
 -- | Serialise Hydra scripts to files for submission through cardano-cli
 -- This small utility is useful to manually construct transactions payload for Hydra on-chain
@@ -28,23 +30,32 @@ main = do
               assetClass (currencySymbol $ encodeUtf8 currency) (tokenName $ encodeUtf8 token)
           )
   putTextLn "Serialise scripts:"
-  writeEnvelopes (scripts policyId)
+  writeScripts (scripts policyId)
 
   putTextLn "Serialise datums:"
-  writeEnvelopes datums
+  writeData datums
 
   putTextLn "Serialise redeemers:"
-  writeEnvelopes redeemers
+  writeData redeemers
 
   putTextLn "Datum hashes:"
   forM_ datums $ \(aDatum, datumName) ->
-    putTextLn $ toText $ datumName <> ": " <> show (datumHash aDatum)
+    putTextLn $ toText $ datumName <> ": " <> show (datumHash $ Datum $ dataToBuiltinData $ aDatum)
+
  where
-  writeEnvelopes :: HasTextEnvelope item => [(item, String)] -> IO ()
-  writeEnvelopes plutus =
+  writeScripts :: [(Script, String)] -> IO ()
+  writeScripts plutus =
     forM_ plutus $ \(item, itemName) -> do
       let itemFile = itemName <> ".plutus"
-          serialised = Aeson.encode $ serialiseToTextEnvelope (Just $ fromString itemName) item
+          serialised = Aeson.encode $ serialiseToTextEnvelope (Just $ fromString itemName) $ toCardanoApiScript item
+      BL.writeFile itemFile serialised
+      putTextLn $ "  " <> pack itemFile <> ":     " <> sizeInKb serialised
+
+  writeData :: [(Data, String)] -> IO ()
+  writeData plutus =
+    forM_ plutus $ \(item, itemName) -> do
+      let itemFile = itemName <> ".data"
+          serialised = Aeson.encode $ scriptDataToJson ScriptDataJsonDetailedSchema $ fromPlutusData item
       BL.writeFile itemFile serialised
       putTextLn $ "  " <> pack itemFile <> ":     " <> sizeInKb serialised
 
@@ -67,10 +78,10 @@ main = do
     , (abortDatum, "abortDatum")
     ]
 
-  headDatum = Datum $ dataToBuiltinData $ toData $ Head.Initial 1_000_000_000_000 []
+  headDatum = toData $ Head.Initial 1_000_000_000_000 []
 
-  abortDatum = Datum $ dataToBuiltinData $ toData $ Head.Final
+  abortDatum = toData $ Head.Final
 
   redeemers = [(headRedeemer, "headRedeemer")]
 
-  headRedeemer = Redeemer $ dataToBuiltinData $ toData Head.Abort
+  headRedeemer = toData Head.Abort
