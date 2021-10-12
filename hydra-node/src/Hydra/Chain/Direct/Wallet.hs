@@ -5,7 +5,7 @@
 module Hydra.Chain.Direct.Wallet where
 
 import qualified Cardano.Crypto.DSIGN as Crypto
-import Cardano.Crypto.Hash.Class (Hash (..))
+import Cardano.Crypto.Hash.Class
 import qualified Cardano.Ledger.Address as Ledger
 import Cardano.Ledger.Alonzo.Tx (ValidatedTx (..))
 import Cardano.Ledger.Alonzo.TxBody (collateral, inputs, outputs, txfee, pattern TxOut)
@@ -46,7 +46,8 @@ import Ouroboros.Consensus.Ledger.Query (Query (..))
 import Ouroboros.Consensus.Network.NodeToClient (Codecs' (..))
 import Ouroboros.Consensus.Shelley.Ledger.Block (ShelleyBlock (..), ShelleyHash (..))
 import Ouroboros.Consensus.Shelley.Ledger.Query (BlockQuery (..))
-import Ouroboros.Network.Block (Point (..), Tip (..), castPoint, blockPoint, genesisPoint)
+import Ouroboros.Network.Block (Point (..), Tip (..), castPoint, blockPoint, genesisPoint,
+                                         pattern BlockPoint, pattern GenesisPoint)
 import Ouroboros.Network.Magic (NetworkMagic (..))
 import Ouroboros.Network.Mux (
   MuxMode (..),
@@ -338,9 +339,13 @@ stateQueryClient tipVar utxoVar address =
           -- case, we can't do much but logging and retrying later.
           Left{} ->
             handleEraMismatch
-          Right (castPoint -> tip) -> do
-            let query = QueryIfCurrentAlonzo $ GetUTxOByAddress (Set.singleton address)
-            pure $ LSQ.SendMsgQuery (BlockQuery query) (clientStQueryingUtxo tip)
+          Right tip -> do
+            let blk = case tip of
+                  GenesisPoint -> GenesisPoint
+                  (BlockPoint slot h) -> BlockPoint slot (fromShelleyHash h)
+                fromShelleyHash (Ledger.unHashHeader . unShelleyHash -> UnsafeHash h) = coerce h
+                query = QueryIfCurrentAlonzo $ GetUTxOByAddress (Set.singleton address)
+            pure $ LSQ.SendMsgQuery (BlockQuery query) (clientStQueryingUtxo blk)
       }
 
   clientStQueryingUtxo :: Point Block -> LSQ.ClientStQuerying Block (Point Block) (Query Block) m () (QueryResult UtxoSet)
