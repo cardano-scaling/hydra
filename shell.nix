@@ -32,6 +32,7 @@ let
     pkgs.systemd
     pkgs.zlib
     pkgs.zeromq
+    pkgs.lzma
   ];
 
   tools = [

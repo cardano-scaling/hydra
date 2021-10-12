@@ -12,16 +12,16 @@ import Ledger (pubKeyHash)
 import Ledger.Ada as Ada
 import Ledger.Typed.Scripts (MintingPolicy)
 import Plutus.Contract (Contract)
-import Plutus.Contract.Test (Wallet, walletPubKey)
+import Plutus.Contract.Test (Wallet(..), walletPubKey)
+import Wallet.Emulator.Wallet(knownWallet)
 import Plutus.Contract.Test.ContractModel
-import Plutus.Contract.Trace (Wallet (Wallet))
 import Plutus.Contract.Types (ContractError)
 import Test.QuickCheck (Property, Testable (property))
 import Test.Tasty (TestTree, testGroup)
 import Test.Tasty.QuickCheck (testProperty)
 
 w1, w2, w3 :: Wallet
-[w1, w2, w3] = map Wallet [1, 2, 3]
+[w1, w2, w3] = map knownWallet [1, 2, 3]
 
 wallets :: [Wallet]
 wallets = [w1, w2, w3]

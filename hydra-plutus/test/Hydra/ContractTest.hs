@@ -29,6 +29,7 @@ import Plutus.Trace.Emulator.Types (walletInstanceTag)
 import PlutusTx.Monoid (inv)
 import Test.Tasty (TestTree, testGroup)
 import Wallet.Types (ContractError (..))
+import Wallet.Emulator.Wallet(knownWallet)
 
 import qualified Control.Monad.Freer.Extras.Log as Trace
 import qualified Data.Map.Strict as Map
@@ -43,10 +44,10 @@ import qualified Prelude
 --
 
 alice :: Wallet
-alice = Wallet 1
+alice = knownWallet 1
 
 bob :: Wallet
-bob = Wallet 2
+bob = knownWallet 2
 
 testPolicy :: MintingPolicy
 testPolicy = OnChain.hydraMintingPolicy 42

@@ -485,7 +485,7 @@ instance Crypto crypto => FromJSON (Cardano.TxOut (MaryEra crypto)) where
                 (p, Just _) -> fail $ "invalid bech32 prefix: " <> show p
                 (_, Nothing) -> fail "failed to decode data part"
 
-instance ToJSON (Cardano.Value crypto) where
+instance Crypto crypto => ToJSON (Cardano.Value crypto) where
   toJSON (Cardano.Value lovelace assets) =
     object $
       [ "lovelace" .= lovelace
@@ -498,13 +498,13 @@ instance Crypto crypto => FromJSON (Cardano.Value crypto) where
   parseJSON = withObject "Value" $ \o ->
     Cardano.Value <$> o .: "lovelace" <*> o .:? "assets" .!= mempty
 
-instance ToJSON (Cardano.PolicyID crypto) where
+instance Crypto crypto => ToJSON (Cardano.PolicyID crypto) where
   toJSON (Cardano.PolicyID h) = toJSON h
 
 instance Crypto crypto => FromJSON (Cardano.PolicyID crypto) where
   parseJSON v = Cardano.PolicyID <$> parseJSON v
 
-instance ToJSONKey (Cardano.PolicyID crypto) where
+instance Crypto crypto => ToJSONKey (Cardano.PolicyID crypto) where
   toJSONKey = contramap (\(Cardano.PolicyID h) -> h) toJSONKey
 
 instance Crypto crypto => FromJSONKey (Cardano.PolicyID crypto) where
@@ -664,7 +664,7 @@ instance FromJSON (Cardano.Timelock StandardCrypto) where
         Left err -> fail $ show err
         Right v -> pure v
 
-instance ToJSONKey (Cardano.ScriptHash crypto) where
+instance Crypto crypto => ToJSONKey (Cardano.ScriptHash crypto) where
   toJSONKey = toJSONKeyText (\(Cardano.ScriptHash h) -> decodeUtf8 $ Base16.encode (Crypto.hashToBytes h))
 
 instance Crypto crypto => FromJSONKey (Cardano.ScriptHash crypto) where

@@ -1,5 +1,5 @@
 {-# LANGUAGE PatternSynonyms #-}
-
+{-# OPTIONS_GHC -Wno-unused-imports #-}
 -- | Companion tiny-wallet for the direct chain component. This module provide
 -- some useful utilities to tracking the wallet's UTXO, and accessing it
 module Hydra.Chain.Direct.Wallet where
@@ -46,7 +46,7 @@ import Ouroboros.Consensus.Ledger.Query (Query (..))
 import Ouroboros.Consensus.Network.NodeToClient (Codecs' (..))
 import Ouroboros.Consensus.Shelley.Ledger.Block (ShelleyBlock (..), ShelleyHash (..))
 import Ouroboros.Consensus.Shelley.Ledger.Query (BlockQuery (..))
-import Ouroboros.Network.Block (Point (..), Tip (..), castPoint, genesisPoint)
+import Ouroboros.Network.Block (Point (..), Tip (..), castPoint, blockPoint, genesisPoint)
 import Ouroboros.Network.Magic (NetworkMagic (..))
 import Ouroboros.Network.Mux (
   MuxMode (..),
@@ -75,7 +75,7 @@ import Ouroboros.Network.Protocol.LocalStateQuery.Client (
  )
 import qualified Ouroboros.Network.Protocol.LocalStateQuery.Client as LSQ
 import qualified Shelley.Spec.Ledger.API as Ledger hiding (TxBody, TxOut)
-import Shelley.Spec.Ledger.BlockChain (HashHeader (..))
+import Shelley.Spec.Ledger.BlockChain (HashHeader)
 import Shelley.Spec.Ledger.TxBody (TxId (..), pattern TxIn)
 import Test.QuickCheck (generate)
 

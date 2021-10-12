@@ -8,11 +8,14 @@ module Hydra.Chain.Direct.TxSpec where
 import Hydra.Prelude
 import Test.Hydra.Prelude
 
+import Test.Cardano.Ledger.Generic.Updaters hiding (vkey)
+import Test.Cardano.Ledger.Generic.Proof
 import Cardano.Binary (serialize, serialize')
 import Cardano.Ledger.Alonzo (TxOut)
 import Cardano.Ledger.Alonzo.Data (Data (Data), hashData)
 import Cardano.Ledger.Alonzo.Language (Language (PlutusV1))
-import Cardano.Ledger.Alonzo.Scripts (ExUnits)
+import Cardano.Ledger.Alonzo.PParams (PParams, ProtVer (..))
+import Cardano.Ledger.Alonzo.Scripts (ExUnits(..))
 import Cardano.Ledger.Alonzo.Tools (ScriptFailure, evaluateTransactionExecutionUnits)
 import Cardano.Ledger.Alonzo.Tx (ValidatedTx (ValidatedTx, body, wits))
 import Cardano.Ledger.Alonzo.TxBody (TxOut (TxOut))
@@ -151,7 +154,7 @@ validateTxScriptsUnlimited ::
   UTxO Era ->
   Map RdmrPtr (Either (ScriptFailure StandardCrypto) ExUnits)
 validateTxScriptsUnlimited tx utxo =
-  runIdentity $ evaluateTransactionExecutionUnits tx utxo epochInfo systemStart costmodels
+  runIdentity $ evaluateTransactionExecutionUnits pparams tx utxo epochInfo systemStart costmodels
  where
   -- REVIEW(SN): taken from 'testGlobals'
   epochInfo = fixedEpochInfo (EpochSize 100) (mkSlotLength 1)
@@ -159,6 +162,17 @@ validateTxScriptsUnlimited tx utxo =
   systemStart = SystemStart $ posixSecondsToUTCTime 0
   -- NOTE(SN): copied from Test.Cardano.Ledger.Alonzo.Tools as not exported
   costmodels = array (PlutusV1, PlutusV1) [(PlutusV1, fromJust defaultCostModel)]
+
+pparams :: PParams Era
+pparams =
+  newPParams
+    (Alonzo Standard)
+    [ Costmdls $ Map.singleton PlutusV1 $ fromJust defaultCostModel,
+      MaxValSize 1000000000,
+      MaxTxExUnits $ ExUnits 100000000 100000000,
+      MaxBlockExUnits $ ExUnits 100000000 100000000,
+      ProtocolVersion $ ProtVer 5 0
+    ]
 
 -- | Extract NFT candidates. any single quantity assets not being ADA is a
 -- candidate.
