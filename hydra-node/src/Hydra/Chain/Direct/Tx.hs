@@ -12,7 +12,7 @@ module Hydra.Chain.Direct.Tx where
 
 import Hydra.Prelude
 
-import Cardano.Binary (serialize, serialize')
+import Cardano.Binary (serialize)
 import Cardano.Ledger.Address (Addr (Addr))
 import Cardano.Ledger.Alonzo (AlonzoEra, Script)
 import Cardano.Ledger.Alonzo.Data (Data (Data), DataHash, hashData)
@@ -27,7 +27,6 @@ import Cardano.Ledger.ShelleyMA.Timelocks (ValidityInterval (..))
 import Cardano.Ledger.Val (inject)
 import Control.Monad (foldM)
 import Control.Monad.Class.MonadSTM (stateTVar)
-import Data.ByteArray (convert)
 import qualified Data.Map as Map
 import qualified Data.Sequence.Strict as StrictSeq
 import qualified Data.Set as Set
@@ -165,7 +164,6 @@ abortTx (smInput, token, HeadParameters{contestationPeriod, parties}) initInputs
   (policyId, _) = first currencyMPSHash (unAssetClass token)
 
   initialScript = plutusScript Initial.validatorScript
-  commitScript = plutusScript Commit.validatorScript
   headScript = plutusScript $ Head.validatorScript policyId
 
   scripts =
@@ -201,9 +199,9 @@ abortTx (smInput, token, HeadParameters{contestationPeriod, parties}) initInputs
       dependencies =
         Initial.Dependencies
           { Initial.headScript =
-              Plutus.ValidatorHash $ convert $ serialize' $ hashScript @Era headScript
+              Head.validatorHash policyId
           , Initial.commitScript =
-              Plutus.ValidatorHash $ convert $ serialize' $ hashScript @Era commitScript
+              Commit.validatorHash
           }
   abortDatum =
     Data $ toData Head.Final
