@@ -10,7 +10,7 @@ import Test.Hydra.Prelude
 
 import Test.Cardano.Ledger.Generic.Updaters hiding (vkey)
 import Test.Cardano.Ledger.Generic.Proof
-import Cardano.Binary (serialize, serialize')
+import Cardano.Binary (serialize)
 import Cardano.Ledger.Alonzo (TxOut)
 import Cardano.Ledger.Alonzo.Data (Data (Data), hashData)
 import Cardano.Ledger.Alonzo.Language (Language (PlutusV1))
@@ -21,7 +21,6 @@ import Cardano.Ledger.Alonzo.Tx (ValidatedTx (ValidatedTx, body, wits))
 import Cardano.Ledger.Alonzo.TxBody (TxOut (TxOut))
 import Cardano.Ledger.Alonzo.TxWitness (RdmrPtr, TxWitness (txdats), unTxDats)
 import Cardano.Ledger.Crypto (StandardCrypto)
-import Cardano.Ledger.Era (hashScript)
 import Cardano.Ledger.Mary.Value (AssetName, PolicyID, Value (Value))
 import qualified Cardano.Ledger.SafeHash as SafeHash
 import Cardano.Ledger.Slot (EpochSize (EpochSize))
@@ -29,7 +28,6 @@ import Cardano.Ledger.Val (inject)
 import Cardano.Slotting.EpochInfo (fixedEpochInfo)
 import Cardano.Slotting.Time (SystemStart (..), mkSlotLength)
 import Data.Array (array)
-import Data.ByteArray (convert)
 import qualified Data.ByteString.Lazy as LBS
 import qualified Data.Map as Map
 import Data.Maybe (fromJust)
@@ -45,11 +43,10 @@ import Hydra.Data.Party (partyFromVerKey)
 import Hydra.Party (vkey)
 import Ledger.Value (currencyMPSHash, unAssetClass)
 import Plutus.V1.Ledger.Api (PubKeyHash (PubKeyHash), toBuiltin, toBuiltinData, toData)
-import qualified Plutus.V1.Ledger.Api as Plutus
 import Shelley.Spec.Ledger.API (Coin (Coin), StrictMaybe (SJust), TxId (TxId), TxIn (TxIn), UTxO (UTxO))
 import Test.Cardano.Ledger.Alonzo.PlutusScripts (defaultCostModel)
 import Test.Cardano.Ledger.Alonzo.Serialisation.Generators ()
-import Test.QuickCheck (Gen, NonEmptyList (NonEmpty), counterexample, listOf, oneof, (===))
+import Test.QuickCheck (Gen, NonEmptyList (NonEmpty), counterexample, listOf, oneof, (===), withMaxSuccess)
 import Test.QuickCheck.Instances ()
 
 maxTxSize :: Int64
@@ -94,30 +91,31 @@ spec =
 
       -- TODO(SN): this requires the abortTx to include a redeemer, for a TxIn,
       -- spending a Head-validated output
-      prop "validates against 'head' script in haskell (unlimited budget)" $ \txIn params@HeadParameters{contestationPeriod, parties} (NonEmpty initials) ->
-        let tx = abortTx (txIn, threadToken, params) initials
-            -- input governed by head script
-            -- datum : Initiafl + head parameters
-            -- redeemer : State
+      prop "validates against 'head' script in haskell (unlimited budget)" $
+        withMaxSuccess 30 $ \txIn params@HeadParameters{contestationPeriod, parties} (NonEmpty initials) ->
+          let tx = abortTx (txIn, threadToken, params) initials
+              -- input governed by head script
+              -- datum : Initiafl + head parameters
+              -- redeemer : State
 
-            txOut = TxOut headAddress headValue (SJust headDatumHash)
-            (policyId, _) = first currencyMPSHash (unAssetClass threadToken)
-            headAddress = scriptAddr $ plutusScript $ Head.validatorScript policyId
-            headValue = inject (Coin 0)
-            headDatumHash =
-              hashData @Era . Data $
-                toData $
-                  Head.Initial
-                    (contestationPeriodFromDiffTime contestationPeriod)
-                    (map (partyFromVerKey . vkey) parties)
+              txOut = TxOut headAddress headValue (SJust headDatumHash)
+              (policyId, _) = first currencyMPSHash (unAssetClass threadToken)
+              headAddress = scriptAddr $ plutusScript $ Head.validatorScript policyId
+              headValue = inject (Coin 0)
+              headDatumHash =
+                hashData @Era . Data $
+                  toData $
+                    Head.Initial
+                      (contestationPeriodFromDiffTime contestationPeriod)
+                      (map (partyFromVerKey . vkey) parties)
 
-            utxo = UTxO $ Map.fromList $ (txIn, txOut) : map toTxOut initials
+              utxo = UTxO $ Map.fromList $ (txIn, txOut) : map toTxOut initials
 
-            results = validateTxScriptsUnlimited tx utxo
-         in 1 + length initials == length (rights $ Map.elems results)
-              & counterexample ("Evaluation results: " <> show results)
-              & counterexample ("Tx: " <> show tx)
-              & counterexample ("Input utxo: " <> show utxo)
+              results = validateTxScriptsUnlimited tx utxo
+           in 1 + length initials == length (rights $ Map.elems results)
+                & counterexample ("Evaluation results: " <> show results)
+                & counterexample ("Tx: " <> show tx)
+                & counterexample ("Input utxo: " <> show utxo)
 
 toTxOut :: (TxIn StandardCrypto, PubKeyHash) -> (TxIn StandardCrypto, TxOut Era)
 toTxOut (txIn, pkh) =
@@ -129,15 +127,11 @@ toTxOut (txIn, pkh) =
     hashData @Era $ Data $ toData $ Initial.datum (policyId, dependencies, pkh)
    where
     (policyId, _) = first currencyMPSHash (unAssetClass threadToken)
-    headScript = plutusScript (Head.validatorScript policyId)
-    commitScript = plutusScript Commit.validatorScript
     dependencies =
-      Initial.Dependencies
-        { Initial.headScript =
-            Plutus.ValidatorHash $ convert $ serialize' $ hashScript @Era headScript
-        , Initial.commitScript =
-            Plutus.ValidatorHash $ convert $ serialize' $ hashScript @Era commitScript
-        }
+        Initial.Dependencies
+          { Initial.headScript = Head.validatorHash policyId
+          , Initial.commitScript = Commit.validatorHash
+          }
 
 isImplemented :: PostChainTx tx -> OnChainHeadState -> Bool
 isImplemented tx st =
