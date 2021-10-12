@@ -1,4 +1,4 @@
-index-state: 2021-07-07T00:00:00Z
+index-state: 2021-08-14T00:00:00Z
 
 packages:
   local-cluster
@@ -201,6 +201,7 @@ source-repository-package
     cardano-protocol-tpraos
     alonzo/impl
     alonzo/test
+    cardano-ledger-test
 
 -- A lot of plutus dependencies have to be synchronized with the dependencies of
 -- cardano-node. If you update cardano-node, please make sure that all dependencies

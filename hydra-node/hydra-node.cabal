@@ -238,6 +238,7 @@ test-suite tests
     , cardano-ledger-core
     , cardano-ledger-shelley-ma
     , cardano-ledger-shelley-ma-test
+    , cardano-ledger-test
     , cardano-slotting
     , cborg
     , containers

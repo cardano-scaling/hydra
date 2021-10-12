@@ -255,7 +255,7 @@ txAlicePaysHerself =
         , txCertificates = TxCertificatesNone
         , txUpdateProposal = TxUpdateProposalNone
         , txMintValue = TxMintNone
-        , txScriptValidity = BuildTxWith TxScriptValidityNone
+        , txScriptValidity = TxScriptValidityNone
         }
 
   txIn = TxIn someTxId (toEnum 0)

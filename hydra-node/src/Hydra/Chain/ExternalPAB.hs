@@ -44,7 +44,7 @@ import Network.HTTP.Req (
 import Network.WebSockets (receiveData)
 import Network.WebSockets.Client (runClient)
 import Plutus.PAB.Webserver.Types (InstanceStatusToClient (NewObservableState))
-import Wallet.Emulator.Types (Wallet (..), walletPubKey)
+import Wallet.Emulator.Types (Wallet (..), knownWallet, walletPubKey)
 import Wallet.Types (ContractInstanceId (..))
 
 data ExternalPabLog = ExternalPabLog
@@ -88,10 +88,10 @@ withExternalPab walletId _tracer callback action = do
         ((tt, _) : _) -> postAbortTx @tx wallet tt utxo
     tx -> error $ "should post " <> show tx
 
-  wallet = Wallet walletId
+  wallet = knownWallet walletId
 
   -- TODO(SN): Parameterize this
-  allWallets = [Wallet 1, Wallet 2, Wallet 3]
+  allWallets = map knownWallet [1, 2, 3]
   pubKeys = map walletPubKey allWallets
 
 activateContract :: PabContract -> Wallet -> IO ContractInstanceId

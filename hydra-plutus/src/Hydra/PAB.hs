@@ -50,6 +50,7 @@ import qualified Plutus.Contract.StateMachine as SM
 import Plutus.Contract.Types (Promise (..))
 import qualified Plutus.Contracts.Currency as Currency
 import Plutus.PAB.Effects.Contract.Builtin (HasDefinitions (..), SomeBuiltin (..))
+import Data.OpenApi.Internal.Schema(ToSchema)
 
 -- | Hard-coded port used between hydra-node and the PAB server.
 pabPort :: Int
@@ -63,7 +64,7 @@ data PabContract
   | WatchInit
   | WatchHead
   deriving (Eq, Show, Generic)
-  deriving anyclass (ToJSON, FromJSON)
+  deriving anyclass (ToJSON, FromJSON, ToSchema)
 
 instance Pretty PabContract where
   pretty = viaShow

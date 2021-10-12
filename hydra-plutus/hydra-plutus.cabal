@@ -95,6 +95,7 @@ library
     , freer-simple
     , hydra-prelude
     , lens
+    , openapi3
     , playground-common
     , plutus-chain-index
     , plutus-contract
