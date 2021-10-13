@@ -43,6 +43,7 @@
           (hsPkgs."freer-simple" or (errorHandler.buildDepError "freer-simple"))
           (hsPkgs."hydra-prelude" or (errorHandler.buildDepError "hydra-prelude"))
           (hsPkgs."lens" or (errorHandler.buildDepError "lens"))
+          (hsPkgs."openapi3" or (errorHandler.buildDepError "openapi3"))
           (hsPkgs."playground-common" or (errorHandler.buildDepError "playground-common"))
           (hsPkgs."plutus-chain-index" or (errorHandler.buildDepError "plutus-chain-index"))
           (hsPkgs."plutus-contract" or (errorHandler.buildDepError "plutus-contract"))
@@ -62,6 +63,7 @@
           "Hydra/Contract/Commit"
           "Hydra/Contract/Head"
           "Hydra/Contract/Initial"
+          "Hydra/Contract/MockHead"
           "Hydra/Data/ContestationPeriod"
           "Hydra/Data/HeadParameters"
           "Hydra/Data/Party"
@@ -94,6 +96,30 @@
             ];
           buildable = true;
           hsSourceDirs = [ "exe/hydra-pab" ];
+          mainPath = [
+            "Main.hs"
+            ] ++ (pkgs.lib).optional (!flags.hydra-development) "";
+          };
+        "inspect-script" = {
+          depends = [
+            (hsPkgs."aeson" or (errorHandler.buildDepError "aeson"))
+            (hsPkgs."base" or (errorHandler.buildDepError "base"))
+            (hsPkgs."bytestring" or (errorHandler.buildDepError "bytestring"))
+            (hsPkgs."cardano-api" or (errorHandler.buildDepError "cardano-api"))
+            (hsPkgs."containers" or (errorHandler.buildDepError "containers"))
+            (hsPkgs."data-default" or (errorHandler.buildDepError "data-default"))
+            (hsPkgs."directory" or (errorHandler.buildDepError "directory"))
+            (hsPkgs."hydra-plutus" or (errorHandler.buildDepError "hydra-plutus"))
+            (hsPkgs."hydra-prelude" or (errorHandler.buildDepError "hydra-prelude"))
+            (hsPkgs."optparse-applicative" or (errorHandler.buildDepError "optparse-applicative"))
+            (hsPkgs."plutus-contract" or (errorHandler.buildDepError "plutus-contract"))
+            (hsPkgs."plutus-ledger" or (errorHandler.buildDepError "plutus-ledger"))
+            (hsPkgs."plutus-ledger-api" or (errorHandler.buildDepError "plutus-ledger-api"))
+            (hsPkgs."serialise" or (errorHandler.buildDepError "serialise"))
+            (hsPkgs."text" or (errorHandler.buildDepError "text"))
+            ];
+          buildable = true;
+          hsSourceDirs = [ "exe/inspect-script" ];
           mainPath = [
             "Main.hs"
             ] ++ (pkgs.lib).optional (!flags.hydra-development) "";

@@ -78,6 +78,8 @@
           "Plutus/V1/Ledger/TxId"
           "Plutus/V1/Ledger/Time"
           "Plutus/V1/Ledger/Value"
+          "Plutus/V2/Ledger/Api"
+          "Plutus/V2/Ledger/Contexts"
           ];
         hsSourceDirs = [ "src" ];
         };
@@ -99,4 +101,15 @@
           };
         };
       };
-    } // rec { src = (pkgs.lib).mkDefault .././.source-repository-packages/6; }
+    } // {
+    src = (pkgs.lib).mkDefault (pkgs.fetchgit {
+      url = "0";
+      rev = "minimal";
+      sha256 = "";
+      }) // {
+      url = "0";
+      rev = "minimal";
+      sha256 = "";
+      };
+    postUnpack = "sourceRoot+=/plutus-ledger-api; echo source root reset to \$sourceRoot";
+    }

@@ -90,26 +90,41 @@
             (hsPkgs."plutus-ledger-api" or (errorHandler.buildDepError "plutus-ledger-api"))
             (hsPkgs."QuickCheck" or (errorHandler.buildDepError "QuickCheck"))
             (hsPkgs."small-steps" or (errorHandler.buildDepError "small-steps"))
+            (hsPkgs."small-steps-test" or (errorHandler.buildDepError "small-steps-test"))
             (hsPkgs."shelley-spec-ledger" or (errorHandler.buildDepError "shelley-spec-ledger"))
             (hsPkgs."shelley-spec-ledger-test" or (errorHandler.buildDepError "shelley-spec-ledger-test"))
             (hsPkgs."strict-containers" or (errorHandler.buildDepError "strict-containers"))
             (hsPkgs."tasty" or (errorHandler.buildDepError "tasty"))
             (hsPkgs."tasty-hunit" or (errorHandler.buildDepError "tasty-hunit"))
             (hsPkgs."tasty-quickcheck" or (errorHandler.buildDepError "tasty-quickcheck"))
+            (hsPkgs."time" or (errorHandler.buildDepError "time"))
+            (hsPkgs."transformers" or (errorHandler.buildDepError "transformers"))
             ];
           buildable = true;
           modules = [
-            "Test/Cardano/Ledger/Alonzo/Trials"
-            "Test/Cardano/Ledger/Alonzo/Golden"
-            "Test/Cardano/Ledger/Alonzo/Serialisation/Canonical"
-            "Test/Cardano/Ledger/Alonzo/Serialisation/Tripping"
             "Test/Cardano/Ledger/Alonzo/Examples"
-            "Test/Cardano/Ledger/Alonzo/Translation"
+            "Test/Cardano/Ledger/Alonzo/Golden"
+            "Test/Cardano/Ledger/Alonzo/PropertyTests"
+            "Test/Cardano/Ledger/Alonzo/Serialisation/Canonical"
             "Test/Cardano/Ledger/Alonzo/Serialisation/CDDL"
+            "Test/Cardano/Ledger/Alonzo/Serialisation/Tripping"
+            "Test/Cardano/Ledger/Alonzo/Translation"
+            "Test/Cardano/Ledger/Alonzo/Trials"
             ];
           hsSourceDirs = [ "test" ];
           mainPath = [ "Tests.hs" ];
           };
         };
       };
-    } // rec { src = (pkgs.lib).mkDefault .././.source-repository-packages/65; }
+    } // {
+    src = (pkgs.lib).mkDefault (pkgs.fetchgit {
+      url = "9";
+      rev = "minimal";
+      sha256 = "";
+      }) // {
+      url = "9";
+      rev = "minimal";
+      sha256 = "";
+      };
+    postUnpack = "sourceRoot+=/alonzo/test; echo source root reset to \$sourceRoot";
+    }

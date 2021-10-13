@@ -43,4 +43,15 @@
         hsSourceDirs = [ "src" ];
         };
       };
-    } // rec { src = (pkgs.lib).mkDefault .././.source-repository-packages/25; }
+    } // {
+    src = (pkgs.lib).mkDefault (pkgs.fetchgit {
+      url = "5";
+      rev = "minimal";
+      sha256 = "";
+      }) // {
+      url = "5";
+      rev = "minimal";
+      sha256 = "";
+      };
+    postUnpack = "sourceRoot+=/orphans-deriving-via; echo source root reset to \$sourceRoot";
+    }

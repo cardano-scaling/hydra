@@ -45,4 +45,15 @@
         hsSourceDirs = [ "src" ];
         };
       };
-    } // rec { src = (pkgs.lib).mkDefault .././.source-repository-packages/69; }
+    } // {
+    src = (pkgs.lib).mkDefault (pkgs.fetchgit {
+      url = "10";
+      rev = "minimal";
+      sha256 = "";
+      }) // {
+      url = "10";
+      rev = "minimal";
+      sha256 = "";
+      };
+    postUnpack = "sourceRoot+=/cardano-config; echo source root reset to \$sourceRoot";
+    }

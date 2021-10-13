@@ -50,6 +50,8 @@
           (hsPkgs."hydra-test-utils" or (errorHandler.buildDepError "hydra-test-utils"))
           (hsPkgs."io-classes" or (errorHandler.buildDepError "io-classes"))
           (hsPkgs."iohk-monitoring" or (errorHandler.buildDepError "iohk-monitoring"))
+          (hsPkgs."lens" or (errorHandler.buildDepError "lens"))
+          (hsPkgs."lens-aeson" or (errorHandler.buildDepError "lens-aeson"))
           (hsPkgs."network" or (errorHandler.buildDepError "network"))
           (hsPkgs."process" or (errorHandler.buildDepError "process"))
           (hsPkgs."QuickCheck" or (errorHandler.buildDepError "QuickCheck"))
@@ -69,6 +71,7 @@
           "CardanoCluster"
           "CardanoNode"
           "Hydra/Generator"
+          "Hydra/LogFilter"
           "HydraNode"
           ];
         hsSourceDirs = [ "src" ];
@@ -86,6 +89,25 @@
           hsSourceDirs = [ "exe" ];
           mainPath = [
             "local-cluster.hs"
+            ] ++ (pkgs.lib).optional (!flags.development) "";
+          };
+        "log-filter" = {
+          depends = [
+            (hsPkgs."aeson" or (errorHandler.buildDepError "aeson"))
+            (hsPkgs."base" or (errorHandler.buildDepError "base"))
+            (hsPkgs."bytestring" or (errorHandler.buildDepError "bytestring"))
+            (hsPkgs."contra-tracer" or (errorHandler.buildDepError "contra-tracer"))
+            (hsPkgs."hydra-prelude" or (errorHandler.buildDepError "hydra-prelude"))
+            (hsPkgs."lens" or (errorHandler.buildDepError "lens"))
+            (hsPkgs."lens-aeson" or (errorHandler.buildDepError "lens-aeson"))
+            (hsPkgs."local-cluster" or (errorHandler.buildDepError "local-cluster"))
+            (hsPkgs."optparse-applicative" or (errorHandler.buildDepError "optparse-applicative"))
+            (hsPkgs."temporary" or (errorHandler.buildDepError "temporary"))
+            ];
+          buildable = true;
+          hsSourceDirs = [ "exe" ];
+          mainPath = [
+            "log-filter.hs"
             ] ++ (pkgs.lib).optional (!flags.development) "";
           };
         };
@@ -125,6 +147,7 @@
             "Test/EndToEndSpec"
             "Test/GeneratorSpec"
             "Test/LocalClusterSpec"
+            "Test/LogFilterSpec"
             ];
           hsSourceDirs = [ "test" ];
           mainPath = [ "Main.hs" ];
