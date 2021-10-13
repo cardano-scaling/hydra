@@ -33,7 +33,7 @@ pkgs.haskell-nix.project {
   materialized = ./nix/hydra-poc.materialized;
   # Enable this and nix-build one of the project components to get the new
   # plan-sha256 and materialization update scripts:
-  checkMaterialization = true;
+  # checkMaterialization = true;
 
   modules = [{
     packages = {

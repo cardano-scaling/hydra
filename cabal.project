@@ -68,6 +68,7 @@ source-repository-package
     quickcheck-dynamic
     word-array
   tag: 5ffcfa6c0451b3b937c4b69d2575cd55adebe88b
+  --sha256: 0zd1axm4a7si1z3ssb45hzjcd2aldywm6vxfgv4bdmkz85sl638p
 
 -- The following sections are copied from the 'plutus' repository cabal.project at the revision
 -- given above.
@@ -125,6 +126,7 @@ source-repository-package
   type: git
   location: https://github.com/input-output-hk/cardano-base
   tag: 592aa61d657ad5935a33bace1243abce3728b643
+  --sha256: 1bgq3a2wfdz24jqfwylcc6jjg5aji8dpy5gjkhpnmkkvgcr2rkyb
   subdir:
     base-deriving-via
     binary
@@ -150,6 +152,7 @@ source-repository-package
   type: git
   location: https://github.com/input-output-hk/ouroboros-network
   tag: 5d37a927046bc7da2887830d8e35cf604622ce09
+  --sha256: 1620zcnivgm1wp1kq3vqc44g77lv7dalzgywc96qsblf1sv9fw3p
   subdir:
     monoidal-synchronisation
     typed-protocols
@@ -183,6 +186,7 @@ source-repository-package
   type: git
   location: https://github.com/raduom/cardano-ledger-specs
   tag: ef6bb99782d61316da55470620c7da994cc352b2
+  --sha256: 0z2818kwiwv7smz0ff8wr4zb405pymgd12zm32asas0mp5bqxkin
   subdir:
     byron/chain/executable-spec
     byron/crypto
