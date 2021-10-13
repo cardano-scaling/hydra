@@ -52,6 +52,7 @@ data CardanoNodeArgs = CardanoNodeArgs
   , nodeConfigFile :: FilePath
   , nodeByronGenesisFile :: FilePath
   , nodeShelleyGenesisFile :: FilePath
+  , nodeAlonzoGenesisFile :: FilePath
   , nodeTopologyFile :: FilePath
   , nodeDatabaseDir :: FilePath
   , nodeDlgCertFile :: Maybe FilePath
@@ -69,6 +70,7 @@ defaultCardanoNodeArgs =
     , nodeConfigFile = "configuration.json"
     , nodeByronGenesisFile = "genesis-byron.json"
     , nodeShelleyGenesisFile = "genesis-shelley.json"
+    , nodeAlonzoGenesisFile = "genesis-alonzo.json"
     , nodeTopologyFile = "topology.json"
     , nodeDatabaseDir = "db"
     , nodeDlgCertFile = Nothing
