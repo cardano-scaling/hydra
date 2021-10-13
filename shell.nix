@@ -1,15 +1,9 @@
 # A shell setup providing build tools and utilities for a development
 # environment. This is now based on haskell.nix and it's haskell-nix.project
 # (see 'default.nix').
-{ compiler ? "ghc8104"
+{ compiler ? "ghc8107"
   # nixpkgs 21.05 at 2021-07-19
 , pkgs ? import (builtins.fetchTarball "https://github.com/NixOS/nixpkgs/archive/4181644d09b96af0f92c2f025d3463f9d19c7790.tar.gz") { }
-
-  # Use cardano-node master for more likely cache hits
-, cardanoNodePkgs ? import
-    (builtins.fetchTarball
-      "https://github.com/input-output-hk/cardano-node/archive/8fe46140a52810b6ca456be01d652ca08fe730bf.tar.gz")
-    { gitrev = "8fe46140a52810b6ca456be01d652ca08fe730bf"; }
 
 , hsPkgs ? import ./default.nix { }
 
@@ -44,9 +38,6 @@ let
     pkgs.haskellPackages.cabal-fmt
     # Handy to interact with the hydra-node via websockets
     pkgs.ws
-    # Used in local-cluster
-    cardanoNodePkgs.cardano-node
-    cardanoNodePkgs.cardano-cli
     # For validating JSON instances against a pre-defined schema
     pkgs.python3Packages.jsonschema
     pkgs.yq

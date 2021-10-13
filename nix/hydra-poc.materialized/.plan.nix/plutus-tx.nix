@@ -62,9 +62,11 @@
           "PlutusTx/Prelude"
           "PlutusTx/Evaluation"
           "PlutusTx/Applicative"
+          "PlutusTx/Base"
           "PlutusTx/Bool"
           "PlutusTx/IsData"
           "PlutusTx/IsData/Class"
+          "PlutusTx/ErrorCodes"
           "PlutusTx/Eq"
           "PlutusTx/Enum"
           "PlutusTx/Either"
@@ -73,6 +75,7 @@
           "PlutusTx/Lattice"
           "PlutusTx/List"
           "PlutusTx/Ord"
+          "PlutusTx/Integer"
           "PlutusTx/Maybe"
           "PlutusTx/Monoid"
           "PlutusTx/Numeric"
@@ -119,4 +122,15 @@
           };
         };
       };
-    } // rec { src = (pkgs.lib).mkDefault .././.source-repository-packages/7; }
+    } // {
+    src = (pkgs.lib).mkDefault (pkgs.fetchgit {
+      url = "0";
+      rev = "minimal";
+      sha256 = "";
+      }) // {
+      url = "0";
+      rev = "minimal";
+      sha256 = "";
+      };
+    postUnpack = "sourceRoot+=/plutus-tx; echo source root reset to \$sourceRoot";
+    }

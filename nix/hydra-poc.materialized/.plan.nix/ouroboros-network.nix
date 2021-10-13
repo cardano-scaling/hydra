@@ -324,4 +324,15 @@
           };
         };
       };
-    } // rec { src = (pkgs.lib).mkDefault .././.source-repository-packages/33; }
+    } // {
+    src = (pkgs.lib).mkDefault (pkgs.fetchgit {
+      url = "7";
+      rev = "minimal";
+      sha256 = "";
+      }) // {
+      url = "7";
+      rev = "minimal";
+      sha256 = "";
+      };
+    postUnpack = "sourceRoot+=/ouroboros-network; echo source root reset to \$sourceRoot";
+    }

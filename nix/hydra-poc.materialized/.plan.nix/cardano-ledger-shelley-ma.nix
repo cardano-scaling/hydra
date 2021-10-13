@@ -40,6 +40,7 @@
           (hsPkgs."cardano-crypto-class" or (errorHandler.buildDepError "cardano-crypto-class"))
           (hsPkgs."cardano-ledger-core" or (errorHandler.buildDepError "cardano-ledger-core"))
           (hsPkgs."cardano-prelude" or (errorHandler.buildDepError "cardano-prelude"))
+          (hsPkgs."cardano-protocol-tpraos" or (errorHandler.buildDepError "cardano-protocol-tpraos"))
           (hsPkgs."cardano-slotting" or (errorHandler.buildDepError "cardano-slotting"))
           (hsPkgs."cborg" or (errorHandler.buildDepError "cborg"))
           (hsPkgs."containers" or (errorHandler.buildDepError "containers"))
@@ -74,4 +75,15 @@
         hsSourceDirs = [ "src" ];
         };
       };
-    } // rec { src = (pkgs.lib).mkDefault .././.source-repository-packages/61; }
+    } // {
+    src = (pkgs.lib).mkDefault (pkgs.fetchgit {
+      url = "9";
+      rev = "minimal";
+      sha256 = "";
+      }) // {
+      url = "9";
+      rev = "minimal";
+      sha256 = "";
+      };
+    postUnpack = "sourceRoot+=/shelley-ma/impl; echo source root reset to \$sourceRoot";
+    }

@@ -75,7 +75,6 @@
           (hsPkgs."mmorph" or (errorHandler.buildDepError "mmorph"))
           (hsPkgs."monoidal-containers" or (errorHandler.buildDepError "monoidal-containers"))
           (hsPkgs."mtl" or (errorHandler.buildDepError "mtl"))
-          (hsPkgs."nonempty-containers" or (errorHandler.buildDepError "nonempty-containers"))
           (hsPkgs."parser-combinators" or (errorHandler.buildDepError "parser-combinators"))
           (hsPkgs."prettyprinter" or (errorHandler.buildDepError "prettyprinter"))
           (hsPkgs."prettyprinter-configurable" or (errorHandler.buildDepError "prettyprinter-configurable"))
@@ -377,10 +376,18 @@
             (hsPkgs."bytestring" or (errorHandler.buildDepError "bytestring"))
             (hsPkgs."flat" or (errorHandler.buildDepError "flat"))
             (hsPkgs."lens" or (errorHandler.buildDepError "lens"))
+            (hsPkgs."deepseq" or (errorHandler.buildDepError "deepseq"))
+            (hsPkgs."monoidal-containers" or (errorHandler.buildDepError "monoidal-containers"))
             (hsPkgs."optparse-applicative" or (errorHandler.buildDepError "optparse-applicative"))
+            (hsPkgs."mtl" or (errorHandler.buildDepError "mtl"))
             (hsPkgs."transformers" or (errorHandler.buildDepError "transformers"))
+            (hsPkgs."containers" or (errorHandler.buildDepError "containers"))
+            (hsPkgs."prettyprinter" or (errorHandler.buildDepError "prettyprinter"))
+            (hsPkgs."cassava" or (errorHandler.buildDepError "cassava"))
+            (hsPkgs."text" or (errorHandler.buildDepError "text"))
             ];
           buildable = true;
+          modules = [ "Common" "Parsers" ];
           hsSourceDirs = [ "executables" ];
           mainPath = [ "pir/Main.hs" ];
           };
@@ -571,4 +578,15 @@
           };
         };
       };
-    } // rec { src = (pkgs.lib).mkDefault .././.source-repository-packages/3; }
+    } // {
+    src = (pkgs.lib).mkDefault (pkgs.fetchgit {
+      url = "0";
+      rev = "minimal";
+      sha256 = "";
+      }) // {
+      url = "0";
+      rev = "minimal";
+      sha256 = "";
+      };
+    postUnpack = "sourceRoot+=/plutus-core; echo source root reset to \$sourceRoot";
+    }

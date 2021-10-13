@@ -50,6 +50,7 @@
           (hsPkgs."cardano-ledger-core" or (errorHandler.buildDepError "cardano-ledger-core"))
           (hsPkgs."cardano-prelude-test" or (errorHandler.buildDepError "cardano-prelude-test"))
           (hsPkgs."cardano-prelude" or (errorHandler.buildDepError "cardano-prelude"))
+          (hsPkgs."cardano-protocol-tpraos" or (errorHandler.buildDepError "cardano-protocol-tpraos"))
           (hsPkgs."cardano-slotting" or (errorHandler.buildDepError "cardano-slotting"))
           (hsPkgs."cborg" or (errorHandler.buildDepError "cborg"))
           (hsPkgs."containers" or (errorHandler.buildDepError "containers"))
@@ -76,6 +77,7 @@
           (hsPkgs."time" or (errorHandler.buildDepError "time"))
           (hsPkgs."transformers" or (errorHandler.buildDepError "transformers"))
           (hsPkgs."tree-diff" or (errorHandler.buildDepError "tree-diff"))
+          (hsPkgs."vector" or (errorHandler.buildDepError "vector"))
           ];
         buildable = true;
         modules = [
@@ -141,6 +143,7 @@
             (hsPkgs."cardano-ledger-core" or (errorHandler.buildDepError "cardano-ledger-core"))
             (hsPkgs."cardano-prelude-test" or (errorHandler.buildDepError "cardano-prelude-test"))
             (hsPkgs."cardano-prelude" or (errorHandler.buildDepError "cardano-prelude"))
+            (hsPkgs."cardano-protocol-tpraos" or (errorHandler.buildDepError "cardano-protocol-tpraos"))
             (hsPkgs."cardano-slotting" or (errorHandler.buildDepError "cardano-slotting"))
             (hsPkgs."cborg" or (errorHandler.buildDepError "cborg"))
             (hsPkgs."containers" or (errorHandler.buildDepError "containers"))
@@ -221,6 +224,7 @@
             (hsPkgs."cardano-crypto-praos" or (errorHandler.buildDepError "cardano-crypto-praos"))
             (hsPkgs."cardano-ledger-core" or (errorHandler.buildDepError "cardano-ledger-core"))
             (hsPkgs."cardano-prelude" or (errorHandler.buildDepError "cardano-prelude"))
+            (hsPkgs."cardano-protocol-tpraos" or (errorHandler.buildDepError "cardano-protocol-tpraos"))
             (hsPkgs."cardano-slotting" or (errorHandler.buildDepError "cardano-slotting"))
             (hsPkgs."containers" or (errorHandler.buildDepError "containers"))
             (hsPkgs."criterion" or (errorHandler.buildDepError "criterion"))
@@ -248,4 +252,15 @@
           };
         };
       };
-    } // rec { src = (pkgs.lib).mkDefault .././.source-repository-packages/60; }
+    } // {
+    src = (pkgs.lib).mkDefault (pkgs.fetchgit {
+      url = "9";
+      rev = "minimal";
+      sha256 = "";
+      }) // {
+      url = "9";
+      rev = "minimal";
+      sha256 = "";
+      };
+    postUnpack = "sourceRoot+=/shelley/chain-and-ledger/shelley-spec-ledger-test; echo source root reset to \$sourceRoot";
+    }

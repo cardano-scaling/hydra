@@ -46,9 +46,13 @@
           (hsPkgs."strict-containers" or (errorHandler.buildDepError "strict-containers"))
           (hsPkgs."aeson" or (errorHandler.buildDepError "aeson"))
           (hsPkgs."base" or (errorHandler.buildDepError "base"))
+          (hsPkgs."beam-core" or (errorHandler.buildDepError "beam-core"))
+          (hsPkgs."beam-sqlite" or (errorHandler.buildDepError "beam-sqlite"))
+          (hsPkgs."beam-migrate" or (errorHandler.buildDepError "beam-migrate"))
           (hsPkgs."cardano-api" or (errorHandler.buildDepError "cardano-api"))
           (hsPkgs."cardano-ledger-byron" or (errorHandler.buildDepError "cardano-ledger-byron"))
           (hsPkgs."containers" or (errorHandler.buildDepError "containers"))
+          (hsPkgs."contra-tracer" or (errorHandler.buildDepError "contra-tracer"))
           (hsPkgs."cryptonite" or (errorHandler.buildDepError "cryptonite"))
           (hsPkgs."data-default" or (errorHandler.buildDepError "data-default"))
           (hsPkgs."exceptions" or (errorHandler.buildDepError "exceptions"))
@@ -59,15 +63,17 @@
           (hsPkgs."lens" or (errorHandler.buildDepError "lens"))
           (hsPkgs."memory" or (errorHandler.buildDepError "memory"))
           (hsPkgs."nothunks" or (errorHandler.buildDepError "nothunks"))
+          (hsPkgs."openapi3" or (errorHandler.buildDepError "openapi3"))
           (hsPkgs."ouroboros-network" or (errorHandler.buildDepError "ouroboros-network"))
           (hsPkgs."ouroboros-network-framework" or (errorHandler.buildDepError "ouroboros-network-framework"))
           (hsPkgs."ouroboros-consensus" or (errorHandler.buildDepError "ouroboros-consensus"))
           (hsPkgs."ouroboros-consensus-byron" or (errorHandler.buildDepError "ouroboros-consensus-byron"))
           (hsPkgs."ouroboros-consensus-cardano" or (errorHandler.buildDepError "ouroboros-consensus-cardano"))
           (hsPkgs."prettyprinter" or (errorHandler.buildDepError "prettyprinter"))
+          (hsPkgs."retry" or (errorHandler.buildDepError "retry"))
           (hsPkgs."semigroups" or (errorHandler.buildDepError "semigroups"))
           (hsPkgs."serialise" or (errorHandler.buildDepError "serialise"))
-          (hsPkgs."time-units" or (errorHandler.buildDepError "time-units"))
+          (hsPkgs."sqlite-simple" or (errorHandler.buildDepError "sqlite-simple"))
           (hsPkgs."typed-protocols-examples" or (errorHandler.buildDepError "typed-protocols-examples"))
           (hsPkgs."unordered-containers" or (errorHandler.buildDepError "unordered-containers"))
           (hsPkgs."bytestring" or (errorHandler.buildDepError "bytestring"))
@@ -85,12 +91,21 @@
         modules = [
           "Plutus/ChainIndex"
           "Plutus/ChainIndex/Api"
+          "Plutus/ChainIndex/ChainIndexError"
+          "Plutus/ChainIndex/ChainIndexLog"
+          "Plutus/ChainIndex/Client"
+          "Plutus/ChainIndex/DbSchema"
           "Plutus/ChainIndex/Effects"
+          "Plutus/ChainIndex/Emulator"
           "Plutus/ChainIndex/Emulator/DiskState"
           "Plutus/ChainIndex/Emulator/Handlers"
-          "Plutus/ChainIndex/Client"
+          "Plutus/ChainIndex/Emulator/Server"
+          "Plutus/ChainIndex/Handlers"
           "Plutus/ChainIndex/Server"
           "Plutus/ChainIndex/Tx"
+          "Plutus/ChainIndex/TxIdState"
+          "Plutus/ChainIndex/TxOutBalance"
+          "Plutus/ChainIndex/TxUtxoBalance"
           "Plutus/ChainIndex/Types"
           "Plutus/ChainIndex/UtxoState"
           "Plutus/Monitoring/Util"
@@ -107,9 +122,13 @@
           depends = [
             (hsPkgs."base" or (errorHandler.buildDepError "base"))
             (hsPkgs."aeson" or (errorHandler.buildDepError "aeson"))
+            (hsPkgs."beam-core" or (errorHandler.buildDepError "beam-core"))
+            (hsPkgs."beam-sqlite" or (errorHandler.buildDepError "beam-sqlite"))
+            (hsPkgs."beam-migrate" or (errorHandler.buildDepError "beam-migrate"))
             (hsPkgs."cardano-api" or (errorHandler.buildDepError "cardano-api"))
             (hsPkgs."cardano-slotting" or (errorHandler.buildDepError "cardano-slotting"))
             (hsPkgs."containers" or (errorHandler.buildDepError "containers"))
+            (hsPkgs."contra-tracer" or (errorHandler.buildDepError "contra-tracer"))
             (hsPkgs."freer-extras" or (errorHandler.buildDepError "freer-extras"))
             (hsPkgs."freer-simple" or (errorHandler.buildDepError "freer-simple"))
             (hsPkgs."lens" or (errorHandler.buildDepError "lens"))
@@ -121,6 +140,7 @@
             (hsPkgs."yaml" or (errorHandler.buildDepError "yaml"))
             (hsPkgs."prettyprinter" or (errorHandler.buildDepError "prettyprinter"))
             (hsPkgs."plutus-chain-index" or (errorHandler.buildDepError "plutus-chain-index"))
+            (hsPkgs."sqlite-simple" or (errorHandler.buildDepError "sqlite-simple"))
             (hsPkgs."stm" or (errorHandler.buildDepError "stm"))
             ];
           buildable = true;
@@ -137,21 +157,42 @@
             (hsPkgs."plutus-tx" or (errorHandler.buildDepError "plutus-tx"))
             (hsPkgs."plutus-chain-index" or (errorHandler.buildDepError "plutus-chain-index"))
             (hsPkgs."base" or (errorHandler.buildDepError "base"))
+            (hsPkgs."beam-migrate" or (errorHandler.buildDepError "beam-migrate"))
+            (hsPkgs."beam-sqlite" or (errorHandler.buildDepError "beam-sqlite"))
+            (hsPkgs."bytestring" or (errorHandler.buildDepError "bytestring"))
+            (hsPkgs."containers" or (errorHandler.buildDepError "containers"))
+            (hsPkgs."contra-tracer" or (errorHandler.buildDepError "contra-tracer"))
+            (hsPkgs."fingertree" or (errorHandler.buildDepError "fingertree"))
+            (hsPkgs."freer-extras" or (errorHandler.buildDepError "freer-extras"))
+            (hsPkgs."freer-simple" or (errorHandler.buildDepError "freer-simple"))
             (hsPkgs."hedgehog" or (errorHandler.buildDepError "hedgehog"))
+            (hsPkgs."lens" or (errorHandler.buildDepError "lens"))
+            (hsPkgs."serialise" or (errorHandler.buildDepError "serialise"))
+            (hsPkgs."sqlite-simple" or (errorHandler.buildDepError "sqlite-simple"))
             (hsPkgs."tasty" or (errorHandler.buildDepError "tasty"))
             (hsPkgs."tasty-hedgehog" or (errorHandler.buildDepError "tasty-hedgehog"))
-            (hsPkgs."tasty-hunit" or (errorHandler.buildDepError "tasty-hunit"))
-            (hsPkgs."containers" or (errorHandler.buildDepError "containers"))
-            (hsPkgs."serialise" or (errorHandler.buildDepError "serialise"))
-            (hsPkgs."bytestring" or (errorHandler.buildDepError "bytestring"))
-            (hsPkgs."freer-simple" or (errorHandler.buildDepError "freer-simple"))
-            (hsPkgs."lens" or (errorHandler.buildDepError "lens"))
             ];
           buildable = true;
-          modules = [ "Generators" ];
+          modules = [
+            "Generators"
+            "Plutus/ChainIndex/Emulator/DiskStateSpec"
+            "Plutus/ChainIndex/Emulator/HandlersSpec"
+            "Plutus/ChainIndex/HandlersSpec"
+            ];
           hsSourceDirs = [ "test" ];
           mainPath = [ "Spec.hs" ];
           };
         };
       };
-    } // rec { src = (pkgs.lib).mkDefault .././.source-repository-packages/2; }
+    } // {
+    src = (pkgs.lib).mkDefault (pkgs.fetchgit {
+      url = "0";
+      rev = "minimal";
+      sha256 = "";
+      }) // {
+      url = "0";
+      rev = "minimal";
+      sha256 = "";
+      };
+    postUnpack = "sourceRoot+=/plutus-chain-index; echo source root reset to \$sourceRoot";
+    }

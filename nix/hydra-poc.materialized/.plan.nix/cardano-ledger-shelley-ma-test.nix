@@ -41,7 +41,6 @@
       "library" = {
         depends = [
           (hsPkgs."base" or (errorHandler.buildDepError "base"))
-          (hsPkgs."array" or (errorHandler.buildDepError "array"))
           (hsPkgs."base" or (errorHandler.buildDepError "base"))
           (hsPkgs."base16-bytestring" or (errorHandler.buildDepError "base16-bytestring"))
           (hsPkgs."bytestring" or (errorHandler.buildDepError "bytestring"))
@@ -126,4 +125,15 @@
           };
         };
       };
-    } // rec { src = (pkgs.lib).mkDefault .././.source-repository-packages/62; }
+    } // {
+    src = (pkgs.lib).mkDefault (pkgs.fetchgit {
+      url = "9";
+      rev = "minimal";
+      sha256 = "";
+      }) // {
+      url = "9";
+      rev = "minimal";
+      sha256 = "";
+      };
+    postUnpack = "sourceRoot+=/shelley-ma/shelley-ma-test; echo source root reset to \$sourceRoot";
+    }

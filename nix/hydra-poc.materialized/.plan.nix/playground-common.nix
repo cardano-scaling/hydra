@@ -51,7 +51,6 @@
           (hsPkgs."http-conduit" or (errorHandler.buildDepError "http-conduit"))
           (hsPkgs."jwt" or (errorHandler.buildDepError "jwt"))
           (hsPkgs."lens" or (errorHandler.buildDepError "lens"))
-          (hsPkgs."memory" or (errorHandler.buildDepError "memory"))
           (hsPkgs."monad-logger" or (errorHandler.buildDepError "monad-logger"))
           (hsPkgs."mtl" or (errorHandler.buildDepError "mtl"))
           (hsPkgs."newtype-generics" or (errorHandler.buildDepError "newtype-generics"))
@@ -79,9 +78,11 @@
           (hsPkgs."unordered-containers" or (errorHandler.buildDepError "unordered-containers"))
           (hsPkgs."wai" or (errorHandler.buildDepError "wai"))
           (hsPkgs."freer-simple" or (errorHandler.buildDepError "freer-simple"))
+          (hsPkgs."freer-extras" or (errorHandler.buildDepError "freer-extras"))
           (hsPkgs."uuid" or (errorHandler.buildDepError "uuid"))
           (hsPkgs."streaming" or (errorHandler.buildDepError "streaming"))
           (hsPkgs."foldl" or (errorHandler.buildDepError "foldl"))
+          (hsPkgs."openapi3" or (errorHandler.buildDepError "openapi3"))
           ];
         buildable = true;
         modules = [
@@ -138,4 +139,15 @@
           };
         };
       };
-    } // rec { src = (pkgs.lib).mkDefault .././.source-repository-packages/1; }
+    } // {
+    src = (pkgs.lib).mkDefault (pkgs.fetchgit {
+      url = "0";
+      rev = "minimal";
+      sha256 = "";
+      }) // {
+      url = "0";
+      rev = "minimal";
+      sha256 = "";
+      };
+    postUnpack = "sourceRoot+=/playground-common; echo source root reset to \$sourceRoot";
+    }

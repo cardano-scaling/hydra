@@ -1,8 +1,8 @@
-{ compiler ? "ghc8104"
+{ compiler ? "ghc8107"
 , system ? builtins.currentSystem
 , haskellNix ? import
     (builtins.fetchTarball
-      "https://github.com/input-output-hk/haskell.nix/archive/f9d261d6d90d4aebd97f7ae60c951fc9e1d98493.tar.gz")
+      "https://github.com/input-output-hk/haskell.nix/archive/fd4d10efe278ba9ef26229a031f2b26b09ed83ff.tar.gz")
     { }
 , iohkNix ? import
     (builtins.fetchTarball
@@ -29,11 +29,11 @@ pkgs.haskell-nix.project {
   compiler-nix-name = compiler;
 
   # Fixed output derivation for plan-nix
-  plan-sha256 = "0kxbgdyv86fc76gzgcqjhp49jv41x800kdwvaxkj9dpmk4qzzbwg";
+  plan-sha256 = "0daiqsdakliq6g5rlxl1n5xg0yzszpkmmmm1v3gjbfb698v7kl47";
   materialized = ./nix/hydra-poc.materialized;
   # Enable this and nix-build one of the project components to get the new
   # plan-sha256 and materialization update scripts:
-  # checkMaterialization = true;
+  checkMaterialization = true;
 
   modules = [{
     packages = {
