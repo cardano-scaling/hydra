@@ -120,6 +120,8 @@ executable local-cluster
   ghc-options:    -threaded -rtsopts
   build-depends:
     , base           >=4.7 && <5
+    , cardano-cli
+    , cardano-node
     , contra-tracer
     , hydra-prelude
     , local-cluster
@@ -179,7 +181,8 @@ test-suite integration
 
   build-tool-depends:
     hspec-discover:hspec-discover -any, hydra-node:hydra-node -any,
-    hydra-node:mock-chain -any
+    hydra-node:mock-chain -any, cardano-node:cardano-node -any,
+    cardano-cli:cardano-cli -any
 
   ghc-options:        -threaded -rtsopts
 

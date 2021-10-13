@@ -75,6 +75,10 @@ withBFTNode clusterTracer cfg action = do
     ("config" </> "genesis-shelley.json")
     (stateDirectory cfg </> nodeShelleyGenesisFile args)
 
+  copyFile
+    ("config" </> "genesis-alonzo.json")
+    (stateDirectory cfg </> nodeAlonzoGenesisFile args)
+
   withCardanoNode nodeTracer cfg args $ \rn -> do
     traceWith clusterTracer $ MsgNodeStarting cfg
     action rn

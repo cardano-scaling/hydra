@@ -3,6 +3,7 @@
 
   "ByronGenesisFile": "genesis-byron.json",
   "ShelleyGenesisFile": "genesis-shelley.json",
+  "AlonzoGenesisFile": "genesis-alonzo.json",
 
   "ApplicationName": "cardano-sl",
   "ApplicationVersion": 1,
