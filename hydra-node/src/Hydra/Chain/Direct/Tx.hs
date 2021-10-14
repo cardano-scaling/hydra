@@ -258,6 +258,7 @@ observeAbortTx ValidatedTx{wits} st =
   firstDatum = snd <$> datums
 
   datums = Map.toList . unTxDats $ txdats wits
+
 --
 
 -- * Helpers

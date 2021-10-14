@@ -8,14 +8,12 @@ module Hydra.Chain.Direct.TxSpec where
 import Hydra.Prelude
 import Test.Hydra.Prelude
 
-import Test.Cardano.Ledger.Generic.Updaters hiding (vkey)
-import Test.Cardano.Ledger.Generic.Proof
 import Cardano.Binary (serialize)
 import Cardano.Ledger.Alonzo (TxOut)
 import Cardano.Ledger.Alonzo.Data (Data (Data), hashData)
 import Cardano.Ledger.Alonzo.Language (Language (PlutusV1))
 import Cardano.Ledger.Alonzo.PParams (PParams, ProtVer (..))
-import Cardano.Ledger.Alonzo.Scripts (ExUnits(..))
+import Cardano.Ledger.Alonzo.Scripts (ExUnits (..))
 import Cardano.Ledger.Alonzo.Tools (ScriptFailure, evaluateTransactionExecutionUnits)
 import Cardano.Ledger.Alonzo.Tx (ValidatedTx (ValidatedTx, body, wits))
 import Cardano.Ledger.Alonzo.TxBody (TxOut (TxOut))
@@ -46,7 +44,9 @@ import Plutus.V1.Ledger.Api (PubKeyHash (PubKeyHash), toBuiltin, toBuiltinData, 
 import Shelley.Spec.Ledger.API (Coin (Coin), StrictMaybe (SJust), TxId (TxId), TxIn (TxIn), UTxO (UTxO))
 import Test.Cardano.Ledger.Alonzo.PlutusScripts (defaultCostModel)
 import Test.Cardano.Ledger.Alonzo.Serialisation.Generators ()
-import Test.QuickCheck (Gen, NonEmptyList (NonEmpty), counterexample, listOf, oneof, (===), withMaxSuccess)
+import Test.Cardano.Ledger.Generic.Proof
+import Test.Cardano.Ledger.Generic.Updaters hiding (vkey)
+import Test.QuickCheck (Gen, NonEmptyList (NonEmpty), counterexample, listOf, oneof, withMaxSuccess, (===))
 import Test.QuickCheck.Instances ()
 
 maxTxSize :: Int64
@@ -128,10 +128,10 @@ toTxOut (txIn, pkh) =
    where
     (policyId, _) = first currencyMPSHash (unAssetClass threadToken)
     dependencies =
-        Initial.Dependencies
-          { Initial.headScript = Head.validatorHash policyId
-          , Initial.commitScript = Commit.validatorHash
-          }
+      Initial.Dependencies
+        { Initial.headScript = Head.validatorHash policyId
+        , Initial.commitScript = Commit.validatorHash
+        }
 
 isImplemented :: PostChainTx tx -> OnChainHeadState -> Bool
 isImplemented tx st =
@@ -161,11 +161,11 @@ pparams :: PParams Era
 pparams =
   newPParams
     (Alonzo Standard)
-    [ Costmdls $ Map.singleton PlutusV1 $ fromJust defaultCostModel,
-      MaxValSize 1000000000,
-      MaxTxExUnits $ ExUnits 100000000 100000000,
-      MaxBlockExUnits $ ExUnits 100000000 100000000,
-      ProtocolVersion $ ProtVer 5 0
+    [ Costmdls $ Map.singleton PlutusV1 $ fromJust defaultCostModel
+    , MaxValSize 1000000000
+    , MaxTxExUnits $ ExUnits 100000000 100000000
+    , MaxBlockExUnits $ ExUnits 100000000 100000000
+    , ProtocolVersion $ ProtVer 5 0
     ]
 
 -- | Extract NFT candidates. any single quantity assets not being ADA is a

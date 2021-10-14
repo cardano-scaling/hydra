@@ -28,8 +28,8 @@ import Plutus.Contract.Test (
 import Plutus.Trace.Emulator.Types (walletInstanceTag)
 import PlutusTx.Monoid (inv)
 import Test.Tasty (TestTree, testGroup)
+import Wallet.Emulator.Wallet (knownWallet)
 import Wallet.Types (ContractError (..))
-import Wallet.Emulator.Wallet(knownWallet)
 
 import qualified Control.Monad.Freer.Extras.Log as Trace
 import qualified Data.Map.Strict as Map

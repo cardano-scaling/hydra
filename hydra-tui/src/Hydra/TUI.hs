@@ -390,7 +390,7 @@ draw s =
         Nothing -> emptyWidget
         Just me -> str "Address " <+> withAttr own (txt $ ellipsize 40 $ encodeAddress (getAddress me))
 
-    ellipsize n t = Text.take (n -2) t <> ".."
+    ellipsize n t = Text.take (n - 2) t <> ".."
 
     nodeStatus =
       case s ^. clientStateL of

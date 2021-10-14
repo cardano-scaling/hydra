@@ -34,7 +34,7 @@ spec = parallel $ do
       specify "Utxo" $ \(specs, tmp) ->
         withMaxSuccess 1 $ prop_validateToJSON @(Utxo CardanoTx) specs (tmp </> "Utxo")
       specify "CardanoTx" $ \(specs, tmp) ->
-        withMaxSuccess 1 $prop_validateToJSON @CardanoTx specs (tmp </> "CardanoTx")
+        withMaxSuccess 1 $ prop_validateToJSON @CardanoTx specs (tmp </> "CardanoTx")
 
 apiSpecificationSelector ::
   Text -> SpecificationSelector

@@ -4,5 +4,6 @@ import Hydra.Prelude
 import Test.Hydra.Prelude
 
 spec :: Spec
-spec = parallel $
-  it "exists" True
+spec =
+  parallel $
+    it "exists" True

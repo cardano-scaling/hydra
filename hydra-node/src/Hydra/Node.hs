@@ -75,6 +75,7 @@ initEnvironment Options{me, parties} = do
     case mKey of
       Nothing -> fail $ "Failed to decode verification key from " <> p
       Just key -> pure key
+
 --
 
 -- ** Create and run a hydra node

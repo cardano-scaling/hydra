@@ -10,6 +10,7 @@ import Control.Lens (makeClassyPrisms)
 import Data.Aeson (Options (..), defaultOptions, genericToJSON)
 import qualified Data.List.NonEmpty as NonEmpty
 import qualified Data.Map as Map
+import Data.OpenApi.Internal.Schema (ToSchema)
 import Data.Text.Prettyprint.Doc (Pretty (..), viaShow)
 import qualified Hydra.Contract.Commit as Commit
 import qualified Hydra.Contract.Head as Head
@@ -50,7 +51,6 @@ import qualified Plutus.Contract.StateMachine as SM
 import Plutus.Contract.Types (Promise (..))
 import qualified Plutus.Contracts.Currency as Currency
 import Plutus.PAB.Effects.Contract.Builtin (HasDefinitions (..), SomeBuiltin (..))
-import Data.OpenApi.Internal.Schema(ToSchema)
 
 -- | Hard-coded port used between hydra-node and the PAB server.
 pabPort :: Int
