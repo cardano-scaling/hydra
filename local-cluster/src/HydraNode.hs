@@ -18,7 +18,6 @@ module HydraNode (
   hydraNodeProcess,
   module System.Process,
   waitForNodesConnected,
-  withTempDir,
   waitNext,
   withNewClient,
   withHydraCluster,
@@ -47,7 +46,6 @@ import Hydra.Logging (Tracer, traceWith)
 import Network.HTTP.Conduit (HttpExceptionContent (ConnectionFailure), parseRequest)
 import Network.HTTP.Simple (HttpException (HttpExceptionRequest), Response, getResponseBody, getResponseStatusCode, httpBS)
 import Network.WebSockets (Connection, receiveData, runClient, sendClose, sendTextData)
-import System.Directory (removePathForcibly)
 import System.Exit (ExitCode (..))
 import System.FilePath ((</>))
 import System.IO.Temp (withSystemTempDirectory)
@@ -61,7 +59,7 @@ import System.Process (
   withCreateProcess,
  )
 import System.Timeout (timeout)
-import Test.Hydra.Prelude (createSystemTempDirectory, failAfter, failure)
+import Test.Hydra.Prelude (failAfter, failure)
 import Test.Network.Ports (randomUnusedTCPPorts)
 
 data HydraClient = HydraClient
@@ -259,15 +257,6 @@ withConnectionToNode tracer hydraNodeId action = do
 withNewClient :: HydraClient -> (HydraClient -> IO a) -> IO a
 withNewClient HydraClient{hydraNodeId, tracer} =
   withConnectionToNode tracer hydraNodeId
-
--- | Create a temporary directory for the given 'action' to use.
--- The directory is removed if and only if the action completes successfuly.
-withTempDir :: String -> (FilePath -> IO r) -> IO r
-withTempDir baseName action = do
-  tmpDir <- createSystemTempDirectory baseName
-  res <- action tmpDir
-  removePathForcibly tmpDir
-  pure res
 
 newtype CannotStartHydraClient = CannotStartHydraClient Int deriving (Show)
 instance Exception CannotStartHydraClient

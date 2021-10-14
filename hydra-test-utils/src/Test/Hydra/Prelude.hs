@@ -10,6 +10,7 @@ module Test.Hydra.Prelude (
   -- * HSpec re-exports
   module Test.Hspec,
   module Test.Hspec.QuickCheck,
+  withTempDir,
 ) where
 
 import Hydra.Prelude
@@ -18,6 +19,7 @@ import Test.Hspec.QuickCheck
 
 import Control.Monad.Class.MonadTimer (timeout)
 import GHC.Exception (SrcLoc (..))
+import System.Directory (removePathForcibly)
 import System.IO.Temp (createTempDirectory, getCanonicalTemporaryDirectory)
 import Test.HSpec.JUnit (junitFormat)
 import Test.HUnit.Lang (FailureReason (Reason), HUnitFailure (HUnitFailure))
@@ -29,6 +31,15 @@ createSystemTempDirectory :: String -> IO FilePath
 createSystemTempDirectory template =
   getCanonicalTemporaryDirectory >>= \tmpDir ->
     createTempDirectory tmpDir template
+
+-- | Create a temporary directory for the given 'action' to use.
+-- The directory is removed if and only if the action completes successfuly.
+withTempDir :: String -> (FilePath -> IO r) -> IO r
+withTempDir baseName action = do
+  tmpDir <- createSystemTempDirectory baseName
+  res <- action tmpDir
+  removePathForcibly tmpDir
+  pure res
 
 -- | Fails a test with given error message.
 -- This function improves over existing 'expectationFailure' by throwing a

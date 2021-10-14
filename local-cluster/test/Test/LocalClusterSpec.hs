@@ -1,19 +1,20 @@
 module Test.LocalClusterSpec where
 
 import Hydra.Prelude
+import Test.Hydra.Prelude
 
 import CardanoCluster (ClusterConfig (..), ClusterLog (..), RunningCluster (..), withCluster)
 import CardanoNode (ChainTip (..), RunningNode (..), cliQueryTip)
 import Hydra.Logging (Tracer, showLogsOnFailure)
-import System.IO.Temp (withSystemTempDirectory)
-import Test.Hspec (Spec, describe, it, shouldBe)
 
 spec :: Spec
-spec = describe "Hydra local cluster" $ do
+spec =
   it "should produce blocks" $ do
     showLogsOnFailure $ \tr ->
-      withSystemTempDirectory "hydra-local-cluster" $ \tmp -> do
-        withCluster tr (ClusterConfig tmp) $ assertNetworkIsProducingBlock tr
+      withTempDir "hydra-local-cluster" $ \tmp -> do
+        withCluster tr (ClusterConfig tmp) $ \cluster -> do
+          assertNetworkIsProducingBlock tr cluster
+
 
 assertNetworkIsProducingBlock :: Tracer IO ClusterLog -> RunningCluster -> IO ()
 assertNetworkIsProducingBlock tracer = \case

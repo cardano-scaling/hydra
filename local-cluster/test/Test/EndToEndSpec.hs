@@ -89,7 +89,6 @@ import HydraNode (
   waitMatch,
   withHydraNode,
   withMockChain,
-  withTempDir,
  )
 import Text.Regex.TDFA ((=~))
 import Text.Regex.TDFA.Text ()

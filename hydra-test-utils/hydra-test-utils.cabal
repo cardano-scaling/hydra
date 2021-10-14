@@ -21,6 +21,7 @@ library
 
   build-depends:
     , base
+    , directory
     , hspec
     , hspec-core
     , hspec-junit-formatter
