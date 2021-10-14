@@ -14,13 +14,13 @@ import CardanoNode (
   withCardanoNode,
  )
 import Control.Tracer (Tracer, traceWith)
-import Test.Network.Ports (randomUnusedTCPPorts)
 import System.Directory (copyFile, createDirectoryIfMissing)
 import System.FilePath ((</>))
 import System.Posix.Files (
   ownerReadMode,
   setFileMode,
  )
+import Test.Network.Ports (randomUnusedTCPPorts)
 
 data RunningCluster = RunningCluster ClusterConfig [RunningNode]
 

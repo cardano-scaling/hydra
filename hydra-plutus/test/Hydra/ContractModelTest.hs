@@ -12,13 +12,13 @@ import Ledger (pubKeyHash)
 import Ledger.Ada as Ada
 import Ledger.Typed.Scripts (MintingPolicy)
 import Plutus.Contract (Contract)
-import Plutus.Contract.Test (Wallet(..), walletPubKey)
-import Wallet.Emulator.Wallet(knownWallet)
+import Plutus.Contract.Test (Wallet (..), walletPubKey)
 import Plutus.Contract.Test.ContractModel
 import Plutus.Contract.Types (ContractError)
 import Test.QuickCheck (Property, Testable (property))
 import Test.Tasty (TestTree, testGroup)
 import Test.Tasty.QuickCheck (testProperty)
+import Wallet.Emulator.Wallet (knownWallet)
 
 w1, w2, w3 :: Wallet
 [w1, w2, w3] = map knownWallet [1, 2, 3]
@@ -41,7 +41,6 @@ instance ContractModel HydraModel where
     deriving (Eq, Show)
 
   data ContractInstanceKey HydraModel w schema err where
-    -- | No party in a Hydra Head is privileged
     HeadParty :: Wallet -> ContractInstanceKey HydraModel [OnChain.State] OffChain.Schema ContractError
 
   arbitraryAction _ = pure (Init w1)

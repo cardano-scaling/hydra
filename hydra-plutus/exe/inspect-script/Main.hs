@@ -2,7 +2,7 @@ module Main where
 
 import Hydra.Prelude
 
-import Cardano.Api (scriptDataToJson, ScriptDataJsonSchema(ScriptDataJsonDetailedSchema), serialiseToTextEnvelope)
+import Cardano.Api (ScriptDataJsonSchema (ScriptDataJsonDetailedSchema), scriptDataToJson, serialiseToTextEnvelope)
 import Cardano.Api.Shelley (fromPlutusData)
 import qualified Data.Aeson as Aeson
 import qualified Data.ByteString.Lazy as BL
@@ -11,11 +11,11 @@ import Hydra.Contract.Commit as Commit
 import Hydra.Contract.Head as Head
 import Hydra.Contract.Initial as Initial
 import Ledger (Datum (..), datumHash)
+import Ledger.Scripts (Script, toCardanoApiScript)
 import Ledger.Value
-import Ledger.Scripts (toCardanoApiScript, Script)
-import Plutus.V1.Ledger.Api (dataToBuiltinData, toData, Data)
+import Plutus.V1.Ledger.Api (Data, dataToBuiltinData, toData)
 
--- | Serialise Hydra scripts to files for submission through cardano-cli
+-- | Serialise Hydra scripts to files for submission through cardano-cli.
 -- This small utility is useful to manually construct transactions payload for Hydra on-chain
 -- protocol. It takes as arguments the currency and token name to be used as unique Head
 -- identifier, both of which can simply be a UTXO in the network that's consumed by the
@@ -41,7 +41,6 @@ main = do
   putTextLn "Datum hashes:"
   forM_ datums $ \(aDatum, datumName) ->
     putTextLn $ toText $ datumName <> ": " <> show (datumHash $ Datum $ dataToBuiltinData $ aDatum)
-
  where
   writeScripts :: [(Script, String)] -> IO ()
   writeScripts plutus =
