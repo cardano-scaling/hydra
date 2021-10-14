@@ -32,8 +32,8 @@ import qualified Data.Sequence.Strict as StrictSeq
 import qualified Data.Set as Set
 import Hydra.Chain (HeadParameters (..), OnChainTx (OnAbortTx, OnInitTx))
 import qualified Hydra.Contract.Commit as Commit
+import qualified Hydra.Contract.Head as Head
 import qualified Hydra.Contract.Initial as Initial
-import qualified Hydra.Contract.MockHead as Head
 import Hydra.Data.ContestationPeriod (contestationPeriodFromDiffTime, contestationPeriodToDiffTime)
 import Hydra.Data.Party (partyFromVerKey, partyToVerKey)
 import Hydra.Party (anonymousParty, vkey)
@@ -79,7 +79,7 @@ data OnChainHeadState
 
 -- FIXME: should not be hardcoded, for testing purposes only
 threadToken :: AssetClass
-threadToken = assetClass (currencySymbol "hydra") (tokenName "thread token")
+threadToken = assetClass (currencySymbol "hydra") (tokenName "token")
 
 -- | Create the init transaction from some 'HeadParameters' and a single TxIn
 -- which will be used as unique parameter for minting NFTs.
@@ -161,48 +161,52 @@ abortTx (smInput, token, HeadParameters{contestationPeriod, parties}) initInputs
       , txnetworkid = SNothing
       }
 
-  (policyId, _) = first currencyMPSHash (unAssetClass token)
-
-  initialScript = plutusScript Initial.validatorScript
-  headScript = plutusScript $ Head.validatorScript policyId
-
   scripts =
     fromList $ map withScriptHash [initialScript, headScript]
+
+  initialScript = plutusScript Initial.validatorScript
+
+  headScript = plutusScript $ Head.validatorScript policyId
+
+  (policyId, _) = first currencyMPSHash (unAssetClass token)
 
   -- TODO(SN): dummy exUnits, balancing overrides them?
   redeemers =
     redeemersFromList $
       (rdptr body (Spending smInput), (headRedeemer, ExUnits 0 0)) : initialRedeemers
-   where
-    headRedeemer = Data $ toData Head.Abort
-    initialRedeemers =
-      map
-        ( \(txin, _) ->
-            ( rdptr body (Spending txin)
-            , (Data $ toData $ Plutus.getRedeemer $ Initial.redeemer Nothing, ExUnits 0 0)
-            )
-        )
-        initInputs
+
+  headRedeemer = Data $ toData Head.Abort
+
+  initialRedeemers =
+    map
+      ( \(txin, _) ->
+          ( rdptr body (Spending txin)
+          , (Data $ toData $ Plutus.getRedeemer $ Initial.redeemer Nothing, ExUnits 0 0)
+          )
+      )
+      initInputs
 
   datums =
     datumsFromList $ abortDatum : headDatum : map initialDatum initInputs
-   where
-    headDatum =
-      Data $
-        toData $
-          Head.Initial
-            (contestationPeriodFromDiffTime contestationPeriod)
-            (map (partyFromVerKey . vkey) parties)
-    initialDatum (_, vkh) =
-      Data $ toData $ Initial.datum (policyId, dependencies, vkh)
-     where
-      dependencies =
-        Initial.Dependencies
-          { Initial.headScript =
-              Head.validatorHash policyId
-          , Initial.commitScript =
-              Commit.validatorHash
-          }
+
+  headDatum =
+    Data $
+      toData $
+        Head.Initial
+          (contestationPeriodFromDiffTime contestationPeriod)
+          (map (partyFromVerKey . vkey) parties)
+
+  initialDatum (_, vkh) =
+    Data $ toData $ Initial.datum (policyId, dependencies, vkh)
+
+  dependencies =
+    Initial.Dependencies
+      { Initial.headScript =
+          Head.validatorHash policyId
+      , Initial.commitScript =
+          Commit.validatorHash
+      }
+
   abortDatum =
     Data $ toData Head.Final
 

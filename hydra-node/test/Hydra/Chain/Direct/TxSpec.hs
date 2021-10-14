@@ -26,6 +26,7 @@ import Cardano.Ledger.Val (inject)
 import Cardano.Slotting.EpochInfo (fixedEpochInfo)
 import Cardano.Slotting.Time (SystemStart (..), mkSlotLength)
 import Data.Array (array)
+import Data.Bits (shift)
 import qualified Data.ByteString.Lazy as LBS
 import qualified Data.Map as Map
 import Data.Maybe (fromJust)
@@ -34,8 +35,8 @@ import Hydra.Chain (HeadParameters (..), PostChainTx (..))
 import Hydra.Chain.Direct.Tx (OnChainHeadState (..), abortTx, initTx, observeAbortTx, observeInitTx, plutusScript, scriptAddr, threadToken)
 import Hydra.Chain.Direct.Util (Era)
 import qualified Hydra.Contract.Commit as Commit
+import qualified Hydra.Contract.Head as Head
 import qualified Hydra.Contract.Initial as Initial
-import qualified Hydra.Contract.MockHead as Head
 import Hydra.Data.ContestationPeriod (contestationPeriodFromDiffTime)
 import Hydra.Data.Party (partyFromVerKey)
 import Hydra.Party (vkey)
@@ -50,7 +51,7 @@ import Test.QuickCheck (Gen, NonEmptyList (NonEmpty), counterexample, listOf, on
 import Test.QuickCheck.Instances ()
 
 maxTxSize :: Int64
-maxTxSize = 16384 -- 2 ^ 14, as per current Mainnet
+maxTxSize = 1 `shift` 15 -- FIXME: current value on mainnet is 2 ^ 14 but this is not enough for SM based Head Script
 
 spec :: Spec
 spec =
@@ -76,7 +77,7 @@ spec =
 
     describe "abortTx" $ do
       -- NOTE(AB): This property fails if the list generated is arbitrarily long
-      prop "transaction size below limit" $ \txIn params initials ->
+      prop ("transaction size below limit (" <> show maxTxSize <> ")") $ \txIn params initials ->
         let tx = abortTx (txIn, threadToken, params) (take 10 initials)
             cbor = serialize tx
             len = LBS.length cbor

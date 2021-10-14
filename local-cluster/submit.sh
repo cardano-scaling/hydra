@@ -35,14 +35,14 @@ sleep 2
 
 # head init transaction
 init_utxo=$(cardano-cli query utxo --testnet-magic 42 --address $alice_addr | tail -n +3 | head -1 | tr -s ' ' | cut -d ' ' -f1,2 | tr ' ' '#')
-head_address=$(cardano-cli address build --payment-script-file mockHeadScript.plutus --testnet-magic 42)
+head_address=$(cardano-cli address build --payment-script-file headScript.plutus --testnet-magic 42)
 cardano-cli transaction build --alonzo-era --cardano-mode --testnet-magic 42 \
             --change-address $(cat alice/payment.addr) \
             --tx-in $init_utxo \
             --tx-out $head_address+1000 \
-            --tx-out-datum-hash 50fb0e30e734c617394ca1f230b20d6971b945dfc1c25df6257702c5f307789d --out-file mockHead.draft
-cardano-cli transaction sign --tx-body-file mockHead.draft --signing-key-file alice/payment.skey --testnet-magic 42 --out-file mockHead.signed
-cardano-cli transaction submit --tx-file mockHead.signed --testnet-magic 42
+            --tx-out-datum-hash 50fb0e30e734c617394ca1f230b20d6971b945dfc1c25df6257702c5f307789d --out-file head.draft
+cardano-cli transaction sign --tx-body-file head.draft --signing-key-file alice/payment.skey --testnet-magic 42 --out-file head.signed
+cardano-cli transaction submit --tx-file head.signed --testnet-magic 42
 
 sleep 2
 
@@ -57,10 +57,12 @@ cardano-cli transaction build --alonzo-era --cardano-mode --testnet-magic 42 \
             --change-address $alice_addr \
             --tx-in $pay_utxo \
             --tx-in $init_utxo \
+            --tx-in-script-file headScript.plutus \
+            --tx-in-datum-file headDatum.data \
+            --tx-in-redeemer-file headRedeemer.data \
             --tx-in-collateral $pay_utxo \
             --tx-out $head_address+1000 \
-            --tx-out-datum-hash ff5f5c41a5884f08c6e2055d2c44d4b2548b5fc30b47efaa7d337219190886c5 \
-            --tx-in-script-file mockHeadScript.plutus --tx-in-datum-file headDatum.data \
-            --tx-in-redeemer-file headRedeemer.data --out-file abort.draft --protocol-params-file example/pparams.json
+            --tx-out-datum-embed-file abortDatum.data \
+            --out-file abort.draft --protocol-params-file example/pparams.json
 cardano-cli transaction sign --tx-body-file abort.draft --signing-key-file alice/payment.skey --testnet-magic 42 --out-file abort.signed
 cardano-cli transaction submit --tx-file abort.signed --testnet-magic 42
