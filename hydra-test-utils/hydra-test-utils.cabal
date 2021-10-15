@@ -29,6 +29,7 @@ library
     , hydra-prelude
     , io-classes
     , network
+    , process
     , random-shuffle
     , relude
     , temporary
