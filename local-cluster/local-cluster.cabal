@@ -150,6 +150,7 @@ test-suite integration
   main-is:            Main.hs
   type:               exitcode-stdio-1.0
   other-modules:
+    Paths_local_cluster
     Spec
     Test.EndToEndSpec
     Test.GeneratorSpec
@@ -164,6 +165,7 @@ test-suite integration
     , cardano-api
     , cardano-crypto-class
     , containers
+    , filepath
     , hspec
     , hspec-core
     , hydra-node
