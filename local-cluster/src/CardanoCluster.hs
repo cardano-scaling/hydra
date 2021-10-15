@@ -43,13 +43,16 @@ withBFTNode :: Tracer IO ClusterLog -> CardanoNodeConfig -> (RunningNode -> IO (
 withBFTNode clusterTracer cfg action = do
   createDirectoryIfMissing False (stateDirectory cfg)
 
-  [dlgCert, signKey, vrfKey, kesKey, opCert] <-
+  [dlgCert, signKey, vrfKey, kesKey, opCert, _utxoSkey, _utxoVkey] <-
     forM
       [ dlgCertFilename nid
       , signKeyFilename nid
       , vrfKeyFilename nid
       , kesKeyFilename nid
       , opCertFilename nid
+      , -- Keys for the initial funds
+        utxoSigningKey
+      , utxoVerificationKey
       ]
       (copyCredential (stateDirectory cfg))
 
@@ -88,6 +91,8 @@ withBFTNode clusterTracer cfg action = do
   vrfKeyFilename i = "delegate" <> show i <> ".vrf.skey"
   kesKeyFilename i = "delegate" <> show i <> ".kes.skey"
   opCertFilename i = "opcert" <> show i <> ".cert"
+  utxoVerificationKey = "utxo1.vkey"
+  utxoSigningKey = "utxo1.skey"
 
   copyCredential parentDir file = do
     let source = "config" </> "credentials" </> file

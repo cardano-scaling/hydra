@@ -46,7 +46,6 @@ import Hydra.Logging (Tracer, traceWith)
 import Network.HTTP.Conduit (HttpExceptionContent (ConnectionFailure), parseRequest)
 import Network.HTTP.Simple (HttpException (HttpExceptionRequest), Response, getResponseBody, getResponseStatusCode, httpBS)
 import Network.WebSockets (Connection, receiveData, runClient, sendClose, sendTextData)
-import System.Exit (ExitCode (..))
 import System.FilePath ((</>))
 import System.IO.Temp (withSystemTempDirectory)
 import System.Process (
@@ -59,7 +58,7 @@ import System.Process (
   withCreateProcess,
  )
 import System.Timeout (timeout)
-import Test.Hydra.Prelude (failAfter, failure)
+import Test.Hydra.Prelude (checkProcessHasNotDied, failAfter, failure, withFile')
 import Test.Network.Ports (randomUnusedTCPPorts)
 
 data HydraClient = HydraClient
@@ -212,8 +211,7 @@ withHydraNode ::
   (HydraClient -> IO ()) ->
   IO ()
 withHydraNode tracer workDir mockChainPorts hydraNodeId sKey vKeys allNodeIds action = do
-  let logFile = workDir </> show hydraNodeId
-  withFile' logFile $ \out -> do
+  withFile' (workDir </> show hydraNodeId) $ \out -> do
     withSystemTempDirectory "hydra-node" $ \dir -> do
       let sKeyPath = dir </> (show hydraNodeId <> ".sk")
       BS.writeFile sKeyPath (rawSerialiseSignKeyDSIGN sKey)
@@ -230,10 +228,6 @@ withHydraNode tracer workDir mockChainPorts hydraNodeId sKey vKeys allNodeIds ac
           race_
             (checkProcessHasNotDied ("hydra-node (" <> show hydraNodeId <> ")") processHandle)
             (withConnectionToNode tracer hydraNodeId action)
- where
-  withFile' filepath io =
-    withFile filepath ReadWriteMode io
-      `onException` putStrLn ("Logfile written to: " <> filepath)
 
 withConnectionToNode :: Tracer IO EndToEndLog -> Int -> (HydraClient -> IO a) -> IO a
 withConnectionToNode tracer hydraNodeId action = do
@@ -307,12 +301,6 @@ withMockChain action = do
     , "--post-address"
     , "tcp://127.0.0.1:" <> show p
     ]
-
-checkProcessHasNotDied :: Text -> ProcessHandle -> IO ()
-checkProcessHasNotDied name processHandle =
-  waitForProcess processHandle >>= \case
-    ExitSuccess -> pure ()
-    ExitFailure exit -> failure $ "Process " <> show name <> " exited with failure code: " <> show exit
 
 waitForNodesConnected :: HasCallStack => Tracer IO EndToEndLog -> [Int] -> [HydraClient] -> IO ()
 waitForNodesConnected tracer allNodeIds = mapM_ (waitForNodeConnected tracer allNodeIds)

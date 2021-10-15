@@ -11,6 +11,8 @@ module Test.Hydra.Prelude (
   module Test.Hspec,
   module Test.Hspec.QuickCheck,
   withTempDir,
+  withFile',
+  checkProcessHasNotDied,
 ) where
 
 import Hydra.Prelude
@@ -20,7 +22,9 @@ import Test.Hspec.QuickCheck
 import Control.Monad.Class.MonadTimer (timeout)
 import GHC.Exception (SrcLoc (..))
 import System.Directory (removePathForcibly)
+import System.Exit (ExitCode (..))
 import System.IO.Temp (createTempDirectory, getCanonicalTemporaryDirectory)
+import System.Process (ProcessHandle, waitForProcess)
 import Test.HSpec.JUnit (junitFormat)
 import Test.HUnit.Lang (FailureReason (Reason), HUnitFailure (HUnitFailure))
 import Test.Hspec.Core.Format (Format, FormatConfig (..))
@@ -40,6 +44,12 @@ withTempDir baseName action = do
   res <- action tmpDir
   removePathForcibly tmpDir
   pure res
+
+-- | Print a message with filepath to @stderr@ on exceptions.
+withFile' :: FilePath -> (Handle -> IO a) -> IO a
+withFile' filepath io =
+  withFile filepath ReadWriteMode io
+    `onException` putStrLn ("Logfile written to: " <> filepath)
 
 -- | Fails a test with given error message.
 -- This function improves over existing 'expectationFailure' by throwing a
@@ -77,3 +87,20 @@ dualFormatter suiteName config = do
   junit <- junitFormat "test-results.xml" suiteName config
   docSpec <- formatterToFormat specdoc config
   pure $ \e -> junit e >> docSpec e
+
+-- | Wait for process termination and do 'failure' on non-zero exit code.
+-- This function is useful for end-to-end testing of external processes esp. in
+-- conjunction with 'race' combinator:
+--
+-- @@
+-- withCreateProcess p $
+--   \_stdin _stdout _stderr processHandle -> do
+--       race_
+--         (checkProcessHasNotDied "my-process" processHandle)
+--         doStuff
+-- @@
+checkProcessHasNotDied :: Text -> ProcessHandle -> IO ()
+checkProcessHasNotDied name processHandle =
+  waitForProcess processHandle >>= \case
+    ExitSuccess -> pure ()
+    ExitFailure exit -> failure $ "Process " <> show name <> " exited with failure code: " <> show exit
