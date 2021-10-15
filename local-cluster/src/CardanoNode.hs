@@ -17,14 +17,16 @@ import qualified Data.Aeson as Aeson
 import qualified Data.HashMap.Strict as HM
 import Data.Time.Clock.POSIX (posixSecondsToUTCTime, utcTimeToPOSIXSeconds)
 import System.Exit (ExitCode (..))
-import System.FilePath ((</>))
+import System.FilePath ((<.>), (</>))
 import System.Process (
   CmdSpec,
   CreateProcess (..),
+  StdStream (UseHandle),
   proc,
   readCreateProcessWithExitCode,
   withCreateProcess,
  )
+import Test.Hydra.Prelude
 
 type Port = Int
 
@@ -95,19 +97,23 @@ withCardanoNode ::
   Tracer IO NodeLog ->
   CardanoNodeConfig ->
   CardanoNodeArgs ->
-  (RunningNode -> IO a) ->
-  IO a
-withCardanoNode tr cfg args action = do
+  (RunningNode -> IO ()) ->
+  IO ()
+withCardanoNode tr cfg@CardanoNodeConfig{stateDirectory, nodeId} args action = do
   generateEnvironment
-  let process = cardanoNodeProcess (Just $ stateDirectory cfg) args
+  let process = cardanoNodeProcess (Just stateDirectory) args
+      logFile = stateDirectory </> show nodeId <.> "log"
   traceWith tr $ MsgNodeCmdSpec (cmdspec process)
-  withCreateProcess process $ \_stdin _stdout _stderr _ ->
-    action (RunningNode (nodeId cfg) (stateDirectory cfg </> nodeSocket args))
+  withFile' logFile $ \out ->
+    withCreateProcess process{std_out = UseHandle out} $ \_stdin _stdout _stderr processHandle ->
+      race_
+        (checkProcessHasNotDied ("cardano-node-" <> show nodeId) processHandle)
+        (action (RunningNode nodeId (stateDirectory </> nodeSocket args)))
  where
   generateEnvironment = do
     refreshSystemStart cfg args
     let topology = mkTopology $ peers $ ports cfg
-    Aeson.encodeFile (stateDirectory cfg </> nodeTopologyFile args) topology
+    Aeson.encodeFile (stateDirectory </> nodeTopologyFile args) topology
 
 -- | Generate command-line arguments for launching @cardano-node@.
 cardanoNodeProcess :: Maybe FilePath -> CardanoNodeArgs -> CreateProcess

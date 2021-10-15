@@ -9,18 +9,18 @@
   "ApplicationVersion": 1,
   "MaxKnownMajorProtocolVersion": 2,
   "LastKnownBlockVersion-Alt": 0,
-  "LastKnownBlockVersion-Major": 4,
+  "LastKnownBlockVersion-Major": 5,
   "LastKnownBlockVersion-Minor": 0,
 
   "RequiresNetworkMagic": "RequiresNoMagic",
 
   "minSeverity": "Info",
-  "defaultBackends": [],
+  "defaultBackends": ["KatipBK"],
   "defaultScribes": [[ "StdoutSK", "stdout" ]],
-  "setupBackends": [],
+  "setupBackends": ["KatipBK"],
   "setupScribes": [
     {
-      "scFormat": "ScText",
+      "scFormat": "ScJson",
       "scKind": "StdoutSK",
       "scName": "stdout",
       "scRotation": null
@@ -66,5 +66,11 @@
     "mapSubtrace": {
       "cardano.node.metrics": { "subtrace": "Neutral" }
     }
-  }
+  },
+  "TestShelleyHardForkAtEpoch": 0,
+  "TestAllegraHardForkAtEpoch": 0,
+  "TestMaryHardForkAtEpoch": 0,
+  "TestAlonzoHardForkAtEpoch": 0,
+  "TestEnableDevelopmentHardForkEras": true,
+  "TestEnableDevelopmentNetworkProtocols": true
 }
