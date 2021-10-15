@@ -4,7 +4,7 @@ import Hydra.Prelude
 import Test.Hydra.Prelude
 
 import CardanoCluster (ClusterConfig (..), ClusterLog (..), RunningCluster (..), withCluster)
-import CardanoNode (ChainTip (..), RunningNode (..), cliQueryTip)
+import CardanoNode (ChainTip (..), NodeId, RunningNode (..), cliQueryTip)
 import Hydra.Logging (Tracer, showLogsOnFailure)
 
 spec :: Spec
@@ -13,18 +13,31 @@ spec =
     showLogsOnFailure $ \tr ->
       withTempDir "hydra-local-cluster" $ \tmp -> do
         withCluster tr (ClusterConfig tmp) $ \cluster -> do
-          assertNetworkIsProducingBlock tr cluster
+          failAfter 30 $ assertNetworkIsProducingBlock tr cluster
 
 
 assertNetworkIsProducingBlock :: Tracer IO ClusterLog -> RunningCluster -> IO ()
-assertNetworkIsProducingBlock tracer = \case
-  RunningCluster _ (RunningNode nodeId socket : _) -> do
-    initialTip <- cliQueryTip (contramap (MsgFromNode nodeId) tracer) socket
-    waitForNewBlock
-    anotherTip <- cliQueryTip (contramap (MsgFromNode nodeId) tracer) socket
-    on (>) block anotherTip initialTip `shouldBe` True
+assertNetworkIsProducingBlock tracer = go (-1)
+ where
+  go blk cluster = case cluster of
+    RunningCluster _ (RunningNode nodeId socket : _) -> do
+      waitForNewBlock
+      tip <- cliQueryTip (contramap (MsgFromNode nodeId) tracer) socket
+      if block tip > blk
+        then pure ()
+        else go (block tip) cluster
+    _ ->
+      error "empty cluster?"
+
   _ ->
     error "empty cluster?"
+
+runTestScript :: NodeId -> FilePath -> IO (ExitCode, String, String)
+runTestScript _nodeId _socket =
+  readCreateProcessWithExitCode sh (Text.unpack inputScript)
+ where
+  sh = proc "/bin/sh" []
+  inputScript = unlines ["exit 1 ;"]
 
 waitForNewBlock :: IO ()
 waitForNewBlock = threadDelay (2 * slotLength)

@@ -172,6 +172,7 @@ test-suite integration
     , lens
     , lens-aeson
     , local-cluster
+    , process
     , QuickCheck
     , regex-tdfa
     , say
