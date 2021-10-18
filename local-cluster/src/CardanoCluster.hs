@@ -2,6 +2,14 @@ module CardanoCluster where
 
 import Hydra.Prelude
 
+import Cardano.Api (
+  AsType (..),
+  HasTextEnvelope,
+  PaymentKey,
+  VerificationKey,
+  proxyToAsType,
+  readFileTextEnvelope,
+ )
 import CardanoNode (
   CardanoNodeArgs (..),
   CardanoNodeConfig (..),
@@ -14,6 +22,7 @@ import CardanoNode (
   withCardanoNode,
  )
 import Control.Tracer (Tracer, traceWith)
+import qualified Hydra.Chain.Direct.Wallet as Wallet
 import System.Directory (copyFile, createDirectoryIfMissing)
 import System.FilePath ((</>))
 import System.Posix.Files (
@@ -26,6 +35,26 @@ data RunningCluster = RunningCluster ClusterConfig [RunningNode]
 
 -- | Configuration parameters for the cluster.
 newtype ClusterConfig = ClusterConfig {parentStateDirectory :: FilePath}
+
+keysForAlice :: RunningCluster -> IO (Wallet.VerificationKey, Wallet.SigningKey)
+keysForAlice (RunningCluster (ClusterConfig dir) _) = do
+  sk <- readFileTextEnvelopeThrow asSigningKey (dir </> "alice.sk")
+  undefined sk
+
+keysForBob :: RunningCluster -> IO (Wallet.VerificationKey, Wallet.SigningKey)
+keysForBob (RunningCluster (ClusterConfig directory) _) =
+  error "read keys from file"
+
+readFileTextEnvelopeThrow ::
+  HasTextEnvelope a =>
+  AsType a ->
+  FilePath ->
+  IO a
+readFileTextEnvelopeThrow asType =
+  either (fail . show) pure <=< readFileTextEnvelope asType
+
+asSigningKey :: Proxy (AsType (VerificationKey PaymentKey))
+asSigningKey = proxyToAsType Proxy
 
 withCluster ::
   Tracer IO ClusterLog -> ClusterConfig -> (RunningCluster -> IO ()) -> IO ()

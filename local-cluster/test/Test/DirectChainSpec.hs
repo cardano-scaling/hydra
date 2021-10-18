@@ -5,7 +5,7 @@ module Test.DirectChainSpec where
 import Hydra.Prelude
 import Test.Hydra.Prelude
 
-import CardanoCluster (RunningCluster (RunningCluster), testClusterConfig, withCluster)
+import CardanoCluster (ClusterConfig (..), RunningCluster (..), withCluster)
 import Control.Concurrent (newEmptyMVar, putMVar, takeMVar)
 import Hydra.Chain (
   Chain (..),
@@ -14,7 +14,6 @@ import Hydra.Chain (
   PostChainTx (AbortTx, InitTx),
  )
 import Hydra.Chain.Direct (NetworkMagic (NetworkMagic), withDirectChain, withIOManager)
-import Hydra.Chain.Direct.Wallet (generateKeyPair)
 import Hydra.Ledger.Simple (SimpleTx)
 import Hydra.Logging (nullTracer, showLogsOnFailure)
 import Hydra.Party (Party, deriveParty, generateKey)
@@ -51,12 +50,6 @@ spec = around showLogsOnFailure $ do
                 takeMVar calledBackAlice `shouldReturn` OnAbortTx @SimpleTx
               failAfter 5 $
                 takeMVar calledBackBob `shouldReturn` OnAbortTx @SimpleTx
-
-keysForAlice :: RunningCluster -> IO (VerificationKey, SigningKey)
-keysForAlice (RunningCluster (ClusterConfig directory) _) = error "read keys from file"
-
-keysForBob :: RunningCluster -> IO (VerificationKey, SigningKey)
-keysForBob (RunningCluster (ClusterConfig directory) _) = error "read keys from file"
 
 alice, bob, carol :: Party
 alice = deriveParty $ generateKey 10
