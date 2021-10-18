@@ -17,13 +17,18 @@ import CardanoNode (
   NodeLog,
   Port,
   PortsConfig (..),
-  RunningNode,
+  RunningNode (..),
   defaultCardanoNodeArgs,
   withCardanoNode,
  )
+import Control.Monad.Class.MonadAsync (mapConcurrently_)
 import Control.Tracer (Tracer, traceWith)
 import qualified Hydra.Chain.Direct.Wallet as Wallet
-import System.Directory (copyFile, createDirectoryIfMissing)
+import System.Directory (
+  copyFile,
+  createDirectoryIfMissing,
+  doesFileExist,
+ )
 import System.FilePath ((<.>), (</>))
 import System.Posix.Files (
   ownerReadMode,
@@ -71,7 +76,15 @@ withCluster tr cfg@ClusterConfig{parentStateDirectory} action = do
   withBFTNode tr cfgA $ \nodeA -> do
     withBFTNode tr cfgB $ \nodeB -> do
       withBFTNode tr cfgC $ \nodeC -> do
-        action (RunningCluster cfg [nodeA, nodeB, nodeC])
+        let nodes = [nodeA, nodeB, nodeC]
+        mapConcurrently_ waitForSocket nodes
+        action (RunningCluster cfg nodes)
+
+waitForSocket :: RunningNode -> IO ()
+waitForSocket node@(RunningNode _ socket) = do
+  unlessM (doesFileExist socket) $ do
+    threadDelay 0.1
+    waitForSocket node
 
 withBFTNode :: Tracer IO ClusterLog -> CardanoNodeConfig -> (RunningNode -> IO ()) -> IO ()
 withBFTNode clusterTracer cfg action = do
