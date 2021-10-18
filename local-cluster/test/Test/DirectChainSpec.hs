@@ -5,7 +5,7 @@ module Test.DirectChainSpec where
 import Hydra.Prelude
 import Test.Hydra.Prelude
 
-import CardanoCluster (ClusterConfig (..), RunningCluster (..), withCluster)
+import CardanoCluster (ClusterConfig (..), RunningCluster (..), keysFor, withCluster)
 import Control.Concurrent (newEmptyMVar, putMVar, takeMVar)
 import Hydra.Chain (
   Chain (..),
@@ -28,8 +28,8 @@ spec = around showLogsOnFailure $ do
     withTempDir "hydra-local-cluster" $ \tmp -> do
       let config = ClusterConfig tmp
       withCluster tracer config $ \cluster@(RunningCluster _ _) -> do
-        aliceKeys <- keysForAlice cluster
-        bobKeys <- keysForBob cluster
+        aliceKeys <- keysFor "alice" cluster
+        bobKeys <- keysFor "bob" cluster
         withIOManager $ \iocp -> do
           let node1socket = tmp </> "node1" </> "node.socket"
           let node2socket = tmp </> "node2" </> "node.socket"

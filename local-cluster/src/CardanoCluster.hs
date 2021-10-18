@@ -6,10 +6,11 @@ import Cardano.Api (
   AsType (..),
   HasTextEnvelope,
   PaymentKey,
+  SigningKey (PaymentSigningKey),
   VerificationKey,
-  proxyToAsType,
   readFileTextEnvelope,
  )
+import Cardano.Crypto.DSIGN (deriveVerKeyDSIGN)
 import CardanoNode (
   CardanoNodeArgs (..),
   CardanoNodeConfig (..),
@@ -24,7 +25,7 @@ import CardanoNode (
 import Control.Tracer (Tracer, traceWith)
 import qualified Hydra.Chain.Direct.Wallet as Wallet
 import System.Directory (copyFile, createDirectoryIfMissing)
-import System.FilePath ((</>))
+import System.FilePath ((</>), (<.>))
 import System.Posix.Files (
   ownerReadMode,
   setFileMode,
@@ -36,14 +37,11 @@ data RunningCluster = RunningCluster ClusterConfig [RunningNode]
 -- | Configuration parameters for the cluster.
 newtype ClusterConfig = ClusterConfig {parentStateDirectory :: FilePath}
 
-keysForAlice :: RunningCluster -> IO (Wallet.VerificationKey, Wallet.SigningKey)
-keysForAlice (RunningCluster (ClusterConfig dir) _) = do
-  sk <- readFileTextEnvelopeThrow asSigningKey (dir </> "alice.sk")
-  undefined sk
-
-keysForBob :: RunningCluster -> IO (Wallet.VerificationKey, Wallet.SigningKey)
-keysForBob (RunningCluster (ClusterConfig directory) _) =
-  error "read keys from file"
+keysFor :: String -> RunningCluster -> IO (Wallet.VerificationKey, Wallet.SigningKey)
+keysFor actor (RunningCluster (ClusterConfig dir) _) = do
+  PaymentSigningKey sk <- readFileTextEnvelopeThrow asSigningKey (dir </> actor <.> "sk")
+  let vk = deriveVerKeyDSIGN sk
+  pure (vk, sk)
 
 readFileTextEnvelopeThrow ::
   HasTextEnvelope a =>
@@ -53,8 +51,8 @@ readFileTextEnvelopeThrow ::
 readFileTextEnvelopeThrow asType =
   either (fail . show) pure <=< readFileTextEnvelope asType
 
-asSigningKey :: Proxy (AsType (VerificationKey PaymentKey))
-asSigningKey = proxyToAsType Proxy
+asSigningKey :: AsType (SigningKey PaymentKey)
+asSigningKey = AsSigningKey AsPaymentKey
 
 withCluster ::
   Tracer IO ClusterLog -> ClusterConfig -> (RunningCluster -> IO ()) -> IO ()
