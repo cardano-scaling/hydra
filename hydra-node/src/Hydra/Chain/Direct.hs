@@ -212,15 +212,20 @@ txSubmissionClient ::
   TVar m OnChainHeadState ->
   TinyWallet m ->
   LocalTxSubmissionClient (GenTx Block) (ApplyTxErr Block) m ()
-txSubmissionClient tracer queue headState TinyWallet{getUtxo} =
+txSubmissionClient tracer queue headState TinyWallet{getUtxo, sign, coverFee} =
   LocalTxSubmissionClient clientStIdle
  where
   clientStIdle :: m (LocalTxClientStIdle (GenTx Block) (ApplyTxErr Block) m ())
   clientStIdle = do
     tx <- atomically $ readTQueue queue
-    validatedTx <- fromPostChainTx tx
-    traceWith tracer (PostTx tx validatedTx)
-    pure $ SendMsgSubmitTx (GenTxAlonzo . mkShelleyTx $ validatedTx) (const clientStIdle)
+    partialTx <- fromPostChainTx tx
+    atomically (coverFee partialTx) >>= \case
+      Left e ->
+        error ("failed to cover fee for transaction: " <> show e <> ", " <> show partialTx)
+      Right validatedTx -> do
+        let signedTx = sign validatedTx
+        traceWith tracer (PostTx tx signedTx)
+        pure $ SendMsgSubmitTx (GenTxAlonzo . mkShelleyTx $ signedTx) (const clientStIdle)
 
   -- FIXME
   -- This is where we need signatures and client credentials. Ideally, we would

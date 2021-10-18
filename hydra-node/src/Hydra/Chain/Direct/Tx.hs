@@ -114,7 +114,7 @@ initTx HeadParameters{contestationPeriod, parties} txIn =
   headAddress = scriptAddr $ plutusScript $ Head.validatorScript policyId
 
   -- REVIEW(SN): how much to store here / minUtxoValue / depending on assets?
-  headValue = inject (Coin 0)
+  headValue = inject (Coin 2000000)
 
   headDatumHash = hashData @Era headDatum
 

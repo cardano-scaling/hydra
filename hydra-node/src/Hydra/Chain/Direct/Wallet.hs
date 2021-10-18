@@ -1,4 +1,5 @@
 {-# LANGUAGE PatternSynonyms #-}
+{-# LANGUAGE TypeApplications #-}
 {-# OPTIONS_GHC -Wno-unused-imports #-}
 
 -- | Companion tiny-wallet for the direct chain component. This module provide
@@ -9,8 +10,9 @@ import qualified Cardano.Crypto.DSIGN as Crypto
 import Cardano.Crypto.Hash.Class
 import qualified Cardano.Ledger.Address as Ledger
 import Cardano.Ledger.Alonzo.Tx (ValidatedTx (..))
-import Cardano.Ledger.Alonzo.TxBody (collateral, inputs, outputs, txfee, pattern TxOut)
+import Cardano.Ledger.Alonzo.TxBody (TxBody, collateral, inputs, outputs, txfee, pattern TxOut)
 import Cardano.Ledger.Alonzo.TxSeq (TxSeq (..))
+import Cardano.Ledger.Alonzo.TxWitness (TxWitness (..))
 import Cardano.Ledger.Coin (Coin (..))
 import qualified Cardano.Ledger.Core as Ledger
 import Cardano.Ledger.Crypto (DSIGN, StandardCrypto)
@@ -107,8 +109,8 @@ type AlonzoPoint = Point (ShelleyBlock Era)
 data TinyWallet m = TinyWallet
   { getUtxo :: STM m (Map TxIn TxOut)
   , getAddress :: Address
-  , sign :: TxBody -> VkWitness
-  , coverFee :: TxBody -> STM m (Either ErrCoverFee TxBody)
+  , sign :: ValidatedTx Era -> ValidatedTx Era
+  , coverFee :: ValidatedTx Era -> STM m (Either ErrCoverFee (ValidatedTx Era))
   }
 
 withTinyWallet ::
@@ -143,11 +145,17 @@ withTinyWallet magic (vk, sk) iocp addr action = do
           readTMVar utxoVar
       , getAddress =
           address
-      , sign = \body ->
+      , sign = \validatedTx@ValidatedTx{body, wits} ->
           let txid = Ledger.TxId (SafeHash.hashAnnotated body)
-           in txid `signWith` Ledger.KeyPair (Ledger.VKey vk) sk
-      , coverFee = \body ->
-          coverFee_ <$> readTMVar utxoVar <*> pure body
+              wit = txid `signWith` Ledger.KeyPair (Ledger.VKey vk) sk
+           in validatedTx
+                { wits =
+                    wits
+                      { txwitsVKey = Set.singleton wit
+                      }
+                }
+      , coverFee = \partialTx ->
+          coverFee_ <$> readTMVar utxoVar <*> pure partialTx
       }
 
 -- | Apply a block to our wallet. Does nothing if the transaction does not
@@ -182,30 +190,71 @@ data ErrCoverFee
 -- TODO: The fee calculation is currently very dumb and static.
 coverFee_ ::
   Map TxIn TxOut ->
-  TxBody ->
-  Either ErrCoverFee TxBody
-coverFee_ utxo body = do
+  ValidatedTx Era ->
+  Either ErrCoverFee (ValidatedTx Era)
+coverFee_ utxo partialTx@ValidatedTx{body} = do
   (input, output) <- case Map.lookupMax utxo of
     Nothing ->
       Left ErrNoAvailableUtxo
     Just (i, o) ->
       Right (i, o)
-  change <- first ErrNotEnoughFunds $ mkChange output needlesslyHighFee
+
+  change <-
+    first ErrNotEnoughFunds $
+      mkChange output $
+        needlesslyHighFee <> foldMap getAdaValue (outputs body)
 
   let inputs' = inputs body <> Set.singleton input
   let outputs' = outputs body <> StrictSeq.singleton change
 
   pure $
-    body
-      { inputs = inputs'
-      , outputs = outputs'
-      , collateral = Set.singleton input
-      , txfee = needlesslyHighFee
+    partialTx
+      { body =
+          body
+            { inputs = inputs'
+            , outputs = outputs'
+            , collateral = Set.singleton input
+            , txfee = needlesslyHighFee
+            -- FIXME: We need to calculate the script integrity hash which is
+            -- required as soon as the transaction contains scripts, redeemers
+            -- or datums. This can only be done after balancing since redeemers
+            -- are only fully known once the input set is fixed.
+            --
+            -- Something alike:
+            --
+            --     addScriptIntegrityHash
+            --         :: forall era. (era ~ Cardano.ShelleyLedgerEra Cardano.AlonzoEra)
+            --         => AlonzoTx
+            --         -> AlonzoTx
+            --     addScriptIntegrityHash alonzoTx =
+            --         let
+            --             wits  = Alonzo.wits alonzoTx
+            --             langs =
+            --                 [ l
+            --                 | (_hash, script) <- Map.toList (Alonzo.txscripts wits)
+            --                 , (not . isNativeScript @era) script
+            --                 , Just l <- [Alonzo.language script]
+            --                 ]
+            --          in
+            --             alonzoTx
+            --                 { Alonzo.body = (Alonzo.body alonzoTx)
+            --                     { Alonzo.scriptIntegrityHash = Alonzo.hashScriptIntegrity
+            --                         pparams
+            --                         (Set.fromList langs)
+            --                         (Alonzo.txrdmrs wits)
+            --                         (Alonzo.txdats wits)
+            --                     }
+            --                 }
+            }
       }
  where
   -- TODO: Do a better fee estimation based on the transaction's content.
   needlesslyHighFee :: Coin
   needlesslyHighFee = Coin 2_000_000
+
+  getAdaValue :: TxOut -> Coin
+  getAdaValue (TxOut _ value _) =
+    coin value
 
   mkChange :: TxOut -> Coin -> Either Coin TxOut
   mkChange (TxOut addr value datum) fee
