@@ -60,6 +60,11 @@ withCluster tr cfg@ClusterConfig{parentStateDirectory} action = do
   (cfgA, cfgB, cfgC) <-
     makeNodesConfig parentStateDirectory systemStart
       <$> randomUnusedTCPPorts 3
+
+  copyFile
+    ("config" </> "alice.sk")
+    (parentStateDirectory </> "alice.sk")
+
   withBFTNode tr cfgA $ \nodeA -> do
     withBFTNode tr cfgB $ \nodeB -> do
       withBFTNode tr cfgC $ \nodeC -> do
@@ -107,10 +112,6 @@ withBFTNode clusterTracer cfg action = do
   copyFile
     ("config" </> "genesis-alonzo.json")
     (stateDirectory cfg </> nodeAlonzoGenesisFile args)
-
-  copyFile
-    ("config" </> "alice.sk")
-    (stateDirectory cfg </> "alice.sk")
 
   withCardanoNode nodeTracer cfg args $ \rn -> do
     traceWith clusterTracer $ MsgNodeStarting cfg
