@@ -64,6 +64,9 @@ withCluster tr cfg@ClusterConfig{parentStateDirectory} action = do
   copyFile
     ("config" </> "alice.sk")
     (parentStateDirectory </> "alice.sk")
+  copyFile
+    ("config" </> "bob.sk")
+    (parentStateDirectory </> "bob.sk")
 
   withBFTNode tr cfgA $ \nodeA -> do
     withBFTNode tr cfgB $ \nodeB -> do
