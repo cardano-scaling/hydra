@@ -6,7 +6,7 @@ module Test.DirectChainSpec where
 import Hydra.Prelude
 import Test.Hydra.Prelude
 
-import CardanoCluster (ClusterConfig (..), ClusterLog, RunningCluster (..), keysFor, withCluster)
+import CardanoCluster (ClusterConfig (..), ClusterLog, RunningCluster (..), testClusterConfig,keysFor, withCluster)
 import CardanoNode (RunningNode (..))
 import Control.Concurrent (newEmptyMVar, putMVar, takeMVar)
 import Hydra.Chain (
@@ -32,7 +32,7 @@ spec = around showLogsOnFailure $ do
     calledBackBob <- newEmptyMVar
     let magic = NetworkMagic 42
     withTempDir "hydra-local-cluster" $ \tmp -> do
-      let config = ClusterConfig tmp
+      let config = testClusterConfig tmp
       withCluster (contramap FromCluster tracer) config $ \cluster@(RunningCluster _ [RunningNode _ node1socket, RunningNode _ node2socket, _]) -> do
         aliceKeys <- keysFor "alice" cluster
         bobKeys <- keysFor "bob" cluster
