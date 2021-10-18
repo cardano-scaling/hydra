@@ -1,4 +1,5 @@
 {-# LANGUAGE TypeApplications #-}
+{-# OPTIONS_GHC -Wno-incomplete-uni-patterns #-}
 
 module Test.DirectChainSpec where
 
@@ -6,6 +7,7 @@ import Hydra.Prelude
 import Test.Hydra.Prelude
 
 import CardanoCluster (ClusterConfig (..), RunningCluster (..), keysFor, withCluster)
+import CardanoNode (RunningNode (..))
 import Control.Concurrent (newEmptyMVar, putMVar, takeMVar)
 import Hydra.Chain (
   Chain (..),
@@ -17,7 +19,6 @@ import Hydra.Chain.Direct (NetworkMagic (NetworkMagic), withDirectChain, withIOM
 import Hydra.Ledger.Simple (SimpleTx)
 import Hydra.Logging (nullTracer, showLogsOnFailure)
 import Hydra.Party (Party, deriveParty, generateKey)
-import System.FilePath ((</>))
 
 spec :: Spec
 spec = around showLogsOnFailure $ do
@@ -27,12 +28,10 @@ spec = around showLogsOnFailure $ do
     let magic = NetworkMagic 42
     withTempDir "hydra-local-cluster" $ \tmp -> do
       let config = ClusterConfig tmp
-      withCluster tracer config $ \cluster@(RunningCluster _ _) -> do
+      withCluster tracer config $ \cluster@(RunningCluster _ [RunningNode _ node1socket, RunningNode _ node2socket, _]) -> do
         aliceKeys <- keysFor "alice" cluster
         bobKeys <- keysFor "bob" cluster
         withIOManager $ \iocp -> do
-          let node1socket = tmp </> "node1" </> "node.socket"
-          let node2socket = tmp </> "node2" </> "node.socket"
           withDirectChain nullTracer magic iocp node1socket aliceKeys (putMVar calledBackAlice) $ \Chain{postTx} -> do
             withDirectChain nullTracer magic iocp node2socket bobKeys (putMVar calledBackBob) $ \_ -> do
               let parameters = HeadParameters 100 [alice, bob, carol]

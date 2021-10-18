@@ -88,16 +88,16 @@ withDirectChain ::
 withDirectChain tracer networkMagic iocp socketPath keyPair callback action = do
   queue <- newTQueueIO
   headState <- newTVarIO Closed
-  withTinyWallet networkMagic keyPair iocp socketPath $ \wallet ->
-    race_
-      (action $ Chain{postTx = atomically . writeTQueue queue})
-      ( handle onIOException $
-          connectTo
+  handle onIOException $
+    withTinyWallet networkMagic keyPair iocp socketPath $ \wallet ->
+      race_
+        (action $ Chain{postTx = atomically . writeTQueue queue})
+        ( connectTo
             (localSnocket iocp socketPath)
             nullConnectTracers
             (versions networkMagic (client tracer queue headState wallet callback))
             socketPath
-      )
+        )
  where
   onIOException :: IOException -> IO ()
   onIOException ioException =
@@ -198,8 +198,10 @@ chainSyncClient tracer callback headState =
             traceWith tracer $ ReceiveTxs txs onChainTxs
             mapM_ callback onChainTxs
             pure clientStIdle
-      , recvMsgRollBackward =
-          error "Rolled backward!"
+      , recvMsgRollBackward = \point _ ->
+          ChainSyncClient $ do
+            traceWith tracer $ RolledBackward point
+            pure clientStIdle
       }
 
 txSubmissionClient ::
@@ -262,4 +264,5 @@ getAlonzoTxs = \case
 data DirectChainLog tx
   = PostTx {toPost :: PostChainTx tx, postedTx :: ValidatedTx Era}
   | ReceiveTxs {receivedTxs :: [ValidatedTx Era], onChainTxs :: [OnChainTx tx]}
+  | RolledBackward {point :: Point Block}
   deriving (Eq, Show, Generic)
