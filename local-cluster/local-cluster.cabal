@@ -152,6 +152,7 @@ test-suite integration
   other-modules:
     Paths_local_cluster
     Spec
+    Test.DirectChainSpec
     Test.EndToEndSpec
     Test.GeneratorSpec
     Test.LocalClusterSpec
