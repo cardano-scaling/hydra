@@ -7,7 +7,6 @@ import Cardano.Api (
   HasTextEnvelope,
   PaymentKey,
   SigningKey (PaymentSigningKey),
-  VerificationKey,
   readFileTextEnvelope,
  )
 import Cardano.Crypto.DSIGN (deriveVerKeyDSIGN)
@@ -25,7 +24,7 @@ import CardanoNode (
 import Control.Tracer (Tracer, traceWith)
 import qualified Hydra.Chain.Direct.Wallet as Wallet
 import System.Directory (copyFile, createDirectoryIfMissing)
-import System.FilePath ((</>), (<.>))
+import System.FilePath ((<.>), (</>))
 import System.Posix.Files (
   ownerReadMode,
   setFileMode,
@@ -108,6 +107,10 @@ withBFTNode clusterTracer cfg action = do
   copyFile
     ("config" </> "genesis-alonzo.json")
     (stateDirectory cfg </> nodeAlonzoGenesisFile args)
+
+  copyFile
+    ("config" </> "alice.sk")
+    (stateDirectory cfg </> "alice.sk")
 
   withCardanoNode nodeTracer cfg args $ \rn -> do
     traceWith clusterTracer $ MsgNodeStarting cfg
