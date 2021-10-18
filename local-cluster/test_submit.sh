@@ -5,6 +5,10 @@ set -vx
 
 [ -x $(which cardano-cli) ] || { echo "cardano-cli not found, check PATH environment variable" ; exit 1 ; }
 
+utxo_addr=$1
+
+transfer_amount=100000000
+
 # take first utxo available
 alice_addr=$(cardano-cli address build --payment-verification-key-file ../alice.vk --testnet-magic 42)
 alice_txin=$(cardano-cli query utxo --testnet-magic 42 --address $alice_addr | tail -n +3 | tr -s ' ' | cut -d ' ' -f1,2 | tr ' ' '#')

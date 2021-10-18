@@ -8,6 +8,7 @@ module Hydra.Chain.DirectSpec where
 import Hydra.Prelude
 import Test.Hydra.Prelude
 
+import CardanoCluster (ClusterConfig (..))
 import Control.Concurrent (newEmptyMVar, putMVar, takeMVar)
 import Hydra.Chain (
   Chain (..),
@@ -25,13 +26,13 @@ import Hydra.Party (Party, deriveParty, generateKey)
 import Test.QuickCheck (generate)
 
 spec :: Spec
-spec = parallel $ do
+spec = do
   it "can init and abort a head given nothing has been committed" $ do
     calledBackAlice <- newEmptyMVar
     calledBackBob <- newEmptyMVar
     aliceKeys@(aliceVk, _) <- generateKeyPair
     bobKeys@(bobVk, _) <- generateKeyPair
-    withMockServer $ \networkMagic iocp socket submitTx -> do
+    withCluster tracer config $ \(ClusterConfig clusterDirectory) -> do
       withDirectChain nullTracer networkMagic iocp socket aliceKeys (putMVar calledBackAlice) $ \Chain{postTx} -> do
         withDirectChain nullTracer networkMagic iocp socket bobKeys (putMVar calledBackBob) $ \_ -> do
           let parameters = HeadParameters 100 [alice, bob, carol]

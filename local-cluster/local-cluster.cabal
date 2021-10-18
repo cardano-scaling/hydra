@@ -1,4 +1,4 @@
-cabal-version:      2.2
+cabal-version:      3.0
 name:               local-cluster
 version:            0.1.0
 synopsis:
@@ -71,6 +71,7 @@ library
   import:          project-config
   hs-source-dirs:  src
   exposed-modules:
+    CardanoClient
     CardanoCluster
     CardanoNode
     Hydra.Generator
@@ -83,7 +84,9 @@ library
     , base                  >=4.7 && <5
     , bytestring
     , cardano-api
+    , cardano-cli
     , cardano-crypto-class
+    , cardano-ledger-core
     , containers
     , contra-tracer
     , directory
@@ -152,6 +155,7 @@ test-suite integration
   other-modules:
     Paths_local_cluster
     Spec
+    Test.CardanoClientSpec
     Test.DirectChainSpec
     Test.EndToEndSpec
     Test.GeneratorSpec
@@ -165,8 +169,10 @@ test-suite integration
     , bytestring
     , cardano-api
     , cardano-crypto-class
+    , cardano-ledger-core
     , containers
     , filepath
+    , hedgehog-quickcheck
     , hspec
     , hspec-core
     , hydra-node
