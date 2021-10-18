@@ -5,6 +5,8 @@ import Hydra.Prelude
 import Cardano.Api (
   AsType (..),
   HasTextEnvelope,
+  NetworkId (Testnet),
+  NetworkMagic (NetworkMagic),
   PaymentKey,
   SigningKey (PaymentSigningKey),
   readFileTextEnvelope,
@@ -39,10 +41,16 @@ import Test.Network.Ports (randomUnusedTCPPorts)
 data RunningCluster = RunningCluster ClusterConfig [RunningNode]
 
 -- | Configuration parameters for the cluster.
-newtype ClusterConfig = ClusterConfig {parentStateDirectory :: FilePath}
+data ClusterConfig = ClusterConfig
+  { parentStateDirectory :: FilePath
+  , networkId :: NetworkId
+  }
+
+testClusterConfig :: FilePath -> ClusterConfig
+testClusterConfig tmp = ClusterConfig tmp (Testnet $ NetworkMagic 42)
 
 keysFor :: String -> RunningCluster -> IO (Wallet.VerificationKey, Wallet.SigningKey)
-keysFor actor (RunningCluster (ClusterConfig dir) _) = do
+keysFor actor (RunningCluster (ClusterConfig dir _) _) = do
   PaymentSigningKey sk <-
     readFileTextEnvelopeThrow
       asSigningKey

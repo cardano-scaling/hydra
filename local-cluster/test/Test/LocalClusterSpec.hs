@@ -3,7 +3,7 @@ module Test.LocalClusterSpec where
 import Hydra.Prelude
 import Test.Hydra.Prelude
 
-import CardanoCluster (ClusterConfig (..), ClusterLog (..), RunningCluster (..), withCluster)
+import CardanoCluster (ClusterConfig (..), ClusterLog (..), RunningCluster (..), testClusterConfig, withCluster)
 import CardanoNode (ChainTip (..), RunningNode (..), cliQueryTip)
 import Hydra.Logging (Tracer, showLogsOnFailure)
 import qualified Paths_local_cluster as Pkg
@@ -17,7 +17,8 @@ spec =
   it "should produce blocks and provide funds" $ do
     showLogsOnFailure $ \tr ->
       withTempDir "hydra-local-cluster" $ \tmp -> do
-        withCluster tr (ClusterConfig tmp) $ \cluster -> do
+        let config = testClusterConfig tmp
+        withCluster tr config $ \cluster -> do
           failAfter 30 $ assertNetworkIsProducingBlock tr cluster
           assertCanSpendInitialFunds cluster
 
@@ -36,7 +37,7 @@ assertNetworkIsProducingBlock tracer = go (-1)
 
 assertCanSpendInitialFunds :: HasCallStack => RunningCluster -> IO ()
 assertCanSpendInitialFunds = \case
-  RunningCluster (ClusterConfig parentDirectory) (RunningNode nodeId socket : _) ->
+  RunningCluster (ClusterConfig parentDirectory _) (RunningNode nodeId socket : _) ->
     runTestScript (parentDirectory </> "node-" <> show nodeId) socket
   _ ->
     error "empty cluster?"
