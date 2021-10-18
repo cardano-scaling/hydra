@@ -14,6 +14,7 @@ import Hydra.Prelude
 
 import Cardano.Ledger.Alonzo.Tx (ValidatedTx)
 import Cardano.Ledger.Alonzo.TxSeq (txSeqTxns)
+import Control.Exception (IOException)
 import Control.Monad.Class.MonadSTM (
   newTQueueIO,
   newTVarIO,
@@ -84,18 +85,37 @@ withDirectChain ::
   -- | Key pair for the wallet
   (VerificationKey, SigningKey) ->
   ChainComponent tx IO ()
-withDirectChain tracer magic iocp addr keyPair callback action = do
+withDirectChain tracer networkMagic iocp socketPath keyPair callback action = do
   queue <- newTQueueIO
   headState <- newTVarIO Closed
-  withTinyWallet magic keyPair iocp addr $ \wallet ->
+  withTinyWallet networkMagic keyPair iocp socketPath $ \wallet ->
     race_
       (action $ Chain{postTx = atomically . writeTQueue queue})
-      ( connectTo
-          (localSnocket iocp addr)
-          nullConnectTracers
-          (versions magic (client tracer queue headState wallet callback))
-          addr
+      ( handle onIOException $
+          connectTo
+            (localSnocket iocp socketPath)
+            nullConnectTracers
+            (versions networkMagic (client tracer queue headState wallet callback))
+            socketPath
       )
+ where
+  onIOException :: IOException -> IO ()
+  onIOException ioException =
+    throwIO $
+      ConnectException
+        { ioException
+        , socketPath
+        , networkMagic
+        }
+
+data ConnectException = ConnectException
+  { ioException :: IOException
+  , socketPath :: FilePath
+  , networkMagic :: NetworkMagic
+  }
+  deriving (Show)
+
+instance Exception ConnectException
 
 client ::
   (MonadST m, MonadTimer m) =>
