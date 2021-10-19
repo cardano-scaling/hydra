@@ -53,6 +53,7 @@ import Test.QuickCheck (
   label,
   property,
   scale,
+  suchThat,
   vectorOf,
  )
 
@@ -226,10 +227,16 @@ genValidatedTx = do
 
 genPaymentTo :: VerificationKey -> Gen (ValidatedTx Era)
 genPaymentTo vk = do
-  let myAddr = mkVkAddress (VKey vk)
-  ValidatedTx{body, wits, isValid, auxiliaryData} <- arbitrary
-  arbitrary @TxOut >>= \case
-    TxOut _ value datum ->
+  toValidatedTx =<< arbitrary @TxOut `suchThat` atLeast 10_000_000
+ where
+  atLeast v = \case
+    TxOut _ value _ ->
+      coin value > Coin v
+
+  toValidatedTx = \case
+    TxOut _ value datum -> do
+      ValidatedTx{body, wits, isValid, auxiliaryData} <- arbitrary
+      let myAddr = mkVkAddress (VKey vk)
       pure $
         ValidatedTx
           { body =
