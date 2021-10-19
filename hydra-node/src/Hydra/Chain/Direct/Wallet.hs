@@ -14,6 +14,7 @@ import Cardano.Ledger.Alonzo.TxBody (TxBody, collateral, inputs, outputs, txfee,
 import Cardano.Ledger.Alonzo.TxSeq (TxSeq (..))
 import Cardano.Ledger.Alonzo.TxWitness (TxWitness (..))
 import Cardano.Ledger.Coin (Coin (..))
+import Cardano.Ledger.Core (PParams)
 import qualified Cardano.Ledger.Core as Ledger
 import Cardano.Ledger.Crypto (DSIGN, StandardCrypto)
 import qualified Cardano.Ledger.Keys as Ledger
@@ -142,7 +143,7 @@ withTinyWallet magic (vk, sk) iocp addr action = do
   newTinyWallet utxoVar =
     TinyWallet
       { getUtxo =
-          readTMVar utxoVar
+          fst <$> readTMVar utxoVar
       , getAddress =
           address
       , sign = \validatedTx@ValidatedTx{body, wits} ->
@@ -189,10 +190,10 @@ data ErrCoverFee
 --
 -- TODO: The fee calculation is currently very dumb and static.
 coverFee_ ::
-  Map TxIn TxOut ->
+  (Map TxIn TxOut, PParams Era) ->
   ValidatedTx Era ->
   Either ErrCoverFee (ValidatedTx Era)
-coverFee_ utxo partialTx@ValidatedTx{body} = do
+coverFee_ (utxo, pparams) partialTx@ValidatedTx{body} = do
   (input, output) <- case Map.lookupMax utxo of
     Nothing ->
       Left ErrNoAvailableUtxo
@@ -288,7 +289,7 @@ coverFee_ utxo partialTx@ValidatedTx{body} = do
 client ::
   (MonadST m, MonadTimer m) =>
   TVar m (Point Block) ->
-  TMVar m (Map TxIn TxOut) ->
+  TMVar m (Map TxIn TxOut, PParams Era) ->
   Address ->
   NodeToClientVersion ->
   OuroborosApplication 'InitiatorMode LocalAddress LByteString m () Void
@@ -320,7 +321,7 @@ chainSyncClient ::
   forall m.
   (MonadSTM m) =>
   TVar m (Point Block) ->
-  TMVar m (Map TxIn TxOut) ->
+  TMVar m (Map TxIn TxOut, PParams Era) ->
   Address ->
   ChainSyncClient Block (Point Block) (Tip Block) m ()
 chainSyncClient tipVar utxoVar address =
@@ -356,9 +357,9 @@ chainSyncClient tipVar utxoVar address =
           reset
       , ChainSync.recvMsgRollForward = \block _tip ->
           ChainSyncClient $ do
-            utxo <- atomically (readTMVar utxoVar)
+            (utxo, pparams) <- atomically (readTMVar utxoVar)
             let utxo' = applyBlock block (== address) utxo
-            when (utxo' /= utxo) (void $ atomically $ swapTMVar utxoVar utxo')
+            when (utxo' /= utxo) (void $ atomically $ swapTMVar utxoVar (utxo', pparams))
             pure clientStIdle
       }
 
@@ -366,7 +367,7 @@ stateQueryClient ::
   forall m.
   (MonadSTM m, MonadTimer m) =>
   TVar m (Point Block) ->
-  TMVar m (Map TxIn TxOut) ->
+  TMVar m (Map TxIn TxOut, PParams Era) ->
   Address ->
   LocalStateQueryClient Block (Point Block) (Query Block) m ()
 stateQueryClient tipVar utxoVar address =
@@ -397,16 +398,28 @@ stateQueryClient tipVar utxoVar address =
           Left{} ->
             handleEraMismatch
           Right tip -> do
-            let blk = case tip of
-                  GenesisPoint -> GenesisPoint
-                  (BlockPoint slot h) -> BlockPoint slot (fromShelleyHash h)
-                fromShelleyHash (Ledger.unHashHeader . unShelleyHash -> UnsafeHash h) = coerce h
-                query = QueryIfCurrentAlonzo $ GetUTxOByAddress (Set.singleton address)
-            pure $ LSQ.SendMsgQuery (BlockQuery query) (clientStQueryingUtxo blk)
+            let query = QueryIfCurrentAlonzo GetCurrentPParams
+            pure $ LSQ.SendMsgQuery (BlockQuery query) (clientStQueryingPParams $ fromPoint tip)
       }
 
-  clientStQueryingUtxo :: Point Block -> LSQ.ClientStQuerying Block (Point Block) (Query Block) m () (QueryResult UtxoSet)
-  clientStQueryingUtxo tip =
+  fromPoint = \case
+    GenesisPoint -> GenesisPoint
+    (BlockPoint slot h) -> BlockPoint slot (fromShelleyHash h)
+   where
+    fromShelleyHash (Ledger.unHashHeader . unShelleyHash -> UnsafeHash h) = coerce h
+
+  clientStQueryingPParams :: Point Block -> LSQ.ClientStQuerying Block (Point Block) (Query Block) m () (QueryResult (PParams Era))
+  clientStQueryingPParams tip =
+    let query = QueryIfCurrentAlonzo $ GetUTxOByAddress (Set.singleton address)
+     in LSQ.ClientStQuerying
+          { LSQ.recvMsgResult = \case
+              Left{} ->
+                handleEraMismatch
+              Right pparams ->
+                pure $ LSQ.SendMsgQuery (BlockQuery query) (clientStQueryingUtxo tip pparams)
+          }
+  clientStQueryingUtxo :: Point Block -> PParams Era -> LSQ.ClientStQuerying Block (Point Block) (Query Block) m () (QueryResult UtxoSet)
+  clientStQueryingUtxo tip pparams =
     LSQ.ClientStQuerying
       { LSQ.recvMsgResult = \case
           Left{} ->
@@ -414,7 +427,7 @@ stateQueryClient tipVar utxoVar address =
           Right (Ledger.unUTxO -> utxo) -> do
             atomically $ do
               writeTVar tipVar tip
-              putTMVar utxoVar utxo
+              putTMVar utxoVar (utxo, pparams)
             reset -- NOTE: This will block until the chain-sync client clear
             -- resets the tip TVar to the genesisPoint, which may happen if it
             -- fails to find an intersection with the provided tip due to a race
