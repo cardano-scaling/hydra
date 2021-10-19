@@ -66,7 +66,7 @@ spec = parallel $ do
     prop "Seen inputs are consumed and not in the resulting UTXO" prop_seenInputsAreConsumed
 
   describe "coverFee" $ do
-    prop "preserve funds after balancing" prop_preserveFunds
+    prop "balances transaction with fees" prop_balanceTransaction
 
   describe "withTinyWallet" $ do
     KeyPair (VKey vk) sk <- runIO $ generate genKeyPair
@@ -140,25 +140,27 @@ prop_seenInputsAreConsumed =
 -- coverFee
 --
 
-prop_preserveFunds ::
+prop_balanceTransaction ::
   Property
-prop_preserveFunds =
-  forAllBlind genTxBody $ \body ->
+prop_balanceTransaction =
+  forAllBlind genValidatedTx $ \tx ->
     forAllBlind genUtxo $ \utxo ->
-      prop' utxo body
+      prop' utxo tx
  where
-  prop' utxo body =
-    case coverFee_ utxo body of
+  prop' utxo tx =
+    case coverFee_ utxo tx of
       Left{} ->
         property True & label "Left"
-      Right body' ->
-        let inp' = knownInputBalance utxo body'
-            out' = outputBalance body'
-            out = outputBalance body
+      Right tx' ->
+        let inp' = knownInputBalance utxo tx'
+            out' = outputBalance tx'
+            out = outputBalance tx
+            fee = (txfee . body) tx'
          in conjoin
-              [ deltaValue out' inp' == out
+              [ coin (deltaValue out' inp') == fee
               ]
               & label "Right"
+              & counterexample ("Fee:             " <> show fee)
               & counterexample ("Delta value:     " <> show (coin $ deltaValue out' inp'))
               & counterexample ("Added value:     " <> show (coin inp'))
               & counterexample ("Outputs after:   " <> show (coin out'))
@@ -216,10 +218,11 @@ genBlock utxo = scale (round @Double . sqrt . fromIntegral) $ do
 genUtxo :: Gen (Map TxIn TxOut)
 genUtxo = Map.fromList <$> vectorOf 1 arbitrary
 
-genTxBody :: Gen (TxBody Era)
-genTxBody = do
+genValidatedTx :: Gen (ValidatedTx Era)
+genValidatedTx = do
   tx <- arbitrary
-  pure $ tx{txfee = Coin 0}
+  body <- (\x -> x{txfee = Coin 0}) <$> arbitrary
+  pure $ tx{body}
 
 genPaymentTo :: VerificationKey -> Gen (ValidatedTx Era)
 genPaymentTo vk = do
@@ -271,19 +274,21 @@ getValue :: TxOut -> Value Era
 getValue (TxOut _ value _) = value
 
 deltaValue :: Value Era -> Value Era -> Value Era
-deltaValue a b = a <> invert b
+deltaValue a b
+  | coin a > coin b = a <> invert b
+  | otherwise = invert a <> b
 
 -- | NOTE: This does not account for withdrawals
-knownInputBalance :: Map TxIn TxOut -> TxBody Era -> Value Era
-knownInputBalance utxo = fold . fmap resolve . toList . inputs
+knownInputBalance :: Map TxIn TxOut -> ValidatedTx Era -> Value Era
+knownInputBalance utxo = fold . fmap resolve . toList . inputs . body
  where
   resolve :: TxIn -> Value Era
   resolve k = maybe zero getValue (Map.lookup k utxo)
 
 -- | NOTE: This does not account for deposits
-outputBalance :: TxBody Era -> Value Era
-outputBalance body =
-  (fold . fmap getValue . outputs) body <> (inject . txfee) body
+outputBalance :: ValidatedTx Era -> Value Era
+outputBalance =
+  fold . fmap getValue . outputs . body
 
 watchUtxoUntil :: (Map TxIn TxOut -> Bool) -> TinyWallet IO -> IO (Map TxIn TxOut)
 watchUtxoUntil predicate TinyWallet{getUtxo} = atomically $ do
