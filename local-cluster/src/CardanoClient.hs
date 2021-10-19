@@ -1,6 +1,7 @@
 -- | A basic cardano-node client that can talk to a local cardano-node.
 --
--- The idea of this module is to provide a Haskell interface on top of cardano-cli's API.
+-- The idea of this module is to provide a Haskell interface on top of cardano-cli's API,
+-- using cardano-api types.
 module CardanoClient where
 
 import Hydra.Prelude
@@ -32,7 +33,9 @@ import qualified Hydra.Chain.Direct.Wallet as Hydra
 type NodeSocket = FilePath
 
 -- | Build an address give a key.
+--
 -- From <runAddressBuild https://github.com/input-output-hk/cardano-node/blob/master/cardano-cli/src/Cardano/CLI/Shelley/Run/Address.hs#L106>
+-- Throws 'CardanoClientException' if the query fails.
 buildAddress :: Hydra.VerificationKey -> NetworkId -> IO (Address ShelleyAddr)
 buildAddress vKey networkId = do
   let shelleyKey = PaymentVerificationKey $ Keys.VKey vKey
@@ -40,14 +43,10 @@ buildAddress vKey networkId = do
     Left err -> throwIO $ BuildAddressException (show err)
     Right addr -> pure addr
 
-data BuildAddressException = BuildAddressException Text | QueryException Text
-  deriving (Show)
-
-instance Exception BuildAddressException
-
 -- |Query UTxO for all given addresses.
 --
 -- This query is specialised for Shelley addresses in Alonzo era.
+-- Throws 'CardanoClientException' if query fails.
 queryUtxo :: NetworkId -> FilePath -> [Address ShelleyAddr] -> IO (UTxO AlonzoEra)
 queryUtxo networkId socket addresses =
   let query =
@@ -59,9 +58,18 @@ queryUtxo networkId socket addresses =
                   (QueryUTxOByAddress (Set.fromList $ map AddressShelley addresses))
               )
           )
+      -- NOTE(AB): extracted from Parsers in cardano-cli, this is needed to run in 'cardanoMode' which
+      -- is the default for cardano-cli
       defaultByronEpochSlots = 21600 :: Word64
       cardanoModeParams = CardanoModeParams $ EpochSlots defaultByronEpochSlots
       localNodeConnectInfo = LocalNodeConnectInfo cardanoModeParams networkId socket
    in runExceptT (executeQuery AlonzoEra cardanoModeParams localNodeConnectInfo query) >>= \case
         Left err -> throwIO $ QueryException (show err)
         Right utxo -> pure utxo
+
+data CardanoClientException
+  = BuildAddressException Text
+  | QueryException Text
+  deriving (Show)
+
+instance Exception CardanoClientException
