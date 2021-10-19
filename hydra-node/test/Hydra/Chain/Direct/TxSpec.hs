@@ -13,7 +13,6 @@ import Cardano.Binary (serialize)
 import Cardano.Ledger.Alonzo (TxOut)
 import Cardano.Ledger.Alonzo.Data (Data (Data), hashData)
 import Cardano.Ledger.Alonzo.Language (Language (PlutusV1))
-import Cardano.Ledger.Alonzo.PParams (PParams, ProtVer (..))
 import Cardano.Ledger.Alonzo.Scripts (ExUnits (..))
 import Cardano.Ledger.Alonzo.Tools (ScriptFailure, evaluateTransactionExecutionUnits)
 import Cardano.Ledger.Alonzo.Tx (ValidatedTx (ValidatedTx, body, wits), outputs)
@@ -27,13 +26,13 @@ import Cardano.Ledger.Val (inject)
 import Cardano.Slotting.EpochInfo (fixedEpochInfo)
 import Cardano.Slotting.Time (SystemStart (..), mkSlotLength)
 import Data.Array (array)
-import Data.Bits (shift)
 import qualified Data.ByteString.Lazy as LBS
 import qualified Data.Map as Map
 import Data.Maybe (fromJust)
 import qualified Data.Sequence.Strict as Seq
 import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
 import Hydra.Chain (HeadParameters (..), PostChainTx (..))
+import Hydra.Chain.Direct.Fixture (maxTxSize, pparams)
 import Hydra.Chain.Direct.Tx (OnChainHeadState (..), abortTx, initTx, observeAbortTx, observeInitTx, plutusScript, scriptAddr, threadToken)
 import Hydra.Chain.Direct.Util (Era)
 import Hydra.Chain.Direct.Wallet (coverFee_)
@@ -44,17 +43,12 @@ import Hydra.Data.ContestationPeriod (contestationPeriodFromDiffTime)
 import Hydra.Data.Party (partyFromVerKey)
 import Hydra.Party (vkey)
 import Ledger.Value (currencyMPSHash, unAssetClass)
-import Plutus.V1.Ledger.Api (PubKeyHash (PubKeyHash), toBuiltin, toBuiltinData, toData)
+import Plutus.V1.Ledger.Api (PubKeyHash, toBuiltinData, toData)
 import Shelley.Spec.Ledger.API (Coin (Coin), StrictMaybe (SJust), TxId (TxId), TxIn (TxIn), UTxO (UTxO))
 import Test.Cardano.Ledger.Alonzo.PlutusScripts (defaultCostModel)
 import Test.Cardano.Ledger.Alonzo.Serialisation.Generators ()
-import Test.Cardano.Ledger.Generic.Proof
-import Test.Cardano.Ledger.Generic.Updaters hiding (vkey)
-import Test.QuickCheck (Gen, NonEmptyList (NonEmpty), counterexample, listOf, oneof, withMaxSuccess, (===))
+import Test.QuickCheck (NonEmptyList (NonEmpty), counterexample, withMaxSuccess, (===))
 import Test.QuickCheck.Instances ()
-
-maxTxSize :: Int64
-maxTxSize = 1 `shift` 15 -- FIXME: current value on mainnet is 2 ^ 14 but this is not enough for SM based Head Script
 
 spec :: Spec
 spec =
@@ -177,17 +171,6 @@ validateTxScriptsUnlimited tx utxo =
   -- NOTE(SN): copied from Test.Cardano.Ledger.Alonzo.Tools as not exported
   costmodels = array (PlutusV1, PlutusV1) [(PlutusV1, fromJust defaultCostModel)]
 
-pparams :: PParams Era
-pparams =
-  newPParams
-    (Alonzo Standard)
-    [ Costmdls $ Map.singleton PlutusV1 $ fromJust defaultCostModel
-    , MaxValSize 1000000000
-    , MaxTxExUnits $ ExUnits 100000000 100000000
-    , MaxBlockExUnits $ ExUnits 100000000 100000000
-    , ProtocolVersion $ ProtVer 5 0
-    ]
-
 -- | Extract NFT candidates. any single quantity assets not being ADA is a
 -- candidate.
 txOutNFT :: TxOut Era -> [(PolicyID StandardCrypto, AssetName)]
@@ -201,11 +184,3 @@ txOutNFT (TxOut _ value _) =
     pure (policy, name)
 
   unitQuantity (_name, q) = q == 1
-
-instance Arbitrary OnChainHeadState where
-  arbitrary = oneof [pure Closed, Initial <$> ((,,) <$> arbitrary <*> pure threadToken <*> arbitrary) <*> listOf initialOutputs]
-   where
-    initialOutputs = (,) <$> arbitrary <*> arbitrary
-
-instance Arbitrary PubKeyHash where
-  arbitrary = PubKeyHash . toBuiltin <$> (arbitrary :: Gen ByteString)

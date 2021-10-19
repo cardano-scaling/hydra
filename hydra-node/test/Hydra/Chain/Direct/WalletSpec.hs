@@ -19,6 +19,7 @@ import Control.Monad.Class.MonadTimer (timeout)
 import qualified Data.Map.Strict as Map
 import qualified Data.Sequence.Strict as StrictSeq
 import qualified Data.Set as Set
+import Hydra.Chain.Direct.Fixture (pparams)
 import Hydra.Chain.Direct.MockServer (withMockServer)
 import Hydra.Chain.Direct.Util (Era)
 import Hydra.Chain.Direct.Wallet (
@@ -149,7 +150,7 @@ prop_balanceTransaction =
       prop' utxo tx
  where
   prop' utxo tx =
-    case coverFee_ utxo tx of
+    case coverFee_ (utxo, pparams) tx of
       Left{} ->
         property True & label "Left"
       Right tx' ->
