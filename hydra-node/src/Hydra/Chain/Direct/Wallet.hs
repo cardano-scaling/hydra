@@ -24,7 +24,7 @@ import Cardano.Ledger.Alonzo.TxBody (
   pattern TxOut,
  )
 import Cardano.Ledger.Alonzo.TxSeq (TxSeq (..))
-import Cardano.Ledger.Alonzo.TxWitness (TxWitness (..))
+import Cardano.Ledger.Alonzo.TxWitness (RdmrPtr (RdmrPtr), Redeemers (Redeemers), TxWitness (..), unRedeemers)
 import Cardano.Ledger.Coin (Coin (..))
 import Cardano.Ledger.Core (PParams)
 import qualified Cardano.Ledger.Core as Ledger
@@ -44,9 +44,11 @@ import Control.Monad.Class.MonadSTM (
   writeTVar,
  )
 import Control.Tracer (nullTracer)
+import qualified Data.List as List
 import qualified Data.Map.Strict as Map
 import qualified Data.Sequence.Strict as StrictSeq
 import qualified Data.Set as Set
+import Hydra.Chain.Direct.Tx (redeemersFromList)
 import Hydra.Chain.Direct.Util (
   Block,
   Era,
@@ -226,22 +228,24 @@ coverFee_ (utxo, pparams) partialTx@ValidatedTx{body, wits} = do
         , (not . isNativeScript @Era) script
         , Just l <- [language script]
         ]
-
+  let finalBody =
+        body
+          { inputs = inputs'
+          , outputs = outputs'
+          , collateral = Set.singleton input
+          , txfee = needlesslyHighFee
+          , scriptIntegrityHash =
+              hashScriptIntegrity
+                pparams
+                (Set.fromList langs)
+                (txrdmrs wits)
+                (txdats wits)
+          }
+  let adjustedRedeemers = adjustRedeemers (inputs body) inputs' (txrdmrs wits)
   pure $
     partialTx
-      { body =
-          body
-            { inputs = inputs'
-            , outputs = outputs'
-            , collateral = Set.singleton input
-            , txfee = needlesslyHighFee
-            , scriptIntegrityHash =
-                hashScriptIntegrity
-                  pparams
-                  (Set.fromList langs)
-                  (txrdmrs wits)
-                  (txdats wits)
-            }
+      { body = finalBody
+      , wits = wits{txrdmrs = adjustedRedeemers}
       }
  where
   -- TODO: Do a better fee estimation based on the transaction's content.
@@ -258,6 +262,16 @@ coverFee_ (utxo, pparams) partialTx@ValidatedTx{body, wits} = do
       Right $ TxOut addr (value <> invert (inject fee)) datum
     | otherwise =
       Left (fee <> invert (coin value))
+
+  adjustRedeemers :: Set TxIn -> Set TxIn -> Redeemers Era -> Redeemers Era
+  adjustRedeemers initialInputs finalInputs initialRedeemers =
+    let sortedInputs = sort $ toList initialInputs
+        sortedFinalInputs = sort $ toList finalInputs
+        differences = List.findIndices (not . uncurry (==)) $ zip sortedInputs sortedFinalInputs
+        adjustPtrIndex ptr@(RdmrPtr t idx, v) =
+          | fromIntegral idx `elem` differences = (RdmrPtr t (idx + 1), v)
+          | otherwise = ptr
+     in Redeemers $ Map.fromList $ map adjustPtrIndex $ Map.toList $ unRedeemers initialRedeemers
 
 -- | The idea for this wallet client is rather simple:
 --
