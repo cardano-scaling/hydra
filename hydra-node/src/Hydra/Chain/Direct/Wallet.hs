@@ -221,14 +221,15 @@ coverFee_ (utxo, pparams) partialTx@ValidatedTx{body, wits} = do
         needlesslyHighFee <> foldMap getAdaValue (outputs body)
 
   let inputs' = inputs body <> Set.singleton input
-  let outputs' = outputs body <> StrictSeq.singleton change
-  let langs =
+      outputs' = outputs body <> StrictSeq.singleton change
+      langs =
         [ l
         | (_hash, script) <- Map.toList (txscripts wits)
         , (not . isNativeScript @Era) script
         , Just l <- [language script]
         ]
-  let finalBody =
+      adjustedRedeemers = adjustRedeemers (inputs body) inputs' (txrdmrs wits)
+      finalBody =
         body
           { inputs = inputs'
           , outputs = outputs'
@@ -238,10 +239,9 @@ coverFee_ (utxo, pparams) partialTx@ValidatedTx{body, wits} = do
               hashScriptIntegrity
                 pparams
                 (Set.fromList langs)
-                (txrdmrs wits)
+                adjustedRedeemers
                 (txdats wits)
           }
-  let adjustedRedeemers = adjustRedeemers (inputs body) inputs' (txrdmrs wits)
   pure $
     partialTx
       { body = finalBody
@@ -268,7 +268,7 @@ coverFee_ (utxo, pparams) partialTx@ValidatedTx{body, wits} = do
     let sortedInputs = sort $ toList initialInputs
         sortedFinalInputs = sort $ toList finalInputs
         differences = List.findIndices (not . uncurry (==)) $ zip sortedInputs sortedFinalInputs
-        adjustPtrIndex ptr@(RdmrPtr t idx, v) =
+        adjustPtrIndex ptr@(RdmrPtr t idx, v)
           | fromIntegral idx `elem` differences = (RdmrPtr t (idx + 1), v)
           | otherwise = ptr
      in Redeemers $ Map.fromList $ map adjustPtrIndex $ Map.toList $ unRedeemers initialRedeemers
