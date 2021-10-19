@@ -6,7 +6,7 @@
 -- "direct" chain component.
 module Hydra.Chain.Direct.TxSpec where
 
-import Hydra.Prelude
+import Hydra.Prelude hiding (label)
 import Test.Hydra.Prelude
 
 import Cardano.Binary (serialize)
@@ -47,7 +47,7 @@ import Plutus.V1.Ledger.Api (PubKeyHash, toBuiltinData, toData)
 import Shelley.Spec.Ledger.API (Coin (Coin), StrictMaybe (SJust), TxId (TxId), TxIn (TxIn), UTxO (UTxO))
 import Test.Cardano.Ledger.Alonzo.PlutusScripts (defaultCostModel)
 import Test.Cardano.Ledger.Alonzo.Serialisation.Generators ()
-import Test.QuickCheck (NonEmptyList (NonEmpty), counterexample, withMaxSuccess, (===))
+import Test.QuickCheck (NonEmptyList (NonEmpty), counterexample, label, withMaxSuccess, (===))
 import Test.QuickCheck.Instances ()
 
 spec :: Spec
@@ -109,7 +109,7 @@ spec =
 
               utxo = UTxO $ Map.fromList $ (txIn, txOut) : map toTxOut initials
 
-              results = validateTxScriptsUnlimited tx utxo
+              results = validateTxScriptsUnlimited utxo tx
            in 1 + length initials == length (rights $ Map.elems results)
                 & counterexample ("Evaluation results: " <> show results)
                 & counterexample ("Tx: " <> show tx)
@@ -122,14 +122,16 @@ spec =
               -- FIXME(AB): fromJust is partial... and so is Right xxx = foo>
               txInitOut = fromJust $ Seq.lookup 0 (outputs body)
               txAbort = abortTx (txInitIn, threadToken, params) initials
-              Right txAbortWithFees = coverFee_ (utxos, pparams) txAbort
               utxo = UTxO $ utxos <> Map.fromList ((txInitIn, txInitOut) : map toTxOut initials)
-
-              results = validateTxScriptsUnlimited txAbortWithFees utxo
-           in 1 + length initials == length (rights $ Map.elems results)
-                & counterexample ("Evaluation results: " <> show results)
-                & counterexample ("Tx: " <> show txAbortWithFees)
-                & counterexample ("Input utxo: " <> show utxo)
+           in case coverFee_ (utxos, pparams) txAbort of
+                Left err -> True & label (show err)
+                Right txAbortWithFees ->
+                  let results = validateTxScriptsUnlimited utxo txAbortWithFees
+                   in 1 + length initials == length (rights $ Map.elems results)
+                        & label "Right"
+                        & counterexample ("Evaluation results: " <> show results)
+                        & counterexample ("Tx: " <> show txAbortWithFees)
+                        & counterexample ("Input utxo: " <> show utxo)
 
 toTxOut :: (TxIn StandardCrypto, PubKeyHash) -> (TxIn StandardCrypto, TxOut Era)
 toTxOut (txIn, pkh) =
@@ -157,11 +159,11 @@ isImplemented tx st =
 -- | Evaluate all plutus scripts and return execution budgets of a given
 -- transaction (any included budgets are ignored).
 validateTxScriptsUnlimited ::
-  ValidatedTx Era ->
   -- | Utxo set used to create context for any tx inputs.
   UTxO Era ->
+  ValidatedTx Era ->
   Map RdmrPtr (Either (ScriptFailure StandardCrypto) ExUnits)
-validateTxScriptsUnlimited tx utxo =
+validateTxScriptsUnlimited utxo tx =
   runIdentity $ evaluateTransactionExecutionUnits pparams tx utxo epochInfo systemStart costmodels
  where
   -- REVIEW(SN): taken from 'testGlobals'
