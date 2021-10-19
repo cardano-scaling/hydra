@@ -9,14 +9,27 @@ module Hydra.Chain.Direct.Wallet where
 import qualified Cardano.Crypto.DSIGN as Crypto
 import Cardano.Crypto.Hash.Class
 import qualified Cardano.Ledger.Address as Ledger
-import Cardano.Ledger.Alonzo.Tx (ValidatedTx (..))
-import Cardano.Ledger.Alonzo.TxBody (TxBody, collateral, inputs, outputs, txfee, pattern TxOut)
+import Cardano.Ledger.Alonzo.Language (
+  Language (PlutusV1),
+ )
+import Cardano.Ledger.Alonzo.PlutusScriptApi (language)
+import Cardano.Ledger.Alonzo.Tx (ValidatedTx (..), hashScriptIntegrity)
+import Cardano.Ledger.Alonzo.TxBody (
+  TxBody,
+  collateral,
+  inputs,
+  outputs,
+  scriptIntegrityHash,
+  txfee,
+  pattern TxOut,
+ )
 import Cardano.Ledger.Alonzo.TxSeq (TxSeq (..))
 import Cardano.Ledger.Alonzo.TxWitness (TxWitness (..))
 import Cardano.Ledger.Coin (Coin (..))
 import Cardano.Ledger.Core (PParams)
 import qualified Cardano.Ledger.Core as Ledger
 import Cardano.Ledger.Crypto (DSIGN, StandardCrypto)
+import Cardano.Ledger.Era (ValidateScript (..))
 import qualified Cardano.Ledger.Keys as Ledger
 import qualified Cardano.Ledger.SafeHash as SafeHash
 import Cardano.Ledger.Val (Val (..), invert)
@@ -193,7 +206,7 @@ coverFee_ ::
   (Map TxIn TxOut, PParams Era) ->
   ValidatedTx Era ->
   Either ErrCoverFee (ValidatedTx Era)
-coverFee_ (utxo, pparams) partialTx@ValidatedTx{body} = do
+coverFee_ (utxo, pparams) partialTx@ValidatedTx{body, wits} = do
   (input, output) <- case Map.lookupMax utxo of
     Nothing ->
       Left ErrNoAvailableUtxo
@@ -207,6 +220,12 @@ coverFee_ (utxo, pparams) partialTx@ValidatedTx{body} = do
 
   let inputs' = inputs body <> Set.singleton input
   let outputs' = outputs body <> StrictSeq.singleton change
+  let langs =
+        [ l
+        | (_hash, script) <- Map.toList (txscripts wits)
+        , (not . isNativeScript @Era) script
+        , Just l <- [language script]
+        ]
 
   pure $
     partialTx
@@ -216,36 +235,12 @@ coverFee_ (utxo, pparams) partialTx@ValidatedTx{body} = do
             , outputs = outputs'
             , collateral = Set.singleton input
             , txfee = needlesslyHighFee
-            -- FIXME: We need to calculate the script integrity hash which is
-            -- required as soon as the transaction contains scripts, redeemers
-            -- or datums. This can only be done after balancing since redeemers
-            -- are only fully known once the input set is fixed.
-            --
-            -- Something alike:
-            --
-            --     addScriptIntegrityHash
-            --         :: forall era. (era ~ Cardano.ShelleyLedgerEra Cardano.AlonzoEra)
-            --         => AlonzoTx
-            --         -> AlonzoTx
-            --     addScriptIntegrityHash alonzoTx =
-            --         let
-            --             wits  = Alonzo.wits alonzoTx
-            --             langs =
-            --                 [ l
-            --                 | (_hash, script) <- Map.toList (Alonzo.txscripts wits)
-            --                 , (not . isNativeScript @era) script
-            --                 , Just l <- [Alonzo.language script]
-            --                 ]
-            --          in
-            --             alonzoTx
-            --                 { Alonzo.body = (Alonzo.body alonzoTx)
-            --                     { Alonzo.scriptIntegrityHash = Alonzo.hashScriptIntegrity
-            --                         pparams
-            --                         (Set.fromList langs)
-            --                         (Alonzo.txrdmrs wits)
-            --                         (Alonzo.txdats wits)
-            --                     }
-            --                 }
+            , scriptIntegrityHash =
+                hashScriptIntegrity
+                  pparams
+                  (Set.fromList langs)
+                  (txrdmrs wits)
+                  (txdats wits)
             }
       }
  where
@@ -317,6 +312,12 @@ client tipVar utxoVar address nodeToClientV =
   Codecs{cChainSyncCodec, cTxSubmissionCodec, cStateQueryCodec} =
     defaultCodecs nodeToClientV
 
+-- NOTE: We are fetching PParams only once, when the client first starts. Which
+-- means that, if the params change later, we may start producing invalid
+-- transactions. In principle, we also expect the Hydra node to monitor the
+-- chain for parameter updates and to close heads when this happens. Thus, from
+-- the perspective of the client it's okay-ish to fetch it only once.
+--
 chainSyncClient ::
   forall m.
   (MonadSTM m) =>
