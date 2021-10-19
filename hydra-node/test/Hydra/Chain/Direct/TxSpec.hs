@@ -1,4 +1,5 @@
 {-# LANGUAGE TypeApplications #-}
+{-# OPTIONS_GHC -Wno-incomplete-uni-patterns #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 
 -- | Unit tests for our "hand-rolled" transactions as they are used in the
@@ -15,7 +16,7 @@ import Cardano.Ledger.Alonzo.Language (Language (PlutusV1))
 import Cardano.Ledger.Alonzo.PParams (PParams, ProtVer (..))
 import Cardano.Ledger.Alonzo.Scripts (ExUnits (..))
 import Cardano.Ledger.Alonzo.Tools (ScriptFailure, evaluateTransactionExecutionUnits)
-import Cardano.Ledger.Alonzo.Tx (ValidatedTx (ValidatedTx, body, wits))
+import Cardano.Ledger.Alonzo.Tx (ValidatedTx (ValidatedTx, body, wits), outputs)
 import Cardano.Ledger.Alonzo.TxBody (TxOut (TxOut))
 import Cardano.Ledger.Alonzo.TxWitness (RdmrPtr, TxWitness (txdats), unTxDats)
 import Cardano.Ledger.Crypto (StandardCrypto)
@@ -30,10 +31,12 @@ import Data.Bits (shift)
 import qualified Data.ByteString.Lazy as LBS
 import qualified Data.Map as Map
 import Data.Maybe (fromJust)
+import qualified Data.Sequence.Strict as Seq
 import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
 import Hydra.Chain (HeadParameters (..), PostChainTx (..))
 import Hydra.Chain.Direct.Tx (OnChainHeadState (..), abortTx, initTx, observeAbortTx, observeInitTx, plutusScript, scriptAddr, threadToken)
 import Hydra.Chain.Direct.Util (Era)
+import Hydra.Chain.Direct.Wallet (coverFee_)
 import qualified Hydra.Contract.Commit as Commit
 import qualified Hydra.Contract.Head as Head
 import qualified Hydra.Contract.Initial as Initial
@@ -116,6 +119,22 @@ spec =
            in 1 + length initials == length (rights $ Map.elems results)
                 & counterexample ("Evaluation results: " <> show results)
                 & counterexample ("Tx: " <> show tx)
+                & counterexample ("Input utxo: " <> show utxo)
+
+      prop "cover fee correctly handles redeemers" $
+        withMaxSuccess 30 $ \txIn utxos params (NonEmpty initials) ->
+          let ValidatedTx{body} = initTx params txIn
+              txInitIn = TxIn (TxId $ SafeHash.hashAnnotated body) 0
+              -- FIXME(AB): fromJust is partial... and so is Right xxx = foo>
+              txInitOut = fromJust $ Seq.lookup 0 (outputs body)
+              txAbort = abortTx (txInitIn, threadToken, params) initials
+              Right txAbortWithFees = coverFee_ (utxos, pparams) txAbort
+              utxo = UTxO $ utxos <> Map.fromList ((txInitIn, txInitOut) : map toTxOut initials)
+
+              results = validateTxScriptsUnlimited txAbortWithFees utxo
+           in 1 + length initials == length (rights $ Map.elems results)
+                & counterexample ("Evaluation results: " <> show results)
+                & counterexample ("Tx: " <> show txAbortWithFees)
                 & counterexample ("Input utxo: " <> show utxo)
 
 toTxOut :: (TxIn StandardCrypto, PubKeyHash) -> (TxIn StandardCrypto, TxOut Era)
