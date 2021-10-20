@@ -55,6 +55,7 @@ import Test.Cardano.Ledger.Alonzo.PlutusScripts (defaultCostModel)
 import Test.Cardano.Ledger.Alonzo.Serialisation.Generators ()
 import Test.QuickCheck (NonEmptyList (NonEmpty), counterexample, label, withMaxSuccess, (===))
 import Test.QuickCheck.Instances ()
+import Test.QuickCheck.Property (counterexample)
 
 spec :: Spec
 spec =
@@ -135,7 +136,8 @@ spec =
                   let actualExecutionCost = executionCost pparams txAbortWithFees
                    in actualExecutionCost > Coin 0 && txfee abortTxBody > actualExecutionCost
                         & label "Right"
-                        & counterexample ("Execution costs: " <> show actualExecutionCost)
+                        & counterexample ("Execution cost: " <> show actualExecutionCost)
+                        & counterexample ("Fee: " <> show (txfee abortTxBody))
                         & counterexample ("Tx: " <> show txAbortWithFees)
                         & counterexample ("Input utxo: " <> show utxo)
 
