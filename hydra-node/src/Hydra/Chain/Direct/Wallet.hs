@@ -357,6 +357,8 @@ client tracer tipVar utxoVar address nodeToClientV =
   Codecs{cChainSyncCodec, cTxSubmissionCodec, cStateQueryCodec} =
     defaultCodecs nodeToClientV
 
+type OnRollback m = ChainSyncClient Block (Point Block) (Tip Block) m ()
+
 -- NOTE: We are fetching PParams only once, when the client first starts. Which
 -- means that, if the params change later, we may start producing invalid
 -- transactions. In principle, we also expect the Hydra node to monitor the
@@ -384,24 +386,33 @@ chainSyncClient tracer tipVar utxoVar address =
       tip <$ check (tip /= genesisPoint)
     pure $ ChainSync.SendMsgFindIntersect [tip] clientStIntersect
 
+  onFirstRollback :: ChainSyncClient Block (Point Block) (Tip Block) m ()
+  onFirstRollback = ChainSyncClient (pure $ clientStIdle reset)
+
   clientStIntersect :: ChainSync.ClientStIntersect Block (Point Block) (Tip Block) m ()
   clientStIntersect =
     ChainSync.ClientStIntersect
       { ChainSync.recvMsgIntersectNotFound = \_tip -> do
           reset
       , ChainSync.recvMsgIntersectFound = \_point _tip ->
-          ChainSyncClient (pure clientStIdle)
+          ChainSyncClient (pure $ clientStIdle onFirstRollback)
       }
 
-  clientStIdle :: ChainSync.ClientStIdle Block (Point Block) (Tip Block) m ()
-  clientStIdle =
-    ChainSync.SendMsgRequestNext clientStNext (pure clientStNext)
+  clientStIdle ::
+    OnRollback m ->
+    ChainSync.ClientStIdle Block (Point Block) (Tip Block) m ()
+  clientStIdle onRollback =
+    ChainSync.SendMsgRequestNext
+      (clientStNext onRollback)
+      (pure $ clientStNext onRollback)
 
-  clientStNext :: ChainSync.ClientStNext Block (Point Block) (Tip Block) m ()
-  clientStNext =
+  clientStNext ::
+    OnRollback m ->
+    ChainSync.ClientStNext Block (Point Block) (Tip Block) m ()
+  clientStNext onRollback =
     ChainSync.ClientStNext
       { ChainSync.recvMsgRollBackward = \_point _tip ->
-          reset
+          onRollback
       , ChainSync.recvMsgRollForward = \block _tip ->
           ChainSyncClient $ do
             msg <- atomically $ do
@@ -414,7 +425,7 @@ chainSyncClient tracer tipVar utxoVar address =
                 else do
                   pure Nothing
             mapM_ (traceWith tracer) msg
-            pure clientStIdle
+            pure (clientStIdle reset)
       }
 
 stateQueryClient ::
