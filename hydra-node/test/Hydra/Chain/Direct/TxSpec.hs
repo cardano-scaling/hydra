@@ -99,7 +99,7 @@ spec =
               txOut = TxOut headAddress headValue (SJust headDatumHash)
               (policyId, _) = first currencyMPSHash (unAssetClass threadToken)
               headAddress = scriptAddr $ plutusScript $ Head.validatorScript policyId
-              headValue = inject (Coin 0)
+              headValue = inject (Coin 2_000_000)
               headDatumHash =
                 hashData @Era . Data $
                   toData $
