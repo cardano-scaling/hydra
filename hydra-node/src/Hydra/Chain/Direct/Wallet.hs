@@ -399,9 +399,10 @@ chainSyncClient tipVar utxoVar address =
           reset
       , ChainSync.recvMsgRollForward = \block _tip ->
           ChainSyncClient $ do
-            (utxo, pparams) <- atomically (readTMVar utxoVar)
-            let utxo' = applyBlock block (== address) utxo
-            when (utxo' /= utxo) (void $ atomically $ swapTMVar utxoVar (utxo', pparams))
+            atomically $ do
+              (utxo, pparams) <- readTMVar utxoVar
+              let utxo' = applyBlock block (== address) utxo
+              when (utxo' /= utxo) (void $ swapTMVar utxoVar (utxo', pparams))
             pure clientStIdle
       }
 
