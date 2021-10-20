@@ -46,6 +46,7 @@ import Control.Monad.Class.MonadSTM (
   newTVarIO,
   putTMVar,
   readTMVar,
+  retry,
   swapTMVar,
   tryTakeTMVar,
   writeTVar,
@@ -177,8 +178,15 @@ withTinyWallet magic (vk, sk) iocp addr action = do
                       { txwitsVKey = Set.singleton wit
                       }
                 }
-      , coverFee = \partialTx ->
-          uncurry coverFee_ <$> readTMVar utxoVar <*> pure partialTx
+      , coverFee = \partialTx -> do
+          (u, pparams) <- readTMVar utxoVar
+          case coverFee_ u pparams partialTx of
+            Left ErrNoAvailableUtxo ->
+              retry
+            Left e ->
+              pure (Left e)
+            Right (u', balancedTx) ->
+              swapTMVar utxoVar (u', pparams) $> Right balancedTx
       }
 
 -- | Apply a block to our wallet. Does nothing if the transaction does not
@@ -215,7 +223,7 @@ coverFee_ ::
   Map TxIn TxOut ->
   PParams Era ->
   ValidatedTx Era ->
-  Either ErrCoverFee (ValidatedTx Era)
+  Either ErrCoverFee (Map TxIn TxOut, ValidatedTx Era)
 coverFee_ utxo pparams partialTx@ValidatedTx{body, wits} = do
   (input, output) <- case Map.lookupMax utxo of
     Nothing ->
@@ -250,11 +258,13 @@ coverFee_ utxo pparams partialTx@ValidatedTx{body, wits} = do
                 adjustedRedeemers
                 (txdats wits)
           }
-  pure $
-    partialTx
-      { body = finalBody
-      , wits = wits{txrdmrs = adjustedRedeemers}
-      }
+  pure
+    ( Map.delete input utxo
+    , partialTx
+        { body = finalBody
+        , wits = wits{txrdmrs = adjustedRedeemers}
+        }
+    )
  where
   -- TODO: Do a better fee estimation based on the transaction's content.
   needlesslyHighFee :: Coin
