@@ -116,14 +116,14 @@ spec =
                 & counterexample ("Input utxo: " <> show utxo)
 
       prop "cover fee correctly handles redeemers" $
-        withMaxSuccess 30 $ \txIn utxos params (NonEmpty initials) ->
+        withMaxSuccess 60 $ \txIn utxos params (NonEmpty initials) ->
           let ValidatedTx{body} = initTx params txIn
               txInitIn = TxIn (TxId $ SafeHash.hashAnnotated body) 0
-              -- FIXME(AB): fromJust is partial... and so is Right xxx = foo>
+              -- FIXME(AB): fromJust is partial
               txInitOut = fromJust $ Seq.lookup 0 (outputs body)
               txAbort = abortTx (txInitIn, threadToken, params) initials
               utxo = UTxO $ utxos <> Map.fromList ((txInitIn, txInitOut) : map toTxOut initials)
-           in case coverFee_ (utxos, pparams) txAbort of
+           in case coverFee_ utxos pparams txAbort of
                 Left err -> True & label (show err)
                 Right txAbortWithFees ->
                   let results = validateTxScriptsUnlimited utxo txAbortWithFees

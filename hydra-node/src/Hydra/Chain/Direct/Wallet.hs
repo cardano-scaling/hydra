@@ -171,7 +171,7 @@ withTinyWallet magic (vk, sk) iocp addr action = do
                       }
                 }
       , coverFee = \partialTx ->
-          coverFee_ <$> readTMVar utxoVar <*> pure partialTx
+          uncurry coverFee_ <$> readTMVar utxoVar <*> pure partialTx
       }
 
 -- | Apply a block to our wallet. Does nothing if the transaction does not
@@ -205,10 +205,11 @@ data ErrCoverFee
 --
 -- TODO: The fee calculation is currently very dumb and static.
 coverFee_ ::
-  (Map TxIn TxOut, PParams Era) ->
+  Map TxIn TxOut ->
+  PParams Era ->
   ValidatedTx Era ->
   Either ErrCoverFee (ValidatedTx Era)
-coverFee_ (utxo, pparams) partialTx@ValidatedTx{body, wits} = do
+coverFee_ utxo pparams partialTx@ValidatedTx{body, wits} = do
   (input, output) <- case Map.lookupMax utxo of
     Nothing ->
       Left ErrNoAvailableUtxo

@@ -150,7 +150,7 @@ prop_balanceTransaction =
       prop' utxo tx
  where
   prop' utxo tx =
-    case coverFee_ (utxo, pparams) tx of
+    case coverFee_ utxo pparams tx of
       Left{} ->
         property True & label "Left"
       Right tx' ->
