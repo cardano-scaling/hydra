@@ -228,7 +228,7 @@ genValidatedTx = do
 
 genPaymentTo :: VerificationKey -> Gen (ValidatedTx Era)
 genPaymentTo vk = do
-  toValidatedTx =<< arbitrary @TxOut `suchThat` atLeast 10_000_000
+  toValidatedTx =<< arbitrary @TxOut `suchThat` atLeast 100_000_000
  where
   atLeast v = \case
     TxOut _ value _ ->
