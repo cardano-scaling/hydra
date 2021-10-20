@@ -18,7 +18,12 @@ import Cardano.Ledger.Alonzo.Scripts (ExUnits (..), txscriptfee)
 import Cardano.Ledger.Alonzo.Tools (ScriptFailure, evaluateTransactionExecutionUnits)
 import Cardano.Ledger.Alonzo.Tx (ValidatedTx (ValidatedTx, body, wits), outputs, txfee, txrdmrs)
 import Cardano.Ledger.Alonzo.TxBody (TxOut (TxOut))
-import Cardano.Ledger.Alonzo.TxWitness (RdmrPtr, TxWitness (TxWitness, txdats), unTxDats)
+import Cardano.Ledger.Alonzo.TxWitness (
+  RdmrPtr,
+  TxWitness (txdats),
+  unRedeemers,
+  unTxDats,
+ )
 import Cardano.Ledger.Crypto (StandardCrypto)
 import Cardano.Ledger.Mary.Value (AssetName, PolicyID, Value (Value))
 import qualified Cardano.Ledger.SafeHash as SafeHash
@@ -128,17 +133,17 @@ spec =
                 Left err -> True & label (show err)
                 Right txAbortWithFees@ValidatedTx{body = abortTxBody} ->
                   let actualExecutionCost = executionCost pparams txAbortWithFees
-                   in actualExecutionCost /= Coin 0 && txfee abortTxBody > actualExecutionCost
+                   in actualExecutionCost > Coin 0 && txfee abortTxBody > actualExecutionCost
                         & label "Right"
                         & counterexample ("Execution costs: " <> show actualExecutionCost)
                         & counterexample ("Tx: " <> show txAbortWithFees)
                         & counterexample ("Input utxo: " <> show utxo)
 
 executionCost :: PParams Era -> ValidatedTx Era -> Coin
-executionCost PParams{_prices} ValidatedTx{wits = TxWitness{txrdmrs}} =
+executionCost PParams{_prices} ValidatedTx{wits} =
   txscriptfee _prices executionUnits
  where
-  executionUnits = foldMap snd $ unRedeemers txrdmrs
+  executionUnits = foldMap snd $ unRedeemers $ txrdmrs wits
 
 toTxOut :: (TxIn StandardCrypto, PubKeyHash) -> (TxIn StandardCrypto, TxOut Era)
 toTxOut (txIn, pkh) =

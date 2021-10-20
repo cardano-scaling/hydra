@@ -12,7 +12,9 @@ import qualified Cardano.Ledger.Address as Ledger
 import Cardano.Ledger.Alonzo.Language (
   Language (PlutusV1),
  )
+import Cardano.Ledger.Alonzo.PParams (PParams' (..))
 import Cardano.Ledger.Alonzo.PlutusScriptApi (language)
+import Cardano.Ledger.Alonzo.Scripts (ExUnits (..))
 import Cardano.Ledger.Alonzo.Tx (ValidatedTx (..), hashScriptIntegrity)
 import Cardano.Ledger.Alonzo.TxBody (
   TxBody,
@@ -24,7 +26,12 @@ import Cardano.Ledger.Alonzo.TxBody (
   pattern TxOut,
  )
 import Cardano.Ledger.Alonzo.TxSeq (TxSeq (..))
-import Cardano.Ledger.Alonzo.TxWitness (RdmrPtr (RdmrPtr), Redeemers (Redeemers), TxWitness (..), unRedeemers)
+import Cardano.Ledger.Alonzo.TxWitness (
+  RdmrPtr (RdmrPtr),
+  Redeemers (..),
+  TxWitness (..),
+  unRedeemers,
+ )
 import Cardano.Ledger.Coin (Coin (..))
 import Cardano.Ledger.Core (PParams)
 import qualified Cardano.Ledger.Core as Ledger
@@ -265,14 +272,23 @@ coverFee_ utxo pparams partialTx@ValidatedTx{body, wits} = do
       Left (fee <> invert (coin value))
 
   adjustRedeemers :: Set TxIn -> Set TxIn -> Redeemers Era -> Redeemers Era
-  adjustRedeemers initialInputs finalInputs initialRedeemers =
-    let sortedInputs = sort $ toList initialInputs
-        sortedFinalInputs = sort $ toList finalInputs
-        differences = List.findIndices (not . uncurry (==)) $ zip sortedInputs sortedFinalInputs
-        adjustPtrIndex ptr@(RdmrPtr t idx, v)
-          | fromIntegral idx `elem` differences = (RdmrPtr t (idx + 1), v)
-          | otherwise = ptr
-     in Redeemers $ Map.fromList $ map adjustPtrIndex $ Map.toList $ unRedeemers initialRedeemers
+  adjustRedeemers initialInputs finalInputs (Redeemers initialRedeemers) =
+    Redeemers $ Map.fromList $ map adjustOne $ Map.toList initialRedeemers
+   where
+    sortedInputs = sort $ toList initialInputs
+    sortedFinalInputs = sort $ toList finalInputs
+    differences = List.findIndices (not . uncurry (==)) $ zip sortedInputs sortedFinalInputs
+    adjustOne (ptr@(RdmrPtr t idx), (d, _exUnits))
+      | fromIntegral idx `elem` differences =
+        (RdmrPtr t (idx + 1), (d, maxExecutionUnits))
+      | otherwise =
+        (ptr, (d, maxExecutionUnits))
+
+    maxExecutionUnits :: ExUnits
+    maxExecutionUnits =
+      let ExUnits mem steps = _maxTxExUnits pparams
+          nRedeemers = fromIntegral (Map.size initialRedeemers)
+       in ExUnits (mem `div` nRedeemers) (steps `div` nRedeemers)
 
 -- | The idea for this wallet client is rather simple:
 --
