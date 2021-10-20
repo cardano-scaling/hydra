@@ -55,7 +55,6 @@ import Test.Cardano.Ledger.Alonzo.PlutusScripts (defaultCostModel)
 import Test.Cardano.Ledger.Alonzo.Serialisation.Generators ()
 import Test.QuickCheck (NonEmptyList (NonEmpty), counterexample, label, withMaxSuccess, (===))
 import Test.QuickCheck.Instances ()
-import Test.QuickCheck.Property (counterexample)
 
 spec :: Spec
 spec =

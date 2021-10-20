@@ -6,7 +6,7 @@ module Test.DirectChainSpec where
 import Hydra.Prelude
 import Test.Hydra.Prelude
 
-import CardanoCluster (ClusterConfig (..), RunningCluster (..), keysFor, withCluster)
+import CardanoCluster (ClusterConfig (..), ClusterLog, RunningCluster (..), keysFor, withCluster)
 import CardanoNode (RunningNode (..))
 import Control.Concurrent (newEmptyMVar, putMVar, takeMVar)
 import Hydra.Chain (
@@ -15,7 +15,12 @@ import Hydra.Chain (
   OnChainTx (OnAbortTx, OnInitTx),
   PostChainTx (AbortTx, InitTx),
  )
-import Hydra.Chain.Direct (NetworkMagic (NetworkMagic), withDirectChain, withIOManager)
+import Hydra.Chain.Direct (
+  DirectChainLog,
+  NetworkMagic (NetworkMagic),
+  withDirectChain,
+  withIOManager,
+ )
 import Hydra.Ledger.Simple (SimpleTx)
 import Hydra.Logging (nullTracer, showLogsOnFailure)
 import Hydra.Party (Party, deriveParty, generateKey)
@@ -28,11 +33,11 @@ spec = around showLogsOnFailure $ do
     let magic = NetworkMagic 42
     withTempDir "hydra-local-cluster" $ \tmp -> do
       let config = ClusterConfig tmp
-      withCluster tracer config $ \cluster@(RunningCluster _ [RunningNode _ node1socket, RunningNode _ node2socket, _]) -> do
+      withCluster (contramap FromCluster tracer) config $ \cluster@(RunningCluster _ [RunningNode _ node1socket, RunningNode _ node2socket, _]) -> do
         aliceKeys <- keysFor "alice" cluster
         bobKeys <- keysFor "bob" cluster
         withIOManager $ \iocp -> do
-          withDirectChain nullTracer magic iocp node1socket aliceKeys (putMVar calledBackAlice) $ \Chain{postTx} -> do
+          withDirectChain (contramap (FromDirectChain "alice") tracer) magic iocp node1socket aliceKeys (putMVar calledBackAlice) $ \Chain{postTx} -> do
             withDirectChain nullTracer magic iocp node2socket bobKeys (putMVar calledBackBob) $ \_ -> do
               let parameters = HeadParameters 100 [alice, bob, carol]
               threadDelay 2
@@ -49,6 +54,11 @@ spec = around showLogsOnFailure $ do
                 takeMVar calledBackAlice `shouldReturn` OnAbortTx @SimpleTx
               failAfter 5 $
                 takeMVar calledBackBob `shouldReturn` OnAbortTx @SimpleTx
+
+data TestClusterLog
+  = FromCluster ClusterLog
+  | FromDirectChain Text (DirectChainLog SimpleTx)
+  deriving (Show)
 
 alice, bob, carol :: Party
 alice = deriveParty $ generateKey 10
