@@ -255,6 +255,9 @@ mockStateQueryServer _db =
                   hash <- ShelleyHash <$> arbitrary
                   pure $ Point $ At $ Point.Block slot hash
             pure $ LSQ.SendMsgResult (Right tip) serverStAcquired
+          BlockQuery (QueryIfCurrentAlonzo GetCurrentPParams) -> do
+            let pparams = generateWith arbitrary 42
+            pure $ LSQ.SendMsgResult (Right pparams) serverStAcquired
           BlockQuery (QueryIfCurrentAlonzo GetUTxOByAddress{}) ->
             pure $ LSQ.SendMsgResult (Right $ Ledger.UTxO mempty) serverStAcquired
           _ ->
