@@ -146,7 +146,7 @@ abortTx (smInput, token, HeadParameters{contestationPeriod, parties}) initInputs
           StrictSeq.fromList
             [ TxOut
                 (scriptAddr headScript)
-                (inject $ Coin 0) -- TODO: This really needs to be passed as argument
+                (inject $ Coin 2000000) -- TODO: This really needs to be passed as argument
                 (SJust $ hashData @Era abortDatum)
             ]
       , txcerts = mempty
