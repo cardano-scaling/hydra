@@ -1,6 +1,5 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE TypeApplications #-}
-{-# OPTIONS_GHC -Wno-incomplete-patterns #-}
 
 -- | Smart constructors for creating Hydra protocol transactions to be used in
 -- the 'Hydra.Chain.Direct' way of talking to the main-chain.
@@ -15,11 +14,11 @@ import Hydra.Prelude
 import Cardano.Binary (serialize)
 import Cardano.Ledger.Address (Addr (Addr))
 import Cardano.Ledger.Alonzo (AlonzoEra, Script)
-import Cardano.Ledger.Alonzo.Data (Data (Data), DataHash, hashData)
+import Cardano.Ledger.Alonzo.Data (Data (Data), DataHash, getPlutusData, hashData)
 import Cardano.Ledger.Alonzo.Scripts (ExUnits (..), Script (PlutusScript))
 import Cardano.Ledger.Alonzo.Tx (IsValid (IsValid), ScriptPurpose (Spending), ValidatedTx (..), rdptr)
 import Cardano.Ledger.Alonzo.TxBody (TxBody (..), TxOut (TxOut))
-import Cardano.Ledger.Alonzo.TxWitness (RdmrPtr, Redeemers (..), TxDats (..), TxWitness (..), unTxDats)
+import Cardano.Ledger.Alonzo.TxWitness (RdmrPtr, Redeemers (..), TxDats (..), TxWitness (..), unRedeemers, unTxDats)
 import Cardano.Ledger.Crypto (StandardCrypto)
 import Cardano.Ledger.Era (hashScript)
 import qualified Cardano.Ledger.SafeHash as SafeHash
@@ -252,18 +251,19 @@ observeInitTx ValidatedTx{wits, body} st =
 
   firstInput = TxIn (TxId $ SafeHash.hashAnnotated body) 0
 
+-- | Identify an abort tx by trying to decode all redeemers to the right type.
+-- This is a very weak observation and should be more concretized.
 observeAbortTx :: ValidatedTx Era -> OnChainHeadState -> (Maybe (OnChainTx tx), OnChainHeadState)
 observeAbortTx ValidatedTx{wits} st =
-  case (st, extractState) of
-    (Initial{}, Just Head.Final) -> (Just OnAbortTx, Final)
+  case (st, extractTransition) of
+    (Initial{}, Just Head.Abort) -> (Just OnAbortTx, Final)
     _ -> (Nothing, st)
  where
-  extractState = foldr decodeData Nothing datums
+  extractTransition = foldr decodeData Nothing redeemerData
 
-  -- NOTE: Pattern is not marked COMPLETE in source code hence the need for incomplete-pattern warning
-  decodeData (Data d) s = s <|> fromData d
+  decodeData d s = s <|> fromData (getPlutusData d)
 
-  datums = Map.elems . unTxDats $ txdats wits
+  redeemerData = fmap fst . Map.elems . unRedeemers $ txrdmrs wits
 
 --
 
