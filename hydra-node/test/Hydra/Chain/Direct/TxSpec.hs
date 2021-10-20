@@ -13,11 +13,12 @@ import Cardano.Binary (serialize)
 import Cardano.Ledger.Alonzo (TxOut)
 import Cardano.Ledger.Alonzo.Data (Data (Data), hashData)
 import Cardano.Ledger.Alonzo.Language (Language (PlutusV1))
-import Cardano.Ledger.Alonzo.Scripts (ExUnits (..))
+import Cardano.Ledger.Alonzo.PParams (PParams, PParams' (..))
+import Cardano.Ledger.Alonzo.Scripts (ExUnits (..), txscriptfee)
 import Cardano.Ledger.Alonzo.Tools (ScriptFailure, evaluateTransactionExecutionUnits)
-import Cardano.Ledger.Alonzo.Tx (ValidatedTx (ValidatedTx, body, wits), outputs)
+import Cardano.Ledger.Alonzo.Tx (ValidatedTx (ValidatedTx, body, wits), outputs, txfee, txrdmrs)
 import Cardano.Ledger.Alonzo.TxBody (TxOut (TxOut))
-import Cardano.Ledger.Alonzo.TxWitness (RdmrPtr, TxWitness (txdats), unTxDats)
+import Cardano.Ledger.Alonzo.TxWitness (RdmrPtr, TxWitness (TxWitness, txdats), unTxDats)
 import Cardano.Ledger.Crypto (StandardCrypto)
 import Cardano.Ledger.Mary.Value (AssetName, PolicyID, Value (Value))
 import qualified Cardano.Ledger.SafeHash as SafeHash
@@ -117,21 +118,27 @@ spec =
 
       prop "cover fee correctly handles redeemers" $
         withMaxSuccess 60 $ \txIn utxos params (NonEmpty initials) ->
-          let ValidatedTx{body} = initTx params txIn
-              txInitIn = TxIn (TxId $ SafeHash.hashAnnotated body) 0
+          let ValidatedTx{body = initTxBody} = initTx params txIn
+              txInitIn = TxIn (TxId $ SafeHash.hashAnnotated initTxBody) 0
               -- FIXME(AB): fromJust is partial
-              txInitOut = fromJust $ Seq.lookup 0 (outputs body)
+              txInitOut = fromJust $ Seq.lookup 0 (outputs initTxBody)
               txAbort = abortTx (txInitIn, threadToken, params) initials
               utxo = UTxO $ utxos <> Map.fromList ((txInitIn, txInitOut) : map toTxOut initials)
            in case coverFee_ utxos pparams txAbort of
                 Left err -> True & label (show err)
-                Right txAbortWithFees ->
-                  let results = validateTxScriptsUnlimited utxo txAbortWithFees
-                   in 1 + length initials == length (rights $ Map.elems results)
+                Right txAbortWithFees@ValidatedTx{body = abortTxBody} ->
+                  let actualExecutionCost = executionCost pparams txAbortWithFees
+                   in actualExecutionCost /= Coin 0 && txfee abortTxBody > actualExecutionCost
                         & label "Right"
-                        & counterexample ("Evaluation results: " <> show results)
+                        & counterexample ("Execution costs: " <> show actualExecutionCost)
                         & counterexample ("Tx: " <> show txAbortWithFees)
                         & counterexample ("Input utxo: " <> show utxo)
+
+executionCost :: PParams Era -> ValidatedTx Era -> Coin
+executionCost PParams{_prices} ValidatedTx{wits = TxWitness{txrdmrs}} =
+  txscriptfee _prices executionUnits
+ where
+  executionUnits = foldMap snd $ unRedeemers txrdmrs
 
 toTxOut :: (TxIn StandardCrypto, PubKeyHash) -> (TxIn StandardCrypto, TxOut Era)
 toTxOut (txIn, pkh) =
