@@ -32,7 +32,7 @@ import Hydra.Chain (
  )
 import Hydra.Chain.Direct.Tx (OnChainHeadState (..), abortTx, initTx, runOnChainTxs)
 import Hydra.Chain.Direct.Util (Block, Era, defaultCodecs, nullConnectTracers, versions)
-import Hydra.Chain.Direct.Wallet (SigningKey, TinyWallet (..), VerificationKey, withTinyWallet)
+import Hydra.Chain.Direct.Wallet (SigningKey, TinyWallet (..), TinyWalletLog, VerificationKey, withTinyWallet)
 import Hydra.Logging (Tracer, traceWith)
 import Ouroboros.Consensus.Cardano.Block (GenTx (..), HardForkBlock (BlockAlonzo))
 import Ouroboros.Consensus.Ledger.SupportsMempool (ApplyTxErr)
@@ -88,7 +88,7 @@ withDirectChain tracer networkMagic iocp socketPath keyPair callback action = do
   queue <- newTQueueIO
   headState <- newTVarIO Closed
   handle onIOException $
-    withTinyWallet networkMagic keyPair iocp socketPath $ \wallet ->
+    withTinyWallet (contramap Wallet tracer) networkMagic keyPair iocp socketPath $ \wallet ->
       race_
         (action $ Chain{postTx = atomically . writeTQueue queue})
         ( connectTo
@@ -265,4 +265,5 @@ data DirectChainLog tx
   = PostTx {toPost :: PostChainTx tx, postedTx :: ValidatedTx Era}
   | ReceiveTxs {receivedTxs :: [ValidatedTx Era], onChainTxs :: [OnChainTx tx]}
   | RolledBackward {point :: Point Block}
+  | Wallet TinyWalletLog
   deriving (Eq, Show, Generic)

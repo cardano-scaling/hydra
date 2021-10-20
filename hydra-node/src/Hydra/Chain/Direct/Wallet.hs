@@ -65,6 +65,7 @@ import Hydra.Chain.Direct.Util (
   versions,
  )
 import Hydra.Ledger.Cardano (genKeyPair, mkVkAddress, signWith)
+import Hydra.Logging (Tracer, traceWith)
 import Hydra.Prelude
 import Ouroboros.Consensus.Cardano.Block (BlockQuery (..), CardanoEras, pattern BlockAlonzo)
 import Ouroboros.Consensus.HardFork.Combinator (MismatchEraInfo)
@@ -138,6 +139,8 @@ data TinyWallet m = TinyWallet
   }
 
 withTinyWallet ::
+  -- | A tracer for logging
+  Tracer IO TinyWalletLog ->
   -- | Network identifier to which we expect to connect.
   NetworkMagic ->
   -- | Credentials of the wallet.
@@ -148,7 +151,7 @@ withTinyWallet ::
   FilePath ->
   (TinyWallet IO -> IO ()) ->
   IO ()
-withTinyWallet magic (vk, sk) iocp addr action = do
+withTinyWallet tracer magic (vk, sk) iocp addr action = do
   utxoVar <- newEmptyTMVarIO
   tipVar <- newTVarIO genesisPoint
   race_
@@ -156,7 +159,7 @@ withTinyWallet magic (vk, sk) iocp addr action = do
     ( connectTo
         (localSnocket iocp addr)
         nullConnectTracers
-        (versions magic $ client tipVar utxoVar address)
+        (versions magic $ client tracer tipVar utxoVar address)
         addr
     )
  where
@@ -324,19 +327,20 @@ coverFee_ utxo pparams partialTx@ValidatedTx{body, wits} = do
 -- abstraction which is used by consumers downstreams.
 client ::
   (MonadST m, MonadTimer m) =>
+  Tracer m TinyWalletLog ->
   TVar m (Point Block) ->
   TMVar m (Map TxIn TxOut, PParams Era) ->
   Address ->
   NodeToClientVersion ->
   OuroborosApplication 'InitiatorMode LocalAddress LByteString m () Void
-client tipVar utxoVar address nodeToClientV =
+client tracer tipVar utxoVar address nodeToClientV =
   nodeToClientProtocols
     ( const $
         pure $
           NodeToClientProtocols
             { localChainSyncProtocol =
                 InitiatorProtocolOnly $
-                  let peer = chainSyncClientPeer $ chainSyncClient tipVar utxoVar address
+                  let peer = chainSyncClientPeer $ chainSyncClient tracer tipVar utxoVar address
                    in MuxPeer nullTracer cChainSyncCodec peer
             , localTxSubmissionProtocol =
                 InitiatorProtocolOnly $
@@ -344,7 +348,7 @@ client tipVar utxoVar address nodeToClientV =
                    in MuxPeer nullTracer cTxSubmissionCodec peer
             , localStateQueryProtocol =
                 InitiatorProtocolOnly $
-                  let peer = localStateQueryClientPeer $ stateQueryClient tipVar utxoVar address
+                  let peer = localStateQueryClientPeer $ stateQueryClient tracer tipVar utxoVar address
                    in MuxPeer nullTracer cStateQueryCodec peer
             }
     )
@@ -362,11 +366,12 @@ client tipVar utxoVar address nodeToClientV =
 chainSyncClient ::
   forall m.
   (MonadSTM m) =>
+  Tracer m TinyWalletLog ->
   TVar m (Point Block) ->
   TMVar m (Map TxIn TxOut, PParams Era) ->
   Address ->
   ChainSyncClient Block (Point Block) (Tip Block) m ()
-chainSyncClient tipVar utxoVar address =
+chainSyncClient tracer tipVar utxoVar address =
   reset
  where
   reset :: ChainSyncClient Block (Point Block) (Tip Block) m ()
@@ -399,21 +404,28 @@ chainSyncClient tipVar utxoVar address =
           reset
       , ChainSync.recvMsgRollForward = \block _tip ->
           ChainSyncClient $ do
-            atomically $ do
+            msg <- atomically $ do
               (utxo, pparams) <- readTMVar utxoVar
               let utxo' = applyBlock block (== address) utxo
-              when (utxo' /= utxo) (void $ swapTMVar utxoVar (utxo', pparams))
+              if (utxo' /= utxo)
+                then do
+                  void $ swapTMVar utxoVar (utxo', pparams)
+                  pure $ Just $ ApplyBlock utxo utxo'
+                else do
+                  pure Nothing
+            mapM_ (traceWith tracer) msg
             pure clientStIdle
       }
 
 stateQueryClient ::
   forall m.
   (MonadSTM m, MonadTimer m) =>
+  Tracer m TinyWalletLog ->
   TVar m (Point Block) ->
   TMVar m (Map TxIn TxOut, PParams Era) ->
   Address ->
   LocalStateQueryClient Block (Point Block) (Query Block) m ()
-stateQueryClient tipVar utxoVar address =
+stateQueryClient tracer tipVar utxoVar address =
   LocalStateQueryClient (pure clientStIdle)
  where
   clientStIdle :: LSQ.ClientStIdle Block (Point Block) (Query Block) m ()
@@ -468,6 +480,7 @@ stateQueryClient tipVar utxoVar address =
           Left{} ->
             handleEraMismatch
           Right (Ledger.unUTxO -> utxo) -> do
+            traceWith tracer $ InitializingWallet tip utxo
             atomically $ do
               writeTVar tipVar tip
               putTMVar utxoVar (utxo, pparams)
@@ -500,3 +513,12 @@ generateKeyPair :: IO (VerificationKey, SigningKey)
 generateKeyPair = do
   Ledger.KeyPair (Ledger.VKey vk) sk <- generate genKeyPair
   pure (vk, sk)
+
+--
+-- Logs
+--
+
+data TinyWalletLog
+  = InitializingWallet (Point Block) (Map TxIn TxOut)
+  | ApplyBlock (Map TxIn TxOut) (Map TxIn TxOut)
+  deriving (Eq, Generic, Show)

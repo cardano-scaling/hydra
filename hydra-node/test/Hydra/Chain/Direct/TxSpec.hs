@@ -131,7 +131,7 @@ spec =
               utxo = UTxO $ utxos <> Map.fromList ((txInitIn, txInitOut) : map toTxOut initials)
            in case coverFee_ utxos pparams txAbort of
                 Left err -> True & label (show err)
-                Right txAbortWithFees@ValidatedTx{body = abortTxBody} ->
+                Right (_, txAbortWithFees@ValidatedTx{body = abortTxBody}) ->
                   let actualExecutionCost = executionCost pparams txAbortWithFees
                    in actualExecutionCost > Coin 0 && txfee abortTxBody > actualExecutionCost
                         & label "Right"

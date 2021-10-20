@@ -16,6 +16,7 @@ import qualified Cardano.Ledger.SafeHash as SafeHash
 import Cardano.Ledger.Val (Val (..), invert)
 import Control.Monad.Class.MonadSTM (check)
 import Control.Monad.Class.MonadTimer (timeout)
+import Control.Tracer (nullTracer)
 import qualified Data.Map.Strict as Map
 import qualified Data.Sequence.Strict as StrictSeq
 import qualified Data.Set as Set
@@ -74,13 +75,13 @@ spec = parallel $ do
     KeyPair (VKey vk) sk <- runIO $ generate genKeyPair
     it "connects to server and returns UTXO in a timely manner" $ do
       withMockServer $ \networkMagic iocp socket _ -> do
-        withTinyWallet networkMagic (vk, sk) iocp socket $ \wallet -> do
+        withTinyWallet nullTracer networkMagic (vk, sk) iocp socket $ \wallet -> do
           result <- timeout 1 $ watchUtxoUntil (const True) wallet
           result `shouldSatisfy` isJust
 
     it "tracks UTXO correctly when payments are received" $ do
       withMockServer $ \networkMagic iocp socket submitTx -> do
-        withTinyWallet networkMagic (vk, sk) iocp socket $ \wallet -> do
+        withTinyWallet nullTracer networkMagic (vk, sk) iocp socket $ \wallet -> do
           generate (genPaymentTo vk) >>= submitTx
           result <- timeout 1 $ watchUtxoUntil (not . null) wallet
           result `shouldSatisfy` isJust
@@ -153,7 +154,7 @@ prop_balanceTransaction =
     case coverFee_ utxo pparams tx of
       Left{} ->
         property True & label "Left"
-      Right tx' ->
+      Right (_, tx') ->
         let inp' = knownInputBalance utxo tx'
             out' = outputBalance tx'
             out = outputBalance tx
