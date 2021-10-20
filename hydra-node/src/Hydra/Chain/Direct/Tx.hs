@@ -186,6 +186,10 @@ abortTx (smInput, token, HeadParameters{contestationPeriod, parties}) initInputs
       )
       initInputs
 
+  -- NOTE: Those datums contain the datum of the spent state-machine input, but
+  -- also, the datum of the created output which is necessary for the
+  -- state-machine on-chain validator to control the correctness of the
+  -- transition.
   datums =
     datumsFromList $ abortDatum : headDatum : map initialDatum initInputs
 
@@ -254,14 +258,12 @@ observeAbortTx ValidatedTx{wits} st =
     (Initial{}, Just Head.Final) -> (Just OnAbortTx, Final)
     _ -> (Nothing, st)
  where
-  extractState = foldr decodeData Nothing firstDatum
+  extractState = foldr decodeData Nothing datums
 
   -- NOTE: Pattern is not marked COMPLETE in source code hence the need for incomplete-pattern warning
   decodeData (Data d) s = s <|> fromData d
 
-  firstDatum = snd <$> datums
-
-  datums = Map.toList . unTxDats $ txdats wits
+  datums = Map.elems . unTxDats $ txdats wits
 
 --
 
