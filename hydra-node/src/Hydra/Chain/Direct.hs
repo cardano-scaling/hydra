@@ -19,7 +19,6 @@ import Control.Monad.Class.MonadSTM (
   newTQueueIO,
   newTVarIO,
   readTQueue,
-  readTVarIO,
   writeTQueue,
  )
 import Control.Tracer (nullTracer)
@@ -217,33 +216,29 @@ txSubmissionClient tracer queue headState TinyWallet{getUtxo, sign, coverFee} =
  where
   clientStIdle :: m (LocalTxClientStIdle (GenTx Block) (ApplyTxErr Block) m ())
   clientStIdle = do
-    tx <- atomically $ readTQueue queue
-    partialTx <- fromPostChainTx tx
-    atomically (coverFee partialTx) >>= \case
-      Left e ->
-        error ("failed to cover fee for transaction: " <> show e <> ", " <> show partialTx)
-      Right validatedTx -> do
-        let signedTx = sign validatedTx
-        traceWith tracer (PostTx tx signedTx)
-        pure $ SendMsgSubmitTx (GenTxAlonzo . mkShelleyTx $ signedTx) (const clientStIdle)
+    (tx, signedTx) <- atomically $ do
+      tx <- readTQueue queue
+      partialTx <- fromPostChainTx tx
+      coverFee partialTx >>= \case
+        Left e ->
+          error ("failed to cover fee for transaction: " <> show e <> ", " <> show partialTx)
+        Right validatedTx -> do
+          pure (tx, sign validatedTx)
 
-  -- FIXME
-  -- This is where we need signatures and client credentials. Ideally, we would
-  -- rather have this transaction constructed by clients, albeit with some help.
-  -- The hydra node could provide a pre-filled transaction body, and let the
-  -- client submit a signed transaction.
-  --
-  -- For now, it simply does not sign..
-  --
-  fromPostChainTx :: PostChainTx tx -> m (ValidatedTx Era)
+    traceWith tracer (PostTx tx signedTx)
+      $> SendMsgSubmitTx
+        (GenTxAlonzo . mkShelleyTx $ signedTx)
+        (const clientStIdle)
+
+  fromPostChainTx :: PostChainTx tx -> STM m (ValidatedTx Era)
   fromPostChainTx = \case
     InitTx p -> do
-      txIns <- keys <$> atomically getUtxo
+      txIns <- keys <$> getUtxo
       case txIns of
         (seedInput : _) -> pure $ initTx p seedInput
         [] -> error "cannot find a seed input to pass to Init transaction"
     AbortTx _utxo -> do
-      readTVarIO headState >>= \case
+      readTVar headState >>= \case
         Initial{threadOutput, initials} -> pure $ abortTx threadOutput initials
         st -> error $ "cannot post Abort transaction in state " <> show st
     _ -> error "not implemented"
