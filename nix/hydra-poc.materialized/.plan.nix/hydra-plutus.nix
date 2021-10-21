@@ -135,6 +135,7 @@
             (hsPkgs."freer-simple" or (errorHandler.buildDepError "freer-simple"))
             (hsPkgs."hydra-plutus" or (errorHandler.buildDepError "hydra-plutus"))
             (hsPkgs."hydra-prelude" or (errorHandler.buildDepError "hydra-prelude"))
+            (hsPkgs."io-classes" or (errorHandler.buildDepError "io-classes"))
             (hsPkgs."lens" or (errorHandler.buildDepError "lens"))
             (hsPkgs."plutus-contract" or (errorHandler.buildDepError "plutus-contract"))
             (hsPkgs."plutus-core" or (errorHandler.buildDepError "plutus-core"))

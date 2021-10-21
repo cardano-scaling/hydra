@@ -223,6 +223,7 @@
             "Hydra/API/ServerSpec"
             "Hydra/APISpec"
             "Hydra/BehaviorSpec"
+            "Hydra/Chain/Direct/Fixture"
             "Hydra/Chain/Direct/MockServer"
             "Hydra/Chain/Direct/TxSpec"
             "Hydra/Chain/Direct/WalletSpec"
