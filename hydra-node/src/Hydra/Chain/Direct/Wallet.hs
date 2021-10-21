@@ -240,7 +240,7 @@ coverFee_ pparams lookupUtxo walletUtxo partialTx@ValidatedTx{body, wits} = do
 
   change <-
     first ErrNotEnoughFunds $
-      mkChange output resolveInputs (toList $ outputs body) needlesslyHighFee
+      mkChange output resolvedInputs (toList $ outputs body) needlesslyHighFee
 
   let inputs' = inputs body <> Set.singleton input
       outputs' = outputs body <> StrictSeq.singleton change
@@ -265,7 +265,7 @@ coverFee_ pparams lookupUtxo walletUtxo partialTx@ValidatedTx{body, wits} = do
                 (txdats wits)
           }
   pure
-    ( Map.delete input utxo
+    ( Map.delete input walletUtxo
     , partialTx
         { body = finalBody
         , wits = wits{txrdmrs = adjustedRedeemers}
@@ -284,12 +284,12 @@ coverFee_ pparams lookupUtxo walletUtxo partialTx@ValidatedTx{body, wits} = do
   resolveInput i = do
     case Map.lookup i lookupUtxo of
       Nothing -> Left $ ErrUnknownInput i
-      Justs o -> Right o
+      Just o -> Right o
 
   mkChange ::
     -- | Selected UTXO for paying fees
     TxOut ->
-    -- | Other transaction (resolved) inputs
+    -- | Resolved transaction inputs
     [TxOut] ->
     -- | Other transaction outputs
     [TxOut] ->
@@ -301,10 +301,10 @@ coverFee_ pparams lookupUtxo walletUtxo partialTx@ValidatedTx{body, wits} = do
     | totalIn <= totalOut =
       Left $ totalOut <> invert totalIn
     | otherwise =
-      Right $ TxOut addr changeOut datum
+      Right $ TxOut addr (inject changeOut) datum
    where
     totalOut = foldMap getAdaValue otherOutputs <> fee
-    totalIn = foldMap getAdaValue resolveInputs <> coin value
+    totalIn = foldMap getAdaValue resolvedInputs <> coin value
     changeOut = totalIn <> invert totalOut
 
   adjustRedeemers :: Set TxIn -> Set TxIn -> Redeemers Era -> Redeemers Era
