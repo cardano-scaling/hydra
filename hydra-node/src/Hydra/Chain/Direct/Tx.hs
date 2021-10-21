@@ -25,7 +25,7 @@ import qualified Cardano.Ledger.SafeHash as SafeHash
 import Cardano.Ledger.ShelleyMA.Timelocks (ValidityInterval (..))
 import Cardano.Ledger.Val (inject)
 import Control.Monad (foldM)
-import Control.Monad.Class.MonadSTM (stateTVar)
+import Control.Monad.Class.MonadSTM (MonadSTMTx (writeTVar))
 import qualified Data.Map as Map
 import qualified Data.Sequence.Strict as StrictSeq
 import qualified Data.Set as Set
@@ -220,30 +220,28 @@ abortTx (smInput, token, HeadParameters{contestationPeriod, parties}) initInputs
 -- working on single tx but I keep getting failed unification between `m` and `m0` which is
 -- puzzling...
 runOnChainTxs :: forall m tx. MonadSTM m => TVar m OnChainHeadState -> [ValidatedTx Era] -> m [OnChainTx tx]
-runOnChainTxs headState = atomically . foldM runOnChainTx []
+runOnChainTxs headState = fmap reverse . atomically . foldM runOnChainTx []
  where
   runOnChainTx :: [OnChainTx tx] -> ValidatedTx Era -> STM m [OnChainTx tx]
   runOnChainTx observed tx = do
-    newObserved <- catMaybes <$> mapM (stateTVar headState) [observeInitTx tx, observeAbortTx tx]
-    pure $ observed <> newObserved
+    case asum [observeInitTx tx, observeAbortTx tx] of
+      Just (onChainTx, onChainHeadState) -> do
+        writeTVar headState onChainHeadState
+        pure $ onChainTx : observed
+      Nothing -> pure observed
 
-observeInitTx :: ValidatedTx Era -> OnChainHeadState -> (Maybe (OnChainTx tx), OnChainHeadState)
-observeInitTx ValidatedTx{wits, body} st =
-  case getFirst $ foldMap (First . decodeInitDatum) datums of
-    Just (dh, Head.Initial cp ps) ->
-      case getFirst $ foldMap (First . findSmOutput dh) indexedOutputs of
-        (Just (i, o)) ->
-          ( Just $ OnInitTx (contestationPeriodToDiffTime cp) (map convertParty ps)
-          , Initial
-              { threadOutput =
-                  (i, o, threadToken, HeadParameters (contestationPeriodToDiffTime cp) (map convertParty ps))
-              , initials = []
-              }
-          )
-        _ ->
-          (Nothing, st)
-    _ ->
-      (Nothing, st)
+observeInitTx :: ValidatedTx Era -> Maybe (OnChainTx tx, OnChainHeadState)
+observeInitTx ValidatedTx{wits, body} = do
+  (dh, Head.Initial cp ps) <- getFirst $ foldMap (First . decodeInitDatum) datums
+  (i, o) <- getFirst $ foldMap (First . findSmOutput dh) indexedOutputs
+  pure
+    ( OnInitTx (contestationPeriodToDiffTime cp) (map convertParty ps)
+    , Initial
+        { threadOutput =
+            (i, o, threadToken, HeadParameters (contestationPeriodToDiffTime cp) (map convertParty ps))
+        , initials = []
+        }
+    )
  where
   decodeInitDatum (dh, d) =
     (dh,) <$> fromData (getPlutusData d)
@@ -264,11 +262,12 @@ observeInitTx ValidatedTx{wits, body} st =
 
 -- | Identify an abort tx by trying to decode all redeemers to the right type.
 -- This is a very weak observation and should be more concretized.
-observeAbortTx :: ValidatedTx Era -> OnChainHeadState -> (Maybe (OnChainTx tx), OnChainHeadState)
-observeAbortTx ValidatedTx{wits} st =
-  case (st, extractTransition) of
-    (Initial{}, Just Head.Abort) -> (Just OnAbortTx, Final)
-    _ -> (Nothing, st)
+-- TODO(SN): make sure this is aborting "the right head / your head"
+observeAbortTx :: ValidatedTx Era -> Maybe (OnChainTx tx, OnChainHeadState)
+observeAbortTx ValidatedTx{wits} =
+  case extractTransition of
+    Just Head.Abort -> Just (OnAbortTx, Final)
+    _ -> Nothing
  where
   extractTransition = foldr decodeData Nothing redeemerData
 

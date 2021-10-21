@@ -44,9 +44,10 @@ pparams =
     }
 
 instance Arbitrary OnChainHeadState where
-  arbitrary = oneof [pure Closed, Initial <$> ((,,) <$> arbitrary <*> pure threadToken <*> arbitrary) <*> listOf initialOutputs]
+  arbitrary = oneof [pure Closed, Initial <$> threadOutput <*> listOf initialOutput]
    where
-    initialOutputs = (,) <$> arbitrary <*> arbitrary
+    threadOutput = (,,,) <$> arbitrary <*> arbitrary <*> pure threadToken <*> arbitrary
+    initialOutput = (,) <$> arbitrary <*> arbitrary
 
 instance Arbitrary PubKeyHash where
   arbitrary = PubKeyHash . toBuiltin <$> (arbitrary :: Gen ByteString)

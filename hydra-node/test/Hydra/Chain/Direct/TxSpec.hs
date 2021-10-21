@@ -53,7 +53,7 @@ import Plutus.V1.Ledger.Api (PubKeyHash, toBuiltinData, toData)
 import Shelley.Spec.Ledger.API (Coin (Coin), StrictMaybe (SJust), TxId (TxId), TxIn (TxIn), UTxO (UTxO))
 import Test.Cardano.Ledger.Alonzo.PlutusScripts (defaultCostModel)
 import Test.Cardano.Ledger.Alonzo.Serialisation.Generators ()
-import Test.QuickCheck (NonEmptyList (NonEmpty), counterexample, label, withMaxSuccess, (===))
+import Test.QuickCheck (NonEmptyList (NonEmpty), counterexample, label, property, withMaxSuccess, (.&&.), (===))
 import Test.QuickCheck.Instances ()
 
 spec :: Spec
@@ -72,11 +72,15 @@ spec =
             datum = Head.Initial onChainPeriod onChainParties
          in Map.elems (unTxDats dats) === [Data . toData $ toBuiltinData datum]
 
-      prop "updates on-chain state to 'Initial' given state is closed" $ \txIn params ->
-        let tx@ValidatedTx{body} = initTx params txIn
-            st = snd $ observeInitTx tx Closed
-            txin = TxIn (TxId $ SafeHash.hashAnnotated body) 0
-         in st === Initial{threadOutput = (txin, threadToken, params), initials = []}
+      prop "updates on-chain state to 'Initial'" $ \txIn params ->
+        let tx = initTx params txIn
+            res = observeInitTx tx
+         in counterexample ("Result: " <> show res) $
+              case res of
+                Just (_, Initial{threadOutput = (_txin, _txout, tt, ps)}) ->
+                  tt === threadToken
+                    .&&. ps === params
+                _ -> property False
 
     describe "abortTx" $ do
       -- NOTE(AB): This property fails if the list generated is arbitrarily long
@@ -88,10 +92,13 @@ spec =
               counterexample ("Tx serialized size: " <> show len) $
                 len < maxTxSize
 
-      prop "updates on-chain state to 'Final' given state is Initial" $ \txIn params (NonEmpty initials) ->
+      prop "updates on-chain state to 'Final'" $ \txIn params (NonEmpty initials) ->
         let tx = abortTx (txIn, threadToken, params) initials
-            st = snd $ observeAbortTx tx Initial{threadOutput = (txIn, threadToken, params), initials = initials}
-         in st === Final
+            res = observeAbortTx tx
+         in counterexample ("Result: " <> show res) $
+              case res of
+                Just (_, st) -> st === Final
+                _ -> property False
 
       -- TODO(SN): this requires the abortTx to include a redeemer, for a TxIn,
       -- spending a Head-validated output
