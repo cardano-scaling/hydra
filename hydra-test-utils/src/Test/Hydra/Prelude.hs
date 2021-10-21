@@ -1,4 +1,5 @@
 {-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE TypeApplications #-}
 
 module Test.Hydra.Prelude (
   createSystemTempDirectory,
@@ -6,6 +7,7 @@ module Test.Hydra.Prelude (
   location,
   failAfter,
   dualFormatter,
+  reasonablySized,
 
   -- * HSpec re-exports
   module Test.Hspec,
@@ -29,6 +31,7 @@ import Test.HSpec.JUnit (junitFormat)
 import Test.HUnit.Lang (FailureReason (Reason), HUnitFailure (HUnitFailure))
 import Test.Hspec.Core.Format (Format, FormatConfig (..))
 import Test.Hspec.Core.Formatters (formatterToFormat, specdoc)
+import Test.QuickCheck (Gen, scale)
 
 -- | Create a unique temporary directory.
 createSystemTempDirectory :: String -> IO FilePath
@@ -104,3 +107,23 @@ checkProcessHasNotDied name processHandle =
   waitForProcess processHandle >>= \case
     ExitSuccess -> pure ()
     ExitFailure exit -> failure $ "Process " <> show name <> " exited with failure code: " <> show exit
+
+-- | Resize a generator to grow with the size parameter, but remains reasonably
+-- sized. That is handy when testing on data-structures that can be arbitrarily
+-- large and, when large entities don't really bring any value to the test
+-- itself.
+--
+-- It uses a square root function which makes the size parameter grows
+-- quadratically slower than normal. That is,
+--
+--     +-------------+------------------+
+--     | Normal Size | Reasonable Size  |
+--     | ----------- + ---------------- +
+--     | 0           | 0                |
+--     | 1           | 1                |
+--     | 10          | 3                |
+--     | 100         | 10               |
+--     | 1000        | 31               |
+--     +-------------+------------------+
+reasonablySized :: Gen a -> Gen a
+reasonablySized = scale (ceiling . sqrt @Double . fromIntegral)

@@ -146,9 +146,9 @@ prop_seenInputsAreConsumed =
 prop_balanceTransaction ::
   Property
 prop_balanceTransaction =
-  forAllBlind genValidatedTx $ \tx ->
-    forAllBlind (genUtxoFromInputs tx) $ \lookupUtxo ->
-      forAllBlind genUtxo $ \walletUtxo ->
+  forAllBlind (reasonablySized genValidatedTx) $ \tx ->
+    forAllBlind (reasonablySized $ genUtxoFromInputs tx) $ \lookupUtxo ->
+      forAllBlind (reasonablySized genUtxo) $ \walletUtxo ->
         prop' lookupUtxo walletUtxo tx
  where
   prop' lookupUtxo walletUtxo tx =

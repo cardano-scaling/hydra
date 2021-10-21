@@ -30,6 +30,7 @@ library
     , io-classes
     , network
     , process
+    , QuickCheck
     , random-shuffle
     , relude
     , temporary
