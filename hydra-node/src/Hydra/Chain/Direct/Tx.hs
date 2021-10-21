@@ -229,8 +229,8 @@ runOnChainTxs headState = atomically . foldM runOnChainTx []
 
 observeInitTx :: ValidatedTx Era -> OnChainHeadState -> (Maybe (OnChainTx tx), OnChainHeadState)
 observeInitTx ValidatedTx{wits, body} st =
-  case (st, extractParameters) of
-    (Closed, Just (Head.Initial cp ps)) ->
+  case foldMap decodeInitDatum datums of
+    First (Just (dh, Head.Initial cp ps)) ->
       ( Just $ OnInitTx (contestationPeriodToDiffTime cp) (map convertParty ps)
       , Initial
           { threadOutput =
@@ -240,10 +240,7 @@ observeInitTx ValidatedTx{wits, body} st =
       )
     _ -> (Nothing, st)
  where
-  extractParameters = do
-    Data d <- firstDatum
-    fromData d
-  firstDatum = snd . head <$> nonEmpty datums
+  decodeInitDatum (dh, d) = First $ (dh,) <$> fromData (getPlutusData d)
 
   datums = Map.toList . unTxDats $ txdats wits
 
