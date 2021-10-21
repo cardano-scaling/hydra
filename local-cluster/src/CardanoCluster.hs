@@ -43,7 +43,10 @@ newtype ClusterConfig = ClusterConfig {parentStateDirectory :: FilePath}
 
 keysFor :: String -> RunningCluster -> IO (Wallet.VerificationKey, Wallet.SigningKey)
 keysFor actor (RunningCluster (ClusterConfig dir) _) = do
-  PaymentSigningKey sk <- readFileTextEnvelopeThrow asSigningKey (dir </> actor <.> "sk")
+  PaymentSigningKey sk <-
+    readFileTextEnvelopeThrow
+      asSigningKey
+      (dir </> actor <.> "sk")
   let vk = deriveVerKeyDSIGN sk
   pure (vk, sk)
 
@@ -66,12 +69,10 @@ withCluster tr cfg@ClusterConfig{parentStateDirectory} action = do
     makeNodesConfig parentStateDirectory systemStart
       <$> randomUnusedTCPPorts 3
 
-  copyFile
-    ("config" </> "alice.sk")
-    (parentStateDirectory </> "alice.sk")
-  copyFile
-    ("config" </> "bob.sk")
-    (parentStateDirectory </> "bob.sk")
+  forM_ [who <.> ext | who <- ["alice", "bob"], ext <- ["sk", "vk"]] $ \f ->
+    copyFile
+      ("config" </> "credentials" </> f)
+      (parentStateDirectory </> f)
 
   withBFTNode tr cfgA $ \nodeA -> do
     withBFTNode tr cfgB $ \nodeB -> do
@@ -90,16 +91,13 @@ withBFTNode :: Tracer IO ClusterLog -> CardanoNodeConfig -> (RunningNode -> IO (
 withBFTNode clusterTracer cfg action = do
   createDirectoryIfMissing False (stateDirectory cfg)
 
-  [dlgCert, signKey, vrfKey, kesKey, opCert, _utxoSkey, _utxoVkey] <-
+  [dlgCert, signKey, vrfKey, kesKey, opCert] <-
     forM
       [ dlgCertFilename nid
       , signKeyFilename nid
       , vrfKeyFilename nid
       , kesKeyFilename nid
       , opCertFilename nid
-      , -- Keys for the initial funds
-        utxoSigningKey
-      , utxoVerificationKey
       ]
       (copyCredential (stateDirectory cfg))
 
@@ -138,8 +136,6 @@ withBFTNode clusterTracer cfg action = do
   vrfKeyFilename i = "delegate" <> show i <> ".vrf.skey"
   kesKeyFilename i = "delegate" <> show i <> ".kes.skey"
   opCertFilename i = "opcert" <> show i <> ".cert"
-  utxoVerificationKey = "utxo1.vkey"
-  utxoSigningKey = "utxo1.skey"
 
   copyCredential parentDir file = do
     let source = "config" </> "credentials" </> file
