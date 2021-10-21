@@ -135,7 +135,7 @@ data TinyWallet m = TinyWallet
   { getUtxo :: STM m (Map TxIn TxOut)
   , getAddress :: Address
   , sign :: ValidatedTx Era -> ValidatedTx Era
-  , coverFee :: ValidatedTx Era -> STM m (Either ErrCoverFee (ValidatedTx Era))
+  , coverFee :: Map TxIn TxOut -> ValidatedTx Era -> STM m (Either ErrCoverFee (ValidatedTx Era))
   }
 
 withTinyWallet ::
@@ -181,15 +181,15 @@ withTinyWallet tracer magic (vk, sk) iocp addr action = do
                       { txwitsVKey = Set.singleton wit
                       }
                 }
-      , coverFee = \partialTx -> do
-          (u, pparams) <- readTMVar utxoVar
-          case coverFee_ u pparams partialTx of
+      , coverFee = \lookupUtxo partialTx -> do
+          (walletUtxo, pparams) <- readTMVar utxoVar
+          case coverFee_ pparams lookupUtxo walletUtxo partialTx of
             Left ErrNoAvailableUtxo ->
               retry
             Left e ->
               pure (Left e)
-            Right (u', balancedTx) ->
-              swapTMVar utxoVar (u', pparams) $> Right balancedTx
+            Right (walletUtxo', balancedTx) ->
+              swapTMVar utxoVar (walletUtxo', pparams) $> Right balancedTx
       }
 
 -- | Apply a block to our wallet. Does nothing if the transaction does not
@@ -215,6 +215,7 @@ applyBlock blk isOurs utxo = case blk of
 data ErrCoverFee
   = ErrNoAvailableUtxo
   | ErrNotEnoughFunds {missingDelta :: Coin}
+  | ErrUnknownInput {input :: TxIn}
   deriving (Show)
 
 -- | Cover fee for a transaction body using the given UTXO set. This calculate
@@ -223,21 +224,23 @@ data ErrCoverFee
 --
 -- TODO: The fee calculation is currently very dumb and static.
 coverFee_ ::
-  Map TxIn TxOut ->
   PParams Era ->
+  Map TxIn TxOut ->
+  Map TxIn TxOut ->
   ValidatedTx Era ->
   Either ErrCoverFee (Map TxIn TxOut, ValidatedTx Era)
-coverFee_ utxo pparams partialTx@ValidatedTx{body, wits} = do
-  (input, output) <- case Map.lookupMax utxo of
+coverFee_ pparams lookupUtxo walletUtxo partialTx@ValidatedTx{body, wits} = do
+  (input, output) <- case Map.lookupMax walletUtxo of
     Nothing ->
       Left ErrNoAvailableUtxo
     Just (i, o) ->
       Right (i, o)
 
+  resolvedInputs <- traverse resolveInput (toList $ inputs body)
+
   change <-
     first ErrNotEnoughFunds $
-      mkChange output $
-        needlesslyHighFee <> foldMap getAdaValue (outputs body)
+      mkChange output resolveInputs (toList $ outputs body) needlesslyHighFee
 
   let inputs' = inputs body <> Set.singleton input
       outputs' = outputs body <> StrictSeq.singleton change
@@ -277,12 +280,32 @@ coverFee_ utxo pparams partialTx@ValidatedTx{body, wits} = do
   getAdaValue (TxOut _ value _) =
     coin value
 
-  mkChange :: TxOut -> Coin -> Either Coin TxOut
-  mkChange (TxOut addr value datum) fee
-    | coin value > fee =
-      Right $ TxOut addr (value <> invert (inject fee)) datum
+  resolveInput :: TxIn -> Either ErrCoverFee TxOut
+  resolveInput i = do
+    case Map.lookup i lookupUtxo of
+      Nothing -> Left $ ErrUnknownInput i
+      Justs o -> Right o
+
+  mkChange ::
+    -- | Selected UTXO for paying fees
+    TxOut ->
+    -- | Other transaction (resolved) inputs
+    [TxOut] ->
+    -- | Other transaction outputs
+    [TxOut] ->
+    -- | Transaction Fee
+    Coin ->
+    Either Coin TxOut
+  mkChange (TxOut addr value datum) resolvedInputs otherOutputs fee
+    -- FIXME: The delta between in and out must be greater than the min utxo value!
+    | totalIn <= totalOut =
+      Left $ totalOut <> invert totalIn
     | otherwise =
-      Left (fee <> invert (coin value))
+      Right $ TxOut addr changeOut datum
+   where
+    totalOut = foldMap getAdaValue otherOutputs <> fee
+    totalIn = foldMap getAdaValue resolveInputs <> coin value
+    changeOut = totalIn <> invert totalOut
 
   adjustRedeemers :: Set TxIn -> Set TxIn -> Redeemers Era -> Redeemers Era
   adjustRedeemers initialInputs finalInputs (Redeemers initialRedeemers) =
