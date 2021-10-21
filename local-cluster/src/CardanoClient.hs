@@ -17,6 +17,7 @@ import qualified Cardano.Ledger.Keys as Keys
 import qualified Data.Set as Set
 import qualified Hydra.Chain.Direct.Wallet as Hydra
 import Ouroboros.Consensus.HardFork.Combinator.AcrossEras (EraMismatch)
+import Ouroboros.Network.Protocol.LocalTxSubmission.Client (SubmitResult (..))
 
 type NodeSocket = FilePath
 
@@ -64,28 +65,26 @@ queryProtocolParameters networkId socket =
 
 runQuery :: NetworkId -> FilePath -> QueryInMode CardanoMode (Either EraMismatch a) -> IO a
 runQuery networkId socket query =
-  runExceptT (executeQuery AlonzoEra cardanoModeParams localNodeConnectInfo query) >>= \case
+  runExceptT (executeQuery AlonzoEra cardanoModeParams (localNodeConnectInfo networkId socket) query) >>= \case
     Left err -> throwIO $ QueryException (show err)
     Right utxo -> pure utxo
+
+localNodeConnectInfo :: NetworkId -> FilePath -> LocalNodeConnectInfo CardanoMode
+localNodeConnectInfo = LocalNodeConnectInfo cardanoModeParams
+
+cardanoModeParams :: ConsensusModeParams CardanoMode
+cardanoModeParams = CardanoModeParams $ EpochSlots defaultByronEpochSlots
  where
   -- NOTE(AB): extracted from Parsers in cardano-cli, this is needed to run in 'cardanoMode' which
   -- is the default for cardano-cli
   defaultByronEpochSlots = 21600 :: Word64
-  cardanoModeParams = CardanoModeParams $ EpochSlots defaultByronEpochSlots
-  localNodeConnectInfo = LocalNodeConnectInfo cardanoModeParams networkId socket
 
 queryTipSlotNo :: NetworkId -> FilePath -> IO SlotNo
 queryTipSlotNo networkId socket = do
-  tip <- fst <$> queryQueryTip localNodeConnectInfo Nothing
+  tip <- fst <$> queryQueryTip (localNodeConnectInfo networkId socket) Nothing
   pure $ case tip of
     ChainTipAtGenesis -> 0
     ChainTip slotNo _ _ -> slotNo
- where
-  -- NOTE(AB): extracted from Parsers in cardano-cli, this is needed to run in 'cardanoMode' which
-  -- is the default for cardano-cli
-  defaultByronEpochSlots = 21600 :: Word64
-  cardanoModeParams = CardanoModeParams $ EpochSlots defaultByronEpochSlots
-  localNodeConnectInfo = LocalNodeConnectInfo cardanoModeParams networkId socket
 
 -- | Build a "raw" transaction from a bunch of inputs, outputs and fees.
 buildRaw :: [TxIn] -> [TxOut AlonzoEra] -> SlotNo -> Lovelace -> IO (TxBody AlonzoEra)
@@ -138,10 +137,20 @@ sign :: Hydra.SigningKey -> TxBody AlonzoEra -> Tx AlonzoEra
 sign signingKey txBody =
   makeSignedTransaction [makeShelleyKeyWitness txBody (WitnessPaymentKey $ PaymentSigningKey signingKey)] txBody
 
+-- | Submit a (signed) transaction to the node.
+--
+-- Throws 'CardanoClientException' if submission fails.
+submit :: NetworkId -> FilePath -> Tx AlonzoEra -> IO ()
+submit networkId socket tx =
+  submitTxToNodeLocal (localNodeConnectInfo networkId socket) (TxInMode tx AlonzoEraInCardanoMode) >>= \case
+    SubmitSuccess -> pure ()
+    SubmitFail err -> throwIO $ SubmitException $ show err
+
 data CardanoClientException
   = BuildAddressException Text
   | QueryException Text
   | TransactionBuildRawException Text
+  | SubmitException Text
   deriving (Show)
 
 instance Exception CardanoClientException
