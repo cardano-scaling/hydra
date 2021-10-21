@@ -76,14 +76,14 @@ spec = parallel $ do
     it "connects to server and returns UTXO in a timely manner" $ do
       withMockServer $ \networkMagic iocp socket _ -> do
         withTinyWallet nullTracer networkMagic (vk, sk) iocp socket $ \wallet -> do
-          result <- timeout 1 $ watchUtxoUntil (const True) wallet
+          result <- timeout 10 $ watchUtxoUntil (const True) wallet
           result `shouldSatisfy` isJust
 
     it "tracks UTXO correctly when payments are received" $ do
       withMockServer $ \networkMagic iocp socket submitTx -> do
         withTinyWallet nullTracer networkMagic (vk, sk) iocp socket $ \wallet -> do
           generate (genPaymentTo vk) >>= submitTx
-          result <- timeout 1 $ watchUtxoUntil (not . null) wallet
+          result <- timeout 10 $ watchUtxoUntil (not . null) wallet
           result `shouldSatisfy` isJust
 
 --
