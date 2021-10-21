@@ -101,6 +101,7 @@ library
     , lens
     , lens-aeson
     , network
+    , ouroboros-consensus
     , process
     , QuickCheck
     , random-shuffle

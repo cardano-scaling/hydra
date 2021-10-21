@@ -10,12 +10,13 @@ import Hydra.Prelude
 -- clutters the code
 import Cardano.Api
 
-import Cardano.Api.Shelley (VerificationKey (PaymentVerificationKey))
+import Cardano.Api.Shelley (ProtocolParameters (protocolParamTxFeeFixed, protocolParamTxFeePerByte), VerificationKey (PaymentVerificationKey))
 import Cardano.CLI.Shelley.Run.Address (buildShelleyAddress)
 import Cardano.CLI.Shelley.Run.Query (executeQuery)
 import qualified Cardano.Ledger.Keys as Keys
 import qualified Data.Set as Set
 import qualified Hydra.Chain.Direct.Wallet as Hydra
+import Ouroboros.Consensus.HardFork.Combinator.AcrossEras (EraMismatch)
 
 type NodeSocket = FilePath
 
@@ -45,18 +46,37 @@ queryUtxo networkId socket addresses =
                   (QueryUTxOByAddress (Set.fromList $ map AddressShelley addresses))
               )
           )
-      -- NOTE(AB): extracted from Parsers in cardano-cli, this is needed to run in 'cardanoMode' which
-      -- is the default for cardano-cli
-      defaultByronEpochSlots = 21600 :: Word64
-      cardanoModeParams = CardanoModeParams $ EpochSlots defaultByronEpochSlots
-      localNodeConnectInfo = LocalNodeConnectInfo cardanoModeParams networkId socket
-   in runExceptT (executeQuery AlonzoEra cardanoModeParams localNodeConnectInfo query) >>= \case
-        Left err -> throwIO $ QueryException (show err)
-        Right utxo -> pure utxo
+   in runQuery networkId socket query
+
+-- |Query current protocol parameters.
+--
+-- Throws 'CardanoClientException' if query fails.
+queryProtocolParameters :: NetworkId -> FilePath -> IO ProtocolParameters
+queryProtocolParameters networkId socket =
+  let query =
+        QueryInEra
+          AlonzoEraInCardanoMode
+          ( QueryInShelleyBasedEra
+              ShelleyBasedEraAlonzo
+              QueryProtocolParameters
+          )
+   in runQuery networkId socket query
+
+runQuery :: NetworkId -> FilePath -> QueryInMode CardanoMode (Either EraMismatch a) -> IO a
+runQuery networkId socket query =
+  runExceptT (executeQuery AlonzoEra cardanoModeParams localNodeConnectInfo query) >>= \case
+    Left err -> throwIO $ QueryException (show err)
+    Right utxo -> pure utxo
+ where
+  -- NOTE(AB): extracted from Parsers in cardano-cli, this is needed to run in 'cardanoMode' which
+  -- is the default for cardano-cli
+  defaultByronEpochSlots = 21600 :: Word64
+  cardanoModeParams = CardanoModeParams $ EpochSlots defaultByronEpochSlots
+  localNodeConnectInfo = LocalNodeConnectInfo cardanoModeParams networkId socket
 
 -- | Build a "raw" transaction from a bunch of inputs, outputs and fees.
-transactionBuildRaw :: [TxIn] -> [TxOut AlonzoEra] -> SlotNo -> Lovelace -> IO (TxBody AlonzoEra)
-transactionBuildRaw txIns txOuts invalidAfter fee = do
+buildRaw :: [TxIn] -> [TxOut AlonzoEra] -> SlotNo -> Lovelace -> IO (TxBody AlonzoEra)
+buildRaw txIns txOuts invalidAfter fee = do
   let txBodyContent =
         TxBodyContent
           (map (,BuildTxWith $ KeyWitness KeyWitnessForSpending) txIns)
@@ -76,6 +96,29 @@ transactionBuildRaw txIns txOuts invalidAfter fee = do
           TxScriptValidityNone
 
   either (throwIO . TransactionBuildRawException . show) pure $ makeTransactionBody txBodyContent
+
+calculateMinFee :: NetworkId -> TxBody AlonzoEra -> Sizes -> ProtocolParameters -> Lovelace
+calculateMinFee networkId txBody Sizes{inputs, outputs, witnesses} pparams =
+  let tx = makeSignedTransaction [] txBody
+   in estimateTransactionFee
+        networkId
+        (protocolParamTxFeeFixed pparams)
+        (protocolParamTxFeePerByte pparams)
+        tx
+        inputs
+        outputs
+        0
+        witnesses
+
+data Sizes = Sizes
+  { inputs :: Int
+  , outputs :: Int
+  , witnesses :: Int
+  }
+  deriving (Eq, Show)
+
+defaultSizes :: Sizes
+defaultSizes = Sizes{inputs = 0, outputs = 0, witnesses = 0}
 
 data CardanoClientException
   = BuildAddressException Text

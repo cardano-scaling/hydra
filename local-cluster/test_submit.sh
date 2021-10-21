@@ -8,11 +8,10 @@ set -vx
 utxo_addr=$1
 utxo=$2
 amount=$3
-raw_file=$4
+fees=$4
 
 transfer_amount=100000000
 
-fees=$(cardano-cli transaction calculate-min-fee --tx-body-file $raw_file --tx-in-count 1 --tx-out-count 2 --witness-count 1 --testnet-magic 42 --genesis genesis-shelley.json | cut -d ' ' -f1)
 slot=$(cardano-cli query tip --testnet-magic 42 | jq .slot)
 
 cardano-cli transaction build-raw --tx-in $alice_txin \
