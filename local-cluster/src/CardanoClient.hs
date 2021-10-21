@@ -133,6 +133,11 @@ data Sizes = Sizes
 defaultSizes :: Sizes
 defaultSizes = Sizes{inputs = 0, outputs = 0, witnesses = 0}
 
+-- | Sign a transaction body with given signing key.
+sign :: Hydra.SigningKey -> TxBody AlonzoEra -> Tx AlonzoEra
+sign signingKey txBody =
+  makeSignedTransaction [makeShelleyKeyWitness txBody (WitnessPaymentKey $ PaymentSigningKey signingKey)] txBody
+
 data CardanoClientException
   = BuildAddressException Text
   | QueryException Text

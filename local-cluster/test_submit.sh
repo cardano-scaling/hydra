@@ -10,12 +10,11 @@ utxo=$2
 amount=$3
 fees=$4
 slot=$5
-txDraft=$6
+txSigned=$6
 
 transfer_amount=100000000
 
-cardano-cli transaction sign --tx-body-file $txDraft --signing-key-file ../alice.sk --testnet-magic 42 --out-file tx.signed
-cardano-cli transaction submit --tx-file tx.signed --testnet-magic 42
+cardano-cli transaction submit --tx-file $txSigned --testnet-magic 42
 
 timeout=30
 

@@ -23,7 +23,7 @@ import Cardano.Api (
   writeFileTextEnvelope,
  )
 import Cardano.Api.Shelley (Lovelace (Lovelace))
-import CardanoClient (Sizes (..), buildAddress, buildRaw, calculateMinFee, defaultSizes, queryProtocolParameters, queryTipSlotNo, queryUtxo)
+import CardanoClient (Sizes (..), buildAddress, buildRaw, calculateMinFee, defaultSizes, queryProtocolParameters, queryTipSlotNo, queryUtxo, sign)
 import CardanoCluster (ClusterConfig (..), ClusterLog (..), RunningCluster (..), keysFor, testClusterConfig, withCluster)
 import CardanoNode (ChainTip (..), RunningNode (..), cliQueryTip)
 import qualified Data.Map as Map
@@ -61,7 +61,7 @@ assertNetworkIsProducingBlock tracer = go (-1)
 assertCanSpendInitialFunds :: HasCallStack => RunningCluster -> IO ()
 assertCanSpendInitialFunds = \case
   cluster@(RunningCluster ClusterConfig{parentStateDirectory, networkId} (RunningNode nodeId socket : _)) -> do
-    (vk, _) <- keysFor "alice" cluster
+    (vk, sk) <- keysFor "alice" cluster
     addr <- buildAddress vk networkId
     UTxO utxo <- queryUtxo networkId socket [addr]
     let (txIn, TxOut _ val _) = case Map.toList utxo of
@@ -79,15 +79,16 @@ assertCanSpendInitialFunds = \case
     let fee = calculateMinFee networkId rawTx defaultSizes{inputs = 1, outputs = 2, witnesses = 1} pparams
     slotNo <- queryTipSlotNo networkId socket
     let changeOutput = TxOut (shelleyAddressInEra addr) (TxOutValue MultiAssetInAlonzoEra (lovelaceToValue $ amount - 100_000_000 - fee)) TxOutDatumHashNone
-        draftTxPath = nodeDirectory </> "tx.draft"
+        signedTxPath = nodeDirectory </> "tx.signed"
     draftTx <- buildRaw [txIn] [paymentOutput, changeOutput] (slotNo + 100) fee
-    writeFileTextEnvelope draftTxPath Nothing draftTx >>= either (error . show) pure
-    runTestScript nodeDirectory addr txIn amount slotNo fee draftTxPath socket
+    let signedTx = sign sk draftTx
+    writeFileTextEnvelope signedTxPath Nothing signedTx >>= either (error . show) pure
+    runTestScript nodeDirectory addr txIn amount slotNo fee signedTxPath socket
   _ ->
     error "empty cluster?"
 
 runTestScript :: FilePath -> Address ShelleyAddr -> TxIn -> Lovelace -> SlotNo -> Lovelace -> FilePath -> FilePath -> IO ()
-runTestScript nodeDirectory addr (TxIn txId (TxIx txIx)) (Lovelace amount) (SlotNo slot) (Lovelace fee) draftTxPath socket = do
+runTestScript nodeDirectory addr (TxIn txId (TxIx txIx)) (Lovelace amount) (SlotNo slot) (Lovelace fee) signedTxPath socket = do
   inputScript <- Pkg.getDataFileName "test_submit.sh"
   currentEnv <- getEnvironment
   let scriptOutput = nodeDirectory </> "test_submit.out"
@@ -108,7 +109,7 @@ runTestScript nodeDirectory addr (TxIn txId (TxIx txIx)) (Lovelace amount) (Slot
         , show amount
         , show fee
         , show slot
-        , draftTxPath
+        , signedTxPath
         ]
     )
       { env = Just (socketEnv : baseEnv)
