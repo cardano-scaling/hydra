@@ -249,6 +249,7 @@ observeInitTx ValidatedTx{wits, body} st =
 
   convertParty = anonymousParty . partyToVerKey
 
+  -- FIXME: This is very wrong, the 'threadOutput' TxIn should be the output of this tx!?
   firstInput = TxIn (TxId $ SafeHash.hashAnnotated body) 0
 
 -- | Identify an abort tx by trying to decode all redeemers to the right type.
@@ -264,6 +265,12 @@ observeAbortTx ValidatedTx{wits} st =
   decodeData d s = s <|> fromData (getPlutusData d)
 
   redeemerData = fmap fst . Map.elems . unRedeemers $ txrdmrs wits
+
+-- | Provide a UTXO map for some given OnChainHeadState. At least used by the
+-- TinyWallet to lookup inputs.
+knownUtxo :: OnChainHeadState -> Map (TxIn StandardCrypto) (TxOut Era)
+knownUtxo = \case
+  _ -> mempty
 
 --
 

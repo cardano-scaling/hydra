@@ -219,7 +219,8 @@ txSubmissionClient tracer queue headState TinyWallet{getUtxo, sign, coverFee} =
     (tx, signedTx) <- atomically $ do
       tx <- readTQueue queue
       partialTx <- fromPostChainTx tx
-      coverFee partialTx >>= \case
+      utxo <- knownUtxo <$> readTVar headState
+      coverFee utxo partialTx >>= \case
         Left e ->
           error ("failed to cover fee for transaction: " <> show e <> ", " <> show partialTx)
         Right validatedTx -> do
