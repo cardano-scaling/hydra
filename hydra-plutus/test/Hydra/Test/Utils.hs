@@ -8,6 +8,7 @@ import Hydra.Prelude
 import Ledger
 
 import Control.Lens (view, (^.))
+import Control.Monad.Class.MonadSTM (modifyTVar', newTVarIO, readTVarIO)
 import Control.Monad.Freer (Eff, Member)
 import Control.Monad.Freer.Writer (tell)
 import Data.Maybe (fromJust)
@@ -16,10 +17,12 @@ import Ledger.AddressMap (UtxoMap, fundsAt)
 import Plutus.Contract (Contract, HasEndpoint)
 import Plutus.Trace.Effects.RunContract (ContractConstraints, RunContract)
 import Plutus.Trace.Effects.Waiting (Waiting)
+import Plutus.Trace.Emulator (EmulatorTrace)
 import Plutus.Trace.Emulator.Types (ContractHandle, UserThreadMsg (..), walletInstanceTag)
 import PlutusTx (CompiledCode, ToData (..), getPir)
 import Prettyprinter (pretty)
 import Test.Tasty (TestTree)
+import Test.Tasty.ExpectedFailure (expectFailBecause)
 import Test.Tasty.Golden (goldenVsString)
 import Wallet.Emulator.Chain (chainNewestFirst)
 import Wallet.Emulator.Folds (postMapM)
@@ -30,6 +33,8 @@ import Plutus.Contract.Test (
   TracePredicate,
   Wallet (..),
   assertAccumState,
+  checkPredicateInner,
+  defaultCheckOptions,
   walletPubKey,
  )
 
@@ -37,7 +42,48 @@ import qualified Control.Foldl as L
 import qualified Data.Map as Map
 import qualified Plutus.Trace.Emulator as Trace
 import qualified Prettyprinter as Pretty
+import qualified Test.Tasty.HUnit as HUnit
 import qualified Wallet.Emulator.Folds as Folds
+
+--
+-- Test runner
+--
+
+-- | Run a Plutus scenario, and print the emulator trace on failures only.
+testCase ::
+  String ->
+  TracePredicate ->
+  EmulatorTrace () ->
+  TestTree
+testCase nm predicate action = do
+  HUnit.testCaseSteps nm $ \step -> do
+    logs <- newTVarIO []
+    checkPredicateInner
+      defaultCheckOptions
+      predicate
+      action
+      (\(toText -> msg) -> atomically $ modifyTVar' logs (msg :))
+      ( \result -> do
+          step . toString . unlines . reverse =<< readTVarIO logs
+          HUnit.assertBool "Predicate failed." result
+      )
+
+-- | Like 'testCase' but does not print logs on 'expected' errors
+testCasePending ::
+  String ->
+  String ->
+  TracePredicate ->
+  EmulatorTrace () ->
+  TestTree
+testCasePending reason nm predicate action =
+  expectFailBecause reason $
+    HUnit.testCase nm $
+      checkPredicateInner
+        defaultCheckOptions
+        predicate
+        action
+        (const $ pure ())
+        (HUnit.assertBool "Predicate failed.")
 
 --
 -- Predicates

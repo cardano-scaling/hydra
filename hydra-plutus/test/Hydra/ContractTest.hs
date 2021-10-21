@@ -11,6 +11,7 @@ import Hydra.Test.Utils (
   assertFinalState,
   callEndpoint,
   prettyUtxo,
+  testCasePending,
   utxoOf,
   vk,
  )
@@ -21,7 +22,6 @@ import Plutus.Contract.Test (
   Wallet (..),
   assertContractError,
   assertNoFailedTransactions,
-  checkPredicate,
   walletFundsChange,
   (.&&.),
  )
@@ -36,7 +36,6 @@ import qualified Data.Map.Strict as Map
 import qualified Hydra.Depreciated.OffChain as OffChain
 import qualified Hydra.Depreciated.OnChain as OnChain
 import qualified Plutus.Trace.Emulator as Trace
-import Test.Tasty.ExpectedFailure (expectFailBecause)
 import qualified Prelude
 
 --
@@ -68,78 +67,84 @@ contract = OffChain.contract headParameters
 -- Test
 --
 
+pendingReason :: String
+pendingReason = "We upgraded dependencies and things have changed."
+
 tests :: TestTree
 tests =
-  expectFailBecause "We upgraded dependencies and things have changed " $
-    testGroup
-      "Hydra Scenarios"
-      [ checkPredicate
-          "Init > Commit > Commit > CollectCom: Can CollectCom when all parties have submitted"
-          ( assertNoFailedTransactions
-              .&&. assertFinalState contract alice stateIsOpen
-              .&&. assertFinalState contract alice hasTwoTxOuts
-              .&&. walletFundsChange alice (inv fixtureAmount)
-              .&&. walletFundsChange bob (inv fixtureAmount)
-          )
-          $ do
-            aliceH <- setupWallet alice
-            bobH <- setupWallet bob
+  testGroup
+    "Hydra Scenarios"
+    [ testCasePending
+        pendingReason
+        "Init > Commit > Commit > CollectCom: Can CollectCom when all parties have submitted"
+        ( assertNoFailedTransactions
+            .&&. assertFinalState contract alice stateIsOpen
+            .&&. assertFinalState contract alice hasTwoTxOuts
+            .&&. walletFundsChange alice (inv fixtureAmount)
+            .&&. walletFundsChange bob (inv fixtureAmount)
+        )
+        $ do
+          aliceH <- setupWallet alice
+          bobH <- setupWallet bob
 
-            callEndpoint @"init" aliceH ()
+          callEndpoint @"init" aliceH ()
 
-            utxoAlice <- utxoOf alice
-            Trace.logInfo ("Alice's UTxO: " <> prettyUtxo utxoAlice)
-            let aliceCommit = selectOne utxoAlice
-            callEndpoint @"commit" aliceH (vk alice, aliceCommit)
+          utxoAlice <- utxoOf alice
+          Trace.logInfo ("Alice's UTxO: " <> prettyUtxo utxoAlice)
+          let aliceCommit = selectOne utxoAlice
+          callEndpoint @"commit" aliceH (vk alice, aliceCommit)
 
-            utxoBob <- utxoOf bob
-            Trace.logInfo ("Bob's UTxO: " <> prettyUtxo utxoBob)
-            let bobCommit = selectOne utxoBob
-            callEndpoint @"commit" bobH (vk bob, bobCommit)
+          utxoBob <- utxoOf bob
+          Trace.logInfo ("Bob's UTxO: " <> prettyUtxo utxoBob)
+          let bobCommit = selectOne utxoBob
+          callEndpoint @"commit" bobH (vk bob, bobCommit)
 
-            callEndpoint @"collectCom" aliceH (vk alice, snd <$> [aliceCommit, bobCommit])
-      , checkPredicate
-          "Init > Abort: One can always abort before head is open"
-          ( assertNoFailedTransactions
-              .&&. assertFinalState contract alice stateIsFinal
-              .&&. walletFundsChange alice (lovelaceValueOf 0)
-          )
-          $ do
-            aliceH <- setupWallet alice
-            callEndpoint @"init" aliceH ()
-            callEndpoint @"abort" aliceH (vk alice, [])
-      , checkPredicate
-          "Init > Commit > Abort: One can always abort before head is open"
-          ( assertNoFailedTransactions
-              .&&. assertFinalState contract alice stateIsFinal
-              .&&. walletFundsChange alice (lovelaceValueOf 0)
-          )
-          $ do
-            aliceH <- setupWallet alice
-            callEndpoint @"init" aliceH ()
-            utxoAlice <- selectOne <$> utxoOf alice
-            callEndpoint @"commit" aliceH (vk alice, utxoAlice)
-            callEndpoint @"abort" aliceH (vk alice, [snd utxoAlice])
-      , checkPredicate
-          "Init > Commit > CollectCom: CollectCom is not allowed when not all parties have committed"
-          ( assertFinalState contract alice stateIsInitial
-              .&&. walletFundsChange alice (inv fixtureAmount)
-              .&&. assertContractError
-                contract
-                (walletInstanceTag alice)
-                ( \case
-                    WalletError{} -> True
-                    _ -> False
-                )
-                "expected collectCom to fail"
-          )
-          $ do
-            aliceH <- setupWallet alice
-            callEndpoint @"init" aliceH ()
-            _ <- selectOne <$> utxoOf alice
-            --callEndpoint @"commit" aliceH (vk alice, utxoAlice)
-            callEndpoint @"collectCom" aliceH (vk alice, [])
-      ]
+          callEndpoint @"collectCom" aliceH (vk alice, snd <$> [aliceCommit, bobCommit])
+    , testCasePending
+        pendingReason
+        "Init > Abort: One can always abort before head is open"
+        ( assertNoFailedTransactions
+            .&&. assertFinalState contract alice stateIsFinal
+            .&&. walletFundsChange alice (lovelaceValueOf 0)
+        )
+        $ do
+          aliceH <- setupWallet alice
+          callEndpoint @"init" aliceH ()
+          callEndpoint @"abort" aliceH (vk alice, [])
+    , testCasePending
+        pendingReason
+        "Init > Commit > Abort: One can always abort before head is open"
+        ( assertNoFailedTransactions
+            .&&. assertFinalState contract alice stateIsFinal
+            .&&. walletFundsChange alice (lovelaceValueOf 0)
+        )
+        $ do
+          aliceH <- setupWallet alice
+          callEndpoint @"init" aliceH ()
+          utxoAlice <- selectOne <$> utxoOf alice
+          callEndpoint @"commit" aliceH (vk alice, utxoAlice)
+          callEndpoint @"abort" aliceH (vk alice, [snd utxoAlice])
+    , testCasePending
+        pendingReason
+        "Init > Commit > CollectCom: CollectCom is not allowed when not all parties have committed"
+        ( assertFinalState contract alice stateIsInitial
+            .&&. walletFundsChange alice (inv fixtureAmount)
+            .&&. assertContractError
+              contract
+              (walletInstanceTag alice)
+              ( \case
+                  WalletError{} -> True
+                  _ -> False
+              )
+              "expected collectCom to fail"
+        )
+        $ do
+          aliceH <- setupWallet alice
+          callEndpoint @"init" aliceH ()
+          _ <- selectOne <$> utxoOf alice
+          --callEndpoint @"commit" aliceH (vk alice, utxoAlice)
+          callEndpoint @"collectCom" aliceH (vk alice, [])
+    ]
 
 fixtureAmount :: Value
 fixtureAmount = lovelaceValueOf 1000

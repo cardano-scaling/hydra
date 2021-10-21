@@ -132,6 +132,7 @@ test-suite hydra-plutus-test
     , freer-simple
     , hydra-plutus
     , hydra-prelude
+    , io-classes
     , lens
     , plutus-contract
     , plutus-core
