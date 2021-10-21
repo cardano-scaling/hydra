@@ -19,10 +19,9 @@ import Cardano.Api (
   serialiseToBech32,
   serialiseToRawBytesHexText,
   shelleyAddressInEra,
-  writeFileTextEnvelope,
  )
 import Cardano.Api.Shelley (Lovelace (Lovelace))
-import CardanoClient (buildAddress, queryUtxo, transactionBuildRaw)
+import CardanoClient (Sizes (..), buildAddress, buildRaw, calculateMinFee, defaultSizes, queryProtocolParameters, queryUtxo)
 import CardanoCluster (ClusterConfig (..), ClusterLog (..), RunningCluster (..), keysFor, testClusterConfig, withCluster)
 import CardanoNode (ChainTip (..), RunningNode (..), cliQueryTip)
 import qualified Data.Map as Map
@@ -72,17 +71,17 @@ assertCanSpendInitialFunds = \case
           TxOutValue _ v -> selectLovelace v
 
         nodeDirectory = parentStateDirectory </> "node-" <> show nodeId
-        rawFilePath = nodeDirectory </> "tx.raw"
 
-    rawTx <- transactionBuildRaw [txIn] [TxOut (shelleyAddressInEra addr) (TxOutValue MultiAssetInAlonzoEra (lovelaceToValue 100_000_000)) TxOutDatumHashNone] 0 0
-    writeFileTextEnvelope rawFilePath Nothing rawTx >>= either (error . show) pure
+    rawTx <- buildRaw [txIn] [TxOut (shelleyAddressInEra addr) (TxOutValue MultiAssetInAlonzoEra (lovelaceToValue 100_000_000)) TxOutDatumHashNone] 0 0
+    pparams <- queryProtocolParameters networkId socket
+    let fee = calculateMinFee networkId rawTx defaultSizes{inputs = 1, outputs = 2, witnesses = 1} pparams
 
-    runTestScript nodeDirectory addr txIn amount rawFilePath socket
+    runTestScript nodeDirectory addr txIn amount fee socket
   _ ->
     error "empty cluster?"
 
-runTestScript :: FilePath -> Address ShelleyAddr -> TxIn -> Lovelace -> FilePath -> FilePath -> IO ()
-runTestScript nodeDirectory addr (TxIn txId (TxIx txIx)) (Lovelace amount) rawTx socket = do
+runTestScript :: FilePath -> Address ShelleyAddr -> TxIn -> Lovelace -> Lovelace -> FilePath -> IO ()
+runTestScript nodeDirectory addr (TxIn txId (TxIx txIx)) (Lovelace amount) (Lovelace fee) socket = do
   inputScript <- Pkg.getDataFileName "test_submit.sh"
   currentEnv <- getEnvironment
   let scriptOutput = nodeDirectory </> "test_submit.out"
@@ -101,7 +100,7 @@ runTestScript nodeDirectory addr (TxIn txId (TxIx txIx)) (Lovelace amount) rawTx
         , -- NOTE(AB): there is a renderTxIn function in the API which is not exposed (yet?)
           unpack $ serialiseToRawBytesHexText txId <> "#" <> show txIx
         , show amount
-        , rawTx
+        , show fee
         ]
     )
       { env = Just (socketEnv : baseEnv)
