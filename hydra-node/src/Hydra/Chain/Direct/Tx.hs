@@ -71,7 +71,7 @@ data OnChainHeadState
         threadOutput :: (TxIn StandardCrypto, TxOut Era, AssetClass, HeadParameters)
       , -- TODO initials should be a list of inputs/PubKeyHas
         -- TODO add commits
-        initials :: [(TxIn StandardCrypto, TxOut Era, PubKeyHash)]
+        initials :: [(TxIn StandardCrypto, PubKeyHash)]
       }
   | Final
   deriving (Eq, Show, Generic)
@@ -229,25 +229,38 @@ runOnChainTxs headState = atomically . foldM runOnChainTx []
 
 observeInitTx :: ValidatedTx Era -> OnChainHeadState -> (Maybe (OnChainTx tx), OnChainHeadState)
 observeInitTx ValidatedTx{wits, body} st =
-  case foldMap decodeInitDatum datums of
-    First (Just (dh, Head.Initial cp ps)) ->
-      ( Just $ OnInitTx (contestationPeriodToDiffTime cp) (map convertParty ps)
-      , Initial
-          { threadOutput =
-              (firstInput, threadToken, HeadParameters (contestationPeriodToDiffTime cp) (map convertParty ps))
-          , initials = []
-          }
-      )
-    _ -> (Nothing, st)
+  case getFirst $ foldMap (First . decodeInitDatum) datums of
+    Just (dh, Head.Initial cp ps) ->
+      case getFirst $ foldMap (First . findSmOutput dh) indexedOutputs of
+        (Just (i, o)) ->
+          ( Just $ OnInitTx (contestationPeriodToDiffTime cp) (map convertParty ps)
+          , Initial
+              { threadOutput =
+                  (i, o, threadToken, HeadParameters (contestationPeriodToDiffTime cp) (map convertParty ps))
+              , initials = []
+              }
+          )
+        _ ->
+          (Nothing, st)
+    _ ->
+      (Nothing, st)
  where
-  decodeInitDatum (dh, d) = First $ (dh,) <$> fromData (getPlutusData d)
+  decodeInitDatum (dh, d) =
+    (dh,) <$> fromData (getPlutusData d)
 
-  datums = Map.toList . unTxDats $ txdats wits
+  findSmOutput dh (ix, o@(TxOut _ _ dh')) =
+    guard (SJust dh == dh') $> (i, o)
+   where
+    i = TxIn (TxId $ SafeHash.hashAnnotated body) ix
 
-  convertParty = anonymousParty . partyToVerKey
+  datums =
+    Map.toList . unTxDats $ txdats wits
 
-  -- FIXME: This is very wrong, the 'threadOutput' TxIn should be the output of this tx!?
-  firstInput = TxIn (TxId $ SafeHash.hashAnnotated body) 0
+  indexedOutputs =
+    zip [0 ..] (toList (outputs body))
+
+  convertParty =
+    anonymousParty . partyToVerKey
 
 -- | Identify an abort tx by trying to decode all redeemers to the right type.
 -- This is a very weak observation and should be more concretized.
@@ -267,10 +280,11 @@ observeAbortTx ValidatedTx{wits} st =
 -- TinyWallet to lookup inputs.
 knownUtxo :: OnChainHeadState -> Map (TxIn StandardCrypto) (TxOut Era)
 knownUtxo = \case
-  Initial{threadOutput, initials} -> mempty
-  _ -> mempty
-
---
+  Initial{threadOutput = (i, o, _, _)} ->
+    -- FIXME: initials should also be part of the resulting UTXO
+    Map.singleton i o
+  _ ->
+    mempty
 
 -- * Helpers
 

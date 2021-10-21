@@ -30,7 +30,13 @@ import Hydra.Chain (
   OnChainTx,
   PostChainTx (..),
  )
-import Hydra.Chain.Direct.Tx (OnChainHeadState (..), abortTx, initTx, runOnChainTxs)
+import Hydra.Chain.Direct.Tx (
+  OnChainHeadState (..),
+  abortTx,
+  initTx,
+  knownUtxo,
+  runOnChainTxs,
+ )
 import Hydra.Chain.Direct.Util (Block, Era, defaultCodecs, nullConnectTracers, versions)
 import Hydra.Chain.Direct.Wallet (SigningKey, TinyWallet (..), TinyWalletLog, VerificationKey, withTinyWallet)
 import Hydra.Logging (Tracer, traceWith)
@@ -240,7 +246,8 @@ txSubmissionClient tracer queue headState TinyWallet{getUtxo, sign, coverFee} =
         [] -> error "cannot find a seed input to pass to Init transaction"
     AbortTx _utxo -> do
       readTVar headState >>= \case
-        Initial{threadOutput, initials} -> pure $ abortTx threadOutput initials
+        Initial{threadOutput = (i, _, tk, hp), initials} ->
+          pure $ abortTx (i, tk, hp) initials
         st -> error $ "cannot post Abort transaction in state " <> show st
     _ -> error "not implemented"
 
