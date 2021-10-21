@@ -68,10 +68,10 @@ data OnChainHeadState
       { -- | The state machine UTxO produced by the Init transaction
         -- This output should always be present and 'threaded' across all
         -- transactions.
-        threadOutput :: (TxIn StandardCrypto, AssetClass, HeadParameters)
+        threadOutput :: (TxIn StandardCrypto, TxOut Era, AssetClass, HeadParameters)
       , -- TODO initials should be a list of inputs/PubKeyHas
         -- TODO add commits
-        initials :: [(TxIn StandardCrypto, PubKeyHash)]
+        initials :: [(TxIn StandardCrypto, TxOut Era, PubKeyHash)]
       }
   | Final
   deriving (Eq, Show, Generic)
@@ -267,6 +267,7 @@ observeAbortTx ValidatedTx{wits} st =
 -- TinyWallet to lookup inputs.
 knownUtxo :: OnChainHeadState -> Map (TxIn StandardCrypto) (TxOut Era)
 knownUtxo = \case
+  Initial{threadOutput, initials} -> mempty
   _ -> mempty
 
 --
