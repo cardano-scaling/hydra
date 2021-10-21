@@ -50,7 +50,8 @@ queryUtxo networkId socket addresses =
    in runQuery networkId socket query
 
 -- | Extract ADA value from an output
--- NOTE(AB): this is txOutValueToLovelace in more recent cardano-api versions
+-- NOTE(AB): there is txOutValueToLovelace in more recent cardano-api versions which
+-- serves same purpose
 txOutLovelace :: TxOut era -> Lovelace
 txOutLovelace (TxOut _ val _) =
   case val of
@@ -95,31 +96,37 @@ queryTipSlotNo networkId socket = do
     ChainTip slotNo _ _ -> slotNo
 
 -- | Build a "raw" transaction from a bunch of inputs, outputs and fees.
-buildRaw :: [TxIn] -> [TxOut AlonzoEra] -> SlotNo -> Lovelace -> IO (TxBody AlonzoEra)
-buildRaw txIns txOuts invalidAfter fee = do
-  let txBodyContent =
-        TxBodyContent
-          (map (,BuildTxWith $ KeyWitness KeyWitnessForSpending) txIns)
-          (TxInsCollateral CollateralInAlonzoEra [])
-          txOuts
-          (TxFeeExplicit TxFeesExplicitInAlonzoEra fee)
-          (TxValidityNoLowerBound, TxValidityUpperBound ValidityUpperBoundInAlonzoEra invalidAfter)
-          (TxMetadataInEra TxMetadataInAlonzoEra (TxMetadata mempty))
-          (TxAuxScripts AuxScriptsInAlonzoEra [])
-          (BuildTxWith TxExtraScriptDataNone)
-          (TxExtraKeyWitnesses ExtraKeyWitnessesInAlonzoEra [])
-          (BuildTxWith Nothing)
-          (TxWithdrawals WithdrawalsInAlonzoEra [])
-          (TxCertificates CertificatesInAlonzoEra [] (BuildTxWith mempty))
-          TxUpdateProposalNone
-          (TxMintValue MultiAssetInAlonzoEra mempty (BuildTxWith mempty))
-          TxScriptValidityNone
-
-  either (throwIO . TransactionBuildRawException . show) pure $ makeTransactionBody txBodyContent
+buildRaw :: [TxIn] -> [TxOut AlonzoEra] -> SlotNo -> Lovelace -> Either CardanoClientException (TxBody AlonzoEra)
+buildRaw txIns txOuts invalidAfter fee =
+  first BuildRawException $ makeTransactionBody txBodyContent
+ where
+  txBodyContent =
+    TxBodyContent
+      (map (,BuildTxWith $ KeyWitness KeyWitnessForSpending) txIns)
+      (TxInsCollateral CollateralInAlonzoEra [])
+      txOuts
+      (TxFeeExplicit TxFeesExplicitInAlonzoEra fee)
+      (TxValidityNoLowerBound, TxValidityUpperBound ValidityUpperBoundInAlonzoEra invalidAfter)
+      (TxMetadataInEra TxMetadataInAlonzoEra (TxMetadata noMetadataMap))
+      (TxAuxScripts AuxScriptsInAlonzoEra [])
+      (BuildTxWith TxExtraScriptDataNone)
+      (TxExtraKeyWitnesses ExtraKeyWitnessesInAlonzoEra [])
+      (BuildTxWith noProtocolParameters)
+      (TxWithdrawals WithdrawalsInAlonzoEra [])
+      (TxCertificates CertificatesInAlonzoEra [] (BuildTxWith noStakeCredentialWitnesses))
+      TxUpdateProposalNone
+      (TxMintValue MultiAssetInAlonzoEra noMintedValue (BuildTxWith noPolicyIdToWitnessMap))
+      TxScriptValidityNone
+  noProtocolParameters = Nothing
+  noMintedValue = mempty
+  noPolicyIdToWitnessMap = mempty
+  noMetadataMap = mempty
+  noStakeCredentialWitnesses = mempty
 
 calculateMinFee :: NetworkId -> TxBody AlonzoEra -> Sizes -> ProtocolParameters -> Lovelace
 calculateMinFee networkId txBody Sizes{inputs, outputs, witnesses} pparams =
   let tx = makeSignedTransaction [] txBody
+      noByronWitnesses = 0
    in estimateTransactionFee
         networkId
         (protocolParamTxFeeFixed pparams)
@@ -127,7 +134,7 @@ calculateMinFee networkId txBody Sizes{inputs, outputs, witnesses} pparams =
         tx
         inputs
         outputs
-        0
+        noByronWitnesses
         witnesses
 
 data Sizes = Sizes
@@ -157,7 +164,7 @@ submit networkId socket tx =
 data CardanoClientException
   = BuildAddressException Text
   | QueryException Text
-  | TransactionBuildRawException Text
+  | BuildRawException TxBodyError
   | SubmitException Text
   deriving (Show)
 

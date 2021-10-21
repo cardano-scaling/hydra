@@ -63,22 +63,26 @@ assertCanSpendInitialFunds = \case
     (vk, sk) <- keysFor "alice" cluster
     addr <- buildAddress vk networkId
     UTxO utxo <- queryUtxo networkId socket [addr]
+    pparams <- queryProtocolParameters networkId socket
+    slotNo <- queryTipSlotNo networkId socket
     let (txIn, out) = case Map.toList utxo of
           [] -> error "No Utxo found"
           (tx : _) -> tx
-
-        amount = txOutLovelace out
+        initialAmount = txOutLovelace out
         amountToPay = 100_000_001
         paymentOutput = TxOut (shelleyAddressInEra addr) (TxOutValue MultiAssetInAlonzoEra (lovelaceToValue amountToPay)) TxOutDatumHashNone
-    rawTx <- buildRaw [txIn] [] 0 0
-    pparams <- queryProtocolParameters networkId socket
-    let fee = calculateMinFee networkId rawTx defaultSizes{inputs = 1, outputs = 2, witnesses = 1} pparams
-    slotNo <- queryTipSlotNo networkId socket
-    let changeOutput = TxOut (shelleyAddressInEra addr) (TxOutValue MultiAssetInAlonzoEra (lovelaceToValue $ amount - amountToPay - fee)) TxOutDatumHashNone
-    draftTx <- buildRaw [txIn] [paymentOutput, changeOutput] (slotNo + 100) fee
-    let signedTx = sign sk draftTx
-    submit networkId socket signedTx
-    waitForPayment networkId socket amountToPay addr
+        signedTx = do
+          rawTx <- buildRaw [txIn] [] 0 0
+          let fee = calculateMinFee networkId rawTx defaultSizes{inputs = 1, outputs = 2, witnesses = 1} pparams
+              changeOutput = TxOut (shelleyAddressInEra addr) (TxOutValue MultiAssetInAlonzoEra (lovelaceToValue $ initialAmount - amountToPay - fee)) TxOutDatumHashNone
+          draftTx <- buildRaw [txIn] [paymentOutput, changeOutput] (slotNo + 100) fee
+          pure $ sign sk draftTx
+
+    case signedTx of
+      Left err -> failure ("transaction is malformed: " <> show err)
+      Right tx -> do
+        submit networkId socket tx
+        waitForPayment networkId socket amountToPay addr
   _ ->
     error "empty cluster?"
 
