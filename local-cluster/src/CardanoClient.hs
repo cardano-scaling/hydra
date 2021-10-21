@@ -49,6 +49,14 @@ queryUtxo networkId socket addresses =
           )
    in runQuery networkId socket query
 
+-- | Extract ADA value from an output
+-- NOTE(AB): this is txOutValueToLovelace in more recent cardano-api versions
+txOutLovelace :: TxOut era -> Lovelace
+txOutLovelace (TxOut _ val _) =
+  case val of
+    TxOutAdaOnly _ l -> l
+    TxOutValue _ v -> selectLovelace v
+
 -- |Query current protocol parameters.
 --
 -- Throws 'CardanoClientException' if query fails.
