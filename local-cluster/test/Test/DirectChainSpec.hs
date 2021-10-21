@@ -6,7 +6,7 @@ module Test.DirectChainSpec where
 import Hydra.Prelude
 import Test.Hydra.Prelude
 
-import CardanoCluster (ClusterConfig (..), ClusterLog, RunningCluster (..), testClusterConfig,keysFor, withCluster)
+import CardanoCluster (ClusterLog, RunningCluster (..), keysFor, testClusterConfig, withCluster)
 import CardanoNode (RunningNode (..))
 import Control.Concurrent (newEmptyMVar, putMVar, takeMVar)
 import Hydra.Chain (
