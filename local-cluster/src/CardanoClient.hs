@@ -12,7 +12,7 @@ import Cardano.Api
 
 import Cardano.Api.Shelley (ProtocolParameters (protocolParamTxFeeFixed, protocolParamTxFeePerByte), VerificationKey (PaymentVerificationKey))
 import Cardano.CLI.Shelley.Run.Address (buildShelleyAddress)
-import Cardano.CLI.Shelley.Run.Query (executeQuery)
+import Cardano.CLI.Shelley.Run.Query (executeQuery, queryQueryTip)
 import qualified Cardano.Ledger.Keys as Keys
 import qualified Data.Set as Set
 import qualified Hydra.Chain.Direct.Wallet as Hydra
@@ -67,6 +67,19 @@ runQuery networkId socket query =
   runExceptT (executeQuery AlonzoEra cardanoModeParams localNodeConnectInfo query) >>= \case
     Left err -> throwIO $ QueryException (show err)
     Right utxo -> pure utxo
+ where
+  -- NOTE(AB): extracted from Parsers in cardano-cli, this is needed to run in 'cardanoMode' which
+  -- is the default for cardano-cli
+  defaultByronEpochSlots = 21600 :: Word64
+  cardanoModeParams = CardanoModeParams $ EpochSlots defaultByronEpochSlots
+  localNodeConnectInfo = LocalNodeConnectInfo cardanoModeParams networkId socket
+
+queryTipSlotNo :: NetworkId -> FilePath -> IO SlotNo
+queryTipSlotNo networkId socket = do
+  tip <- fst <$> queryQueryTip localNodeConnectInfo Nothing
+  pure $ case tip of
+    ChainTipAtGenesis -> 0
+    ChainTip slotNo _ _ -> slotNo
  where
   -- NOTE(AB): extracted from Parsers in cardano-cli, this is needed to run in 'cardanoMode' which
   -- is the default for cardano-cli

@@ -8,6 +8,7 @@ import Cardano.Api (
   Lovelace,
   MultiAssetSupportedInEra (MultiAssetInAlonzoEra),
   ShelleyAddr,
+  SlotNo (SlotNo),
   TxIn (TxIn),
   TxIx (TxIx),
   TxOut (TxOut),
@@ -21,7 +22,7 @@ import Cardano.Api (
   shelleyAddressInEra,
  )
 import Cardano.Api.Shelley (Lovelace (Lovelace))
-import CardanoClient (Sizes (..), buildAddress, buildRaw, calculateMinFee, defaultSizes, queryProtocolParameters, queryUtxo)
+import CardanoClient (Sizes (..), buildAddress, buildRaw, calculateMinFee, defaultSizes, queryProtocolParameters, queryTipSlotNo, queryUtxo)
 import CardanoCluster (ClusterConfig (..), ClusterLog (..), RunningCluster (..), keysFor, testClusterConfig, withCluster)
 import CardanoNode (ChainTip (..), RunningNode (..), cliQueryTip)
 import qualified Data.Map as Map
@@ -75,13 +76,13 @@ assertCanSpendInitialFunds = \case
     rawTx <- buildRaw [txIn] [TxOut (shelleyAddressInEra addr) (TxOutValue MultiAssetInAlonzoEra (lovelaceToValue 100_000_000)) TxOutDatumHashNone] 0 0
     pparams <- queryProtocolParameters networkId socket
     let fee = calculateMinFee networkId rawTx defaultSizes{inputs = 1, outputs = 2, witnesses = 1} pparams
-
-    runTestScript nodeDirectory addr txIn amount fee socket
+    slotNo <- queryTipSlotNo networkId socket
+    runTestScript nodeDirectory addr txIn amount slotNo fee socket
   _ ->
     error "empty cluster?"
 
-runTestScript :: FilePath -> Address ShelleyAddr -> TxIn -> Lovelace -> Lovelace -> FilePath -> IO ()
-runTestScript nodeDirectory addr (TxIn txId (TxIx txIx)) (Lovelace amount) (Lovelace fee) socket = do
+runTestScript :: FilePath -> Address ShelleyAddr -> TxIn -> Lovelace -> SlotNo -> Lovelace -> FilePath -> IO ()
+runTestScript nodeDirectory addr (TxIn txId (TxIx txIx)) (Lovelace amount) (SlotNo slot) (Lovelace fee) socket = do
   inputScript <- Pkg.getDataFileName "test_submit.sh"
   currentEnv <- getEnvironment
   let scriptOutput = nodeDirectory </> "test_submit.out"
@@ -101,6 +102,7 @@ runTestScript nodeDirectory addr (TxIn txId (TxIx txIx)) (Lovelace amount) (Love
           unpack $ serialiseToRawBytesHexText txId <> "#" <> show txIx
         , show amount
         , show fee
+        , show slot
         ]
     )
       { env = Just (socketEnv : baseEnv)
