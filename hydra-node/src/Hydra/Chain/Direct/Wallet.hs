@@ -236,14 +236,14 @@ coverFee_ pparams lookupUtxo walletUtxo partialTx@ValidatedTx{body, wits} = do
     Just (i, o) ->
       Right (i, o)
 
-  resolvedInputs <- traverse resolveInput (toList $ inputs body)
+  let inputs' = inputs body <> Set.singleton input
+  resolvedInputs <- traverse resolveInput (toList inputs')
 
   change <-
     first ErrNotEnoughFunds $
       mkChange output resolvedInputs (toList $ outputs body) needlesslyHighFee
 
-  let inputs' = inputs body <> Set.singleton input
-      outputs' = outputs body <> StrictSeq.singleton change
+  let outputs' = outputs body <> StrictSeq.singleton change
       langs =
         [ l
         | (_hash, script) <- Map.toList (txscripts wits)
@@ -296,7 +296,7 @@ coverFee_ pparams lookupUtxo walletUtxo partialTx@ValidatedTx{body, wits} = do
     -- | Transaction Fee
     Coin ->
     Either Coin TxOut
-  mkChange (TxOut addr value datum) resolvedInputs otherOutputs fee
+  mkChange (TxOut addr _ datum) resolvedInputs otherOutputs fee
     -- FIXME: The delta between in and out must be greater than the min utxo value!
     | totalIn <= totalOut =
       Left $ totalOut <> invert totalIn
@@ -304,7 +304,7 @@ coverFee_ pparams lookupUtxo walletUtxo partialTx@ValidatedTx{body, wits} = do
       Right $ TxOut addr (inject changeOut) datum
    where
     totalOut = foldMap getAdaValue otherOutputs <> fee
-    totalIn = foldMap getAdaValue resolvedInputs <> coin value
+    totalIn = foldMap getAdaValue resolvedInputs
     changeOut = totalIn <> invert totalOut
 
   adjustRedeemers :: Set TxIn -> Set TxIn -> Redeemers Era -> Redeemers Era
