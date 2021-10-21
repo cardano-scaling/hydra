@@ -6,18 +6,23 @@ import Test.Hydra.Prelude
 import Cardano.Api (
   Address,
   Lovelace,
+  MultiAssetSupportedInEra (MultiAssetInAlonzoEra),
   ShelleyAddr,
   TxIn (TxIn),
   TxIx (TxIx),
   TxOut (TxOut),
+  TxOutDatumHash (TxOutDatumHashNone),
   TxOutValue (TxOutAdaOnly, TxOutValue),
   UTxO (..),
+  lovelaceToValue,
   selectLovelace,
   serialiseToBech32,
   serialiseToRawBytesHexText,
+  shelleyAddressInEra,
+  writeFileTextEnvelope,
  )
 import Cardano.Api.Shelley (Lovelace (Lovelace))
-import CardanoClient (buildAddress, queryUtxo)
+import CardanoClient (buildAddress, queryUtxo, transactionBuildRaw)
 import CardanoCluster (ClusterConfig (..), ClusterLog (..), RunningCluster (..), keysFor, testClusterConfig, withCluster)
 import CardanoNode (ChainTip (..), RunningNode (..), cliQueryTip)
 import qualified Data.Map as Map
@@ -66,12 +71,18 @@ assertCanSpendInitialFunds = \case
           TxOutAdaOnly _ l -> l
           TxOutValue _ v -> selectLovelace v
 
-    runTestScript (parentStateDirectory </> "node-" <> show nodeId) addr txIn amount socket
+        nodeDirectory = parentStateDirectory </> "node-" <> show nodeId
+        rawFilePath = nodeDirectory </> "tx.raw"
+
+    rawTx <- transactionBuildRaw [txIn] [TxOut (shelleyAddressInEra addr) (TxOutValue MultiAssetInAlonzoEra (lovelaceToValue 100_000_000)) TxOutDatumHashNone] 0 0
+    writeFileTextEnvelope rawFilePath Nothing rawTx >>= either (error . show) pure
+
+    runTestScript nodeDirectory addr txIn amount rawFilePath socket
   _ ->
     error "empty cluster?"
 
-runTestScript :: FilePath -> Address ShelleyAddr -> TxIn -> Lovelace -> FilePath -> IO ()
-runTestScript nodeDirectory addr (TxIn txId (TxIx txIx)) (Lovelace amount) socket = do
+runTestScript :: FilePath -> Address ShelleyAddr -> TxIn -> Lovelace -> FilePath -> FilePath -> IO ()
+runTestScript nodeDirectory addr (TxIn txId (TxIx txIx)) (Lovelace amount) rawTx socket = do
   inputScript <- Pkg.getDataFileName "test_submit.sh"
   currentEnv <- getEnvironment
   let scriptOutput = nodeDirectory </> "test_submit.out"
@@ -90,6 +101,7 @@ runTestScript nodeDirectory addr (TxIn txId (TxIx txIx)) (Lovelace amount) socke
         , -- NOTE(AB): there is a renderTxIn function in the API which is not exposed (yet?)
           unpack $ serialiseToRawBytesHexText txId <> "#" <> show txIx
         , show amount
+        , rawTx
         ]
     )
       { env = Just (socketEnv : baseEnv)

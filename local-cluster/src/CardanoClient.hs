@@ -6,24 +6,11 @@ module CardanoClient where
 
 import Hydra.Prelude
 
-import Cardano.Api (
-  Address,
-  AddressAny (AddressShelley),
-  AlonzoEra,
-  CardanoEra (AlonzoEra),
-  ConsensusModeParams (CardanoModeParams),
-  EpochSlots (EpochSlots),
-  EraInMode (AlonzoEraInCardanoMode),
-  LocalNodeConnectInfo (LocalNodeConnectInfo),
-  NetworkId,
-  QueryInEra (QueryInShelleyBasedEra),
-  QueryInMode (QueryInEra),
-  QueryInShelleyBasedEra (QueryUTxO),
-  QueryUTxOFilter (QueryUTxOByAddress),
-  ShelleyAddr,
-  UTxO,
- )
-import Cardano.Api.Shelley (ShelleyBasedEra (ShelleyBasedEraAlonzo), VerificationKey (PaymentVerificationKey))
+-- We use quite a lot of stuff from the API so enumerating them all is pointless and
+-- clutters the code
+import Cardano.Api
+
+import Cardano.Api.Shelley (VerificationKey (PaymentVerificationKey))
 import Cardano.CLI.Shelley.Run.Address (buildShelleyAddress)
 import Cardano.CLI.Shelley.Run.Query (executeQuery)
 import qualified Cardano.Ledger.Keys as Keys
@@ -67,9 +54,33 @@ queryUtxo networkId socket addresses =
         Left err -> throwIO $ QueryException (show err)
         Right utxo -> pure utxo
 
+-- | Build a "raw" transaction from a bunch of inputs, outputs and fees.
+transactionBuildRaw :: [TxIn] -> [TxOut AlonzoEra] -> SlotNo -> Lovelace -> IO (TxBody AlonzoEra)
+transactionBuildRaw txIns txOuts invalidAfter fee = do
+  let txBodyContent =
+        TxBodyContent
+          (map (,BuildTxWith $ KeyWitness KeyWitnessForSpending) txIns)
+          (TxInsCollateral CollateralInAlonzoEra [])
+          txOuts
+          (TxFeeExplicit TxFeesExplicitInAlonzoEra fee)
+          (TxValidityNoLowerBound, TxValidityUpperBound ValidityUpperBoundInAlonzoEra invalidAfter)
+          (TxMetadataInEra TxMetadataInAlonzoEra (TxMetadata mempty))
+          (TxAuxScripts AuxScriptsInAlonzoEra [])
+          (BuildTxWith TxExtraScriptDataNone)
+          (TxExtraKeyWitnesses ExtraKeyWitnessesInAlonzoEra [])
+          (BuildTxWith Nothing)
+          (TxWithdrawals WithdrawalsInAlonzoEra [])
+          (TxCertificates CertificatesInAlonzoEra [] (BuildTxWith mempty))
+          TxUpdateProposalNone
+          (TxMintValue MultiAssetInAlonzoEra mempty (BuildTxWith mempty))
+          TxScriptValidityNone
+
+  either (throwIO . TransactionBuildRawException . show) pure $ makeTransactionBody txBodyContent
+
 data CardanoClientException
   = BuildAddressException Text
   | QueryException Text
+  | TransactionBuildRawException Text
   deriving (Show)
 
 instance Exception CardanoClientException
