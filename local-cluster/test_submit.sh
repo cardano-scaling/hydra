@@ -10,15 +10,11 @@ utxo=$2
 amount=$3
 fees=$4
 slot=$5
+txDraft=$6
 
 transfer_amount=100000000
 
-cardano-cli transaction build-raw --tx-in $utxo \
-            --tx-out $utxo_addr+$transfer_amount \
-            --tx-out $utxo_addr+$(($amount - $transfer_amount - $fees)) \
-            --invalid-hereafter $((slot + 100)) --fee $fees --out-file tx.draft
-
-cardano-cli transaction sign --tx-body-file tx.draft --signing-key-file ../alice.sk --testnet-magic 42 --out-file tx.signed
+cardano-cli transaction sign --tx-body-file $txDraft --signing-key-file ../alice.sk --testnet-magic 42 --out-file tx.signed
 cardano-cli transaction submit --tx-file tx.signed --testnet-magic 42
 
 timeout=30
