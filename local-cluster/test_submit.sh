@@ -8,15 +8,11 @@ set -vx
 utxo_addr=$1
 utxo=$2
 amount=$3
+raw_file=$4
 
 transfer_amount=100000000
 
-# dispatch some ADAs to alice
-cardano-cli transaction build-raw --tx-in $utxo \
-            --tx-out $utxo_addr+$transfer_amount \
-            --invalid-hereafter 0 --fee 0 --out-file tx.draft
-
-fees=$(cardano-cli transaction calculate-min-fee --tx-body-file tx.draft --tx-in-count 1 --tx-out-count 2 --witness-count 1 --testnet-magic 42 --genesis genesis-shelley.json | cut -d ' ' -f1)
+fees=$(cardano-cli transaction calculate-min-fee --tx-body-file $raw_file --tx-in-count 1 --tx-out-count 2 --witness-count 1 --testnet-magic 42 --genesis genesis-shelley.json | cut -d ' ' -f1)
 slot=$(cardano-cli query tip --testnet-magic 42 | jq .slot)
 
 cardano-cli transaction build-raw --tx-in $alice_txin \
