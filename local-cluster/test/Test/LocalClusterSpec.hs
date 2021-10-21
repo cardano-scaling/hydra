@@ -5,12 +5,8 @@ import Test.Hydra.Prelude
 
 import Cardano.Api (
   Address,
-  Lovelace,
   MultiAssetSupportedInEra (MultiAssetInAlonzoEra),
   ShelleyAddr,
-  SlotNo (SlotNo),
-  TxIn (TxIn),
-  TxIx (TxIx),
   TxOut (TxOut),
   TxOutDatumHash (TxOutDatumHashNone),
   TxOutValue (TxOutAdaOnly, TxOutValue),
@@ -18,12 +14,9 @@ import Cardano.Api (
   lovelaceToValue,
   selectLovelace,
   serialiseToBech32,
-  serialiseToRawBytesHexText,
   shelleyAddressInEra,
-  writeFileTextEnvelope,
  )
-import Cardano.Api.Shelley (Lovelace (Lovelace))
-import CardanoClient (Sizes (..), buildAddress, buildRaw, calculateMinFee, defaultSizes, queryProtocolParameters, queryTipSlotNo, queryUtxo, sign)
+import CardanoClient (Sizes (..), buildAddress, buildRaw, calculateMinFee, defaultSizes, queryProtocolParameters, queryTipSlotNo, queryUtxo, sign, submit)
 import CardanoCluster (ClusterConfig (..), ClusterLog (..), RunningCluster (..), keysFor, testClusterConfig, withCluster)
 import CardanoNode (ChainTip (..), RunningNode (..), cliQueryTip)
 import qualified Data.Map as Map
@@ -79,16 +72,15 @@ assertCanSpendInitialFunds = \case
     let fee = calculateMinFee networkId rawTx defaultSizes{inputs = 1, outputs = 2, witnesses = 1} pparams
     slotNo <- queryTipSlotNo networkId socket
     let changeOutput = TxOut (shelleyAddressInEra addr) (TxOutValue MultiAssetInAlonzoEra (lovelaceToValue $ amount - 100_000_000 - fee)) TxOutDatumHashNone
-        signedTxPath = nodeDirectory </> "tx.signed"
     draftTx <- buildRaw [txIn] [paymentOutput, changeOutput] (slotNo + 100) fee
     let signedTx = sign sk draftTx
-    writeFileTextEnvelope signedTxPath Nothing signedTx >>= either (error . show) pure
-    runTestScript nodeDirectory addr txIn amount slotNo fee signedTxPath socket
+    submit networkId socket signedTx
+    runTestScript nodeDirectory addr socket
   _ ->
     error "empty cluster?"
 
-runTestScript :: FilePath -> Address ShelleyAddr -> TxIn -> Lovelace -> SlotNo -> Lovelace -> FilePath -> FilePath -> IO ()
-runTestScript nodeDirectory addr (TxIn txId (TxIx txIx)) (Lovelace amount) (SlotNo slot) (Lovelace fee) signedTxPath socket = do
+runTestScript :: FilePath -> Address ShelleyAddr -> FilePath -> IO ()
+runTestScript nodeDirectory addr socket = do
   inputScript <- Pkg.getDataFileName "test_submit.sh"
   currentEnv <- getEnvironment
   let scriptOutput = nodeDirectory </> "test_submit.out"
@@ -104,12 +96,6 @@ runTestScript nodeDirectory addr (TxIn txId (TxIx txIx)) (Lovelace amount) (Slot
         "/bin/sh"
         [ script
         , unpack $ serialiseToBech32 addr
-        , -- NOTE(AB): there is a renderTxIn function in the API which is not exposed (yet?)
-          unpack $ serialiseToRawBytesHexText txId <> "#" <> show txIx
-        , show amount
-        , show fee
-        , show slot
-        , signedTxPath
         ]
     )
       { env = Just (socketEnv : baseEnv)

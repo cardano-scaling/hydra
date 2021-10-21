@@ -6,15 +6,7 @@ set -vx
 [ -x $(which cardano-cli) ] || { echo "cardano-cli not found, check PATH environment variable" ; exit 1 ; }
 
 utxo_addr=$1
-utxo=$2
-amount=$3
-fees=$4
-slot=$5
-txSigned=$6
-
 transfer_amount=100000000
-
-cardano-cli transaction submit --tx-file $txSigned --testnet-magic 42
 
 timeout=30
 
