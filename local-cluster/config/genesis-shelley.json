@@ -10,9 +10,9 @@
         "decentralisationParam": 1,
         "maxTxSize": 16384,
         "minPoolCost": 0,
-        "minFeeA": 0,
         "maxBlockBodySize": 65536,
-        "minFeeB": 0,
+        "minFeeA": 44,
+        "minFeeB": 155381,
         "eMax": 18,
         "extraEntropy": {
             "tag": "NeutralNonce"
