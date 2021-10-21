@@ -20,6 +20,7 @@ import Cardano.Api (
   serialiseToBech32,
   serialiseToRawBytesHexText,
   shelleyAddressInEra,
+  writeFileTextEnvelope,
  )
 import Cardano.Api.Shelley (Lovelace (Lovelace))
 import CardanoClient (Sizes (..), buildAddress, buildRaw, calculateMinFee, defaultSizes, queryProtocolParameters, queryTipSlotNo, queryUtxo)
@@ -72,17 +73,21 @@ assertCanSpendInitialFunds = \case
           TxOutValue _ v -> selectLovelace v
 
         nodeDirectory = parentStateDirectory </> "node-" <> show nodeId
-
-    rawTx <- buildRaw [txIn] [TxOut (shelleyAddressInEra addr) (TxOutValue MultiAssetInAlonzoEra (lovelaceToValue 100_000_000)) TxOutDatumHashNone] 0 0
+        paymentOutput = TxOut (shelleyAddressInEra addr) (TxOutValue MultiAssetInAlonzoEra (lovelaceToValue 100_000_000)) TxOutDatumHashNone
+    rawTx <- buildRaw [txIn] [] 0 0
     pparams <- queryProtocolParameters networkId socket
     let fee = calculateMinFee networkId rawTx defaultSizes{inputs = 1, outputs = 2, witnesses = 1} pparams
     slotNo <- queryTipSlotNo networkId socket
-    runTestScript nodeDirectory addr txIn amount slotNo fee socket
+    let changeOutput = TxOut (shelleyAddressInEra addr) (TxOutValue MultiAssetInAlonzoEra (lovelaceToValue $ amount - 100_000_000 - fee)) TxOutDatumHashNone
+        draftTxPath = nodeDirectory </> "tx.draft"
+    draftTx <- buildRaw [txIn] [paymentOutput, changeOutput] (slotNo + 100) fee
+    writeFileTextEnvelope draftTxPath Nothing draftTx >>= either (error . show) pure
+    runTestScript nodeDirectory addr txIn amount slotNo fee draftTxPath socket
   _ ->
     error "empty cluster?"
 
-runTestScript :: FilePath -> Address ShelleyAddr -> TxIn -> Lovelace -> SlotNo -> Lovelace -> FilePath -> IO ()
-runTestScript nodeDirectory addr (TxIn txId (TxIx txIx)) (Lovelace amount) (SlotNo slot) (Lovelace fee) socket = do
+runTestScript :: FilePath -> Address ShelleyAddr -> TxIn -> Lovelace -> SlotNo -> Lovelace -> FilePath -> FilePath -> IO ()
+runTestScript nodeDirectory addr (TxIn txId (TxIx txIx)) (Lovelace amount) (SlotNo slot) (Lovelace fee) draftTxPath socket = do
   inputScript <- Pkg.getDataFileName "test_submit.sh"
   currentEnv <- getEnvironment
   let scriptOutput = nodeDirectory </> "test_submit.out"
@@ -103,6 +108,7 @@ runTestScript nodeDirectory addr (TxIn txId (TxIx txIx)) (Lovelace amount) (Slot
         , show amount
         , show fee
         , show slot
+        , draftTxPath
         ]
     )
       { env = Just (socketEnv : baseEnv)
