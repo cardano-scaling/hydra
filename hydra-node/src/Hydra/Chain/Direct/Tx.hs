@@ -37,7 +37,7 @@ import Hydra.Data.ContestationPeriod (contestationPeriodFromDiffTime, contestati
 import Hydra.Data.Party (partyFromVerKey, partyToVerKey)
 import Hydra.Party (anonymousParty, vkey)
 import Ledger.Value (AssetClass (..), currencyMPSHash)
-import Plutus.V1.Ledger.Api (PubKeyHash (..), fromData, toData)
+import Plutus.V1.Ledger.Api (MintingPolicyHash, PubKeyHash (..), fromData, toData)
 import qualified Plutus.V1.Ledger.Api as Plutus
 import Plutus.V1.Ledger.Value (assetClass, currencySymbol, tokenName)
 import Shelley.Spec.Ledger.API (
@@ -80,6 +80,10 @@ data OnChainHeadState
 threadToken :: AssetClass
 threadToken = assetClass (currencySymbol "hydra") (tokenName "token")
 
+-- FIXME: should not be hardcoded
+policyId :: MintingPolicyHash
+(policyId, _) = first currencyMPSHash (unAssetClass threadToken)
+
 -- | Create the init transaction from some 'HeadParameters' and a single TxIn
 -- which will be used as unique parameter for minting NFTs.
 initTx :: HeadParameters -> TxIn StandardCrypto -> ValidatedTx Era
@@ -108,8 +112,6 @@ initTx HeadParameters{contestationPeriod, parties} txIn =
 
   headOut = TxOut headAddress headValue (SJust headDatumHash)
 
-  -- TODO: replace hardcoded asset class with one derived from the txIn
-  (policyId, _) = first currencyMPSHash (unAssetClass threadToken)
   headAddress = scriptAddr $ plutusScript $ Head.validatorScript policyId
 
   -- REVIEW(SN): how much to store here / minUtxoValue / depending on assets?
@@ -134,7 +136,7 @@ abortTx ::
   -- which should contain the PT and is locked by initial script
   [(TxIn StandardCrypto, PubKeyHash)] ->
   ValidatedTx Era
-abortTx (smInput, token, HeadParameters{contestationPeriod, parties}) initInputs =
+abortTx (smInput, _token, HeadParameters{contestationPeriod, parties}) initInputs =
   mkUnsignedTx body datums redeemers scripts
  where
   body =
@@ -168,8 +170,6 @@ abortTx (smInput, token, HeadParameters{contestationPeriod, parties}) initInputs
   initialScript = plutusScript Initial.validatorScript
 
   headScript = plutusScript $ Head.validatorScript policyId
-
-  (policyId, _) = first currencyMPSHash (unAssetClass token)
 
   -- TODO(SN): dummy exUnits, balancing overrides them?
   redeemers =

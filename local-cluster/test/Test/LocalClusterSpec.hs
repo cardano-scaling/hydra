@@ -8,20 +8,25 @@ import Cardano.Api (
   Lovelace,
   MultiAssetSupportedInEra (MultiAssetInAlonzoEra),
   NetworkId,
+  ScriptDataSupportedInEra (ScriptDataInAlonzoEra),
   ShelleyAddr,
   TxOut (TxOut),
-  TxOutDatumHash (TxOutDatumHashNone),
+  TxOutDatumHash (TxOutDatumHash, TxOutDatumHashNone),
   TxOutValue (TxOutValue),
   UTxO (..),
+  hashScriptData,
   lovelaceToValue,
   shelleyAddressInEra,
  )
 import Cardano.Api.Shelley (VerificationKey (PaymentVerificationKey))
 import Cardano.Ledger.Keys (VKey (VKey))
+import Cardano.Api.Shelley (fromPlutusData)
 import CardanoClient (
   Sizes (..),
+  build,
   buildAddress,
   buildRaw,
+  buildScriptAddress,
   calculateMinFee,
   defaultSizes,
   queryProtocolParameters,
@@ -34,7 +39,11 @@ import CardanoClient (
 import CardanoCluster (ClusterConfig (..), ClusterLog (..), RunningCluster (..), keysFor, testClusterConfig, withCluster)
 import CardanoNode (ChainTip (..), RunningNode (..), cliQueryTip)
 import qualified Data.Map as Map
+import Hydra.Chain.Direct.Tx (policyId)
+import qualified Hydra.Contract.Head as Head
 import Hydra.Logging (Tracer, showLogsOnFailure)
+import Ledger (toCardanoApiScript)
+import Plutus.V1.Ledger.Api (toData)
 
 spec :: Spec
 spec =
@@ -45,6 +54,7 @@ spec =
         withCluster tr config $ \cluster -> do
           failAfter 30 $ assertNetworkIsProducingBlock tr cluster
           failAfter 30 $ assertCanSpendInitialFunds cluster
+          failAfter 30 $ assertCanCallInitAndAbort cluster
 
 assertNetworkIsProducingBlock :: Tracer IO ClusterLog -> RunningCluster -> IO ()
 assertNetworkIsProducingBlock tracer = go (-1)
@@ -87,6 +97,36 @@ assertCanSpendInitialFunds = \case
         waitForPayment networkId socket amountToPay addr
   _ ->
     error "empty cluster?"
+
+assertCanCallInitAndAbort :: HasCallStack => RunningCluster -> IO ()
+assertCanCallInitAndAbort = \case
+  cluster@(RunningCluster ClusterConfig{networkId} (RunningNode _ socket : _)) -> do
+    (vk, sk) <- keysFor "alice" cluster
+    let addr = buildAddress vk networkId
+        headAddress = buildScriptAddress (toCardanoApiScript $ Head.validatorScript policyId) networkId
+        headDatum = fromPlutusData $ toData $ Head.Initial 1_000_000_000_000 []
+    UTxO utxo <- queryUtxo networkId socket [addr]
+    let (txIn, _) = case Map.toList utxo of
+          [] -> error "No Utxo found"
+          (tx : _) -> tx
+        minValue = 2_000
+    balancedHeadTx <-
+      build
+        networkId
+        socket
+        addr
+        [(txIn, Nothing)]
+        []
+        [ TxOut
+            (shelleyAddressInEra headAddress)
+            (TxOutValue MultiAssetInAlonzoEra (lovelaceToValue minValue))
+            (TxOutDatumHash ScriptDataInAlonzoEra (hashScriptData headDatum))
+        ]
+
+    let signedHeadTx = sign sk balancedHeadTx
+    submit networkId socket signedHeadTx
+    waitForPayment networkId socket 2_000 headAddress
+  _ -> failure "Empty cluster"
 
 waitForPayment :: NetworkId -> FilePath -> Lovelace -> Address ShelleyAddr -> IO ()
 waitForPayment networkId socket amount addr = go

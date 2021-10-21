@@ -86,6 +86,7 @@ library
     , cardano-api
     , cardano-crypto-class
     , cardano-ledger-core
+    , cardano-slotting
     , containers
     , contra-tracer
     , directory
@@ -176,11 +177,14 @@ test-suite integration
     , hspec
     , hspec-core
     , hydra-node
+    , hydra-plutus
     , hydra-prelude
     , hydra-test-utils
     , lens
     , lens-aeson
     , local-cluster
+    , plutus-ledger
+    , plutus-ledger-api
     , process
     , QuickCheck
     , regex-tdfa

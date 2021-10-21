@@ -10,7 +10,12 @@ import Hydra.Prelude
 -- clutters the code
 import Cardano.Api
 
-import Cardano.Api.Shelley (ProtocolParameters (protocolParamTxFeeFixed, protocolParamTxFeePerByte))
+import Cardano.Api.Shelley (
+  Lovelace (Lovelace),
+  PoolId,
+  ProtocolParameters (protocolParamTxFeeFixed, protocolParamTxFeePerByte),
+ )
+import Cardano.Slotting.Time (SystemStart)
 import qualified Data.Set as Set
 import qualified Hydra.Chain.Direct.Wallet as Hydra
 import Ouroboros.Consensus.HardFork.Combinator.AcrossEras (EraMismatch)
@@ -26,6 +31,11 @@ buildAddress :: VerificationKey PaymentKey -> NetworkId -> Address ShelleyAddr
 buildAddress vKey networkId =
   makeShelleyAddress networkId (PaymentCredentialByKey $ verificationKeyHash vKey) NoStakeAddress
 
+buildScriptAddress :: Script PlutusScriptV1 -> NetworkId -> Address ShelleyAddr
+buildScriptAddress script networkId =
+  let hashed = hashScript script
+   in makeShelleyAddress networkId (PaymentCredentialByScript hashed) NoStakeAddress
+
 -- |Query UTxO for all given addresses.
 --
 -- This query is specialised for Shelley addresses in Alonzo era.
@@ -40,6 +50,17 @@ queryUtxo networkId socket addresses =
               ( QueryUTxO
                   (QueryUTxOByAddress (Set.fromList $ map AddressShelley addresses))
               )
+          )
+   in runQuery networkId socket query
+
+queryUtxoByTxIn :: NetworkId -> FilePath -> [TxIn] -> IO (UTxO AlonzoEra)
+queryUtxoByTxIn networkId socket inputs =
+  let query =
+        QueryInEra
+          AlonzoEraInCardanoMode
+          ( QueryInShelleyBasedEra
+              ShelleyBasedEraAlonzo
+              (QueryUTxO (QueryUTxOByTxIn (Set.fromList inputs)))
           )
    in runQuery networkId socket query
 
@@ -66,6 +87,17 @@ queryProtocolParameters networkId socket =
           )
    in runQuery networkId socket query
 
+queryStakePools :: NetworkId -> FilePath -> IO (Set PoolId)
+queryStakePools networkId socket =
+  let query =
+        QueryInEra
+          AlonzoEraInCardanoMode
+          ( QueryInShelleyBasedEra
+              ShelleyBasedEraAlonzo
+              QueryStakePools
+          )
+   in runQuery networkId socket query
+
 runQuery :: NetworkId -> FilePath -> QueryInMode CardanoMode (Either EraMismatch a) -> IO a
 runQuery networkId socket query =
   queryNodeLocalState (localNodeConnectInfo networkId socket) Nothing query >>= \case
@@ -88,6 +120,18 @@ queryTipSlotNo networkId socket =
   getLocalChainTip (localNodeConnectInfo networkId socket) >>= \case
     ChainTipAtGenesis -> pure 0
     ChainTip slotNo _ _ -> pure slotNo
+
+querySystemStart :: NetworkId -> FilePath -> IO SystemStart
+querySystemStart networkId socket =
+  queryNodeLocalState (localNodeConnectInfo networkId socket) Nothing QuerySystemStart >>= \case
+    Left err -> throwIO $ QueryException (show err)
+    Right result -> pure result
+
+queryEraHistory :: NetworkId -> FilePath -> IO (EraHistory CardanoMode)
+queryEraHistory networkId socket =
+  queryNodeLocalState (localNodeConnectInfo networkId socket) Nothing (QueryEraHistory CardanoModeIsMultiEra) >>= \case
+    Left err -> throwIO $ QueryException (show err)
+    Right result -> pure result
 
 -- | Build a "raw" transaction from a bunch of inputs, outputs and fees.
 buildRaw :: [TxIn] -> [TxOut AlonzoEra] -> SlotNo -> Lovelace -> Either TxBodyError (TxBody AlonzoEra)
@@ -116,6 +160,71 @@ buildRaw txIns txOuts invalidAfter fee =
   noPolicyIdToWitnessMap = mempty
   noMetadataMap = mempty
   noStakeCredentialWitnesses = mempty
+
+build ::
+  NetworkId ->
+  FilePath ->
+  Address ShelleyAddr ->
+  [(TxIn, Maybe (PlutusScript PlutusScriptV1, ScriptDatum WitCtxTxIn, ScriptRedeemer))] ->
+  [TxIn] ->
+  [TxOut AlonzoEra] ->
+  IO (TxBody AlonzoEra)
+build networkId socket changeAddress txIns collateral txOuts = do
+  pparams <- queryProtocolParameters networkId socket
+  systemStart <- querySystemStart networkId socket
+  eraHistory <- queryEraHistory networkId socket
+  stakePools <- queryStakePools networkId socket
+  utxo <- queryUtxoByTxIn networkId socket (map fst txIns)
+  either (throwIO . BuildException . show) (pure . extractBody) $
+    makeTransactionBodyAutoBalance
+      AlonzoEraInCardanoMode
+      systemStart
+      eraHistory
+      pparams
+      stakePools
+      utxo
+      txBodyContent
+      (AddressInEra (ShelleyAddressInEra ShelleyBasedEraAlonzo) changeAddress)
+      noOverrideWitness
+ where
+  txBodyContent =
+    TxBodyContent
+      (map mkWitness txIns)
+      (TxInsCollateral CollateralInAlonzoEra collateral)
+      txOuts
+      dummyFee
+      (TxValidityNoLowerBound, TxValidityNoUpperBound ValidityNoUpperBoundInAlonzoEra)
+      (TxMetadataInEra TxMetadataInAlonzoEra (TxMetadata noMetadataMap))
+      (TxAuxScripts AuxScriptsInAlonzoEra [])
+      (BuildTxWith TxExtraScriptDataNone)
+      (TxExtraKeyWitnesses ExtraKeyWitnessesInAlonzoEra [])
+      (BuildTxWith noProtocolParameters)
+      (TxWithdrawals WithdrawalsInAlonzoEra [])
+      (TxCertificates CertificatesInAlonzoEra [] (BuildTxWith noStakeCredentialWitnesses))
+      TxUpdateProposalNone
+      (TxMintValue MultiAssetInAlonzoEra noMintedValue (BuildTxWith noPolicyIdToWitnessMap))
+      TxScriptValidityNone
+  noProtocolParameters = Nothing
+  noMintedValue = mempty
+  noPolicyIdToWitnessMap = mempty
+  noMetadataMap = mempty
+  noStakeCredentialWitnesses = mempty
+  noOverrideWitness = Nothing
+  dummyFee = TxFeeExplicit TxFeesExplicitInAlonzoEra $ Lovelace 0
+
+  mkWitness (txIn, Nothing) = (txIn, BuildTxWith $ KeyWitness KeyWitnessForSpending)
+  mkWitness (txIn, Just (script, datum, redeemer)) = (txIn, BuildTxWith $ ScriptWitness ScriptWitnessForSpending sWit)
+   where
+    sWit =
+      PlutusScriptWitness
+        PlutusScriptV1InAlonzo
+        PlutusScriptV1
+        script
+        datum
+        redeemer
+        (ExecutionUnits 0 0)
+
+  extractBody (BalancedTxBody txBody _ _) = txBody
 
 calculateMinFee :: NetworkId -> TxBody AlonzoEra -> Sizes -> ProtocolParameters -> Lovelace
 calculateMinFee networkId txBody Sizes{inputs, outputs, witnesses} pparams =
