@@ -161,7 +161,9 @@ abortTx (smInput, token, HeadParameters{contestationPeriod, parties}) initInputs
       }
 
   scripts =
-    fromList $ map withScriptHash [initialScript, headScript]
+    fromList $
+      map withScriptHash $
+        [headScript] ++ [initialScript | not (null initInputs)]
 
   initialScript = plutusScript Initial.validatorScript
 
