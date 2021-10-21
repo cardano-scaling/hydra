@@ -282,7 +282,7 @@ coverFee_ pparams lookupUtxo walletUtxo partialTx@ValidatedTx{body, wits} = do
 
   resolveInput :: TxIn -> Either ErrCoverFee TxOut
   resolveInput i = do
-    case Map.lookup i lookupUtxo of
+    case Map.lookup i (lookupUtxo <> walletUtxo) of
       Nothing -> Left $ ErrUnknownInput i
       Just o -> Right o
 

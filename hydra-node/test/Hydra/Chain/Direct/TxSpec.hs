@@ -47,6 +47,7 @@ import qualified Hydra.Contract.Head as Head
 import qualified Hydra.Contract.Initial as Initial
 import Hydra.Data.ContestationPeriod (contestationPeriodFromDiffTime)
 import Hydra.Data.Party (partyFromVerKey)
+import Hydra.Ledger.Simple (SimpleTx)
 import Hydra.Party (vkey)
 import Ledger.Value (currencyMPSHash, unAssetClass)
 import Plutus.V1.Ledger.Api (PubKeyHash, toBuiltinData, toData)
@@ -74,7 +75,7 @@ spec =
 
       prop "updates on-chain state to 'Initial'" $ \txIn params ->
         let tx = initTx params txIn
-            res = observeInitTx tx
+            res = observeInitTx @SimpleTx tx
          in counterexample ("Result: " <> show res) $
               case res of
                 Just (_, Initial{threadOutput = (_txin, _txout, tt, ps)}) ->
@@ -94,7 +95,7 @@ spec =
 
       prop "updates on-chain state to 'Final'" $ \txIn params (NonEmpty initials) ->
         let tx = abortTx (txIn, threadToken, params) initials
-            res = observeAbortTx tx
+            res = observeAbortTx @SimpleTx tx
          in counterexample ("Result: " <> show res) $
               case res of
                 Just (_, st) -> st === Final
@@ -129,14 +130,15 @@ spec =
                 & counterexample ("Input utxo: " <> show utxo)
 
       prop "cover fee correctly handles redeemers" $
-        withMaxSuccess 60 $ \txIn utxos params (NonEmpty initials) ->
+        withMaxSuccess 60 $ \txIn walletUtxo params (NonEmpty initials) ->
           let ValidatedTx{body = initTxBody} = initTx params txIn
               txInitIn = TxIn (TxId $ SafeHash.hashAnnotated initTxBody) 0
               -- FIXME(AB): fromJust is partial
               txInitOut = fromJust $ Seq.lookup 0 (outputs initTxBody)
               txAbort = abortTx (txInitIn, threadToken, params) initials
-              utxo = UTxO $ utxos <> Map.fromList ((txInitIn, txInitOut) : map toTxOut initials)
-           in case coverFee_ utxos pparams txAbort of
+              lookupUtxo = Map.fromList ((txInitIn, txInitOut) : map toTxOut initials)
+              utxo = UTxO $ walletUtxo <> lookupUtxo
+           in case coverFee_ pparams lookupUtxo walletUtxo txAbort of
                 Left err -> True & label (show err)
                 Right (_, txAbortWithFees@ValidatedTx{body = abortTxBody}) ->
                   let actualExecutionCost = executionCost pparams txAbortWithFees

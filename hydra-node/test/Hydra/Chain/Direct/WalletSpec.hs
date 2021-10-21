@@ -147,15 +147,16 @@ prop_balanceTransaction ::
   Property
 prop_balanceTransaction =
   forAllBlind genValidatedTx $ \tx ->
-    forAllBlind genUtxo $ \utxo ->
-      prop' utxo tx
+    forAllBlind (genUtxoFromInputs tx) $ \lookupUtxo ->
+      forAllBlind genUtxo $ \walletUtxo ->
+        prop' lookupUtxo walletUtxo tx
  where
-  prop' utxo tx =
-    case coverFee_ utxo pparams tx of
+  prop' lookupUtxo walletUtxo tx =
+    case coverFee_ pparams lookupUtxo walletUtxo tx of
       Left{} ->
         property True & label "Left"
       Right (_, tx') ->
-        let inp' = knownInputBalance utxo tx'
+        let inp' = knownInputBalance (lookupUtxo <> walletUtxo) tx'
             out' = outputBalance tx'
             out = outputBalance tx
             fee = (txfee . body) tx'
@@ -220,6 +221,12 @@ genBlock utxo = scale (round @Double . sqrt . fromIntegral) $ do
 
 genUtxo :: Gen (Map TxIn TxOut)
 genUtxo = Map.fromList <$> vectorOf 1 arbitrary
+
+genUtxoFromInputs :: ValidatedTx Era -> Gen (Map TxIn TxOut)
+genUtxoFromInputs ValidatedTx{body} = do
+  let n = Set.size (inputs body)
+  outs <- vectorOf n arbitrary
+  pure $ Map.fromList $ zip (toList (inputs body)) outs
 
 genValidatedTx :: Gen (ValidatedTx Era)
 genValidatedTx = do
