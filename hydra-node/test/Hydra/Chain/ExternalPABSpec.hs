@@ -47,8 +47,8 @@ spec = do
 
         -- NOTE(SN): The cardano pubkeys and which wallet is used, is
         -- hard-coded in 'withExternalPAB'!
-        withExternalPab @SimpleTx 1 nullTracer (putMVar calledBack1) $ \_ ->
-          withExternalPab 2 nullTracer (putMVar calledBack2) $ \Chain{postTx} -> do
+        withExternalPab @SimpleTx nullTracer 1 (putMVar calledBack1) $ \_ ->
+          withExternalPab nullTracer 2 (putMVar calledBack2) $ \Chain{postTx} -> do
             let parameters = HeadParameters 100 [alice, bob, carol]
             postTx $ InitTx @SimpleTx parameters
             takeMVar calledBack1 `shouldReturn` OnInitTx 100 [alice, bob, carol]
@@ -61,8 +61,8 @@ spec = do
         calledBack2 <- newEmptyMVar
         -- NOTE(SN): The cardano pubkeys and which wallet is used, is
         -- hard-coded in 'withExternalPab'!
-        withExternalPab @SimpleTx 1 nullTracer (putMVar calledBack1) $ \client1 ->
-          withExternalPab 2 nullTracer (putMVar calledBack2) $ \client2 -> do
+        withExternalPab @SimpleTx nullTracer 1 (putMVar calledBack1) $ \client1 ->
+          withExternalPab nullTracer 2 (putMVar calledBack2) $ \client2 -> do
             let parameters = HeadParameters 100 [alice, bob, carol]
             postTx client1 $ InitTx @SimpleTx parameters
             takeMVar calledBack1 `shouldReturn` OnInitTx 100 [alice, bob, carol]
@@ -76,7 +76,7 @@ spec = do
         calledBack1 <- newEmptyMVar
         -- NOTE(SN): The cardano pubkeys and which wallet is used, is
         -- hard-coded in 'withExternalPab'!
-        withExternalPab @SimpleTx 1 nullTracer (putMVar calledBack1) $ \client1 -> do
+        withExternalPab @SimpleTx nullTracer 1 (putMVar calledBack1) $ \client1 -> do
           postTx client1 $ InitTx @SimpleTx $ HeadParameters 100 [alice, bob, carol]
           takeMVar calledBack1 `shouldReturn` OnInitTx 100 [alice, bob, carol]
           postTx client1 $ AbortTx @SimpleTx mempty

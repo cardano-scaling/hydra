@@ -21,7 +21,7 @@ data HydraLog tx net
   | APIServer {api :: APIServerLog}
   | Network {network :: net}
   | Node {node :: HydraNodeLog tx}
-  | Chain {pab :: ExternalPabLog}
+  | Chain {pab :: ExternalPabLog tx}
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON)
 
@@ -31,7 +31,7 @@ instance
   , Arbitrary (MockChainLog tx)
   , Arbitrary (Utxo tx)
   , Arbitrary APIServerLog
-  , Arbitrary ExternalPabLog
+  , Arbitrary (ExternalPabLog tx)
   ) =>
   Arbitrary (HydraLog tx net)
   where

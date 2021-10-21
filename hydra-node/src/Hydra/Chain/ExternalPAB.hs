@@ -2,6 +2,7 @@
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE EmptyDataDeriving #-}
 {-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE UndecidableInstances #-}
 
 module Hydra.Chain.ExternalPAB where
 
@@ -9,7 +10,6 @@ import Hydra.Prelude
 
 import Control.Monad.Class.MonadAsync (Async, async, cancel)
 import Control.Monad.Class.MonadSTM (modifyTVar, newTVarIO, readTVarIO)
-import Control.Monad.Class.MonadSay (say)
 import Data.Aeson (Result (Error, Success), eitherDecodeStrict)
 import Data.Aeson.Types (fromJSON)
 import qualified Data.Map as Map
@@ -22,11 +22,21 @@ import Hydra.Chain (
   PostChainTx (..),
  )
 import Hydra.Ledger (Tx, Utxo)
-import Hydra.Logging (Tracer)
+import Hydra.Logging (Tracer, traceWith)
 import Hydra.PAB (PabContract (..), pabPort)
 import Hydra.Party (Party)
-import Ledger (AssetClass, PubKeyHash, TxOut (txOutValue), TxOutRef, pubKeyHash)
-import Ledger.Value (flattenValue)
+import Ledger (
+  PubKeyHash,
+  TxOut (txOutValue),
+  TxOutRef,
+  pubKeyHash,
+ )
+import Ledger.Value (
+  AssetClass (..),
+  CurrencySymbol,
+  TokenName,
+  Value,
+ )
 import Network.HTTP.Req (
   HttpException (VanillaHttpException),
   POST (..),
@@ -47,25 +57,18 @@ import Plutus.PAB.Webserver.Types (InstanceStatusToClient (NewObservableState))
 import Wallet.Emulator.Types (Wallet (..), knownWallet, walletPubKey)
 import Wallet.Types (ContractInstanceId (..))
 
-data ExternalPabLog = ExternalPabLog
-  deriving stock (Eq, Show, Generic)
-  deriving anyclass (ToJSON, FromJSON)
-
-instance Arbitrary ExternalPabLog where
-  arbitrary = genericArbitrary
-
 type WalletId = Integer
 
 withExternalPab ::
   forall tx.
-  Tx tx =>
+  (Tx tx) =>
+  Tracer IO (ExternalPabLog tx) ->
   WalletId ->
-  Tracer IO ExternalPabLog ->
   ChainComponent tx IO ()
-withExternalPab walletId _tracer callback action = do
+withExternalPab tracer walletId callback action = do
   bracket (newTVarIO mempty) stopObservers $ \headObservers ->
-    withAsync (initTxSubscriber wallet headObservers callback) $ \_ ->
-      withAsync (utxoSubscriber wallet) $ \_ ->
+    withAsync (initTxSubscriber (contramap InitTxSubscriber tracer) wallet headObservers callback) $ \_ ->
+      withAsync (utxoSubscriber (contramap UtxoSubscriber tracer) wallet) $ \_ ->
         action $ Chain{postTx = postTx headObservers}
  where
   stopObservers obs =
@@ -173,8 +176,8 @@ data ErrDecoding
 
 instance Exception ErrDecoding
 
-initTxSubscriber :: Tx tx => Wallet -> TVar IO [(AssetClass, Async IO ())] -> (OnChainTx tx -> IO ()) -> IO ()
-initTxSubscriber wallet headObservers callback = do
+initTxSubscriber :: Tx tx => Tracer IO (InitTxSubscriberLog tx) -> Wallet -> TVar IO [(AssetClass, Async IO ())] -> (OnChainTx tx -> IO ()) -> IO ()
+initTxSubscriber tracer wallet headObservers callback = do
   (ContractInstanceId cid) <- activateContract WatchInit wallet
   runClient "127.0.0.1" pabPort ("/ws/" <> show cid) $ \con -> forever $ do
     msg <- receiveData con
@@ -184,19 +187,19 @@ initTxSubscriber wallet headObservers callback = do
           Error err -> throwIO $ ErrDecodingJson $ show err
           Success res -> case getLast res of
             Nothing -> pure ()
-            Just (tt :: AssetClass, cp :: ContestationPeriod, ps :: [Party]) -> do
-              say $ "Observed initTx " <> show tt <> ", " <> show cp <> ", " <> show ps
+            Just (tt, cp, ps) -> do
+              traceWith tracer $ ObservedInitTx (unAssetClass tt) cp ps
               -- XXX(SN): posting txs always uses first item in list
-              sub <- async $ headSubscriber wallet tt callback
+              sub <- async $ headSubscriber (contramap HeadSubscriber tracer) wallet tt callback
               atomically $ modifyTVar headObservers ((tt, sub) :)
               callback $ OnInitTx cp ps
       Right _ -> pure ()
       Left err ->
         throwIO $ ErrDecodingMsg $ show err
 
-headSubscriber :: Tx tx => Wallet -> AssetClass -> (OnChainTx tx -> IO ()) -> IO ()
-headSubscriber wallet tt callback = do
-  say $ "Head subscriber: starting watch contract with thread token " <> show tt
+headSubscriber :: Tx tx => Tracer IO (HeadSubscriberLog tx) -> Wallet -> AssetClass -> (OnChainTx tx -> IO ()) -> IO ()
+headSubscriber tracer wallet tt callback = do
+  traceWith tracer $ StartWatchingContract (unAssetClass tt)
   (ContractInstanceId cid) <- activateContract WatchHead wallet
   runReq defaultHttpConfig $ do
     res <-
@@ -208,7 +211,8 @@ headSubscriber wallet tt callback = do
         (port pabPort)
     when (responseStatusCode res /= 200) $
       error "failed to send threadToken to watchHead contract"
-  say "Head subscriber: listening..."
+
+  traceWith tracer Listening
   runClient "127.0.0.1" pabPort ("/ws/" <> show cid) $ \con -> forever $ do
     msg <- receiveData con
     case eitherDecodeStrict msg of
@@ -217,15 +221,15 @@ headSubscriber wallet tt callback = do
           Error err -> throwIO $ ErrDecodingJson $ show err
           Success res -> case getLast res of
             Nothing -> pure ()
-            Just (tx :: OnChainTx tx) -> do
-              say $ "Observed head transaction " <> show tx
+            Just tx -> do
+              traceWith tracer $ ObservedHeadTransaction tx
               callback tx
       Right _ -> pure ()
       Left err ->
         throwIO $ ErrDecodingMsg $ show err
 
-utxoSubscriber :: Wallet -> IO ()
-utxoSubscriber wallet = do
+utxoSubscriber :: Tracer IO UtxoSubscriberLog -> Wallet -> IO ()
+utxoSubscriber tracer wallet = do
   cid <- unContractInstanceId <$> activateContract GetUtxos wallet
   runClient "127.0.0.1" pabPort ("/ws/" <> show cid) $ \con -> forever $ do
     msg <- receiveData con
@@ -237,7 +241,7 @@ utxoSubscriber wallet = do
             Nothing -> pure ()
             Just (utxos :: Map TxOutRef TxOut) -> do
               let v = mconcat $ Map.elems $ txOutValue <$> utxos
-              say $ "Own funds changed: " ++ show (flattenValue v)
+              traceWith tracer $ OwnFundsChanged v
       Right _ -> pure ()
       Left err -> error $ "error decoding msg: " <> show err
 
@@ -247,3 +251,43 @@ retryOnAnyHttpException action = action `catch` onAnyHttpException
   onAnyHttpException = \case
     (VanillaHttpException _) -> threadDelay 1 >> retryOnAnyHttpException action
     e -> throwIO e
+
+--
+-- Logs
+--
+
+data ExternalPabLog tx
+  = InitTxSubscriber (InitTxSubscriberLog tx)
+  | UtxoSubscriber UtxoSubscriberLog
+  deriving stock (Eq, Show, Generic)
+  deriving anyclass (ToJSON, FromJSON)
+
+instance (Arbitrary tx, Arbitrary (Utxo tx)) => Arbitrary (ExternalPabLog tx) where
+  arbitrary = genericArbitrary
+
+data InitTxSubscriberLog tx
+  = ObservedInitTx (CurrencySymbol, TokenName) ContestationPeriod [Party]
+  | HeadSubscriber (HeadSubscriberLog tx)
+  deriving stock (Eq, Show, Generic)
+  deriving anyclass (ToJSON, FromJSON)
+
+instance (Arbitrary tx, Arbitrary (Utxo tx)) => Arbitrary (InitTxSubscriberLog tx) where
+  arbitrary = genericArbitrary
+
+data HeadSubscriberLog tx
+  = StartWatchingContract (CurrencySymbol, TokenName)
+  | Listening
+  | ObservedHeadTransaction (OnChainTx tx)
+  deriving stock (Eq, Show, Generic)
+  deriving anyclass (ToJSON, FromJSON)
+
+instance (Arbitrary tx, Arbitrary (Utxo tx)) => Arbitrary (HeadSubscriberLog tx) where
+  arbitrary = genericArbitrary
+
+data UtxoSubscriberLog
+  = OwnFundsChanged Value
+  deriving stock (Eq, Show, Generic)
+  deriving anyclass (ToJSON, FromJSON)
+
+instance Arbitrary UtxoSubscriberLog where
+  arbitrary = genericArbitrary
