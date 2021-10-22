@@ -113,7 +113,7 @@ assertCanCallInitAndAbort = \case
     let (txIn, _) = case Map.toList utxo of
           [] -> error "No Utxo found"
           (tx : _) -> tx
-        minValue = 2_000
+        minValue = 2_000_000
     balancedHeadTx <-
       build
         networkId
@@ -129,7 +129,7 @@ assertCanCallInitAndAbort = \case
 
     let headTxIn = TxIn (getTxId balancedHeadTx) (TxIx 1)
     submit networkId socket $ sign sk balancedHeadTx
-    waitForPayment networkId socket 2_000 headAddress
+    waitForPayment networkId socket minValue headAddress
 
     -- get change utxo
     UTxO utxo' <- queryUtxo networkId socket [addr]
@@ -154,7 +154,7 @@ assertCanCallInitAndAbort = \case
             (TxOutDatumHash ScriptDataInAlonzoEra (hashScriptData abortDatum))
         ]
     submit networkId socket $ sign sk balancedAbortTx
-    waitForPayment networkId socket 2_000 headAddress
+    waitForPayment networkId socket minValue headAddress
   _ -> failure "Empty cluster"
 
 waitForPayment :: NetworkId -> FilePath -> Lovelace -> Address ShelleyAddr -> IO ()
