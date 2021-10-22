@@ -16,6 +16,8 @@ import Cardano.Api (
   lovelaceToValue,
   shelleyAddressInEra,
  )
+import Cardano.Api.Shelley (VerificationKey (PaymentVerificationKey))
+import Cardano.Ledger.Keys (VKey (VKey))
 import CardanoClient (
   Sizes (..),
   buildAddress,
@@ -61,7 +63,7 @@ assertCanSpendInitialFunds :: HasCallStack => RunningCluster -> IO ()
 assertCanSpendInitialFunds = \case
   cluster@(RunningCluster ClusterConfig{networkId} (RunningNode _ socket : _)) -> do
     (vk, sk) <- keysFor "alice" cluster
-    addr <- buildAddress vk networkId
+    let addr = buildAddress (PaymentVerificationKey $ VKey vk) networkId
     UTxO utxo <- queryUtxo networkId socket [addr]
     pparams <- queryProtocolParameters networkId socket
     slotNo <- queryTipSlotNo networkId socket
