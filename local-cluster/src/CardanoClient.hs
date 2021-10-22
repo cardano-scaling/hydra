@@ -165,7 +165,7 @@ build ::
   NetworkId ->
   FilePath ->
   Address ShelleyAddr ->
-  [(TxIn, Maybe (PlutusScript PlutusScriptV1, ScriptDatum WitCtxTxIn, ScriptRedeemer))] ->
+  [(TxIn, Maybe (Script PlutusScriptV1, ScriptData, ScriptRedeemer))] ->
   [TxIn] ->
   [TxOut AlonzoEra] ->
   IO (TxBody AlonzoEra)
@@ -183,11 +183,11 @@ build networkId socket changeAddress txIns collateral txOuts = do
       pparams
       stakePools
       utxo
-      txBodyContent
+      (txBodyContent pparams)
       (AddressInEra (ShelleyAddressInEra ShelleyBasedEraAlonzo) changeAddress)
       noOverrideWitness
  where
-  txBodyContent =
+  txBodyContent pparams =
     TxBodyContent
       (map mkWitness txIns)
       (TxInsCollateral CollateralInAlonzoEra collateral)
@@ -198,13 +198,12 @@ build networkId socket changeAddress txIns collateral txOuts = do
       (TxAuxScripts AuxScriptsInAlonzoEra [])
       (BuildTxWith TxExtraScriptDataNone)
       (TxExtraKeyWitnesses ExtraKeyWitnessesInAlonzoEra [])
-      (BuildTxWith noProtocolParameters)
+      (BuildTxWith $ Just pparams)
       (TxWithdrawals WithdrawalsInAlonzoEra [])
       (TxCertificates CertificatesInAlonzoEra [] (BuildTxWith noStakeCredentialWitnesses))
       TxUpdateProposalNone
       (TxMintValue MultiAssetInAlonzoEra noMintedValue (BuildTxWith noPolicyIdToWitnessMap))
       TxScriptValidityNone
-  noProtocolParameters = Nothing
   noMintedValue = mempty
   noPolicyIdToWitnessMap = mempty
   noMetadataMap = mempty
@@ -212,15 +211,18 @@ build networkId socket changeAddress txIns collateral txOuts = do
   noOverrideWitness = Nothing
   dummyFee = TxFeeExplicit TxFeesExplicitInAlonzoEra $ Lovelace 0
 
+  mkWitness ::
+    (TxIn, Maybe (Script PlutusScriptV1, ScriptData, ScriptRedeemer)) ->
+    (TxIn, BuildTxWith BuildTx (Witness WitCtxTxIn AlonzoEra))
   mkWitness (txIn, Nothing) = (txIn, BuildTxWith $ KeyWitness KeyWitnessForSpending)
-  mkWitness (txIn, Just (script, datum, redeemer)) = (txIn, BuildTxWith $ ScriptWitness ScriptWitnessForSpending sWit)
+  mkWitness (txIn, Just (PlutusScript PlutusScriptV1 script, datum, redeemer)) = (txIn, BuildTxWith $ ScriptWitness ScriptWitnessForSpending sWit)
    where
     sWit =
       PlutusScriptWitness
         PlutusScriptV1InAlonzo
         PlutusScriptV1
         script
-        datum
+        (ScriptDatumForTxIn datum)
         redeemer
         (ExecutionUnits 0 0)
 

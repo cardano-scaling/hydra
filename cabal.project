@@ -184,6 +184,13 @@ source-repository-package
 
 source-repository-package
   type: git
+  location: file:///home/curry/raduom
+  tag: fb902575867eba7ec58f8cea483b41555f305818
+  subdir:
+    alonzo/impl
+
+source-repository-package
+  type: git
   location: https://github.com/raduom/cardano-ledger-specs
   tag: ef6bb99782d61316da55470620c7da994cc352b2
   --sha256: 0z2818kwiwv7smz0ff8wr4zb405pymgd12zm32asas0mp5bqxkin
@@ -203,7 +210,6 @@ source-repository-package
     shelley-ma/shelley-ma-test
     cardano-ledger-core
     cardano-protocol-tpraos
-    alonzo/impl
     alonzo/test
     cardano-ledger-test
 
