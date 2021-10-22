@@ -10,10 +10,7 @@ import Hydra.Prelude
 -- clutters the code
 import Cardano.Api
 
-import Cardano.Api.Shelley (ProtocolParameters (protocolParamTxFeeFixed, protocolParamTxFeePerByte), VerificationKey (PaymentVerificationKey))
-import Cardano.CLI.Shelley.Run.Address (buildShelleyAddress)
-import Cardano.CLI.Shelley.Run.Query (executeQuery, queryQueryTip)
-import qualified Cardano.Ledger.Keys as Keys
+import Cardano.Api.Shelley (ProtocolParameters (protocolParamTxFeeFixed, protocolParamTxFeePerByte))
 import qualified Data.Set as Set
 import qualified Hydra.Chain.Direct.Wallet as Hydra
 import Ouroboros.Consensus.HardFork.Combinator.AcrossEras (EraMismatch)
@@ -25,12 +22,9 @@ type NodeSocket = FilePath
 --
 -- From <runAddressBuild https://github.com/input-output-hk/cardano-node/blob/master/cardano-cli/src/Cardano/CLI/Shelley/Run/Address.hs#L106>
 -- Throws 'CardanoClientException' if the query fails.
-buildAddress :: Hydra.VerificationKey -> NetworkId -> IO (Address ShelleyAddr)
-buildAddress vKey networkId = do
-  let shelleyKey = PaymentVerificationKey $ Keys.VKey vKey
-  runExceptT (buildShelleyAddress shelleyKey Nothing networkId) >>= \case
-    Left err -> throwIO $ BuildAddressException (show err)
-    Right addr -> pure addr
+buildAddress :: VerificationKey PaymentKey -> NetworkId -> Address ShelleyAddr
+buildAddress vKey networkId =
+  makeShelleyAddress networkId (PaymentCredentialByKey $ verificationKeyHash vKey) NoStakeAddress
 
 -- |Query UTxO for all given addresses.
 --
@@ -74,9 +68,10 @@ queryProtocolParameters networkId socket =
 
 runQuery :: NetworkId -> FilePath -> QueryInMode CardanoMode (Either EraMismatch a) -> IO a
 runQuery networkId socket query =
-  runExceptT (executeQuery AlonzoEra cardanoModeParams (localNodeConnectInfo networkId socket) query) >>= \case
+  queryNodeLocalState (localNodeConnectInfo networkId socket) Nothing query >>= \case
     Left err -> throwIO $ QueryException (show err)
-    Right utxo -> pure utxo
+    Right (Left eraMismatch) -> throwIO $ QueryException (show eraMismatch)
+    Right (Right result) -> pure result
 
 localNodeConnectInfo :: NetworkId -> FilePath -> LocalNodeConnectInfo CardanoMode
 localNodeConnectInfo = LocalNodeConnectInfo cardanoModeParams
@@ -89,16 +84,15 @@ cardanoModeParams = CardanoModeParams $ EpochSlots defaultByronEpochSlots
   defaultByronEpochSlots = 21600 :: Word64
 
 queryTipSlotNo :: NetworkId -> FilePath -> IO SlotNo
-queryTipSlotNo networkId socket = do
-  tip <- fst <$> queryQueryTip (localNodeConnectInfo networkId socket) Nothing
-  pure $ case tip of
-    ChainTipAtGenesis -> 0
-    ChainTip slotNo _ _ -> slotNo
+queryTipSlotNo networkId socket =
+  getLocalChainTip (localNodeConnectInfo networkId socket) >>= \case
+    ChainTipAtGenesis -> pure 0
+    ChainTip slotNo _ _ -> pure slotNo
 
 -- | Build a "raw" transaction from a bunch of inputs, outputs and fees.
-buildRaw :: [TxIn] -> [TxOut AlonzoEra] -> SlotNo -> Lovelace -> Either CardanoClientException (TxBody AlonzoEra)
+buildRaw :: [TxIn] -> [TxOut AlonzoEra] -> SlotNo -> Lovelace -> Either TxBodyError (TxBody AlonzoEra)
 buildRaw txIns txOuts invalidAfter fee =
-  first BuildRawException $ makeTransactionBody txBodyContent
+  makeTransactionBody txBodyContent
  where
   txBodyContent =
     TxBodyContent

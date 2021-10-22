@@ -157,7 +157,6 @@ test-suite integration
   other-modules:
     Paths_local_cluster
     Spec
-    Test.CardanoClientSpec
     Test.DirectChainSpec
     Test.EndToEndSpec
     Test.GeneratorSpec
