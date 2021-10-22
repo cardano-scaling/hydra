@@ -10,10 +10,13 @@ import Cardano.Api (
   NetworkId,
   ScriptDataSupportedInEra (ScriptDataInAlonzoEra),
   ShelleyAddr,
+  TxIn (TxIn),
+  TxIx (TxIx),
   TxOut (TxOut),
   TxOutDatumHash (TxOutDatumHash, TxOutDatumHashNone),
   TxOutValue (TxOutValue),
   UTxO (..),
+  getTxId,
   hashScriptData,
   lovelaceToValue,
   shelleyAddressInEra,
@@ -103,7 +106,8 @@ assertCanCallInitAndAbort = \case
   cluster@(RunningCluster ClusterConfig{networkId} (RunningNode _ socket : _)) -> do
     (vk, sk) <- keysFor "alice" cluster
     let addr = buildAddress vk networkId
-        headAddress = buildScriptAddress (toCardanoApiScript $ Head.validatorScript policyId) networkId
+        headScript = toCardanoApiScript $ Head.validatorScript policyId
+        headAddress = buildScriptAddress headScript networkId
         headDatum = fromPlutusData $ toData $ Head.Initial 1_000_000_000_000 []
     UTxO utxo <- queryUtxo networkId socket [addr]
     let (txIn, _) = case Map.toList utxo of
@@ -123,8 +127,33 @@ assertCanCallInitAndAbort = \case
             (TxOutDatumHash ScriptDataInAlonzoEra (hashScriptData headDatum))
         ]
 
-    let signedHeadTx = sign sk balancedHeadTx
-    submit networkId socket signedHeadTx
+    let headTxIn = TxIn (getTxId balancedHeadTx) (TxIx 1)
+    submit networkId socket $ sign sk balancedHeadTx
+    waitForPayment networkId socket 2_000 headAddress
+
+    -- get change utxo
+    UTxO utxo' <- queryUtxo networkId socket [addr]
+    let (txIn', _) = case Map.toList utxo' of
+          [] -> error "No Utxo found for fees"
+          (tx : _) -> tx
+
+    let abortDatum = fromPlutusData $ toData Head.Final
+        abortRedeemer = fromPlutusData $ toData Head.Abort
+    balancedAbortTx <-
+      build
+        networkId
+        socket
+        addr
+        [ (txIn', Nothing)
+        , (headTxIn, Just (headScript, headDatum, abortRedeemer))
+        ]
+        [txIn']
+        [ TxOut
+            (shelleyAddressInEra headAddress)
+            (TxOutValue MultiAssetInAlonzoEra (lovelaceToValue minValue))
+            (TxOutDatumHash ScriptDataInAlonzoEra (hashScriptData abortDatum))
+        ]
+    submit networkId socket $ sign sk balancedAbortTx
     waitForPayment networkId socket 2_000 headAddress
   _ -> failure "Empty cluster"
 
