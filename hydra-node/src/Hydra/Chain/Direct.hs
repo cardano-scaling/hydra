@@ -45,7 +45,7 @@ import Ouroboros.Consensus.Ledger.SupportsMempool (ApplyTxErr)
 import Ouroboros.Consensus.Network.NodeToClient (Codecs' (..))
 import Ouroboros.Consensus.Shelley.Ledger (ShelleyBlock (..))
 import Ouroboros.Consensus.Shelley.Ledger.Mempool (mkShelleyTx)
-import Ouroboros.Network.Block (Point (..), Tip (..))
+import Ouroboros.Network.Block (Point (..), Tip (..), getTipPoint)
 import Ouroboros.Network.Magic (NetworkMagic (..))
 import Ouroboros.Network.Mux (
   MuxMode (..),
@@ -67,6 +67,7 @@ import Ouroboros.Network.NodeToClient (
 import Ouroboros.Network.Protocol.ChainSync.Client (
   ChainSyncClient (..),
   ClientStIdle (..),
+  ClientStIntersect (..),
   ClientStNext (..),
   chainSyncClientPeer,
  )
@@ -166,18 +167,42 @@ chainSyncClient ::
   TVar m OnChainHeadState ->
   ChainSyncClient Block (Point Block) (Tip Block) m ()
 chainSyncClient tracer callback headState =
-  ChainSyncClient (pure clientStIdle)
+  ChainSyncClient (pure initStIdle)
  where
-  -- FIXME: This won't work well with real client. Without acquiring any point
-  -- (i.e. agreeing on a common state / intersection with the server), the
-  -- server will start streaming blocks from the origin.
+  -- NOTE:
+  -- We fast-forward the chain client to the current node's tip on start, and
+  -- from there, follow the chain block by block as they arrive. This is why the
+  -- chain client here has no state (and needs no persistence of previously seen
+  -- headers). It fits with the narrative of heads being online all-the-time;
+  -- history prior to when the client is created is thus not needed.
   --
-  -- Since Hydra heads are supposedly always online, it may be sufficient to
-  -- simply negotiate the intersection at the current tip, and then, continue
-  -- following the chain from that tip. The head, or more exactly, this client,
-  -- would not be able to yield on chain events happening in the past, but only
-  -- events which occur after the hydra-node is started. For now, since our test
-  -- code is unable to illustrate that problem, I'll leave it as it is.
+  -- To acquire the chain tip, we leverage the fact that in any responses, the
+  -- server will send its current tip, which can then find an intersection with.
+  -- Hence the first `SendMsgRequestNext` which sole purpose is to get the
+  -- server's tip. Note that the findIntersect can fail after that if the server
+  -- switches to a different chain fork in between the two calls, in which case
+  -- we'll start over the last step with the new tip.
+  initStIdle :: ClientStIdle Block (Point Block) (Tip Block) m ()
+  initStIdle = SendMsgRequestNext initStNext (pure initStNext)
+   where
+    initStNext :: ClientStNext Block (Point Block) (Tip Block) m ()
+    initStNext =
+      ClientStNext
+        { recvMsgRollForward = \_ (getTipPoint -> tip) ->
+            ChainSyncClient $ pure $ SendMsgFindIntersect [tip] initStIntersect
+        , recvMsgRollBackward = \_ (getTipPoint -> tip) ->
+            ChainSyncClient $ pure $ SendMsgFindIntersect [tip] initStIntersect
+        }
+
+    initStIntersect :: ClientStIntersect Block (Point Block) (Tip Block) m ()
+    initStIntersect =
+      ClientStIntersect
+        { recvMsgIntersectFound = \_ _ ->
+            ChainSyncClient (pure clientStIdle)
+        , recvMsgIntersectNotFound = \(getTipPoint -> tip) ->
+            ChainSyncClient $ pure $ SendMsgFindIntersect [tip] initStIntersect
+        }
+
   clientStIdle :: ClientStIdle Block (Point Block) (Tip Block) m ()
   clientStIdle = SendMsgRequestNext clientStNext (pure clientStNext)
 
