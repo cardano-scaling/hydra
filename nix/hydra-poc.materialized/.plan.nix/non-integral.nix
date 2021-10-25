@@ -11,7 +11,7 @@
     flags = {};
     package = {
       specVersion = "2.2";
-      identifier = { name = "shelley-spec-non-integral"; version = "0.1.0.0"; };
+      identifier = { name = "non-integral"; version = "0.1.0.0"; };
       license = "Apache-2.0";
       copyright = "";
       maintainer = "formal.methods@iohk.io";
@@ -32,13 +32,23 @@
       };
     components = {
       "library" = {
-        depends = [
-          (hsPkgs."base" or (errorHandler.buildDepError "base"))
-          (hsPkgs."non-integral" or (errorHandler.buildDepError "non-integral"))
-          ];
+        depends = [ (hsPkgs."base" or (errorHandler.buildDepError "base")) ];
         buildable = true;
-        modules = [ "Shelley/Spec/NonIntegral" ];
+        modules = [ "Cardano/Ledger/NonIntegral" ];
         hsSourceDirs = [ "src" ];
+        };
+      tests = {
+        "non-integral-test" = {
+          depends = [
+            (hsPkgs."base" or (errorHandler.buildDepError "base"))
+            (hsPkgs."non-integral" or (errorHandler.buildDepError "non-integral"))
+            (hsPkgs."QuickCheck" or (errorHandler.buildDepError "QuickCheck"))
+            ];
+          buildable = true;
+          modules = [ "Tests/Cardano/Ledger/NonIntegral" ];
+          hsSourceDirs = [ "test" ];
+          mainPath = [ "Tests.hs" ];
+          };
         };
       };
     } // {
@@ -51,5 +61,5 @@
       rev = "minimal";
       sha256 = "";
       };
-    postUnpack = "sourceRoot+=/eras/shelley/chain-and-ledger/dependencies/non-integer; echo source root reset to \$sourceRoot";
+    postUnpack = "sourceRoot+=/libs/non-integral; echo source root reset to \$sourceRoot";
     }

@@ -121,6 +121,7 @@ source-repository-package
   type: git
   location: https://github.com/input-output-hk/cardano-base
   tag: 654f5b7c76f7cc57900b4ddc664a82fc3b925fb0
+  --sha256: 0j4x9zbx5dkww82sqi086h39p456iq5xr476ylmrnpwcpfb4xai4
   subdir:
     base-deriving-via
     binary
@@ -137,6 +138,7 @@ source-repository-package
   type: git
   location: https://github.com/input-output-hk/cardano-prelude
   tag: bb4ed71ba8e587f672d06edf9d2e376f4b055555
+  --sha256: 00h10l5mmiza9819p9v5q5749nb9pzgi20vpzpy1d34zmh6gf1cj
   subdir:
     cardano-prelude
     cardano-prelude-test
@@ -145,6 +147,7 @@ source-repository-package
   type: git
   location: https://github.com/input-output-hk/ouroboros-network
   tag: 94782e5ca52f234ff8eeddc6322a46cca0b69c0e
+  --sha256: 1da3pka4pn6sjf6w19d957aryjc9ip1a3g0vz7jz66pjri3v2n0j
   subdir:
     monoidal-synchronisation
     typed-protocols
@@ -179,6 +182,7 @@ source-repository-package
   type: git
   location: https://github.com/input-output-hk/cardano-ledger-specs
   tag: bf008ce028751cae9fb0b53c3bef20f07c06e333
+  --sha256: 0my3801w1vinc0kf5yh9lxl6saqxgwm6ccg0vvzi104pafcwwcqx
   subdir:
     eras/alonzo/impl
     eras/alonzo/test-suite
@@ -210,6 +214,7 @@ source-repository-package
   type: git
   location: https://github.com/input-output-hk/cardano-node.git
   tag: b6ca519f97a0e795611a63174687e6bb70c9f752
+  --sha256: 0z5lpmqc98fwg3xzpzxkfslbxdjwfyyw8bn8yq0574sf4942vqdn
   subdir:
     cardano-api
     cardano-node

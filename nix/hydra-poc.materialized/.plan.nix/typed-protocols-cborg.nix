@@ -11,14 +11,14 @@
     flags = {};
     package = {
       specVersion = "1.10";
-      identifier = { name = "typed-protocols"; version = "0.1.0.0"; };
+      identifier = { name = "typed-protocols-cborg"; version = "0.1.0.0"; };
       license = "Apache-2.0";
-      copyright = "2019 Input Output (Hong Kong) Ltd.";
+      copyright = "2019-2021 Input Output (Hong Kong) Ltd.";
       maintainer = "alex@well-typed.com, duncan@well-typed.com, marcin.szamotulski@iohk.io";
       author = "Alexander Vieth, Duncan Coutts, Marcin Szamotulski";
       homepage = "";
       url = "";
-      synopsis = "A framework for strongly typed protocols";
+      synopsis = "CBOR codecs for typed-protocols";
       description = "";
       buildType = "Simple";
       isLocal = true;
@@ -26,7 +26,7 @@
       licenseFiles = [ "LICENSE" "NOTICE" ];
       dataDir = ".";
       dataFiles = [];
-      extraSrcFiles = [];
+      extraSrcFiles = [ "ChangeLog.md" "README.md" ];
       extraTmpFiles = [];
       extraDocFiles = [];
       };
@@ -34,17 +34,13 @@
       "library" = {
         depends = [
           (hsPkgs."base" or (errorHandler.buildDepError "base"))
+          (hsPkgs."bytestring" or (errorHandler.buildDepError "bytestring"))
+          (hsPkgs."cborg" or (errorHandler.buildDepError "cborg"))
           (hsPkgs."io-classes" or (errorHandler.buildDepError "io-classes"))
+          (hsPkgs."typed-protocols" or (errorHandler.buildDepError "typed-protocols"))
           ];
         buildable = true;
-        modules = [
-          "Network/TypedProtocol"
-          "Network/TypedProtocol/Core"
-          "Network/TypedProtocol/Codec"
-          "Network/TypedProtocol/Pipelined"
-          "Network/TypedProtocol/Driver"
-          "Network/TypedProtocol/Proofs"
-          ];
+        modules = [ "Network/TypedProtocol/Codec/CBOR" ];
         hsSourceDirs = [ "src" ];
         };
       };
@@ -58,5 +54,5 @@
       rev = "minimal";
       sha256 = "";
       };
-    postUnpack = "sourceRoot+=/typed-protocols; echo source root reset to \$sourceRoot";
+    postUnpack = "sourceRoot+=/typed-protocols-cborg; echo source root reset to \$sourceRoot";
     }
