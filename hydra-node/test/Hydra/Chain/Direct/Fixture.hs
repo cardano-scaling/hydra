@@ -9,9 +9,9 @@ module Hydra.Chain.Direct.Fixture where
 import Hydra.Prelude
 
 import Cardano.Ledger.Alonzo.Language (Language (PlutusV1))
-import Cardano.Ledger.Alonzo.PParams (PParams, PParams' (..), ProtVer (..))
+import Cardano.Ledger.Alonzo.PParams (PParams, PParams' (..))
 import Cardano.Ledger.Alonzo.Scripts (ExUnits (..), Prices (..))
-import Cardano.Ledger.BaseTypes (boundRational)
+import Cardano.Ledger.BaseTypes (ProtVer (..), boundRational)
 import Data.Bits (shift)
 import Data.Default (def)
 import qualified Data.Map as Map
@@ -33,8 +33,8 @@ pparams =
   def
     { _costmdls = Map.singleton PlutusV1 $ fromJust defaultCostModel
     , _maxValSize = 1000000000
-    , _maxTxExUnits = ExUnits 100000000 100000000
-    , _maxBlockExUnits = ExUnits 100000000 100000000
+    , _maxTxExUnits = ExUnits 10000000000 10000000000
+    , _maxBlockExUnits = ExUnits 10000000000 10000000000
     , _protocolVersion = ProtVer 5 0
     , _prices =
         Prices

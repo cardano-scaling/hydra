@@ -15,6 +15,7 @@ import Cardano.Binary (serialize)
 import Cardano.Ledger.Address (Addr (Addr))
 import Cardano.Ledger.Alonzo (AlonzoEra, Script)
 import Cardano.Ledger.Alonzo.Data (Data (Data), DataHash, getPlutusData, hashData)
+import Cardano.Ledger.Alonzo.Language (Language (PlutusV1))
 import Cardano.Ledger.Alonzo.Scripts (ExUnits (..), Script (PlutusScript))
 import Cardano.Ledger.Alonzo.Tx (IsValid (IsValid), ScriptPurpose (Spending), ValidatedTx (..), rdptr)
 import Cardano.Ledger.Alonzo.TxBody (TxBody (..), TxOut (TxOut))
@@ -22,6 +23,17 @@ import Cardano.Ledger.Alonzo.TxWitness (RdmrPtr, Redeemers (..), TxDats (..), Tx
 import Cardano.Ledger.Crypto (StandardCrypto)
 import Cardano.Ledger.Era (hashScript)
 import qualified Cardano.Ledger.SafeHash as SafeHash
+import Cardano.Ledger.Shelley.API (
+  Coin (..),
+  Credential (ScriptHashObj),
+  Network (Testnet),
+  ScriptHash,
+  StakeReference (StakeRefNull),
+  StrictMaybe (..),
+  TxId (TxId),
+  TxIn (TxIn),
+  Wdrl (Wdrl),
+ )
 import Cardano.Ledger.ShelleyMA.Timelocks (ValidityInterval (..))
 import Cardano.Ledger.Val (inject)
 import Control.Monad (foldM)
@@ -40,17 +52,6 @@ import Ledger.Value (AssetClass (..), currencyMPSHash)
 import Plutus.V1.Ledger.Api (MintingPolicyHash, PubKeyHash (..), fromData, toData)
 import qualified Plutus.V1.Ledger.Api as Plutus
 import Plutus.V1.Ledger.Value (assetClass, currencySymbol, tokenName)
-import Shelley.Spec.Ledger.API (
-  Coin (..),
-  Credential (ScriptHashObj),
-  Network (Testnet),
-  ScriptHash,
-  StakeReference (StakeRefNull),
-  StrictMaybe (..),
-  TxId (TxId),
-  TxIn (TxIn),
-  Wdrl (Wdrl),
- )
 
 -- TODO(SN): parameterize
 network :: Network
@@ -165,7 +166,7 @@ abortTx (smInput, _token, HeadParameters{contestationPeriod, parties}) initInput
   scripts =
     fromList $
       map withScriptHash $
-        [headScript] ++ [initialScript | not (null initInputs)]
+        headScript : [initialScript | not (null initInputs)]
 
   initialScript = plutusScript Initial.validatorScript
 
@@ -320,7 +321,7 @@ scriptAddr script =
     StakeRefNull
 
 plutusScript :: Plutus.Script -> Script Era
-plutusScript = PlutusScript . toShort . fromLazy . serialize
+plutusScript = PlutusScript PlutusV1 . toShort . fromLazy . serialize
 
 withDataHash :: Data Era -> (DataHash StandardCrypto, Data Era)
 withDataHash d = (hashData d, d)

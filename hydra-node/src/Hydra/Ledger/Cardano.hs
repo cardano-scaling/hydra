@@ -34,6 +34,9 @@ import Cardano.Ledger.Mary (AuxiliaryData, MaryEra)
 import qualified Cardano.Ledger.Mary.Value as Cardano
 import Cardano.Ledger.SafeHash (extractHash)
 import qualified Cardano.Ledger.SafeHash as SafeHash
+import Cardano.Ledger.Shelley.API (Wdrl (Wdrl), unWdrl, _maxTxSize)
+import qualified Cardano.Ledger.Shelley.API as Cardano hiding (TxBody)
+import Cardano.Ledger.Shelley.Tx (WitnessSetHKD (WitnessSet))
 import qualified Cardano.Ledger.ShelleyMA.Timelocks as Cardano
 import qualified Cardano.Ledger.ShelleyMA.TxBody as Cardano
 import Cardano.Ledger.Slot (EpochSize (EpochSize), SlotNo (SlotNo))
@@ -71,19 +74,15 @@ import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
 import GHC.Records (getField)
 import Hydra.Ledger (Balance (..), Ledger (..), Tx (..), ValidationError (ValidationError))
 import Hydra.Party (Party (Party), vkey)
-import Shelley.Spec.Ledger.API (Wdrl (Wdrl), unWdrl, _maxTxSize)
-import qualified Shelley.Spec.Ledger.API as Cardano hiding (TxBody)
-import Shelley.Spec.Ledger.Tx (WitnessSetHKD (WitnessSet))
-import Shelley.Spec.Ledger.TxBody (TxId (..))
 import Test.Cardano.Ledger.MaryEraGen ()
+import qualified Test.Cardano.Ledger.Shelley.Generator.Constants as Constants
+import Test.Cardano.Ledger.Shelley.Generator.Core (geConstants)
+import Test.Cardano.Ledger.Shelley.Generator.EraGen (genUtxo0)
+import Test.Cardano.Ledger.Shelley.Generator.Presets (genEnv)
+import Test.Cardano.Ledger.Shelley.Generator.Utxo (genTx)
 import Test.QuickCheck (Gen, choose, getSize, scale, suchThat, vectorOf)
 import Test.QuickCheck.Gen (Gen (MkGen))
 import Test.QuickCheck.Random (mkQCGen)
-import qualified Test.Shelley.Spec.Ledger.Generator.Constants as Constants
-import Test.Shelley.Spec.Ledger.Generator.Core (geConstants)
-import Test.Shelley.Spec.Ledger.Generator.EraGen (genUtxo0)
-import Test.Shelley.Spec.Ledger.Generator.Presets (genEnv)
-import Test.Shelley.Spec.Ledger.Generator.Utxo (genTx)
 
 -- TODO(SN): Pre-validate transactions to get less confusing errors on
 -- transactions which are not expected to working on a layer-2
@@ -276,7 +275,7 @@ signWith ::
   Cardano.TxId StandardCrypto ->
   Cardano.KeyPair 'Cardano.Payment StandardCrypto ->
   Cardano.WitVKey 'Cardano.Witness StandardCrypto
-signWith (_unTxId -> safeHash) credentials =
+signWith (Cardano.TxId safeHash) credentials =
   Cardano.WitVKey
     (asWitness $ Cardano.vKey credentials)
     (signedDSIGN @StandardCrypto (Cardano.sKey credentials) (extractHash safeHash))
@@ -579,7 +578,7 @@ genUtxo = do
   pure $ Cardano.UTxO $ Map.mapKeys (setTxId genesisTxId) $ Cardano.unUTxO utxo
  where
   setTxId :: Cardano.TxId StandardCrypto -> Cardano.TxIn StandardCrypto -> Cardano.TxIn StandardCrypto
-  setTxId baseId (Cardano.TxInCompact _ti wo) = Cardano.TxInCompact baseId wo
+  setTxId baseId (Cardano.TxIn _ti wo) = Cardano.TxIn baseId wo
 
 -- | Generate utxos owned by the given cardano key.
 genUtxoFor :: Cardano.VKey 'Cardano.Payment StandardCrypto -> Gen (Utxo CardanoTx)

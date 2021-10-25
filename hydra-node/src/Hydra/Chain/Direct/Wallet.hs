@@ -39,6 +39,8 @@ import Cardano.Ledger.Crypto (DSIGN, StandardCrypto)
 import Cardano.Ledger.Era (ValidateScript (..))
 import qualified Cardano.Ledger.Keys as Ledger
 import qualified Cardano.Ledger.SafeHash as SafeHash
+import qualified Cardano.Ledger.Shelley.API as Ledger hiding (TxBody, TxOut)
+import Cardano.Ledger.Shelley.BlockChain (HashHeader)
 import Cardano.Ledger.Val (Val (..), invert)
 import Control.Monad.Class.MonadSTM (
   check,
@@ -110,9 +112,6 @@ import Ouroboros.Network.Protocol.LocalStateQuery.Client (
   localStateQueryClientPeer,
  )
 import qualified Ouroboros.Network.Protocol.LocalStateQuery.Client as LSQ
-import qualified Shelley.Spec.Ledger.API as Ledger hiding (TxBody, TxOut)
-import Shelley.Spec.Ledger.BlockChain (HashHeader)
-import Shelley.Spec.Ledger.TxBody (TxId (..), pattern TxIn)
 import Test.QuickCheck (generate)
 
 type Address = Ledger.Addr StandardCrypto
@@ -157,7 +156,7 @@ withTinyWallet tracer magic (vk, sk) iocp addr action = do
   race_
     (action $ newTinyWallet utxoVar)
     ( connectTo
-        (localSnocket iocp addr)
+        (localSnocket iocp)
         nullConnectTracers
         (versions magic $ client tracer tipVar utxoVar address)
         addr
@@ -202,13 +201,13 @@ applyBlock blk isOurs utxo = case blk of
   BlockAlonzo (ShelleyBlock (Ledger.Block _ bbody) _) ->
     flip execState utxo $ do
       forM_ (txSeqTxns bbody) $ \tx -> do
-        let txId = TxId $ SafeHash.hashAnnotated (body tx)
+        let txId = Ledger.TxId $ SafeHash.hashAnnotated (body tx)
         modify (`Map.withoutKeys` inputs (body tx))
         let indexedOutputs =
               let outs = outputs (body tx)
                in StrictSeq.zip (StrictSeq.fromList [0 .. length outs]) outs
         forM_ indexedOutputs $ \(fromIntegral -> ix, out@(TxOut addr _ _)) ->
-          when (isOurs addr) $ modify (Map.insert (TxIn txId ix) out)
+          when (isOurs addr) $ modify (Map.insert (Ledger.TxIn txId ix) out)
   _ ->
     utxo
 
@@ -274,7 +273,7 @@ coverFee_ pparams lookupUtxo walletUtxo partialTx@ValidatedTx{body, wits} = do
  where
   -- TODO: Do a better fee estimation based on the transaction's content.
   needlesslyHighFee :: Coin
-  needlesslyHighFee = Coin 10_000_000
+  needlesslyHighFee = Coin 1_000_000_000
 
   getAdaValue :: TxOut -> Coin
   getAdaValue (TxOut _ value _) =
@@ -441,7 +440,7 @@ chainSyncClient tracer tipVar utxoVar address =
             msg <- atomically $ do
               (utxo, pparams) <- readTMVar utxoVar
               let utxo' = applyBlock block (== address) utxo
-              if (utxo' /= utxo)
+              if utxo' /= utxo
                 then do
                   void $ swapTMVar utxoVar (utxo', pparams)
                   pure $ Just $ ApplyBlock utxo utxo'

@@ -343,6 +343,10 @@ encodeTraceSendRecvHandshake = \case
       [ "tag" .= ("RefuseVersions" :: String)
       , "reason" .= encodeRefuseReason reason
       ]
+    MsgReplyVersions versions ->
+      [ "tag" .= ("ReplyVersions" :: String)
+      , "versions" .= (show <$> Map.keys versions :: [Text])
+      ]
 
   encodeRefuseReason ::
     RefuseReason vNumber ->

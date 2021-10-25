@@ -9,12 +9,12 @@ import Hydra.Prelude
 import Test.Hydra.Prelude
 
 import Cardano.Binary (decodeFull, serialize')
+import qualified Cardano.Ledger.Shelley.API as Cardano
 import Data.Aeson (eitherDecode, encode)
 import qualified Data.Aeson as Aeson
 import Data.Text (unpack)
 import Hydra.Ledger (applyTransactions)
 import Hydra.Ledger.Cardano (CardanoEra, CardanoTx (..), CardanoTxWitnesses, cardanoLedger, genSequenceOfValidTransactions, genUtxo)
-import qualified Shelley.Spec.Ledger.API as Cardano
 import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
 import Test.Cardano.Ledger.MaryEraGen ()
 import Test.QuickCheck (Property, counterexample, forAllShrink)

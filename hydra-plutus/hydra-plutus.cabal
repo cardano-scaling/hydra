@@ -78,10 +78,10 @@ library
     Hydra.Data.ContestationPeriod
     Hydra.Data.HeadParameters
     Hydra.Data.Party
-    Hydra.Depreciated.OffChain
-    Hydra.Depreciated.OnChain
     Hydra.OnChain.Util
-    Hydra.PAB
+    Plutus.Contract.StateMachine.MintingPolarity
+    Plutus.Contract.StateMachine.OnChain
+    Plutus.Contract.StateMachine.ThreadToken
 
   hs-source-dirs:  src
   build-depends:
@@ -96,15 +96,10 @@ library
     , hydra-prelude
     , lens
     , openapi3
-    , playground-common
-    , plutus-chain-index
-    , plutus-contract
     , plutus-core
     , plutus-ledger
-    , plutus-pab
     , plutus-tx
     , plutus-tx-plugin
-    , plutus-use-cases
     , prettyprinter
     , template-haskell
     , text
@@ -113,65 +108,6 @@ library
   if flag(hydra-development)
     -- NOTE(SN): should fix HLS choking on PlutusTx plugin
     ghc-options: -fplugin-opt PlutusTx.Plugin:defer-errors
-
-test-suite hydra-plutus-test
-  import:         project-config
-  type:           exitcode-stdio-1.0
-  main-is:        Test.hs
-  hs-source-dirs: test
-  other-modules:
-    Hydra.ContractModelTest
-    Hydra.ContractTest
-    Hydra.Test.Utils
-
-  build-depends:
-    , base                    >=4.9 && <5
-    , containers
-    , foldl
-    , freer-extras
-    , freer-simple
-    , hydra-plutus
-    , hydra-prelude
-    , io-classes
-    , lens
-    , plutus-contract
-    , plutus-core
-    , plutus-ledger
-    , plutus-tx
-    , plutus-tx-plugin
-    , prettyprinter
-    , QuickCheck
-    , streaming
-    , tasty
-    , tasty-expected-failure
-    , tasty-golden
-    , tasty-hunit
-    , tasty-quickcheck
-    , text
-
-executable hydra-pab
-  import:         project-config
-  hs-source-dirs: exe/hydra-pab
-  main-is:        Main.hs
-  build-depends:
-    , aeson
-    , base
-    , containers
-    , data-default
-    , directory
-    , freer-extras
-    , freer-simple
-    , hydra-plutus
-    , hydra-prelude
-    , optparse-applicative
-    , playground-common
-    , plutus-contract
-    , plutus-ledger
-    , plutus-pab
-    , servant-client
-    , text
-
-  ghc-options:    -threaded -rtsopts
 
 executable inspect-script
   import:         project-config
@@ -188,7 +124,6 @@ executable inspect-script
     , hydra-plutus
     , hydra-prelude
     , optparse-applicative
-    , plutus-contract
     , plutus-ledger
     , plutus-ledger-api
     , serialise

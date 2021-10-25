@@ -11,7 +11,6 @@ import Hydra.Prelude
 import Cardano.Api
 
 import Cardano.Api.Shelley (
-  Lovelace (Lovelace),
   PoolId,
   ProtocolParameters (protocolParamTxFeeFixed, protocolParamTxFeePerByte),
  )
@@ -67,7 +66,7 @@ queryUtxoByTxIn networkId socket inputs =
 -- | Extract ADA value from an output
 -- NOTE(AB): there is txOutValueToLovelace in more recent cardano-api versions which
 -- serves same purpose
-txOutLovelace :: TxOut era -> Lovelace
+txOutLovelace :: TxOut ctx era -> Lovelace
 txOutLovelace (TxOut _ val _) =
   case val of
     TxOutAdaOnly _ l -> l
@@ -134,7 +133,7 @@ queryEraHistory networkId socket =
     Right result -> pure result
 
 -- | Build a "raw" transaction from a bunch of inputs, outputs and fees.
-buildRaw :: [TxIn] -> [TxOut AlonzoEra] -> SlotNo -> Lovelace -> Either TxBodyError (TxBody AlonzoEra)
+buildRaw :: [TxIn] -> [TxOut CtxTx AlonzoEra] -> SlotNo -> Lovelace -> Either TxBodyError (TxBody AlonzoEra)
 buildRaw txIns txOuts invalidAfter fee =
   makeTransactionBody txBodyContent
  where
@@ -147,7 +146,6 @@ buildRaw txIns txOuts invalidAfter fee =
       (TxValidityNoLowerBound, TxValidityUpperBound ValidityUpperBoundInAlonzoEra invalidAfter)
       (TxMetadataInEra TxMetadataInAlonzoEra (TxMetadata noMetadataMap))
       (TxAuxScripts AuxScriptsInAlonzoEra [])
-      (BuildTxWith TxExtraScriptDataNone)
       (TxExtraKeyWitnesses ExtraKeyWitnessesInAlonzoEra [])
       (BuildTxWith noProtocolParameters)
       (TxWithdrawals WithdrawalsInAlonzoEra [])
@@ -167,7 +165,7 @@ build ::
   Address ShelleyAddr ->
   [(TxIn, Maybe (Script PlutusScriptV1, ScriptData, ScriptRedeemer))] ->
   [TxIn] ->
-  [TxOut AlonzoEra] ->
+  [TxOut CtxTx AlonzoEra] ->
   IO (TxBody AlonzoEra)
 build networkId socket changeAddress txIns collateral txOuts = do
   pparams <- queryProtocolParameters networkId socket
@@ -196,7 +194,6 @@ build networkId socket changeAddress txIns collateral txOuts = do
       (TxValidityNoLowerBound, TxValidityNoUpperBound ValidityNoUpperBoundInAlonzoEra)
       (TxMetadataInEra TxMetadataInAlonzoEra (TxMetadata noMetadataMap))
       (TxAuxScripts AuxScriptsInAlonzoEra [])
-      (BuildTxWith TxExtraScriptDataNone)
       (TxExtraKeyWitnesses ExtraKeyWitnessesInAlonzoEra [])
       (BuildTxWith $ Just pparams)
       (TxWithdrawals WithdrawalsInAlonzoEra [])

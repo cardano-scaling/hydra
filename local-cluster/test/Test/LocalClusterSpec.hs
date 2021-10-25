@@ -13,7 +13,7 @@ import Cardano.Api (
   TxIn (TxIn),
   TxIx (TxIx),
   TxOut (TxOut),
-  TxOutDatumHash (TxOutDatumHash, TxOutDatumHashNone),
+  TxOutDatum (TxOutDatum, TxOutDatumHash, TxOutDatumNone),
   TxOutValue (TxOutValue),
   UTxO (..),
   getTxId,
@@ -21,9 +21,8 @@ import Cardano.Api (
   lovelaceToValue,
   shelleyAddressInEra,
  )
-import Cardano.Api.Shelley (VerificationKey (PaymentVerificationKey))
+import Cardano.Api.Shelley (VerificationKey (PaymentVerificationKey), fromPlutusData)
 import Cardano.Ledger.Keys (VKey (VKey))
-import Cardano.Api.Shelley (fromPlutusData)
 import CardanoClient (
   Sizes (..),
   build,
@@ -85,11 +84,11 @@ assertCanSpendInitialFunds = \case
           (tx : _) -> tx
         initialAmount = txOutLovelace out
         amountToPay = 100_000_001
-        paymentOutput = TxOut (shelleyAddressInEra addr) (TxOutValue MultiAssetInAlonzoEra (lovelaceToValue amountToPay)) TxOutDatumHashNone
+        paymentOutput = TxOut (shelleyAddressInEra addr) (TxOutValue MultiAssetInAlonzoEra (lovelaceToValue amountToPay)) TxOutDatumNone
         signedTx = do
           rawTx <- buildRaw [txIn] [] 0 0
           let fee = calculateMinFee networkId rawTx defaultSizes{inputs = 1, outputs = 2, witnesses = 1} pparams
-              changeOutput = TxOut (shelleyAddressInEra addr) (TxOutValue MultiAssetInAlonzoEra (lovelaceToValue $ initialAmount - amountToPay - fee)) TxOutDatumHashNone
+              changeOutput = TxOut (shelleyAddressInEra addr) (TxOutValue MultiAssetInAlonzoEra (lovelaceToValue $ initialAmount - amountToPay - fee)) TxOutDatumNone
           draftTx <- buildRaw [txIn] [paymentOutput, changeOutput] (slotNo + 100) fee
           pure $ sign sk draftTx
 
@@ -105,7 +104,7 @@ assertCanCallInitAndAbort :: HasCallStack => RunningCluster -> IO ()
 assertCanCallInitAndAbort = \case
   cluster@(RunningCluster ClusterConfig{networkId} (RunningNode _ socket : _)) -> do
     (vk, sk) <- keysFor "alice" cluster
-    let addr = buildAddress vk networkId
+    let addr = buildAddress (PaymentVerificationKey $ VKey vk) networkId
         headScript = toCardanoApiScript $ Head.validatorScript policyId
         headAddress = buildScriptAddress headScript networkId
         headDatum = fromPlutusData $ toData $ Head.Initial 1_000_000_000_000 []
@@ -151,7 +150,7 @@ assertCanCallInitAndAbort = \case
         [ TxOut
             (shelleyAddressInEra headAddress)
             (TxOutValue MultiAssetInAlonzoEra (lovelaceToValue minValue))
-            (TxOutDatumHash ScriptDataInAlonzoEra (hashScriptData abortDatum))
+            (TxOutDatum ScriptDataInAlonzoEra abortDatum)
         ]
     submit networkId socket $ sign sk balancedAbortTx
     waitForPayment networkId socket minValue headAddress

@@ -2,21 +2,22 @@
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeApplications #-}
 {-# OPTIONS_GHC -fno-specialize #-}
+{-# OPTIONS_GHC -fplugin-opt PlutusTx.Plugin:defer-errors #-}
 
 module Hydra.Contract.Head where
 
 import Ledger hiding (validatorHash)
 import PlutusTx.Prelude
 
-import Control.Arrow (first)
 import Data.Aeson (FromJSON, ToJSON)
+import Data.Void (Void)
 import GHC.Generics (Generic)
 import Hydra.Data.ContestationPeriod (ContestationPeriod)
 import Hydra.Data.Party (Party)
+import Ledger.Constraints (TxConstraints)
 import qualified Ledger.Typed.Scripts as Scripts
-import Ledger.Value (AssetClass (..), currencyMPSHash)
-import Plutus.Contract.StateMachine (StateMachine, StateMachineClient)
-import qualified Plutus.Contract.StateMachine as SM
+import Plutus.Contract.StateMachine.OnChain (StateMachine)
+import qualified Plutus.Contract.StateMachine.OnChain as SM
 import qualified PlutusTx
 import Text.Show (Show)
 
@@ -54,7 +55,7 @@ hydraStateMachine _policyId =
   isFinal _ = False
 
 {-# INLINEABLE hydraTransition #-}
-hydraTransition :: SM.State State -> Input -> Maybe (SM.TxConstraints SM.Void SM.Void, SM.State State)
+hydraTransition :: SM.State State -> Input -> Maybe (TxConstraints Void Void, SM.State State)
 hydraTransition oldState input =
   case (SM.stateData oldState, input) of
     (Initial{}, CollectCom) ->
@@ -94,16 +95,3 @@ address = scriptHashAddress . validatorHash
 -- transactions.
 validatorScript :: MintingPolicyHash -> Script
 validatorScript = unValidatorScript . Scripts.validatorScript . typedValidator
-
--- | The machine client of the hydra state machine. It contains both, the script
--- instance with the on-chain code, and the Haskell definition of the state
--- machine for off-chain use.
-machineClient ::
-  -- | PolicyId for the head instance
-  AssetClass ->
-  StateMachineClient State Input
-machineClient token =
-  let (policyId, _) = first currencyMPSHash (unAssetClass token)
-      machine = hydraStateMachine policyId
-      inst = typedValidator policyId
-   in SM.mkStateMachineClient (SM.StateMachineInstance machine inst)

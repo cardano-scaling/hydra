@@ -1,11 +1,12 @@
 {-# LANGUAGE TypeApplications #-}
+{-# OPTIONS_GHC -Wno-orphans #-}
 
 module Hydra.LoggingSpec where
 
 import Hydra.Prelude
 import Test.Hydra.Prelude
 
-import Data.Aeson (object, (.=))
+import Data.Aeson (Value, object, (.=))
 import Data.Aeson.Lens (key)
 import Hydra.JSONSchema (SpecificationSelector, prop_specIsComplete, prop_validateToJSON, withJsonSpecifications)
 import Hydra.Ledger.Simple (SimpleTx)
@@ -32,6 +33,11 @@ spec = do
           [ prop_validateToJSON @(Envelope (HydraLog SimpleTx ())) specs (tmp </> "HydraLog")
           , prop_specIsComplete @(HydraLog SimpleTx ()) specs apiSpecificationSelector
           ]
+
+-- NOTE(AB): We need this orphan instance because it's a constraint for HydraLog
+-- As any Value is valid, generating a dummy object should be good enough
+instance Arbitrary Value where
+  arbitrary = pure $ object []
 
 apiSpecificationSelector :: SpecificationSelector
 apiSpecificationSelector = key "properties" . key "message"
