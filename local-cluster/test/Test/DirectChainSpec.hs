@@ -43,16 +43,16 @@ spec = around showLogsOnFailure $ do
               threadDelay 2
 
               postTx $ InitTx @SimpleTx parameters
-              failAfter 5 $
+              failAfter 10 $
                 takeMVar calledBackAlice `shouldReturn` OnInitTx 100 [alice, bob, carol]
-              failAfter 5 $
+              failAfter 10 $
                 takeMVar calledBackBob `shouldReturn` OnInitTx 100 [alice, bob, carol]
 
               postTx $ AbortTx mempty
 
-              failAfter 5 $
+              failAfter 10 $
                 takeMVar calledBackAlice `shouldReturn` OnAbortTx @SimpleTx
-              failAfter 5 $
+              failAfter 10 $
                 takeMVar calledBackBob `shouldReturn` OnAbortTx @SimpleTx
 
 data TestClusterLog
