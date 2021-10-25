@@ -173,7 +173,7 @@ build networkId socket changeAddress txIns collateral txOuts = do
   eraHistory <- queryEraHistory networkId socket
   stakePools <- queryStakePools networkId socket
   utxo <- queryUtxoByTxIn networkId socket (map fst txIns)
-  either (throwIO . BuildException . show) (pure . extractBody) $
+  either (throwIO . BuildException) (pure . extractBody) $
     makeTransactionBodyAutoBalance
       AlonzoEraInCardanoMode
       systemStart
@@ -266,6 +266,7 @@ submit networkId socket tx =
 data CardanoClientException
   = QueryException Text
   | SubmitException Text
+  | BuildException TxBodyErrorAutoBalance
   deriving (Show)
 
 instance Exception CardanoClientException
