@@ -156,9 +156,7 @@ submit networkId socket tx =
     SubmitFail err -> throwIO $ SubmitException $ show err
 
 data CardanoClientException
-  = BuildAddressException Text
-  | QueryException Text
-  | BuildRawException TxBodyError
+  = QueryException Text
   | SubmitException Text
   deriving (Show)
 
