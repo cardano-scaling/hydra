@@ -9,10 +9,13 @@ import Test.Hydra.Prelude
 import Cardano.Ledger.Alonzo.Tx (ValidatedTx (..))
 import Cardano.Ledger.Alonzo.TxBody (TxBody (..), pattern TxOut)
 import Cardano.Ledger.Alonzo.TxSeq (TxSeq (..))
+import Cardano.Ledger.Block (bbody)
 import Cardano.Ledger.Coin (Coin (..))
 import Cardano.Ledger.Core (Value)
 import Cardano.Ledger.Keys (KeyPair (..), VKey (..))
 import qualified Cardano.Ledger.SafeHash as SafeHash
+import Cardano.Ledger.Shelley.API (BHeader)
+import qualified Cardano.Ledger.Shelley.API as Ledger
 import Cardano.Ledger.Val (Val (..), invert)
 import Control.Monad.Class.MonadSTM (check)
 import Control.Monad.Class.MonadTimer (timeout)
@@ -36,9 +39,6 @@ import Hydra.Chain.Direct.Wallet (
 import Hydra.Ledger.Cardano (genKeyPair, mkVkAddress)
 import Ouroboros.Consensus.Cardano.Block (HardForkBlock (..))
 import Ouroboros.Consensus.Shelley.Ledger (mkShelleyBlock)
-import qualified Shelley.Spec.Ledger.API as Ledger
-import Shelley.Spec.Ledger.BlockChain (bbody)
-import Shelley.Spec.Ledger.TxBody (TxId (..), pattern TxIn)
 import Test.Cardano.Ledger.Alonzo.Serialisation.Generators ()
 import Test.QuickCheck (
   Gen,
@@ -177,7 +177,7 @@ prop_balanceTransaction =
 -- | Generate an arbitrary block, from a UTXO set such that, transactions may
 -- *sometimes* consume given UTXO and produce new ones. The generator is geared
 -- towards certain use-cases,
-genBlock :: Map TxIn TxOut -> Gen (Ledger.Block Era)
+genBlock :: Map TxIn TxOut -> Gen (Ledger.Block BHeader Era)
 genBlock utxo = scale (round @Double . sqrt . fromIntegral) $ do
   header <- arbitrary
   body <- TxSeq . StrictSeq.fromList <$> evalStateT genTxs utxo
@@ -215,7 +215,7 @@ genBlock utxo = scale (round @Double . sqrt . fromIntegral) $ do
             { inputs = Set.singleton input
             , outputs = StrictSeq.fromList [output]
             }
-    let input' = TxIn (TxId $ SafeHash.hashAnnotated body) 0
+    let input' = Ledger.TxIn (Ledger.TxId $ SafeHash.hashAnnotated body) 0
     modify (\m -> m & Map.delete input & Map.insert input' output)
     pure body
 
@@ -236,7 +236,7 @@ genValidatedTx = do
 
 genPaymentTo :: VerificationKey -> Gen (ValidatedTx Era)
 genPaymentTo vk = do
-  toValidatedTx =<< arbitrary @TxOut `suchThat` atLeast 100_000_000
+  toValidatedTx =<< arbitrary @TxOut `suchThat` atLeast 2_000_000_000
  where
   atLeast v = \case
     TxOut _ value _ ->
@@ -262,11 +262,11 @@ genPaymentTo vk = do
 -- Helpers
 --
 
-allTxIns :: Ledger.Block Era -> Set TxIn
+allTxIns :: Ledger.Block h Era -> Set TxIn
 allTxIns (txSeqTxns . bbody -> txs) =
   Set.unions (inputs . body <$> txs)
 
-allTxOuts :: Ledger.Block Era -> [TxOut]
+allTxOuts :: Ledger.Block h Era -> [TxOut]
 allTxOuts (txSeqTxns . bbody -> txs) =
   toList $ mconcat $ toList (outputs . body <$> txs)
 
@@ -277,11 +277,11 @@ isOurs utxo addr =
 -- NOTE: 'direct' here means inputs that can be identified from our initial
 -- UTXO set. UTXOs that are created in a transaction from that blk aren't
 -- counted here.
-ourDirectInputs :: Map TxIn TxOut -> Ledger.Block Era -> [TxIn]
+ourDirectInputs :: Map TxIn TxOut -> Ledger.Block h Era -> [TxIn]
 ourDirectInputs utxo blk =
   Map.keys $ Map.restrictKeys utxo (allTxIns blk)
 
-ourOutputs :: Map TxIn TxOut -> Ledger.Block Era -> [TxOut]
+ourOutputs :: Map TxIn TxOut -> Ledger.Block h Era -> [TxOut]
 ourOutputs utxo blk =
   let ours = Map.elems utxo
    in filter (`elem` ours) (allTxOuts blk)
@@ -296,7 +296,7 @@ deltaValue a b
 
 -- | NOTE: This does not account for withdrawals
 knownInputBalance :: Map TxIn TxOut -> ValidatedTx Era -> Value Era
-knownInputBalance utxo = fold . fmap resolve . toList . inputs . body
+knownInputBalance utxo = foldMap resolve . toList . inputs . body
  where
   resolve :: TxIn -> Value Era
   resolve k = maybe zero getValue (Map.lookup k utxo)
@@ -304,7 +304,7 @@ knownInputBalance utxo = fold . fmap resolve . toList . inputs . body
 -- | NOTE: This does not account for deposits
 outputBalance :: ValidatedTx Era -> Value Era
 outputBalance =
-  fold . fmap getValue . outputs . body
+  foldMap getValue . outputs . body
 
 watchUtxoUntil :: (Map TxIn TxOut -> Bool) -> TinyWallet IO -> IO (Map TxIn TxOut)
 watchUtxoUntil predicate TinyWallet{getUtxo} = atomically $ do

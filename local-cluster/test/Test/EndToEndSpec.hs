@@ -28,7 +28,6 @@ import Cardano.Api (
   TxBodyContent (..),
   TxCertificates (TxCertificatesNone),
   TxExtraKeyWitnesses (TxExtraKeyWitnessesNone),
-  TxExtraScriptData (TxExtraScriptDataNone),
   TxFee (TxFeeExplicit),
   TxFeesExplicitInEra (TxFeesExplicitInMaryEra),
   TxId,
@@ -37,7 +36,7 @@ import Cardano.Api (
   TxMetadataInEra (TxMetadataNone),
   TxMintValue (TxMintNone),
   TxOut (TxOut),
-  TxOutDatumHash (TxOutDatumHashNone),
+  TxOutDatum (TxOutDatumNone),
   TxOutValue (TxOutValue),
   TxScriptValidity (TxScriptValidityNone),
   TxUpdateProposal (TxUpdateProposalNone),
@@ -247,7 +246,6 @@ txAlicePaysHerself =
         , txValidityRange = (TxValidityNoLowerBound, TxValidityNoUpperBound ValidityNoUpperBoundInMaryEra)
         , txMetadata = TxMetadataNone
         , txAuxScripts = TxAuxScriptsNone
-        , txExtraScriptData = BuildTxWith TxExtraScriptDataNone
         , txExtraKeyWits = TxExtraKeyWitnessesNone
         , txProtocolParams = BuildTxWith Nothing
         , txWithdrawals = TxWithdrawalsNone
@@ -265,7 +263,7 @@ txAlicePaysHerself =
     TxOut
       (shelleyAddressInEra inHeadAliceAddress)
       (TxOutValue MultiAssetInMaryEra (lovelaceToValue 14))
-      TxOutDatumHashNone
+      TxOutDatumNone
 
 --
 -- Helpers

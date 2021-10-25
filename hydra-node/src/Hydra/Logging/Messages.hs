@@ -11,7 +11,6 @@ module Hydra.Logging.Messages where
 import Hydra.Prelude
 
 import Hydra.API.Server (APIServerLog)
-import Hydra.Chain.ExternalPAB (ExternalPabLog)
 import Hydra.Chain.ZeroMQ (MockChainLog)
 import Hydra.Ledger (Utxo)
 import Hydra.Node (HydraNodeLog)
@@ -21,7 +20,6 @@ data HydraLog tx net
   | APIServer {api :: APIServerLog}
   | Network {network :: net}
   | Node {node :: HydraNodeLog tx}
-  | Chain {pab :: ExternalPabLog tx}
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON)
 
@@ -31,7 +29,6 @@ instance
   , Arbitrary (MockChainLog tx)
   , Arbitrary (Utxo tx)
   , Arbitrary APIServerLog
-  , Arbitrary (ExternalPabLog tx)
   ) =>
   Arbitrary (HydraLog tx net)
   where

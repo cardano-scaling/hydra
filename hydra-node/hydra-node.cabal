@@ -80,7 +80,6 @@ library
     Hydra.Chain.Direct.Tx
     Hydra.Chain.Direct.Util
     Hydra.Chain.Direct.Wallet
-    Hydra.Chain.ExternalPAB
     Hydra.Chain.ZeroMQ
     Hydra.ClientInput
     Hydra.HeadLogic
@@ -120,8 +119,10 @@ library
     , cardano-ledger-alonzo-test
     , cardano-ledger-byron
     , cardano-ledger-core
+    , cardano-ledger-shelley
     , cardano-ledger-shelley-ma
     , cardano-ledger-shelley-ma-test
+    , cardano-ledger-shelley-test
     , cardano-node
     , cardano-prelude
     , cardano-slotting
@@ -147,10 +148,8 @@ library
     , ouroboros-consensus-shelley
     , ouroboros-network
     , ouroboros-network-framework
-    , plutus-contract
     , plutus-ledger
     , plutus-ledger-api
-    , plutus-pab
     , prometheus
     , QuickCheck
     , req
@@ -161,6 +160,7 @@ library
     , text
     , time
     , typed-protocols
+    , typed-protocols-cborg
     , typed-protocols-examples
     , websockets
     , zeromq4-haskell
@@ -204,7 +204,6 @@ test-suite tests
     Hydra.Chain.Direct.TxSpec
     Hydra.Chain.Direct.WalletSpec
     Hydra.Chain.DirectSpec
-    Hydra.Chain.ExternalPABSpec
     Hydra.Chain.ZeroMQSpec
     Hydra.ClientInputSpec
     Hydra.FireForgetSpec
@@ -237,6 +236,7 @@ test-suite tests
     , cardano-ledger-alonzo
     , cardano-ledger-alonzo-test
     , cardano-ledger-core
+    , cardano-ledger-shelley
     , cardano-ledger-shelley-ma
     , cardano-ledger-shelley-ma-test
     , cardano-ledger-test
@@ -284,7 +284,5 @@ test-suite tests
     , websockets
     , yaml
 
-  build-tool-depends:
-    hspec-discover:hspec-discover -any, hydra-plutus:hydra-pab -any
-
+  build-tool-depends: hspec-discover:hspec-discover -any
   ghc-options:        -threaded -rtsopts

@@ -10,9 +10,10 @@ import qualified Cardano.Binary as CBOR
 import qualified Codec.CBOR.Read as CBOR
 import GHC.Show (Show (show))
 import Network.TypedProtocol (PeerHasAgency (ClientAgency), Protocol (..))
+import Network.TypedProtocol.Codec (Codec)
+import Network.TypedProtocol.Codec.CBOR (mkCodecCborLazyBS)
 import Network.TypedProtocol.Core (PeerRole)
 import Network.TypedProtocol.Driver (SomeMessage (SomeMessage))
-import Ouroboros.Network.Codec (Codec, mkCodecCborLazyBS)
 import Ouroboros.Network.Util.ShowProxy (ShowProxy (..))
 
 -- | TODO explain Protocol
@@ -52,9 +53,9 @@ instance Protocol (FireForget msg) where
   data NobodyHasAgency st where
     TokDone :: NobodyHasAgency 'StDone
 
-  exclusionLemma_ClientAndServerHaveAgency TokIdle tok = case tok of {}
-  exclusionLemma_NobodyAndClientHaveAgency TokDone tok = case tok of {}
-  exclusionLemma_NobodyAndServerHaveAgency TokDone tok = case tok of {}
+  exclusionLemma_ClientAndServerHaveAgency TokIdle tok = case tok of
+  exclusionLemma_NobodyAndClientHaveAgency TokDone tok = case tok of
+  exclusionLemma_NobodyAndServerHaveAgency TokDone tok = case tok of
 
 deriving instance (Show msg) => Show (Message (FireForget msg) from to)
 

@@ -12,7 +12,6 @@ import Data.Aeson (Value (String), object, withObject, (.:), (.=))
 import qualified Data.ByteString.Base16 as Base16
 import qualified PlutusTx
 import PlutusTx.IsData
-import Schema (FormSchema (..), ToSchema (..))
 
 -- TODO(SN): Copied party + json instances for deserializing in 'init' endpoint
 -- and we were struggling to define 'Lift' and 'IsData'. Ideally we would be
@@ -40,9 +39,6 @@ instance FromJSON Party where
     vkeyBytes <- either fail pure . Base16.decode $ encodeUtf8 vkeyHex
     verKey <- maybe (fail "deserialize verification key") pure $ rawDeserialiseVerKeyDSIGN vkeyBytes
     pure $ partyFromVerKey verKey
-
-instance ToSchema Party where
-  toSchema = FormSchemaUnsupported "Party"
 
 instance PlutusTx.ToData Party where
   toBuiltinData (UnsafeParty k) = toBuiltinData k

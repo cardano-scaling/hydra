@@ -21,6 +21,7 @@ import Hydra.Prelude
 
 import Cardano.Ledger.Alonzo.Tx (ValidatedTx)
 import Cardano.Ledger.Era (toTxSeq)
+import qualified Cardano.Ledger.Shelley.API as Ledger
 import Cardano.Slotting.Slot (WithOrigin (At))
 import Control.Monad.Class.MonadSTM (modifyTVar', newTVarIO, retry)
 import Control.Tracer (nullTracer)
@@ -95,7 +96,6 @@ import Ouroboros.Network.Protocol.LocalTxSubmission.Server (
 import qualified Ouroboros.Network.Protocol.LocalTxSubmission.Type as LocalTxSubmission
 import Ouroboros.Network.Server.RateLimiting (AcceptedConnectionsLimit (..))
 import Ouroboros.Network.Socket (SomeResponderApplication (..), withServerNode)
-import qualified Shelley.Spec.Ledger.API as Ledger
 import System.FilePath ((</>))
 import System.IO.Temp (withSystemTempDirectory)
 import Test.Cardano.Ledger.Alonzo.Serialisation.Generators ()
@@ -112,7 +112,7 @@ withMockServer action =
     let magic = NetworkMagic 42
     let addr = dir </> "node.socket"
     withIOManager $ \iocp -> do
-      let snocket = localSnocket iocp addr
+      let snocket = localSnocket iocp
       networkState <- newNetworkMutableState
       db <- newTVarIO mempty
       withServerNode
@@ -191,7 +191,7 @@ mockChainSyncServer db =
      in BlockAlonzo $ mkShelleyBlock $ Ledger.Block header body
 
   serverStIdle :: Int -> ServerStIdle Block (Point Block) (Tip Block) m ()
-  serverStIdle ! cursor =
+  serverStIdle !cursor =
     ServerStIdle
       { recvMsgRequestNext = do
           tx <- atomically $ do

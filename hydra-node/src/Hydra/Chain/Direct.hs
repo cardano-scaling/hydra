@@ -14,6 +14,7 @@ import Hydra.Prelude
 
 import Cardano.Ledger.Alonzo.Tx (ValidatedTx)
 import Cardano.Ledger.Alonzo.TxSeq (txSeqTxns)
+import qualified Cardano.Ledger.Shelley.API as Ledger
 import Control.Exception (IOException)
 import Control.Monad.Class.MonadSTM (
   newTQueueIO,
@@ -76,7 +77,6 @@ import Ouroboros.Network.Protocol.LocalTxSubmission.Client (
   LocalTxSubmissionClient (..),
   localTxSubmissionClientPeer,
  )
-import qualified Shelley.Spec.Ledger.API as Ledger
 import Test.Cardano.Ledger.Alonzo.Serialisation.Generators ()
 
 withDirectChain ::
@@ -99,7 +99,7 @@ withDirectChain tracer networkMagic iocp socketPath keyPair callback action = do
       race_
         (action $ Chain{postTx = atomically . writeTQueue queue})
         ( connectTo
-            (localSnocket iocp socketPath)
+            (localSnocket iocp)
             nullConnectTracers
             (versions networkMagic (client tracer queue headState wallet callback))
             socketPath
