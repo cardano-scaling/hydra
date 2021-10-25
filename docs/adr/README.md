@@ -13,3 +13,4 @@ Here is a list of currently accepted or discussed **Architecture Decision Record
 9. [Simplify logging](./0009-simplify-logging.md)
 10. _[Direct on-chain connection](./0010-use-direct-chain.md)_
 11. _[Use cardano-api](./0011-use-cardano-api.md)_
+12. _[Top-down Test-Driven Design](./0012-testing-strategy.md)_
