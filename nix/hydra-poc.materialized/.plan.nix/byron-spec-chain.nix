@@ -8,7 +8,7 @@
   , config
   , ... }:
   {
-    flags = { development = false; };
+    flags = {};
     package = {
       specVersion = "2.2";
       identifier = { name = "byron-spec-chain"; version = "0.1.0.0"; };
@@ -94,5 +94,5 @@
       rev = "minimal";
       sha256 = "";
       };
-    postUnpack = "sourceRoot+=/byron/chain/executable-spec; echo source root reset to \$sourceRoot";
+    postUnpack = "sourceRoot+=/eras/byron/chain/executable-spec; echo source root reset to \$sourceRoot";
     }

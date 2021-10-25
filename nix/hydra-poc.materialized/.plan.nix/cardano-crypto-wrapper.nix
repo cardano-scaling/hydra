@@ -8,7 +8,7 @@
   , config
   , ... }:
   {
-    flags = { development = false; };
+    flags = {};
     package = {
       specVersion = "2.2";
       identifier = { name = "cardano-crypto-wrapper"; version = "1.3.0"; };
@@ -127,5 +127,5 @@
       rev = "minimal";
       sha256 = "";
       };
-    postUnpack = "sourceRoot+=/byron/crypto; echo source root reset to \$sourceRoot";
+    postUnpack = "sourceRoot+=/eras/byron/crypto; echo source root reset to \$sourceRoot";
     }

@@ -8,7 +8,7 @@
   , config
   , ... }:
   {
-    flags = { development = false; sts_assert = false; };
+    flags = { sts_assert = false; };
     package = {
       specVersion = "2.2";
       identifier = { name = "small-steps"; version = "0.1.0.0"; };
@@ -82,5 +82,5 @@
       rev = "minimal";
       sha256 = "";
       };
-    postUnpack = "sourceRoot+=/semantics/executable-spec; echo source root reset to \$sourceRoot";
+    postUnpack = "sourceRoot+=/libs/small-steps; echo source root reset to \$sourceRoot";
     }

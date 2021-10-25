@@ -8,7 +8,7 @@
   , config
   , ... }:
   {
-    flags = { development = false; test-normal-form = false; };
+    flags = { test-normal-form = false; };
     package = {
       specVersion = "2.2";
       identifier = { name = "cardano-ledger-byron"; version = "0.1.0.0"; };
@@ -294,5 +294,5 @@
       rev = "minimal";
       sha256 = "";
       };
-    postUnpack = "sourceRoot+=/byron/ledger/impl; echo source root reset to \$sourceRoot";
+    postUnpack = "sourceRoot+=/eras/byron/ledger/impl; echo source root reset to \$sourceRoot";
     }

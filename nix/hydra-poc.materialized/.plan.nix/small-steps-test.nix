@@ -8,7 +8,7 @@
   , config
   , ... }:
   {
-    flags = { development = false; };
+    flags = {};
     package = {
       specVersion = "2.2";
       identifier = { name = "small-steps-test"; version = "0.1.0.0"; };
@@ -96,5 +96,5 @@
       rev = "minimal";
       sha256 = "";
       };
-    postUnpack = "sourceRoot+=/semantics/small-steps-test; echo source root reset to \$sourceRoot";
+    postUnpack = "sourceRoot+=/libs/small-steps-test; echo source root reset to \$sourceRoot";
     }
