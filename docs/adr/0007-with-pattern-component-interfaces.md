@@ -4,7 +4,7 @@ Date: 2021-06-08
 
 ## Status
 
-Proposed
+:hammer_and_wrench:
 
 TBD:
 * Naming of `Callback` and `Component`

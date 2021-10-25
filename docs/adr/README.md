@@ -11,3 +11,5 @@ Here is a list of currently accepted or discussed **Architecture Decision Record
 7. _Components are defined using [with-pattern](./0007-with-pattern-component-interfaces.md)_
 8. [Use custom Prelude](./0008-use-custom-prelude.md)
 9. [Simplify logging](./0009-simplify-logging.md)
+10. _[Direct on-chain connection](./0010-use-direct-chain.md)_
+11. _[Simplify logging](./0011-use-cardano-api.md)_
