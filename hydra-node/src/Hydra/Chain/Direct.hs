@@ -273,6 +273,7 @@ txSubmissionClient tracer queue callback headState TinyWallet{getUtxo, sign, cov
         traceWith tracer (PostTx tx signedTx)
           $> SendMsgSubmitTx
             (GenTxAlonzo . mkShelleyTx $ signedTx)
+            -- TODO(SN): handle SubmitFail
             (const clientStIdle)
 
   fromPostChainTx :: PostChainTx tx -> STM m (Maybe (ValidatedTx Era))
