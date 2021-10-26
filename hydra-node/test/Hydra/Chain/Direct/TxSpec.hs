@@ -1,6 +1,6 @@
+{-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE TypeApplications #-}
 {-# OPTIONS_GHC -Wno-incomplete-uni-patterns #-}
-{-# OPTIONS_GHC -Wno-orphans #-}
 
 -- | Unit tests for our "hand-rolled" transactions as they are used in the
 -- "direct" chain component.
@@ -34,6 +34,7 @@ import Cardano.Slotting.EpochInfo (fixedEpochInfo)
 import Cardano.Slotting.Time (SystemStart (..), mkSlotLength)
 import Data.Array (array)
 import qualified Data.ByteString.Lazy as LBS
+import Data.List ((\\))
 import qualified Data.Map as Map
 import Data.Maybe (fromJust)
 import qualified Data.Sequence.Strict as Seq
@@ -54,7 +55,7 @@ import Ledger.Value (currencyMPSHash, unAssetClass)
 import Plutus.V1.Ledger.Api (PubKeyHash, toBuiltinData, toData)
 import Test.Cardano.Ledger.Alonzo.PlutusScripts (defaultCostModel)
 import Test.Cardano.Ledger.Alonzo.Serialisation.Generators ()
-import Test.QuickCheck (NonEmptyList (NonEmpty), counterexample, label, property, withMaxSuccess, (.&&.), (===))
+import Test.QuickCheck (NonEmptyList (NonEmpty), counterexample, elements, forAll, label, property, withMaxSuccess, (.&&.), (===))
 import Test.QuickCheck.Instances ()
 
 spec :: Spec
@@ -72,6 +73,18 @@ spec =
             onChainParties = map (partyFromVerKey . vkey) parties
             datum = Head.Initial onChainPeriod onChainParties
          in Map.elems (unTxDats dats) === [Data . toData $ toBuiltinData datum]
+
+      prop "is observed" $ \txIn params ->
+        let tx = initTx params txIn
+         in isJust $ observeInitTx tx
+
+      prop "is not observed if not invited" $ \txIn cperiod (NonEmpty parties) ->
+        forAll (elements parties) $ \notInvited ->
+          let invited = parties \\ [notInvited]
+              tx = initTx (HeadParameters cperiod invited) txIn
+           in isNothing (observeInitTx tx) -- TODO(SN): pass notInvited as "observing as"
+                & counterexample ("observing as: " <> show notInvited)
+                & counterexample ("invited: " <> show invited)
 
       prop "updates on-chain state to 'Initial'" $ \txIn params ->
         let tx = initTx params txIn
