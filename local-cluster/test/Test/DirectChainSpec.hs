@@ -12,7 +12,7 @@ import Control.Concurrent (newEmptyMVar, putMVar, takeMVar)
 import Hydra.Chain (
   Chain (..),
   HeadParameters (HeadParameters),
-  OnChainTx (OnAbortTx, OnInitTx),
+  OnChainTx (OnAbortTx, OnInitTx, PostTxFailed),
   PostChainTx (AbortTx, InitTx),
  )
 import Hydra.Chain.Direct (
@@ -65,13 +65,15 @@ spec = around showLogsOnFailure $ do
         withIOManager $ \iocp -> do
           withDirectChain (contramap (FromDirectChain "alice") tracer) magic iocp node1socket aliceKeys (putMVar calledBackAlice) $ \Chain{postTx = alicePostTx} -> do
             withDirectChain nullTracer magic iocp node2socket bobKeys (putMVar calledBackBob) $ \Chain{postTx = bobPostTx} -> do
-              threadDelay 2 -- XXX(XN): smell
+              threadDelay 2 -- XXX(SN): smell
               alicePostTx $ InitTx @SimpleTx $ HeadParameters 100 [alice, carol]
               failAfter 10 $
                 takeMVar calledBackAlice `shouldReturn` OnInitTx 100 [alice, carol]
 
-              -- TODO(SN): this should fail, but how do we want to observe it?
               bobPostTx $ AbortTx @SimpleTx mempty
+
+              failAfter 10 $
+                takeMVar calledBackBob `shouldReturn` PostTxFailed
 
 magic :: NetworkMagic
 magic = NetworkMagic 42

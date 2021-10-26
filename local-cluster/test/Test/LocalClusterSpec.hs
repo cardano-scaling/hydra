@@ -115,8 +115,8 @@ assertCanCallInitAndAbort = \case
           (tx : _) -> tx
         minValue = 2_000_000
     balancedHeadTx <-
-      either (error . show) pure $
-        build
+      either (error . show) pure
+        =<< build
           networkId
           socket
           addr
@@ -141,8 +141,8 @@ assertCanCallInitAndAbort = \case
     let abortDatum = fromPlutusData $ toData Head.Final
         abortRedeemer = fromPlutusData $ toData Head.Abort
     balancedAbortTx <-
-      either (error . show) pure $
-        build
+      either (error . show) pure
+        =<< build
           networkId
           socket
           addr

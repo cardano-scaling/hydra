@@ -4,7 +4,7 @@
 module Test.LogFilterSpec where
 
 import Control.Lens ((^?))
-import Data.Aeson (Value (..), decode, encode, object)
+import Data.Aeson (Value (..), decode, encode)
 import Data.Aeson.Lens (key)
 import qualified Data.ByteString.Lazy as LBS
 import Hydra.Ledger.Cardano (CardanoTx)
