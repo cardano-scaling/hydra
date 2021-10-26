@@ -91,8 +91,9 @@ withDirectChain ::
   FilePath ->
   -- | Key pair for the wallet
   (VerificationKey, SigningKey) ->
+  Party ->
   ChainComponent tx IO ()
-withDirectChain tracer networkMagic iocp socketPath keyPair callback action = do
+withDirectChain tracer networkMagic iocp socketPath keyPair party callback action = do
   queue <- newTQueueIO
   headState <- newTVarIO Closed
   handle onIOException $
@@ -106,8 +107,6 @@ withDirectChain tracer networkMagic iocp socketPath keyPair callback action = do
             socketPath
         )
  where
-  party = undefined
-
   onIOException :: IOException -> IO ()
   onIOException ioException =
     throwIO $

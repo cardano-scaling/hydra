@@ -234,11 +234,13 @@ runOnChainTxs party headState = fmap reverse . atomically . foldM runOnChainTx [
       Nothing -> pure observed
 
 observeInitTx :: Party -> ValidatedTx Era -> Maybe (OnChainTx tx, OnChainHeadState)
-observeInitTx _party ValidatedTx{wits, body} = do
+observeInitTx party ValidatedTx{wits, body} = do
   (dh, Head.Initial cp ps) <- getFirst $ foldMap (First . decodeInitDatum) datums
+  let parties = map convertParty ps
+  guard $ party `elem` parties
   (i, o) <- getFirst $ foldMap (First . findSmOutput dh) indexedOutputs
   pure
-    ( OnInitTx (contestationPeriodToDiffTime cp) (map convertParty ps)
+    ( OnInitTx (contestationPeriodToDiffTime cp) parties
     , Initial
         { threadOutput =
             (i, o, threadToken, HeadParameters (contestationPeriodToDiffTime cp) (map convertParty ps))

@@ -34,7 +34,7 @@ import Cardano.Slotting.EpochInfo (fixedEpochInfo)
 import Cardano.Slotting.Time (SystemStart (..), mkSlotLength)
 import Data.Array (array)
 import qualified Data.ByteString.Lazy as LBS
-import Data.List ((\\))
+import Data.List (nub, (\\))
 import qualified Data.Map as Map
 import Data.Maybe (fromJust)
 import qualified Data.Sequence.Strict as Seq
@@ -74,21 +74,22 @@ spec =
             datum = Head.Initial onChainPeriod onChainParties
          in Map.elems (unTxDats dats) === [Data . toData $ toBuiltinData datum]
 
-      prop "is observed" $ \txIn params ->
-        let tx = initTx params txIn
-         in isJust $ observeInitTx tx
+      prop "is observed" $ \txIn cperiod (party :| parties) ->
+        let tx = initTx (HeadParameters cperiod (party : parties)) txIn
+         in isJust $ observeInitTx party tx
 
       prop "is not observed if not invited" $ \txIn cperiod (NonEmpty parties) ->
         forAll (elements parties) $ \notInvited ->
-          let invited = parties \\ [notInvited]
+          let invited = nub parties \\ [notInvited]
               tx = initTx (HeadParameters cperiod invited) txIn
-           in isNothing (observeInitTx tx) -- TODO(SN): pass notInvited as "observing as"
+           in isNothing (observeInitTx notInvited tx)
                 & counterexample ("observing as: " <> show notInvited)
                 & counterexample ("invited: " <> show invited)
 
-      prop "updates on-chain state to 'Initial'" $ \txIn params ->
-        let tx = initTx params txIn
-            res = observeInitTx @SimpleTx tx
+      prop "updates on-chain state to 'Initial'" $ \txIn cperiod (party :| parties) ->
+        let params = HeadParameters cperiod (party : parties)
+            tx = initTx params txIn
+            res = observeInitTx @SimpleTx party tx
          in counterexample ("Result: " <> show res) $
               case res of
                 Just (_, Initial{threadOutput = (_txin, _txout, tt, ps)}) ->

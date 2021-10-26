@@ -36,8 +36,8 @@ spec = around showLogsOnFailure $ do
         aliceKeys <- keysFor "alice" cluster
         bobKeys <- keysFor "bob" cluster
         withIOManager $ \iocp -> do
-          withDirectChain (contramap (FromDirectChain "alice") tracer) magic iocp node1socket aliceKeys (putMVar calledBackAlice) $ \Chain{postTx} -> do
-            withDirectChain nullTracer magic iocp node2socket bobKeys (putMVar calledBackBob) $ \_ -> do
+          withDirectChain (contramap (FromDirectChain "alice") tracer) magic iocp node1socket aliceKeys alice (putMVar calledBackAlice) $ \Chain{postTx} -> do
+            withDirectChain nullTracer magic iocp node2socket bobKeys bob (putMVar calledBackBob) $ \_ -> do
               let parameters = HeadParameters 100 [alice, bob, carol]
               threadDelay 2
 
@@ -63,8 +63,8 @@ spec = around showLogsOnFailure $ do
         aliceKeys <- keysFor "alice" cluster
         bobKeys <- keysFor "bob" cluster
         withIOManager $ \iocp -> do
-          withDirectChain (contramap (FromDirectChain "alice") tracer) magic iocp node1socket aliceKeys (putMVar calledBackAlice) $ \Chain{postTx = alicePostTx} -> do
-            withDirectChain nullTracer magic iocp node2socket bobKeys (putMVar calledBackBob) $ \Chain{postTx = bobPostTx} -> do
+          withDirectChain (contramap (FromDirectChain "alice") tracer) magic iocp node1socket aliceKeys alice (putMVar calledBackAlice) $ \Chain{postTx = alicePostTx} -> do
+            withDirectChain nullTracer magic iocp node2socket bobKeys bob (putMVar calledBackBob) $ \Chain{postTx = bobPostTx} -> do
               threadDelay 2 -- XXX(SN): smell
               alicePostTx $ InitTx @SimpleTx $ HeadParameters 100 [alice, carol]
               failAfter 10 $
