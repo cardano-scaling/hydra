@@ -30,7 +30,6 @@ spec = around showLogsOnFailure $ do
   it "can init and abort a head given nothing has been committed" $ \tracer -> do
     calledBackAlice <- newEmptyMVar
     calledBackBob <- newEmptyMVar
-    let magic = NetworkMagic 42
     withTempDir "hydra-local-cluster" $ \tmp -> do
       let config = testClusterConfig tmp
       withCluster (contramap FromCluster tracer) config $ \cluster@(RunningCluster _ [RunningNode _ node1socket, RunningNode _ node2socket, _]) -> do
@@ -55,12 +54,34 @@ spec = around showLogsOnFailure $ do
               failAfter 10 $
                 takeMVar calledBackBob `shouldReturn` OnAbortTx @SimpleTx
 
-data TestClusterLog
-  = FromCluster ClusterLog
-  | FromDirectChain Text (DirectChainLog SimpleTx)
-  deriving (Show)
+  it "cannot abort a non-participating head" $ \tracer -> do
+    calledBackAlice <- newEmptyMVar
+    calledBackBob <- newEmptyMVar
+    withTempDir "hydra-local-cluster" $ \tmp -> do
+      let config = testClusterConfig tmp
+      withCluster (contramap FromCluster tracer) config $ \cluster@(RunningCluster _ [RunningNode _ node1socket, RunningNode _ node2socket, _]) -> do
+        aliceKeys <- keysFor "alice" cluster
+        bobKeys <- keysFor "bob" cluster
+        withIOManager $ \iocp -> do
+          withDirectChain (contramap (FromDirectChain "alice") tracer) magic iocp node1socket aliceKeys (putMVar calledBackAlice) $ \Chain{postTx = alicePostTx} -> do
+            withDirectChain nullTracer magic iocp node2socket bobKeys (putMVar calledBackBob) $ \Chain{postTx = bobPostTx} -> do
+              threadDelay 2 -- XXX(XN): smell
+              alicePostTx $ InitTx @SimpleTx $ HeadParameters 100 [alice, carol]
+              failAfter 10 $
+                takeMVar calledBackAlice `shouldReturn` OnInitTx 100 [alice, carol]
+
+              -- TODO(SN): this should fail, but how do we want to observe it?
+              bobPostTx $ AbortTx @SimpleTx mempty
+
+magic :: NetworkMagic
+magic = NetworkMagic 42
 
 alice, bob, carol :: Party
 alice = deriveParty $ generateKey 10
 bob = deriveParty $ generateKey 20
 carol = deriveParty $ generateKey 30
+
+data TestClusterLog
+  = FromCluster ClusterLog
+  | FromDirectChain Text (DirectChainLog SimpleTx)
+  deriving (Show)
