@@ -41,6 +41,7 @@ import Hydra.Chain.Direct.Tx (
 import Hydra.Chain.Direct.Util (Block, Era, defaultCodecs, nullConnectTracers, versions)
 import Hydra.Chain.Direct.Wallet (SigningKey, TinyWallet (..), TinyWalletLog, VerificationKey, withTinyWallet)
 import Hydra.Logging (Tracer, traceWith)
+import Hydra.Party (Party)
 import Ouroboros.Consensus.Cardano.Block (GenTx (..), HardForkBlock (BlockAlonzo))
 import Ouroboros.Consensus.Ledger.SupportsMempool (ApplyTxErr)
 import Ouroboros.Consensus.Network.NodeToClient (Codecs' (..))
@@ -101,10 +102,12 @@ withDirectChain tracer networkMagic iocp socketPath keyPair callback action = do
         ( connectTo
             (localSnocket iocp)
             nullConnectTracers
-            (versions networkMagic (client tracer queue headState wallet callback))
+            (versions networkMagic (client tracer queue party headState wallet callback))
             socketPath
         )
  where
+  party = undefined
+
   onIOException :: IOException -> IO ()
   onIOException ioException =
     throwIO $
@@ -127,19 +130,20 @@ client ::
   (MonadST m, MonadTimer m) =>
   Tracer m (DirectChainLog tx) ->
   TQueue m (PostChainTx tx) ->
+  Party ->
   TVar m OnChainHeadState ->
   TinyWallet m ->
   ChainCallback tx m ->
   NodeToClientVersion ->
   OuroborosApplication 'InitiatorMode LocalAddress LByteString m () Void
-client tracer queue headState wallet callback nodeToClientV =
+client tracer queue party headState wallet callback nodeToClientV =
   nodeToClientProtocols
     ( const $
         pure $
           NodeToClientProtocols
             { localChainSyncProtocol =
                 InitiatorProtocolOnly $
-                  let peer = chainSyncClientPeer $ chainSyncClient tracer callback headState
+                  let peer = chainSyncClientPeer $ chainSyncClient tracer callback party headState
                    in MuxPeer nullTracer cChainSyncCodec peer
             , localTxSubmissionProtocol =
                 InitiatorProtocolOnly $
@@ -164,9 +168,10 @@ chainSyncClient ::
   (MonadSTM m) =>
   Tracer m (DirectChainLog tx) ->
   ChainCallback tx m ->
+  Party ->
   TVar m OnChainHeadState ->
   ChainSyncClient Block (Point Block) (Tip Block) m ()
-chainSyncClient tracer callback headState =
+chainSyncClient tracer callback party headState =
   ChainSyncClient (pure initStIdle)
  where
   -- NOTE:
@@ -224,7 +229,7 @@ chainSyncClient tracer callback headState =
             -- REVIEW(SN): There seems to be no 'toList' for StrictSeq? That's
             -- why I resorted to foldMap using the list monoid ('pure')
             let txs = toList $ getAlonzoTxs blk
-            onChainTxs <- runOnChainTxs headState txs
+            onChainTxs <- runOnChainTxs party headState txs
             traceWith tracer $ ReceiveTxs txs onChainTxs
             mapM_ callback onChainTxs
             pure clientStIdle

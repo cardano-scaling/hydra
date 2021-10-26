@@ -47,7 +47,7 @@ import qualified Hydra.Contract.Head as Head
 import qualified Hydra.Contract.Initial as Initial
 import Hydra.Data.ContestationPeriod (contestationPeriodFromDiffTime, contestationPeriodToDiffTime)
 import Hydra.Data.Party (partyFromVerKey, partyToVerKey)
-import Hydra.Party (anonymousParty, vkey)
+import Hydra.Party (Party, anonymousParty, vkey)
 import Ledger.Value (AssetClass (..), currencyMPSHash)
 import Plutus.V1.Ledger.Api (MintingPolicyHash, PubKeyHash (..), fromData, toData)
 import qualified Plutus.V1.Ledger.Api as Plutus
@@ -222,19 +222,19 @@ abortTx (smInput, _token, HeadParameters{contestationPeriod, parties}) initInput
 -- NOTE(AB): I tried to separate the 2 functions, the one working on list of txs and the one
 -- working on single tx but I keep getting failed unification between `m` and `m0` which is
 -- puzzling...
-runOnChainTxs :: forall m tx. MonadSTM m => TVar m OnChainHeadState -> [ValidatedTx Era] -> m [OnChainTx tx]
-runOnChainTxs headState = fmap reverse . atomically . foldM runOnChainTx []
+runOnChainTxs :: forall m tx. MonadSTM m => Party -> TVar m OnChainHeadState -> [ValidatedTx Era] -> m [OnChainTx tx]
+runOnChainTxs party headState = fmap reverse . atomically . foldM runOnChainTx []
  where
   runOnChainTx :: [OnChainTx tx] -> ValidatedTx Era -> STM m [OnChainTx tx]
   runOnChainTx observed tx = do
-    case asum [observeInitTx tx, observeAbortTx tx] of
+    case asum [observeInitTx party tx, observeAbortTx tx] of
       Just (onChainTx, onChainHeadState) -> do
         writeTVar headState onChainHeadState
         pure $ onChainTx : observed
       Nothing -> pure observed
 
-observeInitTx :: ValidatedTx Era -> Maybe (OnChainTx tx, OnChainHeadState)
-observeInitTx ValidatedTx{wits, body} = do
+observeInitTx :: Party -> ValidatedTx Era -> Maybe (OnChainTx tx, OnChainHeadState)
+observeInitTx _party ValidatedTx{wits, body} = do
   (dh, Head.Initial cp ps) <- getFirst $ foldMap (First . decodeInitDatum) datums
   (i, o) <- getFirst $ foldMap (First . findSmOutput dh) indexedOutputs
   pure
