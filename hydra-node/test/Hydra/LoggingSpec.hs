@@ -34,10 +34,5 @@ spec = do
           , prop_specIsComplete @(HydraLog SimpleTx ()) specs apiSpecificationSelector
           ]
 
--- NOTE(AB): We need this orphan instance because it's a constraint for HydraLog
--- As any Value is valid, generating a dummy object should be good enough
-instance Arbitrary Value where
-  arbitrary = pure $ object []
-
 apiSpecificationSelector :: SpecificationSelector
 apiSpecificationSelector = key "properties" . key "message"

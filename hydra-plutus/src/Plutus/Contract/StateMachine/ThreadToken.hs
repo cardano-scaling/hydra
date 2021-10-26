@@ -12,11 +12,12 @@
 {-# LANGUAGE ViewPatterns #-}
 {-# LANGUAGE NoImplicitPrelude #-}
 {-# OPTIONS_GHC -fno-ignore-interface-pragmas #-}
-{-# OPTIONS_GHC -fplugin-opt PlutusTx.Plugin:defer-errors #-}
 
 -- | Thread token data type definition and minting policy.
 --   Thread tokens are used to identify the contract instance on the blockchain,
 --   and ensuring that the state was produced by running the state machine from its initial state.
+--
+--  ''NOTE'': Vendored from https://github.com/input-output-hk/plutus-apps/tree/d0fd9d49e6e862dc5abed41f0f07f56aafb652cf/plutus-contract/src/Plutus/Contract/StateMachine/ThreadToken.hs
 module Plutus.Contract.StateMachine.ThreadToken where
 
 import PlutusTx.Prelude hiding (Monoid (..), Semigroup (..))

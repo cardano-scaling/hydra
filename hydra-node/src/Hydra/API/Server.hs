@@ -41,8 +41,8 @@ data APIServerLog
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON)
 
-instance Arbitrary Value => Arbitrary APIServerLog where
-  arbitrary = genericArbitrary
+instance Arbitrary APIServerLog where
+  arbitrary = error "undefined"
 
 -- | Handle to provide a means for sending server outputs to clients.
 newtype Server tx m = Server
