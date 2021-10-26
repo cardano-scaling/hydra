@@ -166,24 +166,25 @@ build ::
   [(TxIn, Maybe (Script PlutusScriptV1, ScriptData, ScriptRedeemer))] ->
   [TxIn] ->
   [TxOut CtxTx AlonzoEra] ->
-  IO (TxBody AlonzoEra)
+  IO (Either TxBodyErrorAutoBalance (TxBody AlonzoEra))
 build networkId socket changeAddress txIns collateral txOuts = do
   pparams <- queryProtocolParameters networkId socket
   systemStart <- querySystemStart networkId socket
   eraHistory <- queryEraHistory networkId socket
   stakePools <- queryStakePools networkId socket
   utxo <- queryUtxoByTxIn networkId socket (map fst txIns)
-  either (throwIO . BuildException) (pure . extractBody) $
-    makeTransactionBodyAutoBalance
-      AlonzoEraInCardanoMode
-      systemStart
-      eraHistory
-      pparams
-      stakePools
-      utxo
-      (txBodyContent pparams)
-      (AddressInEra (ShelleyAddressInEra ShelleyBasedEraAlonzo) changeAddress)
-      noOverrideWitness
+  pure $
+    second extractBody $
+      makeTransactionBodyAutoBalance
+        AlonzoEraInCardanoMode
+        systemStart
+        eraHistory
+        pparams
+        stakePools
+        utxo
+        (txBodyContent pparams)
+        (AddressInEra (ShelleyAddressInEra ShelleyBasedEraAlonzo) changeAddress)
+        noOverrideWitness
  where
   txBodyContent pparams =
     TxBodyContent
@@ -266,7 +267,6 @@ submit networkId socket tx =
 data CardanoClientException
   = QueryException Text
   | SubmitException Text
-  | BuildException TxBodyErrorAutoBalance
   deriving (Show)
 
 instance Exception CardanoClientException

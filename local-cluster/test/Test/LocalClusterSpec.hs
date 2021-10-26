@@ -49,13 +49,14 @@ import Plutus.V1.Ledger.Api (toData)
 
 spec :: Spec
 spec =
-  it "should produce blocks and provide funds" $ do
+  it "should produce blocks, provide funds, and send Hydra OCV transactions" $ do
     showLogsOnFailure $ \tr ->
       withTempDir "hydra-local-cluster" $ \tmp -> do
         let config = testClusterConfig tmp
         withCluster tr config $ \cluster -> do
           failAfter 30 $ assertNetworkIsProducingBlock tr cluster
           failAfter 30 $ assertCanSpendInitialFunds cluster
+          -- TODO(AB): remove when DirectChainSpec is refactored to use cardano-api
           failAfter 30 $ assertCanCallInitAndAbort cluster
 
 assertNetworkIsProducingBlock :: Tracer IO ClusterLog -> RunningCluster -> IO ()
@@ -114,17 +115,18 @@ assertCanCallInitAndAbort = \case
           (tx : _) -> tx
         minValue = 2_000_000
     balancedHeadTx <-
-      build
-        networkId
-        socket
-        addr
-        [(txIn, Nothing)]
-        []
-        [ TxOut
-            (shelleyAddressInEra headAddress)
-            (TxOutValue MultiAssetInAlonzoEra (lovelaceToValue minValue))
-            (TxOutDatumHash ScriptDataInAlonzoEra (hashScriptData headDatum))
-        ]
+      either (error . show) pure $
+        build
+          networkId
+          socket
+          addr
+          [(txIn, Nothing)]
+          []
+          [ TxOut
+              (shelleyAddressInEra headAddress)
+              (TxOutValue MultiAssetInAlonzoEra (lovelaceToValue minValue))
+              (TxOutDatumHash ScriptDataInAlonzoEra (hashScriptData headDatum))
+          ]
 
     let headTxIn = TxIn (getTxId balancedHeadTx) (TxIx 1)
     submit networkId socket $ sign sk balancedHeadTx
@@ -139,19 +141,20 @@ assertCanCallInitAndAbort = \case
     let abortDatum = fromPlutusData $ toData Head.Final
         abortRedeemer = fromPlutusData $ toData Head.Abort
     balancedAbortTx <-
-      build
-        networkId
-        socket
-        addr
-        [ (txIn', Nothing)
-        , (headTxIn, Just (headScript, headDatum, abortRedeemer))
-        ]
-        [txIn']
-        [ TxOut
-            (shelleyAddressInEra headAddress)
-            (TxOutValue MultiAssetInAlonzoEra (lovelaceToValue minValue))
-            (TxOutDatum ScriptDataInAlonzoEra abortDatum)
-        ]
+      either (error . show) pure $
+        build
+          networkId
+          socket
+          addr
+          [ (txIn', Nothing)
+          , (headTxIn, Just (headScript, headDatum, abortRedeemer))
+          ]
+          [txIn']
+          [ TxOut
+              (shelleyAddressInEra headAddress)
+              (TxOutValue MultiAssetInAlonzoEra (lovelaceToValue minValue))
+              (TxOutDatum ScriptDataInAlonzoEra abortDatum)
+          ]
     submit networkId socket $ sign sk balancedAbortTx
     waitForPayment networkId socket minValue headAddress
   _ -> failure "Empty cluster"
