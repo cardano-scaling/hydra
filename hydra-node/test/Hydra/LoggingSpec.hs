@@ -1,12 +1,11 @@
 {-# LANGUAGE TypeApplications #-}
-{-# OPTIONS_GHC -Wno-orphans #-}
 
 module Hydra.LoggingSpec where
 
 import Hydra.Prelude
 import Test.Hydra.Prelude
 
-import Data.Aeson (Value, object, (.=))
+import Data.Aeson (object, (.=))
 import Data.Aeson.Lens (key)
 import Hydra.JSONSchema (SpecificationSelector, prop_specIsComplete, prop_validateToJSON, withJsonSpecifications)
 import Hydra.Ledger.Simple (SimpleTx)

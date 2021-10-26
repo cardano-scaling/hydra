@@ -15,7 +15,6 @@ import Control.Concurrent.STM (TChan, dupTChan, readTChan)
 import qualified Control.Concurrent.STM as STM
 import Control.Concurrent.STM.TChan (newBroadcastTChanIO, writeTChan)
 import Control.Concurrent.STM.TVar (TVar, modifyTVar', newTVarIO, readTVar)
-import Data.Aeson (Value)
 import qualified Data.Aeson as Aeson
 import Hydra.ClientInput (ClientInput)
 import Hydra.Ledger (Tx (..))
@@ -31,6 +30,7 @@ import Network.WebSockets (
   sendTextDatas,
   withPingThread,
  )
+import Test.QuickCheck (oneof)
 
 data APIServerLog
   = APIServerStarted {listeningPort :: PortNumber}
@@ -42,7 +42,14 @@ data APIServerLog
   deriving anyclass (ToJSON)
 
 instance Arbitrary APIServerLog where
-  arbitrary = error "undefined"
+  arbitrary =
+    oneof
+      [ APIServerStarted <$> arbitrary
+      , pure NewAPIConnection
+      , pure $ APIOutputSent Aeson.Null
+      , pure $ APIInputReceived Aeson.Null
+      , APIInvalidInput <$> arbitrary <*> arbitrary
+      ]
 
 -- | Handle to provide a means for sending server outputs to clients.
 newtype Server tx m = Server

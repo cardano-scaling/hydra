@@ -1,6 +1,5 @@
 {-# LANGUAGE OverloadedLists #-}
 {-# LANGUAGE TypeApplications #-}
-{-# OPTIONS_GHC -Wno-orphans #-}
 
 module Test.LogFilterSpec where
 
@@ -47,8 +46,3 @@ spec = parallel $ do
           & cover 0.9 (sizeRatio < 10.0) "reduces size by 90%"
           & tabulate "Ratios" [show (floor (sizeRatio / 10) * 10 :: Int) <> " %"]
           & checkCoverage
-
--- NOTE(AB): this is needed for generation of HydraLog instances
--- we are not much interested in covering JSON values here so a dummy instance should suffice
-instance Arbitrary Value where
-  arbitrary = pure $ object []
