@@ -28,7 +28,7 @@ import Hydra.Chain (
   Chain (..),
   ChainCallback,
   ChainComponent,
-  OnChainTx,
+  OnChainTx (PostTxFailed),
   PostChainTx (..),
  )
 import Hydra.Chain.Direct.Tx (
@@ -146,7 +146,7 @@ client tracer queue party headState wallet callback nodeToClientV =
                    in MuxPeer nullTracer cChainSyncCodec peer
             , localTxSubmissionProtocol =
                 InitiatorProtocolOnly $
-                  let peer = localTxSubmissionClientPeer $ txSubmissionClient tracer queue headState wallet
+                  let peer = localTxSubmissionClientPeer $ txSubmissionClient tracer queue callback headState wallet
                    in MuxPeer nullTracer cTxSubmissionCodec peer
             , localStateQueryProtocol =
                 InitiatorProtocolOnly $
@@ -243,41 +243,50 @@ txSubmissionClient ::
   MonadSTM m =>
   Tracer m (DirectChainLog tx) ->
   TQueue m (PostChainTx tx) ->
+  ChainCallback tx m ->
   TVar m OnChainHeadState ->
   TinyWallet m ->
   LocalTxSubmissionClient (GenTx Block) (ApplyTxErr Block) m ()
-txSubmissionClient tracer queue headState TinyWallet{getUtxo, sign, coverFee} =
+txSubmissionClient tracer queue callback headState TinyWallet{getUtxo, sign, coverFee} =
   LocalTxSubmissionClient clientStIdle
  where
   clientStIdle :: m (LocalTxClientStIdle (GenTx Block) (ApplyTxErr Block) m ())
   clientStIdle = do
-    (tx, signedTx) <- atomically $ do
+    -- XXX(SN): This is a bit too much stair-casing (caused by the atomically and ad-hoc Maybe's)
+    res <- atomically $ do
       tx <- readTQueue queue
-      partialTx <- fromPostChainTx tx
-      utxo <- knownUtxo <$> readTVar headState
-      coverFee utxo partialTx >>= \case
-        Left e ->
-          error ("failed to cover fee for transaction: " <> show e <> ", " <> show partialTx)
-        Right validatedTx -> do
-          pure (tx, sign validatedTx)
+      fromPostChainTx tx >>= \case
+        Nothing -> pure Nothing
+        Just partialTx -> do
+          utxo <- knownUtxo <$> readTVar headState
+          coverFee utxo partialTx >>= \case
+            Left e ->
+              error ("failed to cover fee for transaction: " <> show e <> ", " <> show partialTx)
+            Right validatedTx -> do
+              pure $ Just (tx, sign validatedTx)
 
-    traceWith tracer (PostTx tx signedTx)
-      $> SendMsgSubmitTx
-        (GenTxAlonzo . mkShelleyTx $ signedTx)
-        (const clientStIdle)
+    case res of
+      Nothing -> do
+        callback PostTxFailed
+        clientStIdle
+      Just (tx, signedTx) ->
+        traceWith tracer (PostTx tx signedTx)
+          $> SendMsgSubmitTx
+            (GenTxAlonzo . mkShelleyTx $ signedTx)
+            (const clientStIdle)
 
-  fromPostChainTx :: PostChainTx tx -> STM m (ValidatedTx Era)
+  fromPostChainTx :: PostChainTx tx -> STM m (Maybe (ValidatedTx Era))
   fromPostChainTx = \case
     InitTx p -> do
       txIns <- keys <$> getUtxo
       case txIns of
-        (seedInput : _) -> pure $ initTx p seedInput
+        (seedInput : _) -> pure . Just $ initTx p seedInput
         [] -> error "cannot find a seed input to pass to Init transaction"
     AbortTx _utxo -> do
       readTVar headState >>= \case
         Initial{threadOutput = (i, _, tk, hp), initials} ->
-          pure $ abortTx (i, tk, hp) initials
-        st -> error $ "cannot post Abort transaction in state " <> show st
+          pure . Just $ abortTx (i, tk, hp) initials
+        _st -> pure Nothing
     _ -> error "not implemented"
 
 --
