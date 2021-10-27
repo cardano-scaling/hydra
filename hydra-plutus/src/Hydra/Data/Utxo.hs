@@ -3,9 +3,14 @@ module Hydra.Data.Utxo where
 
 import Hydra.Prelude
 
-import qualified PlutusTx
+import PlutusTx (FromData (..))
+import PlutusTx.Builtins (BuiltinByteString)
+import PlutusTx.Builtins.Internal (BuiltinByteString (..))
 
-data Utxo = Utxo
+newtype Utxo = Utxo BuiltinByteString
 
-instance PlutusTx.FromData Utxo where
-  fromBuiltinData _ = pure Utxo
+instance FromData Utxo where
+  fromBuiltinData = fmap Utxo . fromBuiltinData
+
+toByteString :: Utxo -> ByteString
+toByteString (Utxo (BuiltinByteString bytes)) = bytes

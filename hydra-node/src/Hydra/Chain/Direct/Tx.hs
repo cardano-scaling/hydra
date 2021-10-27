@@ -41,6 +41,7 @@ import Cardano.Ledger.ShelleyMA.Timelocks (ValidityInterval (..))
 import Cardano.Ledger.Val (inject)
 import Control.Monad (foldM)
 import Control.Monad.Class.MonadSTM (MonadSTMTx (writeTVar))
+import qualified Data.Aeson as Aeson
 import qualified Data.Map as Map
 import Data.Maybe.Strict (strictMaybeToMaybe)
 import qualified Data.Sequence.Strict as StrictSeq
@@ -326,11 +327,11 @@ convertParty :: OnChain.Party -> Party
 convertParty = anonymousParty . partyToVerKey
 
 -- | Identify a commit tx by looking for an output which pays to v_commit.
-observeCommitTx :: forall tx. ValidatedTx Era -> Maybe (OnChainTx tx)
+observeCommitTx :: forall tx. Tx tx => ValidatedTx Era -> Maybe (OnChainTx tx)
 observeCommitTx ValidatedTx{wits, body} = do
   txOut <- findCommitOutput
   (party, utxo) <- decodeCommitDatum txOut
-  pure $ OnCommitTx (convertParty party) (convertUtxo utxo)
+  OnCommitTx (convertParty party) <$> convertUtxo utxo
  where
   findCommitOutput =
     find payToCommitScript (outputs body)
@@ -344,8 +345,8 @@ observeCommitTx ValidatedTx{wits, body} = do
   payToCommitScript (TxOut address _ _) =
     address == scriptAddr (plutusScript MockCommit.validatorScript)
 
-  convertUtxo :: OnChain.Utxo -> Utxo tx
-  convertUtxo = undefined
+  convertUtxo :: OnChain.Utxo -> Maybe (Utxo tx)
+  convertUtxo = Aeson.decodeStrict' . OnChain.toByteString
 
 -- | Identify an abort tx by trying to decode all redeemers to the right type.
 -- This is a very weak observation and should be more concretized.
