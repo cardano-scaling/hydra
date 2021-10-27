@@ -25,13 +25,12 @@ import qualified Data.Sequence.Strict as StrictSeq
 import qualified Data.Set as Set
 import Hydra.Chain.Direct.Fixture (pparams)
 import Hydra.Chain.Direct.MockServer (withMockServer)
-import Hydra.Chain.Direct.Util (Era)
+import Hydra.Chain.Direct.Util (VerificationKey, Era)
 import Hydra.Chain.Direct.Wallet (
   Address,
   TinyWallet (..),
   TxIn,
   TxOut,
-  VerificationKey,
   applyBlock,
   coverFee_,
   withTinyWallet,

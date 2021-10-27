@@ -41,7 +41,7 @@ import qualified Data.Sequence.Strict as Seq
 import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
 import Hydra.Chain (HeadParameters (..), PostChainTx (..))
 import Hydra.Chain.Direct.Fixture (maxTxSize, pparams)
-import Hydra.Chain.Direct.Tx (OnChainHeadState (..), abortTx, initTx, observeAbortTx, observeInitTx, plutusScript, scriptAddr, threadToken)
+import Hydra.Chain.Direct.Tx (OnChainHeadState (..), abortTx, commitTx, initTx, observeAbortTx, observeInitTx, plutusScript, scriptAddr, threadToken)
 import Hydra.Chain.Direct.Util (Era)
 import Hydra.Chain.Direct.Wallet (coverFee_)
 import qualified Hydra.Contract.Commit as Commit
@@ -49,6 +49,7 @@ import qualified Hydra.Contract.Head as Head
 import qualified Hydra.Contract.Initial as Initial
 import Hydra.Data.ContestationPeriod (contestationPeriodFromDiffTime)
 import Hydra.Data.Party (partyFromVerKey)
+import Hydra.Ledger (Utxo)
 import Hydra.Ledger.Simple (SimpleTx)
 import Hydra.Party (vkey)
 import Ledger.Value (currencyMPSHash, unAssetClass)
@@ -96,6 +97,15 @@ spec =
                   tt === threadToken
                     .&&. ps === params
                 _ -> property False
+
+    describe "commitTx" $ do
+      prop "is observed" $ \txIn (utxo :: Utxo SimpleTx) party ->
+        let tx = commitTx @SimpleTx party utxo txIn
+            cbor = serialize tx
+            len = LBS.length cbor
+         in len < maxTxSize
+              & counterexample ("Tx: " <> show tx)
+              & counterexample ("Tx serialized size: " <> show len)
 
     describe "abortTx" $ do
       -- NOTE(AB): This property fails if the list generated is arbitrarily long
