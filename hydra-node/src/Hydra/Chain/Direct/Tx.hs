@@ -137,7 +137,44 @@ commitTx ::
   -- locked by initial script
   (TxIn StandardCrypto, PubKeyHash) ->
   ValidatedTx Era
-commitTx = error "not implemented"
+commitTx _party _utxo (initialIn, _pkh) =
+  mkUnsignedTx body datums redeemers scripts
+ where
+  body =
+    TxBody
+      { inputs = Set.singleton initialIn
+      , collateral = mempty
+      , outputs =
+          StrictSeq.fromList
+            [ TxOut
+                (scriptAddr commitScript)
+                (inject $ Coin 2000000) -- TODO: Value of utxo + whatever is in initialIn
+                (SJust $ hashData @Era commitDatum)
+            ]
+      , txcerts = mempty
+      , txwdrls = Wdrl mempty
+      , txfee = Coin 0
+      , txvldt = ValidityInterval SNothing SNothing
+      , txUpdates = SNothing
+      , reqSignerHashes = mempty
+      , mint = mempty
+      , scriptIntegrityHash = SNothing
+      , adHash = SNothing
+      , txnetworkid = SNothing
+      }
+
+  datums =
+    datumsFromList [commitDatum]
+
+  redeemers = redeemersFromList []
+
+  scripts = fromList $ map withScriptHash [initialScript]
+
+  initialScript = undefined
+
+  commitScript = undefined
+
+  commitDatum = undefined
 
 -- | Create transaction which aborts by spending one input. This is currently
 -- only possible if this is governed by the initial script and only for a single
