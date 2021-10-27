@@ -16,7 +16,7 @@ import Cardano.Api.Shelley (
  )
 import Cardano.Slotting.Time (SystemStart)
 import qualified Data.Set as Set
-import qualified Hydra.Chain.Direct.Wallet as Hydra
+import qualified Hydra.Chain.Direct.Util as Hydra
 import Ouroboros.Consensus.HardFork.Combinator.AcrossEras (EraMismatch)
 import Ouroboros.Network.Protocol.LocalTxSubmission.Client (SubmitResult (..))
 

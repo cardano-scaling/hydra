@@ -1,4 +1,5 @@
 {-# LANGUAGE BangPatterns #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications #-}
 
 -- | Chain component implementation which uses directly the Node-to-Client
@@ -34,13 +35,14 @@ import Hydra.Chain (
 import Hydra.Chain.Direct.Tx (
   OnChainHeadState (..),
   abortTx,
+  commitTx,
   initTx,
   knownUtxo,
+  ownInitial,
   runOnChainTxs,
  )
 import Hydra.Chain.Direct.Util (Block, Era, SigningKey, VerificationKey, defaultCodecs, nullConnectTracers, versions)
 import Hydra.Chain.Direct.Wallet (TinyWallet (..), TinyWalletLog, withTinyWallet)
-import Hydra.Ledger (Utxo)
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Party (Party)
 import Ouroboros.Consensus.Cardano.Block (GenTx (..), HardForkBlock (BlockAlonzo))
@@ -248,7 +250,7 @@ txSubmissionClient ::
   TVar m OnChainHeadState ->
   TinyWallet m ->
   LocalTxSubmissionClient (GenTx Block) (ApplyTxErr Block) m ()
-txSubmissionClient tracer queue callback headState TinyWallet{getUtxo, sign, coverFee} =
+txSubmissionClient tracer queue callback headState TinyWallet{getUtxo, sign, coverFee, verificationKey} =
   LocalTxSubmissionClient clientStIdle
  where
   clientStIdle :: m (LocalTxClientStIdle (GenTx Block) (ApplyTxErr Block) m ())
@@ -291,8 +293,9 @@ txSubmissionClient tracer queue callback headState TinyWallet{getUtxo, sign, cov
         _st -> pure Nothing
     CommitTx party utxo ->
       readTVar headState >>= \case
-        Initial{initials} ->
-          pure $ Just $ commitTx party utxo (ownInitial verificationKey initials)
+        Initial{initials} -> pure $ do
+          initial <- ownInitial verificationKey initials
+          pure $ commitTx @tx party utxo initial
         _st -> pure Nothing
     _ -> error "not implemented"
 
