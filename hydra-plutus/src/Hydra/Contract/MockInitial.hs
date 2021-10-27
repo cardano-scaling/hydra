@@ -4,38 +4,36 @@
 
 -- | A mock script to focus on the off-chain datum types without having to worry
 -- about on-chain validation.
-module Hydra.Contract.MockCommit where
+module Hydra.Contract.MockInitial where
 
 import Ledger hiding (validatorHash)
 import PlutusTx.Prelude
 
-import Hydra.Data.Party (Party)
-import Hydra.Data.Utxo (Utxo)
 import Ledger.Typed.Scripts (TypedValidator, ValidatorType, ValidatorTypes (..))
 import qualified Ledger.Typed.Scripts as Scripts
 import PlutusTx (CompiledCode)
 import qualified PlutusTx
 import PlutusTx.IsData.Class (ToData (..))
 
-data Commit
+data Initial
 
-instance Scripts.ValidatorTypes Commit where
-  type DatumType Commit = (Party, Utxo)
-  type RedeemerType Commit = ()
+instance Scripts.ValidatorTypes Initial where
+  type DatumType Initial = PubKeyHash
+  type RedeemerType Initial = ()
 
-validator :: DatumType Commit -> RedeemerType Commit -> ScriptContext -> Bool
+validator :: DatumType Initial -> RedeemerType Initial -> ScriptContext -> Bool
 validator _datum _redeemer _ctx = True
 
-compiledValidator :: CompiledCode (ValidatorType Commit)
+compiledValidator :: CompiledCode (ValidatorType Initial)
 compiledValidator = $$(PlutusTx.compile [||validator||])
 
 {- ORMOLU_DISABLE -}
-typedValidator :: TypedValidator Commit
-typedValidator = Scripts.mkTypedValidator @Commit
+typedValidator :: TypedValidator Initial
+typedValidator = Scripts.mkTypedValidator @Initial
   compiledValidator
   $$(PlutusTx.compile [|| wrap ||])
  where
-  wrap = Scripts.wrapValidator @(DatumType Commit) @(RedeemerType Commit)
+  wrap = Scripts.wrapValidator @(DatumType Initial) @(RedeemerType Initial)
 {- ORMOLU_ENABLE -}
 
 -- | Get the actual plutus script. Mainly used to serialize and use in
@@ -46,8 +44,11 @@ validatorScript = unValidatorScript $ Scripts.validatorScript typedValidator
 validatorHash :: ValidatorHash
 validatorHash = Scripts.validatorHash typedValidator
 
-datum :: DatumType Commit -> Datum
+datum :: DatumType Initial -> Datum
 datum a = Datum (toBuiltinData a)
+
+redeemer :: RedeemerType Initial -> Redeemer
+redeemer a = Redeemer (toBuiltinData a)
 
 address :: Address
 address = scriptHashAddress validatorHash
