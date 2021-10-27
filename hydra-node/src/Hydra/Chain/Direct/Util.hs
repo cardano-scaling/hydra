@@ -5,7 +5,8 @@ module Hydra.Chain.Direct.Util where
 import Hydra.Prelude
 
 import Cardano.Chain.Slotting (EpochSlots (..))
-import Cardano.Ledger.Crypto (StandardCrypto)
+import qualified Cardano.Crypto.DSIGN as Crypto
+import Cardano.Ledger.Crypto (DSIGN, StandardCrypto)
 import Control.Tracer (nullTracer)
 import Data.Map.Strict ((!))
 import qualified Data.Map.Strict as Map
@@ -43,6 +44,8 @@ import Test.Cardano.Ledger.Alonzo.Serialisation.Generators ()
 type Block = CardanoBlock StandardCrypto
 
 type Era = AlonzoEra StandardCrypto
+type VerificationKey = Crypto.VerKeyDSIGN (DSIGN StandardCrypto)
+type SigningKey = Crypto.SignKeyDSIGN (DSIGN StandardCrypto)
 
 --
 -- Tracers

@@ -62,6 +62,8 @@ import Hydra.Chain.Direct.Tx (redeemersFromList)
 import Hydra.Chain.Direct.Util (
   Block,
   Era,
+  SigningKey,
+  VerificationKey,
   defaultCodecs,
   nullConnectTracers,
   versions,
@@ -116,8 +118,6 @@ import Test.QuickCheck (generate)
 
 type Address = Ledger.Addr StandardCrypto
 type TxBody = Ledger.TxBody Era
-type VerificationKey = Crypto.VerKeyDSIGN (DSIGN StandardCrypto)
-type SigningKey = Crypto.SignKeyDSIGN (DSIGN StandardCrypto)
 type TxIn = Ledger.TxIn StandardCrypto
 type TxOut = Ledger.TxOut Era
 type VkWitness = Ledger.WitVKey 'Ledger.Witness StandardCrypto
@@ -135,6 +135,7 @@ data TinyWallet m = TinyWallet
   , getAddress :: Address
   , sign :: ValidatedTx Era -> ValidatedTx Era
   , coverFee :: Map TxIn TxOut -> ValidatedTx Era -> STM m (Either ErrCoverFee (ValidatedTx Era))
+  , verificationKey :: VerificationKey
   }
 
 withTinyWallet ::
@@ -189,6 +190,7 @@ withTinyWallet tracer magic (vk, sk) iocp addr action = do
               pure (Left e)
             Right (walletUtxo', balancedTx) ->
               swapTMVar utxoVar (walletUtxo', pparams) $> Right balancedTx
+      , verificationKey = vk
       }
 
 -- | Apply a block to our wallet. Does nothing if the transaction does not

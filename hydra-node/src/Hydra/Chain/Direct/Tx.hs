@@ -42,11 +42,13 @@ import qualified Data.Map as Map
 import qualified Data.Sequence.Strict as StrictSeq
 import qualified Data.Set as Set
 import Hydra.Chain (HeadParameters (..), OnChainTx (OnAbortTx, OnInitTx))
+import Hydra.Chain.Direct.Util (VerificationKey)
 import qualified Hydra.Contract.Commit as Commit
 import qualified Hydra.Contract.Head as Head
 import qualified Hydra.Contract.Initial as Initial
 import Hydra.Data.ContestationPeriod (contestationPeriodFromDiffTime, contestationPeriodToDiffTime)
 import Hydra.Data.Party (partyFromVerKey, partyToVerKey)
+import Hydra.Ledger (Utxo)
 import Hydra.Party (Party, anonymousParty, vkey)
 import Ledger.Value (AssetClass (..), currencyMPSHash)
 import Plutus.V1.Ledger.Api (MintingPolicyHash, PubKeyHash (..), fromData, toData)
@@ -70,12 +72,14 @@ data OnChainHeadState
         -- This output should always be present and 'threaded' across all
         -- transactions.
         threadOutput :: (TxIn StandardCrypto, TxOut Era, AssetClass, HeadParameters)
-      , -- TODO initials should be a list of inputs/PubKeyHas
-        -- TODO add commits
+      , -- TODO add commits
         initials :: [(TxIn StandardCrypto, PubKeyHash)]
       }
   | Final
   deriving (Eq, Show, Generic)
+
+ownInitial :: VerificationKey -> [(TxIn StandardCrypto, PubKeyHash)] -> Maybe (TxIn StandardCrypto, PubKeyHash)
+ownInitial = error "undefined"
 
 -- FIXME: should not be hardcoded, for testing purposes only
 threadToken :: AssetClass
@@ -125,6 +129,15 @@ initTx HeadParameters{contestationPeriod, parties} txIn =
       Head.Initial
         (contestationPeriodFromDiffTime contestationPeriod)
         (map (partyFromVerKey . vkey) parties)
+
+commitTx ::
+  Party ->
+  Utxo tx ->
+  -- | The inital output (sent to each party) which should contain the PT and is
+  -- locked by initial script
+  (TxIn StandardCrypto, PubKeyHash) ->
+  ValidatedTx Era
+commitTx = error "not implemented"
 
 -- | Create transaction which aborts by spending one input. This is currently
 -- only possible if this is governed by the initial script and only for a single

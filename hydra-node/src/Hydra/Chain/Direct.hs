@@ -38,8 +38,9 @@ import Hydra.Chain.Direct.Tx (
   knownUtxo,
   runOnChainTxs,
  )
-import Hydra.Chain.Direct.Util (Block, Era, defaultCodecs, nullConnectTracers, versions)
-import Hydra.Chain.Direct.Wallet (SigningKey, TinyWallet (..), TinyWalletLog, VerificationKey, withTinyWallet)
+import Hydra.Chain.Direct.Util (Block, Era, SigningKey, VerificationKey, defaultCodecs, nullConnectTracers, versions)
+import Hydra.Chain.Direct.Wallet (TinyWallet (..), TinyWalletLog, withTinyWallet)
+import Hydra.Ledger (Utxo)
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Party (Party)
 import Ouroboros.Consensus.Cardano.Block (GenTx (..), HardForkBlock (BlockAlonzo))
@@ -287,6 +288,11 @@ txSubmissionClient tracer queue callback headState TinyWallet{getUtxo, sign, cov
       readTVar headState >>= \case
         Initial{threadOutput = (i, _, tk, hp), initials} ->
           pure . Just $ abortTx (i, tk, hp) initials
+        _st -> pure Nothing
+    CommitTx party utxo ->
+      readTVar headState >>= \case
+        Initial{initials} ->
+          pure $ Just $ commitTx party utxo (ownInitial verificationKey initials)
         _st -> pure Nothing
     _ -> error "not implemented"
 
