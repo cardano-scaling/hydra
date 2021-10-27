@@ -10,6 +10,7 @@ import Ledger hiding (validatorHash)
 import PlutusTx.Prelude
 
 import Hydra.Data.Party (Party)
+import Hydra.Data.Utxo (Utxo)
 import Ledger.Typed.Scripts (TypedValidator, ValidatorType, ValidatorTypes (..))
 import qualified Ledger.Typed.Scripts as Scripts
 import PlutusTx (CompiledCode)
@@ -19,10 +20,10 @@ import PlutusTx.IsData.Class (ToData (..))
 data Commit
 
 instance Scripts.ValidatorTypes Commit where
-  type DatumType Commit = Party
+  type DatumType Commit = (Party, Utxo)
   type RedeemerType Commit = ()
 
-validator :: Party -> () -> ScriptContext -> Bool
+validator :: (Party, Utxo) -> () -> ScriptContext -> Bool
 validator _datum _redeemer _ctx = True
 
 compiledValidator :: CompiledCode (ValidatorType Commit)
