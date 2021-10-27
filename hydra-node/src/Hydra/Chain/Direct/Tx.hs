@@ -13,7 +13,7 @@ import Hydra.Prelude
 
 import Cardano.Binary (serialize)
 import Cardano.Ledger.Address (Addr (Addr))
-import Cardano.Ledger.Alonzo (AlonzoEra, Script)
+import Cardano.Ledger.Alonzo (Script)
 import Cardano.Ledger.Alonzo.Data (Data (Data), DataHash, getPlutusData, hashData)
 import Cardano.Ledger.Alonzo.Language (Language (PlutusV1))
 import Cardano.Ledger.Alonzo.Scripts (ExUnits (..), Script (PlutusScript))
@@ -45,7 +45,7 @@ import qualified Data.Map as Map
 import qualified Data.Sequence.Strict as StrictSeq
 import qualified Data.Set as Set
 import Hydra.Chain (HeadParameters (..), OnChainTx (OnAbortTx, OnInitTx))
-import Hydra.Chain.Direct.Util (VerificationKey)
+import Hydra.Chain.Direct.Util (Era, VerificationKey)
 import qualified Hydra.Contract.Commit as Commit
 import qualified Hydra.Contract.Head as Head
 import qualified Hydra.Contract.Initial as Initial
@@ -62,8 +62,6 @@ import Plutus.V1.Ledger.Value (assetClass, currencySymbol, tokenName)
 -- TODO(SN): parameterize
 network :: Network
 network = Testnet
-
-type Era = AlonzoEra StandardCrypto
 
 -- * Post Hydra Head transactions
 
@@ -321,6 +319,9 @@ observeInitTx party ValidatedTx{wits, body} = do
 
   convertParty =
     anonymousParty . partyToVerKey
+
+observeCommitTx :: ValidatedTx Era -> Maybe (OnChainTx tx, OnChainHeadState)
+observeCommitTx = undefined
 
 -- | Identify an abort tx by trying to decode all redeemers to the right type.
 -- This is a very weak observation and should be more concretized.

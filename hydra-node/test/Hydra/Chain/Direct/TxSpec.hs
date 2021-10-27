@@ -9,6 +9,8 @@ module Hydra.Chain.Direct.TxSpec where
 import Hydra.Prelude hiding (label)
 import Test.Hydra.Prelude
 
+import Hydra.Chain.Direct.Tx
+
 import Cardano.Binary (serialize)
 import Cardano.Ledger.Alonzo (TxOut)
 import Cardano.Ledger.Alonzo.Data (Data (Data), hashData)
@@ -39,9 +41,8 @@ import qualified Data.Map as Map
 import Data.Maybe (fromJust)
 import qualified Data.Sequence.Strict as Seq
 import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
-import Hydra.Chain (HeadParameters (..), PostChainTx (..))
+import Hydra.Chain (HeadParameters (..), OnChainTx (..), PostChainTx (..))
 import Hydra.Chain.Direct.Fixture (maxTxSize, pparams)
-import Hydra.Chain.Direct.Tx (OnChainHeadState (..), abortTx, commitTx, initTx, observeAbortTx, observeInitTx, plutusScript, scriptAddr, threadToken)
 import Hydra.Chain.Direct.Util (Era)
 import Hydra.Chain.Direct.Wallet (coverFee_)
 import qualified Hydra.Contract.Commit as Commit
@@ -76,8 +77,13 @@ spec =
          in Map.elems (unTxDats dats) === [Data . toData $ toBuiltinData datum]
 
       prop "is observed" $ \txIn cperiod (party :| parties) ->
-        let tx = initTx (HeadParameters cperiod (party : parties)) txIn
-         in isJust $ observeInitTx party tx
+        let params = HeadParameters cperiod (party : parties)
+            tx = initTx params txIn
+            observed = observeInitTx @SimpleTx party tx
+         in case observed of
+              Just (octx, _) -> octx === OnInitTx cperiod (party : parties)
+              _ -> property False
+              & counterexample ("Observed: " <> show observed)
 
       prop "is not observed if not invited" $ \txIn cperiod (NonEmpty parties) ->
         forAll (elements parties) $ \notInvited ->
@@ -91,21 +97,31 @@ spec =
         let params = HeadParameters cperiod (party : parties)
             tx = initTx params txIn
             res = observeInitTx @SimpleTx party tx
-         in counterexample ("Result: " <> show res) $
-              case res of
-                Just (_, Initial{threadOutput = (_txin, _txout, tt, ps)}) ->
-                  tt === threadToken
-                    .&&. ps === params
-                _ -> property False
+         in case res of
+              Just (_, Initial{threadOutput = (_txin, _txout, tt, ps)}) ->
+                tt === threadToken
+                  .&&. ps === params
+              _ -> property False
+              & counterexample ("Result: " <> show res)
 
     describe "commitTx" $ do
-      prop ("transaction size below limit (" <> show maxTxSize <> ")") $ \txIn (utxo :: Utxo SimpleTx) party ->
-        let tx = commitTx @SimpleTx party utxo txIn
-            cbor = serialize tx
-            len = LBS.length cbor
-         in len < maxTxSize
-              & counterexample ("Tx: " <> show tx)
-              & counterexample ("Tx serialized size: " <> show len)
+      prop ("transaction size below limit (" <> show maxTxSize <> ")") $
+        \party (utxo :: Utxo SimpleTx) initialIn ->
+          let tx = commitTx @SimpleTx party utxo initialIn
+              cbor = serialize tx
+              len = LBS.length cbor
+           in len < maxTxSize
+                & counterexample ("Tx: " <> show tx)
+                & counterexample ("Tx serialized size: " <> show len)
+
+      prop "is observed" $
+        \party (utxo :: Utxo SimpleTx) initialIn ->
+          let tx = commitTx @SimpleTx party utxo initialIn
+              observed = observeCommitTx @SimpleTx tx
+           in case observed of
+                Just (octx, _) -> octx === OnCommitTx{party, committed = utxo}
+                _ -> property False
+                & counterexample ("Observed: " <> show observed)
 
     describe "abortTx" $ do
       -- NOTE(AB): This property fails if the list generated is arbitrarily long
