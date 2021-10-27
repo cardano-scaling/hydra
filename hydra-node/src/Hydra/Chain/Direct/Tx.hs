@@ -42,6 +42,7 @@ import Cardano.Ledger.Val (inject)
 import Control.Monad (foldM)
 import Control.Monad.Class.MonadSTM (MonadSTMTx (writeTVar))
 import qualified Data.Map as Map
+import Data.Maybe.Strict (strictMaybeToMaybe)
 import qualified Data.Sequence.Strict as StrictSeq
 import qualified Data.Set as Set
 import Hydra.Chain (HeadParameters (..), OnChainTx (OnAbortTx, OnCommitTx, OnInitTx))
@@ -322,7 +323,7 @@ observeInitTx party ValidatedTx{wits, body} = do
 
 -- | Identify a commit tx by looking for an output which pays to v_commit.
 observeCommitTx :: ValidatedTx Era -> Maybe (OnChainTx tx)
-observeCommitTx ValidatedTx{body} = do
+observeCommitTx ValidatedTx{wits, body} = do
   txOut <- findCommitOutput
   (party, utxo) <- decodeCommitDatum txOut
   pure $ OnCommitTx party utxo
@@ -330,7 +331,11 @@ observeCommitTx ValidatedTx{body} = do
   findCommitOutput =
     find payToCommitScript (outputs body)
 
-  decodeCommitDatum = undefined
+  decodeCommitDatum (TxOut _ _ datumHash) =
+    strictMaybeToMaybe datumHash >>= lookupDatum
+
+  lookupDatum datumHash =
+    Map.lookup datumHash . unTxDats $ txdats wits
 
   payToCommitScript (TxOut address _ _) =
     address == scriptAddr (plutusScript MockCommit.validatorScript)
