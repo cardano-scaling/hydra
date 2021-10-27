@@ -55,6 +55,7 @@ import qualified Hydra.Contract.MockCommit as MockCommit
 import Hydra.Data.ContestationPeriod (contestationPeriodFromDiffTime, contestationPeriodToDiffTime)
 import Hydra.Data.Party (partyFromVerKey, partyToVerKey)
 import qualified Hydra.Data.Party as OnChain
+import Hydra.Data.Utxo (fromByteString)
 import qualified Hydra.Data.Utxo as OnChain
 import Hydra.Ledger (Tx, Utxo)
 import Hydra.Party (Party, anonymousParty, vkey)
@@ -140,13 +141,14 @@ initTx HeadParameters{contestationPeriod, parties} txIn =
         (map (partyFromVerKey . vkey) parties)
 
 commitTx ::
+  Tx tx =>
   Party ->
   Utxo tx ->
   -- | The inital output (sent to each party) which should contain the PT and is
   -- locked by initial script
   (TxIn StandardCrypto, PubKeyHash) ->
   ValidatedTx Era
-commitTx party _utxo (initialIn, _pkh) =
+commitTx party utxo (initialIn, _pkh) =
   mkUnsignedTx body datums redeemers scripts
  where
   body =
@@ -185,7 +187,9 @@ commitTx party _utxo (initialIn, _pkh) =
 
   commitDatum =
     Data . toData $
-      MockCommit.datum (partyFromVerKey $ vkey party)
+      MockCommit.datum (partyFromVerKey $ vkey party, commitUtxo)
+
+  commitUtxo = fromByteString $ toStrict $ Aeson.encode utxo
 
 -- | Create transaction which aborts by spending one input. This is currently
 -- only possible if this is governed by the initial script and only for a single

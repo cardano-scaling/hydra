@@ -43,6 +43,7 @@ import Hydra.Chain.Direct.Tx (
  )
 import Hydra.Chain.Direct.Util (Block, Era, SigningKey, VerificationKey, defaultCodecs, nullConnectTracers, versions)
 import Hydra.Chain.Direct.Wallet (TinyWallet (..), TinyWalletLog, withTinyWallet)
+import Hydra.Ledger (Tx)
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Party (Party)
 import Ouroboros.Consensus.Cardano.Block (GenTx (..), HardForkBlock (BlockAlonzo))
@@ -84,6 +85,7 @@ import Ouroboros.Network.Protocol.LocalTxSubmission.Client (
 import Test.Cardano.Ledger.Alonzo.Serialisation.Generators ()
 
 withDirectChain ::
+  Tx tx =>
   -- | Tracer for logging
   Tracer IO (DirectChainLog tx) ->
   -- | Network identifer to which we expect to connect.
@@ -129,7 +131,7 @@ data ConnectException = ConnectException
 instance Exception ConnectException
 
 client ::
-  (MonadST m, MonadTimer m) =>
+  (MonadST m, MonadTimer m, Tx tx) =>
   Tracer m (DirectChainLog tx) ->
   TQueue m (PostChainTx tx) ->
   Party ->
@@ -243,7 +245,7 @@ chainSyncClient tracer callback party headState =
 
 txSubmissionClient ::
   forall m tx.
-  MonadSTM m =>
+  (MonadSTM m, Tx tx) =>
   Tracer m (DirectChainLog tx) ->
   TQueue m (PostChainTx tx) ->
   ChainCallback tx m ->

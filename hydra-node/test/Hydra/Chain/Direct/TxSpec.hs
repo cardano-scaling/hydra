@@ -111,6 +111,7 @@ spec =
               cbor = serialize tx
               len = LBS.length cbor
            in len < maxTxSize
+                & label (show (len `div` 1024) <> "kB")
                 & counterexample ("Tx: " <> show tx)
                 & counterexample ("Tx serialized size: " <> show len)
 
@@ -127,9 +128,10 @@ spec =
         let tx = abortTx (txIn, threadToken, params) (take 10 initials)
             cbor = serialize tx
             len = LBS.length cbor
-         in counterexample ("Tx: " <> show tx) $
-              counterexample ("Tx serialized size: " <> show len) $
-                len < maxTxSize
+         in len < maxTxSize
+              & label (show (len `div` 1024) <> "kB")
+              & counterexample ("Tx: " <> show tx)
+              & counterexample ("Tx serialized size: " <> show len)
 
       prop "updates on-chain state to 'Final'" $ \txIn params (NonEmpty initials) ->
         let tx = abortTx (txIn, threadToken, params) initials
