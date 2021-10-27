@@ -144,7 +144,7 @@ commitTx ::
   -- locked by initial script
   (TxIn StandardCrypto, PubKeyHash) ->
   ValidatedTx Era
-commitTx _party _utxo (initialIn, _pkh) =
+commitTx party _utxo (initialIn, _pkh) =
   mkUnsignedTx body datums redeemers scripts
  where
   body =
@@ -181,7 +181,9 @@ commitTx _party _utxo (initialIn, _pkh) =
 
   commitScript = plutusScript MockCommit.validatorScript
 
-  commitDatum = Data . toData $ MockCommit.datum ()
+  commitDatum =
+    Data . toData $
+      MockCommit.datum (partyFromVerKey $ vkey party)
 
 -- | Create transaction which aborts by spending one input. This is currently
 -- only possible if this is governed by the initial script and only for a single

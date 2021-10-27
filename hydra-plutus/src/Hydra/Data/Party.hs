@@ -3,6 +3,7 @@
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeApplications #-}
 
+-- TODO(SN): rename to /= Data but something which hints at "OnChain"
 module Hydra.Data.Party where
 
 import Hydra.Prelude hiding (init)

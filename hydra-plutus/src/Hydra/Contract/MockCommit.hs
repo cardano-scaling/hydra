@@ -9,6 +9,7 @@ module Hydra.Contract.MockCommit where
 import Ledger hiding (validatorHash)
 import PlutusTx.Prelude
 
+import Hydra.Data.Party (Party)
 import Ledger.Typed.Scripts (TypedValidator, ValidatorType, ValidatorTypes (..))
 import qualified Ledger.Typed.Scripts as Scripts
 import PlutusTx (CompiledCode)
@@ -18,10 +19,10 @@ import PlutusTx.IsData.Class (ToData (..))
 data Commit
 
 instance Scripts.ValidatorTypes Commit where
-  type DatumType Commit = ()
+  type DatumType Commit = Party
   type RedeemerType Commit = ()
 
-validator :: () -> () -> ScriptContext -> Bool
+validator :: Party -> () -> ScriptContext -> Bool
 validator _datum _redeemer _ctx = True
 
 compiledValidator :: CompiledCode (ValidatorType Commit)
