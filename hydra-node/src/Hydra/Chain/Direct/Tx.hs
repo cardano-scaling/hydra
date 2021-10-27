@@ -19,6 +19,7 @@ import Cardano.Ledger.Alonzo.Language (Language (PlutusV1))
 import Cardano.Ledger.Alonzo.Scripts (ExUnits (..), Script (PlutusScript))
 import Cardano.Ledger.Alonzo.Tx (IsValid (IsValid), ScriptPurpose (Spending), ValidatedTx (..), rdptr)
 import Cardano.Ledger.Alonzo.TxBody (TxBody (..), TxOut (TxOut))
+import Cardano.Ledger.Alonzo.TxInfo (transKeyHash)
 import Cardano.Ledger.Alonzo.TxWitness (RdmrPtr, Redeemers (..), TxDats (..), TxWitness (..), unRedeemers, unTxDats)
 import Cardano.Ledger.Crypto (StandardCrypto)
 import Cardano.Ledger.Era (hashScript)
@@ -32,7 +33,9 @@ import Cardano.Ledger.Shelley.API (
   StrictMaybe (..),
   TxId (TxId),
   TxIn (TxIn),
+  VKey (VKey),
   Wdrl (Wdrl),
+  hashKey,
  )
 import Cardano.Ledger.ShelleyMA.Timelocks (ValidityInterval (..))
 import Cardano.Ledger.Val (inject)
@@ -48,7 +51,7 @@ import qualified Hydra.Contract.Head as Head
 import qualified Hydra.Contract.Initial as Initial
 import Hydra.Data.ContestationPeriod (contestationPeriodFromDiffTime, contestationPeriodToDiffTime)
 import Hydra.Data.Party (partyFromVerKey, partyToVerKey)
-import Hydra.Ledger (Tx, Utxo)
+import Hydra.Ledger (Utxo)
 import Hydra.Party (Party, anonymousParty, vkey)
 import Ledger.Value (AssetClass (..), currencyMPSHash)
 import Plutus.V1.Ledger.Api (MintingPolicyHash, PubKeyHash (..), fromData, toData)
@@ -79,7 +82,10 @@ data OnChainHeadState
   deriving (Eq, Show, Generic)
 
 ownInitial :: VerificationKey -> [(TxIn StandardCrypto, PubKeyHash)] -> Maybe (TxIn StandardCrypto, PubKeyHash)
-ownInitial = error "undefined"
+ownInitial vkey =
+  find ((== pkh) . snd)
+ where
+  pkh = transKeyHash $ hashKey @StandardCrypto $ VKey vkey
 
 -- FIXME: should not be hardcoded, for testing purposes only
 threadToken :: AssetClass
