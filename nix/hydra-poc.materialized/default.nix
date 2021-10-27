@@ -815,7 +815,7 @@
             };
           "quickcheck-dynamic" = { flags = {}; };
           "merkle-patricia-tree" = {
-            flags = { "development" = lib.mkOverride 900 false; };
+            flags = { "hydra-development" = lib.mkOverride 900 false; };
             };
           "cardano-config" = {
             flags = { "systemd" = lib.mkOverride 900 true; };
@@ -848,7 +848,7 @@
             flags = { "development" = lib.mkOverride 900 false; };
             };
           "local-cluster" = {
-            flags = { "development" = lib.mkOverride 900 false; };
+            flags = { "hydra-development" = lib.mkOverride 900 true; };
             };
           "typed-protocols-examples" = { flags = {}; };
           "cardano-crypto-tests" = {
@@ -901,13 +901,13 @@
             };
           "cardano-ledger-alonzo-test" = { flags = {}; };
           "hydra-tui" = {
-            flags = { "development" = lib.mkOverride 900 false; };
+            flags = { "hydra-development" = lib.mkOverride 900 true; };
             };
           "ouroboros-consensus-byron" = {
             flags = { "asserts" = lib.mkOverride 900 false; };
             };
           "hydra-node" = {
-            flags = { "development" = lib.mkOverride 900 false; };
+            flags = { "hydra-development" = lib.mkOverride 900 true; };
             };
           "contra-tracer" = { flags = {}; };
           "orphans-deriving-via" = {
@@ -920,7 +920,7 @@
           "cardano-ledger-alonzo" = { flags = {}; };
           "small-steps-test" = { flags = {}; };
           "hydra-plutus" = {
-            flags = { "hydra-development" = lib.mkOverride 900 false; };
+            flags = { "hydra-development" = lib.mkOverride 900 true; };
             };
           "cardano-ledger-shelley-test" = { flags = {}; };
           "typed-protocols-cborg" = { flags = {}; };

@@ -8,7 +8,7 @@
   , config
   , ... }:
   {
-    flags = { development = false; };
+    flags = { hydra-development = false; };
     package = {
       specVersion = "2.2";
       identifier = { name = "hydra-tui"; version = "0.1.0"; };
@@ -71,7 +71,9 @@
             ];
           buildable = true;
           hsSourceDirs = [ "exe" ];
-          mainPath = [ "Main.hs" ];
+          mainPath = [
+            "Main.hs"
+            ] ++ (pkgs.lib).optional (!flags.hydra-development) "";
           };
         };
       tests = {

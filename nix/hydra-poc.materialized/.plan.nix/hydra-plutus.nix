@@ -58,7 +58,7 @@
           "Hydra/Contract/Commit"
           "Hydra/Contract/Head"
           "Hydra/Contract/Initial"
-          "Hydra/Contract/MockHead"
+          "Hydra/Contract/MockCommit"
           "Hydra/Data/ContestationPeriod"
           "Hydra/Data/HeadParameters"
           "Hydra/Data/Party"

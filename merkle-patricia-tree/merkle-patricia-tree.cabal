@@ -13,7 +13,7 @@ source-repository head
   type:     git
   location: https://github.com/input-output-hk/hydra-poc
 
-flag development
+flag hydra-development
   description: Disable -Werror for development
   default:     False
   manual:      True
@@ -64,7 +64,7 @@ common project-config
     -Wincomplete-uni-patterns -Wpartial-fields -Wredundant-constraints
     -fprint-potential-instances
 
-  if !flag(development)
+  if !flag(hydra-development)
     ghc-options: -Werror
 
 library

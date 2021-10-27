@@ -8,7 +8,7 @@
   , config
   , ... }:
   {
-    flags = { development = false; };
+    flags = { hydra-development = false; };
     package = {
       specVersion = "2.2";
       identifier = { name = "merkle-patricia-tree"; version = "0.1.0"; };

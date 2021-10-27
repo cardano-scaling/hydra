@@ -8,7 +8,7 @@
   , config
   , ... }:
   {
-    flags = { development = false; };
+    flags = { hydra-development = false; };
     package = {
       specVersion = "3.0";
       identifier = { name = "hydra-node"; version = "0.1.0"; };
@@ -138,7 +138,7 @@
           hsSourceDirs = [ "exe/hydra-node" ];
           mainPath = [
             "Main.hs"
-            ] ++ (pkgs.lib).optional (!flags.development) "";
+            ] ++ (pkgs.lib).optional (!flags.hydra-development) "";
           };
         "mock-chain" = {
           depends = [
@@ -152,7 +152,7 @@
           hsSourceDirs = [ "exe/mock-chain" ];
           mainPath = [
             "Main.hs"
-            ] ++ (pkgs.lib).optional (!flags.development) "";
+            ] ++ (pkgs.lib).optional (!flags.hydra-development) "";
           };
         };
       tests = {

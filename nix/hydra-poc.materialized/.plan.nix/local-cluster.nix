@@ -8,7 +8,7 @@
   , config
   , ... }:
   {
-    flags = { development = false; };
+    flags = { hydra-development = false; };
     package = {
       specVersion = "3.0";
       identifier = { name = "local-cluster"; version = "0.1.0"; };
@@ -96,7 +96,7 @@
           hsSourceDirs = [ "exe" ];
           mainPath = [
             "local-cluster.hs"
-            ] ++ (pkgs.lib).optional (!flags.development) "";
+            ] ++ (pkgs.lib).optional (!flags.hydra-development) "";
           };
         "log-filter" = {
           depends = [
@@ -115,7 +115,7 @@
           hsSourceDirs = [ "exe" ];
           mainPath = [
             "log-filter.hs"
-            ] ++ (pkgs.lib).optional (!flags.development) "";
+            ] ++ (pkgs.lib).optional (!flags.hydra-development) "";
           };
         };
       tests = {
