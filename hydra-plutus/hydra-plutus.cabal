@@ -78,6 +78,7 @@ library
     Hydra.Data.ContestationPeriod
     Hydra.Data.HeadParameters
     Hydra.Data.Party
+    Hydra.Data.Utxo
     Hydra.OnChain.Util
     Plutus.Contract.StateMachine.MintingPolarity
     Plutus.Contract.StateMachine.OnChain
