@@ -49,6 +49,7 @@ import Hydra.Chain.Direct.Util (VerificationKey)
 import qualified Hydra.Contract.Commit as Commit
 import qualified Hydra.Contract.Head as Head
 import qualified Hydra.Contract.Initial as Initial
+import qualified Hydra.Contract.MockCommit as MockCommit
 import Hydra.Data.ContestationPeriod (contestationPeriodFromDiffTime, contestationPeriodToDiffTime)
 import Hydra.Data.Party (partyFromVerKey, partyToVerKey)
 import Hydra.Ledger (Utxo)
@@ -176,11 +177,11 @@ commitTx _party _utxo (initialIn, _pkh) =
 
   scripts = fromList $ map withScriptHash [initialScript]
 
-  initialScript = undefined
+  initialScript = plutusScript Initial.validatorScript
 
-  commitScript = undefined
+  commitScript = plutusScript MockCommit.validatorScript
 
-  commitDatum = undefined
+  commitDatum = Data . toData $ MockCommit.datum ()
 
 -- | Create transaction which aborts by spending one input. This is currently
 -- only possible if this is governed by the initial script and only for a single

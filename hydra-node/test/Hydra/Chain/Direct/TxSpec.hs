@@ -99,7 +99,7 @@ spec =
                 _ -> property False
 
     describe "commitTx" $ do
-      prop "is observed" $ \txIn (utxo :: Utxo SimpleTx) party ->
+      prop ("transaction size below limit (" <> show maxTxSize <> ")") $ \txIn (utxo :: Utxo SimpleTx) party ->
         let tx = commitTx @SimpleTx party utxo txIn
             cbor = serialize tx
             len = LBS.length cbor
@@ -131,7 +131,7 @@ spec =
         withMaxSuccess 30 $ \txIn params@HeadParameters{contestationPeriod, parties} (NonEmpty initials) ->
           let tx = abortTx (txIn, threadToken, params) initials
               -- input governed by head script
-              -- datum : Initiafl + head parameters
+              -- datum : Initial + head parameters
               -- redeemer : State
 
               txOut = TxOut headAddress headValue (SJust headDatumHash)
