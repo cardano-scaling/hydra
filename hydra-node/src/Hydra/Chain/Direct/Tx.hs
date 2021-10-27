@@ -322,16 +322,18 @@ observeInitTx party ValidatedTx{wits, body} = do
 
 -- | Identify a commit tx by looking for an output which pays to v_commit.
 observeCommitTx :: ValidatedTx Era -> Maybe (OnChainTx tx)
-observeCommitTx ValidatedTx{body = TxBody{outputs}} = do
+observeCommitTx ValidatedTx{body} = do
   txOut <- findCommitOutput
   (party, utxo) <- decodeCommitDatum txOut
   pure $ OnCommitTx party utxo
  where
-  findCommitOutput = undefined
+  findCommitOutput =
+    find payToCommitScript (outputs body)
 
   decodeCommitDatum = undefined
 
-  headState = undefined
+  payToCommitScript (TxOut address _ _) =
+    address == scriptAddr (plutusScript MockCommit.validatorScript)
 
 -- | Identify an abort tx by trying to decode all redeemers to the right type.
 -- This is a very weak observation and should be more concretized.

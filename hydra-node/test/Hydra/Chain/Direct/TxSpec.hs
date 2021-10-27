@@ -148,8 +148,8 @@ spec =
               -- redeemer : State
 
               txOut = TxOut headAddress headValue (SJust headDatumHash)
-              (policyId, _) = first currencyMPSHash (unAssetClass threadToken)
-              headAddress = scriptAddr $ plutusScript $ Head.validatorScript policyId
+              (policy, _) = first currencyMPSHash (unAssetClass threadToken)
+              headAddress = scriptAddr $ plutusScript $ Head.validatorScript policy
               headValue = inject (Coin 2_000_000)
               headDatumHash =
                 hashData @Era . Data $
@@ -201,10 +201,10 @@ toTxOut (txIn, pkh) =
   initialDatumHash =
     hashData @Era $ Data $ toData $ Initial.datum (policyId, dependencies, pkh)
    where
-    (policyId, _) = first currencyMPSHash (unAssetClass threadToken)
+    (policy, _) = first currencyMPSHash (unAssetClass threadToken)
     dependencies =
       Initial.Dependencies
-        { Initial.headScript = Head.validatorHash policyId
+        { Initial.headScript = Head.validatorHash policy
         , Initial.commitScript = Commit.validatorHash
         }
 
