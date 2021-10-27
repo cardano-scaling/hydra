@@ -117,11 +117,8 @@ spec =
       prop "is observed" $
         \party (utxo :: Utxo SimpleTx) initialIn ->
           let tx = commitTx @SimpleTx party utxo initialIn
-              observed = observeCommitTx @SimpleTx tx
-           in case observed of
-                Just (octx, _) -> octx === OnCommitTx{party, committed = utxo}
-                _ -> property False
-                & counterexample ("Observed: " <> show observed)
+           in observeCommitTx @SimpleTx tx
+                === Just OnCommitTx{party, committed = utxo}
 
     describe "abortTx" $ do
       -- NOTE(AB): This property fails if the list generated is arbitrarily long

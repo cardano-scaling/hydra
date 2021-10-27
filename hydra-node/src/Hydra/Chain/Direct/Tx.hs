@@ -44,7 +44,7 @@ import Control.Monad.Class.MonadSTM (MonadSTMTx (writeTVar))
 import qualified Data.Map as Map
 import qualified Data.Sequence.Strict as StrictSeq
 import qualified Data.Set as Set
-import Hydra.Chain (HeadParameters (..), OnChainTx (OnAbortTx, OnInitTx))
+import Hydra.Chain (HeadParameters (..), OnChainTx (OnAbortTx, OnCommitTx, OnInitTx))
 import Hydra.Chain.Direct.Util (Era, VerificationKey)
 import qualified Hydra.Contract.Commit as Commit
 import qualified Hydra.Contract.Head as Head
@@ -320,8 +320,18 @@ observeInitTx party ValidatedTx{wits, body} = do
   convertParty =
     anonymousParty . partyToVerKey
 
-observeCommitTx :: ValidatedTx Era -> Maybe (OnChainTx tx, OnChainHeadState)
-observeCommitTx = undefined
+-- | Identify a commit tx by looking for an output which pays to v_commit.
+observeCommitTx :: ValidatedTx Era -> Maybe (OnChainTx tx)
+observeCommitTx ValidatedTx{body = TxBody{outputs}} = do
+  txOut <- findCommitOutput
+  (party, utxo) <- decodeCommitDatum txOut
+  pure $ OnCommitTx party utxo
+ where
+  findCommitOutput = undefined
+
+  decodeCommitDatum = undefined
+
+  headState = undefined
 
 -- | Identify an abort tx by trying to decode all redeemers to the right type.
 -- This is a very weak observation and should be more concretized.
