@@ -119,6 +119,7 @@ spec =
           let tx = commitTx @SimpleTx party utxo initialIn
            in observeCommitTx @SimpleTx tx
                 === Just OnCommitTx{party, committed = utxo}
+                & counterexample ("Tx: " <> show tx)
 
     describe "abortTx" $ do
       -- NOTE(AB): This property fails if the list generated is arbitrarily long

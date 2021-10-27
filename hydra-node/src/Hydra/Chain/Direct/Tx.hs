@@ -53,7 +53,8 @@ import qualified Hydra.Contract.Initial as Initial
 import qualified Hydra.Contract.MockCommit as MockCommit
 import Hydra.Data.ContestationPeriod (contestationPeriodFromDiffTime, contestationPeriodToDiffTime)
 import Hydra.Data.Party (partyFromVerKey, partyToVerKey)
-import Hydra.Ledger (Utxo)
+import qualified Hydra.Data.Party as OnChain
+import Hydra.Ledger (Tx, Utxo)
 import Hydra.Party (Party, anonymousParty, vkey)
 import Ledger.Value (AssetClass (..), currencyMPSHash)
 import Plutus.V1.Ledger.Api (MintingPolicyHash, PubKeyHash (..), fromData, toData)
@@ -318,21 +319,22 @@ observeInitTx party ValidatedTx{wits, body} = do
   indexedOutputs =
     zip [0 ..] (toList (outputs body))
 
-  convertParty =
-    anonymousParty . partyToVerKey
+convertParty :: OnChain.Party -> Party
+convertParty = anonymousParty . partyToVerKey
 
 -- | Identify a commit tx by looking for an output which pays to v_commit.
-observeCommitTx :: ValidatedTx Era -> Maybe (OnChainTx tx)
+observeCommitTx :: Tx tx => ValidatedTx Era -> Maybe (OnChainTx tx)
 observeCommitTx ValidatedTx{wits, body} = do
   txOut <- findCommitOutput
-  (party, utxo) <- decodeCommitDatum txOut
-  pure $ OnCommitTx party utxo
+  party <- decodeCommitDatum txOut
+  -- TODO(SN): decode utxo
+  pure $ OnCommitTx (convertParty party) mempty
  where
   findCommitOutput =
     find payToCommitScript (outputs body)
 
   decodeCommitDatum (TxOut _ _ datumHash) =
-    strictMaybeToMaybe datumHash >>= lookupDatum
+    strictMaybeToMaybe datumHash >>= lookupDatum >>= fromData . getPlutusData
 
   lookupDatum datumHash =
     Map.lookup datumHash . unTxDats $ txdats wits
