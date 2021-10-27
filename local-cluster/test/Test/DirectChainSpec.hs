@@ -8,12 +8,12 @@ import Test.Hydra.Prelude
 
 import CardanoCluster (ClusterLog, RunningCluster (..), keysFor, testClusterConfig, withCluster)
 import CardanoNode (RunningNode (..))
-import Control.Concurrent (newEmptyMVar, putMVar, takeMVar)
+import Control.Concurrent (MVar, newEmptyMVar, putMVar, takeMVar)
 import Hydra.Chain (
   Chain (..),
-  HeadParameters (HeadParameters),
-  OnChainTx (OnAbortTx, OnInitTx, PostTxFailed),
-  PostChainTx (AbortTx, InitTx),
+  HeadParameters (..),
+  OnChainTx (..),
+  PostChainTx (..),
  )
 import Hydra.Chain.Direct (
   DirectChainLog,
@@ -21,59 +21,66 @@ import Hydra.Chain.Direct (
   withDirectChain,
   withIOManager,
  )
-import Hydra.Ledger.Simple (SimpleTx)
+import Hydra.Ledger (Tx)
+import Hydra.Ledger.Simple (SimpleTx, utxoRef)
 import Hydra.Logging (nullTracer, showLogsOnFailure)
 import Hydra.Party (Party, deriveParty, generateKey)
 
 spec :: Spec
 spec = around showLogsOnFailure $ do
   it "can init and abort a head given nothing has been committed" $ \tracer -> do
-    calledBackAlice <- newEmptyMVar
-    calledBackBob <- newEmptyMVar
+    alicesCallback <- newEmptyMVar
+    bobsCallback <- newEmptyMVar
     withTempDir "hydra-local-cluster" $ \tmp -> do
       let config = testClusterConfig tmp
       withCluster (contramap FromCluster tracer) config $ \cluster@(RunningCluster _ [RunningNode _ node1socket, RunningNode _ node2socket, _]) -> do
         aliceKeys <- keysFor "alice" cluster
         bobKeys <- keysFor "bob" cluster
         withIOManager $ \iocp -> do
-          withDirectChain (contramap (FromDirectChain "alice") tracer) magic iocp node1socket aliceKeys alice (putMVar calledBackAlice) $ \Chain{postTx} -> do
-            withDirectChain nullTracer magic iocp node2socket bobKeys bob (putMVar calledBackBob) $ \_ -> do
-              let parameters = HeadParameters 100 [alice, bob, carol]
-              threadDelay 2
-
-              postTx $ InitTx @SimpleTx parameters
-              failAfter 10 $
-                takeMVar calledBackAlice `shouldReturn` OnInitTx 100 [alice, bob, carol]
-              failAfter 10 $
-                takeMVar calledBackBob `shouldReturn` OnInitTx 100 [alice, bob, carol]
+          withDirectChain (contramap (FromDirectChain "alice") tracer) magic iocp node1socket aliceKeys alice (putMVar alicesCallback) $ \Chain{postTx} -> do
+            withDirectChain nullTracer magic iocp node2socket bobKeys bob (putMVar bobsCallback) $ \_ -> do
+              postTx $ InitTx @SimpleTx $ HeadParameters 100 [alice, bob, carol]
+              alicesCallback `observesInTime` OnInitTx 100 [alice, bob, carol]
+              bobsCallback `observesInTime` OnInitTx 100 [alice, bob, carol]
 
               postTx $ AbortTx mempty
 
-              failAfter 10 $
-                takeMVar calledBackAlice `shouldReturn` OnAbortTx @SimpleTx
-              failAfter 10 $
-                takeMVar calledBackBob `shouldReturn` OnAbortTx @SimpleTx
+              alicesCallback `observesInTime` OnAbortTx @SimpleTx
+              bobsCallback `observesInTime` OnAbortTx @SimpleTx
 
   it "cannot abort a non-participating head" $ \tracer -> do
-    calledBackAlice <- newEmptyMVar
-    calledBackBob <- newEmptyMVar
+    alicesCallback <- newEmptyMVar
+    bobsCallback <- newEmptyMVar
     withTempDir "hydra-local-cluster" $ \tmp -> do
       let config = testClusterConfig tmp
       withCluster (contramap FromCluster tracer) config $ \cluster@(RunningCluster _ [RunningNode _ node1socket, RunningNode _ node2socket, _]) -> do
         aliceKeys <- keysFor "alice" cluster
         bobKeys <- keysFor "bob" cluster
         withIOManager $ \iocp -> do
-          withDirectChain (contramap (FromDirectChain "alice") tracer) magic iocp node1socket aliceKeys alice (putMVar calledBackAlice) $ \Chain{postTx = alicePostTx} -> do
-            withDirectChain nullTracer magic iocp node2socket bobKeys bob (putMVar calledBackBob) $ \Chain{postTx = bobPostTx} -> do
-              threadDelay 2 -- XXX(SN): smell
+          withDirectChain (contramap (FromDirectChain "alice") tracer) magic iocp node1socket aliceKeys alice (putMVar alicesCallback) $ \Chain{postTx = alicePostTx} -> do
+            withDirectChain nullTracer magic iocp node2socket bobKeys bob (putMVar bobsCallback) $ \Chain{postTx = bobPostTx} -> do
               alicePostTx $ InitTx @SimpleTx $ HeadParameters 100 [alice, carol]
-              failAfter 10 $
-                takeMVar calledBackAlice `shouldReturn` OnInitTx 100 [alice, carol]
+              alicesCallback `observesInTime` OnInitTx 100 [alice, carol]
 
               bobPostTx $ AbortTx @SimpleTx mempty
+              bobsCallback `observesInTime` PostTxFailed
 
-              failAfter 10 $
-                takeMVar calledBackBob `shouldReturn` PostTxFailed
+  it "can commit" $ \tracer -> do
+    alicesCallback <- newEmptyMVar
+    withTempDir "hydra-local-cluster" $ \tmp -> do
+      let config = testClusterConfig tmp
+      withCluster (contramap FromCluster tracer) config $ \cluster@(RunningCluster _ [RunningNode _ node1socket, _, _]) -> do
+        aliceKeys <- keysFor "alice" cluster
+        withIOManager $ \iocp -> do
+          withDirectChain (contramap (FromDirectChain "alice") tracer) magic iocp node1socket aliceKeys alice (putMVar alicesCallback) $ \Chain{postTx} -> do
+            postTx $ InitTx @SimpleTx $ HeadParameters 100 [alice]
+            alicesCallback `observesInTime` OnInitTx 100 [alice]
+
+            -- NOTE(SN): We are committing a SimpleTX UTXO, which is fine as
+            -- long there are no on-chain validators checking it
+            let someUtxo = utxoRef 42
+            postTx $ CommitTx alice someUtxo
+            alicesCallback `observesInTime` OnCommitTx alice someUtxo
 
 magic :: NetworkMagic
 magic = NetworkMagic 42
@@ -87,3 +94,8 @@ data TestClusterLog
   = FromCluster ClusterLog
   | FromDirectChain Text (DirectChainLog SimpleTx)
   deriving (Show)
+
+observesInTime :: Tx tx => MVar (OnChainTx tx) -> OnChainTx tx -> Expectation
+observesInTime mvar expected =
+  failAfter 10 $
+    takeMVar mvar `shouldReturn` expected
