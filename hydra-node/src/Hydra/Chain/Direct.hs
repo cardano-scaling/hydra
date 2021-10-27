@@ -296,8 +296,10 @@ txSubmissionClient tracer queue callback headState TinyWallet{getUtxo, sign, cov
     CommitTx party utxo ->
       readTVar headState >>= \case
         Initial{initials} -> pure $ do
-          initial <- ownInitial verificationKey initials
-          pure $ commitTx @tx party utxo initial
+          case ownInitial verificationKey initials of
+            Nothing -> error $ "no ownInitial: " <> show initials
+            Just initial ->
+              pure $ commitTx @tx party utxo initial
         _st -> pure Nothing
     _ -> error "not implemented"
 

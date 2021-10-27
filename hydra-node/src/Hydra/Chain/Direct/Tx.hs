@@ -140,6 +140,9 @@ initTx HeadParameters{contestationPeriod, parties} txIn =
         (contestationPeriodFromDiffTime contestationPeriod)
         (map (partyFromVerKey . vkey) parties)
 
+-- | Craft a commit transaction which includes the "committed" utxo as a datum.
+-- TODO(SN): Eventually, this might not be necessary as the 'Utxo tx' would need
+-- to be inputs of this transaction.
 commitTx ::
   Tx tx =>
   Party ->
