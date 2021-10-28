@@ -47,7 +47,7 @@ instance Arbitrary OnChainHeadState where
   arbitrary = oneof [pure Closed, Initial <$> threadOutput <*> listOf initialOutput]
    where
     threadOutput = (,,,) <$> arbitrary <*> arbitrary <*> pure threadToken <*> arbitrary
-    initialOutput = (,) <$> arbitrary <*> arbitrary
+    initialOutput = (,,) <$> arbitrary <*> arbitrary <*> arbitrary
 
 instance Arbitrary PubKeyHash where
   arbitrary = PubKeyHash . toBuiltin <$> (arbitrary :: Gen ByteString)
