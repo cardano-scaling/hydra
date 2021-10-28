@@ -79,16 +79,20 @@ data OnChainHeadState
         -- transactions.
         threadOutput :: (TxIn StandardCrypto, TxOut Era, AssetClass, HeadParameters)
       , -- TODO add commits
-        initials :: [(TxIn StandardCrypto, PubKeyHash)]
+        initials :: [(TxIn StandardCrypto, TxOut Era, PubKeyHash)]
       }
   | Final
   deriving (Eq, Show, Generic)
 
-ownInitial :: VerificationKey -> [(TxIn StandardCrypto, PubKeyHash)] -> Maybe (TxIn StandardCrypto, PubKeyHash)
+-- | Look for the "initial" which corresponds to given cardano verification key.
+ownInitial :: VerificationKey -> [(TxIn StandardCrypto, TxOut Era, PubKeyHash)] -> Maybe (TxIn StandardCrypto, PubKeyHash)
 ownInitial vkey =
-  find ((== pkh) . snd)
+  foldl' go Nothing
  where
-  pkh = transKeyHash $ hashKey @StandardCrypto $ VKey vkey
+  go (Just x) _ = Just x
+  go Nothing (i, _, pkh)
+    | pkh == transKeyHash (hashKey @StandardCrypto $ VKey vkey) = Just (i, pkh)
+    | otherwise = Nothing
 
 -- FIXME: should not be hardcoded, for testing purposes only
 threadToken :: AssetClass
@@ -353,7 +357,7 @@ observeInitTx party ValidatedTx{wits, body} = do
      in mapMaybe mkInitial initialOutputs
 
   mkInitial (ix, txOut) =
-    (mkTxIn ix,) <$> decodeInitialDatum txOut
+    (mkTxIn ix,txOut,) <$> decodeInitialDatum txOut
 
   mkTxIn ix = TxIn (TxId $ SafeHash.hashAnnotated body) ix
 
@@ -422,13 +426,17 @@ findScriptOutput utxo script =
 
 -- | Provide a UTXO map for some given OnChainHeadState. At least used by the
 -- TinyWallet to lookup inputs.
+-- XXX(SN): This is a hint that we might want to track the Utxo directly?
 knownUtxo :: OnChainHeadState -> Map (TxIn StandardCrypto) (TxOut Era)
 knownUtxo = \case
-  Initial{threadOutput = (i, o, _, _)} ->
-    -- FIXME: initials should also be part of the resulting UTXO
-    Map.singleton i o
+  Initial{threadOutput, initials} ->
+    Map.fromList (threadUtxo threadOutput : map initialUtxo initials)
   _ ->
     mempty
+ where
+  threadUtxo (i, o, _, _) = (i, o)
+
+  initialUtxo (i, o, _) = (i, o)
 
 -- * Helpers
 
