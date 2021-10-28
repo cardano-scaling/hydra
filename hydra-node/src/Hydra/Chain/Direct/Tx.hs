@@ -358,16 +358,14 @@ observeAbortTx ::
 observeAbortTx utxo ValidatedTx{wits, body} = do
   -- XXX(SN): not hard-code policyId
   headInput <- fmap fst . findScriptOutput utxo . plutusScript $ Head.validatorScript policyId
-  case decodeHeadRedeemer headInput of
-    Just Head.Abort -> Just (OnAbortTx, Final)
+  decodeHeadRedeemer headInput >>= \case
+    Head.Abort -> pure (OnAbortTx, Final)
     _ -> Nothing
  where
-  decodeHeadRedeemer txIn =
-    Set.lookupIndex txIn (inputs body) >>= \idx -> Map.lookup (RdmrPtr Spend (fromIntegral idx)) (unRedeemers (txrdmrs wits))
-
-  decodeData d s = s <|> fromData (getPlutusData d)
-
-  redeemerData = fmap fst . Map.elems . unRedeemers $ txrdmrs wits
+  decodeHeadRedeemer txIn = do
+    idx <- Set.lookupIndex txIn (inputs body)
+    (d, _exUnits) <- Map.lookup (RdmrPtr Spend (fromIntegral idx)) (unRedeemers (txrdmrs wits))
+    fromData (getPlutusData d)
 
 findScriptOutput ::
   Map (TxIn StandardCrypto) (TxOut Era) ->
