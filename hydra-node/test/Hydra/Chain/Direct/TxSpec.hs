@@ -44,7 +44,7 @@ import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
 import Hydra.Chain (HeadParameters (..), OnChainTx (..), PostChainTx (..))
 import Hydra.Chain.Direct.Fixture (maxTxSize, pparams)
 import Hydra.Chain.Direct.Util (Era)
-import Hydra.Chain.Direct.Wallet (coverFee_)
+import Hydra.Chain.Direct.Wallet (ErrCoverFee (..), coverFee_)
 import qualified Hydra.Contract.Commit as Commit
 import qualified Hydra.Contract.Head as Head
 import qualified Hydra.Contract.Initial as Initial
@@ -179,11 +179,18 @@ spec =
               lookupUtxo = Map.fromList ((txInitIn, txInitOut) : map toTxOut initials)
               utxo = UTxO $ walletUtxo <> lookupUtxo
            in case coverFee_ pparams lookupUtxo walletUtxo txAbort of
-                Left err -> True & label (show err)
+                Left err ->
+                  True
+                    & label
+                      ( case err of
+                          ErrNoAvailableUtxo -> "No available Utxo"
+                          ErrNotEnoughFunds{} -> "Not enough funds"
+                          ErrUnknownInput{} -> "Unknown input"
+                      )
                 Right (_, txAbortWithFees@ValidatedTx{body = abortTxBody}) ->
                   let actualExecutionCost = executionCost pparams txAbortWithFees
                    in actualExecutionCost > Coin 0 && txfee abortTxBody > actualExecutionCost
-                        & label "Right"
+                        & label "Ok"
                         & counterexample ("Execution cost: " <> show actualExecutionCost)
                         & counterexample ("Fee: " <> show (txfee abortTxBody))
                         & counterexample ("Tx: " <> show txAbortWithFees)
