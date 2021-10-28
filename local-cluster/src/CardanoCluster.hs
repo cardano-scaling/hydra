@@ -25,7 +25,7 @@ import CardanoNode (
  )
 import Control.Monad.Class.MonadAsync (mapConcurrently_)
 import Control.Tracer (Tracer, traceWith)
-import qualified Hydra.Chain.Direct.Util as Hydra
+import qualified Hydra.Chain.Direct.Util as Cardano
 import System.Directory (
   copyFile,
   createDirectoryIfMissing,
@@ -49,7 +49,7 @@ data ClusterConfig = ClusterConfig
 testClusterConfig :: FilePath -> ClusterConfig
 testClusterConfig tmp = ClusterConfig tmp (Testnet $ NetworkMagic 42)
 
-keysFor :: String -> RunningCluster -> IO (Hydra.VerificationKey, Hydra.SigningKey)
+keysFor :: String -> RunningCluster -> IO (Cardano.VerificationKey, Cardano.SigningKey)
 keysFor actor (RunningCluster (ClusterConfig dir _) _) = do
   PaymentSigningKey sk <-
     readFileTextEnvelopeThrow
