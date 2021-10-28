@@ -108,8 +108,7 @@ initTx HeadParameters{contestationPeriod, parties} txIn =
     TxBody
       { inputs = Set.singleton txIn
       , collateral = mempty
-      , -- TODO(SN): of course this is missing the PT outputs
-        outputs = StrictSeq.singleton headOut
+      , outputs = StrictSeq.fromList (headOut : initials)
       , txcerts = mempty
       , txwdrls = Wdrl mempty
       , txfee = Coin 0
@@ -138,6 +137,19 @@ initTx HeadParameters{contestationPeriod, parties} txIn =
       Head.Initial
         (contestationPeriodFromDiffTime contestationPeriod)
         (map (partyFromVerKey . vkey) parties)
+
+  initials = map mkInitial parties
+
+  mkInitial party = TxOut @Era initialAddress initialValue (SJust $ initialDatumHash party)
+
+  initialAddress = scriptAddr $ plutusScript MockInitial.validatorScript
+
+  -- TODO: should really be the minted PTs plus some ADA to make the ledger happy
+  initialValue = headValue
+
+  initialDatumHash = hashData @Era . initialDatum
+
+  initialDatum _party = error "undefined"
 
 -- | Craft a commit transaction which includes the "committed" utxo as a datum.
 -- TODO(SN): Eventually, this might not be necessary as the 'Utxo tx' would need
