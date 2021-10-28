@@ -20,12 +20,7 @@ import Cardano.Ledger.Alonzo.Scripts (ExUnits (..), txscriptfee)
 import Cardano.Ledger.Alonzo.Tools (ScriptFailure, evaluateTransactionExecutionUnits)
 import Cardano.Ledger.Alonzo.Tx (ValidatedTx (ValidatedTx, body, wits), outputs, txfee, txrdmrs)
 import Cardano.Ledger.Alonzo.TxBody (TxOut (TxOut))
-import Cardano.Ledger.Alonzo.TxWitness (
-  RdmrPtr,
-  TxWitness (txdats),
-  unRedeemers,
-  unTxDats,
- )
+import Cardano.Ledger.Alonzo.TxWitness (RdmrPtr, unRedeemers)
 import Cardano.Ledger.Crypto (StandardCrypto)
 import Cardano.Ledger.Mary.Value (AssetName, PolicyID, Value (Value))
 import qualified Cardano.Ledger.SafeHash as SafeHash
@@ -53,7 +48,7 @@ import Hydra.Ledger (Utxo)
 import Hydra.Ledger.Simple (SimpleTx)
 import Hydra.Party (vkey)
 import Ledger.Value (currencyMPSHash, unAssetClass)
-import Plutus.V1.Ledger.Api (PubKeyHash, toBuiltinData, toData)
+import Plutus.V1.Ledger.Api (PubKeyHash, toData)
 import Test.Cardano.Ledger.Alonzo.PlutusScripts (defaultCostModel)
 import Test.Cardano.Ledger.Alonzo.Serialisation.Generators ()
 import Test.QuickCheck (NonEmptyList (NonEmpty), counterexample, elements, forAll, label, property, withMaxSuccess, (.&&.), (===))
