@@ -92,16 +92,17 @@ spec =
                 & counterexample ("observing as: " <> show notInvited)
                 & counterexample ("invited: " <> show invited)
 
-      prop "updates on-chain state to 'Initial'" $ \txIn cperiod (party :| others) cardanoKeys ->
+      prop "updates on-chain state to 'Initial'" $ \txIn cperiod (me :| others) ->
         let params = HeadParameters cperiod parties
-            parties = party : others
+            parties = fst <$> me : others
+            cardanoKeys = snd <$> me : others
             tx = initTx cardanoKeys params txIn
-            res = observeInitTx @SimpleTx party tx
+            res = observeInitTx @SimpleTx (fst me) tx
          in case res of
               Just (_, Initial{initials, threadOutput = (_txin, _txout, tt, ps)}) ->
                 tt === threadToken
                   .&&. ps === params
-                  .&&. length initials === length parties
+                  .&&. length initials === length cardanoKeys
               _ -> property False
               & counterexample ("Result: " <> show res)
 
