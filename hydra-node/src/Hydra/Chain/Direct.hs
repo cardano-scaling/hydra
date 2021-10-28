@@ -175,7 +175,7 @@ client tracer queue party cardanoKeys headState wallet callback nodeToClientV =
 
 chainSyncClient ::
   forall m tx.
-  (MonadSTM m) =>
+  (MonadSTM m, Tx tx) =>
   Tracer m (DirectChainLog tx) ->
   ChainCallback tx m ->
   Party ->
@@ -236,14 +236,12 @@ chainSyncClient tracer callback party headState =
     ClientStNext
       { recvMsgRollForward = \blk _tip -> do
           ChainSyncClient $ do
-            -- REVIEW(SN): There seems to be no 'toList' for StrictSeq? That's
-            -- why I resorted to foldMap using the list monoid ('pure')
-            let txs = toList $ getAlonzoTxs blk
-            onChainTxs <- runOnChainTxs party headState txs
-            traceWith tracer $ ReceiveTxs txs onChainTxs
+            let receivedTxs = toList $ getAlonzoTxs blk
+            onChainTxs <- runOnChainTxs party headState receivedTxs
+            traceWith tracer $ ReceivedTxs{onChainTxs, receivedTxs}
             mapM_ callback onChainTxs
             pure clientStIdle
-      , recvMsgRollBackward = \point _ ->
+      , recvMsgRollBackward = \point _tip ->
           ChainSyncClient $ do
             traceWith tracer $ RolledBackward point
             pure clientStIdle
@@ -332,7 +330,7 @@ getAlonzoTxs = \case
 -- TODO add  ToJSON, FromJSON instances
 data DirectChainLog tx
   = PostTx {toPost :: PostChainTx tx, postedTx :: ValidatedTx Era}
-  | ReceiveTxs {receivedTxs :: [ValidatedTx Era], onChainTxs :: [OnChainTx tx]}
+  | ReceivedTxs {onChainTxs :: [OnChainTx tx], receivedTxs :: [ValidatedTx Era]}
   | RolledBackward {point :: Point Block}
   | Wallet TinyWalletLog
   deriving (Eq, Show, Generic)

@@ -314,14 +314,19 @@ abortTx (smInput, _token, HeadParameters{contestationPeriod, parties}) initInput
 -- NOTE(AB): I tried to separate the 2 functions, the one working on list of txs and the one
 -- working on single tx but I keep getting failed unification between `m` and `m0` which is
 -- puzzling...
-runOnChainTxs :: forall m tx. MonadSTM m => Party -> TVar m OnChainHeadState -> [ValidatedTx Era] -> m [OnChainTx tx]
+runOnChainTxs :: forall m tx. (Tx tx, MonadSTM m) => Party -> TVar m OnChainHeadState -> [ValidatedTx Era] -> m [OnChainTx tx]
 runOnChainTxs party headState = fmap reverse . atomically . foldM runOnChainTx []
  where
   runOnChainTx :: [OnChainTx tx] -> ValidatedTx Era -> STM m [OnChainTx tx]
   runOnChainTx observed tx = do
     onChainHeadState <- readTVar headState
     let utxo = knownUtxo onChainHeadState
-    case asum [observeInitTx party tx, observeAbortTx utxo tx] of
+    -- TODO(SN): We should be only looking for abort,commit etc. when we have a headId/policyId
+    let res =
+          observeInitTx party tx
+            <|> observeAbortTx utxo tx
+            <|> ((,onChainHeadState) <$> observeCommitTx tx)
+    case res of
       Just (onChainTx, newOnChainHeadState) -> do
         writeTVar headState newOnChainHeadState
         pure $ onChainTx : observed
