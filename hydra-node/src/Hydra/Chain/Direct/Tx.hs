@@ -286,9 +286,11 @@ runOnChainTxs party headState = fmap reverse . atomically . foldM runOnChainTx [
  where
   runOnChainTx :: [OnChainTx tx] -> ValidatedTx Era -> STM m [OnChainTx tx]
   runOnChainTx observed tx = do
-    case asum [observeInitTx party tx, observeAbortTx tx] of
-      Just (onChainTx, onChainHeadState) -> do
-        writeTVar headState onChainHeadState
+    onChainHeadState <- readTVar headState
+    let utxo = knownUtxo onChainHeadState
+    case asum [observeInitTx party tx, observeAbortTx utxo tx] of
+      Just (onChainTx, newOnChainHeadState) -> do
+        writeTVar headState newOnChainHeadState
         pure $ onChainTx : observed
       Nothing -> pure observed
 
