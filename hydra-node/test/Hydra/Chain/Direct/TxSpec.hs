@@ -66,8 +66,8 @@ spec =
       -- NOTE(SN): We are relying in the inclusion of the datum in the "posting
       -- tx" in order to 'observeTx'. This test is here to make this a bit more
       -- explicit than the above general property.
-      prop "contains HeadParameters as datums" $ \txIn params ->
-        let ValidatedTx{wits} = initTx params txIn
+      prop "contains HeadParameters as datums" $ \txIn params cardanoKeys ->
+        let ValidatedTx{wits} = initTx cardanoKeys params txIn
             dats = txdats wits
             HeadParameters{contestationPeriod, parties} = params
             onChainPeriod = contestationPeriodFromDiffTime contestationPeriod
@@ -75,27 +75,27 @@ spec =
             datum = Head.Initial onChainPeriod onChainParties
          in Map.elems (unTxDats dats) === [Data . toData $ toBuiltinData datum]
 
-      prop "is observed" $ \txIn cperiod (party :| parties) ->
+      prop "is observed" $ \txIn cperiod (party :| parties) cardanoKeys ->
         let params = HeadParameters cperiod (party : parties)
-            tx = initTx params txIn
+            tx = initTx cardanoKeys params txIn
             observed = observeInitTx @SimpleTx party tx
          in case observed of
               Just (octx, _) -> octx === OnInitTx cperiod (party : parties)
               _ -> property False
               & counterexample ("Observed: " <> show observed)
 
-      prop "is not observed if not invited" $ \txIn cperiod (NonEmpty parties) ->
+      prop "is not observed if not invited" $ \txIn cperiod (NonEmpty parties) cardanoKeys ->
         forAll (elements parties) $ \notInvited ->
           let invited = nub parties \\ [notInvited]
-              tx = initTx (HeadParameters cperiod invited) txIn
+              tx = initTx cardanoKeys (HeadParameters cperiod invited) txIn
            in isNothing (observeInitTx notInvited tx)
                 & counterexample ("observing as: " <> show notInvited)
                 & counterexample ("invited: " <> show invited)
 
-      prop "updates on-chain state to 'Initial'" $ \txIn cperiod (party :| others) ->
+      prop "updates on-chain state to 'Initial'" $ \txIn cperiod (party :| others) cardanoKeys ->
         let params = HeadParameters cperiod parties
             parties = party : others
-            tx = initTx params txIn
+            tx = initTx cardanoKeys params txIn
             res = observeInitTx @SimpleTx party tx
          in case res of
               Just (_, Initial{initials, threadOutput = (_txin, _txout, tt, ps)}) ->
@@ -176,8 +176,8 @@ spec =
                 & counterexample ("Input utxo: " <> show utxo)
 
       prop "cover fee correctly handles redeemers" $
-        withMaxSuccess 60 $ \txIn walletUtxo params (NonEmpty initials) ->
-          let ValidatedTx{body = initTxBody} = initTx params txIn
+        withMaxSuccess 60 $ \txIn walletUtxo params (NonEmpty initials) cardanoKeys ->
+          let ValidatedTx{body = initTxBody} = initTx cardanoKeys params txIn
               txInitIn = TxIn (TxId $ SafeHash.hashAnnotated initTxBody) 0
               -- FIXME(AB): fromJust is partial
               txInitOut = fromJust $ Seq.lookup 0 (outputs initTxBody)

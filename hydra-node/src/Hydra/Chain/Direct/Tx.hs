@@ -100,8 +100,13 @@ policyId :: MintingPolicyHash
 
 -- | Create the init transaction from some 'HeadParameters' and a single TxIn
 -- which will be used as unique parameter for minting NFTs.
-initTx :: HeadParameters -> TxIn StandardCrypto -> ValidatedTx Era
-initTx HeadParameters{contestationPeriod, parties} txIn =
+initTx ::
+  -- | Participant's cardano public keys.
+  [VerificationKey] ->
+  HeadParameters ->
+  TxIn StandardCrypto ->
+  ValidatedTx Era
+initTx cardanoKeys HeadParameters{contestationPeriod, parties} txIn =
   mkUnsignedTx body dats (Redeemers mempty) mempty
  where
   body =
@@ -138,9 +143,9 @@ initTx HeadParameters{contestationPeriod, parties} txIn =
         (contestationPeriodFromDiffTime contestationPeriod)
         (map (partyFromVerKey . vkey) parties)
 
-  initials = map mkInitial parties
+  initials = map mkInitial cardanoKeys
 
-  mkInitial party = TxOut @Era initialAddress initialValue (SJust $ initialDatumHash party)
+  mkInitial = TxOut @Era initialAddress initialValue . SJust . initialDatumHash
 
   initialAddress = scriptAddr $ plutusScript MockInitial.validatorScript
 
@@ -149,7 +154,9 @@ initTx HeadParameters{contestationPeriod, parties} txIn =
 
   initialDatumHash = hashData @Era . initialDatum
 
-  initialDatum _party = error "undefined"
+  initialDatum vkey =
+    let pubKeyHash = transKeyHash $ hashKey @StandardCrypto $ VKey vkey
+     in Data . toData $ MockInitial.datum pubKeyHash
 
 -- | Craft a commit transaction which includes the "committed" utxo as a datum.
 -- TODO(SN): Eventually, this might not be necessary as the 'Utxo tx' would need

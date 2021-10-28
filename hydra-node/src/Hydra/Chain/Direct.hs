@@ -286,7 +286,7 @@ txSubmissionClient tracer queue callback headState TinyWallet{getUtxo, sign, cov
     InitTx p -> do
       txIns <- keys <$> getUtxo
       case txIns of
-        (seedInput : _) -> pure . Just $ initTx p seedInput
+        (seedInput : _) -> pure . Just $ initTx undefined p seedInput
         [] -> error "cannot find a seed input to pass to Init transaction"
     AbortTx _utxo -> do
       readTVar headState >>= \case
