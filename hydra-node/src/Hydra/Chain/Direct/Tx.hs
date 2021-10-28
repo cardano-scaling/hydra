@@ -126,7 +126,11 @@ initTx cardanoKeys HeadParameters{contestationPeriod, parties} txIn =
       , txnetworkid = SNothing
       }
 
-  dats = TxDats $ Map.singleton headDatumHash headDatum
+  dats =
+    TxDats $
+      Map.fromList $
+        (headDatumHash, headDatum) :
+          [(initialDatumHash vkey, initialDatum vkey) | vkey <- cardanoKeys]
 
   headOut = TxOut headAddress headValue (SJust headDatumHash)
 

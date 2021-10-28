@@ -63,18 +63,6 @@ spec :: Spec
 spec =
   parallel $ do
     describe "initTx" $ do
-      -- NOTE(SN): We are relying in the inclusion of the datum in the "posting
-      -- tx" in order to 'observeTx'. This test is here to make this a bit more
-      -- explicit than the above general property.
-      prop "contains HeadParameters as datums" $ \txIn params cardanoKeys ->
-        let ValidatedTx{wits} = initTx cardanoKeys params txIn
-            dats = txdats wits
-            HeadParameters{contestationPeriod, parties} = params
-            onChainPeriod = contestationPeriodFromDiffTime contestationPeriod
-            onChainParties = map (partyFromVerKey . vkey) parties
-            datum = Head.Initial onChainPeriod onChainParties
-         in Map.elems (unTxDats dats) === [Data . toData $ toBuiltinData datum]
-
       prop "is observed" $ \txIn cperiod (party :| parties) cardanoKeys ->
         let params = HeadParameters cperiod (party : parties)
             tx = initTx cardanoKeys params txIn
