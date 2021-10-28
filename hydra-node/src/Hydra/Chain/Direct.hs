@@ -297,7 +297,7 @@ txSubmissionClient tracer queue callback cardanoKeys headState TinyWallet{getUtx
     AbortTx _utxo -> do
       readTVar headState >>= \case
         Initial{threadOutput = (i, _, tk, hp), initials} ->
-          pure . Just $ abortTx (i, tk, hp) initials
+          pure . Just $ abortTx (i, tk, hp) (map (\(txIn, _, pkh) -> (txIn, pkh)) initials)
         _st -> pure Nothing
     CommitTx party utxo ->
       readTVar headState >>= \case
