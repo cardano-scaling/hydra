@@ -29,7 +29,7 @@ import Cardano.Ledger.Alonzo.TxWitness (
 import Cardano.Ledger.Crypto (StandardCrypto)
 import Cardano.Ledger.Mary.Value (AssetName, PolicyID, Value (Value))
 import qualified Cardano.Ledger.SafeHash as SafeHash
-import Cardano.Ledger.Shelley.API (Coin (Coin), StrictMaybe (SJust), TxId (TxId), TxIn (TxIn), UTxO (UTxO))
+import Cardano.Ledger.Shelley.API (Coin (Coin), StrictMaybe (SJust, SNothing), TxId (TxId), TxIn (TxIn), UTxO (UTxO))
 import Cardano.Ledger.Slot (EpochSize (EpochSize))
 import Cardano.Ledger.Val (inject)
 import Cardano.Slotting.EpochInfo (fixedEpochInfo)
@@ -48,7 +48,6 @@ import Hydra.Chain.Direct.Wallet (ErrCoverFee (..), coverFee_)
 import qualified Hydra.Contract.Commit as Commit
 import qualified Hydra.Contract.Head as Head
 import qualified Hydra.Contract.Initial as Initial
-import qualified Hydra.Contract.MockInitial as MockInitial
 import Hydra.Data.ContestationPeriod (contestationPeriodFromDiffTime)
 import Hydra.Data.Party (partyFromVerKey)
 import Hydra.Ledger (Utxo)
@@ -135,8 +134,12 @@ spec =
               & counterexample ("Tx serialized size: " <> show len)
 
       prop "updates on-chain state to 'Final'" $ \txIn params (NonEmpty initials) ->
-        let tx = abortTx (txIn, threadToken, params) initials
-            res = observeAbortTx @SimpleTx tx
+        let txOut = TxOut headAddress headValue SNothing -- not covered by this test
+            headAddress = scriptAddr $ plutusScript $ Head.validatorScript policyId
+            headValue = inject (Coin 2_000_000)
+            utxo = Map.singleton txIn txOut
+            tx = abortTx (txIn, threadToken, params) initials
+            res = observeAbortTx @SimpleTx utxo tx
          in case res of
               Just (_, st) -> st === Final
               _ -> property False
@@ -148,10 +151,10 @@ spec =
       prop "validates against 'head' script in haskell (unlimited budget)" $
         withMaxSuccess 30 $ \txIn params@HeadParameters{contestationPeriod, parties} (NonEmpty initials) ->
           let tx = abortTx (txIn, threadToken, params) initials
+              -- TODO(SN): DRY
               -- input governed by head script
               -- datum : Initial + head parameters
               -- redeemer : State
-
               txOut = TxOut headAddress headValue (SJust headDatumHash)
               (policy, _) = first currencyMPSHash (unAssetClass threadToken)
               headAddress = scriptAddr $ plutusScript $ Head.validatorScript policy
