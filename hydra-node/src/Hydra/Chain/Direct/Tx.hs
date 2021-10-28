@@ -177,7 +177,7 @@ commitTx ::
   -- locked by initial script
   (TxIn StandardCrypto, PubKeyHash) ->
   ValidatedTx Era
-commitTx party utxo (initialIn, _pkh) =
+commitTx party utxo (initialIn, pkh) =
   mkUnsignedTx body datums redeemers scripts
  where
   body =
@@ -204,9 +204,15 @@ commitTx party utxo (initialIn, _pkh) =
       }
 
   datums =
-    datumsFromList [commitDatum]
+    datumsFromList [initialDatum, commitDatum]
 
-  redeemers = redeemersFromList []
+  initialDatum = Data . toData $ MockInitial.datum pkh
+
+  redeemers =
+    redeemersFromList
+      [(rdptr body (Spending initialIn), (initialRedeemer, ExUnits 0 0))]
+
+  initialRedeemer = Data . toData $ MockInitial.redeemer ()
 
   scripts = fromList $ map withScriptHash [initialScript]
 
