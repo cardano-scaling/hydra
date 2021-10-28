@@ -325,7 +325,7 @@ observeInitTx party ValidatedTx{wits, body} = do
     , Initial
         { threadOutput =
             (i, o, threadToken, HeadParameters cperiod parties)
-        , initials = []
+        , initials
         }
     )
  where
@@ -342,6 +342,16 @@ observeInitTx party ValidatedTx{wits, body} = do
 
   indexedOutputs =
     zip [0 ..] (toList (outputs body))
+
+  initials =
+    let initialOutputs = filter (isInitial . snd) indexedOutputs
+        txId = TxId $ SafeHash.hashAnnotated body
+     in undefined
+
+  isInitial (TxOut addr _ _) =
+    addr == scriptAddr initialScript
+
+  initialScript = plutusScript MockInitial.validatorScript
 
 convertParty :: OnChain.Party -> Party
 convertParty = anonymousParty . partyToVerKey
