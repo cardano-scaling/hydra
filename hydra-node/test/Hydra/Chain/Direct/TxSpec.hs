@@ -45,9 +45,8 @@ import Hydra.Chain (HeadParameters (..), OnChainTx (..), PostChainTx (..))
 import Hydra.Chain.Direct.Fixture (maxTxSize, pparams)
 import Hydra.Chain.Direct.Util (Era)
 import Hydra.Chain.Direct.Wallet (ErrCoverFee (..), coverFee_)
-import qualified Hydra.Contract.Commit as Commit
 import qualified Hydra.Contract.Head as Head
-import qualified Hydra.Contract.Initial as Initial
+import qualified Hydra.Contract.MockInitial as MockInitial
 import Hydra.Data.ContestationPeriod (contestationPeriodFromDiffTime)
 import Hydra.Data.Party (partyFromVerKey)
 import Hydra.Ledger (Utxo)
@@ -166,7 +165,7 @@ spec =
                       (contestationPeriodFromDiffTime contestationPeriod)
                       (map (partyFromVerKey . vkey) parties)
 
-              utxo = UTxO $ Map.fromList $ (txIn, txOut) : map toTxOut initials
+              utxo = UTxO $ Map.fromList $ (txIn, txOut) : map mkMockInitialTxOut initials
 
               results = validateTxScriptsUnlimited utxo tx
            in 1 + length initials == length (rights $ Map.elems results)
@@ -181,7 +180,7 @@ spec =
               -- FIXME(AB): fromJust is partial
               txInitOut = fromJust $ Seq.lookup 0 (outputs initTxBody)
               txAbort = abortTx (txInitIn, threadToken, params) initials
-              lookupUtxo = Map.fromList ((txInitIn, txInitOut) : map toTxOut initials)
+              lookupUtxo = Map.fromList ((txInitIn, txInitOut) : map mkMockInitialTxOut initials)
               utxo = UTxO $ walletUtxo <> lookupUtxo
            in case coverFee_ pparams lookupUtxo walletUtxo txAbort of
                 Left err ->
@@ -207,21 +206,14 @@ executionCost PParams{_prices} ValidatedTx{wits} =
  where
   executionUnits = foldMap snd $ unRedeemers $ txrdmrs wits
 
-toTxOut :: (TxIn StandardCrypto, PubKeyHash) -> (TxIn StandardCrypto, TxOut Era)
-toTxOut (txIn, pkh) =
+mkMockInitialTxOut :: (TxIn StandardCrypto, PubKeyHash) -> (TxIn StandardCrypto, TxOut Era)
+mkMockInitialTxOut (txIn, pkh) =
   (txIn, TxOut initialAddress initialValue (SJust initialDatumHash))
  where
-  initialAddress = scriptAddr $ plutusScript Initial.validatorScript
+  initialAddress = scriptAddr $ plutusScript MockInitial.validatorScript
   initialValue = inject (Coin 0)
   initialDatumHash =
-    hashData @Era $ Data $ toData $ Initial.datum (policyId, dependencies, pkh)
-   where
-    (policy, _) = first currencyMPSHash (unAssetClass threadToken)
-    dependencies =
-      Initial.Dependencies
-        { Initial.headScript = Head.validatorHash policy
-        , Initial.commitScript = Commit.validatorHash
-        }
+    hashData @Era $ Data $ toData $ MockInitial.datum pkh
 
 isImplemented :: PostChainTx tx -> OnChainHeadState -> Bool
 isImplemented tx st =
