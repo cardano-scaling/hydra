@@ -81,6 +81,7 @@ import Ouroboros.Network.Protocol.ChainSync.Client (
 import Ouroboros.Network.Protocol.LocalTxSubmission.Client (
   LocalTxClientStIdle (..),
   LocalTxSubmissionClient (..),
+  SubmitResult (..),
   localTxSubmissionClientPeer,
  )
 import Test.Cardano.Ledger.Alonzo.Serialisation.Generators ()
@@ -284,8 +285,10 @@ txSubmissionClient tracer queue callback cardanoKeys headState TinyWallet{getUtx
         traceWith tracer (PostTx tx signedTx)
           $> SendMsgSubmitTx
             (GenTxAlonzo . mkShelleyTx $ signedTx)
-            -- TODO(SN): handle SubmitFail
-            (const clientStIdle)
+            ( \case
+                SubmitFail reason -> error $ "failed to submit tx: " <> show reason
+                SubmitSuccess -> clientStIdle
+            )
 
   fromPostChainTx :: PostChainTx tx -> STM m (Maybe (ValidatedTx Era))
   fromPostChainTx = \case
