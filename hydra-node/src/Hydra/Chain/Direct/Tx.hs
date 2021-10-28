@@ -48,10 +48,9 @@ import qualified Data.Sequence.Strict as StrictSeq
 import qualified Data.Set as Set
 import Hydra.Chain (HeadParameters (..), OnChainTx (OnAbortTx, OnCommitTx, OnInitTx))
 import Hydra.Chain.Direct.Util (Era, VerificationKey)
-import qualified Hydra.Contract.Commit as Commit
 import qualified Hydra.Contract.Head as Head
-import qualified Hydra.Contract.Initial as Initial
 import qualified Hydra.Contract.MockCommit as MockCommit
+import qualified Hydra.Contract.MockInitial as MockInitial
 import Hydra.Data.ContestationPeriod (contestationPeriodFromDiffTime, contestationPeriodToDiffTime)
 import Hydra.Data.Party (partyFromVerKey, partyToVerKey)
 import qualified Hydra.Data.Party as OnChain
@@ -184,7 +183,7 @@ commitTx party utxo (initialIn, _pkh) =
 
   scripts = fromList $ map withScriptHash [initialScript]
 
-  initialScript = plutusScript Initial.validatorScript
+  initialScript = plutusScript MockInitial.validatorScript
 
   commitScript = plutusScript MockCommit.validatorScript
 
@@ -236,7 +235,7 @@ abortTx (smInput, _token, HeadParameters{contestationPeriod, parties}) initInput
       map withScriptHash $
         headScript : [initialScript | not (null initInputs)]
 
-  initialScript = plutusScript Initial.validatorScript
+  initialScript = plutusScript MockInitial.validatorScript
 
   headScript = plutusScript $ Head.validatorScript policyId
 
@@ -251,7 +250,7 @@ abortTx (smInput, _token, HeadParameters{contestationPeriod, parties}) initInput
     map
       ( \(txin, _) ->
           ( rdptr body (Spending txin)
-          , (Data $ toData $ Plutus.getRedeemer $ Initial.redeemer Nothing, ExUnits 0 0)
+          , (Data $ toData $ Plutus.getRedeemer $ MockInitial.redeemer (), ExUnits 0 0)
           )
       )
       initInputs
@@ -270,16 +269,8 @@ abortTx (smInput, _token, HeadParameters{contestationPeriod, parties}) initInput
           (contestationPeriodFromDiffTime contestationPeriod)
           (map (partyFromVerKey . vkey) parties)
 
-  initialDatum (_, vkh) =
-    Data $ toData $ Initial.datum (policyId, dependencies, vkh)
-
-  dependencies =
-    Initial.Dependencies
-      { Initial.headScript =
-          Head.validatorHash policyId
-      , Initial.commitScript =
-          Commit.validatorHash
-      }
+  initialDatum (_, pkh) =
+    Data $ toData $ MockInitial.datum pkh
 
   abortDatum =
     Data $ toData Head.Final
@@ -305,13 +296,14 @@ observeInitTx :: Party -> ValidatedTx Era -> Maybe (OnChainTx tx, OnChainHeadSta
 observeInitTx party ValidatedTx{wits, body} = do
   (dh, Head.Initial cp ps) <- getFirst $ foldMap (First . decodeInitDatum) datums
   let parties = map convertParty ps
+  let cperiod = contestationPeriodToDiffTime cp
   guard $ party `elem` parties
   (i, o) <- getFirst $ foldMap (First . findSmOutput dh) indexedOutputs
   pure
-    ( OnInitTx (contestationPeriodToDiffTime cp) parties
+    ( OnInitTx cperiod parties
     , Initial
         { threadOutput =
-            (i, o, threadToken, HeadParameters (contestationPeriodToDiffTime cp) (map convertParty ps))
+            (i, o, threadToken, HeadParameters cperiod parties)
         , initials = []
         }
     )

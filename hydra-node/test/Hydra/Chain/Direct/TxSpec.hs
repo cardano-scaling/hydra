@@ -48,6 +48,7 @@ import Hydra.Chain.Direct.Wallet (ErrCoverFee (..), coverFee_)
 import qualified Hydra.Contract.Commit as Commit
 import qualified Hydra.Contract.Head as Head
 import qualified Hydra.Contract.Initial as Initial
+import qualified Hydra.Contract.MockInitial as MockInitial
 import Hydra.Data.ContestationPeriod (contestationPeriodFromDiffTime)
 import Hydra.Data.Party (partyFromVerKey)
 import Hydra.Ledger (Utxo)
@@ -136,10 +137,11 @@ spec =
       prop "updates on-chain state to 'Final'" $ \txIn params (NonEmpty initials) ->
         let tx = abortTx (txIn, threadToken, params) initials
             res = observeAbortTx @SimpleTx tx
-         in counterexample ("Result: " <> show res) $
-              case res of
-                Just (_, st) -> st === Final
-                _ -> property False
+         in case res of
+              Just (_, st) -> st === Final
+              _ -> property False
+              & counterexample ("Result: " <> show res)
+              & counterexample ("Tx: " <> show tx)
 
       -- TODO(SN): this requires the abortTx to include a redeemer, for a TxIn,
       -- spending a Head-validated output
