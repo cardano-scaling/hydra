@@ -41,7 +41,8 @@ import Hydra.Chain.Direct.Tx (
   ownInitial,
   runOnChainTxs,
  )
-import Hydra.Chain.Direct.Util (Block, Era, SigningKey, VerificationKey, defaultCodecs, nullConnectTracers, versions)
+import Hydra.Chain.Direct.Util (Block, Era, defaultCodecs, nullConnectTracers, versions)
+import qualified Hydra.Chain.Direct.Util as Cardano
 import Hydra.Chain.Direct.Wallet (TinyWallet (..), TinyWalletLog, withTinyWallet)
 import Hydra.Ledger (Tx)
 import Hydra.Logging (Tracer, traceWith)
@@ -94,11 +95,14 @@ withDirectChain ::
   IOManager ->
   -- | Path to a domain socket used to connect to the server.
   FilePath ->
-  -- | Key pair for the wallet
-  (VerificationKey, SigningKey) ->
+  -- | Key pair for the wallet.
+  (Cardano.VerificationKey, Cardano.SigningKey) ->
+  -- | Hydra party of our hydra node.
   Party ->
+  -- | Cardano keys of all Head participants.
+  [Cardano.VerificationKey] ->
   ChainComponent tx IO ()
-withDirectChain tracer networkMagic iocp socketPath keyPair party callback action = do
+withDirectChain tracer networkMagic iocp socketPath keyPair party cardanoKeys callback action = do
   queue <- newTQueueIO
   headState <- newTVarIO Closed
   handle onIOException $
@@ -108,7 +112,7 @@ withDirectChain tracer networkMagic iocp socketPath keyPair party callback actio
         ( connectTo
             (localSnocket iocp)
             nullConnectTracers
-            (versions networkMagic (client tracer queue party headState wallet callback))
+            (versions networkMagic (client tracer queue party cardanoKeys headState wallet callback))
             socketPath
         )
  where
@@ -135,12 +139,13 @@ client ::
   Tracer m (DirectChainLog tx) ->
   TQueue m (PostChainTx tx) ->
   Party ->
+  [Cardano.VerificationKey] ->
   TVar m OnChainHeadState ->
   TinyWallet m ->
   ChainCallback tx m ->
   NodeToClientVersion ->
   OuroborosApplication 'InitiatorMode LocalAddress LByteString m () Void
-client tracer queue party headState wallet callback nodeToClientV =
+client tracer queue party cardanoKeys headState wallet callback nodeToClientV =
   nodeToClientProtocols
     ( const $
         pure $
@@ -151,7 +156,7 @@ client tracer queue party headState wallet callback nodeToClientV =
                    in MuxPeer nullTracer cChainSyncCodec peer
             , localTxSubmissionProtocol =
                 InitiatorProtocolOnly $
-                  let peer = localTxSubmissionClientPeer $ txSubmissionClient tracer queue callback headState wallet
+                  let peer = localTxSubmissionClientPeer $ txSubmissionClient tracer queue callback cardanoKeys headState wallet
                    in MuxPeer nullTracer cTxSubmissionCodec peer
             , localStateQueryProtocol =
                 InitiatorProtocolOnly $
@@ -249,10 +254,11 @@ txSubmissionClient ::
   Tracer m (DirectChainLog tx) ->
   TQueue m (PostChainTx tx) ->
   ChainCallback tx m ->
+  [Cardano.VerificationKey] ->
   TVar m OnChainHeadState ->
   TinyWallet m ->
   LocalTxSubmissionClient (GenTx Block) (ApplyTxErr Block) m ()
-txSubmissionClient tracer queue callback headState TinyWallet{getUtxo, sign, coverFee, verificationKey} =
+txSubmissionClient tracer queue callback cardanoKeys headState TinyWallet{getUtxo, sign, coverFee, verificationKey} =
   LocalTxSubmissionClient clientStIdle
  where
   clientStIdle :: m (LocalTxClientStIdle (GenTx Block) (ApplyTxErr Block) m ())
@@ -283,10 +289,10 @@ txSubmissionClient tracer queue callback headState TinyWallet{getUtxo, sign, cov
 
   fromPostChainTx :: PostChainTx tx -> STM m (Maybe (ValidatedTx Era))
   fromPostChainTx = \case
-    InitTx p -> do
+    InitTx params -> do
       txIns <- keys <$> getUtxo
       case txIns of
-        (seedInput : _) -> pure . Just $ initTx (error "initTx: cardano keys") p seedInput
+        (seedInput : _) -> pure . Just $ initTx cardanoKeys params seedInput
         [] -> error "cannot find a seed input to pass to Init transaction"
     AbortTx _utxo -> do
       readTVar headState >>= \case
