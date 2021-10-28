@@ -105,6 +105,7 @@ spec =
                   .&&. length initials === length cardanoKeys
               _ -> property False
               & counterexample ("Result: " <> show res)
+              & counterexample ("Tx: " <> show tx)
 
     describe "commitTx" $ do
       prop ("transaction size below limit (" <> show maxTxSize <> ")") $

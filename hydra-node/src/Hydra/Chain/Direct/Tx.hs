@@ -315,7 +315,7 @@ runOnChainTxs party headState = fmap reverse . atomically . foldM runOnChainTx [
 
 observeInitTx :: Party -> ValidatedTx Era -> Maybe (OnChainTx tx, OnChainHeadState)
 observeInitTx party ValidatedTx{wits, body} = do
-  (dh, Head.Initial cp ps) <- getFirst $ foldMap (First . decodeInitDatum) datums
+  (dh, Head.Initial cp ps) <- getFirst $ foldMap (First . decodeHeadDatum) datumsList
   let parties = map convertParty ps
   let cperiod = contestationPeriodToDiffTime cp
   guard $ party `elem` parties
@@ -329,7 +329,7 @@ observeInitTx party ValidatedTx{wits, body} = do
         }
     )
  where
-  decodeInitDatum (dh, d) =
+  decodeHeadDatum (dh, d) =
     (dh,) <$> fromData (getPlutusData d)
 
   findSmOutput dh (ix, o@(TxOut _ _ dh')) =
@@ -337,16 +337,25 @@ observeInitTx party ValidatedTx{wits, body} = do
    where
     i = TxIn (TxId $ SafeHash.hashAnnotated body) ix
 
-  datums =
-    Map.toList . unTxDats $ txdats wits
+  datumsList = Map.toList datums
+
+  datums = unTxDats $ txdats wits
 
   indexedOutputs =
     zip [0 ..] (toList (outputs body))
 
   initials =
     let initialOutputs = filter (isInitial . snd) indexedOutputs
-        txId = TxId $ SafeHash.hashAnnotated body
-     in undefined
+     in mapMaybe mkInitial initialOutputs
+
+  mkInitial (ix, txOut) =
+    (mkTxIn ix,) <$> decodeInitialDatum txOut
+
+  mkTxIn ix = TxIn (TxId $ SafeHash.hashAnnotated body) ix
+
+  decodeInitialDatum = \case
+    (TxOut _ _ (SJust dh)) -> Map.lookup dh datums >>= fromData . getPlutusData
+    _ -> Nothing
 
   isInitial (TxOut addr _ _) =
     addr == scriptAddr initialScript
