@@ -347,20 +347,32 @@ observeCommitTx ValidatedTx{wits, body} = do
   convertUtxo :: OnChain.Utxo -> Maybe (Utxo tx)
   convertUtxo = Aeson.decodeStrict' . OnChain.toByteString
 
--- | Identify an abort tx by trying to decode all redeemers to the right type.
--- This is a very weak observation and should be more concretized.
+-- | Identify an abort tx by looking up the input spending the Head output and
+-- decoding its redeemer.
 -- TODO(SN): make sure this is aborting "the right head / your head"
-observeAbortTx :: ValidatedTx Era -> Maybe (OnChainTx tx, OnChainHeadState)
-observeAbortTx ValidatedTx{wits} =
-  case extractTransition of
+observeAbortTx ::
+  -- | A Utxo set to lookup tx inputs
+  Map (TxIn StandardCrypto) (TxOut Era) ->
+  ValidatedTx Era ->
+  Maybe (OnChainTx tx, OnChainHeadState)
+observeAbortTx utxo ValidatedTx{wits} = do
+  -- XXX(SN): not hard-code policyId
+  txOut <- findScriptOutput utxo . plutusScript $ Head.validatorScript policyId
+  case decodeHeadRedeemer txOut of
     Just Head.Abort -> Just (OnAbortTx, Final)
     _ -> Nothing
  where
-  extractTransition = foldr decodeData Nothing redeemerData
+  decodeHeadRedeemer = undefined
 
   decodeData d s = s <|> fromData (getPlutusData d)
 
   redeemerData = fmap fst . Map.elems . unRedeemers $ txrdmrs wits
+
+findScriptOutput ::
+  Map (TxIn StandardCrypto) (TxOut Era) ->
+  Script Era ->
+  Maybe (TxOut StandardCrypto)
+findScriptOutput _script = undefined
 
 -- | Provide a UTXO map for some given OnChainHeadState. At least used by the
 -- TinyWallet to lookup inputs.
