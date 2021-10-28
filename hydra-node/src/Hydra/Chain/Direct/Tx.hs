@@ -16,11 +16,11 @@ import Cardano.Ledger.Address (Addr (Addr))
 import Cardano.Ledger.Alonzo (Script)
 import Cardano.Ledger.Alonzo.Data (Data (Data), DataHash, getPlutusData, hashData)
 import Cardano.Ledger.Alonzo.Language (Language (PlutusV1))
-import Cardano.Ledger.Alonzo.Scripts (ExUnits (..), Script (PlutusScript))
+import Cardano.Ledger.Alonzo.Scripts (ExUnits (..), Script (PlutusScript), Tag (Spend))
 import Cardano.Ledger.Alonzo.Tx (IsValid (IsValid), ScriptPurpose (Spending), ValidatedTx (..), rdptr)
 import Cardano.Ledger.Alonzo.TxBody (TxBody (..), TxOut (TxOut))
 import Cardano.Ledger.Alonzo.TxInfo (transKeyHash)
-import Cardano.Ledger.Alonzo.TxWitness (RdmrPtr, Redeemers (..), TxDats (..), TxWitness (..), unRedeemers, unTxDats)
+import Cardano.Ledger.Alonzo.TxWitness (RdmrPtr (RdmrPtr), Redeemers (..), TxDats (..), TxWitness (..), unRedeemers, unTxDats)
 import Cardano.Ledger.Crypto (StandardCrypto)
 import Cardano.Ledger.Era (hashScript)
 import qualified Cardano.Ledger.SafeHash as SafeHash
@@ -355,14 +355,15 @@ observeAbortTx ::
   Map (TxIn StandardCrypto) (TxOut Era) ->
   ValidatedTx Era ->
   Maybe (OnChainTx tx, OnChainHeadState)
-observeAbortTx utxo ValidatedTx{wits} = do
+observeAbortTx utxo ValidatedTx{wits, body} = do
   -- XXX(SN): not hard-code policyId
-  txOut <- findScriptOutput utxo . plutusScript $ Head.validatorScript policyId
-  case decodeHeadRedeemer txOut of
+  headInput <- fmap fst . findScriptOutput utxo . plutusScript $ Head.validatorScript policyId
+  case decodeHeadRedeemer headInput of
     Just Head.Abort -> Just (OnAbortTx, Final)
     _ -> Nothing
  where
-  decodeHeadRedeemer = undefined
+  decodeHeadRedeemer txIn =
+    Set.lookupIndex txIn (inputs body) >>= \idx -> Map.lookup (RdmrPtr Spend (fromIntegral idx)) (unRedeemers (txrdmrs wits))
 
   decodeData d s = s <|> fromData (getPlutusData d)
 
@@ -371,8 +372,11 @@ observeAbortTx utxo ValidatedTx{wits} = do
 findScriptOutput ::
   Map (TxIn StandardCrypto) (TxOut Era) ->
   Script Era ->
-  Maybe (TxOut StandardCrypto)
-findScriptOutput _script = undefined
+  Maybe (TxIn StandardCrypto, TxOut Era)
+findScriptOutput utxo script =
+  find go $ Map.toList utxo
+ where
+  go (_, TxOut addr _ _) = addr == scriptAddr script
 
 -- | Provide a UTXO map for some given OnChainHeadState. At least used by the
 -- TinyWallet to lookup inputs.
