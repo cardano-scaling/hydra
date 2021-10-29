@@ -85,6 +85,27 @@ spec = around showLogsOnFailure $ do
             postTx $ CommitTx alice someUtxo
             alicesCallback `observesInTime` OnCommitTx alice someUtxo
 
+  it "can open a Head" $ \tracer -> do
+    alicesCallback <- newEmptyMVar
+    withTempDir "hydra-local-cluster" $ \tmp -> do
+      let config = testClusterConfig tmp
+      withCluster (contramap FromCluster tracer) config $ \cluster@(RunningCluster _ [RunningNode _ node1socket, _, _]) -> do
+        aliceKeys@(aliceCardanoVk, _) <- keysFor "alice" cluster
+        let cardanoKeys = [aliceCardanoVk]
+        withIOManager $ \iocp -> do
+          withDirectChain (contramap (FromDirectChain "alice") tracer) magic iocp node1socket aliceKeys alice cardanoKeys (putMVar alicesCallback) $ \Chain{postTx} -> do
+            postTx $ InitTx @SimpleTx $ HeadParameters 100 [alice]
+            alicesCallback `observesInTime` OnInitTx 100 [alice]
+
+            -- NOTE(SN): We are committing a SimpleTX UTXO, which is fine as
+            -- long there are no on-chain validators checking it
+            let someUtxo = utxoRef 42
+            postTx $ CommitTx alice someUtxo
+            alicesCallback `observesInTime` OnCommitTx alice someUtxo
+
+            postTx $ CollectComTx someUtxo
+            alicesCallback `observesInTime` OnCollectComTx
+
 magic :: NetworkMagic
 magic = NetworkMagic 42
 
