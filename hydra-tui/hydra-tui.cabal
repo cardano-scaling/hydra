@@ -93,7 +93,6 @@ library
     , microlens-th
     , optparse-applicative
     , QuickCheck
-    , shelley-spec-ledger
     , text
     , vty
     , websockets
