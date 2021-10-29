@@ -366,8 +366,9 @@ runOnChainTxs party headState = fmap reverse . atomically . foldM runOnChainTx [
     -- TODO(SN): We should be only looking for abort,commit etc. when we have a headId/policyId
     let res =
           observeInitTx party tx
-            <|> observeAbortTx utxo tx
             <|> ((,onChainHeadState) <$> observeCommitTx tx)
+            <|> observeCollectComTx utxo tx
+            <|> observeAbortTx utxo tx
     case res of
       Just (onChainTx, newOnChainHeadState) -> do
         writeTVar headState newOnChainHeadState
