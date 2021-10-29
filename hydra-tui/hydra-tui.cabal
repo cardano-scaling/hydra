@@ -83,6 +83,7 @@ library
     , base
     , brick
     , cardano-ledger-core
+    , cardano-ledger-shelley
     , cardano-ledger-shelley-ma
     , containers
     , hydra-node
@@ -92,7 +93,6 @@ library
     , microlens-th
     , optparse-applicative
     , QuickCheck
-    , shelley-spec-ledger
     , text
     , vty
     , websockets

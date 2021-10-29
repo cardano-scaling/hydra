@@ -12,6 +12,8 @@ import Brick.BChan (newBChan, writeBChan)
 import Brick.Forms (Form, FormFieldState, checkboxField, editShowableFieldWithValidate, formState, handleFormEvent, newForm, radioField, renderForm)
 import Brick.Widgets.Border (hBorder, vBorder)
 import Brick.Widgets.Border.Style (ascii)
+import Cardano.Ledger.Shelley.API (UTxO (..))
+import qualified Cardano.Ledger.Shelley.API as Cardano
 import Cardano.Ledger.Val (coin, inject)
 import Data.List (nub, (!!), (\\))
 import qualified Data.Map.Strict as Map
@@ -43,8 +45,6 @@ import Hydra.TUI.Options (Options (..))
 import Lens.Micro (Lens', lens, (%~), (.~), (?~), (^.), (^?))
 import Lens.Micro.TH (makeLensesFor)
 import Paths_hydra_tui (version)
-import Shelley.Spec.Ledger.API (UTxO (..))
-import qualified Shelley.Spec.Ledger.API as Cardano
 import qualified Prelude
 
 --
