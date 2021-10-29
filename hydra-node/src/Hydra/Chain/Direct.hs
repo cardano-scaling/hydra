@@ -266,13 +266,15 @@ txSubmissionClient tracer queue callback cardanoKeys headState TinyWallet{getUtx
     -- XXX(SN): This is a bit too much stair-casing (caused by the atomically and ad-hoc Maybe's)
     res <- atomically $ do
       tx <- readTQueue queue
-      partialTx <- fromPostChainTx tx
-      utxo <- knownUtxo <$> readTVar headState
-      coverFee utxo partialTx >>= \case
-        Left e ->
-          error ("failed to cover fee for transaction: " <> show e <> ", " <> show partialTx)
-        Right validatedTx -> do
-          pure $ Just (tx, sign validatedTx)
+      fromPostChainTx tx >>= \case
+        Nothing -> pure Nothing
+        Just partialTx -> do
+          utxo <- knownUtxo <$> readTVar headState
+          coverFee utxo partialTx >>= \case
+            Left e ->
+              error ("failed to cover fee for transaction: " <> show e <> ", " <> show partialTx)
+            Right validatedTx -> do
+              pure $ Just (tx, sign validatedTx)
 
     case res of
       Nothing -> do
@@ -287,29 +289,29 @@ txSubmissionClient tracer queue callback cardanoKeys headState TinyWallet{getUtx
                 SubmitSuccess -> clientStIdle
             )
 
-  fromPostChainTx :: PostChainTx tx -> STM m (ValidatedTx Era)
+  fromPostChainTx :: PostChainTx tx -> STM m (Maybe (ValidatedTx Era))
   fromPostChainTx = \case
     InitTx params -> do
       txIns <- keys <$> getUtxo
       case txIns of
-        (seedInput : _) -> pure $ initTx cardanoKeys params seedInput
+        (seedInput : _) -> pure . Just $ initTx cardanoKeys params seedInput
         [] -> error "cannot find a seed input to pass to Init transaction"
     AbortTx _utxo ->
       readTVar headState >>= \case
         Initial{threadOutput = (i, _, tk, hp), initials} ->
-          pure $ abortTx (i, tk, hp) (map (\(txIn, _, pkh) -> (txIn, pkh)) initials)
-        st -> error $ "cannot post AbortTx, invalid state: " <> show st
+          pure . Just $ abortTx (i, tk, hp) (map (\(txIn, _, pkh) -> (txIn, pkh)) initials)
+        _st -> pure Nothing
     CommitTx party utxo ->
       readTVar headState >>= \case
         Initial{initials} -> case ownInitial verificationKey initials of
           Nothing -> error $ "no ownInitial: " <> show initials
           Just initial ->
-            pure $ commitTx @tx party utxo initial
+            pure . Just $ commitTx @tx party utxo initial
         st -> error $ "cannot post CommitTx, invalid state: " <> show st
     CollectComTx utxo ->
       readTVar headState >>= \case
-        Initial{threadOutput = (i, _, _, hp)} ->
-          pure $ collectComTx @tx utxo (i, hp)
+        Initial{threadOutput = (i, _, _, _)} ->
+          pure . Just $ collectComTx utxo (i, undefined)
         st -> error $ "cannot post CollectComTx, invalid state: " <> show st
     _ -> error "not implemented"
 
