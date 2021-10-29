@@ -226,6 +226,19 @@ commitTx party utxo (initialIn, pkh) =
 
   commitUtxo = fromByteString $ toStrict $ Aeson.encode utxo
 
+-- | Create a transaction collecting all "committed" utxo and opening a Head,
+-- i.e. driving the Head script state.
+-- FIXME(SN): Right now, this is ignoring the actually committed utxo and not
+-- collecting anything.
+collectComTx ::
+  -- | Total UTXO to be made available in the Head.
+  Utxo tx ->
+  -- | Everything needed to spend the Head state-machine output.
+  -- FIXME(SN): should also contain some Head identifier/address and stored Value (maybe the TxOut + Data?)
+  (TxIn StandardCrypto, HeadParameters) ->
+  ValidatedTx Era
+collectComTx _utxo (_headInput, _headParams) = undefined
+
 -- | Create transaction which aborts by spending one input. This is currently
 -- only possible if this is governed by the initial script and only for a single
 -- input. Of course, the Head protocol specifies we need to spend ALL the Utxo
