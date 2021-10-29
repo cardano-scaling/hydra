@@ -298,8 +298,8 @@ txSubmissionClient tracer queue callback cardanoKeys headState TinyWallet{getUtx
         [] -> error "cannot find a seed input to pass to Init transaction"
     AbortTx _utxo ->
       readTVar headState >>= \case
-        Initial{threadOutput = (i, _, tk, hp), initials} ->
-          pure . Just $ abortTx (i, tk, hp) (map (\(txIn, _, pkh) -> (txIn, pkh)) initials)
+        Initial{threadOutput = (i, _, dat), initials} ->
+          pure . Just $ abortTx (i, dat) (map (\(txIn, _, pkh) -> (txIn, pkh)) initials)
         _st -> pure Nothing
     CommitTx party utxo ->
       readTVar headState >>= \case
@@ -310,8 +310,8 @@ txSubmissionClient tracer queue callback cardanoKeys headState TinyWallet{getUtx
         st -> error $ "cannot post CommitTx, invalid state: " <> show st
     CollectComTx utxo ->
       readTVar headState >>= \case
-        Initial{threadOutput = (i, _, _, _)} ->
-          pure . Just $ collectComTx utxo (i, undefined)
+        Initial{threadOutput = (i, _, dat)} ->
+          pure . Just $ collectComTx @tx utxo (i, dat)
         st -> error $ "cannot post CollectComTx, invalid state: " <> show st
     _ -> error "not implemented"
 
