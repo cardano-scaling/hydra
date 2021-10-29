@@ -45,7 +45,7 @@ import qualified Data.Aeson as Aeson
 import qualified Data.Map as Map
 import qualified Data.Sequence.Strict as StrictSeq
 import qualified Data.Set as Set
-import Hydra.Chain (HeadParameters (..), OnChainTx (OnAbortTx, OnCommitTx, OnInitTx))
+import Hydra.Chain (HeadParameters (..), OnChainTx (OnAbortTx, OnCollectComTx, OnCommitTx, OnInitTx))
 import Hydra.Chain.Direct.Util (Era, VerificationKey)
 import qualified Hydra.Contract.Head as Head
 import qualified Hydra.Contract.MockCommit as MockCommit
@@ -58,7 +58,7 @@ import qualified Hydra.Data.Utxo as OnChain
 import Hydra.Ledger (Tx, Utxo)
 import Hydra.Party (Party, anonymousParty, vkey)
 import Ledger.Value (AssetClass (..), currencyMPSHash)
-import Plutus.V1.Ledger.Api (MintingPolicyHash, PubKeyHash (..), fromData, toData)
+import Plutus.V1.Ledger.Api (FromData, MintingPolicyHash, PubKeyHash (..), fromData, toData)
 import qualified Plutus.V1.Ledger.Api as Plutus
 import Plutus.V1.Ledger.Value (assetClass, currencySymbol, tokenName)
 
@@ -81,6 +81,7 @@ data OnChainHeadState
       , -- TODO add commits
         initials :: [(TxIn StandardCrypto, TxOut Era, Data Era)]
       }
+  | Open
   | Final
   deriving (Eq, Show, Generic)
 
@@ -422,7 +423,7 @@ convertParty = anonymousParty . partyToVerKey
 
 -- | Identify a commit tx by looking for an output which pays to v_commit.
 observeCommitTx :: forall tx. Tx tx => ValidatedTx Era -> Maybe (OnChainTx tx)
-observeCommitTx ValidatedTx{wits, body} = do
+observeCommitTx ValidatedTx{body, wits} = do
   txOut <- findCommitOutput
   dat <- lookupDatum wits txOut
   (party, utxo) <- fromData $ getPlutusData dat
@@ -437,34 +438,38 @@ observeCommitTx ValidatedTx{wits, body} = do
   convertUtxo :: OnChain.Utxo -> Maybe (Utxo tx)
   convertUtxo = Aeson.decodeStrict' . OnChain.toByteString
 
+-- TODO(SN): obviously the observeCollectComTx/observeAbortTx can be DRYed.. deliberately hold back on it though
+
+-- | Identify a collectCom tx by lookup up the input spending the Head output
+-- and decoding its redeemer.
+observeCollectComTx ::
+  -- | A Utxo set to lookup tx inputs
+  Map (TxIn StandardCrypto) (TxOut Era) ->
+  ValidatedTx Era ->
+  Maybe (OnChainTx tx, OnChainHeadState)
+observeCollectComTx utxo tx = do
+  headInput <- fst <$> findScriptOutput utxo headScript
+  getRedeemerSpending tx headInput >>= \case
+    Head.CollectCom -> pure (OnCollectComTx, Open)
+    _ -> Nothing
+ where
+  headScript = plutusScript $ Head.validatorScript policyId
+
 -- | Identify an abort tx by looking up the input spending the Head output and
 -- decoding its redeemer.
--- TODO(SN): make sure this is aborting "the right head / your head"
 observeAbortTx ::
   -- | A Utxo set to lookup tx inputs
   Map (TxIn StandardCrypto) (TxOut Era) ->
   ValidatedTx Era ->
   Maybe (OnChainTx tx, OnChainHeadState)
-observeAbortTx utxo ValidatedTx{wits, body} = do
-  -- XXX(SN): not hard-code policyId
-  headInput <- fmap fst . findScriptOutput utxo . plutusScript $ Head.validatorScript policyId
-  decodeHeadRedeemer headInput >>= \case
+observeAbortTx utxo tx = do
+  headInput <- fst <$> findScriptOutput utxo headScript
+  getRedeemerSpending tx headInput >>= \case
     Head.Abort -> pure (OnAbortTx, Final)
     _ -> Nothing
  where
-  decodeHeadRedeemer txIn = do
-    idx <- Set.lookupIndex txIn (inputs body)
-    (d, _exUnits) <- Map.lookup (RdmrPtr Spend (fromIntegral idx)) (unRedeemers (txrdmrs wits))
-    fromData (getPlutusData d)
-
-findScriptOutput ::
-  Map (TxIn StandardCrypto) (TxOut Era) ->
-  Script Era ->
-  Maybe (TxIn StandardCrypto, TxOut Era)
-findScriptOutput utxo script =
-  find go $ Map.toList utxo
- where
-  go (_, TxOut addr _ _) = addr == scriptAddr script
+  -- FIXME(SN): make sure this is aborting "the right head / your head" by not hard-coding policyId
+  headScript = plutusScript $ Head.validatorScript policyId
 
 -- | Provide a UTXO map for some given OnChainHeadState. At least used by the
 -- TinyWallet to lookup inputs.
@@ -533,7 +538,26 @@ redeemersFromList =
     (SNothing, _) -> acc
     (SJust v, ex) -> (v, ex) : acc
 
+-- | Lookup included datum of given 'TxOut'.
 lookupDatum :: TxWitness Era -> TxOut Era -> Maybe (Data Era)
 lookupDatum wits = \case
   (TxOut _ _ (SJust datumHash)) -> Map.lookup datumHash . unTxDats $ txdats wits
   _ -> Nothing
+
+-- | Lookup and decode redeemer which is spending a given 'TxIn'.
+getRedeemerSpending :: FromData a => ValidatedTx Era -> TxIn StandardCrypto -> Maybe a
+getRedeemerSpending ValidatedTx{body, wits} txIn = do
+  idx <- Set.lookupIndex txIn (inputs body)
+  (d, _exUnits) <- Map.lookup (RdmrPtr Spend $ fromIntegral idx) redeemers
+  fromData $ getPlutusData d
+ where
+  redeemers = unRedeemers $ txrdmrs wits
+
+findScriptOutput ::
+  Map (TxIn StandardCrypto) (TxOut Era) ->
+  Script Era ->
+  Maybe (TxIn StandardCrypto, TxOut Era)
+findScriptOutput utxo script =
+  find go $ Map.toList utxo
+ where
+  go (_, TxOut addr _ _) = addr == scriptAddr script
