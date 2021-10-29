@@ -43,7 +43,6 @@ import Control.Monad (foldM)
 import Control.Monad.Class.MonadSTM (MonadSTMTx (writeTVar))
 import qualified Data.Aeson as Aeson
 import qualified Data.Map as Map
-import Data.Maybe.Strict (strictMaybeToMaybe)
 import qualified Data.Sequence.Strict as StrictSeq
 import qualified Data.Set as Set
 import Hydra.Chain (HeadParameters (..), OnChainTx (OnAbortTx, OnCommitTx, OnInitTx))
@@ -80,20 +79,21 @@ data OnChainHeadState
         -- NOTE(SN): The Head's identifier is somewhat encoded in the TxOut's address
         threadOutput :: (TxIn StandardCrypto, TxOut Era, Data Era)
       , -- TODO add commits
-        initials :: [(TxIn StandardCrypto, TxOut Era, PubKeyHash)]
+        initials :: [(TxIn StandardCrypto, TxOut Era, Data Era)]
       }
   | Final
   deriving (Eq, Show, Generic)
 
 -- | Look for the "initial" which corresponds to given cardano verification key.
-ownInitial :: VerificationKey -> [(TxIn StandardCrypto, TxOut Era, PubKeyHash)] -> Maybe (TxIn StandardCrypto, PubKeyHash)
+ownInitial :: VerificationKey -> [(TxIn StandardCrypto, TxOut Era, Data Era)] -> Maybe (TxIn StandardCrypto, PubKeyHash)
 ownInitial vkey =
   foldl' go Nothing
  where
   go (Just x) _ = Just x
-  go Nothing (i, _, pkh)
-    | pkh == transKeyHash (hashKey @StandardCrypto $ VKey vkey) = Just (i, pkh)
-    | otherwise = Nothing
+  go Nothing (i, _, dat) = do
+    pkh <- fromData (getPlutusData dat)
+    guard $ pkh == transKeyHash (hashKey @StandardCrypto $ VKey vkey)
+    pure (i, pkh)
 
 -- FIXME: should not be hardcoded, for testing purposes only
 threadToken :: AssetClass
@@ -247,9 +247,9 @@ collectComTx _utxo (_headInput, _headDatum) = undefined
 abortTx ::
   -- | Everything needed to spend the Head state-machine output.
   (TxIn StandardCrypto, Data Era) ->
-  -- | Data needed to consume the inital output sent to each party to the Head
-  -- which should contain the PT and is locked by initial script
-  [(TxIn StandardCrypto, PubKeyHash)] ->
+  -- | Data needed to spend the inital output sent to each party to the Head
+  -- which should contain the PT and is locked by initial script.
+  [(TxIn StandardCrypto, Data Era)] ->
   ValidatedTx Era
 abortTx (headInput, headDatum) initInputs =
   mkUnsignedTx body datums redeemers scripts
@@ -307,10 +307,7 @@ abortTx (headInput, headDatum) initInputs =
   -- state-machine on-chain validator to control the correctness of the
   -- transition.
   datums =
-    datumsFromList $ abortDatum : headDatum : map initialDatum initInputs
-
-  initialDatum (_, pkh) =
-    Data $ toData $ MockInitial.datum pkh
+    datumsFromList $ abortDatum : headDatum : map snd initInputs
 
   abortDatum =
     Data $ toData Head.Final
@@ -374,13 +371,9 @@ observeInitTx party ValidatedTx{wits, body} = do
      in mapMaybe mkInitial initialOutputs
 
   mkInitial (ix, txOut) =
-    (mkTxIn ix,txOut,) <$> decodeInitialDatum txOut
+    (mkTxIn ix,txOut,) <$> lookupDatum wits txOut
 
   mkTxIn ix = TxIn (TxId $ SafeHash.hashAnnotated body) ix
-
-  decodeInitialDatum = \case
-    (TxOut _ _ (SJust dh)) -> Map.lookup dh datums >>= fromData . getPlutusData
-    _ -> Nothing
 
   isInitial (TxOut addr _ _) =
     addr == scriptAddr initialScript
@@ -394,17 +387,12 @@ convertParty = anonymousParty . partyToVerKey
 observeCommitTx :: forall tx. Tx tx => ValidatedTx Era -> Maybe (OnChainTx tx)
 observeCommitTx ValidatedTx{wits, body} = do
   txOut <- findCommitOutput
-  (party, utxo) <- decodeCommitDatum txOut
+  dat <- lookupDatum wits txOut
+  (party, utxo) <- fromData $ getPlutusData dat
   OnCommitTx (convertParty party) <$> convertUtxo utxo
  where
   findCommitOutput =
     find payToCommitScript (outputs body)
-
-  decodeCommitDatum (TxOut _ _ datumHash) =
-    strictMaybeToMaybe datumHash >>= lookupDatum >>= fromData . getPlutusData
-
-  lookupDatum datumHash =
-    Map.lookup datumHash . unTxDats $ txdats wits
 
   payToCommitScript (TxOut address _ _) =
     address == scriptAddr (plutusScript MockCommit.validatorScript)
@@ -447,13 +435,11 @@ findScriptOutput utxo script =
 knownUtxo :: OnChainHeadState -> Map (TxIn StandardCrypto) (TxOut Era)
 knownUtxo = \case
   Initial{threadOutput, initials} ->
-    Map.fromList (threadUtxo threadOutput : map initialUtxo initials)
+    Map.fromList . map onlyUtxo $ (threadOutput : initials)
   _ ->
     mempty
  where
-  threadUtxo (i, o, _) = (i, o)
-
-  initialUtxo (i, o, _) = (i, o)
+  onlyUtxo (i, o, _) = (i, o)
 
 -- * Helpers
 
@@ -509,3 +495,8 @@ redeemersFromList =
   hasRdmrPtr acc = \case
     (SNothing, _) -> acc
     (SJust v, ex) -> (v, ex) : acc
+
+lookupDatum :: TxWitness Era -> TxOut Era -> Maybe (Data Era)
+lookupDatum wits = \case
+  (TxOut _ _ (SJust datumHash)) -> Map.lookup datumHash . unTxDats $ txdats wits
+  _ -> Nothing
