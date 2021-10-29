@@ -77,7 +77,8 @@ data OnChainHeadState
       { -- | The state machine UTxO produced by the Init transaction
         -- This output should always be present and 'threaded' across all
         -- transactions.
-        threadOutput :: (TxIn StandardCrypto, TxOut Era, AssetClass, HeadParameters)
+        -- NOTE(SN): The Head's identifier is somewhat encoded in the TxOut's address
+        threadOutput :: (TxIn StandardCrypto, TxOut Era, Data Era)
       , -- TODO add commits
         initials :: [(TxIn StandardCrypto, TxOut Era, PubKeyHash)]
       }
@@ -235,27 +236,27 @@ collectComTx ::
   Utxo tx ->
   -- | Everything needed to spend the Head state-machine output.
   -- FIXME(SN): should also contain some Head identifier/address and stored Value (maybe the TxOut + Data?)
-  (TxIn StandardCrypto, HeadParameters) ->
+  (TxIn StandardCrypto, Data Era) ->
   ValidatedTx Era
-collectComTx _utxo (_headInput, _headParams) = undefined
+collectComTx _utxo (_headInput, _headDatum) = undefined
 
 -- | Create transaction which aborts by spending one input. This is currently
 -- only possible if this is governed by the initial script and only for a single
 -- input. Of course, the Head protocol specifies we need to spend ALL the Utxo
 -- containing PTs.
 abortTx ::
-  -- | The data needed to consume the state-machine output
-  (TxIn StandardCrypto, AssetClass, HeadParameters) ->
+  -- | Everything needed to spend the Head state-machine output.
+  (TxIn StandardCrypto, Data Era) ->
   -- | Data needed to consume the inital output sent to each party to the Head
   -- which should contain the PT and is locked by initial script
   [(TxIn StandardCrypto, PubKeyHash)] ->
   ValidatedTx Era
-abortTx (smInput, _token, HeadParameters{contestationPeriod, parties}) initInputs =
+abortTx (headInput, headDatum) initInputs =
   mkUnsignedTx body datums redeemers scripts
  where
   body =
     TxBody
-      { inputs = Set.fromList (smInput : map fst initInputs)
+      { inputs = Set.fromList (headInput : map fst initInputs)
       , collateral = mempty
       , outputs =
           StrictSeq.fromList
@@ -288,7 +289,7 @@ abortTx (smInput, _token, HeadParameters{contestationPeriod, parties}) initInput
   -- TODO(SN): dummy exUnits, balancing overrides them?
   redeemers =
     redeemersFromList $
-      (rdptr body (Spending smInput), (headRedeemer, ExUnits 0 0)) : initialRedeemers
+      (rdptr body (Spending headInput), (headRedeemer, ExUnits 0 0)) : initialRedeemers
 
   headRedeemer = Data $ toData Head.Abort
 
@@ -307,13 +308,6 @@ abortTx (smInput, _token, HeadParameters{contestationPeriod, parties}) initInput
   -- transition.
   datums =
     datumsFromList $ abortDatum : headDatum : map initialDatum initInputs
-
-  headDatum =
-    Data $
-      toData $
-        Head.Initial
-          (contestationPeriodFromDiffTime contestationPeriod)
-          (map (partyFromVerKey . vkey) parties)
 
   initialDatum (_, pkh) =
     Data $ toData $ MockInitial.datum pkh
@@ -347,7 +341,7 @@ runOnChainTxs party headState = fmap reverse . atomically . foldM runOnChainTx [
 
 observeInitTx :: Party -> ValidatedTx Era -> Maybe (OnChainTx tx, OnChainHeadState)
 observeInitTx party ValidatedTx{wits, body} = do
-  (dh, Head.Initial cp ps) <- getFirst $ foldMap (First . decodeHeadDatum) datumsList
+  (dh, headDatum, Head.Initial cp ps) <- getFirst $ foldMap (First . decodeHeadDatum) datumsList
   let parties = map convertParty ps
   let cperiod = contestationPeriodToDiffTime cp
   guard $ party `elem` parties
@@ -355,14 +349,13 @@ observeInitTx party ValidatedTx{wits, body} = do
   pure
     ( OnInitTx cperiod parties
     , Initial
-        { threadOutput =
-            (i, o, threadToken, HeadParameters cperiod parties)
+        { threadOutput = (i, o, headDatum)
         , initials
         }
     )
  where
   decodeHeadDatum (dh, d) =
-    (dh,) <$> fromData (getPlutusData d)
+    (dh,d,) <$> fromData (getPlutusData d)
 
   findSmOutput dh (ix, o@(TxOut _ _ dh')) =
     guard (SJust dh == dh') $> (i, o)
@@ -458,7 +451,7 @@ knownUtxo = \case
   _ ->
     mempty
  where
-  threadUtxo (i, o, _, _) = (i, o)
+  threadUtxo (i, o, _) = (i, o)
 
   initialUtxo (i, o, _) = (i, o)
 
