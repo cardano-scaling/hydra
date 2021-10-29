@@ -39,8 +39,6 @@ import Cardano.Ledger.Shelley.API (
  )
 import Cardano.Ledger.ShelleyMA.Timelocks (ValidityInterval (..))
 import Cardano.Ledger.Val (inject)
-import Control.Monad (foldM)
-import Control.Monad.Class.MonadSTM (MonadSTMTx (writeTVar))
 import qualified Data.Aeson as Aeson
 import qualified Data.Map as Map
 import qualified Data.Sequence.Strict as StrictSeq
@@ -84,17 +82,6 @@ data OnChainHeadState
   | Open
   | Final
   deriving (Eq, Show, Generic)
-
--- | Look for the "initial" which corresponds to given cardano verification key.
-ownInitial :: VerificationKey -> [(TxIn StandardCrypto, TxOut Era, Data Era)] -> Maybe (TxIn StandardCrypto, PubKeyHash)
-ownInitial vkey =
-  foldl' go Nothing
- where
-  go (Just x) _ = Just x
-  go Nothing (i, _, dat) = do
-    pkh <- fromData (getPlutusData dat)
-    guard $ pkh == transKeyHash (hashKey @StandardCrypto $ VKey vkey)
-    pure (i, pkh)
 
 -- FIXME: should not be hardcoded, for testing purposes only
 threadToken :: AssetClass
@@ -352,29 +339,6 @@ abortTx (headInput, headDatum) initInputs =
 
 -- * Observe Hydra Head transactions
 
--- | Update observable on-chain head state from on-chain transactions.
--- NOTE(AB): I tried to separate the 2 functions, the one working on list of txs and the one
--- working on single tx but I keep getting failed unification between `m` and `m0` which is
--- puzzling...
-runOnChainTxs :: forall m tx. (Tx tx, MonadSTM m) => Party -> TVar m OnChainHeadState -> [ValidatedTx Era] -> m [OnChainTx tx]
-runOnChainTxs party headState = fmap reverse . atomically . foldM runOnChainTx []
- where
-  runOnChainTx :: [OnChainTx tx] -> ValidatedTx Era -> STM m [OnChainTx tx]
-  runOnChainTx observed tx = do
-    onChainHeadState <- readTVar headState
-    let utxo = knownUtxo onChainHeadState
-    -- TODO(SN): We should be only looking for abort,commit etc. when we have a headId/policyId
-    let res =
-          observeInitTx party tx
-            <|> ((,onChainHeadState) <$> observeCommitTx tx)
-            <|> observeCollectComTx utxo tx
-            <|> observeAbortTx utxo tx
-    case res of
-      Just (onChainTx, newOnChainHeadState) -> do
-        writeTVar headState newOnChainHeadState
-        pure $ onChainTx : observed
-      Nothing -> pure observed
-
 observeInitTx :: Party -> ValidatedTx Era -> Maybe (OnChainTx tx, OnChainHeadState)
 observeInitTx party ValidatedTx{wits, body} = do
   (dh, headDatum, Head.Initial cp ps) <- getFirst $ foldMap (First . decodeHeadDatum) datumsList
@@ -472,6 +436,8 @@ observeAbortTx utxo tx = do
   -- FIXME(SN): make sure this is aborting "the right head / your head" by not hard-coding policyId
   headScript = plutusScript $ Head.validatorScript policyId
 
+-- * Functions related to OnChainHeadState
+
 -- | Provide a UTXO map for some given OnChainHeadState. At least used by the
 -- TinyWallet to lookup inputs.
 -- XXX(SN): This is a hint that we might want to track the Utxo directly?
@@ -483,6 +449,17 @@ knownUtxo = \case
     mempty
  where
   onlyUtxo (i, o, _) = (i, o)
+
+-- | Look for the "initial" which corresponds to given cardano verification key.
+ownInitial :: VerificationKey -> [(TxIn StandardCrypto, TxOut Era, Data Era)] -> Maybe (TxIn StandardCrypto, PubKeyHash)
+ownInitial vkey =
+  foldl' go Nothing
+ where
+  go (Just x) _ = Just x
+  go Nothing (i, _, dat) = do
+    pkh <- fromData (getPlutusData dat)
+    guard $ pkh == transKeyHash (hashKey @StandardCrypto $ VKey vkey)
+    pure (i, pkh)
 
 -- * Helpers
 

@@ -17,12 +17,8 @@ import Cardano.Ledger.Alonzo.Tx (ValidatedTx)
 import Cardano.Ledger.Alonzo.TxSeq (txSeqTxns)
 import qualified Cardano.Ledger.Shelley.API as Ledger
 import Control.Exception (IOException)
-import Control.Monad.Class.MonadSTM (
-  newTQueueIO,
-  newTVarIO,
-  readTQueue,
-  writeTQueue,
- )
+import Control.Monad (foldM)
+import Control.Monad.Class.MonadSTM (MonadSTMTx (writeTVar), newTQueueIO, newTVarIO, readTQueue, writeTQueue)
 import Control.Tracer (nullTracer)
 import Data.Sequence.Strict (StrictSeq)
 import Hydra.Chain (
@@ -39,8 +35,11 @@ import Hydra.Chain.Direct.Tx (
   commitTx,
   initTx,
   knownUtxo,
+  observeAbortTx,
+  observeCollectComTx,
+  observeCommitTx,
+  observeInitTx,
   ownInitial,
-  runOnChainTxs,
  )
 import Hydra.Chain.Direct.Util (Block, Era, defaultCodecs, nullConnectTracers, versions)
 import qualified Hydra.Chain.Direct.Util as Cardano
@@ -238,7 +237,7 @@ chainSyncClient tracer callback party headState =
       { recvMsgRollForward = \blk _tip -> do
           ChainSyncClient $ do
             let receivedTxs = toList $ getAlonzoTxs blk
-            onChainTxs <- runOnChainTxs party headState receivedTxs
+            onChainTxs <- runOnChainTxs receivedTxs
             traceWith tracer $ ReceivedTxs{onChainTxs, receivedTxs}
             mapM_ callback onChainTxs
             pure clientStIdle
@@ -247,6 +246,25 @@ chainSyncClient tracer callback party headState =
             traceWith tracer $ RolledBackward point
             pure clientStIdle
       }
+
+  runOnChainTxs :: [ValidatedTx Era] -> m [OnChainTx tx]
+  runOnChainTxs = fmap reverse . atomically . foldM runOnChainTx []
+
+  runOnChainTx :: [OnChainTx tx] -> ValidatedTx Era -> STM m [OnChainTx tx]
+  runOnChainTx observed tx = do
+    onChainHeadState <- readTVar headState
+    let utxo = knownUtxo onChainHeadState
+    -- TODO(SN): We should be only looking for abort,commit etc. when we have a headId/policyId
+    let res =
+          observeInitTx party tx
+            <|> ((,onChainHeadState) <$> observeCommitTx tx)
+            <|> observeCollectComTx utxo tx
+            <|> observeAbortTx utxo tx
+    case res of
+      Just (onChainTx, newOnChainHeadState) -> do
+        writeTVar headState newOnChainHeadState
+        pure $ onChainTx : observed
+      Nothing -> pure observed
 
 txSubmissionClient ::
   forall m tx.
