@@ -17,12 +17,11 @@ import Data.Default (def)
 import qualified Data.Map as Map
 import Data.Maybe (fromJust)
 import Data.Ratio ((%))
-import Hydra.Chain.Direct.Tx (OnChainHeadState (..), threadToken)
 import Hydra.Chain.Direct.Util (Era)
 import Plutus.V1.Ledger.Api (PubKeyHash (PubKeyHash), toBuiltin)
 import Test.Cardano.Ledger.Alonzo.PlutusScripts (defaultCostModel)
 import Test.Cardano.Ledger.Alonzo.Serialisation.Generators ()
-import Test.QuickCheck (Gen, listOf, oneof)
+import Test.QuickCheck (Gen)
 import Test.QuickCheck.Instances ()
 
 maxTxSize :: Int64
@@ -42,12 +41,6 @@ pparams =
           , prSteps = fromJust $ boundRational $ 577 % 10000
           }
     }
-
-instance Arbitrary OnChainHeadState where
-  arbitrary = oneof [pure Closed, Initial <$> threadOutput <*> listOf initialOutput]
-   where
-    threadOutput = (,,,) <$> arbitrary <*> arbitrary <*> pure threadToken <*> arbitrary
-    initialOutput = (,,) <$> arbitrary <*> arbitrary <*> arbitrary
 
 instance Arbitrary PubKeyHash where
   arbitrary = PubKeyHash . toBuiltin <$> (arbitrary :: Gen ByteString)
