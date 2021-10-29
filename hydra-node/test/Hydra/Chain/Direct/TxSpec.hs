@@ -91,34 +91,42 @@ spec =
               & counterexample ("Tx: " <> show tx)
 
     describe "commitTx" $ do
-      prop "transaction size below limit" $
-        \party (utxo :: Utxo SimpleTx) initialIn ->
-          let tx = commitTx @SimpleTx party utxo initialIn
-              cbor = serialize tx
-              len = LBS.length cbor
-           in len < maxTxSize
-                & label (show (len `div` 1024) <> "kB")
-                & counterexample ("Tx: " <> show tx)
-                & counterexample ("Tx serialized size: " <> show len)
+      prop "transaction size below limit" $ \party (utxo :: Utxo SimpleTx) initialIn ->
+        let tx = commitTx @SimpleTx party utxo initialIn
+            cbor = serialize tx
+            len = LBS.length cbor
+         in len < maxTxSize
+              & label (show (len `div` 1024) <> "kB")
+              & counterexample ("Tx: " <> show tx)
+              & counterexample ("Tx serialized size: " <> show len)
 
-      prop "is observed" $
-        \party (utxo :: Utxo SimpleTx) initialIn ->
-          let tx = commitTx @SimpleTx party utxo initialIn
-           in observeCommitTx @SimpleTx tx
-                === Just OnCommitTx{party, committed = utxo}
-                & counterexample ("Tx: " <> show tx)
+      prop "is observed" $ \party (utxo :: Utxo SimpleTx) initialIn ->
+        let tx = commitTx @SimpleTx party utxo initialIn
+         in observeCommitTx @SimpleTx tx
+              === Just OnCommitTx{party, committed = utxo}
+              & counterexample ("Tx: " <> show tx)
 
     describe "collectComTx" $ do
-      prop "transaction size below limit" $
-        \(utxo :: Utxo SimpleTx) headIn cperiod parties ->
-          let tx = collectComTx @SimpleTx utxo (headIn, headDatum)
-              headDatum = Data . toData $ Head.Initial cperiod parties
-              cbor = serialize tx
-              len = LBS.length cbor
-           in len < maxTxSize
-                & label (show (len `div` 1024) <> "kB")
-                & counterexample ("Tx: " <> show tx)
-                & counterexample ("Tx serialized size: " <> show len)
+      prop "transaction size below limit" $ \(utxo :: Utxo SimpleTx) headIn cperiod parties ->
+        let tx = collectComTx @SimpleTx utxo (headIn, headDatum)
+            headDatum = Data . toData $ Head.Initial cperiod parties
+            cbor = serialize tx
+            len = LBS.length cbor
+         in len < maxTxSize
+              & label (show (len `div` 1024) <> "kB")
+              & counterexample ("Tx: " <> show tx)
+              & counterexample ("Tx serialized size: " <> show len)
+
+      prop "is observed" $ \(committedUtxo :: Utxo SimpleTx) headInput cperiod parties ->
+        let headDatum = Data . toData $ Head.Initial cperiod parties
+            headAddress = scriptAddr $ plutusScript $ Head.validatorScript policyId
+            headValue = inject (Coin 2_000_000)
+            headOutput = TxOut headAddress headValue SNothing -- will be SJust, but not covered by this test
+            lookupUtxo = Map.singleton headInput headOutput
+            tx = collectComTx @SimpleTx committedUtxo (headInput, headDatum)
+         in observeCollectComTx @SimpleTx lookupUtxo tx
+              === Just (OnCollectComTx, Open)
+              & counterexample ("Tx: " <> show tx)
 
     describe "abortTx" $ do
       -- NOTE(AB): This property fails if the list generated is arbitrarily long
@@ -133,7 +141,7 @@ spec =
               & counterexample ("Tx serialized size: " <> show len)
 
       prop "updates on-chain state to 'Final'" $ \txIn cperiod parties (NonEmpty initials) ->
-        let txOut = TxOut headAddress headValue SNothing -- not covered by this test
+        let txOut = TxOut headAddress headValue SNothing -- will be SJust, but not covered by this test
             headDatum = Data . toData $ Head.Initial cperiod parties
             headAddress = scriptAddr $ plutusScript $ Head.validatorScript policyId
             headValue = inject (Coin 2_000_000)
