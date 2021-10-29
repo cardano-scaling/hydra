@@ -34,7 +34,7 @@ import qualified Data.ByteString.Lazy as LBS
 import Data.List (nub, (\\))
 import qualified Data.Map as Map
 import Data.Maybe (fromJust)
-import qualified Data.Sequence.Strict as Seq
+import Data.Sequence.Strict (StrictSeq ((:<|)))
 import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
 import Hydra.Chain (HeadParameters (..), OnChainTx (..), PostChainTx (..))
 import Hydra.Chain.Direct.Fixture (maxTxSize, pparams)
@@ -82,9 +82,9 @@ spec =
             tx = initTx cardanoKeys params txIn
             res = observeInitTx @SimpleTx (fst me) tx
          in case res of
-              Just (_, Initial{initials, threadOutput = (_txin, _txout, tt, ps)}) ->
-                tt === threadToken
-                  .&&. ps === params
+              Just (OnInitTx cp ps, Initial{initials}) ->
+                cp === cperiod
+                  .&&. ps === parties
                   .&&. length initials === length cardanoKeys
               _ -> property False
               & counterexample ("Result: " <> show res)
@@ -110,8 +110,9 @@ spec =
 
     describe "abortTx" $ do
       -- NOTE(AB): This property fails if the list generated is arbitrarily long
-      prop ("transaction size below limit (" <> show maxTxSize <> ")") $ \txIn params initials ->
-        let tx = abortTx (txIn, threadToken, params) (take 10 initials)
+      prop ("transaction size below limit (" <> show maxTxSize <> ")") $ \txIn cperiod parties initials ->
+        let headDatum = Data . toData $ Head.Initial cperiod parties
+            tx = abortTx (txIn, headDatum) (take 10 initials)
             cbor = serialize tx
             len = LBS.length cbor
          in len < maxTxSize
@@ -119,12 +120,13 @@ spec =
               & counterexample ("Tx: " <> show tx)
               & counterexample ("Tx serialized size: " <> show len)
 
-      prop "updates on-chain state to 'Final'" $ \txIn params (NonEmpty initials) ->
+      prop "updates on-chain state to 'Final'" $ \txIn cperiod parties (NonEmpty initials) ->
         let txOut = TxOut headAddress headValue SNothing -- not covered by this test
+            headDatum = Data . toData $ Head.Initial cperiod parties
             headAddress = scriptAddr $ plutusScript $ Head.validatorScript policyId
             headValue = inject (Coin 2_000_000)
             utxo = Map.singleton txIn txOut
-            tx = abortTx (txIn, threadToken, params) initials
+            tx = abortTx (txIn, headDatum) initials
             res = observeAbortTx @SimpleTx utxo tx
          in case res of
               Just (_, st) -> st === Final
@@ -135,25 +137,22 @@ spec =
       -- TODO(SN): this requires the abortTx to include a redeemer, for a TxIn,
       -- spending a Head-validated output
       prop "validates against 'head' script in haskell (unlimited budget)" $
-        withMaxSuccess 30 $ \txIn params@HeadParameters{contestationPeriod, parties} (NonEmpty initials) ->
-          let tx = abortTx (txIn, threadToken, params) initials
-              -- TODO(SN): DRY
-              -- input governed by head script
-              -- datum : Initial + head parameters
-              -- redeemer : State
-              txOut = TxOut headAddress headValue (SJust headDatumHash)
+        withMaxSuccess 30 $ \txIn HeadParameters{contestationPeriod, parties} (NonEmpty initialsPkh) ->
+          let headUtxo = (txIn, headOutput)
+              headOutput = TxOut headAddress headValue (SJust headDatumHash)
               (policy, _) = first currencyMPSHash (unAssetClass threadToken)
               headAddress = scriptAddr $ plutusScript $ Head.validatorScript policy
               headValue = inject (Coin 2_000_000)
-              headDatumHash =
-                hashData @Era . Data $
-                  toData $
-                    Head.Initial
-                      (contestationPeriodFromDiffTime contestationPeriod)
-                      (map (partyFromVerKey . vkey) parties)
-
-              utxo = UTxO $ Map.fromList $ (txIn, txOut) : map mkMockInitialTxOut initials
-
+              headDatumHash = hashData @Era headDatum
+              headDatum =
+                Data . toData $
+                  Head.Initial
+                    (contestationPeriodFromDiffTime contestationPeriod)
+                    (map (partyFromVerKey . vkey) parties)
+              initials = map (\(i, pkh) -> (i, Data . toData $ MockInitial.datum pkh)) initialsPkh
+              initialsUtxo = map mkMockInitialTxOut initialsPkh
+              tx = abortTx (txIn, headDatum) initials
+              utxo = UTxO $ Map.fromList $ headUtxo : initialsUtxo
               results = validateTxScriptsUnlimited utxo tx
            in 1 + length initials == length (rights $ Map.elems results)
                 & counterexample ("Evaluation results: " <> show results)
@@ -161,13 +160,21 @@ spec =
                 & counterexample ("Input utxo: " <> show utxo)
 
       prop "cover fee correctly handles redeemers" $
-        withMaxSuccess 60 $ \txIn walletUtxo params (NonEmpty initials) cardanoKeys ->
-          let ValidatedTx{body = initTxBody} = initTx cardanoKeys params txIn
-              txInitIn = TxIn (TxId $ SafeHash.hashAnnotated initTxBody) 0
-              -- FIXME(AB): fromJust is partial
-              txInitOut = fromJust $ Seq.lookup 0 (outputs initTxBody)
-              txAbort = abortTx (txInitIn, threadToken, params) initials
-              lookupUtxo = Map.fromList ((txInitIn, txInitOut) : map mkMockInitialTxOut initials)
+        withMaxSuccess 60 $ \txIn walletUtxo params cardanoKeys ->
+          let ValidatedTx{body = initTxBody, wits = initTxWits} = initTx cardanoKeys params txIn
+              -- Find head & initial utxos from initTx (using some partial functions & matches)
+              initTxId = TxId $ SafeHash.hashAnnotated initTxBody
+              headInput = TxIn initTxId 0
+              (headOutput :<| otherOutputs) = outputs initTxBody
+              headDatum = fromJust $ lookupDatum initTxWits headOutput
+              headUtxo = (headInput, headOutput)
+              initialOutputs = toList otherOutputs
+              initialDatums = mapMaybe (lookupDatum initTxWits) initialOutputs
+              initialUtxo = zipWith (\ix out -> (TxIn initTxId ix, out)) [1 ..] initialOutputs
+              initials = zipWith (\ix dat -> (TxIn initTxId ix, dat)) [1 ..] initialDatums
+              -- Finally we can create the abortTx and have it processed by the wallet
+              txAbort = abortTx (headInput, headDatum) initials
+              lookupUtxo = Map.fromList (headUtxo : initialUtxo)
               utxo = UTxO $ walletUtxo <> lookupUtxo
            in case coverFee_ pparams lookupUtxo walletUtxo txAbort of
                 Left err ->
