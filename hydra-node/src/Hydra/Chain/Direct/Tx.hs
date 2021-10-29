@@ -238,7 +238,45 @@ collectComTx ::
   -- FIXME(SN): should also contain some Head identifier/address and stored Value (maybe the TxOut + Data?)
   (TxIn StandardCrypto, Data Era) ->
   ValidatedTx Era
-collectComTx _utxo (_headInput, _headDatum) = undefined
+collectComTx _utxo (headInput, headDatumBefore) =
+  mkUnsignedTx body datums redeemers scripts
+ where
+  body =
+    TxBody
+      { inputs = Set.fromList [headInput]
+      , collateral = mempty
+      , outputs =
+          StrictSeq.fromList
+            [ TxOut
+                (scriptAddr headScript)
+                (inject $ Coin 2000000) -- TODO: This should be the total of commit outputs
+                (SJust $ hashData @Era headDatumAfter)
+            ]
+      , txcerts = mempty
+      , txwdrls = Wdrl mempty
+      , txfee = Coin 0
+      , txvldt = ValidityInterval SNothing SNothing
+      , txUpdates = SNothing
+      , reqSignerHashes = mempty
+      , mint = mempty
+      , scriptIntegrityHash = SNothing
+      , adHash = SNothing
+      , txnetworkid = SNothing
+      }
+
+  datums =
+    datumsFromList [headDatumBefore, headDatumAfter]
+
+  headDatumAfter = Data $ toData Head.Open
+
+  redeemers =
+    redeemersFromList [(rdptr body (Spending headInput), (headRedeemer, ExUnits 0 0))]
+
+  headRedeemer = Data $ toData Head.CollectCom
+
+  scripts = fromList $ map withScriptHash [headScript]
+
+  headScript = plutusScript $ Head.validatorScript policyId
 
 -- | Create transaction which aborts by spending one input. This is currently
 -- only possible if this is governed by the initial script and only for a single
@@ -286,7 +324,6 @@ abortTx (headInput, headDatum) initInputs =
 
   headScript = plutusScript $ Head.validatorScript policyId
 
-  -- TODO(SN): dummy exUnits, balancing overrides them?
   redeemers =
     redeemersFromList $
       (rdptr body (Spending headInput), (headRedeemer, ExUnits 0 0)) : initialRedeemers

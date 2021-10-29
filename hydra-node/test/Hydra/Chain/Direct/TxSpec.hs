@@ -91,7 +91,7 @@ spec =
               & counterexample ("Tx: " <> show tx)
 
     describe "commitTx" $ do
-      prop ("transaction size below limit (" <> show maxTxSize <> ")") $
+      prop "transaction size below limit" $
         \party (utxo :: Utxo SimpleTx) initialIn ->
           let tx = commitTx @SimpleTx party utxo initialIn
               cbor = serialize tx
@@ -108,9 +108,21 @@ spec =
                 === Just OnCommitTx{party, committed = utxo}
                 & counterexample ("Tx: " <> show tx)
 
+    describe "collectComTx" $ do
+      prop "transaction size below limit" $
+        \(utxo :: Utxo SimpleTx) headIn cperiod parties ->
+          let tx = collectComTx @SimpleTx utxo (headIn, headDatum)
+              headDatum = Data . toData $ Head.Initial cperiod parties
+              cbor = serialize tx
+              len = LBS.length cbor
+           in len < maxTxSize
+                & label (show (len `div` 1024) <> "kB")
+                & counterexample ("Tx: " <> show tx)
+                & counterexample ("Tx serialized size: " <> show len)
+
     describe "abortTx" $ do
       -- NOTE(AB): This property fails if the list generated is arbitrarily long
-      prop ("transaction size below limit (" <> show maxTxSize <> ")") $ \txIn cperiod parties initials ->
+      prop "transaction size below limit" $ \txIn cperiod parties initials ->
         let headDatum = Data . toData $ Head.Initial cperiod parties
             tx = abortTx (txIn, headDatum) (take 10 initials)
             cbor = serialize tx
