@@ -20,10 +20,12 @@ import qualified Plutus.Contract.StateMachine.OnChain as SM
 import qualified PlutusTx
 import Text.Show (Show)
 
+type SnapshotNumber = Integer
+
 data State
   = Initial ContestationPeriod [Party]
   | Open
-  | Closed
+  | Closed SnapshotNumber
   | Final
   deriving stock (Generic, Show)
   deriving anyclass (FromJSON, ToJSON)
