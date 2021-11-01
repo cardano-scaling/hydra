@@ -316,15 +316,17 @@ closeTx snapshotNumber _utxo (headInput, headDatumBefore) =
   datums =
     datumsFromList [headDatumBefore, headDatumAfter]
 
-  headDatumAfter =
-    Data . toData $
-      Head.Closed (fromIntegral snapshotNumber)
+  -- TODO(SN): store contestation deadline as tx validity range end +
+  -- contestation period in Datum or compute in observeCloseTx?
+  headDatumAfter = Data $ toData Head.Closed
 
   redeemers =
     redeemersFromList
       [(rdptr body (Spending headInput), (headRedeemer, ExUnits 0 0))]
 
-  headRedeemer = Data $ toData Head.Close
+  headRedeemer = Data $ toData $ Head.Close onChainSnapshotNumber
+
+  onChainSnapshotNumber = fromIntegral snapshotNumber
 
   scripts = fromList $ map withScriptHash [headScript]
 
@@ -498,10 +500,9 @@ observeCloseTx utxo tx = do
   headInput <- fst <$> findScriptOutput utxo headScript
   redeemer <- getRedeemerSpending tx headInput
   case redeemer of
-    Head.Close -> do
+    Head.Close sn -> do
       (newHeadInput, newHeadOutput) <- findScriptOutput (utxoFromTx tx) headScript
       newHeadDatum <- lookupDatum (wits tx) newHeadOutput
-      (Head.Closed sn) <- fromData $ getPlutusData newHeadDatum
       let snapshotNumber = fromIntegral sn
       pure
         ( OnCloseTx{contestationDeadline, snapshotNumber}
@@ -532,13 +533,15 @@ observeAbortTx utxo tx = do
 
 -- * Functions related to OnChainHeadState
 
--- | Provide a UTXO map for some given OnChainHeadState. At least used by the
--- TinyWallet to lookup inputs.
+-- | Provide a UTXO map for given OnChainHeadState. Used by the TinyWallet and
+-- the direct chain component to lookup inputs for balancing / constructing txs.
 -- XXX(SN): This is a hint that we might want to track the Utxo directly?
 knownUtxo :: OnChainHeadState -> Map (TxIn StandardCrypto) (TxOut Era)
 knownUtxo = \case
   Initial{threadOutput, initials} ->
     Map.fromList . map onlyUtxo $ (threadOutput : initials)
+  OpenOrClosed{threadOutput = (i, o, _)} ->
+    Map.singleton i o
   _ ->
     mempty
  where

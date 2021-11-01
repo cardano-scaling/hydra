@@ -25,7 +25,7 @@ type SnapshotNumber = Integer
 data State
   = Initial ContestationPeriod [Party]
   | Open
-  | Closed SnapshotNumber
+  | Closed
   | Final
   deriving stock (Generic, Show)
   deriving anyclass (FromJSON, ToJSON)
@@ -34,7 +34,7 @@ PlutusTx.unstableMakeIsData ''State
 
 data Input
   = CollectCom
-  | Close
+  | Close SnapshotNumber
   | Abort
   deriving (Generic, Show)
 
@@ -65,6 +65,8 @@ hydraTransition oldState input =
       Just (mempty, oldState{SM.stateData = Open})
     (Initial{}, Abort) ->
       Just (mempty, oldState{SM.stateData = Final})
+    (Open{}, Close{}) ->
+      Just (mempty, oldState{SM.stateData = Closed})
     _ -> Nothing
 
 -- | The script instance of the auction state machine. It contains the state
