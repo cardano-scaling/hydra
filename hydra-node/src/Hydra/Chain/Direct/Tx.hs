@@ -407,17 +407,13 @@ convertParty = anonymousParty . partyToVerKey
 
 -- | Identify a commit tx by looking for an output which pays to v_commit.
 observeCommitTx :: forall tx. Tx tx => ValidatedTx Era -> Maybe (OnChainTx tx)
-observeCommitTx ValidatedTx{body, wits} = do
-  txOut <- findCommitOutput
+observeCommitTx tx@ValidatedTx{wits} = do
+  txOut <- snd <$> findScriptOutput (utxoFromTx tx) commitScript
   dat <- lookupDatum wits txOut
   (party, utxo) <- fromData $ getPlutusData dat
   OnCommitTx (convertParty party) <$> convertUtxo utxo
  where
-  findCommitOutput =
-    find payToCommitScript (outputs body)
-
-  payToCommitScript (TxOut address _ _) =
-    address == scriptAddr (plutusScript MockCommit.validatorScript)
+  commitScript = plutusScript MockCommit.validatorScript
 
   convertUtxo :: OnChain.Utxo -> Maybe (Utxo tx)
   convertUtxo = Aeson.decodeStrict' . OnChain.toByteString
@@ -567,6 +563,7 @@ findScriptOutput utxo script =
   go (_, TxOut addr _ _) = addr == scriptAddr script
 
 -- | Get the Utxo set created by given transaction.
+-- TODO(SN): DRY with Hydra.Ledger.Cardano.utxoFromTx
 utxoFromTx :: ValidatedTx Era -> Map (TxIn StandardCrypto) (TxOut Era)
 utxoFromTx ValidatedTx{body} =
   Map.fromList $ zip (map mkTxIn [0 ..]) . toList $ outputs body
