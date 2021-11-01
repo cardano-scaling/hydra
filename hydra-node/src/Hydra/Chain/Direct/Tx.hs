@@ -1,4 +1,5 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
+{-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE TypeApplications #-}
 
 -- | Smart constructors for creating Hydra protocol transactions to be used in
@@ -43,7 +44,8 @@ import qualified Data.Aeson as Aeson
 import qualified Data.Map as Map
 import qualified Data.Sequence.Strict as StrictSeq
 import qualified Data.Set as Set
-import Hydra.Chain (HeadParameters (..), OnChainTx (OnAbortTx, OnCloseTx, OnCollectComTx, OnCommitTx, OnInitTx))
+import Data.Time (Day (ModifiedJulianDay), UTCTime (UTCTime))
+import Hydra.Chain (HeadParameters (..), OnChainTx (..))
 import Hydra.Chain.Direct.Util (Era, VerificationKey)
 import qualified Hydra.Contract.Head as Head
 import qualified Hydra.Contract.MockCommit as MockCommit
@@ -285,7 +287,7 @@ closeTx ::
   -- FIXME(SN): should also contain some Head identifier/address and stored Value (maybe the TxOut + Data?)
   (TxIn StandardCrypto, Data Era) ->
   ValidatedTx Era
-closeTx _number _utxo (headInput, headDatumBefore) =
+closeTx snapshotNumber _utxo (headInput, headDatumBefore) =
   mkUnsignedTx body datums redeemers scripts
  where
   body =
@@ -314,10 +316,13 @@ closeTx _number _utxo (headInput, headDatumBefore) =
   datums =
     datumsFromList [headDatumBefore, headDatumAfter]
 
-  headDatumAfter = Data $ toData Head.Closed
+  headDatumAfter =
+    Data . toData $
+      Head.Closed (fromIntegral snapshotNumber)
 
   redeemers =
-    redeemersFromList [(rdptr body (Spending headInput), (headRedeemer, ExUnits 0 0))]
+    redeemersFromList
+      [(rdptr body (Spending headInput), (headRedeemer, ExUnits 0 0))]
 
   headRedeemer = Data $ toData Head.Close
 
@@ -496,13 +501,18 @@ observeCloseTx utxo tx = do
     Head.Close -> do
       (newHeadInput, newHeadOutput) <- findScriptOutput (utxoFromTx tx) headScript
       newHeadDatum <- lookupDatum (wits tx) newHeadOutput
+      (Head.Closed sn) <- fromData $ getPlutusData newHeadDatum
+      let snapshotNumber = fromIntegral sn
       pure
-        ( OnCloseTx undefined undefined
+        ( OnCloseTx{contestationDeadline, snapshotNumber}
         , OpenOrClosed{threadOutput = (newHeadInput, newHeadOutput, newHeadDatum)}
         )
     _ -> Nothing
  where
   headScript = plutusScript $ Head.validatorScript policyId
+
+  -- FIXME(SN): store in/read from datum
+  contestationDeadline = UTCTime (ModifiedJulianDay 0) 0
 
 -- | Identify an abort tx by looking up the input spending the Head output and
 -- decoding its redeemer.
