@@ -23,6 +23,7 @@ import Text.Show (Show)
 data State
   = Initial ContestationPeriod [Party]
   | Open
+  | Closed
   | Final
   deriving stock (Generic, Show)
   deriving anyclass (FromJSON, ToJSON)
@@ -31,6 +32,7 @@ PlutusTx.unstableMakeIsData ''State
 
 data Input
   = CollectCom
+  | Close
   | Abort
   deriving (Generic, Show)
 
