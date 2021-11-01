@@ -1,4 +1,5 @@
 {-# LANGUAGE BangPatterns #-}
+{-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications #-}
 
@@ -31,6 +32,7 @@ import Hydra.Chain (
 import Hydra.Chain.Direct.Tx (
   OnChainHeadState (..),
   abortTx,
+  closeTx,
   collectComTx,
   commitTx,
   initTx,
@@ -47,6 +49,7 @@ import Hydra.Chain.Direct.Wallet (TinyWallet (..), TinyWalletLog, withTinyWallet
 import Hydra.Ledger (Tx)
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Party (Party)
+import Hydra.Snapshot (Snapshot (..))
 import Ouroboros.Consensus.Cardano.Block (GenTx (..), HardForkBlock (BlockAlonzo))
 import Ouroboros.Consensus.Ledger.SupportsMempool (ApplyTxErr)
 import Ouroboros.Consensus.Network.NodeToClient (Codecs' (..))
@@ -331,6 +334,11 @@ txSubmissionClient tracer queue callback cardanoKeys headState TinyWallet{getUtx
         Initial{threadOutput} ->
           pure . Just $ collectComTx @tx utxo (convertTuple threadOutput)
         st -> error $ "cannot post CollectComTx, invalid state: " <> show st
+    CloseTx Snapshot{number, utxo} ->
+      readTVar headState >>= \case
+        Open{threadOutput} ->
+          pure . Just $ closeTx @tx number utxo (convertTuple threadOutput)
+        st -> error $ "cannot post CloseTx, invalid state: " <> show st
     _ -> error "not implemented"
 
   convertTuple (i, _, dat) = (i, dat)

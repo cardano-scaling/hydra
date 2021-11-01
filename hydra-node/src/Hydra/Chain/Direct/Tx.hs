@@ -55,6 +55,7 @@ import Hydra.Data.Utxo (fromByteString)
 import qualified Hydra.Data.Utxo as OnChain
 import Hydra.Ledger (Tx, Utxo)
 import Hydra.Party (Party, anonymousParty, vkey)
+import Hydra.Snapshot (SnapshotNumber)
 import Ledger.Value (AssetClass (..), currencyMPSHash)
 import Plutus.V1.Ledger.Api (FromData, MintingPolicyHash, PubKeyHash (..), fromData, toData)
 import qualified Plutus.V1.Ledger.Api as Plutus
@@ -80,6 +81,12 @@ data OnChainHeadState
         initials :: [(TxIn StandardCrypto, TxOut Era, Data Era)]
       }
   | Open
+      { -- | The state machine UTxO produced by the Init transaction
+        -- This output should always be present and 'threaded' across all
+        -- transactions.
+        -- NOTE(SN): The Head's identifier is somewhat encoded in the TxOut's address
+        threadOutput :: (TxIn StandardCrypto, TxOut Era, Data Era)
+      }
   | Final
   deriving (Eq, Show, Generic)
 
@@ -226,6 +233,7 @@ collectComTx ::
   -- FIXME(SN): should also contain some Head identifier/address and stored Value (maybe the TxOut + Data?)
   (TxIn StandardCrypto, Data Era) ->
   ValidatedTx Era
+-- FIXME(SN): utxo unused means other participants would not "see" the opened utxo -> unit and e2e test this
 collectComTx _utxo (headInput, headDatumBefore) =
   mkUnsignedTx body datums redeemers scripts
  where
@@ -265,6 +273,17 @@ collectComTx _utxo (headInput, headDatumBefore) =
   scripts = fromList $ map withScriptHash [headScript]
 
   headScript = plutusScript $ Head.validatorScript policyId
+
+-- | Create a transaction closing a head with given snapshot number and utxo.
+closeTx ::
+  SnapshotNumber ->
+  -- | Snapshotted Utxo to close the Head with.
+  Utxo tx ->
+  -- | Everything needed to spend the Head state-machine output.
+  -- FIXME(SN): should also contain some Head identifier/address and stored Value (maybe the TxOut + Data?)
+  (TxIn StandardCrypto, Data Era) ->
+  ValidatedTx Era
+closeTx _number _utxo (_headInput, _headDatumBefore) = undefined
 
 -- | Create transaction which aborts by spending one input. This is currently
 -- only possible if this is governed by the initial script and only for a single
@@ -414,8 +433,15 @@ observeCollectComTx ::
   Maybe (OnChainTx tx, OnChainHeadState)
 observeCollectComTx utxo tx = do
   headInput <- fst <$> findScriptOutput utxo headScript
-  getRedeemerSpending tx headInput >>= \case
-    Head.CollectCom -> pure (OnCollectComTx, Open)
+  redeemer <- getRedeemerSpending tx headInput
+  case redeemer of
+    Head.CollectCom -> do
+      (newHeadInput, newHeadOutput) <- findScriptOutput (utxoFromTx tx) headScript
+      newHeadDatum <- lookupDatum (wits tx) newHeadOutput
+      pure
+        ( OnCollectComTx
+        , Open{threadOutput = (newHeadInput, newHeadOutput, newHeadDatum)}
+        )
     _ -> Nothing
  where
   headScript = plutusScript $ Head.validatorScript policyId
@@ -539,3 +565,10 @@ findScriptOutput utxo script =
   find go $ Map.toList utxo
  where
   go (_, TxOut addr _ _) = addr == scriptAddr script
+
+-- | Get the Utxo set created by given transaction.
+utxoFromTx :: ValidatedTx Era -> Map (TxIn StandardCrypto) (TxOut Era)
+utxoFromTx ValidatedTx{body} =
+  Map.fromList $ zip (map mkTxIn [0 ..]) . toList $ outputs body
+ where
+  mkTxIn = TxIn (TxId $ SafeHash.hashAnnotated body)
