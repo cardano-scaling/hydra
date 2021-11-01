@@ -43,7 +43,7 @@ import qualified Data.Aeson as Aeson
 import qualified Data.Map as Map
 import qualified Data.Sequence.Strict as StrictSeq
 import qualified Data.Set as Set
-import Hydra.Chain (HeadParameters (..), OnChainTx (OnAbortTx, OnCollectComTx, OnCommitTx, OnInitTx))
+import Hydra.Chain (HeadParameters (..), OnChainTx (OnAbortTx, OnCloseTx, OnCollectComTx, OnCommitTx, OnInitTx))
 import Hydra.Chain.Direct.Util (Era, VerificationKey)
 import qualified Hydra.Contract.Head as Head
 import qualified Hydra.Contract.MockCommit as MockCommit
@@ -70,7 +70,7 @@ network = Testnet
 -- | Maintains information needed to construct on-chain transactions
 -- depending on the current state of the head.
 data OnChainHeadState
-  = Closed
+  = None
   | Initial
       { -- | The state machine UTxO produced by the Init transaction
         -- This output should always be present and 'threaded' across all
@@ -80,7 +80,7 @@ data OnChainHeadState
       , -- TODO add commits
         initials :: [(TxIn StandardCrypto, TxOut Era, Data Era)]
       }
-  | Open
+  | OpenOrClosed
       { -- | The state machine UTxO produced by the Init transaction
         -- This output should always be present and 'threaded' across all
         -- transactions.
@@ -476,7 +476,29 @@ observeCollectComTx utxo tx = do
       newHeadDatum <- lookupDatum (wits tx) newHeadOutput
       pure
         ( OnCollectComTx
-        , Open{threadOutput = (newHeadInput, newHeadOutput, newHeadDatum)}
+        , OpenOrClosed{threadOutput = (newHeadInput, newHeadOutput, newHeadDatum)}
+        )
+    _ -> Nothing
+ where
+  headScript = plutusScript $ Head.validatorScript policyId
+
+-- | Identify a close tx by lookup up the input spending the Head output and
+-- decoding its redeemer.
+observeCloseTx ::
+  -- | A Utxo set to lookup tx inputs
+  Map (TxIn StandardCrypto) (TxOut Era) ->
+  ValidatedTx Era ->
+  Maybe (OnChainTx tx, OnChainHeadState)
+observeCloseTx utxo tx = do
+  headInput <- fst <$> findScriptOutput utxo headScript
+  redeemer <- getRedeemerSpending tx headInput
+  case redeemer of
+    Head.Close -> do
+      (newHeadInput, newHeadOutput) <- findScriptOutput (utxoFromTx tx) headScript
+      newHeadDatum <- lookupDatum (wits tx) newHeadOutput
+      pure
+        ( OnCloseTx undefined undefined
+        , OpenOrClosed{threadOutput = (newHeadInput, newHeadOutput, newHeadDatum)}
         )
     _ -> Nothing
  where

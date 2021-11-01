@@ -36,7 +36,7 @@ import qualified Data.Map as Map
 import Data.Maybe (fromJust)
 import Data.Sequence.Strict (StrictSeq ((:<|)))
 import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
-import Hydra.Chain (HeadParameters (..), OnChainTx (..), PostChainTx (..))
+import Hydra.Chain (HeadParameters (..), OnChainTx (..))
 import Hydra.Chain.Direct.Fixture (maxTxSize, pparams)
 import Hydra.Chain.Direct.Util (Era)
 import Hydra.Chain.Direct.Wallet (ErrCoverFee (..), coverFee_)
@@ -126,15 +126,17 @@ spec =
             tx = collectComTx @SimpleTx committedUtxo (headInput, headDatum)
             res = observeCollectComTx @SimpleTx lookupUtxo tx
          in case res of
-              Just (OnCollectComTx, Open{}) -> property True
+              Just (OnCollectComTx, OpenOrClosed{}) -> property True
               _ -> property False
               & counterexample ("Observe result: " <> show res)
               & counterexample ("Tx: " <> show tx)
 
     describe "closeTx" $ do
-      -- XXX(SN): using a fixed snapshot number because of overlapping instances
+      -- XXX(SN): tests are using a fixed snapshot number because of overlapping instances
+      let sn = 1
+
       prop "transaction size below limit" $ \(utxo :: Utxo SimpleTx) headIn ->
-        let tx = closeTx @SimpleTx 1 utxo (headIn, headDatum)
+        let tx = closeTx @SimpleTx sn utxo (headIn, headDatum)
             headDatum = Data $ toData Head.Open
             cbor = serialize tx
             len = LBS.length cbor
@@ -142,6 +144,20 @@ spec =
               & label (show (len `div` 1024) <> "kB")
               & counterexample ("Tx: " <> show tx)
               & counterexample ("Tx serialized size: " <> show len)
+
+      prop "is observed" $ \(utxo :: Utxo SimpleTx) headInput ->
+        let headDatum = Data $ toData Head.Open
+            headAddress = scriptAddr $ plutusScript $ Head.validatorScript policyId
+            headValue = inject (Coin 2_000_000)
+            headOutput = TxOut headAddress headValue SNothing -- will be SJust, but not covered by this test
+            lookupUtxo = Map.singleton headInput headOutput
+            tx = closeTx @SimpleTx sn utxo (headInput, headDatum)
+            res = observeCloseTx @SimpleTx lookupUtxo tx
+         in case res of
+              Just (OnCloseTx{snapshotNumber}, OpenOrClosed{}) -> snapshotNumber === sn
+              _ -> property False
+              & counterexample ("Observe result: " <> show res)
+              & counterexample ("Tx: " <> show tx)
 
     describe "abortTx" $ do
       -- NOTE(AB): This property fails if the list generated is arbitrarily long
@@ -243,13 +259,6 @@ mkMockInitialTxOut (txIn, pkh) =
   initialValue = inject (Coin 0)
   initialDatumHash =
     hashData @Era $ Data $ toData $ MockInitial.datum pkh
-
-isImplemented :: PostChainTx tx -> OnChainHeadState -> Bool
-isImplemented tx st =
-  case (tx, st) of
-    (InitTx{}, Closed) -> True
-    (AbortTx{}, Initial{}) -> True
-    _ -> False
 
 -- | Evaluate all plutus scripts and return execution budgets of a given
 -- transaction (any included budgets are ignored).

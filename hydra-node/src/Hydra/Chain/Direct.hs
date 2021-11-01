@@ -108,7 +108,7 @@ withDirectChain ::
   ChainComponent tx IO ()
 withDirectChain tracer networkMagic iocp socketPath keyPair party cardanoKeys callback action = do
   queue <- newTQueueIO
-  headState <- newTVarIO Closed
+  headState <- newTVarIO None
   handle onIOException $
     withTinyWallet (contramap Wallet tracer) networkMagic keyPair iocp socketPath $ \wallet ->
       race_
@@ -336,7 +336,7 @@ txSubmissionClient tracer queue callback cardanoKeys headState TinyWallet{getUtx
         st -> error $ "cannot post CollectComTx, invalid state: " <> show st
     CloseTx Snapshot{number, utxo} ->
       readTVar headState >>= \case
-        Open{threadOutput} ->
+        OpenOrClosed{threadOutput} ->
           pure . Just $ closeTx @tx number utxo (convertTuple threadOutput)
         st -> error $ "cannot post CloseTx, invalid state: " <> show st
     _ -> error "not implemented"
