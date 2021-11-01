@@ -87,7 +87,7 @@ spec =
                   .&&. ps === parties
                   .&&. length initials === length cardanoKeys
               _ -> property False
-              & counterexample ("Result: " <> show res)
+              & counterexample ("Observe result: " <> show res)
               & counterexample ("Tx: " <> show tx)
 
     describe "commitTx" $ do
@@ -124,9 +124,24 @@ spec =
             headOutput = TxOut headAddress headValue SNothing -- will be SJust, but not covered by this test
             lookupUtxo = Map.singleton headInput headOutput
             tx = collectComTx @SimpleTx committedUtxo (headInput, headDatum)
-         in observeCollectComTx @SimpleTx lookupUtxo tx
-              === Just (OnCollectComTx, Open)
+            res = observeCollectComTx @SimpleTx lookupUtxo tx
+         in case res of
+              Just (OnCollectComTx, Open{}) -> property True
+              _ -> property False
+              & counterexample ("Observe result: " <> show res)
               & counterexample ("Tx: " <> show tx)
+
+    describe "closeTx" $ do
+      -- XXX(SN): using a fixed snapshot number because of overlapping instances
+      prop "transaction size below limit" $ \(utxo :: Utxo SimpleTx) headIn ->
+        let tx = closeTx @SimpleTx 1 utxo (headIn, headDatum)
+            headDatum = Data $ toData Head.Open
+            cbor = serialize tx
+            len = LBS.length cbor
+         in len < maxTxSize
+              & label (show (len `div` 1024) <> "kB")
+              & counterexample ("Tx: " <> show tx)
+              & counterexample ("Tx serialized size: " <> show len)
 
     describe "abortTx" $ do
       -- NOTE(AB): This property fails if the list generated is arbitrarily long
