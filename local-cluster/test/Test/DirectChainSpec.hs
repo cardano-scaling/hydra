@@ -115,10 +115,11 @@ spec = around showLogsOnFailure $ do
                 , utxo = utxoRef 123
                 , confirmed = []
                 }
-            current <- getCurrentTime
+            putStrLn "after close"
             alicesCallback `shouldSatisfyInTime` \case
-              OnCloseTx{contestationDeadline, snapshotNumber} ->
-                contestationDeadline > current && snapshotNumber == 1
+              OnCloseTx{snapshotNumber} ->
+                -- FIXME(SN): should assert contestationDeadline > current
+                snapshotNumber == 1
               _ ->
                 False
 

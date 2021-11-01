@@ -38,6 +38,7 @@ import Hydra.Chain.Direct.Tx (
   initTx,
   knownUtxo,
   observeAbortTx,
+  observeCloseTx,
   observeCollectComTx,
   observeCommitTx,
   observeInitTx,
@@ -262,6 +263,7 @@ chainSyncClient tracer callback party headState =
           observeInitTx party tx
             <|> ((,onChainHeadState) <$> observeCommitTx tx)
             <|> observeCollectComTx utxo tx
+            <|> observeCloseTx utxo tx
             <|> observeAbortTx utxo tx
     case res of
       Just (onChainTx, newOnChainHeadState) -> do
