@@ -1,3 +1,4 @@
+{-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE TypeApplications #-}
 {-# OPTIONS_GHC -Wno-incomplete-uni-patterns #-}
 
@@ -25,6 +26,7 @@ import Hydra.Ledger (Tx)
 import Hydra.Ledger.Simple (SimpleTx, utxoRef)
 import Hydra.Logging (nullTracer, showLogsOnFailure)
 import Hydra.Party (Party, deriveParty, generateKey)
+import Hydra.Snapshot (Snapshot (..))
 
 spec :: Spec
 spec = around showLogsOnFailure $ do
@@ -85,7 +87,7 @@ spec = around showLogsOnFailure $ do
             postTx $ CommitTx alice someUtxo
             alicesCallback `observesInTime` OnCommitTx alice someUtxo
 
-  it "can open a Head" $ \tracer -> do
+  it "can open & close a Head" $ \tracer -> do
     alicesCallback <- newEmptyMVar
     withTempDir "hydra-local-cluster" $ \tmp -> do
       let config = testClusterConfig tmp
@@ -104,6 +106,15 @@ spec = around showLogsOnFailure $ do
             alicesCallback `observesInTime` OnCommitTx alice someUtxo
 
             postTx $ CollectComTx someUtxo
+            alicesCallback `observesInTime` OnCollectComTx
+
+            -- NOTE(SN): This is deliberately wrong and should be caught by OCV
+            postTx . CloseTx $
+              Snapshot
+                { number = 1
+                , utxo = utxoRef 123
+                , confirmed = []
+                }
             alicesCallback `observesInTime` OnCollectComTx
 
 magic :: NetworkMagic
