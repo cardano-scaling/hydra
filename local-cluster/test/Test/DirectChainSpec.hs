@@ -115,7 +115,12 @@ spec = around showLogsOnFailure $ do
                 , utxo = utxoRef 123
                 , confirmed = []
                 }
-            alicesCallback `observesInTime` OnCollectComTx
+            current <- getCurrentTime
+            alicesCallback `shouldSatisfyInTime` \case
+              OnCloseTx{contestationDeadline, snapshotNumber} ->
+                contestationDeadline > current && snapshotNumber == 1
+              _ ->
+                False
 
 magic :: NetworkMagic
 magic = NetworkMagic 42
@@ -134,3 +139,8 @@ observesInTime :: Tx tx => MVar (OnChainTx tx) -> OnChainTx tx -> Expectation
 observesInTime mvar expected =
   failAfter 10 $
     takeMVar mvar `shouldReturn` expected
+
+shouldSatisfyInTime :: Show a => MVar a -> (a -> Bool) -> Expectation
+shouldSatisfyInTime mvar f =
+  failAfter 10 $
+    takeMVar mvar >>= flip shouldSatisfy f
