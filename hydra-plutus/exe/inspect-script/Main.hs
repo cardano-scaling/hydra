@@ -10,7 +10,6 @@ import Data.Text (pack)
 import Hydra.Contract.Commit as Commit
 import Hydra.Contract.Head as Head
 import Hydra.Contract.Initial as Initial
-import Hydra.Contract.MockHead as MockHead
 import Ledger (Datum (..), datumHash)
 import Ledger.Scripts (Script, toCardanoApiScript)
 import Ledger.Value
@@ -63,14 +62,11 @@ main = do
 
   scripts policyId =
     [ (headScript policyId, "headScript")
-    , (mockHeadScript policyId, "mockHeadScript")
     , (initialScript, "initialScript")
     , (commitScript, "commitScript")
     ]
 
   headScript policyId = Head.validatorScript policyId
-
-  mockHeadScript policyId = MockHead.validatorScript policyId
 
   commitScript = Commit.validatorScript
 
