@@ -15,6 +15,11 @@ import Ledger.Scripts (Script, toCardanoApiScript)
 import Ledger.Value
 import Plutus.V1.Ledger.Api (Data, dataToBuiltinData, toData)
 
+-- FIXME: This is just an experiment
+import Data.Default
+import Ledger.Index
+import Plutus.Trace
+
 -- | Serialise Hydra scripts to files for submission through cardano-cli.
 -- This small utility is useful to manually construct transactions payload for Hydra on-chain
 -- protocol. It takes as arguments the currency and token name to be used as unique Head
@@ -41,6 +46,13 @@ main = do
   putTextLn "Datum hashes:"
   forM_ datums $ \(aDatum, datumName) ->
     putTextLn $ toText $ datumName <> ": " <> show (datumHash $ Datum $ dataToBuiltinData $ aDatum)
+
+  -- FIXME: This is just an experiment
+  print =<< writeScriptsTo
+        (ScriptsConfig "." (Scripts UnappliedValidators))
+        "Initial"
+        Initial.initialTrace
+        def
  where
   writeScripts :: [(Script, String)] -> IO ()
   writeScripts plutus =

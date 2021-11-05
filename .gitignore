@@ -26,3 +26,4 @@ test-results.xml
 ### auto-generated Plutus files ###
 *.data
 *.plutus
+*.flat
