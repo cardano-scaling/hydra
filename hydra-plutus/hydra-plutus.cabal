@@ -98,6 +98,7 @@ library
     , hydra-prelude
     , lens
     , openapi3
+    , plutus-contract
     , plutus-core
     , plutus-ledger
     , plutus-tx
@@ -126,6 +127,7 @@ executable inspect-script
     , hydra-plutus
     , hydra-prelude
     , optparse-applicative
+    , plutus-contract
     , plutus-ledger
     , plutus-ledger-api
     , serialise

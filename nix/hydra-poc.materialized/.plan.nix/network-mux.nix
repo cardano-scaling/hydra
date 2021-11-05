@@ -114,6 +114,7 @@
             (hsPkgs."text" or (errorHandler.buildDepError "text"))
             ];
           buildable = if system.isWindows then false else true;
+          modules = [ "Linger" ];
           hsSourceDirs = [ "demo" ];
           mainPath = [ "cardano-ping.hs" ] ++ [ "" ];
           };
@@ -149,11 +150,11 @@
       };
     } // {
     src = (pkgs.lib).mkDefault (pkgs.fetchgit {
-      url = "7";
+      url = "9";
       rev = "minimal";
       sha256 = "";
       }) // {
-      url = "7";
+      url = "9";
       rev = "minimal";
       sha256 = "";
       };

@@ -35,7 +35,6 @@
         depends = [
           (hsPkgs."QuickCheck" or (errorHandler.buildDepError "QuickCheck"))
           (hsPkgs."base" or (errorHandler.buildDepError "base"))
-          (hsPkgs."containers" or (errorHandler.buildDepError "containers"))
           (hsPkgs."random" or (errorHandler.buildDepError "random"))
           ];
         buildable = true;
@@ -53,11 +52,8 @@
           depends = [
             (hsPkgs."QuickCheck" or (errorHandler.buildDepError "QuickCheck"))
             (hsPkgs."base" or (errorHandler.buildDepError "base"))
-            (hsPkgs."containers" or (errorHandler.buildDepError "containers"))
-            (hsPkgs."random" or (errorHandler.buildDepError "random"))
             (hsPkgs."quickcheck-dynamic" or (errorHandler.buildDepError "quickcheck-dynamic"))
             (hsPkgs."tasty" or (errorHandler.buildDepError "tasty"))
-            (hsPkgs."tasty-hunit" or (errorHandler.buildDepError "tasty-hunit"))
             (hsPkgs."tasty-quickcheck" or (errorHandler.buildDepError "tasty-quickcheck"))
             ];
           buildable = true;

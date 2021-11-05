@@ -44,6 +44,7 @@
           (hsPkgs."hydra-prelude" or (errorHandler.buildDepError "hydra-prelude"))
           (hsPkgs."lens" or (errorHandler.buildDepError "lens"))
           (hsPkgs."openapi3" or (errorHandler.buildDepError "openapi3"))
+          (hsPkgs."plutus-contract" or (errorHandler.buildDepError "plutus-contract"))
           (hsPkgs."plutus-core" or (errorHandler.buildDepError "plutus-core"))
           (hsPkgs."plutus-ledger" or (errorHandler.buildDepError "plutus-ledger"))
           (hsPkgs."plutus-tx" or (errorHandler.buildDepError "plutus-tx"))
@@ -59,9 +60,11 @@
           "Hydra/Contract/Head"
           "Hydra/Contract/Initial"
           "Hydra/Contract/MockCommit"
+          "Hydra/Contract/MockInitial"
           "Hydra/Data/ContestationPeriod"
           "Hydra/Data/HeadParameters"
           "Hydra/Data/Party"
+          "Hydra/Data/Utxo"
           "Hydra/OnChain/Util"
           "Plutus/Contract/StateMachine/MintingPolarity"
           "Plutus/Contract/StateMachine/OnChain"

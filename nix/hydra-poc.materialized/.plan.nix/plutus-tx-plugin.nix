@@ -70,40 +70,6 @@
           ];
         hsSourceDirs = [ "src" ];
         };
-      exes = {
-        "logToStacks" = {
-          depends = [
-            (hsPkgs."base" or (errorHandler.buildDepError "base"))
-            (hsPkgs."flat" or (errorHandler.buildDepError "flat"))
-            (hsPkgs."deepseq" or (errorHandler.buildDepError "deepseq"))
-            (hsPkgs."integer-gmp" or (errorHandler.buildDepError "integer-gmp"))
-            (hsPkgs."plutus-core" or (errorHandler.buildDepError "plutus-core"))
-            (hsPkgs."plutus-tx" or (errorHandler.buildDepError "plutus-tx"))
-            (hsPkgs."plutus-tx-plugin" or (errorHandler.buildDepError "plutus-tx-plugin"))
-            (hsPkgs."prettyprinter" or (errorHandler.buildDepError "prettyprinter"))
-            (hsPkgs."mtl" or (errorHandler.buildDepError "mtl"))
-            (hsPkgs."bytestring" or (errorHandler.buildDepError "bytestring"))
-            (hsPkgs."serialise" or (errorHandler.buildDepError "serialise"))
-            (hsPkgs."template-haskell" or (errorHandler.buildDepError "template-haskell"))
-            (hsPkgs."text" or (errorHandler.buildDepError "text"))
-            (hsPkgs."time" or (errorHandler.buildDepError "time"))
-            (hsPkgs."lens" or (errorHandler.buildDepError "lens"))
-            ];
-          buildable = true;
-          modules = [
-            "Lib"
-            "Plugin/Lib"
-            "Plugin/Basic/Spec"
-            "Plugin/Data/Spec"
-            "Plugin/Functions/Spec"
-            "Plugin/Typeclasses/Lib"
-            "Plugin/Typeclasses/Spec"
-            "TH/TestTH"
-            ];
-          hsSourceDirs = [ "executables/profile" "test" ];
-          mainPath = [ "Main.hs" ];
-          };
-        };
       tests = {
         "plutus-tx-tests" = {
           depends = [
@@ -117,11 +83,8 @@
             (hsPkgs."plutus-tx-plugin" or (errorHandler.buildDepError "plutus-tx-plugin"))
             (hsPkgs."prettyprinter" or (errorHandler.buildDepError "prettyprinter"))
             (hsPkgs."mtl" or (errorHandler.buildDepError "mtl"))
-            (hsPkgs."bytestring" or (errorHandler.buildDepError "bytestring"))
-            (hsPkgs."serialise" or (errorHandler.buildDepError "serialise"))
             (hsPkgs."template-haskell" or (errorHandler.buildDepError "template-haskell"))
             (hsPkgs."tasty" or (errorHandler.buildDepError "tasty"))
-            (hsPkgs."tasty-hunit" or (errorHandler.buildDepError "tasty-hunit"))
             (hsPkgs."tasty-hedgehog" or (errorHandler.buildDepError "tasty-hedgehog"))
             (hsPkgs."text" or (errorHandler.buildDepError "text"))
             (hsPkgs."hedgehog" or (errorHandler.buildDepError "hedgehog"))
@@ -157,11 +120,11 @@
       };
     } // {
     src = (pkgs.lib).mkDefault (pkgs.fetchgit {
-      url = "0";
+      url = "17";
       rev = "minimal";
       sha256 = "";
       }) // {
-      url = "0";
+      url = "17";
       rev = "minimal";
       sha256 = "";
       };
