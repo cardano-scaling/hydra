@@ -17,12 +17,10 @@ COPY . .
 RUN nix-build -A hydra-node -o hydra-node-result release.nix > hydra-node.drv
 RUN nix-build -A hydra-tui -o hydra-tui-result release.nix > hydra-tui.drv
 RUN nix-build -A mock-chain -o mock-chain-result release.nix > mock-chain.drv
-RUN nix-build -A hydra-pab  -o hydra-pab-result  release.nix > hydra-pab.drv
 
 RUN nix-store --export $(nix-store -qR $(cat hydra-node.drv)) > hydra-node.closure
 RUN nix-store --export $(nix-store -qR $(cat hydra-tui.drv)) > hydra-tui.closure
 RUN nix-store --export $(nix-store -qR $(cat mock-chain.drv)) > mock-chain.closure
-RUN nix-store --export $(nix-store -qR $(cat hydra-pab.drv))  > hydra-pab.closure
 
 # ------------------------------------------------------------------- HYDRA-NODE
 
@@ -56,14 +54,3 @@ COPY --from=build /build/mock-chain.closure mock-chain.closure
 RUN nix-store --import < mock-chain.closure && nix-env -i $(cat mock-chain.drv)
 
 ENTRYPOINT ["mock-chain"]
-
-# -------------------------------------------------------------------- HYDRA-PAB
-
-FROM nixos/nix:2.3.11 as hydra-pab
-
-COPY --from=build /build/hydra-pab.drv hydra-pab.drv
-COPY --from=build /build/hydra-pab.closure hydra-pab.closure
-
-RUN nix-store --import < hydra-pab.closure && nix-env -i $(cat hydra-pab.drv)
-
-ENTRYPOINT ["hydra-pab"]
