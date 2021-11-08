@@ -83,6 +83,7 @@ library
     , base
     , brick
     , cardano-ledger-core
+    , cardano-ledger-shelley
     , cardano-ledger-shelley-ma
     , containers
     , hydra-node
