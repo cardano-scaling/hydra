@@ -115,7 +115,6 @@ spec = around showLogsOnFailure $ do
                 , utxo = utxoRef 123
                 , confirmed = []
                 }
-            putStrLn "after close"
             alicesCallback `shouldSatisfyInTime` \case
               OnCloseTx{snapshotNumber} ->
                 -- FIXME(SN): should assert contestationDeadline > current
