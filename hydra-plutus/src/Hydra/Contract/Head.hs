@@ -68,6 +68,8 @@ hydraTransition oldState input =
       Just (mempty, oldState{SM.stateData = Final})
     (Open{}, Close{}) ->
       Just (mempty, oldState{SM.stateData = Closed})
+    (Closed{}, Fanout{}) ->
+      Just (mempty, oldState{SM.stateData = Final})
     _ -> Nothing
 
 -- | The script instance of the auction state machine. It contains the state

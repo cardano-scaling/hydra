@@ -42,6 +42,7 @@ import Hydra.Chain.Direct.Tx (
   observeCloseTx,
   observeCollectComTx,
   observeCommitTx,
+  observeFanoutTx,
   observeInitTx,
   ownInitial,
  )
@@ -277,6 +278,7 @@ chainSyncClient tracer callback party headState =
             <|> observeCollectComTx utxo tx
             <|> observeCloseTx utxo tx
             <|> observeAbortTx utxo tx
+            <|> observeFanoutTx utxo tx
     case res of
       Just (onChainTx, newOnChainHeadState) -> do
         writeTVar headState newOnChainHeadState
