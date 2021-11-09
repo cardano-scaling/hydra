@@ -38,7 +38,6 @@ spec = do
           let parameters = HeadParameters 100 [alice, bob, carol]
           generate (genPaymentTo aliceVk) >>= submitTx
           generate (genPaymentTo bobVk) >>= submitTx
-          threadDelay 2
 
           postTx $ InitTx @SimpleTx parameters
           failAfter 5 $

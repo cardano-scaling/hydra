@@ -113,7 +113,18 @@ withDirectChain tracer networkMagic iocp socketPath keyPair party cardanoKeys ca
   handle onIOException $
     withTinyWallet (contramap Wallet tracer) networkMagic keyPair iocp socketPath $ \wallet ->
       race_
-        (action $ Chain{postTx = atomically . writeTQueue queue})
+        ( do
+            -- FIXME: There's currently a race-condition with the actual client
+            -- which will only see transactions after it has established
+            -- connection with the server's tip. So any transaction submitted
+            -- before that tip will be missed.
+            --
+            -- The way we handle rollbacks is also wrong because it'll
+            -- fast-forward to the tip, and not allow recovering intermediate
+            -- history.
+            threadDelay 2
+            action $ Chain{postTx = atomically . writeTQueue queue}
+        )
         ( connectTo
             (localSnocket iocp)
             nullConnectTracers
