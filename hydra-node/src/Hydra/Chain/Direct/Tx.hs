@@ -332,6 +332,15 @@ closeTx snapshotNumber _utxo (headInput, headDatumBefore) =
 
   headScript = plutusScript $ Head.validatorScript policyId
 
+fanoutTx ::
+  -- | Snapshotted Utxo to fanout on layer 1
+  Utxo tx ->
+  -- | Everything needed to spend the Head state-machine output.
+  -- FIXME(SN): should also contain some Head identifier/address and stored Value (maybe the TxOut + Data?)
+  (TxIn StandardCrypto, Data Era) ->
+  ValidatedTx Era
+fanoutTx _utxo (_headInput, _headDatumBefore) = error "undefined"
+
 -- | Create transaction which aborts by spending one input. This is currently
 -- only possible if this is governed by the initial script and only for a single
 -- input. Of course, the Head protocol specifies we need to spend ALL the Utxo

@@ -35,6 +35,7 @@ import Hydra.Chain.Direct.Tx (
   closeTx,
   collectComTx,
   commitTx,
+  fanoutTx,
   initTx,
   knownUtxo,
   observeAbortTx,
@@ -352,6 +353,11 @@ txSubmissionClient tracer queue callback cardanoKeys headState TinyWallet{getUtx
         OpenOrClosed{threadOutput} ->
           pure . Just $ closeTx @tx number utxo (convertTuple threadOutput)
         st -> error $ "cannot post CloseTx, invalid state: " <> show st
+    FanoutTx{utxo} ->
+      readTVar headState >>= \case
+        OpenOrClosed{threadOutput} ->
+          pure . Just $ fanoutTx @tx utxo (convertTuple threadOutput)
+        st -> error $ "cannot post FanOutTx, invalid state: " <> show st
     _ -> error "not implemented"
 
   convertTuple (i, _, dat) = (i, dat)
