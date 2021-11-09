@@ -87,7 +87,7 @@ spec = around showLogsOnFailure $ do
             postTx $ CommitTx alice someUtxo
             alicesCallback `observesInTime` OnCommitTx alice someUtxo
 
-  it "can open & close a Head" $ \tracer -> do
+  it "can open, close & fanout a Head" $ \tracer -> do
     alicesCallback <- newEmptyMVar
     withTempDir "hydra-local-cluster" $ \tmp -> do
       let config = testClusterConfig tmp
@@ -121,6 +121,12 @@ spec = around showLogsOnFailure $ do
                 snapshotNumber == 1
               _ ->
                 False
+
+            postTx $
+              FanoutTx
+                { utxo = utxoRef 123
+                }
+            alicesCallback `observesInTime` OnFanoutTx
 
 magic :: NetworkMagic
 magic = NetworkMagic 42
