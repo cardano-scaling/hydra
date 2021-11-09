@@ -177,9 +177,10 @@ spec =
             headValue = inject (Coin 2_000_000)
             headOutput = TxOut headAddress headValue SNothing -- will be SJust, but not covered by this test
             lookupUtxo = Map.singleton headInput headOutput
-            res = observeAbortTx @SimpleTx lookupUtxo tx
+            res = observeFanoutTx @SimpleTx lookupUtxo tx
          in res === Just (OnFanoutTx, Final)
               & counterexample ("Tx: " <> show tx)
+              & counterexample ("Utxo map: " <> show lookupUtxo)
 
     describe "abortTx" $ do
       -- NOTE(AB): This property fails if the list generated is arbitrarily long
