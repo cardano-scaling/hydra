@@ -74,8 +74,8 @@ assertNetworkIsProducingBlock tracer = go (-1)
 
 assertCanSpendInitialFunds :: HasCallStack => RunningCluster -> IO ()
 assertCanSpendInitialFunds = \case
-  cluster@(RunningCluster ClusterConfig{networkId} (RunningNode _ socket : _)) -> do
-    (vk, sk) <- keysFor "alice" cluster
+  (RunningCluster ClusterConfig{networkId} (RunningNode _ socket : _)) -> do
+    (vk, sk) <- keysFor "alice"
     let addr = buildAddress (PaymentVerificationKey $ VKey vk) networkId
     UTxO utxo <- queryUtxo networkId socket [addr]
     pparams <- queryProtocolParameters networkId socket
@@ -103,8 +103,8 @@ assertCanSpendInitialFunds = \case
 
 assertCanCallInitAndAbort :: HasCallStack => RunningCluster -> IO ()
 assertCanCallInitAndAbort = \case
-  cluster@(RunningCluster ClusterConfig{networkId} (RunningNode _ socket : _)) -> do
-    (vk, sk) <- keysFor "alice" cluster
+  (RunningCluster ClusterConfig{networkId} (RunningNode _ socket : _)) -> do
+    (vk, sk) <- keysFor "alice"
     let addr = buildAddress (PaymentVerificationKey $ VKey vk) networkId
         headScript = toCardanoApiScript $ Head.validatorScript policyId
         headAddress = buildScriptAddress headScript networkId

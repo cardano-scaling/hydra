@@ -49,15 +49,6 @@ data ClusterConfig = ClusterConfig
 testClusterConfig :: FilePath -> ClusterConfig
 testClusterConfig tmp = ClusterConfig tmp (Testnet $ NetworkMagic 42)
 
-keysFor :: String -> RunningCluster -> IO (Cardano.VerificationKey, Cardano.SigningKey)
-keysFor actor (RunningCluster (ClusterConfig dir _) _) = do
-  PaymentSigningKey sk <-
-    readFileTextEnvelopeThrow
-      asSigningKey
-      (dir </> actor <.> "sk")
-  let vk = deriveVerKeyDSIGN sk
-  pure (vk, sk)
-
 readFileTextEnvelopeThrow ::
   HasTextEnvelope a =>
   AsType a ->
@@ -77,8 +68,6 @@ withCluster tr cfg@ClusterConfig{parentStateDirectory} action = do
     makeNodesConfig parentStateDirectory systemStart
       <$> randomUnusedTCPPorts 3
 
-  prepareCredentials parentStateDirectory
-
   withBFTNode tr cfgA $ \nodeA -> do
     withBFTNode tr cfgB $ \nodeB -> do
       withBFTNode tr cfgC $ \nodeC -> do
@@ -86,15 +75,8 @@ withCluster tr cfg@ClusterConfig{parentStateDirectory} action = do
         mapConcurrently_ waitForSocket nodes
         action (RunningCluster cfg nodes)
 
-prepareCredentials :: FilePath -> IO ()
-prepareCredentials targetDirectory =
-  forM_ [who <.> ext | who <- ["alice", "bob"], ext <- ["sk", "vk"]] $ \f ->
-    copyFile
-      ("config" </> "credentials" </> f)
-      (targetDirectory </> f)
-
-keysFor' :: String -> IO (Cardano.VerificationKey, Cardano.SigningKey)
-keysFor' actor = do
+keysFor :: String -> IO (Cardano.VerificationKey, Cardano.SigningKey)
+keysFor actor = do
   PaymentSigningKey sk <-
     readFileTextEnvelopeThrow
       asSigningKey
