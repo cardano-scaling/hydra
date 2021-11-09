@@ -339,7 +339,49 @@ fanoutTx ::
   -- FIXME(SN): should also contain some Head identifier/address and stored Value (maybe the TxOut + Data?)
   (TxIn StandardCrypto, Data Era) ->
   ValidatedTx Era
-fanoutTx _utxo (_headInput, _headDatumBefore) = error "undefined"
+fanoutTx _utxo (headInput, headDatumBefore) =
+  mkUnsignedTx body datums redeemers scripts
+ where
+  body =
+    TxBody
+      { inputs = Set.fromList [headInput]
+      , collateral = mempty
+      , outputs =
+          StrictSeq.fromList
+            [ -- NOTE: we probably don't need an outptu for the head SM
+              -- which we don't use anyway
+              TxOut
+                (scriptAddr headScript)
+                (inject $ Coin 2000000)
+                (SJust $ hashData @Era headDatumAfter)
+                -- TODO: add utxo outputs
+            ]
+      , txcerts = mempty
+      , txwdrls = Wdrl mempty
+      , txfee = Coin 0
+      , txvldt = ValidityInterval SNothing SNothing
+      , txUpdates = SNothing
+      , reqSignerHashes = mempty
+      , mint = mempty
+      , scriptIntegrityHash = SNothing
+      , adHash = SNothing
+      , txnetworkid = SNothing
+      }
+
+  datums =
+    datumsFromList [headDatumBefore, headDatumAfter]
+
+  headDatumAfter = Data $ toData Head.Final
+
+  redeemers =
+    redeemersFromList
+      [(rdptr body (Spending headInput), (headRedeemer, ExUnits 0 0))]
+
+  headRedeemer = Data $ toData Head.Fanout
+
+  scripts = fromList $ map withScriptHash [headScript]
+
+  headScript = plutusScript $ Head.validatorScript policyId
 
 -- | Create transaction which aborts by spending one input. This is currently
 -- only possible if this is governed by the initial script and only for a single

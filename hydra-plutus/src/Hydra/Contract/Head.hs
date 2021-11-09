@@ -36,6 +36,7 @@ data Input
   = CollectCom
   | Close SnapshotNumber
   | Abort
+  | Fanout
   deriving (Generic, Show)
 
 PlutusTx.unstableMakeIsData ''Input

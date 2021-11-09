@@ -159,6 +159,17 @@ spec =
               & counterexample ("Observe result: " <> show res)
               & counterexample ("Tx: " <> show tx)
 
+    describe "fanoutTx" $ do
+      prop "transaction size below limit" $ \(utxo :: Utxo SimpleTx) headIn ->
+        let tx = fanoutTx @SimpleTx utxo (headIn, headDatum)
+            headDatum = Data $ toData Head.Closed
+            cbor = serialize tx
+            len = LBS.length cbor
+         in len < maxTxSize
+              & label (show (len `div` 1024) <> "kB")
+              & counterexample ("Tx: " <> show tx)
+              & counterexample ("Tx serialized size: " <> show len)
+
     describe "abortTx" $ do
       -- NOTE(AB): This property fails if the list generated is arbitrarily long
       prop "transaction size below limit" $ \txIn cperiod parties initials ->
