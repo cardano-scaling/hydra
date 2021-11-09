@@ -73,6 +73,18 @@ instance (Arbitrary tx, Arbitrary (Utxo tx)) => Arbitrary (OnChainTx tx) where
 -- | Derive an 'OnChainTx' from 'PostChainTx'. This is primarily used in tests
 -- and simplified "chains". NOTE(SN): This implementation does *NOT* honor the
 -- 'HeadParameters' and announce hard-coded contestationDeadlines.
+--
+-- TODO:
+-- This only exists because of:
+--
+-- (a) The ZeroMQ "dummy" network which naively broadcast any posted transaction
+-- as 'OnChainTx'.
+--
+-- (b) The BehaviorSpec which also implements a dummy 'simulatedChainAndNetwork'
+--
+-- I would argue that we should now remove the ZeroMQ implementation and, get
+-- rid of this function (or at least, move it to the BehaviorSpec where it's
+-- used).
 toOnChainTx :: UTCTime -> PostChainTx tx -> OnChainTx tx
 toOnChainTx currentTime = \case
   InitTx HeadParameters{contestationPeriod, parties} -> OnInitTx{contestationPeriod, parties}
@@ -87,6 +99,7 @@ toOnChainTx currentTime = \case
   ContestTx{} -> OnContestTx
   FanoutTx{} -> OnFanoutTx
 
+-- TODO: This is unused / dead-code.
 data ChainError = ChainError
   deriving (Exception, Show)
 

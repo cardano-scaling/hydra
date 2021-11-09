@@ -32,6 +32,9 @@ instance (Arbitrary tx, Arbitrary (Utxo tx)) => Arbitrary (Snapshot tx) where
     ]
 
 instance Tx tx => SignableRepresentation (Snapshot tx) where
+  -- FIXME: This should really use the CBOR representation for signing.
+  --
+  -- getSignableRepresentation = CBOR.toStrictByteString . toCBOR
   getSignableRepresentation = encodeUtf8 . show @Text
 
 instance Tx tx => ToJSON (Snapshot tx) where
