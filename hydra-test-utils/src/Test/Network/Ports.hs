@@ -9,6 +9,7 @@ import Hydra.Prelude
 import Data.List (
   isInfixOf,
  )
+import qualified Data.List as List
 import Foreign.C.Error (
   Errno (..),
   eCONNREFUSED,
@@ -93,6 +94,15 @@ simpleSockAddr addr port = SockAddrInet port (tupleToHostAddress addr)
 randomUnusedTCPPorts :: Int -> IO [Int]
 randomUnusedTCPPorts count = do
   usablePorts <- shuffleM [1024 .. 49151]
+  -- FIXME:  we should select count ports after checking they are free, not before
   sort <$> filterM unused (take count usablePorts)
+ where
+  unused = fmap not . isPortOpen . simpleSockAddr (127, 0, 0, 1) . fromIntegral
+
+-- | Get a single unused random TCPv4 port.
+randomUnusedTCPPort :: IO Int
+randomUnusedTCPPort = do
+  usablePorts <- shuffleM [1024 .. 49151]
+  List.head <$> filterM unused (take 10 usablePorts)
  where
   unused = fmap not . isPortOpen . simpleSockAddr (127, 0, 0, 1) . fromIntegral
