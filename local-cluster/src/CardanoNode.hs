@@ -105,7 +105,7 @@ withCardanoNode tr cfg@CardanoNodeConfig{stateDirectory, nodeId} args action = d
       logFile = stateDirectory </> show nodeId <.> "log"
   traceWith tr $ MsgNodeCmdSpec (cmdspec process)
   withFile' logFile $ \out ->
-    withCreateProcess process{std_out = UseHandle out} $ \_stdin _stdout _stderr processHandle ->
+    withCreateProcess process{std_out = UseHandle out, std_err = UseHandle out} $ \_stdin _stdout _stderr processHandle ->
       race_
         (checkProcessHasNotDied ("cardano-node-" <> show nodeId) processHandle)
         (action (RunningNode nodeId (stateDirectory </> nodeSocket args)))

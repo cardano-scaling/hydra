@@ -77,10 +77,7 @@ withCluster tr cfg@ClusterConfig{parentStateDirectory} action = do
     makeNodesConfig parentStateDirectory systemStart
       <$> randomUnusedTCPPorts 3
 
-  forM_ [who <.> ext | who <- ["alice", "bob"], ext <- ["sk", "vk"]] $ \f ->
-    copyFile
-      ("config" </> "credentials" </> f)
-      (parentStateDirectory </> f)
+  prepareCredentials parentStateDirectory
 
   withBFTNode tr cfgA $ \nodeA -> do
     withBFTNode tr cfgB $ \nodeB -> do
@@ -88,6 +85,22 @@ withCluster tr cfg@ClusterConfig{parentStateDirectory} action = do
         let nodes = [nodeA, nodeB, nodeC]
         mapConcurrently_ waitForSocket nodes
         action (RunningCluster cfg nodes)
+
+prepareCredentials :: FilePath -> IO ()
+prepareCredentials targetDirectory =
+  forM_ [who <.> ext | who <- ["alice", "bob"], ext <- ["sk", "vk"]] $ \f ->
+    copyFile
+      ("config" </> "credentials" </> f)
+      (targetDirectory </> f)
+
+keysFor' :: String -> IO (Cardano.VerificationKey, Cardano.SigningKey)
+keysFor' actor = do
+  PaymentSigningKey sk <-
+    readFileTextEnvelopeThrow
+      asSigningKey
+      ("config" </> "credentials" </> actor <.> "sk")
+  let vk = deriveVerKeyDSIGN sk
+  pure (vk, sk)
 
 waitForSocket :: RunningNode -> IO ()
 waitForSocket node@(RunningNode _ socket) = do

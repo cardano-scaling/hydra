@@ -7,8 +7,8 @@ module Test.DirectChainSpec where
 import Hydra.Prelude
 import Test.Hydra.Prelude
 
-import CardanoCluster (ClusterLog, RunningCluster (..), keysFor, testClusterConfig, withCluster)
-import CardanoNode (RunningNode (..))
+import CardanoCluster (ClusterLog, RunningCluster (..), initSystemStart, keysFor, keysFor', testClusterConfig, waitForSocket, withBFTNode, withCluster)
+import CardanoNode (CardanoNodeConfig (CardanoNodeConfig), NodeLog, PortsConfig (PortsConfig), RunningNode (..))
 import Control.Concurrent (MVar, newEmptyMVar, putMVar, takeMVar)
 import Hydra.Chain (
   Chain (..),
@@ -27,6 +27,7 @@ import Hydra.Ledger.Simple (SimpleTx, utxoRef)
 import Hydra.Logging (nullTracer, showLogsOnFailure)
 import Hydra.Party (Party, deriveParty, generateKey)
 import Hydra.Snapshot (Snapshot (..))
+import Test.Network.Ports (randomUnusedTCPPort)
 
 spec :: Spec
 spec = around showLogsOnFailure $ do
@@ -90,9 +91,13 @@ spec = around showLogsOnFailure $ do
   it "can open, close & fanout a Head" $ \tracer -> do
     alicesCallback <- newEmptyMVar
     withTempDir "hydra-local-cluster" $ \tmp -> do
-      let config = testClusterConfig tmp
-      withCluster (contramap FromCluster tracer) config $ \cluster@(RunningCluster _ [RunningNode _ node1socket, _, _]) -> do
-        aliceKeys@(aliceCardanoVk, _) <- keysFor "alice" cluster
+      nodePort <- randomUnusedTCPPort
+      systemStart <- initSystemStart
+      let config = CardanoNodeConfig 1 tmp systemStart $ PortsConfig nodePort []
+
+      withBFTNode (contramap FromCluster tracer) config $ \node@(RunningNode _ node1socket) -> do
+        waitForSocket node
+        aliceKeys@(aliceCardanoVk, _) <- keysFor' "alice"
         let cardanoKeys = [aliceCardanoVk]
         withIOManager $ \iocp -> do
           withDirectChain (contramap (FromDirectChain "alice") tracer) magic iocp node1socket aliceKeys alice cardanoKeys (putMVar alicesCallback) $ \Chain{postTx} -> do
@@ -138,6 +143,7 @@ carol = deriveParty $ generateKey 30
 
 data TestClusterLog
   = FromCluster ClusterLog
+  | FromNode NodeLog
   | FromDirectChain Text (DirectChainLog SimpleTx)
   deriving (Show)
 
