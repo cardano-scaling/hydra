@@ -566,6 +566,21 @@ observeCloseTx utxo tx = do
   -- FIXME(SN): store in/read from datum
   contestationDeadline = UTCTime (ModifiedJulianDay 0) 0
 
+-- | Identify a fanout tx by lookup up the input spending the Head output and
+-- decoding its redeemer.
+observeFanoutTx ::
+  -- | A Utxo set to lookup tx inputs
+  Map (TxIn StandardCrypto) (TxOut Era) ->
+  ValidatedTx Era ->
+  Maybe (OnChainTx tx, OnChainHeadState)
+observeFanoutTx utxo tx = do
+  headInput <- fst <$> findScriptOutput utxo headScript
+  getRedeemerSpending tx headInput >>= \case
+    Head.Fanout -> pure (OnFanoutTx, Final)
+    _ -> Nothing
+ where
+  headScript = plutusScript $ Head.validatorScript policyId
+
 -- | Identify an abort tx by looking up the input spending the Head output and
 -- decoding its redeemer.
 observeAbortTx ::

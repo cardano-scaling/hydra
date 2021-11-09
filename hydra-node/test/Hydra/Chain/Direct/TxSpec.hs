@@ -170,6 +170,17 @@ spec =
               & counterexample ("Tx: " <> show tx)
               & counterexample ("Tx serialized size: " <> show len)
 
+      prop "is observed" $ \(utxo :: Utxo SimpleTx) headInput ->
+        let tx = fanoutTx @SimpleTx utxo (headInput, headDatum)
+            headDatum = Data $ toData Head.Closed
+            headAddress = scriptAddr $ plutusScript $ Head.validatorScript policyId
+            headValue = inject (Coin 2_000_000)
+            headOutput = TxOut headAddress headValue SNothing -- will be SJust, but not covered by this test
+            lookupUtxo = Map.singleton headInput headOutput
+            res = observeAbortTx @SimpleTx lookupUtxo tx
+         in res === Just (OnFanoutTx, Final)
+              & counterexample ("Tx: " <> show tx)
+
     describe "abortTx" $ do
       -- NOTE(AB): This property fails if the list generated is arbitrarily long
       prop "transaction size below limit" $ \txIn cperiod parties initials ->
