@@ -1,5 +1,6 @@
 module Hydra.Options (
   Options (..),
+  ChainConfig (..),
   parseHydraOptions,
   parseHydraOptionsFromString,
   getParseResult,
@@ -50,12 +51,12 @@ data Options = Options
   , monitoringPort :: Maybe PortNumber
   , me :: FilePath
   , parties :: [FilePath]
-  , mockChain :: MockChain
+  , chainConfig :: ChainConfig
   }
   deriving (Eq, Show)
 
 defaultOptions :: Options
-defaultOptions = Options (Verbose "HydraNode") 1 "127.0.0.1" 5001 [] "127.0.0.1" 4001 Nothing "me.sk" [] defaultMockChain
+defaultOptions = Options (Verbose "HydraNode") 1 "127.0.0.1" 5001 [] "127.0.0.1" 4001 Nothing "me.sk" [] (MockChainConfig defaultMockChain)
 
 hydraNodeParser :: Parser Options
 hydraNodeParser =
@@ -70,10 +71,16 @@ hydraNodeParser =
     <*> optional monitoringPortParser
     <*> signingKeyFileParser
     <*> many verificationKeyFileParser
-    <*> (makeMockChain <$> mockChainHostParser <*> mockChainPortsParser)
+    <*> fmap MockChainConfig (makeMockChain <$> mockChainHostParser <*> mockChainPortsParser)
  where
   makeMockChain :: String -> (PortNumber, PortNumber, PortNumber) -> MockChain
-  makeMockChain mockChainHost (syncPort, catchUpPort, postTxPort) = MockChain{mockChainHost, syncPort, catchUpPort, postTxPort}
+  makeMockChain mockChainHost (syncPort, catchUpPort, postTxPort) =
+    MockChain{mockChainHost, syncPort, catchUpPort, postTxPort}
+
+data ChainConfig
+  = MockChainConfig MockChain
+  | DirectChainConfig
+  deriving (Eq, Show)
 
 signingKeyFileParser :: Parser FilePath
 signingKeyFileParser =
