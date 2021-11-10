@@ -9,6 +9,7 @@ module Hydra.Options (
 ) where
 
 import Data.IP (IP)
+import Hydra.Chain.Direct (NetworkMagic (..))
 import Hydra.Logging (Verbosity (..))
 import Hydra.Network (Host, MockChain (..), PortNumber, defaultMockChain, readHost, readPort)
 import Hydra.Node.Version (gitRevision, showFullVersion, version)
@@ -76,6 +77,8 @@ hydraNodeParser =
 data ChainConfig
   = MockChainConfig MockChain
   | DirectChainConfig
+      { networkMagic :: NetworkMagic
+      }
   deriving (Eq, Show)
 
 chainConfigParser :: Parser ChainConfig
@@ -91,7 +94,20 @@ chainConfigParser = do
     makeMockChain mockChainHost (syncPort, catchUpPort, postTxPort) =
       MockChain{mockChainHost, syncPort, catchUpPort, postTxPort}
 
-  directChainConfigParser = fmap (const DirectChainConfig) empty
+  directChainConfigParser =
+    DirectChainConfig
+      <$> networkMagicParser
+
+networkMagicParser :: Parser NetworkMagic
+networkMagicParser =
+  fmap NetworkMagic $
+    option
+      auto
+      ( long "network-magic"
+          <> metavar "MAGIC"
+          <> value 42
+          <> help "Network magic for the target network."
+      )
 
 signingKeyFileParser :: Parser FilePath
 signingKeyFileParser =

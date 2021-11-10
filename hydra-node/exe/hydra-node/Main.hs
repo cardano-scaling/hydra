@@ -55,15 +55,14 @@ withChain ::
 withChain tracer party callback config action = case config of
   MockChainConfig mockChain ->
     withMockChain (contramap MockChain tracer) mockChain callback action
-  DirectChainConfig -> do
-    let magic = error "magic"
+  DirectChainConfig{networkMagic} -> do
     let nodeSocket = error "nodeSocket"
     let keyPair = error "keyPair"
     let cardanoKeys = error "cardanoKeys"
     withIOManager $ \iocp -> do
       withDirectChain
         nullTracer -- FIXME: Enable logging for direct chain (require JSON for validated tx)
-        magic
+        networkMagic
         iocp
         nodeSocket
         keyPair

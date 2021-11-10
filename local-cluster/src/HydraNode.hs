@@ -286,6 +286,7 @@ defaultArguments nodeId sKey vKeys nodeSocket allNodeIds =
   ]
     <> concat [["--peer", "127.0.0.1:" <> show (5000 + i)] | i <- allNodeIds, i /= nodeId]
     <> concat [["--party", vKey] | vKey <- vKeys]
+    <> ["--network-magic", "42"]
     <> ["--node-socket", nodeSocket]
 
 withMockChain :: ((Int, Int, Int) -> IO ()) -> IO ()
