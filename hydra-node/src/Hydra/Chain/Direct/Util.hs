@@ -4,7 +4,9 @@ module Hydra.Chain.Direct.Util where
 
 import Hydra.Prelude
 
+import qualified Cardano.Api
 import Cardano.Chain.Slotting (EpochSlots (..))
+import Cardano.Crypto.DSIGN (deriveVerKeyDSIGN)
 import qualified Cardano.Crypto.DSIGN as Crypto
 import Cardano.Ledger.Crypto (DSIGN, StandardCrypto)
 import Control.Tracer (nullTracer)
@@ -114,3 +116,18 @@ defaultCodecs nodeToClientV =
   -- Byron instead of configuring this everywhere
   epochSlots :: EpochSlots
   epochSlots = EpochSlots 432000
+
+readKeyPair :: FilePath -> IO (VerificationKey, SigningKey)
+readKeyPair keyPath = do
+  Cardano.Api.PaymentSigningKey sk <-
+    readFileTextEnvelopeThrow (Cardano.Api.AsSigningKey Cardano.Api.AsPaymentKey) keyPath
+  let vk = deriveVerKeyDSIGN sk
+  pure (vk, sk)
+
+readFileTextEnvelopeThrow ::
+  HasTextEnvelope a =>
+  AsType a ->
+  FilePath ->
+  IO a
+readFileTextEnvelopeThrow asType =
+  either (fail . show) pure <=< readFileTextEnvelope asType
