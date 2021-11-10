@@ -183,11 +183,11 @@ data EndToEndLog
 withHydraCluster ::
   Tracer IO EndToEndLog ->
   FilePath ->
-  (Int, Int, Int) ->
+  FilePath ->
   Word64 ->
   (NonEmpty HydraClient -> IO ()) ->
   IO ()
-withHydraCluster tracer workDir mockChainPorts clusterSize action =
+withHydraCluster tracer workDir nodeSocket clusterSize action =
   case clusterSize of
     0 -> error "Cannot run a cluster with 0 number of nodes"
     n -> go n [] [1 .. n]
@@ -197,7 +197,7 @@ withHydraCluster tracer workDir mockChainPorts clusterSize action =
     (nodeId : rest) ->
       let vKeys = map VerKeyMockDSIGN $ filter (/= nodeId) allNodeIds
           key = SignKeyMockDSIGN nodeId
-       in withHydraNode tracer workDir mockChainPorts (fromIntegral nodeId) key vKeys (map fromIntegral allNodeIds) (\c -> go n (c : clients) rest)
+       in withHydraNode tracer workDir nodeSocket (fromIntegral nodeId) key vKeys (map fromIntegral allNodeIds) (\c -> go n (c : clients) rest)
      where
       allNodeIds = [1 .. n]
 
@@ -206,14 +206,14 @@ withHydraNode ::
   DSIGNAlgorithm alg =>
   Tracer IO EndToEndLog ->
   FilePath ->
-  (Int, Int, Int) ->
+  FilePath ->
   Int ->
   SignKeyDSIGN alg ->
   [VerKeyDSIGN alg] ->
   [Int] ->
   (HydraClient -> IO ()) ->
   IO ()
-withHydraNode tracer workDir mockChainPorts hydraNodeId sKey vKeys allNodeIds action = do
+withHydraNode tracer workDir nodeSocket hydraNodeId sKey vKeys allNodeIds action = do
   withFile' (workDir </> show hydraNodeId) $ \out -> do
     withSystemTempDirectory "hydra-node" $ \dir -> do
       let sKeyPath = dir </> (show hydraNodeId <> ".sk")
@@ -223,7 +223,7 @@ withHydraNode tracer workDir mockChainPorts hydraNodeId sKey vKeys allNodeIds ac
         filepath <$ BS.writeFile filepath (rawSerialiseVerKeyDSIGN vKey)
 
       let p =
-            (hydraNodeProcess $ defaultArguments hydraNodeId sKeyPath vKeysPaths mockChainPorts allNodeIds)
+            (hydraNodeProcess $ defaultArguments hydraNodeId sKeyPath vKeysPaths nodeSocket allNodeIds)
               { std_out = UseHandle out
               }
       withCreateProcess p $
@@ -265,10 +265,10 @@ defaultArguments ::
   Int ->
   FilePath ->
   [FilePath] ->
-  (Int, Int, Int) ->
+  FilePath ->
   [Int] ->
   [String]
-defaultArguments nodeId sKey vKeys ports allNodeIds =
+defaultArguments nodeId sKey vKeys nodeSocket allNodeIds =
   [ "--node-id"
   , show nodeId
   , "--host"
@@ -286,7 +286,7 @@ defaultArguments nodeId sKey vKeys ports allNodeIds =
   ]
     <> concat [["--peer", "127.0.0.1:" <> show (5000 + i)] | i <- allNodeIds, i /= nodeId]
     <> concat [["--party", vKey] | vKey <- vKeys]
-    <> ["--mock-chain-ports", show ports]
+    <> ["--node-socket", nodeSocket]
 
 withMockChain :: ((Int, Int, Int) -> IO ()) -> IO ()
 withMockChain action = do
