@@ -71,16 +71,27 @@ hydraNodeParser =
     <*> optional monitoringPortParser
     <*> signingKeyFileParser
     <*> many verificationKeyFileParser
-    <*> fmap MockChainConfig (makeMockChain <$> mockChainHostParser <*> mockChainPortsParser)
- where
-  makeMockChain :: String -> (PortNumber, PortNumber, PortNumber) -> MockChain
-  makeMockChain mockChainHost (syncPort, catchUpPort, postTxPort) =
-    MockChain{mockChainHost, syncPort, catchUpPort, postTxPort}
+    <*> chainConfigParser
 
 data ChainConfig
   = MockChainConfig MockChain
   | DirectChainConfig
   deriving (Eq, Show)
+
+chainConfigParser :: Parser ChainConfig
+chainConfigParser = do
+  mockChainConfigParser <|> directChainConfigParser
+ where
+  mockChainConfigParser =
+    fmap
+      MockChainConfig
+      (makeMockChain <$> mockChainHostParser <*> mockChainPortsParser)
+   where
+    makeMockChain :: String -> (PortNumber, PortNumber, PortNumber) -> MockChain
+    makeMockChain mockChainHost (syncPort, catchUpPort, postTxPort) =
+      MockChain{mockChainHost, syncPort, catchUpPort, postTxPort}
+
+  directChainConfigParser = fmap (const DirectChainConfig) empty
 
 signingKeyFileParser :: Parser FilePath
 signingKeyFileParser =
