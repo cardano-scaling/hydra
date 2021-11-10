@@ -1,6 +1,7 @@
 -- | Ouroboros-based implementation of 'Hydra.Network' interface
 module Hydra.Network.Ouroboros (
   withOuroborosNetwork,
+  withIOManager,
   TraceOuroborosNetwork,
   module Hydra.Network,
 ) where
@@ -129,6 +130,7 @@ withOuroborosNetwork tracer localHost remoteHosts networkCallback between = do
     atomically $ do
       dup <- dupTChan bchan
       writeTBQueue chanPool dup
+  -- TODO: Factor this out, there should be only one IOManager per process.
   withIOManager $ \iomgr -> do
     race_ (connect iomgr chanPool hydraClient) $
       race_ (listen iomgr hydraServer) $ do

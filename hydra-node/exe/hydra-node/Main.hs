@@ -17,7 +17,7 @@ import Hydra.Logging.Messages (HydraLog (..))
 import Hydra.Logging.Monitoring (withMonitoring)
 import Hydra.Network (Host (..))
 import Hydra.Network.Heartbeat (withHeartbeat)
-import Hydra.Network.Ouroboros (withOuroborosNetwork)
+import Hydra.Network.Ouroboros (withIOManager, withOuroborosNetwork)
 import Hydra.Node (
   EventQueue (..),
   createEventQueue,
@@ -35,7 +35,7 @@ main = do
   withTracer verbosity $ \tracer' ->
     withMonitoring monitoringPort tracer' $ \tracer -> do
       eq <- createEventQueue
-      withChain party tracer eq chainConfig $ \oc ->
+      withChain tracer party (putEvent eq . OnChainEvent) chainConfig $ \oc ->
         withNetwork (contramap Network tracer) host port peers (putEvent eq . NetworkEvent) $ \hn ->
           withAPIServer apiHost apiPort party (contramap APIServer tracer) (putEvent eq . ClientEvent) $ \server ->
             createHydraNode eq hn Ledger.cardanoLedger oc server env >>= runHydraNode (contramap Node tracer)
@@ -46,16 +46,31 @@ main = do
 
 withChain ::
   Tx tx =>
-  Party ->
   Tracer IO (HydraLog tx net) ->
+  Party ->
   ChainCallback tx IO ->
   ChainConfig ->
   (Chain tx IO -> IO ()) ->
   IO ()
-withChain party tracer callback = \case
+withChain tracer party callback config action = case config of
   MockChainConfig mockChain ->
-    withMockChain (contramap MockChain tracer) mockChain callback
-  DirectChainConfig -> error "not implemented"
+    withMockChain (contramap MockChain tracer) mockChain callback action
+  DirectChainConfig -> do
+    let magic = error "magic"
+    let nodeSocket = error "nodeSocket"
+    let keyPair = error "keyPair"
+    let cardanoKeys = error "cardanoKeys"
+    withIOManager $ \iocp -> do
+      withDirectChain
+        nullTracer -- FIXME: Enable logging for direct chain (require JSON for validated tx)
+        magic
+        iocp
+        nodeSocket
+        keyPair
+        party
+        cardanoKeys
+        callback
+        action
 
 identifyNode :: Options -> Options
 identifyNode opt@Options{verbosity = Verbose "HydraNode", nodeId} = opt{verbosity = Verbose $ "HydraNode-" <> show nodeId}
