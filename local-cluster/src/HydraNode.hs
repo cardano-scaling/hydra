@@ -197,7 +197,8 @@ withHydraCluster tracer workDir nodeSocket clusterSize action =
     (nodeId : rest) ->
       let vKeys = map VerKeyMockDSIGN $ filter (/= nodeId) allNodeIds
           key = SignKeyMockDSIGN nodeId
-       in withHydraNode tracer workDir nodeSocket (fromIntegral nodeId) key vKeys (map fromIntegral allNodeIds) (\c -> go n (c : clients) rest)
+       in -- FIXME: this code is broken now as we need to pass a singing key for direct chain interaction
+          withHydraNode tracer "" workDir nodeSocket (fromIntegral nodeId) key vKeys (map fromIntegral allNodeIds) (\c -> go n (c : clients) rest)
      where
       allNodeIds = [1 .. n]
 
@@ -207,13 +208,14 @@ withHydraNode ::
   Tracer IO EndToEndLog ->
   FilePath ->
   FilePath ->
+  FilePath ->
   Int ->
   SignKeyDSIGN alg ->
   [VerKeyDSIGN alg] ->
   [Int] ->
   (HydraClient -> IO ()) ->
   IO ()
-withHydraNode tracer workDir nodeSocket hydraNodeId sKey vKeys allNodeIds action = do
+withHydraNode tracer walletKey workDir nodeSocket hydraNodeId sKey vKeys allNodeIds action = do
   withFile' (workDir </> show hydraNodeId) $ \out -> do
     withSystemTempDirectory "hydra-node" $ \dir -> do
       let sKeyPath = dir </> (show hydraNodeId <> ".sk")
@@ -223,7 +225,7 @@ withHydraNode tracer workDir nodeSocket hydraNodeId sKey vKeys allNodeIds action
         filepath <$ BS.writeFile filepath (rawSerialiseVerKeyDSIGN vKey)
 
       let p =
-            (hydraNodeProcess $ defaultArguments hydraNodeId sKeyPath vKeysPaths nodeSocket allNodeIds)
+            (hydraNodeProcess $ defaultArguments hydraNodeId walletKey sKeyPath vKeysPaths nodeSocket allNodeIds)
               { std_out = UseHandle out
               }
       withCreateProcess p $
@@ -264,11 +266,12 @@ hydraNodeProcess = proc "hydra-node"
 defaultArguments ::
   Int ->
   FilePath ->
+  FilePath ->
   [FilePath] ->
   FilePath ->
   [Int] ->
   [String]
-defaultArguments nodeId sKey vKeys nodeSocket allNodeIds =
+defaultArguments nodeId walletKey sKey vKeys nodeSocket allNodeIds =
   [ "--node-id"
   , show nodeId
   , "--host"
@@ -288,6 +291,7 @@ defaultArguments nodeId sKey vKeys nodeSocket allNodeIds =
     <> concat [["--party", vKey] | vKey <- vKeys]
     <> ["--network-magic", "42"]
     <> ["--node-socket", nodeSocket]
+    <> ["--wallet-key-file", walletKey]
 
 withMockChain :: ((Int, Int, Int) -> IO ()) -> IO ()
 withMockChain action = do
