@@ -21,6 +21,7 @@ module HydraNode (
   waitNext,
   withNewClient,
   withHydraCluster,
+  EndToEndLog (..),
 ) where
 
 import Hydra.Prelude hiding (delete)
@@ -31,6 +32,7 @@ import Cardano.Crypto.DSIGN (
   SignKeyDSIGN (SignKeyMockDSIGN),
   VerKeyDSIGN (VerKeyMockDSIGN),
  )
+import CardanoCluster (ClusterLog)
 import Control.Concurrent.Async (
   forConcurrently_,
  )
@@ -175,6 +177,7 @@ data EndToEndLog
   | StartWaiting [Int] [Value]
   | ReceivedMessage Int Value
   | EndWaiting Int
+  | FromCluster ClusterLog
   deriving (Eq, Show, Generic, ToJSON, FromJSON, ToObject)
 
 withHydraCluster ::

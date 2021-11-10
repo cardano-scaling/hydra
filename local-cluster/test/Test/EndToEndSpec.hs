@@ -68,6 +68,7 @@ import Cardano.Crypto.DSIGN (
   VerKeyDSIGN,
  )
 import Cardano.Crypto.Seed (mkSeedFromBytes)
+import CardanoCluster (newNodeConfig, withBFTNode)
 import Control.Lens ((^?))
 import Data.Aeson (Value (Null, Object, String), object, (.=))
 import Data.Aeson.Lens (key)
@@ -77,6 +78,7 @@ import qualified Data.Map as Map
 import Hydra.Logging (showLogsOnFailure)
 import Hydra.Party (Party, deriveParty)
 import HydraNode (
+  EndToEndLog (..),
   getMetrics,
   hydraNodeProcess,
   input,
@@ -101,8 +103,9 @@ spec = around showLogsOnFailure $
     describe "three hydra nodes scenario" $ do
       it "inits a Head, processes a single Cardano transaction and closes it again" $ \tracer -> do
         failAfter 30 $
-          withTempDir "end-to-end-inits-and-closes" $ \tmpDir ->
-            withMockChain $ \chainPorts ->
+          withTempDir "end-to-end-inits-and-closes" $ \tmpDir -> do
+            config <- newNodeConfig tmpDir
+            withBFTNode (contramap FromCluster tracer) config $ \chainPorts ->
               withHydraNode tracer tmpDir chainPorts 1 aliceSk [bobVk, carolVk] allNodeIds $ \n1 ->
                 withHydraNode tracer tmpDir chainPorts 2 bobSk [aliceVk, carolVk] allNodeIds $ \n2 ->
                   withHydraNode tracer tmpDir chainPorts 3 carolSk [aliceVk, bobVk] allNodeIds $ \n3 -> do

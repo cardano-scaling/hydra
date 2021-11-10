@@ -7,8 +7,17 @@ module Test.DirectChainSpec where
 import Hydra.Prelude
 import Test.Hydra.Prelude
 
-import CardanoCluster (ClusterLog, RunningCluster (..), initSystemStart, keysFor, testClusterConfig, waitForSocket, withBFTNode, withCluster)
-import CardanoNode (CardanoNodeConfig (CardanoNodeConfig), NodeLog, PortsConfig (PortsConfig), RunningNode (..))
+import CardanoCluster (
+  ClusterLog,
+  RunningCluster (..),
+  keysFor,
+  newNodeConfig,
+  testClusterConfig,
+  waitForSocket,
+  withBFTNode,
+  withCluster,
+ )
+import CardanoNode (NodeLog, RunningNode (..))
 import Control.Concurrent (MVar, newEmptyMVar, putMVar, takeMVar)
 import Hydra.Chain (
   Chain (..),
@@ -27,7 +36,6 @@ import Hydra.Ledger.Simple (SimpleTx, utxoRef)
 import Hydra.Logging (nullTracer, showLogsOnFailure)
 import Hydra.Party (Party, deriveParty, generateKey)
 import Hydra.Snapshot (Snapshot (..))
-import Test.Network.Ports (randomUnusedTCPPort)
 
 spec :: Spec
 spec = around showLogsOnFailure $ do
@@ -91,10 +99,7 @@ spec = around showLogsOnFailure $ do
   it "can open, close & fanout a Head" $ \tracer -> do
     alicesCallback <- newEmptyMVar
     withTempDir "hydra-local-cluster" $ \tmp -> do
-      nodePort <- randomUnusedTCPPort
-      systemStart <- initSystemStart
-      let config = CardanoNodeConfig 1 tmp systemStart $ PortsConfig nodePort []
-
+      config <- newNodeConfig tmp
       withBFTNode (contramap FromCluster tracer) config $ \node@(RunningNode _ node1socket) -> do
         waitForSocket node
         aliceKeys@(aliceCardanoVk, _) <- keysFor "alice"

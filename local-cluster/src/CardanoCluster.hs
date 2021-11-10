@@ -1,3 +1,6 @@
+{-# LANGUAGE DeriveAnyClass #-}
+{-# LANGUAGE DerivingStrategies #-}
+
 module CardanoCluster where
 
 import Hydra.Prelude
@@ -36,7 +39,7 @@ import System.Posix.Files (
   ownerReadMode,
   setFileMode,
  )
-import Test.Network.Ports (randomUnusedTCPPorts)
+import Test.Network.Ports (randomUnusedTCPPort, randomUnusedTCPPorts)
 
 data RunningCluster = RunningCluster ClusterConfig [RunningNode]
 
@@ -172,6 +175,14 @@ makeNodesConfig stateDirectory systemStart [a, b, c] =
   )
 makeNodesConfig _ _ _ = error "we only support topology for 3 nodes"
 
+newNodeConfig ::
+  FilePath ->
+  IO CardanoNodeConfig
+newNodeConfig dir = do
+  nodePort <- randomUnusedTCPPort
+  systemStart <- initSystemStart
+  pure $ CardanoNodeConfig 1 dir systemStart $ PortsConfig nodePort []
+
 --
 -- Logging
 --
@@ -179,4 +190,5 @@ makeNodesConfig _ _ _ = error "we only support topology for 3 nodes"
 data ClusterLog
   = MsgFromNode NodeId NodeLog
   | MsgNodeStarting CardanoNodeConfig
-  deriving (Show)
+  deriving stock (Eq, Show, Generic)
+  deriving anyclass (ToJSON, FromJSON)

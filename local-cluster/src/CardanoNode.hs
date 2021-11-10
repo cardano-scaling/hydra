@@ -19,7 +19,6 @@ import Data.Time.Clock.POSIX (posixSecondsToUTCTime, utcTimeToPOSIXSeconds)
 import System.Exit (ExitCode (..))
 import System.FilePath ((<.>), (</>))
 import System.Process (
-  CmdSpec,
   CreateProcess (..),
   StdStream (UseHandle),
   proc,
@@ -31,7 +30,7 @@ import Test.Hydra.Prelude
 type Port = Int
 
 newtype NodeId = NodeId Int
-  deriving newtype (Show, Num)
+  deriving newtype (Eq, Show, Num, ToJSON, FromJSON)
 
 data RunningNode = RunningNode NodeId FilePath
 
@@ -46,7 +45,8 @@ data CardanoNodeConfig = CardanoNodeConfig
   , -- | A list of port
     ports :: PortsConfig
   }
-  deriving (Show)
+  deriving stock (Eq, Show, Generic)
+  deriving anyclass (ToJSON, FromJSON)
 
 -- | Arguments given to the 'cardano-node' command-line to run a node.
 data CardanoNodeArgs = CardanoNodeArgs
@@ -91,7 +91,8 @@ data PortsConfig = PortsConfig
   , -- | Other peers TCP ports.
     peers :: [Port]
   }
-  deriving (Show)
+  deriving stock (Show, Eq, Generic)
+  deriving anyclass (ToJSON, FromJSON)
 
 withCardanoNode ::
   Tracer IO NodeLog ->
@@ -103,7 +104,7 @@ withCardanoNode tr cfg@CardanoNodeConfig{stateDirectory, nodeId} args action = d
   generateEnvironment
   let process = cardanoNodeProcess (Just stateDirectory) args
       logFile = stateDirectory </> show nodeId <.> "log"
-  traceWith tr $ MsgNodeCmdSpec (cmdspec process)
+  traceWith tr $ MsgNodeCmdSpec (show $ cmdspec process)
   withFile' logFile $ \out ->
     withCreateProcess process{std_out = UseHandle out, std_err = UseHandle out} $ \_stdin _stdout _stderr processHandle ->
       race_
@@ -232,7 +233,7 @@ cliRetry ::
   IO ByteString
 cliRetry tracer msg cp = do
   (st, out, err) <- retrying pol (const isFail) (const cmd)
-  traceWith tracer $ MsgCLIStatus msg st
+  traceWith tracer $ MsgCLIStatus msg (show st)
   case st of
     ExitSuccess -> pure $ encodeUtf8 out
     ExitFailure _ ->
@@ -256,13 +257,14 @@ instance Exception ProcessHasExited
 -- Logging
 
 data NodeLog
-  = MsgNodeCmdSpec CmdSpec
+  = MsgNodeCmdSpec Text
   | MsgCLI [Text]
-  | MsgCLIStatus Text ExitCode
+  | MsgCLIStatus Text Text
   | MsgCLIRetry Text
   | MsgCLIRetryResult Text Int
   | MsgSocketIsReady FilePath
-  deriving (Show)
+  deriving stock (Eq, Show, Generic)
+  deriving anyclass (ToJSON, FromJSON)
 
 --
 -- Helpers
