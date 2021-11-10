@@ -4,8 +4,7 @@ module Hydra.Chain.Direct.Util where
 
 import Hydra.Prelude
 
-import qualified Cardano.Api
-import Cardano.Chain.Slotting (EpochSlots (..))
+import Cardano.Api hiding (AlonzoEra, Block, SigningKey, VerificationKey)
 import Cardano.Crypto.DSIGN (deriveVerKeyDSIGN)
 import qualified Cardano.Crypto.DSIGN as Crypto
 import Cardano.Ledger.Crypto (DSIGN, StandardCrypto)
@@ -26,12 +25,10 @@ import Ouroboros.Consensus.Node.NetworkProtocolVersion (
   SupportedNetworkProtocolVersion (..),
  )
 import Ouroboros.Consensus.Shelley.Ledger.Config (CodecConfig (..))
-import Ouroboros.Network.Magic (NetworkMagic (..))
 import Ouroboros.Network.NodeToClient (
   LocalAddress (..),
   NetworkConnectTracers (..),
   NetworkServerTracers (..),
-  NodeToClientVersion,
   NodeToClientVersionData (..),
   combineVersions,
   simpleSingletonVersions,
@@ -119,8 +116,8 @@ defaultCodecs nodeToClientV =
 
 readKeyPair :: FilePath -> IO (VerificationKey, SigningKey)
 readKeyPair keyPath = do
-  Cardano.Api.PaymentSigningKey sk <-
-    readFileTextEnvelopeThrow (Cardano.Api.AsSigningKey Cardano.Api.AsPaymentKey) keyPath
+  PaymentSigningKey sk <-
+    readFileTextEnvelopeThrow (AsSigningKey AsPaymentKey) keyPath
   let vk = deriveVerKeyDSIGN sk
   pure (vk, sk)
 
