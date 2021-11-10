@@ -83,9 +83,12 @@ keysFor actor = do
   PaymentSigningKey sk <-
     readFileTextEnvelopeThrow
       asSigningKey
-      ("config" </> "credentials" </> actor <.> "sk")
+      (signingKeyPathFor actor)
   let vk = deriveVerKeyDSIGN sk
   pure (vk, sk)
+
+signingKeyPathFor :: String -> FilePath
+signingKeyPathFor actor = "config" </> "credentials" </> actor <.> "sk"
 
 waitForSocket :: RunningNode -> IO ()
 waitForSocket node@(RunningNode _ socket) = do
