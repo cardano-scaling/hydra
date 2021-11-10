@@ -78,6 +78,8 @@ data ChainConfig
   = MockChainConfig MockChain
   | DirectChainConfig
       { networkMagic :: NetworkMagic
+      , nodeSocket :: FilePath
+      , pathToWalletKey :: FilePath
       }
   deriving (Eq, Show)
 
@@ -97,6 +99,8 @@ chainConfigParser = do
   directChainConfigParser =
     DirectChainConfig
       <$> networkMagicParser
+      <*> nodeSocketParser
+      <*> pathToWalletKeyParser
 
 networkMagicParser :: Parser NetworkMagic
 networkMagicParser =
@@ -106,8 +110,24 @@ networkMagicParser =
       ( long "network-magic"
           <> metavar "MAGIC"
           <> value 42
-          <> help "Network magic for the target network."
+          <> help "Network magic for the target network (default: 42)."
       )
+
+nodeSocketParser :: Parser FilePath
+nodeSocketParser =
+  strOption
+    ( long "node-socket"
+        <> metavar "FILE"
+        <> help "Local (Unix) socket path to connect to cardano node."
+    )
+
+pathToWalletKeyParser :: Parser FilePath
+pathToWalletKeyParser =
+  strOption
+    ( long "wallet-key-file"
+        <> metavar "FILE"
+        <> help "File containing the signing key for the internal wallet use for Chain interactions."
+    )
 
 signingKeyFileParser :: Parser FilePath
 signingKeyFileParser =

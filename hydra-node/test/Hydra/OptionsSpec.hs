@@ -3,6 +3,7 @@ module Hydra.OptionsSpec where
 import Hydra.Prelude
 import Test.Hydra.Prelude
 
+import Hydra.Chain.Direct (NetworkMagic (NetworkMagic))
 import Hydra.Network (Host (Host), MockChain (..), defaultMockChain)
 import Hydra.Options (
   ChainConfig (..),
@@ -70,10 +71,40 @@ spec = parallel $
       ["--me", "./alice.sk"] `shouldParse` defaultOptions{me = "./alice.sk"}
 
     it "parses --mock-chain-ports option as a list of ports to connect to" $
-      ["--mock-chain-ports", "(1,2,3)"] `shouldParse` defaultOptions{chainConfig = MockChainConfig defaultMockChain{syncPort = 1, catchUpPort = 2, postTxPort = 3}}
+      ["--mock-chain-ports", "(1,2,3)"]
+        `shouldParse` defaultOptions
+          { chainConfig =
+              MockChainConfig
+                defaultMockChain
+                  { syncPort = 1
+                  , catchUpPort = 2
+                  , postTxPort = 3
+                  }
+          }
 
     it "parses --mock-chain-host option as the mock-chain host to connect to" $
-      ["--mock-chain-host", "1.2.3.4"] `shouldParse` defaultOptions{chainConfig = MockChainConfig defaultMockChain{mockChainHost = "1.2.3.4"}}
+      ["--mock-chain-host", "1.2.3.4"]
+        `shouldParse` defaultOptions
+          { chainConfig =
+              MockChainConfig
+                defaultMockChain
+                  { mockChainHost = "1.2.3.4"
+                  }
+          }
+
+    it "parses mandatory options for direct chain configuration" $
+      ["--node-socket", "foo.sock", "--wallet-key-file", "my.sk"]
+        `shouldParse` defaultOptions
+          { chainConfig =
+              DirectChainConfig
+                { networkMagic = NetworkMagic 42
+                , nodeSocket = "foo.sock"
+                , pathToWalletKey = "my.sk"
+                }
+          }
+
+    it "fails to parse options for direct chain when missing --wallet-key-file" $
+      shouldNotParse ["--node-socket", "foo.sock"]
 
 shouldParse :: [String] -> Options -> Expectation
 shouldParse args options =
