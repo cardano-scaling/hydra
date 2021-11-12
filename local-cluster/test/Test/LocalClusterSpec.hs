@@ -42,7 +42,7 @@ import CardanoCluster (ClusterConfig (..), ClusterLog (..), RunningCluster (..),
 import CardanoNode (ChainTip (..), RunningNode (..), cliQueryTip)
 import qualified Data.Map as Map
 import Hydra.Chain.Direct.Tx (policyId)
-import qualified Hydra.Contract.Head as Head
+import qualified Hydra.Contract.MockHead as MockHead
 import Hydra.Logging (Tracer, showLogsOnFailure)
 import Ledger (toCardanoApiScript)
 import Plutus.V1.Ledger.Api (toData)
@@ -106,9 +106,9 @@ assertCanCallInitAndAbort = \case
   (RunningCluster ClusterConfig{networkId} (RunningNode _ socket : _)) -> do
     (vk, sk) <- keysFor "alice"
     let addr = buildAddress (PaymentVerificationKey $ VKey vk) networkId
-        headScript = toCardanoApiScript $ Head.validatorScript policyId
+        headScript = toCardanoApiScript $ MockHead.validatorScript policyId
         headAddress = buildScriptAddress headScript networkId
-        headDatum = fromPlutusData $ toData $ Head.Initial 1_000_000_000_000 []
+        headDatum = fromPlutusData $ toData $ MockHead.Initial 1_000_000_000_000 []
     UTxO utxo <- queryUtxo networkId socket [addr]
     let (txIn, _) = case Map.toList utxo of
           [] -> error "No Utxo found"
@@ -138,8 +138,8 @@ assertCanCallInitAndAbort = \case
           [] -> error "No Utxo found for fees"
           (tx : _) -> tx
 
-    let abortDatum = fromPlutusData $ toData Head.Final
-        abortRedeemer = fromPlutusData $ toData Head.Abort
+    let abortDatum = fromPlutusData $ toData MockHead.Final
+        abortRedeemer = fromPlutusData $ toData MockHead.Abort
     balancedAbortTx <-
       either (error . show) pure
         =<< build

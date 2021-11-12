@@ -40,7 +40,7 @@ import Hydra.Chain (HeadParameters (..), OnChainTx (..))
 import Hydra.Chain.Direct.Fixture (maxTxSize, pparams)
 import Hydra.Chain.Direct.Util (Era)
 import Hydra.Chain.Direct.Wallet (ErrCoverFee (..), coverFee_)
-import qualified Hydra.Contract.Head as Head
+import qualified Hydra.Contract.MockHead as MockHead
 import qualified Hydra.Contract.MockInitial as MockInitial
 import Hydra.Data.ContestationPeriod (contestationPeriodFromDiffTime)
 import Hydra.Data.Party (partyFromVerKey)
@@ -109,7 +109,7 @@ spec =
     describe "collectComTx" $ do
       prop "transaction size below limit" $ \(utxo :: Utxo SimpleTx) headIn cperiod parties ->
         let tx = collectComTx @SimpleTx utxo (headIn, headDatum)
-            headDatum = Data . toData $ Head.Initial cperiod parties
+            headDatum = Data . toData $ MockHead.Initial cperiod parties
             cbor = serialize tx
             len = LBS.length cbor
          in len < maxTxSize
@@ -118,8 +118,8 @@ spec =
               & counterexample ("Tx serialized size: " <> show len)
 
       prop "is observed" $ \(committedUtxo :: Utxo SimpleTx) headInput cperiod parties ->
-        let headDatum = Data . toData $ Head.Initial cperiod parties
-            headAddress = scriptAddr $ plutusScript $ Head.validatorScript policyId
+        let headDatum = Data . toData $ MockHead.Initial cperiod parties
+            headAddress = scriptAddr $ plutusScript $ MockHead.validatorScript policyId
             headValue = inject (Coin 2_000_000)
             headOutput = TxOut headAddress headValue SNothing -- will be SJust, but not covered by this test
             lookupUtxo = Map.singleton headInput headOutput
@@ -137,7 +137,7 @@ spec =
 
       prop "transaction size below limit" $ \(utxo :: Utxo SimpleTx) headIn ->
         let tx = closeTx @SimpleTx sn utxo (headIn, headDatum)
-            headDatum = Data $ toData Head.Open
+            headDatum = Data $ toData MockHead.Open
             cbor = serialize tx
             len = LBS.length cbor
          in len < maxTxSize
@@ -146,8 +146,8 @@ spec =
               & counterexample ("Tx serialized size: " <> show len)
 
       prop "is observed" $ \(utxo :: Utxo SimpleTx) headInput ->
-        let headDatum = Data $ toData Head.Open
-            headAddress = scriptAddr $ plutusScript $ Head.validatorScript policyId
+        let headDatum = Data $ toData MockHead.Open
+            headAddress = scriptAddr $ plutusScript $ MockHead.validatorScript policyId
             headValue = inject (Coin 2_000_000)
             headOutput = TxOut headAddress headValue SNothing -- will be SJust, but not covered by this test
             lookupUtxo = Map.singleton headInput headOutput
@@ -162,7 +162,7 @@ spec =
     describe "fanoutTx" $ do
       prop "transaction size below limit" $ \(utxo :: Utxo SimpleTx) headIn ->
         let tx = fanoutTx @SimpleTx utxo (headIn, headDatum)
-            headDatum = Data $ toData Head.Closed
+            headDatum = Data $ toData MockHead.Closed
             cbor = serialize tx
             len = LBS.length cbor
          in len < maxTxSize
@@ -172,8 +172,8 @@ spec =
 
       prop "is observed" $ \(utxo :: Utxo SimpleTx) headInput ->
         let tx = fanoutTx @SimpleTx utxo (headInput, headDatum)
-            headDatum = Data $ toData Head.Closed
-            headAddress = scriptAddr $ plutusScript $ Head.validatorScript policyId
+            headDatum = Data $ toData MockHead.Closed
+            headAddress = scriptAddr $ plutusScript $ MockHead.validatorScript policyId
             headValue = inject (Coin 2_000_000)
             headOutput = TxOut headAddress headValue SNothing -- will be SJust, but not covered by this test
             lookupUtxo = Map.singleton headInput headOutput
@@ -185,7 +185,7 @@ spec =
     describe "abortTx" $ do
       -- NOTE(AB): This property fails if the list generated is arbitrarily long
       prop "transaction size below limit" $ \txIn cperiod parties initials ->
-        let headDatum = Data . toData $ Head.Initial cperiod parties
+        let headDatum = Data . toData $ MockHead.Initial cperiod parties
             tx = abortTx (txIn, headDatum) (take 10 initials)
             cbor = serialize tx
             len = LBS.length cbor
@@ -196,8 +196,8 @@ spec =
 
       prop "updates on-chain state to 'Final'" $ \txIn cperiod parties (NonEmpty initials) ->
         let txOut = TxOut headAddress headValue SNothing -- will be SJust, but not covered by this test
-            headDatum = Data . toData $ Head.Initial cperiod parties
-            headAddress = scriptAddr $ plutusScript $ Head.validatorScript policyId
+            headDatum = Data . toData $ MockHead.Initial cperiod parties
+            headAddress = scriptAddr $ plutusScript $ MockHead.validatorScript policyId
             headValue = inject (Coin 2_000_000)
             utxo = Map.singleton txIn txOut
             tx = abortTx (txIn, headDatum) initials
@@ -215,12 +215,12 @@ spec =
           let headUtxo = (txIn, headOutput)
               headOutput = TxOut headAddress headValue (SJust headDatumHash)
               (policy, _) = first currencyMPSHash (unAssetClass threadToken)
-              headAddress = scriptAddr $ plutusScript $ Head.validatorScript policy
+              headAddress = scriptAddr $ plutusScript $ MockHead.validatorScript policy
               headValue = inject (Coin 2_000_000)
               headDatumHash = hashData @Era headDatum
               headDatum =
                 Data . toData $
-                  Head.Initial
+                  MockHead.Initial
                     (contestationPeriodFromDiffTime contestationPeriod)
                     (map (partyFromVerKey . vkey) parties)
               initials = map (\(i, pkh) -> (i, Data . toData $ MockInitial.datum pkh)) initialsPkh

@@ -47,8 +47,8 @@ import qualified Data.Set as Set
 import Data.Time (Day (ModifiedJulianDay), UTCTime (UTCTime))
 import Hydra.Chain (HeadParameters (..), OnChainTx (..))
 import Hydra.Chain.Direct.Util (Era, VerificationKey)
-import qualified Hydra.Contract.Head as Head
 import qualified Hydra.Contract.MockCommit as MockCommit
+import qualified Hydra.Contract.MockHead as MockHead
 import qualified Hydra.Contract.MockInitial as MockInitial
 import Hydra.Data.ContestationPeriod (contestationPeriodFromDiffTime, contestationPeriodToDiffTime)
 import Hydra.Data.Party (partyFromVerKey, partyToVerKey)
@@ -136,7 +136,7 @@ initTx cardanoKeys HeadParameters{contestationPeriod, parties} txIn =
 
   headOut = TxOut headAddress headValue (SJust headDatumHash)
 
-  headAddress = scriptAddr $ plutusScript $ Head.validatorScript policyId
+  headAddress = scriptAddr $ plutusScript $ MockHead.validatorScript policyId
 
   -- REVIEW(SN): how much to store here / minUtxoValue / depending on assets?
   headValue = inject (Coin 2000000)
@@ -145,7 +145,7 @@ initTx cardanoKeys HeadParameters{contestationPeriod, parties} txIn =
 
   headDatum =
     Data . toData $
-      Head.Initial
+      MockHead.Initial
         (contestationPeriodFromDiffTime contestationPeriod)
         (map (partyFromVerKey . vkey) parties)
 
@@ -267,16 +267,16 @@ collectComTx _utxo (headInput, headDatumBefore) =
   datums =
     datumsFromList [headDatumBefore, headDatumAfter]
 
-  headDatumAfter = Data $ toData Head.Open
+  headDatumAfter = Data $ toData MockHead.Open
 
   redeemers =
     redeemersFromList [(rdptr body (Spending headInput), (headRedeemer, ExUnits 0 0))]
 
-  headRedeemer = Data $ toData Head.CollectCom
+  headRedeemer = Data $ toData MockHead.CollectCom
 
   scripts = fromList $ map withScriptHash [headScript]
 
-  headScript = plutusScript $ Head.validatorScript policyId
+  headScript = plutusScript $ MockHead.validatorScript policyId
 
 -- | Create a transaction closing a head with given snapshot number and utxo.
 closeTx ::
@@ -318,19 +318,19 @@ closeTx snapshotNumber _utxo (headInput, headDatumBefore) =
 
   -- TODO(SN): store contestation deadline as tx validity range end +
   -- contestation period in Datum or compute in observeCloseTx?
-  headDatumAfter = Data $ toData Head.Closed
+  headDatumAfter = Data $ toData MockHead.Closed
 
   redeemers =
     redeemersFromList
       [(rdptr body (Spending headInput), (headRedeemer, ExUnits 0 0))]
 
-  headRedeemer = Data $ toData $ Head.Close onChainSnapshotNumber
+  headRedeemer = Data $ toData $ MockHead.Close onChainSnapshotNumber
 
   onChainSnapshotNumber = fromIntegral snapshotNumber
 
   scripts = fromList $ map withScriptHash [headScript]
 
-  headScript = plutusScript $ Head.validatorScript policyId
+  headScript = plutusScript $ MockHead.validatorScript policyId
 
 fanoutTx ::
   -- | Snapshotted Utxo to fanout on layer 1
@@ -371,17 +371,17 @@ fanoutTx _utxo (headInput, headDatumBefore) =
   datums =
     datumsFromList [headDatumBefore, headDatumAfter]
 
-  headDatumAfter = Data $ toData Head.Final
+  headDatumAfter = Data $ toData MockHead.Final
 
   redeemers =
     redeemersFromList
       [(rdptr body (Spending headInput), (headRedeemer, ExUnits 0 0))]
 
-  headRedeemer = Data $ toData Head.Fanout
+  headRedeemer = Data $ toData MockHead.Fanout
 
   scripts = fromList $ map withScriptHash [headScript]
 
-  headScript = plutusScript $ Head.validatorScript policyId
+  headScript = plutusScript $ MockHead.validatorScript policyId
 
 -- | Create transaction which aborts by spending one input. This is currently
 -- only possible if this is governed by the initial script and only for a single
@@ -427,13 +427,13 @@ abortTx (headInput, headDatum) initInputs =
 
   initialScript = plutusScript MockInitial.validatorScript
 
-  headScript = plutusScript $ Head.validatorScript policyId
+  headScript = plutusScript $ MockHead.validatorScript policyId
 
   redeemers =
     redeemersFromList $
       (rdptr body (Spending headInput), (headRedeemer, ExUnits 0 0)) : initialRedeemers
 
-  headRedeemer = Data $ toData Head.Abort
+  headRedeemer = Data $ toData MockHead.Abort
 
   initialRedeemers =
     map
@@ -452,13 +452,13 @@ abortTx (headInput, headDatum) initInputs =
     datumsFromList $ abortDatum : headDatum : map snd initInputs
 
   abortDatum =
-    Data $ toData Head.Final
+    Data $ toData MockHead.Final
 
 -- * Observe Hydra Head transactions
 
 observeInitTx :: Party -> ValidatedTx Era -> Maybe (OnChainTx tx, OnChainHeadState)
 observeInitTx party ValidatedTx{wits, body} = do
-  (dh, headDatum, Head.Initial cp ps) <- getFirst $ foldMap (First . decodeHeadDatum) datumsList
+  (dh, headDatum, MockHead.Initial cp ps) <- getFirst $ foldMap (First . decodeHeadDatum) datumsList
   let parties = map convertParty ps
   let cperiod = contestationPeriodToDiffTime cp
   guard $ party `elem` parties
@@ -529,7 +529,7 @@ observeCollectComTx utxo tx = do
   headInput <- fst <$> findScriptOutput utxo headScript
   redeemer <- getRedeemerSpending tx headInput
   case redeemer of
-    Head.CollectCom -> do
+    MockHead.CollectCom -> do
       (newHeadInput, newHeadOutput) <- findScriptOutput (utxoFromTx tx) headScript
       newHeadDatum <- lookupDatum (wits tx) newHeadOutput
       pure
@@ -538,7 +538,7 @@ observeCollectComTx utxo tx = do
         )
     _ -> Nothing
  where
-  headScript = plutusScript $ Head.validatorScript policyId
+  headScript = plutusScript $ MockHead.validatorScript policyId
 
 -- | Identify a close tx by lookup up the input spending the Head output and
 -- decoding its redeemer.
@@ -551,7 +551,7 @@ observeCloseTx utxo tx = do
   headInput <- fst <$> findScriptOutput utxo headScript
   redeemer <- getRedeemerSpending tx headInput
   case redeemer of
-    Head.Close sn -> do
+    MockHead.Close sn -> do
       (newHeadInput, newHeadOutput) <- findScriptOutput (utxoFromTx tx) headScript
       newHeadDatum <- lookupDatum (wits tx) newHeadOutput
       let snapshotNumber = fromIntegral sn
@@ -561,7 +561,7 @@ observeCloseTx utxo tx = do
         )
     _ -> Nothing
  where
-  headScript = plutusScript $ Head.validatorScript policyId
+  headScript = plutusScript $ MockHead.validatorScript policyId
 
   -- FIXME(SN): store in/read from datum
   contestationDeadline = UTCTime (ModifiedJulianDay 0) 0
@@ -576,10 +576,10 @@ observeFanoutTx ::
 observeFanoutTx utxo tx = do
   headInput <- fst <$> findScriptOutput utxo headScript
   getRedeemerSpending tx headInput >>= \case
-    Head.Fanout -> pure (OnFanoutTx, Final)
+    MockHead.Fanout -> pure (OnFanoutTx, Final)
     _ -> Nothing
  where
-  headScript = plutusScript $ Head.validatorScript policyId
+  headScript = plutusScript $ MockHead.validatorScript policyId
 
 -- | Identify an abort tx by looking up the input spending the Head output and
 -- decoding its redeemer.
@@ -591,11 +591,11 @@ observeAbortTx ::
 observeAbortTx utxo tx = do
   headInput <- fst <$> findScriptOutput utxo headScript
   getRedeemerSpending tx headInput >>= \case
-    Head.Abort -> pure (OnAbortTx, Final)
+    MockHead.Abort -> pure (OnAbortTx, Final)
     _ -> Nothing
  where
   -- FIXME(SN): make sure this is aborting "the right head / your head" by not hard-coding policyId
-  headScript = plutusScript $ Head.validatorScript policyId
+  headScript = plutusScript $ MockHead.validatorScript policyId
 
 -- * Functions related to OnChainHeadState
 

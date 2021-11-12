@@ -72,9 +72,9 @@ library
   import:          project-config
   exposed-modules:
     Hydra.Contract.Commit
-    Hydra.Contract.Head
     Hydra.Contract.Initial
     Hydra.Contract.MockCommit
+    Hydra.Contract.MockHead
     Hydra.Contract.MockInitial
     Hydra.Data.ContestationPeriod
     Hydra.Data.HeadParameters
