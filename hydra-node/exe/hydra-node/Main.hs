@@ -57,8 +57,8 @@ withChain tracer party callback config action = case config of
   MockChainConfig mockChain ->
     withMockChain (contramap MockChain tracer) mockChain callback action
   DirectChainConfig{networkMagic, nodeSocket, cardanoSigningKey, cardanoVerificationKeys} -> do
-    keyPair <- readKeyPair cardanoSigningKey
-    cardanoKeys <- mapM readVerificationKey cardanoVerificationKeys
+    keyPair@(vk, _) <- readKeyPair cardanoSigningKey
+    otherCardanoKeys <- mapM readVerificationKey cardanoVerificationKeys
     withIOManager $ \iocp -> do
       withDirectChain
         (contramap DirectChain tracer)
@@ -67,7 +67,7 @@ withChain tracer party callback config action = case config of
         nodeSocket
         keyPair
         party
-        cardanoKeys
+        (vk : otherCardanoKeys)
         callback
         action
 
