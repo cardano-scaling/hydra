@@ -44,8 +44,8 @@ spec = parallel $ do
         Environment{party, otherParties} <-
           initEnvironment $
             defaultOptions
-              { me = tmp </> "_me.sk"
-              , parties = [tmp </> "alice.vk", tmp </> "2.vk", tmp </> "~charlie.vk"]
+              { hydraSigningKey = tmp </> "_me.sk"
+              , hydraVerificationKeys = [tmp </> "alice.vk", tmp </> "2.vk", tmp </> "~charlie.vk"]
               }
 
         alias party `shouldBe` Nothing
