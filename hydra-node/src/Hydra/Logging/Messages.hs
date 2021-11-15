@@ -11,12 +11,14 @@ module Hydra.Logging.Messages where
 import Hydra.Prelude
 
 import Hydra.API.Server (APIServerLog)
+import Hydra.Chain.Direct (DirectChainLog)
 import Hydra.Chain.ZeroMQ (MockChainLog)
 import Hydra.Ledger (Utxo)
 import Hydra.Node (HydraNodeLog)
 
 data HydraLog tx net
   = MockChain {chain :: MockChainLog tx}
+  | DirectChain {directChain :: DirectChainLog tx}
   | APIServer {api :: APIServerLog}
   | Network {network :: net}
   | Node {node :: HydraNodeLog tx}
@@ -27,6 +29,7 @@ instance
   ( Arbitrary net
   , Arbitrary tx
   , Arbitrary (MockChainLog tx)
+  , Arbitrary (DirectChainLog tx)
   , Arbitrary (Utxo tx)
   , Arbitrary APIServerLog
   ) =>

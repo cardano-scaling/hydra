@@ -13,7 +13,7 @@ import Hydra.Chain.ZeroMQ (withMockChain)
 import Hydra.HeadLogic (Environment (..), Event (..))
 import Hydra.Ledger (Tx)
 import qualified Hydra.Ledger.Cardano as Ledger
-import Hydra.Logging (Tracer, Verbosity (..), nullTracer, withTracer)
+import Hydra.Logging (Tracer, Verbosity (..), withTracer)
 import Hydra.Logging.Messages (HydraLog (..))
 import Hydra.Logging.Monitoring (withMonitoring)
 import Hydra.Network (Host (..))
@@ -61,7 +61,7 @@ withChain tracer party callback config action = case config of
     cardanoKeys <- mapM readVerificationKey cardanoVerificationKeys
     withIOManager $ \iocp -> do
       withDirectChain
-        nullTracer -- FIXME: Enable logging for direct chain (require JSON for validated tx)
+        (contramap DirectChain tracer)
         networkMagic
         iocp
         nodeSocket
