@@ -106,8 +106,8 @@ chainConfigParser = do
 
 networkMagicParser :: Parser NetworkMagic
 networkMagicParser =
-  fmap NetworkMagic $
-    option
+  NetworkMagic
+    <$> option
       auto
       ( long "network-magic"
           <> metavar "MAGIC"

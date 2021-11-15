@@ -32,7 +32,7 @@ import Cardano.Crypto.DSIGN (
   SignKeyDSIGN (SignKeyMockDSIGN),
   VerKeyDSIGN (VerKeyMockDSIGN),
  )
-import CardanoCluster (ClusterLog)
+import CardanoCluster (ClusterLog, signingKeyPathFor, verificationKeyPathFor)
 import Control.Concurrent.Async (
   forConcurrently_,
  )
@@ -198,7 +198,7 @@ withHydraCluster tracer workDir nodeSocket clusterSize action =
       let vKeys = map VerKeyMockDSIGN $ filter (/= nodeId) allNodeIds
           key = SignKeyMockDSIGN nodeId
        in -- FIXME: this code is broken now as we need to pass a singing key for direct chain interaction
-          withHydraNode tracer "" workDir nodeSocket (fromIntegral nodeId) key vKeys (map fromIntegral allNodeIds) (\c -> go n (c : clients) rest)
+          withHydraNode tracer (error "skey name") (error "vkey names") workDir nodeSocket (fromIntegral nodeId) key vKeys (map fromIntegral allNodeIds) (\c -> go n (c : clients) rest)
      where
       allNodeIds = [1 .. n]
 
@@ -206,7 +206,8 @@ withHydraNode ::
   forall alg.
   DSIGNAlgorithm alg =>
   Tracer IO EndToEndLog ->
-  FilePath ->
+  String ->
+  [String] ->
   FilePath ->
   FilePath ->
   Int ->
@@ -215,7 +216,7 @@ withHydraNode ::
   [Int] ->
   (HydraClient -> IO ()) ->
   IO ()
-withHydraNode tracer cardanoSKey workDir nodeSocket hydraNodeId hydraSKey hydraVKeys allNodeIds action = do
+withHydraNode tracer cardanoSKeyName cardanoVKeyNames workDir nodeSocket hydraNodeId hydraSKey hydraVKeys allNodeIds action = do
   withFile' (workDir </> show hydraNodeId) $ \out -> do
     withSystemTempDirectory "hydra-node" $ \dir -> do
       let hydraSKeyPath = dir </> (show hydraNodeId <> ".sk")
@@ -223,12 +224,8 @@ withHydraNode tracer cardanoSKey workDir nodeSocket hydraNodeId hydraSKey hydraV
       hydraVKeysPaths <- forM (zip [1 ..] hydraVKeys) $ \(i :: Int, vKey) -> do
         let filepath = dir </> (show i <> ".vk")
         filepath <$ BS.writeFile filepath (rawSerialiseVerKeyDSIGN vKey)
-
-      -- FIXME: Pass cardano keys as arguments.
-      let cardanoVKeysPaths = mempty
-
       let p =
-            (hydraNodeProcess $ defaultArguments hydraNodeId cardanoSKey hydraSKeyPath hydraVKeysPaths cardanoVKeysPaths nodeSocket allNodeIds)
+            (hydraNodeProcess $ defaultArguments hydraNodeId cardanoSKeyPath cardanoVKeysPaths hydraSKeyPath hydraVKeysPaths nodeSocket allNodeIds)
               { std_out = UseHandle out
               }
       withCreateProcess p $
@@ -236,6 +233,9 @@ withHydraNode tracer cardanoSKey workDir nodeSocket hydraNodeId hydraSKey hydraV
           race_
             (checkProcessHasNotDied ("hydra-node (" <> show hydraNodeId <> ")") processHandle)
             (withConnectionToNode tracer hydraNodeId action)
+ where
+  cardanoSKeyPath = signingKeyPathFor cardanoSKeyName
+  cardanoVKeysPaths = verificationKeyPathFor <$> cardanoVKeyNames
 
 withConnectionToNode :: Tracer IO EndToEndLog -> Int -> (HydraClient -> IO a) -> IO a
 withConnectionToNode tracer hydraNodeId action = do
@@ -269,13 +269,13 @@ hydraNodeProcess = proc "hydra-node"
 defaultArguments ::
   Int ->
   FilePath ->
-  FilePath ->
   [FilePath] ->
+  FilePath ->
   [FilePath] ->
   FilePath ->
   [Int] ->
   [String]
-defaultArguments nodeId cardanoSKey hydraSKey hydraVKeys cardanoVKeys nodeSocket allNodeIds =
+defaultArguments nodeId cardanoSKey cardanoVKeys hydraSKey hydraVKeys nodeSocket allNodeIds =
   [ "--node-id"
   , show nodeId
   , "--host"
