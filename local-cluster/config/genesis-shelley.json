@@ -1,5 +1,5 @@
 {
-    "activeSlotsCoeff": 5.0e-2,
+    "activeSlotsCoeff": 1.0,
     "protocolParams": {
         "poolDeposit": 0,
         "protocolVersion": {
