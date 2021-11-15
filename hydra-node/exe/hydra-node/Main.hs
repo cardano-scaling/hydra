@@ -8,7 +8,7 @@ import Hydra.Prelude
 import Hydra.API.Server (withAPIServer)
 import Hydra.Chain (Chain, ChainCallback)
 import Hydra.Chain.Direct (withDirectChain)
-import Hydra.Chain.Direct.Util (readKeyPair)
+import Hydra.Chain.Direct.Util (readKeyPair, readVerificationKey)
 import Hydra.Chain.ZeroMQ (withMockChain)
 import Hydra.HeadLogic (Environment (..), Event (..))
 import Hydra.Ledger (Tx)
@@ -56,11 +56,9 @@ withChain ::
 withChain tracer party callback config action = case config of
   MockChainConfig mockChain ->
     withMockChain (contramap MockChain tracer) mockChain callback action
-  DirectChainConfig{networkMagic, nodeSocket, cardanoSigningKey} -> do
+  DirectChainConfig{networkMagic, nodeSocket, cardanoSigningKey, cardanoVerificationKeys} -> do
     keyPair <- readKeyPair cardanoSigningKey
-    -- FIXME: cardano keys are not really used at this stage and they should be
-    -- passed in the head parameters anyhow
-    let cardanoKeys = []
+    cardanoKeys <- mapM readVerificationKey cardanoVerificationKeys
     withIOManager $ \iocp -> do
       withDirectChain
         nullTracer -- FIXME: Enable logging for direct chain (require JSON for validated tx)

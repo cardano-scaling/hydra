@@ -5,9 +5,11 @@ module Hydra.Chain.Direct.Util where
 import Hydra.Prelude
 
 import Cardano.Api hiding (AlonzoEra, Block, SigningKey, VerificationKey)
+import qualified Cardano.Api.Shelley as Shelley
 import Cardano.Crypto.DSIGN (deriveVerKeyDSIGN)
 import qualified Cardano.Crypto.DSIGN as Crypto
 import Cardano.Ledger.Crypto (DSIGN, StandardCrypto)
+import Cardano.Ledger.Keys (VKey (VKey))
 import Control.Tracer (nullTracer)
 import Data.Map.Strict ((!))
 import qualified Data.Map.Strict as Map
@@ -128,3 +130,9 @@ readFileTextEnvelopeThrow ::
   IO a
 readFileTextEnvelopeThrow asType =
   either (fail . show) pure <=< readFileTextEnvelope asType
+
+readVerificationKey :: FilePath -> IO VerificationKey
+readVerificationKey keyPath = do
+  Shelley.PaymentVerificationKey (VKey vk) <-
+    readFileTextEnvelopeThrow (Shelley.AsVerificationKey Shelley.AsPaymentKey) keyPath
+  pure vk
