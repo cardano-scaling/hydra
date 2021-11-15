@@ -56,8 +56,8 @@ withChain ::
 withChain tracer party callback config action = case config of
   MockChainConfig mockChain ->
     withMockChain (contramap MockChain tracer) mockChain callback action
-  DirectChainConfig{networkMagic, nodeSocket, pathToWalletKey} -> do
-    keyPair <- readKeyPair pathToWalletKey
+  DirectChainConfig{networkMagic, nodeSocket, cardanoSigningKey} -> do
+    keyPair <- readKeyPair cardanoSigningKey
     -- FIXME: cardano keys are not really used at this stage and they should be
     -- passed in the head parameters anyhow
     let cardanoKeys = []

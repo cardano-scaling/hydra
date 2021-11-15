@@ -215,17 +215,20 @@ withHydraNode ::
   [Int] ->
   (HydraClient -> IO ()) ->
   IO ()
-withHydraNode tracer walletKey workDir nodeSocket hydraNodeId sKey vKeys allNodeIds action = do
+withHydraNode tracer cardanoSKey workDir nodeSocket hydraNodeId hydraSKey hydraVKeys allNodeIds action = do
   withFile' (workDir </> show hydraNodeId) $ \out -> do
     withSystemTempDirectory "hydra-node" $ \dir -> do
-      let sKeyPath = dir </> (show hydraNodeId <> ".sk")
-      BS.writeFile sKeyPath (rawSerialiseSignKeyDSIGN sKey)
-      vKeysPaths <- forM (zip [1 ..] vKeys) $ \(i :: Int, vKey) -> do
+      let hydraSKeyPath = dir </> (show hydraNodeId <> ".sk")
+      BS.writeFile hydraSKeyPath (rawSerialiseSignKeyDSIGN hydraSKey)
+      hydraVKeysPaths <- forM (zip [1 ..] hydraVKeys) $ \(i :: Int, vKey) -> do
         let filepath = dir </> (show i <> ".vk")
         filepath <$ BS.writeFile filepath (rawSerialiseVerKeyDSIGN vKey)
 
+      -- FIXME: Pass cardano keys as arguments.
+      let cardanoVKeysPaths = mempty
+
       let p =
-            (hydraNodeProcess $ defaultArguments hydraNodeId walletKey sKeyPath vKeysPaths nodeSocket allNodeIds)
+            (hydraNodeProcess $ defaultArguments hydraNodeId cardanoSKey hydraSKeyPath hydraVKeysPaths cardanoVKeysPaths nodeSocket allNodeIds)
               { std_out = UseHandle out
               }
       withCreateProcess p $
@@ -268,10 +271,11 @@ defaultArguments ::
   FilePath ->
   FilePath ->
   [FilePath] ->
+  [FilePath] ->
   FilePath ->
   [Int] ->
   [String]
-defaultArguments nodeId walletKey sKey vKeys nodeSocket allNodeIds =
+defaultArguments nodeId cardanoSKey hydraSKey hydraVKeys cardanoVKeys nodeSocket allNodeIds =
   [ "--node-id"
   , show nodeId
   , "--host"
@@ -284,14 +288,16 @@ defaultArguments nodeId walletKey sKey vKeys nodeSocket allNodeIds =
   , show (4000 + nodeId)
   , "--monitoring-port"
   , show (6000 + nodeId)
-  , "--me"
-  , sKey
+  , "--hydra-signing-key"
+  , hydraSKey
+  , "--cardano-signing-key"
+  , cardanoSKey
   ]
     <> concat [["--peer", "127.0.0.1:" <> show (5000 + i)] | i <- allNodeIds, i /= nodeId]
-    <> concat [["--party", vKey] | vKey <- vKeys]
+    <> concat [["--hydra-verification-key", vKey] | vKey <- hydraVKeys]
+    <> concat [["--cardano-verification-key", vKey] | vKey <- cardanoVKeys]
     <> ["--network-magic", "42"]
     <> ["--node-socket", nodeSocket]
-    <> ["--wallet-key-file", walletKey]
 
 withMockChain :: ((Int, Int, Int) -> IO ()) -> IO ()
 withMockChain action = do

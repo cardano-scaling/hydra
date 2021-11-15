@@ -44,13 +44,13 @@ import System.FilePath (takeBaseName)
 -- * Environment Handling
 
 initEnvironment :: Options -> IO Environment
-initEnvironment Options{me, parties} = do
-  sk <- loadSigningKey me
+initEnvironment Options{hydraSigningKey, hydraVerificationKeys} = do
+  sk <- loadSigningKey hydraSigningKey
   let vk = deriveVerKeyDSIGN sk
-  otherParties <- mapM loadParty parties
+  otherParties <- mapM loadParty hydraVerificationKeys
   pure $
     Environment
-      { party = Party (mkAlias me) vk
+      { party = Party (mkAlias hydraSigningKey) vk
       , signingKey = sk
       , otherParties
       }
