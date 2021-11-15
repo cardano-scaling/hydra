@@ -68,7 +68,7 @@ import Cardano.Crypto.DSIGN (
   VerKeyDSIGN,
  )
 import Cardano.Crypto.Seed (mkSeedFromBytes)
-import CardanoCluster (newNodeConfig, signingKeyPathFor, waitForSocket, withBFTNode)
+import CardanoCluster (newNodeConfig, waitForSocket, withBFTNode)
 import CardanoNode (RunningNode (RunningNode))
 import Control.Lens ((^?))
 import Data.Aeson (Value (Null, Object, String), object, (.=))
@@ -107,9 +107,9 @@ spec = around showLogsOnFailure $
             config <- newNodeConfig tmpDir
             withBFTNode (contramap FromCluster tracer) config $ \node@(RunningNode _ nodeSocket) -> do
               waitForSocket node
-              withHydraNode tracer (signingKeyPathFor "alice") tmpDir nodeSocket 1 aliceSk [bobVk, carolVk] allNodeIds $ \n1 ->
-                withHydraNode tracer (signingKeyPathFor "bob") tmpDir nodeSocket 2 bobSk [aliceVk, carolVk] allNodeIds $ \n2 ->
-                  withHydraNode tracer (signingKeyPathFor "carol") tmpDir nodeSocket 3 carolSk [aliceVk, bobVk] allNodeIds $ \n3 -> do
+              withHydraNode tracer "alice" ["bob", "carol"] tmpDir nodeSocket 1 aliceSk [bobVk, carolVk] allNodeIds $ \n1 ->
+                withHydraNode tracer "bob" ["alice", "carol"] tmpDir nodeSocket 2 bobSk [aliceVk, carolVk] allNodeIds $ \n2 ->
+                  withHydraNode tracer "carol" ["alice", "bob"] tmpDir nodeSocket 3 carolSk [aliceVk, bobVk] allNodeIds $ \n3 -> do
                     waitForNodesConnected tracer allNodeIds [n1, n2, n3]
                     let contestationPeriod = 10 :: Natural
                     send n1 $ input "Init" ["contestationPeriod" .= contestationPeriod]
@@ -181,9 +181,9 @@ spec = around showLogsOnFailure $
           withBFTNode (contramap FromCluster tracer) config $ \node@(RunningNode _ nodeSocket) -> do
             waitForSocket node
             failAfter 20 $
-              withHydraNode tracer (signingKeyPathFor "alice") tmpDir nodeSocket 1 aliceSk [bobVk, carolVk] allNodeIds $ \n1 ->
-                withHydraNode tracer (signingKeyPathFor "bob") tmpDir nodeSocket 2 bobSk [aliceVk, carolVk] allNodeIds $ \_n2 ->
-                  withHydraNode tracer (signingKeyPathFor "carol") tmpDir nodeSocket 3 carolSk [aliceVk, bobVk] allNodeIds $ \_n3 -> do
+              withHydraNode tracer "alice" ["bob", "carol"] tmpDir nodeSocket 1 aliceSk [bobVk, carolVk] allNodeIds $ \n1 ->
+                withHydraNode tracer "bob" ["alice", "carol"] tmpDir nodeSocket 2 bobSk [aliceVk, carolVk] allNodeIds $ \_n2 ->
+                  withHydraNode tracer "carol" ["alice", "bob"] tmpDir nodeSocket 3 carolSk [aliceVk, bobVk] allNodeIds $ \_n3 -> do
                     waitForNodesConnected tracer allNodeIds [n1]
                     send n1 $ input "Init" ["contestationPeriod" .= int 10]
                     waitFor tracer 3 [n1] $ output "ReadyToCommit" ["parties" .= [alice, bob, carol]]

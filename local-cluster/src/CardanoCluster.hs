@@ -90,6 +90,9 @@ keysFor actor = do
 signingKeyPathFor :: String -> FilePath
 signingKeyPathFor actor = "config" </> "credentials" </> actor <.> "sk"
 
+verificationKeyPathFor :: String -> FilePath
+verificationKeyPathFor actor = "config" </> "credentials" </> actor <.> "vk"
+
 waitForSocket :: RunningNode -> IO ()
 waitForSocket node@(RunningNode _ socket) = do
   unlessM (doesFileExist socket) $ do
