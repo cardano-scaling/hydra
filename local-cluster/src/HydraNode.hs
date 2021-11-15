@@ -32,7 +32,7 @@ import Cardano.Crypto.DSIGN (
   SignKeyDSIGN (SignKeyMockDSIGN),
   VerKeyDSIGN (VerKeyMockDSIGN),
  )
-import CardanoCluster (ClusterLog, signingKeyPathFor, verificationKeyPathFor)
+import CardanoCluster (ClusterLog)
 import Control.Concurrent.Async (
   forConcurrently_,
  )
@@ -216,7 +216,7 @@ withHydraNode ::
   [Int] ->
   (HydraClient -> IO ()) ->
   IO ()
-withHydraNode tracer cardanoSKeyName cardanoVKeyNames workDir nodeSocket hydraNodeId hydraSKey hydraVKeys allNodeIds action = do
+withHydraNode tracer cardanoSKeyPath cardanoVKeysPaths workDir nodeSocket hydraNodeId hydraSKey hydraVKeys allNodeIds action = do
   withFile' (workDir </> show hydraNodeId) $ \out -> do
     withSystemTempDirectory "hydra-node" $ \dir -> do
       let hydraSKeyPath = dir </> (show hydraNodeId <> ".sk")
@@ -233,9 +233,6 @@ withHydraNode tracer cardanoSKeyName cardanoVKeyNames workDir nodeSocket hydraNo
           race_
             (checkProcessHasNotDied ("hydra-node (" <> show hydraNodeId <> ")") processHandle)
             (withConnectionToNode tracer hydraNodeId action)
- where
-  cardanoSKeyPath = signingKeyPathFor cardanoSKeyName
-  cardanoVKeysPaths = verificationKeyPathFor <$> cardanoVKeyNames
 
 withConnectionToNode :: Tracer IO EndToEndLog -> Int -> (HydraClient -> IO a) -> IO a
 withConnectionToNode tracer hydraNodeId action = do
