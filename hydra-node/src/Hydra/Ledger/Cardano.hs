@@ -7,6 +7,7 @@ module Hydra.Ledger.Cardano where
 
 import Hydra.Prelude hiding (id)
 
+import Cardano.Api()
 import Cardano.Binary (
   decodeAnnotator,
   decodeBytes,
@@ -398,9 +399,6 @@ instance Crypto crypto => FromJSON (AuxiliaryDataHash crypto) where
 -- Input
 --
 
-instance Crypto crypto => ToJSON (Cardano.TxIn crypto) where
-  toJSON = toJSON . txInToText
-
 instance Crypto crypto => FromJSON (Cardano.TxIn crypto) where
   parseJSON = withText "TxIn" txInFromText
 
@@ -422,9 +420,6 @@ txInToText (Cardano.TxIn id ix) = txIdToText id <> "#" <> show ix
 
 instance Crypto crypto => FromJSONKey (Cardano.TxIn crypto) where
   fromJSONKey = FromJSONKeyTextParser txInFromText
-
-instance Crypto crypto => ToJSONKey (Cardano.TxIn crypto) where
-  toJSONKey = toJSONKeyText txInToText
 
 --
 -- Address
@@ -459,13 +454,6 @@ encodeAddress addr =
 -- Output
 --
 
-instance Crypto crypto => ToJSON (Cardano.TxOut (MaryEra crypto)) where
-  toJSON (Cardano.TxOut addr value) =
-    object
-      [ "address" .= encodeAddress addr
-      , "value" .= value
-      ]
-
 instance Crypto crypto => FromJSON (Cardano.TxOut (MaryEra crypto)) where
   parseJSON = withObject "TxOut" $ \o -> do
     address <- o .: "address" >>= deserialiseAddressBech32
@@ -484,42 +472,21 @@ instance Crypto crypto => FromJSON (Cardano.TxOut (MaryEra crypto)) where
                 (p, Just _) -> fail $ "invalid bech32 prefix: " <> show p
                 (_, Nothing) -> fail "failed to decode data part"
 
-instance Crypto crypto => ToJSON (Cardano.Value crypto) where
-  toJSON (Cardano.Value lovelace assets) =
-    object $
-      [ "lovelace" .= lovelace
-      ]
-        <> addedAssets
-   where
-    addedAssets = ["assets" .= assets | assets /= mempty]
-
 instance Crypto crypto => FromJSON (Cardano.Value crypto) where
   parseJSON = withObject "Value" $ \o ->
     Cardano.Value <$> o .: "lovelace" <*> o .:? "assets" .!= mempty
 
-instance Crypto crypto => ToJSON (Cardano.PolicyID crypto) where
-  toJSON (Cardano.PolicyID h) = toJSON h
-
 instance Crypto crypto => FromJSON (Cardano.PolicyID crypto) where
   parseJSON v = Cardano.PolicyID <$> parseJSON v
 
-instance Crypto crypto => ToJSONKey (Cardano.PolicyID crypto) where
-  toJSONKey = contramap (\(Cardano.PolicyID h) -> h) toJSONKey
-
 instance Crypto crypto => FromJSONKey (Cardano.PolicyID crypto) where
   fromJSONKey = mapFromJSONKeyFunction Cardano.PolicyID fromJSONKey
-
-instance ToJSON Cardano.AssetName where
-  toJSON (Cardano.AssetName bytes) = String $ decodeUtf8 $ Base16.encode bytes
 
 instance FromJSON Cardano.AssetName where
   parseJSON = withText "AssetName" $ \t ->
     case Base16.decode $ encodeUtf8 t of
       Left err -> fail $ show err
       Right bs -> pure $ Cardano.AssetName bs
-
-instance ToJSONKey Cardano.AssetName where
-  toJSONKey = toJSONKeyText $ \(Cardano.AssetName bytes) -> decodeUtf8 $ Base16.encode bytes
 
 instance FromJSONKey Cardano.AssetName where
   fromJSONKey = FromJSONKeyTextParser nameFromText
@@ -559,9 +526,6 @@ instance Semigroup (Cardano.UTxO (MaryEra crypto)) where
 
 instance Monoid (Cardano.UTxO (MaryEra crypto)) where
   mempty = Cardano.UTxO mempty
-
-instance Crypto crypto => ToJSON (Cardano.UTxO (MaryEra crypto)) where
-  toJSON = toJSON . Cardano.unUTxO
 
 instance Crypto crypto => FromJSON (Cardano.UTxO (MaryEra crypto)) where
   parseJSON v = Cardano.UTxO <$> parseJSON v

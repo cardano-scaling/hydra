@@ -50,7 +50,6 @@ import HydraNode (
   waitForNodesConnected,
   waitMatch,
   withHydraCluster,
-  withMockChain,
   withNewClient,
  )
 import System.FilePath ((</>))
@@ -79,7 +78,7 @@ bench timeoutSeconds workDir dataset clusterSize =
     showLogsOnFailure $ \tracer ->
       failAfter timeoutSeconds $ do
         config <- newNodeConfig workDir
-        withBFTNode (contramap FromCluster tracer) config $ \node@(RunningNode _ nodeSocket) -> do
+        withBFTNode (contramap FromCluster tracer) config $ \(RunningNode _ nodeSocket) -> do
           withHydraCluster tracer workDir nodeSocket clusterSize $ \(leader :| followers) -> do
             let nodes = leader : followers
             waitForNodesConnected tracer [1 .. fromIntegral clusterSize] nodes
