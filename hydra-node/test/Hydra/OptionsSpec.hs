@@ -60,15 +60,15 @@ spec = parallel $
     it "parses --version flag as a parse error" $
       shouldNotParse ["--version"]
 
-    it "parses --party option as a filepath" $ do
-      ["--party", "./alice.vk"] `shouldParse` defaultOptions{parties = ["./alice.vk"]}
-      ["--party", "/foo"] `shouldParse` defaultOptions{parties = ["/foo"]}
-      ["--party", "bar"] `shouldParse` defaultOptions{parties = ["bar"]}
-      ["--party", "alice.vk", "--party", "bob.vk"]
-        `shouldParse` defaultOptions{parties = ["alice.vk", "bob.vk"]}
+    it "parses --hydra-verification-key option as a filepath" $ do
+      ["--hydra-verification-key", "./alice.vk"] `shouldParse` defaultOptions{hydraVerificationKeys = ["./alice.vk"]}
+      ["--hydra-verification-key", "/foo"] `shouldParse` defaultOptions{hydraVerificationKeys = ["/foo"]}
+      ["--hydra-verification-key", "bar"] `shouldParse` defaultOptions{hydraVerificationKeys = ["bar"]}
+      ["--hydra-verification-key", "alice.vk", "--hydra-verification-key", "bob.vk"]
+        `shouldParse` defaultOptions{hydraVerificationKeys = ["alice.vk", "bob.vk"]}
 
     it "parses --me option as a filepath" $
-      ["--me", "./alice.sk"] `shouldParse` defaultOptions{me = "./alice.sk"}
+      ["--hydra-signing-key", "./alice.sk"] `shouldParse` defaultOptions{hydraSigningKey = "./alice.sk"}
 
     it "parses --mock-chain-ports option as a list of ports to connect to" $
       ["--mock-chain-ports", "(1,2,3)"]
@@ -93,17 +93,18 @@ spec = parallel $
           }
 
     it "parses mandatory options for direct chain configuration" $
-      ["--node-socket", "foo.sock", "--wallet-key-file", "my.sk"]
+      ["--node-socket", "foo.sock", "--cardano-signing-key", "my.sk"]
         `shouldParse` defaultOptions
           { chainConfig =
               DirectChainConfig
                 { networkMagic = NetworkMagic 42
                 , nodeSocket = "foo.sock"
-                , pathToWalletKey = "my.sk"
+                , cardanoSigningKey = "my.sk"
+                , cardanoVerificationKeys = []
                 }
           }
 
-    it "fails to parse options for direct chain when missing --wallet-key-file" $
+    it "fails to parse options for direct chain when missing --cardano-signing-key" $
       shouldNotParse ["--node-socket", "foo.sock"]
 
 shouldParse :: [String] -> Options -> Expectation

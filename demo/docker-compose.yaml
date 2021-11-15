@@ -17,9 +17,9 @@ services:
       , "--monitoring-port", "6001"
       , "--peer", "hydra-node-2:5001"
       , "--peer", "hydra-node-3:5001"
-      , "--me", "/keys/alice.sk"
-      , "--party", "/keys/bob.vk"
-      , "--party", "/keys/carol.vk"
+      , "--hydra-signing-key", "/keys/alice.sk"
+      , "--hydra-verification-key", "/keys/bob.vk"
+      , "--hydra-verification-key", "/keys/carol.vk"
       , "--mock-chain-host", "172.16.238.4"
       ]
     networks:
@@ -42,9 +42,9 @@ services:
       , "--monitoring-port", "6001"
       , "--peer", "hydra-node-1:5001"
       , "--peer", "hydra-node-3:5001"
-      , "--me", "/keys/bob.sk"
-      , "--party", "/keys/alice.vk"
-      , "--party", "/keys/carol.vk"
+      , "--hydra-signing-key", "/keys/bob.sk"
+      , "--hydra-verification-key", "/keys/alice.vk"
+      , "--hydra-verification-key", "/keys/carol.vk"
       , "--mock-chain-host", "172.16.238.4"
       ]
     networks:
@@ -67,9 +67,9 @@ services:
       , "--monitoring-port", "6001"
       , "--peer", "hydra-node-1:5001"
       , "--peer", "hydra-node-2:5001"
-      , "--me", "/keys/carol.sk"
-      , "--party", "/keys/alice.vk"
-      , "--party", "/keys/bob.vk"
+      , "--hydra-signing-key", "/keys/carol.sk"
+      , "--hydra-verification-key", "/keys/alice.vk"
+      , "--hydra-verification-key", "/keys/bob.vk"
       , "--mock-chain-host", "172.16.238.4"
       ]
     networks:
