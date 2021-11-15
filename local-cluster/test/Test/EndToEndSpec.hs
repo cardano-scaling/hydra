@@ -102,7 +102,7 @@ spec = around showLogsOnFailure $
   describe "End-to-end test using a mocked chain though" $ do
     describe "three hydra nodes scenario" $ do
       it "inits a Head, processes a single Cardano transaction and closes it again" $ \tracer -> do
-        failAfter 30 $
+        failAfter 60 $
           withTempDir "end-to-end-inits-and-closes" $ \tmpDir -> do
             config <- newNodeConfig tmpDir
             withBFTNode (contramap FromCluster tracer) config $ \node@(RunningNode _ nodeSocket) -> do
@@ -113,7 +113,7 @@ spec = around showLogsOnFailure $
                     waitForNodesConnected tracer allNodeIds [n1, n2, n3]
                     let contestationPeriod = 10 :: Natural
                     send n1 $ input "Init" ["contestationPeriod" .= contestationPeriod]
-                    waitFor tracer 3 [n1, n2, n3] $
+                    waitFor tracer 20 [n1, n2, n3] $
                       output "ReadyToCommit" ["parties" .= [alice, bob, carol]]
 
                     let someUtxo =
@@ -128,7 +128,7 @@ spec = around showLogsOnFailure $
                     send n1 $ input "Commit" ["utxo" .= someUtxo]
                     send n2 $ input "Commit" ["utxo" .= Object mempty]
                     send n3 $ input "Commit" ["utxo" .= Object mempty]
-                    waitFor tracer 3 [n1, n2, n3] $ output "HeadIsOpen" ["utxo" .= someUtxo]
+                    waitFor tracer 20 [n1, n2, n3] $ output "HeadIsOpen" ["utxo" .= someUtxo]
 
                     let tx = txToJson txAlicePaysHerself
                     send n1 $ input "NewTx" ["transaction" .= tx]
@@ -144,9 +144,9 @@ spec = around showLogsOnFailure $
                                     ["lovelace" .= int 14]
                               ]
 
-                    waitFor tracer 10 [n1, n2, n3] $
+                    waitFor tracer 20 [n1, n2, n3] $
                       output "TxSeen" ["transaction" .= tx]
-                    waitFor tracer 10 [n1, n2, n3] $
+                    waitFor tracer 20 [n1, n2, n3] $
                       output
                         "SnapshotConfirmed"
                         [ "snapshot"
@@ -158,7 +158,7 @@ spec = around showLogsOnFailure $
                         ]
 
                     send n1 $ input "GetUtxo" []
-                    waitFor tracer 10 [n1] $ output "Utxo" ["utxo" .= newUtxo]
+                    waitFor tracer 20 [n1] $ output "Utxo" ["utxo" .= newUtxo]
 
                     send n1 $ input "Close" []
                     waitMatch 3 n1 $ \v -> do
