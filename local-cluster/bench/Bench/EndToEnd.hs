@@ -13,6 +13,8 @@ import Cardano.Crypto.DSIGN (
   SignKeyDSIGN,
   VerKeyDSIGN,
  )
+import CardanoCluster (newNodeConfig, withBFTNode)
+import CardanoNode (RunningNode (..))
 import Control.Lens (to, (^?))
 import Control.Monad.Class.MonadAsync (mapConcurrently)
 import Control.Monad.Class.MonadSTM (
@@ -38,6 +40,7 @@ import Hydra.Ledger.Cardano (CardanoTx)
 import Hydra.Logging (showLogsOnFailure)
 import Hydra.Party (deriveParty, generateKey)
 import HydraNode (
+  EndToEndLog (..),
   HydraClient,
   hydraNodeId,
   input,
@@ -75,8 +78,9 @@ bench timeoutSeconds workDir dataset clusterSize =
   specify ("Load test on " <> show clusterSize <> " local nodes in " <> workDir) $ do
     showLogsOnFailure $ \tracer ->
       failAfter timeoutSeconds $ do
-        withMockChain $ \chainPorts ->
-          withHydraCluster tracer workDir chainPorts clusterSize $ \(leader :| followers) -> do
+        config <- newNodeConfig workDir
+        withBFTNode (contramap FromCluster tracer) config $ \node@(RunningNode _ nodeSocket) -> do
+          withHydraCluster tracer workDir nodeSocket clusterSize $ \(leader :| followers) -> do
             let nodes = leader : followers
             waitForNodesConnected tracer [1 .. fromIntegral clusterSize] nodes
             let contestationPeriod = 10 :: Natural

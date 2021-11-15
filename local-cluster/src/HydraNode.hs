@@ -48,7 +48,7 @@ import Hydra.Logging (Tracer, traceWith)
 import Network.HTTP.Conduit (HttpExceptionContent (ConnectionFailure), parseRequest)
 import Network.HTTP.Simple (HttpException (HttpExceptionRequest), Response, getResponseBody, getResponseStatusCode, httpBS)
 import Network.WebSockets (Connection, receiveData, runClient, sendClose, sendTextData)
-import System.FilePath ((</>))
+import System.FilePath ((<.>), (</>))
 import System.IO.Temp (withSystemTempDirectory)
 import System.Process (
   CreateProcess (..),
@@ -195,10 +195,21 @@ withHydraCluster tracer workDir nodeSocket clusterSize action =
   go n clients = \case
     [] -> action (fromList clients)
     (nodeId : rest) ->
-      let vKeys = map VerKeyMockDSIGN $ filter (/= nodeId) allNodeIds
-          key = SignKeyMockDSIGN nodeId
-       in -- FIXME: this code is broken now as we need to pass a singing key for direct chain interaction
-          withHydraNode tracer (error "skey name") (error "vkey names") workDir nodeSocket (fromIntegral nodeId) key vKeys (map fromIntegral allNodeIds) (\c -> go n (c : clients) rest)
+      let hydraVKeys = map VerKeyMockDSIGN $ filter (/= nodeId) allNodeIds
+          hydraSKey = SignKeyMockDSIGN nodeId
+          cardanoVKeys = [workDir </> show i <.> "vk" | i <- allNodeIds, i /= nodeId]
+          cardanoSKey = workDir <> show nodeId <.> "sk"
+       in withHydraNode
+            tracer
+            cardanoSKey
+            cardanoVKeys
+            workDir
+            nodeSocket
+            (fromIntegral nodeId)
+            hydraSKey
+            hydraVKeys
+            (map fromIntegral allNodeIds)
+            (\c -> go n (c : clients) rest)
      where
       allNodeIds = [1 .. n]
 
