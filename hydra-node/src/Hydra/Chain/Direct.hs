@@ -21,6 +21,7 @@ import Control.Exception (IOException)
 import Control.Monad (foldM)
 import Control.Monad.Class.MonadSTM (MonadSTMTx (writeTVar), newTQueueIO, newTVarIO, readTQueue, writeTQueue)
 import Control.Tracer (nullTracer)
+import Data.Aeson (Value (String), object, (.=))
 import Data.Sequence.Strict (StrictSeq)
 import Hydra.Chain (
   Chain (..),
@@ -388,3 +389,31 @@ data DirectChainLog tx
   | RolledBackward {point :: Point Block}
   | Wallet TinyWalletLog
   deriving (Eq, Show, Generic)
+
+instance Arbitrary (DirectChainLog tx) where
+  arbitrary = error "Arbitrary"
+
+instance Tx tx => ToJSON (DirectChainLog tx) where
+  toJSON = \case
+    PostTx{toPost, postedTx} ->
+      object
+        [ "tag" .= String "PostTx"
+        , "toPost" .= toPost
+        , "postedTx" .= show @Text postedTx -- FIXME: Need real JSON
+        ]
+    ReceivedTxs{onChainTxs, receivedTxs} ->
+      object
+        [ "tag" .= String "ReceivedTxs"
+        , "onChainTxs" .= onChainTxs
+        , "receivedTxs" .= (show @Text <$> receivedTxs)
+        ]
+    RolledBackward{point} ->
+      object
+        [ "tag" .= String "RolledBackward"
+        , "point" .= show @Text point
+        ]
+    Wallet log ->
+      object
+        [ "tag" .= String "Wallet"
+        , "contents" .= show @Text log
+        ]
