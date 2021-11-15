@@ -36,7 +36,7 @@ import qualified Data.Set as Set
 import Data.Time (nominalDiffTimeToSeconds)
 import Hydra.Generator (Dataset (..))
 import Hydra.Ledger (Tx, TxId, Utxo, txId)
-import Hydra.Ledger.Cardano (CardanoTx)
+import Hydra.Ledger.Cardano (CardanoTx, utxoToJSON)
 import Hydra.Logging (showLogsOnFailure)
 import Hydra.Party (deriveParty, generateKey)
 import HydraNode (
@@ -50,7 +50,6 @@ import HydraNode (
   waitForNodesConnected,
   waitMatch,
   withHydraCluster,
-  withMockChain,
   withNewClient,
  )
 import System.FilePath ((</>))
@@ -79,7 +78,7 @@ bench timeoutSeconds workDir dataset clusterSize =
     showLogsOnFailure $ \tracer ->
       failAfter timeoutSeconds $ do
         config <- newNodeConfig workDir
-        withBFTNode (contramap FromCluster tracer) config $ \node@(RunningNode _ nodeSocket) -> do
+        withBFTNode (contramap FromCluster tracer) config $ \(RunningNode _ nodeSocket) -> do
           withHydraCluster tracer workDir nodeSocket clusterSize $ \(leader :| followers) -> do
             let nodes = leader : followers
             waitForNodesConnected tracer [1 .. fromIntegral clusterSize] nodes
@@ -91,7 +90,9 @@ bench timeoutSeconds workDir dataset clusterSize =
 
             expectedUtxo <- commit nodes dataset
 
-            waitFor tracer 3 nodes $ output "HeadIsOpen" ["utxo" .= expectedUtxo]
+            -- NOTE: use explicit converted because of overlapping instance issue
+            -- see Hydra.Ledger.Cardano
+            waitFor tracer 3 nodes $ output "HeadIsOpen" ["utxo" .= utxoToJSON expectedUtxo]
 
             processedTransactions <- processTransactions nodes dataset
 
@@ -150,7 +151,9 @@ commit clients dataset = do
       clientsToUtxo = foldr assignUtxo initialMap distributeUtxo
 
   forM_ (Map.elems clientsToUtxo) $ \(n, utxo) ->
-    send n $ input "Commit" ["utxo" .= utxo]
+    -- NOTE: use explicit converted because of overlapping instance issue
+    -- see Hydra.Ledger.Cardano
+    send n $ input "Commit" ["utxo" .= utxoToJSON utxo]
 
   pure $ mconcat $ snd <$> Map.elems clientsToUtxo
 
