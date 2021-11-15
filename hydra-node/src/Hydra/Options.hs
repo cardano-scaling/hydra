@@ -57,7 +57,7 @@ data Options = Options
   deriving (Eq, Show)
 
 defaultOptions :: Options
-defaultOptions = Options (Verbose "HydraNode") 1 "127.0.0.1" 5001 [] "127.0.0.1" 4001 Nothing "me.sk" [] (MockChainConfig defaultMockChain)
+defaultOptions = Options (Verbose "HydraNode") 1 "127.0.0.1" 5001 [] "127.0.0.1" 4001 Nothing "hydra.sk" [] (MockChainConfig defaultMockChain)
 
 hydraNodeParser :: Parser Options
 hydraNodeParser =
@@ -146,6 +146,7 @@ hydraSigningKeyFileParser =
     str
     ( long "hydra-signing-key"
         <> metavar "FILE"
+        <> value "hydra.sk"
         <> help "Our Hydra multisig signing key."
     )
 
