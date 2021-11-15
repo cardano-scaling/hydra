@@ -50,8 +50,8 @@ data Options = Options
   , apiHost :: IP
   , apiPort :: PortNumber
   , monitoringPort :: Maybe PortNumber
-  , me :: FilePath
-  , parties :: [FilePath]
+  , hydraSigningKey :: FilePath
+  , hydraVerificationKeys :: [FilePath]
   , chainConfig :: ChainConfig
   }
   deriving (Eq, Show)
@@ -70,8 +70,8 @@ hydraNodeParser =
     <*> apiHostParser
     <*> apiPortParser
     <*> optional monitoringPortParser
-    <*> signingKeyFileParser
-    <*> many verificationKeyFileParser
+    <*> hydraSigningKeyFileParser
+    <*> many hydraVerificationKeyFileParser
     <*> chainConfigParser
 
 data ChainConfig
@@ -79,7 +79,8 @@ data ChainConfig
   | DirectChainConfig
       { networkMagic :: NetworkMagic
       , nodeSocket :: FilePath
-      , pathToWalletKey :: FilePath
+      , cardanoSigningKey :: FilePath
+      , cardanoVerificationKeys :: [FilePath]
       }
   deriving (Eq, Show)
 
@@ -100,7 +101,8 @@ chainConfigParser = do
     DirectChainConfig
       <$> networkMagicParser
       <*> nodeSocketParser
-      <*> pathToWalletKeyParser
+      <*> cardanoSigningKeyFileParser
+      <*> many cardanoVerificationKeyFileParser
 
 networkMagicParser :: Parser NetworkMagic
 networkMagicParser =
@@ -121,31 +123,39 @@ nodeSocketParser =
         <> help "Local (Unix) socket path to connect to cardano node."
     )
 
-pathToWalletKeyParser :: Parser FilePath
-pathToWalletKeyParser =
+cardanoSigningKeyFileParser :: Parser FilePath
+cardanoSigningKeyFileParser =
   strOption
-    ( long "wallet-key-file"
+    ( long "cardano-signing-key"
         <> metavar "FILE"
-        <> help "File containing the signing key for the internal wallet use for Chain interactions."
+        <> help "Signing key for the internal wallet use for Chain interactions."
     )
 
-signingKeyFileParser :: Parser FilePath
-signingKeyFileParser =
+cardanoVerificationKeyFileParser :: Parser FilePath
+cardanoVerificationKeyFileParser =
   option
     str
-    ( long "me"
-        <> metavar "PATH"
-        <> value "me.sk"
-        <> help "A filepath to our signing key"
+    ( long "cardano-verification-key"
+        <> metavar "FILE"
+        <> help "Cardano verification key of other Hydra participant's wallet."
     )
 
-verificationKeyFileParser :: Parser FilePath
-verificationKeyFileParser =
+hydraSigningKeyFileParser :: Parser FilePath
+hydraSigningKeyFileParser =
   option
     str
-    ( long "party"
-        <> metavar "PATH"
-        <> help "A verification key file of another party"
+    ( long "hydra-signing-key"
+        <> metavar "FILE"
+        <> help "Our Hydra multisig signing key."
+    )
+
+hydraVerificationKeyFileParser :: Parser FilePath
+hydraVerificationKeyFileParser =
+  option
+    str
+    ( long "hydra-verification-key"
+        <> metavar "FILE"
+        <> help "Other party multisig verification key."
     )
 
 peerParser :: Parser Host
