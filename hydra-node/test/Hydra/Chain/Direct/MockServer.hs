@@ -15,7 +15,6 @@
 -- UTXO set, and `GetLedgerTip` returns an arbitrary tip, but always the same.
 module Hydra.Chain.Direct.MockServer (
   withMockServer,
-  Callbacks (..),
 ) where
 
 import Hydra.Prelude
@@ -101,17 +100,12 @@ import System.FilePath ((</>))
 import System.IO.Temp (withSystemTempDirectory)
 import Test.Cardano.Ledger.Alonzo.Serialisation.Generators ()
 
-data Callbacks m = Callbacks
-  { submitTx :: ValidatedTx Era -> m ()
-  , waitForNextBlock :: m ()
-  }
-
 -- | A bracket-style resource acquisition for a mock server which responds to
 -- all three Ouroboros client mini-protocols. The callback includes the server
 -- fake network magic, the path to the server's socket and, a way to enqueue new
 -- transactions (and thus, force production of new blocks).
 withMockServer ::
-  (NetworkMagic -> IOManager -> FilePath -> Callbacks IO -> IO a) ->
+  (NetworkMagic -> IOManager -> FilePath -> (ValidatedTx Era -> IO ()) -> IO a) ->
   IO a
 withMockServer action =
   withSystemTempDirectory "withMockServer" $ \dir -> do
@@ -121,11 +115,6 @@ withMockServer action =
       let snocket = localSnocket iocp
       networkState <- newNetworkMutableState
       db <- newTVarIO mempty
-      let callbacks =
-            Callbacks
-              { submitTx = \tx -> atomically $ modifyTVar' db (tx :)
-              , waitForNextBlock = threadDelay 5
-              }
       withServerNode
         snocket
         nullServerTracers
@@ -138,7 +127,7 @@ withMockServer action =
         acceptableVersion
         (SomeResponderApplication <$> versions magic (mockServer db))
         errorPolicies
-        (\_ _ -> action magic iocp addr callbacks)
+        (\_ _ -> action magic iocp addr (\tx -> atomically $ modifyTVar' db (tx :)))
  where
   connLimit :: AcceptedConnectionsLimit
   connLimit = AcceptedConnectionsLimit maxBound maxBound 0
@@ -202,7 +191,7 @@ mockChainSyncServer db =
      in BlockAlonzo $ mkShelleyBlock $ Ledger.Block header body
 
   serverStIdle :: Int -> ServerStIdle Block (Point Block) (Tip Block) m ()
-  serverStIdle ! cursor =
+  serverStIdle !cursor =
     ServerStIdle
       { recvMsgRequestNext = do
           tx <- atomically $ do
