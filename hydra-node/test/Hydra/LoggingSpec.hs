@@ -13,7 +13,7 @@ import Hydra.Logging (Envelope (..), Verbosity (Verbose), traceWith, withTracer)
 import Hydra.Logging.Messages (HydraLog)
 import System.FilePath ((</>))
 import System.IO.Silently (capture_)
-import Test.QuickCheck.Property (conjoin, withMaxSuccess, property)
+import Test.QuickCheck.Property (conjoin, property, withMaxSuccess)
 
 spec :: Spec
 spec = do
@@ -25,10 +25,8 @@ spec = do
     captured `shouldContain` "{\"foo\":42}"
 
   aroundAll (withJsonSpecifications "api-log.yaml") $ do
-    -- TODO(AB): Add arbitrary instance for DirectChainLog
-    xspecify "HydraLog" $ \(specs, tmp) -> do
+    specify "HydraLog" $ \(specs, tmp) -> do
       property $
-        -- TODO(AB): Add arbitrary instances for network log entries
         withMaxSuccess 1 $
           conjoin
             [ prop_validateToJSON @(Envelope (HydraLog SimpleTx ())) specs (tmp </> "HydraLog")
