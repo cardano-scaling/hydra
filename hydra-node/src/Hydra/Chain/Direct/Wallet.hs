@@ -6,6 +6,7 @@
 -- some useful utilities to tracking the wallet's UTXO, and accessing it
 module Hydra.Chain.Direct.Wallet where
 
+import Cardano.Api ()
 import qualified Cardano.Crypto.DSIGN as Crypto
 import Cardano.Crypto.Hash.Class
 import qualified Cardano.Ledger.Address as Ledger
@@ -63,6 +64,7 @@ import Hydra.Chain.Direct.Util (
   Block,
   Era,
   SigningKey,
+  SomePoint (..),
   VerificationKey,
   defaultCodecs,
   nullConnectTracers,
@@ -114,6 +116,7 @@ import Ouroboros.Network.Protocol.LocalStateQuery.Client (
   localStateQueryClientPeer,
  )
 import qualified Ouroboros.Network.Protocol.LocalStateQuery.Client as LSQ
+import Test.Cardano.Ledger.Alonzo.Serialisation.Generators ()
 import Test.QuickCheck (generate)
 
 type Address = Ledger.Addr StandardCrypto
@@ -520,7 +523,7 @@ stateQueryClient tracer tipVar utxoVar address =
           Left{} ->
             handleEraMismatch
           Right (Ledger.unUTxO -> utxo) -> do
-            traceWith tracer $ InitializingWallet tip utxo
+            traceWith tracer $ InitializingWallet (SomePoint tip) utxo
             atomically $ do
               writeTVar tipVar tip
               putTMVar utxoVar (utxo, pparams)
@@ -559,6 +562,9 @@ generateKeyPair = do
 --
 
 data TinyWalletLog
-  = InitializingWallet (Point Block) (Map TxIn TxOut)
+  = InitializingWallet SomePoint (Map TxIn TxOut)
   | ApplyBlock (Map TxIn TxOut) (Map TxIn TxOut)
   deriving (Eq, Generic, Show)
+
+instance Arbitrary TinyWalletLog where
+  arbitrary = genericArbitrary

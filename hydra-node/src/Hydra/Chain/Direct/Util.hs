@@ -11,6 +11,7 @@ import Cardano.Crypto.DSIGN (deriveVerKeyDSIGN)
 import qualified Cardano.Crypto.DSIGN as Crypto
 import Cardano.Ledger.Crypto (DSIGN, StandardCrypto)
 import Cardano.Ledger.Keys (VKey (VKey))
+import Cardano.Slotting.Slot (WithOrigin (..))
 import Control.Tracer (nullTracer)
 import Data.Map.Strict ((!))
 import qualified Data.Map.Strict as Map
@@ -28,6 +29,7 @@ import Ouroboros.Consensus.Node.NetworkProtocolVersion (
   SupportedNetworkProtocolVersion (..),
  )
 import Ouroboros.Consensus.Shelley.Ledger.Config (CodecConfig (..))
+import Ouroboros.Network.Block (Point (..))
 import Ouroboros.Network.NodeToClient (
   LocalAddress (..),
   NetworkConnectTracers (..),
@@ -38,6 +40,7 @@ import Ouroboros.Network.NodeToClient (
  )
 import Ouroboros.Network.Protocol.Handshake.Version (Versions)
 import Test.Cardano.Ledger.Alonzo.Serialisation.Generators ()
+import Test.QuickCheck (oneof)
 
 --
 -- Types
@@ -137,6 +140,21 @@ readVerificationKey keyPath = do
   Shelley.PaymentVerificationKey (VKey vk) <-
     readFileTextEnvelopeThrow (Shelley.AsVerificationKey Shelley.AsPaymentKey) keyPath
   pure vk
+
+--
+-- Avoid Orphan instances for Point & logging
+--
+
+newtype SomePoint = SomePoint (Point Block)
+  deriving stock (Eq, Generic)
+  deriving newtype (Show)
+
+instance Arbitrary SomePoint where
+  arbitrary =
+    SomePoint
+      <$> oneof
+        [ pure $ Point Origin
+        ]
 
 --
 -- Helpers
