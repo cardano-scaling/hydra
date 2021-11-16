@@ -20,6 +20,9 @@ protocol](https://eprint.iacr.org/2020/299.pdf), connects to other hydra-nodes,
 interfaces the Cardano blockchain and provides an API to clients such as the
 included terminal user interface `hydra-tui`.
 
+On the Cardano Summit 2021 we talked about the overall vision, how the Hydra Head
+works and showed a [demo :movie_camera:](https://summit.cardano.org/sessions/hydra-the-multi-headed-scalability-protocol).
+
 :warning: This is still prototypical and exploratory work shared here for your
 interest - it is NOT ready for production (yet) :warning:
 
