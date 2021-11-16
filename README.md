@@ -81,7 +81,12 @@ docker run -d --name cardano-node --network host \
     --config /config/cardano-node.json \
     --topology /data/topology.json \
     --database-path /db \
-    --socket-path /ipc/node.socket
+    --socket-path /ipc/node.socket \
+    --byron-signing-key /config/credentials/delegate-keys.000.key \
+    --byron-delegation-certificate /config/credentials/delegation-cert.000.json \
+    --shelley-operational-certificate /config/credentials/opcert-1.cert \
+    --shelley-kes-key /config/credentials/delegate-1.kes.skey \
+    --shelley-vrf-key /config/credentials/delegate-1.vrf.skey
 ```
 
 Then we connect the `hydra-node` to it and attach a `hydra-tui` client:
