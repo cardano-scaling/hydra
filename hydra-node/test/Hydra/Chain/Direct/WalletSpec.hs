@@ -17,7 +17,6 @@ import qualified Cardano.Ledger.SafeHash as SafeHash
 import Cardano.Ledger.Shelley.API (BHeader)
 import qualified Cardano.Ledger.Shelley.API as Ledger
 import Cardano.Ledger.Val (Val (..), invert)
-import Control.Monad.Class.MonadSTM (check)
 import Control.Monad.Class.MonadTimer (timeout)
 import Control.Tracer (nullTracer)
 import qualified Data.Map.Strict as Map
@@ -25,14 +24,14 @@ import qualified Data.Sequence.Strict as StrictSeq
 import qualified Data.Set as Set
 import Hydra.Chain.Direct.Fixture (pparams)
 import Hydra.Chain.Direct.MockServer (withMockServer)
-import Hydra.Chain.Direct.Util (VerificationKey, Era)
+import Hydra.Chain.Direct.Util (Era, VerificationKey)
 import Hydra.Chain.Direct.Wallet (
   Address,
-  TinyWallet (..),
   TxIn,
   TxOut,
   applyBlock,
   coverFee_,
+  watchUtxoUntil,
   withTinyWallet,
  )
 import Hydra.Ledger.Cardano (genKeyPair, mkVkAddress)
@@ -304,8 +303,3 @@ knownInputBalance utxo = foldMap resolve . toList . inputs . body
 outputBalance :: ValidatedTx Era -> Value Era
 outputBalance =
   foldMap getValue . outputs . body
-
-watchUtxoUntil :: (Map TxIn TxOut -> Bool) -> TinyWallet IO -> IO (Map TxIn TxOut)
-watchUtxoUntil predicate TinyWallet{getUtxo} = atomically $ do
-  u <- getUtxo
-  u <$ check (predicate u)

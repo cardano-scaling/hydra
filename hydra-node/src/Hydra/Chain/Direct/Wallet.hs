@@ -138,6 +138,11 @@ data TinyWallet m = TinyWallet
   , verificationKey :: VerificationKey
   }
 
+watchUtxoUntil :: (Map TxIn TxOut -> Bool) -> TinyWallet IO -> IO (Map TxIn TxOut)
+watchUtxoUntil predicate TinyWallet{getUtxo} = atomically $ do
+  u <- getUtxo
+  u <$ check (predicate u)
+
 withTinyWallet ::
   -- | A tracer for logging
   Tracer IO TinyWalletLog ->
