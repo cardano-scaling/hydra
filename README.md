@@ -61,20 +61,42 @@ docker run -rm inputoutput/hydra:hydra-node-latest --help
 ```
 
 In the POC, a `hydra-node` can only participate in a single Head and thus needs
-a single signing key `--me`. Also, we use simplified keys for easier debugging.
+a single `--hydra-signing-key`. For now, we use simplified keys for easier
+debugging. To generate such a new key:
 
-To generate a new key:
-
-``` sh
+```sh
 head -c8 /dev/random > test.sk
 ```
 
-Using this you can now start a `hydra-node`, our (currently) stubbed
-`mock-chain` and connect a `hydra-tui` (or any websocket client) to it:
+Now you can start an ad-hoc, single `cardano-node` devnet using our
+configuration:
 
-``` sh
-docker run -d --name hydra-node --network host -v $PWD:/data inputoutput/hydra:hydra-node-latest --me data/test.sk
-docker run -d --name mock-chain --network host inputoutput/hydra:mock-chain-latest
+```sh
+echo '{"Producers": [{"addr": "127.0.0.1", "port": 3001, "valency": 1}]}' > topology.json
+docker run -d --name cardano-node --network host \
+  -v $PWD:/data \
+  -v $PWD/local-cluster/config:/config \
+  -v node-ipc:/ipc \
+  inputoutput/cardano-node run \
+    --config /config/cardano-node.json \
+    --topology /data/topology.json \
+    --database-path /db \
+    --socket-path /ipc/node.socket
+```
+
+Then we connect the `hydra-node` to it and attach a `hydra-tui` client:
+
+```sh
+docker run -d --name hydra-node --network host \
+  -v $PWD:/data \
+  -v $PWD/local-cluster/config/:/config \
+  -v node-ipc:/ipc \
+  inputoutput/hydra:hydra-node-latest \
+    --hydra-signing-key data/test.sk \
+    --cardano-signing-key config/credentials/alice.sk \
+    --network-magic 42 \
+    --node-socket ipc/node.socket
+
 docker run --rm -it --network host inputoutput/hydra:hydra-tui-latest
 ```
 
@@ -87,7 +109,7 @@ The best way to contribute right now is to provide feedback. Give the
 Should you have any questions, ideas or issues, we would like to hear from you:
 
 - #ask-hydra on the IOG [Discord server](https://discord.gg/Qq5vNTg9PT)
-- create a Github [Issue](https://github.com/input-output-hk/hydra-poc/issues/new)
+- create a Github [Discussion](https://github.com/input-output-hk/hydra-poc/discussions) or [Issue](https://github.com/input-output-hk/hydra-poc/issues/new)
 - or ask on Cardano [StackExchange](https://cardano.stackexchange.com/) using the `hydra` tag
 
 When contributing to this project and interacting with other contributors, please follow our [Code of Conduct](./CODE-OF-CONDUCT.md).

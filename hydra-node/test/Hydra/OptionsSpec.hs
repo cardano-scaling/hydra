@@ -67,7 +67,7 @@ spec = parallel $
       ["--hydra-verification-key", "alice.vk", "--hydra-verification-key", "bob.vk"]
         `shouldParse` defaultOptions{hydraVerificationKeys = ["alice.vk", "bob.vk"]}
 
-    it "parses --me option as a filepath" $
+    it "parses --hydra-signing-key option as a filepath" $
       ["--hydra-signing-key", "./alice.sk"] `shouldParse` defaultOptions{hydraSigningKey = "./alice.sk"}
 
     it "parses --mock-chain-ports option as a list of ports to connect to" $
