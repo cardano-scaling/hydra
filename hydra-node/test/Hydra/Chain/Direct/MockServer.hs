@@ -24,7 +24,7 @@ import Cardano.Ledger.Alonzo.Tx (ValidatedTx)
 import Cardano.Ledger.Era (toTxSeq)
 import qualified Cardano.Ledger.Shelley.API as Ledger
 import Cardano.Slotting.Slot (WithOrigin (At))
-import Control.Monad.Class.MonadSTM (check, modifyTVar', newTVarIO, retry)
+import Control.Monad.Class.MonadSTM (modifyTVar', newTVarIO, retry)
 import Control.Tracer (nullTracer)
 import Data.List ((!!))
 import qualified Data.Sequence.Strict as StrictSeq
@@ -103,7 +103,7 @@ import Test.Cardano.Ledger.Alonzo.Serialisation.Generators ()
 
 data Callbacks m = Callbacks
   { submitTx :: ValidatedTx Era -> m ()
-  , waitForBlock :: Int -> m ()
+  , waitForNextBlock :: m ()
   }
 
 -- | A bracket-style resource acquisition for a mock server which responds to
@@ -121,13 +121,10 @@ withMockServer action =
       let snocket = localSnocket iocp
       networkState <- newNetworkMutableState
       db <- newTVarIO mempty
-      cursor <- newTVarIO 1
       let callbacks =
             Callbacks
-              { submitTx = \tx ->
-                  atomically $ modifyTVar' db (tx :)
-              , waitForBlock = \n ->
-                  atomically $ readTVar cursor >>= check . (> n)
+              { submitTx = \tx -> atomically $ modifyTVar' db (tx :)
+              , waitForNextBlock = threadDelay 5
               }
       withServerNode
         snocket
@@ -139,7 +136,7 @@ withMockServer action =
         noTimeLimitsHandshake
         (cborTermVersionDataCodec nodeToClientCodecCBORTerm)
         acceptableVersion
-        (SomeResponderApplication <$> versions magic (mockServer cursor db))
+        (SomeResponderApplication <$> versions magic (mockServer db))
         errorPolicies
         (\_ _ -> action magic iocp addr callbacks)
  where
@@ -153,18 +150,17 @@ withMockServer action =
 -- provide SendRecv traces for both protocols.
 mockServer ::
   (MonadST m, MonadTimer m) =>
-  TVar m Int ->
   TVar m [ValidatedTx Era] ->
   NodeToClientVersion ->
   OuroborosApplication 'ResponderMode LocalAddress LByteString m Void ()
-mockServer cursor db nodeToClientV =
+mockServer db nodeToClientV =
   nodeToClientProtocols
     ( const $
         pure $
           NodeToClientProtocols
             { localChainSyncProtocol =
                 ResponderProtocolOnly $
-                  let peer = chainSyncServerPeer $ mockChainSyncServer cursor db
+                  let peer = chainSyncServerPeer $ mockChainSyncServer db
                    in MuxPeer nullTracer cChainSyncCodec peer
             , localTxSubmissionProtocol =
                 ResponderProtocolOnly $
@@ -187,11 +183,10 @@ mockServer cursor db nodeToClientV =
 mockChainSyncServer ::
   forall m.
   MonadSTM m =>
-  TVar m Int ->
   TVar m [ValidatedTx Era] ->
   ChainSyncServer Block (Point Block) (Tip Block) m ()
-mockChainSyncServer cursor db =
-  ChainSyncServer serverStIdle
+mockChainSyncServer db =
+  ChainSyncServer (pure $ serverStIdle 1)
  where
   tip :: Tip Block
   tip = TipGenesis
@@ -206,32 +201,25 @@ mockChainSyncServer cursor db =
         body = toTxSeq $ StrictSeq.singleton tx
      in BlockAlonzo $ mkShelleyBlock $ Ledger.Block header body
 
-  serverStIdle :: m (ServerStIdle Block (Point Block) (Tip Block) m ())
-  serverStIdle = do
-    n <- atomically $ readTVar cursor
-    pure $
-      ServerStIdle
-        { recvMsgRequestNext = do
-            tx <- atomically $ do
-              txs <- readTVar db
-              let ix = length txs - n
-              if ix < 0 then retry else pure (txs !! ix)
-            let st = ChainSyncServer serverStNext
-            pure $ Left $ SendMsgRollForward (nextBlock tx) tip st
-        , recvMsgFindIntersect = \case
-            [] ->
-              let st = ChainSyncServer serverStIdle
-               in pure $ SendMsgIntersectFound origin tip st
-            h : _ ->
-              let st = ChainSyncServer serverStIdle
-               in pure $ SendMsgIntersectFound h tip st
-        , recvMsgDoneClient = pure ()
-        }
-
-  serverStNext :: m (ServerStIdle Block (Point Block) (Tip Block) m ())
-  serverStNext = do
-    atomically $ modifyTVar' cursor succ
-    serverStIdle
+  serverStIdle :: Int -> ServerStIdle Block (Point Block) (Tip Block) m ()
+  serverStIdle ! cursor =
+    ServerStIdle
+      { recvMsgRequestNext = do
+          tx <- atomically $ do
+            txs <- readTVar db
+            let ix = length txs - cursor
+            if ix < 0 then retry else pure (txs !! ix)
+          let st = ChainSyncServer $ pure $ serverStIdle (cursor + 1)
+          pure $ Left $ SendMsgRollForward (nextBlock tx) tip st
+      , recvMsgFindIntersect = \case
+          [] ->
+            let st = ChainSyncServer $ pure $ serverStIdle cursor
+             in pure $ SendMsgIntersectFound origin tip st
+          h : _ ->
+            let st = ChainSyncServer $ pure $ serverStIdle cursor
+             in pure $ SendMsgIntersectFound h tip st
+      , recvMsgDoneClient = pure ()
+      }
 
 mockTxSubmissionServer ::
   MonadSTM m =>
