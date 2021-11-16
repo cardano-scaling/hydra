@@ -23,7 +23,7 @@ import qualified Data.Map.Strict as Map
 import qualified Data.Sequence.Strict as StrictSeq
 import qualified Data.Set as Set
 import Hydra.Chain.Direct.Fixture (pparams)
-import Hydra.Chain.Direct.MockServer (withMockServer)
+import Hydra.Chain.Direct.MockServer (Callbacks (..), withMockServer)
 import Hydra.Chain.Direct.Util (Era, VerificationKey)
 import Hydra.Chain.Direct.Wallet (
   Address,
@@ -78,7 +78,7 @@ spec = parallel $ do
           result `shouldSatisfy` isJust
 
     it "tracks UTXO correctly when payments are received" $ do
-      withMockServer $ \networkMagic iocp socket submitTx -> do
+      withMockServer $ \networkMagic iocp socket Callbacks{submitTx} -> do
         withTinyWallet nullTracer networkMagic (vk, sk) iocp socket $ \wallet -> do
           generate (genPaymentTo vk) >>= submitTx
           result <- timeout 10 $ watchUtxoUntil (not . null) wallet
