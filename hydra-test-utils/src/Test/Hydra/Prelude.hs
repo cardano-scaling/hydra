@@ -1,3 +1,5 @@
+{-# LANGUAGE DerivingStrategies #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE TypeApplications #-}
 
@@ -8,6 +10,7 @@ module Test.Hydra.Prelude (
   failAfter,
   dualFormatter,
   reasonablySized,
+  ReasonablySized (..),
 
   -- * HSpec re-exports
   module Test.Hspec,
@@ -127,3 +130,10 @@ checkProcessHasNotDied name processHandle =
 --     +-------------+------------------+
 reasonablySized :: Gen a -> Gen a
 reasonablySized = scale (ceiling . sqrt @Double . fromIntegral)
+
+-- | A QuickCheck modifier to make use of `reasonablySized` on existing types.
+newtype ReasonablySized a = ReasonablySized a
+  deriving newtype (Show)
+
+instance Arbitrary a => Arbitrary (ReasonablySized a) where
+  arbitrary = ReasonablySized <$> reasonablySized arbitrary
