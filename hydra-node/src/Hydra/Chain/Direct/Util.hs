@@ -89,7 +89,7 @@ versions ::
 versions magic app =
   combineVersions
     [ simpleSingletonVersions v (NodeToClientVersionData magic) (app v)
-    | v <- [nodeToClientVLatest]
+    | v <- [nodeToClientVLatest, pred nodeToClientVLatest]
     ]
 
 --
