@@ -16,11 +16,11 @@ import Hydra.Chain (
   PostChainTx (AbortTx, InitTx),
  )
 import Hydra.Chain.Direct (withDirectChain)
-import Hydra.Chain.Direct.MockServer (withMockServer)
+import Hydra.Chain.Direct.MockServer (Callbacks (..), withMockServer)
 import Hydra.Chain.Direct.Wallet (generateKeyPair)
 import Hydra.Chain.Direct.WalletSpec (genPaymentTo)
 import Hydra.Ledger.Simple (SimpleTx)
-import Hydra.Logging (nullTracer)
+import Hydra.Logging (nullTracer, showLogsOnFailure)
 import Hydra.Party (Party, deriveParty, generateKey)
 import Test.QuickCheck (generate)
 
@@ -31,26 +31,29 @@ spec = do
     calledBackBob <- newEmptyMVar
     aliceKeys@(aliceVk, _) <- generateKeyPair
     bobKeys@(bobVk, _) <- generateKeyPair
-    withMockServer $ \networkMagic iocp socket submitTx -> do
-      let cardanoKeys = [] -- TODO(SN): this should matter
-      withDirectChain nullTracer networkMagic iocp socket aliceKeys alice cardanoKeys (putMVar calledBackAlice) $ \Chain{postTx} -> do
-        withDirectChain nullTracer networkMagic iocp socket bobKeys bob cardanoKeys (putMVar calledBackBob) $ \_ -> do
-          let parameters = HeadParameters 100 [alice, bob, carol]
-          generate (genPaymentTo aliceVk) >>= submitTx
-          generate (genPaymentTo bobVk) >>= submitTx
+    showLogsOnFailure $ \tr ->
+      withMockServer $ \networkMagic iocp socket Callbacks{submitTx, waitForNextBlock} -> do
+        let cardanoKeys = [] -- TODO(SN): this should matter
+        withDirectChain tr networkMagic iocp socket aliceKeys alice cardanoKeys (putMVar calledBackAlice) $ \Chain{postTx} -> do
+          withDirectChain nullTracer networkMagic iocp socket bobKeys bob cardanoKeys (putMVar calledBackBob) $ \_ -> do
+            generate (genPaymentTo aliceVk) >>= submitTx
+            waitForNextBlock
 
-          postTx $ InitTx @SimpleTx parameters
-          failAfter 5 $
-            takeMVar calledBackAlice `shouldReturn` OnInitTx 100 [alice, bob, carol]
-          failAfter 5 $
-            takeMVar calledBackBob `shouldReturn` OnInitTx 100 [alice, bob, carol]
+            generate (genPaymentTo bobVk) >>= submitTx
+            waitForNextBlock
 
-          postTx $ AbortTx mempty
+            postTx $ InitTx @SimpleTx $ HeadParameters 100 [alice, bob, carol]
+            failAfter 5 $
+              takeMVar calledBackAlice `shouldReturn` OnInitTx 100 [alice, bob, carol]
+            failAfter 5 $
+              takeMVar calledBackBob `shouldReturn` OnInitTx 100 [alice, bob, carol]
 
-          failAfter 5 $
-            takeMVar calledBackAlice `shouldReturn` OnAbortTx @SimpleTx
-          failAfter 5 $
-            takeMVar calledBackBob `shouldReturn` OnAbortTx @SimpleTx
+            postTx $ AbortTx mempty
+
+            failAfter 5 $
+              takeMVar calledBackAlice `shouldReturn` OnAbortTx @SimpleTx
+            failAfter 5 $
+              takeMVar calledBackBob `shouldReturn` OnAbortTx @SimpleTx
 
 alice, bob, carol :: Party
 alice = deriveParty $ generateKey 10
