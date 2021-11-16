@@ -18,7 +18,7 @@ import Control.Monad.Class.MonadSTM (
 import qualified Data.Aeson as Aeson
 import Hydra.API.Server (Server (Server, sendOutput), withAPIServer)
 import Hydra.Ledger.Simple (SimpleTx)
-import Hydra.Logging (nullTracer)
+import Hydra.Logging (nullTracer, showLogsOnFailure)
 import Hydra.ServerOutput (ServerOutput (Greetings, InvalidInput, ReadyToCommit), input)
 import Network.WebSockets (Connection, receiveData, runClient, sendBinaryData)
 import Test.Network.Ports (withFreePort)
@@ -41,11 +41,10 @@ spec = parallel $ do
               Left{} -> failure $ "Failed to decode greeting " <> show received
 
   it "sends sendOutput to all connected clients" $ do
-    pendingWith "failing since SN introduced greetings.. he is sorry, but no time to fix this now"
     queue <- atomically newTQueue
-    failAfter 5 $
+    showLogsOnFailure $ \tracer -> failAfter 5 $
       withFreePort $ \port ->
-        withAPIServer @SimpleTx "127.0.0.1" (fromIntegral port) party nullTracer noop $ \Server{sendOutput} -> do
+        withAPIServer @SimpleTx "127.0.0.1" (fromIntegral port) party tracer noop $ \Server{sendOutput} -> do
           semaphore <- newTVarIO 0
           withAsync
             ( concurrently_
@@ -53,7 +52,7 @@ spec = parallel $ do
                 (withClient port $ testClient queue semaphore)
             )
             $ \_ -> do
-              atomically $ readTVar semaphore >>= \n -> check (n >= 2)
+              waitForClients semaphore
               failAfter 1 $ atomically (replicateM 2 (readTQueue queue)) `shouldReturn` [greeting, greeting]
               let arbitraryMsg = ReadyToCommit mempty
               sendOutput arbitraryMsg
@@ -94,12 +93,19 @@ sendsAnErrorWhenInputCannotBeDecoded port = do
     InvalidInput{input} -> input == invalidInput
     _ -> False
 
+waitForClients :: (MonadSTM m, Ord a, Num a) => TVar m a -> m ()
+waitForClients semaphore = atomically $ readTVar semaphore >>= \n -> check (n >= 2)
+
+-- NOTE: this client runs indefinitely so it should be run within a context that won't
+-- leak runaway threads
 testClient :: TQueue IO (ServerOutput SimpleTx) -> TVar IO Int -> Connection -> IO ()
 testClient queue semaphore cnx = do
   atomically $ modifyTVar' semaphore (+ 1)
   msg <- receiveData cnx
   case Aeson.eitherDecode msg of
-    Right resp -> atomically (writeTQueue queue resp)
+    Right resp -> do
+      atomically (writeTQueue queue resp)
+      testClient queue semaphore cnx
     Left{} -> failure $ "Failed to decode message " <> show msg
 
 noop :: Applicative m => a -> m ()
