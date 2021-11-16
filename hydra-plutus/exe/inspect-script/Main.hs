@@ -8,8 +8,8 @@ import qualified Data.Aeson as Aeson
 import qualified Data.ByteString.Lazy as BL
 import Data.Text (pack)
 import Hydra.Contract.Commit as Commit
-import Hydra.Contract.Head as Head
 import Hydra.Contract.Initial as Initial
+import Hydra.Contract.MockHead as MockHead
 import Ledger (Datum (..), datumHash)
 import Ledger.Scripts (Script, toCardanoApiScript)
 import Ledger.Value
@@ -66,7 +66,7 @@ main = do
     , (commitScript, "commitScript")
     ]
 
-  headScript policyId = Head.validatorScript policyId
+  headScript policyId = MockHead.validatorScript policyId
 
   commitScript = Commit.validatorScript
 
@@ -77,10 +77,10 @@ main = do
     , (abortDatum, "abortDatum")
     ]
 
-  headDatum = toData $ Head.Initial 1_000_000_000_000 []
+  headDatum = toData $ MockHead.Initial 1_000_000_000_000 []
 
-  abortDatum = toData Head.Final
+  abortDatum = toData MockHead.Final
 
   redeemers = [(headRedeemer, "headRedeemer")]
 
-  headRedeemer = toData Head.Abort
+  headRedeemer = toData MockHead.Abort
