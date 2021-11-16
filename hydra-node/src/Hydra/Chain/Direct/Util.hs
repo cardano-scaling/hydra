@@ -1,3 +1,4 @@
+{-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE TypeApplications #-}
 
 module Hydra.Chain.Direct.Util where
@@ -136,3 +137,15 @@ readVerificationKey keyPath = do
   Shelley.PaymentVerificationKey (VKey vk) <-
     readFileTextEnvelopeThrow (Shelley.AsVerificationKey Shelley.AsPaymentKey) keyPath
   pure vk
+
+--
+-- Helpers
+--
+
+-- | A simple retrying function with a constant delay. Retries only a given
+-- exception type (requires type application).
+--
+-- Better coupled with a 'timeout' function.
+retrying :: forall e m a. (MonadCatch m, MonadDelay m, Exception e) => m a -> m a
+retrying action =
+  action `catch` (\(_ :: e) -> threadDelay 0.5 >> retrying @e action)

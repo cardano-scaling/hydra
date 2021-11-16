@@ -9,6 +9,7 @@ import Hydra.Prelude
 import Test.Hydra.Prelude
 
 import Control.Concurrent (newEmptyMVar, putMVar, takeMVar)
+import Control.Exception (ErrorCall)
 import Hydra.Chain (
   Chain (..),
   HeadParameters (HeadParameters),
@@ -17,6 +18,7 @@ import Hydra.Chain (
  )
 import Hydra.Chain.Direct (withDirectChain)
 import Hydra.Chain.Direct.MockServer (withMockServer)
+import Hydra.Chain.Direct.Util (retrying)
 import Hydra.Chain.Direct.Wallet (generateKeyPair)
 import Hydra.Chain.Direct.WalletSpec (genPaymentTo)
 import Hydra.Ledger.Simple (SimpleTx)
@@ -39,7 +41,8 @@ spec = do
           generate (genPaymentTo aliceVk) >>= submitTx
           generate (genPaymentTo bobVk) >>= submitTx
 
-          postTx $ InitTx @SimpleTx parameters
+          failAfter 30 $
+            retrying @ErrorCall $ postTx $ InitTx @SimpleTx parameters
           failAfter 5 $
             takeMVar calledBackAlice `shouldReturn` OnInitTx 100 [alice, bob, carol]
           failAfter 5 $
