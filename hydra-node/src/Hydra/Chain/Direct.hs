@@ -2,6 +2,7 @@
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE UndecidableInstances #-}
 
 -- | Chain component implementation which uses directly the Node-to-Client
 -- protocols to submit "hand-rolled" transactions including Plutus validators and
@@ -47,10 +48,17 @@ import Hydra.Chain.Direct.Tx (
   observeInitTx,
   ownInitial,
  )
-import Hydra.Chain.Direct.Util (Block, Era, defaultCodecs, nullConnectTracers, versions)
+import Hydra.Chain.Direct.Util (
+  Block,
+  Era,
+  SomePoint (..),
+  defaultCodecs,
+  nullConnectTracers,
+  versions,
+ )
 import qualified Hydra.Chain.Direct.Util as Cardano
 import Hydra.Chain.Direct.Wallet (TinyWallet (..), TinyWalletLog, withTinyWallet)
-import Hydra.Ledger (Tx)
+import Hydra.Ledger (Tx, Utxo)
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Party (Party)
 import Hydra.Snapshot (Snapshot (..))
@@ -275,7 +283,7 @@ chainSyncClient tracer callback party headState =
             pure clientStIdle
       , recvMsgRollBackward = \point _tip ->
           ChainSyncClient $ do
-            traceWith tracer $ RolledBackward point
+            traceWith tracer $ RolledBackward $ SomePoint point
             pure clientStIdle
       }
 
@@ -402,12 +410,12 @@ data DirectChainLog tx
   = ToPost {toPost :: PostChainTx tx}
   | PostedTx {postedTx :: ValidatedTx Era}
   | ReceivedTxs {onChainTxs :: [OnChainTx tx], receivedTxs :: [ValidatedTx Era]}
-  | RolledBackward {point :: Point Block}
+  | RolledBackward {point :: SomePoint}
   | Wallet TinyWalletLog
   deriving (Eq, Show, Generic)
 
-instance Arbitrary (DirectChainLog tx) where
-  arbitrary = error "Arbitrary"
+instance (Arbitrary tx, Arbitrary (Utxo tx)) => Arbitrary (DirectChainLog tx) where
+  arbitrary = genericArbitrary
 
 instance Tx tx => ToJSON (DirectChainLog tx) where
   toJSON = \case
