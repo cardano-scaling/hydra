@@ -29,93 +29,36 @@ package merkle-patricia-tree
 -- Always show detailed output for tests
 test-show-details: direct
 
--- This is the incantation which seems to be pleasing the cabal gods, given the
--- current 'index-state' and versions of 'plutus' and 'cardano-node'. Possible
--- explanation why this is necessary: we need a more recent 'index-state'
--- (because of plutus) than cardano-node et al and some of their dependencies do
--- not have behave well.
-constraints:
-  attoparsec == 0.13.2.5,
-  cryptonite == 0.27,
-  dlist == 0.8.0.8,
-  dns == 3.0.4,
-  semialign == 1.1.0.1,
-  lens == 4.19.2,
-  dependent-sum == 0.7.1.0,
-  recursion-schemes == 5.1.3
-
-allow-newer:
-  some
-
--- NOTE: The following is taken from plutus master at 2021-09-03
+-- NOTE(SN): The following is taken from cardano-node v1.31.0-rc1
 
 source-repository-package
   type: git
-  location: https://github.com/input-output-hk/plutus.git
+  location: https://github.com/input-output-hk/cardano-node.git
+  tag: b6ca519f97a0e795611a63174687e6bb70c9f752
+  --sha256: 0z5lpmqc98fwg3xzpzxkfslbxdjwfyyw8bn8yq0574sf4942vqdn
   subdir:
-    freer-extras
-    plutus-core
-    plutus-ledger
-    plutus-ledger-api
-    plutus-tx
-    plutus-tx-plugin
-    prettyprinter-configurable
-    quickcheck-dynamic
-    word-array
-  tag: 5ffcfa6c0451b3b937c4b69d2575cd55adebe88b
-  --sha256: 0zd1axm4a7si1z3ssb45hzjcd2aldywm6vxfgv4bdmkz85sl638p
+    cardano-api
+    cardano-node
+    cardano-cli
+    cardano-config
 
--- The following sections are copied from the 'plutus' repository cabal.project at the revision
--- given above.
--- This is necessary because the  'plutus' libraries depend on a number of other libraries which are
--- not on Hackage, and so need to be pulled in as `source-repository-package`s themselves. Make sure to
--- re-update this section from the template when you do an upgrade.
 
-package cardano-api
-  tests: false
-
--- This is also needed so evenful-sql-common will build with a newer version of persistent.
-package eventful-sql-common
-  ghc-options: -XDerivingStrategies -XStandaloneDeriving -XUndecidableInstances -XDataKinds -XFlexibleInstances -XMultiParamTypeClasses
-
-allow-newer:
-  -- Pins to an old version of Template Haskell, unclear if/when it will be updated
-  size-based:template-haskell
-  , ouroboros-consensus-byron:formatting
-  , beam-core:aeson
-  , beam-sqlite:aeson
-  , beam-sqlite:dlist
-  , beam-migrate:aeson
-
-constraints:
-  -- big breaking change here, inline-r doens't have an upper bound
-  singletons < 3.0
-
--- Drops an instance breaking our code. Should be released to Hackage eventually.
-source-repository-package
-  type: git
-  location: https://github.com/Quid2/flat.git
-  tag: ee59880f47ab835dbd73bea0847dab7869fc20d8
-  --sha256: 1lrzknw765pz2j97nvv9ip3l1mcpf2zr4n56hwlz0rk7wq7ls4cm
-
--- Needs some patches, but upstream seems to be fairly dead (no activity in > 1 year)
-source-repository-package
-  type: git
-  location: https://github.com/shmish111/purescript-bridge.git
-  tag: 6a92d7853ea514be8b70bab5e72077bf5a510596
-  --sha256: 13j64vv116in3c204qsl1v0ajphac9fqvsjp7x3zzfr7n7g61drb
+-- NOTE(SN): These source-repository-package tags are copied from the
+-- 'cardano-node' repository cabal.project at the revision given above. Make
+-- sure to update 'tag' and 'sha256' entries when you do an upgrade. Or just
+-- copy the whole thing and drop not-required packages and constraints.
 
 source-repository-package
   type: git
-  location: https://github.com/shmish111/servant-purescript.git
-  tag: a76104490499aa72d40c2790d10e9383e0dbde63
-  --sha256: 11nxxmi5bw66va7psvrgrw7b7n85fvqgfp58yva99w3v9q3a50v9
+  location: https://github.com/input-output-hk/optparse-applicative
+  tag: 7497a29cb998721a9068d5725d49461f2bba0e7a
+  --sha256: 1gvsrg925vynwgqwplgjmp53vj953qyh3wbdf34pw21c8r47w35r
 
 source-repository-package
   type: git
-  location: https://github.com/input-output-hk/cardano-crypto.git
-  tag: 07397f0e50da97eaa0575d93bee7ac4b2b2576ec
-  --sha256: 06sdx5ndn2g722jhpicmg96vsrys89fl81k8290b3lr6b1b0w4m3
+  location: https://github.com/input-output-hk/hedgehog-extras
+  tag: edf6945007177a638fbeb8802397f3a6f4e47c14
+  --sha256: 0wc7qzkc7j4ns2rz562h6qrx2f8xyq7yjcb7zidnj7f6j0pcd0i9
 
 source-repository-package
   type: git
@@ -136,47 +79,9 @@ source-repository-package
 
 source-repository-package
   type: git
-  location: https://github.com/input-output-hk/cardano-prelude
-  tag: bb4ed71ba8e587f672d06edf9d2e376f4b055555
-  --sha256: 00h10l5mmiza9819p9v5q5749nb9pzgi20vpzpy1d34zmh6gf1cj
-  subdir:
-    cardano-prelude
-    cardano-prelude-test
-
-source-repository-package
-  type: git
-  location: https://github.com/input-output-hk/ouroboros-network
-  tag: 94782e5ca52f234ff8eeddc6322a46cca0b69c0e
-  --sha256: 1da3pka4pn6sjf6w19d957aryjc9ip1a3g0vz7jz66pjri3v2n0j
-  subdir:
-    monoidal-synchronisation
-    typed-protocols
-    typed-protocols-cborg
-    typed-protocols-examples
-    ouroboros-network
-    ouroboros-network-testing
-    ouroboros-network-framework
-    ouroboros-consensus
-    ouroboros-consensus-byron
-    ouroboros-consensus-cardano
-    ouroboros-consensus-shelley
-    io-sim
-    io-classes
-    network-mux
-
-source-repository-package
-  type: git
-  location: https://github.com/input-output-hk/iohk-monitoring-framework
-  tag: 808724ff8a19a33d0ed06f9ef59fbd900b08553c
-  --sha256: 0298dpl29gxzs9as9ha6y0w18hqwc00ipa3hzkxv7nlfrjjz8hmz
-  subdir:
-    iohk-monitoring
-    tracer-transformers
-    contra-tracer
-    plugins/backend-aggregation
-    plugins/backend-ekg
-    plugins/backend-monitoring
-    plugins/backend-trace-forwarder
+  location: https://github.com/input-output-hk/cardano-crypto
+  tag: f73079303f663e028288f9f4a9e08bcca39a923e
+  --sha256: 1n87i15x54s0cjkh3nsxs4r1x016cdw1fypwmr68936n3xxsjn6q
 
 source-repository-package
   type: git
@@ -207,25 +112,34 @@ source-repository-package
     eras/shelley/chain-and-ledger/shelley-spec-ledger-test
     eras/shelley/chain-and-ledger/dependencies/non-integer
 
--- A lot of plutus dependencies have to be synchronized with the dependencies of
--- cardano-node. If you update cardano-node, please make sure that all dependencies
--- of cardano-node are also updated.
 source-repository-package
   type: git
-  location: https://github.com/input-output-hk/cardano-node.git
-  tag: b6ca519f97a0e795611a63174687e6bb70c9f752
-  --sha256: 0z5lpmqc98fwg3xzpzxkfslbxdjwfyyw8bn8yq0574sf4942vqdn
+  location: https://github.com/input-output-hk/cardano-prelude
+  tag: bb4ed71ba8e587f672d06edf9d2e376f4b055555
+  --sha256: 00h10l5mmiza9819p9v5q5749nb9pzgi20vpzpy1d34zmh6gf1cj
   subdir:
-    cardano-api
-    cardano-node
-    cardano-cli
-    cardano-config
+    cardano-prelude
+    cardano-prelude-test
 
 source-repository-package
   type: git
-  location: https://github.com/input-output-hk/optparse-applicative
-  tag: 7497a29cb998721a9068d5725d49461f2bba0e7a
-  --sha256: 1gvsrg925vynwgqwplgjmp53vj953qyh3wbdf34pw21c8r47w35r
+  location: https://github.com/input-output-hk/goblins
+  tag: cde90a2b27f79187ca8310b6549331e59595e7ba
+  --sha256: 17c88rbva3iw82yg9srlxjv2ia5wjb9cyqw44hik565f5v9svnyg
+
+source-repository-package
+  type: git
+  location: https://github.com/input-output-hk/iohk-monitoring-framework
+  tag: 808724ff8a19a33d0ed06f9ef59fbd900b08553c
+  --sha256: 0298dpl29gxzs9as9ha6y0w18hqwc00ipa3hzkxv7nlfrjjz8hmz
+  subdir:
+    contra-tracer
+    iohk-monitoring
+    plugins/backend-aggregation
+    plugins/backend-ekg
+    plugins/backend-monitoring
+    plugins/backend-trace-forwarder
+    tracer-transformers
 
 source-repository-package
   type: git
@@ -235,14 +149,52 @@ source-repository-package
 
 source-repository-package
   type: git
-  location: https://github.com/input-output-hk/hedgehog-extras
-  tag: edf6945007177a638fbeb8802397f3a6f4e47c14
-  --sha256: 0wc7qzkc7j4ns2rz562h6qrx2f8xyq7yjcb7zidnj7f6j0pcd0i9
+  location: https://github.com/input-output-hk/ouroboros-network
+  tag: 94782e5ca52f234ff8eeddc6322a46cca0b69c0e
+  --sha256: 1da3pka4pn6sjf6w19d957aryjc9ip1a3g0vz7jz66pjri3v2n0j
+  subdir:
+    io-sim
+    io-classes
+    monoidal-synchronisation
+    network-mux
+    ouroboros-consensus
+    ouroboros-consensus-byron
+    ouroboros-consensus-cardano
+    ouroboros-consensus-shelley
+    ouroboros-network
+    ouroboros-network-framework
+    ouroboros-network-testing
+    typed-protocols
+    typed-protocols-cborg
+    typed-protocols-examples
 
--- The following two dependencies are not mirrored in the
--- stack.yaml file, but they are needed regardless by cabal.
 source-repository-package
   type: git
-  location: https://github.com/input-output-hk/goblins
-  tag: cde90a2b27f79187ca8310b6549331e59595e7ba
-  --sha256: 17c88rbva3iw82yg9srlxjv2ia5wjb9cyqw44hik565f5v9svnyg
+  location: https://github.com/input-output-hk/plutus
+  tag: 1efbb276ef1a10ca6961d0fd32e6141e9798bd11
+  --sha256: 1jicyk4hr8p0xksj4048gdxndrb42jz4wsnkhc3ymxbm5v6snalf
+  subdir:
+    freer-extras
+    plutus-core
+    plutus-ledger
+    plutus-ledger-api
+    plutus-tx
+    plutus-tx-plugin
+    prettyprinter-configurable
+    stubs/plutus-ghc-stub
+    word-array
+
+source-repository-package
+  type: git
+  location: https://github.com/input-output-hk/ekg-forward
+  tag: d9e8fd302fa6ba41c07183d371e6777286d37bc2
+  --sha256: 0s8cblhq3i528jj7r7yd4v82nqzafj8vrgf0y80l7saxc3a5f2lk
+
+source-repository-package
+  type: git
+  location: https://github.com/input-output-hk/flat
+  tag: ee59880f47ab835dbd73bea0847dab7869fc20d8
+  --sha256: 1lrzknw765pz2j97nvv9ip3l1mcpf2zr4n56hwlz0rk7wq7ls4cm
+
+allow-newer:
+  size-based:template-haskell
