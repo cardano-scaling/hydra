@@ -41,7 +41,7 @@ spec = do
           generate (genPaymentTo aliceVk) >>= submitTx
           generate (genPaymentTo bobVk) >>= submitTx
 
-          failAfter 30 $
+          failAfter 5 $
             retrying @ErrorCall $ postTx $ InitTx @SimpleTx parameters
           failAfter 5 $
             takeMVar calledBackAlice `shouldReturn` OnInitTx 100 [alice, bob, carol]

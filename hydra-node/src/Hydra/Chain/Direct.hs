@@ -126,12 +126,28 @@ withDirectChain tracer networkMagic iocp socketPath keyPair party cardanoKeys ca
             -- fast-forward to the tip, and not allow recovering intermediate
             -- history.
             threadDelay 2
-            action $ Chain{postTx = atomically . writeTQueue queue}
+            action $
+              Chain
+                { postTx = \tx -> do
+                    traceWith tracer $ ToPost tx
+
+                    res <- atomically $ do
+                      fromPostChainTx wallet headState cardanoKeys tx >>= \case
+                        Nothing ->
+                          pure Nothing
+                        Just partialTx ->
+                          Just <$> finalizeTx wallet headState partialTx
+
+                    maybe
+                      (callback PostTxFailed)
+                      (atomically . writeTQueue queue)
+                      res
+                }
         )
         ( connectTo
             (localSnocket iocp)
             nullConnectTracers
-            (versions networkMagic (client tracer queue party cardanoKeys headState wallet callback))
+            (versions networkMagic (client tracer queue party headState callback))
             socketPath
         )
  where
@@ -156,15 +172,13 @@ instance Exception ConnectException
 client ::
   (MonadST m, MonadTimer m, Tx tx) =>
   Tracer m (DirectChainLog tx) ->
-  TQueue m (PostChainTx tx) ->
+  TQueue m (ValidatedTx Era) ->
   Party ->
-  [Cardano.VerificationKey] ->
   TVar m OnChainHeadState ->
-  TinyWallet m ->
   ChainCallback tx m ->
   NodeToClientVersion ->
   OuroborosApplication 'InitiatorMode LocalAddress LByteString m () Void
-client tracer queue party cardanoKeys headState wallet callback nodeToClientV =
+client tracer queue party headState callback nodeToClientV =
   nodeToClientProtocols
     ( const $
         pure $
@@ -175,7 +189,7 @@ client tracer queue party cardanoKeys headState wallet callback nodeToClientV =
                    in MuxPeer nullTracer cChainSyncCodec peer
             , localTxSubmissionProtocol =
                 InitiatorProtocolOnly $
-                  let peer = localTxSubmissionClientPeer $ txSubmissionClient tracer queue callback cardanoKeys headState wallet
+                  let peer = localTxSubmissionClientPeer $ txSubmissionClient tracer queue
                    in MuxPeer nullTracer cTxSubmissionCodec peer
             , localStateQueryProtocol =
                 InitiatorProtocolOnly $
@@ -288,81 +302,82 @@ chainSyncClient tracer callback party headState =
 
 txSubmissionClient ::
   forall m tx.
-  (MonadSTM m, Tx tx) =>
+  (MonadSTM m) =>
   Tracer m (DirectChainLog tx) ->
-  TQueue m (PostChainTx tx) ->
-  ChainCallback tx m ->
-  [Cardano.VerificationKey] ->
-  TVar m OnChainHeadState ->
-  TinyWallet m ->
+  TQueue m (ValidatedTx Era) ->
   LocalTxSubmissionClient (GenTx Block) (ApplyTxErr Block) m ()
-txSubmissionClient tracer queue callback cardanoKeys headState TinyWallet{getUtxo, sign, coverFee, verificationKey} =
+txSubmissionClient tracer queue =
   LocalTxSubmissionClient clientStIdle
  where
   clientStIdle :: m (LocalTxClientStIdle (GenTx Block) (ApplyTxErr Block) m ())
   clientStIdle = do
-    -- XXX(SN): This is a bit too much stair-casing (caused by the atomically and ad-hoc Maybe's)
-    res <- atomically $ do
-      tx <- readTQueue queue
-      fromPostChainTx tx >>= \case
-        Nothing -> pure Nothing
-        Just partialTx -> do
-          utxo <- knownUtxo <$> readTVar headState
-          coverFee utxo partialTx >>= \case
-            Left e ->
-              error ("failed to cover fee for transaction: " <> show e <> ", " <> show partialTx)
-            Right validatedTx -> do
-              pure $ Just (tx, sign validatedTx)
+    tx <- atomically $ readTQueue queue
+    traceWith tracer (PostedTx tx)
+    pure $
+      SendMsgSubmitTx
+        (GenTxAlonzo . mkShelleyTx $ tx)
+        ( \case
+            SubmitFail reason -> error $ "failed to submit tx: " <> show reason
+            SubmitSuccess -> clientStIdle
+        )
 
-    case res of
-      Nothing -> do
-        callback PostTxFailed
-        clientStIdle
-      Just (tx, signedTx) ->
-        traceWith tracer (PostTx tx signedTx)
-          $> SendMsgSubmitTx
-            (GenTxAlonzo . mkShelleyTx $ signedTx)
-            ( \case
-                SubmitFail reason -> error $ "failed to submit tx: " <> show reason
-                SubmitSuccess -> clientStIdle
-            )
+finalizeTx ::
+  MonadSTM m =>
+  TinyWallet m ->
+  TVar m OnChainHeadState ->
+  ValidatedTx Era ->
+  STM m (ValidatedTx Era)
+finalizeTx TinyWallet{sign, coverFee} headState partialTx = do
+  utxo <- knownUtxo <$> readTVar headState
+  coverFee utxo partialTx >>= \case
+    Left e ->
+      error ("failed to cover fee for transaction: " <> show e <> ", " <> show partialTx)
+    Right validatedTx -> do
+      pure $ sign validatedTx
 
-  fromPostChainTx :: PostChainTx tx -> STM m (Maybe (ValidatedTx Era))
-  fromPostChainTx = \case
-    InitTx params -> do
-      txIns <- keys <$> getUtxo
-      case txIns of
-        (seedInput : _) -> pure . Just $ initTx cardanoKeys params seedInput
-        [] -> error "cannot find a seed input to pass to Init transaction"
-    AbortTx _utxo ->
-      readTVar headState >>= \case
-        Initial{threadOutput, initials} ->
-          pure . Just $ abortTx (convertTuple threadOutput) (map convertTuple initials)
-        _st -> pure Nothing
-    CommitTx party utxo ->
-      readTVar headState >>= \case
-        Initial{initials} -> case ownInitial verificationKey initials of
-          Nothing -> error $ "no ownInitial: " <> show initials
-          Just initial ->
-            pure . Just $ commitTx @tx party utxo initial
-        st -> error $ "cannot post CommitTx, invalid state: " <> show st
-    CollectComTx utxo ->
-      readTVar headState >>= \case
-        Initial{threadOutput} ->
-          pure . Just $ collectComTx @tx utxo (convertTuple threadOutput)
-        st -> error $ "cannot post CollectComTx, invalid state: " <> show st
-    CloseTx Snapshot{number, utxo} ->
-      readTVar headState >>= \case
-        OpenOrClosed{threadOutput} ->
-          pure . Just $ closeTx @tx number utxo (convertTuple threadOutput)
-        st -> error $ "cannot post CloseTx, invalid state: " <> show st
-    FanoutTx{utxo} ->
-      readTVar headState >>= \case
-        OpenOrClosed{threadOutput} ->
-          pure . Just $ fanoutTx @tx utxo (convertTuple threadOutput)
-        st -> error $ "cannot post FanOutTx, invalid state: " <> show st
-    _ -> error "not implemented"
-
+fromPostChainTx ::
+  forall tx m.
+  (Tx tx, MonadSTM m) =>
+  TinyWallet m ->
+  TVar m OnChainHeadState ->
+  [Cardano.VerificationKey] ->
+  PostChainTx tx ->
+  STM m (Maybe (ValidatedTx Era))
+fromPostChainTx TinyWallet{getUtxo, verificationKey} headState cardanoKeys = \case
+  InitTx params -> do
+    txIns <- keys <$> getUtxo
+    case txIns of
+      (seedInput : _) -> pure . Just $ initTx cardanoKeys params seedInput
+      [] -> error "cannot find a seed input to pass to Init transaction"
+  AbortTx _utxo ->
+    readTVar headState >>= \case
+      Initial{threadOutput, initials} ->
+        pure . Just $ abortTx (convertTuple threadOutput) (map convertTuple initials)
+      _st -> pure Nothing
+  CommitTx party utxo ->
+    readTVar headState >>= \case
+      Initial{initials} -> case ownInitial verificationKey initials of
+        Nothing -> error $ "no ownInitial: " <> show initials
+        Just initial ->
+          pure . Just $ commitTx @tx party utxo initial
+      st -> error $ "cannot post CommitTx, invalid state: " <> show st
+  CollectComTx utxo ->
+    readTVar headState >>= \case
+      Initial{threadOutput} ->
+        pure . Just $ collectComTx @tx utxo (convertTuple threadOutput)
+      st -> error $ "cannot post CollectComTx, invalid state: " <> show st
+  CloseTx Snapshot{number, utxo} ->
+    readTVar headState >>= \case
+      OpenOrClosed{threadOutput} ->
+        pure . Just $ closeTx @tx number utxo (convertTuple threadOutput)
+      st -> error $ "cannot post CloseTx, invalid state: " <> show st
+  FanoutTx{utxo} ->
+    readTVar headState >>= \case
+      OpenOrClosed{threadOutput} ->
+        pure . Just $ fanoutTx @tx utxo (convertTuple threadOutput)
+      st -> error $ "cannot post FanOutTx, invalid state: " <> show st
+  _ -> error "not implemented"
+ where
   convertTuple (i, _, dat) = (i, dat)
 
 --
@@ -384,7 +399,8 @@ getAlonzoTxs = \case
 
 -- TODO add  ToJSON, FromJSON instances
 data DirectChainLog tx
-  = PostTx {toPost :: PostChainTx tx, postedTx :: ValidatedTx Era}
+  = ToPost {toPost :: PostChainTx tx}
+  | PostedTx {postedTx :: ValidatedTx Era}
   | ReceivedTxs {onChainTxs :: [OnChainTx tx], receivedTxs :: [ValidatedTx Era]}
   | RolledBackward {point :: Point Block}
   | Wallet TinyWalletLog
@@ -395,10 +411,14 @@ instance Arbitrary (DirectChainLog tx) where
 
 instance Tx tx => ToJSON (DirectChainLog tx) where
   toJSON = \case
-    PostTx{toPost, postedTx} ->
+    ToPost{toPost} ->
       object
-        [ "tag" .= String "PostTx"
+        [ "tag" .= String "ToPost"
         , "toPost" .= toPost
+        ]
+    PostedTx{postedTx} ->
+      object
+        [ "tag" .= String "PostedTx"
         , "postedTx" .= show @Text postedTx -- FIXME: Need real JSON
         ]
     ReceivedTxs{onChainTxs, receivedTxs} ->
