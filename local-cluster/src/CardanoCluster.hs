@@ -26,7 +26,6 @@ import CardanoNode (
   defaultCardanoNodeArgs,
   withCardanoNode,
  )
-import Control.Monad.Class.MonadAsync (mapConcurrently_)
 import Control.Tracer (Tracer, traceWith)
 import qualified Hydra.Chain.Direct.Util as Cardano
 import System.Directory (
@@ -75,7 +74,6 @@ withCluster tr cfg@ClusterConfig{parentStateDirectory} action = do
     withBFTNode tr cfgB $ \nodeB -> do
       withBFTNode tr cfgC $ \nodeC -> do
         let nodes = [nodeA, nodeB, nodeC]
-        mapConcurrently_ waitForSocket nodes
         action (RunningCluster cfg nodes)
 
 keysFor :: String -> IO (Cardano.VerificationKey, Cardano.SigningKey)
@@ -92,12 +90,6 @@ signingKeyPathFor actor = "config" </> "credentials" </> actor <.> "sk"
 
 verificationKeyPathFor :: String -> FilePath
 verificationKeyPathFor actor = "config" </> "credentials" </> actor <.> "vk"
-
-waitForSocket :: RunningNode -> IO ()
-waitForSocket node@(RunningNode _ socket) = do
-  unlessM (doesFileExist socket) $ do
-    threadDelay 0.1
-    waitForSocket node
 
 withBFTNode :: Tracer IO ClusterLog -> CardanoNodeConfig -> (RunningNode -> IO ()) -> IO ()
 withBFTNode clusterTracer cfg action = do
@@ -141,6 +133,7 @@ withBFTNode clusterTracer cfg action = do
 
   withCardanoNode nodeTracer cfg args $ \rn -> do
     traceWith clusterTracer $ MsgNodeStarting cfg
+    waitForSocket rn
     action rn
  where
   dlgCertFilename i = "delegation-cert.00" <> show (i - 1) <> ".json"
@@ -159,6 +152,12 @@ withBFTNode clusterTracer cfg action = do
   nid = nodeId cfg
 
   nodeTracer = contramap (MsgFromNode nid) clusterTracer
+
+  waitForSocket :: RunningNode -> IO ()
+  waitForSocket node@(RunningNode _ socket) = do
+    unlessM (doesFileExist socket) $ do
+      threadDelay 0.1
+      waitForSocket node
 
 -- | Initialize the system start time to now (modulo a small offset needed to
 -- give time to the system to bootstrap correctly).

@@ -72,7 +72,6 @@ import CardanoCluster (
   newNodeConfig,
   signingKeyPathFor,
   verificationKeyPathFor,
-  waitForSocket,
   withBFTNode,
  )
 import CardanoNode (RunningNode (RunningNode))
@@ -111,8 +110,7 @@ spec = around showLogsOnFailure $
         failAfter 60 $
           withTempDir "end-to-end-inits-and-closes" $ \tmpDir -> do
             config <- newNodeConfig tmpDir
-            withBFTNode (contramap FromCluster tracer) config $ \node@(RunningNode _ nodeSocket) -> do
-              waitForSocket node
+            withBFTNode (contramap FromCluster tracer) config $ \(RunningNode _ nodeSocket) -> do
               let sk = signingKeyPathFor
               let vk = verificationKeyPathFor
               withHydraNode tracer (sk "alice") (vk <$> ["bob", "carol"]) tmpDir nodeSocket 1 aliceSk [bobVk, carolVk] allNodeIds $ \n1 ->
@@ -186,8 +184,7 @@ spec = around showLogsOnFailure $
       it "Node exposes Prometheus metrics on port 6001" $ \tracer -> do
         withTempDir "end-to-end-prometheus-metrics" $ \tmpDir -> do
           config <- newNodeConfig tmpDir
-          withBFTNode (contramap FromCluster tracer) config $ \node@(RunningNode _ nodeSocket) -> do
-            waitForSocket node
+          withBFTNode (contramap FromCluster tracer) config $ \(RunningNode _ nodeSocket) -> do
             let sk = signingKeyPathFor
             let vk = verificationKeyPathFor
             failAfter 20 $
