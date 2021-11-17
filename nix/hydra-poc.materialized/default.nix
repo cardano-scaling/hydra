@@ -569,6 +569,7 @@
         "http2".flags.doc = false;
         "generic-monoid".revision = (((hackage."generic-monoid")."0.1.0.1").revisions).default;
         "data-default-instances-dlist".revision = (((hackage."data-default-instances-dlist")."0.0.1").revisions).default;
+        "base16".revision = (((hackage."base16")."0.3.0.1").revisions).default;
         "microstache".revision = (((hackage."microstache")."1.0.1.2").revisions).default;
         "unix-time".revision = (((hackage."unix-time")."0.4.7").revisions).default;
         "base-compat-batteries".revision = (((hackage."base-compat-batteries")."0.11.2").revisions).default;
@@ -996,6 +997,7 @@
           "cardano-node".components.exes."cardano-node".planned = lib.mkOverride 900 true;
           "cardano-ledger-core".components.library.planned = lib.mkOverride 900 true;
           "data-default-instances-dlist".components.library.planned = lib.mkOverride 900 true;
+          "base16".components.library.planned = lib.mkOverride 900 true;
           "microstache".components.library.planned = lib.mkOverride 900 true;
           "hydra-node".components.tests."tests".planned = lib.mkOverride 900 true;
           "mime-types".components.library.planned = lib.mkOverride 900 true;
