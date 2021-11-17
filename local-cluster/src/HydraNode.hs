@@ -44,6 +44,7 @@ import Data.Aeson.Types (Pair)
 import qualified Data.ByteString as BS
 import qualified Data.List as List
 import qualified Data.Text as T
+import Hydra.Chain.Direct.Util (SigningKey, VerificationKey)
 import Hydra.Logging (Tracer, traceWith)
 import Network.HTTP.Conduit (HttpExceptionContent (ConnectionFailure), parseRequest)
 import Network.HTTP.Simple (HttpException (HttpExceptionRequest), Response, getResponseBody, getResponseStatusCode, httpBS)
@@ -187,31 +188,35 @@ withHydraCluster ::
   Word64 ->
   (NonEmpty HydraClient -> IO ()) ->
   IO ()
-withHydraCluster tracer workDir nodeSocket clusterSize action =
+withHydraCluster tracer workDir nodeSocket clusterSize action = do
+  allKeys <- replicateM (fromIntegral clusterSize) generateCardanoKey
   case clusterSize of
     0 -> error "Cannot run a cluster with 0 number of nodes"
-    n -> go n [] [1 .. n]
+    n -> go allKeys n [] [1 .. n]
  where
-  go n clients = \case
+  go allKeys n clients = \case
     [] -> action (fromList clients)
-    (nodeId : rest) ->
+    (nodeId : rest) -> do
       let hydraVKeys = map VerKeyMockDSIGN $ filter (/= nodeId) allNodeIds
           hydraSKey = SignKeyMockDSIGN nodeId
           cardanoVKeys = [workDir </> show i <.> "vk" | i <- allNodeIds, i /= nodeId]
-          cardanoSKey = workDir <> show nodeId <.> "sk"
-       in withHydraNode
-            tracer
-            cardanoSKey
-            cardanoVKeys
-            workDir
-            nodeSocket
-            (fromIntegral nodeId)
-            hydraSKey
-            hydraVKeys
-            (map fromIntegral allNodeIds)
-            (\c -> go n (c : clients) rest)
+          cardanoSKey = workDir </> show nodeId <.> "sk"
+      withHydraNode
+        tracer
+        cardanoSKey
+        cardanoVKeys
+        workDir
+        nodeSocket
+        (fromIntegral nodeId)
+        hydraSKey
+        hydraVKeys
+        (map fromIntegral allNodeIds)
+        (\c -> go allKeys n (c : clients) rest)
      where
       allNodeIds = [1 .. n]
+
+generateCardanoKey :: IO (VerificationKey, SigningKey)
+generateCardanoKey = error "not implemented"
 
 withHydraNode ::
   forall alg.
