@@ -22,7 +22,7 @@ import Hydra.Ledger (
   canApply,
  )
 import Hydra.Network.Message (Message (..))
-import Hydra.Party (Party, SigningKey, sign, verify)
+import Hydra.Party (Party, SigningKey, sign, stripAlias, verify)
 import Hydra.ServerOutput (ServerOutput (..))
 import Hydra.Snapshot (Snapshot (..), SnapshotNumber)
 
@@ -167,7 +167,7 @@ update Environment{party, signingKey, otherParties} ledger st ev = case (st, ev)
   (InitialState _ remainingParties _, ClientEvent (Commit utxo))
     | canCommit -> sameState [OnChainEffect (CommitTx party utxo)]
    where
-    canCommit = party `Set.member` remainingParties
+    canCommit = stripAlias party `Set.member` remainingParties
   (InitialState parameters remainingParties committed, OnChainEvent (OnCommitTx pt utxo)) ->
     nextState newHeadState $
       [ClientEffect $ Committed pt utxo]
@@ -176,7 +176,7 @@ update Environment{party, signingKey, otherParties} ledger st ev = case (st, ev)
     newHeadState = InitialState parameters remainingParties' newCommitted
     remainingParties' = Set.delete pt remainingParties
     newCommitted = Map.insert pt utxo committed
-    canCollectCom = null remainingParties' && pt == party
+    canCollectCom = null remainingParties' && pt == stripAlias party
     collectedUtxo = mconcat $ Map.elems newCommitted
   (InitialState _ _ committed, ClientEvent GetUtxo) ->
     sameState [ClientEffect $ Utxo (mconcat $ Map.elems committed)]
@@ -261,7 +261,7 @@ update Environment{party, signingKey, otherParties} ledger st ev = case (st, ev)
                 -- TODO: Must check whether we know the 'otherParty' signing the snapshot
                 | verify snapshotSignature otherParty snapshot = otherParty `Set.insert` sigs
                 | otherwise = sigs
-           in if sigs' == Set.fromList parties
+           in if sigs' == Set.fromList (map stripAlias parties)
                 then
                   nextState
                     ( OpenState parameters $
@@ -331,7 +331,7 @@ data NoSnapshotReason
 
 isLeader :: HeadParameters -> Party -> SnapshotNumber -> Bool
 isLeader HeadParameters{parties} p sn =
-  case p `elemIndex` parties of
+  case stripAlias p `elemIndex` map stripAlias parties of
     Just i -> ((fromIntegral @Natural @Int sn - 1) `mod` length parties) == i
     _ -> False
 
