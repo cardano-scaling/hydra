@@ -283,7 +283,7 @@ coverFee_ pparams lookupUtxo walletUtxo partialTx@ValidatedTx{body, wits} = do
  where
   -- TODO: Do a better fee estimation based on the transaction's content.
   needlesslyHighFee :: Coin
-  needlesslyHighFee = Coin 1_000_000_000
+  needlesslyHighFee = Coin 10_000_000
 
   getAdaValue :: TxOut -> Coin
   getAdaValue (TxOut _ value _) =
