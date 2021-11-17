@@ -93,6 +93,9 @@ instance Num Party where
 anonymousParty :: VerificationKey -> Party
 anonymousParty = Party Nothing
 
+stripAlias :: Party -> Party
+stripAlias Party{vkey} = anonymousParty vkey
+
 deriveParty :: SigningKey -> Party
 deriveParty = anonymousParty . deriveVerKeyDSIGN
 
