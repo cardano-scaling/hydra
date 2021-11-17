@@ -25,9 +25,13 @@ import CardanoNode (
   PortsConfig (..),
   RunningNode (..),
   defaultCardanoNodeArgs,
+  unsafeDecodeJsonFile,
   withCardanoNode,
  )
+import Control.Lens ((%~))
 import Control.Tracer (Tracer, traceWith)
+import qualified Data.Aeson as Aeson
+import Data.Aeson.Lens (key)
 import qualified Hydra.Chain.Direct.Util as Cardano
 import System.Directory (
   copyFile,
@@ -98,7 +102,7 @@ withBFTNode ::
   [VerificationKey PaymentKey] ->
   (RunningNode -> IO ()) ->
   IO ()
-withBFTNode clusterTracer cfg _initialFunds action = do
+withBFTNode clusterTracer cfg initialFunds action = do
   createDirectoryIfMissing False (stateDirectory cfg)
 
   [dlgCert, signKey, vrfKey, kesKey, opCert] <-
@@ -129,9 +133,7 @@ withBFTNode clusterTracer cfg _initialFunds action = do
     ("config" </> "genesis-byron.json")
     (stateDirectory cfg </> nodeByronGenesisFile args)
 
-  copyFile
-    ("config" </> "genesis-shelley.json")
-    (stateDirectory cfg </> nodeShelleyGenesisFile args)
+  addFundsToGenesisShelley (stateDirectory cfg </> nodeShelleyGenesisFile args)
 
   copyFile
     ("config" </> "genesis-alonzo.json")
@@ -147,6 +149,11 @@ withBFTNode clusterTracer cfg _initialFunds action = do
   vrfKeyFilename i = "delegate" <> show i <> ".vrf.skey"
   kesKeyFilename i = "delegate" <> show i <> ".kes.skey"
   opCertFilename i = "opcert" <> show i <> ".cert"
+
+  addFundsToGenesisShelley file = do
+    genesisJson <- unsafeDecodeJsonFile ("config" </> "genesis-shelley.json")
+    let updatedJson = genesisJson & key "initialFunds" %~ error "addfunds"
+    Aeson.encodeFile file updatedJson
 
   copyCredential parentDir file = do
     let source = "config" </> "credentials" </> file
