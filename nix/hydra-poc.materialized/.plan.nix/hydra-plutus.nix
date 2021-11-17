@@ -56,12 +56,14 @@
         buildable = true;
         modules = [
           "Hydra/Contract/Commit"
-          "Hydra/Contract/Head"
           "Hydra/Contract/Initial"
           "Hydra/Contract/MockCommit"
+          "Hydra/Contract/MockHead"
+          "Hydra/Contract/MockInitial"
           "Hydra/Data/ContestationPeriod"
           "Hydra/Data/HeadParameters"
           "Hydra/Data/Party"
+          "Hydra/Data/Utxo"
           "Hydra/OnChain/Util"
           "Plutus/Contract/StateMachine/MintingPolarity"
           "Plutus/Contract/StateMachine/OnChain"
