@@ -22,3 +22,6 @@ result*
 *.hi
 *.o
 test-results.xml
+
+# Getting started / demo instructions
+devnet/

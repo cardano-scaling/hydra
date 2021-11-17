@@ -1,13 +1,36 @@
 version: "3.5"
 
+volumes:
+  node-ipc:
+
 services:
+  cardano-node:
+    image: inputoutput/cardano-node
+    volumes:
+      - $PWD/devnet:/data
+      - node-ipc:/ipc
+    environment:
+      - CARDANO_BLOCK_PRODUCER=true
+    command:
+      [ "run"
+      , "--config", "/data/cardano-node.json"
+      , "--topology", "/data/topology.json"
+      , "--database-path", "/data/db"
+      , "--socket-path", "/ipc/node.socket"
+      , "--shelley-operational-certificate", "/data/credentials/opcert1.cert"
+      , "--shelley-kes-key", "/data/credentials/delegate1.kes.skey"
+      , "--shelley-vrf-key", "/data/credentials/delegate1.vrf.skey"
+      ]
+
   hydra-node-1:
     image: inputoutput/hydra:hydra-node-latest
     build:
       context: ../
       target: hydra-node
     volumes:
-      - "$PWD:/keys:ro"
+      - $PWD:/keys:ro
+      - $PWD/devnet/credentials:/credentials:ro
+      - node-ipc:/ipc
     ports:
       - "4001:4001"
     command:
@@ -20,7 +43,11 @@ services:
       , "--hydra-signing-key", "/keys/alice.sk"
       , "--hydra-verification-key", "/keys/bob.vk"
       , "--hydra-verification-key", "/keys/carol.vk"
-      , "--mock-chain-host", "172.16.238.4"
+      , "--cardano-signing-key", "/credentials/alice.sk"
+      , "--cardano-verification-key", "/credentials/bob.vk"
+      , "--cardano-verification-key", "/credentials/carol.vk"
+      , "--network-magic", "42"
+      , "--node-socket", "/ipc/node.socket"
       ]
     networks:
       hydra_net:
@@ -32,7 +59,9 @@ services:
       context: ../
       target: hydra-node
     volumes:
-      - "$PWD:/keys:ro"
+      - $PWD:/keys:ro
+      - $PWD/devnet/credentials:/credentials:ro
+      - node-ipc:/ipc
     ports:
       - "4002:4001"
     command:
@@ -45,7 +74,11 @@ services:
       , "--hydra-signing-key", "/keys/bob.sk"
       , "--hydra-verification-key", "/keys/alice.vk"
       , "--hydra-verification-key", "/keys/carol.vk"
-      , "--mock-chain-host", "172.16.238.4"
+      , "--cardano-signing-key", "/credentials/bob.sk"
+      , "--cardano-verification-key", "/credentials/alice.vk"
+      , "--cardano-verification-key", "/credentials/carol.vk"
+      , "--network-magic", "42"
+      , "--node-socket", "/ipc/node.socket"
       ]
     networks:
       hydra_net:
@@ -57,7 +90,9 @@ services:
       context: ../
       target: hydra-node
     volumes:
-      - "$PWD:/keys:ro"
+      - $PWD:/keys:ro
+      - $PWD/devnet/credentials:/credentials:ro
+      - node-ipc:/ipc
     ports:
       - "4003:4001"
     command:
@@ -70,25 +105,15 @@ services:
       , "--hydra-signing-key", "/keys/carol.sk"
       , "--hydra-verification-key", "/keys/alice.vk"
       , "--hydra-verification-key", "/keys/bob.vk"
-      , "--mock-chain-host", "172.16.238.4"
+      , "--cardano-signing-key", "/credentials/carol.sk"
+      , "--cardano-verification-key", "/credentials/alice.vk"
+      , "--cardano-verification-key", "/credentials/bob.vk"
+      , "--network-magic", "42"
+      , "--node-socket", "/ipc/node.socket"
       ]
     networks:
       hydra_net:
         ipv4_address: 172.16.238.30
-
-  mock-chain:
-    image: inputoutput/hydra:mock-chain-latest
-    build:
-      context: ../
-      target: mock-chain
-    command:
-      [ "--sync-address", "tcp://0.0.0.0:56789"
-      , "--catch-up-address", "tcp://0.0.0.0:56790"
-      , "--post-address", "tcp://0.0.0.0:56791"
-      ]
-    networks:
-      hydra_net:
-        ipv4_address: 172.16.238.4
 
   prometheus:
     image: prom/prometheus:latest
