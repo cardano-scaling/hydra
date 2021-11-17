@@ -1,5 +1,6 @@
 {-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE DerivingStrategies #-}
+{-# LANGUAGE TypeApplications #-}
 
 module CardanoCluster where
 
@@ -14,8 +15,10 @@ import Cardano.Api (
   SigningKey (PaymentSigningKey),
   VerificationKey,
   readFileTextEnvelope,
+  serialiseToRawBytes,
  )
 import Cardano.Crypto.DSIGN (deriveVerKeyDSIGN)
+import CardanoClient (buildAddress)
 import CardanoNode (
   CardanoNodeArgs (..),
   CardanoNodeConfig (..),
@@ -24,6 +27,7 @@ import CardanoNode (
   Port,
   PortsConfig (..),
   RunningNode (..),
+  addField,
   defaultCardanoNodeArgs,
   unsafeDecodeJsonFile,
   withCardanoNode,
@@ -32,6 +36,7 @@ import Control.Lens ((%~))
 import Control.Tracer (Tracer, traceWith)
 import qualified Data.Aeson as Aeson
 import Data.Aeson.Lens (key)
+import Data.ByteString.Base16 (encodeBase16)
 import qualified Hydra.Chain.Direct.Util as Cardano
 import System.Directory (
   copyFile,
@@ -151,8 +156,8 @@ withBFTNode clusterTracer cfg initialFunds action = do
   opCertFilename i = "opcert" <> show i <> ".cert"
 
   addFundsToGenesisShelley file = do
-    genesisJson <- unsafeDecodeJsonFile ("config" </> "genesis-shelley.json")
-    let updatedJson = genesisJson & key "initialFunds" %~ error "addfunds"
+    genesisJson <- unsafeDecodeJsonFile @Aeson.Value ("config" </> "genesis-shelley.json")
+    let updatedJson = genesisJson & key "initialFunds" %~ updateInitialFunds
     Aeson.encodeFile file updatedJson
 
   copyCredential parentDir file = do
@@ -165,6 +170,19 @@ withBFTNode clusterTracer cfg initialFunds action = do
   nid = nodeId cfg
 
   nodeTracer = contramap (MsgFromNode nid) clusterTracer
+
+  updateInitialFunds :: Aeson.Value -> Aeson.Value
+  updateInitialFunds zero =
+    foldr
+      (\(k, v) -> addField k v)
+      zero
+      (mkInitialFundsEntry <$> initialFunds)
+
+  mkInitialFundsEntry :: VerificationKey PaymentKey -> (Text, Word)
+  mkInitialFundsEntry vk =
+    let addr = buildAddress vk (Testnet $ NetworkMagic 42)
+        bytes = serialiseToRawBytes addr
+     in (encodeBase16 bytes, 1_000_000_000)
 
   waitForSocket :: RunningNode -> IO ()
   waitForSocket node@(RunningNode _ socket) = do
