@@ -57,18 +57,10 @@ images](https://hub.docker.com/r/inputoutput/hydra/tags).
 
 ```sh
 docker pull inputoutput/hydra:hydra-node-latest
-docker run -rm inputoutput/hydra:hydra-node-latest --help
+docker run --rm inputoutput/hydra:hydra-node-latest --help
 ```
 
-In the POC, a `hydra-node` can only participate in a single Head and thus needs
-a single `--hydra-signing-key`. For now, we use simplified keys for easier
-debugging. To generate such a new key:
-
-```sh
-head -c8 /dev/random > test.sk
-```
-
-Now you can prepare and start an ad-hoc, single `cardano-node` devnet using our
+First, let's prepare and start an ad-hoc, single `cardano-node` devnet using our
 configuration:
 
 ```sh
@@ -91,16 +83,24 @@ docker run -d --name cardano-node --network host \
     --shelley-vrf-key /data/credentials/delegate1.vrf.skey
 ```
 
-Then, we connect the `hydra-node` to it and attach a `hydra-tui` client:
+In the POC, a `hydra-node` can only participate in a single Head and thus needs
+a single `--hydra-signing-key`. For now, we use simplified keys for easier
+debugging. To generate such a new key:
+
+```sh
+head -c8 /dev/random > devnet/alice-hydra.sk
+```
+
+Then, we can connect the `hydra-node` to the already running `cardano-node` and
+attach a `hydra-tui` client:
 
 ```sh
 docker run -d --name hydra-node --network host \
-  -v $PWD:/data \
-  -v $PWD/local-cluster/config/:/config \
+  -v $PWD/devnet:/data \
   -v node-ipc:/ipc \
   inputoutput/hydra:hydra-node-latest \
-    --hydra-signing-key data/test.sk \
-    --cardano-signing-key config/credentials/alice.sk \
+    --hydra-signing-key /data/alice-hydra.sk \
+    --cardano-signing-key /data/credentials/alice.sk \
     --network-magic 42 \
     --node-socket ipc/node.socket
 
