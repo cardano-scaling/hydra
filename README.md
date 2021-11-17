@@ -68,28 +68,30 @@ debugging. To generate such a new key:
 head -c8 /dev/random > test.sk
 ```
 
-Now you can start an ad-hoc, single `cardano-node` devnet using our
+Now you can prepare and start an ad-hoc, single `cardano-node` devnet using our
 configuration:
 
 ```sh
-echo '{"Producers": [{"addr": "127.0.0.1", "port": 3001, "valency": 1}]}' > topology.json
+cp -afT local-cluster/config devnet
+echo '{"Producers": []}' > devnet/topology.json
+sed -i "s/\"startTime\": [0-9]*/\"startTime\": $(date +%s)/" devnet/genesis-byron.json && \
+  sed -i "s/\"systemStart\": \".*\"/\"systemStart\": \"$(date -u +%FT%TZ)\"/" devnet/genesis-shelley.json
+
 docker run -d --name cardano-node --network host \
-  -v $PWD:/data \
-  -v $PWD/local-cluster/config:/config \
+  -v $PWD/devnet:/data \
   -v node-ipc:/ipc \
+  -e CARDANO_BLOCK_PRODUCER=true \
   inputoutput/cardano-node run \
-    --config /config/cardano-node.json \
+    --config /data/cardano-node.json \
     --topology /data/topology.json \
-    --database-path /db \
+    --database-path /data/db \
     --socket-path /ipc/node.socket \
-    --byron-signing-key /config/credentials/delegate-keys.000.key \
-    --byron-delegation-certificate /config/credentials/delegation-cert.000.json \
-    --shelley-operational-certificate /config/credentials/opcert-1.cert \
-    --shelley-kes-key /config/credentials/delegate-1.kes.skey \
-    --shelley-vrf-key /config/credentials/delegate-1.vrf.skey
+    --shelley-operational-certificate /data/credentials/opcert1.cert \
+    --shelley-kes-key /data/credentials/delegate1.kes.skey \
+    --shelley-vrf-key /data/credentials/delegate1.vrf.skey
 ```
 
-Then we connect the `hydra-node` to it and attach a `hydra-tui` client:
+Then, we connect the `hydra-node` to it and attach a `hydra-tui` client:
 
 ```sh
 docker run -d --name hydra-node --network host \
