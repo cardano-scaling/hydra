@@ -278,7 +278,8 @@ chainSyncClient tracer callback party headState =
           ChainSyncClient $ do
             let receivedTxs = toList $ getAlonzoTxs blk
             onChainTxs <- runOnChainTxs receivedTxs
-            traceWith tracer $ ReceivedTxs{onChainTxs, receivedTxs}
+            unless (null receivedTxs) $
+              traceWith tracer $ ReceivedTxs{onChainTxs, receivedTxs}
             mapM_ callback onChainTxs
             pure clientStIdle
       , recvMsgRollBackward = \point _tip ->
