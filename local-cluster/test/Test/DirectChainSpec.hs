@@ -9,13 +9,10 @@ import Test.Hydra.Prelude
 
 import CardanoCluster (
   ClusterLog,
-  RunningCluster (..),
   keysFor,
   newNodeConfig,
-  testClusterConfig,
   waitForSocket,
   withBFTNode,
-  withCluster,
  )
 import CardanoNode (NodeLog, RunningNode (..))
 import Control.Concurrent (MVar, newEmptyMVar, putMVar, takeMVar)
@@ -43,14 +40,15 @@ spec = around showLogsOnFailure $ do
     alicesCallback <- newEmptyMVar
     bobsCallback <- newEmptyMVar
     withTempDir "hydra-local-cluster" $ \tmp -> do
-      let config = testClusterConfig tmp
-      withCluster (contramap FromCluster tracer) config $ \(RunningCluster _ [RunningNode _ node1socket, RunningNode _ node2socket, _]) -> do
+      config <- newNodeConfig tmp
+      withBFTNode (contramap FromCluster tracer) config $ \node@(RunningNode _ nodeSocket) -> do
+        waitForSocket node
         aliceKeys <- keysFor "alice"
         bobKeys <- keysFor "bob"
         let cardanoKeys = []
         withIOManager $ \iocp -> do
-          withDirectChain (contramap (FromDirectChain "alice") tracer) magic iocp node1socket aliceKeys alice cardanoKeys (putMVar alicesCallback) $ \Chain{postTx} -> do
-            withDirectChain nullTracer magic iocp node2socket bobKeys bob cardanoKeys (putMVar bobsCallback) $ \_ -> do
+          withDirectChain (contramap (FromDirectChain "alice") tracer) magic iocp nodeSocket aliceKeys alice cardanoKeys (putMVar alicesCallback) $ \Chain{postTx} -> do
+            withDirectChain nullTracer magic iocp nodeSocket bobKeys bob cardanoKeys (putMVar bobsCallback) $ \_ -> do
               postTx $ InitTx @SimpleTx $ HeadParameters 100 [alice, bob, carol]
               alicesCallback `observesInTime` OnInitTx 100 [alice, bob, carol]
               bobsCallback `observesInTime` OnInitTx 100 [alice, bob, carol]
@@ -64,14 +62,15 @@ spec = around showLogsOnFailure $ do
     alicesCallback <- newEmptyMVar
     bobsCallback <- newEmptyMVar
     withTempDir "hydra-local-cluster" $ \tmp -> do
-      let config = testClusterConfig tmp
-      withCluster (contramap FromCluster tracer) config $ \(RunningCluster _ [RunningNode _ node1socket, RunningNode _ node2socket, _]) -> do
+      config <- newNodeConfig tmp
+      withBFTNode (contramap FromCluster tracer) config $ \node@(RunningNode _ nodeSocket) -> do
+        waitForSocket node
         aliceKeys <- keysFor "alice"
         bobKeys <- keysFor "bob"
         let cardanoKeys = []
         withIOManager $ \iocp -> do
-          withDirectChain (contramap (FromDirectChain "alice") tracer) magic iocp node1socket aliceKeys alice cardanoKeys (putMVar alicesCallback) $ \Chain{postTx = alicePostTx} -> do
-            withDirectChain nullTracer magic iocp node2socket bobKeys bob cardanoKeys (putMVar bobsCallback) $ \Chain{postTx = bobPostTx} -> do
+          withDirectChain (contramap (FromDirectChain "alice") tracer) magic iocp nodeSocket aliceKeys alice cardanoKeys (putMVar alicesCallback) $ \Chain{postTx = alicePostTx} -> do
+            withDirectChain nullTracer magic iocp nodeSocket bobKeys bob cardanoKeys (putMVar bobsCallback) $ \Chain{postTx = bobPostTx} -> do
               alicePostTx $ InitTx @SimpleTx $ HeadParameters 100 [alice, carol]
               alicesCallback `observesInTime` OnInitTx 100 [alice, carol]
 
@@ -81,12 +80,13 @@ spec = around showLogsOnFailure $ do
   it "can commit" $ \tracer -> do
     alicesCallback <- newEmptyMVar
     withTempDir "hydra-local-cluster" $ \tmp -> do
-      let config = testClusterConfig tmp
-      withCluster (contramap FromCluster tracer) config $ \(RunningCluster _ [RunningNode _ node1socket, _, _]) -> do
+      config <- newNodeConfig tmp
+      withBFTNode (contramap FromCluster tracer) config $ \node@(RunningNode _ nodeSocket) -> do
+        waitForSocket node
         aliceKeys@(aliceCardanoVk, _) <- keysFor "alice"
         let cardanoKeys = [aliceCardanoVk]
         withIOManager $ \iocp -> do
-          withDirectChain (contramap (FromDirectChain "alice") tracer) magic iocp node1socket aliceKeys alice cardanoKeys (putMVar alicesCallback) $ \Chain{postTx} -> do
+          withDirectChain (contramap (FromDirectChain "alice") tracer) magic iocp nodeSocket aliceKeys alice cardanoKeys (putMVar alicesCallback) $ \Chain{postTx} -> do
             postTx $ InitTx @SimpleTx $ HeadParameters 100 [alice]
             alicesCallback `observesInTime` OnInitTx 100 [alice]
 
@@ -100,12 +100,12 @@ spec = around showLogsOnFailure $ do
     alicesCallback <- newEmptyMVar
     withTempDir "hydra-local-cluster" $ \tmp -> do
       config <- newNodeConfig tmp
-      withBFTNode (contramap FromCluster tracer) config $ \node@(RunningNode _ node1socket) -> do
+      withBFTNode (contramap FromCluster tracer) config $ \node@(RunningNode _ nodeSocket) -> do
         waitForSocket node
         aliceKeys@(aliceCardanoVk, _) <- keysFor "alice"
         let cardanoKeys = [aliceCardanoVk]
         withIOManager $ \iocp -> do
-          withDirectChain (contramap (FromDirectChain "alice") tracer) magic iocp node1socket aliceKeys alice cardanoKeys (putMVar alicesCallback) $ \Chain{postTx} -> do
+          withDirectChain (contramap (FromDirectChain "alice") tracer) magic iocp nodeSocket aliceKeys alice cardanoKeys (putMVar alicesCallback) $ \Chain{postTx} -> do
             postTx $ InitTx @SimpleTx $ HeadParameters 100 [alice]
             alicesCallback `observesInTime` OnInitTx 100 [alice]
 
