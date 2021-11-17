@@ -26,6 +26,7 @@ module HydraNode (
 
 import Hydra.Prelude hiding (delete)
 
+import Cardano.Api
 import Cardano.BM.Tracing (ToObject)
 import Cardano.Crypto.DSIGN (
   DSIGNAlgorithm (..),
@@ -44,7 +45,6 @@ import Data.Aeson.Types (Pair)
 import qualified Data.ByteString as BS
 import qualified Data.List as List
 import qualified Data.Text as T
-import Hydra.Chain.Direct.Util (SigningKey, VerificationKey)
 import Hydra.Logging (Tracer, traceWith)
 import Network.HTTP.Conduit (HttpExceptionContent (ConnectionFailure), parseRequest)
 import Network.HTTP.Simple (HttpException (HttpExceptionRequest), Response, getResponseBody, getResponseStatusCode, httpBS)
@@ -71,32 +71,32 @@ data HydraClient = HydraClient
   }
 
 -- | Create an input as expected by 'send'.
-input :: Text -> [Pair] -> Value
+input :: Text -> [Pair] -> Aeson.Value
 input tag pairs = object $ ("tag" .= tag) : pairs
 
-send :: HydraClient -> Value -> IO ()
+send :: HydraClient -> Aeson.Value -> IO ()
 send HydraClient{connection} v =
   sendTextData connection (Aeson.encode v)
 
 -- | Create an output as expected by 'waitFor' and 'waitForAll'.
-output :: Text -> [Pair] -> Value
+output :: Text -> [Pair] -> Aeson.Value
 output tag pairs = object $ ("tag" .= tag) : pairs
 
 -- | Wait some time for a single output from each of given nodes.
 -- This function waits for @delay@ seconds for message @expected@  to be seen by all
 -- given @nodes@.
-waitFor :: HasCallStack => Tracer IO EndToEndLog -> Natural -> [HydraClient] -> Value -> IO ()
+waitFor :: HasCallStack => Tracer IO EndToEndLog -> Natural -> [HydraClient] -> Aeson.Value -> IO ()
 waitFor tracer delay nodes v = waitForAll tracer delay nodes [v]
 
 -- TODO(AB): reuse waitNext in other waiters
-waitNext :: HasCallStack => HydraClient -> IO Value
+waitNext :: HasCallStack => HydraClient -> IO Aeson.Value
 waitNext HydraClient{connection} = do
   bytes <- receiveData connection
   case Aeson.eitherDecode' bytes of
     Left err -> failure $ "WaitNext failed to decode msg: " <> err
     Right value -> pure value
 
-waitMatch :: HasCallStack => Natural -> HydraClient -> (Value -> Maybe a) -> IO a
+waitMatch :: HasCallStack => Natural -> HydraClient -> (Aeson.Value -> Maybe a) -> IO a
 waitMatch delay HydraClient{connection} match = do
   seenMsgs <- newTVarIO []
   timeout (fromIntegral delay * 1_000_000) (go seenMsgs) >>= \case
@@ -117,7 +117,7 @@ waitMatch delay HydraClient{connection} match = do
 -- | Wait some time for a list of outputs from each of given nodes.
 -- This function is the generalised version of 'waitFor', allowing several messages
 -- to be waited for and received in /any order/.
-waitForAll :: HasCallStack => Tracer IO EndToEndLog -> Natural -> [HydraClient] -> [Value] -> IO ()
+waitForAll :: HasCallStack => Tracer IO EndToEndLog -> Natural -> [HydraClient] -> [Aeson.Value] -> IO ()
 waitForAll tracer delay nodes expected = do
   traceWith tracer (StartWaiting (map hydraNodeId nodes) expected)
   forConcurrently_ nodes $ \HydraClient{hydraNodeId, connection} -> do
@@ -175,8 +175,8 @@ queryNode nodeId =
 
 data EndToEndLog
   = NodeStarted Int
-  | StartWaiting [Int] [Value]
-  | ReceivedMessage Int Value
+  | StartWaiting [Int] [Aeson.Value]
+  | ReceivedMessage Int Aeson.Value
   | EndWaiting Int
   | FromCluster ClusterLog
   deriving (Eq, Show, Generic, ToJSON, FromJSON, ToObject)
@@ -201,6 +201,13 @@ withHydraCluster tracer workDir nodeSocket clusterSize action = do
           hydraSKey = SignKeyMockDSIGN nodeId
           cardanoVKeys = [workDir </> show i <.> "vk" | i <- allNodeIds, i /= nodeId]
           cardanoSKey = workDir </> show nodeId <.> "sk"
+
+      forM_ (zip allKeys [1 .. n]) $ \((vk, sk), ix) -> do
+        let vkFile = workDir </> show ix <.> "vk"
+        let skFile = workDir </> show ix <.> "sk"
+        void $ writeFileTextEnvelope vkFile Nothing vk
+        void $ writeFileTextEnvelope skFile Nothing sk
+
       withHydraNode
         tracer
         cardanoSKey
@@ -215,8 +222,10 @@ withHydraCluster tracer workDir nodeSocket clusterSize action = do
      where
       allNodeIds = [1 .. n]
 
-generateCardanoKey :: IO (VerificationKey, SigningKey)
-generateCardanoKey = error "not implemented"
+generateCardanoKey :: IO (VerificationKey PaymentKey, SigningKey PaymentKey)
+generateCardanoKey = do
+  sk <- generateSigningKey AsPaymentKey
+  pure (getVerificationKey sk, sk)
 
 withHydraNode ::
   forall alg.
