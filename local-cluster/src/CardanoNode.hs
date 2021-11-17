@@ -7,6 +7,7 @@ module CardanoNode where
 
 import Hydra.Prelude
 
+import Cardano.Api (AsType (AsPaymentKey), PaymentKey, SigningKey, VerificationKey, generateSigningKey, getVerificationKey)
 import Control.Retry (constantDelay, limitRetriesByCumulativeDelay, retrying)
 import Control.Tracer (
   Tracer,
@@ -176,6 +177,11 @@ mkTopology peers = do
   encodePeer port =
     Aeson.object
       ["addr" .= ("127.0.0.1" :: Text), "port" .= port, "valency" .= (1 :: Int)]
+
+generateCardanoKey :: IO (VerificationKey PaymentKey, SigningKey PaymentKey)
+generateCardanoKey = do
+  sk <- generateSigningKey AsPaymentKey
+  pure (getVerificationKey sk, sk)
 
 -- | Make a 'CreateProcess' for running @cardano-cli@. The program must be on
 -- the @PATH@, as normal. Sets @CARDANO_NODE_SOCKET_PATH@ for the subprocess, if

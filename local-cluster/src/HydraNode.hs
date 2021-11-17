@@ -34,6 +34,7 @@ import Cardano.Crypto.DSIGN (
   VerKeyDSIGN (VerKeyMockDSIGN),
  )
 import CardanoCluster (ClusterLog)
+import CardanoNode (generateCardanoKey)
 import Control.Concurrent.Async (
   forConcurrently_,
  )
@@ -192,7 +193,14 @@ withHydraCluster tracer workDir nodeSocket clusterSize action = do
   allKeys <- replicateM (fromIntegral clusterSize) generateCardanoKey
   case clusterSize of
     0 -> error "Cannot run a cluster with 0 number of nodes"
-    n -> go allKeys n [] [1 .. n]
+    n -> do
+      forM_ (zip allKeys [1 .. n]) $ \((vk, sk), ix) -> do
+        let vkFile = workDir </> show ix <.> "vk"
+        let skFile = workDir </> show ix <.> "sk"
+        void $ writeFileTextEnvelope vkFile Nothing vk
+        void $ writeFileTextEnvelope skFile Nothing sk
+
+      go allKeys n [] [1 .. n]
  where
   go allKeys n clients = \case
     [] -> action (fromList clients)
@@ -201,12 +209,6 @@ withHydraCluster tracer workDir nodeSocket clusterSize action = do
           hydraSKey = SignKeyMockDSIGN nodeId
           cardanoVKeys = [workDir </> show i <.> "vk" | i <- allNodeIds, i /= nodeId]
           cardanoSKey = workDir </> show nodeId <.> "sk"
-
-      forM_ (zip allKeys [1 .. n]) $ \((vk, sk), ix) -> do
-        let vkFile = workDir </> show ix <.> "vk"
-        let skFile = workDir </> show ix <.> "sk"
-        void $ writeFileTextEnvelope vkFile Nothing vk
-        void $ writeFileTextEnvelope skFile Nothing sk
 
       withHydraNode
         tracer
@@ -221,11 +223,6 @@ withHydraCluster tracer workDir nodeSocket clusterSize action = do
         (\c -> go allKeys n (c : clients) rest)
      where
       allNodeIds = [1 .. n]
-
-generateCardanoKey :: IO (VerificationKey PaymentKey, SigningKey PaymentKey)
-generateCardanoKey = do
-  sk <- generateSigningKey AsPaymentKey
-  pure (getVerificationKey sk, sk)
 
 withHydraNode ::
   forall alg.

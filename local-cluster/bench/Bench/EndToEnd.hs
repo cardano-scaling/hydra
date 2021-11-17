@@ -14,7 +14,7 @@ import Cardano.Crypto.DSIGN (
   VerKeyDSIGN,
  )
 import CardanoCluster (newNodeConfig, withBFTNode)
-import CardanoNode (RunningNode (..))
+import CardanoNode (RunningNode (..), generateCardanoKey)
 import Control.Lens (to, (^?))
 import Control.Monad.Class.MonadAsync (mapConcurrently)
 import Control.Monad.Class.MonadSTM (
@@ -77,8 +77,9 @@ bench timeoutSeconds workDir dataset clusterSize =
   specify ("Load test on " <> show clusterSize <> " local nodes in " <> workDir) $ do
     showLogsOnFailure $ \tracer ->
       failAfter timeoutSeconds $ do
+        cardanoKeys <- replicateM (fromIntegral clusterSize) generateCardanoKey
         config <- newNodeConfig workDir
-        withBFTNode (contramap FromCluster tracer) config $ \(RunningNode _ nodeSocket) -> do
+        withBFTNode (contramap FromCluster tracer) config (fst <$> cardanoKeys) $ \(RunningNode _ nodeSocket) -> do
           withHydraCluster tracer workDir nodeSocket clusterSize $ \(leader :| followers) -> do
             let nodes = leader : followers
             waitForNodesConnected tracer [1 .. fromIntegral clusterSize] nodes

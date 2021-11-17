@@ -12,6 +12,7 @@ import Cardano.Api (
   NetworkMagic (NetworkMagic),
   PaymentKey,
   SigningKey (PaymentSigningKey),
+  VerificationKey,
   readFileTextEnvelope,
  )
 import Cardano.Crypto.DSIGN (deriveVerKeyDSIGN)
@@ -70,9 +71,9 @@ withCluster tr cfg@ClusterConfig{parentStateDirectory} action = do
     makeNodesConfig parentStateDirectory systemStart
       <$> randomUnusedTCPPorts 3
 
-  withBFTNode tr cfgA $ \nodeA -> do
-    withBFTNode tr cfgB $ \nodeB -> do
-      withBFTNode tr cfgC $ \nodeC -> do
+  withBFTNode tr cfgA [] $ \nodeA -> do
+    withBFTNode tr cfgB [] $ \nodeB -> do
+      withBFTNode tr cfgC [] $ \nodeC -> do
         let nodes = [nodeA, nodeB, nodeC]
         action (RunningCluster cfg nodes)
 
@@ -91,8 +92,13 @@ signingKeyPathFor actor = "config" </> "credentials" </> actor <.> "sk"
 verificationKeyPathFor :: String -> FilePath
 verificationKeyPathFor actor = "config" </> "credentials" </> actor <.> "vk"
 
-withBFTNode :: Tracer IO ClusterLog -> CardanoNodeConfig -> (RunningNode -> IO ()) -> IO ()
-withBFTNode clusterTracer cfg action = do
+withBFTNode ::
+  Tracer IO ClusterLog ->
+  CardanoNodeConfig ->
+  [VerificationKey PaymentKey] ->
+  (RunningNode -> IO ()) ->
+  IO ()
+withBFTNode clusterTracer cfg _initialFunds action = do
   createDirectoryIfMissing False (stateDirectory cfg)
 
   [dlgCert, signKey, vrfKey, kesKey, opCert] <-
@@ -171,22 +177,25 @@ makeNodesConfig ::
   [Port] ->
   (CardanoNodeConfig, CardanoNodeConfig, CardanoNodeConfig)
 makeNodesConfig stateDirectory systemStart [a, b, c] =
-  ( CardanoNodeConfig 1 (stateDirectory </> "node-1") systemStart $
-      PortsConfig a [b, c]
-  , CardanoNodeConfig 2 (stateDirectory </> "node-2") systemStart $
-      PortsConfig b [a, c]
-  , CardanoNodeConfig 3 (stateDirectory </> "node-3") systemStart $
-      PortsConfig c [a, b]
+  ( CardanoNodeConfig 1 (stateDirectory </> "node-1") systemStart (PortsConfig a [b, c])
+  , CardanoNodeConfig 2 (stateDirectory </> "node-2") systemStart (PortsConfig b [a, c])
+  , CardanoNodeConfig 3 (stateDirectory </> "node-3") systemStart (PortsConfig c [a, b])
   )
 makeNodesConfig _ _ _ = error "we only support topology for 3 nodes"
 
 newNodeConfig ::
   FilePath ->
   IO CardanoNodeConfig
-newNodeConfig dir = do
+newNodeConfig stateDirectory = do
   nodePort <- randomUnusedTCPPort
   systemStart <- initSystemStart
-  pure $ CardanoNodeConfig 1 dir systemStart $ PortsConfig nodePort []
+  pure $
+    CardanoNodeConfig
+      { nodeId = 1
+      , stateDirectory
+      , systemStart
+      , ports = PortsConfig nodePort []
+      }
 
 --
 -- Logging

@@ -40,7 +40,7 @@ spec = around showLogsOnFailure $ do
     bobsCallback <- newEmptyMVar
     withTempDir "hydra-local-cluster" $ \tmp -> do
       config <- newNodeConfig tmp
-      withBFTNode (contramap FromCluster tracer) config $ \(RunningNode _ nodeSocket) -> do
+      withBFTNode (contramap FromCluster tracer) config [] $ \(RunningNode _ nodeSocket) -> do
         aliceKeys <- keysFor "alice"
         bobKeys <- keysFor "bob"
         let cardanoKeys = []
@@ -61,7 +61,7 @@ spec = around showLogsOnFailure $ do
     bobsCallback <- newEmptyMVar
     withTempDir "hydra-local-cluster" $ \tmp -> do
       config <- newNodeConfig tmp
-      withBFTNode (contramap FromCluster tracer) config $ \(RunningNode _ nodeSocket) -> do
+      withBFTNode (contramap FromCluster tracer) config [] $ \(RunningNode _ nodeSocket) -> do
         aliceKeys <- keysFor "alice"
         bobKeys <- keysFor "bob"
         let cardanoKeys = []
@@ -78,7 +78,7 @@ spec = around showLogsOnFailure $ do
     alicesCallback <- newEmptyMVar
     withTempDir "hydra-local-cluster" $ \tmp -> do
       config <- newNodeConfig tmp
-      withBFTNode (contramap FromCluster tracer) config $ \(RunningNode _ nodeSocket) -> do
+      withBFTNode (contramap FromCluster tracer) config [] $ \(RunningNode _ nodeSocket) -> do
         aliceKeys@(aliceCardanoVk, _) <- keysFor "alice"
         let cardanoKeys = [aliceCardanoVk]
         withIOManager $ \iocp -> do
@@ -96,7 +96,7 @@ spec = around showLogsOnFailure $ do
     alicesCallback <- newEmptyMVar
     withTempDir "hydra-local-cluster" $ \tmp -> do
       config <- newNodeConfig tmp
-      withBFTNode (contramap FromCluster tracer) config $ \(RunningNode _ nodeSocket) -> do
+      withBFTNode (contramap FromCluster tracer) config [] $ \(RunningNode _ nodeSocket) -> do
         aliceKeys@(aliceCardanoVk, _) <- keysFor "alice"
         let cardanoKeys = [aliceCardanoVk]
         withIOManager $ \iocp -> do
