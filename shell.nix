@@ -79,7 +79,7 @@ let
       pkgs.cabal-install
       pkgs.git
       pkgs.pkgconfig
-    ];
+    ] ++ tools;
 
     # Ensure that libz.so and other libraries are available to TH splices.
     LD_LIBRARY_PATH = pkgs.lib.makeLibraryPath libs;
