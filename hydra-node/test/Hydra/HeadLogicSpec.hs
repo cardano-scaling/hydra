@@ -26,7 +26,7 @@ import Hydra.Ledger (Ledger (..), Tx (..))
 import Hydra.Ledger.Simple (SimpleTx (..), aValidTx, simpleLedger, utxoRef)
 import Hydra.Network (Host (..))
 import Hydra.Network.Message (Message (AckSn, Connected, ReqSn, ReqTx))
-import Hydra.Party (Party, sign)
+import Hydra.Party (Party (..), sign)
 import Hydra.ServerOutput (ServerOutput (PeerConnected))
 import Hydra.Snapshot (Snapshot (..))
 import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
@@ -39,7 +39,7 @@ spec = do
 
   parallel $
     describe "Coordinated Head Protocol" $ do
-      let threeParties = [1, 2, 3]
+      let threeParties = [Party{alias = Just "alice", vkey = 1}, 2, 3]
           ledger = simpleLedger
           env =
             Environment
