@@ -56,7 +56,7 @@ import qualified Hydra.Data.Party as OnChain
 import Hydra.Data.Utxo (fromByteString)
 import qualified Hydra.Data.Utxo as OnChain
 import Hydra.Ledger (Tx, Utxo)
-import Hydra.Party (Party, anonymousParty, vkey)
+import Hydra.Party (Party, anonymousParty, stripAlias, vkey)
 import Hydra.Snapshot (SnapshotNumber)
 import Ledger.Value (AssetClass (..), currencyMPSHash)
 import Plutus.V1.Ledger.Api (FromData, MintingPolicyHash, PubKeyHash (..), fromData, toData)
@@ -456,12 +456,14 @@ abortTx (headInput, headDatum) initInputs =
 
 -- * Observe Hydra Head transactions
 
+-- XXX(SN): We should log decisions why a tx is not an initTx etc. instead of
+-- only returning a Maybe, i.e. 'Either Reason (OnChainTx tx, OnChainHeadState)'
 observeInitTx :: Party -> ValidatedTx Era -> Maybe (OnChainTx tx, OnChainHeadState)
 observeInitTx party ValidatedTx{wits, body} = do
   (dh, headDatum, MockHead.Initial cp ps) <- getFirst $ foldMap (First . decodeHeadDatum) datumsList
   let parties = map convertParty ps
   let cperiod = contestationPeriodToDiffTime cp
-  guard $ party `elem` parties
+  guard $ stripAlias party `elem` parties
   (i, o) <- getFirst $ foldMap (First . findSmOutput dh) indexedOutputs
   pure
     ( OnInitTx cperiod parties
