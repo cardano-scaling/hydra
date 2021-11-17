@@ -31,6 +31,7 @@ COPY --from=build /build/hydra-node.closure hydra-node.closure
 
 RUN nix-store --import < hydra-node.closure && nix-env -i $(cat hydra-node.drv)
 
+STOPSIGNAL SIGINT
 ENTRYPOINT ["hydra-node"]
 
 # ------------------------------------------------------------------- HYDRA-TUI
@@ -42,6 +43,7 @@ COPY --from=build /build/hydra-tui.closure hydra-tui.closure
 
 RUN nix-store --import < hydra-tui.closure && nix-env -i $(cat hydra-tui.drv)
 
+STOPSIGNAL SIGINT
 ENTRYPOINT ["hydra-tui"]
 
 # ------------------------------------------------------------------- MOCK-CHAIN
@@ -53,4 +55,5 @@ COPY --from=build /build/mock-chain.closure mock-chain.closure
 
 RUN nix-store --import < mock-chain.closure && nix-env -i $(cat mock-chain.drv)
 
+STOPSIGNAL SIGINT
 ENTRYPOINT ["mock-chain"]
