@@ -61,14 +61,11 @@ docker run --rm inputoutput/hydra:hydra-node-latest --help
 ```
 
 First, let's prepare and start an ad-hoc, single `cardano-node` devnet using our
-configuration:
+configuration. Note that this will create a `devnet` directory in your current
+working directory:
 
 ```sh
-cp -afT local-cluster/config devnet
-echo '{"Producers": []}' > devnet/topology.json
-sed -i "s/\"startTime\": [0-9]*/\"startTime\": $(date +%s)/" devnet/genesis-byron.json && \
-  sed -i "s/\"systemStart\": \".*\"/\"systemStart\": \"$(date -u +%FT%TZ)\"/" devnet/genesis-shelley.json
-
+./demo/prepare-devnet.sh
 docker run -d --name cardano-node --network host \
   -v $PWD/devnet:/data \
   -v node-ipc:/ipc \
