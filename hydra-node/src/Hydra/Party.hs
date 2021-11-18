@@ -1,5 +1,4 @@
 {-# LANGUAGE TypeApplications #-}
--- ToJSON VerificationKey
 {-# OPTIONS_GHC -Wno-orphans #-}
 
 -- | Types and functions revolving around a Hydra 'Party'. That is, a
@@ -18,65 +17,36 @@ import Cardano.Crypto.DSIGN (
   VerKeyDSIGN,
   signDSIGN,
  )
+import Cardano.Crypto.Hash (Blake2b_256)
 import Cardano.Crypto.Seed (mkSeedFromBytes)
 import Cardano.Crypto.Util (SignableRepresentation)
-import Data.Aeson (ToJSONKey, Value (String), object, withText, (.=))
+import Data.Aeson (ToJSONKey, Value (String), withText)
 import Data.Aeson.Types (FromJSONKey)
 import qualified Data.ByteString.Base16 as Base16
 import Test.QuickCheck (vectorOf)
 import Text.Show (Show (..))
 
 -- | Identifies a party in a Hydra head by it's 'VerificationKey'.
-data Party = Party
-  { alias :: Maybe Text
-  , vkey :: VerificationKey
-  }
-  deriving (Eq, Generic, FromJSON)
+newtype Party = Party {vkey :: VerificationKey}
+  deriving (Eq, Generic)
+  deriving anyclass (ToJSON, FromJSON, FromJSONKey, ToJSONKey)
+
+instance Ord Party where
+  Party{vkey = a} <= Party{vkey = b} =
+    hashVerKeyDSIGN @_ @Blake2b_256 a <= hashVerKeyDSIGN @_ @Blake2b_256 b
 
 instance Show Party where
-  show Party{alias, vkey} =
-    toString $ prefix <> showVerificationKey vkey
-   where
-    prefix = case alias of
-      Nothing -> ""
-      Just a -> a <> "@"
-
--- NOTE(SN): This instance is ordering aliased parties in front of unaliased
--- parties. It is covered well by tests, but I don't feel too comfortable in
--- implementing such low-level instances, which could impact 'Set' behavior.
-instance Ord Party where
-  a <= b =
-    case (alias a, alias b) of
-      (Just _, Just _) -> compareAliases || compareKeys
-      (Just _, Nothing) -> True
-      (Nothing, Just _) -> True
-      _ -> compareKeys
-   where
-    compareAliases = alias a <= alias b
-
-    compareKeys = rawSerialiseVerKeyDSIGN (vkey a) <= rawSerialiseVerKeyDSIGN (vkey b)
+  show Party{vkey} =
+    toString $ showVerificationKey vkey
 
 instance Arbitrary Party where
   arbitrary = deriveParty . generateKey <$> arbitrary
 
 instance FromCBOR Party where
-  fromCBOR = Party <$> fromCBOR <*> fromCBOR
+  fromCBOR = Party <$> fromCBOR
 
 instance ToCBOR Party where
-  toCBOR Party{alias, vkey} =
-    toCBOR alias <> toCBOR vkey
-
--- REVIEW(SN): are default instances using 'Show' or 'ToJSON'?
-instance FromJSONKey Party
-instance ToJSONKey Party
-
-instance ToJSON Party where
-  toJSON Party{alias, vkey} =
-    object $ ["vkey" .= vkey] <> maybeAlias
-   where
-    maybeAlias = case alias of
-      Nothing -> []
-      Just a -> ["alias" .= a]
+  toCBOR Party{vkey} = toCBOR vkey
 
 -- NOTE(SN): Convenience type class to be able to quickly create parties from
 -- integer literals using 'fromInteger', e.g. `let alice = 10`. This will be
@@ -90,14 +60,12 @@ instance Num Party where
   signum = error "Party is not a proper Num"
   (-) = error "Party is not a proper Num"
 
-anonymousParty :: VerificationKey -> Party
-anonymousParty = Party Nothing
-
-stripAlias :: Party -> Party
-stripAlias Party{vkey} = anonymousParty vkey
-
 deriveParty :: SigningKey -> Party
-deriveParty = anonymousParty . deriveVerKeyDSIGN
+deriveParty = Party . deriveVerKeyDSIGN
+
+-- * Hydra keys
+
+-- TODO(SN): move into a Hydra.Crypto module or so
 
 type VerificationKey = VerKeyDSIGN MockDSIGN
 
@@ -151,6 +119,8 @@ instance Typeable a => FromCBOR (Signed a) where
 
 instance Typeable a => ToCBOR (Signed a) where
   toCBOR (UnsafeSigned sig) = toCBOR sig
+
+-- * Helpers
 
 decodeBase16' :: MonadFail f => Text -> f ByteString
 decodeBase16' =

@@ -39,7 +39,7 @@ spec = do
 
   parallel $
     describe "Coordinated Head Protocol" $ do
-      let threeParties = [Party{alias = Just "alice", vkey = 1}, 2, 3]
+      let threeParties = [1, 2, 3]
           ledger = simpleLedger
           env =
             Environment

@@ -56,7 +56,7 @@ import qualified Hydra.Data.Party as OnChain
 import Hydra.Data.Utxo (fromByteString)
 import qualified Hydra.Data.Utxo as OnChain
 import Hydra.Ledger (Tx, Utxo)
-import Hydra.Party (Party, anonymousParty, stripAlias, vkey)
+import Hydra.Party (Party (Party), vkey)
 import Hydra.Snapshot (SnapshotNumber)
 import Ledger.Value (AssetClass (..), currencyMPSHash)
 import Plutus.V1.Ledger.Api (FromData, MintingPolicyHash, PubKeyHash (..), fromData, toData)
@@ -463,7 +463,7 @@ observeInitTx party ValidatedTx{wits, body} = do
   (dh, headDatum, MockHead.Initial cp ps) <- getFirst $ foldMap (First . decodeHeadDatum) datumsList
   let parties = map convertParty ps
   let cperiod = contestationPeriodToDiffTime cp
-  guard $ stripAlias party `elem` parties
+  guard $ party `elem` parties
   (i, o) <- getFirst $ foldMap (First . findSmOutput dh) indexedOutputs
   pure
     ( OnInitTx cperiod parties
@@ -503,7 +503,7 @@ observeInitTx party ValidatedTx{wits, body} = do
   initialScript = plutusScript MockInitial.validatorScript
 
 convertParty :: OnChain.Party -> Party
-convertParty = anonymousParty . partyToVerKey
+convertParty = Party . partyToVerKey
 
 -- | Identify a commit tx by looking for an output which pays to v_commit.
 observeCommitTx :: forall tx. Tx tx => ValidatedTx Era -> Maybe (OnChainTx tx)

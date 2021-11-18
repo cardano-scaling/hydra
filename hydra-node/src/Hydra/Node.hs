@@ -19,7 +19,6 @@ import Control.Monad.Class.MonadSTM (
   stateTVar,
   writeTQueue,
  )
-import Data.Char (isLetter)
 import Hydra.API.Server (Server, sendOutput)
 import Hydra.Chain (Chain (..), OnChainTx)
 import Hydra.ClientInput (ClientInput)
@@ -39,7 +38,6 @@ import Hydra.Network (Network (..))
 import Hydra.Network.Message (Message)
 import Hydra.Options (Options (..))
 import Hydra.Party (Party (..))
-import System.FilePath (takeBaseName)
 
 -- * Environment Handling
 
@@ -50,7 +48,7 @@ initEnvironment Options{hydraSigningKey, hydraVerificationKeys} = do
   otherParties <- mapM loadParty hydraVerificationKeys
   pure $
     Environment
-      { party = Party (mkAlias hydraSigningKey) vk
+      { party = Party vk
       , signingKey = sk
       , otherParties
       }
@@ -62,13 +60,7 @@ initEnvironment Options{hydraSigningKey, hydraVerificationKeys} = do
       Just key -> pure key
 
   loadParty p =
-    Party (mkAlias p) <$> loadVerificationKey p
-
-  mkAlias p =
-    case takeBaseName p of
-      name@(x : _)
-        | isLetter x -> Just $ toText name
-      _ -> Nothing
+    Party <$> loadVerificationKey p
 
   loadVerificationKey p = do
     mKey <- rawDeserialiseVerKeyDSIGN <$> readFileBS p

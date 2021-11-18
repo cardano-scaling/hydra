@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 As a minor extension, we also keep a semantic version for the `UNRELEASED`
 changes.
 
+## [0.2.0] - UNRELEASED
+- Connect to a cardano-node using a direct chain interaction (no on-chain validators).
+- Remove aliases from party identifiers.
+
 ## [0.1.0] - 2021-09-30
 - First proof-of-concept for a `hydra-node`
 ### Added
