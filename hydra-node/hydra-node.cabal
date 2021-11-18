@@ -84,6 +84,7 @@ library
     Hydra.HeadLogic
     Hydra.Ledger
     Hydra.Ledger.Cardano
+    Hydra.Ledger.Cardano.Orphans
     Hydra.Ledger.Simple
     Hydra.Logging
     Hydra.Logging.Messages
@@ -153,6 +154,7 @@ library
     , req
     , shelley-spec-ledger
     , shelley-spec-ledger-test
+    , small-steps
     , stm
     , strict-containers
     , text

@@ -10,8 +10,9 @@
 module Hydra.Ledger.Simple where
 
 import Hydra.Prelude
-import Test.QuickCheck (Gen, choose, getSize, sublistOf)
 
+import Cardano.Api
+import Cardano.Binary (decodeFullDecoder, serializeEncoding')
 import Data.Aeson (
   object,
   withObject,
@@ -21,26 +22,30 @@ import Data.Aeson (
 import Data.List (maximum)
 import qualified Data.Set as Set
 import Hydra.Ledger
+import Test.QuickCheck (Gen, choose, getSize, sublistOf)
 
-instance Tx SimpleTx where
-  type Utxo SimpleTx = Set TxIn
-  type TxId SimpleTx = SimpleId
-  type AssetId SimpleTx = SimpleId
-
-  txId (SimpleTx tid _ _) = tid
-  balance u =
-    let lovelace = fromIntegral (Set.size u)
-        assets = mempty
-     in Balance{lovelace, assets}
+--
+-- SimpleTx
+--
 
 -- | Simple transaction.
 -- A transaction is a 'SimpleId', a list of inputs and a list of outputs.
 data SimpleTx = SimpleTx
   { txSimpleId :: SimpleId
-  , txInputs :: Utxo SimpleTx
-  , txOutputs :: Utxo SimpleTx
+  , txInputs :: UtxoType SimpleTx
+  , txOutputs :: UtxoType SimpleTx
   }
   deriving stock (Eq, Ord, Generic, Show)
+
+type SimpleId = Integer
+
+instance IsTx SimpleTx where
+  type UtxoType SimpleTx = Set MockTxIn
+  type TxIdType SimpleTx = SimpleId
+  type ValueType SimpleTx = Int
+
+  txId (SimpleTx tid _ _) = tid
+  balance = Set.size
 
 instance Arbitrary SimpleTx where
   shrink = genericShrink
@@ -61,29 +66,35 @@ instance FromJSON SimpleTx where
       <*> (obj .: "inputs")
       <*> (obj .: "outputs")
 
-instance ToCBOR SimpleTx where
-  toCBOR (SimpleTx txid inputs outputs) =
-    toCBOR txid <> toCBOR inputs <> toCBOR outputs
+instance SerialiseAsCBOR SimpleTx where
+  serialiseToCBOR (SimpleTx txid inputs outputs) =
+    serializeEncoding' (toCBOR txid <> toCBOR inputs <> toCBOR outputs)
+  deserialiseFromCBOR _ =
+    decodeFullDecoder "SimpleTx" (SimpleTx <$> fromCBOR <*> fromCBOR <*> fromCBOR) . fromStrict
 
-instance FromCBOR SimpleTx where
-  fromCBOR = SimpleTx <$> fromCBOR <*> fromCBOR <*> fromCBOR
+data AsSimpleTx
+instance HasTypeProxy SimpleTx where
+  data AsType SimpleTx = AsSimpleTx
+  proxyToAsType _ = AsSimpleTx
 
-type SimpleId = Integer
+--
+-- MockTxIn
+--
 
 -- |An identifier for a single output of a 'SimpleTx'.
-newtype TxIn = TxIn {unTxIn :: Integer}
+newtype MockTxIn = MockTxIn {unMockTxIn :: Integer}
   deriving stock (Generic)
   deriving newtype (Eq, Ord, Show, Num, ToJSON, FromJSON)
 
-instance Arbitrary TxIn where
+instance Arbitrary MockTxIn where
   shrink = genericShrink
   arbitrary = genericArbitrary
 
-instance ToCBOR TxIn where
-  toCBOR (TxIn inId) = toCBOR inId
+instance ToCBOR MockTxIn where
+  toCBOR (MockTxIn inId) = toCBOR inId
 
-instance FromCBOR TxIn where
-  fromCBOR = TxIn <$> fromCBOR
+instance FromCBOR MockTxIn where
+  fromCBOR = MockTxIn <$> fromCBOR
 
 simpleLedger :: Ledger SimpleTx
 simpleLedger =
@@ -96,37 +107,48 @@ simpleLedger =
     , initUtxo = mempty
     }
 
--- * Builders
+--
+-- Builders
+--
 
-utxoRef :: Integer -> Utxo SimpleTx
-utxoRef = Set.singleton . TxIn
+utxoRef :: Integer -> UtxoType SimpleTx
+utxoRef = Set.singleton . MockTxIn
 
-utxoRefs :: [Integer] -> Utxo SimpleTx
-utxoRefs = Set.fromList . fmap TxIn
+utxoRefs :: [Integer] -> UtxoType SimpleTx
+utxoRefs = Set.fromList . fmap MockTxIn
 
 aValidTx :: Integer -> SimpleTx
 aValidTx n = SimpleTx n mempty (utxoRef n)
--- * Generators
 
-listOfCommittedUtxos :: Integer -> Gen [Utxo SimpleTx]
+--
+--  Generators
+--
+
+listOfCommittedUtxos :: Integer -> Gen [UtxoType SimpleTx]
 listOfCommittedUtxos numCommits =
-  pure $ Set.singleton . TxIn <$> [1 .. numCommits]
+  pure $ Set.singleton . MockTxIn <$> [1 .. numCommits]
 
-genSequenceOfValidTransactions :: Utxo SimpleTx -> Gen [SimpleTx]
+genSequenceOfValidTransactions :: UtxoType SimpleTx -> Gen [SimpleTx]
 genSequenceOfValidTransactions initialUtxo = do
   n <- fromIntegral <$> getSize
-  let maxId = if Set.null initialUtxo then 0 else unTxIn (maximum initialUtxo)
+  let maxId = if Set.null initialUtxo then 0 else unMockTxIn (maximum initialUtxo)
   numTxs <- choose (1, n)
   foldlM newTx (maxId, initialUtxo, mempty) [1 .. numTxs] >>= \(_, _, txs) -> pure (reverse txs)
  where
-  newTx :: (Integer, Utxo SimpleTx, [SimpleTx]) -> Integer -> Gen (Integer, Utxo SimpleTx, [SimpleTx])
+  newTx ::
+    (TxIdType SimpleTx, UtxoType SimpleTx, [SimpleTx]) ->
+    TxIdType SimpleTx ->
+    Gen (TxIdType SimpleTx, UtxoType SimpleTx, [SimpleTx])
   newTx (maxId, utxo, txs) txid = do
     (newMax, ins, outs) <- genInputsAndOutputs maxId utxo
     pure (newMax, (utxo Set.\\ ins) `Set.union` outs, SimpleTx txid ins outs : txs)
 
-  genInputsAndOutputs :: Integer -> Set TxIn -> Gen (Integer, Set TxIn, Set TxIn)
+  genInputsAndOutputs ::
+    TxIdType SimpleTx ->
+    Set MockTxIn ->
+    Gen (TxIdType SimpleTx, Set MockTxIn, Set MockTxIn)
   genInputsAndOutputs maxId utxo = do
     ins <- sublistOf (Set.toList utxo)
     numOuts <- choose (1, 10)
     let outs = fmap (+ maxId) [1 .. numOuts]
-    pure (maximum outs, Set.fromList ins, Set.fromList $ fmap TxIn outs)
+    pure (maximum outs, Set.fromList ins, Set.fromList $ fmap MockTxIn outs)

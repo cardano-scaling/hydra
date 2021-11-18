@@ -5,47 +5,57 @@ module Hydra.Ledger where
 
 import Hydra.Prelude
 
+import Cardano.Api
+
 class
   ( Eq tx
-  , Eq (TxId tx)
-  , Eq (Utxo tx)
-  , FromCBOR tx
-  , FromJSON (TxId tx)
-  , FromJSON (Utxo tx)
-  , FromJSON tx
-  , Monoid (Utxo tx)
-  , Ord (TxId tx)
-  , Show (TxId tx)
-  , Show (Utxo tx)
   , Show tx
-  , ToCBOR tx
-  , ToJSON (TxId tx)
-  , ToJSON (Utxo tx)
-  , ToJSON tx
-  , Typeable (TxId tx)
   , Typeable tx
+  , SerialiseAsCBOR tx
+  , FromJSON tx
+  , ToJSON tx
+  , --
+    Eq (TxIdType tx)
+  , Ord (TxIdType tx)
+  , Show (TxIdType tx)
+  , Typeable (TxIdType tx)
+  , FromJSON (TxIdType tx)
+  , ToJSON (TxIdType tx)
+  , --
+    Eq (UtxoType tx)
+  , Show (UtxoType tx)
+  , FromJSON (UtxoType tx)
+  , Monoid (UtxoType tx)
+  , ToJSON (UtxoType tx)
   ) =>
-  Tx tx
+  IsTx tx
   where
-  type Utxo tx
-  type TxId tx
-  type AssetId tx
+  type UtxoType tx
+  type TxIdType tx
+  type ValueType tx
 
-  txId :: tx -> TxId tx
+  txId :: tx -> TxIdType tx
+  balance :: UtxoType tx -> ValueType tx
 
-  balance :: Utxo tx -> Balance tx
-
-data Balance tx = Balance
-  { lovelace :: Natural
-  , assets :: Map (AssetId tx) Integer
-  }
-
+-- | An abstract interface for a 'Ledger'. Allows to define mock / simpler
+-- implementation for testing as well as limiting feature-envy from the business
+-- logic by forcing a closed interface.
 data Ledger tx = Ledger
-  { applyTransactions :: Utxo tx -> [tx] -> Either ValidationError (Utxo tx)
-  , initUtxo :: Utxo tx
+  { -- | Apply a set of transaction to a given UTXO set. Returns the new UTXO or
+    -- validation failures returned from the ledger.
+    applyTransactions ::
+      UtxoType tx ->
+      [tx] ->
+      Either ValidationError (UtxoType tx)
+  , -- | Generates an initial UTXO set. This is only temporary as it does not
+    -- allow to initialize the UTXO.
+    --
+    -- TODO: This seems redundant with the `Monoid (UtxoType tx)` constraints
+    -- coming with `IsTx`. We probably want to dry this out.
+    initUtxo :: UtxoType tx
   }
 
-canApply :: Ledger tx -> Utxo tx -> tx -> ValidationResult
+canApply :: Ledger tx -> UtxoType tx -> tx -> ValidationResult
 canApply ledger utxo tx =
   either Invalid (const Valid) $ applyTransactions ledger utxo (pure tx)
 
