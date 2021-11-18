@@ -81,6 +81,7 @@ import Data.Aeson.Lens (key)
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Base16 as Base16
 import qualified Data.Map as Map
+import qualified Data.Set as Set
 import Hydra.Logging (showLogsOnFailure)
 import Hydra.Party (Party, deriveParty)
 import HydraNode (
@@ -104,7 +105,7 @@ allNodeIds = [1 .. 3]
 
 spec :: Spec
 spec = around showLogsOnFailure $
-  describe "End-to-end test using a mocked chain though" $ do
+  describe "End-to-end test using a single cardano-node" $ do
     describe "three hydra nodes scenario" $ do
       it "inits a Head, processes a single Cardano transaction and closes it again" $ \tracer -> do
         failAfter 60 $
@@ -120,7 +121,7 @@ spec = around showLogsOnFailure $
                     let contestationPeriod = 10 :: Natural
                     send n1 $ input "Init" ["contestationPeriod" .= contestationPeriod]
                     waitFor tracer 20 [n1, n2, n3] $
-                      output "ReadyToCommit" ["parties" .= [alice, bob, carol]]
+                      output "ReadyToCommit" ["parties" .= Set.fromList [alice, bob, carol]]
 
                     let someUtxo =
                           Map.singleton
@@ -193,7 +194,7 @@ spec = around showLogsOnFailure $
                   withHydraNode tracer (sk "carol") (vk <$> ["alice", "bob"]) tmpDir nodeSocket 3 carolSk [aliceVk, bobVk] allNodeIds $ \_n3 -> do
                     waitForNodesConnected tracer allNodeIds [n1]
                     send n1 $ input "Init" ["contestationPeriod" .= int 10]
-                    waitFor tracer 3 [n1] $ output "ReadyToCommit" ["parties" .= [alice, bob, carol]]
+                    waitFor tracer 3 [n1] $ output "ReadyToCommit" ["parties" .= Set.fromList [alice, bob, carol]]
                     metrics <- getMetrics n1
                     metrics `shouldSatisfy` ("hydra_head_events  4" `BS.isInfixOf`)
 
