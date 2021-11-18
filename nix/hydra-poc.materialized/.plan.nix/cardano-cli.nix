@@ -11,7 +11,7 @@
     flags = { unexpected_thunks = false; };
     package = {
       specVersion = "3.0";
-      identifier = { name = "cardano-cli"; version = "1.30.0"; };
+      identifier = { name = "cardano-cli"; version = "1.31.0"; };
       license = "Apache-2.0";
       copyright = "";
       maintainer = "operations@iohk.io";
