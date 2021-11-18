@@ -1,4 +1,4 @@
-index-state: 2021-08-14T00:00:00Z
+index-state: 2021-09-15T00:00:00Z
 
 packages:
   local-cluster
@@ -29,19 +29,18 @@ package merkle-patricia-tree
 -- Always show detailed output for tests
 test-show-details: direct
 
--- NOTE(SN): The following is taken from cardano-node v1.31.0-rc1
+-- NOTE(SN): The following is taken from cardano-node v1.31.0
 
 source-repository-package
   type: git
   location: https://github.com/input-output-hk/cardano-node.git
-  tag: b6ca519f97a0e795611a63174687e6bb70c9f752
-  --sha256: 0z5lpmqc98fwg3xzpzxkfslbxdjwfyyw8bn8yq0574sf4942vqdn
+  tag: 2cbe363874d0261bc62f52185cf23ed492cf4859
+  --sha256: 0x5j0cynlc9kiyj9w7casax477z3fb74pfsyfl373dn7rv1grg4d
   subdir:
     cardano-api
     cardano-node
     cardano-cli
     cardano-config
-
 
 -- NOTE(SN): These source-repository-package tags are copied from the
 -- 'cardano-node' repository cabal.project at the revision given above. Make
@@ -196,5 +195,13 @@ source-repository-package
   tag: ee59880f47ab835dbd73bea0847dab7869fc20d8
   --sha256: 1lrzknw765pz2j97nvv9ip3l1mcpf2zr4n56hwlz0rk7wq7ls4cm
 
+constraints:
+    hedgehog >= 1.0
+  , bimap >= 0.4.0
+  , libsystemd-journal >= 1.4.4
+  , systemd >= 2.3.0
+  , network >= 3.1.1.0
+
 allow-newer:
+  monoidal-containers:aeson,
   size-based:template-haskell
