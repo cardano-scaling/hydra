@@ -1,10 +1,10 @@
 # 11. Use cardano-api
 
-Date: 2021-10-25
+Date: 2021-11-18
 
 ## Status
 
-:hammer_and_wrench:
+Accepted
 
 ## Context
 
@@ -27,5 +27,4 @@ _Therefore_
 * Simplifies the  `Hydra.Chain.Direct` component:
   * Replaces custom transaction building in `Tx`
   * Replaces custom transaction fees calculation and balancing in `Wallet`
-  * Use a single connection to the cardano-node to submit transactions and observe on-chain changes
-* _To be discussed_: Replace low-level connection using node-to-client protocols with cardano-api functions connecting to the node on-demand
+  * Replace low-level connection establishment using cardano-api functions connecting to the node (keeping the chain sync subscription)
