@@ -448,7 +448,6 @@
         "nothunks".flags.bytestring = true;
         "nothunks".flags.vector = true;
         "nothunks".flags.text = true;
-        "zeromq4-haskell".revision = (((hackage."zeromq4-haskell")."0.8.0").revisions).default;
         "hedgehog".revision = (((hackage."hedgehog")."1.0.5").revisions).default;
         "system-filepath".revision = (((hackage."system-filepath")."0.4.14").revisions).default;
         "recursion-schemes".revision = (((hackage."recursion-schemes")."5.2.2.1").revisions).default;
@@ -1313,7 +1312,6 @@
           "base64-bytestring-type".components.library.planned = lib.mkOverride 900 true;
           "hspec-golden-aeson".components.library.planned = lib.mkOverride 900 true;
           "generic-deriving".components.library.planned = lib.mkOverride 900 true;
-          "zeromq4-haskell".components.library.planned = lib.mkOverride 900 true;
           "deepseq".components.library.planned = lib.mkOverride 900 true;
           "network-mux".components.library.planned = lib.mkOverride 900 true;
           "unbounded-delays".components.library.planned = lib.mkOverride 900 true;
