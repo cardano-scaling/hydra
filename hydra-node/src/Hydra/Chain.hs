@@ -7,11 +7,11 @@ module Hydra.Chain where
 import Cardano.Prelude
 import Control.Monad.Class.MonadThrow (MonadThrow)
 import Data.Aeson (FromJSON, ToJSON)
-import Data.Time (DiffTime, UTCTime, addUTCTime)
+import Data.Time (DiffTime, UTCTime)
 import Hydra.Ledger (Tx, Utxo)
 import Hydra.Party (Party)
 import Hydra.Prelude (Arbitrary (arbitrary), genericArbitrary)
-import Hydra.Snapshot (Snapshot (number), SnapshotNumber)
+import Hydra.Snapshot (Snapshot, SnapshotNumber)
 
 -- | Contains the head's parameters as established in the initial transaction.
 data HeadParameters = HeadParameters
@@ -69,35 +69,6 @@ deriving instance Tx tx => FromJSON (OnChainTx tx)
 
 instance (Arbitrary tx, Arbitrary (Utxo tx)) => Arbitrary (OnChainTx tx) where
   arbitrary = genericArbitrary
-
--- | Derive an 'OnChainTx' from 'PostChainTx'. This is primarily used in tests
--- and simplified "chains". NOTE(SN): This implementation does *NOT* honor the
--- 'HeadParameters' and announce hard-coded contestationDeadlines.
---
--- TODO:
--- This only exists because of:
---
--- (a) The ZeroMQ "dummy" network which naively broadcast any posted transaction
--- as 'OnChainTx'.
---
--- (b) The BehaviorSpec which also implements a dummy 'simulatedChainAndNetwork'
---
--- I would argue that we should now remove the ZeroMQ implementation and, get
--- rid of this function (or at least, move it to the BehaviorSpec where it's
--- used).
-toOnChainTx :: UTCTime -> PostChainTx tx -> OnChainTx tx
-toOnChainTx currentTime = \case
-  InitTx HeadParameters{contestationPeriod, parties} -> OnInitTx{contestationPeriod, parties}
-  (CommitTx pa ut) -> OnCommitTx pa ut
-  AbortTx{} -> OnAbortTx
-  CollectComTx{} -> OnCollectComTx
-  (CloseTx snap) ->
-    OnCloseTx
-      { contestationDeadline = addUTCTime 10 currentTime
-      , snapshotNumber = number snap
-      }
-  ContestTx{} -> OnContestTx
-  FanoutTx{} -> OnFanoutTx
 
 -- TODO: This is unused / dead-code.
 data ChainError = ChainError

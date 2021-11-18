@@ -9,7 +9,6 @@ import Hydra.API.Server (withAPIServer)
 import Hydra.Chain (Chain, ChainCallback)
 import Hydra.Chain.Direct (withDirectChain)
 import Hydra.Chain.Direct.Util (readKeyPair, readVerificationKey)
-import Hydra.Chain.ZeroMQ (withMockChain)
 import Hydra.HeadLogic (Environment (..), Event (..))
 import Hydra.Ledger (Tx)
 import qualified Hydra.Ledger.Cardano as Ledger
@@ -53,23 +52,22 @@ withChain ::
   ChainConfig ->
   (Chain tx IO -> IO ()) ->
   IO ()
-withChain tracer party callback config action = case config of
-  MockChainConfig mockChain ->
-    withMockChain (contramap MockChain tracer) mockChain callback action
-  DirectChainConfig{networkMagic, nodeSocket, cardanoSigningKey, cardanoVerificationKeys} -> do
-    keyPair@(vk, _) <- readKeyPair cardanoSigningKey
-    otherCardanoKeys <- mapM readVerificationKey cardanoVerificationKeys
-    withIOManager $ \iocp -> do
-      withDirectChain
-        (contramap DirectChain tracer)
-        networkMagic
-        iocp
-        nodeSocket
-        keyPair
-        party
-        (vk : otherCardanoKeys)
-        callback
-        action
+withChain tracer party callback config action = do
+  keyPair@(vk, _) <- readKeyPair cardanoSigningKey
+  otherCardanoKeys <- mapM readVerificationKey cardanoVerificationKeys
+  withIOManager $ \iocp -> do
+    withDirectChain
+      (contramap DirectChain tracer)
+      networkMagic
+      iocp
+      nodeSocket
+      keyPair
+      party
+      (vk : otherCardanoKeys)
+      callback
+      action
+ where
+  DirectChainConfig{networkMagic, nodeSocket, cardanoSigningKey, cardanoVerificationKeys} = config
 
 identifyNode :: Options -> Options
 identifyNode opt@Options{verbosity = Verbose "HydraNode", nodeId} = opt{verbosity = Verbose $ "HydraNode-" <> show nodeId}

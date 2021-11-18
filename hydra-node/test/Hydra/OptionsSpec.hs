@@ -4,18 +4,21 @@ import Hydra.Prelude
 import Test.Hydra.Prelude
 
 import Hydra.Chain.Direct (NetworkMagic (NetworkMagic))
-import Hydra.Network (Host (Host), MockChain (..), defaultMockChain)
+import Hydra.Logging (Verbosity (Verbose))
+import Hydra.Network (Host (Host))
 import Hydra.Options (
   ChainConfig (..),
   Options (..),
   ParserResult (..),
-  defaultOptions,
   parseHydraOptionsFromString,
  )
 
 spec :: Spec
 spec = parallel $
   describe "Hydra Node Options" $ do
+    it "has defaults" $
+      [] `shouldParse` defaultOptions
+
     it "parses --host option given valid IPv4 and IPv6 addresses" $ do
       ["--host", "127.0.0.1"]
         `shouldParse` defaultOptions{host = "127.0.0.1"}
@@ -70,42 +73,81 @@ spec = parallel $
     it "parses --hydra-signing-key option as a filepath" $
       ["--hydra-signing-key", "./alice.sk"] `shouldParse` defaultOptions{hydraSigningKey = "./alice.sk"}
 
-    it "parses --mock-chain-ports option as a list of ports to connect to" $
-      ["--mock-chain-ports", "(1,2,3)"]
+    it "parses --network-magic option as a number" $ do
+      shouldNotParse ["--network-magic", "abc"]
+      ["--network-magic", "0"]
         `shouldParse` defaultOptions
           { chainConfig =
-              MockChainConfig
-                defaultMockChain
-                  { syncPort = 1
-                  , catchUpPort = 2
-                  , postTxPort = 3
-                  }
+              defaultChainConfig
+                { networkMagic = NetworkMagic 0
+                }
           }
-
-    it "parses --mock-chain-host option as the mock-chain host to connect to" $
-      ["--mock-chain-host", "1.2.3.4"]
+      ["--network-magic", "-1"] -- Word32 overflow expected
         `shouldParse` defaultOptions
           { chainConfig =
-              MockChainConfig
-                defaultMockChain
-                  { mockChainHost = "1.2.3.4"
-                  }
+              defaultChainConfig
+                { networkMagic = NetworkMagic 4294967295
+                }
           }
-
-    it "parses mandatory options for direct chain configuration" $
-      ["--node-socket", "foo.sock", "--cardano-signing-key", "my.sk"]
+      ["--network-magic", "123"]
         `shouldParse` defaultOptions
           { chainConfig =
-              DirectChainConfig
-                { networkMagic = NetworkMagic 42
-                , nodeSocket = "foo.sock"
-                , cardanoSigningKey = "my.sk"
-                , cardanoVerificationKeys = []
+              defaultChainConfig
+                { networkMagic = NetworkMagic 123
                 }
           }
 
-    it "fails to parse options for direct chain when missing --cardano-signing-key" $
-      shouldNotParse ["--node-socket", "foo.sock"]
+    it "parses --node-socket as a filepath" $
+      ["--node-socket", "foo.sock"]
+        `shouldParse` defaultOptions
+          { chainConfig =
+              defaultChainConfig
+                { nodeSocket = "foo.sock"
+                }
+          }
+
+    it "parses --cardano-signing-key option as a filepath" $
+      ["--cardano-signing-key", "./alice-cardano.sk"]
+        `shouldParse` defaultOptions
+          { chainConfig =
+              defaultChainConfig
+                { cardanoSigningKey = "./alice-cardano.sk"
+                }
+          }
+
+    it "parses --cardano-verification-key option as a filepath" $
+      ["--cardano-verification-key", "./alice-cardano.vk"]
+        `shouldParse` defaultOptions
+          { chainConfig =
+              defaultChainConfig
+                { cardanoVerificationKeys = ["./alice-cardano.vk"]
+                }
+          }
+
+defaultOptions :: Options
+defaultOptions =
+  Options
+    { verbosity = Verbose "HydraNode"
+    , nodeId = 1
+    , host = "127.0.0.1"
+    , port = 5001
+    , peers = []
+    , apiHost = "127.0.0.1"
+    , apiPort = 4001
+    , monitoringPort = Nothing
+    , hydraSigningKey = "hydra.sk"
+    , hydraVerificationKeys = []
+    , chainConfig = defaultChainConfig
+    }
+
+defaultChainConfig :: ChainConfig
+defaultChainConfig =
+  DirectChainConfig
+    { networkMagic = NetworkMagic 42
+    , nodeSocket = "node.socket"
+    , cardanoSigningKey = "cardano.sk"
+    , cardanoVerificationKeys = []
+    }
 
 shouldParse :: [String] -> Options -> Expectation
 shouldParse args options =

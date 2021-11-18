@@ -1,17 +1,18 @@
+{-# LANGUAGE TypeApplications #-}
+
 module Hydra.Options (
   Options (..),
   ChainConfig (..),
   parseHydraOptions,
   parseHydraOptionsFromString,
   getParseResult,
-  defaultOptions,
   ParserResult (..),
 ) where
 
 import Data.IP (IP)
 import Hydra.Chain.Direct (NetworkMagic (..))
 import Hydra.Logging (Verbosity (..))
-import Hydra.Network (Host, MockChain (..), PortNumber, defaultMockChain, readHost, readPort)
+import Hydra.Network (Host, PortNumber, readHost, readPort)
 import Hydra.Node.Version (gitRevision, showFullVersion, version)
 import Hydra.Prelude
 import Options.Applicative (
@@ -56,9 +57,6 @@ data Options = Options
   }
   deriving (Eq, Show)
 
-defaultOptions :: Options
-defaultOptions = Options (Verbose "HydraNode") 1 "127.0.0.1" 5001 [] "127.0.0.1" 4001 Nothing "hydra.sk" [] (MockChainConfig defaultMockChain)
-
 hydraNodeParser :: Parser Options
 hydraNodeParser =
   Options
@@ -74,35 +72,21 @@ hydraNodeParser =
     <*> many hydraVerificationKeyFileParser
     <*> chainConfigParser
 
-data ChainConfig
-  = MockChainConfig MockChain
-  | DirectChainConfig
-      { networkMagic :: NetworkMagic
-      , nodeSocket :: FilePath
-      , cardanoSigningKey :: FilePath
-      , cardanoVerificationKeys :: [FilePath]
-      }
+data ChainConfig = DirectChainConfig
+  { networkMagic :: NetworkMagic
+  , nodeSocket :: FilePath
+  , cardanoSigningKey :: FilePath
+  , cardanoVerificationKeys :: [FilePath]
+  }
   deriving (Eq, Show)
 
 chainConfigParser :: Parser ChainConfig
-chainConfigParser = do
-  mockChainConfigParser <|> directChainConfigParser
- where
-  mockChainConfigParser =
-    fmap
-      MockChainConfig
-      (makeMockChain <$> mockChainHostParser <*> mockChainPortsParser)
-   where
-    makeMockChain :: String -> (PortNumber, PortNumber, PortNumber) -> MockChain
-    makeMockChain mockChainHost (syncPort, catchUpPort, postTxPort) =
-      MockChain{mockChainHost, syncPort, catchUpPort, postTxPort}
-
-  directChainConfigParser =
-    DirectChainConfig
-      <$> networkMagicParser
-      <*> nodeSocketParser
-      <*> cardanoSigningKeyFileParser
-      <*> many cardanoVerificationKeyFileParser
+chainConfigParser =
+  DirectChainConfig
+    <$> networkMagicParser
+    <*> nodeSocketParser
+    <*> cardanoSigningKeyFileParser
+    <*> many cardanoVerificationKeyFileParser
 
 networkMagicParser :: Parser NetworkMagic
 networkMagicParser =
@@ -112,7 +96,7 @@ networkMagicParser =
       ( long "network-magic"
           <> metavar "MAGIC"
           <> value 42
-          <> help "Network magic for the target network (default: 42)."
+          <> help "Network magic for the target network."
       )
 
 nodeSocketParser :: Parser FilePath
@@ -120,6 +104,7 @@ nodeSocketParser =
   strOption
     ( long "node-socket"
         <> metavar "FILE"
+        <> value "node.socket"
         <> help "Local (Unix) socket path to connect to cardano node."
     )
 
@@ -128,6 +113,7 @@ cardanoSigningKeyFileParser =
   strOption
     ( long "cardano-signing-key"
         <> metavar "FILE"
+        <> value "cardano.sk"
         <> help "Signing key for the internal wallet use for Chain interactions."
     )
 
@@ -238,25 +224,6 @@ monitoringPortParser =
     ( long "monitoring-port"
         <> metavar "PORT"
         <> help "The port this node listens on for monitoring and metrics. If left empty, monitoring server is not started"
-    )
-
-mockChainHostParser :: Parser String
-mockChainHostParser = do
-  strOption
-    ( long "mock-chain-host"
-        <> value "localhost"
-        <> metavar "HOSTNAME"
-        <> help "Address or hostname of the mock-chain (default: 'localhost')"
-    )
-
-mockChainPortsParser :: Parser (PortNumber, PortNumber, PortNumber)
-mockChainPortsParser = do
-  option
-    auto
-    ( long "mock-chain-ports"
-        <> value (56789, 56790, 56791)
-        <> metavar "[PORT]"
-        <> help "The 3-tuple of ports to connect to mock-chain, in the order: sync, catch-up, post (default: (56789, 56790, 56791))"
     )
 
 hydraNodeOptions :: ParserInfo Options

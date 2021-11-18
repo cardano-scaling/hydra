@@ -101,7 +101,6 @@
           "Hydra/Chain/Direct/Tx"
           "Hydra/Chain/Direct/Util"
           "Hydra/Chain/Direct/Wallet"
-          "Hydra/Chain/ZeroMQ"
           "Hydra/ClientInput"
           "Hydra/HeadLogic"
           "Hydra/Ledger"
@@ -136,20 +135,6 @@
             ];
           buildable = true;
           hsSourceDirs = [ "exe/hydra-node" ];
-          mainPath = [
-            "Main.hs"
-            ] ++ (pkgs.lib).optional (!flags.hydra-development) "";
-          };
-        "mock-chain" = {
-          depends = [
-            (hsPkgs."aeson" or (errorHandler.buildDepError "aeson"))
-            (hsPkgs."base" or (errorHandler.buildDepError "base"))
-            (hsPkgs."hydra-node" or (errorHandler.buildDepError "hydra-node"))
-            (hsPkgs."hydra-prelude" or (errorHandler.buildDepError "hydra-prelude"))
-            (hsPkgs."optparse-applicative" or (errorHandler.buildDepError "optparse-applicative"))
-            ];
-          buildable = true;
-          hsSourceDirs = [ "exe/mock-chain" ];
           mainPath = [
             "Main.hs"
             ] ++ (pkgs.lib).optional (!flags.hydra-development) "";
@@ -228,7 +213,6 @@
             "Hydra/Chain/Direct/TxSpec"
             "Hydra/Chain/Direct/WalletSpec"
             "Hydra/Chain/DirectSpec"
-            "Hydra/Chain/ZeroMQSpec"
             "Hydra/ClientInputSpec"
             "Hydra/FireForgetSpec"
             "Hydra/HeadLogicSpec"
