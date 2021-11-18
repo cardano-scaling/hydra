@@ -15,7 +15,6 @@ import Hydra.Logging (showLogsOnFailure)
 import Hydra.Network (Host (..), Network, PortNumber)
 import Hydra.Network.Message (Message (..))
 import Hydra.Network.Ouroboros (broadcast, withOuroborosNetwork)
-import Hydra.Network.ZeroMQ (withZeroMQNetwork)
 import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
 import Test.Network.Ports (randomUnusedTCPPorts)
 import Test.QuickCheck (
@@ -47,22 +46,6 @@ spec = parallel $
           withOuroborosNetwork @Integer tracer (Host lo port1) [Host lo port2, Host lo port3] (atomically . writeTQueue node1received) $ \hn1 ->
             withOuroborosNetwork tracer (Host lo port2) [Host lo port1, Host lo port3] (atomically . writeTQueue node2received) $ \hn2 -> do
               withOuroborosNetwork tracer (Host lo port3) [Host lo port1, Host lo port2] (atomically . writeTQueue node3received) $ \hn3 -> do
-                assertAllNodesBroadcast
-                  [ (port1, hn1, node1received)
-                  , (port2, hn2, node2received)
-                  , (port3, hn3, node3received)
-                  ]
-
-    describe "0MQ Network" $
-      it "broadcasts messages between 3 connected peers" $ do
-        node1received <- atomically newTQueue
-        node2received <- atomically newTQueue
-        node3received <- atomically newTQueue
-        showLogsOnFailure $ \tracer -> failAfter 10 $ do
-          [port1, port2, port3] <- fmap fromIntegral <$> randomUnusedTCPPorts 3
-          withZeroMQNetwork tracer (Host lo port1) [Host lo port2, Host lo port3] (atomically . writeTQueue node1received) $ \hn1 ->
-            withZeroMQNetwork tracer (Host lo port2) [Host lo port1, Host lo port3] (atomically . writeTQueue node2received) $ \hn2 ->
-              withZeroMQNetwork tracer (Host lo port3) [Host lo port1, Host lo port2] (atomically . writeTQueue node3received) $ \hn3 -> do
                 assertAllNodesBroadcast
                   [ (port1, hn1, node1received)
                   , (port2, hn2, node2received)

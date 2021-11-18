@@ -25,7 +25,6 @@ let
     libsodium-vrf
     pkgs.systemd
     pkgs.zlib
-    pkgs.zeromq
     pkgs.lzma
   ];
 

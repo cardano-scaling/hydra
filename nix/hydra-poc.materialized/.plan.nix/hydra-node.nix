@@ -90,7 +90,6 @@
           (hsPkgs."typed-protocols-cborg" or (errorHandler.buildDepError "typed-protocols-cborg"))
           (hsPkgs."typed-protocols-examples" or (errorHandler.buildDepError "typed-protocols-examples"))
           (hsPkgs."websockets" or (errorHandler.buildDepError "websockets"))
-          (hsPkgs."zeromq4-haskell" or (errorHandler.buildDepError "zeromq4-haskell"))
           ];
         buildable = true;
         modules = [
@@ -116,7 +115,6 @@
           "Hydra/Network/Ouroboros/Client"
           "Hydra/Network/Ouroboros/Server"
           "Hydra/Network/Ouroboros/Type"
-          "Hydra/Network/ZeroMQ"
           "Hydra/Node"
           "Hydra/Node/Version"
           "Hydra/Options"

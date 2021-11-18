@@ -95,7 +95,6 @@ library
     Hydra.Network.Ouroboros.Client
     Hydra.Network.Ouroboros.Server
     Hydra.Network.Ouroboros.Type
-    Hydra.Network.ZeroMQ
     Hydra.Node
     Hydra.Node.Version
     Hydra.Options
@@ -162,7 +161,6 @@ library
     , typed-protocols-cborg
     , typed-protocols-examples
     , websockets
-    , zeromq4-haskell
 
   ghc-options:     -haddock
 
