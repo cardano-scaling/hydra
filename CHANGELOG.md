@@ -18,6 +18,9 @@ changes.
 - ZeroMQ based network component
 - Aliases from party identifiers.
 
+#### Fixed
+- `hydra-tui` to correctly show current state when re-connecting.
+
 ## [0.1.0] - 2021-09-30
 
 - First proof-of-concept for a `hydra-node`
