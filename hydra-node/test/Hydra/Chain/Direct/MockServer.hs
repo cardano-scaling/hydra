@@ -27,6 +27,7 @@ import Control.Monad.Class.MonadSTM (modifyTVar', newTVarIO, retry)
 import Control.Tracer (nullTracer)
 import Data.List ((!!))
 import qualified Data.Sequence.Strict as StrictSeq
+import qualified Hydra.Chain.Direct.Fixture as Fixture
 import Hydra.Chain.Direct.Util (
   Block,
   Era,
@@ -256,8 +257,7 @@ mockStateQueryServer _db =
                   pure $ Point $ At $ Point.Block slot hash
             pure $ LSQ.SendMsgResult (Right tip) serverStAcquired
           BlockQuery (QueryIfCurrentAlonzo GetCurrentPParams) -> do
-            let pparams = generateWith arbitrary 42
-            pure $ LSQ.SendMsgResult (Right pparams) serverStAcquired
+            pure $ LSQ.SendMsgResult (Right Fixture.pparams) serverStAcquired
           BlockQuery (QueryIfCurrentAlonzo GetUTxOByAddress{}) ->
             pure $ LSQ.SendMsgResult (Right $ Ledger.UTxO mempty) serverStAcquired
           _ ->
