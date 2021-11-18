@@ -10,12 +10,13 @@ import Cardano.Api ()
 import qualified Cardano.Crypto.DSIGN as Crypto
 import Cardano.Crypto.Hash.Class
 import qualified Cardano.Ledger.Address as Ledger
+import Cardano.Ledger.Alonzo (AlonzoEra)
 import Cardano.Ledger.Alonzo.Language (
   Language (PlutusV1),
  )
 import Cardano.Ledger.Alonzo.PParams (PParams' (..))
 import Cardano.Ledger.Alonzo.PlutusScriptApi (language)
-import Cardano.Ledger.Alonzo.Scripts (ExUnits (..))
+import Cardano.Ledger.Alonzo.Scripts (ExUnits (..), txscriptfee)
 import Cardano.Ledger.Alonzo.Tx (ValidatedTx (..), hashScriptIntegrity)
 import Cardano.Ledger.Alonzo.TxBody (
   TxBody,
@@ -248,6 +249,9 @@ coverFee_ pparams lookupUtxo walletUtxo partialTx@ValidatedTx{body, wits} = do
   let inputs' = inputs body <> Set.singleton input
   resolvedInputs <- traverse resolveInput (toList inputs')
 
+  let adjustedRedeemers = adjustRedeemers (inputs body) inputs' (txrdmrs wits)
+      needlesslyHighFee = calculateNeedlesslyHighFee adjustedRedeemers
+
   change <-
     first ErrNotEnoughFunds $
       mkChange output resolvedInputs (toList $ outputs body) needlesslyHighFee
@@ -259,7 +263,6 @@ coverFee_ pparams lookupUtxo walletUtxo partialTx@ValidatedTx{body, wits} = do
         , (not . isNativeScript @Era) script
         , Just l <- [language script]
         ]
-      adjustedRedeemers = adjustRedeemers (inputs body) inputs' (txrdmrs wits)
       finalBody =
         body
           { inputs = inputs'
@@ -282,8 +285,9 @@ coverFee_ pparams lookupUtxo walletUtxo partialTx@ValidatedTx{body, wits} = do
     )
  where
   -- TODO: Do a better fee estimation based on the transaction's content.
-  needlesslyHighFee :: Coin
-  needlesslyHighFee = Coin 10_000_000
+  calculateNeedlesslyHighFee (Redeemers redeemers) =
+    let executionCost = txscriptfee (_prices pparams) $ foldMap snd redeemers
+     in Coin 2_000_000 <> executionCost
 
   getAdaValue :: TxOut -> Coin
   getAdaValue (TxOut _ value _) =
