@@ -8,11 +8,20 @@ As a minor extension, we also keep a semantic version for the `UNRELEASED`
 changes.
 
 ## [0.2.0] - UNRELEASED
-- Connect to a cardano-node using a direct chain interaction (no on-chain validators).
-- Remove aliases from party identifiers.
+
+#### Added
+- Direct chain integration which allows to connect to a real cardano-node /
+  devnet; no on-chain validators though.
+
+### Removed
+- ZeroMQ mock-chain executable, chain component and corresponding `hydra-node` command line options
+- ZeroMQ based network component
+- Aliases from party identifiers.
 
 ## [0.1.0] - 2021-09-30
+
 - First proof-of-concept for a `hydra-node`
+
 ### Added
 - Coordinated Hydra Head protocol
 - Single Head per hydra-node
