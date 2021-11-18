@@ -51,23 +51,17 @@ import qualified Prelude
 -- Model
 --
 
-data State = State
-  { me :: Maybe Party -- TODO(SN): we could make a nicer type if refactor like
-  -- below as we would know the party always when
-  -- 'Connected'
-  , nodeHost :: Host
-  , peers :: [Host]
-  , headState :: HeadState
-  , dialogState :: DialogState
-  , clientState :: ClientState
-  , feedback :: Maybe UserFeedback
-  }
-
--- XXX(SN): This is what I had tried to avoid in the past.. refactor back into a
--- "make impossible states unrepresentable". Allowing 'Disconnected' + other
--- info we still have around in the 'State' brings us into the uncomfortable
--- situation of needing to decide which of the values are not stale.
-data ClientState = Connected | Disconnected
+data State
+  = Disconnected
+      {nodeHost :: Host}
+  | Connected
+      { me :: Maybe Party -- TODO(SN): we could make a nicer type if ClientConnected is only emited of 'Hydra.Client' upon receiving a 'Greeting'
+      , nodeHost :: Host
+      , peers :: [Host]
+      , headState :: HeadState
+      , dialogState :: DialogState
+      , feedback :: Maybe UserFeedback
+      }
 
 data DialogState where
   NoDialog :: DialogState
@@ -152,10 +146,10 @@ handleEvent ::
 handleEvent client@Client{sendInput} (clearFeedback -> s) = \case
   AppEvent e ->
     continue (handleAppEvent s e)
-  VtyEvent e -> case s ^. dialogStateL of
-    Dialog title form submit ->
+  VtyEvent e -> case s ^? dialogStateL of
+    Just (Dialog title form submit) ->
       handleDialogEvent (title, form, submit) s e
-    NoDialog -> case e of
+    Just NoDialog -> case e of
       -- Quit
       EvKey (KChar 'c') [MCtrl] -> halt s
       EvKey (KChar 'd') [MCtrl] -> halt s
@@ -170,10 +164,10 @@ handleEvent client@Client{sendInput} (clearFeedback -> s) = \case
             | c `elem` ['a', 'A'] ->
               liftIO (sendInput Abort) >> continue s
             | c `elem` ['c', 'C'] ->
-              case s ^. headStateL of
-                Initializing{} ->
+              case s ^? headStateL of
+                Just Initializing{} ->
                   handleCommitEvent client s
-                Open{} ->
+                Just Open{} ->
                   liftIO (sendInput Close) >> continue s
                 _ ->
                   continue s
@@ -181,8 +175,13 @@ handleEvent client@Client{sendInput} (clearFeedback -> s) = \case
               handleNewTxEvent client s
             | otherwise ->
               continue s
-      _ ->
-        continue s
+      _ -> continue s
+    -- Not connected
+    Nothing -> case e of
+      -- Quit
+      EvKey (KChar 'c') [MCtrl] -> halt s
+      EvKey (KChar 'd') [MCtrl] -> halt s
+      _ -> continue s
   e ->
     continue $ s & feedbackL ?~ UserFeedback Error ("unhandled event: " <> show e)
 
@@ -192,9 +191,16 @@ handleAppEvent ::
   State
 handleAppEvent s = \case
   ClientConnected ->
-    s & clientStateL .~ Connected
+    Connected
+      { nodeHost = s ^. nodeHostL
+      , me = Nothing
+      , peers = []
+      , headState = Ready
+      , dialogState = NoDialog
+      , feedback = Nothing
+      }
   ClientDisconnected ->
-    s & clientStateL .~ Disconnected
+    Disconnected{nodeHost = s ^. nodeHostL}
   Update Greetings{me} ->
     s & meL ?~ me
   Update (PeerConnected p) ->
@@ -281,14 +287,14 @@ handleCommitEvent ::
   Client CardanoTx IO ->
   State ->
   EventM n (Next State)
-handleCommitEvent Client{sendInput} = \case
-  s@State{headState = Initializing{}} ->
-    case s ^. meL of
+handleCommitEvent Client{sendInput} s = case s ^? headStateL of
+  Just Initializing{} ->
+    case s ^? meL of
       -- XXX(SN): this is just..not cool
-      Nothing -> continue $ s & feedbackL ?~ UserFeedback Error "Missing identity, so can't commit from faucet."
-      Just me ->
+      Just (Just me) ->
         continue $ s & dialogStateL .~ commitDialog (faucetUtxo me)
-  s ->
+      _ -> continue $ s & feedbackL ?~ UserFeedback Error "Missing identity, so can't commit from faucet."
+  _ ->
     continue $ s & feedbackL ?~ UserFeedback Error "Invalid command."
  where
   commitDialog u =
@@ -296,23 +302,23 @@ handleCommitEvent Client{sendInput} = \case
    where
     title = "Select UTXO to commit"
     form = newForm (utxoCheckboxField u) ((,False) <$> u)
-    submit s selected = do
+    submit s' selected = do
       let commit = UTxO . Map.mapMaybe (\(v, p) -> if p then Just v else Nothing) $ selected
       liftIO (sendInput $ Commit commit)
-      continue (s & dialogStateL .~ NoDialog)
+      continue (s' & dialogStateL .~ NoDialog)
 
 handleNewTxEvent ::
   Client CardanoTx IO ->
   State ->
   EventM n (Next State)
-handleNewTxEvent Client{sendInput} = \case
-  s@State{headState = Open{parties}} ->
-    case s ^. meL of
+handleNewTxEvent Client{sendInput} s = case s ^? headStateL of
+  Just Open{parties} ->
+    case s ^? meL of
       -- XXX(SN): this is just..not cool
-      Nothing -> continue $ s & feedbackL ?~ UserFeedback Error "Missing identity, so can't create a tx."
-      Just me -> do
+      Just (Just me) -> do
         continue $ s & dialogStateL .~ transactionBuilderDialog (myAvailableUtxo me s) parties me
-  s ->
+      _ -> continue $ s & feedbackL ?~ UserFeedback Error "Missing identity, so can't create a tx."
+  _ ->
     continue $ s & feedbackL ?~ UserFeedback Error "Invalid command."
  where
   transactionBuilderDialog u parties me =
@@ -321,8 +327,8 @@ handleNewTxEvent Client{sendInput} = \case
     title = "Select UTXO to spend"
     -- FIXME: This crashes if the utxo is empty
     form = newForm (utxoRadioField u) (Map.toList u !! 0)
-    submit s input = do
-      continue $ s & dialogStateL .~ recipientsDialog input parties me
+    submit s' input = do
+      continue $ s' & dialogStateL .~ recipientsDialog input parties me
 
   recipientsDialog input parties me =
     Dialog title form submit
@@ -332,8 +338,8 @@ handleNewTxEvent Client{sendInput} = \case
     form =
       let field = radioField (lens id seq) [(p, show p, show p) | p <- parties]
        in newForm [field] (parties !! 0)
-    submit s (getAddress -> recipient) = do
-      continue $ s & dialogStateL .~ amountDialog input recipient me
+    submit s' (getAddress -> recipient) = do
+      continue $ s' & dialogStateL .~ amountDialog input recipient me
 
   amountDialog input@(_, Cardano.TxOut _ v) recipient me =
     Dialog title form submit
@@ -343,10 +349,10 @@ handleNewTxEvent Client{sendInput} = \case
       let limit = Cardano.unCoin $ coin v
           field = editShowableFieldWithValidate (lens id seq) "amount" (\n -> n > 0 && n <= limit)
        in newForm [field] limit
-    submit s (inject . Cardano.Coin -> amount) = do
+    submit s' (inject . Cardano.Coin -> amount) = do
       let tx = mkSimpleCardanoTx input (recipient, amount) (getCredentials me)
       liftIO (sendInput (NewTx tx))
-      continue $ s & dialogStateL .~ NoDialog
+      continue $ s' & dialogStateL .~ NoDialog
 
 --
 -- View
@@ -381,21 +387,21 @@ draw s =
     tuiVersion = str "Hydra TUI " <+> str (showVersion version)
 
     ownParty =
-      case s ^. meL of
-        Nothing -> emptyWidget
-        Just me -> str "Party " <+> withAttr own (txt $ show me)
+      case s ^? meL of
+        Just (Just me) -> str "Party " <+> withAttr own (txt $ show me)
+        _ -> emptyWidget
 
     ownAddress =
-      case s ^. meL of
-        Nothing -> emptyWidget
-        Just me -> str "Address " <+> withAttr own (txt $ ellipsize 40 $ encodeAddress (getAddress me))
+      case s ^? meL of
+        Just (Just me) -> str "Address " <+> withAttr own (txt $ ellipsize 40 $ encodeAddress (getAddress me))
+        _ -> emptyWidget
 
     ellipsize n t = Text.take (n - 2) t <> ".."
 
     nodeStatus =
-      case s ^. clientStateL of
-        Disconnected -> withAttr negative $ str $ "connecting to " <> show (s ^. nodeHostL)
-        Connected -> withAttr positive $ str $ "connected to " <> show (s ^. nodeHostL)
+      case s of
+        Disconnected{nodeHost} -> withAttr negative $ str $ "connecting to " <> show nodeHost
+        Connected{nodeHost} -> withAttr positive $ str $ "connected to " <> show nodeHost
 
   drawRightPanel =
     case s ^? dialogStateL of
@@ -412,15 +418,15 @@ draw s =
           , "[Enter] Confirm"
           ]
       _ ->
-        -- TODO: Only show available commands.
-        case s ^. headStateL of
-          Ready ->
+        -- TODO: Only show available commands. (SN: is this still relevant?)
+        case s ^? headStateL of
+          Just Ready ->
             withCommands
               [drawHeadState]
               [ "[I]nit"
               , "[Q]uit"
               ]
-          Initializing{remainingParties, utxo} ->
+          Just Initializing{remainingParties, utxo} ->
             withCommands
               [ drawHeadState
               , padLeftRight 1 $ str ("Total committed: " <> toString (prettyBalance (balance @CardanoTx utxo)))
@@ -433,7 +439,7 @@ draw s =
               , "[A]bort"
               , "[Q]uit"
               ]
-          Open{utxo} ->
+          Just Open{utxo} ->
             withCommands
               [ drawHeadState
               , padLeftRight 1 $
@@ -444,14 +450,13 @@ draw s =
               , "[C]lose"
               , "[Q]uit"
               ]
-          Closed{contestationDeadline} ->
+          Just Closed{contestationDeadline} ->
             withCommands
               [ drawHeadState
               , padLeftRight 1 $ str $ "Contestation deadline: " <> show contestationDeadline
               ]
-              [ "[Q]uit"
-              ]
-          Final{utxo} ->
+              ["[Q]uit"]
+          Just Final{utxo} ->
             withCommands
               [ drawHeadState
               , padLeftRight 1 $
@@ -461,12 +466,18 @@ draw s =
               [ "[I]nit"
               , "[Q]uit"
               ]
+          -- Disconnected
+          Nothing ->
+            withCommands
+              [ drawHeadState
+              ]
+              ["[Q]uit"]
 
-  drawHeadState = case s ^. clientStateL of
-    Disconnected -> emptyWidget
-    Connected ->
+  drawHeadState = case s of
+    Disconnected{} -> emptyWidget
+    Connected{headState} ->
       vBox
-        [ padLeftRight 1 $ txt "Head status: " <+> withAttr info (txt $ Prelude.head (words $ show $ s ^. headStateL))
+        [ padLeftRight 1 $ txt "Head status: " <+> withAttr info (txt $ Prelude.head (words $ show headState))
         , hBorder
         ]
 
@@ -487,8 +498,8 @@ draw s =
 
   drawAddress addr =
     let widget = txt $ encodeAddress addr
-     in case s ^. meL of
-          Just me | getAddress me == addr -> withAttr own widget
+     in case s ^? meL of
+          Just (Just me) | getAddress me == addr -> withAttr own widget
           _ -> widget
 
   withCommands panel cmds =
@@ -512,16 +523,13 @@ draw s =
       Just ps -> vBox $ str "Head participants:" : map drawParty ps
 
   drawParty p =
-    case s ^. meL of
-      Just me | p == me -> withAttr own $ drawShow p
+    case s ^? meL of
+      Just (Just me) | p == me -> withAttr own $ drawShow p
       _ -> drawShow p
 
-  drawPeers =
-    case s ^. clientStateL of
-      Disconnected ->
-        emptyWidget
-      Connected ->
-        vBox $ str "Connected peers:" : map drawShow (s ^. peersL)
+  drawPeers = case s of
+    Disconnected{} -> emptyWidget
+    Connected{peers} -> vBox $ str "Connected peers:" : map drawShow peers
 
   drawShow :: forall a n. Show a => a -> Widget n
   drawShow = str . (" - " <>) . show
@@ -615,13 +623,4 @@ run Options{nodeHost} = do
       , appAttrMap = style
       }
 
-  initialState =
-    State
-      { me = Nothing
-      , nodeHost
-      , peers = mempty
-      , headState = Ready
-      , dialogState = NoDialog
-      , clientState = Disconnected
-      , feedback = empty
-      }
+  initialState = Disconnected{nodeHost}
