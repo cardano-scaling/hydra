@@ -16,11 +16,9 @@ COPY . .
 
 RUN nix-build -A hydra-node -o hydra-node-result release.nix > hydra-node.drv
 RUN nix-build -A hydra-tui -o hydra-tui-result release.nix > hydra-tui.drv
-RUN nix-build -A mock-chain -o mock-chain-result release.nix > mock-chain.drv
 
 RUN nix-store --export $(nix-store -qR $(cat hydra-node.drv)) > hydra-node.closure
 RUN nix-store --export $(nix-store -qR $(cat hydra-tui.drv)) > hydra-tui.closure
-RUN nix-store --export $(nix-store -qR $(cat mock-chain.drv)) > mock-chain.closure
 
 # ------------------------------------------------------------------- HYDRA-NODE
 
@@ -45,15 +43,3 @@ RUN nix-store --import < hydra-tui.closure && nix-env -i $(cat hydra-tui.drv)
 
 STOPSIGNAL SIGINT
 ENTRYPOINT ["hydra-tui"]
-
-# ------------------------------------------------------------------- MOCK-CHAIN
-
-FROM nixos/nix:2.3.11 as mock-chain
-
-COPY --from=build /build/mock-chain.drv mock-chain.drv
-COPY --from=build /build/mock-chain.closure mock-chain.closure
-
-RUN nix-store --import < mock-chain.closure && nix-env -i $(cat mock-chain.drv)
-
-STOPSIGNAL SIGINT
-ENTRYPOINT ["mock-chain"]

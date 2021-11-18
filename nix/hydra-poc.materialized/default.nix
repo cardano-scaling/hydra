@@ -788,7 +788,7 @@
           "cardano-crypto-praos" = {
             flags = {
               "development" = lib.mkOverride 900 false;
-              "external-libsodium-vrf" = lib.mkOverride 900 false;
+              "external-libsodium-vrf" = lib.mkOverride 900 true;
               };
             };
           "monoidal-synchronisation" = { flags = {}; };
@@ -800,7 +800,7 @@
             flags = { "development" = lib.mkOverride 900 false; };
             };
           "local-cluster" = {
-            flags = { "hydra-development" = lib.mkOverride 900 false; };
+            flags = { "hydra-development" = lib.mkOverride 900 true; };
             };
           "typed-protocols-examples" = { flags = {}; };
           "cardano-crypto-tests" = {
@@ -853,13 +853,13 @@
             };
           "cardano-ledger-alonzo-test" = { flags = {}; };
           "hydra-tui" = {
-            flags = { "hydra-development" = lib.mkOverride 900 false; };
+            flags = { "hydra-development" = lib.mkOverride 900 true; };
             };
           "ouroboros-consensus-byron" = {
             flags = { "asserts" = lib.mkOverride 900 false; };
             };
           "hydra-node" = {
-            flags = { "hydra-development" = lib.mkOverride 900 false; };
+            flags = { "hydra-development" = lib.mkOverride 900 true; };
             };
           "contra-tracer" = { flags = {}; };
           "orphans-deriving-via" = {
@@ -872,7 +872,7 @@
           "cardano-ledger-alonzo" = { flags = {}; };
           "small-steps-test" = { flags = {}; };
           "hydra-plutus" = {
-            flags = { "hydra-development" = lib.mkOverride 900 false; };
+            flags = { "hydra-development" = lib.mkOverride 900 true; };
             };
           "cardano-ledger-shelley-test" = { flags = {}; };
           "typed-protocols-cborg" = { flags = {}; };
@@ -1081,7 +1081,6 @@
           "bytestring-builder".components.library.planned = lib.mkOverride 900 true;
           "entropy".components.setup.planned = lib.mkOverride 900 true;
           "parallel".components.library.planned = lib.mkOverride 900 true;
-          "hydra-node".components.exes."mock-chain".planned = lib.mkOverride 900 true;
           "uuid-types".components.library.planned = lib.mkOverride 900 true;
           "QuickCheck".components.library.planned = lib.mkOverride 900 true;
           "shelley-spec-non-integral".components.library.planned = lib.mkOverride 900 true;

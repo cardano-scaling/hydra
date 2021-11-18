@@ -11,7 +11,7 @@ jobs:
       matrix:
         os: [ ubuntu-20.04 ]
         repository: [ inputoutput/hydra ]
-        target: [ hydra-node, hydra-tui, mock-chain ]
+        target: [ hydra-node, hydra-tui ]
 
     runs-on: ${{ matrix.os }}
     steps:

@@ -29,7 +29,7 @@ pkgs.haskell-nix.project {
   compiler-nix-name = compiler;
 
   # Fixed output derivation for plan-nix
-  plan-sha256 = "1i2yknshq1lliyqhjnhln3sg49xivs6y0jvn4j27la2kbkq2hgjd";
+  plan-sha256 = "sha256-t/Gur4Qm0LyfUm8l6wkFaCdld5bXSBDiFKtGD9ioKzo=";
   materialized = ./nix/hydra-poc.materialized;
   # Enable this and nix-build one of the project components to get the new
   # plan-sha256 and materialization update scripts:

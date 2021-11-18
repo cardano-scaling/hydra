@@ -19,8 +19,6 @@ module Hydra.Network (
   readHost,
   PortNumber,
   readPort,
-  MockChain (..),
-  defaultMockChain,
 
   -- * Utility functions
   close,
@@ -126,25 +124,3 @@ readPort s =
         else fail $ "readPort: " <> show n <> " not within " <> show maxPort
  where
   maxPort = fromIntegral (maxBound :: Word16)
-
--- | Ports definition for Mock Chain client.
--- HACK: This is a temporary solution until we wire in a real chain client.
-data MockChain = MockChain
-  { mockChainHost :: String
-  , syncPort :: PortNumber
-  , catchUpPort :: PortNumber
-  , postTxPort :: PortNumber
-  }
-  deriving (Eq, Show, Generic, ToJSON, FromJSON)
-
-instance Arbitrary MockChain where
-  arbitrary = genericArbitrary
-
-defaultMockChain :: MockChain
-defaultMockChain =
-  MockChain
-    { mockChainHost = "localhost"
-    , syncPort = 56789
-    , catchUpPort = 56790
-    , postTxPort = 56791
-    }
