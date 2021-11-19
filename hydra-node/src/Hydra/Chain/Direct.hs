@@ -23,6 +23,7 @@ import Control.Monad (foldM)
 import Control.Monad.Class.MonadSTM (MonadSTMTx (writeTVar), newTQueueIO, newTVarIO, readTQueue, writeTQueue)
 import Control.Tracer (nullTracer)
 import Data.Aeson (Value (String), object, (.=))
+import qualified Data.Map as Map
 import Data.Sequence.Strict (StrictSeq)
 import Hydra.Chain (
   Chain (..),
@@ -363,14 +364,13 @@ fromPostChainTx TinyWallet{getUtxo, verificationKey} headState cardanoKeys = \ca
         pure . Just $ abortTx (convertTuple threadOutput) (map convertTuple initials)
       _st -> pure Nothing
   CommitTx party utxo ->
-    case toList (Ledger.unUTxO utxo) of
-      [_] -> do
+    case Map.toList (Ledger.unUTxO utxo) of
+      [aUtxo] -> do
         readTVar headState >>= \case
           Initial{initials} -> case ownInitial verificationKey initials of
             Nothing -> error $ "no ownInitial: " <> show initials
             Just initial ->
-              -- TODO: Make commitTx take a (TxIn, TxOut) instead of UTxO
-              pure . Just $ commitTx party utxo initial
+              pure . Just $ commitTx party aUtxo initial
           st -> error $ "cannot post CommitTx, invalid state: " <> show st
       _ ->
         throwIO MoreThanOneUtxoCommitted

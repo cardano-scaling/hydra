@@ -106,14 +106,13 @@ spec =
             len = LBS.length cbor
          in len < maxTxSize
               & label (show (len `div` 1024) <> "kB")
-              & counterexample ("UTXO's size: " <> show (Map.size $ unUTxO utxo))
               & counterexample ("Tx: " <> show tx)
               & counterexample ("Tx serialized size: " <> show len)
 
-      prop "is observed" $ \party utxo initialIn ->
-        let tx = commitTx party utxo initialIn
+      prop "is observed" $ \party (txIn, txOut) initialIn ->
+        let tx = commitTx party (txIn, txOut) initialIn
          in observeCommitTx tx
-              === Just OnCommitTx{party, committed = utxo}
+              === Just OnCommitTx{party, committed = UTxO $ Map.singleton txIn txOut}
               & counterexample ("Tx: " <> show tx)
 
     describe "collectComTx" $ do
