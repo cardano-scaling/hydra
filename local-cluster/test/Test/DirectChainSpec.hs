@@ -98,6 +98,21 @@ spec = around showLogsOnFailure $ do
             postTx $ CommitTx alice someUtxoA
             alicesCallback `observesInTime` OnCommitTx alice someUtxoA
 
+  it "can commit empty UTxO" $ \tracer -> do
+    alicesCallback <- newEmptyMVar
+    withTempDir "hydra-local-cluster" $ \tmp -> do
+      config <- newNodeConfig tmp
+      withBFTNode (contramap FromCluster tracer) config [] $ \(RunningNode _ nodeSocket) -> do
+        aliceKeys@(aliceCardanoVk, _) <- keysFor "alice"
+        let cardanoKeys = [aliceCardanoVk]
+        withIOManager $ \iocp -> do
+          withDirectChain (contramap (FromDirectChain "alice") tracer) magic iocp nodeSocket aliceKeys alice cardanoKeys (putMVar alicesCallback) $ \Chain{postTx} -> do
+            postTx $ InitTx $ HeadParameters 100 [alice]
+            alicesCallback `observesInTime` OnInitTx 100 [alice]
+
+            postTx $ CommitTx alice mempty
+            alicesCallback `observesInTime` OnCommitTx alice mempty
+
   it "can open, close & fanout a Head" $ \tracer -> do
     alicesCallback <- newEmptyMVar
     withTempDir "hydra-local-cluster" $ \tmp -> do

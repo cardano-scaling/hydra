@@ -179,7 +179,7 @@ commitTx ::
   -- consume that UTxO as input to the transaction, and the `Shelley.TxOut` should
   -- be a `Cardano.Api.TxOut`. Pending changes in the `Hydra.Ledger.Cardano`
   -- module to use cardano-api and Alonzo.
-  (TxIn StandardCrypto, Shelley.TxOut CardanoEra) ->
+  Maybe (TxIn StandardCrypto, Shelley.TxOut CardanoEra) ->
   -- | The inital output (sent to each party) which should contain the PT and is
   -- locked by initial script
   (TxIn StandardCrypto, PubKeyHash) ->
@@ -231,7 +231,7 @@ commitTx party utxo (initialIn, pkh) =
     Data . toData $
       MockCommit.datum (partyFromVerKey $ vkey party, commitUtxo)
 
-  commitUtxo = fromByteString $ toStrict $ Aeson.encode $ utxoToJSON $ UTxO $ Map.fromList [utxo]
+  commitUtxo = fromByteString $ toStrict $ Aeson.encode $ utxoToJSON $ UTxO $ Map.fromList $ maybeToList utxo
 
 -- | Create a transaction collecting all "committed" utxo and opening a Head,
 -- i.e. driving the Head script state.

@@ -364,16 +364,18 @@ fromPostChainTx TinyWallet{getUtxo, verificationKey} headState cardanoKeys = \ca
         pure . Just $ abortTx (convertTuple threadOutput) (map convertTuple initials)
       _st -> pure Nothing
   CommitTx party utxo ->
-    case Map.toList (Ledger.unUTxO utxo) of
-      [aUtxo] -> do
-        readTVar headState >>= \case
-          Initial{initials} -> case ownInitial verificationKey initials of
-            Nothing -> error $ "no ownInitial: " <> show initials
-            Just initial ->
-              pure . Just $ commitTx party aUtxo initial
-          st -> error $ "cannot post CommitTx, invalid state: " <> show st
-      _ ->
-        throwIO MoreThanOneUtxoCommitted
+    readTVar headState >>= \case
+      Initial{initials} -> case ownInitial verificationKey initials of
+        Nothing -> error $ "no ownInitial: " <> show initials
+        Just initial ->
+          case Map.toList (Ledger.unUTxO utxo) of
+            [aUtxo] -> do
+              pure . Just $ commitTx party (Just aUtxo) initial
+            [] -> do
+              pure . Just $ commitTx party Nothing initial
+            _ ->
+              throwIO MoreThanOneUtxoCommitted
+      st -> error $ "cannot post CommitTx, invalid state: " <> show st
   CollectComTx utxo ->
     readTVar headState >>= \case
       Initial{threadOutput} ->

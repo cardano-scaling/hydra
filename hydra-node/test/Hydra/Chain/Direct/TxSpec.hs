@@ -109,10 +109,10 @@ spec =
               & counterexample ("Tx: " <> show tx)
               & counterexample ("Tx serialized size: " <> show len)
 
-      prop "is observed" $ \party (txIn, txOut) initialIn ->
-        let tx = commitTx party (txIn, txOut) initialIn
+      prop "is observed" $ \party utxo initialIn ->
+        let tx = commitTx party utxo initialIn
          in observeCommitTx tx
-              === Just OnCommitTx{party, committed = UTxO $ Map.singleton txIn txOut}
+              === Just OnCommitTx{party, committed = UTxO $ Map.fromList $ maybeToList utxo}
               & counterexample ("Tx: " <> show tx)
 
     describe "collectComTx" $ do
