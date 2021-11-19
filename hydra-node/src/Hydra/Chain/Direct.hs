@@ -28,6 +28,7 @@ import Hydra.Chain (
   Chain (..),
   ChainCallback,
   ChainComponent,
+  InvalidTxError (..),
   OnChainTx (PostTxFailed),
   PostChainTx (..),
  )
@@ -344,7 +345,7 @@ finalizeTx TinyWallet{sign, coverFee} headState partialTx = do
       pure $ sign validatedTx
 
 fromPostChainTx ::
-  MonadSTM m =>
+  (MonadSTM m, MonadThrow (STM m)) =>
   TinyWallet m ->
   TVar m OnChainHeadState ->
   [Cardano.VerificationKey] ->
@@ -362,12 +363,17 @@ fromPostChainTx TinyWallet{getUtxo, verificationKey} headState cardanoKeys = \ca
         pure . Just $ abortTx (convertTuple threadOutput) (map convertTuple initials)
       _st -> pure Nothing
   CommitTx party utxo ->
-    readTVar headState >>= \case
-      Initial{initials} -> case ownInitial verificationKey initials of
-        Nothing -> error $ "no ownInitial: " <> show initials
-        Just initial ->
-          pure . Just $ commitTx party utxo initial
-      st -> error $ "cannot post CommitTx, invalid state: " <> show st
+    case toList (Ledger.unUTxO utxo) of
+      [_] -> do
+        readTVar headState >>= \case
+          Initial{initials} -> case ownInitial verificationKey initials of
+            Nothing -> error $ "no ownInitial: " <> show initials
+            Just initial ->
+              -- TODO: Make commitTx take a (TxIn, TxOut) instead of UTxO
+              pure . Just $ commitTx party utxo initial
+          st -> error $ "cannot post CommitTx, invalid state: " <> show st
+      _ ->
+        throwIO MoreThanOneUtxoCommitted
   CollectComTx utxo ->
     readTVar headState >>= \case
       Initial{threadOutput} ->
