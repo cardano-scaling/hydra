@@ -56,6 +56,7 @@ import qualified Hydra.Data.Party as OnChain
 import Hydra.Data.Utxo (fromByteString)
 import qualified Hydra.Data.Utxo as OnChain
 import Hydra.Ledger (Tx, Utxo)
+import Hydra.Ledger.Cardano (CardanoTx, utxoToJSON)
 import Hydra.Party (Party (Party), vkey)
 import Hydra.Snapshot (SnapshotNumber)
 import Ledger.Value (AssetClass (..), currencyMPSHash)
@@ -168,9 +169,8 @@ initTx cardanoKeys HeadParameters{contestationPeriod, parties} txIn =
 -- TODO(SN): Eventually, this might not be necessary as the 'Utxo tx' would need
 -- to be inputs of this transaction.
 commitTx ::
-  Tx tx =>
   Party ->
-  Utxo tx ->
+  Utxo CardanoTx ->
   -- | The inital output (sent to each party) which should contain the PT and is
   -- locked by initial script
   (TxIn StandardCrypto, PubKeyHash) ->
@@ -222,7 +222,7 @@ commitTx party utxo (initialIn, pkh) =
     Data . toData $
       MockCommit.datum (partyFromVerKey $ vkey party, commitUtxo)
 
-  commitUtxo = fromByteString $ toStrict $ Aeson.encode utxo
+  commitUtxo = fromByteString $ toStrict $ Aeson.encode $ utxoToJSON utxo
 
 -- | Create a transaction collecting all "committed" utxo and opening a Head,
 -- i.e. driving the Head script state.
@@ -230,7 +230,7 @@ commitTx party utxo (initialIn, pkh) =
 -- collecting anything.
 collectComTx ::
   -- | Total UTXO to be made available in the Head.
-  Utxo tx ->
+  Utxo CardanoTx ->
   -- | Everything needed to spend the Head state-machine output.
   -- FIXME(SN): should also contain some Head identifier/address and stored Value (maybe the TxOut + Data?)
   (TxIn StandardCrypto, Data Era) ->
@@ -282,7 +282,7 @@ collectComTx _utxo (headInput, headDatumBefore) =
 closeTx ::
   SnapshotNumber ->
   -- | Snapshotted Utxo to close the Head with.
-  Utxo tx ->
+  Utxo CardanoTx ->
   -- | Everything needed to spend the Head state-machine output.
   -- FIXME(SN): should also contain some Head identifier/address and stored Value (maybe the TxOut + Data?)
   (TxIn StandardCrypto, Data Era) ->
@@ -334,7 +334,7 @@ closeTx snapshotNumber _utxo (headInput, headDatumBefore) =
 
 fanoutTx ::
   -- | Snapshotted Utxo to fanout on layer 1
-  Utxo tx ->
+  Utxo CardanoTx ->
   -- | Everything needed to spend the Head state-machine output.
   -- FIXME(SN): should also contain some Head identifier/address and stored Value (maybe the TxOut + Data?)
   (TxIn StandardCrypto, Data Era) ->

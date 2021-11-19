@@ -16,7 +16,7 @@ import Hydra.Ledger (Utxo)
 import Hydra.Node (HydraNodeLog)
 
 data HydraLog tx net
-  = DirectChain {directChain :: DirectChainLog tx}
+  = DirectChain {directChain :: DirectChainLog}
   | APIServer {api :: APIServerLog}
   | Network {network :: net}
   | Node {node :: HydraNodeLog tx}
@@ -26,7 +26,7 @@ data HydraLog tx net
 instance
   ( Arbitrary net
   , Arbitrary tx
-  , Arbitrary (DirectChainLog tx)
+  , Arbitrary DirectChainLog
   , Arbitrary (Utxo tx)
   , Arbitrary APIServerLog
   ) =>

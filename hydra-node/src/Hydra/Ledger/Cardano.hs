@@ -560,7 +560,7 @@ instance Semigroup (Cardano.UTxO (MaryEra crypto)) where
 instance Monoid (Cardano.UTxO (MaryEra crypto)) where
   mempty = Cardano.UTxO mempty
 
-instance Crypto crypto =>  ToJSON (Cardano.UTxO (MaryEra crypto)) where
+instance Crypto crypto => ToJSON (Cardano.UTxO (MaryEra crypto)) where
   toJSON = utxoToJSON
 
 -- NOTE: This function exists because we encountered an overlapping instance
@@ -568,7 +568,7 @@ instance Crypto crypto =>  ToJSON (Cardano.UTxO (MaryEra crypto)) where
 -- to use Cardano.Api's JSON instances, because we only have access to ToJSON
 -- instances and we would need to ensure consistency with ToJSON/FromJSON everywhere,
 -- which is quite annoying.
-utxoToJSON :: Crypto crypto => (Cardano.UTxO (MaryEra crypto)) -> Value
+utxoToJSON :: Crypto crypto => Cardano.UTxO (MaryEra crypto) -> Value
 utxoToJSON = toJSON . Cardano.unUTxO
 
 instance Crypto crypto => FromJSON (Cardano.UTxO (MaryEra crypto)) where

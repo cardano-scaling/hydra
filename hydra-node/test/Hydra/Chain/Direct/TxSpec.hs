@@ -61,7 +61,7 @@ spec =
       prop "is observed" $ \txIn cperiod (party :| parties) cardanoKeys ->
         let params = HeadParameters cperiod (party : parties)
             tx = initTx cardanoKeys params txIn
-            observed = observeInitTx @SimpleTx party tx
+            observed = observeInitTx party tx
          in case observed of
               Just (octx, _) -> octx === OnInitTx cperiod (party : parties)
               _ -> property False
@@ -80,7 +80,7 @@ spec =
             parties = fst <$> me : others
             cardanoKeys = snd <$> me : others
             tx = initTx cardanoKeys params txIn
-            res = observeInitTx @SimpleTx (fst me) tx
+            res = observeInitTx (fst me) tx
          in case res of
               Just (OnInitTx cp ps, Initial{initials}) ->
                 cp === cperiod
@@ -91,8 +91,8 @@ spec =
               & counterexample ("Tx: " <> show tx)
 
     describe "commitTx" $ do
-      prop "transaction size below limit" $ \party (utxo :: Utxo SimpleTx) initialIn ->
-        let tx = commitTx @SimpleTx party utxo initialIn
+      prop "transaction size below limit" $ \party utxo initialIn ->
+        let tx = commitTx party utxo initialIn
             cbor = serialize tx
             len = LBS.length cbor
          in len < maxTxSize
@@ -100,15 +100,15 @@ spec =
               & counterexample ("Tx: " <> show tx)
               & counterexample ("Tx serialized size: " <> show len)
 
-      prop "is observed" $ \party (utxo :: Utxo SimpleTx) initialIn ->
-        let tx = commitTx @SimpleTx party utxo initialIn
-         in observeCommitTx @SimpleTx tx
+      prop "is observed" $ \party utxo initialIn ->
+        let tx = commitTx party utxo initialIn
+         in observeCommitTx tx
               === Just OnCommitTx{party, committed = utxo}
               & counterexample ("Tx: " <> show tx)
 
     describe "collectComTx" $ do
-      prop "transaction size below limit" $ \(utxo :: Utxo SimpleTx) headIn cperiod parties ->
-        let tx = collectComTx @SimpleTx utxo (headIn, headDatum)
+      prop "transaction size below limit" $ \utxo headIn cperiod parties ->
+        let tx = collectComTx utxo (headIn, headDatum)
             headDatum = Data . toData $ MockHead.Initial cperiod parties
             cbor = serialize tx
             len = LBS.length cbor
@@ -117,14 +117,14 @@ spec =
               & counterexample ("Tx: " <> show tx)
               & counterexample ("Tx serialized size: " <> show len)
 
-      prop "is observed" $ \(committedUtxo :: Utxo SimpleTx) headInput cperiod parties ->
+      prop "is observed" $ \committedUtxo headInput cperiod parties ->
         let headDatum = Data . toData $ MockHead.Initial cperiod parties
             headAddress = scriptAddr $ plutusScript $ MockHead.validatorScript policyId
             headValue = inject (Coin 2_000_000)
             headOutput = TxOut headAddress headValue SNothing -- will be SJust, but not covered by this test
             lookupUtxo = Map.singleton headInput headOutput
-            tx = collectComTx @SimpleTx committedUtxo (headInput, headDatum)
-            res = observeCollectComTx @SimpleTx lookupUtxo tx
+            tx = collectComTx committedUtxo (headInput, headDatum)
+            res = observeCollectComTx lookupUtxo tx
          in case res of
               Just (OnCollectComTx, OpenOrClosed{}) -> property True
               _ -> property False
@@ -135,8 +135,8 @@ spec =
       -- XXX(SN): tests are using a fixed snapshot number because of overlapping instances
       let sn = 1
 
-      prop "transaction size below limit" $ \(utxo :: Utxo SimpleTx) headIn ->
-        let tx = closeTx @SimpleTx sn utxo (headIn, headDatum)
+      prop "transaction size below limit" $ \utxo headIn ->
+        let tx = closeTx sn utxo (headIn, headDatum)
             headDatum = Data $ toData MockHead.Open
             cbor = serialize tx
             len = LBS.length cbor
@@ -145,14 +145,14 @@ spec =
               & counterexample ("Tx: " <> show tx)
               & counterexample ("Tx serialized size: " <> show len)
 
-      prop "is observed" $ \(utxo :: Utxo SimpleTx) headInput ->
+      prop "is observed" $ \utxo headInput ->
         let headDatum = Data $ toData MockHead.Open
             headAddress = scriptAddr $ plutusScript $ MockHead.validatorScript policyId
             headValue = inject (Coin 2_000_000)
             headOutput = TxOut headAddress headValue SNothing -- will be SJust, but not covered by this test
             lookupUtxo = Map.singleton headInput headOutput
-            tx = closeTx @SimpleTx sn utxo (headInput, headDatum)
-            res = observeCloseTx @SimpleTx lookupUtxo tx
+            tx = closeTx sn utxo (headInput, headDatum)
+            res = observeCloseTx lookupUtxo tx
          in case res of
               Just (OnCloseTx{snapshotNumber}, OpenOrClosed{}) -> snapshotNumber === sn
               _ -> property False
@@ -160,8 +160,8 @@ spec =
               & counterexample ("Tx: " <> show tx)
 
     describe "fanoutTx" $ do
-      prop "transaction size below limit" $ \(utxo :: Utxo SimpleTx) headIn ->
-        let tx = fanoutTx @SimpleTx utxo (headIn, headDatum)
+      prop "transaction size below limit" $ \utxo headIn ->
+        let tx = fanoutTx utxo (headIn, headDatum)
             headDatum = Data $ toData MockHead.Closed
             cbor = serialize tx
             len = LBS.length cbor
@@ -170,14 +170,14 @@ spec =
               & counterexample ("Tx: " <> show tx)
               & counterexample ("Tx serialized size: " <> show len)
 
-      prop "is observed" $ \(utxo :: Utxo SimpleTx) headInput ->
-        let tx = fanoutTx @SimpleTx utxo (headInput, headDatum)
+      prop "is observed" $ \utxo headInput ->
+        let tx = fanoutTx utxo (headInput, headDatum)
             headDatum = Data $ toData MockHead.Closed
             headAddress = scriptAddr $ plutusScript $ MockHead.validatorScript policyId
             headValue = inject (Coin 2_000_000)
             headOutput = TxOut headAddress headValue SNothing -- will be SJust, but not covered by this test
             lookupUtxo = Map.singleton headInput headOutput
-            res = observeFanoutTx @SimpleTx lookupUtxo tx
+            res = observeFanoutTx lookupUtxo tx
          in res === Just (OnFanoutTx, Final)
               & counterexample ("Tx: " <> show tx)
               & counterexample ("Utxo map: " <> show lookupUtxo)
@@ -201,7 +201,7 @@ spec =
             headValue = inject (Coin 2_000_000)
             utxo = Map.singleton txIn txOut
             tx = abortTx (txIn, headDatum) initials
-            res = observeAbortTx @SimpleTx utxo tx
+            res = observeAbortTx utxo tx
          in case res of
               Just (_, st) -> st === Final
               _ -> property False

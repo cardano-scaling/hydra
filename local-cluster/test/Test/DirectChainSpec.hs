@@ -28,7 +28,7 @@ import Hydra.Chain.Direct (
   withIOManager,
  )
 import Hydra.Ledger (Tx)
-import Hydra.Ledger.Simple (SimpleTx, utxoRef)
+import Hydra.Ledger.Simple (SimpleTx, utxoRef, utxoRefs)
 import Hydra.Logging (nullTracer, showLogsOnFailure)
 import Hydra.Party (Party, deriveParty, generateKey)
 import Hydra.Snapshot (Snapshot (..))
@@ -144,7 +144,7 @@ carol = deriveParty $ generateKey 30
 data TestClusterLog
   = FromCluster ClusterLog
   | FromNode NodeLog
-  | FromDirectChain Text (DirectChainLog SimpleTx)
+  | FromDirectChain Text DirectChainLog
   deriving (Show)
 
 observesInTime :: Tx tx => MVar (OnChainTx tx) -> OnChainTx tx -> Expectation

@@ -58,7 +58,7 @@ import Hydra.Chain.Direct.Util (
  )
 import qualified Hydra.Chain.Direct.Util as Cardano
 import Hydra.Chain.Direct.Wallet (TinyWallet (..), TinyWalletLog, withTinyWallet)
-import Hydra.Ledger (Tx, Utxo)
+import Hydra.Ledger.Cardano (CardanoTx)
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Party (Party)
 import Hydra.Snapshot (Snapshot (..))
@@ -102,9 +102,8 @@ import Ouroboros.Network.Protocol.LocalTxSubmission.Client (
 import Test.Cardano.Ledger.Alonzo.Serialisation.Generators ()
 
 withDirectChain ::
-  Tx tx =>
   -- | Tracer for logging
-  Tracer IO (DirectChainLog tx) ->
+  Tracer IO DirectChainLog ->
   -- | Network identifer to which we expect to connect.
   NetworkMagic ->
   -- | A cross-platform abstraction for managing I/O operations on local sockets
@@ -117,7 +116,7 @@ withDirectChain ::
   Party ->
   -- | Cardano keys of all Head participants.
   [Cardano.VerificationKey] ->
-  ChainComponent tx IO ()
+  ChainComponent CardanoTx IO ()
 withDirectChain tracer networkMagic iocp socketPath keyPair party cardanoKeys callback action = do
   queue <- newTQueueIO
   headState <- newTVarIO None
@@ -178,12 +177,12 @@ data ConnectException = ConnectException
 instance Exception ConnectException
 
 client ::
-  (MonadST m, MonadTimer m, Tx tx) =>
-  Tracer m (DirectChainLog tx) ->
+  (MonadST m, MonadTimer m) =>
+  Tracer m DirectChainLog ->
   TQueue m (ValidatedTx Era) ->
   Party ->
   TVar m OnChainHeadState ->
-  ChainCallback tx m ->
+  ChainCallback CardanoTx m ->
   NodeToClientVersion ->
   OuroborosApplication 'InitiatorMode LocalAddress LByteString m () Void
 client tracer queue party headState callback nodeToClientV =
@@ -214,10 +213,10 @@ client tracer queue party headState callback nodeToClientV =
     } = defaultCodecs nodeToClientV
 
 chainSyncClient ::
-  forall m tx.
-  (MonadSTM m, Tx tx) =>
-  Tracer m (DirectChainLog tx) ->
-  ChainCallback tx m ->
+  forall m.
+  MonadSTM m =>
+  Tracer m DirectChainLog ->
+  ChainCallback CardanoTx m ->
   Party ->
   TVar m OnChainHeadState ->
   ChainSyncClient Block (Point Block) (Tip Block) m ()
@@ -288,10 +287,10 @@ chainSyncClient tracer callback party headState =
             pure clientStIdle
       }
 
-  runOnChainTxs :: [ValidatedTx Era] -> m [OnChainTx tx]
+  runOnChainTxs :: [ValidatedTx Era] -> m [OnChainTx CardanoTx]
   runOnChainTxs = fmap reverse . atomically . foldM runOnChainTx []
 
-  runOnChainTx :: [OnChainTx tx] -> ValidatedTx Era -> STM m [OnChainTx tx]
+  runOnChainTx :: [OnChainTx CardanoTx] -> ValidatedTx Era -> STM m [OnChainTx CardanoTx]
   runOnChainTx observed tx = do
     onChainHeadState <- readTVar headState
     let utxo = knownUtxo onChainHeadState
@@ -310,9 +309,9 @@ chainSyncClient tracer callback party headState =
       Nothing -> pure observed
 
 txSubmissionClient ::
-  forall m tx.
-  (MonadSTM m) =>
-  Tracer m (DirectChainLog tx) ->
+  forall m.
+  MonadSTM m =>
+  Tracer m DirectChainLog ->
   TQueue m (ValidatedTx Era) ->
   LocalTxSubmissionClient (GenTx Block) (ApplyTxErr Block) m ()
 txSubmissionClient tracer queue =
@@ -345,12 +344,11 @@ finalizeTx TinyWallet{sign, coverFee} headState partialTx = do
       pure $ sign validatedTx
 
 fromPostChainTx ::
-  forall tx m.
-  (Tx tx, MonadSTM m) =>
+  MonadSTM m =>
   TinyWallet m ->
   TVar m OnChainHeadState ->
   [Cardano.VerificationKey] ->
-  PostChainTx tx ->
+  PostChainTx CardanoTx ->
   STM m (Maybe (ValidatedTx Era))
 fromPostChainTx TinyWallet{getUtxo, verificationKey} headState cardanoKeys = \case
   InitTx params -> do
@@ -368,22 +366,22 @@ fromPostChainTx TinyWallet{getUtxo, verificationKey} headState cardanoKeys = \ca
       Initial{initials} -> case ownInitial verificationKey initials of
         Nothing -> error $ "no ownInitial: " <> show initials
         Just initial ->
-          pure . Just $ commitTx @tx party utxo initial
+          pure . Just $ commitTx party utxo initial
       st -> error $ "cannot post CommitTx, invalid state: " <> show st
   CollectComTx utxo ->
     readTVar headState >>= \case
       Initial{threadOutput} ->
-        pure . Just $ collectComTx @tx utxo (convertTuple threadOutput)
+        pure . Just $ collectComTx utxo (convertTuple threadOutput)
       st -> error $ "cannot post CollectComTx, invalid state: " <> show st
   CloseTx Snapshot{number, utxo} ->
     readTVar headState >>= \case
       OpenOrClosed{threadOutput} ->
-        pure . Just $ closeTx @tx number utxo (convertTuple threadOutput)
+        pure . Just $ closeTx number utxo (convertTuple threadOutput)
       st -> error $ "cannot post CloseTx, invalid state: " <> show st
   FanoutTx{utxo} ->
     readTVar headState >>= \case
       OpenOrClosed{threadOutput} ->
-        pure . Just $ fanoutTx @tx utxo (convertTuple threadOutput)
+        pure . Just $ fanoutTx utxo (convertTuple threadOutput)
       st -> error $ "cannot post FanOutTx, invalid state: " <> show st
   _ -> error "not implemented"
  where
@@ -407,18 +405,18 @@ getAlonzoTxs = \case
 --
 
 -- TODO add  ToJSON, FromJSON instances
-data DirectChainLog tx
-  = ToPost {toPost :: PostChainTx tx}
+data DirectChainLog
+  = ToPost {toPost :: PostChainTx CardanoTx}
   | PostedTx {postedTx :: ValidatedTx Era}
-  | ReceivedTxs {onChainTxs :: [OnChainTx tx], receivedTxs :: [ValidatedTx Era]}
+  | ReceivedTxs {onChainTxs :: [OnChainTx CardanoTx], receivedTxs :: [ValidatedTx Era]}
   | RolledBackward {point :: SomePoint}
   | Wallet TinyWalletLog
   deriving (Eq, Show, Generic)
 
-instance (Arbitrary tx, Arbitrary (Utxo tx)) => Arbitrary (DirectChainLog tx) where
+instance Arbitrary DirectChainLog where
   arbitrary = genericArbitrary
 
-instance Tx tx => ToJSON (DirectChainLog tx) where
+instance ToJSON DirectChainLog where
   toJSON = \case
     ToPost{toPost} ->
       object
