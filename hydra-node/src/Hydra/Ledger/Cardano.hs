@@ -2,6 +2,8 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE TypeSynonymInstances #-}
+{-# LANGUAGE UndecidableInstances #-}
 {-# OPTIONS_GHC -Wno-missing-methods #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 
@@ -11,27 +13,39 @@ import Hydra.Prelude hiding (id)
 
 import Cardano.Api
 import Cardano.Api.Shelley
+import qualified Cardano.Crypto.Hash.Class as Crypto
+import qualified Cardano.Ledger.Alonzo as Ledger.Alonzo
 import qualified Cardano.Ledger.Alonzo.PParams as Ledger.Alonzo
 import qualified Cardano.Ledger.Alonzo.Tx as Ledger.Alonzo
 import qualified Cardano.Ledger.Alonzo.TxBody as Ledger.Alonzo
 import qualified Cardano.Ledger.Alonzo.TxWitness as Ledger.Alonzo
 import qualified Cardano.Ledger.BaseTypes as Ledger
 import qualified Cardano.Ledger.Core as Ledger
+import qualified Cardano.Ledger.Crypto as Ledger (StandardCrypto)
 import qualified Cardano.Ledger.Era as Ledger
+import qualified Cardano.Ledger.Keys as Ledger
+import qualified Cardano.Ledger.SafeHash as Ledger
 import qualified Cardano.Ledger.Shelley.API.Mempool as Ledger
 import qualified Cardano.Ledger.Shelley.LedgerState as Ledger
 import qualified Cardano.Ledger.Shelley.Rules.Ledger as Ledger
+import qualified Cardano.Ledger.Shelley.TxBody as Ledger (WitVKey (..))
 import qualified Cardano.Ledger.Shelley.UTxO as Ledger
 import qualified Cardano.Ledger.Slot as Ledger
+import qualified Cardano.Ledger.TxIn as Ledger
 import qualified Cardano.Slotting.EpochInfo as Slotting
 import qualified Cardano.Slotting.Time as Slotting
 import qualified Control.State.Transition as Ledger
 import Data.Default (Default, def)
 import qualified Data.Map.Strict as Map
-import Data.Maybe.Strict (maybeToStrictMaybe)
+import Data.Maybe.Strict (maybeToStrictMaybe, strictMaybeToMaybe)
+import qualified Data.Set as Set
+import qualified Data.Text as T
 import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
 import Hydra.Ledger (IsTx (..), Ledger (..), ValidationError (..))
 import Hydra.Ledger.Cardano.Orphans ()
+
+type LedgerEra = Ledger.Alonzo.AlonzoEra Ledger.StandardCrypto
+type Era = AlonzoEra
 
 -- TODO(SN): Pre-validate transactions to get less confusing errors on
 -- transactions which are not expected to working on a layer-2
@@ -47,7 +61,7 @@ cardanoLedger =
   applyAll (Utxo utxo) = \case
     [] -> Right (Utxo utxo)
     (tx : txs) -> do
-      utxo' <- applyTx ledgerEnv utxo (toLedgerTx tx)
+      utxo' <- coerce <$> applyTx ledgerEnv (coerce utxo) (toLedgerTx tx)
       applyAll (Utxo utxo') txs
 
   -- NOTE(SN): This is will fail on any transaction requiring the 'DPState' to be
@@ -74,6 +88,28 @@ cardanoLedger =
     toValidationError = ValidationError . show
     memPoolState = (def{Ledger._utxo = utxo}, def)
 
+signWith ::
+  forall era.
+  (IsShelleyBasedEra era) =>
+  TxId ->
+  (VerificationKey PaymentKey, SigningKey PaymentKey) ->
+  KeyWitness era
+signWith (TxId h) (PaymentVerificationKey vk, PaymentSigningKey sk) =
+  ShelleyKeyWitness (shelleyBasedEra @era) $
+    Ledger.WitVKey
+      (Ledger.asWitness vk)
+      (Ledger.signedDSIGN @Ledger.StandardCrypto sk h)
+
+-- FIXME: The network discriminant should really be a parameter here.
+mkVkAddress ::
+  VerificationKey PaymentKey ->
+  Address ShelleyAddr
+mkVkAddress vk =
+  makeShelleyAddress
+    (Testnet $ NetworkMagic 42)
+    (PaymentCredentialByKey $ verificationKeyHash vk)
+    NoStakeAddress
+
 --
 -- Type conversions & plumbing
 --
@@ -82,27 +118,56 @@ cardanoLedger =
 -- Utxo
 --
 
--- | Newtype mostly required to provide 'Ledger.UTXO' with a 'Monoid' instance.
-newtype Utxo = Utxo
-  { unUtxo :: Ledger.UTxO (ShelleyLedgerEra AlonzoEra)
+type Utxo = Utxo' LedgerEra (Ledger.Alonzo.TxOut LedgerEra)
+
+-- | Newtype with phantom types mostly required to work around the poor interface
+-- of 'Ledger.UTXO'and provide 'Monoid' and 'Foldable' instances to make utxo
+-- manipulation bareable.
+newtype Utxo' era out = Utxo
+  { unUtxo :: Map (Ledger.TxIn (Ledger.Crypto era)) out
   }
-  deriving newtype (Eq, Show, ToCBOR, FromCBOR)
+  deriving newtype (Eq, Show)
+
+instance ToCBOR Utxo where
+  toCBOR = toCBOR . coerce @_ @(Ledger.UTxO LedgerEra)
+  encodedSizeExpr sz _ = encodedSizeExpr sz (Proxy @(Ledger.UTxO LedgerEra))
+
+instance FromCBOR Utxo where
+  fromCBOR = coerce @(Ledger.UTxO LedgerEra) <$> fromCBOR
+  label _ = label (Proxy @(Ledger.UTxO LedgerEra))
+
+instance Foldable (Utxo' era) where
+  foldMap fn = foldMap fn . unUtxo
+  foldr fn zero = foldr fn zero . unUtxo
 
 instance Semigroup Utxo where
-  Utxo (Ledger.UTxO a) <> Utxo (Ledger.UTxO b) =
-    Utxo (Ledger.UTxO (a <> b))
+  Utxo uL <> Utxo uR = Utxo (uL <> uR)
 
 instance Monoid Utxo where
-  mempty =
-    Utxo (Ledger.UTxO mempty)
+  mempty = Utxo mempty
 
 instance ToJSON Utxo where
-  toJSON =
-    toJSON . Ledger.unUTxO . unUtxo
+  toJSON = toJSON . unUtxo
 
 instance FromJSON Utxo where
-  parseJSON =
-    fmap (Utxo . Ledger.UTxO) . parseJSON
+  parseJSON = fmap Utxo . parseJSON
+
+prettyUtxo :: (TxIn, TxOut ctx era) -> Text
+prettyUtxo (k, TxOut _ (txOutValueToValue -> v) _) =
+  T.drop 54 (renderTxIn k) <> " ↦ " <> prettyValue v
+
+-- FIXME: This function is wrong! It's mapping a transaction's own inputs to its
+-- own outputs. Whoops. It's currently used in Hydra.Chain.Direct.Tx where
+-- the calling code only look at the outputs of the transactions and also in the
+-- generators of the local-cluster (Whoops bis).
+utxoFromTx :: Tx AlonzoEra -> Utxo
+utxoFromTx (Tx body@(ShelleyTxBody _ ledgerBody _ _ _ _) _) =
+  let txOuts = toList $ Ledger.Alonzo.outputs' ledgerBody
+      txIns =
+        [ Ledger.TxIn (toLedgerTxId $ getTxId body) ix
+        | ix <- [0 .. fromIntegral (length txOuts)]
+        ]
+   in Utxo $ Map.fromList $ zip txIns txOuts
 
 --
 -- Tx
@@ -114,7 +179,7 @@ instance IsTx (Tx AlonzoEra) where
   type ValueType (Tx AlonzoEra) = Value
 
   txId = getTxId . getTxBody
-  balance (Utxo (Ledger.UTxO u)) =
+  balance (Utxo u) =
     let aggregate (Ledger.Alonzo.TxOut _ value _) = (<>) (fromMaryValue value)
      in Map.foldr aggregate mempty u
 
@@ -163,7 +228,67 @@ toLedgerTx = \case
 
 -- | Convert an existing @cardano-ledger-specs@'s 'Tx' into a @cardano-api@'s 'Tx'
 fromLedgerTx :: Ledger.Tx (ShelleyLedgerEra AlonzoEra) -> Tx AlonzoEra
-fromLedgerTx = error "fromLedgerTx: TODO"
+fromLedgerTx (Ledger.Alonzo.ValidatedTx body wits isValid auxData) =
+  Tx
+    (ShelleyTxBody era body scripts scriptsData (strictMaybeToMaybe auxData) validity)
+    vkWits
+ where
+  era =
+    ShelleyBasedEraAlonzo
+  scripts =
+    Map.elems $ Ledger.Alonzo.txscripts' wits
+  scriptsData
+    | otherwise =
+      TxBodyScriptData
+        ScriptDataInAlonzoEra
+        (Ledger.Alonzo.txdats' wits)
+        (Ledger.Alonzo.txrdmrs' wits)
+  validity = case isValid of
+    Ledger.Alonzo.IsValid True ->
+      TxScriptValidity TxScriptValiditySupportedInAlonzoEra ScriptValid
+    Ledger.Alonzo.IsValid False ->
+      TxScriptValidity TxScriptValiditySupportedInAlonzoEra ScriptInvalid
+  vkWits =
+    Set.foldr ((:) . ShelleyKeyWitness era) [] (Ledger.Alonzo.txwitsVKey' wits)
+      ++ Set.foldr ((:) . ShelleyBootstrapWitness era) [] (Ledger.Alonzo.txwitsBoot' wits)
+
+--
+-- TxId
+--
+
+toLedgerTxId :: TxId -> Ledger.TxId Ledger.StandardCrypto
+toLedgerTxId (TxId h) =
+  Ledger.TxId (Ledger.unsafeMakeSafeHash (Crypto.castHash h))
+
+--
+-- Formatting
+--
+
+-- TODO: Maybe consider using 'renderValue' from cardano-api instead?
+prettyValue :: Value -> Text
+prettyValue value =
+  let Lovelace lovelace = fromMaybe 0 (valueToLovelace value)
+      (ada, decimal) = lovelace `quotRem` 1000000
+      n = length (valueToList value)
+   in unwords $
+        [ show ada <> "." <> padLeft '0' 6 (show decimal)
+        , "₳"
+        ]
+          ++ if n == 0
+            then mempty
+            else ["and", show n, "asset(s)"]
+
+-- | Pad a text-string to left with the given character until it reaches the given
+-- length.
+--
+-- NOTE: Truncate the string if longer than the given length.
+-- TODO: Move into a separate module.
+padLeft :: Char -> Int -> Text -> Text
+padLeft c n str = T.takeEnd n (T.replicate n (T.singleton c) <> str)
+
+--
+-- Generators
+--
 
 --
 -- Temporary / Quick-n-dirty

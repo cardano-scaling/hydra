@@ -602,6 +602,49 @@ style _ =
     ]
 
 --
+-- UTXO Faucet & Converting credentials
+--
+
+-- | For now, we _fake it until we make it_ ^TM. Credentials and initial UTXO are
+-- generated *deterministically* from Hydra verification keys (the 'Party').
+-- Thus, coupling Hydra keys (signing the Head itself) with Cardano keys
+-- (signing transactions in a Head). In the end, the client will figure out
+-- credentials and UTXO via some other means. Likely, the credentials will be
+-- user-provided, whereas the UTXO would come from a local node + chain sync.
+
+-- | Create a cardano key pair from a party. This would not be done in a real
+-- application and we'd manage the Cardano keys separate from the Hydra keys.
+-- For now though, this makes it easy to create assets for Head participants and
+-- send values between "them".
+getCredentials :: Party -> Cardano.KeyPair 'Cardano.Payment StandardCrypto
+getCredentials Party{vkey} =
+  let VerKeyMockDSIGN word = vkey
+      seed = fromIntegral word
+   in generateWith generateKeyPair seed
+ where
+  generateKeyPair = do
+    -- NOTE: not using 'genKeyDSIGN' purposely here, it is not pure and does not
+    -- play well with pure generation from seed.
+    sk <- fromJust . rawDeserialiseSignKeyDSIGN . fromList <$> vectorOf 64 arbitrary
+    pure $ Cardano.KeyPair (Cardano.VKey (deriveVerKeyDSIGN sk)) sk
+
+-- | Similarly to 'getCredentials', this gives us "the" Cardano address given a
+-- Hydra 'Party'. In a real world deployment it would make no sense to send a
+-- Head participant something, the ledger would be fully decoupled.
+getAddress :: Party -> Cardano.Addr StandardCrypto
+getAddress =
+  mkVkAddress . vKey . getCredentials
+
+-- | Generate a Utxo set for a given party "out of thin air".
+faucetUtxo :: Party -> Map TxIn TxOut
+faucetUtxo party@Party{vkey} =
+  let VerKeyMockDSIGN word = vkey
+      seed = fromIntegral word
+      vk = vKey $ getCredentials party
+      Cardano.UTxO u = generateWith (scale (const 5) $ genUtxoFor vk) seed
+   in u
+
+--
 -- Run it
 --
 -- NOTE(SN): At the end of the module because of TH
