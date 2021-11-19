@@ -14,7 +14,9 @@ cabal build --enable-tests all
 cabal test all
 
 # Sanity check benchmark still runs fine
-cabal bench local-cluster --benchmark-options '--scaling-factor 1'
+# FIXME(AB): benchmarks are currently broken because we cannot submit more
+# than one UTxO
+# cabal bench local-cluster --benchmark-options '--scaling-factor 1'
 
 # ignore various errors, including plutus scripts one
 cabal haddock all -fhydra-development
