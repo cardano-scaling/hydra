@@ -55,7 +55,7 @@ import Hydra.Data.Party (partyFromVerKey, partyToVerKey)
 import qualified Hydra.Data.Party as OnChain
 import Hydra.Data.Utxo (fromByteString)
 import qualified Hydra.Data.Utxo as OnChain
-import Hydra.Ledger (Tx, Utxo)
+import Hydra.Ledger (Utxo)
 import Hydra.Ledger.Cardano (CardanoTx, utxoToJSON)
 import Hydra.Party (Party (Party), vkey)
 import Hydra.Snapshot (SnapshotNumber)
@@ -458,7 +458,7 @@ abortTx (headInput, headDatum) initInputs =
 
 -- XXX(SN): We should log decisions why a tx is not an initTx etc. instead of
 -- only returning a Maybe, i.e. 'Either Reason (OnChainTx tx, OnChainHeadState)'
-observeInitTx :: Party -> ValidatedTx Era -> Maybe (OnChainTx tx, OnChainHeadState)
+observeInitTx :: Party -> ValidatedTx Era -> Maybe (OnChainTx CardanoTx, OnChainHeadState)
 observeInitTx party ValidatedTx{wits, body} = do
   (dh, headDatum, MockHead.Initial cp ps) <- getFirst $ foldMap (First . decodeHeadDatum) datumsList
   let parties = map convertParty ps
@@ -506,7 +506,7 @@ convertParty :: OnChain.Party -> Party
 convertParty = Party . partyToVerKey
 
 -- | Identify a commit tx by looking for an output which pays to v_commit.
-observeCommitTx :: forall tx. Tx tx => ValidatedTx Era -> Maybe (OnChainTx tx)
+observeCommitTx :: ValidatedTx Era -> Maybe (OnChainTx CardanoTx)
 observeCommitTx tx@ValidatedTx{wits} = do
   txOut <- snd <$> findScriptOutput (utxoFromTx tx) commitScript
   dat <- lookupDatum wits txOut
@@ -515,7 +515,6 @@ observeCommitTx tx@ValidatedTx{wits} = do
  where
   commitScript = plutusScript MockCommit.validatorScript
 
-  convertUtxo :: OnChain.Utxo -> Maybe (Utxo tx)
   convertUtxo = Aeson.decodeStrict' . OnChain.toByteString
 
 -- TODO(SN): obviously the observeCollectComTx/observeAbortTx can be DRYed.. deliberately hold back on it though
@@ -526,7 +525,7 @@ observeCollectComTx ::
   -- | A Utxo set to lookup tx inputs
   Map (TxIn StandardCrypto) (TxOut Era) ->
   ValidatedTx Era ->
-  Maybe (OnChainTx tx, OnChainHeadState)
+  Maybe (OnChainTx CardanoTx, OnChainHeadState)
 observeCollectComTx utxo tx = do
   headInput <- fst <$> findScriptOutput utxo headScript
   redeemer <- getRedeemerSpending tx headInput
@@ -548,7 +547,7 @@ observeCloseTx ::
   -- | A Utxo set to lookup tx inputs
   Map (TxIn StandardCrypto) (TxOut Era) ->
   ValidatedTx Era ->
-  Maybe (OnChainTx tx, OnChainHeadState)
+  Maybe (OnChainTx CardanoTx, OnChainHeadState)
 observeCloseTx utxo tx = do
   headInput <- fst <$> findScriptOutput utxo headScript
   redeemer <- getRedeemerSpending tx headInput
@@ -574,7 +573,7 @@ observeFanoutTx ::
   -- | A Utxo set to lookup tx inputs
   Map (TxIn StandardCrypto) (TxOut Era) ->
   ValidatedTx Era ->
-  Maybe (OnChainTx tx, OnChainHeadState)
+  Maybe (OnChainTx CardanoTx, OnChainHeadState)
 observeFanoutTx utxo tx = do
   headInput <- fst <$> findScriptOutput utxo headScript
   getRedeemerSpending tx headInput >>= \case
@@ -589,7 +588,7 @@ observeAbortTx ::
   -- | A Utxo set to lookup tx inputs
   Map (TxIn StandardCrypto) (TxOut Era) ->
   ValidatedTx Era ->
-  Maybe (OnChainTx tx, OnChainHeadState)
+  Maybe (OnChainTx CardanoTx, OnChainHeadState)
 observeAbortTx utxo tx = do
   headInput <- fst <$> findScriptOutput utxo headScript
   getRedeemerSpending tx headInput >>= \case

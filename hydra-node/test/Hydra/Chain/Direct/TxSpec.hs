@@ -44,8 +44,7 @@ import qualified Hydra.Contract.MockHead as MockHead
 import qualified Hydra.Contract.MockInitial as MockInitial
 import Hydra.Data.ContestationPeriod (contestationPeriodFromDiffTime)
 import Hydra.Data.Party (partyFromVerKey)
-import Hydra.Ledger (Utxo)
-import Hydra.Ledger.Simple (SimpleTx)
+import Hydra.Ledger.Cardano (CardanoTx)
 import Hydra.Party (vkey)
 import Ledger.Value (currencyMPSHash, unAssetClass)
 import Plutus.V1.Ledger.Api (PubKeyHash, toData)
@@ -63,7 +62,7 @@ spec =
             tx = initTx cardanoKeys params txIn
             observed = observeInitTx party tx
          in case observed of
-              Just (octx, _) -> octx === OnInitTx cperiod (party : parties)
+              Just (octx, _) -> octx === OnInitTx @CardanoTx cperiod (party : parties)
               _ -> property False
               & counterexample ("Observed: " <> show observed)
 

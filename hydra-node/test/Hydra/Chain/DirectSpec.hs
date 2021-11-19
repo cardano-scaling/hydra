@@ -21,7 +21,6 @@ import Hydra.Chain.Direct.MockServer (withMockServer)
 import Hydra.Chain.Direct.Util (retrying)
 import Hydra.Chain.Direct.Wallet (generateKeyPair)
 import Hydra.Chain.Direct.WalletSpec (genPaymentTo)
-import Hydra.Ledger.Simple (SimpleTx)
 import Hydra.Logging (nullTracer)
 import Hydra.Party (Party, deriveParty, generateKey)
 import Test.QuickCheck (generate)
@@ -42,7 +41,7 @@ spec = do
           generate (genPaymentTo bobVk) >>= submitTx
 
           failAfter 5 $
-            retrying @ErrorCall $ postTx $ InitTx @SimpleTx parameters
+            retrying @ErrorCall $ postTx $ InitTx parameters
           failAfter 5 $
             takeMVar calledBackAlice `shouldReturn` OnInitTx 100 [alice, bob, carol]
           failAfter 5 $
@@ -51,9 +50,9 @@ spec = do
           postTx $ AbortTx mempty
 
           failAfter 5 $
-            takeMVar calledBackAlice `shouldReturn` OnAbortTx @SimpleTx
+            takeMVar calledBackAlice `shouldReturn` OnAbortTx
           failAfter 5 $
-            takeMVar calledBackBob `shouldReturn` OnAbortTx @SimpleTx
+            takeMVar calledBackBob `shouldReturn` OnAbortTx
 
 alice, bob, carol :: Party
 alice = deriveParty $ generateKey 10

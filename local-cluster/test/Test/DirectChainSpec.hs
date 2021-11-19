@@ -7,6 +7,7 @@ module Test.DirectChainSpec where
 import Hydra.Prelude
 import Test.Hydra.Prelude
 
+import Cardano.Ledger.Keys (VKey (VKey))
 import CardanoCluster (
   ClusterLog,
   keysFor,
@@ -28,10 +29,12 @@ import Hydra.Chain.Direct (
   withIOManager,
  )
 import Hydra.Ledger (Tx)
-import Hydra.Ledger.Simple (SimpleTx, utxoRef, utxoRefs)
+import Hydra.Ledger.Cardano (genOneUtxoFor)
+import Hydra.Ledger.Simple (utxoRef)
 import Hydra.Logging (nullTracer, showLogsOnFailure)
 import Hydra.Party (Party, deriveParty, generateKey)
 import Hydra.Snapshot (Snapshot (..))
+import Test.QuickCheck (generate)
 
 spec :: Spec
 spec = around showLogsOnFailure $ do
@@ -47,14 +50,14 @@ spec = around showLogsOnFailure $ do
         withIOManager $ \iocp -> do
           withDirectChain (contramap (FromDirectChain "alice") tracer) magic iocp nodeSocket aliceKeys alice cardanoKeys (putMVar alicesCallback) $ \Chain{postTx} -> do
             withDirectChain nullTracer magic iocp nodeSocket bobKeys bob cardanoKeys (putMVar bobsCallback) $ \_ -> do
-              postTx $ InitTx @SimpleTx $ HeadParameters 100 [alice, bob, carol]
+              postTx $ InitTx $ HeadParameters 100 [alice, bob, carol]
               alicesCallback `observesInTime` OnInitTx 100 [alice, bob, carol]
               bobsCallback `observesInTime` OnInitTx 100 [alice, bob, carol]
 
               postTx $ AbortTx mempty
 
-              alicesCallback `observesInTime` OnAbortTx @SimpleTx
-              bobsCallback `observesInTime` OnAbortTx @SimpleTx
+              alicesCallback `observesInTime` OnAbortTx
+              bobsCallback `observesInTime` OnAbortTx
 
   it "cannot abort a non-participating head" $ \tracer -> do
     alicesCallback <- newEmptyMVar
@@ -68,10 +71,10 @@ spec = around showLogsOnFailure $ do
         withIOManager $ \iocp -> do
           withDirectChain (contramap (FromDirectChain "alice") tracer) magic iocp nodeSocket aliceKeys alice cardanoKeys (putMVar alicesCallback) $ \Chain{postTx = alicePostTx} -> do
             withDirectChain nullTracer magic iocp nodeSocket bobKeys bob cardanoKeys (putMVar bobsCallback) $ \Chain{postTx = bobPostTx} -> do
-              alicePostTx $ InitTx @SimpleTx $ HeadParameters 100 [alice, carol]
+              alicePostTx $ InitTx $ HeadParameters 100 [alice, carol]
               alicesCallback `observesInTime` OnInitTx 100 [alice, carol]
 
-              bobPostTx $ AbortTx @SimpleTx mempty
+              bobPostTx $ AbortTx mempty
               bobsCallback `observesInTime` PostTxFailed
 
   it "can commit" $ \tracer -> do
@@ -83,12 +86,10 @@ spec = around showLogsOnFailure $ do
         let cardanoKeys = [aliceCardanoVk]
         withIOManager $ \iocp -> do
           withDirectChain (contramap (FromDirectChain "alice") tracer) magic iocp nodeSocket aliceKeys alice cardanoKeys (putMVar alicesCallback) $ \Chain{postTx} -> do
-            postTx $ InitTx @SimpleTx $ HeadParameters 100 [alice]
+            postTx $ InitTx $ HeadParameters 100 [alice]
             alicesCallback `observesInTime` OnInitTx 100 [alice]
 
-            -- NOTE(SN): We are committing a SimpleTX UTXO, which is fine as
-            -- long there are no on-chain validators checking it
-            let someUtxo = utxoRef 42
+            someUtxo <- generate $ genOneUtxoFor (VKey aliceCardanoVk)
             postTx $ CommitTx alice someUtxo
             alicesCallback `observesInTime` OnCommitTx alice someUtxo
 
@@ -101,7 +102,7 @@ spec = around showLogsOnFailure $ do
         let cardanoKeys = [aliceCardanoVk]
         withIOManager $ \iocp -> do
           withDirectChain (contramap (FromDirectChain "alice") tracer) magic iocp nodeSocket aliceKeys alice cardanoKeys (putMVar alicesCallback) $ \Chain{postTx} -> do
-            postTx $ InitTx @SimpleTx $ HeadParameters 100 [alice]
+            postTx $ InitTx $ HeadParameters 100 [alice]
             alicesCallback `observesInTime` OnInitTx 100 [alice]
 
             -- NOTE(SN): We are committing a SimpleTX UTXO, which is fine as
