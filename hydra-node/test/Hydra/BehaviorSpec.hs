@@ -406,9 +406,9 @@ simulatedChainAndNetwork = do
 
   getNodeId = getField @"party" . env
 
--- | Derive an 'OnChainTx' from 'PostChainTx'. This is primarily used in tests
--- and simplified "chains". NOTE(SN): This implementation does *NOT* honor the
--- 'HeadParameters' and announces hard-coded contestationDeadlines.
+-- | Derive an 'OnChainTx' from 'PostChainTx' to simulate a "perfect" chain.
+-- NOTE(SN): This implementation does *NOT* honor the 'HeadParameters' and
+-- announces hard-coded contestationDeadlines.
 toOnChainTx :: UTCTime -> PostChainTx tx -> OnChainTx tx
 toOnChainTx currentTime = \case
   InitTx HeadParameters{contestationPeriod, parties} -> OnInitTx{contestationPeriod, parties}
