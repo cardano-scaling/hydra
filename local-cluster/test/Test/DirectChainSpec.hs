@@ -30,7 +30,6 @@ import Hydra.Chain.Direct (
  )
 import Hydra.Ledger (Tx)
 import Hydra.Ledger.Cardano (genOneUtxoFor)
-import Hydra.Ledger.Simple (utxoRef)
 import Hydra.Logging (nullTracer, showLogsOnFailure)
 import Hydra.Party (Party, deriveParty, generateKey)
 import Hydra.Snapshot (Snapshot (..))
@@ -105,9 +104,7 @@ spec = around showLogsOnFailure $ do
             postTx $ InitTx $ HeadParameters 100 [alice]
             alicesCallback `observesInTime` OnInitTx 100 [alice]
 
-            -- NOTE(SN): We are committing a SimpleTX UTXO, which is fine as
-            -- long there are no on-chain validators checking it
-            let someUtxo = utxoRef 42
+            someUtxo <- generate $ genOneUtxoFor (VKey aliceCardanoVk)
             postTx $ CommitTx alice someUtxo
             alicesCallback `observesInTime` OnCommitTx alice someUtxo
 
@@ -115,10 +112,11 @@ spec = around showLogsOnFailure $ do
             alicesCallback `observesInTime` OnCollectComTx
 
             -- NOTE(SN): This is deliberately wrong and should be caught by OCV
+            someOtherUtxo <- generate $ genOneUtxoFor (VKey aliceCardanoVk)
             postTx . CloseTx $
               Snapshot
                 { number = 1
-                , utxo = utxoRef 123
+                , utxo = someOtherUtxo
                 , confirmed = []
                 }
             alicesCallback `shouldSatisfyInTime` \case
@@ -130,7 +128,7 @@ spec = around showLogsOnFailure $ do
 
             postTx $
               FanoutTx
-                { utxo = utxoRef 123
+                { utxo = someOtherUtxo
                 }
             alicesCallback `observesInTime` OnFanoutTx
 
