@@ -70,15 +70,20 @@ deriving instance Tx tx => FromJSON (OnChainTx tx)
 instance (Arbitrary tx, Arbitrary (Utxo tx)) => Arbitrary (OnChainTx tx) where
   arbitrary = genericArbitrary
 
--- TODO: This is unused / dead-code.
-data ChainError = ChainError
-  deriving (Exception, Show)
+-- | Thrown a structurally invalid transaction is submitted through the chain
+-- component. The transaction may be deemed invalid because it does not
+-- satisfies pre-conditions fixed by our application (e.g. more than one UTXO is
+-- committed).
+data InvalidTxError
+  = MoreThanOneUtxoCommitted
+  deriving (Eq, Exception, Show)
 
 -- | Handle to interface with the main chain network
 newtype Chain tx m = Chain
   { -- | Construct and send a transaction to the main chain corresponding to the
     -- given 'OnChainTx' event.
-    -- Does at least throw 'ChainError'.
+    --
+    -- Does at least throw 'InvalidTxError'.
     postTx :: MonadThrow m => PostChainTx tx -> m ()
   }
 

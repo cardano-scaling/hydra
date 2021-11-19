@@ -19,6 +19,7 @@ import Control.Concurrent (MVar, newEmptyMVar, putMVar, takeMVar)
 import Hydra.Chain (
   Chain (..),
   HeadParameters (..),
+  InvalidTxError (..),
   OnChainTx (..),
   PostChainTx (..),
  )
@@ -88,9 +89,14 @@ spec = around showLogsOnFailure $ do
             postTx $ InitTx $ HeadParameters 100 [alice]
             alicesCallback `observesInTime` OnInitTx 100 [alice]
 
-            someUtxo <- generate $ genOneUtxoFor (VKey aliceCardanoVk)
-            postTx $ CommitTx alice someUtxo
-            alicesCallback `observesInTime` OnCommitTx alice someUtxo
+            someUtxoA <- generate $ genOneUtxoFor (VKey aliceCardanoVk)
+            someUtxoB <- generate $ genOneUtxoFor (VKey aliceCardanoVk)
+
+            postTx (CommitTx alice (someUtxoA <> someUtxoB))
+              `shouldThrow` (== MoreThanOneUtxoCommitted)
+
+            postTx $ CommitTx alice someUtxoA
+            alicesCallback `observesInTime` OnCommitTx alice someUtxoA
 
   it "can open, close & fanout a Head" $ \tracer -> do
     alicesCallback <- newEmptyMVar

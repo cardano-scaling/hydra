@@ -24,7 +24,7 @@ import Cardano.Ledger.Alonzo.TxWitness (RdmrPtr, unRedeemers)
 import Cardano.Ledger.Crypto (StandardCrypto)
 import Cardano.Ledger.Mary.Value (AssetName, PolicyID, Value (Value))
 import qualified Cardano.Ledger.SafeHash as SafeHash
-import Cardano.Ledger.Shelley.API (Coin (Coin), StrictMaybe (SJust, SNothing), TxId (TxId), TxIn (TxIn), UTxO (UTxO))
+import Cardano.Ledger.Shelley.API (Coin (..), StrictMaybe (..), TxId (..), TxIn (..), UTxO (..))
 import Cardano.Ledger.Slot (EpochSize (EpochSize))
 import Cardano.Ledger.Val (inject)
 import Cardano.Slotting.EpochInfo (fixedEpochInfo)
@@ -50,7 +50,17 @@ import Ledger.Value (currencyMPSHash, unAssetClass)
 import Plutus.V1.Ledger.Api (PubKeyHash, toData)
 import Test.Cardano.Ledger.Alonzo.PlutusScripts (defaultCostModel)
 import Test.Cardano.Ledger.Alonzo.Serialisation.Generators ()
-import Test.QuickCheck (NonEmptyList (NonEmpty), counterexample, elements, forAll, label, property, withMaxSuccess, (.&&.), (===))
+import Test.QuickCheck (
+  NonEmptyList (NonEmpty),
+  counterexample,
+  elements,
+  forAll,
+  label,
+  property,
+  withMaxSuccess,
+  (.&&.),
+  (===),
+ )
 import Test.QuickCheck.Instances ()
 
 spec :: Spec
@@ -96,6 +106,7 @@ spec =
             len = LBS.length cbor
          in len < maxTxSize
               & label (show (len `div` 1024) <> "kB")
+              & counterexample ("UTXO's size: " <> show (Map.size $ unUTxO utxo))
               & counterexample ("Tx: " <> show tx)
               & counterexample ("Tx serialized size: " <> show len)
 
