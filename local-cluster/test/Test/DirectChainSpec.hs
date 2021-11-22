@@ -7,8 +7,9 @@ module Test.DirectChainSpec where
 import Hydra.Prelude
 import Test.Hydra.Prelude
 
-import Cardano.Api.Shelley (VerificationKey (PaymentVerificationKey))
+import Cardano.Api (UTxO (UTxO))
 import Cardano.Ledger.Keys (VKey (VKey))
+import CardanoClient (build, queryUtxo, sign, submit, waitForPayment)
 import CardanoCluster (
   ClusterLog,
   keysFor,
@@ -17,6 +18,7 @@ import CardanoCluster (
  )
 import CardanoNode (NodeLog, RunningNode (..))
 import Control.Concurrent (MVar, newEmptyMVar, putMVar, takeMVar)
+import qualified Data.Map as Map
 import Hydra.Chain (
   Chain (..),
   HeadParameters (..),
@@ -30,10 +32,18 @@ import Hydra.Chain.Direct (
   withDirectChain,
   withIOManager,
  )
+import qualified Hydra.Chain.Direct.Util as Cardano
 import Hydra.Ledger (IsTx)
-import Hydra.Ledger.Cardano (CardanoTx, genOneUtxoFor)
+import Hydra.Ledger.Cardano (
+  CardanoTx,
+  Lovelace (Lovelace),
+  NetworkId (Testnet),
+  Utxo,
+  VerificationKey (PaymentVerificationKey),
+  genOneUtxoFor,
+ )
 import Hydra.Logging (nullTracer, showLogsOnFailure)
-import Hydra.Party (Party, SigningKey, deriveParty, generateKey)
+import Hydra.Party (Party, deriveParty, generateKey)
 import Hydra.Snapshot (Snapshot (..))
 import Test.QuickCheck (generate)
 
@@ -82,7 +92,7 @@ spec = around showLogsOnFailure $ do
     alicesCallback <- newEmptyMVar
     withTempDir "hydra-local-cluster" $ \tmp -> do
       config <- newNodeConfig tmp
-      withBFTNode (contramap FromCluster tracer) config [] $ \(RunningNode _ nodeSocket) -> do
+      withBFTNode (contramap FromCluster tracer) config [] $ \node@(RunningNode _ nodeSocket) -> do
         aliceKeys@(aliceCardanoVk, aliceCardanoSk) <- keysFor "alice"
         let cardanoKeys = [aliceCardanoVk]
         withIOManager $ \iocp -> do
@@ -101,14 +111,8 @@ spec = around showLogsOnFailure $ do
                 (CannotSpendInput{} :: InvalidTxError CardanoTx) -> True
                 _ -> False
 
-            aliceUtxo <- generatePaymentToCommit aliceCardanoSk aliceCardanoVk 1_000_000
-
-            postTx (CommitTx alice aliceUtxo)
-
-            -- TODO: we need to do some magic to observe the correct Utxo being
-            -- committed. This is not trivial because we need to generate a tx
-            -- in the chain that can then be committed, by Alice. And it needs
-            -- to be a Utxo known by the tiny wallet. Lot of fun ahead...
+            aliceUtxo <- generatePaymentToCommit node aliceCardanoSk aliceCardanoVk 1_000_000
+            postTx $ CommitTx alice aliceUtxo
             alicesCallback `observesInTime` OnCommitTx alice aliceUtxo
 
   it "can commit empty UTxO" $ \tracer -> do
@@ -166,7 +170,37 @@ spec = around showLogsOnFailure $ do
                 }
             alicesCallback `observesInTime` OnFanoutTx
 
-generatePaymentToCommit = error "not implemented"
+generatePaymentToCommit ::
+  RunningNode ->
+  Cardano.SigningKey ->
+  Cardano.VerificationKey ->
+  Natural ->
+  IO Utxo
+generatePaymentToCommit (RunningNode _ nodeSocket) _sk _vk lovelace = do
+  UTxO availableUtxo <- queryUtxo networkId nodeSocket [spendingAddress]
+  let inputs = (,Nothing) <$> Map.keys availableUtxo
+  build networkId nodeSocket spendingAddress inputs [] theOutput >>= \case
+    Left e -> error (show e)
+    Right body -> do
+      let tx = sign cardanoSigningKey body
+      submit networkId nodeSocket tx
+      convertUtxo <$> waitForPayment networkId nodeSocket amountLovelace receivingAddress
+ where
+  networkId = Testnet magic
+
+  cardanoSigningKey = error "convert from sk"
+
+  cardanoVerificationKey = error "convert from vk"
+
+  spendingAddress = error "create from sk"
+
+  receivingAddress = error "create from vk"
+
+  theOutput = error "should pay lovelace to vk"
+
+  convertUtxo = error "convert utxo"
+
+  amountLovelace = Lovelace $ fromIntegral lovelace
 
 magic :: NetworkMagic
 magic = NetworkMagic 42
