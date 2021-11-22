@@ -22,7 +22,7 @@ import Data.Aeson (
 import Data.List (maximum)
 import qualified Data.Set as Set
 import Hydra.Ledger
-import Test.QuickCheck (Gen, choose, getSize, sublistOf)
+import Test.QuickCheck (choose, getSize, sublistOf)
 
 --
 -- SimpleTx
@@ -70,7 +70,14 @@ instance SerialiseAsCBOR SimpleTx where
   serialiseToCBOR (SimpleTx txid inputs outputs) =
     serializeEncoding' (toCBOR txid <> toCBOR inputs <> toCBOR outputs)
   deserialiseFromCBOR _ =
-    decodeFullDecoder "SimpleTx" (SimpleTx <$> fromCBOR <*> fromCBOR <*> fromCBOR) . fromStrict
+    decodeFullDecoder
+      "SimpleTx"
+      ( SimpleTx
+          <$> fromCBOR
+          <*> fromCBOR
+          <*> fromCBOR
+      )
+      . fromStrict
 
 data AsSimpleTx
 instance HasTypeProxy SimpleTx where
