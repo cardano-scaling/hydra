@@ -22,10 +22,6 @@ import qualified Data.Set as Set
 import Hydra.Ledger
 import Test.QuickCheck (choose, getSize, sublistOf)
 
---
--- SimpleTx
---
-
 -- | Simple transaction.
 -- A transaction is a 'SimpleId', a list of inputs and a list of outputs.
 data SimpleTx = SimpleTx
@@ -38,7 +34,7 @@ data SimpleTx = SimpleTx
 type SimpleId = Integer
 
 instance IsTx SimpleTx where
-  type UtxoType SimpleTx = Set MockTxIn
+  type UtxoType SimpleTx = Set SimpleTxIn
   type TxIdType SimpleTx = SimpleId
   type ValueType SimpleTx = Int
 
@@ -80,19 +76,19 @@ instance FromCBOR SimpleTx where
 --
 
 -- |An identifier for a single output of a 'SimpleTx'.
-newtype MockTxIn = MockTxIn {unMockTxIn :: Integer}
+newtype SimpleTxIn = SimpleTxIn {unSimpleTxIn :: Integer}
   deriving stock (Generic)
   deriving newtype (Eq, Ord, Show, Num, ToJSON, FromJSON)
 
-instance Arbitrary MockTxIn where
+instance Arbitrary SimpleTxIn where
   shrink = genericShrink
   arbitrary = genericArbitrary
 
-instance ToCBOR MockTxIn where
-  toCBOR (MockTxIn inId) = toCBOR inId
+instance ToCBOR SimpleTxIn where
+  toCBOR (SimpleTxIn inId) = toCBOR inId
 
-instance FromCBOR MockTxIn where
-  fromCBOR = MockTxIn <$> fromCBOR
+instance FromCBOR SimpleTxIn where
+  fromCBOR = SimpleTxIn <$> fromCBOR
 
 simpleLedger :: Ledger SimpleTx
 simpleLedger =
@@ -101,7 +97,7 @@ simpleLedger =
         foldlM $ \utxo tx@(SimpleTx _ ins outs) ->
           if ins `Set.isSubsetOf` utxo && utxo `Set.disjoint` outs
             then Right $ (utxo Set.\\ ins) `Set.union` outs
-            else Left $ (tx, ValidationError "cannot apply transaction")
+            else Left (tx, ValidationError "cannot apply transaction")
     , initUtxo = mempty
     }
 
@@ -110,10 +106,10 @@ simpleLedger =
 --
 
 utxoRef :: Integer -> UtxoType SimpleTx
-utxoRef = Set.singleton . MockTxIn
+utxoRef = Set.singleton . SimpleTxIn
 
 utxoRefs :: [Integer] -> UtxoType SimpleTx
-utxoRefs = Set.fromList . fmap MockTxIn
+utxoRefs = Set.fromList . fmap SimpleTxIn
 
 aValidTx :: Integer -> SimpleTx
 aValidTx n = SimpleTx n mempty (utxoRef n)
@@ -124,12 +120,12 @@ aValidTx n = SimpleTx n mempty (utxoRef n)
 
 listOfCommittedUtxos :: Integer -> Gen [UtxoType SimpleTx]
 listOfCommittedUtxos numCommits =
-  pure $ Set.singleton . MockTxIn <$> [1 .. numCommits]
+  pure $ Set.singleton . SimpleTxIn <$> [1 .. numCommits]
 
 genSequenceOfValidTransactions :: UtxoType SimpleTx -> Gen [SimpleTx]
 genSequenceOfValidTransactions initialUtxo = do
   n <- fromIntegral <$> getSize
-  let maxId = if Set.null initialUtxo then 0 else unMockTxIn (maximum initialUtxo)
+  let maxId = if Set.null initialUtxo then 0 else unSimpleTxIn (maximum initialUtxo)
   numTxs <- choose (1, n)
   foldlM newTx (maxId, initialUtxo, mempty) [1 .. numTxs] >>= \(_, _, txs) -> pure (reverse txs)
  where
@@ -141,12 +137,9 @@ genSequenceOfValidTransactions initialUtxo = do
     (newMax, ins, outs) <- genInputsAndOutputs maxId utxo
     pure (newMax, (utxo Set.\\ ins) `Set.union` outs, SimpleTx txid ins outs : txs)
 
-  genInputsAndOutputs ::
-    TxIdType SimpleTx ->
-    Set MockTxIn ->
-    Gen (TxIdType SimpleTx, Set MockTxIn, Set MockTxIn)
+  genInputsAndOutputs :: Integer -> Set SimpleTxIn -> Gen (Integer, Set SimpleTxIn, Set SimpleTxIn)
   genInputsAndOutputs maxId utxo = do
     ins <- sublistOf (Set.toList utxo)
     numOuts <- choose (1, 10)
     let outs = fmap (+ maxId) [1 .. numOuts]
-    pure (maximum outs, Set.fromList ins, Set.fromList $ fmap MockTxIn outs)
+    pure (maximum outs, Set.fromList ins, Set.fromList $ fmap SimpleTxIn outs)
