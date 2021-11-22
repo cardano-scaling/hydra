@@ -14,9 +14,10 @@ cabal build --enable-tests all
 cabal test all
 
 # Sanity check benchmark still runs fine
-# FIXME(AB): benchmarks are currently broken because we cannot submit more
-# than one UTxO
-# cabal bench local-cluster --benchmark-options '--scaling-factor 1'
+# NOTE(SN): we use the --constant-utxo scenario here as currently only a single
+# initial utxo is supported (to be committed) and we do not care much which
+# scenario is run here.
+cabal bench local-cluster --benchmark-options '--scaling-factor 1 --constant-utxo'
 
 # ignore various errors, including plutus scripts one
 cabal haddock all -fhydra-development
