@@ -23,6 +23,8 @@ import Ouroboros.Network.Protocol.LocalTxSubmission.Client (SubmitResult (..))
 
 type NodeSocket = FilePath
 
+-- TODO(SN): DRY with Hydra.Ledger.Cardano module
+
 -- | Build an address give a key.
 --
 -- From <runAddressBuild https://github.com/input-output-hk/cardano-node/blob/master/cardano-cli/src/Cardano/CLI/Shelley/Run/Address.hs#L106>
@@ -72,6 +74,9 @@ txOutLovelace (TxOut _ val _) =
   case val of
     TxOutAdaOnly _ l -> l
     TxOutValue _ v -> selectLovelace v
+
+lovelaceToTxOutValue :: Lovelace -> TxOutValue AlonzoEra
+lovelaceToTxOutValue lovelace = TxOutValue MultiAssetInAlonzoEra (lovelaceToValue lovelace)
 
 -- |Query current protocol parameters.
 --

@@ -7,9 +7,9 @@ module Test.DirectChainSpec where
 import Hydra.Prelude
 import Test.Hydra.Prelude
 
-import Cardano.Api (UTxO (UTxO))
+import Cardano.Api (UTxO (UTxO), shelleyAddressInEra)
 import Cardano.Ledger.Keys (VKey (VKey))
-import CardanoClient (build, queryUtxo, sign, submit, waitForPayment)
+import CardanoClient (build, buildAddress, lovelaceToTxOutValue, queryUtxo, sign, submit, waitForPayment)
 import CardanoCluster (
   ClusterLog,
   keysFor,
@@ -38,9 +38,13 @@ import Hydra.Ledger.Cardano (
   CardanoTx,
   Lovelace (Lovelace),
   NetworkId (Testnet),
+  SigningKey (PaymentSigningKey),
+  TxOut (TxOut),
+  TxOutDatum (TxOutDatumNone),
   Utxo,
   VerificationKey (PaymentVerificationKey),
   genOneUtxoFor,
+  getVerificationKey,
  )
 import Hydra.Logging (nullTracer, showLogsOnFailure)
 import Hydra.Party (Party, deriveParty, generateKey)
@@ -176,27 +180,27 @@ generatePaymentToCommit ::
   Cardano.VerificationKey ->
   Natural ->
   IO Utxo
-generatePaymentToCommit (RunningNode _ nodeSocket) _sk _vk lovelace = do
+generatePaymentToCommit (RunningNode _ nodeSocket) sk vk lovelace = do
   UTxO availableUtxo <- queryUtxo networkId nodeSocket [spendingAddress]
   let inputs = (,Nothing) <$> Map.keys availableUtxo
-  build networkId nodeSocket spendingAddress inputs [] theOutput >>= \case
+  build networkId nodeSocket spendingAddress inputs [] [theOutput] >>= \case
     Left e -> error (show e)
     Right body -> do
-      let tx = sign cardanoSigningKey body
+      let tx = sign sk body
       submit networkId nodeSocket tx
       convertUtxo <$> waitForPayment networkId nodeSocket amountLovelace receivingAddress
  where
   networkId = Testnet magic
 
-  cardanoSigningKey = error "convert from sk"
+  spendingSigningKey = PaymentSigningKey sk
 
-  cardanoVerificationKey = error "convert from vk"
+  receivingVerificationKey = PaymentVerificationKey $ VKey vk
 
-  spendingAddress = error "create from sk"
+  spendingAddress = buildAddress (getVerificationKey spendingSigningKey) networkId
 
-  receivingAddress = error "create from vk"
+  receivingAddress = buildAddress receivingVerificationKey networkId
 
-  theOutput = error "should pay lovelace to vk"
+  theOutput = TxOut (shelleyAddressInEra receivingAddress) (lovelaceToTxOutValue amountLovelace) TxOutDatumNone
 
   convertUtxo = error "convert utxo"
 
