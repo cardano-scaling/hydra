@@ -33,7 +33,7 @@ import Hydra.Chain.Direct (
 import Hydra.Ledger (IsTx)
 import Hydra.Ledger.Cardano (CardanoTx, genOneUtxoFor)
 import Hydra.Logging (nullTracer, showLogsOnFailure)
-import Hydra.Party (Party, deriveParty, generateKey)
+import Hydra.Party (Party, SigningKey, deriveParty, generateKey)
 import Hydra.Snapshot (Snapshot (..))
 import Test.QuickCheck (generate)
 
@@ -83,7 +83,7 @@ spec = around showLogsOnFailure $ do
     withTempDir "hydra-local-cluster" $ \tmp -> do
       config <- newNodeConfig tmp
       withBFTNode (contramap FromCluster tracer) config [] $ \(RunningNode _ nodeSocket) -> do
-        aliceKeys@(aliceCardanoVk, _) <- keysFor "alice"
+        aliceKeys@(aliceCardanoVk, aliceCardanoSk) <- keysFor "alice"
         let cardanoKeys = [aliceCardanoVk]
         withIOManager $ \iocp -> do
           withDirectChain (contramap (FromDirectChain "alice") tracer) magic iocp nodeSocket aliceKeys alice cardanoKeys (putMVar alicesCallback) $ \Chain{postTx} -> do
@@ -101,11 +101,15 @@ spec = around showLogsOnFailure $ do
                 (CannotSpendInput{} :: InvalidTxError CardanoTx) -> True
                 _ -> False
 
+            aliceUtxo <- generatePaymentToCommit aliceCardanoSk aliceCardanoVk 1_000_000
+
+            postTx (CommitTx alice aliceUtxo)
+
             -- TODO: we need to do some magic to observe the correct Utxo being
             -- committed. This is not trivial because we need to generate a tx
             -- in the chain that can then be committed, by Alice. And it needs
             -- to be a Utxo known by the tiny wallet. Lot of fun ahead...
-            alicesCallback `observesInTime` OnCommitTx alice someUtxoA
+            alicesCallback `observesInTime` OnCommitTx alice aliceUtxo
 
   it "can commit empty UTxO" $ \tracer -> do
     alicesCallback <- newEmptyMVar
@@ -161,6 +165,8 @@ spec = around showLogsOnFailure $ do
                 { utxo = someOtherUtxo
                 }
             alicesCallback `observesInTime` OnFanoutTx
+
+generatePaymentToCommit = error "not implemented"
 
 magic :: NetworkMagic
 magic = NetworkMagic 42
