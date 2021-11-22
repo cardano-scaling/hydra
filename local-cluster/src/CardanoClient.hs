@@ -15,6 +15,7 @@ import Cardano.Api.Shelley (
   ProtocolParameters (protocolParamTxFeeFixed, protocolParamTxFeePerByte),
  )
 import Cardano.Slotting.Time (SystemStart)
+import qualified Data.Map as Map
 import qualified Data.Set as Set
 import qualified Hydra.Chain.Direct.Util as Hydra
 import Ouroboros.Consensus.HardFork.Combinator.AcrossEras (EraMismatch)
@@ -267,3 +268,15 @@ data CardanoClientException
   deriving (Show)
 
 instance Exception CardanoClientException
+
+waitForPayment :: NetworkId -> FilePath -> Lovelace -> Address ShelleyAddr -> IO (UTxO AlonzoEra)
+waitForPayment networkId socket amount addr = go
+ where
+  go = do
+    utxo <- queryUtxo networkId socket [addr]
+    if containsPayment utxo
+      then pure utxo
+      else threadDelay 1 >> go
+
+  containsPayment (UTxO utxo) =
+    Map.filter ((== amount) . txOutLovelace) utxo /= mempty

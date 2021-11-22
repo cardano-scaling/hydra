@@ -4,12 +4,8 @@ import Hydra.Prelude
 import Test.Hydra.Prelude
 
 import Cardano.Api (
-  Address,
-  Lovelace,
   MultiAssetSupportedInEra (MultiAssetInAlonzoEra),
-  NetworkId,
   ScriptDataSupportedInEra (ScriptDataInAlonzoEra),
-  ShelleyAddr,
   TxIn (TxIn),
   TxIx (TxIx),
   TxOut (TxOut),
@@ -37,6 +33,7 @@ import CardanoClient (
   sign,
   submit,
   txOutLovelace,
+  waitForPayment,
  )
 import CardanoCluster (ClusterConfig (..), ClusterLog (..), RunningCluster (..), keysFor, testClusterConfig, withCluster)
 import CardanoNode (ChainTip (..), RunningNode (..), cliQueryTip)
@@ -97,7 +94,7 @@ assertCanSpendInitialFunds = \case
       Left err -> failure ("transaction is malformed: " <> show err)
       Right tx -> do
         submit networkId socket tx
-        waitForPayment networkId socket amountToPay addr
+        void $ waitForPayment networkId socket amountToPay addr
   _ ->
     error "empty cluster?"
 
@@ -130,7 +127,7 @@ assertCanCallInitAndAbort = \case
 
     let headTxIn = TxIn (getTxId balancedHeadTx) (TxIx 1)
     submit networkId socket $ sign sk balancedHeadTx
-    waitForPayment networkId socket minValue headAddress
+    void $ waitForPayment networkId socket minValue headAddress
 
     -- get change utxo
     UTxO utxo' <- queryUtxo networkId socket [addr]
@@ -156,17 +153,8 @@ assertCanCallInitAndAbort = \case
               (TxOutDatum ScriptDataInAlonzoEra abortDatum)
           ]
     submit networkId socket $ sign sk balancedAbortTx
-    waitForPayment networkId socket minValue headAddress
+    void $ waitForPayment networkId socket minValue headAddress
   _ -> failure "Empty cluster"
-
-waitForPayment :: NetworkId -> FilePath -> Lovelace -> Address ShelleyAddr -> IO ()
-waitForPayment networkId socket amount addr = go
- where
-  go = do
-    UTxO utxo <- queryUtxo networkId socket [addr]
-    unless (containsPayment utxo) $ threadDelay 1 >> go
-  containsPayment utxo =
-    Map.filter ((== amount) . txOutLovelace) utxo /= mempty
 
 waitForNewBlock :: IO ()
 waitForNewBlock = threadDelay (2 * slotLength)
