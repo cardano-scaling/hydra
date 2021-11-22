@@ -31,7 +31,7 @@ import Hydra.Chain.Direct (
   withIOManager,
  )
 import Hydra.Ledger (IsTx)
-import Hydra.Ledger.Cardano (genOneUtxoFor)
+import Hydra.Ledger.Cardano (CardanoTx, genOneUtxoFor)
 import Hydra.Logging (nullTracer, showLogsOnFailure)
 import Hydra.Party (Party, deriveParty, generateKey)
 import Hydra.Snapshot (Snapshot (..))
@@ -94,10 +94,12 @@ spec = around showLogsOnFailure $ do
             someUtxoB <- generate $ genOneUtxoFor (PaymentVerificationKey $ VKey aliceCardanoVk)
 
             postTx (CommitTx alice (someUtxoA <> someUtxoB))
-              `shouldThrow` (== MoreThanOneUtxoCommitted)
+              `shouldThrow` (== MoreThanOneUtxoCommitted @CardanoTx)
 
             postTx (CommitTx alice someUtxoA)
-              `shouldThrow` (== CannotSpendUtxo someUtxoA)
+              `shouldThrow` \case
+                (CannotSpendInput{} :: InvalidTxError CardanoTx) -> True
+                _ -> False
 
             -- TODO: we need to do some magic to observe the correct Utxo being
             -- committed. This is not trivial because we need to generate a tx
