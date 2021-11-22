@@ -130,6 +130,7 @@ library
     , contra-tracer
     , data-default
     , filepath
+    , formatting
     , gitrev
     , hedgehog-quickcheck
     , hydra-plutus

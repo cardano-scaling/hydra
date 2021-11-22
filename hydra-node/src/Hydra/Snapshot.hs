@@ -46,16 +46,16 @@ instance IsTx tx => ToJSON (Snapshot tx) where
       , "confirmedTransactions" .= confirmed s
       ]
 
-instance IsTx tx => FromJSON (Snapshot tx) where
+instance (IsTx tx, FromCBOR tx) => FromJSON (Snapshot tx) where
   parseJSON = withObject "Snapshot" $ \obj ->
     Snapshot
       <$> (obj .: "snapshotNumber")
       <*> (obj .: "utxo")
       <*> (obj .: "confirmedTransactions")
 
-instance IsTx tx => ToCBOR (Snapshot tx) where
+instance (ToCBOR tx, ToCBOR (UtxoType tx)) => ToCBOR (Snapshot tx) where
   toCBOR Snapshot{number, utxo, confirmed} =
     toCBOR number <> toCBOR utxo <> toCBOR confirmed
 
-instance IsTx tx => FromCBOR (Snapshot tx) where
+instance (FromCBOR tx, FromCBOR (UtxoType tx)) => FromCBOR (Snapshot tx) where
   fromCBOR = Snapshot <$> fromCBOR <*> fromCBOR <*> fromCBOR

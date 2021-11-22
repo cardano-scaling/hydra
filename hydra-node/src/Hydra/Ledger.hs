@@ -5,13 +5,12 @@ module Hydra.Ledger where
 
 import Hydra.Prelude
 
-import Cardano.Api
-
 class
   ( Eq tx
   , Show tx
   , Typeable tx
-  , SerialiseAsCBOR tx
+  , FromCBOR tx
+  , ToCBOR tx
   , FromJSON tx
   , ToJSON tx
   , --

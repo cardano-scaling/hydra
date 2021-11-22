@@ -11,8 +11,6 @@ module Hydra.Ledger.Simple where
 
 import Hydra.Prelude
 
-import Cardano.Api
-import Cardano.Binary (decodeFullDecoder, serializeEncoding')
 import Data.Aeson (
   object,
   withObject,
@@ -66,23 +64,16 @@ instance FromJSON SimpleTx where
       <*> (obj .: "inputs")
       <*> (obj .: "outputs")
 
-instance SerialiseAsCBOR SimpleTx where
-  serialiseToCBOR (SimpleTx txid inputs outputs) =
-    serializeEncoding' (toCBOR txid <> toCBOR inputs <> toCBOR outputs)
-  deserialiseFromCBOR _ =
-    decodeFullDecoder
-      "SimpleTx"
-      ( SimpleTx
-          <$> fromCBOR
-          <*> fromCBOR
-          <*> fromCBOR
-      )
-      . fromStrict
+instance ToCBOR SimpleTx where
+  toCBOR (SimpleTx txid inputs outputs) =
+    toCBOR txid <> toCBOR inputs <> toCBOR outputs
 
-data AsSimpleTx
-instance HasTypeProxy SimpleTx where
-  data AsType SimpleTx = AsSimpleTx
-  proxyToAsType _ = AsSimpleTx
+instance FromCBOR SimpleTx where
+  fromCBOR =
+    SimpleTx
+      <$> fromCBOR
+      <*> fromCBOR
+      <*> fromCBOR
 
 --
 -- MockTxIn

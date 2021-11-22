@@ -14,6 +14,7 @@ import Hydra.Prelude hiding (id)
 import Cardano.Api
 import Cardano.Api.Byron
 import Cardano.Api.Shelley
+import Cardano.Binary (decodeAnnotator, serialize')
 import qualified Cardano.Crypto.DSIGN as CC
 import qualified Cardano.Crypto.Hash.Class as CC
 import qualified Cardano.Ledger.Address as Ledger
@@ -37,6 +38,8 @@ import qualified Cardano.Ledger.Slot as Ledger
 import qualified Cardano.Ledger.TxIn as Ledger
 import qualified Cardano.Slotting.EpochInfo as Slotting
 import qualified Cardano.Slotting.Time as Slotting
+import qualified Codec.CBOR.Decoding as CBOR
+import qualified Codec.CBOR.Encoding as CBOR
 import Control.Monad (foldM)
 import qualified Control.State.Transition as Ledger
 import Data.Default (Default, def)
@@ -45,7 +48,9 @@ import Data.Maybe (fromJust)
 import Data.Maybe.Strict (StrictMaybe (..), maybeToStrictMaybe, strictMaybeToMaybe)
 import qualified Data.Set as Set
 import qualified Data.Text as T
+import Data.Text.Lazy.Builder (toLazyText)
 import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
+import Formatting.Buildable (build)
 import Hydra.Ledger (IsTx (..), Ledger (..), ValidationError (..))
 import Hydra.Ledger.Cardano.Orphans ()
 import Test.Cardano.Ledger.Alonzo.AlonzoEraGen ()
@@ -185,27 +190,39 @@ utxoFromTx (Tx body@(ShelleyTxBody _ ledgerBody _ _ _ _) _) =
 -- Tx
 --
 
-instance IsTx (Tx Era) where
-  type TxIdType (Tx Era) = TxId
-  type UtxoType (Tx Era) = Utxo
-  type ValueType (Tx Era) = Value
+instance IsTx (CardanoTx) where
+  type TxIdType (CardanoTx) = TxId
+  type UtxoType (CardanoTx) = Utxo
+  type ValueType (CardanoTx) = Value
 
   txId = getTxId . getTxBody
   balance (Utxo u) =
     let aggregate (Ledger.Alonzo.TxOut _ value _) = (<>) (fromMaryValue value)
      in Map.foldr aggregate mempty u
 
-instance ToJSON (Tx Era) where
+instance ToCBOR (CardanoTx) where
+  toCBOR = CBOR.encodeBytes . serialize' . toLedgerTx
+
+instance FromCBOR (CardanoTx) where
+  fromCBOR = do
+    bs <- CBOR.decodeBytes
+    decodeAnnotator "CardanoTx" fromCBOR (fromStrict bs)
+      & either
+        (fail . toString . toLazyText . build)
+        (pure . fromLedgerTx)
+
+instance ToJSON (CardanoTx) where
   toJSON = toJSON . toLedgerTx
 
-instance FromJSON (Tx Era) where
+instance FromJSON (CardanoTx) where
   parseJSON = fmap fromLedgerTx . parseJSON
 
-instance Arbitrary (Tx Era) where
+instance Arbitrary (CardanoTx) where
+  -- TODO: shrinker!
   arbitrary = genUtxo >>= genTx
 
 -- | Convert an existing @cardano-api@'s 'Tx' to a @cardano-ledger-specs@ 'Tx'
-toLedgerTx :: Tx Era -> Ledger.Tx LedgerEra
+toLedgerTx :: CardanoTx -> Ledger.Tx LedgerEra
 toLedgerTx = \case
   Tx (ShelleyTxBody _era body scripts scriptsData auxData validity) vkWits ->
     let (datums, redeemers) =
