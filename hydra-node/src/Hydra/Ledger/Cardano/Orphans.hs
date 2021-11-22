@@ -136,6 +136,21 @@ instance Crypto crypto => FromJSON (Ledger.AuxiliaryDataHash crypto) where
   parseJSON = fmap Ledger.AuxiliaryDataHash . parseJSON
 
 --
+-- Bootstrap Witness
+--
+
+instance Crypto crypto => ToJSON (Ledger.BootstrapWitness crypto) where
+  toJSON = String . decodeUtf8 . Base16.encode . serialize'
+
+instance FromCBOR (Annotator (Ledger.BootstrapWitness crypto)) => FromJSON (Ledger.BootstrapWitness crypto) where
+  parseJSON = withText "BootstrapWitness" $ \t ->
+    case Base16.decode $ encodeUtf8 t of
+      Left e -> fail $ "failed to decode from base16: " <> show e
+      Right bs' -> case decodeAnnotator "BootstrapWitness" fromCBOR (fromStrict bs') of
+        Left err -> fail $ show err
+        Right v -> pure v
+
+--
 -- DCert
 --
 -- TODO: Delegation certificates can actually be represented as plain JSON
@@ -371,9 +386,11 @@ instance
   ToJSON (Ledger.Alonzo.TxWitness era)
   where
   -- FIXME: Include bootstrap, scripts, datums and redeemers
-  toJSON (Ledger.Alonzo.TxWitness vkeys _boots _scripts _datums _redeemers) =
+  toJSON (Ledger.Alonzo.TxWitness vkeys boots scripts _datums _redeemers) =
     object
       [ "keys" .= vkeys
+      , "bootstrap" .= boots
+      , "scripts" .= scripts
       ]
 
 instance
@@ -385,23 +402,23 @@ instance
   where
   parseJSON = withObject "TxWitness" $ \o -> do
     vkeys <- o .:? "keys" .!= mempty
-    -- FIXME: Provide parsers for bootstrap, scripts, datums and redeemers witnesses
+    scripts <- o .:? "scripts" .!= mempty
+    boots <- o .:? "bootstrap" .!= mempty
+    -- FIXME: Provide parsers for datums and redeemers witnesses
     -- NOTE: This parser could be written more easily with just default
     -- instances, but this wouldn't raise any errors / warnings when parsing a
     -- TxWitness with some of the non-supported field present, and consequently,
     -- would lead to minutes or hours of unpleasant debugging.
-    boots <- o .:? "bootstrap" .!= mempty
-    scripts <- o .:? "scripts" .!= mempty
     datums <- o .:? "datums" .!= mempty
     redeemers <- o .:? "redeemers" .!= mempty
-    case (boots, scripts, datums, redeemers) of
-      ([] :: [Value], [] :: [Value], [] :: [Value], [] :: [Value]) -> pure ()
-      _ -> fail "non-empty bootstrap, scripts, datums and/or redeemers witnesses. This is not yet supported."
+    case (datums, redeemers) of
+      ([] :: [Value], [] :: [Value]) -> pure ()
+      _ -> fail "non-empty datums and/or redeemers witnesses. This is not yet supported."
     pure $
       Ledger.Alonzo.TxWitness
         vkeys
-        mempty
-        mempty
+        boots
+        scripts
         (Ledger.Alonzo.TxDats mempty)
         (Ledger.Alonzo.Redeemers mempty)
 
