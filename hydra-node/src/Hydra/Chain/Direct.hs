@@ -17,10 +17,11 @@ import Hydra.Prelude
 
 import Cardano.Ledger.Alonzo.Tx (ValidatedTx)
 import Cardano.Ledger.Alonzo.TxSeq (txSeqTxns)
+import Cardano.Ledger.Shelley.API (TxIn (TxIn))
 import qualified Cardano.Ledger.Shelley.API as Ledger
 import Control.Exception (IOException)
 import Control.Monad (foldM)
-import Control.Monad.Class.MonadSTM (MonadSTMTx (writeTVar), newTQueueIO, newTVarIO, readTQueue, writeTQueue)
+import Control.Monad.Class.MonadSTM (MonadSTMTx (writeTVar), newTQueueIO, newTVarIO, readTQueue, throwSTM, writeTQueue)
 import Control.Tracer (nullTracer)
 import Data.Aeson (Value (String), object, (.=))
 import Data.Sequence.Strict (StrictSeq)
@@ -58,11 +59,8 @@ import Hydra.Chain.Direct.Util (
   versions,
  )
 import qualified Hydra.Chain.Direct.Util as Cardano
-import Hydra.Chain.Direct.Wallet (TinyWallet (..), TinyWalletLog, withTinyWallet)
-import Hydra.Ledger.Cardano (
-  CardanoTx,
-  utxoPairs,
- )
+import Hydra.Chain.Direct.Wallet (ErrCoverFee (ErrUnknownInput, input), TinyWallet (..), TinyWalletLog, withTinyWallet)
+import Hydra.Ledger.Cardano (CardanoTx, fromLedgerTxId, utxoPairs)
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Party (Party)
 import Hydra.Snapshot (Snapshot (..))
@@ -334,7 +332,7 @@ txSubmissionClient tracer queue =
         )
 
 finalizeTx ::
-  MonadSTM m =>
+  (MonadSTM m, MonadThrow (STM m)) =>
   TinyWallet m ->
   TVar m OnChainHeadState ->
   ValidatedTx Era ->
@@ -342,6 +340,8 @@ finalizeTx ::
 finalizeTx TinyWallet{sign, coverFee} headState partialTx = do
   utxo <- knownUtxo <$> readTVar headState
   coverFee utxo partialTx >>= \case
+    Left ErrUnknownInput{input = TxIn txId txIx} ->
+      throwSTM $ CannotSpendInput @CardanoTx (fromLedgerTxId txId, txIx)
     Left e ->
       error ("failed to cover fee for transaction: " <> show e <> ", " <> show partialTx)
     Right validatedTx -> do
@@ -376,7 +376,7 @@ fromPostChainTx TinyWallet{getUtxo, verificationKey} headState cardanoKeys = \ca
             [] -> do
               pure . Just $ commitTx party Nothing initial
             _ ->
-              throwIO MoreThanOneUtxoCommitted
+              throwIO (MoreThanOneUtxoCommitted @CardanoTx)
       st -> error $ "cannot post CommitTx, invalid state: " <> show st
   CollectComTx utxo ->
     readTVar headState >>= \case

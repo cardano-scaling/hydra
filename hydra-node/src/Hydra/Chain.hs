@@ -8,7 +8,7 @@ import Cardano.Prelude
 import Control.Monad.Class.MonadThrow (MonadThrow)
 import Data.Aeson (FromJSON, ToJSON)
 import Data.Time (DiffTime, UTCTime)
-import Hydra.Ledger (IsTx, UtxoType)
+import Hydra.Ledger (IsTx, TxIn, UtxoType)
 import Hydra.Party (Party)
 import Hydra.Prelude (Arbitrary (arbitrary), genericArbitrary)
 import Hydra.Snapshot (Snapshot, SnapshotNumber)
@@ -74,9 +74,13 @@ instance (Arbitrary tx, Arbitrary (UtxoType tx)) => Arbitrary (OnChainTx tx) whe
 -- component. The transaction may be deemed invalid because it does not
 -- satisfies pre-conditions fixed by our application (e.g. more than one UTXO is
 -- committed).
-data InvalidTxError
+data InvalidTxError tx
   = MoreThanOneUtxoCommitted
-  deriving (Eq, Exception, Show)
+  | CannotSpendInput {input :: TxIn tx}
+  deriving (Exception)
+
+deriving instance IsTx tx => Eq (InvalidTxError tx)
+deriving instance IsTx tx => Show (InvalidTxError tx)
 
 -- | Handle to interface with the main chain network
 newtype Chain tx m = Chain
