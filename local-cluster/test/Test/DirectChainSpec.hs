@@ -96,8 +96,9 @@ spec = around showLogsOnFailure $ do
             postTx (CommitTx alice (someUtxoA <> someUtxoB))
               `shouldThrow` (== MoreThanOneUtxoCommitted)
 
-            postTx $ CommitTx alice someUtxoA
-            alicesCallback `observesInTime` PostTxFailed
+            postTx (CommitTx alice someUtxoA)
+              `shouldThrow` (== CannotSpendUtxo someUtxoA)
+
             -- TODO: we need to do some magic to observe the correct Utxo being
             -- committed. This is not trivial because we need to generate a tx
             -- in the chain that can then be committed, by Alice. And it needs

@@ -55,7 +55,7 @@ import Hydra.Data.Party (partyFromVerKey, partyToVerKey)
 import qualified Hydra.Data.Party as OnChain
 import Hydra.Data.Utxo (fromByteString)
 import qualified Hydra.Data.Utxo as OnChain
-import Hydra.Ledger.Cardano (CardanoTx, Utxo, Utxo' (Utxo))
+import Hydra.Ledger.Cardano (CardanoTx, Utxo, Utxo' (Utxo), toShelleyTxIn)
 import qualified Hydra.Ledger.Cardano as Api
 import Hydra.Party (Party (Party), vkey)
 import Hydra.Snapshot (SnapshotNumber)
@@ -182,7 +182,9 @@ commitTx party utxo (initialIn, pkh) =
  where
   body =
     TxBody
-      { inputs = Set.singleton initialIn
+      { inputs =
+          Set.singleton initialIn
+            <> maybe mempty (Set.singleton . toShelleyTxIn . fst) utxo
       , collateral = mempty
       , outputs =
           StrictSeq.fromList
