@@ -97,6 +97,11 @@ spec = around showLogsOnFailure $ do
               `shouldThrow` (== MoreThanOneUtxoCommitted)
 
             postTx $ CommitTx alice someUtxoA
+            alicesCallback `observesInTime` PostTxFailed
+            -- TODO: we need to do some magic to observe the correct Utxo being
+            -- committed. This is not trivial because we need to generate a tx
+            -- in the chain that can then be committed, by Alice. And it needs
+            -- to be a Utxo known by the tiny wallet. Lot of fun ahead...
             alicesCallback `observesInTime` OnCommitTx alice someUtxoA
 
   it "can commit empty UTxO" $ \tracer -> do
