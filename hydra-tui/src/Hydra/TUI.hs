@@ -301,7 +301,9 @@ handleCommitEvent Client{sendInput} s = case s ^? headStateL of
     Dialog title form submit
    where
     title = "Select UTXO to commit"
-    form = newForm (utxoCheckboxField u) ((,False) <$> u)
+    firstUtxo = Prelude.head (Map.toList u)
+    onlyOneUtxo = uncurry Map.singleton firstUtxo
+    form = newForm (utxoCheckboxField onlyOneUtxo) ((,False) <$> onlyOneUtxo)
     submit s' selected = do
       let commit = UTxO . Map.mapMaybe (\(v, p) -> if p then Just v else Nothing) $ selected
       liftIO (sendInput $ Commit commit)
