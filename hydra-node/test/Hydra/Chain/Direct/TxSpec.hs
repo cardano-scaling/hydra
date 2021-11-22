@@ -106,6 +106,7 @@ spec =
             len = LBS.length cbor
          in len < maxTxSize
               & label (show (len `div` 1024) <> "kB")
+              & counterexample ("UTXO's size: " <> show (length utxo))
               & counterexample ("Tx: " <> show tx)
               & counterexample ("Tx serialized size: " <> show len)
 

@@ -8,7 +8,7 @@ import Cardano.Prelude
 import Control.Monad.Class.MonadThrow (MonadThrow)
 import Data.Aeson (FromJSON, ToJSON)
 import Data.Time (DiffTime, UTCTime)
-import Hydra.Ledger (Tx, Utxo)
+import Hydra.Ledger (IsTx, UtxoType)
 import Hydra.Party (Party)
 import Hydra.Prelude (Arbitrary (arbitrary), genericArbitrary)
 import Hydra.Snapshot (Snapshot, SnapshotNumber)
@@ -30,20 +30,20 @@ type ContestationPeriod = DiffTime
 -- construct corresponding Head protocol transactions.
 data PostChainTx tx
   = InitTx {headParameters :: HeadParameters}
-  | CommitTx {party :: Party, committed :: Utxo tx}
-  | AbortTx {utxo :: Utxo tx}
-  | CollectComTx {utxo :: Utxo tx}
+  | CommitTx {party :: Party, committed :: UtxoType tx}
+  | AbortTx {utxo :: UtxoType tx}
+  | CollectComTx {utxo :: UtxoType tx}
   | CloseTx {snapshot :: Snapshot tx}
   | ContestTx {snapshot :: Snapshot tx}
-  | FanoutTx {utxo :: Utxo tx}
+  | FanoutTx {utxo :: UtxoType tx}
   deriving stock (Generic)
 
-deriving instance Tx tx => Eq (PostChainTx tx)
-deriving instance Tx tx => Show (PostChainTx tx)
-deriving instance Tx tx => ToJSON (PostChainTx tx)
-deriving instance Tx tx => FromJSON (PostChainTx tx)
+deriving instance IsTx tx => Eq (PostChainTx tx)
+deriving instance IsTx tx => Show (PostChainTx tx)
+deriving instance IsTx tx => ToJSON (PostChainTx tx)
+deriving instance IsTx tx => FromJSON (PostChainTx tx)
 
-instance (Arbitrary tx, Arbitrary (Utxo tx)) => Arbitrary (PostChainTx tx) where
+instance (Arbitrary tx, Arbitrary (UtxoType tx)) => Arbitrary (PostChainTx tx) where
   arbitrary = genericArbitrary
 
 -- REVIEW(SN): There is a similarly named type in plutus-ledger, so we might
@@ -53,7 +53,7 @@ instance (Arbitrary tx, Arbitrary (Utxo tx)) => Arbitrary (PostChainTx tx) where
 -- possible to simplify observing the chain.
 data OnChainTx tx
   = OnInitTx {contestationPeriod :: ContestationPeriod, parties :: [Party]}
-  | OnCommitTx {party :: Party, committed :: Utxo tx}
+  | OnCommitTx {party :: Party, committed :: UtxoType tx}
   | OnAbortTx
   | OnCollectComTx
   | OnCloseTx {contestationDeadline :: UTCTime, snapshotNumber :: SnapshotNumber}
@@ -62,12 +62,12 @@ data OnChainTx tx
   | PostTxFailed
   deriving (Generic)
 
-deriving instance Tx tx => Eq (OnChainTx tx)
-deriving instance Tx tx => Show (OnChainTx tx)
-deriving instance Tx tx => ToJSON (OnChainTx tx)
-deriving instance Tx tx => FromJSON (OnChainTx tx)
+deriving instance IsTx tx => Eq (OnChainTx tx)
+deriving instance IsTx tx => Show (OnChainTx tx)
+deriving instance IsTx tx => ToJSON (OnChainTx tx)
+deriving instance IsTx tx => FromJSON (OnChainTx tx)
 
-instance (Arbitrary tx, Arbitrary (Utxo tx)) => Arbitrary (OnChainTx tx) where
+instance (Arbitrary tx, Arbitrary (UtxoType tx)) => Arbitrary (OnChainTx tx) where
   arbitrary = genericArbitrary
 
 -- | Thrown a structurally invalid transaction is submitted through the chain

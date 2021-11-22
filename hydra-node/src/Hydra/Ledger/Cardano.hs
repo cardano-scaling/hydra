@@ -30,6 +30,7 @@ import qualified Cardano.Ledger.Era as Ledger
 import qualified Cardano.Ledger.Keys as Ledger
 import qualified Cardano.Ledger.SafeHash as Ledger
 import qualified Cardano.Ledger.Shelley.API.Mempool as Ledger
+import qualified Cardano.Ledger.Shelley.Address.Bootstrap as Ledger
 import qualified Cardano.Ledger.Shelley.LedgerState as Ledger
 import qualified Cardano.Ledger.Shelley.Rules.Ledger as Ledger
 import qualified Cardano.Ledger.Shelley.TxBody as Ledger (WitVKey (..))
@@ -61,12 +62,13 @@ import qualified Test.Cardano.Ledger.Shelley.Generator.Presets as Ledger.Generat
 import qualified Test.Cardano.Ledger.Shelley.Generator.Utxo as Ledger.Generator
 import Test.QuickCheck (choose, getSize, scale, suchThat, vectorOf)
 
+type CardanoTx = Tx Era
 type LedgerEra = Ledger.Alonzo.AlonzoEra Ledger.StandardCrypto
 type Era = AlonzoEra
 
 -- TODO(SN): Pre-validate transactions to get less confusing errors on
 -- transactions which are not expected to working on a layer-2
-cardanoLedger :: Ledger (Tx Era)
+cardanoLedger :: Ledger CardanoTx
 cardanoLedger =
   Ledger
     { applyTransactions = applyAll
@@ -169,6 +171,10 @@ instance ToJSON Utxo where
 instance FromJSON Utxo where
   parseJSON = fmap Utxo . parseJSON
 
+instance Arbitrary Utxo where
+  -- TODO: shrinker!
+  arbitrary = genUtxo
+
 prettyUtxo :: (TxIn, TxOut ctx era) -> Text
 prettyUtxo (k, TxOut _ (txOutValueToValue -> v) _) =
   T.drop 54 (renderTxIn k) <> " ↦ " <> prettyValue v
@@ -177,7 +183,7 @@ prettyUtxo (k, TxOut _ (txOutValueToValue -> v) _) =
 -- own outputs. Whoops. It's currently used in Hydra.Chain.Direct.Tx where
 -- the calling code only look at the outputs of the transactions and also in the
 -- generators of the local-cluster (Whoops bis).
-utxoFromTx :: Tx Era -> Utxo
+utxoFromTx :: CardanoTx -> Utxo
 utxoFromTx (Tx body@(ShelleyTxBody _ ledgerBody _ _ _ _) _) =
   let txOuts = toList $ Ledger.Alonzo.outputs' ledgerBody
       txIns =
@@ -239,9 +245,9 @@ toLedgerTx = \case
           , Ledger.Alonzo.wits =
               Ledger.Alonzo.TxWitness
                 { Ledger.Alonzo.txwitsVKey =
-                    fromList [w | ShelleyKeyWitness _ w <- vkWits]
+                    toLedgerKeyWitness vkWits
                 , Ledger.Alonzo.txwitsBoot =
-                    fromList [w | ShelleyBootstrapWitness _ w <- vkWits]
+                    toLedgerBootstrapWitness vkWits
                 , Ledger.Alonzo.txscripts =
                     fromList [(Ledger.hashScript @LedgerEra s, s) | s <- scripts]
                 , Ledger.Alonzo.txdats =
@@ -259,11 +265,11 @@ toLedgerTx = \case
       TxScriptValidity _ ScriptInvalid -> False
 
 -- | Convert an existing @cardano-ledger-specs@'s 'Tx' into a @cardano-api@'s 'Tx'
-fromLedgerTx :: Ledger.Tx LedgerEra -> Tx Era
+fromLedgerTx :: Ledger.Tx LedgerEra -> CardanoTx
 fromLedgerTx (Ledger.Alonzo.ValidatedTx body wits isValid auxData) =
   Tx
     (ShelleyTxBody era body scripts scriptsData (strictMaybeToMaybe auxData) validity)
-    vkWits
+    (fromLedgerTxWitness wits)
  where
   era =
     ShelleyBasedEraAlonzo
@@ -280,9 +286,29 @@ fromLedgerTx (Ledger.Alonzo.ValidatedTx body wits isValid auxData) =
       TxScriptValidity TxScriptValiditySupportedInAlonzoEra ScriptValid
     Ledger.Alonzo.IsValid False ->
       TxScriptValidity TxScriptValiditySupportedInAlonzoEra ScriptInvalid
-  vkWits =
-    Set.foldr ((:) . ShelleyKeyWitness era) [] (Ledger.Alonzo.txwitsVKey' wits)
-      ++ Set.foldr ((:) . ShelleyBootstrapWitness era) [] (Ledger.Alonzo.txwitsBoot' wits)
+
+--
+-- TxId
+--
+
+toLedgerTxId :: TxId -> Ledger.TxId Ledger.StandardCrypto
+toLedgerTxId (TxId h) =
+  Ledger.TxId (Ledger.unsafeMakeSafeHash (CC.castHash h))
+
+fromLedgerTxId :: Ledger.TxId Ledger.StandardCrypto -> TxId
+fromLedgerTxId (Ledger.TxId h) =
+  TxId (CC.castHash (Ledger.extractHash h))
+
+--
+-- Address
+--
+
+toLedgerAddr :: AddressInEra Era -> Ledger.Addr Ledger.StandardCrypto
+toLedgerAddr = \case
+  AddressInEra ByronAddressInAnyEra (ByronAddress addr) ->
+    Ledger.AddrBootstrap (Ledger.BootstrapAddress addr)
+  AddressInEra (ShelleyAddressInEra _) (ShelleyAddress ntwrk creds stake) ->
+    Ledger.Addr ntwrk creds stake
 
 --
 -- TxOut
@@ -296,13 +322,6 @@ toLedgerTxOut = \case
       (toMaryValue value)
       (toLedgerDataHash datum)
  where
-  toLedgerAddr :: AddressInEra Era -> Ledger.Addr Ledger.StandardCrypto
-  toLedgerAddr = \case
-    AddressInEra ByronAddressInAnyEra (ByronAddress addr) ->
-      Ledger.AddrBootstrap (Ledger.BootstrapAddress addr)
-    AddressInEra (ShelleyAddressInEra _) (ShelleyAddress ntwrk creds stake) ->
-      Ledger.Addr ntwrk creds stake
-
   liftLovelace :: TxOutValue Era -> Value
   liftLovelace = \case
     TxOutAdaOnly _ lovelace -> lovelaceToValue lovelace
@@ -314,12 +333,28 @@ toLedgerTxOut = \case
     TxOutDatumHash _ (ScriptDataHash h) -> SJust h
 
 --
--- TxId
+-- KeyWitness
 --
 
-toLedgerTxId :: TxId -> Ledger.TxId Ledger.StandardCrypto
-toLedgerTxId (TxId h) =
-  Ledger.TxId (Ledger.unsafeMakeSafeHash (CC.castHash h))
+toLedgerKeyWitness ::
+  [KeyWitness era] ->
+  Set (Ledger.WitVKey 'Ledger.Witness Ledger.StandardCrypto)
+toLedgerKeyWitness vkWits =
+  fromList [w | ShelleyKeyWitness _ w <- vkWits]
+
+toLedgerBootstrapWitness ::
+  [KeyWitness era] ->
+  Set (Ledger.BootstrapWitness Ledger.StandardCrypto)
+toLedgerBootstrapWitness vkWits =
+  fromList [w | ShelleyBootstrapWitness _ w <- vkWits]
+
+fromLedgerTxWitness :: Ledger.Alonzo.TxWitness LedgerEra -> [KeyWitness Era]
+fromLedgerTxWitness wits =
+  Set.foldr ((:) . ShelleyKeyWitness era) [] (Ledger.Alonzo.txwitsVKey' wits)
+    ++ Set.foldr ((:) . ShelleyBootstrapWitness era) [] (Ledger.Alonzo.txwitsBoot' wits)
+ where
+  era =
+    ShelleyBasedEraAlonzo
 
 --
 -- Formatting
@@ -360,7 +395,7 @@ genKeyPair = do
   pure (PaymentVerificationKey (Ledger.VKey vk), PaymentSigningKey sk)
 
 -- TODO: Generate non-genesis transactions for better coverage.
-genTx :: Utxo -> Gen (Tx Era)
+genTx :: Utxo -> Gen CardanoTx
 genTx utxos = do
   fromLedgerTx <$> Ledger.Generator.genTx genEnv ledgerEnv (utxoState, dpState)
  where
@@ -384,7 +419,7 @@ genTx utxos = do
       { Ledger.Generator.geConstants = noPPUpdatesTransactions
       }
 
-genSequenceOfValidTransactions :: Utxo -> Gen [Tx Era]
+genSequenceOfValidTransactions :: Utxo -> Gen [CardanoTx]
 genSequenceOfValidTransactions initialUtxo
   | initialUtxo == mempty = pure []
   | otherwise = do
@@ -392,7 +427,7 @@ genSequenceOfValidTransactions initialUtxo
     numTxs <- choose (1, n)
     genFixedSizeSequenceOfValidTransactions numTxs initialUtxo
 
-genFixedSizeSequenceOfValidTransactions :: Int -> Utxo -> Gen [Tx Era]
+genFixedSizeSequenceOfValidTransactions :: Int -> Utxo -> Gen [CardanoTx]
 genFixedSizeSequenceOfValidTransactions numTxs initialUtxo
   | initialUtxo == mempty = pure []
   | otherwise = do

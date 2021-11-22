@@ -46,7 +46,7 @@ instance IsTx tx => ToJSON (Snapshot tx) where
       , "confirmedTransactions" .= confirmed s
       ]
 
-instance (IsTx tx, FromCBOR tx) => FromJSON (Snapshot tx) where
+instance IsTx tx => FromJSON (Snapshot tx) where
   parseJSON = withObject "Snapshot" $ \obj ->
     Snapshot
       <$> (obj .: "snapshotNumber")

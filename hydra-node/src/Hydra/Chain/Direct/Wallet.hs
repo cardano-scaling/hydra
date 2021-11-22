@@ -6,7 +6,8 @@
 -- some useful utilities to tracking the wallet's UTXO, and accessing it
 module Hydra.Chain.Direct.Wallet where
 
-import Cardano.Api ()
+import Cardano.Api (AddressInEra (..), AddressTypeInEra (..), shelleyBasedEra)
+import qualified Cardano.Api.Shelley as Cardano.Api
 import qualified Cardano.Crypto.DSIGN as Crypto
 import Cardano.Crypto.Hash.Class
 import qualified Cardano.Ledger.Address as Ledger
@@ -71,7 +72,14 @@ import Hydra.Chain.Direct.Util (
   nullConnectTracers,
   versions,
  )
-import Hydra.Ledger.Cardano (genKeyPair, mkVkAddress, signWith)
+import Hydra.Ledger.Cardano (
+  fromLedgerTxId,
+  genKeyPair,
+  mkVkAddress,
+  signWith,
+  toLedgerAddr,
+  toLedgerKeyWitness,
+ )
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Prelude
 import Ouroboros.Consensus.Cardano.Block (BlockQuery (..), CardanoEras, pattern BlockAlonzo)
@@ -173,7 +181,10 @@ withTinyWallet tracer magic (vk, sk) iocp addr action = do
     )
  where
   address =
-    mkVkAddress (Ledger.VKey vk)
+    toLedgerAddr $
+      AddressInEra
+        (ShelleyAddressInEra shelleyBasedEra)
+        (mkVkAddress $ Cardano.Api.PaymentVerificationKey $ Ledger.VKey vk)
 
   newTinyWallet utxoVar =
     TinyWallet
@@ -183,11 +194,15 @@ withTinyWallet tracer magic (vk, sk) iocp addr action = do
           address
       , sign = \validatedTx@ValidatedTx{body, wits} ->
           let txid = Ledger.TxId (SafeHash.hashAnnotated body)
-              wit = txid `signWith` Ledger.KeyPair (Ledger.VKey vk) sk
+              wit =
+                fromLedgerTxId txid
+                  `signWith` ( Cardano.Api.PaymentVerificationKey (Ledger.VKey vk)
+                             , Cardano.Api.PaymentSigningKey sk
+                             )
            in validatedTx
                 { wits =
                     wits
-                      { txwitsVKey = Set.singleton wit
+                      { txwitsVKey = toLedgerKeyWitness @Cardano.Api.AlonzoEra [wit]
                       }
                 }
       , coverFee = \lookupUtxo partialTx -> do
@@ -558,7 +573,10 @@ stateQueryClient tracer tipVar utxoVar address =
 
 generateKeyPair :: IO (VerificationKey, SigningKey)
 generateKeyPair = do
-  Ledger.KeyPair (Ledger.VKey vk) sk <- generate genKeyPair
+  ( Cardano.Api.PaymentVerificationKey (Ledger.VKey vk)
+    , Cardano.Api.PaymentSigningKey sk
+    ) <-
+    generate genKeyPair
   pure (vk, sk)
 
 --

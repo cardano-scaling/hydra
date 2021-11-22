@@ -9,12 +9,11 @@ import Hydra.Prelude
 import Test.Hydra.Prelude
 
 import Cardano.Binary (decodeFull, serialize')
-import qualified Cardano.Ledger.Shelley.API as Cardano
 import Data.Aeson (eitherDecode, encode)
 import qualified Data.Aeson as Aeson
 import Data.Text (unpack)
 import Hydra.Ledger (applyTransactions)
-import Hydra.Ledger.Cardano (CardanoEra, CardanoTx (..), CardanoTxWitnesses, cardanoLedger, genSequenceOfValidTransactions, genUtxo)
+import Hydra.Ledger.Cardano (CardanoTx, Utxo, cardanoLedger, genSequenceOfValidTransactions, genUtxo)
 import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
 import Test.Cardano.Ledger.MaryEraGen ()
 import Test.QuickCheck (Property, counterexample, forAllShrink)
@@ -22,8 +21,9 @@ import Test.QuickCheck.Property (forAll)
 
 spec :: Spec
 spec = parallel $ do
-  roundtripAndGoldenSpecs (Proxy @(Cardano.UTxO CardanoEra))
-  roundtripAndGoldenSpecs (Proxy @CardanoTxWitnesses)
+  -- FIXME: Roundtrip instances for all JSON types we depend on
+  roundtripAndGoldenSpecs (Proxy @Utxo)
+  -- roundtripAndGoldenSpecs (Proxy @CardanoTxWitnesses)
   roundtripAndGoldenSpecs (Proxy @CardanoTx)
 
   prop "CBOR encoding of CardanoTx" $ roundtripCBOR @CardanoTx
@@ -38,7 +38,7 @@ spec = parallel $ do
           "{\"9fdc525c20bc00d9dfa9d14904b65e01910c0dfe3bb39865523c1e20eaeb0903#0\":\
           \  {\"address\":\"addr1vx35vu6aqmdw6uuc34gkpdymrpsd3lsuh6ffq6d9vja0s6spkenss\",\
           \   \"value\":{\"lovelace\":14}}}"
-    shouldParseJSONAs @(Cardano.UTxO CardanoEra) bs
+    shouldParseJSONAs @Utxo bs
 
   -- TODO(SN): rather ensure we use the right (cardano-api's) witness format as a test
   it "should parse a CardanoTx" $ do

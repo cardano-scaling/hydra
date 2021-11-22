@@ -21,7 +21,6 @@ import Hydra.Chain.Direct.Util (Era)
 import Plutus.V1.Ledger.Api (PubKeyHash (PubKeyHash), toBuiltin)
 import Test.Cardano.Ledger.Alonzo.PlutusScripts (defaultCostModel)
 import Test.Cardano.Ledger.Alonzo.Serialisation.Generators ()
-import Test.QuickCheck (Gen)
 import Test.QuickCheck.Instances ()
 
 maxTxSize :: Int64

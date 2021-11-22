@@ -35,7 +35,6 @@ import Hydra.Chain.Direct.Util (
   nullServerTracers,
   versions,
  )
-import Hydra.Ledger.Cardano (generateWith)
 import Ouroboros.Consensus.Cardano.Block (
   BlockQuery (..),
   GenTx (..),
@@ -192,7 +191,7 @@ mockChainSyncServer db =
      in BlockAlonzo $ mkShelleyBlock $ Ledger.Block header body
 
   serverStIdle :: Int -> ServerStIdle Block (Point Block) (Tip Block) m ()
-  serverStIdle !cursor =
+  serverStIdle ! cursor =
     ServerStIdle
       { recvMsgRequestNext = do
           tx <- atomically $ do

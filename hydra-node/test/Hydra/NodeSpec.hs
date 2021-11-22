@@ -13,7 +13,7 @@ import Hydra.HeadLogic (
   Event (..),
   HeadState (..),
  )
-import Hydra.Ledger (Tx)
+import Hydra.Ledger (IsTx)
 import Hydra.Ledger.Simple (SimpleTx (..), simpleLedger, utxoRef, utxoRefs)
 import Hydra.Logging (Tracer, showLogsOnFailure)
 import Hydra.Network (Host (..), Network (..))
@@ -107,7 +107,7 @@ prefix =
   , OnChainEvent{onChainTx = OnCollectComTx}
   ]
 
-runToCompletion :: Tx tx => Tracer IO (HydraNodeLog tx) -> HydraNode tx IO -> IO ()
+runToCompletion :: IsTx tx => Tracer IO (HydraNodeLog tx) -> HydraNode tx IO -> IO ()
 runToCompletion tracer node@HydraNode{eq = EventQueue{isEmpty}} = go
  where
   go =

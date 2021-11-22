@@ -28,7 +28,7 @@ import Hydra.HeadLogic (
   Event (ClientEvent),
   HeadState (ReadyState),
  )
-import Hydra.Ledger (Tx, ValidationError (ValidationError))
+import Hydra.Ledger (IsTx, ValidationError (ValidationError))
 import Hydra.Ledger.Simple (SimpleTx (..), aValidTx, simpleLedger, utxoRef, utxoRefs)
 import Hydra.Network (Network (..))
 import Hydra.Node (
@@ -341,7 +341,7 @@ spec = parallel $ do
       roundtripAndGoldenSpecs (Proxy @(HydraNodeLog SimpleTx))
 
 waitFor ::
-  (HasCallStack, MonadThrow m, Tx tx, MonadAsync m, MonadTimer m) =>
+  (HasCallStack, MonadThrow m, IsTx tx, MonadAsync m, MonadTimer m) =>
   [TestHydraNode tx m] ->
   ServerOutput tx ->
   m ()
@@ -354,7 +354,7 @@ waitFor nodes expected =
 -- The difference with 'waitFor' is that there can be other messages in between which
 -- are simply discarded.
 waitUntil ::
-  (HasCallStack, MonadThrow m, Tx tx, MonadAsync m, MonadTimer m) =>
+  (HasCallStack, MonadThrow m, IsTx tx, MonadAsync m, MonadTimer m) =>
   [TestHydraNode tx m] ->
   ServerOutput tx ->
   m ()
@@ -471,7 +471,7 @@ assertHeadIsClosed = \case
     getCurrentTime >>= \t -> contestationDeadline `shouldSatisfy` (> t)
   _ -> failure "expected HeadIsClosed"
 
-assertHeadIsClosedWith :: (HasCallStack, MonadThrow m, MonadTime m, Tx tx) => Snapshot tx -> ServerOutput tx -> m ()
+assertHeadIsClosedWith :: (HasCallStack, MonadThrow m, MonadTime m, IsTx tx) => Snapshot tx -> ServerOutput tx -> m ()
 assertHeadIsClosedWith expectedSnapshot = \case
   HeadIsClosed{contestationDeadline, latestSnapshot} -> do
     getCurrentTime >>= \t -> contestationDeadline `shouldSatisfy` (> t)

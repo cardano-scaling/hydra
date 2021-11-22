@@ -368,7 +368,7 @@ fromPostChainTx TinyWallet{getUtxo, verificationKey} headState cardanoKeys = \ca
       Initial{initials} -> case ownInitial verificationKey initials of
         Nothing -> error $ "no ownInitial: " <> show initials
         Just initial ->
-          case Map.toList (Ledger.unUTxO utxo) of
+          case utxoPairs utxo of
             [aUtxo] -> do
               pure . Just $ commitTx party (Just aUtxo) initial
             [] -> do
