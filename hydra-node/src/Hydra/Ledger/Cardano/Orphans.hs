@@ -287,14 +287,14 @@ instance
   where
   parseJSON = withObject "TxBody" $ \o -> do
     Ledger.Alonzo.TxBody
-      <$> o .: "inputs"
-      <*> o .: "collateral"
-      <*> o .: "outputs"
+      <$> (o .: "inputs")
+      <*> (o .:? "collateral" .!= mempty)
+      <*> (o .: "outputs")
       <*> (o .:? "certificates" .!= mempty)
       <*> (o .:? "withdrawals" .!= Ledger.Wdrl mempty)
       <*> (o .:? "fees" .!= mempty)
       <*> (o .:? "validity" .!= Ledger.Mary.ValidityInterval SNothing SNothing)
-      <*> pure SNothing -- TODO: Protocol Updates? Likely irrelevant to the L2.
+      <*> (pure SNothing) -- TODO: Protocol Updates? Likely irrelevant to the L2.
       <*> (o .:? "requiredSignatures" .!= mempty)
       <*> (o .:? "mint" .!= mempty)
       <*> (o .:? "scriptIntegrityHash" .!= SNothing)

@@ -14,12 +14,14 @@ import Hydra.Prelude hiding (id)
 import Cardano.Api
 import Cardano.Api.Byron
 import Cardano.Api.Shelley
-import Cardano.Binary (decodeAnnotator, serialize')
+import Cardano.Binary (decodeAnnotator, serialize, serialize')
 import qualified Cardano.Crypto.DSIGN as CC
 import qualified Cardano.Crypto.Hash.Class as CC
 import qualified Cardano.Ledger.Address as Ledger
 import qualified Cardano.Ledger.Alonzo as Ledger.Alonzo
+import qualified Cardano.Ledger.Alonzo.Data as Ledger.Alonzo
 import qualified Cardano.Ledger.Alonzo.PParams as Ledger.Alonzo
+import qualified Cardano.Ledger.Alonzo.Scripts as Ledger.Alonzo
 import qualified Cardano.Ledger.Alonzo.Tx as Ledger.Alonzo
 import qualified Cardano.Ledger.Alonzo.TxBody as Ledger.Alonzo
 import qualified Cardano.Ledger.Alonzo.TxWitness as Ledger.Alonzo
@@ -28,13 +30,16 @@ import qualified Cardano.Ledger.Core as Ledger
 import qualified Cardano.Ledger.Crypto as Ledger (StandardCrypto)
 import qualified Cardano.Ledger.Era as Ledger
 import qualified Cardano.Ledger.Keys as Ledger
+import qualified Cardano.Ledger.Mary as Ledger.Mary
 import qualified Cardano.Ledger.SafeHash as Ledger
 import qualified Cardano.Ledger.Shelley.API.Mempool as Ledger
 import qualified Cardano.Ledger.Shelley.Address.Bootstrap as Ledger
 import qualified Cardano.Ledger.Shelley.LedgerState as Ledger
+import qualified Cardano.Ledger.Shelley.PParams as Ledger.Shelley
 import qualified Cardano.Ledger.Shelley.Rules.Ledger as Ledger
-import qualified Cardano.Ledger.Shelley.TxBody as Ledger (WitVKey (..))
+import qualified Cardano.Ledger.Shelley.Tx as Ledger.Shelley
 import qualified Cardano.Ledger.Shelley.UTxO as Ledger
+import qualified Cardano.Ledger.ShelleyMA.AuxiliaryData as Ledger.Mary
 import qualified Cardano.Ledger.Slot as Ledger
 import qualified Cardano.Ledger.TxIn as Ledger
 import qualified Cardano.Slotting.EpochInfo as Slotting
@@ -54,7 +59,7 @@ import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
 import Formatting.Buildable (build)
 import Hydra.Ledger (IsTx (..), Ledger (..), ValidationError (..))
 import Hydra.Ledger.Cardano.Orphans ()
-import Test.Cardano.Ledger.Alonzo.AlonzoEraGen ()
+import Test.Cardano.Ledger.MaryEraGen ()
 import qualified Test.Cardano.Ledger.Shelley.Generator.Constants as Ledger.Generator
 import qualified Test.Cardano.Ledger.Shelley.Generator.Core as Ledger.Generator
 import qualified Test.Cardano.Ledger.Shelley.Generator.EraGen as Ledger.Generator
@@ -115,7 +120,7 @@ signWith ::
   KeyWitness era
 signWith (TxId h) (PaymentVerificationKey vk, PaymentSigningKey sk) =
   ShelleyKeyWitness (shelleyBasedEra @era) $
-    Ledger.WitVKey
+    Ledger.Shelley.WitVKey
       (Ledger.asWitness vk)
       (Ledger.signedDSIGN @Ledger.StandardCrypto sk h)
 
@@ -154,6 +159,9 @@ instance ToCBOR Utxo where
 instance FromCBOR Utxo where
   fromCBOR = coerce @(Ledger.UTxO LedgerEra) <$> fromCBOR
   label _ = label (Proxy @(Ledger.UTxO LedgerEra))
+
+instance Functor (Utxo' era) where
+  fmap fn (Utxo u) = Utxo (fmap fn u)
 
 instance Foldable (Utxo' era) where
   foldMap fn = foldMap fn . unUtxo
@@ -332,13 +340,25 @@ toLedgerTxOut = \case
     TxOutDatumNone -> SNothing
     TxOutDatumHash _ (ScriptDataHash h) -> SJust h
 
+toMaryTxOut :: Ledger.TxOut LedgerEra -> Ledger.Mary.TxOut (Ledger.Mary.MaryEra Ledger.StandardCrypto)
+toMaryTxOut = \case
+  Ledger.Alonzo.TxOutCompact addr value ->
+    Ledger.Shelley.TxOutCompact addr value
+  Ledger.Alonzo.TxOutCompactDH addr value _datum ->
+    Ledger.Shelley.TxOutCompact addr value
+
+fromMaryTxOut :: Ledger.Mary.TxOut (Ledger.Mary.MaryEra Ledger.StandardCrypto) -> Ledger.TxOut LedgerEra
+fromMaryTxOut = \case
+  Ledger.Shelley.TxOutCompact addr value ->
+    Ledger.Alonzo.TxOutCompact addr value
+
 --
 -- KeyWitness
 --
 
 toLedgerKeyWitness ::
   [KeyWitness era] ->
-  Set (Ledger.WitVKey 'Ledger.Witness Ledger.StandardCrypto)
+  Set (Ledger.Shelley.WitVKey 'Ledger.Witness Ledger.StandardCrypto)
 toLedgerKeyWitness vkWits =
   fromList [w | ShelleyKeyWitness _ w <- vkWits]
 
@@ -395,17 +415,38 @@ genKeyPair = do
   pure (PaymentVerificationKey (Ledger.VKey vk), PaymentSigningKey sk)
 
 -- TODO: Generate non-genesis transactions for better coverage.
+-- TODO: Enable Alonzo-specific features. We started off in the Mary era, and
+-- some of our tests / interfaces aren't fully ready for Alonzo-specific
+-- details. We later changed the ledger's internals to work with Alonzo-era
+-- specific types, and, to make this in incremental steps, this function still
+-- generates Mary transactions, but cast them to Alonzo's.
 genTx :: Utxo -> Gen CardanoTx
 genTx utxos = do
-  fromLedgerTx <$> Ledger.Generator.genTx genEnv ledgerEnv (utxoState, dpState)
+  maryTx <- Ledger.Generator.genTx genEnv maryLedgerEnv (utxoState, dpState)
+  -- Quick'n'dirty conversion to Alonzo using CBOR as an interface.
+  let result =
+        (,)
+          <$> decodeAnnotator "TxBody" fromCBOR (serialize $ Ledger.Shelley.body maryTx)
+          <*> decodeAnnotator "Wits" fromCBOR (serialize $ Ledger.Shelley.wits maryTx)
+  case result of
+    Left e ->
+      error $ "Failed to decode MaryTx as AlonzoTx: " <> show e
+    Right (body', wits') ->
+      pure $
+        fromLedgerTx $
+          Ledger.Alonzo.ValidatedTx
+            body'
+            wits'
+            (Ledger.Alonzo.IsValid True)
+            (fromMaryAuxData $ Ledger.Shelley.auxiliaryData maryTx)
  where
-  noPPUpdatesTransactions =
-    Ledger.Generator.defaultConstants
-      { Ledger.Generator.frequencyTxUpdates = 0
-      , Ledger.Generator.maxCertsPerTx = 0
-      }
+  fromMaryAuxData = \case
+    SNothing ->
+      SNothing
+    SJust (Ledger.Mary.AuxiliaryData metadata scripts) ->
+      SJust $ Ledger.Alonzo.AuxiliaryData metadata (Ledger.Alonzo.TimelockScript <$> scripts)
 
-  utxoState = def{Ledger._utxo = coerce utxos}
+  utxoState = def{Ledger._utxo = coerce (toMaryTxOut <$> utxos)}
 
   dpState = Ledger.DPState def def
 
@@ -417,6 +458,27 @@ genTx utxos = do
   genEnv =
     (Ledger.Generator.genEnv Proxy)
       { Ledger.Generator.geConstants = noPPUpdatesTransactions
+      }
+   where
+    noPPUpdatesTransactions =
+      Ledger.Generator.defaultConstants
+        { Ledger.Generator.frequencyTxUpdates = 0
+        , Ledger.Generator.frequencyTxWithMetadata = 0
+        , Ledger.Generator.maxCertsPerTx = 0
+        }
+
+  -- FIXME: Do not hard-code this, make it configurable / inferred from the
+  -- genesis configuration.
+  maryLedgerEnv :: Ledger.LedgerEnv (Ledger.Mary.MaryEra Ledger.StandardCrypto)
+  maryLedgerEnv =
+    Ledger.LedgerEnv
+      { Ledger.ledgerSlotNo = SlotNo 1
+      , Ledger.ledgerIx = 0
+      , Ledger.ledgerPp =
+          def
+            { Ledger.Shelley._maxTxSize = 1024 * 1024
+            }
+      , Ledger.ledgerAccount = error "ledgerEnv: ledgersAccount undefined"
       }
 
 genSequenceOfValidTransactions :: Utxo -> Gen [CardanoTx]
@@ -458,7 +520,7 @@ genUtxo :: Gen Utxo
 genUtxo = do
   genesisTxId <- arbitrary
   utxo <- Ledger.Generator.genUtxo0 (Ledger.Generator.genEnv Proxy)
-  pure $ Utxo $ Map.mapKeys (setTxId genesisTxId) $ Ledger.unUTxO utxo
+  pure $ Utxo $ fmap fromMaryTxOut $ Map.mapKeys (setTxId genesisTxId) $ Ledger.unUTxO utxo
  where
   setTxId ::
     Ledger.TxId Ledger.StandardCrypto ->
@@ -495,7 +557,12 @@ ledgerEnv =
   Ledger.LedgerEnv
     { Ledger.ledgerSlotNo = SlotNo 1
     , Ledger.ledgerIx = 0
-    , Ledger.ledgerPp = def{Ledger.Alonzo._maxTxSize = 1024 * 1024}
+    , Ledger.ledgerPp =
+        def
+          { Ledger.Alonzo._maxTxSize = 1024 * 1024
+          , Ledger.Alonzo._maxValSize = 5000
+          , Ledger.Alonzo._maxCollateralInputs = 3
+          }
     , Ledger.ledgerAccount = error "ledgerEnv: ledgersAccount undefined"
     }
 
