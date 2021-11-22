@@ -7,6 +7,7 @@
 {-# OPTIONS_GHC -Wno-missing-methods #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 
+-- XXX(SN): We re-export cardano-api's 'UTxO' and our 'Utxo', which is confusing
 module Hydra.Ledger.Cardano (
   module Hydra.Ledger.Cardano,
   module Cardano.Api,

@@ -7,7 +7,7 @@ module Test.DirectChainSpec where
 import Hydra.Prelude
 import Test.Hydra.Prelude
 
-import Cardano.Api (UTxO (UTxO), shelleyAddressInEra)
+import Cardano.Api (UTxO (UTxO))
 import Cardano.Ledger.Keys (VKey (VKey))
 import CardanoClient (build, buildAddress, lovelaceToTxOutValue, queryUtxo, sign, submit, waitForPayment)
 import CardanoCluster (
@@ -45,6 +45,7 @@ import Hydra.Ledger.Cardano (
   VerificationKey (PaymentVerificationKey),
   genOneUtxoFor,
   getVerificationKey,
+  shelleyAddressInEra,
  )
 import Hydra.Logging (nullTracer, showLogsOnFailure)
 import Hydra.Party (Party, deriveParty, generateKey)
@@ -200,9 +201,14 @@ generatePaymentToCommit (RunningNode _ nodeSocket) sk vk lovelace = do
 
   receivingAddress = buildAddress receivingVerificationKey networkId
 
-  theOutput = TxOut (shelleyAddressInEra receivingAddress) (lovelaceToTxOutValue amountLovelace) TxOutDatumNone
+  theOutput =
+    TxOut
+      (shelleyAddressInEra receivingAddress)
+      (lovelaceToTxOutValue amountLovelace)
+      TxOutDatumNone
 
-  convertUtxo = error "convert utxo"
+  convertUtxo =
+    error "this is annoying unless we would have cardano-api types in Hydra.Ledger.Cardano"
 
   amountLovelace = Lovelace $ fromIntegral lovelace
 
