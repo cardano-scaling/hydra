@@ -37,7 +37,7 @@ import Hydra.Chain.Direct.Wallet (
   watchUtxoUntil,
   withTinyWallet,
  )
-import Hydra.Ledger.Cardano (mkVkAddress, toLedgerAddr)
+import Hydra.Ledger.Cardano (NetworkId (Testnet), NetworkMagic, mkVkAddress, toLedgerAddr)
 import Ouroboros.Consensus.Cardano.Block (HardForkBlock (..))
 import Ouroboros.Consensus.Shelley.Ledger (mkShelleyBlock)
 import Test.Cardano.Ledger.Alonzo.Serialisation.Generators ()
@@ -80,9 +80,9 @@ spec = parallel $ do
           result `shouldSatisfy` isJust
 
     it "tracks UTXO correctly when payments are received" $ do
-      withMockServer $ \networkMagic iocp socket submitTx -> do
-        withTinyWallet nullTracer networkMagic (vk, sk) iocp socket $ \wallet -> do
-          generate (genPaymentTo vk) >>= submitTx
+      withMockServer $ \magic iocp socket submitTx -> do
+        withTinyWallet nullTracer magic (vk, sk) iocp socket $ \wallet -> do
+          generate (genPaymentTo magic vk) >>= submitTx
           result <- timeout 10 $ watchUtxoUntil (not . null) wallet
           result `shouldSatisfy` isJust
 
@@ -234,8 +234,8 @@ genValidatedTx = do
   body <- (\x -> x{txfee = Coin 0}) <$> arbitrary
   pure $ tx{body}
 
-genPaymentTo :: VerificationKey -> Gen (ValidatedTx Era)
-genPaymentTo vk = do
+genPaymentTo :: NetworkMagic -> VerificationKey -> Gen (ValidatedTx Era)
+genPaymentTo magic vk = do
   toValidatedTx =<< arbitrary @TxOut `suchThat` atLeast 2_000_000_000
  where
   atLeast v = \case
@@ -247,9 +247,7 @@ genPaymentTo vk = do
       ValidatedTx{body, wits, isValid, auxiliaryData} <- arbitrary
       let myAddr =
             toLedgerAddr $
-              AddressInEra
-                (ShelleyAddressInEra shelleyBasedEra)
-                (mkVkAddress $ Cardano.Api.PaymentVerificationKey $ VKey vk)
+              mkVkAddress (Testnet magic) $ Cardano.Api.PaymentVerificationKey $ VKey vk
       pure $
         ValidatedTx
           { body =

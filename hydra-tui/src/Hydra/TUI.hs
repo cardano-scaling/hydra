@@ -665,9 +665,9 @@ getCredentials Party{vkey} =
 -- | Similarly to 'getCredentials', this gives us "the" Cardano address given a
 -- Hydra 'Party'. In a real world deployment it would make no sense to send a
 -- Head participant something, the ledger would be fully decoupled.
-getAddress :: Party -> Cardano.Addr LedgerCrypto
+getAddress :: Party -> AddressInEra Era
 getAddress =
-  mkVkAddress . vKey . getCredentials
+  mkVkAddress (Testnet 42) . fst . getCredentials
 
 -- | Generate a Utxo set for a given party "out of thin air".
 faucetUtxo :: Party -> Utxo

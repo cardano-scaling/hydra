@@ -32,13 +32,13 @@ spec = do
     calledBackBob <- newEmptyMVar
     aliceKeys@(aliceVk, _) <- generateKeyPair
     bobKeys@(bobVk, _) <- generateKeyPair
-    withMockServer $ \networkMagic iocp socket submitTx -> do
+    withMockServer $ \magic iocp socket submitTx -> do
       let cardanoKeys = [] -- TODO(SN): this should matter
-      withDirectChain nullTracer networkMagic iocp socket aliceKeys alice cardanoKeys (putMVar calledBackAlice) $ \Chain{postTx} -> do
-        withDirectChain nullTracer networkMagic iocp socket bobKeys bob cardanoKeys (putMVar calledBackBob) $ \_ -> do
+      withDirectChain nullTracer magic iocp socket aliceKeys alice cardanoKeys (putMVar calledBackAlice) $ \Chain{postTx} -> do
+        withDirectChain nullTracer magic iocp socket bobKeys bob cardanoKeys (putMVar calledBackBob) $ \_ -> do
           let parameters = HeadParameters 100 [alice, bob, carol]
-          generate (genPaymentTo aliceVk) >>= submitTx
-          generate (genPaymentTo bobVk) >>= submitTx
+          generate (genPaymentTo magic aliceVk) >>= submitTx
+          generate (genPaymentTo magic bobVk) >>= submitTx
 
           failAfter 5 $
             retrying @ErrorCall $ postTx $ InitTx parameters

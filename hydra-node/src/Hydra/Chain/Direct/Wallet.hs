@@ -73,6 +73,7 @@ import Hydra.Chain.Direct.Util (
   versions,
  )
 import Hydra.Ledger.Cardano (
+  NetworkId (Testnet),
   fromLedgerTxId,
   genKeyPair,
   mkVkAddress,
@@ -182,9 +183,7 @@ withTinyWallet tracer magic (vk, sk) iocp addr action = do
  where
   address =
     toLedgerAddr $
-      AddressInEra
-        (ShelleyAddressInEra shelleyBasedEra)
-        (mkVkAddress $ Cardano.Api.PaymentVerificationKey $ Ledger.VKey vk)
+      mkVkAddress (Testnet magic) $ Cardano.Api.PaymentVerificationKey $ Ledger.VKey vk
 
   newTinyWallet utxoVar =
     TinyWallet

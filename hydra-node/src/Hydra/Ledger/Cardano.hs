@@ -131,15 +131,17 @@ signWith (TxId h) (PaymentVerificationKey vk, PaymentSigningKey sk) =
       (Ledger.asWitness vk)
       (Ledger.signedDSIGN @Ledger.StandardCrypto sk h)
 
--- FIXME: The network discriminant should really be a parameter here.
 mkVkAddress ::
+  IsShelleyBasedEra era =>
+  NetworkId ->
   VerificationKey PaymentKey ->
-  Address ShelleyAddr
-mkVkAddress vk =
-  makeShelleyAddress
-    (Testnet $ NetworkMagic 42)
-    (PaymentCredentialByKey $ verificationKeyHash vk)
-    NoStakeAddress
+  AddressInEra era
+mkVkAddress networkId vk =
+  shelleyAddressInEra $
+    makeShelleyAddress
+      networkId
+      (PaymentCredentialByKey $ verificationKeyHash vk)
+      NoStakeAddress
 
 --
 -- Type conversions & plumbing
@@ -245,7 +247,7 @@ instance Arbitrary CardanoTx where
 
 mkSimpleCardanoTx ::
   (TxIn, TxOut ctx Era) ->
-  (Address ShelleyAddr, Value) ->
+  (AddressInEra Era, Value) ->
   (VerificationKey PaymentKey, SigningKey PaymentKey) ->
   CardanoTx
 mkSimpleCardanoTx =
@@ -541,7 +543,7 @@ genOutput vk = do
           (`TxOutAdaOnly` selectLovelace assets)
           (`TxOutValue` assets)
           (multiAssetSupportedInEra (cardanoEra @era))
-  pure $ TxOut (shelleyAddressInEra (mkVkAddress vk)) value TxOutDatumNone
+  pure $ TxOut (mkVkAddress (Testnet $ NetworkMagic 42) vk) value TxOutDatumNone
 
 genUtxo :: Gen Utxo
 genUtxo = do
