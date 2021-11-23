@@ -38,17 +38,41 @@ import Hydra.Ledger.Cardano (
   TxIn,
   TxOut (TxOut),
   Utxo,
-  Utxo',
+  Utxo' (Utxo),
   VerificationKey,
-  fromLedgerUtxo,
   genUtxoFor,
+  mkSimpleCardanoTx,
   prettyUtxo,
   prettyValue,
-  utxoPairs,
+  unUtxo,
  )
 import Hydra.Network (Host (..))
 import Hydra.Party (Party (Party, vkey))
-import Hydra.ServerOutput (ServerOutput (..))
+import Hydra.ServerOutput (
+  ServerOutput (
+    CommandFailed,
+    Committed,
+    Greetings,
+    HeadIsAborted,
+    HeadIsClosed,
+    HeadIsFinalized,
+    HeadIsOpen,
+    PeerConnected,
+    PeerDisconnected,
+    ReadyToCommit,
+    SnapshotConfirmed,
+    TxInvalid,
+    TxSeen,
+    TxValid,
+    contestationDeadline,
+    me,
+    parties,
+    party,
+    snapshot,
+    utxo,
+    validationError
+  ),
+ )
 import Hydra.Snapshot (Snapshot (..))
 import Hydra.TUI.Options (Options (..))
 import Lens.Micro (Lens', lens, (%~), (.~), (?~), (^.), (^?))
@@ -302,21 +326,21 @@ handleCommitEvent Client{sendInput} s = case s ^? headStateL of
     case s ^? meL of
       -- XXX(SN): this is just..not cool
       Just (Just me) ->
-        continue $ s & dialogStateL .~ commitDialog (faucetUtxo me)
+        continue $ s & dialogStateL .~ commitDialog (unUtxo $ faucetUtxo me)
       _ -> continue $ s & feedbackL ?~ UserFeedback Error "Missing identity, so can't commit from faucet."
   _ ->
     continue $ s & feedbackL ?~ UserFeedback Error "Invalid command."
  where
-  commitDialog u =
+  commitDialog utxoMap =
     Dialog title form submit
    where
     title = "Select UTXO to commit"
-    firstUtxo = Prelude.head (Map.toList u)
-    onlyOneUtxo = uncurry Map.singleton firstUtxo
+    firstUtxo = Prelude.head (utxoPairs u)
+    onlyOneUtxo = UTxO $ Map.fromList [firstUtxo]
     form = newForm (utxoCheckboxField onlyOneUtxo) ((,False) <$> onlyOneUtxo)
     submit s' selected = do
-      let commit = UTxO . Map.mapMaybe (\(v, p) -> if p then Just v else Nothing) $ selected
-      liftIO (sendInput $ Commit commit)
+      let commitUtxo = Utxo $ Map.mapMaybe (\(v, p) -> if p then Just v else Nothing) selected
+      liftIO (sendInput $ Commit commitUtxo)
       continue (s' & dialogStateL .~ NoDialog)
 
 handleNewTxEvent ::
@@ -441,7 +465,7 @@ draw s =
           Just Initializing{remainingParties, utxo} ->
             withCommands
               [ drawHeadState
-              , padLeftRight 1 $ str ("Total committed: " <> toString (prettyBalance (balance @CardanoTx utxo)))
+              , padLeftRight 1 $ str ("Total committed: " <> toString (prettyValue (balance @CardanoTx utxo)))
               , padLeftRight 1 $
                   padTop (Pad 1) $
                     str "Waiting for parties to commit:"
@@ -455,7 +479,7 @@ draw s =
             withCommands
               [ drawHeadState
               , padLeftRight 1 $
-                  txt ("Head UTXO, total: " <> prettyBalance (balance @CardanoTx utxo))
+                  txt ("Head UTXO, total: " <> prettyValue (balance @CardanoTx utxo))
                     <=> padLeft (Pad 2) (drawUtxo utxo)
               ]
               [ "[N]ew Transaction"
@@ -556,14 +580,14 @@ utxoCheckboxField ::
   ( s ~ Map.Map TxIn (TxOut CtxUTxO Era, Bool)
   , n ~ Name
   ) =>
-  Utxo ->
+  Map TxIn (TxOut CtxUTxO Era) ->
   [s -> FormFieldState s e n]
 utxoCheckboxField u =
   [ checkboxField
     (checkboxLens k)
     ("checkboxField@" <> show k)
     (prettyUtxo (k, v))
-  | (k, v) <- utxoPairs u
+  | (k, v) <- Map.toList u
   ]
  where
   checkboxLens :: Ord k => k -> Lens' (Map k (v, Bool)) Bool

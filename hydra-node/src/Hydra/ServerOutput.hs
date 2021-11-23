@@ -23,7 +23,10 @@ data ServerOutput tx
   | TxValid {transaction :: tx}
   | TxInvalid {utxo :: UtxoType tx, transaction :: tx, validationError :: ValidationError}
   | SnapshotConfirmed {snapshot :: Snapshot tx}
-  | Utxo {utxo :: UtxoType tx}
+  | -- XXX(SN): This is too vague of a name and prone to conflict. Also we want
+    -- to relate it to 'GetUtxo' from 'ClientInput', so 'GetUtxoResult' might be
+    -- a better name
+    Utxo {utxo :: UtxoType tx}
   | InvalidInput {reason :: String, input :: Text}
   | -- | A friendly welcome message which tells a client something about the
     -- node. Currently used for knowing what signing key the server uses (it
