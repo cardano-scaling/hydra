@@ -204,20 +204,20 @@ utxoFromTx (Tx body@(ShelleyTxBody _ ledgerBody _ _ _ _) _) =
 -- Tx
 --
 
-instance IsTx (CardanoTx) where
-  type TxIdType (CardanoTx) = TxId
-  type UtxoType (CardanoTx) = Utxo
-  type ValueType (CardanoTx) = Value
+instance IsTx CardanoTx where
+  type TxIdType CardanoTx = TxId
+  type UtxoType CardanoTx = Utxo
+  type ValueType CardanoTx = Value
 
   txId = getTxId . getTxBody
   balance (Utxo u) =
     let aggregate (Ledger.Alonzo.TxOut _ value _) = (<>) (fromMaryValue value)
      in Map.foldr aggregate mempty u
 
-instance ToCBOR (CardanoTx) where
+instance ToCBOR CardanoTx where
   toCBOR = CBOR.encodeBytes . serialize' . toLedgerTx
 
-instance FromCBOR (CardanoTx) where
+instance FromCBOR CardanoTx where
   fromCBOR = do
     bs <- CBOR.decodeBytes
     decodeAnnotator "CardanoTx" fromCBOR (fromStrict bs)
@@ -225,13 +225,13 @@ instance FromCBOR (CardanoTx) where
         (fail . toString . toLazyText . build)
         (pure . fromLedgerTx)
 
-instance ToJSON (CardanoTx) where
+instance ToJSON CardanoTx where
   toJSON = toJSON . toLedgerTx
 
-instance FromJSON (CardanoTx) where
+instance FromJSON CardanoTx where
   parseJSON = fmap fromLedgerTx . parseJSON
 
-instance Arbitrary (CardanoTx) where
+instance Arbitrary CardanoTx where
   -- TODO: shrinker!
   arbitrary = genUtxo >>= genTx
 
@@ -283,12 +283,11 @@ fromLedgerTx (Ledger.Alonzo.ValidatedTx body wits isValid auxData) =
     ShelleyBasedEraAlonzo
   scripts =
     Map.elems $ Ledger.Alonzo.txscripts' wits
-  scriptsData
-    | otherwise =
-      TxBodyScriptData
-        ScriptDataInAlonzoEra
-        (Ledger.Alonzo.txdats' wits)
-        (Ledger.Alonzo.txrdmrs' wits)
+  scriptsData =
+    TxBodyScriptData
+      ScriptDataInAlonzoEra
+      (Ledger.Alonzo.txdats' wits)
+      (Ledger.Alonzo.txrdmrs' wits)
   validity = case isValid of
     Ledger.Alonzo.IsValid True ->
       TxScriptValidity TxScriptValiditySupportedInAlonzoEra ScriptValid
@@ -492,7 +491,7 @@ genSequenceOfValidTransactions initialUtxo
 genFixedSizeSequenceOfValidTransactions :: Int -> Utxo -> Gen [CardanoTx]
 genFixedSizeSequenceOfValidTransactions numTxs initialUtxo
   | initialUtxo == mempty = pure []
-  | otherwise = do
+  | otherwise =
     reverse . snd <$> foldM newTx (initialUtxo, []) [1 .. numTxs]
  where
   newTx (utxos, acc) _ = do
