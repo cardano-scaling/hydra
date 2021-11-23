@@ -82,6 +82,8 @@ library
     , async
     , base
     , brick
+    , cardano-crypto-class
+    , cardano-ledger-alonzo
     , cardano-ledger-core
     , cardano-ledger-shelley
     , cardano-ledger-shelley-ma

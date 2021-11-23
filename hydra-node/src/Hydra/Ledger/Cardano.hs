@@ -71,8 +71,12 @@ import qualified Test.Cardano.Ledger.Shelley.Generator.Utxo as Ledger.Generator
 import Test.QuickCheck (choose, getSize, scale, suchThat, vectorOf)
 
 type Era = AlonzoEra
+
+type LedgerCrypto = Ledger.StandardCrypto
+
+type LedgerEra = Ledger.Alonzo.AlonzoEra LedgerCrypto
+
 type CardanoTx = Tx Era
-type LedgerEra = Ledger.Alonzo.AlonzoEra Ledger.StandardCrypto
 
 -- TODO(SN): Pre-validate transactions to get less confusing errors on
 -- transactions which are not expected to working on a layer-2
