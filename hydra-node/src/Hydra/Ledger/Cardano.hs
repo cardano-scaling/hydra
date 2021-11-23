@@ -183,6 +183,9 @@ instance Arbitrary Utxo where
   -- TODO: shrinker!
   arbitrary = genUtxo
 
+utxoPairs :: Utxo' out -> [(TxIn, out)]
+utxoPairs = Map.toList . unUtxo
+
 prettyUtxo :: (TxIn, TxOut ctx era) -> Text
 prettyUtxo (k, TxOut _ (txOutValueToValue -> v) _) =
   T.drop 54 (renderTxIn k) <> " ↦ " <> prettyValue v

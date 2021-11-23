@@ -18,8 +18,9 @@ import Hydra.Ledger.Cardano (
   mkSimpleCardanoTx,
   mkVkAddress,
   utxoFromTx,
+  utxoPairs,
  )
-import Test.QuickCheck (Gen, elements, generate)
+import Test.QuickCheck (elements, generate)
 
 -- | A 'Dataset' that can be run for testing purpose.
 -- The 'transactionSequence' is guaranteed to be applicable, in sequence, to the 'initialUtxo'
@@ -49,11 +50,15 @@ genConstantUtxoDataset len = do
   pure $ Dataset{initialUtxo, transactionsSequence}
  where
   thrd (_, _, c) = c
+  generateOneTransfer ::
+    (Utxo, (VerificationKey PaymentKey, SigningKey PaymentKey), [CardanoTx]) ->
+    Int ->
+    Gen (Utxo, (VerificationKey PaymentKey, SigningKey PaymentKey), [CardanoTx])
   generateOneTransfer (utxo, keyPair, txs) _ = do
     recipient <- genKeyPair
     -- NOTE(AB): elements is partial, it crashes if given an empty list, We don't expect
     -- this function to be ever used in production, and crash will be caught in tests
-    txin <- elements $ toList utxo
+    txin <- elements $ utxoPairs utxo
     let tx = mkSimpleCardanoTx txin (mkVkAddress (fst recipient), balance @CardanoTx utxo) keyPair
         utxo' = utxoFromTx tx
     pure (utxo', recipient, tx : txs)
