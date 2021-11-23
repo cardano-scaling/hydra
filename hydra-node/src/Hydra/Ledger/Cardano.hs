@@ -82,11 +82,11 @@ cardanoLedger =
  where
   -- NOTE(SN): See full note on 'applyTx' why we only have a single transaction
   -- application here.
-  applyAll (Utxo utxo) = \case
-    [] -> Right (Utxo utxo)
+  applyAll utxo = \case
+    [] -> Right utxo
     (tx : txs) -> do
-      utxo' <- coerce <$> applyTx ledgerEnv (coerce utxo) (toLedgerTx tx)
-      applyAll (Utxo utxo') txs
+      utxo' <- fromLedgerUtxo <$> applyTx ledgerEnv (toLedgerUtxo utxo) (toLedgerTx tx)
+      applyAll utxo' txs
 
   -- NOTE(SN): This is will fail on any transaction requiring the 'DPState' to be
   -- in a certain state as we do throw away the resulting 'DPState' and only take
@@ -198,7 +198,7 @@ utxoFromTx (Tx body@(ShelleyTxBody _ ledgerBody _ _ _ _) _) =
         [ Ledger.TxIn (toLedgerTxId $ getTxId body) ix
         | ix <- [0 .. fromIntegral (length txOuts)]
         ]
-   in Utxo $ Map.fromList $ zip txIns txOuts
+   in fromLedgerUtxo $ Ledger.UTxO $ Map.fromList $ zip txIns txOuts
 
 --
 -- Tx
@@ -210,9 +210,7 @@ instance IsTx CardanoTx where
   type ValueType CardanoTx = Value
 
   txId = getTxId . getTxBody
-  balance (Utxo u) =
-    let aggregate (Ledger.Alonzo.TxOut _ value _) = (<>) (fromMaryValue value)
-     in Map.foldr aggregate mempty u
+  balance = foldMap (\(TxOut _ value _) -> txOutValueToValue value)
 
 instance ToCBOR CardanoTx where
   toCBOR = CBOR.encodeBytes . serialize' . toLedgerTx
@@ -464,7 +462,11 @@ genTx utxos = do
     SJust (Ledger.Mary.AuxiliaryData metadata scripts) ->
       SJust $ Ledger.Alonzo.AuxiliaryData metadata (Ledger.Alonzo.TimelockScript <$> scripts)
 
-  utxoState = def{Ledger._utxo = toLedgerUtxo utxos}
+  utxoState = def{Ledger._utxo = maryUtxo}
+
+  maryUtxo = Ledger.UTxO . fmap toMaryTxOut $ Ledger.unUTxO alonzoUtxo
+
+  alonzoUtxo = toLedgerUtxo utxos
 
   dpState = Ledger.DPState def def
 
@@ -537,8 +539,15 @@ genOutput vk = do
 genUtxo :: Gen Utxo
 genUtxo = do
   genesisTxId <- arbitrary
-  utxo <- Ledger.Generator.genUtxo0 (Ledger.Generator.genEnv Proxy)
-  pure $ fromLedgerUtxo $ Ledger.UTxO $ Map.mapKeys (setTxId genesisTxId) $ Ledger.unUTxO utxo
+  maryUtxo <-
+    Ledger.Generator.genUtxo0 $
+      Ledger.Generator.genEnv (Proxy @(Ledger.Mary.MaryEra Ledger.StandardCrypto))
+  pure $
+    fromLedgerUtxo
+      . Ledger.UTxO
+      . Map.map fromMaryTxOut
+      . Map.mapKeys (setTxId genesisTxId)
+      $ Ledger.unUTxO maryUtxo
  where
   setTxId ::
     Ledger.TxId Ledger.StandardCrypto ->
