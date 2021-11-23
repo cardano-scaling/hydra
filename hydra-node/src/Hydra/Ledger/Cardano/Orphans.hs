@@ -10,7 +10,9 @@ module Hydra.Ledger.Cardano.Orphans where
 
 import Hydra.Prelude
 
+import Cardano.Api (TxIn)
 import Cardano.Api.Orphans ()
+import Cardano.Api.Shelley (fromShelleyTxIn)
 import Cardano.Binary (
   Annotator,
   decodeAnnotator,
@@ -84,7 +86,7 @@ decodeAddress t =
         fail $ "failed to decode from bech32: " <> show err
       Right (_prefix, dataPart) ->
         case Bech32.dataPartToBytes dataPart >>= Ledger.deserialiseAddr of
-          Nothing -> fail $ "failed to deserialise addresse."
+          Nothing -> fail "failed to deserialise addresse."
           Just addr -> pure addr
 
   decodeBase16 =
@@ -309,7 +311,7 @@ instance
       <*> (o .:? "withdrawals" .!= Ledger.Wdrl mempty)
       <*> (o .:? "fees" .!= mempty)
       <*> (o .:? "validity" .!= Ledger.Mary.ValidityInterval SNothing SNothing)
-      <*> (pure SNothing) -- TODO: Protocol Updates? Likely irrelevant to the L2.
+      <*> pure SNothing -- TODO: Protocol Updates? Likely irrelevant to the L2.
       <*> (o .:? "requiredSignatures" .!= mempty)
       <*> (o .:? "mint" .!= mempty)
       <*> (o .:? "scriptIntegrityHash" .!= SNothing)
@@ -335,7 +337,6 @@ txIdFromText = fmap Ledger.TxId . safeHashFromText
 --
 -- TxIn
 --
-
 instance Crypto crypto => FromJSON (Ledger.TxIn crypto) where
   parseJSON = withText "TxIn" txInFromText
 
@@ -352,8 +353,8 @@ txInFromText t = do
       pure
       (decode (encodeUtf8 $ Text.drop 1 txIxText))
 
-instance Crypto crypto => FromJSONKey (Ledger.TxIn crypto) where
-  fromJSONKey = FromJSONKeyTextParser txInFromText
+instance FromJSONKey TxIn where
+  fromJSONKey = FromJSONKeyTextParser (fmap fromShelleyTxIn . txInFromText)
 
 --
 -- TxOut
