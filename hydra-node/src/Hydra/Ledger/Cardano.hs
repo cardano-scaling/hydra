@@ -327,25 +327,6 @@ toLedgerAddr = \case
 -- TxOut
 --
 
--- TODO: Use 'toShelleyTxOut' from cardano-api.
-toLedgerTxOut :: TxOut CtxUTxO Era -> Ledger.TxOut LedgerEra
-toLedgerTxOut = \case
-  TxOut addr (liftLovelace -> value) datum ->
-    Ledger.Alonzo.TxOut
-      (toLedgerAddr addr)
-      (toMaryValue value)
-      (toLedgerDataHash datum)
- where
-  liftLovelace :: TxOutValue Era -> Value
-  liftLovelace = \case
-    TxOutAdaOnly _ lovelace -> lovelaceToValue lovelace
-    TxOutValue _ value -> value
-
-  toLedgerDataHash :: TxOutDatum CtxUTxO Era -> StrictMaybe (Ledger.Alonzo.DataHash Ledger.StandardCrypto)
-  toLedgerDataHash = \case
-    TxOutDatumNone -> SNothing
-    TxOutDatumHash _ (ScriptDataHash h) -> SJust h
-
 toMaryTxOut :: Ledger.TxOut LedgerEra -> Ledger.Mary.TxOut (Ledger.Mary.MaryEra Ledger.StandardCrypto)
 toMaryTxOut = \case
   Ledger.Alonzo.TxOutCompact addr value ->
@@ -363,10 +344,26 @@ fromMaryTxOut = \case
 --
 
 toLedgerUtxo :: Utxo -> Ledger.UTxO LedgerEra
-toLedgerUtxo = error "toLedgerUtxo"
+toLedgerUtxo =
+  Ledger.UTxO . Map.foldMapWithKey fn . unUtxo
+ where
+  fn ::
+    TxIn ->
+    TxOut CtxUTxO Era ->
+    Map (Ledger.TxIn Ledger.StandardCrypto) (Ledger.TxOut LedgerEra)
+  fn i o =
+    Map.singleton (toShelleyTxIn i) (toShelleyTxOut shelleyBasedEra o)
 
 fromLedgerUtxo :: Ledger.UTxO LedgerEra -> Utxo
-fromLedgerUtxo = error "fromLedgerUtxo"
+fromLedgerUtxo =
+  Utxo . Map.foldMapWithKey fn . Ledger.unUTxO
+ where
+  fn ::
+    Ledger.TxIn Ledger.StandardCrypto ->
+    Ledger.TxOut LedgerEra ->
+    Map TxIn (TxOut CtxUTxO Era)
+  fn i o =
+    Map.singleton (fromShelleyTxIn i) (fromShelleyTxOut shelleyBasedEra o)
 
 --
 -- KeyWitness
