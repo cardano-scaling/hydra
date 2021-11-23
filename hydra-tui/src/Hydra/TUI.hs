@@ -14,13 +14,11 @@ import Brick.Forms (Form, FormFieldState, checkboxField, editShowableFieldWithVa
 import Brick.Widgets.Border (hBorder, vBorder)
 import Brick.Widgets.Border.Style (ascii)
 import Cardano.Crypto.DSIGN (VerKeyDSIGN (VerKeyMockDSIGN))
-import qualified Cardano.Ledger.Alonzo.TxBody as Cardano
 import qualified Cardano.Ledger.Coin as Cardano
 import Cardano.Ledger.Shelley.API (UTxO (..))
 import qualified Cardano.Ledger.Shelley.API as Cardano
-import qualified Cardano.Ledger.TxIn as Cardano
 import Cardano.Ledger.Val (coin, inject)
-import Data.List (nub, (!!), (\\))
+import Data.List (nub, (\\))
 import qualified Data.Map.Strict as Map
 import qualified Data.Text as Text
 import Data.Version (showVersion)
@@ -32,17 +30,21 @@ import Hydra.ClientInput (ClientInput (..))
 import Hydra.Ledger (IsTx (..))
 import Hydra.Ledger.Cardano (
   CardanoTx,
+  CtxUTxO,
+  Era,
   LedgerCrypto,
-  LedgerEra,
   PaymentKey,
   SigningKey,
   TxIn,
-  TxOut,
+  TxOut (TxOut),
   Utxo,
   Utxo',
   VerificationKey,
+  fromLedgerUtxo,
+  genUtxoFor,
   prettyUtxo,
   prettyValue,
+  utxoPairs,
  )
 import Hydra.Network (Host (..))
 import Hydra.Party (Party (Party, vkey))
@@ -52,6 +54,7 @@ import Hydra.TUI.Options (Options (..))
 import Lens.Micro (Lens', lens, (%~), (.~), (?~), (^.), (^?))
 import Lens.Micro.TH (makeLensesFor)
 import Paths_hydra_tui (version)
+import Test.QuickCheck (scale)
 import qualified Prelude
 
 --
@@ -223,7 +226,7 @@ handleAppEvent s = \case
           & feedbackL ?~ UserFeedback Info "Head initialized, ready for commit(s)."
   Update Committed{party, utxo} ->
     s & headStateL %~ partyCommitted [party] utxo
-      & feedbackL ?~ UserFeedback Info (show party <> " committed " <> prettyValue (balance utxo))
+      & feedbackL ?~ UserFeedback Info (show party <> " committed " <> prettyValue (balance @CardanoTx utxo))
   Update HeadIsOpen{utxo} ->
     s & headStateL %~ headIsOpen utxo
       & feedbackL ?~ UserFeedback Info "Head is now open!"
@@ -350,7 +353,7 @@ handleNewTxEvent Client{sendInput} s = case s ^? headStateL of
     submit s' (getAddress -> recipient) =
       continue $ s' & dialogStateL .~ amountDialog input recipient me
 
-  amountDialog input@(_, Cardano.TxOut _ v) recipient me =
+  amountDialog input@(_, TxOut _ v _) recipient me =
     Dialog title form submit
    where
     title = "Choose an amount"
@@ -493,7 +496,7 @@ draw s =
   drawUtxo (UTxO m) =
     let byAddress =
           Map.foldrWithKey
-            (\k v@(Cardano.TxOut addr _) -> Map.unionWith (++) (Map.singleton addr [(k, v)]))
+            (\k v@(TxOut addr _ _) -> Map.unionWith (++) (Map.singleton addr [(k, v)]))
             mempty
             m
      in vBox
@@ -550,7 +553,7 @@ draw s =
 -- A helper for creating multiple form fields from a UTXO set.
 utxoCheckboxField ::
   forall s e n.
-  ( s ~ Utxo' (TxOut, Bool)
+  ( s ~ Map.Map TxIn (TxOut CtxUTxO Era, Bool)
   , n ~ Name
   ) =>
   Utxo ->
@@ -560,7 +563,7 @@ utxoCheckboxField u =
     (checkboxLens k)
     ("checkboxField@" <> show k)
     (prettyUtxo (k, v))
-  | (k, v) <- Map.toList u
+  | (k, v) <- utxoPairs u
   ]
  where
   checkboxLens :: Ord k => k -> Lens' (Map k (v, Bool)) Bool
@@ -572,10 +575,10 @@ utxoCheckboxField u =
 -- A helper for creating a radio form fields for selecting a UTXO in a given set
 utxoRadioField ::
   forall s e n.
-  ( s ~ (Cardano.TxIn, Cardano.TxOut)
+  ( s ~ (TxIn, TxOut CtxUTxO Era)
   , n ~ Name
   ) =>
-  Map Cardano.TxIn Cardano.TxOut ->
+  Map TxIn (TxOut CtxUTxO Era) ->
   [s -> FormFieldState s e n]
 utxoRadioField u =
   [ radioField
@@ -585,12 +588,12 @@ utxoRadioField u =
       ]
   ]
 
-myAvailableUtxo :: Party -> State -> Map Cardano.TxIn Cardano.TxOut
+myAvailableUtxo :: Party -> State -> Map TxIn (TxOut CtxUTxO Era)
 myAvailableUtxo me s =
   case s ^? headStateL of
     Just Open{utxo = UTxO u'} ->
       let myAddress = getAddress me
-       in Map.filter (\(Cardano.TxOut addr _) -> addr == myAddress) u'
+       in Map.filter (\(TxOut addr _ _) -> addr == myAddress) u'
     _ ->
       mempty
 
@@ -643,13 +646,12 @@ getAddress =
   mkVkAddress . vKey . getCredentials
 
 -- | Generate a Utxo set for a given party "out of thin air".
-faucetUtxo :: Party -> Map TxIn TxOut
+faucetUtxo :: Party -> Utxo
 faucetUtxo party@Party{vkey} =
   let VerKeyMockDSIGN word = vkey
       seed = fromIntegral word
-      vk = vKey $ getCredentials party
-      Cardano.UTxO u = generateWith (scale (const 5) $ genUtxoFor vk) seed
-   in u
+      vk = fst $ getCredentials party
+   in generateWith (scale (const 5) $ genUtxoFor vk) seed
 
 --
 -- Run it
