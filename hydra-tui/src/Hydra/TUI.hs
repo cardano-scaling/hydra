@@ -29,11 +29,15 @@ import Hydra.Client (Client (Client, sendInput), HydraEvent (..), withClient)
 import Hydra.ClientInput (ClientInput (..))
 import Hydra.Ledger (IsTx (..))
 import Hydra.Ledger.Cardano (
+  Address,
+  AddressInEra,
   CardanoTx,
   CtxUTxO,
   Era,
   LedgerCrypto,
+  NetworkId (Testnet),
   PaymentKey,
+  ShelleyAddr,
   SigningKey,
   TxIn,
   TxOut (TxOut),
@@ -42,9 +46,13 @@ import Hydra.Ledger.Cardano (
   VerificationKey,
   genUtxoFor,
   mkSimpleCardanoTx,
+  mkVkAddress,
   prettyUtxo,
   prettyValue,
-  unUtxo,
+  serialiseToBech32,
+  shelleyAddressInEra,
+  utxoMap,
+  utxoPairs,
  )
 import Hydra.Network (Host (..))
 import Hydra.Party (Party (Party, vkey))
@@ -326,7 +334,7 @@ handleCommitEvent Client{sendInput} s = case s ^? headStateL of
     case s ^? meL of
       -- XXX(SN): this is just..not cool
       Just (Just me) ->
-        continue $ s & dialogStateL .~ commitDialog (unUtxo $ faucetUtxo me)
+        continue $ s & dialogStateL .~ commitDialog (utxoMap $ faucetUtxo me)
       _ -> continue $ s & feedbackL ?~ UserFeedback Error "Missing identity, so can't commit from faucet."
   _ ->
     continue $ s & feedbackL ?~ UserFeedback Error "Invalid command."
@@ -429,10 +437,9 @@ draw s =
 
     ownAddress =
       case s ^? meL of
-        Just (Just me) -> str "Address " <+> withAttr own (txt $ ellipsize 40 $ encodeAddress (getAddress me))
+        Just (Just me) ->
+          str "Address " <+> drawAddress (getAddress me)
         _ -> emptyWidget
-
-    ellipsize n t = Text.take (n - 2) t <> ".."
 
     nodeStatus =
       case s of
@@ -496,7 +503,7 @@ draw s =
             withCommands
               [ drawHeadState
               , padLeftRight 1 $
-                  txt ("Distributed UTXO, total: " <> prettyBalance (balance @CardanoTx utxo))
+                  txt ("Distributed UTXO, total: " <> prettyValue (balance @CardanoTx utxo))
                     <=> padLeft (Pad 2) (drawUtxo utxo)
               ]
               [ "[I]nit"
@@ -517,12 +524,12 @@ draw s =
         , hBorder
         ]
 
-  drawUtxo (UTxO m) =
+  drawUtxo utxo =
     let byAddress =
           Map.foldrWithKey
             (\k v@(TxOut addr _ _) -> Map.unionWith (++) (Map.singleton addr [(k, v)]))
             mempty
-            m
+            $ utxoMap utxo
      in vBox
           [ padTop (Pad 1) $
             vBox
@@ -533,10 +540,12 @@ draw s =
           ]
 
   drawAddress addr =
-    let widget = txt $ encodeAddress addr
+    let widget = txt $ ellipsize 40 $ serialiseToBech32 addr
      in case s ^? meL of
           Just (Just me) | getAddress me == addr -> withAttr own widget
           _ -> widget
+
+  ellipsize n t = Text.take (n - 2) t <> ".."
 
   withCommands panel cmds =
     hBox
@@ -615,7 +624,7 @@ utxoRadioField u =
 myAvailableUtxo :: Party -> State -> Map TxIn (TxOut CtxUTxO Era)
 myAvailableUtxo me s =
   case s ^? headStateL of
-    Just Open{utxo = UTxO u'} ->
+    Just Open{utxo = Utxo u'} ->
       let myAddress = getAddress me
        in Map.filter (\(TxOut addr _ _) -> addr == myAddress) u'
     _ ->

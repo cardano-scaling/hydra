@@ -157,7 +157,7 @@ type Utxo = Utxo' (TxOut CtxUTxO Era)
 -- of 'Ledger.UTXO'and provide 'Monoid' and 'Foldable' instances to make utxo
 -- manipulation bareable.
 newtype Utxo' out = Utxo
-  { unUtxo :: Map TxIn out
+  { utxoMap :: Map TxIn out
   }
   deriving newtype (Eq, Show)
 
@@ -173,8 +173,8 @@ instance Functor Utxo' where
   fmap fn (Utxo u) = Utxo (fmap fn u)
 
 instance Foldable Utxo' where
-  foldMap fn = foldMap fn . unUtxo
-  foldr fn zero = foldr fn zero . unUtxo
+  foldMap fn = foldMap fn . utxoMap
+  foldr fn zero = foldr fn zero . utxoMap
 
 instance Semigroup Utxo where
   Utxo uL <> Utxo uR = Utxo (uL <> uR)
@@ -183,7 +183,7 @@ instance Monoid Utxo where
   mempty = Utxo mempty
 
 instance ToJSON Utxo where
-  toJSON = toJSON . unUtxo
+  toJSON = toJSON . utxoMap
 
 instance FromJSON Utxo where
   parseJSON = fmap Utxo . parseJSON
@@ -193,7 +193,7 @@ instance Arbitrary Utxo where
   arbitrary = genUtxo
 
 utxoPairs :: Utxo' out -> [(TxIn, out)]
-utxoPairs = Map.toList . unUtxo
+utxoPairs = Map.toList . utxoMap
 
 prettyUtxo :: (TxIn, TxOut ctx era) -> Text
 prettyUtxo (k, TxOut _ (txOutValueToValue -> v) _) =
@@ -357,7 +357,7 @@ fromMaryTxOut = \case
 
 toLedgerUtxo :: Utxo -> Ledger.UTxO LedgerEra
 toLedgerUtxo =
-  Ledger.UTxO . Map.foldMapWithKey fn . unUtxo
+  Ledger.UTxO . Map.foldMapWithKey fn . utxoMap
  where
   fn ::
     TxIn ->
