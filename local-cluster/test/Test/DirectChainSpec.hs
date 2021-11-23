@@ -7,6 +7,7 @@ module Test.DirectChainSpec where
 import Hydra.Prelude
 import Test.Hydra.Prelude
 
+import Cardano.Api.Shelley (VerificationKey (PaymentVerificationKey))
 import Cardano.Ledger.Keys (VKey (VKey))
 import CardanoCluster (
   ClusterLog,
@@ -29,7 +30,7 @@ import Hydra.Chain.Direct (
   withDirectChain,
   withIOManager,
  )
-import Hydra.Ledger (Tx)
+import Hydra.Ledger (IsTx)
 import Hydra.Ledger.Cardano (genOneUtxoFor)
 import Hydra.Logging (nullTracer, showLogsOnFailure)
 import Hydra.Party (Party, deriveParty, generateKey)
@@ -89,8 +90,8 @@ spec = around showLogsOnFailure $ do
             postTx $ InitTx $ HeadParameters 100 [alice]
             alicesCallback `observesInTime` OnInitTx 100 [alice]
 
-            someUtxoA <- generate $ genOneUtxoFor (VKey aliceCardanoVk)
-            someUtxoB <- generate $ genOneUtxoFor (VKey aliceCardanoVk)
+            someUtxoA <- generate $ genOneUtxoFor (PaymentVerificationKey $ VKey aliceCardanoVk)
+            someUtxoB <- generate $ genOneUtxoFor (PaymentVerificationKey $ VKey aliceCardanoVk)
 
             postTx (CommitTx alice (someUtxoA <> someUtxoB))
               `shouldThrow` (== MoreThanOneUtxoCommitted)
@@ -125,7 +126,7 @@ spec = around showLogsOnFailure $ do
             postTx $ InitTx $ HeadParameters 100 [alice]
             alicesCallback `observesInTime` OnInitTx 100 [alice]
 
-            someUtxo <- generate $ genOneUtxoFor (VKey aliceCardanoVk)
+            someUtxo <- generate $ genOneUtxoFor (PaymentVerificationKey $ VKey aliceCardanoVk)
             postTx $ CommitTx alice someUtxo
             alicesCallback `observesInTime` OnCommitTx alice someUtxo
 
@@ -133,7 +134,7 @@ spec = around showLogsOnFailure $ do
             alicesCallback `observesInTime` OnCollectComTx
 
             -- NOTE(SN): This is deliberately wrong and should be caught by OCV
-            someOtherUtxo <- generate $ genOneUtxoFor (VKey aliceCardanoVk)
+            someOtherUtxo <- generate $ genOneUtxoFor (PaymentVerificationKey $ VKey aliceCardanoVk)
             postTx . CloseTx $
               Snapshot
                 { number = 1
@@ -167,7 +168,7 @@ data TestClusterLog
   | FromDirectChain Text DirectChainLog
   deriving (Show)
 
-observesInTime :: Tx tx => MVar (OnChainTx tx) -> OnChainTx tx -> Expectation
+observesInTime :: IsTx tx => MVar (OnChainTx tx) -> OnChainTx tx -> Expectation
 observesInTime mvar expected =
   failAfter 10 $
     takeMVar mvar `shouldReturn` expected

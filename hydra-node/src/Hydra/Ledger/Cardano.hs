@@ -7,7 +7,10 @@
 {-# OPTIONS_GHC -Wno-missing-methods #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 
-module Hydra.Ledger.Cardano where
+module Hydra.Ledger.Cardano (
+  module Hydra.Ledger.Cardano,
+  module Cardano.Api,
+) where
 
 import Hydra.Prelude hiding (id)
 
@@ -67,9 +70,9 @@ import qualified Test.Cardano.Ledger.Shelley.Generator.Presets as Ledger.Generat
 import qualified Test.Cardano.Ledger.Shelley.Generator.Utxo as Ledger.Generator
 import Test.QuickCheck (choose, getSize, scale, suchThat, vectorOf)
 
+type Era = AlonzoEra
 type CardanoTx = Tx Era
 type LedgerEra = Ledger.Alonzo.AlonzoEra Ledger.StandardCrypto
-type Era = AlonzoEra
 
 -- TODO(SN): Pre-validate transactions to get less confusing errors on
 -- transactions which are not expected to working on a layer-2

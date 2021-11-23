@@ -35,8 +35,8 @@ import Data.Set ((\\))
 import qualified Data.Set as Set
 import Data.Time (nominalDiffTimeToSeconds)
 import Hydra.Generator (Dataset (..))
-import Hydra.Ledger (Tx, TxId, Utxo, txId)
-import Hydra.Ledger.Cardano (CardanoTx, utxoToJSON)
+import Hydra.Ledger (txId)
+import Hydra.Ledger.Cardano (CardanoTx, TxId, Utxo)
 import Hydra.Logging (showLogsOnFailure)
 import Hydra.Party (deriveParty, generateKey)
 import HydraNode (
@@ -91,9 +91,7 @@ bench timeoutSeconds workDir dataset clusterSize =
 
             expectedUtxo <- commit nodes dataset
 
-            -- NOTE: use explicit converted because of overlapping instance issue
-            -- see Hydra.Ledger.Cardano
-            waitFor tracer 3 nodes $ output "HeadIsOpen" ["utxo" .= utxoToJSON expectedUtxo]
+            waitFor tracer 3 nodes $ output "HeadIsOpen" ["utxo" .= expectedUtxo]
 
             processedTransactions <- processTransactions nodes dataset
 
@@ -114,7 +112,7 @@ bench timeoutSeconds workDir dataset clusterSize =
             putTextLn $ "Confirmed below 1 sec: " <> show percentBelow1Sec <> "%"
             percentBelow1Sec `shouldSatisfy` (> 90)
 
-processTransactions :: [HydraClient] -> [Dataset] -> IO (Map.Map (TxId CardanoTx) Event)
+processTransactions :: [HydraClient] -> [Dataset] -> IO (Map.Map TxId Event)
 processTransactions clients dataset = do
   let processors = zip (zip dataset (cycle clients)) [1 ..]
   mconcat <$> mapConcurrently (uncurry clientProcessTransactionsSequence) processors
@@ -145,25 +143,23 @@ progressReport nodeId clientId queueSize queue = do
 -- Helpers
 --
 
-commit :: [HydraClient] -> [Dataset] -> IO (Utxo CardanoTx)
+commit :: [HydraClient] -> [Dataset] -> IO Utxo
 commit clients dataset = do
   let initialMap = Map.fromList $ map (\node -> (hydraNodeId node, (node, noUtxos))) clients
       distributeUtxo = zip (initialUtxo <$> dataset) (cycle $ hydraNodeId <$> clients)
       clientsToUtxo = foldr assignUtxo initialMap distributeUtxo
 
   forM_ (Map.elems clientsToUtxo) $ \(n, utxo) ->
-    -- NOTE: use explicit converted because of overlapping instance issue
-    -- see Hydra.Ledger.Cardano
-    send n $ input "Commit" ["utxo" .= utxoToJSON utxo]
+    send n $ input "Commit" ["utxo" .= utxo]
 
   pure $ mconcat $ snd <$> Map.elems clientsToUtxo
 
-assignUtxo :: (Utxo CardanoTx, Int) -> Map.Map Int (HydraClient, Utxo CardanoTx) -> Map.Map Int (HydraClient, Utxo CardanoTx)
+assignUtxo :: (Utxo, Int) -> Map.Map Int (HydraClient, Utxo) -> Map.Map Int (HydraClient, Utxo)
 assignUtxo (utxo, clientId) = Map.adjust appendUtxo clientId
  where
   appendUtxo (client, utxo') = (client, utxo <> utxo')
 
-noUtxos :: Utxo CardanoTx
+noUtxos :: Utxo
 noUtxos = mempty
 
 double :: Real a => a -> Double
@@ -177,10 +173,9 @@ type TransactionInput = Int
 type TransactionOutput = Int
 
 newTx ::
-  Tx tx =>
-  TVar IO (Map.Map (TxId tx) Event) ->
+  TVar IO (Map.Map TxId Event) ->
   HydraClient ->
-  tx ->
+  CardanoTx ->
   IO ()
 newTx registry client tx = do
   now <- getCurrentTime
@@ -200,7 +195,7 @@ data WaitResult
   | SnapshotConfirmed {transactions :: [Value], snapshotNumber :: Scientific}
 
 data Registry tx = Registry
-  { processedTxs :: TVar IO (Map.Map (TxId tx) Event)
+  { processedTxs :: TVar IO (Map.Map TxId Event)
   , latestSnapshot :: TVar IO Scientific
   }
 
@@ -234,7 +229,7 @@ waitForAllConfirmations ::
   HydraClient ->
   Registry CardanoTx ->
   TBQueue IO CardanoTx ->
-  Set (TxId CardanoTx) ->
+  Set TxId ->
   IO ()
 waitForAllConfirmations n1 Registry{processedTxs} submissionQ allIds = do
   go allIds
@@ -278,11 +273,11 @@ waitForAllConfirmations n1 Registry{processedTxs} submissionQ allIds = do
       <*> snapshot ^? key "snapshotNumber" . _Number
 
 confirmTx ::
-  TVar IO (Map.Map (TxId CardanoTx) Event) ->
+  TVar IO (Map.Map TxId Event) ->
   Value ->
-  IO (TxId CardanoTx)
+  IO TxId
 confirmTx registry tx = do
-  case fromJSON @(TxId CardanoTx) <$> tx ^? key "id" of
+  case fromJSON @TxId <$> tx ^? key "id" of
     Just (Success identifier) -> do
       now <- getCurrentTime
       atomically $
@@ -292,8 +287,8 @@ confirmTx registry tx = do
     _ -> error $ "incorrect Txid" <> show tx
 
 validTx ::
-  TVar IO (Map.Map (TxId CardanoTx) Event) ->
-  TxId CardanoTx ->
+  TVar IO (Map.Map TxId Event) ->
+  TxId ->
   IO ()
 validTx registry txid = do
   now <- getCurrentTime
@@ -301,7 +296,7 @@ validTx registry txid = do
     modifyTVar registry $
       Map.adjust (\e -> e{validAt = Just now}) txid
 
-analyze :: (TxId CardanoTx, Event) -> Maybe (UTCTime, NominalDiffTime, NominalDiffTime)
+analyze :: (TxId, Event) -> Maybe (UTCTime, NominalDiffTime, NominalDiffTime)
 analyze = \case
   (_, Event{submittedAt, validAt = Just valid, confirmedAt = Just conf}) -> Just (submittedAt, valid `diffUTCTime` submittedAt, conf `diffUTCTime` submittedAt)
   _ -> Nothing
