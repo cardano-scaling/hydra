@@ -13,10 +13,18 @@ import Data.Aeson (eitherDecode, encode)
 import qualified Data.Aeson as Aeson
 import Data.Text (unpack)
 import Hydra.Ledger (applyTransactions)
-import Hydra.Ledger.Cardano (CardanoTx, Utxo, cardanoLedger, genSequenceOfValidTransactions, genUtxo)
+import Hydra.Ledger.Cardano (
+  CardanoTx,
+  Utxo,
+  cardanoLedger,
+  fromLedgerTx,
+  genSequenceOfValidTransactions,
+  genUtxo,
+  toLedgerTx,
+ )
 import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
 import Test.Cardano.Ledger.MaryEraGen ()
-import Test.QuickCheck (Property, counterexample, forAllShrink)
+import Test.QuickCheck (Property, counterexample, forAllShrink, (===))
 import Test.QuickCheck.Property (forAll)
 
 spec :: Spec
@@ -25,6 +33,8 @@ spec = parallel $ do
   roundtripAndGoldenSpecs (Proxy @Utxo)
   -- roundtripAndGoldenSpecs (Proxy @CardanoTxWitnesses)
   roundtripAndGoldenSpecs (Proxy @CardanoTx)
+
+  prop "Roundtrip to and from Ledger" roundtripLedger
 
   prop "CBOR encoding of CardanoTx" $ roundtripCBOR @CardanoTx
 
@@ -63,6 +73,10 @@ roundtripCBOR a =
       decoded = decodeFull $ fromStrict encoded
    in decoded == Right a
         & counterexample ("encoded: " <> show encoded <> ". decode: " <> show decoded)
+
+roundtripLedger :: CardanoTx -> Property
+roundtripLedger tx =
+  fromLedgerTx (toLedgerTx tx) === tx
 
 appliesValidTransaction :: Property
 appliesValidTransaction =
