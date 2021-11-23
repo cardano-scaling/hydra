@@ -131,18 +131,6 @@ signWith (TxId h) (PaymentVerificationKey vk, PaymentSigningKey sk) =
       (Ledger.asWitness vk)
       (Ledger.signedDSIGN @Ledger.StandardCrypto sk h)
 
-mkVkAddress ::
-  IsShelleyBasedEra era =>
-  NetworkId ->
-  VerificationKey PaymentKey ->
-  AddressInEra era
-mkVkAddress networkId vk =
-  shelleyAddressInEra $
-    makeShelleyAddress
-      networkId
-      (PaymentCredentialByKey $ verificationKeyHash vk)
-      NoStakeAddress
-
 --
 -- Type conversions & plumbing
 --
@@ -327,6 +315,19 @@ fromLedgerTxId (Ledger.TxId h) =
 --
 -- Address
 --
+
+-- | Create an address from a verificaton key.
+mkVkAddress ::
+  IsShelleyBasedEra era =>
+  NetworkId ->
+  VerificationKey PaymentKey ->
+  AddressInEra era
+mkVkAddress networkId vk =
+  shelleyAddressInEra $
+    makeShelleyAddress
+      networkId
+      (PaymentCredentialByKey $ verificationKeyHash vk)
+      NoStakeAddress
 
 toLedgerAddr :: AddressInEra Era -> Ledger.Addr Ledger.StandardCrypto
 toLedgerAddr = \case

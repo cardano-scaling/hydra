@@ -2,6 +2,7 @@
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeApplications #-}
+{-# OPTIONS_GHC -Wno-orphans #-}
 
 module Hydra.TUI where
 
@@ -14,10 +15,6 @@ import Brick.Forms (Form, FormFieldState, checkboxField, editShowableFieldWithVa
 import Brick.Widgets.Border (hBorder, vBorder)
 import Brick.Widgets.Border.Style (ascii)
 import Cardano.Crypto.DSIGN (VerKeyDSIGN (VerKeyMockDSIGN))
-import qualified Cardano.Ledger.Coin as Cardano
-import Cardano.Ledger.Shelley.API (UTxO (..))
-import qualified Cardano.Ledger.Shelley.API as Cardano
-import Cardano.Ledger.Val (coin, inject)
 import Data.List (nub, (\\))
 import qualified Data.Map.Strict as Map
 import qualified Data.Text as Text
@@ -29,30 +26,32 @@ import Hydra.Client (Client (Client, sendInput), HydraEvent (..), withClient)
 import Hydra.ClientInput (ClientInput (..))
 import Hydra.Ledger (IsTx (..))
 import Hydra.Ledger.Cardano (
-  Address,
-  AddressInEra,
+  AddressInEra (AddressInEra),
+  AddressTypeInEra (ShelleyAddressInEra),
   CardanoTx,
   CtxUTxO,
   Era,
-  LedgerCrypto,
+  Lovelace (Lovelace),
   NetworkId (Testnet),
+  NetworkMagic (NetworkMagic),
   PaymentKey,
-  ShelleyAddr,
+  ShelleyBasedEra (ShelleyBasedEraAlonzo),
   SigningKey,
   TxIn,
   TxOut (TxOut),
   Utxo,
   Utxo' (Utxo),
   VerificationKey,
+  genKeyPair,
   genUtxoFor,
+  lovelaceToValue,
   mkSimpleCardanoTx,
   mkVkAddress,
   prettyUtxo,
   prettyValue,
-  serialiseToBech32,
-  shelleyAddressInEra,
+  serialiseAddress,
+  txOutValueToLovelace,
   utxoMap,
-  utxoPairs,
  )
 import Hydra.Network (Host (..))
 import Hydra.Party (Party (Party, vkey))
@@ -88,6 +87,10 @@ import Lens.Micro.TH (makeLensesFor)
 import Paths_hydra_tui (version)
 import Test.QuickCheck (scale)
 import qualified Prelude
+
+-- XXX(SN): hard-coded network id
+networkId :: NetworkId
+networkId = Testnet $ NetworkMagic 42
 
 --
 -- Model
@@ -389,12 +392,15 @@ handleNewTxEvent Client{sendInput} s = case s ^? headStateL of
     Dialog title form submit
    where
     title = "Choose an amount"
+
     form =
-      let limit = Cardano.unCoin $ coin v
+      -- NOTE(SN): use 'Integer' because we don't have a 'Read Lovelace'
+      let Lovelace limit = txOutValueToLovelace v
           field = editShowableFieldWithValidate (lens id seq) "amount" (\n -> n > 0 && n <= limit)
        in newForm [field] limit
-    submit s' (inject . Cardano.Coin -> amount) = do
-      let tx = mkSimpleCardanoTx input (recipient, amount) (getCredentials me)
+
+    submit s' amount = do
+      let tx = mkSimpleCardanoTx input (recipient, lovelaceToValue $ Lovelace amount) (getCredentials me)
       liftIO (sendInput (NewTx tx))
       continue $ s' & dialogStateL .~ NoDialog
 
@@ -540,7 +546,7 @@ draw s =
           ]
 
   drawAddress addr =
-    let widget = txt $ ellipsize 40 $ serialiseToBech32 addr
+    let widget = txt $ ellipsize 40 $ serialiseAddress addr
      in case s ^? meL of
           Just (Just me) | getAddress me == addr -> withAttr own widget
           _ -> widget
@@ -578,6 +584,13 @@ draw s =
 
   drawShow :: forall a n. Show a => a -> Widget n
   drawShow = str . (" - " <>) . show
+
+-- HACK(SN): Discuss and move this somewhere. This is needed becaus we group
+-- UTXOs based on address.
+instance Ord (AddressInEra Era) where
+  (AddressInEra (ShelleyAddressInEra ShelleyBasedEraAlonzo) addrA)
+    <= (AddressInEra (ShelleyAddressInEra ShelleyBasedEraAlonzo) addrB) = addrA <= addrB
+  _ <= _ = False
 
 --
 -- Forms additional widgets
@@ -664,19 +677,13 @@ getCredentials Party{vkey} =
   let VerKeyMockDSIGN word = vkey
       seed = fromIntegral word
    in generateWith genKeyPair seed
- where
-  generateKeyPair = do
-    -- NOTE: not using 'genKeyDSIGN' purposely here, it is not pure and does not
-    -- play well with pure generation from seed.
-    sk <- fromJust . rawDeserialiseSignKeyDSIGN . fromList <$> vectorOf 64 arbitrary
-    pure (PaymentVerificationKey $ Cardano.VKey (deriveVerKeyDSIGN sk), sk)
 
 -- | Similarly to 'getCredentials', this gives us "the" Cardano address given a
 -- Hydra 'Party'. In a real world deployment it would make no sense to send a
 -- Head participant something, the ledger would be fully decoupled.
 getAddress :: Party -> AddressInEra Era
-getAddress =
-  mkVkAddress (Testnet 42) . fst . getCredentials
+getAddress party =
+  mkVkAddress networkId . fst $ getCredentials party
 
 -- | Generate a Utxo set for a given party "out of thin air".
 faucetUtxo :: Party -> Utxo

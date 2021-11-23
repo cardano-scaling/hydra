@@ -6,7 +6,6 @@ module Hydra.Chain.Direct.WalletSpec where
 import Hydra.Prelude hiding (label)
 import Test.Hydra.Prelude
 
-import Cardano.Api (AddressInEra (..), AddressTypeInEra (..), shelleyBasedEra)
 import qualified Cardano.Api.Shelley as Cardano.Api
 import Cardano.Ledger.Alonzo.Tx (ValidatedTx (..))
 import Cardano.Ledger.Alonzo.TxBody (TxBody (..), pattern TxOut)

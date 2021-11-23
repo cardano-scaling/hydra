@@ -337,6 +337,7 @@ txIdFromText = fmap Ledger.TxId . safeHashFromText
 --
 -- TxIn
 --
+
 instance Crypto crypto => FromJSON (Ledger.TxIn crypto) where
   parseJSON = withText "TxIn" txInFromText
 
