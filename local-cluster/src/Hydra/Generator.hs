@@ -5,22 +5,19 @@ module Hydra.Generator where
 
 import Hydra.Prelude hiding (size)
 
+import Cardano.Api
 import Control.Monad (foldM)
-import Hydra.Ledger (Utxo)
+import Hydra.Ledger (IsTx (..))
 import Hydra.Ledger.Cardano (
-  CardanoKeyPair,
   CardanoTx,
+  Utxo,
   genFixedSizeSequenceOfValidTransactions,
   genKeyPair,
   genOneUtxoFor,
   genUtxo,
-  generateWith,
   mkSimpleCardanoTx,
   mkVkAddress,
   utxoFromTx,
-  utxoToList,
-  utxoValue,
-  verificationKey,
  )
 import Test.QuickCheck (Gen, elements, generate)
 
@@ -28,7 +25,7 @@ import Test.QuickCheck (Gen, elements, generate)
 -- The 'transactionSequence' is guaranteed to be applicable, in sequence, to the 'initialUtxo'
 -- set.
 data Dataset = Dataset
-  { initialUtxo :: Utxo CardanoTx
+  { initialUtxo :: Utxo
   , transactionsSequence :: [CardanoTx]
   }
   deriving (Eq, Show, Generic, ToJSON, FromJSON)
@@ -47,7 +44,7 @@ generateConstantUtxoDataset = generate . genConstantUtxoDataset
 genConstantUtxoDataset :: Int -> Gen Dataset
 genConstantUtxoDataset len = do
   keyPair <- genKeyPair
-  initialUtxo <- genOneUtxoFor (verificationKey keyPair)
+  initialUtxo <- genOneUtxoFor (fst keyPair)
   transactionsSequence <- reverse . thrd <$> foldM generateOneTransfer (initialUtxo, keyPair, []) [1 .. len]
   pure $ Dataset{initialUtxo, transactionsSequence}
  where
@@ -56,10 +53,10 @@ genConstantUtxoDataset len = do
     recipient <- genKeyPair
     -- NOTE(AB): elements is partial, it crashes if given an empty list, We don't expect
     -- this function to be ever used in production, and crash will be caught in tests
-    txin <- elements $ utxoToList utxo
-    let tx = mkSimpleCardanoTx txin (mkVkAddress (verificationKey recipient), utxoValue utxo) keyPair
+    txin <- elements $ toList utxo
+    let tx = mkSimpleCardanoTx txin (mkVkAddress (fst recipient), balance @CardanoTx utxo) keyPair
         utxo' = utxoFromTx tx
     pure (utxo', recipient, tx : txs)
 
-mkCredentials :: Int -> CardanoKeyPair
+mkCredentials :: Int -> (VerificationKey PaymentKey, SigningKey PaymentKey)
 mkCredentials = generateWith genKeyPair

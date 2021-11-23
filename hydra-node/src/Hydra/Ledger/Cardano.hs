@@ -142,28 +142,28 @@ mkVkAddress vk =
 -- Utxo
 --
 
-type Utxo = Utxo' LedgerEra (Ledger.Alonzo.TxOut LedgerEra)
+type Utxo = Utxo' (TxOut CtxUTxO Era)
 
 -- | Newtype with phantom types mostly required to work around the poor interface
 -- of 'Ledger.UTXO'and provide 'Monoid' and 'Foldable' instances to make utxo
 -- manipulation bareable.
-newtype Utxo' era out = Utxo
-  { unUtxo :: Map (Ledger.TxIn (Ledger.Crypto era)) out
+newtype Utxo' out = Utxo
+  { unUtxo :: Map TxIn out
   }
   deriving newtype (Eq, Show)
 
 instance ToCBOR Utxo where
-  toCBOR = toCBOR . coerce @_ @(Ledger.UTxO LedgerEra)
+  toCBOR = toCBOR . toLedgerUtxo
   encodedSizeExpr sz _ = encodedSizeExpr sz (Proxy @(Ledger.UTxO LedgerEra))
 
 instance FromCBOR Utxo where
-  fromCBOR = coerce @(Ledger.UTxO LedgerEra) <$> fromCBOR
+  fromCBOR = fromLedgerUtxo <$> fromCBOR
   label _ = label (Proxy @(Ledger.UTxO LedgerEra))
 
-instance Functor (Utxo' era) where
+instance Functor Utxo' where
   fmap fn (Utxo u) = Utxo (fmap fn u)
 
-instance Foldable (Utxo' era) where
+instance Foldable Utxo' where
   foldMap fn = foldMap fn . unUtxo
   foldr fn zero = foldr fn zero . unUtxo
 
@@ -234,6 +234,14 @@ instance FromJSON CardanoTx where
 instance Arbitrary CardanoTx where
   -- TODO: shrinker!
   arbitrary = genUtxo >>= genTx
+
+mkSimpleCardanoTx ::
+  (TxIn, TxOut ctx Era) ->
+  (Address ShelleyAddr, Value) ->
+  (VerificationKey PaymentKey, SigningKey PaymentKey) ->
+  CardanoTx
+mkSimpleCardanoTx =
+  error "mkSimpleCardanoTx"
 
 -- | Convert an existing @cardano-api@'s 'Tx' to a @cardano-ledger-specs@ 'Tx'
 toLedgerTx :: CardanoTx -> Ledger.Tx LedgerEra
@@ -321,6 +329,7 @@ toLedgerAddr = \case
 -- TxOut
 --
 
+-- TODO: Use 'toShelleyTxOut' from cardano-api.
 toLedgerTxOut :: TxOut CtxUTxO Era -> Ledger.TxOut LedgerEra
 toLedgerTxOut = \case
   TxOut addr (liftLovelace -> value) datum ->
@@ -350,6 +359,16 @@ fromMaryTxOut :: Ledger.Mary.TxOut (Ledger.Mary.MaryEra Ledger.StandardCrypto) -
 fromMaryTxOut = \case
   Ledger.Shelley.TxOutCompact addr value ->
     Ledger.Alonzo.TxOutCompact addr value
+
+--
+-- Utxo
+--
+
+toLedgerUtxo :: Utxo -> Ledger.UTxO LedgerEra
+toLedgerUtxo = error "toLedgerUtxo"
+
+fromLedgerUtxo :: Ledger.UTxO LedgerEra -> Utxo
+fromLedgerUtxo = error "fromLedgerUtxo"
 
 --
 -- KeyWitness
@@ -445,7 +464,7 @@ genTx utxos = do
     SJust (Ledger.Mary.AuxiliaryData metadata scripts) ->
       SJust $ Ledger.Alonzo.AuxiliaryData metadata (Ledger.Alonzo.TimelockScript <$> scripts)
 
-  utxoState = def{Ledger._utxo = coerce (toMaryTxOut <$> utxos)}
+  utxoState = def{Ledger._utxo = toLedgerUtxo utxos}
 
   dpState = Ledger.DPState def def
 
@@ -519,7 +538,7 @@ genUtxo :: Gen Utxo
 genUtxo = do
   genesisTxId <- arbitrary
   utxo <- Ledger.Generator.genUtxo0 (Ledger.Generator.genEnv Proxy)
-  pure $ Utxo $ fmap fromMaryTxOut $ Map.mapKeys (setTxId genesisTxId) $ Ledger.unUTxO utxo
+  pure $ fromLedgerUtxo $ Ledger.UTxO $ Map.mapKeys (setTxId genesisTxId) $ Ledger.unUTxO utxo
  where
   setTxId ::
     Ledger.TxId Ledger.StandardCrypto ->
@@ -533,7 +552,7 @@ genUtxoFor vk = do
   n <- arbitrary `suchThat` (> 0)
   inputs <- vectorOf n arbitrary
   outputs <- vectorOf n (genOutput vk)
-  pure $ Utxo $ Map.fromList $ zip inputs (toLedgerTxOut <$> outputs)
+  pure $ Utxo $ Map.fromList $ zip (fromShelleyTxIn <$> inputs) outputs
 
 -- | Generate a single UTXO owned by 'vk'.
 genOneUtxoFor :: VerificationKey PaymentKey -> Gen Utxo
@@ -543,7 +562,7 @@ genOneUtxoFor vk = do
   -- values (quikcheck increases the 'size' parameter upon success) up to the point they are
   -- too large to fit in a transaction and validation fails in the ledger
   output <- scale (const 1) $ genOutput vk
-  pure $ Utxo $ Map.singleton input (toLedgerTxOut output)
+  pure $ Utxo $ Map.singleton (fromShelleyTxIn input) output
 
 --
 -- Temporary / Quick-n-dirty
