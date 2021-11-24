@@ -208,8 +208,32 @@ instance Crypto crypto => FromJSONKey (Ledger.Mary.PolicyID crypto) where
   fromJSONKey = mapFromJSONKeyFunction Ledger.Mary.PolicyID fromJSONKey
 
 --
+-- Redeemers
+--
+-- TODO: Provide maybe better instances for redeemers from which we can actually
+-- view them as a map from pointers to data?
+
+instance
+  ( FromCBOR (Annotator (Ledger.Alonzo.Redeemers era))
+  ) =>
+  FromJSON (Ledger.Alonzo.Redeemers era)
+  where
+  parseJSON = withText "Redeemers" $ \t ->
+    case Base16.decode $ encodeUtf8 t of
+      Left err -> fail $ "failed to decode from base16: " <> show err
+      Right bs' -> case decodeAnnotator "Redeemers" fromCBOR (fromStrict bs') of
+        Left err -> fail $ show err
+        Right v -> pure v
+
+instance ToCBOR (Ledger.Alonzo.Redeemers era) => ToJSON (Ledger.Alonzo.Redeemers era) where
+  toJSON = String . decodeUtf8 . Base16.encode . serialize'
+
+--
 -- SafeHash
 --
+
+instance Crypto crypto => ToJSONKey (Ledger.SafeHash crypto any) where
+  toJSONKey = toJSONKeyText safeHashToText
 
 safeHashToText ::
   Ledger.SafeHash crypto any ->
@@ -219,6 +243,9 @@ safeHashToText =
 
 instance Crypto crypto => FromJSON (Ledger.SafeHash crypto any) where
   parseJSON = withText "SafeHash" safeHashFromText
+
+instance Crypto crypto => FromJSONKey (Ledger.SafeHash crypto any) where
+  fromJSONKey = FromJSONKeyTextParser safeHashFromText
 
 safeHashFromText ::
   (Crypto crypto, MonadFail m) =>
@@ -336,6 +363,45 @@ instance
       <*> (o .:? "networkId" .!= SNothing)
 
 --
+-- TxDats
+--
+
+instance
+  ( Typeable era
+  , Crypto (Ledger.Crypto era)
+  ) =>
+  ToJSON (Ledger.Alonzo.TxDats era)
+  where
+  toJSON (Ledger.Alonzo.TxDats datums) = toJSON datums
+
+instance
+  ( Typeable era
+  , Crypto (Ledger.Crypto era)
+  ) =>
+  FromJSON (Ledger.Alonzo.TxDats era)
+  where
+  parseJSON = fmap Ledger.Alonzo.TxDats . parseJSON
+
+instance
+  ( Typeable era
+  ) =>
+  ToJSON (Ledger.Alonzo.Data era)
+  where
+  toJSON = String . decodeUtf8 . Base16.encode . serialize'
+
+instance
+  ( Typeable era
+  ) =>
+  FromJSON (Ledger.Alonzo.Data era)
+  where
+  parseJSON = withText "Data" $ \t ->
+    case Base16.decode $ encodeUtf8 t of
+      Left e -> fail $ "failed to decode from base16: " <> show e
+      Right bs' -> case decodeAnnotator "Data" fromCBOR (fromStrict bs') of
+        Left err -> fail $ show err
+        Right v -> pure v
+
+--
 -- TxId
 --
 
@@ -410,12 +476,13 @@ instance
   ) =>
   ToJSON (Ledger.Alonzo.TxWitness era)
   where
-  -- FIXME: Include bootstrap, scripts, datums and redeemers
-  toJSON (Ledger.Alonzo.TxWitness vkeys boots scripts _datums _redeemers) =
+  toJSON (Ledger.Alonzo.TxWitness vkeys boots scripts datums redeemers) =
     object
       [ "keys" .= vkeys
       , "bootstrap" .= boots
       , "scripts" .= scripts
+      , "datums" .= datums
+      , "redeemers" .= redeemers
       ]
 
 instance
@@ -425,27 +492,13 @@ instance
   ) =>
   FromJSON (Ledger.Alonzo.TxWitness era)
   where
-  parseJSON = withObject "TxWitness" $ \o -> do
-    vkeys <- o .:? "keys" .!= mempty
-    scripts <- o .:? "scripts" .!= mempty
-    boots <- o .:? "bootstrap" .!= mempty
-    -- FIXME: Provide parsers for datums and redeemers witnesses
-    -- NOTE: This parser could be written more easily with just default
-    -- instances, but this wouldn't raise any errors / warnings when parsing a
-    -- TxWitness with some of the non-supported field present, and consequently,
-    -- would lead to minutes or hours of unpleasant debugging.
-    datums <- o .:? "datums" .!= mempty
-    redeemers <- o .:? "redeemers" .!= mempty
-    case (datums, redeemers) of
-      ([] :: [Value], [] :: [Value]) -> pure ()
-      _ -> fail "non-empty datums and/or redeemers witnesses. This is not yet supported."
-    pure $
-      Ledger.Alonzo.TxWitness
-        vkeys
-        boots
-        scripts
-        (Ledger.Alonzo.TxDats mempty)
-        (Ledger.Alonzo.Redeemers mempty)
+  parseJSON = withObject "TxWitness" $ \o ->
+    Ledger.Alonzo.TxWitness
+      <$> (o .:? "keys" .!= mempty)
+      <*> (o .:? "bootstrap" .!= mempty)
+      <*> (o .:? "scripts" .!= mempty)
+      <*> (o .:? "datums" .!= Ledger.Alonzo.TxDats mempty)
+      <*> (o .:? "redeemers" .!= Ledger.Alonzo.Redeemers mempty)
 
 --
 -- ValidatedTx
