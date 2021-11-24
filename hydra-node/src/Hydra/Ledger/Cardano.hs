@@ -233,16 +233,21 @@ instance Arbitrary CardanoTx where
   -- TODO: shrinker!
   arbitrary = genUtxo >>= genTx
 
--- TODO: Need to sign the body with the credentials.
+-- | Create a zero-fee, payment cardano transaction.
 mkSimpleCardanoTx ::
   (TxIn, TxOut CtxUTxO Era) ->
+  -- | Recipient address and amount.
   (AddressInEra Era, Value) ->
-  (VerificationKey PaymentKey, SigningKey PaymentKey) ->
-  CardanoTx
-mkSimpleCardanoTx (txin, TxOut owner txOutValueIn datum) (recipient, valueOut) (vk, sk) =
-  makeTransactionBody txBodyContent
+  -- | Sender's signing key.
+  SigningKey PaymentKey ->
+  Either TxBodyError CardanoTx
+mkSimpleCardanoTx (txin, TxOut owner txOutValueIn datum) (recipient, valueOut) sk = do
+  body <- makeTransactionBody txBodyContent
+  let witnesses = [makeShelleyKeyWitness body (WitnessPaymentKey sk)]
+  pure $ makeSignedTransaction witnesses body
  where
   valueIn = txOutValueToValue txOutValueIn
+
   -- TODO: We could define an 'empty' TxBodyContent and use record field
   -- modifiers to simply set the fields of interest.
   txBodyContent =
@@ -261,11 +266,13 @@ mkSimpleCardanoTx (txin, TxOut owner txOutValueIn datum) (recipient, valueOut) (
       TxUpdateProposalNone
       TxMintNone
       TxScriptValidityNone
+
   txOuts =
     TxOut @CtxTx recipient (TxOutValue MultiAssetInAlonzoEra valueOut) TxOutDatumNone :
       [ TxOut @CtxTx owner (TxOutValue MultiAssetInAlonzoEra $ valueIn <> negateValue valueOut) (toTxDatum datum)
       | valueOut /= valueIn
       ]
+
   fee = Lovelace 0
 
 toTxDatum :: TxOutDatum CtxUTxO Era -> TxOutDatum CtxTx Era

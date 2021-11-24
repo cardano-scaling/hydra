@@ -151,13 +151,10 @@ buildRaw txIns txOuts invalidAfter fee =
       TxWithdrawalsNone
       TxCertificatesNone
       TxUpdateProposalNone
-      TxMintValueNone
+      TxMintNone
       TxScriptValidityNone
+
   noProtocolParameters = Nothing
-  noMintedValue = mempty
-  noPolicyIdToWitnessMap = mempty
-  noMetadataMap = mempty
-  noStakeCredentialWitnesses = mempty
 
 build ::
   NetworkId ->

@@ -398,9 +398,12 @@ handleNewTxEvent Client{sendInput} s = case s ^? headStateL of
        in newForm [field] limit
 
     submit s' amount = do
-      let tx = mkSimpleCardanoTx input (recipient, lovelaceToValue $ Lovelace amount) (getCredentials me)
-      liftIO (sendInput (NewTx tx))
-      continue $ s' & dialogStateL .~ NoDialog
+      let (_, sk) = getCredentials me
+      case mkSimpleCardanoTx input (recipient, lovelaceToValue $ Lovelace amount) sk of
+        Left e -> continue $ s' & feedbackL ?~ UserFeedback Error ("Failed to construct tx, contact @_ktorz_ on twitter: " <> show e)
+        Right tx -> do
+          liftIO (sendInput (NewTx tx))
+          continue $ s' & dialogStateL .~ NoDialog
 
 --
 -- View

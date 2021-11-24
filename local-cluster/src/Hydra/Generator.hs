@@ -58,14 +58,15 @@ genConstantUtxoDataset len = do
     (Utxo, (VerificationKey PaymentKey, SigningKey PaymentKey), [CardanoTx]) ->
     Int ->
     Gen (Utxo, (VerificationKey PaymentKey, SigningKey PaymentKey), [CardanoTx])
-  generateOneTransfer (utxo, keyPair, txs) _ = do
+  generateOneTransfer (utxo, (_, sender), txs) _ = do
     recipient <- genKeyPair
     -- NOTE(AB): elements is partial, it crashes if given an empty list, We don't expect
     -- this function to be ever used in production, and crash will be caught in tests
     txin <- elements $ utxoPairs utxo
-    let tx = mkSimpleCardanoTx txin (mkVkAddress networkId (fst recipient), balance @CardanoTx utxo) keyPair
-        utxo' = utxoFromTx tx
-    pure (utxo', recipient, tx : txs)
+    case mkSimpleCardanoTx txin (mkVkAddress networkId (fst recipient), balance @CardanoTx utxo) sender of
+      Left e -> error $ "Tx construction failed: " <> show e
+      Right tx ->
+        pure (utxoFromTx tx, recipient, tx : txs)
 
 mkCredentials :: Int -> (VerificationKey PaymentKey, SigningKey PaymentKey)
 mkCredentials = generateWith genKeyPair
