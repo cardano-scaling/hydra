@@ -64,6 +64,7 @@ import Data.Aeson.Types (
   toJSONKeyText,
  )
 import qualified Data.ByteString.Base16 as Base16
+import qualified Data.ByteString.Char8 as B8
 import Data.Maybe.Strict (StrictMaybe (..), maybeToStrictMaybe)
 import qualified Data.Text as Text
 
@@ -96,9 +97,17 @@ decodeAddress t =
 -- AssetName
 --
 
+-- NOTE: cardano-api uses 'decodeLatin1' to convert encoded base16 asset
+-- names; there's no 'encodeLatin1' in Data.Text.Encoding but the doc says:
+--
+--    decodeLatin1 is semantically equivalent to Data.Text.pack . Data.ByteString.Char8.unpack
+--
+encodeLatin1 :: Text -> ByteString
+encodeLatin1 = B8.pack . Text.unpack
+
 instance FromJSON Ledger.Mary.AssetName where
   parseJSON = withText "AssetName" $ \t ->
-    case Base16.decode $ encodeUtf8 t of
+    case Base16.decode $ encodeLatin1 t of
       Left err -> fail $ show err
       Right bs -> pure $ Ledger.Mary.AssetName bs
 
@@ -106,7 +115,7 @@ instance FromJSONKey Ledger.Mary.AssetName where
   fromJSONKey = FromJSONKeyTextParser nameFromText
    where
     nameFromText t =
-      case Base16.decode (encodeUtf8 t) of
+      case Base16.decode (encodeLatin1 t) of
         Left e -> fail $ "failed to decode from base16: " <> show e
         Right bytes -> pure $ Ledger.Mary.AssetName bytes
 
