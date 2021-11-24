@@ -44,7 +44,7 @@ import qualified Hydra.Contract.MockHead as MockHead
 import qualified Hydra.Contract.MockInitial as MockInitial
 import Hydra.Data.ContestationPeriod (contestationPeriodFromDiffTime)
 import Hydra.Data.Party (partyFromVerKey)
-import Hydra.Ledger.Cardano (CardanoTx, LedgerCrypto)
+import Hydra.Ledger.Cardano (CardanoTx, LedgerCrypto, Utxo' (Utxo))
 import Hydra.Party (vkey)
 import Ledger.Value (currencyMPSHash, unAssetClass)
 import Plutus.V1.Ledger.Api (PubKeyHash, toData)
@@ -100,13 +100,13 @@ spec =
               & counterexample ("Tx: " <> show tx)
 
     describe "commitTx" $ do
-      prop "transaction size below limit" $ \party utxo initialIn ->
-        let tx = commitTx party utxo initialIn
+      prop "transaction size for single commit utxo below limit" $ \party (txIn, txOut) initialIn ->
+        let utxo = Utxo $ Map.singleton txIn txOut
+            tx = commitTx party utxo initialIn
             cbor = serialize tx
             len = LBS.length cbor
          in len < maxTxSize
               & label (show (len `div` 1024) <> "kB")
-              & counterexample ("UTXO's size: " <> show (length utxo))
               & counterexample ("Tx: " <> show tx)
               & counterexample ("Tx serialized size: " <> show len)
 

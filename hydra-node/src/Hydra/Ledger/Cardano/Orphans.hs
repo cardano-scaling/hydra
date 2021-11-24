@@ -10,9 +10,9 @@ module Hydra.Ledger.Cardano.Orphans where
 
 import Hydra.Prelude
 
-import Cardano.Api (AssetName (AssetName), TxIn)
+import Cardano.Api (AlonzoEra, AssetName (AssetName), CtxUTxO, ShelleyBasedEra (ShelleyBasedEraAlonzo), TxIn, TxOut)
 import Cardano.Api.Orphans ()
-import Cardano.Api.Shelley (fromShelleyTxIn)
+import Cardano.Api.Shelley (fromShelleyTxIn, fromShelleyTxOut)
 import Cardano.Binary (
   Annotator,
   decodeAnnotator,
@@ -68,6 +68,7 @@ import qualified Data.ByteString.Base16 as Base16
 import qualified Data.ByteString.Char8 as B8
 import Data.Maybe.Strict (StrictMaybe (..), maybeToStrictMaybe)
 import qualified Data.Text as Text
+import Test.Cardano.Ledger.Alonzo.Serialisation.Generators ()
 
 --
 -- Addr
@@ -373,6 +374,9 @@ txInFromText t = do
 instance FromJSONKey TxIn where
   fromJSONKey = FromJSONKeyTextParser (fmap fromShelleyTxIn . txInFromText)
 
+instance Arbitrary TxIn where
+  arbitrary = fromShelleyTxIn <$> arbitrary
+
 --
 -- TxOut
 --
@@ -391,6 +395,9 @@ instance
       <$> (o .: "address" >>= decodeAddress)
       <*> o .: "value"
       <*> fmap maybeToStrictMaybe (o .:? "datahash")
+
+instance Arbitrary (TxOut CtxUTxO AlonzoEra) where
+  arbitrary = fromShelleyTxOut ShelleyBasedEraAlonzo <$> arbitrary
 
 --
 -- TxWitness
