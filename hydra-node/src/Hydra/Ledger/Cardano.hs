@@ -235,13 +235,14 @@ instance Arbitrary CardanoTx where
 
 -- TODO: Need to sign the body with the credentials.
 mkSimpleCardanoTx ::
-  (TxIn, TxOut ctx Era) ->
+  (TxIn, TxOut CtxUTxO Era) ->
   (AddressInEra Era, Value) ->
   (VerificationKey PaymentKey, SigningKey PaymentKey) ->
   CardanoTx
-mkSimpleCardanoTx (txin, TxOut owner valueIn datum) (recipient, valueOut) (vk, sk) =
+mkSimpleCardanoTx (txin, TxOut owner txOutValueIn datum) (recipient, valueOut) (vk, sk) =
   makeTransactionBody txBodyContent
  where
+  valueIn = txOutValueToValue txOutValueIn
   -- TODO: We could define an 'empty' TxBodyContent and use record field
   -- modifiers to simply set the fields of interest.
   txBodyContent =
@@ -250,7 +251,7 @@ mkSimpleCardanoTx (txin, TxOut owner valueIn datum) (recipient, valueOut) (vk, s
       TxInsCollateralNone
       txOuts
       (TxFeeExplicit TxFeesExplicitInAlonzoEra fee)
-      (TxValidityNoLowerBound, TxValidityNoUpperBound)
+      (TxValidityNoLowerBound, TxValidityNoUpperBound ValidityNoUpperBoundInAlonzoEra)
       TxMetadataNone
       TxAuxScriptsNone
       TxExtraKeyWitnessesNone
@@ -258,14 +259,19 @@ mkSimpleCardanoTx (txin, TxOut owner valueIn datum) (recipient, valueOut) (vk, s
       TxWithdrawalsNone
       TxCertificatesNone
       TxUpdateProposalNone
-      TxMintValueNone
+      TxMintNone
       TxScriptValidityNone
   txOuts =
-    TxOut recipient valueOut TxDatumNone :
-      [ TxOut owner (valueIn <> negate valueOut) datum
+    TxOut @CtxTx recipient (TxOutValue MultiAssetInAlonzoEra valueOut) TxOutDatumNone :
+      [ TxOut @CtxTx owner (TxOutValue MultiAssetInAlonzoEra $ valueIn <> negateValue valueOut) (toTxDatum datum)
       | valueOut /= valueIn
       ]
   fee = Lovelace 0
+
+toTxDatum :: TxOutDatum CtxUTxO Era -> TxOutDatum CtxTx Era
+toTxDatum = \case
+  TxOutDatumNone -> TxOutDatumNone
+  TxOutDatumHash sdsie ha -> TxOutDatumHash sdsie ha
 
 -- | Convert an existing @cardano-api@'s 'Tx' to a @cardano-ledger-specs@ 'Tx'
 toLedgerTx :: CardanoTx -> Ledger.Tx LedgerEra
