@@ -182,7 +182,7 @@ withBFTNode clusterTracer cfg initialFunds action = do
   mkInitialFundsEntry vk =
     let addr = buildAddress vk (Testnet $ NetworkMagic 42)
         bytes = serialiseToRawBytes addr
-     in (encodeBase16 bytes, 1_000_000_000)
+     in (encodeBase16 bytes, 10_000_000_000_000)
 
   waitForSocket :: RunningNode -> IO ()
   waitForSocket node@(RunningNode _ socket) = do
