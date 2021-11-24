@@ -22,6 +22,9 @@ import Hydra.Ledger.Cardano (
  )
 import Test.QuickCheck (elements, generate)
 
+networkId :: NetworkId
+networkId = Testnet $ NetworkMagic 42
+
 -- | A 'Dataset' that can be run for testing purpose.
 -- The 'transactionSequence' is guaranteed to be applicable, in sequence, to the 'initialUtxo'
 -- set.
@@ -63,8 +66,6 @@ genConstantUtxoDataset len = do
     let tx = mkSimpleCardanoTx txin (mkVkAddress networkId (fst recipient), balance @CardanoTx utxo) keyPair
         utxo' = utxoFromTx tx
     pure (utxo', recipient, tx : txs)
-
-  networkId = Testnet $ NetworkMagic 42
 
 mkCredentials :: Int -> (VerificationKey PaymentKey, SigningKey PaymentKey)
 mkCredentials = generateWith genKeyPair

@@ -26,8 +26,7 @@ import Hydra.Client (Client (Client, sendInput), HydraEvent (..), withClient)
 import Hydra.ClientInput (ClientInput (..))
 import Hydra.Ledger (IsTx (..))
 import Hydra.Ledger.Cardano (
-  AddressInEra (AddressInEra),
-  AddressTypeInEra (ShelleyAddressInEra),
+  AddressInEra,
   CardanoTx,
   CtxUTxO,
   Era,
@@ -35,7 +34,6 @@ import Hydra.Ledger.Cardano (
   NetworkId (Testnet),
   NetworkMagic (NetworkMagic),
   PaymentKey,
-  ShelleyBasedEra (ShelleyBasedEraAlonzo),
   SigningKey,
   TxIn,
   TxOut (TxOut),
@@ -533,13 +531,13 @@ draw s =
   drawUtxo utxo =
     let byAddress =
           Map.foldrWithKey
-            (\k v@(TxOut addr _ _) -> Map.unionWith (++) (Map.singleton addr [(k, v)]))
+            (\k v@(TxOut addr _ _) -> Map.unionWith (++) (Map.singleton (serialiseAddress addr) [(k, v)]))
             mempty
             $ utxoMap utxo
      in vBox
           [ padTop (Pad 1) $
             vBox
-              [ drawAddress addr
+              [ txt addr -- TODO(SN): DRY with drawAddress
               , padLeft (Pad 2) $ vBox (str . toString . prettyUtxo <$> u)
               ]
           | (addr, u) <- Map.toList byAddress
@@ -584,13 +582,6 @@ draw s =
 
   drawShow :: forall a n. Show a => a -> Widget n
   drawShow = str . (" - " <>) . show
-
--- HACK(SN): Discuss and move this somewhere. This is needed becaus we group
--- UTXOs based on address.
-instance Ord (AddressInEra Era) where
-  (AddressInEra (ShelleyAddressInEra ShelleyBasedEraAlonzo) addrA)
-    <= (AddressInEra (ShelleyAddressInEra ShelleyBasedEraAlonzo) addrB) = addrA <= addrB
-  _ <= _ = False
 
 --
 -- Forms additional widgets
