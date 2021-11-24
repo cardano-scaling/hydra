@@ -254,7 +254,7 @@ coverFee_ ::
   ValidatedTx Era ->
   Either ErrCoverFee (Map TxIn TxOut, ValidatedTx Era)
 coverFee_ pparams lookupUtxo walletUtxo partialTx@ValidatedTx{body, wits} = do
-  (input, output) <- case Map.lookupMax walletUtxo of
+  (input, output) <- case Map.lookupMax (Map.filter hasEnoughValue walletUtxo) of
     Nothing ->
       Left ErrNoAvailableUtxo
     Just (i, o) ->
@@ -298,6 +298,10 @@ coverFee_ pparams lookupUtxo walletUtxo partialTx@ValidatedTx{body, wits} = do
         }
     )
  where
+  -- FIXME: 10 ADAs is arbitrary, just a way to increase the likelihood to cover fees
+  hasEnoughValue :: TxOut -> Bool
+  hasEnoughValue = (> Coin 10_000_000) . getAdaValue
+
   -- TODO: Do a better fee estimation based on the transaction's content.
   calculateNeedlesslyHighFee (Redeemers redeemers) =
     let executionCost = txscriptfee (_prices pparams) $ foldMap snd redeemers
