@@ -217,6 +217,7 @@ test-suite tests
     , array
     , base
     , bytestring
+    , base16-bytestring
     , cardano-api
     , cardano-binary
     , cardano-crypto-class
