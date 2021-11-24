@@ -178,7 +178,12 @@ instance FromJSON Utxo where
 
 instance Arbitrary Utxo where
   -- TODO: shrinker!
-  arbitrary = genUtxo
+  -- TODO: Use Alonzo generators!
+  -- probably: import Test.Cardano.Ledger.Alonzo.AlonzoEraGen ()
+  arbitrary =
+    fmap
+      (fromLedgerUtxo . Ledger.UTxO . Map.map fromMaryTxOut . Ledger.unUTxO)
+      arbitrary
 
 utxoPairs :: Utxo' out -> [(TxIn, out)]
 utxoPairs = Map.toList . utxoMap
