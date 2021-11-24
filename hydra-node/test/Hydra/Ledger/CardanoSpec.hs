@@ -14,6 +14,7 @@ import qualified Data.Aeson as Aeson
 import Data.Text (unpack)
 import Hydra.Ledger (applyTransactions)
 import Hydra.Ledger.Cardano (
+  AssetName,
   CardanoTx,
   Utxo,
   cardanoLedger,
@@ -29,6 +30,7 @@ import Test.QuickCheck.Property (forAll)
 
 spec :: Spec
 spec = parallel $ do
+  roundtripAndGoldenSpecs (Proxy @AssetName)
   -- FIXME: Roundtrip instances for all JSON types we depend on
   roundtripAndGoldenSpecs (Proxy @Utxo)
   -- roundtripAndGoldenSpecs (Proxy @CardanoTxWitnesses)

@@ -10,7 +10,7 @@ module Hydra.Ledger.Cardano.Orphans where
 
 import Hydra.Prelude
 
-import Cardano.Api (TxIn)
+import Cardano.Api (AssetName (AssetName), TxIn)
 import Cardano.Api.Orphans ()
 import Cardano.Api.Shelley (fromShelleyTxIn)
 import Cardano.Binary (
@@ -63,6 +63,7 @@ import Data.Aeson.Types (
   mapFromJSONKeyFunction,
   toJSONKeyText,
  )
+import qualified Data.ByteString as BS
 import qualified Data.ByteString.Base16 as Base16
 import qualified Data.ByteString.Char8 as B8
 import Data.Maybe.Strict (StrictMaybe (..), maybeToStrictMaybe)
@@ -97,27 +98,8 @@ decodeAddress t =
 -- AssetName
 --
 
--- NOTE: cardano-api uses 'decodeLatin1' to convert encoded base16 asset
--- names; there's no 'encodeLatin1' in Data.Text.Encoding but the doc says:
---
---    decodeLatin1 is semantically equivalent to Data.Text.pack . Data.ByteString.Char8.unpack
---
-encodeLatin1 :: Text -> ByteString
-encodeLatin1 = B8.pack . Text.unpack
-
-instance FromJSON Ledger.Mary.AssetName where
-  parseJSON = withText "AssetName" $ \t ->
-    case Base16.decode $ encodeLatin1 t of
-      Left err -> fail $ show err
-      Right bs -> pure $ Ledger.Mary.AssetName bs
-
-instance FromJSONKey Ledger.Mary.AssetName where
-  fromJSONKey = FromJSONKeyTextParser nameFromText
-   where
-    nameFromText t =
-      case Base16.decode (encodeLatin1 t) of
-        Left e -> fail $ "failed to decode from base16: " <> show e
-        Right bytes -> pure $ Ledger.Mary.AssetName bytes
+instance Arbitrary AssetName where
+  arbitrary = AssetName . BS.take 32 <$> arbitrary
 
 --
 -- AuxiliaryData
