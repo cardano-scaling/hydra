@@ -139,15 +139,15 @@ spec = around showLogsOnFailure $ do
     alicesCallback <- newEmptyMVar
     withTempDir "hydra-local-cluster" $ \tmp -> do
       config <- newNodeConfig tmp
-      withBFTNode (contramap FromCluster tracer) config [] $ \(RunningNode _ nodeSocket) -> do
-        aliceKeys@(aliceCardanoVk, _) <- keysFor "alice"
+      withBFTNode (contramap FromCluster tracer) config [] $ \node@(RunningNode _ nodeSocket) -> do
+        aliceKeys@(aliceCardanoVk, aliceCardanoSk) <- keysFor "alice"
         let cardanoKeys = [aliceCardanoVk]
         withIOManager $ \iocp -> do
           withDirectChain (contramap (FromDirectChain "alice") tracer) magic iocp nodeSocket aliceKeys alice cardanoKeys (putMVar alicesCallback) $ \Chain{postTx} -> do
             postTx $ InitTx $ HeadParameters 100 [alice]
             alicesCallback `observesInTime` OnInitTx 100 [alice]
 
-            someUtxo <- generate $ genOneUtxoFor (PaymentVerificationKey $ VKey aliceCardanoVk)
+            someUtxo <- generatePaymentToCommit node aliceCardanoSk aliceCardanoVk 1_000_000
             postTx $ CommitTx alice someUtxo
             alicesCallback `observesInTime` OnCommitTx alice someUtxo
 
