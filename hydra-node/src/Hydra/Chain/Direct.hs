@@ -343,7 +343,14 @@ finalizeTx TinyWallet{sign, coverFee} headState partialTx = do
     Left ErrUnknownInput{input = TxIn txId txIx} ->
       throwSTM $ CannotSpendInput @CardanoTx (fromLedgerTxId txId, txIx)
     Left e ->
-      error ("failed to cover fee for transaction: " <> show e <> ", " <> show partialTx)
+      error
+        ( "failed to cover fee for transaction: "
+            <> show e
+            <> ", "
+            <> show partialTx
+            <> ", using utxo: "
+            <> show utxo
+        )
     Right validatedTx -> do
       pure $ sign validatedTx
 

@@ -42,6 +42,7 @@ import Hydra.Ledger.Cardano (
   TxOut (TxOut),
   TxOutDatum (TxOutDatumNone),
   Utxo,
+  Utxo' (Utxo),
   VerificationKey (PaymentVerificationKey),
   genOneUtxoFor,
   getVerificationKey,
@@ -207,10 +208,9 @@ generatePaymentToCommit (RunningNode _ nodeSocket) sk vk lovelace = do
       (lovelaceToTxOutValue amountLovelace)
       TxOutDatumNone
 
-  convertUtxo =
-    error "this is annoying unless we would have cardano-api types in Hydra.Ledger.Cardano"
-
   amountLovelace = Lovelace $ fromIntegral lovelace
+
+  convertUtxo (UTxO ledgerUtxo) = Utxo ledgerUtxo
 
 magic :: NetworkMagic
 magic = NetworkMagic 42
