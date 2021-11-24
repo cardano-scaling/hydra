@@ -84,7 +84,7 @@ import Ouroboros.Network.Mux (
   OuroborosApplication (..),
   RunMiniProtocol (..),
  )
-import Ouroboros.Network.Protocol.Handshake.Codec (cborTermVersionDataCodec, noTimeLimitsHandshake)
+import Ouroboros.Network.Protocol.Handshake.Codec (noTimeLimitsHandshake)
 import Ouroboros.Network.Protocol.Handshake.Type (Handshake, Message (..), RefuseReason (..))
 import Ouroboros.Network.Protocol.Handshake.Unversioned (
   UnversionedProtocol,
@@ -174,7 +174,7 @@ withOuroborosNetwork tracer localHost remoteHosts networkCallback between = do
       iomgr
       unversionedHandshakeCodec
       noTimeLimitsHandshake
-      (cborTermVersionDataCodec unversionedProtocolDataCodec)
+      unversionedProtocolDataCodec
       networkConnectTracers
       acceptableVersion
       (unversionedProtocol (app chan))
@@ -198,7 +198,7 @@ withOuroborosNetwork tracer localHost remoteHosts networkCallback between = do
       localAddr
       unversionedHandshakeCodec
       noTimeLimitsHandshake
-      (cborTermVersionDataCodec unversionedProtocolDataCodec)
+      unversionedProtocolDataCodec
       acceptableVersion
       (unversionedProtocol (SomeResponderApplication app))
       nullErrorPolicies
