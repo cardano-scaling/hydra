@@ -531,13 +531,13 @@ draw s =
   drawUtxo utxo =
     let byAddress =
           Map.foldrWithKey
-            (\k v@(TxOut addr _ _) -> Map.unionWith (++) (Map.singleton (serialiseAddress addr) [(k, v)]))
+            (\k v@(TxOut addr _ _) -> Map.unionWith (++) (Map.singleton addr [(k, v)]))
             mempty
             $ utxoMap utxo
      in vBox
           [ padTop (Pad 1) $
             vBox
-              [ txt addr -- TODO(SN): DRY with drawAddress
+              [ drawAddress addr
               , padLeft (Pad 2) $ vBox (str . toString . prettyUtxo <$> u)
               ]
           | (addr, u) <- Map.toList byAddress
@@ -582,6 +582,11 @@ draw s =
 
   drawShow :: forall a n. Show a => a -> Widget n
   drawShow = str . (" - " <>) . show
+
+-- HACK(SN): This might be too expensive for a general case and we should move
+-- this somehwere.
+instance Ord (AddressInEra Era) where
+  a <= b = show @Text a <= show @Text b
 
 --
 -- Forms additional widgets
