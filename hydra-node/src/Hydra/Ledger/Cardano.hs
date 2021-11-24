@@ -233,13 +233,39 @@ instance Arbitrary CardanoTx where
   -- TODO: shrinker!
   arbitrary = genUtxo >>= genTx
 
+-- TODO: Need to sign the body with the credentials.
 mkSimpleCardanoTx ::
   (TxIn, TxOut ctx Era) ->
   (AddressInEra Era, Value) ->
   (VerificationKey PaymentKey, SigningKey PaymentKey) ->
   CardanoTx
-mkSimpleCardanoTx =
-  error "mkSimpleCardanoTx"
+mkSimpleCardanoTx (txin, TxOut owner valueIn datum) (recipient, valueOut) (vk, sk) =
+  makeTransactionBody txBodyContent
+ where
+  -- TODO: We could define an 'empty' TxBodyContent and use record field
+  -- modifiers to simply set the fields of interest.
+  txBodyContent =
+    TxBodyContent
+      (map (,BuildTxWith $ KeyWitness KeyWitnessForSpending) [txin])
+      TxInsCollateralNone
+      txOuts
+      (TxFeeExplicit TxFeesExplicitInAlonzoEra fee)
+      (TxValidityNoLowerBound, TxValidityNoUpperBound)
+      TxMetadataNone
+      TxAuxScriptsNone
+      TxExtraKeyWitnessesNone
+      (BuildTxWith Nothing)
+      TxWithdrawalsNone
+      TxCertificatesNone
+      TxUpdateProposalNone
+      TxMintValueNone
+      TxScriptValidityNone
+  txOuts =
+    TxOut recipient valueOut TxDatumNone :
+      [ TxOut owner (valueIn <> negate valueOut) datum
+      | valueOut /= valueIn
+      ]
+  fee = Lovelace 0
 
 -- | Convert an existing @cardano-api@'s 'Tx' to a @cardano-ledger-specs@ 'Tx'
 toLedgerTx :: CardanoTx -> Ledger.Tx LedgerEra
