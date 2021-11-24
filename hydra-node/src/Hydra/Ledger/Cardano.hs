@@ -17,12 +17,11 @@ import Hydra.Prelude hiding (id)
 import Cardano.Api
 import Cardano.Api.Byron
 import Cardano.Api.Shelley
-import Cardano.Binary (decodeAnnotator, serialize, serialize')
+import Cardano.Binary (decodeAnnotator, serialize')
 import qualified Cardano.Crypto.DSIGN as CC
 import qualified Cardano.Crypto.Hash.Class as CC
 import qualified Cardano.Ledger.Address as Ledger
 import qualified Cardano.Ledger.Alonzo as Ledger.Alonzo
-import qualified Cardano.Ledger.Alonzo.Data as Ledger.Alonzo
 import qualified Cardano.Ledger.Alonzo.PParams as Ledger.Alonzo
 import qualified Cardano.Ledger.Alonzo.Scripts as Ledger.Alonzo
 import qualified Cardano.Ledger.Alonzo.Tx as Ledger.Alonzo
@@ -38,11 +37,9 @@ import qualified Cardano.Ledger.SafeHash as Ledger
 import qualified Cardano.Ledger.Shelley.API.Mempool as Ledger
 import qualified Cardano.Ledger.Shelley.Address.Bootstrap as Ledger
 import qualified Cardano.Ledger.Shelley.LedgerState as Ledger
-import qualified Cardano.Ledger.Shelley.PParams as Ledger.Shelley
 import qualified Cardano.Ledger.Shelley.Rules.Ledger as Ledger
 import qualified Cardano.Ledger.Shelley.Tx as Ledger.Shelley
 import qualified Cardano.Ledger.Shelley.UTxO as Ledger
-import qualified Cardano.Ledger.ShelleyMA.AuxiliaryData as Ledger.Mary
 import qualified Cardano.Ledger.Slot as Ledger
 import qualified Cardano.Ledger.TxIn as Ledger
 import qualified Cardano.Slotting.EpochInfo as Slotting
@@ -54,7 +51,7 @@ import qualified Control.State.Transition as Ledger
 import Data.Default (Default, def)
 import qualified Data.Map.Strict as Map
 import Data.Maybe (fromJust)
-import Data.Maybe.Strict (StrictMaybe (..), maybeToStrictMaybe, strictMaybeToMaybe)
+import Data.Maybe.Strict (maybeToStrictMaybe, strictMaybeToMaybe)
 import qualified Data.Set as Set
 import qualified Data.Text as T
 import Data.Text.Lazy.Builder (toLazyText)
@@ -62,7 +59,7 @@ import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
 import Formatting.Buildable (build)
 import Hydra.Ledger (IsTx (..), Ledger (..), ValidationError (..))
 import Hydra.Ledger.Cardano.Orphans ()
-import Test.Cardano.Ledger.MaryEraGen ()
+import Test.Cardano.Ledger.Alonzo.AlonzoEraGen ()
 import qualified Test.Cardano.Ledger.Shelley.Generator.Constants as Ledger.Generator
 import qualified Test.Cardano.Ledger.Shelley.Generator.Core as Ledger.Generator
 import qualified Test.Cardano.Ledger.Shelley.Generator.EraGen as Ledger.Generator
@@ -492,36 +489,9 @@ genKeyPair = do
 -- generates Mary transactions, but cast them to Alonzo's.
 genTx :: Utxo -> Gen CardanoTx
 genTx utxos = do
-  maryTx <- Ledger.Generator.genTx genEnv maryLedgerEnv (utxoState, dpState)
-  -- Quick'n'dirty conversion to Alonzo using CBOR as an interface.
-  let result =
-        (,)
-          <$> decodeAnnotator "TxBody" fromCBOR (serialize $ Ledger.Shelley.body maryTx)
-          <*> decodeAnnotator "Wits" fromCBOR (serialize $ Ledger.Shelley.wits maryTx)
-  case result of
-    Left e ->
-      error $ "Failed to decode MaryTx as AlonzoTx: " <> show e
-    Right (body', wits') ->
-      pure $
-        fromLedgerTx $
-          Ledger.Alonzo.ValidatedTx
-            body'
-            wits'
-            (Ledger.Alonzo.IsValid True)
-            (fromMaryAuxData $ Ledger.Shelley.auxiliaryData maryTx)
+  fromLedgerTx <$> Ledger.Generator.genTx genEnv ledgerEnv (utxoState, dpState)
  where
-  fromMaryAuxData = \case
-    SNothing ->
-      SNothing
-    SJust (Ledger.Mary.AuxiliaryData metadata scripts) ->
-      SJust $ Ledger.Alonzo.AuxiliaryData metadata (Ledger.Alonzo.TimelockScript <$> scripts)
-
-  utxoState = def{Ledger._utxo = maryUtxo}
-
-  maryUtxo = Ledger.UTxO . fmap toMaryTxOut $ Ledger.unUTxO alonzoUtxo
-
-  alonzoUtxo = toLedgerUtxo utxos
-
+  utxoState = def{Ledger._utxo = toLedgerUtxo utxos}
   dpState = Ledger.DPState def def
 
   -- NOTE(AB): This sets some parameters for the tx generator that will
@@ -531,29 +501,26 @@ genTx utxos = do
   -- see https://github.com/input-output-hk/cardano-ledger-specs/blob/nil/shelley/chain-and-ledger/shelley-spec-ledger-test/src/Test/Shelley/Spec/Ledger/Generator/Constants.hs#L10
   genEnv =
     (Ledger.Generator.genEnv Proxy)
-      { Ledger.Generator.geConstants = noPPUpdatesTransactions
+      { Ledger.Generator.geConstants = noPPUpdatesNoScripts
+      , Ledger.Generator.geScriptSpapce =
+          Ledger.Generator.ScriptSpace
+            mempty
+            mempty
+            mempty
+            mempty
       }
    where
-    noPPUpdatesTransactions =
+    noPPUpdatesNoScripts =
       Ledger.Generator.defaultConstants
         { Ledger.Generator.frequencyTxUpdates = 0
         , Ledger.Generator.frequencyTxWithMetadata = 0
         , Ledger.Generator.maxCertsPerTx = 0
+        , Ledger.Generator.numSimpleScripts = 0
+        , Ledger.Generator.numBaseScripts = 0
+        , Ledger.Generator.frequencyScriptCredReg = 0
+        , Ledger.Generator.frequencyScriptCredDeReg = 0
+        , Ledger.Generator.frequencyScriptCredDelegation = 0
         }
-
-  -- FIXME: Do not hard-code this, make it configurable / inferred from the
-  -- genesis configuration.
-  maryLedgerEnv :: Ledger.LedgerEnv (Ledger.Mary.MaryEra Ledger.StandardCrypto)
-  maryLedgerEnv =
-    Ledger.LedgerEnv
-      { Ledger.ledgerSlotNo = SlotNo 1
-      , Ledger.ledgerIx = 0
-      , Ledger.ledgerPp =
-          def
-            { Ledger.Shelley._maxTxSize = 1024 * 1024
-            }
-      , Ledger.ledgerAccount = error "ledgerEnv: ledgersAccount undefined"
-      }
 
 genSequenceOfValidTransactions :: Utxo -> Gen [CardanoTx]
 genSequenceOfValidTransactions initialUtxo
@@ -593,15 +560,8 @@ genOutput vk = do
 genUtxo :: Gen Utxo
 genUtxo = do
   genesisTxId <- arbitrary
-  maryUtxo <-
-    Ledger.Generator.genUtxo0 $
-      Ledger.Generator.genEnv (Proxy @(Ledger.Mary.MaryEra Ledger.StandardCrypto))
-  pure $
-    fromLedgerUtxo
-      . Ledger.UTxO
-      . Map.map fromMaryTxOut
-      . Map.mapKeys (setTxId genesisTxId)
-      $ Ledger.unUTxO maryUtxo
+  utxo <- Ledger.Generator.genUtxo0 (Ledger.Generator.genEnv Proxy)
+  pure $ fromLedgerUtxo . Ledger.UTxO . Map.mapKeys (setTxId genesisTxId) $ Ledger.unUTxO utxo
  where
   setTxId ::
     Ledger.TxId Ledger.StandardCrypto ->
@@ -642,7 +602,13 @@ ledgerEnv =
         def
           { Ledger.Alonzo._maxTxSize = 1024 * 1024
           , Ledger.Alonzo._maxValSize = 5000
-          , Ledger.Alonzo._maxCollateralInputs = 3
+          , Ledger.Alonzo._maxCollateralInputs = 10
+          , Ledger.Alonzo._costmdls =
+              Map.fromList $
+                catMaybes
+                  [ (lang,) <$> Ledger.Alonzo.defaultCostModel lang
+                  | lang <- [minBound .. maxBound]
+                  ]
           }
     , Ledger.ledgerAccount = error "ledgerEnv: ledgersAccount undefined"
     }
