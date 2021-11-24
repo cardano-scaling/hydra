@@ -1,0 +1,392 @@
+{
+    "samples": [
+        {
+            "auxiliaryData": null,
+            "body": {
+                "auxiliaryDataHash": null,
+                "certificates": [],
+                "collateral": [],
+                "fees": 0,
+                "inputs": [
+                    "96b5f154b0afc62c6a91d756ee31dfc219d76c08ebd30341c198e7b22533745e#12",
+                    "96b5f154b0afc62c6a91d756ee31dfc219d76c08ebd30341c198e7b22533745e#49"
+                ],
+                "mint": {
+                    "lovelace": 0,
+                    "policies": {}
+                },
+                "networkId": null,
+                "outputs": [
+                    {
+                        "address": "00279d82065375172533e4a79fc2e476aa790e2e94c873c9b38987b58c793358d5d13ae384818e76783bf594262807ed3081372aa0b2702a30",
+                        "datahash": null,
+                        "value": {
+                            "lovelace": 62101792,
+                            "policies": {}
+                        }
+                    },
+                    {
+                        "address": "002fec728278e2880fd21667fdd3687776d82510b4beed7b3da447157cd32c3a222b540289f3e259e50a6da719f2f62358298576dea54edfa6",
+                        "datahash": null,
+                        "value": {
+                            "lovelace": 62101792,
+                            "policies": {}
+                        }
+                    },
+                    {
+                        "address": "0002a754cf17c1e837b4204331b1885314a23e754d7667ef8060c304cebc41cddcad96831584c783e266f5b6c78299d6c47e5ba6396d1a34fb",
+                        "datahash": null,
+                        "value": {
+                            "lovelace": 0,
+                            "policies": {}
+                        }
+                    }
+                ],
+                "requiredSignatures": [],
+                "scriptIntegrityHash": null,
+                "validity": {
+                    "notAfter": 2,
+                    "notBefore": 1
+                },
+                "withdrawals": []
+            },
+            "isValid": true,
+            "witnesses": {
+                "bootstrap": [],
+                "keys": [
+                    "82008258201418316f5f65c5086a02e7ab0ab92e6663b6758674968908e0d3034272ec3b6258403b2c9b9aec87dd749c25a398c14f89b6566a150a12ce28b50bc4696cfc45cc62781d1e6df743b81e4d3c5193c47581c95b05a2da125f5b87a76b0bb862801109",
+                    "8200825820af74e9286fe94c489134db9840295e909f6f4f3ccc1d619b590cf3b9c29208735840e98ba28e0f35ce10fb9fc186005eb957bbc778f1db83c800bd4094e1a75aff18761f5fdc9ec0a2576b1c03d1844f3a0c6640340c896290d7bb0c406d1d2c5008"
+                ],
+                "scripts": {}
+            }
+        },
+        {
+            "auxiliaryData": null,
+            "body": {
+                "auxiliaryDataHash": null,
+                "certificates": [],
+                "collateral": [],
+                "fees": 0,
+                "inputs": [
+                    "6685104c2ae2cfb08c4e3f5d33a3e26832f56bc34c5d56ab20ece1b735a1508a#73"
+                ],
+                "mint": {
+                    "lovelace": 0,
+                    "policies": {}
+                },
+                "networkId": null,
+                "outputs": [
+                    {
+                        "address": "0093956fcedd93c0e37035dae93526294f8d3f6b24208b52f888a0014dbb91d34f04152a2fa58591d34f9854f8d039ec7ab7f99bb1a09b5ec4",
+                        "datahash": null,
+                        "value": {
+                            "lovelace": 18741700,
+                            "policies": {}
+                        }
+                    },
+                    {
+                        "address": "00c1e02107461edb428bf2c7952c8a7e928b50a2197814a451eaea01982858d9ff902eca632d12f6f079d5415609378a835327bf414b8b86a6",
+                        "datahash": null,
+                        "value": {
+                            "lovelace": 18741700,
+                            "policies": {}
+                        }
+                    },
+                    {
+                        "address": "00733aea10df2a2bb1d3019a7337b240ad64a174c919fc034fb372fdc97ec0f833987c8ce3843573b1cd0d139f83e7efe18d81c473e4231405",
+                        "datahash": null,
+                        "value": {
+                            "lovelace": 18741700,
+                            "policies": {}
+                        }
+                    },
+                    {
+                        "address": "307fcc97e788a53e4fa5a0a5fdc41b7d40e4b2b2830326dc2bb7cb6847055a8f189d87d5df01a08520faf852e386631d547ea8483a7fba4a40",
+                        "datahash": null,
+                        "value": {
+                            "lovelace": 18741700,
+                            "policies": {}
+                        }
+                    },
+                    {
+                        "address": "005052346f5dbc5765ed2427d983e0eee84eceb45dba09718b9440e04c53d205ae142d06ae12e5eaf391c314f072bf19e3ebffacb73088a197",
+                        "datahash": null,
+                        "value": {
+                            "lovelace": 1,
+                            "policies": {}
+                        }
+                    }
+                ],
+                "requiredSignatures": [],
+                "scriptIntegrityHash": null,
+                "validity": {
+                    "notAfter": 2,
+                    "notBefore": 1
+                },
+                "withdrawals": []
+            },
+            "isValid": true,
+            "witnesses": {
+                "bootstrap": [],
+                "keys": [
+                    "8200825820960c5bc06cb30b8825b625892002d7e57570e424569d3f469769ec900f3b658e584073fc77a95c53fab2906dd73ffcf8fea298eac8f720e787e5520277856cf2e0d73dde4da063b936c479b9a80b1b5d1d3e353b1cc6b3fb3a4e6f1789bf16d99408",
+                    "82008258204adbf72e3ccbeed8a21968597b1b6b23d69baace4ad21cce82d19e73ff34ff1758400098d60d12a30388b715e6ff7e270aa480fd2f5b7438193cea0b0e660b27d237d8eaa44a70e1d997e5376ef6fd41ae8ac130fb9e267ea34342fd3843418e4406",
+                    "820082582068efd2735456667015322d8202fd6112d1cc6ef5bcd58a634788ba490df9ad8f58405296cbfbdebbb6fb28328b928d6ac489c9342fb02d3a5277968d321007c42a2fb47d3af52e1f57916ff8c5ca82a5dccdc5ae2058344b0bac7917394f359b6704"
+                ],
+                "scripts": {
+                    "1a63afae2653b33aaddc0514b6693509a1525cf1bcd6654d2958ea42": "820083030383820282820182820181820518798200581c571758200680b643781738e0436291811be83c1707fc66edd4982b0e820182820181820418798200581c571758200680b643781738e0436291811be83c1707fc66edd4982b0e820282820182820181820518ad8200581cb9acb4b5682ddb6980f2471bbd13a3765e54d79ebf46417c850a609c820182820181820418ad8200581cb9acb4b5682ddb6980f2471bbd13a3765e54d79ebf46417c850a609c820282820182820181820518888200581c733aea10df2a2bb1d3019a7337b240ad64a174c919fc034fb372fdc9820182820181820418888200581c733aea10df2a2bb1d3019a7337b240ad64a174c919fc034fb372fdc9"
+                }
+            }
+        },
+        {
+            "auxiliaryData": null,
+            "body": {
+                "auxiliaryDataHash": null,
+                "certificates": [],
+                "collateral": [],
+                "fees": 0,
+                "inputs": [
+                    "6487fa2e6f0e85ef6e887931381057146060bfd2ed7324f7829c369c3628dc16#22",
+                    "6487fa2e6f0e85ef6e887931381057146060bfd2ed7324f7829c369c3628dc16#35",
+                    "6487fa2e6f0e85ef6e887931381057146060bfd2ed7324f7829c369c3628dc16#46",
+                    "6487fa2e6f0e85ef6e887931381057146060bfd2ed7324f7829c369c3628dc16#69",
+                    "6487fa2e6f0e85ef6e887931381057146060bfd2ed7324f7829c369c3628dc16#120"
+                ],
+                "mint": {
+                    "lovelace": 0,
+                    "policies": {}
+                },
+                "networkId": null,
+                "outputs": [
+                    {
+                        "address": "00705489e79ecca38af3d86fdd721a13784f29414701eb90bbbf99bc21db8897f072730e70c5468e2d6f759a7d83d3ba7c76a610158e2a98cf",
+                        "datahash": null,
+                        "value": {
+                            "lovelace": 48646497,
+                            "policies": {}
+                        }
+                    },
+                    {
+                        "address": "00e1d2b836f79befa531ef42904e63629d9dd84cccd2a570ad078f671b5a29ef7b2a61072a1d6e5b35583ff04ebac160bc3133a799de7342c0",
+                        "datahash": null,
+                        "value": {
+                            "lovelace": 48646497,
+                            "policies": {}
+                        }
+                    },
+                    {
+                        "address": "004d40efa66e31b49a69f3b464124d34ded3850e7ef878ba355b5613346ce14ba30f3aea9f1b240d9e7f3ab873dbc117f4f66c75020c895166",
+                        "datahash": null,
+                        "value": {
+                            "lovelace": 48646497,
+                            "policies": {}
+                        }
+                    },
+                    {
+                        "address": "309b9355cbb7bc84c15c53483d94df0e471abc77e287f90aafa82e80da852c96c1747ee6f3fa129c8b030c04bb169f96afb7683ef95457cf0c",
+                        "datahash": null,
+                        "value": {
+                            "lovelace": 48646497,
+                            "policies": {}
+                        }
+                    },
+                    {
+                        "address": "30e652a9f9182e30996ada46d7464ad50fe54463f6d9e4fd02a66901db3fd7dedbe6d910d332e6cb3f7f149bc1a0caddf9e4306317a9de1868",
+                        "datahash": null,
+                        "value": {
+                            "lovelace": 48646497,
+                            "policies": {}
+                        }
+                    },
+                    {
+                        "address": "006a413148ac47a4a6dd7a74073737d3dce2e9df05f2104a4e161b631a0e4da6b92683fb0032f4d9fe3eb989808ac3a9a9b81ac7c0d28a2960",
+                        "datahash": null,
+                        "value": {
+                            "lovelace": 1,
+                            "policies": {}
+                        }
+                    }
+                ],
+                "requiredSignatures": [],
+                "scriptIntegrityHash": null,
+                "validity": {
+                    "notAfter": 2,
+                    "notBefore": 1
+                },
+                "withdrawals": []
+            },
+            "isValid": true,
+            "witnesses": {
+                "bootstrap": [],
+                "keys": [
+                    "8200825820960c5bc06cb30b8825b625892002d7e57570e424569d3f469769ec900f3b658e584070928db19376771ee0bce4d3e8c7cb624524d575a63573e32cdfdb974d227a1ddf6adeb4fa5bd7014135f73481b714416a883a49a5884ea175e0a4b974e8620b",
+                    "82008258204adbf72e3ccbeed8a21968597b1b6b23d69baace4ad21cce82d19e73ff34ff175840c39dca6f5eff6e5446420f98373a5b16302495ee5d4e92f3a86bb1a35b940a9b634d380d6a36ef81acd2feaeecd283297e8b4fbf3a76a3595d7eb5186f574800",
+                    "820082582041ec35307c32cd5942ca07d6328c4b2d520477e05e7ebf1665228e876083c57058402518e6734efef4ca0191a45b31387824b130f6eb59d330f59736ec335587f63c49dc6ad7139f6a10c76df0b00dd560782196503e779a2ad3503e2eb862590a0f",
+                    "820082582068efd2735456667015322d8202fd6112d1cc6ef5bcd58a634788ba490df9ad8f584034a99ecb9d3e7d040bc6d3381c5ab50cbbb786972b165207d244cdec7305c1e050911be2e96ec4b00e10d2904a314338c184cd3bc29278475bad2f4b23c0060a",
+                    "8200825820426a8d2f4e5bc5414e532ec4d0ff2204cf3f326cfc49ca08e7b06fee1dd99a1258405e32f766e5b930fb5fb8ff51ce6619aed06178aea0cee8dbb410297223abe29bc9b3415183fad9491a96c457dc646847a7f480a6ac5ab3af2b246b0bf6c07b06"
+                ],
+                "scripts": {
+                    "1a63afae2653b33aaddc0514b6693509a1525cf1bcd6654d2958ea42": "820083030383820282820182820181820518798200581c571758200680b643781738e0436291811be83c1707fc66edd4982b0e820182820181820418798200581c571758200680b643781738e0436291811be83c1707fc66edd4982b0e820282820182820181820518ad8200581cb9acb4b5682ddb6980f2471bbd13a3765e54d79ebf46417c850a609c820182820181820418ad8200581cb9acb4b5682ddb6980f2471bbd13a3765e54d79ebf46417c850a609c820282820182820181820518888200581c733aea10df2a2bb1d3019a7337b240ad64a174c919fc034fb372fdc9820182820181820418888200581c733aea10df2a2bb1d3019a7337b240ad64a174c919fc034fb372fdc9",
+                    "215379c18d192655eb1e7ef3c0f6b322f795101af8c1a4492ca6aae7": "820083030183820282820182820181820518888200581c733aea10df2a2bb1d3019a7337b240ad64a174c919fc034fb372fdc9820182820181820418888200581c733aea10df2a2bb1d3019a7337b240ad64a174c919fc034fb372fdc9820282820182820181820518798200581c571758200680b643781738e0436291811be83c1707fc66edd4982b0e820182820181820418798200581c571758200680b643781738e0436291811be83c1707fc66edd4982b0e820282820182820181820518ad8200581cb9acb4b5682ddb6980f2471bbd13a3765e54d79ebf46417c850a609c820182820181820418ad8200581cb9acb4b5682ddb6980f2471bbd13a3765e54d79ebf46417c850a609c",
+                    "9135b0ae26a46e2d92557c42df3f8247c745395a15375b66c45313bc": "8200820283820282820182820181820518888200581c733aea10df2a2bb1d3019a7337b240ad64a174c919fc034fb372fdc9820182820181820418888200581c733aea10df2a2bb1d3019a7337b240ad64a174c919fc034fb372fdc9820282820182820181820518ad8200581cb9acb4b5682ddb6980f2471bbd13a3765e54d79ebf46417c850a609c820182820181820418ad8200581cb9acb4b5682ddb6980f2471bbd13a3765e54d79ebf46417c850a609c820282820182820181820518798200581c571758200680b643781738e0436291811be83c1707fc66edd4982b0e820182820181820418798200581c571758200680b643781738e0436291811be83c1707fc66edd4982b0e"
+                }
+            }
+        },
+        {
+            "auxiliaryData": null,
+            "body": {
+                "auxiliaryDataHash": null,
+                "certificates": [],
+                "collateral": [],
+                "fees": 0,
+                "inputs": [
+                    "627460951005a4a9881182a8a32015b1dc85d5ee6f31e968b5b375115281e07a#13",
+                    "627460951005a4a9881182a8a32015b1dc85d5ee6f31e968b5b375115281e07a#35",
+                    "627460951005a4a9881182a8a32015b1dc85d5ee6f31e968b5b375115281e07a#45",
+                    "627460951005a4a9881182a8a32015b1dc85d5ee6f31e968b5b375115281e07a#60",
+                    "627460951005a4a9881182a8a32015b1dc85d5ee6f31e968b5b375115281e07a#71"
+                ],
+                "mint": {
+                    "lovelace": 0,
+                    "policies": {}
+                },
+                "networkId": null,
+                "outputs": [
+                    {
+                        "address": "000f2155bad1f523f668bdbf47750bcc9a52ff79f9acd810ff84a4e323fa53e30d1a559d90092755c79a9432951c44d66421b7110658f4d7c7",
+                        "datahash": null,
+                        "value": {
+                            "lovelace": 56485519,
+                            "policies": {}
+                        }
+                    },
+                    {
+                        "address": "00093595d1d36c116de185c970f64306ef05373d5b1e299dbbcd3a633f202ed7b5cd7aa1fea9a93376027d21ec254a64aa5586c22d15176f49",
+                        "datahash": null,
+                        "value": {
+                            "lovelace": 56485519,
+                            "policies": {}
+                        }
+                    },
+                    {
+                        "address": "00b49a817baa41ac492b3104dc3dc8ebccd10efe74465268147806f41a75ac0a087b1e02509f59aa57c64800a3935262da1f1c496361d23430",
+                        "datahash": null,
+                        "value": {
+                            "lovelace": 56485519,
+                            "policies": {}
+                        }
+                    },
+                    {
+                        "address": "30215379c18d192655eb1e7ef3c0f6b322f795101af8c1a4492ca6aae7d6f1e14df7246cc54753f36c7da63f5436e1f5a1a4b6207149796c90",
+                        "datahash": null,
+                        "value": {
+                            "lovelace": 56485519,
+                            "policies": {}
+                        }
+                    },
+                    {
+                        "address": "30215379c18d192655eb1e7ef3c0f6b322f795101af8c1a4492ca6aae7113899dd5b2d4bb6cb9504df4476dbafa75e5747ec79a77f465547c6",
+                        "datahash": null,
+                        "value": {
+                            "lovelace": 56485519,
+                            "policies": {}
+                        }
+                    },
+                    {
+                        "address": "00066f12be378e2256ae78573eccf22212b9e496dc66634c3e2f8b7fff8f7881921bb3f9a02897b18378287f3921e8f19df0978422fe86169c",
+                        "datahash": null,
+                        "value": {
+                            "lovelace": 3,
+                            "policies": {}
+                        }
+                    }
+                ],
+                "requiredSignatures": [],
+                "scriptIntegrityHash": null,
+                "validity": {
+                    "notAfter": 2,
+                    "notBefore": 1
+                },
+                "withdrawals": []
+            },
+            "isValid": true,
+            "witnesses": {
+                "bootstrap": [],
+                "keys": [
+                    "82008258201e390057d9b656848a9323f5b79c4bbcbde0adf78b333018bd4c6bd1d2416acf5840fcbea925074a8930c7c8cde03cfb56a32763864fdb63b97050529ba142ef2ab96b8d89d4454ca37527e5c12faf0efcffe164ca087f7f7c0ce06d2e4f3dd59209",
+                    "8200825820960c5bc06cb30b8825b625892002d7e57570e424569d3f469769ec900f3b658e5840a59f6dbe627b803816d54c64543347cd1db42e042564eb010cb363f93910cf2c2d6c44a11418e0d7c7cda17398482c399ea6feb6588ef67517a6127c26c60005",
+                    "820082582015b5c1f087cba3aced257bd5c4a3f85b7e2b1a28c7434fadb24f26ec85aab9445840b26f9a448eae382a8e7ede6fd9c6850e1c1a9e1f69525c76e02c5824d0fcd270116a7f2b789781fa0799cd0d8a0d7f372bf40b18851126ed82bf5aee680f1f0d",
+                    "82008258204adbf72e3ccbeed8a21968597b1b6b23d69baace4ad21cce82d19e73ff34ff175840847b5f5e32d47e3706cdbfeffa1d70acef6a196d0257ae0c1d103ea6c2530c326ac6771827ddcfe7195cab53db2b534b266c160664deecce1ac8bfc5e8b7d00d",
+                    "820082582068efd2735456667015322d8202fd6112d1cc6ef5bcd58a634788ba490df9ad8f584075f9eaa517553ae8c81ab9d4803b009e5a49768efa58d97ea11f51d266c5744fe469167eef21633ea3dee67e2b54467aa7e8b0e7ec45aa0ac08e439be21eca0d"
+                ],
+                "scripts": {
+                    "a42bfc08b3fcd2b65a27ed6dc6aaa6a223ad7230c397aff01729899e": "820083030283820282820182820181820518ad8200581cb9acb4b5682ddb6980f2471bbd13a3765e54d79ebf46417c850a609c820182820181820418ad8200581cb9acb4b5682ddb6980f2471bbd13a3765e54d79ebf46417c850a609c820282820182820181820518798200581c571758200680b643781738e0436291811be83c1707fc66edd4982b0e820182820181820418798200581c571758200680b643781738e0436291811be83c1707fc66edd4982b0e820282820182820181820518888200581c733aea10df2a2bb1d3019a7337b240ad64a174c919fc034fb372fdc9820182820181820418888200581c733aea10df2a2bb1d3019a7337b240ad64a174c919fc034fb372fdc9",
+                    "a72ec442aa4f75ad9cb6278fb20b5a246d0ce834048ad760b15de2d4": "820083030283820282820182820181820518888200581c733aea10df2a2bb1d3019a7337b240ad64a174c919fc034fb372fdc9820182820181820418888200581c733aea10df2a2bb1d3019a7337b240ad64a174c919fc034fb372fdc9820282820182820181820518ad8200581cb9acb4b5682ddb6980f2471bbd13a3765e54d79ebf46417c850a609c820182820181820418ad8200581cb9acb4b5682ddb6980f2471bbd13a3765e54d79ebf46417c850a609c820282820182820181820518798200581c571758200680b643781738e0436291811be83c1707fc66edd4982b0e820182820181820418798200581c571758200680b643781738e0436291811be83c1707fc66edd4982b0e",
+                    "fd6d0653868b2c458d026528b23f1f20a5127a954e8eceb6b1e6dcdc": "820083030183820282820182820181820518798200581c571758200680b643781738e0436291811be83c1707fc66edd4982b0e820182820181820418798200581c571758200680b643781738e0436291811be83c1707fc66edd4982b0e820282820182820181820518888200581c733aea10df2a2bb1d3019a7337b240ad64a174c919fc034fb372fdc9820182820181820418888200581c733aea10df2a2bb1d3019a7337b240ad64a174c919fc034fb372fdc9820282820182820181820518ad8200581cb9acb4b5682ddb6980f2471bbd13a3765e54d79ebf46417c850a609c820182820181820418ad8200581cb9acb4b5682ddb6980f2471bbd13a3765e54d79ebf46417c850a609c"
+                }
+            }
+        },
+        {
+            "auxiliaryData": null,
+            "body": {
+                "auxiliaryDataHash": null,
+                "certificates": [],
+                "collateral": [],
+                "fees": 0,
+                "inputs": [
+                    "96b5f154b0afc62c6a91d756ee31dfc219d76c08ebd30341c198e7b22533745e#107"
+                ],
+                "mint": {
+                    "lovelace": 0,
+                    "policies": {
+                        "d441227553a0f1a965fee7d60a0f724b368dd1bddbc208730fccebcf": {
+                            "726564436f696e": 106585
+                        }
+                    }
+                },
+                "networkId": null,
+                "outputs": [
+                    {
+                        "address": "001e8d043fbe65faeb6809b0b18e3434484dea931a4507b222b6eb7a7a56a803857a08630017f9ca2d1fd1e4a5965114c9b3f237897ca26c91",
+                        "datahash": null,
+                        "value": {
+                            "lovelace": 22679248,
+                            "policies": {
+                                "d441227553a0f1a965fee7d60a0f724b368dd1bddbc208730fccebcf": {
+                                    "726564436f696e": 106585
+                                }
+                            }
+                        }
+                    },
+                    {
+                        "address": "00827c54d6952a2222c784003293a84318bdd68f0a55bfec356a2bf45312217f7e59d6188d3c95b6c4189731622ef3d28ab7bc85a839bb1577",
+                        "datahash": null,
+                        "value": {
+                            "lovelace": 0,
+                            "policies": {}
+                        }
+                    }
+                ],
+                "requiredSignatures": [],
+                "scriptIntegrityHash": null,
+                "validity": {
+                    "notAfter": 2,
+                    "notBefore": 1
+                },
+                "withdrawals": []
+            },
+            "isValid": true,
+            "witnesses": {
+                "bootstrap": [],
+                "keys": [
+                    "82008258204adbf72e3ccbeed8a21968597b1b6b23d69baace4ad21cce82d19e73ff34ff17584068a5f3723a6e2bba236495c3ed38003a9dddd43ba23ae87e654fcb07b780b4329d524bf2ce512873bcb51ed00cc3254d58327bdfc85cb2addd386e95fa081f0f"
+                ],
+                "scripts": {
+                    "488e16862c93fad83a2046adcc8aeec6a1915a1ca1557f0363672de1": "8200820283820282820182820181820518888200581c733aea10df2a2bb1d3019a7337b240ad64a174c919fc034fb372fdc9820182820181820418888200581c733aea10df2a2bb1d3019a7337b240ad64a174c919fc034fb372fdc9820282820182820181820518798200581c571758200680b643781738e0436291811be83c1707fc66edd4982b0e820182820181820418798200581c571758200680b643781738e0436291811be83c1707fc66edd4982b0e820282820182820181820518ad8200581cb9acb4b5682ddb6980f2471bbd13a3765e54d79ebf46417c850a609c820182820181820418ad8200581cb9acb4b5682ddb6980f2471bbd13a3765e54d79ebf46417c850a609c",
+                    "d441227553a0f1a965fee7d60a0f724b368dd1bddbc208730fccebcf": "8200820180"
+                }
+            }
+        }
+    ],
+    "seed": -1027783183
+}
