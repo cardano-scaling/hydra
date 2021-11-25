@@ -10,6 +10,7 @@
 module Hydra.Ledger.Cardano (
   module Hydra.Ledger.Cardano,
   module Cardano.Api,
+  module Cardano.Api.Shelley,
 ) where
 
 import Hydra.Prelude hiding (id)

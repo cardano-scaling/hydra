@@ -44,7 +44,14 @@ import qualified Hydra.Contract.MockHead as MockHead
 import qualified Hydra.Contract.MockInitial as MockInitial
 import Hydra.Data.ContestationPeriod (contestationPeriodFromDiffTime)
 import Hydra.Data.Party (partyFromVerKey)
-import Hydra.Ledger.Cardano (CardanoTx, LedgerCrypto, Utxo' (Utxo))
+import Hydra.Ledger.Cardano (
+  CardanoTx,
+  LedgerCrypto,
+  ShelleyBasedEra (ShelleyBasedEraAlonzo),
+  Utxo' (Utxo),
+  toShelleyTxIn,
+  toShelleyTxOut,
+ )
 import Hydra.Party (vkey)
 import Ledger.Value (currencyMPSHash, unAssetClass)
 import Plutus.V1.Ledger.Api (PubKeyHash, toData)
@@ -101,8 +108,7 @@ spec =
 
     describe "commitTx" $ do
       prop "transaction size for single commit utxo below limit" $ \party (txIn, txOut) initialIn ->
-        let utxo = Utxo $ Map.singleton txIn txOut
-            tx = commitTx party utxo initialIn
+        let tx = commitTx party (Just (toShelleyTxIn txIn, toShelleyTxOut ShelleyBasedEraAlonzo txOut)) initialIn
             cbor = serialize tx
             len = LBS.length cbor
          in len < maxTxSize
@@ -110,10 +116,10 @@ spec =
               & counterexample ("Tx: " <> show tx)
               & counterexample ("Tx serialized size: " <> show len)
 
-      prop "is observed" $ \party utxo initialIn ->
-        let tx = commitTx party utxo initialIn
+      prop "is observed" $ \party (txIn, txOut) initialIn ->
+        let tx = commitTx party (Just (toShelleyTxIn txIn, toShelleyTxOut ShelleyBasedEraAlonzo txOut)) initialIn
          in observeCommitTx tx
-              === Just OnCommitTx{party, committed = UTxO $ Map.fromList $ maybeToList utxo}
+              === Just OnCommitTx{party, committed = Utxo $ Map.singleton txIn txOut}
               & counterexample ("Tx: " <> show tx)
 
     describe "collectComTx" $ do

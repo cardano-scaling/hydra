@@ -50,6 +50,7 @@ import Hydra.Ledger.Cardano (
   serialiseAddress,
   txOutValueToLovelace,
   utxoMap,
+  utxoPairs,
  )
 import Hydra.Network (Host (..))
 import Hydra.Party (Party (Party, vkey))
@@ -335,17 +336,17 @@ handleCommitEvent Client{sendInput} s = case s ^? headStateL of
     case s ^? meL of
       -- XXX(SN): this is just..not cool
       Just (Just me) ->
-        continue $ s & dialogStateL .~ commitDialog (utxoMap $ faucetUtxo me)
+        continue $ s & dialogStateL .~ commitDialog (faucetUtxo me)
       _ -> continue $ s & feedbackL ?~ UserFeedback Error "Missing identity, so can't commit from faucet."
   _ ->
     continue $ s & feedbackL ?~ UserFeedback Error "Invalid command."
  where
-  commitDialog utxoMap =
+  commitDialog u =
     Dialog title form submit
    where
     title = "Select UTXO to commit"
     firstUtxo = Prelude.head (utxoPairs u)
-    onlyOneUtxo = UTxO $ Map.fromList [firstUtxo]
+    onlyOneUtxo = Map.fromList [firstUtxo]
     form = newForm (utxoCheckboxField onlyOneUtxo) ((,False) <$> onlyOneUtxo)
     submit s' selected = do
       let commitUtxo = Utxo $ Map.mapMaybe (\(v, p) -> if p then Just v else Nothing) selected

@@ -23,7 +23,6 @@ import Control.Monad (foldM)
 import Control.Monad.Class.MonadSTM (MonadSTMTx (writeTVar), newTQueueIO, newTVarIO, readTQueue, writeTQueue)
 import Control.Tracer (nullTracer)
 import Data.Aeson (Value (String), object, (.=))
-import qualified Data.Map as Map
 import Data.Sequence.Strict (StrictSeq)
 import Hydra.Chain (
   Chain (..),
@@ -60,7 +59,13 @@ import Hydra.Chain.Direct.Util (
  )
 import qualified Hydra.Chain.Direct.Util as Cardano
 import Hydra.Chain.Direct.Wallet (TinyWallet (..), TinyWalletLog, withTinyWallet)
-import Hydra.Ledger.Cardano (CardanoTx)
+import Hydra.Ledger.Cardano (
+  CardanoTx,
+  shelleyBasedEra,
+  toShelleyTxIn,
+  toShelleyTxOut,
+  utxoPairs,
+ )
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Party (Party)
 import Hydra.Snapshot (Snapshot (..))
@@ -370,7 +375,11 @@ fromPostChainTx TinyWallet{getUtxo, verificationKey} headState cardanoKeys = \ca
         Just initial ->
           case utxoPairs utxo of
             [aUtxo] -> do
-              pure . Just $ commitTx party (Just aUtxo) initial
+              pure . Just $
+                commitTx
+                  party
+                  (Just $ bimap toShelleyTxIn (toShelleyTxOut shelleyBasedEra) aUtxo)
+                  initial
             [] -> do
               pure . Just $ commitTx party Nothing initial
             _ ->
