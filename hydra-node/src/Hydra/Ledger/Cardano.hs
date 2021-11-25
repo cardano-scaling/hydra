@@ -593,6 +593,8 @@ ledgerEnv =
           { Ledger.Alonzo._maxTxSize = 1024 * 1024
           , Ledger.Alonzo._maxValSize = 5000
           , Ledger.Alonzo._maxCollateralInputs = 10
+          , Ledger.Alonzo._maxTxExUnits = Ledger.Alonzo.ExUnits 10000000 10000000000
+          , Ledger.Alonzo._maxBlockExUnits = Ledger.Alonzo.ExUnits 50000000 40000000000
           , Ledger.Alonzo._costmdls =
               Map.fromList $
                 catMaybes
