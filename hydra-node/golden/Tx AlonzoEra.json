@@ -1,0 +1,386 @@
+{
+    "samples": [
+        {
+            "body": {
+                "collateral": [
+                    "44e9e1dfd31e4c8c8e05d6db76912790ae9b2f989463f59f709cdd3df7393675#12"
+                ],
+                "fees": 0,
+                "inputs": [
+                    "44e9e1dfd31e4c8c8e05d6db76912790ae9b2f989463f59f709cdd3df7393675#12",
+                    "44e9e1dfd31e4c8c8e05d6db76912790ae9b2f989463f59f709cdd3df7393675#55"
+                ],
+                "networkId": "Testnet",
+                "outputs": [
+                    {
+                        "address": "addr_test1qztxdr8nl60zgav46ku00mfpl0t9gxwy2ct7jx9zde9vmqpdwe6k0zkhjkccjyn6hmw50zmvu4c2w3amsdtnzrje2eds6923ln",
+                        "value": {
+                            "lovelace": 12182255
+                        }
+                    },
+                    {
+                        "address": "addr_test1qqwtznj2c43lat5vdvnhw00kc52pkpj7kcaepu99jx4sj6swhv6nlrcvpwwvfdevy7ackqsacsvksnvl76jnaqxlet4snlfce6",
+                        "value": {
+                            "lovelace": 12182255
+                        }
+                    },
+                    {
+                        "address": "addr_test1qq6pzl56w6q096fr64wc9840mpec383jt4nxtlpjhfee3ncjjkqm3xeylmcghs9vtfps2n5u2yqwnlx77fcejyn63znsq32y05",
+                        "value": {
+                            "lovelace": 12182255
+                        }
+                    },
+                    {
+                        "address": "addr_test1xqqvytq4cqyudca474qxyvgrlcu9v2zczqdsma5gaqan2ffmudpyvejteapaxsvagyh4y74gd4fv67hp8aggdjs55ucquavdjw",
+                        "value": {
+                            "lovelace": 12182255
+                        }
+                    },
+                    {
+                        "address": "addr_test1xrxf0n8w2ec684v7llu5h5k8fxwqrkrqjdvad3r6wz5wnd4nffhqdjfrn5xg2pjws9060r4p9c33j3zxpkhdd384f75q8qjt9y",
+                        "value": {
+                            "lovelace": 12182255
+                        }
+                    },
+                    {
+                        "address": "addr_test1qran4q6rqvn8vz4lenk3pady5qufky2zt62eusgrnshgz9lq9s5l8hcda94hgcy3wrll6ufzk36ak2eu4wwnh999swlsvx6k40",
+                        "value": {
+                            "lovelace": 44656325
+                        }
+                    }
+                ],
+                "validity": {
+                    "notAfter": 2,
+                    "notBefore": 1
+                }
+            },
+            "id": "0bb484ba0f6f1392ddb8af2377f1db16fb5c63c7c8ad1fad5fd6398db011483f",
+            "isValid": true,
+            "witnesses": {
+                "keys": [
+                    "82008258201f371f32f9decca0392d4a51c43f1a98a56f5f964867090690bb72e4e2890c155840f1fee9dc3f62cbba6b2d7afa4dfb8fdcb0ecc46a498c9a9d2c8147df774f9f32ec4182f4fca0d56ae71d19cbf939ccf583053fdced4240f116c5d03b2122b70a"
+                ],
+                "scripts": {
+                    "a190df871bb3b9cacbcfbe2f98186d2e69ac562236f9377aba61b7b0": "820083030283820282820418ad820518ad82028282041879820518798202828204188882051888"
+                }
+            }
+        },
+        {
+            "body": {
+                "collateral": [
+                    "d5fe575833416d53211f0f95a1c460263305b63c0c1088317aaf64d57b2a64c4#10",
+                    "d5fe575833416d53211f0f95a1c460263305b63c0c1088317aaf64d57b2a64c4#30",
+                    "d5fe575833416d53211f0f95a1c460263305b63c0c1088317aaf64d57b2a64c4#32"
+                ],
+                "fees": 0,
+                "inputs": [
+                    "d5fe575833416d53211f0f95a1c460263305b63c0c1088317aaf64d57b2a64c4#10",
+                    "d5fe575833416d53211f0f95a1c460263305b63c0c1088317aaf64d57b2a64c4#30",
+                    "d5fe575833416d53211f0f95a1c460263305b63c0c1088317aaf64d57b2a64c4#32"
+                ],
+                "outputs": [
+                    {
+                        "address": "addr_test1qzzmz0fys9r2ce22vpym0kf4wz5nvyja9mm66p26f32wf5k3udlwy6yep5tmvfy69530nvradhcy2hhj4q303es9fsfqn7ep7v",
+                        "value": {
+                            "lovelace": 30089782
+                        }
+                    },
+                    {
+                        "address": "addr_test1qp4yzv2g43r6ffka0f6qwdeh60ww96wlqhepqjjwzcdkxxswfkntjf5rlvqr9axelcltnzvq3tp6n2dcrtrup55299sqc4gddp",
+                        "value": {
+                            "lovelace": 30089782
+                        }
+                    },
+                    {
+                        "address": "addr_test1qzt84xgawums934vxzcczcr8kwknesuxzchwnsz0zppf029nh0unaldtaxvjmxd5tr2rnp5jnwtruvg6aaza3cspdavq99dl46",
+                        "value": {
+                            "lovelace": 30089782
+                        }
+                    },
+                    {
+                        "address": "addr_test1xqup4c9ye2qtevv3x9cth8fraduwuv4thgvgakzxwcazmuh9nxmwtg7zx68uny4nqupdwjl4d0tt6ecx2khyk8e92whszkgzv6",
+                        "value": {
+                            "lovelace": 30089782
+                        }
+                    },
+                    {
+                        "address": "addr_test1qqzx0flmjysrhks7kleezuy0rt5a9wasslgyhqp0gwu0hcslzy3uxklj5enphtflsdyxgqemx7406frl2v4j9azj36jqxycw4r",
+                        "value": {
+                            "lovelace": 85639055
+                        }
+                    }
+                ],
+                "validity": {
+                    "notAfter": 2,
+                    "notBefore": 1
+                }
+            },
+            "id": "50801edc964ffe64028a2662a5b799a0c7e5a6703bcc896ba346fde05d9a7f22",
+            "isValid": true,
+            "witnesses": {
+                "keys": [
+                    "8200825820b35d59f02046c2c43e35122c867d0c87c84ffdba967e4a0d92e67fcdea1be326584081952cf710250b68080175e1bef16d991aeaf66ce5f14308b0f793c0e4dca846fb821c1349ed93264814df8bc359b69abca2e80608414b04954d9f303d3ed30a",
+                    "8200825820bfe74e7cc209178164733162c985bc79d67b4eea958e75ef3103efca29bf169b5840b8bc934910bc86ad6e1b271db4386a37ca3bef6cffda1dc16820fa82d983825d31d3838502d34f83ada95ec73da39c09a77d860505ad3f436d2a8cda1cb6780c",
+                    "82008258207f1b63445ca2ee8ecf0c65aba133b6342848fc82682be50b932662cd4ca477db5840ea5691789558d826b3b53554c214066e9106fa9ce915b87ec513cc9cf74166256b856eaeae3982c0be0020bcbb6d704770de8a1443c79dbd195d75912ad30d07"
+                ]
+            }
+        },
+        {
+            "body": {
+                "collateral": [
+                    "642206314f534b29ad297d82440a5f9f210e30ca5ced805a587ca402de927342#10",
+                    "642206314f534b29ad297d82440a5f9f210e30ca5ced805a587ca402de927342#23",
+                    "642206314f534b29ad297d82440a5f9f210e30ca5ced805a587ca402de927342#25"
+                ],
+                "fees": 0,
+                "inputs": [
+                    "642206314f534b29ad297d82440a5f9f210e30ca5ced805a587ca402de927342#10",
+                    "642206314f534b29ad297d82440a5f9f210e30ca5ced805a587ca402de927342#23",
+                    "642206314f534b29ad297d82440a5f9f210e30ca5ced805a587ca402de927342#25",
+                    "642206314f534b29ad297d82440a5f9f210e30ca5ced805a587ca402de927342#38"
+                ],
+                "outputs": [
+                    {
+                        "address": "addr_test1qrnzzfd53wm8yhpcgk08s84g95kclgquvezyx6nk0m6kvd93fup9623jpymuxz8kkvk6m55z82xq6zyqwe8jvs2vjeksuhf2y9",
+                        "value": {
+                            "lovelace": 19269528
+                        }
+                    },
+                    {
+                        "address": "addr_test1qqzx0flmjysrhks7kleezuy0rt5a9wasslgyhqp0gwu0hcslzy3uxklj5enphtflsdyxgqemx7406frl2v4j9azj36jqxycw4r",
+                        "value": {
+                            "lovelace": 19269528
+                        }
+                    },
+                    {
+                        "address": "addr_test1qpg33mz5r40mtm2mmn528y2hjyhyg982rtf70r2j2wmj9qm98lec8r0z57lpnnrwdptfeqeyd2m4l9n6wzav5ux90j6swph9ak",
+                        "value": {
+                            "lovelace": 19269528
+                        }
+                    },
+                    {
+                        "address": "addr_test1qpu6f87whfzyppwqfhjp2qqnyvk2fjvtez4qqktlpqkyqqj56rp7m0skgxjx9sp3k4yz2g3l0p7jm0wmtgscsych4qdqy0l4vx",
+                        "value": {
+                            "lovelace": 19269528
+                        }
+                    },
+                    {
+                        "address": "addr_test1qzzmz0fys9r2ce22vpym0kf4wz5nvyja9mm66p26f32wf5k3udlwy6yep5tmvfy69530nvradhcy2hhj4q303es9fsfqn7ep7v",
+                        "value": {
+                            "lovelace": 19269528
+                        }
+                    },
+                    {
+                        "address": "addr_test1xrejugfsngcy4fhl20zcpcxd2udyx6nammf9eqaz2xjlwjcnpwk60nf6yvxqnlm6cd8xqclumd4dyq3ak45l23zdutnqg06jqg",
+                        "value": {
+                            "lovelace": 19269528
+                        }
+                    },
+                    {
+                        "address": "addr_test1qr8nemwcucpgznlzx095763z6uhvpejsgrm09ya8yf04ca6v0hs4jcxthfh3hjctjd0k74vzcysk8ry4v6vdnqzctlys3h4y8n",
+                        "value": {
+                            "lovelace": 46518766
+                        }
+                    }
+                ],
+                "validity": {
+                    "notAfter": 2,
+                    "notBefore": 1
+                }
+            },
+            "id": "40a57787f3ed7e24ce63749ea44fc9e0ffe517ecab98b67d67c69eb1810327f8",
+            "isValid": true,
+            "witnesses": {
+                "keys": [
+                    "820082582065757ac74ed2f027646361d8d215def35e22a956b07c94ba3b1ee98893aa5ca95840838408716bf7b60982deb7d0e62cc73fb1f4a6de9718d815d2c92e969b880f4daaf413695909f02c95fbc31516a4752f06da989bd5509678118290ba6f0b330d",
+                    "82008258201a0cb1b69d52dd438ae5e655c7f41274a39527ade4ac0313576fff8b764b447a58407feedb2326447c3b012b49808ab382bc95df152acfeaf92bc07ad22de351ccf64a906f50d0f8b64f5a972f1fa729f86b89eae632a7bfa3a99979e11dcd8db906",
+                    "820082582019e68d09bd653f5f268b025ef9549c5f34b8a332d325da40612644fcddacdb8c5840b613493ff04de6e71abaa513d6476a72c7cdfde0a88fda7775599ce1ef59dbf0efae88a0d0f50cf801f9f68570b7a041a47a7d5ed756713d095d57fafd0d2900",
+                    "82008258205879c3ed4ca8634e5ec30da7550e1ddf65d81bf2b33d1e1ea343cd016e3dc27158400f7622e6f49ea0055ea4220db6c32c35d668b56400b8abd4c0a302316f9ed0d368a58d6950cd639ef96084322869de3e9cc93662da9924dcaa6f2a1df977fc0d"
+                ],
+                "scripts": {
+                    "ef4c26fc91e81db62f10d185a4982ef7da08bf172455dd83ca950503": "82008200581c3e7fa56cd36ae27c4991c7010500f6cbb3b95c5f60da58dfd6c1a0ed"
+                }
+            }
+        },
+        {
+            "body": {
+                "collateral": [
+                    "627460951005a4a9881182a8a32015b1dc85d5ee6f31e968b5b375115281e07a#3",
+                    "627460951005a4a9881182a8a32015b1dc85d5ee6f31e968b5b375115281e07a#51",
+                    "627460951005a4a9881182a8a32015b1dc85d5ee6f31e968b5b375115281e07a#54"
+                ],
+                "fees": 0,
+                "inputs": [
+                    "627460951005a4a9881182a8a32015b1dc85d5ee6f31e968b5b375115281e07a#3",
+                    "627460951005a4a9881182a8a32015b1dc85d5ee6f31e968b5b375115281e07a#51",
+                    "627460951005a4a9881182a8a32015b1dc85d5ee6f31e968b5b375115281e07a#54",
+                    "627460951005a4a9881182a8a32015b1dc85d5ee6f31e968b5b375115281e07a#110",
+                    "627460951005a4a9881182a8a32015b1dc85d5ee6f31e968b5b375115281e07a#141"
+                ],
+                "mint": {
+                    "42c7a014a4cd5537f64e5ae8ec7349db3d8603e16765dc37f8fb6e67": {
+                        "79656c6c6f7730": 346477,
+                        "79656c6c6f7731": 274383,
+                        "79656c6c6f7732": 344682,
+                        "79656c6c6f7733": 523181,
+                        "79656c6c6f7734": 22456
+                    }
+                },
+                "networkId": "Testnet",
+                "outputs": [
+                    {
+                        "address": "addr_test1qqjdjlmlzkgknvlf4jj2x0dhu5xzlclazgn6hch97hetfh3skyhl9jgggx8ne38yv8zytcyz04h905hpr6t0kheepnmqzytvvv",
+                        "value": {
+                            "42c7a014a4cd5537f64e5ae8ec7349db3d8603e16765dc37f8fb6e67": {
+                                "79656c6c6f7730": 346477,
+                                "79656c6c6f7731": 274383,
+                                "79656c6c6f7732": 344682,
+                                "79656c6c6f7733": 523181,
+                                "79656c6c6f7734": 22456
+                            },
+                            "lovelace": 52258471
+                        }
+                    },
+                    {
+                        "address": "addr_test1qryc674js99w50kjf30heds8eqqe0vre3d8487swgrmd7q5a8uwp3k06h9vg32z7lrnzjvpey9eymx7zq8atvz755sjqcguqss",
+                        "value": {
+                            "lovelace": 52258471
+                        }
+                    },
+                    {
+                        "address": "addr_test1qryn9rc7f97c4mu2pnycfrt6z25au6faa3yxtfkrxlrfdgremjxxz7dl5h56gd40zk2w2uetac8zd723e94c5wg32n0szzuph9",
+                        "value": {
+                            "lovelace": 52258471
+                        }
+                    },
+                    {
+                        "address": "addr_test1xr7llq4p8slpa3gz0edpz6vm0gs3jjemz6tpv3p5ct6vyx05akp53k9dzu2g2a99p2dq65hwnvjgk2gah624n3g2xvjqwj0qsu",
+                        "value": {
+                            "lovelace": 52258471
+                        }
+                    },
+                    {
+                        "address": "addr_test1qzu8052lmljl33vj0vw9me4amh6pg2fjfpxvcx4ecfa8a8l5j2jeejdqnk6nrkv0eaqlz4gfuxd40xyskzejyzfxzsnse77n4l",
+                        "value": {
+                            "lovelace": 64845655
+                        }
+                    }
+                ],
+                "validity": {
+                    "notAfter": 2,
+                    "notBefore": 1
+                }
+            },
+            "id": "09e5c983b4cceaaf39f0b78cee79c885dca2b52a7a2bc8ed620b91b898cfa434",
+            "isValid": true,
+            "witnesses": {
+                "keys": [
+                    "8200825820ef378b2af44ec5bd93a4960625d619513ef3301d6fa1a09314d5866cec08069958402842a2f38f4df2f5a8713a92941a8b5a5b63b00feb5a9eee5c06bb81ecbe497e1a37aae73cfa4aca2e8a92f9b9e151610be8ae1400d3880e5c7843ee92879600",
+                    "82008258205fc1fc996536a83a08535dd7f7cb1e81cb159a33ddb4cd8ba3e9fb9e8cbe955a584039b5ad4bd1af3eacf6a8a2b04bf6114c7f860a8c057e705cc85a666b97df82b81118351abb854ac99bd428426d4a9e199802f4a55af59f744e6f59595c605302",
+                    "8200825820314066c05a7fdd422f17cdec6a4bc2f6b6af19deaba3b4f52bf4acb15f04d4ec5840b28b891fab533046ed224bd25533054836fc02497ac134bcca3e663bb045a96aebfb41ee7b398efdfebcb7a610caef048a5b945ff8b3c9f20f193b3c00e9370d"
+                ],
+                "scripts": {
+                    "42c7a014a4cd5537f64e5ae8ec7349db3d8603e16765dc37f8fb6e67": "8200820181820181820180",
+                    "cc97ccee5671a3d59efff94bd2c7499c01d8609359d6c47a70a8e9b6": "82008303028382028282041879820518798202828204188882051888820282820418ad820518ad",
+                    "eadb309bb6ebbad9238375175a0a8ca5a63ed0ddca709b53d62dbef0": "820083030283820282820418ad820518ad82028282041888820518888202828204187982051879"
+                }
+            }
+        },
+        {
+            "body": {
+                "collateral": [
+                    "d5fe575833416d53211f0f95a1c460263305b63c0c1088317aaf64d57b2a64c4#2",
+                    "d5fe575833416d53211f0f95a1c460263305b63c0c1088317aaf64d57b2a64c4#7",
+                    "d5fe575833416d53211f0f95a1c460263305b63c0c1088317aaf64d57b2a64c4#24",
+                    "d5fe575833416d53211f0f95a1c460263305b63c0c1088317aaf64d57b2a64c4#36",
+                    "d5fe575833416d53211f0f95a1c460263305b63c0c1088317aaf64d57b2a64c4#45"
+                ],
+                "fees": 0,
+                "inputs": [
+                    "d5fe575833416d53211f0f95a1c460263305b63c0c1088317aaf64d57b2a64c4#2",
+                    "d5fe575833416d53211f0f95a1c460263305b63c0c1088317aaf64d57b2a64c4#7",
+                    "d5fe575833416d53211f0f95a1c460263305b63c0c1088317aaf64d57b2a64c4#24",
+                    "d5fe575833416d53211f0f95a1c460263305b63c0c1088317aaf64d57b2a64c4#36",
+                    "d5fe575833416d53211f0f95a1c460263305b63c0c1088317aaf64d57b2a64c4#45",
+                    "d5fe575833416d53211f0f95a1c460263305b63c0c1088317aaf64d57b2a64c4#63"
+                ],
+                "networkId": "Testnet",
+                "outputs": [
+                    {
+                        "address": "addr_test1qran4q6rqvn8vz4lenk3pady5qufky2zt62eusgrnshgz9lq9s5l8hcda94hgcy3wrll6ufzk36ak2eu4wwnh999swlsvx6k40",
+                        "value": {
+                            "lovelace": 34580080
+                        }
+                    },
+                    {
+                        "address": "addr_test1qz8kn85n4kj6ejkd2llr6j2wuy2vnau98tcazjgrgrmvkkgltcemf8em4wq384r6aa7zmxwgq89pg9wc2fzdlvwc0cjslx0j33",
+                        "value": {
+                            "lovelace": 34580080
+                        }
+                    },
+                    {
+                        "address": "addr_test1qp75g2usw5jqv3a6td5vtaqdyvlpm2asrvxqd8ps6cyafrsxkszm994kc2vwld5276g9429h7qzyadm6dv2rsuajy2esudnnll",
+                        "value": {
+                            "lovelace": 34580080
+                        }
+                    },
+                    {
+                        "address": "addr_test1qztxdr8nl60zgav46ku00mfpl0t9gxwy2ct7jx9zde9vmqpdwe6k0zkhjkccjyn6hmw50zmvu4c2w3amsdtnzrje2eds6923ln",
+                        "value": {
+                            "lovelace": 34580080
+                        }
+                    },
+                    {
+                        "address": "addr_test1qqh8gkdmj6d8exd4tq65hql93dclhkfamh7dgr6etf8l4k5akymz4y4zwhufvwrymmy08acmy2ujkllln7jcs43k87ys04zqf8",
+                        "value": {
+                            "lovelace": 34580080
+                        }
+                    },
+                    {
+                        "address": "addr_test1qpk4uewr6qq9hqmt23d4ezxlsea7976qecdc7lahrx8qrhe9407p5t454ttkelv2wa62ddr9zpfa4cr65gt8c6e8gs9syagtxz",
+                        "value": {
+                            "lovelace": 34580080
+                        }
+                    },
+                    {
+                        "address": "addr_test1qrrfc9zp782w7xkv2r20tputulkjmc44yn7xq4lplxmmhhgvau4uaamg7qyn6e2ytez8d2kdepwvgvup58vqqynv26ysdm4nam",
+                        "value": {
+                            "lovelace": 34580080
+                        }
+                    },
+                    {
+                        "address": "addr_test1qrakpp47hfcpl22xdw4xp7nw8qly0x8v5rkdqey6y5sshlg4lt90rhges4uk7nrr8sh9mlcm4v62rw5e06d0t8kxe3csl0fa4l",
+                        "value": {
+                            "lovelace": 34580080
+                        }
+                    },
+                    {
+                        "address": "addr_test1qpkynldjqvgac2jle4mx9xh70vvwk3hpfm2hd0rpm6vwq0vtzl00u4srd8gyantzuyfue4axrzdfygkerd6e3asls7xsgzf7gc",
+                        "value": {
+                            "lovelace": 47664738
+                        }
+                    }
+                ],
+                "validity": {
+                    "notAfter": 2,
+                    "notBefore": 1
+                }
+            },
+            "id": "273a5236ede077bca528c2112a1353428c68cc101a2ee39f53798710516fc3f8",
+            "isValid": true,
+            "witnesses": {
+                "keys": [
+                    "820082582038ef34efff80e361db47cb249623c0f7e5b6c2f15423efc67925421100c4979b5840817cd07507ee76d9da3baec66fe93affa9c7f3f789d1c7cce3025b84eee8e5d2974e2c2d3031431ba94bebe0f4c0471a0d447fb8ac6f6db0e0d7a7e35f994903",
+                    "820082582041b38a2492ecbb562da5262132d64cbe58d4c613c91c9de6ec02ec7b36aa8e285840a5a6b9f59ebbafe495f2b36ddf8b224d8c201e55f5c30c9567d2b6457216a5f6641fb9198cea37ee6207e081c2cc87d0b81639ef9e6fadacaea2572a1db62602",
+                    "820082582065757ac74ed2f027646361d8d215def35e22a956b07c94ba3b1ee98893aa5ca9584009243250299c7f355033312f0875524f8e0f386adb60482c0ae2df2a6926f2f9763aa57477c9aaceb16912b57d42e0a7687f82182a15cf62647aea500b2a8202",
+                    "8200825820de260fb891722fb7527352c4fa705a1b9112a9ac7d3091f37bb2fad39d28c40c5840539e0175c2d865263580cdcae7b0619014dbaaaa5ecc52714becddd036ddf15fb1134903a9dacb3fe404cc072ea04d44f2f1f7bb5c4712798b46940650be9e06",
+                    "8200825820124ce2bace731e93bf7e9e7fc938f634446aeba18230402d2f75abb2c5d6585558404e03f135a882187d48fb68a9d40b3cf0b43d069fc38f68ceef1aeecd0c81cd754f62ea665db0c3297dcf0db4b118e34c6be3573c7798f48a77c23283a7d4dd06"
+                ],
+                "scripts": {
+                    "eb3b352748fba28f91ec58f1bf3e78880975897f09625337cde9970f": "82008201838202828204187982051879820282820418ad820518ad8202828204188882051888"
+                }
+            }
+        }
+    ],
+    "seed": -1777285254
+}

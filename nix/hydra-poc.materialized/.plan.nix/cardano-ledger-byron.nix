@@ -208,6 +208,7 @@
             "Test/Cardano/Chain/Byron/API"
             "Test/Cardano/Chain/Buildable"
             "Test/Cardano/Chain/Common/Address"
+            "Test/Cardano/Chain/Common/Attributes"
             "Test/Cardano/Chain/Common/CBOR"
             "Test/Cardano/Chain/Common/Compact"
             "Test/Cardano/Chain/Common/Example"

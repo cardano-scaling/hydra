@@ -32,7 +32,7 @@ import Hydra.HeadLogic (
   emitSnapshot,
  )
 import qualified Hydra.HeadLogic as Logic
-import Hydra.Ledger (Ledger, Tx, Utxo)
+import Hydra.Ledger (IsTx, Ledger, UtxoType)
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Network (Network (..))
 import Hydra.Network.Message (Message)
@@ -95,7 +95,7 @@ data HydraNodeLog tx
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON, FromJSON)
 
-instance (Arbitrary tx, Arbitrary (Utxo tx)) => Arbitrary (HydraNodeLog tx) where
+instance (Arbitrary tx, Arbitrary (UtxoType tx)) => Arbitrary (HydraNodeLog tx) where
   arbitrary = genericArbitrary
 
 createHydraNode ::
@@ -123,7 +123,7 @@ handleMessage HydraNode{eq} = putEvent eq . NetworkEvent
 runHydraNode ::
   ( MonadThrow m
   , MonadAsync m
-  , Tx tx
+  , IsTx tx
   ) =>
   Tracer m (HydraNodeLog tx) ->
   HydraNode tx m ->
@@ -136,7 +136,7 @@ runHydraNode tracer node =
 stepHydraNode ::
   ( MonadThrow m
   , MonadAsync m
-  , Tx tx
+  , IsTx tx
   ) =>
   Tracer m (HydraNodeLog tx) ->
   HydraNode tx m ->
@@ -153,7 +153,7 @@ stepHydraNode tracer node@HydraNode{eq, env = Environment{party}} = do
 
 -- | Monadic interface around 'Hydra.Logic.update'.
 processNextEvent ::
-  Tx tx =>
+  IsTx tx =>
   HydraNode tx m ->
   Event tx ->
   STM m (Either (LogicError tx) [Effect tx])

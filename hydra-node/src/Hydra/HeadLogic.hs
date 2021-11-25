@@ -13,9 +13,9 @@ import GHC.Records (getField)
 import Hydra.Chain (HeadParameters (..), OnChainTx (..), PostChainTx (..))
 import Hydra.ClientInput (ClientInput (..))
 import Hydra.Ledger (
+  IsTx,
   Ledger,
-  Tx,
-  Utxo,
+  UtxoType,
   ValidationError,
   ValidationResult (Invalid, Valid),
   applyTransactions,
@@ -34,7 +34,7 @@ data Event tx
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON, FromJSON)
 
-instance (Arbitrary tx, Arbitrary (Utxo tx)) => Arbitrary (Event tx) where
+instance (Arbitrary tx, Arbitrary (UtxoType tx)) => Arbitrary (Event tx) where
   arbitrary = genericArbitrary
 
 data Effect tx
@@ -44,33 +44,33 @@ data Effect tx
   | Delay {delay :: DiffTime, event :: Event tx}
   deriving stock (Generic)
 
-instance (Arbitrary tx, Arbitrary (Utxo tx)) => Arbitrary (Effect tx) where
+instance (Arbitrary tx, Arbitrary (UtxoType tx)) => Arbitrary (Effect tx) where
   arbitrary = genericArbitrary
 
-deriving instance Tx tx => Eq (Effect tx)
-deriving instance Tx tx => Show (Effect tx)
-deriving instance Tx tx => ToJSON (Effect tx)
-deriving instance Tx tx => FromJSON (Effect tx)
+deriving instance IsTx tx => Eq (Effect tx)
+deriving instance IsTx tx => Show (Effect tx)
+deriving instance IsTx tx => ToJSON (Effect tx)
+deriving instance IsTx tx => FromJSON (Effect tx)
 
 data HeadState tx
   = ReadyState
   | InitialState {parameters :: HeadParameters, pendingCommits :: PendingCommits, committed :: Committed tx}
   | OpenState {parameters :: HeadParameters, coordinatedHeadState :: CoordinatedHeadState tx}
-  | ClosedState {parameters :: HeadParameters, utxos :: Utxo tx}
+  | ClosedState {parameters :: HeadParameters, utxos :: UtxoType tx}
   deriving stock (Generic)
 
-instance (Arbitrary (Utxo tx), Arbitrary tx) => Arbitrary (HeadState tx) where
+instance (Arbitrary (UtxoType tx), Arbitrary tx) => Arbitrary (HeadState tx) where
   arbitrary = genericArbitrary
 
-deriving instance Tx tx => Eq (HeadState tx)
-deriving instance Tx tx => Show (HeadState tx)
-deriving instance Tx tx => ToJSON (HeadState tx)
-deriving instance Tx tx => FromJSON (HeadState tx)
+deriving instance IsTx tx => Eq (HeadState tx)
+deriving instance IsTx tx => Show (HeadState tx)
+deriving instance IsTx tx => ToJSON (HeadState tx)
+deriving instance IsTx tx => FromJSON (HeadState tx)
 
-type Committed tx = Map Party (Utxo tx)
+type Committed tx = Map Party (UtxoType tx)
 
 data CoordinatedHeadState tx = CoordinatedHeadState
-  { seenUtxo :: Utxo tx
+  { seenUtxo :: UtxoType tx
   , -- TODO: tx should be an abstract 'TxId'
     seenTxs :: [tx]
   , confirmedSnapshot :: Snapshot tx
@@ -78,13 +78,13 @@ data CoordinatedHeadState tx = CoordinatedHeadState
   }
   deriving stock (Generic)
 
-instance (Arbitrary (Utxo tx), Arbitrary tx) => Arbitrary (CoordinatedHeadState tx) where
+instance (Arbitrary (UtxoType tx), Arbitrary tx) => Arbitrary (CoordinatedHeadState tx) where
   arbitrary = genericArbitrary
 
-deriving instance Tx tx => Eq (CoordinatedHeadState tx)
-deriving instance Tx tx => Show (CoordinatedHeadState tx)
-deriving instance Tx tx => ToJSON (CoordinatedHeadState tx)
-deriving instance Tx tx => FromJSON (CoordinatedHeadState tx)
+deriving instance IsTx tx => Eq (CoordinatedHeadState tx)
+deriving instance IsTx tx => Show (CoordinatedHeadState tx)
+deriving instance IsTx tx => ToJSON (CoordinatedHeadState tx)
+deriving instance IsTx tx => FromJSON (CoordinatedHeadState tx)
 
 data SeenSnapshot tx
   = NoSeenSnapshot
@@ -92,13 +92,13 @@ data SeenSnapshot tx
   | SeenSnapshot {snapshot :: Snapshot tx, signatories :: Set Party}
   deriving stock (Generic)
 
-instance (Arbitrary (Utxo tx), Arbitrary tx) => Arbitrary (SeenSnapshot tx) where
+instance (Arbitrary (UtxoType tx), Arbitrary tx) => Arbitrary (SeenSnapshot tx) where
   arbitrary = genericArbitrary
 
-deriving instance Tx tx => Eq (SeenSnapshot tx)
-deriving instance Tx tx => Show (SeenSnapshot tx)
-deriving instance Tx tx => ToJSON (SeenSnapshot tx)
-deriving instance Tx tx => FromJSON (SeenSnapshot tx)
+deriving instance IsTx tx => Eq (SeenSnapshot tx)
+deriving instance IsTx tx => Show (SeenSnapshot tx)
+deriving instance IsTx tx => ToJSON (SeenSnapshot tx)
+deriving instance IsTx tx => FromJSON (SeenSnapshot tx)
 
 type PendingCommits = Set Party
 
@@ -111,13 +111,13 @@ data LogicError tx
   | LedgerError ValidationError
   deriving stock (Generic)
 
-instance Tx tx => Exception (LogicError tx)
+instance IsTx tx => Exception (LogicError tx)
 
-instance (Arbitrary tx, Arbitrary (Utxo tx)) => Arbitrary (LogicError tx) where
+instance (Arbitrary tx, Arbitrary (UtxoType tx)) => Arbitrary (LogicError tx) where
   arbitrary = genericArbitrary
 
-deriving instance Tx tx => ToJSON (LogicError tx)
-deriving instance Tx tx => FromJSON (LogicError tx)
+deriving instance IsTx tx => ToJSON (LogicError tx)
+deriving instance IsTx tx => FromJSON (LogicError tx)
 deriving instance (Eq (HeadState tx), Eq (Event tx)) => Eq (LogicError tx)
 deriving instance (Show (HeadState tx), Show (Event tx)) => Show (LogicError tx)
 
@@ -126,8 +126,8 @@ data Outcome tx
   | Wait
   | Error (LogicError tx)
 
-deriving instance Tx tx => Eq (Outcome tx)
-deriving instance Tx tx => Show (Outcome tx)
+deriving instance IsTx tx => Eq (Outcome tx)
+deriving instance IsTx tx => Show (Outcome tx)
 
 data Environment = Environment
   { -- | This is the p_i from the paper
@@ -143,7 +143,7 @@ data Environment = Environment
 -- network events, one for client events and one for main chain events, or by
 -- sub-'State'.
 update ::
-  Tx tx =>
+  IsTx tx =>
   Environment ->
   Ledger tx ->
   HeadState tx ->
@@ -336,7 +336,7 @@ isLeader HeadParameters{parties} p sn =
     _ -> False
 
 -- | Snapshot emission decider
-newSn :: Tx tx => Environment -> HeadParameters -> CoordinatedHeadState tx -> SnapshotOutcome tx
+newSn :: IsTx tx => Environment -> HeadParameters -> CoordinatedHeadState tx -> SnapshotOutcome tx
 newSn Environment{party} parameters CoordinatedHeadState{confirmedSnapshot, seenSnapshot, seenTxs} =
   let Snapshot{number} = confirmedSnapshot
       nextSnapshotNumber = succ number
@@ -350,7 +350,7 @@ newSn Environment{party} parameters CoordinatedHeadState{confirmedSnapshot, seen
           | otherwise ->
             ShouldSnapshot nextSnapshotNumber seenTxs
 
-emitSnapshot :: Tx tx => Environment -> [Effect tx] -> HeadState tx -> (HeadState tx, [Effect tx])
+emitSnapshot :: IsTx tx => Environment -> [Effect tx] -> HeadState tx -> (HeadState tx, [Effect tx])
 emitSnapshot env@Environment{party} effects = \case
   st@OpenState{parameters, coordinatedHeadState} ->
     case newSn env parameters coordinatedHeadState of

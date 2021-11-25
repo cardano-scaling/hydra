@@ -6,13 +6,14 @@ module Hydra.Chain.Direct.WalletSpec where
 import Hydra.Prelude hiding (label)
 import Test.Hydra.Prelude
 
+import qualified Cardano.Api.Shelley as Cardano.Api
 import Cardano.Ledger.Alonzo.Tx (ValidatedTx (..))
 import Cardano.Ledger.Alonzo.TxBody (TxBody (..), pattern TxOut)
 import Cardano.Ledger.Alonzo.TxSeq (TxSeq (..))
 import Cardano.Ledger.Block (bbody)
 import Cardano.Ledger.Coin (Coin (..))
 import Cardano.Ledger.Core (Value)
-import Cardano.Ledger.Keys (KeyPair (..), VKey (..))
+import Cardano.Ledger.Keys (VKey (..))
 import qualified Cardano.Ledger.SafeHash as SafeHash
 import Cardano.Ledger.Shelley.API (BHeader)
 import qualified Cardano.Ledger.Shelley.API as Ledger
@@ -31,15 +32,15 @@ import Hydra.Chain.Direct.Wallet (
   TxOut,
   applyBlock,
   coverFee_,
+  generateKeyPair,
   watchUtxoUntil,
   withTinyWallet,
  )
-import Hydra.Ledger.Cardano (genKeyPair, mkVkAddress)
+import Hydra.Ledger.Cardano (NetworkId (Testnet), NetworkMagic, mkVkAddress, toLedgerAddr)
 import Ouroboros.Consensus.Cardano.Block (HardForkBlock (..))
 import Ouroboros.Consensus.Shelley.Ledger (mkShelleyBlock)
 import Test.Cardano.Ledger.Alonzo.Serialisation.Generators ()
 import Test.QuickCheck (
-  Gen,
   Property,
   checkCoverage,
   conjoin,
@@ -70,7 +71,7 @@ spec = parallel $ do
     prop "balances transaction with fees" prop_balanceTransaction
 
   describe "withTinyWallet" $ do
-    KeyPair (VKey vk) sk <- runIO $ generate genKeyPair
+    (vk, sk) <- runIO generateKeyPair
     it "connects to server and returns UTXO in a timely manner" $ do
       withMockServer $ \networkMagic iocp socket _ -> do
         withTinyWallet nullTracer networkMagic (vk, sk) iocp socket $ \wallet -> do
@@ -78,9 +79,9 @@ spec = parallel $ do
           result `shouldSatisfy` isJust
 
     it "tracks UTXO correctly when payments are received" $ do
-      withMockServer $ \networkMagic iocp socket submitTx -> do
-        withTinyWallet nullTracer networkMagic (vk, sk) iocp socket $ \wallet -> do
-          generate (genPaymentTo vk) >>= submitTx
+      withMockServer $ \magic iocp socket submitTx -> do
+        withTinyWallet nullTracer magic (vk, sk) iocp socket $ \wallet -> do
+          generate (genPaymentTo magic vk) >>= submitTx
           result <- timeout 10 $ watchUtxoUntil (not . null) wallet
           result `shouldSatisfy` isJust
 
@@ -232,8 +233,8 @@ genValidatedTx = do
   body <- (\x -> x{txfee = Coin 0}) <$> arbitrary
   pure $ tx{body}
 
-genPaymentTo :: VerificationKey -> Gen (ValidatedTx Era)
-genPaymentTo vk = do
+genPaymentTo :: NetworkMagic -> VerificationKey -> Gen (ValidatedTx Era)
+genPaymentTo magic vk = do
   toValidatedTx =<< arbitrary @TxOut `suchThat` atLeast 2_000_000_000
  where
   atLeast v = \case
@@ -243,7 +244,9 @@ genPaymentTo vk = do
   toValidatedTx = \case
     TxOut _ value datum -> do
       ValidatedTx{body, wits, isValid, auxiliaryData} <- arbitrary
-      let myAddr = mkVkAddress (VKey vk)
+      let myAddr =
+            toLedgerAddr $
+              mkVkAddress (Testnet magic) $ Cardano.Api.PaymentVerificationKey $ VKey vk
       pure $
         ValidatedTx
           { body =

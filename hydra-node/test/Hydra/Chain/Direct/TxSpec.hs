@@ -17,7 +17,7 @@ import Cardano.Ledger.Alonzo.Data (Data (Data), hashData)
 import Cardano.Ledger.Alonzo.Language (Language (PlutusV1))
 import Cardano.Ledger.Alonzo.PParams (PParams, PParams' (..))
 import Cardano.Ledger.Alonzo.Scripts (ExUnits (..), txscriptfee)
-import Cardano.Ledger.Alonzo.Tools (ScriptFailure, evaluateTransactionExecutionUnits)
+import Cardano.Ledger.Alonzo.Tools (BasicFailure, ScriptFailure, evaluateTransactionExecutionUnits)
 import Cardano.Ledger.Alonzo.Tx (ValidatedTx (ValidatedTx, body, wits), outputs, txfee, txrdmrs)
 import Cardano.Ledger.Alonzo.TxBody (TxOut (TxOut))
 import Cardano.Ledger.Alonzo.TxWitness (RdmrPtr, unRedeemers)
@@ -44,7 +44,11 @@ import qualified Hydra.Contract.MockHead as MockHead
 import qualified Hydra.Contract.MockInitial as MockInitial
 import Hydra.Data.ContestationPeriod (contestationPeriodFromDiffTime)
 import Hydra.Data.Party (partyFromVerKey)
-import Hydra.Ledger.Cardano (CardanoTx)
+import Hydra.Ledger.Cardano (
+  CardanoTx,
+  LedgerCrypto,
+  Utxo' (Utxo),
+ )
 import Hydra.Party (vkey)
 import Ledger.Value (currencyMPSHash, unAssetClass)
 import Plutus.V1.Ledger.Api (PubKeyHash, toData)
@@ -100,8 +104,8 @@ spec =
               & counterexample ("Tx: " <> show tx)
 
     describe "commitTx" $ do
-      prop "transaction size below limit" $ \party utxo initialIn ->
-        let tx = commitTx party utxo initialIn
+      prop "transaction size for single commit utxo below limit" $ \party singleUtxo initialIn ->
+        let tx = commitTx party (Just singleUtxo) initialIn
             cbor = serialize tx
             len = LBS.length cbor
          in len < maxTxSize
@@ -109,10 +113,10 @@ spec =
               & counterexample ("Tx: " <> show tx)
               & counterexample ("Tx serialized size: " <> show len)
 
-      prop "is observed" $ \party utxo initialIn ->
-        let tx = commitTx party utxo initialIn
+      prop "is observed" $ \party singleUtxo initialIn ->
+        let tx = commitTx party (Just singleUtxo) initialIn
          in observeCommitTx tx
-              === Just OnCommitTx{party, committed = UTxO $ Map.fromList $ maybeToList utxo}
+              === Just OnCommitTx{party, committed = Utxo $ Map.fromList [singleUtxo]}
               & counterexample ("Tx: " <> show tx)
 
     describe "collectComTx" $ do
@@ -236,11 +240,13 @@ spec =
               initialsUtxo = map mkMockInitialTxOut initialsPkh
               tx = abortTx (txIn, headDatum) initials
               utxo = UTxO $ Map.fromList $ headUtxo : initialsUtxo
-              results = validateTxScriptsUnlimited utxo tx
-           in 1 + length initials == length (rights $ Map.elems results)
-                & counterexample ("Evaluation results: " <> show results)
-                & counterexample ("Tx: " <> show tx)
-                & counterexample ("Input utxo: " <> show utxo)
+           in case validateTxScriptsUnlimited utxo tx of
+                Left basicFailure -> property False & counterexample ("Basic failure: " <> show basicFailure)
+                Right redeemerReport ->
+                  1 + length initials == length (rights $ Map.elems redeemerReport)
+                    & counterexample ("Redeemer report: " <> show redeemerReport)
+                    & counterexample ("Tx: " <> show tx)
+                    & counterexample ("Input utxo: " <> show utxo)
 
       prop "cover fee correctly handles redeemers" $
         withMaxSuccess 60 $ \txIn walletUtxo params cardanoKeys ->
@@ -298,7 +304,7 @@ validateTxScriptsUnlimited ::
   -- | Utxo set used to create context for any tx inputs.
   UTxO Era ->
   ValidatedTx Era ->
-  Map RdmrPtr (Either (ScriptFailure StandardCrypto) ExUnits)
+  Either (BasicFailure LedgerCrypto) (Map RdmrPtr (Either (ScriptFailure LedgerCrypto) ExUnits))
 validateTxScriptsUnlimited utxo tx =
   runIdentity $ evaluateTransactionExecutionUnits pparams tx utxo epochInfo systemStart costmodels
  where

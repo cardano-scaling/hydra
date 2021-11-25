@@ -140,24 +140,21 @@ buildRaw txIns txOuts invalidAfter fee =
   txBodyContent =
     TxBodyContent
       (map (,BuildTxWith $ KeyWitness KeyWitnessForSpending) txIns)
-      (TxInsCollateral CollateralInAlonzoEra [])
+      TxInsCollateralNone
       txOuts
       (TxFeeExplicit TxFeesExplicitInAlonzoEra fee)
       (TxValidityNoLowerBound, TxValidityUpperBound ValidityUpperBoundInAlonzoEra invalidAfter)
-      (TxMetadataInEra TxMetadataInAlonzoEra (TxMetadata noMetadataMap))
-      (TxAuxScripts AuxScriptsInAlonzoEra [])
-      (TxExtraKeyWitnesses ExtraKeyWitnessesInAlonzoEra [])
+      TxMetadataNone
+      TxAuxScriptsNone
+      TxExtraKeyWitnessesNone
       (BuildTxWith noProtocolParameters)
-      (TxWithdrawals WithdrawalsInAlonzoEra [])
-      (TxCertificates CertificatesInAlonzoEra [] (BuildTxWith noStakeCredentialWitnesses))
+      TxWithdrawalsNone
+      TxCertificatesNone
       TxUpdateProposalNone
-      (TxMintValue MultiAssetInAlonzoEra noMintedValue (BuildTxWith noPolicyIdToWitnessMap))
+      TxMintNone
       TxScriptValidityNone
+
   noProtocolParameters = Nothing
-  noMintedValue = mempty
-  noPolicyIdToWitnessMap = mempty
-  noMetadataMap = mempty
-  noStakeCredentialWitnesses = mempty
 
 build ::
   NetworkId ->

@@ -4,7 +4,7 @@ module Hydra.Network.Message where
 
 import Hydra.Prelude
 
-import Hydra.Ledger (Utxo)
+import Hydra.Ledger (UtxoType)
 import Hydra.Network (Host)
 import Hydra.Party (Party, Signed)
 import Hydra.Snapshot (Snapshot, SnapshotNumber)
@@ -23,7 +23,7 @@ data Message tx
 instance Arbitrary tx => Arbitrary (Message tx) where
   arbitrary = genericArbitrary
 
-instance (ToCBOR tx, ToCBOR (Utxo tx)) => ToCBOR (Message tx) where
+instance (ToCBOR tx, ToCBOR (UtxoType tx)) => ToCBOR (Message tx) where
   toCBOR = \case
     ReqTx party tx -> toCBOR ("ReqTx" :: Text) <> toCBOR party <> toCBOR tx
     ReqSn party sn txs -> toCBOR ("ReqSn" :: Text) <> toCBOR party <> toCBOR sn <> toCBOR txs
@@ -31,7 +31,7 @@ instance (ToCBOR tx, ToCBOR (Utxo tx)) => ToCBOR (Message tx) where
     Connected host -> toCBOR ("Connected" :: Text) <> toCBOR host
     Disconnected host -> toCBOR ("Disconnected" :: Text) <> toCBOR host
 
-instance (FromCBOR tx, FromCBOR (Utxo tx)) => FromCBOR (Message tx) where
+instance (FromCBOR tx, FromCBOR (UtxoType tx)) => FromCBOR (Message tx) where
   fromCBOR =
     fromCBOR >>= \case
       ("ReqTx" :: Text) -> ReqTx <$> fromCBOR <*> fromCBOR

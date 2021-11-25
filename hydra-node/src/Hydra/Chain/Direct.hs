@@ -23,7 +23,6 @@ import Control.Monad (foldM)
 import Control.Monad.Class.MonadSTM (MonadSTMTx (writeTVar), newTQueueIO, newTVarIO, readTQueue, writeTQueue)
 import Control.Tracer (nullTracer)
 import Data.Aeson (Value (String), object, (.=))
-import qualified Data.Map as Map
 import Data.Sequence.Strict (StrictSeq)
 import Hydra.Chain (
   Chain (..),
@@ -60,7 +59,10 @@ import Hydra.Chain.Direct.Util (
  )
 import qualified Hydra.Chain.Direct.Util as Cardano
 import Hydra.Chain.Direct.Wallet (TinyWallet (..), TinyWalletLog, withTinyWallet)
-import Hydra.Ledger.Cardano (CardanoTx)
+import Hydra.Ledger.Cardano (
+  CardanoTx,
+  utxoPairs,
+ )
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Party (Party)
 import Hydra.Snapshot (Snapshot (..))
@@ -368,7 +370,7 @@ fromPostChainTx TinyWallet{getUtxo, verificationKey} headState cardanoKeys = \ca
       Initial{initials} -> case ownInitial verificationKey initials of
         Nothing -> error $ "no ownInitial: " <> show initials
         Just initial ->
-          case Map.toList (Ledger.unUTxO utxo) of
+          case utxoPairs utxo of
             [aUtxo] -> do
               pure . Just $ commitTx party (Just aUtxo) initial
             [] -> do

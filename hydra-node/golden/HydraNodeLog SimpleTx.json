@@ -2,64 +2,72 @@
     "samples": [
         {
             "by": {
-                "alias": null,
-                "vkey": "fffffffffffffff0"
+                "vkey": "fffffffffffffffd"
             },
             "effect": {
-                "serverOutput": {
-                    "tag": "CommandFailed"
+                "message": {
+                    "peer": {
+                        "hostname": "0.0.109.241",
+                        "port": 22486
+                    },
+                    "tag": "Connected"
                 },
-                "tag": "ClientEffect"
+                "tag": "NetworkEffect"
             },
-            "tag": "ProcessedEffect"
+            "tag": "ProcessingEffect"
         },
         {
             "by": {
-                "alias": null,
-                "vkey": "0000000000000014"
-            },
-            "event": {
-                "tag": "ShouldPostFanout"
-            },
-            "tag": "ProcessedEvent"
-        },
-        {
-            "by": {
-                "alias": null,
-                "vkey": "ffffffffffffffe7"
+                "vkey": "ffffffffffffffed"
             },
             "effect": {
                 "serverOutput": {
-                    "tag": "TxValid",
+                    "tag": "TxInvalid",
                     "transaction": {
-                        "id": -13,
+                        "id": 6,
                         "inputs": [
-                            -28,
                             -24,
                             -23,
                             -20,
-                            -13,
-                            -11,
+                            -18,
                             -10,
-                            -7,
-                            -6,
-                            -2,
-                            7,
+                            -3,
+                            3,
                             10,
-                            18,
-                            20,
-                            22,
-                            24,
-                            26,
-                            27,
-                            29
+                            12,
+                            21,
+                            27
                         ],
                         "outputs": [
-                            -17,
+                            -29,
+                            -28,
+                            -26,
+                            -24,
+                            -22,
+                            -19,
+                            -18,
+                            -9,
+                            -6,
                             0,
-                            7,
-                            12
+                            6,
+                            9,
+                            11,
+                            17,
+                            18,
+                            20,
+                            24,
+                            25,
+                            26,
+                            28,
+                            30
                         ]
+                    },
+                    "utxo": [
+                        -28,
+                        -8
+                    ],
+                    "validationError": {
+                        "reason": "\u001a󲭺#%GcE󺎤E󶛥󺆜M5\\bI"
                     }
                 },
                 "tag": "ClientEffect"
@@ -68,37 +76,59 @@
         },
         {
             "by": {
-                "alias": null,
-                "vkey": "000000000000001a"
+                "vkey": "ffffffffffffffed"
             },
             "event": {
-                "onChainTx": {
-                    "contestationDeadline": "1864-04-10T23:54:51.761386143058Z",
-                    "snapshotNumber": 6,
-                    "tag": "OnCloseTx"
+                "tag": "ShouldPostFanout"
+            },
+            "tag": "ProcessingEvent"
+        },
+        {
+            "by": {
+                "vkey": "ffffffffffffffe8"
+            },
+            "event": {
+                "clientInput": {
+                    "tag": "Commit",
+                    "utxo": [
+                        -30,
+                        -27,
+                        -26,
+                        -24,
+                        -16,
+                        -12,
+                        -9,
+                        -3,
+                        4,
+                        10,
+                        20
+                    ]
                 },
-                "tag": "OnChainEvent"
+                "tag": "ClientEvent"
             },
             "reason": {
-                "actual": 16,
-                "expected": 30,
+                "actual": 27,
+                "expected": 12,
                 "tag": "InvalidSnapshot"
             },
             "tag": "ErrorHandlingEvent"
         },
         {
             "by": {
-                "alias": null,
-                "vkey": "fffffffffffffff7"
+                "vkey": "ffffffffffffffed"
             },
-            "event": {
-                "onChainTx": {
-                    "tag": "OnContestTx"
+            "effect": {
+                "message": {
+                    "peer": {
+                        "hostname": "0.0.36.41",
+                        "port": 12873
+                    },
+                    "tag": "Connected"
                 },
-                "tag": "OnChainEvent"
+                "tag": "NetworkEffect"
             },
-            "tag": "ProcessingEvent"
+            "tag": "ProcessingEffect"
         }
     ],
-    "seed": -884571530
+    "seed": 1990239834
 }

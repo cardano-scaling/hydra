@@ -34,12 +34,10 @@ import Cardano.Ledger.Shelley.API (
   StrictMaybe (..),
   TxId (TxId),
   TxIn (TxIn),
-  UTxO (UTxO),
   VKey (VKey),
   Wdrl (Wdrl),
   hashKey,
  )
-import qualified Cardano.Ledger.Shelley.TxBody as Shelley
 import Cardano.Ledger.ShelleyMA.Timelocks (ValidityInterval (..))
 import Cardano.Ledger.Val (inject)
 import qualified Data.Aeson as Aeson
@@ -57,8 +55,8 @@ import Hydra.Data.Party (partyFromVerKey, partyToVerKey)
 import qualified Hydra.Data.Party as OnChain
 import Hydra.Data.Utxo (fromByteString)
 import qualified Hydra.Data.Utxo as OnChain
-import Hydra.Ledger (Utxo)
-import Hydra.Ledger.Cardano (CardanoEra, CardanoTx, utxoToJSON)
+import Hydra.Ledger.Cardano (CardanoTx, Utxo, Utxo' (Utxo))
+import qualified Hydra.Ledger.Cardano as Api
 import Hydra.Party (Party (Party), vkey)
 import Hydra.Snapshot (SnapshotNumber)
 import Ledger.Value (AssetClass (..), currencyMPSHash)
@@ -174,12 +172,7 @@ commitTx ::
   Party ->
   -- | A single UTxO to commit to the Head
   -- We currently limit committing one UTxO to the head because of size limitations.
-  --
-  -- TODO(AB): The `CardanoEra` should really be `Era` in order to be able to
-  -- consume that UTxO as input to the transaction, and the `Shelley.TxOut` should
-  -- be a `Cardano.Api.TxOut`. Pending changes in the `Hydra.Ledger.Cardano`
-  -- module to use cardano-api and Alonzo.
-  Maybe (TxIn StandardCrypto, Shelley.TxOut CardanoEra) ->
+  Maybe (Api.TxIn, Api.TxOut Api.CtxUTxO Api.Era) ->
   -- | The inital output (sent to each party) which should contain the PT and is
   -- locked by initial script
   (TxIn StandardCrypto, PubKeyHash) ->
@@ -231,7 +224,11 @@ commitTx party utxo (initialIn, pkh) =
     Data . toData $
       MockCommit.datum (partyFromVerKey $ vkey party, commitUtxo)
 
-  commitUtxo = fromByteString $ toStrict $ Aeson.encode $ utxoToJSON $ UTxO $ Map.fromList $ maybeToList utxo
+  commitUtxo = fromByteString $
+    toStrict $
+      Aeson.encode $ case utxo of
+        Nothing -> mempty
+        Just (i, o) -> Utxo $ Map.singleton i o
 
 -- | Create a transaction collecting all "committed" utxo and opening a Head,
 -- i.e. driving the Head script state.
@@ -239,7 +236,7 @@ commitTx party utxo (initialIn, pkh) =
 -- collecting anything.
 collectComTx ::
   -- | Total UTXO to be made available in the Head.
-  Utxo CardanoTx ->
+  Utxo ->
   -- | Everything needed to spend the Head state-machine output.
   -- FIXME(SN): should also contain some Head identifier/address and stored Value (maybe the TxOut + Data?)
   (TxIn StandardCrypto, Data Era) ->
@@ -291,7 +288,7 @@ collectComTx _utxo (headInput, headDatumBefore) =
 closeTx ::
   SnapshotNumber ->
   -- | Snapshotted Utxo to close the Head with.
-  Utxo CardanoTx ->
+  Utxo ->
   -- | Everything needed to spend the Head state-machine output.
   -- FIXME(SN): should also contain some Head identifier/address and stored Value (maybe the TxOut + Data?)
   (TxIn StandardCrypto, Data Era) ->
@@ -343,7 +340,7 @@ closeTx snapshotNumber _utxo (headInput, headDatumBefore) =
 
 fanoutTx ::
   -- | Snapshotted Utxo to fanout on layer 1
-  Utxo CardanoTx ->
+  Utxo ->
   -- | Everything needed to spend the Head state-machine output.
   -- FIXME(SN): should also contain some Head identifier/address and stored Value (maybe the TxOut + Data?)
   (TxIn StandardCrypto, Data Era) ->

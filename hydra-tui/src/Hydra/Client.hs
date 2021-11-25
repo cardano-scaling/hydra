@@ -7,7 +7,7 @@ import Control.Exception (Handler (Handler), IOException, catches)
 import Control.Monad.Class.MonadSTM (MonadSTM (newTBQueueIO), MonadSTMTx (readTBQueue, writeTBQueue))
 import Data.Aeson (eitherDecodeStrict, encode)
 import Hydra.ClientInput (ClientInput)
-import Hydra.Ledger (Tx)
+import Hydra.Ledger (IsTx)
 import Hydra.Network (Host (Host, hostname, port))
 import Hydra.ServerOutput (ServerOutput)
 import Network.WebSockets (ConnectionException, receiveData, runClient, sendBinaryData)
@@ -32,7 +32,7 @@ type ClientComponent tx m a = ClientCallback tx m -> (Client tx m -> m a) -> m a
 
 -- | Connect to a hydra-node using a websocket and provide a /Component/ for
 -- sending client inputs, as well as receiving server outputs.
-withClient :: Tx tx => Host -> ClientComponent tx IO a
+withClient :: IsTx tx => Host -> ClientComponent tx IO a
 withClient Host{hostname, port} callback action = do
   q <- newTBQueueIO 10
   withAsync (reconnect $ client q) $ \thread -> do

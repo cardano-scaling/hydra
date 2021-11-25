@@ -12,7 +12,7 @@ import Hydra.Prelude
 
 import Hydra.API.Server (APIServerLog)
 import Hydra.Chain.Direct (DirectChainLog)
-import Hydra.Ledger (Utxo)
+import Hydra.Ledger (UtxoType)
 import Hydra.Node (HydraNodeLog)
 
 data HydraLog tx net
@@ -27,7 +27,7 @@ instance
   ( Arbitrary net
   , Arbitrary tx
   , Arbitrary DirectChainLog
-  , Arbitrary (Utxo tx)
+  , Arbitrary (UtxoType tx)
   , Arbitrary APIServerLog
   ) =>
   Arbitrary (HydraLog tx net)

@@ -34,7 +34,7 @@ import Test.HSpec.JUnit (junitFormat)
 import Test.HUnit.Lang (FailureReason (Reason), HUnitFailure (HUnitFailure))
 import Test.Hspec.Core.Format (Format, FormatConfig (..))
 import Test.Hspec.Core.Formatters (formatterToFormat, specdoc)
-import Test.QuickCheck (Gen, scale)
+import Test.QuickCheck (scale)
 
 -- | Create a unique temporary directory.
 createSystemTempDirectory :: String -> IO FilePath

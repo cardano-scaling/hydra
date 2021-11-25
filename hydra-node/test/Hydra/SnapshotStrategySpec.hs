@@ -22,7 +22,7 @@ import Hydra.HeadLogic (
   emitSnapshot,
   newSn,
  )
-import Hydra.Ledger (Ledger (..), Tx (..))
+import Hydra.Ledger (IsTx (..), Ledger (..))
 import Hydra.Ledger.Simple (SimpleTx (..), aValidTx, simpleLedger)
 import Hydra.Network.Message (Message (..))
 import Hydra.Party (Party, deriveParty)
@@ -111,22 +111,22 @@ spec = do
 -- Assertion utilities
 --
 
-hasEffect :: (HasCallStack, Tx tx) => Outcome tx -> Effect tx -> IO (HeadState tx)
+hasEffect :: (HasCallStack, IsTx tx) => Outcome tx -> Effect tx -> IO (HeadState tx)
 hasEffect (NewState s effects) effect
   | effect `elem` effects = pure s
   | otherwise = failure $ "Missing effect " <> show effect <> " in produced effects: " <> show effects
 hasEffect o _ = failure $ "Unexpected outcome: " <> show o
 
-hasEffect_ :: (HasCallStack, Tx tx) => Outcome tx -> Effect tx -> IO ()
+hasEffect_ :: (HasCallStack, IsTx tx) => Outcome tx -> Effect tx -> IO ()
 hasEffect_ o e = void $ hasEffect o e
 
-hasEffectSatisfying :: (HasCallStack, Tx tx) => Outcome tx -> (Effect tx -> Bool) -> IO (HeadState tx)
+hasEffectSatisfying :: (HasCallStack, IsTx tx) => Outcome tx -> (Effect tx -> Bool) -> IO (HeadState tx)
 hasEffectSatisfying (NewState s effects) match
   | any match effects = pure s
   | otherwise = failure $ "No effect matching predicate in produced effects: " <> show effects
 hasEffectSatisfying o _ = failure $ "Unexpected outcome: " <> show o
 
-hasNoEffectSatisfying :: (HasCallStack, Tx tx) => Outcome tx -> (Effect tx -> Bool) -> IO ()
+hasNoEffectSatisfying :: (HasCallStack, IsTx tx) => Outcome tx -> (Effect tx -> Bool) -> IO ()
 hasNoEffectSatisfying (NewState _ effects) predicate
   | any predicate effects = failure $ "Found unwanted effect in: " <> show effects
 hasNoEffectSatisfying _ _ = pure ()
@@ -176,14 +176,14 @@ getConfirmedSnapshot = \case
   OpenState _ CoordinatedHeadState{confirmedSnapshot} -> Just confirmedSnapshot
   _ -> Nothing
 
-assertNewState :: Tx tx => Outcome tx -> IO (HeadState tx)
+assertNewState :: IsTx tx => Outcome tx -> IO (HeadState tx)
 assertNewState = \case
   NewState st _ -> pure st
   Error e -> failure $ "Unexpected 'Error' outcome: " <> show e
   Wait -> failure "Unexpected 'Wait' outcome"
 
 applyEvent ::
-  Tx tx =>
+  IsTx tx =>
   (HeadState tx -> Event tx -> Outcome tx) ->
   Event tx ->
   StateT (HeadState tx) IO ()
@@ -192,7 +192,7 @@ applyEvent action e = do
   s' <- lift $ assertNewState (action s e)
   put s'
 
-assertStateUnchangedFrom :: Tx tx => HeadState tx -> Outcome tx -> Expectation
+assertStateUnchangedFrom :: IsTx tx => HeadState tx -> Outcome tx -> Expectation
 assertStateUnchangedFrom st = \case
   NewState st' eff -> do
     st' `shouldBe` st

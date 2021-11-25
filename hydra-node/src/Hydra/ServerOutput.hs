@@ -3,7 +3,7 @@
 
 module Hydra.ServerOutput where
 
-import Hydra.Ledger (Tx, Utxo, ValidationError)
+import Hydra.Ledger (IsTx, UtxoType, ValidationError)
 import Hydra.Network (Host)
 import Hydra.Party (Party)
 import Hydra.Prelude
@@ -13,17 +13,20 @@ data ServerOutput tx
   = PeerConnected {peer :: Host}
   | PeerDisconnected {peer :: Host}
   | ReadyToCommit {parties :: Set Party}
-  | Committed {party :: Party, utxo :: Utxo tx}
-  | HeadIsOpen {utxo :: Utxo tx}
+  | Committed {party :: Party, utxo :: UtxoType tx}
+  | HeadIsOpen {utxo :: UtxoType tx}
   | HeadIsClosed {contestationDeadline :: UTCTime, latestSnapshot :: Snapshot tx}
-  | HeadIsAborted {utxo :: Utxo tx}
-  | HeadIsFinalized {utxo :: Utxo tx}
+  | HeadIsAborted {utxo :: UtxoType tx}
+  | HeadIsFinalized {utxo :: UtxoType tx}
   | CommandFailed
   | TxSeen {transaction :: tx}
   | TxValid {transaction :: tx}
-  | TxInvalid {utxo :: Utxo tx, transaction :: tx, validationError :: ValidationError}
+  | TxInvalid {utxo :: UtxoType tx, transaction :: tx, validationError :: ValidationError}
   | SnapshotConfirmed {snapshot :: Snapshot tx}
-  | Utxo {utxo :: Utxo tx}
+  | -- XXX(SN): This is too vague of a name and prone to conflict. Also we want
+    -- to relate it to 'GetUtxo' from 'ClientInput', so 'GetUtxoResult' might be
+    -- a better name
+    Utxo {utxo :: UtxoType tx}
   | InvalidInput {reason :: String, input :: Text}
   | -- | A friendly welcome message which tells a client something about the
     -- node. Currently used for knowing what signing key the server uses (it
@@ -31,12 +34,12 @@ data ServerOutput tx
     Greetings {me :: Party}
   deriving (Generic)
 
-deriving instance Tx tx => Eq (ServerOutput tx)
-deriving instance Tx tx => Show (ServerOutput tx)
-deriving instance Tx tx => ToJSON (ServerOutput tx)
-deriving instance Tx tx => FromJSON (ServerOutput tx)
+deriving instance IsTx tx => Eq (ServerOutput tx)
+deriving instance IsTx tx => Show (ServerOutput tx)
+deriving instance IsTx tx => ToJSON (ServerOutput tx)
+deriving instance IsTx tx => FromJSON (ServerOutput tx)
 
-instance (Arbitrary tx, Arbitrary (Utxo tx)) => Arbitrary (ServerOutput tx) where
+instance (Arbitrary tx, Arbitrary (UtxoType tx)) => Arbitrary (ServerOutput tx) where
   arbitrary = genericArbitrary
 
   -- NOTE: See note on 'Arbitrary (ClientInput tx)'

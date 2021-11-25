@@ -2,20 +2,20 @@
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeApplications #-}
+{-# OPTIONS_GHC -Wno-orphans #-}
 
 module Hydra.TUI where
 
 import Hydra.Prelude hiding (State)
 
 import Brick
+
 import Brick.BChan (newBChan, writeBChan)
 import Brick.Forms (Form, FormFieldState, checkboxField, editShowableFieldWithValidate, formState, handleFormEvent, newForm, radioField, renderForm)
 import Brick.Widgets.Border (hBorder, vBorder)
 import Brick.Widgets.Border.Style (ascii)
-import Cardano.Ledger.Shelley.API (UTxO (..))
-import qualified Cardano.Ledger.Shelley.API as Cardano
-import Cardano.Ledger.Val (coin, inject)
-import Data.List (nub, (!!), (\\))
+import Cardano.Crypto.DSIGN (VerKeyDSIGN (VerKeyMockDSIGN))
+import Data.List (nub, (\\))
 import qualified Data.Map.Strict as Map
 import qualified Data.Text as Text
 import Data.Version (showVersion)
@@ -24,28 +24,72 @@ import qualified Graphics.Vty as Vty
 import Graphics.Vty.Attributes (defAttr)
 import Hydra.Client (Client (Client, sendInput), HydraEvent (..), withClient)
 import Hydra.ClientInput (ClientInput (..))
-import Hydra.Ledger (Tx (..))
+import Hydra.Ledger (IsTx (..))
 import Hydra.Ledger.Cardano (
+  AddressInEra,
   CardanoTx,
+  CtxUTxO,
+  Era,
+  Lovelace (Lovelace),
+  NetworkId (Testnet),
+  NetworkMagic (NetworkMagic),
+  PaymentKey,
+  SigningKey,
   TxIn,
-  TxOut,
-  encodeAddress,
-  faucetUtxo,
-  getAddress,
-  getCredentials,
+  TxOut (TxOut),
+  Utxo,
+  Utxo' (Utxo),
+  VerificationKey,
+  genKeyPair,
+  genUtxoFor,
+  lovelaceToValue,
   mkSimpleCardanoTx,
-  prettyBalance,
+  mkVkAddress,
   prettyUtxo,
+  prettyValue,
+  serialiseAddress,
+  txOutValueToLovelace,
+  utxoMap,
+  utxoPairs,
  )
 import Hydra.Network (Host (..))
-import Hydra.Party (Party)
-import Hydra.ServerOutput (ServerOutput (..))
+import Hydra.Party (Party (Party, vkey))
+import Hydra.ServerOutput (
+  ServerOutput (
+    CommandFailed,
+    Committed,
+    Greetings,
+    HeadIsAborted,
+    HeadIsClosed,
+    HeadIsFinalized,
+    HeadIsOpen,
+    PeerConnected,
+    PeerDisconnected,
+    ReadyToCommit,
+    SnapshotConfirmed,
+    TxInvalid,
+    TxSeen,
+    TxValid,
+    contestationDeadline,
+    me,
+    parties,
+    party,
+    snapshot,
+    utxo,
+    validationError
+  ),
+ )
 import Hydra.Snapshot (Snapshot (..))
 import Hydra.TUI.Options (Options (..))
 import Lens.Micro (Lens', lens, (%~), (.~), (?~), (^.), (^?))
 import Lens.Micro.TH (makeLensesFor)
 import Paths_hydra_tui (version)
+import Test.QuickCheck (scale)
 import qualified Prelude
+
+-- XXX(SN): hard-coded network id
+networkId :: NetworkId
+networkId = Testnet $ NetworkMagic 42
 
 --
 -- Model
@@ -105,10 +149,10 @@ own = "own"
 
 data HeadState
   = Ready
-  | Initializing {parties :: [Party], remainingParties :: [Party], utxo :: Utxo CardanoTx}
-  | Open {parties :: [Party], utxo :: Utxo CardanoTx}
+  | Initializing {parties :: [Party], remainingParties :: [Party], utxo :: Utxo}
+  | Open {parties :: [Party], utxo :: Utxo}
   | Closed {contestationDeadline :: UTCTime}
-  | Final {utxo :: Utxo CardanoTx}
+  | Final {utxo :: Utxo}
   deriving (Eq, Show, Generic)
 
 type Name = Text
@@ -216,7 +260,7 @@ handleAppEvent s = \case
           & feedbackL ?~ UserFeedback Info "Head initialized, ready for commit(s)."
   Update Committed{party, utxo} ->
     s & headStateL %~ partyCommitted [party] utxo
-      & feedbackL ?~ UserFeedback Info (show party <> " committed " <> prettyBalance (balance @CardanoTx utxo))
+      & feedbackL ?~ UserFeedback Info (show party <> " committed " <> prettyValue (balance @CardanoTx utxo))
   Update HeadIsOpen{utxo} ->
     s & headStateL %~ headIsOpen utxo
       & feedbackL ?~ UserFeedback Info "Head is now open!"
@@ -301,12 +345,12 @@ handleCommitEvent Client{sendInput} s = case s ^? headStateL of
     Dialog title form submit
    where
     title = "Select UTXO to commit"
-    firstUtxo = Prelude.head (Map.toList u)
-    onlyOneUtxo = uncurry Map.singleton firstUtxo
+    firstUtxo = Prelude.head (utxoPairs u)
+    onlyOneUtxo = Map.fromList [firstUtxo]
     form = newForm (utxoCheckboxField onlyOneUtxo) ((,False) <$> onlyOneUtxo)
     submit s' selected = do
-      let commit = UTxO . Map.mapMaybe (\(v, p) -> if p then Just v else Nothing) $ selected
-      liftIO (sendInput $ Commit commit)
+      let commitUtxo = Utxo $ Map.mapMaybe (\(v, p) -> if p then Just v else Nothing) selected
+      liftIO (sendInput $ Commit commitUtxo)
       continue (s' & dialogStateL .~ NoDialog)
 
 handleNewTxEvent ::
@@ -317,7 +361,7 @@ handleNewTxEvent Client{sendInput} s = case s ^? headStateL of
   Just Open{parties} ->
     case s ^? meL of
       -- XXX(SN): this is just..not cool
-      Just (Just me) -> do
+      Just (Just me) ->
         continue $ s & dialogStateL .~ transactionBuilderDialog (myAvailableUtxo me s) parties me
       _ -> continue $ s & feedbackL ?~ UserFeedback Error "Missing identity, so can't create a tx."
   _ ->
@@ -328,8 +372,8 @@ handleNewTxEvent Client{sendInput} s = case s ^? headStateL of
    where
     title = "Select UTXO to spend"
     -- FIXME: This crashes if the utxo is empty
-    form = newForm (utxoRadioField u) (Map.toList u !! 0)
-    submit s' input = do
+    form = newForm (utxoRadioField u) (Prelude.head (Map.toList u))
+    submit s' input =
       continue $ s' & dialogStateL .~ recipientsDialog input parties me
 
   recipientsDialog input parties me =
@@ -339,22 +383,28 @@ handleNewTxEvent Client{sendInput} s = case s ^? headStateL of
     -- FIXME: This crashes if peers are empty!
     form =
       let field = radioField (lens id seq) [(p, show p, show p) | p <- parties]
-       in newForm [field] (parties !! 0)
-    submit s' (getAddress -> recipient) = do
+       in newForm [field] (Prelude.head parties)
+    submit s' (getAddress -> recipient) =
       continue $ s' & dialogStateL .~ amountDialog input recipient me
 
-  amountDialog input@(_, Cardano.TxOut _ v) recipient me =
+  amountDialog input@(_, TxOut _ v _) recipient me =
     Dialog title form submit
    where
     title = "Choose an amount"
+
     form =
-      let limit = Cardano.unCoin $ coin v
+      -- NOTE(SN): use 'Integer' because we don't have a 'Read Lovelace'
+      let Lovelace limit = txOutValueToLovelace v
           field = editShowableFieldWithValidate (lens id seq) "amount" (\n -> n > 0 && n <= limit)
        in newForm [field] limit
-    submit s' (inject . Cardano.Coin -> amount) = do
-      let tx = mkSimpleCardanoTx input (recipient, amount) (getCredentials me)
-      liftIO (sendInput (NewTx tx))
-      continue $ s' & dialogStateL .~ NoDialog
+
+    submit s' amount = do
+      let (_, sk) = getCredentials me
+      case mkSimpleCardanoTx input (recipient, lovelaceToValue $ Lovelace amount) sk of
+        Left e -> continue $ s' & feedbackL ?~ UserFeedback Error ("Failed to construct tx, contact @_ktorz_ on twitter: " <> show e)
+        Right tx -> do
+          liftIO (sendInput (NewTx tx))
+          continue $ s' & dialogStateL .~ NoDialog
 
 --
 -- View
@@ -395,10 +445,9 @@ draw s =
 
     ownAddress =
       case s ^? meL of
-        Just (Just me) -> str "Address " <+> withAttr own (txt $ ellipsize 40 $ encodeAddress (getAddress me))
+        Just (Just me) ->
+          str "Address " <+> drawAddress (getAddress me)
         _ -> emptyWidget
-
-    ellipsize n t = Text.take (n - 2) t <> ".."
 
     nodeStatus =
       case s of
@@ -431,7 +480,7 @@ draw s =
           Just Initializing{remainingParties, utxo} ->
             withCommands
               [ drawHeadState
-              , padLeftRight 1 $ str ("Total committed: " <> toString (prettyBalance (balance @CardanoTx utxo)))
+              , padLeftRight 1 $ str ("Total committed: " <> toString (prettyValue (balance @CardanoTx utxo)))
               , padLeftRight 1 $
                   padTop (Pad 1) $
                     str "Waiting for parties to commit:"
@@ -445,7 +494,7 @@ draw s =
             withCommands
               [ drawHeadState
               , padLeftRight 1 $
-                  txt ("Head UTXO, total: " <> prettyBalance (balance @CardanoTx utxo))
+                  txt ("Head UTXO, total: " <> prettyValue (balance @CardanoTx utxo))
                     <=> padLeft (Pad 2) (drawUtxo utxo)
               ]
               [ "[N]ew Transaction"
@@ -462,7 +511,7 @@ draw s =
             withCommands
               [ drawHeadState
               , padLeftRight 1 $
-                  txt ("Distributed UTXO, total: " <> prettyBalance (balance @CardanoTx utxo))
+                  txt ("Distributed UTXO, total: " <> prettyValue (balance @CardanoTx utxo))
                     <=> padLeft (Pad 2) (drawUtxo utxo)
               ]
               [ "[I]nit"
@@ -483,12 +532,12 @@ draw s =
         , hBorder
         ]
 
-  drawUtxo (UTxO m) =
+  drawUtxo utxo =
     let byAddress =
           Map.foldrWithKey
-            (\k v@(Cardano.TxOut addr _) -> Map.unionWith (++) (Map.singleton addr [(k, v)]))
+            (\k v@(TxOut addr _ _) -> Map.unionWith (++) (Map.singleton addr [(k, v)]))
             mempty
-            m
+            $ utxoMap utxo
      in vBox
           [ padTop (Pad 1) $
             vBox
@@ -499,10 +548,12 @@ draw s =
           ]
 
   drawAddress addr =
-    let widget = txt $ encodeAddress addr
+    let widget = txt $ ellipsize 40 $ serialiseAddress addr
      in case s ^? meL of
           Just (Just me) | getAddress me == addr -> withAttr own widget
           _ -> widget
+
+  ellipsize n t = Text.take (n - 2) t <> ".."
 
   withCommands panel cmds =
     hBox
@@ -536,6 +587,11 @@ draw s =
   drawShow :: forall a n. Show a => a -> Widget n
   drawShow = str . (" - " <>) . show
 
+-- HACK(SN): This might be too expensive for a general case and we should move
+-- this somehwere.
+instance Ord (AddressInEra Era) where
+  a <= b = show @Text a <= show @Text b
+
 --
 -- Forms additional widgets
 --
@@ -543,10 +599,10 @@ draw s =
 -- A helper for creating multiple form fields from a UTXO set.
 utxoCheckboxField ::
   forall s e n.
-  ( s ~ Map TxIn (TxOut, Bool)
+  ( s ~ Map.Map TxIn (TxOut CtxUTxO Era, Bool)
   , n ~ Name
   ) =>
-  Map TxIn TxOut ->
+  Map TxIn (TxOut CtxUTxO Era) ->
   [s -> FormFieldState s e n]
 utxoCheckboxField u =
   [ checkboxField
@@ -565,10 +621,10 @@ utxoCheckboxField u =
 -- A helper for creating a radio form fields for selecting a UTXO in a given set
 utxoRadioField ::
   forall s e n.
-  ( s ~ (TxIn, TxOut)
+  ( s ~ (TxIn, TxOut CtxUTxO Era)
   , n ~ Name
   ) =>
-  Map TxIn TxOut ->
+  Map TxIn (TxOut CtxUTxO Era) ->
   [s -> FormFieldState s e n]
 utxoRadioField u =
   [ radioField
@@ -578,12 +634,12 @@ utxoRadioField u =
       ]
   ]
 
-myAvailableUtxo :: Party -> State -> Map TxIn TxOut
+myAvailableUtxo :: Party -> State -> Map TxIn (TxOut CtxUTxO Era)
 myAvailableUtxo me s =
   case s ^? headStateL of
-    Just Open{utxo = UTxO u'} ->
+    Just Open{utxo = Utxo u'} ->
       let myAddress = getAddress me
-       in Map.filter (\(Cardano.TxOut addr _) -> addr == myAddress) u'
+       in Map.filter (\(TxOut addr _ _) -> addr == myAddress) u'
     _ ->
       mempty
 
@@ -600,6 +656,42 @@ style _ =
     , (positive, fg green)
     , (own, fg yellow)
     ]
+
+--
+-- UTXO Faucet & Converting credentials
+--
+
+-- | For now, we _fake it until we make it_ ^TM. Credentials and initial UTXO are
+-- generated *deterministically* from Hydra verification keys (the 'Party').
+-- Thus, coupling Hydra keys (signing the Head itself) with Cardano keys
+-- (signing transactions in a Head). In the end, the client will figure out
+-- credentials and UTXO via some other means. Likely, the credentials will be
+-- user-provided, whereas the UTXO would come from a local node + chain sync.
+
+-- | Create a cardano key pair from a party. This would not be done in a real
+-- application and we'd manage the Cardano keys separate from the Hydra keys.
+-- For now though, this makes it easy to create assets for Head participants and
+-- send values between "them".
+getCredentials :: Party -> (VerificationKey PaymentKey, SigningKey PaymentKey)
+getCredentials Party{vkey} =
+  let VerKeyMockDSIGN word = vkey
+      seed = fromIntegral word
+   in generateWith genKeyPair seed
+
+-- | Similarly to 'getCredentials', this gives us "the" Cardano address given a
+-- Hydra 'Party'. In a real world deployment it would make no sense to send a
+-- Head participant something, the ledger would be fully decoupled.
+getAddress :: Party -> AddressInEra Era
+getAddress party =
+  mkVkAddress networkId . fst $ getCredentials party
+
+-- | Generate a Utxo set for a given party "out of thin air".
+faucetUtxo :: Party -> Utxo
+faucetUtxo party@Party{vkey} =
+  let VerKeyMockDSIGN word = vkey
+      seed = fromIntegral word
+      vk = fst $ getCredentials party
+   in generateWith (scale (const 5) $ genUtxoFor vk) seed
 
 --
 -- Run it

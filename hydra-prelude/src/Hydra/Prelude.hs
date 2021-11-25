@@ -16,9 +16,11 @@ module Hydra.Prelude (
   ToCBOR (..),
   FromJSON (..),
   ToJSON (..),
+  Gen,
   Arbitrary (..),
   genericArbitrary,
   genericShrink,
+  generateWith,
 ) where
 
 import Cardano.Binary (
@@ -128,7 +130,9 @@ import Test.QuickCheck (
   Gen,
   genericShrink,
  )
+import Test.QuickCheck.Gen (Gen (..))
 import Test.QuickCheck.Instances ()
+import Test.QuickCheck.Random (mkQCGen)
 
 -- | Provides a sensible way of automatically deriving generic 'Arbitrary'
 -- instances for data-types. In the case where more advanced or tailored
@@ -142,3 +146,8 @@ genericArbitrary ::
   Gen a
 genericArbitrary =
   Random.genericArbitrary Random.uniform
+
+-- | A seeded, deterministic, generator
+generateWith :: Gen a -> Int -> a
+generateWith (MkGen runGen) seed =
+  runGen (mkQCGen seed) 30
