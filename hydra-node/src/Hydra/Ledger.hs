@@ -33,6 +33,7 @@ class
   type TxIdType tx
   type ValueType tx
 
+  -- XXX(SN): this name easily conflicts
   txId :: tx -> TxIdType tx
   balance :: UtxoType tx -> ValueType tx
 
