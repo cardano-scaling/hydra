@@ -7,18 +7,41 @@ module Test.EndToEndSpec where
 import Hydra.Prelude
 import Test.Hydra.Prelude
 
-import Cardano.Api (
+import Cardano.Crypto.DSIGN (
+  DSIGNAlgorithm (deriveVerKeyDSIGN),
+  MockDSIGN,
+  SignKeyDSIGN,
+  VerKeyDSIGN,
+ )
+import Cardano.Crypto.Seed (mkSeedFromBytes)
+import CardanoCluster (
+  newNodeConfig,
+  signingKeyPathFor,
+  verificationKeyPathFor,
+  withBFTNode,
+ )
+import CardanoNode (RunningNode (RunningNode))
+import Control.Lens ((^?))
+import Data.Aeson (Value (Array, Null, Object, String), object, (.=))
+import Data.Aeson.Lens (key)
+import qualified Data.ByteString as BS
+import qualified Data.ByteString.Base16 as Base16
+import qualified Data.Map as Map
+import qualified Data.Set as Set
+import Hydra.Ledger.Cardano (
   Address,
   AsType (AsPaymentKey),
   BuildTxWith (BuildTxWith),
+  CardanoTx,
+  Era,
   Key (VerificationKey),
   KeyWitnessInCtx (KeyWitnessForSpending),
-  MaryEra,
-  MultiAssetSupportedInEra (MultiAssetInMaryEra),
+  MultiAssetSupportedInEra (MultiAssetInAlonzoEra),
   NetworkId (Testnet),
   NetworkMagic (NetworkMagic),
   PaymentCredential (PaymentCredentialByKey),
   PaymentKey,
+  ShelleyAddr,
   ShelleyWitnessSigningKey (WitnessPaymentKey),
   SigningKey,
   StakeAddressReference (NoStakeAddress),
@@ -29,7 +52,7 @@ import Cardano.Api (
   TxCertificates (TxCertificatesNone),
   TxExtraKeyWitnesses (TxExtraKeyWitnessesNone),
   TxFee (TxFeeExplicit),
-  TxFeesExplicitInEra (TxFeesExplicitInMaryEra),
+  TxFeesExplicitInEra (TxFeesExplicitInAlonzoEra),
   TxId,
   TxIn (..),
   TxInsCollateral (TxInsCollateralNone),
@@ -43,7 +66,7 @@ import Cardano.Api (
   TxValidityLowerBound (TxValidityNoLowerBound),
   TxValidityUpperBound (TxValidityNoUpperBound),
   TxWithdrawals (TxWithdrawalsNone),
-  ValidityNoUpperBoundSupportedInEra (ValidityNoUpperBoundInMaryEra),
+  ValidityNoUpperBoundSupportedInEra (ValidityNoUpperBoundInAlonzoEra),
   Witness (KeyWitness),
   deterministicSigningKey,
   deterministicSigningKeySeedSize,
@@ -60,28 +83,6 @@ import Cardano.Api (
   signShelleyTransaction,
   verificationKeyHash,
  )
-import Cardano.Api.Shelley (ShelleyAddr)
-import Cardano.Crypto.DSIGN (
-  DSIGNAlgorithm (deriveVerKeyDSIGN),
-  MockDSIGN,
-  SignKeyDSIGN,
-  VerKeyDSIGN,
- )
-import Cardano.Crypto.Seed (mkSeedFromBytes)
-import CardanoCluster (
-  newNodeConfig,
-  signingKeyPathFor,
-  verificationKeyPathFor,
-  withBFTNode,
- )
-import CardanoNode (RunningNode (RunningNode))
-import Control.Lens ((^?))
-import Data.Aeson (Value (Null, Object, String), object, (.=))
-import Data.Aeson.Lens (key)
-import qualified Data.ByteString as BS
-import qualified Data.ByteString.Base16 as Base16
-import qualified Data.Map as Map
-import qualified Data.Set as Set
 import Hydra.Logging (showLogsOnFailure)
 import Hydra.Party (Party, deriveParty)
 import HydraNode (
@@ -246,7 +247,7 @@ inHeadAliceAddress =
   credential = PaymentCredentialByKey $ verificationKeyHash inHeadAliceVk
   reference = NoStakeAddress
 
-txAlicePaysHerself :: Tx MaryEra
+txAlicePaysHerself :: Tx Era
 txAlicePaysHerself =
   signShelleyTransaction body [WitnessPaymentKey inHeadAliceSk]
  where
@@ -256,8 +257,8 @@ txAlicePaysHerself =
         { txIns = [(txIn, BuildTxWith txInWitness)]
         , txInsCollateral = TxInsCollateralNone
         , txOuts = [txOut]
-        , txFee = TxFeeExplicit TxFeesExplicitInMaryEra 0
-        , txValidityRange = (TxValidityNoLowerBound, TxValidityNoUpperBound ValidityNoUpperBoundInMaryEra)
+        , txFee = TxFeeExplicit TxFeesExplicitInAlonzoEra 0
+        , txValidityRange = (TxValidityNoLowerBound, TxValidityNoUpperBound ValidityNoUpperBoundInAlonzoEra)
         , txMetadata = TxMetadataNone
         , txAuxScripts = TxAuxScriptsNone
         , txExtraKeyWits = TxExtraKeyWitnessesNone
@@ -276,7 +277,7 @@ txAlicePaysHerself =
   txOut =
     TxOut
       (shelleyAddressInEra inHeadAliceAddress)
-      (TxOutValue MultiAssetInMaryEra (lovelaceToValue 14))
+      (TxOutValue MultiAssetInAlonzoEra (lovelaceToValue 14))
       TxOutDatumNone
 
 --
@@ -293,7 +294,7 @@ outputRef txId txIx =
     , "index" .= txIx
     ]
 
-txToJson :: Tx MaryEra -> Value
+txToJson :: CardanoTx -> Value
 txToJson tx =
   object
     [ "id" .= getTxId txBody
@@ -318,6 +319,11 @@ txToJson tx =
         .= object
           [ "keys" .= map (String . decodeUtf8 . Base16.encode . serialiseToCBOR) txWitnesses
           , "scripts" .= object []
+          , -- XXX(SN): This is because Alonzo serialization requires these
+            -- empty arrays. We could instead omit these entries, which actually
+            -- hold no data and thus be compatible to Mary transactions.
+            "bootstrap" .= Array mempty
+          , "redeemers" .= String "80"
           ]
     , "auxiliaryData" .= Null
     ]
