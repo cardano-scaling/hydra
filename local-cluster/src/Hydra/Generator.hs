@@ -36,9 +36,12 @@ data Dataset = Dataset
 
 -- | Generate an arbitrary UTXO set and a sequence of transactions for this set.
 generateDataset :: Int -> IO Dataset
-generateDataset sequenceLength = do
-  initialUtxo <- generate genUtxo
-  transactionsSequence <- generate $ genFixedSizeSequenceOfValidTransactions sequenceLength initialUtxo
+generateDataset = generate . genDataset
+
+genDataset :: Int -> Gen Dataset
+genDataset sequenceLength = do
+  initialUtxo <- genUtxo
+  transactionsSequence <- genFixedSizeSequenceOfValidTransactions sequenceLength initialUtxo
   pure Dataset{initialUtxo, transactionsSequence}
 
 -- | Generate a 'Dataset' which does not grow the UTXO set over time.
