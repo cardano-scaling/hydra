@@ -297,7 +297,8 @@ outputRef txId txIx =
 txToJson :: CardanoTx -> Value
 txToJson tx =
   object
-    [ "isValid" .= True
+    [ "id" .= String "e3dfdf9416b940a2930a8663bb08d95bb83b3e5a883f49016c1e77d3b52252e4"
+    , "isValid" .= True
     , "body"
         .= object
           [ "inputs" .= map fst (txIns content)

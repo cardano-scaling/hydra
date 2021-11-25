@@ -41,6 +41,7 @@ import qualified Cardano.Ledger.Mary.Value as Ledger.Mary
 import qualified Cardano.Ledger.SafeHash as Ledger
 import qualified Cardano.Ledger.Shelley.API as Ledger
 import qualified Cardano.Ledger.ShelleyMA.Timelocks as Ledger.Mary
+import qualified Cardano.Ledger.TxIn as Ledger
 import qualified Codec.Binary.Bech32 as Bech32
 import Data.Aeson (
   FromJSONKey (fromJSONKey),
@@ -466,7 +467,8 @@ instance
   toJSON (Ledger.Alonzo.ValidatedTx body witnesses isValid auxiliaryData) =
     object $
       mconcat
-        [ ["body" .= body]
+        [ ["id" .= Ledger.txid body]
+        , ["body" .= body]
         , ["witnesses" .= witnesses]
         , ["isValid" .= isValid]
         , onlyIf isSJust "auxiliaryData" auxiliaryData
