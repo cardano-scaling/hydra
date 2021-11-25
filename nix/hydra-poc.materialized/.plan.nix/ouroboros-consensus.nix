@@ -191,6 +191,7 @@
           "Ouroboros/Consensus/Node/DbLock"
           "Ouroboros/Consensus/Node/DbMarker"
           "Ouroboros/Consensus/Node/ErrorPolicy"
+          "Ouroboros/Consensus/Node/RethrowPolicy"
           "Ouroboros/Consensus/Node/Exit"
           "Ouroboros/Consensus/NodeId"
           "Ouroboros/Consensus/NodeKernel"

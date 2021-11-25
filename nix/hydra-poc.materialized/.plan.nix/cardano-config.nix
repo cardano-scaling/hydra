@@ -10,7 +10,7 @@
   {
     flags = { systemd = true; };
     package = {
-      specVersion = "3.0";
+      specVersion = "2.4";
       identifier = { name = "cardano-config"; version = "0.1.0.0"; };
       license = "Apache-2.0";
       copyright = "";
@@ -47,13 +47,12 @@
       };
     } // {
     src = (pkgs.lib).mkDefault (pkgs.fetchgit {
-      url = "0";
+      url = "13";
       rev = "minimal";
       sha256 = "";
       }) // {
-      url = "0";
+      url = "13";
       rev = "minimal";
       sha256 = "";
       };
-    postUnpack = "sourceRoot+=/cardano-config; echo source root reset to \$sourceRoot";
     }

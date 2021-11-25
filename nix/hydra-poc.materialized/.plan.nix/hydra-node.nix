@@ -58,6 +58,7 @@
           (hsPkgs."contra-tracer" or (errorHandler.buildDepError "contra-tracer"))
           (hsPkgs."data-default" or (errorHandler.buildDepError "data-default"))
           (hsPkgs."filepath" or (errorHandler.buildDepError "filepath"))
+          (hsPkgs."formatting" or (errorHandler.buildDepError "formatting"))
           (hsPkgs."gitrev" or (errorHandler.buildDepError "gitrev"))
           (hsPkgs."hedgehog-quickcheck" or (errorHandler.buildDepError "hedgehog-quickcheck"))
           (hsPkgs."hydra-plutus" or (errorHandler.buildDepError "hydra-plutus"))
@@ -82,6 +83,7 @@
           (hsPkgs."req" or (errorHandler.buildDepError "req"))
           (hsPkgs."shelley-spec-ledger" or (errorHandler.buildDepError "shelley-spec-ledger"))
           (hsPkgs."shelley-spec-ledger-test" or (errorHandler.buildDepError "shelley-spec-ledger-test"))
+          (hsPkgs."small-steps" or (errorHandler.buildDepError "small-steps"))
           (hsPkgs."stm" or (errorHandler.buildDepError "stm"))
           (hsPkgs."strict-containers" or (errorHandler.buildDepError "strict-containers"))
           (hsPkgs."text" or (errorHandler.buildDepError "text"))
@@ -104,6 +106,7 @@
           "Hydra/HeadLogic"
           "Hydra/Ledger"
           "Hydra/Ledger/Cardano"
+          "Hydra/Ledger/Cardano/Orphans"
           "Hydra/Ledger/Simple"
           "Hydra/Logging"
           "Hydra/Logging/Messages"
@@ -145,6 +148,8 @@
             (hsPkgs."array" or (errorHandler.buildDepError "array"))
             (hsPkgs."base" or (errorHandler.buildDepError "base"))
             (hsPkgs."bytestring" or (errorHandler.buildDepError "bytestring"))
+            (hsPkgs."base16-bytestring" or (errorHandler.buildDepError "base16-bytestring"))
+            (hsPkgs."cardano-api" or (errorHandler.buildDepError "cardano-api"))
             (hsPkgs."cardano-binary" or (errorHandler.buildDepError "cardano-binary"))
             (hsPkgs."cardano-crypto-class" or (errorHandler.buildDepError "cardano-crypto-class"))
             (hsPkgs."cardano-ledger-alonzo" or (errorHandler.buildDepError "cardano-ledger-alonzo"))

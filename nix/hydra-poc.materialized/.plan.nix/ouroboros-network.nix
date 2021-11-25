@@ -74,9 +74,10 @@
           (hsPkgs."hashable" or (errorHandler.buildDepError "hashable"))
           (hsPkgs."text" or (errorHandler.buildDepError "text"))
           (hsPkgs."time" or (errorHandler.buildDepError "time"))
-          ];
+          ] ++ (pkgs.lib).optional (!system.isWindows) (hsPkgs."unix" or (errorHandler.buildDepError "unix"));
         buildable = true;
         modules = [
+          "Ouroboros/Network/Diffusion/Common"
           "Ouroboros/Network/PeerSelection/Governor/ActivePeers"
           "Ouroboros/Network/PeerSelection/Governor/EstablishedPeers"
           "Ouroboros/Network/PeerSelection/Governor/KnownPeers"
@@ -96,6 +97,9 @@
           "Ouroboros/Network/Counter"
           "Ouroboros/Network/DeltaQ"
           "Ouroboros/Network/Diffusion"
+          "Ouroboros/Network/Diffusion/P2P"
+          "Ouroboros/Network/Diffusion/NonP2P"
+          "Ouroboros/Network/Diffusion/Policies"
           "Ouroboros/Network/KeepAlive"
           "Ouroboros/Network/Magic"
           "Ouroboros/Network/NodeToNode"
@@ -109,6 +113,9 @@
           "Ouroboros/Network/PeerSelection/KnownPeers"
           "Ouroboros/Network/PeerSelection/LedgerPeers"
           "Ouroboros/Network/PeerSelection/LocalRootPeers"
+          "Ouroboros/Network/PeerSelection/PeerMetric"
+          "Ouroboros/Network/PeerSelection/PeerMetric/Type"
+          "Ouroboros/Network/PeerSelection/PeerStateActions"
           "Ouroboros/Network/PeerSelection/RelayAccessPoint"
           "Ouroboros/Network/PeerSelection/RootPeersDNS/DNSActions"
           "Ouroboros/Network/PeerSelection/RootPeersDNS"
@@ -168,8 +175,10 @@
             (hsPkgs."bytestring" or (errorHandler.buildDepError "bytestring"))
             (hsPkgs."cborg" or (errorHandler.buildDepError "cborg"))
             (hsPkgs."containers" or (errorHandler.buildDepError "containers"))
+            (hsPkgs."hashable" or (errorHandler.buildDepError "hashable"))
             (hsPkgs."pipes" or (errorHandler.buildDepError "pipes"))
             (hsPkgs."QuickCheck" or (errorHandler.buildDepError "QuickCheck"))
+            (hsPkgs."quickcheck-instances" or (errorHandler.buildDepError "quickcheck-instances"))
             (hsPkgs."serialise" or (errorHandler.buildDepError "serialise"))
             (hsPkgs."strict-containers" or (errorHandler.buildDepError "strict-containers"))
             (hsPkgs."tasty" or (errorHandler.buildDepError "tasty"))
@@ -179,6 +188,7 @@
             (hsPkgs."contra-tracer" or (errorHandler.buildDepError "contra-tracer"))
             (hsPkgs."io-classes" or (errorHandler.buildDepError "io-classes"))
             (hsPkgs."io-sim" or (errorHandler.buildDepError "io-sim"))
+            (hsPkgs."network-mux" or (errorHandler.buildDepError "network-mux"))
             (hsPkgs."ouroboros-network" or (errorHandler.buildDepError "ouroboros-network"))
             (hsPkgs."ouroboros-network-framework" or (errorHandler.buildDepError "ouroboros-network-framework"))
             (hsPkgs."typed-protocols" or (errorHandler.buildDepError "typed-protocols"))
@@ -270,6 +280,7 @@
             (hsPkgs."nothunks" or (errorHandler.buildDepError "nothunks"))
             (hsPkgs."io-classes" or (errorHandler.buildDepError "io-classes"))
             (hsPkgs."io-sim" or (errorHandler.buildDepError "io-sim"))
+            (hsPkgs."monoidal-synchronisation" or (errorHandler.buildDepError "monoidal-synchronisation"))
             (hsPkgs."network-mux" or (errorHandler.buildDepError "network-mux"))
             (hsPkgs."ouroboros-network" or (errorHandler.buildDepError "ouroboros-network"))
             (hsPkgs."ouroboros-network-framework" or (errorHandler.buildDepError "ouroboros-network-framework"))
@@ -289,6 +300,10 @@
             "Test/AnchoredFragment"
             "Test/Chain"
             "Test/LedgerPeers"
+            "Test/Ouroboros/Network/Diffusion/Node"
+            "Test/Ouroboros/Network/Diffusion/Node/NodeKernel"
+            "Test/Ouroboros/Network/Diffusion/Node/MiniProtocols"
+            "Test/Ouroboros/Network/Diffusion/Policies"
             "Test/Ouroboros/Network/BlockFetch"
             "Test/Ouroboros/Network/KeepAlive"
             "Test/Ouroboros/Network/MockNode"

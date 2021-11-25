@@ -47,6 +47,7 @@
           (hsPkgs."cardano-protocol-tpraos" or (errorHandler.buildDepError "cardano-protocol-tpraos"))
           (hsPkgs."cardano-slotting" or (errorHandler.buildDepError "cardano-slotting"))
           (hsPkgs."cborg" or (errorHandler.buildDepError "cborg"))
+          (hsPkgs."compact-map" or (errorHandler.buildDepError "compact-map"))
           (hsPkgs."constraints" or (errorHandler.buildDepError "constraints"))
           (hsPkgs."containers" or (errorHandler.buildDepError "containers"))
           (hsPkgs."data-default-class" or (errorHandler.buildDepError "data-default-class"))

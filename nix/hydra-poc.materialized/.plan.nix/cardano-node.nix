@@ -103,6 +103,7 @@
           "Cardano/Node/Configuration/Logging"
           "Cardano/Node/Configuration/POM"
           "Cardano/Node/Configuration/Topology"
+          "Cardano/Node/Configuration/TopologyP2P"
           "Cardano/Node/Handlers/Shutdown"
           "Cardano/Node/Handlers/TopLevel"
           "Cardano/Node/Orphans"

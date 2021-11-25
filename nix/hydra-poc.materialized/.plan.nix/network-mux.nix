@@ -114,6 +114,7 @@
             (hsPkgs."text" or (errorHandler.buildDepError "text"))
             ];
           buildable = if system.isWindows then false else true;
+          modules = [ "Linger" ];
           hsSourceDirs = [ "demo" ];
           mainPath = [ "cardano-ping.hs" ] ++ [ "" ];
           };

@@ -49,6 +49,7 @@
           (hsPkgs."cardano-ledger-pretty" or (errorHandler.buildDepError "cardano-ledger-pretty"))
           (hsPkgs."cardano-ledger-shelley-ma-test" or (errorHandler.buildDepError "cardano-ledger-shelley-ma-test"))
           (hsPkgs."cardano-ledger-shelley-ma" or (errorHandler.buildDepError "cardano-ledger-shelley-ma"))
+          (hsPkgs."cardano-protocol-tpraos" or (errorHandler.buildDepError "cardano-protocol-tpraos"))
           (hsPkgs."cardano-slotting" or (errorHandler.buildDepError "cardano-slotting"))
           (hsPkgs."containers" or (errorHandler.buildDepError "containers"))
           (hsPkgs."data-default-class" or (errorHandler.buildDepError "data-default-class"))
@@ -64,6 +65,7 @@
           ];
         buildable = true;
         modules = [
+          "Test/Cardano/Ledger/Alonzo/EraMapping"
           "Test/Cardano/Ledger/Alonzo/Examples/Consensus"
           "Test/Cardano/Ledger/Alonzo/Serialisation/Generators"
           "Test/Cardano/Ledger/Alonzo/AlonzoEraGen"

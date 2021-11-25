@@ -689,6 +689,7 @@
         optparse-applicative-fork = ./.plan.nix/optparse-applicative-fork.nix;
         ouroboros-network-framework = ./.plan.nix/ouroboros-network-framework.nix;
         lobemo-backend-aggregation = ./.plan.nix/lobemo-backend-aggregation.nix;
+        compact-map = ./.plan.nix/compact-map.nix;
         plutus-ledger-api = ./.plan.nix/plutus-ledger-api.nix;
         io-classes = ./.plan.nix/io-classes.nix;
         cardano-ledger-alonzo-test = ./.plan.nix/cardano-ledger-alonzo-test.nix;
@@ -787,7 +788,7 @@
           "cardano-crypto-praos" = {
             flags = {
               "development" = lib.mkOverride 900 false;
-              "external-libsodium-vrf" = lib.mkOverride 900 true;
+              "external-libsodium-vrf" = lib.mkOverride 900 false;
               };
             };
           "monoidal-synchronisation" = { flags = {}; };
@@ -799,7 +800,7 @@
             flags = { "development" = lib.mkOverride 900 false; };
             };
           "local-cluster" = {
-            flags = { "hydra-development" = lib.mkOverride 900 true; };
+            flags = { "hydra-development" = lib.mkOverride 900 false; };
             };
           "typed-protocols-examples" = { flags = {}; };
           "cardano-crypto-tests" = {
@@ -843,6 +844,7 @@
             };
           "ouroboros-network-framework" = { flags = {}; };
           "lobemo-backend-aggregation" = { flags = {}; };
+          "compact-map" = { flags = {}; };
           "plutus-ledger-api" = { flags = {}; };
           "io-classes" = {
             flags = {
@@ -852,13 +854,13 @@
             };
           "cardano-ledger-alonzo-test" = { flags = {}; };
           "hydra-tui" = {
-            flags = { "hydra-development" = lib.mkOverride 900 true; };
+            flags = { "hydra-development" = lib.mkOverride 900 false; };
             };
           "ouroboros-consensus-byron" = {
             flags = { "asserts" = lib.mkOverride 900 false; };
             };
           "hydra-node" = {
-            flags = { "hydra-development" = lib.mkOverride 900 true; };
+            flags = { "hydra-development" = lib.mkOverride 900 false; };
             };
           "contra-tracer" = { flags = {}; };
           "orphans-deriving-via" = {
@@ -871,7 +873,7 @@
           "cardano-ledger-alonzo" = { flags = {}; };
           "small-steps-test" = { flags = {}; };
           "hydra-plutus" = {
-            flags = { "hydra-development" = lib.mkOverride 900 true; };
+            flags = { "hydra-development" = lib.mkOverride 900 false; };
             };
           "cardano-ledger-shelley-test" = { flags = {}; };
           "typed-protocols-cborg" = { flags = {}; };
@@ -1252,6 +1254,7 @@
           "logict".components.library.planned = lib.mkOverride 900 true;
           "unliftio".components.library.planned = lib.mkOverride 900 true;
           "wcwidth".components.library.planned = lib.mkOverride 900 true;
+          "ouroboros-network-framework".components.exes."demo-connection-manager".planned = lib.mkOverride 900 true;
           "http-client-tls".components.library.planned = lib.mkOverride 900 true;
           "local-cluster".components.library.planned = lib.mkOverride 900 true;
           "constraints-extras".components.exes."readme".planned = lib.mkOverride 900 true;
@@ -1348,6 +1351,7 @@
           "connection".components.library.planned = lib.mkOverride 900 true;
           "splitmix".components.library.planned = lib.mkOverride 900 true;
           "websockets".components.library.planned = lib.mkOverride 900 true;
+          "compact-map".components.library.planned = lib.mkOverride 900 true;
           "x509-store".components.library.planned = lib.mkOverride 900 true;
           "aeson".components.library.planned = lib.mkOverride 900 true;
           "th-lift".components.library.planned = lib.mkOverride 900 true;
