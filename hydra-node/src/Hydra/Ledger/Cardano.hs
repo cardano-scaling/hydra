@@ -113,7 +113,7 @@ cardanoLedger =
     Either (Ledger.Tx era, ValidationError) (Ledger.UTxO era)
   applyTx env utxo tx =
     case Ledger.applyTxsTransition globals env (pure tx) memPoolState of
-      Left err -> Left $ (tx, toValidationError err)
+      Left err -> Left (tx, toValidationError err)
       Right (ls, _ds) -> Right $ Ledger._utxo ls
    where
     toValidationError = ValidationError . show

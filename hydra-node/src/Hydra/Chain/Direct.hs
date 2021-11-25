@@ -61,9 +61,6 @@ import qualified Hydra.Chain.Direct.Util as Cardano
 import Hydra.Chain.Direct.Wallet (TinyWallet (..), TinyWalletLog, withTinyWallet)
 import Hydra.Ledger.Cardano (
   CardanoTx,
-  shelleyBasedEra,
-  toShelleyTxIn,
-  toShelleyTxOut,
   utxoPairs,
  )
 import Hydra.Logging (Tracer, traceWith)
@@ -375,11 +372,7 @@ fromPostChainTx TinyWallet{getUtxo, verificationKey} headState cardanoKeys = \ca
         Just initial ->
           case utxoPairs utxo of
             [aUtxo] -> do
-              pure . Just $
-                commitTx
-                  party
-                  (Just $ bimap toShelleyTxIn (toShelleyTxOut shelleyBasedEra) aUtxo)
-                  initial
+              pure . Just $ commitTx party (Just aUtxo) initial
             [] -> do
               pure . Just $ commitTx party Nothing initial
             _ ->

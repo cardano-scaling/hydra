@@ -55,7 +55,8 @@ import Hydra.Data.Party (partyFromVerKey, partyToVerKey)
 import qualified Hydra.Data.Party as OnChain
 import Hydra.Data.Utxo (fromByteString)
 import qualified Hydra.Data.Utxo as OnChain
-import Hydra.Ledger.Cardano (CardanoTx, Utxo)
+import Hydra.Ledger.Cardano (CardanoTx, Utxo, Utxo' (Utxo))
+import qualified Hydra.Ledger.Cardano as Api
 import Hydra.Party (Party (Party), vkey)
 import Hydra.Snapshot (SnapshotNumber)
 import Ledger.Value (AssetClass (..), currencyMPSHash)
@@ -171,7 +172,7 @@ commitTx ::
   Party ->
   -- | A single UTxO to commit to the Head
   -- We currently limit committing one UTxO to the head because of size limitations.
-  Maybe (TxIn StandardCrypto, TxOut Era) ->
+  Maybe (Api.TxIn, Api.TxOut Api.CtxUTxO Api.Era) ->
   -- | The inital output (sent to each party) which should contain the PT and is
   -- locked by initial script
   (TxIn StandardCrypto, PubKeyHash) ->
@@ -223,7 +224,11 @@ commitTx party utxo (initialIn, pkh) =
     Data . toData $
       MockCommit.datum (partyFromVerKey $ vkey party, commitUtxo)
 
-  commitUtxo = fromByteString $ toStrict $ Aeson.encode utxo
+  commitUtxo = fromByteString $
+    toStrict $
+      Aeson.encode $ case utxo of
+        Nothing -> mempty
+        Just (i, o) -> Utxo $ Map.singleton i o
 
 -- | Create a transaction collecting all "committed" utxo and opening a Head,
 -- i.e. driving the Head script state.

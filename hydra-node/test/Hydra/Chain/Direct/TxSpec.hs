@@ -47,10 +47,7 @@ import Hydra.Data.Party (partyFromVerKey)
 import Hydra.Ledger.Cardano (
   CardanoTx,
   LedgerCrypto,
-  ShelleyBasedEra (ShelleyBasedEraAlonzo),
   Utxo' (Utxo),
-  toShelleyTxIn,
-  toShelleyTxOut,
  )
 import Hydra.Party (vkey)
 import Ledger.Value (currencyMPSHash, unAssetClass)
@@ -107,8 +104,8 @@ spec =
               & counterexample ("Tx: " <> show tx)
 
     describe "commitTx" $ do
-      prop "transaction size for single commit utxo below limit" $ \party (txIn, txOut) initialIn ->
-        let tx = commitTx party (Just (toShelleyTxIn txIn, toShelleyTxOut ShelleyBasedEraAlonzo txOut)) initialIn
+      prop "transaction size for single commit utxo below limit" $ \party singleUtxo initialIn ->
+        let tx = commitTx party (Just singleUtxo) initialIn
             cbor = serialize tx
             len = LBS.length cbor
          in len < maxTxSize
@@ -116,10 +113,10 @@ spec =
               & counterexample ("Tx: " <> show tx)
               & counterexample ("Tx serialized size: " <> show len)
 
-      prop "is observed" $ \party (txIn, txOut) initialIn ->
-        let tx = commitTx party (Just (toShelleyTxIn txIn, toShelleyTxOut ShelleyBasedEraAlonzo txOut)) initialIn
+      prop "is observed" $ \party singleUtxo initialIn ->
+        let tx = commitTx party (Just singleUtxo) initialIn
          in observeCommitTx tx
-              === Just OnCommitTx{party, committed = Utxo $ Map.singleton txIn txOut}
+              === Just OnCommitTx{party, committed = Utxo $ Map.fromList [singleUtxo]}
               & counterexample ("Tx: " <> show tx)
 
     describe "collectComTx" $ do
