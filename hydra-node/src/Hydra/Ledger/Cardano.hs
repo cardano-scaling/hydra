@@ -46,6 +46,7 @@ import qualified Cardano.Slotting.EpochInfo as Slotting
 import qualified Cardano.Slotting.Time as Slotting
 import qualified Codec.CBOR.Decoding as CBOR
 import qualified Codec.CBOR.Encoding as CBOR
+import Control.Arrow (left)
 import Control.Monad (foldM)
 import qualified Control.State.Transition as Ledger
 import Data.Default (Default, def)
@@ -89,7 +90,7 @@ cardanoLedger =
   applyAll utxo = \case
     [] -> Right utxo
     (tx : txs) -> do
-      utxo' <- fromLedgerUtxo <$> applyTx ledgerEnv (toLedgerUtxo utxo) (toLedgerTx tx)
+      utxo' <- left (first fromLedgerTx) $ fromLedgerUtxo <$> applyTx ledgerEnv (toLedgerUtxo utxo) (toLedgerTx tx)
       applyAll utxo' txs
 
   -- NOTE(SN): This is will fail on any transaction requiring the 'DPState' to be
@@ -107,10 +108,10 @@ cardanoLedger =
     Ledger.LedgerEnv era ->
     Ledger.UTxO era ->
     Ledger.Tx era ->
-    Either ValidationError (Ledger.UTxO era)
+    Either (Ledger.Tx era, ValidationError) (Ledger.UTxO era)
   applyTx env utxo tx =
     case Ledger.applyTxsTransition globals env (pure tx) memPoolState of
-      Left err -> Left $ toValidationError err
+      Left err -> Left $ (tx, toValidationError err)
       Right (ls, _ds) -> Right $ Ledger._utxo ls
    where
     toValidationError = ValidationError . show

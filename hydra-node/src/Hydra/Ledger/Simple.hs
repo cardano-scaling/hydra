@@ -98,10 +98,10 @@ simpleLedger :: Ledger SimpleTx
 simpleLedger =
   Ledger
     { applyTransactions =
-        foldlM $ \utxo (SimpleTx _ ins outs) ->
+        foldlM $ \utxo tx@(SimpleTx _ ins outs) ->
           if ins `Set.isSubsetOf` utxo && utxo `Set.disjoint` outs
             then Right $ (utxo Set.\\ ins) `Set.union` outs
-            else Left $ ValidationError "cannot apply transaction"
+            else Left $ (tx, ValidationError "cannot apply transaction")
     , initUtxo = mempty
     }
 

@@ -45,7 +45,7 @@ data Ledger tx = Ledger
     applyTransactions ::
       UtxoType tx ->
       [tx] ->
-      Either ValidationError (UtxoType tx)
+      Either (tx, ValidationError) (UtxoType tx)
   , -- | Generates an initial UTXO set. This is only temporary as it does not
     -- allow to initialize the UTXO.
     --
@@ -56,7 +56,7 @@ data Ledger tx = Ledger
 
 canApply :: Ledger tx -> UtxoType tx -> tx -> ValidationResult
 canApply ledger utxo tx =
-  either Invalid (const Valid) $ applyTransactions ledger utxo (pure tx)
+  either (Invalid . snd) (const Valid) $ applyTransactions ledger utxo (pure tx)
 
 -- | Either valid or an error which we get from the ledger-specs tx validation.
 data ValidationResult
