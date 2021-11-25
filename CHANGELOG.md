@@ -12,6 +12,7 @@ changes.
 #### Added
 - Direct chain integration which allows to connect to a real cardano-node /
   devnet; no on-chain validators though.
+- Support alonzo transactions inside the Hydra Head. For now using a `freeCostModel`.
 
 ### Removed
 - ZeroMQ mock-chain executable, chain component and corresponding `hydra-node` command line options

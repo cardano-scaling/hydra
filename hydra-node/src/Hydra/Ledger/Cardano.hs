@@ -61,6 +61,7 @@ import Formatting.Buildable (build)
 import Hydra.Ledger (IsTx (..), Ledger (..), ValidationError (..))
 import Hydra.Ledger.Cardano.Orphans ()
 import Test.Cardano.Ledger.Alonzo.AlonzoEraGen ()
+import qualified Test.Cardano.Ledger.Alonzo.AlonzoEraGen as Ledger.Alonzo
 import qualified Test.Cardano.Ledger.Shelley.Generator.Constants as Ledger.Generator
 import qualified Test.Cardano.Ledger.Shelley.Generator.Core as Ledger.Generator
 import qualified Test.Cardano.Ledger.Shelley.Generator.EraGen as Ledger.Generator
@@ -593,14 +594,24 @@ ledgerEnv =
           { Ledger.Alonzo._maxTxSize = 1024 * 1024
           , Ledger.Alonzo._maxValSize = 5000
           , Ledger.Alonzo._maxCollateralInputs = 10
-          , Ledger.Alonzo._maxTxExUnits = Ledger.Alonzo.ExUnits 10000000 10000000000
-          , Ledger.Alonzo._maxBlockExUnits = Ledger.Alonzo.ExUnits 50000000 40000000000
+          , Ledger.Alonzo._maxTxExUnits =
+              Ledger.Alonzo.ExUnits
+                { Ledger.Alonzo.exUnitsMem = 10_000_000
+                , Ledger.Alonzo.exUnitsSteps = 10_000_000_000
+                }
+          , Ledger.Alonzo._maxBlockExUnits =
+              Ledger.Alonzo.ExUnits
+                { Ledger.Alonzo.exUnitsMem = 50_000_000
+                , Ledger.Alonzo.exUnitsSteps = 40_000_000_000
+                }
           , Ledger.Alonzo._costmdls =
+              -- XXX(SN): This is a sledgehammer approach: The genTx would hit
+              -- execution budgets with the defaultCostModel. There is a TODO in
+              -- cardano-ledger's AlonzoEraGen.hs about not using freeCostModel
               Map.fromList $
-                catMaybes
-                  [ (lang,) <$> Ledger.Alonzo.defaultCostModel lang
-                  | lang <- [minBound .. maxBound]
-                  ]
+                [ (lang, Ledger.Alonzo.freeCostModel)
+                | lang <- [minBound .. maxBound]
+                ]
           }
     , Ledger.ledgerAccount = error "ledgerEnv: ledgersAccount undefined"
     }
