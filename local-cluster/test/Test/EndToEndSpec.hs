@@ -297,11 +297,12 @@ outputRef txId txIx =
 txToJson :: CardanoTx -> Value
 txToJson tx =
   object
-    [ "id" .= getTxId txBody
+    [ "isValid" .= True
     , "body"
         .= object
           [ "inputs" .= map fst (txIns content)
           , "outputs" .= txOuts content
+          , "collateral" .= Array mempty
           , "auxiliaryDataHash" .= Null
           , "withdrawals" .= (mempty :: [Value])
           , "certificates" .= (mempty :: [Value])
@@ -311,9 +312,10 @@ txToJson tx =
                 [ "notBefore" .= Null
                 , "notAfter" .= Null
                 ]
-          , "mint"
-              .= object
-                ["lovelace" .= int 0]
+          , "requiredSignatures" .= Array mempty
+          , "scriptIntegrityHash" .= Null
+          , "mint" .= object []
+          , "networkId" .= Null
           ]
     , "witnesses"
         .= object
@@ -324,6 +326,7 @@ txToJson tx =
             -- hold no data and thus be compatible to Mary transactions.
             "bootstrap" .= Array mempty
           , "redeemers" .= String "80"
+          , "datums" .= object []
           ]
     , "auxiliaryData" .= Null
     ]

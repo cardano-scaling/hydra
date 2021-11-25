@@ -10,9 +10,8 @@ module Hydra.Ledger.Cardano.Orphans where
 
 import Hydra.Prelude
 
-import Cardano.Api (AlonzoEra, AssetName (AssetName), CtxUTxO, ShelleyBasedEra (ShelleyBasedEraAlonzo), TxIn, TxOut)
-import Cardano.Api.Orphans ()
-import Cardano.Api.Shelley (fromShelleyTxIn, fromShelleyTxOut)
+import Cardano.Api
+import Cardano.Api.Shelley
 import Cardano.Binary (
   Annotator,
   decodeAnnotator,
@@ -60,14 +59,13 @@ import Data.Aeson (
  )
 import Data.Aeson.Types (
   Parser,
-  mapFromJSONKeyFunction,
   toJSONKeyText,
  )
-import qualified Data.ByteString as BS
 import qualified Data.ByteString.Base16 as Base16
-import qualified Data.ByteString.Char8 as B8
-import Data.Maybe.Strict (StrictMaybe (..), maybeToStrictMaybe)
+import Data.Maybe.Strict (StrictMaybe (..))
+import qualified Data.Set as Set
 import qualified Data.Text as Text
+import Ouroboros.Consensus.Shelley.Eras (StandardAlonzo)
 import Test.Cardano.Ledger.Alonzo.Serialisation.Generators ()
 
 --
@@ -94,38 +92,6 @@ decodeAddress t =
 
   decodeBase16 =
     parseJSON (String t)
-
---
--- AssetName
---
-
--- TODO(SN): these Ledger.Mary.AssetName instances are only used when
--- deserializing a Ledger.TxBody
-
--- NOTE: cardano-api uses 'decodeLatin1' to convert encoded base16 asset
--- names; there's no 'encodeLatin1' in Data.Text.Encoding but the doc says:
---
---    decodeLatin1 is semantically equivalent to Data.Text.pack . Data.ByteString.Char8.unpack
---
-encodeLatin1 :: Text -> ByteString
-encodeLatin1 = B8.pack . Text.unpack
-
-instance FromJSON Ledger.Mary.AssetName where
-  parseJSON = withText "AssetName" $ \t ->
-    case Base16.decode $ encodeLatin1 t of
-      Left err -> fail $ show err
-      Right bs -> pure $ Ledger.Mary.AssetName bs
-
-instance FromJSONKey Ledger.Mary.AssetName where
-  fromJSONKey = FromJSONKeyTextParser nameFromText
-   where
-    nameFromText t =
-      case Base16.decode (encodeLatin1 t) of
-        Left e -> fail $ "failed to decode from base16: " <> show e
-        Right bytes -> pure $ Ledger.Mary.AssetName bytes
-
-instance Arbitrary AssetName where
-  arbitrary = AssetName . BS.take 32 <$> arbitrary
 
 --
 -- AuxiliaryData
@@ -195,17 +161,6 @@ instance ToJSON Ledger.Alonzo.IsValid where
 
 instance FromJSON Ledger.Alonzo.IsValid where
   parseJSON = fmap Ledger.Alonzo.IsValid . parseJSON
-
---
--- PolicyID
---
--- NOTE: ToJSON instance defined in Cardano.Api.Orphans
-
-instance Crypto crypto => FromJSON (Ledger.Mary.PolicyID crypto) where
-  parseJSON = fmap Ledger.Mary.PolicyID . parseJSON
-
-instance Crypto crypto => FromJSONKey (Ledger.Mary.PolicyID crypto) where
-  fromJSONKey = mapFromJSONKeyFunction Ledger.Mary.PolicyID fromJSONKey
 
 --
 -- Redeemers
@@ -313,26 +268,18 @@ instance FromJSON (Ledger.Mary.Timelock StandardCrypto) where
 -- TxBody
 --
 
-instance
-  ( Ledger.Alonzo.AlonzoBody era
-  , Show (Core.Value era)
-  , ToJSON (Core.Value era)
-  , ToJSON (Core.AuxiliaryData era)
-  , Era era
-  ) =>
-  ToJSON (Ledger.Alonzo.TxBody era)
-  where
+instance ToJSON (Ledger.Alonzo.TxBody StandardAlonzo) where
   toJSON b =
     object
-      [ "inputs" .= Ledger.Alonzo.inputs' b
-      , "collateral" .= Ledger.Alonzo.collateral' b
-      , "outputs" .= Ledger.Alonzo.outputs' b
+      [ "inputs" .= Set.map fromShelleyTxIn (Ledger.Alonzo.inputs' b)
+      , "collateral" .= Set.map fromShelleyTxIn (Ledger.Alonzo.collateral' b)
+      , "outputs" .= fmap (fromShelleyTxOut ShelleyBasedEraAlonzo) (Ledger.Alonzo.outputs' b)
       , "certificates" .= Ledger.Alonzo.certs' b
       , "withdrawals" .= Ledger.Alonzo.wdrls' b
       , "fees" .= Ledger.Alonzo.txfee' b
       , "validity" .= Ledger.Alonzo.vldt' b
       , "requiredSignatures" .= Ledger.Alonzo.reqSignerHashes' b
-      , "mint" .= Ledger.Alonzo.mint' b
+      , "mint" .= fromMaryValue (Ledger.Alonzo.mint' b)
       , "scriptIntegrityHash" .= Ledger.Alonzo.scriptIntegrityHash' b
       , "auxiliaryDataHash" .= Ledger.Alonzo.adHash' b
       , "networkId" .= Ledger.Alonzo.txnetworkid' b
@@ -342,7 +289,10 @@ instance
   ( Ledger.Alonzo.AlonzoBody era
   , Show (Core.Value era)
   , FromJSON (Core.Value era)
+  , FromJSON (Ledger.Mary.Value (Ledger.Crypto era))
   , FromJSON (Core.AuxiliaryData era)
+  , FromJSON (Ledger.TxIn (Ledger.Crypto era))
+  , FromJSON (Ledger.Alonzo.TxOut era)
   ) =>
   FromJSON (Ledger.Alonzo.TxBody era)
   where
@@ -421,8 +371,8 @@ txIdFromText = fmap Ledger.TxId . safeHashFromText
 -- TxIn
 --
 
-instance Crypto crypto => FromJSON (Ledger.TxIn crypto) where
-  parseJSON = withText "TxIn" txInFromText
+instance FromJSON (Ledger.TxIn StandardCrypto) where
+  parseJSON = fmap toShelleyTxIn . parseJSON
 
 txInFromText :: (Crypto crypto, MonadFail m) => Text -> m (Ledger.TxIn crypto)
 txInFromText t = do
@@ -446,21 +396,9 @@ instance Arbitrary TxIn where
 --
 -- TxOut
 --
--- NOTE: ToJSON defined in Cardano.Api.Orphans
 
-instance
-  ( Era era
-  , Show (Core.Value era)
-  , FromJSON (Core.Value era)
-  , FromJSON (Ledger.Alonzo.DataHash (Ledger.Crypto era))
-  ) =>
-  FromJSON (Ledger.Alonzo.TxOut era)
-  where
-  parseJSON = withObject "TxOut" $ \o ->
-    Ledger.Alonzo.TxOut
-      <$> (o .: "address" >>= decodeAddress)
-      <*> o .: "value"
-      <*> fmap maybeToStrictMaybe (o .:? "datahash")
+instance FromJSON (Ledger.Alonzo.TxOut StandardAlonzo) where
+  parseJSON = fmap (toShelleyTxOut ShelleyBasedEraAlonzo) . parseJSON
 
 instance Arbitrary (TxOut CtxUTxO AlonzoEra) where
   arbitrary = fromShelleyTxOut ShelleyBasedEraAlonzo <$> arbitrary
@@ -558,13 +496,9 @@ instance FromJSON Ledger.Mary.ValidityInterval where
 --
 -- Value
 --
--- NOTE: ToJSON defined in Cardano.Api.Orphans
 
-instance Crypto crypto => FromJSON (Ledger.Mary.Value crypto) where
-  parseJSON = withObject "Value" $ \o ->
-    Ledger.Mary.Value
-      <$> o .: "lovelace"
-      <*> o .:? "policies" .!= mempty
+instance FromJSON (Ledger.Mary.Value StandardCrypto) where
+  parseJSON = fmap toMaryValue . parseJSON
 
 --
 -- Wdrl
