@@ -13,8 +13,9 @@ import Cardano.Crypto.DSIGN (
   SignKeyDSIGN,
   VerKeyDSIGN,
  )
-import Cardano.Crypto.Seed (mkSeedFromBytes)
+import Cardano.Ledger.Shelley.API (VKey (VKey))
 import CardanoCluster (
+  keysFor,
   newNodeConfig,
   signingKeyPathFor,
   verificationKeyPathFor,
@@ -25,63 +26,24 @@ import Control.Lens ((^?))
 import Data.Aeson (Value (Object, String), object, (.=))
 import Data.Aeson.Lens (key)
 import qualified Data.ByteString as BS
-import qualified Data.ByteString.Base16 as Base16
 import qualified Data.Map as Map
 import qualified Data.Set as Set
+import Hydra.Ledger (txId)
 import Hydra.Ledger.Cardano (
-  Address,
-  AsType (AsPaymentKey),
-  BuildTxWith (BuildTxWith),
-  CardanoTx,
+  AddressInEra,
   Era,
-  Key (VerificationKey),
-  KeyWitnessInCtx (KeyWitnessForSpending),
-  MultiAssetSupportedInEra (MultiAssetInAlonzoEra),
   NetworkId (Testnet),
   NetworkMagic (NetworkMagic),
-  PaymentCredential (PaymentCredentialByKey),
   PaymentKey,
-  ShelleyAddr,
-  ShelleyWitnessSigningKey (WitnessPaymentKey),
-  SigningKey,
-  StakeAddressReference (NoStakeAddress),
-  Tx,
-  TxAuxScripts (TxAuxScriptsNone),
-  TxBody (TxBody),
-  TxBodyContent (..),
-  TxCertificates (TxCertificatesNone),
-  TxExtraKeyWitnesses (TxExtraKeyWitnessesNone),
-  TxFee (TxFeeExplicit),
-  TxFeesExplicitInEra (TxFeesExplicitInAlonzoEra),
+  SigningKey (PaymentSigningKey),
   TxId,
   TxIn (..),
-  TxInsCollateral (TxInsCollateralNone),
-  TxMetadataInEra (TxMetadataNone),
-  TxMintValue (TxMintNone),
-  TxOut (TxOut),
-  TxOutDatum (TxOutDatumNone),
-  TxOutValue (TxOutValue),
-  TxScriptValidity (TxScriptValidityNone),
-  TxUpdateProposal (TxUpdateProposalNone),
-  TxValidityLowerBound (TxValidityNoLowerBound),
-  TxValidityUpperBound (TxValidityNoUpperBound),
-  TxWithdrawals (TxWithdrawalsNone),
-  ValidityNoUpperBoundSupportedInEra (ValidityNoUpperBoundInAlonzoEra),
-  Witness (KeyWitness),
-  deterministicSigningKey,
-  deterministicSigningKeySeedSize,
-  getTxBody,
-  getTxId,
-  getTxWitnesses,
-  getVerificationKey,
+  VerificationKey (PaymentVerificationKey),
   lovelaceToValue,
-  makeShelleyAddress,
-  makeTransactionBody,
+  mkSimpleCardanoTx,
+  mkVkAddress,
   serialiseAddress,
-  serialiseToCBOR,
-  shelleyAddressInEra,
-  signShelleyTransaction,
-  verificationKeyHash,
+  utxoPairs,
  )
 import Hydra.Logging (showLogsOnFailure)
 import Hydra.Party (Party, deriveParty)
@@ -98,8 +60,10 @@ import HydraNode (
   waitMatch,
   withHydraNode,
  )
+import Test.DirectChainSpec (generatePaymentToCommit)
 import Text.Regex.TDFA ((=~))
 import Text.Regex.TDFA.Text ()
+import qualified Prelude
 
 allNodeIds :: [Int]
 allNodeIds = [1 .. 3]
@@ -112,7 +76,7 @@ spec = around showLogsOnFailure $
         failAfter 60 $
           withTempDir "end-to-end-inits-and-closes" $ \tmpDir -> do
             config <- newNodeConfig tmpDir
-            withBFTNode (contramap FromCluster tracer) config [] $ \(RunningNode _ nodeSocket) -> do
+            withBFTNode (contramap FromCluster tracer) config [] $ \node@(RunningNode _ nodeSocket) -> do
               let sk = signingKeyPathFor
               let vk = verificationKeyPathFor
               withHydraNode tracer (sk "alice") (vk <$> ["bob", "carol"]) tmpDir nodeSocket 1 aliceSk [bobVk, carolVk] allNodeIds $ \n1 ->
@@ -123,33 +87,33 @@ spec = around showLogsOnFailure $
                     send n1 $ input "Init" ["contestationPeriod" .= contestationPeriod]
                     waitFor tracer 20 [n1, n2, n3] $
                       output "ReadyToCommit" ["parties" .= Set.fromList [alice, bob, carol]]
+                    (aliceCardanoVk, aliceCardanoSk) <- keysFor "alice"
+                    let (alicePaymentVk, alicePaymentSk) = (PaymentVerificationKey $ VKey aliceCardanoVk, PaymentSigningKey aliceCardanoSk)
+                    committedUtxo <- generatePaymentToCommit node aliceCardanoSk aliceCardanoVk amountInTx
 
-                    let someUtxo =
-                          Map.singleton
-                            (TxIn someTxId $ toEnum 0)
-                            $ object
-                              [ "address" .= String (serialiseAddress inHeadAliceAddress)
-                              , "value"
-                                  .= object
-                                    ["lovelace" .= int 14]
-                              ]
-                    send n1 $ input "Commit" ["utxo" .= someUtxo]
+                    send n1 $ input "Commit" ["utxo" .= committedUtxo]
                     send n2 $ input "Commit" ["utxo" .= Object mempty]
                     send n3 $ input "Commit" ["utxo" .= Object mempty]
-                    waitFor tracer 20 [n1, n2, n3] $ output "HeadIsOpen" ["utxo" .= someUtxo]
+                    waitFor tracer 20 [n1, n2, n3] $ output "HeadIsOpen" ["utxo" .= committedUtxo]
 
-                    let tx = txToJson txAlicePaysHerself
+                    -- NOTE(AB): this is partial and will fail if we are not able to generate a payment
+                    let firstCommittedUtxo = Prelude.head $ utxoPairs committedUtxo
+                    let Right tx =
+                          mkSimpleCardanoTx
+                            firstCommittedUtxo
+                            (inHeadAddress alicePaymentVk, lovelaceToValue 14)
+                            alicePaymentSk
                     send n1 $ input "NewTx" ["transaction" .= tx]
 
-                    let newTxId = getTxId (getTxBody txAlicePaysHerself)
+                    let newTxId = txId tx
                         newUtxo =
                           Map.singleton
                             (TxIn newTxId $ toEnum 0)
                             $ object
-                              [ "address" .= String (serialiseAddress inHeadAliceAddress)
+                              [ "address" .= String (serialiseAddress $ inHeadAddress alicePaymentVk)
                               , "value"
                                   .= object
-                                    ["lovelace" .= int 14]
+                                    ["lovelace" .= int amountInTx]
                               ]
 
                     waitFor tracer 20 [n1, n2, n3] $
@@ -209,6 +173,9 @@ spec = around showLogsOnFailure $
 -- Fixtures
 --
 
+amountInTx :: Num a => a
+amountInTx = 1_000_000
+
 aliceSk, bobSk, carolSk :: SignKeyDSIGN MockDSIGN
 aliceSk = 10
 bobSk = 20
@@ -227,58 +194,11 @@ carol = deriveParty carolSk
 someTxId :: IsString s => s
 someTxId = "9fdc525c20bc00d9dfa9d14904b65e01910c0dfe3bb39865523c1e20eaeb0903"
 
--- | Signing key used by alice "in head". This is distinct from the keys used to
--- do multi signatures for the Head protocol.
-inHeadAliceSk :: SigningKey PaymentKey
-inHeadAliceSk =
-  deterministicSigningKey AsPaymentKey $ mkSeedFromBytes $ BS.replicate seedBytes 65
+inHeadAddress :: VerificationKey PaymentKey -> AddressInEra Era
+inHeadAddress =
+  mkVkAddress network
  where
-  seedBytes = fromIntegral $ deterministicSigningKeySeedSize AsPaymentKey
-
-inHeadAliceVk :: VerificationKey PaymentKey
-inHeadAliceVk = getVerificationKey inHeadAliceSk
-
--- | Pay to pubkey address of alice using her "in head" credential.
-inHeadAliceAddress :: Address ShelleyAddr
-inHeadAliceAddress =
-  makeShelleyAddress network credential reference
- where
-  network = Testnet (NetworkMagic 14) -- Magic is ignored in Shelley and Ledger aPI but required in cardano-api
-  credential = PaymentCredentialByKey $ verificationKeyHash inHeadAliceVk
-  reference = NoStakeAddress
-
-txAlicePaysHerself :: Tx Era
-txAlicePaysHerself =
-  signShelleyTransaction body [WitnessPaymentKey inHeadAliceSk]
- where
-  Right body =
-    makeTransactionBody $
-      TxBodyContent
-        { txIns = [(txIn, BuildTxWith txInWitness)]
-        , txInsCollateral = TxInsCollateralNone
-        , txOuts = [txOut]
-        , txFee = TxFeeExplicit TxFeesExplicitInAlonzoEra 0
-        , txValidityRange = (TxValidityNoLowerBound, TxValidityNoUpperBound ValidityNoUpperBoundInAlonzoEra)
-        , txMetadata = TxMetadataNone
-        , txAuxScripts = TxAuxScriptsNone
-        , txExtraKeyWits = TxExtraKeyWitnessesNone
-        , txProtocolParams = BuildTxWith Nothing
-        , txWithdrawals = TxWithdrawalsNone
-        , txCertificates = TxCertificatesNone
-        , txUpdateProposal = TxUpdateProposalNone
-        , txMintValue = TxMintNone
-        , txScriptValidity = TxScriptValidityNone
-        }
-
-  txIn = TxIn someTxId (toEnum 0)
-
-  txInWitness = KeyWitness KeyWitnessForSpending
-
-  txOut =
-    TxOut
-      (shelleyAddressInEra inHeadAliceAddress)
-      (TxOutValue MultiAssetInAlonzoEra (lovelaceToValue 14))
-      TxOutDatumNone
+  network = Testnet (NetworkMagic 14)
 
 --
 -- Helpers
@@ -288,31 +208,8 @@ int :: Int -> Int
 int = id
 
 outputRef :: TxId -> Natural -> Value
-outputRef txId txIx =
+outputRef tid tix =
   object
-    [ "txId" .= txId
-    , "index" .= txIx
+    [ "txId" .= tid
+    , "index" .= tix
     ]
-
-txToJson :: CardanoTx -> Value
-txToJson tx =
-  object
-    [ "id" .= String "e3dfdf9416b940a2930a8663bb08d95bb83b3e5a883f49016c1e77d3b52252e4"
-    , "isValid" .= True
-    , "body"
-        .= object
-          [ "inputs" .= map fst (txIns content)
-          , "outputs" .= txOuts content
-          , "fees" .= int 0
-          ]
-    , "witnesses"
-        .= object
-          [ "keys" .= map (String . decodeUtf8 . Base16.encode . serialiseToCBOR) txWitnesses
-          ]
-    ]
- where
-  txBody = getTxBody tx
-
-  TxBody content = txBody
-
-  txWitnesses = getTxWitnesses tx
