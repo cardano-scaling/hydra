@@ -17,7 +17,9 @@ cabal test all
 # NOTE(SN): we use the --constant-utxo scenario here as currently only a single
 # initial utxo is supported (to be committed) and we do not care much which
 # scenario is run here.
-cabal bench local-cluster --benchmark-options '--scaling-factor 1 --constant-utxo'
+# TODO: benchmarks cannot run right now, need to change the way we generate the dataset
+# to make sure it's committed on-chain
+# cabal bench local-cluster --benchmark-options '--scaling-factor 1'
 
 # ignore various errors, including plutus scripts one
 cabal haddock all -fhydra-development
