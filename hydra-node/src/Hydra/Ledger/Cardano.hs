@@ -502,12 +502,6 @@ genTx utxos = do
   genEnv =
     (Ledger.Generator.genEnv Proxy)
       { Ledger.Generator.geConstants = noPPUpdatesNoScripts
-      , Ledger.Generator.geScriptSpapce =
-          Ledger.Generator.ScriptSpace
-            mempty
-            mempty
-            mempty
-            mempty
       }
    where
     noPPUpdatesNoScripts =
@@ -515,11 +509,6 @@ genTx utxos = do
         { Ledger.Generator.frequencyTxUpdates = 0
         , Ledger.Generator.frequencyTxWithMetadata = 0
         , Ledger.Generator.maxCertsPerTx = 0
-        , Ledger.Generator.numSimpleScripts = 0
-        , Ledger.Generator.numBaseScripts = 0
-        , Ledger.Generator.frequencyScriptCredReg = 0
-        , Ledger.Generator.frequencyScriptCredDeReg = 0
-        , Ledger.Generator.frequencyScriptCredDelegation = 0
         }
 
 genSequenceOfValidTransactions :: Utxo -> Gen [CardanoTx]
