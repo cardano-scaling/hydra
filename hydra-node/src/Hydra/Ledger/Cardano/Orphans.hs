@@ -58,11 +58,13 @@ import Data.Aeson (
   (.=),
  )
 import Data.Aeson.Types (
+  Pair,
   Parser,
   toJSONKeyText,
  )
+import qualified Data.ByteString as BS
 import qualified Data.ByteString.Base16 as Base16
-import Data.Maybe.Strict (StrictMaybe (..))
+import Data.Maybe.Strict (StrictMaybe (..), isSJust)
 import qualified Data.Set as Set
 import qualified Data.Text as Text
 import Ouroboros.Consensus.Shelley.Eras (StandardAlonzo)
@@ -92,6 +94,13 @@ decodeAddress t =
 
   decodeBase16 =
     parseJSON (String t)
+
+--
+-- AssetName
+--
+
+instance Arbitrary AssetName where
+  arbitrary = AssetName . BS.take 32 <$> arbitrary
 
 --
 -- AuxiliaryData
@@ -270,20 +279,21 @@ instance FromJSON (Ledger.Mary.Timelock StandardCrypto) where
 
 instance ToJSON (Ledger.Alonzo.TxBody StandardAlonzo) where
   toJSON b =
-    object
-      [ "inputs" .= Set.map fromShelleyTxIn (Ledger.Alonzo.inputs' b)
-      , "collateral" .= Set.map fromShelleyTxIn (Ledger.Alonzo.collateral' b)
-      , "outputs" .= fmap (fromShelleyTxOut ShelleyBasedEraAlonzo) (Ledger.Alonzo.outputs' b)
-      , "certificates" .= Ledger.Alonzo.certs' b
-      , "withdrawals" .= Ledger.Alonzo.wdrls' b
-      , "fees" .= Ledger.Alonzo.txfee' b
-      , "validity" .= Ledger.Alonzo.vldt' b
-      , "requiredSignatures" .= Ledger.Alonzo.reqSignerHashes' b
-      , "mint" .= fromMaryValue (Ledger.Alonzo.mint' b)
-      , "scriptIntegrityHash" .= Ledger.Alonzo.scriptIntegrityHash' b
-      , "auxiliaryDataHash" .= Ledger.Alonzo.adHash' b
-      , "networkId" .= Ledger.Alonzo.txnetworkid' b
-      ]
+    object $
+      mconcat
+        [ onlyIf (const True) "inputs" (Set.map fromShelleyTxIn (Ledger.Alonzo.inputs' b))
+        , onlyIf (not . null) "collateral" (Set.map fromShelleyTxIn (Ledger.Alonzo.collateral' b))
+        , onlyIf (const True) "outputs" (fromShelleyTxOut ShelleyBasedEraAlonzo <$> Ledger.Alonzo.outputs' b)
+        , onlyIf (not . null) "certificates" (Ledger.Alonzo.certs' b)
+        , onlyIf (not . null . Ledger.unWdrl) "withdrawals" (Ledger.Alonzo.wdrls' b)
+        , onlyIf (const True) "fees" (Ledger.Alonzo.txfee' b)
+        , onlyIf (not . isOpenInterval) "validity" (Ledger.Alonzo.vldt' b)
+        , onlyIf (not . null) "requiredSignatures" (Ledger.Alonzo.reqSignerHashes' b)
+        , onlyIf ((/=) mempty) "mint" (fromMaryValue (Ledger.Alonzo.mint' b))
+        , onlyIf isSJust "scriptIntegrityHash" (Ledger.Alonzo.scriptIntegrityHash' b)
+        , onlyIf isSJust "auxiliaryDataHash" (Ledger.Alonzo.adHash' b)
+        , onlyIf isSJust "networkId" (Ledger.Alonzo.txnetworkid' b)
+        ]
 
 instance
   ( Ledger.Alonzo.AlonzoBody era
@@ -415,13 +425,14 @@ instance
   ToJSON (Ledger.Alonzo.TxWitness era)
   where
   toJSON (Ledger.Alonzo.TxWitness vkeys boots scripts datums redeemers) =
-    object
-      [ "keys" .= vkeys
-      , "bootstrap" .= boots
-      , "scripts" .= scripts
-      , "datums" .= datums
-      , "redeemers" .= redeemers
-      ]
+    object $
+      mconcat
+        [ onlyIf (not . null) "keys" vkeys
+        , onlyIf (not . null) "bootstrap" boots
+        , onlyIf (not . null) "scripts" scripts
+        , onlyIf (not . Ledger.Alonzo.nullDats) "datums" datums
+        , onlyIf (not . Ledger.Alonzo.nullRedeemers) "redeemers" redeemers
+        ]
 
 instance
   ( FromJSON (Core.Script era)
@@ -453,12 +464,13 @@ instance
   ToJSON (Ledger.Alonzo.ValidatedTx era)
   where
   toJSON (Ledger.Alonzo.ValidatedTx body witnesses isValid auxiliaryData) =
-    object
-      [ "body" .= body
-      , "witnesses" .= witnesses
-      , "isValid" .= isValid
-      , "auxiliaryData" .= auxiliaryData
-      ]
+    object $
+      mconcat
+        [ ["body" .= body]
+        , ["witnesses" .= witnesses]
+        , ["isValid" .= isValid]
+        , onlyIf isSJust "auxiliaryData" auxiliaryData
+        ]
 
 instance
   ( FromJSON (Core.TxBody era)
@@ -534,3 +546,16 @@ instance Crypto crypto => FromJSON (Ledger.WitVKey 'Ledger.Witness crypto) where
       case t of
         0 -> fromCBOR
         _ -> fail $ "Invalid tag decoding key witness, only support 1: " <> show t
+
+--
+-- Helpers
+--
+
+onlyIf :: ToJSON a => (a -> Bool) -> Text -> a -> [Pair]
+onlyIf predicate k v =
+  [(k, toJSON v) | predicate v]
+
+isOpenInterval :: Ledger.Mary.ValidityInterval -> Bool
+isOpenInterval = \case
+  Ledger.Mary.ValidityInterval SNothing SNothing -> True
+  _ -> False

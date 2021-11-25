@@ -22,7 +22,7 @@ import CardanoCluster (
  )
 import CardanoNode (RunningNode (RunningNode))
 import Control.Lens ((^?))
-import Data.Aeson (Value (Array, Null, Object, String), object, (.=))
+import Data.Aeson (Value (Object, String), object, (.=))
 import Data.Aeson.Lens (key)
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Base16 as Base16
@@ -302,33 +302,12 @@ txToJson tx =
         .= object
           [ "inputs" .= map fst (txIns content)
           , "outputs" .= txOuts content
-          , "collateral" .= Array mempty
-          , "auxiliaryDataHash" .= Null
-          , "withdrawals" .= (mempty :: [Value])
-          , "certificates" .= (mempty :: [Value])
           , "fees" .= int 0
-          , "validity"
-              .= object
-                [ "notBefore" .= Null
-                , "notAfter" .= Null
-                ]
-          , "requiredSignatures" .= Array mempty
-          , "scriptIntegrityHash" .= Null
-          , "mint" .= object []
-          , "networkId" .= Null
           ]
     , "witnesses"
         .= object
           [ "keys" .= map (String . decodeUtf8 . Base16.encode . serialiseToCBOR) txWitnesses
-          , "scripts" .= object []
-          , -- XXX(SN): This is because Alonzo serialization requires these
-            -- empty arrays. We could instead omit these entries, which actually
-            -- hold no data and thus be compatible to Mary transactions.
-            "bootstrap" .= Array mempty
-          , "redeemers" .= String "80"
-          , "datums" .= object []
           ]
-    , "auxiliaryData" .= Null
     ]
  where
   txBody = getTxBody tx
