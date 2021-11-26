@@ -294,7 +294,9 @@ mkGenesisTx ::
 mkGenesisTx networkId initialAmount signingKey verificationKey amount =
   let input = genesisUTxOPseudoTxIn networkId (_castHash $ verificationKeyHash $ getVerificationKey signingKey)
       txOut = TxOut (mkVkAddress networkId $ getVerificationKey signingKey) (lovelaceToTxOutValue initialAmount) TxOutDatumNone
-   in mkSimpleCardanoTx (input, txOut) undefined undefined undefined
+   in case mkSimpleCardanoTx (input, txOut) (mkVkAddress networkId verificationKey, lovelaceToValue amount) signingKey of
+        Left err -> error $ "Fail to build genesis transaction: " <> show err
+        Right tx -> tx
 
 -- XXX(SN): replace with Cardano.Api.TxBody.lovelaceToTxOutValue when available
 lovelaceToTxOutValue :: Lovelace -> TxOutValue AlonzoEra
