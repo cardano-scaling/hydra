@@ -7,7 +7,6 @@
 {-# OPTIONS_GHC -Wno-missing-methods #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 
--- XXX(SN): We re-export cardano-api's 'UTxO' and our 'Utxo', which is confusing
 module Hydra.Ledger.Cardano (
   module Hydra.Ledger.Cardano,
   module Cardano.Api,
@@ -16,7 +15,7 @@ module Hydra.Ledger.Cardano (
 
 import Hydra.Prelude hiding (id)
 
-import Cardano.Api
+import Cardano.Api hiding (UTxO)
 import Cardano.Api.Byron
 import Cardano.Api.Shelley
 import Cardano.Binary (decodeAnnotator, serialize')
