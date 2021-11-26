@@ -292,7 +292,7 @@ mkGenesisTx ::
   Lovelace ->
   CardanoTx
 mkGenesisTx networkId initialAmount signingKey verificationKey amount =
-  let input = genesisUTxOPseudoTxIn networkId (_castHash $ verificationKeyHash $ getVerificationKey signingKey)
+  let input = genesisUTxOPseudoTxIn networkId (unsafeCastHash $ verificationKeyHash $ getVerificationKey signingKey)
       txOut = TxOut (mkVkAddress networkId $ getVerificationKey signingKey) (lovelaceToTxOutValue initialAmount) TxOutDatumNone
    in case mkSimpleCardanoTx (input, txOut) (mkVkAddress networkId verificationKey, lovelaceToValue amount) signingKey of
         Left err -> error $ "Fail to build genesis transaction: " <> show err
@@ -604,6 +604,19 @@ genOneUtxoFor vk = do
 --
 -- Temporary / Quick-n-dirty
 --
+
+-- NOTE: The constructor for Hash isn't exposed in the cardano-api. Although
+-- there's a 'CastHash' type-class, there are not instances for everything, so
+-- we have to resort to binary serialisation/deserialisation to cast hashes.
+unsafeCastHash ::
+  (SerialiseAsCBOR (Hash a), SerialiseAsCBOR (Hash b), HasCallStack) =>
+  Hash a ->
+  Hash b
+unsafeCastHash a =
+  either
+    (\e -> error $ "unsafeCastHash: incompatible hash: " <> show e)
+    identity
+    (deserialiseFromCBOR (proxyToAsType Proxy) (serialiseToCBOR a))
 
 -- FIXME: Do not hard-code this, make it configurable / inferred from the
 -- genesis configuration.
