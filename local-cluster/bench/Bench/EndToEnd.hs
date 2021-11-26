@@ -95,9 +95,7 @@ bench timeoutSeconds workDir dataset clusterSize =
             let nodes = leader : followers
             waitForNodesConnected tracer [1 .. fromIntegral clusterSize] nodes
 
-            initialUtxos <- forM dataset $ \Dataset{fundingTransaction} -> do
-              submit defaultNetworkId nodeSocket fundingTransaction
-              utxoMin . fromCardanoApiUtxo <$> waitForTransaction defaultNetworkId nodeSocket fundingTransaction
+            initialUtxos <- createUtxoToCommit dataset nodeSocket
 
             let contestationPeriod = 10 :: Natural
             send leader $ input "Init" ["contestationPeriod" .= contestationPeriod]
@@ -127,6 +125,12 @@ bench timeoutSeconds workDir dataset clusterSize =
             putTextLn $ "Average confirmation time: " <> show avgConfirmation
             putTextLn $ "Confirmed below 1 sec: " <> show percentBelow1Sec <> "%"
             percentBelow1Sec `shouldSatisfy` (> 90)
+
+createUtxoToCommit :: [Dataset] -> FilePath -> IO [Utxo]
+createUtxoToCommit dataset nodeSocket =
+  forM dataset $ \Dataset{fundingTransaction} -> do
+    submit defaultNetworkId nodeSocket fundingTransaction
+    utxoMin . fromCardanoApiUtxo <$> waitForTransaction defaultNetworkId nodeSocket fundingTransaction
 
 processTransactions :: [HydraClient] -> [Dataset] -> IO (Map.Map TxId Event)
 processTransactions clients dataset = do
