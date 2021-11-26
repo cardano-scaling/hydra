@@ -37,7 +37,7 @@ import qualified Data.Set as Set
 import Data.Time (nominalDiffTimeToSeconds)
 import Hydra.Generator (Dataset (..))
 import Hydra.Ledger (txId)
-import Hydra.Ledger.Cardano (CardanoTx, TxId, Utxo, genesisTxPaying, mkVkAddress)
+import Hydra.Ledger.Cardano (CardanoTx, TxId, Utxo, getVerificationKey, mkGenesisTx, mkVkAddress)
 import Hydra.Logging (showLogsOnFailure)
 import Hydra.Party (deriveParty, generateKey)
 import HydraNode (
@@ -78,9 +78,9 @@ bench timeoutSeconds workDir dataset clusterSize =
   specify ("Load test on " <> show clusterSize <> " local nodes in " <> workDir) $ do
     showLogsOnFailure $ \tracer ->
       failAfter timeoutSeconds $ do
-        cardanoKeys <- replicateM (fromIntegral clusterSize) generateCardanoKey
+        let cardanoKeys = map (\Dataset{signingKey} -> (getVerificationKey signingKey, signingKey)) dataset
         config <- newNodeConfig workDir
-        withBFTNode (contramap FromCluster tracer) config (fst <$> cardanoKeys) $ \node@(RunningNode _ nodeSocket) -> do
+        withBFTNode (contramap FromCluster tracer) config (fst <$> cardanoKeys) $ \(RunningNode _ nodeSocket) -> do
           withHydraCluster tracer workDir nodeSocket cardanoKeys $ \(leader :| followers) -> do
             let nodes = leader : followers
             waitForNodesConnected tracer [1 .. fromIntegral clusterSize] nodes
@@ -90,17 +90,11 @@ bench timeoutSeconds workDir dataset clusterSize =
             waitFor tracer 3 nodes $
               output "ReadyToCommit" ["parties" .= parties]
 
-            -- TODO: for all cardanoKeys
-            let amount = undefined
-            let aliceCardanoSk = undefined
-                aliceCardanoVk = undefined
-                networkId = undefined
-            utxoToCommit <-
-              genesisTxPaying networkId aliceCardanoSk aliceCardanoVk amount
-                >>= submit networkId nodeSocket tx
-                >>= waitForPayment networkId nodeSocket amount (mkVkAddress networkId aliceCardanoVk)
+            initialUtxos <- forM dataset $ \Dataset{fundingTransaction} ->
+              submit networkId nodeSocket fundingTransaction
+                >>= waitForTransaction networkId nodeSocket fundingTransaction
 
-            expectedUtxo <- commit nodes dataset
+            expectedUtxo <- mconcat <$> forM (zip nodes initialUtxos) (uncurry commit)
 
             waitFor tracer 3 nodes $ output "HeadIsOpen" ["utxo" .= expectedUtxo]
 
@@ -154,16 +148,10 @@ progressReport nodeId clientId queueSize queue = do
 -- Helpers
 --
 
-commit :: [HydraClient] -> [Dataset] -> IO Utxo
-commit clients dataset = do
-  let initialMap = Map.fromList $ map (\node -> (hydraNodeId node, (node, noUtxos))) clients
-      distributeUtxo = zip (initialUtxo <$> dataset) (cycle $ hydraNodeId <$> clients)
-      clientsToUtxo = foldr assignUtxo initialMap distributeUtxo
-
-  forM_ (Map.elems clientsToUtxo) $ \(n, utxo) ->
-    send n $ input "Commit" ["utxo" .= utxo]
-
-  pure $ mconcat $ snd <$> Map.elems clientsToUtxo
+commit :: HydraClient -> Utxo -> IO Utxo
+commit client initialUtxo = do
+  send n $ input "Commit" ["utxo" .= initialUtxo]
+  pure $ initialUtxo
 
 assignUtxo :: (Utxo, Int) -> Map.Map Int (HydraClient, Utxo) -> Map.Map Int (HydraClient, Utxo)
 assignUtxo (utxo, clientId) = Map.adjust appendUtxo clientId

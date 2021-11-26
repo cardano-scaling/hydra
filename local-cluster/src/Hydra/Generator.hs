@@ -13,13 +13,13 @@ import Hydra.Ledger.Cardano (
   CardanoTx,
   Utxo,
   genKeyPair,
-  genOneUtxoFor,
+  mkGenesisTx,
   mkSimpleCardanoTx,
   mkVkAddress,
   utxoFromTx,
   utxoPairs,
  )
-import Test.QuickCheck (elements, generate, sized)
+import Test.QuickCheck (choose, elements, generate, sized)
 
 networkId :: NetworkId
 networkId = Testnet $ NetworkMagic 42
