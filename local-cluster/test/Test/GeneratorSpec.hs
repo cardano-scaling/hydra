@@ -10,10 +10,12 @@ import Data.Text (unpack)
 import Hydra.Generator (Dataset (..), genConstantUtxoDataset, genDataset)
 import Hydra.Ledger (applyTransactions, balance)
 import Hydra.Ledger.Cardano (CardanoTx, Utxo, cardanoLedger, genUtxo)
+import Test.Aeson.GenericSpecs (roundtripSpecs)
 import Test.QuickCheck (Positive (Positive), Property, counterexample, forAll)
 
 spec :: Spec
 spec = parallel $ do
+  roundtripSpecs (Proxy @Dataset)
   prop "compute values from UTXO set" prop_computeValueFromUtxo
   prop "generates a Dataset that keeps UTXO constant" prop_keepsUtxoConstant
   prop "generates a valid Dataset" prop_generateValidDataset

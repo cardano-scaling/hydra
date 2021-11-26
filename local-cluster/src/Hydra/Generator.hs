@@ -20,7 +20,7 @@ import Hydra.Ledger.Cardano (
   utxoFromTx,
   utxoPairs,
  )
-import Test.QuickCheck (elements, generate)
+import Test.QuickCheck (elements, generate, sized)
 
 networkId :: NetworkId
 networkId = Testnet $ NetworkMagic 42
@@ -31,8 +31,18 @@ networkId = Testnet $ NetworkMagic 42
 data Dataset = Dataset
   { initialUtxo :: Utxo
   , transactionsSequence :: [CardanoTx]
+  , signingKey :: SigningKey PaymentKey
   }
-  deriving (Eq, Show, Generic, ToJSON, FromJSON)
+  deriving (Show, Generic)
+
+instance Arbitrary Dataset where
+  arbitrary = sized genDataset
+
+instance ToJSON Dataset where
+  toJSON = undefined
+
+instance FromJSON Dataset where
+  parseJSON = undefined
 
 -- | Generate an arbitrary UTXO set and a sequence of transactions for this set.
 generateDataset :: Int -> IO Dataset

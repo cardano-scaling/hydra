@@ -180,6 +180,7 @@ test-suite integration
     , hedgehog-quickcheck
     , hspec
     , hspec-core
+    , hspec-golden-aeson
     , hydra-node
     , hydra-plutus
     , hydra-prelude
