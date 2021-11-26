@@ -13,7 +13,12 @@ import Cardano.Crypto.DSIGN (
   SignKeyDSIGN,
   VerKeyDSIGN,
  )
-import CardanoClient (generatePaymentToCommit, submit, waitForPayment)
+import CardanoClient (
+  generatePaymentToCommit,
+  submit,
+  waitForPayment,
+  waitForTransaction,
+ )
 import CardanoCluster (defaultNetworkId, newNodeConfig, withBFTNode)
 import CardanoNode (RunningNode (..), generateCardanoKey)
 import Control.Lens (to, (^?))

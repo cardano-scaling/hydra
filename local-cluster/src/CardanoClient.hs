@@ -21,7 +21,14 @@ import qualified Data.Map as Map
 import qualified Data.Set as Set
 import qualified Hydra.Chain.Direct.Util as Cardano
 import qualified Hydra.Chain.Direct.Util as Hydra
-import Hydra.Ledger.Cardano (Utxo, Utxo' (Utxo), VerificationKey (PaymentVerificationKey))
+import Hydra.Ledger.Cardano (
+  CardanoTx,
+  Utxo,
+  Utxo' (Utxo),
+  VerificationKey (PaymentVerificationKey),
+  utxoFromTx,
+  utxoMap,
+ )
 import Ouroboros.Consensus.HardFork.Combinator.AcrossEras (EraMismatch)
 import Ouroboros.Network.Protocol.LocalTxSubmission.Client (SubmitResult (..))
 
@@ -279,6 +286,7 @@ data CardanoClientException
 
 instance Exception CardanoClientException
 
+-- TODO: This should return a 'Utxo' (from Hydra.Ledger.Cardano)
 waitForPayment ::
   NetworkId ->
   FilePath ->
@@ -296,6 +304,21 @@ waitForPayment networkId socket amount addr = go
 
   selectPayment (UTxO utxo) =
     Map.filter ((== amount) . txOutLovelace) utxo
+
+-- TODO: This should return a 'Utxo' (from Hydra.Ledger.Cardano)
+waitForTransaction ::
+  NetworkId ->
+  FilePath ->
+  CardanoTx ->
+  IO (UTxO AlonzoEra)
+waitForTransaction networkId socket tx = go
+ where
+  txIns = Map.keys (utxoMap $ utxoFromTx tx)
+  go = do
+    utxo <- queryUtxoByTxIn networkId socket txIns
+    if null (unUTxO utxo)
+      then go
+      else pure utxo
 
 generatePaymentToCommit ::
   NetworkId ->
