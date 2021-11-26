@@ -256,6 +256,7 @@ coverFee_ ::
 coverFee_ pparams lookupUtxo walletUtxo partialTx@ValidatedTx{body, wits} = do
   (input, output) <- case Map.lookupMax (Map.filter hasEnoughValue walletUtxo) of
     Nothing ->
+      -- TODO(SN): this is misleading as we "just" don't have a Utxo which 'hasEnoughValue'
       Left ErrNoAvailableUtxo
     Just (i, o) ->
       Right (i, o)
@@ -318,13 +319,9 @@ coverFee_ pparams lookupUtxo walletUtxo partialTx@ValidatedTx{body, wits} = do
       Just o -> Right o
 
   mkChange ::
-    -- | Selected UTXO for paying fees
     TxOut ->
-    -- | Resolved transaction inputs
     [TxOut] ->
-    -- | Other transaction outputs
     [TxOut] ->
-    -- | Transaction Fee
     Coin ->
     Either Coin TxOut
   mkChange (TxOut addr _ datum) resolvedInputs otherOutputs fee
