@@ -14,6 +14,7 @@ import Hydra.Ledger.Cardano (
   Utxo,
   genFixedSizeSequenceOfValidTransactions,
   genKeyPair,
+  genOneUtxoFor,
   genUtxoFor,
   mkSimpleCardanoTx,
   mkVkAddress,
@@ -36,7 +37,7 @@ data Dataset = Dataset
   deriving (Show, Generic)
 
 instance Arbitrary Dataset where
-  arbitrary = sized genDataset
+  arbitrary = sized genConstantUtxoDataset
 
 instance ToJSON Dataset where
   toJSON Dataset{initialUtxo, transactionsSequence, signingKey} =
@@ -74,7 +75,7 @@ generateConstantUtxoDataset = generate . genConstantUtxoDataset
 genConstantUtxoDataset :: Int -> Gen Dataset
 genConstantUtxoDataset len = do
   keyPair@(verificationKey, signingKey) <- genKeyPair
-  initialUtxo <- genUtxoFor verificationKey
+  initialUtxo <- genOneUtxoFor verificationKey
   transactionsSequence <- reverse . thrd <$> foldM generateOneTransfer (initialUtxo, keyPair, []) [1 .. len]
   pure Dataset{initialUtxo, transactionsSequence, signingKey}
  where
