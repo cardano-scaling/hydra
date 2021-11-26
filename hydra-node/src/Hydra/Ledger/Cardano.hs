@@ -282,14 +282,23 @@ mkSimpleCardanoTx (txin, TxOut owner txOutValueIn datum) (recipient, valueOut) s
 
 mkGenesisTx ::
   NetworkId ->
+  -- | Amount of initialFunds
+  Lovelace ->
   -- | Owner of the 'initialFund'.
   SigningKey PaymentKey ->
   -- | Recipient of this transaction.
   VerificationKey PaymentKey ->
+  -- |Amount to pay
   Lovelace ->
   CardanoTx
-mkGenesisTx =
-  error "mkGenesisTx"
+mkGenesisTx networkId initialAmount signingKey verificationKey amount =
+  let input = genesisUTxOPseudoTxIn networkId (_castHash $ verificationKeyHash $ getVerificationKey signingKey)
+      txOut = TxOut (mkVkAddress networkId $ getVerificationKey signingKey) (lovelaceToTxOutValue initialAmount) TxOutDatumNone
+   in mkSimpleCardanoTx (input, txOut) undefined undefined undefined
+
+-- XXX(SN): replace with Cardano.Api.TxBody.lovelaceToTxOutValue when available
+lovelaceToTxOutValue :: Lovelace -> TxOutValue AlonzoEra
+lovelaceToTxOutValue lovelace = TxOutValue MultiAssetInAlonzoEra (lovelaceToValue lovelace)
 
 toTxDatum :: TxOutDatum CtxUTxO Era -> TxOutDatum CtxTx Era
 toTxDatum = \case

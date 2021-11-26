@@ -10,6 +10,7 @@ import Cardano.Ledger.Keys (VKey (VKey))
 import CardanoClient (generatePaymentToCommit)
 import CardanoCluster (
   ClusterLog,
+  defaultNetworkId,
   keysFor,
   newNodeConfig,
   withBFTNode,
@@ -104,7 +105,7 @@ spec = around showLogsOnFailure $ do
                 (CannotSpendInput{} :: InvalidTxError CardanoTx) -> True
                 _ -> False
 
-            aliceUtxo <- generatePaymentToCommit node aliceCardanoSk aliceCardanoVk 1_000_000
+            aliceUtxo <- generatePaymentToCommit defaultNetworkId node aliceCardanoSk aliceCardanoVk 1_000_000
             postTx $ CommitTx alice aliceUtxo
             alicesCallback `observesInTime` OnCommitTx alice aliceUtxo
 
@@ -135,7 +136,7 @@ spec = around showLogsOnFailure $ do
             postTx $ InitTx $ HeadParameters 100 [alice]
             alicesCallback `observesInTime` OnInitTx 100 [alice]
 
-            someUtxo <- generatePaymentToCommit node aliceCardanoSk aliceCardanoVk 1_000_000
+            someUtxo <- generatePaymentToCommit defaultNetworkId node aliceCardanoSk aliceCardanoVk 1_000_000
             postTx $ CommitTx alice someUtxo
             alicesCallback `observesInTime` OnCommitTx alice someUtxo
 

@@ -86,10 +86,6 @@ txOutLovelace (TxOut _ val _) =
     TxOutAdaOnly _ l -> l
     TxOutValue _ v -> selectLovelace v
 
--- XXX(SN): replace with Cardano.Api.TxBody.lovelaceToTxOutValue when available
-lovelaceToTxOutValue :: Lovelace -> TxOutValue AlonzoEra
-lovelaceToTxOutValue lovelace = TxOutValue MultiAssetInAlonzoEra (lovelaceToValue lovelace)
-
 -- |Query current protocol parameters.
 --
 -- Throws 'CardanoClientException' if query fails.

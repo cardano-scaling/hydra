@@ -16,6 +16,7 @@ import Cardano.Crypto.DSIGN (
 import Cardano.Ledger.Shelley.API (VKey (VKey))
 import CardanoClient (generatePaymentToCommit)
 import CardanoCluster (
+  defaultNetworkId,
   keysFor,
   newNodeConfig,
   signingKeyPathFor,
@@ -89,7 +90,7 @@ spec = around showLogsOnFailure $
                       output "ReadyToCommit" ["parties" .= Set.fromList [alice, bob, carol]]
                     (aliceCardanoVk, aliceCardanoSk) <- keysFor "alice"
                     let (alicePaymentVk, alicePaymentSk) = (PaymentVerificationKey $ VKey aliceCardanoVk, PaymentSigningKey aliceCardanoSk)
-                    committedUtxo <- generatePaymentToCommit node aliceCardanoSk aliceCardanoVk amountInTx
+                    committedUtxo <- generatePaymentToCommit defaultNetworkId node aliceCardanoSk aliceCardanoVk amountInTx
 
                     send n1 $ input "Commit" ["utxo" .= committedUtxo]
                     send n2 $ input "Commit" ["utxo" .= Object mempty]
