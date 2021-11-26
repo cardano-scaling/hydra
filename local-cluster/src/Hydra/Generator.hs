@@ -10,6 +10,7 @@ import CardanoClient (mkGenesisTx)
 import CardanoCluster (availableInitialFunds)
 import Control.Monad (foldM)
 import Data.Aeson (object, withObject, (.:), (.=))
+import Data.Default (def)
 import Hydra.Ledger (IsTx (..))
 import Hydra.Ledger.Cardano (
   CardanoTx,
@@ -38,9 +39,7 @@ data Dataset = Dataset
   deriving (Show, Generic)
 
 instance Arbitrary Dataset where
-  arbitrary = do
-    pparams <- arbitrary
-    sized (genConstantUtxoDataset pparams)
+  arbitrary = sized (genConstantUtxoDataset $ fromLedgerPParams ShelleyBasedEraAlonzo def)
 
 instance ToJSON Dataset where
   toJSON Dataset{fundingTransaction, transactionsSequence, signingKey} =

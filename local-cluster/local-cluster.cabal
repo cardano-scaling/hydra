@@ -90,6 +90,7 @@ library
     , cardano-slotting
     , containers
     , contra-tracer
+    , data-default
     , directory
     , filepath
     , hspec-expectations
