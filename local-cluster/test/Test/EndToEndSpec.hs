@@ -104,20 +104,28 @@ spec = around showLogsOnFailure $
                             (inHeadAddress alicePaymentVk, lovelaceToValue 14)
                             alicePaymentSk
                     send n1 $ input "NewTx" ["transaction" .= tx]
-
-                    let newTxId = txId tx
-                        newUtxo =
-                          Map.singleton
-                            (TxIn newTxId $ toEnum 0)
-                            $ object
-                              [ "address" .= String (serialiseAddress $ inHeadAddress alicePaymentVk)
-                              , "value"
-                                  .= object
-                                    ["lovelace" .= int amountInTx]
-                              ]
-
                     waitFor tracer 20 [n1, n2, n3] $
                       output "TxSeen" ["transaction" .= tx]
+
+                    -- The expected new utxo set is the just created payment +
+                    -- change outputs, both owned by alice
+                    let newUtxo =
+                          Map.fromList
+                            [
+                              ( TxIn (txId tx) (toEnum 0)
+                              , object
+                                  [ "address" .= String (serialiseAddress $ inHeadAddress alicePaymentVk)
+                                  , "value" .= object ["lovelace" .= int 14]
+                                  ]
+                              )
+                            ,
+                              ( TxIn (txId tx) (toEnum 1)
+                              , object
+                                  [ "address" .= String (serialiseAddress $ inHeadAddress alicePaymentVk)
+                                  , "value" .= object ["lovelace" .= int (amountInTx - 14)]
+                                  ]
+                              )
+                            ]
                     waitFor tracer 20 [n1, n2, n3] $
                       output
                         "SnapshotConfirmed"
