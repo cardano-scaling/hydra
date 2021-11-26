@@ -76,7 +76,7 @@ instance (Arbitrary tx, Arbitrary (UtxoType tx)) => Arbitrary (OnChainTx tx) whe
 -- committed).
 data InvalidTxError tx
   = MoreThanOneUtxoCommitted
-  | CannotSpendInput {input :: TxIn tx}
+  | CannotSpendInput {input :: TxIn tx, walletUtxo :: UtxoType tx, headUtxo :: UtxoType tx}
   deriving (Exception)
 
 deriving instance IsTx tx => Eq (InvalidTxError tx)

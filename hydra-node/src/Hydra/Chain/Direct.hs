@@ -60,7 +60,7 @@ import Hydra.Chain.Direct.Util (
  )
 import qualified Hydra.Chain.Direct.Util as Cardano
 import Hydra.Chain.Direct.Wallet (ErrCoverFee (ErrUnknownInput, input), TinyWallet (..), TinyWalletLog, withTinyWallet)
-import Hydra.Ledger.Cardano (CardanoTx, fromLedgerTxId, utxoPairs)
+import Hydra.Ledger.Cardano (CardanoTx, fromLedgerTxId, fromLedgerUtxo, utxoPairs)
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Party (Party)
 import Hydra.Snapshot (Snapshot (..))
@@ -337,19 +337,29 @@ finalizeTx ::
   TVar m OnChainHeadState ->
   ValidatedTx Era ->
   STM m (ValidatedTx Era)
-finalizeTx TinyWallet{sign, coverFee} headState partialTx = do
-  utxo <- knownUtxo <$> readTVar headState
-  coverFee utxo partialTx >>= \case
-    Left ErrUnknownInput{input = TxIn txId txIx} ->
-      throwSTM $ CannotSpendInput @CardanoTx (fromLedgerTxId txId, txIx)
+finalizeTx TinyWallet{sign, getUtxo, coverFee} headState partialTx = do
+  headUtxo <- knownUtxo <$> readTVar headState
+  walletUtxo <- fromLedgerUtxo . Ledger.UTxO <$> getUtxo
+  coverFee headUtxo partialTx >>= \case
+    Left ErrUnknownInput{input = TxIn txId txIx} -> do
+      throwSTM $
+        ( CannotSpendInput
+            { input = (fromLedgerTxId txId, txIx)
+            , walletUtxo
+            , headUtxo = fromLedgerUtxo $ Ledger.UTxO headUtxo
+            } ::
+            InvalidTxError CardanoTx
+        )
     Left e ->
       error
         ( "failed to cover fee for transaction: "
             <> show e
             <> ", "
             <> show partialTx
-            <> ", using utxo: "
-            <> show utxo
+            <> ", using head utxo: "
+            <> show headUtxo
+            <> ", and wallet utxo: "
+            <> show walletUtxo
         )
     Right validatedTx -> do
       pure $ sign validatedTx
