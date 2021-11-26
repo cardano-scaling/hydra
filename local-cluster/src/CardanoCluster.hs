@@ -52,6 +52,14 @@ import Test.Network.Ports (randomUnusedTCPPort, randomUnusedTCPPorts)
 
 data RunningCluster = RunningCluster ClusterConfig [RunningNode]
 
+-- | TODO: This is hard-coded and must match what's in the genesis file, so
+-- ideally, we want to either:
+--
+-- - overwrite the genesis configuration with the `ClusterConfig`
+-- - pull the network id from the genesis configuration
+defaultNetworkId :: NetworkId
+defaultNetworkId = Testnet (NetworkMagic 42)
+
 -- | Configuration parameters for the cluster.
 data ClusterConfig = ClusterConfig
   { parentStateDirectory :: FilePath
@@ -59,7 +67,7 @@ data ClusterConfig = ClusterConfig
   }
 
 testClusterConfig :: FilePath -> ClusterConfig
-testClusterConfig tmp = ClusterConfig tmp (Testnet $ NetworkMagic 42)
+testClusterConfig tmp = ClusterConfig tmp defaultNetworkId
 
 readFileTextEnvelopeThrow ::
   HasTextEnvelope a =>
@@ -180,7 +188,7 @@ withBFTNode clusterTracer cfg initialFunds action = do
 
   mkInitialFundsEntry :: VerificationKey PaymentKey -> (Text, Word)
   mkInitialFundsEntry vk =
-    let addr = buildAddress vk (Testnet $ NetworkMagic 42)
+    let addr = buildAddress vk defaultNetworkId
         bytes = serialiseToRawBytes addr
      in (encodeBase16 bytes, 10_000_000_000_000)
 

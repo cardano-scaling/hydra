@@ -279,7 +279,12 @@ data CardanoClientException
 
 instance Exception CardanoClientException
 
-waitForPayment :: NetworkId -> FilePath -> Lovelace -> Address ShelleyAddr -> IO (UTxO AlonzoEra)
+waitForPayment ::
+  NetworkId ->
+  FilePath ->
+  Lovelace ->
+  Address ShelleyAddr ->
+  IO (UTxO AlonzoEra)
 waitForPayment networkId socket amount addr = go
  where
   go = do
@@ -293,12 +298,13 @@ waitForPayment networkId socket amount addr = go
     Map.filter ((== amount) . txOutLovelace) utxo
 
 generatePaymentToCommit ::
+  NetworkId ->
   RunningNode ->
   Cardano.SigningKey ->
   Cardano.VerificationKey ->
   Natural ->
   IO Utxo
-generatePaymentToCommit (RunningNode _ nodeSocket) sk vk lovelace = do
+generatePaymentToCommit networkId (RunningNode _ nodeSocket) sk vk lovelace = do
   UTxO availableUtxo <- queryUtxo networkId nodeSocket [spendingAddress]
   let inputs = (,Nothing) <$> Map.keys availableUtxo
   build networkId nodeSocket spendingAddress inputs [] [theOutput] >>= \case
@@ -308,8 +314,6 @@ generatePaymentToCommit (RunningNode _ nodeSocket) sk vk lovelace = do
       submit networkId nodeSocket tx
       convertUtxo <$> waitForPayment networkId nodeSocket amountLovelace receivingAddress
  where
-  networkId = Testnet $ NetworkMagic 42
-
   spendingSigningKey = PaymentSigningKey sk
 
   receivingVerificationKey = PaymentVerificationKey $ VKey vk

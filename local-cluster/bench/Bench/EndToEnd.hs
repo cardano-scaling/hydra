@@ -14,7 +14,7 @@ import Cardano.Crypto.DSIGN (
   VerKeyDSIGN,
  )
 import CardanoClient (generatePaymentToCommit, submit, waitForPayment)
-import CardanoCluster (newNodeConfig, withBFTNode)
+import CardanoCluster (defaultNetworkId, newNodeConfig, withBFTNode)
 import CardanoNode (RunningNode (..), generateCardanoKey)
 import Control.Lens (to, (^?))
 import Control.Monad.Class.MonadAsync (mapConcurrently)
@@ -91,8 +91,8 @@ bench timeoutSeconds workDir dataset clusterSize =
               output "ReadyToCommit" ["parties" .= parties]
 
             initialUtxos <- forM dataset $ \Dataset{fundingTransaction} ->
-              submit networkId nodeSocket fundingTransaction
-                >>= waitForTransaction networkId nodeSocket fundingTransaction
+              submit defaultNetworkId nodeSocket fundingTransaction
+                >>= waitForTransaction defaultNetworkId nodeSocket fundingTransaction
 
             expectedUtxo <- mconcat <$> forM (zip nodes initialUtxos) (uncurry commit)
 
