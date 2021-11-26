@@ -7,14 +7,14 @@ import Hydra.Prelude hiding (size)
 
 import Cardano.Api
 import Control.Monad (foldM)
+import Data.Aeson (object, withObject, (.:), (.=))
 import Hydra.Ledger (IsTx (..))
 import Hydra.Ledger.Cardano (
   CardanoTx,
   Utxo,
   genFixedSizeSequenceOfValidTransactions,
   genKeyPair,
-  genOneUtxoFor,
-  genUtxo,
+  genUtxoFor,
   mkSimpleCardanoTx,
   mkVkAddress,
   utxoFromTx,
@@ -39,10 +39,22 @@ instance Arbitrary Dataset where
   arbitrary = sized genDataset
 
 instance ToJSON Dataset where
-  toJSON = undefined
+  toJSON Dataset{initialUtxo, transactionsSequence, signingKey} =
+    object
+      [ "initialUtxo" .= initialUtxo
+      , "transactionsSequence" .= transactionsSequence
+      , "signingKey" .= serialiseToBech32 signingKey
+      ]
 
 instance FromJSON Dataset where
-  parseJSON = undefined
+  parseJSON =
+    withObject "Dataset" $ \o ->
+      Dataset <$> o .: "initialUtxo"
+        <*> o .: "transactionsSequence"
+        <*> (decodeSigningKey =<< o .: "signingKey")
+   where
+    decodeSigningKey =
+      either (fail . show) pure . deserialiseFromBech32 (AsSigningKey AsPaymentKey)
 
 -- | Generate an arbitrary UTXO set and a sequence of transactions for this set.
 generateDataset :: Int -> IO Dataset
@@ -50,9 +62,10 @@ generateDataset = generate . genDataset
 
 genDataset :: Int -> Gen Dataset
 genDataset sequenceLength = do
-  initialUtxo <- genUtxo
+  (verificationKey, signingKey) <- genKeyPair
+  initialUtxo <- genUtxoFor verificationKey
   transactionsSequence <- genFixedSizeSequenceOfValidTransactions sequenceLength initialUtxo
-  pure Dataset{initialUtxo, transactionsSequence}
+  pure Dataset{initialUtxo, transactionsSequence, signingKey}
 
 -- | Generate a 'Dataset' which does not grow the UTXO set over time.
 generateConstantUtxoDataset :: Int -> IO Dataset
@@ -60,10 +73,10 @@ generateConstantUtxoDataset = generate . genConstantUtxoDataset
 
 genConstantUtxoDataset :: Int -> Gen Dataset
 genConstantUtxoDataset len = do
-  keyPair <- genKeyPair
-  initialUtxo <- genOneUtxoFor (fst keyPair)
+  keyPair@(verificationKey, signingKey) <- genKeyPair
+  initialUtxo <- genUtxoFor verificationKey
   transactionsSequence <- reverse . thrd <$> foldM generateOneTransfer (initialUtxo, keyPair, []) [1 .. len]
-  pure $ Dataset{initialUtxo, transactionsSequence}
+  pure Dataset{initialUtxo, transactionsSequence, signingKey}
  where
   thrd (_, _, c) = c
 
