@@ -38,7 +38,6 @@ import Test.QuickCheck (generate, getSize, scale)
 data Options = Options
   { outputDirectory :: Maybe FilePath
   , scalingFactor :: Int
-  , concurrency :: Int
   , timeoutSeconds :: DiffTime
   , clusterSize :: Word64
   }
@@ -64,16 +63,6 @@ benchOptionsParser =
             <> value 100
             <> metavar "INT"
             <> help "The scaling factor to apply to transactions generator (default: 100)"
-        )
-      <*> option
-        auto
-        ( long "concurrency"
-            <> value 1
-            <> metavar "INT"
-            <> help
-              "The concurrency level in the generated dataset. This number is used to \
-              \ define how many independent UTXO set and transaction sequences will be \
-              \ generated and concurrently submitted to the nodes (default: 1)"
         )
       <*> option
         auto
@@ -103,7 +92,7 @@ benchOptions =
           \ of valid transactions, and send those transactions to the cluster as \
           \ fast as possible.\n \
           \ Arguments can control various parameters of the run, like number of nodes, \
-          \ number of clients or type of transactions generated..."
+          \ and number of transactions generated"
         <> header "bench - load tester for Hydra node cluster"
     )
 
@@ -118,14 +107,14 @@ main =
     o ->
       createSystemTempDirectory "bench" >>= play o
  where
-  play Options{scalingFactor, concurrency, timeoutSeconds, clusterSize} benchDir = do
+  play Options{scalingFactor, timeoutSeconds, clusterSize} benchDir = do
     numberOfTxs <- generate $ scale (* scalingFactor) getSize
     pparams <-
       eitherDecodeFileStrict' ("config" </> "genesis-shelley.json") >>= \case
         Left err -> fail $ show err
         Right shelleyGenesis ->
           pure $ fromLedgerPParams ShelleyBasedEraShelley (sgProtocolParams shelleyGenesis)
-    dataset <- replicateM concurrency (generateConstantUtxoDataset pparams numberOfTxs)
+    dataset <- replicateM (fromIntegral clusterSize) (generateConstantUtxoDataset pparams numberOfTxs)
     saveDataset benchDir dataset
     run timeoutSeconds benchDir dataset clusterSize
 
