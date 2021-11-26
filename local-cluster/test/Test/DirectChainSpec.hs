@@ -6,9 +6,8 @@ module Test.DirectChainSpec where
 import Hydra.Prelude
 import Test.Hydra.Prelude
 
-import Cardano.Api (UTxO (UTxO))
 import Cardano.Ledger.Keys (VKey (VKey))
-import CardanoClient (build, buildAddress, lovelaceToTxOutValue, queryUtxo, sign, submit, waitForPayment)
+import CardanoClient (generatePaymentToCommit)
 import CardanoCluster (
   ClusterLog,
   keysFor,
@@ -17,7 +16,6 @@ import CardanoCluster (
  )
 import CardanoNode (NodeLog, RunningNode (..))
 import Control.Concurrent (MVar, newEmptyMVar, putMVar, takeMVar)
-import qualified Data.Map as Map
 import Hydra.Chain (
   Chain (..),
   HeadParameters (..),
@@ -31,21 +29,11 @@ import Hydra.Chain.Direct (
   withDirectChain,
   withIOManager,
  )
-import qualified Hydra.Chain.Direct.Util as Cardano
 import Hydra.Ledger (IsTx)
 import Hydra.Ledger.Cardano (
   CardanoTx,
-  Lovelace (Lovelace),
-  NetworkId (Testnet),
-  SigningKey (PaymentSigningKey),
-  TxOut (TxOut),
-  TxOutDatum (TxOutDatumNone),
-  Utxo,
-  Utxo' (Utxo),
   VerificationKey (PaymentVerificationKey),
   genOneUtxoFor,
-  getVerificationKey,
-  shelleyAddressInEra,
  )
 import Hydra.Logging (nullTracer, showLogsOnFailure)
 import Hydra.Party (Party, deriveParty, generateKey)
@@ -174,42 +162,6 @@ spec = around showLogsOnFailure $ do
                 { utxo = someOtherUtxo
                 }
             alicesCallback `observesInTime` OnFanoutTx
-
-generatePaymentToCommit ::
-  RunningNode ->
-  Cardano.SigningKey ->
-  Cardano.VerificationKey ->
-  Natural ->
-  IO Utxo
-generatePaymentToCommit (RunningNode _ nodeSocket) sk vk lovelace = do
-  UTxO availableUtxo <- queryUtxo networkId nodeSocket [spendingAddress]
-  let inputs = (,Nothing) <$> Map.keys availableUtxo
-  build networkId nodeSocket spendingAddress inputs [] [theOutput] >>= \case
-    Left e -> error (show e)
-    Right body -> do
-      let tx = sign sk body
-      submit networkId nodeSocket tx
-      convertUtxo <$> waitForPayment networkId nodeSocket amountLovelace receivingAddress
- where
-  networkId = Testnet magic
-
-  spendingSigningKey = PaymentSigningKey sk
-
-  receivingVerificationKey = PaymentVerificationKey $ VKey vk
-
-  spendingAddress = buildAddress (getVerificationKey spendingSigningKey) networkId
-
-  receivingAddress = buildAddress receivingVerificationKey networkId
-
-  theOutput =
-    TxOut
-      (shelleyAddressInEra receivingAddress)
-      (lovelaceToTxOutValue amountLovelace)
-      TxOutDatumNone
-
-  amountLovelace = Lovelace $ fromIntegral lovelace
-
-  convertUtxo (UTxO ledgerUtxo) = Utxo ledgerUtxo
 
 magic :: NetworkMagic
 magic = NetworkMagic 42

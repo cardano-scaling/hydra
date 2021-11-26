@@ -14,10 +14,14 @@ import Cardano.Api.Shelley (
   PoolId,
   ProtocolParameters (protocolParamTxFeeFixed, protocolParamTxFeePerByte),
  )
+import Cardano.Ledger.Keys (VKey (VKey))
 import Cardano.Slotting.Time (SystemStart)
+import CardanoNode (RunningNode (RunningNode))
 import qualified Data.Map as Map
 import qualified Data.Set as Set
+import qualified Hydra.Chain.Direct.Util as Cardano
 import qualified Hydra.Chain.Direct.Util as Hydra
+import Hydra.Ledger.Cardano (Utxo, Utxo' (Utxo), VerificationKey (PaymentVerificationKey))
 import Ouroboros.Consensus.HardFork.Combinator.AcrossEras (EraMismatch)
 import Ouroboros.Network.Protocol.LocalTxSubmission.Client (SubmitResult (..))
 
@@ -287,3 +291,39 @@ waitForPayment networkId socket amount addr = go
 
   selectPayment (UTxO utxo) =
     Map.filter ((== amount) . txOutLovelace) utxo
+
+generatePaymentToCommit ::
+  RunningNode ->
+  Cardano.SigningKey ->
+  Cardano.VerificationKey ->
+  Natural ->
+  IO Utxo
+generatePaymentToCommit (RunningNode _ nodeSocket) sk vk lovelace = do
+  UTxO availableUtxo <- queryUtxo networkId nodeSocket [spendingAddress]
+  let inputs = (,Nothing) <$> Map.keys availableUtxo
+  build networkId nodeSocket spendingAddress inputs [] [theOutput] >>= \case
+    Left e -> error (show e)
+    Right body -> do
+      let tx = sign sk body
+      submit networkId nodeSocket tx
+      convertUtxo <$> waitForPayment networkId nodeSocket amountLovelace receivingAddress
+ where
+  networkId = Testnet $ NetworkMagic 42
+
+  spendingSigningKey = PaymentSigningKey sk
+
+  receivingVerificationKey = PaymentVerificationKey $ VKey vk
+
+  spendingAddress = buildAddress (getVerificationKey spendingSigningKey) networkId
+
+  receivingAddress = buildAddress receivingVerificationKey networkId
+
+  theOutput =
+    TxOut
+      (shelleyAddressInEra receivingAddress)
+      (lovelaceToTxOutValue amountLovelace)
+      TxOutDatumNone
+
+  amountLovelace = Lovelace $ fromIntegral lovelace
+
+  convertUtxo (UTxO ledgerUtxo) = Utxo ledgerUtxo

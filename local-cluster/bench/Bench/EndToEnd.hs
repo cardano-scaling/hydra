@@ -13,6 +13,7 @@ import Cardano.Crypto.DSIGN (
   SignKeyDSIGN,
   VerKeyDSIGN,
  )
+import CardanoClient (generatePaymentToCommit, submit, waitForPayment)
 import CardanoCluster (newNodeConfig, withBFTNode)
 import CardanoNode (RunningNode (..), generateCardanoKey)
 import Control.Lens (to, (^?))
@@ -36,7 +37,7 @@ import qualified Data.Set as Set
 import Data.Time (nominalDiffTimeToSeconds)
 import Hydra.Generator (Dataset (..))
 import Hydra.Ledger (txId)
-import Hydra.Ledger.Cardano (CardanoTx, TxId, Utxo)
+import Hydra.Ledger.Cardano (CardanoTx, TxId, Utxo, genesisTxPaying, mkVkAddress)
 import Hydra.Logging (showLogsOnFailure)
 import Hydra.Party (deriveParty, generateKey)
 import HydraNode (
@@ -79,7 +80,7 @@ bench timeoutSeconds workDir dataset clusterSize =
       failAfter timeoutSeconds $ do
         cardanoKeys <- replicateM (fromIntegral clusterSize) generateCardanoKey
         config <- newNodeConfig workDir
-        withBFTNode (contramap FromCluster tracer) config (fst <$> cardanoKeys) $ \(RunningNode _ nodeSocket) -> do
+        withBFTNode (contramap FromCluster tracer) config (fst <$> cardanoKeys) $ \node@(RunningNode _ nodeSocket) -> do
           withHydraCluster tracer workDir nodeSocket cardanoKeys $ \(leader :| followers) -> do
             let nodes = leader : followers
             waitForNodesConnected tracer [1 .. fromIntegral clusterSize] nodes
@@ -88,6 +89,16 @@ bench timeoutSeconds workDir dataset clusterSize =
             let parties = Set.fromList $ map (deriveParty . generateKey) [1 .. fromIntegral clusterSize]
             waitFor tracer 3 nodes $
               output "ReadyToCommit" ["parties" .= parties]
+
+            -- TODO: for all cardanoKeys
+            let amount = undefined
+            let aliceCardanoSk = undefined
+                aliceCardanoVk = undefined
+                networkId = undefined
+            utxoToCommit <-
+              genesisTxPaying networkId aliceCardanoSk aliceCardanoVk amount
+                >>= submit networkId nodeSocket tx
+                >>= waitForPayment networkId nodeSocket amount (mkVkAddress networkId aliceCardanoVk)
 
             expectedUtxo <- commit nodes dataset
 

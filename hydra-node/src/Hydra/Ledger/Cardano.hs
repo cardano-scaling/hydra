@@ -640,3 +640,13 @@ globals =
  where
   unsafeBoundRational r =
     fromMaybe (error $ "Could not convert from Rational: " <> show r) $ Ledger.boundRational r
+
+genesisTxPaying ::
+  NetworkId ->
+  -- | Owner of the 'initialFund'.
+  SigningKey PaymentKey ->
+  -- | Recipient of this transaction.
+  VerificationKey PaymentKey ->
+  Lovelace ->
+  CardanoTx
+genesisTxPaying = undefined

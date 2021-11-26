@@ -14,6 +14,7 @@ import Cardano.Crypto.DSIGN (
   VerKeyDSIGN,
  )
 import Cardano.Ledger.Shelley.API (VKey (VKey))
+import CardanoClient (generatePaymentToCommit)
 import CardanoCluster (
   keysFor,
   newNodeConfig,
@@ -60,7 +61,6 @@ import HydraNode (
   waitMatch,
   withHydraNode,
  )
-import Test.DirectChainSpec (generatePaymentToCommit)
 import Text.Regex.TDFA ((=~))
 import Text.Regex.TDFA.Text ()
 import qualified Prelude
