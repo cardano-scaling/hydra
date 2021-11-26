@@ -343,7 +343,7 @@ finalizeTx TinyWallet{sign, getUtxo, coverFee} headState partialTx = do
   walletUtxo <- fromLedgerUtxo . Ledger.UTxO <$> getUtxo
   coverFee headUtxo partialTx >>= \case
     Left ErrUnknownInput{input = TxIn txId txIx} -> do
-      throwSTM $
+      throwSTM
         ( CannotSpendInput
             { input = (fromLedgerTxId txId, txIx)
             , walletUtxo

@@ -187,7 +187,7 @@ withBFTNode clusterTracer cfg initialFunds action = do
   updateInitialFunds :: Aeson.Value -> Aeson.Value
   updateInitialFunds zero =
     foldr
-      (\(k, v) -> addField k v)
+      (uncurry addField)
       zero
       (mkInitialFundsEntry <$> initialFunds)
 

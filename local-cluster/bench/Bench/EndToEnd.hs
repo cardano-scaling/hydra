@@ -162,7 +162,7 @@ progressReport nodeId clientId queueSize queue = do
 commit :: HydraClient -> Utxo -> IO Utxo
 commit client initialUtxo = do
   send client $ input "Commit" ["utxo" .= initialUtxo]
-  pure $ initialUtxo
+  pure initialUtxo
 
 assignUtxo :: (Utxo, Int) -> Map.Map Int (HydraClient, Utxo) -> Map.Map Int (HydraClient, Utxo)
 assignUtxo (utxo, clientId) = Map.adjust appendUtxo clientId

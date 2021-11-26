@@ -107,7 +107,7 @@ genConstantUtxoDataset pparams len = do
           Right tx ->
             pure (utxoFromTx tx, recipient, tx : txs)
       _ ->
-        error $ "Couldn't generate transaction sequence: need exactly one UTXO."
+        error "Couldn't generate transaction sequence: need exactly one UTXO."
 
 mkCredentials :: Int -> (VerificationKey PaymentKey, SigningKey PaymentKey)
 mkCredentials = generateWith genKeyPair
