@@ -27,7 +27,6 @@ import Hydra.Ledger.Cardano (
   Utxo' (Utxo),
   VerificationKey (PaymentVerificationKey),
   lovelaceToTxOutValue,
-  mkSimpleCardanoTx,
   mkVkAddress,
   unsafeCastHash,
   utxoFromTx,
@@ -151,8 +150,8 @@ queryEraHistory networkId socket =
     Right result -> pure result
 
 -- | Build a "raw" transaction from a bunch of inputs, outputs and fees.
-buildRaw :: [TxIn] -> [TxOut CtxTx AlonzoEra] -> SlotNo -> Lovelace -> Either TxBodyError (TxBody AlonzoEra)
-buildRaw txIns txOuts invalidAfter fee =
+buildRaw :: [TxIn] -> [TxOut CtxTx AlonzoEra] -> Lovelace -> Either TxBodyError (TxBody AlonzoEra)
+buildRaw txIns txOuts fee =
   makeTransactionBody txBodyContent
  where
   txBodyContent =
@@ -161,7 +160,7 @@ buildRaw txIns txOuts invalidAfter fee =
       TxInsCollateralNone
       txOuts
       (TxFeeExplicit TxFeesExplicitInAlonzoEra fee)
-      (TxValidityNoLowerBound, TxValidityUpperBound ValidityUpperBoundInAlonzoEra invalidAfter)
+      (TxValidityNoLowerBound, TxValidityNoUpperBound ValidityNoUpperBoundInAlonzoEra)
       TxMetadataNone
       TxAuxScriptsNone
       TxExtraKeyWitnessesNone
@@ -322,6 +321,7 @@ waitForTransaction networkId socket tx = go
 
 mkGenesisTx ::
   NetworkId ->
+  ProtocolParameters ->
   -- | Amount of initialFunds
   Lovelace ->
   -- | Owner of the 'initialFund'.
@@ -331,13 +331,33 @@ mkGenesisTx ::
   -- |Amount to pay
   Lovelace ->
   CardanoTx
-mkGenesisTx networkId initialAmount signingKey verificationKey amount =
-  let initialInput = genesisUTxOPseudoTxIn networkId (unsafeCastHash $ verificationKeyHash $ getVerificationKey signingKey)
-      initialOutput = TxOut (mkVkAddress networkId $ getVerificationKey signingKey) (lovelaceToTxOutValue initialAmount) TxOutDatumNone
-      recipient = (mkVkAddress networkId verificationKey, lovelaceToValue amount)
-   in case mkSimpleCardanoTx (initialInput, initialOutput) recipient signingKey of
-        Left err -> error $ "Fail to build genesis transaction: " <> show err
+mkGenesisTx networkId pparams initialAmount signingKey@(PaymentSigningKey sk) verificationKey amount =
+  let initialInput =
+        genesisUTxOPseudoTxIn
+          networkId
+          (unsafeCastHash $ verificationKeyHash $ getVerificationKey signingKey)
+
+      rawTx = case buildRaw [initialInput] [] 0 of
+        Left err -> error $ "Fail to build genesis transactions: " <> show err
         Right tx -> tx
+      fee = calculateMinFee networkId rawTx Sizes{inputs = 1, outputs = 2, witnesses = 1} pparams
+
+      changeAddr = mkVkAddress networkId (getVerificationKey signingKey)
+      changeOutput =
+        TxOut
+          changeAddr
+          (lovelaceToTxOutValue $ initialAmount - amount - fee)
+          TxOutDatumNone
+
+      recipientAddr = mkVkAddress networkId verificationKey
+      recipientOutput =
+        TxOut
+          recipientAddr
+          (lovelaceToTxOutValue amount)
+          TxOutDatumNone
+   in case buildRaw [initialInput] [recipientOutput, changeOutput] fee of
+        Left err -> error $ "Fail to build genesis transations: " <> show err
+        Right tx -> sign sk tx
 
 generatePaymentToCommit ::
   NetworkId ->

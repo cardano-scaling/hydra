@@ -84,7 +84,7 @@ assertCanSpendInitialFunds = \case
         amountToPay = 100_000_001
         paymentOutput = TxOut (shelleyAddressInEra addr) (TxOutValue MultiAssetInAlonzoEra (lovelaceToValue amountToPay)) TxOutDatumNone
         signedTx = do
-          rawTx <- buildRaw [txIn] [] 0 0
+          rawTx <- buildRaw [txIn] [] 0
           let fee = calculateMinFee networkId rawTx defaultSizes{inputs = 1, outputs = 2, witnesses = 1} pparams
               changeOutput = TxOut (shelleyAddressInEra addr) (TxOutValue MultiAssetInAlonzoEra (lovelaceToValue $ initialAmount - amountToPay - fee)) TxOutDatumNone
           draftTx <- buildRaw [txIn] [paymentOutput, changeOutput] (slotNo + 100) fee

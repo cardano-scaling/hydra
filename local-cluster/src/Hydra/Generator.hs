@@ -13,6 +13,7 @@ import Data.Aeson (object, withObject, (.:), (.=))
 import Hydra.Ledger (IsTx (..))
 import Hydra.Ledger.Cardano (
   CardanoTx,
+  ProtocolParameters,
   Utxo,
   genKeyPair,
   mkSimpleCardanoTx,
@@ -37,7 +38,9 @@ data Dataset = Dataset
   deriving (Show, Generic)
 
 instance Arbitrary Dataset where
-  arbitrary = sized genConstantUtxoDataset
+  arbitrary = do
+    pparams <- arbitrary
+    sized (genConstantUtxoDataset pparams)
 
 instance ToJSON Dataset where
   toJSON Dataset{fundingTransaction, transactionsSequence, signingKey} =
@@ -60,16 +63,17 @@ instance FromJSON Dataset where
 -- | Generate a 'Dataset' which does not grow the UTXO set over time.
 -- The sequence of transactions generated consist only of simple payments from and to
 -- arbitrary keys controlled by the "client".
-generateConstantUtxoDataset :: Int -> IO Dataset
-generateConstantUtxoDataset = generate . genConstantUtxoDataset
+generateConstantUtxoDataset :: ProtocolParameters -> Int -> IO Dataset
+generateConstantUtxoDataset pparams = generate . genConstantUtxoDataset pparams
 
-genConstantUtxoDataset :: Int -> Gen Dataset
-genConstantUtxoDataset len = do
+genConstantUtxoDataset :: ProtocolParameters -> Int -> Gen Dataset
+genConstantUtxoDataset pparams len = do
   keyPair@(verificationKey, signingKey) <- genKeyPair
   amount <- choose (1, availableInitialFunds `div` 2)
   let fundingTransaction =
         mkGenesisTx
           networkId
+          pparams
           (Lovelace availableInitialFunds)
           signingKey
           verificationKey
