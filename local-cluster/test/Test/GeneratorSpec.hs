@@ -7,7 +7,7 @@ import Test.Hydra.Prelude
 
 import Data.Aeson (encode)
 import Data.Text (unpack)
-import Hydra.Generator (Dataset (..), genConstantUtxoDataset, genDataset)
+import Hydra.Generator (Dataset (..), genConstantUtxoDataset)
 import Hydra.Ledger (applyTransactions, balance)
 import Hydra.Ledger.Cardano (CardanoTx, Utxo, cardanoLedger, genUtxo)
 import Test.Aeson.GenericSpecs (roundtripSpecs)
@@ -18,7 +18,6 @@ spec = parallel $ do
   roundtripSpecs (Proxy @Dataset)
   prop "compute values from UTXO set" prop_computeValueFromUtxo
   prop "generates a Dataset that keeps UTXO constant" prop_keepsUtxoConstant
-  prop "generates a valid Dataset" prop_generateValidDataset
 
 prop_computeValueFromUtxo :: Property
 prop_computeValueFromUtxo =
@@ -33,13 +32,6 @@ prop_keepsUtxoConstant =
        in length finalUtxo == length initialUtxo
             & counterexample ("\ntransactions: " <> jsonString transactionsSequence)
             & counterexample ("\nutxo: " <> jsonString initialUtxo)
-
-prop_generateValidDataset :: Property
-prop_generateValidDataset =
-  forAll arbitrary $ \(Positive n) ->
-    forAll (genDataset n) $ \Dataset{initialUtxo, transactionsSequence} ->
-      let finalUtxo = foldl' apply initialUtxo transactionsSequence
-       in not $ null finalUtxo
 
 apply :: Utxo -> CardanoTx -> Utxo
 apply utxo tx =

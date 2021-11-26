@@ -12,10 +12,8 @@ import Hydra.Ledger (IsTx (..))
 import Hydra.Ledger.Cardano (
   CardanoTx,
   Utxo,
-  genFixedSizeSequenceOfValidTransactions,
   genKeyPair,
   genOneUtxoFor,
-  genUtxoFor,
   mkSimpleCardanoTx,
   mkVkAddress,
   utxoFromTx,
@@ -56,17 +54,6 @@ instance FromJSON Dataset where
    where
     decodeSigningKey =
       either (fail . show) pure . deserialiseFromBech32 (AsSigningKey AsPaymentKey)
-
--- | Generate an arbitrary UTXO set and a sequence of transactions for this set.
-generateDataset :: Int -> IO Dataset
-generateDataset = generate . genDataset
-
-genDataset :: Int -> Gen Dataset
-genDataset sequenceLength = do
-  (verificationKey, signingKey) <- genKeyPair
-  initialUtxo <- genUtxoFor verificationKey
-  transactionsSequence <- genFixedSizeSequenceOfValidTransactions sequenceLength initialUtxo
-  pure Dataset{initialUtxo, transactionsSequence, signingKey}
 
 -- | Generate a 'Dataset' which does not grow the UTXO set over time.
 generateConstantUtxoDataset :: Int -> IO Dataset

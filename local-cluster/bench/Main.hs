@@ -5,13 +5,12 @@ import Test.Hydra.Prelude
 
 import Bench.EndToEnd (bench)
 import Data.Aeson (eitherDecodeFileStrict', encodeFile)
-import Hydra.Generator (generateConstantUtxoDataset, generateDataset)
+import Hydra.Generator (generateConstantUtxoDataset)
 import Options.Applicative (
   Parser,
   ParserInfo,
   auto,
   execParser,
-  flag,
   fullDesc,
   header,
   help,
@@ -35,10 +34,7 @@ data Options = Options
   , concurrency :: Int
   , timeoutSeconds :: DiffTime
   , clusterSize :: Word64
-  , generatorScenario :: GeneratorScenario
   }
-
-data GeneratorScenario = GrowingUtxo | ConstantUtxo
 
 benchOptionsParser :: Parser Options
 benchOptionsParser =
@@ -88,15 +84,6 @@ benchOptionsParser =
             <> help
               "The number of Hydra nodes to start and connect (default: 3)"
         )
-      <*> flag
-        GrowingUtxo
-        ConstantUtxo
-        ( long "constant-utxo"
-            <> help
-              "If set, generates transactions s.t. the size of UTXO set stays small and constant. \
-              \ If not set, generates 'arbitrary' and potentially large transactions that make the \
-              \ UTXO set grow."
-        )
 
 benchOptions :: ParserInfo Options
 benchOptions =
@@ -124,12 +111,9 @@ main =
     o ->
       createSystemTempDirectory "bench" >>= play o
  where
-  play Options{scalingFactor, concurrency, timeoutSeconds, clusterSize, generatorScenario} benchDir = do
-    let generator = case generatorScenario of
-          GrowingUtxo -> generateDataset
-          ConstantUtxo -> generateConstantUtxoDataset
+  play Options{scalingFactor, concurrency, timeoutSeconds, clusterSize} benchDir = do
     numberOfTxs <- generate $ scale (* scalingFactor) getSize
-    dataset <- replicateM concurrency (generator numberOfTxs)
+    dataset <- replicateM concurrency (generateConstantUtxoDataset numberOfTxs)
     saveDataset benchDir dataset
     run timeoutSeconds benchDir dataset clusterSize
 
