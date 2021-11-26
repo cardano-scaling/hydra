@@ -68,6 +68,7 @@ genConstantUtxoDataset len = do
   let fundingTransaction =
         mkGenesisTx
           networkId
+          (Lovelace availableInitialFunds)
           signingKey
           verificationKey
           (Lovelace amount)

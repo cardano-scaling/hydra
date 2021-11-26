@@ -95,9 +95,9 @@ bench timeoutSeconds workDir dataset clusterSize =
             waitFor tracer 3 nodes $
               output "ReadyToCommit" ["parties" .= parties]
 
-            initialUtxos <- forM dataset $ \Dataset{fundingTransaction} ->
+            initialUtxos <- forM dataset $ \Dataset{fundingTransaction} -> do
               submit defaultNetworkId nodeSocket fundingTransaction
-                >>= waitForTransaction defaultNetworkId nodeSocket fundingTransaction
+              waitForTransaction defaultNetworkId nodeSocket fundingTransaction
 
             expectedUtxo <- mconcat <$> forM (zip nodes initialUtxos) (uncurry commit)
 
@@ -155,7 +155,7 @@ progressReport nodeId clientId queueSize queue = do
 
 commit :: HydraClient -> Utxo -> IO Utxo
 commit client initialUtxo = do
-  send n $ input "Commit" ["utxo" .= initialUtxo]
+  send client $ input "Commit" ["utxo" .= initialUtxo]
   pure $ initialUtxo
 
 assignUtxo :: (Utxo, Int) -> Map.Map Int (HydraClient, Utxo) -> Map.Map Int (HydraClient, Utxo)

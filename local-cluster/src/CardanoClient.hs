@@ -26,6 +26,7 @@ import Hydra.Ledger.Cardano (
   Utxo,
   Utxo' (Utxo),
   VerificationKey (PaymentVerificationKey),
+  lovelaceToTxOutValue,
   utxoFromTx,
   utxoMap,
  )

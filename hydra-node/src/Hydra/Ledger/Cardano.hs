@@ -16,6 +16,7 @@ module Hydra.Ledger.Cardano (
 import Hydra.Prelude hiding (id)
 
 import Cardano.Api hiding (UTxO)
+import qualified Cardano.Api
 import Cardano.Api.Byron
 import Cardano.Api.Shelley
 import Cardano.Binary (decodeAnnotator, serialize')
@@ -292,9 +293,10 @@ mkGenesisTx ::
   Lovelace ->
   CardanoTx
 mkGenesisTx networkId initialAmount signingKey verificationKey amount =
-  let input = genesisUTxOPseudoTxIn networkId (unsafeCastHash $ verificationKeyHash $ getVerificationKey signingKey)
-      txOut = TxOut (mkVkAddress networkId $ getVerificationKey signingKey) (lovelaceToTxOutValue initialAmount) TxOutDatumNone
-   in case mkSimpleCardanoTx (input, txOut) (mkVkAddress networkId verificationKey, lovelaceToValue amount) signingKey of
+  let initialInput = genesisUTxOPseudoTxIn networkId (unsafeCastHash $ verificationKeyHash $ getVerificationKey signingKey)
+      initialOutput = TxOut (mkVkAddress networkId $ getVerificationKey signingKey) (lovelaceToTxOutValue initialAmount) TxOutDatumNone
+      recipient = (mkVkAddress networkId verificationKey, lovelaceToValue amount)
+   in case mkSimpleCardanoTx (initialInput, initialOutput) recipient signingKey of
         Left err -> error $ "Fail to build genesis transaction: " <> show err
         Right tx -> tx
 
@@ -443,6 +445,9 @@ fromLedgerUtxo =
     Map TxIn (TxOut CtxUTxO Era)
   fn i o =
     Map.singleton (fromShelleyTxIn i) (fromShelleyTxOut shelleyBasedEra o)
+
+fromCardanoApiUtxo :: Cardano.Api.UTxO AlonzoEra -> Utxo
+fromCardanoApiUtxo = undefined
 
 --
 -- KeyWitness
