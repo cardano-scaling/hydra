@@ -280,6 +280,17 @@ mkSimpleCardanoTx (txin, TxOut owner txOutValueIn datum) (recipient, valueOut) s
 
   fee = Lovelace 0
 
+mkGenesisTx ::
+  NetworkId ->
+  -- | Owner of the 'initialFund'.
+  SigningKey PaymentKey ->
+  -- | Recipient of this transaction.
+  VerificationKey PaymentKey ->
+  Lovelace ->
+  CardanoTx
+mkGenesisTx =
+  error "mkGenesisTx"
+
 toTxDatum :: TxOutDatum CtxUTxO Era -> TxOutDatum CtxTx Era
 toTxDatum = \case
   TxOutDatumNone -> TxOutDatumNone
@@ -640,13 +651,3 @@ globals =
  where
   unsafeBoundRational r =
     fromMaybe (error $ "Could not convert from Rational: " <> show r) $ Ledger.boundRational r
-
-genesisTxPaying ::
-  NetworkId ->
-  -- | Owner of the 'initialFund'.
-  SigningKey PaymentKey ->
-  -- | Recipient of this transaction.
-  VerificationKey PaymentKey ->
-  Lovelace ->
-  CardanoTx
-genesisTxPaying = undefined

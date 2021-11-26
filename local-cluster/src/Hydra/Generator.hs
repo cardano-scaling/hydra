@@ -28,7 +28,7 @@ networkId = Testnet $ NetworkMagic 42
 -- The 'transactionSequence' is guaranteed to be applicable, in sequence, to the 'initialUtxo'
 -- set.
 data Dataset = Dataset
-  { initialUtxo :: Utxo
+  { fundingTransaction :: CardanoTx
   , transactionsSequence :: [CardanoTx]
   , signingKey :: SigningKey PaymentKey
   }
@@ -38,9 +38,9 @@ instance Arbitrary Dataset where
   arbitrary = sized genConstantUtxoDataset
 
 instance ToJSON Dataset where
-  toJSON Dataset{initialUtxo, transactionsSequence, signingKey} =
+  toJSON Dataset{fundingTransaction, transactionsSequence, signingKey} =
     object
-      [ "initialUtxo" .= initialUtxo
+      [ "fundingTransaction" .= fundingTransaction
       , "transactionsSequence" .= transactionsSequence
       , "signingKey" .= serialiseToBech32 signingKey
       ]
@@ -48,7 +48,7 @@ instance ToJSON Dataset where
 instance FromJSON Dataset where
   parseJSON =
     withObject "Dataset" $ \o ->
-      Dataset <$> o .: "initialUtxo"
+      Dataset <$> o .: "fundingTransaction"
         <*> o .: "transactionsSequence"
         <*> (decodeSigningKey =<< o .: "signingKey")
    where
@@ -64,11 +64,24 @@ generateConstantUtxoDataset = generate . genConstantUtxoDataset
 genConstantUtxoDataset :: Int -> Gen Dataset
 genConstantUtxoDataset len = do
   keyPair@(verificationKey, signingKey) <- genKeyPair
-  initialUtxo <- genOneUtxoFor verificationKey
-  transactionsSequence <- reverse . thrd <$> foldM generateOneTransfer (initialUtxo, keyPair, []) [1 .. len]
-  pure Dataset{initialUtxo, transactionsSequence, signingKey}
+  amount <- choose (1, availableInitialFunds `div` 2)
+  let fundingTransaction =
+        mkGenesisTx
+          networkId
+          signingKey
+          verificationKey
+          (Lovelace amount)
+  let initialUtxo = utxoFromTx fundingTransaction
+  transactionsSequence <-
+    reverse . thrd
+      <$> foldM generateOneTransfer (initialUtxo, keyPair, []) [1 .. len]
+  pure Dataset{fundingTransaction, transactionsSequence, signingKey}
  where
   thrd (_, _, c) = c
+
+  -- FIXME: This is hard-coded and should correspond to the initial funds set in
+  -- the genesis file.
+  availableInitialFunds = 9_000_000_000
 
   generateOneTransfer ::
     (Utxo, (VerificationKey PaymentKey, SigningKey PaymentKey), [CardanoTx]) ->
