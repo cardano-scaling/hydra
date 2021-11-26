@@ -28,7 +28,6 @@ import CardanoClient (
   calculateMinFee,
   defaultSizes,
   queryProtocolParameters,
-  queryTipSlotNo,
   queryUtxo,
   sign,
   submit,
@@ -76,7 +75,6 @@ assertCanSpendInitialFunds = \case
     let addr = buildAddress (PaymentVerificationKey $ VKey vk) networkId
     UTxO utxo <- queryUtxo networkId socket [addr]
     pparams <- queryProtocolParameters networkId socket
-    slotNo <- queryTipSlotNo networkId socket
     let (txIn, out) = case Map.toList utxo of
           [] -> error "No Utxo found"
           (tx : _) -> tx
@@ -87,7 +85,7 @@ assertCanSpendInitialFunds = \case
           rawTx <- buildRaw [txIn] [] 0
           let fee = calculateMinFee networkId rawTx defaultSizes{inputs = 1, outputs = 2, witnesses = 1} pparams
               changeOutput = TxOut (shelleyAddressInEra addr) (TxOutValue MultiAssetInAlonzoEra (lovelaceToValue $ initialAmount - amountToPay - fee)) TxOutDatumNone
-          draftTx <- buildRaw [txIn] [paymentOutput, changeOutput] (slotNo + 100) fee
+          draftTx <- buildRaw [txIn] [paymentOutput, changeOutput] fee
           pure $ sign sk draftTx
 
     case signedTx of

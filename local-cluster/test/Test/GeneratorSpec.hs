@@ -7,9 +7,15 @@ import Test.Hydra.Prelude
 
 import Data.Aeson (encode)
 import Data.Text (unpack)
-import Hydra.Generator (Dataset (..), genConstantUtxoDataset)
+import Hydra.Generator (Dataset (..), defaultProtocolParameters, genConstantUtxoDataset)
 import Hydra.Ledger (applyTransactions, balance)
-import Hydra.Ledger.Cardano (CardanoTx, Utxo, cardanoLedger, genUtxo, utxoFromTx)
+import Hydra.Ledger.Cardano (
+  CardanoTx,
+  Utxo,
+  cardanoLedger,
+  genUtxo,
+  utxoFromTx,
+ )
 import Test.Aeson.GenericSpecs (roundtripSpecs)
 import Test.QuickCheck (Positive (Positive), Property, counterexample, forAll)
 
@@ -27,7 +33,7 @@ prop_computeValueFromUtxo =
 prop_keepsUtxoConstant :: Property
 prop_keepsUtxoConstant =
   forAll arbitrary $ \(Positive n) ->
-    forAll (genConstantUtxoDataset n) $ \Dataset{fundingTransaction, transactionsSequence} ->
+    forAll (genConstantUtxoDataset defaultProtocolParameters n) $ \Dataset{fundingTransaction, transactionsSequence} ->
       let initialUtxo = utxoFromTx fundingTransaction
           finalUtxo = foldl' apply initialUtxo transactionsSequence
        in length finalUtxo == length initialUtxo

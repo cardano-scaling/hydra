@@ -11,6 +11,7 @@ module Hydra.Ledger.Cardano (
   module Hydra.Ledger.Cardano,
   module Cardano.Api,
   module Cardano.Api.Shelley,
+  Ledger.ShelleyGenesis (..),
 ) where
 
 import Hydra.Prelude hiding (id)
@@ -38,6 +39,7 @@ import qualified Cardano.Ledger.Mary as Ledger.Mary
 import qualified Cardano.Ledger.SafeHash as Ledger
 import qualified Cardano.Ledger.Shelley.API.Mempool as Ledger
 import qualified Cardano.Ledger.Shelley.Address.Bootstrap as Ledger
+import qualified Cardano.Ledger.Shelley.Genesis as Ledger
 import qualified Cardano.Ledger.Shelley.LedgerState as Ledger
 import qualified Cardano.Ledger.Shelley.Rules.Ledger as Ledger
 import qualified Cardano.Ledger.Shelley.Tx as Ledger.Shelley

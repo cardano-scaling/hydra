@@ -38,8 +38,11 @@ data Dataset = Dataset
   }
   deriving (Show, Generic)
 
+defaultProtocolParameters :: ProtocolParameters
+defaultProtocolParameters = fromLedgerPParams ShelleyBasedEraShelley def
+
 instance Arbitrary Dataset where
-  arbitrary = sized (genConstantUtxoDataset $ fromLedgerPParams ShelleyBasedEraAlonzo def)
+  arbitrary = sized (genConstantUtxoDataset defaultProtocolParameters)
 
 instance ToJSON Dataset where
   toJSON Dataset{fundingTransaction, transactionsSequence, signingKey} =

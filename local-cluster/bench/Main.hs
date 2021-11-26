@@ -6,11 +6,13 @@ import Hydra.Prelude
 import Test.Hydra.Prelude
 
 import Bench.EndToEnd (bench)
-import Control.Lens ((^?))
-import Data.Aeson (Result (..), eitherDecodeFileStrict', encodeFile, fromJSON)
-import qualified Data.Aeson as Aeson
-import Data.Aeson.Lens (key)
+import Data.Aeson (eitherDecodeFileStrict', encodeFile)
 import Hydra.Generator (generateConstantUtxoDataset)
+import Hydra.Ledger.Cardano (
+  ShelleyBasedEra (..),
+  ShelleyGenesis (..),
+  fromLedgerPParams,
+ )
 import Options.Applicative (
   Parser,
   ParserInfo,
@@ -119,14 +121,11 @@ main =
   play Options{scalingFactor, concurrency, timeoutSeconds, clusterSize} benchDir = do
     numberOfTxs <- generate $ scale (* scalingFactor) getSize
     pparams <-
-      eitherDecodeFileStrict' @Aeson.Value ("config" </> "genesis-shelley.json") >>= \case
+      eitherDecodeFileStrict' ("config" </> "genesis-shelley.json") >>= \case
         Left err -> fail $ show err
-        Right genesisJson ->
-          case fromJSON <$> (genesisJson ^? key "protocolParams") of
-            Just (Success p) -> pure p
-            Just (Error e) -> fail $ show e
-            Nothing -> fail "Fail to retrieve 'protocolParams' in genesis-shelley.json file"
-    dataset <- replicateM concurrency (generateConstantUtxoDataset (pparams numberOfTxs)
+        Right shelleyGenesis ->
+          pure $ fromLedgerPParams ShelleyBasedEraShelley (sgProtocolParams shelleyGenesis)
+    dataset <- replicateM concurrency (generateConstantUtxoDataset pparams numberOfTxs)
     saveDataset benchDir dataset
     run timeoutSeconds benchDir dataset clusterSize
 
