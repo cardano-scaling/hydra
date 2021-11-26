@@ -17,9 +17,10 @@ import Hydra.Ledger.Cardano (
   mkSimpleCardanoTx,
   mkVkAddress,
   utxoFromTx,
+  utxoMin,
   utxoPairs,
  )
-import Test.QuickCheck (choose, elements, generate, sized)
+import Test.QuickCheck (choose, generate, sized)
 
 networkId :: NetworkId
 networkId = Testnet $ NetworkMagic 42
@@ -72,7 +73,11 @@ genConstantUtxoDataset len = do
           signingKey
           verificationKey
           (Lovelace amount)
-  let initialUtxo = utxoFromTx fundingTransaction
+  -- NOTE: The initialUtxo must contain only the UTXO we will later commit. We
+  -- know that by construction, the 'mkGenesisTx' will have exactly two outputs,
+  -- the last one being the change output. So, it suffices to lookup for the
+  -- minimum key in the utxo map to isolate the commit UTXO.
+  let initialUtxo = utxoMin $ utxoFromTx fundingTransaction
   transactionsSequence <-
     reverse . thrd
       <$> foldM generateOneTransfer (initialUtxo, keyPair, []) [1 .. len]
@@ -92,11 +97,14 @@ genConstantUtxoDataset len = do
     recipient <- genKeyPair
     -- NOTE(AB): elements is partial, it crashes if given an empty list, We don't expect
     -- this function to be ever used in production, and crash will be caught in tests
-    txin <- elements $ utxoPairs utxo
-    case mkSimpleCardanoTx txin (mkVkAddress networkId (fst recipient), balance @CardanoTx txin) sender of
-      Left e -> error $ "Tx construction failed: " <> show e <> ", utxo: " <> show utxo
-      Right tx ->
-        pure (utxoFromTx tx, recipient, tx : txs)
+    case utxoPairs utxo of
+      [txin] ->
+        case mkSimpleCardanoTx txin (mkVkAddress networkId (fst recipient), balance @CardanoTx utxo) sender of
+          Left e -> error $ "Tx construction failed: " <> show e <> ", utxo: " <> show utxo
+          Right tx ->
+            pure (utxoFromTx tx, recipient, tx : txs)
+      _ ->
+        error $ "Couldn't generate transaction sequence: need exactly one UTXO."
 
 mkCredentials :: Int -> (VerificationKey PaymentKey, SigningKey PaymentKey)
 mkCredentials = generateWith genKeyPair

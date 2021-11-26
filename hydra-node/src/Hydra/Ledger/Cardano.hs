@@ -202,6 +202,12 @@ utxoFromTx (Tx body@(ShelleyTxBody _ ledgerBody _ _ _ _) _) =
         ]
    in fromLedgerUtxo $ Ledger.UTxO $ Map.fromList $ zip txIns txOuts
 
+-- | Select the minimum (by TxIn) utxo entry from the Utxo map.
+--
+-- This function is partial.
+utxoMin :: Utxo -> Utxo
+utxoMin = Utxo . uncurry Map.singleton . Map.findMin . utxoMap
+
 --
 -- Tx
 --
