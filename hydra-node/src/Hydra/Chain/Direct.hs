@@ -24,6 +24,7 @@ import Control.Monad (foldM)
 import Control.Monad.Class.MonadSTM (MonadSTMTx (writeTVar), newTQueueIO, newTVarIO, readTQueue, throwSTM, writeTQueue)
 import Control.Tracer (nullTracer)
 import Data.Aeson (Value (String), object, (.=))
+import qualified Data.Map.Strict as Map
 import Data.Sequence.Strict (StrictSeq)
 import Hydra.Chain (
   Chain (..),
@@ -373,10 +374,11 @@ fromPostChainTx ::
   STM m (Maybe (ValidatedTx Era))
 fromPostChainTx TinyWallet{getUtxo, verificationKey} headState cardanoKeys = \case
   InitTx params -> do
-    txIns <- keys <$> getUtxo
-    case txIns of
-      (seedInput : _) -> pure . Just $ initTx cardanoKeys params seedInput
-      [] -> error "cannot find a seed input to pass to Init transaction"
+    u <- getUtxo
+    -- NOTE: 'lookupMax' to favor change outputs!
+    case Map.lookupMax u of
+      Just (seedInput, _) -> pure . Just $ initTx cardanoKeys params seedInput
+      Nothing -> error "cannot find a seed input to pass to Init transaction"
   AbortTx _utxo ->
     readTVar headState >>= \case
       Initial{threadOutput, initials} ->
