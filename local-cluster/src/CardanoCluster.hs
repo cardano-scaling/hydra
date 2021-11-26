@@ -60,6 +60,11 @@ data RunningCluster = RunningCluster ClusterConfig [RunningNode]
 defaultNetworkId :: NetworkId
 defaultNetworkId = Testnet (NetworkMagic 42)
 
+-- FIXME: This is hard-coded and should correspond to the initial funds set in
+-- the genesis file.
+availableInitialFunds :: Num a => a
+availableInitialFunds = 9_000_000_000
+
 -- | Configuration parameters for the cluster.
 data ClusterConfig = ClusterConfig
   { parentStateDirectory :: FilePath
@@ -190,7 +195,7 @@ withBFTNode clusterTracer cfg initialFunds action = do
   mkInitialFundsEntry vk =
     let addr = buildAddress vk defaultNetworkId
         bytes = serialiseToRawBytes addr
-     in (encodeBase16 bytes, 10_000_000_000_000)
+     in (encodeBase16 bytes, availableInitialFunds)
 
   waitForSocket :: RunningNode -> IO ()
   waitForSocket node@(RunningNode _ socket) = do

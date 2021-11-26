@@ -283,25 +283,6 @@ mkSimpleCardanoTx (txin, TxOut owner txOutValueIn datum) (recipient, valueOut) s
 
   fee = Lovelace 0
 
-mkGenesisTx ::
-  NetworkId ->
-  -- | Amount of initialFunds
-  Lovelace ->
-  -- | Owner of the 'initialFund'.
-  SigningKey PaymentKey ->
-  -- | Recipient of this transaction.
-  VerificationKey PaymentKey ->
-  -- |Amount to pay
-  Lovelace ->
-  CardanoTx
-mkGenesisTx networkId initialAmount signingKey verificationKey amount =
-  let initialInput = genesisUTxOPseudoTxIn networkId (unsafeCastHash $ verificationKeyHash $ getVerificationKey signingKey)
-      initialOutput = TxOut (mkVkAddress networkId $ getVerificationKey signingKey) (lovelaceToTxOutValue initialAmount) TxOutDatumNone
-      recipient = (mkVkAddress networkId verificationKey, lovelaceToValue amount)
-   in case mkSimpleCardanoTx (initialInput, initialOutput) recipient signingKey of
-        Left err -> error $ "Fail to build genesis transaction: " <> show err
-        Right tx -> tx
-
 -- XXX(SN): replace with Cardano.Api.TxBody.lovelaceToTxOutValue when available
 lovelaceToTxOutValue :: Lovelace -> TxOutValue AlonzoEra
 lovelaceToTxOutValue lovelace = TxOutValue MultiAssetInAlonzoEra (lovelaceToValue lovelace)

@@ -27,6 +27,9 @@ import Hydra.Ledger.Cardano (
   Utxo' (Utxo),
   VerificationKey (PaymentVerificationKey),
   lovelaceToTxOutValue,
+  mkSimpleCardanoTx,
+  mkVkAddress,
+  unsafeCastHash,
   utxoFromTx,
   utxoMap,
  )
@@ -316,6 +319,25 @@ waitForTransaction networkId socket tx = go
     if null (unUTxO utxo)
       then go
       else pure utxo
+
+mkGenesisTx ::
+  NetworkId ->
+  -- | Amount of initialFunds
+  Lovelace ->
+  -- | Owner of the 'initialFund'.
+  SigningKey PaymentKey ->
+  -- | Recipient of this transaction.
+  VerificationKey PaymentKey ->
+  -- |Amount to pay
+  Lovelace ->
+  CardanoTx
+mkGenesisTx networkId initialAmount signingKey verificationKey amount =
+  let initialInput = genesisUTxOPseudoTxIn networkId (unsafeCastHash $ verificationKeyHash $ getVerificationKey signingKey)
+      initialOutput = TxOut (mkVkAddress networkId $ getVerificationKey signingKey) (lovelaceToTxOutValue initialAmount) TxOutDatumNone
+      recipient = (mkVkAddress networkId verificationKey, lovelaceToValue amount)
+   in case mkSimpleCardanoTx (initialInput, initialOutput) recipient signingKey of
+        Left err -> error $ "Fail to build genesis transaction: " <> show err
+        Right tx -> tx
 
 generatePaymentToCommit ::
   NetworkId ->

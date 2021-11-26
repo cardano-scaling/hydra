@@ -6,6 +6,8 @@ module Hydra.Generator where
 import Hydra.Prelude hiding (size)
 
 import Cardano.Api
+import CardanoClient (mkGenesisTx)
+import CardanoCluster (availableInitialFunds)
 import Control.Monad (foldM)
 import Data.Aeson (object, withObject, (.:), (.=))
 import Hydra.Ledger (IsTx (..))
@@ -13,7 +15,6 @@ import Hydra.Ledger.Cardano (
   CardanoTx,
   Utxo,
   genKeyPair,
-  mkGenesisTx,
   mkSimpleCardanoTx,
   mkVkAddress,
   utxoFromTx,
@@ -84,10 +85,6 @@ genConstantUtxoDataset len = do
   pure Dataset{fundingTransaction, transactionsSequence, signingKey}
  where
   thrd (_, _, c) = c
-
-  -- FIXME: This is hard-coded and should correspond to the initial funds set in
-  -- the genesis file.
-  availableInitialFunds = 9_000_000_000
 
   generateOneTransfer ::
     (Utxo, (VerificationKey PaymentKey, SigningKey PaymentKey), [CardanoTx]) ->
