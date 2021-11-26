@@ -40,7 +40,14 @@ import qualified Data.Set as Set
 import Data.Time (nominalDiffTimeToSeconds)
 import Hydra.Generator (Dataset (..))
 import Hydra.Ledger (txId)
-import Hydra.Ledger.Cardano (CardanoTx, TxId, Utxo, fromCardanoApiUtxo, getVerificationKey)
+import Hydra.Ledger.Cardano (
+  CardanoTx,
+  TxId,
+  Utxo,
+  fromCardanoApiUtxo,
+  getVerificationKey,
+  utxoMin,
+ )
 import Hydra.Logging (showLogsOnFailure)
 import Hydra.Party (deriveParty, generateKey)
 import HydraNode (
@@ -87,15 +94,16 @@ bench timeoutSeconds workDir dataset clusterSize =
           withHydraCluster tracer workDir nodeSocket cardanoKeys $ \(leader :| followers) -> do
             let nodes = leader : followers
             waitForNodesConnected tracer [1 .. fromIntegral clusterSize] nodes
+
+            initialUtxos <- forM dataset $ \Dataset{fundingTransaction} -> do
+              submit defaultNetworkId nodeSocket fundingTransaction
+              utxoMin . fromCardanoApiUtxo <$> waitForTransaction defaultNetworkId nodeSocket fundingTransaction
+
             let contestationPeriod = 10 :: Natural
             send leader $ input "Init" ["contestationPeriod" .= contestationPeriod]
             let parties = Set.fromList $ map (deriveParty . generateKey) [1 .. fromIntegral clusterSize]
             waitFor tracer 3 nodes $
               output "ReadyToCommit" ["parties" .= parties]
-
-            initialUtxos <- forM dataset $ \Dataset{fundingTransaction} -> do
-              submit defaultNetworkId nodeSocket fundingTransaction
-              fromCardanoApiUtxo <$> waitForTransaction defaultNetworkId nodeSocket fundingTransaction
 
             expectedUtxo <- mconcat <$> forM (zip nodes initialUtxos) (uncurry commit)
 
