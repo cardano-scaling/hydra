@@ -93,8 +93,8 @@ genConstantUtxoDataset len = do
     -- NOTE(AB): elements is partial, it crashes if given an empty list, We don't expect
     -- this function to be ever used in production, and crash will be caught in tests
     txin <- elements $ utxoPairs utxo
-    case mkSimpleCardanoTx txin (mkVkAddress networkId (fst recipient), balance @CardanoTx utxo) sender of
-      Left e -> error $ "Tx construction failed: " <> show e
+    case mkSimpleCardanoTx txin (mkVkAddress networkId (fst recipient), balance @CardanoTx txin) sender of
+      Left e -> error $ "Tx construction failed: " <> show e <> ", utxo: " <> show utxo
       Right tx ->
         pure (utxoFromTx tx, recipient, tx : txs)
 

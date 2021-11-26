@@ -14,13 +14,11 @@ import Cardano.Crypto.DSIGN (
   VerKeyDSIGN,
  )
 import CardanoClient (
-  generatePaymentToCommit,
   submit,
-  waitForPayment,
   waitForTransaction,
  )
 import CardanoCluster (defaultNetworkId, newNodeConfig, withBFTNode)
-import CardanoNode (RunningNode (..), generateCardanoKey)
+import CardanoNode (RunningNode (..))
 import Control.Lens (to, (^?))
 import Control.Monad.Class.MonadAsync (mapConcurrently)
 import Control.Monad.Class.MonadSTM (
@@ -42,7 +40,7 @@ import qualified Data.Set as Set
 import Data.Time (nominalDiffTimeToSeconds)
 import Hydra.Generator (Dataset (..))
 import Hydra.Ledger (txId)
-import Hydra.Ledger.Cardano (CardanoTx, TxId, Utxo, getVerificationKey, mkGenesisTx, mkVkAddress)
+import Hydra.Ledger.Cardano (CardanoTx, TxId, Utxo, fromCardanoApiUtxo, getVerificationKey)
 import Hydra.Logging (showLogsOnFailure)
 import Hydra.Party (deriveParty, generateKey)
 import HydraNode (
@@ -97,7 +95,7 @@ bench timeoutSeconds workDir dataset clusterSize =
 
             initialUtxos <- forM dataset $ \Dataset{fundingTransaction} -> do
               submit defaultNetworkId nodeSocket fundingTransaction
-              waitForTransaction defaultNetworkId nodeSocket fundingTransaction
+              fromCardanoApiUtxo <$> waitForTransaction defaultNetworkId nodeSocket fundingTransaction
 
             expectedUtxo <- mconcat <$> forM (zip nodes initialUtxos) (uncurry commit)
 

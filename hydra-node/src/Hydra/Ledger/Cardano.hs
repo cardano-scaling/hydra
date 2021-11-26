@@ -193,10 +193,6 @@ prettyUtxo :: (TxIn, TxOut ctx era) -> Text
 prettyUtxo (k, TxOut _ (txOutValueToValue -> v) _) =
   T.drop 54 (renderTxIn k) <> " ↦ " <> prettyValue v
 
--- FIXME: This function is wrong! It's mapping a transaction's own inputs to its
--- own outputs. Whoops. It's currently used in Hydra.Chain.Direct.Tx where
--- the calling code only look at the outputs of the transactions and also in the
--- generators of the local-cluster (Whoops bis).
 utxoFromTx :: CardanoTx -> Utxo
 utxoFromTx (Tx body@(ShelleyTxBody _ ledgerBody _ _ _ _) _) =
   let txOuts = toList $ Ledger.Alonzo.outputs' ledgerBody
@@ -447,7 +443,7 @@ fromLedgerUtxo =
     Map.singleton (fromShelleyTxIn i) (fromShelleyTxOut shelleyBasedEra o)
 
 fromCardanoApiUtxo :: Cardano.Api.UTxO AlonzoEra -> Utxo
-fromCardanoApiUtxo = undefined
+fromCardanoApiUtxo = coerce
 
 --
 -- KeyWitness
