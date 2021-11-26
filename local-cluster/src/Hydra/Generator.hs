@@ -56,6 +56,8 @@ instance FromJSON Dataset where
       either (fail . show) pure . deserialiseFromBech32 (AsSigningKey AsPaymentKey)
 
 -- | Generate a 'Dataset' which does not grow the UTXO set over time.
+-- The sequence of transactions generated consist only of simple payments from and to
+-- arbitrary keys controlled by the "client".
 generateConstantUtxoDataset :: Int -> IO Dataset
 generateConstantUtxoDataset = generate . genConstantUtxoDataset
 
