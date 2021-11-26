@@ -199,7 +199,7 @@ withHydraCluster tracer workDir nodeSocket allKeys action = do
       go n [] [1 .. n]
  where
   go n clients = \case
-    [] -> action (fromList clients)
+    [] -> action (fromList $ reverse clients)
     (nodeId : rest) -> do
       let hydraVKeys = map VerKeyMockDSIGN $ filter (/= nodeId) allNodeIds
           hydraSKey = SignKeyMockDSIGN nodeId
