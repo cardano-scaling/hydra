@@ -7,7 +7,10 @@ import Hydra.Prelude
 import Test.Hydra.Prelude
 
 import Cardano.Ledger.Keys (VKey (VKey))
-import CardanoClient (generatePaymentToCommit)
+import CardanoClient (
+  generatePaymentToCommit,
+  waitForPayment,
+ )
 import CardanoCluster (
   ClusterLog,
   defaultNetworkId,
@@ -30,16 +33,21 @@ import Hydra.Chain.Direct (
   withDirectChain,
   withIOManager,
  )
-import Hydra.Ledger (IsTx)
+import Hydra.Ledger (IsTx (..))
 import Hydra.Ledger.Cardano (
+  AddressInEra (..),
   CardanoTx,
+  TxOut (..),
   VerificationKey (PaymentVerificationKey),
   genOneUtxoFor,
+  selectLovelace,
+  utxoPairs,
  )
 import Hydra.Logging (nullTracer, showLogsOnFailure)
 import Hydra.Party (Party, deriveParty, generateKey)
 import Hydra.Snapshot (Snapshot (..))
 import Test.QuickCheck (generate)
+import qualified Prelude
 
 spec :: Spec
 spec = around showLogsOnFailure $ do
@@ -163,6 +171,12 @@ spec = around showLogsOnFailure $ do
                 { utxo = someOtherUtxo
                 }
             alicesCallback `observesInTime` OnFanoutTx
+            let TxOut (AddressInEra _ fanoutAddr) _ _ = snd $ Prelude.head $ utxoPairs
+            waitForPayment
+              defaultNetworkId
+              nodeSocket
+              (selectLovelace $ balance someUtxo)
+              fanoutAddr
 
 magic :: NetworkMagic
 magic = NetworkMagic 42

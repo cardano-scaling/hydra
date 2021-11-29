@@ -355,15 +355,7 @@ fanoutTx _utxo (headInput, headDatumBefore) =
       { inputs = Set.fromList [headInput]
       , collateral = mempty
       , outputs =
-          StrictSeq.fromList
-            [ -- NOTE: we probably don't need an outptu for the head SM
-              -- which we don't use anyway
-              TxOut
-                (scriptAddr headScript)
-                (inject $ Coin 2000000)
-                (SJust $ hashData @Era headDatumAfter)
-                -- TODO: add utxo outputs
-            ]
+          StrictSeq.fromList outs
       , txcerts = mempty
       , txwdrls = Wdrl mempty
       , txfee = Coin 0
@@ -375,6 +367,16 @@ fanoutTx _utxo (headInput, headDatumBefore) =
       , adHash = SNothing
       , txnetworkid = SNothing
       }
+
+  outs =
+    [ -- NOTE: we probably don't need an output for the head SM
+      -- which we don't use anyway
+      TxOut
+        (scriptAddr headScript)
+        (inject $ Coin 2000000)
+        (SJust $ hashData @Era headDatumAfter)
+        -- TODO: add utxo outputs
+    ]
 
   datums =
     datumsFromList [headDatumBefore, headDatumAfter]
@@ -577,6 +579,10 @@ observeCloseTx utxo tx = do
 
 -- | Identify a fanout tx by lookup up the input spending the Head output and
 -- decoding its redeemer.
+--
+-- TODO: Ideally, the fanout does not produce any state-machine output. That
+-- means, to observe it, we need to look for a transaction with an input spent
+-- from a known script (the head state machine script) with a "fanout" redeemer.
 observeFanoutTx ::
   -- | A Utxo set to lookup tx inputs
   Map (TxIn StandardCrypto) (TxOut Era) ->
