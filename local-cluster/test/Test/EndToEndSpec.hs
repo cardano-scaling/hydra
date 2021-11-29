@@ -91,8 +91,12 @@ spec = around showLogsOnFailure $
                     send n1 $ input "Init" ["contestationPeriod" .= contestationPeriod]
                     waitFor tracer 20 [n1, n2, n3] $
                       output "ReadyToCommit" ["parties" .= Set.fromList [alice, bob, carol]]
+
                     (aliceCardanoVk, aliceCardanoSk) <- keysFor "alice"
                     let (alicePaymentVk, alicePaymentSk) = (PaymentVerificationKey $ VKey aliceCardanoVk, PaymentSigningKey aliceCardanoSk)
+                    (bobCardanoVk, _bobCardanoSk) <- keysFor "bob"
+                    let bobPaymentVk = PaymentVerificationKey $ VKey bobCardanoVk
+
                     committedUtxo <- generatePaymentToCommit defaultNetworkId node aliceCardanoSk aliceCardanoVk amountInTx
 
                     send n1 $ input "Commit" ["utxo" .= committedUtxo]
@@ -105,7 +109,7 @@ spec = around showLogsOnFailure $
                     let Right tx =
                           mkSimpleCardanoTx
                             firstCommittedUtxo
-                            (inHeadAddress alicePaymentVk, lovelaceToValue 14)
+                            (inHeadAddress bobPaymentVk, lovelaceToValue paymentFromAliceToBob)
                             alicePaymentSk
                     send n1 $ input "NewTx" ["transaction" .= tx]
                     waitFor tracer 20 [n1, n2, n3] $
@@ -118,15 +122,15 @@ spec = around showLogsOnFailure $
                             [
                               ( TxIn (txId tx) (toEnum 0)
                               , object
-                                  [ "address" .= String (serialiseAddress $ inHeadAddress alicePaymentVk)
-                                  , "value" .= object ["lovelace" .= int 14]
+                                  [ "address" .= String (serialiseAddress $ inHeadAddress bobPaymentVk)
+                                  , "value" .= object ["lovelace" .= int paymentFromAliceToBob]
                                   ]
                               )
                             ,
                               ( TxIn (txId tx) (toEnum 1)
                               , object
                                   [ "address" .= String (serialiseAddress $ inHeadAddress alicePaymentVk)
-                                  , "value" .= object ["lovelace" .= int (amountInTx - 14)]
+                                  , "value" .= object ["lovelace" .= int (amountInTx - paymentFromAliceToBob)]
                                   ]
                               )
                             ]
@@ -192,7 +196,10 @@ spec = around showLogsOnFailure $
 --
 
 amountInTx :: Num a => a
-amountInTx = 1_000_000
+amountInTx = 2_000_000
+
+paymentFromAliceToBob :: Num a => a
+paymentFromAliceToBob = 1_000_000
 
 aliceSk, bobSk, carolSk :: SignKeyDSIGN MockDSIGN
 aliceSk = 10
