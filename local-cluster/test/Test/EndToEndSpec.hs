@@ -155,6 +155,17 @@ spec = around showLogsOnFailure $
                     waitFor tracer (contestationPeriod + 3) [n1] $
                       output "HeadIsFinalized" ["utxo" .= newUtxo]
 
+                    failAfter 5 $
+                      case snd $ Prelude.head $ utxoPairs newUtxo of
+                        TxOut (AddressInEra (ShelleyAddressInEra ShelleyBasedEraAlonzo) fanoutAddr) _ _ ->
+                          void $
+                            waitForPayment
+                              defaultNetworkId
+                              nodeSocket
+                              (selectLovelace $ balance @CardanoTx someUtxo)
+                              fanoutAddr
+                        txOut -> failure $ "Unexpected TxOut " <> show txOut
+
     describe "Monitoring" $ do
       it "Node exposes Prometheus metrics on port 6001" $ \tracer -> do
         withTempDir "end-to-end-prometheus-metrics" $ \tmpDir -> do

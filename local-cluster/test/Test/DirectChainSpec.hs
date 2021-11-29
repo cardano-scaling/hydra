@@ -172,15 +172,7 @@ spec = around showLogsOnFailure $ do
                 }
             alicesCallback `observesInTime` OnFanoutTx
             failAfter 5 $
-              case snd $ Prelude.head $ utxoPairs someUtxo of
-                TxOut (AddressInEra (ShelleyAddressInEra ShelleyBasedEraAlonzo) fanoutAddr) _ _ ->
-                  void $
-                    waitForPayment
-                      defaultNetworkId
-                      nodeSocket
-                      (selectLovelace $ balance @CardanoTx someUtxo)
-                      fanoutAddr
-                txOut -> failure $ "Unexpected TxOut " <> show txOut
+              _waitForUtxo defaultNetworkId nodeSocket someUtxo
 
 magic :: NetworkMagic
 magic = NetworkMagic 42

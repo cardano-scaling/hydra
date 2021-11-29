@@ -1,3 +1,5 @@
+{-# LANGUAGE TypeApplications #-}
+
 -- | A basic cardano-node client that can talk to a local cardano-node.
 --
 -- The idea of this module is to provide a Haskell interface on top of cardano-cli's API,
@@ -31,6 +33,7 @@ import Hydra.Ledger.Cardano (
   unsafeCastHash,
   utxoFromTx,
   utxoMap,
+  utxoPairs,
  )
 import Ouroboros.Consensus.HardFork.Combinator.AcrossEras (EraMismatch)
 import Ouroboros.Network.Protocol.LocalTxSubmission.Client (SubmitResult (..))
@@ -303,6 +306,21 @@ waitForPayment networkId socket amount addr = go
 
   selectPayment (UTxO utxo) =
     Map.filter ((== amount) . txOutLovelace) utxo
+
+-- waitForUtxo ::
+--   NetworkId ->
+--   FilePath ->
+--   Utxo ->
+--   IO ()
+waitForUtxo networkId nodeSocket utxo =
+  forM (snd <$> utxoPairs utxo) $ \case
+    TxOut (AddressInEra (ShelleyAddressInEra ShelleyBasedEraAlonzo) addr) value _ ->
+      waitForPayment
+        networkId
+        nodeSocket
+        (txOutValueToLovelace value)
+        addr
+    txOut -> error $ "Unexpected TxOut " <> show txOut
 
 -- TODO: This should return a 'Utxo' (from Hydra.Ledger.Cardano)
 waitForTransaction ::
