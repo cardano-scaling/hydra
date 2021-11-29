@@ -36,7 +36,9 @@ import Hydra.Chain.Direct (
 import Hydra.Ledger (IsTx (..))
 import Hydra.Ledger.Cardano (
   AddressInEra (..),
+  AddressTypeInEra (ShelleyAddressInEra),
   CardanoTx,
+  ShelleyBasedEra (ShelleyBasedEraAlonzo),
   TxOut (..),
   VerificationKey (PaymentVerificationKey),
   genOneUtxoFor,
@@ -171,12 +173,16 @@ spec = around showLogsOnFailure $ do
                 { utxo = someOtherUtxo
                 }
             alicesCallback `observesInTime` OnFanoutTx
-            let TxOut (AddressInEra _ fanoutAddr) _ _ = snd $ Prelude.head $ utxoPairs
-            waitForPayment
-              defaultNetworkId
-              nodeSocket
-              (selectLovelace $ balance someUtxo)
-              fanoutAddr
+            failAfter 5 $
+              case snd $ Prelude.head $ utxoPairs someUtxo of
+                TxOut (AddressInEra (ShelleyAddressInEra ShelleyBasedEraAlonzo) fanoutAddr) _ _ ->
+                  void $
+                    waitForPayment
+                      defaultNetworkId
+                      nodeSocket
+                      (selectLovelace $ balance @CardanoTx someUtxo)
+                      fanoutAddr
+                txOut -> failure $ "Unexpected TxOut " <> show txOut
 
 magic :: NetworkMagic
 magic = NetworkMagic 42
