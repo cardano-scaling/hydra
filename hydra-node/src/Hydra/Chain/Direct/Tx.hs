@@ -55,7 +55,7 @@ import Hydra.Data.Party (partyFromVerKey, partyToVerKey)
 import qualified Hydra.Data.Party as OnChain
 import Hydra.Data.Utxo (fromByteString)
 import qualified Hydra.Data.Utxo as OnChain
-import Hydra.Ledger.Cardano (CardanoTx, Utxo, Utxo' (Utxo), toShelleyTxIn)
+import Hydra.Ledger.Cardano (CardanoTx, IsShelleyBasedEra (shelleyBasedEra), Utxo, Utxo' (Utxo), toShelleyTxIn, toShelleyTxOut, utxoPairs)
 import qualified Hydra.Ledger.Cardano as Api
 import Hydra.Party (Party (Party), vkey)
 import Hydra.Snapshot (SnapshotNumber)
@@ -347,7 +347,7 @@ fanoutTx ::
   -- FIXME(SN): should also contain some Head identifier/address and stored Value (maybe the TxOut + Data?)
   (TxIn StandardCrypto, Data Era) ->
   ValidatedTx Era
-fanoutTx _utxo (headInput, headDatumBefore) =
+fanoutTx utxo (headInput, headDatumBefore) =
   mkUnsignedTx body datums redeemers scripts
  where
   body =
@@ -377,6 +377,7 @@ fanoutTx _utxo (headInput, headDatumBefore) =
         (SJust $ hashData @Era headDatumAfter)
         -- TODO: add utxo outputs
     ]
+      <> map (toShelleyTxOut shelleyBasedEra . snd) (utxoPairs utxo)
 
   datums =
     datumsFromList [headDatumBefore, headDatumAfter]
