@@ -48,6 +48,7 @@ import Hydra.Ledger.Cardano (
   CardanoTx,
   LedgerCrypto,
   Utxo' (Utxo),
+  utxoPairs,
  )
 import Hydra.Party (vkey)
 import Ledger.Value (currencyMPSHash, unAssetClass)
@@ -64,6 +65,7 @@ import Test.QuickCheck (
   withMaxSuccess,
   (.&&.),
   (===),
+  (==>),
  )
 import Test.QuickCheck.Instances ()
 
@@ -173,15 +175,26 @@ spec =
               & counterexample ("Tx: " <> show tx)
 
     describe "fanoutTx" $ do
-      prop "transaction size below limit" $ \utxo headIn ->
-        let tx = fanoutTx utxo (headIn, headDatum)
-            headDatum = Data $ toData MockHead.Closed
-            cbor = serialize tx
-            len = LBS.length cbor
-         in len < maxTxSize
-              & label (show (len `div` 1024) <> "kB")
-              & counterexample ("Tx: " <> show tx)
-              & counterexample ("Tx serialized size: " <> show len)
+      -- NOTE(AB): We know that fanout tx will fail if there are too many UTXO to
+      -- commit at this stage, we limit the number of successes and filter by UTXO
+      -- size in the property. Not sure this is super-useful as a property
+      -- right now
+      modifyMaxSuccess (const 30) $
+        prop "transaction size below limit for small number of UTXO" $ \utxo headIn ->
+          let tx = fanoutTx utxo (headIn, headDatum)
+              headDatum = Data $ toData MockHead.Closed
+              cbor = serialize tx
+              len = LBS.length cbor
+              utxos = utxoPairs utxo
+           in length utxos < 5
+                ==> len < maxTxSize
+                & label
+                  ( show (len `div` 1024) <> "kB, "
+                      <> show (length $ utxoPairs utxo)
+                      <> " UTXO"
+                  )
+                & counterexample ("Tx: " <> show tx)
+                & counterexample ("Tx serialized size: " <> show len)
 
       prop "is observed" $ \utxo headInput ->
         let tx = fanoutTx utxo (headInput, headDatum)
