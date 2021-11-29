@@ -153,12 +153,10 @@ spec = around showLogsOnFailure $ do
             postTx $ CollectComTx someUtxo
             alicesCallback `observesInTime` OnCollectComTx
 
-            -- NOTE(SN): This is deliberately wrong and should be caught by OCV
-            someOtherUtxo <- generate $ genOneUtxoFor (PaymentVerificationKey $ VKey aliceCardanoVk)
             postTx . CloseTx $
               Snapshot
                 { number = 1
-                , utxo = someOtherUtxo
+                , utxo = someUtxo
                 , confirmed = []
                 }
             alicesCallback `shouldSatisfyInTime` \case
@@ -170,7 +168,7 @@ spec = around showLogsOnFailure $ do
 
             postTx $
               FanoutTx
-                { utxo = someOtherUtxo
+                { utxo = someUtxo
                 }
             alicesCallback `observesInTime` OnFanoutTx
             failAfter 5 $
