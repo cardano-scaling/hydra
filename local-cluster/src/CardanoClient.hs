@@ -307,20 +307,25 @@ waitForPayment networkId socket amount addr = go
   selectPayment (UTxO utxo) =
     Map.filter ((== amount) . txOutLovelace) utxo
 
--- waitForUtxo ::
---   NetworkId ->
---   FilePath ->
---   Utxo ->
---   IO ()
+waitForUtxo ::
+  NetworkId ->
+  FilePath ->
+  Utxo ->
+  IO ()
 waitForUtxo networkId nodeSocket utxo =
-  forM (snd <$> utxoPairs utxo) $ \case
-    TxOut (AddressInEra (ShelleyAddressInEra ShelleyBasedEraAlonzo) addr) value _ ->
-      waitForPayment
-        networkId
-        nodeSocket
-        (txOutValueToLovelace value)
-        addr
-    txOut -> error $ "Unexpected TxOut " <> show txOut
+  forM_ (snd <$> utxoPairs utxo) forEachUtxo
+ where
+  forEachUtxo :: TxOut CtxUTxO AlonzoEra -> IO ()
+  forEachUtxo = \case
+    TxOut (AddressInEra (ShelleyAddressInEra ShelleyBasedEraAlonzo) addr) value _ -> do
+      void $
+        waitForPayment
+          networkId
+          nodeSocket
+          (txOutValueToLovelace value)
+          addr
+    txOut ->
+      error $ "Unexpected TxOut " <> show txOut
 
 -- TODO: This should return a 'Utxo' (from Hydra.Ledger.Cardano)
 waitForTransaction ::
