@@ -29,7 +29,7 @@ spec = do
       property $
         withMaxSuccess 1 $
           conjoin
-            [ prop_validateToJSON @(Envelope (HydraLog SimpleTx ())) specs (tmp </> "HydraLog")
+            [ prop_validateToJSON @(Envelope (HydraLog SimpleTx ())) specs "messages" (tmp </> "HydraLog")
             , prop_specIsComplete @(HydraLog SimpleTx ()) specs apiSpecificationSelector
             ]
 

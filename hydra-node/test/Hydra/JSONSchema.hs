@@ -9,6 +9,7 @@ module Hydra.JSONSchema where
 import Hydra.Prelude
 
 import Control.Lens (Traversal', to, (^..), (^?))
+import Data.Aeson ((.=))
 import qualified Data.Aeson as Aeson
 import Data.Aeson.Lens (AsValue, key, _Array, _String)
 import Data.Char (isSpace)
@@ -35,17 +36,19 @@ prop_validateToJSON ::
   forall a.
   (ToJSON a, Arbitrary a, Show a) =>
   FilePath ->
+  Text ->
   FilePath ->
   Property
-prop_validateToJSON specFile inputFile =
+prop_validateToJSON specFile selector inputFile =
   forAllShrink (vectorOf 100 arbitrary) shrink $ \(a :: [a]) ->
     monadicIO $
       do
         run ensureSystemRequirements
-        let obj = Aeson.encode a
+        let obj = Aeson.encode $ Aeson.object [selector .= a]
         (exitCode, _out, err) <- run $ do
           writeFileLBS inputFile obj
           readProcessWithExitCode "jsonschema" ["-i", inputFile, specFile] mempty
+
         monitor $ counterexample err
         monitor $ counterexample (decodeUtf8 obj)
         assert (exitCode == ExitSuccess)

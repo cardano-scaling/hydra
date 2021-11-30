@@ -9,7 +9,7 @@ import Test.Hydra.Prelude
 import Data.Aeson.Lens (key)
 import Hydra.ClientInput (ClientInput)
 import Hydra.JSONSchema (SpecificationSelector, prop_specIsComplete, prop_validateToJSON, withJsonSpecifications)
-import Hydra.Ledger.Cardano (CardanoTx, Utxo)
+import Hydra.Ledger.Cardano (CardanoTx)
 import Hydra.ServerOutput (ServerOutput)
 import System.FilePath ((</>))
 import Test.QuickCheck.Property (conjoin, withMaxSuccess)
@@ -21,19 +21,15 @@ spec = parallel $ do
       specify "ClientInput" $ \(specs, tmp) ->
         withMaxSuccess 1 $
           conjoin
-            [ prop_validateToJSON @(ClientInput CardanoTx) specs (tmp </> "ClientInput")
+            [ prop_validateToJSON @(ClientInput CardanoTx) specs "inputs" (tmp </> "ClientInput")
             , prop_specIsComplete @(ClientInput CardanoTx) specs (apiSpecificationSelector "inputs")
             ]
       specify "ServerOutput" $ \(specs, tmp) ->
         withMaxSuccess 1 $
           conjoin
-            [ prop_validateToJSON @(ServerOutput CardanoTx) specs (tmp </> "ServerOutput")
+            [ prop_validateToJSON @(ServerOutput CardanoTx) specs "outputs" (tmp </> "ServerOutput")
             , prop_specIsComplete @(ServerOutput CardanoTx) specs (apiSpecificationSelector "outputs")
             ]
-      specify "Utxo" $ \(specs, tmp) ->
-        withMaxSuccess 1 $ prop_validateToJSON @Utxo specs (tmp </> "Utxo")
-      specify "CardanoTx" $ \(specs, tmp) ->
-        withMaxSuccess 1 $ prop_validateToJSON @CardanoTx specs (tmp </> "CardanoTx")
 
 apiSpecificationSelector ::
   Text -> SpecificationSelector
