@@ -1,6 +1,5 @@
 ---
 "$schema": http://json-schema.org/draft/2020-12/schema
-"$id": https://raw.githubusercontent.com/input-output-hk/hydra-poc/master/docs/api.json
 "$comment": A synthetic description of the WebSocket API for Hydra Head nodes.
 title: Hydra WebSocket API
 description: >

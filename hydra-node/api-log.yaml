@@ -1,6 +1,5 @@
 ---
 "$schema": http://json-schema.org/draft/2020-12/schema
-"$id": https://raw.githubusercontent.com/input-output-hk/hydra-poc/master/docs/api-log.json
 "$comment": A description of the log items produced by a Hydra node
 title: Hydra Log API
 description: >
@@ -9,132 +8,99 @@ description: >
   separated by a newline which makes it easy to ingest by thirdparty tools and
   services.
 
-required:
-- namespace
-- timestamp
-- thread
-- message
+type: object
+additionalProperties: false
+
 properties:
-  namespace:
-    type: string
-    description: >-
-      An arbitrary string identifying the tracer generating this entry. For a
-      node, this is always 'HydraNode'.
+  messages:
+    type: array
+    additionalItems: false
+    items:
+      type: object
+      required:
+      - namespace
+      - timestamp
+      - threadId
+      - message
+      properties:
+        namespace:
+          type: string
+          description: >-
+            An arbitrary string identifying the tracer generating this entry. For a
+            node, this is always 'HydraNode'.
 
-  timestamp:
-    type: string
-    format: "date-time"
-    description: >-
-      Timestamp denoting the wall-clock time at which this log entry was
-      recorded.
+        timestamp:
+          type: string
+          format: "date-time"
+          description: >-
+            Timestamp denoting the wall-clock time at which this log entry was
+            recorded.
 
-  thread:
-    type: integer
-    description: >-
-      The id of the thread which produced the log entry.
+        threadId:
+          type: integer
+          description: >-
+            The id of the thread which produced the log entry.
 
-  message:
-    oneOf:
-      - title: APIServer
-        type: object
-        required:
-        - tag
-        - api
-        description: >-
-          A log entry produced by the API server.
-        properties:
-          tag:
-            type: string
-            enum: ["APIServer"]
-          api:
-            $ref: "#/definitions/APIServer"
-      - title: Node
-        type: object
-        required:
-        - tag
-        - node
-        description: >-
-          A log entry denoting events and effects processed by the Node as part
-          of the Head protocol.
-        properties:
-          tag:
-            type: string
-            enum: ["Node"]
-          node:
-            $ref: "#/definitions/Node"
+        message:
+          oneOf:
+          - title: APIServer
+            type: object
+            required:
+            - tag
+            - api
+            description: >-
+              A log entry produced by the API server.
+            properties:
+              tag:
+                type: string
+                enum: ["APIServer"]
+              api:
+                $ref: "#/definitions/APIServer"
+
+          - title: Node
+            type: object
+            required:
+            - tag
+            - node
+            description: >-
+              A log entry denoting events and effects processed by the Node as part
+              of the Head protocol.
+            properties:
+              tag:
+                type: string
+                enum: ["Node"]
+              node:
+                $ref: "#/definitions/Node"
+
+          - title: DirectChain
+            type: object
+            required:
+            - tag
+            - directChain
+            description: >-
+              A log entry produced by the chain component watching the chain.
+            properties:
+              tag:
+                type: string
+                enum: ["DirectChain"]
+              directChain:
+                $ref: "#/definitions/DirectChain"
+
+          - title: Network
+            type: object
+            required:
+            - tag
+            - network
+            description: >-
+              A log entry from the Hydra network (i.e. the layer-two network between Hydra nodes).
+            properties:
+              tag:
+                type: string
+                enum: ["Network"]
+              network:
+                $ref: "#/definitions/Network"
 
 definitions:
-  Node:
-    oneOf:
-    - title: ErrorHandlingEvent
-      # This should be removed from the Log's description as soon as we have some proper
-      # error handling strategy in place, be it simply "Close the head" and bail out.
-      description: >-
-        Some error happened while processing an event, provides enough context
-        information to troubleshoot the origin of the error.
-      type: object
-      required:
-      - by
-      - event
-      - reason
-      properties:
-        by:
-          description: >-
-            The Party emitting the log entry.
-          $ref: "#/definitions/Party"
-        event:
-          description: >-
-            The event causing the error.
-          $ref: "#/definitions/Event"
-        reason:
-          description: >-
-            Structured description of the cause of the error.
-          $ref: "#/definitions/LogicError"
-    - title: ProcessingEvent
-      description: >-
-        Head has started processing an event drawn from some pool or queue of
-        events to process.
-      type: object
-      required:
-      - by
-      - event
-      properties:
-        by:
-          description: >-
-            The Party emitting the log entry.
-          $ref: "#/definitions/Party"
-        event:
-          $ref: "#/definitions/Event"
-    - title: ProcessedEvent
-      description: >-
-        Head has succesfully finished processing an event.
-      type: object
-      required:
-      - by
-      - event
-      properties:
-        by:
-          description: >-
-            The Party emitting the log entry.
-          $ref: "#/definitions/Party"
-        event:
-          $ref: "#/definitions/Event"
-    - title: ProcessingEffect
-      description: >-
-        Head has started processing an effect produced by some transition in the
-        protocol.
-      type: object
-      required:
-      - by
-      - effect
-      properties:
-        by:
-          description: >-
-            The Party emitting the log entry.
-          $ref: "#/definitions/Party"
-        event:
-          $ref: "#/definitions/Effect"
-
   APIServer:
     oneOf:
     - title: APIServerStarted
@@ -185,7 +151,9 @@ definitions:
           type: string
           enum: ["APIInputReceived"]
         receivedInput:
-          type: object
+          oneOf:
+            - type: "null"
+            - type: object
     - title: APIInvalidInput
       description: >-
         Some input sent by a client is invalid.
@@ -208,16 +176,105 @@ definitions:
             hence it's potentially invalid JSON so we just encode it as a proper
             JSON string. Note that if the input contained invalid UTF-8
             characters they will be ignored.
+
+  # TODO: Fill the gap!
+  DirectChain: {}
+
+  # TODO: Fill the gap!
+  Network: {}
+
+  Node:
+    oneOf:
+    - title: ErrorHandlingEvent
+      # This should be removed from the Log's description as soon as we have some proper
+      # error handling strategy in place, be it simply "Close the head" and bail out.
+      description: >-
+        Some error happened while processing an event, provides enough context
+        information to troubleshoot the origin of the error.
+      type: object
+      required:
+      - tag
+      properties:
+        tag:
+          type: string
+          enum: [ "ErrorHandlingEvent" ]
+            # by:
+            #   description: >-
+            #     The Party emitting the log entry.
+            #   $ref: "#/definitions/Party"
+            # event:
+            #   description: >-
+            #     The event causing the error.
+            #   $ref: "#/definitions/Event"
+            # reason:
+            #   description: >-
+            #     Structured description of the cause of the error.
+            #   $ref: "#/definitions/LogicError"
+            # - title: ProcessingEvent
+            #   description: >-
+            #     Head has started processing an event drawn from some pool or queue of
+            #     events to process.
+            #   type: object
+            #   required:
+            #   - by
+            #   - event
+            #   properties:
+            #     by:
+            #       description: >-
+            #         The Party emitting the log entry.
+            #       $ref: "#/definitions/Party"
+            #     event:
+            #       $ref: "#/definitions/Event"
+            # - title: ProcessedEvent
+            #   description: >-
+            #     Head has succesfully finished processing an event.
+            #   type: object
+            #   required:
+            #   - by
+            #   - event
+            #   properties:
+            #     by:
+            #       description: >-
+            #         The Party emitting the log entry.
+            #       $ref: "#/definitions/Party"
+            #     event:
+            #       $ref: "#/definitions/Event"
+            # - title: ProcessingEffect
+            #   description: >-
+            #     Head has started processing an effect produced by some transition in the
+            #     protocol.
+            #   type: object
+            #   required:
+            #   - by
+            #   - effect
+            #   properties:
+            #     by:
+            #       description: >-
+            #         The Party emitting the log entry.
+            #       $ref: "#/definitions/Party"
+            #     event:
+            #       $ref: "#/definitions/Effect"
+    - type: object
+
+  # TODO: Fill the gap!
+  LogicError:
+    type: object
+
   Party:
-    type: integer
-    # Signing is currently implemented using mock crypto hence party is just an integer
+    type: object
     description: >-
-      The verification key for some Party in the Head protocol, uniquely
-      identifying it.
+      The verification key for some Party in the Head protocol, uniquely identifying it.
+    additionalProperties: false
+    required:
+      - vkey
+    properties:
+      vkey:
+        type: string
+        contentEncoding: base16
     examples:
-      - 10
-      - 20
-      - 30
+      - { "vkey": "0000000000000000" }
+      - { "vkey": "0000000000000001" }
+      - { "vkey": "0000000000000002" }
 
   Event:
     description: >-
@@ -239,7 +296,7 @@ definitions:
           type: string
           enum: ["ClientEvent"]
         clientInput:
-          $ref: "https://raw.githubusercontent.com/input-output-hk/hydra-poc/master/hydra-node/api.yaml#/definitions/ClientInput"
+          $ref: "#/definitions/ClientInput"
     - title: NetworkEvent
       type: object
       required:
@@ -299,7 +356,7 @@ definitions:
           party:
             $ref: "#/definitions/Party"
           transaction:
-            $ref: "https://raw.githubusercontent.com/input-output-hk/hydra-poc/master/hydra-node/api.yaml#/definitions/Transaction"
+            $ref: "#/definitions/Transaction"
       - title: ReqSn
         type: object
         required:
@@ -322,7 +379,7 @@ definitions:
           transactions:
             type: array
             items:
-              $ref: "https://raw.githubusercontent.com/input-output-hk/hydra-poc/master/hydra-node/api.yaml#/definitions/Transaction"
+              $ref: "#/definitions/Transaction"
       - title: AckSn
         type: object
         required:
@@ -373,6 +430,7 @@ definitions:
             enum: ["Disconnected"]
           party:
             $ref: "#/definitions/Party"
+
   OnChainTx:
     description: >-
       On-Chain transactions for the Head protocol. These data structures
@@ -417,8 +475,7 @@ definitions:
           party:
             $ref: "#/definitions/Party"
           committed:
-            $ref: "https://raw.githubusercontent.com/input-output-hk/hydra-poc/master/hydra-node/api.ya
-ml#/definitions/Utxo"
+            $ref: "#/definitions/Utxo"
       - title: OnAbortTx
         type: object
         required:
@@ -483,7 +540,7 @@ ml#/definitions/Utxo"
           type: string
           enum: ["ClientEffect"]
         clientInput:
-          $ref: "https://raw.githubusercontent.com/input-output-hk/hydra-poc/master/hydra-node/api.yaml#/definitions/ServerOutput"
+          $ref: "#/definitions/ClientInput"
     - title: NetworkEffect
       type: object
       required:
@@ -572,7 +629,7 @@ ml#/definitions/Utxo"
           party:
             $ref: "#/definitions/Party"
           committed:
-            $ref: "https://raw.githubusercontent.com/input-output-hk/hydra-poc/master/hydra-node/api.yaml#/definitions/Utxo"
+            $ref: "#/definitions/Utxo"
       - title: AbortTx
         type: object
         required:
@@ -585,7 +642,7 @@ ml#/definitions/Utxo"
             type: string
             enum: ["AbortTx"]
           committed:
-            $ref: "https://raw.githubusercontent.com/input-output-hk/hydra-poc/master/hydra-node/api.yaml#/definitions/Utxo"
+            $ref: "#/definitions/Utxo"
       - title: CollectComTx
         type: object
         required:
@@ -599,7 +656,7 @@ ml#/definitions/Utxo"
             type: string
             enum: ["CollectComTx"]
           utxos:
-            $ref: "https://raw.githubusercontent.com/input-output-hk/hydra-poc/master/hydra-node/api.yaml#/definitions/Utxo"
+            $ref: "#/definitions/Utxo"
       - title: CloseTx
         type: object
         required:
@@ -612,7 +669,7 @@ ml#/definitions/Utxo"
             type: string
             enum: ["CloseTx"]
           snapshot:
-            $ref: "https://raw.githubusercontent.com/input-output-hk/hydra-poc/master/hydra-node/api.yaml#/definitions/Snapshot"
+            $ref: "#/definitions/Snapshot"
       - title: ContestTx
         type: object
         required:
@@ -626,7 +683,7 @@ ml#/definitions/Utxo"
             type: string
             enum: ["ContestTx"]
           snapshot:
-            $ref: "https://raw.githubusercontent.com/input-output-hk/hydra-poc/master/hydra-node/api.yaml#/definitions/Snapshot"
+            $ref: "#/definitions/Snapshot"
       - title: FanoutTx
         type: object
         required:
@@ -639,4 +696,15 @@ ml#/definitions/Utxo"
             type: string
             enum: ["FanoutTx"]
           utxos:
-            $ref: "https://raw.githubusercontent.com/input-output-hk/hydra-poc/master/hydra-node/api.yaml#/definitions/Utxo"
+            $ref: "#/definitions/Utxo"
+
+  ClientInput:
+    $ref: ./api.yaml#/properties/inputs/items
+  ServerOutput:
+    $ref: ./api.yaml#/properties/outputs/items
+  Snapshot:
+    $ref: ./api.yaml#/definitions/Snapshot
+  Utxo:
+    $ref: ./api.yaml#/definitions/Utxo
+  Transaction:
+    $ref: ./api.yaml#/definitions/Transaction
