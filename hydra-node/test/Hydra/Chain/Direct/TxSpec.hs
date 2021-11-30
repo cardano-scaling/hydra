@@ -47,7 +47,12 @@ import Hydra.Data.Party (partyFromVerKey)
 import Hydra.Ledger.Cardano (
   CardanoTx,
   LedgerCrypto,
+  Utxo,
   Utxo' (Utxo),
+  describeCardanoTx,
+  fromLedgerTx,
+  genAdaOnlyUtxo,
+  shrinkUtxo,
  )
 import Hydra.Party (vkey)
 import Ledger.Value (currencyMPSHash, unAssetClass)
@@ -56,9 +61,13 @@ import Test.Cardano.Ledger.Alonzo.PlutusScripts (defaultCostModel)
 import Test.Cardano.Ledger.Alonzo.Serialisation.Generators ()
 import Test.QuickCheck (
   NonEmptyList (NonEmpty),
+  Property,
   counterexample,
   elements,
+  expectFailure,
   forAll,
+  forAllShrinkBlind,
+  forAllShrinkShow,
   label,
   property,
   withMaxSuccess,
@@ -173,21 +182,38 @@ spec =
               & counterexample ("Tx: " <> show tx)
 
     describe "fanoutTx" $ do
-      -- FIXME(AB): This property currently fails even with a single UTXO if this UTXO is
-      -- generated with too many values. We need to deal with it, checking the
-      -- generator makes sense and dealing with large UTXOs. It could be the case that's
-      -- because we put the UTXO twice, once as an output and a second time in the datum
-      xit "transaction size below limit for small number of UTXO" $
-        property $ \singleUtxo headIn ->
-          let tx = fanoutTx singleUtxo (headIn, headDatum)
-              headDatum = Data $ toData MockHead.Closed
-              cbor = serialize tx
-              len = LBS.length cbor
-           in len < maxTxSize
-                & label
-                  (show (len `div` 1024) <> "kB")
-                & counterexample ("Tx: " <> show tx)
-                & counterexample ("Tx serialized size: " <> show len)
+      let prop_fanoutTxSize :: Utxo -> TxIn StandardCrypto -> Property
+          prop_fanoutTxSize utxo headIn =
+            let tx = fanoutTx utxo (headIn, headDatum)
+                headDatum = Data $ toData MockHead.Closed
+                cbor = serialize tx
+                len = LBS.length cbor
+             in len < maxTxSize
+                  & label (show (len `div` 1024) <> "KB")
+                  & label (prettyLength utxo <> " entries")
+                  & counterexample (toString (describeCardanoTx $ fromLedgerTx tx))
+                  & counterexample ("Tx serialized size: " <> show len)
+           where
+            prettyLength :: Foldable f => f a -> String
+            prettyLength (length -> len)
+              | len >= 100 = "> 100"
+              | len >= 50 = "50-99"
+              | len >= 10 = "10-49"
+              | otherwise = "00-10"
+
+      prop "size is below limit for small number of UTXO" $
+        forAllShrinkShow genAdaOnlyUtxo shrinkUtxo (decodeUtf8 . encodePretty) $ \utxo ->
+          forAll arbitrary $
+            prop_fanoutTxSize utxo
+
+      -- FIXME: This property currently fails even with a single UTXO if this
+      -- UTXO is generated with too many values. We need to deal with it eventually
+      -- (fanout splitting) or find a better property to capture what is
+      -- actually 'expectable' from the function, given arbitrary UTXO entries.
+      prop "size is above limit for UTXO" $
+        forAllShrinkBlind arbitrary shrinkUtxo $ \utxo ->
+          forAll arbitrary $
+            expectFailure . prop_fanoutTxSize utxo
 
       prop "is observed" $ \utxo headInput ->
         let tx = fanoutTx utxo (headInput, headDatum)
