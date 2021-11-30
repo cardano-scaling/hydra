@@ -20,7 +20,7 @@ import Cardano.Api hiding (UTxO)
 import qualified Cardano.Api
 import Cardano.Api.Byron
 import Cardano.Api.Shelley
-import Cardano.Binary (decodeAnnotator, serialize')
+import Cardano.Binary (decodeAnnotator, serialize, serialize')
 import qualified Cardano.Crypto.DSIGN as CC
 import qualified Cardano.Crypto.Hash.Class as CC
 import qualified Cardano.Ledger.Address as Ledger
@@ -36,6 +36,7 @@ import qualified Cardano.Ledger.Crypto as Ledger (StandardCrypto)
 import qualified Cardano.Ledger.Era as Ledger
 import qualified Cardano.Ledger.Keys as Ledger
 import qualified Cardano.Ledger.Mary as Ledger.Mary
+import qualified Cardano.Ledger.Mary.Value as Ledger.Mary
 import qualified Cardano.Ledger.SafeHash as Ledger
 import qualified Cardano.Ledger.Shelley.API.Mempool as Ledger
 import qualified Cardano.Ledger.Shelley.Address.Bootstrap as Ledger
@@ -53,6 +54,7 @@ import qualified Codec.CBOR.Encoding as CBOR
 import Control.Arrow (left)
 import Control.Monad (foldM)
 import qualified Control.State.Transition as Ledger
+import qualified Data.ByteString.Lazy as BL
 import Data.Default (Default, def)
 import qualified Data.Map.Strict as Map
 import Data.Maybe (fromJust)
@@ -242,6 +244,31 @@ instance FromJSON CardanoTx where
 instance Arbitrary CardanoTx where
   -- TODO: shrinker!
   arbitrary = genUtxo >>= genTx
+
+-- | Show (compact) information about a Cardano transaction for debugging purpose.
+--
+-- NOTE: The function is 'incomplete' but can easily be extended to cover new
+-- needs.
+describeCardanoTx :: CardanoTx -> Text
+describeCardanoTx (Tx body _wits) =
+  unlines
+    [ show (getTxId body)
+    , "  Inputs (" <> show (length inputs) <> ")"
+    , "  Outputs (" <> show (length outputs) <> ")"
+    , "    total number of assets: " <> show totalNumberOfAssets
+    , "  Scripts (" <> show (length scripts) <> ")"
+    , "    total size (bytes):  " <> show totalScriptSize
+    ]
+ where
+  ShelleyTxBody _era lbody scripts _scriptsData _auxData _validity = body
+  outputs = Ledger.Alonzo.outputs' lbody
+  inputs = Ledger.Alonzo.inputs' lbody
+  totalScriptSize = sum $ BL.length . serialize <$> scripts
+  totalNumberOfAssets =
+    sum $
+      [ foldl' (\n inner -> n + Map.size inner) 0 outer
+      | Ledger.Alonzo.TxOut _ (Ledger.Mary.Value _ outer) _ <- toList outputs
+      ]
 
 -- | Create a zero-fee, payment cardano transaction.
 mkSimpleCardanoTx ::
