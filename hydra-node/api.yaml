@@ -16,6 +16,9 @@ description: >
   and is fully asynchronous: Inputs from the client are queued for later processing on
   the server-side, and outputs can occur at any time.
 
+type: object
+additionalProperties: false
+
 properties:
   inputs:
     type: array
@@ -313,18 +316,6 @@ properties:
           me:
             $ref: "#/definitions/Party"
 
-  utxo:
-    type: array
-    items:
-      $ref: "#/definitions/Utxo"
-    additionalItems: false
-
-  txs:
-    type: array
-    items:
-      $ref: "#/definitions/Transaction"
-    additionalItems: false
-
 definitions:
   Peer:
     type: object
@@ -382,19 +373,19 @@ definitions:
       whose grammar is described using CDDL here: https://github.com/input-output-hk/cardano-ledger-specs/blob/master/shelley-ma/shelley-ma-test/cddl-files/shelley-ma.cddl#L13
     required:
     - id
+    - isValid
     - body
-    - witnesses
-    - auxiliaryData
+    additionalProperties: false
     properties:
       id:
         $ref: "#/definitions/TxId"
+      isValid:
+          type: boolean
       body:
         $ref: "#/definitions/TxBody"
       witnesses:
         type: object
-        required:
-        - keys
-        - scripts
+        additionalProperties: false
         properties:
           keys:
             type: array
@@ -409,14 +400,23 @@ definitions:
             patternProperties:
               "[0-9a-f]+":
                 $ref: "#/definitions/Cbor"
-
+          redeemers:
+            <<: { $ref: "#/definitions/Cbor" }
+            description: >-
+              An hex-encoded, CBOR-serialised, mapping of redeemer hashes to their definition.
+          datums:
+            type: object
+            description: >-
+              An object mapping datum hashes to their definition, encoded in CBOR
+            patternProperties:
+              "[0-9a-f]+":
+                $ref: "#/definitions/Cbor"
       auxiliaryData:
+        <<:
+          $ref: "#/definitions/Cbor"
         description: >-
           Hex-encoding of CBOR encoding of auxiliary data attached to this transaction. Can be null if
           there's no auxiliary data
-        oneOf:
-        - type: "null"
-        - $ref: "#/definitions/Cbor"
 
   TxId:
     type: string
@@ -432,11 +432,18 @@ definitions:
     required:
     - inputs
     - outputs
+    additionalProperties: false
     properties:
       inputs:
         type: array
         description: >-
           A list of inputs for this transaction. Technically, this is actually a Set, eg. the order of elements does not matter and they must be unique.
+        items:
+          $ref: "#/definitions/TxIn"
+      collateral:
+        type: array
+        description: >-
+          A list of collateral inputs for this transaction.
         items:
           $ref: "#/definitions/TxIn"
       outputs:
@@ -457,12 +464,12 @@ definitions:
         description: >-
           An array of withdrawal.
         items:
-          $ref: "#/definitions/Wdrl"
+          $ref: "#/definitions/Withdrawal"
       fees:
-        type: number
+        type: integer
         minimum: 0
         description: >-
-          Fees paid for this transaction, in ADA
+          Fees paid for this transaction, in lovelace.
       validity:
         type: object
         description: >-
@@ -474,7 +481,8 @@ definitions:
           notAfter:
             type: integer
       auxiliaryDataHash:
-        type: [ "string", "null"]
+        type: string
+        encoding: base16
         description: >-
           Hex-encoding of the hash of auxiliary data section of the transactions.
         examples:
@@ -483,6 +491,25 @@ definitions:
         description: >-
           Values minted by this transaction
         $ref: "#/definitions/Value"
+      networkId:
+          type: string
+          enum:
+            - Mainnet
+            - Testnet
+      scriptIntegrityHash:
+        type: string
+        encoding: base16
+        description: >-
+          Hex-encoding of the hash of script data section of the transaction.
+        examples:
+        - "9b258583229a324c3021d036e83f3c1e69ca4a586a91fad0bc9e4ce79f7411e0"
+      requiredSignatures:
+        type: array
+        items:
+          type: string
+          encoding: base16
+          description: >-
+            Hex-encoding of the hash of verification keys identifying extra expected signers.
 
   TxIn:
     type: string
@@ -501,11 +528,15 @@ definitions:
     required:
     - address
     - value
+    additionalProperties: false
     properties:
       address:
         $ref: "#/definitions/Address"
       value:
         $ref: "#/definitions/Value"
+      datumhash:
+        type: string
+        encoding: base16
 
   Address:
     type: string
@@ -526,68 +557,42 @@ definitions:
 
       Assets represent native tokens available on the Cardano blockchain,
       including Non-Fungible Tokens.
-    required:
-    - lovelace
+    additionalProperties:
+      type: object
+      description: >-
+        A map of 'asset names' to integral values. The key is
+        the hex-encoded name of the asset.
+      minProperties: 1
+      patternProperties:
+        "[0-9a-f]*":
+          type: integer
+          minimum: 0
+          description: >-
+            Some positive number of some 'coin'.
     properties:
       lovelace:
         type: integer
         minimum: 0
         description: >-
           A (positive) amount of lovelace
-      assets:
-        type: object
+
+  Withdrawal:
+    type: object
+    description: >-
+      A withdrawal of some number of coins to some reward address.
+    additionalProperties: false
+    patternProperties:
+      "[0-9a-f]+":
+        type: integer
+        minimum: 0
         description: >-
-          A map from monetary policy id to assets. A policy id is a
-          hex-encoded string of some arbitrary bytes.
-        patternProperties:
-          "[0-9a-f]+":
-            type: object
-            description: >-
-              A map of 'asset names' to integral values. The key is
-              the hex-encoded name of the asset.
-            patternProperties:
-              "[0-9a-f]*":
-                type: integer
-                minimum: 0
-                description: >-
-                  Some positive number of some 'coin'.
+          Some non-negative lovelace value.
 
   Cbor:
     type: string
+    encoding: base16
+    format: cbor
     description: >-
       The hex-encoding of the CBOR encoding of some binary data
     examples:
       - "820082582089ff4f3ff4a6052ec9d073b3be68b5e7596bd74a04e7b74504a8302fb2278cd95840f66eb3cd160372d617411408792c0ebd9791968e9948112894e2706697a55c10296b04019ed2f146f4d81e8ab17b9d14cf99569a2f85cbfa32320127831db202"
-
-  Wdrl:
-    type: array
-    description: >-
-      A withdrawal of some number of coins to some reward address, expressed as a pair.
-    prefixItems:
-    - type: object
-      required:
-      - network
-      - credential
-      properties:
-        network:
-          type: string
-          description: >-
-            Identification of the network the address is valid for
-          enum: ["Mainnet", "Testnet"]
-        credential:
-          type: object
-          minProperties: 1
-          maxProperties: 1
-          properties:
-            "script hash":
-              type: string
-              description: >-
-                Hexadecimal string of the hash of a script
-            "key hash":
-              type: string
-              description: >-
-                Hexadecimal string of the hash of a public key
-    - type: integer
-      minimum: 0
-      description:  >-
-        Number of ADAs withdrawn to the given address
