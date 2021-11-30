@@ -24,7 +24,7 @@ import Test.Cardano.Ledger.Alonzo.Serialisation.Generators ()
 import Test.QuickCheck.Instances ()
 
 maxTxSize :: Int64
-maxTxSize = 1 `shift` 15 -- FIXME: current value on mainnet is 2 ^ 14 but this is not enough for SM based Head Script
+maxTxSize = 1 `shift` 14
 
 pparams :: PParams Era
 pparams =
