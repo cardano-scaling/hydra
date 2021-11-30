@@ -1,3 +1,5 @@
+{-# LANGUAGE LambdaCase #-}
+
 module Hydra.Prelude (
   module Relude,
   module Control.Monad.Class.MonadSTM,
@@ -21,6 +23,7 @@ module Hydra.Prelude (
   genericArbitrary,
   genericShrink,
   generateWith,
+  shrinkListAggressively,
 ) where
 
 import Cardano.Binary (
@@ -151,3 +154,12 @@ genericArbitrary =
 generateWith :: Gen a -> Int -> a
 generateWith (MkGen runGen) seed =
   runGen (mkQCGen seed) 30
+
+-- | Like 'shrinkList', but more aggressive :)
+--
+-- Useful for shrinking large nested Map or Lists where the shrinker "don't have
+-- time" to go through many cases.
+shrinkListAggressively :: [a] -> [[a]]
+shrinkListAggressively = \case
+  [] -> []
+  xs -> [[], take (length xs `div` 2) xs, drop 1 xs]
