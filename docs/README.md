@@ -62,7 +62,7 @@ kept [here](./adr/README.md).
 
 The following diagram represents the internal structure of the Hydra Node and the interactions between its components.
 
-![](images/hydra-components.jpg)
+![](images/hydra-architecture-direct.jpg)
 
 **Legend**:
 - Grayed boxes represent components which are not developed yet

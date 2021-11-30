@@ -4,7 +4,7 @@ Date: 2021-10-23
 
 ## Status
 
-:hammer_and_wrench:
+Accepted
 
 ## Context
 
@@ -26,3 +26,6 @@ For the time being, until _Plutus Application Framework_ is released, we will im
 
 * Limit Hydra dependencies to [plutus](https://github.com/input-output-hk/plutus) repository
 * Remove all PAB-related code as well as off-chain `Contract`s code and related dependencies
+* An updated architecture diagram:
+
+![](../images/hydra-architecture-direct.jpg)
