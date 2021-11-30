@@ -627,6 +627,17 @@ genOneUtxoFor vk = do
   output <- scale (const 1) $ genOutput vk
   pure $ Utxo $ Map.singleton (fromShelleyTxIn input) output
 
+-- | Generate UTXO entries that do not contain any assets. Useful to test /
+-- measure cases where
+genAdaOnlyUtxo :: Gen Utxo
+genAdaOnlyUtxo = do
+  fmap adaOnly <$> arbitrary
+ where
+  adaOnly :: TxOut CtxUTxO AlonzoEra -> TxOut CtxUTxO AlonzoEra
+  adaOnly = \case
+    TxOut addr value datum ->
+      TxOut addr (lovelaceToTxOutValue $ txOutValueToLovelace value) datum
+
 shrinkUtxo :: Utxo -> [Utxo]
 shrinkUtxo = shrinkMapBy (Utxo . fromList) utxoPairs (shrinkList shrinkOne)
  where
