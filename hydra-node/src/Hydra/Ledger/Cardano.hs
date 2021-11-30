@@ -73,7 +73,15 @@ import qualified Test.Cardano.Ledger.Shelley.Generator.Core as Ledger.Generator
 import qualified Test.Cardano.Ledger.Shelley.Generator.EraGen as Ledger.Generator
 import qualified Test.Cardano.Ledger.Shelley.Generator.Presets as Ledger.Generator
 import qualified Test.Cardano.Ledger.Shelley.Generator.Utxo as Ledger.Generator
-import Test.QuickCheck (choose, getSize, scale, suchThat, vectorOf)
+import Test.QuickCheck (
+  choose,
+  getSize,
+  scale,
+  shrinkList,
+  shrinkMapBy,
+  suchThat,
+  vectorOf,
+ )
 
 type Era = AlonzoEra
 
@@ -182,7 +190,8 @@ instance FromJSON Utxo where
   parseJSON = fmap Utxo . parseJSON
 
 instance Arbitrary Utxo where
-  -- TODO: shrinker!
+  shrink = shrinkUtxo
+
   -- TODO: Use Alonzo generators!
   -- probably: import Test.Cardano.Ledger.Alonzo.AlonzoEraGen ()
   arbitrary =
@@ -617,6 +626,22 @@ genOneUtxoFor vk = do
   -- too large to fit in a transaction and validation fails in the ledger
   output <- scale (const 1) $ genOutput vk
   pure $ Utxo $ Map.singleton (fromShelleyTxIn input) output
+
+shrinkUtxo :: Utxo -> [Utxo]
+shrinkUtxo = shrinkMapBy (Utxo . fromList) utxoPairs (shrinkList shrinkOne)
+ where
+  shrinkOne :: (TxIn, TxOut CtxUTxO AlonzoEra) -> [(TxIn, TxOut CtxUTxO AlonzoEra)]
+  shrinkOne (i, o) = case o of
+    TxOut _ TxOutAdaOnly{} _ ->
+      []
+    TxOut addr (TxOutValue MultiAssetInAlonzoEra value) datum ->
+      [ (i, TxOut addr (TxOutValue MultiAssetInAlonzoEra value') datum)
+      | value' <- shrinkValue value
+      ]
+
+shrinkValue :: Value -> [Value]
+shrinkValue =
+  shrinkMapBy valueFromList valueToList shrinkListAggressively
 
 --
 -- Temporary / Quick-n-dirty
