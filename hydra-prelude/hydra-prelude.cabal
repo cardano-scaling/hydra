@@ -18,6 +18,7 @@ library
   exposed-modules:    Hydra.Prelude
   build-depends:
     , aeson
+    , aeson-pretty
     , base
     , cardano-binary
     , generic-random

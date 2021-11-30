@@ -18,6 +18,7 @@ module Hydra.Prelude (
   ToCBOR (..),
   FromJSON (..),
   ToJSON (..),
+  encodePretty,
   Gen,
   Arbitrary (..),
   genericArbitrary,
@@ -78,6 +79,9 @@ import Control.Monad.Class.MonadTimer (
 import Data.Aeson (
   FromJSON (..),
   ToJSON (..),
+ )
+import Data.Aeson.Encode.Pretty (
+  encodePretty,
  )
 import GHC.Generics (Rep)
 import qualified Generic.Random as Random
