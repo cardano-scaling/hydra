@@ -394,20 +394,21 @@ fanoutTx utxo (headInput, headDatumBefore) =
 
   headScript = plutusScript $ MockHead.validatorScript policyId
 
--- | Create transaction which aborts by spending one input. This is currently
--- only possible if this is governed by the initial script and only for a single
--- input. Of course, the Head protocol specifies we need to spend ALL the Utxo
--- containing PTs.
+data AbortTxError = OverlappingInputs
+
+-- | Create transaction which aborts a head by spending the Head output and all
+-- other "initial" outputs.
 abortTx ::
   -- | Everything needed to spend the Head state-machine output.
   (TxIn StandardCrypto, Data Era) ->
   -- | Data needed to spend the inital output sent to each party to the Head
   -- which should contain the PT and is locked by initial script.
   [(TxIn StandardCrypto, Data Era)] ->
-  ValidatedTx Era
-abortTx (headInput, headDatum) initInputs =
+  Either AbortTxError (ValidatedTx Era)
+abortTx (headInput, headDatum) initialInputs =
   mkUnsignedTx body datums redeemers scripts
  where
+  initInputs = filter ((/= headInput) . fst) initialInputs
   body =
     TxBody
       { inputs = Set.fromList (headInput : map fst initInputs)
