@@ -62,7 +62,9 @@ import Test.Cardano.Ledger.Alonzo.Serialisation.Generators ()
 import Test.QuickCheck (
   NonEmptyList (NonEmpty),
   Property,
+  checkCoverage,
   counterexample,
+  cover,
   elements,
   expectFailure,
   forAll,
@@ -261,7 +263,7 @@ spec =
       -- TODO(SN): this requires the abortTx to include a redeemer, for a TxIn,
       -- spending a Head-validated output
       prop "validates against 'head' script in haskell (unlimited budget)" $
-        withMaxSuccess 30 $ \txIn HeadParameters{contestationPeriod, parties} (NonEmpty initialsPkh) ->
+        \txIn HeadParameters{contestationPeriod, parties} (NonEmpty initialsPkh) ->
           let headUtxo = (txIn, headOutput)
               headOutput = TxOut headAddress headValue (SJust headDatumHash)
               (policy, _) = first currencyMPSHash (unAssetClass threadToken)
@@ -276,17 +278,19 @@ spec =
               initials = map (\(i, pkh) -> (i, Data . toData $ MockInitial.datum pkh)) initialsPkh
               initialsUtxo = map mkMockInitialTxOut initialsPkh
               utxo = UTxO $ Map.fromList $ headUtxo : initialsUtxo
-           in case abortTx (txIn, headDatum) initials of
-                Left err ->
-                  property False & counterexample ("AbortTx construction failed: " <> show err)
+           in checkCoverage $ case abortTx (txIn, headDatum) initials of
+                Left OverlappingInputs ->
+                  property (txIn `elem` (fst <$> initials))
                 Right tx ->
                   case validateTxScriptsUnlimited utxo tx of
-                    Left basicFailure -> property False & counterexample ("Basic failure: " <> show basicFailure)
+                    Left basicFailure ->
+                      property False & counterexample ("Basic failure: " <> show basicFailure)
                     Right redeemerReport ->
                       1 + length initials == length (rights $ Map.elems redeemerReport)
                         & counterexample ("Redeemer report: " <> show redeemerReport)
                         & counterexample ("Tx: " <> show tx)
                         & counterexample ("Input utxo: " <> show utxo)
+                        & cover 0.8 True "Success"
 
       prop "cover fee correctly handles redeemers" $
         withMaxSuccess 60 $ \txIn walletUtxo params cardanoKeys ->
