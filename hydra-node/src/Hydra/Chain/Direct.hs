@@ -382,7 +382,7 @@ fromPostChainTx TinyWallet{getUtxo, verificationKey} headState cardanoKeys = \ca
   AbortTx _utxo ->
     readTVar headState >>= \case
       Initial{threadOutput, initials} ->
-        case abortTx (convertTuple threadOutput) (map convertTuple initials) of
+        case abortTx (convertTuple threadOutput) (Map.fromList $ map convertTuple initials) of
           Left err -> error $ show err
           Right tx -> pure $ Just tx
       _st -> pure Nothing

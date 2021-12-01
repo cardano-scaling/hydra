@@ -41,7 +41,6 @@ import Cardano.Ledger.Shelley.API (
 import Cardano.Ledger.ShelleyMA.Timelocks (ValidityInterval (..))
 import Cardano.Ledger.Val (inject)
 import qualified Data.Aeson as Aeson
-import qualified Data.List as List
 import qualified Data.Map as Map
 import qualified Data.Sequence.Strict as StrictSeq
 import qualified Data.Set as Set
@@ -405,17 +404,17 @@ abortTx ::
   (TxIn StandardCrypto, Data Era) ->
   -- | Data needed to spend the inital output sent to each party to the Head
   -- which should contain the PT and is locked by initial script.
-  [(TxIn StandardCrypto, Data Era)] ->
+  Map (TxIn StandardCrypto) (Data Era) ->
   Either AbortTxError (ValidatedTx Era)
 abortTx (headInput, headDatum) initialInputs
-  | isJust (List.lookup headInput initialInputs) =
+  | isJust (lookup headInput initialInputs) =
     Left OverlappingInputs
   | otherwise =
     Right $ mkUnsignedTx body datums redeemers scripts
  where
   body =
     TxBody
-      { inputs = Set.fromList (headInput : map fst initialInputs)
+      { inputs = Set.singleton headInput <> Map.keysSet initialInputs
       , collateral = mempty
       , outputs =
           StrictSeq.fromList
@@ -453,19 +452,19 @@ abortTx (headInput, headDatum) initialInputs
 
   initialRedeemers =
     map
-      ( \(txin, _) ->
+      ( \txin ->
           ( rdptr body (Spending txin)
           , (Data $ toData $ Plutus.getRedeemer $ MockInitial.redeemer (), ExUnits 0 0)
           )
       )
-      initialInputs
+      $ Map.keys initialInputs
 
   -- NOTE: Those datums contain the datum of the spent state-machine input, but
   -- also, the datum of the created output which is necessary for the
   -- state-machine on-chain validator to control the correctness of the
   -- transition.
   datums =
-    datumsFromList $ abortDatum : headDatum : map snd initialInputs
+    datumsFromList $ abortDatum : headDatum : Map.elems initialInputs
 
   abortDatum =
     Data $ toData MockHead.Final

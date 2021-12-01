@@ -230,10 +230,10 @@ spec =
               & counterexample ("Utxo map: " <> show lookupUtxo)
 
     describe "abortTx" $ do
-      -- NOTE(AB): This property fails if the list generated is arbitrarily long
-      prop "transaction size below limit" $ \txIn cperiod parties initials ->
+      -- NOTE(AB): This property fails if initials are too big
+      prop "transaction size below limit" $ \txIn cperiod parties (ReasonablySized initials) ->
         let headDatum = Data . toData $ MockHead.Initial cperiod parties
-         in case abortTx (txIn, headDatum) (take 10 initials) of
+         in case abortTx (txIn, headDatum) (Map.fromList initials) of
               Left err -> property False & counterexample ("AbortTx construction failed: " <> show err)
               Right tx ->
                 let cbor = serialize tx
@@ -243,7 +243,7 @@ spec =
                       & counterexample ("Tx: " <> show tx)
                       & counterexample ("Tx serialized size: " <> show len)
 
-      prop "updates on-chain state to 'Final'" $ \txIn cperiod parties (NonEmpty initials) ->
+      prop "updates on-chain state to 'Final'" $ \txIn cperiod parties (ReasonablySized initials) ->
         let txOut = TxOut headAddress headValue SNothing -- will be SJust, but not covered by this test
             headDatum = Data . toData $ MockHead.Initial cperiod parties
             headAddress = scriptAddr $ plutusScript $ MockHead.validatorScript policyId
@@ -263,8 +263,8 @@ spec =
       -- TODO(SN): this requires the abortTx to include a redeemer, for a TxIn,
       -- spending a Head-validated output
       prop "validates against 'head' script in haskell (unlimited budget)" $
-        \txIn HeadParameters{contestationPeriod, parties} (NonEmpty initialsPkh) ->
-          let headUtxo = (txIn, headOutput)
+        \txIn HeadParameters{contestationPeriod, parties} (ReasonablySized initialsPkh) ->
+          let headUtxo = (txIn :: TxIn StandardCrypto, headOutput)
               headOutput = TxOut headAddress headValue (SJust headDatumHash)
               (policy, _) = first currencyMPSHash (unAssetClass threadToken)
               headAddress = scriptAddr $ plutusScript $ MockHead.validatorScript policy
@@ -275,12 +275,12 @@ spec =
                   MockHead.Initial
                     (contestationPeriodFromDiffTime contestationPeriod)
                     (map (partyFromVerKey . vkey) parties)
-              initials = map (\(i, pkh) -> (i, Data . toData $ MockInitial.datum pkh)) initialsPkh
-              initialsUtxo = map mkMockInitialTxOut initialsPkh
-              utxo = UTxO $ Map.fromList $ headUtxo : initialsUtxo
+              initials = Map.map (Data . toData . MockInitial.datum) initialsPkh
+              initialsUtxo = map (\(i, pkh) -> mkMockInitialTxOut (i, pkh)) $ Map.toList initialsPkh
+              utxo = UTxO $ Map.fromList (headUtxo : initialsUtxo)
            in checkCoverage $ case abortTx (txIn, headDatum) initials of
                 Left OverlappingInputs ->
-                  property (txIn `elem` (fst <$> initials))
+                  property (isJust $ txIn `Map.lookup` initials)
                 Right tx ->
                   case validateTxScriptsUnlimited utxo tx of
                     Left basicFailure ->
@@ -308,7 +308,7 @@ spec =
               -- Finally we can create the abortTx and have it processed by the wallet
               lookupUtxo = Map.fromList (headUtxo : initialUtxo)
               utxo = UTxO $ walletUtxo <> lookupUtxo
-           in case abortTx (headInput, headDatum) initials of
+           in case abortTx (headInput, headDatum) (Map.fromList initials) of
                 Left err ->
                   property False & counterexample ("AbortTx construction failed: " <> show err)
                 Right txAbort ->
