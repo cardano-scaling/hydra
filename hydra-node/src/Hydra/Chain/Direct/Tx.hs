@@ -41,6 +41,7 @@ import Cardano.Ledger.Shelley.API (
 import Cardano.Ledger.ShelleyMA.Timelocks (ValidityInterval (..))
 import Cardano.Ledger.Val (inject)
 import qualified Data.Aeson as Aeson
+import qualified Data.List as List
 import qualified Data.Map as Map
 import qualified Data.Sequence.Strict as StrictSeq
 import qualified Data.Set as Set
@@ -395,6 +396,7 @@ fanoutTx utxo (headInput, headDatumBefore) =
   headScript = plutusScript $ MockHead.validatorScript policyId
 
 data AbortTxError = OverlappingInputs
+  deriving (Show)
 
 -- | Create transaction which aborts a head by spending the Head output and all
 -- other "initial" outputs.
@@ -405,13 +407,15 @@ abortTx ::
   -- which should contain the PT and is locked by initial script.
   [(TxIn StandardCrypto, Data Era)] ->
   Either AbortTxError (ValidatedTx Era)
-abortTx (headInput, headDatum) initialInputs =
-  mkUnsignedTx body datums redeemers scripts
+abortTx (headInput, headDatum) initialInputs
+  | isJust (List.lookup headInput initialInputs) =
+    Left OverlappingInputs
+  | otherwise =
+    Right $ mkUnsignedTx body datums redeemers scripts
  where
-  initInputs = filter ((/= headInput) . fst) initialInputs
   body =
     TxBody
-      { inputs = Set.fromList (headInput : map fst initInputs)
+      { inputs = Set.fromList (headInput : map fst initialInputs)
       , collateral = mempty
       , outputs =
           StrictSeq.fromList
@@ -435,7 +439,7 @@ abortTx (headInput, headDatum) initialInputs =
   scripts =
     fromList $
       map withScriptHash $
-        headScript : [initialScript | not (null initInputs)]
+        headScript : [initialScript | not (null initialInputs)]
 
   initialScript = plutusScript MockInitial.validatorScript
 
@@ -454,14 +458,14 @@ abortTx (headInput, headDatum) initialInputs =
           , (Data $ toData $ Plutus.getRedeemer $ MockInitial.redeemer (), ExUnits 0 0)
           )
       )
-      initInputs
+      initialInputs
 
   -- NOTE: Those datums contain the datum of the spent state-machine input, but
   -- also, the datum of the created output which is necessary for the
   -- state-machine on-chain validator to control the correctness of the
   -- transition.
   datums =
-    datumsFromList $ abortDatum : headDatum : map snd initInputs
+    datumsFromList $ abortDatum : headDatum : map snd initialInputs
 
   abortDatum =
     Data $ toData MockHead.Final

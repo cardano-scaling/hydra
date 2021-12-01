@@ -231,13 +231,15 @@ spec =
       -- NOTE(AB): This property fails if the list generated is arbitrarily long
       prop "transaction size below limit" $ \txIn cperiod parties initials ->
         let headDatum = Data . toData $ MockHead.Initial cperiod parties
-            tx = abortTx (txIn, headDatum) (take 10 initials)
-            cbor = serialize tx
-            len = LBS.length cbor
-         in len < maxTxSize
-              & label (show (len `div` 1024) <> "kB")
-              & counterexample ("Tx: " <> show tx)
-              & counterexample ("Tx serialized size: " <> show len)
+         in case abortTx (txIn, headDatum) (take 10 initials) of
+              Left err -> property False & counterexample ("AbortTx construction failed: " <> show err)
+              Right tx ->
+                let cbor = serialize tx
+                    len = LBS.length cbor
+                 in len < maxTxSize
+                      & label (show (len `div` 1024) <> "kB")
+                      & counterexample ("Tx: " <> show tx)
+                      & counterexample ("Tx serialized size: " <> show len)
 
       prop "updates on-chain state to 'Final'" $ \txIn cperiod parties (NonEmpty initials) ->
         let txOut = TxOut headAddress headValue SNothing -- will be SJust, but not covered by this test
@@ -245,13 +247,16 @@ spec =
             headAddress = scriptAddr $ plutusScript $ MockHead.validatorScript policyId
             headValue = inject (Coin 2_000_000)
             utxo = Map.singleton txIn txOut
-            tx = abortTx (txIn, headDatum) initials
-            res = observeAbortTx utxo tx
-         in case res of
-              Just (_, st) -> st === Final
-              _ -> property False
-              & counterexample ("Result: " <> show res)
-              & counterexample ("Tx: " <> show tx)
+         in case abortTx (txIn, headDatum) initials of
+              Left err -> property False & counterexample ("AbortTx construction failed: " <> show err)
+              Right tx ->
+                let res = observeAbortTx utxo tx
+                 in case res of
+                      Just (_, st) -> st === Final
+                      _ ->
+                        property False
+                          & counterexample ("Result: " <> show res)
+                          & counterexample ("Tx: " <> show tx)
 
       -- TODO(SN): this requires the abortTx to include a redeemer, for a TxIn,
       -- spending a Head-validated output
@@ -270,15 +275,18 @@ spec =
                     (map (partyFromVerKey . vkey) parties)
               initials = map (\(i, pkh) -> (i, Data . toData $ MockInitial.datum pkh)) initialsPkh
               initialsUtxo = map mkMockInitialTxOut initialsPkh
-              tx = abortTx (txIn, headDatum) initials
               utxo = UTxO $ Map.fromList $ headUtxo : initialsUtxo
-           in case validateTxScriptsUnlimited utxo tx of
-                Left basicFailure -> property False & counterexample ("Basic failure: " <> show basicFailure)
-                Right redeemerReport ->
-                  1 + length initials == length (rights $ Map.elems redeemerReport)
-                    & counterexample ("Redeemer report: " <> show redeemerReport)
-                    & counterexample ("Tx: " <> show tx)
-                    & counterexample ("Input utxo: " <> show utxo)
+           in case abortTx (txIn, headDatum) initials of
+                Left err ->
+                  property False & counterexample ("AbortTx construction failed: " <> show err)
+                Right tx ->
+                  case validateTxScriptsUnlimited utxo tx of
+                    Left basicFailure -> property False & counterexample ("Basic failure: " <> show basicFailure)
+                    Right redeemerReport ->
+                      1 + length initials == length (rights $ Map.elems redeemerReport)
+                        & counterexample ("Redeemer report: " <> show redeemerReport)
+                        & counterexample ("Tx: " <> show tx)
+                        & counterexample ("Input utxo: " <> show utxo)
 
       prop "cover fee correctly handles redeemers" $
         withMaxSuccess 60 $ \txIn walletUtxo params cardanoKeys ->
@@ -294,26 +302,29 @@ spec =
               initialUtxo = zipWith (\ix out -> (TxIn initTxId ix, out)) [1 ..] initialOutputs
               initials = zipWith (\ix dat -> (TxIn initTxId ix, dat)) [1 ..] initialDatums
               -- Finally we can create the abortTx and have it processed by the wallet
-              txAbort = abortTx (headInput, headDatum) initials
               lookupUtxo = Map.fromList (headUtxo : initialUtxo)
               utxo = UTxO $ walletUtxo <> lookupUtxo
-           in case coverFee_ pparams lookupUtxo walletUtxo txAbort of
+           in case abortTx (headInput, headDatum) initials of
                 Left err ->
-                  True
-                    & label
-                      ( case err of
-                          ErrNoAvailableUtxo -> "No available Utxo"
-                          ErrNotEnoughFunds{} -> "Not enough funds"
-                          ErrUnknownInput{} -> "Unknown input"
-                      )
-                Right (_, txAbortWithFees@ValidatedTx{body = abortTxBody}) ->
-                  let actualExecutionCost = executionCost pparams txAbortWithFees
-                   in actualExecutionCost > Coin 0 && txfee abortTxBody > actualExecutionCost
-                        & label "Ok"
-                        & counterexample ("Execution cost: " <> show actualExecutionCost)
-                        & counterexample ("Fee: " <> show (txfee abortTxBody))
-                        & counterexample ("Tx: " <> show txAbortWithFees)
-                        & counterexample ("Input utxo: " <> show utxo)
+                  property False & counterexample ("AbortTx construction failed: " <> show err)
+                Right txAbort ->
+                  case coverFee_ pparams lookupUtxo walletUtxo txAbort of
+                    Left err ->
+                      True
+                        & label
+                          ( case err of
+                              ErrNoAvailableUtxo -> "No available Utxo"
+                              ErrNotEnoughFunds{} -> "Not enough funds"
+                              ErrUnknownInput{} -> "Unknown input"
+                          )
+                    Right (_, txAbortWithFees@ValidatedTx{body = abortTxBody}) ->
+                      let actualExecutionCost = executionCost pparams txAbortWithFees
+                       in actualExecutionCost > Coin 0 && txfee abortTxBody > actualExecutionCost
+                            & label "Ok"
+                            & counterexample ("Execution cost: " <> show actualExecutionCost)
+                            & counterexample ("Fee: " <> show (txfee abortTxBody))
+                            & counterexample ("Tx: " <> show txAbortWithFees)
+                            & counterexample ("Input utxo: " <> show utxo)
 
 executionCost :: PParams Era -> ValidatedTx Era -> Coin
 executionCost PParams{_prices} ValidatedTx{wits} =
