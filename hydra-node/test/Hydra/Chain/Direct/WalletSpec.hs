@@ -148,7 +148,7 @@ prop_balanceTransaction ::
   Property
 prop_balanceTransaction =
   forAllBlind (reasonablySized genValidatedTx) $ \tx ->
-    forAllBlind (reasonablySized $ genUtxoFromInputs tx) $ \lookupUtxo ->
+    forAllBlind (reasonablySized $ genOutputsForInputs tx) $ \lookupUtxo ->
       forAllBlind (reasonablySized genUtxo) $ \walletUtxo ->
         prop' lookupUtxo walletUtxo tx
  where
@@ -242,8 +242,8 @@ genBlock utxo = scale (round @Double . sqrt . fromIntegral) $ do
 genUtxo :: Gen (Map TxIn TxOut)
 genUtxo = Map.fromList <$> vectorOf 1 arbitrary
 
-genUtxoFromInputs :: ValidatedTx Era -> Gen (Map TxIn TxOut)
-genUtxoFromInputs ValidatedTx{body} = do
+genOutputsForInputs :: ValidatedTx Era -> Gen (Map TxIn TxOut)
+genOutputsForInputs ValidatedTx{body} = do
   let n = Set.size (inputs body)
   outs <- vectorOf n arbitrary
   pure $ Map.fromList $ zip (toList (inputs body)) outs
