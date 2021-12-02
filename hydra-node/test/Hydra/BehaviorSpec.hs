@@ -315,13 +315,12 @@ spec = parallel $ do
           withHydraNode 1 [2] chain $ \n1 ->
             withHydraNode 2 [1] chain $ \n2 -> do
               openHead n1 n2
-
               send n1 Close
-              waitFor [n1, n2] $
-                HeadIsClosed{contestationDeadline = testContestationPeriod, latestSnapshot = Snapshot 0 (utxoRefs [1, 2]) []}
-
+              forM_ [n1, n2] $ waitForNext >=> assertHeadIsClosed
               threadDelay testContestationPeriod
               waitFor [n1, n2] $ HeadIsFinalized (utxoRefs [1, 2])
+              allTxs <- history chain
+              length (filter matchFanout allTxs) `shouldBe` 1
 
     describe "Hydra Node Logging" $ do
       it "traces processing of events" $ do
@@ -385,7 +384,10 @@ data TestHydraNode tx m = TestHydraNode
   , waitForNext :: m (ServerOutput tx)
   }
 
-type ConnectToChain tx m = (HydraNode tx m -> m (HydraNode tx m))
+data ConnectToChain tx m = ConnectToChain
+  { chainComponent :: HydraNode tx m -> m (HydraNode tx m)
+  , history :: m [PostChainTx tx]
+  }
 
 -- | Creates a simulated chain and network by returning a function to "monkey
 -- patch" a 'HydraNode' such that it is connected. This is necessary, to get to
@@ -395,13 +397,18 @@ simulatedChainAndNetwork :: (MonadSTM m, MonadTime m) => m (ConnectToChain tx m)
 simulatedChainAndNetwork = do
   refHistory <- newTVarIO []
   nodes <- newTVarIO []
-  pure $ \node -> do
-    atomically $ modifyTVar nodes (node :)
-    pure $
-      node
-        { oc = Chain{postTx = postTx nodes refHistory}
-        , hn = Network{broadcast = broadcast node nodes}
-        }
+  pure $
+    ConnectToChain
+      { chainComponent = \node -> do
+          atomically $ modifyTVar nodes (node :)
+          pure $
+            node
+              { oc = Chain{postTx = postTx nodes refHistory}
+              , hn = Network{broadcast = broadcast node nodes}
+              }
+      , history = do
+          reverse <$> readTVarIO refHistory
+      }
  where
   postTx nodes refHistory tx = do
     res <- atomically $ do
@@ -464,7 +471,7 @@ withHydraNode signingKey otherParties connectToChain action = do
   createHydraNode outputs = do
     eq <- createEventQueue
     hh <- createHydraHead ReadyState simpleLedger
-    connectToChain $
+    chainComponent connectToChain $
       HydraNode
         { eq
         , hn = Network{broadcast = const $ pure ()}
@@ -478,6 +485,11 @@ withHydraNode signingKey otherParties connectToChain action = do
               , otherParties
               }
         }
+
+matchFanout :: PostChainTx tx -> Bool
+matchFanout = \case
+  FanoutTx{} -> True
+  _ -> False
 
 assertHeadIsClosed :: (HasCallStack, MonadThrow m, MonadTime m) => ServerOutput tx -> m ()
 assertHeadIsClosed = \case
