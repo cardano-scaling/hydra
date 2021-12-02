@@ -7,9 +7,13 @@ import Hydra.Prelude hiding (label)
 import Test.Hydra.Prelude
 
 import qualified Cardano.Api.Shelley as Cardano.Api
+import Cardano.Ledger.Alonzo.Language (Language (PlutusV1))
+import Cardano.Ledger.Alonzo.PParams (PParams, PParams' (..))
+import Cardano.Ledger.Alonzo.Scripts (ExUnits (..), Prices (..))
 import Cardano.Ledger.Alonzo.Tx (ValidatedTx (..))
 import Cardano.Ledger.Alonzo.TxBody (TxBody (..), pattern TxOut)
 import Cardano.Ledger.Alonzo.TxSeq (TxSeq (..))
+import Cardano.Ledger.BaseTypes (boundRational)
 import Cardano.Ledger.Block (bbody)
 import Cardano.Ledger.Coin (Coin (..))
 import Cardano.Ledger.Core (Value)
@@ -20,10 +24,12 @@ import qualified Cardano.Ledger.Shelley.API as Ledger
 import Cardano.Ledger.Val (Val (..), invert)
 import Control.Monad.Class.MonadTimer (timeout)
 import Control.Tracer (nullTracer)
+import Data.Default (def)
 import qualified Data.Map.Strict as Map
+import Data.Maybe (fromJust)
+import Data.Ratio ((%))
 import qualified Data.Sequence.Strict as StrictSeq
 import qualified Data.Set as Set
-import Hydra.Chain.Direct.Fixture (pparams)
 import Hydra.Chain.Direct.MockServer (withMockServer)
 import Hydra.Chain.Direct.Util (Era, VerificationKey)
 import Hydra.Chain.Direct.Wallet (
@@ -39,6 +45,7 @@ import Hydra.Chain.Direct.Wallet (
 import Hydra.Ledger.Cardano (NetworkId (Testnet), NetworkMagic, mkVkAddress, toLedgerAddr)
 import Ouroboros.Consensus.Cardano.Block (HardForkBlock (..))
 import Ouroboros.Consensus.Shelley.Ledger (mkShelleyBlock)
+import Test.Cardano.Ledger.Alonzo.PlutusScripts (defaultCostModel)
 import Test.Cardano.Ledger.Alonzo.Serialisation.Generators ()
 import Test.QuickCheck (
   Property,
@@ -182,8 +189,7 @@ prop_removeUsedInputs =
   prop' txUtxo walletUtxo tx =
     case coverFee_ pparams mempty walletUtxo tx of
       Left e ->
-        property True
-          & label (show e)
+        property True & label (show e)
       Right (utxo', _) ->
         null (Map.intersection walletUtxo utxo')
           & label "Right"
@@ -242,9 +248,15 @@ genBlock utxo = scale (round @Double . sqrt . fromIntegral) $ do
 
 genUtxo :: Gen (Map TxIn TxOut)
 genUtxo = do
-  tx <- arbitrary
+  tx <- arbitrary `suchThat` (\tx -> length (outputs (body tx)) >= 1)
   txIn <- arbitrary
-  pure $ Map.singleton txIn (Prelude.head $ toList $ outputs $ body tx)
+  let txOut = scaleAda $ Prelude.head $ toList $ outputs $ body tx
+  pure $ Map.singleton txIn txOut
+ where
+  scaleAda :: TxOut -> TxOut
+  scaleAda (TxOut addr value datum) =
+    let value' = value <> inject (Coin 20_000_000)
+     in TxOut addr value' datum
 
 genOutputsForInputs :: ValidatedTx Era -> Gen (Map TxIn TxOut)
 genOutputsForInputs ValidatedTx{body} = do
@@ -331,3 +343,15 @@ knownInputBalance utxo = foldMap resolve . toList . inputs . body
 outputBalance :: ValidatedTx Era -> Value Era
 outputBalance =
   foldMap getValue . outputs . body
+
+pparams :: PParams Era
+pparams =
+  def
+    { _costmdls = Map.singleton PlutusV1 $ fromJust defaultCostModel
+    , _maxTxExUnits = ExUnits 10 10
+    , _prices =
+        Prices
+          { prMem = fromJust $ boundRational (1 % 1)
+          , prSteps = fromJust $ boundRational (1 % 1)
+          }
+    }
