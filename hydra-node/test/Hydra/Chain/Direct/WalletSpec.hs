@@ -56,6 +56,7 @@ import Test.QuickCheck (
   scale,
   suchThat,
   vectorOf,
+  (===),
  )
 
 spec :: Spec
@@ -69,6 +70,7 @@ spec = parallel $ do
 
   describe "coverFee" $ do
     prop "balances transaction with fees" prop_balanceTransaction
+    prop "transaction's inputs are removed from wallet" prop_removeUsedInputs
 
   describe "withTinyWallet" $ do
     (vk, sk) <- runIO generateKeyPair
@@ -168,6 +170,25 @@ prop_balanceTransaction =
               & counterexample ("Added value:     " <> show (coin inp'))
               & counterexample ("Outputs after:   " <> show (coin out'))
               & counterexample ("Outputs before:  " <> show (coin out))
+
+prop_removeUsedInputs ::
+  Property
+prop_removeUsedInputs =
+  forAllBlind (reasonablySized genValidatedTx) $ \tx ->
+    forAllBlind (reasonablySized $ genOutputsForInputs tx) $ \txUtxo ->
+      forAllBlind (reasonablySized genUtxo) $ \extraUtxo ->
+        prop' txUtxo (txUtxo <> extraUtxo) tx
+ where
+  prop' txUtxo walletUtxo tx =
+    case coverFee_ pparams mempty walletUtxo tx of
+      Left e ->
+        property False
+          & label "Left"
+          & counterexample (show e)
+      Right (utxo', _) ->
+        utxo' === (walletUtxo `Map.withoutKeys` (Map.keysSet txUtxo))
+          & label "Right"
+          & counterexample ("Remaining UTXO: " <> show utxo')
 
 --
 -- Generators
