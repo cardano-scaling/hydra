@@ -44,6 +44,7 @@ import qualified Hydra.Contract.MockHead as MockHead
 import qualified Hydra.Contract.MockInitial as MockInitial
 import Hydra.Data.ContestationPeriod (contestationPeriodFromDiffTime)
 import Hydra.Data.Party (partyFromVerKey)
+import Hydra.Ledger (balance)
 import Hydra.Ledger.Cardano (
   CardanoTx,
   LedgerCrypto,
@@ -53,6 +54,7 @@ import Hydra.Ledger.Cardano (
   fromLedgerTx,
   genAdaOnlyUtxo,
   shrinkUtxo,
+  toMaryValue,
  )
 import Hydra.Party (vkey)
 import Ledger.Value (currencyMPSHash, unAssetClass)
@@ -144,13 +146,14 @@ spec =
       prop "is observed" $ \committedUtxo headInput cperiod parties ->
         let headDatum = Data . toData $ MockHead.Initial cperiod parties
             headAddress = scriptAddr $ plutusScript $ MockHead.validatorScript policyId
-            headValue = inject (Coin 2_000_000)
+            headValue = inject (Coin 2_000_000) <> toMaryValue (balance @CardanoTx committedUtxo)
             headOutput = TxOut headAddress headValue SNothing -- will be SJust, but not covered by this test
             lookupUtxo = Map.singleton headInput headOutput
             tx = collectComTx committedUtxo (headInput, headDatum)
             res = observeCollectComTx lookupUtxo tx
          in case res of
-              Just (OnCollectComTx, OpenOrClosed{}) -> property True
+              Just (OnCollectComTx, OpenOrClosed{threadOutput = (_, TxOut _ headOutputValue' _, _)}) ->
+                headOutputValue' === headValue
               _ -> property False
               & counterexample ("Observe result: " <> show res)
               & counterexample ("Tx: " <> show tx)
