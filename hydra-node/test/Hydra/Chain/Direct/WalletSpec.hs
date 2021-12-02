@@ -240,7 +240,12 @@ genBlock utxo = scale (round @Double . sqrt . fromIntegral) $ do
     pure body
 
 genUtxo :: Gen (Map TxIn TxOut)
-genUtxo = Map.fromList <$> vectorOf 1 arbitrary
+genUtxo = fmap scaleAda . Map.fromList <$> vectorOf 1 arbitrary
+ where
+  scaleAda :: TxOut -> TxOut
+  scaleAda (TxOut addr value datum) =
+    let value' = value <> inject (Coin 10_000_000)
+     in TxOut addr value' datum
 
 genOutputsForInputs :: ValidatedTx Era -> Gen (Map TxIn TxOut)
 genOutputsForInputs ValidatedTx{body} = do
