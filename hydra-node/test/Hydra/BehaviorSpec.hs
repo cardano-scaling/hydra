@@ -309,6 +309,20 @@ spec = parallel $ do
 
               waitFor [n1] $ Utxo (utxoRefs [2, 42])
 
+      it "leader post fanout tx after contestation period" $
+        shouldRunInSim $ do
+          chain <- simulatedChainAndNetwork
+          withHydraNode 1 [2] chain $ \n1 ->
+            withHydraNode 2 [1] chain $ \n2 -> do
+              openHead n1 n2
+
+              send n1 Close
+              waitFor [n1, n2] $
+                HeadIsClosed{contestationDeadline = testContestationPeriod, latestSnapshot = Snapshot 0 (utxoRefs [1, 2]) []}
+
+              threadDelay testContestationPeriod
+              waitFor [n1, n2] $ HeadIsFinalized (utxoRefs [1, 2])
+
     describe "Hydra Node Logging" $ do
       it "traces processing of events" $ do
         let result = runSimTrace $ do
