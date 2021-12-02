@@ -57,6 +57,7 @@ import Test.QuickCheck (
   suchThat,
   vectorOf,
  )
+import qualified Prelude
 
 spec :: Spec
 spec = parallel $ do
@@ -180,9 +181,9 @@ prop_removeUsedInputs =
  where
   prop' txUtxo walletUtxo tx =
     case coverFee_ pparams mempty walletUtxo tx of
-      Left _e ->
+      Left e ->
         property True
-          & label "Left"
+          & label (show e)
       Right (utxo', _) ->
         null (Map.intersection walletUtxo utxo')
           & label "Right"
@@ -240,12 +241,10 @@ genBlock utxo = scale (round @Double . sqrt . fromIntegral) $ do
     pure body
 
 genUtxo :: Gen (Map TxIn TxOut)
-genUtxo = fmap scaleAda . Map.fromList <$> vectorOf 1 arbitrary
- where
-  scaleAda :: TxOut -> TxOut
-  scaleAda (TxOut addr value datum) =
-    let value' = value <> inject (Coin 20_000_000)
-     in TxOut addr value' datum
+genUtxo = do
+  tx <- arbitrary
+  txIn <- arbitrary
+  pure $ Map.singleton txIn (Prelude.head $ toList $ outputs $ body tx)
 
 genOutputsForInputs :: ValidatedTx Era -> Gen (Map TxIn TxOut)
 genOutputsForInputs ValidatedTx{body} = do

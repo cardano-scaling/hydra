@@ -238,8 +238,11 @@ applyBlock blk isOurs utxo = case blk of
 
 data ErrCoverFee
   = ErrNoAvailableUtxo
-  | ErrNotEnoughFunds {missingDelta :: Coin}
+  | ErrNotEnoughFunds ChangeError
   | ErrUnknownInput {input :: TxIn}
+  deriving (Show)
+
+data ChangeError = ChangeError {inputBalance :: Coin, outputBalance :: Coin}
   deriving (Show)
 
 -- | Cover fee for a transaction body using the given UTXO set. This calculate
@@ -267,9 +270,7 @@ coverFee_ pparams lookupUtxo walletUtxo partialTx@ValidatedTx{body, wits} = do
   let adjustedRedeemers = adjustRedeemers (inputs body) inputs' (txrdmrs wits)
       needlesslyHighFee = calculateNeedlesslyHighFee adjustedRedeemers
 
-  change <-
-    first ErrNotEnoughFunds $
-      mkChange output resolvedInputs (toList $ outputs body) needlesslyHighFee
+  change <- first ErrNotEnoughFunds $ mkChange output resolvedInputs (toList $ outputs body) needlesslyHighFee
 
   let outputs' = outputs body <> StrictSeq.singleton change
       langs =
@@ -323,11 +324,11 @@ coverFee_ pparams lookupUtxo walletUtxo partialTx@ValidatedTx{body, wits} = do
     [TxOut] ->
     [TxOut] ->
     Coin ->
-    Either Coin TxOut
+    Either ChangeError TxOut
   mkChange (TxOut addr _ datum) resolvedInputs otherOutputs fee
     -- FIXME: The delta between in and out must be greater than the min utxo value!
     | totalIn <= totalOut =
-      Left $ totalOut <> invert totalIn
+      Left $ ChangeError totalIn totalOut
     | otherwise =
       Right $ TxOut addr (inject changeOut) datum
    where
