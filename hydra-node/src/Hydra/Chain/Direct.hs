@@ -17,7 +17,8 @@ import Hydra.Prelude
 
 import Cardano.Ledger.Alonzo.Tx (ValidatedTx)
 import Cardano.Ledger.Alonzo.TxSeq (txSeqTxns)
-import Cardano.Ledger.Shelley.API (TxIn (TxIn))
+import Cardano.Ledger.Crypto (StandardCrypto)
+import Cardano.Ledger.Shelley.API (TxId, TxIn (TxIn))
 import qualified Cardano.Ledger.Shelley.API as Ledger
 import Control.Exception (IOException)
 import Control.Monad (foldM)
@@ -60,7 +61,13 @@ import Hydra.Chain.Direct.Util (
   versions,
  )
 import qualified Hydra.Chain.Direct.Util as Cardano
-import Hydra.Chain.Direct.Wallet (ErrCoverFee (ErrUnknownInput, input), TinyWallet (..), TinyWalletLog, withTinyWallet)
+import Hydra.Chain.Direct.Wallet (
+  ErrCoverFee (ErrUnknownInput, input),
+  TinyWallet (..),
+  TinyWalletLog,
+  getTxId,
+  withTinyWallet,
+ )
 import Hydra.Ledger.Cardano (CardanoTx, fromLedgerTxId, fromLedgerUtxo, utxoPairs)
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Party (Party)
@@ -281,7 +288,7 @@ chainSyncClient tracer callback party headState =
             let receivedTxs = toList $ getAlonzoTxs blk
             onChainTxs <- runOnChainTxs receivedTxs
             unless (null receivedTxs) $
-              traceWith tracer $ ReceivedTxs{onChainTxs, receivedTxs}
+              traceWith tracer $ ReceivedTxs{onChainTxs, receivedTxs = map getTxId receivedTxs}
             mapM_ callback onChainTxs
             pure clientStIdle
       , recvMsgRollBackward = \point _tip ->
@@ -323,7 +330,7 @@ txSubmissionClient tracer queue =
   clientStIdle :: m (LocalTxClientStIdle (GenTx Block) (ApplyTxErr Block) m ())
   clientStIdle = do
     tx <- atomically $ readTQueue queue
-    traceWith tracer (PostedTx tx)
+    traceWith tracer (PostedTx $ getTxId tx)
     pure $
       SendMsgSubmitTx
         (GenTxAlonzo . mkShelleyTx $ tx)
@@ -438,8 +445,8 @@ getAlonzoTxs = \case
 -- TODO add  ToJSON, FromJSON instances
 data DirectChainLog
   = ToPost {toPost :: PostChainTx CardanoTx}
-  | PostedTx {postedTx :: ValidatedTx Era}
-  | ReceivedTxs {onChainTxs :: [OnChainTx CardanoTx], receivedTxs :: [ValidatedTx Era]}
+  | PostedTx {postedTx :: TxId StandardCrypto}
+  | ReceivedTxs {onChainTxs :: [OnChainTx CardanoTx], receivedTxs :: [TxId StandardCrypto]}
   | RolledBackward {point :: SomePoint}
   | Wallet TinyWalletLog
   deriving (Eq, Show, Generic)
@@ -457,13 +464,13 @@ instance ToJSON DirectChainLog where
     PostedTx{postedTx} ->
       object
         [ "tag" .= String "PostedTx"
-        , "postedTx" .= show @Text postedTx -- FIXME: Need real JSON
+        , "postedTx" .= postedTx
         ]
     ReceivedTxs{onChainTxs, receivedTxs} ->
       object
         [ "tag" .= String "ReceivedTxs"
         , "onChainTxs" .= onChainTxs
-        , "receivedTxs" .= (show @Text <$> receivedTxs)
+        , "receivedTxs" .= receivedTxs
         ]
     RolledBackward{point} ->
       object
@@ -473,5 +480,5 @@ instance ToJSON DirectChainLog where
     Wallet log ->
       object
         [ "tag" .= String "Wallet"
-        , "contents" .= show @Text log
+        , "contents" .= log
         ]

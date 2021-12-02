@@ -38,8 +38,9 @@ import Cardano.Ledger.Alonzo.TxWitness (
 import Cardano.Ledger.Coin (Coin (..))
 import Cardano.Ledger.Core (PParams)
 import qualified Cardano.Ledger.Core as Ledger
-import Cardano.Ledger.Crypto (DSIGN, StandardCrypto)
+import Cardano.Ledger.Crypto (DSIGN, HASH, StandardCrypto)
 import Cardano.Ledger.Era (ValidateScript (..))
+import Cardano.Ledger.Hashes (EraIndependentTxBody)
 import qualified Cardano.Ledger.Keys as Ledger
 import qualified Cardano.Ledger.SafeHash as SafeHash
 import qualified Cardano.Ledger.Shelley.API as Ledger hiding (TxBody, TxOut)
@@ -57,6 +58,7 @@ import Control.Monad.Class.MonadSTM (
   writeTVar,
  )
 import Control.Tracer (nullTracer)
+import Data.Aeson (Value (String), object, (.=))
 import qualified Data.List as List
 import qualified Data.Map.Strict as Map
 import qualified Data.Sequence.Strict as StrictSeq
@@ -226,7 +228,7 @@ applyBlock blk isOurs utxo = case blk of
   BlockAlonzo (ShelleyBlock (Ledger.Block _ bbody) _) ->
     flip execState utxo $ do
       forM_ (txSeqTxns bbody) $ \tx -> do
-        let txId = Ledger.TxId $ SafeHash.hashAnnotated (body tx)
+        let txId = getTxId tx
         modify (`Map.withoutKeys` inputs (body tx))
         let indexedOutputs =
               let outs = outputs (body tx)
@@ -235,6 +237,17 @@ applyBlock blk isOurs utxo = case blk of
           when (isOurs addr) $ modify (Map.insert (Ledger.TxIn txId ix) out)
   _ ->
     utxo
+
+getTxId ::
+  ( HashAlgorithm (HASH crypto)
+  , SafeHash.HashAnnotated
+      (Ledger.TxBody (era crypto))
+      EraIndependentTxBody
+      crypto
+  ) =>
+  ValidatedTx (era crypto) ->
+  Ledger.TxId crypto
+getTxId tx = Ledger.TxId $ SafeHash.hashAnnotated (body tx)
 
 data ErrCoverFee
   = ErrNoAvailableUtxo
@@ -588,6 +601,22 @@ data TinyWalletLog
   = InitializingWallet SomePoint (Map TxIn TxOut)
   | ApplyBlock (Map TxIn TxOut) (Map TxIn TxOut)
   deriving (Eq, Generic, Show)
+
+instance ToJSON TinyWalletLog where
+  toJSON =
+    \case
+      (InitializingWallet point initialUtxo) ->
+        object
+          [ "tag" .= String "InitializingWallet"
+          , "point" .= show @Text point
+          , "initialUtxo" .= initialUtxo
+          ]
+      (ApplyBlock utxo utxo') ->
+        object
+          [ "tag" .= String "ApplyBlock"
+          , "before" .= utxo
+          , "after" .= utxo'
+          ]
 
 instance Arbitrary TinyWalletLog where
   arbitrary = genericArbitrary
