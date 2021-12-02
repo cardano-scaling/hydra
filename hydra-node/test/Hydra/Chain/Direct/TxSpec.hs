@@ -133,7 +133,7 @@ spec =
               & counterexample ("Tx: " <> show tx)
 
     describe "collectComTx" $ do
-      prop "transaction size below limit" $ \utxo headIn cperiod parties ->
+      prop "transaction size below limit" $ \(ReasonablySized utxo) headIn cperiod parties ->
         let tx = collectComTx utxo (headIn, headDatum)
             headDatum = Data . toData $ MockHead.Initial cperiod parties
             cbor = serialize tx
@@ -143,7 +143,7 @@ spec =
               & counterexample ("Tx: " <> show tx)
               & counterexample ("Tx serialized size: " <> show len)
 
-      prop "is observed" $ \committedUtxo headInput cperiod parties ->
+      prop "is observed" $ \(ReasonablySized committedUtxo) headInput cperiod parties ->
         let headDatum = Data . toData $ MockHead.Initial cperiod parties
             headAddress = scriptAddr $ plutusScript $ MockHead.validatorScript policyId
             headValue = inject (Coin 2_000_000) <> toMaryValue (balance @CardanoTx committedUtxo)
