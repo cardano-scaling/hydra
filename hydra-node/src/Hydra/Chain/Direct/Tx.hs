@@ -37,6 +37,7 @@ import Cardano.Ledger.Shelley.API (
   VKey (VKey),
   Wdrl (Wdrl),
   hashKey,
+  unUTxO,
  )
 import Cardano.Ledger.ShelleyMA.Timelocks (ValidityInterval (..))
 import Cardano.Ledger.Val (inject)
@@ -55,7 +56,8 @@ import Hydra.Data.Party (partyFromVerKey, partyToVerKey)
 import qualified Hydra.Data.Party as OnChain
 import Hydra.Data.Utxo (fromByteString)
 import qualified Hydra.Data.Utxo as OnChain
-import Hydra.Ledger.Cardano (CardanoTx, IsShelleyBasedEra (shelleyBasedEra), Utxo, Utxo' (Utxo), toShelleyTxIn, toShelleyTxOut, utxoPairs)
+import Hydra.Ledger (balance)
+import Hydra.Ledger.Cardano (CardanoTx, IsShelleyBasedEra (shelleyBasedEra), Utxo, Utxo' (Utxo), toLedgerUtxo, toMaryValue, toShelleyTxIn, toShelleyTxOut, utxoPairs)
 import qualified Hydra.Ledger.Cardano as Api
 import Hydra.Party (Party (Party), vkey)
 import Hydra.Snapshot (SnapshotNumber)
@@ -234,8 +236,6 @@ commitTx party utxo (initialIn, pkh) =
 
 -- | Create a transaction collecting all "committed" utxo and opening a Head,
 -- i.e. driving the Head script state.
--- FIXME(SN): Right now, this is ignoring the actually committed utxo and not
--- collecting anything.
 collectComTx ::
   -- | Total UTXO to be made available in the Head.
   Utxo ->
@@ -246,18 +246,18 @@ collectComTx ::
 -- TODO(SN): utxo unused means other participants would not "see" the opened
 -- utxo when observing. Right now, they would be trusting the OCV checks this
 -- and construct their "world view" from observed commit txs in the HeadLogic
-collectComTx _utxo (headInput, headDatumBefore) =
+collectComTx utxo (headInput, headDatumBefore) =
   mkUnsignedTx body datums redeemers scripts
  where
   body =
     TxBody
-      { inputs = Set.fromList [headInput]
+      { inputs = Set.fromList [headInput] <> Map.keysSet (unUTxO (toLedgerUtxo utxo))
       , collateral = mempty
       , outputs =
           StrictSeq.fromList
             [ TxOut
                 (scriptAddr headScript)
-                (inject $ Coin 2000000) -- TODO: This should be the total of commit outputs
+                (inject (Coin 2000000) <> committedValue)
                 (SJust $ hashData @Era headDatumAfter)
             ]
       , txcerts = mempty
@@ -271,6 +271,8 @@ collectComTx _utxo (headInput, headDatumBefore) =
       , adHash = SNothing
       , txnetworkid = SNothing
       }
+
+  committedValue = toMaryValue $ balance @CardanoTx utxo
 
   datums =
     datumsFromList [headDatumBefore, headDatumAfter]
