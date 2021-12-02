@@ -292,7 +292,7 @@ coverFee_ pparams lookupUtxo walletUtxo partialTx@ValidatedTx{body, wits} = do
                 (txdats wits)
           }
   pure
-    ( Map.delete input walletUtxo
+    ( Map.withoutKeys walletUtxo inputs'
     , partialTx
         { body = finalBody
         , wits = wits{txrdmrs = adjustedRedeemers}

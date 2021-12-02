@@ -56,7 +56,6 @@ import Test.QuickCheck (
   scale,
   suchThat,
   vectorOf,
-  (===),
  )
 
 spec :: Spec
@@ -181,14 +180,15 @@ prop_removeUsedInputs =
  where
   prop' txUtxo walletUtxo tx =
     case coverFee_ pparams mempty walletUtxo tx of
-      Left e ->
-        property False
+      Left _e ->
+        property True
           & label "Left"
-          & counterexample (show e)
       Right (utxo', _) ->
-        utxo' === (walletUtxo `Map.withoutKeys` (Map.keysSet txUtxo))
+        null (Map.intersection walletUtxo utxo')
           & label "Right"
           & counterexample ("Remaining UTXO: " <> show utxo')
+          & counterexample ("Tx UTxO: " <> show txUtxo)
+          & counterexample ("Wallet UTXO: " <> show walletUtxo)
 
 --
 -- Generators
@@ -244,7 +244,7 @@ genUtxo = fmap scaleAda . Map.fromList <$> vectorOf 1 arbitrary
  where
   scaleAda :: TxOut -> TxOut
   scaleAda (TxOut addr value datum) =
-    let value' = value <> inject (Coin 10_000_000)
+    let value' = value <> inject (Coin 20_000_000)
      in TxOut addr value' datum
 
 genOutputsForInputs :: ValidatedTx Era -> Gen (Map TxIn TxOut)
