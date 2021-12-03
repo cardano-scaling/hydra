@@ -83,8 +83,8 @@ data OnChainHeadState
         -- transactions.
         -- NOTE(SN): The Head's identifier is somewhat encoded in the TxOut's address
         threadOutput :: (TxIn StandardCrypto, TxOut Era, Data Era)
-      , -- TODO add commits
-        initials :: [(TxIn StandardCrypto, TxOut Era, Data Era)]
+      , initials :: [(TxIn StandardCrypto, TxOut Era, Data Era)]
+      , commits :: [(TxIn StandardCrypto, TxOut Era, Data Era)]
       }
   | OpenOrClosed
       { -- | The state machine UTxO produced by the Init transaction
@@ -492,6 +492,7 @@ observeInitTx party ValidatedTx{wits, body} = do
     , Initial
         { threadOutput = (i, o, headDatum)
         , initials
+        , commits = mempty
         }
     )
  where

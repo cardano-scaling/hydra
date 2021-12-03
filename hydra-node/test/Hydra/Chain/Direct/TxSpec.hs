@@ -134,7 +134,7 @@ spec =
       prop "is observed" $ \party singleUtxo initialIn ->
         let tx = commitTx party (Just singleUtxo) initialIn
             committedUtxo = Utxo $ Map.fromList [singleUtxo]
-            commitAddress = scriptAddr $ plutusScript $ MockCommit.validatorScript
+            commitAddress = scriptAddr $ plutusScript MockCommit.validatorScript
             commitValue = inject (Coin 2_000_000) <> toMaryValue (balance @CardanoTx committedUtxo)
             commitOutput = TxOut @Era commitAddress commitValue SNothing -- will be SJust, but not covered by this test
             commitDatum =
