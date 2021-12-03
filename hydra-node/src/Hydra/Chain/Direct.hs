@@ -307,7 +307,7 @@ chainSyncClient tracer callback party headState =
     -- TODO(SN): We should be only looking for abort,commit etc. when we have a headId/policyId
     let res =
           observeInitTx party tx
-            <|> ((,onChainHeadState) <$> observeCommitTx tx)
+            <|> observeCommit onChainHeadState tx
             <|> observeCollectComTx utxo tx
             <|> observeCloseTx utxo tx
             <|> observeAbortTx utxo tx
@@ -317,6 +317,14 @@ chainSyncClient tracer callback party headState =
         writeTVar headState newOnChainHeadState
         pure $ onChainTx : observed
       Nothing -> pure observed
+
+  observeCommit s tx = case s of
+    Initial{threadOutput, initials} -> do
+      (onChainTx, commitTriple) <- observeCommitTx tx
+      let initials' = undefined
+      let commits' = undefined
+      pure (onChainTx, Initial{threadOutput, initials = initials'})
+    _ -> Nothing
 
 txSubmissionClient ::
   forall m.
@@ -408,8 +416,9 @@ fromPostChainTx TinyWallet{getUtxo, verificationKey} headState cardanoKeys = \ca
       st -> error $ "cannot post CommitTx, invalid state: " <> show st
   CollectComTx utxo ->
     readTVar headState >>= \case
-      Initial{threadOutput} ->
-        pure . Just $ collectComTx utxo (convertTuple threadOutput)
+      Initial{threadOutput} -> do
+        let commits = undefined
+        pure . Just $ collectComTx utxo (convertTuple threadOutput) commits
       st -> error $ "cannot post CollectComTx, invalid state: " <> show st
   CloseTx Snapshot{number, utxo} ->
     readTVar headState >>= \case
