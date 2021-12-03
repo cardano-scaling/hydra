@@ -122,7 +122,7 @@ spec =
               & counterexample ("Tx: " <> show tx)
 
     describe "commitTx" $ do
-      prop "transaction size for single commit utxo below limit" $ \party singleUtxo initialIn ->
+      prop "transaction size for single commit utxo below limit" $ \party (ReasonablySized singleUtxo) initialIn ->
         let tx = commitTx party (Just singleUtxo) initialIn
             cbor = serialize tx
             len = LBS.length cbor

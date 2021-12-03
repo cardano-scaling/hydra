@@ -15,7 +15,7 @@ import Hydra.Prelude
 
 import Cardano.Binary (serialize)
 import Cardano.Ledger.Address (Addr (Addr))
-import Cardano.Ledger.Alonzo (Script)
+import Cardano.Ledger.Alonzo (Script, Value)
 import Cardano.Ledger.Alonzo.Data (Data (Data), DataHash, getPlutusData, hashData)
 import Cardano.Ledger.Alonzo.Language (Language (PlutusV1))
 import Cardano.Ledger.Alonzo.Scripts (ExUnits (..), Script (PlutusScript), Tag (Spend))
@@ -58,7 +58,17 @@ import qualified Hydra.Data.Party as OnChain
 import Hydra.Data.Utxo (fromByteString)
 import qualified Hydra.Data.Utxo as OnChain
 import Hydra.Ledger (balance)
-import Hydra.Ledger.Cardano (CardanoTx, IsShelleyBasedEra (shelleyBasedEra), Utxo, Utxo' (Utxo), toLedgerUtxo, toMaryValue, toShelleyTxIn, toShelleyTxOut, utxoPairs)
+import Hydra.Ledger.Cardano (
+  CardanoTx,
+  IsShelleyBasedEra (shelleyBasedEra),
+  Utxo,
+  Utxo' (Utxo),
+  toLedgerUtxo,
+  toMaryValue,
+  toShelleyTxIn,
+  toShelleyTxOut,
+  utxoPairs,
+ )
 import qualified Hydra.Ledger.Cardano as Api
 import Hydra.Party (Party (Party), vkey)
 import Hydra.Snapshot (SnapshotNumber)
@@ -193,7 +203,9 @@ commitTx party utxo (initialIn, pkh) =
           StrictSeq.fromList
             [ TxOut
                 (scriptAddr commitScript)
-                (inject $ Coin 2000000) -- TODO: Value of utxo + whatever is in initialIn
+                -- TODO(AB): We should add the value from the initialIn too because it contains
+                -- the PTs
+                commitValue
                 (SJust $ hashData @Era commitDatum)
             ]
       , txcerts = mempty
@@ -207,6 +219,11 @@ commitTx party utxo (initialIn, pkh) =
       , adHash = SNothing
       , txnetworkid = SNothing
       }
+
+  commitValue :: Value Era
+  commitValue = inject (Coin 2000000) <> maybe (inject $ Coin 0) (getValue . snd) utxo
+
+  getValue (Api.TxOut _ val _) = toMaryValue $ Api.txOutValueToValue val
 
   datums =
     datumsFromList [initialDatum, commitDatum]
