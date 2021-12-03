@@ -465,7 +465,10 @@ fromLedgerUtxo =
     Ledger.TxOut LedgerEra ->
     Map TxIn (TxOut CtxUTxO Era)
   fn i o =
-    Map.singleton (fromShelleyTxIn i) (fromShelleyTxOut shelleyBasedEra o)
+    Map.singleton (fromShelleyTxIn i) (fromLedgerTxOut o)
+
+fromLedgerTxOut :: Ledger.TxOut (ShelleyLedgerEra Era) -> TxOut ctx Era
+fromLedgerTxOut = fromShelleyTxOut shelleyBasedEra
 
 fromCardanoApiUtxo :: Cardano.Api.UTxO AlonzoEra -> Utxo
 fromCardanoApiUtxo = coerce
