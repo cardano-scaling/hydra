@@ -94,15 +94,16 @@ spec = around showLogsOnFailure $
 
                     (aliceCardanoVk, aliceCardanoSk) <- keysFor "alice"
                     let (alicePaymentVk, alicePaymentSk) = (PaymentVerificationKey $ VKey aliceCardanoVk, PaymentSigningKey aliceCardanoSk)
-                    (bobCardanoVk, _bobCardanoSk) <- keysFor "bob"
+                    (bobCardanoVk, bobCardanoSk) <- keysFor "bob"
                     let bobPaymentVk = PaymentVerificationKey $ VKey bobCardanoVk
 
                     committedUtxo <- generatePaymentToCommit defaultNetworkId node aliceCardanoSk aliceCardanoVk amountInTx
+                    committedUtxoBy2 <- generatePaymentToCommit defaultNetworkId node bobCardanoSk bobCardanoVk amountInTx
 
                     send n1 $ input "Commit" ["utxo" .= committedUtxo]
-                    send n2 $ input "Commit" ["utxo" .= Object mempty]
+                    send n2 $ input "Commit" ["utxo" .= committedUtxoBy2]
                     send n3 $ input "Commit" ["utxo" .= Object mempty]
-                    waitFor tracer 20 [n1, n2, n3] $ output "HeadIsOpen" ["utxo" .= committedUtxo]
+                    waitFor tracer 20 [n1, n2, n3] $ output "HeadIsOpen" ["utxo" .= (committedUtxo <> committedUtxoBy2)]
 
                     -- NOTE(AB): this is partial and will fail if we are not able to generate a payment
                     let firstCommittedUtxo = Prelude.head $ utxoPairs committedUtxo
@@ -115,9 +116,9 @@ spec = around showLogsOnFailure $
                     waitFor tracer 20 [n1, n2, n3] $
                       output "TxSeen" ["transaction" .= tx]
 
-                    -- The expected new utxo set is the just created payment +
-                    -- change outputs, both owned by alice
-                    let newUtxo =
+                    -- The expected new utxo set is the created payment +
+                    -- change outputs, both owned by alice + Utxo commited by bob
+                    let aliceUtxo =
                           Map.fromList
                             [
                               ( TxIn (txId tx) (toEnum 0)
@@ -134,6 +135,7 @@ spec = around showLogsOnFailure $
                                   ]
                               )
                             ]
+                        newUtxo = aliceUtxo <> fmap toJSON (Map.fromList (utxoPairs committedUtxoBy2))
                     waitFor tracer 20 [n1, n2, n3] $
                       output
                         "SnapshotConfirmed"
