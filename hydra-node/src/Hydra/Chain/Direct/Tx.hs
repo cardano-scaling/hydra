@@ -201,12 +201,7 @@ commitTx party utxo (initialIn, pkh) =
       , collateral = mempty
       , outputs =
           StrictSeq.fromList
-            [ TxOut
-                (scriptAddr commitScript)
-                -- TODO(AB): We should add the value from the initialIn too because it contains
-                -- the PTs
-                commitValue
-                (SJust $ hashData @Era commitDatum)
+            [ mkCommitUtxo onChainParty utxo
             ]
       , txcerts = mempty
       , txwdrls = Wdrl mempty
@@ -220,10 +215,7 @@ commitTx party utxo (initialIn, pkh) =
       , txnetworkid = SNothing
       }
 
-  commitValue :: Value Era
-  commitValue = inject (Coin 2000000) <> maybe (inject $ Coin 0) (getValue . snd) utxo
-
-  getValue (Api.TxOut _ val _) = toMaryValue $ Api.txOutValueToValue val
+  onChainParty = partyFromVerKey $ vkey party
 
   datums =
     datumsFromList [initialDatum, commitDatum]
@@ -240,12 +232,31 @@ commitTx party utxo (initialIn, pkh) =
 
   initialScript = plutusScript MockInitial.validatorScript
 
+  commitDatum = mkCommitDatum onChainParty utxo
+
+mkCommitUtxo :: OnChain.Party -> Maybe (Api.TxIn, Api.TxOut Api.CtxUTxO Api.Era) -> TxOut Era
+mkCommitUtxo party utxo =
+  TxOut
+    (scriptAddr commitScript)
+    -- TODO(AB): We should add the value from the initialIn too because it contains
+    -- the PTs
+    commitValue
+    (SJust $ hashData @Era commitDatum)
+ where
+  commitValue :: Value Era
+  commitValue = inject (Coin 2000000) <> maybe (inject $ Coin 0) (getValue . snd) utxo
+
+  getValue (Api.TxOut _ val _) = toMaryValue $ Api.txOutValueToValue val
+
   commitScript = plutusScript MockCommit.validatorScript
 
-  commitDatum =
-    Data . toData $
-      MockCommit.datum (partyFromVerKey $ vkey party, commitUtxo)
+  commitDatum = mkCommitDatum party utxo
 
+mkCommitDatum :: OnChain.Party -> Maybe (Api.TxIn, Api.TxOut Api.CtxUTxO Api.Era) -> Data Era
+mkCommitDatum party utxo =
+  Data . toData $
+    MockCommit.datum (party, commitUtxo)
+ where
   commitUtxo = fromByteString $
     toStrict $
       Aeson.encode $ case utxo of
@@ -263,7 +274,7 @@ collectComTx ::
   (TxIn StandardCrypto, Data Era) ->
   -- | Data needed to spend the commit output produced by each party.
   -- Should contain the PT and is locked by @ν_commit@ script.
-  Map (TxIn StandardCrypto) (Data Era) ->
+  Map (TxIn StandardCrypto) (TxOut Era) ->
   ValidatedTx Era
 -- TODO(SN): utxo unused means other participants would not "see" the opened
 -- utxo when observing. Right now, they would be trusting the OCV checks this

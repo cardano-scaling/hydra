@@ -47,7 +47,7 @@ import qualified Hydra.Contract.MockCommit as MockCommit
 import qualified Hydra.Contract.MockHead as MockHead
 import qualified Hydra.Contract.MockInitial as MockInitial
 import Hydra.Data.ContestationPeriod (contestationPeriodFromDiffTime)
-import Hydra.Data.Party (partyFromVerKey)
+import Hydra.Data.Party (Party, partyFromVerKey)
 import Hydra.Data.Utxo (fromByteString)
 import Hydra.Ledger (balance)
 import Hydra.Ledger.Cardano (
@@ -57,9 +57,12 @@ import Hydra.Ledger.Cardano (
   Utxo' (Utxo),
   describeCardanoTx,
   fromLedgerTx,
+  fromLedgerTxOut,
   genAdaOnlyUtxo,
   shrinkUtxo,
+  toLedgerUtxo,
   toMaryValue,
+  utxoPairs,
  )
 import Hydra.Party (vkey)
 import Ledger.Value (currencyMPSHash, unAssetClass)
@@ -79,6 +82,7 @@ import Test.QuickCheck (
   forAllShrinkShow,
   label,
   property,
+  vectorOf,
   withMaxSuccess,
   (.&&.),
   (===),
@@ -159,19 +163,20 @@ spec =
               & counterexample ("Tx serialized size: " <> show len)
 
       prop "is observed" $ \(ReasonablySized committedUtxo) headInput cperiod parties ->
-        let headDatum = Data . toData $ MockHead.Initial cperiod parties
-            headAddress = scriptAddr $ plutusScript $ MockHead.validatorScript policyId
-            headValue = inject (Coin 2_000_000) <> toMaryValue (balance @CardanoTx committedUtxo)
-            headOutput = TxOut headAddress headValue SNothing -- will be SJust, but not covered by this test
-            lookupUtxo = Map.singleton headInput headOutput
-            tx = collectComTx committedUtxo (headInput, headDatum) mempty
-            res = observeCollectComTx lookupUtxo tx
-         in case res of
-              Just (OnCollectComTx, OpenOrClosed{threadOutput = (_, TxOut _ headOutputValue' _, _)}) ->
-                headOutputValue' === headValue
-              _ -> property False
-              & counterexample ("Observe result: " <> show res)
-              & counterexample ("Tx: " <> show tx)
+        forAll (generateCommitUtxos parties committedUtxo) $ \commitsUtxo ->
+          let headDatum = Data . toData $ MockHead.Initial cperiod parties
+              headAddress = scriptAddr $ plutusScript $ MockHead.validatorScript policyId
+              headValue = inject (Coin 2_000_000) <> toMaryValue (balance @CardanoTx commitsUtxo)
+              headOutput = TxOut headAddress headValue SNothing -- will be SJust, but not covered by this test
+              lookupUtxo = Map.singleton headInput headOutput
+              tx = collectComTx committedUtxo (headInput, headDatum) (unUTxO $ toLedgerUtxo commitsUtxo)
+              res = observeCollectComTx lookupUtxo tx
+           in case res of
+                Just (OnCollectComTx, OpenOrClosed{threadOutput = (_, TxOut _ headOutputValue' _, _)}) ->
+                  headOutputValue' === headValue
+                _ -> property False
+                & counterexample ("Observe result: " <> show res)
+                & counterexample ("Tx: " <> show tx)
 
     describe "closeTx" $ do
       -- XXX(SN): tests are using a fixed snapshot number because of overlapping instances
@@ -347,6 +352,14 @@ spec =
                             & counterexample ("Fee: " <> show (txfee abortTxBody))
                             & counterexample ("Tx: " <> show txAbortWithFees)
                             & counterexample ("Input utxo: " <> show utxo)
+
+generateCommitUtxos :: [Party] -> Utxo -> Gen Utxo
+generateCommitUtxos parties committedUtxo = do
+  txins <- vectorOf (length $ utxoPairs committedUtxo) arbitrary
+  let commitUtxo =
+        zip txins $
+          fromLedgerTxOut . uncurry mkCommitUtxo <$> zip parties (Just <$> utxoPairs committedUtxo)
+  pure $ Utxo $ Map.fromList commitUtxo
 
 executionCost :: PParams Era -> ValidatedTx Era -> Coin
 executionCost PParams{_prices} ValidatedTx{wits} =
