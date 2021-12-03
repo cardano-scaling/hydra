@@ -1,5 +1,6 @@
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE TypeApplications #-}
+{-# OPTIONS_GHC -Wno-deprecations #-}
 {-# OPTIONS_GHC -Wno-incomplete-uni-patterns #-}
 
 -- | Unit tests for our "hand-rolled" transactions as they are used in the
@@ -25,10 +26,12 @@ import Cardano.Ledger.Crypto (StandardCrypto)
 import Cardano.Ledger.Mary.Value (AssetName, PolicyID, Value (Value))
 import qualified Cardano.Ledger.SafeHash as SafeHash
 import Cardano.Ledger.Shelley.API (Coin (..), StrictMaybe (..), TxId (..), TxIn (..), UTxO (..))
+import qualified Cardano.Ledger.Shelley.Tx as Ledger
 import Cardano.Ledger.Slot (EpochSize (EpochSize))
 import Cardano.Ledger.Val (inject)
 import Cardano.Slotting.EpochInfo (fixedEpochInfo)
 import Cardano.Slotting.Time (SystemStart (..), mkSlotLength)
+import qualified Data.Aeson as Aeson
 import Data.Array (array)
 import qualified Data.ByteString.Lazy as LBS
 import Data.List (nub, (\\))
@@ -40,10 +43,12 @@ import Hydra.Chain (HeadParameters (..), OnChainTx (..))
 import Hydra.Chain.Direct.Fixture (maxTxSize, pparams)
 import Hydra.Chain.Direct.Util (Era)
 import Hydra.Chain.Direct.Wallet (ErrCoverFee (..), coverFee_)
+import qualified Hydra.Contract.MockCommit as MockCommit
 import qualified Hydra.Contract.MockHead as MockHead
 import qualified Hydra.Contract.MockInitial as MockInitial
 import Hydra.Data.ContestationPeriod (contestationPeriodFromDiffTime)
 import Hydra.Data.Party (partyFromVerKey)
+import Hydra.Data.Utxo (fromByteString)
 import Hydra.Ledger (balance)
 import Hydra.Ledger.Cardano (
   CardanoTx,
@@ -128,13 +133,24 @@ spec =
 
       prop "is observed" $ \party singleUtxo initialIn ->
         let tx = commitTx party (Just singleUtxo) initialIn
+            committedUtxo = Utxo $ Map.fromList [singleUtxo]
+            commitAddress = scriptAddr $ plutusScript $ MockCommit.validatorScript
+            commitValue = inject (Coin 2_000_000) <> toMaryValue (balance @CardanoTx committedUtxo)
+            commitOutput = TxOut @Era commitAddress commitValue SNothing -- will be SJust, but not covered by this test
+            commitDatum =
+              Data . toData $
+                MockCommit.datum (partyFromVerKey $ vkey party, commitUtxo)
+            commitUtxo =
+              fromByteString $
+                toStrict $ Aeson.encode $ committedUtxo
+            expectedOutput = (TxIn (Ledger.TxId (SafeHash.hashAnnotated $ body tx)) 0, commitOutput, commitDatum)
          in observeCommitTx tx
-              === Just OnCommitTx{party, committed = Utxo $ Map.fromList [singleUtxo]}
+              === Just (OnCommitTx{party, committed = committedUtxo}, expectedOutput)
               & counterexample ("Tx: " <> show tx)
 
     describe "collectComTx" $ do
       prop "transaction size below limit" $ \(ReasonablySized utxo) headIn cperiod parties ->
-        let tx = collectComTx utxo (headIn, headDatum)
+        let tx = collectComTx utxo (headIn, headDatum) mempty
             headDatum = Data . toData $ MockHead.Initial cperiod parties
             cbor = serialize tx
             len = LBS.length cbor
@@ -149,7 +165,7 @@ spec =
             headValue = inject (Coin 2_000_000) <> toMaryValue (balance @CardanoTx committedUtxo)
             headOutput = TxOut headAddress headValue SNothing -- will be SJust, but not covered by this test
             lookupUtxo = Map.singleton headInput headOutput
-            tx = collectComTx committedUtxo (headInput, headDatum)
+            tx = collectComTx committedUtxo (headInput, headDatum) mempty
             res = observeCollectComTx lookupUtxo tx
          in case res of
               Just (OnCollectComTx, OpenOrClosed{threadOutput = (_, TxOut _ headOutputValue' _, _)}) ->
