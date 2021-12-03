@@ -136,7 +136,7 @@ spec =
             committedUtxo = Utxo $ Map.fromList [singleUtxo]
             commitAddress = scriptAddr $ plutusScript MockCommit.validatorScript
             commitValue = inject (Coin 2_000_000) <> toMaryValue (balance @CardanoTx committedUtxo)
-            commitOutput = TxOut @Era commitAddress commitValue SNothing -- will be SJust, but not covered by this test
+            commitOutput = TxOut @Era commitAddress commitValue (SJust $ hashData commitDatum)
             commitDatum =
               Data . toData $
                 MockCommit.datum (partyFromVerKey $ vkey party, commitUtxo)

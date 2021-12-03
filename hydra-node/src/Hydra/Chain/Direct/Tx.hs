@@ -531,10 +531,11 @@ convertParty = Party . partyToVerKey
 -- | Identify a commit tx by looking for an output which pays to v_commit.
 observeCommitTx :: ValidatedTx Era -> Maybe (OnChainTx CardanoTx, (TxIn StandardCrypto, TxOut Era, Data Era))
 observeCommitTx tx@ValidatedTx{wits} = do
-  txOut <- snd <$> findScriptOutput (utxoFromTx tx) commitScript
+  (txIn, txOut) <- findScriptOutput (utxoFromTx tx) commitScript
   dat <- lookupDatum wits txOut
   (party, utxo) <- fromData $ getPlutusData dat
-  (,undefined) . OnCommitTx (convertParty party) <$> convertUtxo utxo
+  onChainTx <- OnCommitTx (convertParty party) <$> convertUtxo utxo
+  pure (onChainTx, (txIn, txOut, dat))
  where
   commitScript = plutusScript MockCommit.validatorScript
 
