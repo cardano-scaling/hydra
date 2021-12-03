@@ -221,8 +221,8 @@ withTinyWallet tracer magic (vk, sk) iocp addr action = do
 -- | Apply a block to our wallet. Does nothing if the transaction does not
 -- modify the UTXO set, or else, remove consumed utxos and add produced ones.
 --
--- To determine whether a produced output is ours, we compare it to our unique
--- address.
+-- To determine whether a produced output is ours, we apply the given function
+-- checking the output's address.
 applyBlock :: Block -> (Address -> Bool) -> Map TxIn TxOut -> Map TxIn TxOut
 applyBlock blk isOurs utxo = case blk of
   BlockAlonzo (ShelleyBlock (Ledger.Block _ bbody) _) ->
