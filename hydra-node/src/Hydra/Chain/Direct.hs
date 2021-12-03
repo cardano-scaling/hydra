@@ -15,7 +15,7 @@ module Hydra.Chain.Direct (
 
 import Hydra.Prelude
 
-import Cardano.Ledger.Alonzo.Tx (ValidatedTx)
+import Cardano.Ledger.Alonzo.Tx (TxBody (inputs), ValidatedTx (body))
 import Cardano.Ledger.Alonzo.TxSeq (txSeqTxns)
 import Cardano.Ledger.Crypto (StandardCrypto)
 import Cardano.Ledger.Shelley.API (TxId, TxIn (TxIn))
@@ -27,6 +27,7 @@ import Control.Tracer (nullTracer)
 import Data.Aeson (Value (String), object, (.=))
 import qualified Data.Map.Strict as Map
 import Data.Sequence.Strict (StrictSeq)
+import qualified Data.Set as Set
 import Hydra.Chain (
   Chain (..),
   ChainCallback,
@@ -318,12 +319,23 @@ chainSyncClient tracer callback party headState =
         pure $ onChainTx : observed
       Nothing -> pure observed
 
+  -- XXX(SN): this is not covered by tests
   observeCommit s tx = case s of
-    Initial{threadOutput, initials} -> do
+    Initial{threadOutput, initials, commits} -> do
       (onChainTx, commitTriple) <- observeCommitTx tx
-      let initials' = undefined
-      let commits' = undefined
-      pure (onChainTx, Initial{threadOutput, initials = initials'})
+      -- NOTE(SN): A commit tx has been observed and thus we can remove all it's
+      -- inputs from our tracked initials
+      let commitIns = inputs $ body tx
+      let initials' = filter (\(i, _, _) -> i `Set.member` commitIns) initials
+      let commits' = commitTriple : commits
+      pure
+        ( onChainTx
+        , Initial
+            { threadOutput
+            , initials = initials'
+            , commits = commits'
+            }
+        )
     _ -> Nothing
 
 txSubmissionClient ::
@@ -416,9 +428,8 @@ fromPostChainTx TinyWallet{getUtxo, verificationKey} headState cardanoKeys = \ca
       st -> error $ "cannot post CommitTx, invalid state: " <> show st
   CollectComTx utxo ->
     readTVar headState >>= \case
-      Initial{threadOutput} -> do
-        let commits = undefined
-        pure . Just $ collectComTx utxo (convertTuple threadOutput) commits
+      Initial{threadOutput, commits} -> do
+        pure . Just $ collectComTx utxo (convertTuple threadOutput) (Map.fromList $ map convertTuple commits)
       st -> error $ "cannot post CollectComTx, invalid state: " <> show st
   CloseTx Snapshot{number, utxo} ->
     readTVar headState >>= \case
