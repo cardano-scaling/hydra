@@ -38,7 +38,6 @@ import Cardano.Ledger.Shelley.API (
   VKey (VKey),
   Wdrl (Wdrl),
   hashKey,
-  unUTxO,
  )
 import Cardano.Ledger.ShelleyMA.Timelocks (ValidityInterval (..))
 import Cardano.Ledger.Val (inject)
@@ -57,13 +56,11 @@ import Hydra.Data.Party (partyFromVerKey, partyToVerKey)
 import qualified Hydra.Data.Party as OnChain
 import Hydra.Data.Utxo (fromByteString)
 import qualified Hydra.Data.Utxo as OnChain
-import Hydra.Ledger (balance)
 import Hydra.Ledger.Cardano (
   CardanoTx,
   IsShelleyBasedEra (shelleyBasedEra),
   Utxo,
   Utxo' (Utxo),
-  toLedgerUtxo,
   toMaryValue,
   toShelleyTxIn,
   toShelleyTxOut,
@@ -274,23 +271,23 @@ collectComTx ::
   (TxIn StandardCrypto, Data Era) ->
   -- | Data needed to spend the commit output produced by each party.
   -- Should contain the PT and is locked by @ν_commit@ script.
-  Map (TxIn StandardCrypto) (TxOut Era) ->
+  Map (TxIn StandardCrypto) (TxOut Era, Data Era) ->
   ValidatedTx Era
 -- TODO(SN): utxo unused means other participants would not "see" the opened
 -- utxo when observing. Right now, they would be trusting the OCV checks this
 -- and construct their "world view" from observed commit txs in the HeadLogic
-collectComTx utxo (headInput, headDatumBefore) _commits =
+collectComTx _utxo (headInput, headDatumBefore) commits =
   mkUnsignedTx body datums redeemers scripts
  where
   body =
     TxBody
-      { inputs = Set.fromList [headInput] <> Map.keysSet (unUTxO (toLedgerUtxo utxo))
+      { inputs = Set.fromList [headInput] <> Map.keysSet commits
       , collateral = mempty
       , outputs =
           StrictSeq.fromList
             [ TxOut
                 (scriptAddr headScript)
-                (inject (Coin 2000000) <> committedValue)
+                (inject (Coin 2000000) <> commitsValue)
                 (SJust $ hashData @Era headDatumAfter)
             ]
       , txcerts = mempty
@@ -305,21 +302,32 @@ collectComTx utxo (headInput, headDatumBefore) _commits =
       , txnetworkid = SNothing
       }
 
-  committedValue = toMaryValue $ balance @CardanoTx utxo
+  commitsValue = mconcat $ getValue . fst <$> Map.elems commits
+
+  getValue (TxOut _ val _) = val
 
   datums =
-    datumsFromList [headDatumBefore, headDatumAfter]
+    datumsFromList $
+      headDatumBefore : headDatumAfter : commitDatums
 
   headDatumAfter = Data $ toData MockHead.Open
 
+  commitDatums = snd <$> Map.elems commits
+
   redeemers =
-    redeemersFromList [(rdptr body (Spending headInput), (headRedeemer, ExUnits 0 0))]
+    redeemersFromList $
+      (rdptr body (Spending headInput), (headRedeemer, ExUnits 0 0)) :
+      map (\txin -> (rdptr body (Spending txin), (commitRedeemer, ExUnits 0 0))) (Map.keys commits)
 
   headRedeemer = Data $ toData MockHead.CollectCom
 
-  scripts = fromList $ map withScriptHash [headScript]
+  commitRedeemer = Data $ toData ()
+
+  scripts = fromList $ map withScriptHash [headScript, commitScript]
 
   headScript = plutusScript $ MockHead.validatorScript policyId
+
+  commitScript = plutusScript $ MockCommit.validatorScript
 
 -- | Create a transaction closing a head with given snapshot number and utxo.
 closeTx ::
@@ -661,8 +669,8 @@ observeAbortTx utxo tx = do
 -- XXX(SN): This is a hint that we might want to track the Utxo directly?
 knownUtxo :: OnChainHeadState -> Map (TxIn StandardCrypto) (TxOut Era)
 knownUtxo = \case
-  Initial{threadOutput, initials} ->
-    Map.fromList . map onlyUtxo $ (threadOutput : initials)
+  Initial{threadOutput, initials, commits} ->
+    Map.fromList . map onlyUtxo $ (threadOutput : initials <> commits)
   OpenOrClosed{threadOutput = (i, o, _)} ->
     Map.singleton i o
   _ ->
