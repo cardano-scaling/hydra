@@ -1,6 +1,7 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE TypeApplications #-}
+{-# OPTIONS_GHC -Wno-deprecations #-}
 
 -- | Smart constructors for creating Hydra protocol transactions to be used in
 -- the 'Hydra.Chain.Direct' way of talking to the main-chain.
@@ -237,16 +238,20 @@ commitTx party utxo (initialIn, pkh) =
 -- | Create a transaction collecting all "committed" utxo and opening a Head,
 -- i.e. driving the Head script state.
 collectComTx ::
-  -- | Total UTXO to be made available in the Head.
+  -- | Committed UTxO to become U0 in the Head ledger state.
+  -- This is only used as a datum passed to the Head state machine script.
   Utxo ->
   -- | Everything needed to spend the Head state-machine output.
   -- FIXME(SN): should also contain some Head identifier/address and stored Value (maybe the TxOut + Data?)
   (TxIn StandardCrypto, Data Era) ->
+  -- | Data needed to spend the commit output produced by each party.
+  -- Should contain the PT and is locked by @ν_commit@ script.
+  Map (TxIn StandardCrypto) (Data Era) ->
   ValidatedTx Era
 -- TODO(SN): utxo unused means other participants would not "see" the opened
 -- utxo when observing. Right now, they would be trusting the OCV checks this
 -- and construct their "world view" from observed commit txs in the HeadLogic
-collectComTx utxo (headInput, headDatumBefore) =
+collectComTx utxo (headInput, headDatumBefore) _commits =
   mkUnsignedTx body datums redeemers scripts
  where
   body =
@@ -523,12 +528,12 @@ convertParty :: OnChain.Party -> Party
 convertParty = Party . partyToVerKey
 
 -- | Identify a commit tx by looking for an output which pays to v_commit.
-observeCommitTx :: ValidatedTx Era -> Maybe (OnChainTx CardanoTx)
+observeCommitTx :: ValidatedTx Era -> Maybe (OnChainTx CardanoTx, (TxIn StandardCrypto, TxOut Era, Data Era))
 observeCommitTx tx@ValidatedTx{wits} = do
   txOut <- snd <$> findScriptOutput (utxoFromTx tx) commitScript
   dat <- lookupDatum wits txOut
   (party, utxo) <- fromData $ getPlutusData dat
-  OnCommitTx (convertParty party) <$> convertUtxo utxo
+  (,undefined) . OnCommitTx (convertParty party) <$> convertUtxo utxo
  where
   commitScript = plutusScript MockCommit.validatorScript
 
