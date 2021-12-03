@@ -141,8 +141,7 @@ spec =
               Data . toData $
                 MockCommit.datum (partyFromVerKey $ vkey party, commitUtxo)
             commitUtxo =
-              fromByteString $
-                toStrict $ Aeson.encode $ committedUtxo
+              fromByteString $ toStrict $ Aeson.encode committedUtxo
             expectedOutput = (TxIn (Ledger.TxId (SafeHash.hashAnnotated $ body tx)) 0, commitOutput, commitDatum)
          in observeCommitTx tx
               === Just (OnCommitTx{party, committed = committedUtxo}, expectedOutput)
