@@ -21,38 +21,39 @@ import Hydra.Chain.Direct.MockServer (withMockServer)
 import Hydra.Chain.Direct.Util (retrying)
 import Hydra.Chain.Direct.Wallet (generateKeyPair)
 import Hydra.Chain.Direct.WalletSpec (genPaymentTo)
-import Hydra.Logging (nullTracer)
+import Hydra.Logging (nullTracer, showLogsOnFailure)
 import Hydra.Party (Party, deriveParty, generateKey)
 import Test.QuickCheck (generate)
 
 spec :: Spec
 spec = do
-  it "can init and abort a head given nothing has been committed" $ do
-    calledBackAlice <- newEmptyMVar
-    calledBackBob <- newEmptyMVar
-    aliceKeys@(aliceVk, _) <- generateKeyPair
-    bobKeys@(bobVk, _) <- generateKeyPair
-    withMockServer $ \magic iocp socket submitTx -> do
-      let cardanoKeys = [] -- TODO(SN): this should matter
-      withDirectChain nullTracer magic iocp socket aliceKeys alice cardanoKeys (putMVar calledBackAlice) $ \Chain{postTx} -> do
-        withDirectChain nullTracer magic iocp socket bobKeys bob cardanoKeys (putMVar calledBackBob) $ \_ -> do
-          let parameters = HeadParameters 100 [alice, bob, carol]
-          generate (genPaymentTo magic aliceVk) >>= submitTx
-          generate (genPaymentTo magic bobVk) >>= submitTx
+  it "can init and abort a head given nothing has been committed" $
+    showLogsOnFailure $ \tracer -> do
+      calledBackAlice <- newEmptyMVar
+      calledBackBob <- newEmptyMVar
+      aliceKeys@(aliceVk, _) <- generateKeyPair
+      bobKeys@(bobVk, _) <- generateKeyPair
+      withMockServer $ \magic iocp socket submitTx -> do
+        let cardanoKeys = [] -- TODO(SN): this should matter
+        withDirectChain (contramap show tracer) magic iocp socket aliceKeys alice cardanoKeys (putMVar calledBackAlice) $ \Chain{postTx} -> do
+          withDirectChain nullTracer magic iocp socket bobKeys bob cardanoKeys (putMVar calledBackBob) $ \_ -> do
+            let parameters = HeadParameters 100 [alice, bob, carol]
+            generate (genPaymentTo magic aliceVk) >>= submitTx
+            generate (genPaymentTo magic bobVk) >>= submitTx
 
-          failAfter 5 $
-            retrying @ErrorCall $ postTx $ InitTx parameters
-          failAfter 5 $
-            takeMVar calledBackAlice `shouldReturn` OnInitTx 100 [alice, bob, carol]
-          failAfter 5 $
-            takeMVar calledBackBob `shouldReturn` OnInitTx 100 [alice, bob, carol]
+            failAfter 5 $
+              retrying @ErrorCall $ postTx $ InitTx parameters
+            failAfter 5 $
+              takeMVar calledBackAlice `shouldReturn` OnInitTx 100 [alice, bob, carol]
+            failAfter 5 $
+              takeMVar calledBackBob `shouldReturn` OnInitTx 100 [alice, bob, carol]
 
-          postTx $ AbortTx mempty
+            postTx $ AbortTx mempty
 
-          failAfter 5 $
-            takeMVar calledBackAlice `shouldReturn` OnAbortTx
-          failAfter 5 $
-            takeMVar calledBackBob `shouldReturn` OnAbortTx
+            failAfter 5 $
+              takeMVar calledBackAlice `shouldReturn` OnAbortTx
+            failAfter 5 $
+              takeMVar calledBackBob `shouldReturn` OnAbortTx
 
 alice, bob, carol :: Party
 alice = deriveParty $ generateKey 10
