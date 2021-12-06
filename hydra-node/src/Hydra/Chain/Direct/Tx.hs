@@ -327,7 +327,7 @@ collectComTx _utxo (headInput, headDatumBefore) commits =
 
   headScript = plutusScript $ MockHead.validatorScript policyId
 
-  commitScript = plutusScript $ MockCommit.validatorScript
+  commitScript = plutusScript MockCommit.validatorScript
 
 -- | Create a transaction closing a head with given snapshot number and utxo.
 closeTx ::
@@ -336,9 +336,9 @@ closeTx ::
   Utxo ->
   -- | Everything needed to spend the Head state-machine output.
   -- FIXME(SN): should also contain some Head identifier/address and stored Value (maybe the TxOut + Data?)
-  (TxIn StandardCrypto, Data Era) ->
+  (TxIn StandardCrypto, TxOut Era, Data Era) ->
   ValidatedTx Era
-closeTx snapshotNumber _utxo (headInput, headDatumBefore) =
+closeTx snapshotNumber _utxo (headInput, headOutput, headDatumBefore) =
   mkUnsignedTx body datums redeemers scripts
  where
   body =
@@ -349,7 +349,7 @@ closeTx snapshotNumber _utxo (headInput, headDatumBefore) =
           StrictSeq.fromList
             [ TxOut
                 (scriptAddr headScript)
-                (inject $ Coin 2000000) -- TODO: This should be the total of commit outputs
+                headValue
                 (SJust $ hashData @Era headDatumAfter)
             ]
       , txcerts = mempty
@@ -370,6 +370,8 @@ closeTx snapshotNumber _utxo (headInput, headDatumBefore) =
   -- TODO(SN): store contestation deadline as tx validity range end +
   -- contestation period in Datum or compute in observeCloseTx?
   headDatumAfter = Data $ toData MockHead.Closed
+
+  TxOut _ headValue _ = headOutput
 
   redeemers =
     redeemersFromList
@@ -418,7 +420,6 @@ fanoutTx utxo (headInput, headDatumBefore) =
         (scriptAddr headScript)
         (inject $ Coin 2000000)
         (SJust $ hashData @Era headDatumAfter)
-        -- TODO: add utxo outputs
     ]
       <> map (toShelleyTxOut shelleyBasedEra . snd) (utxoPairs utxo)
 
