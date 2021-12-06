@@ -198,7 +198,7 @@ spec =
             headValue = inject (Coin 2_000_000)
             headOutput = TxOut headAddress headValue SNothing -- will be SJust, but not covered by this test
             lookupUtxo = Map.singleton headInput headOutput
-            tx = closeTx sn utxo (headInput, headDatum)
+            tx = closeTx sn utxo (headInput, headOutput, headDatum)
             res = observeCloseTx lookupUtxo tx
          in case res of
               Just (OnCloseTx{snapshotNumber}, OpenOrClosed{}) -> snapshotNumber === sn
@@ -353,13 +353,13 @@ spec =
                             & counterexample ("Tx: " <> show txAbortWithFees)
                             & counterexample ("Input utxo: " <> show utxo)
 
-generateCommitUtxos :: [Party] -> Utxo -> Gen Utxo
+generateCommitUtxos :: [Party] -> Utxo -> Gen (Map.Map (TxIn StandardCrypto) (TxOut Era, Data Era))
 generateCommitUtxos parties committedUtxo = do
   txins <- vectorOf (length $ utxoPairs committedUtxo) arbitrary
   let commitUtxo =
         zip txins $
-          fromLedgerTxOut . uncurry mkCommitUtxo <$> zip parties (Just <$> utxoPairs committedUtxo)
-  pure $ Utxo $ Map.fromList commitUtxo
+          uncurry mkCommitUtxo <$> zip parties (Just <$> utxoPairs committedUtxo)
+  pure $ Map.fromList commitUtxo
 
 executionCost :: PParams Era -> ValidatedTx Era -> Coin
 executionCost PParams{_prices} ValidatedTx{wits} =
