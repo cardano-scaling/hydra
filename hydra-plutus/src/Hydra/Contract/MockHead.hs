@@ -33,7 +33,7 @@ data State
 PlutusTx.unstableMakeIsData ''State
 
 data Input
-  = CollectCom
+  = CollectCom Value
   | Close SnapshotNumber
   | Abort
   | Fanout
@@ -62,8 +62,8 @@ hydraStateMachine _policyId =
 hydraTransition :: SM.State State -> Input -> Maybe (TxConstraints Void Void, SM.State State)
 hydraTransition oldState input =
   case (SM.stateData oldState, input) of
-    (Initial{}, CollectCom) ->
-      Just (mempty, oldState{SM.stateData = Open})
+    (Initial{}, CollectCom collectedValue) ->
+      Just (mempty, oldState{SM.stateData = Open, SM.stateValue = collectedValue <> SM.stateValue oldState})
     (Initial{}, Abort) ->
       Just (mempty, oldState{SM.stateData = Final})
     (Open{}, Close{}) ->

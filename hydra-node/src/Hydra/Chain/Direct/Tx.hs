@@ -21,7 +21,7 @@ import Cardano.Ledger.Alonzo.Language (Language (PlutusV1))
 import Cardano.Ledger.Alonzo.Scripts (ExUnits (..), Script (PlutusScript), Tag (Spend))
 import Cardano.Ledger.Alonzo.Tx (IsValid (IsValid), ScriptPurpose (Spending), ValidatedTx (..), rdptr)
 import Cardano.Ledger.Alonzo.TxBody (TxBody (..), TxOut (TxOut))
-import Cardano.Ledger.Alonzo.TxInfo (transKeyHash)
+import Cardano.Ledger.Alonzo.TxInfo (transKeyHash, transValue)
 import Cardano.Ledger.Alonzo.TxWitness (RdmrPtr (RdmrPtr), Redeemers (..), TxDats (..), TxWitness (..), unRedeemers, unTxDats)
 import Cardano.Ledger.Crypto (StandardCrypto)
 import Cardano.Ledger.Era (hashScript)
@@ -319,7 +319,7 @@ collectComTx _utxo (headInput, headDatumBefore) commits =
       (rdptr body (Spending headInput), (headRedeemer, ExUnits 0 0)) :
       map (\txin -> (rdptr body (Spending txin), (commitRedeemer, ExUnits 0 0))) (Map.keys commits)
 
-  headRedeemer = Data $ toData MockHead.CollectCom
+  headRedeemer = Data $ toData $ MockHead.CollectCom $ transValue commitsValue
 
   commitRedeemer = Data $ toData ()
 
@@ -590,7 +590,7 @@ observeCollectComTx utxo tx = do
   headInput <- fst <$> findScriptOutput utxo headScript
   redeemer <- getRedeemerSpending tx headInput
   case redeemer of
-    MockHead.CollectCom -> do
+    MockHead.CollectCom _ -> do
       (newHeadInput, newHeadOutput) <- findScriptOutput (utxoFromTx tx) headScript
       newHeadDatum <- lookupDatum (wits tx) newHeadOutput
       pure

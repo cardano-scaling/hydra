@@ -41,7 +41,7 @@ validator (Dependencies{headScript}, committedOut) () ctx =
   consumedByCollectCom || consumedByAbort
  where
   consumedByCollectCom =
-    mustRunContract @(RedeemerType Head) headScript CollectCom ctx
+    mustRunContract @(RedeemerType Head) headScript (CollectCom mempty) ctx
 
   consumedByAbort =
     and
