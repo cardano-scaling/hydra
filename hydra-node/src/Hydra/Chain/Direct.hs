@@ -296,7 +296,7 @@ chainSyncClient tracer callback party headState =
             let receivedTxs = toList $ getAlonzoTxs blk
             onChainTxs <- runOnChainTxs receivedTxs
             unless (null receivedTxs) $
-              traceWith tracer $ ReceivedTxs{onChainTxs, receivedTxs = map getTxId receivedTxs}
+              traceWith tracer $ ReceivedTxs{onChainTxs, receivedTxs = map (\tx -> (getTxId tx, tx)) receivedTxs}
             mapM_ callback onChainTxs
             pure clientStIdle
       , recvMsgRollBackward = \point _tip ->
@@ -357,7 +357,7 @@ txSubmissionClient tracer queue =
   clientStIdle :: m (LocalTxClientStIdle (GenTx Block) (ApplyTxErr Block) m ())
   clientStIdle = do
     tx <- atomically $ readTQueue queue
-    traceWith tracer (PostedTx $ getTxId tx)
+    traceWith tracer (PostedTx (getTxId tx, tx))
     pure $
       SendMsgSubmitTx
         (GenTxAlonzo . mkShelleyTx $ tx)
@@ -483,8 +483,8 @@ getAlonzoTxs = \case
 -- TODO add  ToJSON, FromJSON instances
 data DirectChainLog
   = ToPost {toPost :: PostChainTx CardanoTx}
-  | PostedTx {postedTx :: TxId StandardCrypto}
-  | ReceivedTxs {onChainTxs :: [OnChainTx CardanoTx], receivedTxs :: [TxId StandardCrypto]}
+  | PostedTx {postedTx :: (TxId StandardCrypto, ValidatedTx Era)}
+  | ReceivedTxs {onChainTxs :: [OnChainTx CardanoTx], receivedTxs :: [(TxId StandardCrypto, ValidatedTx Era)]}
   | RolledBackward {point :: SomePoint}
   | Wallet TinyWalletLog
   deriving (Eq, Show, Generic)
