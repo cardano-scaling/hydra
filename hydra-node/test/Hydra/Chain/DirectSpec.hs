@@ -16,12 +16,12 @@ import Hydra.Chain (
   OnChainTx (OnAbortTx, OnInitTx),
   PostChainTx (AbortTx, InitTx),
  )
-import Hydra.Chain.Direct (withDirectChain)
+import Hydra.Chain.Direct (DirectChainLog, withDirectChain)
 import Hydra.Chain.Direct.MockServer (withMockServer)
 import Hydra.Chain.Direct.Util (retrying)
 import Hydra.Chain.Direct.Wallet (generateKeyPair)
 import Hydra.Chain.Direct.WalletSpec (genPaymentTo)
-import Hydra.Logging (nullTracer, showLogsOnFailure)
+import Hydra.Logging (showLogsOnFailure)
 import Hydra.Party (Party, deriveParty, generateKey)
 import Test.QuickCheck (generate)
 
@@ -35,8 +35,8 @@ spec = do
       bobKeys@(bobVk, _) <- generateKeyPair
       withMockServer $ \magic iocp socket submitTx -> do
         let cardanoKeys = [] -- TODO(SN): this should matter
-        withDirectChain (contramap show tracer) magic iocp socket aliceKeys alice cardanoKeys (putMVar calledBackAlice) $ \Chain{postTx} -> do
-          withDirectChain nullTracer magic iocp socket bobKeys bob cardanoKeys (putMVar calledBackBob) $ \_ -> do
+        withDirectChain (contramap FromAlice tracer) magic iocp socket aliceKeys alice cardanoKeys (putMVar calledBackAlice) $ \Chain{postTx} -> do
+          withDirectChain (contramap FromBob tracer) magic iocp socket bobKeys bob cardanoKeys (putMVar calledBackBob) $ \_ -> do
             let parameters = HeadParameters 100 [alice, bob, carol]
             generate (genPaymentTo magic aliceVk) >>= submitTx
             generate (genPaymentTo magic bobVk) >>= submitTx
@@ -59,3 +59,8 @@ alice, bob, carol :: Party
 alice = deriveParty $ generateKey 10
 bob = deriveParty $ generateKey 20
 carol = deriveParty $ generateKey 30
+
+data Log
+  = FromAlice DirectChainLog
+  | FromBob DirectChainLog
+  deriving (Show)
