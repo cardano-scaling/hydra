@@ -40,18 +40,14 @@ spec = do
           withDirectChain (contramap FromAlice tracer) magic iocp socket aliceKeys alice cardanoKeys (putMVar calledBackAlice) $ \Chain{postTx} -> do
             withDirectChain (contramap FromBob tracer) magic iocp socket bobKeys bob cardanoKeys (putMVar calledBackBob) $ \_ -> do
               let parameters = HeadParameters 100 [alice, bob, carol]
-              -- An output to use as "seed input"
-              generate (genPaymentTo magic aliceVk) >>= submitTx
-              -- Some funds to spend
               generate (genPaymentTo magic aliceVk) >>= submitTx
 
-              race_
+              concurrently_
                 (retrying (== NoSeedInput @CardanoTx) $ postTx $ InitTx parameters)
                 (takeMVar calledBackAlice `shouldReturn` OnInitTx 100 [alice, bob, carol])
               takeMVar calledBackBob `shouldReturn` OnInitTx 100 [alice, bob, carol]
 
               postTx $ AbortTx mempty
-
               takeMVar calledBackAlice `shouldReturn` OnAbortTx
               takeMVar calledBackBob `shouldReturn` OnAbortTx
 
