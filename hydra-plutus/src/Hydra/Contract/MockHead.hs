@@ -53,9 +53,7 @@ hydraStateMachine _policyId =
   -- want as we need additional tokens being forged as well (see 'watchInit').
   SM.mkStateMachine Nothing hydraTransition isFinal
  where
-  -- XXX(SN): This is currently required to be able to observe the 'Abort'
-  -- transition!?
-  -- isFinal Final{} = True
+  isFinal Final{} = True
   isFinal _ = False
 
 {-# INLINEABLE hydraTransition #-}
@@ -69,7 +67,7 @@ hydraTransition oldState input =
     (Open{}, Close{}) ->
       Just (mempty, oldState{SM.stateData = Closed})
     (Closed{}, Fanout{}) ->
-      Just (mempty, oldState{SM.stateData = Final})
+      Just (mempty, oldState{SM.stateData = Final, SM.stateValue = mempty})
     _ -> Nothing
 
 -- | The script instance of the auction state machine. It contains the state
