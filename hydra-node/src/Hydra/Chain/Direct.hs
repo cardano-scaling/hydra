@@ -15,11 +15,12 @@ module Hydra.Chain.Direct (
 
 import Hydra.Prelude
 
+import Cardano.Ledger.Alonzo.Language (Language (PlutusV1))
 import Cardano.Ledger.Alonzo.Rules.Utxo (UtxoPredicateFailure (UtxosFailure))
 import Cardano.Ledger.Alonzo.Rules.Utxos (TagMismatchDescription (FailedUnexpectedly), UtxosPredicateFailure (ValidationTagMismatch))
 import Cardano.Ledger.Alonzo.Rules.Utxow (AlonzoPredFail (WrappedShelleyEraFailure))
 import Cardano.Ledger.Alonzo.Tx (TxBody (inputs), ValidatedTx (body))
-import Cardano.Ledger.Alonzo.TxInfo (FailureDescription (PlutusFailure))
+import Cardano.Ledger.Alonzo.TxInfo (FailureDescription (PlutusFailure), debugPlutus)
 import Cardano.Ledger.Alonzo.TxSeq (txSeqTxns)
 import Cardano.Ledger.Crypto (StandardCrypto)
 import Cardano.Ledger.Shelley.API (ApplyTxError (ApplyTxError), TxId, TxIn (TxIn))
@@ -373,7 +374,7 @@ txSubmissionClient tracer queue =
   unwrapPlutus :: LedgerPredicateFailure Era -> p
   unwrapPlutus = \case
     UtxowFailure (WrappedShelleyEraFailure (UtxoFailure (UtxosFailure (ValidationTagMismatch _ (FailedUnexpectedly [PlutusFailure plutusFailure debug]))))) ->
-      error $ "Plutus validation failed: " <> plutusFailure <> "\n Debug (for cardano-ledger's plutus-debug exe): \n" <> decodeUtf8 debug
+      error $ "Plutus validation failed: " <> plutusFailure <> "\nDebugInfo: " <> show (debugPlutus PlutusV1 (decodeUtf8 debug))
     err -> error $ "Some other ledger failure: " <> show err
 
 finalizeTx ::
