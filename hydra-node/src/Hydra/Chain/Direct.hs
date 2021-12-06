@@ -423,7 +423,7 @@ fromPostChainTx TinyWallet{getUtxo, verificationKey} headState cardanoKeys = \ca
     -- NOTE: 'lookupMax' to favor change outputs!
     case Map.lookupMax u of
       Just (seedInput, _) -> pure . Just $ initTx cardanoKeys params seedInput
-      Nothing -> error "cannot find a seed input to pass to Init transaction"
+      Nothing -> throwIO (NoSeedInput @CardanoTx)
   AbortTx _utxo ->
     readTVar headState >>= \case
       Initial{threadOutput, initials} ->

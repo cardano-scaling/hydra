@@ -70,13 +70,11 @@ deriving instance IsTx tx => FromJSON (OnChainTx tx)
 instance (Arbitrary tx, Arbitrary (UtxoType tx)) => Arbitrary (OnChainTx tx) where
   arbitrary = genericArbitrary
 
--- | Thrown a structurally invalid transaction is submitted through the chain
--- component. The transaction may be deemed invalid because it does not
--- satisfies pre-conditions fixed by our application (e.g. more than one UTXO is
--- committed).
+-- | Exceptions thrown by 'postTx'.
 data InvalidTxError tx
   = MoreThanOneUtxoCommitted
   | CannotSpendInput {input :: TxIn tx, walletUtxo :: UtxoType tx, headUtxo :: UtxoType tx}
+  | NoSeedInput
   deriving (Exception)
 
 deriving instance IsTx tx => Eq (InvalidTxError tx)
