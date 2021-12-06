@@ -270,12 +270,7 @@ coverFee_ ::
   ValidatedTx Era ->
   Either ErrCoverFee (Map TxIn TxOut, ValidatedTx Era)
 coverFee_ pparams lookupUtxo walletUtxo partialTx@ValidatedTx{body, wits} = do
-  (input, output) <- case Map.lookupMax (Map.filter hasEnoughValue walletUtxo) of
-    Nothing ->
-      -- TODO(SN): this is misleading as we "just" don't have a Utxo which 'hasEnoughValue'
-      Left ErrNoAvailableUtxo
-    Just (i, o) ->
-      Right (i, o)
+  (input, output) <- maybeToRight ErrNoAvailableUtxo selectUtxo
 
   let inputs' = inputs body <> Set.singleton input
   resolvedInputs <- traverse resolveInput (toList inputs')
@@ -313,6 +308,14 @@ coverFee_ pparams lookupUtxo walletUtxo partialTx@ValidatedTx{body, wits} = do
         }
     )
  where
+  selectUtxo =
+    fmap head
+      . nonEmpty
+      . filter notInInputs
+      $ Map.toList (Map.filter hasEnoughValue walletUtxo)
+
+  notInInputs (i, _o) = i `Set.notMember` inputs body
+
   -- FIXME: 10 ADAs is arbitrary, just a way to increase the likelihood to cover fees
   hasEnoughValue :: TxOut -> Bool
   hasEnoughValue = (> Coin 10_000_000) . getAdaValue
