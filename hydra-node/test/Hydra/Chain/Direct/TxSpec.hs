@@ -57,10 +57,8 @@ import Hydra.Ledger.Cardano (
   Utxo' (Utxo),
   describeCardanoTx,
   fromLedgerTx,
-  fromLedgerTxOut,
   genAdaOnlyUtxo,
   shrinkUtxo,
-  toLedgerUtxo,
   toMaryValue,
   utxoPairs,
  )
@@ -166,10 +164,11 @@ spec =
         forAll (generateCommitUtxos parties committedUtxo) $ \commitsUtxo ->
           let headDatum = Data . toData $ MockHead.Initial cperiod parties
               headAddress = scriptAddr $ plutusScript $ MockHead.validatorScript policyId
-              headValue = inject (Coin 2_000_000) <> toMaryValue (balance @CardanoTx commitsUtxo)
+              committedValue = foldMap (\(TxOut _ v _, _) -> v) commitsUtxo
+              headValue = inject (Coin 2_000_000) <> committedValue
               headOutput = TxOut headAddress headValue SNothing -- will be SJust, but not covered by this test
               lookupUtxo = Map.singleton headInput headOutput
-              tx = collectComTx committedUtxo (headInput, headDatum) (unUTxO $ toLedgerUtxo commitsUtxo)
+              tx = collectComTx committedUtxo (headInput, headDatum) commitsUtxo
               res = observeCollectComTx lookupUtxo tx
            in case res of
                 Just (OnCollectComTx, OpenOrClosed{threadOutput = (_, TxOut _ headOutputValue' _, _)}) ->
@@ -182,9 +181,11 @@ spec =
       -- XXX(SN): tests are using a fixed snapshot number because of overlapping instances
       let sn = 1
 
-      prop "transaction size below limit" $ \utxo headIn ->
-        let tx = closeTx sn utxo (headIn, headDatum)
+      prop "transaction size below limit" $ \utxo headValue headIn ->
+        let tx = closeTx sn utxo (headIn, headOutput, headDatum)
             headDatum = Data $ toData MockHead.Open
+            headOutput = TxOut headAddress headValue SNothing -- will be SJust, but not covered by this test
+            headAddress = scriptAddr $ plutusScript $ MockHead.validatorScript policyId
             cbor = serialize tx
             len = LBS.length cbor
          in len < maxTxSize
