@@ -160,10 +160,18 @@ instance Arbitrary SomePoint where
 -- Helpers
 --
 
--- | A simple retrying function with a constant delay. Retries only a given
--- exception type (requires type application).
+-- | A simple retrying function with a constant delay. Retries only if the given
+-- predicate evaluates to 'True'.
 --
 -- Better coupled with a 'timeout' function.
-retrying :: forall e m a. (MonadCatch m, MonadDelay m, Exception e) => m a -> m a
-retrying action =
-  action `catch` (\(_ :: e) -> threadDelay 0.5 >> retrying @e action)
+retrying ::
+  forall e m a.
+  (MonadCatch m, MonadDelay m, Exception e) =>
+  (e -> Bool) ->
+  m a ->
+  m a
+retrying predicate action =
+  catchIf predicate action $ \_ ->
+    threadDelay 0.5 >> retrying predicate action
+ where
+  catchIf f a b = a `catch` \e -> if f e then b e else throwIO e
