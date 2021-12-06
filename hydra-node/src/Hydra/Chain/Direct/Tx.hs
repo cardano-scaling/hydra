@@ -198,7 +198,7 @@ commitTx party utxo (initialIn, pkh) =
       , collateral = mempty
       , outputs =
           StrictSeq.fromList
-            [ mkCommitUtxo onChainParty utxo
+            [ commitOutput
             ]
       , txcerts = mempty
       , txwdrls = Wdrl mempty
@@ -213,6 +213,8 @@ commitTx party utxo (initialIn, pkh) =
       }
 
   onChainParty = partyFromVerKey $ vkey party
+
+  (commitOutput, commitDatum) = mkCommitUtxo onChainParty utxo
 
   datums =
     datumsFromList [initialDatum, commitDatum]
@@ -229,16 +231,16 @@ commitTx party utxo (initialIn, pkh) =
 
   initialScript = plutusScript MockInitial.validatorScript
 
-  commitDatum = mkCommitDatum onChainParty utxo
-
-mkCommitUtxo :: OnChain.Party -> Maybe (Api.TxIn, Api.TxOut Api.CtxUTxO Api.Era) -> TxOut Era
+mkCommitUtxo :: OnChain.Party -> Maybe (Api.TxIn, Api.TxOut Api.CtxUTxO Api.Era) -> (TxOut Era, Data Era)
 mkCommitUtxo party utxo =
-  TxOut
-    (scriptAddr commitScript)
-    -- TODO(AB): We should add the value from the initialIn too because it contains
-    -- the PTs
-    commitValue
-    (SJust $ hashData @Era commitDatum)
+  ( TxOut
+      (scriptAddr commitScript)
+      -- TODO(AB): We should add the value from the initialIn too because it contains
+      -- the PTs
+      commitValue
+      (SJust $ hashData @Era commitDatum)
+  , commitDatum
+  )
  where
   commitValue :: Value Era
   commitValue = inject (Coin 2000000) <> maybe (inject $ Coin 0) (getValue . snd) utxo
