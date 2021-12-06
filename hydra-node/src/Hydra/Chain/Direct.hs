@@ -355,7 +355,7 @@ txSubmissionClient tracer queue =
       SendMsgSubmitTx
         (GenTxAlonzo . mkShelleyTx $ tx)
         ( \case
-            SubmitFail reason -> error $ "failed to submit tx: " <> show reason
+            SubmitFail reason -> error $ "failed to submit tx: " <> show tx <> ", error: " <> show reason
             SubmitSuccess -> clientStIdle
         )
 
