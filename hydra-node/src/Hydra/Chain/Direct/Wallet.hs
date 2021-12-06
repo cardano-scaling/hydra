@@ -12,13 +12,14 @@ import qualified Cardano.Crypto.DSIGN as Crypto
 import Cardano.Crypto.Hash.Class
 import qualified Cardano.Ledger.Address as Ledger
 import Cardano.Ledger.Alonzo (AlonzoEra)
+import Cardano.Ledger.Alonzo.Data (Data (Data))
 import Cardano.Ledger.Alonzo.Language (
   Language (PlutusV1),
  )
 import Cardano.Ledger.Alonzo.PParams (PParams' (..))
 import Cardano.Ledger.Alonzo.PlutusScriptApi (language)
 import Cardano.Ledger.Alonzo.Scripts (ExUnits (..), txscriptfee)
-import Cardano.Ledger.Alonzo.Tx (ValidatedTx (..), hashScriptIntegrity)
+import Cardano.Ledger.Alonzo.Tx (ValidatedTx (..), hashData, hashScriptIntegrity)
 import Cardano.Ledger.Alonzo.TxBody (
   TxBody,
   collateral,
@@ -35,6 +36,7 @@ import Cardano.Ledger.Alonzo.TxWitness (
   TxWitness (..),
   unRedeemers,
  )
+import Cardano.Ledger.BaseTypes (StrictMaybe (SJust))
 import Cardano.Ledger.Coin (Coin (..))
 import Cardano.Ledger.Core (PParams)
 import qualified Cardano.Ledger.Core as Ledger
@@ -71,6 +73,7 @@ import Hydra.Chain.Direct.Util (
   SomePoint (..),
   VerificationKey,
   defaultCodecs,
+  markerDatum,
   nullConnectTracers,
   versions,
  )
@@ -251,6 +254,7 @@ data ErrCoverFee
   = ErrNoAvailableUtxo
   | ErrNotEnoughFunds ChangeError
   | ErrUnknownInput {input :: TxIn}
+  | ErrNoPaymentUtxoFound
   deriving (Show)
 
 data ChangeError = ChangeError {inputBalance :: Coin, outputBalance :: Coin}
@@ -268,12 +272,7 @@ coverFee_ ::
   ValidatedTx Era ->
   Either ErrCoverFee (Map TxIn TxOut, ValidatedTx Era)
 coverFee_ pparams lookupUtxo walletUtxo partialTx@ValidatedTx{body, wits} = do
-  (input, output) <- case Map.lookupMax (Map.filter hasEnoughValue walletUtxo) of
-    Nothing ->
-      -- TODO(SN): this is misleading as we "just" don't have a Utxo which 'hasEnoughValue'
-      Left ErrNoAvailableUtxo
-    Just (i, o) ->
-      Right (i, o)
+  (input, output) <- findUtxoToPayFees walletUtxo
 
   let inputs' = inputs body <> Set.singleton input
   resolvedInputs <- traverse resolveInput (toList inputs')
@@ -311,9 +310,15 @@ coverFee_ pparams lookupUtxo walletUtxo partialTx@ValidatedTx{body, wits} = do
         }
     )
  where
-  -- FIXME: 10 ADAs is arbitrary, just a way to increase the likelihood to cover fees
-  hasEnoughValue :: TxOut -> Bool
-  hasEnoughValue = (> Coin 10_000_000) . getAdaValue
+  findUtxoToPayFees utxo = case Map.lookupMax (Map.filter hasMarkerDatum utxo) of
+    Nothing ->
+      Left ErrNoPaymentUtxoFound
+    Just (i, o) ->
+      Right (i, o)
+
+  hasMarkerDatum :: TxOut -> Bool
+  hasMarkerDatum (TxOut _ _ dh) =
+    dh == SJust (hashData $ Data @Era markerDatum)
 
   -- TODO: Do a better fee estimation based on the transaction's content.
   calculateNeedlesslyHighFee (Redeemers redeemers) =

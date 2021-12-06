@@ -39,6 +39,7 @@ import Ouroboros.Network.NodeToClient (
   simpleSingletonVersions,
  )
 import Ouroboros.Network.Protocol.Handshake.Version (Versions)
+import Plutus.V1.Ledger.Api (BuiltinByteString, Data, ToData (toBuiltinData), toData)
 import Test.Cardano.Ledger.Alonzo.Serialisation.Generators ()
 import Test.QuickCheck (oneof)
 
@@ -175,3 +176,7 @@ retrying predicate action =
     threadDelay 0.5 >> retrying predicate action
  where
   catchIf f a b = a `catch` \e -> if f e then b e else throwIO e
+
+-- | Marker datum used to identify payment UTXO
+markerDatum :: Data
+markerDatum = toData $ toBuiltinData ("Hydra Head Payment" :: BuiltinByteString)
