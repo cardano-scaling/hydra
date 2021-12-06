@@ -452,7 +452,7 @@ fromPostChainTx TinyWallet{getUtxo, verificationKey} headState cardanoKeys = \ca
   CloseTx Snapshot{number, utxo} ->
     readTVar headState >>= \case
       OpenOrClosed{threadOutput} ->
-        pure . Just $ closeTx number utxo (convertTuple threadOutput)
+        pure . Just $ closeTx number utxo threadOutput
       st -> error $ "cannot post CloseTx, invalid state: " <> show st
   FanoutTx{utxo} ->
     readTVar headState >>= \case
