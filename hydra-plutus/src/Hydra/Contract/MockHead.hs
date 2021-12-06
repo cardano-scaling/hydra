@@ -63,7 +63,7 @@ hydraTransition oldState input =
     (Initial{}, CollectCom collectedValue) ->
       Just (mempty, oldState{SM.stateData = Open, SM.stateValue = collectedValue <> SM.stateValue oldState})
     (Initial{}, Abort) ->
-      Just (mempty, oldState{SM.stateData = Final})
+      Just (mempty, oldState{SM.stateData = Final, SM.stateValue = mempty})
     (Open{}, Close{}) ->
       Just (mempty, oldState{SM.stateData = Closed})
     (Closed{}, Fanout{}) ->
