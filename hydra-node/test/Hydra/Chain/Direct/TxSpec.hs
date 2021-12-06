@@ -342,6 +342,7 @@ spec =
                         & label
                           ( case err of
                               ErrNoAvailableUtxo -> "No available Utxo"
+                              ErrNoPaymentUtxoFound -> "No payment Utxo found"
                               ErrNotEnoughFunds{} -> "Not enough funds"
                               ErrUnknownInput{} -> "Unknown input"
                           )

@@ -28,6 +28,7 @@ import Hydra.Ledger.Cardano (
   Utxo,
   Utxo' (Utxo),
   VerificationKey (PaymentVerificationKey),
+  fromPlutusData,
   lovelaceToTxOutValue,
   mkVkAddress,
   unsafeCastHash,
@@ -370,7 +371,7 @@ mkGenesisTx networkId pparams initialAmount signingKey@(PaymentSigningKey sk) ve
         TxOut
           changeAddr
           (lovelaceToTxOutValue $ initialAmount - amount - fee)
-          TxOutDatumNone
+          (TxOutDatumHash ScriptDataInAlonzoEra (hashScriptData $ fromPlutusData Hydra.markerDatum))
 
       recipientAddr = mkVkAddress networkId verificationKey
       recipientOutput =
