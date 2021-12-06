@@ -15,11 +15,17 @@ module Hydra.Chain.Direct (
 
 import Hydra.Prelude
 
+import Cardano.Ledger.Alonzo.Rules.Utxo (UtxoPredicateFailure (UtxosFailure))
+import Cardano.Ledger.Alonzo.Rules.Utxos (TagMismatchDescription (FailedUnexpectedly), UtxosPredicateFailure (ValidationTagMismatch))
+import Cardano.Ledger.Alonzo.Rules.Utxow (AlonzoPredFail (WrappedShelleyEraFailure))
 import Cardano.Ledger.Alonzo.Tx (TxBody (inputs), ValidatedTx (body))
+import Cardano.Ledger.Alonzo.TxInfo (FailureDescription (PlutusFailure))
 import Cardano.Ledger.Alonzo.TxSeq (txSeqTxns)
 import Cardano.Ledger.Crypto (StandardCrypto)
-import Cardano.Ledger.Shelley.API (TxId, TxIn (TxIn))
+import Cardano.Ledger.Shelley.API (ApplyTxError (ApplyTxError), TxId, TxIn (TxIn))
 import qualified Cardano.Ledger.Shelley.API as Ledger
+import Cardano.Ledger.Shelley.Rules.Ledger (LedgerPredicateFailure (UtxowFailure))
+import Cardano.Ledger.Shelley.Rules.Utxow (UtxowPredicateFailure (UtxoFailure))
 import Control.Exception (IOException)
 import Control.Monad (foldM)
 import Control.Monad.Class.MonadSTM (MonadSTMTx (writeTVar), newTQueueIO, newTVarIO, readTQueue, throwSTM, writeTQueue)
@@ -73,7 +79,7 @@ import Hydra.Ledger.Cardano (CardanoTx, fromLedgerTxId, fromLedgerUtxo, utxoPair
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Party (Party)
 import Hydra.Snapshot (Snapshot (..))
-import Ouroboros.Consensus.Cardano.Block (GenTx (..), HardForkBlock (BlockAlonzo))
+import Ouroboros.Consensus.Cardano.Block (GenTx (..), HardForkApplyTxErr (ApplyTxErrAlonzo), HardForkBlock (BlockAlonzo))
 import Ouroboros.Consensus.Ledger.SupportsMempool (ApplyTxErr)
 import Ouroboros.Consensus.Network.NodeToClient (Codecs' (..))
 import Ouroboros.Consensus.Shelley.Ledger (ShelleyBlock (..))
@@ -355,9 +361,20 @@ txSubmissionClient tracer queue =
       SendMsgSubmitTx
         (GenTxAlonzo . mkShelleyTx $ tx)
         ( \case
-            SubmitFail reason -> error $ "failed to submit tx: " <> show tx <> ", error: " <> show reason
+            SubmitFail reason -> onFail reason
             SubmitSuccess -> clientStIdle
         )
+
+  -- XXX(SN): patch-work error pretty printing on single plutus script failures
+  onFail = \case
+    ApplyTxErrAlonzo (ApplyTxError [failure]) -> unwrapPlutus failure
+    err -> error $ "failed to submit tx: " <> show err
+
+  unwrapPlutus :: LedgerPredicateFailure Era -> p
+  unwrapPlutus = \case
+    UtxowFailure (WrappedShelleyEraFailure (UtxoFailure (UtxosFailure (ValidationTagMismatch _ (FailedUnexpectedly [PlutusFailure plutusFailure debug]))))) ->
+      error $ "Plutus validation failed: " <> plutusFailure <> "\n Debug (for cardano-ledger's plutus-debug exe): \n" <> decodeUtf8 debug
+    err -> error $ "Some other ledger failure: " <> show err
 
 finalizeTx ::
   (MonadSTM m, MonadThrow (STM m)) =>
