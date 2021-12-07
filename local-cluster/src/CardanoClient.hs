@@ -16,6 +16,7 @@ import Cardano.Api.Shelley (
   PoolId,
   ProtocolParameters (protocolParamTxFeeFixed, protocolParamTxFeePerByte),
  )
+import Cardano.Crypto.DSIGN (deriveVerKeyDSIGN)
 import Cardano.Ledger.Keys (VKey (VKey))
 import Cardano.Slotting.Time (SystemStart)
 import CardanoNode (RunningNode (RunningNode))
@@ -415,5 +416,21 @@ generatePaymentToCommit networkId (RunningNode _ nodeSocket) sk vk lovelace = do
       TxOutDatumNone
 
   amountLovelace = Lovelace $ fromIntegral lovelace
+
+  convertUtxo (UTxO ledgerUtxo) = Utxo ledgerUtxo
+
+mkSeedPayment :: NetworkMagic -> ProtocolParameters -> Lovelace -> RunningNode -> Cardano.SigningKey -> Lovelace -> IO Utxo
+mkSeedPayment magic pparams initialAmount (RunningNode _ nodeSocket) sk amountLovelace = do
+  let genesisTx = mkGenesisTx networkId pparams initialAmount signingKey verificationKey amountLovelace
+  submit networkId nodeSocket genesisTx
+  convertUtxo <$> waitForPayment networkId nodeSocket amountLovelace address
+ where
+  signingKey = PaymentSigningKey sk
+
+  verificationKey = PaymentVerificationKey $ VKey $ deriveVerKeyDSIGN sk
+
+  address = buildAddress verificationKey networkId
+
+  networkId = Testnet magic
 
   convertUtxo (UTxO ledgerUtxo) = Utxo ledgerUtxo
