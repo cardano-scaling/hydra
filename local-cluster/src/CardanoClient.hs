@@ -393,7 +393,7 @@ generatePaymentToCommit ::
   IO Utxo
 generatePaymentToCommit networkId (RunningNode _ nodeSocket) sk vk lovelace = do
   UTxO availableUtxo <- queryUtxo networkId nodeSocket [spendingAddress]
-  let inputs = (,Nothing) <$> Map.keys availableUtxo
+  let inputs = (,Nothing) <$> Map.keys (Map.filter (not . Hydra.isMarkedOutput) availableUtxo)
   build networkId nodeSocket spendingAddress inputs [] [theOutput] >>= \case
     Left e -> error (show e)
     Right body -> do
