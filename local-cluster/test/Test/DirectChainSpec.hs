@@ -9,10 +9,13 @@ import Test.Hydra.Prelude
 import Cardano.Ledger.Keys (VKey (VKey))
 import CardanoClient (
   generatePaymentToCommit,
+  mkSeedPayment,
+  queryProtocolParameters,
   waitForUtxo,
  )
 import CardanoCluster (
   ClusterLog,
+  availableInitialFunds,
   defaultNetworkId,
   keysFor,
   newNodeConfig,
@@ -53,11 +56,16 @@ spec = around showLogsOnFailure $ do
       config <- newNodeConfig tmp
       withBFTNode (contramap FromCluster tracer) config [] $ \(RunningNode _ nodeSocket) -> do
         aliceKeys <- keysFor "alice"
+      aliceKeys@(aliceCardanoVk, aliceCardanoSk) <- keysFor "alice"
+      withBFTNode (contramap FromCluster tracer) config [PaymentVerificationKey $ VKey aliceCardanoVk] $ \node@(RunningNode _ nodeSocket) -> do
         bobKeys <- keysFor "bob"
+        pparams <- queryProtocolParameters defaultNetworkId nodeSocket
         let cardanoKeys = []
         withIOManager $ \iocp -> do
           withDirectChain (contramap (FromDirectChain "alice") tracer) magic iocp nodeSocket aliceKeys alice cardanoKeys (putMVar alicesCallback) $ \Chain{postTx} -> do
             withDirectChain nullTracer magic iocp nodeSocket bobKeys bob cardanoKeys (putMVar bobsCallback) $ \_ -> do
+              void $ mkSeedPayment magic pparams availableInitialFunds node aliceCardanoSk 100_000_000
+
               postTx $ InitTx $ HeadParameters 100 [alice, bob, carol]
               alicesCallback `observesInTime` OnInitTx 100 [alice, bob, carol]
               bobsCallback `observesInTime` OnInitTx 100 [alice, bob, carol]
