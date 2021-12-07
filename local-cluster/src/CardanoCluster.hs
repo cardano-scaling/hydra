@@ -17,7 +17,9 @@ import Cardano.Api (
   readFileTextEnvelope,
   serialiseToRawBytes,
  )
+import Cardano.Api.Shelley (VerificationKey (PaymentVerificationKey))
 import Cardano.Crypto.DSIGN (deriveVerKeyDSIGN)
+import Cardano.Ledger.Keys (VKey (VKey))
 import CardanoClient (buildAddress)
 import CardanoNode (
   CardanoNodeArgs (..),
@@ -32,8 +34,9 @@ import CardanoNode (
   unsafeDecodeJsonFile,
   withCardanoNode,
  )
-import Control.Lens ((%~))
+import Control.Lens ((.~))
 import Control.Tracer (Tracer, traceWith)
+import Data.Aeson (object)
 import qualified Data.Aeson as Aeson
 import Data.Aeson.Lens (key)
 import Data.ByteString.Base16 (encodeBase16)
@@ -69,6 +72,7 @@ availableInitialFunds = 900_000_000_000
 data ClusterConfig = ClusterConfig
   { parentStateDirectory :: FilePath
   , networkId :: NetworkId
+  , initialFunds :: [Cardano.VerificationKey]
   }
 
 testClusterConfig :: FilePath -> ClusterConfig
@@ -87,17 +91,19 @@ asSigningKey = AsSigningKey AsPaymentKey
 
 withCluster ::
   Tracer IO ClusterLog -> ClusterConfig -> (RunningCluster -> IO ()) -> IO ()
-withCluster tr cfg@ClusterConfig{parentStateDirectory} action = do
+withCluster tr cfg@ClusterConfig{parentStateDirectory, initialFunds} action = do
   systemStart <- initSystemStart
   (cfgA, cfgB, cfgC) <-
     makeNodesConfig parentStateDirectory systemStart
       <$> randomUnusedTCPPorts 3
 
-  withBFTNode tr cfgA [] $ \nodeA -> do
-    withBFTNode tr cfgB [] $ \nodeB -> do
-      withBFTNode tr cfgC [] $ \nodeC -> do
+  withBFTNode tr cfgA funds $ \nodeA -> do
+    withBFTNode tr cfgB funds $ \nodeB -> do
+      withBFTNode tr cfgC funds $ \nodeC -> do
         let nodes = [nodeA, nodeB, nodeC]
         action (RunningCluster cfg nodes)
+ where
+  funds = map (PaymentVerificationKey . VKey) initialFunds
 
 keysFor :: String -> IO (Cardano.VerificationKey, Cardano.SigningKey)
 keysFor actor = do
@@ -151,7 +157,7 @@ withBFTNode clusterTracer cfg initialFunds action = do
     ("config" </> "genesis-byron.json")
     (stateDirectory cfg </> nodeByronGenesisFile args)
 
-  addFundsToGenesisShelley (stateDirectory cfg </> nodeShelleyGenesisFile args)
+  setInitialFundsInGenesisShelley (stateDirectory cfg </> nodeShelleyGenesisFile args)
 
   copyFile
     ("config" </> "genesis-alonzo.json")
@@ -168,10 +174,22 @@ withBFTNode clusterTracer cfg initialFunds action = do
   kesKeyFilename i = "delegate" <> show i <> ".kes.skey"
   opCertFilename i = "opcert" <> show i <> ".cert"
 
-  addFundsToGenesisShelley file = do
+  setInitialFundsInGenesisShelley file = do
     genesisJson <- unsafeDecodeJsonFile @Aeson.Value ("config" </> "genesis-shelley.json")
-    let updatedJson = genesisJson & key "initialFunds" %~ updateInitialFunds
+    let updatedJson = genesisJson & key "initialFunds" .~ initialFundsValue
     Aeson.encodeFile file updatedJson
+
+  initialFundsValue =
+    foldr
+      (uncurry addField)
+      (object [])
+      (mkInitialFundsEntry <$> initialFunds)
+
+  mkInitialFundsEntry :: VerificationKey PaymentKey -> (Text, Word)
+  mkInitialFundsEntry vk =
+    let addr = buildAddress vk defaultNetworkId
+        bytes = serialiseToRawBytes addr
+     in (encodeBase16 bytes, availableInitialFunds)
 
   copyCredential parentDir file = do
     let source = "config" </> "credentials" </> file
@@ -183,19 +201,6 @@ withBFTNode clusterTracer cfg initialFunds action = do
   nid = nodeId cfg
 
   nodeTracer = contramap (MsgFromNode nid) clusterTracer
-
-  updateInitialFunds :: Aeson.Value -> Aeson.Value
-  updateInitialFunds zero =
-    foldr
-      (uncurry addField)
-      zero
-      (mkInitialFundsEntry <$> initialFunds)
-
-  mkInitialFundsEntry :: VerificationKey PaymentKey -> (Text, Word)
-  mkInitialFundsEntry vk =
-    let addr = buildAddress vk defaultNetworkId
-        bytes = serialiseToRawBytes addr
-     in (encodeBase16 bytes, availableInitialFunds)
 
   waitForSocket :: RunningNode -> IO ()
   waitForSocket node@(RunningNode _ socket) = do

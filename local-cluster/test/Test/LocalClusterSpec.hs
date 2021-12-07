@@ -34,7 +34,7 @@ import CardanoClient (
   txOutLovelace,
   waitForPayment,
  )
-import CardanoCluster (ClusterConfig (..), ClusterLog (..), RunningCluster (..), keysFor, testClusterConfig, withCluster)
+import CardanoCluster (ClusterConfig (..), ClusterLog (..), RunningCluster (..), defaultNetworkId, keysFor, withCluster)
 import CardanoNode (ChainTip (..), RunningNode (..), cliQueryTip)
 import qualified Data.Map as Map
 import Hydra.Chain.Direct.Tx (policyId)
@@ -48,7 +48,13 @@ spec =
   it "should produce blocks, provide funds, and send Hydra OCV transactions" $ do
     showLogsOnFailure $ \tr ->
       withTempDir "hydra-local-cluster" $ \tmp -> do
-        let config = testClusterConfig tmp
+        (vk, _) <- keysFor "alice"
+        let config =
+              ClusterConfig
+                { parentStateDirectory = tmp
+                , networkId = defaultNetworkId
+                , initialFunds = [vk]
+                }
         withCluster tr config $ \cluster -> do
           failAfter 30 $ assertNetworkIsProducingBlock tr cluster
           failAfter 30 $ assertCanSpendInitialFunds cluster
