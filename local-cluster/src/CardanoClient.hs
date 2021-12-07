@@ -419,8 +419,8 @@ generatePaymentToCommit networkId (RunningNode _ nodeSocket) sk vk lovelace = do
 
   convertUtxo (UTxO ledgerUtxo) = Utxo ledgerUtxo
 
-mkSeedPayment :: NetworkMagic -> ProtocolParameters -> Lovelace -> RunningNode -> Cardano.SigningKey -> Lovelace -> IO Utxo
-mkSeedPayment magic pparams initialAmount (RunningNode _ nodeSocket) sk amountLovelace = do
+mkSeedPayment :: NetworkId -> ProtocolParameters -> Lovelace -> RunningNode -> Cardano.SigningKey -> Lovelace -> IO Utxo
+mkSeedPayment networkId pparams initialAmount (RunningNode _ nodeSocket) sk amountLovelace = do
   let genesisTx = mkGenesisTx networkId pparams initialAmount signingKey verificationKey amountLovelace
   submit networkId nodeSocket genesisTx
   convertUtxo <$> waitForPayment networkId nodeSocket amountLovelace address
@@ -430,7 +430,5 @@ mkSeedPayment magic pparams initialAmount (RunningNode _ nodeSocket) sk amountLo
   verificationKey = PaymentVerificationKey $ VKey $ deriveVerKeyDSIGN sk
 
   address = buildAddress verificationKey networkId
-
-  networkId = Testnet magic
 
   convertUtxo (UTxO ledgerUtxo) = Utxo ledgerUtxo
