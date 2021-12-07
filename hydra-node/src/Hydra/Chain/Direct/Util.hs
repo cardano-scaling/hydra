@@ -180,3 +180,8 @@ retry predicate action =
 -- | Marker datum used to identify payment UTXO
 markerDatum :: Data
 markerDatum = toData $ toBuiltinData ("Hydra Head Payment" :: BuiltinByteString)
+
+isMarkedOutput :: TxOut CtxUTxO era -> Bool
+isMarkedOutput = \case
+  (TxOut _ _ (TxOutDatumHash _ ha)) -> ha == hashScriptData (Shelley.fromPlutusData markerDatum)
+  _ -> False
