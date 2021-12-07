@@ -30,6 +30,7 @@ import Cardano.Ledger.Shelley.Rules.Utxow (UtxowPredicateFailure (UtxoFailure))
 import Control.Exception (IOException)
 import Control.Monad (foldM)
 import Control.Monad.Class.MonadSTM (MonadSTMTx (writeTVar), newTQueueIO, newTVarIO, readTQueue, throwSTM, writeTQueue)
+import Control.Monad.Class.MonadTimer (timeout)
 import Control.Tracer (nullTracer)
 import Data.Aeson (Value (String), object, (.=))
 import qualified Data.Map.Strict as Map
@@ -156,17 +157,18 @@ withDirectChain tracer networkMagic iocp socketPath keyPair party cardanoKeys ca
                 { postTx = \tx -> do
                     traceWith tracer $ ToPost tx
 
-                    res <- atomically $ do
-                      fromPostChainTx wallet headState cardanoKeys tx >>= \case
-                        Nothing ->
-                          pure Nothing
-                        Just partialTx ->
-                          Just <$> finalizeTx wallet headState partialTx
+                    res <- timeout 10 $
+                      atomically $ do
+                        fromPostChainTx wallet headState cardanoKeys tx >>= \case
+                          Nothing ->
+                            pure Nothing
+                          Just partialTx ->
+                            Just <$> finalizeTx wallet headState partialTx
 
                     maybe
                       (callback PostTxFailed)
                       (atomically . writeTQueue queue)
-                      res
+                      (join res)
                 }
         )
         ( connectTo
@@ -377,6 +379,7 @@ txSubmissionClient tracer queue =
       error $ "Plutus validation failed: " <> plutusFailure <> "\nDebugInfo: " <> show (debugPlutus PlutusV1 (decodeUtf8 debug))
     err -> error $ "Some other ledger failure: " <> show err
 
+-- | Balance and sign the given partial transaction.
 finalizeTx ::
   (MonadSTM m, MonadThrow (STM m)) =>
   TinyWallet m ->

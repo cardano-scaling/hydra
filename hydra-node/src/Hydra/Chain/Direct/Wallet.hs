@@ -212,6 +212,8 @@ withTinyWallet tracer magic (vk, sk) iocp addr action = do
       , coverFee = \lookupUtxo partialTx -> do
           (walletUtxo, pparams) <- readTMVar utxoVar
           case coverFee_ pparams lookupUtxo walletUtxo partialTx of
+            Left ErrNoPaymentUtxoFound ->
+              retry
             Left e ->
               pure (Left e)
             Right (walletUtxo', balancedTx) ->
