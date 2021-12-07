@@ -123,6 +123,7 @@ test-suite tests
   type:               exitcode-stdio-1.0
   build-depends:
     , base
+    , bytestring
     , hspec
     , hydra-node
     , hydra-prelude
@@ -130,6 +131,7 @@ test-suite tests
     , hydra-tui
     , io-classes
     , optparse-applicative
+    , temporary
     , unix
     , vty
 

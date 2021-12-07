@@ -4,11 +4,15 @@ import Hydra.Prelude
 import Test.Hydra.Prelude
 
 import Control.Monad.Class.MonadTimer (timeout)
+import qualified Data.ByteString as BS
+import Data.ByteString.Char8 (takeWhileEnd)
 import Graphics.Vty (Config (outputFd), Event, Vty (shutdown, update), defaultConfig, mkVty)
 import Hydra.Network (Host (..))
 import Hydra.TUI (runWithVty)
 import Hydra.TUI.Options (Options (..))
-import System.Posix (closeFd, createFile, stdFileMode)
+import System.IO (SeekMode (AbsoluteSeek))
+import System.IO.Temp (withSystemTempFile)
+import System.Posix (closeFd, createFile, fdSeek, fdWrite, handleToFd, stdFileMode)
 import System.Posix.Files (removeLink)
 
 spec :: Spec
@@ -18,9 +22,7 @@ spec =
       withBrickTest $ \BrickTest{buildVty, getPicture} -> do
         race_ (runWithVty buildVty Options{nodeHost = Host{hostname = "127.0.0.1", port = 4001}}) $ do
           threadDelay 1
-          putStrLn $ replicate 100 '-'
           getPicture >>= putBSLn
-          putStrLn $ replicate 100 '-'
 
 data BrickTest = BrickTest
   { buildVty :: IO Vty
@@ -30,35 +32,30 @@ data BrickTest = BrickTest
 
 withBrickTest :: (BrickTest -> Expectation) -> Expectation
 withBrickTest action = do
-  action $
-    BrickTest
-      { buildVty
-      , getPicture
-      , sendInputEvent
-      }
+  withSystemTempFile "brick-test" $ \fp h -> do
+    fd <- handleToFd h
+    action $
+      BrickTest
+        { buildVty = buildVty fd
+        , getPicture = getPicture fp
+        , sendInputEvent
+        }
  where
-  buildVty = do
-    tempFd <- createFile tempFp stdFileMode
-    vty <- mkVty defaultConfig{outputFd = Just tempFd}
+  buildVty fd = do
+    vty <- mkVty defaultConfig{outputFd = Just fd}
     pure $
       vty
-        { update = onUpdate vty
-        , shutdown = onShutdown vty tempFd
+        { update = onUpdate vty fd
+        , shutdown = onShutdown vty fd
         }
 
-  -- TODO(SN): drop screen clearing escape code bytes
-  getPicture = readFileBS tempFp
+  getPicture fp = readFileBS fp
 
   sendInputEvent = undefined
 
-  -- TODO(SN): not hard-code this
-  tempFp = "/tmp/hydra-tui-tests-vtyout"
-
-  onUpdate vty p = do
+  onUpdate vty _fd p = do
     putStrLn "update called"
     update vty p
 
-  onShutdown vty tempFd = do
-    closeFd tempFd
-    removeLink tempFp
+  onShutdown vty _fd = do
     shutdown vty
