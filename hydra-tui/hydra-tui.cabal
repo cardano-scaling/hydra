@@ -111,7 +111,7 @@ executable hydra-tui
 
   ghc-options:    -threaded -rtsopts
 
-test-suite unit
+test-suite tests
   import:             project-config
   hs-source-dirs:     test
   other-modules:
@@ -128,7 +128,10 @@ test-suite unit
     , hydra-prelude
     , hydra-test-utils
     , hydra-tui
+    , io-classes
     , optparse-applicative
+    , unix
+    , vty
 
   build-tool-depends: hspec-discover:hspec-discover -any
   ghc-options:        -threaded -rtsopts

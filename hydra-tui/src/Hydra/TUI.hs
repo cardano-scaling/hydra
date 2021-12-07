@@ -19,7 +19,18 @@ import Data.List (nub, (\\))
 import qualified Data.Map.Strict as Map
 import qualified Data.Text as Text
 import Data.Version (showVersion)
-import Graphics.Vty (Event (EvKey), Key (..), Modifier (..), brightBlue, defaultConfig, green, mkVty, red, yellow)
+import Graphics.Vty (
+  Event (EvKey),
+  Key (..),
+  Modifier (..),
+  Vty,
+  brightBlue,
+  defaultConfig,
+  green,
+  mkVty,
+  red,
+  yellow,
+ )
 import qualified Graphics.Vty as Vty
 import Graphics.Vty.Attributes (defAttr)
 import Hydra.Client (Client (Client, sendInput), HydraEvent (..), withClient)
@@ -698,16 +709,14 @@ faucetUtxo party@Party{vkey} =
 --
 -- NOTE(SN): At the end of the module because of TH
 
-run :: Options -> IO State
-run Options{nodeHost} = do
+runWithVty :: IO Vty -> Options -> IO State
+runWithVty buildVty Options{nodeHost} = do
   eventChan <- newBChan 10
   -- REVIEW(SN): what happens if callback blocks?
   withClient @CardanoTx nodeHost (writeBChan eventChan) $ \client -> do
     initialVty <- buildVty
     customMain initialVty buildVty (Just eventChan) (app client) initialState
  where
-  buildVty = mkVty defaultConfig
-
   app client =
     App
       { appDraw = draw
@@ -718,3 +727,6 @@ run Options{nodeHost} = do
       }
 
   initialState = Disconnected{nodeHost}
+
+run :: Options -> IO State
+run = runWithVty (mkVty defaultConfig)
