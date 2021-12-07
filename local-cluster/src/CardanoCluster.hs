@@ -63,7 +63,7 @@ defaultNetworkId = Testnet (NetworkMagic 42)
 -- FIXME: This is hard-coded and should correspond to the initial funds set in
 -- the genesis file.
 availableInitialFunds :: Num a => a
-availableInitialFunds = 9_000_000_000
+availableInitialFunds = 900_000_000_000
 
 -- | Configuration parameters for the cluster.
 data ClusterConfig = ClusterConfig
