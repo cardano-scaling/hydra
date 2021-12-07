@@ -7,13 +7,14 @@ import Hydra.Prelude hiding (label)
 import Test.Hydra.Prelude
 
 import qualified Cardano.Api.Shelley as Cardano.Api
+import Cardano.Ledger.Alonzo.Data (Data (Data), hashData)
 import Cardano.Ledger.Alonzo.Language (Language (PlutusV1))
 import Cardano.Ledger.Alonzo.PParams (PParams, PParams' (..))
 import Cardano.Ledger.Alonzo.Scripts (ExUnits (..), Prices (..))
 import Cardano.Ledger.Alonzo.Tx (ValidatedTx (..))
 import Cardano.Ledger.Alonzo.TxBody (TxBody (..), pattern TxOut)
 import Cardano.Ledger.Alonzo.TxSeq (TxSeq (..))
-import Cardano.Ledger.BaseTypes (boundRational)
+import Cardano.Ledger.BaseTypes (StrictMaybe (SJust), boundRational)
 import Cardano.Ledger.Block (bbody)
 import Cardano.Ledger.Coin (Coin (..))
 import Cardano.Ledger.Core (Value)
@@ -31,7 +32,7 @@ import Data.Ratio ((%))
 import qualified Data.Sequence.Strict as StrictSeq
 import qualified Data.Set as Set
 import Hydra.Chain.Direct.MockServer (withMockServer)
-import Hydra.Chain.Direct.Util (Era, VerificationKey)
+import Hydra.Chain.Direct.Util (Era, VerificationKey, markerDatum)
 import Hydra.Chain.Direct.Wallet (
   Address,
   TxIn,
@@ -279,7 +280,7 @@ genPaymentTo magic vk = do
       coin value > Coin v
 
   toValidatedTx = \case
-    TxOut _ value datum -> do
+    TxOut _ value _ -> do
       ValidatedTx{body, wits, isValid, auxiliaryData} <- arbitrary
       let myAddr =
             toLedgerAddr $
@@ -289,7 +290,7 @@ genPaymentTo magic vk = do
           { body =
               body
                 { outputs =
-                    StrictSeq.fromList [TxOut myAddr value datum]
+                    StrictSeq.fromList [TxOut myAddr value (SJust $ hashData $ Data @Era markerDatum)]
                 }
           , wits
           , isValid
