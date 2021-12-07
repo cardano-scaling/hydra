@@ -17,16 +17,15 @@ import Control.Concurrent (newEmptyMVar, putMVar, takeMVar)
 import Hydra.Chain (
   Chain (..),
   HeadParameters (HeadParameters),
-  InvalidTxError (CannotCoverFees, NoSeedInput),
   OnChainTx (OnAbortTx, OnInitTx),
   PostChainTx (AbortTx, InitTx),
  )
 import Hydra.Chain.Direct (DirectChainLog, withDirectChain)
 import Hydra.Chain.Direct.MockServer (withMockServer)
-import Hydra.Chain.Direct.Util (Era, VerificationKey, retry)
+import Hydra.Chain.Direct.Util (Era, VerificationKey)
 import Hydra.Chain.Direct.Wallet (generateKeyPair)
 import Hydra.Chain.Direct.WalletSpec (genPaymentTo)
-import Hydra.Ledger.Cardano (CardanoTx, NetworkMagic)
+import Hydra.Ledger.Cardano (NetworkMagic)
 import Hydra.Logging (showLogsOnFailure)
 import Hydra.Party (Party, deriveParty, generateKey)
 import Test.QuickCheck (generate)
@@ -47,20 +46,13 @@ spec = do
               let parameters = HeadParameters 100 [alice, bob, carol]
               mkSeedPayment magic aliceVk submitTx
 
-              concurrently_
-                (retry whileWaitingForPaymentInput $ postTx $ InitTx parameters)
-                (takeMVar calledBackAlice `shouldReturn` OnInitTx 100 [alice, bob, carol])
+              postTx $ InitTx parameters
+              takeMVar calledBackAlice `shouldReturn` OnInitTx 100 [alice, bob, carol]
               takeMVar calledBackBob `shouldReturn` OnInitTx 100 [alice, bob, carol]
 
-              retry whileWaitingForPaymentInput $ postTx $ AbortTx mempty
+              postTx $ AbortTx mempty
               takeMVar calledBackAlice `shouldReturn` OnAbortTx
               takeMVar calledBackBob `shouldReturn` OnAbortTx
-
-whileWaitingForPaymentInput :: InvalidTxError CardanoTx -> Bool
-whileWaitingForPaymentInput = \case
-  NoSeedInput -> True
-  CannotCoverFees{} -> True
-  _ -> False
 
 mkSeedPayment :: NetworkMagic -> VerificationKey -> (ValidatedTx Era -> IO ()) -> IO ()
 mkSeedPayment magic vk submitTx =
