@@ -85,7 +85,7 @@ spec = around showLogsOnFailure $
             config <- newNodeConfig tmpDir
             (aliceCardanoVk, aliceCardanoSk) <- keysFor "alice"
             (bobCardanoVk, bobCardanoSk) <- keysFor "bob"
-            (carolCardanoVk, _) <- keysFor "carol"
+            (carolCardanoVk, carolCardanoSk) <- keysFor "carol"
             let keysToPayInitialFund@[alicePaymentVk, bobPaymentVk, _] = PaymentVerificationKey . VKey <$> [aliceCardanoVk, bobCardanoVk, carolCardanoVk]
             withBFTNode (contramap FromCluster tracer) config keysToPayInitialFund $ \node@(RunningNode _ nodeSocket) -> do
               let sk = signingKeyPathFor
@@ -94,10 +94,11 @@ spec = around showLogsOnFailure $
               withHydraNode tracer (sk "alice") (vk <$> ["bob", "carol"]) tmpDir nodeSocket 1 aliceSk [bobVk, carolVk] allNodeIds $ \n1 ->
                 withHydraNode tracer (sk "bob") (vk <$> ["alice", "carol"]) tmpDir nodeSocket 2 bobSk [aliceVk, carolVk] allNodeIds $ \n2 ->
                   withHydraNode tracer (sk "carol") (vk <$> ["alice", "bob"]) tmpDir nodeSocket 3 carolSk [aliceVk, bobVk] allNodeIds $ \n3 -> do
+                    waitForNodesConnected tracer allNodeIds [n1, n2, n3]
                     void $ mkSeedPayment defaultNetworkId pparams availableInitialFunds node aliceCardanoSk 100_000_000
                     void $ mkSeedPayment defaultNetworkId pparams availableInitialFunds node bobCardanoSk 100_000_000
+                    void $ mkSeedPayment defaultNetworkId pparams availableInitialFunds node carolCardanoSk 100_000_000
 
-                    waitForNodesConnected tracer allNodeIds [n1, n2, n3]
                     let contestationPeriod = 10 :: Natural
                     send n1 $ input "Init" ["contestationPeriod" .= contestationPeriod]
                     waitFor tracer 20 [n1, n2, n3] $
