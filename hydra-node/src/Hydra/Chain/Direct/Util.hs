@@ -165,15 +165,15 @@ instance Arbitrary SomePoint where
 -- predicate evaluates to 'True'.
 --
 -- Better coupled with a 'timeout' function.
-retrying ::
+retry ::
   forall e m a.
   (MonadCatch m, MonadDelay m, Exception e) =>
   (e -> Bool) ->
   m a ->
   m a
-retrying predicate action =
+retry predicate action =
   catchIf predicate action $ \_ ->
-    threadDelay 0.5 >> retrying predicate action
+    threadDelay 0.5 >> retry predicate action
  where
   catchIf f a b = a `catch` \e -> if f e then b e else throwIO e
 

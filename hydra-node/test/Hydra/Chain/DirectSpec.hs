@@ -3,6 +3,10 @@
 -- | Integration tests for the Direct chain component which does interact with a
 -- single mocked "node". For tests spinning up real cardano-nodes see
 -- 'EndToEndSpec'.
+--
+-- XXX(AB): Are those tests really useful? What are they really testing? It seems to me
+-- we need either to turn those into proper Unit tests, eg. not requiring a full-blown mock server to run,
+-- or drop them altogether in favor of `DirectChainSpec` tests which test the real thing.
 module Hydra.Chain.DirectSpec where
 
 import Hydra.Prelude
@@ -19,7 +23,7 @@ import Hydra.Chain (
  )
 import Hydra.Chain.Direct (DirectChainLog, withDirectChain)
 import Hydra.Chain.Direct.MockServer (withMockServer)
-import Hydra.Chain.Direct.Util (Era, VerificationKey, retrying)
+import Hydra.Chain.Direct.Util (Era, VerificationKey, retry)
 import Hydra.Chain.Direct.Wallet (generateKeyPair)
 import Hydra.Chain.Direct.WalletSpec (genPaymentTo)
 import Hydra.Ledger.Cardano (CardanoTx, NetworkMagic)
@@ -44,11 +48,11 @@ spec = do
               mkSeedPayment magic aliceVk submitTx
 
               concurrently_
-                (retrying whileWaitingForPaymentInput $ postTx $ InitTx parameters)
+                (retry whileWaitingForPaymentInput $ postTx $ InitTx parameters)
                 (takeMVar calledBackAlice `shouldReturn` OnInitTx 100 [alice, bob, carol])
               takeMVar calledBackBob `shouldReturn` OnInitTx 100 [alice, bob, carol]
 
-              postTx $ AbortTx mempty
+              retry whileWaitingForPaymentInput $ postTx $ AbortTx mempty
               takeMVar calledBackAlice `shouldReturn` OnAbortTx
               takeMVar calledBackBob `shouldReturn` OnAbortTx
 
