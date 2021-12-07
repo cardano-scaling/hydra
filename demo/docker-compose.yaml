@@ -1,14 +1,10 @@
 version: "3.5"
 
-volumes:
-  node-ipc:
-
 services:
   cardano-node:
     image: inputoutput/cardano-node
     volumes:
       - $PWD/devnet:/data
-      - node-ipc:/ipc
     environment:
       - CARDANO_BLOCK_PRODUCER=true
     command:
@@ -16,7 +12,7 @@ services:
       , "--config", "/data/cardano-node.json"
       , "--topology", "/data/topology.json"
       , "--database-path", "/data/db"
-      , "--socket-path", "/ipc/node.socket"
+      , "--socket-path", "/data/ipc/node.socket"
       , "--shelley-operational-certificate", "/data/credentials/opcert1.cert"
       , "--shelley-kes-key", "/data/credentials/delegate1.kes.skey"
       , "--shelley-vrf-key", "/data/credentials/delegate1.vrf.skey"
@@ -30,7 +26,7 @@ services:
     volumes:
       - $PWD:/keys:ro
       - $PWD/devnet/credentials:/credentials:ro
-      - node-ipc:/ipc
+      - $PWD/devnet/ipc:/ipc
     ports:
       - "4001:4001"
     command:
@@ -62,7 +58,7 @@ services:
     volumes:
       - $PWD:/keys:ro
       - $PWD/devnet/credentials:/credentials:ro
-      - node-ipc:/ipc
+      - $PWD/devnet/ipc:/ipc
     ports:
       - "4002:4001"
     command:
@@ -94,7 +90,7 @@ services:
     volumes:
       - $PWD:/keys:ro
       - $PWD/devnet/credentials:/credentials:ro
-      - node-ipc:/ipc
+      - $PWD/devnet/ipc:/ipc
     ports:
       - "4003:4001"
     command:

@@ -28,6 +28,15 @@ docker run --rm -it inputoutput/hydra:hydra-tui-latest --connect localhost:4002 
 docker run --rm -it inputoutput/hydra:hydra-tui-latest --connect localhost:4003 # carol's hydra-node
 ```
 
+NOTE: You can query the `cardano-node` using the host-mounted socket file in
+`devnet/ipc/node.socket` (requires write permissions), e.g.
+
+``` sh
+sudo chmod a+w devnet/ipc/node.socket
+export CARDANO_NODE_SOCKET_PATH=devnet/ipc/node.socket
+cardano-cli query utxo --testnet-magic 42 --whole-utxo
+```
+
 # Without Docker
 
 One needs to prepare a `cardano-node` (devnet) and `hydra-node`s "manually".
