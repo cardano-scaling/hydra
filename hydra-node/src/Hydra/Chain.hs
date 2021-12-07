@@ -74,7 +74,7 @@ instance (Arbitrary tx, Arbitrary (UtxoType tx)) => Arbitrary (OnChainTx tx) whe
 data InvalidTxError tx
   = MoreThanOneUtxoCommitted
   | CannotSpendInput {input :: TxIn tx, walletUtxo :: UtxoType tx, headUtxo :: UtxoType tx}
-  | CannotCoverFees {walletUtxo :: UtxoType tx, headUtxo :: UtxoType tx, reason :: Text}
+  | CannotCoverFees {walletUtxo :: UtxoType tx, headUtxo :: UtxoType tx, reason :: Text, tx :: tx}
   | NoSeedInput
   deriving (Exception)
 

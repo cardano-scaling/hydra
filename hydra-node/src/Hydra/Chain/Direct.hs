@@ -76,7 +76,7 @@ import Hydra.Chain.Direct.Wallet (
   getTxId,
   withTinyWallet,
  )
-import Hydra.Ledger.Cardano (CardanoTx, fromLedgerTxId, fromLedgerUtxo, utxoPairs)
+import Hydra.Ledger.Cardano (CardanoTx, fromLedgerTx, fromLedgerTxId, fromLedgerUtxo, utxoPairs)
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Party (Party)
 import Hydra.Snapshot (Snapshot (..))
@@ -402,6 +402,7 @@ finalizeTx TinyWallet{sign, getUtxo, coverFee} headState partialTx = do
             { walletUtxo
             , headUtxo = fromLedgerUtxo $ Ledger.UTxO headUtxo
             , reason = show e
+            , tx = fromLedgerTx partialTx
             } ::
             InvalidTxError CardanoTx
         )
