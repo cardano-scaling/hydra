@@ -397,15 +397,13 @@ finalizeTx TinyWallet{sign, getUtxo, coverFee} headState partialTx = do
             InvalidTxError CardanoTx
         )
     Left e ->
-      error
-        ( "failed to cover fee for transaction: "
-            <> show e
-            <> ", "
-            <> show partialTx
-            <> ", using head utxo: "
-            <> show headUtxo
-            <> ", and wallet utxo: "
-            <> show walletUtxo
+      throwSTM
+        ( CannotCoverFees
+            { walletUtxo
+            , headUtxo = fromLedgerUtxo $ Ledger.UTxO headUtxo
+            , reason = show e
+            } ::
+            InvalidTxError CardanoTx
         )
     Right validatedTx -> do
       pure $ sign validatedTx

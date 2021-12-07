@@ -8,20 +8,21 @@ module Hydra.Chain.DirectSpec where
 import Hydra.Prelude
 import Test.Hydra.Prelude
 
+import Cardano.Ledger.Alonzo.Tx (ValidatedTx)
 import Control.Concurrent (newEmptyMVar, putMVar, takeMVar)
 import Hydra.Chain (
   Chain (..),
   HeadParameters (HeadParameters),
-  InvalidTxError (NoSeedInput),
+  InvalidTxError (CannotCoverFees, NoSeedInput),
   OnChainTx (OnAbortTx, OnInitTx),
   PostChainTx (AbortTx, InitTx),
  )
 import Hydra.Chain.Direct (DirectChainLog, withDirectChain)
 import Hydra.Chain.Direct.MockServer (withMockServer)
-import Hydra.Chain.Direct.Util (retrying)
+import Hydra.Chain.Direct.Util (Era, VerificationKey, retrying)
 import Hydra.Chain.Direct.Wallet (generateKeyPair)
 import Hydra.Chain.Direct.WalletSpec (genPaymentTo)
-import Hydra.Ledger.Cardano (CardanoTx)
+import Hydra.Ledger.Cardano (CardanoTx, NetworkMagic)
 import Hydra.Logging (showLogsOnFailure)
 import Hydra.Party (Party, deriveParty, generateKey)
 import Test.QuickCheck (generate)
@@ -40,16 +41,26 @@ spec = do
           withDirectChain (contramap FromAlice tracer) magic iocp socket aliceKeys alice cardanoKeys (putMVar calledBackAlice) $ \Chain{postTx} -> do
             withDirectChain (contramap FromBob tracer) magic iocp socket bobKeys bob cardanoKeys (putMVar calledBackBob) $ \_ -> do
               let parameters = HeadParameters 100 [alice, bob, carol]
-              generate (genPaymentTo magic aliceVk) >>= submitTx
+              mkSeedPayment magic aliceVk submitTx
 
               concurrently_
-                (retrying (== NoSeedInput @CardanoTx) $ postTx $ InitTx parameters)
+                (retrying whileWaitingForPaymentInput $ postTx $ InitTx parameters)
                 (takeMVar calledBackAlice `shouldReturn` OnInitTx 100 [alice, bob, carol])
               takeMVar calledBackBob `shouldReturn` OnInitTx 100 [alice, bob, carol]
 
               postTx $ AbortTx mempty
               takeMVar calledBackAlice `shouldReturn` OnAbortTx
               takeMVar calledBackBob `shouldReturn` OnAbortTx
+
+whileWaitingForPaymentInput :: InvalidTxError CardanoTx -> Bool
+whileWaitingForPaymentInput = \case
+  NoSeedInput -> True
+  CannotCoverFees{} -> True
+  _ -> False
+
+mkSeedPayment :: NetworkMagic -> VerificationKey -> (ValidatedTx Era -> IO ()) -> IO ()
+mkSeedPayment magic vk submitTx =
+  generate (genPaymentTo magic vk) >>= submitTx
 
 alice, bob, carol :: Party
 alice = deriveParty $ generateKey 10
