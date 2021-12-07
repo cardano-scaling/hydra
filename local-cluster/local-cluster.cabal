@@ -120,20 +120,6 @@ library
 
   ghc-options:     -haddock
 
-executable local-cluster
-  import:         project-config
-  hs-source-dirs: exe
-  main-is:        local-cluster.hs
-  ghc-options:    -threaded -rtsopts
-  build-depends:
-    , base           >=4.7 && <5
-    , cardano-cli
-    , cardano-node
-    , contra-tracer
-    , hydra-prelude
-    , local-cluster
-    , temporary
-
 executable log-filter
   import:         project-config
   hs-source-dirs: exe

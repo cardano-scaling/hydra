@@ -75,9 +75,6 @@ data ClusterConfig = ClusterConfig
   , initialFunds :: [Cardano.VerificationKey]
   }
 
-testClusterConfig :: FilePath -> ClusterConfig
-testClusterConfig tmp = ClusterConfig tmp defaultNetworkId
-
 readFileTextEnvelopeThrow ::
   HasTextEnvelope a =>
   AsType a ->
