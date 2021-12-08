@@ -131,6 +131,7 @@ test-suite tests
     , hydra-test-utils
     , hydra-tui
     , io-classes
+    , local-cluster
     , optparse-applicative
     , temporary
     , unix

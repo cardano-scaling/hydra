@@ -4,6 +4,8 @@ import Hydra.Prelude
 import Test.Hydra.Prelude
 
 import Blaze.ByteString.Builder.Char8 (writeChar)
+import CardanoCluster (ClusterLog, newNodeConfig, signingKeyPathFor, withBFTNode)
+import CardanoNode (RunningNode (RunningNode))
 import Control.Monad.Class.MonadSTM (newTQueueIO, readTQueue, tryReadTQueue, writeTQueue)
 import qualified Data.ByteString as BS
 import Graphics.Vty (
@@ -20,19 +22,30 @@ import Graphics.Vty (
   outputPicture,
   shutdownInput,
  )
+import Hydra.Logging (showLogsOnFailure)
 import Hydra.Network (Host (..))
+import Hydra.Party (generateKey)
+import qualified Hydra.Party as Hydra
 import Hydra.TUI (runWithVty)
 import Hydra.TUI.Options (Options (..))
+import HydraNode (EndToEndLog, withHydraNode)
 
 spec :: Spec
 spec =
   context "end-to-end smoke tests" $ do
-    -- TODO(SN): start cardano and hydra nodes
     it "starts & renders" $
-      withBrickTest $ \BrickTest{buildVty, shouldRender} -> do
-        race_ (runWithVty buildVty Options{nodeHost = Host{hostname = "127.0.0.1", port = 4001}}) $ do
-          threadDelay 1
-          shouldRender "TUI"
+      showLogsOnFailure $ \tracer ->
+        withTempDir "end-to-end-inits-and-closes" $ \tmpDir -> do
+          config <- newNodeConfig tmpDir
+          withBFTNode (contramap FromCardano tracer) config [] $ \(RunningNode _ nodeSocket) -> do
+            let cardanoKey = signingKeyPathFor "alice"
+            -- XXX(SN): API port id is inferred from nodeId, in this case 4001
+            let nodeId = 1
+            withHydraNode (contramap FromHydra tracer) cardanoKey [] tmpDir nodeSocket nodeId aliceSk [] [nodeId] $ \_hydraNode ->
+              withBrickTest $ \BrickTest{buildVty, shouldRender} -> do
+                race_ (runWithVty buildVty Options{nodeHost = Host{hostname = "127.0.0.1", port = 4000 + fromIntegral nodeId}}) $ do
+                  threadDelay 1
+                  shouldRender "TUI"
 
     it "supports the init & abort Head life cycle" $
       withBrickTest $ \BrickTest{buildVty, sendInputEvent, shouldRender} -> do
@@ -99,7 +112,7 @@ withBrickTest action = do
     let output = testOut realOut as frameBuffer
     pure $
       Vty
-        { inputIface = input
+        { inputIface = input -- TODO(SN): this is not used
         , nextEvent = atomically $ readTQueue q
         , nextEventNonblocking = atomically $ tryReadTQueue q
         , outputIface = output
@@ -139,3 +152,11 @@ withBrickTest action = do
                   writeChar '\n'
               }
       }
+
+data TUILog
+  = FromCardano ClusterLog
+  | FromHydra EndToEndLog
+  deriving (Show)
+
+aliceSk :: Hydra.SigningKey
+aliceSk = generateKey 10
