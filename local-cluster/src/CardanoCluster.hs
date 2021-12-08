@@ -93,15 +93,30 @@ withCluster tr cfg@ClusterConfig{parentStateDirectory, initialFunds} action = do
 keysFor :: String -> IO (Cardano.VerificationKey, Cardano.SigningKey)
 keysFor actor = do
   bs <- readConfigFile ("credentials" </> actor <.> "sk")
-  case deserialiseFromTextEnvelope asSigningKey =<< first TextEnvelopeAesonDecodeError (Aeson.eitherDecodeStrict bs) of
+  let res =
+        first TextEnvelopeAesonDecodeError (Aeson.eitherDecodeStrict bs)
+          >>= deserialiseFromTextEnvelope asSigningKey
+  case res of
     Left err ->
       fail $ "cannot decode text envelope from '" <> show bs <> "', error: " <> show err
     Right (PaymentSigningKey sk) -> do
       let vk = deriveVerKeyDSIGN sk
       pure (vk, sk)
 
-signingKeyPathFor :: String -> FilePath
-signingKeyPathFor actor = "config" </> "credentials" </> actor <.> "sk"
+-- | Write the "well-known" key for given actor into a target directory.
+writeSigningKeyFor ::
+  -- | Target directory
+  FilePath ->
+  -- | Actor name, e.g. "alice"
+  String ->
+  IO FilePath
+writeSigningKeyFor targetDir actor = do
+  readConfigFile ("credentials" </> fileName) >>= writeFileBS targetPath
+  pure targetPath
+ where
+  targetPath = targetDir </> fileName
+
+  fileName = actor <.> ".sk"
 
 verificationKeyPathFor :: String -> FilePath
 verificationKeyPathFor actor = "config" </> "credentials" </> actor <.> "vk"

@@ -25,9 +25,9 @@ import CardanoCluster (
   defaultNetworkId,
   keysFor,
   newNodeConfig,
-  signingKeyPathFor,
   verificationKeyPathFor,
   withBFTNode,
+  writeSigningKeyFor,
  )
 import CardanoNode (RunningNode (RunningNode))
 import Control.Lens ((^?))
@@ -88,12 +88,14 @@ spec = around showLogsOnFailure $
             (carolCardanoVk, carolCardanoSk) <- keysFor "carol"
             let keysToPayInitialFund@[alicePaymentVk, bobPaymentVk, _] = PaymentVerificationKey . VKey <$> [aliceCardanoVk, bobCardanoVk, carolCardanoVk]
             withBFTNode (contramap FromCluster tracer) config keysToPayInitialFund $ \node@(RunningNode _ nodeSocket) -> do
-              let sk = signingKeyPathFor
+              aliceSkPath <- writeSigningKeyFor tmpDir "alice"
+              bobSkPath <- writeSigningKeyFor tmpDir "bob"
+              carolSkPath <- writeSigningKeyFor tmpDir "carol"
               let vk = verificationKeyPathFor
               pparams <- queryProtocolParameters defaultNetworkId nodeSocket
-              withHydraNode tracer (sk "alice") (vk <$> ["bob", "carol"]) tmpDir nodeSocket 1 aliceSk [bobVk, carolVk] allNodeIds $ \n1 ->
-                withHydraNode tracer (sk "bob") (vk <$> ["alice", "carol"]) tmpDir nodeSocket 2 bobSk [aliceVk, carolVk] allNodeIds $ \n2 ->
-                  withHydraNode tracer (sk "carol") (vk <$> ["alice", "bob"]) tmpDir nodeSocket 3 carolSk [aliceVk, bobVk] allNodeIds $ \n3 -> do
+              withHydraNode tracer aliceSkPath (vk <$> ["bob", "carol"]) tmpDir nodeSocket 1 aliceSk [bobVk, carolVk] allNodeIds $ \n1 ->
+                withHydraNode tracer bobSkPath (vk <$> ["alice", "carol"]) tmpDir nodeSocket 2 bobSk [aliceVk, carolVk] allNodeIds $ \n2 ->
+                  withHydraNode tracer carolSkPath (vk <$> ["alice", "bob"]) tmpDir nodeSocket 3 carolSk [aliceVk, bobVk] allNodeIds $ \n3 -> do
                     waitForNodesConnected tracer allNodeIds [n1, n2, n3]
                     postSeedPayment defaultNetworkId pparams availableInitialFunds node aliceCardanoSk 100_000_000
                     postSeedPayment defaultNetworkId pparams availableInitialFunds node bobCardanoSk 100_000_000
@@ -185,13 +187,15 @@ spec = around showLogsOnFailure $
           config <- newNodeConfig tmpDir
           (aliceCardanoVk, aliceCardanoSk) <- keysFor "alice"
           withBFTNode (contramap FromCluster tracer) config [PaymentVerificationKey $ VKey aliceCardanoVk] $ \node@(RunningNode _ nodeSocket) -> do
-            let sk = signingKeyPathFor
+            aliceSkPath <- writeSigningKeyFor tmpDir "alice"
+            bobSkPath <- writeSigningKeyFor tmpDir "bob"
+            carolSkPath <- writeSigningKeyFor tmpDir "carol"
             let vk = verificationKeyPathFor
             pparams <- queryProtocolParameters defaultNetworkId nodeSocket
             failAfter 20 $
-              withHydraNode tracer (sk "alice") (vk <$> ["bob", "carol"]) tmpDir nodeSocket 1 aliceSk [bobVk, carolVk] allNodeIds $ \n1 ->
-                withHydraNode tracer (sk "bob") (vk <$> ["alice", "carol"]) tmpDir nodeSocket 2 bobSk [aliceVk, carolVk] allNodeIds $ \_n2 ->
-                  withHydraNode tracer (sk "carol") (vk <$> ["alice", "bob"]) tmpDir nodeSocket 3 carolSk [aliceVk, bobVk] allNodeIds $ \_n3 -> do
+              withHydraNode tracer aliceSkPath (vk <$> ["bob", "carol"]) tmpDir nodeSocket 1 aliceSk [bobVk, carolVk] allNodeIds $ \n1 ->
+                withHydraNode tracer bobSkPath (vk <$> ["alice", "carol"]) tmpDir nodeSocket 2 bobSk [aliceVk, carolVk] allNodeIds $ \_n2 ->
+                  withHydraNode tracer carolSkPath (vk <$> ["alice", "bob"]) tmpDir nodeSocket 3 carolSk [aliceVk, bobVk] allNodeIds $ \_n3 -> do
                     postSeedPayment defaultNetworkId pparams availableInitialFunds node aliceCardanoSk 100_000_000
                     waitForNodesConnected tracer allNodeIds [n1]
                     send n1 $ input "Init" ["contestationPeriod" .= int 10]

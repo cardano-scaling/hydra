@@ -4,7 +4,8 @@ import Hydra.Prelude
 import Test.Hydra.Prelude
 
 import Blaze.ByteString.Builder.Char8 (writeChar)
-import CardanoCluster (ClusterLog, newNodeConfig, signingKeyPathFor, withBFTNode)
+import CardanoCluster (ClusterLog, newNodeConfig, signingKeyPathFor, withBFTNode, writeKeysFor)
+import CardanoClusterFixture (readConfigFile)
 import CardanoNode (RunningNode (RunningNode))
 import Control.Monad.Class.MonadSTM (newTQueueIO, readTQueue, tryReadTQueue, writeTQueue)
 import qualified Data.ByteString as BS
@@ -38,7 +39,7 @@ spec =
         withTempDir "end-to-end-inits-and-closes" $ \tmpDir -> do
           config <- newNodeConfig tmpDir
           withBFTNode (contramap FromCardano tracer) config [] $ \(RunningNode _ nodeSocket) -> do
-            let cardanoKey = signingKeyPathFor "alice"
+            cardanoKey <- writeSigningKeyFor tmpDir "alice"
             -- XXX(SN): API port id is inferred from nodeId, in this case 4001
             let nodeId = 1
             withHydraNode (contramap FromHydra tracer) cardanoKey [] tmpDir nodeSocket nodeId aliceSk [] [nodeId] $ \_hydraNode ->
