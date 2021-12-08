@@ -39,7 +39,7 @@ spec =
         withTempDir "end-to-end-inits-and-closes" $ \tmpDir -> do
           config <- newNodeConfig tmpDir
           withBFTNode (contramap FromCardano tracer) config [] $ \(RunningNode _ nodeSocket) -> do
-            cardanoKey <- writeSigningKeyFor tmpDir "alice"
+            (cardanoKey, _) <- writeKeysFor tmpDir "alice"
             -- XXX(SN): API port id is inferred from nodeId, in this case 4001
             let nodeId = 1
             withHydraNode (contramap FromHydra tracer) cardanoKey [] tmpDir nodeSocket nodeId aliceSk [] [nodeId] $ \_hydraNode ->

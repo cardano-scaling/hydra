@@ -27,7 +27,7 @@ import CardanoCluster (
   newNodeConfig,
   verificationKeyPathFor,
   withBFTNode,
-  writeSigningKeyFor,
+  writeKeysFor,
  )
 import CardanoNode (RunningNode (RunningNode))
 import Control.Lens ((^?))
@@ -88,9 +88,9 @@ spec = around showLogsOnFailure $
             (carolCardanoVk, carolCardanoSk) <- keysFor "carol"
             let keysToPayInitialFund@[alicePaymentVk, bobPaymentVk, _] = PaymentVerificationKey . VKey <$> [aliceCardanoVk, bobCardanoVk, carolCardanoVk]
             withBFTNode (contramap FromCluster tracer) config keysToPayInitialFund $ \node@(RunningNode _ nodeSocket) -> do
-              aliceSkPath <- writeSigningKeyFor tmpDir "alice"
-              bobSkPath <- writeSigningKeyFor tmpDir "bob"
-              carolSkPath <- writeSigningKeyFor tmpDir "carol"
+              (aliceVkPath, aliceSkPath) <- writeKeysFor tmpDir "alice"
+              (bobVkPath, bobSkPath) <- writeKeysFor tmpDir "bob"
+              (carolVkPath, carolSkPath) <- writeKeysFor tmpDir "carol"
               let vk = verificationKeyPathFor
               pparams <- queryProtocolParameters defaultNetworkId nodeSocket
               withHydraNode tracer aliceSkPath (vk <$> ["bob", "carol"]) tmpDir nodeSocket 1 aliceSk [bobVk, carolVk] allNodeIds $ \n1 ->
@@ -187,9 +187,9 @@ spec = around showLogsOnFailure $
           config <- newNodeConfig tmpDir
           (aliceCardanoVk, aliceCardanoSk) <- keysFor "alice"
           withBFTNode (contramap FromCluster tracer) config [PaymentVerificationKey $ VKey aliceCardanoVk] $ \node@(RunningNode _ nodeSocket) -> do
-            aliceSkPath <- writeSigningKeyFor tmpDir "alice"
-            bobSkPath <- writeSigningKeyFor tmpDir "bob"
-            carolSkPath <- writeSigningKeyFor tmpDir "carol"
+            (aliceVkPath, aliceSkPath) <- writeKeysFor tmpDir "alice"
+            (bobVkPath, bobSkPath) <- writeKeysFor tmpDir "bob"
+            (carolVkPath, carolSkPath) <- writeKeysFor tmpDir "carol"
             let vk = verificationKeyPathFor
             pparams <- queryProtocolParameters defaultNetworkId nodeSocket
             failAfter 20 $

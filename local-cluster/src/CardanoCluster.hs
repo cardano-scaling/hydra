@@ -103,20 +103,26 @@ keysFor actor = do
       let vk = deriveVerKeyDSIGN sk
       pure (vk, sk)
 
--- | Write the "well-known" key for given actor into a target directory.
-writeSigningKeyFor ::
+-- | Write the "well-known" keys for given actor into a target directory.
+writeKeysFor ::
   -- | Target directory
   FilePath ->
   -- | Actor name, e.g. "alice"
   String ->
-  IO FilePath
-writeSigningKeyFor targetDir actor = do
-  readConfigFile ("credentials" </> fileName) >>= writeFileBS targetPath
-  pure targetPath
+  -- | Paths of written keys in the form of (verification key, signing key)
+  IO (FilePath, FilePath)
+writeKeysFor targetDir actor = do
+  readConfigFile ("credentials" </> skName) >>= writeFileBS skTarget
+  readConfigFile ("credentials" </> vkName) >>= writeFileBS vkTarget
+  pure (vkTarget, skTarget)
  where
-  targetPath = targetDir </> fileName
+  skTarget = targetDir </> skName
 
-  fileName = actor <.> ".sk"
+  vkTarget = targetDir </> vkName
+
+  skName = actor <.> ".sk"
+
+  vkName = actor <.> ".vk"
 
 verificationKeyPathFor :: String -> FilePath
 verificationKeyPathFor actor = "config" </> "credentials" </> actor <.> "vk"
