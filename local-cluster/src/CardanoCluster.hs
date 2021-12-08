@@ -21,7 +21,7 @@ import Cardano.Api.Shelley (VerificationKey (PaymentVerificationKey))
 import Cardano.Crypto.DSIGN (deriveVerKeyDSIGN)
 import Cardano.Ledger.Keys (VKey (VKey))
 import CardanoClient (buildAddress)
-import CardanoClusterFixture (writeConfigFile)
+import CardanoClusterFixture (readConfigFile)
 import CardanoNode (
   CardanoNodeArgs (..),
   CardanoNodeConfig (..),
@@ -32,7 +32,6 @@ import CardanoNode (
   RunningNode (..),
   addField,
   defaultCardanoNodeArgs,
-  unsafeDecodeJsonFile,
   withCardanoNode,
  )
 import Control.Lens ((.~))
@@ -42,11 +41,7 @@ import qualified Data.Aeson as Aeson
 import Data.Aeson.Lens (key)
 import Data.ByteString.Base16 (encodeBase16)
 import qualified Hydra.Chain.Direct.Util as Cardano
-import System.Directory (
-  copyFile,
-  createDirectoryIfMissing,
-  doesFileExist,
- )
+import System.Directory (createDirectoryIfMissing, doesFileExist)
 import System.FilePath ((<.>), (</>))
 import System.Posix.Files (
   ownerReadMode,
@@ -147,19 +142,19 @@ withBFTNode clusterTracer cfg initialFunds action = do
           , nodePort = Just (ours (ports cfg))
           }
 
-  writeConfigFile
-    "cardano-node.json"
-    (stateDirectory cfg </> nodeConfigFile args)
+  readConfigFile "cardano-node.json"
+    >>= writeFileBS
+      (stateDirectory cfg </> nodeConfigFile args)
 
-  writeConfigFile
-    "genesis-byron.json"
-    (stateDirectory cfg </> nodeByronGenesisFile args)
+  readConfigFile "genesis-byron.json"
+    >>= writeFileBS
+      (stateDirectory cfg </> nodeByronGenesisFile args)
 
   setInitialFundsInGenesisShelley (stateDirectory cfg </> nodeShelleyGenesisFile args)
 
-  writeConfigFile
-    "genesis-alonzo.json"
-    (stateDirectory cfg </> nodeAlonzoGenesisFile args)
+  readConfigFile "genesis-alonzo.json"
+    >>= writeFileBS
+      (stateDirectory cfg </> nodeAlonzoGenesisFile args)
 
   withCardanoNode nodeTracer cfg args $ \rn -> do
     traceWith clusterTracer $ MsgNodeStarting cfg
@@ -173,7 +168,8 @@ withBFTNode clusterTracer cfg initialFunds action = do
   opCertFilename i = "opcert" <> show i <> ".cert"
 
   setInitialFundsInGenesisShelley file = do
-    genesisJson <- unsafeDecodeJsonFile @Aeson.Value ("config" </> "genesis-shelley.json")
+    bs <- readConfigFile "genesis-shelley.json"
+    genesisJson <- either fail pure $ Aeson.eitherDecodeStrict @Aeson.Value bs
     let updatedJson = genesisJson & key "initialFunds" .~ initialFundsValue
     Aeson.encodeFile file updatedJson
 
@@ -190,8 +186,9 @@ withBFTNode clusterTracer cfg initialFunds action = do
      in (encodeBase16 bytes, availableInitialFunds)
 
   copyCredential parentDir file = do
+    bs <- readConfigFile ("credentials" </> file)
     let destination = parentDir </> file
-    writeConfigFile ("credentials" </> file) destination
+    writeFileBS destination bs
     setFileMode destination ownerReadMode
     pure destination
 

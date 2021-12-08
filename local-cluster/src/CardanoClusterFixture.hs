@@ -1,5 +1,7 @@
 {-# LANGUAGE TemplateHaskell #-}
 
+-- | Embeds the local-cluster's "config" files and makes them as available to
+-- consumers via 'readConfigFile'.
 module CardanoClusterFixture where
 
 import Hydra.Prelude
@@ -11,8 +13,9 @@ import System.IO.Error (doesNotExistErrorType, mkIOError)
 configFiles :: [(FilePath, ByteString)]
 configFiles = $(makeRelativeToProject "config" >>= embedDir)
 
-writeConfigFile :: FilePath -> FilePath -> IO ()
-writeConfigFile source target =
+-- | Lookup a config file similar reading a file from disk.
+readConfigFile :: FilePath -> IO ByteString
+readConfigFile source =
   case List.lookup source configFiles of
     Nothing ->
       throwIO $
@@ -21,5 +24,4 @@ writeConfigFile source target =
           ("cannot find fixture in embedded config files: " <> show (fst <$> configFiles))
           Nothing
           (Just source)
-    Just bs ->
-      writeFileBS target bs
+    Just bs -> pure bs
