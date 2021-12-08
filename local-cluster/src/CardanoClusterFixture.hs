@@ -14,5 +14,12 @@ configFiles = $(makeRelativeToProject "config" >>= embedDir)
 writeConfigFile :: FilePath -> FilePath -> IO ()
 writeConfigFile source target =
   case List.lookup source configFiles of
-    Nothing -> throwIO $ mkIOError doesNotExistErrorType "cannot find fixture" Nothing (Just source)
-    Just bs -> writeFileBS target bs
+    Nothing ->
+      throwIO $
+        mkIOError
+          doesNotExistErrorType
+          ("cannot find fixture in embedded config files: " <> show (fst <$> configFiles))
+          Nothing
+          (Just source)
+    Just bs ->
+      writeFileBS target bs

@@ -148,17 +148,17 @@ withBFTNode clusterTracer cfg initialFunds action = do
           }
 
   writeConfigFile
-    ("config" </> "cardano-node.json")
+    "cardano-node.json"
     (stateDirectory cfg </> nodeConfigFile args)
 
-  copyFile
-    ("config" </> "genesis-byron.json")
+  writeConfigFile
+    "genesis-byron.json"
     (stateDirectory cfg </> nodeByronGenesisFile args)
 
   setInitialFundsInGenesisShelley (stateDirectory cfg </> nodeShelleyGenesisFile args)
 
-  copyFile
-    ("config" </> "genesis-alonzo.json")
+  writeConfigFile
+    "genesis-alonzo.json"
     (stateDirectory cfg </> nodeAlonzoGenesisFile args)
 
   withCardanoNode nodeTracer cfg args $ \rn -> do
@@ -190,9 +190,8 @@ withBFTNode clusterTracer cfg initialFunds action = do
      in (encodeBase16 bytes, availableInitialFunds)
 
   copyCredential parentDir file = do
-    let source = "config" </> "credentials" </> file
     let destination = parentDir </> file
-    copyFile source destination
+    writeConfigFile ("credentials" </> file) destination
     setFileMode destination ownerReadMode
     pure destination
 
