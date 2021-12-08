@@ -8,7 +8,8 @@ import Control.Monad.Class.MonadSTM (newTQueueIO, readTQueue, tryReadTQueue, wri
 import qualified Data.ByteString as BS
 import Graphics.Vty (
   DisplayContext (..),
-  Event,
+  Event (EvKey),
+  Key (KChar),
   Output (..),
   Vty (..),
   defaultConfig,
@@ -25,12 +26,26 @@ import Hydra.TUI.Options (Options (..))
 
 spec :: Spec
 spec =
-  context "end-to-end smoke test" $
+  context "end-to-end smoke tests" $ do
+    -- TODO(SN): start cardano and hydra nodes
     it "starts & renders" $
       withBrickTest $ \BrickTest{buildVty, shouldRender} -> do
         race_ (runWithVty buildVty Options{nodeHost = Host{hostname = "127.0.0.1", port = 4001}}) $ do
-          threadDelay 3
-          shouldRender "Foo"
+          threadDelay 1
+          shouldRender "TUI"
+
+    it "supports the init & abort Head life cycle" $
+      withBrickTest $ \BrickTest{buildVty, sendInputEvent, shouldRender} -> do
+        race_ (runWithVty buildVty Options{nodeHost = Host{hostname = "127.0.0.1", port = 4001}}) $ do
+          threadDelay 1
+          shouldRender "connected"
+          shouldRender "Ready"
+          sendInputEvent $ EvKey (KChar 'i') []
+          threadDelay 1
+          shouldRender "Initializing"
+          sendInputEvent $ EvKey (KChar 'a') []
+          threadDelay 1
+          shouldRender "Ready"
 
 data BrickTest = BrickTest
   { buildVty :: IO Vty
@@ -80,7 +95,8 @@ withBrickTest action = do
             writeIORef as initialAssumedState
             -- Clear our frame buffer to only keep the latest
             atomicModifyIORef'_ frameBuffer (const mempty)
-            dc <- displayContext output (100, 10)
+            -- TODO(SN): not hard-code this
+            dc <- displayContext output (150, 10)
             outputPicture dc p
         , refresh = pure ()
         , shutdown = shutdownInput input
