@@ -8,13 +8,13 @@ import Hydra.Prelude
 
 import Cardano.Api (
   AsType (..),
-  HasTextEnvelope,
   NetworkId (Testnet),
   NetworkMagic (NetworkMagic),
   PaymentKey,
   SigningKey (PaymentSigningKey),
+  TextEnvelopeError (TextEnvelopeAesonDecodeError),
   VerificationKey,
-  readFileTextEnvelope,
+  deserialiseFromTextEnvelope,
   serialiseToRawBytes,
  )
 import Cardano.Api.Shelley (VerificationKey (PaymentVerificationKey))
@@ -71,14 +71,6 @@ data ClusterConfig = ClusterConfig
   , initialFunds :: [Cardano.VerificationKey]
   }
 
-readFileTextEnvelopeThrow ::
-  HasTextEnvelope a =>
-  AsType a ->
-  FilePath ->
-  IO a
-readFileTextEnvelopeThrow asType =
-  either (fail . show) pure <=< readFileTextEnvelope asType
-
 asSigningKey :: AsType (SigningKey PaymentKey)
 asSigningKey = AsSigningKey AsPaymentKey
 
@@ -100,12 +92,13 @@ withCluster tr cfg@ClusterConfig{parentStateDirectory, initialFunds} action = do
 
 keysFor :: String -> IO (Cardano.VerificationKey, Cardano.SigningKey)
 keysFor actor = do
-  PaymentSigningKey sk <-
-    readFileTextEnvelopeThrow
-      asSigningKey
-      (signingKeyPathFor actor)
-  let vk = deriveVerKeyDSIGN sk
-  pure (vk, sk)
+  bs <- readConfigFile ("credentials" </> actor <.> "sk")
+  case deserialiseFromTextEnvelope asSigningKey =<< first TextEnvelopeAesonDecodeError (Aeson.eitherDecodeStrict bs) of
+    Left err ->
+      fail $ "cannot decode text envelope from '" <> show bs <> "', error: " <> show err
+    Right (PaymentSigningKey sk) -> do
+      let vk = deriveVerKeyDSIGN sk
+      pure (vk, sk)
 
 signingKeyPathFor :: String -> FilePath
 signingKeyPathFor actor = "config" </> "credentials" </> actor <.> "sk"
