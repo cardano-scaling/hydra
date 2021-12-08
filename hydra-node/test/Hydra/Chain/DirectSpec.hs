@@ -41,9 +41,8 @@ spec = do
         aliceKeys@(aliceVk, _) <- generateKeyPair
         bobKeys <- generateKeyPair
         withMockServer $ \magic iocp socket submitTx -> do
-          let cardanoKeys = [] -- TODO(SN): this should matter
-          withDirectChain (contramap FromAlice tracer) magic iocp socket aliceKeys alice cardanoKeys (putMVar calledBackAlice) $ \Chain{postTx} -> do
-            withDirectChain (contramap FromBob tracer) magic iocp socket bobKeys bob cardanoKeys (putMVar calledBackBob) $ \_ -> do
+          withDirectChain (contramap FromAlice tracer) magic iocp socket aliceKeys alice [] (putMVar calledBackAlice) $ \Chain{postTx} -> do
+            withDirectChain (contramap FromBob tracer) magic iocp socket bobKeys bob [] (putMVar calledBackBob) $ \_ -> do
               let parameters = HeadParameters 100 [alice, bob, carol]
               mkSeedPayment magic aliceVk submitTx
 

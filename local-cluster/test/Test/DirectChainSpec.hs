@@ -9,7 +9,7 @@ import Test.Hydra.Prelude
 import Cardano.Ledger.Keys (VKey (VKey))
 import CardanoClient (
   generatePaymentToCommit,
-  mkSeedPayment,
+  postSeedPayment,
   queryProtocolParameters,
   waitForUtxo,
  )
@@ -63,7 +63,7 @@ spec = around showLogsOnFailure $ do
         withIOManager $ \iocp -> do
           withDirectChain (contramap (FromDirectChain "alice") tracer) magic iocp nodeSocket aliceKeys alice cardanoKeys (putMVar alicesCallback) $ \Chain{postTx} -> do
             withDirectChain nullTracer magic iocp nodeSocket bobKeys bob cardanoKeys (putMVar bobsCallback) $ \_ -> do
-              void $ mkSeedPayment (Testnet magic) pparams availableInitialFunds node aliceCardanoSk 100_000_000
+              postSeedPayment (Testnet magic) pparams availableInitialFunds node aliceCardanoSk 100_000_000
 
               postTx $ InitTx $ HeadParameters 100 [alice, bob, carol]
               alicesCallback `observesInTime` OnInitTx 100 [alice, bob, carol]
@@ -87,7 +87,7 @@ spec = around showLogsOnFailure $ do
         withIOManager $ \iocp -> do
           withDirectChain (contramap (FromDirectChain "alice") tracer) magic iocp nodeSocket aliceKeys alice cardanoKeys (putMVar alicesCallback) $ \Chain{postTx = alicePostTx} -> do
             withDirectChain nullTracer magic iocp nodeSocket bobKeys bob cardanoKeys (putMVar bobsCallback) $ \Chain{postTx = bobPostTx} -> do
-              void $ mkSeedPayment (Testnet magic) pparams availableInitialFunds node aliceCardanoSk 100_000_000
+              postSeedPayment (Testnet magic) pparams availableInitialFunds node aliceCardanoSk 100_000_000
               alicePostTx $ InitTx $ HeadParameters 100 [alice, carol]
               alicesCallback `observesInTime` OnInitTx 100 [alice, carol]
 
@@ -104,7 +104,7 @@ spec = around showLogsOnFailure $ do
         let cardanoKeys = [aliceCardanoVk]
         withIOManager $ \iocp -> do
           withDirectChain (contramap (FromDirectChain "alice") tracer) magic iocp nodeSocket aliceKeys alice cardanoKeys (putMVar alicesCallback) $ \Chain{postTx} -> do
-            void $ mkSeedPayment (Testnet magic) pparams availableInitialFunds node aliceCardanoSk 100_000_000
+            postSeedPayment (Testnet magic) pparams availableInitialFunds node aliceCardanoSk 100_000_000
 
             postTx $ InitTx $ HeadParameters 100 [alice]
             alicesCallback `observesInTime` OnInitTx 100 [alice]
@@ -134,7 +134,7 @@ spec = around showLogsOnFailure $ do
         let cardanoKeys = [aliceCardanoVk]
         withIOManager $ \iocp -> do
           withDirectChain (contramap (FromDirectChain "alice") tracer) magic iocp nodeSocket aliceKeys alice cardanoKeys (putMVar alicesCallback) $ \Chain{postTx} -> do
-            void $ mkSeedPayment (Testnet magic) pparams availableInitialFunds node aliceCardanoSk 100_000_000
+            postSeedPayment (Testnet magic) pparams availableInitialFunds node aliceCardanoSk 100_000_000
 
             postTx $ InitTx $ HeadParameters 100 [alice]
             alicesCallback `observesInTime` OnInitTx 100 [alice]

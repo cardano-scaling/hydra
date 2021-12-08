@@ -16,7 +16,7 @@ import Cardano.Crypto.DSIGN (
 import Cardano.Ledger.Shelley.API (VKey (VKey))
 import CardanoClient (
   generatePaymentToCommit,
-  mkSeedPayment,
+  postSeedPayment,
   queryProtocolParameters,
   waitForUtxo,
  )
@@ -95,9 +95,9 @@ spec = around showLogsOnFailure $
                 withHydraNode tracer (sk "bob") (vk <$> ["alice", "carol"]) tmpDir nodeSocket 2 bobSk [aliceVk, carolVk] allNodeIds $ \n2 ->
                   withHydraNode tracer (sk "carol") (vk <$> ["alice", "bob"]) tmpDir nodeSocket 3 carolSk [aliceVk, bobVk] allNodeIds $ \n3 -> do
                     waitForNodesConnected tracer allNodeIds [n1, n2, n3]
-                    void $ mkSeedPayment defaultNetworkId pparams availableInitialFunds node aliceCardanoSk 100_000_000
-                    void $ mkSeedPayment defaultNetworkId pparams availableInitialFunds node bobCardanoSk 100_000_000
-                    void $ mkSeedPayment defaultNetworkId pparams availableInitialFunds node carolCardanoSk 100_000_000
+                    postSeedPayment defaultNetworkId pparams availableInitialFunds node aliceCardanoSk 100_000_000
+                    postSeedPayment defaultNetworkId pparams availableInitialFunds node bobCardanoSk 100_000_000
+                    postSeedPayment defaultNetworkId pparams availableInitialFunds node carolCardanoSk 100_000_000
 
                     let contestationPeriod = 10 :: Natural
                     send n1 $ input "Init" ["contestationPeriod" .= contestationPeriod]
@@ -192,7 +192,7 @@ spec = around showLogsOnFailure $
               withHydraNode tracer (sk "alice") (vk <$> ["bob", "carol"]) tmpDir nodeSocket 1 aliceSk [bobVk, carolVk] allNodeIds $ \n1 ->
                 withHydraNode tracer (sk "bob") (vk <$> ["alice", "carol"]) tmpDir nodeSocket 2 bobSk [aliceVk, carolVk] allNodeIds $ \_n2 ->
                   withHydraNode tracer (sk "carol") (vk <$> ["alice", "bob"]) tmpDir nodeSocket 3 carolSk [aliceVk, bobVk] allNodeIds $ \_n3 -> do
-                    void $ mkSeedPayment defaultNetworkId pparams availableInitialFunds node aliceCardanoSk 100_000_000
+                    postSeedPayment defaultNetworkId pparams availableInitialFunds node aliceCardanoSk 100_000_000
                     waitForNodesConnected tracer allNodeIds [n1]
                     send n1 $ input "Init" ["contestationPeriod" .= int 10]
                     waitFor tracer 3 [n1] $ output "ReadyToCommit" ["parties" .= Set.fromList [alice, bob, carol]]

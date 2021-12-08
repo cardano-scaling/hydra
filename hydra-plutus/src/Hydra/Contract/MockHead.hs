@@ -33,7 +33,9 @@ data State
 PlutusTx.unstableMakeIsData ''State
 
 data Input
-  = CollectCom Value
+  = -- FIXME(AB): The collected value should not be passed as input but inferred from
+    -- collected commits' value
+    CollectCom Value
   | Close SnapshotNumber
   | Abort
   | Fanout
