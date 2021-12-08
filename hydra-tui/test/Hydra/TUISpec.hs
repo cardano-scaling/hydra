@@ -3,30 +3,24 @@ module Hydra.TUISpec where
 import Hydra.Prelude
 import Test.Hydra.Prelude
 
-import Control.Monad.Class.MonadSTM (MonadSTM (newTBQueueIO, newTQueueIO), MonadSTMTx (writeTQueue), readTQueue, tryReadTQueue)
-import qualified Data.ByteString as BS
-import Foreign (plusPtr, withForeignPtr)
+import Blaze.ByteString.Builder.Char8 (writeChar)
+import Control.Monad.Class.MonadSTM (newTQueueIO, readTQueue, tryReadTQueue, writeTQueue)
 import Graphics.Vty (
-  Config (outputFd),
   DisplayContext (..),
   Event,
-  Input (shutdownInput),
   Output (..),
-  Vty (Vty, inputIface, isShutdown, nextEvent, nextEventNonblocking, outputIface, refresh, shutdown, update),
+  Vty (..),
   defaultConfig,
   displayContext,
   initialAssumedState,
   inputForConfig,
-  mkVty,
+  outputForConfig,
   outputPicture,
-  reserveDisplay,
+  shutdownInput,
  )
 import Hydra.Network (Host (..))
 import Hydra.TUI (runWithVty)
 import Hydra.TUI.Options (Options (..))
-import System.IO (SeekMode (AbsoluteSeek))
-import System.IO.Temp (withSystemTempFile)
-import System.Posix (fdSeek, handleToFd)
 
 spec :: Spec
 spec =
@@ -45,80 +39,61 @@ data BrickTest = BrickTest
 
 withBrickTest :: (BrickTest -> Expectation) -> Expectation
 withBrickTest action = do
-  outRef <- newIORef mempty
+  frameBuffer <- newIORef mempty
   q <- newTQueueIO
   action $
     BrickTest
-      { buildVty = buildVty q outRef
-      , getPicture = readIORef outRef
+      { buildVty = buildVty q frameBuffer
+      , getPicture = readIORef frameBuffer
       , sendInputEvent = atomically . writeTQueue q
       }
  where
-  buildVty q outRef = do
-    putStrLn "buildVty"
+  buildVty q frameBuffer = do
     input <- inputForConfig defaultConfig
-    -- This is used by outputPicture and we hack it such that it always has the
-    -- initial state to get a full rendering of the picture
+    -- NOTE(SN): This is used by outputPicture and we hack it such that it
+    -- always has the initial state to get a full rendering of the picture. That
+    -- way we can capture output bytes line-by-line and drop the cursor moving.
     as <- newIORef initialAssumedState
-    output <- testOut as outRef
+    realOut <- outputForConfig defaultConfig
+    let output = testOut realOut as frameBuffer
     pure $
       Vty
         { inputIface = input
-        , nextEvent = do
-            putStrLn "nextEvent"
-            atomically $ readTQueue q
-        , nextEventNonblocking = do
-            putStrLn "nextEventNonBlocking"
-            atomically $ tryReadTQueue q
+        , nextEvent = atomically $ readTQueue q
+        , nextEventNonblocking = atomically $ tryReadTQueue q
         , outputIface = output
         , update = \p -> do
-            putStrLn "update, clear assumed state & buffer"
+            -- NOTE(SN): Clear assumed state to force full re-renders. Our test
+            -- output is leveraging this to not have re-locating write cursor
+            -- escape codes in the output bytes.
             writeIORef as initialAssumedState
-            atomicModifyIORef'_ outRef (const mempty)
-            dc <- displayContext output (50, 50)
+            -- Clear our frame buffer to only keep the latest
+            atomicModifyIORef'_ frameBuffer (const mempty)
+            dc <- displayContext output (100, 10)
             outputPicture dc p
-        , refresh = do
-            putStrLn "refresh"
-        , shutdown = do
-            putStrLn "shutdown"
-            shutdownInput input
+        , refresh = pure ()
+        , shutdown = shutdownInput input
         , isShutdown = pure True
         }
 
-  testOut as outRef = do
-    pure $
-      Output
-        { terminalID = "BrickTest terminal"
-        , releaseTerminal = pure ()
-        , reserveDisplay = pure ()
-        , releaseDisplay = pure ()
-        , ringTerminalBell = pure ()
-        , supportsBell = pure False
-        , supportsItalics = pure False
-        , supportsStrikethrough = pure False
-        , setDisplayBounds = const $ pure ()
-        , displayBounds = pure (100, 100)
-        , outputByteBuffer = \bytes -> do
-            putStrLn "outputByteBuffer"
-            atomicModifyIORef'_ outRef (<> bytes)
-        , contextColorCount = 16
-        , supportsCursorVisibility = True
-        , supportsMode = const False
-        , setMode = const $ const $ pure ()
-        , getModeStatus = const $ pure False
-        , assumedStateRef = as
-        , mkDisplayContext = \tActual rActual -> do
-            putStrLn "mkDisplayContext"
-            pure $
-              DisplayContext
-                { contextRegion = rActual
-                , contextDevice = tActual
-                , writeMoveCursor = \_x _y -> trace "writeMoveCursor" mempty
-                , writeShowCursor = trace "writeShowCursor" mempty
-                , writeHideCursor = trace "writeHideCursor" mempty
-                , writeSetAttr = \_ _fattr _diffs _attr -> trace "writeSetAttr" mempty
-                , writeDefaultAttr = trace "writeDefaultAttr" mempty
-                , writeRowEnd = trace "writeRowEnd" mempty
-                , inlineHack = pure ()
-                }
-        }
+  testOut realOut as frameBuffer =
+    realOut
+      { terminalID = "BrickTest terminal"
+      , outputByteBuffer = \bytes -> atomicModifyIORef'_ frameBuffer (<> bytes)
+      , assumedStateRef = as
+      , mkDisplayContext = \tActual rActual -> do
+          -- NOTE(SN): Pass the fix point tActual into this to ensure it's using
+          -- our overrides for 'assumedStateRef'
+          dc <- mkDisplayContext realOut tActual rActual
+          pure $
+            dc
+              { writeMoveCursor = \_x _y ->
+                  -- NOTE(SN): As we are clearing the assumedStateRef before
+                  -- each 'outputPicture', this display context will only be
+                  -- used in full re-renders outputting bytes line-by-line. So
+                  -- instead of emitting escape codes for repositioning the
+                  -- write cursor, we just emit new lines. That makes it a lot
+                  -- easier to render inline and reason about.
+                  writeChar '\n'
+              }
+      }
