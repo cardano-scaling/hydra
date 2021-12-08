@@ -4,7 +4,8 @@ import Hydra.Prelude
 import Test.Hydra.Prelude
 
 import Blaze.ByteString.Builder.Char8 (writeChar)
-import CardanoCluster (ClusterLog, newNodeConfig, withBFTNode, writeKeysFor)
+import CardanoClient (mkSeedPayment, queryProtocolParameters)
+import CardanoCluster (ClusterLog, availableInitialFunds, defaultNetworkId, fromRawVKey, keysFor, newNodeConfig, withBFTNode, writeKeysFor)
 import CardanoNode (RunningNode (RunningNode))
 import Control.Monad.Class.MonadSTM (newTQueueIO, readTQueue, tryReadTQueue, writeTQueue)
 import qualified Data.ByteString as BS
@@ -70,11 +71,15 @@ setupNodeAndTUI action =
   showLogsOnFailure $ \tracer ->
     withTempDir "tui-end-to-end" $ \tmpDir -> do
       config <- newNodeConfig tmpDir
-      withBFTNode (contramap FromCardano tracer) config [] $ \(RunningNode _ nodeSocket) -> do
+      (aliceCardanoVk, aliceCardanoSk) <- keysFor "alice"
+      let alicePaymentVk = fromRawVKey aliceCardanoVk
+      withBFTNode (contramap FromCardano tracer) config [alicePaymentVk] $ \node@(RunningNode _ nodeSocket) -> do
         (_, cardanoKey) <- writeKeysFor tmpDir "alice"
         -- XXX(SN): API port id is inferred from nodeId, in this case 4001
         let nodeId = 1
-        withHydraNode (contramap FromHydra tracer) cardanoKey [] tmpDir nodeSocket nodeId aliceSk [] [nodeId] $ \HydraClient{hydraNodeId} ->
+        pparams <- queryProtocolParameters defaultNetworkId nodeSocket
+        withHydraNode (contramap FromHydra tracer) cardanoKey [] tmpDir nodeSocket nodeId aliceSk [] [nodeId] $ \HydraClient{hydraNodeId} -> do
+          void $ mkSeedPayment defaultNetworkId pparams availableInitialFunds node aliceCardanoSk 100_000_000
           withTUITest $ \brickTest@TUITest{buildVty} -> do
             race_ (runWithVty buildVty Options{nodeHost = Host{hostname = "127.0.0.1", port = 4000 + fromIntegral hydraNodeId}}) $ do
               action brickTest

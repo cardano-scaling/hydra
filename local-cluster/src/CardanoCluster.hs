@@ -103,6 +103,9 @@ keysFor actor = do
       let vk = deriveVerKeyDSIGN sk
       pure (vk, sk)
 
+fromRawVKey :: Cardano.VerificationKey -> VerificationKey PaymentKey
+fromRawVKey = PaymentVerificationKey . VKey
+
 -- | Write the "well-known" keys for given actor into a target directory.
 writeKeysFor ::
   -- | Target directory
