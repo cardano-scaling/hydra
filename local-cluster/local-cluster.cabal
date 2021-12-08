@@ -73,6 +73,7 @@ library
   exposed-modules:
     CardanoClient
     CardanoCluster
+    CardanoClusterFixture
     CardanoNode
     Hydra.Generator
     Hydra.LogFilter
@@ -92,6 +93,7 @@ library
     , contra-tracer
     , data-default
     , directory
+    , file-embed
     , filepath
     , hspec-expectations
     , http-conduit

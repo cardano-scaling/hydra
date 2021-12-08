@@ -21,6 +21,7 @@ import Cardano.Api.Shelley (VerificationKey (PaymentVerificationKey))
 import Cardano.Crypto.DSIGN (deriveVerKeyDSIGN)
 import Cardano.Ledger.Keys (VKey (VKey))
 import CardanoClient (buildAddress)
+import CardanoClusterFixture (writeConfigFile)
 import CardanoNode (
   CardanoNodeArgs (..),
   CardanoNodeConfig (..),
@@ -146,7 +147,7 @@ withBFTNode clusterTracer cfg initialFunds action = do
           , nodePort = Just (ours (ports cfg))
           }
 
-  copyFile
+  writeConfigFile
     ("config" </> "cardano-node.json")
     (stateDirectory cfg </> nodeConfigFile args)
 
