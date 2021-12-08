@@ -5,6 +5,7 @@ import Test.Hydra.Prelude
 
 import Blaze.ByteString.Builder.Char8 (writeChar)
 import Control.Monad.Class.MonadSTM (newTQueueIO, readTQueue, tryReadTQueue, writeTQueue)
+import qualified Data.ByteString as BS
 import Graphics.Vty (
   DisplayContext (..),
   Event,
@@ -26,26 +27,36 @@ spec :: Spec
 spec =
   context "end-to-end smoke test" $
     it "starts & renders" $
-      withBrickTest $ \BrickTest{buildVty, getPicture} -> do
+      withBrickTest $ \BrickTest{buildVty, shouldRender} -> do
         race_ (runWithVty buildVty Options{nodeHost = Host{hostname = "127.0.0.1", port = 4001}}) $ do
           threadDelay 3
-          getPicture >>= putBSLn
+          shouldRender "Foo"
 
 data BrickTest = BrickTest
   { buildVty :: IO Vty
-  , getPicture :: IO ByteString
   , sendInputEvent :: Event -> IO ()
+  , getPicture :: IO ByteString
+  , shouldRender :: HasCallStack => ByteString -> Expectation
   }
 
 withBrickTest :: (BrickTest -> Expectation) -> Expectation
 withBrickTest action = do
   frameBuffer <- newIORef mempty
   q <- newTQueueIO
+  let getPicture = readIORef frameBuffer
   action $
     BrickTest
       { buildVty = buildVty q frameBuffer
-      , getPicture = readIORef frameBuffer
       , sendInputEvent = atomically . writeTQueue q
+      , getPicture
+      , shouldRender = \expected -> do
+          bytes <- getPicture
+          unless (expected `BS.isInfixOf` bytes) $
+            failure $
+              "Expected bytes not found in frame: "
+                <> decodeUtf8 expected
+                <> "\n"
+                <> decodeUtf8 bytes
       }
  where
   buildVty q frameBuffer = do
