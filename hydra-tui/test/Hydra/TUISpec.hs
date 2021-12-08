@@ -28,28 +28,19 @@ import Hydra.Party (generateKey)
 import qualified Hydra.Party as Hydra
 import Hydra.TUI (runWithVty)
 import Hydra.TUI.Options (Options (..))
-import HydraNode (EndToEndLog, withHydraNode)
+import HydraNode (EndToEndLog, HydraClient (HydraClient, hydraNodeId), withHydraNode)
 
 spec :: Spec
 spec =
-  context "end-to-end smoke tests" $ do
-    it "starts & renders" $
-      showLogsOnFailure $ \tracer ->
-        withTempDir "end-to-end-inits-and-closes" $ \tmpDir -> do
-          config <- newNodeConfig tmpDir
-          withBFTNode (contramap FromCardano tracer) config [] $ \(RunningNode _ nodeSocket) -> do
-            (_, cardanoKey) <- writeKeysFor tmpDir "alice"
-            -- XXX(SN): API port id is inferred from nodeId, in this case 4001
-            let nodeId = 1
-            withHydraNode (contramap FromHydra tracer) cardanoKey [] tmpDir nodeSocket nodeId aliceSk [] [nodeId] $ \_hydraNode ->
-              withBrickTest $ \BrickTest{buildVty, shouldRender} -> do
-                race_ (runWithVty buildVty Options{nodeHost = Host{hostname = "127.0.0.1", port = 4000 + fromIntegral nodeId}}) $ do
-                  threadDelay 1
-                  shouldRender "TUI"
+  around setupNodeAndTUI $
+    context "end-to-end smoke tests" $ do
+      it "starts & renders" $
+        \TUITest{shouldRender} -> do
+          threadDelay 1
+          shouldRender "TUI"
 
-    it "supports the init & abort Head life cycle" $
-      withBrickTest $ \BrickTest{buildVty, sendInputEvent, shouldRender} -> do
-        race_ (runWithVty buildVty Options{nodeHost = Host{hostname = "127.0.0.1", port = 4001}}) $ do
+      it "supports the init & abort Head life cycle" $
+        \TUITest{sendInputEvent, shouldRender} -> do
           threadDelay 1
           shouldRender "connected"
           shouldRender "Ready"
@@ -60,9 +51,8 @@ spec =
           threadDelay 1
           shouldRender "Ready"
 
-    it "supports the full Head life cycle" $
-      withBrickTest $ \BrickTest{buildVty, sendInputEvent, shouldRender} -> do
-        race_ (runWithVty buildVty Options{nodeHost = Host{hostname = "127.0.0.1", port = 4001}}) $ do
+      it "supports the full Head life cycle" $
+        \TUITest{sendInputEvent, shouldRender} -> do
           threadDelay 1
           shouldRender "connected"
           shouldRender "Ready"
@@ -75,20 +65,34 @@ spec =
           threadDelay 1
           shouldRender "committed" -- TODO(SN): update this, but the node crashes currently
 
-data BrickTest = BrickTest
+setupNodeAndTUI :: (TUITest -> IO ()) -> IO ()
+setupNodeAndTUI action =
+  showLogsOnFailure $ \tracer ->
+    withTempDir "tui-end-to-end" $ \tmpDir -> do
+      config <- newNodeConfig tmpDir
+      withBFTNode (contramap FromCardano tracer) config [] $ \(RunningNode _ nodeSocket) -> do
+        (_, cardanoKey) <- writeKeysFor tmpDir "alice"
+        -- XXX(SN): API port id is inferred from nodeId, in this case 4001
+        let nodeId = 1
+        withHydraNode (contramap FromHydra tracer) cardanoKey [] tmpDir nodeSocket nodeId aliceSk [] [nodeId] $ \HydraClient{hydraNodeId} ->
+          withTUITest $ \brickTest@TUITest{buildVty} -> do
+            race_ (runWithVty buildVty Options{nodeHost = Host{hostname = "127.0.0.1", port = 4000 + fromIntegral hydraNodeId}}) $ do
+              action brickTest
+
+data TUITest = TUITest
   { buildVty :: IO Vty
   , sendInputEvent :: Event -> IO ()
   , getPicture :: IO ByteString
   , shouldRender :: HasCallStack => ByteString -> Expectation
   }
 
-withBrickTest :: (BrickTest -> Expectation) -> Expectation
-withBrickTest action = do
+withTUITest :: (TUITest -> Expectation) -> Expectation
+withTUITest action = do
   frameBuffer <- newIORef mempty
   q <- newTQueueIO
   let getPicture = readIORef frameBuffer
   action $
-    BrickTest
+    TUITest
       { buildVty = buildVty q frameBuffer
       , sendInputEvent = atomically . writeTQueue q
       , getPicture
@@ -133,7 +137,7 @@ withBrickTest action = do
 
   testOut realOut as frameBuffer =
     realOut
-      { terminalID = "BrickTest terminal"
+      { terminalID = "TUITest terminal"
       , outputByteBuffer = \bytes -> atomicModifyIORef'_ frameBuffer (<> bytes)
       , assumedStateRef = as
       , mkDisplayContext = \tActual rActual -> do
