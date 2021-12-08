@@ -9,7 +9,7 @@ import qualified Data.ByteString as BS
 import Graphics.Vty (
   DisplayContext (..),
   Event (EvKey),
-  Key (KChar),
+  Key (KChar, KEnter),
   Output (..),
   Vty (..),
   defaultConfig,
@@ -46,6 +46,21 @@ spec =
           sendInputEvent $ EvKey (KChar 'a') []
           threadDelay 1
           shouldRender "Ready"
+
+    it "supports the full Head life cycle" $
+      withBrickTest $ \BrickTest{buildVty, sendInputEvent, shouldRender} -> do
+        race_ (runWithVty buildVty Options{nodeHost = Host{hostname = "127.0.0.1", port = 4001}}) $ do
+          threadDelay 1
+          shouldRender "connected"
+          shouldRender "Ready"
+          sendInputEvent $ EvKey (KChar 'i') []
+          threadDelay 1
+          shouldRender "Initializing"
+          sendInputEvent $ EvKey (KChar 'c') []
+          sendInputEvent $ EvKey (KChar ' ') []
+          sendInputEvent $ EvKey KEnter []
+          threadDelay 1
+          shouldRender "committed" -- TODO(SN): update this, but the node crashes currently
 
 data BrickTest = BrickTest
   { buildVty :: IO Vty
