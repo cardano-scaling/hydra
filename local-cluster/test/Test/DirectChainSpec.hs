@@ -152,7 +152,7 @@ spec = around showLogsOnFailure $ do
         let cardanoKeys = [aliceCardanoVk]
         withIOManager $ \iocp -> do
           withDirectChain (contramap (FromDirectChain "alice") tracer) magic iocp nodeSocket aliceKeys alice cardanoKeys (putMVar alicesCallback) $ \Chain{postTx} -> do
-            void $ mkSeedPayment (Testnet magic) pparams availableInitialFunds node aliceCardanoSk 100_000_000
+            postSeedPayment (Testnet magic) pparams availableInitialFunds node aliceCardanoSk 100_000_000
 
             postTx $ InitTx $ HeadParameters 100 [alice]
             alicesCallback `observesInTime` OnInitTx 100 [alice]
