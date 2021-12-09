@@ -19,7 +19,6 @@ import Graphics.Vty (
   displayContext,
   initialAssumedState,
   inputForConfig,
-  outputFd,
   outputForConfig,
   outputPicture,
   shutdownInput,
@@ -32,7 +31,6 @@ import qualified Hydra.Party as Hydra
 import Hydra.TUI (runWithVty)
 import Hydra.TUI.Options (Options (..))
 import HydraNode (EndToEndLog, HydraClient (HydraClient, hydraNodeId), withHydraNode)
-import System.Posix (OpenMode (WriteOnly), closeFd, defaultFileFlags, openFd)
 
 spec :: Spec
 spec =
@@ -142,10 +140,7 @@ withTUITest region action = do
     -- always has the initial state to get a full rendering of the picture. That
     -- way we can capture output bytes line-by-line and drop the cursor moving.
     as <- newIORef initialAssumedState
-    -- NOTE(SN): The null device should allow using this in CI, while we do
-    -- capture the output via `outputByteBuffer` anyway.
-    nullOut <- openFd "/dev/null" WriteOnly Nothing defaultFileFlags
-    realOut <- outputForConfig $ defaultConfig{outputFd = Just nullOut}
+    realOut <- outputForConfig defaultConfig
     let output = testOut realOut as frameBuffer
     pure $
       Vty
@@ -163,9 +158,7 @@ withTUITest region action = do
             dc <- displayContext output region
             outputPicture dc p
         , refresh = pure ()
-        , shutdown = do
-            shutdownInput input
-            closeFd nullOut
+        , shutdown = shutdownInput input
         , isShutdown = pure True
         }
 
@@ -174,10 +167,6 @@ withTUITest region action = do
       { terminalID = "TUITest terminal"
       , outputByteBuffer = \bytes -> atomicModifyIORef'_ frameBuffer (<> bytes)
       , assumedStateRef = as
-      , -- NOTE(SN): Make display bounds non-configurable to ensure correct
-        -- rendering also when using /dev/null as output fd on initialization.
-        displayBounds = pure region
-      , setDisplayBounds = \_ -> pure ()
       , mkDisplayContext = \tActual rActual -> do
           -- NOTE(SN): Pass the fix point tActual into this to ensure it's using
           -- our overrides for 'assumedStateRef'

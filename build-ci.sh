@@ -7,6 +7,8 @@
 # fail the script if any command fails
 set -e
 
+echo "TERM: ${TERM}"
+
 cabal update
 
 cabal build --enable-tests all
