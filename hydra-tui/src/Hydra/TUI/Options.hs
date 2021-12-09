@@ -2,7 +2,7 @@ module Hydra.TUI.Options where
 
 import Hydra.Prelude
 
-import Hydra.Ledger.Cardano (NetworkId)
+import Hydra.Ledger.Cardano (NetworkId (Mainnet, Testnet), NetworkMagic (NetworkMagic))
 import Hydra.Network (Host (Host))
 import Options.Applicative (Parser, auto, help, long, option, short, showDefault, value)
 
@@ -33,7 +33,17 @@ parseNodeHost =
     )
 
 parseCardanoNetworkId :: Parser NetworkId
-parseCardanoNetworkId = error "parseCardanoNetworkId"
+parseCardanoNetworkId =
+  ( Testnet . NetworkMagic
+      <$> option
+        auto
+        ( long "network-id"
+            <> short 'n'
+            <> help "The network magic number identifying the testnet to connect to."
+            <> showDefault
+        )
+  )
+    <|> pure Mainnet
 
 parseCardanoVerificationKey :: Parser FilePath
 parseCardanoVerificationKey = error "parseCardanoVerificationKey"
