@@ -15,7 +15,11 @@ data Options = Options
 
 parseOptions :: Parser Options
 parseOptions =
-  Options <$> parseNodeHost <*> pure "" <*> parseCardanoNetworkId <*> parseCardanoVerificationKey
+  Options
+    <$> parseNodeHost
+    <*> error "parse node socket"
+    <*> parseCardanoNetworkId
+    <*> parseCardanoVerificationKey
 
 parseNodeHost :: Parser Host
 parseNodeHost =

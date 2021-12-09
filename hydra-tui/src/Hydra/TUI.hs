@@ -15,6 +15,7 @@ import Brick.Forms (Form, FormFieldState, checkboxField, editShowableFieldWithVa
 import Brick.Widgets.Border (hBorder, vBorder)
 import Brick.Widgets.Border.Style (ascii)
 import Cardano.Crypto.DSIGN (VerKeyDSIGN (VerKeyMockDSIGN))
+import CardanoClient (CardanoClient (CardanoClient, queryUtxoByAddress), mkCardanoClient)
 import Data.List (nub, (\\))
 import qualified Data.Map.Strict as Map
 import qualified Data.Text as Text
@@ -195,10 +196,11 @@ clearFeedback = feedbackL .~ empty
 
 handleEvent ::
   Client CardanoTx IO ->
+  CardanoClient ->
   State ->
   BrickEvent Name (HydraEvent CardanoTx) ->
   EventM Name (Next State)
-handleEvent client@Client{sendInput} (clearFeedback -> s) = \case
+handleEvent client@Client{sendInput} cardanoClient (clearFeedback -> s) = \case
   AppEvent e ->
     continue (handleAppEvent s e)
   VtyEvent e -> case s ^? dialogStateL of
@@ -221,7 +223,7 @@ handleEvent client@Client{sendInput} (clearFeedback -> s) = \case
             | c `elem` ['c', 'C'] ->
               case s ^? headStateL of
                 Just Initializing{} ->
-                  handleCommitEvent client s
+                  handleCommitEvent client cardanoClient s
                 Just Open{} ->
                   liftIO (sendInput Close) >> continue s
                 _ ->
@@ -340,14 +342,16 @@ handleDialogEvent (title, form, submit) s = \case
 
 handleCommitEvent ::
   Client CardanoTx IO ->
+  CardanoClient ->
   State ->
   EventM n (Next State)
-handleCommitEvent Client{sendInput} s = case s ^? headStateL of
+handleCommitEvent Client{sendInput} CardanoClient{queryUtxoByAddress} s = case s ^? headStateL of
   Just Initializing{} ->
     case s ^? meL of
       -- XXX(SN): this is just..not cool
-      Just (Just me) ->
-        continue $ s & dialogStateL .~ commitDialog (faucetUtxo me)
+      Just (Just me) -> do
+        utxo <- liftIO $ queryUtxoByAddress [error "my address"]
+        continue $ s & dialogStateL .~ commitDialog utxo
       _ -> continue $ s & feedbackL ?~ UserFeedback Error "Missing identity, so can't commit from faucet."
   _ ->
     continue $ s & feedbackL ?~ UserFeedback Error "Invalid command."
@@ -710,7 +714,7 @@ faucetUtxo party@Party{vkey} =
 -- NOTE(SN): At the end of the module because of TH
 
 runWithVty :: IO Vty -> Options -> IO State
-runWithVty buildVty Options{hydraNodeHost} = do
+runWithVty buildVty Options{hydraNodeHost, cardanoNetworkId, cardanoNodeSocket} = do
   eventChan <- newBChan 10
   -- REVIEW(SN): what happens if callback blocks?
   withClient @CardanoTx hydraNodeHost (writeBChan eventChan) $ \client -> do
@@ -721,12 +725,14 @@ runWithVty buildVty Options{hydraNodeHost} = do
     App
       { appDraw = draw
       , appChooseCursor = showFirstCursor
-      , appHandleEvent = handleEvent client
+      , appHandleEvent = handleEvent client cardanoClient
       , appStartEvent = pure
       , appAttrMap = style
       }
 
   initialState = Disconnected{nodeHost = hydraNodeHost}
+
+  cardanoClient = mkCardanoClient cardanoNetworkId cardanoNodeSocket
 
 run :: Options -> IO State
 run = runWithVty (mkVty defaultConfig)

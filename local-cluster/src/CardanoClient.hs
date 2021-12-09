@@ -29,6 +29,7 @@ import Hydra.Ledger.Cardano (
   Utxo,
   Utxo' (Utxo),
   VerificationKey (PaymentVerificationKey),
+  fromCardanoApiUtxo,
   fromPlutusData,
   lovelaceToTxOutValue,
   mkVkAddress,
@@ -41,6 +42,16 @@ import Ouroboros.Consensus.HardFork.Combinator.AcrossEras (EraMismatch)
 import Ouroboros.Network.Protocol.LocalTxSubmission.Client (SubmitResult (..))
 
 type NodeSocket = FilePath
+
+newtype CardanoClient = CardanoClient
+  { queryUtxoByAddress :: [Address ShelleyAddr] -> IO Utxo
+  }
+
+mkCardanoClient :: NetworkId -> FilePath -> CardanoClient
+mkCardanoClient networkId filePath =
+  CardanoClient
+    { queryUtxoByAddress = fmap fromCardanoApiUtxo . queryUtxo networkId filePath
+    }
 
 -- TODO(SN): DRY with Hydra.Ledger.Cardano module
 
