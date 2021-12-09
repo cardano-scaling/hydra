@@ -4,7 +4,7 @@ import Hydra.Prelude
 import Test.Hydra.Prelude
 
 import Blaze.ByteString.Builder.Char8 (writeChar)
-import CardanoClient (mkSeedPayment, queryProtocolParameters)
+import CardanoClient (postSeedPayment, queryProtocolParameters)
 import CardanoCluster (ClusterLog, availableInitialFunds, defaultNetworkId, fromRawVKey, keysFor, newNodeConfig, withBFTNode, writeKeysFor)
 import CardanoNode (RunningNode (RunningNode))
 import Control.Monad.Class.MonadSTM (newTQueueIO, readTQueue, tryReadTQueue, writeTQueue)
@@ -79,7 +79,7 @@ setupNodeAndTUI action =
         let nodeId = 1
         pparams <- queryProtocolParameters defaultNetworkId nodeSocket
         withHydraNode (contramap FromHydra tracer) cardanoKey [] tmpDir nodeSocket nodeId aliceSk [] [nodeId] $ \HydraClient{hydraNodeId} -> do
-          void $ mkSeedPayment defaultNetworkId pparams availableInitialFunds node aliceCardanoSk 100_000_000
+          postSeedPayment defaultNetworkId pparams availableInitialFunds node aliceCardanoSk 100_000_000
           withTUITest $ \brickTest@TUITest{buildVty} -> do
             race_ (runWithVty buildVty Options{nodeHost = Host{hostname = "127.0.0.1", port = 4000 + fromIntegral hydraNodeId}}) $ do
               action brickTest
