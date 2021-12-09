@@ -346,13 +346,9 @@ handleCommitEvent ::
   State ->
   EventM n (Next State)
 handleCommitEvent Client{sendInput} CardanoClient{queryUtxoByAddress} s = case s ^? headStateL of
-  Just Initializing{} ->
-    case s ^? meL of
-      -- XXX(SN): this is just..not cool
-      Just (Just me) -> do
-        utxo <- liftIO $ queryUtxoByAddress [error "my address"]
-        continue $ s & dialogStateL .~ commitDialog utxo
-      _ -> continue $ s & feedbackL ?~ UserFeedback Error "Missing identity, so can't commit from faucet."
+  Just Initializing{} -> do
+    utxo <- liftIO $ queryUtxoByAddress [error "my address"]
+    continue $ s & dialogStateL .~ commitDialog utxo
   _ ->
     continue $ s & feedbackL ?~ UserFeedback Error "Invalid command."
  where
