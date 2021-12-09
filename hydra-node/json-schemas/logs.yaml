@@ -18,6 +18,7 @@ properties:
     additionalItems: false
     items:
       type: object
+      additionalProperties: false
       required:
       - namespace
       - timestamp
@@ -46,6 +47,7 @@ properties:
           oneOf:
           - title: APIServer
             type: object
+            additionalProperties: false
             required:
             - tag
             - api
@@ -60,6 +62,7 @@ properties:
 
           - title: Node
             type: object
+            additionalProperties: false
             required:
             - tag
             - node
@@ -75,6 +78,7 @@ properties:
 
           - title: DirectChain
             type: object
+            additionalProperties: false
             required:
             - tag
             - directChain
@@ -89,6 +93,7 @@ properties:
 
           - title: Network
             type: object
+            additionalProperties: false
             required:
             - tag
             - network
@@ -109,6 +114,7 @@ definitions:
         API Server has started and is ready, listening for incoming client
         connections on given port.
       type: object
+      additionalProperties: false
       required:
       - tag
       - listeningPort
@@ -123,6 +129,7 @@ definitions:
     - title: NewAPIConnection
       description: >-
         A new client has connected to the API Server.
+      additionalProperties: false
       required:
       - tag
       properties:
@@ -132,6 +139,7 @@ definitions:
     - title: APIOutputSent
       description: >-
         Some output has been sent to a client.
+      additionalProperties: false
       required:
       - tag
       - sentOutput
@@ -144,6 +152,7 @@ definitions:
     - title: APIInputReceived
       description: >-
         Some input has been received from a client.
+      additionalProperties: false
       required:
       - tag
       - receivedInput
@@ -158,6 +167,7 @@ definitions:
     - title: APIInvalidInput
       description: >-
         Some input sent by a client is invalid.
+      additionalProperties: false
       required:
       - tag
       - reason
@@ -178,8 +188,124 @@ definitions:
             JSON string. Note that if the input contained invalid UTF-8
             characters they will be ignored.
 
-  # TODO: Fill the gap!
-  DirectChain: {}
+  DirectChain:
+    oneOf:
+    - title: ToPost
+      description: >-
+        A logical representation of the transaction to be posted on-chain.
+      type: object
+      additionalProperties: false
+      required:
+        - tag
+        - toPost
+      properties:
+        tag:
+          type: string
+          enum: ["ToPost"]
+        toPost:
+          $ref: "#/definitions/PostChainTx"
+    - title: PostedTx
+      description: >-
+        Actual on-chain representation of a transaction posted to the network.
+      type: object
+      additionalProperties: false
+      required:
+        - tag
+        - postedTx
+      properties:
+        tag:
+          type: string
+          enum: ["PostedTx"]
+        postedTx:
+          type: array
+          prefixItems:
+            - $ref: "#/definitions/TxId"
+            - $ref: "#/definitions/Transaction"
+    - title: ReceivedTxs
+      description: >-
+        Logical and actual representation of received / observed transactions on-chain.
+      type: object
+      additionalProperties: false
+      required:
+        - tag
+        - onChainTxs
+        - receivedTxs
+      properties:
+        tag:
+          type: string
+          enum: ["ReceivedTxs"]
+        onChainTxs:
+          type: array
+          items:
+            $ref: "#/definitions/OnChainTx"
+        receivedTxs:
+          type: array
+          items:
+            type: integer
+    - title: RolledBackward
+      description: >-
+        Observation of a rollback.
+      type: object
+      additionalProperties: false
+      required:
+        - tag
+        - point
+      properties:
+        tag:
+          type: string
+          enum: ["RolledBackward"]
+        point:
+          $ref: "#/definitions/Point"
+    - title: Wallet
+      description: >-
+        Logs coming from the wallet.
+      type: object
+      additionalProperties: false
+      required:
+        - tag
+        - contents
+      properties:
+        tag:
+          type: string
+          enum: ["Wallet"]
+        contents:
+          $ref: "#/definitions/Wallet"
+
+  Wallet:
+    oneOf:
+    - title: InitializingWallet
+      description: >-
+        The wallet has been initialized to some point on the chain and will start syncing block by block from there.
+      type: object
+      additionalProperties: false
+      required:
+      - tag
+      - point
+      - initialUtxo
+      properties:
+        tag:
+          type: string
+          enum: ["InitializingWallet"]
+        point:
+          $ref: "#/definitions/Point"
+        initialUtxo:
+          $ref: "#/definitions/Utxo"
+    - title: ApplyBlock
+      description: >-
+        The wallet has discovered and applied a new block of interest.
+      additionalProperties: false
+      required:
+      - tag
+      - before
+      - after
+      properties:
+        tag:
+          type: string
+          enum: ["ApplyBlock"]
+        before:
+          $ref: "#/definitions/Utxo"
+        after:
+          $ref: "#/definitions/Utxo"
 
   # TODO: Fill the gap!
   Network: {}
@@ -193,6 +319,7 @@ definitions:
         Some error happened while processing an event, provides enough context
         information to troubleshoot the origin of the error.
       type: object
+      additionalProperties: false
       required:
       - tag
       - by
@@ -218,6 +345,7 @@ definitions:
         Head has started processing an event drawn from some pool or queue of
         events to process.
       type: object
+      additionalProperties: false
       required:
       - tag
       - by
@@ -236,6 +364,7 @@ definitions:
       description: >-
         Head has succesfully finished processing an event.
       type: object
+      additionalProperties: false
       required:
       - tag
       - by
@@ -255,6 +384,7 @@ definitions:
         Head has started processing an effect produced by some transition in the
         protocol.
       type: object
+      additionalProperties: false
       required:
       - tag
       - by
@@ -267,12 +397,13 @@ definitions:
           <<: { "$ref": "#/definitions/Party" }
           description: >-
             The Party emitting the log entry.
-        event:
+        effect:
           $ref: "#/definitions/Effect"
     - title: ProcessedEffect
       description: >-
         Head has finished processing an effect produced by some transition in the protocol.
       type: object
+      additionalProperties: false
       required:
       - tag
       - by
@@ -285,12 +416,149 @@ definitions:
           <<: { "$ref": "#/definitions/Party" }
           description: >-
             The Party emitting the log entry.
-        event:
+        effect:
           $ref: "#/definitions/Effect"
 
-  # TODO: Fill the gap!
   LogicError:
+    oneOf:
+    - title: InvalidEvent
+      additionalProperties: false
+      required:
+        - tag
+        - contents
+      properties:
+        tag:
+          type: string
+          enum: [ "InvalidEvent" ]
+        contents:
+          type: array
+          prefixItems:
+            - $ref: "#/definitions/Event"
+            - $ref: "#/definitions/HeadState"
+    - title: InvalidState
+      additionalProperties: false
+      required:
+        - tag
+        - contents
+      properties:
+        tag:
+          type: string
+          enum: [ "InvalidState" ]
+        contents:
+          $ref: "#/definitions/HeadState"
+    - title: InvalidSnapshot
+      additionalProperties: false
+      required:
+      - tag
+      - expected
+      - actual
+      properties:
+        tag:
+          type: string
+          enum: [ "InvalidSnapshot" ]
+        expected:
+          $ref: "#/definitions/SnapshotNumber"
+        actual:
+          $ref: "#/definitions/SnapshotNumber"
+    - title: LedgerError
+      additionalProperties: false
+      required:
+        - tag
+        - contents
+      properties:
+        tag:
+          type: string
+          enum: [ "LedgerError" ]
+        contents:
+          $ref: "#/definitions/ValidationError"
+
+  ValidationError:
     type: object
+    additionalProperties: false
+    required:
+      - reason
+    properties:
+      reason:
+        type: string
+
+  HeadState:
+    oneOf:
+    - title: "ReadyState"
+      additionalProperties: false
+      required:
+        - tag
+      properties:
+        tag:
+          type: string
+          enum: [ "ReadyState" ]
+    - title: "InitialState"
+      additionalProperties: false
+      required:
+        - tag
+        - pendingCommits
+        - committed
+      properties:
+        tag:
+          type: string
+          enum: [ "InitialState" ]
+        parameters:
+          $ref: "#/definitions/HeadParameters"
+        pendingCommits:
+          type: array
+          items:
+            $ref: "#/definitions/Party"
+        committed:
+          type: array
+          items:
+            $ref: "#/definitions/Party"
+    - title: "OpenState"
+      additionalProperties: false
+      required:
+        - tag
+        - parameters
+        - coordinatedHeadState
+      properties:
+        tag:
+          type: string
+          enum: [ "OpenState" ]
+        parameters:
+          $ref: "#/definitions/HeadParameters"
+        coordinatedHeadState:
+          $ref: "#/definitions/CoordinatedHeadState"
+    - title: "ClosedState"
+      additionalProperties: false
+      required:
+        - tag
+        - parameters
+        - utxos
+      properties:
+        tag:
+          type: string
+          enum: [ "ClosedState" ]
+        parameters:
+          $ref: "#/definitions/HeadParameters"
+        utxos:
+          $ref: "#/definitions/Utxo"
+
+  CoordinatedHeadState:
+    type: object
+    additionalProperties: false
+    required:
+    - seenUtxo
+    - seenTxs
+    - confirmedSnapshot
+    - seenSnapshot
+    properties:
+      seenUtxo:
+        $ref: "#/definitions/Utxo"
+      seenTxs:
+        type: array
+        items:
+          $ref: "#/definitions/Transaction"
+      confirmedSnapshot:
+        $ref: "#/definitions/Snapshot"
+      seenSnapshot:
+        $ref: "#/definitions/SeenSnapshot"
 
   Event:
     description: >-
@@ -302,6 +570,7 @@ definitions:
     oneOf:
     - title: ClientEvent
       type: object
+      additionalProperties: false
       required:
       - tag
       - clientInput
@@ -315,6 +584,7 @@ definitions:
           $ref: "#/definitions/ClientInput"
     - title: NetworkEvent
       type: object
+      additionalProperties: false
       required:
       - tag
       - message
@@ -328,6 +598,7 @@ definitions:
           $ref: "#/definitions/Message"
     - title: OnChainEvent
       type: object
+      additionalProperties: false
       required:
       - tag
       - onChainTx
@@ -342,6 +613,7 @@ definitions:
           $ref: "#/definitions/OnChainTx"
     - title: ShouldPostFanout
       type: object
+      additionalProperties: false
       required:
       - tag
       description: >-
@@ -358,6 +630,7 @@ definitions:
     oneOf:
       - title: ReqTx
         type: object
+        additionalProperties: false
         required:
         - tag
         - party
@@ -375,6 +648,7 @@ definitions:
             $ref: "#/definitions/Transaction"
       - title: ReqSn
         type: object
+        additionalProperties: false
         required:
         - tag
         - party
@@ -390,14 +664,14 @@ definitions:
           party:
             $ref: "#/definitions/Party"
           snapshotNumber:
-            type: integer
-            minimum: 0
+            $ref: "#/definitions/SnapshotNumber"
           transactions:
             type: array
             items:
               $ref: "#/definitions/Transaction"
       - title: AckSn
         type: object
+        additionalProperties: false
         required:
         - tag
         - party
@@ -422,6 +696,7 @@ definitions:
               the signature are hex-encoded.
       - title: Connected
         type: object
+        additionalProperties: false
         required:
         - tag
         - peer
@@ -435,6 +710,7 @@ definitions:
             $ref: "#/definitions/Peer"
       - title: Disconnected
         type: object
+        additionalProperties: false
         required:
         - tag
         - peer
@@ -455,6 +731,7 @@ definitions:
     oneOf:
       - title: OnInitTx
         type: object
+        additionalProperties: false
         required:
         - tag
         - contestationPeriod
@@ -477,6 +754,7 @@ definitions:
               $ref: "#/definitions/Party"
       - title: OnCommitTx
         type: object
+        additionalProperties: false
         required:
         - tag
         - party
@@ -494,6 +772,7 @@ definitions:
             $ref: "#/definitions/Utxo"
       - title: OnAbortTx
         type: object
+        additionalProperties: false
         required:
         - tag
         properties:
@@ -502,6 +781,7 @@ definitions:
             enum: ["OnAbortTx"]
       - title: OnCollectComTx
         type: object
+        additionalProperties: false
         required:
         - tag
         properties:
@@ -510,9 +790,11 @@ definitions:
             enum: ["OnCollectComTx"]
       - title: OnCloseTx
         type: object
+        additionalProperties: false
         required:
         - tag
         - snapshotNumber
+        - contestationDeadline
         properties:
           tag:
             type: string
@@ -520,8 +802,12 @@ definitions:
           snapshotNumber:
             type: integer
             minimum: 0
+          contestationDeadline:
+            type: string
+            format: date-time
       - title: OnContestTx
         type: object
+        additionalProperties: false
         required:
         - tag
         properties:
@@ -530,6 +816,7 @@ definitions:
             enum: ["OnContestTx"]
       - title: OnFanoutTx
         type: object
+        additionalProperties: false
         required:
         - tag
         properties:
@@ -538,6 +825,7 @@ definitions:
             enum: ["OnFanoutTx"]
       - title: PostTxFailed
         type: object
+        additionalProperties: false
         required:
         - tag
         description: >-
@@ -556,6 +844,7 @@ definitions:
     oneOf:
     - title: ClientEffect
       type: object
+      additionalProperties: false
       required:
       - tag
       - serverOutput
@@ -565,10 +854,11 @@ definitions:
         tag:
           type: string
           enum: ["ClientEffect"]
-        clientInput:
-          $ref: "#/definitions/ClientInput"
+        serverOutput:
+          $ref: "#/definitions/ServerOutput"
     - title: NetworkEffect
       type: object
+      additionalProperties: false
       required:
       - tag
       - message
@@ -583,6 +873,7 @@ definitions:
           $ref: "#/definitions/Message"
     - title: OnChainEffect
       type: object
+      additionalProperties: false
       required:
       - tag
       - onChainTx
@@ -598,6 +889,7 @@ definitions:
           $ref: "#/definitions/PostChainTx"
     - title: Delay
       type: object
+      additionalProperties: false
       required:
       - tag
       - delay
@@ -629,6 +921,7 @@ definitions:
     oneOf:
       - title: InitTx
         type: object
+        additionalProperties: false
         required:
         - tag
         - headParameters
@@ -642,6 +935,7 @@ definitions:
             $ref: "#/definitions/HeadParameters"
       - title: CommitTx
         type: object
+        additionalProperties: false
         required:
         - tag
         - party
@@ -658,22 +952,24 @@ definitions:
             $ref: "#/definitions/Utxo"
       - title: AbortTx
         type: object
+        additionalProperties: false
         required:
         - tag
-        - utxos
+        - utxo
         description: >-
           Abort the opening of the Head process.
         properties:
           tag:
             type: string
             enum: ["AbortTx"]
-          committed:
+          utxo:
             $ref: "#/definitions/Utxo"
       - title: CollectComTx
         type: object
+        additionalProperties: false
         required:
         - tag
-        - utxos
+        - utxo
         description: >-
           Confirm the opening of the Head collecting the committed UTxO set
           combined from all individual commits.
@@ -681,10 +977,11 @@ definitions:
           tag:
             type: string
             enum: ["CollectComTx"]
-          utxos:
+          utxo:
             $ref: "#/definitions/Utxo"
       - title: CloseTx
         type: object
+        additionalProperties: false
         required:
         - tag
         - snapshot
@@ -698,6 +995,7 @@ definitions:
             $ref: "#/definitions/Snapshot"
       - title: ContestTx
         type: object
+        additionalProperties: false
         required:
         - tag
         - snapshot
@@ -712,29 +1010,40 @@ definitions:
             $ref: "#/definitions/Snapshot"
       - title: FanoutTx
         type: object
+        additionalProperties: false
         required:
         - tag
-        - utxos
+        - utxo
         description: >-
           Finalise the Head posting all UTxO from the Head on-chain.
         properties:
           tag:
             type: string
             enum: ["FanoutTx"]
-          utxos:
+          utxo:
             $ref: "#/definitions/Utxo"
 
   ClientInput:
     $ref: "api.json#/properties/inputs/items"
   ServerOutput:
     $ref: "api.json#/properties/outputs/items"
+  HeadParameters:
+    $ref: "common.json#/definitions/HeadParameters"
   Party:
     $ref: "common.json#/definitions/Party"
   Peer:
     $ref: "common.json#/definitions/Peer"
+  Point:
+    $ref: "common.json#/definitions/Point"
+  SeenSnapshot:
+    $ref: "common.json#/definitions/SeenSnapshot"
   Snapshot:
     $ref: "common.json#/definitions/Snapshot"
+  SnapshotNumber:
+    $ref: "common.json#/definitions/SnapshotNumber"
   Transaction:
     $ref: "common.json#/definitions/Transaction"
+  TxId:
+    $ref: "common.json#/definitions/TxId"
   Utxo:
     $ref: "common.json#/definitions/Utxo"

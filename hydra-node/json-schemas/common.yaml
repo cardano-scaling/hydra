@@ -23,17 +23,19 @@ definitions:
     examples:
       - "820082582089ff4f3ff4a6052ec9d073b3be68b5e7596bd74a04e7b74504a8302fb2278cd95840f66eb3cd160372d617411408792c0ebd9791968e9948112894e2706697a55c10296b04019ed2f146f4d81e8ab17b9d14cf99569a2f85cbfa32320127831db202"
 
-  Peer:
+  HeadParameters:
     type: object
+    additionalProperties: false
+    required:
+      - contestationPeriod
+      - parties
     properties:
-      hostname:
-        type: string
-        format: hostname
-      port:
-        type: number
-    examples:
-      - hostname: "10.0.0.10"
-        port: 5001
+      contestationPeriod:
+        type: integer
+      parties:
+        type: array
+        items:
+          $ref: "#/definitions/Party"
 
   Party:
     type: object
@@ -51,6 +53,74 @@ definitions:
       - { "vkey": "0000000000000001" }
       - { "vkey": "0000000000000002" }
 
+  Peer:
+    type: object
+    properties:
+      hostname:
+        type: string
+        format: hostname
+      port:
+        type: number
+    examples:
+      - hostname: "10.0.0.10"
+        port: 5001
+
+  Point:
+    oneOf:
+    - title: Origin
+      type: string
+      enum: ["Origin"]
+
+    - title: "Any"
+      type: object
+      required:
+        - slot
+        - hash
+      properties:
+        slot:
+          type: integer
+        hash:
+          type: string
+          contentEncoding: base16
+
+  SeenSnapshot:
+    oneOf:
+    - title: NoSeenSnapshot
+      type: object
+      additionalProperties: false
+      required:
+        - tag
+      properties:
+        tag:
+          type: string
+          enum: ["NoSeenSnapshot"]
+    - title: RequestedSnapshot
+      type: object
+      additionalProperties: false
+      required:
+        - tag
+      properties:
+        tag:
+          type: string
+          enum: ["RequestedSnapshot"]
+    - title: SeenSnapshot
+      type: object
+      additionalProperties: false
+      required:
+        - tag
+        - snapshot
+        - signatories
+      properties:
+        tag:
+          type: string
+          enum: ["SeenSnapshot"]
+        snapshot:
+          $ref: "#/definitions/Snapshot"
+        signatories:
+          type: array
+          items:
+            $ref: "#/definitions/Party"
+
   Snapshot:
     type: object
     required:
@@ -59,13 +129,17 @@ definitions:
     - confirmedTransactions
     properties:
       snapshotNumber:
-        type: integer
+        $ref: "#/definitions/SnapshotNumber"
       utxo:
         $ref: "#/definitions/Utxo"
       confirmedTransactions:
         type: array
         items:
           $ref: "#/definitions/Transaction"
+
+  SnapshotNumber:
+    type: integer
+    minimum: 0
 
   Transaction:
     type: object

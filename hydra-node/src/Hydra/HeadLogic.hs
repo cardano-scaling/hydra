@@ -56,7 +56,8 @@ data HeadState tx
   = ReadyState
   | InitialState {parameters :: HeadParameters, pendingCommits :: PendingCommits, committed :: Committed tx}
   | OpenState {parameters :: HeadParameters, coordinatedHeadState :: CoordinatedHeadState tx}
-  | ClosedState {parameters :: HeadParameters, utxos :: UtxoType tx}
+  | -- TODO: rename utxos -> utxo
+    ClosedState {parameters :: HeadParameters, utxos :: UtxoType tx}
   deriving stock (Generic)
 
 instance (Arbitrary (UtxoType tx), Arbitrary tx) => Arbitrary (HeadState tx) where
