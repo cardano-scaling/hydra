@@ -672,15 +672,14 @@ style _ =
     ]
 
 --
--- UTXO Faucet & Converting credentials
+-- Converting credentials
 --
 
--- | For now, we _fake it until we make it_ ^TM. Credentials and initial UTXO are
--- generated *deterministically* from Hydra verification keys (the 'Party').
--- Thus, coupling Hydra keys (signing the Head itself) with Cardano keys
--- (signing transactions in a Head). In the end, the client will figure out
--- credentials and UTXO via some other means. Likely, the credentials will be
--- user-provided, whereas the UTXO would come from a local node + chain sync.
+-- | For now, we _fake it until we make it_ ^TM. Credentials are generated
+-- *deterministically* from Hydra verification keys (the 'Party'). Thus,
+-- coupling Hydra keys (signing the Head itself) with Cardano keys (signing
+-- transactions in a Head). In the end, the client will figure out credentials
+-- via some other means, e.g. be user-provided.
 
 -- | Create a cardano key pair from a party. This would not be done in a real
 -- application and we'd manage the Cardano keys separate from the Hydra keys.
@@ -698,14 +697,6 @@ getCredentials Party{vkey} =
 getAddress :: Party -> AddressInEra Era
 getAddress party =
   mkVkAddress networkId . fst $ getCredentials party
-
--- | Generate a Utxo set for a given party "out of thin air".
-faucetUtxo :: Party -> Utxo
-faucetUtxo party@Party{vkey} =
-  let VerKeyMockDSIGN word = vkey
-      seed = fromIntegral word
-      vk = fst $ getCredentials party
-   in generateWith (scale (const 5) $ genUtxoFor vk) seed
 
 --
 -- Run it
