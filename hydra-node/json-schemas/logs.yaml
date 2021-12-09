@@ -194,67 +194,98 @@ definitions:
       type: object
       required:
       - tag
+      - by
+      - event
       properties:
         tag:
           type: string
           enum: [ "ErrorHandlingEvent" ]
-            # by:
-            #   description: >-
-            #     The Party emitting the log entry.
-            #   $ref: "#/definitions/Party"
-            # event:
-            #   description: >-
-            #     The event causing the error.
-            #   $ref: "#/definitions/Event"
-            # reason:
-            #   description: >-
-            #     Structured description of the cause of the error.
-            #   $ref: "#/definitions/LogicError"
-            # - title: ProcessingEvent
-            #   description: >-
-            #     Head has started processing an event drawn from some pool or queue of
-            #     events to process.
-            #   type: object
-            #   required:
-            #   - by
-            #   - event
-            #   properties:
-            #     by:
-            #       description: >-
-            #         The Party emitting the log entry.
-            #       $ref: "#/definitions/Party"
-            #     event:
-            #       $ref: "#/definitions/Event"
-            # - title: ProcessedEvent
-            #   description: >-
-            #     Head has succesfully finished processing an event.
-            #   type: object
-            #   required:
-            #   - by
-            #   - event
-            #   properties:
-            #     by:
-            #       description: >-
-            #         The Party emitting the log entry.
-            #       $ref: "#/definitions/Party"
-            #     event:
-            #       $ref: "#/definitions/Event"
-            # - title: ProcessingEffect
-            #   description: >-
-            #     Head has started processing an effect produced by some transition in the
-            #     protocol.
-            #   type: object
-            #   required:
-            #   - by
-            #   - effect
-            #   properties:
-            #     by:
-            #       description: >-
-            #         The Party emitting the log entry.
-            #       $ref: "#/definitions/Party"
-            #     event:
-            #       $ref: "#/definitions/Effect"
-    - type: object
+        by:
+          <<: { "$ref": "#/definitions/Party" }
+          description: >-
+            The Party emitting the log entry.
+        event:
+          <<: { "$ref": "#/definitions/Event" }
+          description: >-
+            The event causing the error.
+        reason:
+          <<: { "$ref": "#/definitions/LogicError" }
+          description: >-
+            Structured description of the cause of the error.
+    - title: ProcessingEvent
+      description: >-
+        Head has started processing an event drawn from some pool or queue of
+        events to process.
+      type: object
+      required:
+      - tag
+      - by
+      - event
+      properties:
+        tag:
+          type: string
+          enum: [ "ProcessingEvent" ]
+        by:
+          <<: { "$ref": "#/definitions/Party" }
+          description: >-
+            The Party emitting the log entry.
+        event:
+          <<: { "$ref": "#/definitions/Event" }
+    - title: ProcessedEvent
+      description: >-
+        Head has succesfully finished processing an event.
+      type: object
+      required:
+      - tag
+      - by
+      - event
+      properties:
+        tag:
+          type: string
+          enum: [ "ProcessedEvent" ]
+        by:
+          <<: { "$ref": "#/definitions/Party" }
+          description: >-
+            The Party emitting the log entry.
+        event:
+          $ref: "#/definitions/Event"
+    - title: ProcessingEffect
+      description: >-
+        Head has started processing an effect produced by some transition in the
+        protocol.
+      type: object
+      required:
+      - tag
+      - by
+      - effect
+      properties:
+        tag:
+          type: string
+          enum: [ "ProcessingEffect" ]
+        by:
+          <<: { "$ref": "#/definitions/Party" }
+          description: >-
+            The Party emitting the log entry.
+        event:
+          $ref: "#/definitions/Effect"
+    - title: ProcessedEffect
+      description: >-
+        Head has finished processing an effect produced by some transition in the protocol.
+      type: object
+      required:
+      - tag
+      - by
+      - effect
+      properties:
+        tag:
+          type: string
+          enum: [ "ProcessedEffect" ]
+        by:
+          <<: { "$ref": "#/definitions/Party" }
+          description: >-
+            The Party emitting the log entry.
+        event:
+          $ref: "#/definitions/Effect"
 
   # TODO: Fill the gap!
   LogicError:
@@ -408,28 +439,28 @@ definitions:
         type: object
         required:
         - tag
-        - party
+        - peer
         description: >-
           Given party is known to be connected to the network.
         properties:
           tag:
             type: string
             enum: ["Connected"]
-          party:
-            $ref: "#/definitions/Party"
+          peer:
+            $ref: "#/definitions/Peer"
       - title: Disconnected
         type: object
         required:
         - tag
-        - party
+        - peer
         description: >-
-          Given party is probably disconnected from the network.
+          Given peer is probably disconnected from the network.
         properties:
           tag:
             type: string
             enum: ["Disconnected"]
-          party:
-            $ref: "#/definitions/Party"
+          peer:
+            $ref: "#/definitions/Peer"
 
   OnChainTx:
     description: >-
@@ -520,6 +551,16 @@ definitions:
           tag:
             type: string
             enum: ["OnFanoutTx"]
+      - title: PostTxFailed
+        type: object
+        required:
+        - tag
+        description: >-
+          Submitted transaction was ill-formed.
+        properties:
+          tag:
+            type: string
+            enum: ["PostTxFailed"]
 
   Effect:
     description: >-
@@ -699,12 +740,14 @@ definitions:
             $ref: "#/definitions/Utxo"
 
   ClientInput:
-    $ref: ./api.yaml#/properties/inputs/items
+    $ref: "api.json#/properties/inputs/items"
   ServerOutput:
-    $ref: ./api.yaml#/properties/outputs/items
+    $ref: "api.json#/properties/outputs/items"
   Snapshot:
-    $ref: ./api.yaml#/definitions/Snapshot
+    $ref: "api.json#/definitions/Snapshot"
   Utxo:
-    $ref: ./api.yaml#/definitions/Utxo
+    $ref: "api.json#/definitions/Utxo"
   Transaction:
-    $ref: ./api.yaml#/definitions/Transaction
+    $ref: "api.json#/definitions/Transaction"
+  Peer:
+    $ref: "api.json#/definitions/Peer"

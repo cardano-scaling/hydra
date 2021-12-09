@@ -481,7 +481,7 @@ definitions:
             type: integer
       auxiliaryDataHash:
         type: string
-        encoding: base16
+        contentEncoding: base16
         description: >-
           Hex-encoding of the hash of auxiliary data section of the transactions.
         examples:
@@ -497,7 +497,7 @@ definitions:
             - Testnet
       scriptIntegrityHash:
         type: string
-        encoding: base16
+        contentEncoding: base16
         description: >-
           Hex-encoding of the hash of script data section of the transaction.
         examples:
@@ -506,7 +506,7 @@ definitions:
         type: array
         items:
           type: string
-          encoding: base16
+          contentEncoding: base16
           description: >-
             Hex-encoding of the hash of verification keys identifying extra expected signers.
 
@@ -535,7 +535,7 @@ definitions:
         $ref: "#/definitions/Value"
       datumhash:
         type: string
-        encoding: base16
+        contentEncoding: base16
 
   Address:
     type: string
@@ -589,7 +589,7 @@ definitions:
 
   Cbor:
     type: string
-    encoding: base16
+    contentEncoding: base16
     format: cbor
     description: >-
       The hex-encoding of the CBOR encoding of some binary data
