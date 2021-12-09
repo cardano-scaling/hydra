@@ -61,6 +61,8 @@ spec =
           threadDelay 1
           shouldRender "Initializing"
           sendInputEvent $ EvKey (KChar 'c') []
+          threadDelay 1
+          shouldRender "900.000000"
           sendInputEvent $ EvKey (KChar ' ') []
           sendInputEvent $ EvKey KEnter []
           threadDelay 1
@@ -79,10 +81,22 @@ setupNodeAndTUI action =
         let nodeId = 1
         pparams <- queryProtocolParameters defaultNetworkId nodeSocket
         withHydraNode (contramap FromHydra tracer) cardanoKey [] tmpDir nodeSocket nodeId aliceSk [] [nodeId] $ \HydraClient{hydraNodeId} -> do
-          postSeedPayment defaultNetworkId pparams availableInitialFunds node aliceCardanoSk 100_000_000
+          postSeedPayment defaultNetworkId pparams availableInitialFunds node aliceCardanoSk 900_000_000
           withTUITest $ \brickTest@TUITest{buildVty} -> do
-            race_ (runWithVty buildVty Options{nodeHost = Host{hostname = "127.0.0.1", port = 4000 + fromIntegral hydraNodeId}}) $ do
-              action brickTest
+            race_
+              ( runWithVty
+                  buildVty
+                  Options
+                    { hydraNodeHost =
+                        Host
+                          { hostname = "127.0.0.1"
+                          , port = 4000 + fromIntegral hydraNodeId
+                          }
+                    , cardanoNodeSocket = nodeSocket
+                    }
+              )
+              $ do
+                action brickTest
 
 data TUITest = TUITest
   { buildVty :: IO Vty

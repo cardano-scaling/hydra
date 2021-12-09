@@ -5,13 +5,14 @@ import Hydra.Prelude
 import Hydra.Network (Host (Host))
 import Options.Applicative (Parser, auto, help, long, option, short, showDefault, value)
 
-newtype Options = Options
-  { nodeHost :: Host
+data Options = Options
+  { hydraNodeHost :: Host
+  , cardanoNodeSocket :: FilePath
   }
 
 parseOptions :: Parser Options
 parseOptions =
-  Options <$> parseNodeHost
+  Options <$> parseNodeHost <*> pure ""
 
 parseNodeHost :: Parser Host
 parseNodeHost =
