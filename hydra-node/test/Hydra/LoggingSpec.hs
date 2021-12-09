@@ -24,7 +24,7 @@ spec = do
 
     captured `shouldContain` "{\"foo\":42}"
 
-  aroundAll (withJsonSpecifications ["logs.yaml", "api.yaml"]) $ do
+  aroundAll withJsonSpecifications $ do
     specify "HydraLog" $ \dir -> do
       property $
         withMaxSuccess 1 $

@@ -131,10 +131,9 @@ type SpecificationSelector = Traversal' Aeson.Value Aeson.Value
 -- But tools (and in particular jsonschema) only works from JSON, so this
 -- function makes sure to also convert our local yaml into JSON.
 withJsonSpecifications ::
-  [FilePath] ->
   (FilePath -> IO ()) ->
   IO ()
-withJsonSpecifications _specFiles action = do
+withJsonSpecifications action = do
   specDir <- (</> "json-schemas") . normalise <$> Pkg.getDataDir
   specFiles <- listDirectory specDir
   dir <- createSystemTempDirectory "Hydra_APISpec"

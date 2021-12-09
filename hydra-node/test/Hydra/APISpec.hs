@@ -17,7 +17,7 @@ import Test.QuickCheck.Property (conjoin, withMaxSuccess)
 spec :: Spec
 spec = parallel $ do
   context "validates JSON representations against API specification" $ do
-    aroundAll (withJsonSpecifications ["api.yaml"]) $ do
+    aroundAll withJsonSpecifications $ do
       specify "ClientInput" $ \dir ->
         withMaxSuccess 1 $
           conjoin
