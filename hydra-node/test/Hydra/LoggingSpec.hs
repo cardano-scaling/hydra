@@ -8,7 +8,7 @@ import Test.Hydra.Prelude
 import Data.Aeson (object, (.=))
 import Data.Aeson.Lens (key)
 import Hydra.JSONSchema (SpecificationSelector, prop_specIsComplete, prop_validateToJSON, withJsonSpecifications)
-import Hydra.Ledger.Simple (SimpleTx)
+import Hydra.Ledger.Cardano (CardanoTx)
 import Hydra.Logging (Envelope (..), Verbosity (Verbose), traceWith, withTracer)
 import Hydra.Logging.Messages (HydraLog)
 import System.FilePath ((</>))
@@ -24,13 +24,13 @@ spec = do
 
     captured `shouldContain` "{\"foo\":42}"
 
-  aroundAll (withJsonSpecifications "api-log.yaml") $ do
-    specify "HydraLog" $ \(specs, tmp) -> do
+  aroundAll (withJsonSpecifications ["logs.yaml", "api.yaml"]) $ do
+    specify "HydraLog" $ \dir -> do
       property $
         withMaxSuccess 1 $
           conjoin
-            [ prop_validateToJSON @(Envelope (HydraLog SimpleTx ())) specs "messages" (tmp </> "HydraLog")
-            , prop_specIsComplete @(HydraLog SimpleTx ()) specs apiSpecificationSelector
+            [ prop_validateToJSON @(Envelope (HydraLog CardanoTx ())) (dir </> "logs.json") "messages" (dir </> "HydraLog")
+            , prop_specIsComplete @(HydraLog CardanoTx ()) (dir </> "logs.json") apiSpecificationSelector
             ]
 
 apiSpecificationSelector :: SpecificationSelector

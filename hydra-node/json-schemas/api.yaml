@@ -329,11 +329,20 @@ definitions:
         port: 5001
 
   Party:
-    type: integer
+    type: object
+    description: >-
+      The verification key for some Party in the Head protocol, uniquely identifying it.
+    additionalProperties: false
+    required:
+      - vkey
+    properties:
+      vkey:
+        type: string
+        contentEncoding: base16
     examples:
-      - 1
-      - 2
-      - 3
+      - { "vkey": "0000000000000000" }
+      - { "vkey": "0000000000000001" }
+      - { "vkey": "0000000000000002" }
 
   Snapshot:
     type: object

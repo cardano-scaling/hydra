@@ -17,18 +17,18 @@ import Test.QuickCheck.Property (conjoin, withMaxSuccess)
 spec :: Spec
 spec = parallel $ do
   context "validates JSON representations against API specification" $ do
-    aroundAll (withJsonSpecifications "api.yaml") $ do
-      specify "ClientInput" $ \(specs, tmp) ->
+    aroundAll (withJsonSpecifications ["api.yaml"]) $ do
+      specify "ClientInput" $ \dir ->
         withMaxSuccess 1 $
           conjoin
-            [ prop_validateToJSON @(ClientInput CardanoTx) specs "inputs" (tmp </> "ClientInput")
-            , prop_specIsComplete @(ClientInput CardanoTx) specs (apiSpecificationSelector "inputs")
+            [ prop_validateToJSON @(ClientInput CardanoTx) (dir </> "api.json") "inputs" (dir </> "ClientInput")
+            , prop_specIsComplete @(ClientInput CardanoTx) (dir </> "api.json") (apiSpecificationSelector "inputs")
             ]
-      specify "ServerOutput" $ \(specs, tmp) ->
+      specify "ServerOutput" $ \dir ->
         withMaxSuccess 1 $
           conjoin
-            [ prop_validateToJSON @(ServerOutput CardanoTx) specs "outputs" (tmp </> "ServerOutput")
-            , prop_specIsComplete @(ServerOutput CardanoTx) specs (apiSpecificationSelector "outputs")
+            [ prop_validateToJSON @(ServerOutput CardanoTx) (dir </> "api.json") "outputs" (dir </> "ServerOutput")
+            , prop_specIsComplete @(ServerOutput CardanoTx) (dir </> "api.json") (apiSpecificationSelector "outputs")
             ]
 
 apiSpecificationSelector ::

@@ -8,7 +8,7 @@ module Hydra.JSONSchema where
 
 import Hydra.Prelude
 
-import Control.Lens (Traversal', to, (^..), (^?))
+import Control.Lens (Traversal', at, to, (?~), (^..), (^?))
 import Data.Aeson ((.=))
 import qualified Data.Aeson as Aeson
 import Data.Aeson.Lens (AsValue, key, _Array, _String)
@@ -17,8 +17,9 @@ import Data.List (dropWhileEnd)
 import qualified Data.Map.Strict as Map
 import qualified Data.Yaml as Yaml
 import qualified Paths_hydra_node as Pkg
+import System.Directory (listDirectory)
 import System.Exit (ExitCode (..))
-import System.FilePath ((</>))
+import System.FilePath (normalise, takeBaseName, takeExtension, (<.>), (</>))
 import System.Process (readProcessWithExitCode)
 import Test.Hspec (pendingWith)
 import Test.Hydra.Prelude (createSystemTempDirectory)
@@ -40,7 +41,7 @@ prop_validateToJSON ::
   FilePath ->
   Property
 prop_validateToJSON specFile selector inputFile =
-  forAllShrink (vectorOf 100 arbitrary) shrink $ \(a :: [a]) ->
+  forAllShrink (vectorOf 500 arbitrary) shrink $ \(a :: [a]) ->
     monadicIO $
       do
         run ensureSystemRequirements
@@ -125,20 +126,32 @@ prop_specIsComplete specFile typeSpecificationSelector =
 -- from aeson and lens.
 type SpecificationSelector = Traversal' Aeson.Value Aeson.Value
 
--- | Prepare the environment (temp directory) with the JSON specification. We
+-- | Prepare the environment (temp directory) with the JSON specifications. We
 -- maintain a YAML version of a JSON-schema, for it is more convenient to write.
 -- But tools (and in particular jsonschema) only works from JSON, so this
 -- function makes sure to also convert our local yaml into JSON.
 withJsonSpecifications ::
-  FilePath ->
-  ((FilePath, FilePath) -> IO ()) ->
+  [FilePath] ->
+  (FilePath -> IO ()) ->
   IO ()
-withJsonSpecifications specFile action = do
-  specs <- Yaml.decodeFileThrow @_ @Aeson.Value =<< Pkg.getDataFileName specFile
-  tmp <- createSystemTempDirectory "Hydra_APISpec"
-  let specsFile = tmp </> "api.json"
-  Aeson.encodeFile specsFile specs
-  action (specsFile, tmp)
+withJsonSpecifications _specFiles action = do
+  specDir <- (</> "json-schemas") . normalise <$> Pkg.getDataDir
+  specFiles <- listDirectory specDir
+  dir <- createSystemTempDirectory "Hydra_APISpec"
+  forM_ specFiles $ \file -> do
+    when (takeExtension file == ".yaml") $ do
+      spec <- Yaml.decodeFileThrow @_ @Aeson.Value (specDir </> file)
+      let spec' = addField "$id" ("file://" <> dir <> "/") spec
+      Aeson.encodeFile (dir </> takeBaseName file <.> "json") spec'
+  action dir
+ where
+  addField :: ToJSON a => Text -> a -> Aeson.Value -> Aeson.Value
+  addField k v = withObject (at k ?~ (toJSON v))
+
+  withObject :: (Aeson.Object -> Aeson.Object) -> Aeson.Value -> Aeson.Value
+  withObject fn = \case
+    Aeson.Object m -> Aeson.Object (fn m)
+    x -> x
 
 -- | Make sure that the required python library is available on the system.
 -- Mark a test as pending when not available.

@@ -291,22 +291,6 @@ definitions:
   LogicError:
     type: object
 
-  Party:
-    type: object
-    description: >-
-      The verification key for some Party in the Head protocol, uniquely identifying it.
-    additionalProperties: false
-    required:
-      - vkey
-    properties:
-      vkey:
-        type: string
-        contentEncoding: base16
-    examples:
-      - { "vkey": "0000000000000000" }
-      - { "vkey": "0000000000000001" }
-      - { "vkey": "0000000000000002" }
-
   Event:
     description: >-
       Events (with Effects) are the atomic elements of the Hydra Head protocol
@@ -749,5 +733,7 @@ definitions:
     $ref: "api.json#/definitions/Utxo"
   Transaction:
     $ref: "api.json#/definitions/Transaction"
+  Party:
+    $ref: "api.json#/definitions/Party"
   Peer:
     $ref: "api.json#/definitions/Peer"
