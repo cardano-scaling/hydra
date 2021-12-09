@@ -54,7 +54,6 @@ import Hydra.Ledger.Cardano (
   Utxo' (Utxo),
   VerificationKey,
   genKeyPair,
-  genUtxoFor,
   lovelaceToValue,
   mkSimpleCardanoTx,
   mkVkAddress,
@@ -96,7 +95,6 @@ import Hydra.TUI.Options (Options (..))
 import Lens.Micro (Lens', lens, (%~), (.~), (?~), (^.), (^?))
 import Lens.Micro.TH (makeLensesFor)
 import Paths_hydra_tui (version)
-import Test.QuickCheck (scale)
 import qualified Prelude
 
 -- XXX(SN): hard-coded network id

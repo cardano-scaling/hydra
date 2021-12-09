@@ -19,10 +19,12 @@ import Graphics.Vty (
   displayContext,
   initialAssumedState,
   inputForConfig,
+  outputFd,
   outputForConfig,
   outputPicture,
   shutdownInput,
  )
+import Graphics.Vty.Image (DisplayRegion)
 import Hydra.Logging (showLogsOnFailure)
 import Hydra.Network (Host (..))
 import Hydra.Party (generateKey)
@@ -30,6 +32,7 @@ import qualified Hydra.Party as Hydra
 import Hydra.TUI (runWithVty)
 import Hydra.TUI.Options (Options (..))
 import HydraNode (EndToEndLog, HydraClient (HydraClient, hydraNodeId), withHydraNode)
+import System.Posix (OpenMode (WriteOnly), closeFd, defaultFileFlags, openFd)
 
 spec :: Spec
 spec =
@@ -88,7 +91,7 @@ setupNodeAndTUI action =
         pparams <- queryProtocolParameters defaultNetworkId nodeSocket
         withHydraNode (contramap FromHydra tracer) aliceSkPath [] tmpDir nodeSocket nodeId aliceSk [] [nodeId] $ \HydraClient{hydraNodeId} -> do
           postSeedPayment defaultNetworkId pparams availableInitialFunds node aliceCardanoSk 900_000_000
-          withTUITest $ \brickTest@TUITest{buildVty} -> do
+          withTUITest (150, 10) $ \brickTest@TUITest{buildVty} -> do
             race_
               ( runWithVty
                   buildVty
@@ -113,8 +116,8 @@ data TUITest = TUITest
   , shouldRender :: HasCallStack => ByteString -> Expectation
   }
 
-withTUITest :: (TUITest -> Expectation) -> Expectation
-withTUITest action = do
+withTUITest :: DisplayRegion -> (TUITest -> Expectation) -> Expectation
+withTUITest region action = do
   frameBuffer <- newIORef mempty
   q <- newTQueueIO
   let getPicture = readIORef frameBuffer
@@ -139,7 +142,10 @@ withTUITest action = do
     -- always has the initial state to get a full rendering of the picture. That
     -- way we can capture output bytes line-by-line and drop the cursor moving.
     as <- newIORef initialAssumedState
-    realOut <- outputForConfig defaultConfig
+    -- NOTE(SN): The null device should allow using this in CI, while we do
+    -- capture the output via `outputByteBuffer` anyway.
+    nullOut <- openFd "/dev/null" WriteOnly Nothing defaultFileFlags
+    realOut <- outputForConfig $ defaultConfig{outputFd = Just nullOut}
     let output = testOut realOut as frameBuffer
     pure $
       Vty
@@ -154,11 +160,12 @@ withTUITest action = do
             writeIORef as initialAssumedState
             -- Clear our frame buffer to only keep the latest
             atomicModifyIORef'_ frameBuffer (const mempty)
-            -- TODO(SN): not hard-code this
-            dc <- displayContext output (150, 10)
+            dc <- displayContext output region
             outputPicture dc p
         , refresh = pure ()
-        , shutdown = shutdownInput input
+        , shutdown = do
+            shutdownInput input
+            closeFd nullOut
         , isShutdown = pure True
         }
 
@@ -167,6 +174,10 @@ withTUITest action = do
       { terminalID = "TUITest terminal"
       , outputByteBuffer = \bytes -> atomicModifyIORef'_ frameBuffer (<> bytes)
       , assumedStateRef = as
+      , -- NOTE(SN): Make display bounds non-configurable to ensure correct
+        -- rendering also when using /dev/null as output fd on initialization.
+        displayBounds = pure region
+      , setDisplayBounds = \_ -> pure ()
       , mkDisplayContext = \tActual rActual -> do
           -- NOTE(SN): Pass the fix point tActual into this to ensure it's using
           -- our overrides for 'assumedStateRef'
