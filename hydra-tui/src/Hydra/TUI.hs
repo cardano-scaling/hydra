@@ -34,7 +34,7 @@ import Graphics.Vty (
  )
 import qualified Graphics.Vty as Vty
 import Graphics.Vty.Attributes (defAttr)
-import Hydra.Client (Client (Client, sendInput), HydraEvent (..), withClient)
+import Hydra.Client (Client (..), HydraEvent (..), withClient)
 import Hydra.ClientInput (ClientInput (..))
 import Hydra.Ledger (IsTx (..))
 import Hydra.Ledger.Cardano (
@@ -62,7 +62,6 @@ import Hydra.Ledger.Cardano (
   serialiseAddress,
   txOutValueToLovelace,
   utxoMap,
-  utxoPairs,
  )
 import Hydra.Network (Host (..))
 import Hydra.Party (Party (Party, vkey))
@@ -345,10 +344,10 @@ handleCommitEvent ::
   CardanoClient ->
   State ->
   EventM n (Next State)
-handleCommitEvent Client{sendInput} CardanoClient{queryUtxoByAddress} s = case s ^? headStateL of
+handleCommitEvent Client{sendInput, myAddress} CardanoClient{queryUtxoByAddress} s = case s ^? headStateL of
   Just Initializing{} -> do
-    utxo <- liftIO $ queryUtxoByAddress [error "my address"]
-    continue $ s & dialogStateL .~ commitDialog utxo
+    utxo <- liftIO $ queryUtxoByAddress [myAddress]
+    continue $ s & dialogStateL .~ commitDialog (utxoMap utxo)
   _ ->
     continue $ s & feedbackL ?~ UserFeedback Error "Invalid command."
  where
@@ -356,9 +355,9 @@ handleCommitEvent Client{sendInput} CardanoClient{queryUtxoByAddress} s = case s
     Dialog title form submit
    where
     title = "Select UTXO to commit"
-    firstUtxo = Prelude.head (utxoPairs u)
-    onlyOneUtxo = Map.fromList [firstUtxo]
-    form = newForm (utxoCheckboxField onlyOneUtxo) ((,False) <$> onlyOneUtxo)
+    -- TODO: This should really be a radio field, because we want to only allow
+    -- one UTXO entry to be committed.
+    form = newForm (utxoCheckboxField u) ((,False) <$> u)
     submit s' selected = do
       let commitUtxo = Utxo $ Map.mapMaybe (\(v, p) -> if p then Just v else Nothing) selected
       liftIO (sendInput $ Commit commitUtxo)
