@@ -348,6 +348,8 @@ handleCommitEvent ::
 handleCommitEvent Client{sendInput, myAddress} CardanoClient{queryUtxoByAddress} s = case s ^? headStateL of
   Just Initializing{} -> do
     utxo <- liftIO $ queryUtxoByAddress [myAddress]
+    -- XXX(SN): this is a hydra implementation detail and should be moved
+    -- somewhere hydra specific
     let utxoWithoutFuel = Map.filter (not . isMarkedOutput) (utxoMap utxo)
     continue $ s & dialogStateL .~ commitDialog utxoWithoutFuel
   _ ->

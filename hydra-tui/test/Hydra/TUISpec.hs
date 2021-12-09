@@ -66,7 +66,13 @@ spec =
           sendInputEvent $ EvKey (KChar ' ') []
           sendInputEvent $ EvKey KEnter []
           threadDelay 1
-          shouldRender "committed" -- TODO(SN): update this, but the node crashes currently
+          shouldRender "Open"
+          sendInputEvent $ EvKey (KChar 'c') []
+          threadDelay 1
+          shouldRender "Closed"
+          threadDelay 10 -- contestation period
+          shouldRender "Final"
+          shouldRender "900.000000"
 
 setupNodeAndTUI :: (TUITest -> IO ()) -> IO ()
 setupNodeAndTUI action =
