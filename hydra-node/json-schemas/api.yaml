@@ -1,5 +1,5 @@
 ---
-"$id": https://raw.githubusercontent.com/input-output-hk/hydra-poc/master/hydra-node/
+"$id": https://raw.githubusercontent.com/input-output-hk/hydra-poc/master/hydra-node/json-schemas/
 "$schema": http://json-schema.org/draft/2020-12/schema
 "$comment": A synthetic description of the WebSocket API for Hydra Head nodes.
 title: Hydra WebSocket API
@@ -317,291 +317,29 @@ properties:
             $ref: "#/definitions/Party"
 
 definitions:
-  Peer:
-    type: object
-    properties:
-      hostname:
-        type: string
-        format: hostname
-      port:
-        type: number
-    examples:
-      - hostname: "10.0.0.10"
-        port: 5001
-
-  Party:
-    type: object
-    description: >-
-      The verification key for some Party in the Head protocol, uniquely identifying it.
-    additionalProperties: false
-    required:
-      - vkey
-    properties:
-      vkey:
-        type: string
-        contentEncoding: base16
-    examples:
-      - { "vkey": "0000000000000000" }
-      - { "vkey": "0000000000000001" }
-      - { "vkey": "0000000000000002" }
-
-  Snapshot:
-    type: object
-    required:
-    - snapshotNumber
-    - utxo
-    - confirmedTransactions
-    properties:
-      snapshotNumber:
-        type: integer
-      utxo:
-        $ref: "#/definitions/Utxo"
-      confirmedTransactions:
-        type: array
-        items:
-          $ref: "#/definitions/Transaction"
-
-  Utxo:
-    type: object
-    description: >-
-      Cardano Unspent transaction outputs (Utxo), mapping from TxId#index to TxOut
-    items:
-      $ref: "#/definitions/TxOut"
-    propertyNames:
-      pattern: "^[0-9a-f]{64}#[0-9]+$"
-    examples:
-      - "09d34606abdcd0b10ebc89307cbfa0b469f9144194137b45b7a04b273961add8#687":
-          "address": "addr1w9htvds89a78ex2uls5y969ttry9s3k9etww0staxzndwlgmzuul5"
-          "value":
-            "lovelace": 7620669
-
-  Transaction:
-    type: object
-    description: >-
-      A full Mary-era Cardano transaction. This is a simplification over the full definition of a Cardano Transaction,
-      whose grammar is described using CDDL here: https://github.com/input-output-hk/cardano-ledger-specs/blob/master/shelley-ma/shelley-ma-test/cddl-files/shelley-ma.cddl#L13
-    required:
-    - id
-    - isValid
-    - body
-    additionalProperties: false
-    properties:
-      id:
-        $ref: "#/definitions/TxId"
-      isValid:
-          type: boolean
-      body:
-        $ref: "#/definitions/TxBody"
-      witnesses:
-        type: object
-        additionalProperties: false
-        properties:
-          keys:
-            type: array
-            description: >-
-              List of public keys witnessing pay-to-pubkey inputs.
-            items:
-              $ref: "#/definitions/Cbor"
-          scripts:
-            type: object
-            description: >-
-              An object mapping script hashes to script definitions, encoded in CBOR.
-            patternProperties:
-              "[0-9a-f]+":
-                $ref: "#/definitions/Cbor"
-          redeemers:
-            <<: { $ref: "#/definitions/Cbor" }
-            description: >-
-              An hex-encoded, CBOR-serialised, mapping of redeemer hashes to their definition.
-          datums:
-            type: object
-            description: >-
-              An object mapping datum hashes to their definition, encoded in CBOR
-            patternProperties:
-              "[0-9a-f]+":
-                $ref: "#/definitions/Cbor"
-      auxiliaryData:
-        <<:
-          $ref: "#/definitions/Cbor"
-        description: >-
-          Hex-encoding of CBOR encoding of auxiliary data attached to this transaction. Can be null if
-          there's no auxiliary data
-
-  TxId:
-    type: string
-    pattern: "^[0-9a-f]{64}"
-    description: >-
-      A Cardano transaction identifier. This is the hex-encoded hash of the
-      transaction's body.
-    examples:
-      - "8df1616d4337ede40bbad2914f12977815234b83951bcce3bfcd735aed3f63e4"
-
-  TxBody:
-    type: object
-    required:
-    - inputs
-    - outputs
-    additionalProperties: false
-    properties:
-      inputs:
-        type: array
-        description: >-
-          A list of inputs for this transaction. Technically, this is actually a Set, eg. the order of elements does not matter and they must be unique.
-        items:
-          $ref: "#/definitions/TxIn"
-      collateral:
-        type: array
-        description: >-
-          A list of collateral inputs for this transaction.
-        items:
-          $ref: "#/definitions/TxIn"
-      outputs:
-        type: array
-        description: >-
-          A list of outputs. Ordering is important here because a TxOut is referenced by its
-          position in the inputs of subsequent transactions.
-        items:
-          $ref: "#/definitions/TxOut"
-      certificates:
-        type: array
-        description: >-
-          An array of certificates, encoded as hexadecimal representation of CBOR serialisation.
-        items:
-          $ref: "#/definitions/Cbor"
-      withdrawals:
-        type: array
-        description: >-
-          An array of withdrawal.
-        items:
-          $ref: "#/definitions/Withdrawal"
-      fees:
-        type: integer
-        minimum: 0
-        description: >-
-          Fees paid for this transaction, in lovelace.
-      validity:
-        type: object
-        description: >-
-          Validity interval of this transaction. Both bounds can be omitted in which case the transaction
-          has unlimited validity. Each bound is a slot number.
-        properties:
-          notBefore:
-            type: integer
-          notAfter:
-            type: integer
-      auxiliaryDataHash:
-        type: string
-        contentEncoding: base16
-        description: >-
-          Hex-encoding of the hash of auxiliary data section of the transactions.
-        examples:
-        - "9b258583229a324c3021d036e83f3c1e69ca4a586a91fad0bc9e4ce79f7411e0"
-      mint:
-        description: >-
-          Values minted by this transaction
-        $ref: "#/definitions/Value"
-      networkId:
-          type: string
-          enum:
-            - Mainnet
-            - Testnet
-      scriptIntegrityHash:
-        type: string
-        contentEncoding: base16
-        description: >-
-          Hex-encoding of the hash of script data section of the transaction.
-        examples:
-        - "9b258583229a324c3021d036e83f3c1e69ca4a586a91fad0bc9e4ce79f7411e0"
-      requiredSignatures:
-        type: array
-        items:
-          type: string
-          contentEncoding: base16
-          description: >-
-            Hex-encoding of the hash of verification keys identifying extra expected signers.
-
-  TxIn:
-    type: string
-    pattern: "^[0-9a-f]{64}#[0-9]+$"
-    description: >-
-      A reference to a Cardano transaction output, commonly used as transaction
-      input and thus named TxIn. Constructed from the transaction's id and
-      the ouput index, separated by a '#'.
-    examples:
-      - "03170a2e7597b7b7e3d84c05391d139a62b157e78786d8c082f29dcf4c111314#4"
-
-  TxOut:
-    type: object
-    description: >-
-      A single transaction output
-    required:
-    - address
-    - value
-    additionalProperties: false
-    properties:
-      address:
-        $ref: "#/definitions/Address"
-      value:
-        $ref: "#/definitions/Value"
-      datumhash:
-        type: string
-        contentEncoding: base16
-
   Address:
-    type: string
-    description: >-
-      A bech-32 encoded Cardano address, see
-      https://github.com/bitcoin/bips/blob/master/bip-0173.mediawiki#Bech32s and
-      https://github.com/cardano-foundation/CIPs/blob/master/CIP-0005/CIP-0005.md
-    examples:
-      - "addr1w9htvds89a78ex2uls5y969ttry9s3k9etww0staxzndwlgmzuul5"
-      - "addr_test1gpr87kyn9d2fzpvy5r5w5fdzyhsx59znpvhfd6fcc5ar7g5yl33cdg0cq24ewdshsutgm"
-
-  Value:
-    type: object
-    description: >-
-      A Mary-era Cardano value. This is an object containing a number of lovelaces, and
-      optional assets, mapping some monetary policy identifier to a
-      mapping of coin (arbitrary strings) to some integer value.
-
-      Assets represent native tokens available on the Cardano blockchain,
-      including Non-Fungible Tokens.
-    additionalProperties:
-      type: object
-      description: >-
-        A map of 'asset names' to integral values. The key is
-        the hex-encoded name of the asset.
-      minProperties: 1
-      patternProperties:
-        "[0-9a-f]*":
-          type: integer
-          minimum: 0
-          description: >-
-            Some positive number of some 'coin'.
-    properties:
-      lovelace:
-        type: integer
-        minimum: 0
-        description: >-
-          A (positive) amount of lovelace
-
-  Withdrawal:
-    type: object
-    description: >-
-      A withdrawal of some number of coins to some reward address.
-    additionalProperties: false
-    patternProperties:
-      "[0-9a-f]+":
-        type: integer
-        minimum: 0
-        description: >-
-          Some non-negative lovelace value.
-
+    $ref: "common.json#/definitions/Address"
   Cbor:
-    type: string
-    contentEncoding: base16
-    format: cbor
-    description: >-
-      The hex-encoding of the CBOR encoding of some binary data
-    examples:
-      - "820082582089ff4f3ff4a6052ec9d073b3be68b5e7596bd74a04e7b74504a8302fb2278cd95840f66eb3cd160372d617411408792c0ebd9791968e9948112894e2706697a55c10296b04019ed2f146f4d81e8ab17b9d14cf99569a2f85cbfa32320127831db202"
+    $ref: "common.json#/definitions/Cbor"
+  Party:
+    $ref: "common.json#/definitions/Party"
+  Peer:
+    $ref: "common.json#/definitions/Peer"
+  Snapshot:
+    $ref: "common.json#/definitions/Snapshot"
+  Transaction:
+    $ref: "common.json#/definitions/Transaction"
+  TxBody:
+    $ref: "common.json#/definitions/TxBody"
+  TxId:
+    $ref: "common.json#/definitions/TxId"
+  TxIn:
+    $ref: "common.json#/definitions/TxIn"
+  TxOut:
+    $ref: "common.json#/definitions/TxOut"
+  Utxo:
+    $ref: "common.json#/definitions/Utxo"
+  Value:
+    $ref: "common.json#/definitions/Value"
+  Withdrawal:
+    $ref: "common.json#/definitions/Withdrawal"

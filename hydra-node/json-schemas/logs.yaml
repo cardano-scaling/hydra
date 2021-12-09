@@ -1,5 +1,5 @@
 ---
-"$id": https://raw.githubusercontent.com/input-output-hk/hydra-poc/master/hydra-node/
+"$id": https://raw.githubusercontent.com/input-output-hk/hydra-poc/master/hydra-node/json-schemas/
 "$schema": http://json-schema.org/draft/2020-12/schema
 "$comment": A description of the log items produced by a Hydra node
 title: Hydra Log API
@@ -728,13 +728,13 @@ definitions:
     $ref: "api.json#/properties/inputs/items"
   ServerOutput:
     $ref: "api.json#/properties/outputs/items"
-  Snapshot:
-    $ref: "api.json#/definitions/Snapshot"
-  Utxo:
-    $ref: "api.json#/definitions/Utxo"
-  Transaction:
-    $ref: "api.json#/definitions/Transaction"
   Party:
-    $ref: "api.json#/definitions/Party"
+    $ref: "common.json#/definitions/Party"
   Peer:
-    $ref: "api.json#/definitions/Peer"
+    $ref: "common.json#/definitions/Peer"
+  Snapshot:
+    $ref: "common.json#/definitions/Snapshot"
+  Transaction:
+    $ref: "common.json#/definitions/Transaction"
+  Utxo:
+    $ref: "common.json#/definitions/Utxo"
