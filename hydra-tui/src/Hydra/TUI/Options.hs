@@ -2,17 +2,20 @@ module Hydra.TUI.Options where
 
 import Hydra.Prelude
 
+import Hydra.Ledger.Cardano (NetworkId)
 import Hydra.Network (Host (Host))
 import Options.Applicative (Parser, auto, help, long, option, short, showDefault, value)
 
 data Options = Options
   { hydraNodeHost :: Host
   , cardanoNodeSocket :: FilePath
+  , cardanoNetworkId :: NetworkId
+  , cardanoVerificationKey :: FilePath
   }
 
 parseOptions :: Parser Options
 parseOptions =
-  Options <$> parseNodeHost <*> pure ""
+  Options <$> parseNodeHost <*> pure "" <*> parseCardanoNetworkId <*> parseCardanoVerificationKey
 
 parseNodeHost :: Parser Host
 parseNodeHost =
@@ -24,3 +27,9 @@ parseNodeHost =
         <> value (Host "0.0.0.0" 4001)
         <> showDefault
     )
+
+parseCardanoNetworkId :: Parser NetworkId
+parseCardanoNetworkId = error "parseCardanoNetworkId"
+
+parseCardanoVerificationKey :: Parser FilePath
+parseCardanoVerificationKey = error "parseCardanoVerificationKey"

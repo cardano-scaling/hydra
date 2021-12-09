@@ -76,11 +76,11 @@ setupNodeAndTUI action =
       (aliceCardanoVk, aliceCardanoSk) <- keysFor "alice"
       let alicePaymentVk = fromRawVKey aliceCardanoVk
       withBFTNode (contramap FromCardano tracer) config [alicePaymentVk] $ \node@(RunningNode _ nodeSocket) -> do
-        (_, cardanoKey) <- writeKeysFor tmpDir "alice"
+        (aliceVkPath, aliceSkPath) <- writeKeysFor tmpDir "alice"
         -- XXX(SN): API port id is inferred from nodeId, in this case 4001
         let nodeId = 1
         pparams <- queryProtocolParameters defaultNetworkId nodeSocket
-        withHydraNode (contramap FromHydra tracer) cardanoKey [] tmpDir nodeSocket nodeId aliceSk [] [nodeId] $ \HydraClient{hydraNodeId} -> do
+        withHydraNode (contramap FromHydra tracer) aliceSkPath [] tmpDir nodeSocket nodeId aliceSk [] [nodeId] $ \HydraClient{hydraNodeId} -> do
           postSeedPayment defaultNetworkId pparams availableInitialFunds node aliceCardanoSk 900_000_000
           withTUITest $ \brickTest@TUITest{buildVty} -> do
             race_
@@ -93,6 +93,8 @@ setupNodeAndTUI action =
                           , port = 4000 + fromIntegral hydraNodeId
                           }
                     , cardanoNodeSocket = nodeSocket
+                    , cardanoNetworkId = defaultNetworkId
+                    , cardanoVerificationKey = aliceVkPath
                     }
               )
               $ do
