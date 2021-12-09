@@ -58,7 +58,6 @@ import Test.QuickCheck (
   frequency,
   generate,
   getSize,
-  label,
   property,
   scale,
   suchThat,
@@ -158,8 +157,8 @@ prop_balanceTransaction =
     forAllBlind (reasonablySized $ genOutputsForInputs tx) $ \lookupUtxo ->
       forAllBlind genMarkedUtxo $ \walletUtxo ->
         case coverFee_ pparams lookupUtxo walletUtxo tx of
-          Left{} ->
-            property True & label "Left"
+          Left err ->
+            property False & counterexample ("Error: " <> show err)
           Right (_, tx') -> isBalanced (lookupUtxo <> walletUtxo) tx tx'
 
 isBalanced :: Map TxIn TxOut -> ValidatedTx Era -> ValidatedTx Era -> Property
@@ -169,7 +168,6 @@ isBalanced utxo originalTx balancedTx =
       out = outputBalance originalTx
       fee = (txfee . body) balancedTx
    in coin (deltaValue out' inp') == fee
-        & label "Right"
         & counterexample ("Fee:             " <> show fee)
         & counterexample ("Delta value:     " <> show (coin $ deltaValue out' inp'))
         & counterexample ("Added value:     " <> show (coin inp'))
@@ -186,11 +184,10 @@ prop_removeUsedInputs =
  where
   prop' txUtxo walletUtxo tx =
     case coverFee_ pparams mempty walletUtxo tx of
-      Left e ->
-        property True & label (show e)
+      Left err ->
+        property False & counterexample ("Error: " <> show err)
       Right (utxo', _) ->
         null (Map.intersection walletUtxo utxo')
-          & label "Right"
           & counterexample ("Remaining UTXO: " <> show utxo')
           & counterexample ("Tx UTxO: " <> show txUtxo)
           & counterexample ("Wallet UTXO: " <> show walletUtxo)
