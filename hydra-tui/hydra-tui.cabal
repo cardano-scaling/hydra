@@ -91,6 +91,7 @@ library
     , hydra-node
     , hydra-prelude
     , io-classes
+    , local-cluster
     , microlens
     , microlens-th
     , optparse-applicative
