@@ -5,7 +5,7 @@ import Test.Hydra.Prelude
 
 import Hydra.Ledger.Cardano (NetworkId (Mainnet, Testnet), NetworkMagic (NetworkMagic))
 import Hydra.Network (Host (Host))
-import Hydra.TUI.Options (parseCardanoNetworkId, parseNodeHost)
+import Hydra.TUI.Options (parseCardanoNetworkId, parseCardanoVerificationKey, parseNodeHost)
 import Options.Applicative (Parser, ParserResult (Success), defaultPrefs, execParserPure, info)
 
 spec :: Spec
@@ -16,6 +16,8 @@ spec = parallel $ do
     shouldParseWith parseCardanoNetworkId ["--network-id", "123"] (Testnet $ NetworkMagic 123)
   it "defaults --network-id to Mainnet" $ do
     shouldParseWith parseCardanoNetworkId [] Mainnet
+  it "parses --verification-key option" $ do
+    shouldParseWith parseCardanoVerificationKey ["--verification-key", "foo.vk"] "foo.vk"
 
 shouldParseWith :: (Show a, Eq a) => Parser a -> [String] -> a -> Expectation
 shouldParseWith parser args result =

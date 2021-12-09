@@ -4,7 +4,7 @@ import Hydra.Prelude
 
 import Hydra.Ledger.Cardano (NetworkId (Mainnet, Testnet), NetworkMagic (NetworkMagic))
 import Hydra.Network (Host (Host))
-import Options.Applicative (Parser, auto, help, long, option, short, showDefault, value)
+import Options.Applicative (Parser, auto, help, long, metavar, option, short, showDefault, strOption, value)
 
 data Options = Options
   { hydraNodeHost :: Host
@@ -39,6 +39,7 @@ parseCardanoNetworkId =
         auto
         ( long "network-id"
             <> short 'n'
+            <> metavar "INTEGER"
             <> help "The network magic number identifying the testnet to connect to."
             <> showDefault
         )
@@ -46,4 +47,12 @@ parseCardanoNetworkId =
     <|> pure Mainnet
 
 parseCardanoVerificationKey :: Parser FilePath
-parseCardanoVerificationKey = error "parseCardanoVerificationKey"
+parseCardanoVerificationKey =
+  strOption
+    ( long "verification-key"
+        <> short 'k'
+        <> metavar "FILE"
+        <> help "The path to the verification key file used for selecting and committing UTxO. This file used the same 'Envelope' format than cardano-cli."
+        <> value "me.vk"
+        <> showDefault
+    )
