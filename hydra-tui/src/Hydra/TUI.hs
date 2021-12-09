@@ -710,10 +710,10 @@ faucetUtxo party@Party{vkey} =
 -- NOTE(SN): At the end of the module because of TH
 
 runWithVty :: IO Vty -> Options -> IO State
-runWithVty buildVty Options{hydraNodeHost, cardanoNetworkId, cardanoNodeSocket} = do
+runWithVty buildVty options@Options{hydraNodeHost, cardanoNetworkId, cardanoNodeSocket} = do
   eventChan <- newBChan 10
   -- REVIEW(SN): what happens if callback blocks?
-  withClient @CardanoTx hydraNodeHost (writeBChan eventChan) $ \client -> do
+  withClient @CardanoTx options (writeBChan eventChan) $ \client -> do
     initialVty <- buildVty
     customMain initialVty buildVty (Just eventChan) (app client) initialState
  where
