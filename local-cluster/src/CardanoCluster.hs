@@ -124,9 +124,6 @@ writeKeysFor targetDir actor = do
 
   vkName = actor <.> ".vk"
 
-verificationKeyPathFor :: String -> FilePath
-verificationKeyPathFor actor = "config" </> "credentials" </> actor <.> "vk"
-
 withBFTNode ::
   Tracer IO ClusterLog ->
   CardanoNodeConfig ->

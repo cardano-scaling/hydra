@@ -4,8 +4,7 @@ import Hydra.Prelude
 import Test.Hydra.Prelude
 
 import Blaze.ByteString.Builder.Char8 (writeChar)
-import CardanoCluster (ClusterLog, newNodeConfig, signingKeyPathFor, withBFTNode, writeKeysFor)
-import CardanoClusterFixture (readConfigFile)
+import CardanoCluster (ClusterLog, newNodeConfig, withBFTNode, writeKeysFor)
 import CardanoNode (RunningNode (RunningNode))
 import Control.Monad.Class.MonadSTM (newTQueueIO, readTQueue, tryReadTQueue, writeTQueue)
 import qualified Data.ByteString as BS
