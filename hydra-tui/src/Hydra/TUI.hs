@@ -34,6 +34,7 @@ import Graphics.Vty (
  )
 import qualified Graphics.Vty as Vty
 import Graphics.Vty.Attributes (defAttr)
+import Hydra.Chain.Direct.Util (isMarkedOutput)
 import Hydra.Client (Client (..), HydraEvent (..), withClient)
 import Hydra.ClientInput (ClientInput (..))
 import Hydra.Ledger (IsTx (..))
@@ -347,7 +348,8 @@ handleCommitEvent ::
 handleCommitEvent Client{sendInput, myAddress} CardanoClient{queryUtxoByAddress} s = case s ^? headStateL of
   Just Initializing{} -> do
     utxo <- liftIO $ queryUtxoByAddress [myAddress]
-    continue $ s & dialogStateL .~ commitDialog (utxoMap utxo)
+    let utxoWithoutFuel = Map.filter (not . isMarkedOutput) (utxoMap utxo)
+    continue $ s & dialogStateL .~ commitDialog utxoWithoutFuel
   _ ->
     continue $ s & feedbackL ?~ UserFeedback Error "Invalid command."
  where
