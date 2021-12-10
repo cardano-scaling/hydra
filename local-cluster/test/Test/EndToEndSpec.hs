@@ -82,8 +82,8 @@ spec = around showLogsOnFailure $
             config <- newNodeConfig tmpDir
             (aliceCardanoVk, aliceCardanoSk) <- keysFor "alice"
             (bobCardanoVk, bobCardanoSk) <- keysFor "bob"
-            (_carolCardanoVk, carolCardanoSk) <- keysFor "carol"
-            withBFTNode (contramap FromCluster tracer) config [aliceCardanoVk, bobCardanoVk] $ \node@(RunningNode _ nodeSocket) -> do
+            (carolCardanoVk, carolCardanoSk) <- keysFor "carol"
+            withBFTNode (contramap FromCluster tracer) config [aliceCardanoVk, bobCardanoVk, carolCardanoVk] $ \node@(RunningNode _ nodeSocket) -> do
               (aliceVkPath, aliceSkPath) <- writeKeysFor tmpDir "alice"
               (bobVkPath, bobSkPath) <- writeKeysFor tmpDir "bob"
               (carolVkPath, carolSkPath) <- writeKeysFor tmpDir "carol"
