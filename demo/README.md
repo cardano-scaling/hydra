@@ -12,6 +12,8 @@ you get `LedgerNoView` errors from the `cardano-node`, that means the start
 times are too far in the past and you should update them e.g. using the
 `prepare-devnet.sh` script.
 
+# Starting Network
+
 # With Docker
 
 Using [`docker-compose`](https://docs.docker.com/compose/) you can start the demo cluster with:
@@ -19,13 +21,6 @@ Using [`docker-compose`](https://docs.docker.com/compose/) you can start the dem
 docker-compose pull
 ./prepare-devnet.sh
 docker-compose up -d
-```
-And attach three `hydra-tui` clients to each `hydra-node` (in three terminals):
-
-``` sh
-docker --profile tui run hydra-tui-1 
-docker --profile tui run hydra-tui-2
-docker --profile tui run hydra-tui-3
 ```
 
 NOTE: You can query the `cardano-node` using the host-mounted socket file in
@@ -111,8 +106,34 @@ cabal exec hydra-node -- \
 
 If things go well, the nodes should start logging once they are connected to the chain.
 
-Then from yet another set of 3 terminals, connect to the nodes using
-`hydra-tui`. For example to use Alice's `hydra-node` and her on-chain
+# Running clients
+
+## Seeding Network
+
+In the current stage of development, Hydra nodes need a specially crafted set of UTXO to work properly and of course some UTXO to be committed to the head.
+To seed the network with those UTXO, posting a transaction, one can use the `seed-network` executable:
+
+For example, to ensure Alice can commit some UTXO and also that "her" node can pay for the Hydra transactions, run:
+
+```
+cabal run seed-network -- --cardano-node-socket demo/devnet/ipc/node.socket --cardano-signing-key demo/devnet/credentials/alice.sk
+```
+
+## With Docker
+
+Using [`docker-compose`](https://docs.docker.com/compose/) you can start the demo _Terminal-based User Interface_ aka. `hydra-tui` to interact with Hydra nodes.
+
+There are 3 preconfigured TUIs to be run using `docker-compose`, `hydra-tui-1`, `hydra-tui-2` and `hydra-tui-3`.
+To connect to the first Hydra node in a terminal, run the following commands:
+
+``` sh
+cd demo
+docker-compose --profile tui run hydra-tui-1
+```
+
+## Without docker
+
+Connect to the nodes using `hydra-tui`. For example to use Alice's `hydra-node` and her on-chain
 credentials:
 
 ```sh
