@@ -1008,6 +1008,7 @@
           "testing-type-modifiers".components.library.planned = lib.mkOverride 900 true;
           "prometheus".components.library.planned = lib.mkOverride 900 true;
           "bech32".components.exes."bech32".planned = lib.mkOverride 900 true;
+          "hydra-tui".components.tests."tests".planned = lib.mkOverride 900 true;
           "xml-conduit".components.setup.planned = lib.mkOverride 900 true;
           "http2".components.library.planned = lib.mkOverride 900 true;
           "generic-monoid".components.library.planned = lib.mkOverride 900 true;
@@ -1143,7 +1144,6 @@
           "http-date".components.library.planned = lib.mkOverride 900 true;
           "concurrent-output".components.library.planned = lib.mkOverride 900 true;
           "ouroboros-network-framework".components.exes."demo-ping-pong".planned = lib.mkOverride 900 true;
-          "hydra-tui".components.tests."unit".planned = lib.mkOverride 900 true;
           "mono-traversable".components.library.planned = lib.mkOverride 900 true;
           "integer-gmp".components.library.planned = lib.mkOverride 900 true;
           "http-media".components.library.planned = lib.mkOverride 900 true;

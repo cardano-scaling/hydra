@@ -91,6 +91,7 @@ library
     , hydra-node
     , hydra-prelude
     , io-classes
+    , local-cluster
     , microlens
     , microlens-th
     , optparse-applicative
@@ -111,7 +112,7 @@ executable hydra-tui
 
   ghc-options:    -threaded -rtsopts
 
-test-suite unit
+test-suite tests
   import:             project-config
   hs-source-dirs:     test
   other-modules:
@@ -123,12 +124,22 @@ test-suite unit
   type:               exitcode-stdio-1.0
   build-depends:
     , base
+    , blaze-builder
+    , bytestring
     , hspec
     , hydra-node
     , hydra-prelude
     , hydra-test-utils
     , hydra-tui
+    , io-classes
+    , local-cluster
     , optparse-applicative
+    , temporary
+    , unix
+    , vty
 
-  build-tool-depends: hspec-discover:hspec-discover -any
+  build-tool-depends:
+    hspec-discover:hspec-discover -any, hydra-node:hydra-node -any,
+    cardano-node:cardano-node -any
+
   ghc-options:        -threaded -rtsopts

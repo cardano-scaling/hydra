@@ -8,13 +8,13 @@ import Hydra.Prelude
 
 import Cardano.Api (
   AsType (..),
-  HasTextEnvelope,
   NetworkId (Testnet),
   NetworkMagic (NetworkMagic),
   PaymentKey,
   SigningKey (PaymentSigningKey),
+  TextEnvelopeError (TextEnvelopeAesonDecodeError),
   VerificationKey,
-  readFileTextEnvelope,
+  deserialiseFromTextEnvelope,
   serialiseToRawBytes,
  )
 import Cardano.Api.Shelley (VerificationKey (PaymentVerificationKey))
@@ -31,7 +31,6 @@ import CardanoNode (
   RunningNode (..),
   addField,
   defaultCardanoNodeArgs,
-  unsafeDecodeJsonFile,
   withCardanoNode,
  )
 import Control.Lens ((.~))
@@ -39,13 +38,11 @@ import Control.Tracer (Tracer, traceWith)
 import Data.Aeson (object)
 import qualified Data.Aeson as Aeson
 import Data.Aeson.Lens (key)
+import qualified Data.ByteString as BS
 import Data.ByteString.Base16 (encodeBase16)
 import qualified Hydra.Chain.Direct.Util as Cardano
-import System.Directory (
-  copyFile,
-  createDirectoryIfMissing,
-  doesFileExist,
- )
+import qualified Paths_local_cluster as Pkg
+import System.Directory (createDirectoryIfMissing, doesFileExist)
 import System.FilePath ((<.>), (</>))
 import System.Posix.Files (
   ownerReadMode,
@@ -75,14 +72,6 @@ data ClusterConfig = ClusterConfig
   , initialFunds :: [Cardano.VerificationKey]
   }
 
-readFileTextEnvelopeThrow ::
-  HasTextEnvelope a =>
-  AsType a ->
-  FilePath ->
-  IO a
-readFileTextEnvelopeThrow asType =
-  either (fail . show) pure <=< readFileTextEnvelope asType
-
 asSigningKey :: AsType (SigningKey PaymentKey)
 asSigningKey = AsSigningKey AsPaymentKey
 
@@ -104,18 +93,40 @@ withCluster tr cfg@ClusterConfig{parentStateDirectory, initialFunds} action = do
 
 keysFor :: String -> IO (Cardano.VerificationKey, Cardano.SigningKey)
 keysFor actor = do
-  PaymentSigningKey sk <-
-    readFileTextEnvelopeThrow
-      asSigningKey
-      (signingKeyPathFor actor)
-  let vk = deriveVerKeyDSIGN sk
-  pure (vk, sk)
+  bs <- readConfigFile ("credentials" </> actor <.> "sk")
+  let res =
+        first TextEnvelopeAesonDecodeError (Aeson.eitherDecodeStrict bs)
+          >>= deserialiseFromTextEnvelope asSigningKey
+  case res of
+    Left err ->
+      fail $ "cannot decode text envelope from '" <> show bs <> "', error: " <> show err
+    Right (PaymentSigningKey sk) -> do
+      let vk = deriveVerKeyDSIGN sk
+      pure (vk, sk)
 
-signingKeyPathFor :: String -> FilePath
-signingKeyPathFor actor = "config" </> "credentials" </> actor <.> "sk"
+fromRawVKey :: Cardano.VerificationKey -> VerificationKey PaymentKey
+fromRawVKey = PaymentVerificationKey . VKey
 
-verificationKeyPathFor :: String -> FilePath
-verificationKeyPathFor actor = "config" </> "credentials" </> actor <.> "vk"
+-- | Write the "well-known" keys for given actor into a target directory.
+writeKeysFor ::
+  -- | Target directory
+  FilePath ->
+  -- | Actor name, e.g. "alice"
+  String ->
+  -- | Paths of written keys in the form of (verification key, signing key)
+  IO (FilePath, FilePath)
+writeKeysFor targetDir actor = do
+  readConfigFile ("credentials" </> skName) >>= writeFileBS skTarget
+  readConfigFile ("credentials" </> vkName) >>= writeFileBS vkTarget
+  pure (vkTarget, skTarget)
+ where
+  skTarget = targetDir </> skName
+
+  vkTarget = targetDir </> vkName
+
+  skName = actor <.> ".sk"
+
+  vkName = actor <.> ".vk"
 
 withBFTNode ::
   Tracer IO ClusterLog ->
@@ -146,19 +157,19 @@ withBFTNode clusterTracer cfg initialFunds action = do
           , nodePort = Just (ours (ports cfg))
           }
 
-  copyFile
-    ("config" </> "cardano-node.json")
-    (stateDirectory cfg </> nodeConfigFile args)
+  readConfigFile "cardano-node.json"
+    >>= writeFileBS
+      (stateDirectory cfg </> nodeConfigFile args)
 
-  copyFile
-    ("config" </> "genesis-byron.json")
-    (stateDirectory cfg </> nodeByronGenesisFile args)
+  readConfigFile "genesis-byron.json"
+    >>= writeFileBS
+      (stateDirectory cfg </> nodeByronGenesisFile args)
 
   setInitialFundsInGenesisShelley (stateDirectory cfg </> nodeShelleyGenesisFile args)
 
-  copyFile
-    ("config" </> "genesis-alonzo.json")
-    (stateDirectory cfg </> nodeAlonzoGenesisFile args)
+  readConfigFile "genesis-alonzo.json"
+    >>= writeFileBS
+      (stateDirectory cfg </> nodeAlonzoGenesisFile args)
 
   withCardanoNode nodeTracer cfg args $ \rn -> do
     traceWith clusterTracer $ MsgNodeStarting cfg
@@ -172,7 +183,8 @@ withBFTNode clusterTracer cfg initialFunds action = do
   opCertFilename i = "opcert" <> show i <> ".cert"
 
   setInitialFundsInGenesisShelley file = do
-    genesisJson <- unsafeDecodeJsonFile @Aeson.Value ("config" </> "genesis-shelley.json")
+    bs <- readConfigFile "genesis-shelley.json"
+    genesisJson <- either fail pure $ Aeson.eitherDecodeStrict @Aeson.Value bs
     let updatedJson = genesisJson & key "initialFunds" .~ initialFundsValue
     Aeson.encodeFile file updatedJson
 
@@ -189,9 +201,9 @@ withBFTNode clusterTracer cfg initialFunds action = do
      in (encodeBase16 bytes, availableInitialFunds)
 
   copyCredential parentDir file = do
-    let source = "config" </> "credentials" </> file
+    bs <- readConfigFile ("credentials" </> file)
     let destination = parentDir </> file
-    copyFile source destination
+    writeFileBS destination bs
     setFileMode destination ownerReadMode
     pure destination
 
@@ -236,6 +248,12 @@ newNodeConfig stateDirectory = do
       , systemStart
       , ports = PortsConfig nodePort []
       }
+
+-- | Lookup a config file similar reading a file from disk.
+readConfigFile :: FilePath -> IO ByteString
+readConfigFile source = do
+  filename <- Pkg.getDataFileName ("config" </> source)
+  BS.readFile filename
 
 --
 -- Logging

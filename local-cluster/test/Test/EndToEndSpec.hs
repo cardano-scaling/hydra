@@ -25,9 +25,8 @@ import CardanoCluster (
   defaultNetworkId,
   keysFor,
   newNodeConfig,
-  signingKeyPathFor,
-  verificationKeyPathFor,
   withBFTNode,
+  writeKeysFor,
  )
 import CardanoNode (RunningNode (RunningNode))
 import Control.Lens ((^?))
@@ -78,8 +77,8 @@ allNodeIds = [1 .. 3]
 spec :: Spec
 spec = around showLogsOnFailure $
   describe "End-to-end test using a single cardano-node" $ do
-    describe "three hydra nodes scenario" $ do
-      it "inits a Head, processes a single Cardano transaction and closes it again" $ \tracer -> do
+    describe "three hydra nodes scenario" $
+      it "inits a Head, processes a single Cardano transaction and closes it again" $ \tracer ->
         failAfter 60 $
           withTempDir "end-to-end-inits-and-closes" $ \tmpDir -> do
             config <- newNodeConfig tmpDir
@@ -88,12 +87,13 @@ spec = around showLogsOnFailure $
             (carolCardanoVk, carolCardanoSk) <- keysFor "carol"
             let keysToPayInitialFund@[alicePaymentVk, bobPaymentVk, _] = PaymentVerificationKey . VKey <$> [aliceCardanoVk, bobCardanoVk, carolCardanoVk]
             withBFTNode (contramap FromCluster tracer) config keysToPayInitialFund $ \node@(RunningNode _ nodeSocket) -> do
-              let sk = signingKeyPathFor
-              let vk = verificationKeyPathFor
+              (aliceVkPath, aliceSkPath) <- writeKeysFor tmpDir "alice"
+              (bobVkPath, bobSkPath) <- writeKeysFor tmpDir "bob"
+              (carolVkPath, carolSkPath) <- writeKeysFor tmpDir "carol"
               pparams <- queryProtocolParameters defaultNetworkId nodeSocket
-              withHydraNode tracer (sk "alice") (vk <$> ["bob", "carol"]) tmpDir nodeSocket 1 aliceSk [bobVk, carolVk] allNodeIds $ \n1 ->
-                withHydraNode tracer (sk "bob") (vk <$> ["alice", "carol"]) tmpDir nodeSocket 2 bobSk [aliceVk, carolVk] allNodeIds $ \n2 ->
-                  withHydraNode tracer (sk "carol") (vk <$> ["alice", "bob"]) tmpDir nodeSocket 3 carolSk [aliceVk, bobVk] allNodeIds $ \n3 -> do
+              withHydraNode tracer aliceSkPath [bobVkPath, carolVkPath] tmpDir nodeSocket 1 aliceSk [bobVk, carolVk] allNodeIds $ \n1 ->
+                withHydraNode tracer bobSkPath [aliceVkPath, carolVkPath] tmpDir nodeSocket 2 bobSk [aliceVk, carolVk] allNodeIds $ \n2 ->
+                  withHydraNode tracer carolSkPath [aliceVkPath, bobVkPath] tmpDir nodeSocket 3 carolSk [aliceVk, bobVk] allNodeIds $ \n3 -> do
                     waitForNodesConnected tracer allNodeIds [n1, n2, n3]
                     postSeedPayment defaultNetworkId pparams availableInitialFunds node aliceCardanoSk 100_000_000
                     postSeedPayment defaultNetworkId pparams availableInitialFunds node bobCardanoSk 100_000_000
@@ -179,19 +179,20 @@ spec = around showLogsOnFailure $
                       Success u ->
                         failAfter 5 $ waitForUtxo defaultNetworkId nodeSocket u
 
-    describe "Monitoring" $ do
-      it "Node exposes Prometheus metrics on port 6001" $ \tracer -> do
+    describe "Monitoring" $
+      it "Node exposes Prometheus metrics on port 6001" $ \tracer ->
         withTempDir "end-to-end-prometheus-metrics" $ \tmpDir -> do
           config <- newNodeConfig tmpDir
           (aliceCardanoVk, aliceCardanoSk) <- keysFor "alice"
           withBFTNode (contramap FromCluster tracer) config [PaymentVerificationKey $ VKey aliceCardanoVk] $ \node@(RunningNode _ nodeSocket) -> do
-            let sk = signingKeyPathFor
-            let vk = verificationKeyPathFor
+            (aliceVkPath, aliceSkPath) <- writeKeysFor tmpDir "alice"
+            (bobVkPath, bobSkPath) <- writeKeysFor tmpDir "bob"
+            (carolVkPath, carolSkPath) <- writeKeysFor tmpDir "carol"
             pparams <- queryProtocolParameters defaultNetworkId nodeSocket
             failAfter 20 $
-              withHydraNode tracer (sk "alice") (vk <$> ["bob", "carol"]) tmpDir nodeSocket 1 aliceSk [bobVk, carolVk] allNodeIds $ \n1 ->
-                withHydraNode tracer (sk "bob") (vk <$> ["alice", "carol"]) tmpDir nodeSocket 2 bobSk [aliceVk, carolVk] allNodeIds $ \_n2 ->
-                  withHydraNode tracer (sk "carol") (vk <$> ["alice", "bob"]) tmpDir nodeSocket 3 carolSk [aliceVk, bobVk] allNodeIds $ \_n3 -> do
+              withHydraNode tracer aliceSkPath [bobVkPath, carolVkPath] tmpDir nodeSocket 1 aliceSk [bobVk, carolVk] allNodeIds $ \n1 ->
+                withHydraNode tracer bobSkPath [aliceVkPath, carolVkPath] tmpDir nodeSocket 2 bobSk [aliceVk, carolVk] allNodeIds $ \_ ->
+                  withHydraNode tracer carolSkPath [aliceVkPath, bobVkPath] tmpDir nodeSocket 3 carolSk [aliceVk, bobVk] allNodeIds $ \_ -> do
                     postSeedPayment defaultNetworkId pparams availableInitialFunds node aliceCardanoSk 100_000_000
                     waitForNodesConnected tracer allNodeIds [n1]
                     send n1 $ input "Init" ["contestationPeriod" .= int 10]
@@ -199,8 +200,8 @@ spec = around showLogsOnFailure $
                     metrics <- getMetrics n1
                     metrics `shouldSatisfy` ("hydra_head_events  4" `BS.isInfixOf`)
 
-    describe "hydra-node executable" $ do
-      it "display proper semantic version given it is passed --version argument" $ \_ -> do
+    describe "hydra-node executable" $
+      it "display proper semantic version given it is passed --version argument" $ \_ ->
         failAfter 5 $ do
           version <- readCreateProcess (hydraNodeProcess ["--version"]) ""
           version `shouldSatisfy` (=~ ("[0-9]+\\.[0-9]+\\.[0-9]+(-[a-zA-Z0-9]+)?" :: String))

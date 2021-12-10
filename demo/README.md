@@ -23,9 +23,18 @@ docker-compose up -d
 And attach three `hydra-tui` clients to each `hydra-node` (in three terminals):
 
 ``` sh
-docker run --rm -it inputoutput/hydra:hydra-tui-latest --connect localhost:4001 # alice's hydra-node
-docker run --rm -it inputoutput/hydra:hydra-tui-latest --connect localhost:4002 # bob's hydra-node
-docker run --rm -it inputoutput/hydra:hydra-tui-latest --connect localhost:4003 # carol's hydra-node
+docker --profile tui run hydra-tui-1 
+docker --profile tui run hydra-tui-2
+docker --profile tui run hydra-tui-3
+```
+
+NOTE: You can query the `cardano-node` using the host-mounted socket file in
+`devnet/ipc/node.socket` (requires write permissions), e.g.
+
+``` sh
+sudo chmod a+w devnet/ipc/node.socket
+export CARDANO_NODE_SOCKET_PATH=devnet/ipc/node.socket
+cardano-cli query utxo --testnet-magic 42 --whole-utxo
 ```
 
 # Without Docker
@@ -102,11 +111,19 @@ cabal exec hydra-node -- \
 
 If things go well, the nodes should start logging once they are connected to the chain.
 
-Then from yet another set of 3 terminals, connect to the nodes using `hydra-tui`:
+Then from yet another set of 3 terminals, connect to the nodes using
+`hydra-tui`. For example to use Alice's `hydra-node` and her on-chain
+credentials:
 
 ```sh
-# replace 4001 with 4002 and 4003 to connect to the other 2 nodes
-cabal exec hydra-tui -- --connect localhost:4001
+cabal exec hydra-tui -- \
+  --connect localhost:4001 \
+  --cardano-verification-key devnet/credentials/alice.vk \
+  --network-magic 42 \
+  --cardano-node-socket devnet/node.socket
 ```
 
-You should now be able to `Init`ialise a Head, commit UTXOs, ...
+Replace port `4001` with `4002` or `4003` to connect to the other 2 nodes and
+`alice.vk` with `bob.vk` or `carol.vk` respectively.
+
+You should now be able to `[I]nit`ialise a Head, `[c]ommit` UTXOs, ...

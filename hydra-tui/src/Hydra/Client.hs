@@ -2,14 +2,18 @@ module Hydra.Client where
 
 import Hydra.Prelude
 
+import CardanoClient (buildAddress)
 import Control.Concurrent.Async (link)
 import Control.Exception (Handler (Handler), IOException, catches)
 import Control.Monad.Class.MonadSTM (MonadSTM (newTBQueueIO), MonadSTMTx (readTBQueue, writeTBQueue))
 import Data.Aeson (eitherDecodeStrict, encode)
+import Hydra.Chain.Direct.Util (readFileTextEnvelopeThrow)
 import Hydra.ClientInput (ClientInput)
 import Hydra.Ledger (IsTx)
+import Hydra.Ledger.Cardano (Address, AsType (AsPaymentKey, AsVerificationKey), ShelleyAddr)
 import Hydra.Network (Host (Host, hostname, port))
 import Hydra.ServerOutput (ServerOutput)
+import Hydra.TUI.Options (Options (..))
 import Network.WebSockets (ConnectionException, receiveData, runClient, sendBinaryData)
 
 data HydraEvent tx
@@ -18,10 +22,12 @@ data HydraEvent tx
   | Update (ServerOutput tx)
   deriving (Eq, Show, Generic)
 
--- | Handle to provide a means for sending inputs to the server.
-newtype Client tx m = Client
+-- | Handle to interact with Hydra node
+data Client tx m = Client
   { -- | Send some input to the server.
     sendInput :: ClientInput tx -> m ()
+  , -- | Retrieve "my" Cardano address
+    myAddress :: Address ShelleyAddr
   }
 
 -- | Callback for receiving server outputs.
@@ -30,18 +36,19 @@ type ClientCallback tx m = HydraEvent tx -> m ()
 -- | A type tying both receiving output and sending input into a /Component/.
 type ClientComponent tx m a = ClientCallback tx m -> (Client tx m -> m a) -> m a
 
--- | Connect to a hydra-node using a websocket and provide a /Component/ for
--- sending client inputs, as well as receiving server outputs.
-withClient :: IsTx tx => Host -> ClientComponent tx IO a
-withClient Host{hostname, port} callback action = do
+-- | Provide a component to interact with Hydra node.
+withClient :: IsTx tx => Options -> ClientComponent tx IO a
+withClient Options{hydraNodeHost = Host{hostname, port}, cardanoNetworkId, cardanoVerificationKey} callback action = do
+  myAddress <- flip buildAddress cardanoNetworkId <$> readFileTextEnvelopeThrow (AsVerificationKey AsPaymentKey) cardanoVerificationKey
   q <- newTBQueueIO 10
   withAsync (reconnect $ client q) $ \thread -> do
-    -- NOTE(SN): message formats are not compatible, this will terminate the TUI
+    -- NOTE(SN): if message formats are not compatible, this will terminate the TUI
     -- with a quite cryptic message (to users)
     link thread -- Make sure it does not silently die
     action $
       Client
         { sendInput = atomically . writeTBQueue q
+        , myAddress
         }
  where
   -- TODO(SN): ping thread?

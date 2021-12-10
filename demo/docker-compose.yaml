@@ -1,14 +1,10 @@
-version: "3.5"
-
-volumes:
-  node-ipc:
+version: "3.9"
 
 services:
   cardano-node:
     image: inputoutput/cardano-node
     volumes:
       - $PWD/devnet:/data
-      - node-ipc:/ipc
     environment:
       - CARDANO_BLOCK_PRODUCER=true
     command:
@@ -16,7 +12,7 @@ services:
       , "--config", "/data/cardano-node.json"
       , "--topology", "/data/topology.json"
       , "--database-path", "/data/db"
-      , "--socket-path", "/ipc/node.socket"
+      , "--socket-path", "/data/ipc/node.socket"
       , "--shelley-operational-certificate", "/data/credentials/opcert1.cert"
       , "--shelley-kes-key", "/data/credentials/delegate1.kes.skey"
       , "--shelley-vrf-key", "/data/credentials/delegate1.vrf.skey"
@@ -30,7 +26,7 @@ services:
     volumes:
       - $PWD:/keys:ro
       - $PWD/devnet/credentials:/credentials:ro
-      - node-ipc:/ipc
+      - $PWD/devnet/ipc:/ipc
     ports:
       - "4001:4001"
     command:
@@ -52,6 +48,7 @@ services:
     networks:
       hydra_net:
         ipv4_address: 172.16.238.10
+    restart: always
 
   hydra-node-2:
     image: inputoutput/hydra:hydra-node-latest
@@ -61,7 +58,7 @@ services:
     volumes:
       - $PWD:/keys:ro
       - $PWD/devnet/credentials:/credentials:ro
-      - node-ipc:/ipc
+      - $PWD/devnet/ipc:/ipc
     ports:
       - "4002:4001"
     command:
@@ -83,6 +80,7 @@ services:
     networks:
       hydra_net:
         ipv4_address: 172.16.238.20
+    restart: always
 
   hydra-node-3:
     image: inputoutput/hydra:hydra-node-latest
@@ -92,7 +90,7 @@ services:
     volumes:
       - $PWD:/keys:ro
       - $PWD/devnet/credentials:/credentials:ro
-      - node-ipc:/ipc
+      - $PWD/devnet/ipc:/ipc
     ports:
       - "4003:4001"
     command:
@@ -114,6 +112,58 @@ services:
     networks:
       hydra_net:
         ipv4_address: 172.16.238.30
+    restart: always
+
+  hydra-tui-1:
+    image: inputoutput/hydra:hydra-tui-latest
+    profiles:
+      - tui
+    command:
+      [ "--connect", "172.16.238.10:4001"
+      , "--cardano-node-socket", "/ipc/node.socket"
+      , "--network-magic", "42"
+      , "--cardano-verification-key", "/credentials/alice.vk"
+      ]
+    volumes:
+      - $PWD/devnet/credentials:/credentials:ro
+      - $PWD/devnet/ipc/:/ipc
+    networks:
+      hydra_net:
+        ipv4_address: 172.16.238.11
+
+  hydra-tui-2:
+    image: inputoutput/hydra:hydra-tui-latest
+    profiles:
+      - tui
+    command:
+      [ "--connect", "172.16.238.20:4001"
+      , "--cardano-node-socket", "/ipc/node.socket"
+      , "--network-magic", "42"
+      , "--cardano-verification-key", "/credentials/bob.vk"
+      ]
+    volumes:
+      - $PWD/devnet/credentials:/credentials:ro
+      - $PWD/devnet/ipc/:/ipc
+    networks:
+      hydra_net:
+        ipv4_address: 172.16.238.21
+
+  hydra-tui-3:
+    image: inputoutput/hydra:hydra-tui-latest
+    profiles:
+      - tui
+    command:
+      [ "--connect", "172.16.238.30:4001"
+      , "--cardano-node-socket", "/ipc/node.socket"
+      , "--network-magic", "42"
+      , "--cardano-verification-key", "/credentials/carol.vk"
+      ]
+    volumes:
+      - $PWD/devnet/credentials:/credentials:ro
+      - $PWD/devnet/ipc/:/ipc
+    networks:
+      hydra_net:
+        ipv4_address: 172.16.238.31
 
   prometheus:
     image: prom/prometheus:latest

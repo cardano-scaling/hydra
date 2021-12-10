@@ -506,7 +506,7 @@ prettyValue :: Value -> Text
 prettyValue value =
   let Lovelace lovelace = fromMaybe 0 (valueToLovelace value)
       (ada, decimal) = lovelace `quotRem` 1000000
-      n = length (valueToList value)
+      n = length (valueToList value) - 1 -- Discarding ADA
    in unwords $
         [ show ada <> "." <> padLeft '0' 6 (show decimal)
         , "₳"

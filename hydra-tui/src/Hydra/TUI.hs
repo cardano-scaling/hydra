@@ -15,14 +15,27 @@ import Brick.Forms (Form, FormFieldState, checkboxField, editShowableFieldWithVa
 import Brick.Widgets.Border (hBorder, vBorder)
 import Brick.Widgets.Border.Style (ascii)
 import Cardano.Crypto.DSIGN (VerKeyDSIGN (VerKeyMockDSIGN))
+import CardanoClient (CardanoClient (CardanoClient, queryUtxoByAddress), mkCardanoClient)
 import Data.List (nub, (\\))
 import qualified Data.Map.Strict as Map
 import qualified Data.Text as Text
 import Data.Version (showVersion)
-import Graphics.Vty (Event (EvKey), Key (..), Modifier (..), brightBlue, defaultConfig, green, mkVty, red, yellow)
+import Graphics.Vty (
+  Event (EvKey),
+  Key (..),
+  Modifier (..),
+  Vty,
+  brightBlue,
+  defaultConfig,
+  green,
+  mkVty,
+  red,
+  yellow,
+ )
 import qualified Graphics.Vty as Vty
 import Graphics.Vty.Attributes (defAttr)
-import Hydra.Client (Client (Client, sendInput), HydraEvent (..), withClient)
+import Hydra.Chain.Direct.Util (isMarkedOutput)
+import Hydra.Client (Client (..), HydraEvent (..), withClient)
 import Hydra.ClientInput (ClientInput (..))
 import Hydra.Ledger (IsTx (..))
 import Hydra.Ledger.Cardano (
@@ -41,7 +54,6 @@ import Hydra.Ledger.Cardano (
   Utxo' (Utxo),
   VerificationKey,
   genKeyPair,
-  genUtxoFor,
   lovelaceToValue,
   mkSimpleCardanoTx,
   mkVkAddress,
@@ -50,7 +62,6 @@ import Hydra.Ledger.Cardano (
   serialiseAddress,
   txOutValueToLovelace,
   utxoMap,
-  utxoPairs,
  )
 import Hydra.Network (Host (..))
 import Hydra.Party (Party (Party, vkey))
@@ -84,7 +95,6 @@ import Hydra.TUI.Options (Options (..))
 import Lens.Micro (Lens', lens, (%~), (.~), (?~), (^.), (^?))
 import Lens.Micro.TH (makeLensesFor)
 import Paths_hydra_tui (version)
-import Test.QuickCheck (scale)
 import qualified Prelude
 
 -- XXX(SN): hard-coded network id
@@ -184,10 +194,11 @@ clearFeedback = feedbackL .~ empty
 
 handleEvent ::
   Client CardanoTx IO ->
+  CardanoClient ->
   State ->
   BrickEvent Name (HydraEvent CardanoTx) ->
   EventM Name (Next State)
-handleEvent client@Client{sendInput} (clearFeedback -> s) = \case
+handleEvent client@Client{sendInput} cardanoClient (clearFeedback -> s) = \case
   AppEvent e ->
     continue (handleAppEvent s e)
   VtyEvent e -> case s ^? dialogStateL of
@@ -210,7 +221,7 @@ handleEvent client@Client{sendInput} (clearFeedback -> s) = \case
             | c `elem` ['c', 'C'] ->
               case s ^? headStateL of
                 Just Initializing{} ->
-                  handleCommitEvent client s
+                  handleCommitEvent client cardanoClient s
                 Just Open{} ->
                   liftIO (sendInput Close) >> continue s
                 _ ->
@@ -329,15 +340,16 @@ handleDialogEvent (title, form, submit) s = \case
 
 handleCommitEvent ::
   Client CardanoTx IO ->
+  CardanoClient ->
   State ->
   EventM n (Next State)
-handleCommitEvent Client{sendInput} s = case s ^? headStateL of
-  Just Initializing{} ->
-    case s ^? meL of
-      -- XXX(SN): this is just..not cool
-      Just (Just me) ->
-        continue $ s & dialogStateL .~ commitDialog (faucetUtxo me)
-      _ -> continue $ s & feedbackL ?~ UserFeedback Error "Missing identity, so can't commit from faucet."
+handleCommitEvent Client{sendInput, myAddress} CardanoClient{queryUtxoByAddress} s = case s ^? headStateL of
+  Just Initializing{} -> do
+    utxo <- liftIO $ queryUtxoByAddress [myAddress]
+    -- XXX(SN): this is a hydra implementation detail and should be moved
+    -- somewhere hydra specific
+    let utxoWithoutFuel = Map.filter (not . isMarkedOutput) (utxoMap utxo)
+    continue $ s & dialogStateL .~ commitDialog utxoWithoutFuel
   _ ->
     continue $ s & feedbackL ?~ UserFeedback Error "Invalid command."
  where
@@ -345,9 +357,9 @@ handleCommitEvent Client{sendInput} s = case s ^? headStateL of
     Dialog title form submit
    where
     title = "Select UTXO to commit"
-    firstUtxo = Prelude.head (utxoPairs u)
-    onlyOneUtxo = Map.fromList [firstUtxo]
-    form = newForm (utxoCheckboxField onlyOneUtxo) ((,False) <$> onlyOneUtxo)
+    -- TODO: This should really be a radio field, because we want to only allow
+    -- one UTXO entry to be committed.
+    form = newForm (utxoCheckboxField u) ((,False) <$> u)
     submit s' selected = do
       let commitUtxo = Utxo $ Map.mapMaybe (\(v, p) -> if p then Just v else Nothing) selected
       liftIO (sendInput $ Commit commitUtxo)
@@ -658,15 +670,14 @@ style _ =
     ]
 
 --
--- UTXO Faucet & Converting credentials
+-- Converting credentials
 --
 
--- | For now, we _fake it until we make it_ ^TM. Credentials and initial UTXO are
--- generated *deterministically* from Hydra verification keys (the 'Party').
--- Thus, coupling Hydra keys (signing the Head itself) with Cardano keys
--- (signing transactions in a Head). In the end, the client will figure out
--- credentials and UTXO via some other means. Likely, the credentials will be
--- user-provided, whereas the UTXO would come from a local node + chain sync.
+-- | For now, we _fake it until we make it_ ^TM. Credentials are generated
+-- *deterministically* from Hydra verification keys (the 'Party'). Thus,
+-- coupling Hydra keys (signing the Head itself) with Cardano keys (signing
+-- transactions in a Head). In the end, the client will figure out credentials
+-- via some other means, e.g. be user-provided.
 
 -- | Create a cardano key pair from a party. This would not be done in a real
 -- application and we'd manage the Cardano keys separate from the Hydra keys.
@@ -685,36 +696,31 @@ getAddress :: Party -> AddressInEra Era
 getAddress party =
   mkVkAddress networkId . fst $ getCredentials party
 
--- | Generate a Utxo set for a given party "out of thin air".
-faucetUtxo :: Party -> Utxo
-faucetUtxo party@Party{vkey} =
-  let VerKeyMockDSIGN word = vkey
-      seed = fromIntegral word
-      vk = fst $ getCredentials party
-   in generateWith (scale (const 5) $ genUtxoFor vk) seed
-
 --
 -- Run it
 --
 -- NOTE(SN): At the end of the module because of TH
 
-run :: Options -> IO State
-run Options{nodeHost} = do
+runWithVty :: IO Vty -> Options -> IO State
+runWithVty buildVty options@Options{hydraNodeHost, cardanoNetworkId, cardanoNodeSocket} = do
   eventChan <- newBChan 10
   -- REVIEW(SN): what happens if callback blocks?
-  withClient @CardanoTx nodeHost (writeBChan eventChan) $ \client -> do
+  withClient @CardanoTx options (writeBChan eventChan) $ \client -> do
     initialVty <- buildVty
     customMain initialVty buildVty (Just eventChan) (app client) initialState
  where
-  buildVty = mkVty defaultConfig
-
   app client =
     App
       { appDraw = draw
       , appChooseCursor = showFirstCursor
-      , appHandleEvent = handleEvent client
+      , appHandleEvent = handleEvent client cardanoClient
       , appStartEvent = pure
       , appAttrMap = style
       }
 
-  initialState = Disconnected{nodeHost}
+  initialState = Disconnected{nodeHost = hydraNodeHost}
+
+  cardanoClient = mkCardanoClient cardanoNetworkId cardanoNodeSocket
+
+run :: Options -> IO State
+run = runWithVty (mkVty defaultConfig)
