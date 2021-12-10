@@ -7,6 +7,7 @@ import Hydra.Prelude hiding (label)
 import Test.Hydra.Prelude
 
 import qualified Cardano.Api.Shelley as Cardano.Api
+import Cardano.Binary (unsafeDeserialize')
 import Cardano.Ledger.Alonzo.Data (Data (Data), hashData)
 import Cardano.Ledger.Alonzo.Language (Language (PlutusV1))
 import Cardano.Ledger.Alonzo.PParams (PParams, PParams' (..))
@@ -25,6 +26,7 @@ import qualified Cardano.Ledger.Shelley.API as Ledger
 import Cardano.Ledger.Val (Val (..), invert)
 import Control.Monad.Class.MonadTimer (timeout)
 import Control.Tracer (nullTracer)
+import qualified Data.ByteString as BS
 import Data.Default (def)
 import qualified Data.Map.Strict as Map
 import Data.Maybe (fromJust)
@@ -43,7 +45,14 @@ import Hydra.Chain.Direct.Wallet (
   watchUtxoUntil,
   withTinyWallet,
  )
-import Hydra.Ledger.Cardano (NetworkId (Testnet), NetworkMagic, mkVkAddress, toLedgerAddr)
+import Hydra.Ledger.Cardano (
+  NetworkId (Testnet),
+  NetworkMagic,
+  describeCardanoTx,
+  fromLedgerTx,
+  mkVkAddress,
+  toLedgerAddr,
+ )
 import Ouroboros.Consensus.Cardano.Block (HardForkBlock (..))
 import Ouroboros.Consensus.Shelley.Ledger (mkShelleyBlock)
 import Test.Cardano.Ledger.Alonzo.PlutusScripts (defaultCostModel)
@@ -51,6 +60,7 @@ import Test.Cardano.Ledger.Alonzo.Serialisation.Generators ()
 import Test.QuickCheck (
   Property,
   checkCoverage,
+  choose,
   counterexample,
   cover,
   forAll,
@@ -158,8 +168,13 @@ prop_balanceTransaction =
       forAllBlind genMarkedUtxo $ \walletUtxo ->
         case coverFee_ pparams lookupUtxo walletUtxo tx of
           Left err ->
-            property False & counterexample ("Error: " <> show err)
-          Right (_, tx') -> isBalanced (lookupUtxo <> walletUtxo) tx tx'
+            property False
+              & counterexample ("Error: " <> show err)
+              & counterexample ("Lookup UTXO: \n" <> decodeUtf8 (encodePretty lookupUtxo))
+              & counterexample ("Wallet UTXO: \n" <> decodeUtf8 (encodePretty walletUtxo))
+              & counterexample (toString $ describeCardanoTx $ fromLedgerTx tx)
+          Right (_, tx') ->
+            isBalanced (lookupUtxo <> walletUtxo) tx tx'
 
 isBalanced :: Map TxIn TxOut -> ValidatedTx Era -> ValidatedTx Era -> Property
 isBalanced utxo originalTx balancedTx =
@@ -244,7 +259,7 @@ genBlock utxo = scale (round @Double . sqrt . fromIntegral) $ do
 genUtxo :: Gen (Map TxIn TxOut)
 genUtxo = do
   tx <- arbitrary `suchThat` (\tx -> length (outputs (body tx)) >= 1)
-  txIn <- arbitrary
+  txIn <- genTxIn
   let txOut = scaleAda $ Prelude.head $ toList $ outputs $ body tx
   pure $ Map.singleton txIn txOut
  where
@@ -252,6 +267,14 @@ genUtxo = do
   scaleAda (TxOut addr value datum) =
     let value' = value <> inject (Coin 20_000_000)
      in TxOut addr value' datum
+
+-- A more random generator than the default 'arbitrary' that we have in scope.
+genTxIn :: Gen TxIn
+genTxIn =
+  Ledger.TxIn
+    -- NOTE: [88, 32] is a CBOR prefix for a bytestring of 32 bytes.
+    <$> fmap (unsafeDeserialize' . BS.pack . ([88, 32] <>)) (vectorOf 32 arbitrary)
+    <*> fmap fromIntegral (choose @Int (0, 99))
 
 genMarkedUtxo :: Gen (Map TxIn TxOut)
 genMarkedUtxo = do

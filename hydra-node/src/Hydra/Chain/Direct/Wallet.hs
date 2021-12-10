@@ -282,7 +282,13 @@ coverFee_ pparams lookupUtxo walletUtxo partialTx@ValidatedTx{body, wits} = do
   let adjustedRedeemers = adjustRedeemers (inputs body) inputs' (txrdmrs wits)
       needlesslyHighFee = calculateNeedlesslyHighFee adjustedRedeemers
 
-  change <- first ErrNotEnoughFunds $ mkChange output resolvedInputs (toList $ outputs body) needlesslyHighFee
+  change <-
+    first ErrNotEnoughFunds $
+      mkChange
+        output
+        resolvedInputs
+        (toList $ outputs body)
+        needlesslyHighFee
 
   let outputs' = outputs body <> StrictSeq.singleton change
       langs =
@@ -346,7 +352,11 @@ coverFee_ pparams lookupUtxo walletUtxo partialTx@ValidatedTx{body, wits} = do
   mkChange (TxOut addr _ datum) resolvedInputs otherOutputs fee
     -- FIXME: The delta between in and out must be greater than the min utxo value!
     | totalIn <= totalOut =
-      Left $ ChangeError totalIn totalOut
+      Left $
+        ChangeError
+          { inputBalance = totalIn
+          , outputBalance = totalOut
+          }
     | otherwise =
       Right $ TxOut addr (inject changeOut) datum
    where
