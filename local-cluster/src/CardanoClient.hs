@@ -288,11 +288,11 @@ submit :: NetworkId -> FilePath -> Tx AlonzoEra -> IO ()
 submit networkId socket tx =
   submitTxToNodeLocal (localNodeConnectInfo networkId socket) (TxInMode tx AlonzoEraInCardanoMode) >>= \case
     SubmitSuccess -> pure ()
-    SubmitFail err -> throwIO $ SubmitException $ show err
+    SubmitFail err -> throwIO $ SubmitException{reason = show err, tx}
 
 data CardanoClientException
   = QueryException Text
-  | SubmitException Text
+  | SubmitException {reason :: Text, tx :: Tx AlonzoEra}
   deriving (Show)
 
 instance Exception CardanoClientException
