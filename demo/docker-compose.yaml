@@ -50,23 +50,6 @@ services:
         ipv4_address: 172.16.238.10
     restart: always
 
-  hydra-tui-alice:
-    image: inputoutput/hydra:hydra-tui-latest
-    profiles:
-      - tui
-    command:
-      [ "--connect", "172.16.238.10:4001"
-      , "--node-socket", "/ipc/node.socket"
-      , "--network-id", "42"
-      , "--verification-key", "/keys/alice.vk"
-      ]
-    volumes:
-      - $PWD:/keys:ro
-      - $PWD/devnet/ipc/:/ipc
-    networks:
-      hydra_net:
-        ipv4_address: 172.16.238.11
-
   hydra-node-2:
     image: inputoutput/hydra:hydra-node-latest
     build:
@@ -130,6 +113,57 @@ services:
       hydra_net:
         ipv4_address: 172.16.238.30
     restart: always
+
+  hydra-tui-1:
+    image: inputoutput/hydra:hydra-tui-latest
+    profiles:
+      - tui
+    command:
+      [ "--connect", "172.16.238.10:4001"
+      , "--cardano-node-socket", "/ipc/node.socket"
+      , "--network-magic", "42"
+      , "--cardano-verification-key", "/credentials/alice.vk"
+      ]
+    volumes:
+      - $PWD/devnet/credentials:/credentials:ro
+      - $PWD/devnet/ipc/:/ipc
+    networks:
+      hydra_net:
+        ipv4_address: 172.16.238.11
+
+  hydra-tui-2:
+    image: inputoutput/hydra:hydra-tui-latest
+    profiles:
+      - tui
+    command:
+      [ "--connect", "172.16.238.20:4001"
+      , "--cardano-node-socket", "/ipc/node.socket"
+      , "--network-magic", "42"
+      , "--cardano-verification-key", "/credentials/bob.vk"
+      ]
+    volumes:
+      - $PWD/devnet/credentials:/credentials:ro
+      - $PWD/devnet/ipc/:/ipc
+    networks:
+      hydra_net:
+        ipv4_address: 172.16.238.21
+
+  hydra-tui-3:
+    image: inputoutput/hydra:hydra-tui-latest
+    profiles:
+      - tui
+    command:
+      [ "--connect", "172.16.238.30:4001"
+      , "--cardano-node-socket", "/ipc/node.socket"
+      , "--network-magic", "42"
+      , "--cardano-verification-key", "/credentials/carol.vk"
+      ]
+    volumes:
+      - $PWD/devnet/credentials:/credentials:ro
+      - $PWD/devnet/ipc/:/ipc
+    networks:
+      hydra_net:
+        ipv4_address: 172.16.238.31
 
   prometheus:
     image: prom/prometheus:latest

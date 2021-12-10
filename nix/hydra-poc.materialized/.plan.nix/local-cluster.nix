@@ -25,7 +25,48 @@
       detailLevel = "FullDetails";
       licenseFiles = [ "LICENSE" "NOTICE" ];
       dataDir = ".";
-      dataFiles = [];
+      dataFiles = [
+        "config/cardano-node.json"
+        "config/credentials/alice.sk"
+        "config/credentials/alice.vk"
+        "config/credentials/bob.sk"
+        "config/credentials/bob.vk"
+        "config/credentials/carol.sk"
+        "config/credentials/carol.vk"
+        "config/credentials/delegate-keys.000.key"
+        "config/credentials/delegate-keys.001.key"
+        "config/credentials/delegate-keys.002.key"
+        "config/credentials/delegate1.counter"
+        "config/credentials/delegate1.kes.skey"
+        "config/credentials/delegate1.kes.vkey"
+        "config/credentials/delegate1.skey"
+        "config/credentials/delegate1.vkey"
+        "config/credentials/delegate1.vrf.skey"
+        "config/credentials/delegate1.vrf.vkey"
+        "config/credentials/delegate2.counter"
+        "config/credentials/delegate2.kes.skey"
+        "config/credentials/delegate2.kes.vkey"
+        "config/credentials/delegate2.skey"
+        "config/credentials/delegate2.vkey"
+        "config/credentials/delegate2.vrf.skey"
+        "config/credentials/delegate2.vrf.vkey"
+        "config/credentials/delegate3.counter"
+        "config/credentials/delegate3.kes.skey"
+        "config/credentials/delegate3.kes.vkey"
+        "config/credentials/delegate3.skey"
+        "config/credentials/delegate3.vkey"
+        "config/credentials/delegate3.vrf.skey"
+        "config/credentials/delegate3.vrf.vkey"
+        "config/credentials/delegation-cert.000.json"
+        "config/credentials/delegation-cert.001.json"
+        "config/credentials/delegation-cert.002.json"
+        "config/credentials/opcert1.cert"
+        "config/credentials/opcert2.cert"
+        "config/credentials/opcert3.cert"
+        "config/genesis-alonzo.json"
+        "config/genesis-byron.json"
+        "config/genesis-shelley.json"
+        ];
       extraSrcFiles = [ "README.md" ];
       extraTmpFiles = [];
       extraDocFiles = [];
@@ -80,6 +121,7 @@
           "Hydra/Generator"
           "Hydra/LogFilter"
           "HydraNode"
+          "Paths_local_cluster"
           ];
         hsSourceDirs = [ "src" ];
         };

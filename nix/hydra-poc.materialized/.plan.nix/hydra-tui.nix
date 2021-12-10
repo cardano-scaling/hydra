@@ -46,6 +46,7 @@
           (hsPkgs."hydra-node" or (errorHandler.buildDepError "hydra-node"))
           (hsPkgs."hydra-prelude" or (errorHandler.buildDepError "hydra-prelude"))
           (hsPkgs."io-classes" or (errorHandler.buildDepError "io-classes"))
+          (hsPkgs."local-cluster" or (errorHandler.buildDepError "local-cluster"))
           (hsPkgs."microlens" or (errorHandler.buildDepError "microlens"))
           (hsPkgs."microlens-th" or (errorHandler.buildDepError "microlens-th"))
           (hsPkgs."optparse-applicative" or (errorHandler.buildDepError "optparse-applicative"))
@@ -79,18 +80,27 @@
           };
         };
       tests = {
-        "unit" = {
+        "tests" = {
           depends = [
             (hsPkgs."base" or (errorHandler.buildDepError "base"))
+            (hsPkgs."blaze-builder" or (errorHandler.buildDepError "blaze-builder"))
+            (hsPkgs."bytestring" or (errorHandler.buildDepError "bytestring"))
             (hsPkgs."hspec" or (errorHandler.buildDepError "hspec"))
             (hsPkgs."hydra-node" or (errorHandler.buildDepError "hydra-node"))
             (hsPkgs."hydra-prelude" or (errorHandler.buildDepError "hydra-prelude"))
             (hsPkgs."hydra-test-utils" or (errorHandler.buildDepError "hydra-test-utils"))
             (hsPkgs."hydra-tui" or (errorHandler.buildDepError "hydra-tui"))
+            (hsPkgs."io-classes" or (errorHandler.buildDepError "io-classes"))
+            (hsPkgs."local-cluster" or (errorHandler.buildDepError "local-cluster"))
             (hsPkgs."optparse-applicative" or (errorHandler.buildDepError "optparse-applicative"))
+            (hsPkgs."temporary" or (errorHandler.buildDepError "temporary"))
+            (hsPkgs."unix" or (errorHandler.buildDepError "unix"))
+            (hsPkgs."vty" or (errorHandler.buildDepError "vty"))
             ];
           build-tools = [
             (hsPkgs.buildPackages.hspec-discover.components.exes.hspec-discover or (pkgs.buildPackages.hspec-discover or (errorHandler.buildToolDepError "hspec-discover:hspec-discover")))
+            (hsPkgs.buildPackages.hydra-node.components.exes.hydra-node or (pkgs.buildPackages.hydra-node or (errorHandler.buildToolDepError "hydra-node:hydra-node")))
+            (hsPkgs.buildPackages.cardano-node.components.exes.cardano-node or (pkgs.buildPackages.cardano-node or (errorHandler.buildToolDepError "cardano-node:cardano-node")))
             ];
           buildable = true;
           modules = [ "Hydra/TUI/OptionsSpec" "Hydra/TUISpec" "Spec" ];

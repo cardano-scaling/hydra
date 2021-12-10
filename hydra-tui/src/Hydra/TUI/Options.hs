@@ -1,15 +1,18 @@
 module Hydra.TUI.Options where
 
-import Hydra.Prelude
+import           Hydra.Prelude
 
-import Hydra.Ledger.Cardano (NetworkId (Mainnet, Testnet), NetworkMagic (NetworkMagic))
-import Hydra.Network (Host (Host))
-import Options.Applicative (Parser, auto, help, long, metavar, option, short, showDefault, strOption, value)
+import           Hydra.Ledger.Cardano (NetworkId (Mainnet, Testnet),
+                                       NetworkMagic (NetworkMagic))
+import           Hydra.Network        (Host (Host))
+import           Options.Applicative  (Parser, auto, help, long, metavar,
+                                       option, short, showDefault, strOption,
+                                       value)
 
 data Options = Options
-  { hydraNodeHost :: Host
-  , cardanoNodeSocket :: FilePath
-  , cardanoNetworkId :: NetworkId
+  { hydraNodeHost          :: Host
+  , cardanoNodeSocket      :: FilePath
+  , cardanoNetworkId       :: NetworkId
   , cardanoVerificationKey :: FilePath
   }
 
@@ -24,7 +27,7 @@ parseOptions =
 parseCardanoNodeSocket :: Parser FilePath
 parseCardanoNodeSocket =
   strOption
-    ( long "node-socket"
+    ( long "cardano-node-socket"
         <> metavar "FILE"
         <> help "The path to the Cardano node domain socket for client communication."
         <> value "node.socket"

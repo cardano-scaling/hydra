@@ -23,15 +23,10 @@ docker-compose up -d
 And attach three `hydra-tui` clients to each `hydra-node` (in three terminals):
 
 ``` sh
-docker run --rm -it inputoutput/hydra:hydra-tui-latest \
-  --connect localhost:4001 \
-  --cardano-verification-key devnet/credentials/alice.vk \
-  --network-magic 42 \
-  --node-socket devnet/node.socket
+docker --profile tui run hydra-tui-1 
+docker --profile tui run hydra-tui-2
+docker --profile tui run hydra-tui-3
 ```
-
-Replace port `4001` with `4002` or `4003` to connect to the other 2 nodes and
-`alice.vk` with `bob.vk` or `carol.vk` respectively.
 
 NOTE: You can query the `cardano-node` using the host-mounted socket file in
 `devnet/ipc/node.socket` (requires write permissions), e.g.
@@ -125,7 +120,7 @@ cabal exec hydra-tui -- \
   --connect localhost:4001 \
   --cardano-verification-key devnet/credentials/alice.vk \
   --network-magic 42 \
-  --node-socket devnet/node.socket
+  --cardano-node-socket devnet/node.socket
 ```
 
 Replace port `4001` with `4002` or `4003` to connect to the other 2 nodes and
