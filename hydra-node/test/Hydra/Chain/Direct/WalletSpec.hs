@@ -51,7 +51,6 @@ import Test.Cardano.Ledger.Alonzo.Serialisation.Generators ()
 import Test.QuickCheck (
   Property,
   checkCoverage,
-  conjoin,
   counterexample,
   cover,
   forAll,
@@ -59,7 +58,6 @@ import Test.QuickCheck (
   frequency,
   generate,
   getSize,
-  label,
   property,
   scale,
   suchThat,
@@ -157,43 +155,39 @@ prop_balanceTransaction ::
 prop_balanceTransaction =
   forAllBlind (reasonablySized genValidatedTx) $ \tx ->
     forAllBlind (reasonablySized $ genOutputsForInputs tx) $ \lookupUtxo ->
-      forAllBlind (reasonablySized genUtxo) $ \walletUtxo ->
-        prop' lookupUtxo walletUtxo tx
- where
-  prop' lookupUtxo walletUtxo tx =
-    case coverFee_ pparams lookupUtxo walletUtxo tx of
-      Left{} ->
-        property True & label "Left"
-      Right (_, tx') ->
-        let inp' = knownInputBalance (lookupUtxo <> walletUtxo) tx'
-            out' = outputBalance tx'
-            out = outputBalance tx
-            fee = (txfee . body) tx'
-         in conjoin
-              [ coin (deltaValue out' inp') == fee
-              ]
-              & label "Right"
-              & counterexample ("Fee:             " <> show fee)
-              & counterexample ("Delta value:     " <> show (coin $ deltaValue out' inp'))
-              & counterexample ("Added value:     " <> show (coin inp'))
-              & counterexample ("Outputs after:   " <> show (coin out'))
-              & counterexample ("Outputs before:  " <> show (coin out))
+      forAllBlind genMarkedUtxo $ \walletUtxo ->
+        case coverFee_ pparams lookupUtxo walletUtxo tx of
+          Left err ->
+            property False & counterexample ("Error: " <> show err)
+          Right (_, tx') -> isBalanced (lookupUtxo <> walletUtxo) tx tx'
+
+isBalanced :: Map TxIn TxOut -> ValidatedTx Era -> ValidatedTx Era -> Property
+isBalanced utxo originalTx balancedTx =
+  let inp' = knownInputBalance utxo balancedTx
+      out' = outputBalance balancedTx
+      out = outputBalance originalTx
+      fee = (txfee . body) balancedTx
+   in coin (deltaValue out' inp') == fee
+        & counterexample ("Fee:             " <> show fee)
+        & counterexample ("Delta value:     " <> show (coin $ deltaValue out' inp'))
+        & counterexample ("Added value:     " <> show (coin inp'))
+        & counterexample ("Outputs after:   " <> show (coin out'))
+        & counterexample ("Outputs before:  " <> show (coin out))
 
 prop_removeUsedInputs ::
   Property
 prop_removeUsedInputs =
   forAllBlind (reasonablySized genValidatedTx) $ \tx ->
     forAllBlind (reasonablySized $ genOutputsForInputs tx) $ \txUtxo ->
-      forAllBlind (reasonablySized genUtxo) $ \extraUtxo ->
+      forAllBlind genMarkedUtxo $ \extraUtxo ->
         prop' txUtxo (txUtxo <> extraUtxo) tx
  where
   prop' txUtxo walletUtxo tx =
     case coverFee_ pparams mempty walletUtxo tx of
-      Left e ->
-        property True & label (show e)
+      Left err ->
+        property False & counterexample ("Error: " <> show err)
       Right (utxo', _) ->
         null (Map.intersection walletUtxo utxo')
-          & label "Right"
           & counterexample ("Remaining UTXO: " <> show utxo')
           & counterexample ("Tx UTxO: " <> show txUtxo)
           & counterexample ("Wallet UTXO: " <> show walletUtxo)
@@ -258,6 +252,16 @@ genUtxo = do
   scaleAda (TxOut addr value datum) =
     let value' = value <> inject (Coin 20_000_000)
      in TxOut addr value' datum
+
+genMarkedUtxo :: Gen (Map TxIn TxOut)
+genMarkedUtxo = do
+  utxo <- reasonablySized genUtxo
+  pure $ markForWallet <$> utxo
+ where
+  markForWallet :: TxOut -> TxOut
+  markForWallet (TxOut addr value _) =
+    let datum' = (SJust $ hashData $ Data @Era markerDatum)
+     in TxOut addr value datum'
 
 genOutputsForInputs :: ValidatedTx Era -> Gen (Map TxIn TxOut)
 genOutputsForInputs ValidatedTx{body} = do
