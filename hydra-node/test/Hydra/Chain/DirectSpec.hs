@@ -23,10 +23,10 @@ import Hydra.Chain (
  )
 import Hydra.Chain.Direct (DirectChainLog, withDirectChain)
 import Hydra.Chain.Direct.MockServer (withMockServer)
-import Hydra.Chain.Direct.Util (Era, VerificationKey, retry)
+import Hydra.Chain.Direct.Util (Era, retry)
 import Hydra.Chain.Direct.Wallet (generateKeyPair)
 import Hydra.Chain.Direct.WalletSpec (genPaymentTo)
-import Hydra.Ledger.Cardano (CardanoTx, NetworkMagic)
+import Hydra.Ledger.Cardano (CardanoTx, NetworkMagic, PaymentKey, VerificationKey)
 import Hydra.Logging (showLogsOnFailure)
 import Hydra.Party (Party, deriveParty, generateKey)
 import Test.QuickCheck (generate)
@@ -54,7 +54,7 @@ spec = do
               takeMVar calledBackAlice `shouldReturn` OnAbortTx
               takeMVar calledBackBob `shouldReturn` OnAbortTx
 
-mkSeedPayment :: NetworkMagic -> VerificationKey -> (ValidatedTx Era -> IO ()) -> IO ()
+mkSeedPayment :: NetworkMagic -> VerificationKey PaymentKey -> (ValidatedTx Era -> IO ()) -> IO ()
 mkSeedPayment magic vk submitTx =
   generate (genPaymentTo magic vk) >>= submitTx
 

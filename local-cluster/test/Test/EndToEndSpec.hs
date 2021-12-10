@@ -13,7 +13,6 @@ import Cardano.Crypto.DSIGN (
   SignKeyDSIGN,
   VerKeyDSIGN,
  )
-import Cardano.Ledger.Shelley.API (VKey (VKey))
 import CardanoClient (
   generatePaymentToCommit,
   postSeedPayment,
@@ -42,10 +41,9 @@ import Hydra.Ledger.Cardano (
   NetworkId (Testnet),
   NetworkMagic (NetworkMagic),
   PaymentKey,
-  SigningKey (PaymentSigningKey),
   TxId,
   TxIn (..),
-  VerificationKey (PaymentVerificationKey),
+  VerificationKey,
   lovelaceToValue,
   mkSimpleCardanoTx,
   mkVkAddress,
@@ -84,9 +82,8 @@ spec = around showLogsOnFailure $
             config <- newNodeConfig tmpDir
             (aliceCardanoVk, aliceCardanoSk) <- keysFor "alice"
             (bobCardanoVk, bobCardanoSk) <- keysFor "bob"
-            (carolCardanoVk, carolCardanoSk) <- keysFor "carol"
-            let keysToPayInitialFund@[alicePaymentVk, bobPaymentVk, _] = PaymentVerificationKey . VKey <$> [aliceCardanoVk, bobCardanoVk, carolCardanoVk]
-            withBFTNode (contramap FromCluster tracer) config keysToPayInitialFund $ \node@(RunningNode _ nodeSocket) -> do
+            (_carolCardanoVk, carolCardanoSk) <- keysFor "carol"
+            withBFTNode (contramap FromCluster tracer) config [aliceCardanoVk, bobCardanoVk] $ \node@(RunningNode _ nodeSocket) -> do
               (aliceVkPath, aliceSkPath) <- writeKeysFor tmpDir "alice"
               (bobVkPath, bobSkPath) <- writeKeysFor tmpDir "bob"
               (carolVkPath, carolSkPath) <- writeKeysFor tmpDir "carol"
@@ -104,8 +101,6 @@ spec = around showLogsOnFailure $
                     waitFor tracer 20 [n1, n2, n3] $
                       output "ReadyToCommit" ["parties" .= Set.fromList [alice, bob, carol]]
 
-                    let alicePaymentSk = PaymentSigningKey aliceCardanoSk
-
                     committedUtxo <- generatePaymentToCommit defaultNetworkId node aliceCardanoSk aliceCardanoVk amountInTx
                     committedUtxoBy2 <- generatePaymentToCommit defaultNetworkId node bobCardanoSk bobCardanoVk amountInTx
 
@@ -119,8 +114,8 @@ spec = around showLogsOnFailure $
                     let Right tx =
                           mkSimpleCardanoTx
                             firstCommittedUtxo
-                            (inHeadAddress bobPaymentVk, lovelaceToValue paymentFromAliceToBob)
-                            alicePaymentSk
+                            (inHeadAddress bobCardanoVk, lovelaceToValue paymentFromAliceToBob)
+                            aliceCardanoSk
                     send n1 $ input "NewTx" ["transaction" .= tx]
                     waitFor tracer 20 [n1, n2, n3] $
                       output "TxSeen" ["transaction" .= tx]
@@ -132,14 +127,14 @@ spec = around showLogsOnFailure $
                             [
                               ( TxIn (txId tx) (toEnum 0)
                               , object
-                                  [ "address" .= String (serialiseAddress $ inHeadAddress bobPaymentVk)
+                                  [ "address" .= String (serialiseAddress $ inHeadAddress bobCardanoVk)
                                   , "value" .= object ["lovelace" .= int paymentFromAliceToBob]
                                   ]
                               )
                             ,
                               ( TxIn (txId tx) (toEnum 1)
                               , object
-                                  [ "address" .= String (serialiseAddress $ inHeadAddress alicePaymentVk)
+                                  [ "address" .= String (serialiseAddress $ inHeadAddress aliceCardanoVk)
                                   , "value" .= object ["lovelace" .= int (amountInTx - paymentFromAliceToBob)]
                                   ]
                               )
@@ -184,7 +179,7 @@ spec = around showLogsOnFailure $
         withTempDir "end-to-end-prometheus-metrics" $ \tmpDir -> do
           config <- newNodeConfig tmpDir
           (aliceCardanoVk, aliceCardanoSk) <- keysFor "alice"
-          withBFTNode (contramap FromCluster tracer) config [PaymentVerificationKey $ VKey aliceCardanoVk] $ \node@(RunningNode _ nodeSocket) -> do
+          withBFTNode (contramap FromCluster tracer) config [aliceCardanoVk] $ \node@(RunningNode _ nodeSocket) -> do
             (aliceVkPath, aliceSkPath) <- writeKeysFor tmpDir "alice"
             (bobVkPath, bobSkPath) <- writeKeysFor tmpDir "bob"
             (carolVkPath, carolSkPath) <- writeKeysFor tmpDir "carol"

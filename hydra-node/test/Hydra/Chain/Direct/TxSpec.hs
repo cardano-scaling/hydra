@@ -1,6 +1,7 @@
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE TypeApplications #-}
 {-# OPTIONS_GHC -Wno-incomplete-uni-patterns #-}
+{-# OPTIONS_GHC -Wno-orphans #-}
 
 -- | Unit tests for our "hand-rolled" transactions as they are used in the
 -- "direct" chain component.
@@ -52,11 +53,14 @@ import Hydra.Ledger (balance)
 import Hydra.Ledger.Cardano (
   CardanoTx,
   LedgerCrypto,
+  PaymentKey,
   Utxo,
   Utxo' (Utxo),
+  VerificationKey,
   describeCardanoTx,
   fromLedgerTx,
   genAdaOnlyUtxo,
+  genKeyPair,
   shrinkUtxo,
   toMaryValue,
   utxoPairs,
@@ -353,6 +357,9 @@ spec =
                             & counterexample ("Fee: " <> show (txfee abortTxBody))
                             & counterexample ("Tx: " <> show txAbortWithFees)
                             & counterexample ("Input utxo: " <> show utxo)
+
+instance Arbitrary (VerificationKey PaymentKey) where
+  arbitrary = fst <$> genKeyPair
 
 generateCommitUtxos :: [Party] -> Utxo -> Gen (Map.Map (TxIn StandardCrypto) (TxOut Era, Data Era))
 generateCommitUtxos parties committedUtxo = do

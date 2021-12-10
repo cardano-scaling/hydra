@@ -6,7 +6,7 @@ module Hydra.Chain.Direct.WalletSpec where
 import Hydra.Prelude hiding (label)
 import Test.Hydra.Prelude
 
-import qualified Cardano.Api.Shelley as Cardano.Api
+import Cardano.Api (PaymentKey, VerificationKey)
 import Cardano.Binary (unsafeDeserialize')
 import Cardano.Ledger.Alonzo.Data (Data (Data), hashData)
 import Cardano.Ledger.Alonzo.Language (Language (PlutusV1))
@@ -19,7 +19,6 @@ import Cardano.Ledger.BaseTypes (StrictMaybe (SJust), boundRational)
 import Cardano.Ledger.Block (bbody)
 import Cardano.Ledger.Coin (Coin (..))
 import Cardano.Ledger.Core (Value)
-import Cardano.Ledger.Keys (VKey (..))
 import qualified Cardano.Ledger.SafeHash as SafeHash
 import Cardano.Ledger.Shelley.API (BHeader)
 import qualified Cardano.Ledger.Shelley.API as Ledger
@@ -34,7 +33,7 @@ import Data.Ratio ((%))
 import qualified Data.Sequence.Strict as StrictSeq
 import qualified Data.Set as Set
 import Hydra.Chain.Direct.MockServer (withMockServer)
-import Hydra.Chain.Direct.Util (Era, VerificationKey, markerDatum)
+import Hydra.Chain.Direct.Util (Era, markerDatum)
 import Hydra.Chain.Direct.Wallet (
   Address,
   TxIn,
@@ -298,7 +297,7 @@ genValidatedTx = do
   body <- (\x -> x{txfee = Coin 0}) <$> arbitrary
   pure $ tx{body}
 
-genPaymentTo :: NetworkMagic -> VerificationKey -> Gen (ValidatedTx Era)
+genPaymentTo :: NetworkMagic -> VerificationKey PaymentKey -> Gen (ValidatedTx Era)
 genPaymentTo magic vk = do
   toValidatedTx =<< arbitrary @TxOut `suchThat` atLeast 2_000_000_000
  where
@@ -311,7 +310,7 @@ genPaymentTo magic vk = do
       ValidatedTx{body, wits, isValid, auxiliaryData} <- arbitrary
       let myAddr =
             toLedgerAddr $
-              mkVkAddress (Testnet magic) $ Cardano.Api.PaymentVerificationKey $ VKey vk
+              mkVkAddress (Testnet magic) vk
       pure $
         ValidatedTx
           { body =

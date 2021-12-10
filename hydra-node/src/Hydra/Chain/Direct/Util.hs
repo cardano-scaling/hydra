@@ -7,10 +7,8 @@ import Hydra.Prelude
 
 import Cardano.Api hiding (AlonzoEra, Block, SigningKey, VerificationKey)
 import qualified Cardano.Api.Shelley as Shelley
-import Cardano.Crypto.DSIGN (deriveVerKeyDSIGN)
 import qualified Cardano.Crypto.DSIGN as Crypto
 import Cardano.Ledger.Crypto (DSIGN, StandardCrypto)
-import Cardano.Ledger.Keys (VKey (VKey))
 import Cardano.Slotting.Slot (WithOrigin (..))
 import Control.Tracer (nullTracer)
 import Data.Map.Strict ((!))
@@ -121,12 +119,10 @@ defaultCodecs nodeToClientV =
   epochSlots :: EpochSlots
   epochSlots = EpochSlots 432000
 
-readKeyPair :: FilePath -> IO (VerificationKey, SigningKey)
+readKeyPair :: FilePath -> IO (Shelley.VerificationKey PaymentKey, Shelley.SigningKey PaymentKey)
 readKeyPair keyPath = do
-  PaymentSigningKey sk <-
-    readFileTextEnvelopeThrow (AsSigningKey AsPaymentKey) keyPath
-  let vk = deriveVerKeyDSIGN sk
-  pure (vk, sk)
+  sk <- readFileTextEnvelopeThrow (AsSigningKey AsPaymentKey) keyPath
+  pure (getVerificationKey sk, sk)
 
 readFileTextEnvelopeThrow ::
   HasTextEnvelope a =>
@@ -136,11 +132,8 @@ readFileTextEnvelopeThrow ::
 readFileTextEnvelopeThrow asType =
   either (fail . show) pure <=< readFileTextEnvelope asType
 
-readVerificationKey :: FilePath -> IO VerificationKey
-readVerificationKey keyPath = do
-  Shelley.PaymentVerificationKey (VKey vk) <-
-    readFileTextEnvelopeThrow (Shelley.AsVerificationKey Shelley.AsPaymentKey) keyPath
-  pure vk
+readVerificationKey :: FilePath -> IO (Shelley.VerificationKey PaymentKey)
+readVerificationKey = readFileTextEnvelopeThrow (Shelley.AsVerificationKey Shelley.AsPaymentKey)
 
 --
 -- Avoid Orphan instances for Point & logging

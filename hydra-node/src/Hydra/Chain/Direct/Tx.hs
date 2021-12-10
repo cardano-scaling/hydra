@@ -35,7 +35,6 @@ import Cardano.Ledger.Shelley.API (
   StrictMaybe (..),
   TxId (TxId),
   TxIn (TxIn),
-  VKey (VKey),
   Wdrl (Wdrl),
   hashKey,
  )
@@ -47,7 +46,7 @@ import qualified Data.Sequence.Strict as StrictSeq
 import qualified Data.Set as Set
 import Data.Time (Day (ModifiedJulianDay), UTCTime (UTCTime))
 import Hydra.Chain (HeadParameters (..), OnChainTx (..))
-import Hydra.Chain.Direct.Util (Era, VerificationKey)
+import Hydra.Chain.Direct.Util (Era)
 import qualified Hydra.Contract.MockCommit as MockCommit
 import qualified Hydra.Contract.MockHead as MockHead
 import qualified Hydra.Contract.MockInitial as MockInitial
@@ -59,8 +58,10 @@ import qualified Hydra.Data.Utxo as OnChain
 import Hydra.Ledger.Cardano (
   CardanoTx,
   IsShelleyBasedEra (shelleyBasedEra),
+  PaymentKey,
   Utxo,
   Utxo' (Utxo),
+  VerificationKey (PaymentVerificationKey),
   toMaryValue,
   toShelleyTxIn,
   toShelleyTxOut,
@@ -115,7 +116,7 @@ policyId :: MintingPolicyHash
 -- which will be used as unique parameter for minting NFTs.
 initTx ::
   -- | Participant's cardano public keys.
-  [VerificationKey] ->
+  [VerificationKey PaymentKey] ->
   HeadParameters ->
   TxIn StandardCrypto ->
   ValidatedTx Era
@@ -171,9 +172,10 @@ initTx cardanoKeys HeadParameters{contestationPeriod, parties} txIn =
 
   initialDatumHash = hashData @Era . initialDatum
 
-  initialDatum vkey =
-    let pubKeyHash = transKeyHash $ hashKey @StandardCrypto $ VKey vkey
-     in Data . toData $ MockInitial.datum pubKeyHash
+  initialDatum vkey = Data . toData $ MockInitial.datum $ pubKeyHash vkey
+
+pubKeyHash :: VerificationKey PaymentKey -> PubKeyHash
+pubKeyHash (PaymentVerificationKey vkey) = transKeyHash $ hashKey @StandardCrypto $ vkey
 
 -- | Craft a commit transaction which includes the "committed" utxo as a datum.
 -- TODO(SN): Eventually, this might not be necessary as the 'Utxo tx' would need
@@ -682,14 +684,14 @@ knownUtxo = \case
   onlyUtxo (i, o, _) = (i, o)
 
 -- | Look for the "initial" which corresponds to given cardano verification key.
-ownInitial :: VerificationKey -> [(TxIn StandardCrypto, TxOut Era, Data Era)] -> Maybe (TxIn StandardCrypto, PubKeyHash)
+ownInitial :: VerificationKey PaymentKey -> [(TxIn StandardCrypto, TxOut Era, Data Era)] -> Maybe (TxIn StandardCrypto, PubKeyHash)
 ownInitial vkey =
   foldl' go Nothing
  where
   go (Just x) _ = Just x
   go Nothing (i, _, dat) = do
     pkh <- fromData (getPlutusData dat)
-    guard $ pkh == transKeyHash (hashKey @StandardCrypto $ VKey vkey)
+    guard $ pkh == pubKeyHash vkey
     pure (i, pkh)
 
 -- * Helpers

@@ -17,8 +17,7 @@ import Cardano.Api (
   lovelaceToValue,
   shelleyAddressInEra,
  )
-import Cardano.Api.Shelley (VerificationKey (PaymentVerificationKey), fromPlutusData)
-import Cardano.Ledger.Keys (VKey (VKey))
+import Cardano.Api.Shelley (fromPlutusData)
 import CardanoClient (
   Sizes (..),
   build,
@@ -78,7 +77,7 @@ assertCanSpendInitialFunds :: HasCallStack => RunningCluster -> IO ()
 assertCanSpendInitialFunds = \case
   (RunningCluster ClusterConfig{networkId} (RunningNode _ socket : _)) -> do
     (vk, sk) <- keysFor "alice"
-    let addr = buildAddress (PaymentVerificationKey $ VKey vk) networkId
+    let addr = buildAddress vk networkId
     UTxO utxo <- queryUtxo networkId socket [addr]
     pparams <- queryProtocolParameters networkId socket
     let (txIn, out) = case Map.toList utxo of
@@ -106,7 +105,7 @@ assertCanCallInitAndAbort :: HasCallStack => RunningCluster -> IO ()
 assertCanCallInitAndAbort = \case
   (RunningCluster ClusterConfig{networkId} (RunningNode _ socket : _)) -> do
     (vk, sk) <- keysFor "alice"
-    let addr = buildAddress (PaymentVerificationKey $ VKey vk) networkId
+    let addr = buildAddress vk networkId
         headScript = toCardanoApiScript $ MockHead.validatorScript policyId
         headAddress = buildScriptAddress headScript networkId
         headDatum = fromPlutusData $ toData $ MockHead.Initial 1_000_000_000_000 []
