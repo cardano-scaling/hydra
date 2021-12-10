@@ -21,7 +21,6 @@ import Cardano.Api.Shelley (VerificationKey (PaymentVerificationKey))
 import Cardano.Crypto.DSIGN (deriveVerKeyDSIGN)
 import Cardano.Ledger.Keys (VKey (VKey))
 import CardanoClient (buildAddress)
-import CardanoClusterFixture (readConfigFile)
 import CardanoNode (
   CardanoNodeArgs (..),
   CardanoNodeConfig (..),
@@ -39,8 +38,10 @@ import Control.Tracer (Tracer, traceWith)
 import Data.Aeson (object)
 import qualified Data.Aeson as Aeson
 import Data.Aeson.Lens (key)
+import qualified Data.ByteString as BS
 import Data.ByteString.Base16 (encodeBase16)
 import qualified Hydra.Chain.Direct.Util as Cardano
+import qualified Paths_local_cluster as Pkg
 import System.Directory (createDirectoryIfMissing, doesFileExist)
 import System.FilePath ((<.>), (</>))
 import System.Posix.Files (
@@ -247,6 +248,12 @@ newNodeConfig stateDirectory = do
       , systemStart
       , ports = PortsConfig nodePort []
       }
+
+-- | Lookup a config file similar reading a file from disk.
+readConfigFile :: FilePath -> IO ByteString
+readConfigFile source = do
+  filename <- Pkg.getDataFileName ("config" </> source)
+  BS.readFile filename
 
 --
 -- Logging

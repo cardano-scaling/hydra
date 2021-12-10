@@ -13,6 +13,10 @@ license-files:
 
 extra-source-files: README.md
 
+data-files:
+  config/*
+  config/credentials/*
+
 source-repository head
   type:     git
   location: https://github.com/input-output-hk/hydra-poc
@@ -73,11 +77,11 @@ library
   exposed-modules:
     CardanoClient
     CardanoCluster
-    CardanoClusterFixture
     CardanoNode
     Hydra.Generator
     Hydra.LogFilter
     HydraNode
+    Paths_local_cluster
 
   build-depends:
     , aeson
@@ -93,7 +97,6 @@ library
     , contra-tracer
     , data-default
     , directory
-    , file-embed
     , filepath
     , hspec-expectations
     , http-conduit
