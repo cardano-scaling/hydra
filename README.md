@@ -129,8 +129,8 @@ documentation](./docs), which is also published online at
 https://input-output-hk.github.io/hydra-poc.
 
 API Documentation is available for:
-* The [WebSocket API](https://input-output-hk.github.io/json-schema-viewer/#/?url=https://raw.githubusercontent.com/input-output-hk/hydra-poc/master/hydra-node/api.yaml)
-* The [Log API](https://input-output-hk.github.io/json-schema-viewer/#/?url=https://raw.githubusercontent.com/input-output-hk/hydra-poc/master/hydra-node/api-log.yaml)
+* The [WebSocket API](https://input-output-hk.github.io/json-schema-viewer/#/?url=https://raw.githubusercontent.com/input-output-hk/hydra-poc/master/hydra-node/json-schemas/api.yaml)
+* The [Log API](https://input-output-hk.github.io/json-schema-viewer/#/?url=https://raw.githubusercontent.com/input-output-hk/hydra-poc/master/hydra-node/json-schemas/logs.yaml)
 
 [Haddock](https://www.haskell.org/haddock/) documentation is also published for each package:
 * [hydra-prelude](https://input-output-hk.github.io/hydra-poc/haddock/hydra-prelude/index.html)
