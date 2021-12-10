@@ -788,7 +788,7 @@
           "cardano-crypto-praos" = {
             flags = {
               "development" = lib.mkOverride 900 false;
-              "external-libsodium-vrf" = lib.mkOverride 900 true;
+              "external-libsodium-vrf" = lib.mkOverride 900 false;
               };
             };
           "monoidal-synchronisation" = { flags = {}; };
@@ -800,7 +800,7 @@
             flags = { "development" = lib.mkOverride 900 false; };
             };
           "local-cluster" = {
-            flags = { "hydra-development" = lib.mkOverride 900 true; };
+            flags = { "hydra-development" = lib.mkOverride 900 false; };
             };
           "typed-protocols-examples" = { flags = {}; };
           "cardano-crypto-tests" = {
@@ -854,13 +854,13 @@
             };
           "cardano-ledger-alonzo-test" = { flags = {}; };
           "hydra-tui" = {
-            flags = { "hydra-development" = lib.mkOverride 900 true; };
+            flags = { "hydra-development" = lib.mkOverride 900 false; };
             };
           "ouroboros-consensus-byron" = {
             flags = { "asserts" = lib.mkOverride 900 false; };
             };
           "hydra-node" = {
-            flags = { "hydra-development" = lib.mkOverride 900 true; };
+            flags = { "hydra-development" = lib.mkOverride 900 false; };
             };
           "contra-tracer" = { flags = {}; };
           "orphans-deriving-via" = {
@@ -873,7 +873,7 @@
           "cardano-ledger-alonzo" = { flags = {}; };
           "small-steps-test" = { flags = {}; };
           "hydra-plutus" = {
-            flags = { "hydra-development" = lib.mkOverride 900 true; };
+            flags = { "hydra-development" = lib.mkOverride 900 false; };
             };
           "cardano-ledger-shelley-test" = { flags = {}; };
           "typed-protocols-cborg" = { flags = {}; };
@@ -978,7 +978,6 @@
           "atomic-primops".components.library.planned = lib.mkOverride 900 true;
           "composition-prelude".components.library.planned = lib.mkOverride 900 true;
           "stm".components.library.planned = lib.mkOverride 900 true;
-          "local-cluster".components.exes."local-cluster".planned = lib.mkOverride 900 true;
           "old-locale".components.library.planned = lib.mkOverride 900 true;
           "SHA".components.library.planned = lib.mkOverride 900 true;
           "split".components.library.planned = lib.mkOverride 900 true;

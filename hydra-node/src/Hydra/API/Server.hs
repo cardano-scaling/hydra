@@ -46,8 +46,8 @@ instance Arbitrary APIServerLog where
     oneof
       [ APIServerStarted <$> arbitrary
       , pure NewAPIConnection
-      , pure $ APIOutputSent Aeson.Null
-      , pure $ APIInputReceived Aeson.Null
+      , pure $ APIOutputSent (Aeson.Object mempty)
+      , pure $ APIInputReceived (Aeson.Object mempty)
       , APIInvalidInput <$> arbitrary <*> arbitrary
       ]
 

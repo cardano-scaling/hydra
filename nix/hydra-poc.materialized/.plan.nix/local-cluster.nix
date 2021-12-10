@@ -84,22 +84,6 @@
         hsSourceDirs = [ "src" ];
         };
       exes = {
-        "local-cluster" = {
-          depends = [
-            (hsPkgs."base" or (errorHandler.buildDepError "base"))
-            (hsPkgs."cardano-cli" or (errorHandler.buildDepError "cardano-cli"))
-            (hsPkgs."cardano-node" or (errorHandler.buildDepError "cardano-node"))
-            (hsPkgs."contra-tracer" or (errorHandler.buildDepError "contra-tracer"))
-            (hsPkgs."hydra-prelude" or (errorHandler.buildDepError "hydra-prelude"))
-            (hsPkgs."local-cluster" or (errorHandler.buildDepError "local-cluster"))
-            (hsPkgs."temporary" or (errorHandler.buildDepError "temporary"))
-            ];
-          buildable = true;
-          hsSourceDirs = [ "exe" ];
-          mainPath = [
-            "local-cluster.hs"
-            ] ++ (pkgs.lib).optional (!flags.hydra-development) "";
-          };
         "log-filter" = {
           depends = [
             (hsPkgs."aeson" or (errorHandler.buildDepError "aeson"))

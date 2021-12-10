@@ -1,0 +1,345 @@
+---
+"$id": https://raw.githubusercontent.com/input-output-hk/hydra-poc/master/hydra-node/json-schemas/
+"$schema": http://json-schema.org/draft/2020-12/schema
+"$comment": A synthetic description of the WebSocket API for Hydra Head nodes.
+title: Hydra WebSocket API
+description: >
+  This schema documents the Client API of Hydra Node's Head  protocol, allowing
+  clients to:
+
+    * Perform operations on the head itself, like initialising or closing it,
+    * Submit transactions once the head is open,
+    * Receive notifications from the server node.
+
+  This API takes the form of various JSON data structures that represent either inputs
+  from the client or outputs from the server. It is served over a websocket connection
+  and is fully asynchronous: Inputs from the client are queued for later processing on
+  the server-side, and outputs can occur at any time.
+
+type: object
+additionalProperties: false
+
+properties:
+  inputs:
+    type: array
+    additionalItems: false
+    items:
+      oneOf:
+      - title: Init
+        type: object
+        description: >
+          Initialises a new Head. This command is a no-op when a Head is already open and
+          the server will output an 'CommandFailed' message should this happen.
+        required:
+        - tag
+        - contestationPeriod
+        properties:
+          tag:
+            type: string
+            enum: ["Init"]
+          contestationPeriod:
+            type: number
+
+      - title: Abort
+        type: object
+        required:
+        - tag
+        properties:
+          tag:
+            type: string
+            enum: ["Abort"]
+
+      - title: Commit
+        type: object
+        required:
+        - tag
+        - utxo
+        properties:
+          tag:
+            type: string
+            enum: ["Commit"]
+          utxo:
+            $ref: "#/definitions/Utxo"
+
+      - title: NewTx
+        type: object
+        required:
+        - tag
+        properties:
+          tag:
+            type: string
+            enum: ["NewTx"]
+          transaction:
+            $ref: "#/definitions/Transaction"
+
+      - title: GetUtxo
+        type: object
+        required:
+        - tag
+        properties:
+          tag:
+            type: string
+            enum: ["GetUtxo"]
+
+      - title: Close
+        type: object
+        required:
+        - tag
+        properties:
+          tag:
+            type: string
+            enum: ["Close"]
+
+      - title: Contest
+        type: object
+        required:
+        - tag
+        properties:
+          tag:
+            type: string
+            enum: ["Contest"]
+
+  outputs:
+    type: array
+    additionalItems: false
+    items:
+      oneOf:
+      - title: PeerConnected
+        type: object
+        required:
+        - tag
+        - peer
+        properties:
+          tag:
+            type: string
+            enum: ["PeerConnected"]
+          peer: { "$ref": "#/definitions/Peer" }
+
+      - title: PeerDisconnected
+        type: object
+        required:
+        - tag
+        - peer
+        properties:
+          tag:
+            type: string
+            enum: ["PeerDisconnected"]
+          peer:
+            $ref: "#/definitions/Peer"
+
+      - title: ReadyToCommit
+        type: object
+        required:
+        - tag
+        - parties
+        properties:
+          tag:
+            type: string
+            enum: ["ReadyToCommit"]
+          parties:
+            type: array
+            items:
+              $ref: "#/definitions/Party"
+
+      - title: Committed
+        type: object
+        required:
+        - tag
+        - party
+        - utxo
+        properties:
+          tag:
+            type: string
+            enum: ["Committed"]
+          party:
+            $ref: "#/definitions/Party"
+          utxo:
+            $ref: "#/definitions/Utxo"
+
+      - title: HeadIsOpen
+        type: object
+        required:
+        - tag
+        - utxo
+        properties:
+          tag:
+            type: string
+            enum: ["HeadIsOpen"]
+          utxo:
+            $ref: "#/definitions/Utxo"
+
+      - title: HeadIsClosed
+        type: object
+        required:
+        - tag
+        - contestationDeadline
+        - latestSnapshot
+        properties:
+          tag:
+            type: string
+            enum: ["HeadIsClosed"]
+          contestationDeadline:
+            type: string
+            format: date-time
+          latestSnapshot:
+            $ref: "#/definitions/Snapshot"
+
+      - title: HeadIsAborted
+        type: object
+        required:
+        - tag
+        - utxo
+        properties:
+          tag:
+            type: string
+            enum: ["HeadIsAborted"]
+          utxo:
+            $ref: "#/definitions/Utxo"
+
+      - title: HeadIsFinalized
+        type: object
+        required:
+        - tag
+        - utxo
+        properties:
+          tag:
+            type: string
+            enum: ["HeadIsFinalized"]
+          utxo:
+            $ref: "#/definitions/Utxo"
+
+      - title: TxSeen
+        type: object
+        required:
+        - tag
+        - transaction
+        properties:
+          tag:
+            type: string
+            enum: ["TxSeen"]
+          transaction:
+            $ref: "#/definitions/Transaction"
+
+      - title: TxValid
+        type: object
+        required:
+        - tag
+        - transaction
+        properties:
+          tag:
+            type: string
+            enum: ["TxValid"]
+          transaction:
+            $ref: "#/definitions/Transaction"
+
+      - title: TxInvalid
+        type: object
+        required:
+        - tag
+        - utxo
+        - transaction
+        - validationError
+        properties:
+          tag:
+            type: string
+            enum: ["TxInvalid"]
+          utxo:
+            $ref: "#/definitions/Utxo"
+          transaction:
+            $ref: "#/definitions/Transaction"
+          validationError:
+            type: object
+            properties:
+              reason:
+                type: string
+
+      - title: SnapshotConfirmed
+        type: object
+        required:
+        - tag
+        - snapshot
+        properties:
+          tag:
+            type: string
+            enum: ["SnapshotConfirmed"]
+          snapshot:
+            $ref: "#/definitions/Snapshot"
+
+      - title: Utxo
+        type: object
+        required:
+        - tag
+        properties:
+          tag:
+            type: string
+            enum: ["Utxo"]
+          utxo:
+            $ref: "#/definitions/Utxo"
+
+      - title: CommandFailed
+        type: object
+        required:
+        - tag
+        properties:
+          tag:
+            type: string
+            enum: ["CommandFailed"]
+
+      - title: InvalidInput
+        type: object
+        required:
+        - tag
+        - reason
+        - input
+        properties:
+          tag:
+            type: string
+            enum: ["InvalidInput"]
+          reason:
+            type: string
+          input:
+            type: string
+
+      - title: Greetings
+        description: >-
+          A friendly welcome message which tells a client something about the
+          node. Currently used for knowing what signing key the server uses (it
+          only knows one).
+        type: object
+        required:
+        - tag
+        - me
+        properties:
+          tag:
+            type: string
+            enum: ["Greetings"]
+          me:
+            $ref: "#/definitions/Party"
+
+definitions:
+  Address:
+    $ref: "common.json#/definitions/Address"
+  Cbor:
+    $ref: "common.json#/definitions/Cbor"
+  Party:
+    $ref: "common.json#/definitions/Party"
+  Peer:
+    $ref: "common.json#/definitions/Peer"
+  Snapshot:
+    $ref: "common.json#/definitions/Snapshot"
+  Transaction:
+    $ref: "common.json#/definitions/Transaction"
+  TxBody:
+    $ref: "common.json#/definitions/TxBody"
+  TxId:
+    $ref: "common.json#/definitions/TxId"
+  TxIn:
+    $ref: "common.json#/definitions/TxIn"
+  TxOut:
+    $ref: "common.json#/definitions/TxOut"
+  Utxo:
+    $ref: "common.json#/definitions/Utxo"
+  Value:
+    $ref: "common.json#/definitions/Value"
+  Withdrawal:
+    $ref: "common.json#/definitions/Withdrawal"

@@ -25,7 +25,11 @@
       detailLevel = "FullDetails";
       licenseFiles = [ "LICENSE" "NOTICE" ];
       dataDir = ".";
-      dataFiles = [ "api.yaml" ];
+      dataFiles = [
+        "json-schemas/api.yaml"
+        "json-schemas/common.yaml"
+        "json-schemas/logs.yaml"
+        ];
       extraSrcFiles = [ "README.md" ];
       extraTmpFiles = [];
       extraDocFiles = [];
@@ -165,6 +169,7 @@
             (hsPkgs."contra-tracer" or (errorHandler.buildDepError "contra-tracer"))
             (hsPkgs."cryptonite" or (errorHandler.buildDepError "cryptonite"))
             (hsPkgs."data-default" or (errorHandler.buildDepError "data-default"))
+            (hsPkgs."directory" or (errorHandler.buildDepError "directory"))
             (hsPkgs."filepath" or (errorHandler.buildDepError "filepath"))
             (hsPkgs."hspec" or (errorHandler.buildDepError "hspec"))
             (hsPkgs."hspec-core" or (errorHandler.buildDepError "hspec-core"))

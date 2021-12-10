@@ -9,7 +9,7 @@ import Test.Hydra.Prelude
 import Data.Aeson.Lens (key)
 import Hydra.ClientInput (ClientInput)
 import Hydra.JSONSchema (SpecificationSelector, prop_specIsComplete, prop_validateToJSON, withJsonSpecifications)
-import Hydra.Ledger.Cardano (CardanoTx, Utxo)
+import Hydra.Ledger.Cardano (CardanoTx)
 import Hydra.ServerOutput (ServerOutput)
 import System.FilePath ((</>))
 import Test.QuickCheck.Property (conjoin, withMaxSuccess)
@@ -17,23 +17,19 @@ import Test.QuickCheck.Property (conjoin, withMaxSuccess)
 spec :: Spec
 spec = parallel $ do
   context "validates JSON representations against API specification" $ do
-    aroundAll (withJsonSpecifications "api.yaml") $ do
-      specify "ClientInput" $ \(specs, tmp) ->
+    aroundAll withJsonSpecifications $ do
+      specify "ClientInput" $ \dir ->
         withMaxSuccess 1 $
           conjoin
-            [ prop_validateToJSON @(ClientInput CardanoTx) specs (tmp </> "ClientInput")
-            , prop_specIsComplete @(ClientInput CardanoTx) specs (apiSpecificationSelector "inputs")
+            [ prop_validateToJSON @(ClientInput CardanoTx) (dir </> "api.json") "inputs" (dir </> "ClientInput")
+            , prop_specIsComplete @(ClientInput CardanoTx) (dir </> "api.json") (apiSpecificationSelector "inputs")
             ]
-      specify "ServerOutput" $ \(specs, tmp) ->
+      specify "ServerOutput" $ \dir ->
         withMaxSuccess 1 $
           conjoin
-            [ prop_validateToJSON @(ServerOutput CardanoTx) specs (tmp </> "ServerOutput")
-            , prop_specIsComplete @(ServerOutput CardanoTx) specs (apiSpecificationSelector "outputs")
+            [ prop_validateToJSON @(ServerOutput CardanoTx) (dir </> "api.json") "outputs" (dir </> "ServerOutput")
+            , prop_specIsComplete @(ServerOutput CardanoTx) (dir </> "api.json") (apiSpecificationSelector "outputs")
             ]
-      specify "Utxo" $ \(specs, tmp) ->
-        withMaxSuccess 1 $ prop_validateToJSON @Utxo specs (tmp </> "Utxo")
-      specify "CardanoTx" $ \(specs, tmp) ->
-        withMaxSuccess 1 $ prop_validateToJSON @CardanoTx specs (tmp </> "CardanoTx")
 
 apiSpecificationSelector ::
   Text -> SpecificationSelector

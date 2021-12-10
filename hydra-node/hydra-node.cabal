@@ -10,7 +10,10 @@ license-files:
   NOTICE
 
 extra-source-files: README.md
-data-files:         api.yaml
+data-files:
+  json-schemas/api.yaml
+  json-schemas/common.yaml
+  json-schemas/logs.yaml
 
 source-repository head
   type:     git
@@ -234,6 +237,7 @@ test-suite tests
     , contra-tracer
     , cryptonite
     , data-default
+    , directory
     , filepath
     , hspec
     , hspec-core

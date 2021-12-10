@@ -1,0 +1,1049 @@
+---
+"$id": https://raw.githubusercontent.com/input-output-hk/hydra-poc/master/hydra-node/json-schemas/
+"$schema": http://json-schema.org/draft/2020-12/schema
+"$comment": A description of the log items produced by a Hydra node
+title: Hydra Log API
+description: >
+  This schema documents the structure of the Log items produced by a Hydra node
+  via its standard output stream. Items are emitted as individual JSON objects,
+  separated by a newline which makes it easy to ingest by thirdparty tools and
+  services.
+
+type: object
+additionalProperties: false
+
+properties:
+  messages:
+    type: array
+    additionalItems: false
+    items:
+      type: object
+      additionalProperties: false
+      required:
+      - namespace
+      - timestamp
+      - threadId
+      - message
+      properties:
+        namespace:
+          type: string
+          description: >-
+            An arbitrary string identifying the tracer generating this entry. For a
+            node, this is always 'HydraNode'.
+
+        timestamp:
+          type: string
+          format: "date-time"
+          description: >-
+            Timestamp denoting the wall-clock time at which this log entry was
+            recorded.
+
+        threadId:
+          type: integer
+          description: >-
+            The id of the thread which produced the log entry.
+
+        message:
+          oneOf:
+          - title: APIServer
+            type: object
+            additionalProperties: false
+            required:
+            - tag
+            - api
+            description: >-
+              A log entry produced by the API server.
+            properties:
+              tag:
+                type: string
+                enum: ["APIServer"]
+              api:
+                $ref: "#/definitions/APIServer"
+
+          - title: Node
+            type: object
+            additionalProperties: false
+            required:
+            - tag
+            - node
+            description: >-
+              A log entry denoting events and effects processed by the Node as part
+              of the Head protocol.
+            properties:
+              tag:
+                type: string
+                enum: ["Node"]
+              node:
+                $ref: "#/definitions/Node"
+
+          - title: DirectChain
+            type: object
+            additionalProperties: false
+            required:
+            - tag
+            - directChain
+            description: >-
+              A log entry produced by the chain component watching the chain.
+            properties:
+              tag:
+                type: string
+                enum: ["DirectChain"]
+              directChain:
+                $ref: "#/definitions/DirectChain"
+
+          - title: Network
+            type: object
+            additionalProperties: false
+            required:
+            - tag
+            - network
+            description: >-
+              A log entry from the Hydra network (i.e. the layer-two network between Hydra nodes).
+            properties:
+              tag:
+                type: string
+                enum: ["Network"]
+              network:
+                $ref: "#/definitions/Network"
+
+definitions:
+  APIServer:
+    oneOf:
+    - title: APIServerStarted
+      description: >-
+        API Server has started and is ready, listening for incoming client
+        connections on given port.
+      type: object
+      additionalProperties: false
+      required:
+      - tag
+      - listeningPort
+      properties:
+        tag:
+          type: string
+          enum: ["APIServerStarted"]
+        listeningPort:
+          type: integer
+          minimum: 0
+          maximum: 65535
+    - title: NewAPIConnection
+      description: >-
+        A new client has connected to the API Server.
+      additionalProperties: false
+      required:
+      - tag
+      properties:
+        tag:
+          type: string
+          enum: ["NewAPIConnection"]
+    - title: APIOutputSent
+      description: >-
+        Some output has been sent to a client.
+      additionalProperties: false
+      required:
+      - tag
+      - sentOutput
+      properties:
+        tag:
+          type: string
+          enum: ["APIOutputSent"]
+        sentOutput:
+          type: object
+    - title: APIInputReceived
+      description: >-
+        Some input has been received from a client.
+      additionalProperties: false
+      required:
+      - tag
+      - receivedInput
+      properties:
+        tag:
+          type: string
+          enum: ["APIInputReceived"]
+        receivedInput:
+          oneOf:
+            - type: "null"
+            - type: object
+    - title: APIInvalidInput
+      description: >-
+        Some input sent by a client is invalid.
+      additionalProperties: false
+      required:
+      - tag
+      - reason
+      - inputReceived
+      properties:
+        tag:
+          type: string
+          enum: ["APIInvalidInput"]
+        reason:
+          type: string
+          description: >-
+            A textual description of the reason why this input is invalid.
+        inputReceived:
+          type: string
+          description: >-
+            A rendering in text of the input received. This input is invalid
+            hence it's potentially invalid JSON so we just encode it as a proper
+            JSON string. Note that if the input contained invalid UTF-8
+            characters they will be ignored.
+
+  DirectChain:
+    oneOf:
+    - title: ToPost
+      description: >-
+        A logical representation of the transaction to be posted on-chain.
+      type: object
+      additionalProperties: false
+      required:
+        - tag
+        - toPost
+      properties:
+        tag:
+          type: string
+          enum: ["ToPost"]
+        toPost:
+          $ref: "#/definitions/PostChainTx"
+    - title: PostedTx
+      description: >-
+        Actual on-chain representation of a transaction posted to the network.
+      type: object
+      additionalProperties: false
+      required:
+        - tag
+        - postedTx
+      properties:
+        tag:
+          type: string
+          enum: ["PostedTx"]
+        postedTx:
+          type: array
+          prefixItems:
+            - $ref: "#/definitions/TxId"
+            - $ref: "#/definitions/Transaction"
+    - title: ReceivedTxs
+      description: >-
+        Logical and actual representation of received / observed transactions on-chain.
+      type: object
+      additionalProperties: false
+      required:
+        - tag
+        - onChainTxs
+        - receivedTxs
+      properties:
+        tag:
+          type: string
+          enum: ["ReceivedTxs"]
+        onChainTxs:
+          type: array
+          items:
+            $ref: "#/definitions/OnChainTx"
+        receivedTxs:
+          type: array
+          items:
+            type: integer
+    - title: RolledBackward
+      description: >-
+        Observation of a rollback.
+      type: object
+      additionalProperties: false
+      required:
+        - tag
+        - point
+      properties:
+        tag:
+          type: string
+          enum: ["RolledBackward"]
+        point:
+          $ref: "#/definitions/Point"
+    - title: Wallet
+      description: >-
+        Logs coming from the wallet.
+      type: object
+      additionalProperties: false
+      required:
+        - tag
+        - contents
+      properties:
+        tag:
+          type: string
+          enum: ["Wallet"]
+        contents:
+          $ref: "#/definitions/Wallet"
+
+  Wallet:
+    oneOf:
+    - title: InitializingWallet
+      description: >-
+        The wallet has been initialized to some point on the chain and will start syncing block by block from there.
+      type: object
+      additionalProperties: false
+      required:
+      - tag
+      - point
+      - initialUtxo
+      properties:
+        tag:
+          type: string
+          enum: ["InitializingWallet"]
+        point:
+          $ref: "#/definitions/Point"
+        initialUtxo:
+          $ref: "#/definitions/Utxo"
+    - title: ApplyBlock
+      description: >-
+        The wallet has discovered and applied a new block of interest.
+      additionalProperties: false
+      required:
+      - tag
+      - before
+      - after
+      properties:
+        tag:
+          type: string
+          enum: ["ApplyBlock"]
+        before:
+          $ref: "#/definitions/Utxo"
+        after:
+          $ref: "#/definitions/Utxo"
+
+  # TODO: Fill the gap!
+  Network: {}
+
+  Node:
+    oneOf:
+    - title: ErrorHandlingEvent
+      # This should be removed from the Log's description as soon as we have some proper
+      # error handling strategy in place, be it simply "Close the head" and bail out.
+      description: >-
+        Some error happened while processing an event, provides enough context
+        information to troubleshoot the origin of the error.
+      type: object
+      additionalProperties: false
+      required:
+      - tag
+      - by
+      - event
+      properties:
+        tag:
+          type: string
+          enum: [ "ErrorHandlingEvent" ]
+        by:
+          <<: { "$ref": "#/definitions/Party" }
+          description: >-
+            The Party emitting the log entry.
+        event:
+          <<: { "$ref": "#/definitions/Event" }
+          description: >-
+            The event causing the error.
+        reason:
+          <<: { "$ref": "#/definitions/LogicError" }
+          description: >-
+            Structured description of the cause of the error.
+    - title: ProcessingEvent
+      description: >-
+        Head has started processing an event drawn from some pool or queue of
+        events to process.
+      type: object
+      additionalProperties: false
+      required:
+      - tag
+      - by
+      - event
+      properties:
+        tag:
+          type: string
+          enum: [ "ProcessingEvent" ]
+        by:
+          <<: { "$ref": "#/definitions/Party" }
+          description: >-
+            The Party emitting the log entry.
+        event:
+          <<: { "$ref": "#/definitions/Event" }
+    - title: ProcessedEvent
+      description: >-
+        Head has succesfully finished processing an event.
+      type: object
+      additionalProperties: false
+      required:
+      - tag
+      - by
+      - event
+      properties:
+        tag:
+          type: string
+          enum: [ "ProcessedEvent" ]
+        by:
+          <<: { "$ref": "#/definitions/Party" }
+          description: >-
+            The Party emitting the log entry.
+        event:
+          $ref: "#/definitions/Event"
+    - title: ProcessingEffect
+      description: >-
+        Head has started processing an effect produced by some transition in the
+        protocol.
+      type: object
+      additionalProperties: false
+      required:
+      - tag
+      - by
+      - effect
+      properties:
+        tag:
+          type: string
+          enum: [ "ProcessingEffect" ]
+        by:
+          <<: { "$ref": "#/definitions/Party" }
+          description: >-
+            The Party emitting the log entry.
+        effect:
+          $ref: "#/definitions/Effect"
+    - title: ProcessedEffect
+      description: >-
+        Head has finished processing an effect produced by some transition in the protocol.
+      type: object
+      additionalProperties: false
+      required:
+      - tag
+      - by
+      - effect
+      properties:
+        tag:
+          type: string
+          enum: [ "ProcessedEffect" ]
+        by:
+          <<: { "$ref": "#/definitions/Party" }
+          description: >-
+            The Party emitting the log entry.
+        effect:
+          $ref: "#/definitions/Effect"
+
+  LogicError:
+    oneOf:
+    - title: InvalidEvent
+      additionalProperties: false
+      required:
+        - tag
+        - contents
+      properties:
+        tag:
+          type: string
+          enum: [ "InvalidEvent" ]
+        contents:
+          type: array
+          prefixItems:
+            - $ref: "#/definitions/Event"
+            - $ref: "#/definitions/HeadState"
+    - title: InvalidState
+      additionalProperties: false
+      required:
+        - tag
+        - contents
+      properties:
+        tag:
+          type: string
+          enum: [ "InvalidState" ]
+        contents:
+          $ref: "#/definitions/HeadState"
+    - title: InvalidSnapshot
+      additionalProperties: false
+      required:
+      - tag
+      - expected
+      - actual
+      properties:
+        tag:
+          type: string
+          enum: [ "InvalidSnapshot" ]
+        expected:
+          $ref: "#/definitions/SnapshotNumber"
+        actual:
+          $ref: "#/definitions/SnapshotNumber"
+    - title: LedgerError
+      additionalProperties: false
+      required:
+        - tag
+        - contents
+      properties:
+        tag:
+          type: string
+          enum: [ "LedgerError" ]
+        contents:
+          $ref: "#/definitions/ValidationError"
+
+  ValidationError:
+    type: object
+    additionalProperties: false
+    required:
+      - reason
+    properties:
+      reason:
+        type: string
+
+  HeadState:
+    oneOf:
+    - title: "ReadyState"
+      additionalProperties: false
+      required:
+        - tag
+      properties:
+        tag:
+          type: string
+          enum: [ "ReadyState" ]
+    - title: "InitialState"
+      additionalProperties: false
+      required:
+        - tag
+        - pendingCommits
+        - committed
+      properties:
+        tag:
+          type: string
+          enum: [ "InitialState" ]
+        parameters:
+          $ref: "#/definitions/HeadParameters"
+        pendingCommits:
+          type: array
+          items:
+            $ref: "#/definitions/Party"
+        committed:
+          type: array
+          items:
+            $ref: "#/definitions/Party"
+    - title: "OpenState"
+      additionalProperties: false
+      required:
+        - tag
+        - parameters
+        - coordinatedHeadState
+      properties:
+        tag:
+          type: string
+          enum: [ "OpenState" ]
+        parameters:
+          $ref: "#/definitions/HeadParameters"
+        coordinatedHeadState:
+          $ref: "#/definitions/CoordinatedHeadState"
+    - title: "ClosedState"
+      additionalProperties: false
+      required:
+        - tag
+        - parameters
+        - utxos
+      properties:
+        tag:
+          type: string
+          enum: [ "ClosedState" ]
+        parameters:
+          $ref: "#/definitions/HeadParameters"
+        utxos:
+          $ref: "#/definitions/Utxo"
+
+  CoordinatedHeadState:
+    type: object
+    additionalProperties: false
+    required:
+    - seenUtxo
+    - seenTxs
+    - confirmedSnapshot
+    - seenSnapshot
+    properties:
+      seenUtxo:
+        $ref: "#/definitions/Utxo"
+      seenTxs:
+        type: array
+        items:
+          $ref: "#/definitions/Transaction"
+      confirmedSnapshot:
+        $ref: "#/definitions/Snapshot"
+      seenSnapshot:
+        $ref: "#/definitions/SeenSnapshot"
+
+  Event:
+    description: >-
+      Events (with Effects) are the atomic elements of the Hydra Head protocol
+      which is basically a state-machine consuming events and producing effects.
+      Events can come from different sources representing the various components
+      a Head needs to interact with: Clients, other peers through the Network,
+      main Chain.
+    oneOf:
+    - title: ClientEvent
+      type: object
+      additionalProperties: false
+      required:
+      - tag
+      - clientInput
+      description: >-
+        An event representing some input from a client.
+      properties:
+        tag:
+          type: string
+          enum: ["ClientEvent"]
+        clientInput:
+          $ref: "#/definitions/ClientInput"
+    - title: NetworkEvent
+      type: object
+      additionalProperties: false
+      required:
+      - tag
+      - message
+      description: >-
+        An event representing some message received from peers in the network.
+      properties:
+        tag:
+          type: string
+          enum: ["NetworkEvent"]
+        message:
+          $ref: "#/definitions/Message"
+    - title: OnChainEvent
+      type: object
+      additionalProperties: false
+      required:
+      - tag
+      - onChainTx
+      description: >-
+        An event representing the confirmation that some transaction part of the
+        Head protocol has been confirmed on the main chain.
+      properties:
+        tag:
+          type: string
+          enum: ["OnChainEvent"]
+        onChainTx:
+          $ref: "#/definitions/OnChainTx"
+    - title: ShouldPostFanout
+      type: object
+      additionalProperties: false
+      required:
+      - tag
+      description: >-
+        An placeholder event denoting the Head should post a Fanout transaction
+        to finalize the head.
+      properties:
+        tag:
+          type: string
+          enum: ["ShouldPostFanout"]
+
+  Message:
+    description: >-
+      Messages exchanged by Hydra network peers over a broadcasting network.
+    oneOf:
+      - title: ReqTx
+        type: object
+        additionalProperties: false
+        required:
+        - tag
+        - party
+        - transaction
+        description: >-
+          Request to sign some transaction and add it to the confirmed Head
+          ledger.
+        properties:
+          tag:
+            type: string
+            enum: ["ReqTx"]
+          party:
+            $ref: "#/definitions/Party"
+          transaction:
+            $ref: "#/definitions/Transaction"
+      - title: ReqSn
+        type: object
+        additionalProperties: false
+        required:
+        - tag
+        - party
+        - snapshotNumber
+        - transactions
+        description: >-
+          Request from the current snapshot leader to sign some snapshot, eg. a
+          bunch of transactions.
+        properties:
+          tag:
+            type: string
+            enum: ["ReqSn"]
+          party:
+            $ref: "#/definitions/Party"
+          snapshotNumber:
+            $ref: "#/definitions/SnapshotNumber"
+          transactions:
+            type: array
+            items:
+              $ref: "#/definitions/Transaction"
+      - title: AckSn
+        type: object
+        additionalProperties: false
+        required:
+        - tag
+        - party
+        - signed
+        - snapshotNumber
+        description: >-
+          Signature of a snapshot by a party.
+        properties:
+          tag:
+            type: string
+            enum: ["AckSn"]
+          party:
+            $ref: "#/definitions/Party"
+          snapshotNumber:
+            type: integer
+            minimum: 0
+          signed:
+            type: string
+            contentEncoding: base16
+            description: >-
+              Signature from given party of the snapshot. The bytes representing
+              the signature are hex-encoded.
+      - title: Connected
+        type: object
+        additionalProperties: false
+        required:
+        - tag
+        - peer
+        description: >-
+          Given party is known to be connected to the network.
+        properties:
+          tag:
+            type: string
+            enum: ["Connected"]
+          peer:
+            $ref: "#/definitions/Peer"
+      - title: Disconnected
+        type: object
+        additionalProperties: false
+        required:
+        - tag
+        - peer
+        description: >-
+          Given peer is probably disconnected from the network.
+        properties:
+          tag:
+            type: string
+            enum: ["Disconnected"]
+          peer:
+            $ref: "#/definitions/Peer"
+
+  OnChainTx:
+    description: >-
+      On-Chain transactions for the Head protocol. These data structures
+      completely abstract away the actual structure of the transaction and only
+      represent the data relevant for the protocol to make some progress.
+    oneOf:
+      - title: OnInitTx
+        type: object
+        additionalProperties: false
+        required:
+        - tag
+        - contestationPeriod
+        - parties
+        description: >-
+          The initial transaction of the Head, announcing various parameters and
+          the parties, has been posted on-chain.
+        properties:
+          tag:
+            type: string
+            enum: ["OnInitTx"]
+          contestationPeriod:
+            type: number
+            description: >-
+              The length of the contestaion period, in seconds, represented as a
+              decimal number.
+          parties:
+            type: array
+            items:
+              $ref: "#/definitions/Party"
+      - title: OnCommitTx
+        type: object
+        additionalProperties: false
+        required:
+        - tag
+        - party
+        - committed
+        description: >-
+          The commit transaction from a party, committing some UTxO set to the
+          Head.
+        properties:
+          tag:
+            type: string
+            enum: ["OnCommitTx"]
+          party:
+            $ref: "#/definitions/Party"
+          committed:
+            $ref: "#/definitions/Utxo"
+      - title: OnAbortTx
+        type: object
+        additionalProperties: false
+        required:
+        - tag
+        properties:
+          tag:
+            type: string
+            enum: ["OnAbortTx"]
+      - title: OnCollectComTx
+        type: object
+        additionalProperties: false
+        required:
+        - tag
+        properties:
+          tag:
+            type: string
+            enum: ["OnCollectComTx"]
+      - title: OnCloseTx
+        type: object
+        additionalProperties: false
+        required:
+        - tag
+        - snapshotNumber
+        - contestationDeadline
+        properties:
+          tag:
+            type: string
+            enum: ["OnCloseTx"]
+          snapshotNumber:
+            type: integer
+            minimum: 0
+          contestationDeadline:
+            type: string
+            format: date-time
+      - title: OnContestTx
+        type: object
+        additionalProperties: false
+        required:
+        - tag
+        properties:
+          tag:
+            type: string
+            enum: ["OnContestTx"]
+      - title: OnFanoutTx
+        type: object
+        additionalProperties: false
+        required:
+        - tag
+        properties:
+          tag:
+            type: string
+            enum: ["OnFanoutTx"]
+      - title: PostTxFailed
+        type: object
+        additionalProperties: false
+        required:
+        - tag
+        description: >-
+          Submitted transaction was ill-formed.
+        properties:
+          tag:
+            type: string
+            enum: ["PostTxFailed"]
+
+  Effect:
+    description: >-
+      Effects are the outcome of Head protocol processing Events. Each Effect
+      represents a message that needs to be sent somewhere, either to clients
+      for notification purpose, to other heads, or to the chain as part of the
+      protocol.
+    oneOf:
+    - title: ClientEffect
+      type: object
+      additionalProperties: false
+      required:
+      - tag
+      - serverOutput
+      description: >-
+        An effect representing some output to send to the client.
+      properties:
+        tag:
+          type: string
+          enum: ["ClientEffect"]
+        serverOutput:
+          $ref: "#/definitions/ServerOutput"
+    - title: NetworkEffect
+      type: object
+      additionalProperties: false
+      required:
+      - tag
+      - message
+      description: >-
+        An effect representing some message to broadcast to other parties in the
+        Head.
+      properties:
+        tag:
+          type: string
+          enum: ["NetworkEffect"]
+        message:
+          $ref: "#/definitions/Message"
+    - title: OnChainEffect
+      type: object
+      additionalProperties: false
+      required:
+      - tag
+      - onChainTx
+      description: >-
+        An effect representing some transaction must be posted on-chain. Note
+        that incoming transactions are represented by OnChainEvent which can be
+        different from outgoing transactions.
+      properties:
+        tag:
+          type: string
+          enum: ["OnChainEffect"]
+        onChainTx:
+          $ref: "#/definitions/PostChainTx"
+    - title: Delay
+      type: object
+      additionalProperties: false
+      required:
+      - tag
+      - delay
+      - event
+      description: >-
+        A special effect requesting the given event to be delayed from
+        processing for some amount of time. Delays can happen in the protocol
+        because messages can be received out-of-order due to the asynchronous
+        nature of the network, hence an otherwise invalid event could become
+        invalid in the future.
+      properties:
+        tag:
+          type: string
+          enum: ["Delay"]
+        delay:
+          type: number
+          minimum: 0
+          description: >-
+            The length of the delay, in seconds.
+        event:
+          $ref: "#/definitions/Event"
+
+  PostChainTx:
+    description: >-
+      Description of outgoing On-Chain transactions for the Head protocol. As is
+      the case for OnChainTx, these data structures completely abstract away the
+      actual details of the transaction and only represent data relevant for the
+      protocol to make some progress.
+    oneOf:
+      - title: InitTx
+        type: object
+        additionalProperties: false
+        required:
+        - tag
+        - headParameters
+        description: >-
+          The initial transaction of the Head defining its parameters.
+        properties:
+          tag:
+            type: string
+            enum: ["InitTx"]
+          headParameters:
+            $ref: "#/definitions/HeadParameters"
+      - title: CommitTx
+        type: object
+        additionalProperties: false
+        required:
+        - tag
+        - party
+        - committed
+        description: >-
+          Commit some UTxO set to the opening Head, signed by this party.
+        properties:
+          tag:
+            type: string
+            enum: ["CommitTx"]
+          party:
+            $ref: "#/definitions/Party"
+          committed:
+            $ref: "#/definitions/Utxo"
+      - title: AbortTx
+        type: object
+        additionalProperties: false
+        required:
+        - tag
+        - utxo
+        description: >-
+          Abort the opening of the Head process.
+        properties:
+          tag:
+            type: string
+            enum: ["AbortTx"]
+          utxo:
+            $ref: "#/definitions/Utxo"
+      - title: CollectComTx
+        type: object
+        additionalProperties: false
+        required:
+        - tag
+        - utxo
+        description: >-
+          Confirm the opening of the Head collecting the committed UTxO set
+          combined from all individual commits.
+        properties:
+          tag:
+            type: string
+            enum: ["CollectComTx"]
+          utxo:
+            $ref: "#/definitions/Utxo"
+      - title: CloseTx
+        type: object
+        additionalProperties: false
+        required:
+        - tag
+        - snapshot
+        description: >-
+          Close the currently open Head with the given snapshot.
+        properties:
+          tag:
+            type: string
+            enum: ["CloseTx"]
+          snapshot:
+            $ref: "#/definitions/Snapshot"
+      - title: ContestTx
+        type: object
+        additionalProperties: false
+        required:
+        - tag
+        - snapshot
+        description: >-
+          Contest a previously posted snapshot (from a Close or Contest
+          transaction) with a newer snapshot.
+        properties:
+          tag:
+            type: string
+            enum: ["ContestTx"]
+          snapshot:
+            $ref: "#/definitions/Snapshot"
+      - title: FanoutTx
+        type: object
+        additionalProperties: false
+        required:
+        - tag
+        - utxo
+        description: >-
+          Finalise the Head posting all UTxO from the Head on-chain.
+        properties:
+          tag:
+            type: string
+            enum: ["FanoutTx"]
+          utxo:
+            $ref: "#/definitions/Utxo"
+
+  ClientInput:
+    $ref: "api.json#/properties/inputs/items"
+  ServerOutput:
+    $ref: "api.json#/properties/outputs/items"
+  HeadParameters:
+    $ref: "common.json#/definitions/HeadParameters"
+  Party:
+    $ref: "common.json#/definitions/Party"
+  Peer:
+    $ref: "common.json#/definitions/Peer"
+  Point:
+    $ref: "common.json#/definitions/Point"
+  SeenSnapshot:
+    $ref: "common.json#/definitions/SeenSnapshot"
+  Snapshot:
+    $ref: "common.json#/definitions/Snapshot"
+  SnapshotNumber:
+    $ref: "common.json#/definitions/SnapshotNumber"
+  Transaction:
+    $ref: "common.json#/definitions/Transaction"
+  TxId:
+    $ref: "common.json#/definitions/TxId"
+  Utxo:
+    $ref: "common.json#/definitions/Utxo"
