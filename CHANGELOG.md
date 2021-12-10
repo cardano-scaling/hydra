@@ -13,6 +13,13 @@ changes.
 - Direct chain integration which allows to connect to a real cardano-node /
   devnet; no on-chain validators though.
 - Support alonzo transactions inside the Hydra Head. For now using a `freeCostModel`.
+- Command line options `--node-socket`, `--network-magic` and
+  `--cardano-{signing,verification}-key` to `hydra-node` and `hydra-tui` to
+  configure the Cardano network access.
+
+#### Changed
+- Command line options of `hydra-node` quite significantly to distinguish hydra
+  credentials from cardano credentials.
 
 ### Removed
 - ZeroMQ mock-chain executable, chain component and corresponding `hydra-node` command line options
