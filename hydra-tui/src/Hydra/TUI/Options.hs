@@ -17,9 +17,19 @@ parseOptions :: Parser Options
 parseOptions =
   Options
     <$> parseNodeHost
-    <*> error "parse node socket"
+    <*> parseCardanoNodeSocket
     <*> parseCardanoNetworkId
     <*> parseCardanoVerificationKey
+
+parseCardanoNodeSocket :: Parser FilePath
+parseCardanoNodeSocket =
+  strOption
+    ( long "node-socket"
+        <> metavar "FILE"
+        <> help "The path to the Cardano node domain socket for client communication."
+        <> value "node.socket"
+        <> showDefault
+    )
 
 parseNodeHost :: Parser Host
 parseNodeHost =
