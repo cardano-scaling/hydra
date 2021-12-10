@@ -12,10 +12,16 @@ license-files:
   NOTICE
 
 extra-source-files: README.md
-
 data-files:
-  config/*
-  config/credentials/*
+  config/*.json
+  config/credentials/*.cert
+  config/credentials/*.counter
+  config/credentials/*.json
+  config/credentials/*.key
+  config/credentials/*.sk
+  config/credentials/*.skey
+  config/credentials/*.vk
+  config/credentials/*.vkey
 
 source-repository head
   type:     git
