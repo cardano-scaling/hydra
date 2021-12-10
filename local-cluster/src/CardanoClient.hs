@@ -16,19 +16,15 @@ import Cardano.Api.Shelley (
   PoolId,
   ProtocolParameters (protocolParamTxFeeFixed, protocolParamTxFeePerByte),
  )
-import Cardano.Crypto.DSIGN (deriveVerKeyDSIGN)
-import Cardano.Ledger.Keys (VKey (VKey))
 import Cardano.Slotting.Time (SystemStart)
 import CardanoNode (RunningNode (RunningNode))
 import qualified Data.Map as Map
 import qualified Data.Set as Set
-import qualified Hydra.Chain.Direct.Util as Cardano
 import qualified Hydra.Chain.Direct.Util as Hydra
 import Hydra.Ledger.Cardano (
   CardanoTx,
   Utxo,
   Utxo' (Utxo),
-  VerificationKey (PaymentVerificationKey),
   fromCardanoApiUtxo,
   fromPlutusData,
   lovelaceToTxOutValue,
@@ -281,9 +277,9 @@ defaultSizes :: Sizes
 defaultSizes = Sizes{inputs = 0, outputs = 0, witnesses = 0}
 
 -- | Sign a transaction body with given signing key.
-sign :: Hydra.SigningKey -> TxBody AlonzoEra -> Tx AlonzoEra
+sign :: SigningKey PaymentKey -> TxBody AlonzoEra -> Tx AlonzoEra
 sign signingKey txBody =
-  makeSignedTransaction [makeShelleyKeyWitness txBody (WitnessPaymentKey $ PaymentSigningKey signingKey)] txBody
+  makeSignedTransaction [makeShelleyKeyWitness txBody (WitnessPaymentKey signingKey)] txBody
 
 -- | Submit a (signed) transaction to the node.
 --
@@ -367,7 +363,7 @@ mkGenesisTx ::
   -- |Amount to pay
   Lovelace ->
   CardanoTx
-mkGenesisTx networkId pparams initialAmount signingKey@(PaymentSigningKey sk) verificationKey amount =
+mkGenesisTx networkId pparams initialAmount signingKey verificationKey amount =
   let initialInput =
         genesisUTxOPseudoTxIn
           networkId
@@ -393,29 +389,25 @@ mkGenesisTx networkId pparams initialAmount signingKey@(PaymentSigningKey sk) ve
           TxOutDatumNone
    in case buildRaw [initialInput] [recipientOutput, changeOutput] fee of
         Left err -> error $ "Fail to build genesis transations: " <> show err
-        Right tx -> sign sk tx
+        Right tx -> sign signingKey tx
 
 generatePaymentToCommit ::
   NetworkId ->
   RunningNode ->
-  Cardano.SigningKey ->
-  Cardano.VerificationKey ->
+  SigningKey PaymentKey ->
+  VerificationKey PaymentKey ->
   Natural ->
   IO Utxo
-generatePaymentToCommit networkId (RunningNode _ nodeSocket) sk vk lovelace = do
+generatePaymentToCommit networkId (RunningNode _ nodeSocket) spendingSigningKey receivingVerificationKey lovelace = do
   UTxO availableUtxo <- queryUtxo networkId nodeSocket [spendingAddress]
   let inputs = (,Nothing) <$> Map.keys (Map.filter (not . Hydra.isMarkedOutput) availableUtxo)
   build networkId nodeSocket spendingAddress inputs [] [theOutput] >>= \case
     Left e -> error (show e)
     Right body -> do
-      let tx = sign sk body
+      let tx = sign spendingSigningKey body
       submit networkId nodeSocket tx
       convertUtxo <$> waitForPayment networkId nodeSocket amountLovelace receivingAddress
  where
-  spendingSigningKey = PaymentSigningKey sk
-
-  receivingVerificationKey = PaymentVerificationKey $ VKey vk
-
   spendingAddress = buildAddress (getVerificationKey spendingSigningKey) networkId
 
   receivingAddress = buildAddress receivingVerificationKey networkId
@@ -430,14 +422,12 @@ generatePaymentToCommit networkId (RunningNode _ nodeSocket) sk vk lovelace = do
 
   convertUtxo (UTxO ledgerUtxo) = Utxo ledgerUtxo
 
-postSeedPayment :: NetworkId -> ProtocolParameters -> Lovelace -> RunningNode -> Cardano.SigningKey -> Lovelace -> IO ()
-postSeedPayment networkId pparams initialAmount (RunningNode _ nodeSocket) sk amountLovelace = do
+postSeedPayment :: NetworkId -> ProtocolParameters -> Lovelace -> RunningNode -> SigningKey PaymentKey -> Lovelace -> IO ()
+postSeedPayment networkId pparams initialAmount (RunningNode _ nodeSocket) signingKey amountLovelace = do
   let genesisTx = mkGenesisTx networkId pparams initialAmount signingKey verificationKey amountLovelace
   submit networkId nodeSocket genesisTx
   void $ waitForPayment networkId nodeSocket amountLovelace address
  where
-  signingKey = PaymentSigningKey sk
-
-  verificationKey = PaymentVerificationKey $ VKey $ deriveVerKeyDSIGN sk
+  verificationKey = getVerificationKey signingKey
 
   address = buildAddress verificationKey networkId

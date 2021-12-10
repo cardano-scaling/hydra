@@ -15,6 +15,7 @@ module Hydra.Chain.Direct (
 
 import Hydra.Prelude
 
+import Cardano.Api (PaymentKey, SigningKey, VerificationKey)
 import Cardano.Ledger.Alonzo.Language (Language (PlutusV1))
 import Cardano.Ledger.Alonzo.Rules.Utxo (UtxoPredicateFailure (UtxosFailure))
 import Cardano.Ledger.Alonzo.Rules.Utxos (TagMismatchDescription (FailedUnexpectedly), UtxosPredicateFailure (ValidationTagMismatch))
@@ -69,7 +70,6 @@ import Hydra.Chain.Direct.Util (
   nullConnectTracers,
   versions,
  )
-import qualified Hydra.Chain.Direct.Util as Cardano
 import Hydra.Chain.Direct.Wallet (
   ErrCoverFee (ErrUnknownInput, input),
   TinyWallet (..),
@@ -130,11 +130,11 @@ withDirectChain ::
   -- | Path to a domain socket used to connect to the server.
   FilePath ->
   -- | Key pair for the wallet.
-  (Cardano.VerificationKey, Cardano.SigningKey) ->
+  (VerificationKey PaymentKey, SigningKey PaymentKey) ->
   -- | Hydra party of our hydra node.
   Party ->
   -- | Cardano keys of all Head participants.
-  [Cardano.VerificationKey] ->
+  [VerificationKey PaymentKey] ->
   ChainComponent CardanoTx IO ()
 withDirectChain tracer networkMagic iocp socketPath keyPair party cardanoKeys callback action = do
   queue <- newTQueueIO
@@ -416,7 +416,7 @@ fromPostChainTx ::
   (MonadSTM m, MonadThrow (STM m)) =>
   TinyWallet m ->
   TVar m OnChainHeadState ->
-  [Cardano.VerificationKey] ->
+  [VerificationKey PaymentKey] ->
   PostChainTx CardanoTx ->
   STM m (Maybe (ValidatedTx Era))
 fromPostChainTx TinyWallet{getUtxo, verificationKey} headState cardanoKeys = \case

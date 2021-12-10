@@ -6,7 +6,6 @@ module Test.DirectChainSpec where
 import Hydra.Prelude
 import Test.Hydra.Prelude
 
-import Cardano.Ledger.Keys (VKey (VKey))
 import CardanoClient (
   generatePaymentToCommit,
   postSeedPayment,
@@ -40,7 +39,6 @@ import Hydra.Ledger (IsTx (..))
 import Hydra.Ledger.Cardano (
   CardanoTx,
   NetworkId (Testnet),
-  VerificationKey (PaymentVerificationKey),
   genOneUtxoFor,
  )
 import Hydra.Logging (nullTracer, showLogsOnFailure)
@@ -56,7 +54,7 @@ spec = around showLogsOnFailure $ do
     withTempDir "hydra-local-cluster" $ \tmp -> do
       config <- newNodeConfig tmp
       aliceKeys@(aliceCardanoVk, aliceCardanoSk) <- keysFor "alice"
-      withBFTNode (contramap FromCluster tracer) config [PaymentVerificationKey $ VKey aliceCardanoVk] $ \node@(RunningNode _ nodeSocket) -> do
+      withBFTNode (contramap FromCluster tracer) config [aliceCardanoVk] $ \node@(RunningNode _ nodeSocket) -> do
         bobKeys <- keysFor "bob"
         pparams <- queryProtocolParameters defaultNetworkId nodeSocket
         let cardanoKeys = []
@@ -80,7 +78,7 @@ spec = around showLogsOnFailure $ do
     withTempDir "hydra-local-cluster" $ \tmp -> do
       config <- newNodeConfig tmp
       aliceKeys@(aliceCardanoVk, aliceCardanoSk) <- keysFor "alice"
-      withBFTNode (contramap FromCluster tracer) config [PaymentVerificationKey $ VKey aliceCardanoVk] $ \node@(RunningNode _ nodeSocket) -> do
+      withBFTNode (contramap FromCluster tracer) config [aliceCardanoVk] $ \node@(RunningNode _ nodeSocket) -> do
         bobKeys <- keysFor "bob"
         pparams <- queryProtocolParameters defaultNetworkId nodeSocket
         let cardanoKeys = []
@@ -99,7 +97,7 @@ spec = around showLogsOnFailure $ do
     withTempDir "hydra-local-cluster" $ \tmp -> do
       config <- newNodeConfig tmp
       aliceKeys@(aliceCardanoVk, aliceCardanoSk) <- keysFor "alice"
-      withBFTNode (contramap FromCluster tracer) config [PaymentVerificationKey $ VKey aliceCardanoVk] $ \node@(RunningNode _ nodeSocket) -> do
+      withBFTNode (contramap FromCluster tracer) config [aliceCardanoVk] $ \node@(RunningNode _ nodeSocket) -> do
         pparams <- queryProtocolParameters defaultNetworkId nodeSocket
         let cardanoKeys = [aliceCardanoVk]
         withIOManager $ \iocp -> do
@@ -109,8 +107,8 @@ spec = around showLogsOnFailure $ do
             postTx $ InitTx $ HeadParameters 100 [alice]
             alicesCallback `observesInTime` OnInitTx 100 [alice]
 
-            someUtxoA <- generate $ genOneUtxoFor (PaymentVerificationKey $ VKey aliceCardanoVk)
-            someUtxoB <- generate $ genOneUtxoFor (PaymentVerificationKey $ VKey aliceCardanoVk)
+            someUtxoA <- generate $ genOneUtxoFor aliceCardanoVk
+            someUtxoB <- generate $ genOneUtxoFor aliceCardanoVk
 
             postTx (CommitTx alice (someUtxoA <> someUtxoB))
               `shouldThrow` (== MoreThanOneUtxoCommitted @CardanoTx)
@@ -129,7 +127,7 @@ spec = around showLogsOnFailure $ do
     withTempDir "hydra-local-cluster" $ \tmp -> do
       config <- newNodeConfig tmp
       aliceKeys@(aliceCardanoVk, aliceCardanoSk) <- keysFor "alice"
-      withBFTNode (contramap FromCluster tracer) config [PaymentVerificationKey $ VKey aliceCardanoVk] $ \node@(RunningNode _ nodeSocket) -> do
+      withBFTNode (contramap FromCluster tracer) config [aliceCardanoVk] $ \node@(RunningNode _ nodeSocket) -> do
         pparams <- queryProtocolParameters defaultNetworkId nodeSocket
         let cardanoKeys = [aliceCardanoVk]
         withIOManager $ \iocp -> do
@@ -147,7 +145,7 @@ spec = around showLogsOnFailure $ do
     withTempDir "hydra-local-cluster" $ \tmp -> do
       config <- newNodeConfig tmp
       aliceKeys@(aliceCardanoVk, aliceCardanoSk) <- keysFor "alice"
-      withBFTNode (contramap FromCluster tracer) config [PaymentVerificationKey $ VKey aliceCardanoVk] $ \node@(RunningNode _ nodeSocket) -> do
+      withBFTNode (contramap FromCluster tracer) config [aliceCardanoVk] $ \node@(RunningNode _ nodeSocket) -> do
         pparams <- queryProtocolParameters defaultNetworkId nodeSocket
         let cardanoKeys = [aliceCardanoVk]
         withIOManager $ \iocp -> do

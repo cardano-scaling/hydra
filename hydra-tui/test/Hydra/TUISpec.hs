@@ -5,7 +5,15 @@ import Test.Hydra.Prelude
 
 import Blaze.ByteString.Builder.Char8 (writeChar)
 import CardanoClient (postSeedPayment, queryProtocolParameters)
-import CardanoCluster (ClusterLog, availableInitialFunds, defaultNetworkId, fromRawVKey, keysFor, newNodeConfig, withBFTNode, writeKeysFor)
+import CardanoCluster (
+  ClusterLog,
+  availableInitialFunds,
+  defaultNetworkId,
+  keysFor,
+  newNodeConfig,
+  withBFTNode,
+  writeKeysFor,
+ )
 import CardanoNode (RunningNode (RunningNode))
 import Control.Monad.Class.MonadSTM (newTQueueIO, readTQueue, tryReadTQueue, writeTQueue)
 import qualified Data.ByteString as BS
@@ -84,8 +92,7 @@ setupNodeAndTUI action =
     withTempDir "tui-end-to-end" $ \tmpDir -> do
       config <- newNodeConfig tmpDir
       (aliceCardanoVk, aliceCardanoSk) <- keysFor "alice"
-      let alicePaymentVk = fromRawVKey aliceCardanoVk
-      withBFTNode (contramap FromCardano tracer) config [alicePaymentVk] $ \node@(RunningNode _ nodeSocket) -> do
+      withBFTNode (contramap FromCardano tracer) config [aliceCardanoVk] $ \node@(RunningNode _ nodeSocket) -> do
         (aliceVkPath, aliceSkPath) <- writeKeysFor tmpDir "alice"
         -- XXX(SN): API port id is inferred from nodeId, in this case 4001
         let nodeId = 1

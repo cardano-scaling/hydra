@@ -6,7 +6,7 @@
 -- some useful utilities to tracking the wallet's UTXO, and accessing it
 module Hydra.Chain.Direct.Wallet where
 
-import Cardano.Api (AddressInEra (..), AddressTypeInEra (..), shelleyBasedEra)
+import Cardano.Api (AddressInEra (..), AddressTypeInEra (..), PaymentKey, SigningKey, VerificationKey, shelleyBasedEra)
 import qualified Cardano.Api.Shelley as Cardano.Api
 import qualified Cardano.Crypto.DSIGN as Crypto
 import Cardano.Crypto.Hash.Class
@@ -69,9 +69,7 @@ import Hydra.Chain.Direct.Tx (redeemersFromList)
 import Hydra.Chain.Direct.Util (
   Block,
   Era,
-  SigningKey,
   SomePoint (..),
-  VerificationKey,
   defaultCodecs,
   markerDatum,
   nullConnectTracers,
@@ -153,7 +151,7 @@ data TinyWallet m = TinyWallet
   , getAddress :: Address
   , sign :: ValidatedTx Era -> ValidatedTx Era
   , coverFee :: Map TxIn TxOut -> ValidatedTx Era -> STM m (Either ErrCoverFee (ValidatedTx Era))
-  , verificationKey :: VerificationKey
+  , verificationKey :: VerificationKey PaymentKey
   }
 
 watchUtxoUntil :: (Map TxIn TxOut -> Bool) -> TinyWallet IO -> IO (Map TxIn TxOut)
@@ -167,7 +165,7 @@ withTinyWallet ::
   -- | Network identifier to which we expect to connect.
   NetworkMagic ->
   -- | Credentials of the wallet.
-  (VerificationKey, SigningKey) ->
+  (VerificationKey PaymentKey, SigningKey PaymentKey) ->
   -- | A cross-platform abstraction for managing I/O operations on local sockets
   IOManager ->
   -- | Path to a domain socket used to connect to the server.
@@ -188,7 +186,7 @@ withTinyWallet tracer magic (vk, sk) iocp addr action = do
  where
   address =
     toLedgerAddr $
-      mkVkAddress (Testnet magic) $ Cardano.Api.PaymentVerificationKey $ Ledger.VKey vk
+      mkVkAddress (Testnet magic) vk
 
   newTinyWallet utxoVar =
     TinyWallet
@@ -200,9 +198,7 @@ withTinyWallet tracer magic (vk, sk) iocp addr action = do
           let txid = Ledger.TxId (SafeHash.hashAnnotated body)
               wit =
                 fromLedgerTxId txid
-                  `signWith` ( Cardano.Api.PaymentVerificationKey (Ledger.VKey vk)
-                             , Cardano.Api.PaymentSigningKey sk
-                             )
+                  `signWith` (vk, sk)
            in validatedTx
                 { wits =
                     wits
@@ -600,13 +596,8 @@ stateQueryClient tracer tipVar utxoVar address =
 -- Keys
 --
 
-generateKeyPair :: IO (VerificationKey, SigningKey)
-generateKeyPair = do
-  ( Cardano.Api.PaymentVerificationKey (Ledger.VKey vk)
-    , Cardano.Api.PaymentSigningKey sk
-    ) <-
-    generate genKeyPair
-  pure (vk, sk)
+generateKeyPair :: IO (VerificationKey PaymentKey, SigningKey PaymentKey)
+generateKeyPair = generate genKeyPair
 
 --
 -- Logs

@@ -11,14 +11,14 @@ import Cardano.Api (
   NetworkId (Testnet),
   NetworkMagic (NetworkMagic),
   PaymentKey,
-  SigningKey (PaymentSigningKey),
+  SigningKey,
   TextEnvelopeError (TextEnvelopeAesonDecodeError),
   VerificationKey,
   deserialiseFromTextEnvelope,
+  getVerificationKey,
   serialiseToRawBytes,
  )
 import Cardano.Api.Shelley (VerificationKey (PaymentVerificationKey))
-import Cardano.Crypto.DSIGN (deriveVerKeyDSIGN)
 import Cardano.Ledger.Keys (VKey (VKey))
 import CardanoClient (buildAddress)
 import CardanoNode (
@@ -69,7 +69,7 @@ availableInitialFunds = 900_000_000_000
 data ClusterConfig = ClusterConfig
   { parentStateDirectory :: FilePath
   , networkId :: NetworkId
-  , initialFunds :: [Cardano.VerificationKey]
+  , initialFunds :: [VerificationKey PaymentKey]
   }
 
 asSigningKey :: AsType (SigningKey PaymentKey)
@@ -83,15 +83,13 @@ withCluster tr cfg@ClusterConfig{parentStateDirectory, initialFunds} action = do
     makeNodesConfig parentStateDirectory systemStart
       <$> randomUnusedTCPPorts 3
 
-  withBFTNode tr cfgA funds $ \nodeA -> do
-    withBFTNode tr cfgB funds $ \nodeB -> do
-      withBFTNode tr cfgC funds $ \nodeC -> do
+  withBFTNode tr cfgA initialFunds $ \nodeA -> do
+    withBFTNode tr cfgB initialFunds $ \nodeB -> do
+      withBFTNode tr cfgC initialFunds $ \nodeC -> do
         let nodes = [nodeA, nodeB, nodeC]
         action (RunningCluster cfg nodes)
- where
-  funds = map (PaymentVerificationKey . VKey) initialFunds
 
-keysFor :: String -> IO (Cardano.VerificationKey, Cardano.SigningKey)
+keysFor :: String -> IO (VerificationKey PaymentKey, SigningKey PaymentKey)
 keysFor actor = do
   bs <- readConfigFile ("credentials" </> actor <.> "sk")
   let res =
@@ -100,9 +98,7 @@ keysFor actor = do
   case res of
     Left err ->
       fail $ "cannot decode text envelope from '" <> show bs <> "', error: " <> show err
-    Right (PaymentSigningKey sk) -> do
-      let vk = deriveVerKeyDSIGN sk
-      pure (vk, sk)
+    Right sk -> pure (getVerificationKey sk, sk)
 
 fromRawVKey :: Cardano.VerificationKey -> VerificationKey PaymentKey
 fromRawVKey = PaymentVerificationKey . VKey
