@@ -47,7 +47,7 @@ parseCardanoNetworkId =
   ( Testnet . NetworkMagic
       <$> option
         auto
-        ( long "network-id"
+        ( long "network-magic"
             <> short 'n'
             <> metavar "INTEGER"
             <> help "The network magic number identifying the testnet to connect to."
@@ -59,7 +59,7 @@ parseCardanoNetworkId =
 parseCardanoVerificationKey :: Parser FilePath
 parseCardanoVerificationKey =
   strOption
-    ( long "verification-key"
+    ( long "cardano-verification-key"
         <> short 'k'
         <> metavar "FILE"
         <> help "The path to the verification key file used for selecting and committing UTxO. This file used the same 'Envelope' format than cardano-cli."
