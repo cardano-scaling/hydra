@@ -422,8 +422,8 @@ generatePaymentToCommit networkId (RunningNode _ nodeSocket) spendingSigningKey 
 
   convertUtxo (UTxO ledgerUtxo) = Utxo ledgerUtxo
 
-postSeedPayment :: NetworkId -> ProtocolParameters -> Lovelace -> RunningNode -> SigningKey PaymentKey -> Lovelace -> IO ()
-postSeedPayment networkId pparams initialAmount (RunningNode _ nodeSocket) signingKey amountLovelace = do
+postSeedPayment :: NetworkId -> ProtocolParameters -> Lovelace -> FilePath -> SigningKey PaymentKey -> Lovelace -> IO ()
+postSeedPayment networkId pparams initialAmount nodeSocket signingKey amountLovelace = do
   let genesisTx = mkGenesisTx networkId pparams initialAmount signingKey verificationKey amountLovelace
   submit networkId nodeSocket genesisTx
   void $ waitForPayment networkId nodeSocket amountLovelace address

@@ -92,13 +92,13 @@ setupNodeAndTUI action =
     withTempDir "tui-end-to-end" $ \tmpDir -> do
       config <- newNodeConfig tmpDir
       (aliceCardanoVk, aliceCardanoSk) <- keysFor "alice"
-      withBFTNode (contramap FromCardano tracer) config [aliceCardanoVk] $ \node@(RunningNode _ nodeSocket) -> do
+      withBFTNode (contramap FromCardano tracer) config [aliceCardanoVk] $ \(RunningNode _ nodeSocket) -> do
         (aliceVkPath, aliceSkPath) <- writeKeysFor tmpDir "alice"
         -- XXX(SN): API port id is inferred from nodeId, in this case 4001
         let nodeId = 1
         pparams <- queryProtocolParameters defaultNetworkId nodeSocket
         withHydraNode (contramap FromHydra tracer) aliceSkPath [] tmpDir nodeSocket nodeId aliceSk [] [nodeId] $ \HydraClient{hydraNodeId} -> do
-          postSeedPayment defaultNetworkId pparams availableInitialFunds node aliceCardanoSk 900_000_000
+          postSeedPayment defaultNetworkId pparams availableInitialFunds nodeSocket aliceCardanoSk 900_000_000
           withTUITest (150, 10) $ \brickTest@TUITest{buildVty} -> do
             race_
               ( runWithVty
