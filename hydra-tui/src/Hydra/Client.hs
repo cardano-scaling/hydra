@@ -2,7 +2,6 @@ module Hydra.Client where
 
 import Hydra.Prelude
 
-import CardanoClient (buildAddress)
 import Control.Concurrent.Async (link)
 import Control.Exception (Handler (Handler), IOException, catches)
 import Control.Monad.Class.MonadSTM (MonadSTM (newTBQueueIO), MonadSTMTx (readTBQueue, writeTBQueue))
@@ -10,7 +9,13 @@ import Data.Aeson (eitherDecodeStrict, encode)
 import Hydra.Chain.Direct.Util (readFileTextEnvelopeThrow)
 import Hydra.ClientInput (ClientInput)
 import Hydra.Ledger (IsTx)
-import Hydra.Ledger.Cardano (Address, AsType (AsPaymentKey, AsVerificationKey), ShelleyAddr)
+import Hydra.Ledger.Cardano (
+  AsType (AsPaymentKey, AsSigningKey),
+  PaymentKey,
+  SigningKey,
+  VerificationKey,
+  getVerificationKey,
+ )
 import Hydra.Network (Host (Host, hostname, port))
 import Hydra.ServerOutput (ServerOutput)
 import Hydra.TUI.Options (Options (..))
@@ -26,8 +31,8 @@ data HydraEvent tx
 data Client tx m = Client
   { -- | Send some input to the server.
     sendInput :: ClientInput tx -> m ()
-  , -- | Retrieve "my" Cardano address
-    myAddress :: Address ShelleyAddr
+  , vk :: VerificationKey PaymentKey
+  , sk :: SigningKey PaymentKey
   }
 
 -- | Callback for receiving server outputs.
@@ -38,8 +43,9 @@ type ClientComponent tx m a = ClientCallback tx m -> (Client tx m -> m a) -> m a
 
 -- | Provide a component to interact with Hydra node.
 withClient :: IsTx tx => Options -> ClientComponent tx IO a
-withClient Options{hydraNodeHost = Host{hostname, port}, cardanoNetworkId, cardanoVerificationKey} callback action = do
-  myAddress <- flip buildAddress cardanoNetworkId <$> readFileTextEnvelopeThrow (AsVerificationKey AsPaymentKey) cardanoVerificationKey
+withClient Options{hydraNodeHost = Host{hostname, port}, cardanoVerificationKey} callback action = do
+  -- FIXME: Should be 'cardanoSigningKey'
+  sk <- readFileTextEnvelopeThrow (AsSigningKey AsPaymentKey) cardanoVerificationKey
   q <- newTBQueueIO 10
   withAsync (reconnect $ client q) $ \thread -> do
     -- NOTE(SN): if message formats are not compatible, this will terminate the TUI
@@ -48,7 +54,8 @@ withClient Options{hydraNodeHost = Host{hostname, port}, cardanoNetworkId, carda
     action $
       Client
         { sendInput = atomically . writeTBQueue q
-        , myAddress
+        , sk
+        , vk = getVerificationKey sk
         }
  where
   -- TODO(SN): ping thread?

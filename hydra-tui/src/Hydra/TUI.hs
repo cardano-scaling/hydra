@@ -15,7 +15,11 @@ import Brick.Forms (Form, FormFieldState, checkboxField, editShowableFieldWithVa
 import Brick.Widgets.Border (hBorder, vBorder)
 import Brick.Widgets.Border.Style (ascii)
 import Cardano.Crypto.DSIGN (VerKeyDSIGN (VerKeyMockDSIGN))
-import CardanoClient (CardanoClient (CardanoClient, queryUtxoByAddress), mkCardanoClient)
+import CardanoClient (
+  CardanoClient (..),
+  buildAddress,
+  mkCardanoClient,
+ )
 import Data.List (nub, (\\))
 import qualified Data.Map.Strict as Map
 import qualified Data.Text as Text
@@ -343,9 +347,9 @@ handleCommitEvent ::
   CardanoClient ->
   State ->
   EventM n (Next State)
-handleCommitEvent Client{sendInput, myAddress} CardanoClient{queryUtxoByAddress} s = case s ^? headStateL of
+handleCommitEvent Client{sendInput, vk} CardanoClient{queryUtxoByAddress} s = case s ^? headStateL of
   Just Initializing{} -> do
-    utxo <- liftIO $ queryUtxoByAddress [myAddress]
+    utxo <- liftIO $ queryUtxoByAddress [buildAddress vk networkId]
     -- XXX(SN): this is a hydra implementation detail and should be moved
     -- somewhere hydra specific
     let utxoWithoutFuel = Map.filter (not . isMarkedOutput) (utxoMap utxo)
@@ -369,26 +373,22 @@ handleNewTxEvent ::
   Client CardanoTx IO ->
   State ->
   EventM n (Next State)
-handleNewTxEvent Client{sendInput} s = case s ^? headStateL of
+handleNewTxEvent Client{sendInput, sk, vk} s = case s ^? headStateL of
   Just Open{parties} ->
-    case s ^? meL of
-      -- XXX(SN): this is just..not cool
-      Just (Just me) ->
-        continue $ s & dialogStateL .~ transactionBuilderDialog (myAvailableUtxo me s) parties me
-      _ -> continue $ s & feedbackL ?~ UserFeedback Error "Missing identity, so can't create a tx."
+    continue $ s & dialogStateL .~ transactionBuilderDialog (myAvailableUtxo vk s) parties
   _ ->
     continue $ s & feedbackL ?~ UserFeedback Error "Invalid command."
  where
-  transactionBuilderDialog u parties me =
+  transactionBuilderDialog u parties =
     Dialog title form submit
    where
     title = "Select UTXO to spend"
     -- FIXME: This crashes if the utxo is empty
     form = newForm (utxoRadioField u) (Prelude.head (Map.toList u))
     submit s' input =
-      continue $ s' & dialogStateL .~ recipientsDialog input parties me
+      continue $ s' & dialogStateL .~ recipientsDialog input parties
 
-  recipientsDialog input parties me =
+  recipientsDialog input parties =
     Dialog title form submit
    where
     title = "Select a recipient"
@@ -397,9 +397,9 @@ handleNewTxEvent Client{sendInput} s = case s ^? headStateL of
       let field = radioField (lens id seq) [(p, show p, show p) | p <- parties]
        in newForm [field] (Prelude.head parties)
     submit s' (getAddress -> recipient) =
-      continue $ s' & dialogStateL .~ amountDialog input recipient me
+      continue $ s' & dialogStateL .~ amountDialog input recipient
 
-  amountDialog input@(_, TxOut _ v _) recipient me =
+  amountDialog input@(_, TxOut _ v _) recipient =
     Dialog title form submit
    where
     title = "Choose an amount"
@@ -411,7 +411,6 @@ handleNewTxEvent Client{sendInput} s = case s ^? headStateL of
        in newForm [field] limit
 
     submit s' amount = do
-      let (_, sk) = getCredentials me
       case mkSimpleCardanoTx input (recipient, lovelaceToValue $ Lovelace amount) sk of
         Left e -> continue $ s' & feedbackL ?~ UserFeedback Error ("Failed to construct tx, contact @_ktorz_ on twitter: " <> show e)
         Right tx -> do
@@ -422,8 +421,8 @@ handleNewTxEvent Client{sendInput} s = case s ^? headStateL of
 -- View
 --
 
-draw :: State -> [Widget Name]
-draw s =
+draw :: Client CardanoTx m -> State -> [Widget Name]
+draw Client{vk} s =
   pure $
     withBorderStyle ascii $
       joinBorders $
@@ -456,10 +455,7 @@ draw s =
         _ -> emptyWidget
 
     ownAddress =
-      case s ^? meL of
-        Just (Just me) ->
-          str "Address " <+> drawAddress (getAddress me)
-        _ -> emptyWidget
+      str "Address " <+> drawAddress (getAddress vk)
 
     nodeStatus =
       case s of
@@ -559,11 +555,13 @@ draw s =
           | (addr, u) <- Map.toList byAddress
           ]
 
-  drawAddress addr =
-    let widget = txt $ ellipsize 40 $ serialiseAddress addr
-     in case s ^? meL of
-          Just (Just me) | getAddress me == addr -> withAttr own widget
-          _ -> widget
+  drawAddress addr
+    | getAddress vk == addr =
+      withAttr own widget
+    | otherwise =
+      widget
+   where
+    widget = txt $ ellipsize 40 $ serialiseAddress addr
 
   ellipsize n t = Text.take (n - 2) t <> ".."
 
@@ -646,11 +644,11 @@ utxoRadioField u =
       ]
   ]
 
-myAvailableUtxo :: Party -> State -> Map TxIn (TxOut CtxUTxO Era)
-myAvailableUtxo me s =
+myAvailableUtxo :: VerificationKey PaymentKey -> State -> Map TxIn (TxOut CtxUTxO Era)
+myAvailableUtxo vk s =
   case s ^? headStateL of
     Just Open{utxo = Utxo u'} ->
-      let myAddress = getAddress me
+      let myAddress = getAddress vk
        in Map.filter (\(TxOut addr _ _) -> addr == myAddress) u'
     _ ->
       mempty
@@ -710,7 +708,7 @@ runWithVty buildVty options@Options{hydraNodeHost, cardanoNetworkId, cardanoNode
  where
   app client =
     App
-      { appDraw = draw
+      { appDraw = draw client
       , appChooseCursor = showFirstCursor
       , appHandleEvent = handleEvent client cardanoClient
       , appStartEvent = pure
