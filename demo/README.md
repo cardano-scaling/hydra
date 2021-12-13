@@ -119,6 +119,12 @@ For example, to ensure Alice can commit some UTXO and also that "her" node can p
 cabal run seed-network -- --cardano-node-socket demo/devnet/ipc/node.socket --cardano-signing-key demo/devnet/credentials/alice.sk
 ```
 
+Note there's nothing special about those transactions so one could alternatively use the `cardano-cli` or any other Cardano client to create those transactions. This transaction must match the following characteristics:
+* It must pay all its outputs to the key that's used by the Hydra Node's internal wallet, as defined by argument `--cardano-signing-key` of `hydra-node` executable,
+* One of the outputs of the transaction must include datum hash `a654fb60d21c1fed48db2c320aa6df9737ec0204c0ba53b9b94a09fb40e757f3`.
+
+For some involved example of interacting with cardano-node using cardano-cli, check [submit.sh](../local-cluster/submit.sh) script.
+
 ## With Docker
 
 Using [`docker-compose`](https://docs.docker.com/compose/) you can start the demo _Terminal-based User Interface_ aka. `hydra-tui` to interact with Hydra nodes.
