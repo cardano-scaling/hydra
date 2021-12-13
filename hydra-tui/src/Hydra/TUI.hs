@@ -101,10 +101,6 @@ import Lens.Micro.TH (makeLensesFor)
 import Paths_hydra_tui (version)
 import qualified Prelude
 
--- XXX(SN): hard-coded network id
-networkId :: NetworkId
-networkId = Testnet $ NetworkMagic 42
-
 --
 -- Model
 --
@@ -231,7 +227,7 @@ handleEvent client@Client{sendInput} cardanoClient (clearFeedback -> s) = \case
                 _ ->
                   continue s
             | c `elem` ['n', 'N'] ->
-              handleNewTxEvent client s
+              handleNewTxEvent client cardanoClient s
             | otherwise ->
               continue s
       _ -> continue s
@@ -347,7 +343,7 @@ handleCommitEvent ::
   CardanoClient ->
   State ->
   EventM n (Next State)
-handleCommitEvent Client{sendInput, vk} CardanoClient{queryUtxoByAddress} s = case s ^? headStateL of
+handleCommitEvent Client{sendInput, vk} CardanoClient{queryUtxoByAddress, networkId} s = case s ^? headStateL of
   Just Initializing{} -> do
     utxo <- liftIO $ queryUtxoByAddress [buildAddress vk networkId]
     -- XXX(SN): this is a hydra implementation detail and should be moved
@@ -430,8 +426,8 @@ handleNewTxEvent Client{sendInput, sk, vk} CardanoClient{networkId} s = case s ^
 -- View
 --
 
-draw :: Client CardanoTx m -> State -> [Widget Name]
-draw Client{vk} s =
+draw :: Client CardanoTx m -> CardanoClient -> State -> [Widget Name]
+draw Client{vk} CardanoClient{networkId} s =
   pure $
     withBorderStyle ascii $
       joinBorders $
@@ -464,7 +460,7 @@ draw Client{vk} s =
         _ -> emptyWidget
 
     ownAddress =
-      str "Address " <+> drawAddress (getAddress vk)
+      str "Address " <+> drawAddress (mkVkAddress networkId vk)
 
     nodeStatus =
       case s of
@@ -486,7 +482,6 @@ draw Client{vk} s =
           , "[Enter] Confirm"
           ]
       _ ->
-        -- TODO: Only show available commands. (SN: is this still relevant?)
         case s ^? headStateL of
           Just Ready ->
             withCommands
@@ -565,7 +560,7 @@ draw Client{vk} s =
           ]
 
   drawAddress addr
-    | getAddress vk == addr =
+    | mkVkAddress networkId vk == addr =
       withAttr own widget
     | otherwise =
       widget
@@ -653,11 +648,11 @@ utxoRadioField u =
       ]
   ]
 
-myAvailableUtxo :: VerificationKey PaymentKey -> State -> Map TxIn (TxOut CtxUTxO Era)
-myAvailableUtxo vk s =
+myAvailableUtxo :: NetworkId -> VerificationKey PaymentKey -> State -> Map TxIn (TxOut CtxUTxO Era)
+myAvailableUtxo networkId vk s =
   case s ^? headStateL of
     Just Open{utxo = Utxo u'} ->
-      let myAddress = getAddress vk
+      let myAddress = mkVkAddress networkId vk
        in Map.filter (\(TxOut addr _ _) -> addr == myAddress) u'
     _ ->
       mempty
@@ -717,7 +712,7 @@ runWithVty buildVty options@Options{hydraNodeHost, cardanoNetworkId, cardanoNode
  where
   app client =
     App
-      { appDraw = draw client
+      { appDraw = draw client cardanoClient
       , appChooseCursor = showFirstCursor
       , appHandleEvent = handleEvent client cardanoClient
       , appStartEvent = pure
