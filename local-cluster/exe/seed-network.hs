@@ -58,8 +58,6 @@ seedNetworkOptionsParser =
               ( long "commit-amount"
                   <> metavar "LOVELACE"
                   <> help "The amount of Lovelaces in the generated UTXO used for committing."
-                  <> value 100_000_000
-                  <> showDefault
               )
         )
 
