@@ -14,7 +14,7 @@ times are too far in the past and you should update them e.g. using the
 
 # Starting Network
 
-# With Docker
+## With Docker
 
 Using [`docker-compose`](https://docs.docker.com/compose/) you can start the demo cluster with:
 ```sh
@@ -23,16 +23,13 @@ docker-compose pull
 docker-compose up -d
 ```
 
-NOTE: You can query the `cardano-node` using the host-mounted socket file in
-`devnet/ipc/node.socket` (requires write permissions), e.g.
+NOTE: You can query the `cardano-node` using the same container, e.g.
 
 ``` sh
-sudo chmod a+w devnet/ipc/node.socket
-export CARDANO_NODE_SOCKET_PATH=devnet/ipc/node.socket
-cardano-cli query utxo --testnet-magic 42 --whole-utxo
+docker-compose exec cardano-node sh -c "CARDANO_NODE_SOCKET_PATH=/data/ipc/node.socket cardano-cli query utxo --testnet-magic 42 --whole-utxo"
 ```
 
-# Without Docker
+## Without Docker
 
 One needs to prepare a `cardano-node` (devnet) and `hydra-node`s "manually".
 These instructions assume you have both built and in scope for `cabal exec`.
@@ -106,24 +103,32 @@ cabal exec hydra-node -- \
 
 If things go well, the nodes should start logging once they are connected to the chain.
 
-# Running clients
 
-## Seeding Network
+# Seeding Network
 
-In the current stage of development, Hydra nodes need a specially crafted set of UTXO to work properly and of course some UTXO to be committed to the head.
+In the current stage of development, Hydra nodes need a specially crafted set of UTXO to drive the Head protocol ("fuel") and of course some UTXO to be committed to the head.
+
+## With Docker
+
+The included script `seed-devnet.sh` uses the `cardano-cli` in the already running `cardano-node` container to give Alice, Bob and Carol some "fuel" UTXO while the change can be used to commit to the Head (this is why amounts vary in the script).
+
+NOTE: There is nothing special about those transactions so one could any other Cardano client to create those transactions. This transaction must match the following characteristics:
+* It must pay all its outputs to the key that's used by the Hydra Node's internal wallet, as defined by argument `--cardano-signing-key` of `hydra-node` executable,
+* One of the outputs of the transaction must include datum hash `a654fb60d21c1fed48db2c320aa6df9737ec0204c0ba53b9b94a09fb40e757f3`.
+
+## Without Docker
+
 To seed the network with those UTXO, posting a transaction, one can use the `seed-network` executable:
 
 For example, to ensure Alice can commit some UTXO and also that "her" node can pay for the Hydra transactions, run:
 
 ```
-cabal run seed-network -- --cardano-node-socket demo/devnet/ipc/node.socket --cardano-signing-key demo/devnet/credentials/alice.sk
+cabal run seed-network -- \
+  --cardano-node-socket demo/devnet/ipc/node.socket \
+  --cardano-signing-key demo/devnet/credentials/alice.sk
 ```
 
-Note there's nothing special about those transactions so one could alternatively use the `cardano-cli` or any other Cardano client to create those transactions. This transaction must match the following characteristics:
-* It must pay all its outputs to the key that's used by the Hydra Node's internal wallet, as defined by argument `--cardano-signing-key` of `hydra-node` executable,
-* One of the outputs of the transaction must include datum hash `a654fb60d21c1fed48db2c320aa6df9737ec0204c0ba53b9b94a09fb40e757f3`.
-
-For some involved example of interacting with cardano-node using cardano-cli, check [submit.sh](../local-cluster/submit.sh) script.
+# Running clients
 
 ## With Docker
 
