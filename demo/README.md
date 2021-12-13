@@ -120,12 +120,14 @@ NOTE: There is nothing special about those transactions so one could any other C
 
 To seed the network with those UTXO, posting a transaction, one can use the `seed-network` executable:
 
-For example, to ensure Alice can commit some UTXO and also that "her" node can pay for the Hydra transactions, run:
+For example, to ensure Alice can commit some 1000 Ada and also that "her" node can pay for the Hydra transactions, run:
 
 ```
+sudo chmod a+w devnet/ipc/node.socket
 cabal run seed-network -- \
   --cardano-node-socket devnet/ipc/node.socket \
-  --cardano-signing-key devnet/credentials/alice.sk
+  --cardano-signing-key devnet/credentials/alice.sk \
+  --commit-amount 1000000000
 ```
 
 # Running clients
