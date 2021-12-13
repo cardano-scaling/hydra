@@ -39,14 +39,16 @@ import Ouroboros.Network.Protocol.LocalTxSubmission.Client (SubmitResult (..))
 
 type NodeSocket = FilePath
 
-newtype CardanoClient = CardanoClient
+data CardanoClient = CardanoClient
   { queryUtxoByAddress :: [Address ShelleyAddr] -> IO Utxo
+  , networkId :: NetworkId
   }
 
 mkCardanoClient :: NetworkId -> FilePath -> CardanoClient
 mkCardanoClient networkId filePath =
   CardanoClient
     { queryUtxoByAddress = fmap fromCardanoApiUtxo . queryUtxo networkId filePath
+    , networkId
     }
 
 -- TODO(SN): DRY with Hydra.Ledger.Cardano module
