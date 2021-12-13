@@ -152,12 +152,12 @@ credentials:
 ```sh
 cabal exec hydra-tui -- \
   --connect localhost:4001 \
-  --cardano-verification-key devnet/credentials/alice.vk \
+  --cardano-signing-key devnet/credentials/alice.sk \
   --network-magic 42 \
-  --cardano-node-socket devnet/node.socket
+  --cardano-node-socket devnet/ipc/node.socket
 ```
 
 Replace port `4001` with `4002` or `4003` to connect to the other 2 nodes and
-`alice.vk` with `bob.vk` or `carol.vk` respectively.
+`alice.sk` with `bob.sk` or `carol.sk` respectively.
 
 You should now be able to `[I]nit`ialise a Head, `[c]ommit` UTXOs, ...
