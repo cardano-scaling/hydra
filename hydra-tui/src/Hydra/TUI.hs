@@ -392,7 +392,10 @@ handleNewTxEvent Client{sendInput, sk, vk} CardanoClient{networkId} s = case s ^
    where
     title = "Select a recipient"
     form =
-      let field = radioField (lens id seq) [(u, show u, show u) | u <- addresses]
+      let field =
+            radioField
+              (lens id seq)
+              [(u, show u, decodeUtf8 $ encodePretty u) | u <- nub addresses]
           addresses = getRecipientAddress <$> Map.elems utxo
           getRecipientAddress (TxOut addr _ _) = addr
        in newForm [field] (Prelude.head addresses)
