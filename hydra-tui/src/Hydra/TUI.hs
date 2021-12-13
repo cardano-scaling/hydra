@@ -374,29 +374,34 @@ handleNewTxEvent ::
   State ->
   EventM n (Next State)
 handleNewTxEvent Client{sendInput, sk, vk} s = case s ^? headStateL of
-  Just Open{parties} ->
-    continue $ s & dialogStateL .~ transactionBuilderDialog (myAvailableUtxo vk s) parties
+  Just Open{utxo} ->
+    continue $ s & dialogStateL .~ transactionBuilderDialog utxo
   _ ->
     continue $ s & feedbackL ?~ UserFeedback Error "Invalid command."
  where
-  transactionBuilderDialog u parties =
+  myUtxo = myAvailableUtxo vk s
+
+  transactionBuilderDialog utxo =
     Dialog title form submit
    where
     title = "Select UTXO to spend"
     -- FIXME: This crashes if the utxo is empty
-    form = newForm (utxoRadioField u) (Prelude.head (Map.toList u))
+    form = newForm (utxoRadioField myUtxo) (Prelude.head (Map.toList myUtxo))
     submit s' input =
-      continue $ s' & dialogStateL .~ recipientsDialog input parties
+      continue $ s' & dialogStateL .~ recipientsDialog input utxo
 
-  recipientsDialog input parties =
+  recipientsDialog input (Utxo utxo) =
     Dialog title form submit
    where
     title = "Select a recipient"
     -- FIXME: This crashes if peers are empty!
     form =
-      let field = radioField (lens id seq) [(p, show p, show p) | p <- parties]
-       in newForm [field] (Prelude.head parties)
-    submit s' (getAddress -> recipient) =
+      let field = radioField (lens id seq) [(u, show u, show u) | u <- addresses]
+          addresses = getRecipientAddress <$> Map.elems utxo
+          getRecipientAddress (TxOut addr _ _) = addr
+       in newForm [field] (Prelude.head addresses)
+
+    submit s' recipient =
       continue $ s' & dialogStateL .~ amountDialog input recipient
 
   amountDialog input@(_, TxOut _ v _) recipient =
