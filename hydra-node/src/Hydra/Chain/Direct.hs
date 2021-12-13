@@ -20,7 +20,7 @@ import Cardano.Ledger.Alonzo.Language (Language (PlutusV1))
 import Cardano.Ledger.Alonzo.Rules.Utxo (UtxoPredicateFailure (UtxosFailure))
 import Cardano.Ledger.Alonzo.Rules.Utxos (TagMismatchDescription (FailedUnexpectedly), UtxosPredicateFailure (ValidationTagMismatch))
 import Cardano.Ledger.Alonzo.Rules.Utxow (AlonzoPredFail (WrappedShelleyEraFailure))
-import Cardano.Ledger.Alonzo.Tx (TxBody (inputs), ValidatedTx (body))
+import Cardano.Ledger.Alonzo.Tx (ValidatedTx)
 import Cardano.Ledger.Alonzo.TxInfo (FailureDescription (PlutusFailure), debugPlutus)
 import Cardano.Ledger.Alonzo.TxSeq (txSeqTxns)
 import Cardano.Ledger.Crypto (StandardCrypto)
@@ -36,7 +36,6 @@ import Control.Tracer (nullTracer)
 import Data.Aeson (Value (String), object, (.=))
 import qualified Data.Map.Strict as Map
 import Data.Sequence.Strict (StrictSeq)
-import qualified Data.Set as Set
 import Hydra.Chain (
   Chain (..),
   ChainCallback,
@@ -58,7 +57,6 @@ import Hydra.Chain.Direct.Tx (
   observeCloseTx,
   observeCollectComTx,
   observeCommit,
-  observeCommitTx,
   observeFanoutTx,
   observeInitTx,
   ownInitial,
