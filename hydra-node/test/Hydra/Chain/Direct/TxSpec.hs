@@ -90,6 +90,7 @@ import Test.QuickCheck (
   (===),
  )
 import Test.QuickCheck.Instances ()
+import qualified Prelude
 
 spec :: Spec
 spec =
@@ -153,11 +154,14 @@ spec =
               === Just (OnCommitTx{party, committed = committedUtxo}, expectedOutput)
               & counterexample ("Tx: " <> show tx)
 
-      prop "consumes all inputs that are committed from initials" $ \party singleUtxo initials ->
-        let mkInitials :: Foldable f => f (TxIn StandardCrypto, PubKeyHash) -> [(TxIn StandardCrypto, TxOut Era, Data Era)]
-            mkInitials = error "TODO."
+      prop "consumes all inputs that are committed from initials" $ \party singleUtxo (NonEmpty inputs) ->
+        let mkInitials :: (TxIn StandardCrypto, PubKeyHash, TxOut Era) -> (TxIn StandardCrypto, TxOut Era, Data Era)
+            mkInitials (txin, pkh, TxOut addr value _) =
+              let initDatum = Data . toData $ MockInitial.datum pkh
+               in (txin, TxOut addr value (SJust $ hashData initDatum), initDatum)
 
-            tx = commitTx party (Just singleUtxo) (head initials)
+            myInitial = (\(a, b, _) -> (a, b)) $ Prelude.head inputs
+            tx = commitTx party (Just singleUtxo) myInitial
             committedUtxo = Utxo $ Map.fromList [singleUtxo]
             commitAddress = scriptAddr $ plutusScript MockCommit.validatorScript
             commitValue = inject (Coin 2_000_000) <> toMaryValue (balance @CardanoTx committedUtxo)
@@ -171,7 +175,7 @@ spec =
             onChainState =
               Initial
                 { threadOutput = error "should not be evaluated anyway."
-                , initials = mkInitials initials
+                , initials = mkInitials <$> inputs
                 , commits = []
                 }
             Just
@@ -180,7 +184,8 @@ spec =
                   , commits = newCommits
                   }
                 ) = snd <$> observeCommit tx onChainState
-         in newInitials == mkInitials (tail initials) && newCommits == [(commitInput, commitOutput, commitDatum)]
+         in newInitials == (mkInitials <$> Prelude.tail inputs)
+              && newCommits == [(commitInput, commitOutput, commitDatum)]
 
     describe "collectComTx" $ do
       prop "transaction size below limit" $ \(ReasonablySized utxo) headIn cperiod parties ->
