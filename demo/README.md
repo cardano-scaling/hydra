@@ -124,8 +124,8 @@ For example, to ensure Alice can commit some UTXO and also that "her" node can p
 
 ```
 cabal run seed-network -- \
-  --cardano-node-socket demo/devnet/ipc/node.socket \
-  --cardano-signing-key demo/devnet/credentials/alice.sk
+  --cardano-node-socket devnet/ipc/node.socket \
+  --cardano-signing-key devnet/credentials/alice.sk
 ```
 
 # Running clients
