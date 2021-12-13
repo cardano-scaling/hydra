@@ -57,6 +57,7 @@ import Hydra.Chain.Direct.Tx (
   observeAbortTx,
   observeCloseTx,
   observeCollectComTx,
+  observeCommit,
   observeCommitTx,
   observeFanoutTx,
   observeInitTx,
@@ -317,7 +318,7 @@ chainSyncClient tracer callback party headState =
     -- TODO(SN): We should be only looking for abort,commit etc. when we have a headId/policyId
     let res =
           observeInitTx party tx
-            <|> observeCommit onChainHeadState tx
+            <|> observeCommit tx onChainHeadState
             <|> observeCollectComTx utxo tx
             <|> observeCloseTx utxo tx
             <|> observeAbortTx utxo tx
@@ -327,25 +328,6 @@ chainSyncClient tracer callback party headState =
         writeTVar headState newOnChainHeadState
         pure $ onChainTx : observed
       Nothing -> pure observed
-
-  -- XXX(SN): this is not covered by tests
-  observeCommit s tx = case s of
-    Initial{threadOutput, initials, commits} -> do
-      (onChainTx, commitTriple) <- observeCommitTx tx
-      -- NOTE(SN): A commit tx has been observed and thus we can remove all it's
-      -- inputs from our tracked initials
-      let commitIns = inputs $ body tx
-      let initials' = filter (\(i, _, _) -> i `Set.member` commitIns) initials
-      let commits' = commitTriple : commits
-      pure
-        ( onChainTx
-        , Initial
-            { threadOutput
-            , initials = initials'
-            , commits = commits'
-            }
-        )
-    _ -> Nothing
 
 txSubmissionClient ::
   forall m.
