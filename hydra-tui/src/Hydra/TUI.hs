@@ -692,9 +692,8 @@ getCredentials Party{vkey} =
 -- | Similarly to 'getCredentials', this gives us "the" Cardano address given a
 -- Hydra 'Party'. In a real world deployment it would make no sense to send a
 -- Head participant something, the ledger would be fully decoupled.
-getAddress :: Party -> AddressInEra Era
-getAddress party =
-  mkVkAddress networkId . fst $ getCredentials party
+getAddress :: VerificationKey PaymentKey -> AddressInEra Era
+getAddress = mkVkAddress networkId
 
 --
 -- Run it
