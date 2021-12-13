@@ -122,7 +122,7 @@ services:
       [ "--connect", "172.16.238.10:4001"
       , "--cardano-node-socket", "/ipc/node.socket"
       , "--network-magic", "42"
-      , "--cardano-verification-key", "/credentials/alice.vk"
+      , "--cardano-signing-key", "/credentials/alice.sk"
       ]
     volumes:
       - $PWD/devnet/credentials:/credentials:ro
@@ -139,7 +139,7 @@ services:
       [ "--connect", "172.16.238.20:4001"
       , "--cardano-node-socket", "/ipc/node.socket"
       , "--network-magic", "42"
-      , "--cardano-verification-key", "/credentials/bob.vk"
+      , "--cardano-signing-key", "/credentials/bob.sk"
       ]
     volumes:
       - $PWD/devnet/credentials:/credentials:ro
@@ -156,7 +156,7 @@ services:
       [ "--connect", "172.16.238.30:4001"
       , "--cardano-node-socket", "/ipc/node.socket"
       , "--network-magic", "42"
-      , "--cardano-verification-key", "/credentials/carol.vk"
+      , "--cardano-signing-key", "/credentials/carol.sk"
       ]
     volumes:
       - $PWD/devnet/credentials:/credentials:ro
