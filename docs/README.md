@@ -37,7 +37,7 @@ outputs (UTXO) from the Cardano main-chain to it, before all the UTXO are
 
 While open, they can use the Hydra Head via a `hydra-node` just the same as they
 would be using the Cardano blockchain via a `cardano-node` by submitting
-transactions to it (that's the **isomporphism** property). When UTXO are spent
+transactions to it (that's the **isomorphism** property). When UTXO are spent
 and new UTXO are created in a Hydra Head, all participantes are required to
 acknowledge and agree on the new state in so-called snapshots (**U1..n**)
 
