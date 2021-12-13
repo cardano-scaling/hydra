@@ -593,13 +593,6 @@ stateQueryClient tracer tipVar utxoVar address =
     reset
 
 --
--- Keys
---
-
-generateKeyPair :: IO (VerificationKey PaymentKey, SigningKey PaymentKey)
-generateKeyPair = generate genKeyPair
-
---
 -- Logs
 --
 

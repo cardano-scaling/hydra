@@ -40,7 +40,6 @@ import Hydra.Chain.Direct.Wallet (
   TxOut,
   applyBlock,
   coverFee_,
-  generateKeyPair,
   watchUtxoUntil,
   withTinyWallet,
  )
@@ -49,6 +48,7 @@ import Hydra.Ledger.Cardano (
   NetworkMagic,
   describeCardanoTx,
   fromLedgerTx,
+  genKeyPair,
   mkVkAddress,
   toLedgerAddr,
  )
@@ -88,7 +88,7 @@ spec = parallel $ do
     prop "transaction's inputs are removed from wallet" prop_removeUsedInputs
 
   describe "withTinyWallet" $ do
-    (vk, sk) <- runIO generateKeyPair
+    (vk, sk) <- runIO (generate genKeyPair)
     it "connects to server and returns UTXO in a timely manner" $ do
       withMockServer $ \networkMagic iocp socket _ -> do
         withTinyWallet nullTracer networkMagic (vk, sk) iocp socket $ \wallet -> do

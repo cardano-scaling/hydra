@@ -24,9 +24,8 @@ import Hydra.Chain (
 import Hydra.Chain.Direct (DirectChainLog, withDirectChain)
 import Hydra.Chain.Direct.MockServer (withMockServer)
 import Hydra.Chain.Direct.Util (Era, retry)
-import Hydra.Chain.Direct.Wallet (generateKeyPair)
 import Hydra.Chain.Direct.WalletSpec (genPaymentTo)
-import Hydra.Ledger.Cardano (CardanoTx, NetworkMagic, PaymentKey, VerificationKey)
+import Hydra.Ledger.Cardano (CardanoTx, NetworkMagic, PaymentKey, VerificationKey, genKeyPair)
 import Hydra.Logging (showLogsOnFailure)
 import Hydra.Party (Party, deriveParty, generateKey)
 import Test.QuickCheck (generate)
@@ -38,8 +37,8 @@ spec = do
       showLogsOnFailure $ \tracer -> do
         calledBackAlice <- newEmptyMVar
         calledBackBob <- newEmptyMVar
-        aliceKeys@(aliceVk, _) <- generateKeyPair
-        bobKeys <- generateKeyPair
+        aliceKeys@(aliceVk, _) <- generate genKeyPair
+        bobKeys <- generate genKeyPair
         withMockServer $ \magic iocp socket submitTx -> do
           withDirectChain (contramap FromAlice tracer) magic iocp socket aliceKeys alice [] (putMVar calledBackAlice) $ \Chain{postTx} -> do
             withDirectChain (contramap FromBob tracer) magic iocp socket bobKeys bob [] (putMVar calledBackBob) $ \_ -> do
