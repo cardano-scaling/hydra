@@ -152,6 +152,21 @@ spec =
               === Just (OnCommitTx{party, committed = committedUtxo}, expectedOutput)
               & counterexample ("Tx: " <> show tx)
 
+      prop "consumes all inputs that are committed from initials" $ \party singleUtxo (NonEmpty initials) ->
+        let tx = commitTx party (Just singleUtxo) (head initials)
+            committedUtxo = Utxo $ Map.fromList [singleUtxo]
+            commitAddress = scriptAddr $ plutusScript MockCommit.validatorScript
+            commitValue = inject (Coin 2_000_000) <> toMaryValue (balance @CardanoTx committedUtxo)
+            commitOutput = TxOut @Era commitAddress commitValue (SJust $ hashData commitDatum)
+            commitDatum =
+              Data . toData $
+                MockCommit.datum (partyFromVerKey $ vkey party, commitUtxo)
+            commitUtxo =
+              fromByteString $ toStrict $ Aeson.encode committedUtxo
+            onChainState = Initial{threadOutput = undefined, initials, commits = []}
+            Just (Initial{initials = newInitials, commits = newCommits}) = snd <$> observeCommit tx onChainState
+         in newInitials == tail initials && newCommits == [singleUtxo]
+
     describe "collectComTx" $ do
       prop "transaction size below limit" $ \(ReasonablySized utxo) headIn cperiod parties ->
         let tx = collectComTx utxo (headIn, headDatum) mempty

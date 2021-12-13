@@ -582,6 +582,28 @@ observeCommitTx tx@ValidatedTx{wits} = do
 
   convertUtxo = Aeson.decodeStrict' . OnChain.toByteString
 
+observeCommit ::
+  ValidatedTx Era ->
+  OnChainHeadState ->
+  Maybe (OnChainTx CardanoTx, OnChainHeadState)
+observeCommit tx = \case
+  Initial{threadOutput, initials, commits} -> do
+    (onChainTx, commitTriple) <- observeCommitTx tx
+    -- NOTE(SN): A commit tx has been observed and thus we can remove all it's
+    -- inputs from our tracked initials
+    let commitIns = inputs $ body tx
+    let initials' = filter (\(i, _, _) -> i `Set.notMember` commitIns) initials
+    let commits' = commitTriple : commits
+    pure
+      ( onChainTx
+      , Initial
+          { threadOutput
+          , initials = initials'
+          , commits = commits'
+          }
+      )
+  _ -> Nothing
+
 -- TODO(SN): obviously the observeCollectComTx/observeAbortTx can be DRYed.. deliberately hold back on it though
 
 -- | Identify a collectCom tx by lookup up the input spending the Head output
