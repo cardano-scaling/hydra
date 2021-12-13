@@ -14,7 +14,6 @@ import Brick.BChan (newBChan, writeBChan)
 import Brick.Forms (Form, FormFieldState, checkboxField, editShowableFieldWithValidate, formState, handleFormEvent, newForm, radioField, renderForm)
 import Brick.Widgets.Border (hBorder, vBorder)
 import Brick.Widgets.Border.Style (ascii)
-import Cardano.Crypto.DSIGN (VerKeyDSIGN (VerKeyMockDSIGN))
 import CardanoClient (
   CardanoClient (..),
   buildAddress,
@@ -48,16 +47,13 @@ import Hydra.Ledger.Cardano (
   CtxUTxO,
   Era,
   Lovelace (Lovelace),
-  NetworkId (Testnet),
-  NetworkMagic (NetworkMagic),
+  NetworkId,
   PaymentKey,
-  SigningKey,
   TxIn,
   TxOut (TxOut),
   Utxo,
   Utxo' (Utxo),
   VerificationKey,
-  genKeyPair,
   lovelaceToValue,
   mkSimpleCardanoTx,
   mkVkAddress,
@@ -68,7 +64,7 @@ import Hydra.Ledger.Cardano (
   utxoMap,
  )
 import Hydra.Network (Host (..))
-import Hydra.Party (Party (Party, vkey))
+import Hydra.Party (Party)
 import Hydra.ServerOutput (
   ServerOutput (
     CommandFailed,
@@ -674,28 +670,6 @@ style _ =
 --
 -- Converting credentials
 --
-
--- | For now, we _fake it until we make it_ ^TM. Credentials are generated
--- *deterministically* from Hydra verification keys (the 'Party'). Thus,
--- coupling Hydra keys (signing the Head itself) with Cardano keys (signing
--- transactions in a Head). In the end, the client will figure out credentials
--- via some other means, e.g. be user-provided.
-
--- | Create a cardano key pair from a party. This would not be done in a real
--- application and we'd manage the Cardano keys separate from the Hydra keys.
--- For now though, this makes it easy to create assets for Head participants and
--- send values between "them".
-getCredentials :: Party -> (VerificationKey PaymentKey, SigningKey PaymentKey)
-getCredentials Party{vkey} =
-  let VerKeyMockDSIGN word = vkey
-      seed = fromIntegral word
-   in generateWith genKeyPair seed
-
--- | Similarly to 'getCredentials', this gives us "the" Cardano address given a
--- Hydra 'Party'. In a real world deployment it would make no sense to send a
--- Head participant something, the ledger would be fully decoupled.
-getAddress :: VerificationKey PaymentKey -> AddressInEra Era
-getAddress = mkVkAddress networkId
 
 --
 -- Run it
