@@ -43,9 +43,9 @@ type ClientComponent tx m a = ClientCallback tx m -> (Client tx m -> m a) -> m a
 
 -- | Provide a component to interact with Hydra node.
 withClient :: IsTx tx => Options -> ClientComponent tx IO a
-withClient Options{hydraNodeHost = Host{hostname, port}, cardanoVerificationKey} callback action = do
+withClient Options{hydraNodeHost = Host{hostname, port}, cardanoSigningKey} callback action = do
   -- FIXME: Should be 'cardanoSigningKey'
-  sk <- readFileTextEnvelopeThrow (AsSigningKey AsPaymentKey) cardanoVerificationKey
+  sk <- readFileTextEnvelopeThrow (AsSigningKey AsPaymentKey) cardanoSigningKey
   q <- newTBQueueIO 10
   withAsync (reconnect $ client q) $ \thread -> do
     -- NOTE(SN): if message formats are not compatible, this will terminate the TUI

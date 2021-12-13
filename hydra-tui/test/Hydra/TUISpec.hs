@@ -93,7 +93,7 @@ setupNodeAndTUI action =
       config <- newNodeConfig tmpDir
       (aliceCardanoVk, aliceCardanoSk) <- keysFor "alice"
       withBFTNode (contramap FromCardano tracer) config [aliceCardanoVk] $ \(RunningNode _ nodeSocket) -> do
-        (aliceVkPath, aliceSkPath) <- writeKeysFor tmpDir "alice"
+        (_, aliceSkPath) <- writeKeysFor tmpDir "alice"
         -- XXX(SN): API port id is inferred from nodeId, in this case 4001
         let nodeId = 1
         pparams <- queryProtocolParameters defaultNetworkId nodeSocket
@@ -111,7 +111,7 @@ setupNodeAndTUI action =
                           }
                     , cardanoNodeSocket = nodeSocket
                     , cardanoNetworkId = defaultNetworkId
-                    , cardanoVerificationKey = aliceVkPath
+                    , cardanoSigningKey = aliceSkPath
                     }
               )
               $ do

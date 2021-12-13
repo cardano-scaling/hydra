@@ -1,17 +1,26 @@
 module Hydra.TUI.OptionsSpec where
 
-import           Hydra.Prelude
-import           Test.Hydra.Prelude
+import Hydra.Prelude
+import Test.Hydra.Prelude
 
-import           Hydra.Ledger.Cardano (NetworkId (Mainnet, Testnet),
-                                       NetworkMagic (NetworkMagic))
-import           Hydra.Network        (Host (Host))
-import           Hydra.TUI.Options    (parseCardanoNetworkId,
-                                       parseCardanoNodeSocket,
-                                       parseCardanoVerificationKey,
-                                       parseNodeHost)
-import           Options.Applicative  (Parser, ParserResult (Success),
-                                       defaultPrefs, execParserPure, info)
+import Hydra.Ledger.Cardano (
+  NetworkId (Mainnet, Testnet),
+  NetworkMagic (NetworkMagic),
+ )
+import Hydra.Network (Host (Host))
+import Hydra.TUI.Options (
+  parseCardanoNetworkId,
+  parseCardanoNodeSocket,
+  parseCardanoSigningKey,
+  parseNodeHost,
+ )
+import Options.Applicative (
+  Parser,
+  ParserResult (Success),
+  defaultPrefs,
+  execParserPure,
+  info,
+ )
 
 spec :: Spec
 spec = parallel $ do
@@ -21,8 +30,8 @@ spec = parallel $ do
     shouldParseWith parseCardanoNetworkId ["--network-magic", "123"] (Testnet $ NetworkMagic 123)
   it "defaults --network-magic to Mainnet" $ do
     shouldParseWith parseCardanoNetworkId [] Mainnet
-  it "parses --cardano-verification-key option" $ do
-    shouldParseWith parseCardanoVerificationKey ["--cardano-verification-key", "foo.vk"] "foo.vk"
+  it "parses --cardano-signing-key option" $ do
+    shouldParseWith parseCardanoSigningKey ["--cardano-signing-key", "foo.sk"] "foo.sk"
   it "parses --cardano-node-socket option" $ do
     shouldParseWith parseCardanoNodeSocket ["--cardano-node-socket", "something.socket"] "something.socket"
 

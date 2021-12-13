@@ -1,19 +1,30 @@
 module Hydra.TUI.Options where
 
-import           Hydra.Prelude
+import Hydra.Prelude
 
-import           Hydra.Ledger.Cardano (NetworkId (Mainnet, Testnet),
-                                       NetworkMagic (NetworkMagic))
-import           Hydra.Network        (Host (Host))
-import           Options.Applicative  (Parser, auto, help, long, metavar,
-                                       option, short, showDefault, strOption,
-                                       value)
+import Hydra.Ledger.Cardano (
+  NetworkId (Mainnet, Testnet),
+  NetworkMagic (NetworkMagic),
+ )
+import Hydra.Network (Host (Host))
+import Options.Applicative (
+  Parser,
+  auto,
+  help,
+  long,
+  metavar,
+  option,
+  short,
+  showDefault,
+  strOption,
+  value,
+ )
 
 data Options = Options
-  { hydraNodeHost          :: Host
-  , cardanoNodeSocket      :: FilePath
-  , cardanoNetworkId       :: NetworkId
-  , cardanoVerificationKey :: FilePath
+  { hydraNodeHost :: Host
+  , cardanoNodeSocket :: FilePath
+  , cardanoNetworkId :: NetworkId
+  , cardanoSigningKey :: FilePath
   }
 
 parseOptions :: Parser Options
@@ -22,7 +33,7 @@ parseOptions =
     <$> parseNodeHost
     <*> parseCardanoNodeSocket
     <*> parseCardanoNetworkId
-    <*> parseCardanoVerificationKey
+    <*> parseCardanoSigningKey
 
 parseCardanoNodeSocket :: Parser FilePath
 parseCardanoNodeSocket =
@@ -59,13 +70,13 @@ parseCardanoNetworkId =
   )
     <|> pure Mainnet
 
-parseCardanoVerificationKey :: Parser FilePath
-parseCardanoVerificationKey =
+parseCardanoSigningKey :: Parser FilePath
+parseCardanoSigningKey =
   strOption
-    ( long "cardano-verification-key"
+    ( long "cardano-signing-key"
         <> short 'k'
         <> metavar "FILE"
-        <> help "The path to the verification key file used for selecting and committing UTxO. This file used the same 'Envelope' format than cardano-cli."
-        <> value "me.vk"
+        <> help "The path to the signing key file used for selecting, committing  UTxO and signing off-chain transactions. This file used the same 'Envelope' format than cardano-cli."
+        <> value "me.sk"
         <> showDefault
     )
