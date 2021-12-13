@@ -361,29 +361,34 @@ handleCommitEvent Client{sendInput, vk} CardanoClient{queryUtxoByAddress} s = ca
     Dialog title form submit
    where
     title = "Select UTXO to commit"
-    -- TODO: This should really be a radio field, because we want to only allow
-    -- one UTXO entry to be committed.
     form = newForm (utxoCheckboxField u) ((,False) <$> u)
     submit s' selected = do
       let commitUtxo = Utxo $ Map.mapMaybe (\(v, p) -> if p then Just v else Nothing) selected
-      liftIO (sendInput $ Commit commitUtxo)
-      continue (s' & dialogStateL .~ NoDialog)
+      if length commitUtxo > 1
+        then
+          continue $
+            s'
+              & feedbackL ?~ UserFeedback Error "Cannot commit more than 1 entry."
+              & dialogStateL .~ NoDialog
+        else do
+          liftIO (sendInput $ Commit commitUtxo)
+          continue (s' & dialogStateL .~ NoDialog)
 
 handleNewTxEvent ::
   Client CardanoTx IO ->
+  CardanoClient ->
   State ->
   EventM n (Next State)
-handleNewTxEvent Client{sendInput, sk, vk} s = case s ^? headStateL of
+handleNewTxEvent Client{sendInput, sk, vk} CardanoClient{networkId} s = case s ^? headStateL of
   Just Open{utxo} ->
     continue $ s & dialogStateL .~ transactionBuilderDialog utxo
   _ ->
     continue $ s & feedbackL ?~ UserFeedback Error "Invalid command."
  where
-  myUtxo = myAvailableUtxo vk s
-
   transactionBuilderDialog utxo =
     Dialog title form submit
    where
+    myUtxo = myAvailableUtxo networkId vk s
     title = "Select UTXO to spend"
     -- FIXME: This crashes if the utxo is empty
     form = newForm (utxoRadioField myUtxo) (Prelude.head (Map.toList myUtxo))
@@ -394,7 +399,6 @@ handleNewTxEvent Client{sendInput, sk, vk} s = case s ^? headStateL of
     Dialog title form submit
    where
     title = "Select a recipient"
-    -- FIXME: This crashes if peers are empty!
     form =
       let field = radioField (lens id seq) [(u, show u, show u) | u <- addresses]
           addresses = getRecipientAddress <$> Map.elems utxo
