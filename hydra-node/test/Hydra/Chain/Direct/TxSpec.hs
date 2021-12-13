@@ -28,6 +28,7 @@ import qualified Cardano.Ledger.SafeHash as SafeHash
 import Cardano.Ledger.Shelley.API (Coin (..), StrictMaybe (..), TxId (..), TxIn (..), UTxO (..))
 import qualified Cardano.Ledger.Shelley.Tx as Ledger
 import Cardano.Ledger.Slot (EpochSize (EpochSize))
+import Cardano.Ledger.TxIn (txid)
 import Cardano.Ledger.Val (inject)
 import Cardano.Slotting.EpochInfo (fixedEpochInfo)
 import Cardano.Slotting.Time (SystemStart (..), mkSlotLength)
@@ -152,20 +153,34 @@ spec =
               === Just (OnCommitTx{party, committed = committedUtxo}, expectedOutput)
               & counterexample ("Tx: " <> show tx)
 
-      prop "consumes all inputs that are committed from initials" $ \party singleUtxo (NonEmpty initials) ->
-        let tx = commitTx party (Just singleUtxo) (head initials)
+      prop "consumes all inputs that are committed from initials" $ \party singleUtxo initials ->
+        let mkInitials :: Foldable f => f (TxIn StandardCrypto, PubKeyHash) -> [(TxIn StandardCrypto, TxOut Era, Data Era)]
+            mkInitials = error "TODO."
+
+            tx = commitTx party (Just singleUtxo) (head initials)
             committedUtxo = Utxo $ Map.fromList [singleUtxo]
             commitAddress = scriptAddr $ plutusScript MockCommit.validatorScript
             commitValue = inject (Coin 2_000_000) <> toMaryValue (balance @CardanoTx committedUtxo)
+            commitInput = TxIn (txid $ body tx) 0
             commitOutput = TxOut @Era commitAddress commitValue (SJust $ hashData commitDatum)
             commitDatum =
               Data . toData $
                 MockCommit.datum (partyFromVerKey $ vkey party, commitUtxo)
             commitUtxo =
               fromByteString $ toStrict $ Aeson.encode committedUtxo
-            onChainState = Initial{threadOutput = undefined, initials, commits = []}
-            Just (Initial{initials = newInitials, commits = newCommits}) = snd <$> observeCommit tx onChainState
-         in newInitials == tail initials && newCommits == [singleUtxo]
+            onChainState =
+              Initial
+                { threadOutput = error "should not be evaluated anyway."
+                , initials = mkInitials initials
+                , commits = []
+                }
+            Just
+              ( Initial
+                  { initials = newInitials
+                  , commits = newCommits
+                  }
+                ) = snd <$> observeCommit tx onChainState
+         in newInitials == mkInitials (tail initials) && newCommits == [(commitInput, commitOutput, commitDatum)]
 
     describe "collectComTx" $ do
       prop "transaction size below limit" $ \(ReasonablySized utxo) headIn cperiod parties ->
