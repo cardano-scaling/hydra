@@ -112,6 +112,38 @@ threadToken = assetClass (currencySymbol "hydra") (tokenName "token")
 policyId :: MintingPolicyHash
 (policyId, _) = first currencyMPSHash (unAssetClass threadToken)
 
+emptyTx :: ValidatedTx Era
+emptyTx =
+  ValidatedTx
+    { body = emptyTxBody
+    , wits =
+        TxWitness
+          { txwitsVKey = mempty
+          , txwitsBoot = mempty
+          , txscripts = mempty
+          , txdats = mempty
+          , txrdmrs = Redeemers Map.empty
+          }
+    , isValid = IsValid True -- REVIEW(SN): no idea of the semantics of this
+    , auxiliaryData = SNothing
+    }
+
+withBody :: TxBody Era -> ValidatedTx Era -> ValidatedTx Era
+withBody body tx =
+  tx{body}
+
+withDatums :: [Data Era] -> ValidatedTx Era -> ValidatedTx Era
+withDatums datums tx =
+  tx{wits = (wits tx){txdats = datumsFromList datums}}
+
+withRedeemers :: Redeemers Era -> ValidatedTx Era -> ValidatedTx Era
+withRedeemers redeemers tx =
+  tx{wits = (wits tx){txrdmrs = redeemers}}
+
+withScripts :: Map (ScriptHash StandardCrypto) (Script Era) -> ValidatedTx Era -> ValidatedTx Era
+withScripts scripts tx =
+  tx{wits = (wits tx){txscripts = scripts}}
+
 emptyTxBody :: TxBody Era
 emptyTxBody =
   TxBody
@@ -149,18 +181,16 @@ initTx ::
   TxIn StandardCrypto ->
   ValidatedTx Era
 initTx cardanoKeys HeadParameters{contestationPeriod, parties} txIn =
-  mkUnsignedTx body dats (Redeemers mempty) mempty
+  emptyTx
+    & withBody body
+    & withDatums dats
  where
   body =
     emptyTxBody
       & withInputs [txIn]
       & withOutputs (headOut : initials)
 
-  dats =
-    TxDats $
-      Map.fromList $
-        (headDatumHash, headDatum) :
-          [(initialDatumHash vkey, initialDatum vkey) | vkey <- cardanoKeys]
+  dats = headDatum : [initialDatum vkey | vkey <- cardanoKeys]
 
   headOut = TxOut headAddress headValue (SJust headDatumHash)
 
@@ -204,7 +234,11 @@ commitTx ::
   (TxIn StandardCrypto, PubKeyHash) ->
   ValidatedTx Era
 commitTx party utxo (initialIn, pkh) =
-  mkUnsignedTx body datums redeemers scripts
+  emptyTx
+    & withBody body
+    & withDatums dats
+    & withRedeemers redeemers
+    & withScripts scripts
  where
   body =
     emptyTxBody
@@ -215,8 +249,7 @@ commitTx party utxo (initialIn, pkh) =
 
   (commitOutput, commitDatum) = mkCommitUtxo onChainParty utxo
 
-  datums =
-    datumsFromList [initialDatum, commitDatum]
+  dats = [initialDatum, commitDatum]
 
   initialDatum = Data . toData $ MockInitial.datum pkh
 
@@ -278,7 +311,11 @@ collectComTx ::
 -- utxo when observing. Right now, they would be trusting the OCV checks this
 -- and construct their "world view" from observed commit txs in the HeadLogic
 collectComTx _utxo (headInput, headDatumBefore) commits =
-  mkUnsignedTx body datums redeemers scripts
+  emptyTx
+    & withBody body
+    & withDatums datums
+    & withRedeemers redeemers
+    & withScripts scripts
  where
   body =
     emptyTxBody
@@ -294,9 +331,7 @@ collectComTx _utxo (headInput, headDatumBefore) commits =
 
   getValue (TxOut _ val _) = val
 
-  datums =
-    datumsFromList $
-      headDatumBefore : headDatumAfter : commitDatums
+  datums = headDatumBefore : headDatumAfter : commitDatums
 
   headDatumAfter = Data $ toData MockHead.Open
 
@@ -327,7 +362,11 @@ closeTx ::
   (TxIn StandardCrypto, TxOut Era, Data Era) ->
   ValidatedTx Era
 closeTx snapshotNumber _utxo (headInput, headOutput, headDatumBefore) =
-  mkUnsignedTx body datums redeemers scripts
+  emptyTx
+    & withBody body
+    & withDatums datums
+    & withRedeemers redeemers
+    & withScripts scripts
  where
   body =
     emptyTxBody
@@ -339,8 +378,7 @@ closeTx snapshotNumber _utxo (headInput, headOutput, headDatumBefore) =
             (SJust $ hashData @Era headDatumAfter)
         ]
 
-  datums =
-    datumsFromList [headDatumBefore, headDatumAfter]
+  datums = [headDatumBefore, headDatumAfter]
 
   -- TODO(SN): store contestation deadline as tx validity range end +
   -- contestation period in Datum or compute in observeCloseTx?
@@ -368,7 +406,11 @@ fanoutTx ::
   (TxIn StandardCrypto, Data Era) ->
   ValidatedTx Era
 fanoutTx utxo (headInput, headDatumBefore) =
-  mkUnsignedTx body datums redeemers scripts
+  emptyTx
+    & withBody body
+    & withDatums datums
+    & withRedeemers redeemers
+    & withScripts scripts
  where
   body =
     emptyTxBody
@@ -385,8 +427,7 @@ fanoutTx utxo (headInput, headDatumBefore) =
     ]
       <> map (toShelleyTxOut shelleyBasedEra . snd) (utxoPairs utxo)
 
-  datums =
-    datumsFromList [headDatumBefore, headDatumAfter]
+  datums = [headDatumBefore, headDatumAfter]
 
   headDatumAfter = Data $ toData MockHead.Final
 
@@ -416,7 +457,13 @@ abortTx (headInput, headDatum) initialInputs
   | isJust (lookup headInput initialInputs) =
     Left OverlappingInputs
   | otherwise =
-    Right $ mkUnsignedTx body datums redeemers scripts
+    Right
+      ( emptyTx
+          & withBody body
+          & withDatums datums
+          & withRedeemers redeemers
+          & withScripts scripts
+      )
  where
   body =
     emptyTxBody
@@ -456,8 +503,7 @@ abortTx (headInput, headDatum) initialInputs
   -- also, the datum of the created output which is necessary for the
   -- state-machine on-chain validator to control the correctness of the
   -- transition.
-  datums =
-    datumsFromList $ abortDatum : headDatum : Map.elems initialInputs
+  datums = abortDatum : headDatum : Map.elems initialInputs
 
   abortDatum =
     Data $ toData MockHead.Final
@@ -662,27 +708,6 @@ ownInitial vkey =
     pure (i, pkh)
 
 -- * Helpers
-
-mkUnsignedTx ::
-  TxBody Era ->
-  TxDats Era ->
-  Redeemers Era ->
-  Map (ScriptHash StandardCrypto) (Script Era) ->
-  ValidatedTx Era
-mkUnsignedTx body datums redeemers scripts =
-  ValidatedTx
-    { body
-    , wits =
-        TxWitness
-          { txwitsVKey = mempty
-          , txwitsBoot = mempty
-          , txscripts = scripts
-          , txdats = datums
-          , txrdmrs = redeemers
-          }
-    , isValid = IsValid True -- REVIEW(SN): no idea of the semantics of this
-    , auxiliaryData = SNothing
-    }
 
 -- | Get the ledger address for a given plutus script.
 scriptAddr :: Script Era -> Addr StandardCrypto
