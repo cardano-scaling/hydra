@@ -22,11 +22,12 @@ changes.
 #### Changed
 - Command line options of `hydra-node` quite significantly to distinguish hydra
   credentials from cardano credentials.
-- Commit and transaction creation logic of TUI to use cardano credentials
+- Commit and transaction creation logic of TUI to use cardano credentials.
 
-### Removed
-- ZeroMQ mock-chain executable, chain component and corresponding `hydra-node` command line options
-- ZeroMQ based network component
+#### Removed
+- ZeroMQ mock-chain executable, chain component and corresponding `hydra-node`
+  command line options.
+- ZeroMQ based network component.
 - Aliases from party identifiers.
 
 #### Fixed
@@ -34,11 +35,11 @@ changes.
 
 #### Known issues
 - Only no or one utxo can be committed to a Head.
-- The addresses to send money to in the Head is inferred from the current UTXO set. If a party does
-  not commit a UTXO or consumes all its UTXO in a Head, it won't be able to send or receive anything
-  anymore.
-- TUI can crash when user tries to post a new transaction wihout any UTXO remaining
-- Cannot exit TUI if not connected
+- Recipient addresses to send money to in the TUI are inferred from the current
+  UTXO set. If a party does not commit a UTXO or consumes all its UTXO in a
+  Head, it won't be able to send or receive anything anymore.
+- TUI crashes when user tries to post a new transaction wihout any UTXO
+  remaining.
 
 ## [0.1.0] - 2021-09-30
 
