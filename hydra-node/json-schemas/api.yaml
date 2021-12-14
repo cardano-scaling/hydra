@@ -59,7 +59,7 @@ properties:
             type: string
             enum: ["Commit"]
           utxo:
-            $ref: "#/definitions/Utxo"
+            $ref: "common.yaml#/definitions/Utxo"
 
       - title: NewTx
         type: object
@@ -70,7 +70,7 @@ properties:
             type: string
             enum: ["NewTx"]
           transaction:
-            $ref: "#/definitions/Transaction"
+            $ref: "common.yaml#/definitions/Transaction"
 
       - title: GetUtxo
         type: object
@@ -113,7 +113,7 @@ properties:
           tag:
             type: string
             enum: ["PeerConnected"]
-          peer: { "$ref": "#/definitions/Peer" }
+          peer: { "$ref": "common.yaml#/definitions/Peer" }
 
       - title: PeerDisconnected
         type: object
@@ -125,7 +125,7 @@ properties:
             type: string
             enum: ["PeerDisconnected"]
           peer:
-            $ref: "#/definitions/Peer"
+            $ref: "common.yaml#/definitions/Peer"
 
       - title: ReadyToCommit
         type: object
@@ -139,7 +139,7 @@ properties:
           parties:
             type: array
             items:
-              $ref: "#/definitions/Party"
+              $ref: "common.yaml#/definitions/Party"
 
       - title: Committed
         type: object
@@ -152,9 +152,9 @@ properties:
             type: string
             enum: ["Committed"]
           party:
-            $ref: "#/definitions/Party"
+            $ref: "common.yaml#/definitions/Party"
           utxo:
-            $ref: "#/definitions/Utxo"
+            $ref: "common.yaml#/definitions/Utxo"
 
       - title: HeadIsOpen
         type: object
@@ -166,7 +166,7 @@ properties:
             type: string
             enum: ["HeadIsOpen"]
           utxo:
-            $ref: "#/definitions/Utxo"
+            $ref: "common.yaml#/definitions/Utxo"
 
       - title: HeadIsClosed
         type: object
@@ -182,7 +182,7 @@ properties:
             type: string
             format: date-time
           latestSnapshot:
-            $ref: "#/definitions/Snapshot"
+            $ref: "common.yaml#/definitions/Snapshot"
 
       - title: HeadIsAborted
         type: object
@@ -194,7 +194,7 @@ properties:
             type: string
             enum: ["HeadIsAborted"]
           utxo:
-            $ref: "#/definitions/Utxo"
+            $ref: "common.yaml#/definitions/Utxo"
 
       - title: HeadIsFinalized
         type: object
@@ -206,7 +206,7 @@ properties:
             type: string
             enum: ["HeadIsFinalized"]
           utxo:
-            $ref: "#/definitions/Utxo"
+            $ref: "common.yaml#/definitions/Utxo"
 
       - title: TxSeen
         type: object
@@ -218,7 +218,7 @@ properties:
             type: string
             enum: ["TxSeen"]
           transaction:
-            $ref: "#/definitions/Transaction"
+            $ref: "common.yaml#/definitions/Transaction"
 
       - title: TxValid
         type: object
@@ -230,7 +230,7 @@ properties:
             type: string
             enum: ["TxValid"]
           transaction:
-            $ref: "#/definitions/Transaction"
+            $ref: "common.yaml#/definitions/Transaction"
 
       - title: TxInvalid
         type: object
@@ -244,9 +244,9 @@ properties:
             type: string
             enum: ["TxInvalid"]
           utxo:
-            $ref: "#/definitions/Utxo"
+            $ref: "common.yaml#/definitions/Utxo"
           transaction:
-            $ref: "#/definitions/Transaction"
+            $ref: "common.yaml#/definitions/Transaction"
           validationError:
             type: object
             properties:
@@ -263,7 +263,7 @@ properties:
             type: string
             enum: ["SnapshotConfirmed"]
           snapshot:
-            $ref: "#/definitions/Snapshot"
+            $ref: "common.yaml#/definitions/Snapshot"
 
       - title: Utxo
         type: object
@@ -274,7 +274,7 @@ properties:
             type: string
             enum: ["Utxo"]
           utxo:
-            $ref: "#/definitions/Utxo"
+            $ref: "common.yaml#/definitions/Utxo"
 
       - title: CommandFailed
         type: object
@@ -314,32 +314,4 @@ properties:
             type: string
             enum: ["Greetings"]
           me:
-            $ref: "#/definitions/Party"
-
-definitions:
-  Address:
-    $ref: "common.json#/definitions/Address"
-  Cbor:
-    $ref: "common.json#/definitions/Cbor"
-  Party:
-    $ref: "common.json#/definitions/Party"
-  Peer:
-    $ref: "common.json#/definitions/Peer"
-  Snapshot:
-    $ref: "common.json#/definitions/Snapshot"
-  Transaction:
-    $ref: "common.json#/definitions/Transaction"
-  TxBody:
-    $ref: "common.json#/definitions/TxBody"
-  TxId:
-    $ref: "common.json#/definitions/TxId"
-  TxIn:
-    $ref: "common.json#/definitions/TxIn"
-  TxOut:
-    $ref: "common.json#/definitions/TxOut"
-  Utxo:
-    $ref: "common.json#/definitions/Utxo"
-  Value:
-    $ref: "common.json#/definitions/Value"
-  Withdrawal:
-    $ref: "common.json#/definitions/Withdrawal"
+            $ref: "common.yaml#/definitions/Party"

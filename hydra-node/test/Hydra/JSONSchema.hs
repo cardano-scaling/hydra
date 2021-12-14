@@ -141,7 +141,7 @@ withJsonSpecifications action = do
     when (takeExtension file == ".yaml") $ do
       spec <- Yaml.decodeFileThrow @_ @Aeson.Value (specDir </> file)
       let spec' = addField "$id" ("file://" <> dir <> "/") spec
-      Aeson.encodeFile (dir </> takeBaseName file <.> "json") spec'
+      Aeson.encodeFile (dir </> takeBaseName file <.> "yaml") spec'
   action dir
  where
   addField :: ToJSON a => Text -> a -> Aeson.Value -> Aeson.Value

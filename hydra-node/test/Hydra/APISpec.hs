@@ -21,14 +21,14 @@ spec = parallel $ do
       specify "ClientInput" $ \dir ->
         withMaxSuccess 1 $
           conjoin
-            [ prop_validateToJSON @(ClientInput CardanoTx) (dir </> "api.json") "inputs" (dir </> "ClientInput")
-            , prop_specIsComplete @(ClientInput CardanoTx) (dir </> "api.json") (apiSpecificationSelector "inputs")
+            [ prop_validateToJSON @(ClientInput CardanoTx) (dir </> "api.yaml") "inputs" (dir </> "ClientInput")
+            , prop_specIsComplete @(ClientInput CardanoTx) (dir </> "api.yaml") (apiSpecificationSelector "inputs")
             ]
       specify "ServerOutput" $ \dir ->
         withMaxSuccess 1 $
           conjoin
-            [ prop_validateToJSON @(ServerOutput CardanoTx) (dir </> "api.json") "outputs" (dir </> "ServerOutput")
-            , prop_specIsComplete @(ServerOutput CardanoTx) (dir </> "api.json") (apiSpecificationSelector "outputs")
+            [ prop_validateToJSON @(ServerOutput CardanoTx) (dir </> "api.yaml") "outputs" (dir </> "ServerOutput")
+            , prop_specIsComplete @(ServerOutput CardanoTx) (dir </> "api.yaml") (apiSpecificationSelector "outputs")
             ]
 
 apiSpecificationSelector ::

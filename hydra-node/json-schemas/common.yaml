@@ -1,5 +1,4 @@
 ---
-"$id": https://raw.githubusercontent.com/input-output-hk/hydra-poc/master/hydra-node/json-schemas/
 "$schema": http://json-schema.org/draft/2020-12/schema
 "$comment": Common object definitions used across the WebSocket API and Logging API.
 title: Common Definitions

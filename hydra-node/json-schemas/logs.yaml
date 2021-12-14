@@ -219,8 +219,8 @@ definitions:
         postedTx:
           type: array
           prefixItems:
-            - $ref: "#/definitions/TxId"
-            - $ref: "#/definitions/Transaction"
+            - $ref: "common.yaml#/definitions/TxId"
+            - $ref: "common.yaml#/definitions/Transaction"
     - title: ReceivedTxs
       description: >-
         Logical and actual representation of received / observed transactions on-chain.
@@ -255,7 +255,7 @@ definitions:
           type: string
           enum: ["RolledBackward"]
         point:
-          $ref: "#/definitions/Point"
+          $ref: "common.yaml#/definitions/Point"
     - title: Wallet
       description: >-
         Logs coming from the wallet.
@@ -287,9 +287,9 @@ definitions:
           type: string
           enum: ["InitializingWallet"]
         point:
-          $ref: "#/definitions/Point"
+          $ref: "common.yaml#/definitions/Point"
         initialUtxo:
-          $ref: "#/definitions/Utxo"
+          $ref: "common.yaml#/definitions/Utxo"
     - title: ApplyBlock
       description: >-
         The wallet has discovered and applied a new block of interest.
@@ -303,9 +303,9 @@ definitions:
           type: string
           enum: ["ApplyBlock"]
         before:
-          $ref: "#/definitions/Utxo"
+          $ref: "common.yaml#/definitions/Utxo"
         after:
-          $ref: "#/definitions/Utxo"
+          $ref: "common.yaml#/definitions/Utxo"
 
   # TODO: Fill the gap!
   Network: {}
@@ -329,7 +329,7 @@ definitions:
           type: string
           enum: [ "ErrorHandlingEvent" ]
         by:
-          <<: { "$ref": "#/definitions/Party" }
+          <<: { "$ref": "common.yaml#/definitions/Party" }
           description: >-
             The Party emitting the log entry.
         event:
@@ -355,7 +355,7 @@ definitions:
           type: string
           enum: [ "ProcessingEvent" ]
         by:
-          <<: { "$ref": "#/definitions/Party" }
+          <<: { "$ref": "common.yaml#/definitions/Party" }
           description: >-
             The Party emitting the log entry.
         event:
@@ -374,7 +374,7 @@ definitions:
           type: string
           enum: [ "ProcessedEvent" ]
         by:
-          <<: { "$ref": "#/definitions/Party" }
+          <<: { "$ref": "common.yaml#/definitions/Party" }
           description: >-
             The Party emitting the log entry.
         event:
@@ -394,7 +394,7 @@ definitions:
           type: string
           enum: [ "ProcessingEffect" ]
         by:
-          <<: { "$ref": "#/definitions/Party" }
+          <<: { "$ref": "common.yaml#/definitions/Party" }
           description: >-
             The Party emitting the log entry.
         effect:
@@ -413,7 +413,7 @@ definitions:
           type: string
           enum: [ "ProcessedEffect" ]
         by:
-          <<: { "$ref": "#/definitions/Party" }
+          <<: { "$ref": "common.yaml#/definitions/Party" }
           description: >-
             The Party emitting the log entry.
         effect:
@@ -457,9 +457,9 @@ definitions:
           type: string
           enum: [ "InvalidSnapshot" ]
         expected:
-          $ref: "#/definitions/SnapshotNumber"
+          $ref: "common.yaml#/definitions/SnapshotNumber"
         actual:
-          $ref: "#/definitions/SnapshotNumber"
+          $ref: "common.yaml#/definitions/SnapshotNumber"
     - title: LedgerError
       additionalProperties: false
       required:
@@ -502,15 +502,15 @@ definitions:
           type: string
           enum: [ "InitialState" ]
         parameters:
-          $ref: "#/definitions/HeadParameters"
+          $ref: "common.yaml#/definitions/HeadParameters"
         pendingCommits:
           type: array
           items:
-            $ref: "#/definitions/Party"
+            $ref: "common.yaml#/definitions/Party"
         committed:
           type: array
           items:
-            $ref: "#/definitions/Party"
+            $ref: "common.yaml#/definitions/Party"
     - title: "OpenState"
       additionalProperties: false
       required:
@@ -522,7 +522,7 @@ definitions:
           type: string
           enum: [ "OpenState" ]
         parameters:
-          $ref: "#/definitions/HeadParameters"
+          $ref: "common.yaml#/definitions/HeadParameters"
         coordinatedHeadState:
           $ref: "#/definitions/CoordinatedHeadState"
     - title: "ClosedState"
@@ -536,9 +536,9 @@ definitions:
           type: string
           enum: [ "ClosedState" ]
         parameters:
-          $ref: "#/definitions/HeadParameters"
+          $ref: "common.yaml#/definitions/HeadParameters"
         utxos:
-          $ref: "#/definitions/Utxo"
+          $ref: "common.yaml#/definitions/Utxo"
 
   CoordinatedHeadState:
     type: object
@@ -550,15 +550,15 @@ definitions:
     - seenSnapshot
     properties:
       seenUtxo:
-        $ref: "#/definitions/Utxo"
+        $ref: "common.yaml#/definitions/Utxo"
       seenTxs:
         type: array
         items:
-          $ref: "#/definitions/Transaction"
+          $ref: "common.yaml#/definitions/Transaction"
       confirmedSnapshot:
-        $ref: "#/definitions/Snapshot"
+        $ref: "common.yaml#/definitions/Snapshot"
       seenSnapshot:
-        $ref: "#/definitions/SeenSnapshot"
+        $ref: "common.yaml#/definitions/SeenSnapshot"
 
   Event:
     description: >-
@@ -581,7 +581,7 @@ definitions:
           type: string
           enum: ["ClientEvent"]
         clientInput:
-          $ref: "#/definitions/ClientInput"
+          $ref: "api.yaml#/properties/inputs/items"
     - title: NetworkEvent
       type: object
       additionalProperties: false
@@ -643,9 +643,9 @@ definitions:
             type: string
             enum: ["ReqTx"]
           party:
-            $ref: "#/definitions/Party"
+            $ref: "common.yaml#/definitions/Party"
           transaction:
-            $ref: "#/definitions/Transaction"
+            $ref: "common.yaml#/definitions/Transaction"
       - title: ReqSn
         type: object
         additionalProperties: false
@@ -662,13 +662,13 @@ definitions:
             type: string
             enum: ["ReqSn"]
           party:
-            $ref: "#/definitions/Party"
+            $ref: "common.yaml#/definitions/Party"
           snapshotNumber:
-            $ref: "#/definitions/SnapshotNumber"
+            $ref: "common.yaml#/definitions/SnapshotNumber"
           transactions:
             type: array
             items:
-              $ref: "#/definitions/Transaction"
+              $ref: "common.yaml#/definitions/Transaction"
       - title: AckSn
         type: object
         additionalProperties: false
@@ -684,7 +684,7 @@ definitions:
             type: string
             enum: ["AckSn"]
           party:
-            $ref: "#/definitions/Party"
+            $ref: "common.yaml#/definitions/Party"
           snapshotNumber:
             type: integer
             minimum: 0
@@ -707,7 +707,7 @@ definitions:
             type: string
             enum: ["Connected"]
           peer:
-            $ref: "#/definitions/Peer"
+            $ref: "common.yaml#/definitions/Peer"
       - title: Disconnected
         type: object
         additionalProperties: false
@@ -721,7 +721,7 @@ definitions:
             type: string
             enum: ["Disconnected"]
           peer:
-            $ref: "#/definitions/Peer"
+            $ref: "common.yaml#/definitions/Peer"
 
   OnChainTx:
     description: >-
@@ -751,7 +751,7 @@ definitions:
           parties:
             type: array
             items:
-              $ref: "#/definitions/Party"
+              $ref: "common.yaml#/definitions/Party"
       - title: OnCommitTx
         type: object
         additionalProperties: false
@@ -767,9 +767,9 @@ definitions:
             type: string
             enum: ["OnCommitTx"]
           party:
-            $ref: "#/definitions/Party"
+            $ref: "common.yaml#/definitions/Party"
           committed:
-            $ref: "#/definitions/Utxo"
+            $ref: "common.yaml#/definitions/Utxo"
       - title: OnAbortTx
         type: object
         additionalProperties: false
@@ -855,7 +855,7 @@ definitions:
           type: string
           enum: ["ClientEffect"]
         serverOutput:
-          $ref: "#/definitions/ServerOutput"
+          $ref: "api.yaml#/properties/outputs/items"
     - title: NetworkEffect
       type: object
       additionalProperties: false
@@ -932,7 +932,7 @@ definitions:
             type: string
             enum: ["InitTx"]
           headParameters:
-            $ref: "#/definitions/HeadParameters"
+            $ref: "common.yaml#/definitions/HeadParameters"
       - title: CommitTx
         type: object
         additionalProperties: false
@@ -947,9 +947,9 @@ definitions:
             type: string
             enum: ["CommitTx"]
           party:
-            $ref: "#/definitions/Party"
+            $ref: "common.yaml#/definitions/Party"
           committed:
-            $ref: "#/definitions/Utxo"
+            $ref: "common.yaml#/definitions/Utxo"
       - title: AbortTx
         type: object
         additionalProperties: false
@@ -963,7 +963,7 @@ definitions:
             type: string
             enum: ["AbortTx"]
           utxo:
-            $ref: "#/definitions/Utxo"
+            $ref: "common.yaml#/definitions/Utxo"
       - title: CollectComTx
         type: object
         additionalProperties: false
@@ -978,7 +978,7 @@ definitions:
             type: string
             enum: ["CollectComTx"]
           utxo:
-            $ref: "#/definitions/Utxo"
+            $ref: "common.yaml#/definitions/Utxo"
       - title: CloseTx
         type: object
         additionalProperties: false
@@ -992,7 +992,7 @@ definitions:
             type: string
             enum: ["CloseTx"]
           snapshot:
-            $ref: "#/definitions/Snapshot"
+            $ref: "common.yaml#/definitions/Snapshot"
       - title: ContestTx
         type: object
         additionalProperties: false
@@ -1007,7 +1007,7 @@ definitions:
             type: string
             enum: ["ContestTx"]
           snapshot:
-            $ref: "#/definitions/Snapshot"
+            $ref: "common.yaml#/definitions/Snapshot"
       - title: FanoutTx
         type: object
         additionalProperties: false
@@ -1021,29 +1021,4 @@ definitions:
             type: string
             enum: ["FanoutTx"]
           utxo:
-            $ref: "#/definitions/Utxo"
-
-  ClientInput:
-    $ref: "api.json#/properties/inputs/items"
-  ServerOutput:
-    $ref: "api.json#/properties/outputs/items"
-  HeadParameters:
-    $ref: "common.json#/definitions/HeadParameters"
-  Party:
-    $ref: "common.json#/definitions/Party"
-  Peer:
-    $ref: "common.json#/definitions/Peer"
-  Point:
-    $ref: "common.json#/definitions/Point"
-  SeenSnapshot:
-    $ref: "common.json#/definitions/SeenSnapshot"
-  Snapshot:
-    $ref: "common.json#/definitions/Snapshot"
-  SnapshotNumber:
-    $ref: "common.json#/definitions/SnapshotNumber"
-  Transaction:
-    $ref: "common.json#/definitions/Transaction"
-  TxId:
-    $ref: "common.json#/definitions/TxId"
-  Utxo:
-    $ref: "common.json#/definitions/Utxo"
+            $ref: "common.yaml#/definitions/Utxo"
