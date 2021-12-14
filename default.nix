@@ -28,13 +28,6 @@ pkgs.haskell-nix.project {
   projectFileName = "cabal.project";
   compiler-nix-name = compiler;
 
-  # Fixed output derivation for plan-nix
-  plan-sha256 = "1mw8za96gvz7qa047qp10dj1c12rsb9vg1pccn6wl3v7hsjn7g7r";
-  materialized = ./nix/hydra-poc.materialized;
-  # Enable this and nix-build one of the project components to get the new
-  # plan-sha256 and materialization update scripts:
-  checkMaterialization = false;
-
   modules = [{
     packages = {
       eventful-sql-common = {
