@@ -38,6 +38,7 @@ changes.
   not commit a UTXO or consumes all its UTXO in a Head, it won't be able to send or receive anything
   anymore.
 - TUI can crash when user tries to post a new transaction wihout any UTXO remaining
+- Cannot exit TUI if not connected
 
 ## [0.1.0] - 2021-09-30
 
