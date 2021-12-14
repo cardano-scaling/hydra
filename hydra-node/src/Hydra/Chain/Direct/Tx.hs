@@ -112,6 +112,34 @@ threadToken = assetClass (currencySymbol "hydra") (tokenName "token")
 policyId :: MintingPolicyHash
 (policyId, _) = first currencyMPSHash (unAssetClass threadToken)
 
+emptyTxBody :: TxBody Era
+emptyTxBody =
+  TxBody
+    { inputs = mempty
+    , collateral = mempty
+    , outputs = mempty
+    , txcerts = mempty
+    , txwdrls = Wdrl mempty
+    , txfee = Coin 0
+    , txvldt = ValidityInterval SNothing SNothing
+    , txUpdates = SNothing
+    , reqSignerHashes = mempty
+    , mint = mempty
+    , scriptIntegrityHash = SNothing
+    , adHash = SNothing
+    , txnetworkid = SNothing
+    }
+
+-- | Adds the given 'inputs' to the existing transaction body's existing inputs.
+withInputs :: [TxIn StandardCrypto] -> TxBody Era -> TxBody Era
+withInputs newInputs txbody =
+  txbody{inputs = inputs txbody <> Set.fromList newInputs}
+
+-- | Appends the given 'newOutputs' to the transaction body's existing outputs.
+withOutputs :: [TxOut Era] -> TxBody Era -> TxBody Era
+withOutputs newOutputs txbody =
+  txbody{outputs = outputs txbody <> StrictSeq.fromList newOutputs}
+
 -- | Create the init transaction from some 'HeadParameters' and a single TxIn
 -- which will be used as unique parameter for minting NFTs.
 initTx ::
@@ -124,21 +152,9 @@ initTx cardanoKeys HeadParameters{contestationPeriod, parties} txIn =
   mkUnsignedTx body dats (Redeemers mempty) mempty
  where
   body =
-    TxBody
-      { inputs = Set.singleton txIn
-      , collateral = mempty
-      , outputs = StrictSeq.fromList (headOut : initials)
-      , txcerts = mempty
-      , txwdrls = Wdrl mempty
-      , txfee = Coin 0
-      , txvldt = ValidityInterval SNothing SNothing
-      , txUpdates = SNothing
-      , reqSignerHashes = mempty
-      , mint = mempty
-      , scriptIntegrityHash = SNothing
-      , adHash = SNothing
-      , txnetworkid = SNothing
-      }
+    emptyTxBody
+      & withInputs [txIn]
+      & withOutputs (headOut : initials)
 
   dats =
     TxDats $
@@ -178,8 +194,6 @@ pubKeyHash :: VerificationKey PaymentKey -> PubKeyHash
 pubKeyHash (PaymentVerificationKey vkey) = transKeyHash $ hashKey @StandardCrypto $ vkey
 
 -- | Craft a commit transaction which includes the "committed" utxo as a datum.
--- TODO(SN): Eventually, this might not be necessary as the 'Utxo tx' would need
--- to be inputs of this transaction.
 commitTx ::
   Party ->
   -- | A single UTxO to commit to the Head
@@ -193,26 +207,9 @@ commitTx party utxo (initialIn, pkh) =
   mkUnsignedTx body datums redeemers scripts
  where
   body =
-    TxBody
-      { inputs =
-          Set.singleton initialIn
-            <> maybe mempty (Set.singleton . toShelleyTxIn . fst) utxo
-      , collateral = mempty
-      , outputs =
-          StrictSeq.fromList
-            [ commitOutput
-            ]
-      , txcerts = mempty
-      , txwdrls = Wdrl mempty
-      , txfee = Coin 0
-      , txvldt = ValidityInterval SNothing SNothing
-      , txUpdates = SNothing
-      , reqSignerHashes = mempty
-      , mint = mempty
-      , scriptIntegrityHash = SNothing
-      , adHash = SNothing
-      , txnetworkid = SNothing
-      }
+    emptyTxBody
+      & withInputs (initialIn : maybe mempty ((: []) . toShelleyTxIn . fst) utxo)
+      & withOutputs [commitOutput]
 
   onChainParty = partyFromVerKey $ vkey party
 
@@ -284,27 +281,14 @@ collectComTx _utxo (headInput, headDatumBefore) commits =
   mkUnsignedTx body datums redeemers scripts
  where
   body =
-    TxBody
-      { inputs = Set.fromList [headInput] <> Map.keysSet commits
-      , collateral = mempty
-      , outputs =
-          StrictSeq.fromList
-            [ TxOut
-                (scriptAddr headScript)
-                (inject (Coin 2000000) <> commitsValue)
-                (SJust $ hashData @Era headDatumAfter)
-            ]
-      , txcerts = mempty
-      , txwdrls = Wdrl mempty
-      , txfee = Coin 0
-      , txvldt = ValidityInterval SNothing SNothing
-      , txUpdates = SNothing
-      , reqSignerHashes = mempty
-      , mint = mempty
-      , scriptIntegrityHash = SNothing
-      , adHash = SNothing
-      , txnetworkid = SNothing
-      }
+    emptyTxBody
+      & withInputs (headInput : Map.keys commits)
+      & withOutputs
+        [ TxOut
+            (scriptAddr headScript)
+            (inject (Coin 2000000) <> commitsValue)
+            (SJust $ hashData @Era headDatumAfter)
+        ]
 
   commitsValue = mconcat $ getValue . fst <$> Map.elems commits
 
@@ -346,27 +330,14 @@ closeTx snapshotNumber _utxo (headInput, headOutput, headDatumBefore) =
   mkUnsignedTx body datums redeemers scripts
  where
   body =
-    TxBody
-      { inputs = Set.fromList [headInput]
-      , collateral = mempty
-      , outputs =
-          StrictSeq.fromList
-            [ TxOut
-                (scriptAddr headScript)
-                headValue
-                (SJust $ hashData @Era headDatumAfter)
-            ]
-      , txcerts = mempty
-      , txwdrls = Wdrl mempty
-      , txfee = Coin 0
-      , txvldt = ValidityInterval SNothing SNothing
-      , txUpdates = SNothing
-      , reqSignerHashes = mempty
-      , mint = mempty
-      , scriptIntegrityHash = SNothing
-      , adHash = SNothing
-      , txnetworkid = SNothing
-      }
+    emptyTxBody
+      & withInputs [headInput]
+      & withOutputs
+        [ TxOut
+            (scriptAddr headScript)
+            headValue
+            (SJust $ hashData @Era headDatumAfter)
+        ]
 
   datums =
     datumsFromList [headDatumBefore, headDatumAfter]
@@ -400,22 +371,9 @@ fanoutTx utxo (headInput, headDatumBefore) =
   mkUnsignedTx body datums redeemers scripts
  where
   body =
-    TxBody
-      { inputs = Set.fromList [headInput]
-      , collateral = mempty
-      , outputs =
-          StrictSeq.fromList outs
-      , txcerts = mempty
-      , txwdrls = Wdrl mempty
-      , txfee = Coin 0
-      , txvldt = ValidityInterval SNothing SNothing
-      , txUpdates = SNothing
-      , reqSignerHashes = mempty
-      , mint = mempty
-      , scriptIntegrityHash = SNothing
-      , adHash = SNothing
-      , txnetworkid = SNothing
-      }
+    emptyTxBody
+      & withInputs [headInput]
+      & withOutputs outs
 
   outs =
     [ -- NOTE: we probably don't need an output for the head SM
@@ -461,27 +419,14 @@ abortTx (headInput, headDatum) initialInputs
     Right $ mkUnsignedTx body datums redeemers scripts
  where
   body =
-    TxBody
-      { inputs = Set.singleton headInput <> Map.keysSet initialInputs
-      , collateral = mempty
-      , outputs =
-          StrictSeq.fromList
-            [ TxOut
-                (scriptAddr headScript)
-                (inject $ Coin 2000000) -- TODO: This really needs to be passed as argument
-                (SJust $ hashData @Era abortDatum)
-            ]
-      , txcerts = mempty
-      , txwdrls = Wdrl mempty
-      , txfee = Coin 0
-      , txvldt = ValidityInterval SNothing SNothing
-      , txUpdates = SNothing
-      , reqSignerHashes = mempty
-      , mint = mempty
-      , scriptIntegrityHash = SNothing
-      , adHash = SNothing
-      , txnetworkid = SNothing
-      }
+    emptyTxBody
+      & withInputs (headInput : Map.keys initialInputs)
+      & withOutputs
+        [ TxOut
+            (scriptAddr headScript)
+            (inject $ Coin 2000000) -- TODO: This really needs to be passed as argument
+            (SJust $ hashData @Era abortDatum)
+        ]
 
   scripts =
     fromList $
