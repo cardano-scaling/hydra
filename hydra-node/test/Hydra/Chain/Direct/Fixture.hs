@@ -10,13 +10,18 @@ import Hydra.Prelude
 
 import Cardano.Ledger.Alonzo.Language (Language (PlutusV1))
 import Cardano.Ledger.Alonzo.PParams (PParams, PParams' (..))
-import Cardano.Ledger.Alonzo.Scripts (ExUnits (..), Prices (..))
+import Cardano.Ledger.Alonzo.Scripts (CostModel, ExUnits (..), Prices (..))
 import Cardano.Ledger.BaseTypes (ProtVer (..), boundRational)
+import Cardano.Slotting.EpochInfo (EpochInfo, fixedEpochInfo)
+import Cardano.Slotting.Slot (EpochSize (EpochSize))
+import Cardano.Slotting.Time (SystemStart (SystemStart), mkSlotLength)
+import Data.Array (Array, array)
 import Data.Bits (shift)
 import Data.Default (def)
 import qualified Data.Map as Map
 import Data.Maybe (fromJust)
 import Data.Ratio ((%))
+import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
 import Hydra.Chain.Direct.Util (Era)
 import Plutus.V1.Ledger.Api (PubKeyHash (PubKeyHash), toBuiltin)
 import Test.Cardano.Ledger.Alonzo.PlutusScripts (defaultCostModel)
@@ -43,3 +48,14 @@ pparams =
 
 instance Arbitrary PubKeyHash where
   arbitrary = PubKeyHash . toBuiltin <$> (arbitrary :: Gen ByteString)
+
+-- REVIEW(SN): taken from 'testGlobals'
+epochInfo :: Monad m => EpochInfo m
+epochInfo = fixedEpochInfo (EpochSize 100) (mkSlotLength 1)
+
+systemStart :: SystemStart
+systemStart = SystemStart $ posixSecondsToUTCTime 0
+
+-- NOTE(SN): copied from Test.Cardano.Ledger.Alonzo.Tools as not exported
+costmodels :: Array Language CostModel
+costmodels = array (PlutusV1, PlutusV1) [(PlutusV1, fromJust defaultCostModel)]

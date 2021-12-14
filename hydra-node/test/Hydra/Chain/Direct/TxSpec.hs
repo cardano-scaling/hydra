@@ -15,7 +15,6 @@ import Hydra.Chain.Direct.Tx
 import Cardano.Binary (serialize)
 import Cardano.Ledger.Alonzo (TxOut)
 import Cardano.Ledger.Alonzo.Data (Data (Data), hashData)
-import Cardano.Ledger.Alonzo.Language (Language (PlutusV1))
 import Cardano.Ledger.Alonzo.PParams (PParams, PParams' (..))
 import Cardano.Ledger.Alonzo.Scripts (ExUnits (..), txscriptfee)
 import Cardano.Ledger.Alonzo.Tools (BasicFailure, ScriptFailure, evaluateTransactionExecutionUnits)
@@ -27,21 +26,16 @@ import Cardano.Ledger.Mary.Value (AssetName, PolicyID, Value (Value))
 import qualified Cardano.Ledger.SafeHash as SafeHash
 import Cardano.Ledger.Shelley.API (Coin (..), StrictMaybe (..), TxId (..), TxIn (..), UTxO (..))
 import qualified Cardano.Ledger.Shelley.Tx as Ledger
-import Cardano.Ledger.Slot (EpochSize (EpochSize))
 import Cardano.Ledger.TxIn (txid)
 import Cardano.Ledger.Val (inject)
-import Cardano.Slotting.EpochInfo (fixedEpochInfo)
-import Cardano.Slotting.Time (SystemStart (..), mkSlotLength)
 import qualified Data.Aeson as Aeson
-import Data.Array (array)
 import qualified Data.ByteString.Lazy as LBS
 import Data.List (nub, (\\))
 import qualified Data.Map as Map
 import Data.Maybe (fromJust)
 import Data.Sequence.Strict (StrictSeq ((:<|)))
-import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
 import Hydra.Chain (HeadParameters (..), OnChainTx (..))
-import Hydra.Chain.Direct.Fixture (maxTxSize, pparams)
+import Hydra.Chain.Direct.Fixture (costmodels, epochInfo, maxTxSize, pparams, systemStart)
 import Hydra.Chain.Direct.Util (Era)
 import Hydra.Chain.Direct.Wallet (ErrCoverFee (..), coverFee_)
 import qualified Hydra.Contract.MockCommit as MockCommit
@@ -67,9 +61,7 @@ import Hydra.Ledger.Cardano (
   utxoPairs,
  )
 import Hydra.Party (vkey)
-import Ledger.Value (currencyMPSHash, unAssetClass)
 import Plutus.V1.Ledger.Api (PubKeyHash, toData)
-import Test.Cardano.Ledger.Alonzo.PlutusScripts (defaultCostModel)
 import Test.Cardano.Ledger.Alonzo.Serialisation.Generators ()
 import Test.QuickCheck (
   NonEmptyList (NonEmpty),
@@ -141,9 +133,9 @@ spec =
       prop "is observed" $ \party singleUtxo initialIn ->
         let tx = commitTx party (Just singleUtxo) initialIn
             committedUtxo = Utxo $ Map.fromList [singleUtxo]
+            commitOutput = TxOut @Era commitAddress commitValue (SJust $ hashData commitDatum)
             commitAddress = scriptAddr $ plutusScript MockCommit.validatorScript
             commitValue = inject (Coin 2_000_000) <> toMaryValue (balance @CardanoTx committedUtxo)
-            commitOutput = TxOut @Era commitAddress commitValue (SJust $ hashData commitDatum)
             commitDatum =
               Data . toData $
                 MockCommit.datum (partyFromVerKey $ vkey party, commitUtxo)
@@ -163,13 +155,13 @@ spec =
             myInitial = (\(a, b, _) -> (a, b)) $ Prelude.head inputs
             tx = commitTx party (Just singleUtxo) myInitial
             committedUtxo = Utxo $ Map.fromList [singleUtxo]
+            commitOutput = TxOut @Era commitAddress commitValue (SJust $ hashData commitDatum)
             commitAddress = scriptAddr $ plutusScript MockCommit.validatorScript
             commitValue = inject (Coin 2_000_000) <> toMaryValue (balance @CardanoTx committedUtxo)
-            commitInput = TxIn (txid $ body tx) 0
-            commitOutput = TxOut @Era commitAddress commitValue (SJust $ hashData commitDatum)
             commitDatum =
               Data . toData $
                 MockCommit.datum (partyFromVerKey $ vkey party, commitUtxo)
+            commitInput = TxIn (txid $ body tx) 0
             commitUtxo =
               fromByteString $ toStrict $ Aeson.encode committedUtxo
             onChainState =
@@ -179,11 +171,10 @@ spec =
                 , commits = []
                 }
             Just
-              ( Initial
-                  { initials = newInitials
-                  , commits = newCommits
-                  }
-                ) = snd <$> observeCommit tx onChainState
+              Initial
+                { initials = newInitials
+                , commits = newCommits
+                } = snd <$> observeCommit tx onChainState
          in newInitials == (mkInitials <$> Prelude.tail inputs)
               && newCommits == [(commitInput, commitOutput, commitDatum)]
 
@@ -200,11 +191,10 @@ spec =
 
       prop "is observed" $ \(ReasonablySized committedUtxo) headInput cperiod parties ->
         forAll (generateCommitUtxos parties committedUtxo) $ \commitsUtxo ->
-          let headDatum = Data . toData $ MockHead.Initial cperiod parties
-              headAddress = scriptAddr $ plutusScript $ MockHead.validatorScript policyId
-              committedValue = foldMap (\(TxOut _ v _, _) -> v) commitsUtxo
+          let committedValue = foldMap (\(TxOut _ v _, _) -> v) commitsUtxo
+              headOutput = mkHeadOutput SNothing -- will be SJust, but not covered by this test
               headValue = inject (Coin 2_000_000) <> committedValue
-              headOutput = TxOut headAddress headValue SNothing -- will be SJust, but not covered by this test
+              headDatum = Data . toData $ MockHead.Initial cperiod parties
               lookupUtxo = Map.singleton headInput headOutput
               tx = collectComTx committedUtxo (headInput, headDatum) commitsUtxo
               res = observeCollectComTx lookupUtxo tx
@@ -219,11 +209,10 @@ spec =
       -- XXX(SN): tests are using a fixed snapshot number because of overlapping instances
       let sn = 1
 
-      prop "transaction size below limit" $ \utxo headValue headIn ->
+      prop "transaction size below limit" $ \utxo headIn ->
         let tx = closeTx sn utxo (headIn, headOutput, headDatum)
+            headOutput = mkHeadOutput SNothing
             headDatum = Data $ toData MockHead.Open
-            headOutput = TxOut headAddress headValue SNothing -- will be SJust, but not covered by this test
-            headAddress = scriptAddr $ plutusScript $ MockHead.validatorScript policyId
             cbor = serialize tx
             len = LBS.length cbor
          in len < maxTxSize
@@ -232,10 +221,8 @@ spec =
               & counterexample ("Tx serialized size: " <> show len)
 
       prop "is observed" $ \utxo headInput ->
-        let headDatum = Data $ toData MockHead.Open
-            headAddress = scriptAddr $ plutusScript $ MockHead.validatorScript policyId
-            headValue = inject (Coin 2_000_000)
-            headOutput = TxOut headAddress headValue SNothing -- will be SJust, but not covered by this test
+        let headOutput = mkHeadOutput SNothing
+            headDatum = Data $ toData MockHead.Open
             lookupUtxo = Map.singleton headInput headOutput
             tx = closeTx sn utxo (headInput, headOutput, headDatum)
             res = observeCloseTx lookupUtxo tx
@@ -281,10 +268,8 @@ spec =
 
       prop "is observed" $ \utxo headInput ->
         let tx = fanoutTx utxo (headInput, headDatum)
+            headOutput = mkHeadOutput SNothing
             headDatum = Data $ toData MockHead.Closed
-            headAddress = scriptAddr $ plutusScript $ MockHead.validatorScript policyId
-            headValue = inject (Coin 2_000_000)
-            headOutput = TxOut headAddress headValue SNothing -- will be SJust, but not covered by this test
             lookupUtxo = Map.singleton headInput headOutput
             res = observeFanoutTx lookupUtxo tx
          in res === Just (OnFanoutTx, Final)
@@ -306,11 +291,9 @@ spec =
                       & counterexample ("Tx serialized size: " <> show len)
 
       prop "updates on-chain state to 'Final'" $ \txIn cperiod parties (ReasonablySized initials) ->
-        let txOut = TxOut headAddress headValue SNothing -- will be SJust, but not covered by this test
+        let headOutput = mkHeadOutput SNothing -- will be SJust, but not covered by this test
             headDatum = Data . toData $ MockHead.Initial cperiod parties
-            headAddress = scriptAddr $ plutusScript $ MockHead.validatorScript policyId
-            headValue = inject (Coin 2_000_000)
-            utxo = Map.singleton txIn txOut
+            utxo = Map.singleton txIn headOutput
          in case abortTx (txIn, headDatum) initials of
               Left err -> property False & counterexample ("AbortTx construction failed: " <> show err)
               Right tx ->
@@ -327,11 +310,7 @@ spec =
       prop "validates against 'head' script in haskell (unlimited budget)" $
         \txIn HeadParameters{contestationPeriod, parties} (ReasonablySized initialsPkh) ->
           let headUtxo = (txIn :: TxIn StandardCrypto, headOutput)
-              headOutput = TxOut headAddress headValue (SJust headDatumHash)
-              (policy, _) = first currencyMPSHash (unAssetClass threadToken)
-              headAddress = scriptAddr $ plutusScript $ MockHead.validatorScript policy
-              headValue = inject (Coin 2_000_000)
-              headDatumHash = hashData @Era headDatum
+              headOutput = mkHeadOutput (SJust headDatum)
               headDatum =
                 Data . toData $
                   MockHead.Initial
@@ -393,6 +372,13 @@ spec =
                             & counterexample ("Tx: " <> show txAbortWithFees)
                             & counterexample ("Input utxo: " <> show utxo)
 
+mkHeadOutput :: StrictMaybe (Data Era) -> TxOut Era
+mkHeadOutput headDatum = TxOut headAddress headValue headDatumHash
+ where
+  headAddress = scriptAddr $ plutusScript $ MockHead.validatorScript policyId
+  headValue = inject (Coin 2_000_000)
+  headDatumHash = hashData @Era <$> headDatum
+
 instance Arbitrary (VerificationKey PaymentKey) where
   arbitrary = fst <$> genKeyPair
 
@@ -428,13 +414,6 @@ validateTxScriptsUnlimited ::
   Either (BasicFailure LedgerCrypto) (Map RdmrPtr (Either (ScriptFailure LedgerCrypto) ExUnits))
 validateTxScriptsUnlimited utxo tx =
   runIdentity $ evaluateTransactionExecutionUnits pparams tx utxo epochInfo systemStart costmodels
- where
-  -- REVIEW(SN): taken from 'testGlobals'
-  epochInfo = fixedEpochInfo (EpochSize 100) (mkSlotLength 1)
-  -- REVIEW(SN): taken from 'testGlobals'
-  systemStart = SystemStart $ posixSecondsToUTCTime 0
-  -- NOTE(SN): copied from Test.Cardano.Ledger.Alonzo.Tools as not exported
-  costmodels = array (PlutusV1, PlutusV1) [(PlutusV1, fromJust defaultCostModel)]
 
 -- | Extract NFT candidates. any single quantity assets not being ADA is a
 -- candidate.
