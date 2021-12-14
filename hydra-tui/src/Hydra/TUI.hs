@@ -233,6 +233,7 @@ handleEvent client@Client{sendInput} cardanoClient (clearFeedback -> s) = \case
       -- Quit
       EvKey (KChar 'c') [MCtrl] -> halt s
       EvKey (KChar 'd') [MCtrl] -> halt s
+      EvKey (KChar 'q') [] -> halt s
       _ -> continue s
   e ->
     continue $ s & feedbackL ?~ UserFeedback Error ("unhandled event: " <> show e)
