@@ -40,6 +40,8 @@ changes.
   Head, it won't be able to send or receive anything anymore.
 - TUI crashes when user tries to post a new transaction wihout any UTXO
   remaining.
+- Not an issue, but a workaround: The internal wallet of `hydra-node` requires a
+  UTXO to be marked as "fuel" to drive the Hydra protocol transactions.
 
 ## [0.1.0] - 2021-09-30
 
