@@ -44,6 +44,7 @@ Proof of concept:
 - [x] Cardano-node integration via Direct connection
 
 Later:
+- [ ] Running on testnets and mainnet
 - [ ] Persisted Head state
 - [ ] Multiple Heads per hydra-node, managed via API
 - [ ] Support for external wallets (e.g. hardware wallets)
