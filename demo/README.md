@@ -45,7 +45,7 @@ cabal exec cardano-node -- run \
   --config cardano-node.json \
   --topology topology.json \
   --database-path db \
-  --socket-path node.socket \
+  --socket-path ipc/node.socket \
   --shelley-operational-certificate credentials/opcert1.cert \
   --shelley-kes-key credentials/delegate1.kes.skey \
   --shelley-vrf-key credentials/delegate1.vrf.skey
@@ -66,7 +66,7 @@ cabal exec hydra-node -- \
   --cardano-verification-key devnet/credentials/bob.vk \
   --cardano-verification-key devnet/credentials/carol.vk \
   --network-magic 42 \
-  --node-socket devnet/node.socket
+  --node-socket devnet/ipc/node.socket
 ```
 
 Bob's node:
