@@ -39,7 +39,7 @@ seedNetworkOptionsParser :: Parser Options
 seedNetworkOptionsParser =
   Options
     <$> strOption
-      ( long "cardano-node-socket"
+      ( long "node-socket"
           <> metavar "FILE"
           <> help "The path to the Cardano node domain socket for client communication."
           <> value "node.socket"

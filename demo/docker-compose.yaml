@@ -120,7 +120,7 @@ services:
       - tui
     command:
       [ "--connect", "172.16.238.10:4001"
-      , "--cardano-node-socket", "/ipc/node.socket"
+      , "--node-socket", "/ipc/node.socket"
       , "--network-magic", "42"
       , "--cardano-signing-key", "/credentials/alice.sk"
       ]
@@ -137,7 +137,7 @@ services:
       - tui
     command:
       [ "--connect", "172.16.238.20:4001"
-      , "--cardano-node-socket", "/ipc/node.socket"
+      , "--node-socket", "/ipc/node.socket"
       , "--network-magic", "42"
       , "--cardano-signing-key", "/credentials/bob.sk"
       ]
@@ -154,7 +154,7 @@ services:
       - tui
     command:
       [ "--connect", "172.16.238.30:4001"
-      , "--cardano-node-socket", "/ipc/node.socket"
+      , "--node-socket", "/ipc/node.socket"
       , "--network-magic", "42"
       , "--cardano-signing-key", "/credentials/carol.sk"
       ]

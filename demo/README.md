@@ -125,7 +125,7 @@ For example, to ensure Alice can commit some 1000 Ada and also that "her" node c
 ```
 sudo chmod a+w devnet/ipc/node.socket
 cabal run seed-network -- \
-  --cardano-node-socket devnet/ipc/node.socket \
+  --node-socket devnet/ipc/node.socket \
   --cardano-signing-key devnet/credentials/alice.sk \
   --commit-amount 1000000000
 ```
@@ -154,7 +154,7 @@ cabal exec hydra-tui -- \
   --connect localhost:4001 \
   --cardano-signing-key devnet/credentials/alice.sk \
   --network-magic 42 \
-  --cardano-node-socket devnet/ipc/node.socket
+  --node-socket devnet/ipc/node.socket
 ```
 
 Replace port `4001` with `4002` or `4003` to connect to the other 2 nodes and
