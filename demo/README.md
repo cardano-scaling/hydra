@@ -16,10 +16,10 @@ times are too far in the past and you should update them e.g. using the
 
 ## With Docker
 
-Using [`docker-compose`](https://docs.docker.com/compose/) and the [`prepare-devnet.sh`](./prepare-devnet.sh) script, one can start the demo cluster with:
+Using [`docker-compose`](https://docs.docker.com/compose/) and the [`run-docker.sh`](./run-docker.sh) script, one can start the demo cluster with:
 ```sh
 docker-compose pull
-./prepare-devnet.sh -d
+./run-docker.sh -d
 ```
 
 NOTE: You can query the `cardano-node` using the same container, e.g.
