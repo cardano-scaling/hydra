@@ -7,8 +7,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 As a minor extension, we also keep a semantic version for the `UNRELEASED`
 changes.
 
-## [0.3.0] - UNRELEASED
-
 ## [0.2.0] - 2021-12-14
 
 #### Added

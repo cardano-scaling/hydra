@@ -1,6 +1,6 @@
 cabal-version: 2.2
 name:          merkle-patricia-tree
-version:       0.1.0
+version:       0.2.0
 synopsis:      An implementation of the Merkle Patricia Tree algorithm.
 author:        IOHK
 copyright:     2021 IOHK

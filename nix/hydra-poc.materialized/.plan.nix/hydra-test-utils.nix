@@ -11,7 +11,7 @@
     flags = {};
     package = {
       specVersion = "2.2";
-      identifier = { name = "hydra-test-utils"; version = "0.1.0"; };
+      identifier = { name = "hydra-test-utils"; version = "0.2.0"; };
       license = "Apache-2.0";
       copyright = "2021 IOHK";
       maintainer = "";

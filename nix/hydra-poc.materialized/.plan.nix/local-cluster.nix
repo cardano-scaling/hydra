@@ -11,7 +11,7 @@
     flags = { hydra-development = false; };
     package = {
       specVersion = "3.0";
-      identifier = { name = "local-cluster"; version = "0.1.0"; };
+      identifier = { name = "local-cluster"; version = "0.2.0"; };
       license = "Apache-2.0";
       copyright = "2021 IOHK";
       maintainer = "";
@@ -143,6 +143,26 @@
           hsSourceDirs = [ "exe" ];
           mainPath = [
             "log-filter.hs"
+            ] ++ (pkgs.lib).optional (!flags.hydra-development) "";
+          };
+        "seed-network" = {
+          depends = [
+            (hsPkgs."aeson" or (errorHandler.buildDepError "aeson"))
+            (hsPkgs."base" or (errorHandler.buildDepError "base"))
+            (hsPkgs."bytestring" or (errorHandler.buildDepError "bytestring"))
+            (hsPkgs."contra-tracer" or (errorHandler.buildDepError "contra-tracer"))
+            (hsPkgs."hydra-node" or (errorHandler.buildDepError "hydra-node"))
+            (hsPkgs."hydra-prelude" or (errorHandler.buildDepError "hydra-prelude"))
+            (hsPkgs."lens" or (errorHandler.buildDepError "lens"))
+            (hsPkgs."lens-aeson" or (errorHandler.buildDepError "lens-aeson"))
+            (hsPkgs."local-cluster" or (errorHandler.buildDepError "local-cluster"))
+            (hsPkgs."optparse-applicative" or (errorHandler.buildDepError "optparse-applicative"))
+            (hsPkgs."temporary" or (errorHandler.buildDepError "temporary"))
+            ];
+          buildable = true;
+          hsSourceDirs = [ "exe" ];
+          mainPath = [
+            "seed-network.hs"
             ] ++ (pkgs.lib).optional (!flags.hydra-development) "";
           };
         };

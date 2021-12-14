@@ -11,7 +11,7 @@
     flags = { hydra-development = false; };
     package = {
       specVersion = "3.0";
-      identifier = { name = "hydra-node"; version = "0.1.0"; };
+      identifier = { name = "hydra-node"; version = "0.2.0"; };
       license = "Apache-2.0";
       copyright = "2021 IOHK";
       maintainer = "";
@@ -151,8 +151,8 @@
             (hsPkgs."aeson" or (errorHandler.buildDepError "aeson"))
             (hsPkgs."array" or (errorHandler.buildDepError "array"))
             (hsPkgs."base" or (errorHandler.buildDepError "base"))
-            (hsPkgs."bytestring" or (errorHandler.buildDepError "bytestring"))
             (hsPkgs."base16-bytestring" or (errorHandler.buildDepError "base16-bytestring"))
+            (hsPkgs."bytestring" or (errorHandler.buildDepError "bytestring"))
             (hsPkgs."cardano-api" or (errorHandler.buildDepError "cardano-api"))
             (hsPkgs."cardano-binary" or (errorHandler.buildDepError "cardano-binary"))
             (hsPkgs."cardano-crypto-class" or (errorHandler.buildDepError "cardano-crypto-class"))

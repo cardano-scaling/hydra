@@ -1,6 +1,6 @@
 cabal-version: 2.2
 name:          hydra-plutus
-version:       0.1.0
+version:       0.2.0
 synopsis:      Hydra Plutus Contracts
 author:        IOHK
 copyright:     2021 IOHK

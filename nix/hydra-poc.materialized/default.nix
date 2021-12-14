@@ -788,7 +788,7 @@
           "cardano-crypto-praos" = {
             flags = {
               "development" = lib.mkOverride 900 false;
-              "external-libsodium-vrf" = lib.mkOverride 900 false;
+              "external-libsodium-vrf" = lib.mkOverride 900 true;
               };
             };
           "monoidal-synchronisation" = { flags = {}; };
@@ -800,7 +800,7 @@
             flags = { "development" = lib.mkOverride 900 false; };
             };
           "local-cluster" = {
-            flags = { "hydra-development" = lib.mkOverride 900 false; };
+            flags = { "hydra-development" = lib.mkOverride 900 true; };
             };
           "typed-protocols-examples" = { flags = {}; };
           "cardano-crypto-tests" = {
@@ -854,13 +854,13 @@
             };
           "cardano-ledger-alonzo-test" = { flags = {}; };
           "hydra-tui" = {
-            flags = { "hydra-development" = lib.mkOverride 900 false; };
+            flags = { "hydra-development" = lib.mkOverride 900 true; };
             };
           "ouroboros-consensus-byron" = {
             flags = { "asserts" = lib.mkOverride 900 false; };
             };
           "hydra-node" = {
-            flags = { "hydra-development" = lib.mkOverride 900 false; };
+            flags = { "hydra-development" = lib.mkOverride 900 true; };
             };
           "contra-tracer" = { flags = {}; };
           "orphans-deriving-via" = {
@@ -873,7 +873,7 @@
           "cardano-ledger-alonzo" = { flags = {}; };
           "small-steps-test" = { flags = {}; };
           "hydra-plutus" = {
-            flags = { "hydra-development" = lib.mkOverride 900 false; };
+            flags = { "hydra-development" = lib.mkOverride 900 true; };
             };
           "cardano-ledger-shelley-test" = { flags = {}; };
           "typed-protocols-cborg" = { flags = {}; };
@@ -1177,6 +1177,7 @@
           "parsers".components.library.planned = lib.mkOverride 900 true;
           "base-compat".components.library.planned = lib.mkOverride 900 true;
           "bech32-th".components.library.planned = lib.mkOverride 900 true;
+          "local-cluster".components.exes."seed-network".planned = lib.mkOverride 900 true;
           "mtl-compat".components.library.planned = lib.mkOverride 900 true;
           "cassava".components.library.planned = lib.mkOverride 900 true;
           "Only".components.library.planned = lib.mkOverride 900 true;
