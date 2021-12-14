@@ -671,10 +671,6 @@ style _ =
     ]
 
 --
--- Converting credentials
---
-
---
 -- Run it
 --
 -- NOTE(SN): At the end of the module because of TH
