@@ -13,8 +13,6 @@ import Hydra.Ledger.Cardano (
   AsType (AsPaymentKey, AsSigningKey),
   PaymentKey,
   SigningKey,
-  VerificationKey,
-  getVerificationKey,
  )
 import Hydra.Network (Host (Host, hostname, port))
 import Hydra.ServerOutput (ServerOutput)
@@ -31,7 +29,6 @@ data HydraEvent tx
 data Client tx m = Client
   { -- | Send some input to the server.
     sendInput :: ClientInput tx -> m ()
-  , vk :: VerificationKey PaymentKey
   , sk :: SigningKey PaymentKey
   }
 
@@ -44,7 +41,6 @@ type ClientComponent tx m a = ClientCallback tx m -> (Client tx m -> m a) -> m a
 -- | Provide a component to interact with Hydra node.
 withClient :: IsTx tx => Options -> ClientComponent tx IO a
 withClient Options{hydraNodeHost = Host{hostname, port}, cardanoSigningKey} callback action = do
-  -- FIXME: Should be 'cardanoSigningKey'
   sk <- readFileTextEnvelopeThrow (AsSigningKey AsPaymentKey) cardanoSigningKey
   q <- newTBQueueIO 10
   withAsync (reconnect $ client q) $ \thread -> do
@@ -55,7 +51,6 @@ withClient Options{hydraNodeHost = Host{hostname, port}, cardanoSigningKey} call
       Client
         { sendInput = atomically . writeTBQueue q
         , sk
-        , vk = getVerificationKey sk
         }
  where
   -- TODO(SN): ping thread?

@@ -46,6 +46,7 @@ import Hydra.Ledger.Cardano (
   CardanoTx,
   CtxUTxO,
   Era,
+  Key (getVerificationKey),
   Lovelace (Lovelace),
   NetworkId,
   PaymentKey,
@@ -339,9 +340,9 @@ handleCommitEvent ::
   CardanoClient ->
   State ->
   EventM n (Next State)
-handleCommitEvent Client{sendInput, vk} CardanoClient{queryUtxoByAddress, networkId} s = case s ^? headStateL of
+handleCommitEvent Client{sendInput, sk} CardanoClient{queryUtxoByAddress, networkId} s = case s ^? headStateL of
   Just Initializing{} -> do
-    utxo <- liftIO $ queryUtxoByAddress [buildAddress vk networkId]
+    utxo <- liftIO $ queryUtxoByAddress [buildAddress (getVerificationKey sk) networkId]
     -- XXX(SN): this is a hydra implementation detail and should be moved
     -- somewhere hydra specific
     let utxoWithoutFuel = Map.filter (not . isMarkedOutput) (utxoMap utxo)
@@ -371,12 +372,14 @@ handleNewTxEvent ::
   CardanoClient ->
   State ->
   EventM n (Next State)
-handleNewTxEvent Client{sendInput, sk, vk} CardanoClient{networkId} s = case s ^? headStateL of
+handleNewTxEvent Client{sendInput, sk} CardanoClient{networkId} s = case s ^? headStateL of
   Just Open{utxo} ->
     continue $ s & dialogStateL .~ transactionBuilderDialog utxo
   _ ->
     continue $ s & feedbackL ?~ UserFeedback Error "Invalid command."
  where
+  vk = getVerificationKey sk
+
   transactionBuilderDialog utxo =
     Dialog title form submit
    where
@@ -426,7 +429,7 @@ handleNewTxEvent Client{sendInput, sk, vk} CardanoClient{networkId} s = case s ^
 --
 
 draw :: Client CardanoTx m -> CardanoClient -> State -> [Widget Name]
-draw Client{vk} CardanoClient{networkId} s =
+draw Client{sk} CardanoClient{networkId} s =
   pure $
     withBorderStyle ascii $
       joinBorders $
@@ -440,6 +443,8 @@ draw Client{vk} CardanoClient{networkId} s =
           , padLeftRight 1 drawErrorMessage
           ]
  where
+  vk = getVerificationKey sk
+
   drawInfo =
     hLimit 50 $
       vBox
