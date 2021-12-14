@@ -136,9 +136,11 @@ withDatums :: [Data Era] -> ValidatedTx Era -> ValidatedTx Era
 withDatums datums tx =
   tx{wits = (wits tx){txdats = datumsFromList datums}}
 
-withRedeemers :: Redeemers Era -> ValidatedTx Era -> ValidatedTx Era
+withRedeemers :: [(TxIn StandardCrypto, Data Era)] -> ValidatedTx Era -> ValidatedTx Era
 withRedeemers redeemers tx =
-  tx{wits = (wits tx){txrdmrs = redeemers}}
+  tx{wits = (wits tx){txrdmrs = redeemersFromList $ mkRedeemer <$> redeemers}}
+ where
+  mkRedeemer (txin, redeemer) = (rdptr (body tx) (Spending txin), (redeemer, ExUnits 0 0))
 
 withScripts :: Map (ScriptHash StandardCrypto) (Script Era) -> ValidatedTx Era -> ValidatedTx Era
 withScripts scripts tx =
@@ -253,9 +255,7 @@ commitTx party utxo (initialIn, pkh) =
 
   initialDatum = Data . toData $ MockInitial.datum pkh
 
-  redeemers =
-    redeemersFromList
-      [(rdptr body (Spending initialIn), (initialRedeemer, ExUnits 0 0))]
+  redeemers = [(initialIn, initialRedeemer)]
 
   initialRedeemer = Data . toData $ MockInitial.redeemer ()
 
@@ -338,9 +338,8 @@ collectComTx _utxo (headInput, headDatumBefore) commits =
   commitDatums = snd <$> Map.elems commits
 
   redeemers =
-    redeemersFromList $
-      (rdptr body (Spending headInput), (headRedeemer, ExUnits 0 0)) :
-      map (\txin -> (rdptr body (Spending txin), (commitRedeemer, ExUnits 0 0))) (Map.keys commits)
+    (headInput, headRedeemer) :
+    map (,commitRedeemer) (Map.keys commits)
 
   headRedeemer = Data $ toData $ MockHead.CollectCom $ transValue commitsValue
 
@@ -386,9 +385,7 @@ closeTx snapshotNumber _utxo (headInput, headOutput, headDatumBefore) =
 
   TxOut _ headValue _ = headOutput
 
-  redeemers =
-    redeemersFromList
-      [(rdptr body (Spending headInput), (headRedeemer, ExUnits 0 0))]
+  redeemers = [(headInput, headRedeemer)]
 
   headRedeemer = Data $ toData $ MockHead.Close onChainSnapshotNumber
 
@@ -431,9 +428,7 @@ fanoutTx utxo (headInput, headDatumBefore) =
 
   headDatumAfter = Data $ toData MockHead.Final
 
-  redeemers =
-    redeemersFromList
-      [(rdptr body (Spending headInput), (headRedeemer, ExUnits 0 0))]
+  redeemers = [(headInput, headRedeemer)]
 
   headRedeemer = Data $ toData MockHead.Fanout
 
@@ -485,20 +480,13 @@ abortTx (headInput, headDatum) initialInputs
   headScript = plutusScript $ MockHead.validatorScript policyId
 
   redeemers =
-    redeemersFromList $
-      (rdptr body (Spending headInput), (headRedeemer, ExUnits 0 0)) : initialRedeemers
+    (headInput, headRedeemer) : initialRedeemers
 
   headRedeemer = Data $ toData MockHead.Abort
 
-  initialRedeemers =
-    map
-      ( \txin ->
-          ( rdptr body (Spending txin)
-          , (Data $ toData $ Plutus.getRedeemer $ MockInitial.redeemer (), ExUnits 0 0)
-          )
-      )
-      $ Map.keys initialInputs
+  initialRedeemers = map (,initialRedeemer) $ Map.keys initialInputs
 
+  initialRedeemer = Data $ toData $ Plutus.getRedeemer $ MockInitial.redeemer ()
   -- NOTE: Those datums contain the datum of the spent state-machine input, but
   -- also, the datum of the created output which is necessary for the
   -- state-machine on-chain validator to control the correctness of the
