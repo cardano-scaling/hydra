@@ -12,6 +12,17 @@ you get `LedgerNoView` errors from the `cardano-node`, that means the start
 times are too far in the past and you should update them e.g. using the
 `prepare-devnet.sh` script.
 
+# Building Docker Images
+
+The CI automatically pushes docker images built from latest `master` branch to a [docker hub repository](https://hub.docker.com/r/inputoutput/hydra), hence
+running the demo only requires pulling those images.
+
+To build the images locally, do:
+
+```sh
+docker-compose build
+```
+
 # Starting Network
 
 ## With Docker

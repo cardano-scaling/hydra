@@ -116,6 +116,9 @@ services:
 
   hydra-tui-1:
     image: inputoutput/hydra:hydra-tui-latest
+    build:
+       context: ../
+       target: hydra-tui
     profiles:
       - tui
     command:
@@ -133,6 +136,9 @@ services:
 
   hydra-tui-2:
     image: inputoutput/hydra:hydra-tui-latest
+    build:
+       context: ../
+       target: hydra-tui
     profiles:
       - tui
     command:
@@ -150,6 +156,9 @@ services:
 
   hydra-tui-3:
     image: inputoutput/hydra:hydra-tui-latest
+    build:
+       context: ../
+       target: hydra-tui
     profiles:
       - tui
     command:
