@@ -32,8 +32,8 @@ spec = parallel $ do
     shouldParseWith parseCardanoNetworkId [] Mainnet
   it "parses --cardano-signing-key option" $ do
     shouldParseWith parseCardanoSigningKey ["--cardano-signing-key", "foo.sk"] "foo.sk"
-  it "parses --cardano-node-socket option" $ do
-    shouldParseWith parseCardanoNodeSocket ["--cardano-node-socket", "something.socket"] "something.socket"
+  it "parses --node-socket option" $ do
+    shouldParseWith parseCardanoNodeSocket ["--node-socket", "something.socket"] "something.socket"
 
 shouldParseWith :: (Show a, Eq a) => Parser a -> [String] -> a -> Expectation
 shouldParseWith parser args result =
