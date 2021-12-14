@@ -76,10 +76,6 @@ Should you have any questions, ideas or issues, we would like to hear from you:
 
 When contributing to this project and interacting with other contributors, please follow our [Code of Conduct](./CODE-OF-CONDUCT.md).
 
-## :wrench: Development
-
-See the [Wiki](https://github.com/input-output-hk/hydra-poc/wiki/For-maintainers)
-
 ## :books: Documentation
 
 Adding onto the information found here and the wiki there is some [technical
@@ -97,3 +93,65 @@ API Documentation is available for:
 * [hydra-plutus](https://input-output-hk.github.io/hydra-poc/haddock/hydra-plutus/index.html)
 * [local-cluster](https://input-output-hk.github.io/hydra-poc/haddock/local-cluster/index.html)
 * [merkle-patricia-tree](https://input-output-hk.github.io/hydra-poc/haddock/merkle-patricia-tree/index.html)
+
+## :wrench: Development
+
+### Building & Testing
+
+#### With nix
+
+We provide a `shell.nix` to set up a development environment. So a simple call
+to `nix-shell` should put everything in place for building, testing and
+general development.
+
+Make sure the following caches are listed in your `nix.conf` for a speedy setup:
+
+```
+substituters = https://cache.nixos.org https://iohk.cachix.org https://hydra.iohk.io
+trusted-public-keys = cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY= iohk.cachix.org-1:DpRUyj7h7V830dp/i6Nti+NEO2/nhblbov/8MW7Rqoo= hydra.iohk.io:f/Ea+s+dFdN+3Y/G+FDgSq+a5NEWhJGzdjvKNGv0/EQ=
+```
+
+Also, some of us use [direnv](https://direnv.net/) and
+[nix-direnv](https://github.com/nix-community/nix-direnv) to automatically
+import & cache the nix-shell environment into our favorite shell or editor.
+
+Within the `nix-shell`, `cabal build` and `cabal test` should work as expected.
+
+You can also use `nix-build` to build the project and all its executables. You
+will find them in `result/bin/` after the build.
+
+#### Without nix
+
+1. Install basic Haskell development environment, for example using [ghcup](https://www.haskell.org/ghcup/install/). Hydra requires GHC 8.10.7 and a recent cabal (> 3.0).
+2. Install various system dependencies
+   On Debian-like:
+   ```
+   sudo apt install -y  build-essential curl libffi-dev libffi7 libgmp-dev libgmp10 libncurses-dev libncurses5 libtinfo5
+   sudo apt install -y  libz-dev liblzma-dev libzmq3-dev pkg-config libtool
+   ```
+   Do not confuse `lzma` with `liblzma-dev`, those are 2 existing package
+3. Install [forked libsodium](https://github.com/input-output-hk/libsodium)
+   ```
+   git clone https://github.com/input-output-hk/libsodium
+   cd libsodium/
+   git checkout 66f017f16633f2060db25e17c170c2afa0f2a8a1
+   ./autogen.sh
+   ./configure
+   make && sudo make install
+   ```
+4. Build and test everything:
+   ```
+   cabal build all && cabal test all
+   ```
+
+### Releasing
+
+* During development
+  + Make sure `CHANGELOG.md` is kept up-to-date with high-level, technical, but user-focused list of changes according to [keepachangelog](https://keepachangelog.com/en/1.0.0/)
+  + Bump `UNRELEASED` version in `CHANGELOG.md` according to [semver](https://semver.org/)
+
+* To release
+  + Check version to be released is also correct in software components, e.g. `.cabal` files 
+  + Replace `UNRELEASED` with a date in [ISO8601](https://en.wikipedia.org/wiki/ISO_8601)
+  + Create a signed, annotated git tag of the version: `git tag -as <version>`
+  + (ideally) Use the released changes as annotation
