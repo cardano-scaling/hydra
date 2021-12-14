@@ -7,7 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 As a minor extension, we also keep a semantic version for the `UNRELEASED`
 changes.
 
-## [0.2.0] - UNRELEASED
+## [0.3.0] - UNRELEASED
+
+## [0.2.0] - 2021-12-14
 
 #### Added
 - Direct chain integration which allows to connect to a real cardano-node /
@@ -32,6 +34,10 @@ changes.
 
 #### Known issues
 - Only no or one utxo can be committed to a Head.
+- The addresses to send money to in the Head is inferred from the current UTXO set. If a party does
+  not commit a UTXO or consumes all its UTXO in a Head, it won't be able to send or receive anything
+  anymore.
+- TUI can crash when user tries to post a new transaction wihout any UTXO remaining
 
 ## [0.1.0] - 2021-09-30
 

@@ -41,9 +41,9 @@ Proof of concept:
 - [x] Network statically configured, direct TCP connections
 - [x] WebSocket, message-based API Server
 - [x] Terminal user interface client
+- [x] Cardano-node integration via Direct connection
 
 Later:
-- [ ] Cardano-node integration (direct or via PAB)
 - [ ] Persisted Head state
 - [ ] Multiple Heads per hydra-node, managed via API
 - [ ] Support for external wallets (e.g. hardware wallets)
