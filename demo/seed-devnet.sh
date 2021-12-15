@@ -10,8 +10,7 @@ DEVNET_DIR=/data
 
 function ccli() {
   # Invoke cardano-cli in running cardano-node container
-  CMD="CARDANO_NODE_SOCKET_PATH=${DEVNET_DIR}/ipc/node.socket cardano-cli ${@} --testnet-magic 42"
-  docker-compose exec cardano-node sh -c "${CMD}"
+  docker-compose exec cardano-node cardano-cli ${@} --testnet-magic 42
 }
 
 function seedPayment() {
