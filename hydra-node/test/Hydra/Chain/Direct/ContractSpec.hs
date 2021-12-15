@@ -6,10 +6,15 @@ import Test.Hydra.Prelude
 import Cardano.Ledger.Alonzo.Tools (
   evaluateTransactionExecutionUnits,
  )
+import Cardano.Ledger.Alonzo.TxWitness (unRedeemers)
 import qualified Data.Map as Map
 import qualified Hydra.Chain.Direct.Fixture as Fixture
 import Hydra.Ledger.Cardano (
   CardanoTx,
+  ShelleyBasedEra (ShelleyBasedEraAlonzo),
+  Tx (Tx),
+  TxBody (ShelleyTxBody),
+  TxBodyScriptData (TxBodyNoScriptData, TxBodyScriptData),
   Utxo,
   describeCardanoTx,
   toLedgerTx,
@@ -73,6 +78,14 @@ instance Arbitrary Mutation where
 
 applyMutation :: Mutation -> CardanoTx -> Gen CardanoTx
 applyMutation ChangeHeadRedeemer tx = error "not implemented"
+ where
+  Tx body _wits = tx
+
+  ShelleyTxBody _era _body _scripts scriptData _mAuxData _scriptValidity = body
+
+  foo = \case
+    TxBodyNoScriptData -> error "TxBodyNoScriptData unexpected"
+    TxBodyScriptData support dats reds -> error "wip"
 
 --
 -- Generators
