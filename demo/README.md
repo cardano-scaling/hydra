@@ -61,7 +61,7 @@ cabal exec cardano-node -- run \
   --shelley-vrf-key credentials/delegate1.vrf.skey
 ```
 
-Then in 3 different terminals, start 3 `hydra-node`s:
+Then in 3 different terminals, start 3 `hydra-node`s from the `demo/` directory:
 
 Alice's node:
 ```sh

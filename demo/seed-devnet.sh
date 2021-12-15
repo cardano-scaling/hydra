@@ -34,6 +34,6 @@ function seedPayment() {
     ccli transaction submit --tx-file ${DEVNET_DIR}/${ACTOR}.signed
 }
 
-seedPayment "alice" 1000000000
-seedPayment "bob" 500000000
-seedPayment "carol" 250000000
+seedPayment "alice" $((900000000000-1000000000))
+seedPayment "bob" $((900000000000-500000000))
+seedPayment "carol" $((900000000000-250000000))
