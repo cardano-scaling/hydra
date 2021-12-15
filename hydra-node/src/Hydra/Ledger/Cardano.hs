@@ -29,6 +29,7 @@ import qualified Cardano.Ledger.Alonzo.PParams as Ledger.Alonzo
 import qualified Cardano.Ledger.Alonzo.Scripts as Ledger.Alonzo
 import qualified Cardano.Ledger.Alonzo.Tx as Ledger.Alonzo
 import qualified Cardano.Ledger.Alonzo.TxBody as Ledger.Alonzo
+import qualified Cardano.Ledger.Alonzo.TxInfo as Ledger
 import qualified Cardano.Ledger.Alonzo.TxWitness as Ledger.Alonzo
 import qualified Cardano.Ledger.BaseTypes as Ledger
 import qualified Cardano.Ledger.Core as Ledger
@@ -224,12 +225,42 @@ utxoMin :: Utxo -> Utxo
 utxoMin = Utxo . uncurry Map.singleton . Map.findMin . utxoMap
 
 --
--- TxBody
+-- Transaction Construction
 --
+
+type TxBuilder = TxBodyContent BuildTx Era
+
+-- TODO: This is copied straight from 'cardano-api', could be exposed upstream.
+type TxIns build era = [(TxIn, BuildTxWith build (Witness WitCtxTxIn era))]
+
+-- | Construct a transction from a builder. It is said 'unsafe' because the
+-- underlying implementation will perform some sanity check on a transaction;
+-- for example, check that it has at least one input, that no outputs are
+-- negatives and whatnot.
+--
+-- We use the builder only internally for on-chain transaction crafted in the
+-- context of Hydra.
+unsafeBuildTransaction :: HasCallStack => TxBuilder -> CardanoTx
+unsafeBuildTransaction builder =
+  either
+    (\txBodyError -> bug $ InvalidTransactionException{txBodyError, builder})
+    (`Tx` mempty)
+    . makeTransactionBody
+    $ builder
+
+-- | A runtime exception to capture (programmer) failures when building
+-- transactions. This should never happened in practice (famous last words...)!
+data InvalidTransactionException = InvalidTransactionException
+  { txBodyError :: TxBodyError
+  , builder :: TxBuilder
+  }
+  deriving (Show)
+
+instance Exception InvalidTransactionException
 
 -- | An empty 'TxBodyContent' with all empty/zero values to be extended using
 -- record updates.
-emptyTxBody :: TxBodyContent BuildTx Era
+emptyTxBody :: TxBuilder
 emptyTxBody =
   TxBodyContent
     mempty
@@ -246,6 +277,21 @@ emptyTxBody =
     TxUpdateProposalNone
     TxMintNone
     TxScriptValidityNone
+
+-- | Add new inputs to an ongoing builder.
+addInputs :: TxIns BuildTx Era -> TxBuilder -> TxBuilder
+addInputs ins tx =
+  tx{txIns = txIns tx <> ins}
+
+-- | Like 'addInputs' but only for vk inputs which requires no additional data.
+addVkInputs :: [TxIn] -> TxBuilder -> TxBuilder
+addVkInputs ins =
+  addInputs ((,BuildTxWith $ KeyWitness KeyWitnessForSpending) <$> ins)
+
+-- | Append new outputs to an ongoing builder.
+addOutputs :: [TxOut CtxTx Era] -> TxBuilder -> TxBuilder
+addOutputs outputs tx =
+  tx{txOuts = txOuts tx <> outputs}
 
 --
 -- Tx
@@ -404,6 +450,16 @@ fromLedgerTx (Ledger.Alonzo.ValidatedTx body wits isValid auxData) =
       TxScriptValidity TxScriptValiditySupportedInAlonzoEra ScriptInvalid
 
 --
+-- TxIn
+--
+
+fromLedgerTxIn :: Ledger.TxIn Ledger.StandardCrypto -> TxIn
+fromLedgerTxIn = fromShelleyTxIn
+
+toLedgerTxIn :: TxIn -> Ledger.TxIn Ledger.StandardCrypto
+toLedgerTxIn = toShelleyTxIn
+
+--
 -- TxId
 --
 
@@ -426,10 +482,26 @@ fromPlutusScript script =
   bytes = toShort . fromLazy . serialise $ script
 
 --
+-- Keys
+--
+
+toPlutusKeyHash :: Hash PaymentKey -> Plutus.PubKeyHash
+toPlutusKeyHash (PaymentKeyHash vkh) =
+  Ledger.transKeyHash vkh
+
+--
 -- Address
 --
 
 -- | Create an (undelegated) address from a verificaton key.
+--
+-- TODO: 'NetworkId' here is an annoying API because it requires a network magic
+-- for testnet addresses. Nevertheless, the network magic is only needed for
+-- Byron addresses; Shelley addresses use a different kind of network
+-- discriminant which is currently fully captured as 'Mainnet | Testnet'.
+--
+-- So, it would be a slightly better DX to use Mainnet | Testnet as an interface
+-- here since we are only constructing Shelley addresses.
 mkVkAddress ::
   IsShelleyBasedEra era =>
   NetworkId ->
@@ -442,6 +514,8 @@ mkVkAddress networkId vk =
     NoStakeAddress
 
 -- | Create an (undelegated) address from a script.
+--
+-- TODO: See remark on 'mkVkAddress' about 'NetworkId'
 mkScriptAddress ::
   IsShelleyBasedEra era =>
   NetworkId ->
@@ -493,7 +567,7 @@ toLedgerUtxo =
     TxOut CtxUTxO Era ->
     Map (Ledger.TxIn Ledger.StandardCrypto) (Ledger.TxOut LedgerEra)
   fn i o =
-    Map.singleton (toShelleyTxIn i) (toShelleyTxOut shelleyBasedEra o)
+    Map.singleton (toLedgerTxIn i) (toLedgerTxOut o)
 
 fromLedgerUtxo :: Ledger.UTxO LedgerEra -> Utxo
 fromLedgerUtxo =
@@ -504,7 +578,10 @@ fromLedgerUtxo =
     Ledger.TxOut LedgerEra ->
     Map TxIn (TxOut CtxUTxO Era)
   fn i o =
-    Map.singleton (fromShelleyTxIn i) (fromLedgerTxOut o)
+    Map.singleton (fromLedgerTxIn i) (fromLedgerTxOut o)
+
+toLedgerTxOut :: TxOut CtxUTxO Era -> Ledger.TxOut (ShelleyLedgerEra Era)
+toLedgerTxOut = toShelleyTxOut shelleyBasedEra
 
 fromLedgerTxOut :: Ledger.TxOut (ShelleyLedgerEra Era) -> TxOut ctx Era
 fromLedgerTxOut = fromShelleyTxOut shelleyBasedEra
@@ -657,7 +734,7 @@ genUtxoFor vk = do
   n <- arbitrary `suchThat` (> 0)
   inputs <- vectorOf n arbitrary
   outputs <- vectorOf n (genOutput vk)
-  pure $ Utxo $ Map.fromList $ zip (fromShelleyTxIn <$> inputs) outputs
+  pure $ Utxo $ Map.fromList $ zip (fromLedgerTxIn <$> inputs) outputs
 
 -- | Generate a single UTXO owned by 'vk'.
 genOneUtxoFor :: VerificationKey PaymentKey -> Gen Utxo
@@ -667,7 +744,7 @@ genOneUtxoFor vk = do
   -- values (quikcheck increases the 'size' parameter upon success) up to the point they are
   -- too large to fit in a transaction and validation fails in the ledger
   output <- scale (const 1) $ genOutput vk
-  pure $ Utxo $ Map.singleton (fromShelleyTxIn input) output
+  pure $ Utxo $ Map.singleton (fromLedgerTxIn input) output
 
 -- | Generate UTXO entries that do not contain any assets. Useful to test /
 -- measure cases where
