@@ -36,7 +36,7 @@ docker-compose pull
 NOTE: You can query the `cardano-node` using the same container, e.g.
 
 ``` sh
-docker-compose exec cardano-node sh -c "CARDANO_NODE_SOCKET_PATH=/data/ipc/node.socket cardano-cli query utxo --testnet-magic 42 --whole-utxo"
+docker-compose exec cardano-node cardano-cli query utxo --testnet-magic 42 --whole-utxo
 ```
 
 ## Without Docker
