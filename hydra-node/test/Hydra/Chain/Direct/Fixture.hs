@@ -57,5 +57,5 @@ systemStart :: SystemStart
 systemStart = SystemStart $ posixSecondsToUTCTime 0
 
 -- NOTE(SN): copied from Test.Cardano.Ledger.Alonzo.Tools as not exported
-costmodels :: Array Language CostModel
-costmodels = array (PlutusV1, PlutusV1) [(PlutusV1, fromJust defaultCostModel)]
+costModels :: Array Language CostModel
+costModels = array (PlutusV1, PlutusV1) [(PlutusV1, fromJust defaultCostModel)]

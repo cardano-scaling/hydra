@@ -35,7 +35,7 @@ import qualified Data.Map as Map
 import Data.Maybe (fromJust)
 import Data.Sequence.Strict (StrictSeq ((:<|)))
 import Hydra.Chain (HeadParameters (..), OnChainTx (..))
-import Hydra.Chain.Direct.Fixture (costmodels, epochInfo, maxTxSize, pparams, systemStart)
+import Hydra.Chain.Direct.Fixture (costModels, epochInfo, maxTxSize, pparams, systemStart)
 import Hydra.Chain.Direct.Util (Era)
 import Hydra.Chain.Direct.Wallet (ErrCoverFee (..), coverFee_)
 import qualified Hydra.Contract.MockCommit as MockCommit
@@ -413,7 +413,7 @@ validateTxScriptsUnlimited ::
   ValidatedTx Era ->
   Either (BasicFailure LedgerCrypto) (Map RdmrPtr (Either (ScriptFailure LedgerCrypto) ExUnits))
 validateTxScriptsUnlimited utxo tx =
-  runIdentity $ evaluateTransactionExecutionUnits pparams tx utxo epochInfo systemStart costmodels
+  runIdentity $ evaluateTransactionExecutionUnits pparams tx utxo epochInfo systemStart costModels
 
 -- | Extract NFT candidates. any single quantity assets not being ADA is a
 -- candidate.
