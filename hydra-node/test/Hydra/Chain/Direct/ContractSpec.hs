@@ -71,8 +71,8 @@ data Mutation
 instance Arbitrary Mutation where
   arbitrary = genericArbitrary
 
-applyMutation :: [Mutation] -> CardanoTx -> Gen CardanoTx
-applyMutation = error "TODO: applyMutation"
+applyMutation :: Mutation -> CardanoTx -> Gen CardanoTx
+applyMutation ChangeHeadRedeemer tx = error "not implemented"
 
 --
 -- Generators
