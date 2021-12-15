@@ -75,9 +75,13 @@ import Plutus.V1.Ledger.Api (FromData, MintingPolicyHash, PubKeyHash (..), fromD
 import qualified Plutus.V1.Ledger.Api as Plutus
 import Plutus.V1.Ledger.Value (assetClass, currencySymbol, tokenName)
 
--- TODO(SN): parameterize
+-- FIXME: parameterize
 network :: Network
 network = Testnet
+
+-- FIXME: parameterize
+networkId :: Api.NetworkId
+networkId = Api.Testnet (Api.NetworkMagic 42)
 
 -- * Post Hydra Head transactions
 
@@ -176,6 +180,11 @@ withOutputs newOutputs txbody =
 
 -- | Create the init transaction from some 'HeadParameters' and a single TxIn
 -- which will be used as unique parameter for minting NFTs.
+--
+-- TODO: Remove all the qualified 'Api' once the refactoring is over and there's
+-- no more import clash with 'cardano-ledger'.
+--
+-- TODO: Get rid of Ledger types in the signature and fully rely on Cardano.Api
 initTx ::
   -- | Participant's cardano public keys.
   [VerificationKey PaymentKey] ->
@@ -183,44 +192,32 @@ initTx ::
   TxIn StandardCrypto ->
   ValidatedTx Era
 initTx cardanoKeys HeadParameters{contestationPeriod, parties} txIn =
-  emptyTx
-    & withBody body
-    & withDatums dats
+  Api.toLedgerTx $
+    Api.unsafeBuildTransaction $
+      Api.emptyTxBody
+        & Api.addVkInputs [Api.fromLedgerTxIn txIn]
+        & Api.addOutputs (headOut : map mkInitial cardanoKeys)
  where
-  body =
-    emptyTxBody
-      & withInputs [txIn]
-      & withOutputs (headOut : initials)
+  headOut =
+    Api.TxOut headAddress headValue headDatum
+   where
+    headScript = (Api.fromPlutusScript $ MockHead.validatorScript policyId)
+    headAddress = Api.mkScriptAddress networkId headScript
+    headValue = Api.lovelaceToTxOutValue $ Api.Lovelace 2_000_000
+    headDatum =
+      Api.mkTxOutDatum $
+        MockHead.Initial
+          (contestationPeriodFromDiffTime contestationPeriod)
+          (map (partyFromVerKey . vkey) parties)
 
-  dats = headDatum : [initialDatum vkey | vkey <- cardanoKeys]
-
-  headOut = TxOut headAddress headValue (SJust headDatumHash)
-
-  headAddress = scriptAddr $ plutusScript $ MockHead.validatorScript policyId
-
-  -- REVIEW(SN): how much to store here / minUtxoValue / depending on assets?
-  headValue = inject (Coin 2000000)
-
-  headDatumHash = hashData @Era headDatum
-
-  headDatum =
-    Data . toData $
-      MockHead.Initial
-        (contestationPeriodFromDiffTime contestationPeriod)
-        (map (partyFromVerKey . vkey) parties)
-
-  initials = map mkInitial cardanoKeys
-
-  mkInitial = TxOut @Era initialAddress initialValue . SJust . initialDatumHash
-
-  initialAddress = scriptAddr $ plutusScript MockInitial.validatorScript
-
-  -- TODO: should really be the minted PTs plus some ADA to make the ledger happy
-  initialValue = headValue
-
-  initialDatumHash = hashData @Era . initialDatum
-
-  initialDatum vkey = Data . toData $ MockInitial.datum $ pubKeyHash vkey
+  mkInitial (Api.toPlutusKeyHash . Api.verificationKeyHash -> vkh) =
+    Api.TxOut initialAddress initialValue initialDatum
+   where
+    initialScript = Api.fromPlutusScript MockInitial.validatorScript
+    -- TODO: should really be the minted PTs plus some ADA to make the ledger happy
+    initialValue = Api.lovelaceToTxOutValue $ Api.Lovelace 2_000_000
+    initialAddress = Api.mkScriptAddress networkId initialScript
+    initialDatum = Api.mkTxOutDatum $ MockInitial.datum vkh
 
 pubKeyHash :: VerificationKey PaymentKey -> PubKeyHash
 pubKeyHash (PaymentVerificationKey vkey) = transKeyHash $ hashKey @StandardCrypto $ vkey
