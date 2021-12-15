@@ -260,18 +260,32 @@ instance Exception InvalidTransactionException
 
 -- | An empty 'TxBodyContent' with all empty/zero values to be extended using
 -- record updates.
+--
+-- FIXME: 'makeTransactionBody' throws when one tries to build a transaction
+-- with scripts but no collaterals. This is unfortunate because collaterals are
+-- currently added after by out integrated wallet... We may want to revisit our
+-- flow to avoid this exception and have the wallet work from a TxBuilder instead
+-- of fiddling with a sealed 'CardanoTx'.
+--
+-- Similarly, 'makeTransactionBody' throws when building a transaction
+-- with scripts and no protocol parameters (needed to compute the script
+-- integrity hash). This is also added by our wallet at the moment so
+-- hopefully, this ugly work-around will be removed eventually.
+--
+-- So we currently bypass this by having default but seemingly innofensive
+-- values for collaterals and protocol params in the 'empty' value
 emptyTxBody :: TxBuilder
 emptyTxBody =
   TxBodyContent
     mempty
-    TxInsCollateralNone
+    (TxInsCollateral CollateralInAlonzoEra mempty)
     mempty
     (TxFeeExplicit TxFeesExplicitInAlonzoEra 0)
     (TxValidityNoLowerBound, TxValidityNoUpperBound ValidityNoUpperBoundInAlonzoEra)
     TxMetadataNone
     TxAuxScriptsNone
     TxExtraKeyWitnessesNone
-    (BuildTxWith Nothing)
+    (BuildTxWith $ Just $ fromLedgerPParams ShelleyBasedEraAlonzo def) -- FIXME
     TxWithdrawalsNone
     TxCertificatesNone
     TxUpdateProposalNone
