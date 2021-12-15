@@ -4,14 +4,18 @@ import Hydra.Prelude hiding (label)
 import Test.Hydra.Prelude
 
 import qualified Cardano.Ledger.Alonzo.Data as Ledger
+import Cardano.Ledger.Alonzo.Scripts (ExUnits)
 import qualified Cardano.Ledger.Alonzo.Scripts as Ledger
 import Cardano.Ledger.Alonzo.Tools (
+  BasicFailure,
+  ScriptFailure,
   evaluateTransactionExecutionUnits,
  )
+import Cardano.Ledger.Alonzo.TxWitness (RdmrPtr)
 import qualified Cardano.Ledger.Alonzo.TxWitness as Ledger
 import qualified Cardano.Ledger.Shelley.API as Ledger
 import qualified Data.Map as Map
-import Data.Maybe.Strict (StrictMaybe (SNothing))
+import Data.Maybe.Strict (StrictMaybe (..))
 import qualified Hydra.Chain.Direct.Fixture as Fixture
 import Hydra.Chain.Direct.Tx (closeTx)
 import Hydra.Chain.Direct.TxSpec (mkHeadOutput)
@@ -19,6 +23,7 @@ import qualified Hydra.Contract.MockHead as MockHead
 import Hydra.Ledger.Cardano (
   AlonzoEra,
   CardanoTx,
+  LedgerCrypto,
   LedgerEra,
   Tx (Tx),
   TxBody (ShelleyTxBody),
@@ -38,11 +43,12 @@ import Test.QuickCheck (
   property,
  )
 import Test.QuickCheck.Instances ()
-import Test.QuickCheck.Property (conjoin)
 
 spec :: Spec
 spec = describe "On-chain contracts" $ do
   describe "Close" $ do
+    prop "validates a proper close tx." $
+      forAll genCloseTx propTransactionValidates
     prop "does not survive random mutations." $
       propMutation genCloseTx
 
@@ -55,22 +61,11 @@ propMutation txGenerator =
   forAll txGenerator $ \(tx, lookupUtxo) ->
     forAll arbitrary $ \mutation ->
       forAll (applyMutation tx mutation) $ \tx' ->
-        conjoin
-          [ propTransactionValidates (tx, lookupUtxo)
-          , propTransactionDoesNotValidate (tx', lookupUtxo)
-          ]
+        propTransactionDoesNotValidate (tx', lookupUtxo)
 
 propTransactionDoesNotValidate :: (CardanoTx, Utxo) -> Property
 propTransactionDoesNotValidate (tx, lookupUtxo) =
-  let result =
-        runIdentity $
-          evaluateTransactionExecutionUnits
-            Fixture.pparams
-            (toLedgerTx tx)
-            (toLedgerUtxo lookupUtxo)
-            Fixture.epochInfo
-            Fixture.systemStart
-            Fixture.costModels
+  let result = evaluateTx tx lookupUtxo
    in counterexample "Should have not validated" $
         case result of
           Left _ ->
@@ -83,15 +78,7 @@ propTransactionDoesNotValidate (tx, lookupUtxo) =
 
 propTransactionValidates :: (CardanoTx, Utxo) -> Property
 propTransactionValidates (tx, lookupUtxo) =
-  let result =
-        runIdentity $
-          evaluateTransactionExecutionUnits
-            Fixture.pparams
-            (toLedgerTx tx)
-            (toLedgerUtxo lookupUtxo)
-            Fixture.epochInfo
-            Fixture.systemStart
-            Fixture.costModels
+  let result = evaluateTx tx lookupUtxo
    in counterexample "Should have validated" $
         case result of
           Left _ ->
@@ -103,6 +90,17 @@ propTransactionValidates (tx, lookupUtxo) =
               & counterexample ("Tx: " <> toString (describeCardanoTx tx))
               & counterexample ("Lookup utxo: " <> decodeUtf8 (encodePretty lookupUtxo))
               & counterexample ("Redeemer report: " <> show redeemerReport)
+
+evaluateTx :: CardanoTx -> Utxo -> Either (BasicFailure LedgerCrypto) (Map RdmrPtr (Either (ScriptFailure LedgerCrypto) ExUnits))
+evaluateTx tx utxo =
+  runIdentity $
+    evaluateTransactionExecutionUnits
+      Fixture.pparams
+      (toLedgerTx tx)
+      (toLedgerUtxo utxo)
+      Fixture.epochInfo
+      Fixture.systemStart
+      Fixture.costModels
 
 --
 --
@@ -149,7 +147,7 @@ genCloseTx :: Gen (CardanoTx, Utxo)
 genCloseTx = do
   utxo <- arbitrary
   headInput <- arbitrary
-  let headOutput = mkHeadOutput SNothing
+  let headOutput = mkHeadOutput (SJust headDatum)
       headDatum = Ledger.Data $ toData MockHead.Open
       lookupUtxo = Ledger.UTxO $ Map.singleton headInput headOutput
   pure (fromLedgerTx $ closeTx 1 utxo (headInput, headOutput, headDatum), fromLedgerUtxo lookupUtxo)
