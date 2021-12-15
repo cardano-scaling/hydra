@@ -4,55 +4,60 @@ import Hydra.Prelude hiding (label)
 import Test.Hydra.Prelude
 
 import Cardano.Ledger.Alonzo.Tools (
-  BasicFailure,
-  ScriptFailure,
   evaluateTransactionExecutionUnits,
  )
-import Hydra.Chain.Direct.Fixture ()
+import qualified Data.Map as Map
+import qualified Hydra.Chain.Direct.Fixture as Fixture
 import Hydra.Ledger.Cardano (
   CardanoTx,
   Utxo,
+  describeCardanoTx,
+  toLedgerTx,
+  toLedgerUtxo,
  )
 import Test.QuickCheck (
   Property,
   counterexample,
   forAll,
+  property,
  )
 import Test.QuickCheck.Instances ()
-import qualified Prelude
 
 spec :: Spec
 spec = describe "On-chain contracts" $ do
   describe "Close" $ do
-    prop "close survives random mutations." (propMutation genCloseTx)
+    prop "close survives random mutations." $
+      propMutation genCloseTx
 
 --
 -- Properties
 --
 
-propMutation :: (CardanoTx, Utxo) -> [Mutation] -> Property
-propMutation (tx, lookupUtxo) mutations = do
-  forAll (applyMutation mutations tx) $ \tx' ->
-    propTransactionValidates tx' lookupUtxo
+propMutation :: Gen (CardanoTx, Utxo) -> Property
+propMutation txGenerator =
+  forAll txGenerator $ \(tx, lookupUtxo) ->
+    forAll arbitrary $ \mutations ->
+      forAll (applyMutation mutations tx) $ \tx' ->
+        propTransactionDoesNotValidate (tx', lookupUtxo)
 
-propTransactionValidates :: (CardanoTx, Utxo) -> Property
-propTransactionValidates =
+propTransactionDoesNotValidate :: (CardanoTx, Utxo) -> Property
+propTransactionDoesNotValidate (tx, lookupUtxo) =
   let result =
         runIdentity $
           evaluateTransactionExecutionUnits
             Fixture.pparams
-            tx
-            lookupUtxo
+            (toLedgerTx tx)
+            (toLedgerUtxo lookupUtxo)
             Fixture.epochInfo
             Fixture.systemStart
             Fixture.costModels
    in case result of
-        Left basicFailure ->
-          property False & counterexample ("Basic failure: " <> show basicFailure)
+        Left _ ->
+          property True
         Right redeemerReport ->
-          all isRight (Map.elems redeemerReport)
+          any isLeft (Map.elems redeemerReport)
             & counterexample ("Tx: " <> toString (describeCardanoTx tx))
-            & counterexample ("Lookup utxo: " <> decodeUtf8 (encodePretty utxo))
+            & counterexample ("Lookup utxo: " <> decodeUtf8 (encodePretty lookupUtxo))
             & counterexample ("Redeemer report: " <> show redeemerReport)
 
 --
@@ -60,11 +65,11 @@ propTransactionValidates =
 --
 
 data Mutation
-  = AddArbitraryOutput
-  deriving (Show)
+  = ChangeHeadRedeemer
+  deriving (Show, Generic)
 
 instance Arbitrary Mutation where
-  arbitrary = error "TODO: Arbitrary@Mutation"
+  arbitrary = genericArbitrary
 
 applyMutation :: [Mutation] -> CardanoTx -> Gen CardanoTx
 applyMutation = error "TODO: applyMutation"
