@@ -3,15 +3,19 @@ module Hydra.Chain.Direct.ContractSpec where
 import Hydra.Prelude hiding (label)
 import Test.Hydra.Prelude
 
+import qualified Cardano.Ledger.Alonzo.Data as Ledger
+import qualified Cardano.Ledger.Alonzo.Scripts as Ledger
 import Cardano.Ledger.Alonzo.Tools (
   evaluateTransactionExecutionUnits,
  )
-import Cardano.Ledger.Alonzo.TxWitness (unRedeemers)
+import qualified Cardano.Ledger.Alonzo.TxWitness as Ledger
 import qualified Data.Map as Map
 import qualified Hydra.Chain.Direct.Fixture as Fixture
+import qualified Hydra.Contract.MockHead as MockHead
 import Hydra.Ledger.Cardano (
+  AlonzoEra,
   CardanoTx,
-  ShelleyBasedEra (ShelleyBasedEraAlonzo),
+  LedgerEra,
   Tx (Tx),
   TxBody (ShelleyTxBody),
   TxBodyScriptData (TxBodyNoScriptData, TxBodyScriptData),
@@ -20,6 +24,7 @@ import Hydra.Ledger.Cardano (
   toLedgerTx,
   toLedgerUtxo,
  )
+import Plutus.V1.Ledger.Api (fromData, toData)
 import Test.QuickCheck (
   Property,
   counterexample,
@@ -41,8 +46,8 @@ spec = describe "On-chain contracts" $ do
 propMutation :: Gen (CardanoTx, Utxo) -> Property
 propMutation txGenerator =
   forAll txGenerator $ \(tx, lookupUtxo) ->
-    forAll arbitrary $ \mutations ->
-      forAll (applyMutation mutations tx) $ \tx' ->
+    forAll arbitrary $ \mutation ->
+      forAll (applyMutation tx mutation) $ \tx' ->
         propTransactionDoesNotValidate (tx', lookupUtxo)
 
 propTransactionDoesNotValidate :: (CardanoTx, Utxo) -> Property
@@ -76,16 +81,30 @@ data Mutation
 instance Arbitrary Mutation where
   arbitrary = genericArbitrary
 
-applyMutation :: Mutation -> CardanoTx -> Gen CardanoTx
-applyMutation ChangeHeadRedeemer tx = error "not implemented"
- where
-  Tx body _wits = tx
+applyMutation :: CardanoTx -> Mutation -> Gen CardanoTx
+applyMutation (Tx body wits) = \case
+  ChangeHeadRedeemer ->
+    let ShelleyTxBody era ledgerBody scripts scriptData mAuxData scriptValidity = body
+        body' = ShelleyTxBody era ledgerBody scripts (alterRedeemers changeHeadRedeemer scriptData) mAuxData scriptValidity
+     in pure (Tx body' wits)
 
-  ShelleyTxBody _era _body _scripts scriptData _mAuxData _scriptValidity = body
+changeHeadRedeemer :: (Ledger.Data era, Ledger.ExUnits) -> (Ledger.Data era, Ledger.ExUnits)
+changeHeadRedeemer (dat, units) =
+  case fromData (Ledger.getPlutusData dat) of
+    Just (_ :: MockHead.Input) ->
+      -- TODO: This needs to be arbitrary, and we need a monadic / applicative result
+      (Ledger.Data (toData MockHead.Abort), units)
+    Nothing ->
+      (dat, units)
 
-  foo = \case
-    TxBodyNoScriptData -> error "TxBodyNoScriptData unexpected"
-    TxBodyScriptData support dats reds -> error "wip"
+alterRedeemers ::
+  ((Ledger.Data LedgerEra, Ledger.ExUnits) -> (Ledger.Data LedgerEra, Ledger.ExUnits)) ->
+  TxBodyScriptData AlonzoEra ->
+  TxBodyScriptData AlonzoEra
+alterRedeemers fn = \case
+  TxBodyNoScriptData -> error "TxBodyNoScriptData unexpected"
+  TxBodyScriptData supportedInEra dats (Ledger.Redeemers redeemers) ->
+    TxBodyScriptData supportedInEra dats (Ledger.Redeemers $ fmap fn redeemers)
 
 --
 -- Generators
