@@ -36,7 +36,7 @@ import qualified Cardano.Ledger.Core as Ledger
 import qualified Cardano.Ledger.Crypto as Ledger (StandardCrypto)
 import qualified Cardano.Ledger.Era as Ledger
 import qualified Cardano.Ledger.Keys as Ledger
-import qualified Cardano.Ledger.Mary as Ledger.Mary
+import qualified Cardano.Ledger.Mary as Ledger.Mary hiding (Value)
 import qualified Cardano.Ledger.Mary.Value as Ledger.Mary
 import qualified Cardano.Ledger.SafeHash as Ledger
 import qualified Cardano.Ledger.Shelley.API.Mempool as Ledger
@@ -476,8 +476,12 @@ fromLedgerTxId (Ledger.TxId h) =
 --
 
 fromPlutusScript :: Plutus.Script -> Script PlutusScriptV1
-fromPlutusScript script =
-  PlutusScript PlutusScriptV1 (PlutusScriptSerialised bytes)
+fromPlutusScript =
+  PlutusScript PlutusScriptV1 . fromPlutusScript'
+
+fromPlutusScript' :: Plutus.Script -> PlutusScript PlutusScriptV1
+fromPlutusScript' script =
+  PlutusScriptSerialised bytes
  where
   bytes = toShort . fromLazy . serialise $ script
 
@@ -538,6 +542,10 @@ toLedgerAddr = \case
 -- TxOut
 --
 
+txOutValue :: TxOut ctx Era -> Value
+txOutValue (TxOut _ value _) =
+  txOutValueToValue value
+
 toMaryTxOut :: Ledger.TxOut LedgerEra -> Ledger.Mary.TxOut (Ledger.Mary.MaryEra Ledger.StandardCrypto)
 toMaryTxOut = \case
   Ledger.Alonzo.TxOutCompact addr value ->
@@ -550,9 +558,21 @@ fromMaryTxOut = \case
   Ledger.Shelley.TxOutCompact addr value ->
     Ledger.Alonzo.TxOutCompact addr value
 
+--
+-- Datums & Redeemers
+--
+
 mkTxOutDatum :: Plutus.ToData a => a -> TxOutDatum CtxTx Era
 mkTxOutDatum =
   TxOutDatum ScriptDataInAlonzoEra . fromPlutusData . Plutus.toData
+
+mkDatumForTxIn :: Plutus.ToData a => a -> ScriptDatum WitCtxTxIn
+mkDatumForTxIn =
+  ScriptDatumForTxIn . fromPlutusData . Plutus.toData
+
+mkRedeemerForTxIn :: Plutus.ToData a => a -> ScriptRedeemer
+mkRedeemerForTxIn =
+  fromPlutusData . Plutus.toData
 
 --
 -- Utxo
@@ -590,8 +610,40 @@ fromCardanoApiUtxo :: Cardano.Api.UTxO AlonzoEra -> Utxo
 fromCardanoApiUtxo = coerce
 
 --
--- KeyWitness
+-- Witnesses
 --
+
+-- TODO: This could be made available upstream...
+class IsScriptWitnessInCtx ctx where
+  scriptWitnessCtx :: ScriptWitnessInCtx ctx
+
+instance IsScriptWitnessInCtx WitCtxTxIn where
+  scriptWitnessCtx = ScriptWitnessForSpending
+
+instance IsScriptWitnessInCtx WitCtxMint where
+  scriptWitnessCtx = ScriptWitnessForMinting
+
+instance IsScriptWitnessInCtx WitCtxStake where
+  scriptWitnessCtx = ScriptWitnessForStakeAddr
+
+mkScriptWitness ::
+  forall ctx.
+  (IsScriptWitnessInCtx ctx) =>
+  PlutusScript PlutusScriptV1 ->
+  ScriptDatum ctx ->
+  ScriptRedeemer ->
+  Witness ctx Era
+mkScriptWitness script datum redeemer =
+  ScriptWitness scriptWitnessCtx witness
+ where
+  witness =
+    PlutusScriptWitness
+      PlutusScriptV1InAlonzo
+      PlutusScriptV1
+      script
+      datum
+      redeemer
+      (ExecutionUnits 0 0)
 
 toLedgerKeyWitness ::
   [KeyWitness era] ->
@@ -612,6 +664,18 @@ fromLedgerTxWitness wits =
  where
   era =
     ShelleyBasedEraAlonzo
+
+--
+-- Value
+--
+
+liftValue :: Value -> TxOutValue Era
+liftValue =
+  TxOutValue MultiAssetInAlonzoEra
+
+fromLedgerValue :: Ledger.Mary.Value Ledger.StandardCrypto -> Value
+fromLedgerValue =
+  fromMaryValue
 
 --
 -- Formatting
@@ -708,7 +772,7 @@ genOutput ::
   VerificationKey PaymentKey ->
   Gen (TxOut ctx era)
 genOutput vk = do
-  assets <- fromMaryValue <$> scale (* 8) arbitrary
+  assets <- fromLedgerValue <$> scale (* 8) arbitrary
   let value =
         either
           (`TxOutAdaOnly` selectLovelace assets)

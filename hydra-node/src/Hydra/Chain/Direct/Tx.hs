@@ -15,7 +15,7 @@ import Hydra.Prelude
 
 import Cardano.Binary (serialize)
 import Cardano.Ledger.Address (Addr (Addr))
-import Cardano.Ledger.Alonzo (Script, Value)
+import Cardano.Ledger.Alonzo (Script)
 import Cardano.Ledger.Alonzo.Data (Data (Data), DataHash, getPlutusData, hashData)
 import Cardano.Ledger.Alonzo.Language (Language (PlutusV1))
 import Cardano.Ledger.Alonzo.Scripts (ExUnits (..), Script (PlutusScript), Tag (Spend))
@@ -62,8 +62,6 @@ import Hydra.Ledger.Cardano (
   Utxo,
   Utxo' (Utxo),
   VerificationKey (PaymentVerificationKey),
-  toMaryValue,
-  toShelleyTxIn,
   toShelleyTxOut,
   utxoPairs,
  )
@@ -214,7 +212,7 @@ initTx cardanoKeys HeadParameters{contestationPeriod, parties} txIn =
     Api.TxOut initialAddress initialValue initialDatum
    where
     initialScript = Api.fromPlutusScript MockInitial.validatorScript
-    -- TODO: should really be the minted PTs plus some ADA to make the ledger happy
+    -- FIXME: should really be the minted PTs plus some ADA to make the ledger happy
     initialValue = Api.lovelaceToTxOutValue $ Api.Lovelace 2_000_000
     initialAddress = Api.mkScriptAddress networkId initialScript
     initialDatum = Api.mkTxOutDatum $ MockInitial.datum vkh
@@ -223,6 +221,11 @@ pubKeyHash :: VerificationKey PaymentKey -> PubKeyHash
 pubKeyHash (PaymentVerificationKey vkey) = transKeyHash $ hashKey @StandardCrypto $ vkey
 
 -- | Craft a commit transaction which includes the "committed" utxo as a datum.
+--
+-- TODO: Remove all the qualified 'Api' once the refactoring is over and there's
+-- no more import clash with 'cardano-ledger'.
+--
+-- TODO: Get rid of Ledger types in the signature and fully rely on Cardano.Api
 commitTx ::
   Party ->
   -- | A single UTxO to commit to the Head
@@ -232,58 +235,33 @@ commitTx ::
   -- locked by initial script
   (TxIn StandardCrypto, PubKeyHash) ->
   ValidatedTx Era
-commitTx party utxo (initialIn, pkh) =
-  emptyTx
-    & withBody body
-    & withDatums dats
-    & withRedeemers redeemers
-    & withScripts scripts
+commitTx party utxo (initialInput, vkh) =
+  Api.toLedgerTx $
+    Api.unsafeBuildTransaction $
+      Api.emptyTxBody
+        & Api.addInputs [(Api.fromLedgerTxIn initialInput, initialWitness)]
+        & Api.addVkInputs [commit | Just (commit, _) <- [utxo]]
+        & Api.addOutputs [commitOutput]
  where
-  body =
-    emptyTxBody
-      & withInputs (initialIn : maybe mempty ((: []) . toShelleyTxIn . fst) utxo)
-      & withOutputs [commitOutput]
+  initialWitness =
+    Api.BuildTxWith $ Api.mkScriptWitness initialScript initialDatum initialRedeemer
+   where
+    initialScript = Api.fromPlutusScript' MockInitial.validatorScript
+    initialDatum = Api.mkDatumForTxIn $ MockInitial.datum vkh
+    initialRedeemer = Api.mkRedeemerForTxIn $ MockInitial.redeemer ()
 
-  onChainParty = partyFromVerKey $ vkey party
+  commitOutput =
+    Api.TxOut commitAddress commitValue commitDatum
+   where
+    commitScript = Api.fromPlutusScript MockCommit.validatorScript
+    commitAddress = Api.mkScriptAddress networkId commitScript
+    -- FIXME: We should add the value from the initialIn too because it contains the PTs
+    commitValue = Api.liftValue $ Api.lovelaceToValue 2_000_000 <> maybe mempty (Api.txOutValue . snd) utxo
+    commitDatum = Api.mkTxOutDatum $ mkCommitDatum party utxo
 
-  (commitOutput, commitDatum) = mkCommitUtxo onChainParty utxo
-
-  dats = [initialDatum, commitDatum]
-
-  initialDatum = Data . toData $ MockInitial.datum pkh
-
-  redeemers = [(initialIn, initialRedeemer)]
-
-  initialRedeemer = Data . toData $ MockInitial.redeemer ()
-
-  scripts = fromList $ map withScriptHash [initialScript]
-
-  initialScript = plutusScript MockInitial.validatorScript
-
-mkCommitUtxo :: OnChain.Party -> Maybe (Api.TxIn, Api.TxOut Api.CtxUTxO Api.Era) -> (TxOut Era, Data Era)
-mkCommitUtxo party utxo =
-  ( TxOut
-      (scriptAddr commitScript)
-      -- TODO(AB): We should add the value from the initialIn too because it contains
-      -- the PTs
-      commitValue
-      (SJust $ hashData @Era commitDatum)
-  , commitDatum
-  )
- where
-  commitValue :: Value Era
-  commitValue = inject (Coin 2000000) <> maybe (inject $ Coin 0) (getValue . snd) utxo
-
-  getValue (Api.TxOut _ val _) = toMaryValue $ Api.txOutValueToValue val
-
-  commitScript = plutusScript MockCommit.validatorScript
-
-  commitDatum = mkCommitDatum party utxo
-
-mkCommitDatum :: OnChain.Party -> Maybe (Api.TxIn, Api.TxOut Api.CtxUTxO Api.Era) -> Data Era
-mkCommitDatum party utxo =
-  Data . toData $
-    MockCommit.datum (party, commitUtxo)
+mkCommitDatum :: Party -> Maybe (Api.TxIn, Api.TxOut Api.CtxUTxO Api.Era) -> Plutus.Datum
+mkCommitDatum (partyFromVerKey . vkey -> party) utxo =
+  MockCommit.datum (party, commitUtxo)
  where
   commitUtxo = fromByteString $
     toStrict $

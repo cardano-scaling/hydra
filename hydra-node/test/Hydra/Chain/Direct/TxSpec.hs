@@ -42,7 +42,7 @@ import qualified Hydra.Contract.MockCommit as MockCommit
 import qualified Hydra.Contract.MockHead as MockHead
 import qualified Hydra.Contract.MockInitial as MockInitial
 import Hydra.Data.ContestationPeriod (contestationPeriodFromDiffTime)
-import Hydra.Data.Party (Party, partyFromVerKey)
+import Hydra.Data.Party (partyFromVerKey)
 import Hydra.Data.Utxo (fromByteString)
 import Hydra.Ledger (balance)
 import Hydra.Ledger.Cardano (
@@ -60,7 +60,8 @@ import Hydra.Ledger.Cardano (
   toMaryValue,
   utxoPairs,
  )
-import Hydra.Party (vkey)
+import qualified Hydra.Ledger.Cardano as Api
+import Hydra.Party (Party, vkey)
 import Plutus.V1.Ledger.Api (PubKeyHash, toData)
 import Test.Cardano.Ledger.Alonzo.Serialisation.Generators ()
 import Test.QuickCheck (
@@ -194,7 +195,8 @@ spec =
           let committedValue = foldMap (\(TxOut _ v _, _) -> v) commitsUtxo
               headOutput = mkHeadOutput SNothing -- will be SJust, but not covered by this test
               headValue = inject (Coin 2_000_000) <> committedValue
-              headDatum = Data . toData $ MockHead.Initial cperiod parties
+              onChainParties = partyFromVerKey . vkey <$> parties
+              headDatum = Data . toData $ MockHead.Initial cperiod onChainParties
               lookupUtxo = Map.singleton headInput headOutput
               tx = collectComTx committedUtxo (headInput, headDatum) commitsUtxo
               res = observeCollectComTx lookupUtxo tx
@@ -389,6 +391,22 @@ generateCommitUtxos parties committedUtxo = do
         zip txins $
           uncurry mkCommitUtxo <$> zip parties (Just <$> utxoPairs committedUtxo)
   pure $ Map.fromList commitUtxo
+ where
+  mkCommitUtxo :: Party -> Maybe (Api.TxIn, Api.TxOut Api.CtxUTxO Api.Era) -> (TxOut Era, Data Era)
+  mkCommitUtxo party utxo =
+    ( TxOut
+        (scriptAddr commitScript)
+        -- TODO(AB): We should add the value from the initialIn too because it contains
+        -- the PTs
+        commitValue
+        (SJust $ hashData @Era commitDatum)
+    , commitDatum
+    )
+   where
+    commitValue = inject (Coin 2000000) <> maybe (inject $ Coin 0) (getValue . snd) utxo
+    getValue (Api.TxOut _ val _) = toMaryValue $ Api.txOutValueToValue val
+    commitScript = plutusScript MockCommit.validatorScript
+    commitDatum = Data . toData $ mkCommitDatum party utxo
 
 executionCost :: PParams Era -> ValidatedTx Era -> Coin
 executionCost PParams{_prices} ValidatedTx{wits} =
