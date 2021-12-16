@@ -130,8 +130,11 @@ applyMutation (Tx body wits) = \case
 changeHeadRedeemer :: (Ledger.Data era, Ledger.ExUnits) -> Gen (Ledger.Data era, Ledger.ExUnits)
 changeHeadRedeemer redeemer@(dat, units) =
   case fromData (Ledger.getPlutusData dat) of
-    Just (oldRedeemer :: MockHead.Input) -> do
-      newRedeemer <- arbitrary `suchThat` (/= oldRedeemer)
+    Just (_ :: MockHead.Input) -> do
+      newRedeemer <-
+        arbitrary `suchThat` \case
+          MockHead.Close{} -> False
+          _ -> True
       pure (Ledger.Data (toData newRedeemer), units)
     Nothing ->
       pure redeemer
