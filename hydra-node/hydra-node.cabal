@@ -87,7 +87,8 @@ library
     Hydra.HeadLogic
     Hydra.Ledger
     Hydra.Ledger.Cardano
-    Hydra.Ledger.Cardano.Orphans
+    Hydra.Ledger.Cardano.Isomorphism
+    Hydra.Ledger.Cardano.Json
     Hydra.Ledger.Simple
     Hydra.Logging
     Hydra.Logging.Messages

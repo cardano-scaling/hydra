@@ -11,26 +11,24 @@ module Hydra.Ledger.Cardano (
   module Hydra.Ledger.Cardano,
   module Cardano.Api,
   module Cardano.Api.Shelley,
+  module Hydra.Ledger.Cardano.Isomorphism,
   Ledger.ShelleyGenesis (..),
 ) where
 
-import Hydra.Prelude hiding (id)
+import Hydra.Prelude
 
 import Cardano.Api hiding (UTxO)
-import qualified Cardano.Api
 import Cardano.Api.Byron
 import Cardano.Api.Shelley
+import Hydra.Ledger.Cardano.Isomorphism
+
+import qualified Cardano.Api
 import Cardano.Binary (decodeAnnotator, serialize, serialize')
 import qualified Cardano.Crypto.DSIGN as CC
-import qualified Cardano.Crypto.Hash.Class as CC
-import qualified Cardano.Ledger.Address as Ledger
-import qualified Cardano.Ledger.Alonzo as Ledger.Alonzo
-import qualified Cardano.Ledger.Alonzo.Data as Ledger
 import qualified Cardano.Ledger.Alonzo.PParams as Ledger.Alonzo
 import qualified Cardano.Ledger.Alonzo.Scripts as Ledger.Alonzo
 import qualified Cardano.Ledger.Alonzo.Tx as Ledger.Alonzo
 import qualified Cardano.Ledger.Alonzo.TxBody as Ledger.Alonzo
-import qualified Cardano.Ledger.Alonzo.TxInfo as Ledger
 import qualified Cardano.Ledger.Alonzo.TxWitness as Ledger.Alonzo
 import qualified Cardano.Ledger.BaseTypes as Ledger
 import qualified Cardano.Ledger.Core as Ledger
@@ -39,9 +37,7 @@ import qualified Cardano.Ledger.Era as Ledger
 import qualified Cardano.Ledger.Keys as Ledger
 import qualified Cardano.Ledger.Mary as Ledger.Mary hiding (Value)
 import qualified Cardano.Ledger.Mary.Value as Ledger.Mary
-import qualified Cardano.Ledger.SafeHash as Ledger
 import qualified Cardano.Ledger.Shelley.API.Mempool as Ledger
-import qualified Cardano.Ledger.Shelley.Address.Bootstrap as Ledger
 import qualified Cardano.Ledger.Shelley.Genesis as Ledger
 import qualified Cardano.Ledger.Shelley.LedgerState as Ledger
 import qualified Cardano.Ledger.Shelley.Rules.Ledger as Ledger
@@ -53,22 +49,21 @@ import qualified Cardano.Slotting.EpochInfo as Slotting
 import qualified Cardano.Slotting.Time as Slotting
 import qualified Codec.CBOR.Decoding as CBOR
 import qualified Codec.CBOR.Encoding as CBOR
-import Codec.Serialise (serialise)
 import Control.Arrow (left)
 import Control.Monad (foldM)
 import qualified Control.State.Transition as Ledger
+import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as BL
 import Data.Default (Default, def)
 import qualified Data.Map.Strict as Map
 import Data.Maybe (fromJust)
 import Data.Maybe.Strict (maybeToStrictMaybe, strictMaybeToMaybe)
-import qualified Data.Set as Set
 import qualified Data.Text as T
 import Data.Text.Lazy.Builder (toLazyText)
 import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
 import Formatting.Buildable (build)
 import Hydra.Ledger (IsTx (..), Ledger (..), ValidationError (..))
-import Hydra.Ledger.Cardano.Orphans ()
+import Hydra.Ledger.Cardano.Json ()
 import qualified Plutus.V1.Ledger.Api as Plutus
 import Test.Cardano.Ledger.Alonzo.AlonzoEraGen ()
 import qualified Test.Cardano.Ledger.Alonzo.AlonzoEraGen as Ledger.Alonzo
@@ -86,14 +81,6 @@ import Test.QuickCheck (
   suchThat,
   vectorOf,
  )
-
-type Era = AlonzoEra
-
-type LedgerCrypto = Ledger.StandardCrypto
-
-type LedgerEra = Ledger.Alonzo.AlonzoEra LedgerCrypto
-
-type CardanoTx = Tx Era
 
 -- TODO(SN): Pre-validate transactions to get less confusing errors on
 -- transactions which are not expected to working on a layer-2
@@ -202,6 +189,13 @@ instance Arbitrary Utxo where
     fmap
       (fromLedgerUtxo . Ledger.UTxO . Map.map fromMaryTxOut . Ledger.unUTxO)
       arbitrary
+   where
+    fromMaryTxOut ::
+      Ledger.Mary.TxOut (Ledger.Mary.MaryEra Ledger.StandardCrypto) ->
+      Ledger.TxOut LedgerEra
+    fromMaryTxOut = \case
+      Ledger.Shelley.TxOutCompact addr value ->
+        Ledger.Alonzo.TxOutCompact addr value
 
 utxoPairs :: Utxo' out -> [(TxIn, out)]
 utxoPairs = Map.toList . utxoMap
@@ -230,9 +224,6 @@ utxoMin = Utxo . uncurry Map.singleton . Map.findMin . utxoMap
 --
 
 type TxBuilder = TxBodyContent BuildTx Era
-
--- TODO: This is copied straight from 'cardano-api', could be exposed upstream.
-type TxIns build era = [(TxIn, BuildTxWith build (Witness WitCtxTxIn era))]
 
 -- | Construct a transction from a builder. It is said 'unsafe' because the
 -- underlying implementation will perform some sanity check on a transaction;
@@ -434,13 +425,6 @@ toLedgerTx = \case
                     redeemers
                 }
           }
- where
-  toLedgerScriptValidity :: TxScriptValidity Era -> Ledger.Alonzo.IsValid
-  toLedgerScriptValidity =
-    Ledger.Alonzo.IsValid . \case
-      TxScriptValidityNone -> True
-      TxScriptValidity _ ScriptValid -> True
-      TxScriptValidity _ ScriptInvalid -> False
 
 -- | Convert an existing @cardano-ledger-specs@'s 'Tx' into a @cardano-api@'s 'Tx'
 fromLedgerTx :: Ledger.Tx LedgerEra -> CardanoTx
@@ -465,55 +449,11 @@ fromLedgerTx (Ledger.Alonzo.ValidatedTx body wits isValid auxData) =
       TxScriptValidity TxScriptValiditySupportedInAlonzoEra ScriptInvalid
 
 --
--- TxIn
---
-
-fromLedgerTxIn :: Ledger.TxIn Ledger.StandardCrypto -> TxIn
-fromLedgerTxIn = fromShelleyTxIn
-
-toLedgerTxIn :: TxIn -> Ledger.TxIn Ledger.StandardCrypto
-toLedgerTxIn = toShelleyTxIn
-
---
--- TxId
---
-
-toLedgerTxId :: TxId -> Ledger.TxId Ledger.StandardCrypto
-toLedgerTxId (TxId h) =
-  Ledger.TxId (Ledger.unsafeMakeSafeHash (CC.castHash h))
-
-fromLedgerTxId :: Ledger.TxId Ledger.StandardCrypto -> TxId
-fromLedgerTxId (Ledger.TxId h) =
-  TxId (CC.castHash (Ledger.extractHash h))
-
---
 -- Scripts
 --
 
-fromPlutusScript :: Plutus.Script -> Script PlutusScriptV1
-fromPlutusScript =
-  asScript . fromPlutusScript'
-
-fromPlutusScript' :: Plutus.Script -> PlutusScript PlutusScriptV1
-fromPlutusScript' script =
-  PlutusScriptSerialised bytes
- where
-  bytes = toShort . fromLazy . serialise $ script
-
 asScript :: PlutusScript PlutusScriptV1 -> Script PlutusScriptV1
 asScript = PlutusScript PlutusScriptV1
-
---
--- Keys
---
-
-toPlutusKeyHash :: Hash PaymentKey -> Plutus.PubKeyHash
-toPlutusKeyHash (PaymentKeyHash vkh) =
-  Ledger.transKeyHash vkh
-
---
--- Address
---
 
 -- | Create an (undelegated) address from a verificaton key.
 --
@@ -549,13 +489,6 @@ mkScriptAddress networkId script =
     (PaymentCredentialByScript $ hashScript script)
     NoStakeAddress
 
-toLedgerAddr :: AddressInEra Era -> Ledger.Addr Ledger.StandardCrypto
-toLedgerAddr = \case
-  AddressInEra ByronAddressInAnyEra (ByronAddress addr) ->
-    Ledger.AddrBootstrap (Ledger.BootstrapAddress addr)
-  AddressInEra (ShelleyAddressInEra _) (ShelleyAddress ntwrk creds stake) ->
-    Ledger.Addr ntwrk creds stake
-
 --
 -- TxOut
 --
@@ -563,18 +496,6 @@ toLedgerAddr = \case
 txOutValue :: TxOut ctx Era -> Value
 txOutValue (TxOut _ value _) =
   txOutValueToValue value
-
-toMaryTxOut :: Ledger.TxOut LedgerEra -> Ledger.Mary.TxOut (Ledger.Mary.MaryEra Ledger.StandardCrypto)
-toMaryTxOut = \case
-  Ledger.Alonzo.TxOutCompact addr value ->
-    Ledger.Shelley.TxOutCompact addr value
-  Ledger.Alonzo.TxOutCompactDH addr value _datum ->
-    Ledger.Shelley.TxOutCompact addr value
-
-fromMaryTxOut :: Ledger.Mary.TxOut (Ledger.Mary.MaryEra Ledger.StandardCrypto) -> Ledger.TxOut LedgerEra
-fromMaryTxOut = \case
-  Ledger.Shelley.TxOutCompact addr value ->
-    Ledger.Alonzo.TxOutCompact addr value
 
 --
 -- Datums & Redeemers
@@ -596,9 +517,6 @@ mkDatumForTxIn =
 mkRedeemerForTxIn :: Plutus.ToData a => a -> ScriptRedeemer
 mkRedeemerForTxIn =
   fromPlutusData . Plutus.toData
-
-fromLedgerData :: Ledger.Data LedgerEra -> ScriptDatum WitCtxTxIn
-fromLedgerData = ScriptDatumForTxIn . fromAlonzoData
 
 --
 -- Utxo
@@ -626,13 +544,7 @@ fromLedgerUtxo =
   fn i o =
     Map.singleton (fromLedgerTxIn i) (fromLedgerTxOut o)
 
-toLedgerTxOut :: TxOut CtxUTxO Era -> Ledger.TxOut (ShelleyLedgerEra Era)
-toLedgerTxOut = toShelleyTxOut shelleyBasedEra
-
-fromLedgerTxOut :: Ledger.TxOut (ShelleyLedgerEra Era) -> TxOut ctx Era
-fromLedgerTxOut = fromShelleyTxOut shelleyBasedEra
-
-fromCardanoApiUtxo :: Cardano.Api.UTxO AlonzoEra -> Utxo
+fromCardanoApiUtxo :: UTxO AlonzoEra -> Utxo
 fromCardanoApiUtxo = coerce
 
 --
@@ -671,26 +583,6 @@ mkScriptWitness script datum redeemer =
       redeemer
       (ExecutionUnits 0 0)
 
-toLedgerKeyWitness ::
-  [KeyWitness era] ->
-  Set (Ledger.Shelley.WitVKey 'Ledger.Witness Ledger.StandardCrypto)
-toLedgerKeyWitness vkWits =
-  fromList [w | ShelleyKeyWitness _ w <- vkWits]
-
-toLedgerBootstrapWitness ::
-  [KeyWitness era] ->
-  Set (Ledger.BootstrapWitness Ledger.StandardCrypto)
-toLedgerBootstrapWitness vkWits =
-  fromList [w | ShelleyBootstrapWitness _ w <- vkWits]
-
-fromLedgerTxWitness :: Ledger.Alonzo.TxWitness LedgerEra -> [KeyWitness Era]
-fromLedgerTxWitness wits =
-  Set.foldr ((:) . ShelleyKeyWitness era) [] (Ledger.Alonzo.txwitsVKey' wits)
-    ++ Set.foldr ((:) . ShelleyBootstrapWitness era) [] (Ledger.Alonzo.txwitsBoot' wits)
- where
-  era =
-    ShelleyBasedEraAlonzo
-
 --
 -- Value
 --
@@ -698,18 +590,6 @@ fromLedgerTxWitness wits =
 mkTxOutValue :: Value -> TxOutValue Era
 mkTxOutValue =
   TxOutValue MultiAssetInAlonzoEra
-
-fromLedgerValue :: Ledger.Mary.Value Ledger.StandardCrypto -> Value
-fromLedgerValue =
-  fromMaryValue
-
-toLedgerValue :: Value -> Ledger.Mary.Value Ledger.StandardCrypto
-toLedgerValue =
-  toMaryValue
-
-toPlutusValue :: Value -> Plutus.Value
-toPlutusValue =
-  Ledger.transValue . toLedgerValue
 
 --
 -- Formatting
@@ -870,6 +750,19 @@ shrinkUtxo = shrinkMapBy (Utxo . fromList) utxoPairs (shrinkList shrinkOne)
 shrinkValue :: Value -> [Value]
 shrinkValue =
   shrinkMapBy valueFromList valueToList shrinkListAggressively
+
+--
+-- Arbitrary Orphans
+--
+
+instance Arbitrary AssetName where
+  arbitrary = AssetName . BS.take 32 <$> arbitrary
+
+instance Arbitrary TxIn where
+  arbitrary = fromShelleyTxIn <$> arbitrary
+
+instance Arbitrary (TxOut CtxUTxO AlonzoEra) where
+  arbitrary = fromShelleyTxOut ShelleyBasedEraAlonzo <$> arbitrary
 
 --
 -- Temporary / Quick-n-dirty
