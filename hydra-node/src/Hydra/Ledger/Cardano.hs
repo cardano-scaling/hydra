@@ -1,3 +1,4 @@
+{-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE DerivingStrategies #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE TypeApplications #-}
@@ -169,7 +170,6 @@ mkScriptAddress networkId script =
 
 -- ** Datum / Redeemer
 
---
 newtype SomeData = SomeData Plutus.Data
 
 instance Plutus.ToData SomeData where
@@ -373,7 +373,19 @@ type Utxo = Utxo' (TxOut CtxUTxO Era)
 newtype Utxo' out = Utxo
   { utxoMap :: Map TxIn out
   }
-  deriving newtype (Eq, Show)
+  deriving newtype
+    ( Eq
+    , Show
+    , Functor
+    , Foldable
+    , Semigroup
+    , Monoid
+    , ToJSON
+    , FromJSON
+    )
+
+instance Traversable Utxo' where
+  traverse fn (Utxo m) = Utxo <$> traverse fn m
 
 instance ToCBOR Utxo where
   toCBOR = toCBOR . toLedgerUtxo
@@ -382,25 +394,6 @@ instance ToCBOR Utxo where
 instance FromCBOR Utxo where
   fromCBOR = fromLedgerUtxo <$> fromCBOR
   label _ = label (Proxy @(Ledger.UTxO LedgerEra))
-
-instance Functor Utxo' where
-  fmap fn (Utxo u) = Utxo (fmap fn u)
-
-instance Foldable Utxo' where
-  foldMap fn = foldMap fn . utxoMap
-  foldr fn zero = foldr fn zero . utxoMap
-
-instance Semigroup Utxo where
-  Utxo uL <> Utxo uR = Utxo (uL <> uR)
-
-instance Monoid Utxo where
-  mempty = Utxo mempty
-
-instance ToJSON Utxo where
-  toJSON = toJSON . utxoMap
-
-instance FromJSON Utxo where
-  parseJSON = fmap Utxo . parseJSON
 
 -- TODO: Use Alonzo generators!
 -- probably: import Test.Cardano.Ledger.Alonzo.AlonzoEraGen ()
