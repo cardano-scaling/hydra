@@ -683,8 +683,8 @@ fromLedgerTxWitness wits =
 -- Value
 --
 
-liftValue :: Value -> TxOutValue Era
-liftValue =
+mkTxOutValue :: Value -> TxOutValue Era
+mkTxOutValue =
   TxOutValue MultiAssetInAlonzoEra
 
 fromLedgerValue :: Ledger.Mary.Value Ledger.StandardCrypto -> Value

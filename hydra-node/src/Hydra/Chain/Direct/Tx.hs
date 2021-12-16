@@ -194,28 +194,25 @@ initTx cardanoKeys HeadParameters{contestationPeriod, parties} txIn =
     Api.unsafeBuildTransaction $
       Api.emptyTxBody
         & Api.addVkInputs [Api.fromLedgerTxIn txIn]
-        & Api.addOutputs (headOut : map mkInitial cardanoKeys)
+        & Api.addOutputs (headOutput : map mkInitialOutput cardanoKeys)
  where
-  headOut =
-    Api.TxOut headAddress headValue headDatum
-   where
-    headScript = (Api.fromPlutusScript $ MockHead.validatorScript policyId)
-    headAddress = Api.mkScriptAddress networkId headScript
-    headValue = Api.lovelaceToTxOutValue $ Api.Lovelace 2_000_000
-    headDatum =
-      Api.mkTxOutDatum $
-        MockHead.Initial
-          (contestationPeriodFromDiffTime contestationPeriod)
-          (map (partyFromVerKey . vkey) parties)
+  headOutput = Api.TxOut headAddress headValue headDatum
+  headScript = (Api.fromPlutusScript $ MockHead.validatorScript policyId)
+  headAddress = Api.mkScriptAddress networkId headScript
+  headValue = Api.lovelaceToTxOutValue $ Api.Lovelace 2_000_000
+  headDatum =
+    Api.mkTxOutDatum $
+      MockHead.Initial
+        (contestationPeriodFromDiffTime contestationPeriod)
+        (map (partyFromVerKey . vkey) parties)
 
-  mkInitial (Api.toPlutusKeyHash . Api.verificationKeyHash -> vkh) =
-    Api.TxOut initialAddress initialValue initialDatum
-   where
-    initialScript = Api.fromPlutusScript MockInitial.validatorScript
-    -- FIXME: should really be the minted PTs plus some ADA to make the ledger happy
-    initialValue = Api.lovelaceToTxOutValue $ Api.Lovelace 2_000_000
-    initialAddress = Api.mkScriptAddress networkId initialScript
-    initialDatum = Api.mkTxOutDatum $ MockInitial.datum vkh
+  mkInitialOutput (Api.toPlutusKeyHash . Api.verificationKeyHash -> vkh) =
+    Api.TxOut initialAddress initialValue (mkInitialDatum vkh)
+  initialScript = Api.fromPlutusScript MockInitial.validatorScript
+  -- FIXME: should really be the minted PTs plus some ADA to make the ledger happy
+  initialValue = Api.lovelaceToTxOutValue $ Api.Lovelace 2_000_000
+  initialAddress = Api.mkScriptAddress networkId initialScript
+  mkInitialDatum = Api.mkTxOutDatum . MockInitial.datum
 
 pubKeyHash :: VerificationKey PaymentKey -> PubKeyHash
 pubKeyHash (PaymentVerificationKey vkey) = transKeyHash $ hashKey @StandardCrypto $ vkey
@@ -243,21 +240,19 @@ commitTx party utxo (initialInput, vkh) =
         & Api.addVkInputs [commit | Just (commit, _) <- [utxo]]
         & Api.addOutputs [commitOutput]
  where
-  initialWitness =
-    Api.BuildTxWith $ Api.mkScriptWitness initialScript initialDatum initialRedeemer
-   where
-    initialScript = Api.fromPlutusScript' MockInitial.validatorScript
-    initialDatum = Api.mkDatumForTxIn $ MockInitial.datum vkh
-    initialRedeemer = Api.mkRedeemerForTxIn $ MockInitial.redeemer ()
+  initialWitness = Api.BuildTxWith $ Api.mkScriptWitness initialScript initialDatum initialRedeemer
+  initialScript = Api.fromPlutusScript' MockInitial.validatorScript
+  initialDatum = Api.mkDatumForTxIn $ MockInitial.datum vkh
+  initialRedeemer = Api.mkRedeemerForTxIn $ MockInitial.redeemer ()
 
-  commitOutput =
-    Api.TxOut commitAddress commitValue commitDatum
-   where
-    commitScript = Api.fromPlutusScript MockCommit.validatorScript
-    commitAddress = Api.mkScriptAddress networkId commitScript
-    -- FIXME: We should add the value from the initialIn too because it contains the PTs
-    commitValue = Api.liftValue $ Api.lovelaceToValue 2_000_000 <> maybe mempty (Api.txOutValue . snd) utxo
-    commitDatum = Api.mkTxOutDatum $ mkCommitDatum party utxo
+  commitOutput = Api.TxOut commitAddress commitValue commitDatum
+  commitScript = Api.fromPlutusScript MockCommit.validatorScript
+  commitAddress = Api.mkScriptAddress networkId commitScript
+  -- FIXME: We should add the value from the initialIn too because it contains the PTs
+  commitValue =
+    Api.mkTxOutValue $
+      Api.lovelaceToValue 2_000_000 <> maybe mempty (Api.txOutValue . snd) utxo
+  commitDatum = Api.mkTxOutDatum $ mkCommitDatum party utxo
 
 mkCommitDatum :: Party -> Maybe (Api.TxIn, Api.TxOut Api.CtxUTxO Api.Era) -> Plutus.Datum
 mkCommitDatum (partyFromVerKey . vkey -> party) utxo =
