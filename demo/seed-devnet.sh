@@ -6,6 +6,8 @@ set -e
 
 TESTNET_MAGIC=42
 MARKER_DATUM_HASH="a654fb60d21c1fed48db2c320aa6df9737ec0204c0ba53b9b94a09fb40e757f3"
+DEVNET_FUNDS=900000000000
+STANDARD_FEE=167393
 DEVNET_DIR=/data
 
 function ccli() {
@@ -13,10 +15,11 @@ function ccli() {
   docker-compose exec cardano-node cardano-cli ${@} --testnet-magic 42
 }
 
-function seedPayment() {
+function seedCommit() {
     ACTOR=${1}
-    AMOUNT=${2}
-    echo >&2 "Seeding a payment UTXO for ${ACTOR} with ${AMOUNT} lovelace"
+    COMMIT_AMOUNT=${2}
+    FUEL_AMOUNT=$((${DEVNET_FUNDS}-${COMMIT_AMOUNT}-${STANDARD_FEE}))
+    echo >&2 "Seeding a commit UTXO for ${ACTOR} with ${COMMIT_AMOUNT}Ł (${FUEL_AMOUNT}Ł of fuel)"
 
     ADDR=$(ccli address build --payment-verification-key-file ${DEVNET_DIR}/credentials/${ACTOR}.vk)
     GENESIS_TXIN=$(ccli genesis initial-txin --verification-key-file ${DEVNET_DIR}/credentials/${ACTOR}-genesis.vk | tr -d '\n\r')
@@ -24,7 +27,7 @@ function seedPayment() {
     ccli transaction build --alonzo-era --cardano-mode \
         --change-address ${ADDR} \
         --tx-in ${GENESIS_TXIN} \
-        --tx-out ${ADDR}+${AMOUNT} \
+        --tx-out ${ADDR}+${FUEL_AMOUNT} \
         --tx-out-datum-hash ${MARKER_DATUM_HASH} \
         --out-file ${DEVNET_DIR}/${ACTOR}.draft
     ccli transaction sign \
@@ -34,6 +37,6 @@ function seedPayment() {
     ccli transaction submit --tx-file ${DEVNET_DIR}/${ACTOR}.signed
 }
 
-seedPayment "alice" $((900000000000-1000000000))
-seedPayment "bob" $((900000000000-500000000))
-seedPayment "carol" $((900000000000-250000000))
+seedCommit "alice" 1000000000
+seedCommit "bob" 500000000
+seedCommit "carol" 250000000
