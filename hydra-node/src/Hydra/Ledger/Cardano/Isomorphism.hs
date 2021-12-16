@@ -1,10 +1,3 @@
-{-# LANGUAGE DerivingStrategies #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE QuasiQuotes #-}
-{-# LANGUAGE TypeApplications #-}
-{-# LANGUAGE TypeSynonymInstances #-}
-{-# LANGUAGE UndecidableInstances #-}
-
 -- | Anti-corruption module with isomorphisms from and to cardano-api,
 -- cardano-ledger and plutus. Across the Hydra code-base we aim for sticking to
 -- the cardano-api as much as possible, although with a few extra helpers on top
@@ -64,9 +57,6 @@ type LedgerCrypto = Ledger.StandardCrypto
 type LedgerEra = Ledger.Alonzo.AlonzoEra LedgerCrypto
 
 type CardanoTx = Tx Era
-
--- TODO: This is copied straight from 'cardano-api', could be exposed upstream.
-type TxIns build era = [(TxIn, BuildTxWith build (Witness WitCtxTxIn era))]
 
 -- * Isomorphisms
 

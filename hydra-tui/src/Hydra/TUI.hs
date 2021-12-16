@@ -6,7 +6,7 @@
 
 module Hydra.TUI where
 
-import Hydra.Prelude hiding (State)
+import Hydra.Prelude hiding (State, padLeft)
 
 import Brick
 

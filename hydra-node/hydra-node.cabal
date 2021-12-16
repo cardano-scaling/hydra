@@ -87,6 +87,7 @@ library
     Hydra.HeadLogic
     Hydra.Ledger
     Hydra.Ledger.Cardano
+    Hydra.Ledger.Cardano.Builder
     Hydra.Ledger.Cardano.Isomorphism
     Hydra.Ledger.Cardano.Json
     Hydra.Ledger.Simple
