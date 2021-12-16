@@ -1,3 +1,5 @@
+{-# OPTIONS_GHC -Wno-orphans #-}
+
 module Hydra.Chain.Direct.ContractSpec where
 
 import Hydra.Prelude hiding (label)
@@ -35,12 +37,14 @@ import Hydra.Ledger.Cardano (
   toLedgerTx,
   toLedgerUtxo,
  )
+import Plutus.Orphans ()
 import Plutus.V1.Ledger.Api (fromData, toData)
 import Test.QuickCheck (
   Property,
   counterexample,
   forAll,
   property,
+  suchThat,
  )
 import Test.QuickCheck.Instances ()
 
@@ -116,28 +120,31 @@ instance Arbitrary Mutation where
 
 applyMutation :: CardanoTx -> Mutation -> Gen CardanoTx
 applyMutation (Tx body wits) = \case
-  ChangeHeadRedeemer ->
+  ChangeHeadRedeemer -> do
     let ShelleyTxBody era ledgerBody scripts scriptData mAuxData scriptValidity = body
-        body' = ShelleyTxBody era ledgerBody scripts (alterRedeemers changeHeadRedeemer scriptData) mAuxData scriptValidity
-     in pure (Tx body' wits)
+    body' <-
+      alterRedeemers changeHeadRedeemer scriptData
+        >>= \redeemers -> pure $ ShelleyTxBody era ledgerBody scripts redeemers mAuxData scriptValidity
+    pure (Tx body' wits)
 
-changeHeadRedeemer :: (Ledger.Data era, Ledger.ExUnits) -> (Ledger.Data era, Ledger.ExUnits)
-changeHeadRedeemer (dat, units) =
+changeHeadRedeemer :: (Ledger.Data era, Ledger.ExUnits) -> Gen (Ledger.Data era, Ledger.ExUnits)
+changeHeadRedeemer redeemer@(dat, units) =
   case fromData (Ledger.getPlutusData dat) of
-    Just (_ :: MockHead.Input) ->
-      -- TODO: This needs to be arbitrary, and we need a monadic / applicative result
-      (Ledger.Data (toData MockHead.Abort), units)
+    Just (oldRedeemer :: MockHead.Input) -> do
+      newRedeemer <- arbitrary `suchThat` (/= oldRedeemer)
+      pure (Ledger.Data (toData newRedeemer), units)
     Nothing ->
-      (dat, units)
+      pure redeemer
 
 alterRedeemers ::
-  ((Ledger.Data LedgerEra, Ledger.ExUnits) -> (Ledger.Data LedgerEra, Ledger.ExUnits)) ->
+  ((Ledger.Data LedgerEra, Ledger.ExUnits) -> Gen (Ledger.Data LedgerEra, Ledger.ExUnits)) ->
   TxBodyScriptData AlonzoEra ->
-  TxBodyScriptData AlonzoEra
+  Gen (TxBodyScriptData AlonzoEra)
 alterRedeemers fn = \case
   TxBodyNoScriptData -> error "TxBodyNoScriptData unexpected"
-  TxBodyScriptData supportedInEra dats (Ledger.Redeemers redeemers) ->
-    TxBodyScriptData supportedInEra dats (Ledger.Redeemers $ fmap fn redeemers)
+  TxBodyScriptData supportedInEra dats (Ledger.Redeemers redeemers) -> do
+    newRedeemers <- traverse fn redeemers
+    pure $ TxBodyScriptData supportedInEra dats (Ledger.Redeemers newRedeemers)
 
 --
 -- Generators
@@ -151,3 +158,12 @@ genCloseTx = do
       headDatum = Ledger.Data $ toData MockHead.Open
       lookupUtxo = Ledger.UTxO $ Map.singleton headInput headOutput
   pure (fromLedgerTx $ closeTx 1 utxo (headInput, headOutput, headDatum), fromLedgerUtxo lookupUtxo)
+
+---
+--- Orphans
+---
+
+deriving instance Eq MockHead.Input
+
+instance Arbitrary MockHead.Input where
+  arbitrary = genericArbitrary
