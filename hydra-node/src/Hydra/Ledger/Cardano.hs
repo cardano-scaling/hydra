@@ -179,6 +179,15 @@ mkTxOutDatum :: Plutus.ToData a => a -> TxOutDatum CtxTx Era
 mkTxOutDatum =
   TxOutDatum ScriptDataInAlonzoEra . fromPlutusData . Plutus.toData
 
+toTxDatum :: TxOutDatum CtxUTxO Era -> TxOutDatum CtxTx Era
+toTxDatum = \case
+  TxOutDatumNone -> TxOutDatumNone
+  TxOutDatumHash sdsie ha -> TxOutDatumHash sdsie ha
+
+mkTxOutDatumHash :: Plutus.ToData a => a -> TxOutDatum CtxUTxO Era
+mkTxOutDatumHash =
+  TxOutDatumHash ScriptDataInAlonzoEra . hashScriptData . fromPlutusData . Plutus.toData
+
 mkDatumForTxIn :: Plutus.ToData a => a -> ScriptDatum WitCtxTxIn
 mkDatumForTxIn =
   ScriptDatumForTxIn . fromPlutusData . Plutus.toData

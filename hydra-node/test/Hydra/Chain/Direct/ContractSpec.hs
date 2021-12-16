@@ -1,3 +1,4 @@
+{-# LANGUAGE TypeApplications #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 
 module Hydra.Chain.Direct.ContractSpec where
@@ -25,15 +26,19 @@ import qualified Hydra.Contract.MockHead as MockHead
 import Hydra.Ledger.Cardano (
   AlonzoEra,
   CardanoTx,
+  CtxUTxO,
+  Era,
   LedgerCrypto,
   LedgerEra,
   Tx (Tx),
   TxBody (ShelleyTxBody),
   TxBodyScriptData (TxBodyNoScriptData, TxBodyScriptData),
+  TxOut (..),
   Utxo,
   describeCardanoTx,
   fromLedgerTx,
   fromLedgerUtxo,
+  mkTxOutDatumHash,
   toLedgerTx,
   toLedgerUtxo,
  )
@@ -120,14 +125,25 @@ instance Arbitrary Mutation where
   arbitrary = genericArbitrary
 
 applyMutation :: (CardanoTx, Utxo) -> Mutation -> Gen (CardanoTx, Utxo)
-applyMutation (Tx body wits, utxo) = \case
+applyMutation (tx@(Tx body wits), utxo) = \case
   ChangeHeadRedeemer -> do
     let ShelleyTxBody era ledgerBody scripts scriptData mAuxData scriptValidity = body
     body' <-
       alterRedeemers changeHeadRedeemer scriptData
         >>= \redeemers -> pure $ ShelleyTxBody era ledgerBody scripts redeemers mAuxData scriptValidity
     pure (Tx body' wits, utxo)
-  ChangeHeadDatum -> error "not implemented"
+  ChangeHeadDatum -> do
+    let fn o@(TxOut addr value _)
+          | isHeadOutput o = do
+            d' <- mkTxOutDatumHash <$> arbitrary @MockHead.State
+            pure (TxOut addr value d')
+          | otherwise =
+            pure o
+    utxo' <- traverse fn utxo
+    pure (tx, utxo')
+
+isHeadOutput :: TxOut CtxUTxO Era -> Bool
+isHeadOutput = error "TODO: isHeadOutput"
 
 changeHeadRedeemer :: (Ledger.Data era, Ledger.ExUnits) -> Gen (Ledger.Data era, Ledger.ExUnits)
 changeHeadRedeemer redeemer@(dat, units) =
@@ -172,3 +188,6 @@ deriving instance Eq MockHead.Input
 
 instance Arbitrary MockHead.Input where
   arbitrary = genericArbitrary
+
+instance Arbitrary MockHead.State where
+  arbitrary = error "TODO: Arbitrary MockHead.State"
