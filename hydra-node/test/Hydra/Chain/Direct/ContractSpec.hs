@@ -50,7 +50,6 @@ import Test.QuickCheck (
   counterexample,
   forAll,
   property,
-  suchThat,
   (==>),
  )
 import Test.QuickCheck.Instances ()
@@ -61,19 +60,22 @@ spec = describe "On-chain contracts" $ do
     prop "validates a proper close tx." $
       forAll genCloseTx propTransactionValidates
     prop "does not survive random mutations." $
-      propMutation genCloseTx
+      propMutation genCloseTx $ \case
+        ChangeHeadRedeemer MockHead.Close{} -> True
+        ChangeHeadDatum MockHead.Open -> True
+        _ -> False
 
 --
 -- Properties
 --
 
-propMutation :: Gen (CardanoTx, Utxo) -> Property
-propMutation txGenerator =
+propMutation :: Gen (CardanoTx, Utxo) -> (Mutation -> Bool) -> Property
+propMutation txGenerator acceptableMutation =
   forAll txGenerator $ \(tx, utxo) ->
     forAll arbitrary $ \mutation ->
-      forAll (applyMutation (tx, utxo) mutation) $ \(tx', utxo') ->
-        (tx /= tx' || utxo /= utxo')
-          ==> propTransactionDoesNotValidate (tx', utxo')
+      let (tx', utxo') = applyMutation (tx, utxo) mutation
+       in not (acceptableMutation mutation)
+            ==> propTransactionDoesNotValidate (tx', utxo')
 
 propTransactionDoesNotValidate :: (CardanoTx, Utxo) -> Property
 propTransactionDoesNotValidate (tx, lookupUtxo) =
@@ -120,29 +122,27 @@ evaluateTx tx utxo =
 --
 
 data Mutation
-  = ChangeHeadRedeemer
+  = ChangeHeadRedeemer MockHead.Input
   | ChangeHeadDatum MockHead.State
   deriving (Show, Generic)
 
 instance Arbitrary Mutation where
   arbitrary = genericArbitrary
 
-applyMutation :: (CardanoTx, Utxo) -> Mutation -> Gen (CardanoTx, Utxo)
+applyMutation :: (CardanoTx, Utxo) -> Mutation -> (CardanoTx, Utxo)
 applyMutation (tx@(Tx body wits), utxo) = \case
-  ChangeHeadRedeemer -> do
+  ChangeHeadRedeemer newRedeemer ->
     let ShelleyTxBody era ledgerBody scripts scriptData mAuxData scriptValidity = body
-    body' <-
-      alterRedeemers changeHeadRedeemer scriptData
-        >>= \redeemers -> pure $ ShelleyTxBody era ledgerBody scripts redeemers mAuxData scriptValidity
-    pure (Tx body' wits, utxo)
-  ChangeHeadDatum d' -> do
+        redeemers = alterRedeemers (changeHeadRedeemer newRedeemer) scriptData
+        body' = ShelleyTxBody era ledgerBody scripts redeemers mAuxData scriptValidity
+     in (Tx body' wits, utxo)
+  ChangeHeadDatum d' ->
     let fn o@(TxOut addr value _)
-          | isHeadOutput o = do
-            pure (TxOut addr value $ mkTxOutDatumHash d')
+          | isHeadOutput o =
+            (TxOut addr value $ mkTxOutDatumHash d')
           | otherwise =
-            pure o
-    utxo' <- traverse fn utxo
-    pure (tx, utxo')
+            o
+     in (tx, fmap fn utxo)
 
 isHeadOutput :: TxOut CtxUTxO Era -> Bool
 isHeadOutput (TxOut addr _ _) = addr == headAddress
@@ -151,27 +151,23 @@ isHeadOutput (TxOut addr _ _) = addr == headAddress
 
   headScript = Api.fromPlutusScript $ MockHead.validatorScript policyId
 
-changeHeadRedeemer :: (Ledger.Data era, Ledger.ExUnits) -> Gen (Ledger.Data era, Ledger.ExUnits)
-changeHeadRedeemer redeemer@(dat, units) =
+changeHeadRedeemer :: MockHead.Input -> (Ledger.Data era, Ledger.ExUnits) -> (Ledger.Data era, Ledger.ExUnits)
+changeHeadRedeemer newRedeemer redeemer@(dat, units) =
   case fromData (Ledger.getPlutusData dat) of
     Just (_ :: MockHead.Input) -> do
-      newRedeemer <-
-        arbitrary `suchThat` \case
-          MockHead.Close{} -> False
-          _ -> True
-      pure (Ledger.Data (toData newRedeemer), units)
+      (Ledger.Data (toData newRedeemer), units)
     Nothing ->
-      pure redeemer
+      redeemer
 
 alterRedeemers ::
-  ((Ledger.Data LedgerEra, Ledger.ExUnits) -> Gen (Ledger.Data LedgerEra, Ledger.ExUnits)) ->
+  ((Ledger.Data LedgerEra, Ledger.ExUnits) -> (Ledger.Data LedgerEra, Ledger.ExUnits)) ->
   TxBodyScriptData AlonzoEra ->
-  Gen (TxBodyScriptData AlonzoEra)
+  TxBodyScriptData AlonzoEra
 alterRedeemers fn = \case
   TxBodyNoScriptData -> error "TxBodyNoScriptData unexpected"
-  TxBodyScriptData supportedInEra dats (Ledger.Redeemers redeemers) -> do
-    newRedeemers <- traverse fn redeemers
-    pure $ TxBodyScriptData supportedInEra dats (Ledger.Redeemers newRedeemers)
+  TxBodyScriptData supportedInEra dats (Ledger.Redeemers redeemers) ->
+    let newRedeemers = fmap fn redeemers
+     in TxBodyScriptData supportedInEra dats (Ledger.Redeemers newRedeemers)
 
 --
 -- Generators
