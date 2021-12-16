@@ -25,6 +25,7 @@ import qualified Cardano.Crypto.DSIGN as CC
 import qualified Cardano.Crypto.Hash.Class as CC
 import qualified Cardano.Ledger.Address as Ledger
 import qualified Cardano.Ledger.Alonzo as Ledger.Alonzo
+import qualified Cardano.Ledger.Alonzo.Data as Ledger
 import qualified Cardano.Ledger.Alonzo.PParams as Ledger.Alonzo
 import qualified Cardano.Ledger.Alonzo.Scripts as Ledger.Alonzo
 import qualified Cardano.Ledger.Alonzo.Tx as Ledger.Alonzo
@@ -491,13 +492,16 @@ fromLedgerTxId (Ledger.TxId h) =
 
 fromPlutusScript :: Plutus.Script -> Script PlutusScriptV1
 fromPlutusScript =
-  PlutusScript PlutusScriptV1 . fromPlutusScript'
+  asScript . fromPlutusScript'
 
 fromPlutusScript' :: Plutus.Script -> PlutusScript PlutusScriptV1
 fromPlutusScript' script =
   PlutusScriptSerialised bytes
  where
   bytes = toShort . fromLazy . serialise $ script
+
+asScript :: PlutusScript PlutusScriptV1 -> Script PlutusScriptV1
+asScript = PlutusScript PlutusScriptV1
 
 --
 -- Keys
@@ -576,6 +580,11 @@ fromMaryTxOut = \case
 -- Datums & Redeemers
 --
 
+newtype SomeData = SomeData Plutus.Data
+
+instance Plutus.ToData SomeData where
+  toBuiltinData = coerce
+
 mkTxOutDatum :: Plutus.ToData a => a -> TxOutDatum CtxTx Era
 mkTxOutDatum =
   TxOutDatum ScriptDataInAlonzoEra . fromPlutusData . Plutus.toData
@@ -587,6 +596,9 @@ mkDatumForTxIn =
 mkRedeemerForTxIn :: Plutus.ToData a => a -> ScriptRedeemer
 mkRedeemerForTxIn =
   fromPlutusData . Plutus.toData
+
+fromLedgerData :: Ledger.Data LedgerEra -> ScriptDatum WitCtxTxIn
+fromLedgerData = ScriptDatumForTxIn . fromAlonzoData
 
 --
 -- Utxo
@@ -690,6 +702,14 @@ mkTxOutValue =
 fromLedgerValue :: Ledger.Mary.Value Ledger.StandardCrypto -> Value
 fromLedgerValue =
   fromMaryValue
+
+toLedgerValue :: Value -> Ledger.Mary.Value Ledger.StandardCrypto
+toLedgerValue =
+  toMaryValue
+
+toPlutusValue :: Value -> Plutus.Value
+toPlutusValue =
+  Ledger.transValue . toLedgerValue
 
 --
 -- Formatting
