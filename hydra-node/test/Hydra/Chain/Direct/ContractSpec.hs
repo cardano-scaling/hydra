@@ -20,7 +20,7 @@ import qualified Cardano.Ledger.Shelley.API as Ledger
 import qualified Data.Map as Map
 import Data.Maybe.Strict (StrictMaybe (..))
 import qualified Hydra.Chain.Direct.Fixture as Fixture
-import Hydra.Chain.Direct.Tx (closeTx)
+import Hydra.Chain.Direct.Tx (closeTx, networkId, policyId)
 import Hydra.Chain.Direct.TxSpec (mkHeadOutput)
 import qualified Hydra.Contract.MockHead as MockHead
 import Hydra.Ledger.Cardano (
@@ -42,6 +42,7 @@ import Hydra.Ledger.Cardano (
   toLedgerTx,
   toLedgerUtxo,
  )
+import qualified Hydra.Ledger.Cardano as Api
 import Plutus.Orphans ()
 import Plutus.V1.Ledger.Api (fromData, toData)
 import Test.QuickCheck (
@@ -143,7 +144,11 @@ applyMutation (tx@(Tx body wits), utxo) = \case
     pure (tx, utxo')
 
 isHeadOutput :: TxOut CtxUTxO Era -> Bool
-isHeadOutput = error "TODO: isHeadOutput"
+isHeadOutput (TxOut addr _ _) = addr == headAddress
+ where
+  headAddress = Api.mkScriptAddress networkId headScript
+
+  headScript = Api.fromPlutusScript $ MockHead.validatorScript policyId
 
 changeHeadRedeemer :: (Ledger.Data era, Ledger.ExUnits) -> Gen (Ledger.Data era, Ledger.ExUnits)
 changeHeadRedeemer redeemer@(dat, units) =
@@ -190,4 +195,4 @@ instance Arbitrary MockHead.Input where
   arbitrary = genericArbitrary
 
 instance Arbitrary MockHead.State where
-  arbitrary = error "TODO: Arbitrary MockHead.State"
+  arbitrary = genericArbitrary
