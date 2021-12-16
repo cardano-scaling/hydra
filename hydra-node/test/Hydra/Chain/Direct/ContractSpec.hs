@@ -62,10 +62,10 @@ spec = describe "On-chain contracts" $ do
 
 propMutation :: Gen (CardanoTx, Utxo) -> Property
 propMutation txGenerator =
-  forAll txGenerator $ \(tx, lookupUtxo) ->
+  forAll txGenerator $ \(tx, utxo) ->
     forAll arbitrary $ \mutation ->
-      forAll (applyMutation tx mutation) $ \tx' ->
-        propTransactionDoesNotValidate (tx', lookupUtxo)
+      forAll (applyMutation (tx, utxo) mutation) $ \(tx', utxo') ->
+        propTransactionDoesNotValidate (tx', utxo')
 
 propTransactionDoesNotValidate :: (CardanoTx, Utxo) -> Property
 propTransactionDoesNotValidate (tx, lookupUtxo) =
@@ -113,19 +113,21 @@ evaluateTx tx utxo =
 
 data Mutation
   = ChangeHeadRedeemer
+  | ChangeHeadDatum
   deriving (Show, Generic)
 
 instance Arbitrary Mutation where
   arbitrary = genericArbitrary
 
-applyMutation :: CardanoTx -> Mutation -> Gen CardanoTx
-applyMutation (Tx body wits) = \case
+applyMutation :: (CardanoTx, Utxo) -> Mutation -> Gen (CardanoTx, Utxo)
+applyMutation (Tx body wits, utxo) = \case
   ChangeHeadRedeemer -> do
     let ShelleyTxBody era ledgerBody scripts scriptData mAuxData scriptValidity = body
     body' <-
       alterRedeemers changeHeadRedeemer scriptData
         >>= \redeemers -> pure $ ShelleyTxBody era ledgerBody scripts redeemers mAuxData scriptValidity
-    pure (Tx body' wits)
+    pure (Tx body' wits, utxo)
+  ChangeHeadDatum -> error "not implemented"
 
 changeHeadRedeemer :: (Ledger.Data era, Ledger.ExUnits) -> Gen (Ledger.Data era, Ledger.ExUnits)
 changeHeadRedeemer redeemer@(dat, units) =
