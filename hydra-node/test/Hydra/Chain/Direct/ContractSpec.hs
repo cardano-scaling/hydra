@@ -51,6 +51,7 @@ import Test.QuickCheck (
   forAll,
   property,
   suchThat,
+  (==>),
  )
 import Test.QuickCheck.Instances ()
 
@@ -71,7 +72,8 @@ propMutation txGenerator =
   forAll txGenerator $ \(tx, utxo) ->
     forAll arbitrary $ \mutation ->
       forAll (applyMutation (tx, utxo) mutation) $ \(tx', utxo') ->
-        propTransactionDoesNotValidate (tx', utxo')
+        (tx /= tx' || utxo /= utxo')
+          ==> propTransactionDoesNotValidate (tx', utxo')
 
 propTransactionDoesNotValidate :: (CardanoTx, Utxo) -> Property
 propTransactionDoesNotValidate (tx, lookupUtxo) =
@@ -119,7 +121,7 @@ evaluateTx tx utxo =
 
 data Mutation
   = ChangeHeadRedeemer
-  | ChangeHeadDatum
+  | ChangeHeadDatum MockHead.State
   deriving (Show, Generic)
 
 instance Arbitrary Mutation where
@@ -133,11 +135,10 @@ applyMutation (tx@(Tx body wits), utxo) = \case
       alterRedeemers changeHeadRedeemer scriptData
         >>= \redeemers -> pure $ ShelleyTxBody era ledgerBody scripts redeemers mAuxData scriptValidity
     pure (Tx body' wits, utxo)
-  ChangeHeadDatum -> do
+  ChangeHeadDatum d' -> do
     let fn o@(TxOut addr value _)
           | isHeadOutput o = do
-            d' <- mkTxOutDatumHash <$> arbitrary @MockHead.State
-            pure (TxOut addr value d')
+            pure (TxOut addr value $ mkTxOutDatumHash d')
           | otherwise =
             pure o
     utxo' <- traverse fn utxo
