@@ -42,8 +42,8 @@ import Hydra.Ledger.Cardano (
   genOneUtxoFor,
  )
 import Hydra.Logging (nullTracer, showLogsOnFailure)
-import Hydra.Party (Party, deriveParty, generateKey)
-import Hydra.Snapshot (Snapshot (..))
+import Hydra.Party (Party, aggregate, deriveParty, generateKey)
+import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot (..))
 import Test.QuickCheck (generate)
 
 spec :: Spec
@@ -163,11 +163,16 @@ spec = around showLogsOnFailure $ do
             alicesCallback `observesInTime` OnCollectComTx
 
             postTx . CloseTx $
-              Snapshot
-                { number = 1
-                , utxo = someUtxo
-                , confirmed = []
+              ConfirmedSnapshot
+                { snapshot =
+                    Snapshot
+                      { number = 1
+                      , utxo = someUtxo
+                      , confirmed = []
+                      }
+                , signatures = aggregate []
                 }
+
             alicesCallback `shouldSatisfyInTime` \case
               OnCloseTx{snapshotNumber} ->
                 -- FIXME(SN): should assert contestationDeadline > current
