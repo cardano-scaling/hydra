@@ -222,8 +222,8 @@ spec =
       -- XXX(SN): tests are using a fixed snapshot number because of overlapping instances
       let sn = 1
 
-      prop "transaction size below limit" $ \utxo headIn ->
-        let tx = closeTx sn utxo (headIn, headOutput, headDatum)
+      prop "transaction size below limit" $ \sig headIn ->
+        let tx = closeTx sn sig (headIn, headOutput, headDatum)
             headOutput = mkHeadOutput SNothing
             headDatum = Data $ toData MockHead.Open
             cbor = serialize tx
@@ -233,11 +233,11 @@ spec =
               & counterexample ("Tx: " <> show tx)
               & counterexample ("Tx serialized size: " <> show len)
 
-      prop "is observed" $ \utxo headInput ->
+      prop "is observed" $ \sig headInput ->
         let headOutput = mkHeadOutput SNothing
             headDatum = Data $ toData MockHead.Open
             lookupUtxo = Map.singleton headInput headOutput
-            tx = closeTx sn utxo (headInput, headOutput, headDatum)
+            tx = closeTx sn sig (headInput, headOutput, headDatum)
             res = observeCloseTx lookupUtxo tx
          in case res of
               Just (OnCloseTx{snapshotNumber}, OpenOrClosed{}) -> snapshotNumber === sn

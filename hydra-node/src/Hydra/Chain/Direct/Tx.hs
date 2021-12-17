@@ -14,7 +14,7 @@ module Hydra.Chain.Direct.Tx where
 import Hydra.Prelude
 
 import Cardano.Api (NetworkId)
-import Cardano.Binary (serialize)
+import Cardano.Binary (serialize, serialize')
 import Cardano.Ledger.Address (Addr (Addr))
 import Cardano.Ledger.Alonzo (Script)
 import Cardano.Ledger.Alonzo.Data (Data, DataHash, getPlutusData, hashData)
@@ -63,7 +63,7 @@ import Hydra.Ledger.Cardano (
   VerificationKey (PaymentVerificationKey),
  )
 import qualified Hydra.Ledger.Cardano as Api
-import Hydra.Party (Party (Party), vkey)
+import Hydra.Party (Party (Party), Signed, vkey)
 import Hydra.Snapshot (SnapshotNumber)
 import Ledger.Value (AssetClass (..), currencyMPSHash)
 import Plutus.V1.Ledger.Api (FromData, MintingPolicyHash, PubKeyHash (..), fromData)
@@ -331,8 +331,8 @@ collectComTx networkId _utxo (Api.fromLedgerTxIn -> headInput, Api.fromLedgerDat
 -- | Create a transaction closing a head with given snapshot number and utxo.
 closeTx ::
   SnapshotNumber ->
-  -- | Snapshotted Utxo to close the Head with.
-  Utxo ->
+  -- | Signature of the snapshot, currently only the snapshot number.
+  Signed SnapshotNumber ->
   -- | Everything needed to spend the Head state-machine output.
   -- FIXME(SN): should also contain some Head identifier/address and stored Value (maybe the TxOut + Data?)
   (TxIn StandardCrypto, TxOut Era, Data Era) ->
@@ -349,22 +349,22 @@ closeTx snapshotNumber _utxo (Api.fromLedgerTxIn -> headInput, Api.fromLedgerTxO
   headScript =
     Api.fromPlutusScript $ MockHead.validatorScript policyId
   headRedeemer =
-    Api.mkRedeemerForTxIn $ closeRedeemer snapshotNumber undefined
+    Api.mkRedeemerForTxIn $ closeRedeemer snapshotNumber sig
 
   headOutputAfter =
     Api.modifyTxOutDatum (const headDatumAfter) headOutputBefore
   headDatumAfter =
     Api.mkTxOutDatum MockHead.Closed
 
-closeRedeemer :: SnapshotNumber -> ByteString -> MockHead.Input
-closeRedeemer snapshotNumber sigBytes =
+closeRedeemer :: SnapshotNumber -> Signed SnapshotNumber -> MockHead.Input
+closeRedeemer snapshotNumber sig =
   MockHead.Close
     { snapshotNumber = onChainSnapshotNumber
     , signature = onChainSignature
     }
  where
   onChainSnapshotNumber = fromIntegral snapshotNumber
-  onChainSignature = Plutus.Signature (Plutus.toBuiltin sigBytes)
+  onChainSignature = Plutus.Signature . Plutus.toBuiltin $ serialize' sig
 
 fanoutTx ::
   -- | Network identifier for address discrimination

@@ -432,10 +432,10 @@ fromPostChainTx TinyWallet{getUtxo, verificationKey} networkId headState cardano
       Initial{threadOutput, commits} -> do
         pure . Just $ collectComTx networkId utxo (convertTuple threadOutput) (Map.fromList $ fmap (\(a, b, c) -> (a, (b, c))) commits)
       st -> error $ "cannot post CollectComTx, invalid state: " <> show st
-  CloseTx Snapshot{number, utxo} ->
+  CloseTx Snapshot{number} ->
     readTVar headState >>= \case
       OpenOrClosed{threadOutput} ->
-        pure . Just $ closeTx number utxo threadOutput
+        pure . Just $ closeTx number (error "signature of snapshot number") threadOutput
       st -> error $ "cannot post CloseTx, invalid state: " <> show st
   FanoutTx{utxo} ->
     readTVar headState >>= \case
