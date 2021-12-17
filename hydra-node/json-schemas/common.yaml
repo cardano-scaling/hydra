@@ -164,7 +164,7 @@ definitions:
       properties:
         snapshot:
           $ref: "#/definitions/Snapshot"
-        signatures":
+        signatures:
           $ref: "#/definitions/MultiSigned"
         tag:
           type: string
