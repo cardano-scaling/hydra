@@ -323,40 +323,23 @@ closeTx ::
   -- FIXME(SN): should also contain some Head identifier/address and stored Value (maybe the TxOut + Data?)
   (TxIn StandardCrypto, TxOut Era, Data Era) ->
   ValidatedTx Era
-closeTx snapshotNumber _utxo (headInput, headOutput, headDatumBefore) =
-  emptyTx
-    & withBody body
-    & withDatums datums
-    & withRedeemers redeemers
-    & withScripts scripts
+closeTx snapshotNumber _utxo (Api.fromLedgerTxIn -> headInput, Api.fromLedgerTxOut -> headOutputBefore, Api.fromLedgerData -> headDatumBefore) =
+  Api.toLedgerTx $
+    Api.unsafeBuildTransaction $
+      Api.emptyTxBody
+        & Api.addInputs [(headInput, headWitness)]
+        & Api.addOutputs [headOutputAfter]
  where
-  body =
-    emptyTxBody
-      & withInputs [headInput]
-      & withOutputs
-        [ TxOut
-            (scriptAddr headScript)
-            headValue
-            (SJust $ hashData @Era headDatumAfter)
-        ]
-
-  datums = [headDatumBefore, headDatumAfter]
-
-  -- TODO(SN): store contestation deadline as tx validity range end +
-  -- contestation period in Datum or compute in observeCloseTx?
-  headDatumAfter = Data $ toData MockHead.Closed
-
-  TxOut _ headValue _ = headOutput
-
-  redeemers = [(headInput, headRedeemer)]
-
-  headRedeemer = Data $ toData $ MockHead.Close onChainSnapshotNumber
-
-  onChainSnapshotNumber = fromIntegral snapshotNumber
-
-  scripts = fromList $ map withScriptHash [headScript]
-
-  headScript = plutusScript $ MockHead.validatorScript policyId
+  headWitness =
+    Api.BuildTxWith $ Api.mkScriptWitness headScript headDatumBefore headRedeemer
+  headScript =
+    Api.fromPlutusScript' $ MockHead.validatorScript policyId
+  headRedeemer =
+    Api.mkRedeemerForTxIn $ MockHead.Close (fromIntegral snapshotNumber)
+  headOutputAfter =
+    Api.setTxOutDatum headDatumAfter headOutputBefore
+  headDatumAfter =
+    Api.mkTxOutDatum MockHead.Closed
 
 fanoutTx ::
   -- | Snapshotted Utxo to fanout on layer 1

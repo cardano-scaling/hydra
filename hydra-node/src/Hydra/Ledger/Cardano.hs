@@ -346,6 +346,9 @@ mkTxOutValue :: Value -> TxOutValue Era
 mkTxOutValue =
   TxOutValue MultiAssetInAlonzoEra
 
+setTxOutDatum :: TxOutDatum ctx Era -> TxOut ctx Era -> TxOut ctx Era
+setTxOutDatum dat (TxOut addr value _dat') =
+  TxOut addr value dat
 -- ** Value
 
 -- TODO: Maybe consider using 'renderValue' from cardano-api instead?
