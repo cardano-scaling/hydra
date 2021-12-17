@@ -62,11 +62,27 @@ instance (FromCBOR tx, FromCBOR (UtxoType tx)) => FromCBOR (Snapshot tx) where
   fromCBOR = Snapshot <$> fromCBOR <*> fromCBOR <*> fromCBOR
 
 -- | Snapshot when it was signed by all parties, i.e. it is confirmed.
-data ConfirmedSnapshot tx = ConfirmedSnapshot
-  { snapshot :: Snapshot tx
-  , signatures :: MultiSigned SnapshotNumber
-  }
+data ConfirmedSnapshot tx
+  = InitialSnapshot
+      { snapshot :: Snapshot tx
+      }
+  | ConfirmedSnapshot
+      { snapshot :: Snapshot tx
+      , signatures :: MultiSigned (Snapshot tx)
+      }
   deriving (Generic, Eq, Show, ToJSON, FromJSON)
 
-instance Arbitrary (ConfirmedSnapshot tx) where
+-- NOTE: While we could use 'snapshot' directly, this is a record-field accessor
+-- which may become partial (and lead to unnoticed runtime errors) if we ever
+-- add a new branch to the sumtype. So, we explicitely define a getter which
+-- will force us into thinking about changing the signature properly if this
+-- happens.
+
+-- | Safely get a 'Snapshot' from a confirmed snapshot.
+getSnapshot :: ConfirmedSnapshot tx -> Snapshot tx
+getSnapshot = \case
+  InitialSnapshot{snapshot} -> snapshot
+  ConfirmedSnapshot{snapshot} -> snapshot
+
+instance (Arbitrary tx, Arbitrary (UtxoType tx)) => Arbitrary (ConfirmedSnapshot tx) where
   arbitrary = genericArbitrary

@@ -22,9 +22,9 @@ import Hydra.Ledger (
   canApply,
  )
 import Hydra.Network.Message (Message (..))
-import Hydra.Party (Party, SigningKey, sign, verify)
+import Hydra.Party (Party, Signed, SigningKey, aggregate, sign, verify)
 import Hydra.ServerOutput (ServerOutput (..))
-import Hydra.Snapshot (ConfirmedSnapshot, Snapshot (..), SnapshotNumber)
+import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot (..), SnapshotNumber, getSnapshot)
 
 data Event tx
   = ClientEvent {clientInput :: ClientInput tx}
@@ -90,7 +90,10 @@ deriving instance IsTx tx => FromJSON (CoordinatedHeadState tx)
 data SeenSnapshot tx
   = NoSeenSnapshot
   | RequestedSnapshot
-  | SeenSnapshot {snapshot :: Snapshot tx, signatories :: Set Party}
+  | SeenSnapshot
+      { snapshot :: Snapshot tx
+      , signatories :: Map Party (Signed (Snapshot tx))
+      }
   deriving stock (Generic)
 
 instance (Arbitrary (UtxoType tx), Arbitrary tx) => Arbitrary (SeenSnapshot tx) where
@@ -230,7 +233,7 @@ update Environment{party, signingKey, otherParties} ledger st ev = case (st, ev)
               )
               [ClientEffect $ TxSeen tx]
   (OpenState parameters s@CoordinatedHeadState{confirmedSnapshot, seenSnapshot}, e@(NetworkEvent (ReqSn otherParty sn txs)))
-    | number confirmedSnapshot + 1 == sn && isLeader parameters otherParty sn && not (snapshotPending seenSnapshot) ->
+    | (number . getSnapshot) confirmedSnapshot + 1 == sn && isLeader parameters otherParty sn && not (snapshotPending seenSnapshot) ->
       -- TODO: Also we might be robust against multiple ReqSn for otherwise
       -- valid request, which is currently leading to 'Error'
       -- TODO: Verify the request is signed by (?) / comes from the leader
@@ -243,7 +246,7 @@ update Environment{party, signingKey, otherParties} ledger st ev = case (st, ev)
            in nextState
                 (OpenState parameters $ s{seenSnapshot = SeenSnapshot nextSnapshot mempty})
                 [NetworkEffect $ AckSn party snapshotSignature sn]
-    | sn > number confirmedSnapshot && isLeader parameters otherParty sn ->
+    | sn > (number . getSnapshot) confirmedSnapshot && isLeader parameters otherParty sn ->
       -- TODO: How to handle ReqSN with sn > confirmed + 1
       -- This code feels contrived
       case seenSnapshot of
@@ -260,14 +263,18 @@ update Environment{party, signingKey, otherParties} ledger st ev = case (st, ev)
         | otherwise ->
           let sigs'
                 -- TODO: Must check whether we know the 'otherParty' signing the snapshot
-                | verify snapshotSignature otherParty snapshot = otherParty `Set.insert` sigs
+                | verify snapshotSignature otherParty snapshot = Map.insert otherParty snapshotSignature sigs
                 | otherwise = sigs
-           in if sigs' == Set.fromList parties
+           in if Map.keysSet sigs' == Set.fromList parties
                 then
                   nextState
                     ( OpenState parameters $
                         headState
-                          { confirmedSnapshot = snapshot
+                          { confirmedSnapshot =
+                              ConfirmedSnapshot
+                                { snapshot
+                                , signatures = aggregate (Map.elems sigs)
+                                }
                           , seenSnapshot = NoSeenSnapshot
                           , seenTxs = seenTxs \\ confirmed snapshot
                           }
@@ -291,7 +298,12 @@ update Environment{party, signingKey, otherParties} ledger st ev = case (st, ev)
     --   b) Move to close state, using information from the close tx
     nextState
       (ClosedState parameters $ getField @"utxo" confirmedSnapshot)
-      [ClientEffect $ HeadIsClosed{contestationDeadline, latestSnapshot = confirmedSnapshot}]
+      [ ClientEffect $
+          HeadIsClosed
+            { contestationDeadline
+            , latestSnapshot = getSnapshot confirmedSnapshot
+            }
+      ]
   --
   (_, OnChainEvent OnContestTx{}) ->
     -- TODO: Handle contest tx
@@ -339,7 +351,7 @@ isLeader HeadParameters{parties} p sn =
 -- | Snapshot emission decider
 newSn :: IsTx tx => Environment -> HeadParameters -> CoordinatedHeadState tx -> SnapshotOutcome tx
 newSn Environment{party} parameters CoordinatedHeadState{confirmedSnapshot, seenSnapshot, seenTxs} =
-  let Snapshot{number} = confirmedSnapshot
+  let Snapshot{number} = getSnapshot confirmedSnapshot
       nextSnapshotNumber = succ number
    in if
           | not (isLeader parameters party nextSnapshotNumber) ->

@@ -94,10 +94,15 @@ verify (UnsafeSigned sig) Party{vkey} msg =
   isRight (verifyDSIGN () vkey msg sig)
 
 -- | Naiive mult-signatures.
-type MultiSigned a = [Signed a]
+newtype MultiSigned a = MultiSigned {multiSignature :: [Signed a]}
+  deriving stock (Show, Generic, Eq)
+  deriving anyclass (FromJSON, ToJSON)
+
+instance Arbitrary (MultiSigned a) where
+  arbitrary = genericArbitrary
 
 aggregate :: [Signed a] -> MultiSigned a
-aggregate = id
+aggregate = MultiSigned
 
 -- | Signature of 'a'
 newtype Signed a = UnsafeSigned (SigDSIGN MockDSIGN)
