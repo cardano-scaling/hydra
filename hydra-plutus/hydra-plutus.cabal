@@ -91,6 +91,7 @@ library
     , aeson
     , base
     , base16-bytestring
+    , bytestring
     , cardano-crypto-class
     , containers
     , directory
@@ -101,9 +102,11 @@ library
     , openapi3
     , plutus-core
     , plutus-ledger
+    , plutus-ledger-api
     , plutus-tx
     , plutus-tx-plugin
     , prettyprinter
+    , QuickCheck
     , template-haskell
     , text
     , time

@@ -364,8 +364,7 @@ closeRedeemer snapshotNumber sigBytes =
     }
  where
   onChainSnapshotNumber = fromIntegral snapshotNumber
-
-  onChainSignature = Plutus.Signature undefined
+  onChainSignature = Plutus.Signature (Plutus.toBuiltin sigBytes)
 
 fanoutTx ::
   -- | Network identifier for address discrimination

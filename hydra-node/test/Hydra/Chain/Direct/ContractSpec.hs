@@ -138,7 +138,7 @@ genCloseMutation (_tx, _utxo) =
  where
   genChangeHeadRedeemer =
     arbitrary `suchThat` \case
-      MockHead.Close sn -> sn /= 1 -- TODO: magic number, this should come from tx
+      MockHead.Close{MockHead.snapshotNumber = snapshotNumber} -> snapshotNumber /= 1 -- TODO: magic number, this should come from tx
       _ -> True
   genChangeHeadDatum =
     arbitrary `suchThat` \case
