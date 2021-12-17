@@ -49,33 +49,30 @@ import Test.QuickCheck (
   Property,
   counterexample,
   forAll,
+  oneof,
   property,
-  (==>),
+  suchThat,
  )
 import Test.QuickCheck.Instances ()
 
 spec :: Spec
 spec = describe "On-chain contracts" $ do
   describe "Close" $ do
-    prop "validates a proper close tx." $
-      forAll genCloseTx propTransactionValidates
-    prop "does not survive random mutations." $
-      propMutation genCloseTx $ \case
-        ChangeHeadRedeemer MockHead.Close{} -> True
-        ChangeHeadDatum MockHead.Open -> True
-        _ -> False
+    prop "is healthy" $
+      propTransactionValidates healthyCloseTx
+    prop "does not survive random adversarial mutations." $
+      propMutation healthyCloseTx genCloseMutation
 
 --
 -- Properties
 --
 
-propMutation :: Gen (CardanoTx, Utxo) -> (Mutation -> Bool) -> Property
-propMutation txGenerator acceptableMutation =
-  forAll txGenerator $ \(tx, utxo) ->
-    forAll arbitrary $ \mutation ->
-      let (tx', utxo') = applyMutation (tx, utxo) mutation
-       in not (acceptableMutation mutation)
-            ==> propTransactionDoesNotValidate (tx', utxo')
+propMutation :: (CardanoTx, Utxo) -> ((CardanoTx, Utxo) -> Gen Mutation) -> Property
+propMutation (tx, utxo) genMutation =
+  forAll (genMutation (tx, utxo)) $ \mutation ->
+    (tx, utxo)
+      & applyMutation mutation
+      & propTransactionDoesNotValidate
 
 propTransactionDoesNotValidate :: (CardanoTx, Utxo) -> Property
 propTransactionDoesNotValidate (tx, lookupUtxo) =
@@ -117,6 +114,22 @@ evaluateTx tx utxo =
       Fixture.costModels
 
 --
+-- Healthy Transactions
+--
+
+healthyCloseTx :: (CardanoTx, Utxo)
+healthyCloseTx =
+  ( fromLedgerTx $ closeTx 1 inHeadUtxo (headInput, headOutput, headDatum)
+  , fromLedgerUtxo lookupUtxo
+  )
+ where
+  inHeadUtxo = generateWith arbitrary 42
+  headInput = generateWith arbitrary 42
+  headOutput = mkHeadOutput (SJust headDatum)
+  headDatum = Ledger.Data $ toData MockHead.Open
+  lookupUtxo = Ledger.UTxO $ Map.singleton headInput headOutput
+
+--
 --
 -- Mutation
 --
@@ -126,11 +139,24 @@ data Mutation
   | ChangeHeadDatum MockHead.State
   deriving (Show, Generic)
 
-instance Arbitrary Mutation where
-  arbitrary = genericArbitrary
+genCloseMutation :: (CardanoTx, Utxo) -> Gen Mutation
+genCloseMutation (_tx, _utxo) =
+  oneof
+    [ ChangeHeadRedeemer <$> genChangeHeadRedeemer
+    , ChangeHeadDatum <$> genChangeHeadDatum
+    ]
+ where
+  genChangeHeadRedeemer =
+    arbitrary `suchThat` \case
+      MockHead.Close sn -> sn /= 1 -- TODO: magic number, this should come from tx
+      _ -> True
+  genChangeHeadDatum =
+    arbitrary `suchThat` \case
+      MockHead.Open -> False
+      _ -> True
 
-applyMutation :: (CardanoTx, Utxo) -> Mutation -> (CardanoTx, Utxo)
-applyMutation (tx@(Tx body wits), utxo) = \case
+applyMutation :: Mutation -> (CardanoTx, Utxo) -> (CardanoTx, Utxo)
+applyMutation mutation (tx@(Tx body wits), utxo) = case mutation of
   ChangeHeadRedeemer newRedeemer ->
     let ShelleyTxBody era ledgerBody scripts scriptData mAuxData scriptValidity = body
         redeemers = alterRedeemers (changeHeadRedeemer newRedeemer) scriptData
@@ -144,11 +170,26 @@ applyMutation (tx@(Tx body wits), utxo) = \case
             o
      in (tx, fmap fn utxo)
 
+---
+--- Orphans
+---
+
+deriving instance Eq MockHead.Input
+
+instance Arbitrary MockHead.Input where
+  arbitrary = genericArbitrary
+
+instance Arbitrary MockHead.State where
+  arbitrary = genericArbitrary
+
+--
+-- Helpers
+--
+
 isHeadOutput :: TxOut CtxUTxO Era -> Bool
 isHeadOutput (TxOut addr _ _) = addr == headAddress
  where
   headAddress = Api.mkScriptAddress networkId headScript
-
   headScript = Api.fromPlutusScript $ MockHead.validatorScript policyId
 
 changeHeadRedeemer :: MockHead.Input -> (Ledger.Data era, Ledger.ExUnits) -> (Ledger.Data era, Ledger.ExUnits)
@@ -168,28 +209,3 @@ alterRedeemers fn = \case
   TxBodyScriptData supportedInEra dats (Ledger.Redeemers redeemers) ->
     let newRedeemers = fmap fn redeemers
      in TxBodyScriptData supportedInEra dats (Ledger.Redeemers newRedeemers)
-
---
--- Generators
---
-
-genCloseTx :: Gen (CardanoTx, Utxo)
-genCloseTx = do
-  utxo <- arbitrary
-  headInput <- arbitrary
-  let headOutput = mkHeadOutput (SJust headDatum)
-      headDatum = Ledger.Data $ toData MockHead.Open
-      lookupUtxo = Ledger.UTxO $ Map.singleton headInput headOutput
-  pure (fromLedgerTx $ closeTx 1 utxo (headInput, headOutput, headDatum), fromLedgerUtxo lookupUtxo)
-
----
---- Orphans
----
-
-deriving instance Eq MockHead.Input
-
-instance Arbitrary MockHead.Input where
-  arbitrary = genericArbitrary
-
-instance Arbitrary MockHead.State where
-  arbitrary = genericArbitrary
