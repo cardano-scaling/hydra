@@ -26,9 +26,9 @@ import Hydra.Ledger (IsTx (..), Ledger (..))
 import Hydra.Ledger.Simple (SimpleTx (..), aValidTx, simpleLedger, utxoRef)
 import Hydra.Network (Host (..))
 import Hydra.Network.Message (Message (AckSn, Connected, ReqSn, ReqTx))
-import Hydra.Party (Party (..), sign)
+import Hydra.Party (Party (..), aggregate, sign)
 import Hydra.ServerOutput (ServerOutput (PeerConnected))
-import Hydra.Snapshot (Snapshot (..))
+import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot (..), getSnapshot)
 import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
 
 spec :: Spec
@@ -144,7 +144,7 @@ spec = do
                 CoordinatedHeadState
                   { seenUtxo = mempty
                   , seenTxs = mempty
-                  , confirmedSnapshot = snapshot
+                  , confirmedSnapshot = ConfirmedSnapshot snapshot (aggregate [])
                   , seenSnapshot = NoSeenSnapshot
                   }
         update env ledger st event `shouldBe` Error (InvalidEvent event st)
@@ -158,7 +158,7 @@ spec = do
                 CoordinatedHeadState
                   { seenUtxo = mempty
                   , seenTxs = mempty
-                  , confirmedSnapshot = snapshot
+                  , confirmedSnapshot = ConfirmedSnapshot snapshot (aggregate [])
                   , seenSnapshot = SeenSnapshot (Snapshot 3 mempty []) mempty
                   }
         update env ledger st event `shouldBe` Error (InvalidEvent event st)
@@ -251,7 +251,7 @@ inOpenState parties Ledger{initUtxo} =
   inOpenState' parties $ CoordinatedHeadState u0 mempty snapshot0 NoSeenSnapshot
  where
   u0 = initUtxo
-  snapshot0 = Snapshot 0 u0 mempty
+  snapshot0 = InitialSnapshot $ Snapshot 0 u0 mempty
 
 inOpenState' ::
   [Party] ->
@@ -269,8 +269,10 @@ inClosedState parties =
 
 getConfirmedSnapshot :: HeadState tx -> Maybe (Snapshot tx)
 getConfirmedSnapshot = \case
-  OpenState _ CoordinatedHeadState{confirmedSnapshot} -> Just confirmedSnapshot
-  _ -> Nothing
+  OpenState _ CoordinatedHeadState{confirmedSnapshot} ->
+    Just (getSnapshot confirmedSnapshot)
+  _ ->
+    Nothing
 
 assertNewState :: IsTx tx => Outcome tx -> IO (HeadState tx)
 assertNewState = \case
