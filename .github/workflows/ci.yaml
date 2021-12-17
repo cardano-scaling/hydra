@@ -50,3 +50,4 @@ jobs:
         github_token: ${{ secrets.GITHUB_TOKEN || github.token }}
         publish_dir: docs
         enable_jekyll: true
+        force_orphan: true
