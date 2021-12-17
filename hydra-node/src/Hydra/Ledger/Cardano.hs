@@ -1,6 +1,5 @@
 {-# LANGUAGE DerivingStrategies #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeSynonymInstances #-}
 {-# LANGUAGE UndecidableInstances #-}
@@ -8,28 +7,29 @@
 {-# OPTIONS_GHC -Wno-orphans #-}
 
 module Hydra.Ledger.Cardano (
-  module Hydra.Ledger.Cardano,
   module Cardano.Api,
   module Cardano.Api.Shelley,
+  module Hydra.Ledger.Cardano,
+  module Hydra.Ledger.Cardano.Isomorphism,
+  module Hydra.Ledger.Cardano.Builder,
   Ledger.ShelleyGenesis (..),
 ) where
 
-import Hydra.Prelude hiding (id)
+import Hydra.Prelude
 
 import Cardano.Api hiding (UTxO)
-import qualified Cardano.Api
 import Cardano.Api.Byron
 import Cardano.Api.Shelley
+import Hydra.Ledger.Cardano.Builder
+import Hydra.Ledger.Cardano.Isomorphism
+
+import qualified Cardano.Api
 import Cardano.Binary (decodeAnnotator, serialize, serialize')
 import qualified Cardano.Crypto.DSIGN as CC
-import qualified Cardano.Crypto.Hash.Class as CC
-import qualified Cardano.Ledger.Address as Ledger
-import qualified Cardano.Ledger.Alonzo as Ledger.Alonzo
 import qualified Cardano.Ledger.Alonzo.PParams as Ledger.Alonzo
 import qualified Cardano.Ledger.Alonzo.Scripts as Ledger.Alonzo
 import qualified Cardano.Ledger.Alonzo.Tx as Ledger.Alonzo
 import qualified Cardano.Ledger.Alonzo.TxBody as Ledger.Alonzo
-import qualified Cardano.Ledger.Alonzo.TxInfo as Ledger
 import qualified Cardano.Ledger.Alonzo.TxWitness as Ledger.Alonzo
 import qualified Cardano.Ledger.BaseTypes as Ledger
 import qualified Cardano.Ledger.Core as Ledger
@@ -38,9 +38,7 @@ import qualified Cardano.Ledger.Era as Ledger
 import qualified Cardano.Ledger.Keys as Ledger
 import qualified Cardano.Ledger.Mary as Ledger.Mary hiding (Value)
 import qualified Cardano.Ledger.Mary.Value as Ledger.Mary
-import qualified Cardano.Ledger.SafeHash as Ledger
 import qualified Cardano.Ledger.Shelley.API.Mempool as Ledger
-import qualified Cardano.Ledger.Shelley.Address.Bootstrap as Ledger
 import qualified Cardano.Ledger.Shelley.Genesis as Ledger
 import qualified Cardano.Ledger.Shelley.LedgerState as Ledger
 import qualified Cardano.Ledger.Shelley.Rules.Ledger as Ledger
@@ -52,22 +50,21 @@ import qualified Cardano.Slotting.EpochInfo as Slotting
 import qualified Cardano.Slotting.Time as Slotting
 import qualified Codec.CBOR.Decoding as CBOR
 import qualified Codec.CBOR.Encoding as CBOR
-import Codec.Serialise (serialise)
 import Control.Arrow (left)
 import Control.Monad (foldM)
 import qualified Control.State.Transition as Ledger
+import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as BL
 import Data.Default (Default, def)
 import qualified Data.Map.Strict as Map
 import Data.Maybe (fromJust)
 import Data.Maybe.Strict (maybeToStrictMaybe, strictMaybeToMaybe)
-import qualified Data.Set as Set
 import qualified Data.Text as T
 import Data.Text.Lazy.Builder (toLazyText)
 import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
 import Formatting.Buildable (build)
 import Hydra.Ledger (IsTx (..), Ledger (..), ValidationError (..))
-import Hydra.Ledger.Cardano.Orphans ()
+import Hydra.Ledger.Cardano.Json ()
 import qualified Plutus.V1.Ledger.Api as Plutus
 import Test.Cardano.Ledger.Alonzo.AlonzoEraGen ()
 import qualified Test.Cardano.Ledger.Alonzo.AlonzoEraGen as Ledger.Alonzo
@@ -86,13 +83,7 @@ import Test.QuickCheck (
   vectorOf,
  )
 
-type Era = AlonzoEra
-
-type LedgerCrypto = Ledger.StandardCrypto
-
-type LedgerEra = Ledger.Alonzo.AlonzoEra LedgerCrypto
-
-type CardanoTx = Tx Era
+-- * Ledger
 
 -- TODO(SN): Pre-validate transactions to get less confusing errors on
 -- transactions which are not expected to working on a layer-2
@@ -135,181 +126,75 @@ cardanoLedger =
     toValidationError = ValidationError . show
     memPoolState = (def{Ledger._utxo = utxo}, def)
 
-signWith ::
-  forall era.
-  (IsShelleyBasedEra era) =>
-  TxId ->
-  (VerificationKey PaymentKey, SigningKey PaymentKey) ->
-  KeyWitness era
-signWith (TxId h) (PaymentVerificationKey vk, PaymentSigningKey sk) =
-  ShelleyKeyWitness (shelleyBasedEra @era) $
-    Ledger.Shelley.WitVKey
-      (Ledger.asWitness vk)
-      (Ledger.signedDSIGN @Ledger.StandardCrypto sk h)
+-- * Types
+
+-- ** Address
+
+-- | Create an (undelegated) address from a verificaton key.
+--
+-- TODO: 'NetworkId' here is an annoying API because it requires a network magic
+-- for testnet addresses. Nevertheless, the network magic is only needed for
+-- Byron addresses; Shelley addresses use a different kind of network
+-- discriminant which is currently fully captured as 'Mainnet | Testnet'.
+--
+-- So, it would be a slightly better DX to use Mainnet | Testnet as an interface
+-- here since we are only constructing Shelley addresses.
+mkVkAddress ::
+  IsShelleyBasedEra era =>
+  NetworkId ->
+  VerificationKey PaymentKey ->
+  AddressInEra era
+mkVkAddress networkId vk =
+  makeShelleyAddressInEra
+    networkId
+    (PaymentCredentialByKey $ verificationKeyHash vk)
+    NoStakeAddress
+
+-- | Create an (undelegated) address from a script.
+--
+-- TODO: See remark on 'mkVkAddress' about 'NetworkId'
+mkScriptAddress ::
+  IsShelleyBasedEra era =>
+  NetworkId ->
+  Script lang ->
+  AddressInEra era
+mkScriptAddress networkId script =
+  makeShelleyAddressInEra
+    networkId
+    (PaymentCredentialByScript $ hashScript script)
+    NoStakeAddress
+
+-- ** Datum / Redeemer
 
 --
--- Type conversions & plumbing
---
+newtype SomeData = SomeData Plutus.Data
 
---
--- Utxo
---
+instance Plutus.ToData SomeData where
+  toBuiltinData = coerce
 
-type Utxo = Utxo' (TxOut CtxUTxO Era)
+mkTxOutDatum :: Plutus.ToData a => a -> TxOutDatum CtxTx Era
+mkTxOutDatum =
+  TxOutDatum ScriptDataInAlonzoEra . fromPlutusData . Plutus.toData
 
--- | Newtype with phantom types mostly required to work around the poor interface
--- of 'Ledger.UTXO'and provide 'Monoid' and 'Foldable' instances to make utxo
--- manipulation bareable.
-newtype Utxo' out = Utxo
-  { utxoMap :: Map TxIn out
-  }
-  deriving newtype (Eq, Show)
+toTxDatum :: TxOutDatum CtxUTxO Era -> TxOutDatum CtxTx Era
+toTxDatum = \case
+  TxOutDatumNone -> TxOutDatumNone
+  TxOutDatumHash sdsie ha -> TxOutDatumHash sdsie ha
 
-instance ToCBOR Utxo where
-  toCBOR = toCBOR . toLedgerUtxo
-  encodedSizeExpr sz _ = encodedSizeExpr sz (Proxy @(Ledger.UTxO LedgerEra))
+mkDatumForTxIn :: Plutus.ToData a => a -> ScriptDatum WitCtxTxIn
+mkDatumForTxIn =
+  ScriptDatumForTxIn . fromPlutusData . Plutus.toData
 
-instance FromCBOR Utxo where
-  fromCBOR = fromLedgerUtxo <$> fromCBOR
-  label _ = label (Proxy @(Ledger.UTxO LedgerEra))
+mkRedeemerForTxIn :: Plutus.ToData a => a -> ScriptRedeemer
+mkRedeemerForTxIn =
+  fromPlutusData . Plutus.toData
 
-instance Functor Utxo' where
-  fmap fn (Utxo u) = Utxo (fmap fn u)
+-- ** Script
 
-instance Foldable Utxo' where
-  foldMap fn = foldMap fn . utxoMap
-  foldr fn zero = foldr fn zero . utxoMap
+asScript :: PlutusScript PlutusScriptV1 -> Script PlutusScriptV1
+asScript = PlutusScript PlutusScriptV1
 
-instance Semigroup Utxo where
-  Utxo uL <> Utxo uR = Utxo (uL <> uR)
-
-instance Monoid Utxo where
-  mempty = Utxo mempty
-
-instance ToJSON Utxo where
-  toJSON = toJSON . utxoMap
-
-instance FromJSON Utxo where
-  parseJSON = fmap Utxo . parseJSON
-
-instance Arbitrary Utxo where
-  shrink = shrinkUtxo
-
-  -- TODO: Use Alonzo generators!
-  -- probably: import Test.Cardano.Ledger.Alonzo.AlonzoEraGen ()
-  arbitrary =
-    fmap
-      (fromLedgerUtxo . Ledger.UTxO . Map.map fromMaryTxOut . Ledger.unUTxO)
-      arbitrary
-
-utxoPairs :: Utxo' out -> [(TxIn, out)]
-utxoPairs = Map.toList . utxoMap
-
-prettyUtxo :: (TxIn, TxOut ctx era) -> Text
-prettyUtxo (k, TxOut _ (txOutValueToValue -> v) _) =
-  T.drop 54 (renderTxIn k) <> " ↦ " <> prettyValue v
-
-utxoFromTx :: CardanoTx -> Utxo
-utxoFromTx (Tx body@(ShelleyTxBody _ ledgerBody _ _ _ _) _) =
-  let txOuts = toList $ Ledger.Alonzo.outputs' ledgerBody
-      txIns =
-        [ Ledger.TxIn (toLedgerTxId $ getTxId body) ix
-        | ix <- [0 .. fromIntegral (length txOuts)]
-        ]
-   in fromLedgerUtxo $ Ledger.UTxO $ Map.fromList $ zip txIns txOuts
-
--- | Select the minimum (by TxIn) utxo entry from the Utxo map.
---
--- This function is partial.
-utxoMin :: Utxo -> Utxo
-utxoMin = Utxo . uncurry Map.singleton . Map.findMin . utxoMap
-
---
--- Transaction Construction
---
-
-type TxBuilder = TxBodyContent BuildTx Era
-
--- TODO: This is copied straight from 'cardano-api', could be exposed upstream.
-type TxIns build era = [(TxIn, BuildTxWith build (Witness WitCtxTxIn era))]
-
--- | Construct a transction from a builder. It is said 'unsafe' because the
--- underlying implementation will perform some sanity check on a transaction;
--- for example, check that it has at least one input, that no outputs are
--- negatives and whatnot.
---
--- We use the builder only internally for on-chain transaction crafted in the
--- context of Hydra.
-unsafeBuildTransaction :: HasCallStack => TxBuilder -> CardanoTx
-unsafeBuildTransaction builder =
-  either
-    (\txBodyError -> bug $ InvalidTransactionException{txBodyError, builder})
-    (`Tx` mempty)
-    . makeTransactionBody
-    $ builder
-
--- | A runtime exception to capture (programmer) failures when building
--- transactions. This should never happened in practice (famous last words...)!
-data InvalidTransactionException = InvalidTransactionException
-  { txBodyError :: TxBodyError
-  , builder :: TxBuilder
-  }
-  deriving (Show)
-
-instance Exception InvalidTransactionException
-
--- | An empty 'TxBodyContent' with all empty/zero values to be extended using
--- record updates.
---
--- FIXME: 'makeTransactionBody' throws when one tries to build a transaction
--- with scripts but no collaterals. This is unfortunate because collaterals are
--- currently added after by out integrated wallet... We may want to revisit our
--- flow to avoid this exception and have the wallet work from a TxBuilder instead
--- of fiddling with a sealed 'CardanoTx'.
---
--- Similarly, 'makeTransactionBody' throws when building a transaction
--- with scripts and no protocol parameters (needed to compute the script
--- integrity hash). This is also added by our wallet at the moment so
--- hopefully, this ugly work-around will be removed eventually.
---
--- So we currently bypass this by having default but seemingly innofensive
--- values for collaterals and protocol params in the 'empty' value
-emptyTxBody :: TxBuilder
-emptyTxBody =
-  TxBodyContent
-    mempty
-    (TxInsCollateral CollateralInAlonzoEra mempty)
-    mempty
-    (TxFeeExplicit TxFeesExplicitInAlonzoEra 0)
-    (TxValidityNoLowerBound, TxValidityNoUpperBound ValidityNoUpperBoundInAlonzoEra)
-    TxMetadataNone
-    TxAuxScriptsNone
-    TxExtraKeyWitnessesNone
-    (BuildTxWith $ Just $ fromLedgerPParams ShelleyBasedEraAlonzo def) -- FIXME
-    TxWithdrawalsNone
-    TxCertificatesNone
-    TxUpdateProposalNone
-    TxMintNone
-    TxScriptValidityNone
-
--- | Add new inputs to an ongoing builder.
-addInputs :: TxIns BuildTx Era -> TxBuilder -> TxBuilder
-addInputs ins tx =
-  tx{txIns = txIns tx <> ins}
-
--- | Like 'addInputs' but only for vk inputs which requires no additional data.
-addVkInputs :: [TxIn] -> TxBuilder -> TxBuilder
-addVkInputs ins =
-  addInputs ((,BuildTxWith $ KeyWitness KeyWitnessForSpending) <$> ins)
-
--- | Append new outputs to an ongoing builder.
-addOutputs :: [TxOut CtxTx Era] -> TxBuilder -> TxBuilder
-addOutputs outputs tx =
-  tx{txOuts = txOuts tx <> outputs}
-
---
--- Tx
---
+-- ** Tx
 
 instance IsTx CardanoTx where
   type TxIdType CardanoTx = TxId
@@ -339,6 +224,58 @@ instance FromJSON CardanoTx where
 instance Arbitrary CardanoTx where
   -- TODO: shrinker!
   arbitrary = genUtxo >>= genTx
+
+-- | Convert an existing @cardano-api@'s 'Tx' to a @cardano-ledger-specs@ 'Tx'
+toLedgerTx :: CardanoTx -> Ledger.Tx LedgerEra
+toLedgerTx = \case
+  Tx (ShelleyTxBody _era body scripts scriptsData auxData validity) vkWits ->
+    let (datums, redeemers) =
+          case scriptsData of
+            TxBodyScriptData _ ds rs -> (ds, rs)
+            TxBodyNoScriptData -> (mempty, Ledger.Alonzo.Redeemers mempty)
+     in Ledger.Alonzo.ValidatedTx
+          { Ledger.Alonzo.body =
+              body
+          , Ledger.Alonzo.isValid =
+              toLedgerScriptValidity validity
+          , Ledger.Alonzo.auxiliaryData =
+              maybeToStrictMaybe auxData
+          , Ledger.Alonzo.wits =
+              Ledger.Alonzo.TxWitness
+                { Ledger.Alonzo.txwitsVKey =
+                    toLedgerKeyWitness vkWits
+                , Ledger.Alonzo.txwitsBoot =
+                    toLedgerBootstrapWitness vkWits
+                , Ledger.Alonzo.txscripts =
+                    fromList [(Ledger.hashScript @LedgerEra s, s) | s <- scripts]
+                , Ledger.Alonzo.txdats =
+                    datums
+                , Ledger.Alonzo.txrdmrs =
+                    redeemers
+                }
+          }
+
+-- | Convert an existing @cardano-ledger-specs@'s 'Tx' into a @cardano-api@'s 'Tx'
+fromLedgerTx :: Ledger.Tx LedgerEra -> CardanoTx
+fromLedgerTx (Ledger.Alonzo.ValidatedTx body wits isValid auxData) =
+  Tx
+    (ShelleyTxBody era body scripts scriptsData (strictMaybeToMaybe auxData) validity)
+    (fromLedgerTxWitness wits)
+ where
+  era =
+    ShelleyBasedEraAlonzo
+  scripts =
+    Map.elems $ Ledger.Alonzo.txscripts' wits
+  scriptsData =
+    TxBodyScriptData
+      ScriptDataInAlonzoEra
+      (Ledger.Alonzo.txdats' wits)
+      (Ledger.Alonzo.txrdmrs' wits)
+  validity = case isValid of
+    Ledger.Alonzo.IsValid True ->
+      TxScriptValidity TxScriptValiditySupportedInAlonzoEra ScriptValid
+    Ledger.Alonzo.IsValid False ->
+      TxScriptValidity TxScriptValiditySupportedInAlonzoEra ScriptInvalid
 
 -- | Show (compact) information about a Cardano transaction for debugging purpose.
 --
@@ -395,202 +332,89 @@ mkSimpleCardanoTx (txin, TxOut owner txOutValueIn datum) (recipient, valueOut) s
 
   fee = Lovelace 0
 
+-- ** TxOut
+
 -- XXX(SN): replace with Cardano.Api.TxBody.lovelaceToTxOutValue when available
 lovelaceToTxOutValue :: Lovelace -> TxOutValue AlonzoEra
 lovelaceToTxOutValue lovelace = TxOutValue MultiAssetInAlonzoEra (lovelaceToValue lovelace)
-
-toTxDatum :: TxOutDatum CtxUTxO Era -> TxOutDatum CtxTx Era
-toTxDatum = \case
-  TxOutDatumNone -> TxOutDatumNone
-  TxOutDatumHash sdsie ha -> TxOutDatumHash sdsie ha
-
--- | Convert an existing @cardano-api@'s 'Tx' to a @cardano-ledger-specs@ 'Tx'
-toLedgerTx :: CardanoTx -> Ledger.Tx LedgerEra
-toLedgerTx = \case
-  Tx (ShelleyTxBody _era body scripts scriptsData auxData validity) vkWits ->
-    let (datums, redeemers) =
-          case scriptsData of
-            TxBodyScriptData _ ds rs -> (ds, rs)
-            TxBodyNoScriptData -> (mempty, Ledger.Alonzo.Redeemers mempty)
-     in Ledger.Alonzo.ValidatedTx
-          { Ledger.Alonzo.body =
-              body
-          , Ledger.Alonzo.isValid =
-              toLedgerScriptValidity validity
-          , Ledger.Alonzo.auxiliaryData =
-              maybeToStrictMaybe auxData
-          , Ledger.Alonzo.wits =
-              Ledger.Alonzo.TxWitness
-                { Ledger.Alonzo.txwitsVKey =
-                    toLedgerKeyWitness vkWits
-                , Ledger.Alonzo.txwitsBoot =
-                    toLedgerBootstrapWitness vkWits
-                , Ledger.Alonzo.txscripts =
-                    fromList [(Ledger.hashScript @LedgerEra s, s) | s <- scripts]
-                , Ledger.Alonzo.txdats =
-                    datums
-                , Ledger.Alonzo.txrdmrs =
-                    redeemers
-                }
-          }
- where
-  toLedgerScriptValidity :: TxScriptValidity Era -> Ledger.Alonzo.IsValid
-  toLedgerScriptValidity =
-    Ledger.Alonzo.IsValid . \case
-      TxScriptValidityNone -> True
-      TxScriptValidity _ ScriptValid -> True
-      TxScriptValidity _ ScriptInvalid -> False
-
--- | Convert an existing @cardano-ledger-specs@'s 'Tx' into a @cardano-api@'s 'Tx'
-fromLedgerTx :: Ledger.Tx LedgerEra -> CardanoTx
-fromLedgerTx (Ledger.Alonzo.ValidatedTx body wits isValid auxData) =
-  Tx
-    (ShelleyTxBody era body scripts scriptsData (strictMaybeToMaybe auxData) validity)
-    (fromLedgerTxWitness wits)
- where
-  era =
-    ShelleyBasedEraAlonzo
-  scripts =
-    Map.elems $ Ledger.Alonzo.txscripts' wits
-  scriptsData =
-    TxBodyScriptData
-      ScriptDataInAlonzoEra
-      (Ledger.Alonzo.txdats' wits)
-      (Ledger.Alonzo.txrdmrs' wits)
-  validity = case isValid of
-    Ledger.Alonzo.IsValid True ->
-      TxScriptValidity TxScriptValiditySupportedInAlonzoEra ScriptValid
-    Ledger.Alonzo.IsValid False ->
-      TxScriptValidity TxScriptValiditySupportedInAlonzoEra ScriptInvalid
-
---
--- TxIn
---
-
-fromLedgerTxIn :: Ledger.TxIn Ledger.StandardCrypto -> TxIn
-fromLedgerTxIn = fromShelleyTxIn
-
-toLedgerTxIn :: TxIn -> Ledger.TxIn Ledger.StandardCrypto
-toLedgerTxIn = toShelleyTxIn
-
---
--- TxId
---
-
-toLedgerTxId :: TxId -> Ledger.TxId Ledger.StandardCrypto
-toLedgerTxId (TxId h) =
-  Ledger.TxId (Ledger.unsafeMakeSafeHash (CC.castHash h))
-
-fromLedgerTxId :: Ledger.TxId Ledger.StandardCrypto -> TxId
-fromLedgerTxId (Ledger.TxId h) =
-  TxId (CC.castHash (Ledger.extractHash h))
-
---
--- Scripts
---
-
-fromPlutusScript :: Plutus.Script -> Script PlutusScriptV1
-fromPlutusScript =
-  PlutusScript PlutusScriptV1 . fromPlutusScript'
-
-fromPlutusScript' :: Plutus.Script -> PlutusScript PlutusScriptV1
-fromPlutusScript' script =
-  PlutusScriptSerialised bytes
- where
-  bytes = toShort . fromLazy . serialise $ script
-
---
--- Keys
---
-
-toPlutusKeyHash :: Hash PaymentKey -> Plutus.PubKeyHash
-toPlutusKeyHash (PaymentKeyHash vkh) =
-  Ledger.transKeyHash vkh
-
---
--- Address
---
-
--- | Create an (undelegated) address from a verificaton key.
---
--- TODO: 'NetworkId' here is an annoying API because it requires a network magic
--- for testnet addresses. Nevertheless, the network magic is only needed for
--- Byron addresses; Shelley addresses use a different kind of network
--- discriminant which is currently fully captured as 'Mainnet | Testnet'.
---
--- So, it would be a slightly better DX to use Mainnet | Testnet as an interface
--- here since we are only constructing Shelley addresses.
-mkVkAddress ::
-  IsShelleyBasedEra era =>
-  NetworkId ->
-  VerificationKey PaymentKey ->
-  AddressInEra era
-mkVkAddress networkId vk =
-  makeShelleyAddressInEra
-    networkId
-    (PaymentCredentialByKey $ verificationKeyHash vk)
-    NoStakeAddress
-
--- | Create an (undelegated) address from a script.
---
--- TODO: See remark on 'mkVkAddress' about 'NetworkId'
-mkScriptAddress ::
-  IsShelleyBasedEra era =>
-  NetworkId ->
-  Script lang ->
-  AddressInEra era
-mkScriptAddress networkId script =
-  makeShelleyAddressInEra
-    networkId
-    (PaymentCredentialByScript $ hashScript script)
-    NoStakeAddress
-
-toLedgerAddr :: AddressInEra Era -> Ledger.Addr Ledger.StandardCrypto
-toLedgerAddr = \case
-  AddressInEra ByronAddressInAnyEra (ByronAddress addr) ->
-    Ledger.AddrBootstrap (Ledger.BootstrapAddress addr)
-  AddressInEra (ShelleyAddressInEra _) (ShelleyAddress ntwrk creds stake) ->
-    Ledger.Addr ntwrk creds stake
-
---
--- TxOut
---
 
 txOutValue :: TxOut ctx Era -> Value
 txOutValue (TxOut _ value _) =
   txOutValueToValue value
 
-toMaryTxOut :: Ledger.TxOut LedgerEra -> Ledger.Mary.TxOut (Ledger.Mary.MaryEra Ledger.StandardCrypto)
-toMaryTxOut = \case
-  Ledger.Alonzo.TxOutCompact addr value ->
-    Ledger.Shelley.TxOutCompact addr value
-  Ledger.Alonzo.TxOutCompactDH addr value _datum ->
-    Ledger.Shelley.TxOutCompact addr value
+mkTxOutValue :: Value -> TxOutValue Era
+mkTxOutValue =
+  TxOutValue MultiAssetInAlonzoEra
 
-fromMaryTxOut :: Ledger.Mary.TxOut (Ledger.Mary.MaryEra Ledger.StandardCrypto) -> Ledger.TxOut LedgerEra
-fromMaryTxOut = \case
-  Ledger.Shelley.TxOutCompact addr value ->
-    Ledger.Alonzo.TxOutCompact addr value
+-- ** Value
 
---
--- Datums & Redeemers
---
+-- TODO: Maybe consider using 'renderValue' from cardano-api instead?
+prettyValue :: Value -> Text
+prettyValue value =
+  let Lovelace lovelace = fromMaybe 0 (valueToLovelace value)
+      (ada, decimal) = lovelace `quotRem` 1000000
+      n = length (valueToList value) - 1 -- Discarding ADA
+   in unwords $
+        [ show ada <> "." <> padLeft '0' 6 (show decimal)
+        , "₳"
+        ]
+          ++ if n == 0
+            then mempty
+            else ["and", show n, "asset(s)"]
+-- ** Utxo
 
-mkTxOutDatum :: Plutus.ToData a => a -> TxOutDatum CtxTx Era
-mkTxOutDatum =
-  TxOutDatum ScriptDataInAlonzoEra . fromPlutusData . Plutus.toData
+type Utxo = Utxo' (TxOut CtxUTxO Era)
 
-mkDatumForTxIn :: Plutus.ToData a => a -> ScriptDatum WitCtxTxIn
-mkDatumForTxIn =
-  ScriptDatumForTxIn . fromPlutusData . Plutus.toData
+-- | Newtype with phantom types mostly required to work around the poor interface
+-- of 'Ledger.UTXO'and provide 'Monoid' and 'Foldable' instances to make utxo
+-- manipulation bareable.
+newtype Utxo' out = Utxo
+  { utxoMap :: Map TxIn out
+  }
+  deriving newtype (Eq, Show)
 
-mkRedeemerForTxIn :: Plutus.ToData a => a -> ScriptRedeemer
-mkRedeemerForTxIn =
-  fromPlutusData . Plutus.toData
+instance ToCBOR Utxo where
+  toCBOR = toCBOR . toLedgerUtxo
+  encodedSizeExpr sz _ = encodedSizeExpr sz (Proxy @(Ledger.UTxO LedgerEra))
 
---
--- Utxo
---
+instance FromCBOR Utxo where
+  fromCBOR = fromLedgerUtxo <$> fromCBOR
+  label _ = label (Proxy @(Ledger.UTxO LedgerEra))
+
+instance Functor Utxo' where
+  fmap fn (Utxo u) = Utxo (fmap fn u)
+
+instance Foldable Utxo' where
+  foldMap fn = foldMap fn . utxoMap
+  foldr fn zero = foldr fn zero . utxoMap
+
+instance Semigroup Utxo where
+  Utxo uL <> Utxo uR = Utxo (uL <> uR)
+
+instance Monoid Utxo where
+  mempty = Utxo mempty
+
+instance ToJSON Utxo where
+  toJSON = toJSON . utxoMap
+
+instance FromJSON Utxo where
+  parseJSON = fmap Utxo . parseJSON
+
+-- TODO: Use Alonzo generators!
+-- probably: import Test.Cardano.Ledger.Alonzo.AlonzoEraGen ()
+instance Arbitrary Utxo where
+  shrink = shrinkUtxo
+  arbitrary =
+    fmap
+      (fromLedgerUtxo . Ledger.UTxO . Map.map fromMaryTxOut . Ledger.unUTxO)
+      arbitrary
+   where
+    fromMaryTxOut ::
+      Ledger.Mary.TxOut (Ledger.Mary.MaryEra Ledger.StandardCrypto) ->
+      Ledger.TxOut LedgerEra
+    fromMaryTxOut = \case
+      Ledger.Shelley.TxOutCompact addr value ->
+        Ledger.Alonzo.TxOutCompact addr value
 
 toLedgerUtxo :: Utxo -> Ledger.UTxO LedgerEra
 toLedgerUtxo =
@@ -614,18 +438,32 @@ fromLedgerUtxo =
   fn i o =
     Map.singleton (fromLedgerTxIn i) (fromLedgerTxOut o)
 
-toLedgerTxOut :: TxOut CtxUTxO Era -> Ledger.TxOut (ShelleyLedgerEra Era)
-toLedgerTxOut = toShelleyTxOut shelleyBasedEra
-
-fromLedgerTxOut :: Ledger.TxOut (ShelleyLedgerEra Era) -> TxOut ctx Era
-fromLedgerTxOut = fromShelleyTxOut shelleyBasedEra
-
-fromCardanoApiUtxo :: Cardano.Api.UTxO AlonzoEra -> Utxo
+fromCardanoApiUtxo :: UTxO AlonzoEra -> Utxo
 fromCardanoApiUtxo = coerce
 
+utxoPairs :: Utxo' out -> [(TxIn, out)]
+utxoPairs = Map.toList . utxoMap
+
+prettyUtxo :: (TxIn, TxOut ctx era) -> Text
+prettyUtxo (k, TxOut _ (txOutValueToValue -> v) _) =
+  T.drop 54 (renderTxIn k) <> " ↦ " <> prettyValue v
+
+utxoFromTx :: CardanoTx -> Utxo
+utxoFromTx (Tx body@(ShelleyTxBody _ ledgerBody _ _ _ _) _) =
+  let txOuts = toList $ Ledger.Alonzo.outputs' ledgerBody
+      txIns =
+        [ Ledger.TxIn (toLedgerTxId $ getTxId body) ix
+        | ix <- [0 .. fromIntegral (length txOuts)]
+        ]
+   in fromLedgerUtxo $ Ledger.UTxO $ Map.fromList $ zip txIns txOuts
+
+-- | Select the minimum (by TxIn) utxo entry from the Utxo map.
 --
--- Witnesses
---
+-- This function is partial.
+utxoMin :: Utxo -> Utxo
+utxoMin = Utxo . uncurry Map.singleton . Map.findMin . utxoMap
+
+-- * Witness
 
 -- TODO: This could be made available upstream...
 class IsScriptWitnessInCtx ctx where
@@ -659,67 +497,18 @@ mkScriptWitness script datum redeemer =
       redeemer
       (ExecutionUnits 0 0)
 
-toLedgerKeyWitness ::
-  [KeyWitness era] ->
-  Set (Ledger.Shelley.WitVKey 'Ledger.Witness Ledger.StandardCrypto)
-toLedgerKeyWitness vkWits =
-  fromList [w | ShelleyKeyWitness _ w <- vkWits]
-
-toLedgerBootstrapWitness ::
-  [KeyWitness era] ->
-  Set (Ledger.BootstrapWitness Ledger.StandardCrypto)
-toLedgerBootstrapWitness vkWits =
-  fromList [w | ShelleyBootstrapWitness _ w <- vkWits]
-
-fromLedgerTxWitness :: Ledger.Alonzo.TxWitness LedgerEra -> [KeyWitness Era]
-fromLedgerTxWitness wits =
-  Set.foldr ((:) . ShelleyKeyWitness era) [] (Ledger.Alonzo.txwitsVKey' wits)
-    ++ Set.foldr ((:) . ShelleyBootstrapWitness era) [] (Ledger.Alonzo.txwitsBoot' wits)
- where
-  era =
-    ShelleyBasedEraAlonzo
-
---
--- Value
---
-
-mkTxOutValue :: Value -> TxOutValue Era
-mkTxOutValue =
-  TxOutValue MultiAssetInAlonzoEra
-
-fromLedgerValue :: Ledger.Mary.Value Ledger.StandardCrypto -> Value
-fromLedgerValue =
-  fromMaryValue
-
---
--- Formatting
---
-
--- TODO: Maybe consider using 'renderValue' from cardano-api instead?
-prettyValue :: Value -> Text
-prettyValue value =
-  let Lovelace lovelace = fromMaybe 0 (valueToLovelace value)
-      (ada, decimal) = lovelace `quotRem` 1000000
-      n = length (valueToList value) - 1 -- Discarding ADA
-   in unwords $
-        [ show ada <> "." <> padLeft '0' 6 (show decimal)
-        , "₳"
-        ]
-          ++ if n == 0
-            then mempty
-            else ["and", show n, "asset(s)"]
-
--- | Pad a text-string to left with the given character until it reaches the given
--- length.
---
--- NOTE: Truncate the string if longer than the given length.
--- TODO: Move into a separate module.
-padLeft :: Char -> Int -> Text -> Text
-padLeft c n str = T.takeEnd n (T.replicate n (T.singleton c) <> str)
-
---
--- Generators
---
+signWith ::
+  forall era.
+  (IsShelleyBasedEra era) =>
+  TxId ->
+  (VerificationKey PaymentKey, SigningKey PaymentKey) ->
+  KeyWitness era
+signWith (TxId h) (PaymentVerificationKey vk, PaymentSigningKey sk) =
+  ShelleyKeyWitness (shelleyBasedEra @era) $
+    Ledger.Shelley.WitVKey
+      (Ledger.asWitness vk)
+      (Ledger.signedDSIGN @Ledger.StandardCrypto sk h)
+-- * Generators
 
 genKeyPair :: Gen (VerificationKey PaymentKey, SigningKey PaymentKey)
 genKeyPair = do
@@ -851,9 +640,18 @@ shrinkValue :: Value -> [Value]
 shrinkValue =
   shrinkMapBy valueFromList valueToList shrinkListAggressively
 
---
--- Temporary / Quick-n-dirty
---
+-- * Orphans
+
+instance Arbitrary AssetName where
+  arbitrary = AssetName . BS.take 32 <$> arbitrary
+
+instance Arbitrary TxIn where
+  arbitrary = fromShelleyTxIn <$> arbitrary
+
+instance Arbitrary (TxOut CtxUTxO AlonzoEra) where
+  arbitrary = fromShelleyTxOut ShelleyBasedEraAlonzo <$> arbitrary
+
+-- * Temporary / Quick-n-dirty
 
 -- NOTE: The constructor for Hash isn't exposed in the cardano-api. Although
 -- there's a 'CastHash' type-class, there are not instances for everything, so

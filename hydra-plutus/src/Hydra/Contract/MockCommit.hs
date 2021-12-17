@@ -49,5 +49,8 @@ validatorHash = Scripts.validatorHash typedValidator
 datum :: DatumType Commit -> Datum
 datum a = Datum (toBuiltinData a)
 
+redeemer :: Redeemer
+redeemer = Redeemer (toBuiltinData ())
+
 address :: Address
 address = scriptHashAddress validatorHash

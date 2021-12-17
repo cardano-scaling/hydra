@@ -2,11 +2,9 @@
 {-# LANGUAGE UndecidableInstances #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 
--- | Orphans instances (mostly ToJSON/FromJSON) required by Hydra.Ledger.Cardano
+-- | Orphans ToJSON/FromJSON instances required by Hydra.Ledger.Cardano
 -- to satisfies our various internal interfaces.
---
--- Nothing to see here.
-module Hydra.Ledger.Cardano.Orphans where
+module Hydra.Ledger.Cardano.Json where
 
 import Hydra.Prelude
 
@@ -63,7 +61,6 @@ import Data.Aeson.Types (
   Parser,
   toJSONKeyText,
  )
-import qualified Data.ByteString as BS
 import qualified Data.ByteString.Base16 as Base16
 import Data.Maybe.Strict (StrictMaybe (..), isSJust)
 import qualified Data.Set as Set
@@ -95,13 +92,6 @@ decodeAddress t =
 
   decodeBase16 =
     parseJSON (String t)
-
---
--- AssetName
---
-
-instance Arbitrary AssetName where
-  arbitrary = AssetName . BS.take 32 <$> arbitrary
 
 --
 -- AuxiliaryData
@@ -401,18 +391,12 @@ txInFromText t = do
 instance FromJSONKey TxIn where
   fromJSONKey = FromJSONKeyTextParser (fmap fromShelleyTxIn . txInFromText)
 
-instance Arbitrary TxIn where
-  arbitrary = fromShelleyTxIn <$> arbitrary
-
 --
 -- TxOut
 --
 
 instance FromJSON (Ledger.Alonzo.TxOut StandardAlonzo) where
   parseJSON = fmap (toShelleyTxOut ShelleyBasedEraAlonzo) . parseJSON
-
-instance Arbitrary (TxOut CtxUTxO AlonzoEra) where
-  arbitrary = fromShelleyTxOut ShelleyBasedEraAlonzo <$> arbitrary
 
 --
 -- TxWitness

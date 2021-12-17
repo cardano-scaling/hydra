@@ -21,7 +21,7 @@ import Cardano.Ledger.Alonzo.Language (Language (PlutusV1))
 import Cardano.Ledger.Alonzo.Scripts (ExUnits (..), Script (PlutusScript), Tag (Spend))
 import Cardano.Ledger.Alonzo.Tx (IsValid (IsValid), ScriptPurpose (Spending), ValidatedTx (..), rdptr)
 import Cardano.Ledger.Alonzo.TxBody (TxBody (..), TxOut (TxOut))
-import Cardano.Ledger.Alonzo.TxInfo (transKeyHash, transValue)
+import Cardano.Ledger.Alonzo.TxInfo (transKeyHash)
 import Cardano.Ledger.Alonzo.TxWitness (RdmrPtr (RdmrPtr), Redeemers (..), TxDats (..), TxWitness (..), unRedeemers, unTxDats)
 import Cardano.Ledger.Crypto (StandardCrypto)
 import Cardano.Ledger.Era (hashScript)
@@ -197,7 +197,7 @@ initTx cardanoKeys HeadParameters{contestationPeriod, parties} txIn =
         & Api.addOutputs (headOutput : map mkInitialOutput cardanoKeys)
  where
   headOutput = Api.TxOut headAddress headValue headDatum
-  headScript = (Api.fromPlutusScript $ MockHead.validatorScript policyId)
+  headScript = Api.fromPlutusScript $ MockHead.validatorScript policyId
   headAddress = Api.mkScriptAddress networkId headScript
   headValue = Api.lovelaceToTxOutValue $ Api.Lovelace 2_000_000
   headDatum =
@@ -280,46 +280,39 @@ collectComTx ::
 -- TODO(SN): utxo unused means other participants would not "see" the opened
 -- utxo when observing. Right now, they would be trusting the OCV checks this
 -- and construct their "world view" from observed commit txs in the HeadLogic
-collectComTx _utxo (headInput, headDatumBefore) commits =
-  emptyTx
-    & withBody body
-    & withDatums datums
-    & withRedeemers redeemers
-    & withScripts scripts
+collectComTx _utxo (Api.fromLedgerTxIn -> headInput, Api.fromLedgerData -> headDatumBefore) commits =
+  Api.toLedgerTx $
+    Api.unsafeBuildTransaction $
+      Api.emptyTxBody
+        & Api.addInputs ((headInput, headWitness) : (mkCommit <$> Map.toList commits))
+        & Api.addOutputs [headOutput]
  where
-  body =
-    emptyTxBody
-      & withInputs (headInput : Map.keys commits)
-      & withOutputs
-        [ TxOut
-            (scriptAddr headScript)
-            (inject (Coin 2000000) <> commitsValue)
-            (SJust $ hashData @Era headDatumAfter)
-        ]
+  headWitness =
+    Api.BuildTxWith $ Api.mkScriptWitness headScript headDatumBefore headRedeemer
+  headScript =
+    Api.fromPlutusScript' $ MockHead.validatorScript policyId
+  headRedeemer =
+    Api.mkRedeemerForTxIn $ MockHead.CollectCom $ Api.toPlutusValue commitValue
+  headOutput =
+    Api.TxOut
+      (Api.mkScriptAddress networkId $ Api.asScript headScript)
+      (Api.mkTxOutValue $ Api.lovelaceToValue 2_000_000 <> commitValue)
+      headDatumAfter
+  headDatumAfter =
+    Api.mkTxOutDatum MockHead.Open
 
-  commitsValue = mconcat $ getValue . fst <$> Map.elems commits
-
-  getValue (TxOut _ val _) = val
-
-  datums = headDatumBefore : headDatumAfter : commitDatums
-
-  headDatumAfter = Data $ toData MockHead.Open
-
-  commitDatums = snd <$> Map.elems commits
-
-  redeemers =
-    (headInput, headRedeemer) :
-    map (,commitRedeemer) (Map.keys commits)
-
-  headRedeemer = Data $ toData $ MockHead.CollectCom $ transValue commitsValue
-
-  commitRedeemer = Data $ toData ()
-
-  scripts = fromList $ map withScriptHash [headScript, commitScript]
-
-  headScript = plutusScript $ MockHead.validatorScript policyId
-
-  commitScript = plutusScript MockCommit.validatorScript
+  mkCommit (commitInput, (_commitOutput, commitDatum)) =
+    ( Api.fromLedgerTxIn commitInput
+    , mkCommitWitness commitDatum
+    )
+  mkCommitWitness (Api.fromLedgerData -> commitDatum) =
+    Api.BuildTxWith $ Api.mkScriptWitness commitScript commitDatum commitRedeemer
+  commitValue =
+    mconcat $ Api.txOutValue . Api.fromLedgerTxOut . fst <$> Map.elems commits
+  commitScript =
+    Api.fromPlutusScript' MockCommit.validatorScript
+  commitRedeemer =
+    Api.mkRedeemerForTxIn MockCommit.redeemer
 
 -- | Create a transaction closing a head with given snapshot number and utxo.
 closeTx ::

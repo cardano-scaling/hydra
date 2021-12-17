@@ -25,6 +25,7 @@ module Hydra.Prelude (
   genericShrink,
   generateWith,
   shrinkListAggressively,
+  padLeft,
 ) where
 
 import Cardano.Binary (
@@ -83,6 +84,7 @@ import Data.Aeson (
 import Data.Aeson.Encode.Pretty (
   encodePretty,
  )
+import qualified Data.Text as T
 import GHC.Generics (Rep)
 import qualified Generic.Random as Random
 import qualified Generic.Random.Internal.Generic as Random
@@ -167,3 +169,10 @@ shrinkListAggressively :: [a] -> [[a]]
 shrinkListAggressively = \case
   [] -> []
   xs -> [[], take (length xs `div` 2) xs, drop 1 xs]
+
+-- | Pad a text-string to left with the given character until it reaches the given
+-- length.
+--
+-- NOTE: Truncate the string if longer than the given length.
+padLeft :: Char -> Int -> Text -> Text
+padLeft c n str = T.takeEnd n (T.replicate n (T.singleton c) <> str)
