@@ -197,7 +197,7 @@ update Environment{party, signingKey, otherParties} ledger st ev = case (st, ev)
     -- it's untrue?
     let u0 = fold committed
      in nextState
-          (OpenState parameters $ CoordinatedHeadState u0 mempty (Snapshot 0 u0 mempty) NoSeenSnapshot)
+          (OpenState parameters $ CoordinatedHeadState u0 mempty (InitialSnapshot $ Snapshot 0 u0 mempty) NoSeenSnapshot)
           [ClientEffect $ HeadIsOpen u0]
   (InitialState _ _ committed, OnChainEvent OnAbortTx) ->
     nextState ReadyState [ClientEffect $ HeadIsAborted $ fold committed]
@@ -210,9 +210,9 @@ update Environment{party, signingKey, otherParties} ledger st ev = case (st, ev)
   --
   (OpenState _ CoordinatedHeadState{confirmedSnapshot}, ClientEvent GetUtxo) ->
     sameState
-      [ClientEffect . Utxo $ getField @"utxo" confirmedSnapshot]
+      [ClientEffect . Utxo $ getField @"utxo" $ getSnapshot confirmedSnapshot]
   --
-  (OpenState _ CoordinatedHeadState{confirmedSnapshot = Snapshot{utxo}}, ClientEvent (NewTx tx)) ->
+  (OpenState _ CoordinatedHeadState{confirmedSnapshot = getSnapshot -> Snapshot{utxo}}, ClientEvent (NewTx tx)) ->
     sameState effects
    where
     effects =
@@ -238,7 +238,7 @@ update Environment{party, signingKey, otherParties} ledger st ev = case (st, ev)
       -- valid request, which is currently leading to 'Error'
       -- TODO: Verify the request is signed by (?) / comes from the leader
       -- (Can we prove a message comes from a given peer, without signature?)
-      case applyTransactions ledger (getField @"utxo" confirmedSnapshot) txs of
+      case applyTransactions ledger (getField @"utxo" $ getSnapshot confirmedSnapshot) txs of
         Left _ -> Wait
         Right u ->
           let nextSnapshot = Snapshot sn u txs
@@ -297,7 +297,7 @@ update Environment{party, signingKey, otherParties} ledger st ev = case (st, ev)
     --   a) Warn the user about a close tx outside of an open state
     --   b) Move to close state, using information from the close tx
     nextState
-      (ClosedState parameters $ getField @"utxo" confirmedSnapshot)
+      (ClosedState parameters $ getField @"utxo" $ getSnapshot confirmedSnapshot)
       [ ClientEffect $
           HeadIsClosed
             { contestationDeadline

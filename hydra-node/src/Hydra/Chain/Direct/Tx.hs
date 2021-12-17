@@ -63,8 +63,8 @@ import Hydra.Ledger.Cardano (
   VerificationKey (PaymentVerificationKey),
  )
 import qualified Hydra.Ledger.Cardano as Api
-import Hydra.Party (Party (Party), Signed, vkey)
-import Hydra.Snapshot (SnapshotNumber)
+import Hydra.Party (MultiSigned, Party (Party), vkey)
+import Hydra.Snapshot (Snapshot, SnapshotNumber)
 import Ledger.Value (AssetClass (..), currencyMPSHash)
 import Plutus.V1.Ledger.Api (FromData, MintingPolicyHash, PubKeyHash (..), fromData)
 import qualified Plutus.V1.Ledger.Api as Plutus
@@ -331,8 +331,8 @@ collectComTx networkId _utxo (Api.fromLedgerTxIn -> headInput, Api.fromLedgerDat
 -- | Create a transaction closing a head with given snapshot number and utxo.
 closeTx ::
   SnapshotNumber ->
-  -- | Signature of the snapshot, currently only the snapshot number.
-  Signed SnapshotNumber ->
+  -- | Multi-signature of the whole snapshot
+  MultiSigned (Snapshot CardanoTx) ->
   -- | Everything needed to spend the Head state-machine output.
   -- FIXME(SN): should also contain some Head identifier/address and stored Value (maybe the TxOut + Data?)
   (TxIn StandardCrypto, TxOut Era, Data Era) ->
@@ -356,7 +356,7 @@ closeTx snapshotNumber _utxo (Api.fromLedgerTxIn -> headInput, Api.fromLedgerTxO
   headDatumAfter =
     Api.mkTxOutDatum MockHead.Closed
 
-closeRedeemer :: SnapshotNumber -> Signed SnapshotNumber -> MockHead.Input
+closeRedeemer :: SnapshotNumber -> MultiSigned (Snapshot CardanoTx) -> MockHead.Input
 closeRedeemer snapshotNumber sig =
   MockHead.Close
     { snapshotNumber = onChainSnapshotNumber

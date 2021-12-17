@@ -79,7 +79,7 @@ import Hydra.Chain.Direct.Wallet (
 import Hydra.Ledger.Cardano (CardanoTx, NetworkId (Testnet), fromLedgerTx, fromLedgerTxId, fromLedgerUtxo, utxoPairs)
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Party (Party)
-import Hydra.Snapshot (Snapshot (..))
+import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot (..))
 import Ouroboros.Consensus.Cardano.Block (GenTx (..), HardForkApplyTxErr (ApplyTxErrAlonzo), HardForkBlock (BlockAlonzo))
 import Ouroboros.Consensus.Ledger.SupportsMempool (ApplyTxErr)
 import Ouroboros.Consensus.Network.NodeToClient (Codecs' (..))
@@ -432,10 +432,12 @@ fromPostChainTx TinyWallet{getUtxo, verificationKey} networkId headState cardano
       Initial{threadOutput, commits} -> do
         pure . Just $ collectComTx networkId utxo (convertTuple threadOutput) (Map.fromList $ fmap (\(a, b, c) -> (a, (b, c))) commits)
       st -> error $ "cannot post CollectComTx, invalid state: " <> show st
-  CloseTx Snapshot{number} ->
+  CloseTx confirmedSnapshot ->
     readTVar headState >>= \case
       OpenOrClosed{threadOutput} ->
-        pure . Just $ closeTx number (error "signature of snapshot number") threadOutput
+        case confirmedSnapshot of
+          ConfirmedSnapshot{snapshot, signatures} -> pure . Just $ closeTx (number snapshot) signatures threadOutput
+          InitialSnapshot{snapshot} -> pure . Just $ closeTx (number snapshot) (error "signature of snapshot number") threadOutput
       st -> error $ "cannot post CloseTx, invalid state: " <> show st
   FanoutTx{utxo} ->
     readTVar headState >>= \case
