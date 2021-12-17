@@ -96,7 +96,7 @@ verify (UnsafeSigned sig) Party{vkey} msg =
 -- | Naiive mult-signatures.
 newtype MultiSigned a = MultiSigned {multiSignature :: [Signed a]}
   deriving stock (Show, Generic, Eq)
-  deriving newtype (ToCBOR)
+  deriving newtype (ToCBOR, Semigroup, Monoid)
   deriving anyclass (FromJSON, ToJSON)
 
 instance Arbitrary (MultiSigned a) where

@@ -434,10 +434,12 @@ fromPostChainTx TinyWallet{getUtxo, verificationKey} networkId headState cardano
       st -> error $ "cannot post CollectComTx, invalid state: " <> show st
   CloseTx confirmedSnapshot ->
     readTVar headState >>= \case
-      OpenOrClosed{threadOutput} ->
-        case confirmedSnapshot of
-          ConfirmedSnapshot{snapshot, signatures} -> pure . Just $ closeTx (number snapshot) signatures threadOutput
-          InitialSnapshot{snapshot} -> pure . Just $ closeTx (number snapshot) (error "signature of snapshot number") threadOutput
+      OpenOrClosed{threadOutput} -> do
+        let (sn, sigs) =
+              case confirmedSnapshot of
+                ConfirmedSnapshot{snapshot, signatures} -> (snapshot, signatures)
+                InitialSnapshot{snapshot} -> (snapshot, mempty)
+        pure . Just $ closeTx (number sn) sigs threadOutput
       st -> error $ "cannot post CloseTx, invalid state: " <> show st
   FanoutTx{utxo} ->
     readTVar headState >>= \case
