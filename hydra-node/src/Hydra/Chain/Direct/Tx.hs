@@ -58,13 +58,10 @@ import Hydra.Data.Utxo (fromByteString)
 import qualified Hydra.Data.Utxo as OnChain
 import Hydra.Ledger.Cardano (
   CardanoTx,
-  IsShelleyBasedEra (shelleyBasedEra),
   PaymentKey,
   Utxo,
   Utxo' (Utxo),
   VerificationKey (PaymentVerificationKey),
-  toShelleyTxOut,
-  utxoPairs,
  )
 import qualified Hydra.Ledger.Cardano as Api
 import Hydra.Party (Party (Party), vkey)
@@ -194,10 +191,14 @@ initTx networkId cardanoKeys HeadParameters{contestationPeriod, parties} txIn =
         & Api.addVkInputs [Api.fromLedgerTxIn txIn]
         & Api.addOutputs (headOutput : map mkInitialOutput cardanoKeys)
  where
-  headOutput = Api.TxOut headAddress headValue headDatum
-  headScript = Api.fromPlutusScript $ MockHead.validatorScript policyId
-  headAddress = Api.mkScriptAddress networkId headScript
-  headValue = Api.lovelaceToTxOutValue $ Api.Lovelace 2_000_000
+  headOutput =
+    Api.TxOut headAddress headValue headDatum
+  headScript =
+    Api.fromPlutusScript $ MockHead.validatorScript policyId
+  headAddress =
+    Api.mkScriptAddress networkId headScript
+  headValue =
+    Api.lovelaceToTxOutValue $ Api.Lovelace 2_000_000
   headDatum =
     Api.mkTxOutDatum $
       MockHead.Initial
@@ -206,11 +207,15 @@ initTx networkId cardanoKeys HeadParameters{contestationPeriod, parties} txIn =
 
   mkInitialOutput (Api.toPlutusKeyHash . Api.verificationKeyHash -> vkh) =
     Api.TxOut initialAddress initialValue (mkInitialDatum vkh)
-  initialScript = Api.fromPlutusScript MockInitial.validatorScript
+  initialScript =
+    Api.fromPlutusScript MockInitial.validatorScript
   -- FIXME: should really be the minted PTs plus some ADA to make the ledger happy
-  initialValue = Api.lovelaceToTxOutValue $ Api.Lovelace 2_000_000
-  initialAddress = Api.mkScriptAddress networkId initialScript
-  mkInitialDatum = Api.mkTxOutDatum . MockInitial.datum
+  initialValue =
+    Api.lovelaceToTxOutValue $ Api.Lovelace 2_000_000
+  initialAddress =
+    Api.mkScriptAddress networkId initialScript
+  mkInitialDatum =
+    Api.mkTxOutDatum . MockInitial.datum
 
 pubKeyHash :: VerificationKey PaymentKey -> PubKeyHash
 pubKeyHash (PaymentVerificationKey vkey) = transKeyHash $ hashKey @StandardCrypto $ vkey
@@ -239,19 +244,27 @@ commitTx networkId party utxo (initialInput, vkh) =
         & Api.addVkInputs [commit | Just (commit, _) <- [utxo]]
         & Api.addOutputs [commitOutput]
  where
-  initialWitness = Api.BuildTxWith $ Api.mkScriptWitness initialScript initialDatum initialRedeemer
-  initialScript = Api.fromPlutusScript' MockInitial.validatorScript
-  initialDatum = Api.mkDatumForTxIn $ MockInitial.datum vkh
-  initialRedeemer = Api.mkRedeemerForTxIn $ MockInitial.redeemer ()
+  initialWitness =
+    Api.BuildTxWith $ Api.mkScriptWitness initialScript initialDatum initialRedeemer
+  initialScript =
+    Api.fromPlutusScript' MockInitial.validatorScript
+  initialDatum =
+    Api.mkDatumForTxIn $ MockInitial.datum vkh
+  initialRedeemer =
+    Api.mkRedeemerForTxIn $ MockInitial.redeemer ()
 
-  commitOutput = Api.TxOut commitAddress commitValue commitDatum
-  commitScript = Api.fromPlutusScript MockCommit.validatorScript
-  commitAddress = Api.mkScriptAddress networkId commitScript
+  commitOutput =
+    Api.TxOut commitAddress commitValue commitDatum
+  commitScript =
+    Api.fromPlutusScript MockCommit.validatorScript
+  commitAddress =
+    Api.mkScriptAddress networkId commitScript
   -- FIXME: We should add the value from the initialIn too because it contains the PTs
   commitValue =
     Api.mkTxOutValue $
       Api.lovelaceToValue 2_000_000 <> maybe mempty (Api.txOutValue . snd) utxo
-  commitDatum = Api.mkTxOutDatum $ mkCommitDatum party utxo
+  commitDatum =
+    Api.mkTxOutDatum $ mkCommitDatum party utxo
 
 mkCommitDatum :: Party -> Maybe (Api.TxIn, Api.TxOut Api.CtxUTxO Api.Era) -> Plutus.Datum
 mkCommitDatum (partyFromVerKey . vkey -> party) utxo =
@@ -336,51 +349,46 @@ closeTx snapshotNumber _utxo (Api.fromLedgerTxIn -> headInput, Api.fromLedgerTxO
     Api.fromPlutusScript' $ MockHead.validatorScript policyId
   headRedeemer =
     Api.mkRedeemerForTxIn $ MockHead.Close (fromIntegral snapshotNumber)
+
   headOutputAfter =
-    Api.setTxOutDatum headDatumAfter headOutputBefore
+    Api.modifyTxOutDatum (const headDatumAfter) headOutputBefore
   headDatumAfter =
     Api.mkTxOutDatum MockHead.Closed
 
 fanoutTx ::
+  -- | Network identifier for address discrimination
+  NetworkId ->
   -- | Snapshotted Utxo to fanout on layer 1
   Utxo ->
   -- | Everything needed to spend the Head state-machine output.
   -- FIXME(SN): should also contain some Head identifier/address and stored Value (maybe the TxOut + Data?)
   (TxIn StandardCrypto, Data Era) ->
   ValidatedTx Era
-fanoutTx utxo (headInput, headDatumBefore) =
-  emptyTx
-    & withBody body
-    & withDatums datums
-    & withRedeemers redeemers
-    & withScripts scripts
+fanoutTx networkId utxo (Api.fromLedgerTxIn -> headInput, Api.fromLedgerData -> headDatumBefore) =
+  Api.toLedgerTx $
+    Api.unsafeBuildTransaction $
+      Api.emptyTxBody
+        & Api.addInputs [(headInput, headWitness)]
+        & Api.addOutputs (headOutput : fanoutOutputs)
  where
-  body =
-    emptyTxBody
-      & withInputs [headInput]
-      & withOutputs outs
+  headWitness =
+    Api.BuildTxWith $ Api.mkScriptWitness headScript headDatumBefore headRedeemer
+  headScript =
+    Api.fromPlutusScript' $ MockHead.validatorScript policyId
+  headRedeemer =
+    Api.mkRedeemerForTxIn MockHead.Fanout
 
-  outs =
-    [ -- NOTE: we probably don't need an output for the head SM
-      -- which we don't use anyway
-      TxOut
-        (scriptAddr headScript)
-        (inject $ Coin 2000000)
-        (SJust $ hashData @Era headDatumAfter)
-    ]
-      <> map (toShelleyTxOut shelleyBasedEra . snd) (utxoPairs utxo)
+  -- TODO: we probably don't need an output for the head SM which we don't use anyway
+  headOutput =
+    Api.TxOut
+      (Api.mkScriptAddress networkId $ Api.asScript headScript)
+      (Api.mkTxOutValue $ Api.lovelaceToValue 2_000_000)
+      headDatumAfter
+  headDatumAfter =
+    Api.mkTxOutDatum MockHead.Final
 
-  datums = [headDatumBefore, headDatumAfter]
-
-  headDatumAfter = Data $ toData MockHead.Final
-
-  redeemers = [(headInput, headRedeemer)]
-
-  headRedeemer = Data $ toData MockHead.Fanout
-
-  scripts = fromList $ map withScriptHash [headScript]
-
-  headScript = plutusScript $ MockHead.validatorScript policyId
+  fanoutOutputs =
+    foldr ((:) . Api.toCtxTx) [] utxo
 
 data AbortTxError = OverlappingInputs
   deriving (Show)

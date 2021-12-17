@@ -440,7 +440,7 @@ fromPostChainTx TinyWallet{getUtxo, verificationKey} networkId headState cardano
   FanoutTx{utxo} ->
     readTVar headState >>= \case
       OpenOrClosed{threadOutput} ->
-        pure . Just $ fanoutTx utxo (convertTuple threadOutput)
+        pure . Just $ fanoutTx networkId utxo (convertTuple threadOutput)
       st -> error $ "cannot post FanOutTx, invalid state: " <> show st
   _ -> error "not implemented"
  where

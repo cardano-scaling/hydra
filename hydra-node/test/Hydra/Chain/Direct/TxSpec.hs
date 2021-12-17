@@ -237,7 +237,7 @@ spec =
     describe "fanoutTx" $ do
       let prop_fanoutTxSize :: Utxo -> TxIn StandardCrypto -> Property
           prop_fanoutTxSize utxo headIn =
-            let tx = fanoutTx utxo (headIn, headDatum)
+            let tx = fanoutTx testNetworkId utxo (headIn, headDatum)
                 headDatum = Data $ toData MockHead.Closed
                 cbor = serialize tx
                 len = LBS.length cbor
@@ -269,7 +269,7 @@ spec =
             expectFailure . prop_fanoutTxSize utxo
 
       prop "is observed" $ \utxo headInput ->
-        let tx = fanoutTx utxo (headInput, headDatum)
+        let tx = fanoutTx testNetworkId utxo (headInput, headDatum)
             headOutput = mkHeadOutput SNothing
             headDatum = Data $ toData MockHead.Closed
             lookupUtxo = Map.singleton headInput headOutput

@@ -176,11 +176,6 @@ mkTxOutDatum :: Plutus.ToData a => a -> TxOutDatum CtxTx Era
 mkTxOutDatum =
   TxOutDatum ScriptDataInAlonzoEra . fromPlutusData . Plutus.toData
 
-toTxDatum :: TxOutDatum CtxUTxO Era -> TxOutDatum CtxTx Era
-toTxDatum = \case
-  TxOutDatumNone -> TxOutDatumNone
-  TxOutDatumHash sdsie ha -> TxOutDatumHash sdsie ha
-
 mkDatumForTxIn :: Plutus.ToData a => a -> ScriptDatum WitCtxTxIn
 mkDatumForTxIn =
   ScriptDatumForTxIn . fromPlutusData . Plutus.toData
@@ -326,7 +321,7 @@ mkSimpleCardanoTx (txin, TxOut owner txOutValueIn datum) (recipient, valueOut) s
 
   txOuts =
     TxOut @CtxTx recipient (TxOutValue MultiAssetInAlonzoEra valueOut) TxOutDatumNone :
-      [ TxOut @CtxTx owner (TxOutValue MultiAssetInAlonzoEra $ valueIn <> negateValue valueOut) (toTxDatum datum)
+      [ TxOut @CtxTx owner (TxOutValue MultiAssetInAlonzoEra $ valueIn <> negateValue valueOut) (toCtxTx datum)
       | valueOut /= valueIn
       ]
 
@@ -346,9 +341,12 @@ mkTxOutValue :: Value -> TxOutValue Era
 mkTxOutValue =
   TxOutValue MultiAssetInAlonzoEra
 
-setTxOutDatum :: TxOutDatum ctx Era -> TxOut ctx Era -> TxOut ctx Era
-setTxOutDatum dat (TxOut addr value _dat') =
-  TxOut addr value dat
+modifyTxOutDatum ::
+  (TxOutDatum ctx0 Era -> TxOutDatum ctx1 Era) ->
+  TxOut ctx0 Era ->
+  TxOut ctx1 Era
+modifyTxOutDatum fn (TxOut addr value dat) =
+  TxOut addr value (fn dat)
 -- ** Value
 
 -- TODO: Maybe consider using 'renderValue' from cardano-api instead?
@@ -511,6 +509,21 @@ signWith (TxId h) (PaymentVerificationKey vk, PaymentSigningKey sk) =
     Ledger.Shelley.WitVKey
       (Ledger.asWitness vk)
       (Ledger.signedDSIGN @Ledger.StandardCrypto sk h)
+-- * Extra
+
+-- TODO: Could be offered upstream.
+class ToCtxTx f where
+  toCtxTx :: f CtxUTxO Era -> f CtxTx Era
+
+instance ToCtxTx TxOutDatum where
+  toCtxTx = \case
+    TxOutDatumNone -> TxOutDatumNone
+    TxOutDatumHash era h -> TxOutDatumHash era h
+
+instance ToCtxTx TxOut where
+  toCtxTx =
+    modifyTxOutDatum toCtxTx
+
 -- * Generators
 
 genKeyPair :: Gen (VerificationKey PaymentKey, SigningKey PaymentKey)
