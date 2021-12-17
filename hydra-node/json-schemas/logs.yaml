@@ -573,7 +573,7 @@ definitions:
         items:
           $ref: "common.yaml#/definitions/Transaction"
       confirmedSnapshot:
-        $ref: "common.yaml#/definitions/Snapshot"
+        $ref: "common.yaml#/definitions/ConfirmedSnapshot"
       seenSnapshot:
         $ref: "common.yaml#/definitions/SeenSnapshot"
 
@@ -1001,15 +1001,15 @@ definitions:
         additionalProperties: false
         required:
         - tag
-        - snapshot
+        - confirmedSnapshot
         description: >-
           Close the currently open Head with the given snapshot.
         properties:
           tag:
             type: string
             enum: ["CloseTx"]
-          snapshot:
-            $ref: "common.yaml#/definitions/Snapshot"
+          confirmedSnapshot:
+            $ref: "common.yaml#/definitions/ConfirmedSnapshot"
       - title: ContestTx
         type: object
         additionalProperties: false
