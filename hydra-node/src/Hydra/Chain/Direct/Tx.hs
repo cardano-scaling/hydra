@@ -17,7 +17,7 @@ import Cardano.Api (NetworkId)
 import Cardano.Binary (serialize)
 import Cardano.Ledger.Address (Addr (Addr))
 import Cardano.Ledger.Alonzo (Script)
-import Cardano.Ledger.Alonzo.Data (Data (Data), DataHash, getPlutusData, hashData)
+import Cardano.Ledger.Alonzo.Data (Data, DataHash, getPlutusData, hashData)
 import Cardano.Ledger.Alonzo.Language (Language (PlutusV1))
 import Cardano.Ledger.Alonzo.Scripts (ExUnits (..), Script (PlutusScript), Tag (Spend))
 import Cardano.Ledger.Alonzo.Tx (IsValid (IsValid), ScriptPurpose (Spending), ValidatedTx (..), rdptr)
@@ -40,7 +40,6 @@ import Cardano.Ledger.Shelley.API (
   hashKey,
  )
 import Cardano.Ledger.ShelleyMA.Timelocks (ValidityInterval (..))
-import Cardano.Ledger.Val (inject)
 import qualified Data.Aeson as Aeson
 import qualified Data.Map as Map
 import qualified Data.Sequence.Strict as StrictSeq
@@ -67,7 +66,7 @@ import qualified Hydra.Ledger.Cardano as Api
 import Hydra.Party (Party (Party), vkey)
 import Hydra.Snapshot (SnapshotNumber)
 import Ledger.Value (AssetClass (..), currencyMPSHash)
-import Plutus.V1.Ledger.Api (FromData, MintingPolicyHash, PubKeyHash (..), fromData, toData)
+import Plutus.V1.Ledger.Api (FromData, MintingPolicyHash, PubKeyHash (..), fromData)
 import qualified Plutus.V1.Ledger.Api as Plutus
 import Plutus.V1.Ledger.Value (assetClass, currencySymbol, tokenName)
 
@@ -306,6 +305,7 @@ collectComTx networkId _utxo (Api.fromLedgerTxIn -> headInput, Api.fromLedgerDat
     Api.fromPlutusScript' $ MockHead.validatorScript policyId
   headRedeemer =
     Api.mkRedeemerForTxIn $ MockHead.CollectCom $ Api.toPlutusValue commitValue
+
   headOutput =
     Api.TxOut
       (Api.mkScriptAddress networkId $ Api.asScript headScript)
@@ -396,59 +396,55 @@ data AbortTxError = OverlappingInputs
 -- | Create transaction which aborts a head by spending the Head output and all
 -- other "initial" outputs.
 abortTx ::
+  -- | Network identifier for address discrimination
+  NetworkId ->
   -- | Everything needed to spend the Head state-machine output.
   (TxIn StandardCrypto, Data Era) ->
   -- | Data needed to spend the inital output sent to each party to the Head
   -- which should contain the PT and is locked by initial script.
   Map (TxIn StandardCrypto) (Data Era) ->
   Either AbortTxError (ValidatedTx Era)
-abortTx (headInput, headDatum) initialInputs
-  | isJust (lookup headInput initialInputs) =
+abortTx networkId (Api.fromLedgerTxIn -> headInput, Api.fromLedgerData -> headDatumBefore) initialInputs
+  | isJust (lookup (Api.toLedgerTxIn headInput) initialInputs) =
     Left OverlappingInputs
   | otherwise =
-    Right
-      ( emptyTx
-          & withBody body
-          & withDatums datums
-          & withRedeemers redeemers
-          & withScripts scripts
-      )
+    Right $
+      Api.toLedgerTx $
+        Api.unsafeBuildTransaction $
+          Api.emptyTxBody
+            & Api.addInputs ((headInput, headWitness) : (mkAbort <$> Map.toList initialInputs))
+            & Api.addOutputs [headOutput]
  where
-  body =
-    emptyTxBody
-      & withInputs (headInput : Map.keys initialInputs)
-      & withOutputs
-        [ TxOut
-            (scriptAddr headScript)
-            (inject $ Coin 2000000) -- TODO: This really needs to be passed as argument
-            (SJust $ hashData @Era abortDatum)
-        ]
+  headWitness =
+    Api.BuildTxWith $ Api.mkScriptWitness headScript headDatumBefore headRedeemer
+  headScript =
+    Api.fromPlutusScript' $ MockHead.validatorScript policyId
+  headRedeemer =
+    Api.mkRedeemerForTxIn MockHead.Abort
 
-  scripts =
-    fromList $
-      map withScriptHash $
-        headScript : [initialScript | not (null initialInputs)]
+  -- FIXME:
+  -- (a) Abort need to reimburse participants that have committed!
+  -- (b) There's in principle no need to output any SM output here, it's over.
+  headOutput =
+    Api.TxOut
+      (Api.mkScriptAddress networkId $ Api.asScript headScript)
+      (Api.mkTxOutValue $ Api.lovelaceToValue 2_000_000)
+      headDatumAfter
+  headDatumAfter =
+    Api.mkTxOutDatum MockHead.Final
 
-  initialScript = plutusScript MockInitial.validatorScript
-
-  headScript = plutusScript $ MockHead.validatorScript policyId
-
-  redeemers =
-    (headInput, headRedeemer) : initialRedeemers
-
-  headRedeemer = Data $ toData MockHead.Abort
-
-  initialRedeemers = map (,initialRedeemer) $ Map.keys initialInputs
-
-  initialRedeemer = Data $ toData $ Plutus.getRedeemer $ MockInitial.redeemer ()
-  -- NOTE: Those datums contain the datum of the spent state-machine input, but
+  -- NOTE: Abort datums contain the datum of the spent state-machine input, but
   -- also, the datum of the created output which is necessary for the
   -- state-machine on-chain validator to control the correctness of the
   -- transition.
-  datums = abortDatum : headDatum : Map.elems initialInputs
-
-  abortDatum =
-    Data $ toData MockHead.Final
+  mkAbort (Api.fromLedgerTxIn -> initialInput, Api.fromLedgerData -> initialDatum) =
+    (initialInput, mkAbortWitness initialDatum)
+  mkAbortWitness initialDatum =
+    Api.BuildTxWith $ Api.mkScriptWitness initialScript initialDatum initialRedeemer
+  initialScript =
+    Api.fromPlutusScript' MockInitial.validatorScript
+  initialRedeemer =
+    Api.mkRedeemerForTxIn $ MockInitial.redeemer ()
 
 -- * Observe Hydra Head transactions
 

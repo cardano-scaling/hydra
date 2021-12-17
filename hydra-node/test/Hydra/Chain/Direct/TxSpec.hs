@@ -282,7 +282,7 @@ spec =
       -- NOTE(AB): This property fails if initials are too big
       prop "transaction size below limit" $ \txIn cperiod parties (ReasonablySized initials) ->
         let headDatum = Data . toData $ MockHead.Initial cperiod parties
-         in case abortTx (txIn, headDatum) (Map.fromList initials) of
+         in case abortTx testNetworkId (txIn, headDatum) (Map.fromList initials) of
               Left err -> property False & counterexample ("AbortTx construction failed: " <> show err)
               Right tx ->
                 let cbor = serialize tx
@@ -296,7 +296,7 @@ spec =
         let headOutput = mkHeadOutput SNothing -- will be SJust, but not covered by this test
             headDatum = Data . toData $ MockHead.Initial cperiod parties
             utxo = Map.singleton txIn headOutput
-         in case abortTx (txIn, headDatum) initials of
+         in case abortTx testNetworkId (txIn, headDatum) initials of
               Left err -> property False & counterexample ("AbortTx construction failed: " <> show err)
               Right tx ->
                 let res = observeAbortTx utxo tx
@@ -321,7 +321,7 @@ spec =
               initials = Map.map (Data . toData . MockInitial.datum) initialsPkh
               initialsUtxo = map (\(i, pkh) -> mkMockInitialTxOut (i, pkh)) $ Map.toList initialsPkh
               utxo = UTxO $ Map.fromList (headUtxo : initialsUtxo)
-           in checkCoverage $ case abortTx (txIn, headDatum) initials of
+           in checkCoverage $ case abortTx testNetworkId (txIn, headDatum) initials of
                 Left OverlappingInputs ->
                   property (isJust $ txIn `Map.lookup` initials)
                 Right tx ->
@@ -351,7 +351,7 @@ spec =
               -- Finally we can create the abortTx and have it processed by the wallet
               lookupUtxo = Map.fromList (headUtxo : initialUtxo)
               utxo = UTxO $ walletUtxo <> lookupUtxo
-           in case abortTx (headInput, headDatum) (Map.fromList initials) of
+           in case abortTx testNetworkId (headInput, headDatum) (Map.fromList initials) of
                 Left err ->
                   property False & counterexample ("AbortTx construction failed: " <> show err)
                 Right txAbort ->
