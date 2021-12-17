@@ -43,7 +43,7 @@ import Hydra.Node (
  )
 import Hydra.Party (Party, SigningKey, deriveParty)
 import Hydra.ServerOutput (ServerOutput (..))
-import Hydra.Snapshot (Snapshot (..))
+import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot (..))
 import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
 import Test.Util (shouldBe, shouldNotBe, shouldReturn, shouldRunInSim, shouldSatisfy, traceInIOSim)
 
@@ -436,10 +436,10 @@ toOnChainTx currentTime = \case
   (CommitTx pa ut) -> OnCommitTx pa ut
   AbortTx{} -> OnAbortTx
   CollectComTx{} -> OnCollectComTx
-  (CloseTx snap) ->
+  (CloseTx ConfirmedSnapshot{snapshot}) ->
     OnCloseTx
       { contestationDeadline = addUTCTime 10 currentTime
-      , snapshotNumber = number snap
+      , snapshotNumber = number snapshot
       }
   ContestTx{} -> OnContestTx
   FanoutTx{} -> OnFanoutTx

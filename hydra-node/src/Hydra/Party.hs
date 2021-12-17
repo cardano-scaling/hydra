@@ -93,6 +93,12 @@ verify :: SignableRepresentation a => Signed a -> Party -> a -> Bool
 verify (UnsafeSigned sig) Party{vkey} msg =
   isRight (verifyDSIGN () vkey msg sig)
 
+-- | Naiive mult-signatures.
+type MultiSigned a = [Signed a]
+
+aggregate :: [Signed a] -> MultiSigned a
+aggregate = id
+
 -- | Signature of 'a'
 newtype Signed a = UnsafeSigned (SigDSIGN MockDSIGN)
   deriving (Eq, Show)

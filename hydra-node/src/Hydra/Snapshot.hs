@@ -8,6 +8,7 @@ import Hydra.Prelude
 import Cardano.Crypto.Util (SignableRepresentation (..))
 import Data.Aeson (object, withObject, (.:), (.=))
 import Hydra.Ledger (IsTx (..))
+import Hydra.Party (MultiSigned)
 
 type SnapshotNumber = Natural
 
@@ -59,3 +60,13 @@ instance (ToCBOR tx, ToCBOR (UtxoType tx)) => ToCBOR (Snapshot tx) where
 
 instance (FromCBOR tx, FromCBOR (UtxoType tx)) => FromCBOR (Snapshot tx) where
   fromCBOR = Snapshot <$> fromCBOR <*> fromCBOR <*> fromCBOR
+
+-- | Snapshot when it was signed by all parties, i.e. it is confirmed.
+data ConfirmedSnapshot tx = ConfirmedSnapshot
+  { snapshot :: Snapshot tx
+  , signatures :: MultiSigned SnapshotNumber
+  }
+  deriving (Generic, Eq, Show, ToJSON, FromJSON)
+
+instance Arbitrary (ConfirmedSnapshot tx) where
+  arbitrary = genericArbitrary

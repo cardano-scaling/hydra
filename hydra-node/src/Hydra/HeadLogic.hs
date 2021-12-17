@@ -24,7 +24,7 @@ import Hydra.Ledger (
 import Hydra.Network.Message (Message (..))
 import Hydra.Party (Party, SigningKey, sign, verify)
 import Hydra.ServerOutput (ServerOutput (..))
-import Hydra.Snapshot (Snapshot (..), SnapshotNumber)
+import Hydra.Snapshot (ConfirmedSnapshot, Snapshot (..), SnapshotNumber)
 
 data Event tx
   = ClientEvent {clientInput :: ClientInput tx}
@@ -74,7 +74,7 @@ data CoordinatedHeadState tx = CoordinatedHeadState
   { seenUtxo :: UtxoType tx
   , -- TODO: tx should be an abstract 'TxId'
     seenTxs :: [tx]
-  , confirmedSnapshot :: Snapshot tx
+  , confirmedSnapshot :: ConfirmedSnapshot tx
   , seenSnapshot :: SeenSnapshot tx
   }
   deriving stock (Generic)

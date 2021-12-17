@@ -11,7 +11,7 @@ import Data.Time (DiffTime, UTCTime)
 import Hydra.Ledger (IsTx, TxIn, UtxoType)
 import Hydra.Party (Party)
 import Hydra.Prelude (Arbitrary (arbitrary), genericArbitrary)
-import Hydra.Snapshot (Snapshot, SnapshotNumber)
+import Hydra.Snapshot (ConfirmedSnapshot, Snapshot, SnapshotNumber)
 
 -- | Contains the head's parameters as established in the initial transaction.
 data HeadParameters = HeadParameters
@@ -33,7 +33,7 @@ data PostChainTx tx
   | CommitTx {party :: Party, committed :: UtxoType tx}
   | AbortTx {utxo :: UtxoType tx}
   | CollectComTx {utxo :: UtxoType tx}
-  | CloseTx {snapshot :: Snapshot tx}
+  | CloseTx {confirmedSnapshot :: ConfirmedSnapshot tx}
   | ContestTx {snapshot :: Snapshot tx}
   | FanoutTx {utxo :: UtxoType tx}
   deriving stock (Generic)
