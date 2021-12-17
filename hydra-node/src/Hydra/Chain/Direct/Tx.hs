@@ -68,6 +68,7 @@ import Hydra.Snapshot (SnapshotNumber)
 import Ledger.Value (AssetClass (..), currencyMPSHash)
 import Plutus.V1.Ledger.Api (FromData, MintingPolicyHash, PubKeyHash (..), fromData)
 import qualified Plutus.V1.Ledger.Api as Plutus
+import qualified Plutus.V1.Ledger.Crypto as Plutus
 import Plutus.V1.Ledger.Value (assetClass, currencySymbol, tokenName)
 
 -- FIXME: parameterize
@@ -348,12 +349,23 @@ closeTx snapshotNumber _utxo (Api.fromLedgerTxIn -> headInput, Api.fromLedgerTxO
   headScript =
     Api.fromPlutusScript $ MockHead.validatorScript policyId
   headRedeemer =
-    Api.mkRedeemerForTxIn $ MockHead.Close (fromIntegral snapshotNumber)
+    Api.mkRedeemerForTxIn $ closeRedeemer snapshotNumber undefined
 
   headOutputAfter =
     Api.modifyTxOutDatum (const headDatumAfter) headOutputBefore
   headDatumAfter =
     Api.mkTxOutDatum MockHead.Closed
+
+closeRedeemer :: SnapshotNumber -> ByteString -> MockHead.Input
+closeRedeemer snapshotNumber sigBytes =
+  MockHead.Close
+    { snapshotNumber = onChainSnapshotNumber
+    , signature = onChainSignature
+    }
+ where
+  onChainSnapshotNumber = fromIntegral snapshotNumber
+
+  onChainSignature = Plutus.Signature undefined
 
 fanoutTx ::
   -- | Network identifier for address discrimination
@@ -568,12 +580,11 @@ observeCloseTx utxo tx = do
   headInput <- fst <$> findScriptOutput utxo headScript
   redeemer <- getRedeemerSpending tx headInput
   case redeemer of
-    MockHead.Close sn -> do
+    MockHead.Close{snapshotNumber} -> do
       (newHeadInput, newHeadOutput) <- findScriptOutput (utxoFromTx tx) headScript
       newHeadDatum <- lookupDatum (wits tx) newHeadOutput
-      let snapshotNumber = fromIntegral sn
       pure
-        ( OnCloseTx{contestationDeadline, snapshotNumber}
+        ( OnCloseTx{contestationDeadline, snapshotNumber = fromIntegral snapshotNumber}
         , OpenOrClosed{threadOutput = (newHeadInput, newHeadOutput, newHeadDatum)}
         )
     _ -> Nothing

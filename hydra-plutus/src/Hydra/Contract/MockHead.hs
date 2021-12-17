@@ -37,7 +37,10 @@ data Input
   = -- FIXME(AB): The collected value should not be passed as input but inferred from
     -- collected commits' value
     CollectCom Value
-  | Close SnapshotNumber
+  | Close
+      { snapshotNumber :: SnapshotNumber
+      , signature :: Signature
+      }
   | Abort
   | Fanout
   deriving (Generic, Show)
@@ -67,7 +70,7 @@ hydraTransition oldState input =
       Just (mempty, oldState{SM.stateData = Open, SM.stateValue = collectedValue <> SM.stateValue oldState})
     (Initial{}, Abort) ->
       Just (mempty, oldState{SM.stateData = Final, SM.stateValue = mempty})
-    (Open{}, Close snapshotNumber) -> do
+    (Open{}, Close{snapshotNumber}) -> do
       guard $ traceIfFalse "snapshot number != 1" $ snapshotNumber == 1
       Just (mempty, oldState{SM.stateData = Closed})
     (Closed{}, Fanout{}) ->
