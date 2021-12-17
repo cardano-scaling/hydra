@@ -8,6 +8,7 @@ module Hydra.Contract.MockHead where
 import Ledger hiding (validatorHash)
 import PlutusTx.Prelude
 
+import Control.Monad (guard)
 import Data.Aeson (FromJSON, ToJSON)
 import Data.Void (Void)
 import GHC.Generics (Generic)
@@ -66,7 +67,8 @@ hydraTransition oldState input =
       Just (mempty, oldState{SM.stateData = Open, SM.stateValue = collectedValue <> SM.stateValue oldState})
     (Initial{}, Abort) ->
       Just (mempty, oldState{SM.stateData = Final, SM.stateValue = mempty})
-    (Open{}, Close{}) ->
+    (Open{}, Close snapshotNumber) -> do
+      guard $ traceIfFalse "snapshot number != 1" $ snapshotNumber == 1
       Just (mempty, oldState{SM.stateData = Closed})
     (Closed{}, Fanout{}) ->
       Just (mempty, oldState{SM.stateData = Final, SM.stateValue = mempty})

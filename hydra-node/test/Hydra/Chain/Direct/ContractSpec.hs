@@ -60,7 +60,7 @@ spec = describe "On-chain contracts" $ do
   describe "Close" $ do
     prop "is healthy" $
       propTransactionValidates healthyCloseTx
-    prop "does not survive random adversarial mutations." $
+    prop "does not survive random adversarial mutations" $
       propMutation healthyCloseTx genCloseMutation
 
 --
@@ -129,16 +129,6 @@ healthyCloseTx =
   headDatum = Ledger.Data $ toData MockHead.Open
   lookupUtxo = Ledger.UTxO $ Map.singleton headInput headOutput
 
---
---
--- Mutation
---
-
-data Mutation
-  = ChangeHeadRedeemer MockHead.Input
-  | ChangeHeadDatum MockHead.State
-  deriving (Show, Generic)
-
 genCloseMutation :: (CardanoTx, Utxo) -> Gen Mutation
 genCloseMutation (_tx, _utxo) =
   oneof
@@ -154,6 +144,16 @@ genCloseMutation (_tx, _utxo) =
     arbitrary `suchThat` \case
       MockHead.Open -> False
       _ -> True
+
+--
+--
+-- Mutation
+--
+
+data Mutation
+  = ChangeHeadRedeemer MockHead.Input
+  | ChangeHeadDatum MockHead.State
+  deriving (Show, Generic)
 
 applyMutation :: Mutation -> (CardanoTx, Utxo) -> (CardanoTx, Utxo)
 applyMutation mutation (tx@(Tx body wits), utxo) = case mutation of
