@@ -30,7 +30,7 @@ import Cardano.Ledger.TxIn (txid)
 import Cardano.Ledger.Val (inject)
 import qualified Data.Aeson as Aeson
 import qualified Data.ByteString.Lazy as LBS
-import Data.List (nub, (\\))
+import Data.List (intersect, nub, (\\))
 import qualified Data.Map as Map
 import Data.Maybe (fromJust)
 import Data.Sequence.Strict (StrictSeq ((:<|)))
@@ -54,6 +54,7 @@ import Hydra.Ledger.Cardano (
   VerificationKey,
   describeCardanoTx,
   fromLedgerTx,
+  fromLedgerTxIn,
   genAdaOnlyUtxo,
   genKeyPair,
   shrinkUtxo,
@@ -68,6 +69,7 @@ import Test.QuickCheck (
   NonEmptyList (NonEmpty),
   Property,
   checkCoverage,
+  conjoin,
   counterexample,
   cover,
   elements,
@@ -81,6 +83,7 @@ import Test.QuickCheck (
   withMaxSuccess,
   (.&&.),
   (===),
+  (==>),
  )
 import Test.QuickCheck.Instances ()
 import qualified Prelude
@@ -176,8 +179,16 @@ spec =
                 { initials = newInitials
                 , commits = newCommits
                 } = snd <$> observeCommit tx onChainState
-         in newInitials == (mkInitials <$> Prelude.tail inputs)
-              && newCommits == [(commitInput, commitOutput, commitDatum)]
+
+            commitedUtxoDoesNotOverlapWithInitials =
+              null $ [fst singleUtxo] `intersect` ((\(a, _, _) -> fromLedgerTxIn a) <$> inputs)
+         in commitedUtxoDoesNotOverlapWithInitials
+              ==> conjoin
+                [ (newInitials === (mkInitials <$> Prelude.tail inputs))
+                    & counterexample "newInitials /= expectation."
+                , (newCommits === [(commitInput, commitOutput, commitDatum)])
+                    & counterexample "newCommits /= expectation."
+                ]
 
     describe "collectComTx" $ do
       prop "transaction size below limit" $ \(ReasonablySized utxo) headIn cperiod parties ->
