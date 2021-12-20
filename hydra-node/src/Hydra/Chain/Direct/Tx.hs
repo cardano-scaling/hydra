@@ -266,6 +266,7 @@ mkCommitDatum (partyFromVerKey . vkey -> party) utxo =
 -- | Create a transaction collecting all "committed" utxo and opening a Head,
 -- i.e. driving the Head script state.
 collectComTx ::
+  NetworkId ->
   -- | Committed UTxO to become U0 in the Head ledger state.
   -- This is only used as a datum passed to the Head state machine script.
   Utxo ->
@@ -279,7 +280,7 @@ collectComTx ::
 -- TODO(SN): utxo unused means other participants would not "see" the opened
 -- utxo when observing. Right now, they would be trusting the OCV checks this
 -- and construct their "world view" from observed commit txs in the HeadLogic
-collectComTx _utxo (Api.fromLedgerTxIn -> headInput, Api.fromLedgerData -> headDatumBefore) commits =
+collectComTx networkId _utxo (Api.fromLedgerTxIn -> headInput, Api.fromLedgerData -> headDatumBefore) commits =
   Api.toLedgerTx $
     Api.unsafeBuildTransaction $
       Api.emptyTxBody

@@ -181,7 +181,7 @@ spec =
 
     describe "collectComTx" $ do
       prop "transaction size below limit" $ \(ReasonablySized utxo) headIn cperiod parties ->
-        let tx = collectComTx utxo (headIn, headDatum) mempty
+        let tx = collectComTx testNetworkId utxo (headIn, headDatum) mempty
             headDatum = Data . toData $ MockHead.Initial cperiod parties
             cbor = serialize tx
             len = LBS.length cbor
@@ -198,7 +198,7 @@ spec =
               onChainParties = partyFromVerKey . vkey <$> parties
               headDatum = Data . toData $ MockHead.Initial cperiod onChainParties
               lookupUtxo = Map.singleton headInput headOutput
-              tx = collectComTx committedUtxo (headInput, headDatum) commitsUtxo
+              tx = collectComTx testNetworkId committedUtxo (headInput, headDatum) commitsUtxo
               res = observeCollectComTx lookupUtxo tx
            in case res of
                 Just (OnCollectComTx, OpenOrClosed{threadOutput = (_, TxOut _ headOutputValue' _, _)}) ->

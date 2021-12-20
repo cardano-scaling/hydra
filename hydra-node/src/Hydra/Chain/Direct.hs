@@ -430,7 +430,7 @@ fromPostChainTx TinyWallet{getUtxo, verificationKey} networkId headState cardano
   CollectComTx utxo ->
     readTVar headState >>= \case
       Initial{threadOutput, commits} -> do
-        pure . Just $ collectComTx utxo (convertTuple threadOutput) (Map.fromList $ fmap (\(a, b, c) -> (a, (b, c))) commits)
+        pure . Just $ collectComTx networkId utxo (convertTuple threadOutput) (Map.fromList $ fmap (\(a, b, c) -> (a, (b, c))) commits)
       st -> error $ "cannot post CollectComTx, invalid state: " <> show st
   CloseTx Snapshot{number, utxo} ->
     readTVar headState >>= \case
