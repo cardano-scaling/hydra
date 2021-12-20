@@ -31,6 +31,7 @@ import Cardano.Ledger.Shelley.Rules.Utxow (UtxowPredicateFailure (UtxoFailure))
 import Control.Exception (IOException)
 import Control.Monad (foldM)
 import Control.Monad.Class.MonadSTM (MonadSTMTx (writeTVar), newTQueueIO, newTVarIO, readTQueue, writeTQueue)
+import Control.Monad.Class.MonadTimer (timeout)
 import Control.Tracer (nullTracer)
 import Data.Aeson (Value (String), object, (.=))
 import qualified Data.Map.Strict as Map
@@ -155,10 +156,14 @@ withDirectChain tracer networkMagic iocp socketPath keyPair party cardanoKeys ca
                 { postTx = \tx -> do
                     traceWith tracer $ ToPost tx
 
-                    atomically
-                      ( fromPostChainTx wallet (Testnet networkMagic) headState cardanoKeys tx
-                          >>= finalizeTx wallet headState
-                          >>= writeTQueue queue
+                    ( do
+                        res <-
+                          timeout 10 $
+                            atomically $
+                              fromPostChainTx wallet (Testnet networkMagic) headState cardanoKeys tx
+                                >>= finalizeTx wallet headState
+                                >>= writeTQueue queue
+                        when (isNothing res) $ throwIO (NoSeedInput @CardanoTx)
                       )
                       `catch` \(e :: InvalidTxError CardanoTx) -> do
                         traceWith tracer $ PostingTxFailed tx e
