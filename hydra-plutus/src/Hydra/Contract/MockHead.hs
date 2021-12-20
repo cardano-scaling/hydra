@@ -24,8 +24,8 @@ import Text.Show (Show)
 type SnapshotNumber = Integer
 
 data State
-  = Initial ContestationPeriod [Party]
-  | Open
+  = Initial {contestationPeriod :: ContestationPeriod, parties :: [Party]}
+  | Open {parties :: [Party]}
   | Closed
   | Final
   deriving stock (Generic, Show)
@@ -66,12 +66,12 @@ hydraStateMachine _policyId =
 hydraTransition :: SM.State State -> Input -> Maybe (TxConstraints Void Void, SM.State State)
 hydraTransition oldState input =
   case (SM.stateData oldState, input) of
-    (Initial{}, CollectCom collectedValue) ->
-      Just (mempty, oldState{SM.stateData = Open, SM.stateValue = collectedValue <> SM.stateValue oldState})
+    (Initial{parties}, CollectCom collectedValue) ->
+      Just (mempty, oldState{SM.stateData = Open{parties}, SM.stateValue = collectedValue <> SM.stateValue oldState})
     (Initial{}, Abort) ->
       Just (mempty, oldState{SM.stateData = Final, SM.stateValue = mempty})
-    (Open{}, Close{snapshotNumber, signature}) -> do
-      guard $ verifySnapshotSignature [] snapshotNumber signature
+    (Open{parties}, Close{snapshotNumber, signature}) -> do
+      guard $ verifySnapshotSignature parties snapshotNumber signature
       Just (mempty, oldState{SM.stateData = Closed})
     (Closed{}, Fanout{}) ->
       Just (mempty, oldState{SM.stateData = Final, SM.stateValue = mempty})
