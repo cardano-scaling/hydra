@@ -20,7 +20,7 @@ import qualified Cardano.Ledger.Shelley.API as Ledger
 import qualified Data.Map as Map
 import Data.Maybe.Strict (StrictMaybe (..))
 import qualified Hydra.Chain.Direct.Fixture as Fixture
-import Hydra.Chain.Direct.Tx (closeTx, networkId, policyId)
+import Hydra.Chain.Direct.Tx (closeTx, policyId)
 import Hydra.Chain.Direct.TxSpec (mkHeadOutput)
 import qualified Hydra.Contract.MockHead as MockHead
 import Hydra.Ledger.Cardano (
@@ -137,9 +137,24 @@ genCloseMutation (_tx, _utxo) =
     ]
  where
   genChangeHeadRedeemer =
-    arbitrary `suchThat` \case
-      MockHead.Close{MockHead.snapshotNumber = snapshotNumber} -> snapshotNumber /= 1 -- TODO: magic number, this should come from tx
-      _ -> True
+    oneof
+      [ arbitrary `suchThat` \case
+          MockHead.Close{MockHead.snapshotNumber = snapshotNumber} -> snapshotNumber /= 1 -- TODO: magic number, this should come from tx
+          _ -> True
+      , do
+          -- TODO: also here, we would want to alter the provided tx's redeemer, rather
+          -- than generating a completly new one.
+          arbitrary >>= \case
+            MockHead.Close{MockHead.signature, MockHead.snapshotNumber = snapshotNumber} -> do
+              signature' <- arbitrary `suchThat` (/= signature)
+              pure $
+                MockHead.Close
+                  { MockHead.signature = signature'
+                  , MockHead.snapshotNumber = snapshotNumber
+                  }
+            anyOtherRedeemer ->
+              pure anyOtherRedeemer
+      ]
   genChangeHeadDatum =
     arbitrary `suchThat` \case
       MockHead.Open -> False
@@ -189,7 +204,7 @@ instance Arbitrary MockHead.State where
 isHeadOutput :: TxOut CtxUTxO Era -> Bool
 isHeadOutput (TxOut addr _ _) = addr == headAddress
  where
-  headAddress = Api.mkScriptAddress networkId headScript
+  headAddress = Api.mkScriptAddress @Api.PlutusScriptV1 Fixture.testNetworkId headScript
   headScript = Api.fromPlutusScript $ MockHead.validatorScript policyId
 
 changeHeadRedeemer :: MockHead.Input -> (Ledger.Data era, Ledger.ExUnits) -> (Ledger.Data era, Ledger.ExUnits)
