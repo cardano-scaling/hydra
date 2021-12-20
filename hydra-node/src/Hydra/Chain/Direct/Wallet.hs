@@ -589,7 +589,7 @@ stateQueryClient tracer tipVar utxoVar address =
 
   handleEraMismatch :: MismatchEraInfo (CardanoEras StandardCrypto) -> m (LSQ.ClientStAcquired Block (Point Block) (Query Block) m ())
   handleEraMismatch (mkEraMismatch -> Ouroboros.EraMismatch{Ouroboros.ledgerEraName, Ouroboros.otherEraName}) = do
-    traceWith tracer $ EraMismatchError ledgerEraName otherEraName
+    traceWith tracer $ EraMismatchError{expected = ledgerEraName, actual = otherEraName}
     threadDelay 30
     reset
 
@@ -597,12 +597,10 @@ stateQueryClient tracer tipVar utxoVar address =
 -- Logs
 --
 
--- NOTE(AB): We don't use records here because there's no ToJSON insetance for SomePoint so there's no point
--- in using a Generic ToJSON instance
 data TinyWalletLog
   = InitializingWallet SomePoint (Map TxIn TxOut)
   | ApplyBlock (Map TxIn TxOut) (Map TxIn TxOut)
-  | EraMismatchError Text Text
+  | EraMismatchError {expected :: Text, actual :: Text}
   deriving (Eq, Generic, Show)
 
 instance ToJSON TinyWalletLog where
@@ -620,7 +618,7 @@ instance ToJSON TinyWalletLog where
           , "before" .= utxo
           , "after" .= utxo'
           ]
-      (EraMismatchError expected actual) ->
+      EraMismatchError{expected, actual} ->
         object
           [ "tag" .= String "EraMismatchError"
           , "expected" .= expected
