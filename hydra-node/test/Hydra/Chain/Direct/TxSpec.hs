@@ -30,7 +30,7 @@ import Cardano.Ledger.TxIn (txid)
 import Cardano.Ledger.Val (inject)
 import qualified Data.Aeson as Aeson
 import qualified Data.ByteString.Lazy as LBS
-import Data.List (nub, (\\))
+import Data.List (intersect, nub, (\\))
 import qualified Data.Map as Map
 import Data.Maybe (fromJust)
 import Data.Sequence.Strict (StrictSeq ((:<|)))
@@ -54,6 +54,7 @@ import Hydra.Ledger.Cardano (
   VerificationKey,
   describeCardanoTx,
   fromLedgerTx,
+  fromLedgerTxIn,
   genAdaOnlyUtxo,
   genKeyPair,
   shrinkUtxo,
@@ -68,6 +69,7 @@ import Test.QuickCheck (
   NonEmptyList (NonEmpty),
   Property,
   checkCoverage,
+  conjoin,
   counterexample,
   cover,
   elements,
@@ -81,6 +83,7 @@ import Test.QuickCheck (
   withMaxSuccess,
   (.&&.),
   (===),
+  (==>),
  )
 import Test.QuickCheck.Instances ()
 import qualified Prelude
@@ -176,8 +179,16 @@ spec =
                 { initials = newInitials
                 , commits = newCommits
                 } = snd <$> observeCommit tx onChainState
-         in newInitials == (mkInitials <$> Prelude.tail inputs)
-              && newCommits == [(commitInput, commitOutput, commitDatum)]
+
+            commitedUtxoDoesNotOverlapWithInitials =
+              null $ [fst singleUtxo] `intersect` ((\(a, _, _) -> fromLedgerTxIn a) <$> inputs)
+         in commitedUtxoDoesNotOverlapWithInitials
+              ==> conjoin
+                [ (newInitials === (mkInitials <$> Prelude.tail inputs))
+                    & counterexample "newInitials /= expectation."
+                , (newCommits === [(commitInput, commitOutput, commitDatum)])
+                    & counterexample "newCommits /= expectation."
+                ]
 
     describe "collectComTx" $ do
       prop "transaction size below limit" $ \(ReasonablySized utxo) headIn cperiod parties ->
@@ -237,7 +248,7 @@ spec =
     describe "fanoutTx" $ do
       let prop_fanoutTxSize :: Utxo -> TxIn StandardCrypto -> Property
           prop_fanoutTxSize utxo headIn =
-            let tx = fanoutTx utxo (headIn, headDatum)
+            let tx = fanoutTx testNetworkId utxo (headIn, headDatum)
                 headDatum = Data $ toData MockHead.Closed
                 cbor = serialize tx
                 len = LBS.length cbor
@@ -269,7 +280,7 @@ spec =
             expectFailure . prop_fanoutTxSize utxo
 
       prop "is observed" $ \utxo headInput ->
-        let tx = fanoutTx utxo (headInput, headDatum)
+        let tx = fanoutTx testNetworkId utxo (headInput, headDatum)
             headOutput = mkHeadOutput SNothing
             headDatum = Data $ toData MockHead.Closed
             lookupUtxo = Map.singleton headInput headOutput
@@ -282,7 +293,7 @@ spec =
       -- NOTE(AB): This property fails if initials are too big
       prop "transaction size below limit" $ \txIn cperiod parties (ReasonablySized initials) ->
         let headDatum = Data . toData $ MockHead.Initial cperiod parties
-         in case abortTx (txIn, headDatum) (Map.fromList initials) of
+         in case abortTx testNetworkId (txIn, headDatum) (Map.fromList initials) of
               Left err -> property False & counterexample ("AbortTx construction failed: " <> show err)
               Right tx ->
                 let cbor = serialize tx
@@ -296,7 +307,7 @@ spec =
         let headOutput = mkHeadOutput SNothing -- will be SJust, but not covered by this test
             headDatum = Data . toData $ MockHead.Initial cperiod parties
             utxo = Map.singleton txIn headOutput
-         in case abortTx (txIn, headDatum) initials of
+         in case abortTx testNetworkId (txIn, headDatum) initials of
               Left err -> property False & counterexample ("AbortTx construction failed: " <> show err)
               Right tx ->
                 let res = observeAbortTx utxo tx
@@ -321,7 +332,7 @@ spec =
               initials = Map.map (Data . toData . MockInitial.datum) initialsPkh
               initialsUtxo = map (\(i, pkh) -> mkMockInitialTxOut (i, pkh)) $ Map.toList initialsPkh
               utxo = UTxO $ Map.fromList (headUtxo : initialsUtxo)
-           in checkCoverage $ case abortTx (txIn, headDatum) initials of
+           in checkCoverage $ case abortTx testNetworkId (txIn, headDatum) initials of
                 Left OverlappingInputs ->
                   property (isJust $ txIn `Map.lookup` initials)
                 Right tx ->
@@ -351,7 +362,7 @@ spec =
               -- Finally we can create the abortTx and have it processed by the wallet
               lookupUtxo = Map.fromList (headUtxo : initialUtxo)
               utxo = UTxO $ walletUtxo <> lookupUtxo
-           in case abortTx (headInput, headDatum) (Map.fromList initials) of
+           in case abortTx testNetworkId (headInput, headDatum) (Map.fromList initials) of
                 Left err ->
                   property False & counterexample ("AbortTx construction failed: " <> show err)
                 Right txAbort ->

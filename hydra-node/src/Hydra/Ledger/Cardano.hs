@@ -154,15 +154,18 @@ mkVkAddress networkId vk =
 --
 -- TODO: See remark on 'mkVkAddress' about 'NetworkId'
 mkScriptAddress ::
-  IsShelleyBasedEra era =>
+  forall lang era.
+  (IsShelleyBasedEra era, HasPlutusScriptVersion lang) =>
   NetworkId ->
-  Script lang ->
+  PlutusScript lang ->
   AddressInEra era
 mkScriptAddress networkId script =
   makeShelleyAddressInEra
     networkId
-    (PaymentCredentialByScript $ hashScript script)
+    (PaymentCredentialByScript $ hashScript $ PlutusScript version script)
     NoStakeAddress
+ where
+  version = plutusScriptVersion (proxyToAsType $ Proxy @lang)
 
 -- ** Datum / Redeemer
 
@@ -176,11 +179,6 @@ mkTxOutDatum :: Plutus.ToData a => a -> TxOutDatum CtxTx Era
 mkTxOutDatum =
   TxOutDatum ScriptDataInAlonzoEra . fromPlutusData . Plutus.toData
 
-toTxDatum :: TxOutDatum CtxUTxO Era -> TxOutDatum CtxTx Era
-toTxDatum = \case
-  TxOutDatumNone -> TxOutDatumNone
-  TxOutDatumHash sdsie ha -> TxOutDatumHash sdsie ha
-
 mkDatumForTxIn :: Plutus.ToData a => a -> ScriptDatum WitCtxTxIn
 mkDatumForTxIn =
   ScriptDatumForTxIn . fromPlutusData . Plutus.toData
@@ -188,11 +186,6 @@ mkDatumForTxIn =
 mkRedeemerForTxIn :: Plutus.ToData a => a -> ScriptRedeemer
 mkRedeemerForTxIn =
   fromPlutusData . Plutus.toData
-
--- ** Script
-
-asScript :: PlutusScript PlutusScriptV1 -> Script PlutusScriptV1
-asScript = PlutusScript PlutusScriptV1
 
 -- ** Tx
 
@@ -326,7 +319,10 @@ mkSimpleCardanoTx (txin, TxOut owner txOutValueIn datum) (recipient, valueOut) s
 
   txOuts =
     TxOut @CtxTx recipient (TxOutValue MultiAssetInAlonzoEra valueOut) TxOutDatumNone :
-      [ TxOut @CtxTx owner (TxOutValue MultiAssetInAlonzoEra $ valueIn <> negateValue valueOut) (toTxDatum datum)
+      [ TxOut @CtxTx
+        owner
+        (TxOutValue MultiAssetInAlonzoEra $ valueIn <> negateValue valueOut)
+        (toTxContext datum)
       | valueOut /= valueIn
       ]
 
@@ -346,6 +342,12 @@ mkTxOutValue :: Value -> TxOutValue Era
 mkTxOutValue =
   TxOutValue MultiAssetInAlonzoEra
 
+modifyTxOutDatum ::
+  (TxOutDatum ctx0 Era -> TxOutDatum ctx1 Era) ->
+  TxOut ctx0 Era ->
+  TxOut ctx1 Era
+modifyTxOutDatum fn (TxOut addr value dat) =
+  TxOut addr value (fn dat)
 -- ** Value
 
 -- TODO: Maybe consider using 'renderValue' from cardano-api instead?
@@ -508,6 +510,21 @@ signWith (TxId h) (PaymentVerificationKey vk, PaymentSigningKey sk) =
     Ledger.Shelley.WitVKey
       (Ledger.asWitness vk)
       (Ledger.signedDSIGN @Ledger.StandardCrypto sk h)
+-- * Extra
+
+-- TODO: Could be offered upstream.
+class ToTxContext f where
+  toTxContext :: f CtxUTxO Era -> f CtxTx Era
+
+instance ToTxContext TxOutDatum where
+  toTxContext = \case
+    TxOutDatumNone -> TxOutDatumNone
+    TxOutDatumHash era h -> TxOutDatumHash era h
+
+instance ToTxContext TxOut where
+  toTxContext =
+    modifyTxOutDatum toTxContext
+
 -- * Generators
 
 genKeyPair :: Gen (VerificationKey PaymentKey, SigningKey PaymentKey)

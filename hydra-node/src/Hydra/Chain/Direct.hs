@@ -410,7 +410,7 @@ fromPostChainTx TinyWallet{getUtxo, verificationKey} networkId headState cardano
   AbortTx _utxo ->
     readTVar headState >>= \case
       Initial{threadOutput, initials} ->
-        case abortTx (convertTuple threadOutput) (Map.fromList $ map convertTuple initials) of
+        case abortTx networkId (convertTuple threadOutput) (Map.fromList $ map convertTuple initials) of
           Left err -> error $ show err
           Right tx -> pure $ Just tx
       _st -> pure Nothing
@@ -440,7 +440,7 @@ fromPostChainTx TinyWallet{getUtxo, verificationKey} networkId headState cardano
   FanoutTx{utxo} ->
     readTVar headState >>= \case
       OpenOrClosed{threadOutput} ->
-        pure . Just $ fanoutTx utxo (convertTuple threadOutput)
+        pure . Just $ fanoutTx networkId utxo (convertTuple threadOutput)
       st -> error $ "cannot post FanOutTx, invalid state: " <> show st
   _ -> error "not implemented"
  where
