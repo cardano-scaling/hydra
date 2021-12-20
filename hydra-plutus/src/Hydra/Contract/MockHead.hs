@@ -70,12 +70,16 @@ hydraTransition oldState input =
       Just (mempty, oldState{SM.stateData = Open, SM.stateValue = collectedValue <> SM.stateValue oldState})
     (Initial{}, Abort) ->
       Just (mempty, oldState{SM.stateData = Final, SM.stateValue = mempty})
-    (Open{}, Close{snapshotNumber}) -> do
-      guard $ traceIfFalse "snapshot number != 1" $ snapshotNumber == 1
+    (Open{}, Close{snapshotNumber, signature}) -> do
+      guard $ verifySnapshotSignature [] snapshotNumber signature
       Just (mempty, oldState{SM.stateData = Closed})
     (Closed{}, Fanout{}) ->
       Just (mempty, oldState{SM.stateData = Final, SM.stateValue = mempty})
     _ -> Nothing
+
+{-# INLINEABLE verifySnapshotSignature #-}
+verifySnapshotSignature :: [Party] -> SnapshotNumber -> Signature -> Bool
+verifySnapshotSignature _ _ _ = traceIfFalse "signature verification failed" False
 
 -- | The script instance of the auction state machine. It contains the state
 -- machine compiled to a Plutus core validator script. The 'MintingPolicyHash' serves
