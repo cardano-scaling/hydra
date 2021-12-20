@@ -63,7 +63,7 @@ import Hydra.Ledger.Cardano (
   VerificationKey (PaymentVerificationKey),
  )
 import qualified Hydra.Ledger.Cardano as Api
-import Hydra.Party (MultiSigned, Party (Party), vkey)
+import Hydra.Party (MultiSigned (MultiSigned), Party (Party), vkey)
 import Hydra.Snapshot (Snapshot, SnapshotNumber)
 import Ledger.Value (AssetClass (..), currencyMPSHash)
 import Plutus.V1.Ledger.Api (FromData, MintingPolicyHash, PubKeyHash (..), fromData)
@@ -359,14 +359,14 @@ closeTx snapshotNumber sig (Api.fromLedgerTxIn -> headInput, Api.fromLedgerTxOut
     Api.mkTxOutDatum MockHead.Closed
 
 closeRedeemer :: SnapshotNumber -> MultiSigned (Snapshot CardanoTx) -> MockHead.Input
-closeRedeemer snapshotNumber sig =
+closeRedeemer snapshotNumber (MultiSigned sigs) =
   MockHead.Close
     { snapshotNumber = onChainSnapshotNumber
     , signature = onChainSignature
     }
  where
   onChainSnapshotNumber = fromIntegral snapshotNumber
-  onChainSignature = Plutus.Signature . Plutus.toBuiltin $ serialize' sig
+  onChainSignature = Plutus.Signature . Plutus.toBuiltin . serialize' <$> sigs
 
 fanoutTx ::
   -- | Network identifier for address discrimination

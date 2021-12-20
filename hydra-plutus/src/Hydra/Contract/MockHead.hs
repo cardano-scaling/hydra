@@ -39,7 +39,7 @@ data Input
     CollectCom Value
   | Close
       { snapshotNumber :: SnapshotNumber
-      , signature :: Signature
+      , signature :: [Signature]
       }
   | Abort
   | Fanout
@@ -78,8 +78,9 @@ hydraTransition oldState input =
     _ -> Nothing
 
 {-# INLINEABLE verifySnapshotSignature #-}
-verifySnapshotSignature :: [Party] -> SnapshotNumber -> Signature -> Bool
-verifySnapshotSignature _ _ _ = traceIfFalse "signature verification failed" False
+verifySnapshotSignature :: [Party] -> SnapshotNumber -> [Signature] -> Bool
+verifySnapshotSignature parties _ sigs =
+  traceIfFalse "signature verification failed" $ length parties == length sigs
 
 -- | The script instance of the auction state machine. It contains the state
 -- machine compiled to a Plutus core validator script. The 'MintingPolicyHash' serves
