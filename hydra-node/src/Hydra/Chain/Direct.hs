@@ -410,9 +410,10 @@ fromPostChainTx TinyWallet{getUtxo, verificationKey} networkId headState cardano
   AbortTx _utxo ->
     readTVar headState >>= \case
       Initial{threadOutput, initials} ->
-        case abortTx networkId (convertTuple threadOutput) (Map.fromList $ map convertTuple initials) of
-          Left err -> error $ show err
-          Right tx -> pure $ Just tx
+        let (i, _, dat, _) = threadOutput
+         in case abortTx networkId (i, dat) (Map.fromList $ map convertTuple initials) of
+              Left err -> error $ show err
+              Right tx -> pure $ Just tx
       _st -> pure Nothing
   CommitTx party utxo ->
     readTVar headState >>= \case
@@ -430,7 +431,8 @@ fromPostChainTx TinyWallet{getUtxo, verificationKey} networkId headState cardano
   CollectComTx utxo ->
     readTVar headState >>= \case
       Initial{threadOutput, commits} -> do
-        pure . Just $ collectComTx networkId utxo (convertTuple threadOutput) (Map.fromList $ fmap (\(a, b, c) -> (a, (b, c))) commits)
+        let (i, _, dat, parties) = threadOutput
+        pure . Just $ collectComTx networkId utxo (i, dat, parties) (Map.fromList $ fmap (\(a, b, c) -> (a, (b, c))) commits)
       st -> error $ "cannot post CollectComTx, invalid state: " <> show st
   CloseTx confirmedSnapshot ->
     readTVar headState >>= \case
@@ -439,12 +441,14 @@ fromPostChainTx TinyWallet{getUtxo, verificationKey} networkId headState cardano
               case confirmedSnapshot of
                 ConfirmedSnapshot{snapshot, signatures} -> (snapshot, signatures)
                 InitialSnapshot{snapshot} -> (snapshot, mempty)
-        pure . Just $ closeTx (number sn) sigs threadOutput
+        let (i, o, dat, _) = threadOutput
+        pure . Just $ closeTx (number sn) sigs (i, o, dat)
       st -> error $ "cannot post CloseTx, invalid state: " <> show st
   FanoutTx{utxo} ->
     readTVar headState >>= \case
       OpenOrClosed{threadOutput} ->
-        pure . Just $ fanoutTx networkId utxo (convertTuple threadOutput)
+        let (i, _, dat, _) = threadOutput
+         in pure . Just $ fanoutTx networkId utxo (i, dat)
       st -> error $ "cannot post FanOutTx, invalid state: " <> show st
   _ -> error "not implemented"
  where

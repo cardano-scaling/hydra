@@ -86,7 +86,8 @@ data OnChainHeadState
         -- This output should always be present and 'threaded' across all
         -- transactions.
         -- NOTE(SN): The Head's identifier is somewhat encoded in the TxOut's address
-        threadOutput :: (TxIn StandardCrypto, TxOut Era, Data Era)
+        -- XXX(SN): Data and [OnChain.Party] are overlapping
+        threadOutput :: (TxIn StandardCrypto, TxOut Era, Data Era, [OnChain.Party])
       , initials :: [(TxIn StandardCrypto, TxOut Era, Data Era)]
       , commits :: [(TxIn StandardCrypto, TxOut Era, Data Era)]
       }
@@ -95,7 +96,8 @@ data OnChainHeadState
         -- This output should always be present and 'threaded' across all
         -- transactions.
         -- NOTE(SN): The Head's identifier is somewhat encoded in the TxOut's address
-        threadOutput :: (TxIn StandardCrypto, TxOut Era, Data Era)
+        -- XXX(SN): Data and [OnChain.Party] are overlapping
+        threadOutput :: (TxIn StandardCrypto, TxOut Era, Data Era, [OnChain.Party])
       }
   | Final
   deriving (Eq, Show, Generic)
@@ -285,7 +287,7 @@ collectComTx ::
   Utxo ->
   -- | Everything needed to spend the Head state-machine output.
   -- FIXME(SN): should also contain some Head identifier/address and stored Value (maybe the TxOut + Data?)
-  (TxIn StandardCrypto, Data Era) ->
+  (TxIn StandardCrypto, Data Era, [OnChain.Party]) ->
   -- | Data needed to spend the commit output produced by each party.
   -- Should contain the PT and is locked by @ν_commit@ script.
   Map (TxIn StandardCrypto) (TxOut Era, Data Era) ->
@@ -293,7 +295,7 @@ collectComTx ::
 -- TODO(SN): utxo unused means other participants would not "see" the opened
 -- utxo when observing. Right now, they would be trusting the OCV checks this
 -- and construct their "world view" from observed commit txs in the HeadLogic
-collectComTx networkId _utxo (Api.fromLedgerTxIn -> headInput, Api.fromLedgerData -> headDatumBefore) commits =
+collectComTx networkId _utxo (Api.fromLedgerTxIn -> headInput, Api.fromLedgerData -> headDatumBefore, parties) commits =
   Api.toLedgerTx $
     Api.unsafeBuildTransaction $
       Api.emptyTxBody
@@ -313,7 +315,7 @@ collectComTx networkId _utxo (Api.fromLedgerTxIn -> headInput, Api.fromLedgerDat
       (Api.mkTxOutValue $ Api.lovelaceToValue 2_000_000 <> commitValue)
       headDatumAfter
   headDatumAfter =
-    Api.mkTxOutDatum MockHead.Open
+    Api.mkTxOutDatum MockHead.Open{MockHead.parties = parties}
 
   mkCommit (commitInput, (_commitOutput, commitDatum)) =
     ( Api.fromLedgerTxIn commitInput
@@ -471,7 +473,7 @@ observeInitTx party ValidatedTx{wits, body} = do
   pure
     ( OnInitTx cperiod parties
     , Initial
-        { threadOutput = (i, o, headDatum)
+        { threadOutput = (i, o, headDatum, ps)
         , initials
         , commits = mempty
         }
@@ -554,15 +556,17 @@ observeCollectComTx ::
   ValidatedTx Era ->
   Maybe (OnChainTx CardanoTx, OnChainHeadState)
 observeCollectComTx utxo tx = do
-  headInput <- fst <$> findScriptOutput utxo headScript
+  (headInput, headOutput) <- findScriptOutput utxo headScript
   redeemer <- getRedeemerSpending tx headInput
-  case redeemer of
-    MockHead.CollectCom _ -> do
+  oldHeadDatum <- lookupDatum (wits tx) headOutput
+  datum <- fromData $ getPlutusData oldHeadDatum
+  case (datum, redeemer) of
+    (MockHead.Initial{parties}, MockHead.CollectCom _) -> do
       (newHeadInput, newHeadOutput) <- findScriptOutput (utxoFromTx tx) headScript
       newHeadDatum <- lookupDatum (wits tx) newHeadOutput
       pure
         ( OnCollectComTx
-        , OpenOrClosed{threadOutput = (newHeadInput, newHeadOutput, newHeadDatum)}
+        , OpenOrClosed{threadOutput = (newHeadInput, newHeadOutput, newHeadDatum, parties)}
         )
     _ -> Nothing
  where
@@ -576,15 +580,17 @@ observeCloseTx ::
   ValidatedTx Era ->
   Maybe (OnChainTx CardanoTx, OnChainHeadState)
 observeCloseTx utxo tx = do
-  headInput <- fst <$> findScriptOutput utxo headScript
+  (headInput, headOutput) <- findScriptOutput utxo headScript
   redeemer <- getRedeemerSpending tx headInput
-  case redeemer of
-    MockHead.Close{snapshotNumber} -> do
+  oldHeadDatum <- lookupDatum (wits tx) headOutput
+  datum <- fromData $ getPlutusData oldHeadDatum
+  case (datum, redeemer) of
+    (MockHead.Open{parties}, MockHead.Close{snapshotNumber}) -> do
       (newHeadInput, newHeadOutput) <- findScriptOutput (utxoFromTx tx) headScript
       newHeadDatum <- lookupDatum (wits tx) newHeadOutput
       pure
         ( OnCloseTx{contestationDeadline, snapshotNumber = fromIntegral snapshotNumber}
-        , OpenOrClosed{threadOutput = (newHeadInput, newHeadOutput, newHeadDatum)}
+        , OpenOrClosed{threadOutput = (newHeadInput, newHeadOutput, newHeadDatum, parties)}
         )
     _ -> Nothing
  where
