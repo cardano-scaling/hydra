@@ -89,8 +89,8 @@ spec = around showLogsOnFailure $ do
               alicePostTx $ InitTx $ HeadParameters 100 [alice, carol]
               alicesCallback `observesInTime` OnInitTx 100 [alice, carol]
 
-              bobPostTx $ AbortTx mempty
-              bobsCallback `observesInTime` PostTxFailed
+              bobPostTx (AbortTx mempty)
+                `shouldThrow` (== InvalidStateToPost @CardanoTx (AbortTx mempty))
 
   it "can commit" $ \tracer -> do
     alicesCallback <- newEmptyMVar
