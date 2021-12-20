@@ -388,7 +388,7 @@ fanoutTx networkId utxo (Api.fromLedgerTxIn -> headInput, Api.fromLedgerData -> 
     Api.mkTxOutDatum MockHead.Final
 
   fanoutOutputs =
-    foldr ((:) . Api.useForBuildingTx) [] utxo
+    foldr ((:) . Api.toTxContext) [] utxo
 
 data AbortTxError = OverlappingInputs
   deriving (Show)
