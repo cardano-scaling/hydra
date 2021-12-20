@@ -144,16 +144,12 @@ genCloseMutation (_tx, _utxo) =
       , do
           -- TODO: also here, we would want to alter the provided tx's redeemer, rather
           -- than generating a completly new one.
-          arbitrary >>= \case
-            MockHead.Close{MockHead.signature, MockHead.snapshotNumber = snapshotNumber} -> do
-              signature' <- arbitrary `suchThat` (/= signature)
-              pure $
-                MockHead.Close
-                  { MockHead.signature = signature'
-                  , MockHead.snapshotNumber = snapshotNumber
-                  }
-            anyOtherRedeemer ->
-              pure anyOtherRedeemer
+          signature' <- arbitrary
+          pure $
+            MockHead.Close
+              { MockHead.signature = signature'
+              , MockHead.snapshotNumber = 1
+              }
       ]
   genChangeHeadDatum =
     arbitrary `suchThat` \case
