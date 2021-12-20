@@ -1,4 +1,5 @@
 {-# LANGUAGE TypeApplications #-}
+{-# OPTIONS_GHC -Wno-deprecations #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 
 module Hydra.Chain.Direct.ContractSpec where
@@ -23,6 +24,7 @@ import qualified Hydra.Chain.Direct.Fixture as Fixture
 import Hydra.Chain.Direct.Tx (closeTx, policyId)
 import Hydra.Chain.Direct.TxSpec (mkHeadOutput)
 import qualified Hydra.Contract.MockHead as MockHead
+import Hydra.Data.Party (partyFromVerKey)
 import Hydra.Ledger.Cardano (
   AlonzoEra,
   CardanoTx,
@@ -43,6 +45,8 @@ import Hydra.Ledger.Cardano (
   toLedgerUtxo,
  )
 import qualified Hydra.Ledger.Cardano as Api
+import Hydra.Party (MultiSigned (MultiSigned), SigningKey, deriveParty, sign, vkey)
+import Hydra.Snapshot (Snapshot)
 import Plutus.Orphans ()
 import Plutus.V1.Ledger.Api (fromData, toData)
 import Test.QuickCheck (
@@ -123,7 +127,7 @@ healthyCloseTx =
   , fromLedgerUtxo lookupUtxo
   )
  where
-  multiSignedSnapshot = [sign sk healthyOpenSnapshot | sk <- healthyPartyCredentials]
+  multiSignedSnapshot = MultiSigned [sign sk healthyOpenSnapshot | sk <- healthyPartyCredentials]
   headInput = generateWith arbitrary 42
   headOutput = mkHeadOutput (SJust headDatum)
   headDatum = Ledger.Data $ toData healthyCloseDatum
@@ -133,7 +137,7 @@ healthyOpenSnapshot :: Snapshot CardanoTx
 healthyOpenSnapshot = undefined
 
 healthyCloseDatum :: MockHead.State
-healthyCloseDatum = MockHead.Open (deriveParty <$> healthyPartyCredentials)
+healthyCloseDatum = MockHead.Open (partyFromVerKey . vkey . deriveParty <$> healthyPartyCredentials)
 
 healthyPartyCredentials :: [SigningKey]
 healthyPartyCredentials = [1, 2, 3]
