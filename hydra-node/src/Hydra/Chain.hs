@@ -8,7 +8,7 @@ import Cardano.Prelude
 import Control.Monad.Class.MonadThrow (MonadThrow)
 import Data.Aeson (FromJSON, ToJSON)
 import Data.Time (DiffTime, UTCTime)
-import Hydra.Ledger (IsTx, TxIn, UtxoType)
+import Hydra.Ledger (IsTx, TxIdType, TxIn, UtxoType)
 import Hydra.Party (Party)
 import Hydra.Prelude (Arbitrary (arbitrary), genericArbitrary)
 import Hydra.Snapshot (ConfirmedSnapshot, Snapshot, SnapshotNumber)
@@ -76,10 +76,19 @@ data InvalidTxError tx
   | CannotSpendInput {input :: TxIn tx, walletUtxo :: UtxoType tx, headUtxo :: UtxoType tx}
   | CannotCoverFees {walletUtxo :: UtxoType tx, headUtxo :: UtxoType tx, reason :: Text, tx :: tx}
   | NoSeedInput
-  deriving (Exception)
+  deriving (Exception, Generic)
 
 deriving instance IsTx tx => Eq (InvalidTxError tx)
 deriving instance IsTx tx => Show (InvalidTxError tx)
+
+instance
+  ( Arbitrary tx
+  , Arbitrary (UtxoType tx)
+  , Arbitrary (TxIdType tx)
+  ) =>
+  Arbitrary (InvalidTxError tx)
+  where
+  arbitrary = genericArbitrary
 
 -- | Handle to interface with the main chain network
 newtype Chain tx m = Chain
