@@ -321,7 +321,10 @@ mkSimpleCardanoTx (txin, TxOut owner txOutValueIn datum) (recipient, valueOut) s
 
   txOuts =
     TxOut @CtxTx recipient (TxOutValue MultiAssetInAlonzoEra valueOut) TxOutDatumNone :
-      [ TxOut @CtxTx owner (TxOutValue MultiAssetInAlonzoEra $ valueIn <> negateValue valueOut) (toCtxTx datum)
+      [ TxOut @CtxTx
+        owner
+        (TxOutValue MultiAssetInAlonzoEra $ valueIn <> negateValue valueOut)
+        (useForBuildingTx datum)
       | valueOut /= valueIn
       ]
 
@@ -512,17 +515,17 @@ signWith (TxId h) (PaymentVerificationKey vk, PaymentSigningKey sk) =
 -- * Extra
 
 -- TODO: Could be offered upstream.
-class ToCtxTx f where
-  toCtxTx :: f CtxUTxO Era -> f CtxTx Era
+class UseForBuildingTx f where
+  useForBuildingTx :: f CtxUTxO Era -> f CtxTx Era
 
-instance ToCtxTx TxOutDatum where
-  toCtxTx = \case
+instance UseForBuildingTx TxOutDatum where
+  useForBuildingTx = \case
     TxOutDatumNone -> TxOutDatumNone
     TxOutDatumHash era h -> TxOutDatumHash era h
 
-instance ToCtxTx TxOut where
-  toCtxTx =
-    modifyTxOutDatum toCtxTx
+instance UseForBuildingTx TxOut where
+  useForBuildingTx =
+    modifyTxOutDatum useForBuildingTx
 
 -- * Generators
 
