@@ -337,7 +337,7 @@ closeTx ::
   -- FIXME(SN): should also contain some Head identifier/address and stored Value (maybe the TxOut + Data?)
   (TxIn StandardCrypto, TxOut Era, Data Era) ->
   ValidatedTx Era
-closeTx snapshotNumber _utxo (Api.fromLedgerTxIn -> headInput, Api.fromLedgerTxOut -> headOutputBefore, Api.fromLedgerData -> headDatumBefore) =
+closeTx snapshotNumber sig (Api.fromLedgerTxIn -> headInput, Api.fromLedgerTxOut -> headOutputBefore, Api.fromLedgerData -> headDatumBefore) =
   Api.toLedgerTx $
     Api.unsafeBuildTransaction $
       Api.emptyTxBody
