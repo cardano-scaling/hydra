@@ -123,14 +123,20 @@ healthyCloseTx =
   , fromLedgerUtxo lookupUtxo
   )
  where
-  multiSignedSnapshot = generateWith arbitrary 42
+  multiSignedSnapshot = [sign sk healthyOpenSnapshot | sk <- healthyPartyCredentials]
   headInput = generateWith arbitrary 42
   headOutput = mkHeadOutput (SJust headDatum)
   headDatum = Ledger.Data $ toData healthyCloseDatum
   lookupUtxo = Ledger.UTxO $ Map.singleton headInput headOutput
 
+healthyOpenSnapshot :: Snapshot CardanoTx
+healthyOpenSnapshot = undefined
+
 healthyCloseDatum :: MockHead.State
-healthyCloseDatum = MockHead.Open [1, 2, 3]
+healthyCloseDatum = MockHead.Open (deriveParty <$> healthyPartyCredentials)
+
+healthyPartyCredentials :: [SigningKey]
+healthyPartyCredentials = [1, 2, 3]
 
 genCloseMutation :: (CardanoTx, Utxo) -> Gen Mutation
 genCloseMutation (_tx, _utxo) =

@@ -33,11 +33,23 @@ instance (Arbitrary tx, Arbitrary (UtxoType tx)) => Arbitrary (Snapshot tx) wher
     , confirmed' <- shrink (confirmed s)
     ]
 
-instance IsTx tx => SignableRepresentation (Snapshot tx) where
-  -- FIXME: This should really use the CBOR representation for signing.
-  --
-  -- getSignableRepresentation = CBOR.toStrictByteString . toCBOR
-  getSignableRepresentation = encodeUtf8 . show @Text
+-- FIXME(1): Use extra key:value map to pass signable representation to on-chain code
+--
+-- We should use a proper signable representation which we can also
+-- get back to on-chain. In practice, we probably want to define it as an extra
+-- map data-hash -> data so that we can:
+--
+-- (a) Leverage the Ledger phase-1 validation to do the hashing off-chain and
+-- verify it.
+-- (b) Have an easy way to lookup data to get a hash representation of it, for
+-- signature verification.
+--
+-- FIXME(2): Also include UTXO in the signable representation.
+--
+-- FIXME(3): Use hash digest as signable representations (not pre-images).
+instance SignableRepresentation (Snapshot tx) where
+  getSignableRepresentation Snapshot{number} =
+    encodeUtf8 (show @Text number)
 
 instance IsTx tx => ToJSON (Snapshot tx) where
   toJSON s =
