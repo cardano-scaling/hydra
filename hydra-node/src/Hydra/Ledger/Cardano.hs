@@ -154,15 +154,18 @@ mkVkAddress networkId vk =
 --
 -- TODO: See remark on 'mkVkAddress' about 'NetworkId'
 mkScriptAddress ::
-  IsShelleyBasedEra era =>
+  forall lang era.
+  (IsShelleyBasedEra era, HasPlutusScriptVersion lang) =>
   NetworkId ->
-  Script lang ->
+  PlutusScript lang ->
   AddressInEra era
 mkScriptAddress networkId script =
   makeShelleyAddressInEra
     networkId
-    (PaymentCredentialByScript $ hashScript script)
+    (PaymentCredentialByScript $ hashScript $ PlutusScript version script)
     NoStakeAddress
+ where
+  version = plutusScriptVersion (proxyToAsType $ Proxy @lang)
 
 -- ** Datum / Redeemer
 
@@ -183,11 +186,6 @@ mkDatumForTxIn =
 mkRedeemerForTxIn :: Plutus.ToData a => a -> ScriptRedeemer
 mkRedeemerForTxIn =
   fromPlutusData . Plutus.toData
-
--- ** Script
-
-asScript :: PlutusScript PlutusScriptV1 -> Script PlutusScriptV1
-asScript = PlutusScript PlutusScriptV1
 
 -- ** Tx
 

@@ -193,9 +193,9 @@ initTx networkId cardanoKeys HeadParameters{contestationPeriod, parties} txIn =
   headOutput =
     Api.TxOut headAddress headValue headDatum
   headScript =
-    Api.fromPlutusScript Api.AsPlutusScriptV1 $ MockHead.validatorScript policyId
+    Api.fromPlutusScript $ MockHead.validatorScript policyId
   headAddress =
-    Api.mkScriptAddress networkId headScript
+    Api.mkScriptAddress @Api.PlutusScriptV1 networkId headScript
   headValue =
     Api.lovelaceToTxOutValue $ Api.Lovelace 2_000_000
   headDatum =
@@ -207,12 +207,12 @@ initTx networkId cardanoKeys HeadParameters{contestationPeriod, parties} txIn =
   mkInitialOutput (Api.toPlutusKeyHash . Api.verificationKeyHash -> vkh) =
     Api.TxOut initialAddress initialValue (mkInitialDatum vkh)
   initialScript =
-    Api.fromPlutusScript Api.AsPlutusScriptV1 MockInitial.validatorScript
+    Api.fromPlutusScript MockInitial.validatorScript
   -- FIXME: should really be the minted PTs plus some ADA to make the ledger happy
   initialValue =
     Api.lovelaceToTxOutValue $ Api.Lovelace 2_000_000
   initialAddress =
-    Api.mkScriptAddress networkId initialScript
+    Api.mkScriptAddress @Api.PlutusScriptV1 networkId initialScript
   mkInitialDatum =
     Api.mkTxOutDatum . MockInitial.datum
 
@@ -246,7 +246,7 @@ commitTx networkId party utxo (initialInput, vkh) =
   initialWitness =
     Api.BuildTxWith $ Api.mkScriptWitness initialScript initialDatum initialRedeemer
   initialScript =
-    Api.fromPlutusScript Api.AsPlutusScriptV1 MockInitial.validatorScript
+    Api.fromPlutusScript MockInitial.validatorScript
   initialDatum =
     Api.mkDatumForTxIn $ MockInitial.datum vkh
   initialRedeemer =
@@ -255,9 +255,9 @@ commitTx networkId party utxo (initialInput, vkh) =
   commitOutput =
     Api.TxOut commitAddress commitValue commitDatum
   commitScript =
-    Api.fromPlutusScript Api.AsPlutusScriptV1 MockCommit.validatorScript
+    Api.fromPlutusScript MockCommit.validatorScript
   commitAddress =
-    Api.mkScriptAddress networkId commitScript
+    Api.mkScriptAddress @Api.PlutusScriptV1 networkId commitScript
   -- FIXME: We should add the value from the initialIn too because it contains the PTs
   commitValue =
     Api.mkTxOutValue $
@@ -302,13 +302,13 @@ collectComTx networkId _utxo (Api.fromLedgerTxIn -> headInput, Api.fromLedgerDat
   headWitness =
     Api.BuildTxWith $ Api.mkScriptWitness headScript headDatumBefore headRedeemer
   headScript =
-    Api.fromPlutusScript Api.AsPlutusScriptV1 $ MockHead.validatorScript policyId
+    Api.fromPlutusScript $ MockHead.validatorScript policyId
   headRedeemer =
     Api.mkRedeemerForTxIn $ MockHead.CollectCom $ Api.toPlutusValue commitValue
 
   headOutput =
     Api.TxOut
-      (Api.mkScriptAddress networkId $ Api.asScript headScript)
+      (Api.mkScriptAddress @Api.PlutusScriptV1 networkId headScript)
       (Api.mkTxOutValue $ Api.lovelaceToValue 2_000_000 <> commitValue)
       headDatumAfter
   headDatumAfter =
@@ -323,7 +323,7 @@ collectComTx networkId _utxo (Api.fromLedgerTxIn -> headInput, Api.fromLedgerDat
   commitValue =
     mconcat $ Api.txOutValue . Api.fromLedgerTxOut . fst <$> Map.elems commits
   commitScript =
-    Api.fromPlutusScript Api.AsPlutusScriptV1 MockCommit.validatorScript
+    Api.fromPlutusScript MockCommit.validatorScript
   commitRedeemer =
     Api.mkRedeemerForTxIn MockCommit.redeemer
 
@@ -346,7 +346,7 @@ closeTx snapshotNumber _utxo (Api.fromLedgerTxIn -> headInput, Api.fromLedgerTxO
   headWitness =
     Api.BuildTxWith $ Api.mkScriptWitness headScript headDatumBefore headRedeemer
   headScript =
-    Api.fromPlutusScript Api.AsPlutusScriptV1 $ MockHead.validatorScript policyId
+    Api.fromPlutusScript $ MockHead.validatorScript policyId
   headRedeemer =
     Api.mkRedeemerForTxIn $ MockHead.Close (fromIntegral snapshotNumber)
 
@@ -374,14 +374,14 @@ fanoutTx networkId utxo (Api.fromLedgerTxIn -> headInput, Api.fromLedgerData -> 
   headWitness =
     Api.BuildTxWith $ Api.mkScriptWitness headScript headDatumBefore headRedeemer
   headScript =
-    Api.fromPlutusScript Api.AsPlutusScriptV1 $ MockHead.validatorScript policyId
+    Api.fromPlutusScript $ MockHead.validatorScript policyId
   headRedeemer =
     Api.mkRedeemerForTxIn MockHead.Fanout
 
   -- TODO: we probably don't need an output for the head SM which we don't use anyway
   headOutput =
     Api.TxOut
-      (Api.mkScriptAddress networkId $ Api.asScript headScript)
+      (Api.mkScriptAddress @Api.PlutusScriptV1 networkId headScript)
       (Api.mkTxOutValue $ Api.lovelaceToValue 2_000_000)
       headDatumAfter
   headDatumAfter =
@@ -418,7 +418,7 @@ abortTx networkId (Api.fromLedgerTxIn -> headInput, Api.fromLedgerData -> headDa
   headWitness =
     Api.BuildTxWith $ Api.mkScriptWitness headScript headDatumBefore headRedeemer
   headScript =
-    Api.fromPlutusScript Api.AsPlutusScriptV1 $ MockHead.validatorScript policyId
+    Api.fromPlutusScript $ MockHead.validatorScript policyId
   headRedeemer =
     Api.mkRedeemerForTxIn MockHead.Abort
 
@@ -427,7 +427,7 @@ abortTx networkId (Api.fromLedgerTxIn -> headInput, Api.fromLedgerData -> headDa
   -- (b) There's in principle no need to output any SM output here, it's over.
   headOutput =
     Api.TxOut
-      (Api.mkScriptAddress networkId $ Api.asScript headScript)
+      (Api.mkScriptAddress @Api.PlutusScriptV1 networkId headScript)
       (Api.mkTxOutValue $ Api.lovelaceToValue 2_000_000)
       headDatumAfter
   headDatumAfter =
@@ -442,7 +442,7 @@ abortTx networkId (Api.fromLedgerTxIn -> headInput, Api.fromLedgerData -> headDa
   mkAbortWitness initialDatum =
     Api.BuildTxWith $ Api.mkScriptWitness initialScript initialDatum initialRedeemer
   initialScript =
-    Api.fromPlutusScript Api.AsPlutusScriptV1 MockInitial.validatorScript
+    Api.fromPlutusScript MockInitial.validatorScript
   initialRedeemer =
     Api.mkRedeemerForTxIn $ MockInitial.redeemer ()
 
