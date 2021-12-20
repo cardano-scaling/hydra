@@ -76,7 +76,7 @@ import Hydra.Chain.Direct.Wallet (
   getTxId,
   withTinyWallet,
  )
-import Hydra.Ledger.Cardano (CardanoTx, fromLedgerTx, fromLedgerTxId, fromLedgerUtxo, utxoPairs)
+import Hydra.Ledger.Cardano (CardanoTx, NetworkId (Testnet), fromLedgerTx, fromLedgerTxId, fromLedgerUtxo, utxoPairs)
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Party (Party)
 import Hydra.Snapshot (Snapshot (..))
@@ -158,7 +158,7 @@ withDirectChain tracer networkMagic iocp socketPath keyPair party cardanoKeys ca
 
                     res <- timeout 10 $
                       atomically $ do
-                        fromPostChainTx wallet headState cardanoKeys tx >>= \case
+                        fromPostChainTx wallet (Testnet networkMagic) headState cardanoKeys tx >>= \case
                           Nothing ->
                             pure Nothing
                           Just partialTx ->
@@ -395,16 +395,17 @@ finalizeTx TinyWallet{sign, getUtxo, coverFee} headState partialTx = do
 fromPostChainTx ::
   (MonadSTM m, MonadThrow (STM m)) =>
   TinyWallet m ->
+  NetworkId ->
   TVar m OnChainHeadState ->
   [VerificationKey PaymentKey] ->
   PostChainTx CardanoTx ->
   STM m (Maybe (ValidatedTx Era))
-fromPostChainTx TinyWallet{getUtxo, verificationKey} headState cardanoKeys = \case
+fromPostChainTx TinyWallet{getUtxo, verificationKey} networkId headState cardanoKeys = \case
   InitTx params -> do
     u <- getUtxo
     -- NOTE: 'lookupMax' to favor change outputs!
     case Map.lookupMax u of
-      Just (seedInput, _) -> pure . Just $ initTx cardanoKeys params seedInput
+      Just (seedInput, _) -> pure . Just $ initTx networkId cardanoKeys params seedInput
       Nothing -> throwIO (NoSeedInput @CardanoTx)
   AbortTx _utxo ->
     readTVar headState >>= \case
@@ -420,9 +421,9 @@ fromPostChainTx TinyWallet{getUtxo, verificationKey} headState cardanoKeys = \ca
         Just initial ->
           case utxoPairs utxo of
             [aUtxo] -> do
-              pure . Just $ commitTx party (Just aUtxo) initial
+              pure . Just $ commitTx networkId party (Just aUtxo) initial
             [] -> do
-              pure . Just $ commitTx party Nothing initial
+              pure . Just $ commitTx networkId party Nothing initial
             _ ->
               throwIO (MoreThanOneUtxoCommitted @CardanoTx)
       st -> error $ "cannot post CommitTx, invalid state: " <> show st

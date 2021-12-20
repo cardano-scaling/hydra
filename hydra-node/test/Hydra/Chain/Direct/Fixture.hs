@@ -23,10 +23,14 @@ import Data.Maybe (fromJust)
 import Data.Ratio ((%))
 import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
 import Hydra.Chain.Direct.Util (Era)
+import Hydra.Ledger.Cardano (NetworkId (Testnet), NetworkMagic (NetworkMagic))
 import Plutus.V1.Ledger.Api (PubKeyHash (PubKeyHash), toBuiltin)
 import Test.Cardano.Ledger.Alonzo.PlutusScripts (defaultCostModel)
 import Test.Cardano.Ledger.Alonzo.Serialisation.Generators ()
 import Test.QuickCheck.Instances ()
+
+testNetworkId :: NetworkId
+testNetworkId = Testnet (NetworkMagic 42)
 
 maxTxSize :: Int64
 maxTxSize = 1 `shift` 14

@@ -13,6 +13,7 @@ module Hydra.Chain.Direct.Tx where
 
 import Hydra.Prelude
 
+import Cardano.Api (NetworkId)
 import Cardano.Binary (serialize)
 import Cardano.Ledger.Address (Addr (Addr))
 import Cardano.Ledger.Alonzo (Script)
@@ -76,10 +77,6 @@ import Plutus.V1.Ledger.Value (assetClass, currencySymbol, tokenName)
 -- FIXME: parameterize
 network :: Network
 network = Testnet
-
--- FIXME: parameterize
-networkId :: Api.NetworkId
-networkId = Api.Testnet (Api.NetworkMagic 42)
 
 -- * Post Hydra Head transactions
 
@@ -184,12 +181,13 @@ withOutputs newOutputs txbody =
 --
 -- TODO: Get rid of Ledger types in the signature and fully rely on Cardano.Api
 initTx ::
+  NetworkId ->
   -- | Participant's cardano public keys.
   [VerificationKey PaymentKey] ->
   HeadParameters ->
   TxIn StandardCrypto ->
   ValidatedTx Era
-initTx cardanoKeys HeadParameters{contestationPeriod, parties} txIn =
+initTx networkId cardanoKeys HeadParameters{contestationPeriod, parties} txIn =
   Api.toLedgerTx $
     Api.unsafeBuildTransaction $
       Api.emptyTxBody
@@ -224,6 +222,7 @@ pubKeyHash (PaymentVerificationKey vkey) = transKeyHash $ hashKey @StandardCrypt
 --
 -- TODO: Get rid of Ledger types in the signature and fully rely on Cardano.Api
 commitTx ::
+  NetworkId ->
   Party ->
   -- | A single UTxO to commit to the Head
   -- We currently limit committing one UTxO to the head because of size limitations.
@@ -232,7 +231,7 @@ commitTx ::
   -- locked by initial script
   (TxIn StandardCrypto, PubKeyHash) ->
   ValidatedTx Era
-commitTx party utxo (initialInput, vkh) =
+commitTx networkId party utxo (initialInput, vkh) =
   Api.toLedgerTx $
     Api.unsafeBuildTransaction $
       Api.emptyTxBody
