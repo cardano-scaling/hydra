@@ -18,11 +18,11 @@ import Ledger.Constraints (TxConstraints)
 import qualified Ledger.Typed.Scripts as Scripts
 import Plutus.Contract.StateMachine.OnChain (StateMachine)
 import qualified Plutus.Contract.StateMachine.OnChain as SM
-import PlutusTx (toData)
 import qualified PlutusTx
+import PlutusTx.Builtins (blake2b_256)
 import Text.Show (Show)
 
-type SnapshotNumber = Integer
+type SnapshotNumber = BuiltinByteString
 
 data State
   = Initial {contestationPeriod :: ContestationPeriod, parties :: [Party]}
@@ -80,13 +80,14 @@ hydraTransition oldState input =
 
 {-# INLINEABLE verifySnapshotSignature #-}
 verifySnapshotSignature :: [Party] -> SnapshotNumber -> [Signature] -> Bool
-verifySnapshotSignature parties snapshot sigs =
+verifySnapshotSignature parties snapshotNumber sigs =
   traceIfFalse "signature verification failed" $
-    length parties == length sigs && all (uncurry $ verifyPartySignature (blake2b_256 $ unsafeDataAsB $ toData snapshot)) (zip parties sigs)
+    length parties == length sigs
+      && all (uncurry $ verifyPartySignature (blake2b_256 snapshotNumber)) (zip parties sigs)
 
 {-# INLINEABLE verifyPartySignature #-}
-verifyPartySignature :: SnapshotNumber -> Party -> Signature -> Bool
-verifyPartySignature _ _ _ = traceIfFalse "party signature verification failed" True
+verifyPartySignature :: BuiltinByteString -> Party -> Signature -> Bool
+verifyPartySignature _hashedSnapshotNumber _ _ = traceIfFalse "party signature verification failed" True
 
 -- | The script instance of the auction state machine. It contains the state
 -- machine compiled to a Plutus core validator script. The 'MintingPolicyHash' serves

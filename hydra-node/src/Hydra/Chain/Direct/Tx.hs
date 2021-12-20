@@ -14,7 +14,7 @@ module Hydra.Chain.Direct.Tx where
 import Hydra.Prelude
 
 import Cardano.Api (NetworkId)
-import Cardano.Binary (serialize, serialize')
+import Cardano.Binary (decodeFull', serialize, serialize')
 import Cardano.Ledger.Address (Addr (Addr))
 import Cardano.Ledger.Alonzo (Script)
 import Cardano.Ledger.Alonzo.Data (Data, DataHash, getPlutusData, hashData)
@@ -365,7 +365,7 @@ closeRedeemer snapshotNumber (MultiSigned sigs) =
     , signature = onChainSignature
     }
  where
-  onChainSnapshotNumber = fromIntegral snapshotNumber
+  onChainSnapshotNumber = Plutus.toBuiltin $ serialize' snapshotNumber
   onChainSignature = Plutus.Signature . Plutus.toBuiltin . serialize' <$> sigs
 
 fanoutTx ::
@@ -585,13 +585,16 @@ observeCloseTx utxo tx = do
   oldHeadDatum <- lookupDatum (wits tx) headOutput
   datum <- fromData $ getPlutusData oldHeadDatum
   case (datum, redeemer) of
-    (MockHead.Open{parties}, MockHead.Close{snapshotNumber}) -> do
+    (MockHead.Open{parties}, MockHead.Close{snapshotNumber = onChainSnapshotNumber}) -> do
       (newHeadInput, newHeadOutput) <- findScriptOutput (utxoFromTx tx) headScript
       newHeadDatum <- lookupDatum (wits tx) newHeadOutput
-      pure
-        ( OnCloseTx{contestationDeadline, snapshotNumber = fromIntegral snapshotNumber}
-        , OpenOrClosed{threadOutput = (newHeadInput, newHeadOutput, newHeadDatum, parties)}
-        )
+      case decodeFull' $ Plutus.fromBuiltin onChainSnapshotNumber of
+        Left _ -> Nothing
+        Right snapshotNumber ->
+          pure
+            ( OnCloseTx{contestationDeadline, snapshotNumber}
+            , OpenOrClosed{threadOutput = (newHeadInput, newHeadOutput, newHeadDatum, parties)}
+            )
     _ -> Nothing
  where
   headScript = plutusScript $ MockHead.validatorScript policyId

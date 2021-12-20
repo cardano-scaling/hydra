@@ -119,11 +119,11 @@ evaluateTx tx utxo =
 
 healthyCloseTx :: (CardanoTx, Utxo)
 healthyCloseTx =
-  ( fromLedgerTx $ closeTx 1 inHeadUtxo (headInput, headOutput, headDatum)
+  ( fromLedgerTx $ closeTx 1 multiSignedSnapshot (headInput, headOutput, headDatum)
   , fromLedgerUtxo lookupUtxo
   )
  where
-  inHeadUtxo = generateWith arbitrary 42
+  multiSignedSnapshot = generateWith arbitrary 42
   headInput = generateWith arbitrary 42
   headOutput = mkHeadOutput (SJust headDatum)
   headDatum = Ledger.Data $ toData healthyCloseDatum
@@ -142,7 +142,7 @@ genCloseMutation (_tx, _utxo) =
   genChangeHeadRedeemer =
     oneof
       [ arbitrary `suchThat` \case
-          MockHead.Close{MockHead.snapshotNumber = snapshotNumber} -> snapshotNumber /= 1 -- TODO: magic number, this should come from tx
+          MockHead.Close{MockHead.snapshotNumber = snapshotNumber} -> snapshotNumber /= "1" -- TODO: magic number, this should come from tx
           _ -> True
       , do
           -- TODO: also here, we would want to alter the provided tx's redeemer, rather
@@ -151,7 +151,7 @@ genCloseMutation (_tx, _utxo) =
           pure $
             MockHead.Close
               { MockHead.signature = signature'
-              , MockHead.snapshotNumber = 1
+              , MockHead.snapshotNumber = "1" -- FIXME(SN): serialized snapshot number
               }
       ]
   genChangeHeadDatum =
