@@ -81,15 +81,30 @@ fromLedgerData = ScriptDatumForTxIn . fromAlonzoData
 
 -- ** Script
 
-fromPlutusScript :: Plutus.Script -> Script PlutusScriptV1
-fromPlutusScript =
-  PlutusScript PlutusScriptV1 . fromPlutusScript'
+-- TODO: Possibly move upstream?
+class FromPlutusScript (script :: Type -> Type) where
+  fromPlutusScript :: IsPlutusScriptVersion lang => AsType lang -> Plutus.Script -> script lang
 
-fromPlutusScript' :: Plutus.Script -> PlutusScript PlutusScriptV1
-fromPlutusScript' script =
-  PlutusScriptSerialised bytes
- where
-  bytes = toShort . fromLazy . serialise $ script
+instance FromPlutusScript PlutusScript where
+  fromPlutusScript _ script =
+    PlutusScriptSerialised bytes
+   where
+    bytes = toShort . fromLazy . serialise $ script
+
+instance FromPlutusScript Script where
+  fromPlutusScript lang =
+    PlutusScript (plutusScriptVersion lang) . fromPlutusScript lang
+
+-- TODO: Move upstream.
+class IsPlutusScriptVersion lang where
+  plutusScriptVersion :: AsType lang -> PlutusScriptVersion lang
+
+instance IsPlutusScriptVersion PlutusScriptV1 where
+  plutusScriptVersion _ = PlutusScriptV1
+
+instance IsPlutusScriptVersion PlutusScriptV2 where
+  plutusScriptVersion _ = PlutusScriptV2
+
 -- ** ScriptValidity
 
 toLedgerScriptValidity :: TxScriptValidity Era -> Ledger.Alonzo.IsValid
