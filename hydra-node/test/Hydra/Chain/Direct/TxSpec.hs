@@ -35,7 +35,7 @@ import qualified Data.Map as Map
 import Data.Maybe (fromJust)
 import Data.Sequence.Strict (StrictSeq ((:<|)))
 import Hydra.Chain (HeadParameters (..), OnChainTx (..))
-import Hydra.Chain.Direct.Fixture (costModels, epochInfo, maxTxSize, pparams, systemStart)
+import Hydra.Chain.Direct.Fixture (costModels, epochInfo, maxTxSize, pparams, systemStart, testNetworkId)
 import Hydra.Chain.Direct.Util (Era)
 import Hydra.Chain.Direct.Wallet (ErrCoverFee (..), coverFee_)
 import qualified Hydra.Contract.MockCommit as MockCommit
@@ -91,7 +91,7 @@ spec =
     describe "initTx" $ do
       prop "is observed" $ \txIn cperiod (party :| parties) cardanoKeys ->
         let params = HeadParameters cperiod (party : parties)
-            tx = initTx cardanoKeys params txIn
+            tx = initTx testNetworkId cardanoKeys params txIn
             observed = observeInitTx party tx
          in case observed of
               Just (octx, _) -> octx === OnInitTx @CardanoTx cperiod (party : parties)
@@ -101,7 +101,7 @@ spec =
       prop "is not observed if not invited" $ \txIn cperiod (NonEmpty parties) cardanoKeys ->
         forAll (elements parties) $ \notInvited ->
           let invited = nub parties \\ [notInvited]
-              tx = initTx cardanoKeys (HeadParameters cperiod invited) txIn
+              tx = initTx testNetworkId cardanoKeys (HeadParameters cperiod invited) txIn
            in isNothing (observeInitTx notInvited tx)
                 & counterexample ("observing as: " <> show notInvited)
                 & counterexample ("invited: " <> show invited)
@@ -110,7 +110,7 @@ spec =
         let params = HeadParameters cperiod parties
             parties = fst <$> me : others
             cardanoKeys = snd <$> me : others
-            tx = initTx cardanoKeys params txIn
+            tx = initTx testNetworkId cardanoKeys params txIn
             res = observeInitTx (fst me) tx
          in case res of
               Just (OnInitTx cp ps, Initial{initials}) ->
@@ -123,7 +123,7 @@ spec =
 
     describe "commitTx" $ do
       prop "transaction size for single commit utxo below limit" $ \party (ReasonablySized singleUtxo) initialIn ->
-        let tx = commitTx party (Just singleUtxo) initialIn
+        let tx = commitTx testNetworkId party (Just singleUtxo) initialIn
             cbor = serialize tx
             len = LBS.length cbor
          in len < maxTxSize
@@ -132,7 +132,7 @@ spec =
               & counterexample ("Tx serialized size: " <> show len)
 
       prop "is observed" $ \party singleUtxo initialIn ->
-        let tx = commitTx party (Just singleUtxo) initialIn
+        let tx = commitTx testNetworkId party (Just singleUtxo) initialIn
             committedUtxo = Utxo $ Map.fromList [singleUtxo]
             commitOutput = TxOut @Era commitAddress commitValue (SJust $ hashData commitDatum)
             commitAddress = scriptAddr $ plutusScript MockCommit.validatorScript
@@ -154,7 +154,7 @@ spec =
                in (txin, TxOut addr value (SJust $ hashData initDatum), initDatum)
 
             myInitial = (\(a, b, _) -> (a, b)) $ Prelude.head inputs
-            tx = commitTx party (Just singleUtxo) myInitial
+            tx = commitTx testNetworkId party (Just singleUtxo) myInitial
             committedUtxo = Utxo $ Map.fromList [singleUtxo]
             commitOutput = TxOut @Era commitAddress commitValue (SJust $ hashData commitDatum)
             commitAddress = scriptAddr $ plutusScript MockCommit.validatorScript
@@ -181,7 +181,7 @@ spec =
 
     describe "collectComTx" $ do
       prop "transaction size below limit" $ \(ReasonablySized utxo) headIn cperiod parties ->
-        let tx = collectComTx utxo (headIn, headDatum) mempty
+        let tx = collectComTx testNetworkId utxo (headIn, headDatum) mempty
             headDatum = Data . toData $ MockHead.Initial cperiod parties
             cbor = serialize tx
             len = LBS.length cbor
@@ -198,7 +198,7 @@ spec =
               onChainParties = partyFromVerKey . vkey <$> parties
               headDatum = Data . toData $ MockHead.Initial cperiod onChainParties
               lookupUtxo = Map.singleton headInput headOutput
-              tx = collectComTx committedUtxo (headInput, headDatum) commitsUtxo
+              tx = collectComTx testNetworkId committedUtxo (headInput, headDatum) commitsUtxo
               res = observeCollectComTx lookupUtxo tx
            in case res of
                 Just (OnCollectComTx, OpenOrClosed{threadOutput = (_, TxOut _ headOutputValue' _, _)}) ->
@@ -337,7 +337,7 @@ spec =
 
       prop "cover fee correctly handles redeemers" $
         withMaxSuccess 60 $ \txIn walletUtxo params cardanoKeys ->
-          let ValidatedTx{body = initTxBody, wits = initTxWits} = initTx cardanoKeys params txIn
+          let ValidatedTx{body = initTxBody, wits = initTxWits} = initTx testNetworkId cardanoKeys params txIn
               -- Find head & initial utxos from initTx (using some partial functions & matches)
               initTxId = TxId $ SafeHash.hashAnnotated initTxBody
               headInput = TxIn initTxId 0

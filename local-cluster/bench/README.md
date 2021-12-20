@@ -1,7 +1,7 @@
 # Interpreting Benchmark Runs
 
 When running a benchmark using `cabal bench local-cluster` it creates log files in its `output-directory` beside a `results.csv`.
-Those log files can be used to harvest some more data about the run and produce more graphs. The following notes require `jq` and a few standard tools from GNU [coreutils](https://www.gnu.org/software/coreutils/manual/coreutils.html) like `cat`, `sed`, `awk` and friends.
+Those log files can be used to harvest some more data about the run and produce more graphs. The following notes require `jq` and a few standard tools from GNU [coreutils](https://github.com/coreutils/coreutils) like `cat`, `sed`, `awk` and friends.
 
 **NOTE**: The following scripts all work over the _filtered logs_ which are produced by the `log-filter` program.
 
