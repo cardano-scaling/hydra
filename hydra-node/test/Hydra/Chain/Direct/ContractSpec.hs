@@ -126,8 +126,11 @@ healthyCloseTx =
   inHeadUtxo = generateWith arbitrary 42
   headInput = generateWith arbitrary 42
   headOutput = mkHeadOutput (SJust headDatum)
-  headDatum = Ledger.Data $ toData MockHead.Open
+  headDatum = Ledger.Data $ toData healthyCloseDatum
   lookupUtxo = Ledger.UTxO $ Map.singleton headInput headOutput
+
+healthyCloseDatum :: MockHead.State
+healthyCloseDatum = MockHead.Open [1, 2, 3]
 
 genCloseMutation :: (CardanoTx, Utxo) -> Gen Mutation
 genCloseMutation (_tx, _utxo) =
@@ -153,8 +156,10 @@ genCloseMutation (_tx, _utxo) =
       ]
   genChangeHeadDatum =
     arbitrary `suchThat` \case
-      MockHead.Open -> False
-      _ -> True
+      MockHead.Open{MockHead.parties = parties} ->
+        parties /= MockHead.parties healthyCloseDatum
+      _ ->
+        True
 
 --
 --

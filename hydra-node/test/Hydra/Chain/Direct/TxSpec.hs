@@ -192,7 +192,7 @@ spec =
 
     describe "collectComTx" $ do
       prop "transaction size below limit" $ \(ReasonablySized utxo) headIn cperiod parties ->
-        let tx = collectComTx testNetworkId utxo (headIn, headDatum) mempty
+        let tx = collectComTx testNetworkId utxo (headIn, headDatum, parties) mempty
             headDatum = Data . toData $ MockHead.Initial cperiod parties
             cbor = serialize tx
             len = LBS.length cbor
@@ -209,10 +209,10 @@ spec =
               onChainParties = partyFromVerKey . vkey <$> parties
               headDatum = Data . toData $ MockHead.Initial cperiod onChainParties
               lookupUtxo = Map.singleton headInput headOutput
-              tx = collectComTx testNetworkId committedUtxo (headInput, headDatum) commitsUtxo
+              tx = collectComTx testNetworkId committedUtxo (headInput, headDatum, onChainParties) commitsUtxo
               res = observeCollectComTx lookupUtxo tx
            in case res of
-                Just (OnCollectComTx, OpenOrClosed{threadOutput = (_, TxOut _ headOutputValue' _, _)}) ->
+                Just (OnCollectComTx, OpenOrClosed{threadOutput = (_, TxOut _ headOutputValue' _, _, _)}) ->
                   headOutputValue' === headValue
                 _ -> property False
                 & counterexample ("Observe result: " <> show res)
@@ -222,10 +222,10 @@ spec =
       -- XXX(SN): tests are using a fixed snapshot number because of overlapping instances
       let sn = 1
 
-      prop "transaction size below limit" $ \sig headIn ->
+      prop "transaction size below limit" $ \sig headIn parties ->
         let tx = closeTx sn sig (headIn, headOutput, headDatum)
             headOutput = mkHeadOutput SNothing
-            headDatum = Data $ toData MockHead.Open
+            headDatum = Data $ toData $ MockHead.Open parties
             cbor = serialize tx
             len = LBS.length cbor
          in len < maxTxSize
@@ -233,9 +233,9 @@ spec =
               & counterexample ("Tx: " <> show tx)
               & counterexample ("Tx serialized size: " <> show len)
 
-      prop "is observed" $ \sig headInput ->
+      prop "is observed" $ \sig headInput parties ->
         let headOutput = mkHeadOutput SNothing
-            headDatum = Data $ toData MockHead.Open
+            headDatum = Data $ toData $ MockHead.Open parties
             lookupUtxo = Map.singleton headInput headOutput
             tx = closeTx sn sig (headInput, headOutput, headDatum)
             res = observeCloseTx lookupUtxo tx

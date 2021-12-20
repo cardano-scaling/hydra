@@ -642,13 +642,14 @@ observeAbortTx utxo tx = do
 knownUtxo :: OnChainHeadState -> Map (TxIn StandardCrypto) (TxOut Era)
 knownUtxo = \case
   Initial{threadOutput, initials, commits} ->
-    Map.fromList . map onlyUtxo $ (threadOutput : initials <> commits)
-  OpenOrClosed{threadOutput = (i, o, _)} ->
+    Map.fromList $ take2 threadOutput : (take2' <$> (initials <> commits))
+  OpenOrClosed{threadOutput = (i, o, _, _)} ->
     Map.singleton i o
   _ ->
     mempty
  where
-  onlyUtxo (i, o, _) = (i, o)
+  take2 (i, o, _, _) = (i, o)
+  take2' (i, o, _) = (i, o)
 
 -- | Look for the "initial" which corresponds to given cardano verification key.
 ownInitial :: VerificationKey PaymentKey -> [(TxIn StandardCrypto, TxOut Era, Data Era)] -> Maybe (TxIn StandardCrypto, PubKeyHash)
