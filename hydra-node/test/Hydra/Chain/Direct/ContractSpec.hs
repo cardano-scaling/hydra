@@ -46,7 +46,7 @@ import Hydra.Ledger.Cardano (
  )
 import qualified Hydra.Ledger.Cardano as Api
 import Hydra.Party (MultiSigned (MultiSigned), SigningKey, deriveParty, sign, vkey)
-import Hydra.Snapshot (Snapshot)
+import Hydra.Snapshot (Snapshot (..))
 import Plutus.Orphans ()
 import Plutus.V1.Ledger.Api (fromData, toData)
 import Test.QuickCheck (
@@ -134,7 +134,12 @@ healthyCloseTx =
   lookupUtxo = Ledger.UTxO $ Map.singleton headInput headOutput
 
 healthyOpenSnapshot :: Snapshot CardanoTx
-healthyOpenSnapshot = undefined
+healthyOpenSnapshot =
+  Snapshot
+    { number = 1
+    , utxo = mempty
+    , confirmed = []
+    }
 
 healthyCloseDatum :: MockHead.State
 healthyCloseDatum = MockHead.Open (partyFromVerKey . vkey . deriveParty <$> healthyPartyCredentials)
