@@ -88,7 +88,8 @@ import Hydra.Logging (Tracer, traceWith)
 import Hydra.Prelude
 import Ouroboros.Consensus.Cardano.Block (BlockQuery (..), CardanoEras, pattern BlockAlonzo)
 import Ouroboros.Consensus.HardFork.Combinator (MismatchEraInfo)
-import Ouroboros.Consensus.HardFork.Combinator.AcrossEras (OneEraHash (..))
+import Ouroboros.Consensus.HardFork.Combinator.AcrossEras (EraMismatch, OneEraHash (..), mkEraMismatch)
+import qualified Ouroboros.Consensus.HardFork.Combinator.AcrossEras as Ouroboros
 import Ouroboros.Consensus.Ledger.Query (Query (..))
 import Ouroboros.Consensus.Network.NodeToClient (Codecs' (..))
 import Ouroboros.Consensus.Shelley.Ledger.Block (ShelleyBlock (..), ShelleyHash (..))
@@ -537,8 +538,8 @@ stateQueryClient tracer tipVar utxoVar address =
       { LSQ.recvMsgResult = \case
           -- Era mismatch, this can happen if the node is still syncing. In which
           -- case, we can't do much but logging and retrying later.
-          Left{} ->
-            handleEraMismatch
+          Left err ->
+            handleEraMismatch err
           Right tip -> do
             let query = QueryIfCurrentAlonzo GetCurrentPParams
             pure $ LSQ.SendMsgQuery (BlockQuery query) (clientStQueryingPParams $ fromPoint tip)
@@ -555,8 +556,8 @@ stateQueryClient tracer tipVar utxoVar address =
     let query = QueryIfCurrentAlonzo $ GetUTxOByAddress (Set.singleton address)
      in LSQ.ClientStQuerying
           { LSQ.recvMsgResult = \case
-              Left{} ->
-                handleEraMismatch
+              Left err ->
+                handleEraMismatch err
               Right pparams ->
                 pure $ LSQ.SendMsgQuery (BlockQuery query) (clientStQueryingUtxo tip pparams)
           }
@@ -564,8 +565,8 @@ stateQueryClient tracer tipVar utxoVar address =
   clientStQueryingUtxo tip pparams =
     LSQ.ClientStQuerying
       { LSQ.recvMsgResult = \case
-          Left{} ->
-            handleEraMismatch
+          Left err ->
+            handleEraMismatch err
           Right (Ledger.unUTxO -> utxo) -> do
             traceWith tracer $ InitializingWallet (SomePoint tip) utxo
             atomically $ do
@@ -586,9 +587,9 @@ stateQueryClient tracer tipVar utxoVar address =
       check (tip == genesisPoint)
     pure $ LSQ.SendMsgReAcquire Nothing clientStAcquiring
 
-  handleEraMismatch :: m (LSQ.ClientStAcquired Block (Point Block) (Query Block) m ())
-  handleEraMismatch = do
-    -- FIXME: log something before looping back?
+  handleEraMismatch :: MismatchEraInfo (CardanoEras StandardCrypto) -> m (LSQ.ClientStAcquired Block (Point Block) (Query Block) m ())
+  handleEraMismatch (mkEraMismatch -> Ouroboros.EraMismatch{Ouroboros.ledgerEraName, Ouroboros.otherEraName}) = do
+    traceWith tracer $ EraMismatchError{expected = ledgerEraName, actual = otherEraName}
     threadDelay 30
     reset
 
@@ -599,6 +600,7 @@ stateQueryClient tracer tipVar utxoVar address =
 data TinyWalletLog
   = InitializingWallet SomePoint (Map TxIn TxOut)
   | ApplyBlock (Map TxIn TxOut) (Map TxIn TxOut)
+  | EraMismatchError {expected :: Text, actual :: Text}
   deriving (Eq, Generic, Show)
 
 instance ToJSON TinyWalletLog where
@@ -615,6 +617,12 @@ instance ToJSON TinyWalletLog where
           [ "tag" .= String "ApplyBlock"
           , "before" .= utxo
           , "after" .= utxo'
+          ]
+      EraMismatchError{expected, actual} ->
+        object
+          [ "tag" .= String "EraMismatchError"
+          , "expected" .= expected
+          , "actual" .= actual
           ]
 
 instance Arbitrary TinyWalletLog where
