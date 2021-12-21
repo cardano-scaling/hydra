@@ -156,18 +156,14 @@ withDirectChain tracer networkMagic iocp socketPath keyPair party cardanoKeys ca
                 { postTx = \tx -> do
                     traceWith tracer $ ToPost tx
 
-                    ( do
-                        res <-
-                          timeout 10 $
-                            atomically $
-                              fromPostChainTx wallet (Testnet networkMagic) headState cardanoKeys tx
-                                >>= finalizeTx wallet headState
-                                >>= writeTQueue queue
-                        when (isNothing res) $ throwIO (NoSeedInput @CardanoTx)
-                      )
-                      `catch` \(e :: InvalidTxError CardanoTx) -> do
-                        traceWith tracer $ PostingTxFailed tx e
-                        throwIO e
+                    do
+                      res <-
+                        timeout 10 $
+                          atomically $
+                            fromPostChainTx wallet (Testnet networkMagic) headState cardanoKeys tx
+                              >>= finalizeTx wallet headState
+                              >>= writeTQueue queue
+                      when (isNothing res) $ throwIO (NoSeedInput @CardanoTx)
                 }
         )
         ( connectTo
