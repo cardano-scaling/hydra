@@ -8,7 +8,7 @@ import Cardano.Prelude
 import Control.Monad.Class.MonadThrow (MonadThrow)
 import Data.Aeson (FromJSON, ToJSON)
 import Data.Time (DiffTime, UTCTime)
-import Hydra.Ledger (IsTx, TxIdType, TxIn, UtxoType)
+import Hydra.Ledger (IsTx, TxIdType, UtxoType)
 import Hydra.Party (Party)
 import Hydra.Prelude (Arbitrary (arbitrary), genericArbitrary)
 import Hydra.Snapshot (ConfirmedSnapshot, Snapshot, SnapshotNumber)
@@ -73,7 +73,7 @@ instance (Arbitrary tx, Arbitrary (UtxoType tx)) => Arbitrary (OnChainTx tx) whe
 -- | Exceptions thrown by 'postTx'.
 data InvalidTxError tx
   = MoreThanOneUtxoCommitted
-  | CannotSpendInput {input :: TxIn tx, walletUtxo :: UtxoType tx, headUtxo :: UtxoType tx}
+  | CannotSpendInput {input :: Text, walletUtxo :: UtxoType tx, headUtxo :: UtxoType tx}
   | CannotCoverFees {walletUtxo :: UtxoType tx, headUtxo :: UtxoType tx, reason :: Text, tx :: tx}
   | NoSeedInput
   | InvalidStateToPost {txTried :: PostChainTx tx}

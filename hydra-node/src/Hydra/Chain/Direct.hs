@@ -24,7 +24,7 @@ import Cardano.Ledger.Alonzo.Tx (ValidatedTx)
 import Cardano.Ledger.Alonzo.TxInfo (FailureDescription (PlutusFailure), debugPlutus)
 import Cardano.Ledger.Alonzo.TxSeq (txSeqTxns)
 import Cardano.Ledger.Crypto (StandardCrypto)
-import Cardano.Ledger.Shelley.API (ApplyTxError (ApplyTxError), TxId, TxIn (TxIn))
+import Cardano.Ledger.Shelley.API (ApplyTxError (ApplyTxError), TxId)
 import qualified Cardano.Ledger.Shelley.API as Ledger
 import Cardano.Ledger.Shelley.Rules.Ledger (LedgerPredicateFailure (UtxowFailure))
 import Cardano.Ledger.Shelley.Rules.Utxow (UtxowPredicateFailure (UtxoFailure))
@@ -76,7 +76,7 @@ import Hydra.Chain.Direct.Wallet (
   getTxId,
   withTinyWallet,
  )
-import Hydra.Ledger.Cardano (CardanoTx, NetworkId (Testnet), fromLedgerTx, fromLedgerTxId, fromLedgerUtxo, utxoPairs)
+import Hydra.Ledger.Cardano (CardanoTx, NetworkId (Testnet), fromLedgerTx, fromLedgerUtxo, utxoPairs)
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Party (Party)
 import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot (..))
@@ -370,10 +370,10 @@ finalizeTx TinyWallet{sign, getUtxo, coverFee} headState partialTx = do
   headUtxo <- knownUtxo <$> readTVar headState
   walletUtxo <- fromLedgerUtxo . Ledger.UTxO <$> getUtxo
   coverFee headUtxo partialTx >>= \case
-    Left ErrUnknownInput{input = TxIn txId txIx} -> do
+    Left ErrUnknownInput{input} -> do
       throwIO
         ( CannotSpendInput
-            { input = (fromLedgerTxId txId, txIx)
+            { input = show input
             , walletUtxo
             , headUtxo = fromLedgerUtxo $ Ledger.UTxO headUtxo
             } ::
