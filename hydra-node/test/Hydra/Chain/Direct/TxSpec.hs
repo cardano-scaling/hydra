@@ -205,7 +205,7 @@ spec =
       prop "is observed" $ \(ReasonablySized committedUtxo) headInput cperiod parties ->
         forAll (generateCommitUtxos parties committedUtxo) $ \commitsUtxo ->
           let committedValue = foldMap (\(TxOut _ v _, _) -> v) commitsUtxo
-              headOutput = mkHeadOutput SNothing -- will be SJust, but not covered by this test
+              headOutput = mkHeadOutput $ SJust headDatum
               headValue = inject (Coin 2_000_000) <> committedValue
               onChainParties = partyFromVerKey . vkey <$> parties
               headDatum = Data . toData $ MockHead.Initial cperiod onChainParties
