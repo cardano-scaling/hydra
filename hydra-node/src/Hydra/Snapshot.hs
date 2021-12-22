@@ -5,6 +5,7 @@ module Hydra.Snapshot where
 
 import Hydra.Prelude
 
+import Cardano.Binary (serialize')
 import Cardano.Crypto.Util (SignableRepresentation (..))
 import Data.Aeson (object, withObject, (.:), (.=))
 import Hydra.Ledger (IsTx (..))
@@ -49,7 +50,7 @@ instance (Arbitrary tx, Arbitrary (UtxoType tx)) => Arbitrary (Snapshot tx) wher
 -- FIXME(3): Use hash digest as signable representations (not pre-images).
 instance SignableRepresentation (Snapshot tx) where
   getSignableRepresentation Snapshot{number} =
-    encodeUtf8 (show @Text number)
+    serialize' number
 
 instance IsTx tx => ToJSON (Snapshot tx) where
   toJSON s =

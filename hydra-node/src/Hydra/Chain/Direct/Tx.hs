@@ -63,7 +63,7 @@ import Hydra.Ledger.Cardano (
   VerificationKey (PaymentVerificationKey),
  )
 import qualified Hydra.Ledger.Cardano as Api
-import Hydra.Party (MultiSigned (MultiSigned), Party (Party), vkey)
+import Hydra.Party (MultiSigned (MultiSigned), Party (Party), getSignatureBytes, vkey)
 import Hydra.Snapshot (Snapshot, SnapshotNumber)
 import Ledger.Value (AssetClass (..), currencyMPSHash)
 import Plutus.V1.Ledger.Api (FromData, MintingPolicyHash, PubKeyHash (..), fromData)
@@ -365,8 +365,9 @@ closeRedeemer snapshotNumber (MultiSigned sigs) =
     , signature = onChainSignature
     }
  where
+  -- NOTE(AB): using serialize' and CBOR could be problematic for on-chain verification
   onChainSnapshotNumber = Plutus.toBuiltin $ serialize' snapshotNumber
-  onChainSignature = Plutus.Signature . Plutus.toBuiltin . serialize' <$> sigs
+  onChainSignature = Plutus.Signature . Plutus.toBuiltin . getSignatureBytes <$> sigs
 
 fanoutTx ::
   -- | Network identifier for address discrimination

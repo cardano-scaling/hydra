@@ -108,10 +108,10 @@ aggregate = MultiSigned
 
 -- | Signature of 'a'
 newtype Signed a = UnsafeSigned ByteString
-  deriving (Eq)
+  deriving (Eq, Show)
 
-instance Show (Signed a) where
-  show (UnsafeSigned bs) = "UnsafeSigned " <> show (Base16.encode bs)
+getSignatureBytes :: Signed a -> ByteString
+getSignatureBytes (UnsafeSigned bs) = bs
 
 instance Arbitrary (Signed a) where
   arbitrary = do
