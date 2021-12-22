@@ -26,7 +26,7 @@ import Data.Maybe.Strict (StrictMaybe (..))
 import qualified Hydra.Chain.Direct.Fixture as Fixture
 import Hydra.Chain.Direct.Tx (closeTx, policyId)
 import Hydra.Chain.Direct.TxSpec (mkHeadOutput)
-import Hydra.Contract.MockHead (hashBytes, mockSign, verifyPartySignature)
+import Hydra.Contract.MockHead (hashBytes, mockSign, verifyPartySignature, verifySnapshotSignature)
 import qualified Hydra.Contract.MockHead as MockHead
 import Hydra.Data.Party (partyFromVerKey)
 import Hydra.Ledger.Cardano (
@@ -57,6 +57,7 @@ import Plutus.V1.Ledger.Crypto (Signature (Signature))
 import Test.QuickCheck (
   Positive (Positive),
   Property,
+  choose,
   counterexample,
   forAll,
   oneof,
@@ -67,9 +68,17 @@ import Test.QuickCheck.Instances ()
 
 spec :: Spec
 spec = describe "On-chain contracts" $ do
-  describe "Verify signatures" $ do
-    prop "can verify signatures produced off-chain" $
+  describe "Signature validator" $ do
+    prop
+      "verifies single signature produced off-chain"
       prop_verifyOffChainSignatures
+    -- FIXME(AB): This property exists solely because our current multisignature impklementation
+    -- is just the aggregates of individual (mock) signatures and there is no point in doing some
+    -- complicated shuffle logic to verify signatures given we'll end up verifying a single Ed25519
+    -- signatures.
+    prop
+      "verifies snapshot multi-signature for list of parties and signatures"
+      prop_verifySnapshotSignatures
   describe "Close" $ do
     prop "is healthy" $
       propTransactionValidates healthyCloseTx
@@ -96,6 +105,17 @@ prop_verifyOffChainSignatures =
             & counterexample ("encoded: " <> show (BS.unpack $ fromBuiltin encoded))
             & counterexample ("hashed: " <> show (BS.unpack $ fromBuiltin hashed))
             & counterexample ("message: " <> show (BS.unpack $ fromBuiltin msg))
+
+prop_verifySnapshotSignatures :: Property
+prop_verifySnapshotSignatures =
+  forAll genBytes $ \sn ->
+    forAll listOfSigningKeys $ \sks ->
+      let parties = partyFromVerKey . deriveVerKeyDSIGN <$> sks
+          signatures = [Signature $ toBuiltin bytes | sk <- sks, let UnsafeSigned bytes = sign sk sn]
+       in verifySnapshotSignature parties (toBuiltin sn) signatures
+
+listOfSigningKeys :: Gen [SigningKey]
+listOfSigningKeys = choose (1, 20) >>= pure . fmap generateKey . enumFromTo 1
 
 genBytes :: Gen ByteString
 genBytes = arbitrary
@@ -255,7 +275,7 @@ isHeadOutput (TxOut addr _ _) = addr == headAddress
 changeHeadRedeemer :: MockHead.Input -> (Ledger.Data era, Ledger.ExUnits) -> (Ledger.Data era, Ledger.ExUnits)
 changeHeadRedeemer newRedeemer redeemer@(dat, units) =
   case fromData (Ledger.getPlutusData dat) of
-    Just (_ :: MockHead.Input) -> do
+    Just (_ :: MockHead.Input) ->
       (Ledger.Data (toData newRedeemer), units)
     Nothing ->
       redeemer
