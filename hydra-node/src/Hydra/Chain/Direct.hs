@@ -339,13 +339,13 @@ txSubmissionClient tracer queue =
   clientStIdle :: m (LocalTxClientStIdle (GenTx Block) (ApplyTxErr Block) m ())
   clientStIdle = do
     tx <- atomically $ readTQueue queue
-    traceWith tracer (PostedTx (getTxId tx, tx))
+    traceWith tracer (PostingTx (getTxId tx, tx))
     pure $
       SendMsgSubmitTx
         (GenTxAlonzo . mkShelleyTx $ tx)
         ( \case
             SubmitFail reason -> onFail reason
-            SubmitSuccess -> clientStIdle
+            SubmitSuccess -> traceWith tracer (PostedTx (getTxId tx)) >> clientStIdle
         )
 
   -- XXX(SN): patch-work error pretty printing on single plutus script failures
@@ -474,7 +474,8 @@ getAlonzoTxs = \case
 -- TODO add  ToJSON, FromJSON instances
 data DirectChainLog
   = ToPost {toPost :: PostChainTx CardanoTx}
-  | PostedTx {postedTx :: (TxId StandardCrypto, ValidatedTx Era)}
+  | PostingTx {postedTx :: (TxId StandardCrypto, ValidatedTx Era)}
+  | PostedTx {postedTxId :: TxId StandardCrypto}
   | ReceivedTxs {onChainTxs :: [OnChainTx CardanoTx], receivedTxs :: [(TxId StandardCrypto, ValidatedTx Era)]}
   | RolledBackward {point :: SomePoint}
   | Wallet TinyWalletLog
@@ -490,10 +491,15 @@ instance ToJSON DirectChainLog where
         [ "tag" .= String "ToPost"
         , "toPost" .= toPost
         ]
-    PostedTx{postedTx} ->
+    PostingTx{postedTx} ->
+      object
+        [ "tag" .= String "PostingTx"
+        , "postedTx" .= postedTx
+        ]
+    PostedTx{postedTxId} ->
       object
         [ "tag" .= String "PostedTx"
-        , "postedTx" .= postedTx
+        , "postedTxId" .= postedTxId
         ]
     ReceivedTxs{onChainTxs, receivedTxs} ->
       object

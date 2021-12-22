@@ -192,7 +192,7 @@ definitions:
     oneOf:
     - title: ToPost
       description: >-
-        A logical representation of the transaction to be posted on-chain.
+        Head logic requests submittal of given logical transaction on-chain.
       type: object
       additionalProperties: false
       required:
@@ -204,9 +204,10 @@ definitions:
           enum: ["ToPost"]
         toPost:
           $ref: "#/definitions/PostChainTx"
-    - title: PostedTx
+
+    - title: PostingTx
       description: >-
-        Actual on-chain representation of a transaction posted to the network.
+        A transaction with given content is about to be submitted on-chain.
       type: object
       additionalProperties: false
       required:
@@ -215,15 +216,32 @@ definitions:
       properties:
         tag:
           type: string
-          enum: ["PostedTx"]
+          enum: ["PostingTx"]
         postedTx:
           type: array
           prefixItems:
             - $ref: "common.yaml#/definitions/TxId"
             - $ref: "common.yaml#/definitions/Transaction"
+
+    - title: PostedTx
+      description: >-
+        A transaction with given Id has been successfully submitted to the chain.
+      type: object
+      additionalProperties: false
+      required:
+        - tag
+        - postedTxId
+      properties:
+        tag:
+          type: string
+          enum: ["PostedTx"]
+        postedTxId:
+          $ref: "common.yaml#/definitions/TxId"
+
     - title: ReceivedTxs
       description: >-
-        Logical and actual representation of received / observed transactions on-chain.
+        Some transactions relevant to the Head logic have been observed on-chain, provide both the
+        concrete on-chain representation and logical counterpart.
       type: object
       additionalProperties: false
       required:
@@ -242,6 +260,7 @@ definitions:
           type: array
           items:
             type: integer
+
     - title: RolledBackward
       description: >-
         Observation of a rollback.
@@ -256,6 +275,7 @@ definitions:
           enum: ["RolledBackward"]
         point:
           $ref: "common.yaml#/definitions/Point"
+
     - title: Wallet
       description: >-
         Logs coming from the wallet.
