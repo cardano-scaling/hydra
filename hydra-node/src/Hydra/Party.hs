@@ -22,6 +22,7 @@ import Data.Aeson (ToJSONKey, Value (String), withText)
 import Data.Aeson.Types (FromJSONKey)
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Base16 as Base16
+import qualified Data.Map as Map
 import Test.QuickCheck (vectorOf)
 import Text.Show (Show (..))
 
@@ -105,6 +106,17 @@ instance Arbitrary (MultiSigned a) where
 
 aggregate :: [Signed a] -> MultiSigned a
 aggregate = MultiSigned
+
+-- FIXME(AB): This function exists solely because the order of signatures
+-- matters on-chain, and it should match the order of parties as declared in the
+-- initTx. This should disappear once we use a proper multisignature scheme
+aggregateInOrder :: Map Party (Signed a) -> [Party] -> MultiSigned a
+aggregateInOrder signatures = MultiSigned . foldr appendSignature []
+ where
+  appendSignature party sigs =
+    case Map.lookup party signatures of
+      Nothing -> sigs
+      Just sig -> sig : sigs
 
 -- | Signature of 'a'
 newtype Signed a = UnsafeSigned ByteString

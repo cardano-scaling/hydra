@@ -1,6 +1,7 @@
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE UndecidableInstances #-}
+{-# OPTIONS_GHC -Wno-deprecations #-}
 
 module Hydra.HeadLogic where
 
@@ -22,7 +23,7 @@ import Hydra.Ledger (
   canApply,
  )
 import Hydra.Network.Message (Message (..))
-import Hydra.Party (Party, Signed, SigningKey, aggregate, sign, verify)
+import Hydra.Party (Party, Signed, SigningKey, aggregateInOrder, sign, verify)
 import Hydra.ServerOutput (ServerOutput (..))
 import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot (..), SnapshotNumber, getSnapshot)
 
@@ -265,7 +266,7 @@ update Environment{party, signingKey, otherParties} ledger st ev = case (st, ev)
                 -- TODO: Must check whether we know the 'otherParty' signing the snapshot
                 | verify snapshotSignature otherParty snapshot = Map.insert otherParty snapshotSignature sigs
                 | otherwise = sigs
-              multisig = aggregate (Map.elems sigs')
+              multisig = aggregateInOrder sigs' parties
            in if Map.keysSet sigs' == Set.fromList parties
                 then
                   nextState
