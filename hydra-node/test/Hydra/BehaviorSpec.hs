@@ -41,7 +41,7 @@ import Hydra.Node (
   handleMessage,
   runHydraNode,
  )
-import Hydra.Party (Party, SigningKey, deriveParty)
+import Hydra.Party (Party, SigningKey, aggregate, deriveParty, sign)
 import Hydra.ServerOutput (ServerOutput (..))
 import Hydra.Snapshot (Snapshot (..), getSnapshot)
 import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
@@ -243,7 +243,9 @@ spec = parallel $ do
               waitFor [n1] $ TxValid (aValidTx 42)
               waitFor [n1, n2] $ TxSeen (aValidTx 42)
 
-              waitFor [n1] $ SnapshotConfirmed (Snapshot 1 (utxoRefs [1, 2, 42]) [aValidTx 42])
+              let snapshot = Snapshot 1 (utxoRefs [1, 2, 42]) [aValidTx 42]
+                  sigs = aggregate [sign 1 snapshot, sign 2 snapshot]
+              waitFor [n1] $ SnapshotConfirmed snapshot sigs
 
               send n1 Close
               let expectedSnapshot =
@@ -270,7 +272,10 @@ spec = parallel $ do
               waitFor [n1] $ TxValid firstTx
 
               waitFor [n1, n2] $ TxSeen firstTx
-              waitFor [n1, n2] $ SnapshotConfirmed (Snapshot 1 (utxoRefs [2, 3]) [firstTx])
+              let snapshot = Snapshot 1 (utxoRefs [2, 3]) [firstTx]
+                  sigs = aggregate [sign 1 snapshot, sign 2 snapshot]
+
+              waitFor [n1, n2] $ SnapshotConfirmed snapshot sigs
 
               send n2 (NewTx secondTx)
               waitFor [n2] $ TxValid secondTx
@@ -293,7 +298,10 @@ spec = parallel $ do
               waitFor [n1] $ TxSeen (aValidTx 42)
               waitFor [n1] $ TxSeen (aValidTx 43)
 
-              waitFor [n1] $ SnapshotConfirmed (Snapshot 1 (utxoRefs [1, 2, 42, 43]) [aValidTx 42, aValidTx 43])
+              let snapshot = Snapshot 1 (utxoRefs [1, 2, 42, 43]) [aValidTx 42, aValidTx 43]
+                  sigs = aggregate [sign 1 snapshot, sign 2 snapshot]
+
+              waitFor [n1] $ SnapshotConfirmed snapshot sigs
 
       it "outputs utxo from confirmed snapshot when client requests it" $
         shouldRunInSim $ do
@@ -303,7 +311,11 @@ spec = parallel $ do
               openHead n1 n2
               let newTx = (aValidTx 42){txInputs = utxoRefs [1]}
               send n1 (NewTx newTx)
-              waitUntil [n1, n2] $ SnapshotConfirmed (Snapshot 1 (utxoRefs [2, 42]) [newTx])
+
+              let snapshot = Snapshot 1 (utxoRefs [2, 42]) [newTx]
+                  sigs = aggregate [sign 1 snapshot, sign 2 snapshot]
+
+              waitUntil [n1, n2] $ SnapshotConfirmed snapshot sigs
 
               send n1 GetUtxo
 

@@ -265,6 +265,7 @@ update Environment{party, signingKey, otherParties} ledger st ev = case (st, ev)
                 -- TODO: Must check whether we know the 'otherParty' signing the snapshot
                 | verify snapshotSignature otherParty snapshot = Map.insert otherParty snapshotSignature sigs
                 | otherwise = sigs
+              multisig = aggregate (Map.elems sigs')
            in if Map.keysSet sigs' == Set.fromList parties
                 then
                   nextState
@@ -273,13 +274,13 @@ update Environment{party, signingKey, otherParties} ledger st ev = case (st, ev)
                           { confirmedSnapshot =
                               ConfirmedSnapshot
                                 { snapshot
-                                , signatures = aggregate (Map.elems sigs)
+                                , signatures = multisig
                                 }
                           , seenSnapshot = NoSeenSnapshot
                           , seenTxs = seenTxs \\ confirmed snapshot
                           }
                     )
-                    [ClientEffect $ SnapshotConfirmed snapshot]
+                    [ClientEffect $ SnapshotConfirmed snapshot multisig]
                 else
                   nextState
                     ( OpenState parameters $

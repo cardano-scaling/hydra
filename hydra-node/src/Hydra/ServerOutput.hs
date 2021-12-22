@@ -5,7 +5,7 @@ module Hydra.ServerOutput where
 
 import Hydra.Ledger (IsTx, UtxoType, ValidationError)
 import Hydra.Network (Host)
-import Hydra.Party (Party)
+import Hydra.Party (MultiSigned, Party)
 import Hydra.Prelude
 import Hydra.Snapshot (Snapshot)
 
@@ -22,7 +22,7 @@ data ServerOutput tx
   | TxSeen {transaction :: tx}
   | TxValid {transaction :: tx}
   | TxInvalid {utxo :: UtxoType tx, transaction :: tx, validationError :: ValidationError}
-  | SnapshotConfirmed {snapshot :: Snapshot tx}
+  | SnapshotConfirmed {snapshot :: Snapshot tx, signatures :: MultiSigned (Snapshot tx)}
   | -- XXX(SN): This is too vague of a name and prone to conflict. Also we want
     -- to relate it to 'GetUtxo' from 'ClientInput', so 'GetUtxoResult' might be
     -- a better name
@@ -56,7 +56,7 @@ instance (Arbitrary tx, Arbitrary (UtxoType tx)) => Arbitrary (ServerOutput tx) 
     TxSeen tx -> TxSeen <$> shrink tx
     TxValid tx -> TxValid <$> shrink tx
     TxInvalid u tx err -> TxInvalid <$> shrink u <*> shrink tx <*> shrink err
-    SnapshotConfirmed s -> SnapshotConfirmed <$> shrink s
+    SnapshotConfirmed s ms -> SnapshotConfirmed <$> shrink s <*> shrink ms
     Utxo u -> Utxo <$> shrink u
     InvalidInput r i -> InvalidInput <$> shrink r <*> shrink i
     Greetings me -> Greetings <$> shrink me

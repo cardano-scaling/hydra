@@ -16,6 +16,7 @@ import Hydra.Logging.Messages (HydraLog (Node))
 import Hydra.Logging.Monitoring
 import Hydra.Network.Message (Message (ReqTx))
 import Hydra.Node (HydraNodeLog (ProcessedEffect, ProcessingEvent))
+import Hydra.Party (aggregate)
 import Hydra.ServerOutput (ServerOutput (SnapshotConfirmed))
 import Hydra.Snapshot (Snapshot (Snapshot))
 import Network.HTTP.Req (GET (..), NoReqBody (..), bsResponse, defaultHttpConfig, http, port, req, responseBody, runReq, (/:))
@@ -30,7 +31,7 @@ spec = do
         traceWith tracer (Node $ ProcessingEvent 1 (NetworkEvent (ReqTx 1 (aValidTx 42))))
         traceWith tracer (Node $ ProcessingEvent 1 (NetworkEvent (ReqTx 1 (aValidTx 43))))
         threadDelay 0.1
-        traceWith tracer (Node $ ProcessedEffect 1 (ClientEffect (SnapshotConfirmed $ Snapshot 1 (utxoRefs [1]) [aValidTx 43, aValidTx 42])))
+        traceWith tracer (Node $ ProcessedEffect 1 (ClientEffect (SnapshotConfirmed (Snapshot 1 (utxoRefs [1]) [aValidTx 43, aValidTx 42]) (aggregate []))))
 
         metrics <-
           Text.lines . decodeUtf8 . responseBody
