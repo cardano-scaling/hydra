@@ -42,7 +42,7 @@ import Hydra.Ledger.Cardano (
   genOneUtxoFor,
  )
 import Hydra.Logging (nullTracer, showLogsOnFailure)
-import Hydra.Party (Party, aggregate, deriveParty, generateKey)
+import Hydra.Party (Party, SigningKey, aggregate, deriveParty, generateKey, sign)
 import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot (..))
 import Test.QuickCheck (generate)
 
@@ -162,15 +162,17 @@ spec = around showLogsOnFailure $ do
             postTx $ CollectComTx someUtxo
             alicesCallback `observesInTime` OnCollectComTx
 
+            let snapshot =
+                  Snapshot
+                    { number = 1
+                    , utxo = someUtxo
+                    , confirmed = []
+                    }
+
             postTx . CloseTx $
               ConfirmedSnapshot
-                { snapshot =
-                    Snapshot
-                      { number = 1
-                      , utxo = someUtxo
-                      , confirmed = []
-                      }
-                , signatures = aggregate []
+                { snapshot
+                , signatures = aggregate [sign aliceSigningKey snapshot]
                 }
 
             alicesCallback `shouldSatisfyInTime` \case
@@ -192,9 +194,12 @@ magic :: NetworkMagic
 magic = NetworkMagic 42
 
 alice, bob, carol :: Party
-alice = deriveParty $ generateKey 10
+alice = deriveParty $ aliceSigningKey
 bob = deriveParty $ generateKey 20
 carol = deriveParty $ generateKey 30
+
+aliceSigningKey :: SigningKey
+aliceSigningKey = generateKey 10
 
 data TestClusterLog
   = FromCluster ClusterLog
