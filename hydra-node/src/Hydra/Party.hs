@@ -12,16 +12,15 @@ import Hydra.Prelude hiding (show)
 import Cardano.Crypto.DSIGN (
   DSIGNAlgorithm (..),
   MockDSIGN,
-  SigDSIGN (..),
-  SignKeyDSIGN,
-  VerKeyDSIGN,
-  signDSIGN,
+  SignKeyDSIGN (SignKeyMockDSIGN),
+  VerKeyDSIGN (VerKeyMockDSIGN),
  )
-import Cardano.Crypto.Hash (Blake2b_256)
+import Cardano.Crypto.Hash (Blake2b_256, SHA256, digest)
 import Cardano.Crypto.Seed (mkSeedFromBytes)
-import Cardano.Crypto.Util (SignableRepresentation)
+import Cardano.Crypto.Util (SignableRepresentation, getSignableRepresentation, writeBinaryWord64)
 import Data.Aeson (ToJSONKey, Value (String), withText)
 import Data.Aeson.Types (FromJSONKey)
+import qualified Data.ByteString as BS
 import qualified Data.ByteString.Base16 as Base16
 import Test.QuickCheck (vectorOf)
 import Text.Show (Show (..))
@@ -87,11 +86,13 @@ generateKey :: Integer -> SigningKey
 generateKey = fromInteger
 
 sign :: SignableRepresentation a => SigningKey -> a -> Signed a
-sign signingKey signable = UnsafeSigned $ signDSIGN () signable signingKey
+sign (SignKeyMockDSIGN k) signable = UnsafeSigned $ hashed <> writeBinaryWord64 k
+ where
+  hashed = BS.take 8 $ digest @SHA256 Proxy (getSignableRepresentation signable)
 
 verify :: SignableRepresentation a => Signed a -> Party -> a -> Bool
-verify (UnsafeSigned sig) Party{vkey} msg =
-  isRight (verifyDSIGN () vkey msg sig)
+verify signed Party{vkey = (VerKeyMockDSIGN wo)} msg =
+  sign (SignKeyMockDSIGN wo) msg == signed
 
 -- | Naiive mult-signatures.
 newtype MultiSigned a = MultiSigned {multiSignature :: [Signed a]}
@@ -106,25 +107,23 @@ aggregate :: [Signed a] -> MultiSigned a
 aggregate = MultiSigned
 
 -- | Signature of 'a'
-newtype Signed a = UnsafeSigned (SigDSIGN MockDSIGN)
-  deriving (Eq, Show)
+newtype Signed a = UnsafeSigned ByteString
+  deriving (Eq)
+
+instance Show (Signed a) where
+  show (UnsafeSigned bs) = "UnsafeSigned " <> show (Base16.encode bs)
 
 instance Arbitrary (Signed a) where
   arbitrary = do
     key <- genKeyDSIGN . mkSeedFromBytes . fromList <$> vectorOf 8 arbitrary
     a <- arbitrary @ByteString
-    pure . UnsafeSigned $ signDSIGN () a key
+    pure . UnsafeSigned $ coerce $ sign key a
 
 instance ToJSON a => ToJSON (Signed a) where
-  toJSON (UnsafeSigned sig) = String . decodeUtf8 . Base16.encode . rawSerialiseSigDSIGN $ sig
+  toJSON (UnsafeSigned sig) = String . decodeUtf8 . Base16.encode $ sig
 
 instance FromJSON a => FromJSON (Signed a) where
-  parseJSON = withText "Signed" $ decodeBase16' >=> deserialiseSigned
-   where
-    deserialiseSigned :: MonadFail f => ByteString -> f (Signed a)
-    deserialiseSigned =
-      let err = "Unable to decode signature"
-       in maybe (fail err) (pure . UnsafeSigned) . rawDeserialiseSigDSIGN
+  parseJSON = withText "Signed" $ decodeBase16' >=> pure . UnsafeSigned
 
 instance Typeable a => FromCBOR (Signed a) where
   fromCBOR = UnsafeSigned <$> fromCBOR

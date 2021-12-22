@@ -13,13 +13,13 @@ import Data.Aeson (FromJSON, ToJSON)
 import Data.Void (Void)
 import GHC.Generics (Generic)
 import Hydra.Data.ContestationPeriod (ContestationPeriod)
-import Hydra.Data.Party (Party (UnsafeParty), partyToVerKey)
+import Hydra.Data.Party (Party (UnsafeParty))
 import Ledger.Constraints (TxConstraints)
 import qualified Ledger.Typed.Scripts as Scripts
 import Plutus.Contract.StateMachine.OnChain (StateMachine)
 import qualified Plutus.Contract.StateMachine.OnChain as SM
 import qualified PlutusTx
-import PlutusTx.Builtins (blake2b_256, quotientInteger, remainderInteger)
+import PlutusTx.Builtins (quotientInteger, remainderInteger)
 import Text.Show (Show)
 
 type SnapshotNumber = BuiltinByteString
@@ -83,13 +83,13 @@ verifySnapshotSignature :: [Party] -> SnapshotNumber -> [Signature] -> Bool
 verifySnapshotSignature parties snapshotNumber sigs =
   traceIfFalse "signature verification failed" $
     length parties == length sigs
-      && all (uncurry $ verifyPartySignature (blake2b_256 snapshotNumber)) (zip parties sigs)
+      && all (uncurry $ verifyPartySignature snapshotNumber) (zip parties sigs)
 
 {-# INLINEABLE verifyPartySignature #-}
 verifyPartySignature :: BuiltinByteString -> Party -> Signature -> Bool
-verifyPartySignature hashedSnapshotNumber (UnsafeParty vkey) signed =
+verifyPartySignature msg (UnsafeParty vkey) signed =
   traceIfFalse "party signature verification failed" $
-    mockVerifySignature vkey hashedSnapshotNumber (getSignature signed)
+    mockVerifySignature vkey msg (getSignature signed)
 
 {-# INLINEABLE mockVerifySignature #-}
 -- TODO: This really should be the builtin Plutus function 'verifySignature' but as we
@@ -97,8 +97,16 @@ verifyPartySignature hashedSnapshotNumber (UnsafeParty vkey) signed =
 -- signatures.
 mockVerifySignature :: Integer -> BuiltinByteString -> BuiltinByteString -> Bool
 mockVerifySignature vkey msg signed =
-  traceIfFalse "mock signedf message is not equal to signed" $
-    appendByteString msg (toWord64BE vkey) == signed
+  traceIfFalse "mock signed message is not equal to signed" $
+    mockSign vkey (hashBytes msg) == signed
+
+{-# INLINEABLE hashBytes #-}
+hashBytes :: BuiltinByteString -> BuiltinByteString
+hashBytes = sha2_256
+
+{-# INLINEABLE mockSign #-}
+mockSign :: Integer -> BuiltinByteString -> BuiltinByteString
+mockSign vkey msg = appendByteString (sliceByteString 0 8 msg) (toWord64BE vkey)
 
 {-# INLINEABLE toWord64BE #-}
 
@@ -110,9 +118,9 @@ toWord64BE = go emptyByteString
   go bs _
     | lengthOfByteString bs == 8 = bs
   go bs n =
-    let byte = quotientInteger n 256
+    let quot = quotientInteger n 256
         rem = remainderInteger n 256
-     in go (consByteString byte bs) rem
+     in go (consByteString rem bs) quot
 
 -- | The script instance of the auction state machine. It contains the state
 -- machine compiled to a Plutus core validator script. The 'MintingPolicyHash' serves

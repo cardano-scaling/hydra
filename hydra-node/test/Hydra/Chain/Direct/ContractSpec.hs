@@ -7,6 +7,8 @@ module Hydra.Chain.Direct.ContractSpec where
 import Hydra.Prelude hiding (label)
 import Test.Hydra.Prelude
 
+import Cardano.Crypto.DSIGN (deriveVerKeyDSIGN)
+import Cardano.Crypto.Hash (SHA256, digest)
 import qualified Cardano.Ledger.Alonzo.Data as Ledger
 import Cardano.Ledger.Alonzo.Scripts (ExUnits)
 import qualified Cardano.Ledger.Alonzo.Scripts as Ledger
@@ -18,11 +20,13 @@ import Cardano.Ledger.Alonzo.Tools (
 import Cardano.Ledger.Alonzo.TxWitness (RdmrPtr)
 import qualified Cardano.Ledger.Alonzo.TxWitness as Ledger
 import qualified Cardano.Ledger.Shelley.API as Ledger
+import qualified Data.ByteString as BS
 import qualified Data.Map as Map
 import Data.Maybe.Strict (StrictMaybe (..))
 import qualified Hydra.Chain.Direct.Fixture as Fixture
 import Hydra.Chain.Direct.Tx (closeTx, policyId)
 import Hydra.Chain.Direct.TxSpec (mkHeadOutput)
+import Hydra.Contract.MockHead (hashBytes, mockSign, verifyPartySignature)
 import qualified Hydra.Contract.MockHead as MockHead
 import Hydra.Data.Party (partyFromVerKey)
 import Hydra.Ledger.Cardano (
@@ -45,11 +49,13 @@ import Hydra.Ledger.Cardano (
   toLedgerUtxo,
  )
 import qualified Hydra.Ledger.Cardano as Api
-import Hydra.Party (MultiSigned (MultiSigned), SigningKey, deriveParty, sign, vkey)
+import Hydra.Party (MultiSigned (MultiSigned), Signed (UnsafeSigned), SigningKey, deriveParty, generateKey, sign, vkey)
 import Hydra.Snapshot (Snapshot (..))
 import Plutus.Orphans ()
-import Plutus.V1.Ledger.Api (fromData, toData)
+import Plutus.V1.Ledger.Api (fromBuiltin, fromData, toBuiltin, toData)
+import Plutus.V1.Ledger.Crypto (Signature (Signature))
 import Test.QuickCheck (
+  Positive (Positive),
   Property,
   counterexample,
   forAll,
@@ -61,6 +67,9 @@ import Test.QuickCheck.Instances ()
 
 spec :: Spec
 spec = describe "On-chain contracts" $ do
+  describe "Verify signatures" $ do
+    prop "can verify signatures produced off-chain" $
+      prop_verifyOffChainSignatures
   describe "Close" $ do
     prop "is healthy" $
       propTransactionValidates healthyCloseTx
@@ -70,6 +79,26 @@ spec = describe "On-chain contracts" $ do
 --
 -- Properties
 --
+
+prop_verifyOffChainSignatures :: Property
+prop_verifyOffChainSignatures =
+  forAll genBytes $ \bs ->
+    forAll arbitrary $ \(Positive n) ->
+      let sk = generateKey n
+          UnsafeSigned signature = sign sk bs
+          party = partyFromVerKey $ deriveVerKeyDSIGN sk
+          msg = toBuiltin bs
+          hashed = hashBytes msg
+          encoded = mockSign n hashed
+       in verifyPartySignature msg party (Signature $ toBuiltin signature)
+            & counterexample ("signed: " <> show (BS.unpack signature))
+            & counterexample ("party: " <> show party)
+            & counterexample ("encoded: " <> show (BS.unpack $ fromBuiltin encoded))
+            & counterexample ("hashed: " <> show (BS.unpack $ fromBuiltin hashed))
+            & counterexample ("message: " <> show (BS.unpack $ fromBuiltin msg))
+
+genBytes :: Gen ByteString
+genBytes = arbitrary
 
 propMutation :: (CardanoTx, Utxo) -> ((CardanoTx, Utxo) -> Gen Mutation) -> Property
 propMutation (tx, utxo) genMutation =
@@ -166,7 +195,7 @@ genCloseMutation (_tx, _utxo) =
           pure $
             MockHead.Close
               { MockHead.signature = signature'
-              , MockHead.snapshotNumber = "1" -- FIXME(SN): serialized snapshot number
+              , MockHead.snapshotNumber = toBuiltin $ digest (Proxy @SHA256) "1" -- FIXME(SN): serialized snapshot number
               }
       ]
   genChangeHeadDatum =
