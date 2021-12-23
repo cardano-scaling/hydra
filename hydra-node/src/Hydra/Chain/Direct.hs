@@ -475,7 +475,6 @@ data DirectChainLog
   | PostedTx {postedTxId :: TxId StandardCrypto}
   | ReceivedTxs {onChainTxs :: [OnChainTx CardanoTx], receivedTxs :: [(TxId StandardCrypto, ValidatedTx Era)]}
   | RolledBackward {point :: SomePoint}
-  | PostingTxFailed {toPost :: PostChainTx CardanoTx, reason :: InvalidTxError CardanoTx}
   | Wallet TinyWalletLog
   deriving (Eq, Show, Generic)
 
@@ -498,12 +497,6 @@ instance ToJSON DirectChainLog where
       object
         [ "tag" .= String "PostedTx"
         , "postedTxId" .= postedTxId
-        ]
-    PostingTxFailed{toPost, reason} ->
-      object
-        [ "tag" .= String "PostingTxFailed"
-        , "toPost" .= toPost
-        , "reason" .= reason
         ]
     ReceivedTxs{onChainTxs, receivedTxs} ->
       object

@@ -221,24 +221,6 @@ definitions:
           prefixItems:
             - $ref: "common.yaml#/definitions/TxId"
             - $ref: "common.yaml#/definitions/Transaction"
-    - title: PostingTxFailed
-      description: >-
-        Something went wrong trying to post some logical Head protocol transacton on-chain, either when
-        constructing the transaction itself or when trying to submit it to the chain.
-      type: object
-      additionalProperties: false
-      required:
-        - tag
-        - toPost
-        - reason
-      properties:
-        tag:
-          type: string
-          enum: ["PostingTxFailed"]
-        toPost:
-          $ref: "common.yaml#/definitions/PostChainTx"
-        reason:
-          $ref: "common.yaml#/definitions/InvalidTxError"
     - title: PostedTx
       description: >-
         A transaction with given Id has been successfully submitted to the chain.
