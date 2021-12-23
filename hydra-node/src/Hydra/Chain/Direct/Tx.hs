@@ -14,7 +14,7 @@ module Hydra.Chain.Direct.Tx where
 import Hydra.Prelude
 
 import Cardano.Api (NetworkId)
-import Cardano.Binary (serialize)
+import Cardano.Binary (decodeFull', serialize, serialize')
 import Cardano.Ledger.Address (Addr (Addr))
 import Cardano.Ledger.Alonzo (Script)
 import Cardano.Ledger.Alonzo.Data (Data, DataHash, getPlutusData, hashData)
@@ -63,11 +63,12 @@ import Hydra.Ledger.Cardano (
   VerificationKey (PaymentVerificationKey),
  )
 import qualified Hydra.Ledger.Cardano as Api
-import Hydra.Party (Party (Party), vkey)
-import Hydra.Snapshot (SnapshotNumber)
+import Hydra.Party (MultiSigned (MultiSigned), Party (Party), getSignatureBytes, vkey)
+import Hydra.Snapshot (Snapshot, SnapshotNumber)
 import Ledger.Value (AssetClass (..), currencyMPSHash)
 import Plutus.V1.Ledger.Api (FromData, MintingPolicyHash, PubKeyHash (..), fromData)
 import qualified Plutus.V1.Ledger.Api as Plutus
+import qualified Plutus.V1.Ledger.Crypto as Plutus
 import Plutus.V1.Ledger.Value (assetClass, currencySymbol, tokenName)
 
 -- FIXME: parameterize
@@ -85,7 +86,8 @@ data OnChainHeadState
         -- This output should always be present and 'threaded' across all
         -- transactions.
         -- NOTE(SN): The Head's identifier is somewhat encoded in the TxOut's address
-        threadOutput :: (TxIn StandardCrypto, TxOut Era, Data Era)
+        -- XXX(SN): Data and [OnChain.Party] are overlapping
+        threadOutput :: (TxIn StandardCrypto, TxOut Era, Data Era, [OnChain.Party])
       , initials :: [(TxIn StandardCrypto, TxOut Era, Data Era)]
       , commits :: [(TxIn StandardCrypto, TxOut Era, Data Era)]
       }
@@ -94,7 +96,8 @@ data OnChainHeadState
         -- This output should always be present and 'threaded' across all
         -- transactions.
         -- NOTE(SN): The Head's identifier is somewhat encoded in the TxOut's address
-        threadOutput :: (TxIn StandardCrypto, TxOut Era, Data Era)
+        -- XXX(SN): Data and [OnChain.Party] are overlapping
+        threadOutput :: (TxIn StandardCrypto, TxOut Era, Data Era, [OnChain.Party])
       }
   | Final
   deriving (Eq, Show, Generic)
@@ -284,7 +287,7 @@ collectComTx ::
   Utxo ->
   -- | Everything needed to spend the Head state-machine output.
   -- FIXME(SN): should also contain some Head identifier/address and stored Value (maybe the TxOut + Data?)
-  (TxIn StandardCrypto, Data Era) ->
+  (TxIn StandardCrypto, Data Era, [OnChain.Party]) ->
   -- | Data needed to spend the commit output produced by each party.
   -- Should contain the PT and is locked by @ν_commit@ script.
   Map (TxIn StandardCrypto) (TxOut Era, Data Era) ->
@@ -292,7 +295,7 @@ collectComTx ::
 -- TODO(SN): utxo unused means other participants would not "see" the opened
 -- utxo when observing. Right now, they would be trusting the OCV checks this
 -- and construct their "world view" from observed commit txs in the HeadLogic
-collectComTx networkId _utxo (Api.fromLedgerTxIn -> headInput, Api.fromLedgerData -> headDatumBefore) commits =
+collectComTx networkId _utxo (Api.fromLedgerTxIn -> headInput, Api.fromLedgerData -> headDatumBefore, parties) commits =
   Api.toLedgerTx $
     Api.unsafeBuildTransaction $
       Api.emptyTxBody
@@ -312,7 +315,7 @@ collectComTx networkId _utxo (Api.fromLedgerTxIn -> headInput, Api.fromLedgerDat
       (Api.mkTxOutValue $ Api.lovelaceToValue 2_000_000 <> commitValue)
       headDatumAfter
   headDatumAfter =
-    Api.mkTxOutDatum MockHead.Open
+    Api.mkTxOutDatum MockHead.Open{MockHead.parties = parties}
 
   mkCommit (commitInput, (_commitOutput, commitDatum)) =
     ( Api.fromLedgerTxIn commitInput
@@ -330,13 +333,13 @@ collectComTx networkId _utxo (Api.fromLedgerTxIn -> headInput, Api.fromLedgerDat
 -- | Create a transaction closing a head with given snapshot number and utxo.
 closeTx ::
   SnapshotNumber ->
-  -- | Snapshotted Utxo to close the Head with.
-  Utxo ->
+  -- | Multi-signature of the whole snapshot
+  MultiSigned (Snapshot CardanoTx) ->
   -- | Everything needed to spend the Head state-machine output.
   -- FIXME(SN): should also contain some Head identifier/address and stored Value (maybe the TxOut + Data?)
   (TxIn StandardCrypto, TxOut Era, Data Era) ->
   ValidatedTx Era
-closeTx snapshotNumber _utxo (Api.fromLedgerTxIn -> headInput, Api.fromLedgerTxOut -> headOutputBefore, Api.fromLedgerData -> headDatumBefore) =
+closeTx snapshotNumber sig (Api.fromLedgerTxIn -> headInput, Api.fromLedgerTxOut -> headOutputBefore, Api.fromLedgerData -> headDatumBefore) =
   Api.toLedgerTx $
     Api.unsafeBuildTransaction $
       Api.emptyTxBody
@@ -348,12 +351,23 @@ closeTx snapshotNumber _utxo (Api.fromLedgerTxIn -> headInput, Api.fromLedgerTxO
   headScript =
     Api.fromPlutusScript $ MockHead.validatorScript policyId
   headRedeemer =
-    Api.mkRedeemerForTxIn $ MockHead.Close (fromIntegral snapshotNumber)
+    Api.mkRedeemerForTxIn $ closeRedeemer snapshotNumber sig
 
   headOutputAfter =
     Api.modifyTxOutDatum (const headDatumAfter) headOutputBefore
   headDatumAfter =
     Api.mkTxOutDatum MockHead.Closed
+
+closeRedeemer :: SnapshotNumber -> MultiSigned (Snapshot CardanoTx) -> MockHead.Input
+closeRedeemer snapshotNumber (MultiSigned sigs) =
+  MockHead.Close
+    { snapshotNumber = onChainSnapshotNumber
+    , signature = onChainSignature
+    }
+ where
+  -- NOTE(AB): using serialize' and CBOR could be problematic for on-chain verification
+  onChainSnapshotNumber = Plutus.toBuiltin $ serialize' snapshotNumber
+  onChainSignature = Plutus.Signature . Plutus.toBuiltin . getSignatureBytes <$> sigs
 
 fanoutTx ::
   -- | Network identifier for address discrimination
@@ -460,7 +474,7 @@ observeInitTx party ValidatedTx{wits, body} = do
   pure
     ( OnInitTx cperiod parties
     , Initial
-        { threadOutput = (i, o, headDatum)
+        { threadOutput = (i, o, headDatum, ps)
         , initials
         , commits = mempty
         }
@@ -543,15 +557,17 @@ observeCollectComTx ::
   ValidatedTx Era ->
   Maybe (OnChainTx CardanoTx, OnChainHeadState)
 observeCollectComTx utxo tx = do
-  headInput <- fst <$> findScriptOutput utxo headScript
+  (headInput, headOutput) <- findScriptOutput utxo headScript
   redeemer <- getRedeemerSpending tx headInput
-  case redeemer of
-    MockHead.CollectCom _ -> do
+  oldHeadDatum <- lookupDatum (wits tx) headOutput
+  datum <- fromData $ getPlutusData oldHeadDatum
+  case (datum, redeemer) of
+    (MockHead.Initial{parties}, MockHead.CollectCom _) -> do
       (newHeadInput, newHeadOutput) <- findScriptOutput (utxoFromTx tx) headScript
       newHeadDatum <- lookupDatum (wits tx) newHeadOutput
       pure
         ( OnCollectComTx
-        , OpenOrClosed{threadOutput = (newHeadInput, newHeadOutput, newHeadDatum)}
+        , OpenOrClosed{threadOutput = (newHeadInput, newHeadOutput, newHeadDatum, parties)}
         )
     _ -> Nothing
  where
@@ -565,17 +581,21 @@ observeCloseTx ::
   ValidatedTx Era ->
   Maybe (OnChainTx CardanoTx, OnChainHeadState)
 observeCloseTx utxo tx = do
-  headInput <- fst <$> findScriptOutput utxo headScript
+  (headInput, headOutput) <- findScriptOutput utxo headScript
   redeemer <- getRedeemerSpending tx headInput
-  case redeemer of
-    MockHead.Close sn -> do
+  oldHeadDatum <- lookupDatum (wits tx) headOutput
+  datum <- fromData $ getPlutusData oldHeadDatum
+  case (datum, redeemer) of
+    (MockHead.Open{parties}, MockHead.Close{snapshotNumber = onChainSnapshotNumber}) -> do
       (newHeadInput, newHeadOutput) <- findScriptOutput (utxoFromTx tx) headScript
       newHeadDatum <- lookupDatum (wits tx) newHeadOutput
-      let snapshotNumber = fromIntegral sn
-      pure
-        ( OnCloseTx{contestationDeadline, snapshotNumber}
-        , OpenOrClosed{threadOutput = (newHeadInput, newHeadOutput, newHeadDatum)}
-        )
+      case decodeFull' $ Plutus.fromBuiltin onChainSnapshotNumber of
+        Left _ -> Nothing
+        Right snapshotNumber ->
+          pure
+            ( OnCloseTx{contestationDeadline, snapshotNumber}
+            , OpenOrClosed{threadOutput = (newHeadInput, newHeadOutput, newHeadDatum, parties)}
+            )
     _ -> Nothing
  where
   headScript = plutusScript $ MockHead.validatorScript policyId
@@ -626,13 +646,14 @@ observeAbortTx utxo tx = do
 knownUtxo :: OnChainHeadState -> Map (TxIn StandardCrypto) (TxOut Era)
 knownUtxo = \case
   Initial{threadOutput, initials, commits} ->
-    Map.fromList . map onlyUtxo $ (threadOutput : initials <> commits)
-  OpenOrClosed{threadOutput = (i, o, _)} ->
+    Map.fromList $ take2 threadOutput : (take2' <$> (initials <> commits))
+  OpenOrClosed{threadOutput = (i, o, _, _)} ->
     Map.singleton i o
   _ ->
     mempty
  where
-  onlyUtxo (i, o, _) = (i, o)
+  take2 (i, o, _, _) = (i, o)
+  take2' (i, o, _) = (i, o)
 
 -- | Look for the "initial" which corresponds to given cardano verification key.
 ownInitial :: VerificationKey PaymentKey -> [(TxIn StandardCrypto, TxOut Era, Data Era)] -> Maybe (TxIn StandardCrypto, PubKeyHash)

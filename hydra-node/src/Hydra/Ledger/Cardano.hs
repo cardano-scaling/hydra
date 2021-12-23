@@ -1,3 +1,4 @@
+{-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE DerivingStrategies #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE TypeApplications #-}
@@ -30,6 +31,7 @@ import qualified Cardano.Ledger.Alonzo.PParams as Ledger.Alonzo
 import qualified Cardano.Ledger.Alonzo.Scripts as Ledger.Alonzo
 import qualified Cardano.Ledger.Alonzo.Tx as Ledger.Alonzo
 import qualified Cardano.Ledger.Alonzo.TxBody as Ledger.Alonzo
+import Cardano.Ledger.Alonzo.TxWitness (TxDats (TxDats), unRedeemers)
 import qualified Cardano.Ledger.Alonzo.TxWitness as Ledger.Alonzo
 import qualified Cardano.Ledger.BaseTypes as Ledger
 import qualified Cardano.Ledger.Core as Ledger
@@ -169,7 +171,6 @@ mkScriptAddress networkId script =
 
 -- ** Datum / Redeemer
 
---
 newtype SomeData = SomeData Plutus.Data
 
 instance Plutus.ToData SomeData where
@@ -178,6 +179,15 @@ instance Plutus.ToData SomeData where
 mkTxOutDatum :: Plutus.ToData a => a -> TxOutDatum CtxTx Era
 mkTxOutDatum =
   TxOutDatum ScriptDataInAlonzoEra . fromPlutusData . Plutus.toData
+
+toTxDatum :: TxOutDatum CtxUTxO Era -> TxOutDatum CtxTx Era
+toTxDatum = \case
+  TxOutDatumNone -> TxOutDatumNone
+  TxOutDatumHash sdsie ha -> TxOutDatumHash sdsie ha
+
+mkTxOutDatumHash :: Plutus.ToData a => a -> TxOutDatum CtxUTxO Era
+mkTxOutDatumHash =
+  TxOutDatumHash ScriptDataInAlonzoEra . hashScriptData . fromPlutusData . Plutus.toData
 
 mkDatumForTxIn :: Plutus.ToData a => a -> ScriptDatum WitCtxTxIn
 mkDatumForTxIn =
@@ -276,7 +286,7 @@ fromLedgerTx (Ledger.Alonzo.ValidatedTx body wits isValid auxData) =
 -- needs.
 describeCardanoTx :: CardanoTx -> Text
 describeCardanoTx (Tx body _wits) =
-  unlines
+  unlines $
     [ show (getTxId body)
     , "  Inputs (" <> show (length inputs) <> ")"
     , "  Outputs (" <> show (length outputs) <> ")"
@@ -284,8 +294,10 @@ describeCardanoTx (Tx body _wits) =
     , "  Scripts (" <> show (length scripts) <> ")"
     , "    total size (bytes):  " <> show totalScriptSize
     ]
+      <> datums
+      <> redeemers
  where
-  ShelleyTxBody _era lbody scripts _scriptsData _auxData _validity = body
+  ShelleyTxBody _era lbody scripts scriptsData _auxData _validity = body
   outputs = Ledger.Alonzo.outputs' lbody
   inputs = Ledger.Alonzo.inputs' lbody
   totalScriptSize = sum $ BL.length . serialize <$> scripts
@@ -294,6 +306,21 @@ describeCardanoTx (Tx body _wits) =
       [ foldl' (\n inner -> n + Map.size inner) 0 outer
       | Ledger.Alonzo.TxOut _ (Ledger.Mary.Value _ outer) _ <- toList outputs
       ]
+
+  datums = case scriptsData of
+    TxBodyNoScriptData -> []
+    (TxBodyScriptData _ (TxDats dats) _) ->
+      "  Datums (" <> show (length dats) <> ")" :
+      (("    " <>) . showDatumAndHash <$> Map.toList dats)
+
+  showDatumAndHash (k, v) = show k <> " -> " <> show v
+
+  redeemers = case scriptsData of
+    TxBodyNoScriptData -> []
+    (TxBodyScriptData _ _ re) ->
+      let rdmrs = Map.elems $ unRedeemers re
+       in "  Redeemers (" <> show (length rdmrs) <> ")" :
+          (("    " <>) . show . fst <$> rdmrs)
 
 -- | Create a zero-fee, payment cardano transaction.
 mkSimpleCardanoTx ::
@@ -373,7 +400,19 @@ type Utxo = Utxo' (TxOut CtxUTxO Era)
 newtype Utxo' out = Utxo
   { utxoMap :: Map TxIn out
   }
-  deriving newtype (Eq, Show)
+  deriving newtype
+    ( Eq
+    , Show
+    , Functor
+    , Foldable
+    , Semigroup
+    , Monoid
+    , ToJSON
+    , FromJSON
+    )
+
+instance Traversable Utxo' where
+  traverse fn (Utxo m) = Utxo <$> traverse fn m
 
 instance ToCBOR Utxo where
   toCBOR = toCBOR . toLedgerUtxo
@@ -382,25 +421,6 @@ instance ToCBOR Utxo where
 instance FromCBOR Utxo where
   fromCBOR = fromLedgerUtxo <$> fromCBOR
   label _ = label (Proxy @(Ledger.UTxO LedgerEra))
-
-instance Functor Utxo' where
-  fmap fn (Utxo u) = Utxo (fmap fn u)
-
-instance Foldable Utxo' where
-  foldMap fn = foldMap fn . utxoMap
-  foldr fn zero = foldr fn zero . utxoMap
-
-instance Semigroup Utxo where
-  Utxo uL <> Utxo uR = Utxo (uL <> uR)
-
-instance Monoid Utxo where
-  mempty = Utxo mempty
-
-instance ToJSON Utxo where
-  toJSON = toJSON . utxoMap
-
-instance FromJSON Utxo where
-  parseJSON = fmap Utxo . parseJSON
 
 -- TODO: Use Alonzo generators!
 -- probably: import Test.Cardano.Ledger.Alonzo.AlonzoEraGen ()

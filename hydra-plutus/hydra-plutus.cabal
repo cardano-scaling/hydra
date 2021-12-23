@@ -84,12 +84,14 @@ library
     Plutus.Contract.StateMachine.MintingPolarity
     Plutus.Contract.StateMachine.OnChain
     Plutus.Contract.StateMachine.ThreadToken
+    Plutus.Orphans
 
   hs-source-dirs:  src
   build-depends:
     , aeson
     , base
     , base16-bytestring
+    , bytestring
     , cardano-crypto-class
     , containers
     , directory
@@ -100,9 +102,11 @@ library
     , openapi3
     , plutus-core
     , plutus-ledger
+    , plutus-ledger-api
     , plutus-tx
     , plutus-tx-plugin
     , prettyprinter
+    , QuickCheck
     , template-haskell
     , text
     , time

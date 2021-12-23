@@ -79,7 +79,7 @@ import Hydra.Chain.Direct.Wallet (
 import Hydra.Ledger.Cardano (CardanoTx, NetworkId (Testnet), fromLedgerTx, fromLedgerTxId, fromLedgerUtxo, utxoPairs)
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Party (Party)
-import Hydra.Snapshot (Snapshot (..))
+import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot (..))
 import Ouroboros.Consensus.Cardano.Block (GenTx (..), HardForkApplyTxErr (ApplyTxErrAlonzo), HardForkBlock (BlockAlonzo))
 import Ouroboros.Consensus.Ledger.SupportsMempool (ApplyTxErr)
 import Ouroboros.Consensus.Network.NodeToClient (Codecs' (..))
@@ -339,13 +339,13 @@ txSubmissionClient tracer queue =
   clientStIdle :: m (LocalTxClientStIdle (GenTx Block) (ApplyTxErr Block) m ())
   clientStIdle = do
     tx <- atomically $ readTQueue queue
-    traceWith tracer (PostedTx (getTxId tx, tx))
+    traceWith tracer (PostingTx (getTxId tx, tx))
     pure $
       SendMsgSubmitTx
         (GenTxAlonzo . mkShelleyTx $ tx)
         ( \case
             SubmitFail reason -> onFail reason
-            SubmitSuccess -> clientStIdle
+            SubmitSuccess -> traceWith tracer (PostedTx (getTxId tx)) >> clientStIdle
         )
 
   -- XXX(SN): patch-work error pretty printing on single plutus script failures
@@ -410,9 +410,10 @@ fromPostChainTx TinyWallet{getUtxo, verificationKey} networkId headState cardano
   AbortTx _utxo ->
     readTVar headState >>= \case
       Initial{threadOutput, initials} ->
-        case abortTx networkId (convertTuple threadOutput) (Map.fromList $ map convertTuple initials) of
-          Left err -> error $ show err
-          Right tx -> pure $ Just tx
+        let (i, _, dat, _) = threadOutput
+         in case abortTx networkId (i, dat) (Map.fromList $ map convertTuple initials) of
+              Left err -> error $ show err
+              Right tx -> pure $ Just tx
       _st -> pure Nothing
   CommitTx party utxo ->
     readTVar headState >>= \case
@@ -430,17 +431,24 @@ fromPostChainTx TinyWallet{getUtxo, verificationKey} networkId headState cardano
   CollectComTx utxo ->
     readTVar headState >>= \case
       Initial{threadOutput, commits} -> do
-        pure . Just $ collectComTx networkId utxo (convertTuple threadOutput) (Map.fromList $ fmap (\(a, b, c) -> (a, (b, c))) commits)
+        let (i, _, dat, parties) = threadOutput
+        pure . Just $ collectComTx networkId utxo (i, dat, parties) (Map.fromList $ fmap (\(a, b, c) -> (a, (b, c))) commits)
       st -> error $ "cannot post CollectComTx, invalid state: " <> show st
-  CloseTx Snapshot{number, utxo} ->
+  CloseTx confirmedSnapshot ->
     readTVar headState >>= \case
-      OpenOrClosed{threadOutput} ->
-        pure . Just $ closeTx number utxo threadOutput
+      OpenOrClosed{threadOutput} -> do
+        let (sn, sigs) =
+              case confirmedSnapshot of
+                ConfirmedSnapshot{snapshot, signatures} -> (snapshot, signatures)
+                InitialSnapshot{snapshot} -> (snapshot, mempty)
+        let (i, o, dat, _) = threadOutput
+        pure . Just $ closeTx (number sn) sigs (i, o, dat)
       st -> error $ "cannot post CloseTx, invalid state: " <> show st
   FanoutTx{utxo} ->
     readTVar headState >>= \case
       OpenOrClosed{threadOutput} ->
-        pure . Just $ fanoutTx networkId utxo (convertTuple threadOutput)
+        let (i, _, dat, _) = threadOutput
+         in pure . Just $ fanoutTx networkId utxo (i, dat)
       st -> error $ "cannot post FanOutTx, invalid state: " <> show st
   _ -> error "not implemented"
  where
@@ -466,7 +474,8 @@ getAlonzoTxs = \case
 -- TODO add  ToJSON, FromJSON instances
 data DirectChainLog
   = ToPost {toPost :: PostChainTx CardanoTx}
-  | PostedTx {postedTx :: (TxId StandardCrypto, ValidatedTx Era)}
+  | PostingTx {postedTx :: (TxId StandardCrypto, ValidatedTx Era)}
+  | PostedTx {postedTxId :: TxId StandardCrypto}
   | ReceivedTxs {onChainTxs :: [OnChainTx CardanoTx], receivedTxs :: [(TxId StandardCrypto, ValidatedTx Era)]}
   | RolledBackward {point :: SomePoint}
   | Wallet TinyWalletLog
@@ -482,10 +491,15 @@ instance ToJSON DirectChainLog where
         [ "tag" .= String "ToPost"
         , "toPost" .= toPost
         ]
-    PostedTx{postedTx} ->
+    PostingTx{postedTx} ->
+      object
+        [ "tag" .= String "PostingTx"
+        , "postedTx" .= postedTx
+        ]
+    PostedTx{postedTxId} ->
       object
         [ "tag" .= String "PostedTx"
-        , "postedTx" .= postedTx
+        , "postedTxId" .= postedTxId
         ]
     ReceivedTxs{onChainTxs, receivedTxs} ->
       object

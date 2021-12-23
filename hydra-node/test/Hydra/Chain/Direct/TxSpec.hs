@@ -12,7 +12,8 @@ import Test.Hydra.Prelude
 
 import Hydra.Chain.Direct.Tx
 
-import Cardano.Binary (serialize)
+import Cardano.Binary (serialize, serialize')
+import Cardano.Crypto.DSIGN (deriveVerKeyDSIGN)
 import Cardano.Ledger.Alonzo (TxOut)
 import Cardano.Ledger.Alonzo.Data (Data (Data), hashData)
 import Cardano.Ledger.Alonzo.PParams (PParams, PParams' (..))
@@ -62,7 +63,7 @@ import Hydra.Ledger.Cardano (
   utxoPairs,
  )
 import qualified Hydra.Ledger.Cardano as Api
-import Hydra.Party (Party, vkey)
+import Hydra.Party (Party, aggregate, generateKey, sign, vkey)
 import Plutus.V1.Ledger.Api (PubKeyHash, toData)
 import Test.Cardano.Ledger.Alonzo.Serialisation.Generators ()
 import Test.QuickCheck (
@@ -192,7 +193,7 @@ spec =
 
     describe "collectComTx" $ do
       prop "transaction size below limit" $ \(ReasonablySized utxo) headIn cperiod parties ->
-        let tx = collectComTx testNetworkId utxo (headIn, headDatum) mempty
+        let tx = collectComTx testNetworkId utxo (headIn, headDatum, parties) mempty
             headDatum = Data . toData $ MockHead.Initial cperiod parties
             cbor = serialize tx
             len = LBS.length cbor
@@ -204,15 +205,15 @@ spec =
       prop "is observed" $ \(ReasonablySized committedUtxo) headInput cperiod parties ->
         forAll (generateCommitUtxos parties committedUtxo) $ \commitsUtxo ->
           let committedValue = foldMap (\(TxOut _ v _, _) -> v) commitsUtxo
-              headOutput = mkHeadOutput SNothing -- will be SJust, but not covered by this test
+              headOutput = mkHeadOutput $ SJust headDatum
               headValue = inject (Coin 2_000_000) <> committedValue
               onChainParties = partyFromVerKey . vkey <$> parties
               headDatum = Data . toData $ MockHead.Initial cperiod onChainParties
               lookupUtxo = Map.singleton headInput headOutput
-              tx = collectComTx testNetworkId committedUtxo (headInput, headDatum) commitsUtxo
+              tx = collectComTx testNetworkId committedUtxo (headInput, headDatum, onChainParties) commitsUtxo
               res = observeCollectComTx lookupUtxo tx
            in case res of
-                Just (OnCollectComTx, OpenOrClosed{threadOutput = (_, TxOut _ headOutputValue' _, _)}) ->
+                Just (OnCollectComTx, OpenOrClosed{threadOutput = (_, TxOut _ headOutputValue' _, _, _)}) ->
                   headOutputValue' === headValue
                 _ -> property False
                 & counterexample ("Observe result: " <> show res)
@@ -222,10 +223,10 @@ spec =
       -- XXX(SN): tests are using a fixed snapshot number because of overlapping instances
       let sn = 1
 
-      prop "transaction size below limit" $ \utxo headIn ->
-        let tx = closeTx sn utxo (headIn, headOutput, headDatum)
+      prop "transaction size below limit" $ \sig headIn parties ->
+        let tx = closeTx sn sig (headIn, headOutput, headDatum)
             headOutput = mkHeadOutput SNothing
-            headDatum = Data $ toData MockHead.Open
+            headDatum = Data $ toData $ MockHead.Open parties
             cbor = serialize tx
             len = LBS.length cbor
          in len < maxTxSize
@@ -233,17 +234,21 @@ spec =
               & counterexample ("Tx: " <> show tx)
               & counterexample ("Tx serialized size: " <> show len)
 
-      prop "is observed" $ \utxo headInput ->
-        let headOutput = mkHeadOutput SNothing
-            headDatum = Data $ toData MockHead.Open
-            lookupUtxo = Map.singleton headInput headOutput
-            tx = closeTx sn utxo (headInput, headOutput, headDatum)
-            res = observeCloseTx lookupUtxo tx
-         in case res of
-              Just (OnCloseTx{snapshotNumber}, OpenOrClosed{}) -> snapshotNumber === sn
-              _ -> property False
-              & counterexample ("Observe result: " <> show res)
-              & counterexample ("Tx: " <> show tx)
+      prop "is observed" $ \headInput ->
+        forAll arbitrary $ \ks ->
+          let skeys = generateKey <$> ks
+              headOutput = mkHeadOutput (SJust headDatum)
+              headDatum = Data $ toData $ MockHead.Open $ partyFromVerKey . deriveVerKeyDSIGN <$> skeys
+              lookupUtxo = Map.singleton headInput headOutput
+              onChainSnapshot = serialize' sn
+              multisig = aggregate [sign sk onChainSnapshot | sk <- skeys]
+              tx = closeTx sn (coerce multisig) (headInput, headOutput, headDatum)
+              res = observeCloseTx lookupUtxo tx
+           in case res of
+                Just (OnCloseTx{snapshotNumber}, OpenOrClosed{}) -> snapshotNumber === sn
+                _ -> property False
+                & counterexample ("Observe result: " <> show res)
+                & counterexample ("Tx: " <> show tx)
 
     describe "fanoutTx" $ do
       let prop_fanoutTxSize :: Utxo -> TxIn StandardCrypto -> Property

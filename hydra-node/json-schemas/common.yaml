@@ -140,6 +140,55 @@ definitions:
     type: integer
     minimum: 0
 
+  ConfirmedSnapshot:
+    oneOf:
+    - title: "InitialSnapshot"
+      type: object
+      additionalProperties: false
+      required:
+        - snapshot
+        - tag
+      properties:
+        snapshot:
+          $ref: "#/definitions/Snapshot"
+        tag:
+          type: string
+          enum: ["InitialSnapshot"]
+
+    - title: "ConfirmedSnapshot"
+      type: object
+      additionalProperties: false
+      required:
+        - snapshot
+        - signatures
+      properties:
+        snapshot:
+          $ref: "#/definitions/Snapshot"
+        signatures:
+          $ref: "#/definitions/MultiSigned"
+        tag:
+          type: string
+          enum: ["ConfirmedSnapshot"]
+
+  MultiSigned:
+    type: object
+    description: >-
+      Aggregated signature produced by Head protocol when a Snapshot is confirmed by all parties.
+    additionalProperties: false
+    required:
+    - multiSignature
+    properties:
+      multiSignature:
+        type: array
+        items:
+          $ref: "#/definitions/Signed"
+
+  Signed:
+    type: string
+    description: >-
+      A base64-encoded signature.
+    contentEncoding: base16
+
   Transaction:
     type: object
     description: >-

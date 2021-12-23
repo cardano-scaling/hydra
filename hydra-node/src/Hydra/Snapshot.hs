@@ -5,9 +5,11 @@ module Hydra.Snapshot where
 
 import Hydra.Prelude
 
+import Cardano.Binary (serialize')
 import Cardano.Crypto.Util (SignableRepresentation (..))
 import Data.Aeson (object, withObject, (.:), (.=))
 import Hydra.Ledger (IsTx (..))
+import Hydra.Party (MultiSigned)
 
 type SnapshotNumber = Natural
 
@@ -32,11 +34,23 @@ instance (Arbitrary tx, Arbitrary (UtxoType tx)) => Arbitrary (Snapshot tx) wher
     , confirmed' <- shrink (confirmed s)
     ]
 
-instance IsTx tx => SignableRepresentation (Snapshot tx) where
-  -- FIXME: This should really use the CBOR representation for signing.
-  --
-  -- getSignableRepresentation = CBOR.toStrictByteString . toCBOR
-  getSignableRepresentation = encodeUtf8 . show @Text
+-- FIXME(1): Use extra key:value map to pass signable representation to on-chain code
+--
+-- We should use a proper signable representation which we can also
+-- get back to on-chain. In practice, we probably want to define it as an extra
+-- map data-hash -> data so that we can:
+--
+-- (a) Leverage the Ledger phase-1 validation to do the hashing off-chain and
+-- verify it.
+-- (b) Have an easy way to lookup data to get a hash representation of it, for
+-- signature verification.
+--
+-- FIXME(2): Also include UTXO in the signable representation.
+--
+-- FIXME(3): Use hash digest as signable representations (not pre-images).
+instance SignableRepresentation (Snapshot tx) where
+  getSignableRepresentation Snapshot{number} =
+    serialize' number
 
 instance IsTx tx => ToJSON (Snapshot tx) where
   toJSON s =
@@ -59,3 +73,29 @@ instance (ToCBOR tx, ToCBOR (UtxoType tx)) => ToCBOR (Snapshot tx) where
 
 instance (FromCBOR tx, FromCBOR (UtxoType tx)) => FromCBOR (Snapshot tx) where
   fromCBOR = Snapshot <$> fromCBOR <*> fromCBOR <*> fromCBOR
+
+-- | Snapshot when it was signed by all parties, i.e. it is confirmed.
+data ConfirmedSnapshot tx
+  = InitialSnapshot
+      { snapshot :: Snapshot tx
+      }
+  | ConfirmedSnapshot
+      { snapshot :: Snapshot tx
+      , signatures :: MultiSigned (Snapshot tx)
+      }
+  deriving (Generic, Eq, Show, ToJSON, FromJSON)
+
+-- NOTE: While we could use 'snapshot' directly, this is a record-field accessor
+-- which may become partial (and lead to unnoticed runtime errors) if we ever
+-- add a new branch to the sumtype. So, we explicitely define a getter which
+-- will force us into thinking about changing the signature properly if this
+-- happens.
+
+-- | Safely get a 'Snapshot' from a confirmed snapshot.
+getSnapshot :: ConfirmedSnapshot tx -> Snapshot tx
+getSnapshot = \case
+  InitialSnapshot{snapshot} -> snapshot
+  ConfirmedSnapshot{snapshot} -> snapshot
+
+instance (Arbitrary tx, Arbitrary (UtxoType tx)) => Arbitrary (ConfirmedSnapshot tx) where
+  arbitrary = genericArbitrary

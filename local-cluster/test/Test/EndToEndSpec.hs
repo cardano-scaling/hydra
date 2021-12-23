@@ -140,16 +140,18 @@ spec = around showLogsOnFailure $
                               )
                             ]
                         newUtxo = aliceUtxo <> fmap toJSON (Map.fromList (utxoPairs committedUtxoBy2))
-                    waitFor tracer 20 [n1, n2, n3] $
-                      output
-                        "SnapshotConfirmed"
-                        [ "snapshot"
-                            .= object
-                              [ "confirmedTransactions" .= [tx]
-                              , "snapshotNumber" .= int 1
-                              , "utxo" .= newUtxo
-                              ]
-                        ]
+
+                        expectedSnapshot =
+                          object
+                            [ "snapshotNumber" .= int 1
+                            , "utxo" .= newUtxo
+                            , "confirmedTransactions" .= [tx]
+                            ]
+
+                    waitMatch 20 n1 $ \v -> do
+                      guard $ v ^? key "tag" == Just "SnapshotConfirmed"
+                      snapshot <- v ^? key "snapshot"
+                      guard $ snapshot == expectedSnapshot
 
                     send n1 $ input "GetUtxo" []
                     waitFor tracer 20 [n1] $ output "Utxo" ["utxo" .= newUtxo]
@@ -158,13 +160,8 @@ spec = around showLogsOnFailure $
                     waitMatch 3 n1 $ \v -> do
                       guard $ v ^? key "tag" == Just "HeadIsClosed"
                       snapshot <- v ^? key "latestSnapshot"
-                      guard $
-                        snapshot
-                          == object
-                            [ "snapshotNumber" .= int 1
-                            , "utxo" .= newUtxo
-                            , "confirmedTransactions" .= [tx]
-                            ]
+                      guard $ snapshot == expectedSnapshot
+
                     waitFor tracer (contestationPeriod + 3) [n1] $
                       output "HeadIsFinalized" ["utxo" .= newUtxo]
 

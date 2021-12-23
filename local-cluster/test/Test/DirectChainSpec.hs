@@ -42,8 +42,8 @@ import Hydra.Ledger.Cardano (
   genOneUtxoFor,
  )
 import Hydra.Logging (nullTracer, showLogsOnFailure)
-import Hydra.Party (Party, deriveParty, generateKey)
-import Hydra.Snapshot (Snapshot (..))
+import Hydra.Party (Party, SigningKey, aggregate, deriveParty, generateKey, sign)
+import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot (..))
 import Test.QuickCheck (generate)
 
 spec :: Spec
@@ -162,12 +162,19 @@ spec = around showLogsOnFailure $ do
             postTx $ CollectComTx someUtxo
             alicesCallback `observesInTime` OnCollectComTx
 
+            let snapshot =
+                  Snapshot
+                    { number = 1
+                    , utxo = someUtxo
+                    , confirmed = []
+                    }
+
             postTx . CloseTx $
-              Snapshot
-                { number = 1
-                , utxo = someUtxo
-                , confirmed = []
+              ConfirmedSnapshot
+                { snapshot
+                , signatures = aggregate [sign aliceSigningKey snapshot]
                 }
+
             alicesCallback `shouldSatisfyInTime` \case
               OnCloseTx{snapshotNumber} ->
                 -- FIXME(SN): should assert contestationDeadline > current
@@ -187,9 +194,12 @@ magic :: NetworkMagic
 magic = NetworkMagic 42
 
 alice, bob, carol :: Party
-alice = deriveParty $ generateKey 10
+alice = deriveParty $ aliceSigningKey
 bob = deriveParty $ generateKey 20
 carol = deriveParty $ generateKey 30
+
+aliceSigningKey :: SigningKey
+aliceSigningKey = generateKey 10
 
 data TestClusterLog
   = FromCluster ClusterLog

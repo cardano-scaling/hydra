@@ -26,7 +26,7 @@ import Hydra.Ledger (IsTx (..), Ledger (..))
 import Hydra.Ledger.Simple (SimpleTx (..), aValidTx, simpleLedger)
 import Hydra.Network.Message (Message (..))
 import Hydra.Party (Party, deriveParty)
-import Hydra.Snapshot (Snapshot (..))
+import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot (..), getSnapshot)
 
 spec :: Spec
 spec = do
@@ -50,7 +50,7 @@ spec = do
               CoordinatedHeadState
                 { seenUtxo = initUtxo
                 , seenTxs = [tx]
-                , confirmedSnapshot = Snapshot 0 initUtxo mempty
+                , confirmedSnapshot = InitialSnapshot $ Snapshot 0 initUtxo mempty
                 , seenSnapshot = NoSeenSnapshot
                 }
         newSn (envFor 1) params st `shouldBe` ShouldSnapshot 1 [tx]
@@ -61,7 +61,7 @@ spec = do
               CoordinatedHeadState
                 { seenUtxo = initUtxo
                 , seenTxs = [tx]
-                , confirmedSnapshot = Snapshot 0 initUtxo mempty
+                , confirmedSnapshot = InitialSnapshot $ Snapshot 0 initUtxo mempty
                 , seenSnapshot = NoSeenSnapshot
                 }
         newSn (envFor 2) params st `shouldBe` ShouldNotSnapshot (NotLeader 1)
@@ -72,8 +72,8 @@ spec = do
               CoordinatedHeadState
                 { seenUtxo = initUtxo
                 , seenTxs = mempty
-                , confirmedSnapshot = Snapshot 0 initUtxo mempty
-                , seenSnapshot = SeenSnapshot sn1 (Set.fromList [])
+                , confirmedSnapshot = InitialSnapshot $ Snapshot 0 initUtxo mempty
+                , seenSnapshot = SeenSnapshot sn1 mempty
                 }
         newSn (envFor 1) params st `shouldBe` ShouldNotSnapshot (SnapshotInFlight 1)
 
@@ -82,7 +82,7 @@ spec = do
               CoordinatedHeadState
                 { seenUtxo = initUtxo
                 , seenTxs = mempty
-                , confirmedSnapshot = Snapshot 0 initUtxo mempty
+                , confirmedSnapshot = InitialSnapshot $ Snapshot 0 initUtxo mempty
                 , seenSnapshot = NoSeenSnapshot
                 } ::
                 CoordinatedHeadState SimpleTx
@@ -95,7 +95,7 @@ spec = do
                 CoordinatedHeadState
                   { seenUtxo = initUtxo
                   , seenTxs = [tx]
-                  , confirmedSnapshot = Snapshot 0 initUtxo mempty
+                  , confirmedSnapshot = InitialSnapshot $ Snapshot 0 initUtxo mempty
                   , seenSnapshot = NoSeenSnapshot
                   }
               st =
@@ -155,7 +155,7 @@ inOpenState parties Ledger{initUtxo} =
   inOpenState' parties $ CoordinatedHeadState u0 mempty snapshot0 NoSeenSnapshot
  where
   u0 = initUtxo
-  snapshot0 = Snapshot 0 u0 mempty
+  snapshot0 = InitialSnapshot $ Snapshot 0 u0 mempty
 
 inOpenState' ::
   [Party] ->
@@ -173,7 +173,7 @@ inClosedState parties =
 
 getConfirmedSnapshot :: HeadState tx -> Maybe (Snapshot tx)
 getConfirmedSnapshot = \case
-  OpenState _ CoordinatedHeadState{confirmedSnapshot} -> Just confirmedSnapshot
+  OpenState _ CoordinatedHeadState{confirmedSnapshot} -> Just (getSnapshot confirmedSnapshot)
   _ -> Nothing
 
 assertNewState :: IsTx tx => Outcome tx -> IO (HeadState tx)

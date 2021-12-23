@@ -8,23 +8,25 @@ module Hydra.Contract.MockHead where
 import Ledger hiding (validatorHash)
 import PlutusTx.Prelude
 
+import Control.Monad (guard)
 import Data.Aeson (FromJSON, ToJSON)
 import Data.Void (Void)
 import GHC.Generics (Generic)
 import Hydra.Data.ContestationPeriod (ContestationPeriod)
-import Hydra.Data.Party (Party)
+import Hydra.Data.Party (Party (UnsafeParty))
 import Ledger.Constraints (TxConstraints)
 import qualified Ledger.Typed.Scripts as Scripts
 import Plutus.Contract.StateMachine.OnChain (StateMachine)
 import qualified Plutus.Contract.StateMachine.OnChain as SM
 import qualified PlutusTx
+import PlutusTx.Builtins (quotientInteger, remainderInteger)
 import Text.Show (Show)
 
-type SnapshotNumber = Integer
+type SnapshotNumber = BuiltinByteString
 
 data State
-  = Initial ContestationPeriod [Party]
-  | Open
+  = Initial {contestationPeriod :: ContestationPeriod, parties :: [Party]}
+  | Open {parties :: [Party]}
   | Closed
   | Final
   deriving stock (Generic, Show)
@@ -36,7 +38,10 @@ data Input
   = -- FIXME(AB): The collected value should not be passed as input but inferred from
     -- collected commits' value
     CollectCom Value
-  | Close SnapshotNumber
+  | Close
+      { snapshotNumber :: SnapshotNumber
+      , signature :: [Signature]
+      }
   | Abort
   | Fanout
   deriving (Generic, Show)
@@ -62,15 +67,60 @@ hydraStateMachine _policyId =
 hydraTransition :: SM.State State -> Input -> Maybe (TxConstraints Void Void, SM.State State)
 hydraTransition oldState input =
   case (SM.stateData oldState, input) of
-    (Initial{}, CollectCom collectedValue) ->
-      Just (mempty, oldState{SM.stateData = Open, SM.stateValue = collectedValue <> SM.stateValue oldState})
+    (Initial{parties}, CollectCom collectedValue) ->
+      Just (mempty, oldState{SM.stateData = Open{parties}, SM.stateValue = collectedValue <> SM.stateValue oldState})
     (Initial{}, Abort) ->
       Just (mempty, oldState{SM.stateData = Final, SM.stateValue = mempty})
-    (Open{}, Close{}) ->
+    (Open{parties}, Close{snapshotNumber, signature}) -> do
+      guard $ verifySnapshotSignature parties snapshotNumber signature
       Just (mempty, oldState{SM.stateData = Closed})
     (Closed{}, Fanout{}) ->
       Just (mempty, oldState{SM.stateData = Final, SM.stateValue = mempty})
     _ -> Nothing
+
+{-# INLINEABLE verifySnapshotSignature #-}
+verifySnapshotSignature :: [Party] -> SnapshotNumber -> [Signature] -> Bool
+verifySnapshotSignature parties snapshotNumber sigs =
+  traceIfFalse "signature verification failed" $
+    length parties == length sigs
+      && all (uncurry $ verifyPartySignature snapshotNumber) (zip parties sigs)
+
+{-# INLINEABLE verifyPartySignature #-}
+verifyPartySignature :: BuiltinByteString -> Party -> Signature -> Bool
+verifyPartySignature msg (UnsafeParty vkey) signed =
+  traceIfFalse "party signature verification failed" $
+    mockVerifySignature vkey msg (getSignature signed)
+
+{-# INLINEABLE mockVerifySignature #-}
+-- TODO: This really should be the builtin Plutus function 'verifySignature' but as we
+-- are using Mock crypto in the Head, so must we use Mock crypto on-chain to verify
+-- signatures.
+mockVerifySignature :: Integer -> BuiltinByteString -> BuiltinByteString -> Bool
+mockVerifySignature vkey msg signed =
+  traceIfFalse "mock signed message is not equal to signed" $
+    mockSign vkey (hashBytes msg) == signed
+
+{-# INLINEABLE hashBytes #-}
+hashBytes :: BuiltinByteString -> BuiltinByteString
+hashBytes = sha2_256
+
+{-# INLINEABLE mockSign #-}
+mockSign :: Integer -> BuiltinByteString -> BuiltinByteString
+mockSign vkey msg = appendByteString (sliceByteString 0 8 msg) (toWord64BE vkey)
+
+{-# INLINEABLE toWord64BE #-}
+
+-- | Encode an Integer into a 8-bytes long Bytestring representing this number in
+-- Big-Endian form (eg. most significant bit first).
+toWord64BE :: Integer -> BuiltinByteString
+toWord64BE = go emptyByteString
+ where
+  go bs _
+    | lengthOfByteString bs == 8 = bs
+  go bs n =
+    let quot = quotientInteger n 256
+        rem = remainderInteger n 256
+     in go (consByteString rem bs) quot
 
 -- | The script instance of the auction state machine. It contains the state
 -- machine compiled to a Plutus core validator script. The 'MintingPolicyHash' serves
