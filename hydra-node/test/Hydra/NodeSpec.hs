@@ -6,7 +6,13 @@ import Hydra.Prelude
 import Test.Hydra.Prelude
 
 import Hydra.API.Server (Server (..))
-import Hydra.Chain (Chain (..), OnChainTx (..))
+import Hydra.Chain (
+  Chain (..),
+  HeadParameters (HeadParameters),
+  InvalidTxError (NoSeedInput),
+  OnChainTx (..),
+  PostChainTx (InitTx),
+ )
 import Hydra.ClientInput (ClientInput (..))
 import Hydra.HeadLogic (
   Environment (..),
@@ -28,6 +34,7 @@ import Hydra.Node (
   stepHydraNode,
  )
 import Hydra.Party (Party, SigningKey, deriveParty, sign)
+import Hydra.ServerOutput (ServerOutput (PostTxOnChainFailed))
 import Hydra.Snapshot (Snapshot (..))
 
 spec :: Spec
@@ -35,12 +42,12 @@ spec = parallel $ do
   it "emits a single ReqSn and AckSn as leader, even after multiple ReqTxs" $
     showLogsOnFailure $ \tracer -> do
       -- NOTE(SN): Sequence of parties in OnInitTx of
-      -- 'prefix' is relevant, so 10 is the (initial) snapshot leader
+      -- 'eventsToOpenHead' is relevant, so 10 is the (initial) snapshot leader
       let tx1 = SimpleTx{txSimpleId = 1, txInputs = utxoRefs [2], txOutputs = utxoRefs [4]}
           tx2 = SimpleTx{txSimpleId = 2, txInputs = utxoRefs [4], txOutputs = utxoRefs [5]}
           tx3 = SimpleTx{txSimpleId = 3, txInputs = utxoRefs [5], txOutputs = utxoRefs [6]}
           events =
-            prefix
+            eventsToOpenHead
               <> [ NetworkEvent{message = ReqTx{party = 10, transaction = tx1}}
                  , NetworkEvent{message = ReqTx{party = 10, transaction = tx2}}
                  , NetworkEvent{message = ReqTx{party = 10, transaction = tx3}}
@@ -57,7 +64,7 @@ spec = parallel $ do
           sn1 = Snapshot 1 (utxoRefs [1, 2, 3]) mempty
           sn2 = Snapshot 2 (utxoRefs [1, 3, 4]) [tx1]
           events =
-            prefix
+            eventsToOpenHead
               <> [ NetworkEvent{message = ReqSn{party = 10, snapshotNumber = 1, transactions = mempty}}
                  , NetworkEvent{message = AckSn 10 (sign 10 sn1) 1}
                  , NetworkEvent{message = AckSn 30 (sign 30 sn1) 1}
@@ -76,7 +83,7 @@ spec = parallel $ do
           sig20 = sign 20 snapshot
           sig10 = sign 10 snapshot
           events =
-            prefix
+            eventsToOpenHead
               <> [ NetworkEvent{message = AckSn{party = 20, signed = sig20, snapshotNumber = 1}}
                  , NetworkEvent{message = ReqSn{party = 10, snapshotNumber = 1, transactions = []}}
                  ]
@@ -84,6 +91,18 @@ spec = parallel $ do
       (node', getNetworkMessages) <- recordNetwork node
       runToCompletion tracer node'
       getNetworkMessages `shouldReturn` [AckSn{party = 10, signed = sig10, snapshotNumber = 1}]
+
+  it "notifies client when postTx throws InvalidTxError" $
+    showLogsOnFailure $ \tracer -> do
+      let events =
+            [ NetworkEvent{message = Connected{peer = Host{hostname = "10.0.0.30", port = 5000}}}
+            , NetworkEvent{message = Connected{peer = Host{hostname = "10.0.0.10", port = 5000}}}
+            , ClientEvent $ Init 10
+            ]
+      (node, getServerOutputs) <- createHydraNode 10 [20, 30] events >>= throwExceptionOnPostTx NoSeedInput >>= recordServerOutputs
+
+      runToCompletion tracer node
+      getServerOutputs `shouldReturn` [PostTxOnChainFailed (InitTx $ HeadParameters 10 [10, 20, 30]) NoSeedInput]
 
 oneReqSn :: [Message tx] -> Bool
 oneReqSn = (== 1) . length . filter isReqSn
@@ -93,8 +112,8 @@ isReqSn = \case
   ReqSn{} -> True
   _ -> False
 
-prefix :: [Event SimpleTx]
-prefix =
+eventsToOpenHead :: [Event SimpleTx]
+eventsToOpenHead =
   [ NetworkEvent{message = Connected{peer = Host{hostname = "10.0.0.30", port = 5000}}}
   , NetworkEvent{message = Connected{peer = Host{hostname = "10.0.0.10", port = 5000}}}
   , OnChainEvent
@@ -151,3 +170,18 @@ recordNetwork node = do
   patchedNode ref = node{hn = Network{broadcast = recordMsg ref}}
 
   queryMsgs = readIORef
+
+recordServerOutputs :: HydraNode SimpleTx IO -> IO (HydraNode SimpleTx IO, IO [ServerOutput SimpleTx])
+recordServerOutputs node = do
+  ref <- newIORef []
+  pure (patchedNode ref, queryMsgs ref)
+ where
+  recordMsg ref x = atomicModifyIORef' ref $ \old -> (old <> [x], ())
+
+  patchedNode ref = node{server = Server{sendOutput = recordMsg ref}}
+
+  queryMsgs = readIORef
+
+throwExceptionOnPostTx :: InvalidTxError SimpleTx -> HydraNode SimpleTx IO -> IO (HydraNode SimpleTx IO)
+throwExceptionOnPostTx exception node =
+  pure node{oc = Chain{postTx = const $ throwIO exception}}
