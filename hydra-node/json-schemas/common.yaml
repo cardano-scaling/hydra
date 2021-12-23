@@ -412,3 +412,226 @@ definitions:
         minimum: 0
         description: >-
           Some non-negative lovelace value.
+
+  PostChainTx:
+    description: >-
+      Description of outgoing On-Chain transactions for the Head protocol. As is
+      the case for OnChainTx, these data structures completely abstract away the
+      actual details of the transaction and only represent data relevant for the
+      protocol to make some progress.
+    oneOf:
+      - title: InitTx
+        type: object
+        additionalProperties: false
+        required:
+        - tag
+        - headParameters
+        description: >-
+          The initial transaction of the Head defining its parameters.
+        properties:
+          tag:
+            type: string
+            enum: ["InitTx"]
+          headParameters:
+            $ref: "#/definitions/HeadParameters"
+      - title: CommitTx
+        type: object
+        additionalProperties: false
+        required:
+        - tag
+        - party
+        - committed
+        description: >-
+          Commit some UTxO set to the opening Head, signed by this party.
+        properties:
+          tag:
+            type: string
+            enum: ["CommitTx"]
+          party:
+            $ref: "#/definitions/Party"
+          committed:
+            $ref: "#/definitions/Utxo"
+      - title: AbortTx
+        type: object
+        additionalProperties: false
+        required:
+        - tag
+        - utxo
+        description: >-
+          Abort the opening of the Head process.
+        properties:
+          tag:
+            type: string
+            enum: ["AbortTx"]
+          utxo:
+            $ref: "#/definitions/Utxo"
+      - title: CollectComTx
+        type: object
+        additionalProperties: false
+        required:
+        - tag
+        - utxo
+        description: >-
+          Confirm the opening of the Head collecting the committed UTxO set
+          combined from all individual commits.
+        properties:
+          tag:
+            type: string
+            enum: ["CollectComTx"]
+          utxo:
+            $ref: "#/definitions/Utxo"
+      - title: CloseTx
+        type: object
+        additionalProperties: false
+        required:
+        - tag
+        - confirmedSnapshot
+        description: >-
+          Close the currently open Head with the given snapshot.
+        properties:
+          tag:
+            type: string
+            enum: ["CloseTx"]
+          confirmedSnapshot:
+            $ref: "#/definitions/ConfirmedSnapshot"
+      - title: ContestTx
+        type: object
+        additionalProperties: false
+        required:
+        - tag
+        - snapshot
+        description: >-
+          Contest a previously posted snapshot (from a Close or Contest
+          transaction) with a newer snapshot.
+        properties:
+          tag:
+            type: string
+            enum: ["ContestTx"]
+          snapshot:
+            $ref: "#/definitions/Snapshot"
+      - title: FanoutTx
+        type: object
+        additionalProperties: false
+        required:
+        - tag
+        - utxo
+        description: >-
+          Finalise the Head posting all UTxO from the Head on-chain.
+        properties:
+          tag:
+            type: string
+            enum: ["FanoutTx"]
+          utxo:
+            $ref: "#/definitions/Utxo"
+
+  InvalidTxError:
+    description: >-
+      Provides more details about transaction submission failure.
+    oneOf:
+      - title: MoreThanOneUtxoCommitted
+        type: object
+        additionalProperties: false
+        required:
+        - tag
+        description: >-
+          A commit transaction tried to commit more than one UTxO on-chain.
+          **Note**: Due to transaction size constraints and the unbounded size of value carried in a UTxO,
+          it is a current limitation in the Head protocol that each participant can only commit one UTxO.
+          This restriction should be alleviated in future versions of the protocol.
+        properties:
+          tag:
+            type: string
+            enum: ["MoreThanOneUtxoCommitted"]
+      - title: CannotSpendInput
+        type: object
+        additionalProperties: false
+        required:
+        - tag
+        - input
+        - walletUtxo
+        - headUtxo
+        description: >-
+          Some input in a transaction cannot be resolved to a proper UTxO. This can happen either when some input
+          is double-spent or the DirectChain component has not yet caught up with the chain.
+        properties:
+          tag:
+            type: string
+            enum: ["CannotSpendInput"]
+          input:
+            type: string
+            description: >-
+              A representation of the faulty input, in the form 'txId#txIx'.
+              **NOTE**: We would like to use a proper TxIn type reference here but this is not possible because of
+              constraints in the codebase and whatnot. See https://raw.githubusercontent.com/input-output-hk/hydra-poc/master/hydra-node/json-schemas/#/definitions/TxIn.
+          walletUtxo:
+            $ref: "#/definitions/Utxo"
+            description: >-
+              The UTxO observed from the chain relevant for the current party.
+          headUtxo:
+            $ref: "#/definitions/Utxo"
+            description: >-
+              The Head protocol-relevant UTxO. Depending on the Head's current state, it includes the Head state thread output,
+              plus the ν_initial or ν_commit outputs.
+      - title: CannotCoverFees
+        type: object
+        additionalProperties: false
+        required:
+        - tag
+        - walletUtxo
+        - headUtxo
+        - reason
+        - tx
+        description: >-
+          The DirectChain component's internal wallet has been unabled to cover the required fees to post the given
+          transaction. This could come from a variety of reason which are detailed in the 'reason' field.
+        properties:
+          tag:
+            type: string
+            enum: ["CannotCoverFees"]
+          walletUtxo:
+            $ref: "#/definitions/Utxo"
+            description: >-
+              The UTxO observed from the chain relevant for the current party.
+              **Note**: In the current version, all fees are paid using a specially "marked" UTxO that is expected to
+              carry enough ADAs to pay for the Head protocol's advance and is consumed and produced upon each transaction.
+          headUtxo:
+            $ref: "#/definitions/Utxo"
+            description: >-
+              The Head protocol-relevant UTxO.
+          reason:
+            type: string
+            description: >-
+              Textual representation of the underlying failure to cover fees.
+          tx:
+            $ref: "#/definitions/Transaction"
+            description: >-
+              The partial transaction that was being posted.
+      - title: NoSeedInput
+        type: object
+        additionalProperties: false
+        required:
+        - tag
+        description: >-
+          Initialising a new Head failed because the DirectChain component was unable to find
+          a "seed" UTxO to consume. This can happen if no UTxO has been assigned to the internal wallet's address
+          for this purpose, or if the component is still catching up with the chain.
+
+          This error is usually transient and clients should retry to post the transaction.
+        properties:
+          tag:
+            type: string
+            enum: ["NoSeedInput"]
+      - title: InvalidStateToPost
+        type: object
+        additionalProperties: false
+        required:
+        - tag
+        - txTried
+        description: >-
+          Attempted to post a transaction that's invalid given current protocol's state. This is definitely a **BUG**.
+        properties:
+          tag:
+            type: string
+            enum: ["InvalidStateToPost"]
+          txTried:
+            $ref: "#/definitions/PostChainTx"

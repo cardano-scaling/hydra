@@ -16,6 +16,7 @@ import Hydra.ClientInput (ClientInput (..))
 import Hydra.Ledger (
   IsTx,
   Ledger,
+  TxIdType,
   UtxoType,
   ValidationError,
   ValidationResult (Invalid, Valid),
@@ -45,7 +46,7 @@ data Effect tx
   | Delay {delay :: DiffTime, event :: Event tx}
   deriving stock (Generic)
 
-instance (Arbitrary tx, Arbitrary (UtxoType tx)) => Arbitrary (Effect tx) where
+instance (Arbitrary tx, Arbitrary (UtxoType tx), Arbitrary (TxIdType tx)) => Arbitrary (Effect tx) where
   arbitrary = genericArbitrary
 
 deriving instance IsTx tx => Eq (Effect tx)

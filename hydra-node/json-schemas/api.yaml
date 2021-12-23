@@ -315,3 +315,24 @@ properties:
             enum: ["Greetings"]
           me:
             $ref: "common.yaml#/definitions/Party"
+
+      - title: PostTxOnChainFailed
+        description: >-
+          Something wrong happened when trying to post a transaction on-chain. Provides information
+          about what kind of transaction was tentatively posted, and the reason for failure.
+          **TODO**: Specialise this message depending whether or not this is a transient error, eg.
+          there is an action the client can do or redo.
+        type: object
+        additionalProperties: false
+        required:
+        - tag
+        - onChainTx
+        - postTxError
+        properties:
+          tag:
+            type: string
+            enum: ["PostTxOnChainFailed"]
+          onChainTx:
+            $ref: "common.yaml#/definitions/PostChainTx"
+          postTxError:
+            $ref: "common.yaml#/definitions/InvalidTxError"
