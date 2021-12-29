@@ -30,7 +30,7 @@ import Cardano.Ledger.Shelley.Rules.Ledger (LedgerPredicateFailure (UtxowFailure
 import Cardano.Ledger.Shelley.Rules.Utxow (UtxowPredicateFailure (UtxoFailure))
 import Control.Exception (IOException)
 import Control.Monad (foldM)
-import Control.Monad.Class.MonadSTM (MonadSTMTx (writeTVar), newTQueueIO, newTVarIO, readTQueue, writeTQueue)
+import Control.Monad.Class.MonadSTM (newTQueueIO, newTVarIO, readTQueue, retry, writeTQueue, writeTVar)
 import Control.Monad.Class.MonadTimer (timeout)
 import Control.Tracer (nullTracer)
 import Data.Aeson (Value (String), object, (.=))
@@ -70,7 +70,7 @@ import Hydra.Chain.Direct.Util (
   versions,
  )
 import Hydra.Chain.Direct.Wallet (
-  ErrCoverFee (ErrUnknownInput, input),
+  ErrCoverFee (..),
   TinyWallet (..),
   TinyWalletLog,
   getTxId,
@@ -155,15 +155,12 @@ withDirectChain tracer networkMagic iocp socketPath keyPair party cardanoKeys ca
               Chain
                 { postTx = \tx -> do
                     traceWith tracer $ ToPost tx
-
-                    do
-                      res <-
-                        timeout 10 $
-                          atomically $
-                            fromPostChainTx wallet (Testnet networkMagic) headState cardanoKeys tx
-                              >>= finalizeTx wallet headState
-                              >>= writeTQueue queue
-                      when (isNothing res) $ throwIO (NoSeedInput @CardanoTx)
+                    -- XXX(SN): 'finalizeTx' retries until a payment utxo is
+                    -- found. See haddock for details
+                    timeoutThrowAfter (NoPaymentInput @CardanoTx) 10 $
+                      fromPostChainTx wallet (Testnet networkMagic) headState cardanoKeys tx
+                        >>= finalizeTx wallet headState
+                        >>= writeTQueue queue
                 }
         )
         ( connectTo
@@ -173,6 +170,11 @@ withDirectChain tracer networkMagic iocp socketPath keyPair party cardanoKeys ca
             socketPath
         )
  where
+  timeoutThrowAfter ex s stm = do
+    timeout s (atomically stm) >>= \case
+      Nothing -> throwIO ex
+      Just _ -> pure ()
+
   onIOException :: IOException -> IO ()
   onIOException ioException =
     throwIO $
@@ -356,6 +358,12 @@ txSubmissionClient tracer queue =
     err -> error $ "Some other ledger failure: " <> show err
 
 -- | Balance and sign the given partial transaction.
+--
+-- XXX(SN): This function does 'retry' when no payment UTXO was found and thus
+-- might block. This is necessary in some situations when the wallet has not yet
+-- "seen" the change output although the direct chain client observed a
+-- transaction already. This is a smell and we should try to avoid having this
+-- race condition in the first place.
 finalizeTx ::
   (MonadSTM m, MonadThrow (STM m)) =>
   TinyWallet m ->
@@ -366,6 +374,8 @@ finalizeTx TinyWallet{sign, getUtxo, coverFee} headState partialTx = do
   headUtxo <- knownUtxo <$> readTVar headState
   walletUtxo <- fromLedgerUtxo . Ledger.UTxO <$> getUtxo
   coverFee headUtxo partialTx >>= \case
+    Left ErrNoPaymentUtxoFound ->
+      retry
     Left ErrUnknownInput{input} -> do
       throwIO
         ( CannotSpendInput

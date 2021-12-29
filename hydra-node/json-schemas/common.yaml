@@ -621,6 +621,23 @@ definitions:
           tag:
             type: string
             enum: ["NoSeedInput"]
+      - title: NoPaymentInput
+        type: object
+        additionalProperties: false
+        required:
+        - tag
+        description: >-
+          The internal wallet was unable to find a "Payment" UTxO to consume.
+          This can happen if no UTxO available to the internal wallet is
+          "marked" for this purpose, or if the component is still catching up
+          with the chain.
+
+          Ensure that you have "seeded" the network using provided scripts and
+          tools (see demo tutorial).
+        properties:
+          tag:
+            type: string
+            enum: ["NoPaymentInput"]
       - title: InvalidStateToPost
         type: object
         additionalProperties: false

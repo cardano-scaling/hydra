@@ -76,6 +76,7 @@ data InvalidTxError tx
   | CannotSpendInput {input :: Text, walletUtxo :: UtxoType tx, headUtxo :: UtxoType tx}
   | CannotCoverFees {walletUtxo :: UtxoType tx, headUtxo :: UtxoType tx, reason :: Text, tx :: tx}
   | NoSeedInput
+  | NoPaymentInput
   | InvalidStateToPost {txTried :: PostChainTx tx}
   deriving (Exception, Generic, ToJSON, FromJSON)
 
