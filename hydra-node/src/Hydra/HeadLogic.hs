@@ -1,7 +1,6 @@
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE UndecidableInstances #-}
-{-# OPTIONS_GHC -Wno-deprecations #-}
 
 module Hydra.HeadLogic where
 
@@ -323,6 +322,8 @@ update Environment{party, signingKey, otherParties} ledger st ev = case (st, ev)
     sameState [ClientEffect $ PeerConnected host]
   (_, NetworkEvent (Disconnected host)) ->
     sameState [ClientEffect $ PeerDisconnected host]
+  (_, PostTxError{postChainTx, postTxError}) ->
+    sameState [ClientEffect $ PostTxOnChainFailed{postChainTx, postTxError}]
   _ ->
     Error $ InvalidEvent ev st
  where

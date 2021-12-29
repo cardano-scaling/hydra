@@ -326,13 +326,13 @@ properties:
         additionalProperties: false
         required:
         - tag
-        - onChainTx
+        - postChainTx
         - postTxError
         properties:
           tag:
             type: string
             enum: ["PostTxOnChainFailed"]
-          onChainTx:
+          postChainTx:
             $ref: "common.yaml#/definitions/PostChainTx"
           postTxError:
             $ref: "common.yaml#/definitions/PostTxError"
