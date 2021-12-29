@@ -72,7 +72,7 @@ spec = describe "On-chain contracts" $ do
     prop
       "verifies single signature produced off-chain"
       prop_verifyOffChainSignatures
-    -- FIXME(AB): This property exists solely because our current multisignature impklementation
+    -- FIXME(AB): This property exists solely because our current multisignature implementation
     -- is just the aggregates of individual (mock) signatures and there is no point in doing some
     -- complicated shuffle logic to verify signatures given we'll end up verifying a single Ed25519
     -- signatures.
