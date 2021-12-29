@@ -657,6 +657,23 @@ definitions:
         tag:
           type: string
           enum: ["ShouldPostFanout"]
+    - title: PostTxError
+      type: object
+      additionalProperties: false
+      required:
+      - tag
+      - postChainTx
+      - postTxError
+      description: >-
+        Event emitted when posting a transaction on the main chain failed.
+      properties:
+        tag:
+          type: string
+          enum: ["PostTxError"]
+        postChainTx:
+          $ref: "common.yaml#/definitions/PostChainTx"
+        postTxError:
+          $ref: "common.yaml#/definitions/PostTxError"
 
   Message:
     description: >-
