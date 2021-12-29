@@ -40,9 +40,9 @@ import Hydra.Chain (
   Chain (..),
   ChainCallback,
   ChainComponent,
-  InvalidTxError (..),
   OnChainTx (..),
   PostChainTx (..),
+  PostTxError (..),
  )
 import Hydra.Chain.Direct.Tx (
   OnChainHeadState (..),
@@ -383,7 +383,7 @@ finalizeTx TinyWallet{sign, getUtxo, coverFee} headState partialTx = do
             , walletUtxo
             , headUtxo = fromLedgerUtxo $ Ledger.UTxO headUtxo
             } ::
-            InvalidTxError CardanoTx
+            PostTxError CardanoTx
         )
     Left e ->
       throwIO
@@ -393,7 +393,7 @@ finalizeTx TinyWallet{sign, getUtxo, coverFee} headState partialTx = do
             , reason = show e
             , tx = fromLedgerTx partialTx
             } ::
-            InvalidTxError CardanoTx
+            PostTxError CardanoTx
         )
     Right validatedTx -> do
       pure $ sign validatedTx

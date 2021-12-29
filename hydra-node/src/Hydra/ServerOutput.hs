@@ -3,7 +3,7 @@
 
 module Hydra.ServerOutput where
 
-import Hydra.Chain (InvalidTxError, PostChainTx)
+import Hydra.Chain (PostTxError, PostChainTx)
 import Hydra.Ledger (IsTx, TxIdType, UtxoType, ValidationError)
 import Hydra.Network (Host)
 import Hydra.Party (MultiSigned, Party)
@@ -33,7 +33,7 @@ data ServerOutput tx
     -- node. Currently used for knowing what signing key the server uses (it
     -- only knows one).
     Greetings {me :: Party}
-  | PostTxOnChainFailed {onChainTx :: PostChainTx tx, postTxError :: InvalidTxError tx}
+  | PostTxOnChainFailed {onChainTx :: PostChainTx tx, postTxError :: PostTxError tx}
   deriving (Generic)
 
 deriving instance IsTx tx => Eq (ServerOutput tx)

@@ -524,7 +524,7 @@ definitions:
           utxo:
             $ref: "#/definitions/Utxo"
 
-  InvalidTxError:
+  PostTxError:
     description: >-
       Provides more details about transaction submission failure.
     oneOf:

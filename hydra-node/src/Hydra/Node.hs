@@ -20,7 +20,7 @@ import Control.Monad.Class.MonadSTM (
   writeTQueue,
  )
 import Hydra.API.Server (Server, sendOutput)
-import Hydra.Chain (Chain (..), InvalidTxError, OnChainTx)
+import Hydra.Chain (Chain (..), OnChainTx, PostTxError)
 import Hydra.ClientInput (ClientInput)
 import Hydra.HeadLogic (
   Effect (..),
@@ -38,7 +38,6 @@ import Hydra.Network (Network (..))
 import Hydra.Network.Message (Message)
 import Hydra.Options (Options (..))
 import Hydra.Party (Party (..))
-import Hydra.ServerOutput (ServerOutput (PostTxOnChainFailed))
 
 -- * Environment Handling
 
@@ -183,7 +182,10 @@ processEffect HydraNode{hn, oc, server, eq, env = Environment{party}} tracer e =
   case e of
     ClientEffect i -> sendOutput server i
     NetworkEffect msg -> broadcast hn msg >> putEvent eq (NetworkEvent msg)
-    OnChainEffect tx -> postTx oc tx `catch` \(ex :: InvalidTxError tx) -> sendOutput server (PostTxOnChainFailed tx ex)
+    OnChainEffect postChainTx ->
+      postTx oc postChainTx
+        `catch` \(postTxError :: PostTxError tx) ->
+          putEvent eq $ PostTxError{postChainTx, postTxError}
     Delay after event -> putEventAfter eq after event
   traceWith tracer $ ProcessedEffect party e
 -- ** Some general event queue from which the Hydra head is "fed"

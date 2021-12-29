@@ -25,7 +25,7 @@ import Control.Concurrent (MVar, newEmptyMVar, putMVar, takeMVar)
 import Hydra.Chain (
   Chain (..),
   HeadParameters (..),
-  InvalidTxError (..),
+  PostTxError (..),
   OnChainTx (..),
   PostChainTx (..),
  )
@@ -115,7 +115,7 @@ spec = around showLogsOnFailure $ do
 
             postTx (CommitTx alice someUtxoA)
               `shouldThrow` \case
-                (CannotSpendInput{} :: InvalidTxError CardanoTx) -> True
+                (CannotSpendInput{} :: PostTxError CardanoTx) -> True
                 _ -> False
 
             aliceUtxo <- generatePaymentToCommit defaultNetworkId node aliceCardanoSk aliceCardanoVk 1_000_000

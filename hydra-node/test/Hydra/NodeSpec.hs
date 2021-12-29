@@ -9,7 +9,7 @@ import Hydra.API.Server (Server (..))
 import Hydra.Chain (
   Chain (..),
   HeadParameters (HeadParameters),
-  InvalidTxError (NoSeedInput),
+  PostTxError (NoSeedInput),
   OnChainTx (..),
   PostChainTx (InitTx),
  )
@@ -92,7 +92,7 @@ spec = parallel $ do
       runToCompletion tracer node'
       getNetworkMessages `shouldReturn` [AckSn{party = 10, signed = sig10, snapshotNumber = 1}]
 
-  it "notifies client when postTx throws InvalidTxError" $
+  it "notifies client when postTx throws PostTxError" $
     showLogsOnFailure $ \tracer -> do
       let events =
             [ NetworkEvent{message = Connected{peer = Host{hostname = "10.0.0.30", port = 5000}}}
@@ -184,6 +184,6 @@ recordServerOutputs node = do
 
   queryMsgs = readIORef
 
-throwExceptionOnPostTx :: InvalidTxError SimpleTx -> HydraNode SimpleTx IO -> IO (HydraNode SimpleTx IO)
+throwExceptionOnPostTx :: PostTxError SimpleTx -> HydraNode SimpleTx IO -> IO (HydraNode SimpleTx IO)
 throwExceptionOnPostTx exception node =
   pure node{oc = Chain{postTx = const $ throwIO exception}}

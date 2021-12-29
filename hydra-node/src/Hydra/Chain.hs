@@ -71,7 +71,7 @@ instance (Arbitrary tx, Arbitrary (UtxoType tx)) => Arbitrary (OnChainTx tx) whe
   arbitrary = genericArbitrary
 
 -- | Exceptions thrown by 'postTx'.
-data InvalidTxError tx
+data PostTxError tx
   = MoreThanOneUtxoCommitted
   | CannotSpendInput {input :: Text, walletUtxo :: UtxoType tx, headUtxo :: UtxoType tx}
   | CannotCoverFees {walletUtxo :: UtxoType tx, headUtxo :: UtxoType tx, reason :: Text, tx :: tx}
@@ -80,15 +80,15 @@ data InvalidTxError tx
   | InvalidStateToPost {txTried :: PostChainTx tx}
   deriving (Exception, Generic, ToJSON, FromJSON)
 
-deriving instance IsTx tx => Eq (InvalidTxError tx)
-deriving instance IsTx tx => Show (InvalidTxError tx)
+deriving instance IsTx tx => Eq (PostTxError tx)
+deriving instance IsTx tx => Show (PostTxError tx)
 
 instance
   ( Arbitrary tx
   , Arbitrary (UtxoType tx)
   , Arbitrary (TxIdType tx)
   ) =>
-  Arbitrary (InvalidTxError tx)
+  Arbitrary (PostTxError tx)
   where
   arbitrary = genericArbitrary
 
@@ -97,7 +97,7 @@ newtype Chain tx m = Chain
   { -- | Construct and send a transaction to the main chain corresponding to the
     -- given 'OnChainTx' event.
     --
-    -- Does at least throw 'InvalidTxError'.
+    -- Does at least throw 'PostTxError'.
     postTx :: MonadThrow m => PostChainTx tx -> m ()
   }
 

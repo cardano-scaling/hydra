@@ -11,7 +11,7 @@ import Data.List (elemIndex, (\\))
 import qualified Data.Map.Strict as Map
 import qualified Data.Set as Set
 import GHC.Records (getField)
-import Hydra.Chain (HeadParameters (..), OnChainTx (..), PostChainTx (..))
+import Hydra.Chain (HeadParameters (..), OnChainTx (..), PostChainTx (..), PostTxError)
 import Hydra.ClientInput (ClientInput (..))
 import Hydra.Ledger (
   IsTx,
@@ -33,10 +33,11 @@ data Event tx
   | NetworkEvent {message :: Message tx}
   | OnChainEvent {onChainTx :: OnChainTx tx}
   | ShouldPostFanout
+  | PostTxError {postChainTx :: PostChainTx tx, postTxError :: PostTxError tx}
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON, FromJSON)
 
-instance (Arbitrary tx, Arbitrary (UtxoType tx)) => Arbitrary (Event tx) where
+instance (Arbitrary tx, Arbitrary (UtxoType tx), Arbitrary (TxIdType tx)) => Arbitrary (Event tx) where
   arbitrary = genericArbitrary
 
 data Effect tx
@@ -119,7 +120,7 @@ data LogicError tx
 
 instance IsTx tx => Exception (LogicError tx)
 
-instance (Arbitrary tx, Arbitrary (UtxoType tx)) => Arbitrary (LogicError tx) where
+instance (Arbitrary tx, Arbitrary (UtxoType tx), Arbitrary (TxIdType tx)) => Arbitrary (LogicError tx) where
   arbitrary = genericArbitrary
 
 deriving instance IsTx tx => ToJSON (LogicError tx)

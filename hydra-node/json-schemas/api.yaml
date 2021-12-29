@@ -335,4 +335,4 @@ properties:
           onChainTx:
             $ref: "common.yaml#/definitions/PostChainTx"
           postTxError:
-            $ref: "common.yaml#/definitions/InvalidTxError"
+            $ref: "common.yaml#/definitions/PostTxError"
