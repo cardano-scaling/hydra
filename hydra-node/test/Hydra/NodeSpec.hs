@@ -9,9 +9,9 @@ import Hydra.API.Server (Server (..))
 import Hydra.Chain (
   Chain (..),
   HeadParameters (HeadParameters),
-  PostTxError (NoSeedInput),
   OnChainTx (..),
   PostChainTx (InitTx),
+  PostTxError (NoSeedInput),
  )
 import Hydra.ClientInput (ClientInput (..))
 import Hydra.HeadLogic (
@@ -164,26 +164,21 @@ createHydraNode signingKey otherParties events = do
 
 recordNetwork :: HydraNode tx IO -> IO (HydraNode tx IO, IO [Message tx])
 recordNetwork node = do
-  ref <- newIORef []
-  pure (patchedNode ref, queryMsgs ref)
- where
-  recordMsg ref x = atomicModifyIORef' ref $ \old -> (old <> [x], ())
+  (record, query) <- messageRecorder
+  pure (node{hn = Network{broadcast = record}}, query)
 
-  patchedNode ref = node{hn = Network{broadcast = recordMsg ref}}
-
-  queryMsgs = readIORef
-
-recordServerOutputs :: HydraNode SimpleTx IO -> IO (HydraNode SimpleTx IO, IO [ServerOutput SimpleTx])
+recordServerOutputs :: HydraNode tx IO -> IO (HydraNode tx IO, IO [ServerOutput tx])
 recordServerOutputs node = do
+  (record, query) <- messageRecorder
+  pure (node{server = Server{sendOutput = record}}, query)
+
+messageRecorder :: IO (msg -> IO (), IO [msg])
+messageRecorder = do
   ref <- newIORef []
-  pure (patchedNode ref, queryMsgs ref)
+  pure (appendMsg ref, readIORef ref)
  where
-  recordMsg ref x = atomicModifyIORef' ref $ \old -> (old <> [x], ())
+  appendMsg ref x = atomicModifyIORef' ref $ \old -> (old <> [x], ())
 
-  patchedNode ref = node{server = Server{sendOutput = recordMsg ref}}
-
-  queryMsgs = readIORef
-
-throwExceptionOnPostTx :: PostTxError SimpleTx -> HydraNode SimpleTx IO -> IO (HydraNode SimpleTx IO)
+throwExceptionOnPostTx :: IsTx tx => PostTxError tx -> HydraNode tx IO -> IO (HydraNode tx IO)
 throwExceptionOnPostTx exception node =
   pure node{oc = Chain{postTx = const $ throwIO exception}}
