@@ -24,7 +24,7 @@ import qualified Data.ByteString as BS
 import qualified Data.Map as Map
 import Data.Maybe.Strict (StrictMaybe (..))
 import qualified Hydra.Chain.Direct.Fixture as Fixture
-import Hydra.Chain.Direct.Tx (closeTx, policyId)
+import Hydra.Chain.Direct.Tx (closeRedeemer, closeTx, policyId)
 import Hydra.Chain.Direct.TxSpec (mkHeadOutput)
 import Hydra.Contract.MockHead (hashBytes, mockSign, verifyPartySignature, verifySnapshotSignature)
 import qualified Hydra.Contract.MockHead as MockHead
@@ -172,18 +172,17 @@ evaluateTx tx utxo =
 
 healthyCloseTx :: (CardanoTx, Utxo)
 healthyCloseTx =
-  ( fromLedgerTx $ closeTx 1 multiSignedSnapshot (headInput, headOutput, headDatum)
+  ( fromLedgerTx $ closeTx 1 healthySignature (headInput, headOutput, headDatum)
   , fromLedgerUtxo lookupUtxo
   )
  where
-  multiSignedSnapshot = MultiSigned [sign sk healthyOpenSnapshot | sk <- healthyPartyCredentials]
   headInput = generateWith arbitrary 42
   headOutput = mkHeadOutput (SJust headDatum)
   headDatum = Ledger.Data $ toData healthyCloseDatum
   lookupUtxo = Ledger.UTxO $ Map.singleton headInput headOutput
 
-healthyOpenSnapshot :: Snapshot CardanoTx
-healthyOpenSnapshot =
+healthySnapshot :: Snapshot CardanoTx
+healthySnapshot =
   Snapshot
     { number = 1
     , utxo = mempty
@@ -196,6 +195,9 @@ healthyCloseDatum = MockHead.Open (partyFromVerKey . vkey . deriveParty <$> heal
 healthyPartyCredentials :: [SigningKey]
 healthyPartyCredentials = [1, 2, 3]
 
+healthySignature :: MultiSigned (Snapshot CardanoTx)
+healthySignature = MultiSigned [sign sk healthySnapshot | sk <- healthyPartyCredentials]
+
 genCloseMutation :: (CardanoTx, Utxo) -> Gen Mutation
 genCloseMutation (_tx, _utxo) =
   oneof
@@ -203,20 +205,13 @@ genCloseMutation (_tx, _utxo) =
     , ChangeHeadDatum <$> genChangeHeadDatum
     ]
  where
+  -- Mutations of the close redeemer
   genChangeHeadRedeemer =
     oneof
-      [ arbitrary `suchThat` \case
-          MockHead.Close{MockHead.snapshotNumber = snapshotNumber} -> snapshotNumber /= "1" -- TODO: magic number, this should come from tx
-          _ -> True
-      , do
-          -- TODO: also here, we would want to alter the provided tx's redeemer, rather
-          -- than generating a completly new one.
-          signature' <- arbitrary
-          pure $
-            MockHead.Close
-              { MockHead.signature = signature'
-              , MockHead.snapshotNumber = toBuiltin $ digest (Proxy @SHA256) "1" -- FIXME(SN): serialized snapshot number
-              }
+      [ -- Fully random redeemer
+        arbitrary
+      , -- Change the signature arbitrarily
+        closeRedeemer (number healthySnapshot) <$> arbitrary
       ]
   genChangeHeadDatum =
     arbitrary `suchThat` \case
