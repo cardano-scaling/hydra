@@ -219,7 +219,7 @@ genCloseMutation (_tx, _utxo) =
     oneof
       [ ("change signature, but not snapshot number",) . closeRedeemer (number healthySnapshot) <$> arbitrary
       , ("change snapshot number, but not signature",) <$> do
-          mutatedSnapshotNumber <- fromInteger . getPositive <$> arbitrary
+          mutatedSnapshotNumber <- (fromInteger . getPositive <$> arbitrary) `suchThat` (/= 1)
           pure (closeRedeemer mutatedSnapshotNumber healthySignature)
       ]
 
