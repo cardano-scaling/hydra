@@ -7,6 +7,7 @@ module Hydra.Chain.Direct.ContractSpec where
 import Hydra.Prelude hiding (label)
 import Test.Hydra.Prelude
 
+import Cardano.Binary (serialize')
 import Cardano.Crypto.DSIGN (deriveVerKeyDSIGN)
 import qualified Cardano.Ledger.Alonzo.Data as Ledger
 import Cardano.Ledger.Alonzo.Scripts (ExUnits)
@@ -48,10 +49,20 @@ import Hydra.Ledger.Cardano (
   toLedgerUtxo,
  )
 import qualified Hydra.Ledger.Cardano as Api
-import Hydra.Party (MultiSigned (MultiSigned), Signed (UnsafeSigned), SigningKey, deriveParty, generateKey, sign, vkey)
+import Hydra.Party (
+  MultiSigned (MultiSigned),
+  Signed (UnsafeSigned),
+  SigningKey,
+  deriveParty,
+  generateKey,
+  sign,
+  toPlutusSignatures,
+  vkey,
+ )
 import Hydra.Snapshot (Snapshot (..), SnapshotNumber)
 import Plutus.Orphans ()
 import Plutus.V1.Ledger.Api (fromBuiltin, fromData, toBuiltin, toData)
+import qualified Plutus.V1.Ledger.Api as Plutus
 import Plutus.V1.Ledger.Crypto (Signature (Signature))
 import Test.QuickCheck (
   Positive (Positive),
@@ -228,16 +239,20 @@ genCloseMutation (_tx, _utxo) =
     -- the power of the mutators, we should test at the level of the validator.
     -- That is, using the on-chain types.
     oneof
-      [ ("mutate signature, but not snapshot number",)
-          . closeRedeemer (number healthySnapshot)
-          <$> arbitrary
+      [ ("mutate signature, but not snapshot number",) <$> do
+          closeRedeemer (number healthySnapshot) <$> arbitrary
       , ("mutate snapshot number, but not signature",) <$> do
           mutatedSnapshotNumber <- arbitrarySizedNatural `suchThat` (/= healthySnapshotNumber)
           pure (closeRedeemer mutatedSnapshotNumber $ healthySignature healthySnapshotNumber)
-      , ("mutate snapshot number and signature to valid, but unexpected value",) <$> do
-          mutatedSnapshotNumber <- arbitrarySizedNatural `suchThat` (/= healthySnapshotNumber)
-          let mutatedSignature = healthySignature mutatedSnapshotNumber
-          pure (closeRedeemer mutatedSnapshotNumber mutatedSignature)
+      , ("mutate snapshot number to ill-formed value, with valid signature",) <$> do
+          mutatedSnapshotNumber <- serialize' <$> (arbitrary @Int `suchThat` (< 0))
+          let mutatedSignature =
+                MultiSigned [sign sk mutatedSnapshotNumber | sk <- healthyPartyCredentials]
+          pure
+            MockHead.Close
+              { MockHead.snapshotNumber = Plutus.toBuiltin mutatedSnapshotNumber
+              , MockHead.signature = toPlutusSignatures mutatedSignature
+              }
       ]
 
   genChangeHeadDatum =
