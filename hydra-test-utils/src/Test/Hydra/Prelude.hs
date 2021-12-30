@@ -10,6 +10,7 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE TypeSynonymInstances #-}
 
@@ -39,9 +40,7 @@ import Test.Hspec
 import Test.Hspec.QuickCheck
 
 import Control.Monad.Class.MonadTimer (timeout)
-import Data.Data (Data (..), dataTypeConstrs)
 import Data.Ratio ((%))
-import Data.Typeable (tyConName, typeRep, typeRepTyCon)
 import GHC.Exception (SrcLoc (..))
 import GHC.Generics
 import System.Directory (removePathForcibly)
@@ -176,20 +175,27 @@ instance Arbitrary a => Arbitrary (ReasonablySized a) where
 --        & checkCoverage
 --
 genericCoverTable ::
-  forall distr lbl prop.
-  (GCoverTableRequirements distr lbl (Rep lbl), Testable prop) =>
-  [lbl] ->
+  forall distr a prop.
+  ( GCoverTableRequirements distr (Rep a)
+  , GLabelName (Rep a)
+  , Generic a
+  , Show a
+  , Testable prop
+  ) =>
+  [a] ->
   prop ->
   Property
-genericCoverTable labels =
-  coverTable tableName (gCoverTableRequirements @distr @lbl @(Rep lbl))
-    . tabulate tableName (show <$> labels)
+genericCoverTable xs =
+  coverTable tableName requirements . tabulate tableName (gLabelName . from <$> xs)
  where
-  tableName = tyConName $ typeRepTyCon $ typeRep (Proxy @lbl)
+  (tableName, requirements) = gCoverTableRequirements @distr (Proxy @(Rep a))
 
 -- | A Constraint alias to ease signatures on the consumer-side.
 type GUniformCoverage a =
-  GCoverTableRequirements 'UniformCoverage a (Rep a)
+  ( GCoverTableRequirements 'UniformCoverage (Rep a)
+  , GLabelName (Rep a)
+  , Generic a
+  )
 
 -- | Type of distribution requirements.
 data CoverTableDistribution
@@ -200,39 +206,62 @@ data CoverTableDistribution
 -- weight requirement. It is parameterized by the type of distribution wanted.
 --
 -- Any basic sum of constructors is an instance of `GCoverTableRequirements`.
-class
-  (Data t, Generic t, Show t) =>
-  GCoverTableRequirements (k :: CoverTableDistribution) t (f :: Type -> Type)
-  where
-  gCoverTableRequirements :: [(String, Double)]
+class GCoverTableRequirements (k :: CoverTableDistribution) (f :: Type -> Type) where
+  gCoverTableRequirements :: Proxy f -> (String, [(String, Double)])
+
+-- | A simple class to get a label name from a generic representation. Instances
+-- exist for sum-types and uses the constructor's name.
+class GLabelName (f :: Type -> Type) where
+  gLabelName :: f a -> String
 
 instance
-  (Data t, Generic t, Show t, GCoverTableRequirements k t f) =>
-  GCoverTableRequirements k t (D1 c f)
+  ( GCoverTableRequirements 'UniformCoverage f
+  , Datatype c
+  ) =>
+  GCoverTableRequirements 'UniformCoverage (D1 c f)
   where
-  gCoverTableRequirements = gCoverTableRequirements @k @t @f
-
-instance
-  (Data t, Generic t, Show t, GCoverTableRequirements k t f) =>
-  GCoverTableRequirements k t (C1 c f)
-  where
-  gCoverTableRequirements = gCoverTableRequirements @k @t @f
-
-instance
-  (Data t, Generic t, Show t) =>
-  GCoverTableRequirements 'UniformCoverage t (f :+: g)
-  where
-  gCoverTableRequirements =
+  gCoverTableRequirements _ =
+    -- NOTE: A careful reader may notice the `3 * lengthI cs` instead of
+    -- `lengthI cs` as the weights denominator.
+    --
+    -- This is because `checkCoverage` in QuickCheck will do a statistical
+    -- verification with a quite high level of confidence. For types with
+    -- many (i.e. more than 2) constructors, it may require a quite significant
+    -- amount of tests cases before all values statistically converge towards
+    -- the expected weights. In practice, we really want to make sure that
+    -- all branches are covered. That a branch is covered 2 times as much
+    -- than another isn't of significant importance.
     let lengthI = toInteger . length
-        cs = dataTypeConstrs (dataTypeOf (Prelude.undefined :: t))
-     in -- NOTE: A careful reader may notice the `3 * lengthI cs` instead of
-        -- `lengthI cs` as the weights denominator.
-        --
-        -- This is because `checkCoverage` in QuickCheck will do a statistical
-        -- verification with a quite high level of confidence. For types with
-        -- many (i.e. more than 2) constructors, it may require a quite significant
-        -- amount of tests cases before all values statistically converge towards
-        -- the expected weights. In practice, we really want to make sure that
-        -- all branches are covered. That a branch is covered 2 times as much
-        -- than another isn't of significant importance.
-        [(show c, fromRational (100 % (3 * lengthI cs))) | c <- cs]
+        cs = snd (gCoverTableRequirements @ 'UniformCoverage (Proxy @f))
+     in ( datatypeName (Prelude.undefined :: D1 c f a)
+        , [(c, fromRational (100 % (3 * lengthI cs))) | (c, _) <- cs]
+        )
+
+instance (GLabelName f) => GLabelName (D1 c f) where
+  gLabelName = gLabelName . unM1
+
+instance
+  ( GCoverTableRequirements k l
+  , GCoverTableRequirements k r
+  ) =>
+  GCoverTableRequirements k (l :+: r)
+  where
+  gCoverTableRequirements _ =
+    ( ""
+    , mconcat
+        [ snd (gCoverTableRequirements @k (Proxy @l))
+        , snd (gCoverTableRequirements @k (Proxy @r))
+        ]
+    )
+
+instance (GLabelName l, GLabelName r) => GLabelName (l :+: r) where
+  gLabelName = \case
+    L1 l -> gLabelName l
+    R1 r -> gLabelName r
+
+instance (Constructor c) => GCoverTableRequirements k (C1 c f) where
+  gCoverTableRequirements _ =
+    ("", [(conName (Prelude.undefined :: C1 c f a), 0)])
+
+instance (Constructor c) => GLabelName (C1 c f) where
+  gLabelName = conName

@@ -1,5 +1,6 @@
 {-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 
 module Hydra.Prelude (
   module Relude,
@@ -27,7 +28,8 @@ module Hydra.Prelude (
   generateWith,
   shrinkListAggressively,
   padLeft,
-  GenericData,
+  (^.),
+  (.~),
 ) where
 
 import Cardano.Binary (
@@ -86,9 +88,6 @@ import Data.Aeson (
 import Data.Aeson.Encode.Pretty (
   encodePretty,
  )
-import Data.Data (
-  Data,
- )
 import qualified Data.Text as T
 import GHC.Generics (Rep)
 import qualified Generic.Random as Random
@@ -133,6 +132,10 @@ import Relude hiding (
   tryTakeTMVar,
   writeTVar,
  )
+import Relude.Extra.Lens (
+  (.~),
+  (^.),
+ )
 import Relude.Extra.Map (
   DynamicMap (..),
   StaticMap (..),
@@ -147,10 +150,6 @@ import Test.QuickCheck (
 import Test.QuickCheck.Gen (Gen (..))
 import Test.QuickCheck.Instances ()
 import Test.QuickCheck.Random (mkQCGen)
-
--- NOTE: Not re-exporting as 'Data' to avoid conflict with Cardano
--- already-overloaded 'Data' type.
-type GenericData = Data
 
 -- | Provides a sensible way of automatically deriving generic 'Arbitrary'
 -- instances for data-types. In the case where more advanced or tailored
