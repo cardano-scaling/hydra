@@ -63,12 +63,11 @@ import Hydra.Ledger.Cardano (
   VerificationKey (PaymentVerificationKey),
  )
 import qualified Hydra.Ledger.Cardano as Api
-import Hydra.Party (MultiSigned (MultiSigned), Party (Party), getSignatureBytes, vkey)
+import Hydra.Party (MultiSigned, Party (Party), toPlutusSignatures, vkey)
 import Hydra.Snapshot (Snapshot, SnapshotNumber)
 import Ledger.Value (AssetClass (..), currencyMPSHash)
 import Plutus.V1.Ledger.Api (FromData, MintingPolicyHash, PubKeyHash (..), fromData)
 import qualified Plutus.V1.Ledger.Api as Plutus
-import qualified Plutus.V1.Ledger.Crypto as Plutus
 import Plutus.V1.Ledger.Value (assetClass, currencySymbol, tokenName)
 
 -- FIXME: parameterize
@@ -359,15 +358,14 @@ closeTx snapshotNumber sig (Api.fromLedgerTxIn -> headInput, Api.fromLedgerTxOut
     Api.mkTxOutDatum MockHead.Closed
 
 closeRedeemer :: SnapshotNumber -> MultiSigned (Snapshot CardanoTx) -> MockHead.Input
-closeRedeemer snapshotNumber (MultiSigned sigs) =
+closeRedeemer snapshotNumber multiSig =
   MockHead.Close
     { snapshotNumber = onChainSnapshotNumber
-    , signature = onChainSignature
+    , signature = toPlutusSignatures multiSig
     }
  where
   -- NOTE(AB): using serialize' and CBOR could be problematic for on-chain verification
   onChainSnapshotNumber = Plutus.toBuiltin $ serialize' snapshotNumber
-  onChainSignature = Plutus.Signature . Plutus.toBuiltin . getSignatureBytes <$> sigs
 
 fanoutTx ::
   -- | Network identifier for address discrimination
