@@ -108,16 +108,10 @@ prop_verifyOffChainSignatures =
 prop_verifySnapshotSignatures :: Property
 prop_verifySnapshotSignatures =
   forAll genBytes $ \sn ->
-    forAll listOfSigningKeys $ \sks ->
+    forAll genListOfSigningKeys $ \sks ->
       let parties = partyFromVerKey . deriveVerKeyDSIGN <$> sks
           signatures = [Signature $ toBuiltin bytes | sk <- sks, let UnsafeSigned bytes = sign sk sn]
        in verifySnapshotSignature parties (toBuiltin sn) signatures
-
-listOfSigningKeys :: Gen [SigningKey]
-listOfSigningKeys = choose (1, 20) <&> fmap generateKey . enumFromTo 1
-
-genBytes :: Gen ByteString
-genBytes = arbitrary
 
 propMutation :: (CardanoTx, Utxo) -> ((CardanoTx, Utxo) -> Gen (Text, Mutation)) -> Property
 propMutation (tx, utxo) genMutation =
@@ -154,19 +148,32 @@ propTransactionValidates (tx, lookupUtxo) =
               & counterexample ("Lookup utxo: " <> decodeUtf8 (encodePretty lookupUtxo))
               & counterexample ("Redeemer report: " <> show redeemerReport)
 
-evaluateTx :: CardanoTx -> Utxo -> Either (BasicFailure LedgerCrypto) (Map RdmrPtr (Either (ScriptFailure LedgerCrypto) ExUnits))
-evaluateTx tx utxo =
-  runIdentity $
-    evaluateTransactionExecutionUnits
-      Fixture.pparams
-      (toLedgerTx tx)
-      (toLedgerUtxo utxo)
-      Fixture.epochInfo
-      Fixture.systemStart
-      Fixture.costModels
+--
+-- Mutation
+--
+
+data Mutation
+  = ChangeHeadRedeemer MockHead.Input
+  | ChangeHeadDatum MockHead.State
+  deriving (Show, Generic)
+
+applyMutation :: Mutation -> (CardanoTx, Utxo) -> (CardanoTx, Utxo)
+applyMutation mutation (tx@(Tx body wits), utxo) = case mutation of
+  ChangeHeadRedeemer newRedeemer ->
+    let ShelleyTxBody era ledgerBody scripts scriptData mAuxData scriptValidity = body
+        redeemers = alterRedeemers (changeHeadRedeemer newRedeemer) scriptData
+        body' = ShelleyTxBody era ledgerBody scripts redeemers mAuxData scriptValidity
+     in (Tx body' wits, utxo)
+  ChangeHeadDatum d' ->
+    let fn o@(TxOut addr value _)
+          | isHeadOutput o =
+            (TxOut addr value $ mkTxOutDatumHash d')
+          | otherwise =
+            o
+     in (tx, fmap fn utxo)
 
 --
--- Healthy Transactions
+-- CloseTx
 --
 
 healthyCloseTx :: (CardanoTx, Utxo)
@@ -224,29 +231,14 @@ genCloseMutation (_tx, _utxo) =
       ]
 
 --
---
--- Mutation
+-- Generators
 --
 
-data Mutation
-  = ChangeHeadRedeemer MockHead.Input
-  | ChangeHeadDatum MockHead.State
-  deriving (Show, Generic)
+genListOfSigningKeys :: Gen [SigningKey]
+genListOfSigningKeys = choose (1, 20) >>= pure . fmap generateKey . enumFromTo 1
 
-applyMutation :: Mutation -> (CardanoTx, Utxo) -> (CardanoTx, Utxo)
-applyMutation mutation (tx@(Tx body wits), utxo) = case mutation of
-  ChangeHeadRedeemer newRedeemer ->
-    let ShelleyTxBody era ledgerBody scripts scriptData mAuxData scriptValidity = body
-        redeemers = alterRedeemers (changeHeadRedeemer newRedeemer) scriptData
-        body' = ShelleyTxBody era ledgerBody scripts redeemers mAuxData scriptValidity
-     in (Tx body' wits, utxo)
-  ChangeHeadDatum d' ->
-    let fn o@(TxOut addr value _)
-          | isHeadOutput o =
-            (TxOut addr value $ mkTxOutDatumHash d')
-          | otherwise =
-            o
-     in (tx, fmap fn utxo)
+genBytes :: Gen ByteString
+genBytes = arbitrary
 
 ---
 --- Orphans
@@ -287,3 +279,20 @@ alterRedeemers fn = \case
   TxBodyScriptData supportedInEra dats (Ledger.Redeemers redeemers) ->
     let newRedeemers = fmap fn redeemers
      in TxBodyScriptData supportedInEra dats (Ledger.Redeemers newRedeemers)
+
+type RedeemerReport =
+  (Map RdmrPtr (Either (ScriptFailure LedgerCrypto) ExUnits))
+
+evaluateTx ::
+  CardanoTx ->
+  Utxo ->
+  Either (BasicFailure LedgerCrypto) RedeemerReport
+evaluateTx tx utxo =
+  runIdentity $
+    evaluateTransactionExecutionUnits
+      Fixture.pparams
+      (toLedgerTx tx)
+      (toLedgerUtxo utxo)
+      Fixture.epochInfo
+      Fixture.systemStart
+      Fixture.costModels
