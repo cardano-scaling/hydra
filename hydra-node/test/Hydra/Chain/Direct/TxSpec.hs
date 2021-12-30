@@ -12,8 +12,7 @@ import Test.Hydra.Prelude
 
 import Hydra.Chain.Direct.Tx
 
-import Cardano.Binary (serialize, serialize')
-import Cardano.Crypto.DSIGN (deriveVerKeyDSIGN)
+import Cardano.Binary (serialize)
 import Cardano.Ledger.Alonzo (TxOut)
 import Cardano.Ledger.Alonzo.Data (Data (Data), hashData)
 import Cardano.Ledger.Alonzo.PParams (PParams, PParams' (..))
@@ -63,7 +62,7 @@ import Hydra.Ledger.Cardano (
   utxoPairs,
  )
 import qualified Hydra.Ledger.Cardano as Api
-import Hydra.Party (Party, aggregate, generateKey, sign, vkey)
+import Hydra.Party (Party, vkey)
 import Plutus.V1.Ledger.Api (PubKeyHash, toData)
 import Test.Cardano.Ledger.Alonzo.Serialisation.Generators ()
 import Test.QuickCheck (
@@ -234,21 +233,18 @@ spec =
               & counterexample ("Tx: " <> show tx)
               & counterexample ("Tx serialized size: " <> show len)
 
-      prop "is observed" $ \headInput ->
-        forAll arbitrary $ \ks ->
-          let skeys = generateKey <$> ks
-              headOutput = mkHeadOutput (SJust headDatum)
-              headDatum = Data $ toData $ MockHead.Open $ partyFromVerKey . deriveVerKeyDSIGN <$> skeys
-              lookupUtxo = Map.singleton headInput headOutput
-              onChainSnapshot = serialize' sn
-              multisig = aggregate [sign sk onChainSnapshot | sk <- skeys]
-              tx = closeTx sn (coerce multisig) (headInput, headOutput, headDatum)
-              res = observeCloseTx lookupUtxo tx
-           in case res of
-                Just (OnCloseTx{snapshotNumber}, OpenOrClosed{}) -> snapshotNumber === sn
-                _ -> property False
-                & counterexample ("Observe result: " <> show res)
-                & counterexample ("Tx: " <> show tx)
+      prop "is observed" $ \parties msig headInput ->
+        let headOutput = mkHeadOutput (SJust headDatum)
+            headDatum = Data $ toData $ MockHead.Open{parties}
+            lookupUtxo = Map.singleton headInput headOutput
+            -- NOTE(SN): deliberately uses an arbitrary multi-signature
+            tx = closeTx sn msig (headInput, headOutput, headDatum)
+            res = observeCloseTx lookupUtxo tx
+         in case res of
+              Just (OnCloseTx{snapshotNumber}, OpenOrClosed{}) -> snapshotNumber === sn
+              _ -> property False
+              & counterexample ("Observe result: " <> show res)
+              & counterexample ("Tx: " <> show tx)
 
     describe "fanoutTx" $ do
       let prop_fanoutTxSize :: Utxo -> TxIn StandardCrypto -> Property
