@@ -70,13 +70,13 @@ import Test.QuickCheck (
   Positive (Positive),
   Property,
   arbitrarySizedNatural,
+  checkCoverage,
   choose,
   counterexample,
   forAll,
   oneof,
   property,
   suchThat,
-  withMaxSuccess,
  )
 import Test.QuickCheck.Instances ()
 
@@ -125,13 +125,14 @@ prop_verifySnapshotSignatures =
           snapshotNumber = toInteger $ number snapshot
        in verifySnapshotSignature parties snapshotNumber signatures
 
-propMutation :: (CardanoTx, Utxo) -> ((CardanoTx, Utxo) -> Gen (Text, Mutation)) -> Property
+propMutation :: (CardanoTx, Utxo) -> ((CardanoTx, Utxo) -> Gen (SomeMutationLabel, Mutation)) -> Property
 propMutation (tx, utxo) genMutation =
-  forAll (genMutation (tx, utxo)) $ \(_label, mutation) ->
+  forAll (genMutation (tx, utxo)) $ \(SomeMutationLabel lbl, mutation) ->
     (tx, utxo)
       & applyMutation mutation
       & propTransactionDoesNotValidate
-      & withMaxSuccess 1000
+      & genericCoverTable @ 'UniformCoverage [lbl]
+      & checkCoverage
 
 propTransactionDoesNotValidate :: (CardanoTx, Utxo) -> Property
 propTransactionDoesNotValidate (tx, lookupUtxo) =
@@ -169,6 +170,10 @@ data Mutation
   = ChangeHeadRedeemer MockHead.Input
   | ChangeHeadDatum MockHead.State
   deriving (Show, Generic)
+
+data SomeMutationLabel where
+  SomeMutationLabel :: forall a. GUniformCoverage a => a -> SomeMutationLabel
+deriving instance Show SomeMutationLabel
 
 applyMutation :: Mutation -> (CardanoTx, Utxo) -> (CardanoTx, Utxo)
 applyMutation mutation (tx@(Tx body wits), utxo) = case mutation of
@@ -223,11 +228,18 @@ healthySignature number = MultiSigned [sign sk snapshot | sk <- healthyPartyCred
  where
   snapshot = healthySnapshot{number}
 
-genCloseMutation :: (CardanoTx, Utxo) -> Gen (Text, Mutation)
+data CloseMutation
+  = MutateSignatureButNotSnapshotNumber
+  | MutateSnapshotNumberButNotSignature
+  | MutateSnapshotToIllFormedValue
+  | MutateParties
+  deriving (Generic, GenericData, Show)
+
+genCloseMutation :: (CardanoTx, Utxo) -> Gen (SomeMutationLabel, Mutation)
 genCloseMutation (_tx, _utxo) =
   oneof
-    [ second ChangeHeadRedeemer <$> genChangeHeadRedeemer
-    , second ChangeHeadDatum <$> genChangeHeadDatum
+    [ bimap SomeMutationLabel ChangeHeadRedeemer <$> genChangeHeadRedeemer
+    , bimap SomeMutationLabel ChangeHeadDatum <$> genChangeHeadDatum
     ]
  where
   -- Mutations of the close redeemer
@@ -239,12 +251,12 @@ genCloseMutation (_tx, _utxo) =
     -- That is, using the on-chain types. 'closeRedeemer' is also not used
     -- anywhere after changing this and can be moved into the closeTx
     oneof
-      [ ("mutate signature, but not snapshot number",) <$> do
+      [ (MutateSignatureButNotSnapshotNumber,) <$> do
           closeRedeemer (number healthySnapshot) <$> arbitrary
-      , ("mutate snapshot number, but not signature",) <$> do
+      , (MutateSnapshotNumberButNotSignature,) <$> do
           mutatedSnapshotNumber <- arbitrarySizedNatural `suchThat` (/= healthySnapshotNumber)
           pure (closeRedeemer mutatedSnapshotNumber $ healthySignature healthySnapshotNumber)
-      , ("mutate snapshot number to ill-formed value, with valid signature",) <$> do
+      , (MutateSnapshotToIllFormedValue,) <$> do
           mutatedSnapshotNumber <- arbitrary `suchThat` (< 0)
           let mutatedSignature =
                 MultiSigned [sign sk $ serialize' mutatedSnapshotNumber | sk <- healthyPartyCredentials]
@@ -257,7 +269,7 @@ genCloseMutation (_tx, _utxo) =
 
   genChangeHeadDatum =
     oneof
-      [ ("mutate parties arbitrarily",) <$> arbitrary `suchThat` \case
+      [ (MutateParties,) <$> arbitrary `suchThat` \case
           MockHead.Open{MockHead.parties = parties} ->
             parties /= MockHead.parties healthyCloseDatum
           _ ->

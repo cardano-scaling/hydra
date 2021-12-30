@@ -1,7 +1,17 @@
+{-# LANGUAGE AllowAmbiguousTypes #-}
+{-# LANGUAGE ConstraintKinds #-}
+{-# LANGUAGE DataKinds #-}
 {-# LANGUAGE DerivingStrategies #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE TypeSynonymInstances #-}
 
 module Test.Hydra.Prelude (
   createSystemTempDirectory,
@@ -11,6 +21,10 @@ module Test.Hydra.Prelude (
   dualFormatter,
   reasonablySized,
   ReasonablySized (..),
+  genericCoverTable,
+  GUniformCoverage,
+  GCoverTableRequirements,
+  CoverTableDistribution (..),
 
   -- * HSpec re-exports
   module Test.Hspec,
@@ -25,7 +39,11 @@ import Test.Hspec
 import Test.Hspec.QuickCheck
 
 import Control.Monad.Class.MonadTimer (timeout)
+import Data.Data (Data (..), dataTypeConstrs)
+import Data.Ratio ((%))
+import Data.Typeable (tyConName, typeRep, typeRepTyCon)
 import GHC.Exception (SrcLoc (..))
+import GHC.Generics
 import System.Directory (removePathForcibly)
 import System.Exit (ExitCode (..))
 import System.IO.Temp (createTempDirectory, getCanonicalTemporaryDirectory)
@@ -34,7 +52,8 @@ import Test.HSpec.JUnit (junitFormat)
 import Test.HUnit.Lang (FailureReason (Reason), HUnitFailure (HUnitFailure))
 import Test.Hspec.Core.Format (Format, FormatConfig (..))
 import Test.Hspec.Core.Formatters (formatterToFormat, specdoc)
-import Test.QuickCheck (scale)
+import Test.QuickCheck (Property, Testable, coverTable, scale, tabulate)
+import qualified Prelude
 
 -- | Create a unique temporary directory.
 createSystemTempDirectory :: String -> IO FilePath
@@ -137,3 +156,83 @@ newtype ReasonablySized a = ReasonablySized a
 
 instance Arbitrary a => Arbitrary (ReasonablySized a) where
   arbitrary = ReasonablySized <$> reasonablySized arbitrary
+
+-- Like 'coverTable', but construct the weight requirements generically from the
+-- label type-representation.
+--
+--     data MyCoverLabel = Case1 | Case2 deriving (Generic, Data, Show)
+--
+--     forAll arbitrary $ \(lbl :: MyCoverLabel, arg) ->
+--         myProp arg
+--         & genericCoverTable @UniformCoverage [lbl]
+--         & checkCoverage
+--
+--     ===
+--
+--     forAll arbitrary $ (lbl :: MyCoverLabel, arg) ->
+--        myProp arg
+--        & coverTable "MyCoverTable" [(Case1, 50), (Case2, 50)]
+--        & tabulate "MyCoverTable" [show lbl]
+--        & checkCoverage
+--
+genericCoverTable ::
+  forall distr lbl prop.
+  (GCoverTableRequirements distr lbl (Rep lbl), Testable prop) =>
+  [lbl] ->
+  prop ->
+  Property
+genericCoverTable labels =
+  coverTable tableName (gCoverTableRequirements @distr @lbl @(Rep lbl))
+    . tabulate tableName (show <$> labels)
+ where
+  tableName = tyConName $ typeRepTyCon $ typeRep (Proxy @lbl)
+
+-- | A Constraint alias to ease signatures on the consumer-side.
+type GUniformCoverage a =
+  GCoverTableRequirements 'UniformCoverage a (Rep a)
+
+-- | Type of distribution requirements.
+data CoverTableDistribution
+  = -- | Equal chance for all branches.
+    UniformCoverage
+
+-- | A type-class for generically creating a QuickCheck's 'coverTable'
+-- weight requirement. It is parameterized by the type of distribution wanted.
+--
+-- Any basic sum of constructors is an instance of `GCoverTableRequirements`.
+class
+  (Data t, Generic t, Show t) =>
+  GCoverTableRequirements (k :: CoverTableDistribution) t (f :: Type -> Type)
+  where
+  gCoverTableRequirements :: [(String, Double)]
+
+instance
+  (Data t, Generic t, Show t, GCoverTableRequirements k t f) =>
+  GCoverTableRequirements k t (D1 c f)
+  where
+  gCoverTableRequirements = gCoverTableRequirements @k @t @f
+
+instance
+  (Data t, Generic t, Show t, GCoverTableRequirements k t f) =>
+  GCoverTableRequirements k t (C1 c f)
+  where
+  gCoverTableRequirements = gCoverTableRequirements @k @t @f
+
+instance
+  (Data t, Generic t, Show t) =>
+  GCoverTableRequirements 'UniformCoverage t (f :+: g)
+  where
+  gCoverTableRequirements =
+    let lengthI = toInteger . length
+        cs = dataTypeConstrs (dataTypeOf (Prelude.undefined :: t))
+     in -- NOTE: A careful reader may notice the `3 * lengthI cs` instead of
+        -- `lengthI cs` as the weights denominator.
+        --
+        -- This is because `checkCoverage` in QuickCheck will do a statistical
+        -- verification with a quite high level of confidence. For types with
+        -- many (i.e. more than 2) constructors, it may require a quite significant
+        -- amount of tests cases before all values statistically converge towards
+        -- the expected weights. In practice, we really want to make sure that
+        -- all branches are covered. That a branch is covered 2 times as much
+        -- than another isn't of significant importance.
+        [(show c, fromRational (100 % (3 * lengthI cs))) | c <- cs]
