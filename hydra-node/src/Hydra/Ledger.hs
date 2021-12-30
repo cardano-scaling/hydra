@@ -37,8 +37,6 @@ class
   txId :: tx -> TxIdType tx
   balance :: UtxoType tx -> ValueType tx
 
-type TxIn tx = (TxIdType tx, Natural)
-
 -- | An abstract interface for a 'Ledger'. Allows to define mock / simpler
 -- implementation for testing as well as limiting feature-envy from the business
 -- logic by forcing a closed interface.

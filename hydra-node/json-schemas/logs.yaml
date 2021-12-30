@@ -203,8 +203,7 @@ definitions:
           type: string
           enum: ["ToPost"]
         toPost:
-          $ref: "#/definitions/PostChainTx"
-
+          $ref: "common.yaml#/definitions/PostChainTx"
     - title: PostingTx
       description: >-
         A transaction with given content is about to be submitted on-chain.
@@ -222,7 +221,6 @@ definitions:
           prefixItems:
             - $ref: "common.yaml#/definitions/TxId"
             - $ref: "common.yaml#/definitions/Transaction"
-
     - title: PostedTx
       description: >-
         A transaction with given Id has been successfully submitted to the chain.
@@ -237,7 +235,6 @@ definitions:
           enum: ["PostedTx"]
         postedTxId:
           $ref: "common.yaml#/definitions/TxId"
-
     - title: ReceivedTxs
       description: >-
         Some transactions relevant to the Head logic have been observed on-chain, provide both the
@@ -660,6 +657,23 @@ definitions:
         tag:
           type: string
           enum: ["ShouldPostFanout"]
+    - title: PostTxError
+      type: object
+      additionalProperties: false
+      required:
+      - tag
+      - postChainTx
+      - postTxError
+      description: >-
+        Event emitted when posting a transaction on the main chain failed.
+      properties:
+        tag:
+          type: string
+          enum: ["PostTxError"]
+        postChainTx:
+          $ref: "common.yaml#/definitions/PostChainTx"
+        postTxError:
+          $ref: "common.yaml#/definitions/PostTxError"
 
   Message:
     description: >-
@@ -923,7 +937,7 @@ definitions:
           type: string
           enum: ["OnChainEffect"]
         onChainTx:
-          $ref: "#/definitions/PostChainTx"
+          $ref: "common.yaml#/definitions/PostChainTx"
     - title: Delay
       type: object
       additionalProperties: false
@@ -948,114 +962,3 @@ definitions:
             The length of the delay, in seconds.
         event:
           $ref: "#/definitions/Event"
-
-  PostChainTx:
-    description: >-
-      Description of outgoing On-Chain transactions for the Head protocol. As is
-      the case for OnChainTx, these data structures completely abstract away the
-      actual details of the transaction and only represent data relevant for the
-      protocol to make some progress.
-    oneOf:
-      - title: InitTx
-        type: object
-        additionalProperties: false
-        required:
-        - tag
-        - headParameters
-        description: >-
-          The initial transaction of the Head defining its parameters.
-        properties:
-          tag:
-            type: string
-            enum: ["InitTx"]
-          headParameters:
-            $ref: "common.yaml#/definitions/HeadParameters"
-      - title: CommitTx
-        type: object
-        additionalProperties: false
-        required:
-        - tag
-        - party
-        - committed
-        description: >-
-          Commit some UTxO set to the opening Head, signed by this party.
-        properties:
-          tag:
-            type: string
-            enum: ["CommitTx"]
-          party:
-            $ref: "common.yaml#/definitions/Party"
-          committed:
-            $ref: "common.yaml#/definitions/Utxo"
-      - title: AbortTx
-        type: object
-        additionalProperties: false
-        required:
-        - tag
-        - utxo
-        description: >-
-          Abort the opening of the Head process.
-        properties:
-          tag:
-            type: string
-            enum: ["AbortTx"]
-          utxo:
-            $ref: "common.yaml#/definitions/Utxo"
-      - title: CollectComTx
-        type: object
-        additionalProperties: false
-        required:
-        - tag
-        - utxo
-        description: >-
-          Confirm the opening of the Head collecting the committed UTxO set
-          combined from all individual commits.
-        properties:
-          tag:
-            type: string
-            enum: ["CollectComTx"]
-          utxo:
-            $ref: "common.yaml#/definitions/Utxo"
-      - title: CloseTx
-        type: object
-        additionalProperties: false
-        required:
-        - tag
-        - confirmedSnapshot
-        description: >-
-          Close the currently open Head with the given snapshot.
-        properties:
-          tag:
-            type: string
-            enum: ["CloseTx"]
-          confirmedSnapshot:
-            $ref: "common.yaml#/definitions/ConfirmedSnapshot"
-      - title: ContestTx
-        type: object
-        additionalProperties: false
-        required:
-        - tag
-        - snapshot
-        description: >-
-          Contest a previously posted snapshot (from a Close or Contest
-          transaction) with a newer snapshot.
-        properties:
-          tag:
-            type: string
-            enum: ["ContestTx"]
-          snapshot:
-            $ref: "common.yaml#/definitions/Snapshot"
-      - title: FanoutTx
-        type: object
-        additionalProperties: false
-        required:
-        - tag
-        - utxo
-        description: >-
-          Finalise the Head posting all UTxO from the Head on-chain.
-        properties:
-          tag:
-            type: string
-            enum: ["FanoutTx"]
-          utxo:
-            $ref: "common.yaml#/definitions/Utxo"

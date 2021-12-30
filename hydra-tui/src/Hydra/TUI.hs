@@ -77,6 +77,7 @@ import Hydra.ServerOutput (
     HeadIsOpen,
     PeerConnected,
     PeerDisconnected,
+    PostTxOnChainFailed,
     ReadyToCommit,
     SnapshotConfirmed,
     TxInvalid,
@@ -86,6 +87,7 @@ import Hydra.ServerOutput (
     me,
     parties,
     party,
+    postTxError,
     snapshot,
     utxo,
     validationError
@@ -290,6 +292,8 @@ handleAppEvent s = \case
   Update HeadIsAborted{} ->
     s & headStateL .~ Ready
       & feedbackL ?~ UserFeedback Info "Head aborted, back to square one."
+  Update PostTxOnChainFailed{postTxError} ->
+    s & feedbackL ?~ UserFeedback Error ("An error happened while trying to post a transaction on-chain: " <> show postTxError)
   Update anyUpdate ->
     s & feedbackL ?~ UserFeedback Error ("Unhandled app event: " <> show anyUpdate)
  where

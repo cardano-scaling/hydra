@@ -17,7 +17,7 @@ import Control.Concurrent (newEmptyMVar, putMVar, takeMVar)
 import Hydra.Chain (
   Chain (..),
   HeadParameters (HeadParameters),
-  InvalidTxError (NoSeedInput),
+  PostTxError (NoSeedInput),
   OnChainTx (OnAbortTx, OnInitTx),
   PostChainTx (AbortTx, InitTx),
  )

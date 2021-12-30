@@ -685,6 +685,11 @@ instance Arbitrary AssetName where
 instance Arbitrary TxIn where
   arbitrary = fromShelleyTxIn <$> arbitrary
 
+instance Arbitrary TxId where
+  arbitrary = onlyTxId . fromShelleyTxIn <$> arbitrary
+   where
+    onlyTxId (TxIn txi _) = txi
+
 instance Arbitrary (TxOut CtxUTxO AlonzoEra) where
   arbitrary = fromShelleyTxOut ShelleyBasedEraAlonzo <$> arbitrary
 

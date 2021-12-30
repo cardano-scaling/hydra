@@ -24,13 +24,13 @@ import Cardano.Ledger.Alonzo.Tx (ValidatedTx)
 import Cardano.Ledger.Alonzo.TxInfo (FailureDescription (PlutusFailure), debugPlutus)
 import Cardano.Ledger.Alonzo.TxSeq (txSeqTxns)
 import Cardano.Ledger.Crypto (StandardCrypto)
-import Cardano.Ledger.Shelley.API (ApplyTxError (ApplyTxError), TxId, TxIn (TxIn))
+import Cardano.Ledger.Shelley.API (ApplyTxError (ApplyTxError), TxId)
 import qualified Cardano.Ledger.Shelley.API as Ledger
 import Cardano.Ledger.Shelley.Rules.Ledger (LedgerPredicateFailure (UtxowFailure))
 import Cardano.Ledger.Shelley.Rules.Utxow (UtxowPredicateFailure (UtxoFailure))
 import Control.Exception (IOException)
 import Control.Monad (foldM)
-import Control.Monad.Class.MonadSTM (MonadSTMTx (writeTVar), newTQueueIO, newTVarIO, readTQueue, throwSTM, writeTQueue)
+import Control.Monad.Class.MonadSTM (newTQueueIO, newTVarIO, readTQueue, retry, writeTQueue, writeTVar)
 import Control.Monad.Class.MonadTimer (timeout)
 import Control.Tracer (nullTracer)
 import Data.Aeson (Value (String), object, (.=))
@@ -40,9 +40,9 @@ import Hydra.Chain (
   Chain (..),
   ChainCallback,
   ChainComponent,
-  InvalidTxError (..),
-  OnChainTx (PostTxFailed),
+  OnChainTx (..),
   PostChainTx (..),
+  PostTxError (..),
  )
 import Hydra.Chain.Direct.Tx (
   OnChainHeadState (..),
@@ -70,13 +70,13 @@ import Hydra.Chain.Direct.Util (
   versions,
  )
 import Hydra.Chain.Direct.Wallet (
-  ErrCoverFee (ErrUnknownInput, input),
+  ErrCoverFee (..),
   TinyWallet (..),
   TinyWalletLog,
   getTxId,
   withTinyWallet,
  )
-import Hydra.Ledger.Cardano (CardanoTx, NetworkId (Testnet), fromLedgerTx, fromLedgerTxId, fromLedgerUtxo, utxoPairs)
+import Hydra.Ledger.Cardano (CardanoTx, NetworkId (Testnet), fromLedgerTx, fromLedgerUtxo, utxoPairs)
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Party (Party)
 import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot (..))
@@ -155,19 +155,12 @@ withDirectChain tracer networkMagic iocp socketPath keyPair party cardanoKeys ca
               Chain
                 { postTx = \tx -> do
                     traceWith tracer $ ToPost tx
-
-                    res <- timeout 10 $
-                      atomically $ do
-                        fromPostChainTx wallet (Testnet networkMagic) headState cardanoKeys tx >>= \case
-                          Nothing ->
-                            pure Nothing
-                          Just partialTx ->
-                            Just <$> finalizeTx wallet headState partialTx
-
-                    maybe
-                      (callback PostTxFailed)
-                      (atomically . writeTQueue queue)
-                      (join res)
+                    -- XXX(SN): 'finalizeTx' retries until a payment utxo is
+                    -- found. See haddock for details
+                    timeoutThrowAfter (NoPaymentInput @CardanoTx) 10 $
+                      fromPostChainTx wallet (Testnet networkMagic) headState cardanoKeys tx
+                        >>= finalizeTx wallet headState
+                        >>= writeTQueue queue
                 }
         )
         ( connectTo
@@ -177,6 +170,11 @@ withDirectChain tracer networkMagic iocp socketPath keyPair party cardanoKeys ca
             socketPath
         )
  where
+  timeoutThrowAfter ex s stm = do
+    timeout s (atomically stm) >>= \case
+      Nothing -> throwIO ex
+      Just _ -> pure ()
+
   onIOException :: IOException -> IO ()
   onIOException ioException =
     throwIO $
@@ -360,6 +358,12 @@ txSubmissionClient tracer queue =
     err -> error $ "Some other ledger failure: " <> show err
 
 -- | Balance and sign the given partial transaction.
+--
+-- XXX(SN): This function does 'retry' when no payment UTXO was found and thus
+-- might block. This is necessary in some situations when the wallet has not yet
+-- "seen" the change output although the direct chain client observed a
+-- transaction already. This is a smell and we should try to avoid having this
+-- race condition in the first place.
 finalizeTx ::
   (MonadSTM m, MonadThrow (STM m)) =>
   TinyWallet m ->
@@ -370,24 +374,26 @@ finalizeTx TinyWallet{sign, getUtxo, coverFee} headState partialTx = do
   headUtxo <- knownUtxo <$> readTVar headState
   walletUtxo <- fromLedgerUtxo . Ledger.UTxO <$> getUtxo
   coverFee headUtxo partialTx >>= \case
-    Left ErrUnknownInput{input = TxIn txId txIx} -> do
-      throwSTM
+    Left ErrNoPaymentUtxoFound ->
+      retry
+    Left ErrUnknownInput{input} -> do
+      throwIO
         ( CannotSpendInput
-            { input = (fromLedgerTxId txId, txIx)
+            { input = show input
             , walletUtxo
             , headUtxo = fromLedgerUtxo $ Ledger.UTxO headUtxo
             } ::
-            InvalidTxError CardanoTx
+            PostTxError CardanoTx
         )
     Left e ->
-      throwSTM
+      throwIO
         ( CannotCoverFees
             { walletUtxo
             , headUtxo = fromLedgerUtxo $ Ledger.UTxO headUtxo
             , reason = show e
             , tx = fromLedgerTx partialTx
             } ::
-            InvalidTxError CardanoTx
+            PostTxError CardanoTx
         )
     Right validatedTx -> do
       pure $ sign validatedTx
@@ -399,58 +405,59 @@ fromPostChainTx ::
   TVar m OnChainHeadState ->
   [VerificationKey PaymentKey] ->
   PostChainTx CardanoTx ->
-  STM m (Maybe (ValidatedTx Era))
-fromPostChainTx TinyWallet{getUtxo, verificationKey} networkId headState cardanoKeys = \case
-  InitTx params -> do
-    u <- getUtxo
-    -- NOTE: 'lookupMax' to favor change outputs!
-    case Map.lookupMax u of
-      Just (seedInput, _) -> pure . Just $ initTx networkId cardanoKeys params seedInput
-      Nothing -> throwIO (NoSeedInput @CardanoTx)
-  AbortTx _utxo ->
-    readTVar headState >>= \case
-      Initial{threadOutput, initials} ->
-        let (i, _, dat, _) = threadOutput
-         in case abortTx networkId (i, dat) (Map.fromList $ map convertTuple initials) of
-              Left err -> error $ show err
-              Right tx -> pure $ Just tx
-      _st -> pure Nothing
-  CommitTx party utxo ->
-    readTVar headState >>= \case
-      Initial{initials} -> case ownInitial verificationKey initials of
-        Nothing -> error $ "no ownInitial: " <> show initials
-        Just initial ->
-          case utxoPairs utxo of
-            [aUtxo] -> do
-              pure . Just $ commitTx networkId party (Just aUtxo) initial
-            [] -> do
-              pure . Just $ commitTx networkId party Nothing initial
-            _ ->
-              throwIO (MoreThanOneUtxoCommitted @CardanoTx)
-      st -> error $ "cannot post CommitTx, invalid state: " <> show st
-  CollectComTx utxo ->
-    readTVar headState >>= \case
-      Initial{threadOutput, commits} -> do
-        let (i, _, dat, parties) = threadOutput
-        pure . Just $ collectComTx networkId utxo (i, dat, parties) (Map.fromList $ fmap (\(a, b, c) -> (a, (b, c))) commits)
-      st -> error $ "cannot post CollectComTx, invalid state: " <> show st
-  CloseTx confirmedSnapshot ->
-    readTVar headState >>= \case
-      OpenOrClosed{threadOutput} -> do
-        let (sn, sigs) =
-              case confirmedSnapshot of
-                ConfirmedSnapshot{snapshot, signatures} -> (snapshot, signatures)
-                InitialSnapshot{snapshot} -> (snapshot, mempty)
-        let (i, o, dat, _) = threadOutput
-        pure . Just $ closeTx (number sn) sigs (i, o, dat)
-      st -> error $ "cannot post CloseTx, invalid state: " <> show st
-  FanoutTx{utxo} ->
-    readTVar headState >>= \case
-      OpenOrClosed{threadOutput} ->
-        let (i, _, dat, _) = threadOutput
-         in pure . Just $ fanoutTx networkId utxo (i, dat)
-      st -> error $ "cannot post FanOutTx, invalid state: " <> show st
-  _ -> error "not implemented"
+  STM m (ValidatedTx Era)
+fromPostChainTx TinyWallet{getUtxo, verificationKey} networkId headState cardanoKeys tx =
+  case tx of
+    InitTx params -> do
+      u <- getUtxo
+      -- NOTE: 'lookupMax' to favor change outputs!
+      case Map.lookupMax u of
+        Just (seedInput, _) -> pure $ initTx networkId cardanoKeys params seedInput
+        Nothing -> throwIO (NoSeedInput @CardanoTx)
+    AbortTx _utxo ->
+      readTVar headState >>= \case
+        Initial{threadOutput, initials} ->
+          let (i, _, dat, _) = threadOutput
+           in case abortTx networkId (i, dat) (Map.fromList $ map convertTuple initials) of
+                Left err -> error $ show err
+                Right tx' -> pure tx'
+        _st -> throwIO $ InvalidStateToPost tx
+    CommitTx party utxo ->
+      readTVar headState >>= \case
+        Initial{initials} -> case ownInitial verificationKey initials of
+          Nothing -> throwIO $ InvalidStateToPost tx
+          Just initial ->
+            case utxoPairs utxo of
+              [aUtxo] -> do
+                pure $ commitTx networkId party (Just aUtxo) initial
+              [] -> do
+                pure $ commitTx networkId party Nothing initial
+              _ ->
+                throwIO (MoreThanOneUtxoCommitted @CardanoTx)
+        _st -> throwIO $ InvalidStateToPost tx
+    CollectComTx utxo ->
+      readTVar headState >>= \case
+        Initial{threadOutput, commits} -> do
+          let (i, _, dat, parties) = threadOutput
+          pure $ collectComTx networkId utxo (i, dat, parties) (Map.fromList $ fmap (\(a, b, c) -> (a, (b, c))) commits)
+        _st -> throwIO $ InvalidStateToPost tx
+    CloseTx confirmedSnapshot ->
+      readTVar headState >>= \case
+        OpenOrClosed{threadOutput} -> do
+          let (sn, sigs) =
+                case confirmedSnapshot of
+                  ConfirmedSnapshot{snapshot, signatures} -> (snapshot, signatures)
+                  InitialSnapshot{snapshot} -> (snapshot, mempty)
+          let (i, o, dat, _) = threadOutput
+          pure $ closeTx (number sn) sigs (i, o, dat)
+        _st -> throwIO $ InvalidStateToPost tx
+    FanoutTx{utxo} ->
+      readTVar headState >>= \case
+        OpenOrClosed{threadOutput} ->
+          let (i, _, dat, _) = threadOutput
+           in pure $ fanoutTx networkId utxo (i, dat)
+        _st -> throwIO $ InvalidStateToPost tx
+    _ -> error "not implemented"
  where
   convertTuple (i, _, dat) = (i, dat)
 

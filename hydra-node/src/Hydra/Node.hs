@@ -20,7 +20,7 @@ import Control.Monad.Class.MonadSTM (
   writeTQueue,
  )
 import Hydra.API.Server (Server, sendOutput)
-import Hydra.Chain (Chain (..), OnChainTx)
+import Hydra.Chain (Chain (..), OnChainTx, PostTxError)
 import Hydra.ClientInput (ClientInput)
 import Hydra.HeadLogic (
   Effect (..),
@@ -32,7 +32,7 @@ import Hydra.HeadLogic (
   emitSnapshot,
  )
 import qualified Hydra.HeadLogic as Logic
-import Hydra.Ledger (IsTx, Ledger, UtxoType)
+import Hydra.Ledger (IsTx, Ledger, TxIdType, UtxoType)
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Network (Network (..))
 import Hydra.Network.Message (Message)
@@ -95,7 +95,7 @@ data HydraNodeLog tx
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON, FromJSON)
 
-instance (Arbitrary tx, Arbitrary (UtxoType tx)) => Arbitrary (HydraNodeLog tx) where
+instance (Arbitrary tx, Arbitrary (UtxoType tx), Arbitrary (TxIdType tx)) => Arbitrary (HydraNodeLog tx) where
   arbitrary = genericArbitrary
 
 createHydraNode ::
@@ -124,6 +124,7 @@ runHydraNode ::
   ( MonadThrow m
   , MonadAsync m
   , IsTx tx
+  , MonadCatch m
   ) =>
   Tracer m (HydraNodeLog tx) ->
   HydraNode tx m ->
@@ -137,6 +138,7 @@ stepHydraNode ::
   ( MonadThrow m
   , MonadAsync m
   , IsTx tx
+  , MonadCatch m
   ) =>
   Tracer m (HydraNodeLog tx) ->
   HydraNode tx m ->
@@ -168,7 +170,8 @@ processNextEvent HydraNode{hh, env} e =
 
 processEffect ::
   ( MonadAsync m
-  , MonadThrow m
+  , MonadCatch m
+  , IsTx tx
   ) =>
   HydraNode tx m ->
   Tracer m (HydraNodeLog tx) ->
@@ -179,7 +182,10 @@ processEffect HydraNode{hn, oc, server, eq, env = Environment{party}} tracer e =
   case e of
     ClientEffect i -> sendOutput server i
     NetworkEffect msg -> broadcast hn msg >> putEvent eq (NetworkEvent msg)
-    OnChainEffect tx -> postTx oc tx
+    OnChainEffect postChainTx ->
+      postTx oc postChainTx
+        `catch` \(postTxError :: PostTxError tx) ->
+          putEvent eq $ PostTxError{postChainTx, postTxError}
     Delay after event -> putEventAfter eq after event
   traceWith tracer $ ProcessedEffect party e
 -- ** Some general event queue from which the Hydra head is "fed"
