@@ -9,6 +9,7 @@ import Test.Hydra.Prelude
 
 import Cardano.Binary (serialize')
 import Cardano.Crypto.DSIGN (deriveVerKeyDSIGN)
+import Cardano.Crypto.Util (SignableRepresentation (getSignableRepresentation))
 import qualified Cardano.Ledger.Alonzo.Data as Ledger
 import Cardano.Ledger.Alonzo.Scripts (ExUnits)
 import qualified Cardano.Ledger.Alonzo.Scripts as Ledger
@@ -26,7 +27,7 @@ import Data.Maybe.Strict (StrictMaybe (..))
 import qualified Hydra.Chain.Direct.Fixture as Fixture
 import Hydra.Chain.Direct.Tx (closeRedeemer, closeTx, policyId)
 import Hydra.Chain.Direct.TxSpec (mkHeadOutput)
-import Hydra.Contract.MockHead (hashBytes, mockSign, verifyPartySignature, verifySnapshotSignature)
+import Hydra.Contract.MockHead (verifyPartySignature, verifySnapshotSignature)
 import qualified Hydra.Contract.MockHead as MockHead
 import Hydra.Data.Party (partyFromVerKey)
 import Hydra.Ledger.Cardano (
@@ -49,10 +50,12 @@ import Hydra.Ledger.Cardano (
   toLedgerUtxo,
  )
 import qualified Hydra.Ledger.Cardano as Api
+import Hydra.Ledger.Simple (SimpleTx)
 import Hydra.Party (
   MultiSigned (MultiSigned),
   Signed (UnsafeSigned),
   SigningKey,
+  aggregate,
   deriveParty,
   generateKey,
   sign,
@@ -61,8 +64,7 @@ import Hydra.Party (
  )
 import Hydra.Snapshot (Snapshot (..), SnapshotNumber)
 import Plutus.Orphans ()
-import Plutus.V1.Ledger.Api (fromBuiltin, fromData, toBuiltin, toData)
-import qualified Plutus.V1.Ledger.Api as Plutus
+import Plutus.V1.Ledger.Api (fromData, toBuiltin, toData)
 import Plutus.V1.Ledger.Crypto (Signature (Signature))
 import Test.QuickCheck (
   Positive (Positive),
@@ -103,28 +105,25 @@ spec = describe "On-chain contracts" $ do
 
 prop_verifyOffChainSignatures :: Property
 prop_verifyOffChainSignatures =
-  forAll genBytes $ \bs ->
+  forAll arbitrary $ \(snapshot :: Snapshot SimpleTx) ->
     forAll arbitrary $ \(Positive n) ->
       let sk = generateKey n
-          UnsafeSigned signature = sign sk bs
+          UnsafeSigned signature = sign sk snapshot
           party = partyFromVerKey $ deriveVerKeyDSIGN sk
-          msg = toBuiltin bs
-          hashed = hashBytes msg
-          encoded = mockSign n hashed
-       in verifyPartySignature msg party (Signature $ toBuiltin signature)
+          snapshotNumber = toInteger $ number snapshot
+       in verifyPartySignature snapshotNumber party (Signature $ toBuiltin signature)
             & counterexample ("signed: " <> show (BS.unpack signature))
             & counterexample ("party: " <> show party)
-            & counterexample ("encoded: " <> show (BS.unpack $ fromBuiltin encoded))
-            & counterexample ("hashed: " <> show (BS.unpack $ fromBuiltin hashed))
-            & counterexample ("message: " <> show (BS.unpack $ fromBuiltin msg))
+            & counterexample ("message: " <> show (getSignableRepresentation snapshot))
 
 prop_verifySnapshotSignatures :: Property
 prop_verifySnapshotSignatures =
-  forAll genBytes $ \sn ->
+  forAll arbitrary $ \(snapshot :: Snapshot SimpleTx) ->
     forAll genListOfSigningKeys $ \sks ->
       let parties = partyFromVerKey . deriveVerKeyDSIGN <$> sks
-          signatures = [Signature $ toBuiltin bytes | sk <- sks, let UnsafeSigned bytes = sign sk sn]
-       in verifySnapshotSignature parties (toBuiltin sn) signatures
+          signatures = toPlutusSignatures $ aggregate [sign sk snapshot | sk <- sks]
+          snapshotNumber = toInteger $ number snapshot
+       in verifySnapshotSignature parties snapshotNumber signatures
 
 propMutation :: (CardanoTx, Utxo) -> ((CardanoTx, Utxo) -> Gen (Text, Mutation)) -> Property
 propMutation (tx, utxo) genMutation =
@@ -237,7 +236,8 @@ genCloseMutation (_tx, _utxo) =
     -- 'cover'?
     -- FIXME: using 'closeRedeemer' here is actually too high-level and reduces
     -- the power of the mutators, we should test at the level of the validator.
-    -- That is, using the on-chain types.
+    -- That is, using the on-chain types. 'closeRedeemer' is also not used
+    -- anywhere after changing this and can be moved into the closeTx
     oneof
       [ ("mutate signature, but not snapshot number",) <$> do
           closeRedeemer (number healthySnapshot) <$> arbitrary
@@ -245,12 +245,12 @@ genCloseMutation (_tx, _utxo) =
           mutatedSnapshotNumber <- arbitrarySizedNatural `suchThat` (/= healthySnapshotNumber)
           pure (closeRedeemer mutatedSnapshotNumber $ healthySignature healthySnapshotNumber)
       , ("mutate snapshot number to ill-formed value, with valid signature",) <$> do
-          mutatedSnapshotNumber <- serialize' <$> (arbitrary @Int `suchThat` (< 0))
+          mutatedSnapshotNumber <- arbitrary `suchThat` (< 0)
           let mutatedSignature =
-                MultiSigned [sign sk mutatedSnapshotNumber | sk <- healthyPartyCredentials]
+                MultiSigned [sign sk $ serialize' mutatedSnapshotNumber | sk <- healthyPartyCredentials]
           pure
             MockHead.Close
-              { MockHead.snapshotNumber = Plutus.toBuiltin mutatedSnapshotNumber
+              { MockHead.snapshotNumber = mutatedSnapshotNumber
               , MockHead.signature = toPlutusSignatures mutatedSignature
               }
       ]
@@ -269,7 +269,7 @@ genCloseMutation (_tx, _utxo) =
 --
 
 genListOfSigningKeys :: Gen [SigningKey]
-genListOfSigningKeys = choose (1, 20) >>= pure . fmap generateKey . enumFromTo 1
+genListOfSigningKeys = choose (1, 20) <&> fmap generateKey . enumFromTo 1
 
 genBytes :: Gen ByteString
 genBytes = arbitrary

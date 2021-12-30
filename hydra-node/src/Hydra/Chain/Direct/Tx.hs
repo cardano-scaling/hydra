@@ -14,7 +14,7 @@ module Hydra.Chain.Direct.Tx where
 import Hydra.Prelude
 
 import Cardano.Api (NetworkId)
-import Cardano.Binary (decodeFull', serialize, serialize')
+import Cardano.Binary (serialize)
 import Cardano.Ledger.Address (Addr (Addr))
 import Cardano.Ledger.Alonzo (Script)
 import Cardano.Ledger.Alonzo.Data (Data, DataHash, getPlutusData, hashData)
@@ -360,12 +360,9 @@ closeTx snapshotNumber sig (Api.fromLedgerTxIn -> headInput, Api.fromLedgerTxOut
 closeRedeemer :: SnapshotNumber -> MultiSigned (Snapshot CardanoTx) -> MockHead.Input
 closeRedeemer snapshotNumber multiSig =
   MockHead.Close
-    { snapshotNumber = onChainSnapshotNumber
+    { snapshotNumber = toInteger snapshotNumber
     , signature = toPlutusSignatures multiSig
     }
- where
-  -- NOTE(AB): using serialize' and CBOR could be problematic for on-chain verification
-  onChainSnapshotNumber = Plutus.toBuiltin $ serialize' snapshotNumber
 
 fanoutTx ::
   -- | Network identifier for address discrimination
@@ -587,13 +584,11 @@ observeCloseTx utxo tx = do
     (MockHead.Open{parties}, MockHead.Close{snapshotNumber = onChainSnapshotNumber}) -> do
       (newHeadInput, newHeadOutput) <- findScriptOutput (utxoFromTx tx) headScript
       newHeadDatum <- lookupDatum (wits tx) newHeadOutput
-      case decodeFull' $ Plutus.fromBuiltin onChainSnapshotNumber of
-        Left _ -> Nothing
-        Right snapshotNumber ->
-          pure
-            ( OnCloseTx{contestationDeadline, snapshotNumber}
-            , OpenOrClosed{threadOutput = (newHeadInput, newHeadOutput, newHeadDatum, parties)}
-            )
+      snapshotNumber <- integerToNatural onChainSnapshotNumber
+      pure
+        ( OnCloseTx{contestationDeadline, snapshotNumber}
+        , OpenOrClosed{threadOutput = (newHeadInput, newHeadOutput, newHeadDatum, parties)}
+        )
     _ -> Nothing
  where
   headScript = plutusScript $ MockHead.validatorScript policyId

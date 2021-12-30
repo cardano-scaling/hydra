@@ -22,7 +22,7 @@ import qualified PlutusTx
 import PlutusTx.Builtins (quotientInteger, remainderInteger)
 import Text.Show (Show)
 
-type SnapshotNumber = BuiltinByteString
+type SnapshotNumber = Integer
 
 data State
   = Initial {contestationPeriod :: ContestationPeriod, parties :: [Party]}
@@ -86,27 +86,26 @@ verifySnapshotSignature parties snapshotNumber sigs =
       && all (uncurry $ verifyPartySignature snapshotNumber) (zip parties sigs)
 
 {-# INLINEABLE verifyPartySignature #-}
-verifyPartySignature :: BuiltinByteString -> Party -> Signature -> Bool
-verifyPartySignature msg (UnsafeParty vkey) signed =
+verifyPartySignature :: SnapshotNumber -> Party -> Signature -> Bool
+verifyPartySignature snapshotNumber vkey signed =
   traceIfFalse "party signature verification failed" $
-    mockVerifySignature vkey msg (getSignature signed)
+    mockVerifySignature vkey snapshotNumber (getSignature signed)
 
 {-# INLINEABLE mockVerifySignature #-}
 -- TODO: This really should be the builtin Plutus function 'verifySignature' but as we
 -- are using Mock crypto in the Head, so must we use Mock crypto on-chain to verify
 -- signatures.
-mockVerifySignature :: Integer -> BuiltinByteString -> BuiltinByteString -> Bool
-mockVerifySignature vkey msg signed =
+mockVerifySignature :: Party -> SnapshotNumber -> BuiltinByteString -> Bool
+mockVerifySignature (UnsafeParty vkey) snapshotNumber signed =
   traceIfFalse "mock signed message is not equal to signed" $
-    mockSign vkey (hashBytes msg) == signed
-
-{-# INLINEABLE hashBytes #-}
-hashBytes :: BuiltinByteString -> BuiltinByteString
-hashBytes = sha2_256
+    -- FIXME encode to CBOR here
+    mockSign vkey (toWord64BE snapshotNumber) == signed
 
 {-# INLINEABLE mockSign #-}
 mockSign :: Integer -> BuiltinByteString -> BuiltinByteString
-mockSign vkey msg = appendByteString (sliceByteString 0 8 msg) (toWord64BE vkey)
+mockSign vkey msg = appendByteString (sliceByteString 0 8 hashedMsg) (toWord64BE vkey)
+ where
+  hashedMsg = sha2_256 msg
 
 {-# INLINEABLE toWord64BE #-}
 
