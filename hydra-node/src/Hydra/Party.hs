@@ -9,6 +9,7 @@ module Hydra.Party where
 
 import Hydra.Prelude hiding (show)
 
+import Cardano.Binary (serialize')
 import Cardano.Crypto.DSIGN (
   DSIGNAlgorithm (..),
   MockDSIGN,
@@ -17,7 +18,7 @@ import Cardano.Crypto.DSIGN (
  )
 import Cardano.Crypto.Hash (Blake2b_256, SHA256, digest)
 import Cardano.Crypto.Seed (mkSeedFromBytes)
-import Cardano.Crypto.Util (SignableRepresentation, getSignableRepresentation, writeBinaryWord64)
+import Cardano.Crypto.Util (SignableRepresentation, getSignableRepresentation)
 import Data.Aeson (ToJSONKey, Value (String), withText)
 import Data.Aeson.Types (FromJSONKey)
 import qualified Data.ByteString as BS
@@ -89,7 +90,7 @@ generateKey :: Integer -> SigningKey
 generateKey = fromInteger
 
 sign :: SignableRepresentation a => SigningKey -> a -> Signed a
-sign (SignKeyMockDSIGN k) signable = UnsafeSigned $ hashed <> writeBinaryWord64 k
+sign (SignKeyMockDSIGN k) signable = UnsafeSigned $ hashed <> serialize' k
  where
   hashed = BS.take 8 $ digest @SHA256 Proxy (getSignableRepresentation signable)
 

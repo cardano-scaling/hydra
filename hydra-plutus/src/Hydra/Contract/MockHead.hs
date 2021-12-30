@@ -19,7 +19,6 @@ import qualified Ledger.Typed.Scripts as Scripts
 import Plutus.Contract.StateMachine.OnChain (StateMachine)
 import qualified Plutus.Contract.StateMachine.OnChain as SM
 import qualified PlutusTx
-import PlutusTx.Builtins (quotientInteger, remainderInteger)
 import Text.Show (Show)
 
 type SnapshotNumber = Integer
@@ -102,22 +101,9 @@ mockVerifySignature (UnsafeParty vkey) snapshotNumber signed =
 
 {-# INLINEABLE mockSign #-}
 mockSign :: Integer -> BuiltinByteString -> BuiltinByteString
-mockSign vkey msg = appendByteString (sliceByteString 0 8 hashedMsg) (toWord64BE vkey)
+mockSign vkey msg = appendByteString (sliceByteString 0 8 hashedMsg) (naturalToCBOR vkey)
  where
   hashedMsg = sha2_256 msg
-
--- | Encode an Integer into a 8-bytes long Bytestring representing this number in
--- Big-Endian form (eg. most significant bit first).
-toWord64BE :: Integer -> BuiltinByteString
-toWord64BE = go emptyByteString
- where
-  go bs _
-    | lengthOfByteString bs == 8 = bs
-  go bs n =
-    let quot = quotientInteger n 256
-        rem = remainderInteger n 256
-     in go (consByteString rem bs) quot
-{-# INLINEABLE toWord64BE #-}
 
 -- | Encode a positive Integer to CBOR, up to 65536
 --
