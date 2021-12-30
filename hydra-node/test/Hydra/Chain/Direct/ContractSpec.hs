@@ -49,13 +49,14 @@ import Hydra.Ledger.Cardano (
  )
 import qualified Hydra.Ledger.Cardano as Api
 import Hydra.Party (MultiSigned (MultiSigned), Signed (UnsafeSigned), SigningKey, deriveParty, generateKey, sign, vkey)
-import Hydra.Snapshot (Snapshot (..))
+import Hydra.Snapshot (Snapshot (..), SnapshotNumber)
 import Plutus.Orphans ()
 import Plutus.V1.Ledger.Api (fromBuiltin, fromData, toBuiltin, toData)
 import Plutus.V1.Ledger.Crypto (Signature (Signature))
 import Test.QuickCheck (
-  Positive (Positive, getPositive),
+  Positive (Positive),
   Property,
+  arbitrarySizedNatural,
   choose,
   counterexample,
   forAll,
@@ -180,10 +181,11 @@ applyMutation mutation (tx@(Tx body wits), utxo) = case mutation of
 
 healthyCloseTx :: (CardanoTx, Utxo)
 healthyCloseTx =
-  ( fromLedgerTx $ closeTx 1 healthySignature (headInput, headOutput, headDatum)
+  ( fromLedgerTx tx
   , fromLedgerUtxo lookupUtxo
   )
  where
+  tx = closeTx healthySnapshotNumber (healthySignature healthySnapshotNumber) (headInput, headOutput, headDatum)
   headInput = generateWith arbitrary 42
   headOutput = mkHeadOutput (SJust headDatum)
   headDatum = Ledger.Data $ toData healthyCloseDatum
@@ -192,10 +194,13 @@ healthyCloseTx =
 healthySnapshot :: Snapshot CardanoTx
 healthySnapshot =
   Snapshot
-    { number = 1
+    { number = healthySnapshotNumber
     , utxo = mempty
     , confirmed = []
     }
+
+healthySnapshotNumber :: SnapshotNumber
+healthySnapshotNumber = 1
 
 healthyCloseDatum :: MockHead.State
 healthyCloseDatum = MockHead.Open (partyFromVerKey . vkey . deriveParty <$> healthyPartyCredentials)
@@ -203,8 +208,10 @@ healthyCloseDatum = MockHead.Open (partyFromVerKey . vkey . deriveParty <$> heal
 healthyPartyCredentials :: [SigningKey]
 healthyPartyCredentials = [1, 2, 3]
 
-healthySignature :: MultiSigned (Snapshot CardanoTx)
-healthySignature = MultiSigned [sign sk healthySnapshot | sk <- healthyPartyCredentials]
+healthySignature :: SnapshotNumber -> MultiSigned (Snapshot CardanoTx)
+healthySignature number = MultiSigned [sign sk snapshot | sk <- healthyPartyCredentials]
+ where
+  snapshot = healthySnapshot{number}
 
 genCloseMutation :: (CardanoTx, Utxo) -> Gen (Text, Mutation)
 genCloseMutation (_tx, _utxo) =
@@ -215,17 +222,27 @@ genCloseMutation (_tx, _utxo) =
  where
   -- Mutations of the close redeemer
   genChangeHeadRedeemer =
-    -- FIXME(SN): we need to ensure that each branch is tested at least once -> 'cover'?
+    -- FIXME(SN): we need to ensure that each branch is tested at least once ->
+    -- 'cover'?
+    -- FIXME: using 'closeRedeemer' here is actually too high-level and reduces
+    -- the power of the mutators, we should test at the level of the validator.
+    -- That is, using the on-chain types.
     oneof
-      [ ("change signature, but not snapshot number",) . closeRedeemer (number healthySnapshot) <$> arbitrary
-      , ("change snapshot number, but not signature",) <$> do
-          mutatedSnapshotNumber <- (fromInteger . getPositive <$> arbitrary) `suchThat` (/= 1)
-          pure (closeRedeemer mutatedSnapshotNumber healthySignature)
+      [ ("mutate signature, but not snapshot number",)
+          . closeRedeemer (number healthySnapshot)
+          <$> arbitrary
+      , ("mutate snapshot number, but not signature",) <$> do
+          mutatedSnapshotNumber <- arbitrarySizedNatural `suchThat` (/= healthySnapshotNumber)
+          pure (closeRedeemer mutatedSnapshotNumber $ healthySignature healthySnapshotNumber)
+      , ("mutate snapshot number and signature to valid, but unexpected value",) <$> do
+          mutatedSnapshotNumber <- arbitrarySizedNatural `suchThat` (/= healthySnapshotNumber)
+          let mutatedSignature = healthySignature mutatedSnapshotNumber
+          pure (closeRedeemer mutatedSnapshotNumber mutatedSignature)
       ]
 
   genChangeHeadDatum =
     oneof
-      [ ("change parties arbitrarily",) <$> arbitrary `suchThat` \case
+      [ ("mutate parties arbitrarily",) <$> arbitrary `suchThat` \case
           MockHead.Open{MockHead.parties = parties} ->
             parties /= MockHead.parties healthyCloseDatum
           _ ->
