@@ -98,16 +98,13 @@ verifyPartySignature snapshotNumber vkey signed =
 mockVerifySignature :: Party -> SnapshotNumber -> BuiltinByteString -> Bool
 mockVerifySignature (UnsafeParty vkey) snapshotNumber signed =
   traceIfFalse "mock signed message is not equal to signed" $
-    -- FIXME encode to CBOR here
-    mockSign vkey (toWord64BE snapshotNumber) == signed
+    mockSign vkey (naturalToCBOR snapshotNumber) == signed
 
 {-# INLINEABLE mockSign #-}
 mockSign :: Integer -> BuiltinByteString -> BuiltinByteString
 mockSign vkey msg = appendByteString (sliceByteString 0 8 hashedMsg) (toWord64BE vkey)
  where
   hashedMsg = sha2_256 msg
-
-{-# INLINEABLE toWord64BE #-}
 
 -- | Encode an Integer into a 8-bytes long Bytestring representing this number in
 -- Big-Endian form (eg. most significant bit first).
@@ -120,6 +117,27 @@ toWord64BE = go emptyByteString
     let quot = quotientInteger n 256
         rem = remainderInteger n 256
      in go (consByteString rem bs) quot
+{-# INLINEABLE toWord64BE #-}
+
+-- | Encode a positive Integer to CBOR, up to 65536
+--
+-- FIXME: complete the implementation up to 2**64, at least. Maybe support
+-- arbitrarily large integers as well?
+naturalToCBOR :: Integer -> BuiltinByteString
+naturalToCBOR n
+  | n < 0 =
+    traceError "integerToCBOR: n < 0"
+  | n < 24 =
+    consByteString n emptyByteString
+  | n < 256 =
+    consByteString 24 $ consByteString n emptyByteString
+  | n < 65536 =
+    consByteString 25 $
+      consByteString (quotient n 256) $
+        consByteString (remainder n 256) emptyByteString
+  | otherwise =
+    traceError "integerToCBOR: n >= 65536"
+{-# INLINEABLE naturalToCBOR #-}
 
 -- | The script instance of the auction state machine. It contains the state
 -- machine compiled to a Plutus core validator script. The 'MintingPolicyHash' serves
