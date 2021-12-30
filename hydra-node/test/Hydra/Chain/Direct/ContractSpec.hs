@@ -62,6 +62,7 @@ import Test.QuickCheck (
   oneof,
   property,
   suchThat,
+  withMaxSuccess,
  )
 import Test.QuickCheck.Instances ()
 
@@ -119,6 +120,7 @@ propMutation (tx, utxo) genMutation =
     (tx, utxo)
       & applyMutation mutation
       & propTransactionDoesNotValidate
+      & withMaxSuccess 1000
 
 propTransactionDoesNotValidate :: (CardanoTx, Utxo) -> Property
 propTransactionDoesNotValidate (tx, lookupUtxo) =
