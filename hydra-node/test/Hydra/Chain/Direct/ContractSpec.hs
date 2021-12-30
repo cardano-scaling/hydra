@@ -114,14 +114,14 @@ prop_verifySnapshotSignatures =
        in verifySnapshotSignature parties (toBuiltin sn) signatures
 
 listOfSigningKeys :: Gen [SigningKey]
-listOfSigningKeys = choose (1, 20) >>= pure . fmap generateKey . enumFromTo 1
+listOfSigningKeys = choose (1, 20) <&> fmap generateKey . enumFromTo 1
 
 genBytes :: Gen ByteString
 genBytes = arbitrary
 
-propMutation :: (CardanoTx, Utxo) -> ((CardanoTx, Utxo) -> Gen Mutation) -> Property
+propMutation :: (CardanoTx, Utxo) -> ((CardanoTx, Utxo) -> Gen (Text, Mutation)) -> Property
 propMutation (tx, utxo) genMutation =
-  forAll (genMutation (tx, utxo)) $ \mutation ->
+  forAll (genMutation (tx, utxo)) $ \(_label, mutation) ->
     (tx, utxo)
       & applyMutation mutation
       & propTransactionDoesNotValidate
@@ -197,33 +197,31 @@ healthyPartyCredentials = [1, 2, 3]
 healthySignature :: MultiSigned (Snapshot CardanoTx)
 healthySignature = MultiSigned [sign sk healthySnapshot | sk <- healthyPartyCredentials]
 
-genCloseMutation :: (CardanoTx, Utxo) -> Gen Mutation
+genCloseMutation :: (CardanoTx, Utxo) -> Gen (Text, Mutation)
 genCloseMutation (_tx, _utxo) =
   oneof
-    [ ChangeHeadRedeemer <$> genChangeHeadRedeemer
-    , ChangeHeadDatum <$> genChangeHeadDatum
+    [ second ChangeHeadRedeemer <$> genChangeHeadRedeemer
+    , second ChangeHeadDatum <$> genChangeHeadDatum
     ]
  where
   -- Mutations of the close redeemer
   genChangeHeadRedeemer =
     -- FIXME(SN): we need to ensure that each branch is tested at least once -> 'cover'?
     oneof
-      [ -- Fully random redeemer
-        arbitrary
-      , -- Change the signature arbitrarily
-        closeRedeemer (number healthySnapshot) <$> arbitrary
-      , -- Change the snapshot number without changing the signature
-        do
+      [ ("change signature, but not snapshot number",) . closeRedeemer (number healthySnapshot) <$> arbitrary
+      , ("change snapshot number, but not signature",) <$> do
           mutatedSnapshotNumber <- fromInteger . getPositive <$> arbitrary
-          pure $ closeRedeemer mutatedSnapshotNumber healthySignature
+          pure (closeRedeemer mutatedSnapshotNumber healthySignature)
       ]
 
   genChangeHeadDatum =
-    arbitrary `suchThat` \case
-      MockHead.Open{MockHead.parties = parties} ->
-        parties /= MockHead.parties healthyCloseDatum
-      _ ->
-        True
+    oneof
+      [ ("change parties arbitrarily",) <$> arbitrary `suchThat` \case
+          MockHead.Open{MockHead.parties = parties} ->
+            parties /= MockHead.parties healthyCloseDatum
+          _ ->
+            True
+      ]
 
 --
 --
