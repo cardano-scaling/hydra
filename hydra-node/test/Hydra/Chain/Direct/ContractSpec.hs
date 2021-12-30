@@ -8,7 +8,6 @@ import Hydra.Prelude hiding (label)
 import Test.Hydra.Prelude
 
 import Cardano.Crypto.DSIGN (deriveVerKeyDSIGN)
-import Cardano.Crypto.Hash (SHA256, digest)
 import qualified Cardano.Ledger.Alonzo.Data as Ledger
 import Cardano.Ledger.Alonzo.Scripts (ExUnits)
 import qualified Cardano.Ledger.Alonzo.Scripts as Ledger
@@ -55,7 +54,7 @@ import Plutus.Orphans ()
 import Plutus.V1.Ledger.Api (fromBuiltin, fromData, toBuiltin, toData)
 import Plutus.V1.Ledger.Crypto (Signature (Signature))
 import Test.QuickCheck (
-  Positive (Positive),
+  Positive (Positive, getPositive),
   Property,
   choose,
   counterexample,
@@ -207,12 +206,18 @@ genCloseMutation (_tx, _utxo) =
  where
   -- Mutations of the close redeemer
   genChangeHeadRedeemer =
+    -- FIXME(SN): we need to ensure that each branch is tested at least once -> 'cover'?
     oneof
       [ -- Fully random redeemer
         arbitrary
       , -- Change the signature arbitrarily
         closeRedeemer (number healthySnapshot) <$> arbitrary
+      , -- Change the snapshot number without changing the signature
+        do
+          mutatedSnapshotNumber <- fromInteger . getPositive <$> arbitrary
+          pure $ closeRedeemer mutatedSnapshotNumber healthySignature
       ]
+
   genChangeHeadDatum =
     arbitrary `suchThat` \case
       MockHead.Open{MockHead.parties = parties} ->
