@@ -9,6 +9,7 @@ module Hydra.Party where
 
 import Hydra.Prelude hiding (show)
 
+import Cardano.Binary (serialize')
 import Cardano.Crypto.DSIGN (
   DSIGNAlgorithm (..),
   MockDSIGN,
@@ -17,12 +18,14 @@ import Cardano.Crypto.DSIGN (
  )
 import Cardano.Crypto.Hash (Blake2b_256, SHA256, digest)
 import Cardano.Crypto.Seed (mkSeedFromBytes)
-import Cardano.Crypto.Util (SignableRepresentation, getSignableRepresentation, writeBinaryWord64)
+import Cardano.Crypto.Util (SignableRepresentation, getSignableRepresentation)
 import Data.Aeson (ToJSONKey, Value (String), withText)
 import Data.Aeson.Types (FromJSONKey)
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Base16 as Base16
 import qualified Data.Map as Map
+import qualified Plutus.V1.Ledger.Api as Plutus
+import qualified Plutus.V1.Ledger.Crypto as Plutus
 import Test.QuickCheck (vectorOf)
 import Text.Show (Show (..))
 
@@ -87,7 +90,7 @@ generateKey :: Integer -> SigningKey
 generateKey = fromInteger
 
 sign :: SignableRepresentation a => SigningKey -> a -> Signed a
-sign (SignKeyMockDSIGN k) signable = UnsafeSigned $ hashed <> writeBinaryWord64 k
+sign (SignKeyMockDSIGN k) signable = UnsafeSigned $ hashed <> serialize' k
  where
   hashed = BS.take 8 $ digest @SHA256 Proxy (getSignableRepresentation signable)
 
@@ -107,6 +110,10 @@ instance Arbitrary (MultiSigned a) where
 aggregate :: [Signed a] -> MultiSigned a
 aggregate = MultiSigned
 
+toPlutusSignatures :: MultiSigned a -> [Plutus.Signature]
+toPlutusSignatures (MultiSigned sigs) =
+  toPlutusSignature <$> sigs
+
 -- FIXME(AB): This function exists solely because the order of signatures
 -- matters on-chain, and it should match the order of parties as declared in the
 -- initTx. This should disappear once we use a proper multisignature scheme
@@ -122,8 +129,9 @@ aggregateInOrder signatures = MultiSigned . foldr appendSignature []
 newtype Signed a = UnsafeSigned ByteString
   deriving (Eq, Show)
 
-getSignatureBytes :: Signed a -> ByteString
-getSignatureBytes (UnsafeSigned bs) = bs
+toPlutusSignature :: Signed a -> Plutus.Signature
+toPlutusSignature (UnsafeSigned bs) =
+  Plutus.Signature . Plutus.toBuiltin $ bs
 
 instance Arbitrary (Signed a) where
   arbitrary = do
