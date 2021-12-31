@@ -128,11 +128,11 @@ prop_verifySnapshotSignatures =
 
 propMutation :: (CardanoTx, Utxo) -> ((CardanoTx, Utxo) -> Gen SomeMutation) -> Property
 propMutation (tx, utxo) genMutation =
-  forAll (genMutation (tx, utxo)) $ \(SomeMutation mutation) ->
+  forAll @_ @Property (genMutation (tx, utxo)) $ \(SomeMutation mutation) ->
     (tx, utxo)
       & applyMutation (mutation ^. typed)
       & propTransactionDoesNotValidate
-      & genericCoverTable @ 'UniformCoverage [mutation]
+      & genericCoverTable [mutation]
       & checkCoverage
 
 propTransactionDoesNotValidate :: (CardanoTx, Utxo) -> Property
@@ -167,14 +167,14 @@ propTransactionValidates (tx, lookupUtxo) =
 -- Mutation
 --
 
+data SomeMutation where
+  SomeMutation :: forall a. (GCoverTable a, HasType Mutation a) => a -> SomeMutation
+deriving instance Show SomeMutation
+
 data Mutation
   = ChangeHeadRedeemer MockHead.Input
   | ChangeHeadDatum MockHead.State
   deriving (Show, Generic)
-
-data SomeMutation where
-  SomeMutation :: forall a. (Show a, GUniformCoverage a, HasType Mutation a) => a -> SomeMutation
-deriving instance Show SomeMutation
 
 applyMutation :: Mutation -> (CardanoTx, Utxo) -> (CardanoTx, Utxo)
 applyMutation mutation (tx@(Tx body wits), utxo) = case mutation of

@@ -23,9 +23,7 @@ module Test.Hydra.Prelude (
   reasonablySized,
   ReasonablySized (..),
   genericCoverTable,
-  GUniformCoverage,
-  GCoverTableRequirements,
-  CoverTableDistribution (..),
+  GCoverTable,
 
   -- * HSpec re-exports
   module Test.Hspec,
@@ -159,27 +157,24 @@ instance Arbitrary a => Arbitrary (ReasonablySized a) where
 -- Like 'coverTable', but construct the weight requirements generically from the
 -- label type-representation.
 --
---     data MyCoverLabel = Case1 | Case2 deriving (Generic, Data, Show)
+--     data MyCoverLabel = Case1 Int | Case2 Bool deriving (Generic, Data, Show)
 --
---     forAll arbitrary $ \(lbl :: MyCoverLabel, arg) ->
---         myProp arg
---         & genericCoverTable @UniformCoverage [lbl]
+--     forAll arbitrary $ \a ->
+--         myProp a
+--         & genericCoverTable [a]
 --         & checkCoverage
 --
 --     ===
 --
---     forAll arbitrary $ (lbl :: MyCoverLabel, arg) ->
---        myProp arg
---        & coverTable "MyCoverTable" [(Case1, 50), (Case2, 50)]
---        & tabulate "MyCoverTable" [show lbl]
+--     forAll arbitrary $ \a ->
+--        myProp a
+--        & coverTable "MyCoverTable" [("Case1", 50), ("Case2", 50)]
+--        & tabulate "MyCoverTable" [head $ words $ show a]
 --        & checkCoverage
 --
 genericCoverTable ::
-  forall distr a prop.
-  ( GCoverTableRequirements distr (Rep a)
-  , GLabelName (Rep a)
-  , Generic a
-  , Show a
+  forall a prop.
+  ( GCoverTable a
   , Testable prop
   ) =>
   [a] ->
@@ -188,38 +183,33 @@ genericCoverTable ::
 genericCoverTable xs =
   coverTable tableName requirements . tabulate tableName (gLabelName . from <$> xs)
  where
-  (tableName, requirements) = gCoverTableRequirements @distr (Proxy @(Rep a))
+  (tableName, requirements) = gCoverTableRequirements (Proxy @(Rep a))
 
 -- | A Constraint alias to ease signatures on the consumer-side.
-type GUniformCoverage a =
-  ( GCoverTableRequirements 'UniformCoverage (Rep a)
+type GCoverTable a =
+  ( GCoverTableRequirements (Rep a)
+  , CoverTableRequirements (Rep a) ~ (String, [(String, Double)])
   , GLabelName (Rep a)
   , Generic a
+  , Show a
   )
-
--- | Type of distribution requirements.
-data CoverTableDistribution
-  = -- | Equal chance for all branches.
-    UniformCoverage
 
 -- | A type-class for generically creating a QuickCheck's 'coverTable'
 -- weight requirement. It is parameterized by the type of distribution wanted.
 --
 -- Any basic sum of constructors is an instance of `GCoverTableRequirements`.
-class GCoverTableRequirements (k :: CoverTableDistribution) (f :: Type -> Type) where
-  gCoverTableRequirements :: Proxy f -> (String, [(String, Double)])
-
--- | A simple class to get a label name from a generic representation. Instances
--- exist for sum-types and uses the constructor's name.
-class GLabelName (f :: Type -> Type) where
-  gLabelName :: f a -> String
+class GCoverTableRequirements (f :: Type -> Type) where
+  type CoverTableRequirements f :: Type
+  gCoverTableRequirements :: Proxy f -> CoverTableRequirements f
 
 instance
-  ( GCoverTableRequirements 'UniformCoverage f
+  ( GCoverTableRequirements f
+  , CoverTableRequirements f ~ [String]
   , Datatype c
   ) =>
-  GCoverTableRequirements 'UniformCoverage (D1 c f)
+  GCoverTableRequirements (D1 c f)
   where
+  type CoverTableRequirements (D1 c f) = (String, [(String, Double)])
   gCoverTableRequirements _ =
     -- NOTE: A careful reader may notice the `3 * lengthI cs` instead of
     -- `lengthI cs` as the weights denominator.
@@ -232,36 +222,46 @@ instance
     -- all branches are covered. That a branch is covered 2 times as much
     -- than another isn't of significant importance.
     let lengthI = toInteger . length
-        cs = snd (gCoverTableRequirements @ 'UniformCoverage (Proxy @f))
-     in ( datatypeName (Prelude.undefined :: D1 c f a)
-        , [(c, fromRational (100 % (3 * lengthI cs))) | (c, _) <- cs]
+        labels = gCoverTableRequirements (Proxy @f)
+        tableName = datatypeName (Prelude.undefined :: D1 c f a)
+     in ( tableName
+        , [ (lbl, weight)
+          | lbl <- labels
+          , let weight = fromRational (100 % (3 * lengthI labels))
+          ]
         )
+
+instance
+  ( GCoverTableRequirements l
+  , CoverTableRequirements l ~ [String]
+  , GCoverTableRequirements r
+  , CoverTableRequirements r ~ [String]
+  ) =>
+  GCoverTableRequirements (l :+: r)
+  where
+  type CoverTableRequirements (l :+: r) = [String]
+  gCoverTableRequirements _ =
+    mconcat
+      [ gCoverTableRequirements (Proxy @l)
+      , gCoverTableRequirements (Proxy @r)
+      ]
+
+instance (Constructor c) => GCoverTableRequirements (C1 c f) where
+  type CoverTableRequirements (C1 c f) = [String]
+  gCoverTableRequirements _ = [conName (Prelude.undefined :: C1 c f a)]
+
+-- | A simple class to get a label name from a generic representation. Instances
+-- exist for sum-types and uses the constructor's name.
+class GLabelName (f :: Type -> Type) where
+  gLabelName :: f a -> String
 
 instance (GLabelName f) => GLabelName (D1 c f) where
   gLabelName = gLabelName . unM1
-
-instance
-  ( GCoverTableRequirements k l
-  , GCoverTableRequirements k r
-  ) =>
-  GCoverTableRequirements k (l :+: r)
-  where
-  gCoverTableRequirements _ =
-    ( ""
-    , mconcat
-        [ snd (gCoverTableRequirements @k (Proxy @l))
-        , snd (gCoverTableRequirements @k (Proxy @r))
-        ]
-    )
 
 instance (GLabelName l, GLabelName r) => GLabelName (l :+: r) where
   gLabelName = \case
     L1 l -> gLabelName l
     R1 r -> gLabelName r
-
-instance (Constructor c) => GCoverTableRequirements k (C1 c f) where
-  gCoverTableRequirements _ =
-    ("", [(conName (Prelude.undefined :: C1 c f a), 0)])
 
 instance (Constructor c) => GLabelName (C1 c f) where
   gLabelName = conName
