@@ -1,7 +1,18 @@
+{-# LANGUAGE AllowAmbiguousTypes #-}
+{-# LANGUAGE ConstraintKinds #-}
+{-# LANGUAGE DataKinds #-}
 {-# LANGUAGE DerivingStrategies #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE TypeSynonymInstances #-}
 
 module Test.Hydra.Prelude (
   createSystemTempDirectory,
@@ -11,6 +22,8 @@ module Test.Hydra.Prelude (
   dualFormatter,
   reasonablySized,
   ReasonablySized (..),
+  genericCoverTable,
+  GCoverTable,
 
   -- * HSpec re-exports
   module Test.Hspec,
@@ -25,7 +38,9 @@ import Test.Hspec
 import Test.Hspec.QuickCheck
 
 import Control.Monad.Class.MonadTimer (timeout)
+import Data.Ratio ((%))
 import GHC.Exception (SrcLoc (..))
+import GHC.Generics
 import System.Directory (removePathForcibly)
 import System.Exit (ExitCode (..))
 import System.IO.Temp (createTempDirectory, getCanonicalTemporaryDirectory)
@@ -34,7 +49,8 @@ import Test.HSpec.JUnit (junitFormat)
 import Test.HUnit.Lang (FailureReason (Reason), HUnitFailure (HUnitFailure))
 import Test.Hspec.Core.Format (Format, FormatConfig (..))
 import Test.Hspec.Core.Formatters (formatterToFormat, specdoc)
-import Test.QuickCheck (scale)
+import Test.QuickCheck (Property, Testable, coverTable, scale, tabulate)
+import qualified Prelude
 
 -- | Create a unique temporary directory.
 createSystemTempDirectory :: String -> IO FilePath
@@ -137,3 +153,115 @@ newtype ReasonablySized a = ReasonablySized a
 
 instance Arbitrary a => Arbitrary (ReasonablySized a) where
   arbitrary = ReasonablySized <$> reasonablySized arbitrary
+
+-- Like 'coverTable', but construct the weight requirements generically from the
+-- label type-representation.
+--
+--     data MyCoverLabel = Case1 Int | Case2 Bool deriving (Generic, Data, Show)
+--
+--     forAll arbitrary $ \a ->
+--         myProp a
+--         & genericCoverTable [a]
+--         & checkCoverage
+--
+--     ===
+--
+--     forAll arbitrary $ \a ->
+--        myProp a
+--        & coverTable "MyCoverTable" [("Case1", 50), ("Case2", 50)]
+--        & tabulate "MyCoverTable" [head $ words $ show a]
+--        & checkCoverage
+--
+genericCoverTable ::
+  forall a prop.
+  ( GCoverTable a
+  , Testable prop
+  ) =>
+  [a] ->
+  prop ->
+  Property
+genericCoverTable xs =
+  coverTable tableName requirements . tabulate tableName (gLabelName . from <$> xs)
+ where
+  (tableName, requirements) = gCoverTableRequirements (Proxy @(Rep a))
+
+-- | A Constraint alias to ease signatures on the consumer-side.
+type GCoverTable a =
+  ( GCoverTableRequirements (Rep a)
+  , CoverTableRequirements (Rep a) ~ (String, [(String, Double)])
+  , GLabelName (Rep a)
+  , Generic a
+  , Show a
+  )
+
+-- | A type-class for generically creating a QuickCheck's 'coverTable'
+-- weight requirement. It is parameterized by the type of distribution wanted.
+--
+-- Any basic sum of constructors is an instance of `GCoverTableRequirements`.
+class GCoverTableRequirements (f :: Type -> Type) where
+  type CoverTableRequirements f :: Type
+  gCoverTableRequirements :: Proxy f -> CoverTableRequirements f
+
+instance
+  ( GCoverTableRequirements f
+  , CoverTableRequirements f ~ [String]
+  , Datatype c
+  ) =>
+  GCoverTableRequirements (D1 c f)
+  where
+  type CoverTableRequirements (D1 c f) = (String, [(String, Double)])
+  gCoverTableRequirements _ =
+    -- NOTE: A careful reader may notice the `3 * lengthI cs` instead of
+    -- `lengthI cs` as the weights denominator.
+    --
+    -- This is because `checkCoverage` in QuickCheck will do a statistical
+    -- verification with a quite high level of confidence. For types with
+    -- many (i.e. more than 2) constructors, it may require a quite significant
+    -- amount of tests cases before all values statistically converge towards
+    -- the expected weights. In practice, we really want to make sure that
+    -- all branches are covered. That a branch is covered 2 times as much
+    -- than another isn't of significant importance.
+    let lengthI = toInteger . length
+        labels = gCoverTableRequirements (Proxy @f)
+        tableName = datatypeName (Prelude.undefined :: D1 c f a)
+     in ( tableName
+        , [ (lbl, weight)
+          | lbl <- labels
+          , let weight = fromRational (100 % (3 * lengthI labels))
+          ]
+        )
+
+instance
+  ( GCoverTableRequirements l
+  , CoverTableRequirements l ~ [String]
+  , GCoverTableRequirements r
+  , CoverTableRequirements r ~ [String]
+  ) =>
+  GCoverTableRequirements (l :+: r)
+  where
+  type CoverTableRequirements (l :+: r) = [String]
+  gCoverTableRequirements _ =
+    mconcat
+      [ gCoverTableRequirements (Proxy @l)
+      , gCoverTableRequirements (Proxy @r)
+      ]
+
+instance (Constructor c) => GCoverTableRequirements (C1 c f) where
+  type CoverTableRequirements (C1 c f) = [String]
+  gCoverTableRequirements _ = [conName (Prelude.undefined :: C1 c f a)]
+
+-- | A simple class to get a label name from a generic representation. Instances
+-- exist for sum-types and uses the constructor's name.
+class GLabelName (f :: Type -> Type) where
+  gLabelName :: f a -> String
+
+instance (GLabelName f) => GLabelName (D1 c f) where
+  gLabelName = gLabelName . unM1
+
+instance (GLabelName l, GLabelName r) => GLabelName (l :+: r) where
+  gLabelName = \case
+    L1 l -> gLabelName l
+    R1 r -> gLabelName r
+
+instance (Constructor c) => GLabelName (C1 c f) where
+  gLabelName = conName
