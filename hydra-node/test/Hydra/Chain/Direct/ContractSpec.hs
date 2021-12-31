@@ -21,6 +21,7 @@ import Cardano.Ledger.Alonzo.Tools (
 import Cardano.Ledger.Alonzo.TxWitness (RdmrPtr)
 import qualified Cardano.Ledger.Alonzo.TxWitness as Ledger
 import qualified Cardano.Ledger.Shelley.API as Ledger
+import Control.Lens ((^.))
 import qualified Data.ByteString as BS
 import Data.Generics.Product.Typed (HasType (..))
 import qualified Data.Map as Map

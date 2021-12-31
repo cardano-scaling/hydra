@@ -28,8 +28,6 @@ module Hydra.Prelude (
   generateWith,
   shrinkListAggressively,
   padLeft,
-  (^.),
-  (.~),
 ) where
 
 import Cardano.Binary (
@@ -131,10 +129,6 @@ import Relude hiding (
   tryTakeMVar,
   tryTakeTMVar,
   writeTVar,
- )
-import Relude.Extra.Lens (
-  (.~),
-  (^.),
  )
 import Relude.Extra.Map (
   DynamicMap (..),
