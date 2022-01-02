@@ -243,7 +243,6 @@ test-suite tests
     , data-default
     , directory
     , filepath
-    , generic-lens
     , hspec
     , hspec-core
     , hspec-golden-aeson
