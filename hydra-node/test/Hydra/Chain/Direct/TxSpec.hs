@@ -289,6 +289,24 @@ spec =
               & counterexample ("Tx: " <> show tx)
               & counterexample ("Utxo map: " <> show lookupUtxo)
 
+      prop "validates" $ \inHeadUtxo headInput ->
+        let tx = fanoutTx testNetworkId inHeadUtxo (headInput, headDatum)
+            onChainUtxo = UTxO $ Map.singleton headInput headOutput
+            headOutput = TxOut headAddress headValue . SJust $ hashData @Era headDatum
+            headAddress = scriptAddr $ plutusScript $ MockHead.validatorScript policyId
+            -- FIXME: Ensure the headOutput contains enough value to fanout all inHeadUtxo
+            headValue = inject (Coin 10_000_000)
+            -- FIXME: utxoHash should be calculated from inHeadUtxo
+            headDatum = Data $ toData $ MockHead.Closed{snapshotNumber = 1, utxoHash = ""}
+         in checkCoverage $ case validateTxScriptsUnlimited onChainUtxo tx of
+              Left basicFailure ->
+                property False & counterexample ("Basic failure: " <> show basicFailure)
+              Right redeemerReport ->
+                1 == length (rights $ Map.elems redeemerReport)
+                  & counterexample ("Redeemer report: " <> show redeemerReport)
+                  & counterexample ("Tx: " <> show tx)
+                  & cover 0.8 True "Success"
+
     describe "abortTx" $ do
       -- NOTE(AB): This property fails if initials are too big
       prop "transaction size below limit" $ \txIn cperiod parties (ReasonablySized initials) ->
