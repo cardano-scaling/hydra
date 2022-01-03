@@ -60,7 +60,7 @@ hydraStateMachine _policyId =
   -- fix for the 'runStep' handling now, the current version of plutus does
   -- forge a given 'ThreadToken' upon 'runInitialise' now.. which is not what we
   -- want as we need additional tokens being forged as well (see 'watchInit').
-  SM.mkStateMachine Nothing hydraTransition isFinal
+  SM.StateMachine hydraTransition isFinal hydraContextCheck Nothing
  where
   isFinal Final{} = True
   isFinal _ = False
@@ -79,9 +79,14 @@ hydraTransition oldState input =
       | otherwise -> do
         guard $ verifySnapshotSignature parties snapshotNumber signature
         Just (mempty, oldState{SM.stateData = Closed{snapshotNumber, utxoHash = closedUtxoHash}})
-    (Closed{}, Fanout{}) ->
+    (Closed{}, Fanout) ->
+      -- TODO: check hashing the actual TxOut of the transaction matches the utxoHash
       Just (mempty, oldState{SM.stateData = Final, SM.stateValue = mempty})
     _ -> Nothing
+
+{-# INLINEABLE hydraContextCheck #-}
+hydraContextCheck :: State -> Input -> ScriptContext -> Bool
+hydraContextCheck _ _ _ = True
 
 {-# INLINEABLE verifySnapshotSignature #-}
 verifySnapshotSignature :: [Party] -> SnapshotNumber -> [Signature] -> Bool
