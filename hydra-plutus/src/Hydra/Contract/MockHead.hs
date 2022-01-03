@@ -86,7 +86,17 @@ hydraTransition oldState input =
 
 {-# INLINEABLE hydraContextCheck #-}
 hydraContextCheck :: State -> Input -> ScriptContext -> Bool
-hydraContextCheck _ _ _ = True
+hydraContextCheck state input context =
+  case (state, input) of
+    (Closed{utxoHash = closedUtxoHash}, Fanout) ->
+      traceIfFalse "fannedOutUtxoHash /= closedUtxoHash" $ fannedOutUtxoHash == closedUtxoHash
+    _ -> True
+ where
+  fannedOutUtxoHash = traceError "not implemented: fold by hashing tx outs -> Merkle Tree" txInfoOutputs
+
+  TxInfo{txInfoOutputs} = txInfo
+
+  ScriptContext{scriptContextTxInfo = txInfo} = context
 
 {-# INLINEABLE verifySnapshotSignature #-}
 verifySnapshotSignature :: [Party] -> SnapshotNumber -> [Signature] -> Bool
