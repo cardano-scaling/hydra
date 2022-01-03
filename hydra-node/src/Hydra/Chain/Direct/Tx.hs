@@ -69,6 +69,7 @@ import Hydra.Ledger.Cardano (
   toCtxUTxOTxOut,
   toLedgerTxIn,
   toLedgerTxOut,
+  toPlutusData,
  )
 import qualified Hydra.Ledger.Cardano as Api
 import Hydra.Party (MultiSigned, Party (Party), toPlutusSignatures, vkey)
@@ -480,7 +481,7 @@ observeInitTx party (Api.getTxBody . fromLedgerTx -> txBody) = do
     ( OnInitTx cperiod parties
     , Initial
         { threadOutput =
-            ( toLedgerTxIn $ mkTxIn ix
+            ( toLedgerTxIn $ Api.mkTxIn txBody ix
             , toLedgerTxOut $ toCtxUTxOTxOut headOut
             , headData
             , ps
@@ -505,11 +506,9 @@ observeInitTx party (Api.getTxBody . fromLedgerTx -> txBody) = do
     mapMaybe
       ( \(i, o) -> do
           dat <- toAlonzoData <$> getDatum o
-          pure (toLedgerTxIn $ mkTxIn i, toLedgerTxOut $ toCtxUTxOTxOut o, dat)
+          pure (toLedgerTxIn $ Api.mkTxIn txBody i, toLedgerTxOut $ toCtxUTxOTxOut o, dat)
       )
       initialOutputs
-
-  mkTxIn ix = Api.TxIn (Api.getTxId txBody) (Api.TxIx ix)
 
   isInitial (Api.TxOut addr _ _) = addr == initialAddress
 
@@ -521,18 +520,31 @@ convertParty :: OnChain.Party -> Party
 convertParty = Party . partyToVerKey
 
 -- | Identify a commit tx by looking for an output which pays to v_commit.
-observeCommitTx :: ValidatedTx Era -> Maybe (OnChainTx CardanoTx, (TxIn StandardCrypto, TxOut Era, Data Era))
-observeCommitTx tx@ValidatedTx{wits} = do
-  (txIn, txOut) <- findScriptOutput (utxoFromTx tx) commitScript
-  dat <- lookupDatum wits txOut
-  (party, utxo) <- fromData $ getPlutusData dat
+observeCommitTx ::
+  ValidatedTx Era ->
+  Maybe (OnChainTx CardanoTx, (TxIn StandardCrypto, TxOut Era, Data Era))
+observeCommitTx (Api.getTxBody . fromLedgerTx -> txBody) = do
+  (commitIn, commitOut) <- Api.findTxOutByAddress commitAddress txBody
+  dat <- getDatum commitOut
+  (party, utxo) <- fromData $ toPlutusData dat
   onChainTx <- OnCommitTx (convertParty party) <$> convertUtxo utxo
-  pure (onChainTx, (txIn, txOut, dat))
+  pure
+    ( onChainTx
+    ,
+      ( toLedgerTxIn commitIn
+      , toLedgerTxOut $ toCtxUTxOTxOut commitOut
+      , toAlonzoData dat
+      )
+    )
  where
-  commitScript = plutusScript MockCommit.validatorScript
-
   convertUtxo = Aeson.decodeStrict' . OnChain.toByteString
 
+  commitAddress = mkScriptAddress @Api.PlutusScriptV1 observeNetworkId commitScript
+
+  commitScript = fromPlutusScript MockCommit.validatorScript
+
+-- REVIEW(SN): Is this really specific to commit only, or wouldn't we be able to
+-- filter all 'knownUtxo' after observing any protocol tx?
 observeCommit ::
   ValidatedTx Era ->
   OnChainHeadState ->
