@@ -112,7 +112,7 @@ mockSign vkey msg = appendByteString (sliceByteString 0 8 hashedMsg) (naturalToC
 naturalToCBOR :: Integer -> BuiltinByteString
 naturalToCBOR n
   | n < 0 =
-    traceError "integerToCBOR: n < 0"
+    traceError "naturalToCBOR: n < 0"
   | n < 24 =
     consByteString n emptyByteString
   | n < 256 =
@@ -122,7 +122,7 @@ naturalToCBOR n
       consByteString (quotient n 256) $
         consByteString (remainder n 256) emptyByteString
   | otherwise =
-    traceError "integerToCBOR: n >= 65536"
+    traceError "naturalToCBOR: n >= 65536"
 {-# INLINEABLE naturalToCBOR #-}
 
 -- | The script instance of the auction state machine. It contains the state
