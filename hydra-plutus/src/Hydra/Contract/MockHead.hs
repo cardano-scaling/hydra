@@ -18,6 +18,7 @@ import Ledger.Constraints (TxConstraints)
 import qualified Ledger.Typed.Scripts as Scripts
 import Plutus.Contract.StateMachine.OnChain (StateMachine)
 import qualified Plutus.Contract.StateMachine.OnChain as SM
+import Plutus.V1.Ledger.Api (Credential (PubKeyCredential, ScriptCredential))
 import qualified PlutusTx
 import Text.Show (Show)
 
@@ -92,11 +93,19 @@ hydraContextCheck state input context =
       traceIfFalse "fannedOutUtxoHash /= closedUtxoHash" $ fannedOutUtxoHash == closedUtxoHash
     _ -> True
  where
-  fannedOutUtxoHash = traceError "not implemented: fold by hashing tx outs -> Merkle Tree" txInfoOutputs
+  fannedOutUtxoHash = sha2_256 $ foldMap serialiseTxOut txInfoOutputs
 
   TxInfo{txInfoOutputs} = txInfo
 
   ScriptContext{scriptContextTxInfo = txInfo} = context
+
+{-# INLINEABLE serialiseTxOut #-}
+serialiseTxOut :: TxOut -> BuiltinByteString
+serialiseTxOut TxOut{txOutAddress} =
+  let Address{addressCredential} = txOutAddress
+   in case addressCredential of
+        PubKeyCredential (PubKeyHash bs) -> bs
+        ScriptCredential (ValidatorHash bs) -> bs
 
 {-# INLINEABLE verifySnapshotSignature #-}
 verifySnapshotSignature :: [Party] -> SnapshotNumber -> [Signature] -> Bool
