@@ -180,11 +180,6 @@ mkTxOutDatum :: Plutus.ToData a => a -> TxOutDatum CtxTx Era
 mkTxOutDatum =
   TxOutDatum ScriptDataInAlonzoEra . fromPlutusData . Plutus.toData
 
-toTxDatum :: TxOutDatum CtxUTxO Era -> TxOutDatum CtxTx Era
-toTxDatum = \case
-  TxOutDatumNone -> TxOutDatumNone
-  TxOutDatumHash sdsie ha -> TxOutDatumHash sdsie ha
-
 mkTxOutDatumHash :: Plutus.ToData a => a -> TxOutDatum CtxUTxO Era
 mkTxOutDatumHash =
   TxOutDatumHash ScriptDataInAlonzoEra . hashScriptData . fromPlutusData . Plutus.toData
@@ -368,6 +363,11 @@ txOutValue (TxOut _ value _) =
 mkTxOutValue :: Value -> TxOutValue Era
 mkTxOutValue =
   TxOutValue MultiAssetInAlonzoEra
+
+getDatum :: TxOut CtxTx era -> Maybe ScriptData
+getDatum (TxOut _ _ d) = case d of
+  TxOutDatum _ dat -> Just dat
+  _ -> Nothing
 
 modifyTxOutDatum ::
   (TxOutDatum ctx0 Era -> TxOutDatum ctx1 Era) ->

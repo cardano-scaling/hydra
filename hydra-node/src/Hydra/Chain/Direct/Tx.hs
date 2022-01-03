@@ -61,6 +61,14 @@ import Hydra.Ledger.Cardano (
   Utxo,
   Utxo' (Utxo),
   VerificationKey (PaymentVerificationKey),
+  fromLedgerTx,
+  fromPlutusScript,
+  getDatum,
+  mkScriptAddress,
+  toAlonzoData,
+  toCtxUTxOTxOut,
+  toLedgerTxIn,
+  toLedgerTxOut,
  )
 import qualified Hydra.Ledger.Cardano as Api
 import Hydra.Party (MultiSigned, Party (Party), toPlutusSignatures, vkey)
@@ -457,52 +465,57 @@ abortTx networkId (Api.fromLedgerTxIn -> headInput, Api.fromLedgerData -> headDa
 
 -- * Observe Hydra Head transactions
 
+observeNetworkId :: Api.NetworkId
+observeNetworkId = Api.Testnet $ Api.NetworkMagic 42
+
 -- XXX(SN): We should log decisions why a tx is not an initTx etc. instead of
 -- only returning a Maybe, i.e. 'Either Reason (OnChainTx tx, OnChainHeadState)'
 observeInitTx :: Party -> ValidatedTx Era -> Maybe (OnChainTx CardanoTx, OnChainHeadState)
-observeInitTx party ValidatedTx{wits, body} = do
-  (dh, headDatum, MockHead.Initial cp ps) <- getFirst $ foldMap (First . decodeHeadDatum) datumsList
+observeInitTx party (Api.getTxBody . fromLedgerTx -> txBody) = do
+  (ix, headOut, headData, MockHead.Initial cp ps) <- findFirst headOutput indexedOutputs
   let parties = map convertParty ps
   let cperiod = contestationPeriodToDiffTime cp
   guard $ party `elem` parties
-  (i, o) <- getFirst $ foldMap (First . findSmOutput dh) indexedOutputs
   pure
     ( OnInitTx cperiod parties
     , Initial
-        { threadOutput = (i, o, headDatum, ps)
+        { threadOutput =
+            ( toLedgerTxIn $ mkTxIn ix
+            , toLedgerTxOut $ toCtxUTxOTxOut headOut
+            , headData
+            , ps
+            )
         , initials
-        , commits = mempty
+        , commits = []
         }
     )
  where
-  decodeHeadDatum (dh, d) =
-    (dh,d,) <$> fromData (getPlutusData d)
+  Api.TxBody Api.TxBodyContent{txOuts} = txBody
 
-  findSmOutput dh (ix, o@(TxOut _ _ dh')) =
-    guard (SJust dh == dh') $> (i, o)
-   where
-    i = TxIn (TxId $ SafeHash.hashAnnotated body) ix
+  headOutput = \case
+    (ix, out@(Api.TxOut _ _ (Api.TxOutDatum _ d))) ->
+      (ix,out,Api.toAlonzoData d,) <$> fromData (Api.toPlutusData d)
+    _ -> Nothing
 
-  datumsList = Map.toList datums
+  indexedOutputs = zip [0 ..] txOuts
 
-  datums = unTxDats $ txdats wits
-
-  indexedOutputs =
-    zip [0 ..] (toList (outputs body))
+  initialOutputs = filter (isInitial . snd) indexedOutputs
 
   initials =
-    let initialOutputs = filter (isInitial . snd) indexedOutputs
-     in mapMaybe mkInitial initialOutputs
+    mapMaybe
+      ( \(i, o) -> do
+          dat <- toAlonzoData <$> getDatum o
+          pure (toLedgerTxIn $ mkTxIn i, toLedgerTxOut $ toCtxUTxOTxOut o, dat)
+      )
+      initialOutputs
 
-  mkInitial (ix, txOut) =
-    (mkTxIn ix,txOut,) <$> lookupDatum wits txOut
+  mkTxIn ix = Api.TxIn (Api.getTxId txBody) (Api.TxIx ix)
 
-  mkTxIn ix = TxIn (TxId $ SafeHash.hashAnnotated body) ix
+  isInitial (Api.TxOut addr _ _) = addr == initialAddress
 
-  isInitial (TxOut addr _ _) =
-    addr == scriptAddr initialScript
+  initialAddress = mkScriptAddress @Api.PlutusScriptV1 observeNetworkId initialScript
 
-  initialScript = plutusScript MockInitial.validatorScript
+  initialScript = fromPlutusScript MockInitial.validatorScript
 
 convertParty :: OnChain.Party -> Party
 convertParty = Party . partyToVerKey
@@ -724,3 +737,7 @@ utxoFromTx ValidatedTx{body} =
   Map.fromList $ zip (map mkTxIn [0 ..]) . toList $ outputs body
  where
   mkTxIn = TxIn (TxId $ SafeHash.hashAnnotated body)
+
+-- | Find first occurrence including a transformation.
+findFirst :: Foldable t => (a -> Maybe b) -> t a -> Maybe b
+findFirst fn = getFirst . foldMap (First . fn)
