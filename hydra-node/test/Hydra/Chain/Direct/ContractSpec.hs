@@ -26,12 +26,13 @@ import qualified Data.Map as Map
 import Data.Maybe.Strict (StrictMaybe (..))
 import Hydra.Chain.Direct.Fixture (testNetworkId)
 import qualified Hydra.Chain.Direct.Fixture as Fixture
-import Hydra.Chain.Direct.Tx (closeRedeemer, closeTx, policyId)
+import Hydra.Chain.Direct.Tx (closeTx, policyId)
 import Hydra.Chain.Direct.TxSpec (mkHeadOutput)
 import qualified Hydra.Contract.Hash as Hash
 import Hydra.Contract.MockHead (naturalToCBOR, verifyPartySignature, verifySnapshotSignature)
 import qualified Hydra.Contract.MockHead as MockHead
 import Hydra.Data.Party (partyFromVerKey)
+import qualified Hydra.Data.Party as OnChain
 import Hydra.Ledger.Cardano (
   AlonzoEra,
   BuildTxWith (BuildTxWith),
@@ -298,7 +299,14 @@ healthySnapshotNumber :: SnapshotNumber
 healthySnapshotNumber = 1
 
 healthyCloseDatum :: MockHead.State
-healthyCloseDatum = MockHead.Open (partyFromVerKey . vkey . deriveParty <$> healthyPartyCredentials)
+healthyCloseDatum =
+  MockHead.Open
+    { parties = healthyCloseParties
+    , utxoHash = ""
+    }
+
+healthyCloseParties :: [OnChain.Party]
+healthyCloseParties = partyFromVerKey . vkey . deriveParty <$> healthyPartyCredentials
 
 healthyPartyCredentials :: [SigningKey]
 healthyPartyCredentials = [1, 2, 3]
@@ -333,8 +341,16 @@ genCloseMutation (_tx, _utxo) =
               MultiSigned [sign sk $ serialize' mutatedSnapshotNumber | sk <- healthyPartyCredentials]
         pure
           MockHead.Close
-            { MockHead.snapshotNumber = mutatedSnapshotNumber
-            , MockHead.signature = toPlutusSignatures mutatedSignature
+            { snapshotNumber = mutatedSnapshotNumber
+            , signature = toPlutusSignatures mutatedSignature
+            , utxoHash = ""
+            }
+    , SomeMutation . MutateParties . ChangeHeadDatum <$> do
+        mutatedParties <- arbitrary `suchThat` (/= healthyCloseParties)
+        pure $
+          MockHead.Open
+            { parties = mutatedParties
+            , utxoHash = ""
             }
     , SomeMutation MutateParties . ChangeHeadDatum <$> arbitrary `suchThat` \case
         MockHead.Open{MockHead.parties = parties} ->

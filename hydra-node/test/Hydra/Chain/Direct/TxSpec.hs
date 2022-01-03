@@ -224,7 +224,7 @@ spec =
       prop "transaction size below limit" $ \sig headIn parties ->
         let tx = closeTx sn sig (headIn, headOutput, headDatum)
             headOutput = mkHeadOutput SNothing
-            headDatum = Data $ toData $ MockHead.Open parties
+            headDatum = Data $ toData $ MockHead.Open{parties, utxoHash = ""}
             cbor = serialize tx
             len = LBS.length cbor
          in len < maxTxSize
@@ -234,7 +234,7 @@ spec =
 
       prop "is observed" $ \parties msig headInput ->
         let headOutput = mkHeadOutput (SJust headDatum)
-            headDatum = Data $ toData $ MockHead.Open{parties}
+            headDatum = Data $ toData $ MockHead.Open{parties, utxoHash = ""}
             lookupUtxo = Map.singleton headInput headOutput
             -- NOTE(SN): deliberately uses an arbitrary multi-signature
             tx = closeTx sn msig (headInput, headOutput, headDatum)
@@ -249,7 +249,7 @@ spec =
       let prop_fanoutTxSize :: Utxo -> TxIn StandardCrypto -> Property
           prop_fanoutTxSize utxo headIn =
             let tx = fanoutTx testNetworkId utxo (headIn, headDatum)
-                headDatum = Data $ toData MockHead.Closed
+                headDatum = Data $ toData MockHead.Closed{snapshotNumber = 1, utxoHash = ""}
                 cbor = serialize tx
                 len = LBS.length cbor
              in len < maxTxSize
@@ -282,7 +282,7 @@ spec =
       prop "is observed" $ \utxo headInput ->
         let tx = fanoutTx testNetworkId utxo (headInput, headDatum)
             headOutput = mkHeadOutput SNothing
-            headDatum = Data $ toData MockHead.Closed
+            headDatum = Data $ toData $ MockHead.Closed{snapshotNumber = 1, utxoHash = ""}
             lookupUtxo = Map.singleton headInput headOutput
             res = observeFanoutTx lookupUtxo tx
          in res === Just (OnFanoutTx, Final)
