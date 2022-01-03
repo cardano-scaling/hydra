@@ -342,6 +342,13 @@ genCloseMutation (_tx, _utxo) =
         _ ->
           True
     ]
+ where
+  closeRedeemer snapshotNumber sig =
+    MockHead.Close
+      { snapshotNumber = toInteger snapshotNumber
+      , signature = toPlutusSignatures sig
+      , utxoHash = ""
+      }
 
 --
 -- Generators

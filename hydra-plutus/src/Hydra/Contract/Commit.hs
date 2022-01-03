@@ -41,7 +41,7 @@ validator (Dependencies{headScript}, committedOut) () ctx =
   consumedByCollectCom || consumedByAbort
  where
   consumedByCollectCom =
-    mustRunContract @(RedeemerType Head) headScript (CollectCom mempty) ctx
+    mustRunContract @(RedeemerType Head) headScript (traceError "not implemented") ctx
 
   consumedByAbort =
     and

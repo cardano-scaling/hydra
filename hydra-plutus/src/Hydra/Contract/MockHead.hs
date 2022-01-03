@@ -23,10 +23,12 @@ import Text.Show (Show)
 
 type SnapshotNumber = Integer
 
+type Hash = BuiltinByteString
+
 data State
   = Initial {contestationPeriod :: ContestationPeriod, parties :: [Party]}
-  | Open {parties :: [Party]}
-  | Closed
+  | Open {parties :: [Party], utxoHash :: Hash}
+  | Closed {snapshotNumber :: SnapshotNumber, utxoHash :: Hash}
   | Final
   deriving stock (Generic, Show)
   deriving anyclass (FromJSON, ToJSON)
@@ -36,9 +38,10 @@ PlutusTx.unstableMakeIsData ''State
 data Input
   = -- FIXME(AB): The collected value should not be passed as input but inferred from
     -- collected commits' value
-    CollectCom Value
+    CollectCom {collectedValue :: Value, utxoHash :: Hash}
   | Close
       { snapshotNumber :: SnapshotNumber
+      , utxoHash :: Hash
       , signature :: [Signature]
       }
   | Abort
@@ -66,13 +69,13 @@ hydraStateMachine _policyId =
 hydraTransition :: SM.State State -> Input -> Maybe (TxConstraints Void Void, SM.State State)
 hydraTransition oldState input =
   case (SM.stateData oldState, input) of
-    (Initial{parties}, CollectCom collectedValue) ->
-      Just (mempty, oldState{SM.stateData = Open{parties}, SM.stateValue = collectedValue <> SM.stateValue oldState})
+    (Initial{parties}, CollectCom{collectedValue, utxoHash}) ->
+      Just (mempty, oldState{SM.stateData = Open{parties, utxoHash}, SM.stateValue = collectedValue <> SM.stateValue oldState})
     (Initial{}, Abort) ->
       Just (mempty, oldState{SM.stateData = Final, SM.stateValue = mempty})
     (Open{parties}, Close{snapshotNumber, signature}) -> do
       guard $ verifySnapshotSignature parties snapshotNumber signature
-      Just (mempty, oldState{SM.stateData = Closed})
+      Just (mempty, oldState{SM.stateData = Closed{snapshotNumber, utxoHash = ""}})
     (Closed{}, Fanout{}) ->
       Just (mempty, oldState{SM.stateData = Final, SM.stateValue = mempty})
     _ -> Nothing

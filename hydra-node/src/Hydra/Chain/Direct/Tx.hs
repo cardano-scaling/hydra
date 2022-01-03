@@ -315,16 +315,19 @@ collectComTx networkId _utxo (Api.fromLedgerTxIn -> headInput, Api.fromLedgerDat
   headScript =
     Api.fromPlutusScript $ MockHead.validatorScript policyId
   headRedeemer =
-    Api.mkRedeemerForTxIn $ MockHead.CollectCom $ Api.toPlutusValue commitValue
-
+    Api.mkRedeemerForTxIn $
+      MockHead.CollectCom
+        { collectedValue = Api.toPlutusValue commitValue
+        , utxoHash
+        }
+  utxoHash = "" -- FIXME: off-chain computation of H(U)
   headOutput =
     Api.TxOut
       (Api.mkScriptAddress @Api.PlutusScriptV1 networkId headScript)
       (Api.mkTxOutValue $ Api.lovelaceToValue 2_000_000 <> commitValue)
       headDatumAfter
   headDatumAfter =
-    Api.mkTxOutDatum MockHead.Open{MockHead.parties = parties}
-
+    Api.mkTxOutDatum MockHead.Open{MockHead.parties = parties, utxoHash}
   mkCommit (commitInput, (_commitOutput, commitDatum)) =
     ( Api.fromLedgerTxIn commitInput
     , mkCommitWitness commitDatum
@@ -359,19 +362,21 @@ closeTx snapshotNumber sig (Api.fromLedgerTxIn -> headInput, Api.fromLedgerTxOut
   headScript =
     Api.fromPlutusScript $ MockHead.validatorScript policyId
   headRedeemer =
-    Api.mkRedeemerForTxIn $ closeRedeemer snapshotNumber sig
-
+    Api.mkRedeemerForTxIn
+      MockHead.Close
+        { snapshotNumber = toInteger snapshotNumber
+        , signature = toPlutusSignatures sig
+        , utxoHash
+        }
   headOutputAfter =
     Api.modifyTxOutDatum (const headDatumAfter) headOutputBefore
   headDatumAfter =
-    Api.mkTxOutDatum MockHead.Closed
-
-closeRedeemer :: SnapshotNumber -> MultiSigned (Snapshot CardanoTx) -> MockHead.Input
-closeRedeemer snapshotNumber multiSig =
-  MockHead.Close
-    { snapshotNumber = toInteger snapshotNumber
-    , signature = toPlutusSignatures multiSig
-    }
+    Api.mkTxOutDatum
+      MockHead.Closed
+        { snapshotNumber = toInteger snapshotNumber
+        , utxoHash
+        }
+  utxoHash = "" -- FIXME: off-chain compute H(U) from a snapshot or take as argument
 
 fanoutTx ::
   -- | Network identifier for address discrimination
@@ -585,7 +590,7 @@ observeCollectComTx utxo tx = do
   oldHeadDatum <- lookupDatum (wits tx) headOutput
   datum <- fromData $ getPlutusData oldHeadDatum
   case (datum, redeemer) of
-    (MockHead.Initial{parties}, MockHead.CollectCom _) -> do
+    (MockHead.Initial{parties}, MockHead.CollectCom{}) -> do
       (newHeadInput, newHeadOutput) <- findScriptOutput (utxoFromTx tx) headScript
       newHeadDatum <- lookupDatum (wits tx) newHeadOutput
       pure
