@@ -7,26 +7,23 @@ import Hydra.Prelude
 import Test.Hydra.Prelude
 
 import qualified Data.List as List
-import qualified Data.Set as Set
 import Hydra.Chain (HeadParameters (HeadParameters))
 import Hydra.HeadLogic (
   CoordinatedHeadState (..),
   Effect (..),
   Environment (..),
-  Event (..),
   HeadState (..),
   NoSnapshotReason (..),
-  Outcome (..),
   SeenSnapshot (..),
   SnapshotOutcome (..),
   emitSnapshot,
   newSn,
  )
-import Hydra.Ledger (IsTx (..), Ledger (..))
+import Hydra.Ledger (Ledger (..))
 import Hydra.Ledger.Simple (SimpleTx (..), aValidTx, simpleLedger)
 import Hydra.Network.Message (Message (..))
 import Hydra.Party (Party, deriveParty)
-import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot (..), getSnapshot)
+import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot (..))
 
 spec :: Spec
 spec = do
@@ -111,52 +108,6 @@ spec = do
 -- Assertion utilities
 --
 
-hasEffect :: (HasCallStack, IsTx tx) => Outcome tx -> Effect tx -> IO (HeadState tx)
-hasEffect (NewState s effects) effect
-  | effect `elem` effects = pure s
-  | otherwise = failure $ "Missing effect " <> show effect <> " in produced effects: " <> show effects
-hasEffect o _ = failure $ "Unexpected outcome: " <> show o
-
-hasEffect_ :: (HasCallStack, IsTx tx) => Outcome tx -> Effect tx -> IO ()
-hasEffect_ o e = void $ hasEffect o e
-
-hasEffectSatisfying :: (HasCallStack, IsTx tx) => Outcome tx -> (Effect tx -> Bool) -> IO (HeadState tx)
-hasEffectSatisfying (NewState s effects) match
-  | any match effects = pure s
-  | otherwise = failure $ "No effect matching predicate in produced effects: " <> show effects
-hasEffectSatisfying o _ = failure $ "Unexpected outcome: " <> show o
-
-hasNoEffectSatisfying :: (HasCallStack, IsTx tx) => Outcome tx -> (Effect tx -> Bool) -> IO ()
-hasNoEffectSatisfying (NewState _ effects) predicate
-  | any predicate effects = failure $ "Found unwanted effect in: " <> show effects
-hasNoEffectSatisfying _ _ = pure ()
-
-isReqSn :: Effect tx -> Bool
-isReqSn = \case
-  NetworkEffect ReqSn{} -> True
-  _ -> False
-
-isAckSn :: Effect tx -> Bool
-isAckSn = \case
-  NetworkEffect AckSn{} -> True
-  _ -> False
-
-inInitialState :: [Party] -> HeadState SimpleTx
-inInitialState parties =
-  InitialState parameters (Set.fromList parties) mempty
- where
-  parameters = HeadParameters 42 parties
-
-inOpenState ::
-  [Party] ->
-  Ledger tx ->
-  HeadState tx
-inOpenState parties Ledger{initUtxo} =
-  inOpenState' parties $ CoordinatedHeadState u0 mempty snapshot0 NoSeenSnapshot
- where
-  u0 = initUtxo
-  snapshot0 = InitialSnapshot $ Snapshot 0 u0 mempty
-
 inOpenState' ::
   [Party] ->
   CoordinatedHeadState tx ->
@@ -164,37 +115,3 @@ inOpenState' ::
 inOpenState' parties = OpenState parameters
  where
   parameters = HeadParameters 42 parties
-
-inClosedState :: [Party] -> HeadState SimpleTx
-inClosedState parties =
-  ClosedState parameters mempty
- where
-  parameters = HeadParameters 42 parties
-
-getConfirmedSnapshot :: HeadState tx -> Maybe (Snapshot tx)
-getConfirmedSnapshot = \case
-  OpenState _ CoordinatedHeadState{confirmedSnapshot} -> Just (getSnapshot confirmedSnapshot)
-  _ -> Nothing
-
-assertNewState :: IsTx tx => Outcome tx -> IO (HeadState tx)
-assertNewState = \case
-  NewState st _ -> pure st
-  Error e -> failure $ "Unexpected 'Error' outcome: " <> show e
-  Wait -> failure "Unexpected 'Wait' outcome"
-
-applyEvent ::
-  IsTx tx =>
-  (HeadState tx -> Event tx -> Outcome tx) ->
-  Event tx ->
-  StateT (HeadState tx) IO ()
-applyEvent action e = do
-  s <- get
-  s' <- lift $ assertNewState (action s e)
-  put s'
-
-assertStateUnchangedFrom :: IsTx tx => HeadState tx -> Outcome tx -> Expectation
-assertStateUnchangedFrom st = \case
-  NewState st' eff -> do
-    st' `shouldBe` st
-    eff `shouldBe` []
-  anything -> failure $ "unexpected outcome: " <> show anything

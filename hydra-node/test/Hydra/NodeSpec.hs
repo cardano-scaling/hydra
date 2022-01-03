@@ -106,9 +106,6 @@ spec = parallel $ do
       outputs <- getServerOutputs
       outputs `shouldContain` [PostTxOnChainFailed (InitTx $ HeadParameters 10 [10, 20, 30]) NoSeedInput]
 
-oneReqSn :: [Message tx] -> Bool
-oneReqSn = (== 1) . length . filter isReqSn
-
 isReqSn :: Message tx -> Bool
 isReqSn = \case
   ReqSn{} -> True
