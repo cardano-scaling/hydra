@@ -289,7 +289,7 @@ spec =
               & counterexample ("Tx: " <> show tx)
               & counterexample ("Utxo map: " <> show lookupUtxo)
 
-      prop "validates" $ \inHeadUtxo headInput ->
+      prop "validates" $ \(ReasonablySized inHeadUtxo) headInput ->
         let tx = fanoutTx testNetworkId inHeadUtxo (headInput, headDatum)
             onChainUtxo = UTxO $ Map.singleton headInput headOutput
             headOutput = TxOut headAddress headValue . SJust $ hashData @Era headDatum
