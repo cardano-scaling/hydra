@@ -29,7 +29,7 @@ import Data.Maybe.Strict (StrictMaybe (..))
 import qualified Hydra.Chain.Direct.Fixture as Fixture
 import Hydra.Chain.Direct.Tx (closeRedeemer, closeTx, policyId)
 import Hydra.Chain.Direct.TxSpec (mkHeadOutput)
-import Hydra.Contract.MockHead (verifyPartySignature, verifySnapshotSignature)
+import Hydra.Contract.MockHead (naturalToCBOR, verifyPartySignature, verifySnapshotSignature)
 import qualified Hydra.Contract.MockHead as MockHead
 import Hydra.Data.Party (partyFromVerKey)
 import Hydra.Ledger.Cardano (
@@ -66,7 +66,7 @@ import Hydra.Party (
  )
 import Hydra.Snapshot (Snapshot (..), SnapshotNumber)
 import Plutus.Orphans ()
-import Plutus.V1.Ledger.Api (fromData, toBuiltin, toData)
+import Plutus.V1.Ledger.Api (fromBuiltin, fromData, toBuiltin, toData)
 import Plutus.V1.Ledger.Crypto (Signature (Signature))
 import Test.QuickCheck (
   Positive (Positive),
@@ -84,6 +84,7 @@ import Test.QuickCheck.Instances ()
 
 spec :: Spec
 spec = describe "On-chain contracts" $ do
+  prop "correctly encode 'small' integer to CBOR" prop_encode16BitsNaturalToCBOROnChain
   describe "Signature validator" $ do
     prop
       "verifies single signature produced off-chain"
@@ -104,6 +105,15 @@ spec = describe "On-chain contracts" $ do
 --
 -- Properties
 --
+
+prop_encode16BitsNaturalToCBOROnChain :: Property
+prop_encode16BitsNaturalToCBOROnChain =
+  forAll arbitrary $ \(word16 :: Word16) ->
+    let offChainCBOR = serialize' word16
+        onChainCBOR = fromBuiltin $ naturalToCBOR (fromIntegral word16)
+     in offChainCBOR == onChainCBOR
+          & counterexample ("offChainCBOR: " <> show offChainCBOR)
+          & counterexample ("onChainCBOR: " <> show onChainCBOR)
 
 prop_verifyOffChainSignatures :: Property
 prop_verifyOffChainSignatures =
