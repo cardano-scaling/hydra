@@ -9,21 +9,28 @@ module Hydra.Contract.Hash where
 import Ledger hiding (validatorHash)
 import PlutusTx.Prelude
 
+import Hydra.Prelude (Arbitrary (arbitrary), Generic, Show, genericArbitrary)
+
 import Ledger.Typed.Scripts (TypedValidator, ValidatorType, ValidatorTypes (..))
 import qualified Ledger.Typed.Scripts as Scripts
 import PlutusTx (CompiledCode)
 import qualified PlutusTx
-import PlutusTx.Builtins (blake2b_256)
+import PlutusTx.Builtins (equalsByteString)
 import PlutusTx.IsData.Class (ToData (..))
 
 data Hash
 
 data HashAlgorithm
-  = SHA2
+  = Baseline
+  | SHA2
   | SHA3
-  | Blake2b
+  -- Blake2b
+  deriving (Show, Generic)
 
 PlutusTx.unstableMakeIsData ''HashAlgorithm
+
+instance Arbitrary HashAlgorithm where
+  arbitrary = genericArbitrary
 
 instance Scripts.ValidatorTypes Hash where
   type DatumType Hash = BuiltinByteString
@@ -33,9 +40,11 @@ instance Scripts.ValidatorTypes Hash where
 validator :: DatumType Hash -> RedeemerType Hash -> ScriptContext -> Bool
 validator bytes algorithm _ctx =
   case algorithm of
-    SHA2 -> let _x = sha2_256 bytes in True
-    SHA3 -> let _x = sha3_256 bytes in True
-    Blake2b -> let _x = blake2b_256 bytes in True
+    Baseline -> not $ equalsByteString "" "1"
+    SHA2 -> not . equalsByteString "" $ sha2_256 bytes
+    SHA3 -> not . equalsByteString "" $ sha3_256 bytes
+
+-- Blake2b -> not . equalsByteString "" $ blake2b_256 bytes
 
 compiledValidator :: CompiledCode (ValidatorType Hash)
 compiledValidator = $$(PlutusTx.compile [||validator||])

@@ -1,5 +1,5 @@
+{-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE TypeApplications #-}
-{-# OPTIONS_GHC -Wno-deprecations #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 
 module Hydra.Chain.Direct.ContractSpec where
@@ -24,30 +24,47 @@ import qualified Cardano.Ledger.Shelley.API as Ledger
 import qualified Data.ByteString as BS
 import qualified Data.Map as Map
 import Data.Maybe.Strict (StrictMaybe (..))
+import Hydra.Chain.Direct.Fixture (testNetworkId)
 import qualified Hydra.Chain.Direct.Fixture as Fixture
 import Hydra.Chain.Direct.Tx (closeRedeemer, closeTx, policyId)
 import Hydra.Chain.Direct.TxSpec (mkHeadOutput)
+import qualified Hydra.Contract.Hash as Hash
 import Hydra.Contract.MockHead (naturalToCBOR, verifyPartySignature, verifySnapshotSignature)
 import qualified Hydra.Contract.MockHead as MockHead
 import Hydra.Data.Party (partyFromVerKey)
 import Hydra.Ledger.Cardano (
   AlonzoEra,
+  BuildTxWith (BuildTxWith),
   CardanoTx,
   CtxUTxO,
   Era,
   LedgerCrypto,
   LedgerEra,
+  PlutusScriptV1,
   Tx (Tx),
   TxBody (ShelleyTxBody),
   TxBodyScriptData (TxBodyNoScriptData, TxBodyScriptData),
   TxOut (..),
   Utxo,
+  Utxo' (Utxo),
+  addInputs,
   describeCardanoTx,
+  emptyTxBody,
+  fromAlonzoExUnits,
   fromLedgerTx,
   fromLedgerUtxo,
+  fromPlutusScript,
+  lovelaceToTxOutValue,
+  mkDatumForTxIn,
+  mkRedeemerForTxIn,
+  mkScriptAddress,
+  mkScriptWitness,
+  mkTxOutDatum,
   mkTxOutDatumHash,
+  toCtxUTxOTxOut,
   toLedgerTx,
   toLedgerUtxo,
+  unsafeBuildTransaction,
  )
 import qualified Hydra.Ledger.Cardano as Api
 import Hydra.Ledger.Simple (SimpleTx)
@@ -78,10 +95,11 @@ import Test.QuickCheck (
   property,
   suchThat,
  )
+import qualified Test.QuickCheck as QC
 import Test.QuickCheck.Instances ()
 
 spec :: Spec
-spec = describe "On-chain contracts" $ do
+spec = do
   prop "correctly encode 'small' integer to CBOR" prop_encode16BitsNaturalToCBOROnChain
   describe "Signature validator" $ do
     prop
@@ -99,6 +117,33 @@ spec = describe "On-chain contracts" $ do
       propTransactionValidates healthyCloseTx
     prop "does not survive random adversarial mutations" $
       propMutation healthyCloseTx genCloseMutation
+
+  describe "Hash" $
+    prop "execution units" $ \input algorithm ->
+      let output = toCtxUTxOTxOut $ TxOut address value (mkTxOutDatum datum)
+          value = lovelaceToTxOutValue 1_000_000
+          address = mkScriptAddress @PlutusScriptV1 testNetworkId script
+          tx = unsafeBuildTransaction $ emptyTxBody & addInputs [(input, witness)]
+          utxo = Utxo $ Map.singleton input output
+          witness = BuildTxWith $ mkScriptWitness script (mkDatumForTxIn datum) redeemer
+          script = fromPlutusScript Hash.validatorScript
+          bytes = fold $ replicate 10000 ("a" :: ByteString)
+          datum = Hash.datum $ toBuiltin bytes
+          redeemer = mkRedeemerForTxIn $ Hash.redeemer algorithm
+       in case evaluateTx tx utxo of
+            Left basicFailure ->
+              property False
+                & counterexample ("Basic failure: " <> show basicFailure)
+            Right report ->
+              case Map.elems report of
+                [Right units] ->
+                  property True
+                    & counterexample ("Redeemer report: " <> show report)
+                    & counterexample ("Tx: " <> show tx)
+                    & QC.label (show algorithm <> ":" <> show (fromAlonzoExUnits units))
+                _ ->
+                  property False
+                    & counterexample ("Too many redeemers in report: " <> show report)
 
 --
 -- Properties
