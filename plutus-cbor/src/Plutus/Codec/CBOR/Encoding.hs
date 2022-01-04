@@ -1,5 +1,3 @@
-{-# OPTIONS_GHC -fno-specialize #-}
-
 module Plutus.Codec.CBOR.Encoding (
   -- * Encoding
   Encoding,
