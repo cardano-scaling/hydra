@@ -61,6 +61,15 @@ import Hydra.Ledger.Cardano (
   Utxo,
   Utxo' (Utxo),
   VerificationKey (PaymentVerificationKey),
+  fromLedgerTx,
+  fromPlutusScript,
+  getDatum,
+  mkScriptAddress,
+  toAlonzoData,
+  toCtxUTxOTxOut,
+  toLedgerTxIn,
+  toLedgerTxOut,
+  toPlutusData,
  )
 import qualified Hydra.Ledger.Cardano as Api
 import Hydra.Party (MultiSigned, Party (Party), toPlutusSignatures, vkey)
@@ -459,74 +468,93 @@ abortTx networkId (Api.fromLedgerTxIn -> headInput, Api.fromLedgerData -> headDa
 
 -- XXX(SN): We should log decisions why a tx is not an initTx etc. instead of
 -- only returning a Maybe, i.e. 'Either Reason (OnChainTx tx, OnChainHeadState)'
-observeInitTx :: Party -> ValidatedTx Era -> Maybe (OnChainTx CardanoTx, OnChainHeadState)
-observeInitTx party ValidatedTx{wits, body} = do
-  (dh, headDatum, MockHead.Initial cp ps) <- getFirst $ foldMap (First . decodeHeadDatum) datumsList
+observeInitTx ::
+  Api.NetworkId ->
+  Party ->
+  ValidatedTx Era ->
+  Maybe (OnChainTx CardanoTx, OnChainHeadState)
+observeInitTx networkId party (Api.getTxBody . fromLedgerTx -> txBody) = do
+  (ix, headOut, headData, MockHead.Initial cp ps) <- findFirst headOutput indexedOutputs
   let parties = map convertParty ps
   let cperiod = contestationPeriodToDiffTime cp
   guard $ party `elem` parties
-  (i, o) <- getFirst $ foldMap (First . findSmOutput dh) indexedOutputs
   pure
     ( OnInitTx cperiod parties
     , Initial
-        { threadOutput = (i, o, headDatum, ps)
+        { threadOutput =
+            ( toLedgerTxIn $ Api.mkTxIn txBody ix
+            , toLedgerTxOut $ toCtxUTxOTxOut headOut
+            , headData
+            , ps
+            )
         , initials
-        , commits = mempty
+        , commits = []
         }
     )
  where
-  decodeHeadDatum (dh, d) =
-    (dh,d,) <$> fromData (getPlutusData d)
+  Api.TxBody Api.TxBodyContent{txOuts} = txBody
 
-  findSmOutput dh (ix, o@(TxOut _ _ dh')) =
-    guard (SJust dh == dh') $> (i, o)
-   where
-    i = TxIn (TxId $ SafeHash.hashAnnotated body) ix
+  headOutput = \case
+    (ix, out@(Api.TxOut _ _ (Api.TxOutDatum _ d))) ->
+      (ix,out,Api.toAlonzoData d,) <$> fromData (Api.toPlutusData d)
+    _ -> Nothing
 
-  datumsList = Map.toList datums
+  indexedOutputs = zip [0 ..] txOuts
 
-  datums = unTxDats $ txdats wits
-
-  indexedOutputs =
-    zip [0 ..] (toList (outputs body))
+  initialOutputs = filter (isInitial . snd) indexedOutputs
 
   initials =
-    let initialOutputs = filter (isInitial . snd) indexedOutputs
-     in mapMaybe mkInitial initialOutputs
+    mapMaybe
+      ( \(i, o) -> do
+          dat <- toAlonzoData <$> getDatum o
+          pure (toLedgerTxIn $ Api.mkTxIn txBody i, toLedgerTxOut $ toCtxUTxOTxOut o, dat)
+      )
+      initialOutputs
 
-  mkInitial (ix, txOut) =
-    (mkTxIn ix,txOut,) <$> lookupDatum wits txOut
+  isInitial (Api.TxOut addr _ _) = addr == initialAddress
 
-  mkTxIn ix = TxIn (TxId $ SafeHash.hashAnnotated body) ix
+  initialAddress = mkScriptAddress @Api.PlutusScriptV1 networkId initialScript
 
-  isInitial (TxOut addr _ _) =
-    addr == scriptAddr initialScript
-
-  initialScript = plutusScript MockInitial.validatorScript
+  initialScript = fromPlutusScript MockInitial.validatorScript
 
 convertParty :: OnChain.Party -> Party
 convertParty = Party . partyToVerKey
 
 -- | Identify a commit tx by looking for an output which pays to v_commit.
-observeCommitTx :: ValidatedTx Era -> Maybe (OnChainTx CardanoTx, (TxIn StandardCrypto, TxOut Era, Data Era))
-observeCommitTx tx@ValidatedTx{wits} = do
-  (txIn, txOut) <- findScriptOutput (utxoFromTx tx) commitScript
-  dat <- lookupDatum wits txOut
-  (party, utxo) <- fromData $ getPlutusData dat
+observeCommitTx ::
+  Api.NetworkId ->
+  ValidatedTx Era ->
+  Maybe (OnChainTx CardanoTx, (TxIn StandardCrypto, TxOut Era, Data Era))
+observeCommitTx networkId (Api.getTxBody . fromLedgerTx -> txBody) = do
+  (commitIn, commitOut) <- Api.findTxOutByAddress commitAddress txBody
+  dat <- getDatum commitOut
+  (party, utxo) <- fromData $ toPlutusData dat
   onChainTx <- OnCommitTx (convertParty party) <$> convertUtxo utxo
-  pure (onChainTx, (txIn, txOut, dat))
+  pure
+    ( onChainTx
+    ,
+      ( toLedgerTxIn commitIn
+      , toLedgerTxOut $ toCtxUTxOTxOut commitOut
+      , toAlonzoData dat
+      )
+    )
  where
-  commitScript = plutusScript MockCommit.validatorScript
-
   convertUtxo = Aeson.decodeStrict' . OnChain.toByteString
 
+  commitAddress = mkScriptAddress @Api.PlutusScriptV1 networkId commitScript
+
+  commitScript = fromPlutusScript MockCommit.validatorScript
+
+-- REVIEW(SN): Is this really specific to commit only, or wouldn't we be able to
+-- filter all 'knownUtxo' after observing any protocol tx?
 observeCommit ::
+  Api.NetworkId ->
   ValidatedTx Era ->
   OnChainHeadState ->
   Maybe (OnChainTx CardanoTx, OnChainHeadState)
-observeCommit tx = \case
+observeCommit networkId tx = \case
   Initial{threadOutput, initials, commits} -> do
-    (onChainTx, commitTriple) <- observeCommitTx tx
+    (onChainTx, commitTriple) <- observeCommitTx networkId tx
     -- NOTE(SN): A commit tx has been observed and thus we can remove all it's
     -- inputs from our tracked initials
     let commitIns = inputs $ body tx
@@ -724,3 +752,7 @@ utxoFromTx ValidatedTx{body} =
   Map.fromList $ zip (map mkTxIn [0 ..]) . toList $ outputs body
  where
   mkTxIn = TxIn (TxId $ SafeHash.hashAnnotated body)
+
+-- | Find first occurrence including a transformation.
+findFirst :: Foldable t => (a -> Maybe b) -> t a -> Maybe b
+findFirst fn = getFirst . foldMap (First . fn)

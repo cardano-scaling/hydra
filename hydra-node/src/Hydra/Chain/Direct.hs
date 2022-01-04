@@ -166,7 +166,7 @@ withDirectChain tracer networkMagic iocp socketPath keyPair party cardanoKeys ca
         ( connectTo
             (localSnocket iocp)
             nullConnectTracers
-            (versions networkMagic (client tracer queue party headState callback))
+            (versions networkMagic (client tracer networkMagic queue party headState callback))
             socketPath
         )
  where
@@ -196,20 +196,21 @@ instance Exception ConnectException
 client ::
   (MonadST m, MonadTimer m) =>
   Tracer m DirectChainLog ->
+  NetworkMagic ->
   TQueue m (ValidatedTx Era) ->
   Party ->
   TVar m OnChainHeadState ->
   ChainCallback CardanoTx m ->
   NodeToClientVersion ->
   OuroborosApplication 'InitiatorMode LocalAddress LByteString m () Void
-client tracer queue party headState callback nodeToClientV =
+client tracer networkMagic queue party headState callback nodeToClientV =
   nodeToClientProtocols
     ( const $
         pure $
           NodeToClientProtocols
             { localChainSyncProtocol =
                 InitiatorProtocolOnly $
-                  let peer = chainSyncClientPeer $ chainSyncClient tracer callback party headState
+                  let peer = chainSyncClientPeer $ chainSyncClient tracer networkMagic callback party headState
                    in MuxPeer nullTracer cChainSyncCodec peer
             , localTxSubmissionProtocol =
                 InitiatorProtocolOnly $
@@ -233,13 +234,16 @@ chainSyncClient ::
   forall m.
   MonadSTM m =>
   Tracer m DirectChainLog ->
+  NetworkMagic ->
   ChainCallback CardanoTx m ->
   Party ->
   TVar m OnChainHeadState ->
   ChainSyncClient Block (Point Block) (Tip Block) m ()
-chainSyncClient tracer callback party headState =
+chainSyncClient tracer networkMagic callback party headState =
   ChainSyncClient (pure initStIdle)
  where
+  networkId = Testnet networkMagic
+
   -- NOTE:
   -- We fast-forward the chain client to the current node's tip on start, and
   -- from there, follow the chain block by block as they arrive. This is why the
@@ -313,8 +317,8 @@ chainSyncClient tracer callback party headState =
     let utxo = knownUtxo onChainHeadState
     -- TODO(SN): We should be only looking for abort,commit etc. when we have a headId/policyId
     let res =
-          observeInitTx party tx
-            <|> observeCommit tx onChainHeadState
+          observeInitTx networkId party tx
+            <|> observeCommit networkId tx onChainHeadState
             <|> observeCollectComTx utxo tx
             <|> observeCloseTx utxo tx
             <|> observeAbortTx utxo tx

@@ -180,11 +180,6 @@ mkTxOutDatum :: Plutus.ToData a => a -> TxOutDatum CtxTx Era
 mkTxOutDatum =
   TxOutDatum ScriptDataInAlonzoEra . fromPlutusData . Plutus.toData
 
-toTxDatum :: TxOutDatum CtxUTxO Era -> TxOutDatum CtxTx Era
-toTxDatum = \case
-  TxOutDatumNone -> TxOutDatumNone
-  TxOutDatumHash sdsie ha -> TxOutDatumHash sdsie ha
-
 mkTxOutDatumHash :: Plutus.ToData a => a -> TxOutDatum CtxUTxO Era
 mkTxOutDatumHash =
   TxOutDatumHash ScriptDataInAlonzoEra . hashScriptData . fromPlutusData . Plutus.toData
@@ -355,6 +350,12 @@ mkSimpleCardanoTx (txin, TxOut owner txOutValueIn datum) (recipient, valueOut) s
 
   fee = Lovelace 0
 
+-- ** TxIn
+
+-- | Create a 'TxIn' from a transaction body and index.
+mkTxIn :: TxBody era -> Word -> TxIn
+mkTxIn txBody index = TxIn (getTxId txBody) (TxIx index)
+
 -- ** TxOut
 
 -- XXX(SN): replace with Cardano.Api.TxBody.lovelaceToTxOutValue when available
@@ -369,12 +370,28 @@ mkTxOutValue :: Value -> TxOutValue Era
 mkTxOutValue =
   TxOutValue MultiAssetInAlonzoEra
 
+getDatum :: TxOut CtxTx era -> Maybe ScriptData
+getDatum (TxOut _ _ d) = case d of
+  TxOutDatum _ dat -> Just dat
+  _ -> Nothing
+
 modifyTxOutDatum ::
   (TxOutDatum ctx0 Era -> TxOutDatum ctx1 Era) ->
   TxOut ctx0 Era ->
   TxOut ctx1 Era
 modifyTxOutDatum fn (TxOut addr value dat) =
   TxOut addr value (fn dat)
+
+-- | Find first 'TxOut' which pays to given address and also return the
+-- corresponding 'TxIn' to reference it.
+findTxOutByAddress :: AddressInEra era -> TxBody era -> Maybe (TxIn, TxOut CtxTx era)
+findTxOutByAddress address body =
+  flip find indexedOutputs $ \(_, TxOut addr _ _) -> addr == address
+ where
+  indexedOutputs = zip [mkTxIn body ix | ix <- [0 ..]] txOuts
+
+  TxBody TxBodyContent{txOuts} = body
+
 -- ** Value
 
 -- TODO: Maybe consider using 'renderValue' from cardano-api instead?
