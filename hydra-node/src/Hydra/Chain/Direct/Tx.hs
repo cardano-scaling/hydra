@@ -388,12 +388,12 @@ fanoutTx ::
   -- FIXME(SN): should also contain some Head identifier/address and stored Value (maybe the TxOut + Data?)
   (TxIn StandardCrypto, Data Era) ->
   ValidatedTx Era
-fanoutTx networkId utxo (Api.fromLedgerTxIn -> headInput, Api.fromLedgerData -> headDatumBefore) =
+fanoutTx _networkId utxo (Api.fromLedgerTxIn -> headInput, Api.fromLedgerData -> headDatumBefore) =
   Api.toLedgerTx $
     Api.unsafeBuildTransaction $
       Api.emptyTxBody
         & Api.addInputs [(headInput, headWitness)]
-        & Api.addOutputs (fanoutOutputs <> [headOutput])
+        & Api.addOutputs fanoutOutputs -- <> [headOutput])
  where
   headWitness =
     Api.BuildTxWith $ Api.mkScriptWitness headScript headDatumBefore headRedeemer
@@ -403,13 +403,13 @@ fanoutTx networkId utxo (Api.fromLedgerTxIn -> headInput, Api.fromLedgerData -> 
     Api.mkRedeemerForTxIn (MockHead.Fanout $ fromIntegral $ length utxo)
 
   -- TODO: we probably don't need an output for the head SM which we don't use anyway
-  headOutput =
-    Api.TxOut
-      (Api.mkScriptAddress @Api.PlutusScriptV1 networkId headScript)
-      (Api.mkTxOutValue $ Api.lovelaceToValue 2_000_000)
-      headDatumAfter
-  headDatumAfter =
-    Api.mkTxOutDatum MockHead.Final
+  -- headOutput =
+  --   Api.TxOut
+  --     (Api.mkScriptAddress @Api.PlutusScriptV1 networkId headScript)
+  --     (Api.mkTxOutValue $ Api.lovelaceToValue 2_000_000)
+  --     headDatumAfter
+  -- headDatumAfter =
+  --   Api.mkTxOutDatum MockHead.Final
 
   fanoutOutputs =
     foldr ((:) . Api.toTxContext) [] utxo
