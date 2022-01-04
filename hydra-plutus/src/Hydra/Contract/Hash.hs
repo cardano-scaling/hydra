@@ -21,7 +21,7 @@ import PlutusTx.IsData.Class (ToData (..))
 data Hash
 
 data HashAlgorithm
-  = Baseline
+  = Base
   | SHA2
   | SHA3
   -- Blake2b
@@ -40,7 +40,7 @@ instance Scripts.ValidatorTypes Hash where
 validator :: DatumType Hash -> RedeemerType Hash -> ScriptContext -> Bool
 validator bytes algorithm _ctx =
   case algorithm of
-    Baseline -> equalsByteString bytes bytes
+    Base -> equalsByteString bytes bytes
     SHA2 -> not . equalsByteString bytes $ sha2_256 bytes
     SHA3 -> not . equalsByteString bytes $ sha3_256 bytes
 

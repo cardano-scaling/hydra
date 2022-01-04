@@ -126,19 +126,21 @@ spec = do
         putTextLn @IO $ "    n = " <> show n <> ", s = " <> show s
         for_ [minBound .. maxBound] $ \algorithm -> do
           let ExecutionUnits
-                { executionSteps = baselineCpu
-                , executionMemory = baselineMem
-                } = calculateHashExUnits n Hash.Baseline
-              ExecutionUnits
+                { executionSteps = baseCpu
+                , executionMemory = baseMem
+                } = calculateHashExUnits n Hash.Base
+              units@ExecutionUnits
                 { executionSteps = cpu
                 , executionMemory = mem
                 } = calculateHashExUnits n algorithm
           putTextLn $
             "      " <> show algorithm
-              <> ": cpu="
-              <> show (toInteger cpu - toInteger baselineCpu)
-              <> ", mem="
-              <> show (toInteger mem - toInteger baselineMem)
+              <> ": "
+              <> show units
+              <> " Δcpu="
+              <> show (toInteger cpu - toInteger baseCpu)
+              <> " Δmem="
+              <> show (toInteger mem - toInteger baseMem)
 
 calculateHashExUnits :: Int -> Hash.HashAlgorithm -> ExecutionUnits
 calculateHashExUnits n algorithm =
