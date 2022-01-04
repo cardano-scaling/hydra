@@ -152,10 +152,10 @@ newtype ReasonablySized a = ReasonablySized a
 instance Arbitrary a => Arbitrary (ReasonablySized a) where
   arbitrary = ReasonablySized <$> reasonablySized arbitrary
 
--- Like 'coverTable', but construct the weight requirements generically from the
--- label type-representation.
+-- | Like 'coverTable', but construct the weight requirements generically from
+-- the provided label.
 --
---     data MyCoverLabel = Case1 Int | Case2 Bool deriving (Generic, Data, Show)
+--     data MyCoverLabel = Case1 | Case2 deriving (Enum, Bounded, Show)
 --
 --     forAll arbitrary $ \a ->
 --         myProp a
@@ -170,6 +170,15 @@ instance Arbitrary a => Arbitrary (ReasonablySized a) where
 --        & tabulate "MyCoverTable" [head $ words $ show a]
 --        & checkCoverage
 --
+-- If 'myProp' should take some data, use a product type around 'MyCoverLabel',
+-- for example:
+--
+--     type WithLabel a = (MyCoverLabel, a)
+--
+--     forAll arbitrary $ \(label, input) ->
+--         myProp input
+--         & genericCoverTable [label]
+--         & checkCoverage
 genericCoverTable ::
   forall a prop.
   ( Show a
