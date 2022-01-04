@@ -36,6 +36,7 @@ encodeInteger n
 withMajorType :: Integer -> Integer -> Encoding -> Encoding
 withMajorType major n =
   consByteString (32 * major + n)
+{-# INLINEABLE withMajorType #-}
 
 encodeUnsigned :: Integer -> Integer -> Encoding
 encodeUnsigned major n
