@@ -9,7 +9,7 @@ module Hydra.Contract.Hash where
 import Ledger hiding (validatorHash)
 import PlutusTx.Prelude
 
-import Hydra.Prelude (Arbitrary (arbitrary), Generic, Show, genericArbitrary)
+import qualified Hydra.Prelude as Haskell
 
 import Ledger.Typed.Scripts (TypedValidator, ValidatorType, ValidatorTypes (..))
 import qualified Ledger.Typed.Scripts as Scripts
@@ -25,12 +25,12 @@ data HashAlgorithm
   | SHA2
   | SHA3
   -- Blake2b
-  deriving (Show, Generic)
+  deriving (Haskell.Show, Haskell.Generic, Haskell.Enum, Haskell.Bounded)
 
 PlutusTx.unstableMakeIsData ''HashAlgorithm
 
-instance Arbitrary HashAlgorithm where
-  arbitrary = genericArbitrary
+instance Haskell.Arbitrary HashAlgorithm where
+  arbitrary = Haskell.genericArbitrary
 
 instance Scripts.ValidatorTypes Hash where
   type DatumType Hash = BuiltinByteString
@@ -40,7 +40,7 @@ instance Scripts.ValidatorTypes Hash where
 validator :: DatumType Hash -> RedeemerType Hash -> ScriptContext -> Bool
 validator bytes algorithm _ctx =
   case algorithm of
-    Baseline -> not $ equalsByteString "" "1"
+    Baseline -> not $ equalsByteString "" bytes
     SHA2 -> not . equalsByteString "" $ sha2_256 bytes
     SHA3 -> not . equalsByteString "" $ sha3_256 bytes
 

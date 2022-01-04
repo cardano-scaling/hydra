@@ -38,6 +38,7 @@ import Hydra.Ledger.Cardano (
   CardanoTx,
   CtxUTxO,
   Era,
+  ExecutionUnits,
   LedgerCrypto,
   LedgerEra,
   PlutusScriptV1,
@@ -95,7 +96,6 @@ import Test.QuickCheck (
   property,
   suchThat,
  )
-import qualified Test.QuickCheck as QC
 import Test.QuickCheck.Instances ()
 
 spec :: Spec
@@ -119,31 +119,36 @@ spec = do
       propMutation healthyCloseTx genCloseMutation
 
   describe "Hash" $
-    prop "execution units" $ \input algorithm ->
-      let output = toCtxUTxOTxOut $ TxOut address value (mkTxOutDatum datum)
-          value = lovelaceToTxOutValue 1_000_000
-          address = mkScriptAddress @PlutusScriptV1 testNetworkId script
-          tx = unsafeBuildTransaction $ emptyTxBody & addInputs [(input, witness)]
-          utxo = Utxo $ Map.singleton input output
-          witness = BuildTxWith $ mkScriptWitness script (mkDatumForTxIn datum) redeemer
-          script = fromPlutusScript Hash.validatorScript
-          bytes = fold $ replicate 10000 ("a" :: ByteString)
-          datum = Hash.datum $ toBuiltin bytes
-          redeemer = mkRedeemerForTxIn $ Hash.redeemer algorithm
-       in case evaluateTx tx utxo of
-            Left basicFailure ->
-              property False
-                & counterexample ("Basic failure: " <> show basicFailure)
-            Right report ->
-              case Map.elems report of
-                [Right units] ->
-                  property True
-                    & counterexample ("Redeemer report: " <> show report)
-                    & counterexample ("Tx: " <> show tx)
-                    & QC.label (show algorithm <> ":" <> show (fromAlonzoExUnits units))
-                _ ->
-                  property False
-                    & counterexample ("Too many redeemers in report: " <> show report)
+    it "measure execution units" $ do
+      for_ [1, 10, 100, 1000, 10000] $ \n -> do
+        putTextLn @IO $ "n = " <> show n
+        for_ [minBound .. maxBound] $ \algorithm -> do
+          let units = calculateHashExUnits n algorithm
+          putTextLn $ "  " <> show algorithm <> ":" <> show units
+
+calculateHashExUnits :: Int -> Hash.HashAlgorithm -> ExecutionUnits
+calculateHashExUnits n algorithm =
+  case evaluateTx tx utxo of
+    Left basicFailure ->
+      error ("Basic failure: " <> show basicFailure)
+    Right report ->
+      case Map.elems report of
+        [Right units] ->
+          fromAlonzoExUnits units
+        _ ->
+          error $ "Too many redeemers in report: " <> show report
+ where
+  tx = unsafeBuildTransaction $ emptyTxBody & addInputs [(input, witness)]
+  utxo = Utxo $ Map.singleton input output
+  input = generateWith arbitrary 42
+  output = toCtxUTxOTxOut $ TxOut address value (mkTxOutDatum datum)
+  value = lovelaceToTxOutValue 1_000_000
+  address = mkScriptAddress @PlutusScriptV1 testNetworkId script
+  witness = BuildTxWith $ mkScriptWitness script (mkDatumForTxIn datum) redeemer
+  script = fromPlutusScript Hash.validatorScript
+  datum = Hash.datum $ toBuiltin bytes
+  redeemer = mkRedeemerForTxIn $ Hash.redeemer algorithm
+  bytes = fold $ replicate n ("0" :: ByteString)
 
 --
 -- Properties
