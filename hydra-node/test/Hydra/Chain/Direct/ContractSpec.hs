@@ -29,12 +29,8 @@ import Hydra.Chain.Direct.Fixture (testNetworkId)
 import qualified Hydra.Chain.Direct.Fixture as Fixture
 import Hydra.Chain.Direct.Tx (closeTx, policyId)
 import Hydra.Chain.Direct.TxSpec (mkHeadOutput)
-<<<<<<< HEAD
 import qualified Hydra.Contract.Hash as Hash
-import Hydra.Contract.MockHead (naturalToCBOR, verifyPartySignature, verifySnapshotSignature)
-=======
 import Hydra.Contract.MockHead (hashTxOuts, naturalToCBOR, verifyPartySignature, verifySnapshotSignature)
->>>>>>> a97b811f (Add a property unit test for hashUtxo/hashTxOuts)
 import qualified Hydra.Contract.MockHead as MockHead
 import Hydra.Data.Party (partyFromVerKey)
 import qualified Hydra.Data.Party as OnChain
@@ -60,17 +56,15 @@ import Hydra.Ledger.Cardano (
   fromAlonzoExUnits,
   fromLedgerTx,
   fromLedgerUtxo,
-<<<<<<< HEAD
   fromPlutusScript,
+  genUtxoWithoutByronAddresses,
+  hashUtxo,
   lovelaceToTxOutValue,
   mkDatumForTxIn,
   mkRedeemerForTxIn,
   mkScriptAddress,
   mkScriptWitness,
   mkTxOutDatum,
-=======
-  hashUtxo,
->>>>>>> a97b811f (Add a property unit test for hashUtxo/hashTxOuts)
   mkTxOutDatumHash,
   toCtxUTxOTxOut,
   toLedgerTx,
@@ -186,7 +180,9 @@ calculateHashExUnits n algorithm =
 
 prop_hashUtxo :: Property
 prop_hashUtxo =
-  forAllShow arbitrary (decodeUtf8 . encodePretty) $ \(utxo :: Utxo) ->
+  -- NOTE: We only generate shelley addressed txouts because they are left out
+  -- of the plutus script context in 'txInfoOut'.
+  forAllShow genUtxoWithoutByronAddresses (decodeUtf8 . encodePretty) $ \(utxo :: Utxo) ->
     let plutusTxOuts = mapMaybe txInfoOut ledgerTxOuts
         ledgerTxOuts = Map.elems . Ledger.unUTxO $ toLedgerUtxo utxo
      in (hashUtxo utxo === fromBuiltin (hashTxOuts plutusTxOuts))

@@ -696,6 +696,18 @@ genAdaOnlyUtxo = do
     TxOut addr value datum ->
       TxOut addr (lovelaceToTxOutValue $ txOutValueToLovelace value) datum
 
+-- | Generate UTXO with only 'TxOut' which are addressed to non-bootstrap
+-- (byron) addresses.
+genUtxoWithoutByronAddresses :: Gen Utxo
+genUtxoWithoutByronAddresses = do
+  utxo <- arbitrary
+  let filtered = filter notByronAddress $ utxoPairs utxo
+  pure $ Utxo $ Map.fromList filtered
+ where
+  notByronAddress (_, TxOut addr _ _) = case addr of
+    AddressInEra ByronAddressInAnyEra _ -> False
+    _ -> True
+
 shrinkUtxo :: Utxo -> [Utxo]
 shrinkUtxo = shrinkMapBy (Utxo . fromList) utxoPairs (shrinkList shrinkOne)
  where
