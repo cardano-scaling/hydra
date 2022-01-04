@@ -38,7 +38,7 @@ import Hydra.Ledger.Cardano (
   CardanoTx,
   CtxUTxO,
   Era,
-  ExecutionUnits,
+  ExecutionUnits (ExecutionUnits),
   LedgerCrypto,
   LedgerEra,
   PlutusScriptV1,
@@ -119,14 +119,26 @@ spec = do
       propMutation healthyCloseTx genCloseMutation
 
   describe "Hash" $
-    it "runs with these ^ execution units" $ do
+    it "runs with these ^ execution units over Baseline" $ do
       for_ [0 .. 5] $ \(power :: Integer) -> do
         let n = 8 ^ power
             s = n `quot` 8
         putTextLn @IO $ "    n = " <> show n <> ", s = " <> show s
         for_ [minBound .. maxBound] $ \algorithm -> do
-          let units = calculateHashExUnits n algorithm
-          putTextLn $ "      " <> show algorithm <> ":" <> show units
+          let ExecutionUnits
+                { executionSteps = baselineCpu
+                , executionMemory = baselineMem
+                } = calculateHashExUnits n Hash.Baseline
+              ExecutionUnits
+                { executionSteps = cpu
+                , executionMemory = mem
+                } = calculateHashExUnits n algorithm
+          putTextLn $
+            "      " <> show algorithm
+              <> ": cpu="
+              <> show (toInteger cpu - toInteger baselineCpu)
+              <> ", mem="
+              <> show (toInteger mem - toInteger baselineMem)
 
 calculateHashExUnits :: Int -> Hash.HashAlgorithm -> ExecutionUnits
 calculateHashExUnits n algorithm =
