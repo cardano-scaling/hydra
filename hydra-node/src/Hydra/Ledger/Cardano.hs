@@ -27,6 +27,7 @@ import Hydra.Ledger.Cardano.Isomorphism
 import qualified Cardano.Api
 import Cardano.Binary (decodeAnnotator, serialize, serialize')
 import qualified Cardano.Crypto.DSIGN as CC
+import Cardano.Crypto.Hash (SHA256, digest, hashToBytes)
 import qualified Cardano.Ledger.Alonzo.PParams as Ledger.Alonzo
 import qualified Cardano.Ledger.Alonzo.Scripts as Ledger.Alonzo
 import qualified Cardano.Ledger.Alonzo.Tx as Ledger.Alonzo
@@ -35,8 +36,11 @@ import Cardano.Ledger.Alonzo.TxWitness (TxDats (TxDats), unRedeemers)
 import qualified Cardano.Ledger.Alonzo.TxWitness as Ledger.Alonzo
 import qualified Cardano.Ledger.BaseTypes as Ledger
 import qualified Cardano.Ledger.Core as Ledger
+import Cardano.Ledger.Credential (Credential (KeyHashObj, ScriptHashObj))
 import qualified Cardano.Ledger.Crypto as Ledger (StandardCrypto)
 import qualified Cardano.Ledger.Era as Ledger
+import Cardano.Ledger.Hashes (ScriptHash (ScriptHash))
+import Cardano.Ledger.Keys (KeyHash (KeyHash))
 import qualified Cardano.Ledger.Keys as Ledger
 import qualified Cardano.Ledger.Mary as Ledger.Mary hiding (Value)
 import qualified Cardano.Ledger.Mary.Value as Ledger.Mary
@@ -454,6 +458,18 @@ instance Arbitrary Utxo where
     fromMaryTxOut = \case
       Ledger.Shelley.TxOutCompact addr value ->
         Ledger.Alonzo.TxOutCompact addr value
+
+hashUtxo :: Utxo -> ByteString
+hashUtxo (Utxo u) =
+  digest @SHA256 Proxy $ foldr (\txout bs -> hashTxOut txout <> bs) "" u
+
+hashTxOut :: TxOut CtxUTxO Era -> ByteString
+hashTxOut (TxOut addr _ _) =
+  case addr of
+    AddressInEra (ShelleyAddressInEra _) (ShelleyAddress _ creds _) -> case creds of
+      (ScriptHashObj (ScriptHash sh)) -> hashToBytes sh
+      (KeyHashObj (KeyHash kh)) -> hashToBytes kh
+    _ -> error "Byron address, should never happen (famous last words)"
 
 toLedgerUtxo :: Utxo -> Ledger.UTxO LedgerEra
 toLedgerUtxo =

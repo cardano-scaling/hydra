@@ -56,13 +56,14 @@ import Hydra.Ledger.Cardano (
   fromLedgerTxIn,
   genAdaOnlyUtxo,
   genKeyPair,
+  hashUtxo,
   shrinkUtxo,
   toMaryValue,
   utxoPairs,
  )
 import qualified Hydra.Ledger.Cardano as Api
 import Hydra.Party (Party, vkey)
-import Plutus.V1.Ledger.Api (PubKeyHash, toData)
+import Plutus.V1.Ledger.Api (PubKeyHash, toBuiltin, toData)
 import Test.Cardano.Ledger.Alonzo.Serialisation.Generators ()
 import Test.QuickCheck (
   NonEmptyList (NonEmpty),
@@ -297,7 +298,7 @@ spec =
             -- FIXME: Ensure the headOutput contains enough value to fanout all inHeadUtxo
             headValue = inject (Coin 10_000_000)
             -- FIXME: utxoHash should be calculated from inHeadUtxo
-            headDatum = Data $ toData $ MockHead.Closed{snapshotNumber = 1, utxoHash = ""}
+            headDatum = Data $ toData $ MockHead.Closed{snapshotNumber = 1, utxoHash = toBuiltin (hashUtxo inHeadUtxo)}
          in checkCoverage $ case validateTxScriptsUnlimited onChainUtxo tx of
               Left basicFailure ->
                 property False & counterexample ("Basic failure: " <> show basicFailure)
