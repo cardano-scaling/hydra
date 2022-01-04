@@ -466,10 +466,12 @@ hashUtxo (Utxo u) =
 serialiseTxOut :: TxOut CtxUTxO Era -> ByteString
 serialiseTxOut (TxOut addr _ _) =
   case addr of
-    AddressInEra (ShelleyAddressInEra _) (ShelleyAddress _ creds _) -> case creds of
-      (ScriptHashObj (ScriptHash sh)) -> hashToBytes sh
-      (KeyHashObj (KeyHash kh)) -> hashToBytes kh
-    _ -> error "Byron address, should never happen (famous last words)"
+    AddressInEra (ShelleyAddressInEra _) (ShelleyAddress _ creds _) ->
+      case creds of
+        (ScriptHashObj (ScriptHash sh)) -> hashToBytes sh
+        (KeyHashObj (KeyHash kh)) -> hashToBytes kh
+    AddressInEra ByronAddressInAnyEra (ByronAddress byron) ->
+      serialize' byron
 
 toLedgerUtxo :: Utxo -> Ledger.UTxO LedgerEra
 toLedgerUtxo =

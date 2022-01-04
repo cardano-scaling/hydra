@@ -102,6 +102,7 @@ import Test.QuickCheck (
   choose,
   counterexample,
   forAll,
+  forAllShow,
   oneof,
   property,
   suchThat,
@@ -183,13 +184,14 @@ calculateHashExUnits n algorithm =
 -- Properties
 --
 
-prop_hashUtxo :: Utxo -> Property
-prop_hashUtxo utxo =
-  hashUtxo utxo === fromBuiltin (hashTxOuts plutusTxOuts)
- where
-  plutusTxOuts = mapMaybe txInfoOut ledgerTxOuts
-
-  ledgerTxOuts = Map.elems . Ledger.unUTxO $ toLedgerUtxo utxo
+prop_hashUtxo :: Property
+prop_hashUtxo =
+  forAllShow arbitrary (decodeUtf8 . encodePretty) $ \(utxo :: Utxo) ->
+    let plutusTxOuts = mapMaybe txInfoOut ledgerTxOuts
+        ledgerTxOuts = Map.elems . Ledger.unUTxO $ toLedgerUtxo utxo
+     in (hashUtxo utxo === fromBuiltin (hashTxOuts plutusTxOuts))
+          & counterexample ("Plutus: " <> show plutusTxOuts)
+          & counterexample ("Ledger: " <> show ledgerTxOuts)
 
 prop_encode16BitsNaturalToCBOROnChain :: Property
 prop_encode16BitsNaturalToCBOROnChain =
