@@ -459,7 +459,7 @@ fromPostChainTx TinyWallet{getUtxo, verificationKey} networkId headState cardano
       readTVar headState >>= \case
         OpenOrClosed{threadOutput} ->
           let (i, _, dat, _) = threadOutput
-           in pure $ fanoutTx networkId utxo (i, dat)
+           in pure $ fanoutTx utxo (i, dat)
         _st -> throwIO $ InvalidStateToPost tx
     _ -> error "not implemented"
  where

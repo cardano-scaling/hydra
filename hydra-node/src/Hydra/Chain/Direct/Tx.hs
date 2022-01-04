@@ -380,20 +380,18 @@ closeTx Snapshot{number, utxo} sig (Api.fromLedgerTxIn -> headInput, Api.fromLed
   utxoHash = toBuiltin $ hashUtxo utxo
 
 fanoutTx ::
-  -- | Network identifier for address discrimination
-  NetworkId ->
   -- | Snapshotted Utxo to fanout on layer 1
   Utxo ->
   -- | Everything needed to spend the Head state-machine output.
   -- FIXME(SN): should also contain some Head identifier/address and stored Value (maybe the TxOut + Data?)
   (TxIn StandardCrypto, Data Era) ->
   ValidatedTx Era
-fanoutTx _networkId utxo (Api.fromLedgerTxIn -> headInput, Api.fromLedgerData -> headDatumBefore) =
+fanoutTx utxo (Api.fromLedgerTxIn -> headInput, Api.fromLedgerData -> headDatumBefore) =
   Api.toLedgerTx $
     Api.unsafeBuildTransaction $
       Api.emptyTxBody
         & Api.addInputs [(headInput, headWitness)]
-        & Api.addOutputs fanoutOutputs -- <> [headOutput])
+        & Api.addOutputs fanoutOutputs
  where
   headWitness =
     Api.BuildTxWith $ Api.mkScriptWitness headScript headDatumBefore headRedeemer
@@ -401,15 +399,6 @@ fanoutTx _networkId utxo (Api.fromLedgerTxIn -> headInput, Api.fromLedgerData ->
     Api.fromPlutusScript $ MockHead.validatorScript policyId
   headRedeemer =
     Api.mkRedeemerForTxIn (MockHead.Fanout $ fromIntegral $ length utxo)
-
-  -- TODO: we probably don't need an output for the head SM which we don't use anyway
-  -- headOutput =
-  --   Api.TxOut
-  --     (Api.mkScriptAddress @Api.PlutusScriptV1 networkId headScript)
-  --     (Api.mkTxOutValue $ Api.lovelaceToValue 2_000_000)
-  --     headDatumAfter
-  -- headDatumAfter =
-  --   Api.mkTxOutDatum MockHead.Final
 
   fanoutOutputs =
     foldr ((:) . Api.toTxContext) [] utxo

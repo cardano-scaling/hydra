@@ -251,7 +251,7 @@ spec =
     describe "fanoutTx" $ do
       let prop_fanoutTxSize :: Utxo -> TxIn StandardCrypto -> Property
           prop_fanoutTxSize utxo headIn =
-            let tx = fanoutTx testNetworkId utxo (headIn, headDatum)
+            let tx = fanoutTx utxo (headIn, headDatum)
                 headDatum = Data $ toData MockHead.Closed{snapshotNumber = 1, utxoHash = ""}
                 cbor = serialize tx
                 len = LBS.length cbor
@@ -283,7 +283,7 @@ spec =
             expectFailure . prop_fanoutTxSize utxo
 
       prop "is observed" $ \utxo headInput ->
-        let tx = fanoutTx testNetworkId utxo (headInput, headDatum)
+        let tx = fanoutTx utxo (headInput, headDatum)
             headOutput = mkHeadOutput SNothing
             headDatum = Data $ toData $ MockHead.Closed{snapshotNumber = 1, utxoHash = ""}
             lookupUtxo = Map.singleton headInput headOutput
@@ -294,7 +294,7 @@ spec =
 
       prop "validates" $ \headInput ->
         forAll (reasonablySized genUtxoWithoutByronAddresses) $ \inHeadUtxo ->
-          let tx = fanoutTx testNetworkId inHeadUtxo (headInput, headDatum)
+          let tx = fanoutTx inHeadUtxo (headInput, headDatum)
               onChainUtxo = UTxO $ Map.singleton headInput headOutput
               headOutput = TxOut headAddress headValue . SJust $ hashData @Era headDatum
               headAddress = scriptAddr $ plutusScript $ MockHead.validatorScript policyId
@@ -312,6 +312,7 @@ spec =
                   property False & counterexample ("Basic failure: " <> show basicFailure)
                 Right redeemerReport ->
                   1 == length (rights $ Map.elems redeemerReport)
+                    & label (show (length inHeadUtxo) <> " UTXO")
                     & counterexample ("Redeemer report: " <> show redeemerReport)
                     & counterexample ("Tx: " <> show tx)
                     & cover 0.8 True "Success"
