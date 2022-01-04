@@ -299,7 +299,7 @@ healthyCloseTx =
   , fromLedgerUtxo lookupUtxo
   )
  where
-  tx = closeTx healthySnapshotNumber (healthySignature healthySnapshotNumber) (headInput, headOutput, headDatum)
+  tx = closeTx healthySnapshot (healthySignature healthySnapshotNumber) (headInput, headOutput, headDatum)
   headInput = generateWith arbitrary 42
   headOutput = mkHeadOutput (SJust headDatum)
   headDatum = Ledger.Data $ toData healthyCloseDatum

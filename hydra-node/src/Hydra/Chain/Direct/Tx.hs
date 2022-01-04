@@ -64,6 +64,7 @@ import Hydra.Ledger.Cardano (
   fromLedgerTx,
   fromPlutusScript,
   getDatum,
+  hashUtxo,
   mkScriptAddress,
   toAlonzoData,
   toCtxUTxOTxOut,
@@ -73,9 +74,9 @@ import Hydra.Ledger.Cardano (
  )
 import qualified Hydra.Ledger.Cardano as Api
 import Hydra.Party (MultiSigned, Party (Party), toPlutusSignatures, vkey)
-import Hydra.Snapshot (Snapshot, SnapshotNumber)
+import Hydra.Snapshot (Snapshot (..))
 import Ledger.Value (AssetClass (..), currencyMPSHash)
-import Plutus.V1.Ledger.Api (FromData, MintingPolicyHash, PubKeyHash (..), fromData)
+import Plutus.V1.Ledger.Api (FromData, MintingPolicyHash, PubKeyHash (..), fromData, toBuiltin)
 import qualified Plutus.V1.Ledger.Api as Plutus
 import Plutus.V1.Ledger.Value (assetClass, currencySymbol, tokenName)
 
@@ -343,14 +344,14 @@ collectComTx networkId _utxo (Api.fromLedgerTxIn -> headInput, Api.fromLedgerDat
 
 -- | Create a transaction closing a head with given snapshot number and utxo.
 closeTx ::
-  SnapshotNumber ->
+  Snapshot CardanoTx ->
   -- | Multi-signature of the whole snapshot
   MultiSigned (Snapshot CardanoTx) ->
   -- | Everything needed to spend the Head state-machine output.
   -- FIXME(SN): should also contain some Head identifier/address and stored Value (maybe the TxOut + Data?)
   (TxIn StandardCrypto, TxOut Era, Data Era) ->
   ValidatedTx Era
-closeTx snapshotNumber sig (Api.fromLedgerTxIn -> headInput, Api.fromLedgerTxOut -> headOutputBefore, Api.fromLedgerData -> headDatumBefore) =
+closeTx Snapshot{number, utxo} sig (Api.fromLedgerTxIn -> headInput, Api.fromLedgerTxOut -> headOutputBefore, Api.fromLedgerData -> headDatumBefore) =
   Api.toLedgerTx $
     Api.unsafeBuildTransaction $
       Api.emptyTxBody
@@ -364,7 +365,7 @@ closeTx snapshotNumber sig (Api.fromLedgerTxIn -> headInput, Api.fromLedgerTxOut
   headRedeemer =
     Api.mkRedeemerForTxIn
       MockHead.Close
-        { snapshotNumber = toInteger snapshotNumber
+        { snapshotNumber = toInteger number
         , signature = toPlutusSignatures sig
         , utxoHash
         }
@@ -373,10 +374,10 @@ closeTx snapshotNumber sig (Api.fromLedgerTxIn -> headInput, Api.fromLedgerTxOut
   headDatumAfter =
     Api.mkTxOutDatum
       MockHead.Closed
-        { snapshotNumber = toInteger snapshotNumber
+        { snapshotNumber = toInteger number
         , utxoHash
         }
-  utxoHash = "" -- FIXME: off-chain compute H(U) from a snapshot or take as argument
+  utxoHash = toBuiltin $ hashUtxo utxo
 
 fanoutTx ::
   -- | Network identifier for address discrimination

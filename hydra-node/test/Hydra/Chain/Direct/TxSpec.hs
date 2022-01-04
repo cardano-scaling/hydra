@@ -64,6 +64,7 @@ import Hydra.Ledger.Cardano (
  )
 import qualified Hydra.Ledger.Cardano as Api
 import Hydra.Party (Party, vkey)
+import Hydra.Snapshot (Snapshot (Snapshot), number)
 import Plutus.V1.Ledger.Api (PubKeyHash, toBuiltin, toData)
 import Test.Cardano.Ledger.Alonzo.Serialisation.Generators ()
 import Test.QuickCheck (
@@ -221,7 +222,7 @@ spec =
 
     describe "closeTx" $ do
       -- XXX(SN): tests are using a fixed snapshot number because of overlapping instances
-      let sn = 1
+      let sn = Snapshot 1 mempty mempty
 
       prop "transaction size below limit" $ \sig headIn parties ->
         let tx = closeTx sn sig (headIn, headOutput, headDatum)
@@ -242,7 +243,7 @@ spec =
             tx = closeTx sn msig (headInput, headOutput, headDatum)
             res = observeCloseTx lookupUtxo tx
          in case res of
-              Just (OnCloseTx{snapshotNumber}, OpenOrClosed{}) -> snapshotNumber === sn
+              Just (OnCloseTx{snapshotNumber}, OpenOrClosed{}) -> snapshotNumber === number sn
               _ -> property False
               & counterexample ("Observe result: " <> show res)
               & counterexample ("Tx: " <> show tx)
