@@ -119,12 +119,14 @@ spec = do
       propMutation healthyCloseTx genCloseMutation
 
   describe "Hash" $
-    it "measure execution units" $ do
-      for_ [1, 10, 100, 1000, 10000] $ \n -> do
-        putTextLn @IO $ "n = " <> show n
+    it "runs with these ^ execution units" $ do
+      for_ [0 .. 5] $ \(power :: Integer) -> do
+        let n = 8 ^ power
+            s = n `quot` 8
+        putTextLn @IO $ "    n = " <> show n <> ", s = " <> show s
         for_ [minBound .. maxBound] $ \algorithm -> do
           let units = calculateHashExUnits n algorithm
-          putTextLn $ "  " <> show algorithm <> ":" <> show units
+          putTextLn $ "      " <> show algorithm <> ":" <> show units
 
 calculateHashExUnits :: Int -> Hash.HashAlgorithm -> ExecutionUnits
 calculateHashExUnits n algorithm =
