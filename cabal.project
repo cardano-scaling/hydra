@@ -8,6 +8,7 @@ packages:
   hydra-test-utils
   hydra-tui
   merkle-patricia-tree
+  plutus-cbor
 
 tests: False
 package local-cluster
@@ -24,6 +25,9 @@ package hydra-tui
   tests: True
 
 package merkle-patricia-tree
+  tests: True
+
+package plutus-cbor
   tests: True
 
 -- Always show detailed output for tests
