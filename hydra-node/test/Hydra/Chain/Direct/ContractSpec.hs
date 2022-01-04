@@ -21,9 +21,7 @@ import Cardano.Ledger.Alonzo.Tools (
 import Cardano.Ledger.Alonzo.TxWitness (RdmrPtr)
 import qualified Cardano.Ledger.Alonzo.TxWitness as Ledger
 import qualified Cardano.Ledger.Shelley.API as Ledger
-import Control.Lens ((^.))
 import qualified Data.ByteString as BS
-import Data.Generics.Product.Typed (HasType (..))
 import qualified Data.Map as Map
 import Data.Maybe.Strict (StrictMaybe (..))
 import qualified Hydra.Chain.Direct.Fixture as Fixture
@@ -139,11 +137,11 @@ prop_verifySnapshotSignatures =
 
 propMutation :: (CardanoTx, Utxo) -> ((CardanoTx, Utxo) -> Gen SomeMutation) -> Property
 propMutation (tx, utxo) genMutation =
-  forAll @_ @Property (genMutation (tx, utxo)) $ \(SomeMutation mutation) ->
+  forAll @_ @Property (genMutation (tx, utxo)) $ \SomeMutation{label, mutation} ->
     (tx, utxo)
-      & applyMutation (mutation ^. typed)
+      & applyMutation mutation
       & propTransactionDoesNotValidate
-      & genericCoverTable [mutation]
+      & genericCoverTable [label]
       & checkCoverage
 
 propTransactionDoesNotValidate :: (CardanoTx, Utxo) -> Property
@@ -178,8 +176,12 @@ propTransactionValidates (tx, lookupUtxo) =
 -- Mutation
 --
 
-data SomeMutation where
-  SomeMutation :: forall a. (GCoverTable a, HasType Mutation a) => a -> SomeMutation
+data SomeMutation = forall lbl.
+  (Typeable lbl, Enum lbl, Bounded lbl, Show lbl) =>
+  SomeMutation
+  { label :: lbl
+  , mutation :: Mutation
+  }
 deriving instance Show SomeMutation
 
 data Mutation
@@ -241,25 +243,25 @@ healthySignature number = MultiSigned [sign sk snapshot | sk <- healthyPartyCred
   snapshot = healthySnapshot{number}
 
 data CloseMutation
-  = MutateSignatureButNotSnapshotNumber Mutation
-  | MutateSnapshotNumberButNotSignature Mutation
-  | MutateSnapshotToIllFormedValue Mutation
-  | MutateParties Mutation
-  deriving (Generic, Show)
+  = MutateSignatureButNotSnapshotNumber
+  | MutateSnapshotNumberButNotSignature
+  | MutateSnapshotToIllFormedValue
+  | MutateParties
+  deriving (Generic, Show, Enum, Bounded)
 
-genCloseMutation :: (CardanoTx, Utxo) -> Gen (SomeMutation)
+genCloseMutation :: (CardanoTx, Utxo) -> Gen SomeMutation
 genCloseMutation (_tx, _utxo) =
   -- FIXME: using 'closeRedeemer' here is actually too high-level and reduces
   -- the power of the mutators, we should test at the level of the validator.
   -- That is, using the on-chain types. 'closeRedeemer' is also not used
   -- anywhere after changing this and can be moved into the closeTx
   oneof
-    [ SomeMutation . MutateSignatureButNotSnapshotNumber . ChangeHeadRedeemer <$> do
+    [ SomeMutation MutateSignatureButNotSnapshotNumber . ChangeHeadRedeemer <$> do
         closeRedeemer (number healthySnapshot) <$> arbitrary
-    , SomeMutation . MutateSnapshotNumberButNotSignature . ChangeHeadRedeemer <$> do
+    , SomeMutation MutateSnapshotNumberButNotSignature . ChangeHeadRedeemer <$> do
         mutatedSnapshotNumber <- arbitrarySizedNatural `suchThat` (/= healthySnapshotNumber)
         pure (closeRedeemer mutatedSnapshotNumber $ healthySignature healthySnapshotNumber)
-    , SomeMutation . MutateSnapshotToIllFormedValue . ChangeHeadRedeemer <$> do
+    , SomeMutation MutateSnapshotToIllFormedValue . ChangeHeadRedeemer <$> do
         mutatedSnapshotNumber <- arbitrary `suchThat` (< 0)
         let mutatedSignature =
               MultiSigned [sign sk $ serialize' mutatedSnapshotNumber | sk <- healthyPartyCredentials]
@@ -268,7 +270,7 @@ genCloseMutation (_tx, _utxo) =
             { MockHead.snapshotNumber = mutatedSnapshotNumber
             , MockHead.signature = toPlutusSignatures mutatedSignature
             }
-    , SomeMutation . MutateParties . ChangeHeadDatum <$> arbitrary `suchThat` \case
+    , SomeMutation MutateParties . ChangeHeadDatum <$> arbitrary `suchThat` \case
         MockHead.Open{MockHead.parties = parties} ->
           parties /= MockHead.parties healthyCloseDatum
         _ ->
