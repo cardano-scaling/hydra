@@ -466,13 +466,14 @@ abortTx networkId (Api.fromLedgerTxIn -> headInput, Api.fromLedgerData -> headDa
 
 -- * Observe Hydra Head transactions
 
-observeNetworkId :: Api.NetworkId
-observeNetworkId = Api.Testnet $ Api.NetworkMagic 42
-
 -- XXX(SN): We should log decisions why a tx is not an initTx etc. instead of
 -- only returning a Maybe, i.e. 'Either Reason (OnChainTx tx, OnChainHeadState)'
-observeInitTx :: Party -> ValidatedTx Era -> Maybe (OnChainTx CardanoTx, OnChainHeadState)
-observeInitTx party (Api.getTxBody . fromLedgerTx -> txBody) = do
+observeInitTx ::
+  Api.NetworkId ->
+  Party ->
+  ValidatedTx Era ->
+  Maybe (OnChainTx CardanoTx, OnChainHeadState)
+observeInitTx networkId party (Api.getTxBody . fromLedgerTx -> txBody) = do
   (ix, headOut, headData, MockHead.Initial cp ps) <- findFirst headOutput indexedOutputs
   let parties = map convertParty ps
   let cperiod = contestationPeriodToDiffTime cp
@@ -512,7 +513,7 @@ observeInitTx party (Api.getTxBody . fromLedgerTx -> txBody) = do
 
   isInitial (Api.TxOut addr _ _) = addr == initialAddress
 
-  initialAddress = mkScriptAddress @Api.PlutusScriptV1 observeNetworkId initialScript
+  initialAddress = mkScriptAddress @Api.PlutusScriptV1 networkId initialScript
 
   initialScript = fromPlutusScript MockInitial.validatorScript
 
@@ -521,9 +522,10 @@ convertParty = Party . partyToVerKey
 
 -- | Identify a commit tx by looking for an output which pays to v_commit.
 observeCommitTx ::
+  Api.NetworkId ->
   ValidatedTx Era ->
   Maybe (OnChainTx CardanoTx, (TxIn StandardCrypto, TxOut Era, Data Era))
-observeCommitTx (Api.getTxBody . fromLedgerTx -> txBody) = do
+observeCommitTx networkId (Api.getTxBody . fromLedgerTx -> txBody) = do
   (commitIn, commitOut) <- Api.findTxOutByAddress commitAddress txBody
   dat <- getDatum commitOut
   (party, utxo) <- fromData $ toPlutusData dat
@@ -539,19 +541,20 @@ observeCommitTx (Api.getTxBody . fromLedgerTx -> txBody) = do
  where
   convertUtxo = Aeson.decodeStrict' . OnChain.toByteString
 
-  commitAddress = mkScriptAddress @Api.PlutusScriptV1 observeNetworkId commitScript
+  commitAddress = mkScriptAddress @Api.PlutusScriptV1 networkId commitScript
 
   commitScript = fromPlutusScript MockCommit.validatorScript
 
 -- REVIEW(SN): Is this really specific to commit only, or wouldn't we be able to
 -- filter all 'knownUtxo' after observing any protocol tx?
 observeCommit ::
+  Api.NetworkId ->
   ValidatedTx Era ->
   OnChainHeadState ->
   Maybe (OnChainTx CardanoTx, OnChainHeadState)
-observeCommit tx = \case
+observeCommit networkId tx = \case
   Initial{threadOutput, initials, commits} -> do
-    (onChainTx, commitTriple) <- observeCommitTx tx
+    (onChainTx, commitTriple) <- observeCommitTx networkId tx
     -- NOTE(SN): A commit tx has been observed and thus we can remove all it's
     -- inputs from our tracked initials
     let commitIns = inputs $ body tx
