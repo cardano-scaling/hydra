@@ -292,14 +292,13 @@ spec =
               & counterexample ("Utxo map: " <> show lookupUtxo)
 
       prop "validates" $ \headInput ->
-        forAll genUtxoWithoutByronAddresses $ \inHeadUtxo ->
+        forAll (reasonablySized genUtxoWithoutByronAddresses) $ \inHeadUtxo ->
           let tx = fanoutTx testNetworkId inHeadUtxo (headInput, headDatum)
               onChainUtxo = UTxO $ Map.singleton headInput headOutput
               headOutput = TxOut headAddress headValue . SJust $ hashData @Era headDatum
               headAddress = scriptAddr $ plutusScript $ MockHead.validatorScript policyId
               -- FIXME: Ensure the headOutput contains enough value to fanout all inHeadUtxo
               headValue = inject (Coin 10_000_000)
-              -- FIXME: utxoHash should be calculated from inHeadUtxo
               headDatum =
                 Data $
                   toData $

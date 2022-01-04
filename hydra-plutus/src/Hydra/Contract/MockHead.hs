@@ -46,7 +46,7 @@ data Input
       , signature :: [Signature]
       }
   | Abort
-  | Fanout
+  | Fanout { numberOfFanoutOutputs :: Integer }
   deriving (Generic, Show)
 
 PlutusTx.unstableMakeIsData ''Input
@@ -80,19 +80,18 @@ hydraTransition oldState input =
       | otherwise -> do
         guard $ verifySnapshotSignature parties snapshotNumber signature
         Just (mempty, oldState{SM.stateData = Closed{snapshotNumber, utxoHash = closedUtxoHash}})
-    (Closed{}, Fanout) ->
-      -- TODO: check hashing the actual TxOut of the transaction matches the utxoHash
+    (Closed{}, Fanout{}) ->
       Just (mempty, oldState{SM.stateData = Final, SM.stateValue = mempty})
     _ -> Nothing
 
 hydraContextCheck :: State -> Input -> ScriptContext -> Bool
 hydraContextCheck state input context =
   case (state, input) of
-    (Closed{utxoHash = closedUtxoHash}, Fanout) ->
-      traceIfFalse "fannedOutUtxoHash /= closedUtxoHash" $ fannedOutUtxoHash == closedUtxoHash
+    (Closed{utxoHash = closedUtxoHash}, Fanout{numberOfFanoutOutputs}) ->
+      traceIfFalse "fannedOutUtxoHash /= closedUtxoHash" $ fannedOutUtxoHash numberOfFanoutOutputs == closedUtxoHash
     _ -> True
  where
-  fannedOutUtxoHash = hashTxOuts txInfoOutputs
+  fannedOutUtxoHash numberOfFanoutOutputs = hashTxOuts $ take numberOfFanoutOutputs txInfoOutputs
 
   TxInfo{txInfoOutputs} = txInfo
 

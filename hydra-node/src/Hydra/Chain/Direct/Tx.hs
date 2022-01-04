@@ -392,14 +392,14 @@ fanoutTx networkId utxo (Api.fromLedgerTxIn -> headInput, Api.fromLedgerData -> 
     Api.unsafeBuildTransaction $
       Api.emptyTxBody
         & Api.addInputs [(headInput, headWitness)]
-        & Api.addOutputs (headOutput : fanoutOutputs)
+        & Api.addOutputs (fanoutOutputs <> [headOutput])
  where
   headWitness =
     Api.BuildTxWith $ Api.mkScriptWitness headScript headDatumBefore headRedeemer
   headScript =
     Api.fromPlutusScript $ MockHead.validatorScript policyId
   headRedeemer =
-    Api.mkRedeemerForTxIn MockHead.Fanout
+    Api.mkRedeemerForTxIn (MockHead.Fanout $ fromIntegral $ length utxo)
 
   -- TODO: we probably don't need an output for the head SM which we don't use anyway
   headOutput =
@@ -643,7 +643,7 @@ observeFanoutTx ::
 observeFanoutTx utxo tx = do
   headInput <- fst <$> findScriptOutput utxo headScript
   getRedeemerSpending tx headInput >>= \case
-    MockHead.Fanout -> pure (OnFanoutTx, Final)
+    MockHead.Fanout{} -> pure (OnFanoutTx, Final)
     _ -> Nothing
  where
   headScript = plutusScript $ MockHead.validatorScript policyId
