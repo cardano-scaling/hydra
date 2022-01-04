@@ -40,9 +40,9 @@ instance Scripts.ValidatorTypes Hash where
 validator :: DatumType Hash -> RedeemerType Hash -> ScriptContext -> Bool
 validator bytes algorithm _ctx =
   case algorithm of
-    Baseline -> True
-    SHA2 -> not . equalsByteString "" $ sha2_256 bytes
-    SHA3 -> not . equalsByteString "" $ sha3_256 bytes
+    Baseline -> equalsByteString bytes bytes
+    SHA2 -> not . equalsByteString bytes $ sha2_256 bytes
+    SHA3 -> not . equalsByteString bytes $ sha3_256 bytes
 
 -- Blake2b -> not . equalsByteString "" $ blake2b_256 bytes
 
