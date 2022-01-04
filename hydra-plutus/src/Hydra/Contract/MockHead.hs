@@ -85,7 +85,6 @@ hydraTransition oldState input =
       Just (mempty, oldState{SM.stateData = Final, SM.stateValue = mempty})
     _ -> Nothing
 
-{-# INLINEABLE hydraContextCheck #-}
 hydraContextCheck :: State -> Input -> ScriptContext -> Bool
 hydraContextCheck state input context =
   case (state, input) of
@@ -93,19 +92,24 @@ hydraContextCheck state input context =
       traceIfFalse "fannedOutUtxoHash /= closedUtxoHash" $ fannedOutUtxoHash == closedUtxoHash
     _ -> True
  where
-  fannedOutUtxoHash = sha2_256 $ foldMap serialiseTxOut txInfoOutputs
+  fannedOutUtxoHash = hashTxOuts txInfoOutputs
 
   TxInfo{txInfoOutputs} = txInfo
 
   ScriptContext{scriptContextTxInfo = txInfo} = context
+{-# INLINEABLE hydraContextCheck #-}
 
-{-# INLINEABLE serialiseTxOut #-}
+hashTxOuts :: [TxOut] -> BuiltinByteString
+hashTxOuts = sha2_256 . foldMap serialiseTxOut
+{-# INLINEABLE hashTxOuts #-}
+
 serialiseTxOut :: TxOut -> BuiltinByteString
 serialiseTxOut TxOut{txOutAddress} =
   let Address{addressCredential} = txOutAddress
    in case addressCredential of
         PubKeyCredential (PubKeyHash bs) -> bs
         ScriptCredential (ValidatorHash bs) -> bs
+{-# INLINEABLE serialiseTxOut #-}
 
 {-# INLINEABLE verifySnapshotSignature #-}
 verifySnapshotSignature :: [Party] -> SnapshotNumber -> [Signature] -> Bool

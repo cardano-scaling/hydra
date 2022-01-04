@@ -298,7 +298,13 @@ spec =
             -- FIXME: Ensure the headOutput contains enough value to fanout all inHeadUtxo
             headValue = inject (Coin 10_000_000)
             -- FIXME: utxoHash should be calculated from inHeadUtxo
-            headDatum = Data $ toData $ MockHead.Closed{snapshotNumber = 1, utxoHash = toBuiltin (hashUtxo inHeadUtxo)}
+            headDatum =
+              Data $
+                toData $
+                  MockHead.Closed
+                    { snapshotNumber = 1
+                    , utxoHash = toBuiltin (hashUtxo inHeadUtxo)
+                    }
          in checkCoverage $ case validateTxScriptsUnlimited onChainUtxo tx of
               Left basicFailure ->
                 property False & counterexample ("Basic failure: " <> show basicFailure)

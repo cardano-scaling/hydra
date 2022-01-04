@@ -461,10 +461,10 @@ instance Arbitrary Utxo where
 
 hashUtxo :: Utxo -> ByteString
 hashUtxo (Utxo u) =
-  digest @SHA256 Proxy $ foldr (\txout bs -> hashTxOut txout <> bs) "" u
+  digest @SHA256 Proxy $ foldr (\txout bs -> serialiseTxOut txout <> bs) "" u
 
-hashTxOut :: TxOut CtxUTxO Era -> ByteString
-hashTxOut (TxOut addr _ _) =
+serialiseTxOut :: TxOut CtxUTxO Era -> ByteString
+serialiseTxOut (TxOut addr _ _) =
   case addr of
     AddressInEra (ShelleyAddressInEra _) (ShelleyAddress _ creds _) -> case creds of
       (ScriptHashObj (ScriptHash sh)) -> hashToBytes sh

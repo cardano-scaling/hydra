@@ -18,6 +18,7 @@ import Cardano.Ledger.Alonzo.Tools (
   ScriptFailure,
   evaluateTransactionExecutionUnits,
  )
+import Cardano.Ledger.Alonzo.TxInfo (txInfoOut)
 import Cardano.Ledger.Alonzo.TxWitness (RdmrPtr)
 import qualified Cardano.Ledger.Alonzo.TxWitness as Ledger
 import qualified Cardano.Ledger.Shelley.API as Ledger
@@ -28,8 +29,12 @@ import Hydra.Chain.Direct.Fixture (testNetworkId)
 import qualified Hydra.Chain.Direct.Fixture as Fixture
 import Hydra.Chain.Direct.Tx (closeTx, policyId)
 import Hydra.Chain.Direct.TxSpec (mkHeadOutput)
+<<<<<<< HEAD
 import qualified Hydra.Contract.Hash as Hash
 import Hydra.Contract.MockHead (naturalToCBOR, verifyPartySignature, verifySnapshotSignature)
+=======
+import Hydra.Contract.MockHead (hashTxOuts, naturalToCBOR, verifyPartySignature, verifySnapshotSignature)
+>>>>>>> a97b811f (Add a property unit test for hashUtxo/hashTxOuts)
 import qualified Hydra.Contract.MockHead as MockHead
 import Hydra.Data.Party (partyFromVerKey)
 import qualified Hydra.Data.Party as OnChain
@@ -55,6 +60,7 @@ import Hydra.Ledger.Cardano (
   fromAlonzoExUnits,
   fromLedgerTx,
   fromLedgerUtxo,
+<<<<<<< HEAD
   fromPlutusScript,
   lovelaceToTxOutValue,
   mkDatumForTxIn,
@@ -62,6 +68,9 @@ import Hydra.Ledger.Cardano (
   mkScriptAddress,
   mkScriptWitness,
   mkTxOutDatum,
+=======
+  hashUtxo,
+>>>>>>> a97b811f (Add a property unit test for hashUtxo/hashTxOuts)
   mkTxOutDatumHash,
   toCtxUTxOTxOut,
   toLedgerTx,
@@ -96,6 +105,7 @@ import Test.QuickCheck (
   oneof,
   property,
   suchThat,
+  (===),
  )
 import Test.QuickCheck.Instances ()
 
@@ -113,6 +123,8 @@ spec = do
     prop
       "verifies snapshot multi-signature for list of parties and signatures"
       prop_verifySnapshotSignatures
+  describe "TxOut hashing" $ do
+    prop "hashUtxo == hashTxOuts" prop_hashUtxo
   describe "Close" $ do
     prop "is healthy" $
       propTransactionValidates healthyCloseTx
@@ -170,6 +182,14 @@ calculateHashExUnits n algorithm =
 --
 -- Properties
 --
+
+prop_hashUtxo :: Utxo -> Property
+prop_hashUtxo utxo =
+  hashUtxo utxo === fromBuiltin (hashTxOuts plutusTxOuts)
+ where
+  plutusTxOuts = mapMaybe txInfoOut ledgerTxOuts
+
+  ledgerTxOuts = Map.elems . Ledger.unUTxO $ toLedgerUtxo utxo
 
 prop_encode16BitsNaturalToCBOROnChain :: Property
 prop_encode16BitsNaturalToCBOROnChain =
