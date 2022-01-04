@@ -95,7 +95,7 @@ spec =
       prop "is observed" $ \txIn cperiod (party :| parties) cardanoKeys ->
         let params = HeadParameters cperiod (party : parties)
             tx = initTx testNetworkId cardanoKeys params txIn
-            observed = observeInitTx party tx
+            observed = observeInitTx testNetworkId party tx
          in case observed of
               Just (octx, _) -> octx === OnInitTx @CardanoTx cperiod (party : parties)
               _ -> property False
@@ -105,7 +105,7 @@ spec =
         forAll (elements parties) $ \notInvited ->
           let invited = nub parties \\ [notInvited]
               tx = initTx testNetworkId cardanoKeys (HeadParameters cperiod invited) txIn
-           in isNothing (observeInitTx notInvited tx)
+           in isNothing (observeInitTx testNetworkId notInvited tx)
                 & counterexample ("observing as: " <> show notInvited)
                 & counterexample ("invited: " <> show invited)
 
@@ -114,7 +114,7 @@ spec =
             parties = fst <$> me : others
             cardanoKeys = snd <$> me : others
             tx = initTx testNetworkId cardanoKeys params txIn
-            res = observeInitTx (fst me) tx
+            res = observeInitTx testNetworkId (fst me) tx
          in case res of
               Just (OnInitTx cp ps, Initial{initials}) ->
                 cp === cperiod
@@ -146,7 +146,7 @@ spec =
             commitUtxo =
               fromByteString $ toStrict $ Aeson.encode committedUtxo
             expectedOutput = (TxIn (Ledger.TxId (SafeHash.hashAnnotated $ body tx)) 0, commitOutput, commitDatum)
-         in observeCommitTx tx
+         in observeCommitTx testNetworkId tx
               === Just (OnCommitTx{party, committed = committedUtxo}, expectedOutput)
               & counterexample ("Tx: " <> show tx)
 
@@ -178,7 +178,7 @@ spec =
               Initial
                 { initials = newInitials
                 , commits = newCommits
-                } = snd <$> observeCommit tx onChainState
+                } = snd <$> observeCommit testNetworkId tx onChainState
 
             commitedUtxoDoesNotOverlapWithInitials =
               null $ [fst singleUtxo] `intersect` ((\(a, _, _) -> fromLedgerTxIn a) <$> inputs)
