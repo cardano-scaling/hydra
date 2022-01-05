@@ -284,7 +284,7 @@ deriving instance Show SomeMutation
 data Mutation
   = ChangeHeadRedeemer MockHead.Input
   | ChangeHeadDatum MockHead.State
-  | AddOutput (TxOut CtxTx Era)
+  | PrependOutput (TxOut CtxTx Era)
   deriving (Show, Generic)
 
 applyMutation :: Mutation -> (CardanoTx, Utxo) -> (CardanoTx, Utxo)
@@ -301,7 +301,7 @@ applyMutation mutation (tx@(Tx body wits), utxo) = case mutation of
           | otherwise =
             o
      in (tx, fmap fn utxo)
-  AddOutput txOut ->
+  PrependOutput txOut ->
     ( alterTxOuts (txOut :) tx
     , utxo
     )
@@ -418,7 +418,8 @@ healthyFanoutTx =
   lookupUtxo = Ledger.UTxO $ Map.singleton headInput headOutput
 
 healthyFanoutUtxo :: Utxo
-healthyFanoutUtxo = mempty
+healthyFanoutUtxo =
+  generateWith genUtxoWithoutByronAddresses 42
 
 healthyFanoutDatum :: MockHead.State
 healthyFanoutDatum =
@@ -431,7 +432,7 @@ data FanoutMutation
 genFanoutMutation :: (CardanoTx, Utxo) -> Gen SomeMutation
 genFanoutMutation (_tx, _utxo) =
   oneof
-    [ SomeMutation MutateOutputs . AddOutput <$> do
+    [ SomeMutation MutateOutputs . PrependOutput <$> do
         arbitrary >>= genOutput
     ]
 
@@ -495,7 +496,8 @@ alterTxOuts fn tx =
   body' = ShelleyTxBody era ledgerBody' scripts scriptData mAuxData scriptValidity
   ledgerBody' = ledgerBody{Ledger.outputs = outputs'}
   -- WIP
-  outputs' = StrictSeq.fromList . fmap (toLedgerTxOut . toCtxUTxOTxOut) . fn . fmap fromLedgerTxOut . toList
+  outputs' = StrictSeq.fromList . mapOutputs . toList $ Ledger.outputs ledgerBody
+  mapOutputs = fmap (toLedgerTxOut . toCtxUTxOTxOut) . fn . fmap fromLedgerTxOut
   ShelleyTxBody era ledgerBody scripts scriptData mAuxData scriptValidity = body
   Tx body wits = tx
 
