@@ -221,11 +221,8 @@ spec =
                 & counterexample ("Tx: " <> show tx)
 
     describe "closeTx" $ do
-      -- XXX(SN): tests are using a fixed snapshot number because of overlapping instances
-      let sn = Snapshot 1 mempty mempty
-
-      prop "transaction size below limit" $ \sig headIn parties ->
-        let tx = closeTx sn sig (headIn, headOutput, headDatum)
+      prop "transaction size below limit" $ \headIn parties snapshot sig ->
+        let tx = closeTx snapshot sig (headIn, headOutput, headDatum)
             headOutput = mkHeadOutput SNothing
             headDatum = Data $ toData $ MockHead.Open{parties, utxoHash = ""}
             cbor = serialize tx
@@ -235,15 +232,15 @@ spec =
               & counterexample ("Tx: " <> show tx)
               & counterexample ("Tx serialized size: " <> show len)
 
-      prop "is observed" $ \parties msig headInput ->
+      prop "is observed" $ \parties headInput snapshot msig ->
         let headOutput = mkHeadOutput (SJust headDatum)
             headDatum = Data $ toData $ MockHead.Open{parties, utxoHash = ""}
             lookupUtxo = Map.singleton headInput headOutput
             -- NOTE(SN): deliberately uses an arbitrary multi-signature
-            tx = closeTx sn msig (headInput, headOutput, headDatum)
+            tx = closeTx snapshot msig (headInput, headOutput, headDatum)
             res = observeCloseTx lookupUtxo tx
          in case res of
-              Just (OnCloseTx{snapshotNumber}, OpenOrClosed{}) -> snapshotNumber === number sn
+              Just (OnCloseTx{snapshotNumber}, OpenOrClosed{}) -> snapshotNumber === number snapshot
               _ -> property False
               & counterexample ("Observe result: " <> show res)
               & counterexample ("Tx: " <> show tx)
