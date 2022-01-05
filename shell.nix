@@ -62,8 +62,7 @@ let
 
     buildInputs = libs ++ tools;
 
-    # Disable haddocks as it's currently failing for the 'plutus-ledger' package
-    withHoogle = false;
+    withHoogle = true;
 
     # Always create missing golden files
     CREATE_MISSING_GOLDEN = 1;
