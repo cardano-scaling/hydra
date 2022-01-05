@@ -1,0 +1,125 @@
+cabal-version: 2.2
+name:          plutus-cbor
+version:       0.1.0
+synopsis:      On-chain CBOR encoders/decoders
+author:        IOG
+copyright:     2022 IOG
+license:       Apache-2.0
+license-files:
+  LICENSE
+  NOTICE
+
+source-repository head
+  type:     git
+  location: https://github.com/input-output-hk/hydra-poc
+
+flag hydra-development
+  description: Disable -Werror for development
+  default:     False
+  manual:      True
+
+common project-config
+  default-language:   Haskell2010
+  default-extensions:
+    NoImplicitPrelude
+    BangPatterns
+    BinaryLiterals
+    ConstraintKinds
+    DataKinds
+    DefaultSignatures
+    DeriveAnyClass
+    DeriveDataTypeable
+    DeriveFoldable
+    DeriveFunctor
+    DeriveGeneric
+    DeriveTraversable
+    DerivingStrategies
+    EmptyDataDecls
+    ExistentialQuantification
+    FlexibleContexts
+    FlexibleInstances
+    FunctionalDependencies
+    GADTs
+    GeneralizedNewtypeDeriving
+    InstanceSigs
+    KindSignatures
+    LambdaCase
+    MultiParamTypeClasses
+    MultiWayIf
+    NamedFieldPuns
+    NumericUnderscores
+    OverloadedStrings
+    PartialTypeSignatures
+    PatternGuards
+    RankNTypes
+    ScopedTypeVariables
+    StandaloneDeriving
+    TupleSections
+    TypeFamilies
+    TypeSynonymInstances
+    ViewPatterns
+
+  ghc-options:
+    -Wall -Wcompat -Widentities -Wincomplete-record-updates
+    -Wincomplete-uni-patterns -Wpartial-fields -Wredundant-constraints
+    -fprint-potential-instances
+
+  if !flag(hydra-development)
+    ghc-options: -Werror
+
+library
+  import:          project-config
+  hs-source-dirs:  src
+  ghc-options:     -haddock
+  if flag(hydra-development)
+    -- NOTE(SN): should fix HLS choking on PlutusTx plugin
+    ghc-options: -fplugin-opt PlutusTx.Plugin:defer-errors
+  build-depends:
+      plutus-core
+    , plutus-tx
+    , plutus-tx-plugin
+  exposed-modules:
+    Plutus.Codec.CBOR.Encoding
+
+test-suite unit
+  import:             project-config
+  type:               exitcode-stdio-1.0
+  hs-source-dirs:     test
+  ghc-options:        -threaded -rtsopts
+  build-tool-depends: hspec-discover:hspec-discover -any
+  build-depends:
+    , array
+    , base
+    , base16
+    , binary
+    , bytestring
+    , cardano-binary
+    , cardano-ledger-shelley
+    , cardano-ledger-shelley-ma
+    , cardano-ledger-alonzo
+    , cardano-ledger-alonzo-test
+    , cardano-ledger-core
+    , cardano-slotting
+    , cborg
+    , containers
+    , data-default
+    , hspec
+    , hydra-prelude
+    , hydra-test-utils
+    , memory
+    , plutus-cbor
+    , plutus-core
+    , plutus-ledger
+    , plutus-ledger-api
+    , plutus-tx
+    , plutus-tx-plugin
+    , scientific
+    , serialise
+    , strict-containers
+    , QuickCheck
+  other-modules:
+    Plutus.Codec.CBOR.EncodingSpec
+    Test.Plutus.Codec.CBOR.Encoding.Utils
+    Test.Plutus.Codec.CBOR.Encoding.Validators
+    Spec
+  main-is:            Main.hs
