@@ -27,7 +27,7 @@ import qualified Data.Map as Map
 import Data.Maybe.Strict (StrictMaybe (..))
 import Hydra.Chain.Direct.Fixture (testNetworkId)
 import qualified Hydra.Chain.Direct.Fixture as Fixture
-import Hydra.Chain.Direct.Tx (closeTx, policyId)
+import Hydra.Chain.Direct.Tx (closeTx, fanoutTx, policyId)
 import Hydra.Chain.Direct.TxSpec (mkHeadOutput)
 import qualified Hydra.Contract.Hash as Hash
 import Hydra.Contract.MockHead (hashTxOuts, naturalToCBOR, verifyPartySignature, verifySnapshotSignature)
@@ -125,6 +125,9 @@ spec = do
       propTransactionValidates healthyCloseTx
     prop "does not survive random adversarial mutations" $
       propMutation healthyCloseTx genCloseMutation
+  describe "Fanout" $ do
+    prop "is healthy" $
+      propTransactionValidates healthyFanoutTx
 
   describe "Hash" $
     it "runs with these ^ execution units over Baseline" $ do
@@ -383,6 +386,29 @@ genCloseMutation (_tx, _utxo) =
       , signature = toPlutusSignatures sig
       , utxoHash = ""
       }
+
+--
+-- FanoutTx
+--
+
+healthyFanoutTx :: (CardanoTx, Utxo)
+healthyFanoutTx =
+  ( fromLedgerTx tx
+  , fromLedgerUtxo lookupUtxo
+  )
+ where
+  tx = fanoutTx healthyFanoutUtxo (headInput, headDatum)
+  headInput = generateWith arbitrary 42
+  headOutput = mkHeadOutput (SJust headDatum)
+  headDatum = Ledger.Data $ toData healthyFanoutDatum
+  lookupUtxo = Ledger.UTxO $ Map.singleton headInput headOutput
+
+healthyFanoutUtxo :: Utxo
+healthyFanoutUtxo = mempty
+
+healthyFanoutDatum :: MockHead.State
+healthyFanoutDatum =
+  MockHead.Closed 1 (toBuiltin $ hashUtxo healthyFanoutUtxo)
 
 --
 -- Generators
