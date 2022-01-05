@@ -91,7 +91,7 @@ library
     , hydra-node
     , hydra-prelude
     , io-classes
-    , local-cluster
+    , hydra-cluster
     , microlens
     , microlens-th
     , optparse-applicative
@@ -132,7 +132,7 @@ test-suite tests
     , hydra-test-utils
     , hydra-tui
     , io-classes
-    , local-cluster
+    , hydra-cluster
     , optparse-applicative
     , temporary
     , unix

@@ -1,6 +1,6 @@
 # Interpreting Benchmark Runs
 
-When running a benchmark using `cabal bench local-cluster` it creates log files in its `output-directory` beside a `results.csv`.
+When running a benchmark using `cabal bench hydra-cluster` it creates log files in its `output-directory` beside a `results.csv`.
 Those log files can be used to harvest some more data about the run and produce more graphs. The following notes require `jq` and a few standard tools from GNU [coreutils](https://github.com/coreutils/coreutils) like `cat`, `sed`, `awk` and friends.
 
 **NOTE**: The following scripts all work over the _filtered logs_ which are produced by the `log-filter` program.
@@ -105,7 +105,7 @@ This one a is a bit involved as it requires both extracting information from the
   ```
 * Generate a UTXO size growth per transaction id (see [this haskell script](./utxo-size.hs))
   ```
-  cd local-cluster
+  cd hydra-cluster
   cabal run runghc utxo-size.hs -- tx-confirmed-time.json test/dataset.json
   ```
 * Convert the 2 JSON files to CSV (exercise left to the reader):

@@ -1,5 +1,5 @@
 cabal-version:      3.0
-name:               local-cluster
+name:               hydra-cluster
 version:            0.2.0
 synopsis:
   Integration test suite using a local cluster of cardano and hydra nodes
@@ -175,7 +175,7 @@ executable log-filter
     , hydra-prelude
     , lens
     , lens-aeson
-    , local-cluster
+    , hydra-cluster
     , optparse-applicative
     , temporary
 
@@ -193,7 +193,7 @@ executable seed-network
     , hydra-prelude
     , lens
     , lens-aeson
-    , local-cluster
+    , hydra-cluster
     , optparse-applicative
     , temporary
 
@@ -234,7 +234,7 @@ test-suite integration
     , hydra-test-utils
     , lens
     , lens-aeson
-    , local-cluster
+    , hydra-cluster
     , plutus-ledger
     , plutus-ledger-api
     , process
@@ -272,7 +272,7 @@ benchmark bench-e2e
     , io-classes
     , lens
     , lens-aeson
-    , local-cluster
+    , hydra-cluster
     , optparse-applicative
     , QuickCheck
     , scientific

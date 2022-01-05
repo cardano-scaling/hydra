@@ -9,7 +9,7 @@ TARGETDIR="devnet"
 
 [ -d "$TARGETDIR" ] && { echo "Cleaning up directory $TARGETDIR" ; sudo rm -r $TARGETDIR ; }
 
-cp -afT "$BASEDIR/local-cluster/config" "$TARGETDIR"
+cp -afT "$BASEDIR/hydra-cluster/config" "$TARGETDIR"
 find $TARGETDIR -type f -exec chmod 0400 {} \;
 
 echo '{"Producers": []}' > "$TARGETDIR/topology.json"

@@ -91,7 +91,7 @@ API Documentation is available for:
 * [hydra-node](https://input-output-hk.github.io/hydra-poc/haddock/hydra-node/index.html)
 * [hydra-tui](https://input-output-hk.github.io/hydra-poc/haddock/hydra-tui/index.html)
 * [hydra-plutus](https://input-output-hk.github.io/hydra-poc/haddock/hydra-plutus/index.html)
-* [local-cluster](https://input-output-hk.github.io/hydra-poc/haddock/local-cluster/index.html)
+* [hydra-cluster](https://input-output-hk.github.io/hydra-poc/haddock/hydra-cluster/index.html)
 * [merkle-patricia-tree](https://input-output-hk.github.io/hydra-poc/haddock/merkle-patricia-tree/index.html)
 
 ## :wrench: Development

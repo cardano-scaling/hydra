@@ -15,7 +15,7 @@ cabal test all
 
 # Sanity check benchmark still runs fine
 # TODO: turn into a test
-cabal bench local-cluster --benchmark-options '--scaling-factor 1'
+cabal bench hydra-cluster --benchmark-options '--scaling-factor 1'
 
 # ignore various errors, including plutus scripts one
 cabal haddock all -fhydra-development
