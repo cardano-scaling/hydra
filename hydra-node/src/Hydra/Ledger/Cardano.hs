@@ -354,6 +354,10 @@ mkSimpleCardanoTx (txin, TxOut owner txOutValueIn datum) (recipient, valueOut) s
 
   fee = Lovelace 0
 
+getOutputs :: CardanoTx -> [TxOut CtxTx Era]
+getOutputs tx =
+  let TxBody TxBodyContent{txOuts} = getTxBody tx
+   in txOuts
 -- ** TxIn
 
 -- | Create a 'TxIn' from a transaction body and index.
@@ -692,6 +696,9 @@ genOneUtxoFor vk = do
   -- too large to fit in a transaction and validation fails in the ledger
   output <- scale (const 1) $ genOutput vk
   pure $ Utxo $ Map.singleton (fromLedgerTxIn input) output
+
+genValue :: Gen Value
+genValue = txOutValue <$> (genKeyPair >>= (genOutput . fst))
 
 -- | Generate UTXO entries that do not contain any assets. Useful to test /
 -- measure cases where

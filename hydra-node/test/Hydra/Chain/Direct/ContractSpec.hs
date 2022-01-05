@@ -64,6 +64,8 @@ import Hydra.Ledger.Cardano (
   fromPlutusScript,
   genOutput,
   genUtxoWithoutByronAddresses,
+  genValue,
+  getOutputs,
   hashUtxo,
   lovelaceToTxOutValue,
   mkDatumForTxIn,
@@ -72,10 +74,12 @@ import Hydra.Ledger.Cardano (
   mkScriptWitness,
   mkTxOutDatum,
   mkTxOutDatumHash,
+  modifyTxOutValue,
   toCtxUTxOTxOut,
   toLedgerTx,
   toLedgerTxOut,
   toLedgerUtxo,
+  txOutValue,
   unsafeBuildTransaction,
  )
 import qualified Hydra.Ledger.Cardano as Api
@@ -102,6 +106,7 @@ import Test.QuickCheck (
   checkCoverage,
   choose,
   counterexample,
+  elements,
   forAll,
   forAllShow,
   oneof,
@@ -306,10 +311,18 @@ applyMutation mutation (tx@(Tx body wits), utxo) = case mutation of
     ( alterTxOuts (txOut :) tx
     , utxo
     )
-  DropAssetsOf ix ->
-    ( tx
+  ChangeOutput ix txOut ->
+    ( alterTxOuts replaceAtIndex tx
     , utxo
     )
+   where
+    replaceAtIndex txOuts =
+      foldr
+        ( \(i, out) list ->
+            if i == ix then txOut : list else out : list
+        )
+        []
+        (zip [0 ..] txOuts)
 
 --
 -- CloseTx
@@ -436,15 +449,15 @@ data FanoutMutation
   deriving (Generic, Show, Enum, Bounded)
 
 genFanoutMutation :: (CardanoTx, Utxo) -> Gen SomeMutation
-genFanoutMutation (_tx, _utxo) =
+genFanoutMutation (tx, _utxo) =
   oneof
     [ SomeMutation MutateAddUnexpectedOutput . PrependOutput <$> do
         arbitrary >>= genOutput
-    , SomeMutation DropAssetsOfOneOutput <$> do
+    , SomeMutation MutateChangeOutputValue <$> do
         let outs = getOutputs tx
         (ix, out) <- elements (zip [0 .. length outs - 1] outs)
-        value' <- arbitrary `suchThat` (/= txOutValue out)
-        pure $ ChangeOutput ix (modifyTxOutValue (const value') out)
+        value' <- genValue `suchThat` (/= txOutValue out)
+        pure $ ChangeOutput (fromIntegral ix) (modifyTxOutValue (const value') out)
     ]
 
 --
