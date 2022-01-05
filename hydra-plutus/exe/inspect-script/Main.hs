@@ -8,6 +8,7 @@ import qualified Data.Aeson as Aeson
 import qualified Data.ByteString.Lazy as BL
 import Data.Text (pack)
 import Hydra.Contract.Commit as Commit
+import qualified Hydra.Contract.Hash as Hash
 import Hydra.Contract.Initial as Initial
 import Hydra.Contract.MockHead as MockHead
 import Ledger (Datum (..), datumHash)
@@ -64,6 +65,7 @@ main = do
     [ (headScript policyId, "headScript")
     , (initialScript, "initialScript")
     , (commitScript, "commitScript")
+    , (hashScript, "hashScript")
     ]
 
   headScript policyId = MockHead.validatorScript policyId
@@ -71,6 +73,8 @@ main = do
   commitScript = Commit.validatorScript
 
   initialScript = Initial.validatorScript
+
+  hashScript = Hash.validatorScript
 
   datums =
     [ (headDatum, "headDatum")
