@@ -118,7 +118,7 @@ library
     Hydra.Generator
     Hydra.LogFilter
     HydraNode
-    Paths_local_cluster
+    Paths_hydra_cluster
 
   build-depends:
     , aeson
@@ -203,7 +203,7 @@ test-suite integration
   main-is:            Main.hs
   type:               exitcode-stdio-1.0
   other-modules:
-    Paths_local_cluster
+    Paths_hydra_cluster
     Spec
     Test.DirectChainSpec
     Test.EndToEndSpec
