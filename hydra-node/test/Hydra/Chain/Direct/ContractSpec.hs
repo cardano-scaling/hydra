@@ -18,6 +18,7 @@ import Cardano.Ledger.Alonzo.Tools (
   ScriptFailure,
   evaluateTransactionExecutionUnits,
  )
+import qualified Cardano.Ledger.Alonzo.TxBody as Ledger
 import Cardano.Ledger.Alonzo.TxInfo (txInfoOut)
 import Cardano.Ledger.Alonzo.TxWitness (RdmrPtr)
 import qualified Cardano.Ledger.Alonzo.TxWitness as Ledger
@@ -25,6 +26,7 @@ import qualified Cardano.Ledger.Shelley.API as Ledger
 import qualified Data.ByteString as BS
 import qualified Data.Map as Map
 import Data.Maybe.Strict (StrictMaybe (..))
+import qualified Data.Sequence.Strict as StrictSeq
 import Hydra.Chain.Direct.Fixture (testNetworkId)
 import qualified Hydra.Chain.Direct.Fixture as Fixture
 import Hydra.Chain.Direct.Tx (closeTx, fanoutTx, policyId)
@@ -45,8 +47,9 @@ import Hydra.Ledger.Cardano (
   LedgerCrypto,
   LedgerEra,
   PlutusScriptV1,
-  Tx (Tx),
-  TxBody (ShelleyTxBody),
+  Tx (ShelleyTx, Tx),
+  TxBody (ShelleyTxBody, TxBody),
+  TxBodyContent (..),
   TxBodyScriptData (TxBodyNoScriptData, TxBodyScriptData),
   TxOut (..),
   Utxo,
@@ -56,6 +59,7 @@ import Hydra.Ledger.Cardano (
   emptyTxBody,
   fromAlonzoExUnits,
   fromLedgerTx,
+  fromLedgerTxOut,
   fromLedgerUtxo,
   fromPlutusScript,
   genOutput,
@@ -70,6 +74,7 @@ import Hydra.Ledger.Cardano (
   mkTxOutDatumHash,
   toCtxUTxOTxOut,
   toLedgerTx,
+  toLedgerTxOut,
   toLedgerUtxo,
   unsafeBuildTransaction,
  )
@@ -484,8 +489,15 @@ alterTxOuts ::
   ([TxOut CtxTx Era] -> [TxOut CtxTx Era]) ->
   CardanoTx ->
   CardanoTx
-alterTxOuts =
-  undefined
+alterTxOuts fn tx =
+  Tx body' wits
+ where
+  body' = ShelleyTxBody era ledgerBody' scripts scriptData mAuxData scriptValidity
+  ledgerBody' = ledgerBody{Ledger.outputs = outputs'}
+  -- WIP
+  outputs' = StrictSeq.fromList . fmap (toLedgerTxOut . toCtxUTxOTxOut) . fn . fmap fromLedgerTxOut . toList
+  ShelleyTxBody era ledgerBody scripts scriptData mAuxData scriptValidity = body
+  Tx body wits = tx
 
 type RedeemerReport =
   (Map RdmrPtr (Either (ScriptFailure LedgerCrypto) ExUnits))
