@@ -363,7 +363,7 @@ genCloseMutation (_tx, _utxo) =
             , signature = toPlutusSignatures mutatedSignature
             , utxoHash = ""
             }
-    , SomeMutation . MutateParties . ChangeHeadDatum <$> do
+    , SomeMutation MutateParties . ChangeHeadDatum <$> do
         mutatedParties <- arbitrary `suchThat` (/= healthyCloseParties)
         pure $
           MockHead.Open
