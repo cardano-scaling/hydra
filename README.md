@@ -93,6 +93,7 @@ API Documentation is available for:
 * [hydra-plutus](https://input-output-hk.github.io/hydra-poc/haddock/hydra-plutus/index.html)
 * [hydra-cluster](https://input-output-hk.github.io/hydra-poc/haddock/hydra-cluster/index.html)
 * [merkle-patricia-tree](https://input-output-hk.github.io/hydra-poc/haddock/merkle-patricia-tree/index.html)
+* [plutus-cbor](https://input-output-hk.github.io/hydra-poc/haddock/plutus-cbor/index.html)
 
 ## :wrench: Development
 
