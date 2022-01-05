@@ -386,6 +386,13 @@ modifyTxOutDatum ::
 modifyTxOutDatum fn (TxOut addr value dat) =
   TxOut addr value (fn dat)
 
+modifyTxOutValue ::
+  (Value -> Value) ->
+  TxOut ctx Era ->
+  TxOut ctx Era
+modifyTxOutValue fn (TxOut addr value dat) =
+  TxOut addr (mkTxOutValue $ fn $ txOutValueToValue value) dat
+
 -- | Find first 'TxOut' which pays to given address and also return the
 -- corresponding 'TxIn' to reference it.
 findTxOutByAddress :: AddressInEra era -> TxBody era -> Maybe (TxIn, TxOut CtxTx era)

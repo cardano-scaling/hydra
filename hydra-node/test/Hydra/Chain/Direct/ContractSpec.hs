@@ -285,6 +285,7 @@ data Mutation
   = ChangeHeadRedeemer MockHead.Input
   | ChangeHeadDatum MockHead.State
   | PrependOutput (TxOut CtxTx Era)
+  | ChangeOutput Word (TxOut CtxTx Era)
   deriving (Show, Generic)
 
 applyMutation :: Mutation -> (CardanoTx, Utxo) -> (CardanoTx, Utxo)
@@ -303,6 +304,10 @@ applyMutation mutation (tx@(Tx body wits), utxo) = case mutation of
      in (tx, fmap fn utxo)
   PrependOutput txOut ->
     ( alterTxOuts (txOut :) tx
+    , utxo
+    )
+  DropAssetsOf ix ->
+    ( tx
     , utxo
     )
 
@@ -426,14 +431,20 @@ healthyFanoutDatum =
   MockHead.Closed 1 (toBuiltin $ hashUtxo healthyFanoutUtxo)
 
 data FanoutMutation
-  = MutateOutputs
+  = MutateAddUnexpectedOutput
+  | MutateChangeOutputValue
   deriving (Generic, Show, Enum, Bounded)
 
 genFanoutMutation :: (CardanoTx, Utxo) -> Gen SomeMutation
 genFanoutMutation (_tx, _utxo) =
   oneof
-    [ SomeMutation MutateOutputs . PrependOutput <$> do
+    [ SomeMutation MutateAddUnexpectedOutput . PrependOutput <$> do
         arbitrary >>= genOutput
+    , SomeMutation DropAssetsOfOneOutput <$> do
+        let outs = getOutputs tx
+        (ix, out) <- elements (zip [0 .. length outs - 1] outs)
+        value' <- arbitrary `suchThat` (/= txOutValue out)
+        pure $ ChangeOutput ix (modifyTxOutValue (const value') out)
     ]
 
 --
