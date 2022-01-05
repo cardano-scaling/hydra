@@ -4,8 +4,8 @@ version:            0.3.0
 synopsis:
   Integration test suite using a local cluster of cardano and hydra nodes
 
-author:             IOHK
-copyright:          2021 IOHK
+author:             IOG
+copyright:          2022 IOG
 license:            Apache-2.0
 license-files:
   LICENSE

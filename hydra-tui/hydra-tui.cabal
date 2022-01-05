@@ -3,8 +3,8 @@ name:          hydra-tui
 version:       0.3.0
 synopsis:      TUI for managing a Hydra node
 description:   TUI for managing a Hydra node
-author:        IOHK
-copyright:     2021 IOHK
+author:        IOG
+copyright:     2022 IOG
 license:       Apache-2.0
 license-files:
   LICENSE
