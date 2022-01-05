@@ -74,10 +74,9 @@ hydraTransition oldState input =
       Just (mempty, oldState{SM.stateData = Open{parties, utxoHash}, SM.stateValue = collectedValue <> SM.stateValue oldState})
     (Initial{}, Abort) ->
       Just (mempty, oldState{SM.stateData = Final, SM.stateValue = mempty})
-    (Open{parties}, Close{snapshotNumber, signature, utxoHash = closedUtxoHash})
+    (Open{parties, utxoHash = openedUtxoHash}, Close{snapshotNumber, signature, utxoHash = closedUtxoHash})
       | snapshotNumber == 0 ->
-        -- TODO: Check closedUtxoHash matches Open state's utxoHash
-        Just (mempty, oldState{SM.stateData = Closed{snapshotNumber, utxoHash = closedUtxoHash}})
+        Just (mempty, oldState{SM.stateData = Closed{snapshotNumber, utxoHash = openedUtxoHash}})
       | otherwise -> do
         guard $ verifySnapshotSignature parties snapshotNumber signature
         Just (mempty, oldState{SM.stateData = Closed{snapshotNumber, utxoHash = closedUtxoHash}})
