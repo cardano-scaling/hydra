@@ -64,7 +64,7 @@ import Hydra.Ledger.Cardano (
  )
 import qualified Hydra.Ledger.Cardano as Api
 import Hydra.Party (Party, vkey)
-import Hydra.Snapshot (Snapshot (Snapshot), number)
+import Hydra.Snapshot (number)
 import Plutus.V1.Ledger.Api (PubKeyHash, toBuiltin, toData)
 import Test.Cardano.Ledger.Alonzo.Serialisation.Generators ()
 import Test.QuickCheck (
