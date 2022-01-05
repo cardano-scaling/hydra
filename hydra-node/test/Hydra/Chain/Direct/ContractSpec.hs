@@ -38,6 +38,7 @@ import Hydra.Ledger.Cardano (
   AlonzoEra,
   BuildTxWith (BuildTxWith),
   CardanoTx,
+  CtxTx,
   CtxUTxO,
   Era,
   ExecutionUnits (ExecutionUnits),
@@ -57,6 +58,7 @@ import Hydra.Ledger.Cardano (
   fromLedgerTx,
   fromLedgerUtxo,
   fromPlutusScript,
+  genOutput,
   genUtxoWithoutByronAddresses,
   hashUtxo,
   lovelaceToTxOutValue,
@@ -128,6 +130,8 @@ spec = do
   describe "Fanout" $ do
     prop "is healthy" $
       propTransactionValidates healthyFanoutTx
+    prop "does not survive random adversarial mutations" $
+      propMutation healthyFanoutTx genFanoutMutation
 
   describe "Hash" $
     it "runs with these ^ execution units over Baseline" $ do
@@ -275,6 +279,7 @@ deriving instance Show SomeMutation
 data Mutation
   = ChangeHeadRedeemer MockHead.Input
   | ChangeHeadDatum MockHead.State
+  | AddOutput (TxOut CtxTx Era)
   deriving (Show, Generic)
 
 applyMutation :: Mutation -> (CardanoTx, Utxo) -> (CardanoTx, Utxo)
@@ -291,6 +296,10 @@ applyMutation mutation (tx@(Tx body wits), utxo) = case mutation of
           | otherwise =
             o
      in (tx, fmap fn utxo)
+  AddOutput txOut ->
+    ( alterTxOuts (txOut :) tx
+    , utxo
+    )
 
 --
 -- CloseTx
@@ -410,6 +419,17 @@ healthyFanoutDatum :: MockHead.State
 healthyFanoutDatum =
   MockHead.Closed 1 (toBuiltin $ hashUtxo healthyFanoutUtxo)
 
+data FanoutMutation
+  = MutateOutputs
+  deriving (Generic, Show, Enum, Bounded)
+
+genFanoutMutation :: (CardanoTx, Utxo) -> Gen SomeMutation
+genFanoutMutation (_tx, _utxo) =
+  oneof
+    [ SomeMutation MutateOutputs . AddOutput <$> do
+        arbitrary >>= genOutput
+    ]
+
 --
 -- Generators
 --
@@ -459,6 +479,13 @@ alterRedeemers fn = \case
   TxBodyScriptData supportedInEra dats (Ledger.Redeemers redeemers) ->
     let newRedeemers = fmap fn redeemers
      in TxBodyScriptData supportedInEra dats (Ledger.Redeemers newRedeemers)
+
+alterTxOuts ::
+  ([TxOut CtxTx Era] -> [TxOut CtxTx Era]) ->
+  CardanoTx ->
+  CardanoTx
+alterTxOuts =
+  undefined
 
 type RedeemerReport =
   (Map RdmrPtr (Either (ScriptFailure LedgerCrypto) ExUnits))

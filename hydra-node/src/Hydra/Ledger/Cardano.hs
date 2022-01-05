@@ -641,6 +641,7 @@ genFixedSizeSequenceOfValidTransactions numTxs initialUtxo
       Right newUtxos -> pure (newUtxos, tx : acc)
 
 -- TODO: Enable arbitrary datum in generators
+-- TODO: This should better be called 'genOutputFor'
 genOutput ::
   forall era ctx.
   (IsShelleyBasedEra era) =>
