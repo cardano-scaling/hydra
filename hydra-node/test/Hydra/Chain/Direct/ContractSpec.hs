@@ -9,6 +9,7 @@ import Test.Hydra.Prelude
 
 import Cardano.Binary (serialize')
 import Cardano.Crypto.DSIGN (deriveVerKeyDSIGN)
+import Cardano.Crypto.Hash (hashToBytes)
 import Cardano.Crypto.Util (SignableRepresentation (getSignableRepresentation))
 import qualified Cardano.Ledger.Alonzo.Data as Ledger
 import Cardano.Ledger.Alonzo.Scripts (ExUnits)
@@ -46,14 +47,17 @@ import Hydra.Ledger.Cardano (
   ExecutionUnits (ExecutionUnits),
   LedgerCrypto,
   LedgerEra,
+  NetworkId (Mainnet),
   PlutusScriptV1,
   Tx (ShelleyTx, Tx),
   TxBody (ShelleyTxBody, TxBody),
   TxBodyContent (..),
   TxBodyScriptData (TxBodyNoScriptData, TxBodyScriptData),
   TxOut (..),
+  TxOutDatum (TxOutDatumNone),
   Utxo,
   Utxo' (Utxo),
+  adaOnly,
   addInputs,
   describeCardanoTx,
   emptyTxBody,
@@ -74,15 +78,19 @@ import Hydra.Ledger.Cardano (
   mkScriptWitness,
   mkTxOutDatum,
   mkTxOutDatumHash,
+  mkVkAddress,
   modifyTxOutValue,
+  shrinkUtxo,
   toCtxUTxOTxOut,
   toLedgerTx,
   toLedgerTxOut,
   toLedgerUtxo,
   txOutValue,
   unsafeBuildTransaction,
+  verificationKeyHash,
  )
 import qualified Hydra.Ledger.Cardano as Api
+import qualified Hydra.Ledger.Cardano as Cardano
 import Hydra.Ledger.Simple (SimpleTx)
 import Hydra.Party (
   MultiSigned (MultiSigned),
@@ -97,8 +105,9 @@ import Hydra.Party (
  )
 import Hydra.Snapshot (Snapshot (..), SnapshotNumber)
 import Plutus.Orphans ()
-import Plutus.V1.Ledger.Api (fromBuiltin, fromData, toBuiltin, toData)
+import Plutus.V1.Ledger.Api (Address (Address), Credential (PubKeyCredential), PubKeyHash (PubKeyHash), fromBuiltin, fromData, toBuiltin, toData)
 import Plutus.V1.Ledger.Crypto (Signature (Signature))
+import qualified Plutus.V1.Ledger.Tx as Plutus
 import Test.QuickCheck (
   Positive (Positive),
   Property,
@@ -109,6 +118,8 @@ import Test.QuickCheck (
   elements,
   forAll,
   forAllShow,
+  forAllShrink,
+  generate,
   oneof,
   property,
   suchThat,
@@ -131,7 +142,7 @@ spec = do
       "verifies snapshot multi-signature for list of parties and signatures"
       prop_verifySnapshotSignatures
   describe "TxOut hashing" $ do
-    prop "hashUtxo == hashTxOuts" prop_hashUtxo
+    prop "hashUtxo == hashTxOuts" prop_hashUtxoWithAdaOnly
   describe "Close" $ do
     prop "is healthy" $
       propTransactionValidates healthyCloseTx
@@ -195,11 +206,12 @@ calculateHashExUnits n algorithm =
 -- Properties
 --
 
-prop_hashUtxo :: Property
-prop_hashUtxo =
+prop_hashUtxoWithAdaOnly :: Property
+prop_hashUtxoWithAdaOnly =
   -- NOTE: We only generate shelley addressed txouts because they are left out
   -- of the plutus script context in 'txInfoOut'.
-  forAllShow genUtxoWithoutByronAddresses (decodeUtf8 . encodePretty) $ \(utxo :: Utxo) ->
+  -- NOTE: we only generate Ada only UTXO as a baby step
+  forAllShrink (fmap adaOnly <$> genUtxoWithoutByronAddresses) shrinkUtxo $ \(utxo :: Utxo) ->
     let plutusTxOuts = mapMaybe txInfoOut ledgerTxOuts
         ledgerTxOuts = Map.elems . Ledger.unUTxO $ toLedgerUtxo utxo
      in (hashUtxo utxo === fromBuiltin (hashTxOuts plutusTxOuts))

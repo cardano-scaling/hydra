@@ -5,6 +5,7 @@
 
 module Hydra.Contract.MockHead where
 
+import qualified Hydra.Prelude as Prelude
 import Ledger hiding (validatorHash)
 import PlutusTx.Prelude
 
@@ -18,9 +19,11 @@ import Ledger.Constraints (TxConstraints)
 import qualified Ledger.Typed.Scripts as Scripts
 import Plutus.Contract.StateMachine.OnChain (StateMachine)
 import qualified Plutus.Contract.StateMachine.OnChain as SM
+import Plutus.V1.Ledger.Ada (fromValue, getLovelace)
 import Plutus.V1.Ledger.Api (Credential (PubKeyCredential, ScriptCredential), getValue, unCurrencySymbol, unTokenName)
 import qualified PlutusTx
 import qualified PlutusTx.AssocMap as AssocMap
+import PlutusTx.Builtins (subtractInteger)
 import Text.Show (Show)
 
 type SnapshotNumber = Integer
@@ -110,9 +113,7 @@ serialiseTxOut TxOut{txOutAddress, txOutValue} =
          in case addressCredential of
               PubKeyCredential (PubKeyHash bs) -> bs
               ScriptCredential (ValidatorHash bs) -> bs
-      valueBytes = foldr currencyBytes mempty $ AssocMap.toList (getValue txOutValue)
-      currencyBytes (cur, tokList) bs = unCurrencySymbol cur <> foldr tokenBytes mempty (AssocMap.toList tokList) <> bs
-      tokenBytes (tok, val) bs = unTokenName tok <> naturalToCBOR val <> bs
+      valueBytes = naturalToCBOR . getLovelace . fromValue $ txOutValue
    in addrBytes <> valueBytes
 {-# INLINEABLE serialiseTxOut #-}
 
@@ -151,18 +152,55 @@ mockSign vkey msg = appendByteString (sliceByteString 0 8 hashedMsg) (naturalToC
 naturalToCBOR :: Integer -> BuiltinByteString
 naturalToCBOR n
   | n < 0 =
-    traceError "naturalToCBOR: n < 0"
-  | n < 24 =
-    consByteString n emptyByteString
-  | n < 256 =
-    consByteString 24 $ consByteString n emptyByteString
-  | n < 65536 =
-    consByteString 25 $
-      consByteString (quotient n 256) $
-        consByteString (remainder n 256) emptyByteString
+    encodeUnsigned 1 (subtractInteger 0 n - 1)
   | otherwise =
-    traceError "naturalToCBOR: n >= 65536"
+    encodeUnsigned 0 n
 {-# INLINEABLE naturalToCBOR #-}
+
+withMajorType :: Integer -> Integer -> BuiltinByteString -> BuiltinByteString
+withMajorType major n =
+  consByteString (32 * major + n)
+{-# INLINEABLE withMajorType #-}
+
+encodeUnsigned :: Integer -> Integer -> BuiltinByteString
+encodeUnsigned major n
+  | n < 24 =
+    withMajorType major n emptyByteString
+  | n < 256 =
+    withMajorType major 24 (encodeUnsigned8 n)
+  | n < 65536 =
+    withMajorType major 25 (encodeUnsigned16 n)
+  | n < 4294967296 =
+    withMajorType major 26 (encodeUnsigned32 n)
+  | otherwise =
+    withMajorType major 27 (encodeUnsigned64 n)
+{-# INLINEABLE encodeUnsigned #-}
+
+encodeUnsigned8 :: Integer -> BuiltinByteString
+encodeUnsigned8 n =
+  consByteString n emptyByteString
+{-# INLINEABLE encodeUnsigned8 #-}
+
+encodeUnsigned16 :: Integer -> BuiltinByteString
+encodeUnsigned16 n =
+  appendByteString
+    (encodeUnsigned8 (quotient n 256))
+    (encodeUnsigned8 (remainder n 256))
+{-# INLINEABLE encodeUnsigned16 #-}
+
+encodeUnsigned32 :: Integer -> BuiltinByteString
+encodeUnsigned32 n =
+  appendByteString
+    (encodeUnsigned16 (quotient n 65536))
+    (encodeUnsigned16 (remainder n 65536))
+{-# INLINEABLE encodeUnsigned32 #-}
+
+encodeUnsigned64 :: Integer -> BuiltinByteString
+encodeUnsigned64 n =
+  appendByteString
+    (encodeUnsigned32 (quotient n 4294967296))
+    (encodeUnsigned32 (remainder n 4294967296))
+{-# INLINEABLE encodeUnsigned64 #-}
 
 -- | The script instance of the auction state machine. It contains the state
 -- machine compiled to a Plutus core validator script. The 'MintingPolicyHash' serves

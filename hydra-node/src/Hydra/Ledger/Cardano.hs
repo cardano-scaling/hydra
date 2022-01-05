@@ -709,11 +709,11 @@ genValue = txOutValue <$> (genKeyPair >>= (genOutput . fst))
 genAdaOnlyUtxo :: Gen Utxo
 genAdaOnlyUtxo = do
   fmap adaOnly <$> arbitrary
- where
-  adaOnly :: TxOut CtxUTxO AlonzoEra -> TxOut CtxUTxO AlonzoEra
-  adaOnly = \case
-    TxOut addr value datum ->
-      TxOut addr (lovelaceToTxOutValue $ txOutValueToLovelace value) datum
+
+adaOnly :: TxOut CtxUTxO AlonzoEra -> TxOut CtxUTxO AlonzoEra
+adaOnly = \case
+  TxOut addr value datum ->
+    TxOut addr (lovelaceToTxOutValue $ txOutValueToLovelace value) datum
 
 -- | Generate UTXO with only 'TxOut' which are addressed to non-bootstrap
 -- (byron) addresses.
