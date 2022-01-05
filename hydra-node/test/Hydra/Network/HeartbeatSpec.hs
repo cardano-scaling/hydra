@@ -110,8 +110,5 @@ spec = parallel $
 
       sentHeartbeats `shouldBe` [Ping localhost, Data localhost someMessage, Ping localhost]
 
-testHost :: Host
-testHost = Host{hostname = "0.0.0.0", port = 4000}
-
 noop :: Monad m => b -> m ()
 noop = const $ pure ()

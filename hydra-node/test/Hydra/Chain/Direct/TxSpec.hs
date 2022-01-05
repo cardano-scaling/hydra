@@ -22,7 +22,6 @@ import Cardano.Ledger.Alonzo.Tx (ValidatedTx (ValidatedTx, body, wits), outputs,
 import Cardano.Ledger.Alonzo.TxBody (TxOut (TxOut))
 import Cardano.Ledger.Alonzo.TxWitness (RdmrPtr, unRedeemers)
 import Cardano.Ledger.Crypto (StandardCrypto)
-import Cardano.Ledger.Mary.Value (AssetName, PolicyID, Value (Value))
 import qualified Cardano.Ledger.SafeHash as SafeHash
 import Cardano.Ledger.Shelley.API (Coin (..), StrictMaybe (..), TxId (..), TxIn (..), UTxO (..))
 import qualified Cardano.Ledger.Shelley.Tx as Ledger
@@ -444,17 +443,3 @@ validateTxScriptsUnlimited ::
   Either (BasicFailure LedgerCrypto) (Map RdmrPtr (Either (ScriptFailure LedgerCrypto) ExUnits))
 validateTxScriptsUnlimited utxo tx =
   runIdentity $ evaluateTransactionExecutionUnits pparams tx utxo epochInfo systemStart costModels
-
--- | Extract NFT candidates. any single quantity assets not being ADA is a
--- candidate.
-txOutNFT :: TxOut Era -> [(PolicyID StandardCrypto, AssetName)]
-txOutNFT (TxOut _ value _) =
-  mapMaybe findUnitAssets $ Map.toList assets
- where
-  (Value _ assets) = value
-
-  findUnitAssets (policy, as) = do
-    (name, _q) <- find unitQuantity $ Map.toList as
-    pure (policy, name)
-
-  unitQuantity (_name, q) = q == 1
