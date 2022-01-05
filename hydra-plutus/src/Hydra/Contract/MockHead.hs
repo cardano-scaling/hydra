@@ -18,8 +18,9 @@ import Ledger.Constraints (TxConstraints)
 import qualified Ledger.Typed.Scripts as Scripts
 import Plutus.Contract.StateMachine.OnChain (StateMachine)
 import qualified Plutus.Contract.StateMachine.OnChain as SM
-import Plutus.V1.Ledger.Api (Credential (PubKeyCredential, ScriptCredential))
+import Plutus.V1.Ledger.Api (Credential (PubKeyCredential, ScriptCredential), getValue, unCurrencySymbol, unTokenName)
 import qualified PlutusTx
+import qualified PlutusTx.AssocMap as AssocMap
 import Text.Show (Show)
 
 type SnapshotNumber = Integer
@@ -103,11 +104,16 @@ hashTxOuts = sha2_256 . foldMap serialiseTxOut
 {-# INLINEABLE hashTxOuts #-}
 
 serialiseTxOut :: TxOut -> BuiltinByteString
-serialiseTxOut TxOut{txOutAddress} =
-  let Address{addressCredential} = txOutAddress
-   in case addressCredential of
-        PubKeyCredential (PubKeyHash bs) -> bs
-        ScriptCredential (ValidatorHash bs) -> bs
+serialiseTxOut TxOut{txOutAddress, txOutValue} =
+  let addrBytes =
+        let Address{addressCredential} = txOutAddress
+         in case addressCredential of
+              PubKeyCredential (PubKeyHash bs) -> bs
+              ScriptCredential (ValidatorHash bs) -> bs
+      valueBytes = foldr currencyBytes mempty $ AssocMap.toList (getValue txOutValue)
+      currencyBytes (cur, tokList) bs = unCurrencySymbol cur <> foldr tokenBytes mempty (AssocMap.toList tokList) <> bs
+      tokenBytes (tok, val) bs = unTokenName tok <> naturalToCBOR val <> bs
+   in addrBytes <> valueBytes
 {-# INLINEABLE serialiseTxOut #-}
 
 {-# INLINEABLE verifySnapshotSignature #-}

@@ -475,14 +475,18 @@ hashUtxo (Utxo u) =
   digest @SHA256 Proxy $ foldr (\txout bs -> serialiseTxOut txout <> bs) "" u
 
 serialiseTxOut :: TxOut CtxUTxO Era -> ByteString
-serialiseTxOut (TxOut addr _ _) =
-  case addr of
-    AddressInEra (ShelleyAddressInEra _) (ShelleyAddress _ creds _) ->
-      case creds of
-        (ScriptHashObj (ScriptHash sh)) -> hashToBytes sh
-        (KeyHashObj (KeyHash kh)) -> hashToBytes kh
-    AddressInEra ByronAddressInAnyEra (ByronAddress byron) ->
-      serialize' byron
+serialiseTxOut (TxOut addr value _) =
+  let addrBytes = case addr of
+        AddressInEra (ShelleyAddressInEra _) (ShelleyAddress _ creds _) ->
+          case creds of
+            (ScriptHashObj (ScriptHash sh)) -> hashToBytes sh
+            (KeyHashObj (KeyHash kh)) -> hashToBytes kh
+        AddressInEra ByronAddressInAnyEra (ByronAddress byron) ->
+          serialize' byron
+      valueBytes = case value of
+        (TxOutAdaOnly _ lo) -> serialize' lo
+        (TxOutValue _ va) -> serialize' $ toMaryValue va
+   in addrBytes <> valueBytes
 
 toLedgerUtxo :: Utxo -> Ledger.UTxO LedgerEra
 toLedgerUtxo =
