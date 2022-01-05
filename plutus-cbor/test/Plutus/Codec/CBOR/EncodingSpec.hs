@@ -12,6 +12,7 @@ import qualified Codec.CBOR.Pretty as CBOR
 import qualified Codec.CBOR.Write as CBOR
 import Data.Binary.Builder (toLazyByteString)
 import Data.ByteArray (convert)
+import qualified Data.ByteString as BS
 import Data.ByteString.Base16 (encodeBase16)
 import Data.ByteString.Builder.Scientific (FPFormat (Fixed), formatScientificBuilder)
 import Data.Ratio ((%))
@@ -34,12 +35,12 @@ import Test.Plutus.Codec.CBOR.Encoding.Validators (
 import Test.QuickCheck (
   Property,
   choose,
+  conjoin,
   counterexample,
   forAll,
   forAllBlind,
+  label,
   oneof,
-  vectorOf,
-  (.&&.),
   (===),
  )
 
@@ -51,9 +52,12 @@ spec = do
         propCompareWithOracle CBOR.encodeInteger encodeInteger
 
   describe "(on-chain) execution cost of CBOR encoding is small" $ do
-    prop "for all (x :: Integer), <0.05%" $
-      forAllBlind (vectorOf 100 genInteger) $
-        propCostIsSmall (1 % 2_000) defaultMaxExecutionUnits encodeIntegerValidator
+    prop "for all (x :: Integer), <0.5%" $
+      forAllBlind genInteger $
+        propCostIsSmall
+          (1 % 200)
+          defaultMaxExecutionUnits
+          (encodeInteger, encodeIntegerValidator)
 
 -- | Compare encoding a value 'x' with our own encoder and a reference
 -- implementation. Counterexamples shows both encoded values, but in a pretty /
@@ -80,11 +84,15 @@ propCostIsSmall ::
   Plutus.ToData a =>
   Rational ->
   ExUnits ->
-  Scripts.TypedValidator (EncodeValidator a) ->
-  [a] ->
+  (a -> Encoding, Scripts.TypedValidator (EncodeValidator a)) ->
+  a ->
   Property
-propCostIsSmall tolerance (ExUnits maxMemUnits maxStepsUnits) encode xs =
-  ((relativeMemCost < tolerance) .&&. (relativeStepCost < tolerance))
+propCostIsSmall tolerance (ExUnits maxMemUnits maxStepsUnits) (encode, validator) a =
+  conjoin
+    [ relativeMemCost < tolerance
+    , relativeStepCost < tolerance
+    ]
+    & label ("of size = " <> show n <> ", mem units = " <> show mem <> ", CPU units = " <> show steps)
     & counterexample
       ( "memory execution units: "
           <> show mem
@@ -100,13 +108,11 @@ propCostIsSmall tolerance (ExUnits maxMemUnits maxStepsUnits) encode xs =
           <> ")"
       )
  where
-  n = fromIntegral (length xs)
-
+  n = BS.length $ convert $ encode a
   ExUnits mem steps =
     distanceExUnits
       (evaluateScriptExecutionUnits emptyValidator ())
-      (evaluateScriptExecutionUnits encode xs)
-      & (\(ExUnits m s) -> ExUnits (m `div` n) (s `div` n))
+      (evaluateScriptExecutionUnits validator a)
 
   (relativeMemCost, relativeStepCost) =
     ( toInteger mem % toInteger maxMemUnits

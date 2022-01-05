@@ -1,15 +1,12 @@
 module Plutus.Codec.CBOR.Encoding (
-  -- * Encoding
   Encoding,
   encodingToBuiltinByteString,
-
-  -- * Basic types
   encodeInteger,
-
-  -- * Data-structures
 ) where
 
 import PlutusTx.Prelude
+
+import PlutusTx.Builtins (subtractInteger)
 
 -- * Encoding
 
@@ -24,7 +21,7 @@ encodingToBuiltinByteString = id
 encodeInteger :: Integer -> Encoding
 encodeInteger n
   | n < 0 =
-    encodeUnsigned 1 (-n - 1)
+    encodeUnsigned 1 (subtractInteger 0 n - 1)
   | otherwise =
     encodeUnsigned 0 n
 {-# INLINEABLE encodeInteger #-}

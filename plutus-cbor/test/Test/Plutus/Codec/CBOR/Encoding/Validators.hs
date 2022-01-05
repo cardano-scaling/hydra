@@ -4,12 +4,10 @@
 
 module Test.Plutus.Codec.CBOR.Encoding.Validators where
 
-import Hydra.Prelude hiding (label)
+import PlutusTx.Prelude
 
 import qualified Ledger.Typed.Scripts as Scripts
-import Plutus.Codec.CBOR.Encoding (
-  encodeInteger,
- )
+import Plutus.Codec.CBOR.Encoding (encodeInteger)
 import qualified PlutusTx as Plutus
 
 -- | A baseline validator which does nothing but returning 'True'. We use it as
@@ -23,7 +21,7 @@ instance Scripts.ValidatorTypes EmptyValidator where
 emptyValidator :: Scripts.TypedValidator EmptyValidator
 emptyValidator =
   Scripts.mkTypedValidator @EmptyValidator
-    $$(Plutus.compile [||\() () _ctx -> True||])
+    $$(Plutus.compile [||\() () _ctx -> lengthOfByteString "" == 0||])
     $$(Plutus.compile [||wrap||])
  where
   wrap = Scripts.wrapValidator @() @()
@@ -34,12 +32,17 @@ data EncodeValidator a
 
 instance Scripts.ValidatorTypes (EncodeValidator a) where
   type DatumType (EncodeValidator a) = ()
-  type RedeemerType (EncodeValidator a) = [a]
+  type RedeemerType (EncodeValidator a) = a
 
 encodeIntegerValidator :: Scripts.TypedValidator (EncodeValidator Integer)
 encodeIntegerValidator =
   Scripts.mkTypedValidator @(EncodeValidator Integer)
-    $$(Plutus.compile [||\() xs _ctx -> let _bytes = encodeInteger <$> xs in True||])
+    $$( Plutus.compile
+          [||
+          \() a _ctx ->
+            lengthOfByteString (encodeInteger a) > 0
+          ||]
+      )
     $$(Plutus.compile [||wrap||])
  where
-  wrap = Scripts.wrapValidator @() @[Integer]
+  wrap = Scripts.wrapValidator @() @Integer
