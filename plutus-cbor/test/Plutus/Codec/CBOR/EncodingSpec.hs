@@ -21,6 +21,7 @@ import Plutus.Codec.CBOR.Encoding (
   Encoding,
   encodeByteString,
   encodeInteger,
+  encodeList,
   encodingToBuiltinByteString,
  )
 import qualified PlutusTx as Plutus
@@ -48,6 +49,7 @@ import Test.QuickCheck (
   oneof,
   suchThat,
   vector,
+  vectorOf,
   (===),
  )
 
@@ -60,6 +62,11 @@ spec = do
     prop "for all (x :: ByteString) w/ 'encodeByteString'" $
       forAll genByteString $
         propCompareWithOracle CBOR.encodeBytes (encodeByteString . convert)
+    prop "for all (x :: [a]) w/ 'encodeList'" $
+      forAll (genList genInteger) $
+        propCompareWithOracle
+          (\xs -> CBOR.encodeListLen (fromIntegral (length xs)) <> foldMap CBOR.encodeInteger xs)
+          (encodeList . fmap encodeInteger)
 
   describe "(on-chain) execution cost of CBOR encoding is small" $ do
     prop "for all small (< 65536) (x :: Integer), <0.15%" $
@@ -187,6 +194,11 @@ genInteger =
       , choose (65536, 4294967296)
       , choose (4294967296, 18446744073709552000)
       ]
+
+genList :: Gen a -> Gen [a]
+genList genOne = do
+  n <- elements [0, 1, 5, 25]
+  vectorOf n genOne
 
 genByteString :: Gen ByteString
 genByteString = do

@@ -3,6 +3,7 @@ module Plutus.Codec.CBOR.Encoding (
   encodingToBuiltinByteString,
   encodeInteger,
   encodeByteString,
+  encodeList,
 ) where
 
 import PlutusTx.Prelude
@@ -11,10 +12,11 @@ import PlutusTx.Builtins (subtractInteger)
 
 -- * Encoding
 
-newtype Encoding = Encoding BuiltinByteString
+newtype Encoding = Encoding (BuiltinByteString -> BuiltinByteString)
 
 encodingToBuiltinByteString :: Encoding -> BuiltinByteString
-encodingToBuiltinByteString (Encoding bytes) = bytes
+encodingToBuiltinByteString (Encoding runEncoder) =
+  runEncoder emptyByteString
 {-# INLINEABLE encodingToBuiltinByteString #-}
 
 -- * Basic types
@@ -22,15 +24,27 @@ encodingToBuiltinByteString (Encoding bytes) = bytes
 encodeInteger :: Integer -> Encoding
 encodeInteger n
   | n < 0 =
-    Encoding (encodeUnsigned 1 (subtractInteger 0 n - 1) emptyByteString)
+    Encoding (encodeUnsigned 1 (subtractInteger 0 n - 1))
   | otherwise =
-    Encoding (encodeUnsigned 0 n emptyByteString)
+    Encoding (encodeUnsigned 0 n)
 {-# INLINEABLE encodeInteger #-}
 
 encodeByteString :: BuiltinByteString -> Encoding
 encodeByteString bytes =
-  Encoding (encodeUnsigned 2 (lengthOfByteString bytes) bytes)
+  Encoding (encodeUnsigned 2 (lengthOfByteString bytes) . appendByteString bytes)
 {-# INLINEABLE encodeByteString #-}
+
+-- * Data-Structure
+
+encodeList :: [Encoding] -> Encoding
+encodeList xs =
+  Encoding $ \next ->
+    withMajorType 4 (length xs) $
+      foldr
+        (\(Encoding runEncoder) bytes -> runEncoder bytes)
+        next
+        xs
+{-# INLINEABLE encodeList #-}
 
 -- * Internal
 
