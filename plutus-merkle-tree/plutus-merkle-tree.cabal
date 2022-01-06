@@ -1,0 +1,109 @@
+cabal-version: 2.2
+name:          plutus-merkle-tree
+version:       0.2.0
+synopsis:      Plutus Basic Merkle Tree
+author:        IOHK
+copyright:     2022 IOHK
+license:       Apache-2.0
+license-files:
+  LICENSE
+  NOTICE
+
+source-repository head
+  type:     git
+  location: https://github.com/input-output-hk/hydra-poc
+
+flag hydra-development
+  description: Disable -Werror for development
+  default:     False
+  manual:      True
+
+common project-config
+  default-extensions:
+    NoImplicitPrelude
+    BangPatterns
+    BinaryLiterals
+    ConstraintKinds
+    DataKinds
+    DefaultSignatures
+    DeriveAnyClass
+    DeriveDataTypeable
+    DeriveFoldable
+    DeriveFunctor
+    DeriveGeneric
+    DeriveTraversable
+    DerivingStrategies
+    EmptyDataDecls
+    ExistentialQuantification
+    FlexibleContexts
+    FlexibleInstances
+    FunctionalDependencies
+    GADTs
+    InstanceSigs
+    KindSignatures
+    LambdaCase
+    MultiParamTypeClasses
+    MultiWayIf
+    NamedFieldPuns
+    NumericUnderscores
+    OverloadedStrings
+    PartialTypeSignatures
+    PatternGuards
+    RankNTypes
+    ScopedTypeVariables
+    StandaloneDeriving
+    TupleSections
+    TypeFamilies
+    TypeOperators
+    TypeSynonymInstances
+    ViewPatterns
+
+  ghc-options:
+    -Wall -Wcompat -Widentities -Wincomplete-record-updates
+    -Wincomplete-uni-patterns -Wredundant-constraints
+    -Wnoncanonical-monad-instances -fobject-code
+    -fno-ignore-interface-pragmas -fno-omit-interface-pragmas
+    -fno-strictness
+
+  if !flag(hydra-development)
+    ghc-options: -Werror
+
+library
+  import:          project-config
+  exposed-modules: Plutus.MerkleTree
+  hs-source-dirs:  src
+  build-depends:
+    , plutus-core
+    , plutus-tx
+    , plutus-tx-plugin
+
+  if flag(hydra-development)
+    -- NOTE(SN): should fix HLS choking on PlutusTx plugin
+    ghc-options: -fplugin-opt PlutusTx.Plugin:defer-errors
+
+test-suite unit
+  import:             project-config
+  type:               exitcode-stdio-1.0
+  hs-source-dirs:     test
+  ghc-options:        -threaded -rtsopts
+  build-tool-depends: hspec-discover:hspec-discover -any
+  build-depends:
+    , array
+    , base
+    , base16
+    , bytestring
+    , containers
+    , hspec
+    , hydra-prelude
+    , hydra-test-utils
+    , plutus-core
+    , plutus-merkle-tree
+    , plutus-tx
+    , plutus-tx-plugin
+    , QuickCheck
+
+  other-modules:
+    Plutus.MerkleTreeSpec
+    Spec
+
+  main-is:            Main.hs
