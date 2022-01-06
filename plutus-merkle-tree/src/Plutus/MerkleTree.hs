@@ -40,6 +40,12 @@ instance Eq MerkleTree where
   (MerkleNode h0 _ _) == (MerkleNode h1 _ _) = h0 == h1
   _ == _ = False
 
+size :: MerkleTree -> Integer
+size = \case
+  MerkleEmpty -> 0
+  MerkleNode _ mt mt' -> size mt + size mt'
+  MerkleLeaf{} -> 1
+
 null :: MerkleTree -> Bool
 null = \case
   MerkleEmpty -> True

@@ -1,3 +1,5 @@
+{-# LANGUAGE TypeApplications #-}
+
 module Plutus.MerkleTreeSpec where
 
 import Hydra.Prelude
@@ -26,7 +28,9 @@ spec :: Spec
 spec = do
   prop "fromList . toList roundtrips MT" prop_roundtripFromToList
   prop "can check membership of an element" prop_member
-  prop "execution units" prop_executionUnitsComparison
+  prop "tree is balanced" prop_treeIsBalanced
+
+--  prop "execution units" prop_executionUnitsComparison
 
 prop_roundtripFromToList :: Property
 prop_roundtripFromToList =
@@ -39,6 +43,16 @@ prop_member =
     MT.member e (MT.rootHash tree) proof
       & counterexample ("Proof: " <> show proof)
 
+prop_treeIsBalanced :: Property
+prop_treeIsBalanced =
+  forAllNonEmptyMerkleTree $ \(tree, _, proof) ->
+    let treeSize = MT.size tree
+        treeDepthUpperBound = floor (logBase @Double 2 (fromIntegral treeSize)) + 1
+     in length proof <= treeDepthUpperBound
+          & counterexample ("proof: " <> show proof)
+          & counterexample ("tree size: " <> show treeSize)
+          & counterexample ("max tree depth: " <> show treeDepthUpperBound)
+
 prop_executionUnitsComparison :: Property
 prop_executionUnitsComparison =
   forAllNonEmptyMerkleTree $ \(tree, e, proof) ->
@@ -46,11 +60,11 @@ prop_executionUnitsComparison =
         emptyExUnits = evaluateScriptExecutionUnits emptyValidator ()
         ExUnits mem cpu = distanceExUnits mtExUnits emptyExUnits
         ExUnits maxMem maxCpu = defaultMaxExecutionUnits
-        ratioMem :: Double = fromRational $ fromIntegral mem * 100 % fromIntegral maxMem
-        ratioCpu :: Double = fromRational $ fromIntegral cpu * 100 % fromIntegral maxCpu
-     in ratioMem < 1 && ratioCpu < 1
-          & counterexample ("mem units: " <> show mem <> " (" <> show ratioMem <> ")")
-          & counterexample ("cpu units: " <> show cpu <> " (" <> show ratioCpu <> ")")
+        percentMem :: Double = fromRational $ fromIntegral mem * 100 % fromIntegral maxMem
+        percentCpu :: Double = fromRational $ fromIntegral cpu * 100 % fromIntegral maxCpu
+     in percentMem < 10 && percentCpu < 10
+          & counterexample ("mem units: " <> show mem <> " ( " <> show percentMem <> "% )")
+          & counterexample ("cpu units: " <> show cpu <> " ( " <> show percentCpu <> "% )")
           & counterexample ("proof size: " <> show (length proof))
 
 forAllMerkleTree :: Testable prop => (MerkleTree -> prop) -> Property
