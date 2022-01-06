@@ -2,6 +2,7 @@ module Plutus.MerkleTree where
 
 import Data.ByteString.Base16 (encodeBase16)
 import qualified Data.Text as Text
+import PlutusPrelude ((<|>))
 import PlutusTx.Prelude hiding (toList)
 import qualified Prelude as Haskell
 
@@ -39,8 +40,18 @@ null = \case
 
 type Proof = [Hash]
 
-mkProof :: BuiltinByteString -> MerkleTree -> Proof
-mkProof _e _tree = []
+mkProof :: BuiltinByteString -> MerkleTree -> Maybe Proof
+mkProof e = go []
+ where
+  he = hash e
+  go es = \case
+    MerkleEmpty -> Nothing
+    MerkleLeaf h _ ->
+      if h == he
+        then Just es
+        else Nothing
+    MerkleNode _ l r ->
+      go (rootHash r : es) l <|> go (rootHash l : es) r
 
 {-# INLINEABLE member #-}
 member :: BuiltinByteString -> Hash -> Proof -> Bool

@@ -4,6 +4,7 @@ import Hydra.Prelude
 import Test.Hydra.Prelude
 
 import qualified Data.ByteString as BS
+import Data.Maybe (fromJust)
 import Plutus.MerkleTree (MerkleTree)
 import qualified Plutus.MerkleTree as MT
 import qualified PlutusTx.Builtins as Plutus
@@ -22,7 +23,7 @@ prop_roundtripFromToList =
 prop_member :: Property
 prop_member =
   forAllNonEmptyMerkleTree $ \(tree, e) ->
-    MT.member e (MT.rootHash tree) (MT.mkProof e tree)
+    MT.member e (MT.rootHash tree) (fromJust $ MT.mkProof e tree)
 
 forAllMerkleTree :: Testable prop => (MerkleTree -> prop) -> Property
 forAllMerkleTree =
