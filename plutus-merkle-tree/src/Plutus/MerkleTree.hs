@@ -11,14 +11,14 @@ newtype Hash = Hash BuiltinByteString
 instance Eq Hash where
   Hash h == Hash h' = h == h'
 
+instance Haskell.Show Hash where
+  show (Hash bs) = Text.unpack $ encodeBase16 $ fromBuiltin $ takeByteString 4 bs
+
 hash :: BuiltinByteString -> Hash
 hash = Hash . sha2_256
 
 combineHash :: Hash -> Hash -> Hash
 combineHash (Hash h) (Hash h') = hash (appendByteString h h')
-
-instance Haskell.Show Hash where
-  show (Hash bs) = Text.unpack $ encodeBase16 $ fromBuiltin $ takeByteString 4 bs
 
 data MerkleTree
   = MerkleEmpty
@@ -31,6 +31,12 @@ instance Eq MerkleTree where
   (MerkleLeaf h0 _) == (MerkleLeaf h1 _) = h0 == h1
   (MerkleNode h0 _ _) == (MerkleNode h1 _ _) = h0 == h1
   _ == _ = False
+
+rootHash :: MerkleTree -> Hash
+rootHash = \case
+  MerkleEmpty -> hash ""
+  MerkleLeaf h _ -> h
+  MerkleNode h _ _ -> h
 
 fromList :: [BuiltinByteString] -> MerkleTree
 fromList =
@@ -51,4 +57,7 @@ insert e = \case
     let h = hash e
         hNode = combineHash h' h
      in MerkleNode hNode leaf (MerkleLeaf h e)
-  _ -> MerkleEmpty
+  MerkleNode _ l r ->
+    let r' = insert e r
+        hNode' = combineHash (rootHash l) (rootHash r')
+     in MerkleNode hNode' l r'
