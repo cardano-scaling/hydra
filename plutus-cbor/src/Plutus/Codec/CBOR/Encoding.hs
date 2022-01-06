@@ -6,6 +6,7 @@ module Plutus.Codec.CBOR.Encoding (
   encodeInteger,
   encodeByteString,
   encodeList,
+  encodeMap,
 ) where
 
 import PlutusTx.Prelude
@@ -43,10 +44,20 @@ encodeList xs =
   Encoding $ \next ->
     encodeUnsigned 4 (length xs) $
       foldr
-        (\(Encoding runEncoder) bytes -> runEncoder bytes)
+        (\(Encoding runEncoder) -> runEncoder)
         next
         xs
 {-# INLINEABLE encodeList #-}
+
+encodeMap :: [(Encoding, Encoding)] -> Encoding
+encodeMap xs =
+  Encoding $ \next ->
+    encodeUnsigned 5 (length xs) $
+      foldr
+        (\(Encoding encodeKey, Encoding encodeValue) -> encodeKey . encodeValue)
+        next
+        xs
+{-# INLINEABLE encodeMap #-}
 
 -- * Internal
 

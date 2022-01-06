@@ -22,6 +22,7 @@ import Plutus.Codec.CBOR.Encoding (
   encodeByteString,
   encodeInteger,
   encodeList,
+  encodeMap,
   encodingToBuiltinByteString,
  )
 import qualified PlutusTx as Plutus
@@ -47,6 +48,7 @@ import Test.QuickCheck (
   forAllBlind,
   forAllShrink,
   label,
+  liftShrink2,
   oneof,
   shrinkList,
   suchThat,
@@ -202,31 +204,55 @@ genSomeValue =
   withMaxDepth :: Int -> Gen SomeValue
   withMaxDepth n =
     oneof $
-      mconcat
-        [
-          [ do
-              val <- genInteger
-              return $ SomeValue val shrink CBOR.encodeInteger encodeInteger
-          , do
-              val <- genByteString
-              return $ SomeValue val shrinkByteString CBOR.encodeBytes (encodeByteString . convert)
-          ]
-        , [ do
-            val <- genList (withMaxDepth (n - 1))
-            return $
-              SomeValue
-                val
-                (shrinkList shrinkSomeValue)
-                ( \xs ->
-                    mconcat
-                      [ CBOR.encodeListLen (fromIntegral (length xs))
-                      , foldMap (\(SomeValue x _ encode _) -> encode x) xs
-                      ]
-                )
-                (encodeList . fmap (\(SomeValue x _ _ encode) -> encode x))
-          | n > 0
-          ]
+      catMaybes
+        [ Just genSomeInteger
+        , Just genSomeByteString
+        , guard (n > 0) $> genSomeList n
+        , guard (n > 0) $> genSomeMap n
         ]
+
+  genSomeInteger :: Gen SomeValue
+  genSomeInteger = do
+    val <- genInteger
+    return $ SomeValue val shrink CBOR.encodeInteger encodeInteger
+
+  genSomeByteString :: Gen SomeValue
+  genSomeByteString = do
+    val <- genByteString
+    return $ SomeValue val shrinkByteString CBOR.encodeBytes (encodeByteString . convert)
+
+  genSomeList :: Int -> Gen SomeValue
+  genSomeList n = do
+    val <- genList (withMaxDepth (n - 1))
+    let encodeCborg xs =
+          mconcat
+            [ CBOR.encodeListLen (fromIntegral (length xs))
+            , foldMap (\(SomeValue x _ encode _) -> encode x) xs
+            ]
+    let encodeOurs =
+          encodeList . fmap (\(SomeValue x _ _ encode) -> encode x)
+    return $ SomeValue val (shrinkList shrinkSomeValue) encodeCborg encodeOurs
+
+  genSomeMap :: Int -> Gen SomeValue
+  genSomeMap n = do
+    val <- genMap (withMaxDepth (n - 1)) (withMaxDepth (n - 1))
+    let shrinkMap = shrinkList (liftShrink2 shrinkSomeValue shrinkSomeValue)
+    let encodeCborg m =
+          mconcat
+            [ CBOR.encodeMapLen (fromIntegral $ length m)
+            , foldMap
+                ( \(SomeValue k _ encodeKey _, SomeValue v _ encodeValue _) ->
+                    encodeKey k <> encodeValue v
+                )
+                m
+            ]
+    let encodeOurs =
+          encodeMap
+            . fmap
+              ( \(SomeValue k _ _ encodeKey, SomeValue v _ _ encodeValue) ->
+                  (encodeKey k, encodeValue v)
+              )
+    return $ SomeValue val shrinkMap encodeCborg encodeOurs
 
 shrinkSomeValue :: SomeValue -> [SomeValue]
 shrinkSomeValue (SomeValue a shrinker encode encode') =
@@ -261,3 +287,8 @@ genList :: Gen a -> Gen [a]
 genList genOne = do
   n <- elements [0, 1, 5, 25]
   vectorOf n genOne
+
+genMap :: Gen k -> Gen v -> Gen [(k, v)]
+genMap genKey genValue = do
+  n <- elements [0, 1, 5, 25]
+  zip <$> vectorOf n genKey <*> vectorOf n genValue
