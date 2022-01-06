@@ -32,20 +32,20 @@ combineHash (Hash h) (Hash h') = hash (appendByteString h h')
 
 data MerkleTree
   = MerkleEmpty
-  | MerkleNode Hash MerkleTree MerkleTree
+  | MerkleNode Hash Integer MerkleTree MerkleTree
   | MerkleLeaf Hash BuiltinByteString
   deriving (Haskell.Eq, Haskell.Show)
 
 instance Eq MerkleTree where
   MerkleEmpty == MerkleEmpty = True
   (MerkleLeaf h0 _) == (MerkleLeaf h1 _) = h0 == h1
-  (MerkleNode h0 _ _) == (MerkleNode h1 _ _) = h0 == h1
+  (MerkleNode h0 _ _ _) == (MerkleNode h1 _ _ _) = h0 == h1
   _ == _ = False
 
 size :: MerkleTree -> Integer
 size = \case
   MerkleEmpty -> 0
-  MerkleNode _ mt mt' -> size mt + size mt'
+  MerkleNode _ sz _ _ -> sz
   MerkleLeaf{} -> 1
 
 null :: MerkleTree -> Bool
@@ -65,7 +65,7 @@ mkProof e = go []
       if h == he
         then Just es
         else Nothing
-    MerkleNode _ l r ->
+    MerkleNode _ _ l r ->
       go (Right (rootHash r) : es) l <|> go (Left (rootHash l) : es) r
 
 member :: BuiltinByteString -> Hash -> Proof -> Bool
@@ -81,7 +81,7 @@ rootHash :: MerkleTree -> Hash
 rootHash = \case
   MerkleEmpty -> hash ""
   MerkleLeaf h _ -> h
-  MerkleNode h _ _ -> h
+  MerkleNode h _ _ _ -> h
 
 fromList :: [BuiltinByteString] -> MerkleTree
 fromList =
@@ -94,7 +94,7 @@ fromList =
           (l, r) = (List.take cutoff es, drop cutoff es)
           lnode = fromList l
           rnode = fromList r
-       in MerkleNode (combineHash (rootHash lnode) (rootHash rnode)) lnode rnode
+       in MerkleNode (combineHash (rootHash lnode) (rootHash rnode)) len lnode rnode
 
 -- | Plutus Tx version of 'Data.List.drop'.
 -- TODO: move into plutus
@@ -118,4 +118,4 @@ toList = go
   go = \case
     MerkleEmpty -> []
     MerkleLeaf _ e -> [e]
-    MerkleNode _ n1 n2 -> toList n1 <> toList n2
+    MerkleNode _ _ n1 n2 -> toList n1 <> toList n2
