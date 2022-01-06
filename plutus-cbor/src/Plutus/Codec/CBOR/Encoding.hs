@@ -21,54 +21,47 @@ encodingToBuiltinByteString (Encoding bytes) = bytes
 encodeInteger :: Integer -> Encoding
 encodeInteger n
   | n < 0 =
-    encodeUnsigned 1 (subtractInteger 0 n - 1)
+    Encoding (encodeUnsigned 1 (subtractInteger 0 n - 1) emptyByteString)
   | otherwise =
-    encodeUnsigned 0 n
+    Encoding (encodeUnsigned 0 n emptyByteString)
 {-# INLINEABLE encodeInteger #-}
 
 -- * Internal
 
-withMajorType :: Integer -> Integer -> Encoding -> Encoding
+withMajorType :: Integer -> Integer -> BuiltinByteString -> BuiltinByteString
 withMajorType major n =
   consByteString (32 * major + n)
 {-# INLINEABLE withMajorType #-}
 
-encodeUnsigned :: Integer -> Integer -> Encoding
-encodeUnsigned major n
+encodeUnsigned :: Integer -> Integer -> BuiltinByteString -> BuiltinByteString
+encodeUnsigned major n next
   | n < 24 =
-    withMajorType major n emptyByteString
+    withMajorType major n next
   | n < 256 =
-    withMajorType major 24 (encodeUnsigned8 n)
+    withMajorType major 24 (encodeUnsigned8 n next)
   | n < 65536 =
-    withMajorType major 25 (encodeUnsigned16 n)
+    withMajorType major 25 (encodeUnsigned16 n next)
   | n < 4294967296 =
-    withMajorType major 26 (encodeUnsigned32 n)
+    withMajorType major 26 (encodeUnsigned32 n next)
   | otherwise =
-    withMajorType major 27 (encodeUnsigned64 n)
+    withMajorType major 27 (encodeUnsigned64 n next)
 {-# INLINEABLE encodeUnsigned #-}
 
-encodeUnsigned8 :: Integer -> Encoding
-encodeUnsigned8 n =
-  consByteString n emptyByteString
+encodeUnsigned8 :: Integer -> BuiltinByteString -> BuiltinByteString
+encodeUnsigned8 = consByteString
 {-# INLINEABLE encodeUnsigned8 #-}
 
-encodeUnsigned16 :: Integer -> Encoding
+encodeUnsigned16 :: Integer -> BuiltinByteString -> BuiltinByteString
 encodeUnsigned16 n =
-  appendByteString
-    (encodeUnsigned8 (quotient n 256))
-    (encodeUnsigned8 (remainder n 256))
+  encodeUnsigned8 (quotient n 256) . encodeUnsigned8 (remainder n 256)
 {-# INLINEABLE encodeUnsigned16 #-}
 
-encodeUnsigned32 :: Integer -> Encoding
+encodeUnsigned32 :: Integer -> BuiltinByteString -> BuiltinByteString
 encodeUnsigned32 n =
-  appendByteString
-    (encodeUnsigned16 (quotient n 65536))
-    (encodeUnsigned16 (remainder n 65536))
+  encodeUnsigned16 (quotient n 65536) . encodeUnsigned16 (remainder n 65536)
 {-# INLINEABLE encodeUnsigned32 #-}
 
-encodeUnsigned64 :: Integer -> Encoding
+encodeUnsigned64 :: Integer -> BuiltinByteString -> BuiltinByteString
 encodeUnsigned64 n =
-  appendByteString
-    (encodeUnsigned32 (quotient n 4294967296))
-    (encodeUnsigned32 (remainder n 4294967296))
+  encodeUnsigned32 (quotient n 4294967296) . encodeUnsigned32 (remainder n 4294967296)
 {-# INLINEABLE encodeUnsigned64 #-}
