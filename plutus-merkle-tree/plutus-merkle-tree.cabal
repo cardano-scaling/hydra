@@ -74,9 +74,11 @@ library
   hs-source-dirs:  src
   build-depends:
     , base
+    , base16
     , plutus-core
     , plutus-tx
     , plutus-tx-plugin
+    , text
 
   if flag(hydra-development)
     -- NOTE(SN): should fix HLS choking on PlutusTx plugin

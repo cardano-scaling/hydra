@@ -1,9 +1,24 @@
 module Plutus.MerkleTree where
 
-import PlutusTx.Prelude
+import Data.ByteString.Base16 (encodeBase16)
+import qualified Data.Text as Text
+import PlutusTx.Prelude hiding (toList)
 import qualified Prelude as Haskell
 
-type Hash = BuiltinByteString
+newtype Hash = Hash BuiltinByteString
+  deriving (Haskell.Eq)
+
+instance Eq Hash where
+  Hash h == Hash h' = h == h'
+
+hash :: BuiltinByteString -> Hash
+hash = Hash . sha2_256
+
+combineHash :: Hash -> Hash -> Hash
+combineHash (Hash h) (Hash h') = hash (appendByteString h h')
+
+instance Haskell.Show Hash where
+  show (Hash bs) = Text.unpack $ encodeBase16 $ fromBuiltin $ takeByteString 4 bs
 
 data MerkleTree
   = MerkleEmpty
@@ -24,15 +39,16 @@ fromList =
 toList :: MerkleTree -> [BuiltinByteString]
 toList = go []
  where
-  go xs = \case
-    MerkleEmpty -> xs
-    _ -> xs
+  go es = \case
+    MerkleEmpty -> reverse es
+    MerkleLeaf _ e -> e : es
+    MerkleNode _ n1 n2 -> toList n2 <> toList n1
 
 insert :: BuiltinByteString -> MerkleTree -> MerkleTree
 insert e = \case
-  MerkleEmpty -> MerkleLeaf (sha2_256 e) e
+  MerkleEmpty -> MerkleLeaf (hash e) e
   leaf@(MerkleLeaf h' _) ->
-    let h = sha2_256 e
-        hNode = sha2_256 (appendByteString h' h)
+    let h = hash e
+        hNode = combineHash h' h
      in MerkleNode hNode leaf (MerkleLeaf h e)
   _ -> MerkleEmpty
