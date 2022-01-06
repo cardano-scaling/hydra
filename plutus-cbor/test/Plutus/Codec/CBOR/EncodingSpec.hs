@@ -30,6 +30,7 @@ import Test.Plutus.Codec.CBOR.Encoding.Validators (
   emptyValidator,
   encodeByteStringValidator,
   encodeIntegerValidator,
+  encodeListValidator,
  )
 import Test.Plutus.Validator (
   ExUnits (..),
@@ -84,6 +85,14 @@ spec = do
           defaultMaxExecutionUnits
           (encodeByteString, encodeByteStringValidator)
           . convert
+    prop "for all (x :: [ByteString]), < (0.5% + 0.5% * n)" $
+      forAllBlind (genList (convert <$> genByteString)) $ \xs ->
+        let n = fromIntegral (length xs)
+         in propCostIsSmall
+              (50 % 10_000 + n * 50 % 10_000)
+              defaultMaxExecutionUnits
+              (encodeList . fmap encodeByteString, encodeListValidator)
+              xs
 
 -- | Compare encoding a value 'x' with our own encoder and a reference
 -- implementation. Counterexamples shows both encoded values, but in a pretty /

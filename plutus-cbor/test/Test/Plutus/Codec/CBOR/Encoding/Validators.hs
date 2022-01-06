@@ -10,6 +10,7 @@ import qualified Ledger.Typed.Scripts as Scripts
 import Plutus.Codec.CBOR.Encoding (
   encodeByteString,
   encodeInteger,
+  encodeList,
   encodingToBuiltinByteString,
  )
 import qualified PlutusTx as Plutus
@@ -65,3 +66,17 @@ encodeByteStringValidator =
     $$(Plutus.compile [||wrap||])
  where
   wrap = Scripts.wrapValidator @() @BuiltinByteString
+
+encodeListValidator :: Scripts.TypedValidator (EncodeValidator [BuiltinByteString])
+encodeListValidator =
+  Scripts.mkTypedValidator @(EncodeValidator [BuiltinByteString])
+    $$( Plutus.compile
+          [||
+          \() xs _ctx ->
+            let bytes = encodingToBuiltinByteString (encodeList (encodeByteString <$> xs))
+             in lengthOfByteString bytes > 0
+          ||]
+      )
+    $$(Plutus.compile [||wrap||])
+ where
+  wrap = Scripts.wrapValidator @() @[BuiltinByteString]

@@ -60,9 +60,8 @@ common project-config
     ViewPatterns
 
   ghc-options:
-    -Wall -Wcompat -Widentities -Wincomplete-record-updates
-    -Wincomplete-uni-patterns -Wpartial-fields -Wredundant-constraints
-    -fprint-potential-instances
+    -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wredundant-constraints
+    -fno-ignore-interface-pragmas -fno-omit-interface-pragmas -fno-strictness -fprint-potential-instances
 
   if !flag(hydra-development)
     ghc-options: -Werror
@@ -85,11 +84,7 @@ test-suite unit
   import:             project-config
   type:               exitcode-stdio-1.0
   hs-source-dirs:     test
-  ghc-options:
-    -threaded -rtsopts
-    -Wall -Wcompat -Widentities -Wincomplete-record-updates
-    -Wincomplete-uni-patterns -Wredundant-constraints
-    -fprint-potential-instances
+  ghc-options:        -threaded -rtsopts
   build-tool-depends: hspec-discover:hspec-discover -any
   build-depends:
     , base
