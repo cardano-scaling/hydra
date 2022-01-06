@@ -32,6 +32,20 @@ instance Eq MerkleTree where
   (MerkleNode h0 _ _) == (MerkleNode h1 _ _) = h0 == h1
   _ == _ = False
 
+null :: MerkleTree -> Bool
+null = \case
+  MerkleEmpty -> True
+  _ -> False
+
+type Proof = [Hash]
+
+mkProof :: BuiltinByteString -> MerkleTree -> Proof
+mkProof _e _tree = []
+
+{-# INLINEABLE member #-}
+member :: BuiltinByteString -> Hash -> Proof -> Bool
+member _e _root _proof = False
+
 rootHash :: MerkleTree -> Hash
 rootHash = \case
   MerkleEmpty -> hash ""

@@ -7,11 +7,12 @@ import qualified Data.ByteString as BS
 import Plutus.MerkleTree (MerkleTree)
 import qualified Plutus.MerkleTree as MT
 import qualified PlutusTx.Builtins as Plutus
-import Test.QuickCheck (Property, Testable, forAllShrink, (===), (==>))
+import Test.QuickCheck (Property, Testable, elements, forAll, forAllShrink, (===), (==>))
 
 spec :: Spec
-spec =
+spec = do
   prop "fromList . toList roundtrips MT" prop_roundtripFromToList
+  prop "can check membership of an element" prop_member
 
 prop_roundtripFromToList :: Property
 prop_roundtripFromToList =
@@ -33,7 +34,8 @@ forAllNonEmptyMerkleTree ::
   Property
 forAllNonEmptyMerkleTree action =
   forAllMerkleTree $ \tree ->
-    not (null tree) ==> undefined
+    not (MT.null tree) ==> forAll (elements $ MT.toList tree) $ \e ->
+      action (tree, e)
 
 genMerkleTree :: Gen MerkleTree
 genMerkleTree =
