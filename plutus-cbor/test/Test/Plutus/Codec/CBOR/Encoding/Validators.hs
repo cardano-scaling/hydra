@@ -8,11 +8,25 @@ import PlutusTx.Prelude
 
 import qualified Ledger.Typed.Scripts as Scripts
 import Plutus.Codec.CBOR.Encoding (
+  Encoding,
   encodeByteString,
   encodeInteger,
   encodeList,
+  encodeListLen,
   encodeMap,
+  encodeMaybe,
   encodingToBuiltinByteString,
+ )
+import Plutus.V1.Ledger.Api (
+  Address (..),
+  Credential (..),
+  CurrencySymbol (..),
+  DatumHash (..),
+  PubKeyHash (..),
+  TokenName (..),
+  TxOut (..),
+  ValidatorHash (..),
+  Value (..),
  )
 import qualified PlutusTx as Plutus
 import PlutusTx.AssocMap (Map)
@@ -100,3 +114,49 @@ encodeMapValidator =
     $$(Plutus.compile [||wrap||])
  where
   wrap = Scripts.wrapValidator @() @(Map BuiltinByteString BuiltinByteString)
+
+encodeTxOutValidator :: Scripts.TypedValidator (EncodeValidator TxOut)
+encodeTxOutValidator =
+  Scripts.mkTypedValidator @(EncodeValidator TxOut)
+    $$( Plutus.compile
+          [||
+          \() o _ctx ->
+            let bytes = encodingToBuiltinByteString (encodeTxOut o)
+             in lengthOfByteString bytes > 0
+          ||]
+      )
+    $$(Plutus.compile [||wrap||])
+ where
+  wrap = Scripts.wrapValidator @() @TxOut
+
+  encodeTxOut :: TxOut -> Encoding
+  encodeTxOut (TxOut addr value datum) =
+    encodeListLen 3
+      <> encodeAddress addr
+      <> encodeValue value
+      <> encodeDatum datum
+
+  -- NOTE 1: This is missing the header byte with network discrimination. For the
+  -- sake of getting an order of magnitude and moving forward, it is fine.
+  --
+  -- NOTE 2: This is ignoring any stake reference and assuming that all addresses
+  -- are plain script or payment addresses with no delegation whatsoever. Again,
+  -- see NOTE #1.
+  encodeAddress :: Address -> Encoding
+  encodeAddress Address{addressCredential} =
+    encodeByteString (credentialToBytes addressCredential)
+   where
+    credentialToBytes = \case
+      PubKeyCredential (PubKeyHash h) -> h
+      ScriptCredential (ValidatorHash h) -> h
+
+  encodeValue :: Value -> Encoding
+  encodeValue =
+    encodeMap encodeCurrencySymbol (encodeMap encodeTokenName encodeInteger) . getValue
+   where
+    encodeCurrencySymbol (CurrencySymbol symbol) = encodeByteString symbol
+    encodeTokenName (TokenName token) = encodeByteString token
+
+  encodeDatum :: Maybe DatumHash -> Encoding
+  encodeDatum =
+    encodeMaybe (\(DatumHash h) -> encodeByteString h)

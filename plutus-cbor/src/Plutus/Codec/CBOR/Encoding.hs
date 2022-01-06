@@ -5,10 +5,12 @@ module Plutus.Codec.CBOR.Encoding (
   encodingToBuiltinByteString,
   encodeInteger,
   encodeByteString,
+  encodeNull,
   encodeListLen,
   encodeList,
   encodeMapLen,
   encodeMap,
+  encodeMaybe,
 ) where
 
 import PlutusTx.Prelude
@@ -47,6 +49,11 @@ encodeByteString bytes =
   Encoding (encodeUnsigned 2 (lengthOfByteString bytes) . appendByteString bytes)
 {-# INLINEABLE encodeByteString #-}
 
+encodeNull :: Encoding
+encodeNull =
+  Encoding (consByteString 246)
+{-# INLINEABLE encodeNull #-}
+
 -- * Data-Structure
 
 -- | Declare a list of fixed size. Then, provide each element of the list
@@ -63,6 +70,12 @@ encodeList encodeElem es =
   encodeListLen (length es)
     <> foldr (\e -> (encodeElem e <>)) mempty es
 {-# INLINEABLE encodeList #-}
+
+encodeMaybe :: (a -> Encoding) -> Maybe a -> Encoding
+encodeMaybe encode = \case
+  Nothing -> encodeNull
+  Just a -> encode a
+{-# INLINEABLE encodeMaybe #-}
 
 -- | Declare a map of fixed size. Then, provide each key/value pair of the map
 -- separately via appending them ('Encoding' is a 'Semigroup').

@@ -10,7 +10,6 @@ import qualified Codec.CBOR.Encoding as CBOR
 import qualified Codec.CBOR.Pretty as CBOR
 import qualified Codec.CBOR.Write as CBOR
 import Data.Binary.Builder (toLazyByteString)
-import Data.ByteArray (convert)
 import qualified Data.ByteString as BS
 import Data.ByteString.Base16 (encodeBase16)
 import Data.ByteString.Builder.Scientific (FPFormat (Fixed), formatScientificBuilder)
@@ -23,9 +22,10 @@ import Plutus.Codec.CBOR.Encoding (
   encodeInteger,
   encodeList,
   encodeMap,
+  encodeNull,
   encodingToBuiltinByteString,
  )
-import qualified PlutusTx as Plutus
+import qualified Plutus.V1.Ledger.Api as Plutus
 import qualified PlutusTx.AssocMap as Plutus.Map
 import Test.Plutus.Codec.CBOR.Encoding.Validators (
   EncodeValidator,
@@ -34,6 +34,7 @@ import Test.Plutus.Codec.CBOR.Encoding.Validators (
   encodeIntegerValidator,
   encodeListValidator,
   encodeMapValidator,
+  encodeTxOutValidator,
  )
 import Test.Plutus.Validator (
   ExUnits (..),
@@ -70,41 +71,63 @@ spec = do
           propCompareWithOracle encode encode' x
 
   describe "(on-chain) execution cost of CBOR encoding is small" $ do
-    prop "for all small (< 65536) (x :: Integer), <0.15%" $
+    prop "for all small (< 65536) (x :: Integer)" $
       forAllBlind (genInteger `suchThat` ((< 65536) . abs)) $
         propCostIsSmall
-          (15 % 10_000)
+          (0.15, 0.075)
           defaultMaxExecutionUnits
-          (encodeInteger, encodeIntegerValidator)
-    prop "for all large (> 65536) (x :: Integer), <0.30%" $
+          encodeIntegerValidator
+    prop "for all large (> 65536) (x :: Integer)" $
       forAllBlind (genInteger `suchThat` ((> 65536) . abs)) $
         propCostIsSmall
-          (30 % 10_000)
+          (0.30, 0.20)
           defaultMaxExecutionUnits
-          (encodeInteger, encodeIntegerValidator)
-    prop "for all (x :: ByteString), <0.05%" $
+          encodeIntegerValidator
+    prop "for all (x :: ByteString)" $
       forAllBlind genByteString $
         propCostIsSmall
-          (5 % 10_000)
+          (0.05, 0.03)
           defaultMaxExecutionUnits
-          (encodeByteString, encodeByteStringValidator)
-          . convert
-    prop "for all (x :: [ByteString]), < (0.50% + 0.40% * n)" $
-      forAllBlind (genList (convert <$> genByteString)) $ \xs ->
+          encodeByteStringValidator
+          . Plutus.toBuiltin
+    prop "for all (x :: [ByteString])" $
+      forAllBlind (genList (Plutus.toBuiltin <$> genByteString)) $ \xs ->
         let n = fromIntegral (length xs)
          in propCostIsSmall
-              (50 % 10_000 + n * 40 % 10_000)
+              (0.4 * n + 0.5, n * 0.2 + 0.5)
               defaultMaxExecutionUnits
-              (encodeList encodeByteString, encodeListValidator)
+              encodeListValidator
               xs
-    prop "for all (x :: [(ByteString, ByteString)]), < (0.50% + 0.50% * n)" $
-      forAllBlind (genMap (convert <$> genByteString) (convert <$> genByteString)) $ \m ->
+              & label ("of length = " <> show n)
+              & counterexample ("length: " <> show n)
+    prop "for all (x :: Map ByteString ByteString)" $
+      forAllBlind (genMap (Plutus.toBuiltin <$> genByteString) (Plutus.toBuiltin <$> genByteString)) $ \m ->
         let n = fromIntegral (length m)
          in propCostIsSmall
-              (50 % 10_000 + n * 50 % 10_000)
+              (n * 0.5 + 0.5, n * 0.3 + 0.5)
               defaultMaxExecutionUnits
-              (encodeMap encodeByteString encodeByteString, encodeMapValidator)
+              encodeMapValidator
               (Plutus.Map.fromList m)
+              & label ("of size = " <> show n)
+              & counterexample ("size: " <> show n)
+    prop "for all (x :: TxOut), ada-only" $
+      forAllBlind genAdaOnlyTxOut $
+        propCostIsSmall
+          (2.5, 1.5)
+          defaultMaxExecutionUnits
+          encodeTxOutValidator
+    prop "for all (x :: TxOut), with up to 10 assets" $
+      forAllBlind (genTxOut 10) $
+        propCostIsSmall
+          (15, 6)
+          defaultMaxExecutionUnits
+          encodeTxOutValidator
+    prop "for all (x :: TxOut), with up to 75 assets%" $
+      forAllBlind (genTxOut 75) $
+        propCostIsSmall
+          (100, 40)
+          defaultMaxExecutionUnits
+          encodeTxOutValidator
 
 -- | Compare encoding a value 'x' with our own encoder and a reference
 -- implementation. Counterexamples shows both encoded values, but in a pretty /
@@ -116,11 +139,11 @@ propCompareWithOracle ::
   x ->
   Property
 propCompareWithOracle encodeOracle encodeOurs x =
-  ( convert (CBOR.toStrictByteString oracle) === ours
+  ( Plutus.toBuiltin (CBOR.toStrictByteString oracle) === ours
   )
     & counterexample ("value: " <> show x)
     & counterexample ("\n─── cborg: \n" <> CBOR.prettyHexEnc oracle)
-    & counterexample ("\n─── ours: \n" <> toString (encodeBase16 $ convert ours))
+    & counterexample ("\n─── ours: \n" <> toString (encodeBase16 $ Plutus.fromBuiltin ours))
  where
   oracle = encodeOracle x
   ours = encodingToBuiltinByteString (encodeOurs x)
@@ -129,47 +152,40 @@ propCompareWithOracle encodeOracle encodeOurs x =
 -- front of some max execution budget.
 propCostIsSmall ::
   (Plutus.ToData a, Show a) =>
-  Rational ->
+  (Double, Double) ->
   ExUnits ->
-  (a -> Encoding, Scripts.TypedValidator (EncodeValidator a)) ->
+  Scripts.TypedValidator (EncodeValidator a) ->
   a ->
   Property
-propCostIsSmall tolerance (ExUnits maxMemUnits maxStepsUnits) (encode, validator) a =
+propCostIsSmall (toleranceMem, toleranceStep) (ExUnits maxMemUnits maxStepsUnits) validator a =
   conjoin
-    [ relativeMemCost < tolerance
-    , relativeStepCost < tolerance
+    [ 100 * fromRational relativeMemCost < toleranceMem
+        & counterexample
+          ( "memory execution units exceeded: "
+              <> show mem
+              <> " ("
+              <> asPercent relativeMemCost
+              <> ")"
+          )
+    , 100 * fromRational relativeStepCost < toleranceStep
+        & counterexample
+          ( "CPU execution units exceeded:    "
+              <> show steps
+              <> " ("
+              <> asPercent relativeStepCost
+              <> ")"
+          )
     ]
     & label
-      ( "of size = "
-          <> show n
-          <> ", mem units = "
-          <> show mem
-          <> " ("
-          <> asPercent relativeMemCost
-          <> " ), CPU units = "
-          <> show steps
-          <> " ("
-          <> asPercent relativeStepCost
-          <> " )"
-      )
-    & counterexample
-      ( "memory execution units: "
-          <> show mem
-          <> " ("
-          <> asPercent relativeMemCost
-          <> ")"
-      )
-    & counterexample
-      ( "CPU execution units:    "
-          <> show steps
-          <> " ("
-          <> asPercent relativeStepCost
-          <> ")"
+      ( "of mem units < "
+          <> show toleranceMem
+          <> "%, and steps units < "
+          <> show toleranceStep
+          <> "%"
       )
     & counterexample
       ("value:                   " <> show a)
  where
-  n = BS.length $ convert $ encodingToBuiltinByteString $ encode a
   ExUnits mem steps =
     distanceExUnits
       (evaluateScriptExecutionUnits emptyValidator ())
@@ -221,6 +237,7 @@ genSomeValue =
       catMaybes
         [ Just genSomeInteger
         , Just genSomeByteString
+        , Just genSomeNull
         , guard (n > 0) $> genSomeList n
         , guard (n > 0) $> genSomeMap n
         ]
@@ -233,7 +250,11 @@ genSomeValue =
   genSomeByteString :: Gen SomeValue
   genSomeByteString = do
     val <- genByteString
-    return $ SomeValue val shrinkByteString CBOR.encodeBytes (encodeByteString . convert)
+    return $ SomeValue val shrinkByteString CBOR.encodeBytes (encodeByteString . Plutus.toBuiltin)
+
+  genSomeNull :: Gen SomeValue
+  genSomeNull = do
+    return $ SomeValue () (const []) (const CBOR.encodeNull) (const encodeNull)
 
   genSomeList :: Int -> Gen SomeValue
   genSomeList n = do
@@ -289,7 +310,10 @@ genInteger =
 
 genByteString :: Gen ByteString
 genByteString = do
-  n <- elements [0, 8, 16, 28, 32]
+  genByteStringOf =<< elements [0, 8, 16, 28, 32]
+
+genByteStringOf :: Int -> Gen ByteString
+genByteStringOf n =
   BS.pack <$> vector n
 
 shrinkByteString :: ByteString -> [ByteString]
@@ -302,6 +326,60 @@ genList genOne = do
   vectorOf n genOne
 
 genMap :: Gen k -> Gen v -> Gen [(k, v)]
-genMap genKey genValue = do
+genMap genKey genVal = do
   n <- elements [0, 1, 5, 25]
-  zip <$> vectorOf n genKey <*> vectorOf n genValue
+  zip <$> vectorOf n genKey <*> vectorOf n genVal
+
+genTxOut :: Int -> Gen Plutus.TxOut
+genTxOut high = do
+  n <- choose (1, high)
+  Plutus.TxOut
+    <$> genAddress
+    <*> fmap mconcat (vectorOf n genValue)
+    <*> oneof [pure Nothing, Just <$> genDatumHash]
+
+genAdaOnlyTxOut :: Gen Plutus.TxOut
+genAdaOnlyTxOut =
+  Plutus.TxOut
+    <$> genAddress
+    <*> genAdaOnlyValue
+    <*> oneof [pure Nothing, Just <$> genDatumHash]
+
+genAddress :: Gen Plutus.Address
+genAddress =
+  Plutus.Address
+    <$> fmap (Plutus.PubKeyCredential . Plutus.PubKeyHash . Plutus.toBuiltin) (genByteStringOf 28)
+    <*> pure Nothing
+
+genValue :: Gen Plutus.Value
+genValue = do
+  n <- genInteger `suchThat` (> 0)
+  policyId <- genCurrencySymbol
+  assetName <- genTokenName
+  pure $
+    Plutus.Value $
+      Plutus.Map.fromList
+        [(policyId, Plutus.Map.fromList [(assetName, n)])]
+
+genAdaOnlyValue :: Gen Plutus.Value
+genAdaOnlyValue = do
+  n <- genInteger `suchThat` (> 0)
+  pure $
+    Plutus.Value $
+      Plutus.Map.fromList
+        [(Plutus.adaSymbol, Plutus.Map.fromList [(Plutus.adaToken, n)])]
+
+genCurrencySymbol :: Gen Plutus.CurrencySymbol
+genCurrencySymbol =
+  Plutus.CurrencySymbol
+    <$> fmap Plutus.toBuiltin (genByteStringOf 32)
+
+genTokenName :: Gen Plutus.TokenName
+genTokenName =
+  Plutus.TokenName
+    <$> fmap Plutus.toBuiltin (genByteStringOf =<< choose (0, 32))
+
+genDatumHash :: Gen Plutus.DatumHash
+genDatumHash =
+  Plutus.DatumHash
+    <$> fmap Plutus.toBuiltin (genByteStringOf 32)
