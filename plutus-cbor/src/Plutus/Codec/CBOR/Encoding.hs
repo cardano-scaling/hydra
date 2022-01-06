@@ -39,7 +39,7 @@ encodeByteString bytes =
 encodeList :: [Encoding] -> Encoding
 encodeList xs =
   Encoding $ \next ->
-    withMajorType 4 (length xs) $
+    encodeUnsigned 4 (length xs) $
       foldr
         (\(Encoding runEncoder) bytes -> runEncoder bytes)
         next

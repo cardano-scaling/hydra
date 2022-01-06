@@ -43,30 +43,26 @@ import Test.QuickCheck (
   conjoin,
   counterexample,
   elements,
-  forAll,
   forAllBlind,
+  forAllShrink,
   label,
   oneof,
+  shrinkList,
   suchThat,
   vector,
   vectorOf,
+  withMaxSuccess,
   (===),
  )
+import qualified Prelude
 
 spec :: Spec
 spec = do
   describe "our CBOR encoding matches oracle's ('cborg' library)" $ do
-    prop "for all (x :: Integer) w/ 'encodeInteger'" $
-      forAll genInteger $
-        propCompareWithOracle CBOR.encodeInteger encodeInteger
-    prop "for all (x :: ByteString) w/ 'encodeByteString'" $
-      forAll genByteString $
-        propCompareWithOracle CBOR.encodeBytes (encodeByteString . convert)
-    prop "for all (x :: [a]) w/ 'encodeList'" $
-      forAll (genList genInteger) $
-        propCompareWithOracle
-          (\xs -> CBOR.encodeListLen (fromIntegral (length xs)) <> foldMap CBOR.encodeInteger xs)
-          (encodeList . fmap encodeInteger)
+    prop "for all values" $
+      withMaxSuccess 1000 $
+        forAllShrink genSomeValue shrinkSomeValue $ \(SomeValue x _ encode encode') ->
+          propCompareWithOracle encode encode' x
 
   describe "(on-chain) execution cost of CBOR encoding is small" $ do
     prop "for all small (< 65536) (x :: Integer), <0.15%" $
@@ -75,14 +71,12 @@ spec = do
           (15 % 10_000)
           defaultMaxExecutionUnits
           (encodeInteger, encodeIntegerValidator)
-
     prop "for all large (> 65536) (x :: Integer), <0.30%" $
       forAllBlind (genInteger `suchThat` ((> 65536) . abs)) $
         propCostIsSmall
           (30 % 10_000)
           defaultMaxExecutionUnits
           (encodeInteger, encodeIntegerValidator)
-
     prop "for all (x :: ByteString), <0.05%" $
       forAllBlind genByteString $
         propCostIsSmall
@@ -179,6 +173,56 @@ asPercent r =
 -- Generators
 --
 
+data SomeValue where
+  SomeValue ::
+    forall a.
+    Show a =>
+    a ->
+    (a -> [a]) ->
+    (a -> CBOR.Encoding) ->
+    (a -> Encoding) ->
+    SomeValue
+
+instance Prelude.Show SomeValue where
+  show (SomeValue val _ _ _) = show val
+
+genSomeValue :: Gen SomeValue
+genSomeValue =
+  withMaxDepth 1
+ where
+  withMaxDepth :: Int -> Gen SomeValue
+  withMaxDepth n =
+    oneof $
+      mconcat
+        [
+          [ do
+              val <- genInteger
+              return $ SomeValue val shrink CBOR.encodeInteger encodeInteger
+          , do
+              val <- genByteString
+              return $ SomeValue val shrinkByteString CBOR.encodeBytes (encodeByteString . convert)
+          ]
+        , [ do
+            val <- genList (withMaxDepth (n - 1))
+            return $
+              SomeValue
+                val
+                (shrinkList shrinkSomeValue)
+                ( \xs ->
+                    mconcat
+                      [ CBOR.encodeListLen (fromIntegral (length xs))
+                      , foldMap (\(SomeValue x _ encode _) -> encode x) xs
+                      ]
+                )
+                (encodeList . fmap (\(SomeValue x _ _ encode) -> encode x))
+          | n > 0
+          ]
+        ]
+
+shrinkSomeValue :: SomeValue -> [SomeValue]
+shrinkSomeValue (SomeValue a shrinker encode encode') =
+  fmap (\a' -> SomeValue a' shrinker encode encode') (shrinker a)
+
 genInteger :: Gen Integer
 genInteger =
   oneof
@@ -195,12 +239,16 @@ genInteger =
       , choose (4294967296, 18446744073709552000)
       ]
 
-genList :: Gen a -> Gen [a]
-genList genOne = do
-  n <- elements [0, 1, 5, 25]
-  vectorOf n genOne
-
 genByteString :: Gen ByteString
 genByteString = do
   n <- elements [0, 8, 16, 28, 32]
   BS.pack <$> vector n
+
+shrinkByteString :: ByteString -> [ByteString]
+shrinkByteString =
+  fmap BS.pack . shrink . BS.unpack
+
+genList :: Gen a -> Gen [a]
+genList genOne = do
+  n <- elements [0, 1, 5, 25]
+  vectorOf n genOne
