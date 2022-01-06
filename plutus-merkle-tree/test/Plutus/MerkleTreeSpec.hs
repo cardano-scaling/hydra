@@ -7,7 +7,7 @@ import qualified Data.ByteString as BS
 import Plutus.MerkleTree (MerkleTree)
 import qualified Plutus.MerkleTree as MT
 import qualified PlutusTx.Builtins as Plutus
-import Test.QuickCheck (Property, forAllShrink, (===))
+import Test.QuickCheck (Property, Testable, forAllShrink, (===), (==>))
 
 spec :: Spec
 spec =
@@ -18,8 +18,22 @@ prop_roundtripFromToList =
   forAllMerkleTree $ \tree ->
     MT.fromList (MT.toList tree) === tree
 
-forAllMerkleTree :: (MerkleTree -> Property) -> Property
-forAllMerkleTree = forAllShrink genMerkleTree shrinkMerkleTree
+prop_member :: Property
+prop_member =
+  forAllNonEmptyMerkleTree $ \(tree, e) ->
+    MT.member e (MT.rootHash tree) (MT.mkProof e tree)
+
+forAllMerkleTree :: Testable prop => (MerkleTree -> prop) -> Property
+forAllMerkleTree =
+  forAllShrink genMerkleTree shrinkMerkleTree
+
+forAllNonEmptyMerkleTree ::
+  Testable prop =>
+  ((MerkleTree, Plutus.BuiltinByteString) -> prop) ->
+  Property
+forAllNonEmptyMerkleTree action =
+  forAllMerkleTree $ \tree ->
+    not (null tree) ==> undefined
 
 genMerkleTree :: Gen MerkleTree
 genMerkleTree =
