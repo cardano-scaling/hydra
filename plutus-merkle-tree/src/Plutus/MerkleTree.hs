@@ -38,7 +38,7 @@ null = \case
   MerkleEmpty -> True
   _ -> False
 
-type Proof = [Hash]
+type Proof = [Either Hash Hash]
 
 mkProof :: BuiltinByteString -> MerkleTree -> Maybe Proof
 mkProof e = go []
@@ -51,11 +51,16 @@ mkProof e = go []
         then Just es
         else Nothing
     MerkleNode _ l r ->
-      go (rootHash r : es) l <|> go (rootHash l : es) r
+      go (Right (rootHash r) : es) l <|> go (Left (rootHash l) : es) r
 
 {-# INLINEABLE member #-}
 member :: BuiltinByteString -> Hash -> Proof -> Bool
-member _e _root _proof = False
+member e root = go (hash e)
+ where
+  go root' = \case
+    [] -> root' == root
+    (Left l) : q -> go (combineHash l root') q
+    (Right r) : q -> go (combineHash root' r) q
 
 rootHash :: MerkleTree -> Hash
 rootHash = \case

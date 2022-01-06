@@ -8,7 +8,16 @@ import Data.Maybe (fromJust)
 import Plutus.MerkleTree (MerkleTree)
 import qualified Plutus.MerkleTree as MT
 import qualified PlutusTx.Builtins as Plutus
-import Test.QuickCheck (Property, Testable, elements, forAll, forAllShrink, (===), (==>))
+import Test.QuickCheck (
+  Property,
+  Testable,
+  counterexample,
+  elements,
+  forAll,
+  forAllShrink,
+  (===),
+  (==>),
+ )
 
 spec :: Spec
 spec = do
@@ -22,8 +31,9 @@ prop_roundtripFromToList =
 
 prop_member :: Property
 prop_member =
-  forAllNonEmptyMerkleTree $ \(tree, e) ->
-    MT.member e (MT.rootHash tree) (fromJust $ MT.mkProof e tree)
+  forAllNonEmptyMerkleTree $ \(tree, e, proof) ->
+    MT.member e (MT.rootHash tree) proof
+      & counterexample ("Proof: " <> show proof)
 
 forAllMerkleTree :: Testable prop => (MerkleTree -> prop) -> Property
 forAllMerkleTree =
@@ -31,12 +41,12 @@ forAllMerkleTree =
 
 forAllNonEmptyMerkleTree ::
   Testable prop =>
-  ((MerkleTree, Plutus.BuiltinByteString) -> prop) ->
+  ((MerkleTree, Plutus.BuiltinByteString, MT.Proof) -> prop) ->
   Property
 forAllNonEmptyMerkleTree action =
   forAllMerkleTree $ \tree ->
     not (MT.null tree) ==> forAll (elements $ MT.toList tree) $ \e ->
-      action (tree, e)
+      action (tree, e, fromJust $ MT.mkProof e tree)
 
 genMerkleTree :: Gen MerkleTree
 genMerkleTree =
