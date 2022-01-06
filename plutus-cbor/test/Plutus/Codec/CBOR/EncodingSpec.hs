@@ -110,7 +110,7 @@ propCostIsSmall tolerance (ExUnits maxMemUnits maxStepsUnits) (encode, validator
           <> ")"
       )
  where
-  n = BS.length $ convert $ encode a
+  n = BS.length $ convert $ encodingToBuiltinByteString $ encode a
   ExUnits mem steps =
     distanceExUnits
       (evaluateScriptExecutionUnits emptyValidator ())

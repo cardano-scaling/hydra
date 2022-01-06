@@ -7,7 +7,10 @@ module Test.Plutus.Codec.CBOR.Encoding.Validators where
 import PlutusTx.Prelude
 
 import qualified Ledger.Typed.Scripts as Scripts
-import Plutus.Codec.CBOR.Encoding (encodeInteger)
+import Plutus.Codec.CBOR.Encoding (
+  encodeInteger,
+  encodingToBuiltinByteString,
+ )
 import qualified PlutusTx as Plutus
 
 -- | A baseline validator which does nothing but returning 'True'. We use it as
@@ -40,7 +43,7 @@ encodeIntegerValidator =
     $$( Plutus.compile
           [||
           \() a _ctx ->
-            lengthOfByteString (encodeInteger a) > 0
+            lengthOfByteString (encodingToBuiltinByteString (encodeInteger a)) > 0
           ||]
       )
     $$(Plutus.compile [||wrap||])

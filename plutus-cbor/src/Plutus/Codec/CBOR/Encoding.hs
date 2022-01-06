@@ -10,10 +10,10 @@ import PlutusTx.Builtins (subtractInteger)
 
 -- * Encoding
 
-type Encoding = BuiltinByteString
+newtype Encoding = Encoding BuiltinByteString
 
 encodingToBuiltinByteString :: Encoding -> BuiltinByteString
-encodingToBuiltinByteString = id
+encodingToBuiltinByteString (Encoding bytes) = bytes
 {-# INLINEABLE encodingToBuiltinByteString #-}
 
 -- * Basic types
