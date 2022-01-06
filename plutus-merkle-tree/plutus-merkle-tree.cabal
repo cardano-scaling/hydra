@@ -100,6 +100,8 @@ test-suite unit
     , hydra-prelude
     , hydra-test-utils
     , plutus-core
+    , plutus-ledger
+    , plutus-ledger-api
     , plutus-merkle-tree
     , plutus-tx
     , plutus-tx-plugin
@@ -107,6 +109,7 @@ test-suite unit
 
   other-modules:
     Plutus.MerkleTreeSpec
+    Plutus.MerkleTreeValidator
     Spec
 
   main-is:            Main.hs

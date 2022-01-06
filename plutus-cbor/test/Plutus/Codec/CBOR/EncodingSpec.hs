@@ -6,7 +6,6 @@ module Plutus.Codec.CBOR.EncodingSpec where
 import Hydra.Prelude hiding (label)
 import Test.Hydra.Prelude
 
-import Cardano.Ledger.Alonzo.Scripts (ExUnits (..))
 import qualified Codec.CBOR.Encoding as CBOR
 import qualified Codec.CBOR.Pretty as CBOR
 import qualified Codec.CBOR.Write as CBOR
@@ -30,6 +29,9 @@ import Test.Plutus.Codec.CBOR.Encoding.Validators (
   encodeIntegerValidator,
  )
 import Test.Plutus.Validator (
+  ExUnits (..),
+  defaultMaxExecutionUnits,
+  distanceExUnits,
   evaluateScriptExecutionUnits,
  )
 import Test.QuickCheck (
@@ -118,24 +120,6 @@ propCostIsSmall tolerance (ExUnits maxMemUnits maxStepsUnits) (encode, validator
     ( toInteger mem % toInteger maxMemUnits
     , toInteger steps % toInteger maxStepsUnits
     )
-
---
--- Compare scripts to baselines
---
-
--- | Current (2022-04-01) mainchain parameters.
-defaultMaxExecutionUnits :: ExUnits
-defaultMaxExecutionUnits =
-  ExUnits
-    { exUnitsMem = 10_000_000
-    , exUnitsSteps = 10_000_000_000
-    }
-
-distanceExUnits :: ExUnits -> ExUnits -> ExUnits
-distanceExUnits (ExUnits m0 s0) (ExUnits m1 s1) =
-  ExUnits
-    (if m0 > m1 then m0 - m1 else m1 - m0)
-    (if s0 > s1 then s0 - s1 else s1 - s0)
 
 --
 -- Helpers

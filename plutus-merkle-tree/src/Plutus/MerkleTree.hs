@@ -1,13 +1,18 @@
+{-# LANGUAGE TemplateHaskell #-}
+
 module Plutus.MerkleTree where
 
 import Data.ByteString.Base16 (encodeBase16)
 import qualified Data.Text as Text
 import PlutusPrelude ((<|>))
+import qualified PlutusTx
 import PlutusTx.Prelude hiding (toList)
 import qualified Prelude as Haskell
 
 newtype Hash = Hash BuiltinByteString
   deriving (Haskell.Eq)
+
+PlutusTx.unstableMakeIsData ''Hash
 
 instance Eq Hash where
   Hash h == Hash h' = h == h'

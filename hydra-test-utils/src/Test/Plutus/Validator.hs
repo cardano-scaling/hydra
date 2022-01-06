@@ -1,3 +1,4 @@
+{-# LANGUAGE NumericUnderscores #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE ViewPatterns #-}
@@ -10,7 +11,8 @@
 -- context (e.g. an implementation of a data-structure on-chain or, as here,
 -- data encoders).
 module Test.Plutus.Validator (
-  evaluateScriptExecutionUnits,
+  module Test.Plutus.Validator,
+  ExUnits (..),
 ) where
 
 import Hydra.Prelude hiding (label)
@@ -71,6 +73,24 @@ import qualified Ledger.Typed.Scripts as Scripts
 import qualified PlutusTx as Plutus
 import Test.Cardano.Ledger.Alonzo.PlutusScripts (defaultCostModel)
 import qualified Prelude
+
+--
+-- Compare scripts to baselines
+--
+
+-- | Current (2022-04-01) mainchain parameters.
+defaultMaxExecutionUnits :: ExUnits
+defaultMaxExecutionUnits =
+  ExUnits
+    { exUnitsMem = 10_000_000
+    , exUnitsSteps = 10_000_000_000
+    }
+
+distanceExUnits :: ExUnits -> ExUnits -> ExUnits
+distanceExUnits (ExUnits m0 s0) (ExUnits m1 s1) =
+  ExUnits
+    (if m0 > m1 then m0 - m1 else m1 - m0)
+    (if s0 > s1 then s0 - s1 else s1 - s0)
 
 evaluateScriptExecutionUnits ::
   Plutus.ToData a =>
