@@ -11,6 +11,7 @@ import Plutus.Codec.CBOR.Encoding (
   encodeByteString,
   encodeInteger,
   encodeList,
+  encodeMap,
   encodingToBuiltinByteString,
  )
 import qualified PlutusTx as Plutus
@@ -80,3 +81,24 @@ encodeListValidator =
     $$(Plutus.compile [||wrap||])
  where
   wrap = Scripts.wrapValidator @() @[BuiltinByteString]
+
+encodeMapValidator :: Scripts.TypedValidator (EncodeValidator [(BuiltinByteString, BuiltinByteString)])
+encodeMapValidator =
+  Scripts.mkTypedValidator @(EncodeValidator [(BuiltinByteString, BuiltinByteString)])
+    $$( Plutus.compile
+          [||
+          \() m _ctx ->
+            let bytes =
+                  encodingToBuiltinByteString
+                    ( encodeMap $
+                        ( \(a, b) ->
+                            (encodeByteString a, encodeByteString b)
+                        )
+                          <$> m
+                    )
+             in lengthOfByteString bytes > 0
+          ||]
+      )
+    $$(Plutus.compile [||wrap||])
+ where
+  wrap = Scripts.wrapValidator @() @[(BuiltinByteString, BuiltinByteString)]

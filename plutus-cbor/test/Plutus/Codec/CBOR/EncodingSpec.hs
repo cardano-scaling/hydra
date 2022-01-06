@@ -32,6 +32,7 @@ import Test.Plutus.Codec.CBOR.Encoding.Validators (
   encodeByteStringValidator,
   encodeIntegerValidator,
   encodeListValidator,
+  encodeMapValidator,
  )
 import Test.Plutus.Validator (
   ExUnits (..),
@@ -95,6 +96,16 @@ spec = do
               defaultMaxExecutionUnits
               (encodeList . fmap encodeByteString, encodeListValidator)
               xs
+    prop "for all (x :: [(ByteString, ByteString)]), < (0.5% + 1% * n)" $
+      forAllBlind (genMap (convert <$> genByteString) (convert <$> genByteString)) $ \m ->
+        let n = fromIntegral (length m)
+         in propCostIsSmall
+              (50 % 10_000 + n * 100 % 10_000)
+              defaultMaxExecutionUnits
+              ( encodeMap . fmap (bimap encodeByteString encodeByteString)
+              , encodeMapValidator
+              )
+              m
 
 -- | Compare encoding a value 'x' with our own encoder and a reference
 -- implementation. Counterexamples shows both encoded values, but in a pretty /
@@ -181,7 +192,7 @@ asPercent r =
   toFixedDecimals n = formatScientificBuilder Fixed (Just n) . unsafeFromRational
 
 --
--- Generators
+-- SomeValue
 --
 
 data SomeValue where
@@ -196,6 +207,10 @@ data SomeValue where
 
 instance Prelude.Show SomeValue where
   show (SomeValue val _ _ _) = show val
+
+shrinkSomeValue :: SomeValue -> [SomeValue]
+shrinkSomeValue (SomeValue a shrinker encode encode') =
+  fmap (\a' -> SomeValue a' shrinker encode encode') (shrinker a)
 
 genSomeValue :: Gen SomeValue
 genSomeValue =
@@ -254,9 +269,9 @@ genSomeValue =
               )
     return $ SomeValue val shrinkMap encodeCborg encodeOurs
 
-shrinkSomeValue :: SomeValue -> [SomeValue]
-shrinkSomeValue (SomeValue a shrinker encode encode') =
-  fmap (\a' -> SomeValue a' shrinker encode encode') (shrinker a)
+--
+-- Generators
+--
 
 genInteger :: Gen Integer
 genInteger =
