@@ -73,6 +73,7 @@ library
   exposed-modules: Plutus.MerkleTree
   hs-source-dirs:  src
   build-depends:
+    , base
     , plutus-core
     , plutus-tx
     , plutus-tx-plugin
