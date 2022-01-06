@@ -33,8 +33,7 @@ spec = do
   prop "can check membership of an element" prop_member
   prop "inf power of 2 bound" prop_infPowerOf2
   prop "tree is balanced" prop_treeIsBalanced
-
---  prop "execution units" prop_executionUnitsComparison
+  prop "execution units" prop_executionUnitsComparison
 
 prop_roundtripFromToList :: Property
 prop_roundtripFromToList =
@@ -76,7 +75,7 @@ prop_executionUnitsComparison =
         ExUnits maxMem maxCpu = defaultMaxExecutionUnits
         percentMem :: Double = fromRational $ fromIntegral mem * 100 % fromIntegral maxMem
         percentCpu :: Double = fromRational $ fromIntegral cpu * 100 % fromIntegral maxCpu
-     in percentMem < 10 && percentCpu < 10
+     in percentMem < 1 && percentCpu < 1
           & counterexample ("mem units: " <> show mem <> " ( " <> show percentMem <> "% )")
           & counterexample ("cpu units: " <> show cpu <> " ( " <> show percentCpu <> "% )")
           & counterexample ("proof size: " <> show (length proof))
