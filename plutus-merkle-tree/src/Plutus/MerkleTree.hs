@@ -17,9 +17,11 @@ instance Haskell.Show Hash where
 
 hash :: BuiltinByteString -> Hash
 hash = Hash . sha2_256
+{-# INLINEABLE hash #-}
 
 combineHash :: Hash -> Hash -> Hash
 combineHash (Hash h) (Hash h') = hash (appendByteString h h')
+{-# INLINEABLE combineHash #-}
 
 data MerkleTree
   = MerkleEmpty
@@ -53,7 +55,6 @@ mkProof e = go []
     MerkleNode _ l r ->
       go (Right (rootHash r) : es) l <|> go (Left (rootHash l) : es) r
 
-{-# INLINEABLE member #-}
 member :: BuiltinByteString -> Hash -> Proof -> Bool
 member e root = go (hash e)
  where
@@ -61,6 +62,7 @@ member e root = go (hash e)
     [] -> root' == root
     (Left l) : q -> go (combineHash l root') q
     (Right r) : q -> go (combineHash root' r) q
+{-# INLINEABLE member #-}
 
 rootHash :: MerkleTree -> Hash
 rootHash = \case

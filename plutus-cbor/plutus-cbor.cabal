@@ -85,41 +85,33 @@ test-suite unit
   import:             project-config
   type:               exitcode-stdio-1.0
   hs-source-dirs:     test
-  ghc-options:        -threaded -rtsopts
+  ghc-options:
+    -threaded -rtsopts
+    -Wall -Wcompat -Widentities -Wincomplete-record-updates
+    -Wincomplete-uni-patterns -Wredundant-constraints
+    -fprint-potential-instances
   build-tool-depends: hspec-discover:hspec-discover -any
   build-depends:
-    , array
     , base
     , base16
     , binary
     , bytestring
-    , cardano-binary
-    , cardano-ledger-shelley
-    , cardano-ledger-shelley-ma
     , cardano-ledger-alonzo
-    , cardano-ledger-alonzo-test
-    , cardano-ledger-core
-    , cardano-slotting
     , cborg
     , containers
-    , data-default
     , hspec
     , hydra-prelude
     , hydra-test-utils
     , memory
     , plutus-cbor
-    , plutus-core
     , plutus-ledger
     , plutus-ledger-api
     , plutus-tx
     , plutus-tx-plugin
     , scientific
-    , serialise
-    , strict-containers
     , QuickCheck
   other-modules:
     Plutus.Codec.CBOR.EncodingSpec
-    Test.Plutus.Codec.CBOR.Encoding.Utils
     Test.Plutus.Codec.CBOR.Encoding.Validators
     Spec
   main-is:            Main.hs

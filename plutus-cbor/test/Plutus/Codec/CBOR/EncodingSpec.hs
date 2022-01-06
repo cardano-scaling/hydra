@@ -24,13 +24,13 @@ import Plutus.Codec.CBOR.Encoding (
   encodingToBuiltinByteString,
  )
 import qualified PlutusTx as Plutus
-import Test.Plutus.Codec.CBOR.Encoding.Utils (
-  evaluateScriptExecutionUnits,
- )
 import Test.Plutus.Codec.CBOR.Encoding.Validators (
   EncodeValidator,
   emptyValidator,
   encodeIntegerValidator,
+ )
+import Test.Plutus.Validator (
+  evaluateScriptExecutionUnits,
  )
 import Test.QuickCheck (
   Property,

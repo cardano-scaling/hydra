@@ -1,4 +1,6 @@
+{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE ViewPatterns #-}
 
 -- | A helper module mostly wrapping the Alonzo.Tools'
 -- 'evaluateTransactionExecutionUnits' with a much simpler API (just a plutus
@@ -7,7 +9,7 @@
 -- This is generally handy to measure the execution of Plutus code outside of any
 -- context (e.g. an implementation of a data-structure on-chain or, as here,
 -- data encoders).
-module Test.Plutus.Codec.CBOR.Encoding.Utils (
+module Test.Plutus.Validator (
   evaluateScriptExecutionUnits,
 ) where
 
@@ -19,10 +21,20 @@ import Cardano.Ledger.Alonzo (AlonzoEra)
 import Cardano.Ledger.Alonzo.Data (Data (..), hashData)
 import Cardano.Ledger.Alonzo.Language (Language (PlutusV1))
 import Cardano.Ledger.Alonzo.PParams (PParams' (..))
-import Cardano.Ledger.Alonzo.Scripts (ExUnits (..), Script (..), Tag (..))
+import Cardano.Ledger.Alonzo.Scripts (
+  ExUnits (..),
+  Script (..),
+  Tag (..),
+ )
 import Cardano.Ledger.Alonzo.Tools (evaluateTransactionExecutionUnits)
-import Cardano.Ledger.Alonzo.Tx (IsValid (..), ValidatedTx (..))
-import Cardano.Ledger.Alonzo.TxBody (TxBody (..), TxOut (..))
+import Cardano.Ledger.Alonzo.Tx (
+  IsValid (..),
+  ValidatedTx (..),
+ )
+import Cardano.Ledger.Alonzo.TxBody (
+  TxBody (..),
+  TxOut (..),
+ )
 import Cardano.Ledger.Alonzo.TxWitness (
   RdmrPtr (..),
   Redeemers (..),
@@ -30,7 +42,10 @@ import Cardano.Ledger.Alonzo.TxWitness (
   TxWitness (..),
  )
 import Cardano.Ledger.BaseTypes (Network (..))
-import Cardano.Ledger.Credential (Credential (..), StakeReference (..))
+import Cardano.Ledger.Credential (
+  Credential (..),
+  StakeReference (..),
+ )
 import Cardano.Ledger.Crypto (StandardCrypto)
 import Cardano.Ledger.Era (ValidateScript (hashScript))
 import Cardano.Ledger.Hashes (ScriptHash (..))
@@ -40,7 +55,10 @@ import Cardano.Ledger.ShelleyMA.Timelocks (ValidityInterval (..))
 import Cardano.Ledger.TxIn (TxIn (..))
 import Cardano.Slotting.EpochInfo (fixedEpochInfo)
 import Cardano.Slotting.Slot (EpochSize (EpochSize))
-import Cardano.Slotting.Time (SystemStart (SystemStart), mkSlotLength)
+import Cardano.Slotting.Time (
+  SystemStart (SystemStart),
+  mkSlotLength,
+ )
 import Codec.Serialise (serialise)
 import Data.Array (array)
 import qualified Data.ByteString as BS
