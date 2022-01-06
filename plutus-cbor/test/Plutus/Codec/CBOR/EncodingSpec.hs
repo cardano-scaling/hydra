@@ -26,6 +26,7 @@ import Plutus.Codec.CBOR.Encoding (
   encodingToBuiltinByteString,
  )
 import qualified PlutusTx as Plutus
+import qualified PlutusTx.AssocMap as Plutus.Map
 import Test.Plutus.Codec.CBOR.Encoding.Validators (
   EncodeValidator,
   emptyValidator,
@@ -88,24 +89,22 @@ spec = do
           defaultMaxExecutionUnits
           (encodeByteString, encodeByteStringValidator)
           . convert
-    prop "for all (x :: [ByteString]), < (0.5% + 0.5% * n)" $
+    prop "for all (x :: [ByteString]), < (0.50% + 0.40% * n)" $
       forAllBlind (genList (convert <$> genByteString)) $ \xs ->
         let n = fromIntegral (length xs)
          in propCostIsSmall
-              (50 % 10_000 + n * 50 % 10_000)
+              (50 % 10_000 + n * 40 % 10_000)
               defaultMaxExecutionUnits
-              (encodeList . fmap encodeByteString, encodeListValidator)
+              (encodeList encodeByteString, encodeListValidator)
               xs
-    prop "for all (x :: [(ByteString, ByteString)]), < (0.5% + 1% * n)" $
+    prop "for all (x :: [(ByteString, ByteString)]), < (0.50% + 0.50% * n)" $
       forAllBlind (genMap (convert <$> genByteString) (convert <$> genByteString)) $ \m ->
         let n = fromIntegral (length m)
          in propCostIsSmall
-              (50 % 10_000 + n * 100 % 10_000)
+              (50 % 10_000 + n * 50 % 10_000)
               defaultMaxExecutionUnits
-              ( encodeMap . fmap (bimap encodeByteString encodeByteString)
-              , encodeMapValidator
-              )
-              m
+              (encodeMap encodeByteString encodeByteString, encodeMapValidator)
+              (Plutus.Map.fromList m)
 
 -- | Compare encoding a value 'x' with our own encoder and a reference
 -- implementation. Counterexamples shows both encoded values, but in a pretty /
@@ -245,7 +244,7 @@ genSomeValue =
             , foldMap (\(SomeValue x _ encode _) -> encode x) xs
             ]
     let encodeOurs =
-          encodeList . fmap (\(SomeValue x _ _ encode) -> encode x)
+          encodeList (\(SomeValue x _ _ encode) -> encode x)
     return $ SomeValue val (shrinkList shrinkSomeValue) encodeCborg encodeOurs
 
   genSomeMap :: Int -> Gen SomeValue
@@ -263,10 +262,9 @@ genSomeValue =
             ]
     let encodeOurs =
           encodeMap
-            . fmap
-              ( \(SomeValue k _ _ encodeKey, SomeValue v _ _ encodeValue) ->
-                  (encodeKey k, encodeValue v)
-              )
+            (\(SomeValue k _ _ encodeKey) -> encodeKey k)
+            (\(SomeValue v _ _ encodeValue) -> encodeValue v)
+            . Plutus.Map.fromList
     return $ SomeValue val shrinkMap encodeCborg encodeOurs
 
 --

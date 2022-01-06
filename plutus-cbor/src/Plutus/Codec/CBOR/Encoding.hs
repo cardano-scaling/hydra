@@ -5,17 +5,27 @@ module Plutus.Codec.CBOR.Encoding (
   encodingToBuiltinByteString,
   encodeInteger,
   encodeByteString,
+  encodeListLen,
   encodeList,
+  encodeMapLen,
   encodeMap,
 ) where
 
 import PlutusTx.Prelude
 
+import PlutusTx.AssocMap (Map)
+import qualified PlutusTx.AssocMap as Map
 import PlutusTx.Builtins (subtractInteger)
 
 -- * Encoding
 
 newtype Encoding = Encoding (BuiltinByteString -> BuiltinByteString)
+
+instance Semigroup Encoding where
+  (Encoding a) <> (Encoding b) = Encoding (a . b)
+
+instance Monoid Encoding where
+  mempty = Encoding id
 
 encodingToBuiltinByteString :: Encoding -> BuiltinByteString
 encodingToBuiltinByteString (Encoding runEncoder) =
@@ -39,24 +49,34 @@ encodeByteString bytes =
 
 -- * Data-Structure
 
-encodeList :: [Encoding] -> Encoding
-encodeList xs =
-  Encoding $ \next ->
-    encodeUnsigned 4 (length xs) $
-      foldr
-        (\(Encoding runEncoder) -> runEncoder)
-        next
-        xs
+-- | Declare a list of fixed size. Then, provide each element of the list
+-- separately via appending them ('Encoding' is a 'Semigroup').
+--
+-- This is useful to construct non-uniform arrays where elements may have
+-- different types. For uniform list, see 'encodeList'.
+encodeListLen :: Integer -> Encoding
+encodeListLen = Encoding . encodeUnsigned 4
+{-# INLINEABLE encodeListLen #-}
+
+encodeList :: (a -> Encoding) -> [a] -> Encoding
+encodeList encodeElem es =
+  encodeListLen (length es)
+    <> foldr (\e -> (encodeElem e <>)) mempty es
 {-# INLINEABLE encodeList #-}
 
-encodeMap :: [(Encoding, Encoding)] -> Encoding
-encodeMap xs =
-  Encoding $ \next ->
-    encodeUnsigned 5 (length xs) $
-      foldr
-        (\(Encoding encodeKey, Encoding encodeValue) -> encodeKey . encodeValue)
-        next
-        xs
+-- | Declare a map of fixed size. Then, provide each key/value pair of the map
+-- separately via appending them ('Encoding' is a 'Semigroup').
+--
+-- This is useful to construct non-uniform maps where keys and values may have
+-- different types. For uniform maps, see 'encodeMap'.
+encodeMapLen :: Integer -> Encoding
+encodeMapLen = Encoding . encodeUnsigned 5
+{-# INLINEABLE encodeMapLen #-}
+
+encodeMap :: (k -> Encoding) -> (v -> Encoding) -> Map k v -> Encoding
+encodeMap encodeKey encodeValue m =
+  encodeMapLen (length m)
+    <> foldr (\(k, v) -> ((encodeKey k <> encodeValue v) <>)) mempty (Map.toList m)
 {-# INLINEABLE encodeMap #-}
 
 -- * Internal

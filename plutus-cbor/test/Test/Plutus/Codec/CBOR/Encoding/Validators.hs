@@ -15,6 +15,7 @@ import Plutus.Codec.CBOR.Encoding (
   encodingToBuiltinByteString,
  )
 import qualified PlutusTx as Plutus
+import PlutusTx.AssocMap (Map)
 
 -- | A baseline validator which does nothing but returning 'True'. We use it as
 -- baseline to measure the deviation for cost execution of other validators.
@@ -74,7 +75,9 @@ encodeListValidator =
     $$( Plutus.compile
           [||
           \() xs _ctx ->
-            let bytes = encodingToBuiltinByteString (encodeList (encodeByteString <$> xs))
+            let bytes =
+                  encodingToBuiltinByteString $
+                    encodeList encodeByteString xs
              in lengthOfByteString bytes > 0
           ||]
       )
@@ -82,23 +85,18 @@ encodeListValidator =
  where
   wrap = Scripts.wrapValidator @() @[BuiltinByteString]
 
-encodeMapValidator :: Scripts.TypedValidator (EncodeValidator [(BuiltinByteString, BuiltinByteString)])
+encodeMapValidator :: Scripts.TypedValidator (EncodeValidator (Map BuiltinByteString BuiltinByteString))
 encodeMapValidator =
-  Scripts.mkTypedValidator @(EncodeValidator [(BuiltinByteString, BuiltinByteString)])
+  Scripts.mkTypedValidator @(EncodeValidator (Map BuiltinByteString BuiltinByteString))
     $$( Plutus.compile
           [||
           \() m _ctx ->
             let bytes =
-                  encodingToBuiltinByteString
-                    ( encodeMap $
-                        ( \(a, b) ->
-                            (encodeByteString a, encodeByteString b)
-                        )
-                          <$> m
-                    )
+                  encodingToBuiltinByteString $
+                    encodeMap encodeByteString encodeByteString m
              in lengthOfByteString bytes > 0
           ||]
       )
     $$(Plutus.compile [||wrap||])
  where
-  wrap = Scripts.wrapValidator @() @[(BuiltinByteString, BuiltinByteString)]
+  wrap = Scripts.wrapValidator @() @(Map BuiltinByteString BuiltinByteString)
