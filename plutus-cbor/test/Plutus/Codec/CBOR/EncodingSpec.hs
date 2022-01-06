@@ -46,6 +46,7 @@ import Test.QuickCheck (
   forAllBlind,
   label,
   oneof,
+  suchThat,
   vector,
   (===),
  )
@@ -61,12 +62,20 @@ spec = do
         propCompareWithOracle CBOR.encodeBytes (encodeByteString . convert)
 
   describe "(on-chain) execution cost of CBOR encoding is small" $ do
-    prop "for all (x :: Integer), <0.33%" $
-      forAllBlind genInteger $
+    prop "for all small (< 65536) (x :: Integer), <0.15%" $
+      forAllBlind (genInteger `suchThat` ((< 65536) . abs)) $
         propCostIsSmall
-          (33 % 10_000)
+          (15 % 10_000)
           defaultMaxExecutionUnits
           (encodeInteger, encodeIntegerValidator)
+
+    prop "for all large (> 65536) (x :: Integer), <0.30%" $
+      forAllBlind (genInteger `suchThat` ((> 65536) . abs)) $
+        propCostIsSmall
+          (30 % 10_000)
+          defaultMaxExecutionUnits
+          (encodeInteger, encodeIntegerValidator)
+
     prop "for all (x :: ByteString), <0.05%" $
       forAllBlind genByteString $
         propCostIsSmall
@@ -97,7 +106,7 @@ propCompareWithOracle encodeOracle encodeOurs x =
 -- | Measure that the execution cost of encoding a certain value 'x' is small in
 -- front of some max execution budget.
 propCostIsSmall ::
-  Plutus.ToData a =>
+  (Plutus.ToData a, Show a) =>
   Rational ->
   ExUnits ->
   (a -> Encoding, Scripts.TypedValidator (EncodeValidator a)) ->
@@ -135,6 +144,8 @@ propCostIsSmall tolerance (ExUnits maxMemUnits maxStepsUnits) (encode, validator
           <> asPercent relativeStepCost
           <> ")"
       )
+    & counterexample
+      ("value:                   " <> show a)
  where
   n = BS.length $ convert $ encodingToBuiltinByteString $ encode a
   ExUnits mem steps =
