@@ -19,6 +19,7 @@ import Data.Scientific (unsafeFromRational)
 import qualified Ledger.Typed.Scripts as Scripts
 import Plutus.Codec.CBOR.Encoding (
   Encoding,
+  encodeByteString,
   encodeInteger,
   encodingToBuiltinByteString,
  )
@@ -26,6 +27,7 @@ import qualified PlutusTx as Plutus
 import Test.Plutus.Codec.CBOR.Encoding.Validators (
   EncodeValidator,
   emptyValidator,
+  encodeByteStringValidator,
   encodeIntegerValidator,
  )
 import Test.Plutus.Validator (
@@ -39,10 +41,12 @@ import Test.QuickCheck (
   choose,
   conjoin,
   counterexample,
+  elements,
   forAll,
   forAllBlind,
   label,
   oneof,
+  vector,
   (===),
  )
 
@@ -52,14 +56,24 @@ spec = do
     prop "for all (x :: Integer) w/ 'encodeInteger'" $
       forAll genInteger $
         propCompareWithOracle CBOR.encodeInteger encodeInteger
+    prop "for all (x :: ByteString) w/ 'encodeByteString'" $
+      forAll genByteString $
+        propCompareWithOracle CBOR.encodeBytes (encodeByteString . convert)
 
   describe "(on-chain) execution cost of CBOR encoding is small" $ do
-    prop "for all (x :: Integer), <0.5%" $
+    prop "for all (x :: Integer), <0.33%" $
       forAllBlind genInteger $
         propCostIsSmall
-          (1 % 200)
+          (33 % 10_000)
           defaultMaxExecutionUnits
           (encodeInteger, encodeIntegerValidator)
+    prop "for all (x :: ByteString), <0.05%" $
+      forAllBlind genByteString $
+        propCostIsSmall
+          (5 % 10_000)
+          defaultMaxExecutionUnits
+          (encodeByteString, encodeByteStringValidator)
+          . convert
 
 -- | Compare encoding a value 'x' with our own encoder and a reference
 -- implementation. Counterexamples shows both encoded values, but in a pretty /
@@ -94,7 +108,19 @@ propCostIsSmall tolerance (ExUnits maxMemUnits maxStepsUnits) (encode, validator
     [ relativeMemCost < tolerance
     , relativeStepCost < tolerance
     ]
-    & label ("of size = " <> show n <> ", mem units = " <> show mem <> ", CPU units = " <> show steps)
+    & label
+      ( "of size = "
+          <> show n
+          <> ", mem units = "
+          <> show mem
+          <> " ("
+          <> asPercent relativeMemCost
+          <> " ), CPU units = "
+          <> show steps
+          <> " ("
+          <> asPercent relativeStepCost
+          <> " )"
+      )
     & counterexample
       ( "memory execution units: "
           <> show mem
@@ -150,3 +176,8 @@ genInteger =
       , choose (65536, 4294967296)
       , choose (4294967296, 18446744073709552000)
       ]
+
+genByteString :: Gen ByteString
+genByteString = do
+  n <- elements [0, 8, 16, 28, 32]
+  BS.pack <$> vector n

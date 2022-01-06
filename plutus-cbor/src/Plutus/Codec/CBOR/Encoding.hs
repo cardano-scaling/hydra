@@ -2,6 +2,7 @@ module Plutus.Codec.CBOR.Encoding (
   Encoding,
   encodingToBuiltinByteString,
   encodeInteger,
+  encodeByteString,
 ) where
 
 import PlutusTx.Prelude
@@ -25,6 +26,11 @@ encodeInteger n
   | otherwise =
     Encoding (encodeUnsigned 0 n emptyByteString)
 {-# INLINEABLE encodeInteger #-}
+
+encodeByteString :: BuiltinByteString -> Encoding
+encodeByteString bytes =
+  Encoding (encodeUnsigned 2 (lengthOfByteString bytes) bytes)
+{-# INLINEABLE encodeByteString #-}
 
 -- * Internal
 
