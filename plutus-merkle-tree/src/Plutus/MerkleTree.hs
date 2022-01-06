@@ -6,6 +6,8 @@ import Data.ByteString.Base16 (encodeBase16)
 import qualified Data.Text as Text
 import PlutusPrelude ((<|>))
 import qualified PlutusTx
+import PlutusTx.Builtins (subtractInteger)
+import qualified PlutusTx.List as List
 import PlutusTx.Prelude hiding (toList)
 import qualified Prelude as Haskell
 
@@ -71,8 +73,8 @@ member e root = go (hash e)
  where
   go root' = \case
     [] -> root' == root
-    (Left l) : q -> go (combineHash l root') q
-    (Right r) : q -> go (combineHash root' r) q
+    Left l : q -> go (combineHash l root') q
+    Right r : q -> go (combineHash root' r) q
 {-# INLINEABLE member #-}
 
 rootHash :: MerkleTree -> Hash
@@ -83,24 +85,37 @@ rootHash = \case
 
 fromList :: [BuiltinByteString] -> MerkleTree
 fromList =
-  foldr insert MerkleEmpty
+  \case
+    [] -> MerkleEmpty
+    [e] -> MerkleLeaf (hash e) e
+    es ->
+      let len = length es
+          cutoff = infPowerOf2 len
+          (l, r) = (List.take cutoff es, drop cutoff es)
+          lnode = fromList l
+          rnode = fromList r
+       in MerkleNode (combineHash (rootHash lnode) (rootHash rnode)) lnode rnode
+
+-- | Plutus Tx version of 'Data.List.drop'.
+-- TODO: move into plutus
+drop :: Integer -> [a] -> [a]
+drop n rs | n <= 0 = rs
+drop n (_ : xs) = drop (subtractInteger n 1) xs
+drop _ [] = []
+
+infPowerOf2 :: Integer -> Integer
+infPowerOf2 n
+  | n <= 0 = 0
+  | otherwise = go 0 1
+ where
+  go i k
+    | k > n = i - 1
+    | otherwise = go (i + 1) (k * 2)
 
 toList :: MerkleTree -> [BuiltinByteString]
-toList = go []
+toList = go
  where
-  go es = \case
-    MerkleEmpty -> reverse es
-    MerkleLeaf _ e -> e : es
-    MerkleNode _ n1 n2 -> toList n2 <> toList n1
-
-insert :: BuiltinByteString -> MerkleTree -> MerkleTree
-insert e = \case
-  MerkleEmpty -> MerkleLeaf (hash e) e
-  leaf@(MerkleLeaf h' _) ->
-    let h = hash e
-        hNode = combineHash h' h
-     in MerkleNode hNode leaf (MerkleLeaf h e)
-  MerkleNode _ l r ->
-    let r' = insert e r
-        hNode' = combineHash (rootHash l) (rootHash r')
-     in MerkleNode hNode' l r'
+  go = \case
+    MerkleEmpty -> []
+    MerkleLeaf _ e -> [e]
+    MerkleNode _ n1 n2 -> toList n1 <> toList n2
