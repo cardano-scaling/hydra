@@ -34,7 +34,7 @@ import qualified Hydra.Chain.Direct.Fixture as Fixture
 import Hydra.Chain.Direct.Tx (closeTx, fanoutTx, policyId)
 import Hydra.Chain.Direct.TxSpec (mkHeadOutput)
 import qualified Hydra.Contract.Hash as Hash
-import Hydra.Contract.MockHead (hashTxOuts, verifyPartySignature, verifySnapshotSignature)
+import Hydra.Contract.MockHead (hashTxOuts, serialiseTxOuts, verifyPartySignature, verifySnapshotSignature)
 import qualified Hydra.Contract.MockHead as MockHead
 import Hydra.Data.Party (partyFromVerKey)
 import qualified Hydra.Data.Party as OnChain
@@ -64,7 +64,7 @@ import Hydra.Ledger.Cardano (
   fromLedgerUtxo,
   fromPlutusScript,
   genOutput,
-  genUtxoWithoutByronAddresses,
+  genUtxoWithoutLegacy,
   genValue,
   getOutputs,
   hashUtxo,
@@ -201,10 +201,10 @@ prop_hashUtxoWithAdaOnly =
   -- NOTE: We only generate shelley addressed txouts because they are left out
   -- of the plutus script context in 'txInfoOut'.
   -- NOTE: we only generate Ada only UTXO as a baby step
-  forAllShrink (fmap adaOnly <$> genUtxoWithoutByronAddresses) shrinkUtxo $ \(utxo :: Utxo) ->
+  forAllShrink (fmap adaOnly <$> genUtxoWithoutLegacy) shrinkUtxo $ \(utxo :: Utxo) ->
     let plutusTxOuts = mapMaybe txInfoOut ledgerTxOuts
         ledgerTxOuts = Map.elems . Ledger.unUTxO $ toLedgerUtxo utxo
-        plutusUtxo = foldMap MockHead.serialiseTxOut plutusTxOuts
+        plutusUtxo = serialiseTxOuts plutusTxOuts
         ledgerUtxo = serialize' ledgerTxOuts
      in (hashUtxo utxo === fromBuiltin (hashTxOuts plutusTxOuts))
           & counterexample ("Plutus: " <> show plutusTxOuts)
@@ -434,7 +434,7 @@ healthyFanoutTx =
 
 healthyFanoutUtxo :: Utxo
 healthyFanoutUtxo =
-  generateWith genUtxoWithoutByronAddresses 42
+  generateWith genUtxoWithoutLegacy 42
 
 healthyFanoutDatum :: MockHead.State
 healthyFanoutDatum =

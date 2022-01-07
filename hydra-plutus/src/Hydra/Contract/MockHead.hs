@@ -18,23 +18,18 @@ import Ledger.Constraints (TxConstraints)
 import qualified Ledger.Typed.Scripts as Scripts
 import Plutus.Codec.CBOR.Encoding (
   Encoding,
+  encodeBeginList,
+  encodeBreak,
   encodeByteString,
   encodeInteger,
   encodeListLen,
   encodeMap,
-  encodeMaybe,
   encodingToBuiltinByteString,
  )
 import Plutus.Contract.StateMachine.OnChain (StateMachine)
 import qualified Plutus.Contract.StateMachine.OnChain as SM
 import Plutus.V1.Ledger.Ada (fromValue, getLovelace)
-import Plutus.V1.Ledger.Api (
-  Credential (PubKeyCredential, ScriptCredential),
-  CurrencySymbol (CurrencySymbol),
-  TokenName (TokenName),
-  adaSymbol,
-  getValue,
- )
+import Plutus.V1.Ledger.Api (Credential (PubKeyCredential, ScriptCredential), CurrencySymbol (CurrencySymbol), TokenName (TokenName), adaSymbol, getValue)
 import qualified PlutusTx
 import qualified PlutusTx.AssocMap as Map
 import Text.Show (Show)
@@ -116,19 +111,28 @@ hydraContextCheck state input context =
 {-# INLINEABLE hydraContextCheck #-}
 
 hashTxOuts :: [TxOut] -> BuiltinByteString
-hashTxOuts = sha2_256 . foldMap serialiseTxOut
+hashTxOuts =
+  sha2_256 . serialiseTxOuts
 {-# INLINEABLE hashTxOuts #-}
 
-serialiseTxOut :: TxOut -> BuiltinByteString
-serialiseTxOut = encodingToBuiltinByteString . encodeTxOut
-{-# INLINEABLE serialiseTxOut #-}
+serialiseTxOuts :: [TxOut] -> BuiltinByteString
+serialiseTxOuts outs =
+  encodingToBuiltinByteString $
+    encodeBeginList <> foldMap encodeTxOut outs <> encodeBreak
+{-# INLINEABLE serialiseTxOuts #-}
 
 encodeTxOut :: TxOut -> Encoding
 encodeTxOut TxOut{txOutAddress, txOutValue, txOutDatumHash} =
-  encodeListLen 3
-    <> encodeAddress txOutAddress
-    <> encodeValue txOutValue
-    <> encodeDatum txOutDatumHash
+  case txOutDatumHash of
+    Just h ->
+      encodeListLen 3
+        <> encodeAddress txOutAddress
+        <> encodeValue txOutValue
+        <> encodeDatum h
+    Nothing ->
+      encodeListLen 2
+        <> encodeAddress txOutAddress
+        <> encodeValue txOutValue
 
 -- See for details: https://github.com/cardano-foundation/CIPs/blob/master/CIP-0019/CIP-0019-cardano-addresses.abnf
 -- we only take care of type 6 or 7 addresses rn
@@ -159,9 +163,8 @@ encodeValue val =
   encodeCurrencySymbol (CurrencySymbol symbol) = encodeByteString symbol
   encodeTokenName (TokenName token) = encodeByteString token
 
-encodeDatum :: Maybe DatumHash -> Encoding
-encodeDatum =
-  encodeMaybe (\(DatumHash h) -> encodeByteString h)
+encodeDatum :: DatumHash -> Encoding
+encodeDatum (DatumHash h) = encodeByteString h
 
 {-# INLINEABLE verifySnapshotSignature #-}
 verifySnapshotSignature :: [Party] -> SnapshotNumber -> [Signature] -> Bool

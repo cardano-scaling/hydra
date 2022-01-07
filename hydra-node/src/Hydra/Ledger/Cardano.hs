@@ -41,6 +41,7 @@ import qualified Cardano.Ledger.Era as Ledger
 import qualified Cardano.Ledger.Keys as Ledger
 import qualified Cardano.Ledger.Mary as Ledger.Mary hiding (Value)
 import qualified Cardano.Ledger.Mary.Value as Ledger.Mary
+import Cardano.Ledger.Shelley.API (StakeReference (StakeRefNull, StakeRefPtr))
 import qualified Cardano.Ledger.Shelley.API.Mempool as Ledger
 import qualified Cardano.Ledger.Shelley.Genesis as Ledger
 import qualified Cardano.Ledger.Shelley.LedgerState as Ledger
@@ -699,16 +700,25 @@ adaOnly = \case
     TxOut addr (lovelaceToTxOutValue $ txOutValueToLovelace value) datum
 
 -- | Generate UTXO with only 'TxOut' which are addressed to non-bootstrap
--- (byron) addresses.
-genUtxoWithoutByronAddresses :: Gen Utxo
-genUtxoWithoutByronAddresses = do
+-- (byron) addresses and without pointers.
+-- NOTE: We filter those complicated legacy stuff for the sake of simplifying
+-- the on-chain encoding. Beside, nobody cares.
+genUtxoWithoutLegacy :: Gen Utxo
+genUtxoWithoutLegacy = do
   utxo <- arbitrary
-  let filtered = filter notByronAddress $ utxoPairs utxo
+  let filtered = map voidPointer . filter notByronAddress $ utxoPairs utxo
   pure $ Utxo $ Map.fromList filtered
  where
   notByronAddress (_, TxOut addr _ _) = case addr of
     AddressInEra ByronAddressInAnyEra _ -> False
     _ -> True
+  -- NOTE: we discard pointers because there encoding sucks and they are unused.
+  -- Ledger team plans to remove them in future versions anyway.
+  voidPointer out@(txin, TxOut addr val dat) = case addr of
+    AddressInEra er@(ShelleyAddressInEra _) (ShelleyAddress net cre sr) -> case sr of
+      StakeRefPtr _ -> (txin, TxOut (AddressInEra er (ShelleyAddress net cre StakeRefNull)) val dat)
+      _ -> out
+    _ -> out
 
 shrinkUtxo :: Utxo -> [Utxo]
 shrinkUtxo = shrinkMapBy (Utxo . fromList) utxoPairs (shrinkList shrinkOne)
