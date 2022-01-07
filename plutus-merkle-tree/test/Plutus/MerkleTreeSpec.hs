@@ -7,12 +7,9 @@ import Test.Hydra.Prelude
 
 import qualified Data.ByteString as BS
 import Data.Maybe (fromJust)
-import Data.Ratio ((%))
-import Plutus.MerkleTree (MerkleTree, infPowerOf2, rootHash)
+import Plutus.MerkleTree (MerkleTree, infPowerOf2)
 import qualified Plutus.MerkleTree as MT
-import Plutus.MerkleTreeValidator (emptyValidator, merkleTreeValidator)
 import qualified PlutusTx.Builtins as Plutus
-import Test.Plutus.Validator (ExUnits (ExUnits), defaultMaxExecutionUnits, distanceExUnits, evaluateScriptExecutionUnits)
 import Test.QuickCheck (
   Positive (Positive),
   Property,
