@@ -8,6 +8,7 @@ import PlutusTx.Prelude
 
 import qualified Ledger.Typed.Scripts as Scripts
 import Plutus.MerkleTree (Hash, Proof, member)
+import qualified Plutus.MerkleTree as MT
 import qualified PlutusTx as Plutus
 
 -- | A baseline validator which does nothing but returning 'True'. We use it as
@@ -45,3 +46,23 @@ merkleTreeValidator =
     $$(Plutus.compile [||wrap||])
  where
   wrap = Scripts.wrapValidator @() @(Scripts.RedeemerType MerkleTreeValidator)
+
+-- | A validator for measuring cost of MT construction.
+data MtBuilderValidator
+
+instance Scripts.ValidatorTypes MtBuilderValidator where
+  type DatumType MtBuilderValidator = ()
+  type RedeemerType MtBuilderValidator = ([BuiltinByteString], Hash)
+
+mtBuilderValidator :: Scripts.TypedValidator MtBuilderValidator
+mtBuilderValidator =
+  Scripts.mkTypedValidator @MtBuilderValidator
+    $$( Plutus.compile
+          [||
+          \() (utxos, root) _ctx ->
+            MT.rootHash (MT.fromList utxos) == root
+          ||]
+      )
+    $$(Plutus.compile [||wrap||])
+ where
+  wrap = Scripts.wrapValidator @() @(Scripts.RedeemerType MtBuilderValidator)

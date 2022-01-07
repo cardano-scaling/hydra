@@ -47,11 +47,13 @@ size = \case
   MerkleEmpty -> 0
   MerkleNode _ sz _ _ -> sz
   MerkleLeaf{} -> 1
+{-# INLINEABLE size #-}
 
 null :: MerkleTree -> Bool
 null = \case
   MerkleEmpty -> True
   _ -> False
+{-# INLINEABLE null #-}
 
 type Proof = [Either Hash Hash]
 
@@ -67,6 +69,7 @@ mkProof e = go []
         else Nothing
     MerkleNode _ _ l r ->
       go (Right (rootHash r) : es) l <|> go (Left (rootHash l) : es) r
+{-# INLINEABLE mkProof #-}
 
 member :: BuiltinByteString -> Hash -> Proof -> Bool
 member e root = go (hash e)
@@ -82,6 +85,7 @@ rootHash = \case
   MerkleEmpty -> hash ""
   MerkleLeaf h _ -> h
   MerkleNode h _ _ _ -> h
+{-# INLINEABLE rootHash #-}
 
 fromList :: [BuiltinByteString] -> MerkleTree
 fromList =
@@ -95,6 +99,7 @@ fromList =
           lnode = fromList l
           rnode = fromList r
        in MerkleNode (combineHash (rootHash lnode) (rootHash rnode)) len lnode rnode
+{-# INLINEABLE fromList #-}
 
 -- | Plutus Tx version of 'Data.List.drop'.
 --
@@ -103,6 +108,7 @@ drop :: Integer -> [a] -> [a]
 drop n rs | n <= 0 = rs
 drop n (_ : xs) = drop (subtractInteger n 1) xs
 drop _ [] = []
+{-# INLINEABLE drop #-}
 
 toList :: MerkleTree -> [BuiltinByteString]
 toList = go
