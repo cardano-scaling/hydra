@@ -9,6 +9,7 @@ packages:
   hydra-tui
   merkle-patricia-tree
   plutus-cbor
+  plutus-merkle-tree
 
 tests: False
 package local-cluster
@@ -29,6 +30,10 @@ package merkle-patricia-tree
 
 package plutus-cbor
   tests: True
+
+package plutus-merkle-tree
+  tests: True
+
 
 -- Always show detailed output for tests
 test-show-details: direct

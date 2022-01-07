@@ -18,9 +18,21 @@ library
   exposed-modules:
     Test.Hydra.Prelude
     Test.Network.Ports
+    Test.Plutus.Validator
 
   build-depends:
+    , array
     , base
+    , bytestring
+    , cardano-binary
+    , cardano-ledger-alonzo
+    , cardano-ledger-alonzo-test
+    , cardano-ledger-core
+    , cardano-ledger-shelley
+    , cardano-ledger-shelley-ma
+    , cardano-slotting
+    , containers
+    , data-default
     , directory
     , hspec
     , hspec-core
@@ -29,10 +41,14 @@ library
     , hydra-prelude
     , io-classes
     , network
+    , plutus-ledger
+    , plutus-tx
     , process
     , QuickCheck
     , random-shuffle
     , relude
+    , serialise
+    , strict-containers
     , temporary
     , warp
 

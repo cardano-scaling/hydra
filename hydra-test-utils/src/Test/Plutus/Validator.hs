@@ -1,4 +1,7 @@
+{-# LANGUAGE NumericUnderscores #-}
+{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE ViewPatterns #-}
 
 -- | A helper module mostly wrapping the Alonzo.Tools'
 -- 'evaluateTransactionExecutionUnits' with a much simpler API (just a plutus
@@ -7,8 +10,9 @@
 -- This is generally handy to measure the execution of Plutus code outside of any
 -- context (e.g. an implementation of a data-structure on-chain or, as here,
 -- data encoders).
-module Test.Plutus.Codec.CBOR.Encoding.Utils (
-  evaluateScriptExecutionUnits,
+module Test.Plutus.Validator (
+  module Test.Plutus.Validator,
+  ExUnits (..),
 ) where
 
 import Hydra.Prelude hiding (label)
@@ -19,10 +23,20 @@ import Cardano.Ledger.Alonzo (AlonzoEra)
 import Cardano.Ledger.Alonzo.Data (Data (..), hashData)
 import Cardano.Ledger.Alonzo.Language (Language (PlutusV1))
 import Cardano.Ledger.Alonzo.PParams (PParams' (..))
-import Cardano.Ledger.Alonzo.Scripts (ExUnits (..), Script (..), Tag (..))
+import Cardano.Ledger.Alonzo.Scripts (
+  ExUnits (..),
+  Script (..),
+  Tag (..),
+ )
 import Cardano.Ledger.Alonzo.Tools (evaluateTransactionExecutionUnits)
-import Cardano.Ledger.Alonzo.Tx (IsValid (..), ValidatedTx (..))
-import Cardano.Ledger.Alonzo.TxBody (TxBody (..), TxOut (..))
+import Cardano.Ledger.Alonzo.Tx (
+  IsValid (..),
+  ValidatedTx (..),
+ )
+import Cardano.Ledger.Alonzo.TxBody (
+  TxBody (..),
+  TxOut (..),
+ )
 import Cardano.Ledger.Alonzo.TxWitness (
   RdmrPtr (..),
   Redeemers (..),
@@ -30,7 +44,10 @@ import Cardano.Ledger.Alonzo.TxWitness (
   TxWitness (..),
  )
 import Cardano.Ledger.BaseTypes (Network (..))
-import Cardano.Ledger.Credential (Credential (..), StakeReference (..))
+import Cardano.Ledger.Credential (
+  Credential (..),
+  StakeReference (..),
+ )
 import Cardano.Ledger.Crypto (StandardCrypto)
 import Cardano.Ledger.Era (ValidateScript (hashScript))
 import Cardano.Ledger.Hashes (ScriptHash (..))
@@ -40,7 +57,10 @@ import Cardano.Ledger.ShelleyMA.Timelocks (ValidityInterval (..))
 import Cardano.Ledger.TxIn (TxIn (..))
 import Cardano.Slotting.EpochInfo (fixedEpochInfo)
 import Cardano.Slotting.Slot (EpochSize (EpochSize))
-import Cardano.Slotting.Time (SystemStart (SystemStart), mkSlotLength)
+import Cardano.Slotting.Time (
+  SystemStart (SystemStart),
+  mkSlotLength,
+ )
 import Codec.Serialise (serialise)
 import Data.Array (array)
 import qualified Data.ByteString as BS
@@ -53,6 +73,24 @@ import qualified Ledger.Typed.Scripts as Scripts
 import qualified PlutusTx as Plutus
 import Test.Cardano.Ledger.Alonzo.PlutusScripts (defaultCostModel)
 import qualified Prelude
+
+--
+-- Compare scripts to baselines
+--
+
+-- | Current (2022-04-01) mainchain parameters.
+defaultMaxExecutionUnits :: ExUnits
+defaultMaxExecutionUnits =
+  ExUnits
+    { exUnitsMem = 10_000_000
+    , exUnitsSteps = 10_000_000_000
+    }
+
+distanceExUnits :: ExUnits -> ExUnits -> ExUnits
+distanceExUnits (ExUnits m0 s0) (ExUnits m1 s1) =
+  ExUnits
+    (if m0 > m1 then m0 - m1 else m1 - m0)
+    (if s0 > s1 then s0 - s1 else s1 - s0)
 
 evaluateScriptExecutionUnits ::
   Plutus.ToData a =>
