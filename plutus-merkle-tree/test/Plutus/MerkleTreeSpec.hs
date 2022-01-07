@@ -33,7 +33,6 @@ spec = do
   prop "can check membership of an element" prop_member
   prop "inf power of 2 bound" prop_infPowerOf2
   prop "tree is balanced" prop_treeIsBalanced
-  prop "execution units" prop_executionUnitsComparison
 
 prop_roundtripFromToList :: Property
 prop_roundtripFromToList =
@@ -65,20 +64,6 @@ prop_treeIsBalanced =
           & counterexample ("tree size: " <> show treeSize)
           & counterexample ("max tree depth: " <> show treeDepthUpperBound)
           & checkCoverage
-
-prop_executionUnitsComparison :: Property
-prop_executionUnitsComparison =
-  forAllNonEmptyMerkleTree $ \(tree, e, proof) ->
-    let mtExUnits = evaluateScriptExecutionUnits merkleTreeValidator (e, rootHash tree, proof)
-        emptyExUnits = evaluateScriptExecutionUnits emptyValidator ()
-        ExUnits mem cpu = distanceExUnits mtExUnits emptyExUnits
-        ExUnits maxMem maxCpu = defaultMaxExecutionUnits
-        percentMem :: Double = fromRational $ fromIntegral mem * 100 % fromIntegral maxMem
-        percentCpu :: Double = fromRational $ fromIntegral cpu * 100 % fromIntegral maxCpu
-     in percentMem < 1 && percentCpu < 1
-          & counterexample ("mem units: " <> show mem <> " ( " <> show percentMem <> "% )")
-          & counterexample ("cpu units: " <> show cpu <> " ( " <> show percentCpu <> "% )")
-          & counterexample ("proof size: " <> show (length proof))
 
 forAllMerkleTree :: Testable prop => (MerkleTree -> prop) -> Property
 forAllMerkleTree =
