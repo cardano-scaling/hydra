@@ -402,7 +402,7 @@ fanoutTx utxo (Api.fromLedgerTxIn -> headInput, Api.fromLedgerData -> headDatumB
     Api.mkRedeemerForTxIn (MockHead.Fanout $ fromIntegral $ length utxo)
 
   fanoutOutputs =
-    foldr ((:) . Api.toTxContext) [] utxo
+    reverse $ foldr ((:) . Api.toTxContext) [] (toList utxo)
 
 data AbortTxError = OverlappingInputs
   deriving (Show)
