@@ -58,7 +58,6 @@ import Hydra.Ledger.Cardano (
   TxOut (..),
   Utxo,
   Utxo' (Utxo),
-  adaOnly,
   addInputs,
   describeCardanoTx,
   emptyTxBody,
@@ -136,7 +135,7 @@ spec = do
       "verifies snapshot multi-signature for list of parties and signatures"
       prop_verifySnapshotSignatures
   describe "TxOut hashing" $ do
-    prop "OffChain.hashTxOuts == OnChain.hashTxOuts" prop_hashTxOutsWithAdaOnly
+    prop "OffChain.hashTxOuts == OnChain.hashTxOuts" prop_consistentOnAndOffChainHashOfTxOuts
   describe "Close" $ do
     prop "is healthy" $
       propTransactionValidates healthyCloseTx
@@ -200,12 +199,11 @@ calculateHashExUnits n algorithm =
 -- Properties
 --
 
-prop_hashTxOutsWithAdaOnly :: Property
-prop_hashTxOutsWithAdaOnly =
+prop_consistentOnAndOffChainHashOfTxOuts :: Property
+prop_consistentOnAndOffChainHashOfTxOuts =
   -- NOTE: We only generate shelley addressed txouts because they are left out
   -- of the plutus script context in 'txInfoOut'.
-  -- NOTE: we only generate Ada only UTXO as a baby step
-  forAllShrink (fmap adaOnly <$> genUtxoWithoutLegacy) shrinkUtxo $ \(utxo :: Utxo) ->
+  forAllShrink genUtxoWithoutLegacy shrinkUtxo $ \(utxo :: Utxo) ->
     let plutusTxOuts = mapMaybe (txInfoOut . toLedgerTxOut) ledgerTxOuts
         ledgerTxOuts = toList utxo
         plutusBytes = serialiseTxOuts plutusTxOuts

@@ -24,6 +24,7 @@ import Plutus.Codec.CBOR.Encoding (
   encodeInteger,
   encodeListLen,
   encodeMap,
+  encodeMapIndef,
   encodingToBuiltinByteString,
  )
 import Plutus.Contract.StateMachine.OnChain (StateMachine)
