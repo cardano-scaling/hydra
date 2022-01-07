@@ -16,11 +16,11 @@ import Hydra.Data.ContestationPeriod (ContestationPeriod)
 import Hydra.Data.Party (Party (UnsafeParty))
 import Ledger.Constraints (TxConstraints)
 import qualified Ledger.Typed.Scripts as Scripts
-import Plutus.Codec.CBOR.Encoding (encodeInteger, encodingToBuiltinByteString)
+import Plutus.Codec.CBOR.Encoding (Encoding, encodeByteString, encodeInteger, encodeListLen, encodeMap, encodeMaybe, encodingToBuiltinByteString)
 import Plutus.Contract.StateMachine.OnChain (StateMachine)
 import qualified Plutus.Contract.StateMachine.OnChain as SM
 import Plutus.V1.Ledger.Ada (fromValue, getLovelace)
-import Plutus.V1.Ledger.Api (Credential (PubKeyCredential, ScriptCredential))
+import Plutus.V1.Ledger.Api (Credential (PubKeyCredential, ScriptCredential), CurrencySymbol (CurrencySymbol), TokenName (TokenName), getValue)
 import qualified PlutusTx
 import Text.Show (Show)
 
@@ -105,15 +105,38 @@ hashTxOuts = sha2_256 . foldMap serialiseTxOut
 {-# INLINEABLE hashTxOuts #-}
 
 serialiseTxOut :: TxOut -> BuiltinByteString
-serialiseTxOut TxOut{txOutAddress, txOutValue} =
-  let addrBytes =
-        let Address{addressCredential} = txOutAddress
-         in case addressCredential of
-              PubKeyCredential (PubKeyHash bs) -> bs
-              ScriptCredential (ValidatorHash bs) -> bs
-      valueBytes = encodingToBuiltinByteString . encodeInteger . getLovelace . fromValue $ txOutValue
-   in addrBytes <> valueBytes
+serialiseTxOut = encodingToBuiltinByteString . encodeTxOut
 {-# INLINEABLE serialiseTxOut #-}
+
+encodeTxOut :: TxOut -> Encoding
+encodeTxOut TxOut{txOutAddress, txOutValue, txOutDatumHash} =
+  encodeListLen 3
+    <> encodeAddress txOutAddress
+    <> encodeValue txOutValue
+    <> encodeDatum txOutDatumHash
+
+-- See for details: https://github.com/cardano-foundation/CIPs/blob/master/CIP-0019/CIP-0019-cardano-addresses.abnf
+-- we only take care of type 6 or 7 addresses rn
+encodeAddress :: Address -> Encoding
+encodeAddress Address{addressCredential} =
+  encodeByteString (credentialToBytes addressCredential)
+ where
+  paymentShelleyAddressPrefix = 96
+  scriptShelleyAddressPrefix = 112
+  credentialToBytes = \case
+    PubKeyCredential (PubKeyHash h) -> paymentShelleyAddressPrefix `consByteString` h
+    ScriptCredential (ValidatorHash h) -> scriptShelleyAddressPrefix `consByteString` h
+
+encodeValue :: Value -> Encoding
+encodeValue =
+  encodeMap encodeCurrencySymbol (encodeMap encodeTokenName encodeInteger) . getValue
+ where
+  encodeCurrencySymbol (CurrencySymbol symbol) = encodeByteString symbol
+  encodeTokenName (TokenName token) = encodeByteString token
+
+encodeDatum :: Maybe DatumHash -> Encoding
+encodeDatum =
+  encodeMaybe (\(DatumHash h) -> encodeByteString h)
 
 {-# INLINEABLE verifySnapshotSignature #-}
 verifySnapshotSignature :: [Party] -> SnapshotNumber -> [Signature] -> Bool
@@ -153,6 +176,9 @@ mockSign vkey msg = appendByteString (sliceByteString 0 8 hashedMsg) (encodingTo
 --   2. Identify the 'state thread token', which should be passed in
 --   transactions transitioning the state machine and provide "contract
 --   continuity"
+--
+-- TODO: Add a NetworkId so that we can prioperly serialise address hashes
+-- see 'encodeAddress' for details
 typedValidator :: MintingPolicyHash -> Scripts.TypedValidator (StateMachine State Input)
 typedValidator policyId =
   let val =
