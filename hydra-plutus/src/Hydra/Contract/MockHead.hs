@@ -136,6 +136,10 @@ encodeTxOut TxOut{txOutAddress, txOutValue, txOutDatumHash} =
 
 -- See for details: https://github.com/cardano-foundation/CIPs/blob/master/CIP-0019/CIP-0019-cardano-addresses.abnf
 -- we only take care of type 6 or 7 addresses rn
+--
+-- FIXME: This currently assumes that all addresses are TESTNET addresses.
+-- Eventually, we need to pass the network id as argument and add `1` to the
+-- address prefixes.
 encodeAddress :: Address -> Encoding
 encodeAddress Address{addressCredential, addressStakingCredential} =
   encodeByteString
@@ -152,12 +156,14 @@ encodeAddress Address{addressCredential, addressStakingCredential} =
 
 encodeValue :: Value -> Encoding
 encodeValue val =
-  encodeListLen 2
-    <> encodeInteger (getLovelace $ fromValue val)
-    <> encodeAssets val
+  if Map.null assets
+    then encodeInteger coins
+    else encodeListLen 2 <> encodeInteger coins <> encodeAssets assets
  where
+  coins = getLovelace (fromValue val)
+  assets = discardAda (getValue val)
   encodeAssets =
-    encodeMap encodeCurrencySymbol (encodeMap encodeTokenName encodeInteger) . discardAda . getValue
+    encodeMap encodeCurrencySymbol (encodeMap encodeTokenName encodeInteger)
   discardAda =
     Map.mapMaybeWithKey (\k v -> if k == adaSymbol then Nothing else Just v)
   encodeCurrencySymbol (CurrencySymbol symbol) = encodeByteString symbol

@@ -706,18 +706,24 @@ adaOnly = \case
 genUtxoWithoutLegacy :: Gen Utxo
 genUtxoWithoutLegacy = do
   utxo <- arbitrary
-  let filtered = map voidPointer . filter notByronAddress $ utxoPairs utxo
+  let filtered = map tweakAddress . filter notByronAddress $ utxoPairs utxo
   pure $ Utxo $ Map.fromList filtered
  where
   notByronAddress (_, TxOut addr _ _) = case addr of
     AddressInEra ByronAddressInAnyEra _ -> False
     _ -> True
-  -- NOTE: we discard pointers because there encoding sucks and they are unused.
-  -- Ledger team plans to remove them in future versions anyway.
-  voidPointer out@(txin, TxOut addr val dat) = case addr of
-    AddressInEra er@(ShelleyAddressInEra _) (ShelleyAddress net cre sr) -> case sr of
-      StakeRefPtr _ -> (txin, TxOut (AddressInEra er (ShelleyAddress net cre StakeRefNull)) val dat)
-      _ -> out
+  -- NOTE:
+  -- - we discard pointers because there encoding sucks and they are unused.
+  --   Ledger team plans to remove them in future versions anyway.
+  --
+  -- - We fix all network id to testnet.
+  tweakAddress out@(txin, TxOut addr val dat) = case addr of
+    AddressInEra er@(ShelleyAddressInEra _) (ShelleyAddress _ cre sr) ->
+      case sr of
+        StakeRefPtr _ ->
+          (txin, TxOut (AddressInEra er (ShelleyAddress Ledger.Testnet cre StakeRefNull)) val dat)
+        _ ->
+          (txin, TxOut (AddressInEra er (ShelleyAddress Ledger.Testnet cre sr)) val dat)
     _ -> out
 
 shrinkUtxo :: Utxo -> [Utxo]
