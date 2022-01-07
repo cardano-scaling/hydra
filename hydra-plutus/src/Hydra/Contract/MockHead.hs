@@ -5,7 +5,6 @@
 
 module Hydra.Contract.MockHead where
 
-import qualified Hydra.Prelude as Prelude
 import Ledger hiding (validatorHash)
 import PlutusTx.Prelude
 
@@ -17,13 +16,12 @@ import Hydra.Data.ContestationPeriod (ContestationPeriod)
 import Hydra.Data.Party (Party (UnsafeParty))
 import Ledger.Constraints (TxConstraints)
 import qualified Ledger.Typed.Scripts as Scripts
+import Plutus.Codec.CBOR.Encoding (encodeInteger, encodingToBuiltinByteString)
 import Plutus.Contract.StateMachine.OnChain (StateMachine)
 import qualified Plutus.Contract.StateMachine.OnChain as SM
 import Plutus.V1.Ledger.Ada (fromValue, getLovelace)
-import Plutus.V1.Ledger.Api (Credential (PubKeyCredential, ScriptCredential), getValue, unCurrencySymbol, unTokenName)
+import Plutus.V1.Ledger.Api (Credential (PubKeyCredential, ScriptCredential))
 import qualified PlutusTx
-import qualified PlutusTx.AssocMap as AssocMap
-import PlutusTx.Builtins (subtractInteger)
 import Text.Show (Show)
 
 type SnapshotNumber = Integer
@@ -113,7 +111,7 @@ serialiseTxOut TxOut{txOutAddress, txOutValue} =
          in case addressCredential of
               PubKeyCredential (PubKeyHash bs) -> bs
               ScriptCredential (ValidatorHash bs) -> bs
-      valueBytes = naturalToCBOR . getLovelace . fromValue $ txOutValue
+      valueBytes = encodingToBuiltinByteString . encodeInteger . getLovelace . fromValue $ txOutValue
    in addrBytes <> valueBytes
 {-# INLINEABLE serialiseTxOut #-}
 
@@ -137,70 +135,13 @@ verifyPartySignature snapshotNumber vkey signed =
 mockVerifySignature :: Party -> SnapshotNumber -> BuiltinByteString -> Bool
 mockVerifySignature (UnsafeParty vkey) snapshotNumber signed =
   traceIfFalse "mock signed message is not equal to signed" $
-    mockSign vkey (naturalToCBOR snapshotNumber) == signed
+    mockSign vkey (encodingToBuiltinByteString $ encodeInteger snapshotNumber) == signed
 
 {-# INLINEABLE mockSign #-}
 mockSign :: Integer -> BuiltinByteString -> BuiltinByteString
-mockSign vkey msg = appendByteString (sliceByteString 0 8 hashedMsg) (naturalToCBOR vkey)
+mockSign vkey msg = appendByteString (sliceByteString 0 8 hashedMsg) (encodingToBuiltinByteString $ encodeInteger vkey)
  where
   hashedMsg = sha2_256 msg
-
--- | Encode a positive Integer to CBOR, up to 65536
---
--- FIXME: complete the implementation up to 2**64, at least. Maybe support
--- arbitrarily large integers as well?
-naturalToCBOR :: Integer -> BuiltinByteString
-naturalToCBOR n
-  | n < 0 =
-    encodeUnsigned 1 (subtractInteger 0 n - 1)
-  | otherwise =
-    encodeUnsigned 0 n
-{-# INLINEABLE naturalToCBOR #-}
-
-withMajorType :: Integer -> Integer -> BuiltinByteString -> BuiltinByteString
-withMajorType major n =
-  consByteString (32 * major + n)
-{-# INLINEABLE withMajorType #-}
-
-encodeUnsigned :: Integer -> Integer -> BuiltinByteString
-encodeUnsigned major n
-  | n < 24 =
-    withMajorType major n emptyByteString
-  | n < 256 =
-    withMajorType major 24 (encodeUnsigned8 n)
-  | n < 65536 =
-    withMajorType major 25 (encodeUnsigned16 n)
-  | n < 4294967296 =
-    withMajorType major 26 (encodeUnsigned32 n)
-  | otherwise =
-    withMajorType major 27 (encodeUnsigned64 n)
-{-# INLINEABLE encodeUnsigned #-}
-
-encodeUnsigned8 :: Integer -> BuiltinByteString
-encodeUnsigned8 n =
-  consByteString n emptyByteString
-{-# INLINEABLE encodeUnsigned8 #-}
-
-encodeUnsigned16 :: Integer -> BuiltinByteString
-encodeUnsigned16 n =
-  appendByteString
-    (encodeUnsigned8 (quotient n 256))
-    (encodeUnsigned8 (remainder n 256))
-{-# INLINEABLE encodeUnsigned16 #-}
-
-encodeUnsigned32 :: Integer -> BuiltinByteString
-encodeUnsigned32 n =
-  appendByteString
-    (encodeUnsigned16 (quotient n 65536))
-    (encodeUnsigned16 (remainder n 65536))
-{-# INLINEABLE encodeUnsigned32 #-}
-
-encodeUnsigned64 :: Integer -> BuiltinByteString
-encodeUnsigned64 n =
-  appendByteString
-    (encodeUnsigned32 (quotient n 4294967296))
-    (encodeUnsigned32 (remainder n 4294967296))
-{-# INLINEABLE encodeUnsigned64 #-}
 
 -- | The script instance of the auction state machine. It contains the state
 -- machine compiled to a Plutus core validator script. The 'MintingPolicyHash' serves

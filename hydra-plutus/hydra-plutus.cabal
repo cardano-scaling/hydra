@@ -101,6 +101,7 @@ library
     , hydra-prelude
     , lens
     , openapi3
+    , plutus-cbor
     , plutus-core
     , plutus-ledger
     , plutus-ledger-api

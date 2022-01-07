@@ -7,9 +7,9 @@ module Hydra.Chain.Direct.ContractSpec where
 import Hydra.Prelude hiding (label)
 import Test.Hydra.Prelude
 
+import Cardano.Api.Shelley (TxBody (ShelleyTxBody))
 import Cardano.Binary (serialize')
 import Cardano.Crypto.DSIGN (deriveVerKeyDSIGN)
-import Cardano.Crypto.Hash (hashToBytes)
 import Cardano.Crypto.Util (SignableRepresentation (getSignableRepresentation))
 import qualified Cardano.Ledger.Alonzo.Data as Ledger
 import Cardano.Ledger.Alonzo.Scripts (ExUnits)
@@ -33,7 +33,7 @@ import qualified Hydra.Chain.Direct.Fixture as Fixture
 import Hydra.Chain.Direct.Tx (closeTx, fanoutTx, policyId)
 import Hydra.Chain.Direct.TxSpec (mkHeadOutput)
 import qualified Hydra.Contract.Hash as Hash
-import Hydra.Contract.MockHead (hashTxOuts, naturalToCBOR, verifyPartySignature, verifySnapshotSignature)
+import Hydra.Contract.MockHead (hashTxOuts, verifyPartySignature, verifySnapshotSignature)
 import qualified Hydra.Contract.MockHead as MockHead
 import Hydra.Data.Party (partyFromVerKey)
 import qualified Hydra.Data.Party as OnChain
@@ -47,14 +47,10 @@ import Hydra.Ledger.Cardano (
   ExecutionUnits (ExecutionUnits),
   LedgerCrypto,
   LedgerEra,
-  NetworkId (Mainnet),
   PlutusScriptV1,
-  Tx (ShelleyTx, Tx),
-  TxBody (ShelleyTxBody, TxBody),
-  TxBodyContent (..),
+  Tx (Tx),
   TxBodyScriptData (TxBodyNoScriptData, TxBodyScriptData),
   TxOut (..),
-  TxOutDatum (TxOutDatumNone),
   Utxo,
   Utxo' (Utxo),
   adaOnly,
@@ -78,7 +74,6 @@ import Hydra.Ledger.Cardano (
   mkScriptWitness,
   mkTxOutDatum,
   mkTxOutDatumHash,
-  mkVkAddress,
   modifyTxOutValue,
   shrinkUtxo,
   toCtxUTxOTxOut,
@@ -87,10 +82,8 @@ import Hydra.Ledger.Cardano (
   toLedgerUtxo,
   txOutValue,
   unsafeBuildTransaction,
-  verificationKeyHash,
  )
 import qualified Hydra.Ledger.Cardano as Api
-import qualified Hydra.Ledger.Cardano as Cardano
 import Hydra.Ledger.Simple (SimpleTx)
 import Hydra.Party (
   MultiSigned (MultiSigned),
@@ -105,9 +98,8 @@ import Hydra.Party (
  )
 import Hydra.Snapshot (Snapshot (..), SnapshotNumber)
 import Plutus.Orphans ()
-import Plutus.V1.Ledger.Api (Address (Address), Credential (PubKeyCredential), PubKeyHash (PubKeyHash), fromBuiltin, fromData, toBuiltin, toData)
+import Plutus.V1.Ledger.Api (fromBuiltin, fromData, toBuiltin, toData)
 import Plutus.V1.Ledger.Crypto (Signature (Signature))
-import qualified Plutus.V1.Ledger.Tx as Plutus
 import Test.QuickCheck (
   Positive (Positive),
   Property,
@@ -117,9 +109,7 @@ import Test.QuickCheck (
   counterexample,
   elements,
   forAll,
-  forAllShow,
   forAllShrink,
-  generate,
   oneof,
   property,
   suchThat,
@@ -129,7 +119,6 @@ import Test.QuickCheck.Instances ()
 
 spec :: Spec
 spec = do
-  prop "correctly encode 'small' integer to CBOR" prop_encode16BitsNaturalToCBOROnChain
   describe "Signature validator" $ do
     prop
       "verifies single signature produced off-chain"
@@ -217,15 +206,6 @@ prop_hashUtxoWithAdaOnly =
      in (hashUtxo utxo === fromBuiltin (hashTxOuts plutusTxOuts))
           & counterexample ("Plutus: " <> show plutusTxOuts)
           & counterexample ("Ledger: " <> show ledgerTxOuts)
-
-prop_encode16BitsNaturalToCBOROnChain :: Property
-prop_encode16BitsNaturalToCBOROnChain =
-  forAll arbitrary $ \(word16 :: Word16) ->
-    let offChainCBOR = serialize' word16
-        onChainCBOR = fromBuiltin $ naturalToCBOR (fromIntegral word16)
-     in offChainCBOR == onChainCBOR
-          & counterexample ("offChainCBOR: " <> show offChainCBOR)
-          & counterexample ("onChainCBOR: " <> show onChainCBOR)
 
 prop_verifyOffChainSignatures :: Property
 prop_verifyOffChainSignatures =
