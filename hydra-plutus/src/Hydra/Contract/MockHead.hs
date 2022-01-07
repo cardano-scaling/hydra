@@ -29,7 +29,14 @@ import Plutus.Codec.CBOR.Encoding (
 import Plutus.Contract.StateMachine.OnChain (StateMachine)
 import qualified Plutus.Contract.StateMachine.OnChain as SM
 import Plutus.V1.Ledger.Ada (fromValue, getLovelace)
-import Plutus.V1.Ledger.Api (Credential (PubKeyCredential, ScriptCredential), CurrencySymbol (CurrencySymbol), TokenName (TokenName), adaSymbol, getValue)
+import Plutus.V1.Ledger.Api (
+  Credential (PubKeyCredential, ScriptCredential),
+  CurrencySymbol (CurrencySymbol),
+  StakingCredential (..),
+  TokenName (TokenName),
+  adaSymbol,
+  getValue,
+ )
 import qualified PlutusTx
 import qualified PlutusTx.AssocMap as Map
 import Text.Show (Show)
@@ -142,17 +149,30 @@ encodeTxOut TxOut{txOutAddress, txOutValue, txOutDatumHash} =
 -- address prefixes.
 encodeAddress :: Address -> Encoding
 encodeAddress Address{addressCredential, addressStakingCredential} =
-  encodeByteString
-    (credentialToBytes addressCredential <> stakingCredentialToBytes addressStakingCredential)
+  encodeByteString bytes
  where
-  paymentShelleyAddressPrefix = 96
-  scriptShelleyAddressPrefix = 112
-  credentialToBytes = \case
-    PubKeyCredential (PubKeyHash h) -> paymentShelleyAddressPrefix `consByteString` h
-    ScriptCredential (ValidatorHash h) -> scriptShelleyAddressPrefix `consByteString` h
-  stakingCredentialToBytes = \case
-    Nothing -> emptyByteString
-    Just{} -> traceError "non empty staking credentials."
+  bytes =
+    case (addressCredential, addressStakingCredential) of
+      (PubKeyCredential (PubKeyHash h), Just (StakingHash (PubKeyCredential (PubKeyHash h')))) ->
+        addrType00 `consByteString` (h `appendByteString` h')
+      (ScriptCredential (ValidatorHash h), Just (StakingHash (PubKeyCredential (PubKeyHash h')))) ->
+        addrType01 `consByteString` (h `appendByteString` h')
+      (PubKeyCredential (PubKeyHash h), Just (StakingHash (ScriptCredential (ValidatorHash h')))) ->
+        addrType02 `consByteString` (h `appendByteString` h')
+      (ScriptCredential (ValidatorHash h), Just (StakingHash (ScriptCredential (ValidatorHash h')))) ->
+        addrType03 `consByteString` (h `appendByteString` h')
+      (PubKeyCredential (PubKeyHash h), Nothing) ->
+        addrType06 `consByteString` h
+      (ScriptCredential (ValidatorHash h), Nothing) ->
+        addrType07 `consByteString` h
+      _ ->
+        traceError "encodeAddress: ptr"
+  addrType00 = 0
+  addrType01 = 16
+  addrType02 = 32
+  addrType03 = 48
+  addrType06 = 96
+  addrType07 = 112
 
 encodeValue :: Value -> Encoding
 encodeValue val =
