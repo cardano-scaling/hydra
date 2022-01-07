@@ -133,14 +133,18 @@ encodeTxOut TxOut{txOutAddress, txOutValue, txOutDatumHash} =
 -- See for details: https://github.com/cardano-foundation/CIPs/blob/master/CIP-0019/CIP-0019-cardano-addresses.abnf
 -- we only take care of type 6 or 7 addresses rn
 encodeAddress :: Address -> Encoding
-encodeAddress Address{addressCredential} =
-  encodeByteString (credentialToBytes addressCredential)
+encodeAddress Address{addressCredential, addressStakingCredential} =
+  encodeByteString
+    (credentialToBytes addressCredential <> stakingCredentialToBytes addressStakingCredential)
  where
   paymentShelleyAddressPrefix = 96
   scriptShelleyAddressPrefix = 112
   credentialToBytes = \case
     PubKeyCredential (PubKeyHash h) -> paymentShelleyAddressPrefix `consByteString` h
     ScriptCredential (ValidatorHash h) -> scriptShelleyAddressPrefix `consByteString` h
+  stakingCredentialToBytes = \case
+    Nothing -> emptyByteString
+    Just{} -> traceError "non empty staking credentials."
 
 encodeValue :: Value -> Encoding
 encodeValue val =
