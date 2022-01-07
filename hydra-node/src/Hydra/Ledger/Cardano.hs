@@ -27,7 +27,7 @@ import Hydra.Ledger.Cardano.Isomorphism
 import qualified Cardano.Api
 import Cardano.Binary (decodeAnnotator, serialize, serialize')
 import qualified Cardano.Crypto.DSIGN as CC
-import Cardano.Crypto.Hash (SHA256, digest, hashToBytes)
+import Cardano.Crypto.Hash (SHA256, digest)
 import qualified Cardano.Ledger.Alonzo.PParams as Ledger.Alonzo
 import qualified Cardano.Ledger.Alonzo.Scripts as Ledger.Alonzo
 import qualified Cardano.Ledger.Alonzo.Tx as Ledger.Alonzo
@@ -36,11 +36,8 @@ import Cardano.Ledger.Alonzo.TxWitness (TxDats (TxDats), unRedeemers)
 import qualified Cardano.Ledger.Alonzo.TxWitness as Ledger.Alonzo
 import qualified Cardano.Ledger.BaseTypes as Ledger
 import qualified Cardano.Ledger.Core as Ledger
-import Cardano.Ledger.Credential (Credential (KeyHashObj, ScriptHashObj))
 import qualified Cardano.Ledger.Crypto as Ledger (StandardCrypto)
 import qualified Cardano.Ledger.Era as Ledger
-import Cardano.Ledger.Hashes (ScriptHash (ScriptHash))
-import Cardano.Ledger.Keys (KeyHash (KeyHash))
 import qualified Cardano.Ledger.Keys as Ledger
 import qualified Cardano.Ledger.Mary as Ledger.Mary hiding (Value)
 import qualified Cardano.Ledger.Mary.Value as Ledger.Mary
@@ -472,21 +469,7 @@ instance Arbitrary Utxo where
 
 hashUtxo :: Utxo -> ByteString
 hashUtxo (Utxo u) =
-  digest @SHA256 Proxy $ foldr (\txout bs -> serialiseTxOut txout <> bs) "" u
-
-serialiseTxOut :: TxOut CtxUTxO Era -> ByteString
-serialiseTxOut (TxOut addr value _) =
-  let addrBytes = case addr of
-        AddressInEra (ShelleyAddressInEra _) (ShelleyAddress _ creds _) ->
-          case creds of
-            (ScriptHashObj (ScriptHash sh)) -> hashToBytes sh
-            (KeyHashObj (KeyHash kh)) -> hashToBytes kh
-        AddressInEra ByronAddressInAnyEra (ByronAddress byron) ->
-          serialize' byron
-      valueBytes = case value of
-        (TxOutAdaOnly _ lo) -> serialize' lo
-        (TxOutValue _ va) -> serialize' $ toMaryValue va
-   in addrBytes <> valueBytes
+  digest @SHA256 Proxy $ foldr (\txout bs -> serialize' (toLedgerTxOut txout) <> bs) "" u
 
 toLedgerUtxo :: Utxo -> Ledger.UTxO LedgerEra
 toLedgerUtxo =
