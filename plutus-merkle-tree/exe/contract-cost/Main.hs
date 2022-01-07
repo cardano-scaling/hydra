@@ -1,3 +1,5 @@
+{-# LANGUAGE TypeApplications #-}
+
 import Hydra.Prelude
 
 import qualified Data.ByteString as BS
@@ -5,7 +7,11 @@ import Data.Maybe (fromJust)
 import qualified Plutus.MerkleTree as MT
 import Plutus.MerkleTreeValidator (merkleTreeValidator)
 import qualified PlutusTx.Builtins as Plutus
-import Test.Plutus.Validator (ExUnits (ExUnits), evaluateScriptExecutionUnits)
+import Test.Plutus.Validator (
+  ExUnits (ExUnits),
+  defaultMaxExecutionUnits,
+  evaluateScriptExecutionUnits,
+ )
 import Test.QuickCheck (generate, vectorOf)
 
 main :: IO ()
@@ -20,12 +26,15 @@ main =
 
         (totalMem, totalCpu) = foldr accumulateCost (0, 0) utxo
 
+    let ExUnits (fromIntegral @_ @Double -> maxMem) (fromIntegral @_ @Double -> maxCpu) =
+          defaultMaxExecutionUnits
+
     putTextLn $
       show numElems
         <> "\t"
-        <> show (fromIntegral totalMem `div` numElems)
+        <> show (100 * fromIntegral (fromIntegral totalMem `div` numElems) / maxMem)
         <> "\t"
-        <> show (fromIntegral totalCpu `div` numElems)
+        <> show (100 * fromIntegral (fromIntegral totalCpu `div` numElems) / maxCpu)
  where
   -- NOTE: assume size of a UTXO is around  60
   genFakeUtxos numElems = generate (vectorOf numElems $ BS.pack <$> vectorOf 60 arbitrary)
