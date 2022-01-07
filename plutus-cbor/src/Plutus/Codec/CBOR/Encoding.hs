@@ -75,7 +75,7 @@ encodeList encodeElem es =
 
 encodeMaybe :: (a -> Encoding) -> Maybe a -> Encoding
 encodeMaybe encode = \case
-  Nothing -> encodeNull
+  Nothing -> Encoding id
   Just a -> encode a
 {-# INLINEABLE encodeMaybe #-}
 
