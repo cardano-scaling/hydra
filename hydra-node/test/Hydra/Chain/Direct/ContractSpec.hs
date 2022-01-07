@@ -34,7 +34,11 @@ import qualified Hydra.Chain.Direct.Fixture as Fixture
 import Hydra.Chain.Direct.Tx (closeTx, fanoutTx, policyId)
 import Hydra.Chain.Direct.TxSpec (mkHeadOutput)
 import qualified Hydra.Contract.Hash as Hash
-import Hydra.Contract.MockHead (hashTxOuts, serialiseTxOuts, verifyPartySignature, verifySnapshotSignature)
+import Hydra.Contract.MockHead (
+  serialiseTxOuts,
+  verifyPartySignature,
+  verifySnapshotSignature,
+ )
 import qualified Hydra.Contract.MockHead as MockHead
 import Hydra.Data.Party (partyFromVerKey)
 import qualified Hydra.Data.Party as OnChain
@@ -67,7 +71,7 @@ import Hydra.Ledger.Cardano (
   genUtxoWithoutLegacy,
   genValue,
   getOutputs,
-  hashUtxo,
+  hashTxOuts,
   lovelaceToTxOutValue,
   mkDatumForTxIn,
   mkRedeemerForTxIn,
@@ -132,7 +136,7 @@ spec = do
       "verifies snapshot multi-signature for list of parties and signatures"
       prop_verifySnapshotSignatures
   describe "TxOut hashing" $ do
-    prop "hashUtxo == hashTxOuts" prop_hashUtxoWithAdaOnly
+    prop "OffChain.hashTxOuts == OnChain.hashTxOuts" prop_hashTxOutsWithAdaOnly
   describe "Close" $ do
     prop "is healthy" $
       propTransactionValidates healthyCloseTx
@@ -196,21 +200,21 @@ calculateHashExUnits n algorithm =
 -- Properties
 --
 
-prop_hashUtxoWithAdaOnly :: Property
-prop_hashUtxoWithAdaOnly =
+prop_hashTxOutsWithAdaOnly :: Property
+prop_hashTxOutsWithAdaOnly =
   -- NOTE: We only generate shelley addressed txouts because they are left out
   -- of the plutus script context in 'txInfoOut'.
   -- NOTE: we only generate Ada only UTXO as a baby step
   forAllShrink (fmap adaOnly <$> genUtxoWithoutLegacy) shrinkUtxo $ \(utxo :: Utxo) ->
-    let plutusTxOuts = mapMaybe txInfoOut ledgerTxOuts
-        ledgerTxOuts = Map.elems . Ledger.unUTxO $ toLedgerUtxo utxo
-        plutusUtxo = serialiseTxOuts plutusTxOuts
-        ledgerUtxo = serialize' ledgerTxOuts
-     in (hashUtxo utxo === fromBuiltin (hashTxOuts plutusTxOuts))
+    let plutusTxOuts = mapMaybe (txInfoOut . toLedgerTxOut) ledgerTxOuts
+        ledgerTxOuts = toList utxo
+        plutusBytes = serialiseTxOuts plutusTxOuts
+        ledgerBytes = serialize' (toLedgerTxOut <$> ledgerTxOuts)
+     in (hashTxOuts ledgerTxOuts === fromBuiltin (MockHead.hashTxOuts plutusTxOuts))
           & counterexample ("Plutus: " <> show plutusTxOuts)
           & counterexample ("Ledger: " <> show ledgerTxOuts)
-          & counterexample ("Ledger CBOR: " <> decodeUtf8 (Base16.encode ledgerUtxo))
-          & counterexample ("Plutus CBOR: " <> decodeUtf8 (Base16.encode $ fromBuiltin plutusUtxo))
+          & counterexample ("Ledger CBOR: " <> decodeUtf8 (Base16.encode ledgerBytes))
+          & counterexample ("Plutus CBOR: " <> decodeUtf8 (Base16.encode $ fromBuiltin plutusBytes))
 
 prop_verifyOffChainSignatures :: Property
 prop_verifyOffChainSignatures =
@@ -438,7 +442,7 @@ healthyFanoutUtxo =
 
 healthyFanoutDatum :: MockHead.State
 healthyFanoutDatum =
-  MockHead.Closed 1 (toBuiltin $ hashUtxo healthyFanoutUtxo)
+  MockHead.Closed 1 (toBuiltin $ hashTxOuts $ toList healthyFanoutUtxo)
 
 data FanoutMutation
   = MutateAddUnexpectedOutput

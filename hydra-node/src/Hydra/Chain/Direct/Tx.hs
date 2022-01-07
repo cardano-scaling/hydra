@@ -64,7 +64,7 @@ import Hydra.Ledger.Cardano (
   fromLedgerTx,
   fromPlutusScript,
   getDatum,
-  hashUtxo,
+  hashTxOuts,
   mkScriptAddress,
   toAlonzoData,
   toCtxUTxOTxOut,
@@ -322,7 +322,7 @@ collectComTx networkId utxo (Api.fromLedgerTxIn -> headInput, Api.fromLedgerData
         { collectedValue = Api.toPlutusValue commitValue
         , utxoHash
         }
-  utxoHash = toBuiltin $ hashUtxo utxo
+  utxoHash = toBuiltin $ hashTxOuts $ toList utxo
   headOutput =
     Api.TxOut
       (Api.mkScriptAddress @Api.PlutusScriptV1 networkId headScript)
@@ -378,7 +378,7 @@ closeTx Snapshot{number, utxo} sig (Api.fromLedgerTxIn -> headInput, Api.fromLed
         { snapshotNumber = toInteger number
         , utxoHash
         }
-  utxoHash = toBuiltin $ hashUtxo utxo
+  utxoHash = toBuiltin $ hashTxOuts $ toList utxo
 
 fanoutTx ::
   -- | Snapshotted Utxo to fanout on layer 1

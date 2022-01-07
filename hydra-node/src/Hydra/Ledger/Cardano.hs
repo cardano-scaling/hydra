@@ -376,6 +376,10 @@ mkTxOutValue :: Value -> TxOutValue Era
 mkTxOutValue =
   TxOutValue MultiAssetInAlonzoEra
 
+hashTxOuts :: [TxOut CtxUTxO Era] -> ByteString
+hashTxOuts =
+  digest @SHA256 Proxy . serialize' . fmap toLedgerTxOut
+
 getDatum :: TxOut CtxTx era -> Maybe ScriptData
 getDatum (TxOut _ _ d) = case d of
   TxOutDatum _ dat -> Just dat
@@ -467,10 +471,6 @@ instance Arbitrary Utxo where
     fromMaryTxOut = \case
       Ledger.Shelley.TxOutCompact addr value ->
         Ledger.Alonzo.TxOutCompact addr value
-
-hashUtxo :: Utxo -> ByteString
-hashUtxo (Utxo u) =
-  digest @SHA256 Proxy $ foldr (\txout bs -> serialize' (toLedgerTxOut txout) <> bs) "" u
 
 toLedgerUtxo :: Utxo -> Ledger.UTxO LedgerEra
 toLedgerUtxo =

@@ -57,7 +57,7 @@ import Hydra.Ledger.Cardano (
   genAdaOnlyUtxo,
   genKeyPair,
   genUtxoWithoutLegacy,
-  hashUtxo,
+  hashTxOuts,
   shrinkUtxo,
   toMaryValue,
   utxoPairs,
@@ -302,7 +302,7 @@ spec =
                   toData $
                     MockHead.Closed
                       { snapshotNumber = 1
-                      , utxoHash = toBuiltin (hashUtxo inHeadUtxo)
+                      , utxoHash = toBuiltin (hashTxOuts $ toList inHeadUtxo)
                       }
            in checkCoverage $ case validateTxScriptsUnlimited onChainUtxo tx of
                 Left basicFailure ->
