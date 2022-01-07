@@ -25,6 +25,7 @@ import Cardano.Ledger.Alonzo.TxWitness (RdmrPtr)
 import qualified Cardano.Ledger.Alonzo.TxWitness as Ledger
 import qualified Cardano.Ledger.Shelley.API as Ledger
 import qualified Data.ByteString as BS
+import qualified Data.ByteString.Base16 as Base16
 import qualified Data.Map as Map
 import Data.Maybe.Strict (StrictMaybe (..))
 import qualified Data.Sequence.Strict as StrictSeq
@@ -203,9 +204,13 @@ prop_hashUtxoWithAdaOnly =
   forAllShrink (fmap adaOnly <$> genUtxoWithoutByronAddresses) shrinkUtxo $ \(utxo :: Utxo) ->
     let plutusTxOuts = mapMaybe txInfoOut ledgerTxOuts
         ledgerTxOuts = Map.elems . Ledger.unUTxO $ toLedgerUtxo utxo
+        plutusUtxo = foldMap MockHead.serialiseTxOut plutusTxOuts
+        ledgerUtxo = serialize' ledgerTxOuts
      in (hashUtxo utxo === fromBuiltin (hashTxOuts plutusTxOuts))
           & counterexample ("Plutus: " <> show plutusTxOuts)
           & counterexample ("Ledger: " <> show ledgerTxOuts)
+          & counterexample ("Ledger CBOR: " <> decodeUtf8 (Base16.encode ledgerUtxo))
+          & counterexample ("Plutus CBOR: " <> decodeUtf8 (Base16.encode $ fromBuiltin plutusUtxo))
 
 prop_verifyOffChainSignatures :: Property
 prop_verifyOffChainSignatures =
