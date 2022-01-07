@@ -11,6 +11,9 @@ module Plutus.Codec.CBOR.Encoding (
   encodeMapLen,
   encodeMap,
   encodeMaybe,
+  encodeListIndef,
+  encodeBeginList,
+  encodeBreak,
 ) where
 
 import PlutusTx.Prelude
@@ -72,6 +75,21 @@ encodeList encodeElem es =
   encodeListLen (length es)
     <> foldr (\e -> (encodeElem e <>)) mempty es
 {-# INLINEABLE encodeList #-}
+
+encodeListIndef :: (a -> Encoding) -> [a] -> Encoding
+encodeListIndef encodeElem es =
+  encodeBeginList
+    <> foldr (\e -> (encodeElem e <>)) mempty es
+    <> encodeBreak
+{-# INLINEABLE encodeListIndef #-}
+
+encodeBeginList :: Encoding
+encodeBeginList = Encoding (withMajorType 4 31)
+{-# INLINEABLE encodeBeginList #-}
+
+encodeBreak :: Encoding
+encodeBreak = Encoding (consByteString 0xFF)
+{-# INLINEABLE encodeBreak #-}
 
 encodeMaybe :: (a -> Encoding) -> Maybe a -> Encoding
 encodeMaybe encode = \case

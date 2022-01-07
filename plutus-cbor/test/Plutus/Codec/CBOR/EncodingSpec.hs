@@ -21,6 +21,7 @@ import Plutus.Codec.CBOR.Encoding (
   encodeByteString,
   encodeInteger,
   encodeList,
+  encodeListIndef,
   encodeMap,
   encodeNull,
   encodingToBuiltinByteString,
@@ -240,6 +241,7 @@ genSomeValue =
         , Just genSomeNull
         , guard (n > 0) $> genSomeList n
         , guard (n > 0) $> genSomeMap n
+        , guard (n > 0) $> genSomeListIndef n
         ]
 
   genSomeInteger :: Gen SomeValue
@@ -266,6 +268,19 @@ genSomeValue =
             ]
     let encodeOurs =
           encodeList (\(SomeValue x _ _ encode) -> encode x)
+    return $ SomeValue val (shrinkList shrinkSomeValue) encodeCborg encodeOurs
+
+  genSomeListIndef :: Int -> Gen SomeValue
+  genSomeListIndef n = do
+    val <- genList (withMaxDepth (n - 1))
+    let encodeCborg xs =
+          mconcat
+            [ CBOR.encodeListLenIndef
+            , foldMap (\(SomeValue x _ encode _) -> encode x) xs
+            , CBOR.encodeBreak
+            ]
+    let encodeOurs =
+          encodeListIndef (\(SomeValue x _ _ encode) -> encode x)
     return $ SomeValue val (shrinkList shrinkSomeValue) encodeCborg encodeOurs
 
   genSomeMap :: Int -> Gen SomeValue
