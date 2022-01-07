@@ -23,6 +23,7 @@ import Plutus.Codec.CBOR.Encoding (
   encodeList,
   encodeListIndef,
   encodeMap,
+  encodeMapIndef,
   encodeNull,
   encodingToBuiltinByteString,
  )
@@ -242,6 +243,7 @@ genSomeValue =
         , guard (n > 0) $> genSomeList n
         , guard (n > 0) $> genSomeMap n
         , guard (n > 0) $> genSomeListIndef n
+        , guard (n > 0) $> genSomeMapIndef n
         ]
 
   genSomeInteger :: Gen SomeValue
@@ -298,6 +300,27 @@ genSomeValue =
             ]
     let encodeOurs =
           encodeMap
+            (\(SomeValue k _ _ encodeKey) -> encodeKey k)
+            (\(SomeValue v _ _ encodeValue) -> encodeValue v)
+            . Plutus.Map.fromList
+    return $ SomeValue val shrinkMap encodeCborg encodeOurs
+
+  genSomeMapIndef :: Int -> Gen SomeValue
+  genSomeMapIndef n = do
+    val <- genMap (withMaxDepth (n - 1)) (withMaxDepth (n - 1))
+    let shrinkMap = shrinkList (liftShrink2 shrinkSomeValue shrinkSomeValue)
+    let encodeCborg m =
+          mconcat
+            [ CBOR.encodeMapLenIndef
+            , foldMap
+                ( \(SomeValue k _ encodeKey _, SomeValue v _ encodeValue _) ->
+                    encodeKey k <> encodeValue v
+                )
+                m
+            , CBOR.encodeBreak
+            ]
+    let encodeOurs =
+          encodeMapIndef
             (\(SomeValue k _ _ encodeKey) -> encodeKey k)
             (\(SomeValue v _ _ encodeValue) -> encodeValue v)
             . Plutus.Map.fromList

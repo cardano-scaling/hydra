@@ -14,6 +14,7 @@ module Plutus.Codec.CBOR.Encoding (
   encodeListIndef,
   encodeBeginList,
   encodeBreak,
+  encodeMapIndef,
 ) where
 
 import PlutusTx.Prelude
@@ -113,6 +114,17 @@ encodeMap encodeKey encodeValue m =
   encodeMapLen (length m)
     <> foldr (\(k, v) -> ((encodeKey k <> encodeValue v) <>)) mempty (Map.toList m)
 {-# INLINEABLE encodeMap #-}
+
+encodeMapIndef :: (k -> Encoding) -> (v -> Encoding) -> Map k v -> Encoding
+encodeMapIndef encodeKey encodeValue m =
+  encodeBeginMap
+    <> foldr (\(k, v) -> ((encodeKey k <> encodeValue v) <>)) mempty (Map.toList m)
+    <> encodeBreak
+{-# INLINEABLE encodeMapIndef #-}
+
+encodeBeginMap :: Encoding
+encodeBeginMap = Encoding (withMajorType 5 31)
+{-# INLINEABLE encodeBeginMap #-}
 
 -- * Internal
 
