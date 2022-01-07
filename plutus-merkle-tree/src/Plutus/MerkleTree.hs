@@ -6,7 +6,7 @@ import Data.ByteString.Base16 (encodeBase16)
 import qualified Data.Text as Text
 import PlutusPrelude ((<|>))
 import qualified PlutusTx
-import PlutusTx.Builtins (subtractInteger)
+import PlutusTx.Builtins (divideInteger, subtractInteger)
 import qualified PlutusTx.List as List
 import PlutusTx.Prelude hiding (toList)
 import qualified Prelude as Haskell
@@ -90,27 +90,19 @@ fromList =
     [e] -> MerkleLeaf (hash e) e
     es ->
       let len = length es
-          cutoff = infPowerOf2 len
+          cutoff = len `divideInteger` 2
           (l, r) = (List.take cutoff es, drop cutoff es)
           lnode = fromList l
           rnode = fromList r
        in MerkleNode (combineHash (rootHash lnode) (rootHash rnode)) len lnode rnode
 
 -- | Plutus Tx version of 'Data.List.drop'.
+--
 -- TODO: move into plutus
 drop :: Integer -> [a] -> [a]
 drop n rs | n <= 0 = rs
 drop n (_ : xs) = drop (subtractInteger n 1) xs
 drop _ [] = []
-
-infPowerOf2 :: Integer -> Integer
-infPowerOf2 n
-  | n <= 0 = 0
-  | otherwise = go 0 1
- where
-  go i k
-    | k > n = i - 1
-    | otherwise = go (i + 1) (k * 2)
 
 toList :: MerkleTree -> [BuiltinByteString]
 toList = go

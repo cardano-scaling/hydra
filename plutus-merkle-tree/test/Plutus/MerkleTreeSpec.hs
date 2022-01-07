@@ -7,11 +7,10 @@ import Test.Hydra.Prelude
 
 import qualified Data.ByteString as BS
 import Data.Maybe (fromJust)
-import Plutus.MerkleTree (MerkleTree, infPowerOf2)
+import Plutus.MerkleTree (MerkleTree)
 import qualified Plutus.MerkleTree as MT
 import qualified PlutusTx.Builtins as Plutus
 import Test.QuickCheck (
-  Positive (Positive),
   Property,
   Testable,
   checkCoverage,
@@ -28,7 +27,6 @@ spec :: Spec
 spec = do
   prop "fromList . toList roundtrips MT" prop_roundtripFromToList
   prop "can check membership of an element" prop_member
-  prop "inf power of 2 bound" prop_infPowerOf2
   prop "tree is balanced" prop_treeIsBalanced
 
 prop_roundtripFromToList :: Property
@@ -44,19 +42,13 @@ prop_member =
     MT.member e (MT.rootHash tree) proof
       & counterexample ("Proof: " <> show proof)
 
-prop_infPowerOf2 :: Positive Integer -> Property
-prop_infPowerOf2 (Positive n) =
-  let p = infPowerOf2 n
-   in floor (logBase @Double 2 (fromIntegral n)) === p
-
 prop_treeIsBalanced :: Property
 prop_treeIsBalanced =
   forAllNonEmptyMerkleTree $ \(tree, _, proof) ->
     let treeSize = MT.size tree
         treeDepthUpperBound = floor (logBase @Double 2 (fromIntegral treeSize)) + 1
      in length proof <= fromIntegral treeSize
-          & cover 50 (length proof <= treeDepthUpperBound) "proofs are in log(n) size of tree"
-          & cover 95 (length proof <= 2 * treeDepthUpperBound) "proofs are no larger than twice log(n) size of tree"
+          & cover 100 (length proof <= treeDepthUpperBound) "proofs are in log(n) size of tree"
           & counterexample ("proof: " <> show proof)
           & counterexample ("tree size: " <> show treeSize)
           & counterexample ("max tree depth: " <> show treeDepthUpperBound)
