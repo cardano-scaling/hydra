@@ -39,6 +39,7 @@ import Plutus.V1.Ledger.Api (
   getValue,
  )
 import qualified PlutusTx
+import PlutusTx.AssocMap (Map)
 import qualified PlutusTx.AssocMap as Map
 import Text.Show (Show)
 
@@ -184,11 +185,16 @@ encodeValue val =
   coins = getLovelace (fromValue val)
   assets = discardAda (getValue val)
   encodeAssets =
-    encodeMap encodeCurrencySymbol (encodeMap encodeTokenName encodeInteger)
+    wrapEncodeMap encodeCurrencySymbol (wrapEncodeMap encodeTokenName encodeInteger)
   discardAda =
     Map.mapMaybeWithKey (\k v -> if k == adaSymbol then Nothing else Just v)
   encodeCurrencySymbol (CurrencySymbol symbol) = encodeByteString symbol
   encodeTokenName (TokenName token) = encodeByteString token
+
+wrapEncodeMap :: (k -> Encoding) -> (v -> Encoding) -> Map k v -> Encoding
+wrapEncodeMap encodeK encodeV m
+  | length m <= 23 = encodeMap encodeK encodeV m
+  | otherwise = encodeMapIndef encodeK encodeV m
 
 encodeDatum :: DatumHash -> Encoding
 encodeDatum (DatumHash h) = encodeByteString h
