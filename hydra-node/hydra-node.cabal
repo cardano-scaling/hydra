@@ -88,6 +88,7 @@ library
     Hydra.Ledger
     Hydra.Ledger.Cardano
     Hydra.Ledger.Cardano.Builder
+    Hydra.Ledger.Cardano.Evaluate
     Hydra.Ledger.Cardano.Isomorphism
     Hydra.Ledger.Cardano.Json
     Hydra.Ledger.Simple
@@ -111,6 +112,7 @@ library
   other-modules:   Paths_hydra_node
   build-depends:
     , aeson
+    , array
     , base
     , base16-bytestring
     , bech32
@@ -181,6 +183,29 @@ executable hydra-node
     , base
     , hydra-node
     , hydra-prelude
+
+  ghc-options:    -threaded -rtsopts
+
+executable tx-cost
+  import:         project-config
+  hs-source-dirs: exe/tx-cost
+  main-is:        Main.hs
+  build-depends:
+    , base
+    , bytestring
+    , containers
+    , cardano-ledger-alonzo
+    , cardano-ledger-core
+    , cardano-ledger-shelley
+    , cardano-ledger-shelley-ma
+    , hydra-node
+    , hydra-prelude
+    , hydra-plutus
+    , hydra-test-utils
+    , plutus-tx
+    , plutus-ledger-api
+    , QuickCheck
+    , strict-containers
 
   ghc-options:    -threaded -rtsopts
 

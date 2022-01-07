@@ -699,15 +699,11 @@ adaOnly = \case
   TxOut addr value datum ->
     TxOut addr (lovelaceToTxOutValue $ txOutValueToLovelace value) datum
 
--- | Generate UTXO with only 'TxOut' which are addressed to non-bootstrap
--- (byron) addresses and without pointers.
--- NOTE: We filter those complicated legacy stuff for the sake of simplifying
--- the on-chain encoding. Beside, nobody cares.
 genUtxoWithoutLegacy :: Gen Utxo
-genUtxoWithoutLegacy = do
-  utxo <- arbitrary
-  let filtered = map tweakAddress . filter notByronAddress $ utxoPairs utxo
-  pure $ Utxo $ Map.fromList filtered
+genUtxoWithoutLegacy = simplifyUtxo <$> arbitrary
+
+simplifyUtxo :: Utxo -> Utxo
+simplifyUtxo = Utxo . Map.fromList . map tweakAddress . filter notByronAddress . utxoPairs
  where
   notByronAddress (_, TxOut addr _ _) = case addr of
     AddressInEra ByronAddressInAnyEra _ -> False

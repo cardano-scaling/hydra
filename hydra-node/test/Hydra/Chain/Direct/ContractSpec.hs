@@ -523,20 +523,3 @@ alterTxOuts fn tx =
   mapOutputs = fmap (toLedgerTxOut . toCtxUTxOTxOut) . fn . fmap fromLedgerTxOut
   ShelleyTxBody era ledgerBody scripts scriptData mAuxData scriptValidity = body
   Tx body wits = tx
-
-type RedeemerReport =
-  (Map RdmrPtr (Either (ScriptFailure LedgerCrypto) ExUnits))
-
-evaluateTx ::
-  CardanoTx ->
-  Utxo ->
-  Either (BasicFailure LedgerCrypto) RedeemerReport
-evaluateTx tx utxo =
-  runIdentity $
-    evaluateTransactionExecutionUnits
-      Fixture.pparams
-      (toLedgerTx tx)
-      (toLedgerUtxo utxo)
-      Fixture.epochInfo
-      Fixture.systemStart
-      Fixture.costModels
