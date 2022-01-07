@@ -29,7 +29,7 @@ import qualified Plutus.V1.Ledger.Api as Plutus
 import qualified PlutusTx.AssocMap as Plutus.Map
 import Test.Plutus.Codec.CBOR.Encoding.Validators (
   EncodeValidator,
-  emptyValidator,
+  ValidatorKind (..),
   encodeByteStringValidator,
   encodeIntegerValidator,
   encodeListValidator,
@@ -73,27 +73,27 @@ spec = do
   describe "(on-chain) execution cost of CBOR encoding is small" $ do
     prop "for all small (< 65536) (x :: Integer)" $
       forAllBlind (genInteger `suchThat` ((< 65536) . abs)) $
-        propCostIsSmall
-          (0.15, 0.075)
+        propCostIsSmallerThan
+          (0.20, 0.10)
           defaultMaxExecutionUnits
           encodeIntegerValidator
     prop "for all large (> 65536) (x :: Integer)" $
       forAllBlind (genInteger `suchThat` ((> 65536) . abs)) $
-        propCostIsSmall
-          (0.30, 0.20)
+        propCostIsSmallerThan
+          (0.40, 0.20)
           defaultMaxExecutionUnits
           encodeIntegerValidator
     prop "for all (x :: ByteString)" $
       forAllBlind genByteString $
-        propCostIsSmall
-          (0.05, 0.03)
+        propCostIsSmallerThan
+          (0.20, 0.1)
           defaultMaxExecutionUnits
           encodeByteStringValidator
           . Plutus.toBuiltin
     prop "for all (x :: [ByteString])" $
       forAllBlind (genList (Plutus.toBuiltin <$> genByteString)) $ \xs ->
         let n = fromIntegral (length xs)
-         in propCostIsSmall
+         in propCostIsSmallerThan
               (0.4 * n + 0.5, n * 0.2 + 0.5)
               defaultMaxExecutionUnits
               encodeListValidator
@@ -103,7 +103,7 @@ spec = do
     prop "for all (x :: Map ByteString ByteString)" $
       forAllBlind (genMap (Plutus.toBuiltin <$> genByteString) (Plutus.toBuiltin <$> genByteString)) $ \m ->
         let n = fromIntegral (length m)
-         in propCostIsSmall
+         in propCostIsSmallerThan
               (n * 0.5 + 0.5, n * 0.3 + 0.5)
               defaultMaxExecutionUnits
               encodeMapValidator
@@ -112,19 +112,19 @@ spec = do
               & counterexample ("size: " <> show n)
     prop "for all (x :: TxOut), ada-only" $
       forAllBlind genAdaOnlyTxOut $
-        propCostIsSmall
+        propCostIsSmallerThan
           (2.5, 1.5)
           defaultMaxExecutionUnits
           encodeTxOutValidator
     prop "for all (x :: TxOut), with up to 10 assets" $
       forAllBlind (genTxOut 10) $
-        propCostIsSmall
+        propCostIsSmallerThan
           (15, 6)
           defaultMaxExecutionUnits
           encodeTxOutValidator
-    prop "for all (x :: TxOut), with up to 75 assets%" $
+    prop "for all (x :: TxOut), with up to 75 assets" $
       forAllBlind (genTxOut 75) $
-        propCostIsSmall
+        propCostIsSmallerThan
           (100, 40)
           defaultMaxExecutionUnits
           encodeTxOutValidator
@@ -150,16 +150,16 @@ propCompareWithOracle encodeOracle encodeOurs x =
 
 -- | Measure that the execution cost of encoding a certain value 'x' is small in
 -- front of some max execution budget.
-propCostIsSmall ::
+propCostIsSmallerThan ::
   (Plutus.ToData a, Show a) =>
   (Double, Double) ->
   ExUnits ->
-  Scripts.TypedValidator (EncodeValidator a) ->
+  (ValidatorKind -> Scripts.TypedValidator (EncodeValidator a)) ->
   a ->
   Property
-propCostIsSmall (toleranceMem, toleranceStep) (ExUnits maxMemUnits maxStepsUnits) validator a =
+propCostIsSmallerThan (upperBoundMem, upperBoundStep) (ExUnits maxMemUnits maxStepsUnits) validator a =
   conjoin
-    [ 100 * fromRational relativeMemCost < toleranceMem
+    [ 100 * fromRational relativeMemCost < upperBoundMem
         & counterexample
           ( "memory execution units exceeded: "
               <> show mem
@@ -167,7 +167,7 @@ propCostIsSmall (toleranceMem, toleranceStep) (ExUnits maxMemUnits maxStepsUnits
               <> asPercent relativeMemCost
               <> ")"
           )
-    , 100 * fromRational relativeStepCost < toleranceStep
+    , 100 * fromRational relativeStepCost < upperBoundStep
         & counterexample
           ( "CPU execution units exceeded:    "
               <> show steps
@@ -178,9 +178,9 @@ propCostIsSmall (toleranceMem, toleranceStep) (ExUnits maxMemUnits maxStepsUnits
     ]
     & label
       ( "of mem units < "
-          <> show toleranceMem
+          <> show upperBoundMem
           <> "%, and steps units < "
-          <> show toleranceStep
+          <> show upperBoundStep
           <> "%"
       )
     & counterexample
@@ -188,8 +188,8 @@ propCostIsSmall (toleranceMem, toleranceStep) (ExUnits maxMemUnits maxStepsUnits
  where
   ExUnits mem steps =
     distanceExUnits
-      (evaluateScriptExecutionUnits emptyValidator ())
-      (evaluateScriptExecutionUnits validator a)
+      (evaluateScriptExecutionUnits (validator BaselineValidator) a)
+      (evaluateScriptExecutionUnits (validator RealValidator) a)
 
   (relativeMemCost, relativeStepCost) =
     ( toInteger mem % toInteger maxMemUnits
