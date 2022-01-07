@@ -16,12 +16,27 @@ import Hydra.Data.ContestationPeriod (ContestationPeriod)
 import Hydra.Data.Party (Party (UnsafeParty))
 import Ledger.Constraints (TxConstraints)
 import qualified Ledger.Typed.Scripts as Scripts
-import Plutus.Codec.CBOR.Encoding (Encoding, encodeByteString, encodeInteger, encodeListLen, encodeMap, encodeMaybe, encodingToBuiltinByteString)
+import Plutus.Codec.CBOR.Encoding (
+  Encoding,
+  encodeByteString,
+  encodeInteger,
+  encodeListLen,
+  encodeMap,
+  encodeMaybe,
+  encodingToBuiltinByteString,
+ )
 import Plutus.Contract.StateMachine.OnChain (StateMachine)
 import qualified Plutus.Contract.StateMachine.OnChain as SM
 import Plutus.V1.Ledger.Ada (fromValue, getLovelace)
-import Plutus.V1.Ledger.Api (Credential (PubKeyCredential, ScriptCredential), CurrencySymbol (CurrencySymbol), TokenName (TokenName), getValue)
+import Plutus.V1.Ledger.Api (
+  Credential (PubKeyCredential, ScriptCredential),
+  CurrencySymbol (CurrencySymbol),
+  TokenName (TokenName),
+  adaSymbol,
+  getValue,
+ )
 import qualified PlutusTx
+import qualified PlutusTx.AssocMap as Map
 import Text.Show (Show)
 
 type SnapshotNumber = Integer
@@ -128,9 +143,15 @@ encodeAddress Address{addressCredential} =
     ScriptCredential (ValidatorHash h) -> scriptShelleyAddressPrefix `consByteString` h
 
 encodeValue :: Value -> Encoding
-encodeValue =
-  encodeMap encodeCurrencySymbol (encodeMap encodeTokenName encodeInteger) . getValue
+encodeValue val =
+  encodeListLen 2
+    <> encodeInteger (getLovelace $ fromValue val)
+    <> encodeAssets val
  where
+  encodeAssets =
+    encodeMap encodeCurrencySymbol (encodeMap encodeTokenName encodeInteger) . discardAda . getValue
+  discardAda =
+    Map.mapMaybeWithKey (\k v -> if k == adaSymbol then Nothing else Just v)
   encodeCurrencySymbol (CurrencySymbol symbol) = encodeByteString symbol
   encodeTokenName (TokenName token) = encodeByteString token
 
