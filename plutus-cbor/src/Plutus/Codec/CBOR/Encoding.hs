@@ -7,14 +7,15 @@ module Plutus.Codec.CBOR.Encoding (
   encodeByteString,
   encodeNull,
   encodeListLen,
-  encodeList,
-  encodeMapLen,
-  encodeMap,
-  encodeMaybe,
-  encodeListIndef,
   encodeBeginList,
-  encodeBreak,
+  encodeList,
+  encodeListIndef,
+  encodeMapLen,
+  encodeBeginMap,
+  encodeMap,
   encodeMapIndef,
+  encodeBreak,
+  encodeMaybe,
 ) where
 
 import PlutusTx.Prelude
@@ -69,19 +70,14 @@ encodeListLen :: Integer -> Encoding
 encodeListLen = Encoding . encodeUnsigned 4
 {-# INLINEABLE encodeListLen #-}
 
--- TODO: length and foldr likely both traverses the whole list! A low-hanging
--- optimization could be to calculate the length of the list while folding.
 encodeList :: (a -> Encoding) -> [a] -> Encoding
 encodeList encodeElem es =
-  encodeListLen (length es)
-    <> foldr (\e -> (encodeElem e <>)) mempty es
+  encodeListLen (length es) <> foldMap encodeElem es
 {-# INLINEABLE encodeList #-}
 
 encodeListIndef :: (a -> Encoding) -> [a] -> Encoding
 encodeListIndef encodeElem es =
-  encodeBeginList
-    <> foldr (\e -> (encodeElem e <>)) mempty es
-    <> encodeBreak
+  encodeBeginList <> foldMap encodeElem es <> encodeBreak
 {-# INLINEABLE encodeListIndef #-}
 
 encodeBeginList :: Encoding
@@ -107,18 +103,15 @@ encodeMapLen :: Integer -> Encoding
 encodeMapLen = Encoding . encodeUnsigned 5
 {-# INLINEABLE encodeMapLen #-}
 
--- TODO: length and foldr likely both traverses the whole list! A low-hanging
--- optimization could be to calculate the length of the list while folding.
 encodeMap :: (k -> Encoding) -> (v -> Encoding) -> Map k v -> Encoding
 encodeMap encodeKey encodeValue m =
-  encodeMapLen (length m)
-    <> foldr (\(k, v) -> ((encodeKey k <> encodeValue v) <>)) mempty (Map.toList m)
+  encodeMapLen (length m) <> foldMap (\(k, v) -> encodeKey k <> encodeValue v) (Map.toList m)
 {-# INLINEABLE encodeMap #-}
 
 encodeMapIndef :: (k -> Encoding) -> (v -> Encoding) -> Map k v -> Encoding
 encodeMapIndef encodeKey encodeValue m =
   encodeBeginMap
-    <> foldr (\(k, v) -> ((encodeKey k <> encodeValue v) <>)) mempty (Map.toList m)
+    <> foldMap (\(k, v) -> encodeKey k <> encodeValue v) (Map.toList m)
     <> encodeBreak
 {-# INLINEABLE encodeMapIndef #-}
 

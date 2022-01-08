@@ -29,15 +29,16 @@ import Plutus.Codec.CBOR.Encoding (
  )
 import Plutus.Contract.StateMachine.OnChain (StateMachine)
 import qualified Plutus.Contract.StateMachine.OnChain as SM
-import Plutus.V1.Ledger.Ada (fromValue, getLovelace)
 import Plutus.V1.Ledger.Api (
   Credential (PubKeyCredential, ScriptCredential),
   CurrencySymbol (CurrencySymbol),
   StakingCredential (..),
   TokenName (TokenName),
   adaSymbol,
+  adaToken,
   getValue,
  )
+import Plutus.V1.Ledger.Value (valueOf)
 import qualified PlutusTx
 import PlutusTx.AssocMap (Map)
 import qualified PlutusTx.AssocMap as Map
@@ -182,22 +183,35 @@ encodeValue val =
     then encodeInteger coins
     else encodeListLen 2 <> encodeInteger coins <> encodeAssets assets
  where
-  coins = getLovelace (fromValue val)
-  assets = discardAda (getValue val)
-  encodeAssets =
-    wrapEncodeMap encodeCurrencySymbol (wrapEncodeMap encodeTokenName encodeInteger)
-  discardAda =
-    Map.mapMaybeWithKey (\k v -> if k == adaSymbol then Nothing else Just v)
-  encodeCurrencySymbol (CurrencySymbol symbol) = encodeByteString symbol
-  encodeTokenName (TokenName token) = encodeByteString token
+  coins = valueOf val adaSymbol adaToken
+  assets = Map.delete adaSymbol (getValue val)
+{-# INLINEABLE encodeValue #-}
 
-wrapEncodeMap :: (k -> Encoding) -> (v -> Encoding) -> Map k v -> Encoding
-wrapEncodeMap encodeK encodeV m
-  | length m <= 23 = encodeMap encodeK encodeV m
-  | otherwise = encodeMapIndef encodeK encodeV m
+encodeAssets :: Map CurrencySymbol (Map TokenName Integer) -> Encoding
+encodeAssets m
+  | length m <= 23 = encodeMap encodeCurrencySymbol encodeSingleAsset m
+  | otherwise = encodeMapIndef encodeCurrencySymbol encodeSingleAsset m
+{-# INLINEABLE encodeAssets #-}
+
+encodeSingleAsset :: Map TokenName Integer -> Encoding
+encodeSingleAsset m
+  | length m <= 23 = encodeMap encodeTokenName encodeInteger m
+  | otherwise = encodeMapIndef encodeTokenName encodeInteger m
+{-# INLINEABLE encodeSingleAsset #-}
+
+encodeCurrencySymbol :: CurrencySymbol -> Encoding
+encodeCurrencySymbol (CurrencySymbol symbol) =
+  encodeByteString symbol
+{-# INLINEABLE encodeCurrencySymbol #-}
+
+encodeTokenName :: TokenName -> Encoding
+encodeTokenName (TokenName token) =
+  encodeByteString token
+{-# INLINEABLE encodeTokenName #-}
 
 encodeDatum :: DatumHash -> Encoding
 encodeDatum (DatumHash h) = encodeByteString h
+{-# INLINEABLE encodeDatum #-}
 
 {-# INLINEABLE verifySnapshotSignature #-}
 verifySnapshotSignature :: [Party] -> SnapshotNumber -> [Signature] -> Bool
