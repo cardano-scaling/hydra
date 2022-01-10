@@ -34,7 +34,6 @@ import Hydra.Ledger.Cardano (
   toLedgerTx,
   toLedgerUtxo,
  )
-import Plutus.Orphans ()
 
 type RedeemerReport =
   (Map RdmrPtr (Either (ScriptFailure LedgerCrypto) ExUnits))
