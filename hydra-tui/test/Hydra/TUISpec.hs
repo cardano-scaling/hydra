@@ -48,9 +48,10 @@ spec =
   around setupNodeAndTUI $
     context "end-to-end smoke tests" $ do
       it "starts & renders" $
-        \TUITest{shouldRender} -> do
+        \TUITest{sendInputEvent, shouldRender} -> do
           threadDelay 1
           shouldRender "TUI"
+          sendInputEvent $ EvKey (KChar 'q') []
 
       it "supports the init & abort Head life cycle" $
         \TUITest{sendInputEvent, shouldRender} -> do
@@ -63,6 +64,7 @@ spec =
           sendInputEvent $ EvKey (KChar 'a') []
           threadDelay 1
           shouldRender "Ready"
+          sendInputEvent $ EvKey (KChar 'q') []
 
       it "supports the full Head life cycle" $
         \TUITest{sendInputEvent, shouldRender} -> do
@@ -86,6 +88,7 @@ spec =
           threadDelay 10 -- contestation period
           shouldRender "Final"
           shouldRender "900.000000"
+          sendInputEvent $ EvKey (KChar 'q') []
 
 setupNodeAndTUI :: (TUITest -> IO ()) -> IO ()
 setupNodeAndTUI action =
