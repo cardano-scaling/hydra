@@ -31,6 +31,7 @@ import Test.QuickCheck (generate, vectorOf)
 
 main :: IO ()
 main = do
+  putTextLn "# UTXO\t% max Mem\t% max CPU"
   forM_ [1 .. 100] $ \numElems -> do
     utxo <- generate (foldMap simplifyUtxo <$> vectorOf numElems genSomeUtxo)
     let (tx, lookupUtxo) = mkFanoutTx utxo
