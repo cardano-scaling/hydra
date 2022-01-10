@@ -31,24 +31,29 @@ import Test.QuickCheck (generate, vectorOf)
 
 main :: IO ()
 main = do
-  putTextLn "# UTXO\t% max Mem\t% max CPU"
+  putStrLn "Cost of running the fanout validator"
+  putStrLn "# UTXO  % max Mem   % max CPU"
   forM_ [1 .. 100] $ \numElems -> do
     utxo <- generate (foldMap simplifyUtxo <$> vectorOf numElems genSomeUtxo)
     let (tx, lookupUtxo) = mkFanoutTx utxo
     case evaluateTx tx lookupUtxo of
       (Right (toList -> [Right (Ledger.ExUnits mem cpu)])) -> do
-        putTextLn $
-          show numElems
-            <> "\t"
-            <> show (100 * fromIntegral mem / maxMem)
-            <> "\t"
-            <> show (100 * fromIntegral cpu / maxCpu)
+        putStrLn $
+          showPad 8 numElems
+            <> showPad 12 (100 * fromIntegral mem / maxMem)
+            <> showPad 12 (100 * fromIntegral cpu / maxCpu)
       _ ->
         fail $ "Failed to evaluate transaction with " <> show numElems <> " elements."
  where
   genSomeUtxo = genKeyPair >>= fmap (fmap adaOnly) . genOneUtxoFor . fst
   Ledger.ExUnits (fromIntegral @_ @Double -> maxMem) (fromIntegral @_ @Double -> maxCpu) =
     Ledger._maxTxExUnits pparams
+
+showPad :: Show a => Int -> a -> String
+showPad n x =
+  show x <> replicate (n - len) ' '
+ where
+  len = length $ show @String x
 
 mkFanoutTx :: Utxo -> (CardanoTx, Utxo)
 mkFanoutTx utxo =
