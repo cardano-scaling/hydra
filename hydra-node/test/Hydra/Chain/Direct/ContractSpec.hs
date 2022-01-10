@@ -12,16 +12,9 @@ import Cardano.Binary (serialize')
 import Cardano.Crypto.DSIGN (deriveVerKeyDSIGN)
 import Cardano.Crypto.Util (SignableRepresentation (getSignableRepresentation))
 import qualified Cardano.Ledger.Alonzo.Data as Ledger
-import Cardano.Ledger.Alonzo.Scripts (ExUnits)
 import qualified Cardano.Ledger.Alonzo.Scripts as Ledger
-import Cardano.Ledger.Alonzo.Tools (
-  BasicFailure,
-  ScriptFailure,
-  evaluateTransactionExecutionUnits,
- )
 import qualified Cardano.Ledger.Alonzo.TxBody as Ledger
 import Cardano.Ledger.Alonzo.TxInfo (txInfoOut)
-import Cardano.Ledger.Alonzo.TxWitness (RdmrPtr)
 import qualified Cardano.Ledger.Alonzo.TxWitness as Ledger
 import qualified Cardano.Ledger.Shelley.API as Ledger
 import qualified Data.ByteString as BS
@@ -50,7 +43,6 @@ import Hydra.Ledger.Cardano (
   CtxUTxO,
   Era,
   ExecutionUnits (ExecutionUnits),
-  LedgerCrypto,
   LedgerEra,
   PlutusScriptV1,
   Tx (Tx),
@@ -81,13 +73,12 @@ import Hydra.Ledger.Cardano (
   modifyTxOutValue,
   shrinkUtxo,
   toCtxUTxOTxOut,
-  toLedgerTx,
   toLedgerTxOut,
-  toLedgerUtxo,
   txOutValue,
   unsafeBuildTransaction,
  )
 import qualified Hydra.Ledger.Cardano as Api
+import Hydra.Ledger.Cardano.Evaluate (evaluateTx)
 import Hydra.Ledger.Simple (SimpleTx)
 import Hydra.Party (
   MultiSigned (MultiSigned),
