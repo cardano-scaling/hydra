@@ -26,9 +26,9 @@ import Hydra.Chain.Direct.Fixture (testNetworkId)
 import qualified Hydra.Chain.Direct.Fixture as Fixture
 import Hydra.Chain.Direct.Tx (closeTx, fanoutTx, policyId)
 import Hydra.Chain.Direct.TxSpec (mkHeadOutput)
+import Hydra.Contract.Encoding (serialiseTxOuts)
 import qualified Hydra.Contract.Hash as Hash
 import Hydra.Contract.MockHead (
-  serialiseTxOuts,
   verifyPartySignature,
   verifySnapshotSignature,
  )
@@ -59,7 +59,7 @@ import Hydra.Ledger.Cardano (
   fromLedgerUtxo,
   fromPlutusScript,
   genOutput,
-  genUtxoWithoutLegacy,
+  genUtxoWithSimplifiedAddresses,
   genValue,
   getOutputs,
   hashTxOuts,
@@ -194,7 +194,7 @@ prop_consistentOnAndOffChainHashOfTxOuts :: Property
 prop_consistentOnAndOffChainHashOfTxOuts =
   -- NOTE: We only generate shelley addressed txouts because they are left out
   -- of the plutus script context in 'txInfoOut'.
-  forAllShrink genUtxoWithoutLegacy shrinkUtxo $ \(utxo :: Utxo) ->
+  forAllShrink genUtxoWithSimplifiedAddresses shrinkUtxo $ \(utxo :: Utxo) ->
     let plutusTxOuts = mapMaybe (txInfoOut . toLedgerTxOut) ledgerTxOuts
         ledgerTxOuts = toList utxo
         plutusBytes = serialiseTxOuts plutusTxOuts
@@ -427,7 +427,7 @@ healthyFanoutTx =
 
 healthyFanoutUtxo :: Utxo
 healthyFanoutUtxo =
-  generateWith genUtxoWithoutLegacy 42
+  generateWith genUtxoWithSimplifiedAddresses 42
 
 healthyFanoutDatum :: MockHead.State
 healthyFanoutDatum =

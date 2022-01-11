@@ -56,7 +56,7 @@ import Hydra.Ledger.Cardano (
   fromLedgerTxIn,
   genAdaOnlyUtxo,
   genKeyPair,
-  genUtxoWithoutLegacy,
+  genUtxoWithSimplifiedAddresses,
   hashTxOuts,
   shrinkUtxo,
   toMaryValue,
@@ -290,7 +290,7 @@ spec =
               & counterexample ("Utxo map: " <> show lookupUtxo)
 
       prop "validates" $ \headInput ->
-        forAll (reasonablySized genUtxoWithoutLegacy) $ \inHeadUtxo ->
+        forAll (reasonablySized genUtxoWithSimplifiedAddresses) $ \inHeadUtxo ->
           let tx = fanoutTx inHeadUtxo (headInput, headDatum)
               onChainUtxo = UTxO $ Map.singleton headInput headOutput
               headOutput = TxOut headAddress headValue . SJust $ hashData @Era headDatum

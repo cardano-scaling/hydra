@@ -699,9 +699,17 @@ adaOnly = \case
   TxOut addr value datum ->
     TxOut addr (lovelaceToTxOutValue $ txOutValueToLovelace value) datum
 
-genUtxoWithoutLegacy :: Gen Utxo
-genUtxoWithoutLegacy = simplifyUtxo <$> arbitrary
+-- | Generate "simplified" UTXO, ie. without some of the complexities required for
+-- backward-compatibility and obscure features.
+genUtxoWithSimplifiedAddresses :: Gen Utxo
+genUtxoWithSimplifiedAddresses = simplifyUtxo <$> arbitrary
 
+-- | Rewrite given UTXO to remove some corner cases.
+--
+-- * Remove Byron addresses. Those are unnecessarily complicated and deprecated so they should
+--   not be used either on- or off-chain
+-- * Replace stake pointers with `StakeRefNull`. Stake pointers is an obscure feature of Cardano
+--   addresses that's very rarely used in practice.
 simplifyUtxo :: Utxo -> Utxo
 simplifyUtxo = Utxo . Map.fromList . map tweakAddress . filter notByronAddress . utxoPairs
  where
