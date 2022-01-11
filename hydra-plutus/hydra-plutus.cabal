@@ -76,7 +76,7 @@ library
     Hydra.Contract.Hash
     Hydra.Contract.Initial
     Hydra.Contract.MockCommit
-    Hydra.Contract.MockHead
+    Hydra.Contract.Head
     Hydra.Contract.MockInitial
     Hydra.Data.ContestationPeriod
     Hydra.Data.HeadParameters

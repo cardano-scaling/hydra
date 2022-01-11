@@ -48,7 +48,7 @@ import Data.Time (Day (ModifiedJulianDay), UTCTime (UTCTime))
 import Hydra.Chain (HeadParameters (..), OnChainTx (..))
 import Hydra.Chain.Direct.Util (Era)
 import qualified Hydra.Contract.MockCommit as MockCommit
-import qualified Hydra.Contract.MockHead as MockHead
+import qualified Hydra.Contract.Head as Head
 import qualified Hydra.Contract.MockInitial as MockInitial
 import Hydra.Data.ContestationPeriod (contestationPeriodFromDiffTime, contestationPeriodToDiffTime)
 import Hydra.Data.Party (partyFromVerKey, partyToVerKey)
@@ -206,14 +206,14 @@ initTx networkId cardanoKeys HeadParameters{contestationPeriod, parties} txIn =
   headOutput =
     Api.TxOut headAddress headValue headDatum
   headScript =
-    Api.fromPlutusScript $ MockHead.validatorScript policyId
+    Api.fromPlutusScript $ Head.validatorScript policyId
   headAddress =
     Api.mkScriptAddress @Api.PlutusScriptV1 networkId headScript
   headValue =
     Api.lovelaceToTxOutValue $ Api.Lovelace 2_000_000
   headDatum =
     Api.mkTxOutDatum $
-      MockHead.Initial
+      Head.Initial
         (contestationPeriodFromDiffTime contestationPeriod)
         (map (partyFromVerKey . vkey) parties)
 
@@ -315,10 +315,10 @@ collectComTx networkId utxo (Api.fromLedgerTxIn -> headInput, Api.fromLedgerData
   headWitness =
     Api.BuildTxWith $ Api.mkScriptWitness headScript headDatumBefore headRedeemer
   headScript =
-    Api.fromPlutusScript $ MockHead.validatorScript policyId
+    Api.fromPlutusScript $ Head.validatorScript policyId
   headRedeemer =
     Api.mkRedeemerForTxIn $
-      MockHead.CollectCom
+      Head.CollectCom
         { collectedValue = Api.toPlutusValue commitValue
         , utxoHash
         }
@@ -329,7 +329,7 @@ collectComTx networkId utxo (Api.fromLedgerTxIn -> headInput, Api.fromLedgerData
       (Api.mkTxOutValue $ Api.lovelaceToValue 2_000_000 <> commitValue)
       headDatumAfter
   headDatumAfter =
-    Api.mkTxOutDatum MockHead.Open{MockHead.parties = parties, utxoHash}
+    Api.mkTxOutDatum Head.Open{Head.parties = parties, utxoHash}
   mkCommit (commitInput, (_commitOutput, commitDatum)) =
     ( Api.fromLedgerTxIn commitInput
     , mkCommitWitness commitDatum
@@ -362,10 +362,10 @@ closeTx Snapshot{number, utxo} sig (Api.fromLedgerTxIn -> headInput, Api.fromLed
   headWitness =
     Api.BuildTxWith $ Api.mkScriptWitness headScript headDatumBefore headRedeemer
   headScript =
-    Api.fromPlutusScript $ MockHead.validatorScript policyId
+    Api.fromPlutusScript $ Head.validatorScript policyId
   headRedeemer =
     Api.mkRedeemerForTxIn
-      MockHead.Close
+      Head.Close
         { snapshotNumber = toInteger number
         , signature = toPlutusSignatures sig
         , utxoHash
@@ -374,7 +374,7 @@ closeTx Snapshot{number, utxo} sig (Api.fromLedgerTxIn -> headInput, Api.fromLed
     Api.modifyTxOutDatum (const headDatumAfter) headOutputBefore
   headDatumAfter =
     Api.mkTxOutDatum
-      MockHead.Closed
+      Head.Closed
         { snapshotNumber = toInteger number
         , utxoHash
         }
@@ -397,9 +397,9 @@ fanoutTx utxo (Api.fromLedgerTxIn -> headInput, Api.fromLedgerData -> headDatumB
   headWitness =
     Api.BuildTxWith $ Api.mkScriptWitness headScript headDatumBefore headRedeemer
   headScript =
-    Api.fromPlutusScript $ MockHead.validatorScript policyId
+    Api.fromPlutusScript $ Head.validatorScript policyId
   headRedeemer =
-    Api.mkRedeemerForTxIn (MockHead.Fanout $ fromIntegral $ length utxo)
+    Api.mkRedeemerForTxIn (Head.Fanout $ fromIntegral $ length utxo)
 
   fanoutOutputs =
     foldr ((:) . Api.toTxContext) [] utxo
@@ -432,9 +432,9 @@ abortTx networkId (Api.fromLedgerTxIn -> headInput, Api.fromLedgerData -> headDa
   headWitness =
     Api.BuildTxWith $ Api.mkScriptWitness headScript headDatumBefore headRedeemer
   headScript =
-    Api.fromPlutusScript $ MockHead.validatorScript policyId
+    Api.fromPlutusScript $ Head.validatorScript policyId
   headRedeemer =
-    Api.mkRedeemerForTxIn MockHead.Abort
+    Api.mkRedeemerForTxIn Head.Abort
 
   -- FIXME:
   -- (a) Abort need to reimburse participants that have committed!
@@ -445,7 +445,7 @@ abortTx networkId (Api.fromLedgerTxIn -> headInput, Api.fromLedgerData -> headDa
       (Api.mkTxOutValue $ Api.lovelaceToValue 2_000_000)
       headDatumAfter
   headDatumAfter =
-    Api.mkTxOutDatum MockHead.Final
+    Api.mkTxOutDatum Head.Final
 
   -- NOTE: Abort datums contain the datum of the spent state-machine input, but
   -- also, the datum of the created output which is necessary for the
@@ -470,7 +470,7 @@ observeInitTx ::
   ValidatedTx Era ->
   Maybe (OnChainTx CardanoTx, OnChainHeadState)
 observeInitTx networkId party (Api.getTxBody . fromLedgerTx -> txBody) = do
-  (ix, headOut, headData, MockHead.Initial cp ps) <- findFirst headOutput indexedOutputs
+  (ix, headOut, headData, Head.Initial cp ps) <- findFirst headOutput indexedOutputs
   let parties = map convertParty ps
   let cperiod = contestationPeriodToDiffTime cp
   guard $ party `elem` parties
@@ -581,7 +581,7 @@ observeCollectComTx utxo tx = do
   oldHeadDatum <- lookupDatum (wits tx) headOutput
   datum <- fromData $ getPlutusData oldHeadDatum
   case (datum, redeemer) of
-    (MockHead.Initial{parties}, MockHead.CollectCom{}) -> do
+    (Head.Initial{parties}, Head.CollectCom{}) -> do
       (newHeadInput, newHeadOutput) <- findScriptOutput (utxoFromTx tx) headScript
       newHeadDatum <- lookupDatum (wits tx) newHeadOutput
       pure
@@ -590,7 +590,7 @@ observeCollectComTx utxo tx = do
         )
     _ -> Nothing
  where
-  headScript = plutusScript $ MockHead.validatorScript policyId
+  headScript = plutusScript $ Head.validatorScript policyId
 
 -- | Identify a close tx by lookup up the input spending the Head output and
 -- decoding its redeemer.
@@ -605,7 +605,7 @@ observeCloseTx utxo tx = do
   oldHeadDatum <- lookupDatum (wits tx) headOutput
   datum <- fromData $ getPlutusData oldHeadDatum
   case (datum, redeemer) of
-    (MockHead.Open{parties}, MockHead.Close{snapshotNumber = onChainSnapshotNumber}) -> do
+    (Head.Open{parties}, Head.Close{snapshotNumber = onChainSnapshotNumber}) -> do
       (newHeadInput, newHeadOutput) <- findScriptOutput (utxoFromTx tx) headScript
       newHeadDatum <- lookupDatum (wits tx) newHeadOutput
       snapshotNumber <- integerToNatural onChainSnapshotNumber
@@ -615,7 +615,7 @@ observeCloseTx utxo tx = do
         )
     _ -> Nothing
  where
-  headScript = plutusScript $ MockHead.validatorScript policyId
+  headScript = plutusScript $ Head.validatorScript policyId
 
   -- FIXME(SN): store in/read from datum
   contestationDeadline = UTCTime (ModifiedJulianDay 0) 0
@@ -634,10 +634,10 @@ observeFanoutTx ::
 observeFanoutTx utxo tx = do
   headInput <- fst <$> findScriptOutput utxo headScript
   getRedeemerSpending tx headInput >>= \case
-    MockHead.Fanout{} -> pure (OnFanoutTx, Final)
+    Head.Fanout{} -> pure (OnFanoutTx, Final)
     _ -> Nothing
  where
-  headScript = plutusScript $ MockHead.validatorScript policyId
+  headScript = plutusScript $ Head.validatorScript policyId
 
 -- | Identify an abort tx by looking up the input spending the Head output and
 -- decoding its redeemer.
@@ -649,11 +649,11 @@ observeAbortTx ::
 observeAbortTx utxo tx = do
   headInput <- fst <$> findScriptOutput utxo headScript
   getRedeemerSpending tx headInput >>= \case
-    MockHead.Abort -> pure (OnAbortTx, Final)
+    Head.Abort -> pure (OnAbortTx, Final)
     _ -> Nothing
  where
   -- FIXME(SN): make sure this is aborting "the right head / your head" by not hard-coding policyId
-  headScript = plutusScript $ MockHead.validatorScript policyId
+  headScript = plutusScript $ Head.validatorScript policyId
 
 -- * Functions related to OnChainHeadState
 

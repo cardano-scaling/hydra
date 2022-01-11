@@ -28,11 +28,11 @@ import Hydra.Chain.Direct.Tx (closeTx, fanoutTx, policyId)
 import Hydra.Chain.Direct.TxSpec (mkHeadOutput)
 import Hydra.Contract.Encoding (serialiseTxOuts)
 import qualified Hydra.Contract.Hash as Hash
-import Hydra.Contract.MockHead (
+import Hydra.Contract.Head (
   verifyPartySignature,
   verifySnapshotSignature,
  )
-import qualified Hydra.Contract.MockHead as MockHead
+import qualified Hydra.Contract.Head as Head
 import Hydra.Data.Party (partyFromVerKey)
 import qualified Hydra.Data.Party as OnChain
 import Hydra.Ledger.Cardano (
@@ -200,7 +200,7 @@ prop_consistentOnAndOffChainHashOfTxOuts =
         ledgerTxOuts = toList utxo
         plutusBytes = serialiseTxOuts plutusTxOuts
         ledgerBytes = serialize' (toLedgerTxOut <$> ledgerTxOuts)
-     in (hashTxOuts ledgerTxOuts === fromBuiltin (MockHead.hashTxOuts plutusTxOuts))
+     in (hashTxOuts ledgerTxOuts === fromBuiltin (Head.hashTxOuts plutusTxOuts))
           & counterexample ("Plutus: " <> show plutusTxOuts)
           & counterexample ("Ledger: " <> show ledgerTxOuts)
           & counterexample ("Ledger CBOR: " <> decodeUtf8 (Base16.encode ledgerBytes))
@@ -278,8 +278,8 @@ data SomeMutation = forall lbl.
 deriving instance Show SomeMutation
 
 data Mutation
-  = ChangeHeadRedeemer MockHead.Input
-  | ChangeHeadDatum MockHead.State
+  = ChangeHeadRedeemer Head.Input
+  | ChangeHeadDatum Head.State
   | PrependOutput (TxOut CtxTx Era)
   | ChangeOutput Word (TxOut CtxTx Era)
   deriving (Show, Generic)
@@ -342,9 +342,9 @@ healthySnapshot =
 healthySnapshotNumber :: SnapshotNumber
 healthySnapshotNumber = 1
 
-healthyCloseDatum :: MockHead.State
+healthyCloseDatum :: Head.State
 healthyCloseDatum =
-  MockHead.Open
+  Head.Open
     { parties = healthyCloseParties
     , utxoHash = ""
     }
@@ -384,7 +384,7 @@ genCloseMutation (_tx, _utxo) =
         let mutatedSignature =
               MultiSigned [sign sk $ serialize' mutatedSnapshotNumber | sk <- healthyPartyCredentials]
         pure
-          MockHead.Close
+          Head.Close
             { snapshotNumber = mutatedSnapshotNumber
             , signature = toPlutusSignatures mutatedSignature
             , utxoHash = ""
@@ -392,19 +392,19 @@ genCloseMutation (_tx, _utxo) =
     , SomeMutation MutateParties . ChangeHeadDatum <$> do
         mutatedParties <- arbitrary `suchThat` (/= healthyCloseParties)
         pure $
-          MockHead.Open
+          Head.Open
             { parties = mutatedParties
             , utxoHash = ""
             }
     , SomeMutation MutateParties . ChangeHeadDatum <$> arbitrary `suchThat` \case
-        MockHead.Open{MockHead.parties = parties} ->
-          parties /= MockHead.parties healthyCloseDatum
+        Head.Open{Head.parties = parties} ->
+          parties /= Head.parties healthyCloseDatum
         _ ->
           True
     ]
  where
   closeRedeemer snapshotNumber sig =
-    MockHead.Close
+    Head.Close
       { snapshotNumber = toInteger snapshotNumber
       , signature = toPlutusSignatures sig
       , utxoHash = ""
@@ -432,9 +432,9 @@ healthyFanoutUtxo =
   -- TX size limits
   adaOnly <$> generateWith genUtxoWithSimplifiedAddresses 42
 
-healthyFanoutDatum :: MockHead.State
+healthyFanoutDatum :: Head.State
 healthyFanoutDatum =
-  MockHead.Closed 1 (toBuiltin $ hashTxOuts $ toList healthyFanoutUtxo)
+  Head.Closed 1 (toBuiltin $ hashTxOuts $ toList healthyFanoutUtxo)
 
 data FanoutMutation
   = MutateAddUnexpectedOutput
@@ -467,12 +467,12 @@ genBytes = arbitrary
 --- Orphans
 ---
 
-deriving instance Eq MockHead.Input
+deriving instance Eq Head.Input
 
-instance Arbitrary MockHead.Input where
+instance Arbitrary Head.Input where
   arbitrary = genericArbitrary
 
-instance Arbitrary MockHead.State where
+instance Arbitrary Head.State where
   arbitrary = genericArbitrary
 
 --
@@ -483,12 +483,12 @@ isHeadOutput :: TxOut CtxUTxO Era -> Bool
 isHeadOutput (TxOut addr _ _) = addr == headAddress
  where
   headAddress = Api.mkScriptAddress @Api.PlutusScriptV1 Fixture.testNetworkId headScript
-  headScript = Api.fromPlutusScript $ MockHead.validatorScript policyId
+  headScript = Api.fromPlutusScript $ Head.validatorScript policyId
 
-changeHeadRedeemer :: MockHead.Input -> (Ledger.Data era, Ledger.ExUnits) -> (Ledger.Data era, Ledger.ExUnits)
+changeHeadRedeemer :: Head.Input -> (Ledger.Data era, Ledger.ExUnits) -> (Ledger.Data era, Ledger.ExUnits)
 changeHeadRedeemer newRedeemer redeemer@(dat, units) =
   case fromData (Ledger.getPlutusData dat) of
-    Just (_ :: MockHead.Input) ->
+    Just (_ :: Head.Input) ->
       (Ledger.Data (toData newRedeemer), units)
     Nothing ->
       redeemer

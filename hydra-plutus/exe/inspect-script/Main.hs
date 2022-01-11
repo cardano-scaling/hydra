@@ -10,7 +10,7 @@ import Data.Text (pack)
 import Hydra.Contract.Commit as Commit
 import qualified Hydra.Contract.Hash as Hash
 import Hydra.Contract.Initial as Initial
-import Hydra.Contract.MockHead as MockHead
+import Hydra.Contract.Head as Head
 import Ledger (Datum (..), datumHash)
 import Ledger.Scripts (Script, toCardanoApiScript)
 import Ledger.Value
@@ -68,7 +68,7 @@ main = do
     , (hashScript, "hashScript")
     ]
 
-  headScript policyId = MockHead.validatorScript policyId
+  headScript policyId = Head.validatorScript policyId
 
   commitScript = Commit.validatorScript
 
@@ -81,10 +81,10 @@ main = do
     , (abortDatum, "abortDatum")
     ]
 
-  headDatum = toData $ MockHead.Initial 1_000_000_000_000 []
+  headDatum = toData $ Head.Initial 1_000_000_000_000 []
 
-  abortDatum = toData MockHead.Final
+  abortDatum = toData Head.Final
 
   redeemers = [(headRedeemer, "headRedeemer")]
 
-  headRedeemer = toData MockHead.Abort
+  headRedeemer = toData Head.Abort

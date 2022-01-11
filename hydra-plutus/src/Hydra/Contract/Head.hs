@@ -3,7 +3,7 @@
 {-# LANGUAGE TypeApplications #-}
 {-# OPTIONS_GHC -fno-specialize #-}
 
-module Hydra.Contract.MockHead where
+module Hydra.Contract.Head where
 
 import Ledger hiding (validatorHash)
 import PlutusTx.Prelude

@@ -38,7 +38,7 @@ import Hydra.Chain.Direct.Fixture (costModels, epochInfo, maxTxSize, pparams, sy
 import Hydra.Chain.Direct.Util (Era)
 import Hydra.Chain.Direct.Wallet (ErrCoverFee (..), coverFee_)
 import qualified Hydra.Contract.MockCommit as MockCommit
-import qualified Hydra.Contract.MockHead as MockHead
+import qualified Hydra.Contract.Head as Head
 import qualified Hydra.Contract.MockInitial as MockInitial
 import Hydra.Data.ContestationPeriod (contestationPeriodFromDiffTime)
 import Hydra.Data.Party (partyFromVerKey)
@@ -195,7 +195,7 @@ spec =
     describe "collectComTx" $ do
       prop "transaction size below limit" $ \(ReasonablySized utxo) headIn cperiod parties ->
         let tx = collectComTx testNetworkId utxo (headIn, headDatum, parties) mempty
-            headDatum = Data . toData $ MockHead.Initial cperiod parties
+            headDatum = Data . toData $ Head.Initial cperiod parties
             cbor = serialize tx
             len = LBS.length cbor
          in len < maxTxSize
@@ -209,7 +209,7 @@ spec =
               headOutput = mkHeadOutput $ SJust headDatum
               headValue = inject (Coin 2_000_000) <> committedValue
               onChainParties = partyFromVerKey . vkey <$> parties
-              headDatum = Data . toData $ MockHead.Initial cperiod onChainParties
+              headDatum = Data . toData $ Head.Initial cperiod onChainParties
               lookupUtxo = Map.singleton headInput headOutput
               tx = collectComTx testNetworkId committedUtxo (headInput, headDatum, onChainParties) commitsUtxo
               res = observeCollectComTx lookupUtxo tx
@@ -224,7 +224,7 @@ spec =
       prop "transaction size below limit" $ \headIn parties snapshot sig ->
         let tx = closeTx snapshot sig (headIn, headOutput, headDatum)
             headOutput = mkHeadOutput SNothing
-            headDatum = Data $ toData $ MockHead.Open{parties, utxoHash = ""}
+            headDatum = Data $ toData $ Head.Open{parties, utxoHash = ""}
             cbor = serialize tx
             len = LBS.length cbor
          in len < maxTxSize
@@ -234,7 +234,7 @@ spec =
 
       prop "is observed" $ \parties headInput snapshot msig ->
         let headOutput = mkHeadOutput (SJust headDatum)
-            headDatum = Data $ toData $ MockHead.Open{parties, utxoHash = ""}
+            headDatum = Data $ toData $ Head.Open{parties, utxoHash = ""}
             lookupUtxo = Map.singleton headInput headOutput
             -- NOTE(SN): deliberately uses an arbitrary multi-signature
             tx = closeTx snapshot msig (headInput, headOutput, headDatum)
@@ -249,7 +249,7 @@ spec =
       let prop_fanoutTxSize :: Utxo -> TxIn StandardCrypto -> Property
           prop_fanoutTxSize utxo headIn =
             let tx = fanoutTx utxo (headIn, headDatum)
-                headDatum = Data $ toData MockHead.Closed{snapshotNumber = 1, utxoHash = ""}
+                headDatum = Data $ toData Head.Closed{snapshotNumber = 1, utxoHash = ""}
                 cbor = serialize tx
                 len = LBS.length cbor
              in len < maxTxSize
@@ -282,7 +282,7 @@ spec =
       prop "is observed" $ \utxo headInput ->
         let tx = fanoutTx utxo (headInput, headDatum)
             headOutput = mkHeadOutput SNothing
-            headDatum = Data $ toData $ MockHead.Closed{snapshotNumber = 1, utxoHash = ""}
+            headDatum = Data $ toData $ Head.Closed{snapshotNumber = 1, utxoHash = ""}
             lookupUtxo = Map.singleton headInput headOutput
             res = observeFanoutTx lookupUtxo tx
          in res === Just (OnFanoutTx, Final)
@@ -294,13 +294,13 @@ spec =
           let tx = fanoutTx inHeadUtxo (headInput, headDatum)
               onChainUtxo = UTxO $ Map.singleton headInput headOutput
               headOutput = TxOut headAddress headValue . SJust $ hashData @Era headDatum
-              headAddress = scriptAddr $ plutusScript $ MockHead.validatorScript policyId
+              headAddress = scriptAddr $ plutusScript $ Head.validatorScript policyId
               -- FIXME: Ensure the headOutput contains enough value to fanout all inHeadUtxo
               headValue = inject (Coin 10_000_000)
               headDatum =
                 Data $
                   toData $
-                    MockHead.Closed
+                    Head.Closed
                       { snapshotNumber = 1
                       , utxoHash = toBuiltin (hashTxOuts $ toList inHeadUtxo)
                       }
@@ -317,7 +317,7 @@ spec =
     describe "abortTx" $ do
       -- NOTE(AB): This property fails if initials are too big
       prop "transaction size below limit" $ \txIn cperiod parties (ReasonablySized initials) ->
-        let headDatum = Data . toData $ MockHead.Initial cperiod parties
+        let headDatum = Data . toData $ Head.Initial cperiod parties
          in case abortTx testNetworkId (txIn, headDatum) (Map.fromList initials) of
               Left err -> property False & counterexample ("AbortTx construction failed: " <> show err)
               Right tx ->
@@ -330,7 +330,7 @@ spec =
 
       prop "updates on-chain state to 'Final'" $ \txIn cperiod parties (ReasonablySized initials) ->
         let headOutput = mkHeadOutput SNothing -- will be SJust, but not covered by this test
-            headDatum = Data . toData $ MockHead.Initial cperiod parties
+            headDatum = Data . toData $ Head.Initial cperiod parties
             utxo = Map.singleton txIn headOutput
          in case abortTx testNetworkId (txIn, headDatum) initials of
               Left err -> property False & counterexample ("AbortTx construction failed: " <> show err)
@@ -351,7 +351,7 @@ spec =
               headOutput = mkHeadOutput (SJust headDatum)
               headDatum =
                 Data . toData $
-                  MockHead.Initial
+                  Head.Initial
                     (contestationPeriodFromDiffTime contestationPeriod)
                     (map (partyFromVerKey . vkey) parties)
               initials = Map.map (Data . toData . MockInitial.datum) initialsPkh
@@ -413,7 +413,7 @@ spec =
 mkHeadOutput :: StrictMaybe (Data Era) -> TxOut Era
 mkHeadOutput headDatum = TxOut headAddress headValue headDatumHash
  where
-  headAddress = scriptAddr $ plutusScript $ MockHead.validatorScript policyId
+  headAddress = scriptAddr $ plutusScript $ Head.validatorScript policyId
   headValue = inject (Coin 2_000_000)
   headDatumHash = hashData @Era <$> headDatum
 

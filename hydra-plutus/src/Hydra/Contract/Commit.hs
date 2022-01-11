@@ -8,7 +8,7 @@ module Hydra.Contract.Commit where
 import Ledger hiding (validatorHash)
 import PlutusTx.Prelude
 
-import Hydra.Contract.MockHead (Head, Input (..))
+import Hydra.Contract.Head (Head, Input (..))
 import Hydra.OnChain.Util (mustReimburse, mustRunContract)
 import Ledger.Typed.Scripts (TypedValidator, ValidatorType, ValidatorTypes (..))
 import qualified Ledger.Typed.Scripts as Scripts

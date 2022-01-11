@@ -9,7 +9,7 @@ import Ledger hiding (validatorHash)
 import PlutusTx.Prelude
 
 import qualified Hydra.Contract.Commit as Commit
-import Hydra.Contract.MockHead (Head, Input (..))
+import Hydra.Contract.Head (Head, Input (..))
 import Hydra.OnChain.Util (findUtxo, mkParty, mustRunContract)
 import Ledger.Constraints (checkScriptContext)
 import Ledger.Constraints.TxConstraints (
