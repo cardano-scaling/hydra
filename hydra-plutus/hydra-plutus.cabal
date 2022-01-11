@@ -72,6 +72,7 @@ library
   import:          project-config
   exposed-modules:
     Hydra.Contract.Commit
+    Hydra.Contract.Encoding
     Hydra.Contract.Hash
     Hydra.Contract.Initial
     Hydra.Contract.MockCommit
