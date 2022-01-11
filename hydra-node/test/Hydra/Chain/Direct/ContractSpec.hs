@@ -50,6 +50,7 @@ import Hydra.Ledger.Cardano (
   TxOut (..),
   Utxo,
   Utxo' (Utxo),
+  adaOnly,
   addInputs,
   describeCardanoTx,
   emptyTxBody,
@@ -427,7 +428,9 @@ healthyFanoutTx =
 
 healthyFanoutUtxo :: Utxo
 healthyFanoutUtxo =
-  generateWith genUtxoWithSimplifiedAddresses 42
+  -- NOTE: we trim down the generated tx's output to make sure it fits w/in
+  -- TX size limits
+  adaOnly <$> generateWith genUtxoWithSimplifiedAddresses 42
 
 healthyFanoutDatum :: MockHead.State
 healthyFanoutDatum =
