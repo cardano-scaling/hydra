@@ -33,17 +33,18 @@ main =
         <> show (100 * fromIntegral (fromIntegral memberMem `div` numElems) / maxMem)
         <> "\t"
         <> show (100 * fromIntegral (fromIntegral memberCpu `div` numElems) / maxCpu)
-    -- NOTE builder validator is likely to fail and thus raise an exception at low values
-    -- of numElems, so we put 0 instead
     putTextLn
       ( "\t"
           <> show (100 * fromIntegral builderMem / maxMem)
           <> "\t"
           <> show (100 * fromIntegral builderCpu / maxCpu)
       )
-      `catch` \(_ :: ErrorCall) -> putTextLn "\t0\t0"
+      `catch` \(_ :: ErrorCall) ->
+        -- NOTE builder validator is likely to fail and thus raise an exception at low values
+        -- of numElems, so we put 0 instead
+        putTextLn "\t0\t0"
  where
-  -- NOTE: assume size of a UTXO is around  60
+  -- NOTE: assume size of a UTXO is around  60 bytes
   genFakeUtxos numElems = generate (vectorOf numElems $ BS.pack <$> vectorOf 60 arbitrary)
 
 executionCostForMember :: [Plutus.BuiltinByteString] -> (Natural, Natural)
