@@ -220,6 +220,24 @@ spec =
                 & counterexample ("Observe result: " <> show res)
                 & counterexample ("Tx: " <> show tx)
 
+      prop "validates" $ \(ReasonablySized committedUtxo) headInput cperiod parties ->
+        forAll (generateCommitUtxos parties committedUtxo) $ \commitsUtxo ->
+          forAll (reasonablySized genUtxoWithSimplifiedAddresses) $ \inHeadUtxo ->
+            let onChainUtxo = UTxO $ Map.singleton headInput headOutput <> fmap fst commitsUtxo
+                headOutput = mkHeadOutput $ SJust headDatum
+                onChainParties = partyFromVerKey . vkey <$> parties
+                headDatum = Data . toData $ Head.Initial cperiod onChainParties
+                tx = collectComTx testNetworkId committedUtxo (headInput, headDatum, onChainParties) commitsUtxo
+             in checkCoverage $ case validateTxScriptsUnlimited onChainUtxo tx of
+                  Left basicFailure ->
+                    property False & counterexample ("Basic failure: " <> show basicFailure)
+                  Right redeemerReport ->
+                    length commitsUtxo + 1 == length (rights $ Map.elems redeemerReport)
+                      & label (show (length inHeadUtxo) <> " UTXO")
+                      & counterexample ("Redeemer report: " <> show redeemerReport)
+                      & counterexample ("Tx: " <> show tx)
+                      & cover 0.8 True "Success"
+
     describe "closeTx" $ do
       prop "transaction size below limit" $ \headIn parties snapshot sig ->
         let tx = closeTx snapshot sig (headIn, headOutput, headDatum)
