@@ -7,9 +7,14 @@ module Plutus.Codec.CBOR.Encoding (
   encodeByteString,
   encodeNull,
   encodeListLen,
+  encodeBeginList,
   encodeList,
+  encodeListIndef,
   encodeMapLen,
+  encodeBeginMap,
   encodeMap,
+  encodeMapIndef,
+  encodeBreak,
   encodeMaybe,
 ) where
 
@@ -67,13 +72,25 @@ encodeListLen = Encoding . encodeUnsigned 4
 
 encodeList :: (a -> Encoding) -> [a] -> Encoding
 encodeList encodeElem es =
-  encodeListLen (length es)
-    <> foldr (\e -> (encodeElem e <>)) mempty es
+  encodeListLen (length es) <> foldMap encodeElem es
 {-# INLINEABLE encodeList #-}
+
+encodeListIndef :: (a -> Encoding) -> [a] -> Encoding
+encodeListIndef encodeElem es =
+  encodeBeginList <> foldMap encodeElem es <> encodeBreak
+{-# INLINEABLE encodeListIndef #-}
+
+encodeBeginList :: Encoding
+encodeBeginList = Encoding (withMajorType 4 31)
+{-# INLINEABLE encodeBeginList #-}
+
+encodeBreak :: Encoding
+encodeBreak = Encoding (consByteString 0xFF)
+{-# INLINEABLE encodeBreak #-}
 
 encodeMaybe :: (a -> Encoding) -> Maybe a -> Encoding
 encodeMaybe encode = \case
-  Nothing -> encodeNull
+  Nothing -> Encoding id
   Just a -> encode a
 {-# INLINEABLE encodeMaybe #-}
 
@@ -88,9 +105,19 @@ encodeMapLen = Encoding . encodeUnsigned 5
 
 encodeMap :: (k -> Encoding) -> (v -> Encoding) -> Map k v -> Encoding
 encodeMap encodeKey encodeValue m =
-  encodeMapLen (length m)
-    <> foldr (\(k, v) -> ((encodeKey k <> encodeValue v) <>)) mempty (Map.toList m)
+  encodeMapLen (length m) <> foldMap (\(k, v) -> encodeKey k <> encodeValue v) (Map.toList m)
 {-# INLINEABLE encodeMap #-}
+
+encodeMapIndef :: (k -> Encoding) -> (v -> Encoding) -> Map k v -> Encoding
+encodeMapIndef encodeKey encodeValue m =
+  encodeBeginMap
+    <> foldMap (\(k, v) -> encodeKey k <> encodeValue v) (Map.toList m)
+    <> encodeBreak
+{-# INLINEABLE encodeMapIndef #-}
+
+encodeBeginMap :: Encoding
+encodeBeginMap = Encoding (withMajorType 5 31)
+{-# INLINEABLE encodeBeginMap #-}
 
 -- * Internal
 

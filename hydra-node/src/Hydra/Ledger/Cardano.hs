@@ -27,6 +27,7 @@ import Hydra.Ledger.Cardano.Isomorphism
 import qualified Cardano.Api
 import Cardano.Binary (decodeAnnotator, serialize, serialize')
 import qualified Cardano.Crypto.DSIGN as CC
+import Cardano.Crypto.Hash (SHA256, digest)
 import qualified Cardano.Ledger.Alonzo.PParams as Ledger.Alonzo
 import qualified Cardano.Ledger.Alonzo.Scripts as Ledger.Alonzo
 import qualified Cardano.Ledger.Alonzo.Tx as Ledger.Alonzo
@@ -40,6 +41,7 @@ import qualified Cardano.Ledger.Era as Ledger
 import qualified Cardano.Ledger.Keys as Ledger
 import qualified Cardano.Ledger.Mary as Ledger.Mary hiding (Value)
 import qualified Cardano.Ledger.Mary.Value as Ledger.Mary
+import Cardano.Ledger.Shelley.API (StakeReference (StakeRefNull, StakeRefPtr))
 import qualified Cardano.Ledger.Shelley.API.Mempool as Ledger
 import qualified Cardano.Ledger.Shelley.Genesis as Ledger
 import qualified Cardano.Ledger.Shelley.LedgerState as Ledger
@@ -350,6 +352,10 @@ mkSimpleCardanoTx (txin, TxOut owner txOutValueIn datum) (recipient, valueOut) s
 
   fee = Lovelace 0
 
+getOutputs :: CardanoTx -> [TxOut CtxTx Era]
+getOutputs tx =
+  let TxBody TxBodyContent{txOuts} = getTxBody tx
+   in txOuts
 -- ** TxIn
 
 -- | Create a 'TxIn' from a transaction body and index.
@@ -370,6 +376,10 @@ mkTxOutValue :: Value -> TxOutValue Era
 mkTxOutValue =
   TxOutValue MultiAssetInAlonzoEra
 
+hashTxOuts :: [TxOut CtxUTxO Era] -> ByteString
+hashTxOuts =
+  digest @SHA256 Proxy . serialize' . fmap toLedgerTxOut
+
 getDatum :: TxOut CtxTx era -> Maybe ScriptData
 getDatum (TxOut _ _ d) = case d of
   TxOutDatum _ dat -> Just dat
@@ -381,6 +391,13 @@ modifyTxOutDatum ::
   TxOut ctx1 Era
 modifyTxOutDatum fn (TxOut addr value dat) =
   TxOut addr value (fn dat)
+
+modifyTxOutValue ::
+  (Value -> Value) ->
+  TxOut ctx Era ->
+  TxOut ctx Era
+modifyTxOutValue fn (TxOut addr value dat) =
+  TxOut addr (mkTxOutValue $ fn $ txOutValueToValue value) dat
 
 -- | Find first 'TxOut' which pays to given address and also return the
 -- corresponding 'TxIn' to reference it.
@@ -623,6 +640,7 @@ genFixedSizeSequenceOfValidTransactions numTxs initialUtxo
       Right newUtxos -> pure (newUtxos, tx : acc)
 
 -- TODO: Enable arbitrary datum in generators
+-- TODO: This should better be called 'genOutputFor'
 genOutput ::
   forall era ctx.
   (IsShelleyBasedEra era) =>
@@ -667,16 +685,50 @@ genOneUtxoFor vk = do
   output <- scale (const 1) $ genOutput vk
   pure $ Utxo $ Map.singleton (fromLedgerTxIn input) output
 
+genValue :: Gen Value
+genValue = txOutValue <$> (genKeyPair >>= (genOutput . fst))
+
 -- | Generate UTXO entries that do not contain any assets. Useful to test /
 -- measure cases where
 genAdaOnlyUtxo :: Gen Utxo
 genAdaOnlyUtxo = do
   fmap adaOnly <$> arbitrary
+
+adaOnly :: TxOut CtxUTxO AlonzoEra -> TxOut CtxUTxO AlonzoEra
+adaOnly = \case
+  TxOut addr value datum ->
+    TxOut addr (lovelaceToTxOutValue $ txOutValueToLovelace value) datum
+
+-- | Generate "simplified" UTXO, ie. without some of the complexities required for
+-- backward-compatibility and obscure features.
+genUtxoWithSimplifiedAddresses :: Gen Utxo
+genUtxoWithSimplifiedAddresses = simplifyUtxo <$> arbitrary
+
+-- | Rewrite given UTXO to remove some corner cases.
+--
+-- * Remove Byron addresses. Those are unnecessarily complicated and deprecated so they should
+--   not be used either on- or off-chain
+-- * Replace stake pointers with `StakeRefNull`. Stake pointers is an obscure feature of Cardano
+--   addresses that's very rarely used in practice.
+simplifyUtxo :: Utxo -> Utxo
+simplifyUtxo = Utxo . Map.fromList . map tweakAddress . filter notByronAddress . utxoPairs
  where
-  adaOnly :: TxOut CtxUTxO AlonzoEra -> TxOut CtxUTxO AlonzoEra
-  adaOnly = \case
-    TxOut addr value datum ->
-      TxOut addr (lovelaceToTxOutValue $ txOutValueToLovelace value) datum
+  notByronAddress (_, TxOut addr _ _) = case addr of
+    AddressInEra ByronAddressInAnyEra _ -> False
+    _ -> True
+  -- NOTE:
+  -- - we discard pointers because there encoding sucks and they are unused.
+  --   Ledger team plans to remove them in future versions anyway.
+  --
+  -- - We fix all network id to testnet.
+  tweakAddress out@(txin, TxOut addr val dat) = case addr of
+    AddressInEra er@(ShelleyAddressInEra _) (ShelleyAddress _ cre sr) ->
+      case sr of
+        StakeRefPtr _ ->
+          (txin, TxOut (AddressInEra er (ShelleyAddress Ledger.Testnet cre StakeRefNull)) val dat)
+        _ ->
+          (txin, TxOut (AddressInEra er (ShelleyAddress Ledger.Testnet cre sr)) val dat)
+    _ -> out
 
 shrinkUtxo :: Utxo -> [Utxo]
 shrinkUtxo = shrinkMapBy (Utxo . fromList) utxoPairs (shrinkList shrinkOne)

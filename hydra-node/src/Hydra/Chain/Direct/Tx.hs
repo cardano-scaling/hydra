@@ -64,6 +64,7 @@ import Hydra.Ledger.Cardano (
   fromLedgerTx,
   fromPlutusScript,
   getDatum,
+  hashTxOuts,
   mkScriptAddress,
   toAlonzoData,
   toCtxUTxOTxOut,
@@ -73,11 +74,12 @@ import Hydra.Ledger.Cardano (
  )
 import qualified Hydra.Ledger.Cardano as Api
 import Hydra.Party (MultiSigned, Party (Party), toPlutusSignatures, vkey)
-import Hydra.Snapshot (Snapshot, SnapshotNumber)
+import Hydra.Snapshot (Snapshot (..))
 import Ledger.Value (AssetClass (..), currencyMPSHash)
 import Plutus.V1.Ledger.Api (FromData, MintingPolicyHash, PubKeyHash (..), fromData)
 import qualified Plutus.V1.Ledger.Api as Plutus
 import Plutus.V1.Ledger.Value (assetClass, currencySymbol, tokenName)
+import Plutus.V2.Ledger.Api (toBuiltin)
 
 -- FIXME: parameterize
 network :: Network
@@ -303,7 +305,7 @@ collectComTx ::
 -- TODO(SN): utxo unused means other participants would not "see" the opened
 -- utxo when observing. Right now, they would be trusting the OCV checks this
 -- and construct their "world view" from observed commit txs in the HeadLogic
-collectComTx networkId _utxo (Api.fromLedgerTxIn -> headInput, Api.fromLedgerData -> headDatumBefore, parties) commits =
+collectComTx networkId utxo (Api.fromLedgerTxIn -> headInput, Api.fromLedgerData -> headDatumBefore, parties) commits =
   Api.toLedgerTx $
     Api.unsafeBuildTransaction $
       Api.emptyTxBody
@@ -315,16 +317,19 @@ collectComTx networkId _utxo (Api.fromLedgerTxIn -> headInput, Api.fromLedgerDat
   headScript =
     Api.fromPlutusScript $ MockHead.validatorScript policyId
   headRedeemer =
-    Api.mkRedeemerForTxIn $ MockHead.CollectCom $ Api.toPlutusValue commitValue
-
+    Api.mkRedeemerForTxIn $
+      MockHead.CollectCom
+        { collectedValue = Api.toPlutusValue commitValue
+        , utxoHash
+        }
+  utxoHash = toBuiltin $ hashTxOuts $ toList utxo
   headOutput =
     Api.TxOut
       (Api.mkScriptAddress @Api.PlutusScriptV1 networkId headScript)
       (Api.mkTxOutValue $ Api.lovelaceToValue 2_000_000 <> commitValue)
       headDatumAfter
   headDatumAfter =
-    Api.mkTxOutDatum MockHead.Open{MockHead.parties = parties}
-
+    Api.mkTxOutDatum MockHead.Open{MockHead.parties = parties, utxoHash}
   mkCommit (commitInput, (_commitOutput, commitDatum)) =
     ( Api.fromLedgerTxIn commitInput
     , mkCommitWitness commitDatum
@@ -340,14 +345,14 @@ collectComTx networkId _utxo (Api.fromLedgerTxIn -> headInput, Api.fromLedgerDat
 
 -- | Create a transaction closing a head with given snapshot number and utxo.
 closeTx ::
-  SnapshotNumber ->
+  Snapshot CardanoTx ->
   -- | Multi-signature of the whole snapshot
   MultiSigned (Snapshot CardanoTx) ->
   -- | Everything needed to spend the Head state-machine output.
   -- FIXME(SN): should also contain some Head identifier/address and stored Value (maybe the TxOut + Data?)
   (TxIn StandardCrypto, TxOut Era, Data Era) ->
   ValidatedTx Era
-closeTx snapshotNumber sig (Api.fromLedgerTxIn -> headInput, Api.fromLedgerTxOut -> headOutputBefore, Api.fromLedgerData -> headDatumBefore) =
+closeTx Snapshot{number, utxo} sig (Api.fromLedgerTxIn -> headInput, Api.fromLedgerTxOut -> headOutputBefore, Api.fromLedgerData -> headDatumBefore) =
   Api.toLedgerTx $
     Api.unsafeBuildTransaction $
       Api.emptyTxBody
@@ -359,51 +364,42 @@ closeTx snapshotNumber sig (Api.fromLedgerTxIn -> headInput, Api.fromLedgerTxOut
   headScript =
     Api.fromPlutusScript $ MockHead.validatorScript policyId
   headRedeemer =
-    Api.mkRedeemerForTxIn $ closeRedeemer snapshotNumber sig
-
+    Api.mkRedeemerForTxIn
+      MockHead.Close
+        { snapshotNumber = toInteger number
+        , signature = toPlutusSignatures sig
+        , utxoHash
+        }
   headOutputAfter =
     Api.modifyTxOutDatum (const headDatumAfter) headOutputBefore
   headDatumAfter =
-    Api.mkTxOutDatum MockHead.Closed
-
-closeRedeemer :: SnapshotNumber -> MultiSigned (Snapshot CardanoTx) -> MockHead.Input
-closeRedeemer snapshotNumber multiSig =
-  MockHead.Close
-    { snapshotNumber = toInteger snapshotNumber
-    , signature = toPlutusSignatures multiSig
-    }
+    Api.mkTxOutDatum
+      MockHead.Closed
+        { snapshotNumber = toInteger number
+        , utxoHash
+        }
+  utxoHash = toBuiltin $ hashTxOuts $ toList utxo
 
 fanoutTx ::
-  -- | Network identifier for address discrimination
-  NetworkId ->
   -- | Snapshotted Utxo to fanout on layer 1
   Utxo ->
   -- | Everything needed to spend the Head state-machine output.
   -- FIXME(SN): should also contain some Head identifier/address and stored Value (maybe the TxOut + Data?)
   (TxIn StandardCrypto, Data Era) ->
   ValidatedTx Era
-fanoutTx networkId utxo (Api.fromLedgerTxIn -> headInput, Api.fromLedgerData -> headDatumBefore) =
+fanoutTx utxo (Api.fromLedgerTxIn -> headInput, Api.fromLedgerData -> headDatumBefore) =
   Api.toLedgerTx $
     Api.unsafeBuildTransaction $
       Api.emptyTxBody
         & Api.addInputs [(headInput, headWitness)]
-        & Api.addOutputs (headOutput : fanoutOutputs)
+        & Api.addOutputs fanoutOutputs
  where
   headWitness =
     Api.BuildTxWith $ Api.mkScriptWitness headScript headDatumBefore headRedeemer
   headScript =
     Api.fromPlutusScript $ MockHead.validatorScript policyId
   headRedeemer =
-    Api.mkRedeemerForTxIn MockHead.Fanout
-
-  -- TODO: we probably don't need an output for the head SM which we don't use anyway
-  headOutput =
-    Api.TxOut
-      (Api.mkScriptAddress @Api.PlutusScriptV1 networkId headScript)
-      (Api.mkTxOutValue $ Api.lovelaceToValue 2_000_000)
-      headDatumAfter
-  headDatumAfter =
-    Api.mkTxOutDatum MockHead.Final
+    Api.mkRedeemerForTxIn (MockHead.Fanout $ fromIntegral $ length utxo)
 
   fanoutOutputs =
     foldr ((:) . Api.toTxContext) [] utxo
@@ -585,7 +581,7 @@ observeCollectComTx utxo tx = do
   oldHeadDatum <- lookupDatum (wits tx) headOutput
   datum <- fromData $ getPlutusData oldHeadDatum
   case (datum, redeemer) of
-    (MockHead.Initial{parties}, MockHead.CollectCom _) -> do
+    (MockHead.Initial{parties}, MockHead.CollectCom{}) -> do
       (newHeadInput, newHeadOutput) <- findScriptOutput (utxoFromTx tx) headScript
       newHeadDatum <- lookupDatum (wits tx) newHeadOutput
       pure
@@ -638,7 +634,7 @@ observeFanoutTx ::
 observeFanoutTx utxo tx = do
   headInput <- fst <$> findScriptOutput utxo headScript
   getRedeemerSpending tx headInput >>= \case
-    MockHead.Fanout -> pure (OnFanoutTx, Final)
+    MockHead.Fanout{} -> pure (OnFanoutTx, Final)
     _ -> Nothing
  where
   headScript = plutusScript $ MockHead.validatorScript policyId

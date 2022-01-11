@@ -12,10 +12,15 @@ import Control.Monad (guard)
 import Data.Aeson (FromJSON, ToJSON)
 import Data.Void (Void)
 import GHC.Generics (Generic)
+import Hydra.Contract.Encoding (serialiseTxOuts)
 import Hydra.Data.ContestationPeriod (ContestationPeriod)
 import Hydra.Data.Party (Party (UnsafeParty))
 import Ledger.Constraints (TxConstraints)
 import qualified Ledger.Typed.Scripts as Scripts
+import Plutus.Codec.CBOR.Encoding (
+  encodeInteger,
+  encodingToBuiltinByteString,
+ )
 import Plutus.Contract.StateMachine.OnChain (StateMachine)
 import qualified Plutus.Contract.StateMachine.OnChain as SM
 import qualified PlutusTx
@@ -23,10 +28,12 @@ import Text.Show (Show)
 
 type SnapshotNumber = Integer
 
+type Hash = BuiltinByteString
+
 data State
   = Initial {contestationPeriod :: ContestationPeriod, parties :: [Party]}
-  | Open {parties :: [Party]}
-  | Closed
+  | Open {parties :: [Party], utxoHash :: Hash}
+  | Closed {snapshotNumber :: SnapshotNumber, utxoHash :: Hash}
   | Final
   deriving stock (Generic, Show)
   deriving anyclass (FromJSON, ToJSON)
@@ -36,13 +43,14 @@ PlutusTx.unstableMakeIsData ''State
 data Input
   = -- FIXME(AB): The collected value should not be passed as input but inferred from
     -- collected commits' value
-    CollectCom Value
+    CollectCom {collectedValue :: Value, utxoHash :: Hash}
   | Close
       { snapshotNumber :: SnapshotNumber
+      , utxoHash :: Hash
       , signature :: [Signature]
       }
   | Abort
-  | Fanout
+  | Fanout {numberOfFanoutOutputs :: Integer}
   deriving (Generic, Show)
 
 PlutusTx.unstableMakeIsData ''Input
@@ -57,7 +65,7 @@ hydraStateMachine _policyId =
   -- fix for the 'runStep' handling now, the current version of plutus does
   -- forge a given 'ThreadToken' upon 'runInitialise' now.. which is not what we
   -- want as we need additional tokens being forged as well (see 'watchInit').
-  SM.mkStateMachine Nothing hydraTransition isFinal
+  SM.StateMachine hydraTransition isFinal hydraContextCheck Nothing
  where
   isFinal Final{} = True
   isFinal _ = False
@@ -66,16 +74,38 @@ hydraStateMachine _policyId =
 hydraTransition :: SM.State State -> Input -> Maybe (TxConstraints Void Void, SM.State State)
 hydraTransition oldState input =
   case (SM.stateData oldState, input) of
-    (Initial{parties}, CollectCom collectedValue) ->
-      Just (mempty, oldState{SM.stateData = Open{parties}, SM.stateValue = collectedValue <> SM.stateValue oldState})
+    (Initial{parties}, CollectCom{collectedValue, utxoHash}) ->
+      Just (mempty, oldState{SM.stateData = Open{parties, utxoHash}, SM.stateValue = collectedValue <> SM.stateValue oldState})
     (Initial{}, Abort) ->
       Just (mempty, oldState{SM.stateData = Final, SM.stateValue = mempty})
-    (Open{parties}, Close{snapshotNumber, signature}) -> do
-      guard $ verifySnapshotSignature parties snapshotNumber signature
-      Just (mempty, oldState{SM.stateData = Closed})
+    (Open{parties, utxoHash = openedUtxoHash}, Close{snapshotNumber, signature, utxoHash = closedUtxoHash})
+      | snapshotNumber == 0 ->
+        Just (mempty, oldState{SM.stateData = Closed{snapshotNumber, utxoHash = openedUtxoHash}})
+      | otherwise -> do
+        guard $ verifySnapshotSignature parties snapshotNumber signature
+        Just (mempty, oldState{SM.stateData = Closed{snapshotNumber, utxoHash = closedUtxoHash}})
     (Closed{}, Fanout{}) ->
       Just (mempty, oldState{SM.stateData = Final, SM.stateValue = mempty})
     _ -> Nothing
+
+hydraContextCheck :: State -> Input -> ScriptContext -> Bool
+hydraContextCheck state input context =
+  case (state, input) of
+    (Closed{utxoHash = closedUtxoHash}, Fanout{numberOfFanoutOutputs}) ->
+      traceIfFalse "fannedOutUtxoHash /= closedUtxoHash" $ fannedOutUtxoHash numberOfFanoutOutputs == closedUtxoHash
+    _ -> True
+ where
+  fannedOutUtxoHash numberOfFanoutOutputs = hashTxOuts $ take numberOfFanoutOutputs txInfoOutputs
+
+  TxInfo{txInfoOutputs} = txInfo
+
+  ScriptContext{scriptContextTxInfo = txInfo} = context
+{-# INLINEABLE hydraContextCheck #-}
+
+hashTxOuts :: [TxOut] -> BuiltinByteString
+hashTxOuts =
+  sha2_256 . serialiseTxOuts
+{-# INLINEABLE hashTxOuts #-}
 
 {-# INLINEABLE verifySnapshotSignature #-}
 verifySnapshotSignature :: [Party] -> SnapshotNumber -> [Signature] -> Bool
@@ -97,33 +127,13 @@ verifyPartySignature snapshotNumber vkey signed =
 mockVerifySignature :: Party -> SnapshotNumber -> BuiltinByteString -> Bool
 mockVerifySignature (UnsafeParty vkey) snapshotNumber signed =
   traceIfFalse "mock signed message is not equal to signed" $
-    mockSign vkey (naturalToCBOR snapshotNumber) == signed
+    mockSign vkey (encodingToBuiltinByteString $ encodeInteger snapshotNumber) == signed
 
 {-# INLINEABLE mockSign #-}
 mockSign :: Integer -> BuiltinByteString -> BuiltinByteString
-mockSign vkey msg = appendByteString (sliceByteString 0 8 hashedMsg) (naturalToCBOR vkey)
+mockSign vkey msg = appendByteString (sliceByteString 0 8 hashedMsg) (encodingToBuiltinByteString $ encodeInteger vkey)
  where
   hashedMsg = sha2_256 msg
-
--- | Encode a positive Integer to CBOR, up to 65536
---
--- FIXME: complete the implementation up to 2**64, at least. Maybe support
--- arbitrarily large integers as well?
-naturalToCBOR :: Integer -> BuiltinByteString
-naturalToCBOR n
-  | n < 0 =
-    traceError "naturalToCBOR: n < 0"
-  | n < 24 =
-    consByteString n emptyByteString
-  | n < 256 =
-    consByteString 24 $ consByteString n emptyByteString
-  | n < 65536 =
-    consByteString 25 $
-      consByteString (quotient n 256) $
-        consByteString (remainder n 256) emptyByteString
-  | otherwise =
-    traceError "naturalToCBOR: n >= 65536"
-{-# INLINEABLE naturalToCBOR #-}
 
 -- | The script instance of the auction state machine. It contains the state
 -- machine compiled to a Plutus core validator script. The 'MintingPolicyHash' serves
@@ -135,6 +145,9 @@ naturalToCBOR n
 --   2. Identify the 'state thread token', which should be passed in
 --   transactions transitioning the state machine and provide "contract
 --   continuity"
+--
+-- TODO: Add a NetworkId so that we can properly serialise address hashes
+-- see 'encodeAddress' for details
 typedValidator :: MintingPolicyHash -> Scripts.TypedValidator (StateMachine State Input)
 typedValidator policyId =
   let val =

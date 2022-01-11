@@ -56,13 +56,16 @@ import Hydra.Ledger.Cardano (
   fromLedgerTxIn,
   genAdaOnlyUtxo,
   genKeyPair,
+  genUtxoWithSimplifiedAddresses,
+  hashTxOuts,
   shrinkUtxo,
   toMaryValue,
   utxoPairs,
  )
 import qualified Hydra.Ledger.Cardano as Api
 import Hydra.Party (Party, vkey)
-import Plutus.V1.Ledger.Api (PubKeyHash, toData)
+import Hydra.Snapshot (number)
+import Plutus.V1.Ledger.Api (PubKeyHash, toBuiltin, toData)
 import Test.Cardano.Ledger.Alonzo.Serialisation.Generators ()
 import Test.QuickCheck (
   NonEmptyList (NonEmpty),
@@ -218,13 +221,10 @@ spec =
                 & counterexample ("Tx: " <> show tx)
 
     describe "closeTx" $ do
-      -- XXX(SN): tests are using a fixed snapshot number because of overlapping instances
-      let sn = 1
-
-      prop "transaction size below limit" $ \sig headIn parties ->
-        let tx = closeTx sn sig (headIn, headOutput, headDatum)
+      prop "transaction size below limit" $ \headIn parties snapshot sig ->
+        let tx = closeTx snapshot sig (headIn, headOutput, headDatum)
             headOutput = mkHeadOutput SNothing
-            headDatum = Data $ toData $ MockHead.Open parties
+            headDatum = Data $ toData $ MockHead.Open{parties, utxoHash = ""}
             cbor = serialize tx
             len = LBS.length cbor
          in len < maxTxSize
@@ -232,15 +232,15 @@ spec =
               & counterexample ("Tx: " <> show tx)
               & counterexample ("Tx serialized size: " <> show len)
 
-      prop "is observed" $ \parties msig headInput ->
+      prop "is observed" $ \parties headInput snapshot msig ->
         let headOutput = mkHeadOutput (SJust headDatum)
-            headDatum = Data $ toData $ MockHead.Open{parties}
+            headDatum = Data $ toData $ MockHead.Open{parties, utxoHash = ""}
             lookupUtxo = Map.singleton headInput headOutput
             -- NOTE(SN): deliberately uses an arbitrary multi-signature
-            tx = closeTx sn msig (headInput, headOutput, headDatum)
+            tx = closeTx snapshot msig (headInput, headOutput, headDatum)
             res = observeCloseTx lookupUtxo tx
          in case res of
-              Just (OnCloseTx{snapshotNumber}, OpenOrClosed{}) -> snapshotNumber === sn
+              Just (OnCloseTx{snapshotNumber}, OpenOrClosed{}) -> snapshotNumber === number snapshot
               _ -> property False
               & counterexample ("Observe result: " <> show res)
               & counterexample ("Tx: " <> show tx)
@@ -248,8 +248,8 @@ spec =
     describe "fanoutTx" $ do
       let prop_fanoutTxSize :: Utxo -> TxIn StandardCrypto -> Property
           prop_fanoutTxSize utxo headIn =
-            let tx = fanoutTx testNetworkId utxo (headIn, headDatum)
-                headDatum = Data $ toData MockHead.Closed
+            let tx = fanoutTx utxo (headIn, headDatum)
+                headDatum = Data $ toData MockHead.Closed{snapshotNumber = 1, utxoHash = ""}
                 cbor = serialize tx
                 len = LBS.length cbor
              in len < maxTxSize
@@ -266,7 +266,7 @@ spec =
               | otherwise = "00-10"
 
       prop "size is below limit for small number of UTXO" $
-        forAllShrinkShow genAdaOnlyUtxo shrinkUtxo (decodeUtf8 . encodePretty) $ \utxo ->
+        forAllShrinkShow (reasonablySized genAdaOnlyUtxo) shrinkUtxo (decodeUtf8 . encodePretty) $ \utxo ->
           forAll arbitrary $
             prop_fanoutTxSize utxo
 
@@ -280,14 +280,39 @@ spec =
             expectFailure . prop_fanoutTxSize utxo
 
       prop "is observed" $ \utxo headInput ->
-        let tx = fanoutTx testNetworkId utxo (headInput, headDatum)
+        let tx = fanoutTx utxo (headInput, headDatum)
             headOutput = mkHeadOutput SNothing
-            headDatum = Data $ toData MockHead.Closed
+            headDatum = Data $ toData $ MockHead.Closed{snapshotNumber = 1, utxoHash = ""}
             lookupUtxo = Map.singleton headInput headOutput
             res = observeFanoutTx lookupUtxo tx
          in res === Just (OnFanoutTx, Final)
               & counterexample ("Tx: " <> show tx)
               & counterexample ("Utxo map: " <> show lookupUtxo)
+
+      prop "validates" $ \headInput ->
+        forAll (reasonablySized genUtxoWithSimplifiedAddresses) $ \inHeadUtxo ->
+          let tx = fanoutTx inHeadUtxo (headInput, headDatum)
+              onChainUtxo = UTxO $ Map.singleton headInput headOutput
+              headOutput = TxOut headAddress headValue . SJust $ hashData @Era headDatum
+              headAddress = scriptAddr $ plutusScript $ MockHead.validatorScript policyId
+              -- FIXME: Ensure the headOutput contains enough value to fanout all inHeadUtxo
+              headValue = inject (Coin 10_000_000)
+              headDatum =
+                Data $
+                  toData $
+                    MockHead.Closed
+                      { snapshotNumber = 1
+                      , utxoHash = toBuiltin (hashTxOuts $ toList inHeadUtxo)
+                      }
+           in checkCoverage $ case validateTxScriptsUnlimited onChainUtxo tx of
+                Left basicFailure ->
+                  property False & counterexample ("Basic failure: " <> show basicFailure)
+                Right redeemerReport ->
+                  1 == length (rights $ Map.elems redeemerReport)
+                    & label (show (length inHeadUtxo) <> " UTXO")
+                    & counterexample ("Redeemer report: " <> show redeemerReport)
+                    & counterexample ("Tx: " <> show tx)
+                    & cover 0.8 True "Success"
 
     describe "abortTx" $ do
       -- NOTE(AB): This property fails if initials are too big

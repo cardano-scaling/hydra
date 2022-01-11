@@ -7,54 +7,63 @@ module Hydra.Chain.Direct.ContractSpec where
 import Hydra.Prelude hiding (label)
 import Test.Hydra.Prelude
 
+import Cardano.Api.Shelley (TxBody (ShelleyTxBody))
 import Cardano.Binary (serialize')
 import Cardano.Crypto.DSIGN (deriveVerKeyDSIGN)
 import Cardano.Crypto.Util (SignableRepresentation (getSignableRepresentation))
 import qualified Cardano.Ledger.Alonzo.Data as Ledger
-import Cardano.Ledger.Alonzo.Scripts (ExUnits)
 import qualified Cardano.Ledger.Alonzo.Scripts as Ledger
-import Cardano.Ledger.Alonzo.Tools (
-  BasicFailure,
-  ScriptFailure,
-  evaluateTransactionExecutionUnits,
- )
-import Cardano.Ledger.Alonzo.TxWitness (RdmrPtr)
+import qualified Cardano.Ledger.Alonzo.TxBody as Ledger
+import Cardano.Ledger.Alonzo.TxInfo (txInfoOut)
 import qualified Cardano.Ledger.Alonzo.TxWitness as Ledger
 import qualified Cardano.Ledger.Shelley.API as Ledger
 import qualified Data.ByteString as BS
+import qualified Data.ByteString.Base16 as Base16
 import qualified Data.Map as Map
 import Data.Maybe.Strict (StrictMaybe (..))
+import qualified Data.Sequence.Strict as StrictSeq
 import Hydra.Chain.Direct.Fixture (testNetworkId)
 import qualified Hydra.Chain.Direct.Fixture as Fixture
-import Hydra.Chain.Direct.Tx (closeRedeemer, closeTx, policyId)
+import Hydra.Chain.Direct.Tx (closeTx, fanoutTx, policyId)
 import Hydra.Chain.Direct.TxSpec (mkHeadOutput)
+import Hydra.Contract.Encoding (serialiseTxOuts)
 import qualified Hydra.Contract.Hash as Hash
-import Hydra.Contract.MockHead (naturalToCBOR, verifyPartySignature, verifySnapshotSignature)
+import Hydra.Contract.MockHead (
+  verifyPartySignature,
+  verifySnapshotSignature,
+ )
 import qualified Hydra.Contract.MockHead as MockHead
 import Hydra.Data.Party (partyFromVerKey)
+import qualified Hydra.Data.Party as OnChain
 import Hydra.Ledger.Cardano (
   AlonzoEra,
   BuildTxWith (BuildTxWith),
   CardanoTx,
+  CtxTx,
   CtxUTxO,
   Era,
   ExecutionUnits (ExecutionUnits),
-  LedgerCrypto,
   LedgerEra,
   PlutusScriptV1,
   Tx (Tx),
-  TxBody (ShelleyTxBody),
   TxBodyScriptData (TxBodyNoScriptData, TxBodyScriptData),
   TxOut (..),
   Utxo,
   Utxo' (Utxo),
+  adaOnly,
   addInputs,
   describeCardanoTx,
   emptyTxBody,
   fromAlonzoExUnits,
   fromLedgerTx,
+  fromLedgerTxOut,
   fromLedgerUtxo,
   fromPlutusScript,
+  genOutput,
+  genUtxoWithSimplifiedAddresses,
+  genValue,
+  getOutputs,
+  hashTxOuts,
   lovelaceToTxOutValue,
   mkDatumForTxIn,
   mkRedeemerForTxIn,
@@ -62,12 +71,15 @@ import Hydra.Ledger.Cardano (
   mkScriptWitness,
   mkTxOutDatum,
   mkTxOutDatumHash,
+  modifyTxOutValue,
+  shrinkUtxo,
   toCtxUTxOTxOut,
-  toLedgerTx,
-  toLedgerUtxo,
+  toLedgerTxOut,
+  txOutValue,
   unsafeBuildTransaction,
  )
 import qualified Hydra.Ledger.Cardano as Api
+import Hydra.Ledger.Cardano.Evaluate (evaluateTx)
 import Hydra.Ledger.Simple (SimpleTx)
 import Hydra.Party (
   MultiSigned (MultiSigned),
@@ -91,16 +103,18 @@ import Test.QuickCheck (
   checkCoverage,
   choose,
   counterexample,
+  elements,
   forAll,
+  forAllShrink,
   oneof,
   property,
   suchThat,
+  (===),
  )
 import Test.QuickCheck.Instances ()
 
 spec :: Spec
 spec = do
-  prop "correctly encode 'small' integer to CBOR" prop_encode16BitsNaturalToCBOROnChain
   describe "Signature validator" $ do
     prop
       "verifies single signature produced off-chain"
@@ -112,11 +126,18 @@ spec = do
     prop
       "verifies snapshot multi-signature for list of parties and signatures"
       prop_verifySnapshotSignatures
+  describe "TxOut hashing" $ do
+    prop "OffChain.hashTxOuts == OnChain.hashTxOuts" prop_consistentOnAndOffChainHashOfTxOuts
   describe "Close" $ do
     prop "is healthy" $
       propTransactionValidates healthyCloseTx
     prop "does not survive random adversarial mutations" $
       propMutation healthyCloseTx genCloseMutation
+  describe "Fanout" $ do
+    prop "is healthy" $
+      propTransactionValidates healthyFanoutTx
+    prop "does not survive random adversarial mutations" $
+      propMutation healthyFanoutTx genFanoutMutation
 
   describe "Hash" $
     it "runs with these ^ execution units over Baseline" $ do
@@ -170,14 +191,20 @@ calculateHashExUnits n algorithm =
 -- Properties
 --
 
-prop_encode16BitsNaturalToCBOROnChain :: Property
-prop_encode16BitsNaturalToCBOROnChain =
-  forAll arbitrary $ \(word16 :: Word16) ->
-    let offChainCBOR = serialize' word16
-        onChainCBOR = fromBuiltin $ naturalToCBOR (fromIntegral word16)
-     in offChainCBOR == onChainCBOR
-          & counterexample ("offChainCBOR: " <> show offChainCBOR)
-          & counterexample ("onChainCBOR: " <> show onChainCBOR)
+prop_consistentOnAndOffChainHashOfTxOuts :: Property
+prop_consistentOnAndOffChainHashOfTxOuts =
+  -- NOTE: We only generate shelley addressed txouts because they are left out
+  -- of the plutus script context in 'txInfoOut'.
+  forAllShrink genUtxoWithSimplifiedAddresses shrinkUtxo $ \(utxo :: Utxo) ->
+    let plutusTxOuts = mapMaybe (txInfoOut . toLedgerTxOut) ledgerTxOuts
+        ledgerTxOuts = toList utxo
+        plutusBytes = serialiseTxOuts plutusTxOuts
+        ledgerBytes = serialize' (toLedgerTxOut <$> ledgerTxOuts)
+     in (hashTxOuts ledgerTxOuts === fromBuiltin (MockHead.hashTxOuts plutusTxOuts))
+          & counterexample ("Plutus: " <> show plutusTxOuts)
+          & counterexample ("Ledger: " <> show ledgerTxOuts)
+          & counterexample ("Ledger CBOR: " <> decodeUtf8 (Base16.encode ledgerBytes))
+          & counterexample ("Plutus CBOR: " <> decodeUtf8 (Base16.encode $ fromBuiltin plutusBytes))
 
 prop_verifyOffChainSignatures :: Property
 prop_verifyOffChainSignatures =
@@ -253,6 +280,8 @@ deriving instance Show SomeMutation
 data Mutation
   = ChangeHeadRedeemer MockHead.Input
   | ChangeHeadDatum MockHead.State
+  | PrependOutput (TxOut CtxTx Era)
+  | ChangeOutput Word (TxOut CtxTx Era)
   deriving (Show, Generic)
 
 applyMutation :: Mutation -> (CardanoTx, Utxo) -> (CardanoTx, Utxo)
@@ -269,6 +298,22 @@ applyMutation mutation (tx@(Tx body wits), utxo) = case mutation of
           | otherwise =
             o
      in (tx, fmap fn utxo)
+  PrependOutput txOut ->
+    ( alterTxOuts (txOut :) tx
+    , utxo
+    )
+  ChangeOutput ix txOut ->
+    ( alterTxOuts replaceAtIndex tx
+    , utxo
+    )
+   where
+    replaceAtIndex txOuts =
+      foldr
+        ( \(i, out) list ->
+            if i == ix then txOut : list else out : list
+        )
+        []
+        (zip [0 ..] txOuts)
 
 --
 -- CloseTx
@@ -280,7 +325,7 @@ healthyCloseTx =
   , fromLedgerUtxo lookupUtxo
   )
  where
-  tx = closeTx healthySnapshotNumber (healthySignature healthySnapshotNumber) (headInput, headOutput, headDatum)
+  tx = closeTx healthySnapshot (healthySignature healthySnapshotNumber) (headInput, headOutput, headDatum)
   headInput = generateWith arbitrary 42
   headOutput = mkHeadOutput (SJust headDatum)
   headDatum = Ledger.Data $ toData healthyCloseDatum
@@ -298,7 +343,14 @@ healthySnapshotNumber :: SnapshotNumber
 healthySnapshotNumber = 1
 
 healthyCloseDatum :: MockHead.State
-healthyCloseDatum = MockHead.Open (partyFromVerKey . vkey . deriveParty <$> healthyPartyCredentials)
+healthyCloseDatum =
+  MockHead.Open
+    { parties = healthyCloseParties
+    , utxoHash = ""
+    }
+
+healthyCloseParties :: [OnChain.Party]
+healthyCloseParties = partyFromVerKey . vkey . deriveParty <$> healthyPartyCredentials
 
 healthyPartyCredentials :: [SigningKey]
 healthyPartyCredentials = [1, 2, 3]
@@ -333,14 +385,72 @@ genCloseMutation (_tx, _utxo) =
               MultiSigned [sign sk $ serialize' mutatedSnapshotNumber | sk <- healthyPartyCredentials]
         pure
           MockHead.Close
-            { MockHead.snapshotNumber = mutatedSnapshotNumber
-            , MockHead.signature = toPlutusSignatures mutatedSignature
+            { snapshotNumber = mutatedSnapshotNumber
+            , signature = toPlutusSignatures mutatedSignature
+            , utxoHash = ""
+            }
+    , SomeMutation MutateParties . ChangeHeadDatum <$> do
+        mutatedParties <- arbitrary `suchThat` (/= healthyCloseParties)
+        pure $
+          MockHead.Open
+            { parties = mutatedParties
+            , utxoHash = ""
             }
     , SomeMutation MutateParties . ChangeHeadDatum <$> arbitrary `suchThat` \case
         MockHead.Open{MockHead.parties = parties} ->
           parties /= MockHead.parties healthyCloseDatum
         _ ->
           True
+    ]
+ where
+  closeRedeemer snapshotNumber sig =
+    MockHead.Close
+      { snapshotNumber = toInteger snapshotNumber
+      , signature = toPlutusSignatures sig
+      , utxoHash = ""
+      }
+
+--
+-- FanoutTx
+--
+
+healthyFanoutTx :: (CardanoTx, Utxo)
+healthyFanoutTx =
+  ( fromLedgerTx tx
+  , fromLedgerUtxo lookupUtxo
+  )
+ where
+  tx = fanoutTx healthyFanoutUtxo (headInput, headDatum)
+  headInput = generateWith arbitrary 42
+  headOutput = mkHeadOutput (SJust headDatum)
+  headDatum = Ledger.Data $ toData healthyFanoutDatum
+  lookupUtxo = Ledger.UTxO $ Map.singleton headInput headOutput
+
+healthyFanoutUtxo :: Utxo
+healthyFanoutUtxo =
+  -- NOTE: we trim down the generated tx's output to make sure it fits w/in
+  -- TX size limits
+  adaOnly <$> generateWith genUtxoWithSimplifiedAddresses 42
+
+healthyFanoutDatum :: MockHead.State
+healthyFanoutDatum =
+  MockHead.Closed 1 (toBuiltin $ hashTxOuts $ toList healthyFanoutUtxo)
+
+data FanoutMutation
+  = MutateAddUnexpectedOutput
+  | MutateChangeOutputValue
+  deriving (Generic, Show, Enum, Bounded)
+
+genFanoutMutation :: (CardanoTx, Utxo) -> Gen SomeMutation
+genFanoutMutation (tx, _utxo) =
+  oneof
+    [ SomeMutation MutateAddUnexpectedOutput . PrependOutput <$> do
+        arbitrary >>= genOutput
+    , SomeMutation MutateChangeOutputValue <$> do
+        let outs = getOutputs tx
+        (ix, out) <- elements (zip [0 .. length outs - 1] outs)
+        value' <- genValue `suchThat` (/= txOutValue out)
+        pure $ ChangeOutput (fromIntegral ix) (modifyTxOutValue (const value') out)
     ]
 
 --
@@ -393,19 +503,17 @@ alterRedeemers fn = \case
     let newRedeemers = fmap fn redeemers
      in TxBodyScriptData supportedInEra dats (Ledger.Redeemers newRedeemers)
 
-type RedeemerReport =
-  (Map RdmrPtr (Either (ScriptFailure LedgerCrypto) ExUnits))
-
-evaluateTx ::
+alterTxOuts ::
+  ([TxOut CtxTx Era] -> [TxOut CtxTx Era]) ->
   CardanoTx ->
-  Utxo ->
-  Either (BasicFailure LedgerCrypto) RedeemerReport
-evaluateTx tx utxo =
-  runIdentity $
-    evaluateTransactionExecutionUnits
-      Fixture.pparams
-      (toLedgerTx tx)
-      (toLedgerUtxo utxo)
-      Fixture.epochInfo
-      Fixture.systemStart
-      Fixture.costModels
+  CardanoTx
+alterTxOuts fn tx =
+  Tx body' wits
+ where
+  body' = ShelleyTxBody era ledgerBody' scripts scriptData mAuxData scriptValidity
+  ledgerBody' = ledgerBody{Ledger.outputs = outputs'}
+  -- WIP
+  outputs' = StrictSeq.fromList . mapOutputs . toList $ Ledger.outputs ledgerBody
+  mapOutputs = fmap (toLedgerTxOut . toCtxUTxOTxOut) . fn . fmap fromLedgerTxOut
+  ShelleyTxBody era ledgerBody scripts scriptData mAuxData scriptValidity = body
+  Tx body wits = tx

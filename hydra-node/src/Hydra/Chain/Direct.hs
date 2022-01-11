@@ -79,7 +79,7 @@ import Hydra.Chain.Direct.Wallet (
 import Hydra.Ledger.Cardano (CardanoTx, NetworkId (Testnet), fromLedgerTx, fromLedgerUtxo, utxoPairs)
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Party (Party)
-import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot (..))
+import Hydra.Snapshot (ConfirmedSnapshot (..))
 import Ouroboros.Consensus.Cardano.Block (GenTx (..), HardForkApplyTxErr (ApplyTxErrAlonzo), HardForkBlock (BlockAlonzo))
 import Ouroboros.Consensus.Ledger.SupportsMempool (ApplyTxErr)
 import Ouroboros.Consensus.Network.NodeToClient (Codecs' (..))
@@ -453,13 +453,13 @@ fromPostChainTx TinyWallet{getUtxo, verificationKey} networkId headState cardano
                   ConfirmedSnapshot{snapshot, signatures} -> (snapshot, signatures)
                   InitialSnapshot{snapshot} -> (snapshot, mempty)
           let (i, o, dat, _) = threadOutput
-          pure $ closeTx (number sn) sigs (i, o, dat)
+          pure $ closeTx sn sigs (i, o, dat)
         _st -> throwIO $ InvalidStateToPost tx
     FanoutTx{utxo} ->
       readTVar headState >>= \case
         OpenOrClosed{threadOutput} ->
           let (i, _, dat, _) = threadOutput
-           in pure $ fanoutTx networkId utxo (i, dat)
+           in pure $ fanoutTx utxo (i, dat)
         _st -> throwIO $ InvalidStateToPost tx
     _ -> error "not implemented"
  where
