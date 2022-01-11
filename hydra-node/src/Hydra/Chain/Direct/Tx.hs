@@ -49,7 +49,7 @@ import Hydra.Chain (HeadParameters (..), OnChainTx (..))
 import Hydra.Chain.Direct.Util (Era)
 import qualified Hydra.Contract.Commit as Commit
 import qualified Hydra.Contract.Head as Head
-import qualified Hydra.Contract.MockInitial as MockInitial
+import qualified Hydra.Contract.Initial as Initial
 import Hydra.Data.ContestationPeriod (contestationPeriodFromDiffTime, contestationPeriodToDiffTime)
 import Hydra.Data.Party (partyFromVerKey, partyToVerKey)
 import qualified Hydra.Data.Party as OnChain
@@ -220,14 +220,14 @@ initTx networkId cardanoKeys HeadParameters{contestationPeriod, parties} txIn =
   mkInitialOutput (Api.toPlutusKeyHash . Api.verificationKeyHash -> vkh) =
     Api.TxOut initialAddress initialValue (mkInitialDatum vkh)
   initialScript =
-    Api.fromPlutusScript MockInitial.validatorScript
+    Api.fromPlutusScript Initial.validatorScript
   -- FIXME: should really be the minted PTs plus some ADA to make the ledger happy
   initialValue =
     Api.lovelaceToTxOutValue $ Api.Lovelace 2_000_000
   initialAddress =
     Api.mkScriptAddress @Api.PlutusScriptV1 networkId initialScript
   mkInitialDatum =
-    Api.mkTxOutDatum . MockInitial.datum
+    Api.mkTxOutDatum . Initial.datum
 
 pubKeyHash :: VerificationKey PaymentKey -> PubKeyHash
 pubKeyHash (PaymentVerificationKey vkey) = transKeyHash $ hashKey @StandardCrypto $ vkey
@@ -259,11 +259,11 @@ commitTx networkId party utxo (initialInput, vkh) =
   initialWitness =
     Api.BuildTxWith $ Api.mkScriptWitness initialScript initialDatum initialRedeemer
   initialScript =
-    Api.fromPlutusScript MockInitial.validatorScript
+    Api.fromPlutusScript Initial.validatorScript
   initialDatum =
-    Api.mkDatumForTxIn $ MockInitial.datum vkh
+    Api.mkDatumForTxIn $ Initial.datum vkh
   initialRedeemer =
-    Api.mkRedeemerForTxIn $ MockInitial.redeemer ()
+    Api.mkRedeemerForTxIn $ Initial.redeemer ()
 
   commitOutput =
     Api.TxOut commitAddress commitValue commitDatum
@@ -456,9 +456,9 @@ abortTx networkId (Api.fromLedgerTxIn -> headInput, Api.fromLedgerData -> headDa
   mkAbortWitness initialDatum =
     Api.BuildTxWith $ Api.mkScriptWitness initialScript initialDatum initialRedeemer
   initialScript =
-    Api.fromPlutusScript MockInitial.validatorScript
+    Api.fromPlutusScript Initial.validatorScript
   initialRedeemer =
-    Api.mkRedeemerForTxIn $ MockInitial.redeemer ()
+    Api.mkRedeemerForTxIn $ Initial.redeemer ()
 
 -- * Observe Hydra Head transactions
 
@@ -511,7 +511,7 @@ observeInitTx networkId party (Api.getTxBody . fromLedgerTx -> txBody) = do
 
   initialAddress = mkScriptAddress @Api.PlutusScriptV1 networkId initialScript
 
-  initialScript = fromPlutusScript MockInitial.validatorScript
+  initialScript = fromPlutusScript Initial.validatorScript
 
 convertParty :: OnChain.Party -> Party
 convertParty = Party . partyToVerKey

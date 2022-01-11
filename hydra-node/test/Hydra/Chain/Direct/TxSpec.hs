@@ -39,7 +39,7 @@ import Hydra.Chain.Direct.Util (Era)
 import Hydra.Chain.Direct.Wallet (ErrCoverFee (..), coverFee_)
 import qualified Hydra.Contract.Commit as Commit
 import qualified Hydra.Contract.Head as Head
-import qualified Hydra.Contract.MockInitial as MockInitial
+import qualified Hydra.Contract.Initial as Initial
 import Hydra.Data.ContestationPeriod (contestationPeriodFromDiffTime)
 import Hydra.Data.Party (partyFromVerKey)
 import Hydra.Data.Utxo (fromByteString)
@@ -155,7 +155,7 @@ spec =
       prop "consumes all inputs that are committed from initials" $ \party singleUtxo (NonEmpty inputs) ->
         let mkInitials :: (TxIn StandardCrypto, PubKeyHash, TxOut Era) -> (TxIn StandardCrypto, TxOut Era, Data Era)
             mkInitials (txin, pkh, TxOut addr value _) =
-              let initDatum = Data . toData $ MockInitial.datum pkh
+              let initDatum = Data . toData $ Initial.datum pkh
                in (txin, TxOut addr value (SJust $ hashData initDatum), initDatum)
 
             myInitial = (\(a, b, _) -> (a, b)) $ Prelude.head inputs
@@ -354,8 +354,8 @@ spec =
                   Head.Initial
                     (contestationPeriodFromDiffTime contestationPeriod)
                     (map (partyFromVerKey . vkey) parties)
-              initials = Map.map (Data . toData . MockInitial.datum) initialsPkh
-              initialsUtxo = map (\(i, pkh) -> mkMockInitialTxOut (i, pkh)) $ Map.toList initialsPkh
+              initials = Map.map (Data . toData . Initial.datum) initialsPkh
+              initialsUtxo = map (\(i, pkh) -> mkInitialTxOut (i, pkh)) $ Map.toList initialsPkh
               utxo = UTxO $ Map.fromList (headUtxo : initialsUtxo)
            in checkCoverage $ case abortTx testNetworkId (txIn, headDatum) initials of
                 Left OverlappingInputs ->
@@ -450,14 +450,14 @@ executionCost PParams{_prices} ValidatedTx{wits} =
  where
   executionUnits = foldMap snd $ unRedeemers $ txrdmrs wits
 
-mkMockInitialTxOut :: (TxIn StandardCrypto, PubKeyHash) -> (TxIn StandardCrypto, TxOut Era)
-mkMockInitialTxOut (txIn, pkh) =
+mkInitialTxOut :: (TxIn StandardCrypto, PubKeyHash) -> (TxIn StandardCrypto, TxOut Era)
+mkInitialTxOut (txIn, pkh) =
   (txIn, TxOut initialAddress initialValue (SJust initialDatumHash))
  where
-  initialAddress = scriptAddr $ plutusScript MockInitial.validatorScript
+  initialAddress = scriptAddr $ plutusScript Initial.validatorScript
   initialValue = inject (Coin 0)
   initialDatumHash =
-    hashData @Era $ Data $ toData $ MockInitial.datum pkh
+    hashData @Era $ Data $ toData $ Initial.datum pkh
 
 -- | Evaluate all plutus scripts and return execution budgets of a given
 -- transaction (any included budgets are ignored).
