@@ -25,9 +25,9 @@ import Control.Concurrent (MVar, newEmptyMVar, putMVar, takeMVar)
 import Hydra.Chain (
   Chain (..),
   HeadParameters (..),
-  PostTxError (..),
   OnChainTx (..),
   PostChainTx (..),
+  PostTxError (..),
  )
 import Hydra.Chain.Direct (
   DirectChainLog,
@@ -51,7 +51,7 @@ spec = around showLogsOnFailure $ do
   it "can init and abort a head given nothing has been committed" $ \tracer -> do
     alicesCallback <- newEmptyMVar
     bobsCallback <- newEmptyMVar
-    withTempDir "hydra-local-cluster" $ \tmp -> do
+    withTempDir "hydra-cluster" $ \tmp -> do
       config <- newNodeConfig tmp
       aliceKeys@(aliceCardanoVk, aliceCardanoSk) <- keysFor "alice"
       withBFTNode (contramap FromCluster tracer) config [aliceCardanoVk] $ \(RunningNode _ nodeSocket) -> do
@@ -75,7 +75,7 @@ spec = around showLogsOnFailure $ do
   it "cannot abort a non-participating head" $ \tracer -> do
     alicesCallback <- newEmptyMVar
     bobsCallback <- newEmptyMVar
-    withTempDir "hydra-local-cluster" $ \tmp -> do
+    withTempDir "hydra-cluster" $ \tmp -> do
       config <- newNodeConfig tmp
       aliceKeys@(aliceCardanoVk, aliceCardanoSk) <- keysFor "alice"
       withBFTNode (contramap FromCluster tracer) config [aliceCardanoVk] $ \(RunningNode _ nodeSocket) -> do
@@ -94,7 +94,7 @@ spec = around showLogsOnFailure $ do
 
   it "can commit" $ \tracer -> do
     alicesCallback <- newEmptyMVar
-    withTempDir "hydra-local-cluster" $ \tmp -> do
+    withTempDir "hydra-cluster" $ \tmp -> do
       config <- newNodeConfig tmp
       aliceKeys@(aliceCardanoVk, aliceCardanoSk) <- keysFor "alice"
       withBFTNode (contramap FromCluster tracer) config [aliceCardanoVk] $ \node@(RunningNode _ nodeSocket) -> do
@@ -124,7 +124,7 @@ spec = around showLogsOnFailure $ do
 
   it "can commit empty UTxO" $ \tracer -> do
     alicesCallback <- newEmptyMVar
-    withTempDir "hydra-local-cluster" $ \tmp -> do
+    withTempDir "hydra-cluster" $ \tmp -> do
       config <- newNodeConfig tmp
       aliceKeys@(aliceCardanoVk, aliceCardanoSk) <- keysFor "alice"
       withBFTNode (contramap FromCluster tracer) config [aliceCardanoVk] $ \(RunningNode _ nodeSocket) -> do
@@ -142,7 +142,7 @@ spec = around showLogsOnFailure $ do
 
   it "can open, close & fanout a Head" $ \tracer -> do
     alicesCallback <- newEmptyMVar
-    withTempDir "hydra-local-cluster" $ \tmp -> do
+    withTempDir "hydra-cluster" $ \tmp -> do
       config <- newNodeConfig tmp
       aliceKeys@(aliceCardanoVk, aliceCardanoSk) <- keysFor "alice"
       withBFTNode (contramap FromCluster tracer) config [aliceCardanoVk] $ \node@(RunningNode _ nodeSocket) -> do

@@ -1,11 +1,11 @@
 cabal-version:      3.0
-name:               local-cluster
-version:            0.2.0
+name:               hydra-cluster
+version:            0.3.0
 synopsis:
   Integration test suite using a local cluster of cardano and hydra nodes
 
-author:             IOHK
-copyright:          2021 IOHK
+author:             IOG
+copyright:          2022 IOG
 license:            Apache-2.0
 license-files:
   LICENSE
@@ -118,7 +118,7 @@ library
     Hydra.Generator
     Hydra.LogFilter
     HydraNode
-    Paths_local_cluster
+    Paths_hydra_cluster
 
   build-depends:
     , aeson
@@ -172,10 +172,10 @@ executable log-filter
     , base                  >=4.7 && <5
     , bytestring
     , contra-tracer
+    , hydra-cluster
     , hydra-prelude
     , lens
     , lens-aeson
-    , local-cluster
     , optparse-applicative
     , temporary
 
@@ -189,11 +189,11 @@ executable seed-network
     , base                  >=4.7 && <5
     , bytestring
     , contra-tracer
+    , hydra-cluster
     , hydra-node
     , hydra-prelude
     , lens
     , lens-aeson
-    , local-cluster
     , optparse-applicative
     , temporary
 
@@ -203,7 +203,7 @@ test-suite integration
   main-is:            Main.hs
   type:               exitcode-stdio-1.0
   other-modules:
-    Paths_local_cluster
+    Paths_hydra_cluster
     Spec
     Test.DirectChainSpec
     Test.EndToEndSpec
@@ -228,13 +228,13 @@ test-suite integration
     , hspec
     , hspec-core
     , hspec-golden-aeson
+    , hydra-cluster
     , hydra-node
     , hydra-plutus
     , hydra-prelude
     , hydra-test-utils
     , lens
     , lens-aeson
-    , local-cluster
     , plutus-ledger
     , plutus-ledger-api
     , process
@@ -266,13 +266,13 @@ benchmark bench-e2e
     , directory
     , filepath
     , hspec
+    , hydra-cluster
     , hydra-node
     , hydra-prelude
     , hydra-test-utils
     , io-classes
     , lens
     , lens-aeson
-    , local-cluster
     , optparse-applicative
     , QuickCheck
     , scientific

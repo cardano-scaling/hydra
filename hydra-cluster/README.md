@@ -1,4 +1,4 @@
-Command line executable and integration test suite spinning up a local cluster of Cardano and Hydra nodes.
+Integration test suite spinning up a local cluster of Cardano and Hydra nodes.
 
 This is used to experiment and explore the design space for the Hydra node, how it interacts with Cardano nodes and have an always available, ad-hoc environment for demos.
 

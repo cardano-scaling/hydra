@@ -46,7 +46,7 @@ spec :: Spec
 spec =
   it "should produce blocks, provide funds, and send Hydra OCV transactions" $ do
     showLogsOnFailure $ \tr ->
-      withTempDir "hydra-local-cluster" $ \tmp -> do
+      withTempDir "hydra-cluster" $ \tmp -> do
         (vk, _) <- keysFor "alice"
         let config =
               ClusterConfig

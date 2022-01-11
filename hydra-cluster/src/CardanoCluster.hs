@@ -41,7 +41,7 @@ import Data.Aeson.Lens (key)
 import qualified Data.ByteString as BS
 import Data.ByteString.Base16 (encodeBase16)
 import qualified Hydra.Chain.Direct.Util as Cardano
-import qualified Paths_local_cluster as Pkg
+import qualified Paths_hydra_cluster as Pkg
 import System.Directory (createDirectoryIfMissing, doesFileExist)
 import System.FilePath ((<.>), (</>))
 import System.Posix.Files (

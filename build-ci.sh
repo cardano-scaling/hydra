@@ -11,11 +11,17 @@ cabal update
 
 cabal build --enable-tests all
 
-cabal test all
+# Run tests in sequence as integration tests do collide
+cabal test merkle-patricia-tree
+cabal test plutus-cbor
+cabal test plutus-merkle-tree
+cabal test hydra-node
+cabal test hydra-cluster
+cabal test hydra-tui
 
 # Sanity check benchmark still runs fine
 # TODO: turn into a test
-cabal bench local-cluster --benchmark-options '--scaling-factor 1'
+cabal bench hydra-cluster --benchmark-options '--scaling-factor 1'
 
 # ignore various errors, including plutus scripts one
 cabal haddock all -fhydra-development

@@ -40,7 +40,7 @@ let
     # For validating JSON instances against a pre-defined schema
     pkgs.python3Packages.jsonschema
     pkgs.yq
-    # For plotting results of local-cluster benchmarks
+    # For plotting results of hydra-cluster benchmarks
     pkgs.gnuplot
   ];
 
@@ -49,7 +49,7 @@ let
       hydra-prelude
       hydra-node
       hydra-plutus
-      local-cluster
+      hydra-cluster
       merkle-patricia-tree
     ];
 
