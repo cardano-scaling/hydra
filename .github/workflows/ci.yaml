@@ -30,6 +30,13 @@ jobs:
         restore-keys: |
             ${{ runner.os }}-key
 
+    - uses: actions/cache@v2.1.5
+      name: Github cache of /nix/store
+      with:
+        path: |
+          /nix/store
+        key: nix-store
+
     - run: nix-shell --run 'build-ci.sh'
       # https://giters.com/gfx/example-github-actions-with-tty
       # The default shell does not allocate a TTY which breaks some tests
