@@ -37,7 +37,7 @@ import Hydra.Chain (HeadParameters (..), OnChainTx (..))
 import Hydra.Chain.Direct.Fixture (costModels, epochInfo, maxTxSize, pparams, systemStart, testNetworkId)
 import Hydra.Chain.Direct.Util (Era)
 import Hydra.Chain.Direct.Wallet (ErrCoverFee (..), coverFee_)
-import qualified Hydra.Contract.MockCommit as MockCommit
+import qualified Hydra.Contract.Commit as Commit
 import qualified Hydra.Contract.Head as Head
 import qualified Hydra.Contract.MockInitial as MockInitial
 import Hydra.Data.ContestationPeriod (contestationPeriodFromDiffTime)
@@ -140,11 +140,11 @@ spec =
         let tx = commitTx testNetworkId party (Just singleUtxo) initialIn
             committedUtxo = Utxo $ Map.fromList [singleUtxo]
             commitOutput = TxOut @Era commitAddress commitValue (SJust $ hashData commitDatum)
-            commitAddress = scriptAddr $ plutusScript MockCommit.validatorScript
+            commitAddress = scriptAddr $ plutusScript Commit.validatorScript
             commitValue = inject (Coin 2_000_000) <> toMaryValue (balance @CardanoTx committedUtxo)
             commitDatum =
               Data . toData $
-                MockCommit.datum (partyFromVerKey $ vkey party, commitUtxo)
+                Commit.datum (partyFromVerKey $ vkey party, commitUtxo)
             commitUtxo =
               fromByteString $ toStrict $ Aeson.encode committedUtxo
             expectedOutput = (TxIn (Ledger.TxId (SafeHash.hashAnnotated $ body tx)) 0, commitOutput, commitDatum)
@@ -162,11 +162,11 @@ spec =
             tx = commitTx testNetworkId party (Just singleUtxo) myInitial
             committedUtxo = Utxo $ Map.fromList [singleUtxo]
             commitOutput = TxOut @Era commitAddress commitValue (SJust $ hashData commitDatum)
-            commitAddress = scriptAddr $ plutusScript MockCommit.validatorScript
+            commitAddress = scriptAddr $ plutusScript Commit.validatorScript
             commitValue = inject (Coin 2_000_000) <> toMaryValue (balance @CardanoTx committedUtxo)
             commitDatum =
               Data . toData $
-                MockCommit.datum (partyFromVerKey $ vkey party, commitUtxo)
+                Commit.datum (partyFromVerKey $ vkey party, commitUtxo)
             commitInput = TxIn (txid $ body tx) 0
             commitUtxo =
               fromByteString $ toStrict $ Aeson.encode committedUtxo
@@ -441,7 +441,7 @@ generateCommitUtxos parties committedUtxo = do
    where
     commitValue = inject (Coin 2000000) <> maybe (inject $ Coin 0) (getValue . snd) utxo
     getValue (Api.TxOut _ val _) = toMaryValue $ Api.txOutValueToValue val
-    commitScript = plutusScript MockCommit.validatorScript
+    commitScript = plutusScript Commit.validatorScript
     commitDatum = Data . toData $ mkCommitDatum party utxo
 
 executionCost :: PParams Era -> ValidatedTx Era -> Coin

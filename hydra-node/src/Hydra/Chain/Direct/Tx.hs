@@ -47,7 +47,7 @@ import qualified Data.Set as Set
 import Data.Time (Day (ModifiedJulianDay), UTCTime (UTCTime))
 import Hydra.Chain (HeadParameters (..), OnChainTx (..))
 import Hydra.Chain.Direct.Util (Era)
-import qualified Hydra.Contract.MockCommit as MockCommit
+import qualified Hydra.Contract.Commit as Commit
 import qualified Hydra.Contract.Head as Head
 import qualified Hydra.Contract.MockInitial as MockInitial
 import Hydra.Data.ContestationPeriod (contestationPeriodFromDiffTime, contestationPeriodToDiffTime)
@@ -268,7 +268,7 @@ commitTx networkId party utxo (initialInput, vkh) =
   commitOutput =
     Api.TxOut commitAddress commitValue commitDatum
   commitScript =
-    Api.fromPlutusScript MockCommit.validatorScript
+    Api.fromPlutusScript Commit.validatorScript
   commitAddress =
     Api.mkScriptAddress @Api.PlutusScriptV1 networkId commitScript
   -- FIXME: We should add the value from the initialIn too because it contains the PTs
@@ -280,7 +280,7 @@ commitTx networkId party utxo (initialInput, vkh) =
 
 mkCommitDatum :: Party -> Maybe (Api.TxIn, Api.TxOut Api.CtxUTxO Api.Era) -> Plutus.Datum
 mkCommitDatum (partyFromVerKey . vkey -> party) utxo =
-  MockCommit.datum (party, commitUtxo)
+  Commit.datum (party, commitUtxo)
  where
   commitUtxo = fromByteString $
     toStrict $
@@ -339,9 +339,9 @@ collectComTx networkId utxo (Api.fromLedgerTxIn -> headInput, Api.fromLedgerData
   commitValue =
     mconcat $ Api.txOutValue . Api.fromLedgerTxOut . fst <$> Map.elems commits
   commitScript =
-    Api.fromPlutusScript MockCommit.validatorScript
+    Api.fromPlutusScript Commit.validatorScript
   commitRedeemer =
-    Api.mkRedeemerForTxIn MockCommit.redeemer
+    Api.mkRedeemerForTxIn Commit.redeemer
 
 -- | Create a transaction closing a head with given snapshot number and utxo.
 closeTx ::
@@ -539,7 +539,7 @@ observeCommitTx networkId (Api.getTxBody . fromLedgerTx -> txBody) = do
 
   commitAddress = mkScriptAddress @Api.PlutusScriptV1 networkId commitScript
 
-  commitScript = fromPlutusScript MockCommit.validatorScript
+  commitScript = fromPlutusScript Commit.validatorScript
 
 -- REVIEW(SN): Is this really specific to commit only, or wouldn't we be able to
 -- filter all 'knownUtxo' after observing any protocol tx?
