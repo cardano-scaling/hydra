@@ -266,7 +266,7 @@ spec =
               | otherwise = "00-10"
 
       prop "size is below limit for small number of UTXO" $
-        forAllShrinkShow genAdaOnlyUtxo shrinkUtxo (decodeUtf8 . encodePretty) $ \utxo ->
+        forAllShrinkShow (reasonablySized genAdaOnlyUtxo) shrinkUtxo (decodeUtf8 . encodePretty) $ \utxo ->
           forAll arbitrary $
             prop_fanoutTxSize utxo
 
