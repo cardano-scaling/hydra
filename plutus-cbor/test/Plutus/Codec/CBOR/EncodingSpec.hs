@@ -35,7 +35,6 @@ import Test.Plutus.Codec.CBOR.Encoding.Validators (
   encodeByteStringValidator,
   encodeIntegerValidator,
   encodeListValidator,
-  encodeMapValidator,
   encodeTxOutValidator,
  )
 import Test.Plutus.Validator (
@@ -47,12 +46,9 @@ import Test.Plutus.Validator (
 import Test.QuickCheck (
   Property,
   choose,
-  conjoin,
   counterexample,
   elements,
-  forAllBlind,
   forAllShrink,
-  label,
   liftShrink2,
   oneof,
   shrinkList,
@@ -72,64 +68,50 @@ spec = do
         forAllShrink genSomeValue shrinkSomeValue $ \(SomeValue x _ encode encode') ->
           propCompareWithOracle encode encode' x
 
-  describe "(on-chain) execution cost of CBOR encoding is small" $ do
-    prop "for all small (< 65536) (x :: Integer)" $
-      forAllBlind (genInteger `suchThat` ((< 65536) . abs)) $
-        propCostIsSmallerThan
-          (0.20, 0.10)
-          defaultMaxExecutionUnits
-          encodeIntegerValidator
-    prop "for all large (> 65536) (x :: Integer)" $
-      forAllBlind (genInteger `suchThat` ((> 65536) . abs)) $
-        propCostIsSmallerThan
-          (0.40, 0.20)
-          defaultMaxExecutionUnits
-          encodeIntegerValidator
-    prop "for all (x :: ByteString)" $
-      forAllBlind genByteString $
-        propCostIsSmallerThan
-          (0.20, 0.1)
-          defaultMaxExecutionUnits
-          encodeByteStringValidator
-          . Plutus.toBuiltin
-    prop "for all (x :: [ByteString])" $
-      forAllBlind (genList (Plutus.toBuiltin <$> genByteString)) $ \xs ->
-        let n = fromIntegral (length xs)
-         in propCostIsSmallerThan
-              (0.4 * n + 0.5, n * 0.2 + 0.5)
-              defaultMaxExecutionUnits
-              encodeListValidator
-              xs
-              & label ("of length = " <> show n)
-              & counterexample ("length: " <> show n)
-    prop "for all (x :: Map ByteString ByteString)" $
-      forAllBlind (genMap (Plutus.toBuiltin <$> genByteString) (Plutus.toBuiltin <$> genByteString)) $ \m ->
-        let n = fromIntegral (length m)
-         in propCostIsSmallerThan
-              (n * 0.5 + 0.5, n * 0.3 + 0.5)
-              defaultMaxExecutionUnits
-              encodeMapValidator
-              (Plutus.Map.fromList m)
-              & label ("of size = " <> show n)
-              & counterexample ("size: " <> show n)
-    prop "for all (x :: TxOut), ada-only" $
-      forAllBlind genAdaOnlyTxOut $
-        propCostIsSmallerThan
-          (2.5, 1.5)
-          defaultMaxExecutionUnits
-          encodeTxOutValidator
-    prop "for all (x :: TxOut), with up to 10 assets" $
-      forAllBlind (genTxOut 10) $
-        propCostIsSmallerThan
-          (15, 6)
-          defaultMaxExecutionUnits
-          encodeTxOutValidator
-    prop "for all (x :: TxOut), with up to 75 assets" $
-      forAllBlind (genTxOut 75) $
-        propCostIsSmallerThan
-          (100, 40)
-          defaultMaxExecutionUnits
-          encodeTxOutValidator
+  describe "can plot (mem & cpu) cost of encoding" $ do
+    it "Integer" $ do
+      forM_ (sort $ generateWith (vectorOf 100 genInteger) 42) $ \i -> do
+        let (mem, cpu) = relativeCostOf i defaultMaxExecutionUnits encodeIntegerValidator
+        putTextLn @IO $
+          unwords
+            [ padRight ' ' 25 (show i)
+            , rationalToPercent mem
+            , rationalToPercent cpu
+            ]
+
+    it "ByteString" $ do
+      forM_ [1 .. 32] $ \n -> do
+        let x = Plutus.toBuiltin $ generateWith (genByteStringOf n) 42
+        let (mem, cpu) = relativeCostOf x defaultMaxExecutionUnits encodeByteStringValidator
+        putTextLn @IO $
+          unwords
+            [ padLeft ' ' 2 (show n)
+            , rationalToPercent mem
+            , rationalToPercent cpu
+            ]
+
+    it "[ByteSting]" $ do
+      forM_ [2, 4 .. 100] $ \n -> do
+        let bs = Plutus.toBuiltin $ generateWith (genByteStringOf 32) 42
+        let x = replicate n bs
+        let (mem, cpu) = relativeCostOf x defaultMaxExecutionUnits encodeListValidator
+        putTextLn @IO $
+          unwords
+            [ padLeft ' ' 3 (show n)
+            , rationalToPercent mem
+            , rationalToPercent cpu
+            ]
+
+    it "TxOut" $ do
+      forM_ [1 .. 50] $ \n -> do
+        let x = generateWith (genTxOut n) 42
+        let (mem, cpu) = relativeCostOf x defaultMaxExecutionUnits encodeTxOutValidator
+        putTextLn @IO $
+          unwords
+            [ padLeft ' ' 2 (show n)
+            , rationalToPercent mem
+            , rationalToPercent cpu
+            ]
 
 -- | Compare encoding a value 'x' with our own encoder and a reference
 -- implementation. Counterexamples shows both encoded values, but in a pretty /
@@ -150,61 +132,32 @@ propCompareWithOracle encodeOracle encodeOurs x =
   oracle = encodeOracle x
   ours = encodingToBuiltinByteString (encodeOurs x)
 
--- | Measure that the execution cost of encoding a certain value 'x' is small in
--- front of some max execution budget.
-propCostIsSmallerThan ::
-  (Plutus.ToData a, Show a) =>
-  (Double, Double) ->
+relativeCostOf ::
+  (Plutus.ToData a) =>
+  a ->
   ExUnits ->
   (ValidatorKind -> Scripts.TypedValidator (EncodeValidator a)) ->
-  a ->
-  Property
-propCostIsSmallerThan (upperBoundMem, upperBoundStep) (ExUnits maxMemUnits maxStepsUnits) validator a =
-  conjoin
-    [ 100 * fromRational relativeMemCost < upperBoundMem
-        & counterexample
-          ( "memory execution units exceeded: "
-              <> show mem
-              <> " ("
-              <> asPercent relativeMemCost
-              <> ")"
-          )
-    , 100 * fromRational relativeStepCost < upperBoundStep
-        & counterexample
-          ( "CPU execution units exceeded:    "
-              <> show steps
-              <> " ("
-              <> asPercent relativeStepCost
-              <> ")"
-          )
-    ]
-    & label
-      ( "of mem units < "
-          <> show upperBoundMem
-          <> "%, and steps units < "
-          <> show upperBoundStep
-          <> "%"
-      )
-    & counterexample
-      ("value:                   " <> show a)
+  (Rational, Rational)
+relativeCostOf a (ExUnits maxMem maxCpu) validator =
+  (relativeMemCost, relativeCpuCost)
  where
-  ExUnits mem steps =
+  ExUnits mem cpu =
     distanceExUnits
       (evaluateScriptExecutionUnits (validator BaselineValidator) a)
       (evaluateScriptExecutionUnits (validator RealValidator) a)
 
-  (relativeMemCost, relativeStepCost) =
-    ( toInteger mem % toInteger maxMemUnits
-    , toInteger steps % toInteger maxStepsUnits
+  (relativeMemCost, relativeCpuCost) =
+    ( toInteger mem % toInteger maxMem
+    , toInteger cpu % toInteger maxCpu
     )
 
 --
 -- Helpers
 --
 
-asPercent :: Rational -> String
-asPercent r =
-  decodeUtf8 (toLazyByteString $ toFixedDecimals 6 $ 100 * r) <> "%"
+rationalToPercent :: Rational -> Text
+rationalToPercent r =
+  padLeft ' ' 5 $ decodeUtf8 (toLazyByteString $ toFixedDecimals 2 $ 100 * r)
  where
   toFixedDecimals n = formatScientificBuilder Fixed (Just n) . unsafeFromRational
 
@@ -369,8 +322,7 @@ genMap genKey genVal = do
   zip <$> vectorOf n genKey <*> vectorOf n genVal
 
 genTxOut :: Int -> Gen Plutus.TxOut
-genTxOut high = do
-  n <- choose (1, high)
+genTxOut n = do
   Plutus.TxOut
     <$> genAddress
     <*> fmap mconcat (vectorOf n genValue)

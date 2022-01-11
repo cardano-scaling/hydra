@@ -29,7 +29,6 @@ import Plutus.V1.Ledger.Api (
   Value (..),
  )
 import qualified PlutusTx as Plutus
-import PlutusTx.AssocMap (Map)
 
 -- | A validator for measuring cost of encoding values. The validator is
 -- parameterized by the type of value.
@@ -101,27 +100,6 @@ encodeListValidator = \case
       $$(Plutus.compile [||wrap||])
  where
   wrap = Scripts.wrapValidator @() @[BuiltinByteString]
-
-encodeMapValidator :: ValidatorKind -> Scripts.TypedValidator (EncodeValidator (Map BuiltinByteString BuiltinByteString))
-encodeMapValidator = \case
-  BaselineValidator ->
-    Scripts.mkTypedValidator @(EncodeValidator (Map BuiltinByteString BuiltinByteString))
-      $$(Plutus.compile [||\() _ _ctx -> True||])
-      $$(Plutus.compile [||wrap||])
-  RealValidator ->
-    Scripts.mkTypedValidator @(EncodeValidator (Map BuiltinByteString BuiltinByteString))
-      $$( Plutus.compile
-            [||
-            \() m _ctx ->
-              let bytes =
-                    encodingToBuiltinByteString $
-                      encodeMap encodeByteString encodeByteString m
-               in lengthOfByteString bytes > 0
-            ||]
-        )
-      $$(Plutus.compile [||wrap||])
- where
-  wrap = Scripts.wrapValidator @() @(Map BuiltinByteString BuiltinByteString)
 
 encodeTxOutValidator :: ValidatorKind -> Scripts.TypedValidator (EncodeValidator TxOut)
 encodeTxOutValidator = \case
