@@ -18,9 +18,15 @@ import PlutusTx.IsData.Class (ToData (..))
 
 data Commit
 
+data CommitRedeemer
+  = Abort
+  | Collect
+
+PlutusTx.unstableMakeIsData ''CommitRedeemer
+
 instance Scripts.ValidatorTypes Commit where
   type DatumType Commit = (Party, Utxo)
-  type RedeemerType Commit = ()
+  type RedeemerType Commit = Redeemer
 
 validator :: DatumType Commit -> RedeemerType Commit -> ScriptContext -> Bool
 validator _datum _redeemer _ctx = True
@@ -42,14 +48,8 @@ typedValidator = Scripts.mkTypedValidator @Commit
 validatorScript :: Script
 validatorScript = unValidatorScript $ Scripts.validatorScript typedValidator
 
-validatorHash :: ValidatorHash
-validatorHash = Scripts.validatorHash typedValidator
-
 datum :: DatumType Commit -> Datum
 datum a = Datum (toBuiltinData a)
 
-redeemer :: Redeemer
-redeemer = Redeemer (toBuiltinData ())
-
-address :: Address
-address = scriptHashAddress validatorHash
+redeemer :: CommitRedeemer -> RedeemerType Commit
+redeemer a = Redeemer (toBuiltinData a)

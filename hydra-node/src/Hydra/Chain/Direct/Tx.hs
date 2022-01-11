@@ -341,7 +341,7 @@ collectComTx networkId utxo (Api.fromLedgerTxIn -> headInput, Api.fromLedgerData
   commitScript =
     Api.fromPlutusScript Commit.validatorScript
   commitRedeemer =
-    Api.mkRedeemerForTxIn Commit.redeemer
+    Api.mkRedeemerForTxIn $ Commit.redeemer Commit.Collect
 
 -- | Create a transaction closing a head with given snapshot number and utxo.
 closeTx ::
