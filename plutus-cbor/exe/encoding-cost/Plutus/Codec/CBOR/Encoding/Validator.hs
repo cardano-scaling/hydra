@@ -2,7 +2,7 @@
 {-# LANGUAGE TypeApplications #-}
 {-# OPTIONS_GHC -fno-specialize #-}
 
-module Test.Plutus.Codec.CBOR.Encoding.Validators where
+module Plutus.Codec.CBOR.Encoding.Validator where
 
 import PlutusTx.Prelude
 

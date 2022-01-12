@@ -70,9 +70,6 @@ library
   import:          project-config
   hs-source-dirs:  src
   ghc-options:     -haddock
-  if flag(hydra-development)
-    -- NOTE(SN): should fix HLS choking on PlutusTx plugin
-    ghc-options: -fplugin-opt PlutusTx.Plugin:defer-errors
   build-depends:
       plutus-core
     , plutus-tx
@@ -91,8 +88,32 @@ test-suite unit
     , base16
     , binary
     , bytestring
-    , cardano-ledger-alonzo
     , cborg
+    , containers
+    , hspec
+    , hydra-prelude
+    , hydra-test-utils
+    , plutus-cbor
+    , plutus-tx
+    , plutus-ledger
+    , plutus-ledger-api
+    , QuickCheck
+  other-modules:
+    Plutus.Codec.CBOR.EncodingSpec
+    Spec
+  main-is:            Main.hs
+
+executable encoding-cost
+  import:         project-config
+  hs-source-dirs: exe/encoding-cost
+  main-is:        Main.hs
+  other-modules:  Plutus.Codec.CBOR.Encoding.Validator
+  build-depends:
+    , base
+    , base16
+    , binary
+    , bytestring
+    , cardano-ledger-alonzo
     , containers
     , hspec
     , hydra-prelude
@@ -104,8 +125,7 @@ test-suite unit
     , plutus-tx-plugin
     , scientific
     , QuickCheck
-  other-modules:
-    Plutus.Codec.CBOR.EncodingSpec
-    Test.Plutus.Codec.CBOR.Encoding.Validators
-    Spec
-  main-is:            Main.hs
+  if flag(hydra-development)
+    -- NOTE(SN): should fix HLS choking on PlutusTx plugin
+    ghc-options: -fplugin-opt PlutusTx.Plugin:defer-errors
+  ghc-options:    -threaded -rtsopts
