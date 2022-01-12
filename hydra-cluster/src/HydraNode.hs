@@ -130,16 +130,14 @@ waitForAll tracer delay nodes expected = do
           toString $
             unlines
               [ "waitFor... timeout!"
-              , padRight " " 20 "  nodeId:"
+              , padRight ' ' 20 "  nodeId:"
                   <> show hydraNodeId
-              , padRight " " 20 "  expected:"
+              , padRight ' ' 20 "  expected:"
                   <> unlines (align 20 (decodeUtf8 . Aeson.encode <$> expected))
-              , padRight " " 20 "  seen messages:"
+              , padRight ' ' 20 "  seen messages:"
                   <> unlines (align 20 (decodeUtf8 . Aeson.encode <$> actualMsgs))
               ]
  where
-  padRight c n str = T.take n (str <> T.replicate n c)
-
   align _ [] = []
   align n (h : q) = h : fmap (T.replicate n " " <>) q
 
