@@ -318,10 +318,7 @@ collectComTx networkId utxo (Api.fromLedgerTxIn -> headInput, Api.fromLedgerData
     Api.fromPlutusScript $ Head.validatorScript policyId
   headRedeemer =
     Api.mkRedeemerForTxIn $
-      Head.CollectCom
-        { collectedValue = Api.toPlutusValue commitValue
-        , utxoHash
-        }
+      Head.CollectCom{utxoHash}
   utxoHash = toBuiltin $ hashTxOuts $ toList utxo
   headOutput =
     Api.TxOut

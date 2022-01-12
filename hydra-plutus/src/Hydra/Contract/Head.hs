@@ -70,10 +70,12 @@ hydraStateMachine _policyId =
 
 {-# INLINEABLE hydraTransition #-}
 hydraTransition :: ScriptContext -> SM.State State -> Input -> Maybe (TxConstraints Void Void, SM.State State)
-hydraTransition _context oldState input =
+hydraTransition context oldState input =
   case (SM.stateData oldState, input) of
     (Initial{parties}, CollectCom{utxoHash}) ->
-      let collectedValue = traceError "todo"
+      let collectedValue = foldMap getValue commitInputs
+          getValue = traceError "todo"
+          commitInputs = traceError "todo"
        in Just
             ( mempty
             , oldState
@@ -92,6 +94,10 @@ hydraTransition _context oldState input =
     (Closed{}, Fanout{}) ->
       Just (mempty, oldState{SM.stateData = Final, SM.stateValue = mempty})
     _ -> Nothing
+ where
+  TxInfo{txInfoInputs, txInfoOutputs} = txInfo
+
+  ScriptContext{scriptContextTxInfo = txInfo} = context
 
 hydraContextCheck :: State -> Input -> ScriptContext -> Bool
 hydraContextCheck state input context =
