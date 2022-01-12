@@ -71,13 +71,21 @@ encodeListLen = Encoding . encodeUnsigned 4
 {-# INLINEABLE encodeListLen #-}
 
 encodeList :: (a -> Encoding) -> [a] -> Encoding
-encodeList encodeElem es =
-  encodeListLen (length es) <> foldMap encodeElem es
+encodeList encodeElem =
+  step 0 mempty
+ where
+  step n bs = \case
+    [] -> encodeListLen n <> bs
+    (e : q) -> step (n + 1) (bs <> encodeElem e) q
 {-# INLINEABLE encodeList #-}
 
 encodeListIndef :: (a -> Encoding) -> [a] -> Encoding
 encodeListIndef encodeElem es =
-  encodeBeginList <> foldMap encodeElem es <> encodeBreak
+  encodeBeginList <> step es
+ where
+  step = \case
+    [] -> encodeBreak
+    (e : q) -> encodeElem e <> step q
 {-# INLINEABLE encodeListIndef #-}
 
 encodeBeginList :: Encoding
@@ -104,15 +112,21 @@ encodeMapLen = Encoding . encodeUnsigned 5
 {-# INLINEABLE encodeMapLen #-}
 
 encodeMap :: (k -> Encoding) -> (v -> Encoding) -> Map k v -> Encoding
-encodeMap encodeKey encodeValue m =
-  encodeMapLen (length m) <> foldMap (\(k, v) -> encodeKey k <> encodeValue v) (Map.toList m)
+encodeMap encodeKey encodeValue =
+  step 0 mempty . Map.toList
+ where
+  step n bs = \case
+    [] -> encodeMapLen n <> bs
+    ((k, v) : q) -> step (n + 1) (bs <> encodeKey k <> encodeValue v) q
 {-# INLINEABLE encodeMap #-}
 
 encodeMapIndef :: (k -> Encoding) -> (v -> Encoding) -> Map k v -> Encoding
 encodeMapIndef encodeKey encodeValue m =
-  encodeBeginMap
-    <> foldMap (\(k, v) -> encodeKey k <> encodeValue v) (Map.toList m)
-    <> encodeBreak
+  encodeBeginMap <> step (Map.toList m)
+ where
+  step = \case
+    [] -> encodeBreak
+    ((k, v) : q) -> encodeKey k <> encodeValue v <> step q
 {-# INLINEABLE encodeMapIndef #-}
 
 encodeBeginMap :: Encoding
