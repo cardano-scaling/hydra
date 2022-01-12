@@ -42,6 +42,7 @@ import Data.Typeable (typeRep)
 import GHC.Exception (SrcLoc (..))
 import System.Directory (removePathForcibly)
 import System.Exit (ExitCode (..))
+import System.Info (os)
 import System.IO.Temp (createTempDirectory, getCanonicalTemporaryDirectory)
 import System.Process (ProcessHandle, waitForProcess)
 import Test.HSpec.JUnit (junitFormat)
@@ -52,9 +53,11 @@ import Test.QuickCheck (Property, Testable, coverTable, scale, tabulate)
 
 -- | Create a unique temporary directory.
 createSystemTempDirectory :: String -> IO FilePath
-createSystemTempDirectory template =
-  getCanonicalTemporaryDirectory >>= \tmpDir ->
-    createTempDirectory tmpDir template
+createSystemTempDirectory template = do
+  tmpDir <- case os of
+    "darwin" -> pure "/tmp" -- https://github.com/input-output-hk/hydra-poc/issues/158.
+    _ -> getCanonicalTemporaryDirectory
+  createTempDirectory tmpDir template
 
 -- | Create a temporary directory for the given 'action' to use.
 -- The directory is removed if and only if the action completes successfuly.
