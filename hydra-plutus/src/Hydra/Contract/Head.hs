@@ -41,9 +41,7 @@ data State
 PlutusTx.unstableMakeIsData ''State
 
 data Input
-  = -- FIXME(AB): The collected value should not be passed as input but inferred from
-    -- collected commits' value
-    CollectCom {collectedValue :: Value, utxoHash :: Hash}
+  = CollectCom {utxoHash :: Hash}
   | Close
       { snapshotNumber :: SnapshotNumber
       , utxoHash :: Hash
@@ -71,11 +69,18 @@ hydraStateMachine _policyId =
   isFinal _ = False
 
 {-# INLINEABLE hydraTransition #-}
-hydraTransition :: SM.State State -> Input -> Maybe (TxConstraints Void Void, SM.State State)
-hydraTransition oldState input =
+hydraTransition :: ScriptContext -> SM.State State -> Input -> Maybe (TxConstraints Void Void, SM.State State)
+hydraTransition _context oldState input =
   case (SM.stateData oldState, input) of
-    (Initial{parties}, CollectCom{collectedValue, utxoHash}) ->
-      Just (mempty, oldState{SM.stateData = Open{parties, utxoHash}, SM.stateValue = collectedValue <> SM.stateValue oldState})
+    (Initial{parties}, CollectCom{utxoHash}) ->
+      let collectedValue = traceError "todo"
+       in Just
+            ( mempty
+            , oldState
+                { SM.stateData = Open{parties, utxoHash}
+                , SM.stateValue = collectedValue <> SM.stateValue oldState
+                }
+            )
     (Initial{}, Abort) ->
       Just (mempty, oldState{SM.stateData = Final, SM.stateValue = mempty})
     (Open{parties, utxoHash = openedUtxoHash}, Close{snapshotNumber, signature, utxoHash = closedUtxoHash})
