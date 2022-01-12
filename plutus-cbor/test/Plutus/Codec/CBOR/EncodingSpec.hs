@@ -36,6 +36,7 @@ import Test.Plutus.Codec.CBOR.Encoding.Validators (
   encodeIntegerValidator,
   encodeListValidator,
   encodeTxOutValidator,
+  encodeTxOutsValidator,
  )
 import Test.Plutus.Validator (
   ExUnits (..),
@@ -102,7 +103,18 @@ spec = do
             , rationalToPercent cpu
             ]
 
-    it "TxOut" $ do
+    it "[TxOut] (ada-only)" $ do
+      forM_ [1 .. 50] $ \n -> do
+        let x = generateWith (vectorOf n genAdaOnlyTxOut) 42
+        let (mem, cpu) = relativeCostOf x defaultMaxExecutionUnits encodeTxOutsValidator
+        putTextLn @IO $
+          unwords
+            [ padLeft ' ' 2 (show n)
+            , rationalToPercent mem
+            , rationalToPercent cpu
+            ]
+
+    it "TxOut (multi-asset)" $ do
       forM_ [1 .. 50] $ \n -> do
         let x = generateWith (genTxOut n) 42
         let (mem, cpu) = relativeCostOf x defaultMaxExecutionUnits encodeTxOutValidator
@@ -353,7 +365,7 @@ genValue = do
 
 genAdaOnlyValue :: Gen Plutus.Value
 genAdaOnlyValue = do
-  n <- genInteger `suchThat` (> 0)
+  n <- genInteger `suchThat` (\x -> x > 0 && x < 45_000_000_000)
   pure $
     Plutus.Value $
       Plutus.Map.fromList
