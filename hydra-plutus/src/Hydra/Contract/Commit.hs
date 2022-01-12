@@ -48,6 +48,9 @@ typedValidator = Scripts.mkTypedValidator @Commit
 validatorScript :: Script
 validatorScript = unValidatorScript $ Scripts.validatorScript typedValidator
 
+address :: Address
+address = scriptHashAddress $ Scripts.validatorHash typedValidator
+
 datum :: DatumType Commit -> Datum
 datum a = Datum (toBuiltinData a)
 

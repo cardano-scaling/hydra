@@ -12,6 +12,7 @@ import Control.Monad (guard)
 import Data.Aeson (FromJSON, ToJSON)
 import Data.Void (Void)
 import GHC.Generics (Generic)
+import qualified Hydra.Contract.Commit as Commit
 import Hydra.Contract.Encoding (serialiseTxOuts)
 import Hydra.Data.ContestationPeriod (ContestationPeriod)
 import Hydra.Data.Party (Party (UnsafeParty))
@@ -74,8 +75,7 @@ hydraTransition context oldState input =
   case (SM.stateData oldState, input) of
     (Initial{parties}, CollectCom{utxoHash}) ->
       let collectedValue = foldMap getValue commitInputs
-          getValue = traceError "todo"
-          commitInputs = traceError "todo"
+          commitInputs = filter payToCommitScript txInfoInputs
        in Just
             ( mempty
             , oldState
@@ -95,7 +95,11 @@ hydraTransition context oldState input =
       Just (mempty, oldState{SM.stateData = Final, SM.stateValue = mempty})
     _ -> Nothing
  where
-  TxInfo{txInfoInputs, txInfoOutputs} = txInfo
+  payToCommitScript TxInInfo{txInInfoResolved} = txOutAddress txInInfoResolved == Commit.address
+
+  getValue TxInInfo{txInInfoResolved} = txOutValue txInInfoResolved
+
+  TxInfo{txInfoInputs} = txInfo
 
   ScriptContext{scriptContextTxInfo = txInfo} = context
 
