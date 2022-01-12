@@ -57,21 +57,32 @@ PlutusTx.unstableMakeIsData ''Input
 type Head = StateMachine State Input
 
 {-# INLINEABLE hydraStateMachine #-}
-hydraStateMachine :: MintingPolicyHash -> StateMachine State Input
-hydraStateMachine _policyId =
+hydraStateMachine ::
+  -- | Commit script address.
+  Address ->
+  MintingPolicyHash ->
+  StateMachine State Input
+hydraStateMachine commitAddress _policyId =
   -- XXX(SN): This should actually be '(Just policyId)' as we wan't to have
   -- "contract continuity" as described in the EUTXO paper. While we do have a
   -- fix for the 'runStep' handling now, the current version of plutus does
   -- forge a given 'ThreadToken' upon 'runInitialise' now.. which is not what we
   -- want as we need additional tokens being forged as well (see 'watchInit').
-  SM.StateMachine hydraTransition isFinal hydraContextCheck Nothing
+  SM.StateMachine (hydraTransition commitAddress) isFinal hydraContextCheck Nothing
  where
   isFinal Final{} = True
   isFinal _ = False
 
 {-# INLINEABLE hydraTransition #-}
-hydraTransition :: ScriptContext -> SM.State State -> Input -> Maybe (TxConstraints Void Void, SM.State State)
-hydraTransition context oldState input =
+hydraTransition ::
+  -- | Commit script address. NOTE: Used to identify inputs from commits and
+  -- likely could be replaced by looking for PTs.
+  Address ->
+  ScriptContext ->
+  SM.State State ->
+  Input ->
+  Maybe (TxConstraints Void Void, SM.State State)
+hydraTransition commitAddress context oldState input =
   case (SM.stateData oldState, input) of
     (Initial{parties}, CollectCom{utxoHash}) ->
       let collectedValue = foldMap getValue commitInputs
@@ -95,7 +106,7 @@ hydraTransition context oldState input =
       Just (mempty, oldState{SM.stateData = Final, SM.stateValue = mempty})
     _ -> Nothing
  where
-  payToCommitScript TxInInfo{txInInfoResolved} = txOutAddress txInInfoResolved == Commit.address
+  payToCommitScript TxInInfo{txInInfoResolved} = txOutAddress txInInfoResolved == commitAddress
 
   getValue TxInInfo{txInInfoResolved} = txOutValue txInInfoResolved
 
@@ -165,14 +176,18 @@ mockSign vkey msg = appendByteString (sliceByteString 0 8 hashedMsg) (encodingTo
 -- see 'encodeAddress' for details
 typedValidator :: MintingPolicyHash -> Scripts.TypedValidator (StateMachine State Input)
 typedValidator policyId =
-  let val =
-        $$(PlutusTx.compile [||validatorParam||])
-          `PlutusTx.applyCode` PlutusTx.liftCode policyId
-      validatorParam c = SM.mkValidator (hydraStateMachine c)
-      wrap = Scripts.wrapValidator @State @Input
-   in Scripts.mkTypedValidator @(StateMachine State Input)
-        val
-        $$(PlutusTx.compile [||wrap||])
+  Scripts.mkTypedValidator @(StateMachine State Input)
+    compiledValidator
+    $$(PlutusTx.compile [||wrap||])
+ where
+  compiledValidator =
+    $$(PlutusTx.compile [||smValidator||])
+      `PlutusTx.applyCode` PlutusTx.liftCode Commit.address
+      `PlutusTx.applyCode` PlutusTx.liftCode policyId
+
+  smValidator commitAddress pid = SM.mkValidator (hydraStateMachine commitAddress pid)
+
+  wrap = Scripts.wrapValidator @State @Input
 
 validatorHash :: MintingPolicyHash -> ValidatorHash
 validatorHash = Scripts.validatorHash . typedValidator
