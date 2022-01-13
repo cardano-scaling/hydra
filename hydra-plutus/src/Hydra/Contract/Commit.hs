@@ -10,8 +10,7 @@ import PlutusTx.Prelude
 
 import Hydra.Data.Party (Party)
 import Hydra.Data.Utxo (Utxo)
-import Ledger.Typed.Scripts (TypedValidator, ValidatorType, ValidatorTypes (..))
-import qualified Ledger.Typed.Scripts as Scripts
+import qualified Ledger.Scripts as Scripts
 import PlutusTx (CompiledCode)
 import qualified PlutusTx
 import PlutusTx.IsData.Class (ToData (..))
@@ -24,35 +23,27 @@ data CommitRedeemer
 
 PlutusTx.unstableMakeIsData ''CommitRedeemer
 
-instance Scripts.ValidatorTypes Commit where
-  type DatumType Commit = (Party, Utxo)
-  type RedeemerType Commit = Redeemer
+validatorLogic :: BuiltinData -> BuiltinData -> BuiltinData -> ()
+validatorLogic _datum _redeemer _ctx = ()
 
-validator :: DatumType Commit -> RedeemerType Commit -> ScriptContext -> Bool
-validator _datum _redeemer _ctx = True
-
-compiledValidator :: CompiledCode (ValidatorType Commit)
-compiledValidator = $$(PlutusTx.compile [||validator||])
+compiledValidator :: CompiledCode (BuiltinData -> BuiltinData -> BuiltinData -> ())
+compiledValidator = $$(PlutusTx.compile [||validatorLogic||])
 
 {- ORMOLU_DISABLE -}
-typedValidator :: TypedValidator Commit
-typedValidator = Scripts.mkTypedValidator @Commit
-  compiledValidator
-  $$(PlutusTx.compile [|| wrap ||])
- where
-  wrap = Scripts.wrapValidator @(DatumType Commit) @(RedeemerType Commit)
+validator :: Validator
+validator = Scripts.mkValidatorScript compiledValidator
 {- ORMOLU_ENABLE -}
 
 -- | Get the actual plutus script. Mainly used to serialize and use in
 -- transactions.
 validatorScript :: Script
-validatorScript = unValidatorScript $ Scripts.validatorScript typedValidator
+validatorScript = unValidatorScript validator
 
 address :: Address
-address = scriptHashAddress $ Scripts.validatorHash typedValidator
+address = scriptHashAddress $ Scripts.validatorHash validator
 
-datum :: DatumType Commit -> Datum
+datum :: (Party, Utxo) -> Datum
 datum a = Datum (toBuiltinData a)
 
-redeemer :: CommitRedeemer -> RedeemerType Commit
+redeemer :: CommitRedeemer -> Redeemer
 redeemer a = Redeemer (toBuiltinData a)
