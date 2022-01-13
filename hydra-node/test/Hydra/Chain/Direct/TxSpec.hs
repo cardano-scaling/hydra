@@ -27,6 +27,7 @@ import Cardano.Ledger.Shelley.API (Coin (..), StrictMaybe (..), TxId (..), TxIn 
 import qualified Cardano.Ledger.Shelley.Tx as Ledger
 import Cardano.Ledger.TxIn (txid)
 import Cardano.Ledger.Val (inject)
+import qualified Data.Aeson as Aeson
 import qualified Data.ByteString.Lazy as LBS
 import Data.List (intersect, nub, (\\))
 import qualified Data.Map as Map
@@ -43,6 +44,7 @@ import qualified Hydra.Contract.Head as Head
 import qualified Hydra.Contract.Initial as Initial
 import Hydra.Data.ContestationPeriod (contestationPeriodFromDiffTime)
 import Hydra.Data.Party (partyFromVerKey)
+import Hydra.Data.Utxo (fromByteString)
 import Hydra.Ledger (balance)
 import Hydra.Ledger.Cardano (
   CardanoTx,
@@ -141,20 +143,17 @@ spec =
       prop "is observed" $ \party singleUtxo initialIn ->
         let tx = commitTx testNetworkId party (Just singleUtxo) initialIn
             committedUtxo = Utxo $ Map.fromList [singleUtxo]
-            commitAddress = scriptAddr $ plutusScript Commit.validatorScript
             commitOutput = TxOut @Era commitAddress commitValue (SJust $ hashData commitDatum)
+            commitAddress = scriptAddr $ plutusScript Commit.validatorScript
             commitValue = inject (Coin 2_000_000) <> toMaryValue (balance @CardanoTx committedUtxo)
-            commitDatum = Data $ toData $ mkCommitDatum party (Just singleUtxo)
+            commitDatum =
+              Data . toData $
+                Commit.datum (partyFromVerKey $ vkey party, commitUtxo)
+            commitUtxo =
+              fromByteString $ toStrict $ Aeson.encode committedUtxo
             expectedOutput = (TxIn (Ledger.TxId (SafeHash.hashAnnotated $ body tx)) 0, commitOutput, commitDatum)
-         in ( case observeCommitTx testNetworkId tx of
-                Just (OnCommitTx{party = party', committed}, expectedOutput') ->
-                  conjoin
-                    [ expectedOutput === expectedOutput'
-                    , party === party'
-                    , toList committedUtxo === toList committed
-                    ]
-                _ -> property False
-            )
+         in observeCommitTx testNetworkId tx
+              === Just (OnCommitTx{party, committed = committedUtxo}, expectedOutput)
               & counterexample ("Tx: " <> show tx)
 
       prop "consumes all inputs that are committed from initials" $ \party singleUtxo (NonEmpty txInputs) ->
@@ -169,8 +168,12 @@ spec =
             commitOutput = TxOut @Era commitAddress commitValue (SJust $ hashData commitDatum)
             commitAddress = scriptAddr $ plutusScript Commit.validatorScript
             commitValue = inject (Coin 2_000_000) <> toMaryValue (balance @CardanoTx committedUtxo)
-            commitDatum = Data $ toData $ mkCommitDatum party (Just singleUtxo)
+            commitDatum =
+              Data . toData $
+                Commit.datum (partyFromVerKey $ vkey party, commitUtxo)
             commitInput = TxIn (txid $ body tx) 0
+            commitUtxo =
+              fromByteString $ toStrict $ Aeson.encode committedUtxo
             onChainState =
               Initial
                 { threadOutput = error "should not be evaluated anyway."
@@ -223,26 +226,27 @@ spec =
                 & counterexample ("Observe result: " <> show res)
                 & counterexample ("Tx: " <> show tx)
 
-      prop "validates" $ \headInput cperiod ->
-        forAll (vectorOf 3 arbitrary) $ \commitPartiesAndUtxos ->
-          forAll (generateCommitUtxos commitPartiesAndUtxos) $ \commitsUtxo ->
-            forAll (reasonablySized genUtxoWithSimplifiedAddresses) $ \inHeadUtxo ->
-              let onChainUtxo = UTxO $ Map.singleton headInput headOutput <> fmap fst commitsUtxo
-                  headOutput = mkHeadOutput $ SJust headDatum
-                  parties = fst <$> commitPartiesAndUtxos
-                  committedUtxo = fold $ snd <$> commitPartiesAndUtxos
-                  onChainParties = partyFromVerKey . vkey <$> parties
-                  headDatum = Data . toData $ Head.Initial cperiod onChainParties
-                  tx = collectComTx testNetworkId committedUtxo (headInput, headDatum, onChainParties) commitsUtxo
-               in checkCoverage $ case validateTxScriptsUnlimited onChainUtxo tx of
-                    Left basicFailure ->
-                      property False & counterexample ("Basic failure: " <> show basicFailure)
-                    Right redeemerReport ->
-                      length commitsUtxo + 1 == length (rights $ Map.elems redeemerReport)
-                        & label (show (length inHeadUtxo) <> " UTXO")
-                        & counterexample ("Redeemer report: " <> showPretty onChainUtxo tx redeemerReport)
-                        & counterexample ("Tx: " <> toString (describeCardanoTx (fromLedgerTx tx)))
-                        & cover 0.8 True "Success"
+      modifyMaxSuccess (const 10) $
+        prop "validates" $ \headInput cperiod ->
+          forAll (vectorOf 20 arbitrary) $ \commitPartiesAndUtxos ->
+            forAll (generateCommitUtxos commitPartiesAndUtxos) $ \commitsUtxo ->
+              forAll (reasonablySized genUtxoWithSimplifiedAddresses) $ \inHeadUtxo ->
+                let onChainUtxo = UTxO $ Map.singleton headInput headOutput <> fmap fst commitsUtxo
+                    headOutput = mkHeadOutput $ SJust headDatum
+                    parties = fst <$> commitPartiesAndUtxos
+                    committedUtxo = fold $ snd <$> commitPartiesAndUtxos
+                    onChainParties = partyFromVerKey . vkey <$> parties
+                    headDatum = Data . toData $ Head.Initial cperiod onChainParties
+                    tx = collectComTx testNetworkId committedUtxo (headInput, headDatum, onChainParties) commitsUtxo
+                 in checkCoverage $ case validateTxScriptsUnlimited onChainUtxo tx of
+                      Left basicFailure ->
+                        property False & counterexample ("Basic failure: " <> show basicFailure)
+                      Right redeemerReport ->
+                        length commitsUtxo + 1 == length (rights $ Map.elems redeemerReport)
+                          & label (show (length inHeadUtxo) <> " UTXO")
+                          & counterexample ("Redeemer report: " <> showPretty onChainUtxo tx redeemerReport)
+                          & counterexample ("Tx: " <> toString (describeCardanoTx (fromLedgerTx tx)))
+                          & cover 0.8 True "Success"
 
     describe "closeTx" $ do
       prop "transaction size below limit" $ \headIn parties snapshot sig ->
