@@ -81,9 +81,6 @@ library
     Hydra.Data.Party
     Hydra.Data.Utxo
     Hydra.OnChain.Util
-    Plutus.Contract.StateMachine.MintingPolarity
-    Plutus.Contract.StateMachine.OnChain
-    Plutus.Contract.StateMachine.ThreadToken
     Plutus.Orphans
 
   hs-source-dirs:  src

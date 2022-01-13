@@ -378,7 +378,7 @@ genCloseMutation (_tx, _utxo) =
     [ SomeMutation MutateSignatureButNotSnapshotNumber . ChangeHeadRedeemer <$> do
         closeRedeemer (number healthySnapshot) <$> arbitrary
     , SomeMutation MutateSnapshotNumberButNotSignature . ChangeHeadRedeemer <$> do
-        mutatedSnapshotNumber <- arbitrarySizedNatural `suchThat` (/= healthySnapshotNumber)
+        mutatedSnapshotNumber <- arbitrarySizedNatural `suchThat` (\n -> n /= healthySnapshotNumber && n > 0)
         pure (closeRedeemer mutatedSnapshotNumber $ healthySignature healthySnapshotNumber)
     , SomeMutation MutateSnapshotToIllFormedValue . ChangeHeadRedeemer <$> do
         mutatedSnapshotNumber <- arbitrary `suchThat` (< 0)
