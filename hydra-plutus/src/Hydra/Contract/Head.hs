@@ -85,8 +85,15 @@ hydraTransition ::
 hydraTransition commitAddress context oldState input =
   case (SM.stateData oldState, input) of
     (Initial{parties}, CollectCom{utxoHash}) ->
-      let collectedValue = foldMap getValue commitInputs
-          commitInputs = filter payToCommitScript txInfoInputs
+      let collectedValue =
+            foldr
+              ( \TxInInfo{txInInfoResolved} val ->
+                  if txOutAddress txInInfoResolved == commitAddress
+                    then val + txOutValue txInInfoResolved
+                    else val
+              )
+              mempty
+              txInfoInputs
        in Just
             ( mempty
             , oldState
@@ -106,10 +113,6 @@ hydraTransition commitAddress context oldState input =
       Just (mempty, oldState{SM.stateData = Final, SM.stateValue = mempty})
     _ -> Nothing
  where
-  payToCommitScript TxInInfo{txInInfoResolved} = txOutAddress txInInfoResolved == commitAddress
-
-  getValue TxInInfo{txInInfoResolved} = txOutValue txInInfoResolved
-
   TxInfo{txInfoInputs} = txInfo
 
   ScriptContext{scriptContextTxInfo = txInfo} = context

@@ -224,7 +224,7 @@ spec =
                 & counterexample ("Tx: " <> show tx)
 
       prop "validates" $ \headInput cperiod ->
-        forAll (vectorOf 8 arbitrary) $ \commitPartiesAndUtxos ->
+        forAll (vectorOf 3 arbitrary) $ \commitPartiesAndUtxos ->
           forAll (generateCommitUtxos commitPartiesAndUtxos) $ \commitsUtxo ->
             forAll (reasonablySized genUtxoWithSimplifiedAddresses) $ \inHeadUtxo ->
               let onChainUtxo = UTxO $ Map.singleton headInput headOutput <> fmap fst commitsUtxo
@@ -486,15 +486,16 @@ mkHeadOutput headDatum = TxOut headAddress headValue headDatumHash
 instance Arbitrary (VerificationKey PaymentKey) where
   arbitrary = fst <$> genKeyPair
 
+-- FIXME: This function is very complicated and it's hard to understand it after a while
 generateCommitUtxos :: [(Party, Utxo)] -> Gen (Map.Map (TxIn StandardCrypto) (TxOut Era, Data Era))
-generateCommitUtxos parties = error "WIP" do
-  txins <- vectorOf (length parties) arbitrary
+generateCommitUtxos parties = do
+  txins <- vectorOf (length parties) (arbitrary @(TxIn StandardCrypto))
   committedUtxo <- vectorOf (length parties) $ do
     singleUtxo <- genOneUtxoFor =<< arbitrary
     pure $ head <$> nonEmpty (utxoPairs singleUtxo)
   let commitUtxo =
         zip txins $
-          uncurry mkCommitUtxo <$> zip parties committedUtxo
+          uncurry mkCommitUtxo <$> zip (fst <$> parties) committedUtxo
   pure $ Map.fromList commitUtxo
  where
   mkCommitUtxo :: Party -> Maybe (Api.TxIn, Api.TxOut Api.CtxUTxO Api.Era) -> (TxOut Era, Data Era)
