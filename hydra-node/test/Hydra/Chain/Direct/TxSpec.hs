@@ -142,17 +142,20 @@ spec =
       prop "is observed" $ \party singleUtxo initialIn ->
         let tx = commitTx testNetworkId party (Just singleUtxo) initialIn
             committedUtxo = Utxo $ Map.fromList [singleUtxo]
-            commitOutput = TxOut @Era commitAddress commitValue (SJust $ hashData commitDatum)
             commitAddress = scriptAddr $ plutusScript Commit.validatorScript
+            commitOutput = TxOut @Era commitAddress commitValue (SJust $ hashData commitDatum)
             commitValue = inject (Coin 2_000_000) <> toMaryValue (balance @CardanoTx committedUtxo)
-            commitDatum =
-              Data . toData $
-                Commit.datum (partyFromVerKey $ vkey party, commitUtxo)
-            commitUtxo =
-              fromByteString $ toStrict $ Aeson.encode committedUtxo
+            commitDatum = Data $ toData $ mkCommitDatum party (Just singleUtxo)
             expectedOutput = (TxIn (Ledger.TxId (SafeHash.hashAnnotated $ body tx)) 0, commitOutput, commitDatum)
-         in observeCommitTx testNetworkId tx
-              === Just (OnCommitTx{party, committed = committedUtxo}, expectedOutput)
+         in ( case observeCommitTx testNetworkId tx of
+                Just (OnCommitTx{party = party', committed}, expectedOutput') ->
+                  conjoin
+                    [ expectedOutput === expectedOutput'
+                    , party === party'
+                    , toList committedUtxo === toList committed
+                    ]
+                _ -> property False
+            )
               & counterexample ("Tx: " <> show tx)
 
       prop "consumes all inputs that are committed from initials" $ \party singleUtxo (NonEmpty txInputs) ->
@@ -167,12 +170,8 @@ spec =
             commitOutput = TxOut @Era commitAddress commitValue (SJust $ hashData commitDatum)
             commitAddress = scriptAddr $ plutusScript Commit.validatorScript
             commitValue = inject (Coin 2_000_000) <> toMaryValue (balance @CardanoTx committedUtxo)
-            commitDatum =
-              Data . toData $
-                Commit.datum (partyFromVerKey $ vkey party, commitUtxo)
+            commitDatum = Data $ toData $ mkCommitDatum party (Just singleUtxo)
             commitInput = TxIn (txid $ body tx) 0
-            commitUtxo =
-              fromByteString $ toStrict $ Aeson.encode committedUtxo
             onChainState =
               Initial
                 { threadOutput = error "should not be evaluated anyway."
