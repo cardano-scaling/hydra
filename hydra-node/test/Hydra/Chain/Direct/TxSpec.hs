@@ -34,6 +34,7 @@ import qualified Data.Map as Map
 import Data.Maybe (fromJust)
 import Data.Maybe.Strict (strictMaybeToMaybe)
 import Data.Sequence.Strict (StrictSeq ((:<|)))
+import qualified Data.Text as T
 import Hydra.Chain (HeadParameters (..), OnChainTx (..))
 import Hydra.Chain.Direct.Fixture (costModels, epochInfo, maxTxSize, pparams, systemStart, testNetworkId)
 import Hydra.Chain.Direct.Util (Era)
@@ -53,6 +54,7 @@ import Hydra.Ledger.Cardano (
   Utxo' (Utxo),
   VerificationKey,
   describeCardanoTx,
+  fromLedgerAddr,
   fromLedgerTx,
   fromLedgerTxIn,
   genAdaOnlyUtxo,
@@ -431,15 +433,16 @@ spec =
 
 showPretty :: UTxO Era -> ValidatedTx Era -> Map RdmrPtr (Either (ScriptFailure LedgerCrypto) ExUnits) -> String
 showPretty (UTxO utxoMap) ValidatedTx{body, wits} evaluationResult =
-  Prelude.unlines (show $ bimap showPrettyTxIn showPrettyResult rdmrsResults)
+  toString $ unlines (map ((\(txin, res) -> txin <> ": \n" <> res) . bimap showPrettyTxIn showPrettyResult) rdmrsResults)
  where
   showPrettyTxIn = Api.renderTxIn . fromLedgerTxIn
 
-  showPrettyResult (addr, datum, res) =
-    unwords
-      [ Api.serialiseToRawBytesHexText addr
-      , show datum
-      , either show showPrettyExUnits res
+  showPrettyResult (addr, datum, rdmr, res) =
+    unlines
+      [ "\taddr: " <> T.take 8 (Api.serialiseToRawBytesHexText $ fromLedgerAddr addr)
+      , "\tdatum: " <> show datum
+      , "\tredeemer: " <> show rdmr
+      , either (("\tresult: " <>) . show) (("\tcost: " <>) . showPrettyExUnits) res
       ]
 
   showPrettyExUnits (ExUnits mem cpu) =
@@ -447,14 +450,16 @@ showPretty (UTxO utxoMap) ValidatedTx{body, wits} evaluationResult =
 
   inputPtrs = zip [0 :: Natural ..] $ toList (inputs body)
   datums = unTxDats $ txdats wits
+  redeemers = unRedeemers $ txrdmrs wits
   inputAndRdmrs =
     Map.fromList $
       mapMaybe
         ( \(idx, txIn) -> do
             let ptr = RdmrPtr Spend $ fromIntegral idx
             TxOut addr _value datum <- Map.lookup txIn utxoMap
+            rdmr <- Map.lookup ptr redeemers
             dat <- (`Map.lookup` datums) =<< strictMaybeToMaybe datum
-            pure (ptr, (txIn, addr, dat))
+            pure (ptr, (txIn, addr, dat, rdmr))
         )
         inputPtrs
   rdmrsResults =
@@ -462,7 +467,7 @@ showPretty (UTxO utxoMap) ValidatedTx{body, wits} evaluationResult =
       Map.foldrWithKey
         ( \ptr res m ->
             case Map.lookup ptr inputAndRdmrs of
-              Just (txIn, addr, datum) -> Map.insert txIn (addr, datum, res) m
+              Just (txIn, addr, datum, rdmr) -> Map.insert txIn (addr, datum, rdmr, res) m
               _ -> m
         )
         mempty
