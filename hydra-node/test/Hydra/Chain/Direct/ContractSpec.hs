@@ -127,7 +127,8 @@ spec = do
       "verifies snapshot multi-signature for list of parties and signatures"
       prop_verifySnapshotSignatures
   describe "TxOut hashing" $ do
-    prop "OffChain.hashTxOuts == OnChain.hashTxOuts" prop_consistentOnAndOffChainHashOfTxOuts
+    modifyMaxSuccess (const 20) $
+      prop "OffChain.hashTxOuts == OnChain.hashTxOuts" prop_consistentOnAndOffChainHashOfTxOuts
   describe "Close" $ do
     prop "is healthy" $
       propTransactionValidates healthyCloseTx
