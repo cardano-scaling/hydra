@@ -10,7 +10,8 @@ import PlutusTx.Prelude
 
 import Hydra.Data.Party (Party)
 import Hydra.Data.Utxo (Utxo)
-import qualified Ledger.Scripts as Scripts
+import Ledger.Typed.Scripts (TypedValidator, ValidatorType, ValidatorTypes (..))
+import qualified Ledger.Typed.Scripts as Scripts
 import PlutusTx (CompiledCode)
 import qualified PlutusTx
 import PlutusTx.IsData.Class (ToData (..))
@@ -23,27 +24,35 @@ data CommitRedeemer
 
 PlutusTx.unstableMakeIsData ''CommitRedeemer
 
-validatorLogic :: BuiltinData -> BuiltinData -> BuiltinData -> ()
-validatorLogic _datum _redeemer _ctx = ()
+instance Scripts.ValidatorTypes Commit where
+  type DatumType Commit = (Party, Utxo)
+  type RedeemerType Commit = Redeemer
 
-compiledValidator :: CompiledCode (BuiltinData -> BuiltinData -> BuiltinData -> ())
-compiledValidator = $$(PlutusTx.compile [||validatorLogic||])
+validator :: DatumType Commit -> RedeemerType Commit -> ScriptContext -> Bool
+validator _datum _redeemer _ctx = True
+
+compiledValidator :: CompiledCode (ValidatorType Commit)
+compiledValidator = $$(PlutusTx.compile [||validator||])
 
 {- ORMOLU_DISABLE -}
-validator :: Validator
-validator = Scripts.mkValidatorScript compiledValidator
+typedValidator :: TypedValidator Commit
+typedValidator = Scripts.mkTypedValidator @Commit
+  compiledValidator
+  $$(PlutusTx.compile [|| wrap ||])
+ where
+  wrap = Scripts.wrapValidator @(DatumType Commit) @(RedeemerType Commit)
 {- ORMOLU_ENABLE -}
 
 -- | Get the actual plutus script. Mainly used to serialize and use in
 -- transactions.
 validatorScript :: Script
-validatorScript = unValidatorScript validator
+validatorScript = unValidatorScript $ Scripts.validatorScript typedValidator
 
 address :: Address
-address = scriptHashAddress $ Scripts.validatorHash validator
+address = scriptHashAddress $ Scripts.validatorHash typedValidator
 
-datum :: (Party, Utxo) -> Datum
+datum :: DatumType Commit -> Datum
 datum a = Datum (toBuiltinData a)
 
-redeemer :: CommitRedeemer -> Redeemer
+redeemer :: CommitRedeemer -> RedeemerType Commit
 redeemer a = Redeemer (toBuiltinData a)
