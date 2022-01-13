@@ -284,9 +284,9 @@ mkCommitDatum (partyFromVerKey . vkey -> party) utxo =
  where
   commitUtxo = fromByteString $
     toStrict $
-      Aeson.encode $ case utxo of
-        Nothing -> mempty
-        Just (i, o) -> Utxo $ Map.singleton i o
+      case utxo of
+        Nothing -> ""
+        Just (_, o) -> Aeson.encode o
 
 -- | Create a transaction collecting all "committed" utxo and opening a Head,
 -- i.e. driving the Head script state.
@@ -522,7 +522,7 @@ observeCommitTx networkId (Api.getTxBody . fromLedgerTx -> txBody) = do
   (commitIn, commitOut) <- Api.findTxOutByAddress commitAddress txBody
   dat <- getDatum commitOut
   (party, utxo) <- fromData $ toPlutusData dat
-  onChainTx <- OnCommitTx (convertParty party) <$> convertUtxo utxo
+  onChainTx <- OnCommitTx (convertParty party) <$> recreateUtxo commitIn utxo
   pure
     ( onChainTx
     ,
@@ -532,7 +532,8 @@ observeCommitTx networkId (Api.getTxBody . fromLedgerTx -> txBody) = do
       )
     )
  where
-  convertUtxo = Aeson.decodeStrict' . OnChain.toByteString
+  recreateUtxo commitIn utxo =
+    (\out -> Utxo $ fromList [(commitIn, out)]) <$> Aeson.decodeStrict' (OnChain.toByteString utxo)
 
   commitAddress = mkScriptAddress @Api.PlutusScriptV1 networkId commitScript
 
