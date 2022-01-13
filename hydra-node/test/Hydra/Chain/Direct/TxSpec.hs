@@ -236,7 +236,7 @@ spec =
                     length commitsUtxo + 1 == length (rights $ Map.elems redeemerReport)
                       & label (show (length inHeadUtxo) <> " UTXO")
                       & counterexample ("Redeemer report: " <> showPretty onChainUtxo tx redeemerReport)
-                      & counterexample ("Tx: " <> show tx)
+                      & counterexample ("Tx: " <> toString (describeCardanoTx (fromLedgerTx tx)))
                       & cover 0.8 True "Success"
 
     describe "closeTx" $ do
@@ -431,29 +431,42 @@ spec =
 
 showPretty :: UTxO Era -> ValidatedTx Era -> Map RdmrPtr (Either (ScriptFailure LedgerCrypto) ExUnits) -> String
 showPretty (UTxO utxoMap) ValidatedTx{body, wits} evaluationResult =
-  let inputPtrs = zip [0 :: Natural ..] $ toList (inputs body)
-      datums = unTxDats $ txdats wits
-      inputAndRdmrs =
-        Map.fromList $
-          mapMaybe
-            ( \(idx, txIn) -> do
-                let ptr = RdmrPtr Spend $ fromIntegral idx
-                TxOut addr _value datum <- Map.lookup txIn utxoMap
-                dat <- (`Map.lookup` datums) =<< strictMaybeToMaybe datum
-                pure (ptr, (txIn, addr, dat))
-            )
-            inputPtrs
-      rdmrsResults =
-        Map.toList $
-          Map.foldrWithKey
-            ( \ptr res m ->
-                case Map.lookup ptr inputAndRdmrs of
-                  Just (txIn, addr, datum) -> Map.insert txIn (addr, datum, res) m
-                  _ -> m
-            )
-            mempty
-            evaluationResult
-   in Prelude.unlines (map show rdmrsResults)
+  Prelude.unlines (show $ bimap showPrettyTxIn showPrettyResult rdmrsResults)
+ where
+  showPrettyTxIn = Api.renderTxIn . fromLedgerTxIn
+
+  showPrettyResult (addr, datum, res) =
+    unwords
+      [ Api.serialiseToRawBytesHexText addr
+      , show datum
+      , either show showPrettyExUnits res
+      ]
+
+  showPrettyExUnits (ExUnits mem cpu) =
+    unwords ["mem =", show mem, ", cpu =", show cpu]
+
+  inputPtrs = zip [0 :: Natural ..] $ toList (inputs body)
+  datums = unTxDats $ txdats wits
+  inputAndRdmrs =
+    Map.fromList $
+      mapMaybe
+        ( \(idx, txIn) -> do
+            let ptr = RdmrPtr Spend $ fromIntegral idx
+            TxOut addr _value datum <- Map.lookup txIn utxoMap
+            dat <- (`Map.lookup` datums) =<< strictMaybeToMaybe datum
+            pure (ptr, (txIn, addr, dat))
+        )
+        inputPtrs
+  rdmrsResults =
+    Map.toList $
+      Map.foldrWithKey
+        ( \ptr res m ->
+            case Map.lookup ptr inputAndRdmrs of
+              Just (txIn, addr, datum) -> Map.insert txIn (addr, datum, res) m
+              _ -> m
+        )
+        mempty
+        evaluationResult
 
 mkHeadOutput :: StrictMaybe (Data Era) -> TxOut Era
 mkHeadOutput headDatum = TxOut headAddress headValue headDatumHash
