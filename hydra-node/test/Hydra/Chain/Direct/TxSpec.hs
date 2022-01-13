@@ -27,7 +27,6 @@ import Cardano.Ledger.Shelley.API (Coin (..), StrictMaybe (..), TxId (..), TxIn 
 import qualified Cardano.Ledger.Shelley.Tx as Ledger
 import Cardano.Ledger.TxIn (txid)
 import Cardano.Ledger.Val (inject)
-import qualified Data.Aeson as Aeson
 import qualified Data.ByteString.Lazy as LBS
 import Data.List (intersect, nub, (\\))
 import qualified Data.Map as Map
@@ -44,7 +43,6 @@ import qualified Hydra.Contract.Head as Head
 import qualified Hydra.Contract.Initial as Initial
 import Hydra.Data.ContestationPeriod (contestationPeriodFromDiffTime)
 import Hydra.Data.Party (partyFromVerKey)
-import Hydra.Data.Utxo (fromByteString)
 import Hydra.Ledger (balance)
 import Hydra.Ledger.Cardano (
   CardanoTx,
@@ -59,6 +57,7 @@ import Hydra.Ledger.Cardano (
   fromLedgerTxIn,
   genAdaOnlyUtxo,
   genKeyPair,
+  genOneUtxoFor,
   genUtxoWithSimplifiedAddresses,
   hashTxOuts,
   shrinkUtxo,
@@ -205,11 +204,13 @@ spec =
               & counterexample ("Tx: " <> show tx)
               & counterexample ("Tx serialized size: " <> show len)
 
-      prop "is observed" $ \(ReasonablySized committedUtxo) headInput cperiod parties ->
-        forAll (generateCommitUtxos parties committedUtxo) $ \commitsUtxo ->
+      prop "is observed" $ \(ReasonablySized commitPartiesAndUtxos) headInput cperiod ->
+        forAll (generateCommitUtxos commitPartiesAndUtxos) $ \commitsUtxo ->
           let committedValue = foldMap (\(TxOut _ v _, _) -> v) commitsUtxo
               headOutput = mkHeadOutput $ SJust headDatum
               headValue = inject (Coin 2_000_000) <> committedValue
+              parties = fst <$> commitPartiesAndUtxos
+              committedUtxo = fold $ snd <$> commitPartiesAndUtxos
               onChainParties = partyFromVerKey . vkey <$> parties
               headDatum = Data . toData $ Head.Initial cperiod onChainParties
               lookupUtxo = Map.singleton headInput headOutput
@@ -222,23 +223,26 @@ spec =
                 & counterexample ("Observe result: " <> show res)
                 & counterexample ("Tx: " <> show tx)
 
-      prop "validates" $ \(ReasonablySized committedUtxo) headInput cperiod parties ->
-        forAll (generateCommitUtxos parties committedUtxo) $ \commitsUtxo ->
-          forAll (reasonablySized genUtxoWithSimplifiedAddresses) $ \inHeadUtxo ->
-            let onChainUtxo = UTxO $ Map.singleton headInput headOutput <> fmap fst commitsUtxo
-                headOutput = mkHeadOutput $ SJust headDatum
-                onChainParties = partyFromVerKey . vkey <$> parties
-                headDatum = Data . toData $ Head.Initial cperiod onChainParties
-                tx = collectComTx testNetworkId committedUtxo (headInput, headDatum, onChainParties) commitsUtxo
-             in checkCoverage $ case validateTxScriptsUnlimited onChainUtxo tx of
-                  Left basicFailure ->
-                    property False & counterexample ("Basic failure: " <> show basicFailure)
-                  Right redeemerReport ->
-                    length commitsUtxo + 1 == length (rights $ Map.elems redeemerReport)
-                      & label (show (length inHeadUtxo) <> " UTXO")
-                      & counterexample ("Redeemer report: " <> showPretty onChainUtxo tx redeemerReport)
-                      & counterexample ("Tx: " <> toString (describeCardanoTx (fromLedgerTx tx)))
-                      & cover 0.8 True "Success"
+      prop "validates" $ \headInput cperiod ->
+        forAll (vectorOf 8 arbitrary) $ \commitPartiesAndUtxos ->
+          forAll (generateCommitUtxos commitPartiesAndUtxos) $ \commitsUtxo ->
+            forAll (reasonablySized genUtxoWithSimplifiedAddresses) $ \inHeadUtxo ->
+              let onChainUtxo = UTxO $ Map.singleton headInput headOutput <> fmap fst commitsUtxo
+                  headOutput = mkHeadOutput $ SJust headDatum
+                  parties = fst <$> commitPartiesAndUtxos
+                  committedUtxo = fold $ snd <$> commitPartiesAndUtxos
+                  onChainParties = partyFromVerKey . vkey <$> parties
+                  headDatum = Data . toData $ Head.Initial cperiod onChainParties
+                  tx = collectComTx testNetworkId committedUtxo (headInput, headDatum, onChainParties) commitsUtxo
+               in checkCoverage $ case validateTxScriptsUnlimited onChainUtxo tx of
+                    Left basicFailure ->
+                      property False & counterexample ("Basic failure: " <> show basicFailure)
+                    Right redeemerReport ->
+                      length commitsUtxo + 1 == length (rights $ Map.elems redeemerReport)
+                        & label (show (length inHeadUtxo) <> " UTXO")
+                        & counterexample ("Redeemer report: " <> showPretty onChainUtxo tx redeemerReport)
+                        & counterexample ("Tx: " <> toString (describeCardanoTx (fromLedgerTx tx)))
+                        & cover 0.8 True "Success"
 
     describe "closeTx" $ do
       prop "transaction size below limit" $ \headIn parties snapshot sig ->
@@ -482,12 +486,15 @@ mkHeadOutput headDatum = TxOut headAddress headValue headDatumHash
 instance Arbitrary (VerificationKey PaymentKey) where
   arbitrary = fst <$> genKeyPair
 
-generateCommitUtxos :: [Party] -> Utxo -> Gen (Map.Map (TxIn StandardCrypto) (TxOut Era, Data Era))
-generateCommitUtxos parties committedUtxo = do
-  txins <- vectorOf (length $ utxoPairs committedUtxo) arbitrary
+generateCommitUtxos :: [(Party, Utxo)] -> Gen (Map.Map (TxIn StandardCrypto) (TxOut Era, Data Era))
+generateCommitUtxos parties = error "WIP" do
+  txins <- vectorOf (length parties) arbitrary
+  committedUtxo <- vectorOf (length parties) $ do
+    singleUtxo <- genOneUtxoFor =<< arbitrary
+    pure $ head <$> nonEmpty (utxoPairs singleUtxo)
   let commitUtxo =
         zip txins $
-          uncurry mkCommitUtxo <$> zip parties (Just <$> utxoPairs committedUtxo)
+          uncurry mkCommitUtxo <$> zip parties committedUtxo
   pure $ Map.fromList commitUtxo
  where
   mkCommitUtxo :: Party -> Maybe (Api.TxIn, Api.TxOut Api.CtxUTxO Api.Era) -> (TxOut Era, Data Era)
