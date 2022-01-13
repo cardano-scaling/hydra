@@ -16,11 +16,11 @@ import Cardano.Binary (serialize)
 import Cardano.Ledger.Alonzo (TxOut)
 import Cardano.Ledger.Alonzo.Data (Data (Data), hashData)
 import Cardano.Ledger.Alonzo.PParams (PParams, PParams' (..))
-import Cardano.Ledger.Alonzo.Scripts (ExUnits (..), txscriptfee)
+import Cardano.Ledger.Alonzo.Scripts (ExUnits (..), Tag (Spend), txscriptfee)
 import Cardano.Ledger.Alonzo.Tools (BasicFailure, ScriptFailure, evaluateTransactionExecutionUnits)
-import Cardano.Ledger.Alonzo.Tx (ValidatedTx (ValidatedTx, body, wits), outputs, txfee, txrdmrs)
+import Cardano.Ledger.Alonzo.Tx (TxBody (inputs), ValidatedTx (ValidatedTx, body, wits), outputs, txfee, txrdmrs)
 import Cardano.Ledger.Alonzo.TxBody (TxOut (TxOut))
-import Cardano.Ledger.Alonzo.TxWitness (RdmrPtr, unRedeemers)
+import Cardano.Ledger.Alonzo.TxWitness (RdmrPtr (RdmrPtr), TxWitness (txdats), unRedeemers, unTxDats)
 import Cardano.Ledger.Crypto (StandardCrypto)
 import qualified Cardano.Ledger.SafeHash as SafeHash
 import Cardano.Ledger.Shelley.API (Coin (..), StrictMaybe (..), TxId (..), TxIn (..), UTxO (..))
@@ -32,6 +32,7 @@ import qualified Data.ByteString.Lazy as LBS
 import Data.List (intersect, nub, (\\))
 import qualified Data.Map as Map
 import Data.Maybe (fromJust)
+import Data.Maybe.Strict (strictMaybeToMaybe)
 import Data.Sequence.Strict (StrictSeq ((:<|)))
 import Hydra.Chain (HeadParameters (..), OnChainTx (..))
 import Hydra.Chain.Direct.Fixture (costModels, epochInfo, maxTxSize, pparams, systemStart, testNetworkId)
@@ -152,13 +153,13 @@ spec =
               === Just (OnCommitTx{party, committed = committedUtxo}, expectedOutput)
               & counterexample ("Tx: " <> show tx)
 
-      prop "consumes all inputs that are committed from initials" $ \party singleUtxo (NonEmpty inputs) ->
+      prop "consumes all inputs that are committed from initials" $ \party singleUtxo (NonEmpty txInputs) ->
         let mkInitials :: (TxIn StandardCrypto, PubKeyHash, TxOut Era) -> (TxIn StandardCrypto, TxOut Era, Data Era)
             mkInitials (txin, pkh, TxOut addr value _) =
               let initDatum = Data . toData $ Initial.datum pkh
                in (txin, TxOut addr value (SJust $ hashData initDatum), initDatum)
 
-            myInitial = (\(a, b, _) -> (a, b)) $ Prelude.head inputs
+            myInitial = (\(a, b, _) -> (a, b)) $ Prelude.head txInputs
             tx = commitTx testNetworkId party (Just singleUtxo) myInitial
             committedUtxo = Utxo $ Map.fromList [singleUtxo]
             commitOutput = TxOut @Era commitAddress commitValue (SJust $ hashData commitDatum)
@@ -173,7 +174,7 @@ spec =
             onChainState =
               Initial
                 { threadOutput = error "should not be evaluated anyway."
-                , initials = mkInitials <$> inputs
+                , initials = mkInitials <$> txInputs
                 , commits = []
                 }
             Just
@@ -183,10 +184,10 @@ spec =
                 } = snd <$> observeCommit testNetworkId tx onChainState
 
             commitedUtxoDoesNotOverlapWithInitials =
-              null $ [fst singleUtxo] `intersect` ((\(a, _, _) -> fromLedgerTxIn a) <$> inputs)
+              null $ [fst singleUtxo] `intersect` ((\(a, _, _) -> fromLedgerTxIn a) <$> txInputs)
          in commitedUtxoDoesNotOverlapWithInitials
               ==> conjoin
-                [ (newInitials === (mkInitials <$> Prelude.tail inputs))
+                [ (newInitials === (mkInitials <$> Prelude.tail txInputs))
                     & counterexample "newInitials /= expectation."
                 , (newCommits === [(commitInput, commitOutput, commitDatum)])
                     & counterexample "newCommits /= expectation."
@@ -234,7 +235,7 @@ spec =
                   Right redeemerReport ->
                     length commitsUtxo + 1 == length (rights $ Map.elems redeemerReport)
                       & label (show (length inHeadUtxo) <> " UTXO")
-                      & counterexample ("Redeemer report: " <> show redeemerReport)
+                      & counterexample ("Redeemer report: " <> showPretty onChainUtxo tx redeemerReport)
                       & counterexample ("Tx: " <> show tx)
                       & cover 0.8 True "Success"
 
@@ -427,6 +428,32 @@ spec =
                             & counterexample ("Fee: " <> show (txfee abortTxBody))
                             & counterexample ("Tx: " <> show txAbortWithFees)
                             & counterexample ("Input utxo: " <> show utxo)
+
+showPretty :: UTxO Era -> ValidatedTx Era -> Map RdmrPtr (Either (ScriptFailure LedgerCrypto) ExUnits) -> String
+showPretty (UTxO utxoMap) ValidatedTx{body, wits} evaluationResult =
+  let inputPtrs = zip [0 :: Natural ..] $ toList (inputs body)
+      datums = unTxDats $ txdats wits
+      inputAndRdmrs =
+        Map.fromList $
+          mapMaybe
+            ( \(idx, txIn) -> do
+                let ptr = RdmrPtr Spend $ fromIntegral idx
+                TxOut addr _value datum <- Map.lookup txIn utxoMap
+                dat <- (`Map.lookup` datums) =<< strictMaybeToMaybe datum
+                pure (ptr, (txIn, addr, dat))
+            )
+            inputPtrs
+      rdmrsResults =
+        Map.toList $
+          Map.foldrWithKey
+            ( \ptr res m ->
+                case Map.lookup ptr inputAndRdmrs of
+                  Just (txIn, addr, datum) -> Map.insert txIn (addr, datum, res) m
+                  _ -> m
+            )
+            mempty
+            evaluationResult
+   in Prelude.unlines (map show rdmrsResults)
 
 mkHeadOutput :: StrictMaybe (Data Era) -> TxOut Era
 mkHeadOutput headDatum = TxOut headAddress headValue headDatumHash

@@ -29,7 +29,7 @@ instance Scripts.ValidatorTypes Commit where
   type RedeemerType Commit = Redeemer
 
 validator :: DatumType Commit -> RedeemerType Commit -> ScriptContext -> Bool
-validator _datum _redeemer _ctx = False
+validator _datum _redeemer _ctx = True
 
 compiledValidator :: CompiledCode (ValidatorType Commit)
 compiledValidator = $$(PlutusTx.compile [||validator||])
