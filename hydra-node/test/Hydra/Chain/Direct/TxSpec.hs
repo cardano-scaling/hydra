@@ -34,6 +34,7 @@ import qualified Data.Map as Map
 import Data.Maybe (fromJust)
 import Data.Maybe.Strict (strictMaybeToMaybe)
 import Data.Sequence.Strict (StrictSeq ((:<|)))
+import qualified Data.Set as Set
 import qualified Data.Text as T
 import Hydra.Chain (HeadParameters (..), OnChainTx (..))
 import Hydra.Chain.Direct.Fixture (costModels, epochInfo, maxTxSize, pparams, systemStart, testNetworkId)
@@ -53,6 +54,7 @@ import Hydra.Ledger.Cardano (
   Utxo,
   Utxo' (Utxo),
   VerificationKey,
+  adaOnly,
   describeCardanoTx,
   fromLedgerAddr,
   fromLedgerTx,
@@ -85,6 +87,7 @@ import Test.QuickCheck (
   forAllShrinkShow,
   label,
   property,
+  suchThat,
   vectorOf,
   withMaxSuccess,
   (.&&.),
@@ -228,25 +231,25 @@ spec =
 
       modifyMaxSuccess (const 10) $
         prop "validates" $ \headInput cperiod ->
-          forAll (vectorOf 20 arbitrary) $ \commitPartiesAndUtxos ->
+          forAll (genPartyAndUtxo 20) $ \commitPartiesAndUtxos ->
             forAll (generateCommitUtxos commitPartiesAndUtxos) $ \commitsUtxo ->
-              forAll (reasonablySized genUtxoWithSimplifiedAddresses) $ \inHeadUtxo ->
-                let onChainUtxo = UTxO $ Map.singleton headInput headOutput <> fmap fst commitsUtxo
-                    headOutput = mkHeadOutput $ SJust headDatum
-                    parties = fst <$> commitPartiesAndUtxos
-                    committedUtxo = fold $ snd <$> commitPartiesAndUtxos
-                    onChainParties = partyFromVerKey . vkey <$> parties
-                    headDatum = Data . toData $ Head.Initial cperiod onChainParties
-                    tx = collectComTx testNetworkId committedUtxo (headInput, headDatum, onChainParties) commitsUtxo
-                 in checkCoverage $ case validateTxScriptsUnlimited onChainUtxo tx of
-                      Left basicFailure ->
-                        property False & counterexample ("Basic failure: " <> show basicFailure)
-                      Right redeemerReport ->
-                        length commitsUtxo + 1 == length (rights $ Map.elems redeemerReport)
-                          & label (show (length inHeadUtxo) <> " UTXO")
-                          & counterexample ("Redeemer report: " <> showPretty onChainUtxo tx redeemerReport)
-                          & counterexample ("Tx: " <> toString (describeCardanoTx (fromLedgerTx tx)))
-                          & cover 0.8 True "Success"
+              let onChainUtxo = UTxO $ Map.singleton headInput headOutput <> fmap fst commitsUtxo
+                  headOutput = mkHeadOutput $ SJust headDatum
+                  parties = fst <$> commitPartiesAndUtxos
+                  committedUtxo = fold $ snd <$> commitPartiesAndUtxos
+                  onChainParties = partyFromVerKey . vkey <$> parties
+                  headDatum = Data . toData $ Head.Initial cperiod onChainParties
+                  -- NOTE: given the way generateCommitUtxos is written, it seems there's no link between committedUtxo
+                  -- and commitsUtxo, ie. it's perfectly possible the TxOuts there are different which should be a
+                  -- problem?
+                  tx = collectComTx testNetworkId committedUtxo (headInput, headDatum, onChainParties) commitsUtxo
+               in case validateTxScriptsUnlimited onChainUtxo tx of
+                    Left basicFailure ->
+                      property False & counterexample ("Basic failure: " <> show basicFailure)
+                    Right redeemerReport ->
+                      length commitsUtxo + 1 == length (rights $ Map.elems redeemerReport)
+                        & counterexample ("Redeemer report: " <> showPretty onChainUtxo tx redeemerReport)
+                        & counterexample ("Tx: " <> toString (describeCardanoTx (fromLedgerTx tx)))
 
     describe "closeTx" $ do
       prop "transaction size below limit" $ \headIn parties snapshot sig ->
@@ -490,12 +493,25 @@ mkHeadOutput headDatum = TxOut headAddress headValue headDatumHash
 instance Arbitrary (VerificationKey PaymentKey) where
   arbitrary = fst <$> genKeyPair
 
+-- | Generate a `Utxo` associated with some `Party` in such a way there is no duplicate
+-- `Party` identifier, for a given resulting size.
+-- NOTE: The reason why it's done this way is that doing the simpler `vectorOf n arbitrary`
+-- does not guarantee uniqueness of the generated `Party`
+genPartyAndUtxo :: Int -> Gen [(Party, Utxo)]
+genPartyAndUtxo n = do
+  parties <-
+    vectorOf n arbitrary
+      `suchThat` \ps -> length (Set.fromList ps) == length ps
+  utxos <- vectorOf n (genOneUtxoFor =<< arbitrary)
+  pure $ zip parties utxos
+
+-- | Generate a UTXO representing /commit/ outputs for a given list of `Party`.
 -- FIXME: This function is very complicated and it's hard to understand it after a while
 generateCommitUtxos :: [(Party, Utxo)] -> Gen (Map.Map (TxIn StandardCrypto) (TxOut Era, Data Era))
 generateCommitUtxos parties = do
   txins <- vectorOf (length parties) (arbitrary @(TxIn StandardCrypto))
   committedUtxo <- vectorOf (length parties) $ do
-    singleUtxo <- genOneUtxoFor =<< arbitrary
+    singleUtxo <- fmap adaOnly <$> (genOneUtxoFor =<< arbitrary)
     pure $ head <$> nonEmpty (utxoPairs singleUtxo)
   let commitUtxo =
         zip txins $
