@@ -68,8 +68,7 @@ common project-config
   ghc-options:
     -Wall -Wcompat -Widentities -Wincomplete-record-updates
     -Wincomplete-uni-patterns -Wredundant-constraints
-    -fprint-potential-instances -fno-ignore-interface-pragmas
-    -fno-omit-interface-pragmas -fno-strictness
+    -fprint-potential-instances
 
   if !flag(hydra-development)
     ghc-options: -Werror
@@ -213,6 +212,10 @@ executable tx-cost
     , strict-containers
 
   ghc-options:    -threaded -rtsopts
+
+  if flag(hydra-development)
+    -- NOTE(SN): should fix HLS choking on PlutusTx plugin
+    ghc-options: -fplugin-opt PlutusTx.Plugin:defer-errors
 
 test-suite tests
   import:             project-config
