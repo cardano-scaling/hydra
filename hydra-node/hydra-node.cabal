@@ -68,7 +68,8 @@ common project-config
   ghc-options:
     -Wall -Wcompat -Widentities -Wincomplete-record-updates
     -Wincomplete-uni-patterns -Wredundant-constraints
-    -fprint-potential-instances
+    -fprint-potential-instances -fno-ignore-interface-pragmas
+    -fno-omit-interface-pragmas -fno-strictness
 
   if !flag(hydra-development)
     ghc-options: -Werror
