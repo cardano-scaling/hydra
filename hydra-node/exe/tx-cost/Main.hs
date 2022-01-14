@@ -12,7 +12,7 @@ import qualified Cardano.Ledger.Val as Ledger
 import qualified Data.Map.Strict as Map
 import Data.Maybe.Strict (StrictMaybe (..))
 import Hydra.Chain.Direct.Tx (fanoutTx, plutusScript, policyId, scriptAddr)
-import qualified Hydra.Contract.MockHead as MockHead
+import qualified Hydra.Contract.Head as Head
 import Hydra.Ledger.Cardano (
   CardanoTx,
   LedgerEra,
@@ -67,13 +67,13 @@ mkFanoutTx utxo =
   headDatum =
     Ledger.Data $
       toData $
-        MockHead.Closed 1 (toBuiltin $ hashTxOuts $ toList utxo)
+        Head.Closed 1 (toBuiltin $ hashTxOuts $ toList utxo)
   lookupUtxo = Ledger.UTxO $ Map.singleton headInput headOutput
 
 mkHeadOutput :: StrictMaybe (Ledger.Data LedgerEra) -> Ledger.Alonzo.TxOut LedgerEra
 mkHeadOutput headDatum =
   Ledger.Alonzo.TxOut headAddress headValue headDatumHash
  where
-  headAddress = scriptAddr $ plutusScript $ MockHead.validatorScript policyId
+  headAddress = scriptAddr $ plutusScript $ Head.validatorScript policyId
   headValue = Ledger.inject (Ledger.Coin 2_000_000)
   headDatumHash = Ledger.hashData @LedgerEra <$> headDatum

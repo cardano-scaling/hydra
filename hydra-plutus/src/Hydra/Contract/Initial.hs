@@ -2,22 +2,13 @@
 {-# LANGUAGE TypeApplications #-}
 {-# OPTIONS_GHC -fno-specialize #-}
 
--- | Contract for Hydra controlling the redemption of participation tokens.
+-- | The Initial validator which allows participants to commit or abort. To
+-- focus on the off-chain datum types this is currently 'const True'.
 module Hydra.Contract.Initial where
 
 import Ledger hiding (validatorHash)
 import PlutusTx.Prelude
 
-import qualified Hydra.Contract.Commit as Commit
-import Hydra.Contract.MockHead (Head, Input (..))
-import Hydra.OnChain.Util (findUtxo, mkParty, mustRunContract)
-import Ledger.Constraints (checkScriptContext)
-import Ledger.Constraints.TxConstraints (
-  TxConstraints,
-  mustBeSignedBy,
-  mustPayToOtherScript,
-  mustSpendPubKeyOutput,
- )
 import Ledger.Typed.Scripts (TypedValidator, ValidatorType, ValidatorTypes (..))
 import qualified Ledger.Typed.Scripts as Scripts
 import PlutusTx (CompiledCode)
@@ -27,53 +18,11 @@ import PlutusTx.IsData.Class (ToData (..))
 data Initial
 
 instance Scripts.ValidatorTypes Initial where
-  type DatumType Initial = (MintingPolicyHash, Dependencies, PubKeyHash)
-  type RedeemerType Initial = Maybe TxOutRef
+  type DatumType Initial = PubKeyHash
+  type RedeemerType Initial = ()
 
--- TODO: We should be able to get rid of this in principle and inject them
--- directly at compile-time (since they are statically known). Somehow, this
--- doesn't work out of the box with the Plutus plugin at the moment and we
--- resort to inject them 'manually'.
-data Dependencies = Dependencies
-  { headScript :: ValidatorHash
-  , commitScript :: ValidatorHash
-  }
-
-PlutusTx.makeLift ''Dependencies
-PlutusTx.unstableMakeIsData ''Dependencies
-
-validator ::
-  (MintingPolicyHash, Dependencies, PubKeyHash) ->
-  Maybe TxOutRef ->
-  ScriptContext ->
-  Bool
-validator (policyId, Dependencies{headScript, commitScript}, vk) mref ctx =
-  consumedByCommit || consumedByAbort
- where
-  -- A commit transaction, identified by:
-  --    (a) A signature that verifies as valid with verification key defined as datum
-  --    (b) Spending a UTxO also referenced as redeemer.
-  --    (c) Having the commit validator in its only output, with a valid
-  --        participation token for the associated key, and the total value of the
-  --        committed UTxO.
-  consumedByCommit =
-    case mref >>= findUtxo ctx of
-      Nothing ->
-        False
-      Just utxo ->
-        let commitDatum = Commit.datum (Commit.Dependencies headScript, snd utxo)
-            commitValue = txOutValue (snd utxo) <> mkParty policyId vk
-         in checkScriptContext @(RedeemerType Initial) @(DatumType Initial)
-              ( mconcat
-                  [ mustBeSignedBy vk
-                  , mustSpendPubKeyOutput (fst utxo)
-                  , mustPayToOtherScript commitScript commitDatum commitValue
-                  ]
-              )
-              ctx
-
-  consumedByAbort =
-    mustRunContract @(RedeemerType Head) headScript Abort ctx
+validator :: DatumType Initial -> RedeemerType Initial -> ScriptContext -> Bool
+validator _datum _redeemer _ctx = True
 
 compiledValidator :: CompiledCode (ValidatorType Initial)
 compiledValidator = $$(PlutusTx.compile [||validator||])
@@ -87,7 +36,11 @@ typedValidator = Scripts.mkTypedValidator @Initial
   wrap = Scripts.wrapValidator @(DatumType Initial) @(RedeemerType Initial)
 {- ORMOLU_ENABLE -}
 
--- | Do not use this outside of plutus land.
+-- | Get the actual plutus script. Mainly used to serialize and use in
+-- transactions.
+validatorScript :: Script
+validatorScript = unValidatorScript $ Scripts.validatorScript typedValidator
+
 validatorHash :: ValidatorHash
 validatorHash = Scripts.validatorHash typedValidator
 
@@ -97,21 +50,5 @@ datum a = Datum (toBuiltinData a)
 redeemer :: RedeemerType Initial -> Redeemer
 redeemer a = Redeemer (toBuiltinData a)
 
--- | Do not use this outside of plutus land.
 address :: Address
 address = scriptHashAddress validatorHash
-
-mustPayToScript ::
-  forall i o.
-  MintingPolicyHash ->
-  Dependencies ->
-  PubKeyHash ->
-  Value ->
-  TxConstraints i o
-mustPayToScript policyId dependencies pubKey =
-  mustPayToOtherScript validatorHash $ datum (policyId, dependencies, pubKey)
-
--- | Get the actual plutus script. Mainly used to serialize and use in
--- transactions.
-validatorScript :: Script
-validatorScript = unValidatorScript $ Scripts.validatorScript typedValidator

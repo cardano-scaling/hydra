@@ -69,6 +69,9 @@ toLedgerAddr = \case
   AddressInEra (ShelleyAddressInEra _) (ShelleyAddress ntwrk creds stake) ->
     Ledger.Addr ntwrk creds stake
 
+fromLedgerAddr :: Ledger.Addr Ledger.StandardCrypto -> AddressInEra Era
+fromLedgerAddr = fromShelleyAddr
+
 -- ** Key
 
 toPlutusKeyHash :: Hash PaymentKey -> Plutus.PubKeyHash

@@ -3,26 +3,24 @@
 {-# LANGUAGE TypeApplications #-}
 {-# OPTIONS_GHC -fno-specialize #-}
 
-module Hydra.Contract.MockHead where
+module Hydra.Contract.Head where
 
 import Ledger hiding (validatorHash)
 import PlutusTx.Prelude
 
-import Control.Monad (guard)
 import Data.Aeson (FromJSON, ToJSON)
-import Data.Void (Void)
 import GHC.Generics (Generic)
+import qualified Hydra.Contract.Commit as Commit
 import Hydra.Contract.Encoding (serialiseTxOuts)
 import Hydra.Data.ContestationPeriod (ContestationPeriod)
 import Hydra.Data.Party (Party (UnsafeParty))
-import Ledger.Constraints (TxConstraints)
+import Ledger.Typed.Scripts (TypedValidator, ValidatorTypes (RedeemerType))
 import qualified Ledger.Typed.Scripts as Scripts
+import Ledger.Typed.Scripts.Validators (DatumType)
 import Plutus.Codec.CBOR.Encoding (
   encodeInteger,
   encodingToBuiltinByteString,
  )
-import Plutus.Contract.StateMachine.OnChain (StateMachine)
-import qualified Plutus.Contract.StateMachine.OnChain as SM
 import qualified PlutusTx
 import Text.Show (Show)
 
@@ -41,9 +39,7 @@ data State
 PlutusTx.unstableMakeIsData ''State
 
 data Input
-  = -- FIXME(AB): The collected value should not be passed as input but inferred from
-    -- collected commits' value
-    CollectCom {collectedValue :: Value, utxoHash :: Hash}
+  = CollectCom {utxoHash :: Hash}
   | Close
       { snapshotNumber :: SnapshotNumber
       , utxoHash :: Hash
@@ -55,52 +51,53 @@ data Input
 
 PlutusTx.unstableMakeIsData ''Input
 
-type Head = StateMachine State Input
+data Head
 
-{-# INLINEABLE hydraStateMachine #-}
-hydraStateMachine :: MintingPolicyHash -> StateMachine State Input
-hydraStateMachine _policyId =
-  -- XXX(SN): This should actually be '(Just policyId)' as we wan't to have
-  -- "contract continuity" as described in the EUTXO paper. While we do have a
-  -- fix for the 'runStep' handling now, the current version of plutus does
-  -- forge a given 'ThreadToken' upon 'runInitialise' now.. which is not what we
-  -- want as we need additional tokens being forged as well (see 'watchInit').
-  SM.StateMachine hydraTransition isFinal hydraContextCheck Nothing
- where
-  isFinal Final{} = True
-  isFinal _ = False
+instance Scripts.ValidatorTypes Head where
+  type DatumType Head = State
+  type RedeemerType Head = Input
 
-{-# INLINEABLE hydraTransition #-}
-hydraTransition :: SM.State State -> Input -> Maybe (TxConstraints Void Void, SM.State State)
-hydraTransition oldState input =
-  case (SM.stateData oldState, input) of
-    (Initial{parties}, CollectCom{collectedValue, utxoHash}) ->
-      Just (mempty, oldState{SM.stateData = Open{parties, utxoHash}, SM.stateValue = collectedValue <> SM.stateValue oldState})
-    (Initial{}, Abort) ->
-      Just (mempty, oldState{SM.stateData = Final, SM.stateValue = mempty})
-    (Open{parties, utxoHash = openedUtxoHash}, Close{snapshotNumber, signature, utxoHash = closedUtxoHash})
-      | snapshotNumber == 0 ->
-        Just (mempty, oldState{SM.stateData = Closed{snapshotNumber, utxoHash = openedUtxoHash}})
-      | otherwise -> do
-        guard $ verifySnapshotSignature parties snapshotNumber signature
-        Just (mempty, oldState{SM.stateData = Closed{snapshotNumber, utxoHash = closedUtxoHash}})
-    (Closed{}, Fanout{}) ->
-      Just (mempty, oldState{SM.stateData = Final, SM.stateValue = mempty})
-    _ -> Nothing
-
-hydraContextCheck :: State -> Input -> ScriptContext -> Bool
-hydraContextCheck state input context =
-  case (state, input) of
-    (Closed{utxoHash = closedUtxoHash}, Fanout{numberOfFanoutOutputs}) ->
-      traceIfFalse "fannedOutUtxoHash /= closedUtxoHash" $ fannedOutUtxoHash numberOfFanoutOutputs == closedUtxoHash
-    _ -> True
+{-# INLINEABLE headValidator #-}
+headValidator ::
+  -- | Unique identifier for this particular Head
+  -- TODO: currently unused
+  MintingPolicyHash ->
+  -- | Commit script address. NOTE: Used to identify inputs from commits and
+  -- likely could be replaced by looking for PTs.
+  Address ->
+  State ->
+  Input ->
+  ScriptContext ->
+  Bool
+headValidator _ commitAddress oldState input context =
+  case (oldState, input) of
+    (Initial{}, CollectCom{}) ->
+      -- TODO: check collected value is sent to own script output
+      -- TODO: check collected txouts are put as datum in own script output
+      let _collectedValue =
+            foldr
+              ( \TxInInfo{txInInfoResolved} val ->
+                  if txOutAddress txInInfoResolved == commitAddress
+                    then val + txOutValue txInInfoResolved
+                    else val
+              )
+              mempty
+              txInfoInputs
+       in True
+    (Initial{}, Abort) -> True
+    (Open{parties}, Close{snapshotNumber, signature})
+      | snapshotNumber == 0 -> True
+      | snapshotNumber > 0 -> verifySnapshotSignature parties snapshotNumber signature
+      | otherwise -> False
+    (Closed{utxoHash}, Fanout{numberOfFanoutOutputs}) ->
+      traceIfFalse "fannedOutUtxoHash /= closedUtxoHash" $ fannedOutUtxoHash numberOfFanoutOutputs == utxoHash
+    _ -> False
  where
   fannedOutUtxoHash numberOfFanoutOutputs = hashTxOuts $ take numberOfFanoutOutputs txInfoOutputs
 
-  TxInfo{txInfoOutputs} = txInfo
+  TxInfo{txInfoInputs, txInfoOutputs} = txInfo
 
   ScriptContext{scriptContextTxInfo = txInfo} = context
-{-# INLINEABLE hydraContextCheck #-}
 
 hashTxOuts :: [TxOut] -> BuiltinByteString
 hashTxOuts =
@@ -148,16 +145,18 @@ mockSign vkey msg = appendByteString (sliceByteString 0 8 hashedMsg) (encodingTo
 --
 -- TODO: Add a NetworkId so that we can properly serialise address hashes
 -- see 'encodeAddress' for details
-typedValidator :: MintingPolicyHash -> Scripts.TypedValidator (StateMachine State Input)
+typedValidator :: MintingPolicyHash -> TypedValidator Head
 typedValidator policyId =
-  let val =
-        $$(PlutusTx.compile [||validatorParam||])
-          `PlutusTx.applyCode` PlutusTx.liftCode policyId
-      validatorParam c = SM.mkValidator (hydraStateMachine c)
-      wrap = Scripts.wrapValidator @State @Input
-   in Scripts.mkTypedValidator @(StateMachine State Input)
-        val
-        $$(PlutusTx.compile [||wrap||])
+  Scripts.mkTypedValidator @Head
+    compiledValidator
+    $$(PlutusTx.compile [||wrap||])
+ where
+  compiledValidator =
+    $$(PlutusTx.compile [||headValidator||])
+      `PlutusTx.applyCode` PlutusTx.liftCode policyId
+      `PlutusTx.applyCode` PlutusTx.liftCode Commit.address
+
+  wrap = Scripts.wrapValidator @(DatumType Head) @(RedeemerType Head)
 
 validatorHash :: MintingPolicyHash -> ValidatorHash
 validatorHash = Scripts.validatorHash . typedValidator

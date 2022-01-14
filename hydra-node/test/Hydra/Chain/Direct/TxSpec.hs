@@ -16,11 +16,11 @@ import Cardano.Binary (serialize)
 import Cardano.Ledger.Alonzo (TxOut)
 import Cardano.Ledger.Alonzo.Data (Data (Data), hashData)
 import Cardano.Ledger.Alonzo.PParams (PParams, PParams' (..))
-import Cardano.Ledger.Alonzo.Scripts (ExUnits (..), txscriptfee)
+import Cardano.Ledger.Alonzo.Scripts (ExUnits (..), Tag (Spend), txscriptfee)
 import Cardano.Ledger.Alonzo.Tools (BasicFailure, ScriptFailure, evaluateTransactionExecutionUnits)
-import Cardano.Ledger.Alonzo.Tx (ValidatedTx (ValidatedTx, body, wits), outputs, txfee, txrdmrs)
+import Cardano.Ledger.Alonzo.Tx (TxBody (inputs), ValidatedTx (ValidatedTx, body, wits), outputs, txfee, txrdmrs)
 import Cardano.Ledger.Alonzo.TxBody (TxOut (TxOut))
-import Cardano.Ledger.Alonzo.TxWitness (RdmrPtr, unRedeemers)
+import Cardano.Ledger.Alonzo.TxWitness (RdmrPtr (RdmrPtr), TxWitness (txdats), unRedeemers, unTxDats)
 import Cardano.Ledger.Crypto (StandardCrypto)
 import qualified Cardano.Ledger.SafeHash as SafeHash
 import Cardano.Ledger.Shelley.API (Coin (..), StrictMaybe (..), TxId (..), TxIn (..), UTxO (..))
@@ -32,14 +32,17 @@ import qualified Data.ByteString.Lazy as LBS
 import Data.List (intersect, nub, (\\))
 import qualified Data.Map as Map
 import Data.Maybe (fromJust)
+import Data.Maybe.Strict (strictMaybeToMaybe)
 import Data.Sequence.Strict (StrictSeq ((:<|)))
+import qualified Data.Set as Set
+import qualified Data.Text as T
 import Hydra.Chain (HeadParameters (..), OnChainTx (..))
 import Hydra.Chain.Direct.Fixture (costModels, epochInfo, maxTxSize, pparams, systemStart, testNetworkId)
 import Hydra.Chain.Direct.Util (Era)
 import Hydra.Chain.Direct.Wallet (ErrCoverFee (..), coverFee_)
-import qualified Hydra.Contract.MockCommit as MockCommit
-import qualified Hydra.Contract.MockHead as MockHead
-import qualified Hydra.Contract.MockInitial as MockInitial
+import qualified Hydra.Contract.Commit as Commit
+import qualified Hydra.Contract.Head as Head
+import qualified Hydra.Contract.Initial as Initial
 import Hydra.Data.ContestationPeriod (contestationPeriodFromDiffTime)
 import Hydra.Data.Party (partyFromVerKey)
 import Hydra.Data.Utxo (fromByteString)
@@ -51,11 +54,14 @@ import Hydra.Ledger.Cardano (
   Utxo,
   Utxo' (Utxo),
   VerificationKey,
+  adaOnly,
   describeCardanoTx,
+  fromLedgerAddr,
   fromLedgerTx,
   fromLedgerTxIn,
   genAdaOnlyUtxo,
   genKeyPair,
+  genOneUtxoFor,
   genUtxoWithSimplifiedAddresses,
   hashTxOuts,
   shrinkUtxo,
@@ -81,6 +87,7 @@ import Test.QuickCheck (
   forAllShrinkShow,
   label,
   property,
+  suchThat,
   vectorOf,
   withMaxSuccess,
   (.&&.),
@@ -140,11 +147,11 @@ spec =
         let tx = commitTx testNetworkId party (Just singleUtxo) initialIn
             committedUtxo = Utxo $ Map.fromList [singleUtxo]
             commitOutput = TxOut @Era commitAddress commitValue (SJust $ hashData commitDatum)
-            commitAddress = scriptAddr $ plutusScript MockCommit.validatorScript
+            commitAddress = scriptAddr $ plutusScript Commit.validatorScript
             commitValue = inject (Coin 2_000_000) <> toMaryValue (balance @CardanoTx committedUtxo)
             commitDatum =
               Data . toData $
-                MockCommit.datum (partyFromVerKey $ vkey party, commitUtxo)
+                Commit.datum (partyFromVerKey $ vkey party, commitUtxo)
             commitUtxo =
               fromByteString $ toStrict $ Aeson.encode committedUtxo
             expectedOutput = (TxIn (Ledger.TxId (SafeHash.hashAnnotated $ body tx)) 0, commitOutput, commitDatum)
@@ -152,28 +159,28 @@ spec =
               === Just (OnCommitTx{party, committed = committedUtxo}, expectedOutput)
               & counterexample ("Tx: " <> show tx)
 
-      prop "consumes all inputs that are committed from initials" $ \party singleUtxo (NonEmpty inputs) ->
+      prop "consumes all inputs that are committed from initials" $ \party singleUtxo (NonEmpty txInputs) ->
         let mkInitials :: (TxIn StandardCrypto, PubKeyHash, TxOut Era) -> (TxIn StandardCrypto, TxOut Era, Data Era)
             mkInitials (txin, pkh, TxOut addr value _) =
-              let initDatum = Data . toData $ MockInitial.datum pkh
+              let initDatum = Data . toData $ Initial.datum pkh
                in (txin, TxOut addr value (SJust $ hashData initDatum), initDatum)
 
-            myInitial = (\(a, b, _) -> (a, b)) $ Prelude.head inputs
+            myInitial = (\(a, b, _) -> (a, b)) $ Prelude.head txInputs
             tx = commitTx testNetworkId party (Just singleUtxo) myInitial
             committedUtxo = Utxo $ Map.fromList [singleUtxo]
             commitOutput = TxOut @Era commitAddress commitValue (SJust $ hashData commitDatum)
-            commitAddress = scriptAddr $ plutusScript MockCommit.validatorScript
+            commitAddress = scriptAddr $ plutusScript Commit.validatorScript
             commitValue = inject (Coin 2_000_000) <> toMaryValue (balance @CardanoTx committedUtxo)
             commitDatum =
               Data . toData $
-                MockCommit.datum (partyFromVerKey $ vkey party, commitUtxo)
+                Commit.datum (partyFromVerKey $ vkey party, commitUtxo)
             commitInput = TxIn (txid $ body tx) 0
             commitUtxo =
               fromByteString $ toStrict $ Aeson.encode committedUtxo
             onChainState =
               Initial
                 { threadOutput = error "should not be evaluated anyway."
-                , initials = mkInitials <$> inputs
+                , initials = mkInitials <$> txInputs
                 , commits = []
                 }
             Just
@@ -183,10 +190,10 @@ spec =
                 } = snd <$> observeCommit testNetworkId tx onChainState
 
             commitedUtxoDoesNotOverlapWithInitials =
-              null $ [fst singleUtxo] `intersect` ((\(a, _, _) -> fromLedgerTxIn a) <$> inputs)
+              null $ [fst singleUtxo] `intersect` ((\(a, _, _) -> fromLedgerTxIn a) <$> txInputs)
          in commitedUtxoDoesNotOverlapWithInitials
               ==> conjoin
-                [ (newInitials === (mkInitials <$> Prelude.tail inputs))
+                [ (newInitials === (mkInitials <$> Prelude.tail txInputs))
                     & counterexample "newInitials /= expectation."
                 , (newCommits === [(commitInput, commitOutput, commitDatum)])
                     & counterexample "newCommits /= expectation."
@@ -195,7 +202,7 @@ spec =
     describe "collectComTx" $ do
       prop "transaction size below limit" $ \(ReasonablySized utxo) headIn cperiod parties ->
         let tx = collectComTx testNetworkId utxo (headIn, headDatum, parties) mempty
-            headDatum = Data . toData $ MockHead.Initial cperiod parties
+            headDatum = Data . toData $ Head.Initial cperiod parties
             cbor = serialize tx
             len = LBS.length cbor
          in len < maxTxSize
@@ -203,13 +210,15 @@ spec =
               & counterexample ("Tx: " <> show tx)
               & counterexample ("Tx serialized size: " <> show len)
 
-      prop "is observed" $ \(ReasonablySized committedUtxo) headInput cperiod parties ->
-        forAll (generateCommitUtxos parties committedUtxo) $ \commitsUtxo ->
+      prop "is observed" $ \(ReasonablySized commitPartiesAndUtxos) headInput cperiod ->
+        forAll (generateCommitUtxos commitPartiesAndUtxos) $ \commitsUtxo ->
           let committedValue = foldMap (\(TxOut _ v _, _) -> v) commitsUtxo
               headOutput = mkHeadOutput $ SJust headDatum
               headValue = inject (Coin 2_000_000) <> committedValue
+              parties = fst <$> commitPartiesAndUtxos
+              committedUtxo = fold $ snd <$> commitPartiesAndUtxos
               onChainParties = partyFromVerKey . vkey <$> parties
-              headDatum = Data . toData $ MockHead.Initial cperiod onChainParties
+              headDatum = Data . toData $ Head.Initial cperiod onChainParties
               lookupUtxo = Map.singleton headInput headOutput
               tx = collectComTx testNetworkId committedUtxo (headInput, headDatum, onChainParties) commitsUtxo
               res = observeCollectComTx lookupUtxo tx
@@ -220,11 +229,33 @@ spec =
                 & counterexample ("Observe result: " <> show res)
                 & counterexample ("Tx: " <> show tx)
 
+      modifyMaxSuccess (const 10) $
+        prop "validates" $ \headInput cperiod ->
+          forAll (genPartyAndUtxo 20) $ \commitPartiesAndUtxos ->
+            forAll (generateCommitUtxos commitPartiesAndUtxos) $ \commitsUtxo ->
+              let onChainUtxo = UTxO $ Map.singleton headInput headOutput <> fmap fst commitsUtxo
+                  headOutput = mkHeadOutput $ SJust headDatum
+                  parties = fst <$> commitPartiesAndUtxos
+                  committedUtxo = fold $ snd <$> commitPartiesAndUtxos
+                  onChainParties = partyFromVerKey . vkey <$> parties
+                  headDatum = Data . toData $ Head.Initial cperiod onChainParties
+                  -- NOTE: given the way generateCommitUtxos is written, it seems there's no link between committedUtxo
+                  -- and commitsUtxo, ie. it's perfectly possible the TxOuts there are different which should be a
+                  -- problem?
+                  tx = collectComTx testNetworkId committedUtxo (headInput, headDatum, onChainParties) commitsUtxo
+               in case validateTxScriptsUnlimited onChainUtxo tx of
+                    Left basicFailure ->
+                      property False & counterexample ("Basic failure: " <> show basicFailure)
+                    Right redeemerReport ->
+                      length commitsUtxo + 1 == length (rights $ Map.elems redeemerReport)
+                        & counterexample ("Redeemer report: " <> showPretty onChainUtxo tx redeemerReport)
+                        & counterexample ("Tx: " <> toString (describeCardanoTx (fromLedgerTx tx)))
+
     describe "closeTx" $ do
       prop "transaction size below limit" $ \headIn parties snapshot sig ->
         let tx = closeTx snapshot sig (headIn, headOutput, headDatum)
             headOutput = mkHeadOutput SNothing
-            headDatum = Data $ toData $ MockHead.Open{parties, utxoHash = ""}
+            headDatum = Data $ toData $ Head.Open{parties, utxoHash = ""}
             cbor = serialize tx
             len = LBS.length cbor
          in len < maxTxSize
@@ -234,7 +265,7 @@ spec =
 
       prop "is observed" $ \parties headInput snapshot msig ->
         let headOutput = mkHeadOutput (SJust headDatum)
-            headDatum = Data $ toData $ MockHead.Open{parties, utxoHash = ""}
+            headDatum = Data $ toData $ Head.Open{parties, utxoHash = ""}
             lookupUtxo = Map.singleton headInput headOutput
             -- NOTE(SN): deliberately uses an arbitrary multi-signature
             tx = closeTx snapshot msig (headInput, headOutput, headDatum)
@@ -249,7 +280,7 @@ spec =
       let prop_fanoutTxSize :: Utxo -> TxIn StandardCrypto -> Property
           prop_fanoutTxSize utxo headIn =
             let tx = fanoutTx utxo (headIn, headDatum)
-                headDatum = Data $ toData MockHead.Closed{snapshotNumber = 1, utxoHash = ""}
+                headDatum = Data $ toData Head.Closed{snapshotNumber = 1, utxoHash = ""}
                 cbor = serialize tx
                 len = LBS.length cbor
              in len < maxTxSize
@@ -282,7 +313,7 @@ spec =
       prop "is observed" $ \utxo headInput ->
         let tx = fanoutTx utxo (headInput, headDatum)
             headOutput = mkHeadOutput SNothing
-            headDatum = Data $ toData $ MockHead.Closed{snapshotNumber = 1, utxoHash = ""}
+            headDatum = Data $ toData $ Head.Closed{snapshotNumber = 1, utxoHash = ""}
             lookupUtxo = Map.singleton headInput headOutput
             res = observeFanoutTx lookupUtxo tx
          in res === Just (OnFanoutTx, Final)
@@ -294,13 +325,13 @@ spec =
           let tx = fanoutTx inHeadUtxo (headInput, headDatum)
               onChainUtxo = UTxO $ Map.singleton headInput headOutput
               headOutput = TxOut headAddress headValue . SJust $ hashData @Era headDatum
-              headAddress = scriptAddr $ plutusScript $ MockHead.validatorScript policyId
+              headAddress = scriptAddr $ plutusScript $ Head.validatorScript policyId
               -- FIXME: Ensure the headOutput contains enough value to fanout all inHeadUtxo
               headValue = inject (Coin 10_000_000)
               headDatum =
                 Data $
                   toData $
-                    MockHead.Closed
+                    Head.Closed
                       { snapshotNumber = 1
                       , utxoHash = toBuiltin (hashTxOuts $ toList inHeadUtxo)
                       }
@@ -317,7 +348,7 @@ spec =
     describe "abortTx" $ do
       -- NOTE(AB): This property fails if initials are too big
       prop "transaction size below limit" $ \txIn cperiod parties (ReasonablySized initials) ->
-        let headDatum = Data . toData $ MockHead.Initial cperiod parties
+        let headDatum = Data . toData $ Head.Initial cperiod parties
          in case abortTx testNetworkId (txIn, headDatum) (Map.fromList initials) of
               Left err -> property False & counterexample ("AbortTx construction failed: " <> show err)
               Right tx ->
@@ -330,7 +361,7 @@ spec =
 
       prop "updates on-chain state to 'Final'" $ \txIn cperiod parties (ReasonablySized initials) ->
         let headOutput = mkHeadOutput SNothing -- will be SJust, but not covered by this test
-            headDatum = Data . toData $ MockHead.Initial cperiod parties
+            headDatum = Data . toData $ Head.Initial cperiod parties
             utxo = Map.singleton txIn headOutput
          in case abortTx testNetworkId (txIn, headDatum) initials of
               Left err -> property False & counterexample ("AbortTx construction failed: " <> show err)
@@ -351,11 +382,11 @@ spec =
               headOutput = mkHeadOutput (SJust headDatum)
               headDatum =
                 Data . toData $
-                  MockHead.Initial
+                  Head.Initial
                     (contestationPeriodFromDiffTime contestationPeriod)
                     (map (partyFromVerKey . vkey) parties)
-              initials = Map.map (Data . toData . MockInitial.datum) initialsPkh
-              initialsUtxo = map (\(i, pkh) -> mkMockInitialTxOut (i, pkh)) $ Map.toList initialsPkh
+              initials = Map.map (Data . toData . Initial.datum) initialsPkh
+              initialsUtxo = map (\(i, pkh) -> mkInitialTxOut (i, pkh)) $ Map.toList initialsPkh
               utxo = UTxO $ Map.fromList (headUtxo : initialsUtxo)
            in checkCoverage $ case abortTx testNetworkId (txIn, headDatum) initials of
                 Left OverlappingInputs ->
@@ -410,22 +441,81 @@ spec =
                             & counterexample ("Tx: " <> show txAbortWithFees)
                             & counterexample ("Input utxo: " <> show utxo)
 
+showPretty :: UTxO Era -> ValidatedTx Era -> Map RdmrPtr (Either (ScriptFailure LedgerCrypto) ExUnits) -> String
+showPretty (UTxO utxoMap) ValidatedTx{body, wits} evaluationResult =
+  toString $ unlines (map ((\(txin, res) -> txin <> ": \n" <> res) . bimap showPrettyTxIn showPrettyResult) rdmrsResults)
+ where
+  showPrettyTxIn = Api.renderTxIn . fromLedgerTxIn
+
+  showPrettyResult (addr, datum, rdmr, res) =
+    unlines
+      [ "\taddr: " <> T.take 8 (Api.serialiseToRawBytesHexText $ fromLedgerAddr addr)
+      , "\tdatum: " <> show datum
+      , "\tredeemer: " <> show rdmr
+      , either (("\tresult: " <>) . show) (("\tcost: " <>) . showPrettyExUnits) res
+      ]
+
+  showPrettyExUnits (ExUnits mem cpu) =
+    unwords ["mem =", show mem, ", cpu =", show cpu]
+
+  inputPtrs = zip [0 :: Natural ..] $ toList (inputs body)
+  datums = unTxDats $ txdats wits
+  redeemers = unRedeemers $ txrdmrs wits
+  inputAndRdmrs =
+    Map.fromList $
+      mapMaybe
+        ( \(idx, txIn) -> do
+            let ptr = RdmrPtr Spend $ fromIntegral idx
+            TxOut addr _value datum <- Map.lookup txIn utxoMap
+            rdmr <- Map.lookup ptr redeemers
+            dat <- (`Map.lookup` datums) =<< strictMaybeToMaybe datum
+            pure (ptr, (txIn, addr, dat, rdmr))
+        )
+        inputPtrs
+  rdmrsResults =
+    Map.toList $
+      Map.foldrWithKey
+        ( \ptr res m ->
+            case Map.lookup ptr inputAndRdmrs of
+              Just (txIn, addr, datum, rdmr) -> Map.insert txIn (addr, datum, rdmr, res) m
+              _ -> m
+        )
+        mempty
+        evaluationResult
+
 mkHeadOutput :: StrictMaybe (Data Era) -> TxOut Era
 mkHeadOutput headDatum = TxOut headAddress headValue headDatumHash
  where
-  headAddress = scriptAddr $ plutusScript $ MockHead.validatorScript policyId
+  headAddress = scriptAddr $ plutusScript $ Head.validatorScript policyId
   headValue = inject (Coin 2_000_000)
   headDatumHash = hashData @Era <$> headDatum
 
 instance Arbitrary (VerificationKey PaymentKey) where
   arbitrary = fst <$> genKeyPair
 
-generateCommitUtxos :: [Party] -> Utxo -> Gen (Map.Map (TxIn StandardCrypto) (TxOut Era, Data Era))
-generateCommitUtxos parties committedUtxo = do
-  txins <- vectorOf (length $ utxoPairs committedUtxo) arbitrary
+-- | Generate a `Utxo` associated with some `Party` in such a way there is no duplicate
+-- `Party` identifier, for a given resulting size.
+-- NOTE: The reason why it's done this way is that doing the simpler `vectorOf n arbitrary`
+-- does not guarantee uniqueness of the generated `Party`
+genPartyAndUtxo :: Int -> Gen [(Party, Utxo)]
+genPartyAndUtxo n = do
+  parties <-
+    vectorOf n arbitrary
+      `suchThat` \ps -> length (Set.fromList ps) == length ps
+  utxos <- vectorOf n (genOneUtxoFor =<< arbitrary)
+  pure $ zip parties utxos
+
+-- | Generate a UTXO representing /commit/ outputs for a given list of `Party`.
+-- FIXME: This function is very complicated and it's hard to understand it after a while
+generateCommitUtxos :: [(Party, Utxo)] -> Gen (Map.Map (TxIn StandardCrypto) (TxOut Era, Data Era))
+generateCommitUtxos parties = do
+  txins <- vectorOf (length parties) (arbitrary @(TxIn StandardCrypto))
+  committedUtxo <- vectorOf (length parties) $ do
+    singleUtxo <- fmap adaOnly <$> (genOneUtxoFor =<< arbitrary)
+    pure $ head <$> nonEmpty (utxoPairs singleUtxo)
   let commitUtxo =
         zip txins $
-          uncurry mkCommitUtxo <$> zip parties (Just <$> utxoPairs committedUtxo)
+          uncurry mkCommitUtxo <$> zip (fst <$> parties) committedUtxo
   pure $ Map.fromList commitUtxo
  where
   mkCommitUtxo :: Party -> Maybe (Api.TxIn, Api.TxOut Api.CtxUTxO Api.Era) -> (TxOut Era, Data Era)
@@ -441,7 +531,7 @@ generateCommitUtxos parties committedUtxo = do
    where
     commitValue = inject (Coin 2000000) <> maybe (inject $ Coin 0) (getValue . snd) utxo
     getValue (Api.TxOut _ val _) = toMaryValue $ Api.txOutValueToValue val
-    commitScript = plutusScript MockCommit.validatorScript
+    commitScript = plutusScript Commit.validatorScript
     commitDatum = Data . toData $ mkCommitDatum party utxo
 
 executionCost :: PParams Era -> ValidatedTx Era -> Coin
@@ -450,14 +540,14 @@ executionCost PParams{_prices} ValidatedTx{wits} =
  where
   executionUnits = foldMap snd $ unRedeemers $ txrdmrs wits
 
-mkMockInitialTxOut :: (TxIn StandardCrypto, PubKeyHash) -> (TxIn StandardCrypto, TxOut Era)
-mkMockInitialTxOut (txIn, pkh) =
+mkInitialTxOut :: (TxIn StandardCrypto, PubKeyHash) -> (TxIn StandardCrypto, TxOut Era)
+mkInitialTxOut (txIn, pkh) =
   (txIn, TxOut initialAddress initialValue (SJust initialDatumHash))
  where
-  initialAddress = scriptAddr $ plutusScript MockInitial.validatorScript
+  initialAddress = scriptAddr $ plutusScript Initial.validatorScript
   initialValue = inject (Coin 0)
   initialDatumHash =
-    hashData @Era $ Data $ toData $ MockInitial.datum pkh
+    hashData @Era $ Data $ toData $ Initial.datum pkh
 
 -- | Evaluate all plutus scripts and return execution budgets of a given
 -- transaction (any included budgets are ignored).
