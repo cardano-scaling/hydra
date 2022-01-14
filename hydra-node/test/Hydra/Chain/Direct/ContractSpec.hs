@@ -345,30 +345,31 @@ healthyCollectComTx =
   , fromLedgerUtxo lookupUtxo
   )
  where
+  lookupUtxo =
+    Ledger.UTxO $
+      Map.singleton headInput headResolvedInput <> (fst <$> commits)
+
   tx =
     collectComTx
       Fixture.testNetworkId
       (Utxo $ Map.fromList committedUtxo)
       (headInput, headDatum, healthyCollectComOnChainParties)
-      ( (uncurry healthyCommitOutput <$> zip healthyCollectComParties committedUtxo)
-          & Map.fromList
-          & Map.mapKeys toLedgerTxIn
-          & Map.map (first toLedgerTxOut)
-      )
+      commits
 
   committedUtxo =
     generateWith
       (replicateM (length healthyCollectComParties) genCommittableTxOut)
       42
 
+  commits =
+    (uncurry healthyCommitOutput <$> zip healthyCollectComParties committedUtxo)
+      & Map.fromList
+      & Map.mapKeys toLedgerTxIn
+      & Map.map (first toLedgerTxOut)
+
   headInput = generateWith arbitrary 42
   headResolvedInput = mkHeadOutput (SJust headDatum)
   headDatum = Ledger.Data $ toData healthyCollectComDatum
-  lookupUtxo =
-    Ledger.UTxO $
-      Map.fromList
-        [ (headInput, headResolvedInput)
-        ]
 
 healthyCollectComDatum :: Head.State
 healthyCollectComDatum =
