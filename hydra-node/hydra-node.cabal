@@ -193,17 +193,21 @@ executable tx-cost
   build-depends:
     , base
     , bytestring
-    , containers
+    , cardano-api
+    , cardano-binary
+    , cardano-crypto-class
     , cardano-ledger-alonzo
     , cardano-ledger-core
     , cardano-ledger-shelley
     , cardano-ledger-shelley-ma
+    , containers
     , hydra-node
-    , hydra-prelude
     , hydra-plutus
+    , hydra-prelude
     , hydra-test-utils
-    , plutus-tx
     , plutus-ledger-api
+    , plutus-merkle-tree
+    , plutus-tx
     , QuickCheck
     , strict-containers
 

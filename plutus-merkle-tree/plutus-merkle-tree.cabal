@@ -117,26 +117,3 @@ test-suite unit
     Spec
 
   main-is:            Main.hs
-
-executable contract-cost
-  import:         project-config
-  hs-source-dirs: exe/contract-cost
-  main-is:        Main.hs
-  build-depends:
-    , aeson
-    , base
-    , bytestring
-    , cardano-api
-    , containers
-    , data-default
-    , directory
-    , hydra-prelude
-    , hydra-test-utils
-    , optparse-applicative
-    , plutus-merkle-tree
-    , plutus-tx
-    , QuickCheck
-    , serialise
-    , text
-
-  ghc-options:    -threaded -rtsopts
