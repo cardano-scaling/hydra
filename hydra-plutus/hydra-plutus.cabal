@@ -81,6 +81,8 @@ library
     Hydra.Data.Party
     Hydra.Data.Utxo
     Hydra.OnChain.Util
+    Plutus.MerkleTree
+    Plutus.MerkleTreeValidator
     Plutus.Orphans
 
   hs-source-dirs:  src
@@ -134,3 +136,32 @@ executable inspect-script
     , text
 
   ghc-options:    -threaded -rtsopts
+
+test-suite unit
+  import:             project-config
+  type:               exitcode-stdio-1.0
+  hs-source-dirs:     test
+  ghc-options:        -threaded -rtsopts
+  build-tool-depends: hspec-discover:hspec-discover -any
+  build-depends:
+    , array
+    , base
+    , base16
+    , bytestring
+    , containers
+    , hspec
+    , hydra-plutus
+    , hydra-prelude
+    , hydra-test-utils
+    , plutus-core
+    , plutus-ledger
+    , plutus-ledger-api
+    , plutus-tx
+    , plutus-tx-plugin
+    , QuickCheck
+
+  other-modules:
+    Plutus.MerkleTreeSpec
+    Spec
+
+  main-is:            Main.hs
