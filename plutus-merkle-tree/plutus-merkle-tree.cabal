@@ -61,15 +61,15 @@ common project-config
   ghc-options:
     -Wall -Wcompat -Widentities -Wincomplete-record-updates
     -Wincomplete-uni-patterns -Wredundant-constraints
-    -Wnoncanonical-monad-instances -fobject-code
-    -fno-ignore-interface-pragmas -fno-omit-interface-pragmas
-    -fno-strictness
+    -Wnoncanonical-monad-instances -fno-ignore-interface-pragmas
+    -fno-omit-interface-pragmas -fno-strictness
 
   if !flag(hydra-development)
     ghc-options: -Werror
 
 library
   import:          project-config
+  ghc-options:     -haddock
   exposed-modules:
     Plutus.MerkleTree
     Plutus.MerkleTreeValidator
@@ -84,10 +84,6 @@ library
     , plutus-tx
     , plutus-tx-plugin
     , text
-
-  if flag(hydra-development)
-    -- NOTE(SN): should fix HLS choking on PlutusTx plugin
-    ghc-options: -fplugin-opt PlutusTx.Plugin:defer-errors
 
 test-suite unit
   import:             project-config
