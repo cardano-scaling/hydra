@@ -39,7 +39,13 @@ data State
 PlutusTx.unstableMakeIsData ''State
 
 data Input
-  = CollectCom {utxoHash :: Hash}
+  = -- FIXME: This `Hash` needs to be calculated by the on-chain script and not
+    -- provided as redeemer. This requires:
+    --
+    -- (a) finding the new state-machine's state, make sure it's Open and extract the hash
+    -- (b) construct that merkle root from the collected UTXO
+    -- (c) controll that (a) and (b) matches.
+    CollectCom {utxoHash :: Hash}
   | Close
       { snapshotNumber :: SnapshotNumber
       , utxoHash :: Hash

@@ -24,8 +24,15 @@ import Data.Maybe.Strict (StrictMaybe (..))
 import qualified Data.Sequence.Strict as StrictSeq
 import Hydra.Chain.Direct.Fixture (testNetworkId)
 import qualified Hydra.Chain.Direct.Fixture as Fixture
-import Hydra.Chain.Direct.Tx (closeTx, fanoutTx, policyId)
+import Hydra.Chain.Direct.Tx (
+  closeTx,
+  collectComTx,
+  fanoutTx,
+  mkCommitDatum,
+  policyId,
+ )
 import Hydra.Chain.Direct.TxSpec (mkHeadOutput)
+import qualified Hydra.Contract.Commit as Commit
 import Hydra.Contract.Encoding (serialiseTxOuts)
 import qualified Hydra.Contract.Hash as Hash
 import Hydra.Contract.Head (
@@ -35,6 +42,7 @@ import Hydra.Contract.Head (
 import qualified Hydra.Contract.Head as Head
 import Hydra.Data.Party (partyFromVerKey)
 import qualified Hydra.Data.Party as OnChain
+import qualified Hydra.Data.Party as Party
 import Hydra.Ledger.Cardano (
   AlonzoEra,
   BuildTxWith (BuildTxWith),
@@ -47,6 +55,7 @@ import Hydra.Ledger.Cardano (
   PlutusScriptV1,
   Tx (Tx),
   TxBodyScriptData (TxBodyNoScriptData, TxBodyScriptData),
+  TxIn,
   TxOut (..),
   Utxo,
   Utxo' (Utxo),
@@ -59,30 +68,36 @@ import Hydra.Ledger.Cardano (
   fromLedgerTxOut,
   fromLedgerUtxo,
   fromPlutusScript,
+  genAdaOnlyUtxo,
   genOutput,
   genUtxoWithSimplifiedAddresses,
   genValue,
   getOutputs,
   hashTxOuts,
   lovelaceToTxOutValue,
+  lovelaceToValue,
   mkDatumForTxIn,
   mkRedeemerForTxIn,
   mkScriptAddress,
   mkScriptWitness,
   mkTxOutDatum,
   mkTxOutDatumHash,
+  mkTxOutValue,
   modifyTxOutValue,
   shrinkUtxo,
   toCtxUTxOTxOut,
+  toLedgerTxIn,
   toLedgerTxOut,
   txOutValue,
   unsafeBuildTransaction,
+  utxoPairs,
  )
 import qualified Hydra.Ledger.Cardano as Api
 import Hydra.Ledger.Cardano.Evaluate (evaluateTx)
 import Hydra.Ledger.Simple (SimpleTx)
 import Hydra.Party (
   MultiSigned (MultiSigned),
+  Party,
   Signed (UnsafeSigned),
   SigningKey,
   aggregate,
@@ -112,6 +127,7 @@ import Test.QuickCheck (
   (===),
  )
 import Test.QuickCheck.Instances ()
+import qualified Prelude
 
 spec :: Spec
 spec = do
@@ -129,6 +145,9 @@ spec = do
   describe "TxOut hashing" $ do
     modifyMaxSuccess (const 20) $
       prop "OffChain.hashTxOuts == OnChain.hashTxOuts" prop_consistentOnAndOffChainHashOfTxOuts
+  describe "CollectCom" $ do
+    prop "is healthy" $
+      propTransactionValidates healthyCollectComTx
   describe "Close" $ do
     prop "is healthy" $
       propTransactionValidates healthyCloseTx
@@ -315,6 +334,88 @@ applyMutation mutation (tx@(Tx body wits), utxo) = case mutation of
         )
         []
         (zip [0 ..] txOuts)
+
+--
+-- CollectComTx
+--
+
+healthyCollectComTx :: (CardanoTx, Utxo)
+healthyCollectComTx =
+  ( fromLedgerTx tx
+  , fromLedgerUtxo lookupUtxo
+  )
+ where
+  lookupUtxo =
+    Ledger.UTxO $
+      Map.singleton headInput headResolvedInput <> (fst <$> commits)
+
+  tx =
+    collectComTx
+      Fixture.testNetworkId
+      (Utxo $ Map.fromList committedUtxo)
+      (headInput, headDatum, healthyCollectComOnChainParties)
+      commits
+
+  committedUtxo =
+    generateWith
+      (replicateM (length healthyCollectComParties) genCommittableTxOut)
+      42
+
+  commits =
+    (uncurry healthyCommitOutput <$> zip healthyCollectComParties committedUtxo)
+      & Map.fromList
+      & Map.mapKeys toLedgerTxIn
+      & Map.map (first toLedgerTxOut)
+
+  headInput = generateWith arbitrary 42
+  headResolvedInput = mkHeadOutput (SJust headDatum)
+  headDatum = Ledger.Data $ toData healthyCollectComDatum
+
+healthyCollectComDatum :: Head.State
+healthyCollectComDatum =
+  Head.Initial
+    { contestationPeriod = generateWith arbitrary 42
+    , parties = healthyCollectComOnChainParties
+    }
+
+healthyCollectComOnChainParties :: [OnChain.Party]
+healthyCollectComOnChainParties =
+  Party.partyFromVerKey . vkey <$> healthyCollectComParties
+
+healthyCollectComParties :: [Party]
+healthyCollectComParties = flip generateWith 42 $ do
+  alice <- arbitrary
+  bob <- arbitrary
+  carol <- arbitrary
+  pure [alice, bob, carol]
+
+genCommittableTxOut :: Gen (TxIn, TxOut CtxUTxO AlonzoEra)
+genCommittableTxOut =
+  Prelude.head . utxoPairs <$> (genAdaOnlyUtxo `suchThat` (\u -> length u > 1))
+
+healthyCommitOutput ::
+  Party ->
+  (TxIn, TxOut CtxUTxO AlonzoEra) ->
+  (TxIn, (TxOut CtxUTxO AlonzoEra, Ledger.Data LedgerEra))
+healthyCommitOutput party committed =
+  ( generateWith arbitrary seed
+  ,
+    ( toCtxUTxOTxOut (TxOut commitAddress commitValue (mkTxOutDatum commitDatum))
+    , Ledger.Data (toData commitDatum)
+    )
+  )
+ where
+  Party.UnsafeParty (fromIntegral -> seed) = Party.partyFromVerKey (vkey party)
+
+  commitScript =
+    fromPlutusScript Commit.validatorScript
+  commitAddress =
+    mkScriptAddress @Api.PlutusScriptV1 Fixture.testNetworkId commitScript
+  commitValue =
+    mkTxOutValue $
+      lovelaceToValue 2_000_000 <> (txOutValue . snd) committed
+  commitDatum =
+    mkCommitDatum party (Just committed)
 
 --
 -- CloseTx
