@@ -226,6 +226,11 @@ instance IsTx CardanoTx where
   txId = getTxId . getTxBody
   balance = foldMap (\(TxOut _ value _) -> txOutValueToValue value)
 
+getOutputs :: CardanoTx -> [TxOut CtxTx Era]
+getOutputs tx =
+  let TxBody TxBodyContent{txOuts} = getTxBody tx
+   in txOuts
+
 instance ToCBOR CardanoTx where
   toCBOR = CBOR.encodeBytes . serialize' . toLedgerTx
 
@@ -374,10 +379,6 @@ mkSimpleCardanoTx (txin, TxOut owner txOutValueIn datum) (recipient, valueOut) s
 
   fee = Lovelace 0
 
-getOutputs :: CardanoTx -> [TxOut CtxTx Era]
-getOutputs tx =
-  let TxBody TxBodyContent{txOuts} = getTxBody tx
-   in txOuts
 -- ** TxIn
 
 -- | Create a 'TxIn' from a transaction body and index.
@@ -540,6 +541,23 @@ utxoFromTx (Tx body@(ShelleyTxBody _ ledgerBody _ _ _ _) _) =
 -- This function is partial.
 utxoMin :: Utxo -> Utxo
 utxoMin = Utxo . uncurry Map.singleton . Map.findMin . utxoMap
+
+findScriptOutput ::
+  forall lang.
+  (HasPlutusScriptVersion lang) =>
+  Utxo ->
+  PlutusScript lang ->
+  Maybe (TxIn, TxOut CtxUTxO Era)
+findScriptOutput utxo script =
+  find matchScript (utxoPairs utxo)
+ where
+  version = plutusScriptVersion (proxyToAsType $ Proxy @lang)
+  matchScript = \case
+    (_, TxOut (AddressInEra _ (ShelleyAddress _ (Ledger.ScriptHashObj scriptHash') _)) _ _) ->
+      let scriptHash = toShelleyScriptHash $ hashScript $ PlutusScript version script
+       in scriptHash == scriptHash'
+    _ ->
+      False
 
 -- * Witness
 
