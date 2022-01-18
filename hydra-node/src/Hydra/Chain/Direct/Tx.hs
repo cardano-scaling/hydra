@@ -26,16 +26,15 @@ import Cardano.Ledger.Alonzo.TxInfo (transKeyHash)
 import Cardano.Ledger.Alonzo.TxWitness (TxWitness (..), unTxDats)
 import Cardano.Ledger.Crypto (StandardCrypto)
 import Cardano.Ledger.Era (hashScript)
-import qualified Cardano.Ledger.SafeHash as SafeHash
 import Cardano.Ledger.Shelley.API (
   Credential (ScriptHashObj),
   Network (Testnet),
   StakeReference (StakeRefNull),
   StrictMaybe (..),
-  TxId (TxId),
-  TxIn (TxIn),
+  TxIn,
   hashKey,
  )
+import Cardano.Ledger.Shelley.UTxO (UTxO (..))
 import qualified Data.Aeson as Aeson
 import qualified Data.Map as Map
 import qualified Data.Set as Set
@@ -502,56 +501,70 @@ observeCommit networkId tx = \case
 -- and decoding its redeemer.
 observeCollectComTx ::
   -- | A Utxo set to lookup tx inputs
-  Map (TxIn StandardCrypto) (TxOut Era) ->
+  UTxO Era ->
   ValidatedTx Era ->
   Maybe (OnChainTx CardanoTx, OnChainHeadState)
 observeCollectComTx utxo tx = do
-  (headInput, headOutput) <- findScriptOutput utxo headScript
+  (headInput, headOutput) <- Api.findScriptOutput @Api.PlutusScriptV1 (Api.fromLedgerUtxo utxo) headScript
   redeemer <-
     Api.findRedeemerSpending
       (Api.getTxBody $ Api.fromLedgerTx tx)
-      (Api.fromLedgerTxIn headInput)
-  oldHeadDatum <- lookupDatum (wits tx) headOutput
+      headInput
+  oldHeadDatum <- lookupDatum (wits tx) (Api.toLedgerTxOut headOutput)
   datum <- fromData $ getPlutusData oldHeadDatum
   case (datum, redeemer) of
     (Head.Initial{parties}, Head.CollectCom{}) -> do
-      (newHeadInput, newHeadOutput) <- findScriptOutput (utxoFromTx tx) headScript
-      newHeadDatum <- lookupDatum (wits tx) newHeadOutput
+      (newHeadInput, newHeadOutput) <- Api.findScriptOutput @Api.PlutusScriptV1 (Api.utxoFromTx $ Api.fromLedgerTx tx) headScript
+      newHeadDatum <- lookupDatum (wits tx) (Api.toLedgerTxOut newHeadOutput)
       pure
         ( OnCollectComTx
-        , OpenOrClosed{threadOutput = (newHeadInput, newHeadOutput, newHeadDatum, parties)}
+        , OpenOrClosed
+            { threadOutput =
+                ( Api.toLedgerTxIn newHeadInput
+                , Api.toLedgerTxOut newHeadOutput
+                , newHeadDatum
+                , parties
+                )
+            }
         )
     _ -> Nothing
  where
-  headScript = plutusScript $ Head.validatorScript policyId
+  headScript = Api.fromPlutusScript $ Head.validatorScript policyId
 
 -- | Identify a close tx by lookup up the input spending the Head output and
 -- decoding its redeemer.
 observeCloseTx ::
   -- | A Utxo set to lookup tx inputs
-  Map (TxIn StandardCrypto) (TxOut Era) ->
+  UTxO Era ->
   ValidatedTx Era ->
   Maybe (OnChainTx CardanoTx, OnChainHeadState)
 observeCloseTx utxo tx = do
-  (headInput, headOutput) <- findScriptOutput utxo headScript
+  (headInput, headOutput) <- Api.findScriptOutput @Api.PlutusScriptV1 (Api.fromLedgerUtxo utxo) headScript
   redeemer <-
     Api.findRedeemerSpending
       (Api.getTxBody $ Api.fromLedgerTx tx)
-      (Api.fromLedgerTxIn headInput)
-  oldHeadDatum <- lookupDatum (wits tx) headOutput
+      headInput
+  oldHeadDatum <- lookupDatum (wits tx) (Api.toLedgerTxOut headOutput)
   datum <- fromData $ getPlutusData oldHeadDatum
   case (datum, redeemer) of
     (Head.Open{parties}, Head.Close{snapshotNumber = onChainSnapshotNumber}) -> do
-      (newHeadInput, newHeadOutput) <- findScriptOutput (utxoFromTx tx) headScript
-      newHeadDatum <- lookupDatum (wits tx) newHeadOutput
+      (newHeadInput, newHeadOutput) <- Api.findScriptOutput @Api.PlutusScriptV1 (Api.utxoFromTx $ Api.fromLedgerTx tx) headScript
+      newHeadDatum <- lookupDatum (wits tx) (Api.toLedgerTxOut newHeadOutput)
       snapshotNumber <- integerToNatural onChainSnapshotNumber
       pure
         ( OnCloseTx{contestationDeadline, snapshotNumber}
-        , OpenOrClosed{threadOutput = (newHeadInput, newHeadOutput, newHeadDatum, parties)}
+        , OpenOrClosed
+            { threadOutput =
+                ( Api.toLedgerTxIn newHeadInput
+                , Api.toLedgerTxOut newHeadOutput
+                , newHeadDatum
+                , parties
+                )
+            }
         )
     _ -> Nothing
  where
-  headScript = plutusScript $ Head.validatorScript policyId
+  headScript = Api.fromPlutusScript $ Head.validatorScript policyId
 
   -- FIXME(SN): store in/read from datum
   contestationDeadline = UTCTime (ModifiedJulianDay 0) 0
@@ -564,38 +577,38 @@ observeCloseTx utxo tx = do
 -- from a known script (the head state machine script) with a "fanout" redeemer.
 observeFanoutTx ::
   -- | A Utxo set to lookup tx inputs
-  Map (TxIn StandardCrypto) (TxOut Era) ->
+  UTxO Era ->
   ValidatedTx Era ->
   Maybe (OnChainTx CardanoTx, OnChainHeadState)
 observeFanoutTx utxo tx = do
-  headInput <- fst <$> findScriptOutput utxo headScript
+  headInput <- fst <$> Api.findScriptOutput @Api.PlutusScriptV1 (Api.fromLedgerUtxo utxo) headScript
   Api.findRedeemerSpending
     (Api.getTxBody $ Api.fromLedgerTx tx)
-    (Api.fromLedgerTxIn headInput)
+    headInput
     >>= \case
       Head.Fanout{} -> pure (OnFanoutTx, Final)
       _ -> Nothing
  where
-  headScript = plutusScript $ Head.validatorScript policyId
+  headScript = Api.fromPlutusScript $ Head.validatorScript policyId
 
 -- | Identify an abort tx by looking up the input spending the Head output and
 -- decoding its redeemer.
 observeAbortTx ::
   -- | A Utxo set to lookup tx inputs
-  Map (TxIn StandardCrypto) (TxOut Era) ->
+  UTxO Era ->
   ValidatedTx Era ->
   Maybe (OnChainTx CardanoTx, OnChainHeadState)
 observeAbortTx utxo tx = do
-  headInput <- fst <$> findScriptOutput utxo headScript
+  headInput <- fst <$> Api.findScriptOutput @Api.PlutusScriptV1 (Api.fromLedgerUtxo utxo) headScript
   Api.findRedeemerSpending
     (Api.getTxBody $ Api.fromLedgerTx tx)
-    (Api.fromLedgerTxIn headInput)
+    headInput
     >>= \case
       Head.Abort -> pure (OnAbortTx, Final)
       _ -> Nothing
  where
   -- FIXME(SN): make sure this is aborting "the right head / your head" by not hard-coding policyId
-  headScript = plutusScript $ Head.validatorScript policyId
+  headScript = Api.fromPlutusScript $ Head.validatorScript policyId
 
 -- * Functions related to OnChainHeadState
 
@@ -644,23 +657,6 @@ lookupDatum :: TxWitness Era -> TxOut Era -> Maybe (Data Era)
 lookupDatum wits = \case
   (TxOut _ _ (SJust datumHash)) -> Map.lookup datumHash . unTxDats $ txdats wits
   _ -> Nothing
-
-findScriptOutput ::
-  Map (TxIn StandardCrypto) (TxOut Era) ->
-  Script Era ->
-  Maybe (TxIn StandardCrypto, TxOut Era)
-findScriptOutput utxo script =
-  find go $ Map.toList utxo
- where
-  go (_, TxOut addr _ _) = addr == scriptAddr script
-
--- | Get the Utxo set created by given transaction.
--- TODO(SN): DRY with Hydra.Ledger.Cardano.utxoFromTx
-utxoFromTx :: ValidatedTx Era -> Map (TxIn StandardCrypto) (TxOut Era)
-utxoFromTx ValidatedTx{body} =
-  Map.fromList $ zip (map mkTxIn [0 ..]) . toList $ outputs body
- where
-  mkTxIn = TxIn (TxId $ SafeHash.hashAnnotated body)
 
 -- | Find first occurrence including a transformation.
 findFirst :: Foldable t => (a -> Maybe b) -> t a -> Maybe b
