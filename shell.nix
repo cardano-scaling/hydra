@@ -65,7 +65,7 @@ let
 
     buildInputs = libs ++ tools;
 
-    withHoogle = true;
+    withHoogle = false;
 
     # Always create missing golden files
     CREATE_MISSING_GOLDEN = 1;
@@ -95,29 +95,7 @@ let
     STACK_IN_NIX_SHELL = "true";
   };
 
-  # A shell disabling hoogle, for use in CI
-  # FIXME: I did not manage to reuse haskellNixShell and simply change `withHoogle` value
-  # so copy/pasted everything else
-  ciShell = hsPkgs.shellFor {
-    packages = packages;
-
-    # Haskell.nix managed tools (via hackage)
-    tools = {
-      cabal = "3.4.0.0";
-      fourmolu = "latest";
-      haskell-language-server = "latest";
-    };
-
-    buildInputs = libs ++ tools;
-
-    withHoogle = false;
-
-    # Always create missing golden files
-    CREATE_MISSING_GOLDEN = 1;
-  };
-
 in
 haskellNixShell // {
   cabalOnly = cabalShell;
-  ci = ciShell;
 }

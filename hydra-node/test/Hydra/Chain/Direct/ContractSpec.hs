@@ -52,7 +52,7 @@ import Hydra.Ledger.Cardano (
   TxBodyScriptData (TxBodyNoScriptData, TxBodyScriptData),
   TxIn,
   TxOut (..),
-  Utxo,
+  Utxo(..),
   adaOnly,
   describeCardanoTx,
   fromLedgerTx,
