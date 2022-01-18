@@ -19,6 +19,7 @@ import qualified Ledger.Typed.Scripts as Scripts
 import Ledger.Typed.Scripts.Validators (DatumType)
 import Plutus.Codec.CBOR.Encoding (
   encodeInteger,
+  encodeRaw,
   encodingToBuiltinByteString,
  )
 import qualified PlutusTx
@@ -90,6 +91,16 @@ headValidator _ commitAddress oldState input context =
               mempty
               txInfoInputs
           headInputValue = maybe mempty (txOutValue . txInInfoResolved) $ findOwnInput context
+
+          collectedUtxo =
+            foldr
+              ( \TxInInfo{txInInfoResolved} utxos ->
+                  if txOutAddress txInInfoResolved == commitAddress
+                    then utxos
+                    else utxos
+              )
+              mempty
+              txInfoInputs
        in case findContinuingOutputs context of
             [ix] ->
               let headOutputValue = txOutValue $ txInfoOutputs !! ix
@@ -111,6 +122,11 @@ headValidator _ commitAddress oldState input context =
   TxInfo{txInfoInputs, txInfoOutputs} = txInfo
 
   ScriptContext{scriptContextTxInfo = txInfo} = context
+
+hashPreSerializedCommits :: [Utxo] -> BuiltinByteString
+hashPreSerializedCommits u =
+  encodingToBuiltinByteString $
+    encodeBeginList <> foldMap (\(Utxo bytes) -> encodeRaw bytes) u <> encodeBreak
 
 hashTxOuts :: [TxOut] -> BuiltinByteString
 hashTxOuts =
