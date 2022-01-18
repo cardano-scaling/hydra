@@ -95,5 +95,5 @@ let
 in
 haskellNixShell // {
   cabalOnly = cabalShell;
-  ci = haskellNixShell { withHoogle = false; }
+  ci = haskellNixShell { withHoogle = false; };
 }
