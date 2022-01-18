@@ -14,14 +14,19 @@ import qualified Hydra.Contract.Commit as Commit
 import Hydra.Contract.Encoding (serialiseTxOuts)
 import Hydra.Data.ContestationPeriod (ContestationPeriod)
 import Hydra.Data.Party (Party (UnsafeParty))
+import Hydra.Data.Utxo (Utxo (Utxo))
 import Ledger.Typed.Scripts (TypedValidator, ValidatorTypes (RedeemerType))
 import qualified Ledger.Typed.Scripts as Scripts
 import Ledger.Typed.Scripts.Validators (DatumType)
 import Plutus.Codec.CBOR.Encoding (
+  encodeBeginList,
+  encodeBreak,
   encodeInteger,
   encodeRaw,
   encodingToBuiltinByteString,
  )
+import PlutusPrelude (guard)
+import PlutusTx (fromBuiltinData, toBuiltinData)
 import qualified PlutusTx
 import Text.Show (Show)
 
@@ -79,8 +84,7 @@ headValidator ::
   Bool
 headValidator _ commitAddress oldState input context =
   case (oldState, input) of
-    (Initial{}, CollectCom{}) ->
-      -- TODO: check collected txouts are put as datum in own script output
+    (Initial{parties}, CollectCom{}) ->
       let collectedValue =
             foldr
               ( \TxInInfo{txInInfoResolved} val ->
@@ -92,20 +96,34 @@ headValidator _ commitAddress oldState input context =
               txInfoInputs
           headInputValue = maybe mempty (txOutValue . txInInfoResolved) $ findOwnInput context
 
-          collectedUtxo =
-            foldr
-              ( \TxInInfo{txInInfoResolved} utxos ->
-                  if txOutAddress txInInfoResolved == commitAddress
-                    then utxos
-                    else utxos
-              )
-              mempty
-              txInfoInputs
+          collectedUtxo :: [Utxo] =
+            reverse $
+              foldr
+                ( \TxInInfo{txInInfoResolved} utxos -> maybe utxos (: utxos) $ do
+                    guard $ txOutAddress txInInfoResolved == commitAddress
+                    dh <- txOutDatumHash txInInfoResolved
+                    d <- getDatum <$> findDatum dh txInfo
+                    fromBuiltinData d
+                )
+                mempty
+                txInfoInputs
+          utxoHash = hashPreSerializedCommits collectedUtxo
+          expectedDatum = Open{parties, utxoHash}
        in case findContinuingOutputs context of
             [ix] ->
-              let headOutputValue = txOutValue $ txInfoOutputs !! ix
-               in traceIfFalse "committed value is not preserved in head" $
-                    headOutputValue == collectedValue <> headInputValue
+              let headOutput = txInfoOutputs !! ix
+                  headOutputValue = txOutValue headOutput
+
+                  checkOutputValue =
+                    traceIfFalse "committed value is not preserved in head" $
+                      headOutputValue == collectedValue <> headInputValue
+
+                  headOutputDatumHash = txOutDatumHash headOutput
+
+                  checkOutputDatum =
+                    traceIfFalse "unexpected output datum in collectCom" $
+                      headOutputDatumHash == Just (datumHash $ Datum $ toBuiltinData expectedDatum)
+               in checkOutputValue && checkOutputDatum
             [] -> traceIfFalse "No continuing head output" False
             _ -> traceIfFalse "More than one continuing head output" False
     (Initial{}, Abort) -> True
