@@ -20,6 +20,7 @@ import qualified Cardano.Ledger.Shelley.API as Ledger
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Base16 as Base16
 import qualified Data.Map as Map
+import Data.Maybe (fromJust)
 import Data.Maybe.Strict (StrictMaybe (..))
 import qualified Data.Sequence.Strict as StrictSeq
 import qualified Hydra.Chain.Direct.Fixture as Fixture
@@ -134,6 +135,8 @@ spec = do
   describe "CollectCom" $ do
     prop "is healthy" $
       propTransactionValidates healthyCollectComTx
+    prop "does not survive random adversarial mutations" $
+      propMutation healthyCollectComTx genCollectComMutation
   describe "Close" $ do
     prop "is healthy" $
       propTransactionValidates healthyCloseTx
@@ -307,10 +310,10 @@ healthyCollectComTx =
 
   headInput = generateWith arbitrary 42
   headResolvedInput = mkHeadOutput (SJust headDatum)
-  headDatum = Ledger.Data $ toData healthyCollectComDatum
+  headDatum = Ledger.Data $ toData healthyCollectComInitialDatum
 
-healthyCollectComDatum :: Head.State
-healthyCollectComDatum =
+healthyCollectComInitialDatum :: Head.State
+healthyCollectComInitialDatum =
   Head.Initial
     { contestationPeriod = generateWith arbitrary 42
     , parties = healthyCollectComOnChainParties
@@ -354,6 +357,21 @@ healthyCommitOutput party committed =
       lovelaceToValue 2_000_000 <> (txOutValue . snd) committed
   commitDatum =
     mkCommitDatum party (Just committed)
+
+data CollectComMutation
+  = MutateOpenOutputValue
+  deriving (Generic, Show, Enum, Bounded)
+
+genCollectComMutation :: (CardanoTx, Utxo) -> Gen SomeMutation
+genCollectComMutation (tx, _utxo) =
+  oneof
+    [ SomeMutation MutateOpenOutputValue . ChangeOutput 0 <$> do
+        mutatedValue <- (mkTxOutValue <$> genValue) `suchThat` (/= collectComOutputValue)
+        pure $ TxOut collectComOutputAddress mutatedValue collectComOutputDatum
+    ]
+ where
+  TxOut collectComOutputAddress collectComOutputValue collectComOutputDatum =
+    fromJust $ getOutputs tx !!? 0
 
 --
 -- CloseTx
