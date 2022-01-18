@@ -26,7 +26,6 @@ import Plutus.Codec.CBOR.Encoding (
   encodeRaw,
   encodingToBuiltinByteString,
  )
-import PlutusPrelude (guard)
 import PlutusTx (fromBuiltinData, toBuiltinData)
 import qualified PlutusTx
 import Text.Show (Show)
