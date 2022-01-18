@@ -10,6 +10,7 @@ import PlutusTx.Prelude
 
 import Data.Aeson (FromJSON, ToJSON)
 import GHC.Generics (Generic)
+import Hydra.Contract.Commit (Commit)
 import qualified Hydra.Contract.Commit as Commit
 import Hydra.Contract.Encoding (serialiseTxOuts)
 import Hydra.Data.ContestationPeriod (ContestationPeriod)
@@ -99,11 +100,15 @@ headValidator _ commitAddress oldState input context =
           collectedUtxo :: [Utxo] =
             reverse $
               foldr
-                ( \TxInInfo{txInInfoResolved} utxos -> maybe utxos (: utxos) $ do
-                    guard $ txOutAddress txInInfoResolved == commitAddress
-                    dh <- txOutDatumHash txInInfoResolved
-                    d <- getDatum <$> findDatum dh txInfo
-                    fromBuiltinData d
+                ( \TxInInfo{txInInfoResolved} utxos ->
+                    if txOutAddress txInInfoResolved == commitAddress
+                      then maybe (traceError "could not decode commit") (: utxos) $ do
+                        dh <- txOutDatumHash txInInfoResolved
+                        d <- getDatum <$> findDatum dh txInfo
+                        case fromBuiltinData d of
+                          Nothing -> traceError "fromBuiltinData failed"
+                          Just ((_p, u) :: DatumType Commit) -> pure u
+                      else utxos
                 )
                 mempty
                 txInfoInputs
@@ -156,8 +161,9 @@ headValidator _ commitAddress oldState input context =
 
 hashPreSerializedCommits :: [Utxo] -> BuiltinByteString
 hashPreSerializedCommits u =
-  encodingToBuiltinByteString $
+  sha2_256 . encodingToBuiltinByteString $
     encodeBeginList <> foldMap (\(Utxo bytes) -> encodeRaw bytes) u <> encodeBreak
+{-# INLINEABLE hashPreSerializedCommits #-}
 
 hashTxOuts :: [TxOut] -> BuiltinByteString
 hashTxOuts =
