@@ -24,10 +24,10 @@ import Cardano.Api.Shelley
 import Hydra.Ledger.Cardano.Builder
 import Hydra.Ledger.Cardano.Isomorphism
 
-import qualified Cardano.Api
 import Cardano.Binary (decodeAnnotator, serialize, serialize')
 import qualified Cardano.Crypto.DSIGN as CC
 import Cardano.Crypto.Hash (SHA256, digest)
+import qualified Cardano.Ledger.Alonzo.Data as Ledger.Alonzo
 import qualified Cardano.Ledger.Alonzo.PParams as Ledger.Alonzo
 import qualified Cardano.Ledger.Alonzo.Scripts as Ledger.Alonzo
 import qualified Cardano.Ledger.Alonzo.Tx as Ledger.Alonzo
@@ -63,6 +63,7 @@ import Data.Default (Default, def)
 import qualified Data.Map.Strict as Map
 import Data.Maybe (fromJust)
 import Data.Maybe.Strict (maybeToStrictMaybe, strictMaybeToMaybe)
+import qualified Data.Set as Set
 import qualified Data.Text as T
 import Data.Text.Lazy.Builder (toLazyText)
 import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
@@ -193,6 +194,24 @@ mkDatumForTxIn =
 mkRedeemerForTxIn :: Plutus.ToData a => a -> ScriptRedeemer
 mkRedeemerForTxIn =
   fromPlutusData . Plutus.toData
+
+-- | Lookup and decode redeemer which is spending a given 'TxIn'.
+findRedeemerSpending ::
+  Plutus.FromData a =>
+  TxBody Era ->
+  TxIn ->
+  Maybe a
+findRedeemerSpending (ShelleyTxBody _ body _ scriptData _ _) txIn = do
+  idx <- Set.lookupIndex (toLedgerTxIn txIn) (Ledger.Alonzo.inputs body)
+  let ptr = Ledger.Alonzo.RdmrPtr Ledger.Alonzo.Spend $ fromIntegral idx
+  (d, _exUnits) <- Map.lookup ptr redeemers
+  Plutus.fromData $ Ledger.Alonzo.getPlutusData d
+ where
+  redeemers = case scriptData of
+    TxBodyNoScriptData ->
+      mempty
+    TxBodyScriptData _ _ (Ledger.Alonzo.Redeemers rs) ->
+      rs
 
 -- ** Tx
 
