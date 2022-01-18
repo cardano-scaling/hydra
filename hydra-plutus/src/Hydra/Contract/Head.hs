@@ -118,8 +118,20 @@ headValidator _ commitAddress oldState input context =
                     traceIfFalse "committed value is not preserved in head" $
                       headOutputValue == collectedValue <> headInputValue
 
+                  checkOutputDatumError =
+                    "unexpected output datum in collectCom, expected utxo hash: "
+                      `appendByteString` utxoHash
+                      `appendByteString` ", actual utxo hash: "
+                      `appendByteString` actualUtxoHash
+
+                  actualUtxoHash = fromMaybe "couldn't find actual hash?" $ do
+                    headOutputDatumHash <- txOutDatumHash headOutput
+                    actualDatum <- findDatum headOutputDatumHash txInfo
+                    Open{utxoHash = actual} <- fromBuiltinData (getDatum actualDatum)
+                    pure actual
+
                   checkOutputDatum =
-                    traceIfFalse "unexpected output datum in collectCom" $
+                    traceIfFalse (decodeUtf8 checkOutputDatumError) $
                       fromMaybe False $ do
                         headOutputDatumHash <- txOutDatumHash headOutput
                         actualDatum <- findDatum headOutputDatumHash txInfo
