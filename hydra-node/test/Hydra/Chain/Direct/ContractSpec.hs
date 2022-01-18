@@ -374,19 +374,29 @@ genCollectComMutation (tx, _utxo) =
         pure $ TxOut collectComOutputAddress mutatedValue collectComOutputDatum
     , SomeMutation MutateOpenUtxoHash . ChangeOutput 0 <$> do
         mutatedUtxoHash <- BS.pack <$> vector 32
+        -- NOTE / TODO:
+        --
+        -- This should probably be defined a 'Mutation', but it is different
+        -- from 'ChangeHeadDatum'. The latter modifies the _input_ datum given
+        -- to the script, whereas this one modifies the resulting head datum in
+        -- the output.
         case collectComOutputDatum of
-          TxOutDatumNone -> error "unexpected empty head datum"
-          (TxOutDatumHash _sdsie _ha) -> error "unexpected hash-only datum"
+          TxOutDatumNone ->
+            error "Unexpected empty head datum"
+          (TxOutDatumHash _sdsie _ha) ->
+            error "Unexpected hash-only datum"
           (TxOutDatum _sdsie sd) ->
             case fromData $ toPlutusData sd of
-              Nothing -> error "Invalid data"
               (Just Head.Open{parties}) ->
                 pure $
                   TxOut
                     collectComOutputAddress
                     collectComOutputValue
                     (mkTxOutDatum Head.Open{parties, Head.utxoHash = toBuiltin mutatedUtxoHash})
-              (Just st) -> error $ "unexpected state " <> show st
+              (Just st) ->
+                error $ "Unexpected state " <> show st
+              Nothing ->
+                error "Invalid data"
     ]
  where
   TxOut collectComOutputAddress collectComOutputValue collectComOutputDatum =
