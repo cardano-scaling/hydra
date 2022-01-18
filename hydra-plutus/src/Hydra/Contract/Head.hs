@@ -63,6 +63,7 @@ instance Scripts.ValidatorTypes Head where
   type DatumType Head = State
   type RedeemerType Head = Input
 
+-- TODO: Add state checkings as done previously by SM
 {-# INLINEABLE headValidator #-}
 headValidator ::
   -- | Unique identifier for this particular Head
@@ -78,9 +79,8 @@ headValidator ::
 headValidator _ commitAddress oldState input context =
   case (oldState, input) of
     (Initial{}, CollectCom{}) ->
-      -- TODO: check collected value is sent to own script output
       -- TODO: check collected txouts are put as datum in own script output
-      let _collectedValue =
+      let collectedValue =
             foldr
               ( \TxInInfo{txInInfoResolved} val ->
                   if txOutAddress txInInfoResolved == commitAddress
@@ -89,7 +89,14 @@ headValidator _ commitAddress oldState input context =
               )
               mempty
               txInfoInputs
-       in True
+          headInputValue = maybe mempty (txOutValue . txInInfoResolved) $ findOwnInput context
+       in case findContinuingOutputs context of
+            [ix] ->
+              let headOutputValue = txOutValue $ txInfoOutputs !! ix
+               in traceIfFalse "committed value is not preserved in head" $
+                    headOutputValue == collectedValue <> headInputValue
+            [] -> traceIfFalse "No continuing head output" False
+            _ -> traceIfFalse "More than one continuing head output" False
     (Initial{}, Abort) -> True
     (Open{parties}, Close{snapshotNumber, signature})
       | snapshotNumber == 0 -> True
