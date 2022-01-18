@@ -65,7 +65,6 @@ import qualified Data.List as List
 import qualified Data.Map.Strict as Map
 import qualified Data.Sequence.Strict as StrictSeq
 import qualified Data.Set as Set
-import Hydra.Chain.Direct.Tx (redeemersFromList)
 import Hydra.Chain.Direct.Util (
   Block,
   Era,

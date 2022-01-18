@@ -17,32 +17,27 @@ import Cardano.Api (NetworkId)
 import Cardano.Binary (serialize)
 import Cardano.Ledger.Address (Addr (Addr))
 import Cardano.Ledger.Alonzo (Script)
-import Cardano.Ledger.Alonzo.Data (Data, DataHash, getPlutusData, hashData)
+import Cardano.Ledger.Alonzo.Data (Data, getPlutusData)
 import Cardano.Ledger.Alonzo.Language (Language (PlutusV1))
-import Cardano.Ledger.Alonzo.Scripts (ExUnits (..), Script (PlutusScript), Tag (Spend))
-import Cardano.Ledger.Alonzo.Tx (IsValid (IsValid), ScriptPurpose (Spending), ValidatedTx (..), rdptr)
+import Cardano.Ledger.Alonzo.Scripts (Script (PlutusScript))
+import Cardano.Ledger.Alonzo.Tx (ValidatedTx (..))
 import Cardano.Ledger.Alonzo.TxBody (TxBody (..), TxOut (TxOut))
 import Cardano.Ledger.Alonzo.TxInfo (transKeyHash)
-import Cardano.Ledger.Alonzo.TxWitness (RdmrPtr (RdmrPtr), Redeemers (..), TxDats (..), TxWitness (..), unRedeemers, unTxDats)
+import Cardano.Ledger.Alonzo.TxWitness (TxWitness (..), unTxDats)
 import Cardano.Ledger.Crypto (StandardCrypto)
 import Cardano.Ledger.Era (hashScript)
 import qualified Cardano.Ledger.SafeHash as SafeHash
 import Cardano.Ledger.Shelley.API (
-  Coin (..),
   Credential (ScriptHashObj),
   Network (Testnet),
-  ScriptHash,
   StakeReference (StakeRefNull),
   StrictMaybe (..),
   TxId (TxId),
   TxIn (TxIn),
-  Wdrl (Wdrl),
   hashKey,
  )
-import Cardano.Ledger.ShelleyMA.Timelocks (ValidityInterval (..))
 import qualified Data.Aeson as Aeson
 import qualified Data.Map as Map
-import qualified Data.Sequence.Strict as StrictSeq
 import qualified Data.Set as Set
 import Data.Time (Day (ModifiedJulianDay), UTCTime (UTCTime))
 import Hydra.Chain (HeadParameters (..), OnChainTx (..))
@@ -76,7 +71,7 @@ import qualified Hydra.Ledger.Cardano as Api
 import Hydra.Party (MultiSigned, Party (Party), toPlutusSignatures, vkey)
 import Hydra.Snapshot (Snapshot (..))
 import Ledger.Value (AssetClass (..), currencyMPSHash)
-import Plutus.V1.Ledger.Api (FromData, MintingPolicyHash, PubKeyHash (..), fromData)
+import Plutus.V1.Ledger.Api (MintingPolicyHash, PubKeyHash (..), fromData)
 import qualified Plutus.V1.Ledger.Api as Plutus
 import Plutus.V1.Ledger.Value (assetClass, currencySymbol, tokenName)
 import Plutus.V2.Ledger.Api (toBuiltin)
@@ -119,68 +114,6 @@ threadToken = assetClass (currencySymbol "hydra") (tokenName "token")
 -- FIXME: should not be hardcoded
 policyId :: MintingPolicyHash
 (policyId, _) = first currencyMPSHash (unAssetClass threadToken)
-
-emptyTx :: ValidatedTx Era
-emptyTx =
-  ValidatedTx
-    { body = emptyTxBody
-    , wits =
-        TxWitness
-          { txwitsVKey = mempty
-          , txwitsBoot = mempty
-          , txscripts = mempty
-          , txdats = mempty
-          , txrdmrs = Redeemers Map.empty
-          }
-    , isValid = IsValid True -- REVIEW(SN): no idea of the semantics of this
-    , auxiliaryData = SNothing
-    }
-
-withBody :: TxBody Era -> ValidatedTx Era -> ValidatedTx Era
-withBody body tx =
-  tx{body}
-
-withDatums :: [Data Era] -> ValidatedTx Era -> ValidatedTx Era
-withDatums datums tx =
-  tx{wits = (wits tx){txdats = datumsFromList datums}}
-
-withRedeemers :: [(TxIn StandardCrypto, Data Era)] -> ValidatedTx Era -> ValidatedTx Era
-withRedeemers redeemers tx =
-  tx{wits = (wits tx){txrdmrs = redeemersFromList $ mkRedeemer <$> redeemers}}
- where
-  mkRedeemer (txin, redeemer) = (rdptr (body tx) (Spending txin), (redeemer, ExUnits 0 0))
-
-withScripts :: Map (ScriptHash StandardCrypto) (Script Era) -> ValidatedTx Era -> ValidatedTx Era
-withScripts scripts tx =
-  tx{wits = (wits tx){txscripts = scripts}}
-
-emptyTxBody :: TxBody Era
-emptyTxBody =
-  TxBody
-    { inputs = mempty
-    , collateral = mempty
-    , outputs = mempty
-    , txcerts = mempty
-    , txwdrls = Wdrl mempty
-    , txfee = Coin 0
-    , txvldt = ValidityInterval SNothing SNothing
-    , txUpdates = SNothing
-    , reqSignerHashes = mempty
-    , mint = mempty
-    , scriptIntegrityHash = SNothing
-    , adHash = SNothing
-    , txnetworkid = SNothing
-    }
-
--- | Adds the given 'inputs' to the existing transaction body's existing inputs.
-withInputs :: [TxIn StandardCrypto] -> TxBody Era -> TxBody Era
-withInputs newInputs txbody =
-  txbody{inputs = inputs txbody <> Set.fromList newInputs}
-
--- | Appends the given 'newOutputs' to the transaction body's existing outputs.
-withOutputs :: [TxOut Era] -> TxBody Era -> TxBody Era
-withOutputs newOutputs txbody =
-  txbody{outputs = outputs txbody <> StrictSeq.fromList newOutputs}
 
 -- | Create the init transaction from some 'HeadParameters' and a single TxIn
 -- which will be used as unique parameter for minting NFTs.

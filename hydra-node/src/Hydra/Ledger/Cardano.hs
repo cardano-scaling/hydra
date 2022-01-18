@@ -32,16 +32,15 @@ import qualified Cardano.Ledger.Alonzo.PParams as Ledger.Alonzo
 import qualified Cardano.Ledger.Alonzo.Scripts as Ledger.Alonzo
 import qualified Cardano.Ledger.Alonzo.Tx as Ledger.Alonzo
 import qualified Cardano.Ledger.Alonzo.TxBody as Ledger.Alonzo
-import Cardano.Ledger.Alonzo.TxWitness (TxDats (TxDats), unRedeemers)
 import qualified Cardano.Ledger.Alonzo.TxWitness as Ledger.Alonzo
 import qualified Cardano.Ledger.BaseTypes as Ledger
 import qualified Cardano.Ledger.Core as Ledger
+import qualified Cardano.Ledger.Credential as Ledger
 import qualified Cardano.Ledger.Crypto as Ledger (StandardCrypto)
 import qualified Cardano.Ledger.Era as Ledger
 import qualified Cardano.Ledger.Keys as Ledger
 import qualified Cardano.Ledger.Mary as Ledger.Mary hiding (Value)
 import qualified Cardano.Ledger.Mary.Value as Ledger.Mary
-import Cardano.Ledger.Shelley.API (StakeReference (StakeRefNull, StakeRefPtr))
 import qualified Cardano.Ledger.Shelley.API.Mempool as Ledger
 import qualified Cardano.Ledger.Shelley.Genesis as Ledger
 import qualified Cardano.Ledger.Shelley.LedgerState as Ledger
@@ -325,7 +324,7 @@ describeCardanoTx (Tx body _wits) =
 
   datums = case scriptsData of
     TxBodyNoScriptData -> []
-    (TxBodyScriptData _ (TxDats dats) _) ->
+    (TxBodyScriptData _ (Ledger.Alonzo.TxDats dats) _) ->
       "  Datums (" <> show (length dats) <> ")" :
       (("    " <>) . showDatumAndHash <$> Map.toList dats)
 
@@ -334,7 +333,7 @@ describeCardanoTx (Tx body _wits) =
   redeemers = case scriptsData of
     TxBodyNoScriptData -> []
     (TxBodyScriptData _ _ re) ->
-      let rdmrs = Map.elems $ unRedeemers re
+      let rdmrs = Map.elems $ Ledger.Alonzo.unRedeemers re
        in "  Redeemers (" <> show (length rdmrs) <> ")" :
           (("    " <>) . show . fst <$> rdmrs)
 
@@ -743,8 +742,8 @@ simplifyUtxo = Utxo . Map.fromList . map tweakAddress . filter notByronAddress .
   tweakAddress out@(txin, TxOut addr val dat) = case addr of
     AddressInEra er@(ShelleyAddressInEra _) (ShelleyAddress _ cre sr) ->
       case sr of
-        StakeRefPtr _ ->
-          (txin, TxOut (AddressInEra er (ShelleyAddress Ledger.Testnet cre StakeRefNull)) val dat)
+        Ledger.StakeRefPtr _ ->
+          (txin, TxOut (AddressInEra er (ShelleyAddress Ledger.Testnet cre Ledger.StakeRefNull)) val dat)
         _ ->
           (txin, TxOut (AddressInEra er (ShelleyAddress Ledger.Testnet cre sr)) val dat)
     _ -> out
