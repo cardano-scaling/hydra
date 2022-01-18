@@ -93,4 +93,7 @@ let
   };
 
 in
-haskellNixShell // { cabalOnly = cabalShell; }
+haskellNixShell // {
+  cabalOnly = cabalShell;
+  ci = haskellNixShell { withHoogle = false; }
+}

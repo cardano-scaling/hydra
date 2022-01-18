@@ -30,7 +30,7 @@ jobs:
         restore-keys: |
             ${{ runner.os }}-key
 
-    - run: nix-shell --run 'build-ci.sh'
+    - run: nix-shell -A ci --run 'build-ci.sh'
       # https://giters.com/gfx/example-github-actions-with-tty
       # The default shell does not allocate a TTY which breaks some tests
       shell: 'script -q -e -c "bash {0}"'
