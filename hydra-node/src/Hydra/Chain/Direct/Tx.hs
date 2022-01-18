@@ -14,7 +14,7 @@ module Hydra.Chain.Direct.Tx where
 import Hydra.Prelude
 
 import Cardano.Api (NetworkId)
-import Cardano.Binary (serialize)
+import Cardano.Binary (serialize, serialize')
 import Cardano.Ledger.Address (Addr (Addr))
 import Cardano.Ledger.Alonzo (Script)
 import Cardano.Ledger.Alonzo.Data (Data, getPlutusData)
@@ -47,13 +47,11 @@ import qualified Hydra.Contract.Initial as Initial
 import Hydra.Data.ContestationPeriod (contestationPeriodFromDiffTime, contestationPeriodToDiffTime)
 import Hydra.Data.Party (partyFromVerKey, partyToVerKey)
 import qualified Hydra.Data.Party as OnChain
-import Hydra.Data.Utxo (fromByteString)
 import qualified Hydra.Data.Utxo as OnChain
 import Hydra.Ledger.Cardano (
   CardanoTx,
   PaymentKey,
   Utxo,
-  Utxo' (Utxo),
   VerificationKey (PaymentVerificationKey),
   fromLedgerTx,
   fromPlutusScript,
@@ -212,13 +210,11 @@ commitTx networkId party utxo (initialInput, vkh) =
 
 mkCommitDatum :: Party -> Maybe (Api.TxIn, Api.TxOut Api.CtxUTxO Api.Era) -> Plutus.Datum
 mkCommitDatum (partyFromVerKey . vkey -> party) utxo =
-  Commit.datum (party, commitUtxo)
+  Commit.datum (party, OnChain.Utxo (toBuiltin commitUtxo))
  where
-  commitUtxo = fromByteString $
-    toStrict $
-      Aeson.encode $ case utxo of
-        Nothing -> mempty
-        Just (i, o) -> Utxo $ Map.singleton i o
+  commitUtxo = case utxo of
+    Nothing -> mempty
+    Just (_, o) -> serialize' (toLedgerTxOut o)
 
 -- | Create a transaction collecting all "committed" utxo and opening a Head,
 -- i.e. driving the Head script state.
@@ -251,6 +247,9 @@ collectComTx networkId utxo (Api.fromLedgerTxIn -> headInput, Api.fromLedgerData
   headRedeemer =
     Api.mkRedeemerForTxIn $
       Head.CollectCom{utxoHash}
+  -- FIXME: We need to hash tx outs in an order that is recoverable on-chain.
+  -- The simplest thing to do, is to make sure commit inputs are in the same
+  -- order as their corresponding committed utxo.
   utxoHash = toBuiltin $ hashTxOuts $ toList utxo
   headOutput =
     Api.TxOut
