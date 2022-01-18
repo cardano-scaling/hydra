@@ -53,6 +53,7 @@ import Hydra.Ledger.Cardano (
   TxBodyScriptData (TxBodyNoScriptData, TxBodyScriptData),
   TxIn,
   TxOut (..),
+  TxOutDatum (..),
   Utxo,
   adaOnly,
   describeCardanoTx,
@@ -76,6 +77,7 @@ import Hydra.Ledger.Cardano (
   toCtxUTxOTxOut,
   toLedgerTxIn,
   toLedgerTxOut,
+  toPlutusData,
   txOutValue,
   utxoPairs,
  )
@@ -111,6 +113,7 @@ import Test.QuickCheck (
   oneof,
   property,
   suchThat,
+  vector,
   (===),
  )
 import Test.QuickCheck.Instances ()
@@ -360,6 +363,7 @@ healthyCommitOutput party committed =
 
 data CollectComMutation
   = MutateOpenOutputValue
+  | MutateOpenUtxoHash
   deriving (Generic, Show, Enum, Bounded)
 
 genCollectComMutation :: (CardanoTx, Utxo) -> Gen SomeMutation
@@ -368,6 +372,21 @@ genCollectComMutation (tx, _utxo) =
     [ SomeMutation MutateOpenOutputValue . ChangeOutput 0 <$> do
         mutatedValue <- (mkTxOutValue <$> genValue) `suchThat` (/= collectComOutputValue)
         pure $ TxOut collectComOutputAddress mutatedValue collectComOutputDatum
+    , SomeMutation MutateOpenUtxoHash . ChangeOutput 0 <$> do
+        mutatedUtxoHash <- BS.pack <$> vector 32
+        case collectComOutputDatum of
+          TxOutDatumNone -> error "unexpected empty head datum"
+          (TxOutDatumHash _sdsie _ha) -> error "unexpected hash-only datum"
+          (TxOutDatum _sdsie sd) ->
+            case fromData $ toPlutusData sd of
+              Nothing -> error "Invalid data"
+              (Just Head.Open{parties}) ->
+                pure $
+                  TxOut
+                    collectComOutputAddress
+                    collectComOutputValue
+                    (mkTxOutDatum Head.Open{parties, Head.utxoHash = toBuiltin mutatedUtxoHash})
+              (Just st) -> error $ "unexpected state " <> show st
     ]
  where
   TxOut collectComOutputAddress collectComOutputValue collectComOutputDatum =
