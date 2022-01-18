@@ -195,6 +195,10 @@ mkRedeemerForTxIn =
   fromPlutusData . Plutus.toData
 
 -- | Lookup and decode redeemer which is spending a given 'TxIn'.
+--
+-- TODO: This should probably return a list, to force downstream consumer to
+-- pattern match and expect singleton when they do. Otherwise, we may silently
+-- introduce tricky-to-debug errors.
 findRedeemerSpending ::
   Plutus.FromData a =>
   TxBody Era ->

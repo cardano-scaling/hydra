@@ -507,7 +507,10 @@ observeCollectComTx ::
   Maybe (OnChainTx CardanoTx, OnChainHeadState)
 observeCollectComTx utxo tx = do
   (headInput, headOutput) <- findScriptOutput utxo headScript
-  redeemer <- getRedeemerSpending tx headInput
+  redeemer <-
+    Api.findRedeemerSpending
+      (Api.getTxBody $ Api.fromLedgerTx tx)
+      (Api.fromLedgerTxIn headInput)
   oldHeadDatum <- lookupDatum (wits tx) headOutput
   datum <- fromData $ getPlutusData oldHeadDatum
   case (datum, redeemer) of
@@ -531,7 +534,10 @@ observeCloseTx ::
   Maybe (OnChainTx CardanoTx, OnChainHeadState)
 observeCloseTx utxo tx = do
   (headInput, headOutput) <- findScriptOutput utxo headScript
-  redeemer <- getRedeemerSpending tx headInput
+  redeemer <-
+    Api.findRedeemerSpending
+      (Api.getTxBody $ Api.fromLedgerTx tx)
+      (Api.fromLedgerTxIn headInput)
   oldHeadDatum <- lookupDatum (wits tx) headOutput
   datum <- fromData $ getPlutusData oldHeadDatum
   case (datum, redeemer) of
@@ -563,9 +569,12 @@ observeFanoutTx ::
   Maybe (OnChainTx CardanoTx, OnChainHeadState)
 observeFanoutTx utxo tx = do
   headInput <- fst <$> findScriptOutput utxo headScript
-  getRedeemerSpending tx headInput >>= \case
-    Head.Fanout{} -> pure (OnFanoutTx, Final)
-    _ -> Nothing
+  Api.findRedeemerSpending
+    (Api.getTxBody $ Api.fromLedgerTx tx)
+    (Api.fromLedgerTxIn headInput)
+    >>= \case
+      Head.Fanout{} -> pure (OnFanoutTx, Final)
+      _ -> Nothing
  where
   headScript = plutusScript $ Head.validatorScript policyId
 
@@ -578,9 +587,12 @@ observeAbortTx ::
   Maybe (OnChainTx CardanoTx, OnChainHeadState)
 observeAbortTx utxo tx = do
   headInput <- fst <$> findScriptOutput utxo headScript
-  getRedeemerSpending tx headInput >>= \case
-    Head.Abort -> pure (OnAbortTx, Final)
-    _ -> Nothing
+  Api.findRedeemerSpending
+    (Api.getTxBody $ Api.fromLedgerTx tx)
+    (Api.fromLedgerTxIn headInput)
+    >>= \case
+      Head.Abort -> pure (OnAbortTx, Final)
+      _ -> Nothing
  where
   -- FIXME(SN): make sure this is aborting "the right head / your head" by not hard-coding policyId
   headScript = plutusScript $ Head.validatorScript policyId
@@ -627,40 +639,11 @@ scriptAddr script =
 plutusScript :: Plutus.Script -> Script Era
 plutusScript = PlutusScript PlutusV1 . toShort . fromLazy . serialize
 
-withDataHash :: Data Era -> (DataHash StandardCrypto, Data Era)
-withDataHash d = (hashData d, d)
-
-withScriptHash :: Script Era -> (ScriptHash StandardCrypto, Script Era)
-withScriptHash s = (hashScript @Era s, s)
-
-datumsFromList :: [Data Era] -> TxDats Era
-datumsFromList = TxDats . Map.fromList . fmap withDataHash
-
--- | Slightly unsafe, as it drops `SNothing` values from the list silently.
-redeemersFromList ::
-  [(StrictMaybe RdmrPtr, (Data Era, ExUnits))] ->
-  Redeemers Era
-redeemersFromList =
-  Redeemers . Map.fromList . foldl' hasRdmrPtr []
- where
-  hasRdmrPtr acc = \case
-    (SNothing, _) -> acc
-    (SJust v, ex) -> (v, ex) : acc
-
 -- | Lookup included datum of given 'TxOut'.
 lookupDatum :: TxWitness Era -> TxOut Era -> Maybe (Data Era)
 lookupDatum wits = \case
   (TxOut _ _ (SJust datumHash)) -> Map.lookup datumHash . unTxDats $ txdats wits
   _ -> Nothing
-
--- | Lookup and decode redeemer which is spending a given 'TxIn'.
-getRedeemerSpending :: FromData a => ValidatedTx Era -> TxIn StandardCrypto -> Maybe a
-getRedeemerSpending ValidatedTx{body, wits} txIn = do
-  idx <- Set.lookupIndex txIn (inputs body)
-  (d, _exUnits) <- Map.lookup (RdmrPtr Spend $ fromIntegral idx) redeemers
-  fromData $ getPlutusData d
- where
-  redeemers = unRedeemers $ txrdmrs wits
 
 findScriptOutput ::
   Map (TxIn StandardCrypto) (TxOut Era) ->
