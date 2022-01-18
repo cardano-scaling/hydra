@@ -52,7 +52,7 @@ import Hydra.Ledger.Cardano (
   TxBodyScriptData (TxBodyNoScriptData, TxBodyScriptData),
   TxIn,
   TxOut (..),
-  Utxo(..),
+  Utxo,
   adaOnly,
   describeCardanoTx,
   fromLedgerTx,
@@ -65,12 +65,8 @@ import Hydra.Ledger.Cardano (
   genValue,
   getOutputs,
   hashTxOuts,
-  lovelaceToTxOutValue,
   lovelaceToValue,
-  mkDatumForTxIn,
-  mkRedeemerForTxIn,
   mkScriptAddress,
-  mkScriptWitness,
   mkTxOutDatum,
   mkTxOutDatumHash,
   mkTxOutValue,
@@ -80,7 +76,6 @@ import Hydra.Ledger.Cardano (
   toLedgerTxIn,
   toLedgerTxOut,
   txOutValue,
-  unsafeBuildTransaction,
   utxoPairs,
  )
 import qualified Hydra.Ledger.Cardano as Api
@@ -295,7 +290,7 @@ healthyCollectComTx =
   tx =
     collectComTx
       Fixture.testNetworkId
-      (Utxo $ Map.fromList committedUtxo)
+      (Api.Utxo $ Map.fromList committedUtxo)
       (headInput, headDatum, healthyCollectComOnChainParties)
       commits
 
