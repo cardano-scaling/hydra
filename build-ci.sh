@@ -14,7 +14,7 @@ cabal build --enable-tests all
 # Run tests in sequence as integration tests do collide
 cabal test merkle-patricia-tree
 cabal test plutus-cbor
-cabal test hydra-plutus
+cabal test plutus-merkle-tree
 cabal test hydra-node
 cabal test hydra-cluster
 cabal test hydra-tui
