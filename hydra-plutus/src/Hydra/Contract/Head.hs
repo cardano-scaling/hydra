@@ -118,11 +118,12 @@ headValidator _ commitAddress oldState input context =
                     traceIfFalse "committed value is not preserved in head" $
                       headOutputValue == collectedValue <> headInputValue
 
-                  headOutputDatumHash = txOutDatumHash headOutput
-
                   checkOutputDatum =
                     traceIfFalse "unexpected output datum in collectCom" $
-                      headOutputDatumHash == Just (datumHash $ Datum $ toBuiltinData expectedDatum)
+                      fromMaybe False $ do
+                        headOutputDatumHash <- txOutDatumHash headOutput
+                        actualDatum <- findDatum headOutputDatumHash txInfo
+                        pure (actualDatum == Datum (toBuiltinData expectedDatum))
                in checkOutputValue && checkOutputDatum
             [] -> traceIfFalse "No continuing head output" False
             _ -> traceIfFalse "More than one continuing head output" False
