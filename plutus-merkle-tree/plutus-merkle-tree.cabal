@@ -1,9 +1,9 @@
 cabal-version: 2.2
-name:          hydra-plutus
-version:       0.3.0
-synopsis:      Hydra Plutus Contracts
-author:        IOG
-copyright:     2022 IOG
+name:          plutus-merkle-tree
+version:       0.2.0
+synopsis:      Plutus Basic Merkle Tree
+author:        IOHK
+copyright:     2022 IOHK
 license:       Apache-2.0
 license-files:
   LICENSE
@@ -61,76 +61,55 @@ common project-config
   ghc-options:
     -Wall -Wcompat -Widentities -Wincomplete-record-updates
     -Wincomplete-uni-patterns -Wredundant-constraints
-    -Wnoncanonical-monad-instances -fobject-code
-    -fno-ignore-interface-pragmas -fno-omit-interface-pragmas
-    -fno-strictness
+    -Wnoncanonical-monad-instances -fno-ignore-interface-pragmas
+    -fno-omit-interface-pragmas -fno-strictness
 
   if !flag(hydra-development)
     ghc-options: -Werror
 
 library
   import:          project-config
+  ghc-options:     -haddock
   exposed-modules:
-    Hydra.Contract.Commit
-    Hydra.Contract.Encoding
-    Hydra.Contract.Hash
-    Hydra.Contract.Head
-    Hydra.Contract.Initial
-    Hydra.Data.ContestationPeriod
-    Hydra.Data.HeadParameters
-    Hydra.Data.Party
-    Hydra.Data.Utxo
-    Hydra.OnChain.Util
-    Plutus.Orphans
+    Plutus.MerkleTree
+    Plutus.MerkleTreeValidator
 
   hs-source-dirs:  src
   build-depends:
-    , aeson
     , base
-    , base16-bytestring
-    , bytestring
-    , cardano-crypto-class
-    , containers
-    , directory
-    , freer-extras
-    , freer-simple
-    , hydra-prelude
-    , lens
-    , openapi3
-    , plutus-cbor
+    , base16
     , plutus-core
     , plutus-ledger
     , plutus-ledger-api
     , plutus-tx
     , plutus-tx-plugin
-    , prettyprinter
-    , QuickCheck
-    , template-haskell
     , text
-    , time
 
-  if flag(hydra-development)
-    -- NOTE(SN): should fix HLS choking on PlutusTx plugin
-    ghc-options: -fplugin-opt PlutusTx.Plugin:defer-errors
-
-executable inspect-script
-  import:         project-config
-  hs-source-dirs: exe/inspect-script
-  main-is:        Main.hs
+test-suite unit
+  import:             project-config
+  type:               exitcode-stdio-1.0
+  hs-source-dirs:     test
+  ghc-options:        -threaded -rtsopts
+  build-tool-depends: hspec-discover:hspec-discover -any
   build-depends:
-    , aeson
+    , array
     , base
+    , base16
     , bytestring
-    , cardano-api
     , containers
-    , data-default
-    , directory
-    , hydra-plutus
+    , hspec
     , hydra-prelude
-    , optparse-applicative
+    , hydra-test-utils
+    , plutus-core
     , plutus-ledger
     , plutus-ledger-api
-    , serialise
-    , text
+    , plutus-merkle-tree
+    , plutus-tx
+    , plutus-tx-plugin
+    , QuickCheck
 
-  ghc-options:    -threaded -rtsopts
+  other-modules:
+    Plutus.MerkleTreeSpec
+    Spec
+
+  main-is:            Main.hs

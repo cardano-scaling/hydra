@@ -206,6 +206,7 @@ executable tx-cost
     , hydra-prelude
     , hydra-test-utils
     , plutus-ledger-api
+    , plutus-merkle-tree
     , plutus-tx
     , QuickCheck
     , strict-containers

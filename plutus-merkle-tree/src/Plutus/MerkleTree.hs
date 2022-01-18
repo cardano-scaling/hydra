@@ -2,9 +2,8 @@
 
 module Plutus.MerkleTree where
 
-import Data.ByteString.Base16 (encode)
+import Data.ByteString.Base16 (encodeBase16)
 import qualified Data.Text as Text
-import qualified Data.Text.Encoding as Text
 import PlutusPrelude ((<|>))
 import qualified PlutusTx
 import PlutusTx.Builtins (divideInteger, subtractInteger)
@@ -21,7 +20,7 @@ instance Eq Hash where
   Hash h == Hash h' = h == h'
 
 instance Haskell.Show Hash where
-  show (Hash bs) = Text.unpack $ Text.decodeUtf8 $ encode $ fromBuiltin $ takeByteString 4 bs
+  show (Hash bs) = Text.unpack $ encodeBase16 $ fromBuiltin $ takeByteString 4 bs
 
 hash :: BuiltinByteString -> Hash
 hash = Hash . sha2_256
