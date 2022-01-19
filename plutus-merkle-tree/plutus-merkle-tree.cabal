@@ -85,6 +85,10 @@ library
     , plutus-tx-plugin
     , text
 
+  if flag(hydra-development)
+    -- NOTE(SN): should fix HLS choking on PlutusTx plugin
+    ghc-options: -fplugin-opt PlutusTx.Plugin:defer-errors
+
 test-suite unit
   import:             project-config
   type:               exitcode-stdio-1.0
