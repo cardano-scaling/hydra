@@ -38,7 +38,8 @@ jobs:
 
     - name: Build & export shell.nix for later caching
       run: |
-        nix-store --export $(nix-store -qR $(nix-build shell.nix)) > nix-shell.closure
+        SHELL_DRV=$(nix-build shell.nix)
+        nix-store --export $(nix-store -qR ${SHELL_DRV}) > nix-shell.closure
 
     - name: Github cache ~/.cabal/packages, ~/.cabal/store and dist-newstyle
       uses: actions/cache@v2.1.5
