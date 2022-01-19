@@ -49,7 +49,7 @@ jobs:
             ${{ runner.os }}-key
 
     - run: |
-        nix-store --repair-path /nix/store/5d821pjgzb90lw4zbg6xwxs7llm335wr-libunistring-0.9.10
+        nix-store --verify --check-contents --repair
 
     - name: Prepare nix-shell
       run: |
