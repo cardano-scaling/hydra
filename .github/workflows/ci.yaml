@@ -46,10 +46,6 @@ jobs:
           /nix/store
         key: nix-store
 
-    - name: Prepare nix-shell
-      # Creates a ./result symlink -> useful for collect-garbage
-      run: nix-build shell.nix
-
     - name: Cabal build, test & haddock in nix-shell
       run: nix-shell --run 'build-ci.sh'
       # https://giters.com/gfx/example-github-actions-with-tty
@@ -57,11 +53,6 @@ jobs:
       shell: 'script -q -e -c "bash {0}"'
       env:
         TERM: "xterm"
-
-    - name: Cleanup /nix/store for cache
-      # The nix build above installs a result symlink which prevents purging the
-      # current nix-shell derivations
-      run: nix-collect-garbage
 
     - name: Publish Unit Test Results
       uses: EnricoMi/publish-unit-test-result-action@v1
