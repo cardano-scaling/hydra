@@ -21,6 +21,7 @@ package hydra-node
 
 package hydra-plutus
   tests: True
+  haddock-options: "--optghc=-fplugin-opt PlutusTx.Plugin:defer-errors"
 
 package hydra-tui
   tests: True
@@ -30,10 +31,11 @@ package merkle-patricia-tree
 
 package plutus-cbor
   tests: True
+  haddock-options: "--optghc=-fplugin-opt PlutusTx.Plugin:defer-errors"
 
 package plutus-merkle-tree
   tests: True
-
+  haddock-options: "--optghc=-fplugin-opt PlutusTx.Plugin:defer-errors"
 
 -- Always show detailed output for tests
 test-show-details: direct
