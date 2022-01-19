@@ -48,6 +48,17 @@ jobs:
         restore-keys: |
             ${{ runner.os }}-key
 
+    - name: Prepare nix-shell
+      run: |
+        nix-build shell.nix
+
+    - run: |
+        nix-store --verify-path /nix/store/5d821pjgzb90lw4zbg6xwxs7llm335wr-libunistring-0.9.10
+
+    - name: Export shell.nix for later caching
+      run: |
+        nix-store --export $(nix-store -qR $(nix-instantiate shell.nix)) > nix-shell.closure
+
     - name: Cabal build, test & haddock in nix-shell
       run: nix-shell --run 'build-ci.sh'
       # https://giters.com/gfx/example-github-actions-with-tty
@@ -55,12 +66,6 @@ jobs:
       shell: 'script -q -e -c "bash {0}"'
       env:
         TERM: "xterm"
-
-    - name: Build & export shell.nix for later caching
-      run: |
-        SHELL_DRV=$(nix-build shell.nix)
-        echo ${SHELL_DRV}
-        nix-store --export $(nix-store -qR ${SHELL_DRV}) > nix-shell.closure
 
     - name: Publish Unit Test Results
       uses: EnricoMi/publish-unit-test-result-action@v1
