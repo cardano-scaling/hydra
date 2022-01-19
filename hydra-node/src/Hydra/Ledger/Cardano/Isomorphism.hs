@@ -72,6 +72,9 @@ toLedgerAddr = \case
 fromLedgerAddr :: Ledger.Addr Ledger.StandardCrypto -> AddressInEra Era
 fromLedgerAddr = fromShelleyAddr
 
+fromPlutusAddress :: Plutus.Address -> AddressInEra Era
+fromPlutusAddress = error "fromPlutusAddress"
+
 -- ** Key
 
 toPlutusKeyHash :: Hash PaymentKey -> Plutus.PubKeyHash
@@ -124,6 +127,12 @@ fromLedgerTxIn = fromShelleyTxIn
 toLedgerTxIn :: TxIn -> Ledger.TxIn Ledger.StandardCrypto
 toLedgerTxIn = toShelleyTxIn
 
+fromPlutusTxOutRef :: Plutus.TxOutRef -> TxIn
+fromPlutusTxOutRef (Plutus.TxOutRef (Plutus.TxId bytes) ix) =
+  TxIn
+    (TxId $ unsafeHashFromBytes $ Plutus.fromBuiltin bytes)
+    (TxIx $ fromIntegral ix)
+
 -- ** TxOut
 
 toLedgerTxOut :: TxOut CtxUTxO Era -> Ledger.TxOut (ShelleyLedgerEra Era)
@@ -131,6 +140,9 @@ toLedgerTxOut = toShelleyTxOut shelleyBasedEra
 
 fromLedgerTxOut :: Ledger.TxOut (ShelleyLedgerEra Era) -> TxOut ctx Era
 fromLedgerTxOut = fromShelleyTxOut shelleyBasedEra
+
+fromPlutusTxOut :: Plutus.TxOut -> TxOut CtxUTxO Era
+fromPlutusTxOut = error "fromPlutusTxOut"
 
 -- ** Value
 
@@ -167,3 +179,13 @@ fromLedgerTxWitness wits =
  where
   era =
     ShelleyBasedEraAlonzo
+
+-- ** Helpers
+
+unsafeHashFromBytes :: ByteString -> Ledger.Hash Ledger.StandardCrypto anything
+unsafeHashFromBytes bytes =
+  case CC.hashFromBytes bytes of
+    Nothing ->
+      error $ "unsafeHashFromBytes: failed to convert hash: " <> show bytes
+    Just h ->
+      h
