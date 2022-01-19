@@ -106,7 +106,7 @@ headValidator _ commitAddress oldState input context =
                         d <- getDatum <$> findDatum dh txInfo
                         case fromBuiltinData d of
                           Nothing -> traceError "fromBuiltinData failed"
-                          Just ((_p, u) :: DatumType Commit) -> pure u
+                          Just ((_p, _, _) :: DatumType Commit) -> Nothing
                       else utxos
                 )
                 mempty

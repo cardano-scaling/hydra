@@ -1,3 +1,5 @@
+{-# LANGUAGE TypeApplications #-}
+
 -- | Anti-corruption module with isomorphisms from and to cardano-api,
 -- cardano-ledger and plutus. Across the Hydra code-base we aim for sticking to
 -- the cardano-api as much as possible, although with a few extra helpers on top
@@ -36,7 +38,9 @@ import qualified Cardano.Ledger.Alonzo.Data as Ledger
 import qualified Cardano.Ledger.Alonzo.Tx as Ledger.Alonzo
 import qualified Cardano.Ledger.Alonzo.TxInfo as Ledger
 import qualified Cardano.Ledger.Alonzo.TxWitness as Ledger.Alonzo
+import qualified Cardano.Ledger.BaseTypes as Ledger
 import qualified Cardano.Ledger.Core as Ledger
+import qualified Cardano.Ledger.Credential as Ledger
 import qualified Cardano.Ledger.Crypto as Ledger (StandardCrypto)
 import qualified Cardano.Ledger.Keys as Ledger
 import qualified Cardano.Ledger.Mary.Value as Ledger.Mary
@@ -73,8 +77,25 @@ fromLedgerAddr :: Ledger.Addr Ledger.StandardCrypto -> AddressInEra Era
 fromLedgerAddr = fromShelleyAddr
 
 fromPlutusAddress :: Plutus.Address -> AddressInEra Era
-fromPlutusAddress = error "fromPlutusAddress"
-
+fromPlutusAddress Plutus.Address{Plutus.addressCredential = credential, Plutus.addressStakingCredential = stakingCredential} =
+  fromShelleyAddr $
+    case (credential, stakingCredential) of
+      (Plutus.PubKeyCredential (Plutus.PubKeyHash h), Just (Plutus.StakingHash (Plutus.PubKeyCredential (Plutus.PubKeyHash _h')))) ->
+        Ledger.Addr network (Ledger.KeyHashObj $ Ledger.KeyHash $ unsafeHashFromBytes $ Plutus.fromBuiltin h) _stakeCred
+      (Plutus.ScriptCredential (Plutus.ValidatorHash _h), Just (Plutus.StakingHash (Plutus.PubKeyCredential (Plutus.PubKeyHash _h')))) ->
+        error "not implemented"
+      (Plutus.PubKeyCredential (Plutus.PubKeyHash _h), Just (Plutus.StakingHash (Plutus.ScriptCredential (Plutus.ValidatorHash _h')))) ->
+        error "not implemented"
+      (Plutus.ScriptCredential (Plutus.ValidatorHash _h), Just (Plutus.StakingHash (Plutus.ScriptCredential (Plutus.ValidatorHash _h')))) ->
+        error "not implemented"
+      (Plutus.PubKeyCredential (Plutus.PubKeyHash _h), Nothing) ->
+        error "not implemented"
+      (Plutus.ScriptCredential (Plutus.ValidatorHash _h), Nothing) ->
+        error "not implemented"
+      _ ->
+        error "encodeAddress: ptr"
+ where
+  network = Ledger.Testnet
 -- ** Key
 
 toPlutusKeyHash :: Hash PaymentKey -> Plutus.PubKeyHash
@@ -132,7 +153,6 @@ fromPlutusTxOutRef (Plutus.TxOutRef (Plutus.TxId bytes) ix) =
   TxIn
     (TxId $ unsafeHashFromBytes $ Plutus.fromBuiltin bytes)
     (TxIx $ fromIntegral ix)
-
 -- ** TxOut
 
 toLedgerTxOut :: TxOut CtxUTxO Era -> Ledger.TxOut (ShelleyLedgerEra Era)
@@ -179,10 +199,9 @@ fromLedgerTxWitness wits =
  where
   era =
     ShelleyBasedEraAlonzo
-
 -- ** Helpers
 
-unsafeHashFromBytes :: ByteString -> Ledger.Hash Ledger.StandardCrypto anything
+unsafeHashFromBytes :: CC.HashAlgorithm hash => ByteString -> CC.Hash hash a
 unsafeHashFromBytes bytes =
   case CC.hashFromBytes bytes of
     Nothing ->
