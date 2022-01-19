@@ -20,7 +20,7 @@ jobs:
 
     - name: Chown /nix/store
       # This is done to be able to restore /nix/store
-      run: sudo chown --verbose "$USER:" /nix
+      run: sudo chown -R --verbose "$USER:" /nix
 
     - name: Cachix cache of nix derivations
       uses: cachix/cachix-action@v10
