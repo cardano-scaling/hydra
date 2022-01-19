@@ -2,7 +2,7 @@
 {-# LANGUAGE TypeApplications #-}
 {-# OPTIONS_GHC -fno-specialize #-}
 
-module Plutus.MerkleTreeValidator where
+module Validators where
 
 import PlutusTx.Prelude
 

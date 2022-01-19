@@ -50,7 +50,6 @@ import Hydra.Ledger.Cardano (
 import Hydra.Ledger.Cardano.Evaluate (evaluateTx, pparams)
 import Plutus.MerkleTree (rootHash)
 import qualified Plutus.MerkleTree as MT
-import Plutus.MerkleTreeValidator (merkleTreeValidator, mtBuilderValidator)
 import Plutus.Orphans ()
 import Plutus.V1.Ledger.Api (toBuiltin, toData)
 import qualified PlutusTx.Builtins as Plutus
@@ -60,6 +59,7 @@ import Test.Plutus.Validator (
   evaluateScriptExecutionUnits,
  )
 import Test.QuickCheck (generate, vectorOf)
+import Validators (merkleTreeValidator, mtBuilderValidator)
 
 main :: IO ()
 main = do
