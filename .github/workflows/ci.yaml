@@ -25,11 +25,12 @@ jobs:
       # This is done to be able to restore /nix/store
       run: sudo chown -R --verbose "$USER:" /nix
 
-    - name: Cachix cache of nix derivations
-      uses: cachix/cachix-action@v10
+    - name: Github cache of /nix/store
+      uses: actions/cache@v2.1.5
       with:
-        name: hydra-node
-        authToken: '${{ secrets.CACHIX_AUTH_TOKEN }}'
+        path: |
+          /nix/store
+        key: nix-store
 
     - name: Github cache ~/.cabal/packages, ~/.cabal/store and dist-newstyle
       uses: actions/cache@v2.1.5
@@ -42,12 +43,11 @@ jobs:
         restore-keys: |
             ${{ runner.os }}-key
 
-    - name: Github cache of /nix/store
-      uses: actions/cache@v2.1.5
+    - name: Cachix cache of nix derivations
+      uses: cachix/cachix-action@v10
       with:
-        path: |
-          /nix/store
-        key: nix-store
+        name: hydra-node
+        authToken: '${{ secrets.CACHIX_AUTH_TOKEN }}'
 
     - name: Cabal build, test & haddock in nix-shell
       run: nix-shell --run 'build-ci.sh'
