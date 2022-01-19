@@ -12,10 +12,6 @@ jobs:
         repository: input-output-hk/hydra-poc
         token: ${{ secrets.MY_TOKEN || github.token }}
 
-    - name: Workaround for single-user-install
-      run: mkdir -p /run/systemd/system
-      # depends on https://github.com/cachix/install-nix-action/blob/1199b02395e5f71e4bd52f325f2d453bb44d4c8b/lib/install-nix.sh#L37
-
     - name: Prepare nix
       uses: cachix/install-nix-action@v13
       with:
@@ -24,16 +20,14 @@ jobs:
           trusted-public-keys = iohk.cachix.org-1:DpRUyj7h7V830dp/i6Nti+NEO2/nhblbov/8MW7Rqoo= hydra.iohk.io:f/Ea+s+dFdN+3Y/G+FDgSq+a5NEWhJGzdjvKNGv0/EQ= cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY=
           substituters = https://cache.nixos.org https://hydra.iohk.io https://iohk.cachix.org
 
-    - name: Chown /nix/store
-      # This is done to be able to restore /nix/store
-      run: sudo chown -R --verbose "$USER:" /nix
-
-    - name: Github cache of /nix/store
+    - name: Github cache of nix-shell.closure
       uses: actions/cache@v2.1.5
       with:
-        path: |
-          /nix/store
-        key: nix-store
+        path: nix-shell.closure
+        key: nix-shell-closure
+
+    - name: Import nix-shell.closure from cache
+      run: [[ -f nix-shell.closure ]] && nix-store --import < nix-shell.closure
 
     - name: Github cache ~/.cabal/packages, ~/.cabal/store and dist-newstyle
       uses: actions/cache@v2.1.5
@@ -59,6 +53,9 @@ jobs:
       shell: 'script -q -e -c "bash {0}"'
       env:
         TERM: "xterm"
+
+    - name: Export nix-shell.closure for cache
+      run: [[ -f nix-shell.closure ]] && nix-store --import < nix-shell.closure
 
     - name: Publish Unit Test Results
       uses: EnricoMi/publish-unit-test-result-action@v1
