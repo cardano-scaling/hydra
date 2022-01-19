@@ -34,7 +34,7 @@ jobs:
 
     - name: Import nix-shell.closure from cache
       run: |
-        [[ -f nix-shell.closure ]] && nix-store --import < nix-shell.closure
+        nix-store --import < nix-shell.closure || true
 
     - name: Build & export shell.nix for later caching
       run: |
