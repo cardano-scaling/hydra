@@ -48,7 +48,7 @@ jobs:
 
     - name: Prepare nix-shell
       # Creates a ./result symlink -> useful for collect-garbage
-      run: nix build -f shell.nix
+      run: nix-build shell.nix
 
     - name: Cabal build, test & haddock in nix-shell
       run: nix-shell --run 'build-ci.sh'
