@@ -190,7 +190,6 @@ executable tx-cost
   import:         project-config
   hs-source-dirs: exe/tx-cost
   main-is:        Main.hs
-  other-modules:  Validators
   build-depends:
     , base
     , bytestring
@@ -206,11 +205,9 @@ executable tx-cost
     , hydra-plutus
     , hydra-prelude
     , hydra-test-utils
-    , plutus-ledger
     , plutus-ledger-api
     , plutus-merkle-tree
     , plutus-tx
-    , plutus-tx-plugin
     , QuickCheck
     , strict-containers
 

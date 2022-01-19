@@ -70,7 +70,10 @@ common project-config
 library
   import:          project-config
   ghc-options:     -haddock
-  exposed-modules: Plutus.MerkleTree
+  exposed-modules:
+    Plutus.MerkleTree
+    Plutus.MerkleTreeValidator
+
   hs-source-dirs:  src
   build-depends:
     , base
