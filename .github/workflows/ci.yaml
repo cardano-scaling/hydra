@@ -18,6 +18,10 @@ jobs:
           trusted-public-keys = iohk.cachix.org-1:DpRUyj7h7V830dp/i6Nti+NEO2/nhblbov/8MW7Rqoo= hydra.iohk.io:f/Ea+s+dFdN+3Y/G+FDgSq+a5NEWhJGzdjvKNGv0/EQ= cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY=
           substituters = https://cache.nixos.org https://hydra.iohk.io https://iohk.cachix.org
 
+    - name: Chown /nix/store
+      # This is primarily done to cache & restore /nix/store
+      run: sudo chown --verbose "$USER:" /nix
+
     - name: Cachix cache of nix derivations
       uses: cachix/cachix-action@v10
       with:
