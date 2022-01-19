@@ -20,6 +20,12 @@ jobs:
           trusted-public-keys = iohk.cachix.org-1:DpRUyj7h7V830dp/i6Nti+NEO2/nhblbov/8MW7Rqoo= hydra.iohk.io:f/Ea+s+dFdN+3Y/G+FDgSq+a5NEWhJGzdjvKNGv0/EQ= cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY=
           substituters = https://cache.nixos.org https://hydra.iohk.io https://iohk.cachix.org
 
+    - name: Cachix cache of nix derivations
+      uses: cachix/cachix-action@v10
+      with:
+        name: hydra-node
+        authToken: '${{ secrets.CACHIX_AUTH_TOKEN }}'
+
     - name: Github cache of nix-shell.closure
       uses: actions/cache@v2.1.5
       with:
@@ -27,7 +33,12 @@ jobs:
         key: nix-shell-closure
 
     - name: Import nix-shell.closure from cache
-      run: [[ -f nix-shell.closure ]] && nix-store --import < nix-shell.closure
+      run: |
+        [[ -f nix-shell.closure ]] && nix-store --import < nix-shell.closure
+
+    - name: Build & export shell.nix for later caching
+      run: |
+        nix-store --export $(nix-store -qR $(nix-build shell.nix)) > nix-shell.closure
 
     - name: Github cache ~/.cabal/packages, ~/.cabal/store and dist-newstyle
       uses: actions/cache@v2.1.5
@@ -40,12 +51,6 @@ jobs:
         restore-keys: |
             ${{ runner.os }}-key
 
-    - name: Cachix cache of nix derivations
-      uses: cachix/cachix-action@v10
-      with:
-        name: hydra-node
-        authToken: '${{ secrets.CACHIX_AUTH_TOKEN }}'
-
     - name: Cabal build, test & haddock in nix-shell
       run: nix-shell --run 'build-ci.sh'
       # https://giters.com/gfx/example-github-actions-with-tty
@@ -53,9 +58,6 @@ jobs:
       shell: 'script -q -e -c "bash {0}"'
       env:
         TERM: "xterm"
-
-    - name: Export nix-shell.closure for cache
-      run: [[ -f nix-shell.closure ]] && nix-store --import < nix-shell.closure
 
     - name: Publish Unit Test Results
       uses: EnricoMi/publish-unit-test-result-action@v1
