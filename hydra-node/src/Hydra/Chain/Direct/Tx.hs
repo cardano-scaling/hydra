@@ -35,7 +35,7 @@ import Cardano.Ledger.Shelley.API (
   hashKey,
  )
 import Cardano.Ledger.Shelley.UTxO (UTxO (..))
-import qualified Data.Aeson as Aeson
+import Cardano.Ledger.ShelleyMA.Timelocks (ValidityInterval (..))
 import qualified Data.Map as Map
 import qualified Data.Set as Set
 import Data.Time (Day (ModifiedJulianDay), UTCTime (UTCTime))
@@ -47,7 +47,6 @@ import qualified Hydra.Contract.Initial as Initial
 import Hydra.Data.ContestationPeriod (contestationPeriodFromDiffTime, contestationPeriodToDiffTime)
 import Hydra.Data.Party (partyFromVerKey, partyToVerKey)
 import qualified Hydra.Data.Party as OnChain
-import qualified Hydra.Data.Utxo as OnChain
 import Hydra.Ledger.Cardano (
   CardanoTx,
   PaymentKey,
@@ -208,9 +207,10 @@ commitTx networkId party utxo (initialInput, vkh) =
   commitDatum =
     Api.mkTxOutDatum $ mkCommitDatum party utxo
 
+-- FIXME: WIP
 mkCommitDatum :: Party -> Maybe (Api.TxIn, Api.TxOut Api.CtxUTxO Api.Era) -> Plutus.Datum
 mkCommitDatum (partyFromVerKey . vkey -> party) utxo =
-  Commit.datum (party, OnChain.Utxo (toBuiltin commitUtxo))
+  Commit.datum (party, error "txOutRef", error "txOut")
  where
   commitUtxo = case utxo of
     Nothing -> mempty
@@ -453,7 +453,7 @@ observeCommitTx networkId (Api.getTxBody . fromLedgerTx -> txBody) = do
   (commitIn, commitOut) <- Api.findTxOutByAddress commitAddress txBody
   dat <- getDatum commitOut
   (party, txOutRef, txOut) <- fromData $ toPlutusData dat
-  onChainTx <- OnCommitTx (convertParty party) <$> convertUtxo txOutRef txOut
+  let onChainTx = OnCommitTx (convertParty party) (convertUtxo txOutRef txOut)
   pure
     ( onChainTx
     ,
