@@ -42,6 +42,7 @@ import qualified Cardano.Ledger.BaseTypes as Ledger
 import qualified Cardano.Ledger.Core as Ledger
 import qualified Cardano.Ledger.Credential as Ledger
 import qualified Cardano.Ledger.Crypto as Ledger (StandardCrypto)
+import qualified Cardano.Ledger.Hashes as Ledger
 import qualified Cardano.Ledger.Keys as Ledger
 import qualified Cardano.Ledger.Mary.Value as Ledger.Mary
 import qualified Cardano.Ledger.SafeHash as Ledger
@@ -76,26 +77,56 @@ toLedgerAddr = \case
 fromLedgerAddr :: Ledger.Addr Ledger.StandardCrypto -> AddressInEra Era
 fromLedgerAddr = fromShelleyAddr
 
+-- | Convert a 'plutus' address to a 'cardano-api' address. NOTE that there are
+-- no network qualifiers in Plutus and this function does hard-code 'Testnet'
+-- right now!
 fromPlutusAddress :: Plutus.Address -> AddressInEra Era
 fromPlutusAddress Plutus.Address{Plutus.addressCredential = credential, Plutus.addressStakingCredential = stakingCredential} =
   fromShelleyAddr $
     case (credential, stakingCredential) of
-      (Plutus.PubKeyCredential (Plutus.PubKeyHash h), Just (Plutus.StakingHash (Plutus.PubKeyCredential (Plutus.PubKeyHash _h')))) ->
-        Ledger.Addr network (Ledger.KeyHashObj $ Ledger.KeyHash $ unsafeHashFromBytes $ Plutus.fromBuiltin h) _stakeCred
-      (Plutus.ScriptCredential (Plutus.ValidatorHash _h), Just (Plutus.StakingHash (Plutus.PubKeyCredential (Plutus.PubKeyHash _h')))) ->
-        error "not implemented"
-      (Plutus.PubKeyCredential (Plutus.PubKeyHash _h), Just (Plutus.StakingHash (Plutus.ScriptCredential (Plutus.ValidatorHash _h')))) ->
-        error "not implemented"
-      (Plutus.ScriptCredential (Plutus.ValidatorHash _h), Just (Plutus.StakingHash (Plutus.ScriptCredential (Plutus.ValidatorHash _h')))) ->
-        error "not implemented"
-      (Plutus.PubKeyCredential (Plutus.PubKeyHash _h), Nothing) ->
-        error "not implemented"
-      (Plutus.ScriptCredential (Plutus.ValidatorHash _h), Nothing) ->
-        error "not implemented"
-      _ ->
-        error "encodeAddress: ptr"
+      (Plutus.PubKeyCredential (Plutus.PubKeyHash paymentKeyHash), Just (Plutus.StakingHash (Plutus.PubKeyCredential (Plutus.PubKeyHash stakeKeyHash)))) ->
+        Ledger.Addr
+          network
+          (Ledger.KeyHashObj $ Ledger.KeyHash $ unsafeHashFromBytes $ Plutus.fromBuiltin paymentKeyHash)
+          (Ledger.StakeRefBase (Ledger.KeyHashObj $ Ledger.KeyHash $ unsafeHashFromBytes $ Plutus.fromBuiltin stakeKeyHash))
+      (Plutus.ScriptCredential (Plutus.ValidatorHash paymentScriptHash), Just (Plutus.StakingHash (Plutus.PubKeyCredential (Plutus.PubKeyHash stakeKeyHash)))) ->
+        Ledger.Addr
+          network
+          (Ledger.ScriptHashObj $ Ledger.ScriptHash $ unsafeHashFromBytes $ Plutus.fromBuiltin paymentScriptHash)
+          (Ledger.StakeRefBase (Ledger.KeyHashObj $ Ledger.KeyHash $ unsafeHashFromBytes $ Plutus.fromBuiltin stakeKeyHash))
+      (Plutus.PubKeyCredential (Plutus.PubKeyHash paymentKeyHash), Just (Plutus.StakingHash (Plutus.ScriptCredential (Plutus.ValidatorHash stakeScriptHash)))) ->
+        Ledger.Addr
+          network
+          (Ledger.KeyHashObj $ Ledger.KeyHash $ unsafeHashFromBytes $ Plutus.fromBuiltin paymentKeyHash)
+          (Ledger.StakeRefBase (Ledger.ScriptHashObj $ Ledger.ScriptHash $ unsafeHashFromBytes $ Plutus.fromBuiltin stakeScriptHash))
+      (Plutus.ScriptCredential (Plutus.ValidatorHash paymentScriptHash), Just (Plutus.StakingHash (Plutus.ScriptCredential (Plutus.ValidatorHash stakeScriptHash)))) ->
+        Ledger.Addr
+          network
+          (Ledger.ScriptHashObj $ Ledger.ScriptHash $ unsafeHashFromBytes $ Plutus.fromBuiltin paymentScriptHash)
+          (Ledger.StakeRefBase (Ledger.ScriptHashObj $ Ledger.ScriptHash $ unsafeHashFromBytes $ Plutus.fromBuiltin stakeScriptHash))
+      (Plutus.PubKeyCredential (Plutus.PubKeyHash paymentKeyHash), Nothing) ->
+        Ledger.Addr
+          network
+          (Ledger.KeyHashObj $ Ledger.KeyHash $ unsafeHashFromBytes $ Plutus.fromBuiltin paymentKeyHash)
+          Ledger.StakeRefNull
+      (Plutus.ScriptCredential (Plutus.ValidatorHash paymentScriptHash), Nothing) ->
+        Ledger.Addr
+          network
+          (Ledger.ScriptHashObj $ Ledger.ScriptHash $ unsafeHashFromBytes $ Plutus.fromBuiltin paymentScriptHash)
+          Ledger.StakeRefNull
+      (Plutus.PubKeyCredential (Plutus.PubKeyHash paymentKeyHash), Just (Plutus.StakingPtr a b c)) ->
+        Ledger.Addr
+          network
+          (Ledger.KeyHashObj $ Ledger.KeyHash $ unsafeHashFromBytes $ Plutus.fromBuiltin paymentKeyHash)
+          (Ledger.StakeRefPtr $ Ledger.Ptr (SlotNo $ fromInteger a) (fromInteger b) (fromInteger c))
+      (Plutus.ScriptCredential (Plutus.ValidatorHash paymentScriptHash), Just (Plutus.StakingPtr a b c)) ->
+        Ledger.Addr
+          network
+          (Ledger.ScriptHashObj $ Ledger.ScriptHash $ unsafeHashFromBytes $ Plutus.fromBuiltin paymentScriptHash)
+          (Ledger.StakeRefPtr $ Ledger.Ptr (SlotNo $ fromInteger a) (fromInteger b) (fromInteger c))
  where
   network = Ledger.Testnet
+
 -- ** Key
 
 toPlutusKeyHash :: Hash PaymentKey -> Plutus.PubKeyHash
