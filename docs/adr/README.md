@@ -14,3 +14,4 @@ Here is a list of currently accepted or discussed **Architecture Decision Record
 10. Use [Direct chain](./0010-use-direct-chain.md) connection
 11. _Standardize on Cardano API_
 12. [Top-down test-driven design](./0012-testing-strategy.md)
+12. [Adversarial Mutation-based Contract Testing](./0013-contract-testing-strategy.md)
