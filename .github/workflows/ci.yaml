@@ -19,7 +19,7 @@ jobs:
           substituters = https://cache.nixos.org https://hydra.iohk.io https://iohk.cachix.org
 
     - name: Chown /nix/store
-      # This is primarily done to cache & restore /nix/store
+      # This is primarily done to be able to restore /nix/store
       run: sudo chown --verbose "$USER:" /nix
 
     - name: Cachix cache of nix derivations
