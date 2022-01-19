@@ -35,7 +35,7 @@ jobs:
     - name: Import nix-shell.closure from cache
       run: |
         [[ -e nix-shell.closure ]] && nix-store --import < nix-shell.closure || echo "No nix-shell cache found"
-        nix-store --verify
+        nix-store --verify --check-contents --repair
 
     - name: Github cache ~/.cabal/packages, ~/.cabal/store and dist-newstyle
       uses: actions/cache@v2.1.5
@@ -48,15 +48,9 @@ jobs:
         restore-keys: |
             ${{ runner.os }}-key
 
-    - run: |
-        nix-store --verify --check-contents --repair
-
     - name: Prepare nix-shell
       run: |
         nix-build shell.nix
-
-    - run: |
-        nix-store --verify-path /nix/store/5d821pjgzb90lw4zbg6xwxs7llm335wr-libunistring-0.9.10
 
     - name: Export shell.nix for later caching
       run: |
