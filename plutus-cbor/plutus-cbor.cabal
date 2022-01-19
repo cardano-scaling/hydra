@@ -60,8 +60,10 @@ common project-config
     ViewPatterns
 
   ghc-options:
-    -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wredundant-constraints
-    -fno-ignore-interface-pragmas -fno-omit-interface-pragmas -fno-strictness -fprint-potential-instances
+    -Wall -Wcompat -Widentities -Wincomplete-record-updates
+    -Wincomplete-uni-patterns -Wredundant-constraints
+    -fno-ignore-interface-pragmas -fno-omit-interface-pragmas
+    -fno-strictness -fprint-potential-instances
 
   if !flag(hydra-development)
     ghc-options: -Werror
@@ -71,11 +73,11 @@ library
   hs-source-dirs:  src
   ghc-options:     -haddock
   build-depends:
-      plutus-core
+    , plutus-core
     , plutus-tx
     , plutus-tx-plugin
-  exposed-modules:
-    Plutus.Codec.CBOR.Encoding
+
+  exposed-modules: Plutus.Codec.CBOR.Encoding
 
 test-suite unit
   import:             project-config
@@ -94,13 +96,16 @@ test-suite unit
     , hydra-prelude
     , hydra-test-utils
     , plutus-cbor
-    , plutus-tx
     , plutus-ledger
     , plutus-ledger-api
+    , plutus-tx
+    , plutus-tx-plugin
     , QuickCheck
+
   other-modules:
     Plutus.Codec.CBOR.EncodingSpec
     Spec
+
   main-is:            Main.hs
 
 executable encoding-cost
@@ -123,9 +128,11 @@ executable encoding-cost
     , plutus-ledger-api
     , plutus-tx
     , plutus-tx-plugin
-    , scientific
     , QuickCheck
+    , scientific
+
   if flag(hydra-development)
     -- NOTE(SN): should fix HLS choking on PlutusTx plugin
     ghc-options: -fplugin-opt PlutusTx.Plugin:defer-errors
+
   ghc-options:    -threaded -rtsopts

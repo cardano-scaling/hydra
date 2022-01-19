@@ -22,7 +22,6 @@ import qualified Data.ByteString.Base16 as Base16
 import qualified Data.Map as Map
 import Data.Maybe.Strict (StrictMaybe (..))
 import qualified Data.Sequence.Strict as StrictSeq
-import Hydra.Chain.Direct.Fixture (testNetworkId)
 import qualified Hydra.Chain.Direct.Fixture as Fixture
 import Hydra.Chain.Direct.Tx (
   closeTx,
@@ -34,7 +33,6 @@ import Hydra.Chain.Direct.Tx (
 import Hydra.Chain.Direct.TxSpec (mkHeadOutput)
 import qualified Hydra.Contract.Commit as Commit
 import Hydra.Contract.Encoding (serialiseTxOuts)
-import qualified Hydra.Contract.Hash as Hash
 import Hydra.Contract.Head (
   verifyPartySignature,
   verifySnapshotSignature,
@@ -45,25 +43,18 @@ import qualified Hydra.Data.Party as OnChain
 import qualified Hydra.Data.Party as Party
 import Hydra.Ledger.Cardano (
   AlonzoEra,
-  BuildTxWith (BuildTxWith),
   CardanoTx,
   CtxTx,
   CtxUTxO,
   Era,
-  ExecutionUnits (ExecutionUnits),
   LedgerEra,
-  PlutusScriptV1,
   Tx (Tx),
   TxBodyScriptData (TxBodyNoScriptData, TxBodyScriptData),
   TxIn,
   TxOut (..),
   Utxo,
-  Utxo' (Utxo),
   adaOnly,
-  addInputs,
   describeCardanoTx,
-  emptyTxBody,
-  fromAlonzoExUnits,
   fromLedgerTx,
   fromLedgerTxOut,
   fromLedgerUtxo,
@@ -74,12 +65,8 @@ import Hydra.Ledger.Cardano (
   genValue,
   getOutputs,
   hashTxOuts,
-  lovelaceToTxOutValue,
   lovelaceToValue,
-  mkDatumForTxIn,
-  mkRedeemerForTxIn,
   mkScriptAddress,
-  mkScriptWitness,
   mkTxOutDatum,
   mkTxOutDatumHash,
   mkTxOutValue,
@@ -89,7 +76,6 @@ import Hydra.Ledger.Cardano (
   toLedgerTxIn,
   toLedgerTxOut,
   txOutValue,
-  unsafeBuildTransaction,
   utxoPairs,
  )
 import qualified Hydra.Ledger.Cardano as Api
@@ -158,54 +144,6 @@ spec = do
       propTransactionValidates healthyFanoutTx
     prop "does not survive random adversarial mutations" $
       propMutation healthyFanoutTx genFanoutMutation
-
-  describe "Hash" $
-    it "runs with these ^ execution units over Baseline" $ do
-      for_ [0 .. 5] $ \(power :: Integer) -> do
-        let n = 8 ^ power
-            s = n `quot` 8
-        putTextLn @IO $ "    n = " <> show n <> ", s = " <> show s
-        for_ [minBound .. maxBound] $ \algorithm -> do
-          let ExecutionUnits
-                { executionSteps = baseCpu
-                , executionMemory = baseMem
-                } = calculateHashExUnits n Hash.Base
-              units@ExecutionUnits
-                { executionSteps = cpu
-                , executionMemory = mem
-                } = calculateHashExUnits n algorithm
-          putTextLn $
-            "      " <> show algorithm
-              <> ": "
-              <> show units
-              <> " Δcpu="
-              <> show (toInteger cpu - toInteger baseCpu)
-              <> " Δmem="
-              <> show (toInteger mem - toInteger baseMem)
-
-calculateHashExUnits :: Int -> Hash.HashAlgorithm -> ExecutionUnits
-calculateHashExUnits n algorithm =
-  case evaluateTx tx utxo of
-    Left basicFailure ->
-      error ("Basic failure: " <> show basicFailure)
-    Right report ->
-      case Map.elems report of
-        [Right units] ->
-          fromAlonzoExUnits units
-        _ ->
-          error $ "Too many redeemers in report: " <> show report
- where
-  tx = unsafeBuildTransaction $ emptyTxBody & addInputs [(input, witness)]
-  utxo = Utxo $ Map.singleton input output
-  input = generateWith arbitrary 42
-  output = toCtxUTxOTxOut $ TxOut address value (mkTxOutDatum datum)
-  value = lovelaceToTxOutValue 1_000_000
-  address = mkScriptAddress @PlutusScriptV1 testNetworkId script
-  witness = BuildTxWith $ mkScriptWitness script (mkDatumForTxIn datum) redeemer
-  script = fromPlutusScript Hash.validatorScript
-  datum = Hash.datum $ toBuiltin bytes
-  redeemer = mkRedeemerForTxIn $ Hash.redeemer algorithm
-  bytes = fold $ replicate n ("0" :: ByteString)
 
 --
 -- Properties
@@ -352,7 +290,7 @@ healthyCollectComTx =
   tx =
     collectComTx
       Fixture.testNetworkId
-      (Utxo $ Map.fromList committedUtxo)
+      (Api.Utxo $ Map.fromList committedUtxo)
       (headInput, headDatum, healthyCollectComOnChainParties)
       commits
 

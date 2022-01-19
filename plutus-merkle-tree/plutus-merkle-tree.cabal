@@ -61,19 +61,16 @@ common project-config
   ghc-options:
     -Wall -Wcompat -Widentities -Wincomplete-record-updates
     -Wincomplete-uni-patterns -Wredundant-constraints
-    -Wnoncanonical-monad-instances -fobject-code
-    -fno-ignore-interface-pragmas -fno-omit-interface-pragmas
-    -fno-strictness
+    -Wnoncanonical-monad-instances -fno-ignore-interface-pragmas
+    -fno-omit-interface-pragmas -fno-strictness
 
   if !flag(hydra-development)
     ghc-options: -Werror
 
 library
   import:          project-config
-  exposed-modules:
-    Plutus.MerkleTree
-    Plutus.MerkleTreeValidator
-
+  ghc-options:     -haddock
+  exposed-modules: Plutus.MerkleTree
   hs-source-dirs:  src
   build-depends:
     , base
@@ -117,26 +114,3 @@ test-suite unit
     Spec
 
   main-is:            Main.hs
-
-executable contract-cost
-  import:         project-config
-  hs-source-dirs: exe/contract-cost
-  main-is:        Main.hs
-  build-depends:
-    , aeson
-    , base
-    , bytestring
-    , cardano-api
-    , containers
-    , data-default
-    , directory
-    , hydra-prelude
-    , hydra-test-utils
-    , optparse-applicative
-    , plutus-merkle-tree
-    , plutus-tx
-    , QuickCheck
-    , serialise
-    , text
-
-  ghc-options:    -threaded -rtsopts
