@@ -21,15 +21,6 @@
   })
 }:
 let
-  packages = ps: with ps; [
-    hydra-prelude
-    hydra-node
-    hydra-plutus
-    hydra-cluster
-    merkle-patricia-tree
-    plutus-cbor
-  ];
-
   libs = [
     libsodium-vrf
     pkgs.systemd
@@ -54,7 +45,13 @@ let
   ];
 
   haskellNixShell = hsPkgs.shellFor {
-    packages = packages;
+    packages = ps: with ps; [
+      hydra-prelude
+      hydra-node
+      hydra-plutus
+      hydra-cluster
+      merkle-patricia-tree
+    ];
 
     # Haskell.nix managed tools (via hackage)
     tools = {
@@ -65,7 +62,7 @@ let
 
     buildInputs = libs ++ tools;
 
-    withHoogle = false;
+    withHoogle = true;
 
     # Always create missing golden files
     CREATE_MISSING_GOLDEN = 1;
@@ -96,6 +93,4 @@ let
   };
 
 in
-haskellNixShell // {
-  cabalOnly = cabalShell;
-}
+haskellNixShell // { cabalOnly = cabalShell; }
