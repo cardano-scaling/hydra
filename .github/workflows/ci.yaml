@@ -33,6 +33,7 @@ jobs:
         key: nix-shell-closure
 
     - name: Import nix-shell.closure from cache
+      # TODO: nix-store --import is very verbose
       run: |
         [[ -e nix-shell.closure ]] && nix-store --import < nix-shell.closure || echo "No nix-shell cache found"
         nix-store --verify --check-contents --repair
@@ -54,7 +55,7 @@ jobs:
 
     - name: Export shell.nix for later caching
       run: |
-        nix-store --export $(nix-store -qR $(nix-instantiate shell.nix)) > nix-shell.closure
+        nix-store --export $(nix-store -qR --include-outputs $(nix-instantiate shell.nix)) > nix-shell.closure
 
     - name: Cabal build, test & haddock in nix-shell
       run: nix-shell --run 'build-ci.sh'
