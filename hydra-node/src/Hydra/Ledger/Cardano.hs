@@ -24,24 +24,23 @@ import Cardano.Api.Shelley
 import Hydra.Ledger.Cardano.Builder
 import Hydra.Ledger.Cardano.Isomorphism
 
-import qualified Cardano.Api
 import Cardano.Binary (decodeAnnotator, serialize, serialize')
 import qualified Cardano.Crypto.DSIGN as CC
 import Cardano.Crypto.Hash (SHA256, digest)
+import qualified Cardano.Ledger.Alonzo.Data as Ledger.Alonzo
 import qualified Cardano.Ledger.Alonzo.PParams as Ledger.Alonzo
 import qualified Cardano.Ledger.Alonzo.Scripts as Ledger.Alonzo
 import qualified Cardano.Ledger.Alonzo.Tx as Ledger.Alonzo
 import qualified Cardano.Ledger.Alonzo.TxBody as Ledger.Alonzo
-import Cardano.Ledger.Alonzo.TxWitness (TxDats (TxDats), unRedeemers)
 import qualified Cardano.Ledger.Alonzo.TxWitness as Ledger.Alonzo
 import qualified Cardano.Ledger.BaseTypes as Ledger
 import qualified Cardano.Ledger.Core as Ledger
+import qualified Cardano.Ledger.Credential as Ledger
 import qualified Cardano.Ledger.Crypto as Ledger (StandardCrypto)
 import qualified Cardano.Ledger.Era as Ledger
 import qualified Cardano.Ledger.Keys as Ledger
 import qualified Cardano.Ledger.Mary as Ledger.Mary hiding (Value)
 import qualified Cardano.Ledger.Mary.Value as Ledger.Mary
-import Cardano.Ledger.Shelley.API (StakeReference (StakeRefNull, StakeRefPtr))
 import qualified Cardano.Ledger.Shelley.API.Mempool as Ledger
 import qualified Cardano.Ledger.Shelley.Genesis as Ledger
 import qualified Cardano.Ledger.Shelley.LedgerState as Ledger
@@ -63,6 +62,7 @@ import Data.Default (Default, def)
 import qualified Data.Map.Strict as Map
 import Data.Maybe (fromJust)
 import Data.Maybe.Strict (maybeToStrictMaybe, strictMaybeToMaybe)
+import qualified Data.Set as Set
 import qualified Data.Text as T
 import Data.Text.Lazy.Builder (toLazyText)
 import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
@@ -194,6 +194,28 @@ mkRedeemerForTxIn :: Plutus.ToData a => a -> ScriptRedeemer
 mkRedeemerForTxIn =
   fromPlutusData . Plutus.toData
 
+-- | Lookup and decode redeemer which is spending a given 'TxIn'.
+--
+-- TODO: This should probably return a list, to force downstream consumer to
+-- pattern match and expect singleton when they do. Otherwise, we may silently
+-- introduce tricky-to-debug errors.
+findRedeemerSpending ::
+  Plutus.FromData a =>
+  TxBody Era ->
+  TxIn ->
+  Maybe a
+findRedeemerSpending (ShelleyTxBody _ body _ scriptData _ _) txIn = do
+  idx <- Set.lookupIndex (toLedgerTxIn txIn) (Ledger.Alonzo.inputs body)
+  let ptr = Ledger.Alonzo.RdmrPtr Ledger.Alonzo.Spend $ fromIntegral idx
+  (d, _exUnits) <- Map.lookup ptr redeemers
+  Plutus.fromData $ Ledger.Alonzo.getPlutusData d
+ where
+  redeemers = case scriptData of
+    TxBodyNoScriptData ->
+      mempty
+    TxBodyScriptData _ _ (Ledger.Alonzo.Redeemers rs) ->
+      rs
+
 -- ** Tx
 
 instance IsTx CardanoTx where
@@ -203,6 +225,11 @@ instance IsTx CardanoTx where
 
   txId = getTxId . getTxBody
   balance = foldMap (\(TxOut _ value _) -> txOutValueToValue value)
+
+getOutputs :: CardanoTx -> [TxOut CtxTx Era]
+getOutputs tx =
+  let TxBody TxBodyContent{txOuts} = getTxBody tx
+   in txOuts
 
 instance ToCBOR CardanoTx where
   toCBOR = CBOR.encodeBytes . serialize' . toLedgerTx
@@ -306,7 +333,7 @@ describeCardanoTx (Tx body _wits) =
 
   datums = case scriptsData of
     TxBodyNoScriptData -> []
-    (TxBodyScriptData _ (TxDats dats) _) ->
+    (TxBodyScriptData _ (Ledger.Alonzo.TxDats dats) _) ->
       "  Datums (" <> show (length dats) <> ")" :
       (("    " <>) . showDatumAndHash <$> Map.toList dats)
 
@@ -315,7 +342,7 @@ describeCardanoTx (Tx body _wits) =
   redeemers = case scriptsData of
     TxBodyNoScriptData -> []
     (TxBodyScriptData _ _ re) ->
-      let rdmrs = Map.elems $ unRedeemers re
+      let rdmrs = Map.elems $ Ledger.Alonzo.unRedeemers re
        in "  Redeemers (" <> show (length rdmrs) <> ")" :
           (("    " <>) . show . fst <$> rdmrs)
 
@@ -352,10 +379,6 @@ mkSimpleCardanoTx (txin, TxOut owner txOutValueIn datum) (recipient, valueOut) s
 
   fee = Lovelace 0
 
-getOutputs :: CardanoTx -> [TxOut CtxTx Era]
-getOutputs tx =
-  let TxBody TxBodyContent{txOuts} = getTxBody tx
-   in txOuts
 -- ** TxIn
 
 -- | Create a 'TxIn' from a transaction body and index.
@@ -518,6 +541,23 @@ utxoFromTx (Tx body@(ShelleyTxBody _ ledgerBody _ _ _ _) _) =
 -- This function is partial.
 utxoMin :: Utxo -> Utxo
 utxoMin = Utxo . uncurry Map.singleton . Map.findMin . utxoMap
+
+findScriptOutput ::
+  forall lang.
+  (HasPlutusScriptVersion lang) =>
+  Utxo ->
+  PlutusScript lang ->
+  Maybe (TxIn, TxOut CtxUTxO Era)
+findScriptOutput utxo script =
+  find matchScript (utxoPairs utxo)
+ where
+  version = plutusScriptVersion (proxyToAsType $ Proxy @lang)
+  matchScript = \case
+    (_, TxOut (AddressInEra _ (ShelleyAddress _ (Ledger.ScriptHashObj scriptHash') _)) _ _) ->
+      let scriptHash = toShelleyScriptHash $ hashScript $ PlutusScript version script
+       in scriptHash == scriptHash'
+    _ ->
+      False
 
 -- * Witness
 
@@ -724,8 +764,8 @@ simplifyUtxo = Utxo . Map.fromList . map tweakAddress . filter notByronAddress .
   tweakAddress out@(txin, TxOut addr val dat) = case addr of
     AddressInEra er@(ShelleyAddressInEra _) (ShelleyAddress _ cre sr) ->
       case sr of
-        StakeRefPtr _ ->
-          (txin, TxOut (AddressInEra er (ShelleyAddress Ledger.Testnet cre StakeRefNull)) val dat)
+        Ledger.StakeRefPtr _ ->
+          (txin, TxOut (AddressInEra er (ShelleyAddress Ledger.Testnet cre Ledger.StakeRefNull)) val dat)
         _ ->
           (txin, TxOut (AddressInEra er (ShelleyAddress Ledger.Testnet cre sr)) val dat)
     _ -> out

@@ -219,7 +219,7 @@ spec =
               committedUtxo = fold $ snd <$> commitPartiesAndUtxos
               onChainParties = partyFromVerKey . vkey <$> parties
               headDatum = Data . toData $ Head.Initial cperiod onChainParties
-              lookupUtxo = Map.singleton headInput headOutput
+              lookupUtxo = UTxO (Map.singleton headInput headOutput)
               tx = collectComTx testNetworkId committedUtxo (headInput, headDatum, onChainParties) commitsUtxo
               res = observeCollectComTx lookupUtxo tx
            in case res of
@@ -266,7 +266,7 @@ spec =
       prop "is observed" $ \parties headInput snapshot msig ->
         let headOutput = mkHeadOutput (SJust headDatum)
             headDatum = Data $ toData $ Head.Open{parties, utxoHash = ""}
-            lookupUtxo = Map.singleton headInput headOutput
+            lookupUtxo = UTxO (Map.singleton headInput headOutput)
             -- NOTE(SN): deliberately uses an arbitrary multi-signature
             tx = closeTx snapshot msig (headInput, headOutput, headDatum)
             res = observeCloseTx lookupUtxo tx
@@ -314,7 +314,7 @@ spec =
         let tx = fanoutTx utxo (headInput, headDatum)
             headOutput = mkHeadOutput SNothing
             headDatum = Data $ toData $ Head.Closed{snapshotNumber = 1, utxoHash = ""}
-            lookupUtxo = Map.singleton headInput headOutput
+            lookupUtxo = UTxO (Map.singleton headInput headOutput)
             res = observeFanoutTx lookupUtxo tx
          in res === Just (OnFanoutTx, Final)
               & counterexample ("Tx: " <> show tx)
@@ -362,7 +362,7 @@ spec =
       prop "updates on-chain state to 'Final'" $ \txIn cperiod parties (ReasonablySized initials) ->
         let headOutput = mkHeadOutput SNothing -- will be SJust, but not covered by this test
             headDatum = Data . toData $ Head.Initial cperiod parties
-            utxo = Map.singleton txIn headOutput
+            utxo = UTxO (Map.singleton txIn headOutput)
          in case abortTx testNetworkId (txIn, headDatum) initials of
               Left err -> property False & counterexample ("AbortTx construction failed: " <> show err)
               Right tx ->
@@ -417,7 +417,7 @@ spec =
               initials = zipWith (\ix dat -> (TxIn initTxId ix, dat)) [1 ..] initialDatums
               -- Finally we can create the abortTx and have it processed by the wallet
               lookupUtxo = Map.fromList (headUtxo : initialUtxo)
-              utxo = UTxO $ walletUtxo <> lookupUtxo
+              utxo = walletUtxo <> lookupUtxo
            in case abortTx testNetworkId (headInput, headDatum) (Map.fromList initials) of
                 Left err ->
                   property False & counterexample ("AbortTx construction failed: " <> show err)

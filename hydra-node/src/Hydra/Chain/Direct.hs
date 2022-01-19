@@ -314,7 +314,7 @@ chainSyncClient tracer networkMagic callback party headState =
   runOnChainTx :: [OnChainTx CardanoTx] -> ValidatedTx Era -> STM m [OnChainTx CardanoTx]
   runOnChainTx observed tx = do
     onChainHeadState <- readTVar headState
-    let utxo = knownUtxo onChainHeadState
+    let utxo = Ledger.UTxO (knownUtxo onChainHeadState)
     -- TODO(SN): We should be only looking for abort,commit etc. when we have a headId/policyId
     let res =
           observeInitTx networkId party tx
