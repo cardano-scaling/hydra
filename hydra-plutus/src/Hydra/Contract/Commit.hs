@@ -9,7 +9,6 @@ import Ledger hiding (validatorHash)
 import PlutusTx.Prelude
 
 import Hydra.Data.Party (Party)
-import Hydra.Data.Utxo (Utxo)
 import Ledger.Typed.Scripts (TypedValidator, ValidatorType, ValidatorTypes (..))
 import qualified Ledger.Typed.Scripts as Scripts
 import PlutusTx (CompiledCode)
@@ -24,8 +23,13 @@ data CommitRedeemer
 
 PlutusTx.unstableMakeIsData ''CommitRedeemer
 
+-- TODO: Having the 'TxOutRef' on-chain is not necessary but it is convenient
+-- for the off-chain code to reconstrut the commit UTXO.
+--
+-- Ideally, since the TxOutRef is already present in the redeemer for the
+-- initial validator, the off-chain code could get it from there.
 instance Scripts.ValidatorTypes Commit where
-  type DatumType Commit = (Party, Utxo)
+  type DatumType Commit = (Party, TxOutRef, TxOut)
   type RedeemerType Commit = Redeemer
 
 validator :: DatumType Commit -> RedeemerType Commit -> ScriptContext -> Bool

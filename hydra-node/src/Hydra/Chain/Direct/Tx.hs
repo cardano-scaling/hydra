@@ -452,8 +452,8 @@ observeCommitTx ::
 observeCommitTx networkId (Api.getTxBody . fromLedgerTx -> txBody) = do
   (commitIn, commitOut) <- Api.findTxOutByAddress commitAddress txBody
   dat <- getDatum commitOut
-  (party, utxo) <- fromData $ toPlutusData dat
-  onChainTx <- OnCommitTx (convertParty party) <$> convertUtxo utxo
+  (party, txOutRef, txOut) <- fromData $ toPlutusData dat
+  onChainTx <- OnCommitTx (convertParty party) <$> convertUtxo txOutRef txOut
   pure
     ( onChainTx
     ,
@@ -463,7 +463,9 @@ observeCommitTx networkId (Api.getTxBody . fromLedgerTx -> txBody) = do
       )
     )
  where
-  convertUtxo = Aeson.decodeStrict' . OnChain.toByteString
+  convertUtxo :: Plutus.TxOutRef -> Plutus.TxOut -> Utxo
+  convertUtxo txOutRef txOut =
+    Api.Utxo $ Map.singleton (Api.fromPlutusTxOutRef txOutRef) (Api.fromPlutusTxOut txOut)
 
   commitAddress = mkScriptAddress @Api.PlutusScriptV1 networkId commitScript
 
