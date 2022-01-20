@@ -3,9 +3,12 @@ on:
   push:
     branches: [ "master" ]
   pull_request:
+  schedule:
+    # Everyday at 4:00 AM
+    - cron: "0 4 * * *"
 
 jobs:
-  build_tests_documentation:
+  build-test-documentation:
     name: Build, test & documentation
     runs-on: ubuntu-latest
     steps:
@@ -71,3 +74,10 @@ jobs:
         publish_dir: docs
         enable_jekyll: true
         force_orphan: true
+
+  markdown-link-check:
+    name: "Check markdown links"
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@master
+    - uses: gaurav-nelson/github-action-markdown-link-check@v1
