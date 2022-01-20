@@ -15,7 +15,6 @@ import Hydra.Prelude
 
 import Cardano.Api (NetworkId)
 import Cardano.Binary (decodeFull', serialize, serialize')
-import qualified Cardano.Binary as Api
 import Cardano.Ledger.Address (Addr (Addr))
 import Cardano.Ledger.Alonzo (Script)
 import Cardano.Ledger.Alonzo.Data (Data, getPlutusData)
@@ -478,8 +477,8 @@ observeCommitTx networkId (Api.getTxBody . fromLedgerTx -> txBody) = do
       -- XXX(SN): these errors might be more severe and we could throw an
       -- exception here?
       eitherToMaybe $ do
-        txIn <- decodeFull' (fromBuiltin inBytes)
-        txOut <- decodeFull' (fromBuiltin outBytes)
+        txIn <- Api.fromLedgerTxIn <$> decodeFull' (fromBuiltin inBytes)
+        txOut <- Api.fromLedgerTxOut <$> decodeFull' (fromBuiltin outBytes)
         pure $ Api.singletonUtxo (txIn, txOut)
 
   commitAddress = mkScriptAddress @Api.PlutusScriptV1 networkId commitScript
