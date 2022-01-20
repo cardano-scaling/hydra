@@ -225,7 +225,7 @@ spec =
 
       modifyMaxSuccess (const 10) $
         prop "validates" $ \headInput cperiod ->
-          forAll (vectorOf 15 arbitrary) $ \parties ->
+          forAll (vectorOf 9 arbitrary) $ \parties ->
             forAll (generateCommitUtxos parties) $ \commitsUtxo ->
               let onChainUtxo = UTxO $ Map.singleton headInput headOutput <> fmap fst commitsUtxo
                   headOutput = mkHeadOutput $ SJust headDatum
