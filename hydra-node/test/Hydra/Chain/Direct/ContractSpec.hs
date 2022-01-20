@@ -296,7 +296,6 @@ healthyCollectComTx =
   tx =
     collectComTx
       Fixture.testNetworkId
-      (Api.Utxo $ Map.fromList committedUtxo)
       (headInput, headDatum, healthyCollectComOnChainParties)
       commits
 

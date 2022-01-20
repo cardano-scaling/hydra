@@ -194,15 +194,16 @@ spec =
                 ]
 
     describe "collectComTx" $ do
-      prop "transaction size below limit" $ \(ReasonablySized utxo) headIn cperiod parties ->
-        let tx = collectComTx testNetworkId utxo (headIn, headDatum, parties) mempty
-            headDatum = Data . toData $ Head.Initial cperiod parties
-            cbor = serialize tx
-            len = LBS.length cbor
-         in len < maxTxSize
-              & label (show (len `div` 1024) <> "kB")
-              & counterexample ("Tx: " <> show tx)
-              & counterexample ("Tx serialized size: " <> show len)
+      prop "transaction size below limit" $ \(ReasonablySized commitPartiesAndUtxos) headIn cperiod parties ->
+        forAll (generateCommitUtxos commitPartiesAndUtxos) $ \commitsUtxo ->
+          let tx = collectComTx testNetworkId (headIn, headDatum, parties) commitsUtxo
+              headDatum = Data . toData $ Head.Initial cperiod parties
+              cbor = serialize tx
+              len = LBS.length cbor
+           in len < maxTxSize
+                & label (show (len `div` 1024) <> "kB")
+                & counterexample ("Tx: " <> show tx)
+                & counterexample ("Tx serialized size: " <> show len)
 
       prop "is observed" $ \(ReasonablySized commitPartiesAndUtxos) headInput cperiod ->
         forAll (generateCommitUtxos commitPartiesAndUtxos) $ \commitsUtxo ->
@@ -210,11 +211,10 @@ spec =
               headOutput = mkHeadOutput $ SJust headDatum
               headValue = inject (Coin 2_000_000) <> committedValue
               parties = fst <$> commitPartiesAndUtxos
-              committedUtxo = fold $ snd <$> commitPartiesAndUtxos
               onChainParties = partyFromVerKey . vkey <$> parties
               headDatum = Data . toData $ Head.Initial cperiod onChainParties
               lookupUtxo = UTxO (Map.singleton headInput headOutput)
-              tx = collectComTx testNetworkId committedUtxo (headInput, headDatum, onChainParties) commitsUtxo
+              tx = collectComTx testNetworkId (headInput, headDatum, onChainParties) commitsUtxo
               res = observeCollectComTx lookupUtxo tx
            in case res of
                 Just (OnCollectComTx, OpenOrClosed{threadOutput = (_, TxOut _ headOutputValue' _, _, _)}) ->
@@ -230,13 +230,12 @@ spec =
               let onChainUtxo = UTxO $ Map.singleton headInput headOutput <> fmap fst commitsUtxo
                   headOutput = mkHeadOutput $ SJust headDatum
                   parties = fst <$> commitPartiesAndUtxos
-                  committedUtxo = fold $ snd <$> commitPartiesAndUtxos
                   onChainParties = partyFromVerKey . vkey <$> parties
                   headDatum = Data . toData $ Head.Initial cperiod onChainParties
                   -- NOTE: given the way generateCommitUtxos is written, it seems there's no link between committedUtxo
                   -- and commitsUtxo, ie. it's perfectly possible the TxOuts there are different which should be a
                   -- problem?
-                  tx = collectComTx testNetworkId committedUtxo (headInput, headDatum, onChainParties) commitsUtxo
+                  tx = collectComTx testNetworkId (headInput, headDatum, onChainParties) commitsUtxo
                in case validateTxScriptsUnlimited onChainUtxo tx of
                     Left basicFailure ->
                       property False & counterexample ("Basic failure: " <> show basicFailure)
