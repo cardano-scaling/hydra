@@ -32,7 +32,7 @@ jobs:
         path: nix-shell.closure
         key:
           nix-shell-closure-${{ hashFiles('shell.nix', 'default.nix') }}
-        restore-key:
+        restore-keys: |
           nix-shell-closure
 
     - name: Import nix-shell.closure from cache
@@ -50,8 +50,8 @@ jobs:
           dist-newstyle
         key:
           cabal-${{ runner.os }}-${{ hashFiles('cabal.project') }}
-        restore-keys:
-          ${{ runner.os }}-${{ hashFiles('cabal.project') }}
+        restore-keys: |
+          cabal-${{ runner.os }}
 
     - name: Prepare nix-shell
       run: |
