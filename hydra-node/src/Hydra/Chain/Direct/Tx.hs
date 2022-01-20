@@ -35,7 +35,6 @@ import Cardano.Ledger.Shelley.API (
   hashKey,
  )
 import Cardano.Ledger.Shelley.UTxO (UTxO (..))
-import Cardano.Ledger.ShelleyMA.Timelocks (ValidityInterval (..))
 import qualified Data.Map as Map
 import qualified Data.Set as Set
 import Data.Time (Day (ModifiedJulianDay), UTCTime (UTCTime))
