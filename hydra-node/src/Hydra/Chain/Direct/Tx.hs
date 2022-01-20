@@ -262,7 +262,9 @@ collectComTx networkId _utxo (Api.fromLedgerTxIn -> headInput, Api.fromLedgerDat
       Nothing -> error "SNAFU"
       Just ((_, Just (_, o)) :: DatumType Commit.Commit) -> Just o
       _ -> Nothing
-  utxoHash = Head.hashPreSerializedCommits $ mapMaybe (extractSerialisedTxOut . snd . snd) $ Map.toList commits
+  utxoHash =
+    Head.hashPreSerializedCommits $
+      mapMaybe (extractSerialisedTxOut . snd . snd) $ sortOn fst $ Map.toList commits
 
   headOutput =
     Api.TxOut

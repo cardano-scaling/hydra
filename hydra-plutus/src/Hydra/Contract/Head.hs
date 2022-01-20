@@ -96,24 +96,23 @@ headValidator _ commitAddress oldState input context =
           headInputValue = maybe mempty (txOutValue . txInInfoResolved) $ findOwnInput context
 
           collectedUtxo :: [SerializedTxOut] =
-            reverse $
-              foldr
-                ( \TxInInfo{txInInfoResolved} utxos ->
-                    if txOutAddress txInInfoResolved == commitAddress
-                      then maybe (traceError "could not decode commit") (: utxos) $ do
-                        dh <- txOutDatumHash txInInfoResolved
-                        d <- getDatum <$> findDatum dh txInfo
-                        case fromBuiltinData d of
-                          Just ((_p, Just (_, o)) :: DatumType Commit) ->
-                            Just o
-                          Just ((_p, Nothing) :: DatumType Commit) ->
-                            Nothing
-                          Nothing ->
-                            traceError "fromBuiltinData failed"
-                      else utxos
-                )
-                mempty
-                txInfoInputs
+            foldr
+              ( \TxInInfo{txInInfoResolved} utxos ->
+                  if txOutAddress txInInfoResolved == commitAddress
+                    then maybe (traceError "could not decode commit") (: utxos) $ do
+                      dh <- txOutDatumHash txInInfoResolved
+                      d <- getDatum <$> findDatum dh txInfo
+                      case fromBuiltinData d of
+                        Just ((_p, Just (_, o)) :: DatumType Commit) ->
+                          Just o
+                        Just ((_p, Nothing) :: DatumType Commit) ->
+                          Nothing
+                        Nothing ->
+                          traceError "fromBuiltinData failed"
+                    else utxos
+              )
+              mempty
+              txInfoInputs
           utxoHash = hashPreSerializedCommits collectedUtxo
           expectedDatum = Open{parties, utxoHash}
        in case findContinuingOutputs context of
