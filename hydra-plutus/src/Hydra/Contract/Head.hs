@@ -15,6 +15,8 @@ import qualified Hydra.Contract.Commit as Commit
 import Hydra.Contract.Encoding (serialiseTxOuts)
 import Hydra.Data.ContestationPeriod (ContestationPeriod)
 import Hydra.Data.Party (Party (UnsafeParty))
+import Ledger.Constraints.OnChain (checkScriptContext)
+import Ledger.Constraints.TxConstraints (mustPayToTheScript)
 import Ledger.Typed.Scripts (TypedValidator, ValidatorTypes (RedeemerType))
 import qualified Ledger.Typed.Scripts as Scripts
 import Ledger.Typed.Scripts.Validators (DatumType)
@@ -25,7 +27,7 @@ import Plutus.Codec.CBOR.Encoding (
   encodeRaw,
   encodingToBuiltinByteString,
  )
-import PlutusTx (fromBuiltinData, toBuiltinData)
+import PlutusTx (fromBuiltinData)
 import qualified PlutusTx
 import Text.Show (Show)
 
@@ -44,13 +46,7 @@ data State
 PlutusTx.unstableMakeIsData ''State
 
 data Input
-  = -- FIXME: This `Hash` needs to be calculated by the on-chain script and not
-    -- provided as redeemer. This requires:
-    --
-    -- (a) finding the new state-machine's state, make sure it's Open and extract the hash
-    -- (b) construct that merkle root from the collected UTXO
-    -- (c) controll that (a) and (b) matches.
-    CollectCom {utxoHash :: Hash}
+  = CollectCom {utxoHash :: Hash}
   | Close
       { snapshotNumber :: SnapshotNumber
       , utxoHash :: Hash
@@ -83,55 +79,10 @@ headValidator ::
   Bool
 headValidator _ commitAddress oldState input context =
   case (oldState, input) of
-    (Initial{parties}, CollectCom{}) ->
-      let collectedValue =
-            foldr
-              ( \TxInInfo{txInInfoResolved} val ->
-                  if txOutAddress txInInfoResolved == commitAddress
-                    then val + txOutValue txInInfoResolved
-                    else val
-              )
-              mempty
-              txInfoInputs
-          headInputValue = maybe mempty (txOutValue . txInInfoResolved) $ findOwnInput context
-
-          collectedUtxo :: [SerializedTxOut] =
-            foldr
-              ( \TxInInfo{txInInfoResolved} utxos ->
-                  if txOutAddress txInInfoResolved == commitAddress
-                    then maybe (traceError "could not decode commit") (: utxos) $ do
-                      dh <- txOutDatumHash txInInfoResolved
-                      d <- getDatum <$> findDatum dh txInfo
-                      case fromBuiltinData d of
-                        Just ((_p, Just (_, o)) :: DatumType Commit) ->
-                          Just o
-                        Just ((_p, Nothing) :: DatumType Commit) ->
-                          Nothing
-                        Nothing ->
-                          traceError "fromBuiltinData failed"
-                    else utxos
-              )
-              mempty
-              txInfoInputs
-          utxoHash = hashPreSerializedCommits collectedUtxo
-          expectedDatum = Open{parties, utxoHash}
-       in case findContinuingOutputs context of
-            [ix] ->
-              let headOutput = txInfoOutputs !! ix
-                  headOutputValue = txOutValue headOutput
-
-                  checkOutputValue =
-                    traceIfFalse "committed value is not preserved in head" $
-                      headOutputValue == collectedValue <> headInputValue
-
-                  checkOutputDatum =
-                    let headOutputDatumHash = traceIfNothing "datum hash from output" (txOutDatumHash headOutput)
-                        actualDatum = traceIfNothing "findDatum in txInfo" (findDatum headOutputDatumHash txInfo)
-                     in traceIfFalse "output datum not as expected" (actualDatum == Datum (toBuiltinData expectedDatum))
-               in checkOutputValue && checkOutputDatum
-            [] -> traceIfFalse "No continuing head output" False
-            _ -> traceIfFalse "More than one continuing head output" False
-    (Initial{}, Abort) -> True
+    (Initial{contestationPeriod, parties}, CollectCom{}) ->
+      checkCollectCom commitAddress (contestationPeriod, parties) context
+    (Initial{}, Abort) ->
+      True
     (Open{parties}, Close{snapshotNumber, signature})
       | snapshotNumber == 0 -> True
       | snapshotNumber > 0 -> verifySnapshotSignature parties snapshotNumber signature
@@ -142,15 +93,85 @@ headValidator _ commitAddress oldState input context =
  where
   fannedOutUtxoHash numberOfFanoutOutputs = hashTxOuts $ take numberOfFanoutOutputs txInfoOutputs
 
-  TxInfo{txInfoInputs, txInfoOutputs} = txInfo
+  TxInfo{txInfoOutputs} = txInfo
 
   ScriptContext{scriptContextTxInfo = txInfo} = context
 
-traceIfNothing :: BuiltinString -> Maybe a -> a
-traceIfNothing msg = \case
-  Nothing -> traceError ("IsNothing: " `appendString` msg)
-  Just a -> a
-{-# INLINEABLE traceIfNothing #-}
+data CheckCollectComError
+  = NoContinuingOutput
+  | MoreThanOneContinuingOutput
+  | OutputValueNotPreserved
+  | OutputHashNotMatching
+
+-- | On-Chain Validation for the 'CollectCom' transition.
+--
+-- The 'CollectCom' transition must verify that:
+--
+-- - All participants have committed (even empty commits)
+-- - All commits are properly collected and locked into the contract
+-- - The transaction is performed (i.e. signed) by one of the head participants
+--
+-- It must also Initialize the on-chain state η* with a snapshot number and a
+-- Merkle-Tree root hash of committed outputs.
+--
+-- (*) In principle, η contains not a hash but a full UTXO set as well as a set
+-- of dangling transactions. However, in the coordinated version of the
+-- protocol, there can't be any dangling transactions and thus, it is no longer
+-- required to check applicability of those transactions to the UTXO set. It
+-- suffices to store a hash of the resulting outputs of that UTXO instead.
+checkCollectCom ::
+  -- | The commit script address
+  Address ->
+  -- | Initial state
+  (ContestationPeriod, [Party]) ->
+  -- | Script execution context
+  ScriptContext ->
+  Bool
+checkCollectCom commitAddress (_, parties) context@ScriptContext{scriptContextTxInfo = txInfo} =
+  checkScriptContext @Input @State
+    (mustPayToTheScript expectedOutputDatum expectedOutputValue)
+    context
+ where
+  -- TODO: Can find own input (i.e. 'headInputValue') during this traversal already.
+  (expectedOutputValue, collectedCommits) =
+    foldr
+      ( \TxInInfo{txInInfoResolved} (val, commits) ->
+          if txOutAddress txInInfoResolved == commitAddress
+            then
+              let (commitValue, commit) = commitFrom txInInfoResolved
+               in (val + commitValue, commit : commits)
+            else (val, commits)
+      )
+      (headInputValue, [])
+      (txInfoInputs txInfo)
+
+  headInputValue :: Value
+  headInputValue =
+    maybe mempty (txOutValue . txInInfoResolved) (findOwnInput context)
+
+  expectedOutputDatum :: State
+  expectedOutputDatum =
+    Open{parties, utxoHash}
+   where
+    utxoHash = hashPreSerializedCommits collectedCommits
+
+  commitFrom :: TxOut -> (Value, SerializedTxOut)
+  commitFrom o =
+    case txOutDatumHash o >>= lookupCommit of
+      Nothing -> traceError "could not find commit for output"
+      Just commit -> (txOutValue o, commit)
+
+  lookupCommit :: DatumHash -> Maybe SerializedTxOut
+  lookupCommit h = do
+    d <- getDatum <$> findDatum h txInfo
+    case fromBuiltinData @(DatumType Commit) d of
+      Just (_p, Just (_, o)) ->
+        Just o
+      Just (_p, Nothing) ->
+        Nothing
+      Nothing ->
+        traceError "fromBuiltinData failed"
+{-# INLINEABLE checkCollectCom #-}
 
 hashPreSerializedCommits :: [SerializedTxOut] -> BuiltinByteString
 hashPreSerializedCommits o =
@@ -165,20 +186,19 @@ hashTxOuts =
   sha2_256 . serialiseTxOuts
 {-# INLINEABLE hashTxOuts #-}
 
-{-# INLINEABLE verifySnapshotSignature #-}
 verifySnapshotSignature :: [Party] -> SnapshotNumber -> [Signature] -> Bool
 verifySnapshotSignature parties snapshotNumber sigs =
   traceIfFalse "signature verification failed" $
     length parties == length sigs
       && all (uncurry $ verifyPartySignature snapshotNumber) (zip parties sigs)
+{-# INLINEABLE verifySnapshotSignature #-}
 
-{-# INLINEABLE verifyPartySignature #-}
 verifyPartySignature :: SnapshotNumber -> Party -> Signature -> Bool
 verifyPartySignature snapshotNumber vkey signed =
   traceIfFalse "party signature verification failed" $
     mockVerifySignature vkey snapshotNumber (getSignature signed)
+{-# INLINEABLE verifyPartySignature #-}
 
-{-# INLINEABLE mockVerifySignature #-}
 -- TODO: This really should be the builtin Plutus function 'verifySignature' but as we
 -- are using Mock crypto in the Head, so must we use Mock crypto on-chain to verify
 -- signatures.
@@ -186,12 +206,13 @@ mockVerifySignature :: Party -> SnapshotNumber -> BuiltinByteString -> Bool
 mockVerifySignature (UnsafeParty vkey) snapshotNumber signed =
   traceIfFalse "mock signed message is not equal to signed" $
     mockSign vkey (encodingToBuiltinByteString $ encodeInteger snapshotNumber) == signed
+{-# INLINEABLE mockVerifySignature #-}
 
-{-# INLINEABLE mockSign #-}
 mockSign :: Integer -> BuiltinByteString -> BuiltinByteString
 mockSign vkey msg = appendByteString (sliceByteString 0 8 hashedMsg) (encodingToBuiltinByteString $ encodeInteger vkey)
  where
   hashedMsg = sha2_256 msg
+{-# INLINEABLE mockSign #-}
 
 -- | The script instance of the auction state machine. It contains the state
 -- machine compiled to a Plutus core validator script. The 'MintingPolicyHash' serves
