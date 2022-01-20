@@ -30,7 +30,10 @@ jobs:
       uses: actions/cache@v2.1.5
       with:
         path: nix-shell.closure
-        key: nix-shell-closure
+        key:
+          nix-shell-closure-${{ hashFiles('shell.nix', 'default.nix') }}
+        restore-key:
+          nix-shell-closure
 
     - name: Import nix-shell.closure from cache
       # TODO: nix-store --import is very verbose
@@ -45,15 +48,16 @@ jobs:
           ~/.cabal/packages
           ~/.cabal/store
           dist-newstyle
-        key: ${{ runner.os }}-${{ hashFiles('cabal.project') }}
-        restore-keys: |
-            ${{ runner.os }}-key
+        key:
+          cabal-${{ runner.os }}-${{ hashFiles('cabal.project') }}
+        restore-keys:
+          ${{ runner.os }}-${{ hashFiles('cabal.project') }}
 
     - name: Prepare nix-shell
       run: |
         nix-build shell.nix
 
-    - name: Export shell.nix for later caching
+    - name: Export nix-shell derivations for later caching
       run: |
         nix-store --export $(nix-store -qR --include-outputs $(nix-instantiate shell.nix)) > nix-shell.closure
 
