@@ -5,7 +5,7 @@
 
 module Hydra.Contract.Head where
 
-import Ledger hiding (validatorHash)
+import Ledger hiding (txOutDatum, validatorHash)
 import PlutusTx.Prelude
 
 import Data.Aeson (FromJSON, ToJSON)
@@ -15,8 +15,6 @@ import qualified Hydra.Contract.Commit as Commit
 import Hydra.Contract.Encoding (serialiseTxOuts)
 import Hydra.Data.ContestationPeriod (ContestationPeriod)
 import Hydra.Data.Party (Party (UnsafeParty))
-import Ledger.Constraints.OnChain (checkScriptContext)
-import Ledger.Constraints.TxConstraints (mustPayToTheScript)
 import Ledger.Typed.Scripts (TypedValidator, ValidatorTypes (RedeemerType))
 import qualified Ledger.Typed.Scripts as Scripts
 import Ledger.Typed.Scripts.Validators (DatumType)
@@ -27,7 +25,7 @@ import Plutus.Codec.CBOR.Encoding (
   encodeRaw,
   encodingToBuiltinByteString,
  )
-import PlutusTx (fromBuiltinData)
+import PlutusTx (fromBuiltinData, toBuiltinData)
 import qualified PlutusTx
 import Text.Show (Show)
 
@@ -128,9 +126,7 @@ checkCollectCom ::
   ScriptContext ->
   Bool
 checkCollectCom commitAddress (_, parties) context@ScriptContext{scriptContextTxInfo = txInfo} =
-  checkScriptContext @Input @State
-    (mustPayToTheScript expectedOutputDatum expectedOutputValue)
-    context
+  mustContinueHeadWith context expectedOutputValue expectedOutputDatum
  where
   -- TODO: Can find own input (i.e. 'headInputValue') during this traversal already.
   (expectedOutputValue, collectedCommits) =
@@ -149,11 +145,10 @@ checkCollectCom commitAddress (_, parties) context@ScriptContext{scriptContextTx
   headInputValue =
     maybe mempty (txOutValue . txInInfoResolved) (findOwnInput context)
 
-  expectedOutputDatum :: State
+  expectedOutputDatum :: Datum
   expectedOutputDatum =
-    Open{parties, utxoHash}
-   where
-    utxoHash = hashPreSerializedCommits collectedCommits
+    let utxoHash = hashPreSerializedCommits collectedCommits
+     in Datum $ toBuiltinData Open{parties, utxoHash}
 
   commitFrom :: TxOut -> (Value, SerializedTxOut)
   commitFrom o =
@@ -172,6 +167,29 @@ checkCollectCom commitAddress (_, parties) context@ScriptContext{scriptContextTx
       Nothing ->
         traceError "fromBuiltinData failed"
 {-# INLINEABLE checkCollectCom #-}
+
+mustContinueHeadWith :: ScriptContext -> Value -> Datum -> Bool
+mustContinueHeadWith context@ScriptContext{scriptContextTxInfo = txInfo} val datum =
+  case findContinuingOutputs context of
+    [ix] ->
+      let headOutput = txInfoOutputs txInfo !! ix
+          checkOutputValue =
+            traceIfFalse "wrong output head value" $ txOutValue headOutput == val
+          checkOutputDatum =
+            traceIfFalse "wrong output head datum" $ txOutDatum txInfo headOutput == datum
+       in checkOutputValue && checkOutputDatum
+    [] ->
+      traceIfFalse "no continuing head output" False
+    _ ->
+      traceIfFalse "more than one continuing head output" False
+{-# INLINEABLE mustContinueHeadWith #-}
+
+txOutDatum :: TxInfo -> TxOut -> Datum
+txOutDatum txInfo o =
+  case txOutDatumHash o >>= (`findDatum` txInfo) of
+    Nothing -> traceError "no datum"
+    Just dt -> dt
+{-# INLINEABLE txOutDatum #-}
 
 hashPreSerializedCommits :: [SerializedTxOut] -> BuiltinByteString
 hashPreSerializedCommits o =
