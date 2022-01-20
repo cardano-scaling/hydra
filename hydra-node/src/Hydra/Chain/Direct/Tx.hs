@@ -14,7 +14,8 @@ module Hydra.Chain.Direct.Tx where
 import Hydra.Prelude
 
 import Cardano.Api (NetworkId)
-import Cardano.Binary (serialize, serialize')
+import Cardano.Binary (decodeFull', serialize, serialize')
+import qualified Cardano.Binary as Api
 import Cardano.Ledger.Address (Addr (Addr))
 import Cardano.Ledger.Alonzo (Script)
 import Cardano.Ledger.Alonzo.Data (Data, getPlutusData)
@@ -67,7 +68,8 @@ import qualified Hydra.Ledger.Cardano as Api
 import Hydra.Party (MultiSigned, Party (Party), toPlutusSignatures, vkey)
 import Hydra.Snapshot (Snapshot (..))
 import Ledger.Value (AssetClass (..), currencyMPSHash)
-import Plutus.V1.Ledger.Api (MintingPolicyHash, PubKeyHash (..), fromData)
+import Ouroboros.Consensus.Util (eitherToMaybe)
+import Plutus.V1.Ledger.Api (MintingPolicyHash, PubKeyHash (..), fromBuiltin, fromData)
 import qualified Plutus.V1.Ledger.Api as Plutus
 import Plutus.V1.Ledger.Value (assetClass, currencySymbol, tokenName)
 import Plutus.V2.Ledger.Api (toBuiltin)
@@ -457,8 +459,9 @@ observeCommitTx ::
 observeCommitTx networkId (Api.getTxBody . fromLedgerTx -> txBody) = do
   (commitIn, commitOut) <- Api.findTxOutByAddress commitAddress txBody
   dat <- getDatum commitOut
-  (party, txOutRef, txOut) <- fromData $ toPlutusData dat
-  let onChainTx = OnCommitTx (convertParty party) (convertUtxo txOutRef txOut)
+  (party, committedUtxo) <- fromData $ toPlutusData dat
+  convertedUtxo <- convertUtxo committedUtxo
+  let onChainTx = OnCommitTx (convertParty party) convertedUtxo
   pure
     ( onChainTx
     ,
@@ -468,9 +471,16 @@ observeCommitTx networkId (Api.getTxBody . fromLedgerTx -> txBody) = do
       )
     )
  where
-  convertUtxo :: Plutus.TxOutRef -> Plutus.TxOut -> Utxo
-  convertUtxo txOutRef txOut =
-    Api.Utxo $ Map.singleton (Api.fromPlutusTxOutRef txOutRef) (Api.fromPlutusTxOut txOut)
+  convertUtxo :: Maybe (Commit.SerializedTxOutRef, Commit.SerializedTxOut) -> Maybe Utxo
+  convertUtxo = \case
+    Nothing -> mempty
+    Just (Commit.SerializedTxOutRef inBytes, Commit.SerializedTxOut outBytes) ->
+      -- XXX(SN): these errors might be more severe and we could throw an
+      -- exception here?
+      eitherToMaybe $ do
+        txIn <- decodeFull' (fromBuiltin inBytes)
+        txOut <- decodeFull' (fromBuiltin outBytes)
+        pure $ Api.singletonUtxo (txIn, txOut)
 
   commitAddress = mkScriptAddress @Api.PlutusScriptV1 networkId commitScript
 
