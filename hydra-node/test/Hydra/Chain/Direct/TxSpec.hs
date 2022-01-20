@@ -194,10 +194,11 @@ spec =
                 ]
 
     describe "collectComTx" $ do
-      prop "transaction size below limit" $ \(ReasonablySized commitPartiesAndUtxos) headIn cperiod parties ->
-        forAll (generateCommitUtxos commitPartiesAndUtxos) $ \commitsUtxo ->
-          let tx = collectComTx testNetworkId (headIn, headDatum, parties) commitsUtxo
-              headDatum = Data . toData $ Head.Initial cperiod parties
+      prop "transaction size below limit" $ \(ReasonablySized parties) headIn cperiod ->
+        forAll (generateCommitUtxos parties) $ \commitsUtxo ->
+          let tx = collectComTx testNetworkId (headIn, headDatum, onChainParties) commitsUtxo
+              headDatum = Data . toData $ Head.Initial cperiod onChainParties
+              onChainParties = partyFromVerKey . vkey <$> parties
               cbor = serialize tx
               len = LBS.length cbor
            in len < maxTxSize
@@ -205,12 +206,11 @@ spec =
                 & counterexample ("Tx: " <> show tx)
                 & counterexample ("Tx serialized size: " <> show len)
 
-      prop "is observed" $ \(ReasonablySized commitPartiesAndUtxos) headInput cperiod ->
-        forAll (generateCommitUtxos commitPartiesAndUtxos) $ \commitsUtxo ->
+      prop "is observed" $ \(ReasonablySized parties) headInput cperiod ->
+        forAll (generateCommitUtxos parties) $ \commitsUtxo ->
           let committedValue = foldMap (\(TxOut _ v _, _) -> v) commitsUtxo
               headOutput = mkHeadOutput $ SJust headDatum
               headValue = inject (Coin 2_000_000) <> committedValue
-              parties = fst <$> commitPartiesAndUtxos
               onChainParties = partyFromVerKey . vkey <$> parties
               headDatum = Data . toData $ Head.Initial cperiod onChainParties
               lookupUtxo = UTxO (Map.singleton headInput headOutput)
@@ -225,16 +225,12 @@ spec =
 
       modifyMaxSuccess (const 10) $
         prop "validates" $ \headInput cperiod ->
-          forAll (genPartyAndUtxo 5) $ \commitPartiesAndUtxos ->
-            forAll (generateCommitUtxos commitPartiesAndUtxos) $ \commitsUtxo ->
+          forAll (vectorOf 15 arbitrary) $ \parties ->
+            forAll (generateCommitUtxos parties) $ \commitsUtxo ->
               let onChainUtxo = UTxO $ Map.singleton headInput headOutput <> fmap fst commitsUtxo
                   headOutput = mkHeadOutput $ SJust headDatum
-                  parties = fst <$> commitPartiesAndUtxos
                   onChainParties = partyFromVerKey . vkey <$> parties
                   headDatum = Data . toData $ Head.Initial cperiod onChainParties
-                  -- NOTE: given the way generateCommitUtxos is written, it seems there's no link between committedUtxo
-                  -- and commitsUtxo, ie. it's perfectly possible the TxOuts there are different which should be a
-                  -- problem?
                   tx = collectComTx testNetworkId (headInput, headDatum, onChainParties) commitsUtxo
                in case validateTxScriptsUnlimited onChainUtxo tx of
                     Left basicFailure ->
@@ -500,7 +496,7 @@ genPartyAndUtxo n = do
 
 -- | Generate a UTXO representing /commit/ outputs for a given list of `Party`.
 -- FIXME: This function is very complicated and it's hard to understand it after a while
-generateCommitUtxos :: [(Party, Utxo)] -> Gen (Map.Map (TxIn StandardCrypto) (TxOut Era, Data Era))
+generateCommitUtxos :: [Party] -> Gen (Map.Map (TxIn StandardCrypto) (TxOut Era, Data Era))
 generateCommitUtxos parties = do
   txins <- vectorOf (length parties) (arbitrary @(TxIn StandardCrypto))
   committedUtxo <- vectorOf (length parties) $ do
@@ -508,7 +504,7 @@ generateCommitUtxos parties = do
     pure $ head <$> nonEmpty (utxoPairs singleUtxo)
   let commitUtxo =
         zip txins $
-          uncurry mkCommitUtxo <$> zip (fst <$> parties) committedUtxo
+          uncurry mkCommitUtxo <$> zip parties committedUtxo
   pure $ Map.fromList commitUtxo
  where
   mkCommitUtxo :: Party -> Maybe (Api.TxIn, Api.TxOut Api.CtxUTxO Api.Era) -> (TxOut Era, Data Era)
