@@ -66,6 +66,7 @@ import Hydra.Ledger.Cardano (
 import qualified Hydra.Ledger.Cardano as Api
 import Hydra.Party (MultiSigned, Party (Party), toPlutusSignatures, vkey)
 import Hydra.Snapshot (Snapshot (..))
+import Ledger.Typed.Scripts (DatumType)
 import Ledger.Value (AssetClass (..), currencyMPSHash)
 import Ouroboros.Consensus.Util (eitherToMaybe)
 import Plutus.V1.Ledger.Api (MintingPolicyHash, PubKeyHash (..), fromBuiltin, fromData)
@@ -239,7 +240,7 @@ collectComTx ::
 -- TODO(SN): utxo unused means other participants would not "see" the opened
 -- utxo when observing. Right now, they would be trusting the OCV checks this
 -- and construct their "world view" from observed commit txs in the HeadLogic
-collectComTx networkId utxo (Api.fromLedgerTxIn -> headInput, Api.fromLedgerData -> headDatumBefore, parties) commits =
+collectComTx networkId _utxo (Api.fromLedgerTxIn -> headInput, Api.fromLedgerData -> headDatumBefore, parties) commits =
   Api.toLedgerTx $
     Api.unsafeBuildTransaction $
       Api.emptyTxBody
@@ -256,7 +257,13 @@ collectComTx networkId utxo (Api.fromLedgerTxIn -> headInput, Api.fromLedgerData
   -- FIXME: We need to hash tx outs in an order that is recoverable on-chain.
   -- The simplest thing to do, is to make sure commit inputs are in the same
   -- order as their corresponding committed utxo.
-  utxoHash = toBuiltin $ hashTxOuts $ toList utxo
+  extractSerialisedTxOut d =
+    case fromData $ getPlutusData d of
+      Nothing -> error "SNAFU"
+      Just ((_, Just (_, o)) :: DatumType Commit.Commit) -> Just o
+      _ -> Nothing
+  utxoHash = Head.hashPreSerializedCommits $ mapMaybe (extractSerialisedTxOut . snd . snd) $ Map.toList commits
+
   headOutput =
     Api.TxOut
       (Api.mkScriptAddress @Api.PlutusScriptV1 networkId headScript)
