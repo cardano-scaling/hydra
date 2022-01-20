@@ -28,7 +28,6 @@ import Cardano.Ledger.Shelley.API (Coin (..), StrictMaybe (..), TxId (..), TxIn 
 import qualified Cardano.Ledger.Shelley.Tx as Ledger
 import Cardano.Ledger.TxIn (txid)
 import Cardano.Ledger.Val (inject)
-import qualified Data.Aeson as Aeson
 import qualified Data.ByteString.Lazy as LBS
 import Data.List (intersect, nub, (\\))
 import qualified Data.Map as Map
@@ -46,7 +45,6 @@ import qualified Hydra.Contract.Head as Head
 import qualified Hydra.Contract.Initial as Initial
 import Hydra.Data.ContestationPeriod (contestationPeriodFromDiffTime)
 import Hydra.Data.Party (partyFromVerKey)
-import Hydra.Data.Utxo (fromByteString)
 import Hydra.Ledger (balance)
 import Hydra.Ledger.Cardano (
   CardanoTx,
@@ -66,6 +64,7 @@ import Hydra.Ledger.Cardano (
   genUtxoWithSimplifiedAddresses,
   hashTxOuts,
   shrinkUtxo,
+  singletonUtxo,
   toLedgerValue,
   toMaryValue,
   txOutValue,
@@ -153,6 +152,7 @@ spec =
             commitValue = inject (Coin 2_000_000) <> toLedgerValue (txOutValue $ snd singleUtxo)
             commitDatum = Ledger.Data . toData $ mkCommitDatum party $ Just singleUtxo
             expectedOutput = (TxIn (Ledger.TxId (SafeHash.hashAnnotated $ body tx)) 0, commitOutput, commitDatum)
+            committedUtxo = singletonUtxo singleUtxo
          in observeCommitTx testNetworkId tx
               === Just (OnCommitTx{party, committed = committedUtxo}, expectedOutput)
               & counterexample ("Tx: " <> show tx)
@@ -169,12 +169,8 @@ spec =
             commitOutput = TxOut @Era commitAddress commitValue (SJust $ hashData commitDatum)
             commitAddress = scriptAddr $ plutusScript Commit.validatorScript
             commitValue = inject (Coin 2_000_000) <> toMaryValue (balance @CardanoTx committedUtxo)
-            commitDatum =
-              Data . toData $
-                Commit.datum (partyFromVerKey $ vkey party, commitUtxo)
+            commitDatum = Ledger.Data . toData $ mkCommitDatum party $ Just singleUtxo
             commitInput = TxIn (txid $ body tx) 0
-            commitUtxo =
-              fromByteString $ toStrict $ Aeson.encode committedUtxo
             onChainState =
               Initial
                 { threadOutput = error "should not be evaluated anyway."
