@@ -43,13 +43,19 @@ jobs:
       run: |
         nix-build shell.nix
 
-    - name: Cabal build, test & haddock in nix-shell
-      run: nix-shell --run 'build-ci.sh'
+    - name: Build
+      run: nix-shell --run '.github/workflows/ci-build.sh'
+
+    - name: Test
+      run: nix-shell --run '.github/workflows/ci-test.sh'
       # https://giters.com/gfx/example-github-actions-with-tty
       # The default shell does not allocate a TTY which breaks some tests
       shell: 'script -q -e -c "bash {0}"'
       env:
         TERM: "xterm"
+
+    - name: Documentation
+      run: nix-shell --run '.github/workflows/ci-haddock.sh'
 
     - name: Publish Unit Test Results
       uses: EnricoMi/publish-unit-test-result-action@v1
