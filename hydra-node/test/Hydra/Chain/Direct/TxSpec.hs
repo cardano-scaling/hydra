@@ -15,6 +15,7 @@ import Hydra.Chain.Direct.Tx
 import Cardano.Binary (serialize)
 import Cardano.Ledger.Alonzo (TxOut)
 import Cardano.Ledger.Alonzo.Data (Data (Data), hashData)
+import qualified Cardano.Ledger.Alonzo.Data as Ledger
 import Cardano.Ledger.Alonzo.PParams (PParams, PParams' (..))
 import Cardano.Ledger.Alonzo.Scripts (ExUnits (..), Tag (Spend), txscriptfee)
 import Cardano.Ledger.Alonzo.Tools (BasicFailure, ScriptFailure, evaluateTransactionExecutionUnits)
@@ -65,7 +66,9 @@ import Hydra.Ledger.Cardano (
   genUtxoWithSimplifiedAddresses,
   hashTxOuts,
   shrinkUtxo,
+  toLedgerValue,
   toMaryValue,
+  txOutValue,
   utxoPairs,
  )
 import qualified Hydra.Ledger.Cardano as Api
@@ -145,15 +148,10 @@ spec =
 
       prop "is observed" $ \party singleUtxo initialIn ->
         let tx = commitTx testNetworkId party (Just singleUtxo) initialIn
-            committedUtxo = Utxo $ Map.fromList [singleUtxo]
             commitOutput = TxOut @Era commitAddress commitValue (SJust $ hashData commitDatum)
             commitAddress = scriptAddr $ plutusScript Commit.validatorScript
-            commitValue = inject (Coin 2_000_000) <> toMaryValue (balance @CardanoTx committedUtxo)
-            commitDatum =
-              Data . toData $
-                Commit.datum (partyFromVerKey $ vkey party, commitUtxo)
-            commitUtxo =
-              fromByteString $ toStrict $ Aeson.encode committedUtxo
+            commitValue = inject (Coin 2_000_000) <> toLedgerValue (txOutValue $ snd singleUtxo)
+            commitDatum = Ledger.Data . toData $ mkCommitDatum party $ Just singleUtxo
             expectedOutput = (TxIn (Ledger.TxId (SafeHash.hashAnnotated $ body tx)) 0, commitOutput, commitDatum)
          in observeCommitTx testNetworkId tx
               === Just (OnCommitTx{party, committed = committedUtxo}, expectedOutput)
