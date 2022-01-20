@@ -210,11 +210,16 @@ commitTx networkId party utxo (initialInput, vkh) =
 -- FIXME: WIP
 mkCommitDatum :: Party -> Maybe (Api.TxIn, Api.TxOut Api.CtxUTxO Api.Era) -> Plutus.Datum
 mkCommitDatum (partyFromVerKey . vkey -> party) utxo =
-  Commit.datum (party, error "txOutRef", error "txOut")
+  Commit.datum (party, serializedUtxo)
  where
-  commitUtxo = case utxo of
-    Nothing -> mempty
-    Just (_, o) -> serialize' (toLedgerTxOut o)
+  serializedUtxo = case utxo of
+    Nothing ->
+      Nothing
+    Just (i, o) ->
+      Just
+        ( Commit.SerializedTxOutRef (toBuiltin $ serialize' $ Api.toLedgerTxIn i)
+        , Commit.SerializedTxOut (toBuiltin $ serialize' $ Api.toLedgerTxOut o)
+        )
 
 -- | Create a transaction collecting all "committed" utxo and opening a Head,
 -- i.e. driving the Head script state.
