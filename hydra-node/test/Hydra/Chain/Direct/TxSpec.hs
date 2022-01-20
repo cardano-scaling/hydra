@@ -146,13 +146,13 @@ spec =
               & counterexample ("Tx serialized size: " <> show len)
 
       prop "is observed" $ \party singleUtxo initialIn ->
-        let tx = commitTx testNetworkId party (Just singleUtxo) initialIn
+        let tx = commitTx testNetworkId party singleUtxo initialIn
             commitOutput = TxOut @Era commitAddress commitValue (SJust $ hashData commitDatum)
             commitAddress = scriptAddr $ plutusScript Commit.validatorScript
-            commitValue = inject (Coin 2_000_000) <> toLedgerValue (txOutValue $ snd singleUtxo)
-            commitDatum = Ledger.Data . toData $ mkCommitDatum party $ Just singleUtxo
+            commitValue = inject (Coin 2_000_000) <> maybe (inject (Coin 0)) (toLedgerValue . txOutValue . snd) singleUtxo
+            commitDatum = Ledger.Data . toData $ mkCommitDatum party singleUtxo
             expectedOutput = (TxIn (Ledger.TxId (SafeHash.hashAnnotated $ body tx)) 0, commitOutput, commitDatum)
-            committedUtxo = singletonUtxo singleUtxo
+            committedUtxo = maybe mempty singletonUtxo singleUtxo
          in observeCommitTx testNetworkId tx
               === Just (OnCommitTx{party, committed = committedUtxo}, expectedOutput)
               & counterexample ("Tx: " <> show tx)
