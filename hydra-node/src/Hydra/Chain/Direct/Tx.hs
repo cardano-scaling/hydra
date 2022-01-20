@@ -248,8 +248,14 @@ collectComTx networkId (Api.fromLedgerTxIn -> headInput, Api.fromLedgerData -> h
   headScript =
     Api.fromPlutusScript $ Head.validatorScript policyId
   headRedeemer =
-    Api.mkRedeemerForTxIn $
-      Head.CollectCom{utxoHash}
+    Api.mkRedeemerForTxIn Head.CollectCom
+  headOutput =
+    Api.TxOut
+      (Api.mkScriptAddress @Api.PlutusScriptV1 networkId headScript)
+      (Api.mkTxOutValue $ Api.lovelaceToValue 2_000_000 <> commitValue)
+      headDatumAfter
+  headDatumAfter =
+    Api.mkTxOutDatum Head.Open{Head.parties = parties, utxoHash}
   -- NOTE: We hash tx outs in an order that is recoverable on-chain.
   -- The simplest thing to do, is to make sure commit inputs are in the same
   -- order as their corresponding committed utxo.
@@ -261,14 +267,6 @@ collectComTx networkId (Api.fromLedgerTxIn -> headInput, Api.fromLedgerData -> h
   utxoHash =
     Head.hashPreSerializedCommits $
       mapMaybe (extractSerialisedTxOut . snd . snd) $ sortOn fst $ Map.toList commits
-
-  headOutput =
-    Api.TxOut
-      (Api.mkScriptAddress @Api.PlutusScriptV1 networkId headScript)
-      (Api.mkTxOutValue $ Api.lovelaceToValue 2_000_000 <> commitValue)
-      headDatumAfter
-  headDatumAfter =
-    Api.mkTxOutDatum Head.Open{Head.parties = parties, utxoHash}
   mkCommit (commitInput, (_commitOutput, commitDatum)) =
     ( Api.fromLedgerTxIn commitInput
     , mkCommitWitness commitDatum
@@ -533,7 +531,7 @@ observeCollectComTx utxo tx = do
   oldHeadDatum <- lookupDatum (wits tx) (Api.toLedgerTxOut headOutput)
   datum <- fromData $ getPlutusData oldHeadDatum
   case (datum, redeemer) of
-    (Head.Initial{parties}, Head.CollectCom{}) -> do
+    (Head.Initial{parties}, Head.CollectCom) -> do
       (newHeadInput, newHeadOutput) <- Api.findScriptOutput @Api.PlutusScriptV1 (Api.utxoFromTx $ Api.fromLedgerTx tx) headScript
       newHeadDatum <- lookupDatum (wits tx) (Api.toLedgerTxOut newHeadOutput)
       pure

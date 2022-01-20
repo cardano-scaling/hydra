@@ -46,7 +46,7 @@ data State
 PlutusTx.unstableMakeIsData ''State
 
 data Input
-  = CollectCom {utxoHash :: Hash}
+  = CollectCom
   | Close
       { snapshotNumber :: SnapshotNumber
       , utxoHash :: Hash
@@ -79,7 +79,7 @@ headValidator ::
   Bool
 headValidator _ commitAddress oldState input context =
   case (oldState, input) of
-    (Initial{contestationPeriod, parties}, CollectCom{}) ->
+    (Initial{contestationPeriod, parties}, CollectCom) ->
       checkCollectCom commitAddress (contestationPeriod, parties) context
     (Initial{}, Abort) ->
       True
