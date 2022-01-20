@@ -520,6 +520,10 @@ fromLedgerUtxo =
 fromCardanoApiUtxo :: UTxO AlonzoEra -> Utxo
 fromCardanoApiUtxo = coerce
 
+-- | Create a 'Utxo' from a single unspent transaction output.
+singletonUtxo :: (TxIn, TxOut CtxUTxO Era) -> Utxo
+singletonUtxo (i, o) = Utxo $ Map.singleton i o
+
 utxoPairs :: Utxo' out -> [(TxIn, out)]
 utxoPairs = Map.toList . utxoMap
 
