@@ -125,24 +125,10 @@ headValidator _ commitAddress oldState input context =
                     traceIfFalse "committed value is not preserved in head" $
                       headOutputValue == collectedValue <> headInputValue
 
-                  checkOutputDatumError =
-                    "unexpected output datum in collectCom, expected utxo hash: "
-                      `appendByteString` utxoHash
-                      `appendByteString` ", actual utxo hash: "
-                      `appendByteString` actualUtxoHash
-
-                  actualUtxoHash = fromMaybe "couldn't find actual hash?" $ do
-                    headOutputDatumHash <- txOutDatumHash headOutput
-                    actualDatum <- findDatum headOutputDatumHash txInfo
-                    Open{utxoHash = actual} <- fromBuiltinData (getDatum actualDatum)
-                    pure actual
-
                   checkOutputDatum =
-                    traceIfFalse (decodeUtf8 checkOutputDatumError) $
-                      fromMaybe False $ do
-                        headOutputDatumHash <- txOutDatumHash headOutput
-                        actualDatum <- findDatum headOutputDatumHash txInfo
-                        pure (actualDatum == Datum (toBuiltinData expectedDatum))
+                    let headOutputDatumHash = traceIfNothing "datum hash from output" (txOutDatumHash headOutput)
+                        actualDatum = traceIfNothing "findDatum in txInfo" (findDatum headOutputDatumHash txInfo)
+                     in traceIfFalse "output datum not as expected" (actualDatum == Datum (toBuiltinData expectedDatum))
                in checkOutputValue && checkOutputDatum
             [] -> traceIfFalse "No continuing head output" False
             _ -> traceIfFalse "More than one continuing head output" False
@@ -160,6 +146,12 @@ headValidator _ commitAddress oldState input context =
   TxInfo{txInfoInputs, txInfoOutputs} = txInfo
 
   ScriptContext{scriptContextTxInfo = txInfo} = context
+
+traceIfNothing :: BuiltinString -> Maybe a -> a
+traceIfNothing msg = \case
+  Nothing -> traceError ("IsNothing: " `appendString` msg)
+  Just a -> a
+{-# INLINEABLE traceIfNothing #-}
 
 hashPreSerializedCommits :: [SerializedTxOut] -> BuiltinByteString
 hashPreSerializedCommits o =
