@@ -251,7 +251,7 @@ collectComTx networkId (Api.fromLedgerTxIn -> headInput, Api.fromLedgerData -> h
   headRedeemer =
     Api.mkRedeemerForTxIn $
       Head.CollectCom{utxoHash}
-  -- FIXME: We need to hash tx outs in an order that is recoverable on-chain.
+  -- NOTE: We hash tx outs in an order that is recoverable on-chain.
   -- The simplest thing to do, is to make sure commit inputs are in the same
   -- order as their corresponding committed utxo.
   extractSerialisedTxOut d =
