@@ -225,7 +225,7 @@ spec =
 
       modifyMaxSuccess (const 10) $
         prop "validates" $ \headInput cperiod ->
-          forAll (genPartyAndUtxo 20) $ \commitPartiesAndUtxos ->
+          forAll (genPartyAndUtxo 10) $ \commitPartiesAndUtxos ->
             forAll (generateCommitUtxos commitPartiesAndUtxos) $ \commitsUtxo ->
               let onChainUtxo = UTxO $ Map.singleton headInput headOutput <> fmap fst commitsUtxo
                   headOutput = mkHeadOutput $ SJust headDatum
