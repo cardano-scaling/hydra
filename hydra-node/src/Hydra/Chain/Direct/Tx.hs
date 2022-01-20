@@ -478,7 +478,7 @@ observeCommitTx networkId (Api.getTxBody . fromLedgerTx -> txBody) = do
  where
   convertUtxo :: Maybe (Commit.SerializedTxOutRef, Commit.SerializedTxOut) -> Maybe Utxo
   convertUtxo = \case
-    Nothing -> mempty
+    Nothing -> Just mempty
     Just (Commit.SerializedTxOutRef inBytes, Commit.SerializedTxOut outBytes) ->
       -- XXX(SN): these errors might be more severe and we could throw an
       -- exception here?
