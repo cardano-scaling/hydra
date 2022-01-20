@@ -10,12 +10,11 @@ import PlutusTx.Prelude
 
 import Data.Aeson (FromJSON, ToJSON)
 import GHC.Generics (Generic)
-import Hydra.Contract.Commit (Commit)
+import Hydra.Contract.Commit (Commit, SerializedTxOut (..))
 import qualified Hydra.Contract.Commit as Commit
 import Hydra.Contract.Encoding (serialiseTxOuts)
 import Hydra.Data.ContestationPeriod (ContestationPeriod)
 import Hydra.Data.Party (Party (UnsafeParty))
-import Hydra.Data.Utxo (Utxo (Utxo))
 import Ledger.Typed.Scripts (TypedValidator, ValidatorTypes (RedeemerType))
 import qualified Ledger.Typed.Scripts as Scripts
 import Ledger.Typed.Scripts.Validators (DatumType)
@@ -96,7 +95,7 @@ headValidator _ commitAddress oldState input context =
               txInfoInputs
           headInputValue = maybe mempty (txOutValue . txInInfoResolved) $ findOwnInput context
 
-          collectedUtxo :: [Utxo] =
+          collectedUtxo :: [SerializedTxOut] =
             reverse $
               foldr
                 ( \TxInInfo{txInInfoResolved} utxos ->
@@ -105,8 +104,12 @@ headValidator _ commitAddress oldState input context =
                         dh <- txOutDatumHash txInInfoResolved
                         d <- getDatum <$> findDatum dh txInfo
                         case fromBuiltinData d of
-                          Nothing -> traceError "fromBuiltinData failed"
-                          Just ((_p, _, _) :: DatumType Commit) -> Nothing
+                          Just ((_p, Just (_, o)) :: DatumType Commit) ->
+                            Just o
+                          Just ((_p, Nothing) :: DatumType Commit) ->
+                            Nothing
+                          Nothing ->
+                            traceError "fromBuiltinData failed"
                       else utxos
                 )
                 mempty
@@ -158,10 +161,12 @@ headValidator _ commitAddress oldState input context =
 
   ScriptContext{scriptContextTxInfo = txInfo} = context
 
-hashPreSerializedCommits :: [Utxo] -> BuiltinByteString
-hashPreSerializedCommits u =
+hashPreSerializedCommits :: [SerializedTxOut] -> BuiltinByteString
+hashPreSerializedCommits o =
   sha2_256 . encodingToBuiltinByteString $
-    encodeBeginList <> foldMap (\(Utxo bytes) -> encodeRaw bytes) u <> encodeBreak
+    encodeBeginList
+      <> foldMap (\(SerializedTxOut bytes) -> encodeRaw bytes) o
+      <> encodeBreak
 {-# INLINEABLE hashPreSerializedCommits #-}
 
 hashTxOuts :: [TxOut] -> BuiltinByteString
