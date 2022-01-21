@@ -33,13 +33,15 @@ healthyCommitTx :: (CardanoTx, Utxo)
 healthyCommitTx =
   (tx, lookupUtxo)
  where
-  lookupUtxo = singletonUtxo (initialInput, toUtxoContext initialOutput)
+  lookupUtxo =
+    singletonUtxo (initialInput, toUtxoContext initialOutput)
+      <> singletonUtxo healthyCommittedUtxo
 
   tx =
     commitTx
       Fixture.testNetworkId
       healthyCommitParty
-      healthyCommittedUtxo
+      (Just healthyCommittedUtxo)
       (initialInput, initialPubKeyHash)
 
   initialInput = generateWith arbitrary 42
@@ -50,11 +52,11 @@ healthyCommitTx =
 
   -- NOTE: An ada-only output which is currently addressed to some arbitrary
   -- public key.
-  healthyCommittedUtxo :: Maybe (TxIn, TxOut CtxUTxO Era)
+  healthyCommittedUtxo :: (TxIn, TxOut CtxUTxO Era)
   healthyCommittedUtxo = flip generateWith 42 $ do
     txIn <- arbitrary
     txOut <- adaOnly <$> (genOutput =<< arbitrary)
-    pure $ Just (txIn, txOut)
+    pure (txIn, txOut)
 
   healthyCommitVerificationKey :: VerificationKey PaymentKey
   healthyCommitVerificationKey = generateWith arbitrary 42
