@@ -12,6 +12,7 @@ import PlutusTx.Prelude
 import qualified Hydra.Contract.Commit as Commit
 import Ledger.Typed.Scripts (TypedValidator, ValidatorTypes (..))
 import qualified Ledger.Typed.Scripts as Scripts
+import Plutus.V1.Ledger.Ada (adaValueOf, fromValue, getLovelace, lovelaceOf, lovelaceValueOf)
 import qualified PlutusTx
 import PlutusTx.IsData.Class (ToData (..))
 
@@ -32,13 +33,20 @@ validator commitValidator _datum _redeemer context@ScriptContext{scriptContextTx
   checkOutputValue
  where
   checkOutputValue =
-    traceIfFalse "checkOutputValue" $
-      valueProduced txInfo == initialValue + committedValue
+    traceIfFalse "commitLockedValue does not match" $
+      traceIfFalse ("commitLockedValue: " `appendString` debugValue commitLockedValue) $
+        traceIfFalse ("initialValue: " `appendString` debugValue initialValue) $
+          traceIfFalse ("comittedValue: " `appendString` debugValue committedValue) $
+            commitLockedValue == initialValue + committedValue
 
   initialValue =
     maybe mempty (txOutValue . txInInfoResolved) $ findOwnInput context
 
-  committedValue = valueLockedBy txInfo commitValidator
+  committedValue = lovelaceValueOf 8_000_000
+
+  commitLockedValue = valueLockedBy txInfo commitValidator
+
+  debugValue = debugInteger . getLovelace . fromValue
 
 -- | Show an 'Integer' as decimal number. This is very inefficient and only
 -- should be used for debugging.
