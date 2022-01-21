@@ -11,7 +11,7 @@ _Proposed_
 * We are implementing our custom ([Direct](./0010-use-direct-chain.md)) interaction w/ Cardano blockchain and not using the PAB nor the `Contract` monad to define off-chain contract code
 * This implies we cannot use the [official](https://github.com/input-output-hk/plutus-apps/blob/main/plutus-contract/src/Plutus/Contract/Test.hs) testing framework for Contracts which relies on `Contract` monad and emulator traces nor the [QuickCheck based framework](https://plutus-apps.readthedocs.io/en/latest/plutus/tutorials/contract-testing.html)
 * We want to follow our [Test-Driven Development](./0012-testing-strategy.md) approach for contracts as this is a critical part of Hydra
-* On-Chain Validators need not only to be correct and functional, but also secure and hardened against malicious
+* On-Chain Validators need not only to be correct and functional, but also secure and hardened against malicious parties
 
 ## Decision
 
