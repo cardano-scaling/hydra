@@ -19,6 +19,7 @@ import qualified Cardano.Ledger.Alonzo.TxWitness as Ledger
 import qualified Cardano.Ledger.Shelley.API as Ledger
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Base16 as Base16
+import qualified Data.List as List
 import qualified Data.Map as Map
 import Data.Maybe (fromJust)
 import Data.Maybe.Strict (StrictMaybe (..))
@@ -145,6 +146,7 @@ spec = do
       propTransactionValidates healthyCloseTx
     prop "does not survive random adversarial mutations" $
       propMutation healthyCloseTx genCloseMutation
+
   describe "Fanout" $ do
     prop "is healthy" $
       propTransactionValidates healthyFanoutTx
@@ -284,9 +286,13 @@ applyMutation mutation (tx@(Tx body wits), utxo) = case mutation of
         []
         (zip [0 ..] txOuts)
   ChangeInput txIn txOut ->
-    ( tx
+    ( Tx body' wits
     , Api.Utxo $ Map.insert txIn txOut (Api.utxoMap utxo)
     )
+   where
+    ShelleyTxBody era ledgerBody scripts scriptData mAuxData scriptValidity = body
+    redeemers = removeRedeemerFor (Ledger.inputs ledgerBody) (Api.toLedgerTxIn txIn) scriptData
+    body' = ShelleyTxBody era ledgerBody scripts redeemers mAuxData scriptValidity
 
 --
 -- CollectComTx
@@ -384,14 +390,16 @@ genCollectComMutation (tx, utxo) =
     , SomeMutation MutateOpenUtxoHash . pure . ChangeOutput 0 <$> mutateUtxoHash
     , do
         headUtxoHashChange <- ChangeOutput 0 <$> mutateUtxoHash
-        headScriptRemove <- ChangeInput headTxIn <$> arbitrary
+        headScriptRemove <- ChangeInput headTxIn <$> anyPayToPubKeyTxOut
         pure $
           SomeMutation
             { label = MutateUtxoHashAndUnwireCollectCom
-            , mutations = [headUtxoHashChange, headScriptRemove]
+            , mutations = [headScriptRemove, headUtxoHashChange]
             }
     ]
  where
+  anyPayToPubKeyTxOut = Api.genKeyPair >>= genOutput . fst
+
   headTxIn = fst . Prelude.head . filter (isHeadOutput . snd) . utxoPairs $ utxo
 
   TxOut collectComOutputAddress collectComOutputValue collectComOutputDatum =
@@ -610,6 +618,19 @@ alterRedeemers fn = \case
   TxBodyScriptData supportedInEra dats (Ledger.Redeemers redeemers) ->
     let newRedeemers = fmap fn redeemers
      in TxBodyScriptData supportedInEra dats (Ledger.Redeemers newRedeemers)
+
+removeRedeemerFor ::
+  Set (Ledger.TxIn a) ->
+  Ledger.TxIn a ->
+  TxBodyScriptData AlonzoEra ->
+  TxBodyScriptData AlonzoEra
+removeRedeemerFor initialInputs txIn = \case
+  TxBodyNoScriptData -> error "TxBodyNoScriptData unexpected"
+  TxBodyScriptData supportedInEra dats (Ledger.Redeemers initialRedeemers) ->
+    let newRedeemers = Ledger.Redeemers $ Map.fromList $ filter removeRedeemer $ Map.toList initialRedeemers
+        sortedInputs = sort $ toList initialInputs
+        removeRedeemer (Ledger.RdmrPtr _ idx, _) = sortedInputs List.!! fromIntegral idx /= txIn
+     in TxBodyScriptData supportedInEra dats newRedeemers
 
 alterTxOuts ::
   ([TxOut CtxTx Era] -> [TxOut CtxTx Era]) ->
