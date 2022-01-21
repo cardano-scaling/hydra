@@ -19,6 +19,7 @@ import Hydra.Ledger.Cardano (
   genOutput,
   singletonUtxo,
   toUtxoContext,
+  verificationKeyHash,
  )
 import Hydra.Party (Party)
 
@@ -35,31 +36,31 @@ healthyCommitTx =
  where
   lookupUtxo =
     singletonUtxo (initialInput, toUtxoContext initialOutput)
-      <> singletonUtxo healthyCommittedUtxo
+      <> singletonUtxo committedUtxo
 
   tx =
     commitTx
       Fixture.testNetworkId
-      healthyCommitParty
-      (Just healthyCommittedUtxo)
+      commitParty
+      (Just committedUtxo)
       (initialInput, initialPubKeyHash)
 
   initialInput = generateWith arbitrary 42
 
-  initialOutput = mkInitialOutput Fixture.testNetworkId healthyCommitVerificationKey
+  initialOutput = mkInitialOutput Fixture.testNetworkId commitVerificationKey
 
-  initialPubKeyHash = generateWith arbitrary 42
+  initialPubKeyHash = verificationKeyHash commitVerificationKey
 
   -- NOTE: An ada-only output which is currently addressed to some arbitrary
   -- public key.
-  healthyCommittedUtxo :: (TxIn, TxOut CtxUTxO Era)
-  healthyCommittedUtxo = flip generateWith 42 $ do
+  committedUtxo :: (TxIn, TxOut CtxUTxO Era)
+  committedUtxo = flip generateWith 42 $ do
     txIn <- arbitrary
     txOut <- adaOnly <$> (genOutput =<< arbitrary)
     pure (txIn, txOut)
 
-  healthyCommitVerificationKey :: VerificationKey PaymentKey
-  healthyCommitVerificationKey = generateWith arbitrary 42
+  commitVerificationKey :: VerificationKey PaymentKey
+  commitVerificationKey = generateWith arbitrary 42
 
-  healthyCommitParty :: Party
-  healthyCommitParty = generateWith arbitrary 42
+  commitParty :: Party
+  commitParty = generateWith arbitrary 42

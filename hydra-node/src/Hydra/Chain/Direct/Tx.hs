@@ -101,7 +101,7 @@ initTx networkId cardanoKeys HeadParameters{contestationPeriod, parties} txIn =
         (map (partyFromVerKey . vkey) parties)
 
 mkInitialOutput :: NetworkId -> VerificationKey PaymentKey -> TxOut CtxTx Era
-mkInitialOutput networkId (toPlutusKeyHash . verificationKeyHash -> vkh) =
+mkInitialOutput networkId (toPlutusKeyHash . verificationKeyHash -> pkh) =
   TxOut initialAddress initialValue initialDatum
  where
   -- FIXME: should really be the minted PTs plus some ADA to make the ledger happy
@@ -112,7 +112,7 @@ mkInitialOutput networkId (toPlutusKeyHash . verificationKeyHash -> vkh) =
   initialScript =
     fromPlutusScript Initial.validatorScript
   initialDatum =
-    mkTxOutDatum $ Initial.datum vkh
+    mkTxOutDatum $ Initial.datum pkh
 
 -- | Craft a commit transaction which includes the "committed" utxo as a datum.
 --
