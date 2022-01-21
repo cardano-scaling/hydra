@@ -1,9 +1,14 @@
 -- | Mutation-based script validator tests for the commit transaction where a
--- 'healthyCommitTx' gets mutated by an arbitrary 'genCommitMutation'
+-- 'healthyCommitTx' gets mutated by an arbitrary 'CommitMutation'.
 module Hydra.Chain.Direct.Contract.Commit where
 
 import Hydra.Prelude
 
+-- Arbitrary VerificationKey instance
+import Hydra.Chain.Direct.TxSpec ()
+
+import Data.Maybe (fromJust)
+import Hydra.Chain.Direct.Contract.Mutation (Mutation (ChangeOutput), SomeMutation (SomeMutation))
 import qualified Hydra.Chain.Direct.Fixture as Fixture
 import Hydra.Chain.Direct.Tx (commitTx, mkInitialOutput)
 import Hydra.Ledger.Cardano (
@@ -12,19 +17,20 @@ import Hydra.Ledger.Cardano (
   Era,
   PaymentKey,
   TxIn,
-  TxOut,
+  TxOut (TxOut),
   Utxo,
   VerificationKey,
   adaOnly,
   genOutput,
+  genValue,
+  getOutputs,
+  mkTxOutValue,
   singletonUtxo,
   toUtxoContext,
   verificationKeyHash,
  )
 import Hydra.Party (Party)
-
--- Arbitrary VerificationKey instance
-import Hydra.Chain.Direct.TxSpec ()
+import Test.QuickCheck (oneof, suchThat)
 
 --
 -- CommitTx
@@ -64,3 +70,18 @@ healthyCommitTx =
 
   commitParty :: Party
   commitParty = generateWith arbitrary 42
+
+data CommitMutation
+  = MutateCommitOutputValue
+  deriving (Generic, Show, Enum, Bounded)
+
+genCommitMutation :: (CardanoTx, Utxo) -> Gen SomeMutation
+genCommitMutation (tx, _utxo) =
+  oneof
+    [ SomeMutation MutateCommitOutputValue . ChangeOutput 0 <$> do
+        mutatedValue <- (mkTxOutValue <$> genValue) `suchThat` (/= commitOutputValue)
+        pure $ TxOut commitOutputAddress mutatedValue commitOutputDatum
+    ]
+ where
+  TxOut commitOutputAddress commitOutputValue commitOutputDatum =
+    fromJust $ getOutputs tx !!? 0

@@ -15,7 +15,7 @@ import qualified Data.ByteString as BS
 import qualified Data.ByteString.Base16 as Base16
 import Hydra.Chain.Direct.Contract.Close (genCloseMutation, healthyCloseTx)
 import Hydra.Chain.Direct.Contract.CollectCom (genCollectComMutation, healthyCollectComTx)
-import Hydra.Chain.Direct.Contract.Commit (healthyCommitTx)
+import Hydra.Chain.Direct.Contract.Commit (genCommitMutation, healthyCommitTx)
 import Hydra.Chain.Direct.Contract.FanOut (genFanoutMutation, healthyFanoutTx)
 import Hydra.Chain.Direct.Contract.Mutation (
   genListOfSigningKeys,
@@ -77,6 +77,8 @@ spec = parallel $ do
   describe "Commit" $ do
     prop "is healthy" $
       propTransactionValidates healthyCommitTx
+    prop "does not survive random adversarial mutations" $
+      propMutation healthyCommitTx genCommitMutation
   describe "CollectCom" $ do
     prop "is healthy" $
       propTransactionValidates healthyCollectComTx
