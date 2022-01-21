@@ -71,7 +71,9 @@ import Control.Tracer (nullTracer)
 import Data.Aeson (Value (String), object, (.=))
 import Data.Array (Array, array)
 import qualified Data.List as List
+import Data.Map.Strict ((!))
 import qualified Data.Map.Strict as Map
+import Data.Ratio ((%))
 import qualified Data.Sequence.Strict as StrictSeq
 import qualified Data.Set as Set
 import GHC.Ix (Ix)
@@ -262,6 +264,7 @@ data ErrCoverFee
   | ErrNotEnoughFunds ChangeError
   | ErrUnknownInput {input :: TxIn}
   | ErrNoPaymentUtxoFound
+  | ErrScriptExecutionFailed (RdmrPtr, ScriptFailure StandardCrypto)
   deriving (Show)
 
 data ChangeError = ChangeError {inputBalance :: Coin, outputBalance :: Coin}
@@ -284,7 +287,15 @@ coverFee_ pparams lookupUtxo walletUtxo partialTx@ValidatedTx{body, wits} = do
   let inputs' = inputs body <> Set.singleton input
   resolvedInputs <- traverse resolveInput (toList inputs')
 
-  let adjustedRedeemers = adjustRedeemers (inputs body) inputs' (txrdmrs wits)
+  estimatedScriptCosts <-
+    left ErrScriptExecutionFailed $
+      estimateScriptsCost pparams (lookupUtxo <> walletUtxo) partialTx
+  let adjustedRedeemers =
+        adjustRedeemers
+          (inputs body)
+          inputs'
+          estimatedScriptCosts
+          (txrdmrs wits)
       needlesslyHighFee = calculateNeedlesslyHighFee adjustedRedeemers
 
   change <-
@@ -369,8 +380,8 @@ coverFee_ pparams lookupUtxo walletUtxo partialTx@ValidatedTx{body, wits} = do
     totalIn = foldMap getAdaValue resolvedInputs
     changeOut = totalIn <> invert totalOut
 
-  adjustRedeemers :: Set TxIn -> Set TxIn -> Redeemers Era -> Redeemers Era
-  adjustRedeemers initialInputs finalInputs (Redeemers initialRedeemers) =
+  adjustRedeemers :: Set TxIn -> Set TxIn -> Map RdmrPtr ExUnits -> Redeemers Era -> Redeemers Era
+  adjustRedeemers initialInputs finalInputs estimatedCosts (Redeemers initialRedeemers) =
     Redeemers $ Map.fromList $ map adjustOne $ Map.toList initialRedeemers
    where
     sortedInputs = sort $ toList initialInputs
@@ -378,15 +389,18 @@ coverFee_ pparams lookupUtxo walletUtxo partialTx@ValidatedTx{body, wits} = do
     differences = List.findIndices (not . uncurry (==)) $ zip sortedInputs sortedFinalInputs
     adjustOne (ptr@(RdmrPtr t idx), (d, _exUnits))
       | fromIntegral idx `elem` differences =
-        (RdmrPtr t (idx + 1), (d, maxExecutionUnits))
+        (RdmrPtr t (idx + 1), (d, executionUnitsFor ptr))
       | otherwise =
-        (ptr, (d, maxExecutionUnits))
+        (ptr, (d, executionUnitsFor ptr))
 
-    maxExecutionUnits :: ExUnits
-    maxExecutionUnits =
-      let ExUnits mem steps = _maxTxExUnits pparams
-          nRedeemers = fromIntegral (Map.size initialRedeemers)
-       in ExUnits (mem `div` nRedeemers) (steps `div` nRedeemers)
+    executionUnitsFor :: RdmrPtr -> ExUnits
+    executionUnitsFor ptr =
+      let ExUnits maxMem maxCpu = _maxTxExUnits pparams
+          ExUnits totalMem totalCpu = foldMap identity estimatedCosts
+          ExUnits approxMem approxCpu = estimatedCosts ! ptr
+       in ExUnits
+            (floor (maxMem * approxMem % totalMem))
+            (floor (maxCpu * approxCpu % totalCpu))
 
 -- | Estimate cost of script executions on the transaction. This is only an
 -- estimates because the transaction isn't sealed at this point and adding new

@@ -421,6 +421,7 @@ spec =
                               ErrNoPaymentUtxoFound -> "No payment Utxo found"
                               ErrNotEnoughFunds{} -> "Not enough funds"
                               ErrUnknownInput{} -> "Unknown input"
+                              ErrScriptExecutionFailed{} -> "Script(s) execution failed"
                           )
                     Right (_, txAbortWithFees@ValidatedTx{body = abortTxBody}) ->
                       let actualExecutionCost = executionCost pparams txAbortWithFees
