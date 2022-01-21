@@ -326,34 +326,43 @@ describeCardanoTx (Tx body _wits) =
   unlines $
     [show (getTxId body)]
       <> inputLines
-      <> [ "  Outputs (" <> show (length outs) <> ")"
-         , "    total number of assets: " <> show totalNumberOfAssets
-         , "  Scripts (" <> show (length scripts) <> ")"
-         , "    total size (bytes):  " <> show totalScriptSize
-         ]
+      <> outputLines
+      <> scriptLines
       <> datumLines
       <> redeemerLines
  where
   ShelleyTxBody _era lbody scripts scriptsData _auxData _validity = body
   outs = Ledger.Alonzo.outputs' lbody
-  TxBody TxBodyContent{txIns} = body
+  TxBody TxBodyContent{txIns, txOuts} = body
 
   inputLines =
     "  Input set (" <> show (length txIns) <> ")" :
-    (("    " <>) . renderTxIn . fst <$> txIns)
+    (("    - " <>) . renderTxIn . fst <$> txIns)
 
-  totalScriptSize = sum $ BL.length . serialize <$> scripts
+  outputLines =
+    [ "  Outputs (" <> show (length txOuts) <> ")"
+    , "    total number of assets: " <> show totalNumberOfAssets
+    ]
+      <> (("    - " <>) . prettyValue . txOutValue <$> txOuts)
+
   totalNumberOfAssets =
     sum $
       [ foldl' (\n inner -> n + Map.size inner) 0 outer
       | Ledger.Alonzo.TxOut _ (Ledger.Mary.Value _ outer) _ <- toList outs
       ]
 
+  scriptLines =
+    [ "  Scripts (" <> show (length scripts) <> ")"
+    , "    total size (bytes):  " <> show totalScriptSize
+    ]
+
+  totalScriptSize = sum $ BL.length . serialize <$> scripts
+
   datumLines = case scriptsData of
     TxBodyNoScriptData -> []
     (TxBodyScriptData _ (Ledger.Alonzo.TxDats dats) _) ->
       "  Datums (" <> show (length dats) <> ")" :
-      (("    " <>) . showDatumAndHash <$> Map.toList dats)
+      (("    - " <>) . showDatumAndHash <$> Map.toList dats)
 
   showDatumAndHash (k, v) = show k <> " -> " <> show v
 
@@ -362,7 +371,7 @@ describeCardanoTx (Tx body _wits) =
     (TxBodyScriptData _ _ re) ->
       let rdmrs = Map.elems $ Ledger.Alonzo.unRedeemers re
        in "  Redeemers (" <> show (length rdmrs) <> ")" :
-          (("    " <>) . show . fst <$> rdmrs)
+          (("    - " <>) . show . fst <$> rdmrs)
 
 -- | Create a zero-fee, payment cardano transaction.
 mkSimpleCardanoTx ::
