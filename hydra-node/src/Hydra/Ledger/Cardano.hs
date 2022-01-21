@@ -324,19 +324,24 @@ fromLedgerTx (Ledger.Alonzo.ValidatedTx body wits isValid auxData) =
 describeCardanoTx :: CardanoTx -> Text
 describeCardanoTx (Tx body _wits) =
   unlines $
-    [ show (getTxId body)
-    , "  Inputs (" <> show (length inps) <> ")"
-    , "  Outputs (" <> show (length outs) <> ")"
-    , "    total number of assets: " <> show totalNumberOfAssets
-    , "  Scripts (" <> show (length scripts) <> ")"
-    , "    total size (bytes):  " <> show totalScriptSize
-    ]
-      <> datums
-      <> redeemers
+    [show (getTxId body)]
+      <> inputLines
+      <> [ "  Outputs (" <> show (length outs) <> ")"
+         , "    total number of assets: " <> show totalNumberOfAssets
+         , "  Scripts (" <> show (length scripts) <> ")"
+         , "    total size (bytes):  " <> show totalScriptSize
+         ]
+      <> datumLines
+      <> redeemerLines
  where
   ShelleyTxBody _era lbody scripts scriptsData _auxData _validity = body
   outs = Ledger.Alonzo.outputs' lbody
-  inps = Ledger.Alonzo.inputs' lbody
+  TxBody TxBodyContent{txIns} = body
+
+  inputLines =
+    "  Input set (" <> show (length txIns) <> ")" :
+    (("    " <>) . renderTxIn . fst <$> txIns)
+
   totalScriptSize = sum $ BL.length . serialize <$> scripts
   totalNumberOfAssets =
     sum $
@@ -344,7 +349,7 @@ describeCardanoTx (Tx body _wits) =
       | Ledger.Alonzo.TxOut _ (Ledger.Mary.Value _ outer) _ <- toList outs
       ]
 
-  datums = case scriptsData of
+  datumLines = case scriptsData of
     TxBodyNoScriptData -> []
     (TxBodyScriptData _ (Ledger.Alonzo.TxDats dats) _) ->
       "  Datums (" <> show (length dats) <> ")" :
@@ -352,7 +357,7 @@ describeCardanoTx (Tx body _wits) =
 
   showDatumAndHash (k, v) = show k <> " -> " <> show v
 
-  redeemers = case scriptsData of
+  redeemerLines = case scriptsData of
     TxBodyNoScriptData -> []
     (TxBodyScriptData _ _ re) ->
       let rdmrs = Map.elems $ Ledger.Alonzo.unRedeemers re
