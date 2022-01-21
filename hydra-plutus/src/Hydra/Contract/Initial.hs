@@ -40,6 +40,24 @@ validator commitValidator _datum _redeemer context@ScriptContext{scriptContextTx
 
   committedValue = valueLockedBy txInfo commitValidator
 
+-- | Show an 'Integer' as decimal number. This is very inefficient and only
+-- should be used for debugging.
+debugInteger :: Integer -> BuiltinString
+debugInteger i
+  | i == 0 = "0"
+  | i == 1 = "1"
+  | i == 2 = "2"
+  | i == 3 = "3"
+  | i == 4 = "4"
+  | i == 5 = "5"
+  | i == 6 = "6"
+  | i == 7 = "7"
+  | i == 8 = "8"
+  | i == 9 = "9"
+  | i >= 10 = debugInteger (i `quotient` 10) `appendString` "0"
+  | otherwise = "-" `appendString` debugInteger (negate i)
+{-# INLINEABLE debugInteger #-}
+
 typedValidator :: TypedValidator Initial
 typedValidator =
   Scripts.mkTypedValidator @Initial
