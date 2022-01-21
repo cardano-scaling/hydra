@@ -134,8 +134,8 @@ checkCollectCom commitAddress (_, parties) context@ScriptContext{scriptContextTx
       ( \TxInInfo{txInInfoResolved} (val, commits) ->
           if txOutAddress txInInfoResolved == commitAddress
             then case commitFrom txInInfoResolved of
-              Just (commitValue, commit) -> (val + commitValue, commit : commits)
-              Nothing -> (val, commits)
+              (commitValue, Just commit) -> (val + commitValue, commit : commits)
+              (commitValue, Nothing) -> (val + commitValue, commits)
             else (val, commits)
       )
       (headInputValue, [])
@@ -150,11 +150,11 @@ checkCollectCom commitAddress (_, parties) context@ScriptContext{scriptContextTx
     let utxoHash = hashPreSerializedCommits collectedCommits
      in Datum $ toBuiltinData Open{parties, utxoHash}
 
-  commitFrom :: TxOut -> Maybe (Value, SerializedTxOut)
+  commitFrom :: TxOut -> (Value, Maybe SerializedTxOut)
   commitFrom o =
     case txOutDatumHash o >>= lookupCommit of
-      Nothing -> Nothing
-      Just commit -> Just (txOutValue o, commit)
+      Nothing -> (txOutValue o, Nothing)
+      Just commit -> (txOutValue o, Just commit)
 
   lookupCommit :: DatumHash -> Maybe SerializedTxOut
   lookupCommit h = do

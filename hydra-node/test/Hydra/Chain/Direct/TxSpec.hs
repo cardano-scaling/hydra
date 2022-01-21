@@ -88,6 +88,7 @@ import Test.QuickCheck (
   forAllShrinkBlind,
   forAllShrinkShow,
   label,
+  oneof,
   property,
   suchThat,
   vectorOf,
@@ -499,9 +500,14 @@ genPartyAndUtxo n = do
 generateCommitUtxos :: [Party] -> Gen (Map.Map (TxIn StandardCrypto) (TxOut Era, Data Era))
 generateCommitUtxos parties = do
   txins <- vectorOf (length parties) (arbitrary @(TxIn StandardCrypto))
-  committedUtxo <- vectorOf (length parties) $ do
-    singleUtxo <- fmap adaOnly <$> (genOneUtxoFor =<< arbitrary)
-    pure $ head <$> nonEmpty (utxoPairs singleUtxo)
+  committedUtxo <-
+    vectorOf (length parties) $
+      oneof
+        [ do
+            singleUtxo <- fmap adaOnly <$> (genOneUtxoFor =<< arbitrary)
+            pure $ head <$> nonEmpty (utxoPairs singleUtxo)
+        , pure Nothing
+        ]
   let commitUtxo =
         zip txins $
           uncurry mkCommitUtxo <$> zip parties committedUtxo
