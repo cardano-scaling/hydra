@@ -369,7 +369,7 @@ healthyCommitOutput party committed =
     mkTxOutValue $
       lovelaceToValue 2_000_000 <> (txOutValue . snd) committed
   commitDatum =
-    mkCommitDatum party (Just committed)
+    mkCommitDatum party (Head.validatorHash policyId) (Just committed)
 
 data CollectComMutation
   = MutateOpenOutputValue

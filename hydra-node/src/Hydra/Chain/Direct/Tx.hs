@@ -206,12 +206,12 @@ commitTx networkId party utxo (initialInput, vkh) =
     Api.mkTxOutValue $
       Api.lovelaceToValue 2_000_000 <> maybe mempty (Api.txOutValue . snd) utxo
   commitDatum =
-    Api.mkTxOutDatum $ mkCommitDatum party utxo
+    Api.mkTxOutDatum $ mkCommitDatum party (Head.validatorHash policyId) utxo
 
 -- FIXME: WIP
-mkCommitDatum :: Party -> Maybe (Api.TxIn, Api.TxOut Api.CtxUTxO Api.Era) -> Plutus.Datum
-mkCommitDatum (partyFromVerKey . vkey -> party) utxo =
-  Commit.datum (party, serializedUtxo)
+mkCommitDatum :: Party -> Plutus.ValidatorHash -> Maybe (Api.TxIn, Api.TxOut Api.CtxUTxO Api.Era) -> Plutus.Datum
+mkCommitDatum (partyFromVerKey . vkey -> party) headValidatorHash utxo =
+  Commit.datum (party, headValidatorHash, serializedUtxo)
  where
   serializedUtxo = case utxo of
     Nothing ->
@@ -262,7 +262,7 @@ collectComTx networkId (Api.fromLedgerTxIn -> headInput, Api.fromLedgerData -> h
   extractSerialisedTxOut d =
     case fromData $ getPlutusData d of
       Nothing -> error "SNAFU"
-      Just ((_, Just (_, o)) :: DatumType Commit.Commit) -> Just o
+      Just ((_, _, Just (_, o)) :: DatumType Commit.Commit) -> Just o
       _ -> Nothing
   utxoHash =
     Head.hashPreSerializedCommits $
@@ -461,7 +461,7 @@ observeCommitTx ::
 observeCommitTx networkId (Api.getTxBody . fromLedgerTx -> txBody) = do
   (commitIn, commitOut) <- Api.findTxOutByAddress commitAddress txBody
   dat <- getDatum commitOut
-  (party, committedUtxo) <- fromData $ toPlutusData dat
+  (party, _, committedUtxo) <- fromData @(DatumType Commit.Commit) $ toPlutusData dat
   convertedUtxo <- convertUtxo committedUtxo
   let onChainTx = OnCommitTx (convertParty party) convertedUtxo
   pure
