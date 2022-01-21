@@ -94,7 +94,7 @@ propTransactionDoesNotValidate (tx, lookupUtxo) =
             & counterexample ("Tx: " <> toString (describeCardanoTx tx))
             & counterexample ("Lookup utxo: " <> decodeUtf8 (encodePretty lookupUtxo))
             & counterexample ("Redeemer report: " <> show redeemerReport)
-            & counterexample "Phase-2 validation succeeded"
+            & counterexample "Phase-2 validation should have failed"
 
 -- | A 'Property' checking some (transaction, UTxO) pair is valid.
 propTransactionValidates :: (CardanoTx, Utxo) -> Property
