@@ -6,6 +6,8 @@
 -- some useful utilities to tracking the wallet's UTXO, and accessing it
 module Hydra.Chain.Direct.Wallet where
 
+import Hydra.Prelude
+
 import Cardano.Api (AddressInEra (..), AddressTypeInEra (..), PaymentKey, SigningKey, VerificationKey, shelleyBasedEra)
 import qualified Cardano.Api.Shelley as Cardano.Api
 import qualified Cardano.Crypto.DSIGN as Crypto
@@ -96,11 +98,12 @@ import Hydra.Ledger.Cardano (
   toLedgerKeyWitness,
  )
 import Hydra.Logging (Tracer, traceWith)
-import Hydra.Prelude
 import Ouroboros.Consensus.Cardano.Block (BlockQuery (..), CardanoEras, pattern BlockAlonzo)
 import Ouroboros.Consensus.HardFork.Combinator (MismatchEraInfo)
 import Ouroboros.Consensus.HardFork.Combinator.AcrossEras (EraMismatch, OneEraHash (..), mkEraMismatch)
 import qualified Ouroboros.Consensus.HardFork.Combinator.AcrossEras as Ouroboros
+import Ouroboros.Consensus.HardFork.Combinator.Ledger.Query (QueryHardFork (..))
+import Ouroboros.Consensus.HardFork.History (Interpreter, PastHorizonException, interpreterToEpochInfo)
 import Ouroboros.Consensus.Ledger.Query (Query (..))
 import Ouroboros.Consensus.Network.NodeToClient (Codecs' (..))
 import Ouroboros.Consensus.Shelley.Ledger.Block (ShelleyBlock (..), ShelleyHash (..))
@@ -204,7 +207,7 @@ withTinyWallet tracer magic (vk, sk) iocp addr action = do
   newTinyWallet utxoVar =
     TinyWallet
       { getUtxo =
-          fst <$> readTMVar utxoVar
+          (\(u, _, _, _) -> u) <$> readTMVar utxoVar
       , getAddress =
           address
       , sign = \validatedTx@ValidatedTx{body, wits} ->
@@ -219,12 +222,13 @@ withTinyWallet tracer magic (vk, sk) iocp addr action = do
                       }
                 }
       , coverFee = \lookupUtxo partialTx -> do
-          (walletUtxo, pparams) <- readTMVar utxoVar
-          case coverFee_ pparams lookupUtxo walletUtxo partialTx of
+          (walletUtxo, pparams, systemStart, epochInfo) <- readTMVar utxoVar
+          case coverFee_ pparams systemStart epochInfo lookupUtxo walletUtxo partialTx of
             Left e ->
               pure (Left e)
-            Right (walletUtxo', balancedTx) ->
-              swapTMVar utxoVar (walletUtxo', pparams) $> Right balancedTx
+            Right (walletUtxo', balancedTx) -> do
+              _ <- swapTMVar utxoVar (walletUtxo', pparams, systemStart, epochInfo)
+              pure (Right balancedTx)
       , verificationKey = vk
       }
 
@@ -277,11 +281,13 @@ data ChangeError = ChangeError {inputBalance :: Coin, outputBalance :: Coin}
 -- TODO: The fee calculation is currently very dumb and static.
 coverFee_ ::
   PParams Era ->
+  SystemStart ->
+  EpochInfo (Except PastHorizonException) ->
   Map TxIn TxOut ->
   Map TxIn TxOut ->
   ValidatedTx Era ->
   Either ErrCoverFee (Map TxIn TxOut, ValidatedTx Era)
-coverFee_ pparams lookupUtxo walletUtxo partialTx@ValidatedTx{body, wits} = do
+coverFee_ pparams systemStart epochInfo lookupUtxo walletUtxo partialTx@ValidatedTx{body, wits} = do
   (input, output) <- findUtxoToPayFees walletUtxo
 
   let inputs' = inputs body <> Set.singleton input
@@ -289,7 +295,7 @@ coverFee_ pparams lookupUtxo walletUtxo partialTx@ValidatedTx{body, wits} = do
 
   estimatedScriptCosts <-
     left ErrScriptExecutionFailed $
-      estimateScriptsCost pparams (lookupUtxo <> walletUtxo) partialTx
+      estimateScriptsCost pparams systemStart epochInfo (lookupUtxo <> walletUtxo) partialTx
   let adjustedRedeemers =
         adjustRedeemers
           (inputs body)
@@ -409,43 +415,34 @@ coverFee_ pparams lookupUtxo walletUtxo partialTx@ValidatedTx{body, wits} = do
 estimateScriptsCost ::
   -- | Protocol parameters
   PParams Era ->
+  -- | Start of the blockchain, for converting slots to UTC times
+  SystemStart ->
+  -- | Information about epoch sizes, for converting slots to UTC times
+  EpochInfo (Except PastHorizonException) ->
   -- | A UTXO needed to resolve inputs
   Map TxIn TxOut ->
   -- | The pre-constructed transaction
   ValidatedTx Era ->
   Either (RdmrPtr, ScriptFailure StandardCrypto) (Map RdmrPtr ExUnits)
-estimateScriptsCost pparams utxo tx = do
+estimateScriptsCost pparams systemStart epochInfo utxo tx = do
   case result of
-    Left (UnknownTxIns ins) ->
+    Left pastHorizonException ->
+      throw pastHorizonException
+    Right (Left (UnknownTxIns ins)) ->
       throw (UnknownTxInsException ins)
-    Right units ->
+    Right (Right units) ->
       Map.traverseWithKey (\ptr -> left (ptr,)) units
  where
   result =
     runIdentity $
-      evaluateTransactionExecutionUnits
-        pparams
-        tx
-        (Ledger.UTxO utxo)
-        epochInfo
-        systemStart
-        (mapToArray (_costmdls pparams))
-
-  -- FIXME: Get from state-query protocol:
-  --
-  -- - GetInterpreter
-  -- - interpreterToEpochInfo
-  epochInfo :: Monad m => EpochInfo m
-  epochInfo =
-    fixedEpochInfo
-      (EpochSize 432000)
-      (mkSlotLength 1)
-
-  -- FIXME: Get from state-query protocol
-  --
-  -- - GetSystemStart
-  systemStart :: SystemStart
-  systemStart = SystemStart $ Prelude.read "2017-09-23 21:44:51 UTC"
+      runExceptT $
+        evaluateTransactionExecutionUnits
+          pparams
+          tx
+          (Ledger.UTxO utxo)
+          epochInfo
+          systemStart
+          (mapToArray (_costmdls pparams))
 
 newtype UnknownTxInsException
   = UnknownTxInsException (Set TxIn)
@@ -485,7 +482,7 @@ client ::
   (MonadST m, MonadTimer m) =>
   Tracer m TinyWalletLog ->
   TVar m (Point Block) ->
-  TMVar m (Map TxIn TxOut, PParams Era) ->
+  TMVar m (Map TxIn TxOut, PParams Era, SystemStart, EpochInfo (Except PastHorizonException)) ->
   Address ->
   NodeToClientVersion ->
   OuroborosApplication 'InitiatorMode LocalAddress LByteString m () Void
@@ -526,7 +523,7 @@ chainSyncClient ::
   (MonadSTM m) =>
   Tracer m TinyWalletLog ->
   TVar m (Point Block) ->
-  TMVar m (Map TxIn TxOut, PParams Era) ->
+  TMVar m (Map TxIn TxOut, PParams Era, SystemStart, EpochInfo (Except PastHorizonException)) ->
   Address ->
   ChainSyncClient Block (Point Block) (Tip Block) m ()
 chainSyncClient tracer tipVar utxoVar address =
@@ -572,11 +569,11 @@ chainSyncClient tracer tipVar utxoVar address =
       , ChainSync.recvMsgRollForward = \block _tip ->
           ChainSyncClient $ do
             msg <- atomically $ do
-              (utxo, pparams) <- readTMVar utxoVar
+              (utxo, pparams, systemStart, epochInfo) <- readTMVar utxoVar
               let utxo' = applyBlock block (== address) utxo
               if utxo' /= utxo
                 then do
-                  void $ swapTMVar utxoVar (utxo', pparams)
+                  void $ swapTMVar utxoVar (utxo', pparams, systemStart, epochInfo)
                   pure $ Just $ ApplyBlock utxo utxo'
                 else do
                   pure Nothing
@@ -589,7 +586,7 @@ stateQueryClient ::
   (MonadSTM m, MonadTimer m) =>
   Tracer m TinyWalletLog ->
   TVar m (Point Block) ->
-  TMVar m (Map TxIn TxOut, PParams Era) ->
+  TMVar m (Map TxIn TxOut, PParams Era, SystemStart, EpochInfo (Except PastHorizonException)) ->
   Address ->
   LocalStateQueryClient Block (Point Block) (Query Block) m ()
 stateQueryClient tracer tipVar utxoVar address =
@@ -621,7 +618,8 @@ stateQueryClient tracer tipVar utxoVar address =
             handleEraMismatch err
           Right tip -> do
             let query = QueryIfCurrentAlonzo GetCurrentPParams
-            pure $ LSQ.SendMsgQuery (BlockQuery query) (clientStQueryingPParams $ fromPoint tip)
+            let continuation = clientStQueryingPParams $ fromPoint tip
+            pure $ LSQ.SendMsgQuery (BlockQuery query) continuation
       }
 
   fromPoint = \case
@@ -630,18 +628,50 @@ stateQueryClient tracer tipVar utxoVar address =
    where
     fromShelleyHash (Ledger.unHashHeader . unShelleyHash -> UnsafeHash h) = coerce h
 
-  clientStQueryingPParams :: Point Block -> LSQ.ClientStQuerying Block (Point Block) (Query Block) m () (QueryResult (PParams Era))
+  clientStQueryingPParams ::
+    Point Block ->
+    LSQ.ClientStQuerying Block (Point Block) (Query Block) m () (QueryResult (PParams Era))
   clientStQueryingPParams tip =
-    let query = QueryIfCurrentAlonzo $ GetUTxOByAddress (Set.singleton address)
-     in LSQ.ClientStQuerying
-          { LSQ.recvMsgResult = \case
-              Left err ->
-                handleEraMismatch err
-              Right pparams ->
-                pure $ LSQ.SendMsgQuery (BlockQuery query) (clientStQueryingUtxo tip pparams)
-          }
-  clientStQueryingUtxo :: Point Block -> PParams Era -> LSQ.ClientStQuerying Block (Point Block) (Query Block) m () (QueryResult UtxoSet)
-  clientStQueryingUtxo tip pparams =
+    LSQ.ClientStQuerying
+      { LSQ.recvMsgResult = \case
+          Left err ->
+            handleEraMismatch err
+          Right pparams -> do
+            let continuation = clientStQueryingSystemStart tip pparams
+            pure $ LSQ.SendMsgQuery GetSystemStart continuation
+      }
+
+  clientStQueryingSystemStart ::
+    Point Block ->
+    PParams Era ->
+    LSQ.ClientStQuerying Block (Point Block) (Query Block) m () SystemStart
+  clientStQueryingSystemStart tip pparams =
+    LSQ.ClientStQuerying
+      { LSQ.recvMsgResult = \systemStart -> do
+          let continuation = clientStQueryingInterpreter tip pparams systemStart
+          pure $ LSQ.SendMsgQuery (BlockQuery $ QueryHardFork GetInterpreter) continuation
+      }
+
+  clientStQueryingInterpreter ::
+    Point Block ->
+    PParams Era ->
+    SystemStart ->
+    LSQ.ClientStQuerying Block (Point Block) (Query Block) m () (Interpreter (CardanoEras StandardCrypto))
+  clientStQueryingInterpreter tip pparams systemStart =
+    LSQ.ClientStQuerying
+      { LSQ.recvMsgResult = \(interpreterToEpochInfo -> epochInfo) -> do
+          let query = QueryIfCurrentAlonzo $ GetUTxOByAddress (Set.singleton address)
+          let continuation = clientStQueryingUtxo tip pparams systemStart epochInfo
+          pure $ LSQ.SendMsgQuery (BlockQuery query) continuation
+      }
+
+  clientStQueryingUtxo ::
+    Point Block ->
+    PParams Era ->
+    SystemStart ->
+    EpochInfo (Except PastHorizonException) ->
+    LSQ.ClientStQuerying Block (Point Block) (Query Block) m () (QueryResult UtxoSet)
+  clientStQueryingUtxo tip pparams systemStart epochInfo =
     LSQ.ClientStQuerying
       { LSQ.recvMsgResult = \case
           Left err ->
@@ -650,7 +680,7 @@ stateQueryClient tracer tipVar utxoVar address =
             traceWith tracer $ InitializingWallet (SomePoint tip) utxo
             atomically $ do
               writeTVar tipVar tip
-              putTMVar utxoVar (utxo, pparams)
+              putTMVar utxoVar (utxo, pparams, systemStart, epochInfo)
             reset -- NOTE: This will block until the chain-sync client clear
             -- resets the tip TVar to the genesisPoint, which may happen if it
             -- fails to find an intersection with the provided tip due to a race

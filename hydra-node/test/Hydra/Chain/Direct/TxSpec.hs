@@ -412,7 +412,7 @@ spec =
                 Left err ->
                   property False & counterexample ("AbortTx construction failed: " <> show err)
                 Right txAbort ->
-                  case coverFee_ pparams lookupUtxo walletUtxo txAbort of
+                  case coverFee_ pparams systemStart epochInfo lookupUtxo walletUtxo txAbort of
                     Left err ->
                       True
                         & label

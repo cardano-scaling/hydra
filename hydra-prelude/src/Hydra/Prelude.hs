@@ -29,6 +29,7 @@ module Hydra.Prelude (
   shrinkListAggressively,
   padLeft,
   padRight,
+  Except,
 ) where
 
 import Cardano.Binary (
@@ -80,6 +81,7 @@ import Control.Monad.Class.MonadTimer (
   MonadDelay (..),
   MonadTimer,
  )
+import Control.Monad.Trans.Except (Except)
 import Data.Aeson (
   FromJSON (..),
   ToJSON (..),
