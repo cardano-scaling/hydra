@@ -194,12 +194,16 @@ prop_verifySnapshotSignatures =
 
 propMutation :: (CardanoTx, Utxo) -> ((CardanoTx, Utxo) -> Gen SomeMutation) -> Property
 propMutation (tx, utxo) genMutation =
-  forAll @_ @Property (genMutation (tx, utxo)) $ \SomeMutation{label, mutation} ->
+  forAll @_ @Property (genMutation (tx, utxo)) $ \SomeMutation{label, mutations} ->
     (tx, utxo)
-      & applyMutation mutation
+      & applyMutations mutations
       & propTransactionDoesNotValidate
       & genericCoverTable [label]
       & checkCoverage
+
+applyMutations :: [Mutation] -> (CardanoTx, Utxo) -> (CardanoTx, Utxo)
+applyMutations mutations initial =
+  foldr applyMutation initial mutations
 
 propTransactionDoesNotValidate :: (CardanoTx, Utxo) -> Property
 propTransactionDoesNotValidate (tx, lookupUtxo) =
@@ -237,7 +241,7 @@ data SomeMutation = forall lbl.
   (Typeable lbl, Enum lbl, Bounded lbl, Show lbl) =>
   SomeMutation
   { label :: lbl
-  , mutation :: Mutation
+  , mutations :: [Mutation]
   }
 deriving instance Show SomeMutation
 
@@ -245,6 +249,7 @@ data Mutation
   = ChangeHeadRedeemer Head.Input
   | ChangeHeadDatum Head.State
   | PrependOutput (TxOut CtxTx Era)
+  | ChangeInput TxIn (TxOut CtxUTxO Era)
   | ChangeOutput Word (TxOut CtxTx Era)
   deriving (Show, Generic)
 
@@ -278,6 +283,10 @@ applyMutation mutation (tx@(Tx body wits), utxo) = case mutation of
         )
         []
         (zip [0 ..] txOuts)
+  ChangeInput txIn txOut ->
+    ( tx
+    , Api.Utxo $ Map.insert txIn txOut (Api.utxoMap utxo)
+    )
 
 --
 -- CollectComTx
@@ -363,43 +372,56 @@ healthyCommitOutput party committed =
 data CollectComMutation
   = MutateOpenOutputValue
   | MutateOpenUtxoHash
+  | MutateUtxoHashAndUnwireCollectCom
   deriving (Generic, Show, Enum, Bounded)
 
 genCollectComMutation :: (CardanoTx, Utxo) -> Gen SomeMutation
-genCollectComMutation (tx, _utxo) =
+genCollectComMutation (tx, utxo) =
   oneof
-    [ SomeMutation MutateOpenOutputValue . ChangeOutput 0 <$> do
+    [ SomeMutation MutateOpenOutputValue . pure . ChangeOutput 0 <$> do
         mutatedValue <- (mkTxOutValue <$> genValue) `suchThat` (/= collectComOutputValue)
         pure $ TxOut collectComOutputAddress mutatedValue collectComOutputDatum
-    , SomeMutation MutateOpenUtxoHash . ChangeOutput 0 <$> do
-        mutatedUtxoHash <- BS.pack <$> vector 32
-        -- NOTE / TODO:
-        --
-        -- This should probably be defined a 'Mutation', but it is different
-        -- from 'ChangeHeadDatum'. The latter modifies the _input_ datum given
-        -- to the script, whereas this one modifies the resulting head datum in
-        -- the output.
-        case collectComOutputDatum of
-          TxOutDatumNone ->
-            error "Unexpected empty head datum"
-          (TxOutDatumHash _sdsie _ha) ->
-            error "Unexpected hash-only datum"
-          (TxOutDatum _sdsie sd) ->
-            case fromData $ toPlutusData sd of
-              (Just Head.Open{parties}) ->
-                pure $
-                  TxOut
-                    collectComOutputAddress
-                    collectComOutputValue
-                    (mkTxOutDatum Head.Open{parties, Head.utxoHash = toBuiltin mutatedUtxoHash})
-              (Just st) ->
-                error $ "Unexpected state " <> show st
-              Nothing ->
-                error "Invalid data"
+    , SomeMutation MutateOpenUtxoHash . pure . ChangeOutput 0 <$> mutateUtxoHash
+    , do
+        headUtxoHashChange <- ChangeOutput 0 <$> mutateUtxoHash
+        headScriptRemove <- ChangeInput headTxIn <$> arbitrary
+        pure $
+          SomeMutation
+            { label = MutateUtxoHashAndUnwireCollectCom
+            , mutations = [headUtxoHashChange, headScriptRemove]
+            }
     ]
  where
+  headTxIn = fst . Prelude.head . filter (isHeadOutput . snd) . utxoPairs $ utxo
+
   TxOut collectComOutputAddress collectComOutputValue collectComOutputDatum =
     fromJust $ getOutputs tx !!? 0
+
+  mutateUtxoHash = do
+    mutatedUtxoHash <- BS.pack <$> vector 32
+    -- NOTE / TODO:
+    --
+    -- This should probably be defined a 'Mutation', but it is different
+    -- from 'ChangeHeadDatum'. The latter modifies the _input_ datum given
+    -- to the script, whereas this one modifies the resulting head datum in
+    -- the output.
+    case collectComOutputDatum of
+      TxOutDatumNone ->
+        error "Unexpected empty head datum"
+      (TxOutDatumHash _sdsie _ha) ->
+        error "Unexpected hash-only datum"
+      (TxOutDatum _sdsie sd) ->
+        case fromData $ toPlutusData sd of
+          (Just Head.Open{parties}) ->
+            pure $
+              TxOut
+                collectComOutputAddress
+                collectComOutputValue
+                (mkTxOutDatum Head.Open{parties, Head.utxoHash = toBuiltin mutatedUtxoHash})
+          (Just st) ->
+            error $ "Unexpected state " <> show st
+          Nothing ->
+            error "Invalid data"
 
 --
 -- CloseTx
@@ -460,12 +482,12 @@ genCloseMutation (_tx, _utxo) =
   -- That is, using the on-chain types. 'closeRedeemer' is also not used
   -- anywhere after changing this and can be moved into the closeTx
   oneof
-    [ SomeMutation MutateSignatureButNotSnapshotNumber . ChangeHeadRedeemer <$> do
+    [ SomeMutation MutateSignatureButNotSnapshotNumber . pure . ChangeHeadRedeemer <$> do
         closeRedeemer (number healthySnapshot) <$> arbitrary
-    , SomeMutation MutateSnapshotNumberButNotSignature . ChangeHeadRedeemer <$> do
+    , SomeMutation MutateSnapshotNumberButNotSignature . pure . ChangeHeadRedeemer <$> do
         mutatedSnapshotNumber <- arbitrarySizedNatural `suchThat` (\n -> n /= healthySnapshotNumber && n > 0)
         pure (closeRedeemer mutatedSnapshotNumber $ healthySignature healthySnapshotNumber)
-    , SomeMutation MutateSnapshotToIllFormedValue . ChangeHeadRedeemer <$> do
+    , SomeMutation MutateSnapshotToIllFormedValue . pure . ChangeHeadRedeemer <$> do
         mutatedSnapshotNumber <- arbitrary `suchThat` (< 0)
         let mutatedSignature =
               MultiSigned [sign sk $ serialize' mutatedSnapshotNumber | sk <- healthyPartyCredentials]
@@ -475,14 +497,14 @@ genCloseMutation (_tx, _utxo) =
             , signature = toPlutusSignatures mutatedSignature
             , utxoHash = ""
             }
-    , SomeMutation MutateParties . ChangeHeadDatum <$> do
+    , SomeMutation MutateParties . pure . ChangeHeadDatum <$> do
         mutatedParties <- arbitrary `suchThat` (/= healthyCloseParties)
         pure $
           Head.Open
             { parties = mutatedParties
             , utxoHash = ""
             }
-    , SomeMutation MutateParties . ChangeHeadDatum <$> arbitrary `suchThat` \case
+    , SomeMutation MutateParties . pure . ChangeHeadDatum <$> arbitrary `suchThat` \case
         Head.Open{Head.parties = parties} ->
           parties /= Head.parties healthyCloseDatum
         _ ->
@@ -530,13 +552,13 @@ data FanoutMutation
 genFanoutMutation :: (CardanoTx, Utxo) -> Gen SomeMutation
 genFanoutMutation (tx, _utxo) =
   oneof
-    [ SomeMutation MutateAddUnexpectedOutput . PrependOutput <$> do
+    [ SomeMutation MutateAddUnexpectedOutput . pure . PrependOutput <$> do
         arbitrary >>= genOutput
     , SomeMutation MutateChangeOutputValue <$> do
         let outs = getOutputs tx
         (ix, out) <- elements (zip [0 .. length outs - 1] outs)
         value' <- genValue `suchThat` (/= txOutValue out)
-        pure $ ChangeOutput (fromIntegral ix) (modifyTxOutValue (const value') out)
+        pure [ChangeOutput (fromIntegral ix) (modifyTxOutValue (const value') out)]
     ]
 
 --
