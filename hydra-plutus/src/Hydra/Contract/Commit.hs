@@ -8,13 +8,14 @@ module Hydra.Contract.Commit where
 import Ledger hiding (validatorHash)
 import PlutusTx.Prelude
 
+import Hydra.Contract.HeadState (State (..))
 import Hydra.Data.Party (Party)
 import Ledger.Typed.Scripts (TypedValidator, ValidatorType, ValidatorTypes (..))
 import qualified Ledger.Typed.Scripts as Scripts
 import Plutus.V1.Ledger.Api (Credential (ScriptCredential))
 import PlutusTx (CompiledCode)
 import qualified PlutusTx
-import PlutusTx.IsData.Class (ToData (..))
+import PlutusTx.IsData.Class (FromData (fromBuiltinData), ToData (..))
 
 data Commit
 
@@ -34,26 +35,34 @@ instance Scripts.ValidatorTypes Commit where
   type RedeemerType Commit = ()
 
 validator :: DatumType Commit -> RedeemerType Commit -> ScriptContext -> Bool
-validator (_party, headScriptHash, commit) () ScriptContext{scriptContextTxInfo = txInfo} = True
+validator (_party, headScriptHash, commit) () ScriptContext{scriptContextTxInfo = txInfo} =
+  case commit of
+    -- we don't commit anything, so there's nothing to validate
+    Nothing -> True
+    -- NOTE: we could check the committed txOut is present in the Head output hash, for
+    -- example by providing some proof in the redeemer and checking that but this is redundant
+    -- with what the Head script is already doing so it's enough to check that the Head script
+    -- is actually running in the correct "branch" (eg. handling a `CollectCom` or `Abort`
+    -- redeemer)
+    -- However we can't get the redeemer for another input so we'll need to check the datum
+    -- is `Initial`
+    Just _ ->
+      case txInInfoResolved <$> findHeadScript of
+        Nothing -> traceError "Cannot find Head script"
+        Just (TxOut _ _ (Just dh)) ->
+          case getDatum <$> findDatum dh txInfo of
+            Nothing -> traceError "Invalid datum hash with no datum"
+            (Just da) ->
+              case fromBuiltinData @State da of
+                Just Initial{} -> True
+                _ -> traceError "Head script in wrong state"
+        Just (TxOut _ _ Nothing) -> traceError "Head script has no datum hash"
+ where
+  findHeadScript = find (paytoHeadScript . txInInfoResolved) $ txInfoInputs txInfo
 
---  case commit of
---    -- we don't commit anything, so there's nothing to validate
---    Nothing -> True
---    -- NOTE: we could check the committed txOut is present in the Head output hash, for
---    -- example by providing some proof in the redeemer and checking that but this is redundant
---    -- with what the Head script is already doing so it's enough to check that the Head script
---    -- is actually running in the correct "branch" (eg. handling a `CollectCom` or `Abort`
---    -- redeemer
---    Just _ ->
---      case findHeadScript of
---        Nothing -> traceError "Cannot find Head script"
---        Just _ -> True
--- where
---  findHeadScript = find (paytoHeadScript . txInInfoResolved) $ txInfoInputs txInfo
-
---  paytoHeadScript = \case
---    TxOut{txOutAddress = Address (ScriptCredential s) _} -> s == headScriptHash
---    _ -> False
+  paytoHeadScript = \case
+    TxOut{txOutAddress = Address (ScriptCredential s) _} -> s == headScriptHash
+    _ -> False
 
 {- ORMOLU_DISABLE -}
 typedValidator :: TypedValidator Commit

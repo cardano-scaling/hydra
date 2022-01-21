@@ -42,6 +42,7 @@ import Hydra.Contract.Head (
   verifySnapshotSignature,
  )
 import qualified Hydra.Contract.Head as Head
+import qualified Hydra.Contract.HeadState as Head
 import Hydra.Data.Party (partyFromVerKey)
 import qualified Hydra.Data.Party as OnChain
 import qualified Hydra.Data.Party as Party
@@ -145,10 +146,6 @@ spec = do
       propTransactionValidates healthyCollectComTx
     prop "does not survive random adversarial mutations" $
       propMutation healthyCollectComTx genCollectComMutation
-    it "check trans" $ do
-      SomeMutation _ mut <- generate $ genCollectComMutation healthyCollectComTx
-      let (tx, utxo) = applyMutation mut healthyCollectComTx
-      evaluateTx tx utxo `shouldSatisfy` isLeft
   describe "Close" $ do
     prop "is healthy" $
       propTransactionValidates healthyCloseTx
@@ -266,6 +263,14 @@ applyMutation mutation (tx@(Tx body wits), utxo) = case mutation of
         redeemers = alterRedeemers (changeHeadRedeemer newRedeemer) scriptData
         body' = ShelleyTxBody era ledgerBody scripts redeemers mAuxData scriptValidity
      in (Tx body' wits, utxo)
+  -- FIXME: This change produces incorrect transactions that make validators fail in odd ways
+  -- In particular, when used for the collectComTx it makes the commit validator fail with
+  -- 'PT1' user error
+  -- see https://plutus.readthedocs.io/en/latest/plutus/troubleshooting.html#error-codes
+  --
+  -- The previous version was not correct either because the datumhahs was changed but the datum
+  -- itself was not added to the transactions' script data leading the transaction validation to
+  -- fail for a different reason than the one we expect
   ChangeHeadDatum d' ->
     let datum = mkTxOutDatum d'
         datumHash = mkTxOutDatumHash d'
@@ -396,53 +401,51 @@ data CollectComMutation
   deriving (Generic, Show, Enum, Bounded)
 
 genCollectComMutation :: (CardanoTx, Utxo) -> Gen SomeMutation
-genCollectComMutation (_tx, _utxo) =
+genCollectComMutation (tx, utxo) =
   oneof
-    [ -- SomeMutation MutateOpenOutputValue . ChangeOutput 0 <$> do
-      --     mutatedValue <- (mkTxOutValue <$> genValue) `suchThat` (/= collectComOutputValue)
-      --     pure $ TxOut collectComOutputAddress mutatedValue collectComOutputDatum
-      -- , SomeMutation MutateOpenUtxoHash . ChangeOutput 0 <$> mutateUtxoHash
-      -- , SomeMutation MutateHeadScriptInput . ChangeInput headTxIn <$> anyPayToPubKeyTxOut
-      -- ,
-      SomeMutation MutateHeadTransition <$> do
+    [ SomeMutation MutateOpenOutputValue . ChangeOutput 0 <$> do
+        mutatedValue <- (mkTxOutValue <$> genValue) `suchThat` (/= collectComOutputValue)
+        pure $ TxOut collectComOutputAddress mutatedValue collectComOutputDatum
+    , SomeMutation MutateOpenUtxoHash . ChangeOutput 0 <$> mutateUtxoHash
+    , SomeMutation MutateHeadScriptInput . ChangeInput headTxIn <$> anyPayToPubKeyTxOut
+    , SomeMutation MutateHeadTransition <$> do
         changeRedeemer <- ChangeHeadRedeemer <$> (Head.Close 0 . toBuiltin <$> genHash <*> arbitrary)
         changeDatum <- ChangeHeadDatum <$> (Head.Open <$> arbitrary <*> (toBuiltin <$> genHash))
         pure $ Changes [changeRedeemer, changeDatum]
     ]
  where
+  anyPayToPubKeyTxOut = Api.genKeyPair >>= genOutput . fst
 
--- anyPayToPubKeyTxOut = Api.genKeyPair >>= genOutput . fst
+  headTxIn = fst . Prelude.head . filter (isHeadOutput . snd) . utxoPairs $ utxo
 
--- headTxIn = fst . Prelude.head . filter (isHeadOutput . snd) . utxoPairs $ utxo
+  TxOut collectComOutputAddress collectComOutputValue collectComOutputDatum =
+    fromJust $ getOutputs tx !!? 0
 
--- TxOut collectComOutputAddress collectComOutputValue collectComOutputDatum =
---   fromJust $ getOutputs tx !!? 0
-
--- mutateUtxoHash = do
---   mutatedUtxoHash <- genHash
---   -- NOTE / TODO:
---   --
---   -- This should probably be defined a 'Mutation', but it is different
---   -- from 'ChangeHeadDatum'. The latter modifies the _input_ datum given
---   -- to the script, whereas this one modifies the resulting head datum in
---   -- the output.
---   case collectComOutputDatum of
---     TxOutDatumNone ->
---       error "Unexpected empty head datum"
---     (TxOutDatumHash _sdsie _ha) ->
---       error "Unexpected hash-only datum"
---     (TxOutDatum _sdsie sd) ->
---       case fromData $ toPlutusData sd of
---         (Just Head.Open{parties}) ->
---           pure $
---             TxOut
---               collectComOutputAddress
---               collectComOutputValue
---               (mkTxOutDatum Head.Open{parties, Head.utxoHash = toBuiltin mutatedUtxoHash})
---         (Just st) ->
---           error $ "Unexpected state " <> show st
---         Nothing ->
---           error "Invalid data"
+  mutateUtxoHash = do
+    mutatedUtxoHash <- genHash
+    -- NOTE / TODO:
+    --
+    -- This should probably be defined a 'Mutation', but it is different
+    -- from 'ChangeHeadDatum'. The latter modifies the _input_ datum given
+    -- to the script, whereas this one modifies the resulting head datum in
+    -- the output.
+    case collectComOutputDatum of
+      TxOutDatumNone ->
+        error "Unexpected empty head datum"
+      (TxOutDatumHash _sdsie _ha) ->
+        error "Unexpected hash-only datum"
+      (TxOutDatum _sdsie sd) ->
+        case fromData $ toPlutusData sd of
+          (Just Head.Open{parties}) ->
+            pure $
+              TxOut
+                collectComOutputAddress
+                collectComOutputValue
+                (mkTxOutDatum Head.Open{parties, Head.utxoHash = toBuiltin mutatedUtxoHash})
+          (Just st) ->
+            error $ "Unexpected state " <> show st
+          Nothing ->
+            error "Invalid data"
 
 --
 -- CloseTx

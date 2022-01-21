@@ -38,6 +38,7 @@ import CardanoNode (ChainTip (..), RunningNode (..), cliQueryTip)
 import qualified Data.Map as Map
 import Hydra.Chain.Direct.Tx (policyId)
 import qualified Hydra.Contract.Head as Head
+import qualified Hydra.Contract.HeadState as Head
 import Hydra.Logging (Tracer, showLogsOnFailure)
 import Ledger (toCardanoApiScript)
 import Plutus.V1.Ledger.Api (toData)

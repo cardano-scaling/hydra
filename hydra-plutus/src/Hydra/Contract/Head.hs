@@ -8,11 +8,10 @@ module Hydra.Contract.Head where
 import Ledger hiding (txOutDatum, validatorHash)
 import PlutusTx.Prelude
 
-import Data.Aeson (FromJSON, ToJSON)
-import GHC.Generics (Generic)
 import Hydra.Contract.Commit (Commit, SerializedTxOut (..))
 import qualified Hydra.Contract.Commit as Commit
 import Hydra.Contract.Encoding (serialiseTxOuts)
+import Hydra.Contract.HeadState (Input (..), SnapshotNumber, State (..))
 import Hydra.Data.ContestationPeriod (ContestationPeriod)
 import Hydra.Data.Party (Party (UnsafeParty))
 import Ledger.Typed.Scripts (TypedValidator, ValidatorType, ValidatorTypes (RedeemerType))
@@ -28,34 +27,6 @@ import Plutus.Codec.CBOR.Encoding (
 import PlutusTx (fromBuiltinData, toBuiltinData)
 import qualified PlutusTx
 import PlutusTx.Code (CompiledCode)
-import Text.Show (Show)
-
-type SnapshotNumber = Integer
-
-type Hash = BuiltinByteString
-
-data State
-  = Initial {contestationPeriod :: ContestationPeriod, parties :: [Party]}
-  | Open {parties :: [Party], utxoHash :: Hash}
-  | Closed {snapshotNumber :: SnapshotNumber, utxoHash :: Hash}
-  | Final
-  deriving stock (Generic, Show)
-  deriving anyclass (FromJSON, ToJSON)
-
-PlutusTx.unstableMakeIsData ''State
-
-data Input
-  = CollectCom
-  | Close
-      { snapshotNumber :: SnapshotNumber
-      , utxoHash :: Hash
-      , signature :: [Signature]
-      }
-  | Abort
-  | Fanout {numberOfFanoutOutputs :: Integer}
-  deriving (Generic, Show)
-
-PlutusTx.unstableMakeIsData ''Input
 
 data Head
 
