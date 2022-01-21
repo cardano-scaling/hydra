@@ -1,6 +1,8 @@
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE TypeApplications #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
+{-# OPTIONS_GHC -Wno-unused-imports #-}
+{-# OPTIONS_GHC -Wno-unused-matches #-}
 
 module Hydra.Chain.Direct.ContractSpec where
 
@@ -112,6 +114,7 @@ import Test.QuickCheck (
   elements,
   forAll,
   forAllShrink,
+  generate,
   oneof,
   property,
   suchThat,
@@ -142,12 +145,15 @@ spec = do
       propTransactionValidates healthyCollectComTx
     prop "does not survive random adversarial mutations" $
       propMutation healthyCollectComTx genCollectComMutation
+    it "check trans" $ do
+      SomeMutation _ mut <- generate $ genCollectComMutation healthyCollectComTx
+      let (tx, utxo) = applyMutation mut healthyCollectComTx
+      evaluateTx tx utxo `shouldSatisfy` isLeft
   describe "Close" $ do
     prop "is healthy" $
       propTransactionValidates healthyCloseTx
     prop "does not survive random adversarial mutations" $
       propMutation healthyCloseTx genCloseMutation
-
   describe "Fanout" $ do
     prop "is healthy" $
       propTransactionValidates healthyFanoutTx

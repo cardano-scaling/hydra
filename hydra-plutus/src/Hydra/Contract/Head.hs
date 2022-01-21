@@ -15,7 +15,7 @@ import qualified Hydra.Contract.Commit as Commit
 import Hydra.Contract.Encoding (serialiseTxOuts)
 import Hydra.Data.ContestationPeriod (ContestationPeriod)
 import Hydra.Data.Party (Party (UnsafeParty))
-import Ledger.Typed.Scripts (TypedValidator, ValidatorTypes (RedeemerType))
+import Ledger.Typed.Scripts (TypedValidator, ValidatorType, ValidatorTypes (RedeemerType))
 import qualified Ledger.Typed.Scripts as Scripts
 import Ledger.Typed.Scripts.Validators (DatumType)
 import Plutus.Codec.CBOR.Encoding (
@@ -27,6 +27,7 @@ import Plutus.Codec.CBOR.Encoding (
  )
 import PlutusTx (fromBuiltinData, toBuiltinData)
 import qualified PlutusTx
+import PlutusTx.Code (CompiledCode)
 import Text.Show (Show)
 
 type SnapshotNumber = Integer
@@ -248,15 +249,16 @@ mockSign vkey msg = appendByteString (sliceByteString 0 8 hashedMsg) (encodingTo
 typedValidator :: MintingPolicyHash -> TypedValidator Head
 typedValidator policyId =
   Scripts.mkTypedValidator @Head
-    compiledValidator
+    (compiledValidator policyId)
     $$(PlutusTx.compile [||wrap||])
  where
-  compiledValidator =
-    $$(PlutusTx.compile [||headValidator||])
-      `PlutusTx.applyCode` PlutusTx.liftCode policyId
-      `PlutusTx.applyCode` PlutusTx.liftCode Commit.address
-
   wrap = Scripts.wrapValidator @(DatumType Head) @(RedeemerType Head)
+
+compiledValidator :: MintingPolicyHash -> CompiledCode (ValidatorType Head)
+compiledValidator policyId =
+  $$(PlutusTx.compile [||headValidator||])
+    `PlutusTx.applyCode` PlutusTx.liftCode policyId
+    `PlutusTx.applyCode` PlutusTx.liftCode Commit.address
 
 validatorHash :: MintingPolicyHash -> ValidatorHash
 validatorHash = Scripts.validatorHash . typedValidator
