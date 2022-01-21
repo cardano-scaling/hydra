@@ -9,9 +9,9 @@ module Hydra.Contract.Initial where
 import Ledger hiding (validatorHash)
 import PlutusTx.Prelude
 
-import Ledger.Typed.Scripts (TypedValidator, ValidatorType, ValidatorTypes (..))
+import qualified Hydra.Contract.Commit as Commit
+import Ledger.Typed.Scripts (TypedValidator, ValidatorTypes (..))
 import qualified Ledger.Typed.Scripts as Scripts
-import PlutusTx (CompiledCode)
 import qualified PlutusTx
 import PlutusTx.IsData.Class (ToData (..))
 
@@ -21,20 +21,36 @@ instance Scripts.ValidatorTypes Initial where
   type DatumType Initial = PubKeyHash
   type RedeemerType Initial = ()
 
-validator :: DatumType Initial -> RedeemerType Initial -> ScriptContext -> Bool
-validator _datum _redeemer _ctx = True
-
-compiledValidator :: CompiledCode (ValidatorType Initial)
-compiledValidator = $$(PlutusTx.compile [||validator||])
-
-{- ORMOLU_DISABLE -}
-typedValidator :: TypedValidator Initial
-typedValidator = Scripts.mkTypedValidator @Initial
-  compiledValidator
-  $$(PlutusTx.compile [|| wrap ||])
+validator ::
+  -- | Commit validator
+  ValidatorHash ->
+  DatumType Initial ->
+  RedeemerType Initial ->
+  ScriptContext ->
+  Bool
+validator commitValidator _datum _redeemer context@ScriptContext{scriptContextTxInfo = txInfo} =
+  checkOutputValue
  where
+  checkOutputValue =
+    traceIfFalse "checkOutputValue" $
+      valueProduced txInfo == initialValue + committedValue
+
+  initialValue =
+    maybe mempty (txOutValue . txInInfoResolved) $ findOwnInput context
+
+  committedValue = valueLockedBy txInfo commitValidator
+
+typedValidator :: TypedValidator Initial
+typedValidator =
+  Scripts.mkTypedValidator @Initial
+    compiledValidator
+    $$(PlutusTx.compile [||wrap||])
+ where
+  compiledValidator =
+    $$(PlutusTx.compile [||validator||])
+      `PlutusTx.applyCode` PlutusTx.liftCode Commit.validatorHash
+
   wrap = Scripts.wrapValidator @(DatumType Initial) @(RedeemerType Initial)
-{- ORMOLU_ENABLE -}
 
 -- | Get the actual plutus script. Mainly used to serialize and use in
 -- transactions.

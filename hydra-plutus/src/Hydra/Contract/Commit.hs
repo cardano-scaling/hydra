@@ -81,8 +81,11 @@ compiledValidator = $$(PlutusTx.compile [||validator||])
 validatorScript :: Script
 validatorScript = unValidatorScript $ Scripts.validatorScript typedValidator
 
+validatorHash :: ValidatorHash
+validatorHash = Scripts.validatorHash typedValidator
+
 address :: Address
-address = scriptHashAddress $ Scripts.validatorHash typedValidator
+address = scriptHashAddress validatorHash
 
 datum :: DatumType Commit -> Datum
 datum a = Datum (toBuiltinData a)
