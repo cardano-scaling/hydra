@@ -18,7 +18,7 @@ _Proposed_
 _Therefore_
 
 * We test-drive single contracts code using _Mutation-Based Property Testing_
-* Contracts are tested through the construction of actual _transactions_ and running level 2 ledger validation process
+* Contracts are tested through the construction of actual _transactions_ and running phase-2 ledger validation process
 * We start from a "healthy" transaction, that's expected to be correct and stay so
 * Contract code is initially `const True` function that validates any transaction
 * We flesh the contract's code piecemeal through the introduction of _Mutations_ that turn a healthy transaction into an expectedly invalid one
