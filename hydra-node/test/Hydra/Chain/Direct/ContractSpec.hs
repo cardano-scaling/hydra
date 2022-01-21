@@ -260,17 +260,22 @@ applyMutation :: Mutation -> (CardanoTx, Utxo) -> (CardanoTx, Utxo)
 applyMutation mutation (tx@(Tx body wits), utxo) = case mutation of
   ChangeHeadRedeemer newRedeemer ->
     let ShelleyTxBody era ledgerBody scripts scriptData mAuxData scriptValidity = body
-        redeemers = alterRedeemers (changeHeadRedeemer newRedeemer) scriptData
+        headOutputIndices =
+          fst
+            <$> filter
+              (isHeadOutput . snd . snd)
+              (zip [0 :: Word64 ..] $ Map.toAscList $ Api.utxoMap utxo)
+        headInputIdx = case headOutputIndices of
+          [i] -> i
+          _ -> error $ "could not find head output in utxo: " <> show utxo
+
+        newHeadRedeemer (Ledger.RdmrPtr _ ix) (dat, units)
+          | ix == headInputIdx = (Ledger.Data (toData newRedeemer), units)
+          | otherwise = (dat, units)
+
+        redeemers = alterRedeemers newHeadRedeemer scriptData
         body' = ShelleyTxBody era ledgerBody scripts redeemers mAuxData scriptValidity
      in (Tx body' wits, utxo)
-  -- FIXME: This change produces incorrect transactions that make validators fail in odd ways
-  -- In particular, when used for the collectComTx it makes the commit validator fail with
-  -- 'PT1' user error
-  -- see https://plutus.readthedocs.io/en/latest/plutus/troubleshooting.html#error-codes
-  --
-  -- The previous version was not correct either because the datumhahs was changed but the datum
-  -- itself was not added to the transactions' script data leading the transaction validation to
-  -- fail for a different reason than the one we expect
   ChangeHeadDatum d' ->
     let datum = mkTxOutDatum d'
         datumHash = mkTxOutDatumHash d'
@@ -635,20 +640,16 @@ addDatum datum txBodyScriptData =
 
 changeHeadRedeemer :: Head.Input -> (Ledger.Data era, Ledger.ExUnits) -> (Ledger.Data era, Ledger.ExUnits)
 changeHeadRedeemer newRedeemer redeemer@(dat, units) =
-  case fromData (Ledger.getPlutusData dat) of
-    Just (_ :: Head.Input) ->
-      (Ledger.Data (toData newRedeemer), units)
-    Nothing ->
-      redeemer
+  (Ledger.Data (toData newRedeemer), units)
 
 alterRedeemers ::
-  ((Ledger.Data LedgerEra, Ledger.ExUnits) -> (Ledger.Data LedgerEra, Ledger.ExUnits)) ->
+  (Ledger.RdmrPtr -> (Ledger.Data LedgerEra, Ledger.ExUnits) -> (Ledger.Data LedgerEra, Ledger.ExUnits)) ->
   TxBodyScriptData AlonzoEra ->
   TxBodyScriptData AlonzoEra
 alterRedeemers fn = \case
   TxBodyNoScriptData -> error "TxBodyNoScriptData unexpected"
   TxBodyScriptData supportedInEra dats (Ledger.Redeemers redeemers) ->
-    let newRedeemers = fmap fn redeemers
+    let newRedeemers = Map.mapWithKey fn redeemers
      in TxBodyScriptData supportedInEra dats (Ledger.Redeemers newRedeemers)
 
 removeRedeemerFor ::
