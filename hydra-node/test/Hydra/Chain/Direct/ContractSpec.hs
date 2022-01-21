@@ -20,6 +20,7 @@ import qualified Cardano.Ledger.Shelley.API as Ledger
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Base16 as Base16
 import qualified Data.Map as Map
+import Data.Maybe (fromJust)
 import Data.Maybe.Strict (StrictMaybe (..))
 import qualified Data.Sequence.Strict as StrictSeq
 import qualified Hydra.Chain.Direct.Fixture as Fixture
@@ -52,6 +53,7 @@ import Hydra.Ledger.Cardano (
   TxBodyScriptData (TxBodyNoScriptData, TxBodyScriptData),
   TxIn,
   TxOut (..),
+  TxOutDatum (..),
   Utxo,
   adaOnly,
   describeCardanoTx,
@@ -75,6 +77,7 @@ import Hydra.Ledger.Cardano (
   toCtxUTxOTxOut,
   toLedgerTxIn,
   toLedgerTxOut,
+  toPlutusData,
   txOutValue,
   utxoPairs,
  )
@@ -110,6 +113,7 @@ import Test.QuickCheck (
   oneof,
   property,
   suchThat,
+  vector,
   (===),
  )
 import Test.QuickCheck.Instances ()
@@ -134,6 +138,8 @@ spec = do
   describe "CollectCom" $ do
     prop "is healthy" $
       propTransactionValidates healthyCollectComTx
+    prop "does not survive random adversarial mutations" $
+      propMutation healthyCollectComTx genCollectComMutation
   describe "Close" $ do
     prop "is healthy" $
       propTransactionValidates healthyCloseTx
@@ -290,7 +296,6 @@ healthyCollectComTx =
   tx =
     collectComTx
       Fixture.testNetworkId
-      (Api.Utxo $ Map.fromList committedUtxo)
       (headInput, headDatum, healthyCollectComOnChainParties)
       commits
 
@@ -307,10 +312,10 @@ healthyCollectComTx =
 
   headInput = generateWith arbitrary 42
   headResolvedInput = mkHeadOutput (SJust headDatum)
-  headDatum = Ledger.Data $ toData healthyCollectComDatum
+  headDatum = Ledger.Data $ toData healthyCollectComInitialDatum
 
-healthyCollectComDatum :: Head.State
-healthyCollectComDatum =
+healthyCollectComInitialDatum :: Head.State
+healthyCollectComInitialDatum =
   Head.Initial
     { contestationPeriod = generateWith arbitrary 42
     , parties = healthyCollectComOnChainParties
@@ -354,6 +359,47 @@ healthyCommitOutput party committed =
       lovelaceToValue 2_000_000 <> (txOutValue . snd) committed
   commitDatum =
     mkCommitDatum party (Just committed)
+
+data CollectComMutation
+  = MutateOpenOutputValue
+  | MutateOpenUtxoHash
+  deriving (Generic, Show, Enum, Bounded)
+
+genCollectComMutation :: (CardanoTx, Utxo) -> Gen SomeMutation
+genCollectComMutation (tx, _utxo) =
+  oneof
+    [ SomeMutation MutateOpenOutputValue . ChangeOutput 0 <$> do
+        mutatedValue <- (mkTxOutValue <$> genValue) `suchThat` (/= collectComOutputValue)
+        pure $ TxOut collectComOutputAddress mutatedValue collectComOutputDatum
+    , SomeMutation MutateOpenUtxoHash . ChangeOutput 0 <$> do
+        mutatedUtxoHash <- BS.pack <$> vector 32
+        -- NOTE / TODO:
+        --
+        -- This should probably be defined a 'Mutation', but it is different
+        -- from 'ChangeHeadDatum'. The latter modifies the _input_ datum given
+        -- to the script, whereas this one modifies the resulting head datum in
+        -- the output.
+        case collectComOutputDatum of
+          TxOutDatumNone ->
+            error "Unexpected empty head datum"
+          (TxOutDatumHash _sdsie _ha) ->
+            error "Unexpected hash-only datum"
+          (TxOutDatum _sdsie sd) ->
+            case fromData $ toPlutusData sd of
+              (Just Head.Open{parties}) ->
+                pure $
+                  TxOut
+                    collectComOutputAddress
+                    collectComOutputValue
+                    (mkTxOutDatum Head.Open{parties, Head.utxoHash = toBuiltin mutatedUtxoHash})
+              (Just st) ->
+                error $ "Unexpected state " <> show st
+              Nothing ->
+                error "Invalid data"
+    ]
+ where
+  TxOut collectComOutputAddress collectComOutputValue collectComOutputDatum =
+    fromJust $ getOutputs tx !!? 0
 
 --
 -- CloseTx

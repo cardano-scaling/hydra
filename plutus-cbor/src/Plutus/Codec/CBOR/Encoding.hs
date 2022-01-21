@@ -3,6 +3,7 @@
 module Plutus.Codec.CBOR.Encoding (
   Encoding,
   encodingToBuiltinByteString,
+  encodeRaw,
   encodeInteger,
   encodeByteString,
   encodeNull,
@@ -38,6 +39,14 @@ encodingToBuiltinByteString :: Encoding -> BuiltinByteString
 encodingToBuiltinByteString (Encoding runEncoder) =
   runEncoder emptyByteString
 {-# INLINEABLE encodingToBuiltinByteString #-}
+
+-- * Backdoor
+
+-- | Inject an already CBOR-encoded bytestring into an 'Encoding'.
+encodeRaw :: BuiltinByteString -> Encoding
+encodeRaw =
+  Encoding . appendByteString
+{-# INLINEABLE encodeRaw #-}
 
 -- * Basic types
 

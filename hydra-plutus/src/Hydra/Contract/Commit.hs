@@ -9,10 +9,8 @@ import Ledger hiding (validatorHash)
 import PlutusTx.Prelude
 
 import Hydra.Data.Party (Party)
-import Hydra.Data.Utxo (Utxo)
-import Ledger.Typed.Scripts (TypedValidator, ValidatorType, ValidatorTypes (..))
+import Ledger.Typed.Scripts (TypedValidator, ValidatorTypes (..))
 import qualified Ledger.Typed.Scripts as Scripts
-import PlutusTx (CompiledCode)
 import qualified PlutusTx
 import PlutusTx.IsData.Class (ToData (..))
 
@@ -24,20 +22,28 @@ data CommitRedeemer
 
 PlutusTx.unstableMakeIsData ''CommitRedeemer
 
+newtype SerializedTxOutRef = SerializedTxOutRef BuiltinByteString
+PlutusTx.unstableMakeIsData ''SerializedTxOutRef
+
+newtype SerializedTxOut = SerializedTxOut BuiltinByteString
+PlutusTx.unstableMakeIsData ''SerializedTxOut
+
+-- TODO: Having the 'TxOutRef' on-chain is not necessary but it is convenient
+-- for the off-chain code to reconstrut the commit UTXO.
+--
+-- Ideally, since the TxOutRef is already present in the redeemer for the
+-- initial validator, the off-chain code could get it from there.
 instance Scripts.ValidatorTypes Commit where
-  type DatumType Commit = (Party, Utxo)
+  type DatumType Commit = (Party, Maybe (SerializedTxOutRef, SerializedTxOut))
   type RedeemerType Commit = Redeemer
 
 validator :: DatumType Commit -> RedeemerType Commit -> ScriptContext -> Bool
 validator _datum _redeemer _ctx = True
 
-compiledValidator :: CompiledCode (ValidatorType Commit)
-compiledValidator = $$(PlutusTx.compile [||validator||])
-
 {- ORMOLU_DISABLE -}
 typedValidator :: TypedValidator Commit
 typedValidator = Scripts.mkTypedValidator @Commit
-  compiledValidator
+  $$(PlutusTx.compile [|| validator ||])
   $$(PlutusTx.compile [|| wrap ||])
  where
   wrap = Scripts.wrapValidator @(DatumType Commit) @(RedeemerType Commit)
@@ -55,4 +61,4 @@ datum :: DatumType Commit -> Datum
 datum a = Datum (toBuiltinData a)
 
 redeemer :: CommitRedeemer -> RedeemerType Commit
-redeemer a = Redeemer (toBuiltinData a)
+redeemer = Redeemer . toBuiltinData

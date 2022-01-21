@@ -26,6 +26,7 @@ library
     , QuickCheck
     , quickcheck-instances
     , relude
+    , transformers
 
   default-extensions:
     NoImplicitPrelude

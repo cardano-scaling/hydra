@@ -57,7 +57,7 @@ pparams =
   def
     { _costmdls = Map.singleton PlutusV1 $ fromJust $ defaultCostModel PlutusV1
     , _maxValSize = 1000000000
-    , _maxTxExUnits = ExUnits 10_000_000 10_000_000_000
+    , _maxTxExUnits = ExUnits 12_500_000 10_000_000_000
     , _maxBlockExUnits = ExUnits 10000000000 10000000000
     , _protocolVersion = ProtVer 5 0
     , _prices =

@@ -14,7 +14,7 @@ import Cardano.Ledger.Alonzo.Scripts (CostModel, ExUnits (..), Prices (..))
 import Cardano.Ledger.BaseTypes (ProtVer (..), boundRational)
 import Cardano.Slotting.EpochInfo (EpochInfo, fixedEpochInfo)
 import Cardano.Slotting.Slot (EpochSize (EpochSize))
-import Cardano.Slotting.Time (SystemStart (SystemStart), mkSlotLength)
+import Cardano.Slotting.Time (SlotLength, SystemStart (SystemStart), mkSlotLength)
 import Data.Array (Array, array)
 import Data.Bits (shift)
 import Data.Default (def)
@@ -40,7 +40,7 @@ pparams =
   def
     { _costmdls = Map.singleton PlutusV1 $ fromJust defaultCostModel
     , _maxValSize = 1000000000
-    , _maxTxExUnits = ExUnits 10_000_000 10_000_000_000
+    , _maxTxExUnits = ExUnits 12_500_000 10_000_000_000
     , _maxBlockExUnits = ExUnits 10000000000 10000000000
     , _protocolVersion = ProtVer 5 0
     , _prices =
@@ -55,10 +55,16 @@ instance Arbitrary PubKeyHash where
 
 -- REVIEW(SN): taken from 'testGlobals'
 epochInfo :: Monad m => EpochInfo m
-epochInfo = fixedEpochInfo (EpochSize 100) (mkSlotLength 1)
+epochInfo = fixedEpochInfo epochSize slotLength
 
 systemStart :: SystemStart
 systemStart = SystemStart $ posixSecondsToUTCTime 0
+
+epochSize :: EpochSize
+epochSize = EpochSize 100
+
+slotLength :: SlotLength
+slotLength = mkSlotLength 1
 
 -- NOTE(SN): copied from Test.Cardano.Ledger.Alonzo.Tools as not exported
 costModels :: Array Language CostModel

@@ -40,6 +40,8 @@ import Ouroboros.Consensus.Cardano.Block (
   GenTx (..),
   HardForkBlock (BlockAlonzo),
  )
+import Ouroboros.Consensus.HardFork.Combinator.Ledger.Query (QueryHardFork (..))
+import Ouroboros.Consensus.HardFork.History (Summary (..), mkInterpreter, neverForksSummary)
 import Ouroboros.Consensus.Ledger.Query (Query (..))
 import Ouroboros.Consensus.Network.NodeToClient (Codecs' (..))
 import Ouroboros.Consensus.Shelley.Ledger (
@@ -49,6 +51,10 @@ import Ouroboros.Consensus.Shelley.Ledger (
 import Ouroboros.Consensus.Shelley.Ledger.Block (ShelleyHash (..))
 import Ouroboros.Consensus.Shelley.Ledger.Mempool (GenTx (..))
 import Ouroboros.Consensus.Shelley.Ledger.Query (BlockQuery (..))
+import Ouroboros.Consensus.Util.Counting (
+  NonEmpty (NonEmptyCons, NonEmptyOne),
+  nonEmptyHead,
+ )
 import Ouroboros.Network.Block (Point (..), Tip (..), genesisPoint)
 import Ouroboros.Network.Magic (NetworkMagic (..))
 import Ouroboros.Network.Mux (
@@ -257,6 +263,18 @@ mockStateQueryServer _db =
             pure $ LSQ.SendMsgResult (Right tip) serverStAcquired
           BlockQuery (QueryIfCurrentAlonzo GetCurrentPParams) -> do
             pure $ LSQ.SendMsgResult (Right Fixture.pparams) serverStAcquired
+          BlockQuery (QueryHardFork GetInterpreter) -> do
+            let (Summary (nonEmptyHead -> byronSummary)) =
+                  neverForksSummary Fixture.epochSize Fixture.slotLength
+            let (Summary (nonEmptyHead -> shelleySummary)) =
+                  neverForksSummary Fixture.epochSize Fixture.slotLength
+            let summary =
+                  NonEmptyOne byronSummary
+                    & NonEmptyCons shelleySummary
+                    & Summary
+            pure $ LSQ.SendMsgResult (mkInterpreter summary) serverStAcquired
+          GetSystemStart -> do
+            pure $ LSQ.SendMsgResult Fixture.systemStart serverStAcquired
           BlockQuery (QueryIfCurrentAlonzo GetUTxOByAddress{}) ->
             pure $ LSQ.SendMsgResult (Right $ Ledger.UTxO mempty) serverStAcquired
           _ ->

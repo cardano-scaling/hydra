@@ -14,7 +14,7 @@ module Hydra.Chain.Direct.Tx where
 import Hydra.Prelude
 
 import Cardano.Api (NetworkId)
-import Cardano.Binary (serialize)
+import Cardano.Binary (decodeFull', serialize, serialize')
 import Cardano.Ledger.Address (Addr (Addr))
 import Cardano.Ledger.Alonzo (Script)
 import Cardano.Ledger.Alonzo.Data (Data, getPlutusData)
@@ -35,7 +35,6 @@ import Cardano.Ledger.Shelley.API (
   hashKey,
  )
 import Cardano.Ledger.Shelley.UTxO (UTxO (..))
-import qualified Data.Aeson as Aeson
 import qualified Data.Map as Map
 import qualified Data.Set as Set
 import Data.Time (Day (ModifiedJulianDay), UTCTime (UTCTime))
@@ -47,13 +46,10 @@ import qualified Hydra.Contract.Initial as Initial
 import Hydra.Data.ContestationPeriod (contestationPeriodFromDiffTime, contestationPeriodToDiffTime)
 import Hydra.Data.Party (partyFromVerKey, partyToVerKey)
 import qualified Hydra.Data.Party as OnChain
-import Hydra.Data.Utxo (fromByteString)
-import qualified Hydra.Data.Utxo as OnChain
 import Hydra.Ledger.Cardano (
   CardanoTx,
   PaymentKey,
   Utxo,
-  Utxo' (Utxo),
   VerificationKey (PaymentVerificationKey),
   fromLedgerTx,
   fromPlutusScript,
@@ -69,8 +65,10 @@ import Hydra.Ledger.Cardano (
 import qualified Hydra.Ledger.Cardano as Api
 import Hydra.Party (MultiSigned, Party (Party), toPlutusSignatures, vkey)
 import Hydra.Snapshot (Snapshot (..))
+import Ledger.Typed.Scripts (DatumType)
 import Ledger.Value (AssetClass (..), currencyMPSHash)
-import Plutus.V1.Ledger.Api (MintingPolicyHash, PubKeyHash (..), fromData)
+import Ouroboros.Consensus.Util (eitherToMaybe)
+import Plutus.V1.Ledger.Api (MintingPolicyHash, PubKeyHash (..), fromBuiltin, fromData)
 import qualified Plutus.V1.Ledger.Api as Plutus
 import Plutus.V1.Ledger.Value (assetClass, currencySymbol, tokenName)
 import Plutus.V2.Ledger.Api (toBuiltin)
@@ -210,23 +208,24 @@ commitTx networkId party utxo (initialInput, vkh) =
   commitDatum =
     Api.mkTxOutDatum $ mkCommitDatum party utxo
 
+-- FIXME: WIP
 mkCommitDatum :: Party -> Maybe (Api.TxIn, Api.TxOut Api.CtxUTxO Api.Era) -> Plutus.Datum
 mkCommitDatum (partyFromVerKey . vkey -> party) utxo =
-  Commit.datum (party, commitUtxo)
+  Commit.datum (party, serializedUtxo)
  where
-  commitUtxo = fromByteString $
-    toStrict $
-      Aeson.encode $ case utxo of
-        Nothing -> mempty
-        Just (i, o) -> Utxo $ Map.singleton i o
+  serializedUtxo = case utxo of
+    Nothing ->
+      Nothing
+    Just (i, o) ->
+      Just
+        ( Commit.SerializedTxOutRef (toBuiltin $ serialize' $ Api.toLedgerTxIn i)
+        , Commit.SerializedTxOut (toBuiltin $ serialize' $ Api.toLedgerTxOut o)
+        )
 
 -- | Create a transaction collecting all "committed" utxo and opening a Head,
 -- i.e. driving the Head script state.
 collectComTx ::
   NetworkId ->
-  -- | Committed UTxO to become U0 in the Head ledger state.
-  -- This is only used as a datum passed to the Head state machine script.
-  Utxo ->
   -- | Everything needed to spend the Head state-machine output.
   -- FIXME(SN): should also contain some Head identifier/address and stored Value (maybe the TxOut + Data?)
   (TxIn StandardCrypto, Data Era, [OnChain.Party]) ->
@@ -237,7 +236,7 @@ collectComTx ::
 -- TODO(SN): utxo unused means other participants would not "see" the opened
 -- utxo when observing. Right now, they would be trusting the OCV checks this
 -- and construct their "world view" from observed commit txs in the HeadLogic
-collectComTx networkId utxo (Api.fromLedgerTxIn -> headInput, Api.fromLedgerData -> headDatumBefore, parties) commits =
+collectComTx networkId (Api.fromLedgerTxIn -> headInput, Api.fromLedgerData -> headDatumBefore, parties) commits =
   Api.toLedgerTx $
     Api.unsafeBuildTransaction $
       Api.emptyTxBody
@@ -249,9 +248,7 @@ collectComTx networkId utxo (Api.fromLedgerTxIn -> headInput, Api.fromLedgerData
   headScript =
     Api.fromPlutusScript $ Head.validatorScript policyId
   headRedeemer =
-    Api.mkRedeemerForTxIn $
-      Head.CollectCom{utxoHash}
-  utxoHash = toBuiltin $ hashTxOuts $ toList utxo
+    Api.mkRedeemerForTxIn Head.CollectCom
   headOutput =
     Api.TxOut
       (Api.mkScriptAddress @Api.PlutusScriptV1 networkId headScript)
@@ -259,6 +256,17 @@ collectComTx networkId utxo (Api.fromLedgerTxIn -> headInput, Api.fromLedgerData
       headDatumAfter
   headDatumAfter =
     Api.mkTxOutDatum Head.Open{Head.parties = parties, utxoHash}
+  -- NOTE: We hash tx outs in an order that is recoverable on-chain.
+  -- The simplest thing to do, is to make sure commit inputs are in the same
+  -- order as their corresponding committed utxo.
+  extractSerialisedTxOut d =
+    case fromData $ getPlutusData d of
+      Nothing -> error "SNAFU"
+      Just ((_, Just (_, o)) :: DatumType Commit.Commit) -> Just o
+      _ -> Nothing
+  utxoHash =
+    Head.hashPreSerializedCommits $
+      mapMaybe (extractSerialisedTxOut . snd . snd) $ sortOn fst $ Map.toList commits
   mkCommit (commitInput, (_commitOutput, commitDatum)) =
     ( Api.fromLedgerTxIn commitInput
     , mkCommitWitness commitDatum
@@ -453,8 +461,9 @@ observeCommitTx ::
 observeCommitTx networkId (Api.getTxBody . fromLedgerTx -> txBody) = do
   (commitIn, commitOut) <- Api.findTxOutByAddress commitAddress txBody
   dat <- getDatum commitOut
-  (party, utxo) <- fromData $ toPlutusData dat
-  onChainTx <- OnCommitTx (convertParty party) <$> convertUtxo utxo
+  (party, committedUtxo) <- fromData $ toPlutusData dat
+  convertedUtxo <- convertUtxo committedUtxo
+  let onChainTx = OnCommitTx (convertParty party) convertedUtxo
   pure
     ( onChainTx
     ,
@@ -464,7 +473,16 @@ observeCommitTx networkId (Api.getTxBody . fromLedgerTx -> txBody) = do
       )
     )
  where
-  convertUtxo = Aeson.decodeStrict' . OnChain.toByteString
+  convertUtxo :: Maybe (Commit.SerializedTxOutRef, Commit.SerializedTxOut) -> Maybe Utxo
+  convertUtxo = \case
+    Nothing -> Just mempty
+    Just (Commit.SerializedTxOutRef inBytes, Commit.SerializedTxOut outBytes) ->
+      -- XXX(SN): these errors might be more severe and we could throw an
+      -- exception here?
+      eitherToMaybe $ do
+        txIn <- Api.fromLedgerTxIn <$> decodeFull' (fromBuiltin inBytes)
+        txOut <- Api.fromLedgerTxOut <$> decodeFull' (fromBuiltin outBytes)
+        pure $ Api.singletonUtxo (txIn, txOut)
 
   commitAddress = mkScriptAddress @Api.PlutusScriptV1 networkId commitScript
 
@@ -513,7 +531,7 @@ observeCollectComTx utxo tx = do
   oldHeadDatum <- lookupDatum (wits tx) (Api.toLedgerTxOut headOutput)
   datum <- fromData $ getPlutusData oldHeadDatum
   case (datum, redeemer) of
-    (Head.Initial{parties}, Head.CollectCom{}) -> do
+    (Head.Initial{parties}, Head.CollectCom) -> do
       (newHeadInput, newHeadOutput) <- Api.findScriptOutput @Api.PlutusScriptV1 (Api.utxoFromTx $ Api.fromLedgerTx tx) headScript
       newHeadDatum <- lookupDatum (wits tx) (Api.toLedgerTxOut newHeadOutput)
       pure

@@ -15,6 +15,7 @@ import Hydra.Chain.Direct.Tx
 import Cardano.Binary (serialize)
 import Cardano.Ledger.Alonzo (TxOut)
 import Cardano.Ledger.Alonzo.Data (Data (Data), hashData)
+import qualified Cardano.Ledger.Alonzo.Data as Ledger
 import Cardano.Ledger.Alonzo.PParams (PParams, PParams' (..))
 import Cardano.Ledger.Alonzo.Scripts (ExUnits (..), Tag (Spend), txscriptfee)
 import Cardano.Ledger.Alonzo.Tools (BasicFailure, ScriptFailure, evaluateTransactionExecutionUnits)
@@ -27,7 +28,6 @@ import Cardano.Ledger.Shelley.API (Coin (..), StrictMaybe (..), TxId (..), TxIn 
 import qualified Cardano.Ledger.Shelley.Tx as Ledger
 import Cardano.Ledger.TxIn (txid)
 import Cardano.Ledger.Val (inject)
-import qualified Data.Aeson as Aeson
 import qualified Data.ByteString.Lazy as LBS
 import Data.List (intersect, nub, (\\))
 import qualified Data.Map as Map
@@ -45,7 +45,6 @@ import qualified Hydra.Contract.Head as Head
 import qualified Hydra.Contract.Initial as Initial
 import Hydra.Data.ContestationPeriod (contestationPeriodFromDiffTime)
 import Hydra.Data.Party (partyFromVerKey)
-import Hydra.Data.Utxo (fromByteString)
 import Hydra.Ledger (balance)
 import Hydra.Ledger.Cardano (
   CardanoTx,
@@ -65,7 +64,10 @@ import Hydra.Ledger.Cardano (
   genUtxoWithSimplifiedAddresses,
   hashTxOuts,
   shrinkUtxo,
+  singletonUtxo,
+  toLedgerValue,
   toMaryValue,
+  txOutValue,
   utxoPairs,
  )
 import qualified Hydra.Ledger.Cardano as Api
@@ -86,6 +88,7 @@ import Test.QuickCheck (
   forAllShrinkBlind,
   forAllShrinkShow,
   label,
+  oneof,
   property,
   suchThat,
   vectorOf,
@@ -144,17 +147,13 @@ spec =
               & counterexample ("Tx serialized size: " <> show len)
 
       prop "is observed" $ \party singleUtxo initialIn ->
-        let tx = commitTx testNetworkId party (Just singleUtxo) initialIn
-            committedUtxo = Utxo $ Map.fromList [singleUtxo]
+        let tx = commitTx testNetworkId party singleUtxo initialIn
             commitOutput = TxOut @Era commitAddress commitValue (SJust $ hashData commitDatum)
             commitAddress = scriptAddr $ plutusScript Commit.validatorScript
-            commitValue = inject (Coin 2_000_000) <> toMaryValue (balance @CardanoTx committedUtxo)
-            commitDatum =
-              Data . toData $
-                Commit.datum (partyFromVerKey $ vkey party, commitUtxo)
-            commitUtxo =
-              fromByteString $ toStrict $ Aeson.encode committedUtxo
+            commitValue = inject (Coin 2_000_000) <> maybe (inject (Coin 0)) (toLedgerValue . txOutValue . snd) singleUtxo
+            commitDatum = Ledger.Data . toData $ mkCommitDatum party singleUtxo
             expectedOutput = (TxIn (Ledger.TxId (SafeHash.hashAnnotated $ body tx)) 0, commitOutput, commitDatum)
+            committedUtxo = maybe mempty singletonUtxo singleUtxo
          in observeCommitTx testNetworkId tx
               === Just (OnCommitTx{party, committed = committedUtxo}, expectedOutput)
               & counterexample ("Tx: " <> show tx)
@@ -171,12 +170,8 @@ spec =
             commitOutput = TxOut @Era commitAddress commitValue (SJust $ hashData commitDatum)
             commitAddress = scriptAddr $ plutusScript Commit.validatorScript
             commitValue = inject (Coin 2_000_000) <> toMaryValue (balance @CardanoTx committedUtxo)
-            commitDatum =
-              Data . toData $
-                Commit.datum (partyFromVerKey $ vkey party, commitUtxo)
+            commitDatum = Ledger.Data . toData $ mkCommitDatum party $ Just singleUtxo
             commitInput = TxIn (txid $ body tx) 0
-            commitUtxo =
-              fromByteString $ toStrict $ Aeson.encode committedUtxo
             onChainState =
               Initial
                 { threadOutput = error "should not be evaluated anyway."
@@ -200,27 +195,27 @@ spec =
                 ]
 
     describe "collectComTx" $ do
-      prop "transaction size below limit" $ \(ReasonablySized utxo) headIn cperiod parties ->
-        let tx = collectComTx testNetworkId utxo (headIn, headDatum, parties) mempty
-            headDatum = Data . toData $ Head.Initial cperiod parties
-            cbor = serialize tx
-            len = LBS.length cbor
-         in len < maxTxSize
-              & label (show (len `div` 1024) <> "kB")
-              & counterexample ("Tx: " <> show tx)
-              & counterexample ("Tx serialized size: " <> show len)
+      prop "transaction size below limit" $ \(ReasonablySized parties) headIn cperiod ->
+        forAll (generateCommitUtxos parties) $ \commitsUtxo ->
+          let tx = collectComTx testNetworkId (headIn, headDatum, onChainParties) commitsUtxo
+              headDatum = Data . toData $ Head.Initial cperiod onChainParties
+              onChainParties = partyFromVerKey . vkey <$> parties
+              cbor = serialize tx
+              len = LBS.length cbor
+           in len < maxTxSize
+                & label (show (len `div` 1024) <> "kB")
+                & counterexample ("Tx: " <> show tx)
+                & counterexample ("Tx serialized size: " <> show len)
 
-      prop "is observed" $ \(ReasonablySized commitPartiesAndUtxos) headInput cperiod ->
-        forAll (generateCommitUtxos commitPartiesAndUtxos) $ \commitsUtxo ->
+      prop "is observed" $ \(ReasonablySized parties) headInput cperiod ->
+        forAll (generateCommitUtxos parties) $ \commitsUtxo ->
           let committedValue = foldMap (\(TxOut _ v _, _) -> v) commitsUtxo
               headOutput = mkHeadOutput $ SJust headDatum
               headValue = inject (Coin 2_000_000) <> committedValue
-              parties = fst <$> commitPartiesAndUtxos
-              committedUtxo = fold $ snd <$> commitPartiesAndUtxos
               onChainParties = partyFromVerKey . vkey <$> parties
               headDatum = Data . toData $ Head.Initial cperiod onChainParties
               lookupUtxo = UTxO (Map.singleton headInput headOutput)
-              tx = collectComTx testNetworkId committedUtxo (headInput, headDatum, onChainParties) commitsUtxo
+              tx = collectComTx testNetworkId (headInput, headDatum, onChainParties) commitsUtxo
               res = observeCollectComTx lookupUtxo tx
            in case res of
                 Just (OnCollectComTx, OpenOrClosed{threadOutput = (_, TxOut _ headOutputValue' _, _, _)}) ->
@@ -231,18 +226,13 @@ spec =
 
       modifyMaxSuccess (const 10) $
         prop "validates" $ \headInput cperiod ->
-          forAll (genPartyAndUtxo 20) $ \commitPartiesAndUtxos ->
-            forAll (generateCommitUtxos commitPartiesAndUtxos) $ \commitsUtxo ->
+          forAll (vectorOf 9 arbitrary) $ \parties ->
+            forAll (generateCommitUtxos parties) $ \commitsUtxo ->
               let onChainUtxo = UTxO $ Map.singleton headInput headOutput <> fmap fst commitsUtxo
                   headOutput = mkHeadOutput $ SJust headDatum
-                  parties = fst <$> commitPartiesAndUtxos
-                  committedUtxo = fold $ snd <$> commitPartiesAndUtxos
                   onChainParties = partyFromVerKey . vkey <$> parties
                   headDatum = Data . toData $ Head.Initial cperiod onChainParties
-                  -- NOTE: given the way generateCommitUtxos is written, it seems there's no link between committedUtxo
-                  -- and commitsUtxo, ie. it's perfectly possible the TxOuts there are different which should be a
-                  -- problem?
-                  tx = collectComTx testNetworkId committedUtxo (headInput, headDatum, onChainParties) commitsUtxo
+                  tx = collectComTx testNetworkId (headInput, headDatum, onChainParties) commitsUtxo
                in case validateTxScriptsUnlimited onChainUtxo tx of
                     Left basicFailure ->
                       property False & counterexample ("Basic failure: " <> show basicFailure)
@@ -422,7 +412,7 @@ spec =
                 Left err ->
                   property False & counterexample ("AbortTx construction failed: " <> show err)
                 Right txAbort ->
-                  case coverFee_ pparams lookupUtxo walletUtxo txAbort of
+                  case coverFee_ pparams systemStart epochInfo lookupUtxo walletUtxo txAbort of
                     Left err ->
                       True
                         & label
@@ -431,6 +421,7 @@ spec =
                               ErrNoPaymentUtxoFound -> "No payment Utxo found"
                               ErrNotEnoughFunds{} -> "Not enough funds"
                               ErrUnknownInput{} -> "Unknown input"
+                              ErrScriptExecutionFailed{} -> "Script(s) execution failed"
                           )
                     Right (_, txAbortWithFees@ValidatedTx{body = abortTxBody}) ->
                       let actualExecutionCost = executionCost pparams txAbortWithFees
@@ -507,15 +498,20 @@ genPartyAndUtxo n = do
 
 -- | Generate a UTXO representing /commit/ outputs for a given list of `Party`.
 -- FIXME: This function is very complicated and it's hard to understand it after a while
-generateCommitUtxos :: [(Party, Utxo)] -> Gen (Map.Map (TxIn StandardCrypto) (TxOut Era, Data Era))
+generateCommitUtxos :: [Party] -> Gen (Map.Map (TxIn StandardCrypto) (TxOut Era, Data Era))
 generateCommitUtxos parties = do
   txins <- vectorOf (length parties) (arbitrary @(TxIn StandardCrypto))
-  committedUtxo <- vectorOf (length parties) $ do
-    singleUtxo <- fmap adaOnly <$> (genOneUtxoFor =<< arbitrary)
-    pure $ head <$> nonEmpty (utxoPairs singleUtxo)
+  committedUtxo <-
+    vectorOf (length parties) $
+      oneof
+        [ do
+            singleUtxo <- fmap adaOnly <$> (genOneUtxoFor =<< arbitrary)
+            pure $ head <$> nonEmpty (utxoPairs singleUtxo)
+        , pure Nothing
+        ]
   let commitUtxo =
         zip txins $
-          uncurry mkCommitUtxo <$> zip (fst <$> parties) committedUtxo
+          uncurry mkCommitUtxo <$> zip parties committedUtxo
   pure $ Map.fromList commitUtxo
  where
   mkCommitUtxo :: Party -> Maybe (Api.TxIn, Api.TxOut Api.CtxUTxO Api.Era) -> (TxOut Era, Data Era)

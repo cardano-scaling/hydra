@@ -439,11 +439,18 @@ fromPostChainTx TinyWallet{getUtxo, verificationKey} networkId headState cardano
               _ ->
                 throwIO (MoreThanOneUtxoCommitted @CardanoTx)
         _st -> throwIO $ InvalidStateToPost tx
-    CollectComTx utxo ->
+    -- TODO: We do not rely on the utxo from the collect com tx here because the
+    -- chain head-state is already tracking UTXO entries locked by commit scripts,
+    -- and thus, can re-construct the committed UTXO for the collectComTx from
+    -- the commits' datums.
+    --
+    -- Perhaps we do want however to perform some kind of sanity check to ensure
+    -- that both states are consistent.
+    CollectComTx{} ->
       readTVar headState >>= \case
         Initial{threadOutput, commits} -> do
           let (i, _, dat, parties) = threadOutput
-          pure $ collectComTx networkId utxo (i, dat, parties) (Map.fromList $ fmap (\(a, b, c) -> (a, (b, c))) commits)
+          pure $ collectComTx networkId (i, dat, parties) (Map.fromList $ fmap (\(a, b, c) -> (a, (b, c))) commits)
         _st -> throwIO $ InvalidStateToPost tx
     CloseTx confirmedSnapshot ->
       readTVar headState >>= \case

@@ -52,6 +52,7 @@ import Hydra.Ledger.Cardano (
   mkVkAddress,
   toLedgerAddr,
  )
+import Hydra.Ledger.Cardano.Evaluate (epochInfo, systemStart)
 import Ouroboros.Consensus.Cardano.Block (HardForkBlock (..))
 import Ouroboros.Consensus.Shelley.Ledger (mkShelleyBlock)
 import Test.Cardano.Ledger.Alonzo.PlutusScripts (defaultCostModel)
@@ -165,7 +166,7 @@ prop_balanceTransaction =
   forAllBlind (reasonablySized genValidatedTx) $ \tx ->
     forAllBlind (reasonablySized $ genOutputsForInputs tx) $ \lookupUtxo ->
       forAllBlind genMarkedUtxo $ \walletUtxo ->
-        case coverFee_ pparams lookupUtxo walletUtxo tx of
+        case coverFee_ pparams systemStart epochInfo lookupUtxo walletUtxo tx of
           Left err ->
             property False
               & counterexample ("Error: " <> show err)
@@ -197,7 +198,7 @@ prop_removeUsedInputs =
         prop' txUtxo (txUtxo <> extraUtxo) tx
  where
   prop' txUtxo walletUtxo tx =
-    case coverFee_ pparams mempty walletUtxo tx of
+    case coverFee_ pparams systemStart epochInfo mempty walletUtxo tx of
       Left err ->
         property False & counterexample ("Error: " <> show err)
       Right (utxo', _) ->
@@ -295,7 +296,7 @@ genValidatedTx :: Gen (ValidatedTx Era)
 genValidatedTx = do
   tx <- arbitrary
   body <- (\x -> x{txfee = Coin 0}) <$> arbitrary
-  pure $ tx{body}
+  pure $ tx{body, wits = mempty}
 
 genPaymentTo :: NetworkMagic -> VerificationKey PaymentKey -> Gen (ValidatedTx Era)
 genPaymentTo magic vk = do
