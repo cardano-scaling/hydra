@@ -20,11 +20,12 @@ import Hydra.Ledger.Cardano (
   TxOut (TxOut),
   Utxo,
   VerificationKey,
-  adaOnly,
   genOutput,
   genValue,
   getOutputs,
+  lovelaceToValue,
   mkTxOutValue,
+  modifyTxOutValue,
   singletonUtxo,
   toUtxoContext,
   verificationKeyHash,
@@ -57,12 +58,11 @@ healthyCommitTx =
 
   initialPubKeyHash = verificationKeyHash commitVerificationKey
 
-  -- NOTE: An ada-only output which is currently addressed to some arbitrary
-  -- public key.
+  -- NOTE: An 8₳ output which is currently addressed to some arbitrary key.
   committedUtxo :: (TxIn, TxOut CtxUTxO Era)
   committedUtxo = flip generateWith 42 $ do
     txIn <- arbitrary
-    txOut <- adaOnly <$> (genOutput =<< arbitrary)
+    txOut <- modifyTxOutValue (const $ lovelaceToValue 8_000_000) <$> (genOutput =<< arbitrary)
     pure (txIn, txOut)
 
   commitVerificationKey :: VerificationKey PaymentKey
