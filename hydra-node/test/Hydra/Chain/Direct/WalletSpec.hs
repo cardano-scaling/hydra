@@ -296,7 +296,7 @@ genValidatedTx :: Gen (ValidatedTx Era)
 genValidatedTx = do
   tx <- arbitrary
   body <- (\x -> x{txfee = Coin 0}) <$> arbitrary
-  pure $ tx{body}
+  pure $ tx{body, wits = mempty}
 
 genPaymentTo :: NetworkMagic -> VerificationKey PaymentKey -> Gen (ValidatedTx Era)
 genPaymentTo magic vk = do
