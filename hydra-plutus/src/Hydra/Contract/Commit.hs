@@ -16,12 +16,6 @@ import PlutusTx.IsData.Class (ToData (..))
 
 data Commit
 
-data CommitRedeemer
-  = Abort
-  | Collect
-
-PlutusTx.unstableMakeIsData ''CommitRedeemer
-
 newtype SerializedTxOutRef = SerializedTxOutRef BuiltinByteString
 PlutusTx.unstableMakeIsData ''SerializedTxOutRef
 
@@ -35,10 +29,19 @@ PlutusTx.unstableMakeIsData ''SerializedTxOut
 -- initial validator, the off-chain code could get it from there.
 instance Scripts.ValidatorTypes Commit where
   type DatumType Commit = (Party, Maybe (SerializedTxOutRef, SerializedTxOut))
-  type RedeemerType Commit = Redeemer
+  type RedeemerType Commit = ()
 
 validator :: DatumType Commit -> RedeemerType Commit -> ScriptContext -> Bool
-validator _datum _redeemer _ctx = True
+validator (_party, commit) () _ctx =
+  case commit of
+    -- we don't commit anything, so there's nothing to validate
+    Nothing -> True
+    -- NOTE: we could check the committed txOut is present in the Head output hash, for
+    -- example by providing some proof in the redeemer and checking that but this is redundant
+    -- with what the Head script is already doing so it's enough to check that the Head script
+    -- is actually running in the correct "branch" (eg. handling a `CollectCom` or `Abort`
+    -- redeemer
+    Just _ -> traceError "not implemented"
 
 {- ORMOLU_DISABLE -}
 typedValidator :: TypedValidator Commit
@@ -60,5 +63,5 @@ address = scriptHashAddress $ Scripts.validatorHash typedValidator
 datum :: DatumType Commit -> Datum
 datum a = Datum (toBuiltinData a)
 
-redeemer :: CommitRedeemer -> RedeemerType Commit
-redeemer = Redeemer . toBuiltinData
+redeemer :: RedeemerType Commit
+redeemer = ()

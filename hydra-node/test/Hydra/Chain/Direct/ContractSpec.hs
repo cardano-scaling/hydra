@@ -196,16 +196,12 @@ prop_verifySnapshotSignatures =
 
 propMutation :: (CardanoTx, Utxo) -> ((CardanoTx, Utxo) -> Gen SomeMutation) -> Property
 propMutation (tx, utxo) genMutation =
-  forAll @_ @Property (genMutation (tx, utxo)) $ \SomeMutation{label, mutations} ->
+  forAll @_ @Property (genMutation (tx, utxo)) $ \SomeMutation{label, mutation} ->
     (tx, utxo)
-      & applyMutations mutations
+      & applyMutation mutation
       & propTransactionDoesNotValidate
       & genericCoverTable [label]
       & checkCoverage
-
-applyMutations :: [Mutation] -> (CardanoTx, Utxo) -> (CardanoTx, Utxo)
-applyMutations mutations initial =
-  foldr applyMutation initial mutations
 
 propTransactionDoesNotValidate :: (CardanoTx, Utxo) -> Property
 propTransactionDoesNotValidate (tx, lookupUtxo) =
@@ -243,7 +239,7 @@ data SomeMutation = forall lbl.
   (Typeable lbl, Enum lbl, Bounded lbl, Show lbl) =>
   SomeMutation
   { label :: lbl
-  , mutations :: [Mutation]
+  , mutation :: Mutation
   }
 deriving instance Show SomeMutation
 
@@ -378,24 +374,17 @@ healthyCommitOutput party committed =
 data CollectComMutation
   = MutateOpenOutputValue
   | MutateOpenUtxoHash
-  | MutateUtxoHashAndUnwireCollectCom
+  | MutateHeadScriptInput
   deriving (Generic, Show, Enum, Bounded)
 
 genCollectComMutation :: (CardanoTx, Utxo) -> Gen SomeMutation
 genCollectComMutation (tx, utxo) =
   oneof
-    [ SomeMutation MutateOpenOutputValue . pure . ChangeOutput 0 <$> do
+    [ SomeMutation MutateOpenOutputValue . ChangeOutput 0 <$> do
         mutatedValue <- (mkTxOutValue <$> genValue) `suchThat` (/= collectComOutputValue)
         pure $ TxOut collectComOutputAddress mutatedValue collectComOutputDatum
-    , SomeMutation MutateOpenUtxoHash . pure . ChangeOutput 0 <$> mutateUtxoHash
-    , do
-        headUtxoHashChange <- ChangeOutput 0 <$> mutateUtxoHash
-        headScriptRemove <- ChangeInput headTxIn <$> anyPayToPubKeyTxOut
-        pure $
-          SomeMutation
-            { label = MutateUtxoHashAndUnwireCollectCom
-            , mutations = [headScriptRemove, headUtxoHashChange]
-            }
+    , SomeMutation MutateOpenUtxoHash . ChangeOutput 0 <$> mutateUtxoHash
+    , SomeMutation MutateHeadScriptInput . ChangeInput headTxIn <$> anyPayToPubKeyTxOut
     ]
  where
   anyPayToPubKeyTxOut = Api.genKeyPair >>= genOutput . fst
@@ -490,12 +479,12 @@ genCloseMutation (_tx, _utxo) =
   -- That is, using the on-chain types. 'closeRedeemer' is also not used
   -- anywhere after changing this and can be moved into the closeTx
   oneof
-    [ SomeMutation MutateSignatureButNotSnapshotNumber . pure . ChangeHeadRedeemer <$> do
+    [ SomeMutation MutateSignatureButNotSnapshotNumber . ChangeHeadRedeemer <$> do
         closeRedeemer (number healthySnapshot) <$> arbitrary
-    , SomeMutation MutateSnapshotNumberButNotSignature . pure . ChangeHeadRedeemer <$> do
+    , SomeMutation MutateSnapshotNumberButNotSignature . ChangeHeadRedeemer <$> do
         mutatedSnapshotNumber <- arbitrarySizedNatural `suchThat` (\n -> n /= healthySnapshotNumber && n > 0)
         pure (closeRedeemer mutatedSnapshotNumber $ healthySignature healthySnapshotNumber)
-    , SomeMutation MutateSnapshotToIllFormedValue . pure . ChangeHeadRedeemer <$> do
+    , SomeMutation MutateSnapshotToIllFormedValue . ChangeHeadRedeemer <$> do
         mutatedSnapshotNumber <- arbitrary `suchThat` (< 0)
         let mutatedSignature =
               MultiSigned [sign sk $ serialize' mutatedSnapshotNumber | sk <- healthyPartyCredentials]
@@ -505,14 +494,14 @@ genCloseMutation (_tx, _utxo) =
             , signature = toPlutusSignatures mutatedSignature
             , utxoHash = ""
             }
-    , SomeMutation MutateParties . pure . ChangeHeadDatum <$> do
+    , SomeMutation MutateParties . ChangeHeadDatum <$> do
         mutatedParties <- arbitrary `suchThat` (/= healthyCloseParties)
         pure $
           Head.Open
             { parties = mutatedParties
             , utxoHash = ""
             }
-    , SomeMutation MutateParties . pure . ChangeHeadDatum <$> arbitrary `suchThat` \case
+    , SomeMutation MutateParties . ChangeHeadDatum <$> arbitrary `suchThat` \case
         Head.Open{Head.parties = parties} ->
           parties /= Head.parties healthyCloseDatum
         _ ->
@@ -560,13 +549,13 @@ data FanoutMutation
 genFanoutMutation :: (CardanoTx, Utxo) -> Gen SomeMutation
 genFanoutMutation (tx, _utxo) =
   oneof
-    [ SomeMutation MutateAddUnexpectedOutput . pure . PrependOutput <$> do
+    [ SomeMutation MutateAddUnexpectedOutput . PrependOutput <$> do
         arbitrary >>= genOutput
     , SomeMutation MutateChangeOutputValue <$> do
         let outs = getOutputs tx
         (ix, out) <- elements (zip [0 .. length outs - 1] outs)
         value' <- genValue `suchThat` (/= txOutValue out)
-        pure [ChangeOutput (fromIntegral ix) (modifyTxOutValue (const value') out)]
+        pure $ ChangeOutput (fromIntegral ix) (modifyTxOutValue (const value') out)
     ]
 
 --
