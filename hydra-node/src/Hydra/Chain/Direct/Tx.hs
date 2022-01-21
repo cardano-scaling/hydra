@@ -84,7 +84,7 @@ initTx networkId cardanoKeys HeadParameters{contestationPeriod, parties} txIn =
   unsafeBuildTransaction $
     emptyTxBody
       & addVkInputs [txIn]
-      & addOutputs (headOutput : map mkInitialOutput cardanoKeys)
+      & addOutputs (headOutput : map (mkInitialOutput networkId) cardanoKeys)
  where
   headOutput =
     TxOut headAddress headValue headDatum
@@ -100,15 +100,17 @@ initTx networkId cardanoKeys HeadParameters{contestationPeriod, parties} txIn =
         (contestationPeriodFromDiffTime contestationPeriod)
         (map (partyFromVerKey . vkey) parties)
 
-  mkInitialOutput (toPlutusKeyHash . verificationKeyHash -> vkh) =
-    TxOut initialAddress initialValue (mkInitialDatum vkh)
-  initialScript =
-    fromPlutusScript Initial.validatorScript
+mkInitialOutput :: NetworkId -> VerificationKey PaymentKey -> TxOut CtxTx Era
+mkInitialOutput networkId (toPlutusKeyHash . verificationKeyHash -> vkh) =
+  TxOut initialAddress initialValue (mkInitialDatum vkh)
+ where
   -- FIXME: should really be the minted PTs plus some ADA to make the ledger happy
   initialValue =
     lovelaceToTxOutValue $ Lovelace 2_000_000
   initialAddress =
     mkScriptAddress @PlutusScriptV1 networkId initialScript
+  initialScript =
+    fromPlutusScript Initial.validatorScript
   mkInitialDatum =
     mkTxOutDatum . Initial.datum
 
