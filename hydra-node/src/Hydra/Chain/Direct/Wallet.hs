@@ -13,12 +13,15 @@ import Cardano.Crypto.Hash.Class
 import qualified Cardano.Ledger.Address as Ledger
 import Cardano.Ledger.Alonzo (AlonzoEra)
 import Cardano.Ledger.Alonzo.Data (Data (Data))
-import Cardano.Ledger.Alonzo.Language (
-  Language (PlutusV1),
- )
+import Cardano.Ledger.Alonzo.Language (Language (PlutusV1))
 import Cardano.Ledger.Alonzo.PParams (PParams' (..))
 import Cardano.Ledger.Alonzo.PlutusScriptApi (language)
 import Cardano.Ledger.Alonzo.Scripts (ExUnits (..), txscriptfee)
+import Cardano.Ledger.Alonzo.Tools (
+  BasicFailure (..),
+  ScriptFailure (..),
+  evaluateTransactionExecutionUnits,
+ )
 import Cardano.Ledger.Alonzo.Tx (ValidatedTx (..), hashData, hashScriptIntegrity)
 import Cardano.Ledger.Alonzo.TxBody (
   TxBody,
@@ -48,6 +51,11 @@ import qualified Cardano.Ledger.SafeHash as SafeHash
 import qualified Cardano.Ledger.Shelley.API as Ledger hiding (TxBody, TxOut)
 import Cardano.Ledger.Shelley.BlockChain (HashHeader)
 import Cardano.Ledger.Val (Val (..), invert)
+import Cardano.Slotting.EpochInfo (EpochInfo, fixedEpochInfo)
+import Cardano.Slotting.Slot (EpochSize (..))
+import Cardano.Slotting.Time (SystemStart (..), mkSlotLength)
+import Control.Arrow (left)
+import Control.Exception (throw)
 import Control.Monad.Class.MonadSTM (
   check,
   newEmptyTMVarIO,
@@ -61,10 +69,12 @@ import Control.Monad.Class.MonadSTM (
  )
 import Control.Tracer (nullTracer)
 import Data.Aeson (Value (String), object, (.=))
+import Data.Array (Array, array)
 import qualified Data.List as List
 import qualified Data.Map.Strict as Map
 import qualified Data.Sequence.Strict as StrictSeq
 import qualified Data.Set as Set
+import GHC.Ix (Ix)
 import Hydra.Chain.Direct.Util (
   Block,
   Era,
@@ -131,6 +141,7 @@ import Ouroboros.Network.Protocol.LocalStateQuery.Client (
 import qualified Ouroboros.Network.Protocol.LocalStateQuery.Client as LSQ
 import Test.Cardano.Ledger.Alonzo.Serialisation.Generators ()
 import Test.QuickCheck (generate)
+import qualified Prelude
 
 type Address = Ledger.Addr StandardCrypto
 type TxBody = Ledger.TxBody Era
@@ -376,6 +387,63 @@ coverFee_ pparams lookupUtxo walletUtxo partialTx@ValidatedTx{body, wits} = do
       let ExUnits mem steps = _maxTxExUnits pparams
           nRedeemers = fromIntegral (Map.size initialRedeemers)
        in ExUnits (mem `div` nRedeemers) (steps `div` nRedeemers)
+
+-- | Estimate cost of script executions on the transaction. This is only an
+-- estimates because the transaction isn't sealed at this point and adding new
+-- elements to it like change outputs or script integrity hash may increase that
+-- cost a little.
+estimateScriptsCost ::
+  -- | Protocol parameters
+  PParams Era ->
+  -- | A UTXO needed to resolve inputs
+  Map TxIn TxOut ->
+  -- | The pre-constructed transaction
+  ValidatedTx Era ->
+  Either (RdmrPtr, ScriptFailure StandardCrypto) (Map RdmrPtr ExUnits)
+estimateScriptsCost pparams utxo tx = do
+  case result of
+    Left (UnknownTxIns ins) ->
+      throw (UnknownTxInsException ins)
+    Right units ->
+      Map.traverseWithKey (\ptr -> left (ptr,)) units
+ where
+  result =
+    runIdentity $
+      evaluateTransactionExecutionUnits
+        pparams
+        tx
+        (Ledger.UTxO utxo)
+        epochInfo
+        systemStart
+        (mapToArray (_costmdls pparams))
+
+  -- FIXME: Get from state-query protocol:
+  --
+  -- - GetInterpreter
+  -- - interpreterToEpochInfo
+  epochInfo :: Monad m => EpochInfo m
+  epochInfo =
+    fixedEpochInfo
+      (EpochSize 432000)
+      (mkSlotLength 1)
+
+  -- FIXME: Get from state-query protocol
+  --
+  -- - GetSystemStart
+  systemStart :: SystemStart
+  systemStart = SystemStart $ Prelude.read "2017-09-23 21:44:51 UTC"
+
+newtype UnknownTxInsException
+  = UnknownTxInsException (Set TxIn)
+  deriving (Show)
+
+instance Exception UnknownTxInsException
+
+mapToArray :: Ix k => Map k v -> Array k v
+mapToArray m =
+  array
+    (fst (Map.findMin m), fst (Map.findMax m))
+    (Map.toList m)
 
 -- | The idea for this wallet client is rather simple:
 --
