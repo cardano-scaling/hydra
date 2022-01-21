@@ -11,6 +11,7 @@ import Data.Text.Prettyprint.Doc.Extras (pretty)
 import Hydra.Contract.Commit as Commit
 import qualified Hydra.Contract.Hash as Hash
 import Hydra.Contract.Head as Head
+import Hydra.Contract.HeadState as Head
 import Hydra.Contract.Initial as Initial
 import Ledger (Datum (..), datumHash)
 import Ledger.Scripts (Script, toCardanoApiScript)

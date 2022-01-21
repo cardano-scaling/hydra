@@ -18,6 +18,7 @@ import Data.Maybe.Strict (StrictMaybe (..))
 import Hydra.Chain.Direct.Tx (fanoutTx, plutusScript, policyId, scriptAddr)
 import qualified Hydra.Contract.Hash as Hash
 import qualified Hydra.Contract.Head as Head
+import qualified Hydra.Contract.HeadState as Head
 import Hydra.Ledger.Cardano (
   BuildTxWith (BuildTxWith),
   CardanoTx,
