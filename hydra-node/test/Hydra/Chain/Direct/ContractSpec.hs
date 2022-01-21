@@ -75,6 +75,7 @@ import Hydra.Ledger.Cardano (
   mkTxOutValue,
   modifyTxOutValue,
   shrinkUtxo,
+  toAlonzoData,
   toCtxUTxOTxOut,
   toLedgerTxIn,
   toLedgerTxOut,
@@ -249,6 +250,7 @@ data Mutation
   | PrependOutput (TxOut CtxTx Era)
   | ChangeInput TxIn (TxOut CtxUTxO Era)
   | ChangeOutput Word (TxOut CtxTx Era)
+  | Changes [Mutation]
   deriving (Show, Generic)
 
 applyMutation :: Mutation -> (CardanoTx, Utxo) -> (CardanoTx, Utxo)
@@ -259,12 +261,19 @@ applyMutation mutation (tx@(Tx body wits), utxo) = case mutation of
         body' = ShelleyTxBody era ledgerBody scripts redeemers mAuxData scriptValidity
      in (Tx body' wits, utxo)
   ChangeHeadDatum d' ->
-    let fn o@(TxOut addr value _)
+    let datum = mkTxOutDatum d'
+        datumHash = mkTxOutDatumHash d'
+        -- change the lookup UTXO
+        fn o@(TxOut addr value _)
           | isHeadOutput o =
-            (TxOut addr value $ mkTxOutDatumHash d')
+            TxOut addr value datumHash
           | otherwise =
             o
-     in (tx, fmap fn utxo)
+        -- change the datums in the tx
+        ShelleyTxBody era ledgerBody scripts scriptData mAuxData scriptValidity = body
+        newDatums = addDatum datum scriptData
+        body' = ShelleyTxBody era ledgerBody scripts newDatums mAuxData scriptValidity
+     in (Tx body' wits, fmap fn utxo)
   PrependOutput txOut ->
     ( alterTxOuts (txOut :) tx
     , utxo
@@ -289,6 +298,8 @@ applyMutation mutation (tx@(Tx body wits), utxo) = case mutation of
     ShelleyTxBody era ledgerBody scripts scriptData mAuxData scriptValidity = body
     redeemers = removeRedeemerFor (Ledger.inputs ledgerBody) (Api.toLedgerTxIn txIn) scriptData
     body' = ShelleyTxBody era ledgerBody scripts redeemers mAuxData scriptValidity
+  Changes mutations ->
+    foldr applyMutation (tx, utxo) mutations
 
 --
 -- CollectComTx
@@ -375,50 +386,57 @@ data CollectComMutation
   = MutateOpenOutputValue
   | MutateOpenUtxoHash
   | MutateHeadScriptInput
+  | MutateHeadTransition
   deriving (Generic, Show, Enum, Bounded)
 
 genCollectComMutation :: (CardanoTx, Utxo) -> Gen SomeMutation
-genCollectComMutation (tx, utxo) =
+genCollectComMutation (_tx, _utxo) =
   oneof
-    [ SomeMutation MutateOpenOutputValue . ChangeOutput 0 <$> do
-        mutatedValue <- (mkTxOutValue <$> genValue) `suchThat` (/= collectComOutputValue)
-        pure $ TxOut collectComOutputAddress mutatedValue collectComOutputDatum
-    , SomeMutation MutateOpenUtxoHash . ChangeOutput 0 <$> mutateUtxoHash
-    , SomeMutation MutateHeadScriptInput . ChangeInput headTxIn <$> anyPayToPubKeyTxOut
+    [ -- SomeMutation MutateOpenOutputValue . ChangeOutput 0 <$> do
+      --     mutatedValue <- (mkTxOutValue <$> genValue) `suchThat` (/= collectComOutputValue)
+      --     pure $ TxOut collectComOutputAddress mutatedValue collectComOutputDatum
+      -- , SomeMutation MutateOpenUtxoHash . ChangeOutput 0 <$> mutateUtxoHash
+      -- , SomeMutation MutateHeadScriptInput . ChangeInput headTxIn <$> anyPayToPubKeyTxOut
+      -- ,
+      SomeMutation MutateHeadTransition <$> do
+        changeRedeemer <- ChangeHeadRedeemer <$> (Head.Close 0 . toBuiltin <$> genHash <*> arbitrary)
+        changeDatum <- ChangeHeadDatum <$> (Head.Open <$> arbitrary <*> (toBuiltin <$> genHash))
+        pure $ Changes [changeRedeemer, changeDatum]
     ]
  where
-  anyPayToPubKeyTxOut = Api.genKeyPair >>= genOutput . fst
 
-  headTxIn = fst . Prelude.head . filter (isHeadOutput . snd) . utxoPairs $ utxo
+-- anyPayToPubKeyTxOut = Api.genKeyPair >>= genOutput . fst
 
-  TxOut collectComOutputAddress collectComOutputValue collectComOutputDatum =
-    fromJust $ getOutputs tx !!? 0
+-- headTxIn = fst . Prelude.head . filter (isHeadOutput . snd) . utxoPairs $ utxo
 
-  mutateUtxoHash = do
-    mutatedUtxoHash <- BS.pack <$> vector 32
-    -- NOTE / TODO:
-    --
-    -- This should probably be defined a 'Mutation', but it is different
-    -- from 'ChangeHeadDatum'. The latter modifies the _input_ datum given
-    -- to the script, whereas this one modifies the resulting head datum in
-    -- the output.
-    case collectComOutputDatum of
-      TxOutDatumNone ->
-        error "Unexpected empty head datum"
-      (TxOutDatumHash _sdsie _ha) ->
-        error "Unexpected hash-only datum"
-      (TxOutDatum _sdsie sd) ->
-        case fromData $ toPlutusData sd of
-          (Just Head.Open{parties}) ->
-            pure $
-              TxOut
-                collectComOutputAddress
-                collectComOutputValue
-                (mkTxOutDatum Head.Open{parties, Head.utxoHash = toBuiltin mutatedUtxoHash})
-          (Just st) ->
-            error $ "Unexpected state " <> show st
-          Nothing ->
-            error "Invalid data"
+-- TxOut collectComOutputAddress collectComOutputValue collectComOutputDatum =
+--   fromJust $ getOutputs tx !!? 0
+
+-- mutateUtxoHash = do
+--   mutatedUtxoHash <- genHash
+--   -- NOTE / TODO:
+--   --
+--   -- This should probably be defined a 'Mutation', but it is different
+--   -- from 'ChangeHeadDatum'. The latter modifies the _input_ datum given
+--   -- to the script, whereas this one modifies the resulting head datum in
+--   -- the output.
+--   case collectComOutputDatum of
+--     TxOutDatumNone ->
+--       error "Unexpected empty head datum"
+--     (TxOutDatumHash _sdsie _ha) ->
+--       error "Unexpected hash-only datum"
+--     (TxOutDatum _sdsie sd) ->
+--       case fromData $ toPlutusData sd of
+--         (Just Head.Open{parties}) ->
+--           pure $
+--             TxOut
+--               collectComOutputAddress
+--               collectComOutputValue
+--               (mkTxOutDatum Head.Open{parties, Head.utxoHash = toBuiltin mutatedUtxoHash})
+--         (Just st) ->
+--           error $ "Unexpected state " <> show st
+--         Nothing ->
+--           error "Invalid data"
 
 --
 -- CloseTx
@@ -568,6 +586,9 @@ genListOfSigningKeys = choose (1, 20) <&> fmap generateKey . enumFromTo 1
 genBytes :: Gen ByteString
 genBytes = arbitrary
 
+genHash :: Gen ByteString
+genHash = BS.pack <$> vector 32
+
 ---
 --- Orphans
 ---
@@ -589,6 +610,19 @@ isHeadOutput (TxOut addr _ _) = addr == headAddress
  where
   headAddress = Api.mkScriptAddress @Api.PlutusScriptV1 Fixture.testNetworkId headScript
   headScript = Api.fromPlutusScript $ Head.validatorScript policyId
+
+addDatum :: TxOutDatum CtxTx Era -> TxBodyScriptData Era -> TxBodyScriptData Era
+addDatum datum txBodyScriptData =
+  case datum of
+    TxOutDatumNone -> error "unexpected datuym none"
+    TxOutDatumHash sdsie ha -> error "hash only, expected full datum"
+    TxOutDatum ha sd ->
+      case txBodyScriptData of
+        TxBodyNoScriptData -> error "TxBodyNoScriptData unexpected"
+        TxBodyScriptData supportedInEra (Ledger.TxDats dats) redeemers ->
+          let dat = toAlonzoData sd
+              newDats = Ledger.TxDats $ Map.insert (Ledger.hashData dat) dat dats
+           in TxBodyScriptData supportedInEra newDats redeemers
 
 changeHeadRedeemer :: Head.Input -> (Ledger.Data era, Ledger.ExUnits) -> (Ledger.Data era, Ledger.ExUnits)
 changeHeadRedeemer newRedeemer redeemer@(dat, units) =
