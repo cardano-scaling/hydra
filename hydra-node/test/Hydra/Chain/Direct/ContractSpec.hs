@@ -1,31 +1,24 @@
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE TypeApplications #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
-{-# OPTIONS_GHC -Wno-unused-imports #-}
-{-# OPTIONS_GHC -Wno-unused-matches #-}
 
 module Hydra.Chain.Direct.ContractSpec where
 
 import Hydra.Prelude hiding (label)
 import Test.Hydra.Prelude
 
-import Cardano.Api.Shelley (TxBody (ShelleyTxBody))
 import Cardano.Binary (serialize')
 import Cardano.Crypto.DSIGN (deriveVerKeyDSIGN)
 import Cardano.Crypto.Util (SignableRepresentation (getSignableRepresentation))
 import qualified Cardano.Ledger.Alonzo.Data as Ledger
-import qualified Cardano.Ledger.Alonzo.Scripts as Ledger
-import qualified Cardano.Ledger.Alonzo.TxBody as Ledger
 import Cardano.Ledger.Alonzo.TxInfo (txInfoOut)
-import qualified Cardano.Ledger.Alonzo.TxWitness as Ledger
 import qualified Cardano.Ledger.Shelley.API as Ledger
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Base16 as Base16
-import qualified Data.List as List
 import qualified Data.Map as Map
 import Data.Maybe (fromJust)
 import Data.Maybe.Strict (StrictMaybe (..))
-import qualified Data.Sequence.Strict as StrictSeq
+import Hydra.Chain.Direct.Contract.Mutation (Mutation (..), SomeMutation (..), genHash, genListOfSigningKeys, isHeadOutput, propMutation, propTransactionValidates)
 import qualified Hydra.Chain.Direct.Fixture as Fixture
 import Hydra.Chain.Direct.Tx (
   closeTx,
@@ -49,20 +42,14 @@ import qualified Hydra.Data.Party as Party
 import Hydra.Ledger.Cardano (
   AlonzoEra,
   CardanoTx,
-  CtxTx,
   CtxUTxO,
-  Era,
   LedgerEra,
-  Tx (Tx),
-  TxBodyScriptData (TxBodyNoScriptData, TxBodyScriptData),
   TxIn,
   TxOut (..),
   TxOutDatum (..),
   Utxo,
   adaOnly,
-  describeCardanoTx,
   fromLedgerTx,
-  fromLedgerTxOut,
   fromLedgerUtxo,
   fromPlutusScript,
   genAdaOnlyUtxo,
@@ -74,11 +61,9 @@ import Hydra.Ledger.Cardano (
   lovelaceToValue,
   mkScriptAddress,
   mkTxOutDatum,
-  mkTxOutDatumHash,
   mkTxOutValue,
   modifyTxOutValue,
   shrinkUtxo,
-  toAlonzoData,
   toCtxUTxOTxOut,
   toLedgerTxIn,
   toLedgerTxOut,
@@ -87,7 +72,6 @@ import Hydra.Ledger.Cardano (
   utxoPairs,
  )
 import qualified Hydra.Ledger.Cardano as Api
-import Hydra.Ledger.Cardano.Evaluate (evaluateTx)
 import Hydra.Ledger.Simple (SimpleTx)
 import Hydra.Party (
   MultiSigned (MultiSigned),
@@ -109,17 +93,12 @@ import Test.QuickCheck (
   Positive (Positive),
   Property,
   arbitrarySizedNatural,
-  checkCoverage,
-  choose,
   counterexample,
   elements,
   forAll,
   forAllShrink,
-  generate,
   oneof,
-  property,
   suchThat,
-  vector,
   (===),
  )
 import Test.QuickCheck.Instances ()
@@ -197,125 +176,6 @@ prop_verifySnapshotSignatures =
           signatures = toPlutusSignatures $ aggregate [sign sk snapshot | sk <- sks]
           snapshotNumber = toInteger $ number snapshot
        in verifySnapshotSignature parties snapshotNumber signatures
-
-propMutation :: (CardanoTx, Utxo) -> ((CardanoTx, Utxo) -> Gen SomeMutation) -> Property
-propMutation (tx, utxo) genMutation =
-  forAll @_ @Property (genMutation (tx, utxo)) $ \SomeMutation{label, mutation} ->
-    (tx, utxo)
-      & applyMutation mutation
-      & propTransactionDoesNotValidate
-      & genericCoverTable [label]
-      & checkCoverage
-
-propTransactionDoesNotValidate :: (CardanoTx, Utxo) -> Property
-propTransactionDoesNotValidate (tx, lookupUtxo) =
-  let result = evaluateTx tx lookupUtxo
-   in counterexample "Should have not validated" $
-        case result of
-          Left _ ->
-            property True
-          Right redeemerReport ->
-            any isLeft (Map.elems redeemerReport)
-              & counterexample ("Tx: " <> toString (describeCardanoTx tx))
-              & counterexample ("Lookup utxo: " <> decodeUtf8 (encodePretty lookupUtxo))
-              & counterexample ("Redeemer report: " <> show redeemerReport)
-
-propTransactionValidates :: (CardanoTx, Utxo) -> Property
-propTransactionValidates (tx, lookupUtxo) =
-  let result = evaluateTx tx lookupUtxo
-   in counterexample "Should have validated" $
-        case result of
-          Left _ ->
-            property False
-              & counterexample ("Tx: " <> toString (describeCardanoTx tx))
-              & counterexample ("Lookup utxo: " <> decodeUtf8 (encodePretty lookupUtxo))
-          Right redeemerReport ->
-            all isRight (Map.elems redeemerReport)
-              & counterexample ("Tx: " <> toString (describeCardanoTx tx))
-              & counterexample ("Lookup utxo: " <> decodeUtf8 (encodePretty lookupUtxo))
-              & counterexample ("Redeemer report: " <> show redeemerReport)
-
---
--- Mutation
---
-
-data SomeMutation = forall lbl.
-  (Typeable lbl, Enum lbl, Bounded lbl, Show lbl) =>
-  SomeMutation
-  { label :: lbl
-  , mutation :: Mutation
-  }
-deriving instance Show SomeMutation
-
-data Mutation
-  = ChangeHeadRedeemer Head.Input
-  | ChangeHeadDatum Head.State
-  | PrependOutput (TxOut CtxTx Era)
-  | ChangeInput TxIn (TxOut CtxUTxO Era)
-  | ChangeOutput Word (TxOut CtxTx Era)
-  | Changes [Mutation]
-  deriving (Show, Generic)
-
-applyMutation :: Mutation -> (CardanoTx, Utxo) -> (CardanoTx, Utxo)
-applyMutation mutation (tx@(Tx body wits), utxo) = case mutation of
-  ChangeHeadRedeemer newRedeemer ->
-    let ShelleyTxBody era ledgerBody scripts scriptData mAuxData scriptValidity = body
-        headOutputIndices =
-          fst
-            <$> filter
-              (isHeadOutput . snd . snd)
-              (zip [0 :: Word64 ..] $ Map.toAscList $ Api.utxoMap utxo)
-        headInputIdx = case headOutputIndices of
-          [i] -> i
-          _ -> error $ "could not find head output in utxo: " <> show utxo
-
-        newHeadRedeemer (Ledger.RdmrPtr _ ix) (dat, units)
-          | ix == headInputIdx = (Ledger.Data (toData newRedeemer), units)
-          | otherwise = (dat, units)
-
-        redeemers = alterRedeemers newHeadRedeemer scriptData
-        body' = ShelleyTxBody era ledgerBody scripts redeemers mAuxData scriptValidity
-     in (Tx body' wits, utxo)
-  ChangeHeadDatum d' ->
-    let datum = mkTxOutDatum d'
-        datumHash = mkTxOutDatumHash d'
-        -- change the lookup UTXO
-        fn o@(TxOut addr value _)
-          | isHeadOutput o =
-            TxOut addr value datumHash
-          | otherwise =
-            o
-        -- change the datums in the tx
-        ShelleyTxBody era ledgerBody scripts scriptData mAuxData scriptValidity = body
-        newDatums = addDatum datum scriptData
-        body' = ShelleyTxBody era ledgerBody scripts newDatums mAuxData scriptValidity
-     in (Tx body' wits, fmap fn utxo)
-  PrependOutput txOut ->
-    ( alterTxOuts (txOut :) tx
-    , utxo
-    )
-  ChangeOutput ix txOut ->
-    ( alterTxOuts replaceAtIndex tx
-    , utxo
-    )
-   where
-    replaceAtIndex txOuts =
-      foldr
-        ( \(i, out) list ->
-            if i == ix then txOut : list else out : list
-        )
-        []
-        (zip [0 ..] txOuts)
-  ChangeInput txIn txOut ->
-    ( Tx body' wits
-    , Api.Utxo $ Map.insert txIn txOut (Api.utxoMap utxo)
-    )
-   where
-    ShelleyTxBody era ledgerBody scripts scriptData mAuxData scriptValidity = body
-    redeemers = removeRedeemerFor (Ledger.inputs ledgerBody) (Api.toLedgerTxIn txIn) scriptData
-    body' = ShelleyTxBody era ledgerBody scripts redeemers mAuxData scriptValidity
-  Changes mutations ->
-    foldr applyMutation (tx, utxo) mutations
 
 --
 -- CollectComTx
@@ -589,93 +449,3 @@ genFanoutMutation (tx, _utxo) =
         value' <- genValue `suchThat` (/= txOutValue out)
         pure $ ChangeOutput (fromIntegral ix) (modifyTxOutValue (const value') out)
     ]
-
---
--- Generators
---
-
-genListOfSigningKeys :: Gen [SigningKey]
-genListOfSigningKeys = choose (1, 20) <&> fmap generateKey . enumFromTo 1
-
-genBytes :: Gen ByteString
-genBytes = arbitrary
-
-genHash :: Gen ByteString
-genHash = BS.pack <$> vector 32
-
----
---- Orphans
----
-
-deriving instance Eq Head.Input
-
-instance Arbitrary Head.Input where
-  arbitrary = genericArbitrary
-
-instance Arbitrary Head.State where
-  arbitrary = genericArbitrary
-
---
--- Helpers
---
-
-isHeadOutput :: TxOut CtxUTxO Era -> Bool
-isHeadOutput (TxOut addr _ _) = addr == headAddress
- where
-  headAddress = Api.mkScriptAddress @Api.PlutusScriptV1 Fixture.testNetworkId headScript
-  headScript = Api.fromPlutusScript $ Head.validatorScript policyId
-
-addDatum :: TxOutDatum CtxTx Era -> TxBodyScriptData Era -> TxBodyScriptData Era
-addDatum datum txBodyScriptData =
-  case datum of
-    TxOutDatumNone -> error "unexpected datuym none"
-    TxOutDatumHash sdsie ha -> error "hash only, expected full datum"
-    TxOutDatum ha sd ->
-      case txBodyScriptData of
-        TxBodyNoScriptData -> error "TxBodyNoScriptData unexpected"
-        TxBodyScriptData supportedInEra (Ledger.TxDats dats) redeemers ->
-          let dat = toAlonzoData sd
-              newDats = Ledger.TxDats $ Map.insert (Ledger.hashData dat) dat dats
-           in TxBodyScriptData supportedInEra newDats redeemers
-
-changeHeadRedeemer :: Head.Input -> (Ledger.Data era, Ledger.ExUnits) -> (Ledger.Data era, Ledger.ExUnits)
-changeHeadRedeemer newRedeemer redeemer@(dat, units) =
-  (Ledger.Data (toData newRedeemer), units)
-
-alterRedeemers ::
-  (Ledger.RdmrPtr -> (Ledger.Data LedgerEra, Ledger.ExUnits) -> (Ledger.Data LedgerEra, Ledger.ExUnits)) ->
-  TxBodyScriptData AlonzoEra ->
-  TxBodyScriptData AlonzoEra
-alterRedeemers fn = \case
-  TxBodyNoScriptData -> error "TxBodyNoScriptData unexpected"
-  TxBodyScriptData supportedInEra dats (Ledger.Redeemers redeemers) ->
-    let newRedeemers = Map.mapWithKey fn redeemers
-     in TxBodyScriptData supportedInEra dats (Ledger.Redeemers newRedeemers)
-
-removeRedeemerFor ::
-  Set (Ledger.TxIn a) ->
-  Ledger.TxIn a ->
-  TxBodyScriptData AlonzoEra ->
-  TxBodyScriptData AlonzoEra
-removeRedeemerFor initialInputs txIn = \case
-  TxBodyNoScriptData -> error "TxBodyNoScriptData unexpected"
-  TxBodyScriptData supportedInEra dats (Ledger.Redeemers initialRedeemers) ->
-    let newRedeemers = Ledger.Redeemers $ Map.fromList $ filter removeRedeemer $ Map.toList initialRedeemers
-        sortedInputs = sort $ toList initialInputs
-        removeRedeemer (Ledger.RdmrPtr _ idx, _) = sortedInputs List.!! fromIntegral idx /= txIn
-     in TxBodyScriptData supportedInEra dats newRedeemers
-
-alterTxOuts ::
-  ([TxOut CtxTx Era] -> [TxOut CtxTx Era]) ->
-  CardanoTx ->
-  CardanoTx
-alterTxOuts fn tx =
-  Tx body' wits
- where
-  body' = ShelleyTxBody era ledgerBody' scripts scriptData mAuxData scriptValidity
-  ledgerBody' = ledgerBody{Ledger.outputs = outputs'}
-  -- WIP
-  outputs' = StrictSeq.fromList . mapOutputs . toList $ Ledger.outputs ledgerBody
-  mapOutputs = fmap (toLedgerTxOut . toCtxUTxOTxOut) . fn . fmap fromLedgerTxOut
-  ShelleyTxBody era ledgerBody scripts scriptData mAuxData scriptValidity = body
-  Tx body wits = tx
