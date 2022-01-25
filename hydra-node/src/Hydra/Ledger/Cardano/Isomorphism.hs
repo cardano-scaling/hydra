@@ -39,6 +39,7 @@ import qualified Cardano.Ledger.Alonzo.Tx as Ledger.Alonzo
 import qualified Cardano.Ledger.Alonzo.TxInfo as Ledger
 import qualified Cardano.Ledger.Alonzo.TxWitness as Ledger.Alonzo
 import qualified Cardano.Ledger.BaseTypes as Ledger
+import qualified Cardano.Ledger.Coin as Ledger
 import qualified Cardano.Ledger.Core as Ledger
 import qualified Cardano.Ledger.Credential as Ledger
 import qualified Cardano.Ledger.Crypto as Ledger (StandardCrypto)
@@ -126,6 +127,11 @@ fromPlutusAddress Plutus.Address{Plutus.addressCredential = credential, Plutus.a
           (Ledger.StakeRefPtr $ Ledger.Ptr (SlotNo $ fromInteger a) (fromInteger b) (fromInteger c))
  where
   network = Ledger.Testnet
+
+-- ** Coin
+
+fromLedgerCoin :: Ledger.Coin -> Lovelace
+fromLedgerCoin (Ledger.Coin n) = Lovelace n
 
 -- ** Key
 

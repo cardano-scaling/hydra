@@ -589,14 +589,6 @@ ownInitial vkey =
 
 -- * Helpers
 
--- | Lookup included datum of given 'TxOut'.
-lookupDatum :: CardanoTx -> TxOut CtxUTxO Era -> Maybe ScriptData
-lookupDatum _wits = undefined
-
---  \case
---  (TxOut _ _ (SJust datumHash)) -> Map.lookup datumHash . unTxDats $ txdats wits
---  _ -> Nothing
-
 -- | Find first occurrence including a transformation.
 findFirst :: Foldable t => (a -> Maybe b) -> t a -> Maybe b
 findFirst fn = getFirst . foldMap (First . fn)

@@ -231,6 +231,19 @@ getOutputs tx =
   let TxBody TxBodyContent{txOuts} = getTxBody tx
    in txOuts
 
+executionCost :: Ledger.Alonzo.PParams LedgerEra -> CardanoTx -> Lovelace
+executionCost pparams tx =
+  fromLedgerCoin (Ledger.Alonzo.txscriptfee (Ledger.Alonzo._prices pparams) executionUnits)
+ where
+  executionUnits = foldMap snd $ Ledger.Alonzo.unRedeemers $ Ledger.Alonzo.txrdmrs wits
+  Ledger.Alonzo.ValidatedTx{Ledger.Alonzo.wits = wits} = toLedgerTx tx
+
+getFee :: CardanoTx -> Lovelace
+getFee (getTxBody -> TxBody body) =
+  case txFee body of
+    TxFeeExplicit TxFeesExplicitInAlonzoEra fee -> fee
+    TxFeeImplicit _ -> error "impossible: TxFeeImplicit on non-Byron transaction."
+
 instance ToCBOR CardanoTx where
   toCBOR = CBOR.encodeBytes . serialize' . toLedgerTx
 
@@ -312,8 +325,8 @@ describeCardanoTx :: CardanoTx -> Text
 describeCardanoTx (Tx body _wits) =
   unlines $
     [ show (getTxId body)
-    , "  Inputs (" <> show (length inputs) <> ")"
-    , "  Outputs (" <> show (length outputs) <> ")"
+    , "  Inputs (" <> show (length inps) <> ")"
+    , "  Outputs (" <> show (length outs) <> ")"
     , "    total number of assets: " <> show totalNumberOfAssets
     , "  Scripts (" <> show (length scripts) <> ")"
     , "    total size (bytes):  " <> show totalScriptSize
@@ -322,13 +335,13 @@ describeCardanoTx (Tx body _wits) =
       <> redeemers
  where
   ShelleyTxBody _era lbody scripts scriptsData _auxData _validity = body
-  outputs = Ledger.Alonzo.outputs' lbody
-  inputs = Ledger.Alonzo.inputs' lbody
+  outs = Ledger.Alonzo.outputs' lbody
+  inps = Ledger.Alonzo.inputs' lbody
   totalScriptSize = sum $ BL.length . serialize <$> scripts
   totalNumberOfAssets =
     sum $
       [ foldl' (\n inner -> n + Map.size inner) 0 outer
-      | Ledger.Alonzo.TxOut _ (Ledger.Mary.Value _ outer) _ <- toList outputs
+      | Ledger.Alonzo.TxOut _ (Ledger.Mary.Value _ outer) _ <- toList outs
       ]
 
   datums = case scriptsData of
@@ -385,6 +398,10 @@ mkSimpleCardanoTx (txin, TxOut owner txOutValueIn datum) (recipient, valueOut) s
 mkTxIn :: TxBody era -> Word -> TxIn
 mkTxIn txBody index = TxIn (getTxId txBody) (TxIx index)
 
+inputs :: CardanoTx -> [TxIn]
+inputs (Tx (ShelleyTxBody _ body _ _ _ _) _) =
+  fromLedgerTxIn <$> toList (Ledger.Alonzo.inputs body)
+
 -- ** TxOut
 
 -- XXX(SN): replace with Cardano.Api.TxBody.lovelaceToTxOutValue when available
@@ -407,6 +424,18 @@ getDatum :: TxOut CtxTx era -> Maybe ScriptData
 getDatum (TxOut _ _ d) = case d of
   TxOutDatum _ dat -> Just dat
   _ -> Nothing
+
+-- | Lookup included datum of given 'TxOut'.
+lookupDatum :: CardanoTx -> TxOut CtxUTxO Era -> Maybe ScriptData
+lookupDatum (Tx (ShelleyTxBody _ _ _ scriptsData _ _) _) = \case
+  TxOut _ _ TxOutDatumNone ->
+    Nothing
+  TxOut _ _ (TxOutDatumHash _ (ScriptDataHash h)) ->
+    fromPlutusData . Ledger.Alonzo.getPlutusData <$> Map.lookup h datums
+ where
+  datums = case scriptsData of
+    TxBodyNoScriptData -> mempty
+    TxBodyScriptData _ (Ledger.Alonzo.TxDats m) _ -> m
 
 modifyTxOutDatum ::
   (TxOutDatum ctx0 Era -> TxOutDatum ctx1 Era) ->
@@ -623,6 +652,19 @@ instance ToTxContext TxOut where
   toTxContext =
     modifyTxOutDatum toTxContext
 
+class ToUtxoContext f where
+  toUtxoContext :: f CtxTx Era -> f CtxUTxO Era
+
+instance ToUtxoContext TxOutDatum where
+  toUtxoContext = \case
+    TxOutDatumNone -> TxOutDatumNone
+    TxOutDatumHash s h -> TxOutDatumHash s h
+    TxOutDatum s d -> TxOutDatumHash s (hashScriptData d)
+
+instance ToUtxoContext TxOut where
+  toUtxoContext =
+    modifyTxOutDatum toUtxoContext
+
 -- * Generators
 
 genKeyPair :: Gen (VerificationKey PaymentKey, SigningKey PaymentKey)
@@ -715,9 +757,9 @@ genUtxo = do
 genUtxoFor :: VerificationKey PaymentKey -> Gen Utxo
 genUtxoFor vk = do
   n <- arbitrary `suchThat` (> 0)
-  inputs <- vectorOf n arbitrary
-  outputs <- vectorOf n (genOutput vk)
-  pure $ Utxo $ Map.fromList $ zip (fromLedgerTxIn <$> inputs) outputs
+  inps <- vectorOf n arbitrary
+  outs <- vectorOf n (genOutput vk)
+  pure $ Utxo $ Map.fromList $ zip (fromLedgerTxIn <$> inps) outs
 
 -- | Generate a single UTXO owned by 'vk'.
 genOneUtxoFor :: VerificationKey PaymentKey -> Gen Utxo
@@ -805,6 +847,14 @@ instance Arbitrary TxId where
 
 instance Arbitrary (TxOut CtxUTxO AlonzoEra) where
   arbitrary = fromShelleyTxOut ShelleyBasedEraAlonzo <$> arbitrary
+
+instance Arbitrary (VerificationKey PaymentKey) where
+  arbitrary = fst <$> genKeyPair
+
+instance Arbitrary (Hash PaymentKey) where
+  arbitrary = do
+    bytes <- BS.pack <$> vectorOf 28 arbitrary
+    pure $ PaymentKeyHash $ Ledger.KeyHash $ unsafeHashFromBytes bytes
 
 -- * Temporary / Quick-n-dirty
 
