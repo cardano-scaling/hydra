@@ -1,132 +1,64 @@
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE TypeApplications #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
-{-# OPTIONS_GHC -Wno-unused-imports #-}
-{-# OPTIONS_GHC -Wno-unused-matches #-}
 
 module Hydra.Chain.Direct.ContractSpec where
 
 import Hydra.Prelude hiding (label)
 import Test.Hydra.Prelude
 
-import Cardano.Api.Shelley (TxBody (ShelleyTxBody))
 import Cardano.Binary (serialize')
 import Cardano.Crypto.DSIGN (deriveVerKeyDSIGN)
 import Cardano.Crypto.Util (SignableRepresentation (getSignableRepresentation))
-import qualified Cardano.Ledger.Alonzo.Data as Ledger
-import qualified Cardano.Ledger.Alonzo.Scripts as Ledger
-import qualified Cardano.Ledger.Alonzo.TxBody as Ledger
 import Cardano.Ledger.Alonzo.TxInfo (txInfoOut)
-import qualified Cardano.Ledger.Alonzo.TxWitness as Ledger
-import qualified Cardano.Ledger.Shelley.API as Ledger
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Base16 as Base16
-import qualified Data.List as List
-import qualified Data.Map as Map
-import Data.Maybe (fromJust)
-import Data.Maybe.Strict (StrictMaybe (..))
-import qualified Data.Sequence.Strict as StrictSeq
-import qualified Hydra.Chain.Direct.Fixture as Fixture
-import Hydra.Chain.Direct.Tx (
-  closeTx,
-  collectComTx,
-  fanoutTx,
-  mkCommitDatum,
-  policyId,
+import Hydra.Chain.Direct.Contract.Close (genCloseMutation, healthyCloseTx)
+import Hydra.Chain.Direct.Contract.CollectCom (genCollectComMutation, healthyCollectComTx)
+import Hydra.Chain.Direct.Contract.FanOut (genFanoutMutation, healthyFanoutTx)
+import Hydra.Chain.Direct.Contract.Mutation (
+  genListOfSigningKeys,
+  propMutation,
+  propTransactionValidates,
  )
-import Hydra.Chain.Direct.TxSpec (mkHeadOutput)
-import qualified Hydra.Contract.Commit as Commit
 import Hydra.Contract.Encoding (serialiseTxOuts)
 import Hydra.Contract.Head (
   verifyPartySignature,
   verifySnapshotSignature,
  )
 import qualified Hydra.Contract.Head as Head
-import qualified Hydra.Contract.HeadState as Head
 import Hydra.Data.Party (partyFromVerKey)
-import qualified Hydra.Data.Party as OnChain
-import qualified Hydra.Data.Party as Party
 import Hydra.Ledger.Cardano (
-  AlonzoEra,
-  CardanoTx,
-  CtxTx,
-  CtxUTxO,
-  Era,
-  LedgerEra,
-  Tx (Tx),
-  TxBodyScriptData (TxBodyNoScriptData, TxBodyScriptData),
-  TxIn,
-  TxOut (..),
-  TxOutDatum (..),
   Utxo,
-  adaOnly,
-  describeCardanoTx,
-  fromLedgerTx,
-  fromLedgerTxOut,
-  fromLedgerUtxo,
-  fromPlutusScript,
-  genAdaOnlyUtxo,
-  genOutput,
   genUtxoWithSimplifiedAddresses,
-  genValue,
-  getOutputs,
   hashTxOuts,
-  lovelaceToValue,
-  mkScriptAddress,
-  mkTxOutDatum,
-  mkTxOutDatumHash,
-  mkTxOutValue,
-  modifyTxOutValue,
   shrinkUtxo,
-  toAlonzoData,
-  toCtxUTxOTxOut,
-  toLedgerTxIn,
   toLedgerTxOut,
-  toPlutusData,
-  txOutValue,
-  utxoPairs,
  )
-import qualified Hydra.Ledger.Cardano as Api
-import Hydra.Ledger.Cardano.Evaluate (evaluateTx)
 import Hydra.Ledger.Simple (SimpleTx)
 import Hydra.Party (
-  MultiSigned (MultiSigned),
-  Party,
   Signed (UnsafeSigned),
-  SigningKey,
   aggregate,
-  deriveParty,
   generateKey,
   sign,
   toPlutusSignatures,
-  vkey,
  )
-import Hydra.Snapshot (Snapshot (..), SnapshotNumber)
+import Hydra.Snapshot (Snapshot (..))
 import Plutus.Orphans ()
-import Plutus.V1.Ledger.Api (fromBuiltin, fromData, toBuiltin, toData)
+import Plutus.V1.Ledger.Api (fromBuiltin, toBuiltin)
 import Plutus.V1.Ledger.Crypto (Signature (Signature))
 import Test.QuickCheck (
   Positive (Positive),
   Property,
-  arbitrarySizedNatural,
-  checkCoverage,
-  choose,
   counterexample,
-  elements,
   forAll,
   forAllShrink,
-  generate,
-  oneof,
-  property,
-  suchThat,
-  vector,
   (===),
  )
 import Test.QuickCheck.Instances ()
-import qualified Prelude
 
 spec :: Spec
-spec = do
+spec = parallel $ do
   describe "Signature validator" $ do
     prop
       "verifies single signature produced off-chain"
@@ -197,485 +129,3 @@ prop_verifySnapshotSignatures =
           signatures = toPlutusSignatures $ aggregate [sign sk snapshot | sk <- sks]
           snapshotNumber = toInteger $ number snapshot
        in verifySnapshotSignature parties snapshotNumber signatures
-
-propMutation :: (CardanoTx, Utxo) -> ((CardanoTx, Utxo) -> Gen SomeMutation) -> Property
-propMutation (tx, utxo) genMutation =
-  forAll @_ @Property (genMutation (tx, utxo)) $ \SomeMutation{label, mutation} ->
-    (tx, utxo)
-      & applyMutation mutation
-      & propTransactionDoesNotValidate
-      & genericCoverTable [label]
-      & checkCoverage
-
-propTransactionDoesNotValidate :: (CardanoTx, Utxo) -> Property
-propTransactionDoesNotValidate (tx, lookupUtxo) =
-  let result = evaluateTx tx lookupUtxo
-   in counterexample "Should have not validated" $
-        case result of
-          Left _ ->
-            property True
-          Right redeemerReport ->
-            any isLeft (Map.elems redeemerReport)
-              & counterexample ("Tx: " <> toString (describeCardanoTx tx))
-              & counterexample ("Lookup utxo: " <> decodeUtf8 (encodePretty lookupUtxo))
-              & counterexample ("Redeemer report: " <> show redeemerReport)
-
-propTransactionValidates :: (CardanoTx, Utxo) -> Property
-propTransactionValidates (tx, lookupUtxo) =
-  let result = evaluateTx tx lookupUtxo
-   in counterexample "Should have validated" $
-        case result of
-          Left _ ->
-            property False
-              & counterexample ("Tx: " <> toString (describeCardanoTx tx))
-              & counterexample ("Lookup utxo: " <> decodeUtf8 (encodePretty lookupUtxo))
-          Right redeemerReport ->
-            all isRight (Map.elems redeemerReport)
-              & counterexample ("Tx: " <> toString (describeCardanoTx tx))
-              & counterexample ("Lookup utxo: " <> decodeUtf8 (encodePretty lookupUtxo))
-              & counterexample ("Redeemer report: " <> show redeemerReport)
-
---
--- Mutation
---
-
-data SomeMutation = forall lbl.
-  (Typeable lbl, Enum lbl, Bounded lbl, Show lbl) =>
-  SomeMutation
-  { label :: lbl
-  , mutation :: Mutation
-  }
-deriving instance Show SomeMutation
-
-data Mutation
-  = ChangeHeadRedeemer Head.Input
-  | ChangeHeadDatum Head.State
-  | PrependOutput (TxOut CtxTx Era)
-  | ChangeInput TxIn (TxOut CtxUTxO Era)
-  | ChangeOutput Word (TxOut CtxTx Era)
-  | Changes [Mutation]
-  deriving (Show, Generic)
-
-applyMutation :: Mutation -> (CardanoTx, Utxo) -> (CardanoTx, Utxo)
-applyMutation mutation (tx@(Tx body wits), utxo) = case mutation of
-  ChangeHeadRedeemer newRedeemer ->
-    let ShelleyTxBody era ledgerBody scripts scriptData mAuxData scriptValidity = body
-        headOutputIndices =
-          fst
-            <$> filter
-              (isHeadOutput . snd . snd)
-              (zip [0 :: Word64 ..] $ Map.toAscList $ Api.utxoMap utxo)
-        headInputIdx = case headOutputIndices of
-          [i] -> i
-          _ -> error $ "could not find head output in utxo: " <> show utxo
-
-        newHeadRedeemer (Ledger.RdmrPtr _ ix) (dat, units)
-          | ix == headInputIdx = (Ledger.Data (toData newRedeemer), units)
-          | otherwise = (dat, units)
-
-        redeemers = alterRedeemers newHeadRedeemer scriptData
-        body' = ShelleyTxBody era ledgerBody scripts redeemers mAuxData scriptValidity
-     in (Tx body' wits, utxo)
-  ChangeHeadDatum d' ->
-    let datum = mkTxOutDatum d'
-        datumHash = mkTxOutDatumHash d'
-        -- change the lookup UTXO
-        fn o@(TxOut addr value _)
-          | isHeadOutput o =
-            TxOut addr value datumHash
-          | otherwise =
-            o
-        -- change the datums in the tx
-        ShelleyTxBody era ledgerBody scripts scriptData mAuxData scriptValidity = body
-        newDatums = addDatum datum scriptData
-        body' = ShelleyTxBody era ledgerBody scripts newDatums mAuxData scriptValidity
-     in (Tx body' wits, fmap fn utxo)
-  PrependOutput txOut ->
-    ( alterTxOuts (txOut :) tx
-    , utxo
-    )
-  ChangeOutput ix txOut ->
-    ( alterTxOuts replaceAtIndex tx
-    , utxo
-    )
-   where
-    replaceAtIndex txOuts =
-      foldr
-        ( \(i, out) list ->
-            if i == ix then txOut : list else out : list
-        )
-        []
-        (zip [0 ..] txOuts)
-  ChangeInput txIn txOut ->
-    ( Tx body' wits
-    , Api.Utxo $ Map.insert txIn txOut (Api.utxoMap utxo)
-    )
-   where
-    ShelleyTxBody era ledgerBody scripts scriptData mAuxData scriptValidity = body
-    redeemers = removeRedeemerFor (Ledger.inputs ledgerBody) (Api.toLedgerTxIn txIn) scriptData
-    body' = ShelleyTxBody era ledgerBody scripts redeemers mAuxData scriptValidity
-  Changes mutations ->
-    foldr applyMutation (tx, utxo) mutations
-
---
--- CollectComTx
---
-
-healthyCollectComTx :: (CardanoTx, Utxo)
-healthyCollectComTx =
-  ( fromLedgerTx tx
-  , fromLedgerUtxo lookupUtxo
-  )
- where
-  lookupUtxo =
-    Ledger.UTxO $
-      Map.singleton headInput headResolvedInput <> (fst <$> commits)
-
-  tx =
-    collectComTx
-      Fixture.testNetworkId
-      (headInput, headDatum, healthyCollectComOnChainParties)
-      commits
-
-  committedUtxo =
-    generateWith
-      (replicateM (length healthyCollectComParties) genCommittableTxOut)
-      42
-
-  commits =
-    (uncurry healthyCommitOutput <$> zip healthyCollectComParties committedUtxo)
-      & Map.fromList
-      & Map.mapKeys toLedgerTxIn
-      & Map.map (first toLedgerTxOut)
-
-  headInput = generateWith arbitrary 42
-  headResolvedInput = mkHeadOutput (SJust headDatum)
-  headDatum = Ledger.Data $ toData healthyCollectComInitialDatum
-
-healthyCollectComInitialDatum :: Head.State
-healthyCollectComInitialDatum =
-  Head.Initial
-    { contestationPeriod = generateWith arbitrary 42
-    , parties = healthyCollectComOnChainParties
-    }
-
-healthyCollectComOnChainParties :: [OnChain.Party]
-healthyCollectComOnChainParties =
-  Party.partyFromVerKey . vkey <$> healthyCollectComParties
-
-healthyCollectComParties :: [Party]
-healthyCollectComParties = flip generateWith 42 $ do
-  alice <- arbitrary
-  bob <- arbitrary
-  carol <- arbitrary
-  pure [alice, bob, carol]
-
-genCommittableTxOut :: Gen (TxIn, TxOut CtxUTxO AlonzoEra)
-genCommittableTxOut =
-  Prelude.head . utxoPairs <$> (genAdaOnlyUtxo `suchThat` (\u -> length u > 1))
-
-healthyCommitOutput ::
-  Party ->
-  (TxIn, TxOut CtxUTxO AlonzoEra) ->
-  (TxIn, (TxOut CtxUTxO AlonzoEra, Ledger.Data LedgerEra))
-healthyCommitOutput party committed =
-  ( generateWith arbitrary seed
-  ,
-    ( toCtxUTxOTxOut (TxOut commitAddress commitValue (mkTxOutDatum commitDatum))
-    , Ledger.Data (toData commitDatum)
-    )
-  )
- where
-  Party.UnsafeParty (fromIntegral -> seed) = Party.partyFromVerKey (vkey party)
-
-  commitScript =
-    fromPlutusScript Commit.validatorScript
-  commitAddress =
-    mkScriptAddress @Api.PlutusScriptV1 Fixture.testNetworkId commitScript
-  commitValue =
-    mkTxOutValue $
-      lovelaceToValue 2_000_000 <> (txOutValue . snd) committed
-  commitDatum =
-    mkCommitDatum party (Head.validatorHash policyId) (Just committed)
-
-data CollectComMutation
-  = MutateOpenOutputValue
-  | MutateOpenUtxoHash
-  | MutateHeadScriptInput
-  | MutateHeadTransition
-  deriving (Generic, Show, Enum, Bounded)
-
-genCollectComMutation :: (CardanoTx, Utxo) -> Gen SomeMutation
-genCollectComMutation (tx, utxo) =
-  oneof
-    [ SomeMutation MutateOpenOutputValue . ChangeOutput 0 <$> do
-        mutatedValue <- (mkTxOutValue <$> genValue) `suchThat` (/= collectComOutputValue)
-        pure $ TxOut collectComOutputAddress mutatedValue collectComOutputDatum
-    , SomeMutation MutateOpenUtxoHash . ChangeOutput 0 <$> mutateUtxoHash
-    , SomeMutation MutateHeadScriptInput . ChangeInput headTxIn <$> anyPayToPubKeyTxOut
-    , SomeMutation MutateHeadTransition <$> do
-        changeRedeemer <- ChangeHeadRedeemer <$> (Head.Close 0 . toBuiltin <$> genHash <*> arbitrary)
-        changeDatum <- ChangeHeadDatum <$> (Head.Open <$> arbitrary <*> (toBuiltin <$> genHash))
-        pure $ Changes [changeRedeemer, changeDatum]
-    ]
- where
-  anyPayToPubKeyTxOut = Api.genKeyPair >>= genOutput . fst
-
-  headTxIn = fst . Prelude.head . filter (isHeadOutput . snd) . utxoPairs $ utxo
-
-  TxOut collectComOutputAddress collectComOutputValue collectComOutputDatum =
-    fromJust $ getOutputs tx !!? 0
-
-  mutateUtxoHash = do
-    mutatedUtxoHash <- genHash
-    -- NOTE / TODO:
-    --
-    -- This should probably be defined a 'Mutation', but it is different
-    -- from 'ChangeHeadDatum'. The latter modifies the _input_ datum given
-    -- to the script, whereas this one modifies the resulting head datum in
-    -- the output.
-    case collectComOutputDatum of
-      TxOutDatumNone ->
-        error "Unexpected empty head datum"
-      (TxOutDatumHash _sdsie _ha) ->
-        error "Unexpected hash-only datum"
-      (TxOutDatum _sdsie sd) ->
-        case fromData $ toPlutusData sd of
-          (Just Head.Open{parties}) ->
-            pure $
-              TxOut
-                collectComOutputAddress
-                collectComOutputValue
-                (mkTxOutDatum Head.Open{parties, Head.utxoHash = toBuiltin mutatedUtxoHash})
-          (Just st) ->
-            error $ "Unexpected state " <> show st
-          Nothing ->
-            error "Invalid data"
-
---
--- CloseTx
---
-
-healthyCloseTx :: (CardanoTx, Utxo)
-healthyCloseTx =
-  ( fromLedgerTx tx
-  , fromLedgerUtxo lookupUtxo
-  )
- where
-  tx = closeTx healthySnapshot (healthySignature healthySnapshotNumber) (headInput, headOutput, headDatum)
-  headInput = generateWith arbitrary 42
-  headOutput = mkHeadOutput (SJust headDatum)
-  headDatum = Ledger.Data $ toData healthyCloseDatum
-  lookupUtxo = Ledger.UTxO $ Map.singleton headInput headOutput
-
-healthySnapshot :: Snapshot CardanoTx
-healthySnapshot =
-  Snapshot
-    { number = healthySnapshotNumber
-    , utxo = mempty
-    , confirmed = []
-    }
-
-healthySnapshotNumber :: SnapshotNumber
-healthySnapshotNumber = 1
-
-healthyCloseDatum :: Head.State
-healthyCloseDatum =
-  Head.Open
-    { parties = healthyCloseParties
-    , utxoHash = ""
-    }
-
-healthyCloseParties :: [OnChain.Party]
-healthyCloseParties = partyFromVerKey . vkey . deriveParty <$> healthyPartyCredentials
-
-healthyPartyCredentials :: [SigningKey]
-healthyPartyCredentials = [1, 2, 3]
-
-healthySignature :: SnapshotNumber -> MultiSigned (Snapshot CardanoTx)
-healthySignature number = MultiSigned [sign sk snapshot | sk <- healthyPartyCredentials]
- where
-  snapshot = healthySnapshot{number}
-
-data CloseMutation
-  = MutateSignatureButNotSnapshotNumber
-  | MutateSnapshotNumberButNotSignature
-  | MutateSnapshotToIllFormedValue
-  | MutateParties
-  deriving (Generic, Show, Enum, Bounded)
-
-genCloseMutation :: (CardanoTx, Utxo) -> Gen SomeMutation
-genCloseMutation (_tx, _utxo) =
-  -- FIXME: using 'closeRedeemer' here is actually too high-level and reduces
-  -- the power of the mutators, we should test at the level of the validator.
-  -- That is, using the on-chain types. 'closeRedeemer' is also not used
-  -- anywhere after changing this and can be moved into the closeTx
-  oneof
-    [ SomeMutation MutateSignatureButNotSnapshotNumber . ChangeHeadRedeemer <$> do
-        closeRedeemer (number healthySnapshot) <$> arbitrary
-    , SomeMutation MutateSnapshotNumberButNotSignature . ChangeHeadRedeemer <$> do
-        mutatedSnapshotNumber <- arbitrarySizedNatural `suchThat` (\n -> n /= healthySnapshotNumber && n > 0)
-        pure (closeRedeemer mutatedSnapshotNumber $ healthySignature healthySnapshotNumber)
-    , SomeMutation MutateSnapshotToIllFormedValue . ChangeHeadRedeemer <$> do
-        mutatedSnapshotNumber <- arbitrary `suchThat` (< 0)
-        let mutatedSignature =
-              MultiSigned [sign sk $ serialize' mutatedSnapshotNumber | sk <- healthyPartyCredentials]
-        pure
-          Head.Close
-            { snapshotNumber = mutatedSnapshotNumber
-            , signature = toPlutusSignatures mutatedSignature
-            , utxoHash = ""
-            }
-    , SomeMutation MutateParties . ChangeHeadDatum <$> do
-        mutatedParties <- arbitrary `suchThat` (/= healthyCloseParties)
-        pure $
-          Head.Open
-            { parties = mutatedParties
-            , utxoHash = ""
-            }
-    , SomeMutation MutateParties . ChangeHeadDatum <$> arbitrary `suchThat` \case
-        Head.Open{Head.parties = parties} ->
-          parties /= Head.parties healthyCloseDatum
-        _ ->
-          True
-    ]
- where
-  closeRedeemer snapshotNumber sig =
-    Head.Close
-      { snapshotNumber = toInteger snapshotNumber
-      , signature = toPlutusSignatures sig
-      , utxoHash = ""
-      }
-
---
--- FanoutTx
---
-
-healthyFanoutTx :: (CardanoTx, Utxo)
-healthyFanoutTx =
-  ( fromLedgerTx tx
-  , fromLedgerUtxo lookupUtxo
-  )
- where
-  tx = fanoutTx healthyFanoutUtxo (headInput, headDatum)
-  headInput = generateWith arbitrary 42
-  headOutput = mkHeadOutput (SJust headDatum)
-  headDatum = Ledger.Data $ toData healthyFanoutDatum
-  lookupUtxo = Ledger.UTxO $ Map.singleton headInput headOutput
-
-healthyFanoutUtxo :: Utxo
-healthyFanoutUtxo =
-  -- NOTE: we trim down the generated tx's output to make sure it fits w/in
-  -- TX size limits
-  adaOnly <$> generateWith genUtxoWithSimplifiedAddresses 42
-
-healthyFanoutDatum :: Head.State
-healthyFanoutDatum =
-  Head.Closed 1 (toBuiltin $ hashTxOuts $ toList healthyFanoutUtxo)
-
-data FanoutMutation
-  = MutateAddUnexpectedOutput
-  | MutateChangeOutputValue
-  deriving (Generic, Show, Enum, Bounded)
-
-genFanoutMutation :: (CardanoTx, Utxo) -> Gen SomeMutation
-genFanoutMutation (tx, _utxo) =
-  oneof
-    [ SomeMutation MutateAddUnexpectedOutput . PrependOutput <$> do
-        arbitrary >>= genOutput
-    , SomeMutation MutateChangeOutputValue <$> do
-        let outs = getOutputs tx
-        (ix, out) <- elements (zip [0 .. length outs - 1] outs)
-        value' <- genValue `suchThat` (/= txOutValue out)
-        pure $ ChangeOutput (fromIntegral ix) (modifyTxOutValue (const value') out)
-    ]
-
---
--- Generators
---
-
-genListOfSigningKeys :: Gen [SigningKey]
-genListOfSigningKeys = choose (1, 20) <&> fmap generateKey . enumFromTo 1
-
-genBytes :: Gen ByteString
-genBytes = arbitrary
-
-genHash :: Gen ByteString
-genHash = BS.pack <$> vector 32
-
----
---- Orphans
----
-
-deriving instance Eq Head.Input
-
-instance Arbitrary Head.Input where
-  arbitrary = genericArbitrary
-
-instance Arbitrary Head.State where
-  arbitrary = genericArbitrary
-
---
--- Helpers
---
-
-isHeadOutput :: TxOut CtxUTxO Era -> Bool
-isHeadOutput (TxOut addr _ _) = addr == headAddress
- where
-  headAddress = Api.mkScriptAddress @Api.PlutusScriptV1 Fixture.testNetworkId headScript
-  headScript = Api.fromPlutusScript $ Head.validatorScript policyId
-
-addDatum :: TxOutDatum CtxTx Era -> TxBodyScriptData Era -> TxBodyScriptData Era
-addDatum datum txBodyScriptData =
-  case datum of
-    TxOutDatumNone -> error "unexpected datuym none"
-    TxOutDatumHash sdsie ha -> error "hash only, expected full datum"
-    TxOutDatum ha sd ->
-      case txBodyScriptData of
-        TxBodyNoScriptData -> error "TxBodyNoScriptData unexpected"
-        TxBodyScriptData supportedInEra (Ledger.TxDats dats) redeemers ->
-          let dat = toAlonzoData sd
-              newDats = Ledger.TxDats $ Map.insert (Ledger.hashData dat) dat dats
-           in TxBodyScriptData supportedInEra newDats redeemers
-
-changeHeadRedeemer :: Head.Input -> (Ledger.Data era, Ledger.ExUnits) -> (Ledger.Data era, Ledger.ExUnits)
-changeHeadRedeemer newRedeemer redeemer@(dat, units) =
-  (Ledger.Data (toData newRedeemer), units)
-
-alterRedeemers ::
-  (Ledger.RdmrPtr -> (Ledger.Data LedgerEra, Ledger.ExUnits) -> (Ledger.Data LedgerEra, Ledger.ExUnits)) ->
-  TxBodyScriptData AlonzoEra ->
-  TxBodyScriptData AlonzoEra
-alterRedeemers fn = \case
-  TxBodyNoScriptData -> error "TxBodyNoScriptData unexpected"
-  TxBodyScriptData supportedInEra dats (Ledger.Redeemers redeemers) ->
-    let newRedeemers = Map.mapWithKey fn redeemers
-     in TxBodyScriptData supportedInEra dats (Ledger.Redeemers newRedeemers)
-
-removeRedeemerFor ::
-  Set (Ledger.TxIn a) ->
-  Ledger.TxIn a ->
-  TxBodyScriptData AlonzoEra ->
-  TxBodyScriptData AlonzoEra
-removeRedeemerFor initialInputs txIn = \case
-  TxBodyNoScriptData -> error "TxBodyNoScriptData unexpected"
-  TxBodyScriptData supportedInEra dats (Ledger.Redeemers initialRedeemers) ->
-    let newRedeemers = Ledger.Redeemers $ Map.fromList $ filter removeRedeemer $ Map.toList initialRedeemers
-        sortedInputs = sort $ toList initialInputs
-        removeRedeemer (Ledger.RdmrPtr _ idx, _) = sortedInputs List.!! fromIntegral idx /= txIn
-     in TxBodyScriptData supportedInEra dats newRedeemers
-
-alterTxOuts ::
-  ([TxOut CtxTx Era] -> [TxOut CtxTx Era]) ->
-  CardanoTx ->
-  CardanoTx
-alterTxOuts fn tx =
-  Tx body' wits
- where
-  body' = ShelleyTxBody era ledgerBody' scripts scriptData mAuxData scriptValidity
-  ledgerBody' = ledgerBody{Ledger.outputs = outputs'}
-  -- WIP
-  outputs' = StrictSeq.fromList . mapOutputs . toList $ Ledger.outputs ledgerBody
-  mapOutputs = fmap (toLedgerTxOut . toCtxUTxOTxOut) . fn . fmap fromLedgerTxOut
-  ShelleyTxBody era ledgerBody scripts scriptData mAuxData scriptValidity = body
-  Tx body wits = tx
