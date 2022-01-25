@@ -2,13 +2,13 @@
 , system ? builtins.currentSystem
 , haskellNix ? import
     (builtins.fetchTarball
-      "https://github.com/input-output-hk/haskell.nix/archive/fd4d10efe278ba9ef26229a031f2b26b09ed83ff.tar.gz")
+      "https://github.com/input-output-hk/haskell.nix/archive/14f740c7c8f535581c30b1697018e389680e24cb.tar.gz")
     { }
 , iohkNix ? import
     (builtins.fetchTarball
-      "https://github.com/input-output-hk/iohk-nix/archive/7f57f750e27c84def8e0ed2492eea01ea957cbf2.tar.gz")
+      "https://github.com/input-output-hk/iohk-nix/archive/62d853d3216083ecadc8e7f192498bebad4eee76.tar.gz")
     { }
-, nixpkgsSrc ? haskellNix.sources.nixpkgs-2009
+, nixpkgsSrc ? haskellNix.sources.nixpkgs-2111
 , nixpkgsArgs ? haskellNix.nixpkgsArgs
 }:
 let
@@ -16,8 +16,8 @@ let
     overlays =
       # Haskell.nix (https://github.com/input-output-hk/haskell.nix)
       haskellNix.overlays
-        # needed for cardano-api wich uses a patched libsodium
-        ++ iohkNix.overlays.crypto;
+      # needed for cardano-api which uses a patched libsodium
+      ++ iohkNix.overlays.crypto;
   });
 in
 pkgs.haskell-nix.project {
@@ -40,5 +40,12 @@ pkgs.haskell-nix.project {
       plutus-ledger.doHaddock = false;
       plutus-use-cases.doHaddock = false;
     };
+
+    # https://github.com/input-output-hk/cardano-wallet/commit/ced95e1b84ce8d9faa53268be45e96701ccc16e9
+    packages.cardano-config.components.library.build-tools = [ pkgs.buildPackages.buildPackages.gitMinimal ];
+
+    # https://github.com/input-output-hk/iohk-nix/pull/488
+    packages.cardano-crypto-class.components.library.pkgconfig = pkgs.lib.mkForce [ [ pkgs.libsodium-vrf ] ];
+    packages.cardano-crypto-praos.components.library.pkgconfig = pkgs.lib.mkForce [ [ pkgs.libsodium-vrf ] ];
   }];
 }
