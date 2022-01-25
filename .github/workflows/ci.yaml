@@ -1,41 +1,65 @@
 name: "CI"
-on: [push, pull_request]
+on:
+  push:
+    branches: [ "master" ]
+  pull_request:
+  schedule:
+    # Everyday at 4:00 AM
+    - cron: "0 4 * * *"
+
 jobs:
-  tests:
+  build-test-documentation:
+    name: Build, test & documentation
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2.3.1
       with:
         repository: input-output-hk/hydra-poc
         token: ${{ secrets.MY_TOKEN || github.token }}
-    - uses: cachix/install-nix-action@v13
+
+    - name: Prepare nix
+      uses: cachix/install-nix-action@v13
       with:
         skip_adding_nixpkgs_channel: true
-        install_options: '--no-daemon'
         extra_nix_config: |
           trusted-public-keys = iohk.cachix.org-1:DpRUyj7h7V830dp/i6Nti+NEO2/nhblbov/8MW7Rqoo= hydra.iohk.io:f/Ea+s+dFdN+3Y/G+FDgSq+a5NEWhJGzdjvKNGv0/EQ= cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY=
           substituters = https://cache.nixos.org https://hydra.iohk.io https://iohk.cachix.org
-    - uses: cachix/cachix-action@v10
+
+    - name: Cachix cache of nix derivations
+      uses: cachix/cachix-action@v10
       with:
         name: hydra-node
         authToken: '${{ secrets.CACHIX_AUTH_TOKEN }}'
-    - uses: actions/cache@v2.1.5
-      name: Cache ~/.cabal/packages, ~/.cabal/store and dist-newstyle
+
+    - name: Github cache ~/.cabal/packages, ~/.cabal/store and dist-newstyle
+      uses: actions/cache@v2.1.5
       with:
         path: |
           ~/.cabal/packages
           ~/.cabal/store
           dist-newstyle
-        key: ${{ runner.os }}-${{ hashFiles('cabal.project') }}
+        key: |
+          cabal-${{ runner.os }}-${{ hashFiles('cabal.project') }}
         restore-keys: |
-            ${{ runner.os }}-key
+          cabal-${{ runner.os }}
 
-    - run: nix-shell --run 'build-ci.sh'
+    - name: Prepare nix-shell
+      run: |
+        nix-build shell.nix
+
+    - name: Build
+      run: nix-shell --run '.github/workflows/ci-build.sh'
+
+    - name: Test
+      run: nix-shell --run '.github/workflows/ci-test.sh'
       # https://giters.com/gfx/example-github-actions-with-tty
       # The default shell does not allocate a TTY which breaks some tests
       shell: 'script -q -e -c "bash {0}"'
       env:
         TERM: "xterm"
+
+    - name: Documentation
+      run: nix-shell --run '.github/workflows/ci-haddock.sh'
 
     - name: Publish Unit Test Results
       uses: EnricoMi/publish-unit-test-result-action@v1
@@ -50,3 +74,10 @@ jobs:
         publish_dir: docs
         enable_jekyll: true
         force_orphan: true
+
+  markdown-link-check:
+    name: "Check markdown links"
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@master
+    - uses: gaurav-nelson/github-action-markdown-link-check@v1
