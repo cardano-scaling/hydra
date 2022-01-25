@@ -42,6 +42,7 @@ import Hydra.Chain (HeadParameters (..), OnChainTx (..))
 import Hydra.Chain.Direct.Util (Era)
 import qualified Hydra.Contract.Commit as Commit
 import qualified Hydra.Contract.Head as Head
+import qualified Hydra.Contract.HeadState as Head
 import qualified Hydra.Contract.Initial as Initial
 import Hydra.Data.ContestationPeriod (contestationPeriodFromDiffTime, contestationPeriodToDiffTime)
 import Hydra.Data.Party (partyFromVerKey, partyToVerKey)
@@ -206,12 +207,12 @@ commitTx networkId party utxo (initialInput, vkh) =
     Api.mkTxOutValue $
       Api.lovelaceToValue 2_000_000 <> maybe mempty (Api.txOutValue . snd) utxo
   commitDatum =
-    Api.mkTxOutDatum $ mkCommitDatum party utxo
+    Api.mkTxOutDatum $ mkCommitDatum party (Head.validatorHash policyId) utxo
 
 -- FIXME: WIP
-mkCommitDatum :: Party -> Maybe (Api.TxIn, Api.TxOut Api.CtxUTxO Api.Era) -> Plutus.Datum
-mkCommitDatum (partyFromVerKey . vkey -> party) utxo =
-  Commit.datum (party, serializedUtxo)
+mkCommitDatum :: Party -> Plutus.ValidatorHash -> Maybe (Api.TxIn, Api.TxOut Api.CtxUTxO Api.Era) -> Plutus.Datum
+mkCommitDatum (partyFromVerKey . vkey -> party) headValidatorHash utxo =
+  Commit.datum (party, headValidatorHash, serializedUtxo)
  where
   serializedUtxo = case utxo of
     Nothing ->
@@ -262,7 +263,7 @@ collectComTx networkId (Api.fromLedgerTxIn -> headInput, Api.fromLedgerData -> h
   extractSerialisedTxOut d =
     case fromData $ getPlutusData d of
       Nothing -> error "SNAFU"
-      Just ((_, Just (_, o)) :: DatumType Commit.Commit) -> Just o
+      Just ((_, _, Just (_, o)) :: DatumType Commit.Commit) -> Just o
       _ -> Nothing
   utxoHash =
     Head.hashPreSerializedCommits $
@@ -278,7 +279,7 @@ collectComTx networkId (Api.fromLedgerTxIn -> headInput, Api.fromLedgerData -> h
   commitScript =
     Api.fromPlutusScript Commit.validatorScript
   commitRedeemer =
-    Api.mkRedeemerForTxIn $ Commit.redeemer Commit.Collect
+    Api.mkRedeemerForTxIn ()
 
 -- | Create a transaction closing a head with given snapshot number and utxo.
 closeTx ::
@@ -461,7 +462,7 @@ observeCommitTx ::
 observeCommitTx networkId (Api.getTxBody . fromLedgerTx -> txBody) = do
   (commitIn, commitOut) <- Api.findTxOutByAddress commitAddress txBody
   dat <- getDatum commitOut
-  (party, committedUtxo) <- fromData $ toPlutusData dat
+  (party, _, committedUtxo) <- fromData @(DatumType Commit.Commit) $ toPlutusData dat
   convertedUtxo <- convertUtxo committedUtxo
   let onChainTx = OnCommitTx (convertParty party) convertedUtxo
   pure

@@ -75,6 +75,7 @@ library
     Hydra.Contract.Encoding
     Hydra.Contract.Hash
     Hydra.Contract.Head
+    Hydra.Contract.HeadState
     Hydra.Contract.Initial
     Hydra.Data.ContestationPeriod
     Hydra.Data.HeadParameters
@@ -130,6 +131,8 @@ executable inspect-script
     , optparse-applicative
     , plutus-ledger
     , plutus-ledger-api
+    , plutus-tx
+    , prettyprinter
     , serialise
     , text
 

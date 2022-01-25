@@ -8,14 +8,13 @@ module Hydra.Contract.Head where
 import Ledger hiding (txOutDatum, validatorHash)
 import PlutusTx.Prelude
 
-import Data.Aeson (FromJSON, ToJSON)
-import GHC.Generics (Generic)
 import Hydra.Contract.Commit (Commit, SerializedTxOut (..))
 import qualified Hydra.Contract.Commit as Commit
 import Hydra.Contract.Encoding (serialiseTxOuts)
+import Hydra.Contract.HeadState (Input (..), SnapshotNumber, State (..))
 import Hydra.Data.ContestationPeriod (ContestationPeriod)
 import Hydra.Data.Party (Party (UnsafeParty))
-import Ledger.Typed.Scripts (TypedValidator, ValidatorTypes (RedeemerType))
+import Ledger.Typed.Scripts (TypedValidator, ValidatorType, ValidatorTypes (RedeemerType))
 import qualified Ledger.Typed.Scripts as Scripts
 import Ledger.Typed.Scripts.Validators (DatumType)
 import Plutus.Codec.CBOR.Encoding (
@@ -27,34 +26,7 @@ import Plutus.Codec.CBOR.Encoding (
  )
 import PlutusTx (fromBuiltinData, toBuiltinData)
 import qualified PlutusTx
-import Text.Show (Show)
-
-type SnapshotNumber = Integer
-
-type Hash = BuiltinByteString
-
-data State
-  = Initial {contestationPeriod :: ContestationPeriod, parties :: [Party]}
-  | Open {parties :: [Party], utxoHash :: Hash}
-  | Closed {snapshotNumber :: SnapshotNumber, utxoHash :: Hash}
-  | Final
-  deriving stock (Generic, Show)
-  deriving anyclass (FromJSON, ToJSON)
-
-PlutusTx.unstableMakeIsData ''State
-
-data Input
-  = CollectCom
-  | Close
-      { snapshotNumber :: SnapshotNumber
-      , utxoHash :: Hash
-      , signature :: [Signature]
-      }
-  | Abort
-  | Fanout {numberOfFanoutOutputs :: Integer}
-  deriving (Generic, Show)
-
-PlutusTx.unstableMakeIsData ''Input
+import PlutusTx.Code (CompiledCode)
 
 data Head
 
@@ -160,9 +132,9 @@ checkCollectCom commitAddress (_, parties) context@ScriptContext{scriptContextTx
   lookupCommit h = do
     d <- getDatum <$> findDatum h txInfo
     case fromBuiltinData @(DatumType Commit) d of
-      Just (_p, Just (_, o)) ->
+      Just (_p, _, Just (_, o)) ->
         Just o
-      Just (_p, Nothing) ->
+      Just (_p, _, Nothing) ->
         Nothing
       Nothing ->
         traceError "fromBuiltinData failed"
@@ -248,15 +220,16 @@ mockSign vkey msg = appendByteString (sliceByteString 0 8 hashedMsg) (encodingTo
 typedValidator :: MintingPolicyHash -> TypedValidator Head
 typedValidator policyId =
   Scripts.mkTypedValidator @Head
-    compiledValidator
+    (compiledValidator policyId)
     $$(PlutusTx.compile [||wrap||])
  where
-  compiledValidator =
-    $$(PlutusTx.compile [||headValidator||])
-      `PlutusTx.applyCode` PlutusTx.liftCode policyId
-      `PlutusTx.applyCode` PlutusTx.liftCode Commit.address
-
   wrap = Scripts.wrapValidator @(DatumType Head) @(RedeemerType Head)
+
+compiledValidator :: MintingPolicyHash -> CompiledCode (ValidatorType Head)
+compiledValidator policyId =
+  $$(PlutusTx.compile [||headValidator||])
+    `PlutusTx.applyCode` PlutusTx.liftCode policyId
+    `PlutusTx.applyCode` PlutusTx.liftCode Commit.address
 
 validatorHash :: MintingPolicyHash -> ValidatorHash
 validatorHash = Scripts.validatorHash . typedValidator

@@ -1,6 +1,8 @@
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE TypeApplications #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
+{-# OPTIONS_GHC -Wno-unused-imports #-}
+{-# OPTIONS_GHC -Wno-unused-matches #-}
 
 module Hydra.Chain.Direct.ContractSpec where
 
@@ -19,6 +21,7 @@ import qualified Cardano.Ledger.Alonzo.TxWitness as Ledger
 import qualified Cardano.Ledger.Shelley.API as Ledger
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Base16 as Base16
+import qualified Data.List as List
 import qualified Data.Map as Map
 import Data.Maybe (fromJust)
 import Data.Maybe.Strict (StrictMaybe (..))
@@ -39,6 +42,7 @@ import Hydra.Contract.Head (
   verifySnapshotSignature,
  )
 import qualified Hydra.Contract.Head as Head
+import qualified Hydra.Contract.HeadState as Head
 import Hydra.Data.Party (partyFromVerKey)
 import qualified Hydra.Data.Party as OnChain
 import qualified Hydra.Data.Party as Party
@@ -74,6 +78,7 @@ import Hydra.Ledger.Cardano (
   mkTxOutValue,
   modifyTxOutValue,
   shrinkUtxo,
+  toAlonzoData,
   toCtxUTxOTxOut,
   toLedgerTxIn,
   toLedgerTxOut,
@@ -110,6 +115,7 @@ import Test.QuickCheck (
   elements,
   forAll,
   forAllShrink,
+  generate,
   oneof,
   property,
   suchThat,
@@ -245,23 +251,45 @@ data Mutation
   = ChangeHeadRedeemer Head.Input
   | ChangeHeadDatum Head.State
   | PrependOutput (TxOut CtxTx Era)
+  | ChangeInput TxIn (TxOut CtxUTxO Era)
   | ChangeOutput Word (TxOut CtxTx Era)
+  | Changes [Mutation]
   deriving (Show, Generic)
 
 applyMutation :: Mutation -> (CardanoTx, Utxo) -> (CardanoTx, Utxo)
 applyMutation mutation (tx@(Tx body wits), utxo) = case mutation of
   ChangeHeadRedeemer newRedeemer ->
     let ShelleyTxBody era ledgerBody scripts scriptData mAuxData scriptValidity = body
-        redeemers = alterRedeemers (changeHeadRedeemer newRedeemer) scriptData
+        headOutputIndices =
+          fst
+            <$> filter
+              (isHeadOutput . snd . snd)
+              (zip [0 :: Word64 ..] $ Map.toAscList $ Api.utxoMap utxo)
+        headInputIdx = case headOutputIndices of
+          [i] -> i
+          _ -> error $ "could not find head output in utxo: " <> show utxo
+
+        newHeadRedeemer (Ledger.RdmrPtr _ ix) (dat, units)
+          | ix == headInputIdx = (Ledger.Data (toData newRedeemer), units)
+          | otherwise = (dat, units)
+
+        redeemers = alterRedeemers newHeadRedeemer scriptData
         body' = ShelleyTxBody era ledgerBody scripts redeemers mAuxData scriptValidity
      in (Tx body' wits, utxo)
   ChangeHeadDatum d' ->
-    let fn o@(TxOut addr value _)
+    let datum = mkTxOutDatum d'
+        datumHash = mkTxOutDatumHash d'
+        -- change the lookup UTXO
+        fn o@(TxOut addr value _)
           | isHeadOutput o =
-            (TxOut addr value $ mkTxOutDatumHash d')
+            TxOut addr value datumHash
           | otherwise =
             o
-     in (tx, fmap fn utxo)
+        -- change the datums in the tx
+        ShelleyTxBody era ledgerBody scripts scriptData mAuxData scriptValidity = body
+        newDatums = addDatum datum scriptData
+        body' = ShelleyTxBody era ledgerBody scripts newDatums mAuxData scriptValidity
+     in (Tx body' wits, fmap fn utxo)
   PrependOutput txOut ->
     ( alterTxOuts (txOut :) tx
     , utxo
@@ -278,6 +306,16 @@ applyMutation mutation (tx@(Tx body wits), utxo) = case mutation of
         )
         []
         (zip [0 ..] txOuts)
+  ChangeInput txIn txOut ->
+    ( Tx body' wits
+    , Api.Utxo $ Map.insert txIn txOut (Api.utxoMap utxo)
+    )
+   where
+    ShelleyTxBody era ledgerBody scripts scriptData mAuxData scriptValidity = body
+    redeemers = removeRedeemerFor (Ledger.inputs ledgerBody) (Api.toLedgerTxIn txIn) scriptData
+    body' = ShelleyTxBody era ledgerBody scripts redeemers mAuxData scriptValidity
+  Changes mutations ->
+    foldr applyMutation (tx, utxo) mutations
 
 --
 -- CollectComTx
@@ -358,48 +396,61 @@ healthyCommitOutput party committed =
     mkTxOutValue $
       lovelaceToValue 2_000_000 <> (txOutValue . snd) committed
   commitDatum =
-    mkCommitDatum party (Just committed)
+    mkCommitDatum party (Head.validatorHash policyId) (Just committed)
 
 data CollectComMutation
   = MutateOpenOutputValue
   | MutateOpenUtxoHash
+  | MutateHeadScriptInput
+  | MutateHeadTransition
   deriving (Generic, Show, Enum, Bounded)
 
 genCollectComMutation :: (CardanoTx, Utxo) -> Gen SomeMutation
-genCollectComMutation (tx, _utxo) =
+genCollectComMutation (tx, utxo) =
   oneof
     [ SomeMutation MutateOpenOutputValue . ChangeOutput 0 <$> do
         mutatedValue <- (mkTxOutValue <$> genValue) `suchThat` (/= collectComOutputValue)
         pure $ TxOut collectComOutputAddress mutatedValue collectComOutputDatum
-    , SomeMutation MutateOpenUtxoHash . ChangeOutput 0 <$> do
-        mutatedUtxoHash <- BS.pack <$> vector 32
-        -- NOTE / TODO:
-        --
-        -- This should probably be defined a 'Mutation', but it is different
-        -- from 'ChangeHeadDatum'. The latter modifies the _input_ datum given
-        -- to the script, whereas this one modifies the resulting head datum in
-        -- the output.
-        case collectComOutputDatum of
-          TxOutDatumNone ->
-            error "Unexpected empty head datum"
-          (TxOutDatumHash _sdsie _ha) ->
-            error "Unexpected hash-only datum"
-          (TxOutDatum _sdsie sd) ->
-            case fromData $ toPlutusData sd of
-              (Just Head.Open{parties}) ->
-                pure $
-                  TxOut
-                    collectComOutputAddress
-                    collectComOutputValue
-                    (mkTxOutDatum Head.Open{parties, Head.utxoHash = toBuiltin mutatedUtxoHash})
-              (Just st) ->
-                error $ "Unexpected state " <> show st
-              Nothing ->
-                error "Invalid data"
+    , SomeMutation MutateOpenUtxoHash . ChangeOutput 0 <$> mutateUtxoHash
+    , SomeMutation MutateHeadScriptInput . ChangeInput headTxIn <$> anyPayToPubKeyTxOut
+    , SomeMutation MutateHeadTransition <$> do
+        changeRedeemer <- ChangeHeadRedeemer <$> (Head.Close 0 . toBuiltin <$> genHash <*> arbitrary)
+        changeDatum <- ChangeHeadDatum <$> (Head.Open <$> arbitrary <*> (toBuiltin <$> genHash))
+        pure $ Changes [changeRedeemer, changeDatum]
     ]
  where
+  anyPayToPubKeyTxOut = Api.genKeyPair >>= genOutput . fst
+
+  headTxIn = fst . Prelude.head . filter (isHeadOutput . snd) . utxoPairs $ utxo
+
   TxOut collectComOutputAddress collectComOutputValue collectComOutputDatum =
     fromJust $ getOutputs tx !!? 0
+
+  mutateUtxoHash = do
+    mutatedUtxoHash <- genHash
+    -- NOTE / TODO:
+    --
+    -- This should probably be defined a 'Mutation', but it is different
+    -- from 'ChangeHeadDatum'. The latter modifies the _input_ datum given
+    -- to the script, whereas this one modifies the resulting head datum in
+    -- the output.
+    case collectComOutputDatum of
+      TxOutDatumNone ->
+        error "Unexpected empty head datum"
+      (TxOutDatumHash _sdsie _ha) ->
+        error "Unexpected hash-only datum"
+      (TxOutDatum _sdsie sd) ->
+        case fromData $ toPlutusData sd of
+          (Just Head.Open{parties}) ->
+            pure $
+              TxOut
+                collectComOutputAddress
+                collectComOutputValue
+                (mkTxOutDatum Head.Open{parties, Head.utxoHash = toBuiltin mutatedUtxoHash})
+          (Just st) ->
+            error $ "Unexpected state " <> show st
+          Nothing ->
+            error "Invalid data"
 
 --
 -- CloseTx
@@ -549,6 +600,9 @@ genListOfSigningKeys = choose (1, 20) <&> fmap generateKey . enumFromTo 1
 genBytes :: Gen ByteString
 genBytes = arbitrary
 
+genHash :: Gen ByteString
+genHash = BS.pack <$> vector 32
+
 ---
 --- Orphans
 ---
@@ -571,23 +625,45 @@ isHeadOutput (TxOut addr _ _) = addr == headAddress
   headAddress = Api.mkScriptAddress @Api.PlutusScriptV1 Fixture.testNetworkId headScript
   headScript = Api.fromPlutusScript $ Head.validatorScript policyId
 
+addDatum :: TxOutDatum CtxTx Era -> TxBodyScriptData Era -> TxBodyScriptData Era
+addDatum datum txBodyScriptData =
+  case datum of
+    TxOutDatumNone -> error "unexpected datuym none"
+    TxOutDatumHash sdsie ha -> error "hash only, expected full datum"
+    TxOutDatum ha sd ->
+      case txBodyScriptData of
+        TxBodyNoScriptData -> error "TxBodyNoScriptData unexpected"
+        TxBodyScriptData supportedInEra (Ledger.TxDats dats) redeemers ->
+          let dat = toAlonzoData sd
+              newDats = Ledger.TxDats $ Map.insert (Ledger.hashData dat) dat dats
+           in TxBodyScriptData supportedInEra newDats redeemers
+
 changeHeadRedeemer :: Head.Input -> (Ledger.Data era, Ledger.ExUnits) -> (Ledger.Data era, Ledger.ExUnits)
 changeHeadRedeemer newRedeemer redeemer@(dat, units) =
-  case fromData (Ledger.getPlutusData dat) of
-    Just (_ :: Head.Input) ->
-      (Ledger.Data (toData newRedeemer), units)
-    Nothing ->
-      redeemer
+  (Ledger.Data (toData newRedeemer), units)
 
 alterRedeemers ::
-  ((Ledger.Data LedgerEra, Ledger.ExUnits) -> (Ledger.Data LedgerEra, Ledger.ExUnits)) ->
+  (Ledger.RdmrPtr -> (Ledger.Data LedgerEra, Ledger.ExUnits) -> (Ledger.Data LedgerEra, Ledger.ExUnits)) ->
   TxBodyScriptData AlonzoEra ->
   TxBodyScriptData AlonzoEra
 alterRedeemers fn = \case
   TxBodyNoScriptData -> error "TxBodyNoScriptData unexpected"
   TxBodyScriptData supportedInEra dats (Ledger.Redeemers redeemers) ->
-    let newRedeemers = fmap fn redeemers
+    let newRedeemers = Map.mapWithKey fn redeemers
      in TxBodyScriptData supportedInEra dats (Ledger.Redeemers newRedeemers)
+
+removeRedeemerFor ::
+  Set (Ledger.TxIn a) ->
+  Ledger.TxIn a ->
+  TxBodyScriptData AlonzoEra ->
+  TxBodyScriptData AlonzoEra
+removeRedeemerFor initialInputs txIn = \case
+  TxBodyNoScriptData -> error "TxBodyNoScriptData unexpected"
+  TxBodyScriptData supportedInEra dats (Ledger.Redeemers initialRedeemers) ->
+    let newRedeemers = Ledger.Redeemers $ Map.fromList $ filter removeRedeemer $ Map.toList initialRedeemers
+        sortedInputs = sort $ toList initialInputs
+        removeRedeemer (Ledger.RdmrPtr _ idx, _) = sortedInputs List.!! fromIntegral idx /= txIn
+     in TxBodyScriptData supportedInEra dats newRedeemers
 
 alterTxOuts ::
   ([TxOut CtxTx Era] -> [TxOut CtxTx Era]) ->

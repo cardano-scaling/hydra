@@ -7,14 +7,20 @@ import Cardano.Api.Shelley (fromPlutusData)
 import qualified Data.Aeson as Aeson
 import qualified Data.ByteString.Lazy as BL
 import Data.Text (pack)
+import Data.Text.Prettyprint.Doc.Extras (pretty)
 import Hydra.Contract.Commit as Commit
 import qualified Hydra.Contract.Hash as Hash
-import Hydra.Contract.Initial as Initial
 import Hydra.Contract.Head as Head
+import Hydra.Contract.HeadState as Head
+import Hydra.Contract.Initial as Initial
 import Ledger (Datum (..), datumHash)
 import Ledger.Scripts (Script, toCardanoApiScript)
 import Ledger.Value
 import Plutus.V1.Ledger.Api (Data, dataToBuiltinData, toData)
+import PlutusTx (getPlc)
+import PlutusTx.Code (CompiledCode)
+import Prettyprinter (defaultLayoutOptions, layoutPretty)
+import Prettyprinter.Render.Text (renderStrict)
 
 -- | Serialise Hydra scripts to files for submission through cardano-cli.
 -- This small utility is useful to manually construct transactions payload for Hydra on-chain
@@ -33,6 +39,9 @@ main = do
   putTextLn "Serialise scripts:"
   writeScripts (scripts policyId)
 
+  putTextLn "Compile scripts:"
+  writePlc (compiledScripts policyId)
+
   putTextLn "Serialise datums:"
   writeData datums
 
@@ -48,6 +57,14 @@ main = do
     forM_ plutus $ \(item, itemName) -> do
       let itemFile = itemName <> ".plutus"
           serialised = Aeson.encode $ serialiseToTextEnvelope (Just $ fromString itemName) $ toCardanoApiScript item
+      BL.writeFile itemFile serialised
+      putTextLn $ "  " <> pack itemFile <> ":     " <> sizeInKb serialised
+
+  writePlc :: [(Compiled, String)] -> IO ()
+  writePlc plutus =
+    forM_ plutus $ \(Compiled item, itemName) -> do
+      let itemFile = itemName <> ".plc"
+          serialised = encodeUtf8 $ renderStrict $ layoutPretty defaultLayoutOptions $ pretty $ getPlc item
       BL.writeFile itemFile serialised
       putTextLn $ "  " <> pack itemFile <> ":     " <> sizeInKb serialised
 
@@ -76,6 +93,12 @@ main = do
 
   hashScript = Hash.validatorScript
 
+  compiledScripts policyId =
+    [ (Compiled $ Head.compiledValidator policyId, "headScript")
+    , (Compiled Initial.compiledValidator, "initialScript")
+    , (Compiled Commit.compiledValidator, "commitScript")
+    ]
+
   datums =
     [ (headDatum, "headDatum")
     , (abortDatum, "abortDatum")
@@ -88,3 +111,5 @@ main = do
   redeemers = [(headRedeemer, "headRedeemer")]
 
   headRedeemer = toData Head.Abort
+
+data Compiled = forall a. Compiled {compiledCode :: CompiledCode a}

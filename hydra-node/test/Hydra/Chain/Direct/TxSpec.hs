@@ -42,6 +42,7 @@ import Hydra.Chain.Direct.Util (Era)
 import Hydra.Chain.Direct.Wallet (ErrCoverFee (..), coverFee_)
 import qualified Hydra.Contract.Commit as Commit
 import qualified Hydra.Contract.Head as Head
+import qualified Hydra.Contract.HeadState as Head
 import qualified Hydra.Contract.Initial as Initial
 import Hydra.Data.ContestationPeriod (contestationPeriodFromDiffTime)
 import Hydra.Data.Party (partyFromVerKey)
@@ -151,7 +152,7 @@ spec =
             commitOutput = TxOut @Era commitAddress commitValue (SJust $ hashData commitDatum)
             commitAddress = scriptAddr $ plutusScript Commit.validatorScript
             commitValue = inject (Coin 2_000_000) <> maybe (inject (Coin 0)) (toLedgerValue . txOutValue . snd) singleUtxo
-            commitDatum = Ledger.Data . toData $ mkCommitDatum party singleUtxo
+            commitDatum = Ledger.Data . toData $ mkCommitDatum party (Head.validatorHash policyId) singleUtxo
             expectedOutput = (TxIn (Ledger.TxId (SafeHash.hashAnnotated $ body tx)) 0, commitOutput, commitDatum)
             committedUtxo = maybe mempty singletonUtxo singleUtxo
          in observeCommitTx testNetworkId tx
@@ -170,7 +171,7 @@ spec =
             commitOutput = TxOut @Era commitAddress commitValue (SJust $ hashData commitDatum)
             commitAddress = scriptAddr $ plutusScript Commit.validatorScript
             commitValue = inject (Coin 2_000_000) <> toMaryValue (balance @CardanoTx committedUtxo)
-            commitDatum = Ledger.Data . toData $ mkCommitDatum party $ Just singleUtxo
+            commitDatum = Ledger.Data . toData $ mkCommitDatum party (Head.validatorHash policyId) $ Just singleUtxo
             commitInput = TxIn (txid $ body tx) 0
             onChainState =
               Initial
@@ -528,7 +529,7 @@ generateCommitUtxos parties = do
     commitValue = inject (Coin 2000000) <> maybe (inject $ Coin 0) (getValue . snd) utxo
     getValue (Api.TxOut _ val _) = toMaryValue $ Api.txOutValueToValue val
     commitScript = plutusScript Commit.validatorScript
-    commitDatum = Data . toData $ mkCommitDatum party utxo
+    commitDatum = Data . toData $ mkCommitDatum party (Head.validatorHash policyId) utxo
 
 executionCost :: PParams Era -> ValidatedTx Era -> Coin
 executionCost PParams{_prices} ValidatedTx{wits} =
