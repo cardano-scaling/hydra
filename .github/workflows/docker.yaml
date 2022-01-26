@@ -31,7 +31,7 @@ jobs:
       uses: docker/metadata-action@v3
       with:
         images: |
-          ghcr.io/${{ github.repository_owner }}/{{ matrix.target }}
+          ghcr.io/${{ github.repository_owner }}/${{ matrix.target }}
         tags: |
           latest
           type=semver,pattern={{version}}
