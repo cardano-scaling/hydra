@@ -18,9 +18,15 @@ import PlutusTx.IsData.Class (ToData (..))
 
 data Initial
 
+data InitialRedeemer
+  = Abort
+  | Commit
+
+PlutusTx.unstableMakeIsData ''InitialRedeemer
+
 instance Scripts.ValidatorTypes Initial where
   type DatumType Initial = PubKeyHash
-  type RedeemerType Initial = ()
+  type RedeemerType Initial = InitialRedeemer
 
 validator ::
   -- | Commit validator
@@ -29,8 +35,10 @@ validator ::
   RedeemerType Initial ->
   ScriptContext ->
   Bool
-validator commitValidator _datum _redeemer context@ScriptContext{scriptContextTxInfo = txInfo} =
-  checkOutputValue
+validator commitValidator _datum red context@ScriptContext{scriptContextTxInfo = txInfo} =
+  case red of
+    Abort -> True
+    Commit -> checkOutputValue
  where
   checkOutputValue =
     traceIfFalse "commitLockedValue does not match" $

@@ -144,7 +144,7 @@ commitTx networkId party utxo (initialInput, vkh) =
   initialDatum =
     mkDatumForTxIn $ Initial.datum $ toPlutusKeyHash vkh
   initialRedeemer =
-    mkRedeemerForTxIn $ Initial.redeemer ()
+    mkRedeemerForTxIn $ Initial.redeemer Initial.Commit
 
   commitOutput =
     TxOut commitAddress commitValue commitDatum
@@ -342,7 +342,7 @@ abortTx networkId (headInput, ScriptDatumForTxIn -> headDatumBefore) initialInpu
   initialScript =
     fromPlutusScript Initial.validatorScript
   initialRedeemer =
-    mkRedeemerForTxIn $ Initial.redeemer ()
+    mkRedeemerForTxIn $ Initial.redeemer Initial.Abort
 
 -- * Observe Hydra Head transactions
 
