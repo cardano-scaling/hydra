@@ -38,6 +38,7 @@ changes.
 - `hydra-tui` to correctly show current state when re-connecting.
 
 #### Known issues
+- There can only be one Head per Cardano network (i.e. on the devnet).
 - Only no or one utxo can be committed to a Head.
 - Recipient addresses to send money to in the TUI are inferred from the current
   UTXO set. If a party does not commit a UTXO or consumes all its UTXO in a
