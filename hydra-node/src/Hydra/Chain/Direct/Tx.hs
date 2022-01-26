@@ -161,7 +161,6 @@ commitTx networkId party utxo (initialInput, vkh) =
   commitDatum =
     mkTxOutDatum $ mkCommitDatum party (Head.validatorHash policyId) utxo
 
--- FIXME: WIP
 mkCommitDatum :: Party -> Plutus.ValidatorHash -> Maybe (Api.TxIn, Api.TxOut Api.CtxUTxO Api.Era) -> Plutus.Datum
 mkCommitDatum (partyFromVerKey . vkey -> party) headValidatorHash utxo =
   Commit.datum (party, headValidatorHash, serializedUtxo)

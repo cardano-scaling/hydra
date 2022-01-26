@@ -8,7 +8,7 @@ import Hydra.Prelude
 import Hydra.Chain.Direct.TxSpec ()
 
 import Data.Maybe (fromJust)
-import Hydra.Chain.Direct.Contract.Mutation (Mutation (ChangeOutput), SomeMutation (SomeMutation))
+import Hydra.Chain.Direct.Contract.Mutation (Mutation (ChangeInput, ChangeOutput), SomeMutation (SomeMutation))
 import qualified Hydra.Chain.Direct.Fixture as Fixture
 import Hydra.Chain.Direct.Tx (commitTx, mkInitialOutput)
 import Hydra.Ledger.Cardano (
@@ -16,6 +16,8 @@ import Hydra.Ledger.Cardano (
   CtxUTxO,
   Era,
   PaymentKey,
+  TxBody (..),
+  TxBodyContent (TxBodyContent, txIns),
   TxIn,
   TxOut (TxOut),
   Utxo,
@@ -23,6 +25,7 @@ import Hydra.Ledger.Cardano (
   genOutput,
   genValue,
   getOutputs,
+  getTxBody,
   lovelaceToValue,
   mkTxOutValue,
   modifyTxOutValue,
@@ -62,7 +65,7 @@ healthyCommitTx =
   committedUtxo :: (TxIn, TxOut CtxUTxO Era)
   committedUtxo = flip generateWith 42 $ do
     txIn <- arbitrary
-    txOut <- modifyTxOutValue (const $ lovelaceToValue 7_000_000) <$> (genOutput =<< arbitrary)
+    txOut <- modifyTxOutValue (const $ lovelaceToValue 8_000_000) <$> (genOutput =<< arbitrary)
     pure (txIn, txOut)
 
   commitVerificationKey :: VerificationKey PaymentKey
@@ -73,6 +76,7 @@ healthyCommitTx =
 
 data CommitMutation
   = MutateCommitOutputValue
+  | MutateComittedValue
   deriving (Generic, Show, Enum, Bounded)
 
 genCommitMutation :: (CardanoTx, Utxo) -> Gen SomeMutation
@@ -81,7 +85,11 @@ genCommitMutation (tx, _utxo) =
     [ SomeMutation MutateCommitOutputValue . ChangeOutput 0 <$> do
         mutatedValue <- (mkTxOutValue <$> genValue) `suchThat` (/= commitOutputValue)
         pure $ TxOut commitOutputAddress mutatedValue commitOutputDatum
+    , SomeMutation MutateComittedValue . ChangeInput comittedTxIn
+        <$> (genOutput =<< arbitrary)
     ]
  where
   TxOut commitOutputAddress commitOutputValue commitOutputDatum =
     fromJust $ getOutputs tx !!? 0
+
+  comittedTxIn = undefined
