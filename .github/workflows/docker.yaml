@@ -33,7 +33,7 @@ jobs:
         images: |
           ghcr.io/${{ github.repository_owner }}/{{ matrix.target }}
         flavor: |
-          latest=auto
+          latest=true
         tags: |
           type=semver,pattern={{version}}
 
