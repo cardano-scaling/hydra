@@ -32,9 +32,8 @@ jobs:
       with:
         images: |
           ghcr.io/${{ github.repository_owner }}/{{ matrix.target }}
-        flavor: |
-          latest=true
         tags: |
+          latest
           type=semver,pattern={{version}}
 
     - name: 🔨 Build and push
