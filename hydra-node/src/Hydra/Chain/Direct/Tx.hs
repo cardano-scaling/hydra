@@ -210,7 +210,7 @@ collectComTx networkId (headInput, ScriptDatumForTxIn -> headDatumBefore, partie
   extractSerialisedTxOut d =
     case fromData $ toPlutusData d of
       Nothing -> error "SNAFU"
-      Just ((_, _, Just (_, o)) :: DatumType Commit.Commit) -> Just o
+      Just ((_, _, Just o) :: DatumType Commit.Commit) -> Just o
       _ -> Nothing
   utxoHash =
     Head.hashPreSerializedCommits $
@@ -416,21 +416,42 @@ observeCommitTx ::
   CardanoTx ->
   Maybe (OnChainTx CardanoTx, (TxIn, TxOut CtxUTxO Era, ScriptData))
 observeCommitTx networkId initials (getTxBody -> txBody) = do
-  let ins = filterTxIn (`elem` initials) txBody
+  initialTxIn <- findInitialTxIn
+  initialRedeemer <- findRedeemerSpending txBody initialTxIn
+  let mCommittedTxIn = fromPlutusTxOutRef <$> initialRedeemer
+
   (commitIn, commitOut) <- findTxOutByAddress commitAddress txBody
   dat <- getDatum commitOut
   (party, _, serializedTxOut) <- fromData @(DatumType Commit.Commit) $ toPlutusData dat
-  convertedTxOut <- convertTxOut serializedTxOut
-  let onChainTx = OnCommitTx (convertParty party) convertedUtxo
-  pure (onChainTx, (commitIn, toCtxUTxOTxOut commitOut, dat))
+  let mCommittedTxOut = convertTxOut serializedTxOut
+
+  comittedUtxo <-
+    case (mCommittedTxIn, mCommittedTxOut) of
+      (Nothing, Nothing) -> Just mempty
+      (Just i, Just o) -> Just $ Api.singletonUtxo (i, o)
+      _ -> Nothing
+
+  let onChainTx = OnCommitTx (convertParty party) comittedUtxo
+  pure
+    ( onChainTx
+    , (commitIn, toUtxoContext commitOut, dat)
+    )
  where
-  convertTxOut :: Maybe Commit.SerializedTxOut -> Maybe (TxOut CtxTx Era)
+  findInitialTxIn =
+    let ins = filterTxIn (`elem` initials) txBody
+     in case ins of
+          [input] -> Just input
+          _ ->
+            -- XXX(SN): this is indicating a problem and we at least wan't to know about it
+            Nothing
+
+  convertTxOut :: Maybe Commit.SerializedTxOut -> Maybe (TxOut CtxUTxO Era)
   convertTxOut = \case
-    Nothing -> Just mempty
+    Nothing -> Nothing
     Just (Commit.SerializedTxOut outBytes) ->
       -- XXX(SN): these errors might be more severe and we could throw an
       -- exception here?
-      eitherToMaybe $ decodeFull' (fromBuiltin outBytes)
+      eitherToMaybe $ Api.fromLedgerTxOut <$> decodeFull' (fromBuiltin outBytes)
 
   commitAddress = mkScriptAddress @PlutusScriptV1 networkId commitScript
 
@@ -445,7 +466,7 @@ observeCommit ::
   Maybe (OnChainTx CardanoTx, OnChainHeadState)
 observeCommit networkId tx = \case
   Initial{threadOutput, initials, commits} -> do
-    (onChainTx, commitTriple) <- observeCommitTx networkId initials tx
+    (onChainTx, commitTriple) <- observeCommitTx networkId (initials <&> \(a, _, _) -> a) tx
     -- NOTE(SN): A commit tx has been observed and thus we can remove all it's
     -- inputs from our tracked initials
     let commitIns = inputs tx
