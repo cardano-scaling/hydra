@@ -62,7 +62,7 @@ healthyCommitTx =
   committedUtxo :: (TxIn, TxOut CtxUTxO Era)
   committedUtxo = flip generateWith 42 $ do
     txIn <- arbitrary
-    txOut <- modifyTxOutValue (const $ lovelaceToValue 8_000_000) <$> (genOutput =<< arbitrary)
+    txOut <- modifyTxOutValue (const $ lovelaceToValue 7_000_000) <$> (genOutput =<< arbitrary)
     pure (txIn, txOut)
 
   commitVerificationKey :: VerificationKey PaymentKey

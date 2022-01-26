@@ -12,7 +12,7 @@ import PlutusTx.Prelude
 import qualified Hydra.Contract.Commit as Commit
 import Ledger.Typed.Scripts (TypedValidator, ValidatorTypes (..))
 import qualified Ledger.Typed.Scripts as Scripts
-import Plutus.V1.Ledger.Ada (fromValue, getLovelace, lovelaceValueOf)
+import Plutus.V1.Ledger.Ada (fromValue, getLovelace)
 import qualified PlutusTx
 import PlutusTx.IsData.Class (ToData (..))
 
@@ -39,22 +39,31 @@ validator ::
   InitialRedeemer ->
   ScriptContext ->
   Bool
-validator commitValidator _datum red context@ScriptContext{scriptContextTxInfo = txInfo} =
+validator commitValidator _datum red context =
   case red of
     Abort -> True
-    Commit{} -> checkOutputValue
- where
-  checkOutputValue =
-    traceIfFalse "commitLockedValue does not match" $
-      traceIfFalse ("commitLockedValue: " `appendString` debugValue commitLockedValue) $
-        traceIfFalse ("initialValue: " `appendString` debugValue initialValue) $
-          traceIfFalse ("comittedValue: " `appendString` debugValue committedValue) $
-            commitLockedValue == initialValue + committedValue
+    Commit{committedRef} -> checkCommit commitValidator committedRef context
 
+checkCommit ::
+  -- | Commit validator
+  ValidatorHash ->
+  Maybe TxOutRef ->
+  ScriptContext ->
+  Bool
+checkCommit commitValidator comittedRef context@ScriptContext{scriptContextTxInfo = txInfo} =
+  traceIfFalse "commitLockedValue does not match" $
+    traceIfFalse ("commitLockedValue: " `appendString` debugValue commitLockedValue) $
+      traceIfFalse ("initialValue: " `appendString` debugValue initialValue) $
+        traceIfFalse ("comittedValue: " `appendString` debugValue committedValue) $
+          commitLockedValue == initialValue + committedValue
+ where
   initialValue =
     maybe mempty (txOutValue . txInInfoResolved) $ findOwnInput context
 
-  committedValue = lovelaceValueOf 8_000_000
+  committedValue =
+    maybe mempty (txOutValue . txInInfoResolved) $ do
+      ref <- comittedRef
+      findTxInByTxOutRef ref txInfo
 
   commitLockedValue = valueLockedBy txInfo commitValidator
 
