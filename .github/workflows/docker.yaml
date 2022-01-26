@@ -1,5 +1,7 @@
 name: Docker
 
+# NOTE: This workflow builds & tags docker images always as 'latest', so ensure
+# it only runs on events we want to have as 'latest' image on the registry.
 on:
   push:
     branches: [ "master", "ch1bo/multiple-docker-images" ]
