@@ -12,7 +12,7 @@ import PlutusTx.Prelude
 import qualified Hydra.Contract.Commit as Commit
 import Ledger.Typed.Scripts (TypedValidator, ValidatorTypes (..))
 import qualified Ledger.Typed.Scripts as Scripts
-import Plutus.V1.Ledger.Ada (adaValueOf, fromValue, getLovelace, lovelaceOf, lovelaceValueOf)
+import Plutus.V1.Ledger.Ada (fromValue, getLovelace, lovelaceValueOf)
 import qualified PlutusTx
 import PlutusTx.IsData.Class (ToData (..))
 
