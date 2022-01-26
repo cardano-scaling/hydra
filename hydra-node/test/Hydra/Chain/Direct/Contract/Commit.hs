@@ -8,7 +8,11 @@ import Hydra.Prelude
 import Hydra.Chain.Direct.TxSpec ()
 
 import Data.Maybe (fromJust)
-import Hydra.Chain.Direct.Contract.Mutation (Mutation (ChangeInput, ChangeOutput), SomeMutation (SomeMutation))
+import Hydra.Chain.Direct.Contract.Mutation (
+  Mutation (..),
+  SomeMutation (..),
+  isInitialOutput,
+ )
 import qualified Hydra.Chain.Direct.Fixture as Fixture
 import Hydra.Chain.Direct.Tx (commitTx, mkInitialOutput)
 import Hydra.Ledger.Cardano (
@@ -16,8 +20,6 @@ import Hydra.Ledger.Cardano (
   CtxUTxO,
   Era,
   PaymentKey,
-  TxBody (..),
-  TxBodyContent (TxBodyContent, txIns),
   TxIn,
   TxOut (TxOut),
   Utxo,
@@ -25,16 +27,16 @@ import Hydra.Ledger.Cardano (
   genOutput,
   genValue,
   getOutputs,
-  getTxBody,
   lovelaceToValue,
   mkTxOutValue,
   modifyTxOutValue,
   singletonUtxo,
   toUtxoContext,
+  utxoPairs,
   verificationKeyHash,
  )
 import Hydra.Party (Party)
-import Test.QuickCheck (oneof, suchThat)
+import Test.QuickCheck (elements, oneof, suchThat)
 
 --
 -- CommitTx
@@ -80,16 +82,21 @@ data CommitMutation
   deriving (Generic, Show, Enum, Bounded)
 
 genCommitMutation :: (CardanoTx, Utxo) -> Gen SomeMutation
-genCommitMutation (tx, _utxo) =
+genCommitMutation (tx, utxo) =
   oneof
     [ SomeMutation MutateCommitOutputValue . ChangeOutput 0 <$> do
         mutatedValue <- (mkTxOutValue <$> genValue) `suchThat` (/= commitOutputValue)
         pure $ TxOut commitOutputAddress mutatedValue commitOutputDatum
-    , SomeMutation MutateComittedValue . ChangeInput comittedTxIn
-        <$> (genOutput =<< arbitrary)
+    , SomeMutation MutateComittedValue <$> do
+        (comittedTxIn, _) <- elements comittedTxIns
+        newResolvedTxIn <- genOutput =<< arbitrary
+        pure $ ChangeInput comittedTxIn newResolvedTxIn
     ]
  where
   TxOut commitOutputAddress commitOutputValue commitOutputDatum =
     fromJust $ getOutputs tx !!? 0
 
-  comittedTxIn = undefined
+  -- NOTE: This filtering will also yield any input added for fees, but we don't
+  -- have any in our test scenario so far.
+  comittedTxIns =
+    filter (not . isInitialOutput . snd) . utxoPairs $ utxo

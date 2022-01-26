@@ -24,6 +24,7 @@ import Hydra.Chain.Direct.Tx (
  )
 import qualified Hydra.Contract.Head as Head
 import qualified Hydra.Contract.HeadState as Head
+import qualified Hydra.Contract.Initial as Initial
 import Hydra.Ledger.Cardano (
   AlonzoEra,
   CardanoTx,
@@ -254,6 +255,12 @@ isHeadOutput (TxOut addr _ _) = addr == headAddress
  where
   headAddress = Api.mkScriptAddress @Api.PlutusScriptV1 Fixture.testNetworkId headScript
   headScript = Api.fromPlutusScript $ Head.validatorScript policyId
+
+isInitialOutput :: TxOut CtxUTxO Era -> Bool
+isInitialOutput (TxOut addr _ _) = addr == initialAddress
+ where
+  initialAddress = Api.mkScriptAddress @Api.PlutusScriptV1 Fixture.testNetworkId initialScript
+  initialScript = Api.fromPlutusScript Initial.validatorScript
 
 -- | Adds given 'Datum' and corresponding hash to the transaction's scripts.
 -- TODO: As we are creating the `TxOutDatum` from a known datum, passing a `TxOutDatum` is
