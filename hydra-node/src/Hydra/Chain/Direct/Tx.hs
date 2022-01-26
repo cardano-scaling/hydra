@@ -30,7 +30,6 @@ import Hydra.Party (MultiSigned, Party (Party), toPlutusSignatures, vkey)
 import Hydra.Snapshot (Snapshot (..))
 import Ledger.Typed.Scripts (DatumType)
 import Ledger.Value (AssetClass (..), currencyMPSHash)
-import Ouroboros.Consensus.Util (eitherToMaybe)
 import Plutus.V1.Ledger.Api (MintingPolicyHash, fromBuiltin, fromData)
 import qualified Plutus.V1.Ledger.Api as Plutus
 import Plutus.V1.Ledger.Value (assetClass, currencySymbol, tokenName)
@@ -418,7 +417,7 @@ observeCommitTx ::
 observeCommitTx networkId initials (getTxBody -> txBody) = do
   initialTxIn <- findInitialTxIn
   initialRedeemer <- findRedeemerSpending txBody initialTxIn
-  let mCommittedTxIn = fromPlutusTxOutRef <$> initialRedeemer
+  mCommittedTxIn <- matchCommit initialRedeemer
 
   (commitIn, commitOut) <- findTxOutByAddress commitAddress txBody
   dat <- getDatum commitOut
@@ -429,7 +428,8 @@ observeCommitTx networkId initials (getTxBody -> txBody) = do
     case (mCommittedTxIn, mCommittedTxOut) of
       (Nothing, Nothing) -> Just mempty
       (Just i, Just o) -> Just $ Api.singletonUtxo (i, o)
-      _ -> Nothing
+      (Nothing, Just{}) -> error "found commit with no redeemer out ref but with serialized output."
+      (Just{}, Nothing) -> error "found commit with redeemer out ref but with no serialized output."
 
   let onChainTx = OnCommitTx (convertParty party) comittedUtxo
   pure
@@ -441,9 +441,15 @@ observeCommitTx networkId initials (getTxBody -> txBody) = do
     let ins = filterTxIn (`elem` initials) txBody
      in case ins of
           [input] -> Just input
-          _ ->
-            -- XXX(SN): this is indicating a problem and we at least wan't to know about it
-            Nothing
+          [] -> Nothing
+          _ -> error "transaction consuming more than one initial at once."
+
+  matchCommit :: Initial.InitialRedeemer -> Maybe (Maybe Api.TxIn)
+  matchCommit = \case
+    Initial.Abort ->
+      Nothing
+    Initial.Commit{committedRef} ->
+      Just (Api.fromPlutusTxOutRef <$> committedRef)
 
   convertTxOut :: Maybe Commit.SerializedTxOut -> Maybe (TxOut CtxUTxO Era)
   convertTxOut = \case
@@ -451,7 +457,9 @@ observeCommitTx networkId initials (getTxBody -> txBody) = do
     Just (Commit.SerializedTxOut outBytes) ->
       -- XXX(SN): these errors might be more severe and we could throw an
       -- exception here?
-      eitherToMaybe $ Api.fromLedgerTxOut <$> decodeFull' (fromBuiltin outBytes)
+      case Api.fromLedgerTxOut <$> decodeFull' (fromBuiltin outBytes) of
+        Right result -> Just result
+        Left{} -> error "couldn't deserialize serialized output in commit's datum."
 
   commitAddress = mkScriptAddress @PlutusScriptV1 networkId commitScript
 
