@@ -39,9 +39,7 @@ jobs:
           ~/.cabal/store
           dist-newstyle
         key: |
-          cabal-${{ runner.os }}-${{ hashFiles('cabal.project') }}
-        restore-keys: |
-          cabal-${{ runner.os }}
+          cabal-${{ runner.os }}-${{ hashFiles('cabal.project', 'default.nix', 'shell.nix') }}
 
     - name: Prepare nix-shell
       run: |

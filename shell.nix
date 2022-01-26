@@ -2,8 +2,8 @@
 # environment. This is now based on haskell.nix and it's haskell-nix.project
 # (see 'default.nix').
 { compiler ? "ghc8107"
-  # nixpkgs 21.05 at 2021-11-16
-, pkgs ? import (builtins.fetchTarball "https://github.com/NixOS/nixpkgs/archive/01eaa66bb663412c31b5399334f118030a91f1aa.tar.gz") { }
+  # nixpkgs 21.11
+, pkgs ? import (builtins.fetchTarball "https://github.com/NixOS/nixpkgs/archive/a7ecde854aee5c4c7cd6177f54a99d2c1ff28a31.tar.gz") { }
 
 , hsPkgs ? import ./default.nix { }
 
@@ -23,10 +23,11 @@
 let
   libs = [
     libsodium-vrf
-    pkgs.systemd
     pkgs.zlib
     pkgs.lzma
-  ];
+  ]
+  ++
+  pkgs.lib.optionals (pkgs.stdenv.isLinux) [ pkgs.systemd ];
 
   tools = [
     pkgs.pkgconfig
@@ -56,7 +57,7 @@ let
     # Haskell.nix managed tools (via hackage)
     tools = {
       cabal = "3.4.0.0";
-      fourmolu = "latest";
+      fourmolu = "0.4.0.0"; # 0.5.0.0 requires Cabal 3.6
       haskell-language-server = "latest";
     };
 
