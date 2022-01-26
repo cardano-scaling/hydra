@@ -12,7 +12,6 @@ import PlutusTx.Prelude
 import Hydra.Contract.Commit (SerializedTxOut (..))
 import qualified Hydra.Contract.Commit as Commit
 import Hydra.Contract.Encoding (encodeTxOut)
-import Hydra.Data.Party (Party)
 import Ledger.Typed.Scripts (TypedValidator, ValidatorTypes (..))
 import qualified Ledger.Typed.Scripts as Scripts
 import Plutus.Codec.CBOR.Encoding (encodingToBuiltinByteString)
@@ -55,7 +54,7 @@ checkCommit ::
   ScriptContext ->
   Bool
 checkCommit commitValidator committedRef context@ScriptContext{scriptContextTxInfo = txInfo} =
-  checkCommittedValue && checkCommittedDatum
+  checkCommittedValue && checkSerializedTxOut
  where
   checkCommittedValue =
     traceIfFalse "commitLockedValue does not match" $
@@ -64,35 +63,41 @@ checkCommit commitValidator committedRef context@ScriptContext{scriptContextTxIn
           traceIfFalse ("comittedValue: " `appendString` debugValue committedValue) $
             commitLockedValue == initialValue + committedValue
 
-  checkCommittedDatum =
-    case scriptOutputsAt commitValidator txInfo of
-      [(dh, _)] ->
-        case getDatum <$> findDatum dh txInfo of
-          Nothing -> traceError "Invalid datum hash with no datum"
-          (Just da) ->
-            case fromBuiltinData @(Party, ValidatorHash, Maybe SerializedTxOut) da of
-              Just (_party, _headScriptHash, Nothing) ->
-                traceIfFalse "committed UTXO is not in output datum" $ isNothing committedRef
-              Just (_party, _headScriptHash, Just serialisedTxOut) ->
-                case txInInfoResolved <$> committedTxOut of
-                  Nothing -> traceError "unexpected UTXO in output datum"
-                  Just txOut ->
-                    traceIfFalse "mismatch committed TxOut in datum" $
-                      SerializedTxOut (encodingToBuiltinByteString (encodeTxOut txOut)) == serialisedTxOut
-              _ -> traceError "TODO"
-      _ -> traceError "expected single commit output"
+  checkSerializedTxOut =
+    case (committedTxOut, commitLockedSerializedTxOut) of
+      (Nothing, Nothing) ->
+        True
+      (Nothing, Just{}) ->
+        traceError "nothing committed, but TxOut in output datum"
+      (Just{}, Nothing) ->
+        traceError "committed TxOut, but nothing in output datum"
+      (Just txOut, Just serializedTxOut) ->
+        traceIfFalse "mismatch committed TxOut in datum" $
+          SerializedTxOut (encodingToBuiltinByteString (encodeTxOut txOut)) == serializedTxOut
 
   initialValue =
     maybe mempty (txOutValue . txInInfoResolved) $ findOwnInput context
 
   committedValue =
-    maybe mempty (txOutValue . txInInfoResolved) committedTxOut
+    maybe mempty txOutValue committedTxOut
 
   committedTxOut = do
     ref <- committedRef
-    findTxInByTxOutRef ref txInfo
+    txInInfoResolved <$> findTxInByTxOutRef ref txInfo
 
   commitLockedValue = valueLockedBy txInfo commitValidator
+
+  commitLockedSerializedTxOut =
+    case scriptOutputsAt commitValidator txInfo of
+      [(dh, _)] ->
+        case getDatum <$> findDatum dh txInfo of
+          Nothing -> traceError "expected optional commit datum"
+          (Just da) ->
+            case fromBuiltinData @(DatumType Commit.Commit) da of
+              Nothing -> traceError "expected commit datum type, got something else"
+              Just (_party, _headScriptHash, mSerializedTxOut) ->
+                mSerializedTxOut
+      _ -> traceError "expected single commit output"
 
   debugValue = debugInteger . getLovelace . fromValue
 
