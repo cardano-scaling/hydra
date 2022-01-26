@@ -21,6 +21,9 @@ data Initial
 data InitialRedeemer
   = Abort
   | Commit
+      { -- | Points to the committed Utxo.
+        committedRef :: Maybe TxOutRef
+      }
 
 PlutusTx.unstableMakeIsData ''InitialRedeemer
 
@@ -31,14 +34,15 @@ instance Scripts.ValidatorTypes Initial where
 validator ::
   -- | Commit validator
   ValidatorHash ->
-  DatumType Initial ->
-  RedeemerType Initial ->
+  -- | The Hydra party which committed
+  PubKeyHash ->
+  InitialRedeemer ->
   ScriptContext ->
   Bool
 validator commitValidator _datum red context@ScriptContext{scriptContextTxInfo = txInfo} =
   case red of
     Abort -> True
-    Commit -> checkOutputValue
+    Commit{} -> checkOutputValue
  where
   checkOutputValue =
     traceIfFalse "commitLockedValue does not match" $

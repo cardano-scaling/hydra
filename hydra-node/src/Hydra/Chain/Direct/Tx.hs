@@ -134,7 +134,7 @@ commitTx networkId party utxo (initialInput, vkh) =
   unsafeBuildTransaction $
     emptyTxBody
       & addInputs [(initialInput, initialWitness)]
-      & addVkInputs [commit | Just (commit, _) <- [utxo]]
+      & addVkInputs (maybeToList mCommittedInput)
       & addOutputs [commitOutput]
  where
   initialWitness =
@@ -144,8 +144,10 @@ commitTx networkId party utxo (initialInput, vkh) =
   initialDatum =
     mkDatumForTxIn $ Initial.datum $ toPlutusKeyHash vkh
   initialRedeemer =
-    mkRedeemerForTxIn $ Initial.redeemer Initial.Commit
-
+    mkRedeemerForTxIn . Initial.redeemer $
+      Initial.Commit (toPlutusTxOutRef <$> mCommittedInput)
+  mCommittedInput =
+    fst <$> utxo
   commitOutput =
     TxOut commitAddress commitValue commitDatum
   commitScript =
