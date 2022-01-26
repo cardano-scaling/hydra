@@ -9,11 +9,13 @@ module Hydra.Contract.Initial where
 import Ledger hiding (validatorHash)
 import PlutusTx.Prelude
 
-import Hydra.Contract.Commit (SerializedTxOut, SerializedTxOutRef)
+import Hydra.Contract.Commit (SerializedTxOut (SerializedTxOut), SerializedTxOutRef)
 import qualified Hydra.Contract.Commit as Commit
+import Hydra.Contract.Encoding (encodeTxOut)
 import Hydra.Data.Party (Party)
 import Ledger.Typed.Scripts (TypedValidator, ValidatorTypes (..))
 import qualified Ledger.Typed.Scripts as Scripts
+import Plutus.Codec.CBOR.Encoding (encodingToBuiltinByteString)
 import Plutus.V1.Ledger.Ada (fromValue, getLovelace)
 import qualified PlutusTx
 import PlutusTx.IsData.Class (ToData (..), fromBuiltinData)
@@ -71,6 +73,12 @@ checkCommit commitValidator committedRef context@ScriptContext{scriptContextTxIn
             case fromBuiltinData @(Party, ValidatorHash, Maybe (SerializedTxOutRef, SerializedTxOut)) da of
               Just (_party, _headScriptHash, Nothing) ->
                 traceIfFalse "committed UTXO is not in output datum" $ isNothing committedRef
+              Just (_party, _headScriptHash, Just (_serialisedTxOutRef, serialisedTxOut)) ->
+                case txInInfoResolved <$> committedTxOut of
+                  Nothing -> traceError "unexpected UTXO in output datum"
+                  Just txOut ->
+                    traceIfFalse "mismatch committed TxOut in datum" $
+                      SerializedTxOut (encodingToBuiltinByteString (encodeTxOut txOut)) == serialisedTxOut
               _ -> traceError "TODO"
       _ -> traceError "expected single commit output"
 
@@ -78,9 +86,11 @@ checkCommit commitValidator committedRef context@ScriptContext{scriptContextTxIn
     maybe mempty (txOutValue . txInInfoResolved) $ findOwnInput context
 
   committedValue =
-    maybe mempty (txOutValue . txInInfoResolved) $ do
-      ref <- committedRef
-      findTxInByTxOutRef ref txInfo
+    maybe mempty (txOutValue . txInInfoResolved) $ committedTxOut
+
+  committedTxOut = do
+    ref <- committedRef
+    findTxInByTxOutRef ref txInfo
 
   commitLockedValue = valueLockedBy txInfo commitValidator
 

@@ -25,6 +25,9 @@ PlutusTx.unstableMakeIsData ''SerializedTxOutRef
 newtype SerializedTxOut = SerializedTxOut BuiltinByteString
 PlutusTx.unstableMakeIsData ''SerializedTxOut
 
+instance Eq SerializedTxOut where
+  SerializedTxOut bs == SerializedTxOut bs' = bs == bs'
+
 -- TODO: Having the 'TxOutRef' on-chain is not necessary but it is convenient
 -- for the off-chain code to reconstrut the commit UTXO.
 --
