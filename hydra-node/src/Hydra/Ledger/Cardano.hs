@@ -416,6 +416,11 @@ inputs :: CardanoTx -> [TxIn]
 inputs (Tx (ShelleyTxBody _ body _ _ _ _) _) =
   fromLedgerTxIn <$> toList (Ledger.Alonzo.inputs body)
 
+-- | Filter txins of a transaction given the predicate.
+filterTxIn :: (TxIn -> Bool) -> TxBody Era -> [TxIn]
+filterTxIn fn (TxBody body) =
+  filter fn (fst <$> txIns body)
+
 -- ** TxOut
 
 -- XXX(SN): replace with Cardano.Api.TxBody.lovelaceToTxOutValue when available

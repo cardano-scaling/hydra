@@ -19,9 +19,6 @@ import PlutusTx.IsData.Class (FromData (fromBuiltinData), ToData (..))
 
 data Commit
 
-newtype SerializedTxOutRef = SerializedTxOutRef BuiltinByteString
-PlutusTx.unstableMakeIsData ''SerializedTxOutRef
-
 newtype SerializedTxOut = SerializedTxOut BuiltinByteString
 PlutusTx.unstableMakeIsData ''SerializedTxOut
 
@@ -34,7 +31,7 @@ instance Eq SerializedTxOut where
 -- Ideally, since the TxOutRef is already present in the redeemer for the
 -- initial validator, the off-chain code could get it from there.
 instance Scripts.ValidatorTypes Commit where
-  type DatumType Commit = (Party, ValidatorHash, Maybe (SerializedTxOutRef, SerializedTxOut))
+  type DatumType Commit = (Party, ValidatorHash, Maybe SerializedTxOut)
   type RedeemerType Commit = ()
 
 validator :: DatumType Commit -> RedeemerType Commit -> ScriptContext -> Bool

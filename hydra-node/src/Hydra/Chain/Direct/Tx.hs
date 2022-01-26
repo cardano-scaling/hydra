@@ -168,11 +168,8 @@ mkCommitDatum (partyFromVerKey . vkey -> party) headValidatorHash utxo =
   serializedUtxo = case utxo of
     Nothing ->
       Nothing
-    Just (i, o) ->
-      Just
-        ( Commit.SerializedTxOutRef (toBuiltin $ serialize' $ Api.toLedgerTxIn i)
-        , Commit.SerializedTxOut (toBuiltin $ serialize' $ Api.toLedgerTxOut o)
-        )
+    Just (_i, o) ->
+      Just $ Commit.SerializedTxOut (toBuiltin $ serialize' $ Api.toLedgerTxOut o)
 
 -- | Create a transaction collecting all "committed" utxo and opening a Head,
 -- i.e. driving the Head script state.
@@ -402,28 +399,38 @@ convertParty :: OnChain.Party -> Party
 convertParty = Party . partyToVerKey
 
 -- | Identify a commit tx by looking for an output which pays to v_commit.
+--
+-- To reconstruct a commit from a commit transaction we need to:
+--
+-- - Find out which 'initials' is being committed
+-- - Find the redeemer corresponding to that 'initial' which contain the
+--   output-reference of the commit
+-- - Find the outputs which pays to the commit validator
+-- - Extract the datum of that output, which contains the output of the commit
+-- - Reconstruct the committed UTXO from both values (output ref and output).
 observeCommitTx ::
   NetworkId ->
+  -- TODO: This type may be too large for this function, we only probably need
+  -- just the TxIn.
+  [TxIn] ->
   CardanoTx ->
   Maybe (OnChainTx CardanoTx, (TxIn, TxOut CtxUTxO Era, ScriptData))
-observeCommitTx networkId (getTxBody -> txBody) = do
+observeCommitTx networkId initials (getTxBody -> txBody) = do
+  let ins = filterTxIn (`elem` initials) txBody
   (commitIn, commitOut) <- findTxOutByAddress commitAddress txBody
   dat <- getDatum commitOut
-  (party, _, committedUtxo) <- fromData @(DatumType Commit.Commit) $ toPlutusData dat
-  convertedUtxo <- convertUtxo committedUtxo
+  (party, _, serializedTxOut) <- fromData @(DatumType Commit.Commit) $ toPlutusData dat
+  convertedTxOut <- convertTxOut serializedTxOut
   let onChainTx = OnCommitTx (convertParty party) convertedUtxo
   pure (onChainTx, (commitIn, toCtxUTxOTxOut commitOut, dat))
  where
-  convertUtxo :: Maybe (Commit.SerializedTxOutRef, Commit.SerializedTxOut) -> Maybe Utxo
-  convertUtxo = \case
+  convertTxOut :: Maybe Commit.SerializedTxOut -> Maybe (TxOut CtxTx Era)
+  convertTxOut = \case
     Nothing -> Just mempty
-    Just (Commit.SerializedTxOutRef inBytes, Commit.SerializedTxOut outBytes) ->
+    Just (Commit.SerializedTxOut outBytes) ->
       -- XXX(SN): these errors might be more severe and we could throw an
       -- exception here?
-      eitherToMaybe $ do
-        txIn <- fromLedgerTxIn <$> decodeFull' (fromBuiltin inBytes)
-        txOut <- fromLedgerTxOut <$> decodeFull' (fromBuiltin outBytes)
-        pure $ singletonUtxo (txIn, txOut)
+      eitherToMaybe $ decodeFull' (fromBuiltin outBytes)
 
   commitAddress = mkScriptAddress @PlutusScriptV1 networkId commitScript
 
@@ -438,7 +445,7 @@ observeCommit ::
   Maybe (OnChainTx CardanoTx, OnChainHeadState)
 observeCommit networkId tx = \case
   Initial{threadOutput, initials, commits} -> do
-    (onChainTx, commitTriple) <- observeCommitTx networkId tx
+    (onChainTx, commitTriple) <- observeCommitTx networkId initials tx
     -- NOTE(SN): A commit tx has been observed and thus we can remove all it's
     -- inputs from our tracked initials
     let commitIns = inputs tx

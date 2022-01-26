@@ -9,7 +9,7 @@ module Hydra.Contract.Initial where
 import Ledger hiding (validatorHash)
 import PlutusTx.Prelude
 
-import Hydra.Contract.Commit (SerializedTxOut (SerializedTxOut), SerializedTxOutRef)
+import Hydra.Contract.Commit (SerializedTxOut (..))
 import qualified Hydra.Contract.Commit as Commit
 import Hydra.Contract.Encoding (encodeTxOut)
 import Hydra.Data.Party (Party)
@@ -70,10 +70,10 @@ checkCommit commitValidator committedRef context@ScriptContext{scriptContextTxIn
         case getDatum <$> findDatum dh txInfo of
           Nothing -> traceError "Invalid datum hash with no datum"
           (Just da) ->
-            case fromBuiltinData @(Party, ValidatorHash, Maybe (SerializedTxOutRef, SerializedTxOut)) da of
+            case fromBuiltinData @(Party, ValidatorHash, Maybe SerializedTxOut) da of
               Just (_party, _headScriptHash, Nothing) ->
                 traceIfFalse "committed UTXO is not in output datum" $ isNothing committedRef
-              Just (_party, _headScriptHash, Just (_serialisedTxOutRef, serialisedTxOut)) ->
+              Just (_party, _headScriptHash, Just serialisedTxOut) ->
                 case txInInfoResolved <$> committedTxOut of
                   Nothing -> traceError "unexpected UTXO in output datum"
                   Just txOut ->
@@ -86,7 +86,7 @@ checkCommit commitValidator committedRef context@ScriptContext{scriptContextTxIn
     maybe mempty (txOutValue . txInInfoResolved) $ findOwnInput context
 
   committedValue =
-    maybe mempty (txOutValue . txInInfoResolved) $ committedTxOut
+    maybe mempty (txOutValue . txInInfoResolved) committedTxOut
 
   committedTxOut = do
     ref <- committedRef
