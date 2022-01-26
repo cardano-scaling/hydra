@@ -3,7 +3,7 @@
 <div align="center">
   <p>A home to our colorful experiments and prototypes.</p>
   <a href='https://github.com/input-output-hk/hydra-poc/actions'><img src="https://img.shields.io/github/workflow/status/input-output-hk/hydra-poc/CI?label=Tests&style=for-the-badge" /></a>
-  <a href='https://hub.docker.com/r/inputoutput/hydra/tags'><img src="https://img.shields.io/github/workflow/status/input-output-hk/hydra-poc/Docker?label=Docker&style=for-the-badge" /></a>
+  <a href='https://hub.docker.com/r/inputoutput/hydra-node/tags'><img src="https://img.shields.io/github/workflow/status/input-output-hk/hydra-poc/Docker?label=Docker&style=for-the-badge" /></a>
 </div>
 
 ## :sunrise_over_mountains: Introduction
@@ -54,11 +54,11 @@ Later:
 ## :rocket: Getting started
 
 The quickest way to get a `hydra-node` running is to use our [docker
-images](https://hub.docker.com/r/inputoutput/hydra/tags).
+images](https://hub.docker.com/r/inputoutput/hydra-node/tags).
 
 ```sh
-docker pull inputoutput/hydra:hydra-node-latest
-docker run --rm inputoutput/hydra:hydra-node-latest --help
+docker pull inputoutput/hydra-node
+docker run --rm inputoutput/hydra-node --help
 ```
 
 A full example scenario with three nodes connected off-chain and three Head

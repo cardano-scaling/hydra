@@ -1,5 +1,7 @@
 name: Docker
 
+# NOTE: This workflow builds & tags docker images always as 'latest', so ensure
+# it only runs on events we want to have as 'latest' image on the registry.
 on:
   push:
     branches: [ "master" ]
@@ -9,11 +11,9 @@ jobs:
   docker:
     strategy:
       matrix:
-        os: [ ubuntu-20.04 ]
-        repository: [ inputoutput/hydra ]
         target: [ hydra-node, hydra-tui ]
 
-    runs-on: ${{ matrix.os }}
+    runs-on: ubuntu-latest
     steps:
     - name: 📥 Checkout repository
       uses: actions/checkout@v2.3.3
@@ -21,35 +21,30 @@ jobs:
     - name: 🧰 Set up Docker Buildx
       uses: docker/setup-buildx-action@v1
 
-    - name: 🐳 Login to DockerHub
+    - name: 🐳 Login to GitHub Container Registry
       uses: docker/login-action@v1
       with:
-        username: ${{ secrets.DOCKERHUB_USERNAME }}
-        password: ${{ secrets.DOCKERHUB_ACCESS_TOKEN }}
+        registry: ghcr.io
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: 📝 Prepare docker image metadata
+      id: meta
+      uses: docker/metadata-action@v3
+      with:
+        images: |
+          ghcr.io/${{ github.repository_owner }}/${{ matrix.target }}
+        tags: |
+          latest
+          type=semver,pattern={{version}}
 
     - name: 🔨 Build and push
       uses: docker/build-push-action@v2
       with:
         context: .
         push: true
-        tags: ${{ matrix.repository }}:${{ matrix.target }}-latest
         target: ${{ matrix.target }}
-        cache-from: type=registry,ref=${{ matrix.repository }}:${{ matrix.target }}-latest
-        cache-to: type=inline
-
-    - name: 📝 Variables
-      if: ${{ startsWith(github.ref, 'refs/tags') }}
-      id: variables
-      run: |
-        echo ::set-output name=tag::${GITHUB_REF/refs\/tags\//}
-
-    - name: 🏷️ Build and push (tag)
-      if: ${{ startsWith(github.ref, 'refs/tags') }}
-      uses: docker/build-push-action@v2
-      with:
-        context: .
-        push: true
-        tags: ${{ matrix.repository }}:${{ matrix.target }}-${{ steps.variables.outputs.tag }}
-        target: ${{ matrix.target }}
-        cache-from: type=registry,ref=${{ matrix.repository }}:${{ matrix.target }}-latest
-        cache-to: type=inline
+        tags: ${{ steps.meta.outputs.tags }}
+        labels: ${{ steps.meta.outputs.labels }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
