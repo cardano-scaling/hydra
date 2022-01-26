@@ -11,7 +11,6 @@ import Data.Maybe (fromJust)
 import Hydra.Chain.Direct.Contract.Mutation (
   Mutation (..),
   SomeMutation (..),
-  isInitialOutput,
  )
 import qualified Hydra.Chain.Direct.Fixture as Fixture
 import Hydra.Chain.Direct.Tx (commitTx, mkInitialOutput)
@@ -24,19 +23,22 @@ import Hydra.Ledger.Cardano (
   TxOut (TxOut),
   Utxo,
   VerificationKey,
+  genAddressInEra,
   genOutput,
   genValue,
   getOutputs,
   lovelaceToValue,
   mkTxOutValue,
+  modifyTxOutAddress,
   modifyTxOutValue,
   singletonUtxo,
   toUtxoContext,
-  utxoPairs,
+  txOutAddress,
+  txOutValue,
   verificationKeyHash,
  )
 import Hydra.Party (Party)
-import Test.QuickCheck (elements, oneof, suchThat)
+import Test.QuickCheck (oneof, suchThat)
 
 --
 -- CommitTx
@@ -48,13 +50,13 @@ healthyCommitTx =
  where
   lookupUtxo =
     singletonUtxo (initialInput, toUtxoContext initialOutput)
-      <> singletonUtxo committedUtxo
+      <> singletonUtxo healthyCommittedUtxo
 
   tx =
     commitTx
       Fixture.testNetworkId
       commitParty
-      (Just committedUtxo)
+      (Just healthyCommittedUtxo)
       (initialInput, initialPubKeyHash)
 
   initialInput = generateWith arbitrary 42
@@ -63,40 +65,46 @@ healthyCommitTx =
 
   initialPubKeyHash = verificationKeyHash commitVerificationKey
 
-  -- NOTE: An 8₳ output which is currently addressed to some arbitrary key.
-  committedUtxo :: (TxIn, TxOut CtxUTxO Era)
-  committedUtxo = flip generateWith 42 $ do
-    txIn <- arbitrary
-    txOut <- modifyTxOutValue (const $ lovelaceToValue 8_000_000) <$> (genOutput =<< arbitrary)
-    pure (txIn, txOut)
-
   commitVerificationKey :: VerificationKey PaymentKey
   commitVerificationKey = generateWith arbitrary 42
 
   commitParty :: Party
   commitParty = generateWith arbitrary 42
 
+-- NOTE: An 8₳ output which is currently addressed to some arbitrary key.
+healthyCommittedUtxo :: (TxIn, TxOut CtxUTxO Era)
+healthyCommittedUtxo = flip generateWith 42 $ do
+  txIn <- arbitrary
+  txOut <- modifyTxOutValue (const $ lovelaceToValue 8_000_000) <$> (genOutput =<< arbitrary)
+  pure (txIn, txOut)
+
 data CommitMutation
   = MutateCommitOutputValue
-  | MutateComittedValue
+  | MutateCommittedValue
+  | MutateCommittedAddress
   deriving (Generic, Show, Enum, Bounded)
 
 genCommitMutation :: (CardanoTx, Utxo) -> Gen SomeMutation
-genCommitMutation (tx, utxo) =
+genCommitMutation (tx, _utxo) =
   oneof
     [ SomeMutation MutateCommitOutputValue . ChangeOutput 0 <$> do
         mutatedValue <- (mkTxOutValue <$> genValue) `suchThat` (/= commitOutputValue)
         pure $ TxOut commitOutputAddress mutatedValue commitOutputDatum
-    , SomeMutation MutateComittedValue <$> do
-        (comittedTxIn, _) <- elements comittedTxIns
-        newResolvedTxIn <- genOutput =<< arbitrary
-        pure $ ChangeInput comittedTxIn newResolvedTxIn
+    , SomeMutation MutateCommittedValue <$> do
+        mutatedValue <- genValue `suchThat` (/= committedOutputValue)
+        let mutatedOutput = modifyTxOutValue (const mutatedValue) committedTxOut
+        pure $ ChangeInput committedTxIn mutatedOutput
+    , SomeMutation MutateCommittedAddress <$> do
+        mutatedAddress <- genAddressInEra Fixture.testNetworkId `suchThat` (/= committedAddress)
+        let mutatedOutput = modifyTxOutAddress (const mutatedAddress) committedTxOut
+        pure $ ChangeInput committedTxIn mutatedOutput
     ]
  where
   TxOut commitOutputAddress commitOutputValue commitOutputDatum =
     fromJust $ getOutputs tx !!? 0
 
-  -- NOTE: This filtering will also yield any input added for fees, but we don't
-  -- have any in our test scenario so far.
-  comittedTxIns =
-    filter (not . isInitialOutput . snd) . utxoPairs $ utxo
+  (committedTxIn, committedTxOut) = healthyCommittedUtxo
+
+  committedAddress = txOutAddress committedTxOut
+
+  committedOutputValue = txOutValue committedTxOut

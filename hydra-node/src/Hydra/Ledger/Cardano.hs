@@ -422,6 +422,10 @@ inputs (Tx (ShelleyTxBody _ body _ _ _ _) _) =
 lovelaceToTxOutValue :: Lovelace -> TxOutValue AlonzoEra
 lovelaceToTxOutValue lovelace = TxOutValue MultiAssetInAlonzoEra (lovelaceToValue lovelace)
 
+txOutAddress :: TxOut ctx Era -> AddressInEra Era
+txOutAddress (TxOut addr _ _) =
+  addr
+
 txOutValue :: TxOut ctx Era -> Value
 txOutValue (TxOut _ value _) =
   txOutValueToValue value
@@ -451,12 +455,12 @@ lookupDatum (Tx (ShelleyTxBody _ _ _ scriptsData _ _) _) = \case
     TxBodyNoScriptData -> mempty
     TxBodyScriptData _ (Ledger.Alonzo.TxDats m) _ -> m
 
-modifyTxOutDatum ::
-  (TxOutDatum ctx0 Era -> TxOutDatum ctx1 Era) ->
-  TxOut ctx0 Era ->
-  TxOut ctx1 Era
-modifyTxOutDatum fn (TxOut addr value dat) =
-  TxOut addr value (fn dat)
+modifyTxOutAddress ::
+  (AddressInEra Era -> AddressInEra Era) ->
+  TxOut ctx Era ->
+  TxOut ctx Era
+modifyTxOutAddress fn (TxOut addr value dat) =
+  TxOut (fn addr) value dat
 
 modifyTxOutValue ::
   (Value -> Value) ->
@@ -464,6 +468,13 @@ modifyTxOutValue ::
   TxOut ctx Era
 modifyTxOutValue fn (TxOut addr value dat) =
   TxOut addr (mkTxOutValue $ fn $ txOutValueToValue value) dat
+
+modifyTxOutDatum ::
+  (TxOutDatum ctx0 Era -> TxOutDatum ctx1 Era) ->
+  TxOut ctx0 Era ->
+  TxOut ctx1 Era
+modifyTxOutDatum fn (TxOut addr value dat) =
+  TxOut addr value (fn dat)
 
 -- | Find first 'TxOut' which pays to given address and also return the
 -- corresponding 'TxIn' to reference it.
@@ -681,6 +692,9 @@ instance ToUtxoContext TxOut where
 
 -- * Generators
 
+genVerificationKey :: Gen (VerificationKey PaymentKey)
+genVerificationKey = fst <$> genKeyPair
+
 genKeyPair :: Gen (VerificationKey PaymentKey, SigningKey PaymentKey)
 genKeyPair = do
   -- NOTE: not using 'genKeyDSIGN' purposely here, it is not pure and does not
@@ -784,6 +798,11 @@ genOneUtxoFor vk = do
   -- too large to fit in a transaction and validation fails in the ledger
   output <- scale (const 1) $ genOutput vk
   pure $ Utxo $ Map.singleton (fromLedgerTxIn input) output
+
+-- | NOTE: See note on 'mkVkAddress' about 'NetworkId'.
+genAddressInEra :: NetworkId -> Gen (AddressInEra Era)
+genAddressInEra networkId =
+  mkVkAddress networkId <$> genVerificationKey
 
 genValue :: Gen Value
 genValue = txOutValue <$> (genKeyPair >>= (genOutput . fst))
