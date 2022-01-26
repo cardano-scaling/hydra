@@ -9,12 +9,14 @@ module Hydra.Contract.Initial where
 import Ledger hiding (validatorHash)
 import PlutusTx.Prelude
 
+import Hydra.Contract.Commit (SerializedTxOut, SerializedTxOutRef)
 import qualified Hydra.Contract.Commit as Commit
+import Hydra.Data.Party (Party)
 import Ledger.Typed.Scripts (TypedValidator, ValidatorTypes (..))
 import qualified Ledger.Typed.Scripts as Scripts
 import Plutus.V1.Ledger.Ada (fromValue, getLovelace)
 import qualified PlutusTx
-import PlutusTx.IsData.Class (ToData (..))
+import PlutusTx.IsData.Class (ToData (..), fromBuiltinData)
 
 data Initial
 
@@ -50,19 +52,34 @@ checkCommit ::
   Maybe TxOutRef ->
   ScriptContext ->
   Bool
-checkCommit commitValidator comittedRef context@ScriptContext{scriptContextTxInfo = txInfo} =
-  traceIfFalse "commitLockedValue does not match" $
-    traceIfFalse ("commitLockedValue: " `appendString` debugValue commitLockedValue) $
-      traceIfFalse ("initialValue: " `appendString` debugValue initialValue) $
-        traceIfFalse ("comittedValue: " `appendString` debugValue committedValue) $
-          commitLockedValue == initialValue + committedValue
+checkCommit commitValidator committedRef context@ScriptContext{scriptContextTxInfo = txInfo} =
+  checkCommittedValue && checkCommittedDatum
  where
+  checkCommittedValue =
+    traceIfFalse "commitLockedValue does not match" $
+      traceIfFalse ("commitLockedValue: " `appendString` debugValue commitLockedValue) $
+        traceIfFalse ("initialValue: " `appendString` debugValue initialValue) $
+          traceIfFalse ("comittedValue: " `appendString` debugValue committedValue) $
+            commitLockedValue == initialValue + committedValue
+
+  checkCommittedDatum =
+    case scriptOutputsAt commitValidator txInfo of
+      [(dh, _)] ->
+        case getDatum <$> findDatum dh txInfo of
+          Nothing -> traceError "Invalid datum hash with no datum"
+          (Just da) ->
+            case fromBuiltinData @(Party, ValidatorHash, Maybe (SerializedTxOutRef, SerializedTxOut)) da of
+              Just (_party, _headScriptHash, Nothing) ->
+                traceIfFalse "committed UTXO is not in output datum" $ isNothing committedRef
+              _ -> traceError "TODO"
+      _ -> traceError "expected single commit output"
+
   initialValue =
     maybe mempty (txOutValue . txInInfoResolved) $ findOwnInput context
 
   committedValue =
     maybe mempty (txOutValue . txInInfoResolved) $ do
-      ref <- comittedRef
+      ref <- committedRef
       findTxInByTxOutRef ref txInfo
 
   commitLockedValue = valueLockedBy txInfo commitValidator
