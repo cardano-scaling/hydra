@@ -400,11 +400,11 @@ convertParty = Party . partyToVerKey
 -- | Identify a commit tx by:
 --
 -- - Find which 'initial' tx input is being consumed.
--- - Find the redeemer corresponding to that 'initial', which contains the
---   output-reference of the committed utxo.
+-- - Find the redeemer corresponding to that 'initial', which contains the tx
+--   input of the committed utxo.
 -- - Find the outputs which pays to the commit validator.
 -- - Using the datum of that output, deserialize the comitted output.
--- - Reconstruct the committed Utxo from both values (output ref and output).
+-- - Reconstruct the committed Utxo from both values (tx input and output).
 observeCommitTx ::
   NetworkId ->
   -- | Known (remaining) initial tx inputs.
@@ -413,8 +413,7 @@ observeCommitTx ::
   Maybe (OnChainTx CardanoTx, (TxIn, TxOut CtxUTxO Era, ScriptData))
 observeCommitTx networkId initials (getTxBody -> txBody) = do
   initialTxIn <- findInitialTxIn
-  initialRedeemer <- findRedeemerSpending txBody initialTxIn
-  mCommittedTxIn <- matchCommit initialRedeemer
+  mCommittedTxIn <- decodeInitialRedeemer initialTxIn
 
   (commitIn, commitOut) <- findTxOutByAddress commitAddress txBody
   dat <- getDatum commitOut
@@ -436,18 +435,17 @@ observeCommitTx networkId initials (getTxBody -> txBody) = do
     )
  where
   findInitialTxIn =
-    let ins = filterTxIn (`elem` initials) txBody
-     in case ins of
-          [input] -> Just input
-          [] -> Nothing
-          _ -> error "transaction consuming more than one initial at once."
+    case filterTxIn (`elem` initials) txBody of
+      [input] -> Just input
+      [] -> Nothing
+      _ -> error "transaction consuming more than one initial at once."
 
-  matchCommit :: Initial.InitialRedeemer -> Maybe (Maybe Api.TxIn)
-  matchCommit = \case
-    Initial.Abort ->
-      Nothing
-    Initial.Commit{committedRef} ->
-      Just (Api.fromPlutusTxOutRef <$> committedRef)
+  decodeInitialRedeemer =
+    findRedeemerSpending txBody >=> \case
+      Initial.Abort ->
+        Nothing
+      Initial.Commit{committedRef} ->
+        Just (Api.fromPlutusTxOutRef <$> committedRef)
 
   convertTxOut :: Maybe Commit.SerializedTxOut -> Maybe (TxOut CtxUTxO Era)
   convertTxOut = \case
