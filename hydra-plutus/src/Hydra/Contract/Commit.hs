@@ -25,11 +25,8 @@ PlutusTx.unstableMakeIsData ''SerializedTxOut
 instance Eq SerializedTxOut where
   SerializedTxOut bs == SerializedTxOut bs' = bs == bs'
 
--- TODO: Having the 'TxOutRef' on-chain is not necessary but it is convenient
--- for the off-chain code to reconstrut the commit UTXO.
---
--- Ideally, since the TxOutRef is already present in the redeemer for the
--- initial validator, the off-chain code could get it from there.
+-- TODO: Is the 'Party' here even used? If yes, why is it not a PubKeyHash /
+-- cardano-credential?
 instance Scripts.ValidatorTypes Commit where
   type DatumType Commit = (Party, ValidatorHash, Maybe SerializedTxOut)
   type RedeemerType Commit = ()

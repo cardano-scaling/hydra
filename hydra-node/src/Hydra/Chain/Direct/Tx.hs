@@ -397,20 +397,17 @@ observeInitTx networkId party (getTxBody -> txBody) = do
 convertParty :: OnChain.Party -> Party
 convertParty = Party . partyToVerKey
 
--- | Identify a commit tx by looking for an output which pays to v_commit.
+-- | Identify a commit tx by:
 --
--- To reconstruct a commit from a commit transaction we need to:
---
--- - Find out which 'initials' is being committed
--- - Find the redeemer corresponding to that 'initial' which contain the
---   output-reference of the commit
--- - Find the outputs which pays to the commit validator
--- - Extract the datum of that output, which contains the output of the commit
--- - Reconstruct the committed UTXO from both values (output ref and output).
+-- - Find which 'initial' tx input is being consumed.
+-- - Find the redeemer corresponding to that 'initial', which contains the
+--   output-reference of the committed utxo.
+-- - Find the outputs which pays to the commit validator.
+-- - Using the datum of that output, deserialize the comitted output.
+-- - Reconstruct the committed Utxo from both values (output ref and output).
 observeCommitTx ::
   NetworkId ->
-  -- TODO: This type may be too large for this function, we only probably need
-  -- just the TxIn.
+  -- | Known (remaining) initial tx inputs.
   [TxIn] ->
   CardanoTx ->
   Maybe (OnChainTx CardanoTx, (TxIn, TxOut CtxUTxO Era, ScriptData))
@@ -421,6 +418,7 @@ observeCommitTx networkId initials (getTxBody -> txBody) = do
 
   (commitIn, commitOut) <- findTxOutByAddress commitAddress txBody
   dat <- getDatum commitOut
+  -- TODO: This 'party' would be available from the spent 'initial' utxo (PT eventually)
   (party, _, serializedTxOut) <- fromData @(DatumType Commit.Commit) $ toPlutusData dat
   let mCommittedTxOut = convertTxOut serializedTxOut
 
