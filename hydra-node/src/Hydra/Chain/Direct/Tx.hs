@@ -79,14 +79,19 @@ initTx ::
   HeadParameters ->
   TxIn ->
   CardanoTx
-initTx networkId cardanoKeys HeadParameters{contestationPeriod, parties} txIn =
+initTx networkId cardanoKeys parameters txIn =
   unsafeBuildTransaction $
     emptyTxBody
       & addVkInputs [txIn]
-      & addOutputs (headOutput : map (mkInitialOutput networkId) cardanoKeys)
+      & addOutputs
+        ( mkHeadOutputInitial networkId parameters :
+          map (mkInitialOutput networkId) cardanoKeys
+        )
+
+mkHeadOutputInitial :: NetworkId -> HeadParameters -> TxOut CtxTx Era
+mkHeadOutputInitial networkId HeadParameters{contestationPeriod, parties} =
+  TxOut headAddress headValue headDatum
  where
-  headOutput =
-    TxOut headAddress headValue headDatum
   headScript =
     fromPlutusScript $ Head.validatorScript policyId
   headAddress =
@@ -296,7 +301,7 @@ abortTx ::
   NetworkId ->
   -- | Everything needed to spend the Head state-machine output.
   (TxIn, ScriptData) ->
-  -- | Data needed to spend the inital output sent to each party to the Head
+  -- | Data needed to spend the initial output sent to each party to the Head
   -- which should contain the PT and is locked by initial script.
   Map TxIn ScriptData ->
   Either AbortTxError CardanoTx

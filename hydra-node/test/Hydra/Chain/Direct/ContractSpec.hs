@@ -13,6 +13,7 @@ import Cardano.Crypto.Util (SignableRepresentation (getSignableRepresentation))
 import Cardano.Ledger.Alonzo.TxInfo (txInfoOut)
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Base16 as Base16
+import Hydra.Chain.Direct.Contract.Abort (healthyAbortTx)
 import Hydra.Chain.Direct.Contract.Close (genCloseMutation, healthyCloseTx)
 import Hydra.Chain.Direct.Contract.CollectCom (genCollectComMutation, healthyCollectComTx)
 import Hydra.Chain.Direct.Contract.Commit (genCommitMutation, healthyCommitTx)
@@ -74,6 +75,10 @@ spec = parallel $ do
   describe "TxOut hashing" $ do
     modifyMaxSuccess (const 20) $
       prop "OffChain.hashTxOuts == OnChain.hashTxOuts" prop_consistentOnAndOffChainHashOfTxOuts
+
+  describe "Abort" $ do
+    prop "is healthy" $
+      propTransactionValidates healthyAbortTx
   describe "Commit" $ do
     prop "is healthy" $
       propTransactionValidates healthyCommitTx
