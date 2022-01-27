@@ -131,8 +131,11 @@ executable inspect-script
     , optparse-applicative
     , plutus-ledger
     , plutus-ledger-api
+    , plutus-merkle-tree
     , plutus-tx
+    , plutus-tx-plugin
     , prettyprinter
+    , QuickCheck
     , serialise
     , text
 

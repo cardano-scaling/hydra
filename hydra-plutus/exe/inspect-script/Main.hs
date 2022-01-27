@@ -1,3 +1,5 @@
+{-# LANGUAGE TemplateHaskell #-}
+
 module Main where
 
 import Hydra.Prelude
@@ -5,6 +7,7 @@ import Hydra.Prelude
 import Cardano.Api (ScriptDataJsonSchema (ScriptDataJsonDetailedSchema), scriptDataToJson, serialiseToTextEnvelope)
 import Cardano.Api.Shelley (fromPlutusData)
 import qualified Data.Aeson as Aeson
+import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as BL
 import Data.Text (pack)
 import Data.Text.Prettyprint.Doc.Extras (pretty)
@@ -16,11 +19,14 @@ import Hydra.Contract.Initial as Initial
 import Ledger (Datum (..), datumHash)
 import Ledger.Scripts (Script, toCardanoApiScript)
 import Ledger.Value
-import Plutus.V1.Ledger.Api (Data, dataToBuiltinData, toData)
-import PlutusTx (getPlc)
+import qualified Plutus.MerkleTree as MT
+import Plutus.V1.Ledger.Api (BuiltinByteString, Data, dataToBuiltinData, toBuiltin, toData)
+import PlutusTx (compile, getPlc)
+import qualified PlutusTx
 import PlutusTx.Code (CompiledCode)
 import Prettyprinter (defaultLayoutOptions, layoutPretty)
 import Prettyprinter.Render.Text (renderStrict)
+import Test.QuickCheck (vectorOf)
 
 -- | Serialise Hydra scripts to files for submission through cardano-cli.
 -- This small utility is useful to manually construct transactions payload for Hydra on-chain
@@ -50,7 +56,7 @@ main = do
 
   putTextLn "Datum hashes:"
   forM_ datums $ \(aDatum, datumName) ->
-    putTextLn $ toText $ datumName <> ": " <> show (datumHash $ Datum $ dataToBuiltinData $ aDatum)
+    putTextLn $ toText $ datumName <> ": " <> show (datumHash $ Datum $ dataToBuiltinData aDatum)
  where
   writeScripts :: [(Script, String)] -> IO ()
   writeScripts plutus =
@@ -97,7 +103,18 @@ main = do
     [ (Compiled $ Head.compiledValidator policyId, "headScript")
     , (Compiled Initial.compiledValidator, "initialScript")
     , (Compiled Commit.compiledValidator, "commitScript")
+    , (Compiled appliedMTBuilderScript, "hashScript")
     ]
+
+  appliedMTBuilderScript =
+    $$( PlutusTx.compile
+          [||
+          MT.fromList
+          ||]
+      )
+      `PlutusTx.applyCode` PlutusTx.liftCode utxos
+
+  utxos = generateWith genFakeUtxo 12
 
   datums =
     [ (headDatum, "headDatum")
@@ -111,5 +128,8 @@ main = do
   redeemers = [(headRedeemer, "headRedeemer")]
 
   headRedeemer = toData Head.Abort
+
+genFakeUtxo :: Gen [BuiltinByteString]
+genFakeUtxo = vectorOf 20 (toBuiltin . BS.pack <$> vectorOf 60 arbitrary)
 
 data Compiled = forall a. Compiled {compiledCode :: CompiledCode a}
