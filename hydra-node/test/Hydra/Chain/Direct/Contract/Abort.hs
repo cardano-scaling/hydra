@@ -4,10 +4,12 @@
 -- 'healthyAbortTx' gets mutated by an arbitrary 'AbortMutation'.
 module Hydra.Chain.Direct.Contract.Abort where
 
+import qualified Data.Map as Map
 import Hydra.Chain (HeadParameters (..))
 import qualified Hydra.Chain.Direct.Fixture as Fixture
 import Hydra.Chain.Direct.Tx (abortTx, mkHeadOutputInitial)
-import Hydra.Ledger.Cardano (CardanoTx, Utxo, getDatum, singletonUtxo, toUtxoContext)
+import Hydra.Chain.Direct.TxSpec (genInitialsTxOut)
+import Hydra.Ledger.Cardano (CardanoTx, Utxo, Utxo' (Utxo), getDatum, singletonUtxo, toUtxoContext)
 import Hydra.Prelude
 
 --
@@ -20,6 +22,7 @@ healthyAbortTx =
  where
   lookupUtxo =
     singletonUtxo (headInput, toUtxoContext headOutput)
+      <> initialsUtxo
 
   Right tx =
     abortTx
@@ -39,4 +42,10 @@ healthyAbortTx =
 
   Just headDatum = getDatum headOutput
 
-  initials = mempty
+  initialsTxOut = generateWith genInitialsTxOut 4200
+
+  initialsUtxo =
+    Utxo $
+      Map.fromList ((\(a, b, _) -> (a, b)) <$> initialsTxOut)
+
+  initials = Map.fromList $ (\(a, _, c) -> (a, c)) <$> initialsTxOut

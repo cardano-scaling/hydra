@@ -490,6 +490,9 @@ validateTxScriptsUnlimited (toLedgerUtxo -> utxo) (toLedgerTx -> tx) =
       costModels
 
 genInitials :: Gen [(TxIn, ScriptData)]
-genInitials = do
+genInitials = fmap (\(a, _, c) -> (a, c)) <$> genInitialsTxOut
+
+genInitialsTxOut :: Gen [(TxIn, TxOut CtxUTxO Era, ScriptData)]
+genInitialsTxOut = do
   ReasonablySized initials <- arbitrary
-  pure $ (\(a, _, c) -> (a, c)) . mkInitials <$> initials
+  pure $ mkInitials <$> initials
