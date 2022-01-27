@@ -5,12 +5,13 @@
 module Hydra.Chain.Direct.Contract.Abort where
 
 import qualified Data.Map as Map
+import Data.Maybe (fromJust)
 import Hydra.Chain (HeadParameters (..))
 import qualified Hydra.Chain.Direct.Fixture as Fixture
-import Hydra.Chain.Direct.Tx (abortTx, mkHeadOutputInitial)
-import Hydra.Chain.Direct.TxSpec (genInitialsTxOut)
+import Hydra.Chain.Direct.Tx (abortTx, mkHeadOutputInitial, mkInitialOutput)
 import Hydra.Ledger.Cardano (CardanoTx, Utxo, Utxo' (Utxo), getDatum, singletonUtxo, toUtxoContext)
 import Hydra.Prelude
+import Test.QuickCheck.Gen (vectorOf)
 
 --
 -- AbortTx
@@ -40,12 +41,19 @@ healthyAbortTx =
       , parties = mempty
       }
 
-  Just headDatum = getDatum headOutput
+  headDatum = unsafeGetDatum headOutput
 
-  initialsTxOut = generateWith genInitialsTxOut 4200
+  -- XXX: We loose type information by dealing with 'TxOut CtxTx' where datums
+  -- are optional
+  unsafeGetDatum = fromJust . getDatum
+
+  participantsCardanoKeys = generateWith arbitrary 42
+
+  initialTxOuts = mkInitialOutput Fixture.testNetworkId <$> participantsCardanoKeys
+
+  initialTxIns = generateWith (vectorOf (length initialTxOuts) arbitrary) 42
 
   initialsUtxo =
-    Utxo $
-      Map.fromList ((\(a, b, _) -> (a, b)) <$> initialsTxOut)
+    Utxo $ Map.fromList $ zip initialTxIns (toUtxoContext <$> initialTxOuts)
 
-  initials = Map.fromList $ (\(a, _, c) -> (a, c)) <$> initialsTxOut
+  initials = Map.fromList $ zip initialTxIns (unsafeGetDatum <$> initialTxOuts)
