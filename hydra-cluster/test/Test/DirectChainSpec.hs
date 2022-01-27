@@ -84,9 +84,9 @@ spec = around showLogsOnFailure $ do
       config <- newNodeConfig tmp
       aliceKeys@(aliceCardanoVk, aliceCardanoSk) <- keysFor "alice"
       withBFTNode (contramap FromCluster tracer) config [aliceCardanoVk] $ \node@(RunningNode _ nodeSocket) -> do
-        bobKeys <- keysFor "bob"
+        bobKeys@(bobCardanoVk, _) <- keysFor "bob"
         pparams <- queryProtocolParameters defaultNetworkId nodeSocket
-        let cardanoKeys = []
+        let cardanoKeys = [aliceCardanoVk, bobCardanoVk]
         withIOManager $ \iocp -> do
           withDirectChain (contramap (FromDirectChain "alice") tracer) magic iocp nodeSocket aliceKeys alice cardanoKeys (putMVar alicesCallback) $ \Chain{postTx} -> do
             withDirectChain nullTracer magic iocp nodeSocket bobKeys bob cardanoKeys (putMVar bobsCallback) $ \_ -> do
@@ -96,7 +96,8 @@ spec = around showLogsOnFailure $ do
               alicesCallback `observesInTime` OnInitTx 100 [alice, bob, carol]
               bobsCallback `observesInTime` OnInitTx 100 [alice, bob, carol]
 
-              aliceUtxo <- generatePaymentToCommit defaultNetworkId node aliceCardanoSk aliceCardanoVk 1_000_000
+              let aliceCommitment = 66_000_000
+              aliceUtxo <- generatePaymentToCommit defaultNetworkId node aliceCardanoSk aliceCardanoVk aliceCommitment
               postTx $ CommitTx alice aliceUtxo
 
               alicesCallback `observesInTime` OnCommitTx alice aliceUtxo
@@ -110,10 +111,10 @@ spec = around showLogsOnFailure $ do
               let networkId = Testnet magic
                   aliceAddress = buildAddress aliceCardanoVk networkId
 
+              -- Expect that alice got her committed value back
               utxo <- fromCardanoApiUtxo <$> queryUtxo networkId nodeSocket [aliceAddress]
-              putLBSLn $ encodePretty utxo
-              foldMap txOutValue utxo
-                `shouldBe` lovelaceToValue 100_000_000
+              let aliceValues = txOutValue <$> toList utxo
+              aliceValues `shouldContain` [lovelaceToValue aliceCommitment]
 
   it "cannot abort a non-participating head" $ \tracer -> do
     alicesCallback <- newEmptyMVar
