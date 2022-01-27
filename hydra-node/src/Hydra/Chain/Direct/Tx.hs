@@ -467,7 +467,7 @@ observeCommitTx networkId initials (getTxBody -> txBody) = do
   commitScript = fromPlutusScript Commit.validatorScript
 
 -- REVIEW(SN): Is this really specific to commit only, or wouldn't we be able to
--- filter all 'knownUtxo' after observing any protocol tx?
+-- filter all 'getKnownUtxo' after observing any protocol tx?
 observeCommit ::
   NetworkId ->
   CardanoTx ->
@@ -600,8 +600,8 @@ observeAbortTx utxo (Tx body _) = do
 -- | Provide a UTXO map for given OnChainHeadState. Used by the TinyWallet and
 -- the direct chain component to lookup inputs for balancing / constructing txs.
 -- XXX(SN): This is a hint that we might want to track the Utxo directly?
-knownUtxo :: OnChainHeadState -> Map TxIn (TxOut CtxUTxO Era)
-knownUtxo = \case
+getKnownUtxo :: OnChainHeadState -> Map TxIn (TxOut CtxUTxO Era)
+getKnownUtxo = \case
   Initial{threadOutput, initials, commits} ->
     Map.fromList $ take2 threadOutput : (take2' <$> (initials <> commits))
   OpenOrClosed{threadOutput = (i, o, _, _)} ->

@@ -51,8 +51,8 @@ import Hydra.Chain.Direct.Tx (
   collectComTx,
   commitTx,
   fanoutTx,
+  getKnownUtxo,
   initTx,
-  knownUtxo,
   observeAbortTx,
   observeCloseTx,
   observeCollectComTx,
@@ -324,7 +324,7 @@ chainSyncClient tracer networkMagic callback party headState =
   runOnChainTx :: [OnChainTx CardanoTx] -> ValidatedTx Era -> STM m [OnChainTx CardanoTx]
   runOnChainTx observed (fromLedgerTx -> tx) = do
     onChainHeadState <- readTVar headState
-    let utxo = Utxo (knownUtxo onChainHeadState)
+    let utxo = Utxo (getKnownUtxo onChainHeadState)
     -- TODO(SN): We should be only looking for abort,commit etc. when we have a headId/policyId
     let res =
           observeInitTx networkId party tx
@@ -385,7 +385,7 @@ finalizeTx ::
   ValidatedTx Era ->
   STM m (ValidatedTx Era)
 finalizeTx TinyWallet{sign, getUtxo, coverFee} headState partialTx = do
-  headUtxo <- Utxo . knownUtxo <$> readTVar headState
+  headUtxo <- Utxo . getKnownUtxo <$> readTVar headState
   walletUtxo <- fromLedgerUtxo . Ledger.UTxO <$> getUtxo
   coverFee (Ledger.unUTxO $ toLedgerUtxo headUtxo) partialTx >>= \case
     Left ErrNoPaymentUtxoFound ->
@@ -438,8 +438,9 @@ fromPostChainTx TinyWallet{getUtxo, verificationKey} networkId headState cardano
         _st -> throwIO $ InvalidStateToPost tx
     CommitTx party utxo ->
       readTVar headState >>= \case
-        Initial{initials} -> case ownInitial verificationKey initials of
-          Nothing -> throwIO $ CannotFindOwnInitial{verificationKey, initials}
+        st@Initial{initials} -> case ownInitial verificationKey initials of
+          Nothing ->
+            throwIO (CannotFindOwnInitial{knownUtxo = Utxo $ getKnownUtxo st} :: PostTxError CardanoTx)
           Just initial ->
             case utxoPairs utxo of
               [aUtxo] -> do

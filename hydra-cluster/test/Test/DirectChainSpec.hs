@@ -237,7 +237,7 @@ magic :: NetworkMagic
 magic = NetworkMagic 42
 
 alice, bob, carol :: Party
-alice = deriveParty $ aliceSigningKey
+alice = deriveParty aliceSigningKey
 bob = deriveParty $ generateKey 20
 carol = deriveParty $ generateKey 30
 
