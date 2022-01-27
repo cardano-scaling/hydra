@@ -190,6 +190,10 @@ fromPlutusTxOutRef (Plutus.TxOutRef (Plutus.TxId bytes) ix) =
   TxIn
     (TxId $ unsafeHashFromBytes $ Plutus.fromBuiltin bytes)
     (TxIx $ fromIntegral ix)
+
+toPlutusTxOutRef :: TxIn -> Plutus.TxOutRef
+toPlutusTxOutRef = Ledger.txInfoIn' . toLedgerTxIn
+
 -- ** TxOut
 
 toLedgerTxOut :: TxOut CtxUTxO Era -> Ledger.TxOut (ShelleyLedgerEra Era)

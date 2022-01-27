@@ -115,7 +115,7 @@ spec =
               , fromPlutusData (toData commitDatum)
               )
             committedUtxo = maybe mempty singletonUtxo singleUtxo
-         in observeCommitTx testNetworkId tx
+         in observeCommitTx testNetworkId [fst initialIn] tx
               === Just (OnCommitTx{party, committed = committedUtxo}, expectedOutput)
               & counterexample ("Tx: " <> show tx)
 

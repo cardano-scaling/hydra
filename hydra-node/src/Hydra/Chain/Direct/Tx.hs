@@ -30,7 +30,6 @@ import Hydra.Party (MultiSigned, Party (Party), toPlutusSignatures, vkey)
 import Hydra.Snapshot (Snapshot (..))
 import Ledger.Typed.Scripts (DatumType)
 import Ledger.Value (AssetClass (..), currencyMPSHash)
-import Ouroboros.Consensus.Util (eitherToMaybe)
 import Plutus.V1.Ledger.Api (MintingPolicyHash, fromBuiltin, fromData)
 import qualified Plutus.V1.Ledger.Api as Plutus
 import Plutus.V1.Ledger.Value (assetClass, currencySymbol, tokenName)
@@ -84,7 +83,7 @@ initTx networkId cardanoKeys HeadParameters{contestationPeriod, parties} txIn =
   unsafeBuildTransaction $
     emptyTxBody
       & addVkInputs [txIn]
-      & addOutputs (headOutput : map mkInitialOutput cardanoKeys)
+      & addOutputs (headOutput : map (mkInitialOutput networkId) cardanoKeys)
  where
   headOutput =
     TxOut headAddress headValue headDatum
@@ -100,17 +99,19 @@ initTx networkId cardanoKeys HeadParameters{contestationPeriod, parties} txIn =
         (contestationPeriodFromDiffTime contestationPeriod)
         (map (partyFromVerKey . vkey) parties)
 
-  mkInitialOutput (toPlutusKeyHash . verificationKeyHash -> vkh) =
-    TxOut initialAddress initialValue (mkInitialDatum vkh)
-  initialScript =
-    fromPlutusScript Initial.validatorScript
+mkInitialOutput :: NetworkId -> VerificationKey PaymentKey -> TxOut CtxTx Era
+mkInitialOutput networkId (toPlutusKeyHash . verificationKeyHash -> pkh) =
+  TxOut initialAddress initialValue initialDatum
+ where
   -- FIXME: should really be the minted PTs plus some ADA to make the ledger happy
   initialValue =
     lovelaceToTxOutValue $ Lovelace 2_000_000
   initialAddress =
     mkScriptAddress @PlutusScriptV1 networkId initialScript
-  mkInitialDatum =
-    mkTxOutDatum . Initial.datum
+  initialScript =
+    fromPlutusScript Initial.validatorScript
+  initialDatum =
+    mkTxOutDatum $ Initial.datum pkh
 
 -- | Craft a commit transaction which includes the "committed" utxo as a datum.
 --
@@ -132,7 +133,7 @@ commitTx networkId party utxo (initialInput, vkh) =
   unsafeBuildTransaction $
     emptyTxBody
       & addInputs [(initialInput, initialWitness)]
-      & addVkInputs [commit | Just (commit, _) <- [utxo]]
+      & addVkInputs (maybeToList mCommittedInput)
       & addOutputs [commitOutput]
  where
   initialWitness =
@@ -142,8 +143,10 @@ commitTx networkId party utxo (initialInput, vkh) =
   initialDatum =
     mkDatumForTxIn $ Initial.datum $ toPlutusKeyHash vkh
   initialRedeemer =
-    mkRedeemerForTxIn $ Initial.redeemer ()
-
+    mkRedeemerForTxIn . Initial.redeemer $
+      Initial.Commit (toPlutusTxOutRef <$> mCommittedInput)
+  mCommittedInput =
+    fst <$> utxo
   commitOutput =
     TxOut commitAddress commitValue commitDatum
   commitScript =
@@ -157,7 +160,6 @@ commitTx networkId party utxo (initialInput, vkh) =
   commitDatum =
     mkTxOutDatum $ mkCommitDatum party (Head.validatorHash policyId) utxo
 
--- FIXME: WIP
 mkCommitDatum :: Party -> Plutus.ValidatorHash -> Maybe (Api.TxIn, Api.TxOut Api.CtxUTxO Api.Era) -> Plutus.Datum
 mkCommitDatum (partyFromVerKey . vkey -> party) headValidatorHash utxo =
   Commit.datum (party, headValidatorHash, serializedUtxo)
@@ -165,11 +167,8 @@ mkCommitDatum (partyFromVerKey . vkey -> party) headValidatorHash utxo =
   serializedUtxo = case utxo of
     Nothing ->
       Nothing
-    Just (i, o) ->
-      Just
-        ( Commit.SerializedTxOutRef (toBuiltin $ serialize' $ Api.toLedgerTxIn i)
-        , Commit.SerializedTxOut (toBuiltin $ serialize' $ Api.toLedgerTxOut o)
-        )
+    Just (_i, o) ->
+      Just $ Commit.SerializedTxOut (toBuiltin $ serialize' $ Api.toLedgerTxOut o)
 
 -- | Create a transaction collecting all "committed" utxo and opening a Head,
 -- i.e. driving the Head script state.
@@ -210,7 +209,7 @@ collectComTx networkId (headInput, ScriptDatumForTxIn -> headDatumBefore, partie
   extractSerialisedTxOut d =
     case fromData $ toPlutusData d of
       Nothing -> error "SNAFU"
-      Just ((_, _, Just (_, o)) :: DatumType Commit.Commit) -> Just o
+      Just ((_, _, Just o) :: DatumType Commit.Commit) -> Just o
       _ -> Nothing
   utxoHash =
     Head.hashPreSerializedCommits $
@@ -340,7 +339,7 @@ abortTx networkId (headInput, ScriptDatumForTxIn -> headDatumBefore) initialInpu
   initialScript =
     fromPlutusScript Initial.validatorScript
   initialRedeemer =
-    mkRedeemerForTxIn $ Initial.redeemer ()
+    mkRedeemerForTxIn $ Initial.redeemer Initial.Abort
 
 -- * Observe Hydra Head transactions
 
@@ -398,29 +397,65 @@ observeInitTx networkId party (getTxBody -> txBody) = do
 convertParty :: OnChain.Party -> Party
 convertParty = Party . partyToVerKey
 
--- | Identify a commit tx by looking for an output which pays to v_commit.
+-- | Identify a commit tx by:
+--
+-- - Find which 'initial' tx input is being consumed.
+-- - Find the redeemer corresponding to that 'initial', which contains the tx
+--   input of the committed utxo.
+-- - Find the outputs which pays to the commit validator.
+-- - Using the datum of that output, deserialize the comitted output.
+-- - Reconstruct the committed Utxo from both values (tx input and output).
 observeCommitTx ::
   NetworkId ->
+  -- | Known (remaining) initial tx inputs.
+  [TxIn] ->
   CardanoTx ->
   Maybe (OnChainTx CardanoTx, (TxIn, TxOut CtxUTxO Era, ScriptData))
-observeCommitTx networkId (getTxBody -> txBody) = do
+observeCommitTx networkId initials (getTxBody -> txBody) = do
+  initialTxIn <- findInitialTxIn
+  mCommittedTxIn <- decodeInitialRedeemer initialTxIn
+
   (commitIn, commitOut) <- findTxOutByAddress commitAddress txBody
   dat <- getDatum commitOut
-  (party, _, committedUtxo) <- fromData @(DatumType Commit.Commit) $ toPlutusData dat
-  convertedUtxo <- convertUtxo committedUtxo
-  let onChainTx = OnCommitTx (convertParty party) convertedUtxo
-  pure (onChainTx, (commitIn, toCtxUTxOTxOut commitOut, dat))
+  -- TODO: This 'party' would be available from the spent 'initial' utxo (PT eventually)
+  (party, _, serializedTxOut) <- fromData @(DatumType Commit.Commit) $ toPlutusData dat
+  let mCommittedTxOut = convertTxOut serializedTxOut
+
+  comittedUtxo <-
+    case (mCommittedTxIn, mCommittedTxOut) of
+      (Nothing, Nothing) -> Just mempty
+      (Just i, Just o) -> Just $ Api.singletonUtxo (i, o)
+      (Nothing, Just{}) -> error "found commit with no redeemer out ref but with serialized output."
+      (Just{}, Nothing) -> error "found commit with redeemer out ref but with no serialized output."
+
+  let onChainTx = OnCommitTx (convertParty party) comittedUtxo
+  pure
+    ( onChainTx
+    , (commitIn, toUtxoContext commitOut, dat)
+    )
  where
-  convertUtxo :: Maybe (Commit.SerializedTxOutRef, Commit.SerializedTxOut) -> Maybe Utxo
-  convertUtxo = \case
-    Nothing -> Just mempty
-    Just (Commit.SerializedTxOutRef inBytes, Commit.SerializedTxOut outBytes) ->
+  findInitialTxIn =
+    case filterTxIn (`elem` initials) txBody of
+      [input] -> Just input
+      [] -> Nothing
+      _ -> error "transaction consuming more than one initial at once."
+
+  decodeInitialRedeemer =
+    findRedeemerSpending txBody >=> \case
+      Initial.Abort ->
+        Nothing
+      Initial.Commit{committedRef} ->
+        Just (Api.fromPlutusTxOutRef <$> committedRef)
+
+  convertTxOut :: Maybe Commit.SerializedTxOut -> Maybe (TxOut CtxUTxO Era)
+  convertTxOut = \case
+    Nothing -> Nothing
+    Just (Commit.SerializedTxOut outBytes) ->
       -- XXX(SN): these errors might be more severe and we could throw an
       -- exception here?
-      eitherToMaybe $ do
-        txIn <- fromLedgerTxIn <$> decodeFull' (fromBuiltin inBytes)
-        txOut <- fromLedgerTxOut <$> decodeFull' (fromBuiltin outBytes)
-        pure $ singletonUtxo (txIn, txOut)
+      case Api.fromLedgerTxOut <$> decodeFull' (fromBuiltin outBytes) of
+        Right result -> Just result
+        Left{} -> error "couldn't deserialize serialized output in commit's datum."
 
   commitAddress = mkScriptAddress @PlutusScriptV1 networkId commitScript
 
@@ -435,7 +470,7 @@ observeCommit ::
   Maybe (OnChainTx CardanoTx, OnChainHeadState)
 observeCommit networkId tx = \case
   Initial{threadOutput, initials, commits} -> do
-    (onChainTx, commitTriple) <- observeCommitTx networkId tx
+    (onChainTx, commitTriple) <- observeCommitTx networkId (initials <&> \(a, _, _) -> a) tx
     -- NOTE(SN): A commit tx has been observed and thus we can remove all it's
     -- inputs from our tracked initials
     let commitIns = inputs tx

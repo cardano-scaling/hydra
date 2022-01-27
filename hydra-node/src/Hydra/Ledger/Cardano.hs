@@ -324,40 +324,54 @@ fromLedgerTx (Ledger.Alonzo.ValidatedTx body wits isValid auxData) =
 describeCardanoTx :: CardanoTx -> Text
 describeCardanoTx (Tx body _wits) =
   unlines $
-    [ show (getTxId body)
-    , "  Inputs (" <> show (length inps) <> ")"
-    , "  Outputs (" <> show (length outs) <> ")"
-    , "    total number of assets: " <> show totalNumberOfAssets
-    , "  Scripts (" <> show (length scripts) <> ")"
-    , "    total size (bytes):  " <> show totalScriptSize
-    ]
-      <> datums
-      <> redeemers
+    [show (getTxId body)]
+      <> inputLines
+      <> outputLines
+      <> scriptLines
+      <> datumLines
+      <> redeemerLines
  where
   ShelleyTxBody _era lbody scripts scriptsData _auxData _validity = body
   outs = Ledger.Alonzo.outputs' lbody
-  inps = Ledger.Alonzo.inputs' lbody
-  totalScriptSize = sum $ BL.length . serialize <$> scripts
+  TxBody TxBodyContent{txIns, txOuts} = body
+
+  inputLines =
+    "  Input set (" <> show (length txIns) <> ")" :
+    (("    - " <>) . renderTxIn . fst <$> txIns)
+
+  outputLines =
+    [ "  Outputs (" <> show (length txOuts) <> ")"
+    , "    total number of assets: " <> show totalNumberOfAssets
+    ]
+      <> (("    - " <>) . prettyValue . txOutValue <$> txOuts)
+
   totalNumberOfAssets =
     sum $
       [ foldl' (\n inner -> n + Map.size inner) 0 outer
       | Ledger.Alonzo.TxOut _ (Ledger.Mary.Value _ outer) _ <- toList outs
       ]
 
-  datums = case scriptsData of
+  scriptLines =
+    [ "  Scripts (" <> show (length scripts) <> ")"
+    , "    total size (bytes):  " <> show totalScriptSize
+    ]
+
+  totalScriptSize = sum $ BL.length . serialize <$> scripts
+
+  datumLines = case scriptsData of
     TxBodyNoScriptData -> []
     (TxBodyScriptData _ (Ledger.Alonzo.TxDats dats) _) ->
       "  Datums (" <> show (length dats) <> ")" :
-      (("    " <>) . showDatumAndHash <$> Map.toList dats)
+      (("    - " <>) . showDatumAndHash <$> Map.toList dats)
 
   showDatumAndHash (k, v) = show k <> " -> " <> show v
 
-  redeemers = case scriptsData of
+  redeemerLines = case scriptsData of
     TxBodyNoScriptData -> []
     (TxBodyScriptData _ _ re) ->
       let rdmrs = Map.elems $ Ledger.Alonzo.unRedeemers re
        in "  Redeemers (" <> show (length rdmrs) <> ")" :
-          (("    " <>) . show . fst <$> rdmrs)
+          (("    - " <>) . show . fst <$> rdmrs)
 
 -- | Create a zero-fee, payment cardano transaction.
 mkSimpleCardanoTx ::
@@ -402,11 +416,20 @@ inputs :: CardanoTx -> [TxIn]
 inputs (Tx (ShelleyTxBody _ body _ _ _ _) _) =
   fromLedgerTxIn <$> toList (Ledger.Alonzo.inputs body)
 
+-- | Filter txins of a transaction given the predicate.
+filterTxIn :: (TxIn -> Bool) -> TxBody Era -> [TxIn]
+filterTxIn fn (TxBody body) =
+  filter fn (fst <$> txIns body)
+
 -- ** TxOut
 
 -- XXX(SN): replace with Cardano.Api.TxBody.lovelaceToTxOutValue when available
 lovelaceToTxOutValue :: Lovelace -> TxOutValue AlonzoEra
 lovelaceToTxOutValue lovelace = TxOutValue MultiAssetInAlonzoEra (lovelaceToValue lovelace)
+
+txOutAddress :: TxOut ctx Era -> AddressInEra Era
+txOutAddress (TxOut addr _ _) =
+  addr
 
 txOutValue :: TxOut ctx Era -> Value
 txOutValue (TxOut _ value _) =
@@ -437,12 +460,12 @@ lookupDatum (Tx (ShelleyTxBody _ _ _ scriptsData _ _) _) = \case
     TxBodyNoScriptData -> mempty
     TxBodyScriptData _ (Ledger.Alonzo.TxDats m) _ -> m
 
-modifyTxOutDatum ::
-  (TxOutDatum ctx0 Era -> TxOutDatum ctx1 Era) ->
-  TxOut ctx0 Era ->
-  TxOut ctx1 Era
-modifyTxOutDatum fn (TxOut addr value dat) =
-  TxOut addr value (fn dat)
+modifyTxOutAddress ::
+  (AddressInEra Era -> AddressInEra Era) ->
+  TxOut ctx Era ->
+  TxOut ctx Era
+modifyTxOutAddress fn (TxOut addr value dat) =
+  TxOut (fn addr) value dat
 
 modifyTxOutValue ::
   (Value -> Value) ->
@@ -450,6 +473,13 @@ modifyTxOutValue ::
   TxOut ctx Era
 modifyTxOutValue fn (TxOut addr value dat) =
   TxOut addr (mkTxOutValue $ fn $ txOutValueToValue value) dat
+
+modifyTxOutDatum ::
+  (TxOutDatum ctx0 Era -> TxOutDatum ctx1 Era) ->
+  TxOut ctx0 Era ->
+  TxOut ctx1 Era
+modifyTxOutDatum fn (TxOut addr value dat) =
+  TxOut addr value (fn dat)
 
 -- | Find first 'TxOut' which pays to given address and also return the
 -- corresponding 'TxIn' to reference it.
@@ -667,6 +697,9 @@ instance ToUtxoContext TxOut where
 
 -- * Generators
 
+genVerificationKey :: Gen (VerificationKey PaymentKey)
+genVerificationKey = fst <$> genKeyPair
+
 genKeyPair :: Gen (VerificationKey PaymentKey, SigningKey PaymentKey)
 genKeyPair = do
   -- NOTE: not using 'genKeyDSIGN' purposely here, it is not pure and does not
@@ -770,6 +803,11 @@ genOneUtxoFor vk = do
   -- too large to fit in a transaction and validation fails in the ledger
   output <- scale (const 1) $ genOutput vk
   pure $ Utxo $ Map.singleton (fromLedgerTxIn input) output
+
+-- | NOTE: See note on 'mkVkAddress' about 'NetworkId'.
+genAddressInEra :: NetworkId -> Gen (AddressInEra Era)
+genAddressInEra networkId =
+  mkVkAddress networkId <$> genVerificationKey
 
 genValue :: Gen Value
 genValue = txOutValue <$> (genKeyPair >>= (genOutput . fst))

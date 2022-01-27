@@ -86,31 +86,32 @@ propMutation (tx, utxo) genMutation =
 propTransactionDoesNotValidate :: (CardanoTx, Utxo) -> Property
 propTransactionDoesNotValidate (tx, lookupUtxo) =
   let result = evaluateTx tx lookupUtxo
-   in counterexample "Should have not validated" $
-        case result of
-          Left _ ->
-            property True
-          Right redeemerReport ->
-            any isLeft (Map.elems redeemerReport)
-              & counterexample ("Tx: " <> toString (describeCardanoTx tx))
-              & counterexample ("Lookup utxo: " <> decodeUtf8 (encodePretty lookupUtxo))
-              & counterexample ("Redeemer report: " <> show redeemerReport)
+   in case result of
+        Left _ ->
+          property True
+        Right redeemerReport ->
+          any isLeft (Map.elems redeemerReport)
+            & counterexample ("Tx: " <> toString (describeCardanoTx tx))
+            & counterexample ("Lookup utxo: " <> decodeUtf8 (encodePretty lookupUtxo))
+            & counterexample ("Redeemer report: " <> show redeemerReport)
+            & counterexample "Phase-2 validation should have failed"
 
 -- | A 'Property' checking some (transaction, UTxO) pair is valid.
 propTransactionValidates :: (CardanoTx, Utxo) -> Property
 propTransactionValidates (tx, lookupUtxo) =
   let result = evaluateTx tx lookupUtxo
-   in counterexample "Should have validated" $
-        case result of
-          Left _ ->
-            property False
-              & counterexample ("Tx: " <> toString (describeCardanoTx tx))
-              & counterexample ("Lookup utxo: " <> decodeUtf8 (encodePretty lookupUtxo))
-          Right redeemerReport ->
-            all isRight (Map.elems redeemerReport)
-              & counterexample ("Tx: " <> toString (describeCardanoTx tx))
-              & counterexample ("Lookup utxo: " <> decodeUtf8 (encodePretty lookupUtxo))
-              & counterexample ("Redeemer report: " <> show redeemerReport)
+   in case result of
+        Left basicFailure ->
+          property False
+            & counterexample ("Tx: " <> toString (describeCardanoTx tx))
+            & counterexample ("Lookup utxo: " <> decodeUtf8 (encodePretty lookupUtxo))
+            & counterexample ("Phase-1 validation failed: " <> show basicFailure)
+        Right redeemerReport ->
+          all isRight (Map.elems redeemerReport)
+            & counterexample ("Tx: " <> toString (describeCardanoTx tx))
+            & counterexample ("Lookup utxo: " <> decodeUtf8 (encodePretty lookupUtxo))
+            & counterexample ("Redeemer report: " <> show redeemerReport)
+            & counterexample "Phase-2 validation failed"
 
 -- * Mutations
 

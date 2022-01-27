@@ -19,19 +19,16 @@ import PlutusTx.IsData.Class (FromData (fromBuiltinData), ToData (..))
 
 data Commit
 
-newtype SerializedTxOutRef = SerializedTxOutRef BuiltinByteString
-PlutusTx.unstableMakeIsData ''SerializedTxOutRef
-
 newtype SerializedTxOut = SerializedTxOut BuiltinByteString
 PlutusTx.unstableMakeIsData ''SerializedTxOut
 
--- TODO: Having the 'TxOutRef' on-chain is not necessary but it is convenient
--- for the off-chain code to reconstrut the commit UTXO.
---
--- Ideally, since the TxOutRef is already present in the redeemer for the
--- initial validator, the off-chain code could get it from there.
+instance Eq SerializedTxOut where
+  SerializedTxOut bs == SerializedTxOut bs' = bs == bs'
+
+-- TODO: Is the 'Party' here even used? If yes, why is it not a PubKeyHash /
+-- cardano-credential?
 instance Scripts.ValidatorTypes Commit where
-  type DatumType Commit = (Party, ValidatorHash, Maybe (SerializedTxOutRef, SerializedTxOut))
+  type DatumType Commit = (Party, ValidatorHash, Maybe SerializedTxOut)
   type RedeemerType Commit = ()
 
 validator :: DatumType Commit -> RedeemerType Commit -> ScriptContext -> Bool
@@ -81,8 +78,11 @@ compiledValidator = $$(PlutusTx.compile [||validator||])
 validatorScript :: Script
 validatorScript = unValidatorScript $ Scripts.validatorScript typedValidator
 
+validatorHash :: ValidatorHash
+validatorHash = Scripts.validatorHash typedValidator
+
 address :: Address
-address = scriptHashAddress $ Scripts.validatorHash typedValidator
+address = scriptHashAddress validatorHash
 
 datum :: DatumType Commit -> Datum
 datum a = Datum (toBuiltinData a)
