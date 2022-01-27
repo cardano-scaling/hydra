@@ -76,7 +76,17 @@ import Hydra.Chain.Direct.Wallet (
   getTxId,
   withTinyWallet,
  )
-import Hydra.Ledger.Cardano (CardanoTx, NetworkId (Testnet), fromLedgerTx, fromLedgerUtxo, utxoPairs)
+import Hydra.Ledger.Cardano (
+  CardanoTx,
+  NetworkId (Testnet),
+  Utxo' (..),
+  fromLedgerTx,
+  fromLedgerTxIn,
+  fromLedgerUtxo,
+  toLedgerTx,
+  toLedgerUtxo,
+  utxoPairs,
+ )
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Party (Party)
 import Hydra.Snapshot (ConfirmedSnapshot (..))
@@ -159,7 +169,7 @@ withDirectChain tracer networkMagic iocp socketPath keyPair party cardanoKeys ca
                     -- found. See haddock for details
                     timeoutThrowAfter (NoPaymentInput @CardanoTx) 10 $
                       fromPostChainTx wallet (Testnet networkMagic) headState cardanoKeys tx
-                        >>= finalizeTx wallet headState
+                        >>= finalizeTx wallet headState . toLedgerTx
                         >>= writeTQueue queue
                 }
         )
@@ -312,9 +322,9 @@ chainSyncClient tracer networkMagic callback party headState =
   runOnChainTxs = fmap reverse . atomically . foldM runOnChainTx []
 
   runOnChainTx :: [OnChainTx CardanoTx] -> ValidatedTx Era -> STM m [OnChainTx CardanoTx]
-  runOnChainTx observed tx = do
+  runOnChainTx observed (fromLedgerTx -> tx) = do
     onChainHeadState <- readTVar headState
-    let utxo = Ledger.UTxO (knownUtxo onChainHeadState)
+    let utxo = Utxo (knownUtxo onChainHeadState)
     -- TODO(SN): We should be only looking for abort,commit etc. when we have a headId/policyId
     let res =
           observeInitTx networkId party tx
@@ -375,9 +385,9 @@ finalizeTx ::
   ValidatedTx Era ->
   STM m (ValidatedTx Era)
 finalizeTx TinyWallet{sign, getUtxo, coverFee} headState partialTx = do
-  headUtxo <- knownUtxo <$> readTVar headState
+  headUtxo <- Utxo . knownUtxo <$> readTVar headState
   walletUtxo <- fromLedgerUtxo . Ledger.UTxO <$> getUtxo
-  coverFee headUtxo partialTx >>= \case
+  coverFee (Ledger.unUTxO $ toLedgerUtxo headUtxo) partialTx >>= \case
     Left ErrNoPaymentUtxoFound ->
       retry
     Left ErrUnknownInput{input} -> do
@@ -385,7 +395,7 @@ finalizeTx TinyWallet{sign, getUtxo, coverFee} headState partialTx = do
         ( CannotSpendInput
             { input = show input
             , walletUtxo
-            , headUtxo = fromLedgerUtxo $ Ledger.UTxO headUtxo
+            , headUtxo
             } ::
             PostTxError CardanoTx
         )
@@ -393,7 +403,7 @@ finalizeTx TinyWallet{sign, getUtxo, coverFee} headState partialTx = do
       throwIO
         ( CannotCoverFees
             { walletUtxo
-            , headUtxo = fromLedgerUtxo $ Ledger.UTxO headUtxo
+            , headUtxo
             , reason = show e
             , tx = fromLedgerTx partialTx
             } ::
@@ -409,14 +419,14 @@ fromPostChainTx ::
   TVar m OnChainHeadState ->
   [VerificationKey PaymentKey] ->
   PostChainTx CardanoTx ->
-  STM m (ValidatedTx Era)
+  STM m CardanoTx
 fromPostChainTx TinyWallet{getUtxo, verificationKey} networkId headState cardanoKeys tx =
   case tx of
     InitTx params -> do
       u <- getUtxo
       -- NOTE: 'lookupMax' to favor change outputs!
       case Map.lookupMax u of
-        Just (seedInput, _) -> pure $ initTx networkId cardanoKeys params seedInput
+        Just (fromLedgerTxIn -> seedInput, _) -> pure $ initTx networkId cardanoKeys params seedInput
         Nothing -> throwIO (NoSeedInput @CardanoTx)
     AbortTx _utxo ->
       readTVar headState >>= \case

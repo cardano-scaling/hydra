@@ -2,12 +2,14 @@
 
 import Hydra.Prelude
 
-import Cardano.Api (NetworkId (Testnet), NetworkMagic (NetworkMagic))
+import Cardano.Binary (serialize)
 import qualified Cardano.Ledger.Alonzo as Ledger.Alonzo
 import qualified Cardano.Ledger.Alonzo.Data as Ledger
+import Cardano.Ledger.Alonzo.Language (Language (..))
 import qualified Cardano.Ledger.Alonzo.PParams as Ledger
 import qualified Cardano.Ledger.Alonzo.Scripts as Ledger
 import qualified Cardano.Ledger.Alonzo.TxBody as Ledger.Alonzo
+import Cardano.Ledger.Era (hashScript)
 import qualified Cardano.Ledger.Shelley.API as Ledger
 import qualified Cardano.Ledger.Val as Ledger
 import Control.Exception (ErrorCall)
@@ -15,7 +17,7 @@ import qualified Data.ByteString as BS
 import qualified Data.Map as Map
 import Data.Maybe (fromJust)
 import Data.Maybe.Strict (StrictMaybe (..))
-import Hydra.Chain.Direct.Tx (fanoutTx, plutusScript, policyId, scriptAddr)
+import Hydra.Chain.Direct.Tx (fanoutTx, policyId)
 import qualified Hydra.Contract.Hash as Hash
 import qualified Hydra.Contract.Head as Head
 import qualified Hydra.Contract.HeadState as Head
@@ -23,7 +25,10 @@ import Hydra.Ledger.Cardano (
   BuildTxWith (BuildTxWith),
   CardanoTx,
   ExecutionUnits (..),
+  LedgerCrypto,
   LedgerEra,
+  NetworkId (Testnet),
+  NetworkMagic (NetworkMagic),
   PlutusScriptV1,
   TxOut (..),
   Utxo,
@@ -32,8 +37,8 @@ import Hydra.Ledger.Cardano (
   addInputs,
   emptyTxBody,
   fromAlonzoExUnits,
-  fromLedgerTx,
-  fromLedgerUtxo,
+  fromLedgerTxOut,
+  fromPlutusData,
   fromPlutusScript,
   genKeyPair,
   genOneUtxoFor,
@@ -45,6 +50,7 @@ import Hydra.Ledger.Cardano (
   mkScriptWitness,
   mkTxOutDatum,
   simplifyUtxo,
+  singletonUtxo,
   toCtxUTxOTxOut,
   unsafeBuildTransaction,
  )
@@ -53,7 +59,7 @@ import Plutus.MerkleTree (rootHash)
 import qualified Plutus.MerkleTree as MT
 import Plutus.Orphans ()
 import Plutus.V1.Ledger.Api (toBuiltin, toData)
-import qualified PlutusTx.Builtins as Plutus
+import qualified Plutus.V1.Ledger.Api as Plutus
 import Test.Plutus.Validator (
   ExUnits (ExUnits),
   defaultMaxExecutionUnits,
@@ -96,18 +102,15 @@ showPad n x =
 
 mkFanoutTx :: Utxo -> (CardanoTx, Utxo)
 mkFanoutTx utxo =
-  ( fromLedgerTx tx
-  , fromLedgerUtxo lookupUtxo
-  )
+  (tx, lookupUtxo)
  where
-  tx = fanoutTx utxo (headInput, headDatum)
+  tx = fanoutTx utxo (headInput, fromPlutusData headDatum)
   headInput = generateWith arbitrary 42
-  headOutput = mkHeadOutput (SJust headDatum)
+  headOutput = fromLedgerTxOut $ mkHeadOutput (SJust $ Ledger.Data headDatum)
   headDatum =
-    Ledger.Data $
-      toData $
-        Head.Closed 1 (toBuiltin $ hashTxOuts $ toList utxo)
-  lookupUtxo = Ledger.UTxO $ Map.singleton headInput headOutput
+    toData $
+      Head.Closed 1 (toBuiltin $ hashTxOuts $ toList utxo)
+  lookupUtxo = singletonUtxo (headInput, headOutput)
 
 mkHeadOutput :: StrictMaybe (Ledger.Data LedgerEra) -> Ledger.Alonzo.TxOut LedgerEra
 mkHeadOutput headDatum =
@@ -216,3 +219,14 @@ calculateHashExUnits n algorithm =
   datum = Hash.datum $ toBuiltin bytes
   redeemer = mkRedeemerForTxIn $ Hash.redeemer algorithm
   bytes = fold $ replicate n ("0" :: ByteString)
+
+-- | Get the ledger address for a given plutus script.
+scriptAddr :: Ledger.Script LedgerEra -> Ledger.Addr LedgerCrypto
+scriptAddr script =
+  Ledger.Addr
+    Ledger.Testnet
+    (Ledger.ScriptHashObj $ hashScript @LedgerEra script)
+    Ledger.StakeRefNull
+
+plutusScript :: Plutus.Script -> Ledger.Script LedgerEra
+plutusScript = Ledger.PlutusScript PlutusV1 . toShort . fromLazy . serialize

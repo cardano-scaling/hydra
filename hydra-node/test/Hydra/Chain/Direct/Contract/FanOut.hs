@@ -4,55 +4,27 @@
 
 module Hydra.Chain.Direct.Contract.FanOut where
 
+import Hydra.Ledger.Cardano
 import Hydra.Prelude hiding (label)
 
-import qualified Cardano.Ledger.Alonzo.Data as Ledger
-import qualified Cardano.Ledger.Shelley.API as Ledger
-import qualified Data.Map as Map
-import Data.Maybe.Strict (StrictMaybe (..))
-import Hydra.Chain.Direct.Contract.Mutation (
-  Mutation (..),
-  SomeMutation (..),
- )
-import Hydra.Chain.Direct.Tx (
-  fanoutTx,
- )
+import Hydra.Chain.Direct.Contract.Mutation (Mutation (..), SomeMutation (..))
+import Hydra.Chain.Direct.Tx (fanoutTx)
 import Hydra.Chain.Direct.TxSpec (mkHeadOutput)
 import qualified Hydra.Contract.HeadState as Head
-import Hydra.Ledger.Cardano (
-  CardanoTx,
-  Utxo,
-  adaOnly,
-  fromLedgerTx,
-  fromLedgerUtxo,
-  genOutput,
-  genUtxoWithSimplifiedAddresses,
-  genValue,
-  getOutputs,
-  hashTxOuts,
-  modifyTxOutValue,
-  txOutValue,
- )
 import Plutus.Orphans ()
 import Plutus.V1.Ledger.Api (toBuiltin, toData)
-import Test.QuickCheck (
-  elements,
-  oneof,
-  suchThat,
- )
+import Test.QuickCheck (elements, oneof, suchThat)
 import Test.QuickCheck.Instances ()
 
 healthyFanoutTx :: (CardanoTx, Utxo)
 healthyFanoutTx =
-  ( fromLedgerTx tx
-  , fromLedgerUtxo lookupUtxo
-  )
+  (tx, lookupUtxo)
  where
   tx = fanoutTx healthyFanoutUtxo (headInput, headDatum)
   headInput = generateWith arbitrary 42
-  headOutput = mkHeadOutput (SJust headDatum)
-  headDatum = Ledger.Data $ toData healthyFanoutDatum
-  lookupUtxo = Ledger.UTxO $ Map.singleton headInput headOutput
+  headOutput = mkHeadOutput (toUtxoContext $ mkTxOutDatum healthyFanoutDatum)
+  headDatum = fromPlutusData $ toData healthyFanoutDatum
+  lookupUtxo = singletonUtxo (headInput, headOutput)
 
 healthyFanoutUtxo :: Utxo
 healthyFanoutUtxo =

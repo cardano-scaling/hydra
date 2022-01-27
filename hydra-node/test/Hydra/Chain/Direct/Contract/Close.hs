@@ -4,30 +4,16 @@
 
 module Hydra.Chain.Direct.Contract.Close where
 
+import Hydra.Ledger.Cardano hiding (SigningKey)
 import Hydra.Prelude hiding (label)
 
 import Cardano.Binary (serialize')
-import qualified Cardano.Ledger.Alonzo.Data as Ledger
-import qualified Cardano.Ledger.Shelley.API as Ledger
-import qualified Data.Map as Map
-import Data.Maybe.Strict (StrictMaybe (..))
-import Hydra.Chain.Direct.Contract.Mutation (
-  Mutation (..),
-  SomeMutation (..),
- )
-import Hydra.Chain.Direct.Tx (
-  closeTx,
- )
+import Hydra.Chain.Direct.Contract.Mutation (Mutation (..), SomeMutation (..))
+import Hydra.Chain.Direct.Tx (closeTx)
 import Hydra.Chain.Direct.TxSpec (mkHeadOutput)
 import qualified Hydra.Contract.HeadState as Head
 import Hydra.Data.Party (partyFromVerKey)
 import qualified Hydra.Data.Party as OnChain
-import Hydra.Ledger.Cardano (
-  CardanoTx,
-  Utxo,
-  fromLedgerTx,
-  fromLedgerUtxo,
- )
 import Hydra.Party (
   MultiSigned (MultiSigned),
   SigningKey,
@@ -39,11 +25,7 @@ import Hydra.Party (
 import Hydra.Snapshot (Snapshot (..), SnapshotNumber)
 import Plutus.Orphans ()
 import Plutus.V1.Ledger.Api (toData)
-import Test.QuickCheck (
-  arbitrarySizedNatural,
-  oneof,
-  suchThat,
- )
+import Test.QuickCheck (arbitrarySizedNatural, oneof, suchThat)
 import Test.QuickCheck.Instances ()
 
 --
@@ -52,15 +34,13 @@ import Test.QuickCheck.Instances ()
 
 healthyCloseTx :: (CardanoTx, Utxo)
 healthyCloseTx =
-  ( fromLedgerTx tx
-  , fromLedgerUtxo lookupUtxo
-  )
+  (tx, lookupUtxo)
  where
   tx = closeTx healthySnapshot (healthySignature healthySnapshotNumber) (headInput, headOutput, headDatum)
   headInput = generateWith arbitrary 42
-  headOutput = mkHeadOutput (SJust headDatum)
-  headDatum = Ledger.Data $ toData healthyCloseDatum
-  lookupUtxo = Ledger.UTxO $ Map.singleton headInput headOutput
+  headOutput = mkHeadOutput $ toUtxoContext (mkTxOutDatum healthyCloseDatum)
+  headDatum = fromPlutusData $ toData healthyCloseDatum
+  lookupUtxo = singletonUtxo (headInput, headOutput)
 
 healthySnapshot :: Snapshot CardanoTx
 healthySnapshot =

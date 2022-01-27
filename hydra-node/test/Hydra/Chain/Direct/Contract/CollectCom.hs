@@ -4,14 +4,17 @@
 
 module Hydra.Chain.Direct.Contract.CollectCom where
 
+import Hydra.Ledger.Cardano
 import Hydra.Prelude hiding (label)
 
-import qualified Cardano.Ledger.Alonzo.Data as Ledger
-import qualified Cardano.Ledger.Shelley.API as Ledger
 import qualified Data.Map as Map
 import Data.Maybe (fromJust)
-import Data.Maybe.Strict (StrictMaybe (..))
-import Hydra.Chain.Direct.Contract.Mutation (Mutation (..), SomeMutation (..), genHash, isHeadOutput)
+import Hydra.Chain.Direct.Contract.Mutation (
+  Mutation (..),
+  SomeMutation (..),
+  genHash,
+  isHeadOutput,
+ )
 import qualified Hydra.Chain.Direct.Fixture as Fixture
 import Hydra.Chain.Direct.Tx (
   collectComTx,
@@ -24,44 +27,11 @@ import qualified Hydra.Contract.Head as Head
 import qualified Hydra.Contract.HeadState as Head
 import qualified Hydra.Data.Party as OnChain
 import qualified Hydra.Data.Party as Party
-import Hydra.Ledger.Cardano (
-  AlonzoEra,
-  CardanoTx,
-  CtxUTxO,
-  LedgerEra,
-  TxIn,
-  TxOut (..),
-  TxOutDatum (..),
-  Utxo,
-  fromLedgerTx,
-  fromLedgerUtxo,
-  fromPlutusScript,
-  genAdaOnlyUtxo,
-  genOutput,
-  genValue,
-  getOutputs,
-  lovelaceToValue,
-  mkScriptAddress,
-  mkTxOutDatum,
-  mkTxOutValue,
-  toCtxUTxOTxOut,
-  toLedgerTxIn,
-  toLedgerTxOut,
-  toPlutusData,
-  txOutValue,
-  utxoPairs,
- )
 import qualified Hydra.Ledger.Cardano as Api
-import Hydra.Party (
-  Party,
-  vkey,
- )
+import Hydra.Party (Party, vkey)
 import Plutus.Orphans ()
 import Plutus.V1.Ledger.Api (fromData, toBuiltin, toData)
-import Test.QuickCheck (
-  oneof,
-  suchThat,
- )
+import Test.QuickCheck (oneof, suchThat)
 import Test.QuickCheck.Instances ()
 import qualified Prelude
 
@@ -71,13 +41,10 @@ import qualified Prelude
 
 healthyCollectComTx :: (CardanoTx, Utxo)
 healthyCollectComTx =
-  ( fromLedgerTx tx
-  , fromLedgerUtxo lookupUtxo
-  )
+  (tx, lookupUtxo)
  where
   lookupUtxo =
-    Ledger.UTxO $
-      Map.singleton headInput headResolvedInput <> (fst <$> commits)
+    singletonUtxo (headInput, headResolvedInput) <> Utxo (fst <$> commits)
 
   tx =
     collectComTx
@@ -93,12 +60,10 @@ healthyCollectComTx =
   commits =
     (uncurry healthyCommitOutput <$> zip healthyCollectComParties committedUtxo)
       & Map.fromList
-      & Map.mapKeys toLedgerTxIn
-      & Map.map (first toLedgerTxOut)
 
   headInput = generateWith arbitrary 42
-  headResolvedInput = mkHeadOutput (SJust headDatum)
-  headDatum = Ledger.Data $ toData healthyCollectComInitialDatum
+  headResolvedInput = mkHeadOutput (toUtxoContext $ mkTxOutDatum healthyCollectComInitialDatum)
+  headDatum = fromPlutusData $ toData healthyCollectComInitialDatum
 
 healthyCollectComInitialDatum :: Head.State
 healthyCollectComInitialDatum =
@@ -125,12 +90,12 @@ genCommittableTxOut =
 healthyCommitOutput ::
   Party ->
   (TxIn, TxOut CtxUTxO AlonzoEra) ->
-  (TxIn, (TxOut CtxUTxO AlonzoEra, Ledger.Data LedgerEra))
+  (TxIn, (TxOut CtxUTxO AlonzoEra, ScriptData))
 healthyCommitOutput party committed =
   ( generateWith arbitrary seed
   ,
     ( toCtxUTxOTxOut (TxOut commitAddress commitValue (mkTxOutDatum commitDatum))
-    , Ledger.Data (toData commitDatum)
+    , fromPlutusData (toData commitDatum)
     )
   )
  where
