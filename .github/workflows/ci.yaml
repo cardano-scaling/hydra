@@ -58,8 +58,8 @@ jobs:
 
     - name: Build
       run: |
-        nix-shell --arg withoutDevTools true --run 'cabal update'
-        nix-shell --arg withoutDevTools true --run 'cabal build ${{ matrix.package }}'
+        nix-shell --pure --arg withoutDevTools true --run 'cabal update'
+        nix-shell --pure --arg withoutDevTools true --run 'cabal build ${{ matrix.package }}'
 
     - name: Test
       if: ${{ matrix.package != 'hydra-tui' }}
@@ -76,7 +76,7 @@ jobs:
         TERM: "xterm"
       continue-on-error: true
       run: |
-        nix-shell --arg withoutDevTools true --run 'cabal test ${{ matrix.package }}'
+        nix-shell --pure --arg withoutDevTools true --run 'cabal test ${{ matrix.package }}'
 
     - name: Test (TUI, retry)
       if: steps.test_tui.outcome=='failure'
@@ -84,7 +84,7 @@ jobs:
       env:
         TERM: "xterm"
       run: |
-        nix-shell --arg withoutDevTools true --run 'cabal test ${{ matrix.package }}'
+        nix-shell --pure --arg withoutDevTools true --run 'cabal test ${{ matrix.package }}'
 
     - name: Upload build & test artifacts
       uses: actions/upload-artifact@v2
@@ -150,16 +150,16 @@ jobs:
 
     - name: Prepare nix-shell
       run: |
-        nix-build --arg withoutDevTools true shell.nix
-        nix-shell --arg withoutDevTools true --run 'cabal update'
+        nix-build --pure --arg withoutDevTools true shell.nix
+        nix-shell --pure --arg withoutDevTools true --run 'cabal update'
 
     - name: Bench
       run: |
-        nix-shell --arg withoutDevTools true --run 'cabal bench ${{ matrix.bench }} --benchmark-options "${{ matrix.options }}"'
+        nix-shell --pure --arg withoutDevTools true --run 'cabal bench ${{ matrix.bench }} --benchmark-options "${{ matrix.options }}"'
 
     - name: Documentation (Haddock)
       run: |
-        nix-shell --arg withoutDevTools true --run '.github/workflows/ci-haddock.sh'
+        nix-shell --pure --arg withoutDevTools true --run '.github/workflows/ci-haddock.sh'
 
     - name: Upload build & test artifacts
       uses: actions/upload-artifact@v2

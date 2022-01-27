@@ -141,7 +141,6 @@ test-suite tests
     , vty
 
   build-tool-depends:
-    hspec-discover:hspec-discover -any, hydra-node:hydra-node -any,
-    cardano-node:cardano-node -any
+    hspec-discover:hspec-discover -any, hydra-node:hydra-node -any
 
   ghc-options:        -threaded -rtsopts
