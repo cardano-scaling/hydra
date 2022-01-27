@@ -46,10 +46,10 @@ jobs:
         nix-build shell.nix
 
     - name: Build
-      run: nix-shell --run '.github/workflows/ci-build.sh'
+      run: nix-shell --pure --run '.github/workflows/ci-build.sh'
 
     - name: Test
-      run: nix-shell --run '.github/workflows/ci-test.sh'
+      run: nix-shell --pure --run '.github/workflows/ci-test.sh'
       # https://giters.com/gfx/example-github-actions-with-tty
       # The default shell does not allocate a TTY which breaks some tests
       shell: 'script -q -e -c "bash {0}"'
@@ -58,7 +58,7 @@ jobs:
 
     - name: Documentation (Haddock)
       run: |
-        nix-shell --run '.github/workflows/ci-haddock.sh'
+        nix-shell --pure --run '.github/workflows/ci-haddock.sh'
 
     - name: Setup Node.js
       uses: actions/setup-node@v3

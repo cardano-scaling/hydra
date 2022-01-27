@@ -63,7 +63,7 @@ You can also use `nix-build` to build the project and all executables. You will 
     Do not confuse `lzma` with `liblzma-dev`, those are 2 existing package!
 
 1. Install forked libsodium
-    
+
     ````mdx-code-block
     <TerminalWindow>
 
@@ -78,6 +78,8 @@ You can also use `nix-build` to build the project and all executables. You will 
 
     </TerminalWindow>
     ````
+
+1. To run integration tests, we need to install `cardano-node` & `cardano-cli` v1.32.0-rc2 to path. For example, see the official doc [here](https://developers.cardano.org/docs/get-started/installing-cardano-node).
 
 1. Build and test everything:
 

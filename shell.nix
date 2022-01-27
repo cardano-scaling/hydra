@@ -19,10 +19,23 @@
     nativeBuildInputs = [ pkgs.autoreconfHook ];
     configureFlags = "--enable-static";
   })
+
+, # Feed cardano-node & cardano-cli to our shell.
+  # This is stable as it doesn't mix dependencies with this code-base;
+  # the fetched binaries are the "standard" builds that people test.
+  # This should be fast as it mostly fetches Hydra caches without building much.
+  cardano-node ? import
+    (pkgs.fetchgit {
+      url = "https://github.com/input-output-hk/cardano-node";
+      rev = "b91eb99f40f8ea88a3b6d9fb130667121ecbe522"; # 1.32.0-rc2 matching cabal.project.
+      sha256 = "1p862an7ddx4c1i0jsm2zimgh3x16ldsw0iccz8l39xg5d6m3vww";
+    })
+    { }
 }:
 let
   libs = [
     libsodium-vrf
+    pkgs.glibcLocales
     pkgs.zlib
     pkgs.lzma
   ]
@@ -30,6 +43,7 @@ let
   pkgs.lib.optionals (pkgs.stdenv.isLinux) [ pkgs.systemd ];
 
   tools = [
+    pkgs.git
     pkgs.pkgconfig
     pkgs.haskellPackages.ghcid
     pkgs.haskellPackages.hspec-discover
@@ -45,6 +59,9 @@ let
     pkgs.gnuplot
     # For docs/
     pkgs.yarn
+    # cardano-node
+    cardano-node.cardano-node
+    cardano-node.cardano-cli
   ];
 
   haskellNixShell = hsPkgs.shellFor {
@@ -75,6 +92,12 @@ let
 
     # Always create missing golden files
     CREATE_MISSING_GOLDEN = 1;
+
+    # Force a UTF-8 locale because many Haskell programs and tests
+    # assume this.
+    LANG = "en_US.UTF-8";
+
+    GIT_SSL_CAINFO = "${pkgs.cacert}/etc/ssl/certs/ca-bundle.crt";
   };
 
   # A "cabal-only" shell which does not use haskell.nix
@@ -84,7 +107,6 @@ let
     buildInputs = libs ++ [
       pkgs.haskell.compiler.${compiler}
       pkgs.cabal-install
-      pkgs.git
       pkgs.pkgconfig
     ] ++ tools;
 

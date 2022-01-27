@@ -230,8 +230,7 @@ test-suite integration
     , text
 
   build-tool-depends:
-    hspec-discover:hspec-discover -any, hydra-node:hydra-node -any,
-    cardano-node:cardano-node -any, cardano-cli:cardano-cli -any
+    hspec-discover:hspec-discover -any, hydra-node:hydra-node -any
 
   ghc-options:        -threaded -rtsopts
 
@@ -267,6 +266,6 @@ benchmark bench-e2e
     , time
 
   build-tool-depends:
-    hydra-node:hydra-node -any, cardano-node:cardano-node -any
+    hydra-node:hydra-node -any
 
   ghc-options:        -threaded -rtsopts
