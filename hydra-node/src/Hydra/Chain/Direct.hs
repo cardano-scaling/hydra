@@ -439,7 +439,7 @@ fromPostChainTx TinyWallet{getUtxo, verificationKey} networkId headState cardano
     CommitTx party utxo ->
       readTVar headState >>= \case
         Initial{initials} -> case ownInitial verificationKey initials of
-          Nothing -> throwIO $ InvalidStateToPost tx
+          Nothing -> throwIO $ CannotFindOwnInitial{verificationKey, initials}
           Just initial ->
             case utxoPairs utxo of
               [aUtxo] -> do

@@ -7,9 +7,11 @@ import Hydra.Prelude
 import Test.Hydra.Prelude
 
 import CardanoClient (
+  buildAddress,
   generatePaymentToCommit,
   postSeedPayment,
   queryProtocolParameters,
+  queryUtxo,
   waitForUtxo,
  )
 import CardanoCluster (
@@ -39,7 +41,10 @@ import Hydra.Ledger (IsTx (..))
 import Hydra.Ledger.Cardano (
   CardanoTx,
   NetworkId (Testnet),
+  fromCardanoApiUtxo,
   genOneUtxoFor,
+  lovelaceToValue,
+  txOutValue,
  )
 import Hydra.Logging (nullTracer, showLogsOnFailure)
 import Hydra.Party (Party, SigningKey, aggregate, deriveParty, generateKey, sign)
@@ -71,6 +76,44 @@ spec = around showLogsOnFailure $ do
 
               alicesCallback `observesInTime` OnAbortTx
               bobsCallback `observesInTime` OnAbortTx
+
+  it "can init and abort a 2-parties head after one party has committed" $ \tracer -> do
+    alicesCallback <- newEmptyMVar
+    bobsCallback <- newEmptyMVar
+    withTempDir "hydra-cluster" $ \tmp -> do
+      config <- newNodeConfig tmp
+      aliceKeys@(aliceCardanoVk, aliceCardanoSk) <- keysFor "alice"
+      withBFTNode (contramap FromCluster tracer) config [aliceCardanoVk] $ \node@(RunningNode _ nodeSocket) -> do
+        bobKeys <- keysFor "bob"
+        pparams <- queryProtocolParameters defaultNetworkId nodeSocket
+        let cardanoKeys = []
+        withIOManager $ \iocp -> do
+          withDirectChain (contramap (FromDirectChain "alice") tracer) magic iocp nodeSocket aliceKeys alice cardanoKeys (putMVar alicesCallback) $ \Chain{postTx} -> do
+            withDirectChain nullTracer magic iocp nodeSocket bobKeys bob cardanoKeys (putMVar bobsCallback) $ \_ -> do
+              postSeedPayment (Testnet magic) pparams availableInitialFunds nodeSocket aliceCardanoSk 100_000_000
+
+              postTx $ InitTx $ HeadParameters 100 [alice, bob, carol]
+              alicesCallback `observesInTime` OnInitTx 100 [alice, bob, carol]
+              bobsCallback `observesInTime` OnInitTx 100 [alice, bob, carol]
+
+              aliceUtxo <- generatePaymentToCommit defaultNetworkId node aliceCardanoSk aliceCardanoVk 1_000_000
+              postTx $ CommitTx alice aliceUtxo
+
+              alicesCallback `observesInTime` OnCommitTx alice aliceUtxo
+              bobsCallback `observesInTime` OnCommitTx alice aliceUtxo
+
+              postTx $ AbortTx mempty
+
+              alicesCallback `observesInTime` OnAbortTx
+              bobsCallback `observesInTime` OnAbortTx
+
+              let networkId = Testnet magic
+                  aliceAddress = buildAddress aliceCardanoVk networkId
+
+              utxo <- fromCardanoApiUtxo <$> queryUtxo networkId nodeSocket [aliceAddress]
+              putLBSLn $ encodePretty utxo
+              foldMap txOutValue utxo
+                `shouldBe` lovelaceToValue 100_000_000
 
   it "cannot abort a non-participating head" $ \tracer -> do
     alicesCallback <- newEmptyMVar

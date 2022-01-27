@@ -75,6 +75,7 @@ data PostTxError tx
   = MoreThanOneUtxoCommitted
   | CannotSpendInput {input :: Text, walletUtxo :: UtxoType tx, headUtxo :: UtxoType tx}
   | CannotCoverFees {walletUtxo :: UtxoType tx, headUtxo :: UtxoType tx, reason :: Text, tx :: tx}
+  | CannotFindOwnInitial {initialsUtxo :: UtxoType tx}
   | NoSeedInput
   | NoPaymentInput
   | InvalidStateToPost {txTried :: PostChainTx tx}
