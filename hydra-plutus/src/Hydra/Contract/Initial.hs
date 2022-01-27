@@ -12,10 +12,11 @@ import PlutusTx.Prelude
 import Hydra.Contract.Commit (SerializedTxOut (..))
 import qualified Hydra.Contract.Commit as Commit
 import Hydra.Contract.Encoding (encodeTxOut)
-import Ledger.Typed.Scripts (TypedValidator, ValidatorTypes (..))
+import Ledger.Typed.Scripts (TypedValidator, ValidatorType, ValidatorTypes (..))
 import qualified Ledger.Typed.Scripts as Scripts
 import Plutus.Codec.CBOR.Encoding (encodingToBuiltinByteString)
 import Plutus.V1.Ledger.Ada (fromValue, getLovelace)
+import PlutusTx (CompiledCode)
 import qualified PlutusTx
 import PlutusTx.IsData.Class (ToData (..), fromBuiltinData)
 
@@ -125,11 +126,12 @@ typedValidator =
     compiledValidator
     $$(PlutusTx.compile [||wrap||])
  where
-  compiledValidator =
-    $$(PlutusTx.compile [||validator||])
-      `PlutusTx.applyCode` PlutusTx.liftCode Commit.validatorHash
-
   wrap = Scripts.wrapValidator @(DatumType Initial) @(RedeemerType Initial)
+
+compiledValidator :: CompiledCode (ValidatorType Initial)
+compiledValidator =
+  $$(PlutusTx.compile [||validator||])
+    `PlutusTx.applyCode` PlutusTx.liftCode Commit.validatorHash
 
 -- | Get the actual plutus script. Mainly used to serialize and use in
 -- transactions.
