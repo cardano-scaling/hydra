@@ -359,7 +359,7 @@ spec =
                       1 + length initials == length (rights $ Map.elems redeemerReport)
                         & counterexample ("Redeemer report: " <> show redeemerReport)
                         & counterexample ("Tx: " <> toString (describeCardanoTx tx))
-                        & counterexample ("Input utxo: " <> show utxo)
+                        & counterexample ("Input utxo: " <> decodeUtf8 (encodePretty utxo))
                         & cover 0.8 True "Success"
 
       prop "cover fee correctly handles redeemers" $
