@@ -431,7 +431,7 @@ fromPostChainTx TinyWallet{getUtxo, verificationKey} networkId headState cardano
       readTVar headState >>= \case
         Initial{threadOutput, initials, commits} ->
           let (i, _, dat, _) = threadOutput
-           in case abortTx networkId (i, dat) (Map.fromList $ map convertTuple initials) (Map.fromList $ map convertTuple commits) of
+           in case abortTx networkId (i, dat) (Map.fromList $ map convertTuple initials) (Map.fromList $ map tripleToPair commits) of
                 Left err -> error $ show err
                 Right tx' -> pure tx'
         _st -> throwIO $ InvalidStateToPost tx
@@ -460,7 +460,7 @@ fromPostChainTx TinyWallet{getUtxo, verificationKey} networkId headState cardano
       readTVar headState >>= \case
         Initial{threadOutput, commits} -> do
           let (i, _, dat, parties) = threadOutput
-          pure $ collectComTx networkId (i, dat, parties) (Map.fromList $ fmap (\(a, b, c) -> (a, (b, c))) commits)
+          pure $ collectComTx networkId (i, dat, parties) (Map.fromList $ fmap tripleToPair commits)
         _st -> throwIO $ InvalidStateToPost tx
     CloseTx confirmedSnapshot ->
       readTVar headState >>= \case
@@ -481,6 +481,8 @@ fromPostChainTx TinyWallet{getUtxo, verificationKey} networkId headState cardano
     _ -> error "not implemented"
  where
   convertTuple (i, _, dat) = (i, dat)
+
+  tripleToPair (a, b, c) = (a, (b, c))
 
 --
 -- Helpers

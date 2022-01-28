@@ -308,10 +308,10 @@ spec =
       prop "transaction size below limit" $
         \txIn cperiod (ReasonablySized parties) ->
           forAll (genAbortableOutputs parties) $
-            \(fmap drop2nd -> initials, fmap drop2nd -> commits) ->
+            \(fmap drop2nd -> initials, commits) ->
               let headDatum = fromPlutusData . toData $ Head.Initial cperiod onChainParties
                   onChainParties = partyFromVerKey . vkey <$> parties
-               in case abortTx testNetworkId (txIn, headDatum) (Map.fromList initials) (Map.fromList commits) of
+               in case abortTx testNetworkId (txIn, headDatum) (Map.fromList initials) (Map.fromList $ map tripleToPair commits) of
                     Left err -> property False & counterexample ("AbortTx construction failed: " <> show err)
                     Right tx ->
                       let cbor = serialize tx
@@ -323,12 +323,12 @@ spec =
 
       prop "is observed" $
         \txIn cperiod parties -> forAll (genAbortableOutputs parties) $
-          \(fmap drop2nd -> initials, _) ->
+          \(fmap drop2nd -> initials, commits) ->
             let headOutput = mkHeadOutput testNetworkId TxOutDatumNone -- will be SJust, but not covered by this test
                 headDatum = fromPlutusData $ toData $ Head.Initial cperiod onChainParties
                 onChainParties = partyFromVerKey . vkey <$> parties
                 utxo = singletonUtxo (txIn, headOutput)
-             in case abortTx testNetworkId (txIn, headDatum) (Map.fromList initials) mempty of
+             in case abortTx testNetworkId (txIn, headDatum) (Map.fromList initials) (Map.fromList $ map tripleToPair commits) of
                   Left err -> property False & counterexample ("AbortTx construction failed: " <> show err)
                   Right tx ->
                     let res = observeAbortTx utxo tx
@@ -353,7 +353,7 @@ spec =
                 commits = Map.fromList (drop2nd <$> resolvedCommits)
                 commitsUtxo = drop3rd <$> resolvedCommits
                 utxo = Utxo $ Map.fromList (headUtxo : initialsUtxo <> commitsUtxo)
-             in checkCoverage $ case abortTx testNetworkId (txIn, fromPlutusData $ toData headDatum) initials commits of
+             in checkCoverage $ case abortTx testNetworkId (txIn, fromPlutusData $ toData headDatum) initials (Map.fromList $ map tripleToPair resolvedCommits) of
                   Left OverlappingInputs ->
                     property (isJust $ txIn `Map.lookup` initials)
                   Right tx ->
@@ -494,13 +494,16 @@ genAbortableOutputs parties = do
   (initParties, commitParties) <- (`splitAt` parties) <$> choose (0, length parties)
   initials <- vectorOf (length initParties) genInitial
   commits <- fmap (\(a, (b, c)) -> (a, b, c)) . Map.toList <$> generateCommitUtxos commitParties
-  pure $ (initials, commits)
+  pure (initials, commits)
 
 drop2nd :: (a, b, c) -> (a, c)
 drop2nd (a, _, c) = (a, c)
 
 drop3rd :: (a, b, c) -> (a, b)
 drop3rd (a, b, _) = (a, b)
+
+tripleToPair :: (a, b, c) -> (a, (b, c))
+tripleToPair (a, b, c) = (a, (b, c))
 
 genInitial :: Gen UtxoWithScript
 genInitial = mkInitials <$> arbitrary

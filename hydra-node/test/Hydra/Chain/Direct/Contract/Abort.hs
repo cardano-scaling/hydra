@@ -51,7 +51,7 @@ healthyAbortTx =
       Fixture.testNetworkId
       (headInput, headDatum)
       (Map.fromList (drop2nd <$> healthyInitials))
-      (Map.fromList (drop2nd <$> healthyCommits))
+      (Map.fromList (tripleToPair <$> healthyCommits))
 
   headInput = generateWith arbitrary 42
 
@@ -68,6 +68,8 @@ healthyAbortTx =
   -- XXX: We loose type information by dealing with 'TxOut CtxTx' where datums
   -- are optional
   unsafeGetDatum = fromJust . getDatum
+
+  tripleToPair (a, b, c) = (a, (b, c))
 
 healthyInitials :: [UtxoWithScript]
 healthyCommits :: [UtxoWithScript]
@@ -118,5 +120,5 @@ genAbortMutation _ =
     , SomeMutation MutateDropCommitOutput
         . RemoveOutput
         . (+ 1) -- NOTE(AB): Assumes the transaction's first output is the head output
-        <$> choose (0, fromIntegral $ length healthyCommits)
+        <$> choose (0, fromIntegral (length healthyCommits - 1))
     ]

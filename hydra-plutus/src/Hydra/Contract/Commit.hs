@@ -8,10 +8,12 @@ module Hydra.Contract.Commit where
 import Ledger hiding (validatorHash)
 import PlutusTx.Prelude
 
+import Hydra.Contract.Encoding (encodeTxOut)
 import Hydra.Contract.HeadState (State (..))
 import Hydra.Data.Party (Party)
 import Ledger.Typed.Scripts (TypedValidator, ValidatorType, ValidatorTypes (..))
 import qualified Ledger.Typed.Scripts as Scripts
+import Plutus.Codec.CBOR.Encoding (encodingToBuiltinByteString)
 import Plutus.V1.Ledger.Api (Credential (ScriptCredential))
 import PlutusTx (CompiledCode)
 import qualified PlutusTx
@@ -38,7 +40,13 @@ instance Scripts.ValidatorTypes Commit where
 validator :: DatumType Commit -> RedeemerType Commit -> ScriptContext -> Bool
 validator (_party, headScriptHash, commit) consumer ScriptContext{scriptContextTxInfo = txInfo} =
   case consumer of
-    Abort -> True
+    Abort ->
+      case commit of
+        Nothing -> True
+        Just (SerializedTxOut serialisedTxOut) ->
+          -- There should be an output in the transaction corresponding to this serialisedTxOut
+          traceIfFalse "cannot find commit output" $
+            serialisedTxOut `elem` (encodingToBuiltinByteString . encodeTxOut <$> txInfoOutputs txInfo)
     CollectCom ->
       case commit of
         -- we don't commit anything, so there's nothing to validate

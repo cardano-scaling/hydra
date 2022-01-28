@@ -314,7 +314,7 @@ abortTx ::
   Map TxIn ScriptData ->
   -- | Data needed to spend commit outputs.
   -- Should contain the PT and is locked by commit script.
-  Map TxIn ScriptData ->
+  Map TxIn (TxOut CtxUTxO Era, ScriptData) ->
   Either AbortTxError CardanoTx
 abortTx networkId (headInput, ScriptDatumForTxIn -> headDatumBefore) initialsToAbort commitsToAbort
   | isJust (lookup headInput initialsToAbort) =
@@ -360,7 +360,7 @@ abortTx networkId (headInput, ScriptDatumForTxIn -> headDatumBefore) initialsToA
   initialRedeemer =
     mkRedeemerForTxIn $ Initial.redeemer Initial.Abort
 
-  mkAbortCommit (commitInput, ScriptDatumForTxIn -> commitDatum) =
+  mkAbortCommit (commitInput, (_, ScriptDatumForTxIn -> commitDatum)) =
     (commitInput, mkCommitWitness commitDatum)
   mkCommitWitness commitDatum =
     BuildTxWith $ mkScriptWitness commitScript commitDatum commitRedeemer
@@ -369,7 +369,14 @@ abortTx networkId (headInput, ScriptDatumForTxIn -> headDatumBefore) initialsToA
   commitRedeemer =
     mkRedeemerForTxIn (Commit.redeemer Commit.Abort)
 
-  commitOutputs = []
+  commitOutputs = mapMaybe (mkCommitOutput . snd) $ Map.elems commitsToAbort
+
+  mkCommitOutput :: ScriptData -> Maybe (TxOut CtxTx Era)
+  mkCommitOutput x =
+    case fromData @(DatumType Commit.Commit) $ toPlutusData x of
+      Just (_party, _validatorHash, serialisedTxOut) ->
+        toTxContext <$> convertTxOut serialisedTxOut
+      Nothing -> error "Invalid Commit datum"
 
 -- * Observe Hydra Head transactions
 
@@ -476,19 +483,19 @@ observeCommitTx networkId initials (getTxBody -> txBody) = do
       Initial.Commit{committedRef} ->
         Just (Api.fromPlutusTxOutRef <$> committedRef)
 
-  convertTxOut :: Maybe Commit.SerializedTxOut -> Maybe (TxOut CtxUTxO Era)
-  convertTxOut = \case
-    Nothing -> Nothing
-    Just (Commit.SerializedTxOut outBytes) ->
-      -- XXX(SN): these errors might be more severe and we could throw an
-      -- exception here?
-      case Api.fromLedgerTxOut <$> decodeFull' (fromBuiltin outBytes) of
-        Right result -> Just result
-        Left{} -> error "couldn't deserialize serialized output in commit's datum."
-
   commitAddress = mkScriptAddress @PlutusScriptV1 networkId commitScript
 
   commitScript = fromPlutusScript Commit.validatorScript
+
+convertTxOut :: Maybe Commit.SerializedTxOut -> Maybe (TxOut CtxUTxO Era)
+convertTxOut = \case
+  Nothing -> Nothing
+  Just (Commit.SerializedTxOut outBytes) ->
+    -- XXX(SN): these errors might be more severe and we could throw an
+    -- exception here?
+    case Api.fromLedgerTxOut <$> decodeFull' (fromBuiltin outBytes) of
+      Right result -> Just result
+      Left{} -> error "couldn't deserialize serialized output in commit's datum."
 
 -- REVIEW(SN): Is this really specific to commit only, or wouldn't we be able to
 -- filter all 'getKnownUtxo' after observing any protocol tx?
