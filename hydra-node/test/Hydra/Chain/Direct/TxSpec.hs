@@ -407,25 +407,25 @@ spec =
 mkInitials ::
   (TxIn, Hash PaymentKey, TxOut CtxUTxO Era) ->
   (TxIn, TxOut CtxUTxO Era, ScriptData)
-mkInitials (txin, vkh, TxOut addr value _) =
+mkInitials (txin, vkh, TxOut _ value _) =
   let initDatum = Initial.datum (toPlutusKeyHash vkh)
    in ( txin
-      , toUtxoContext (TxOut addr value (mkTxOutDatum initDatum))
+      , mkInitialTxOut vkh value
       , fromPlutusData (toData initDatum)
       )
 
 mkInitialTxOut ::
   Hash PaymentKey ->
+  TxOutValue Era ->
   TxOut CtxUTxO Era
-mkInitialTxOut vkh =
+mkInitialTxOut vkh initialValue =
   toUtxoContext $
     TxOut
       (mkScriptAddress @PlutusScriptV1 testNetworkId initialScript)
-      (mkTxOutValue initialValue)
+      initialValue
       (mkTxOutDatum initialDatum)
  where
   initialScript = fromPlutusScript Initial.validatorScript
-  initialValue = lovelaceToValue (Lovelace 0)
   initialDatum = Initial.datum (toPlutusKeyHash vkh)
 
 -- | Generate a UTXO representing /commit/ outputs for a given list of `Party`.
