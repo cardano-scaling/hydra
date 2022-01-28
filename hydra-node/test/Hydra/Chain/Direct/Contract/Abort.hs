@@ -105,6 +105,7 @@ propHasCommit (_, utxo) =
 
 data AbortMutation
   = MutateParties
+  | MutateDropCommitOutput
   deriving (Generic, Show, Enum, Bounded)
 
 genAbortMutation :: (CardanoTx, Utxo) -> Gen SomeMutation

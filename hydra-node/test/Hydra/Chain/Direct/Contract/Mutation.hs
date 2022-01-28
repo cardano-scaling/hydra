@@ -140,6 +140,8 @@ data Mutation
     ChangeHeadDatum Head.State
   | -- | Adds given output to the transaction's outputs.
     PrependOutput (TxOut CtxTx Era)
+  | -- | Removes given output from the transaction's outputs.
+    RemoveOutput Word
   | -- | Change an input's 'TxOut' to something else.
     -- This mutation alters the redeemers of the transaction to ensure
     -- any matching redeemer for given input is removed, otherwise the
@@ -199,6 +201,14 @@ applyMutation mutation (tx@(Tx body wits), utxo) = case mutation of
     ( alterTxOuts (txOut :) tx
     , utxo
     )
+  RemoveOutput ix ->
+    ( alterTxOuts (removeAt ix) tx
+    , utxo
+    )
+   where
+    removeAt i es =
+      map snd $
+        filter ((/= i) . fst) $ zip [0 ..] es
   ChangeInput txIn txOut ->
     ( Tx body' wits
     , Api.Utxo $ Map.insert txIn txOut (Api.utxoMap utxo)
