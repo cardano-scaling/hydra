@@ -465,8 +465,7 @@ observeCommitTx networkId initials (getTxBody -> txBody) = do
   findInitialTxIn =
     case filterTxIn (`elem` initials) txBody of
       [input] -> Just input
-      [] -> Nothing
-      _ -> error "transaction consuming more than one initial at once."
+      _ -> Nothing
 
   decodeInitialRedeemer =
     findRedeemerSpending txBody >=> \case

@@ -17,9 +17,9 @@ import Control.Concurrent (newEmptyMVar, putMVar, takeMVar)
 import Hydra.Chain (
   Chain (..),
   HeadParameters (HeadParameters),
-  PostTxError (NoSeedInput),
   OnChainTx (OnAbortTx, OnInitTx),
   PostChainTx (AbortTx, InitTx),
+  PostTxError (NoSeedInput),
  )
 import Hydra.Chain.Direct (DirectChainLog, withDirectChain)
 import Hydra.Chain.Direct.MockServer (withMockServer)
@@ -39,9 +39,11 @@ spec = do
         calledBackBob <- newEmptyMVar
         aliceKeys@(aliceVk, _) <- generate genKeyPair
         bobKeys <- generate genKeyPair
+        carolKeys <- generate genKeyPair
+        let cardanoKeys = [aliceVk, fst bobKeys, fst carolKeys]
         withMockServer $ \magic iocp socket submitTx -> do
-          withDirectChain (contramap FromAlice tracer) magic iocp socket aliceKeys alice [] (putMVar calledBackAlice) $ \Chain{postTx} -> do
-            withDirectChain (contramap FromBob tracer) magic iocp socket bobKeys bob [] (putMVar calledBackBob) $ \_ -> do
+          withDirectChain (contramap FromAlice tracer) magic iocp socket aliceKeys alice cardanoKeys (putMVar calledBackAlice) $ \Chain{postTx} -> do
+            withDirectChain (contramap FromBob tracer) magic iocp socket bobKeys bob cardanoKeys (putMVar calledBackBob) $ \_ -> do
               let parameters = HeadParameters 100 [alice, bob, carol]
               mkSeedPayment magic aliceVk submitTx
 
