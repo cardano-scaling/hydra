@@ -1,0 +1,118 @@
+cabal-version:      3.0
+name:               hydra-cardano-api
+version:            0.3.0
+synopsis:           A Haskell API for Cardano, tailored to the Hydra project.
+author:             IOG
+copyright:          2022 IOG
+license:            Apache-2.0
+license-files:
+  LICENSE
+  NOTICE
+
+source-repository head
+  type:     git
+  location: https://github.com/input-output-hk/hydra-poc
+
+flag hydra-development
+  description: Disable -Werror for development
+  default:     False
+  manual:      True
+
+common project-config
+  default-language:   Haskell2010
+  default-extensions:
+    NoImplicitPrelude
+    BangPatterns
+    BinaryLiterals
+    ConstraintKinds
+    DataKinds
+    DefaultSignatures
+    DeriveAnyClass
+    DeriveDataTypeable
+    DeriveFoldable
+    DeriveFunctor
+    DeriveGeneric
+    DeriveTraversable
+    DerivingStrategies
+    EmptyDataDecls
+    ExistentialQuantification
+    FlexibleContexts
+    FlexibleInstances
+    FunctionalDependencies
+    GADTs
+    GeneralizedNewtypeDeriving
+    InstanceSigs
+    KindSignatures
+    LambdaCase
+    MultiParamTypeClasses
+    MultiWayIf
+    NamedFieldPuns
+    NumericUnderscores
+    OverloadedStrings
+    PartialTypeSignatures
+    PatternGuards
+    RankNTypes
+    ScopedTypeVariables
+    StandaloneDeriving
+    TupleSections
+    TypeFamilies
+    TypeSynonymInstances
+    ViewPatterns
+
+  ghc-options:
+    -Wall -Wcompat -Widentities -Wincomplete-record-updates
+    -Wincomplete-uni-patterns -Wredundant-constraints
+    -fprint-potential-instances
+
+  if !flag(hydra-development)
+    ghc-options: -Werror
+
+library
+  import:          project-config
+  hs-source-dirs:  src
+  ghc-options:     -haddock
+  exposed-modules:
+    Hydra.Cardano.Api
+    Hydra.Cardano.Api.AddressInEra
+    Hydra.Cardano.Api.Network
+    Hydra.Cardano.Api.PlutusScriptVersion
+    Hydra.Cardano.Api.ScriptData
+    Hydra.Cardano.Api.ScriptHash
+    Hydra.Cardano.Api.ScriptDatum
+    Hydra.Cardano.Api.TxBody
+    Hydra.Cardano.Api.TxIn
+    Hydra.Cardano.Api.TxOut
+    Hydra.Cardano.Api.TxOutDatum
+  build-depends: base
+    , aeson
+    , array
+    , base16-bytestring
+    , bech32
+    , bech32-th
+    , bytestring
+    , cardano-api
+    , cardano-binary
+    , cardano-crypto-class
+    , cardano-ledger-alonzo
+    , cardano-ledger-alonzo-test
+    , cardano-ledger-byron
+    , cardano-ledger-core
+    , cardano-ledger-shelley
+    , cardano-ledger-shelley-ma
+    , cardano-ledger-shelley-ma-test
+    , cardano-ledger-shelley-test
+    , cardano-node
+    , cardano-prelude
+    , cardano-slotting
+    , cborg
+    , containers
+    , data-default
+    , hydra-prelude
+    , plutus-ledger
+    , plutus-ledger-api
+    , serialise
+    , shelley-spec-ledger
+    , stm
+    , strict-containers
+    , text
+    , time
