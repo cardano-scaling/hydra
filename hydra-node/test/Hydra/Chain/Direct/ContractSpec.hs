@@ -1,5 +1,4 @@
 {-# LANGUAGE DuplicateRecordFields #-}
-{-# LANGUAGE TypeApplications #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 
 module Hydra.Chain.Direct.ContractSpec where
@@ -13,7 +12,7 @@ import Cardano.Crypto.Util (SignableRepresentation (getSignableRepresentation))
 import Cardano.Ledger.Alonzo.TxInfo (txInfoOut)
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Base16 as Base16
-import Hydra.Chain.Direct.Contract.Abort (healthyAbortTx)
+import Hydra.Chain.Direct.Contract.Abort (genAbortMutation, healthyAbortTx, propHasCommit, propHasInitial)
 import Hydra.Chain.Direct.Contract.Close (genCloseMutation, healthyCloseTx)
 import Hydra.Chain.Direct.Contract.CollectCom (genCollectComMutation, healthyCollectComTx)
 import Hydra.Chain.Direct.Contract.Commit (genCommitMutation, healthyCommitTx)
@@ -52,6 +51,7 @@ import Plutus.V1.Ledger.Crypto (Signature (Signature))
 import Test.QuickCheck (
   Positive (Positive),
   Property,
+  conjoin,
   counterexample,
   forAll,
   forAllShrink,
@@ -78,7 +78,13 @@ spec = parallel $ do
 
   describe "Abort" $ do
     prop "is healthy" $
-      propTransactionValidates healthyAbortTx
+      conjoin
+        [ propTransactionValidates healthyAbortTx
+        , propHasCommit healthyAbortTx
+        , propHasInitial healthyAbortTx
+        ]
+    prop "does not survive random adversarial mutations" $
+      propMutation healthyAbortTx genAbortMutation
   describe "Commit" $ do
     prop "is healthy" $
       propTransactionValidates healthyCommitTx
