@@ -311,7 +311,7 @@ spec =
             \(fmap drop2nd -> initials) ->
               let headDatum = fromPlutusData . toData $ Head.Initial cperiod onChainParties
                   onChainParties = partyFromVerKey . vkey <$> parties
-               in case abortTx testNetworkId (txIn, headDatum) (Map.fromList initials) of
+               in case abortTx testNetworkId (txIn, headDatum) (Map.fromList initials) mempty of
                     Left err -> property False & counterexample ("AbortTx construction failed: " <> show err)
                     Right tx ->
                       let cbor = serialize tx
@@ -326,7 +326,7 @@ spec =
             headDatum = fromPlutusData $ toData $ Head.Initial cperiod onChainParties
             onChainParties = partyFromVerKey . vkey <$> parties
             utxo = singletonUtxo (txIn, headOutput)
-         in case abortTx testNetworkId (txIn, headDatum) (Map.fromList initials) of
+         in case abortTx testNetworkId (txIn, headDatum) (Map.fromList initials) mempty of
               Left err -> property False & counterexample ("AbortTx construction failed: " <> show err)
               Right tx ->
                 let res = observeAbortTx utxo tx
@@ -346,9 +346,9 @@ spec =
                   (contestationPeriodFromDiffTime contestationPeriod)
                   (map (partyFromVerKey . vkey) parties)
               initials = Map.fromList (drop2nd <$> resolvedInitials)
-              initialsUtxo = Utxo $ Map.fromList $ drop3rd <$> resolvedInitials
+              initialsUtxo = drop3rd <$> resolvedInitials
               utxo = Utxo $ Map.fromList (headUtxo : initialsUtxo)
-           in checkCoverage $ case abortTx testNetworkId (txIn, fromPlutusData $ toData headDatum) initials of
+           in checkCoverage $ case abortTx testNetworkId (txIn, fromPlutusData $ toData headDatum) initials mempty of
                 Left OverlappingInputs ->
                   property (isJust $ txIn `Map.lookup` initials)
                 Right tx ->
@@ -358,7 +358,7 @@ spec =
                     Right redeemerReport ->
                       1 + length initials == length (rights $ Map.elems redeemerReport)
                         & counterexample ("Redeemer report: " <> show redeemerReport)
-                        & counterexample ("Tx: " <> show tx)
+                        & counterexample ("Tx: " <> toString (describeCardanoTx tx))
                         & counterexample ("Input utxo: " <> show utxo)
                         & cover 0.8 True "Success"
 
@@ -375,7 +375,7 @@ spec =
                           & Map.fromList
                           & Map.mapKeys toLedgerTxIn
                           & Map.map toLedgerTxOut
-                   in case abortTx testNetworkId (headInput, headDatum) initials' of
+                   in case abortTx testNetworkId (headInput, headDatum) initials' mempty of
                         Left err ->
                           property False & counterexample ("AbortTx construction failed: " <> show err)
                         Right (toLedgerTx -> txAbort) ->

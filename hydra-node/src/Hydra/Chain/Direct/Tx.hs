@@ -307,19 +307,22 @@ abortTx ::
   NetworkId ->
   -- | Everything needed to spend the Head state-machine output.
   (TxIn, ScriptData) ->
-  -- | Data needed to spend the initial output sent to each party to the Head
-  -- which should contain the PT and is locked by initial script.
+  -- | Data needed to spend the initial output sent to each party to the Head.
+  -- Should contain the PT and is locked by initial script.
+  Map TxIn ScriptData ->
+  -- | Data needed to spend commit outputs.
+  -- Should contain the PT and is locked by commit script.
   Map TxIn ScriptData ->
   Either AbortTxError CardanoTx
-abortTx networkId (headInput, ScriptDatumForTxIn -> headDatumBefore) initialInputs
-  | isJust (lookup headInput initialInputs) =
+abortTx networkId (headInput, ScriptDatumForTxIn -> headDatumBefore) initialsToAbort commitsToAbort
+  | isJust (lookup headInput initialsToAbort) =
     Left OverlappingInputs
   | otherwise =
     Right $
       unsafeBuildTransaction $
         emptyTxBody
-          & addInputs ((headInput, headWitness) : (mkAbort <$> Map.toList initialInputs))
-          & addOutputs [headOutput]
+          & addInputs ((headInput, headWitness) : initialInputs <> commitInputs)
+          & addOutputs (headOutput : commitOutputs)
  where
   headWitness =
     BuildTxWith $ mkScriptWitness headScript headDatumBefore headRedeemer
@@ -328,8 +331,11 @@ abortTx networkId (headInput, ScriptDatumForTxIn -> headDatumBefore) initialInpu
   headRedeemer =
     mkRedeemerForTxIn Head.Abort
 
+  initialInputs = mkAbortInitial <$> Map.toList initialsToAbort
+
+  commitInputs = mkAbortCommit <$> Map.toList commitsToAbort
+
   -- FIXME:
-  -- (a) Abort need to reimburse participants that have committed!
   -- (b) There's in principle no need to output any SM output here, it's over.
   headOutput =
     TxOut
@@ -343,7 +349,7 @@ abortTx networkId (headInput, ScriptDatumForTxIn -> headDatumBefore) initialInpu
   -- also, the datum of the created output which is necessary for the
   -- state-machine on-chain validator to control the correctness of the
   -- transition.
-  mkAbort (initialInput, ScriptDatumForTxIn -> initialDatum) =
+  mkAbortInitial (initialInput, ScriptDatumForTxIn -> initialDatum) =
     (initialInput, mkAbortWitness initialDatum)
   mkAbortWitness initialDatum =
     BuildTxWith $ mkScriptWitness initialScript initialDatum initialRedeemer
@@ -351,6 +357,17 @@ abortTx networkId (headInput, ScriptDatumForTxIn -> headDatumBefore) initialInpu
     fromPlutusScript Initial.validatorScript
   initialRedeemer =
     mkRedeemerForTxIn $ Initial.redeemer Initial.Abort
+
+  mkAbortCommit (commitInput, ScriptDatumForTxIn -> commitDatum) =
+    (commitInput, mkCommitWitness commitDatum)
+  mkCommitWitness commitDatum =
+    BuildTxWith $ mkScriptWitness commitScript commitDatum commitRedeemer
+  commitScript =
+    fromPlutusScript Commit.validatorScript
+  commitRedeemer =
+    mkRedeemerForTxIn Commit.redeemer
+
+  commitOutputs = []
 
 -- * Observe Hydra Head transactions
 

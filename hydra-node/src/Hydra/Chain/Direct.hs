@@ -1,4 +1,3 @@
-{-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications #-}
@@ -430,9 +429,9 @@ fromPostChainTx TinyWallet{getUtxo, verificationKey} networkId headState cardano
         Nothing -> throwIO (NoSeedInput @CardanoTx)
     AbortTx _utxo ->
       readTVar headState >>= \case
-        Initial{threadOutput, initials} ->
+        Initial{threadOutput, initials, commits} ->
           let (i, _, dat, _) = threadOutput
-           in case abortTx networkId (i, dat) (Map.fromList $ map convertTuple initials) of
+           in case abortTx networkId (i, dat) (Map.fromList $ map convertTuple initials) (Map.fromList $ map convertTuple commits) of
                 Left err -> error $ show err
                 Right tx' -> pure tx'
         _st -> throwIO $ InvalidStateToPost tx

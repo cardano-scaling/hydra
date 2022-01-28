@@ -30,6 +30,7 @@ healthyAbortTx =
       Fixture.testNetworkId
       (headInput, headDatum)
       initials
+      mempty
 
   headInput = generateWith arbitrary 42
 
