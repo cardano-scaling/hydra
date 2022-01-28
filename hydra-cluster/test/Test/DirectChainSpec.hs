@@ -62,7 +62,7 @@ spec = around showLogsOnFailure $ do
       withBFTNode (contramap FromCluster tracer) config [aliceCardanoVk] $ \(RunningNode _ nodeSocket) -> do
         bobKeys <- keysFor "bob"
         pparams <- queryProtocolParameters defaultNetworkId nodeSocket
-        let cardanoKeys = []
+        cardanoKeys <- fmap fst <$> mapM keysFor ["alice", "bob", "carol"]
         withIOManager $ \iocp -> do
           withDirectChain (contramap (FromDirectChain "alice") tracer) magic iocp nodeSocket aliceKeys alice cardanoKeys (putMVar alicesCallback) $ \Chain{postTx} -> do
             withDirectChain nullTracer magic iocp nodeSocket bobKeys bob cardanoKeys (putMVar bobsCallback) $ \_ -> do
@@ -84,9 +84,9 @@ spec = around showLogsOnFailure $ do
       config <- newNodeConfig tmp
       aliceKeys@(aliceCardanoVk, aliceCardanoSk) <- keysFor "alice"
       withBFTNode (contramap FromCluster tracer) config [aliceCardanoVk] $ \node@(RunningNode _ nodeSocket) -> do
-        bobKeys@(bobCardanoVk, _) <- keysFor "bob"
+        bobKeys <- keysFor "bob"
         pparams <- queryProtocolParameters defaultNetworkId nodeSocket
-        let cardanoKeys = [aliceCardanoVk, bobCardanoVk]
+        cardanoKeys <- fmap fst <$> mapM keysFor ["alice", "bob", "carol"]
         withIOManager $ \iocp -> do
           withDirectChain (contramap (FromDirectChain "alice") tracer) magic iocp nodeSocket aliceKeys alice cardanoKeys (putMVar alicesCallback) $ \Chain{postTx} -> do
             withDirectChain nullTracer magic iocp nodeSocket bobKeys bob cardanoKeys (putMVar bobsCallback) $ \_ -> do
