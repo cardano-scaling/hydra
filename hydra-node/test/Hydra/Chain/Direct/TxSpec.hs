@@ -308,10 +308,10 @@ spec =
       prop "transaction size below limit" $
         \txIn cperiod (ReasonablySized parties) ->
           forAll (genAbortableOutputs parties) $
-            \(fmap drop2nd -> initials, _) ->
+            \(fmap drop2nd -> initials, fmap drop2nd -> commits) ->
               let headDatum = fromPlutusData . toData $ Head.Initial cperiod onChainParties
                   onChainParties = partyFromVerKey . vkey <$> parties
-               in case abortTx testNetworkId (txIn, headDatum) (Map.fromList initials) mempty of
+               in case abortTx testNetworkId (txIn, headDatum) (Map.fromList initials) (Map.fromList commits) of
                     Left err -> property False & counterexample ("AbortTx construction failed: " <> show err)
                     Right tx ->
                       let cbor = serialize tx
