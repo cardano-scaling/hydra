@@ -1,5 +1,4 @@
 {-# LANGUAGE DuplicateRecordFields #-}
-{-# LANGUAGE TypeApplications #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 
 module Hydra.Chain.Direct.Contract.FanOut where
@@ -8,8 +7,8 @@ import Hydra.Ledger.Cardano
 import Hydra.Prelude hiding (label)
 
 import Hydra.Chain.Direct.Contract.Mutation (Mutation (..), SomeMutation (..))
-import Hydra.Chain.Direct.Tx (fanoutTx)
-import Hydra.Chain.Direct.TxSpec (mkHeadOutput)
+import Hydra.Chain.Direct.Fixture (testNetworkId)
+import Hydra.Chain.Direct.Tx (fanoutTx, mkHeadOutput)
 import qualified Hydra.Contract.HeadState as Head
 import Plutus.Orphans ()
 import Plutus.V1.Ledger.Api (toBuiltin, toData)
@@ -22,7 +21,7 @@ healthyFanoutTx =
  where
   tx = fanoutTx healthyFanoutUtxo (headInput, headDatum)
   headInput = generateWith arbitrary 42
-  headOutput = mkHeadOutput (toUtxoContext $ mkTxOutDatum healthyFanoutDatum)
+  headOutput = mkHeadOutput testNetworkId (toUtxoContext $ mkTxOutDatum healthyFanoutDatum)
   headDatum = fromPlutusData $ toData healthyFanoutDatum
   lookupUtxo = singletonUtxo (headInput, headOutput)
 

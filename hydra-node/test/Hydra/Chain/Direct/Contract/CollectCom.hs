@@ -18,10 +18,11 @@ import Hydra.Chain.Direct.Contract.Mutation (
 import qualified Hydra.Chain.Direct.Fixture as Fixture
 import Hydra.Chain.Direct.Tx (
   collectComTx,
+  headValue,
   mkCommitDatum,
+  mkHeadOutput,
   policyId,
  )
-import Hydra.Chain.Direct.TxSpec (mkHeadOutput)
 import qualified Hydra.Contract.Commit as Commit
 import qualified Hydra.Contract.Head as Head
 import qualified Hydra.Contract.HeadState as Head
@@ -62,7 +63,7 @@ healthyCollectComTx =
       & Map.fromList
 
   headInput = generateWith arbitrary 42
-  headResolvedInput = mkHeadOutput (toUtxoContext $ mkTxOutDatum healthyCollectComInitialDatum)
+  headResolvedInput = mkHeadOutput Fixture.testNetworkId (toUtxoContext $ mkTxOutDatum healthyCollectComInitialDatum)
   headDatum = fromPlutusData $ toData healthyCollectComInitialDatum
 
 healthyCollectComInitialDatum :: Head.State
@@ -107,7 +108,7 @@ healthyCommitOutput party committed =
     mkScriptAddress @Api.PlutusScriptV1 Fixture.testNetworkId commitScript
   commitValue =
     mkTxOutValue $
-      lovelaceToValue 2_000_000 <> (txOutValue . snd) committed
+      headValue <> (txOutValue . snd) committed
   commitDatum =
     mkCommitDatum party (Head.validatorHash policyId) (Just committed)
 

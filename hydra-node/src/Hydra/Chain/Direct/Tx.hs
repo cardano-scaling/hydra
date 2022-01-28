@@ -70,6 +70,10 @@ threadToken = assetClass (currencySymbol "hydra") (tokenName "token")
 policyId :: MintingPolicyHash
 (policyId, _) = first currencyMPSHash (unAssetClass threadToken)
 
+-- FIXME: sould not be hardcoded
+headValue :: Value
+headValue = lovelaceToValue (Lovelace 2_000_000)
+
 -- | Create the init transaction from some 'HeadParameters' and a single TxIn
 -- which will be used as unique parameter for minting NFTs.
 initTx ::
@@ -88,16 +92,18 @@ initTx networkId cardanoKeys parameters txIn =
           map (mkInitialOutput networkId) cardanoKeys
         )
 
+mkHeadOutput :: NetworkId -> TxOutDatum ctx Era -> TxOut ctx Era
+mkHeadOutput networkId =
+  TxOut
+    (mkScriptAddress @PlutusScriptV1 networkId headScript)
+    (mkTxOutValue headValue)
+ where
+  headScript = fromPlutusScript $ Head.validatorScript policyId
+
 mkHeadOutputInitial :: NetworkId -> HeadParameters -> TxOut CtxTx Era
 mkHeadOutputInitial networkId HeadParameters{contestationPeriod, parties} =
-  TxOut headAddress headValue headDatum
+  mkHeadOutput networkId headDatum
  where
-  headScript =
-    fromPlutusScript $ Head.validatorScript policyId
-  headAddress =
-    mkScriptAddress @PlutusScriptV1 networkId headScript
-  headValue =
-    lovelaceToTxOutValue $ Lovelace 2_000_000
   headDatum =
     mkTxOutDatum $
       Head.Initial
@@ -110,7 +116,7 @@ mkInitialOutput networkId (toPlutusKeyHash . verificationKeyHash -> pkh) =
  where
   -- FIXME: should really be the minted PTs plus some ADA to make the ledger happy
   initialValue =
-    lovelaceToTxOutValue $ Lovelace 2_000_000
+    mkTxOutValue headValue
   initialAddress =
     mkScriptAddress @PlutusScriptV1 networkId initialScript
   initialScript =
@@ -161,7 +167,7 @@ commitTx networkId party utxo (initialInput, vkh) =
   -- FIXME: We should add the value from the initialIn too because it contains the PTs
   commitValue =
     mkTxOutValue $
-      lovelaceToValue 2_000_000 <> maybe mempty (txOutValue . snd) utxo
+      headValue <> maybe mempty (txOutValue . snd) utxo
   commitDatum =
     mkTxOutDatum $ mkCommitDatum party (Head.validatorHash policyId) utxo
 
@@ -204,7 +210,7 @@ collectComTx networkId (headInput, ScriptDatumForTxIn -> headDatumBefore, partie
   headOutput =
     TxOut
       (mkScriptAddress @PlutusScriptV1 networkId headScript)
-      (mkTxOutValue $ lovelaceToValue 2_000_000 <> commitValue)
+      (mkTxOutValue $ headValue <> commitValue)
       headDatumAfter
   headDatumAfter =
     mkTxOutDatum Head.Open{Head.parties = parties, utxoHash}
@@ -328,7 +334,7 @@ abortTx networkId (headInput, ScriptDatumForTxIn -> headDatumBefore) initialInpu
   headOutput =
     TxOut
       (mkScriptAddress @PlutusScriptV1 networkId headScript)
-      (mkTxOutValue $ lovelaceToValue 2_000_000)
+      (mkTxOutValue headValue)
       headDatumAfter
   headDatumAfter =
     mkTxOutDatum Head.Final
