@@ -38,6 +38,7 @@ import Test.QuickCheck (
   NonEmptyList (NonEmpty),
   Property,
   checkCoverage,
+  choose,
   conjoin,
   counterexample,
   cover,
@@ -308,7 +309,8 @@ spec =
         \txIn cperiod (ReasonablySized parties) ->
           forAll (genAbortableOutputs parties) $
             \initials ->
-              let headDatum = fromPlutusData . toData $ Head.Initial cperiod parties
+              let headDatum = fromPlutusData . toData $ Head.Initial cperiod onChainParties
+                  onChainParties = partyFromVerKey . vkey <$> parties
                in case abortTx testNetworkId (txIn, headDatum) (Map.fromList initials) of
                     Left err -> property False & counterexample ("AbortTx construction failed: " <> show err)
                     Right tx ->
@@ -321,7 +323,8 @@ spec =
 
       prop "is observed" $ \txIn cperiod parties -> forAll (genAbortableOutputs parties) $ \initials ->
         let headOutput = mkHeadOutput testNetworkId TxOutDatumNone -- will be SJust, but not covered by this test
-            headDatum = fromPlutusData $ toData $ Head.Initial cperiod parties
+            headDatum = fromPlutusData $ toData $ Head.Initial cperiod onChainParties
+            onChainParties = partyFromVerKey . vkey <$> parties
             utxo = singletonUtxo (txIn, headOutput)
          in case abortTx testNetworkId (txIn, headDatum) (Map.fromList initials) of
               Left err -> property False & counterexample ("AbortTx construction failed: " <> show err)
@@ -481,10 +484,15 @@ validateTxScriptsUnlimited (toLedgerUtxo -> utxo) (toLedgerTx -> tx) =
       systemStart
       costModels
 
-genAbortableOutputs :: [a] -> Gen [(TxIn, ScriptData)]
+genAbortableOutputs :: [Party] -> Gen [(TxIn, ScriptData)]
 genAbortableOutputs parties = fmap (\(a, _, c) -> (a, c)) <$> genAbortableOutputsTxOut parties
 
-genAbortableOutputsTxOut :: [a] -> Gen [(TxIn, TxOut CtxUTxO Era, ScriptData)]
+genAbortableOutputsTxOut :: [Party] -> Gen [(TxIn, TxOut CtxUTxO Era, ScriptData)]
 genAbortableOutputsTxOut parties = do
-  initials <- vectorOf (length parties) arbitrary
-  pure $ mkInitials <$> initials
+  (initParties, commitParties) <- (`splitAt` parties) <$> choose (0, length parties)
+  initials <- vectorOf (length initParties) genInitial
+  commits <- fmap (\(a, (b, c)) -> (a, b, c)) . Map.toList <$> generateCommitUtxos commitParties
+  pure $ initials <> commits
+
+genInitial :: Gen (TxIn, TxOut CtxUTxO Era, ScriptData)
+genInitial = mkInitials <$> arbitrary
