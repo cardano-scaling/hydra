@@ -304,19 +304,22 @@ spec =
 
     describe "abortTx" $ do
       -- NOTE(AB): This property fails if initials are too big
-      prop "transaction size below limit" $ \txIn cperiod parties -> forAll genInitials $ \initials ->
-        let headDatum = fromPlutusData . toData $ Head.Initial cperiod parties
-         in case abortTx testNetworkId (txIn, headDatum) (Map.fromList initials) of
-              Left err -> property False & counterexample ("AbortTx construction failed: " <> show err)
-              Right tx ->
-                let cbor = serialize tx
-                    len = LBS.length cbor
-                 in len < maxTxSize
-                      & label (show (len `div` 1024) <> "kB")
-                      & counterexample ("Tx: " <> show tx)
-                      & counterexample ("Tx serialized size: " <> show len)
+      prop "transaction size below limit" $
+        \txIn cperiod (ReasonablySized parties) ->
+          forAll (genAbortableOutputs parties) $
+            \initials ->
+              let headDatum = fromPlutusData . toData $ Head.Initial cperiod parties
+               in case abortTx testNetworkId (txIn, headDatum) (Map.fromList initials) of
+                    Left err -> property False & counterexample ("AbortTx construction failed: " <> show err)
+                    Right tx ->
+                      let cbor = serialize tx
+                          len = LBS.length cbor
+                       in len < maxTxSize
+                            & label (show (len `div` 1024) <> "kB")
+                            & counterexample ("Tx: " <> show tx)
+                            & counterexample ("Tx serialized size: " <> show len)
 
-      prop "updates on-chain state to 'Final'" $ \txIn cperiod parties -> forAll genInitials $ \initials ->
+      prop "is observed" $ \txIn cperiod parties -> forAll (genAbortableOutputs parties) $ \initials ->
         let headOutput = mkHeadOutput testNetworkId TxOutDatumNone -- will be SJust, but not covered by this test
             headDatum = fromPlutusData $ toData $ Head.Initial cperiod parties
             utxo = singletonUtxo (txIn, headOutput)
@@ -478,10 +481,10 @@ validateTxScriptsUnlimited (toLedgerUtxo -> utxo) (toLedgerTx -> tx) =
       systemStart
       costModels
 
-genInitials :: Gen [(TxIn, ScriptData)]
-genInitials = fmap (\(a, _, c) -> (a, c)) <$> genInitialsTxOut
+genAbortableOutputs :: [a] -> Gen [(TxIn, ScriptData)]
+genAbortableOutputs parties = fmap (\(a, _, c) -> (a, c)) <$> genAbortableOutputsTxOut parties
 
-genInitialsTxOut :: Gen [(TxIn, TxOut CtxUTxO Era, ScriptData)]
-genInitialsTxOut = do
-  ReasonablySized initials <- arbitrary
+genAbortableOutputsTxOut :: [a] -> Gen [(TxIn, TxOut CtxUTxO Era, ScriptData)]
+genAbortableOutputsTxOut parties = do
+  initials <- vectorOf (length parties) arbitrary
   pure $ mkInitials <$> initials
