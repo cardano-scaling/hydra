@@ -411,7 +411,7 @@ spec =
 
 mkInitials ::
   (TxIn, Hash PaymentKey, TxOut CtxUTxO Era) ->
-  (TxIn, TxOut CtxUTxO Era, ScriptData)
+  UtxoWithScript
 mkInitials (txin, vkh, TxOut _ value _) =
   let initDatum = Initial.datum (toPlutusKeyHash vkh)
    in ( txin
@@ -489,7 +489,7 @@ validateTxScriptsUnlimited (toLedgerUtxo -> utxo) (toLedgerTx -> tx) =
       systemStart
       costModels
 
-genAbortableOutputs :: [Party] -> Gen ([(TxIn, TxOut CtxUTxO Era, ScriptData)], [(TxIn, TxOut CtxUTxO Era, ScriptData)])
+genAbortableOutputs :: [Party] -> Gen ([UtxoWithScript], [UtxoWithScript])
 genAbortableOutputs parties = do
   (initParties, commitParties) <- (`splitAt` parties) <$> choose (0, length parties)
   initials <- vectorOf (length initParties) genInitial
@@ -502,5 +502,5 @@ drop2nd (a, _, c) = (a, c)
 drop3rd :: (a, b, c) -> (a, b)
 drop3rd (a, b, _) = (a, b)
 
-genInitial :: Gen (TxIn, TxOut CtxUTxO Era, ScriptData)
+genInitial :: Gen UtxoWithScript
 genInitial = mkInitials <$> arbitrary

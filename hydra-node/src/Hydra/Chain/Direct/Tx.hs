@@ -37,6 +37,8 @@ import Plutus.V2.Ledger.Api (toBuiltin)
 
 -- * Post Hydra Head transactions
 
+type UtxoWithScript = (TxIn, TxOut CtxUTxO Era, ScriptData)
+
 -- | Maintains information needed to construct on-chain transactions
 -- depending on the current state of the head.
 data OnChainHeadState
@@ -48,8 +50,8 @@ data OnChainHeadState
         -- NOTE(SN): The Head's identifier is somewhat encoded in the TxOut's address
         -- XXX(SN): Data and [OnChain.Party] are overlapping
         threadOutput :: (TxIn, TxOut CtxUTxO Era, ScriptData, [OnChain.Party])
-      , initials :: [(TxIn, TxOut CtxUTxO Era, ScriptData)]
-      , commits :: [(TxIn, TxOut CtxUTxO Era, ScriptData)]
+      , initials :: [UtxoWithScript]
+      , commits :: [UtxoWithScript]
       }
   | OpenOrClosed
       { -- | The state machine UTxO produced by the Init transaction
@@ -245,7 +247,7 @@ closeTx ::
   MultiSigned (Snapshot CardanoTx) ->
   -- | Everything needed to spend the Head state-machine output.
   -- FIXME(SN): should also contain some Head identifier/address and stored Value (maybe the TxOut + Data?)
-  (TxIn, TxOut CtxUTxO Era, ScriptData) ->
+  UtxoWithScript ->
   Tx Era
 closeTx Snapshot{number, utxo} sig (headInput, headOutputBefore, ScriptDatumForTxIn -> headDatumBefore) =
   unsafeBuildTransaction $
@@ -438,7 +440,7 @@ observeCommitTx ::
   -- | Known (remaining) initial tx inputs.
   [TxIn] ->
   CardanoTx ->
-  Maybe (OnChainTx CardanoTx, (TxIn, TxOut CtxUTxO Era, ScriptData))
+  Maybe (OnChainTx CardanoTx, UtxoWithScript)
 observeCommitTx networkId initials (getTxBody -> txBody) = do
   initialTxIn <- findInitialTxIn
   mCommittedTxIn <- decodeInitialRedeemer initialTxIn
@@ -637,7 +639,7 @@ getKnownUtxo = \case
 -- | Look for the "initial" which corresponds to given cardano verification key.
 ownInitial ::
   VerificationKey PaymentKey ->
-  [(TxIn, TxOut CtxUTxO Era, ScriptData)] ->
+  [UtxoWithScript] ->
   Maybe (TxIn, Hash PaymentKey)
 ownInitial vkey =
   foldl' go Nothing
