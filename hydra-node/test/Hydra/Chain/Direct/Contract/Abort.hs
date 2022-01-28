@@ -1,3 +1,4 @@
+{-# LANGUAGE TypeApplications #-}
 {-# OPTIONS_GHC -Wno-incomplete-uni-patterns #-}
 
 -- | Mutation-based script validator tests for the abort transaction where a
@@ -7,13 +8,27 @@ module Hydra.Chain.Direct.Contract.Abort where
 import qualified Data.Map as Map
 import Data.Maybe (fromJust)
 import Hydra.Chain (HeadParameters (..))
-import Hydra.Chain.Direct.Contract.Mutation (Mutation (..), SomeMutation (..))
+import Hydra.Chain.Direct.Contract.Mutation (SomeMutation (..))
+import Hydra.Chain.Direct.Fixture (testNetworkId)
 import qualified Hydra.Chain.Direct.Fixture as Fixture
-import Hydra.Chain.Direct.Tx (abortTx, mkHeadOutputInitial, mkInitialOutput)
+import Hydra.Chain.Direct.Tx (abortTx, mkHeadOutputInitial)
 import Hydra.Chain.Direct.TxSpec (drop2nd, drop3rd, genAbortableOutputs)
-import Hydra.Ledger.Cardano (CardanoTx, Utxo, Utxo' (Utxo), getDatum, singletonUtxo, toUtxoContext)
+import qualified Hydra.Contract.Commit as Commit
+import qualified Hydra.Contract.Initial as Initial
+import Hydra.Ledger.Cardano (
+  CardanoTx,
+  PlutusScriptV1,
+  Utxo,
+  Utxo' (Utxo),
+  fromPlutusScript,
+  getDatum,
+  mkScriptAddress,
+  singletonUtxo,
+  toUtxoContext,
+  txOutAddress,
+ )
 import Hydra.Prelude
-import Test.QuickCheck.Gen (vectorOf)
+import Test.QuickCheck (Property, counterexample)
 
 --
 -- AbortTx
@@ -55,17 +70,36 @@ healthyAbortTx =
     [ generateWith arbitrary i | i <- [1 .. 3]
     ]
 
+
   (initials, commits) =
-    generateWith (genAbortableOutputs parties) 42
+    -- NOTE: Why 43 one may ask? Because 42 does not generate commit UTXOs
+    -- TODO: Refactor this to be an AbortTx generator because we actually want
+    -- to test healthy abort txs with varied combinations of inital and commit
+    -- outputs
+    generateWith (genAbortableOutputs parties) 43
 
 propHasInitial :: (CardanoTx, Utxo) -> Property
-propHasInitial _ = property False
+propHasInitial (_, utxo) =
+  any paysToInitialScript utxo
+    & counterexample ("Utxo: " <> decodeUtf8 (encodePretty utxo))
+    & counterexample ("Looking for Initial Script: " <> show address)
+ where
+  address = mkScriptAddress @PlutusScriptV1 testNetworkId (fromPlutusScript Initial.validatorScript)
+  paysToInitialScript txOut =
+    txOutAddress txOut == address
 
 propHasCommit :: (CardanoTx, Utxo) -> Property
-propHasCommit _ = property False
+propHasCommit (_, utxo) =
+  any paysToCommitScript utxo
+    & counterexample ("Utxo: " <> decodeUtf8 (encodePretty utxo))
+    & counterexample ("Looking for Commit Script: " <> show address)
+ where
+  address = mkScriptAddress @PlutusScriptV1 testNetworkId (fromPlutusScript Commit.validatorScript)
+  paysToCommitScript txOut =
+    txOutAddress txOut == address
 
 data AbortMutation = AbortMutation
   deriving (Generic, Show, Enum, Bounded)
 
 genAbortMutation :: (CardanoTx, Utxo) -> Gen SomeMutation
-genAbortMutation = undefined
+genAbortMutation = error "undefined"
