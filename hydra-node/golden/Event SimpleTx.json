@@ -1,119 +1,104 @@
 {
     "samples": [
         {
+            "clientInput": {
+                "tag": "Commit",
+                "utxo": [
+                    -27,
+                    -24,
+                    -20,
+                    -18,
+                    -14,
+                    -9,
+                    -7,
+                    -4,
+                    0,
+                    1,
+                    2,
+                    3,
+                    13,
+                    16,
+                    20,
+                    21,
+                    22,
+                    23,
+                    24,
+                    25,
+                    28,
+                    30
+                ]
+            },
+            "tag": "ClientEvent"
+        },
+        {
             "tag": "ShouldPostFanout"
         },
         {
-            "message": {
-                "peer": {
-                    "hostname": "0.0.23.7",
-                    "port": 15931
-                },
-                "tag": "Connected"
+            "clientInput": {
+                "tag": "Abort"
             },
-            "tag": "NetworkEvent"
+            "tag": "ClientEvent"
         },
         {
             "onChainTx": {
-                "tag": "OnCollectComTx"
+                "contestationPeriod": 19.843044245098,
+                "parties": [
+                    {
+                        "vkey": "0000000000000001"
+                    },
+                    {
+                        "vkey": "fffffffffffffff5"
+                    },
+                    {
+                        "vkey": "fffffffffffffffe"
+                    },
+                    {
+                        "vkey": "fffffffffffffff2"
+                    },
+                    {
+                        "vkey": "fffffffffffffff8"
+                    },
+                    {
+                        "vkey": "000000000000000c"
+                    },
+                    {
+                        "vkey": "000000000000000b"
+                    },
+                    {
+                        "vkey": "0000000000000019"
+                    },
+                    {
+                        "vkey": "fffffffffffffff9"
+                    },
+                    {
+                        "vkey": "fffffffffffffffe"
+                    },
+                    {
+                        "vkey": "0000000000000000"
+                    },
+                    {
+                        "vkey": "000000000000000a"
+                    },
+                    {
+                        "vkey": "ffffffffffffffe3"
+                    },
+                    {
+                        "vkey": "fffffffffffffffc"
+                    },
+                    {
+                        "vkey": "0000000000000010"
+                    },
+                    {
+                        "vkey": "0000000000000007"
+                    }
+                ],
+                "tag": "OnInitTx"
             },
             "tag": "OnChainEvent"
         },
         {
-            "clientInput": {
-                "tag": "NewTx",
-                "transaction": {
-                    "id": 9,
-                    "inputs": [
-                        -28,
-                        -25,
-                        -4,
-                        -3,
-                        -2,
-                        0,
-                        5,
-                        6,
-                        9,
-                        12,
-                        15,
-                        20,
-                        26
-                    ],
-                    "outputs": [
-                        -27,
-                        -26,
-                        -22,
-                        -18,
-                        -16,
-                        -13,
-                        -11,
-                        -5,
-                        -4,
-                        -3,
-                        3,
-                        5,
-                        9,
-                        11,
-                        18,
-                        21,
-                        23
-                    ]
-                }
-            },
-            "tag": "ClientEvent"
-        },
-        {
-            "clientInput": {
-                "tag": "NewTx",
-                "transaction": {
-                    "id": 26,
-                    "inputs": [
-                        -27,
-                        -25,
-                        -24,
-                        -14,
-                        -13,
-                        -5,
-                        -3,
-                        -2,
-                        0,
-                        2,
-                        3,
-                        4,
-                        6,
-                        8,
-                        11,
-                        13,
-                        14,
-                        20,
-                        22,
-                        27,
-                        28,
-                        29
-                    ],
-                    "outputs": [
-                        -29,
-                        -18,
-                        -17,
-                        -8,
-                        -7,
-                        -2,
-                        -1,
-                        5,
-                        7,
-                        10,
-                        11,
-                        14,
-                        15,
-                        18,
-                        19,
-                        24,
-                        30
-                    ]
-                }
-            },
-            "tag": "ClientEvent"
+            "tag": "ShouldPostFanout"
         }
     ],
-    "seed": 767506542
+    "seed": 1650115961
 }
