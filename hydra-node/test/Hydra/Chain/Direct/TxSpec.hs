@@ -308,7 +308,7 @@ spec =
       prop "transaction size below limit" $
         \txIn cperiod (ReasonablySized parties) ->
           forAll (genAbortableOutputs parties) $
-            \(fmap drop2nd -> initials) ->
+            \(fmap drop2nd -> initials, _) ->
               let headDatum = fromPlutusData . toData $ Head.Initial cperiod onChainParties
                   onChainParties = partyFromVerKey . vkey <$> parties
                in case abortTx testNetworkId (txIn, headDatum) (Map.fromList initials) mempty of
@@ -321,46 +321,51 @@ spec =
                             & counterexample ("Tx: " <> show tx)
                             & counterexample ("Tx serialized size: " <> show len)
 
-      prop "is observed" $ \txIn cperiod parties -> forAll (genAbortableOutputs parties) $ \(fmap drop2nd -> initials) ->
-        let headOutput = mkHeadOutput testNetworkId TxOutDatumNone -- will be SJust, but not covered by this test
-            headDatum = fromPlutusData $ toData $ Head.Initial cperiod onChainParties
-            onChainParties = partyFromVerKey . vkey <$> parties
-            utxo = singletonUtxo (txIn, headOutput)
-         in case abortTx testNetworkId (txIn, headDatum) (Map.fromList initials) mempty of
-              Left err -> property False & counterexample ("AbortTx construction failed: " <> show err)
-              Right tx ->
-                let res = observeAbortTx utxo tx
-                 in case res of
-                      Just (_, st) -> st === Final
-                      _ ->
-                        property False
-                          & counterexample ("Result: " <> show res)
-                          & counterexample ("Tx: " <> show tx)
+      prop "is observed" $
+        \txIn cperiod parties -> forAll (genAbortableOutputs parties) $
+          \(fmap drop2nd -> initials, _) ->
+            let headOutput = mkHeadOutput testNetworkId TxOutDatumNone -- will be SJust, but not covered by this test
+                headDatum = fromPlutusData $ toData $ Head.Initial cperiod onChainParties
+                onChainParties = partyFromVerKey . vkey <$> parties
+                utxo = singletonUtxo (txIn, headOutput)
+             in case abortTx testNetworkId (txIn, headDatum) (Map.fromList initials) mempty of
+                  Left err -> property False & counterexample ("AbortTx construction failed: " <> show err)
+                  Right tx ->
+                    let res = observeAbortTx utxo tx
+                     in case res of
+                          Just (_, st) -> st === Final
+                          _ ->
+                            property False
+                              & counterexample ("Result: " <> show res)
+                              & counterexample ("Tx: " <> show tx)
 
       prop "validates" $
-        \txIn HeadParameters{contestationPeriod, parties} -> forAll (genAbortableOutputs parties) $ \resolvedInitials ->
-          let headUtxo = (txIn :: TxIn, headOutput)
-              headOutput = mkHeadOutput testNetworkId $ toUtxoContext $ mkTxOutDatum headDatum
-              headDatum =
-                Head.Initial
-                  (contestationPeriodFromDiffTime contestationPeriod)
-                  (map (partyFromVerKey . vkey) parties)
-              initials = Map.fromList (drop2nd <$> resolvedInitials)
-              initialsUtxo = drop3rd <$> resolvedInitials
-              utxo = Utxo $ Map.fromList (headUtxo : initialsUtxo)
-           in checkCoverage $ case abortTx testNetworkId (txIn, fromPlutusData $ toData headDatum) initials mempty of
-                Left OverlappingInputs ->
-                  property (isJust $ txIn `Map.lookup` initials)
-                Right tx ->
-                  case validateTxScriptsUnlimited utxo tx of
-                    Left basicFailure ->
-                      property False & counterexample ("Basic failure: " <> show basicFailure)
-                    Right redeemerReport ->
-                      1 + length initials == length (rights $ Map.elems redeemerReport)
-                        & counterexample ("Redeemer report: " <> show redeemerReport)
-                        & counterexample ("Tx: " <> toString (describeCardanoTx tx))
-                        & counterexample ("Input utxo: " <> decodeUtf8 (encodePretty utxo))
-                        & cover 0.8 True "Success"
+        \txIn contestationPeriod (ReasonablySized parties) -> forAll (genAbortableOutputs parties) $
+          \(resolvedInitials, resolvedCommits) ->
+            let headUtxo = (txIn :: TxIn, headOutput)
+                headOutput = mkHeadOutput testNetworkId $ toUtxoContext $ mkTxOutDatum headDatum
+                headDatum =
+                  Head.Initial
+                    (contestationPeriodFromDiffTime contestationPeriod)
+                    (map (partyFromVerKey . vkey) parties)
+                initials = Map.fromList (drop2nd <$> resolvedInitials)
+                initialsUtxo = drop3rd <$> resolvedInitials
+                commits = Map.fromList (drop2nd <$> resolvedCommits)
+                commitsUtxo = drop3rd <$> resolvedCommits
+                utxo = Utxo $ Map.fromList (headUtxo : initialsUtxo <> commitsUtxo)
+             in checkCoverage $ case abortTx testNetworkId (txIn, fromPlutusData $ toData headDatum) initials commits of
+                  Left OverlappingInputs ->
+                    property (isJust $ txIn `Map.lookup` initials)
+                  Right tx ->
+                    case validateTxScriptsUnlimited utxo tx of
+                      Left basicFailure ->
+                        property False & counterexample ("Basic failure: " <> show basicFailure)
+                      Right redeemerReport ->
+                        1 + (length initials + length commits) == length (rights $ Map.elems redeemerReport)
+                          & counterexample ("Redeemer report: " <> show redeemerReport)
+                          & counterexample ("Tx: " <> toString (describeCardanoTx tx))
+                          & counterexample ("Input utxo: " <> decodeUtf8 (encodePretty utxo))
+                          & cover 0.8 True "Success"
 
       prop "cover fee correctly handles redeemers" $
         withMaxSuccess 60 $ \txIn cperiod (party :| parties) cardanoKeys walletUtxo ->
@@ -484,12 +489,12 @@ validateTxScriptsUnlimited (toLedgerUtxo -> utxo) (toLedgerTx -> tx) =
       systemStart
       costModels
 
-genAbortableOutputs :: [Party] -> Gen [(TxIn, TxOut CtxUTxO Era, ScriptData)]
+genAbortableOutputs :: [Party] -> Gen ([(TxIn, TxOut CtxUTxO Era, ScriptData)], [(TxIn, TxOut CtxUTxO Era, ScriptData)])
 genAbortableOutputs parties = do
   (initParties, commitParties) <- (`splitAt` parties) <$> choose (0, length parties)
   initials <- vectorOf (length initParties) genInitial
   commits <- fmap (\(a, (b, c)) -> (a, b, c)) . Map.toList <$> generateCommitUtxos commitParties
-  pure $ initials <> commits
+  pure $ (initials, commits)
 
 drop2nd :: (a, b, c) -> (a, c)
 drop2nd (a, _, c) = (a, c)
