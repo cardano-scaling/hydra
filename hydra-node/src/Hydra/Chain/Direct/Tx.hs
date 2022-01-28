@@ -238,7 +238,7 @@ collectComTx networkId (headInput, ScriptDatumForTxIn -> headDatumBefore, partie
   commitScript =
     fromPlutusScript Commit.validatorScript
   commitRedeemer =
-    mkRedeemerForTxIn ()
+    mkRedeemerForTxIn $ Commit.redeemer Commit.CollectCom
 
 -- | Create a transaction closing a head with given snapshot number and utxo.
 closeTx ::
@@ -367,7 +367,7 @@ abortTx networkId (headInput, ScriptDatumForTxIn -> headDatumBefore) initialsToA
   commitScript =
     fromPlutusScript Commit.validatorScript
   commitRedeemer =
-    mkRedeemerForTxIn Commit.redeemer
+    mkRedeemerForTxIn (Commit.redeemer Commit.Abort)
 
   commitOutputs = []
 

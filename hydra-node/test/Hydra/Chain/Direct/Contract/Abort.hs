@@ -8,10 +8,10 @@ module Hydra.Chain.Direct.Contract.Abort where
 import qualified Data.Map as Map
 import Data.Maybe (fromJust)
 import Hydra.Chain (HeadParameters (..))
-import Hydra.Chain.Direct.Contract.Mutation (Mutation (ChangeHeadDatum), SomeMutation (..))
+import Hydra.Chain.Direct.Contract.Mutation (Mutation (ChangeHeadDatum, RemoveOutput), SomeMutation (..))
 import Hydra.Chain.Direct.Fixture (testNetworkId)
 import qualified Hydra.Chain.Direct.Fixture as Fixture
-import Hydra.Chain.Direct.Tx (abortTx, mkHeadOutputInitial)
+import Hydra.Chain.Direct.Tx (UtxoWithScript, abortTx, mkHeadOutputInitial)
 import Hydra.Chain.Direct.TxSpec (drop2nd, drop3rd, genAbortableOutputs)
 import qualified Hydra.Contract.Commit as Commit
 import qualified Hydra.Contract.HeadState as Head
@@ -31,7 +31,7 @@ import Hydra.Ledger.Cardano (
  )
 import Hydra.Party (Party, vkey)
 import Hydra.Prelude
-import Test.QuickCheck (Property, counterexample, oneof)
+import Test.QuickCheck (Property, choose, counterexample, oneof)
 
 --
 -- AbortTx
@@ -43,15 +43,15 @@ healthyAbortTx =
  where
   lookupUtxo =
     singletonUtxo (headInput, toUtxoContext headOutput)
-      <> Utxo (Map.fromList (drop3rd <$> initials))
-      <> Utxo (Map.fromList (drop3rd <$> commits))
+      <> Utxo (Map.fromList (drop3rd <$> healthyInitials))
+      <> Utxo (Map.fromList (drop3rd <$> healthyCommits))
 
   Right tx =
     abortTx
       Fixture.testNetworkId
       (headInput, headDatum)
-      (Map.fromList (drop2nd <$> initials))
-      (Map.fromList (drop2nd <$> commits))
+      (Map.fromList (drop2nd <$> healthyInitials))
+      (Map.fromList (drop2nd <$> healthyCommits))
 
   headInput = generateWith arbitrary 42
 
@@ -69,12 +69,14 @@ healthyAbortTx =
   -- are optional
   unsafeGetDatum = fromJust . getDatum
 
-  (initials, commits) =
-    -- NOTE: Why 43 one may ask? Because 42 does not generate commit UTXOs
-    -- TODO: Refactor this to be an AbortTx generator because we actually want
-    -- to test healthy abort txs with varied combinations of inital and commit
-    -- outputs
-    generateWith (genAbortableOutputs healthyParties) 43
+healthyInitials :: [UtxoWithScript]
+healthyCommits :: [UtxoWithScript]
+(healthyInitials, healthyCommits) =
+  -- NOTE: Why 43 one may ask? Because 42 does not generate commit UTXOs
+  -- TODO: Refactor this to be an AbortTx generator because we actually want
+  -- to test healthy abort txs with varied combinations of inital and commit
+  -- outputs
+  generateWith (genAbortableOutputs healthyParties) 43
 
 healthyParties :: [Party]
 healthyParties =
@@ -112,4 +114,8 @@ genAbortMutation _ =
         moreParties <- (: healthyParties) <$> arbitrary
         c <- arbitrary
         pure $ Head.Initial c (partyFromVerKey . vkey <$> moreParties)
+    , SomeMutation MutateDropCommitOutput
+        . RemoveOutput
+        . (+ 1) -- NOTE(AB): Assumes the transaction's first output is the head output
+        <$> choose (0, fromIntegral $ length healthyCommits)
     ]
