@@ -308,7 +308,7 @@ spec =
       prop "transaction size below limit" $
         \txIn cperiod (ReasonablySized parties) ->
           forAll (genAbortableOutputs parties) $
-            \initials ->
+            \(fmap drop2nd -> initials) ->
               let headDatum = fromPlutusData . toData $ Head.Initial cperiod onChainParties
                   onChainParties = partyFromVerKey . vkey <$> parties
                in case abortTx testNetworkId (txIn, headDatum) (Map.fromList initials) of
@@ -321,7 +321,7 @@ spec =
                             & counterexample ("Tx: " <> show tx)
                             & counterexample ("Tx serialized size: " <> show len)
 
-      prop "is observed" $ \txIn cperiod parties -> forAll (genAbortableOutputs parties) $ \initials ->
+      prop "is observed" $ \txIn cperiod parties -> forAll (genAbortableOutputs parties) $ \(fmap drop2nd -> initials) ->
         let headOutput = mkHeadOutput testNetworkId TxOutDatumNone -- will be SJust, but not covered by this test
             headDatum = fromPlutusData $ toData $ Head.Initial cperiod onChainParties
             onChainParties = partyFromVerKey . vkey <$> parties
@@ -338,15 +338,15 @@ spec =
                           & counterexample ("Tx: " <> show tx)
 
       prop "validates" $
-        \txIn HeadParameters{contestationPeriod, parties} (ReasonablySized initialsVkh) ->
+        \txIn HeadParameters{contestationPeriod, parties} -> forAll (genAbortableOutputs parties) $ \resolvedInitials ->
           let headUtxo = (txIn :: TxIn, headOutput)
               headOutput = mkHeadOutput testNetworkId $ toUtxoContext $ mkTxOutDatum headDatum
               headDatum =
                 Head.Initial
                   (contestationPeriodFromDiffTime contestationPeriod)
                   (map (partyFromVerKey . vkey) parties)
-              initials = Map.map (fromPlutusData . toData . Initial.datum . toPlutusKeyHash) initialsVkh
-              initialsUtxo = map (second mkInitialTxOut) $ Map.toList initialsVkh
+              initials = Map.fromList (drop2nd <$> resolvedInitials)
+              initialsUtxo = Utxo $ Map.fromList $ drop3rd <$> resolvedInitials
               utxo = Utxo $ Map.fromList (headUtxo : initialsUtxo)
            in checkCoverage $ case abortTx testNetworkId (txIn, fromPlutusData $ toData headDatum) initials of
                 Left OverlappingInputs ->
@@ -484,15 +484,18 @@ validateTxScriptsUnlimited (toLedgerUtxo -> utxo) (toLedgerTx -> tx) =
       systemStart
       costModels
 
-genAbortableOutputs :: [Party] -> Gen [(TxIn, ScriptData)]
-genAbortableOutputs parties = fmap (\(a, _, c) -> (a, c)) <$> genAbortableOutputsTxOut parties
-
-genAbortableOutputsTxOut :: [Party] -> Gen [(TxIn, TxOut CtxUTxO Era, ScriptData)]
-genAbortableOutputsTxOut parties = do
+genAbortableOutputs :: [Party] -> Gen [(TxIn, TxOut CtxUTxO Era, ScriptData)]
+genAbortableOutputs parties = do
   (initParties, commitParties) <- (`splitAt` parties) <$> choose (0, length parties)
   initials <- vectorOf (length initParties) genInitial
   commits <- fmap (\(a, (b, c)) -> (a, b, c)) . Map.toList <$> generateCommitUtxos commitParties
   pure $ initials <> commits
+
+drop2nd :: (a, b, c) -> (a, c)
+drop2nd (a, _, c) = (a, c)
+
+drop3rd :: (a, b, c) -> (a, b)
+drop3rd (a, b, _) = (a, b)
 
 genInitial :: Gen (TxIn, TxOut CtxUTxO Era, ScriptData)
 genInitial = mkInitials <$> arbitrary
