@@ -12,6 +12,7 @@ import Hydra.Contract.Commit (Commit, SerializedTxOut (..))
 import qualified Hydra.Contract.Commit as Commit
 import Hydra.Contract.Encoding (serialiseTxOuts)
 import Hydra.Contract.HeadState (Input (..), SnapshotNumber, State (..))
+import qualified Hydra.Contract.Initial as Initial
 import Hydra.Data.ContestationPeriod (ContestationPeriod)
 import Hydra.Data.Party (Party (UnsafeParty))
 import Ledger.Typed.Scripts (TypedValidator, ValidatorType, ValidatorTypes (RedeemerType))
@@ -43,16 +44,19 @@ headValidator ::
   -- | Commit script address. NOTE: Used to identify inputs from commits and
   -- likely could be replaced by looking for PTs.
   Address ->
+  -- | Inital script address. NOTE: Used to identify inputs from initials and
+  -- likely could be replaced by looking for PTs.
+  Address ->
   State ->
   Input ->
   ScriptContext ->
   Bool
-headValidator _ commitAddress oldState input context =
+headValidator _ commitAddress initialAddress oldState input context =
   case (oldState, input) of
     (Initial{contestationPeriod, parties}, CollectCom) ->
       checkCollectCom commitAddress (contestationPeriod, parties) context
-    (Initial{}, Abort) ->
-      True
+    (Initial{parties}, Abort) ->
+      checkAbort commitAddress initialAddress parties context
     (Open{parties}, Close{snapshotNumber, signature})
       | snapshotNumber == 0 -> True
       | snapshotNumber > 0 -> verifySnapshotSignature parties snapshotNumber signature
@@ -72,6 +76,30 @@ data CheckCollectComError
   | MoreThanOneContinuingOutput
   | OutputValueNotPreserved
   | OutputHashNotMatching
+
+-- | On-Chain Validation for 'Abort' transition.
+-- It must verify that:
+--  * All PTs have been burnt
+--  * It has collected inputs for all parties, either from `Initial` or `Commit` script.
+checkAbort ::
+  Address ->
+  Address ->
+  [Party] ->
+  ScriptContext ->
+  Bool
+checkAbort commitAddress initialAddress parties ScriptContext{scriptContextTxInfo = txInfo} =
+  consumeInputsForAllParties
+ where
+  consumeInputsForAllParties =
+    traceIfFalse "number of inputs do not match number of parties" $
+      length parties == length initialAndCommitInputs
+  initialAndCommitInputs =
+    filter
+      ( \TxInInfo{txInInfoResolved} ->
+          let addr = txOutAddress txInInfoResolved
+           in addr == commitAddress || addr == initialAddress
+      )
+      (txInfoInputs txInfo)
 
 -- | On-Chain Validation for the 'CollectCom' transition.
 --
@@ -230,6 +258,7 @@ compiledValidator policyId =
   $$(PlutusTx.compile [||headValidator||])
     `PlutusTx.applyCode` PlutusTx.liftCode policyId
     `PlutusTx.applyCode` PlutusTx.liftCode Commit.address
+    `PlutusTx.applyCode` PlutusTx.liftCode Initial.address
 
 validatorHash :: MintingPolicyHash -> ValidatorHash
 validatorHash = Scripts.validatorHash . typedValidator

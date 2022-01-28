@@ -8,13 +8,15 @@ module Hydra.Chain.Direct.Contract.Abort where
 import qualified Data.Map as Map
 import Data.Maybe (fromJust)
 import Hydra.Chain (HeadParameters (..))
-import Hydra.Chain.Direct.Contract.Mutation (SomeMutation (..))
+import Hydra.Chain.Direct.Contract.Mutation (Mutation (ChangeHeadDatum), SomeMutation (..))
 import Hydra.Chain.Direct.Fixture (testNetworkId)
 import qualified Hydra.Chain.Direct.Fixture as Fixture
 import Hydra.Chain.Direct.Tx (abortTx, mkHeadOutputInitial)
 import Hydra.Chain.Direct.TxSpec (drop2nd, drop3rd, genAbortableOutputs)
 import qualified Hydra.Contract.Commit as Commit
+import qualified Hydra.Contract.HeadState as Head
 import qualified Hydra.Contract.Initial as Initial
+import Hydra.Data.Party (partyFromVerKey)
 import Hydra.Ledger.Cardano (
   CardanoTx,
   PlutusScriptV1,
@@ -27,8 +29,9 @@ import Hydra.Ledger.Cardano (
   toUtxoContext,
   txOutAddress,
  )
+import Hydra.Party (Party, vkey)
 import Hydra.Prelude
-import Test.QuickCheck (Property, counterexample)
+import Test.QuickCheck (Property, counterexample, oneof)
 
 --
 -- AbortTx
@@ -57,7 +60,7 @@ healthyAbortTx =
   headParameters =
     HeadParameters
       { contestationPeriod = 10
-      , parties
+      , parties = healthyParties
       }
 
   headDatum = unsafeGetDatum headOutput
@@ -66,17 +69,17 @@ healthyAbortTx =
   -- are optional
   unsafeGetDatum = fromJust . getDatum
 
-  parties =
-    [ generateWith arbitrary i | i <- [1 .. 3]
-    ]
-
-
   (initials, commits) =
     -- NOTE: Why 43 one may ask? Because 42 does not generate commit UTXOs
     -- TODO: Refactor this to be an AbortTx generator because we actually want
     -- to test healthy abort txs with varied combinations of inital and commit
     -- outputs
-    generateWith (genAbortableOutputs parties) 43
+    generateWith (genAbortableOutputs healthyParties) 43
+
+healthyParties :: [Party]
+healthyParties =
+  [ generateWith arbitrary i | i <- [1 .. 3]
+  ]
 
 propHasInitial :: (CardanoTx, Utxo) -> Property
 propHasInitial (_, utxo) =
@@ -98,8 +101,15 @@ propHasCommit (_, utxo) =
   paysToCommitScript txOut =
     txOutAddress txOut == address
 
-data AbortMutation = AbortMutation
+data AbortMutation
+  = MutateParties
   deriving (Generic, Show, Enum, Bounded)
 
 genAbortMutation :: (CardanoTx, Utxo) -> Gen SomeMutation
-genAbortMutation = error "undefined"
+genAbortMutation _ =
+  oneof
+    [ SomeMutation MutateParties . ChangeHeadDatum <$> do
+        moreParties <- (: healthyParties) <$> arbitrary
+        c <- arbitrary
+        pure $ Head.Initial c (partyFromVerKey . vkey <$> moreParties)
+    ]
