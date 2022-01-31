@@ -8,7 +8,7 @@
         },
         "minUTxOValue": 0,
         "decentralisationParam": 1,
-        "maxTxSize": 16384,
+        "maxTxSize": 32768,
         "minPoolCost": 0,
         "maxBlockBodySize": 65536,
         "minFeeA": 44,
