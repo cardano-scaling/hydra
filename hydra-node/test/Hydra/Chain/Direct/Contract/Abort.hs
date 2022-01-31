@@ -8,7 +8,7 @@ module Hydra.Chain.Direct.Contract.Abort where
 import qualified Data.Map as Map
 import Data.Maybe (fromJust)
 import Hydra.Chain (HeadParameters (..))
-import Hydra.Chain.Direct.Contract.Mutation (Mutation (ChangeHeadDatum, RemoveOutput), SomeMutation (..))
+import Hydra.Chain.Direct.Contract.Mutation (Mutation (ChangeHeadDatum, ChangeInput, RemoveOutput), SomeMutation (..), anyPayToPubKeyTxOut, headTxIn)
 import Hydra.Chain.Direct.Fixture (testNetworkId)
 import qualified Hydra.Chain.Direct.Fixture as Fixture
 import Hydra.Chain.Direct.Tx (UtxoWithScript, abortTx, mkHeadOutputInitial)
@@ -108,10 +108,11 @@ propHasCommit (_, utxo) =
 data AbortMutation
   = MutateParties
   | MutateDropCommitOutput
+  | MutateHeadScriptInput
   deriving (Generic, Show, Enum, Bounded)
 
 genAbortMutation :: (CardanoTx, Utxo) -> Gen SomeMutation
-genAbortMutation _ =
+genAbortMutation (_, utxo) =
   oneof
     [ SomeMutation MutateParties . ChangeHeadDatum <$> do
         moreParties <- (: healthyParties) <$> arbitrary
@@ -121,4 +122,5 @@ genAbortMutation _ =
         . RemoveOutput
         . (+ 1) -- NOTE(AB): Assumes the transaction's first output is the head output
         <$> choose (0, fromIntegral (length healthyCommits - 1))
+    , SomeMutation MutateHeadScriptInput . ChangeInput (headTxIn utxo) <$> anyPayToPubKeyTxOut
     ]

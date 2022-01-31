@@ -39,11 +39,13 @@ import Hydra.Ledger.Cardano (
   Utxo,
   describeCardanoTx,
   fromLedgerTxOut,
+  genOutput,
   mkTxOutDatum,
   mkTxOutDatumHash,
   toAlonzoData,
   toCtxUTxOTxOut,
   toLedgerTxOut,
+  utxoPairs,
  )
 import qualified Hydra.Ledger.Cardano as Api
 import Hydra.Ledger.Cardano.Evaluate (evaluateTx)
@@ -53,6 +55,7 @@ import Hydra.Party (
  )
 import Plutus.Orphans ()
 import Plutus.V1.Ledger.Api (toData)
+import qualified System.Directory.Internal.Prelude as Prelude
 import Test.QuickCheck (
   Property,
   checkCoverage,
@@ -324,3 +327,13 @@ alterTxOuts fn tx =
   mapOutputs = fmap (toLedgerTxOut . toCtxUTxOTxOut) . fn . fmap fromLedgerTxOut
   ShelleyTxBody era ledgerBody scripts scriptData mAuxData scriptValidity = body
   Tx body wits = tx
+
+-- | Generates an output that pays to some arbitrary pubkey.
+anyPayToPubKeyTxOut :: Gen (TxOut ctx Era)
+anyPayToPubKeyTxOut = Api.genKeyPair >>= genOutput . fst
+
+-- | Finds the Head script's input in given `Utxo` set.
+-- '''NOTE''': This function is partial, it assumes the `Utxo` set contains a
+-- Head script output.
+headTxIn :: Utxo -> Api.TxIn
+headTxIn = fst . Prelude.head . filter (isHeadOutput . snd) . utxoPairs

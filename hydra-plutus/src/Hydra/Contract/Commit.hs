@@ -39,36 +39,34 @@ instance Scripts.ValidatorTypes Commit where
 
 validator :: DatumType Commit -> RedeemerType Commit -> ScriptContext -> Bool
 validator (_party, headScriptHash, commit) consumer ScriptContext{scriptContextTxInfo = txInfo} =
-  case consumer of
-    Abort ->
-      case commit of
-        Nothing -> True
-        Just (SerializedTxOut serialisedTxOut) ->
-          -- There should be an output in the transaction corresponding to this serialisedTxOut
-          traceIfFalse "cannot find commit output" $
-            serialisedTxOut `elem` (encodingToBuiltinByteString . encodeTxOut <$> txInfoOutputs txInfo)
-    CollectCom ->
-      case commit of
-        -- we don't commit anything, so there's nothing to validate
-        Nothing -> True
-        -- NOTE: we could check the committed txOut is present in the Head output hash, for
-        -- example by providing some proof in the redeemer and checking that but this is redundant
-        -- with what the Head script is already doing so it's enough to check that the Head script
-        -- is actually running in the correct "branch" (eg. handling a `CollectCom` or `Abort`
-        -- redeemer)
-        -- However we can't get the redeemer for another input so we'll need to check the datum
-        -- is `Initial`
-        Just _ ->
-          case txInInfoResolved <$> findHeadScript of
-            Nothing -> traceError "Cannot find Head script"
-            Just (TxOut _ _ (Just dh)) ->
-              case getDatum <$> findDatum dh txInfo of
-                Nothing -> traceError "Invalid datum hash with no datum"
-                (Just da) ->
-                  case fromBuiltinData @State da of
-                    Just Initial{} -> True
-                    _ -> traceError "Head script in wrong state"
-            Just (TxOut _ _ Nothing) -> traceError "Head script has no datum hash"
+  case txInInfoResolved <$> findHeadScript of
+    Nothing -> traceError "Cannot find Head script"
+    Just (TxOut _ _ (Just dh)) ->
+      case getDatum <$> findDatum dh txInfo of
+        Nothing -> traceError "Invalid datum hash with no datum"
+        (Just da) ->
+          case fromBuiltinData @State da of
+            -- NOTE: we could check the committed txOut is present in the Head output hash, for
+            -- example by providing some proof in the redeemer and checking that but this is redundant
+            -- with what the Head script is already doing so it's enough to check that the Head script
+            -- is actually running in the correct "branch" (eg. handling a `CollectCom` or `Abort`
+            -- redeemer)
+            -- However we can't get the redeemer for another input so we'll need to check the datum
+            -- is `Initial`
+            Just Initial{} ->
+              case consumer of
+                Abort ->
+                  case commit of
+                    Nothing -> True
+                    Just (SerializedTxOut serialisedTxOut) ->
+                      -- There should be an output in the transaction corresponding to this serialisedTxOut
+                      traceIfFalse "cannot find commit output" $
+                        serialisedTxOut `elem` (encodingToBuiltinByteString . encodeTxOut <$> txInfoOutputs txInfo)
+                -- NOTE: In the Collectcom case the inclusion of the committed output 'commit' is
+                -- delegated to the 'CollectCom' script who has more information to do it.
+                CollectCom -> True
+            _ -> traceError "Head script in wrong state"
+    Just (TxOut _ _ Nothing) -> traceError "Head script has no datum hash"
  where
   findHeadScript = find (paytoHeadScript . txInInfoResolved) $ txInfoInputs txInfo
 
