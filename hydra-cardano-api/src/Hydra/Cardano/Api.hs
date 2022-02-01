@@ -21,6 +21,7 @@ module Hydra.Cardano.Api (
   module Hydra.Cardano.Api.TxOutValue,
   module Hydra.Cardano.Api.TxScriptValidity,
   module Hydra.Cardano.Api.Witness,
+  module Hydra.Cardano.Api.Value,
   module Hydra.Cardano.Api.UTxO,
   StandardCrypto,
   Era,
@@ -50,4 +51,5 @@ import Hydra.Cardano.Api.TxOutDatum
 import Hydra.Cardano.Api.TxOutValue
 import Hydra.Cardano.Api.TxScriptValidity
 import Hydra.Cardano.Api.UTxO (UTxO, fromLedgerUTxO, renderUTxO, toLedgerUTxO)
+import Hydra.Cardano.Api.Value
 import Hydra.Cardano.Api.Witness

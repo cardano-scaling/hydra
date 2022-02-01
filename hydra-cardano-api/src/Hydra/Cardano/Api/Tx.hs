@@ -9,13 +9,18 @@ import Hydra.Cardano.Api.KeyWitness (
  )
 import Hydra.Cardano.Api.Lovelace (fromLedgerCoin)
 import Hydra.Cardano.Api.TxScriptValidity (toLedgerScriptValidity)
+import Hydra.Cardano.Api.Value (txOutValue)
 
+import Cardano.Binary (serialize)
 import qualified Cardano.Ledger.Alonzo as Ledger
 import qualified Cardano.Ledger.Alonzo.PParams as Ledger
 import qualified Cardano.Ledger.Alonzo.Scripts as Ledger
 import qualified Cardano.Ledger.Alonzo.Tx as Ledger
+import qualified Cardano.Ledger.Alonzo.TxBody as Ledger
 import qualified Cardano.Ledger.Alonzo.TxWitness as Ledger
 import qualified Cardano.Ledger.Era as Ledger
+import qualified Cardano.Ledger.Mary.Value as Ledger
+import qualified Data.ByteString.Lazy as BL
 import qualified Data.Map as Map
 import Data.Maybe.Strict (maybeToStrictMaybe, strictMaybeToMaybe)
 
@@ -53,6 +58,66 @@ executionCost ::
   Lovelace
 executionCost = totalExecutionCost
 {-# DEPRECATED executionCost "use totalExecutionCost instead." #-}
+
+-- | Obtain a human-readable pretty text representation of a transaction.
+renderTx :: Tx Era -> Text
+renderTx (Tx body _wits) =
+  unlines $
+    [show (getTxId body)]
+      <> inputLines
+      <> outputLines
+      <> scriptLines
+      <> datumLines
+      <> redeemerLines
+ where
+  ShelleyTxBody _era lbody scripts scriptsData _auxData _validity = body
+  outs = Ledger.outputs' lbody
+  TxBody TxBodyContent{txIns, txOuts} = body
+
+  inputLines =
+    "  Input set (" <> show (length txIns) <> ")" :
+    (("    - " <>) . renderTxIn . fst <$> txIns)
+
+  outputLines =
+    [ "  Outputs (" <> show (length txOuts) <> ")"
+    , "    total number of assets: " <> show totalNumberOfAssets
+    ]
+      <> (("    - " <>) . renderValue . txOutValue <$> txOuts)
+
+  totalNumberOfAssets =
+    sum $
+      [ foldl' (\n inner -> n + Map.size inner) 0 outer
+      | Ledger.TxOut _ (Ledger.Value _ outer) _ <- toList outs
+      ]
+
+  scriptLines =
+    [ "  Scripts (" <> show (length scripts) <> ")"
+    , "    total size (bytes):  " <> show totalScriptSize
+    ]
+      <> (("    - " <>) . prettyScript <$> scripts)
+
+  prettyScript = show . (Ledger.hashScript @LedgerEra)
+
+  totalScriptSize = sum $ BL.length . serialize <$> scripts
+
+  datumLines = case scriptsData of
+    TxBodyNoScriptData -> []
+    (TxBodyScriptData _ (Ledger.TxDats dats) _) ->
+      "  Datums (" <> show (length dats) <> ")" :
+      (("    - " <>) . showDatumAndHash <$> Map.toList dats)
+
+  showDatumAndHash (k, v) = show k <> " -> " <> show v
+
+  redeemerLines = case scriptsData of
+    TxBodyNoScriptData -> []
+    (TxBodyScriptData _ _ re) ->
+      let rdmrs = Map.elems $ Ledger.unRedeemers re
+       in "  Redeemers (" <> show (length rdmrs) <> ")" :
+          (("    - " <>) . show . fst <$> rdmrs)
+
+{-# DEPRECATED describeCardanoTx "use 'renderTx' instead." #-}
+describeCardanoTx :: Tx Era -> Text
+describeCardanoTx = renderTx
 
 -- * Type Conversions
 
