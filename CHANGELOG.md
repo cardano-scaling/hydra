@@ -12,25 +12,25 @@ changes.
 
 #### Added
 
-- Implementation of On-Chain contracts for Hydra Head lifecycle without contests
+- Implementation of on-chain verification of Hydra Head lifecycle without contests. This first version with its various shortcuts is documented on examples of the [full](./docs/images/on-chain-full.jpg) and [abort](./docs/images/on-chain-abort.jpg) on-chain life-cycles of a Hydra Head
 - Enable nix-shell on Mac
-- Build separate docker images for `hydra-node` and `hydra-tui` available as _packages_ from GitHub repo
-- Provide utility `inspect-script` to dump contracts for further analysis
-- Implement CBOR encoder and Merkle-Tree in Plutus
+- Build separate docker images for `hydra-node` and `hydra-tui` available as [packages](https://github.com/orgs/input-output-hk/packages?repo_name=hydra-poc) from GitHub repo
+- Utility executable `inspect-script` to dump contracts for further analysis
+- CBOR encoder and Merkle-Tree in Plutus as separate packages `plutus-cbor` and `plutus-merkle-tree`, released & tagged separately
 
 #### Changed
 
 - Package `local-cluster` is now `hydra-cluster`.
-- Use exclusively cardano-api's types and functions to interact with chain
-- Refine computation of fees from internal wallet
-- Remove several sources of `error` in chain interaction component
+- Use `cardano-api` types and functions to interact with chain.
+- Refine computation of fees from internal wallet.
+- Remove several sources of `error` in chain interaction component.
 
 #### Known issues
 
-- `CollectCom` requires increase in tx size limit over current mainchain parameters to 32KB
-  - Should be alleviated with Plutus optimisations and merging all contracts in one
+- `collectComTx` requires increase in tx size limit over current mainchain parameters to 32KB, which should be alleviated with Plutus optimisations and merging all contracts in one in future releases
 - Head can collect at most 9 commits and each party can commit either 1 or 0 UTXO to a Head
-- Fan-Out cannot handle more than 100 UTxO with the standard tx size of 16KB (200 with the temporary increase for test purpose).
+- `fanoutTx` cannot handle more than 100 UTxO with the standard tx size of 16KB (200 with the temporary increase for test purpose).
+- Known issues from `0.2.0` still apply
 
 ## [0.2.0] - 2021-12-14
 
