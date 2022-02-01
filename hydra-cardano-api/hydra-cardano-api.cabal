@@ -88,6 +88,7 @@ library
     Hydra.Cardano.Api.TxIn
     Hydra.Cardano.Api.TxOut
     Hydra.Cardano.Api.TxOutDatum
+    Hydra.Cardano.Api.TxOutValue
     Hydra.Cardano.Api.TxScriptValidity
   build-depends: base
     , aeson
