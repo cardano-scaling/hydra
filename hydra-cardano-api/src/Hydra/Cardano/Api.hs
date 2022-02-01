@@ -7,6 +7,7 @@ module Hydra.Cardano.Api (
   module Hydra.Cardano.Api.ScriptData,
   module Hydra.Cardano.Api.ScriptDatum,
   module Hydra.Cardano.Api.ScriptHash,
+  module Hydra.Cardano.Api.Tx,
   module Hydra.Cardano.Api.TxBody,
   module Hydra.Cardano.Api.TxIn,
   module Hydra.Cardano.Api.TxOut,
@@ -21,6 +22,7 @@ import Hydra.Cardano.Api.PlutusScriptVersion
 import Hydra.Cardano.Api.ScriptData
 import Hydra.Cardano.Api.ScriptDatum
 import Hydra.Cardano.Api.ScriptHash
+import Hydra.Cardano.Api.Tx
 import Hydra.Cardano.Api.TxBody
 import Hydra.Cardano.Api.TxIn
 import Hydra.Cardano.Api.TxOut

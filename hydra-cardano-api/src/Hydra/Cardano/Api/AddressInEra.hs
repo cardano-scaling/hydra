@@ -1,5 +1,3 @@
-{-# LANGUAGE TypeApplications #-}
-
 module Hydra.Cardano.Api.AddressInEra where
 
 import Cardano.Api
@@ -10,20 +8,6 @@ import Cardano.Api.Shelley (Address (..), fromShelleyAddr)
 import qualified Cardano.Ledger.Address as Ledger
 import Cardano.Ledger.Crypto (StandardCrypto)
 import Hydra.Cardano.Api.PlutusScriptVersion (HasPlutusScriptVersion (..))
-
--- * Type Conversions
-
--- | From a ledger 'Addr' to an api 'AddressInEra'
-fromLedgerAddr :: Ledger.Addr StandardCrypto -> AddressInEra AlonzoEra
-fromLedgerAddr = fromShelleyAddr
-
--- | From an api 'AddressInEra' to a ledger 'Addr'
-toLedgerAddr :: AddressInEra AlonzoEra -> Ledger.Addr StandardCrypto
-toLedgerAddr = \case
-  AddressInEra ByronAddressInAnyEra (ByronAddress addr) ->
-    Ledger.AddrBootstrap (Ledger.BootstrapAddress addr)
-  AddressInEra (ShelleyAddressInEra _) (ShelleyAddress ntwrk creds stake) ->
-    Ledger.Addr ntwrk creds stake
 
 -- * Extras
 
@@ -63,3 +47,17 @@ mkScriptAddress networkId script =
     NoStakeAddress
  where
   version = plutusScriptVersion (proxyToAsType $ Proxy @lang)
+
+-- * Type Conversions
+
+-- | From a ledger 'Addr' to an api 'AddressInEra'
+fromLedgerAddr :: Ledger.Addr StandardCrypto -> AddressInEra AlonzoEra
+fromLedgerAddr = fromShelleyAddr
+
+-- | From an api 'AddressInEra' to a ledger 'Addr'
+toLedgerAddr :: AddressInEra AlonzoEra -> Ledger.Addr StandardCrypto
+toLedgerAddr = \case
+  AddressInEra ByronAddressInAnyEra (ByronAddress addr) ->
+    Ledger.AddrBootstrap (Ledger.BootstrapAddress addr)
+  AddressInEra (ShelleyAddressInEra _) (ShelleyAddress ntwrk creds stake) ->
+    Ledger.Addr ntwrk creds stake
