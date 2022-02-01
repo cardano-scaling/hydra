@@ -20,8 +20,8 @@
 --
 -- All things being equal, "mutating" a /validator/ so that it returns `False` instead of `True` can be done:
 --
--- * Either by _mutating_ the code of the `validator` implementation,
--- * Or by _mutating_ its arguments.
+-- * Either by /mutating/ the code of the `validator` implementation,
+-- * Or by /mutating/ its arguments.
 --
 -- This simple idea lead to the following strategy to test-drive validator scripts:
 --
