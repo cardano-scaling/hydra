@@ -1,4 +1,4 @@
-module Hydra.Cardano.Api.IsScriptWitnessInCtx where
+module Hydra.Cardano.Api.ScriptWitnessInCtx where
 
 import Hydra.Cardano.Api.Prelude
 
