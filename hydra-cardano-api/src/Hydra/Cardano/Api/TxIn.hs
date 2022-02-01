@@ -1,10 +1,7 @@
 module Hydra.Cardano.Api.TxIn where
 
-import Cardano.Api
-import Hydra.Prelude
+import Hydra.Cardano.Api.Prelude
 
-import Cardano.Api.Shelley (fromShelleyTxIn, toShelleyTxIn)
-import Cardano.Ledger.Crypto (StandardCrypto)
 import qualified Cardano.Ledger.TxIn as Ledger
 
 -- * Type Conversions

@@ -75,13 +75,14 @@ library
   exposed-modules:
     Hydra.Cardano.Api
     Hydra.Cardano.Api.AddressInEra
-    Hydra.Cardano.Api.Lovelace
     Hydra.Cardano.Api.KeyWitness
+    Hydra.Cardano.Api.Lovelace
     Hydra.Cardano.Api.Network
     Hydra.Cardano.Api.PlutusScriptVersion
+    Hydra.Cardano.Api.Prelude
     Hydra.Cardano.Api.ScriptData
-    Hydra.Cardano.Api.ScriptHash
     Hydra.Cardano.Api.ScriptDatum
+    Hydra.Cardano.Api.ScriptHash
     Hydra.Cardano.Api.Tx
     Hydra.Cardano.Api.TxBody
     Hydra.Cardano.Api.TxIn

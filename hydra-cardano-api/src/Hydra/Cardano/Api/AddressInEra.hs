@@ -1,13 +1,10 @@
 module Hydra.Cardano.Api.AddressInEra where
 
-import Cardano.Api
-import Hydra.Prelude
+import Hydra.Cardano.Api.PlutusScriptVersion (HasPlutusScriptVersion (..))
+import Hydra.Cardano.Api.Prelude
 
 import Cardano.Api.Byron (Address (..))
-import Cardano.Api.Shelley (Address (..), fromShelleyAddr)
 import qualified Cardano.Ledger.Address as Ledger
-import Cardano.Ledger.Crypto (StandardCrypto)
-import Hydra.Cardano.Api.PlutusScriptVersion (HasPlutusScriptVersion (..))
 
 -- * Extras
 
@@ -51,11 +48,11 @@ mkScriptAddress networkId script =
 -- * Type Conversions
 
 -- | From a ledger 'Addr' to an api 'AddressInEra'
-fromLedgerAddr :: Ledger.Addr StandardCrypto -> AddressInEra AlonzoEra
+fromLedgerAddr :: Ledger.Addr StandardCrypto -> AddressInEra Era
 fromLedgerAddr = fromShelleyAddr
 
 -- | From an api 'AddressInEra' to a ledger 'Addr'
-toLedgerAddr :: AddressInEra AlonzoEra -> Ledger.Addr StandardCrypto
+toLedgerAddr :: AddressInEra Era -> Ledger.Addr StandardCrypto
 toLedgerAddr = \case
   AddressInEra ByronAddressInAnyEra (ByronAddress addr) ->
     Ledger.AddrBootstrap (Ledger.BootstrapAddress addr)

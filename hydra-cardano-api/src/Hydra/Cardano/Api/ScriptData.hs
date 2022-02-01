@@ -1,9 +1,7 @@
 module Hydra.Cardano.Api.ScriptData where
 
-import Cardano.Api
-import Hydra.Prelude
+import Hydra.Cardano.Api.Prelude
 
-import Cardano.Api.Shelley (fromPlutusData)
 import qualified Plutus.V1.Ledger.Api as Plutus
 
 -- | Data-types that can be marshalled into a generic 'ScriptData' structure.

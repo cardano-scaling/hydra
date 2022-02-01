@@ -1,24 +1,22 @@
 module Hydra.Cardano.Api.TxBody where
 
-import Cardano.Api
-import Hydra.Prelude
+import Hydra.Cardano.Api.Prelude
+import Hydra.Cardano.Api.ScriptData (FromScriptData)
+import Hydra.Cardano.Api.TxIn (toLedgerTxIn)
 
-import Cardano.Api.Shelley (TxBody (..))
 import qualified Cardano.Ledger.Alonzo.Data as Ledger
 import qualified Cardano.Ledger.Alonzo.Scripts as Ledger
 import qualified Cardano.Ledger.Alonzo.TxBody as Ledger
 import qualified Cardano.Ledger.Alonzo.TxWitness as Ledger
 import qualified Data.Map as Map
 import qualified Data.Set as Set
-import Hydra.Cardano.Api.ScriptData (FromScriptData)
-import Hydra.Cardano.Api.TxIn (toLedgerTxIn)
 import qualified Plutus.V1.Ledger.Api as Plutus
 
 -- | Find and deserialise from 'ScriptData', a redeemer from the transaction
 -- associated to the given input.
 findRedeemerSpending ::
   FromScriptData a =>
-  TxBody AlonzoEra ->
+  TxBody Era ->
   TxIn ->
   Maybe a
 findRedeemerSpending (ShelleyTxBody _ body _ scriptData _ _) txIn = do

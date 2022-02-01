@@ -1,12 +1,12 @@
 module Hydra.Cardano.Api.TxOut where
 
-import Cardano.Api
+import Hydra.Cardano.Api.Prelude
 
-txOuts' :: Tx AlonzoEra -> [TxOut CtxTx AlonzoEra]
+txOuts' :: Tx Era -> [TxOut CtxTx Era]
 txOuts' tx =
   let TxBody TxBodyContent{txOuts} = getTxBody tx
    in txOuts
 
 {-# DEPRECATED getOutputs "use txOuts' instead." #-}
-getOutputs :: Tx AlonzoEra -> [TxOut CtxTx AlonzoEra]
+getOutputs :: Tx Era -> [TxOut CtxTx Era]
 getOutputs = txOuts'
