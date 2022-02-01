@@ -11,11 +11,11 @@ type ToScriptData a = Plutus.ToData a
 type FromScriptData a = Plutus.FromData a
 
 -- | Serialise some type into a generic 'ScriptData' structure.
-asScriptData :: (ToScriptData a) => a -> ScriptData
-asScriptData =
+toScriptData :: (ToScriptData a) => a -> ScriptData
+toScriptData =
   fromPlutusData . Plutus.toData
 
 {-# DEPRECATED mkRedeemerForTxIn "use 'asScriptData' instead." #-}
 mkRedeemerForTxIn :: (ToScriptData a) => a -> ScriptRedeemer
 mkRedeemerForTxIn =
-  asScriptData
+  toScriptData
