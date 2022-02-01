@@ -33,7 +33,7 @@ testNetworkId :: NetworkId
 testNetworkId = Testnet (NetworkMagic 42)
 
 maxTxSize :: Int64
-maxTxSize = 1 `shift` 14
+maxTxSize = 1 `shift` 15
 
 pparams :: PParams Era
 pparams =

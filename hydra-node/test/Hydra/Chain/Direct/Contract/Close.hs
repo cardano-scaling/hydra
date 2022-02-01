@@ -1,5 +1,4 @@
 {-# LANGUAGE DuplicateRecordFields #-}
-{-# LANGUAGE TypeApplications #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 
 module Hydra.Chain.Direct.Contract.Close where
@@ -9,8 +8,8 @@ import Hydra.Prelude hiding (label)
 
 import Cardano.Binary (serialize')
 import Hydra.Chain.Direct.Contract.Mutation (Mutation (..), SomeMutation (..))
-import Hydra.Chain.Direct.Tx (closeTx)
-import Hydra.Chain.Direct.TxSpec (mkHeadOutput)
+import Hydra.Chain.Direct.Fixture (testNetworkId)
+import Hydra.Chain.Direct.Tx (closeTx, mkHeadOutput)
 import qualified Hydra.Contract.HeadState as Head
 import Hydra.Data.Party (partyFromVerKey)
 import qualified Hydra.Data.Party as OnChain
@@ -38,7 +37,7 @@ healthyCloseTx =
  where
   tx = closeTx healthySnapshot (healthySignature healthySnapshotNumber) (headInput, headOutput, headDatum)
   headInput = generateWith arbitrary 42
-  headOutput = mkHeadOutput $ toUtxoContext (mkTxOutDatum healthyCloseDatum)
+  headOutput = mkHeadOutput testNetworkId $ toUtxoContext (mkTxOutDatum healthyCloseDatum)
   headDatum = fromPlutusData $ toData healthyCloseDatum
   lookupUtxo = singletonUtxo (headInput, headOutput)
 

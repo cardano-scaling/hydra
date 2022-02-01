@@ -39,11 +39,13 @@ import Hydra.Ledger.Cardano (
   Utxo,
   describeCardanoTx,
   fromLedgerTxOut,
+  genOutput,
   mkTxOutDatum,
   mkTxOutDatumHash,
   toAlonzoData,
   toCtxUTxOTxOut,
   toLedgerTxOut,
+  utxoPairs,
  )
 import qualified Hydra.Ledger.Cardano as Api
 import Hydra.Ledger.Cardano.Evaluate (evaluateTx)
@@ -53,6 +55,7 @@ import Hydra.Party (
  )
 import Plutus.Orphans ()
 import Plutus.V1.Ledger.Api (toData)
+import qualified System.Directory.Internal.Prelude as Prelude
 import Test.QuickCheck (
   Property,
   checkCoverage,
@@ -140,6 +143,8 @@ data Mutation
     ChangeHeadDatum Head.State
   | -- | Adds given output to the transaction's outputs.
     PrependOutput (TxOut CtxTx Era)
+  | -- | Removes given output from the transaction's outputs.
+    RemoveOutput Word
   | -- | Change an input's 'TxOut' to something else.
     -- This mutation alters the redeemers of the transaction to ensure
     -- any matching redeemer for given input is removed, otherwise the
@@ -199,6 +204,14 @@ applyMutation mutation (tx@(Tx body wits), utxo) = case mutation of
     ( alterTxOuts (txOut :) tx
     , utxo
     )
+  RemoveOutput ix ->
+    ( alterTxOuts (removeAt ix) tx
+    , utxo
+    )
+   where
+    removeAt i es =
+      map snd $
+        filter ((/= i) . fst) $ zip [0 ..] es
   ChangeInput txIn txOut ->
     ( Tx body' wits
     , Api.Utxo $ Map.insert txIn txOut (Api.utxoMap utxo)
@@ -314,3 +327,13 @@ alterTxOuts fn tx =
   mapOutputs = fmap (toLedgerTxOut . toCtxUTxOTxOut) . fn . fmap fromLedgerTxOut
   ShelleyTxBody era ledgerBody scripts scriptData mAuxData scriptValidity = body
   Tx body wits = tx
+
+-- | Generates an output that pays to some arbitrary pubkey.
+anyPayToPubKeyTxOut :: Gen (TxOut ctx Era)
+anyPayToPubKeyTxOut = Api.genKeyPair >>= genOutput . fst
+
+-- | Finds the Head script's input in given `Utxo` set.
+-- '''NOTE''': This function is partial, it assumes the `Utxo` set contains a
+-- Head script output.
+headTxIn :: Utxo -> Api.TxIn
+headTxIn = fst . Prelude.head . filter (isHeadOutput . snd) . utxoPairs

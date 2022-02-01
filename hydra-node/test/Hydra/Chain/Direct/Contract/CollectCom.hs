@@ -12,16 +12,18 @@ import Data.Maybe (fromJust)
 import Hydra.Chain.Direct.Contract.Mutation (
   Mutation (..),
   SomeMutation (..),
+  anyPayToPubKeyTxOut,
   genHash,
-  isHeadOutput,
+  headTxIn,
  )
 import qualified Hydra.Chain.Direct.Fixture as Fixture
 import Hydra.Chain.Direct.Tx (
   collectComTx,
+  headValue,
   mkCommitDatum,
+  mkHeadOutput,
   policyId,
  )
-import Hydra.Chain.Direct.TxSpec (mkHeadOutput)
 import qualified Hydra.Contract.Commit as Commit
 import qualified Hydra.Contract.Head as Head
 import qualified Hydra.Contract.HeadState as Head
@@ -62,7 +64,7 @@ healthyCollectComTx =
       & Map.fromList
 
   headInput = generateWith arbitrary 42
-  headResolvedInput = mkHeadOutput (toUtxoContext $ mkTxOutDatum healthyCollectComInitialDatum)
+  headResolvedInput = mkHeadOutput Fixture.testNetworkId (toUtxoContext $ mkTxOutDatum healthyCollectComInitialDatum)
   headDatum = fromPlutusData $ toData healthyCollectComInitialDatum
 
 healthyCollectComInitialDatum :: Head.State
@@ -107,7 +109,7 @@ healthyCommitOutput party committed =
     mkScriptAddress @Api.PlutusScriptV1 Fixture.testNetworkId commitScript
   commitValue =
     mkTxOutValue $
-      lovelaceToValue 2_000_000 <> (txOutValue . snd) committed
+      headValue <> (txOutValue . snd) committed
   commitDatum =
     mkCommitDatum party (Head.validatorHash policyId) (Just committed)
 
@@ -125,17 +127,13 @@ genCollectComMutation (tx, utxo) =
         mutatedValue <- (mkTxOutValue <$> genValue) `suchThat` (/= collectComOutputValue)
         pure $ TxOut collectComOutputAddress mutatedValue collectComOutputDatum
     , SomeMutation MutateOpenUtxoHash . ChangeOutput 0 <$> mutateUtxoHash
-    , SomeMutation MutateHeadScriptInput . ChangeInput headTxIn <$> anyPayToPubKeyTxOut
+    , SomeMutation MutateHeadScriptInput . ChangeInput (headTxIn utxo) <$> anyPayToPubKeyTxOut
     , SomeMutation MutateHeadTransition <$> do
         changeRedeemer <- ChangeHeadRedeemer <$> (Head.Close 0 . toBuiltin <$> genHash <*> arbitrary)
         changeDatum <- ChangeHeadDatum <$> (Head.Open <$> arbitrary <*> (toBuiltin <$> genHash))
         pure $ Changes [changeRedeemer, changeDatum]
     ]
  where
-  anyPayToPubKeyTxOut = Api.genKeyPair >>= genOutput . fst
-
-  headTxIn = fst . Prelude.head . filter (isHeadOutput . snd) . utxoPairs $ utxo
-
   TxOut collectComOutputAddress collectComOutputValue collectComOutputDatum =
     fromJust $ getOutputs tx !!? 0
 

@@ -1,4 +1,3 @@
-{-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE DerivingStrategies #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE TypeApplications #-}
@@ -355,6 +354,9 @@ describeCardanoTx (Tx body _wits) =
     [ "  Scripts (" <> show (length scripts) <> ")"
     , "    total size (bytes):  " <> show totalScriptSize
     ]
+      <> (("    - " <>) . prettyScript <$> scripts)
+
+  prettyScript = show . (Ledger.hashScript @LedgerEra)
 
   totalScriptSize = sum $ BL.length . serialize <$> scripts
 

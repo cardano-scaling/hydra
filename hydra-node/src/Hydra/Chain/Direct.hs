@@ -1,4 +1,3 @@
-{-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications #-}
@@ -51,8 +50,8 @@ import Hydra.Chain.Direct.Tx (
   collectComTx,
   commitTx,
   fanoutTx,
+  getKnownUtxo,
   initTx,
-  knownUtxo,
   observeAbortTx,
   observeCloseTx,
   observeCollectComTx,
@@ -324,7 +323,7 @@ chainSyncClient tracer networkMagic callback party headState =
   runOnChainTx :: [OnChainTx CardanoTx] -> ValidatedTx Era -> STM m [OnChainTx CardanoTx]
   runOnChainTx observed (fromLedgerTx -> tx) = do
     onChainHeadState <- readTVar headState
-    let utxo = Utxo (knownUtxo onChainHeadState)
+    let utxo = Utxo (getKnownUtxo onChainHeadState)
     -- TODO(SN): We should be only looking for abort,commit etc. when we have a headId/policyId
     let res =
           observeInitTx networkId party tx
@@ -385,7 +384,7 @@ finalizeTx ::
   ValidatedTx Era ->
   STM m (ValidatedTx Era)
 finalizeTx TinyWallet{sign, getUtxo, coverFee} headState partialTx = do
-  headUtxo <- Utxo . knownUtxo <$> readTVar headState
+  headUtxo <- Utxo . getKnownUtxo <$> readTVar headState
   walletUtxo <- fromLedgerUtxo . Ledger.UTxO <$> getUtxo
   coverFee (Ledger.unUTxO $ toLedgerUtxo headUtxo) partialTx >>= \case
     Left ErrNoPaymentUtxoFound ->
@@ -430,16 +429,17 @@ fromPostChainTx TinyWallet{getUtxo, verificationKey} networkId headState cardano
         Nothing -> throwIO (NoSeedInput @CardanoTx)
     AbortTx _utxo ->
       readTVar headState >>= \case
-        Initial{threadOutput, initials} ->
+        Initial{threadOutput, initials, commits} ->
           let (i, _, dat, _) = threadOutput
-           in case abortTx networkId (i, dat) (Map.fromList $ map convertTuple initials) of
+           in case abortTx networkId (i, dat) (Map.fromList $ map convertTuple initials) (Map.fromList $ map tripleToPair commits) of
                 Left err -> error $ show err
                 Right tx' -> pure tx'
         _st -> throwIO $ InvalidStateToPost tx
     CommitTx party utxo ->
       readTVar headState >>= \case
-        Initial{initials} -> case ownInitial verificationKey initials of
-          Nothing -> throwIO $ InvalidStateToPost tx
+        st@Initial{initials} -> case ownInitial verificationKey initials of
+          Nothing ->
+            throwIO (CannotFindOwnInitial{knownUtxo = Utxo $ getKnownUtxo st} :: PostTxError CardanoTx)
           Just initial ->
             case utxoPairs utxo of
               [aUtxo] -> do
@@ -460,7 +460,7 @@ fromPostChainTx TinyWallet{getUtxo, verificationKey} networkId headState cardano
       readTVar headState >>= \case
         Initial{threadOutput, commits} -> do
           let (i, _, dat, parties) = threadOutput
-          pure $ collectComTx networkId (i, dat, parties) (Map.fromList $ fmap (\(a, b, c) -> (a, (b, c))) commits)
+          pure $ collectComTx networkId (i, dat, parties) (Map.fromList $ fmap tripleToPair commits)
         _st -> throwIO $ InvalidStateToPost tx
     CloseTx confirmedSnapshot ->
       readTVar headState >>= \case
@@ -481,6 +481,8 @@ fromPostChainTx TinyWallet{getUtxo, verificationKey} networkId headState cardano
     _ -> error "not implemented"
  where
   convertTuple (i, _, dat) = (i, dat)
+
+  tripleToPair (a, b, c) = (a, (b, c))
 
 --
 -- Helpers

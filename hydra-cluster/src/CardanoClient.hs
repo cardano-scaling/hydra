@@ -398,7 +398,7 @@ generatePaymentToCommit ::
   RunningNode ->
   SigningKey PaymentKey ->
   VerificationKey PaymentKey ->
-  Natural ->
+  Lovelace ->
   IO Utxo
 generatePaymentToCommit networkId (RunningNode _ nodeSocket) spendingSigningKey receivingVerificationKey lovelace = do
   UTxO availableUtxo <- queryUtxo networkId nodeSocket [spendingAddress]
@@ -408,7 +408,7 @@ generatePaymentToCommit networkId (RunningNode _ nodeSocket) spendingSigningKey 
     Right body -> do
       let tx = sign spendingSigningKey body
       submit networkId nodeSocket tx
-      convertUtxo <$> waitForPayment networkId nodeSocket amountLovelace receivingAddress
+      convertUtxo <$> waitForPayment networkId nodeSocket lovelace receivingAddress
  where
   spendingAddress = buildAddress (getVerificationKey spendingSigningKey) networkId
 
@@ -417,10 +417,8 @@ generatePaymentToCommit networkId (RunningNode _ nodeSocket) spendingSigningKey 
   theOutput =
     TxOut
       (shelleyAddressInEra receivingAddress)
-      (lovelaceToTxOutValue amountLovelace)
+      (lovelaceToTxOutValue lovelace)
       TxOutDatumNone
-
-  amountLovelace = Lovelace $ fromIntegral lovelace
 
   convertUtxo (UTxO ledgerUtxo) = Utxo ledgerUtxo
 

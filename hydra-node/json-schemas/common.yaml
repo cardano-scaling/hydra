@@ -606,6 +606,23 @@ definitions:
             $ref: "#/definitions/Transaction"
             description: >-
               The partial transaction that was being posted.
+      - title: CannotFindOwnInitial
+        type: object
+        additionalProperties: false
+        required:
+        - tag
+        - knownUtxo
+        description: >-
+          The DirectChain was unable to find the output paying to Initial script corresponding
+          to this node's Party, with the relevant _Participation Token_.
+        properties:
+          tag:
+            type: string
+            enum: ["CannotFindOwnInitial"]
+          knownUtxo:
+            $ref: "#/definitions/Utxo"
+            description: >-
+              The known Utxo within which the Initial script was looked up for.
       - title: NoSeedInput
         type: object
         additionalProperties: false

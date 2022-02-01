@@ -8,16 +8,22 @@ module Hydra.Contract.Commit where
 import Ledger hiding (validatorHash)
 import PlutusTx.Prelude
 
+import Hydra.Contract.Encoding (encodeTxOut)
 import Hydra.Contract.HeadState (State (..))
 import Hydra.Data.Party (Party)
 import Ledger.Typed.Scripts (TypedValidator, ValidatorType, ValidatorTypes (..))
 import qualified Ledger.Typed.Scripts as Scripts
+import Plutus.Codec.CBOR.Encoding (encodingToBuiltinByteString)
 import Plutus.V1.Ledger.Api (Credential (ScriptCredential))
 import PlutusTx (CompiledCode)
 import qualified PlutusTx
 import PlutusTx.IsData.Class (FromData (fromBuiltinData), ToData (..))
 
 data Commit
+
+data CommitRedeemer = CollectCom | Abort
+
+PlutusTx.unstableMakeIsData ''CommitRedeemer
 
 newtype SerializedTxOut = SerializedTxOut BuiltinByteString
 PlutusTx.unstableMakeIsData ''SerializedTxOut
@@ -29,31 +35,38 @@ instance Eq SerializedTxOut where
 -- cardano-credential?
 instance Scripts.ValidatorTypes Commit where
   type DatumType Commit = (Party, ValidatorHash, Maybe SerializedTxOut)
-  type RedeemerType Commit = ()
+  type RedeemerType Commit = CommitRedeemer
 
 validator :: DatumType Commit -> RedeemerType Commit -> ScriptContext -> Bool
-validator (_party, headScriptHash, commit) () ScriptContext{scriptContextTxInfo = txInfo} =
-  case commit of
-    -- we don't commit anything, so there's nothing to validate
-    Nothing -> True
-    -- NOTE: we could check the committed txOut is present in the Head output hash, for
-    -- example by providing some proof in the redeemer and checking that but this is redundant
-    -- with what the Head script is already doing so it's enough to check that the Head script
-    -- is actually running in the correct "branch" (eg. handling a `CollectCom` or `Abort`
-    -- redeemer)
-    -- However we can't get the redeemer for another input so we'll need to check the datum
-    -- is `Initial`
-    Just _ ->
-      case txInInfoResolved <$> findHeadScript of
-        Nothing -> traceError "Cannot find Head script"
-        Just (TxOut _ _ (Just dh)) ->
-          case getDatum <$> findDatum dh txInfo of
-            Nothing -> traceError "Invalid datum hash with no datum"
-            (Just da) ->
-              case fromBuiltinData @State da of
-                Just Initial{} -> True
-                _ -> traceError "Head script in wrong state"
-        Just (TxOut _ _ Nothing) -> traceError "Head script has no datum hash"
+validator (_party, headScriptHash, commit) consumer ScriptContext{scriptContextTxInfo = txInfo} =
+  case txInInfoResolved <$> findHeadScript of
+    Nothing -> traceError "Cannot find Head script"
+    Just (TxOut _ _ (Just dh)) ->
+      case getDatum <$> findDatum dh txInfo of
+        Nothing -> traceError "Invalid datum hash with no datum"
+        (Just da) ->
+          case fromBuiltinData @State da of
+            -- NOTE: we could check the committed txOut is present in the Head output hash, for
+            -- example by providing some proof in the redeemer and checking that but this is redundant
+            -- with what the Head script is already doing so it's enough to check that the Head script
+            -- is actually running in the correct "branch" (eg. handling a `CollectCom` or `Abort`
+            -- redeemer)
+            -- However we can't get the redeemer for another input so we'll need to check the datum
+            -- is `Initial`
+            Just Initial{} ->
+              case consumer of
+                Abort ->
+                  case commit of
+                    Nothing -> True
+                    Just (SerializedTxOut serialisedTxOut) ->
+                      -- There should be an output in the transaction corresponding to this serialisedTxOut
+                      traceIfFalse "cannot find commit output" $
+                        serialisedTxOut `elem` (encodingToBuiltinByteString . encodeTxOut <$> txInfoOutputs txInfo)
+                -- NOTE: In the Collectcom case the inclusion of the committed output 'commit' is
+                -- delegated to the 'CollectCom' script who has more information to do it.
+                CollectCom -> True
+            _ -> traceError "Head script in wrong state"
+    Just (TxOut _ _ Nothing) -> traceError "Head script has no datum hash"
  where
   findHeadScript = find (paytoHeadScript . txInInfoResolved) $ txInfoInputs txInfo
 
@@ -87,5 +100,5 @@ address = scriptHashAddress validatorHash
 datum :: DatumType Commit -> Datum
 datum a = Datum (toBuiltinData a)
 
-redeemer :: RedeemerType Commit
-redeemer = ()
+redeemer :: RedeemerType Commit -> Redeemer
+redeemer a = Redeemer (toBuiltinData a)

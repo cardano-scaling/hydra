@@ -2,133 +2,418 @@
     "samples": [
         {
             "by": {
-                "vkey": "fffffffffffffffd"
+                "vkey": "0000000000000008"
             },
             "effect": {
                 "message": {
-                    "peer": {
-                        "hostname": "0.0.109.241",
-                        "port": 22486
+                    "party": {
+                        "vkey": "000000000000001b"
                     },
-                    "tag": "Connected"
-                },
-                "tag": "NetworkEffect"
-            },
-            "tag": "ProcessingEffect"
-        },
-        {
-            "by": {
-                "vkey": "ffffffffffffffed"
-            },
-            "effect": {
-                "serverOutput": {
-                    "tag": "TxInvalid",
+                    "tag": "ReqTx",
                     "transaction": {
-                        "id": 6,
+                        "id": -3,
                         "inputs": [
-                            -24,
-                            -23,
-                            -20,
-                            -18,
-                            -10,
-                            -3,
-                            3,
-                            10,
-                            12,
-                            21,
-                            27
+                            -30,
+                            -28,
+                            -26,
+                            -22,
+                            -19,
+                            -13,
+                            -11,
+                            -4,
+                            5,
+                            6,
+                            11,
+                            14,
+                            16,
+                            18,
+                            19,
+                            20,
+                            25,
+                            30
                         ],
                         "outputs": [
                             -29,
-                            -28,
-                            -26,
-                            -24,
+                            -27,
                             -22,
-                            -19,
-                            -18,
-                            -9,
+                            -20,
+                            -12,
+                            -11,
+                            -10,
+                            -7,
                             -6,
+                            -4,
+                            -2,
                             0,
-                            6,
+                            1,
+                            5,
                             9,
                             11,
-                            17,
                             18,
-                            20,
-                            24,
-                            25,
-                            26,
+                            21,
+                            23,
+                            27,
                             28,
-                            30
+                            29
                         ]
-                    },
-                    "utxo": [
-                        -28,
-                        -8
-                    ],
-                    "validationError": {
-                        "reason": "\u001a󲭺#%GcE󺎤E󶛥󺆜M5\\bI"
                     }
                 },
-                "tag": "ClientEffect"
+                "tag": "NetworkEffect"
             },
             "tag": "ProcessedEffect"
         },
         {
             "by": {
-                "vkey": "ffffffffffffffed"
+                "vkey": "fffffffffffffff3"
             },
             "event": {
                 "tag": "ShouldPostFanout"
             },
-            "tag": "ProcessingEvent"
-        },
-        {
-            "by": {
-                "vkey": "ffffffffffffffe8"
-            },
-            "event": {
-                "clientInput": {
-                    "tag": "Commit",
-                    "utxo": [
-                        -30,
-                        -27,
-                        -26,
-                        -24,
-                        -16,
-                        -12,
-                        -9,
-                        -3,
-                        4,
-                        10,
-                        20
-                    ]
-                },
-                "tag": "ClientEvent"
-            },
             "reason": {
-                "actual": 27,
-                "expected": 12,
-                "tag": "InvalidSnapshot"
+                "contents": [
+                    {
+                        "onChainTx": {
+                            "tag": "PostTxFailed"
+                        },
+                        "tag": "OnChainEvent"
+                    },
+                    {
+                        "committed": [
+                            [
+                                {
+                                    "vkey": "0000000000000001"
+                                },
+                                [
+                                    -17,
+                                    -13,
+                                    -10,
+                                    -4,
+                                    0,
+                                    2,
+                                    8,
+                                    13,
+                                    16,
+                                    18,
+                                    25,
+                                    26,
+                                    30
+                                ]
+                            ],
+                            [
+                                {
+                                    "vkey": "0000000000000007"
+                                },
+                                [
+                                    -28,
+                                    -27,
+                                    -24,
+                                    -22,
+                                    -17,
+                                    -15,
+                                    -13,
+                                    -10,
+                                    -8,
+                                    -5,
+                                    -3,
+                                    1,
+                                    2,
+                                    3,
+                                    9,
+                                    21,
+                                    23,
+                                    25,
+                                    26,
+                                    28
+                                ]
+                            ],
+                            [
+                                {
+                                    "vkey": "fffffffffffffffb"
+                                },
+                                [
+                                    -24,
+                                    -19,
+                                    -18,
+                                    -17,
+                                    -12,
+                                    -10,
+                                    -5,
+                                    -3,
+                                    5,
+                                    6,
+                                    15,
+                                    18,
+                                    24,
+                                    28,
+                                    30
+                                ]
+                            ],
+                            [
+                                {
+                                    "vkey": "0000000000000014"
+                                },
+                                [
+                                    -28,
+                                    -23,
+                                    -22,
+                                    -19,
+                                    -16,
+                                    -11,
+                                    -9,
+                                    -7,
+                                    -2,
+                                    -1,
+                                    3,
+                                    4,
+                                    5,
+                                    15,
+                                    17,
+                                    19,
+                                    22,
+                                    25,
+                                    28,
+                                    30
+                                ]
+                            ],
+                            [
+                                {
+                                    "vkey": "000000000000001b"
+                                },
+                                [
+                                    -28,
+                                    -27,
+                                    -24,
+                                    -20,
+                                    -19,
+                                    -18,
+                                    -15,
+                                    -12,
+                                    -11,
+                                    -10,
+                                    -8,
+                                    -4,
+                                    1,
+                                    3,
+                                    5,
+                                    9,
+                                    12,
+                                    15,
+                                    16,
+                                    18,
+                                    23,
+                                    24,
+                                    25,
+                                    27,
+                                    28,
+                                    29
+                                ]
+                            ],
+                            [
+                                {
+                                    "vkey": "000000000000000a"
+                                },
+                                [
+                                    -26,
+                                    -25,
+                                    -23,
+                                    -20,
+                                    -18,
+                                    -16,
+                                    -9,
+                                    -6,
+                                    -4,
+                                    1,
+                                    6,
+                                    9,
+                                    13,
+                                    18,
+                                    22,
+                                    24,
+                                    29
+                                ]
+                            ],
+                            [
+                                {
+                                    "vkey": "000000000000000d"
+                                },
+                                [
+                                    -28,
+                                    -26,
+                                    -25,
+                                    -23,
+                                    -22,
+                                    -21,
+                                    -20,
+                                    -6,
+                                    -4,
+                                    -2,
+                                    3,
+                                    4,
+                                    9,
+                                    14,
+                                    22,
+                                    29
+                                ]
+                            ],
+                            [
+                                {
+                                    "vkey": "fffffffffffffff3"
+                                },
+                                [
+                                    -30,
+                                    2,
+                                    20,
+                                    25,
+                                    28
+                                ]
+                            ],
+                            [
+                                {
+                                    "vkey": "ffffffffffffffe6"
+                                },
+                                [
+                                    -13,
+                                    22
+                                ]
+                            ],
+                            [
+                                {
+                                    "vkey": "0000000000000015"
+                                },
+                                [
+                                    -19,
+                                    -15,
+                                    -14,
+                                    -8,
+                                    -7,
+                                    -6,
+                                    -4,
+                                    -3,
+                                    -1,
+                                    0,
+                                    3,
+                                    4,
+                                    7,
+                                    9,
+                                    10,
+                                    11,
+                                    12,
+                                    17,
+                                    19,
+                                    20
+                                ]
+                            ],
+                            [
+                                {
+                                    "vkey": "0000000000000017"
+                                },
+                                [
+                                    -30,
+                                    -29,
+                                    -27,
+                                    -18,
+                                    -12,
+                                    -9,
+                                    -2,
+                                    1,
+                                    2,
+                                    4,
+                                    5,
+                                    12,
+                                    15,
+                                    16,
+                                    18,
+                                    21,
+                                    23,
+                                    29
+                                ]
+                            ]
+                        ],
+                        "parameters": {
+                            "contestationPeriod": -7.74642306373,
+                            "parties": [
+                                {
+                                    "vkey": "000000000000000d"
+                                },
+                                {
+                                    "vkey": "ffffffffffffffec"
+                                },
+                                {
+                                    "vkey": "fffffffffffffff0"
+                                },
+                                {
+                                    "vkey": "000000000000000b"
+                                },
+                                {
+                                    "vkey": "ffffffffffffffe5"
+                                },
+                                {
+                                    "vkey": "fffffffffffffffa"
+                                },
+                                {
+                                    "vkey": "0000000000000003"
+                                }
+                            ]
+                        },
+                        "pendingCommits": [
+                            {
+                                "vkey": "ffffffffffffffe3"
+                            },
+                            {
+                                "vkey": "fffffffffffffffd"
+                            },
+                            {
+                                "vkey": "fffffffffffffffe"
+                            }
+                        ],
+                        "tag": "InitialState"
+                    }
+                ],
+                "tag": "InvalidEvent"
             },
             "tag": "ErrorHandlingEvent"
         },
         {
             "by": {
-                "vkey": "ffffffffffffffed"
+                "vkey": "ffffffffffffffeb"
+            },
+            "event": {
+                "tag": "ShouldPostFanout"
+            },
+            "tag": "ProcessedEvent"
+        },
+        {
+            "by": {
+                "vkey": "000000000000000e"
             },
             "effect": {
                 "message": {
                     "peer": {
-                        "hostname": "0.0.36.41",
-                        "port": 12873
+                        "hostname": "0.0.91.223",
+                        "port": 10696
+                    },
+                    "tag": "Disconnected"
+                },
+                "tag": "NetworkEffect"
+            },
+            "tag": "ProcessedEffect"
+        },
+        {
+            "by": {
+                "vkey": "000000000000001e"
+            },
+            "effect": {
+                "message": {
+                    "peer": {
+                        "hostname": "0.0.76.87",
+                        "port": 32006
                     },
                     "tag": "Connected"
                 },
                 "tag": "NetworkEffect"
             },
-            "tag": "ProcessingEffect"
+            "tag": "ProcessedEffect"
         }
     ],
-    "seed": 1990239834
+    "seed": -1833001622
 }
