@@ -2,7 +2,7 @@ module Hydra.Cardano.Api.ScriptDatum where
 
 import Hydra.Cardano.Api.Prelude
 
-import Hydra.Cardano.Api.ScriptData (ToScriptData, asScriptData)
+import Hydra.Cardano.Api.ScriptData (ToScriptData, toScriptData)
 
 import qualified Cardano.Ledger.Alonzo.Data as Ledger
 
@@ -11,7 +11,7 @@ import qualified Cardano.Ledger.Alonzo.Data as Ledger
 -- | Construct a 'ScriptDatum' for use as transaction witness.
 mkScriptDatum :: (ToScriptData a) => a -> ScriptDatum WitCtxTxIn
 mkScriptDatum =
-  ScriptDatumForTxIn . asScriptData
+  ScriptDatumForTxIn . toScriptData
 
 {-# DEPRECATED mkDatumForTxIn "use 'mkScriptDatum' instead." #-}
 mkDatumForTxIn :: (ToScriptData a) => a -> ScriptDatum WitCtxTxIn
