@@ -88,11 +88,13 @@ library
     Hydra.Cardano.Api.ScriptHash
     Hydra.Cardano.Api.Tx
     Hydra.Cardano.Api.TxBody
+    Hydra.Cardano.Api.TxId
     Hydra.Cardano.Api.TxIn
     Hydra.Cardano.Api.TxOut
     Hydra.Cardano.Api.TxOutDatum
     Hydra.Cardano.Api.TxOutValue
     Hydra.Cardano.Api.TxScriptValidity
+    Hydra.Cardano.Api.UTxO
     Hydra.Cardano.Api.Witness
   build-depends: base
     , aeson

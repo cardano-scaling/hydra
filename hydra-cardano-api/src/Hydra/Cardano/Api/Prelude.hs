@@ -10,8 +10,8 @@ module Hydra.Cardano.Api.Prelude (
 
 import Hydra.Prelude hiding (Key)
 
-import Cardano.Api
-import Cardano.Api.Shelley
+import Cardano.Api hiding (UTxO, toLedgerUTxO)
+import Cardano.Api.Shelley hiding (UTxO, toLedgerUTxO)
 import qualified Cardano.Crypto.Hash.Class as CC
 import qualified Cardano.Ledger.Alonzo as Ledger
 import Cardano.Ledger.Crypto (StandardCrypto)
