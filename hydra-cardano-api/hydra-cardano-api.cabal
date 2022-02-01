@@ -78,7 +78,6 @@ library
     Hydra.Cardano.Api.AddressInEra
     Hydra.Cardano.Api.CtxTx
     Hydra.Cardano.Api.CtxUTxO
-    Hydra.Cardano.Api.IsScriptWitnessInCtx
     Hydra.Cardano.Api.KeyWitness
     Hydra.Cardano.Api.Lovelace
     Hydra.Cardano.Api.Network
@@ -87,6 +86,7 @@ library
     Hydra.Cardano.Api.ScriptData
     Hydra.Cardano.Api.ScriptDatum
     Hydra.Cardano.Api.ScriptHash
+    Hydra.Cardano.Api.ScriptWitnessInCtx
     Hydra.Cardano.Api.Tx
     Hydra.Cardano.Api.TxBody
     Hydra.Cardano.Api.TxId
