@@ -5,10 +5,9 @@ cabal haddock --haddock-tests all
 
 [ ! -d docs/haddock ] && mkdir -p docs/haddock
 
-doc_indices=$(find dist-newstyle/build  -name index.html)
+doc_indices=$(find dist-newstyle/build -name html -a -type d)
 
 for index in ${doc_indices}; do
-  parent=$(dirname ${index})
-  echo "Copying ${parent} to docs/haddock"
-  cp -fr ${parent} docs/haddock
+  echo "Copying ${index} to docs/haddock"
+  cp -fr "${parent}/*" docs/haddock
 done
