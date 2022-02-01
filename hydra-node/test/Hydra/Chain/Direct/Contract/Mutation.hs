@@ -48,9 +48,9 @@
 -- @
 --
 -- To this basic property definition we add a `checkCoverage` that ensures the set of generated mutations
--- covers a statistically significant share of each of the various possible mutations classified by their `label`.
+-- covers a statistically significant share of each of the various possible mutations classified by their @label@.
 --
--- The `SomeMutation` type is simply a wrapper that attaches a `label` to a proper `Mutation` which is the interesting bit here.
+-- The `SomeMutation` type is simply a wrapper that attaches a @label@ to a proper `Mutation` which is the interesting bit here.
 --
 -- The `Mutation` type enumerates various possible "atomic" mutations which preserve the structural correctness of the transaction but should make a validator fail.
 --
@@ -69,7 +69,7 @@
 -- /transition/ verified by the `Head` state machine is valid, which requires changing /both/ the datum and the
 -- redeemer of the consumed head output.
 --
--- ## Transaction-specific Mutations
+-- == Transaction-specific Mutations
 --
 -- To be run the `propMutation` requires a starting "healthy" (valid) transaction and a specialised generating
 -- function. It is instantiated in the test runner by providing these two elements. For example, the "ContractSpec"
@@ -129,9 +129,6 @@
 -- In the case of a failure we get a detailed report on the context of the failure.
 module Hydra.Chain.Direct.Contract.Mutation where
 
-import Hydra.Prelude hiding (label)
-import Test.Hydra.Prelude
-
 import Cardano.Api.Shelley (TxBody (ShelleyTxBody))
 import qualified Cardano.Ledger.Alonzo.Data as Ledger
 import qualified Cardano.Ledger.Alonzo.Scripts as Ledger
@@ -143,52 +140,54 @@ import qualified Data.List as List
 import qualified Data.Map as Map
 import qualified Data.Sequence.Strict as StrictSeq
 import qualified Hydra.Chain.Direct.Fixture as Fixture
-import Hydra.Chain.Direct.Tx (
-  policyId,
- )
+import Hydra.Chain.Direct.Tx
+  ( policyId,
+  )
 import qualified Hydra.Contract.Head as Head
 import qualified Hydra.Contract.HeadState as Head
-import Hydra.Ledger.Cardano (
-  AlonzoEra,
-  CardanoTx,
-  CtxTx,
-  CtxUTxO,
-  Era,
-  LedgerEra,
-  Tx (Tx),
-  TxBodyScriptData (TxBodyNoScriptData, TxBodyScriptData),
-  TxIn,
-  TxOut (..),
-  TxOutDatum (..),
-  Utxo,
-  describeCardanoTx,
-  fromLedgerTxOut,
-  genOutput,
-  mkTxOutDatum,
-  mkTxOutDatumHash,
-  toAlonzoData,
-  toCtxUTxOTxOut,
-  toLedgerTxOut,
-  utxoPairs,
- )
+import Hydra.Ledger.Cardano
+  ( AlonzoEra,
+    CardanoTx,
+    CtxTx,
+    CtxUTxO,
+    Era,
+    LedgerEra,
+    Tx (Tx),
+    TxBodyScriptData (TxBodyNoScriptData, TxBodyScriptData),
+    TxIn,
+    TxOut (..),
+    TxOutDatum (..),
+    Utxo,
+    describeCardanoTx,
+    fromLedgerTxOut,
+    genOutput,
+    mkTxOutDatum,
+    mkTxOutDatumHash,
+    toAlonzoData,
+    toCtxUTxOTxOut,
+    toLedgerTxOut,
+    utxoPairs,
+  )
 import qualified Hydra.Ledger.Cardano as Api
 import Hydra.Ledger.Cardano.Evaluate (evaluateTx)
-import Hydra.Party (
-  SigningKey,
-  generateKey,
- )
+import Hydra.Party
+  ( SigningKey,
+    generateKey,
+  )
+import Hydra.Prelude hiding (label)
 import Plutus.Orphans ()
 import Plutus.V1.Ledger.Api (toData)
 import qualified System.Directory.Internal.Prelude as Prelude
-import Test.QuickCheck (
-  Property,
-  checkCoverage,
-  choose,
-  counterexample,
-  forAll,
-  property,
-  vector,
- )
+import Test.Hydra.Prelude
+import Test.QuickCheck
+  ( Property,
+    checkCoverage,
+    choose,
+    counterexample,
+    forAll,
+    property,
+    vector,
+  )
 import Test.QuickCheck.Instances ()
 
 -- * Properties
@@ -202,7 +201,7 @@ import Test.QuickCheck.Instances ()
 -- structurally valid and having passed "level 1" checks.
 propMutation :: (CardanoTx, Utxo) -> ((CardanoTx, Utxo) -> Gen SomeMutation) -> Property
 propMutation (tx, utxo) genMutation =
-  forAll @_ @Property (genMutation (tx, utxo)) $ \SomeMutation{label, mutation} ->
+  forAll @_ @Property (genMutation (tx, utxo)) $ \SomeMutation {label, mutation} ->
     (tx, utxo)
       & applyMutation mutation
       & propTransactionDoesNotValidate
@@ -251,8 +250,8 @@ propTransactionValidates (tx, lookupUtxo) =
 data SomeMutation = forall lbl.
   (Typeable lbl, Enum lbl, Bounded lbl, Show lbl) =>
   SomeMutation
-  { label :: lbl
-  , mutation :: Mutation
+  { label :: lbl,
+    mutation :: Mutation
   }
 
 deriving instance Show SomeMutation
@@ -325,37 +324,37 @@ applyMutation mutation (tx@(Tx body wits), utxo) = case mutation of
         body' = ShelleyTxBody era ledgerBody scripts newDatums mAuxData scriptValidity
      in (Tx body' wits, fmap fn utxo)
   PrependOutput txOut ->
-    ( alterTxOuts (txOut :) tx
-    , utxo
+    ( alterTxOuts (txOut :) tx,
+      utxo
     )
   RemoveOutput ix ->
-    ( alterTxOuts (removeAt ix) tx
-    , utxo
+    ( alterTxOuts (removeAt ix) tx,
+      utxo
     )
-   where
-    removeAt i es =
-      map snd $
-        filter ((/= i) . fst) $ zip [0 ..] es
+    where
+      removeAt i es =
+        map snd $
+          filter ((/= i) . fst) $ zip [0 ..] es
   ChangeInput txIn txOut ->
-    ( Tx body' wits
-    , Api.Utxo $ Map.insert txIn txOut (Api.utxoMap utxo)
+    ( Tx body' wits,
+      Api.Utxo $ Map.insert txIn txOut (Api.utxoMap utxo)
     )
-   where
-    ShelleyTxBody era ledgerBody scripts scriptData mAuxData scriptValidity = body
-    redeemers = removeRedeemerFor (Ledger.inputs ledgerBody) (Api.toLedgerTxIn txIn) scriptData
-    body' = ShelleyTxBody era ledgerBody scripts redeemers mAuxData scriptValidity
+    where
+      ShelleyTxBody era ledgerBody scripts scriptData mAuxData scriptValidity = body
+      redeemers = removeRedeemerFor (Ledger.inputs ledgerBody) (Api.toLedgerTxIn txIn) scriptData
+      body' = ShelleyTxBody era ledgerBody scripts redeemers mAuxData scriptValidity
   ChangeOutput ix txOut ->
-    ( alterTxOuts replaceAtIndex tx
-    , utxo
+    ( alterTxOuts replaceAtIndex tx,
+      utxo
     )
-   where
-    replaceAtIndex txOuts =
-      foldr
-        ( \(i, out) list ->
-            if i == ix then txOut : list else out : list
-        )
-        []
-        (zip [0 ..] txOuts)
+    where
+      replaceAtIndex txOuts =
+        foldr
+          ( \(i, out) list ->
+              if i == ix then txOut : list else out : list
+          )
+          []
+          (zip [0 ..] txOuts)
   Changes mutations ->
     foldr applyMutation (tx, utxo) mutations
 
@@ -388,9 +387,9 @@ instance Arbitrary Head.State where
 -- TODO: Parameterise by 'MonetaryPolicyId' as this is currently hardwired.
 isHeadOutput :: TxOut CtxUTxO Era -> Bool
 isHeadOutput (TxOut addr _ _) = addr == headAddress
- where
-  headAddress = Api.mkScriptAddress @Api.PlutusScriptV1 Fixture.testNetworkId headScript
-  headScript = Api.fromPlutusScript $ Head.validatorScript policyId
+  where
+    headAddress = Api.mkScriptAddress @Api.PlutusScriptV1 Fixture.testNetworkId headScript
+    headScript = Api.fromPlutusScript $ Head.validatorScript policyId
 
 -- | Adds given 'Datum' and corresponding hash to the transaction's scripts.
 -- TODO: As we are creating the `TxOutDatum` from a known datum, passing a `TxOutDatum` is
@@ -443,14 +442,14 @@ alterTxOuts ::
   CardanoTx
 alterTxOuts fn tx =
   Tx body' wits
- where
-  body' = ShelleyTxBody era ledgerBody' scripts scriptData mAuxData scriptValidity
-  ledgerBody' = ledgerBody{Ledger.outputs = outputs'}
-  -- WIP
-  outputs' = StrictSeq.fromList . mapOutputs . toList $ Ledger.outputs ledgerBody
-  mapOutputs = fmap (toLedgerTxOut . toCtxUTxOTxOut) . fn . fmap fromLedgerTxOut
-  ShelleyTxBody era ledgerBody scripts scriptData mAuxData scriptValidity = body
-  Tx body wits = tx
+  where
+    body' = ShelleyTxBody era ledgerBody' scripts scriptData mAuxData scriptValidity
+    ledgerBody' = ledgerBody {Ledger.outputs = outputs'}
+    -- WIP
+    outputs' = StrictSeq.fromList . mapOutputs . toList $ Ledger.outputs ledgerBody
+    mapOutputs = fmap (toLedgerTxOut . toCtxUTxOTxOut) . fn . fmap fromLedgerTxOut
+    ShelleyTxBody era ledgerBody scripts scriptData mAuxData scriptValidity = body
+    Tx body wits = tx
 
 -- | Generates an output that pays to some arbitrary pubkey.
 anyPayToPubKeyTxOut :: Gen (TxOut ctx Era)
