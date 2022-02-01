@@ -3,6 +3,7 @@ module Hydra.Cardano.Api (
   module Cardano.Api.Byron,
   module Cardano.Api.Shelley,
   module Hydra.Cardano.Api.AddressInEra,
+  module Hydra.Cardano.Api.IsScriptWitnessInCtx,
   module Hydra.Cardano.Api.KeyWitness,
   module Hydra.Cardano.Api.Lovelace,
   module Hydra.Cardano.Api.PlutusScriptVersion,
@@ -25,6 +26,7 @@ import Cardano.Api
 import Cardano.Api.Byron
 import Cardano.Api.Shelley
 import Hydra.Cardano.Api.AddressInEra
+import Hydra.Cardano.Api.IsScriptWitnessInCtx
 import Hydra.Cardano.Api.KeyWitness
 import Hydra.Cardano.Api.Lovelace
 import Hydra.Cardano.Api.PlutusScriptVersion
