@@ -23,6 +23,8 @@ module Hydra.Cardano.Api (
   module Hydra.Cardano.Api.Witness,
   module Hydra.Cardano.Api.Value,
   module Hydra.Cardano.Api.UTxO,
+  UTxO,
+  UTxO' (UTxO),
   StandardCrypto,
   Era,
   LedgerEra,
@@ -31,6 +33,7 @@ module Hydra.Cardano.Api (
 import Cardano.Api hiding (UTxO, toLedgerUTxO)
 import Cardano.Api.Byron hiding (UTxO, toLedgerUTxO)
 import Cardano.Api.Shelley hiding (UTxO, toLedgerUTxO)
+import Cardano.Api.UTxO (UTxO, UTxO' (..))
 import Hydra.Cardano.Api.AddressInEra
 import Hydra.Cardano.Api.CtxTx
 import Hydra.Cardano.Api.CtxUTxO
@@ -50,6 +53,6 @@ import Hydra.Cardano.Api.TxOut
 import Hydra.Cardano.Api.TxOutDatum
 import Hydra.Cardano.Api.TxOutValue
 import Hydra.Cardano.Api.TxScriptValidity
-import Hydra.Cardano.Api.UTxO (UTxO, fromLedgerUTxO, renderUTxO, toLedgerUTxO)
+import Hydra.Cardano.Api.UTxO
 import Hydra.Cardano.Api.Value
 import Hydra.Cardano.Api.Witness
