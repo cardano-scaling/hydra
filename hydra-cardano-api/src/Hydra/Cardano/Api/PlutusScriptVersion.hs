@@ -1,6 +1,6 @@
 module Hydra.Cardano.Api.PlutusScriptVersion where
 
-import Cardano.Api
+import Hydra.Cardano.Api.Prelude
 
 -- | Reify a type-level script version into a value-level 'PlutusScriptVersion'
 class HasTypeProxy lang => HasPlutusScriptVersion lang where

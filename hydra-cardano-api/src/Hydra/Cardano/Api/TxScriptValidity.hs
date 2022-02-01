@@ -1,11 +1,10 @@
 module Hydra.Cardano.Api.TxScriptValidity where
 
-import Cardano.Api
-import Hydra.Prelude
+import Hydra.Cardano.Api.Prelude
 
 import qualified Cardano.Ledger.Alonzo.Tx as Ledger
 
-toLedgerScriptValidity :: TxScriptValidity AlonzoEra -> Ledger.IsValid
+toLedgerScriptValidity :: TxScriptValidity Era -> Ledger.IsValid
 toLedgerScriptValidity =
   Ledger.IsValid . \case
     TxScriptValidityNone -> True
