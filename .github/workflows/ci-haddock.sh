@@ -9,5 +9,5 @@ doc_indices=$(find dist-newstyle/build -name html -a -type d)
 
 for index in ${doc_indices}; do
   echo "Copying ${index}/* to docs/haddock"
-  cp -fr "${index}/*" docs/haddock
+  cp -fr ${index}/* docs/haddock
 done
