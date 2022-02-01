@@ -55,6 +55,7 @@ common project-config
     ScopedTypeVariables
     StandaloneDeriving
     TupleSections
+    TypeApplications
     TypeFamilies
     TypeSynonymInstances
     ViewPatterns
@@ -74,15 +75,19 @@ library
   exposed-modules:
     Hydra.Cardano.Api
     Hydra.Cardano.Api.AddressInEra
+    Hydra.Cardano.Api.Lovelace
+    Hydra.Cardano.Api.KeyWitness
     Hydra.Cardano.Api.Network
     Hydra.Cardano.Api.PlutusScriptVersion
     Hydra.Cardano.Api.ScriptData
     Hydra.Cardano.Api.ScriptHash
     Hydra.Cardano.Api.ScriptDatum
+    Hydra.Cardano.Api.Tx
     Hydra.Cardano.Api.TxBody
     Hydra.Cardano.Api.TxIn
     Hydra.Cardano.Api.TxOut
     Hydra.Cardano.Api.TxOutDatum
+    Hydra.Cardano.Api.TxScriptValidity
   build-depends: base
     , aeson
     , array

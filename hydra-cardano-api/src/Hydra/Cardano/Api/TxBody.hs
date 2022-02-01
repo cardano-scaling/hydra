@@ -14,7 +14,7 @@ import Hydra.Cardano.Api.ScriptData (FromScriptData)
 import Hydra.Cardano.Api.TxIn (toLedgerTxIn)
 import qualified Plutus.V1.Ledger.Api as Plutus
 
--- | Find -- and deserialise from 'ScriptData', a redeemer from the transaction
+-- | Find and deserialise from 'ScriptData', a redeemer from the transaction
 -- associated to the given input.
 findRedeemerSpending ::
   FromScriptData a =>
