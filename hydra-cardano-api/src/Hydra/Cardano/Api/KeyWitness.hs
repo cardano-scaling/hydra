@@ -3,10 +3,28 @@ module Hydra.Cardano.Api.KeyWitness where
 import Hydra.Cardano.Api.Prelude
 
 import qualified Cardano.Ledger.Alonzo.TxWitness as Ledger
-import Cardano.Ledger.Keys (KeyRole (Witness))
+import qualified Cardano.Ledger.Keys as Ledger
 import qualified Cardano.Ledger.Shelley.Address.Bootstrap as Ledger
-import qualified Cardano.Ledger.Shelley.TxBody as Ledger
+import qualified Cardano.Ledger.Shelley.Tx as Ledger
 import qualified Data.Set as Set
+
+-- * Extras
+
+-- | Construct a 'KeyWitness' from a transaction id and credentials.
+--
+-- TODO: The verification key can be inferred from the signing key and is
+-- therefore redundant in the signature.
+signWith ::
+  forall era.
+  (IsShelleyBasedEra era) =>
+  TxId ->
+  (VerificationKey PaymentKey, SigningKey PaymentKey) ->
+  KeyWitness era
+signWith (TxId h) (PaymentVerificationKey vk, PaymentSigningKey sk) =
+  ShelleyKeyWitness (shelleyBasedEra @era) $
+    Ledger.WitVKey
+      (Ledger.asWitness vk)
+      (Ledger.signedDSIGN @StandardCrypto sk h)
 
 -- * Type Conversions
 
@@ -19,7 +37,7 @@ import qualified Data.Set as Set
 -- smaller than the size of the list (but never bigger).
 toLedgerKeyWitness ::
   [KeyWitness era] ->
-  Set (Ledger.WitVKey 'Witness StandardCrypto)
+  Set (Ledger.WitVKey 'Ledger.Witness StandardCrypto)
 toLedgerKeyWitness vkWits =
   fromList [w | ShelleyKeyWitness _ w <- vkWits]
 
