@@ -75,6 +75,8 @@ library
   exposed-modules:
     Hydra.Cardano.Api
     Hydra.Cardano.Api.AddressInEra
+    Hydra.Cardano.Api.CtxTx
+    Hydra.Cardano.Api.CtxUTxO
     Hydra.Cardano.Api.IsScriptWitnessInCtx
     Hydra.Cardano.Api.KeyWitness
     Hydra.Cardano.Api.Lovelace
