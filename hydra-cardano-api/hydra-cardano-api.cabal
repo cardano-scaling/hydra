@@ -95,6 +95,7 @@ library
     Hydra.Cardano.Api.TxOutValue
     Hydra.Cardano.Api.TxScriptValidity
     Hydra.Cardano.Api.UTxO
+    Hydra.Cardano.Api.Value
     Hydra.Cardano.Api.Witness
   build-depends: base
     , aeson
