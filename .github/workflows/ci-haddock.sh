@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -e
 
-cabal haddock all
+cabal haddock --haddock-tests all
 
 [ ! -d docs/haddock ] && mkdir -p docs/haddock
 
