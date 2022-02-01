@@ -2,7 +2,11 @@ module Hydra.Cardano.Api.Tx where
 
 import Hydra.Cardano.Api.Prelude
 
-import Hydra.Cardano.Api.KeyWitness (toLedgerBootstrapWitness, toLedgerKeyWitness)
+import Hydra.Cardano.Api.KeyWitness (
+  fromLedgerTxWitness,
+  toLedgerBootstrapWitness,
+  toLedgerKeyWitness,
+ )
 import Hydra.Cardano.Api.Lovelace (fromLedgerCoin)
 import Hydra.Cardano.Api.TxScriptValidity (toLedgerScriptValidity)
 
@@ -10,9 +14,9 @@ import qualified Cardano.Ledger.Alonzo as Ledger
 import qualified Cardano.Ledger.Alonzo.PParams as Ledger
 import qualified Cardano.Ledger.Alonzo.Scripts as Ledger
 import qualified Cardano.Ledger.Alonzo.Tx as Ledger
-import qualified Cardano.Ledger.Alonzo.TxBody as Ledger
 import qualified Cardano.Ledger.Alonzo.TxWitness as Ledger
 import qualified Cardano.Ledger.Era as Ledger
+import qualified Data.Map as Map
 import Data.Maybe.Strict (maybeToStrictMaybe, strictMaybeToMaybe)
 
 -- * Extra
@@ -52,6 +56,8 @@ executionCost = totalExecutionCost
 
 -- * Type Conversions
 
+-- | Convert a cardano-api's 'Tx' into a cardano-ledger's 'Tx' in the Alonzo era
+-- (a.k.a. 'ValidatedTx').
 toLedgerTx :: Tx Era -> Ledger.ValidatedTx LedgerEra
 toLedgerTx = \case
   Tx (ShelleyTxBody _era body scripts scriptsData auxData validity) vkWits ->
@@ -85,3 +91,26 @@ toLedgerTx = \case
                     redeemers
                 }
           }
+
+-- | Convert a cardano-ledger's 'Tx' in the Alonzo era (a.k.a. 'ValidatedTx')
+-- into a cardano-api's 'Tx'.
+fromLedgerTx :: Ledger.ValidatedTx LedgerEra -> Tx Era
+fromLedgerTx (Ledger.ValidatedTx body wits isValid auxData) =
+  Tx
+    (ShelleyTxBody era body scripts scriptsData (strictMaybeToMaybe auxData) validity)
+    (fromLedgerTxWitness wits)
+ where
+  era =
+    ShelleyBasedEraAlonzo
+  scripts =
+    Map.elems $ Ledger.txscripts' wits
+  scriptsData =
+    TxBodyScriptData
+      ScriptDataInAlonzoEra
+      (Ledger.txdats' wits)
+      (Ledger.txrdmrs' wits)
+  validity = case isValid of
+    Ledger.IsValid True ->
+      TxScriptValidity TxScriptValiditySupportedInAlonzoEra ScriptValid
+    Ledger.IsValid False ->
+      TxScriptValidity TxScriptValiditySupportedInAlonzoEra ScriptInvalid
