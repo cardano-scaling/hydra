@@ -1,12 +1,14 @@
 module Hydra.Cardano.Api.TxOut where
 
 import Hydra.Cardano.Api.Prelude
+import Hydra.Cardano.Api.TxIn (mkTxIn)
+import Hydra.Cardano.Api.TxOutValue (mkTxOutValue)
 
 import qualified Cardano.Ledger.Core as Ledger
 
 -- * Extras
 
-txOuts' :: Tx Era -> [TxOut CtxTx Era]
+txOuts' :: Tx era -> [TxOut CtxTx era]
 txOuts' (getTxBody -> txBody) =
   let TxBody TxBodyContent{txOuts} = txBody
    in txOuts
@@ -15,6 +17,41 @@ txOuts' (getTxBody -> txBody) =
 getOutputs :: Tx Era -> [TxOut CtxTx Era]
 getOutputs =
   txOuts'
+
+-- | Alter the address of a 'TxOut' with the given transformation.
+modifyTxOutAddress ::
+  (AddressInEra Era -> AddressInEra Era) ->
+  TxOut ctx Era ->
+  TxOut ctx Era
+modifyTxOutAddress fn (TxOut addr value dat) =
+  TxOut (fn addr) value dat
+
+-- | Alter the value of a 'TxOut' with the given transformation.
+modifyTxOutValue ::
+  (Value -> Value) ->
+  TxOut ctx Era ->
+  TxOut ctx Era
+modifyTxOutValue fn (TxOut addr value dat) =
+  TxOut addr (mkTxOutValue $ fn $ txOutValueToValue value) dat
+
+-- | Alter the datum of a 'TxOut' with the given transformation.
+modifyTxOutDatum ::
+  (TxOutDatum ctx0 Era -> TxOutDatum ctx1 Era) ->
+  TxOut ctx0 Era ->
+  TxOut ctx1 Era
+modifyTxOutDatum fn (TxOut addr value dat) =
+  TxOut addr value (fn dat)
+
+-- | Find first 'TxOut' which pays to given address and also return the
+-- corresponding 'TxIn' to reference it.
+findTxOutByAddress ::
+  AddressInEra era ->
+  Tx era ->
+  Maybe (TxIn, TxOut CtxTx era)
+findTxOutByAddress address tx =
+  flip find indexedOutputs $ \(_, TxOut addr _ _) -> addr == address
+ where
+  indexedOutputs = zip [mkTxIn tx ix | ix <- [0 ..]] (txOuts' tx)
 
 -- * Type Conversions
 
