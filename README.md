@@ -89,6 +89,7 @@ API Documentation is available for:
 [Haddock](https://www.haskell.org/haddock/) documentation is also published for each package:
 * [hydra-prelude](https://input-output-hk.github.io/hydra-poc/haddock/hydra-prelude/index.html)
 * [hydra-node](https://input-output-hk.github.io/hydra-poc/haddock/hydra-node/index.html)
+    * [hydra-node tests](https://input-output-hk.github.io/hydra-poc/haddock/hydra-node/tests/index.html)
 * [hydra-tui](https://input-output-hk.github.io/hydra-poc/haddock/hydra-tui/index.html)
 * [hydra-plutus](https://input-output-hk.github.io/hydra-poc/haddock/hydra-plutus/index.html)
 * [hydra-cluster](https://input-output-hk.github.io/hydra-poc/haddock/hydra-cluster/index.html)
@@ -152,7 +153,7 @@ will find them in `result/bin/` after the build.
   + Bump `UNRELEASED` version in `CHANGELOG.md` according to [semver](https://semver.org/)
 
 * To release
-  + Check version to be released is also correct in all `hydra-` software components, e.g. `.cabal` files 
+  + Check version to be released is also correct in all `hydra-` software components, e.g. `.cabal` files
   + Replace `UNRELEASED` with a date in [ISO8601](https://en.wikipedia.org/wiki/ISO_8601)
   + Create a signed, annotated git tag of the version: `git tag -as <version>`
   + (ideally) Use the released changes as annotation
