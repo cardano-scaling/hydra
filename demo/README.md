@@ -15,7 +15,7 @@ times are too far in the past and you should update them e.g. using the
 # Building Docker Images
 
 The CI automatically pushes docker images built from latest `master` branch to a
-[docker hub repository](https://hub.docker.com/r/inputoutput/hydra-node), hence
+[Github packages](https://github.com/orgs/input-output-hk/packages?repo_name=hydra-poc), hence
 running the demo only requires pulling those images.
 
 To build the images locally, do:
