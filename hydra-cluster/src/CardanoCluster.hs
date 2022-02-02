@@ -88,9 +88,20 @@ withCluster tr cfg@ClusterConfig{parentStateDirectory, initialFunds} action = do
         let nodes = [nodeA, nodeB, nodeC]
         action (RunningCluster cfg nodes)
 
-keysFor :: String -> IO (VerificationKey PaymentKey, SigningKey PaymentKey)
+data Actor
+  = Alice
+  | Bob
+  | Carol
+
+actorName :: Actor -> String
+actorName = \case
+  Alice -> "alice"
+  Bob -> "bob"
+  Carol -> "carol"
+
+keysFor :: Actor -> IO (VerificationKey PaymentKey, SigningKey PaymentKey)
 keysFor actor = do
-  bs <- readConfigFile ("credentials" </> actor <.> "sk")
+  bs <- readConfigFile ("credentials" </> actorName actor <.> "sk")
   let res =
         first TextEnvelopeAesonDecodeError (Aeson.eitherDecodeStrict bs)
           >>= deserialiseFromTextEnvelope asSigningKey
@@ -106,8 +117,7 @@ fromRawVKey = PaymentVerificationKey . VKey
 writeKeysFor ::
   -- | Target directory
   FilePath ->
-  -- | Actor name, e.g. "alice"
-  String ->
+  Actor ->
   -- | Paths of written keys in the form of (verification key, signing key)
   IO (FilePath, FilePath)
 writeKeysFor targetDir actor = do
@@ -119,9 +129,9 @@ writeKeysFor targetDir actor = do
 
   vkTarget = targetDir </> vkName
 
-  skName = actor <.> ".sk"
+  skName = actorName actor <.> ".sk"
 
-  vkName = actor <.> ".vk"
+  vkName = actorName actor <.> ".vk"
 
 withBFTNode ::
   Tracer IO ClusterLog ->

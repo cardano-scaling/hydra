@@ -19,6 +19,7 @@ import CardanoClient (
   waitForUTxO,
  )
 import CardanoCluster (
+  Actor (Alice, Bob, Carol),
   availableInitialFunds,
   defaultNetworkId,
   keysFor,
@@ -77,13 +78,13 @@ spec = around showLogsOnFailure $
         failAfter 60 $
           withTempDir "end-to-end-inits-and-closes" $ \tmpDir -> do
             config <- newNodeConfig tmpDir
-            (aliceCardanoVk, aliceCardanoSk) <- keysFor "alice"
-            (bobCardanoVk, bobCardanoSk) <- keysFor "bob"
-            (carolCardanoVk, carolCardanoSk) <- keysFor "carol"
+            (aliceCardanoVk, aliceCardanoSk) <- keysFor Alice
+            (bobCardanoVk, bobCardanoSk) <- keysFor Bob
+            (carolCardanoVk, carolCardanoSk) <- keysFor Carol
             withBFTNode (contramap FromCluster tracer) config [aliceCardanoVk, bobCardanoVk, carolCardanoVk] $ \node@(RunningNode _ nodeSocket) -> do
-              (aliceVkPath, aliceSkPath) <- writeKeysFor tmpDir "alice"
-              (bobVkPath, bobSkPath) <- writeKeysFor tmpDir "bob"
-              (carolVkPath, carolSkPath) <- writeKeysFor tmpDir "carol"
+              (aliceVkPath, aliceSkPath) <- writeKeysFor tmpDir Alice
+              (bobVkPath, bobSkPath) <- writeKeysFor tmpDir Bob
+              (carolVkPath, carolSkPath) <- writeKeysFor tmpDir Carol
               pparams <- queryProtocolParameters defaultNetworkId nodeSocket
 
               -- TODO: Run the whole thing below concurrently using the same
@@ -178,11 +179,11 @@ spec = around showLogsOnFailure $
         failAfter 60 $
           withTempDir "end-to-end-two-heads" $ \tmpDir -> do
             config <- newNodeConfig tmpDir
-            (aliceCardanoVk, aliceCardanoSk) <- keysFor "alice"
-            (bobCardanoVk, bobCardanoSk) <- keysFor "bob"
+            (aliceCardanoVk, aliceCardanoSk) <- keysFor Alice
+            (bobCardanoVk, bobCardanoSk) <- keysFor Bob
             withBFTNode (contramap FromCluster tracer) config [aliceCardanoVk, bobCardanoVk] $ \(RunningNode _ nodeSocket) -> do
-              (aliceVkPath, aliceSkPath) <- writeKeysFor tmpDir "alice"
-              (_, bobSkPath) <- writeKeysFor tmpDir "bob"
+              (aliceVkPath, aliceSkPath) <- writeKeysFor tmpDir Alice
+              (_, bobSkPath) <- writeKeysFor tmpDir Bob
               pparams <- queryProtocolParameters defaultNetworkId nodeSocket
               withHydraNode tracer aliceSkPath [] tmpDir nodeSocket 1 aliceSk [] allNodeIds $ \n1 ->
                 withHydraNode tracer bobSkPath [aliceVkPath] tmpDir nodeSocket 2 bobSk [aliceVk] allNodeIds $ \n2 -> do
@@ -213,11 +214,11 @@ spec = around showLogsOnFailure $
       it "Node exposes Prometheus metrics on port 6001" $ \tracer ->
         withTempDir "end-to-end-prometheus-metrics" $ \tmpDir -> do
           config <- newNodeConfig tmpDir
-          (aliceCardanoVk, aliceCardanoSk) <- keysFor "alice"
+          (aliceCardanoVk, aliceCardanoSk) <- keysFor Alice
           withBFTNode (contramap FromCluster tracer) config [aliceCardanoVk] $ \(RunningNode _ nodeSocket) -> do
-            (aliceVkPath, aliceSkPath) <- writeKeysFor tmpDir "alice"
-            (bobVkPath, bobSkPath) <- writeKeysFor tmpDir "bob"
-            (carolVkPath, carolSkPath) <- writeKeysFor tmpDir "carol"
+            (aliceVkPath, aliceSkPath) <- writeKeysFor tmpDir Alice
+            (bobVkPath, bobSkPath) <- writeKeysFor tmpDir Bob
+            (carolVkPath, carolSkPath) <- writeKeysFor tmpDir Carol
             pparams <- queryProtocolParameters defaultNetworkId nodeSocket
             failAfter 20 $
               withHydraNode tracer aliceSkPath [bobVkPath, carolVkPath] tmpDir nodeSocket 1 aliceSk [bobVk, carolVk] allNodeIds $ \n1 ->
