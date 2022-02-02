@@ -85,6 +85,11 @@ spec = around showLogsOnFailure $
               (bobVkPath, bobSkPath) <- writeKeysFor tmpDir "bob"
               (carolVkPath, carolSkPath) <- writeKeysFor tmpDir "carol"
               pparams <- queryProtocolParameters defaultNetworkId nodeSocket
+
+              -- TODO: Run the whole thing below concurrently using the same
+              -- keys, but in two distinct heads. (This also requires us to
+              -- create a faucet and distribute funds from there)
+
               withHydraNode tracer aliceSkPath [bobVkPath, carolVkPath] tmpDir nodeSocket 1 aliceSk [bobVk, carolVk] allNodeIds $ \n1 ->
                 withHydraNode tracer bobSkPath [aliceVkPath, carolVkPath] tmpDir nodeSocket 2 bobSk [aliceVk, carolVk] allNodeIds $ \n2 ->
                   withHydraNode tracer carolSkPath [aliceVkPath, bobVkPath] tmpDir nodeSocket 3 carolSk [aliceVk, bobVk] allNodeIds $ \n3 -> do
