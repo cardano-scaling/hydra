@@ -15,6 +15,7 @@ import Control.Concurrent.STM (TChan, dupTChan, readTChan)
 import qualified Control.Concurrent.STM as STM
 import Control.Concurrent.STM.TChan (newBroadcastTChanIO, writeTChan)
 import Control.Concurrent.STM.TVar (TVar, modifyTVar', newTVarIO, readTVar)
+import Control.Exception (IOException)
 import qualified Data.Aeson as Aeson
 import Hydra.ClientInput (ClientInput)
 import Hydra.Ledger (IsTx (..))
@@ -94,14 +95,23 @@ runAPIServer ::
   IO ()
 runAPIServer host port tracer history callback responseChannel = do
   traceWith tracer (APIServerStarted port)
-  runServer (show host) (fromIntegral port) $ \pending -> do
-    con <- acceptRequest pending
-    chan <- STM.atomically $ dupTChan responseChannel
-    traceWith tracer NewAPIConnection
-    forwardHistory con
-    withPingThread con 30 (pure ()) $
-      race_ (receiveInputs con) (sendOutputs chan con)
+  handle onIOException $
+    runServer (show host) (fromIntegral port) $ \pending -> do
+      con <- acceptRequest pending
+      chan <- STM.atomically $ dupTChan responseChannel
+      traceWith tracer NewAPIConnection
+      forwardHistory con
+      withPingThread con 30 (pure ()) $
+        race_ (receiveInputs con) (sendOutputs chan con)
  where
+  onIOException ioException =
+    throwIO $
+      RunServerException
+        { ioException
+        , host
+        , port
+        }
+
   sendOutputs chan con = forever $ do
     response <- STM.atomically $ readTChan chan
     let sentResponse = Aeson.encode response
@@ -125,3 +135,12 @@ runAPIServer host port tracer history callback responseChannel = do
     hist <- STM.atomically (readTVar history)
     let encodeAndReverse xs serverOutput = Aeson.encode serverOutput : xs
     sendTextDatas con $ foldl' encodeAndReverse [] hist
+
+data RunServerException = RunServerException
+  { ioException :: IOException
+  , host :: IP
+  , port :: PortNumber
+  }
+  deriving (Show)
+
+instance Exception RunServerException

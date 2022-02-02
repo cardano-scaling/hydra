@@ -785,6 +785,7 @@ definitions:
         additionalProperties: false
         required:
         - tag
+        - headId
         - contestationPeriod
         - parties
         description: >-
@@ -794,6 +795,9 @@ definitions:
           tag:
             type: string
             enum: ["OnInitTx"]
+          headId:
+            type: string
+            contentEncoding: base16
           contestationPeriod:
             type: number
             description: >-
@@ -874,17 +878,6 @@ definitions:
           tag:
             type: string
             enum: ["OnFanoutTx"]
-      - title: PostTxFailed
-        type: object
-        additionalProperties: false
-        required:
-        - tag
-        description: >-
-          Submitted transaction was ill-formed.
-        properties:
-          tag:
-            type: string
-            enum: ["PostTxFailed"]
 
   Effect:
     description: >-

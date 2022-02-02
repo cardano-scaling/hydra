@@ -7,6 +7,8 @@ import Hydra.Prelude
 import Data.Default (def)
 import Hydra.Cardano.Api
 
+import qualified Data.Map as Map
+
 -- * Types
 
 type TxBuilder = TxBodyContent BuildTx
@@ -88,3 +90,27 @@ addVkInputs ins =
 addOutputs :: [TxOut CtxTx] -> TxBuilder -> TxBuilder
 addOutputs outputs tx =
   tx{txOuts = txOuts tx <> outputs}
+
+-- | Mint tokens identified by the given Plutus script.
+mintTokens :: PlutusScript -> AssetName -> Quantity -> TxBuilder -> TxBuilder
+mintTokens script assetName quantity tx =
+  tx{txMintValue = TxMintValue mintedTokens' mintedWitnesses'}
+ where
+  (mintedTokens, mintedWitnesses) =
+    case txMintValue tx of
+      TxMintValueNone ->
+        (mempty, mempty)
+      TxMintValue t (BuildTxWith m) ->
+        (t, m)
+
+  mintedTokens' =
+    mintedTokens <> valueFromList [(AssetId policyId assetName, quantity)]
+
+  mintedWitnesses' =
+    BuildTxWith $ mintedWitnesses <> Map.singleton policyId mintingWitness
+
+  mintingWitness =
+    mkScriptWitness script NoScriptDatumForMint (toScriptData ())
+
+  policyId =
+    PolicyId $ hashScript $ PlutusScript script

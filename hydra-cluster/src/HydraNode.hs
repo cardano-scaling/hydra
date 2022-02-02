@@ -28,8 +28,6 @@ import Hydra.Prelude hiding (delete)
 import Cardano.BM.Tracing (ToObject)
 import Cardano.Crypto.DSIGN (
   DSIGNAlgorithm (..),
-  SignKeyDSIGN (SignKeyMockDSIGN),
-  VerKeyDSIGN (VerKeyMockDSIGN),
  )
 import CardanoCluster (ClusterLog)
 import Control.Concurrent.Async (
@@ -44,6 +42,7 @@ import qualified Data.ByteString as BS
 import qualified Data.List as List
 import qualified Data.Text as T
 import Hydra.Logging (Tracer, traceWith)
+import qualified Hydra.Party as Hydra
 import Network.HTTP.Conduit (HttpExceptionContent (ConnectionFailure), parseRequest)
 import Network.HTTP.Simple (HttpException (HttpExceptionRequest), Response, getResponseBody, getResponseStatusCode, httpBS)
 import Network.WebSockets (Connection, receiveData, runClient, sendClose, sendTextData)
@@ -60,6 +59,7 @@ import System.Process (
  )
 import System.Timeout (timeout)
 import Test.Hydra.Prelude (checkProcessHasNotDied, failAfter, failure, withFile')
+import qualified Prelude
 
 data HydraClient = HydraClient
   { hydraNodeId :: Int
@@ -94,14 +94,20 @@ waitNext HydraClient{connection} = do
     Right value -> pure value
 
 waitMatch :: HasCallStack => Natural -> HydraClient -> (Aeson.Value -> Maybe a) -> IO a
-waitMatch delay HydraClient{connection} match = do
+waitMatch delay HydraClient{hydraNodeId, connection} match = do
   seenMsgs <- newTVarIO []
   timeout (fromIntegral delay * 1_000_000) (go seenMsgs) >>= \case
     Just x -> pure x
     Nothing -> do
       msgs <- readTVarIO seenMsgs
       failure $
-        "Didn't match within allocated time. There were some messages " <> show (length msgs) <> " messages received though"
+        toString $
+          unlines
+            [ "waitMatch did not match a message within " <> show delay <> "s"
+            , padRight ' ' 20 "  nodeId:" <> show hydraNodeId
+            , padRight ' ' 20 "  seen messages:"
+                <> unlines (align 20 (decodeUtf8 . Aeson.encode <$> msgs))
+            ]
  where
   go seenMsgs = do
     bytes <- receiveData connection
@@ -110,6 +116,9 @@ waitMatch delay HydraClient{connection} match = do
       Just msg -> do
         atomically (modifyTVar' seenMsgs (msg :))
         maybe (go seenMsgs) pure (match msg)
+
+  align _ [] = []
+  align n (h : q) = h : fmap (T.replicate n " " <>) q
 
 -- | Wait some time for a list of outputs from each of given nodes.
 -- This function is the generalised version of 'waitFor', allowing several messages
@@ -128,7 +137,7 @@ waitForAll tracer delay nodes expected = do
         failure $
           toString $
             unlines
-              [ "waitFor... timeout!"
+              [ "waitForAll timed out after " <> show delay <> "s"
               , padRight ' ' 20 "  nodeId:"
                   <> show hydraNodeId
               , padRight ' ' 20 "  expected:"
@@ -176,30 +185,40 @@ data EndToEndLog
   | FromCluster ClusterLog
   deriving (Eq, Show, Generic, ToJSON, FromJSON, ToObject)
 
+-- XXX: The two lists need to be of same length. Also the verification keys can
+-- be derived from the signing keys.
 withHydraCluster ::
   Tracer IO EndToEndLog ->
   FilePath ->
   FilePath ->
+  -- | First node id
+  Int ->
+  -- | NOTE: This decides on the size of the cluster!
   [(VerificationKey PaymentKey, SigningKey PaymentKey)] ->
+  [Hydra.SigningKey] ->
   (NonEmpty HydraClient -> IO ()) ->
   IO ()
-withHydraCluster tracer workDir nodeSocket allKeys action = do
-  case fromIntegral (length allKeys) of
-    0 -> error "Cannot run a cluster with 0 number of nodes"
-    n -> do
-      forM_ (zip allKeys [1 .. n]) $ \((vk, sk), ix) -> do
-        let vkFile = workDir </> show ix <.> "vk"
-        let skFile = workDir </> show ix <.> "sk"
-        void $ writeFileTextEnvelope vkFile Nothing vk
-        void $ writeFileTextEnvelope skFile Nothing sk
+withHydraCluster tracer workDir nodeSocket firstNodeId allKeys hydraKeys action = do
+  -- We have been bitten by this in the past
+  when (clusterSize == 0) $
+    error "Cannot run a cluster with 0 number of nodes"
 
-      go n [] [1 .. n]
+  forM_ (zip allKeys allNodeIds) $ \((vk, sk), ix) -> do
+    let vkFile = workDir </> show ix <.> "vk"
+    let skFile = workDir </> show ix <.> "sk"
+    void $ writeFileTextEnvelope vkFile Nothing vk
+    void $ writeFileTextEnvelope skFile Nothing sk
+  startNodes [] allNodeIds
  where
-  go n clients = \case
+  clusterSize = length allKeys
+  allNodeIds = [firstNodeId .. firstNodeId + clusterSize - 1]
+
+  hydraVKeys = map deriveVerKeyDSIGN hydraKeys
+
+  startNodes clients = \case
     [] -> action (fromList $ reverse clients)
     (nodeId : rest) -> do
-      let hydraVKeys = map VerKeyMockDSIGN $ filter (/= nodeId) allNodeIds
-          hydraSKey = SignKeyMockDSIGN nodeId
+      let hydraSKey = hydraKeys Prelude.!! (nodeId - firstNodeId)
           cardanoVKeys = [workDir </> show i <.> "vk" | i <- allNodeIds, i /= nodeId]
           cardanoSKey = workDir </> show nodeId <.> "sk"
 
@@ -209,13 +228,11 @@ withHydraCluster tracer workDir nodeSocket allKeys action = do
         cardanoVKeys
         workDir
         nodeSocket
-        (fromIntegral nodeId)
+        nodeId
         hydraSKey
         hydraVKeys
-        (map fromIntegral allNodeIds)
-        (\c -> go n (c : clients) rest)
-     where
-      allNodeIds = [1 .. n]
+        allNodeIds
+        (\c -> startNodes (c : clients) rest)
 
 withHydraNode ::
   forall alg.
@@ -311,24 +328,22 @@ defaultArguments nodeId cardanoSKey cardanoVKeys hydraSKey hydraVKeys nodeSocket
     <> ["--network-magic", "42"]
     <> ["--node-socket", nodeSocket]
 
-waitForNodesConnected :: HasCallStack => Tracer IO EndToEndLog -> [Int] -> [HydraClient] -> IO ()
-waitForNodesConnected tracer allNodeIds = mapM_ (waitForNodeConnected tracer allNodeIds)
-
-waitForNodeConnected :: HasCallStack => Tracer IO EndToEndLog -> [Int] -> HydraClient -> IO ()
-waitForNodeConnected tracer allNodeIds n@HydraClient{hydraNodeId} =
-  -- HACK(AB): This is gross, we hijack the node ids and because we know
-  -- keys are just integers we can compute them but that's ugly -> use property
-  -- party identifiers everywhere
-  waitForAll tracer (fromIntegral $ 20 * length allNodeIds) [n] $
-    fmap
-      ( \party ->
-          object
-            [ "tag" .= String "PeerConnected"
-            , "peer"
-                .= object
-                  [ "hostname" .= ("127.0.0.1" :: Text)
-                  , "port" .= (5000 + party)
-                  ]
-            ]
-      )
-      (filter (/= hydraNodeId) allNodeIds)
+waitForNodesConnected :: HasCallStack => Tracer IO EndToEndLog -> [HydraClient] -> IO ()
+waitForNodesConnected tracer clients =
+  mapM_ waitForNodeConnected clients
+ where
+  allNodeIds = hydraNodeId <$> clients
+  waitForNodeConnected n@HydraClient{hydraNodeId} =
+    waitForAll tracer (fromIntegral $ 20 * length allNodeIds) [n] $
+      fmap
+        ( \nodeId ->
+            object
+              [ "tag" .= String "PeerConnected"
+              , "peer"
+                  .= object
+                    [ "hostname" .= ("127.0.0.1" :: Text)
+                    , "port" .= (5000 + nodeId)
+                    ]
+              ]
+        )
+        (filter (/= hydraNodeId) allNodeIds)

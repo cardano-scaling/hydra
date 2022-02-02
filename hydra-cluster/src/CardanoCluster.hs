@@ -6,8 +6,17 @@ module CardanoCluster where
 
 import Hydra.Prelude
 
+import qualified Cardano.Api.UTxO as UTxO
 import Cardano.Ledger.Keys (VKey (VKey))
-import CardanoClient (buildAddress)
+import CardanoClient (
+  CardanoClientException,
+  build,
+  buildAddress,
+  queryUTxO,
+  sign,
+  submit,
+  waitForPayment,
+ )
 import CardanoNode (
   CardanoNodeArgs (..),
   CardanoNodeConfig (..),
@@ -29,16 +38,23 @@ import qualified Data.ByteString as BS
 import Data.ByteString.Base16 (encodeBase16)
 import Hydra.Cardano.Api (
   AsType (..),
+  Lovelace,
   NetworkId (Testnet),
   NetworkMagic (NetworkMagic),
   PaymentKey,
   SigningKey,
   TextEnvelopeError (TextEnvelopeAesonDecodeError),
+  UTxO,
   VerificationKey (PaymentVerificationKey),
   deserialiseFromTextEnvelope,
   getVerificationKey,
+  lovelaceToValue,
   serialiseToRawBytes,
+  shelleyAddressInEra,
+  txOutLovelace,
  )
+import qualified Hydra.Cardano.Api as Api
+import Hydra.Chain.Direct.Util (markerDatumHash, retry)
 import qualified Hydra.Chain.Direct.Util as Cardano
 import qualified Paths_hydra_cluster as Pkg
 import System.Directory (createDirectoryIfMissing, doesFileExist)
@@ -88,9 +104,22 @@ withCluster tr cfg@ClusterConfig{parentStateDirectory, initialFunds} action = do
         let nodes = [nodeA, nodeB, nodeC]
         action (RunningCluster cfg nodes)
 
-keysFor :: String -> IO (VerificationKey PaymentKey, SigningKey PaymentKey)
+data Actor
+  = Alice
+  | Bob
+  | Carol
+  | Faucet
+
+actorName :: Actor -> String
+actorName = \case
+  Alice -> "alice"
+  Bob -> "bob"
+  Carol -> "carol"
+  Faucet -> "faucet"
+
+keysFor :: Actor -> IO (VerificationKey PaymentKey, SigningKey PaymentKey)
 keysFor actor = do
-  bs <- readConfigFile ("credentials" </> actor <.> "sk")
+  bs <- readConfigFile ("credentials" </> actorName actor <.> "sk")
   let res =
         first TextEnvelopeAesonDecodeError (Aeson.eitherDecodeStrict bs)
           >>= deserialiseFromTextEnvelope asSigningKey
@@ -106,8 +135,7 @@ fromRawVKey = PaymentVerificationKey . VKey
 writeKeysFor ::
   -- | Target directory
   FilePath ->
-  -- | Actor name, e.g. "alice"
-  String ->
+  Actor ->
   -- | Paths of written keys in the form of (verification key, signing key)
   IO (FilePath, FilePath)
 writeKeysFor targetDir actor = do
@@ -119,9 +147,9 @@ writeKeysFor targetDir actor = do
 
   vkTarget = targetDir </> vkName
 
-  skName = actor <.> ".sk"
+  skName = actorName actor <.> ".sk"
 
-  vkName = actor <.> ".vk"
+  vkName = actorName actor <.> ".vk"
 
 withBFTNode ::
   Tracer IO ClusterLog ->
@@ -211,6 +239,56 @@ withBFTNode clusterTracer cfg initialFunds action = do
     unlessM (doesFileExist socket) $ do
       threadDelay 0.1
       waitForSocket node
+
+data Marked = Marked | Normal
+
+-- | Create a specially marked "seed" UTXO containing requested 'Lovelace' by
+-- redeeming funds available to the well-known faucet.
+--
+-- NOTE: This function is querying and looping forever until it finds a suitable
+-- output!
+seedFromFaucet ::
+  NetworkId ->
+  RunningNode ->
+  -- | Recipient of the funds
+  VerificationKey PaymentKey ->
+  -- | Amount to get from faucet
+  Lovelace ->
+  -- | Marked or normal output?
+  Marked ->
+  IO UTxO
+seedFromFaucet networkId (RunningNode _ nodeSocket) receivingVerificationKey lovelace marked = do
+  (faucetVk, faucetSk) <- keysFor Faucet
+  (i, _o) <- findUTxO faucetVk
+  let changeAddress = buildAddress faucetVk networkId
+  build networkId nodeSocket changeAddress [(i, Nothing)] [] [theOutput] >>= \case
+    Left e -> error (show e)
+    Right body -> do
+      retry isCardanoClientException $ submit networkId nodeSocket (sign faucetSk body)
+      waitForPayment networkId nodeSocket lovelace receivingAddress
+ where
+  findUTxO faucetVk = do
+    faucetUTxO <- queryUTxO networkId nodeSocket [buildAddress faucetVk networkId]
+    let foundUTxO = find (\(_i, o) -> txOutLovelace o >= lovelace) $ UTxO.pairs faucetUTxO
+    case foundUTxO of
+      Just o -> pure o
+      Nothing ->
+        findUTxO faucetVk
+
+  receivingAddress = buildAddress receivingVerificationKey networkId
+
+  theOutput =
+    Api.TxOut
+      (shelleyAddressInEra receivingAddress)
+      (lovelaceToValue lovelace)
+      theOutputDatum
+
+  theOutputDatum = case marked of
+    Marked -> Api.TxOutDatumHash markerDatumHash
+    Normal -> Api.TxOutDatumNone
+
+  isCardanoClientException :: CardanoClientException -> Bool
+  isCardanoClientException = const True
 
 -- | Initialize the system start time to now (modulo a small offset needed to
 -- give time to the system to bootstrap correctly).

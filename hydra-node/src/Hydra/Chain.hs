@@ -1,4 +1,5 @@
 {-# LANGUAGE DeriveAnyClass #-}
+{-# LANGUAGE DerivingVia #-}
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE UndecidableInstances #-}
 
@@ -9,13 +10,15 @@
 -- of the transaction.
 module Hydra.Chain where
 
-import Cardano.Prelude
-import Control.Monad.Class.MonadThrow (MonadThrow)
-import Data.Aeson (FromJSON, ToJSON)
-import Data.Time (DiffTime, UTCTime)
+import Hydra.Prelude
+
+import Hydra.Cardano.Api (
+  HasTypeProxy (..),
+  SerialiseAsRawBytes (..),
+  UsingRawBytesHex (..),
+ )
 import Hydra.Ledger (IsTx, TxIdType, UTxOType)
 import Hydra.Party (Party)
-import Hydra.Prelude (Arbitrary (arbitrary), genericArbitrary)
 import Hydra.Snapshot (ConfirmedSnapshot, Snapshot, SnapshotNumber)
 
 -- | Contains the head's parameters as established in the initial transaction.
@@ -54,17 +57,32 @@ instance (Arbitrary tx, Arbitrary (UTxOType tx)) => Arbitrary (PostChainTx tx) w
 -- REVIEW(SN): There is a similarly named type in plutus-ledger, so we might
 -- want to rename this
 
+-- | Uniquely identifies a Hydra Head.
+newtype HeadId = HeadId ByteString
+  deriving (Show, Eq, Generic)
+  deriving (ToJSON, FromJSON) via (UsingRawBytesHex HeadId)
+
+instance SerialiseAsRawBytes HeadId where
+  serialiseToRawBytes (HeadId bytes) = bytes
+  deserialiseFromRawBytes _ = Just . HeadId
+
+instance HasTypeProxy HeadId where
+  data AsType HeadId = AsHeadId
+  proxyToAsType _ = AsHeadId
+
+instance Arbitrary HeadId where
+  arbitrary = genericArbitrary
+
 -- | Describes transactions as seen on chain. Holds as minimal information as
 -- possible to simplify observing the chain.
 data OnChainTx tx
-  = OnInitTx {contestationPeriod :: ContestationPeriod, parties :: [Party]}
+  = OnInitTx {headId :: HeadId, contestationPeriod :: ContestationPeriod, parties :: [Party]}
   | OnCommitTx {party :: Party, committed :: UTxOType tx}
   | OnAbortTx
   | OnCollectComTx
   | OnCloseTx {contestationDeadline :: UTCTime, snapshotNumber :: SnapshotNumber}
   | OnContestTx
   | OnFanoutTx
-  | PostTxFailed
   deriving (Generic)
 
 deriving instance IsTx tx => Eq (OnChainTx tx)

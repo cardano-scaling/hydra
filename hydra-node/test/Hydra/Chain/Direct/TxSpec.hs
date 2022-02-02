@@ -20,8 +20,9 @@ import qualified Cardano.Ledger.Alonzo.TxWitness as Ledger
 import qualified Data.ByteString.Lazy as LBS
 import Data.List (nub, (\\))
 import qualified Data.Map as Map
-import Hydra.Chain (HeadParameters (..), OnChainTx (..))
-import Hydra.Chain.Direct.Fixture (costModels, epochInfo, maxTxSize, pparams, systemStart, testNetworkId)
+import qualified Data.Text as T
+import Hydra.Chain (HeadId (..), HeadParameters (..), OnChainTx (..))
+import Hydra.Chain.Direct.Fixture (costModels, epochInfo, maxTxSize, pparams, systemStart, testNetworkId, testPolicyId)
 import Hydra.Chain.Direct.Wallet (ErrCoverFee (..), coverFee_)
 import qualified Hydra.Contract.Commit as Commit
 import qualified Hydra.Contract.Head as Head
@@ -71,8 +72,9 @@ spec =
         let params = HeadParameters cperiod (party : parties)
             tx = initTx testNetworkId cardanoKeys params txIn
             observed = observeInitTx testNetworkId party tx
+            headId = mkHeadId (headPolicyId txIn)
          in case observed of
-              Just (octx, _) -> octx === OnInitTx @Tx cperiod (party : parties)
+              Just (octx, _) -> octx === OnInitTx @Tx headId cperiod (party : parties)
               _ -> property False
               & counterexample ("Observed: " <> show observed)
 
@@ -91,7 +93,7 @@ spec =
             tx = initTx testNetworkId cardanoKeys params txIn
             res = observeInitTx testNetworkId (fst me) tx
          in case res of
-              Just (OnInitTx cp ps, InitObservation{initials}) ->
+              Just (OnInitTx _ cp ps, InitObservation{initials}) ->
                 cp === cperiod
                   .&&. ps === parties
                   .&&. length initials === length cardanoKeys
@@ -140,7 +142,7 @@ spec =
       prop "is observed" $ \(ReasonablySized parties) headInput cperiod ->
         forAll (generateCommitUTxOs parties) $ \commitsUTxO ->
           let committedValue = foldMap (txOutValue . fst) commitsUTxO
-              headOutput = mkHeadOutput testNetworkId $ toUTxOContext $ mkTxOutDatum headDatum
+              headOutput = mkHeadOutput testNetworkId testPolicyId $ toUTxOContext $ mkTxOutDatum headDatum
               headTotalValue = headValue <> committedValue
               onChainParties = partyFromVerKey . vkey <$> parties
               headDatum = Head.Initial cperiod onChainParties
@@ -163,7 +165,7 @@ spec =
           forAll (vectorOf 9 arbitrary) $ \parties ->
             forAll (generateCommitUTxOs parties) $ \commitsUTxO ->
               let onChainUTxO = UTxO $ Map.singleton headInput headOutput <> fmap fst commitsUTxO
-                  headOutput = mkHeadOutput testNetworkId $ toUTxOContext $ mkTxOutDatum headDatum
+                  headOutput = mkHeadOutput testNetworkId testPolicyId $ toUTxOContext $ mkTxOutDatum headDatum
                   onChainParties = partyFromVerKey . vkey <$> parties
                   headDatum = Head.Initial cperiod onChainParties
                   tx =
@@ -179,12 +181,13 @@ spec =
                       property False & counterexample ("Basic failure: " <> show basicFailure)
                     Right redeemerReport ->
                       length commitsUTxO + 1 == length (rights $ Map.elems redeemerReport)
+                        & counterexample (prettyRedeemerReport redeemerReport)
                         & counterexample ("Tx: " <> toString (renderTx tx))
 
     describe "closeTx" $ do
       prop "transaction size below limit" $ \headIn parties snapshot sig ->
         let tx = closeTx snapshot sig (headIn, headOutput, headDatum)
-            headOutput = mkHeadOutput testNetworkId TxOutDatumNone
+            headOutput = mkHeadOutput testNetworkId testPolicyId TxOutDatumNone
             headDatum = fromPlutusData $ toData $ Head.Open{parties, utxoHash = ""}
             cbor = serialize tx
             len = LBS.length cbor
@@ -194,7 +197,7 @@ spec =
               & counterexample ("Tx serialized size: " <> show len)
 
       prop "is observed" $ \parties headInput snapshot msig ->
-        let headOutput = mkHeadOutput testNetworkId $ toUTxOContext $ mkTxOutDatum headDatum
+        let headOutput = mkHeadOutput testNetworkId testPolicyId $ toUTxOContext $ mkTxOutDatum headDatum
             headDatum = Head.Open{parties, utxoHash = ""}
             lookupUTxO = UTxO.singleton (headInput, headOutput)
             -- NOTE(SN): deliberately uses an arbitrary multi-signature
@@ -242,7 +245,7 @@ spec =
 
       prop "is observed" $ \utxo headInput ->
         let tx = fanoutTx utxo (headInput, headDatum)
-            headOutput = mkHeadOutput testNetworkId TxOutDatumNone
+            headOutput = mkHeadOutput testNetworkId testPolicyId TxOutDatumNone
             headDatum = fromPlutusData $ toData $ Head.Closed{snapshotNumber = 1, utxoHash = ""}
             lookupUTxO = UTxO.singleton (headInput, headOutput)
             res = observeFanoutTx lookupUTxO tx
@@ -297,7 +300,7 @@ spec =
       prop "is observed" $
         \txIn cperiod parties -> forAll (genAbortableOutputs parties) $
           \(fmap drop2nd -> initials, commits) ->
-            let headOutput = mkHeadOutput testNetworkId TxOutDatumNone -- will be SJust, but not covered by this test
+            let headOutput = mkHeadOutput testNetworkId testPolicyId TxOutDatumNone -- will be SJust, but not covered by this test
                 headDatum = fromPlutusData $ toData $ Head.Initial cperiod onChainParties
                 onChainParties = partyFromVerKey . vkey <$> parties
                 utxo = UTxO.singleton (txIn, headOutput)
@@ -317,7 +320,7 @@ spec =
         \txIn contestationPeriod (ReasonablySized parties) -> forAll (genAbortableOutputs parties) $
           \(resolvedInitials, resolvedCommits) ->
             let headUTxO = (txIn :: TxIn, headOutput)
-                headOutput = mkHeadOutput testNetworkId $ toUTxOContext $ mkTxOutDatum headDatum
+                headOutput = mkHeadOutput testNetworkId testPolicyId $ toUTxOContext $ mkTxOutDatum headDatum
                 headDatum =
                   Head.Initial
                     (contestationPeriodFromDiffTime contestationPeriod)
@@ -462,6 +465,17 @@ validateTxScriptsUnlimited (toLedgerUTxO -> utxo) (toLedgerTx -> tx) =
       epochInfo
       systemStart
       costModels
+
+prettyRedeemerReport ::
+  Map Ledger.RdmrPtr (Either (Ledger.ScriptFailure StandardCrypto) Ledger.ExUnits) ->
+  String
+prettyRedeemerReport (Map.toList -> xs) =
+  "Script Evaluation(s):\n" <> intercalate "\n" (prettyKeyValue <$> xs)
+ where
+  prettyKeyValue (ptr, result) =
+    toString ("  - " <> show ptr <> ": " <> prettyResult result)
+  prettyResult =
+    either (T.replace "\n" " " . show) show
 
 genAbortableOutputs :: [Party] -> Gen ([UTxOWithScript], [UTxOWithScript])
 genAbortableOutputs parties = do

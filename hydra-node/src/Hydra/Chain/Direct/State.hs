@@ -33,7 +33,7 @@ import Hydra.Prelude
 
 import qualified Cardano.Api.UTxO as UTxO
 import qualified Data.Map as Map
-import Hydra.Chain (HeadParameters, OnChainTx (..), PostTxError (..))
+import Hydra.Chain (HeadId (..), HeadParameters, OnChainTx (..), PostTxError (..))
 import Hydra.Chain.Direct.Tx (
   CloseObservation (..),
   CollectComObservation (..),
@@ -81,14 +81,17 @@ data HydraStateMachine (st :: HeadStateKind) where
     { initialThreadOutput :: (TxIn, TxOut CtxUTxO, ScriptData, [OnChain.Party])
     , initialInitials :: [UTxOWithScript]
     , initialCommits :: [UTxOWithScript]
+    , initialHeadId :: HeadId
     } ->
     HydraStateMachine 'StInitialized
   Open ::
     { openThreadOutput :: (TxIn, TxOut CtxUTxO, ScriptData, [OnChain.Party])
+    , openHeadId :: HeadId
     } ->
     HydraStateMachine 'StOpen
   Closed ::
     { closedThreadOutput :: (TxIn, TxOut CtxUTxO, ScriptData, [OnChain.Party])
+    , closedHeadId :: HeadId
     } ->
     HydraStateMachine 'StClosed
 

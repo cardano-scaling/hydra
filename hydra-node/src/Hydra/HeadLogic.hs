@@ -179,7 +179,7 @@ update Environment{party, signingKey, otherParties} ledger st ev = case (st, ev)
     | canCommit -> sameState [OnChainEffect (CommitTx party utxo)]
    where
     canCommit = party `Set.member` remainingParties
-  (InitialState parameters remainingParties committed, OnChainEvent (OnCommitTx pt utxo)) ->
+  (InitialState parameters remainingParties committed, OnChainEvent OnCommitTx{party = pt, committed = utxo}) ->
     nextState newHeadState $
       [ClientEffect $ Committed pt utxo]
         <> [OnChainEffect $ CollectComTx collectedUTxO | canCollectCom]
@@ -198,7 +198,7 @@ update Environment{party, signingKey, otherParties} ledger st ev = case (st, ev)
     --       We shouldn't see any commit outside of the collecting state, if we do,
     --       there's an issue our logic or onChain layer.
     sameState []
-  (InitialState parameters _remainingParties committed, OnChainEvent OnCollectComTx) ->
+  (InitialState parameters _remainingParties committed, OnChainEvent OnCollectComTx{}) ->
     -- TODO: We would want to check whether this even matches our local state.
     -- For example, we do expect `null remainingParties` but what happens if
     -- it's untrue?
@@ -206,7 +206,7 @@ update Environment{party, signingKey, otherParties} ledger st ev = case (st, ev)
      in nextState
           (OpenState parameters $ CoordinatedHeadState u0 mempty (InitialSnapshot $ Snapshot 0 u0 mempty) NoSeenSnapshot)
           [ClientEffect $ HeadIsOpen u0]
-  (InitialState _ _ committed, OnChainEvent OnAbortTx) ->
+  (InitialState _ _ committed, OnChainEvent OnAbortTx{}) ->
     nextState ReadyState [ClientEffect $ HeadIsAborted $ fold committed]
   --
   (OpenState HeadParameters{contestationPeriod} CoordinatedHeadState{confirmedSnapshot}, ClientEvent Close) ->
@@ -318,7 +318,7 @@ update Environment{party, signingKey, otherParties} ledger st ev = case (st, ev)
     sameState []
   (ClosedState _ utxo, ShouldPostFanout) ->
     sameState [OnChainEffect (FanoutTx utxo)]
-  (ClosedState _ utxos, OnChainEvent OnFanoutTx) ->
+  (ClosedState _ utxos, OnChainEvent OnFanoutTx{}) ->
     nextState ReadyState [ClientEffect $ HeadIsFinalized utxos]
   --
   (_, ClientEvent{}) ->

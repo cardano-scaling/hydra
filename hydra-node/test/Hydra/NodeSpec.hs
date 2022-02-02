@@ -8,6 +8,7 @@ import Test.Hydra.Prelude
 import Hydra.API.Server (Server (..))
 import Hydra.Chain (
   Chain (..),
+  HeadId (..),
   HeadParameters (HeadParameters),
   OnChainTx (..),
   PostChainTx (InitTx),
@@ -116,7 +117,7 @@ eventsToOpenHead =
   [ NetworkEvent{message = Connected{peer = Host{hostname = "10.0.0.30", port = 5000}}}
   , NetworkEvent{message = Connected{peer = Host{hostname = "10.0.0.10", port = 5000}}}
   , OnChainEvent
-      { onChainTx = OnInitTx 10 [10, 20, 30]
+      { onChainTx = OnInitTx (HeadId "someHeadId") 10 [10, 20, 30]
       }
   , ClientEvent{clientInput = Commit (utxoRef 2)}
   , OnChainEvent{onChainTx = OnCommitTx 30 (utxoRef 3)}

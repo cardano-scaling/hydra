@@ -12,7 +12,7 @@ import qualified Data.Map as Map
 import Data.Maybe (fromJust)
 import Hydra.Chain (HeadParameters (..))
 import Hydra.Chain.Direct.Contract.Mutation (Mutation (ChangeHeadDatum, ChangeInput, RemoveOutput), SomeMutation (..), anyPayToPubKeyTxOut, headTxIn)
-import Hydra.Chain.Direct.Fixture (testNetworkId)
+import Hydra.Chain.Direct.Fixture (testNetworkId, testPolicyId)
 import qualified Hydra.Chain.Direct.Fixture as Fixture
 import Hydra.Chain.Direct.Tx (UTxOWithScript, abortTx, mkHeadOutputInitial)
 import Hydra.Chain.Direct.TxSpec (drop2nd, drop3rd, genAbortableOutputs)
@@ -46,7 +46,7 @@ healthyAbortTx =
 
   headInput = generateWith arbitrary 42
 
-  headOutput = mkHeadOutputInitial Fixture.testNetworkId headParameters
+  headOutput = mkHeadOutputInitial testNetworkId testPolicyId headParameters
 
   headParameters =
     HeadParameters
