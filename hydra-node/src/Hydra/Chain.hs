@@ -64,7 +64,6 @@ data OnChainTx tx
   | OnCloseTx {contestationDeadline :: UTCTime, snapshotNumber :: SnapshotNumber}
   | OnContestTx
   | OnFanoutTx
-  | PostTxFailed
   deriving (Generic)
 
 deriving instance IsTx tx => Eq (OnChainTx tx)

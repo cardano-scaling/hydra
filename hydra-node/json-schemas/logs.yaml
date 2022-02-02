@@ -874,17 +874,6 @@ definitions:
           tag:
             type: string
             enum: ["OnFanoutTx"]
-      - title: PostTxFailed
-        type: object
-        additionalProperties: false
-        required:
-        - tag
-        description: >-
-          Submitted transaction was ill-formed.
-        properties:
-          tag:
-            type: string
-            enum: ["PostTxFailed"]
 
   Effect:
     description: >-
