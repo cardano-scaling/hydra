@@ -168,6 +168,42 @@ spec = around showLogsOnFailure $
                       Success u ->
                         failAfter 5 $ waitForUTxO defaultNetworkId nodeSocket u
 
+    describe "two hydra heads scenario" $
+      it "bob cannot abort alice's head" $ \tracer ->
+        failAfter 60 $
+          withTempDir "end-to-end-two-heads" $ \tmpDir -> do
+            config <- newNodeConfig tmpDir
+            (aliceCardanoVk, aliceCardanoSk) <- keysFor "alice"
+            (bobCardanoVk, bobCardanoSk) <- keysFor "bob"
+            withBFTNode (contramap FromCluster tracer) config [aliceCardanoVk, bobCardanoVk] $ \(RunningNode _ nodeSocket) -> do
+              (aliceVkPath, aliceSkPath) <- writeKeysFor tmpDir "alice"
+              (_, bobSkPath) <- writeKeysFor tmpDir "bob"
+              pparams <- queryProtocolParameters defaultNetworkId nodeSocket
+              withHydraNode tracer aliceSkPath [] tmpDir nodeSocket 1 aliceSk [] allNodeIds $ \n1 ->
+                withHydraNode tracer bobSkPath [aliceVkPath] tmpDir nodeSocket 2 bobSk [aliceVk] allNodeIds $ \n2 -> do
+                  postSeedPayment defaultNetworkId pparams availableInitialFunds nodeSocket aliceCardanoSk 100_000_000
+                  postSeedPayment defaultNetworkId pparams availableInitialFunds nodeSocket bobCardanoSk 100_000_000
+
+                  let contestationPeriod = 10 :: Natural
+                  send n1 $ input "Init" ["contestationPeriod" .= contestationPeriod]
+                  waitFor tracer 10 [n1] $
+                    output "ReadyToCommit" ["parties" .= Set.fromList [alice]]
+
+                  -- Bob opens and immediately aborts a Head with Alice, iow pulls Alice in
+                  -- "his" Head
+                  send n2 $ input "Init" ["contestationPeriod" .= contestationPeriod]
+                  waitFor tracer 10 [n2] $
+                    output "ReadyToCommit" ["parties" .= Set.fromList [alice, bob]]
+
+                  send n2 $ input "Abort" []
+                  waitFor tracer 10 [n2] $
+                    output "HeadIsAborted" ["utxo" .= Object mempty]
+
+                  -- Alice should be able to continue working with her Head
+                  send n1 $ input "Commit" ["utxo" .= Object mempty]
+                  waitFor tracer 10 [n1] $
+                    output "HeadIsOpen" ["utxo" .= Object mempty]
+
     describe "Monitoring" $
       it "Node exposes Prometheus metrics on port 6001" $ \tracer ->
         withTempDir "end-to-end-prometheus-metrics" $ \tmpDir -> do
