@@ -5,8 +5,10 @@ module Hydra.Cardano.Api (
   module Hydra.Cardano.Api.AddressInEra,
   module Hydra.Cardano.Api.CtxTx,
   module Hydra.Cardano.Api.CtxUTxO,
+  module Hydra.Cardano.Api.Hash,
   module Hydra.Cardano.Api.KeyWitness,
   module Hydra.Cardano.Api.Lovelace,
+  module Hydra.Cardano.Api.PlutusScript,
   module Hydra.Cardano.Api.PlutusScriptVersion,
   module Hydra.Cardano.Api.ScriptData,
   module Hydra.Cardano.Api.ScriptDatum,
@@ -30,17 +32,25 @@ module Hydra.Cardano.Api (
   LedgerEra,
 ) where
 
+import Hydra.Cardano.Api.Prelude (
+  Era,
+  LedgerEra,
+  StandardCrypto,
+ )
+
 import Cardano.Api hiding (UTxO, toLedgerUTxO)
 import Cardano.Api.Byron hiding (UTxO, toLedgerUTxO)
 import Cardano.Api.Shelley hiding (UTxO, toLedgerUTxO)
 import Cardano.Api.UTxO (UTxO, UTxO' (..))
+
 import Hydra.Cardano.Api.AddressInEra
 import Hydra.Cardano.Api.CtxTx
 import Hydra.Cardano.Api.CtxUTxO
+import Hydra.Cardano.Api.Hash
 import Hydra.Cardano.Api.KeyWitness
 import Hydra.Cardano.Api.Lovelace
+import Hydra.Cardano.Api.PlutusScript
 import Hydra.Cardano.Api.PlutusScriptVersion
-import Hydra.Cardano.Api.Prelude (Era, LedgerEra, StandardCrypto)
 import Hydra.Cardano.Api.ScriptData
 import Hydra.Cardano.Api.ScriptDatum
 import Hydra.Cardano.Api.ScriptHash

@@ -16,10 +16,10 @@ import qualified Plutus.V1.Ledger.Api as Plutus
 -- associated to the given input.
 findRedeemerSpending ::
   FromScriptData a =>
-  TxBody Era ->
+  Tx Era ->
   TxIn ->
   Maybe a
-findRedeemerSpending (ShelleyTxBody _ body _ scriptData _ _) txIn = do
+findRedeemerSpending (getTxBody -> ShelleyTxBody _ body _ scriptData _ _) txIn = do
   idx <- Set.lookupIndex (toLedgerTxIn txIn) (Ledger.inputs body)
   let ptr = Ledger.RdmrPtr Ledger.Spend $ fromIntegral idx
   (d, _exUnits) <- Map.lookup ptr redeemers
