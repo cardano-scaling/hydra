@@ -196,9 +196,9 @@ spec = parallel $ do
                 send n1 (Commit (utxoRef 1))
 
                 waitFor [n2] $ Committed 1 (utxoRef 1)
-                send n2 GetUtxo
+                send n2 GetUTxO
 
-                waitFor [n2] $ Utxo (utxoRefs [1])
+                waitFor [n2] $ UTxO (utxoRefs [1])
 
     describe "in an open head" $ do
       let openHead n1 n2 = do
@@ -317,9 +317,9 @@ spec = parallel $ do
 
               waitUntil [n1, n2] $ SnapshotConfirmed snapshot sigs
 
-              send n1 GetUtxo
+              send n1 GetUTxO
 
-              waitFor [n1] $ Utxo (utxoRefs [2, 42])
+              waitFor [n1] $ UTxO (utxoRefs [2, 42])
 
       it "leader post fanout tx after contestation period" $
         shouldRunInSim $ do

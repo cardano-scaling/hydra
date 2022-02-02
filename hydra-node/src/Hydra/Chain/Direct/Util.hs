@@ -5,14 +5,14 @@ module Hydra.Chain.Direct.Util where
 
 import Hydra.Prelude
 
-import Cardano.Api hiding (AlonzoEra, Block, SigningKey, VerificationKey)
-import qualified Cardano.Api.Shelley as Shelley
 import qualified Cardano.Crypto.DSIGN as Crypto
-import Cardano.Ledger.Crypto (DSIGN, StandardCrypto)
+import Cardano.Ledger.Crypto (DSIGN)
 import Cardano.Slotting.Slot (WithOrigin (..))
 import Control.Tracer (nullTracer)
 import Data.Map.Strict ((!))
 import qualified Data.Map.Strict as Map
+import Hydra.Cardano.Api hiding (AlonzoEra, Block, SigningKey, VerificationKey)
+import qualified Hydra.Cardano.Api as Shelley
 import Ouroboros.Consensus.Byron.Ledger.Config (CodecConfig (..))
 import Ouroboros.Consensus.Cardano (CardanoBlock)
 import Ouroboros.Consensus.Cardano.Block (

@@ -7,7 +7,26 @@ import Hydra.Prelude
 -- Arbitrary VerificationKey instance
 import Hydra.Chain.Direct.TxSpec ()
 
+import qualified Cardano.Api.UTxO as UTxO
 import Data.Maybe (fromJust)
+import Hydra.Cardano.Api (
+  CtxUTxO,
+  Era,
+  PaymentKey,
+  TxIn,
+  TxOut (TxOut),
+  UTxO,
+  VerificationKey,
+  lovelaceToValue,
+  mkTxOutValue,
+  modifyTxOutAddress,
+  modifyTxOutValue,
+  toUTxOContext,
+  txOutAddress,
+  txOutValue,
+  txOuts',
+  verificationKeyHash,
+ )
 import Hydra.Chain.Direct.Contract.Mutation (
   Mutation (..),
   SomeMutation (..),
@@ -16,26 +35,9 @@ import qualified Hydra.Chain.Direct.Fixture as Fixture
 import Hydra.Chain.Direct.Tx (commitTx, mkInitialOutput)
 import Hydra.Ledger.Cardano (
   CardanoTx,
-  CtxUTxO,
-  Era,
-  PaymentKey,
-  TxIn,
-  TxOut (TxOut),
-  Utxo,
-  VerificationKey,
   genAddressInEra,
   genOutput,
   genValue,
-  getOutputs,
-  lovelaceToValue,
-  mkTxOutValue,
-  modifyTxOutAddress,
-  modifyTxOutValue,
-  singletonUtxo,
-  toUtxoContext,
-  txOutAddress,
-  txOutValue,
-  verificationKeyHash,
  )
 import Hydra.Party (Party)
 import Test.QuickCheck (oneof, suchThat)
@@ -44,19 +46,19 @@ import Test.QuickCheck (oneof, suchThat)
 -- CommitTx
 --
 
-healthyCommitTx :: (CardanoTx, Utxo)
+healthyCommitTx :: (CardanoTx, UTxO)
 healthyCommitTx =
-  (tx, lookupUtxo)
+  (tx, lookupUTxO)
  where
-  lookupUtxo =
-    singletonUtxo (initialInput, toUtxoContext initialOutput)
-      <> singletonUtxo healthyCommittedUtxo
+  lookupUTxO =
+    UTxO.singleton (initialInput, toUTxOContext initialOutput)
+      <> UTxO.singleton healthyCommittedUTxO
 
   tx =
     commitTx
       Fixture.testNetworkId
       commitParty
-      (Just healthyCommittedUtxo)
+      (Just healthyCommittedUTxO)
       (initialInput, initialPubKeyHash)
 
   initialInput = generateWith arbitrary 42
@@ -72,8 +74,8 @@ healthyCommitTx =
   commitParty = generateWith arbitrary 42
 
 -- NOTE: An 8₳ output which is currently addressed to some arbitrary key.
-healthyCommittedUtxo :: (TxIn, TxOut CtxUTxO Era)
-healthyCommittedUtxo = flip generateWith 42 $ do
+healthyCommittedUTxO :: (TxIn, TxOut CtxUTxO Era)
+healthyCommittedUTxO = flip generateWith 42 $ do
   txIn <- arbitrary
   txOut <- modifyTxOutValue (const $ lovelaceToValue 8_000_000) <$> (genOutput =<< arbitrary)
   pure (txIn, txOut)
@@ -84,7 +86,7 @@ data CommitMutation
   | MutateCommittedAddress
   deriving (Generic, Show, Enum, Bounded)
 
-genCommitMutation :: (CardanoTx, Utxo) -> Gen SomeMutation
+genCommitMutation :: (CardanoTx, UTxO) -> Gen SomeMutation
 genCommitMutation (tx, _utxo) =
   oneof
     [ SomeMutation MutateCommitOutputValue . ChangeOutput 0 <$> do
@@ -101,9 +103,9 @@ genCommitMutation (tx, _utxo) =
     ]
  where
   TxOut commitOutputAddress commitOutputValue commitOutputDatum =
-    fromJust $ getOutputs tx !!? 0
+    fromJust $ txOuts' tx !!? 0
 
-  (committedTxIn, committedTxOut) = healthyCommittedUtxo
+  (committedTxIn, committedTxOut) = healthyCommittedUTxO
 
   committedAddress = txOutAddress committedTxOut
 

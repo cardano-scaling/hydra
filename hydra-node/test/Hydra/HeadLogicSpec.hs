@@ -142,7 +142,7 @@ spec = do
             st =
               inOpenState' threeParties $
                 CoordinatedHeadState
-                  { seenUtxo = mempty
+                  { seenUTxO = mempty
                   , seenTxs = mempty
                   , confirmedSnapshot = ConfirmedSnapshot snapshot (aggregate [])
                   , seenSnapshot = NoSeenSnapshot
@@ -156,7 +156,7 @@ spec = do
             st =
               inOpenState' threeParties $
                 CoordinatedHeadState
-                  { seenUtxo = mempty
+                  { seenUTxO = mempty
                   , seenTxs = mempty
                   , confirmedSnapshot = ConfirmedSnapshot snapshot (aggregate [])
                   , seenSnapshot = SeenSnapshot (Snapshot 3 mempty []) mempty
@@ -247,10 +247,10 @@ inOpenState ::
   [Party] ->
   Ledger tx ->
   HeadState tx
-inOpenState parties Ledger{initUtxo} =
+inOpenState parties Ledger{initUTxO} =
   inOpenState' parties $ CoordinatedHeadState u0 mempty snapshot0 NoSeenSnapshot
  where
-  u0 = initUtxo
+  u0 = initUTxO
   snapshot0 = InitialSnapshot $ Snapshot 0 u0 mempty
 
 inOpenState' ::

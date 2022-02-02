@@ -11,9 +11,10 @@
 -- thus we have not yet "reached" 'isomorphism'.
 module Hydra.Chain.Direct.Tx where
 
-import Hydra.Ledger.Cardano
+import Hydra.Cardano.Api
 import Hydra.Prelude
 
+import qualified Cardano.Api.UTxO as UTxO
 import Cardano.Binary (decodeFull', serialize')
 import qualified Data.Map as Map
 import Data.Time (Day (ModifiedJulianDay), UTCTime (UTCTime))
@@ -25,7 +26,8 @@ import qualified Hydra.Contract.Initial as Initial
 import Hydra.Data.ContestationPeriod (contestationPeriodFromDiffTime, contestationPeriodToDiffTime)
 import Hydra.Data.Party (partyFromVerKey, partyToVerKey)
 import qualified Hydra.Data.Party as OnChain
-import qualified Hydra.Ledger.Cardano as Api
+import Hydra.Ledger.Cardano (CardanoTx, hashTxOuts)
+import Hydra.Ledger.Cardano.Builder (addInputs, addOutputs, addVkInputs, emptyTxBody, unsafeBuildTransaction)
 import Hydra.Party (MultiSigned, Party (Party), toPlutusSignatures, vkey)
 import Hydra.Snapshot (Snapshot (..))
 import Ledger.Typed.Scripts (DatumType)
@@ -37,7 +39,7 @@ import Plutus.V2.Ledger.Api (toBuiltin)
 
 -- * Post Hydra Head transactions
 
-type UtxoWithScript = (TxIn, TxOut CtxUTxO Era, ScriptData)
+type UTxOWithScript = (TxIn, TxOut CtxUTxO Era, ScriptData)
 
 -- | Maintains information needed to construct on-chain transactions
 -- depending on the current state of the head.
@@ -50,8 +52,8 @@ data OnChainHeadState
         -- NOTE(SN): The Head's identifier is somewhat encoded in the TxOut's address
         -- XXX(SN): Data and [OnChain.Party] are overlapping
         threadOutput :: (TxIn, TxOut CtxUTxO Era, ScriptData, [OnChain.Party])
-      , initials :: [UtxoWithScript]
-      , commits :: [UtxoWithScript]
+      , initials :: [UTxOWithScript]
+      , commits :: [UTxOWithScript]
       }
   | OpenOrClosed
       { -- | The state machine UTxO produced by the Init transaction
@@ -173,15 +175,15 @@ commitTx networkId party utxo (initialInput, vkh) =
   commitDatum =
     mkTxOutDatum $ mkCommitDatum party (Head.validatorHash policyId) utxo
 
-mkCommitDatum :: Party -> Plutus.ValidatorHash -> Maybe (Api.TxIn, Api.TxOut Api.CtxUTxO Api.Era) -> Plutus.Datum
+mkCommitDatum :: Party -> Plutus.ValidatorHash -> Maybe (TxIn, TxOut CtxUTxO Era) -> Plutus.Datum
 mkCommitDatum (partyFromVerKey . vkey -> party) headValidatorHash utxo =
-  Commit.datum (party, headValidatorHash, serializedUtxo)
+  Commit.datum (party, headValidatorHash, serializedUTxO)
  where
-  serializedUtxo = case utxo of
+  serializedUTxO = case utxo of
     Nothing ->
       Nothing
     Just (_i, o) ->
-      Just $ Commit.SerializedTxOut (toBuiltin $ serialize' $ Api.toLedgerTxOut o)
+      Just $ Commit.SerializedTxOut (toBuiltin $ serialize' $ toLedgerTxOut o)
 
 -- | Create a transaction collecting all "committed" utxo and opening a Head,
 -- i.e. driving the Head script state.
@@ -247,7 +249,7 @@ closeTx ::
   MultiSigned (Snapshot CardanoTx) ->
   -- | Everything needed to spend the Head state-machine output.
   -- FIXME(SN): should also contain some Head identifier/address and stored Value (maybe the TxOut + Data?)
-  UtxoWithScript ->
+  UTxOWithScript ->
   Tx Era
 closeTx Snapshot{number, utxo} sig (headInput, headOutputBefore, ScriptDatumForTxIn -> headDatumBefore) =
   unsafeBuildTransaction $
@@ -277,8 +279,8 @@ closeTx Snapshot{number, utxo} sig (headInput, headOutputBefore, ScriptDatumForT
   utxoHash = toBuiltin $ hashTxOuts $ toList utxo
 
 fanoutTx ::
-  -- | Snapshotted Utxo to fanout on layer 1
-  Utxo ->
+  -- | Snapshotted UTxO to fanout on layer 1
+  UTxO ->
   -- | Everything needed to spend the Head state-machine output.
   -- FIXME(SN): should also contain some Head identifier/address and stored Value (maybe the TxOut + Data?)
   (TxIn, ScriptData) ->
@@ -387,7 +389,7 @@ observeInitTx ::
   Party ->
   CardanoTx ->
   Maybe (OnChainTx CardanoTx, OnChainHeadState)
-observeInitTx networkId party (getTxBody -> txBody) = do
+observeInitTx networkId party tx = do
   (ix, headOut, headData, Head.Initial cp ps) <- findFirst headOutput indexedOutputs
   let parties = map convertParty ps
   let cperiod = contestationPeriodToDiffTime cp
@@ -396,7 +398,7 @@ observeInitTx networkId party (getTxBody -> txBody) = do
     ( OnInitTx cperiod parties
     , Initial
         { threadOutput =
-            ( mkTxIn txBody ix
+            ( mkTxIn tx ix
             , toCtxUTxOTxOut headOut
             , fromAlonzoData headData
             , ps
@@ -406,14 +408,12 @@ observeInitTx networkId party (getTxBody -> txBody) = do
         }
     )
  where
-  TxBody TxBodyContent{txOuts} = txBody
-
   headOutput = \case
     (ix, out@(TxOut _ _ (TxOutDatum _ d))) ->
       (ix,out,toAlonzoData d,) <$> fromData (toPlutusData d)
     _ -> Nothing
 
-  indexedOutputs = zip [0 ..] txOuts
+  indexedOutputs = zip [0 ..] (txOuts' tx)
 
   initialOutputs = filter (isInitial . snd) indexedOutputs
 
@@ -421,7 +421,7 @@ observeInitTx networkId party (getTxBody -> txBody) = do
     mapMaybe
       ( \(i, o) -> do
           dat <- getDatum o
-          pure (mkTxIn txBody i, toCtxUTxOTxOut o, dat)
+          pure (mkTxIn tx i, toCtxUTxOTxOut o, dat)
       )
       initialOutputs
 
@@ -441,47 +441,47 @@ convertParty = Party . partyToVerKey
 --   input of the committed utxo.
 -- - Find the outputs which pays to the commit validator.
 -- - Using the datum of that output, deserialize the comitted output.
--- - Reconstruct the committed Utxo from both values (tx input and output).
+-- - Reconstruct the committed UTxO from both values (tx input and output).
 observeCommitTx ::
   NetworkId ->
   -- | Known (remaining) initial tx inputs.
   [TxIn] ->
   CardanoTx ->
-  Maybe (OnChainTx CardanoTx, UtxoWithScript)
-observeCommitTx networkId initials (getTxBody -> txBody) = do
+  Maybe (OnChainTx CardanoTx, UTxOWithScript)
+observeCommitTx networkId initials tx = do
   initialTxIn <- findInitialTxIn
   mCommittedTxIn <- decodeInitialRedeemer initialTxIn
 
-  (commitIn, commitOut) <- findTxOutByAddress commitAddress txBody
+  (commitIn, commitOut) <- findTxOutByAddress commitAddress tx
   dat <- getDatum commitOut
   -- TODO: This 'party' would be available from the spent 'initial' utxo (PT eventually)
   (party, _, serializedTxOut) <- fromData @(DatumType Commit.Commit) $ toPlutusData dat
   let mCommittedTxOut = convertTxOut serializedTxOut
 
-  comittedUtxo <-
+  comittedUTxO <-
     case (mCommittedTxIn, mCommittedTxOut) of
       (Nothing, Nothing) -> Just mempty
-      (Just i, Just o) -> Just $ Api.singletonUtxo (i, o)
+      (Just i, Just o) -> Just $ UTxO.singleton (i, o)
       (Nothing, Just{}) -> error "found commit with no redeemer out ref but with serialized output."
       (Just{}, Nothing) -> error "found commit with redeemer out ref but with no serialized output."
 
-  let onChainTx = OnCommitTx (convertParty party) comittedUtxo
+  let onChainTx = OnCommitTx (convertParty party) comittedUTxO
   pure
     ( onChainTx
-    , (commitIn, toUtxoContext commitOut, dat)
+    , (commitIn, toUTxOContext commitOut, dat)
     )
  where
   findInitialTxIn =
-    case filterTxIn (`elem` initials) txBody of
+    case filter (`elem` initials) (txIns' tx) of
       [input] -> Just input
       _ -> Nothing
 
   decodeInitialRedeemer =
-    findRedeemerSpending txBody >=> \case
+    findRedeemerSpending tx >=> \case
       Initial.Abort ->
         Nothing
       Initial.Commit{committedRef} ->
-        Just (Api.fromPlutusTxOutRef <$> committedRef)
+        Just (fromPlutusTxOutRef <$> committedRef)
 
   commitAddress = mkScriptAddress @PlutusScriptV1 networkId commitScript
 
@@ -493,12 +493,12 @@ convertTxOut = \case
   Just (Commit.SerializedTxOut outBytes) ->
     -- XXX(SN): these errors might be more severe and we could throw an
     -- exception here?
-    case Api.fromLedgerTxOut <$> decodeFull' (fromBuiltin outBytes) of
+    case fromLedgerTxOut <$> decodeFull' (fromBuiltin outBytes) of
       Right result -> Just result
       Left{} -> error "couldn't deserialize serialized output in commit's datum."
 
 -- REVIEW(SN): Is this really specific to commit only, or wouldn't we be able to
--- filter all 'getKnownUtxo' after observing any protocol tx?
+-- filter all 'getKnownUTxO' after observing any protocol tx?
 observeCommit ::
   NetworkId ->
   CardanoTx ->
@@ -509,7 +509,7 @@ observeCommit networkId tx = \case
     (onChainTx, commitTriple) <- observeCommitTx networkId (initials <&> \(a, _, _) -> a) tx
     -- NOTE(SN): A commit tx has been observed and thus we can remove all it's
     -- inputs from our tracked initials
-    let commitIns = inputs tx
+    let commitIns = txIns' tx
     let initials' = filter (\(i, _, _) -> i `notElem` commitIns) initials
     let commits' = commitTriple : commits
     pure
@@ -527,13 +527,13 @@ observeCommit networkId tx = \case
 -- | Identify a collectCom tx by lookup up the input spending the Head output
 -- and decoding its redeemer.
 observeCollectComTx ::
-  -- | A Utxo set to lookup tx inputs
-  Utxo ->
+  -- | A UTxO set to lookup tx inputs
+  UTxO ->
   CardanoTx ->
   Maybe (OnChainTx CardanoTx, OnChainHeadState)
 observeCollectComTx utxo tx = do
   (headInput, headOutput) <- findScriptOutput @PlutusScriptV1 utxo headScript
-  redeemer <- findRedeemerSpending (getTxBody tx) headInput
+  redeemer <- findRedeemerSpending tx headInput
   oldHeadDatum <- lookupDatum tx headOutput
   datum <- fromData $ toPlutusData oldHeadDatum
   case (datum, redeemer) of
@@ -558,13 +558,13 @@ observeCollectComTx utxo tx = do
 -- | Identify a close tx by lookup up the input spending the Head output and
 -- decoding its redeemer.
 observeCloseTx ::
-  -- | A Utxo set to lookup tx inputs
-  Utxo ->
+  -- | A UTxO set to lookup tx inputs
+  UTxO ->
   CardanoTx ->
   Maybe (OnChainTx CardanoTx, OnChainHeadState)
 observeCloseTx utxo tx = do
   (headInput, headOutput) <- findScriptOutput @PlutusScriptV1 utxo headScript
-  redeemer <- findRedeemerSpending (getTxBody tx) headInput
+  redeemer <- findRedeemerSpending tx headInput
   oldHeadDatum <- lookupDatum tx headOutput
   datum <- fromData $ toPlutusData oldHeadDatum
   case (datum, redeemer) of
@@ -597,13 +597,13 @@ observeCloseTx utxo tx = do
 -- means, to observe it, we need to look for a transaction with an input spent
 -- from a known script (the head state machine script) with a "fanout" redeemer.
 observeFanoutTx ::
-  -- | A Utxo set to lookup tx inputs
-  Utxo ->
+  -- | A UTxO set to lookup tx inputs
+  UTxO ->
   CardanoTx ->
   Maybe (OnChainTx CardanoTx, OnChainHeadState)
 observeFanoutTx utxo tx = do
   headInput <- fst <$> findScriptOutput @PlutusScriptV1 utxo headScript
-  findRedeemerSpending (getTxBody tx) headInput
+  findRedeemerSpending tx headInput
     >>= \case
       Head.Fanout{} -> pure (OnFanoutTx, Final)
       _ -> Nothing
@@ -613,13 +613,13 @@ observeFanoutTx utxo tx = do
 -- | Identify an abort tx by looking up the input spending the Head output and
 -- decoding its redeemer.
 observeAbortTx ::
-  -- | A Utxo set to lookup tx inputs
-  Utxo ->
+  -- | A UTxO set to lookup tx inputs
+  UTxO ->
   CardanoTx ->
   Maybe (OnChainTx CardanoTx, OnChainHeadState)
-observeAbortTx utxo (Tx body _) = do
+observeAbortTx utxo tx = do
   headInput <- fst <$> findScriptOutput @PlutusScriptV1 utxo headScript
-  findRedeemerSpending body headInput >>= \case
+  findRedeemerSpending tx headInput >>= \case
     Head.Abort -> pure (OnAbortTx, Final)
     _ -> Nothing
  where
@@ -630,9 +630,9 @@ observeAbortTx utxo (Tx body _) = do
 
 -- | Provide a UTXO map for given OnChainHeadState. Used by the TinyWallet and
 -- the direct chain component to lookup inputs for balancing / constructing txs.
--- XXX(SN): This is a hint that we might want to track the Utxo directly?
-getKnownUtxo :: OnChainHeadState -> Map TxIn (TxOut CtxUTxO Era)
-getKnownUtxo = \case
+-- XXX(SN): This is a hint that we might want to track the UTxO directly?
+getKnownUTxO :: OnChainHeadState -> Map TxIn (TxOut CtxUTxO Era)
+getKnownUTxO = \case
   Initial{threadOutput, initials, commits} ->
     Map.fromList $ take2 threadOutput : (take2' <$> (initials <> commits))
   OpenOrClosed{threadOutput = (i, o, _, _)} ->
@@ -646,7 +646,7 @@ getKnownUtxo = \case
 -- | Look for the "initial" which corresponds to given cardano verification key.
 ownInitial ::
   VerificationKey PaymentKey ->
-  [UtxoWithScript] ->
+  [UTxOWithScript] ->
   Maybe (TxIn, Hash PaymentKey)
 ownInitial vkey =
   foldl' go Nothing

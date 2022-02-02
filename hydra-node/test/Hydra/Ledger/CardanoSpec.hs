@@ -13,18 +13,20 @@ import Data.Aeson (eitherDecode, encode)
 import qualified Data.Aeson as Aeson
 import qualified Data.ByteString.Base16 as Base16
 import Data.Text (unpack)
-import Hydra.Ledger (applyTransactions)
-import Hydra.Ledger.Cardano (
+import Hydra.Cardano.Api (
   AssetName,
-  CardanoTx,
   Tx (..),
-  Utxo,
-  cardanoLedger,
+  UTxO,
   fromLedgerTx,
-  genSequenceOfValidTransactions,
-  genUtxo,
   getTxId,
   toLedgerTx,
+ )
+import Hydra.Ledger (applyTransactions)
+import Hydra.Ledger.Cardano (
+  CardanoTx,
+  cardanoLedger,
+  genSequenceOfValidTransactions,
+  genUTxO,
  )
 import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
 import Test.Cardano.Ledger.MaryEraGen ()
@@ -36,7 +38,7 @@ spec =
   parallel $ do
     roundtripAndGoldenSpecs (Proxy @AssetName)
     -- FIXME: Roundtrip instances for all JSON types we depend on
-    roundtripAndGoldenSpecs (Proxy @Utxo)
+    roundtripAndGoldenSpecs (Proxy @UTxO)
     -- roundtripAndGoldenSpecs (Proxy @CardanoTxWitnesses)
     roundtripAndGoldenSpecs (Proxy @CardanoTx)
 
@@ -56,7 +58,7 @@ spec =
             "{\"9fdc525c20bc00d9dfa9d14904b65e01910c0dfe3bb39865523c1e20eaeb0903#0\":\
             \  {\"address\":\"addr1vx35vu6aqmdw6uuc34gkpdymrpsd3lsuh6ffq6d9vja0s6spkenss\",\
             \   \"value\":{\"lovelace\":14}}}"
-      shouldParseJSONAs @Utxo bs
+      shouldParseJSONAs @UTxO bs
 
     -- TODO(SN): rather ensure we use the right (cardano-api's) witness format as a test
     it "should parse a CardanoTx" $ do
@@ -98,7 +100,7 @@ roundtripCBOR a =
 
 appliesValidTransaction :: Property
 appliesValidTransaction =
-  forAll genUtxo $ \utxo ->
+  forAll genUTxO $ \utxo ->
     forAllShrink (genSequenceOfValidTransactions utxo) shrink $ \txs ->
       let result = applyTransactions cardanoLedger utxo txs
        in isRight result
@@ -108,7 +110,7 @@ appliesValidTransaction =
 
 appliesValidTransactionFromJSON :: Property
 appliesValidTransactionFromJSON =
-  forAll genUtxo $ \utxo ->
+  forAll genUTxO $ \utxo ->
     forAllShrink (genSequenceOfValidTransactions utxo) shrink $ \txs ->
       let encoded = encode txs
           result = eitherDecode encoded >>= first show . applyTransactions cardanoLedger utxo

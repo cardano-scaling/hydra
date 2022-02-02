@@ -4,9 +4,10 @@
 
 module Hydra.Chain.Direct.Contract.CollectCom where
 
-import Hydra.Ledger.Cardano
+import Hydra.Cardano.Api
 import Hydra.Prelude hiding (label)
 
+import qualified Cardano.Api.UTxO as UTxO
 import qualified Data.Map as Map
 import Data.Maybe (fromJust)
 import Hydra.Chain.Direct.Contract.Mutation (
@@ -29,7 +30,7 @@ import qualified Hydra.Contract.Head as Head
 import qualified Hydra.Contract.HeadState as Head
 import qualified Hydra.Data.Party as OnChain
 import qualified Hydra.Data.Party as Party
-import qualified Hydra.Ledger.Cardano as Api
+import Hydra.Ledger.Cardano (CardanoTx, genAdaOnlyUTxO, genValue)
 import Hydra.Party (Party, vkey)
 import Plutus.Orphans ()
 import Plutus.V1.Ledger.Api (fromData, toBuiltin, toData)
@@ -41,12 +42,12 @@ import qualified Prelude
 -- CollectComTx
 --
 
-healthyCollectComTx :: (CardanoTx, Utxo)
+healthyCollectComTx :: (CardanoTx, UTxO)
 healthyCollectComTx =
-  (tx, lookupUtxo)
+  (tx, lookupUTxO)
  where
-  lookupUtxo =
-    singletonUtxo (headInput, headResolvedInput) <> Utxo (fst <$> commits)
+  lookupUTxO =
+    UTxO.singleton (headInput, headResolvedInput) <> UTxO (fst <$> commits)
 
   tx =
     collectComTx
@@ -54,17 +55,17 @@ healthyCollectComTx =
       (headInput, headDatum, healthyCollectComOnChainParties)
       commits
 
-  committedUtxo =
+  committedUTxO =
     generateWith
       (replicateM (length healthyCollectComParties) genCommittableTxOut)
       42
 
   commits =
-    (uncurry healthyCommitOutput <$> zip healthyCollectComParties committedUtxo)
+    (uncurry healthyCommitOutput <$> zip healthyCollectComParties committedUTxO)
       & Map.fromList
 
   headInput = generateWith arbitrary 42
-  headResolvedInput = mkHeadOutput Fixture.testNetworkId (toUtxoContext $ mkTxOutDatum healthyCollectComInitialDatum)
+  headResolvedInput = mkHeadOutput Fixture.testNetworkId (toUTxOContext $ mkTxOutDatum healthyCollectComInitialDatum)
   headDatum = fromPlutusData $ toData healthyCollectComInitialDatum
 
 healthyCollectComInitialDatum :: Head.State
@@ -87,7 +88,7 @@ healthyCollectComParties = flip generateWith 42 $ do
 
 genCommittableTxOut :: Gen (TxIn, TxOut CtxUTxO AlonzoEra)
 genCommittableTxOut =
-  Prelude.head . utxoPairs <$> (genAdaOnlyUtxo `suchThat` (\u -> length u > 1))
+  Prelude.head . UTxO.pairs <$> (genAdaOnlyUTxO `suchThat` (\u -> length u > 1))
 
 healthyCommitOutput ::
   Party ->
@@ -106,7 +107,7 @@ healthyCommitOutput party committed =
   commitScript =
     fromPlutusScript Commit.validatorScript
   commitAddress =
-    mkScriptAddress @Api.PlutusScriptV1 Fixture.testNetworkId commitScript
+    mkScriptAddress @PlutusScriptV1 Fixture.testNetworkId commitScript
   commitValue =
     mkTxOutValue $
       headValue <> (txOutValue . snd) committed
@@ -115,18 +116,18 @@ healthyCommitOutput party committed =
 
 data CollectComMutation
   = MutateOpenOutputValue
-  | MutateOpenUtxoHash
+  | MutateOpenUTxOHash
   | MutateHeadScriptInput
   | MutateHeadTransition
   deriving (Generic, Show, Enum, Bounded)
 
-genCollectComMutation :: (CardanoTx, Utxo) -> Gen SomeMutation
+genCollectComMutation :: (CardanoTx, UTxO) -> Gen SomeMutation
 genCollectComMutation (tx, utxo) =
   oneof
     [ SomeMutation MutateOpenOutputValue . ChangeOutput 0 <$> do
         mutatedValue <- (mkTxOutValue <$> genValue) `suchThat` (/= collectComOutputValue)
         pure $ TxOut collectComOutputAddress mutatedValue collectComOutputDatum
-    , SomeMutation MutateOpenUtxoHash . ChangeOutput 0 <$> mutateUtxoHash
+    , SomeMutation MutateOpenUTxOHash . ChangeOutput 0 <$> mutateUTxOHash
     , SomeMutation MutateHeadScriptInput . ChangeInput (headTxIn utxo) <$> anyPayToPubKeyTxOut
     , SomeMutation MutateHeadTransition <$> do
         changeRedeemer <- ChangeHeadRedeemer <$> (Head.Close 0 . toBuiltin <$> genHash <*> arbitrary)
@@ -135,10 +136,10 @@ genCollectComMutation (tx, utxo) =
     ]
  where
   TxOut collectComOutputAddress collectComOutputValue collectComOutputDatum =
-    fromJust $ getOutputs tx !!? 0
+    fromJust $ txOuts' tx !!? 0
 
-  mutateUtxoHash = do
-    mutatedUtxoHash <- genHash
+  mutateUTxOHash = do
+    mutatedUTxOHash <- genHash
     -- NOTE / TODO:
     --
     -- This should probably be defined a 'Mutation', but it is different
@@ -157,7 +158,7 @@ genCollectComMutation (tx, utxo) =
               TxOut
                 collectComOutputAddress
                 collectComOutputValue
-                (mkTxOutDatum Head.Open{parties, Head.utxoHash = toBuiltin mutatedUtxoHash})
+                (mkTxOutDatum Head.Open{parties, Head.utxoHash = toBuiltin mutatedUTxOHash})
           (Just st) ->
             error $ "Unexpected state " <> show st
           Nothing ->

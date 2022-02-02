@@ -7,6 +7,7 @@ module Bench.EndToEnd where
 import Hydra.Prelude
 import Test.Hydra.Prelude
 
+import qualified Cardano.Api.UTxO as UTxO
 import Cardano.Crypto.DSIGN (
   DSIGNAlgorithm (deriveVerKeyDSIGN),
   MockDSIGN,
@@ -38,16 +39,10 @@ import Data.Scientific (Scientific)
 import Data.Set ((\\))
 import qualified Data.Set as Set
 import Data.Time (nominalDiffTimeToSeconds)
+import Hydra.Cardano.Api (TxId, UTxO, getVerificationKey)
 import Hydra.Generator (Dataset (..))
 import Hydra.Ledger (txId)
-import Hydra.Ledger.Cardano (
-  CardanoTx,
-  TxId,
-  Utxo,
-  fromCardanoApiUtxo,
-  getVerificationKey,
-  utxoMin,
- )
+import Hydra.Ledger.Cardano (CardanoTx)
 import Hydra.Logging (showLogsOnFailure)
 import Hydra.Party (deriveParty, generateKey)
 import HydraNode (
@@ -95,7 +90,7 @@ bench timeoutSeconds workDir dataset clusterSize =
             let nodes = leader : followers
             waitForNodesConnected tracer [1 .. fromIntegral clusterSize] nodes
 
-            initialUtxos <- createUtxoToCommit dataset nodeSocket
+            initialUTxOs <- createUTxOToCommit dataset nodeSocket
 
             let contestationPeriod = 10 :: Natural
             send leader $ input "Init" ["contestationPeriod" .= contestationPeriod]
@@ -103,9 +98,9 @@ bench timeoutSeconds workDir dataset clusterSize =
             waitFor tracer 3 nodes $
               output "ReadyToCommit" ["parties" .= parties]
 
-            expectedUtxo <- mconcat <$> forM (zip nodes initialUtxos) (uncurry commit)
+            expectedUTxO <- mconcat <$> forM (zip nodes initialUTxOs) (uncurry commit)
 
-            waitFor tracer 3 nodes $ output "HeadIsOpen" ["utxo" .= expectedUtxo]
+            waitFor tracer 3 nodes $ output "HeadIsOpen" ["utxo" .= expectedUTxO]
 
             processedTransactions <- processTransactions nodes dataset
 
@@ -126,11 +121,11 @@ bench timeoutSeconds workDir dataset clusterSize =
             putTextLn $ "Confirmed below 1 sec: " <> show percentBelow1Sec <> "%"
             percentBelow1Sec `shouldSatisfy` (> 90)
 
-createUtxoToCommit :: [Dataset] -> FilePath -> IO [Utxo]
-createUtxoToCommit dataset nodeSocket =
+createUTxOToCommit :: [Dataset] -> FilePath -> IO [UTxO]
+createUTxOToCommit dataset nodeSocket =
   forM dataset $ \Dataset{fundingTransaction} -> do
     submit defaultNetworkId nodeSocket fundingTransaction
-    utxoMin . fromCardanoApiUtxo <$> waitForTransaction defaultNetworkId nodeSocket fundingTransaction
+    UTxO.min <$> waitForTransaction defaultNetworkId nodeSocket fundingTransaction
 
 processTransactions :: [HydraClient] -> [Dataset] -> IO (Map.Map TxId Event)
 processTransactions clients dataset = do
@@ -163,18 +158,18 @@ progressReport nodeId clientId queueSize queue = do
 -- Helpers
 --
 
-commit :: HydraClient -> Utxo -> IO Utxo
-commit client initialUtxo = do
-  send client $ input "Commit" ["utxo" .= initialUtxo]
-  pure initialUtxo
+commit :: HydraClient -> UTxO -> IO UTxO
+commit client initialUTxO = do
+  send client $ input "Commit" ["utxo" .= initialUTxO]
+  pure initialUTxO
 
-assignUtxo :: (Utxo, Int) -> Map.Map Int (HydraClient, Utxo) -> Map.Map Int (HydraClient, Utxo)
-assignUtxo (utxo, clientId) = Map.adjust appendUtxo clientId
+assignUTxO :: (UTxO, Int) -> Map.Map Int (HydraClient, UTxO) -> Map.Map Int (HydraClient, UTxO)
+assignUTxO (utxo, clientId) = Map.adjust appendUTxO clientId
  where
-  appendUtxo (client, utxo') = (client, utxo <> utxo')
+  appendUTxO (client, utxo') = (client, utxo <> utxo')
 
-noUtxos :: Utxo
-noUtxos = mempty
+noUTxOs :: UTxO
+noUTxOs = mempty
 
 double :: Real a => a -> Double
 double = realToFrac

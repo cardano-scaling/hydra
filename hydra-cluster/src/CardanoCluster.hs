@@ -6,19 +6,6 @@ module CardanoCluster where
 
 import Hydra.Prelude
 
-import Cardano.Api (
-  AsType (..),
-  NetworkId (Testnet),
-  NetworkMagic (NetworkMagic),
-  PaymentKey,
-  SigningKey,
-  TextEnvelopeError (TextEnvelopeAesonDecodeError),
-  VerificationKey,
-  deserialiseFromTextEnvelope,
-  getVerificationKey,
-  serialiseToRawBytes,
- )
-import Cardano.Api.Shelley (VerificationKey (PaymentVerificationKey))
 import Cardano.Ledger.Keys (VKey (VKey))
 import CardanoClient (buildAddress)
 import CardanoNode (
@@ -40,6 +27,18 @@ import qualified Data.Aeson as Aeson
 import Data.Aeson.Lens (key)
 import qualified Data.ByteString as BS
 import Data.ByteString.Base16 (encodeBase16)
+import Hydra.Cardano.Api (
+  AsType (..),
+  NetworkId (Testnet),
+  NetworkMagic (NetworkMagic),
+  PaymentKey,
+  SigningKey,
+  TextEnvelopeError (TextEnvelopeAesonDecodeError),
+  VerificationKey (PaymentVerificationKey),
+  deserialiseFromTextEnvelope,
+  getVerificationKey,
+  serialiseToRawBytes,
+ )
 import qualified Hydra.Chain.Direct.Util as Cardano
 import qualified Paths_hydra_cluster as Pkg
 import System.Directory (createDirectoryIfMissing, doesFileExist)

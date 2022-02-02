@@ -2,10 +2,10 @@
 -- cardano-api.
 module Hydra.Ledger.Cardano.Builder where
 
-import Cardano.Api
 import Hydra.Prelude
 
 import Data.Default (def)
+import Hydra.Cardano.Api
 
 -- * Types
 

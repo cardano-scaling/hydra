@@ -8,7 +8,7 @@ import Cardano.Prelude
 import Control.Monad.Class.MonadThrow (MonadThrow)
 import Data.Aeson (FromJSON, ToJSON)
 import Data.Time (DiffTime, UTCTime)
-import Hydra.Ledger (IsTx, TxIdType, UtxoType)
+import Hydra.Ledger (IsTx, TxIdType, UTxOType)
 import Hydra.Party (Party)
 import Hydra.Prelude (Arbitrary (arbitrary), genericArbitrary)
 import Hydra.Snapshot (ConfirmedSnapshot, Snapshot, SnapshotNumber)
@@ -30,12 +30,12 @@ type ContestationPeriod = DiffTime
 -- construct corresponding Head protocol transactions.
 data PostChainTx tx
   = InitTx {headParameters :: HeadParameters}
-  | CommitTx {party :: Party, committed :: UtxoType tx}
-  | AbortTx {utxo :: UtxoType tx}
-  | CollectComTx {utxo :: UtxoType tx}
+  | CommitTx {party :: Party, committed :: UTxOType tx}
+  | AbortTx {utxo :: UTxOType tx}
+  | CollectComTx {utxo :: UTxOType tx}
   | CloseTx {confirmedSnapshot :: ConfirmedSnapshot tx}
   | ContestTx {snapshot :: Snapshot tx}
-  | FanoutTx {utxo :: UtxoType tx}
+  | FanoutTx {utxo :: UTxOType tx}
   deriving stock (Generic)
 
 deriving instance IsTx tx => Eq (PostChainTx tx)
@@ -43,7 +43,7 @@ deriving instance IsTx tx => Show (PostChainTx tx)
 deriving instance IsTx tx => ToJSON (PostChainTx tx)
 deriving instance IsTx tx => FromJSON (PostChainTx tx)
 
-instance (Arbitrary tx, Arbitrary (UtxoType tx)) => Arbitrary (PostChainTx tx) where
+instance (Arbitrary tx, Arbitrary (UTxOType tx)) => Arbitrary (PostChainTx tx) where
   arbitrary = genericArbitrary
 
 -- REVIEW(SN): There is a similarly named type in plutus-ledger, so we might
@@ -53,7 +53,7 @@ instance (Arbitrary tx, Arbitrary (UtxoType tx)) => Arbitrary (PostChainTx tx) w
 -- possible to simplify observing the chain.
 data OnChainTx tx
   = OnInitTx {contestationPeriod :: ContestationPeriod, parties :: [Party]}
-  | OnCommitTx {party :: Party, committed :: UtxoType tx}
+  | OnCommitTx {party :: Party, committed :: UTxOType tx}
   | OnAbortTx
   | OnCollectComTx
   | OnCloseTx {contestationDeadline :: UTCTime, snapshotNumber :: SnapshotNumber}
@@ -67,15 +67,15 @@ deriving instance IsTx tx => Show (OnChainTx tx)
 deriving instance IsTx tx => ToJSON (OnChainTx tx)
 deriving instance IsTx tx => FromJSON (OnChainTx tx)
 
-instance (Arbitrary tx, Arbitrary (UtxoType tx)) => Arbitrary (OnChainTx tx) where
+instance (Arbitrary tx, Arbitrary (UTxOType tx)) => Arbitrary (OnChainTx tx) where
   arbitrary = genericArbitrary
 
 -- | Exceptions thrown by 'postTx'.
 data PostTxError tx
-  = MoreThanOneUtxoCommitted
-  | CannotSpendInput {input :: Text, walletUtxo :: UtxoType tx, headUtxo :: UtxoType tx}
-  | CannotCoverFees {walletUtxo :: UtxoType tx, headUtxo :: UtxoType tx, reason :: Text, tx :: tx}
-  | CannotFindOwnInitial {knownUtxo :: UtxoType tx}
+  = MoreThanOneUTxOCommitted
+  | CannotSpendInput {input :: Text, walletUTxO :: UTxOType tx, headUTxO :: UTxOType tx}
+  | CannotCoverFees {walletUTxO :: UTxOType tx, headUTxO :: UTxOType tx, reason :: Text, tx :: tx}
+  | CannotFindOwnInitial {knownUTxO :: UTxOType tx}
   | NoSeedInput
   | NoPaymentInput
   | InvalidStateToPost {txTried :: PostChainTx tx}
@@ -86,7 +86,7 @@ deriving instance IsTx tx => Show (PostTxError tx)
 
 instance
   ( Arbitrary tx
-  , Arbitrary (UtxoType tx)
+  , Arbitrary (UTxOType tx)
   , Arbitrary (TxIdType tx)
   ) =>
   Arbitrary (PostTxError tx)

@@ -89,7 +89,6 @@ library
     Hydra.Ledger.Cardano
     Hydra.Ledger.Cardano.Builder
     Hydra.Ledger.Cardano.Evaluate
-    Hydra.Ledger.Cardano.Isomorphism
     Hydra.Ledger.Cardano.Json
     Hydra.Ledger.Simple
     Hydra.Logging
@@ -118,7 +117,6 @@ library
     , bech32
     , bech32-th
     , bytestring
-    , cardano-api
     , cardano-binary
     , cardano-crypto-class
     , cardano-ledger-alonzo
@@ -142,6 +140,7 @@ library
     , hedgehog-quickcheck
     , hydra-plutus
     , hydra-prelude
+    , hydra-cardano-api
     , io-classes
     , iohk-monitoring
     , iproute
@@ -194,7 +193,6 @@ executable tx-cost
   build-depends:
     , base
     , bytestring
-    , cardano-api
     , cardano-binary
     , cardano-crypto-class
     , cardano-ledger-alonzo
@@ -202,6 +200,7 @@ executable tx-cost
     , cardano-ledger-shelley
     , cardano-ledger-shelley-ma
     , containers
+    , hydra-cardano-api
     , hydra-node
     , hydra-plutus
     , hydra-prelude
@@ -267,7 +266,6 @@ test-suite tests
     , base
     , base16-bytestring
     , bytestring
-    , cardano-api
     , cardano-binary
     , cardano-crypto-class
     , cardano-ledger-alonzo
@@ -289,6 +287,7 @@ test-suite tests
     , hspec-core
     , hspec-golden-aeson
     , HUnit
+    , hydra-cardano-api
     , hydra-node
     , hydra-plutus
     , hydra-prelude

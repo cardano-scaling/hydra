@@ -7,44 +7,39 @@ import Test.Hydra.Prelude
 
 import Data.Aeson (encode)
 import Data.Text (unpack)
-import Hydra.Generator (Dataset (..), defaultProtocolParameters, genConstantUtxoDataset)
+import Hydra.Cardano.Api (UTxO, utxoFromTx)
+import Hydra.Generator (Dataset (..), defaultProtocolParameters, genConstantUTxODataset)
 import Hydra.Ledger (applyTransactions, balance)
-import Hydra.Ledger.Cardano (
-  CardanoTx,
-  Utxo,
-  cardanoLedger,
-  genUtxo,
-  utxoFromTx,
- )
+import Hydra.Ledger.Cardano (CardanoTx, cardanoLedger, genUTxO)
 import Test.Aeson.GenericSpecs (roundtripSpecs)
 import Test.QuickCheck (Positive (Positive), Property, counterexample, forAll)
 
 spec :: Spec
 spec = parallel $ do
   roundtripSpecs (Proxy @Dataset)
-  prop "compute values from UTXO set" prop_computeValueFromUtxo
-  prop "generates a Dataset that keeps UTXO constant" prop_keepsUtxoConstant
+  prop "compute values from UTXO set" prop_computeValueFromUTxO
+  prop "generates a Dataset that keeps UTXO constant" prop_keepsUTxOConstant
 
-prop_computeValueFromUtxo :: Property
-prop_computeValueFromUtxo =
-  forAll genUtxo $ \utxo ->
+prop_computeValueFromUTxO :: Property
+prop_computeValueFromUTxO =
+  forAll genUTxO $ \utxo ->
     balance @CardanoTx utxo /= mempty
 
-prop_keepsUtxoConstant :: Property
-prop_keepsUtxoConstant =
+prop_keepsUTxOConstant :: Property
+prop_keepsUTxOConstant =
   forAll arbitrary $ \(Positive n) ->
-    forAll (genConstantUtxoDataset defaultProtocolParameters n) $ \Dataset{fundingTransaction, transactionsSequence} ->
-      let initialUtxo = utxoFromTx fundingTransaction
-          finalUtxo = foldl' apply initialUtxo transactionsSequence
-       in length finalUtxo == length initialUtxo
+    forAll (genConstantUTxODataset defaultProtocolParameters n) $ \Dataset{fundingTransaction, transactionsSequence} ->
+      let initialUTxO = utxoFromTx fundingTransaction
+          finalUTxO = foldl' apply initialUTxO transactionsSequence
+       in length finalUTxO == length initialUTxO
             & counterexample ("\ntransactions: " <> jsonString transactionsSequence)
-            & counterexample ("\nutxo: " <> jsonString initialUtxo)
+            & counterexample ("\nutxo: " <> jsonString initialUTxO)
 
-apply :: Utxo -> CardanoTx -> Utxo
+apply :: UTxO -> CardanoTx -> UTxO
 apply utxo tx =
   case applyTransactions cardanoLedger utxo [tx] of
     Left err -> error $ "invalid generated data set" <> show err
-    Right finalUtxo -> finalUtxo
+    Right finalUTxO -> finalUTxO
 
 jsonString :: ToJSON a => a -> String
 jsonString = unpack . decodeUtf8 . encode

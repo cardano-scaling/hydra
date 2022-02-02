@@ -14,6 +14,7 @@ import Test.Hydra.Prelude
 
 import Cardano.Ledger.Alonzo.Tx (ValidatedTx)
 import Control.Concurrent (newEmptyMVar, putMVar, takeMVar)
+import Hydra.Cardano.Api (NetworkMagic, PaymentKey, VerificationKey)
 import Hydra.Chain (
   Chain (..),
   HeadParameters (HeadParameters),
@@ -25,7 +26,7 @@ import Hydra.Chain.Direct (DirectChainLog, withDirectChain)
 import Hydra.Chain.Direct.MockServer (withMockServer)
 import Hydra.Chain.Direct.Util (Era, retry)
 import Hydra.Chain.Direct.WalletSpec (genPaymentTo)
-import Hydra.Ledger.Cardano (CardanoTx, NetworkMagic, PaymentKey, VerificationKey, genKeyPair)
+import Hydra.Ledger.Cardano (CardanoTx, genKeyPair)
 import Hydra.Logging (showLogsOnFailure)
 import Hydra.Party (Party, deriveParty, generateKey)
 import Test.QuickCheck (generate)
