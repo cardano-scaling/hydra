@@ -70,6 +70,21 @@ The following diagram represents the internal structure of the Hydra Node and th
 - Arrows depict the flow of data (Requests, messages, responses...)
 - We represent some components that are not part of the Hydra node proper for legibility's sake
 
+# On-chain verification (OCV)
+
+An important part of the Hydra Head protocol is how it is secured on-chain. For
+that matter, Hydra Head protocol transactions like `collectComTx`, `closeTx`,
+`fanoutTx` etc. use Plutus script validators to check certain properties. For
+example, that the multi-signed UTXO state is honored when distributing funds on
+Head finalization.
+
+Currently we only implement a basic, naiive version of those OCV algorithms and
+take several short-cuts to have smaller, releasable increments and manage
+limitations due to Plutus execution budgets or script sizes along the way. The
+current structure of transactions, involved scripts and their datums/redeemers
+is documented on examples of the [full](./images/on-chain-full.jpg) and
+[abort](./images/on-chain-abort.jpg) on-chain life-cycles of a Hydra Head.
+
 ## Components
 
 > **TODO**: Move as haddock comments to each module/function
