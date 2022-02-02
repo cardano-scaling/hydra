@@ -336,8 +336,12 @@ chainSyncClient tracer networkMagic callback party headState =
             <|> observeFanoutTx utxo tx
     case res of
       Just (onChainTx, newOnChainHeadState) -> do
-        writeTVar headState newOnChainHeadState
-        pure $ onChainTx : observed
+        case (onChainTx, onChainHeadState) of
+          (OnInitTx{}, Initial{}) -> traceShow IgnoredTx{onChainTx} $ pure observed
+          (OnInitTx{}, OpenOrClosed{}) -> traceShow IgnoredTx{onChainTx} $ pure observed
+          _ -> do
+            writeTVar headState newOnChainHeadState
+            pure $ onChainTx : observed
       Nothing -> pure observed
 
 txSubmissionClient ::
@@ -511,6 +515,7 @@ data DirectChainLog
   | ReceivedTxs {onChainTxs :: [OnChainTx Tx], receivedTxs :: [(TxId StandardCrypto, ValidatedTx Era)]}
   | RolledBackward {point :: SomePoint}
   | Wallet TinyWalletLog
+  | IgnoredTx {onChainTx :: OnChainTx CardanoTx}
   deriving (Eq, Show, Generic)
 
 instance Arbitrary DirectChainLog where
@@ -548,4 +553,9 @@ instance ToJSON DirectChainLog where
       object
         [ "tag" .= String "Wallet"
         , "contents" .= log
+        ]
+    IgnoredTx{onChainTx} ->
+      object
+        [ "tag" .= String "IgnoredTx"
+        , "onChainTx" .= onChainTx
         ]
