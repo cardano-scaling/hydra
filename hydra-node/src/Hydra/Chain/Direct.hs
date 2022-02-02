@@ -14,7 +14,7 @@ module Hydra.Chain.Direct (
 
 import Hydra.Prelude
 
-import Cardano.Api (PaymentKey, SigningKey, VerificationKey)
+import qualified Cardano.Api.UTxO as UTxO
 import Cardano.Ledger.Alonzo.Language (Language (PlutusV1))
 import Cardano.Ledger.Alonzo.Rules.Utxo (UtxoPredicateFailure (UtxosFailure))
 import Cardano.Ledger.Alonzo.Rules.Utxos (TagMismatchDescription (FailedUnexpectedly), UtxosPredicateFailure (ValidationTagMismatch))
@@ -35,6 +35,18 @@ import Control.Tracer (nullTracer)
 import Data.Aeson (Value (String), object, (.=))
 import qualified Data.Map.Strict as Map
 import Data.Sequence.Strict (StrictSeq)
+import Hydra.Cardano.Api (
+  NetworkId (Testnet),
+  PaymentKey,
+  SigningKey,
+  UTxO' (..),
+  VerificationKey,
+  fromLedgerTx,
+  fromLedgerTxIn,
+  fromLedgerUTxO,
+  toLedgerTx,
+  toLedgerUTxO,
+ )
 import Hydra.Chain (
   Chain (..),
   ChainCallback,
@@ -50,7 +62,7 @@ import Hydra.Chain.Direct.Tx (
   collectComTx,
   commitTx,
   fanoutTx,
-  getKnownUtxo,
+  getKnownUTxO,
   initTx,
   observeAbortTx,
   observeCloseTx,
@@ -75,17 +87,7 @@ import Hydra.Chain.Direct.Wallet (
   getTxId,
   withTinyWallet,
  )
-import Hydra.Ledger.Cardano (
-  CardanoTx,
-  NetworkId (Testnet),
-  Utxo' (..),
-  fromLedgerTx,
-  fromLedgerTxIn,
-  fromLedgerUtxo,
-  toLedgerTx,
-  toLedgerUtxo,
-  utxoPairs,
- )
+import Hydra.Ledger.Cardano (CardanoTx)
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Party (Party)
 import Hydra.Snapshot (ConfirmedSnapshot (..))
@@ -323,7 +325,7 @@ chainSyncClient tracer networkMagic callback party headState =
   runOnChainTx :: [OnChainTx CardanoTx] -> ValidatedTx Era -> STM m [OnChainTx CardanoTx]
   runOnChainTx observed (fromLedgerTx -> tx) = do
     onChainHeadState <- readTVar headState
-    let utxo = Utxo (getKnownUtxo onChainHeadState)
+    let utxo = UTxO (getKnownUTxO onChainHeadState)
     -- TODO(SN): We should be only looking for abort,commit etc. when we have a headId/policyId
     let res =
           observeInitTx networkId party tx
@@ -383,26 +385,26 @@ finalizeTx ::
   TVar m OnChainHeadState ->
   ValidatedTx Era ->
   STM m (ValidatedTx Era)
-finalizeTx TinyWallet{sign, getUtxo, coverFee} headState partialTx = do
-  headUtxo <- Utxo . getKnownUtxo <$> readTVar headState
-  walletUtxo <- fromLedgerUtxo . Ledger.UTxO <$> getUtxo
-  coverFee (Ledger.unUTxO $ toLedgerUtxo headUtxo) partialTx >>= \case
-    Left ErrNoPaymentUtxoFound ->
+finalizeTx TinyWallet{sign, getUTxO, coverFee} headState partialTx = do
+  headUTxO <- UTxO . getKnownUTxO <$> readTVar headState
+  walletUTxO <- fromLedgerUTxO . Ledger.UTxO <$> getUTxO
+  coverFee (Ledger.unUTxO $ toLedgerUTxO headUTxO) partialTx >>= \case
+    Left ErrNoPaymentUTxOFound ->
       retry
     Left ErrUnknownInput{input} -> do
       throwIO
         ( CannotSpendInput
             { input = show input
-            , walletUtxo
-            , headUtxo
+            , walletUTxO
+            , headUTxO
             } ::
             PostTxError CardanoTx
         )
     Left e ->
       throwIO
         ( CannotCoverFees
-            { walletUtxo
-            , headUtxo
+            { walletUTxO
+            , headUTxO
             , reason = show e
             , tx = fromLedgerTx partialTx
             } ::
@@ -419,10 +421,10 @@ fromPostChainTx ::
   [VerificationKey PaymentKey] ->
   PostChainTx CardanoTx ->
   STM m CardanoTx
-fromPostChainTx TinyWallet{getUtxo, verificationKey} networkId headState cardanoKeys tx =
+fromPostChainTx TinyWallet{getUTxO, verificationKey} networkId headState cardanoKeys tx =
   case tx of
     InitTx params -> do
-      u <- getUtxo
+      u <- getUTxO
       -- NOTE: 'lookupMax' to favor change outputs!
       case Map.lookupMax u of
         Just (fromLedgerTxIn -> seedInput, _) -> pure $ initTx networkId cardanoKeys params seedInput
@@ -439,15 +441,15 @@ fromPostChainTx TinyWallet{getUtxo, verificationKey} networkId headState cardano
       readTVar headState >>= \case
         st@Initial{initials} -> case ownInitial verificationKey initials of
           Nothing ->
-            throwIO (CannotFindOwnInitial{knownUtxo = Utxo $ getKnownUtxo st} :: PostTxError CardanoTx)
+            throwIO (CannotFindOwnInitial{knownUTxO = UTxO $ getKnownUTxO st} :: PostTxError CardanoTx)
           Just initial ->
-            case utxoPairs utxo of
-              [aUtxo] -> do
-                pure $ commitTx networkId party (Just aUtxo) initial
+            case UTxO.pairs utxo of
+              [aUTxO] -> do
+                pure $ commitTx networkId party (Just aUTxO) initial
               [] -> do
                 pure $ commitTx networkId party Nothing initial
               _ ->
-                throwIO (MoreThanOneUtxoCommitted @CardanoTx)
+                throwIO (MoreThanOneUTxOCommitted @CardanoTx)
         _st -> throwIO $ InvalidStateToPost tx
     -- TODO: We do not rely on the utxo from the collect com tx here because the
     -- chain head-state is already tracking UTXO entries locked by commit scripts,

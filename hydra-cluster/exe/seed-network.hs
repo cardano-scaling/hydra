@@ -4,11 +4,11 @@ import CardanoClient (
   buildAddress,
   postSeedPayment,
   queryProtocolParameters,
-  queryUtxo,
+  queryUTxO,
  )
 import CardanoCluster (asSigningKey, availableInitialFunds, defaultNetworkId)
+import Hydra.Cardano.Api (Lovelace, getVerificationKey)
 import Hydra.Chain.Direct.Util (readFileTextEnvelopeThrow)
-import Hydra.Ledger.Cardano (Lovelace, getVerificationKey)
 import Hydra.Prelude
 import Options.Applicative (
   Parser,
@@ -81,7 +81,7 @@ main = do
   postSeedPayment networkId pparams initialAmount cardanoNodeSocket signingKey amountLovelace
   let address = buildAddress (getVerificationKey signingKey) networkId
   putStrLn $ "UTXO for address " <> show address
-  queryUtxo networkId cardanoNodeSocket [address] >>= putTextLn . decodeUtf8 . encodePretty
+  queryUTxO networkId cardanoNodeSocket [address] >>= putTextLn . decodeUtf8 . encodePretty
  where
   networkId = defaultNetworkId
   initialAmount = availableInitialFunds

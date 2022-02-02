@@ -11,8 +11,8 @@ import CardanoClient (
   generatePaymentToCommit,
   postSeedPayment,
   queryProtocolParameters,
-  queryUtxo,
-  waitForUtxo,
+  queryUTxO,
+  waitForUTxO,
  )
 import CardanoCluster (
   ClusterLog,
@@ -24,6 +24,11 @@ import CardanoCluster (
  )
 import CardanoNode (NodeLog, RunningNode (..))
 import Control.Concurrent (MVar, newEmptyMVar, putMVar, takeMVar)
+import Hydra.Cardano.Api (
+  NetworkId (Testnet),
+  lovelaceToValue,
+  txOutValue,
+ )
 import Hydra.Chain (
   Chain (..),
   HeadParameters (..),
@@ -38,14 +43,7 @@ import Hydra.Chain.Direct (
   withIOManager,
  )
 import Hydra.Ledger (IsTx (..))
-import Hydra.Ledger.Cardano (
-  CardanoTx,
-  NetworkId (Testnet),
-  fromCardanoApiUtxo,
-  genOneUtxoFor,
-  lovelaceToValue,
-  txOutValue,
- )
+import Hydra.Ledger.Cardano (CardanoTx, genOneUTxOFor)
 import Hydra.Logging (nullTracer, showLogsOnFailure)
 import Hydra.Party (Party, SigningKey, aggregate, deriveParty, generateKey, sign)
 import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot (..))
@@ -97,11 +95,11 @@ spec = around showLogsOnFailure $ do
               bobsCallback `observesInTime` OnInitTx 100 [alice, bob, carol]
 
               let aliceCommitment = 66_000_000
-              aliceUtxo <- generatePaymentToCommit defaultNetworkId node aliceCardanoSk aliceCardanoVk aliceCommitment
-              postTx $ CommitTx alice aliceUtxo
+              aliceUTxO <- generatePaymentToCommit defaultNetworkId node aliceCardanoSk aliceCardanoVk aliceCommitment
+              postTx $ CommitTx alice aliceUTxO
 
-              alicesCallback `observesInTime` OnCommitTx alice aliceUtxo
-              bobsCallback `observesInTime` OnCommitTx alice aliceUtxo
+              alicesCallback `observesInTime` OnCommitTx alice aliceUTxO
+              bobsCallback `observesInTime` OnCommitTx alice aliceUTxO
 
               postTx $ AbortTx mempty
 
@@ -112,7 +110,7 @@ spec = around showLogsOnFailure $ do
                   aliceAddress = buildAddress aliceCardanoVk networkId
 
               -- Expect that alice got her committed value back
-              utxo <- fromCardanoApiUtxo <$> queryUtxo networkId nodeSocket [aliceAddress]
+              utxo <- queryUTxO networkId nodeSocket [aliceAddress]
               let aliceValues = txOutValue <$> toList utxo
               aliceValues `shouldContain` [lovelaceToValue aliceCommitment]
 
@@ -151,20 +149,20 @@ spec = around showLogsOnFailure $ do
             postTx $ InitTx $ HeadParameters 100 [alice]
             alicesCallback `observesInTime` OnInitTx 100 [alice]
 
-            someUtxoA <- generate $ genOneUtxoFor aliceCardanoVk
-            someUtxoB <- generate $ genOneUtxoFor aliceCardanoVk
+            someUTxOA <- generate $ genOneUTxOFor aliceCardanoVk
+            someUTxOB <- generate $ genOneUTxOFor aliceCardanoVk
 
-            postTx (CommitTx alice (someUtxoA <> someUtxoB))
-              `shouldThrow` (== MoreThanOneUtxoCommitted @CardanoTx)
+            postTx (CommitTx alice (someUTxOA <> someUTxOB))
+              `shouldThrow` (== MoreThanOneUTxOCommitted @CardanoTx)
 
-            postTx (CommitTx alice someUtxoA)
+            postTx (CommitTx alice someUTxOA)
               `shouldThrow` \case
                 (CannotSpendInput{} :: PostTxError CardanoTx) -> True
                 _ -> False
 
-            aliceUtxo <- generatePaymentToCommit defaultNetworkId node aliceCardanoSk aliceCardanoVk 1_000_000
-            postTx $ CommitTx alice aliceUtxo
-            alicesCallback `observesInTime` OnCommitTx alice aliceUtxo
+            aliceUTxO <- generatePaymentToCommit defaultNetworkId node aliceCardanoSk aliceCardanoVk 1_000_000
+            postTx $ CommitTx alice aliceUTxO
+            alicesCallback `observesInTime` OnCommitTx alice aliceUTxO
 
   it "can commit empty UTxO" $ \tracer -> do
     alicesCallback <- newEmptyMVar
@@ -199,17 +197,17 @@ spec = around showLogsOnFailure $ do
             postTx $ InitTx $ HeadParameters 100 [alice]
             alicesCallback `observesInTime` OnInitTx 100 [alice]
 
-            someUtxo <- generatePaymentToCommit defaultNetworkId node aliceCardanoSk aliceCardanoVk 1_000_000
-            postTx $ CommitTx alice someUtxo
-            alicesCallback `observesInTime` OnCommitTx alice someUtxo
+            someUTxO <- generatePaymentToCommit defaultNetworkId node aliceCardanoSk aliceCardanoVk 1_000_000
+            postTx $ CommitTx alice someUTxO
+            alicesCallback `observesInTime` OnCommitTx alice someUTxO
 
-            postTx $ CollectComTx someUtxo
+            postTx $ CollectComTx someUTxO
             alicesCallback `observesInTime` OnCollectComTx
 
             let snapshot =
                   Snapshot
                     { number = 1
-                    , utxo = someUtxo
+                    , utxo = someUTxO
                     , confirmed = []
                     }
 
@@ -228,11 +226,11 @@ spec = around showLogsOnFailure $ do
 
             postTx $
               FanoutTx
-                { utxo = someUtxo
+                { utxo = someUTxO
                 }
             alicesCallback `observesInTime` OnFanoutTx
             failAfter 5 $
-              waitForUtxo defaultNetworkId nodeSocket someUtxo
+              waitForUTxO defaultNetworkId nodeSocket someUTxO
 
 magic :: NetworkMagic
 magic = NetworkMagic 42

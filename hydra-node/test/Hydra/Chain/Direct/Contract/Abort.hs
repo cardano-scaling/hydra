@@ -5,30 +5,30 @@
 -- 'healthyAbortTx' gets mutated by an arbitrary 'AbortMutation'.
 module Hydra.Chain.Direct.Contract.Abort where
 
+import qualified Cardano.Api.UTxO as UTxO
 import qualified Data.Map as Map
 import Data.Maybe (fromJust)
+import Hydra.Cardano.Api (
+  PlutusScriptV1,
+  UTxO,
+  UTxO' (UTxO),
+  fromPlutusScript,
+  getScriptData,
+  mkScriptAddress,
+  toUTxOContext,
+  txOutAddress,
+ )
 import Hydra.Chain (HeadParameters (..))
 import Hydra.Chain.Direct.Contract.Mutation (Mutation (ChangeHeadDatum, ChangeInput, RemoveOutput), SomeMutation (..), anyPayToPubKeyTxOut, headTxIn)
 import Hydra.Chain.Direct.Fixture (testNetworkId)
 import qualified Hydra.Chain.Direct.Fixture as Fixture
-import Hydra.Chain.Direct.Tx (UtxoWithScript, abortTx, mkHeadOutputInitial)
+import Hydra.Chain.Direct.Tx (UTxOWithScript, abortTx, mkHeadOutputInitial)
 import Hydra.Chain.Direct.TxSpec (drop2nd, drop3rd, genAbortableOutputs)
 import qualified Hydra.Contract.Commit as Commit
 import qualified Hydra.Contract.HeadState as Head
 import qualified Hydra.Contract.Initial as Initial
 import Hydra.Data.Party (partyFromVerKey)
-import Hydra.Ledger.Cardano (
-  CardanoTx,
-  PlutusScriptV1,
-  Utxo,
-  Utxo' (Utxo),
-  fromPlutusScript,
-  getDatum,
-  mkScriptAddress,
-  singletonUtxo,
-  toUtxoContext,
-  txOutAddress,
- )
+import Hydra.Ledger.Cardano (CardanoTx)
 import Hydra.Party (Party, vkey)
 import Hydra.Prelude
 import Test.QuickCheck (Property, choose, counterexample, oneof)
@@ -37,14 +37,14 @@ import Test.QuickCheck (Property, choose, counterexample, oneof)
 -- AbortTx
 --
 
-healthyAbortTx :: (CardanoTx, Utxo)
+healthyAbortTx :: (CardanoTx, UTxO)
 healthyAbortTx =
-  (tx, lookupUtxo)
+  (tx, lookupUTxO)
  where
-  lookupUtxo =
-    singletonUtxo (headInput, toUtxoContext headOutput)
-      <> Utxo (Map.fromList (drop3rd <$> healthyInitials))
-      <> Utxo (Map.fromList (drop3rd <$> healthyCommits))
+  lookupUTxO =
+    UTxO.singleton (headInput, toUTxOContext headOutput)
+      <> UTxO (Map.fromList (drop3rd <$> healthyInitials))
+      <> UTxO (Map.fromList (drop3rd <$> healthyCommits))
 
   Right tx =
     abortTx
@@ -67,12 +67,12 @@ healthyAbortTx =
 
   -- XXX: We loose type information by dealing with 'TxOut CtxTx' where datums
   -- are optional
-  unsafeGetDatum = fromJust . getDatum
+  unsafeGetDatum = fromJust . getScriptData
 
   tripleToPair (a, b, c) = (a, (b, c))
 
-healthyInitials :: [UtxoWithScript]
-healthyCommits :: [UtxoWithScript]
+healthyInitials :: [UTxOWithScript]
+healthyCommits :: [UTxOWithScript]
 (healthyInitials, healthyCommits) =
   -- NOTE: Why 43 one may ask? Because 42 does not generate commit UTXOs
   -- TODO: Refactor this to be an AbortTx generator because we actually want
@@ -85,20 +85,20 @@ healthyParties =
   [ generateWith arbitrary i | i <- [1 .. 3]
   ]
 
-propHasInitial :: (CardanoTx, Utxo) -> Property
+propHasInitial :: (CardanoTx, UTxO) -> Property
 propHasInitial (_, utxo) =
   any paysToInitialScript utxo
-    & counterexample ("Utxo: " <> decodeUtf8 (encodePretty utxo))
+    & counterexample ("UTxO: " <> decodeUtf8 (encodePretty utxo))
     & counterexample ("Looking for Initial Script: " <> show address)
  where
   address = mkScriptAddress @PlutusScriptV1 testNetworkId (fromPlutusScript Initial.validatorScript)
   paysToInitialScript txOut =
     txOutAddress txOut == address
 
-propHasCommit :: (CardanoTx, Utxo) -> Property
+propHasCommit :: (CardanoTx, UTxO) -> Property
 propHasCommit (_, utxo) =
   any paysToCommitScript utxo
-    & counterexample ("Utxo: " <> decodeUtf8 (encodePretty utxo))
+    & counterexample ("UTxO: " <> decodeUtf8 (encodePretty utxo))
     & counterexample ("Looking for Commit Script: " <> show address)
  where
   address = mkScriptAddress @PlutusScriptV1 testNetworkId (fromPlutusScript Commit.validatorScript)
@@ -111,7 +111,7 @@ data AbortMutation
   | MutateHeadScriptInput
   deriving (Generic, Show, Enum, Bounded)
 
-genAbortMutation :: (CardanoTx, Utxo) -> Gen SomeMutation
+genAbortMutation :: (CardanoTx, UTxO) -> Gen SomeMutation
 genAbortMutation (_, utxo) =
   oneof
     [ SomeMutation MutateParties . ChangeHeadDatum <$> do

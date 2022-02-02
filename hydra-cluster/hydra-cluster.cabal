@@ -126,7 +126,6 @@ library
     , base                  >=4.7 && <5
     , base16
     , bytestring
-    , cardano-api
     , cardano-crypto-class
     , cardano-ledger-core
     , cardano-slotting
@@ -137,6 +136,7 @@ library
     , filepath
     , hspec-expectations
     , http-conduit
+    , hydra-cardano-api
     , hydra-node
     , hydra-prelude
     , hydra-test-utils
@@ -189,6 +189,7 @@ executable seed-network
     , base                  >=4.7 && <5
     , bytestring
     , contra-tracer
+    , hydra-cardano-api
     , hydra-cluster
     , hydra-node
     , hydra-prelude
@@ -216,7 +217,6 @@ test-suite integration
     , base                       >=4.7 && <5
     , base16-bytestring
     , bytestring
-    , cardano-api
     , cardano-crypto-class
     , cardano-ledger-alonzo
     , cardano-ledger-core
@@ -228,6 +228,7 @@ test-suite integration
     , hspec
     , hspec-core
     , hspec-golden-aeson
+    , hydra-cardano-api
     , hydra-cluster
     , hydra-node
     , hydra-plutus
@@ -266,6 +267,7 @@ benchmark bench-e2e
     , directory
     , filepath
     , hspec
+    , hydra-cardano-api
     , hydra-cluster
     , hydra-node
     , hydra-prelude

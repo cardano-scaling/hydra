@@ -16,7 +16,7 @@ import Hydra.Ledger (
   IsTx,
   Ledger,
   TxIdType,
-  UtxoType,
+  UTxOType,
   ValidationError,
   ValidationResult (Invalid, Valid),
   applyTransactions,
@@ -36,7 +36,7 @@ data Event tx
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON, FromJSON)
 
-instance (Arbitrary tx, Arbitrary (UtxoType tx), Arbitrary (TxIdType tx)) => Arbitrary (Event tx) where
+instance (Arbitrary tx, Arbitrary (UTxOType tx), Arbitrary (TxIdType tx)) => Arbitrary (Event tx) where
   arbitrary = genericArbitrary
 
 data Effect tx
@@ -46,7 +46,7 @@ data Effect tx
   | Delay {delay :: DiffTime, event :: Event tx}
   deriving stock (Generic)
 
-instance (Arbitrary tx, Arbitrary (UtxoType tx), Arbitrary (TxIdType tx)) => Arbitrary (Effect tx) where
+instance (Arbitrary tx, Arbitrary (UTxOType tx), Arbitrary (TxIdType tx)) => Arbitrary (Effect tx) where
   arbitrary = genericArbitrary
 
 deriving instance IsTx tx => Eq (Effect tx)
@@ -59,10 +59,10 @@ data HeadState tx
   | InitialState {parameters :: HeadParameters, pendingCommits :: PendingCommits, committed :: Committed tx}
   | OpenState {parameters :: HeadParameters, coordinatedHeadState :: CoordinatedHeadState tx}
   | -- TODO: rename utxos -> utxo
-    ClosedState {parameters :: HeadParameters, utxos :: UtxoType tx}
+    ClosedState {parameters :: HeadParameters, utxos :: UTxOType tx}
   deriving stock (Generic)
 
-instance (Arbitrary (UtxoType tx), Arbitrary tx) => Arbitrary (HeadState tx) where
+instance (Arbitrary (UTxOType tx), Arbitrary tx) => Arbitrary (HeadState tx) where
   arbitrary = genericArbitrary
 
 deriving instance IsTx tx => Eq (HeadState tx)
@@ -70,10 +70,10 @@ deriving instance IsTx tx => Show (HeadState tx)
 deriving instance IsTx tx => ToJSON (HeadState tx)
 deriving instance IsTx tx => FromJSON (HeadState tx)
 
-type Committed tx = Map Party (UtxoType tx)
+type Committed tx = Map Party (UTxOType tx)
 
 data CoordinatedHeadState tx = CoordinatedHeadState
-  { seenUtxo :: UtxoType tx
+  { seenUTxO :: UTxOType tx
   , -- TODO: tx should be an abstract 'TxId'
     seenTxs :: [tx]
   , confirmedSnapshot :: ConfirmedSnapshot tx
@@ -81,7 +81,7 @@ data CoordinatedHeadState tx = CoordinatedHeadState
   }
   deriving stock (Generic)
 
-instance (Arbitrary (UtxoType tx), Arbitrary tx) => Arbitrary (CoordinatedHeadState tx) where
+instance (Arbitrary (UTxOType tx), Arbitrary tx) => Arbitrary (CoordinatedHeadState tx) where
   arbitrary = genericArbitrary
 
 deriving instance IsTx tx => Eq (CoordinatedHeadState tx)
@@ -98,7 +98,7 @@ data SeenSnapshot tx
       }
   deriving stock (Generic)
 
-instance (Arbitrary (UtxoType tx), Arbitrary tx) => Arbitrary (SeenSnapshot tx) where
+instance (Arbitrary (UTxOType tx), Arbitrary tx) => Arbitrary (SeenSnapshot tx) where
   arbitrary = genericArbitrary
 
 deriving instance IsTx tx => Eq (SeenSnapshot tx)
@@ -119,7 +119,7 @@ data LogicError tx
 
 instance IsTx tx => Exception (LogicError tx)
 
-instance (Arbitrary tx, Arbitrary (UtxoType tx), Arbitrary (TxIdType tx)) => Arbitrary (LogicError tx) where
+instance (Arbitrary tx, Arbitrary (UTxOType tx), Arbitrary (TxIdType tx)) => Arbitrary (LogicError tx) where
   arbitrary = genericArbitrary
 
 deriving instance IsTx tx => ToJSON (LogicError tx)
@@ -177,15 +177,15 @@ update Environment{party, signingKey, otherParties} ledger st ev = case (st, ev)
   (InitialState parameters remainingParties committed, OnChainEvent (OnCommitTx pt utxo)) ->
     nextState newHeadState $
       [ClientEffect $ Committed pt utxo]
-        <> [OnChainEffect $ CollectComTx collectedUtxo | canCollectCom]
+        <> [OnChainEffect $ CollectComTx collectedUTxO | canCollectCom]
    where
     newHeadState = InitialState parameters remainingParties' newCommitted
     remainingParties' = Set.delete pt remainingParties
     newCommitted = Map.insert pt utxo committed
     canCollectCom = null remainingParties' && pt == party
-    collectedUtxo = mconcat $ Map.elems newCommitted
-  (InitialState _ _ committed, ClientEvent GetUtxo) ->
-    sameState [ClientEffect $ Utxo (mconcat $ Map.elems committed)]
+    collectedUTxO = mconcat $ Map.elems newCommitted
+  (InitialState _ _ committed, ClientEvent GetUTxO) ->
+    sameState [ClientEffect $ UTxO (mconcat $ Map.elems committed)]
   (InitialState _ _ committed, ClientEvent Abort) ->
     sameState [OnChainEffect $ AbortTx (mconcat $ Map.elems committed)]
   (_, OnChainEvent OnCommitTx{}) ->
@@ -210,9 +210,9 @@ update Environment{party, signingKey, otherParties} ledger st ev = case (st, ev)
       , Delay contestationPeriod ShouldPostFanout
       ]
   --
-  (OpenState _ CoordinatedHeadState{confirmedSnapshot}, ClientEvent GetUtxo) ->
+  (OpenState _ CoordinatedHeadState{confirmedSnapshot}, ClientEvent GetUTxO) ->
     sameState
-      [ClientEffect . Utxo $ getField @"utxo" $ getSnapshot confirmedSnapshot]
+      [ClientEffect . UTxO $ getField @"utxo" $ getSnapshot confirmedSnapshot]
   --
   (OpenState _ CoordinatedHeadState{confirmedSnapshot = getSnapshot -> Snapshot{utxo}}, ClientEvent (NewTx tx)) ->
     sameState effects
@@ -221,8 +221,8 @@ update Environment{party, signingKey, otherParties} ledger st ev = case (st, ev)
       case canApply ledger utxo tx of
         Valid -> [ClientEffect $ TxValid tx, NetworkEffect $ ReqTx party tx]
         Invalid err -> [ClientEffect $ TxInvalid{utxo = utxo, transaction = tx, validationError = err}]
-  (OpenState parameters headState@CoordinatedHeadState{seenTxs, seenUtxo}, NetworkEvent (ReqTx _ tx)) ->
-    case applyTransactions ledger seenUtxo [tx] of
+  (OpenState parameters headState@CoordinatedHeadState{seenTxs, seenUTxO}, NetworkEvent (ReqTx _ tx)) ->
+    case applyTransactions ledger seenUTxO [tx] of
       Left _err -> Wait -- The transaction may not be applicable yet.
       Right utxo' ->
         let newSeenTxs = seenTxs <> [tx]
@@ -230,7 +230,7 @@ update Environment{party, signingKey, otherParties} ledger st ev = case (st, ev)
               ( OpenState parameters $
                   headState
                     { seenTxs = newSeenTxs
-                    , seenUtxo = utxo'
+                    , seenUTxO = utxo'
                     }
               )
               [ClientEffect $ TxSeen tx]

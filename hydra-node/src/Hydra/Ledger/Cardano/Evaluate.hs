@@ -26,28 +26,23 @@ import qualified Data.Map as Map
 import Data.Maybe (fromJust)
 import Data.Ratio ((%))
 import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
+import Hydra.Cardano.Api (StandardCrypto, UTxO, toLedgerTx, toLedgerUTxO)
 import Hydra.Chain.Direct.Util (Era)
-import Hydra.Ledger.Cardano (
-  CardanoTx,
-  LedgerCrypto,
-  Utxo,
-  toLedgerTx,
-  toLedgerUtxo,
- )
+import Hydra.Ledger.Cardano (CardanoTx)
 
 type RedeemerReport =
-  (Map RdmrPtr (Either (ScriptFailure LedgerCrypto) ExUnits))
+  (Map RdmrPtr (Either (ScriptFailure StandardCrypto) ExUnits))
 
 evaluateTx ::
   CardanoTx ->
-  Utxo ->
-  Either (BasicFailure LedgerCrypto) RedeemerReport
+  UTxO ->
+  Either (BasicFailure StandardCrypto) RedeemerReport
 evaluateTx tx utxo =
   runIdentity $
     evaluateTransactionExecutionUnits
       pparams
       (toLedgerTx tx)
-      (toLedgerUtxo utxo)
+      (toLedgerUTxO utxo)
       epochInfo
       systemStart
       costModels

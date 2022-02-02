@@ -129,7 +129,7 @@
 -- In the case of a failure we get a detailed report on the context of the failure.
 module Hydra.Chain.Direct.Contract.Mutation where
 
-import Cardano.Api.Shelley (TxBody (ShelleyTxBody))
+import qualified Cardano.Api.UTxO as UTxO
 import qualified Cardano.Ledger.Alonzo.Data as Ledger
 import qualified Cardano.Ledger.Alonzo.Scripts as Ledger
 import qualified Cardano.Ledger.Alonzo.TxBody as Ledger
@@ -139,6 +139,32 @@ import qualified Data.ByteString as BS
 import qualified Data.List as List
 import qualified Data.Map as Map
 import qualified Data.Sequence.Strict as StrictSeq
+import Hydra.Cardano.Api (
+  AlonzoEra,
+  CtxTx,
+  CtxUTxO,
+  Era,
+  LedgerEra,
+  PlutusScriptV1,
+  Tx (Tx),
+  TxBody (ShelleyTxBody),
+  TxBodyScriptData (TxBodyNoScriptData, TxBodyScriptData),
+  TxIn,
+  TxOut (..),
+  TxOutDatum (..),
+  UTxO,
+  UTxO' (UTxO),
+  fromLedgerTxOut,
+  fromPlutusScript,
+  mkScriptAddress,
+  mkTxOutDatum,
+  mkTxOutDatumHash,
+  renderTx,
+  toAlonzoData,
+  toCtxUTxOTxOut,
+  toLedgerTxIn,
+  toLedgerTxOut,
+ )
 import qualified Hydra.Chain.Direct.Fixture as Fixture
 import Hydra.Chain.Direct.Tx (
   policyId,
@@ -146,29 +172,10 @@ import Hydra.Chain.Direct.Tx (
 import qualified Hydra.Contract.Head as Head
 import qualified Hydra.Contract.HeadState as Head
 import Hydra.Ledger.Cardano (
-  AlonzoEra,
   CardanoTx,
-  CtxTx,
-  CtxUTxO,
-  Era,
-  LedgerEra,
-  Tx (Tx),
-  TxBodyScriptData (TxBodyNoScriptData, TxBodyScriptData),
-  TxIn,
-  TxOut (..),
-  TxOutDatum (..),
-  Utxo,
-  describeCardanoTx,
-  fromLedgerTxOut,
+  genKeyPair,
   genOutput,
-  mkTxOutDatum,
-  mkTxOutDatumHash,
-  toAlonzoData,
-  toCtxUTxOTxOut,
-  toLedgerTxOut,
-  utxoPairs,
  )
-import qualified Hydra.Ledger.Cardano as Api
 import Hydra.Ledger.Cardano.Evaluate (evaluateTx)
 import Hydra.Party (
   SigningKey,
@@ -199,7 +206,7 @@ import Test.QuickCheck.Instances ()
 --
 -- Note that only "level 2" validation is run, e.g the transaction is assume to be
 -- structurally valid and having passed "level 1" checks.
-propMutation :: (CardanoTx, Utxo) -> ((CardanoTx, Utxo) -> Gen SomeMutation) -> Property
+propMutation :: (CardanoTx, UTxO) -> ((CardanoTx, UTxO) -> Gen SomeMutation) -> Property
 propMutation (tx, utxo) genMutation =
   forAll @_ @Property (genMutation (tx, utxo)) $ \SomeMutation{label, mutation} ->
     (tx, utxo)
@@ -209,33 +216,33 @@ propMutation (tx, utxo) genMutation =
       & checkCoverage
 
 -- | A 'Property' checking some (transaction, UTxO) pair is invalid.
-propTransactionDoesNotValidate :: (CardanoTx, Utxo) -> Property
-propTransactionDoesNotValidate (tx, lookupUtxo) =
-  let result = evaluateTx tx lookupUtxo
+propTransactionDoesNotValidate :: (CardanoTx, UTxO) -> Property
+propTransactionDoesNotValidate (tx, lookupUTxO) =
+  let result = evaluateTx tx lookupUTxO
    in case result of
         Left _ ->
           property True
         Right redeemerReport ->
           any isLeft (Map.elems redeemerReport)
-            & counterexample ("Tx: " <> toString (describeCardanoTx tx))
-            & counterexample ("Lookup utxo: " <> decodeUtf8 (encodePretty lookupUtxo))
+            & counterexample ("Tx: " <> toString (renderTx tx))
+            & counterexample ("Lookup utxo: " <> decodeUtf8 (encodePretty lookupUTxO))
             & counterexample ("Redeemer report: " <> show redeemerReport)
             & counterexample "Phase-2 validation should have failed"
 
 -- | A 'Property' checking some (transaction, UTxO) pair is valid.
-propTransactionValidates :: (CardanoTx, Utxo) -> Property
-propTransactionValidates (tx, lookupUtxo) =
-  let result = evaluateTx tx lookupUtxo
+propTransactionValidates :: (CardanoTx, UTxO) -> Property
+propTransactionValidates (tx, lookupUTxO) =
+  let result = evaluateTx tx lookupUTxO
    in case result of
         Left basicFailure ->
           property False
-            & counterexample ("Tx: " <> toString (describeCardanoTx tx))
-            & counterexample ("Lookup utxo: " <> decodeUtf8 (encodePretty lookupUtxo))
+            & counterexample ("Tx: " <> toString (renderTx tx))
+            & counterexample ("Lookup utxo: " <> decodeUtf8 (encodePretty lookupUTxO))
             & counterexample ("Phase-1 validation failed: " <> show basicFailure)
         Right redeemerReport ->
           all isRight (Map.elems redeemerReport)
-            & counterexample ("Tx: " <> toString (describeCardanoTx tx))
-            & counterexample ("Lookup utxo: " <> decodeUtf8 (encodePretty lookupUtxo))
+            & counterexample ("Tx: " <> toString (renderTx tx))
+            & counterexample ("Lookup utxo: " <> decodeUtf8 (encodePretty lookupUTxO))
             & counterexample ("Redeemer report: " <> show redeemerReport)
             & counterexample "Phase-2 validation failed"
 
@@ -289,7 +296,7 @@ data Mutation
 -- '''NOTE''': This function is partial, it can raise 'error' when some preconditions
 -- are not met by the transaction or UTxO set, for example if there's no
 -- Head script input or no datums in the transaction.
-applyMutation :: Mutation -> (CardanoTx, Utxo) -> (CardanoTx, Utxo)
+applyMutation :: Mutation -> (CardanoTx, UTxO) -> (CardanoTx, UTxO)
 applyMutation mutation (tx@(Tx body wits), utxo) = case mutation of
   ChangeHeadRedeemer newRedeemer ->
     let ShelleyTxBody era ledgerBody scripts scriptData mAuxData scriptValidity = body
@@ -297,7 +304,7 @@ applyMutation mutation (tx@(Tx body wits), utxo) = case mutation of
           fst
             <$> filter
               (isHeadOutput . snd . snd)
-              (zip [0 :: Word64 ..] $ Map.toAscList $ Api.utxoMap utxo)
+              (zip [0 :: Word64 ..] $ Map.toAscList $ UTxO.toMap utxo)
         headInputIdx = case headOutputIndices of
           [i] -> i
           _ -> error $ "could not find head output in utxo: " <> show utxo
@@ -337,11 +344,11 @@ applyMutation mutation (tx@(Tx body wits), utxo) = case mutation of
         filter ((/= i) . fst) $ zip [0 ..] es
   ChangeInput txIn txOut ->
     ( Tx body' wits
-    , Api.Utxo $ Map.insert txIn txOut (Api.utxoMap utxo)
+    , UTxO $ Map.insert txIn txOut (UTxO.toMap utxo)
     )
    where
     ShelleyTxBody era ledgerBody scripts scriptData mAuxData scriptValidity = body
-    redeemers = removeRedeemerFor (Ledger.inputs ledgerBody) (Api.toLedgerTxIn txIn) scriptData
+    redeemers = removeRedeemerFor (Ledger.inputs ledgerBody) (toLedgerTxIn txIn) scriptData
     body' = ShelleyTxBody era ledgerBody scripts redeemers mAuxData scriptValidity
   ChangeOutput ix txOut ->
     ( alterTxOuts replaceAtIndex tx
@@ -388,8 +395,8 @@ instance Arbitrary Head.State where
 isHeadOutput :: TxOut CtxUTxO Era -> Bool
 isHeadOutput (TxOut addr _ _) = addr == headAddress
  where
-  headAddress = Api.mkScriptAddress @Api.PlutusScriptV1 Fixture.testNetworkId headScript
-  headScript = Api.fromPlutusScript $ Head.validatorScript policyId
+  headAddress = mkScriptAddress @PlutusScriptV1 Fixture.testNetworkId headScript
+  headScript = fromPlutusScript $ Head.validatorScript policyId
 
 -- | Adds given 'Datum' and corresponding hash to the transaction's scripts.
 -- TODO: As we are creating the `TxOutDatum` from a known datum, passing a `TxOutDatum` is
@@ -453,10 +460,10 @@ alterTxOuts fn tx =
 
 -- | Generates an output that pays to some arbitrary pubkey.
 anyPayToPubKeyTxOut :: Gen (TxOut ctx Era)
-anyPayToPubKeyTxOut = Api.genKeyPair >>= genOutput . fst
+anyPayToPubKeyTxOut = genKeyPair >>= genOutput . fst
 
--- | Finds the Head script's input in given `Utxo` set.
--- '''NOTE''': This function is partial, it assumes the `Utxo` set contains a
+-- | Finds the Head script's input in given `UTxO` set.
+-- '''NOTE''': This function is partial, it assumes the `UTxO` set contains a
 -- Head script output.
-headTxIn :: Utxo -> Api.TxIn
-headTxIn = fst . Prelude.head . filter (isHeadOutput . snd) . utxoPairs
+headTxIn :: UTxO -> TxIn
+headTxIn = fst . Prelude.head . filter (isHeadOutput . snd) . UTxO.pairs

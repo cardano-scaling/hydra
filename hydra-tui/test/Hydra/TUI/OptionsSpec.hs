@@ -3,10 +3,7 @@ module Hydra.TUI.OptionsSpec where
 import Hydra.Prelude
 import Test.Hydra.Prelude
 
-import Hydra.Ledger.Cardano (
-  NetworkId (Mainnet, Testnet),
-  NetworkMagic (NetworkMagic),
- )
+import Hydra.Cardano.Api (NetworkId (..), NetworkMagic (..))
 import Hydra.Network (Host (Host))
 import Hydra.TUI.Options (
   parseCardanoNetworkId,

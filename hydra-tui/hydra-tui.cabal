@@ -88,6 +88,7 @@ library
     , cardano-ledger-shelley
     , cardano-ledger-shelley-ma
     , containers
+    , hydra-cardano-api
     , hydra-node
     , hydra-prelude
     , io-classes
@@ -127,6 +128,7 @@ test-suite tests
     , blaze-builder
     , bytestring
     , hspec
+    , hydra-cardano-api
     , hydra-node
     , hydra-prelude
     , hydra-test-utils

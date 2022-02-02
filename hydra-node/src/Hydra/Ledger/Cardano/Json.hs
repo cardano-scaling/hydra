@@ -6,10 +6,9 @@
 -- to satisfies our various internal interfaces.
 module Hydra.Ledger.Cardano.Json where
 
+import Hydra.Cardano.Api hiding (Era)
 import Hydra.Prelude
 
-import Cardano.Api
-import Cardano.Api.Shelley
 import Cardano.Binary (
   Annotator,
   decodeAnnotator,
@@ -30,7 +29,7 @@ import qualified Cardano.Ledger.Alonzo.TxBody as Ledger.Alonzo
 import qualified Cardano.Ledger.Alonzo.TxWitness as Ledger.Alonzo
 import qualified Cardano.Ledger.AuxiliaryData as Ledger
 import qualified Cardano.Ledger.Core as Core
-import Cardano.Ledger.Crypto (Crypto, StandardCrypto)
+import Cardano.Ledger.Crypto (Crypto)
 import Cardano.Ledger.Era (Era)
 import qualified Cardano.Ledger.Era as Ledger
 import qualified Cardano.Ledger.Hashes as Ledger

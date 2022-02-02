@@ -1,5 +1,3 @@
-{-# LANGUAGE QuasiQuotes #-}
-{-# LANGUAGE TypeApplications #-}
 {-# OPTIONS_GHC -Wno-incomplete-uni-patterns #-}
 
 module Test.EndToEndSpec where
@@ -7,6 +5,7 @@ module Test.EndToEndSpec where
 import Hydra.Prelude
 import Test.Hydra.Prelude
 
+import qualified Cardano.Api.UTxO as UTxO
 import Cardano.Crypto.DSIGN (
   DSIGNAlgorithm (deriveVerKeyDSIGN),
   MockDSIGN,
@@ -17,7 +16,7 @@ import CardanoClient (
   generatePaymentToCommit,
   postSeedPayment,
   queryProtocolParameters,
-  waitForUtxo,
+  waitForUTxO,
  )
 import CardanoCluster (
   availableInitialFunds,
@@ -34,8 +33,7 @@ import Data.Aeson.Lens (key)
 import qualified Data.ByteString as BS
 import qualified Data.Map as Map
 import qualified Data.Set as Set
-import Hydra.Ledger (txId)
-import Hydra.Ledger.Cardano (
+import Hydra.Cardano.Api (
   AddressInEra,
   Era,
   NetworkId (Testnet),
@@ -45,10 +43,12 @@ import Hydra.Ledger.Cardano (
   TxIn (..),
   VerificationKey,
   lovelaceToValue,
-  mkSimpleCardanoTx,
   mkVkAddress,
   serialiseAddress,
-  utxoPairs,
+ )
+import Hydra.Ledger (txId)
+import Hydra.Ledger.Cardano (
+  mkSimpleCardanoTx,
  )
 import Hydra.Logging (showLogsOnFailure)
 import Hydra.Party (Party, deriveParty)
@@ -101,19 +101,19 @@ spec = around showLogsOnFailure $
                     waitFor tracer 20 [n1, n2, n3] $
                       output "ReadyToCommit" ["parties" .= Set.fromList [alice, bob, carol]]
 
-                    committedUtxo <- generatePaymentToCommit defaultNetworkId node aliceCardanoSk aliceCardanoVk amountInTx
-                    committedUtxoBy2 <- generatePaymentToCommit defaultNetworkId node bobCardanoSk bobCardanoVk amountInTx
+                    committedUTxO <- generatePaymentToCommit defaultNetworkId node aliceCardanoSk aliceCardanoVk amountInTx
+                    committedUTxOBy2 <- generatePaymentToCommit defaultNetworkId node bobCardanoSk bobCardanoVk amountInTx
 
-                    send n1 $ input "Commit" ["utxo" .= committedUtxo]
-                    send n2 $ input "Commit" ["utxo" .= committedUtxoBy2]
+                    send n1 $ input "Commit" ["utxo" .= committedUTxO]
+                    send n2 $ input "Commit" ["utxo" .= committedUTxOBy2]
                     send n3 $ input "Commit" ["utxo" .= Object mempty]
-                    waitFor tracer 20 [n1, n2, n3] $ output "HeadIsOpen" ["utxo" .= (committedUtxo <> committedUtxoBy2)]
+                    waitFor tracer 20 [n1, n2, n3] $ output "HeadIsOpen" ["utxo" .= (committedUTxO <> committedUTxOBy2)]
 
                     -- NOTE(AB): this is partial and will fail if we are not able to generate a payment
-                    let firstCommittedUtxo = Prelude.head $ utxoPairs committedUtxo
+                    let firstCommittedUTxO = Prelude.head $ UTxO.pairs committedUTxO
                     let Right tx =
                           mkSimpleCardanoTx
-                            firstCommittedUtxo
+                            firstCommittedUTxO
                             (inHeadAddress bobCardanoVk, lovelaceToValue paymentFromAliceToBob)
                             aliceCardanoSk
                     send n1 $ input "NewTx" ["transaction" .= tx]
@@ -121,8 +121,8 @@ spec = around showLogsOnFailure $
                       output "TxSeen" ["transaction" .= tx]
 
                     -- The expected new utxo set is the created payment +
-                    -- change outputs, both owned by alice + Utxo commited by bob
-                    let aliceUtxo =
+                    -- change outputs, both owned by alice + UTxO commited by bob
+                    let aliceUTxO =
                           Map.fromList
                             [
                               ( TxIn (txId tx) (toEnum 0)
@@ -139,12 +139,12 @@ spec = around showLogsOnFailure $
                                   ]
                               )
                             ]
-                        newUtxo = aliceUtxo <> fmap toJSON (Map.fromList (utxoPairs committedUtxoBy2))
+                        newUTxO = aliceUTxO <> fmap toJSON (Map.fromList (UTxO.pairs committedUTxOBy2))
 
                         expectedSnapshot =
                           object
                             [ "snapshotNumber" .= int 1
-                            , "utxo" .= newUtxo
+                            , "utxo" .= newUTxO
                             , "confirmedTransactions" .= [tx]
                             ]
 
@@ -153,8 +153,8 @@ spec = around showLogsOnFailure $
                       snapshot <- v ^? key "snapshot"
                       guard $ snapshot == expectedSnapshot
 
-                    send n1 $ input "GetUtxo" []
-                    waitFor tracer 20 [n1] $ output "Utxo" ["utxo" .= newUtxo]
+                    send n1 $ input "GetUTxO" []
+                    waitFor tracer 20 [n1] $ output "UTxO" ["utxo" .= newUTxO]
 
                     send n1 $ input "Close" []
                     waitMatch 3 n1 $ \v -> do
@@ -163,13 +163,13 @@ spec = around showLogsOnFailure $
                       guard $ snapshot == expectedSnapshot
 
                     waitFor tracer (contestationPeriod + 3) [n1] $
-                      output "HeadIsFinalized" ["utxo" .= newUtxo]
+                      output "HeadIsFinalized" ["utxo" .= newUTxO]
 
-                    case fromJSON $ toJSON newUtxo of
+                    case fromJSON $ toJSON newUTxO of
                       Error err ->
-                        failure $ "newUtxo isn't valid JSON?: " <> err
+                        failure $ "newUTxO isn't valid JSON?: " <> err
                       Success u ->
-                        failAfter 5 $ waitForUtxo defaultNetworkId nodeSocket u
+                        failAfter 5 $ waitForUTxO defaultNetworkId nodeSocket u
 
     describe "Monitoring" $
       it "Node exposes Prometheus metrics on port 6001" $ \tracer ->

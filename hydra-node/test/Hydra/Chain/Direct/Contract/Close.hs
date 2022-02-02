@@ -3,9 +3,10 @@
 
 module Hydra.Chain.Direct.Contract.Close where
 
-import Hydra.Ledger.Cardano hiding (SigningKey)
+import Hydra.Cardano.Api hiding (SigningKey)
 import Hydra.Prelude hiding (label)
 
+import Cardano.Api.UTxO as UTxO
 import Cardano.Binary (serialize')
 import Hydra.Chain.Direct.Contract.Mutation (Mutation (..), SomeMutation (..))
 import Hydra.Chain.Direct.Fixture (testNetworkId)
@@ -13,6 +14,7 @@ import Hydra.Chain.Direct.Tx (closeTx, mkHeadOutput)
 import qualified Hydra.Contract.HeadState as Head
 import Hydra.Data.Party (partyFromVerKey)
 import qualified Hydra.Data.Party as OnChain
+import Hydra.Ledger.Cardano (CardanoTx)
 import Hydra.Party (
   MultiSigned (MultiSigned),
   SigningKey,
@@ -31,15 +33,15 @@ import Test.QuickCheck.Instances ()
 -- CloseTx
 --
 
-healthyCloseTx :: (CardanoTx, Utxo)
+healthyCloseTx :: (CardanoTx, UTxO)
 healthyCloseTx =
-  (tx, lookupUtxo)
+  (tx, lookupUTxO)
  where
   tx = closeTx healthySnapshot (healthySignature healthySnapshotNumber) (headInput, headOutput, headDatum)
   headInput = generateWith arbitrary 42
-  headOutput = mkHeadOutput testNetworkId $ toUtxoContext (mkTxOutDatum healthyCloseDatum)
+  headOutput = mkHeadOutput testNetworkId $ toUTxOContext (mkTxOutDatum healthyCloseDatum)
   headDatum = fromPlutusData $ toData healthyCloseDatum
-  lookupUtxo = singletonUtxo (headInput, headOutput)
+  lookupUTxO = UTxO.singleton (headInput, headOutput)
 
 healthySnapshot :: Snapshot CardanoTx
 healthySnapshot =
@@ -77,7 +79,7 @@ data CloseMutation
   | MutateParties
   deriving (Generic, Show, Enum, Bounded)
 
-genCloseMutation :: (CardanoTx, Utxo) -> Gen SomeMutation
+genCloseMutation :: (CardanoTx, UTxO) -> Gen SomeMutation
 genCloseMutation (_tx, _utxo) =
   -- FIXME: using 'closeRedeemer' here is actually too high-level and reduces
   -- the power of the mutators, we should test at the level of the validator.

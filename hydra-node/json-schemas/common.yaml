@@ -130,7 +130,7 @@ definitions:
       snapshotNumber:
         $ref: "#/definitions/SnapshotNumber"
       utxo:
-        $ref: "#/definitions/Utxo"
+        $ref: "#/definitions/UTxO"
       confirmedTransactions:
         type: array
         items:
@@ -361,10 +361,10 @@ definitions:
         type: string
         contentEncoding: base16
 
-  Utxo:
+  UTxO:
     type: object
     description: >-
-      Cardano Unspent transaction outputs (Utxo), mapping from TxId#index to TxOut
+      Cardano Unspent transaction outputs (UTxO), mapping from TxId#index to TxOut
     items:
       $ref: "#/definitions/TxOut"
     propertyNames:
@@ -450,7 +450,7 @@ definitions:
           party:
             $ref: "#/definitions/Party"
           committed:
-            $ref: "#/definitions/Utxo"
+            $ref: "#/definitions/UTxO"
       - title: AbortTx
         type: object
         additionalProperties: false
@@ -464,7 +464,7 @@ definitions:
             type: string
             enum: ["AbortTx"]
           utxo:
-            $ref: "#/definitions/Utxo"
+            $ref: "#/definitions/UTxO"
       - title: CollectComTx
         type: object
         additionalProperties: false
@@ -479,7 +479,7 @@ definitions:
             type: string
             enum: ["CollectComTx"]
           utxo:
-            $ref: "#/definitions/Utxo"
+            $ref: "#/definitions/UTxO"
       - title: CloseTx
         type: object
         additionalProperties: false
@@ -522,13 +522,13 @@ definitions:
             type: string
             enum: ["FanoutTx"]
           utxo:
-            $ref: "#/definitions/Utxo"
+            $ref: "#/definitions/UTxO"
 
   PostTxError:
     description: >-
       Provides more details about transaction submission failure.
     oneOf:
-      - title: MoreThanOneUtxoCommitted
+      - title: MoreThanOneUTxOCommitted
         type: object
         additionalProperties: false
         required:
@@ -541,15 +541,15 @@ definitions:
         properties:
           tag:
             type: string
-            enum: ["MoreThanOneUtxoCommitted"]
+            enum: ["MoreThanOneUTxOCommitted"]
       - title: CannotSpendInput
         type: object
         additionalProperties: false
         required:
         - tag
         - input
-        - walletUtxo
-        - headUtxo
+        - walletUTxO
+        - headUTxO
         description: >-
           Some input in a transaction cannot be resolved to a proper UTxO. This can happen either when some input
           is double-spent or the DirectChain component has not yet caught up with the chain.
@@ -563,12 +563,12 @@ definitions:
               A representation of the faulty input, in the form 'txId#txIx'.
               **NOTE**: We would like to use a proper TxIn type reference here but this is not possible because of
               constraints in the codebase and whatnot. See https://raw.githubusercontent.com/input-output-hk/hydra-poc/master/hydra-node/json-schemas/#/definitions/TxIn.
-          walletUtxo:
-            $ref: "#/definitions/Utxo"
+          walletUTxO:
+            $ref: "#/definitions/UTxO"
             description: >-
               The UTxO observed from the chain relevant for the current party.
-          headUtxo:
-            $ref: "#/definitions/Utxo"
+          headUTxO:
+            $ref: "#/definitions/UTxO"
             description: >-
               The Head protocol-relevant UTxO. Depending on the Head's current state, it includes the Head state thread output,
               plus the ν_initial or ν_commit outputs.
@@ -577,8 +577,8 @@ definitions:
         additionalProperties: false
         required:
         - tag
-        - walletUtxo
-        - headUtxo
+        - walletUTxO
+        - headUTxO
         - reason
         - tx
         description: >-
@@ -588,14 +588,14 @@ definitions:
           tag:
             type: string
             enum: ["CannotCoverFees"]
-          walletUtxo:
-            $ref: "#/definitions/Utxo"
+          walletUTxO:
+            $ref: "#/definitions/UTxO"
             description: >-
               The UTxO observed from the chain relevant for the current party.
               **Note**: In the current version, all fees are paid using a specially "marked" UTxO that is expected to
               carry enough ADAs to pay for the Head protocol's advance and is consumed and produced upon each transaction.
-          headUtxo:
-            $ref: "#/definitions/Utxo"
+          headUTxO:
+            $ref: "#/definitions/UTxO"
             description: >-
               The Head protocol-relevant UTxO.
           reason:
@@ -611,7 +611,7 @@ definitions:
         additionalProperties: false
         required:
         - tag
-        - knownUtxo
+        - knownUTxO
         description: >-
           The DirectChain was unable to find the output paying to Initial script corresponding
           to this node's Party, with the relevant _Participation Token_.
@@ -619,10 +619,10 @@ definitions:
           tag:
             type: string
             enum: ["CannotFindOwnInitial"]
-          knownUtxo:
-            $ref: "#/definitions/Utxo"
+          knownUTxO:
+            $ref: "#/definitions/UTxO"
             description: >-
-              The known Utxo within which the Initial script was looked up for.
+              The known UTxO within which the Initial script was looked up for.
       - title: NoSeedInput
         type: object
         additionalProperties: false

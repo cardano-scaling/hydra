@@ -15,7 +15,7 @@ type SnapshotNumber = Natural
 
 data Snapshot tx = Snapshot
   { number :: SnapshotNumber
-  , utxo :: UtxoType tx
+  , utxo :: UTxOType tx
   , -- | The set of transactions that lead to 'utxo'
     confirmed :: [tx]
   }
@@ -24,7 +24,7 @@ data Snapshot tx = Snapshot
 deriving instance IsTx tx => Eq (Snapshot tx)
 deriving instance IsTx tx => Show (Snapshot tx)
 
-instance (Arbitrary tx, Arbitrary (UtxoType tx)) => Arbitrary (Snapshot tx) where
+instance (Arbitrary tx, Arbitrary (UTxOType tx)) => Arbitrary (Snapshot tx) where
   arbitrary = genericArbitrary
 
   -- NOTE: See note on 'Arbitrary (ClientInput tx)'
@@ -67,11 +67,11 @@ instance IsTx tx => FromJSON (Snapshot tx) where
       <*> (obj .: "utxo")
       <*> (obj .: "confirmedTransactions")
 
-instance (ToCBOR tx, ToCBOR (UtxoType tx)) => ToCBOR (Snapshot tx) where
+instance (ToCBOR tx, ToCBOR (UTxOType tx)) => ToCBOR (Snapshot tx) where
   toCBOR Snapshot{number, utxo, confirmed} =
     toCBOR number <> toCBOR utxo <> toCBOR confirmed
 
-instance (FromCBOR tx, FromCBOR (UtxoType tx)) => FromCBOR (Snapshot tx) where
+instance (FromCBOR tx, FromCBOR (UTxOType tx)) => FromCBOR (Snapshot tx) where
   fromCBOR = Snapshot <$> fromCBOR <*> fromCBOR <*> fromCBOR
 
 -- | Snapshot when it was signed by all parties, i.e. it is confirmed.
@@ -97,5 +97,5 @@ getSnapshot = \case
   InitialSnapshot{snapshot} -> snapshot
   ConfirmedSnapshot{snapshot} -> snapshot
 
-instance (Arbitrary tx, Arbitrary (UtxoType tx)) => Arbitrary (ConfirmedSnapshot tx) where
+instance (Arbitrary tx, Arbitrary (UTxOType tx)) => Arbitrary (ConfirmedSnapshot tx) where
   arbitrary = genericArbitrary

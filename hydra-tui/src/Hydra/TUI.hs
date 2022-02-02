@@ -14,6 +14,7 @@ import Brick.BChan (newBChan, writeBChan)
 import Brick.Forms (Form, FormFieldState, checkboxField, editShowableFieldWithValidate, formState, handleFormEvent, newForm, radioField, renderForm)
 import Brick.Widgets.Border (hBorder, vBorder)
 import Brick.Widgets.Border.Style (ascii)
+import qualified Cardano.Api.UTxO as UTxO
 import CardanoClient (
   CardanoClient (..),
   buildAddress,
@@ -37,13 +38,8 @@ import Graphics.Vty (
  )
 import qualified Graphics.Vty as Vty
 import Graphics.Vty.Attributes (defAttr)
-import Hydra.Chain.Direct.Util (isMarkedOutput)
-import Hydra.Client (Client (..), HydraEvent (..), withClient)
-import Hydra.ClientInput (ClientInput (..))
-import Hydra.Ledger (IsTx (..))
-import Hydra.Ledger.Cardano (
+import Hydra.Cardano.Api (
   AddressInEra,
-  CardanoTx,
   CtxUTxO,
   Era,
   Key (getVerificationKey),
@@ -52,17 +48,22 @@ import Hydra.Ledger.Cardano (
   PaymentKey,
   TxIn,
   TxOut (TxOut),
-  Utxo,
-  Utxo' (Utxo),
+  UTxO,
+  UTxO' (UTxO),
   VerificationKey,
   lovelaceToValue,
-  mkSimpleCardanoTx,
   mkVkAddress,
-  prettyUtxo,
-  prettyValue,
+  renderValue,
   serialiseAddress,
   txOutValueToLovelace,
-  utxoMap,
+ )
+import Hydra.Chain.Direct.Util (isMarkedOutput)
+import Hydra.Client (Client (..), HydraEvent (..), withClient)
+import Hydra.ClientInput (ClientInput (..))
+import Hydra.Ledger (IsTx (..))
+import Hydra.Ledger.Cardano (
+  CardanoTx,
+  mkSimpleCardanoTx,
  )
 import Hydra.Network (Host (..))
 import Hydra.Party (Party)
@@ -158,10 +159,10 @@ own = "own"
 
 data HeadState
   = Ready
-  | Initializing {parties :: [Party], remainingParties :: [Party], utxo :: Utxo}
-  | Open {parties :: [Party], utxo :: Utxo}
+  | Initializing {parties :: [Party], remainingParties :: [Party], utxo :: UTxO}
+  | Open {parties :: [Party], utxo :: UTxO}
   | Closed {contestationDeadline :: UTCTime}
-  | Final {utxo :: Utxo}
+  | Final {utxo :: UTxO}
   deriving (Eq, Show, Generic)
 
 type Name = Text
@@ -271,7 +272,7 @@ handleAppEvent s = \case
           & feedbackL ?~ UserFeedback Info "Head initialized, ready for commit(s)."
   Update Committed{party, utxo} ->
     s & headStateL %~ partyCommitted [party] utxo
-      & feedbackL ?~ UserFeedback Info (show party <> " committed " <> prettyValue (balance @CardanoTx utxo))
+      & feedbackL ?~ UserFeedback Info (show party <> " committed " <> renderValue (balance @CardanoTx utxo))
   Update HeadIsOpen{utxo} ->
     s & headStateL %~ headIsOpen utxo
       & feedbackL ?~ UserFeedback Info "Head is now open!"
@@ -345,12 +346,12 @@ handleCommitEvent ::
   CardanoClient ->
   State ->
   EventM n (Next State)
-handleCommitEvent Client{sendInput, sk} CardanoClient{queryUtxoByAddress, networkId} s = case s ^? headStateL of
+handleCommitEvent Client{sendInput, sk} CardanoClient{queryUTxOByAddress, networkId} s = case s ^? headStateL of
   Just Initializing{} -> do
-    utxo <- liftIO $ queryUtxoByAddress [buildAddress (getVerificationKey sk) networkId]
+    utxo <- liftIO $ queryUTxOByAddress [buildAddress (getVerificationKey sk) networkId]
     -- XXX(SN): this is a hydra implementation detail and should be moved
     -- somewhere hydra specific
-    let utxoWithoutFuel = Map.filter (not . isMarkedOutput) (utxoMap utxo)
+    let utxoWithoutFuel = Map.filter (not . isMarkedOutput) (UTxO.toMap utxo)
     continue $ s & dialogStateL .~ commitDialog utxoWithoutFuel
   _ ->
     continue $ s & feedbackL ?~ UserFeedback Error "Invalid command."
@@ -361,15 +362,15 @@ handleCommitEvent Client{sendInput, sk} CardanoClient{queryUtxoByAddress, networ
     title = "Select UTXO to commit"
     form = newForm (utxoCheckboxField u) ((,False) <$> u)
     submit s' selected = do
-      let commitUtxo = Utxo $ Map.mapMaybe (\(v, p) -> if p then Just v else Nothing) selected
-      if length commitUtxo > 1
+      let commitUTxO = UTxO $ Map.mapMaybe (\(v, p) -> if p then Just v else Nothing) selected
+      if length commitUTxO > 1
         then
           continue $
             s'
               & feedbackL ?~ UserFeedback Error "Cannot commit more than 1 entry."
               & dialogStateL .~ NoDialog
         else do
-          liftIO (sendInput $ Commit commitUtxo)
+          liftIO (sendInput $ Commit commitUTxO)
           continue (s' & dialogStateL .~ NoDialog)
 
 handleNewTxEvent ::
@@ -388,14 +389,14 @@ handleNewTxEvent Client{sendInput, sk} CardanoClient{networkId} s = case s ^? he
   transactionBuilderDialog utxo =
     Dialog title form submit
    where
-    myUtxo = myAvailableUtxo networkId vk s
+    myUTxO = myAvailableUTxO networkId vk s
     title = "Select UTXO to spend"
     -- FIXME: This crashes if the utxo is empty
-    form = newForm (utxoRadioField myUtxo) (Prelude.head (Map.toList myUtxo))
+    form = newForm (utxoRadioField myUTxO) (Prelude.head (Map.toList myUTxO))
     submit s' input =
       continue $ s' & dialogStateL .~ recipientsDialog input utxo
 
-  recipientsDialog input (Utxo utxo) =
+  recipientsDialog input (UTxO utxo) =
     Dialog title form submit
    where
     title = "Select a recipient"
@@ -501,7 +502,7 @@ draw Client{sk} CardanoClient{networkId} s =
           Just Initializing{remainingParties, utxo} ->
             withCommands
               [ drawHeadState
-              , padLeftRight 1 $ str ("Total committed: " <> toString (prettyValue (balance @CardanoTx utxo)))
+              , padLeftRight 1 $ str ("Total committed: " <> toString (renderValue (balance @CardanoTx utxo)))
               , padLeftRight 1 $
                   padTop (Pad 1) $
                     str "Waiting for parties to commit:"
@@ -515,8 +516,8 @@ draw Client{sk} CardanoClient{networkId} s =
             withCommands
               [ drawHeadState
               , padLeftRight 1 $
-                  txt ("Head UTXO, total: " <> prettyValue (balance @CardanoTx utxo))
-                    <=> padLeft (Pad 2) (drawUtxo utxo)
+                  txt ("Head UTXO, total: " <> renderValue (balance @CardanoTx utxo))
+                    <=> padLeft (Pad 2) (drawUTxO utxo)
               ]
               [ "[N]ew Transaction"
               , "[C]lose"
@@ -532,8 +533,8 @@ draw Client{sk} CardanoClient{networkId} s =
             withCommands
               [ drawHeadState
               , padLeftRight 1 $
-                  txt ("Distributed UTXO, total: " <> prettyValue (balance @CardanoTx utxo))
-                    <=> padLeft (Pad 2) (drawUtxo utxo)
+                  txt ("Distributed UTXO, total: " <> renderValue (balance @CardanoTx utxo))
+                    <=> padLeft (Pad 2) (drawUTxO utxo)
               ]
               [ "[I]nit"
               , "[Q]uit"
@@ -553,17 +554,17 @@ draw Client{sk} CardanoClient{networkId} s =
         , hBorder
         ]
 
-  drawUtxo utxo =
+  drawUTxO utxo =
     let byAddress =
           Map.foldrWithKey
             (\k v@(TxOut addr _ _) -> Map.unionWith (++) (Map.singleton addr [(k, v)]))
             mempty
-            $ utxoMap utxo
+            $ UTxO.toMap utxo
      in vBox
           [ padTop (Pad 1) $
             vBox
               [ drawAddress addr
-              , padLeft (Pad 2) $ vBox (str . toString . prettyUtxo <$> u)
+              , padLeft (Pad 2) $ vBox (str . toString . UTxO.render <$> u)
               ]
           | (addr, u) <- Map.toList byAddress
           ]
@@ -631,7 +632,7 @@ utxoCheckboxField u =
   [ checkboxField
     (checkboxLens k)
     ("checkboxField@" <> show k)
-    (prettyUtxo (k, v))
+    (UTxO.render (k, v))
   | (k, v) <- Map.toList u
   ]
  where
@@ -652,15 +653,15 @@ utxoRadioField ::
 utxoRadioField u =
   [ radioField
       (lens id seq)
-      [ (i, show i, prettyUtxo i)
+      [ (i, show i, UTxO.render i)
       | i <- Map.toList u
       ]
   ]
 
-myAvailableUtxo :: NetworkId -> VerificationKey PaymentKey -> State -> Map TxIn (TxOut CtxUTxO Era)
-myAvailableUtxo networkId vk s =
+myAvailableUTxO :: NetworkId -> VerificationKey PaymentKey -> State -> Map TxIn (TxOut CtxUTxO Era)
+myAvailableUTxO networkId vk s =
   case s ^? headStateL of
-    Just Open{utxo = Utxo u'} ->
+    Just Open{utxo = UTxO u'} ->
       let myAddress = mkVkAddress networkId vk
        in Map.filter (\(TxOut addr _ _) -> addr == myAddress) u'
     _ ->

@@ -29,7 +29,7 @@ spec :: Spec
 spec = do
   parallel $ do
     let threeParties = [1, 2, 3]
-        Ledger{initUtxo} = simpleLedger
+        Ledger{initUTxO} = simpleLedger
         envFor signingKey =
           let party = deriveParty signingKey
            in Environment
@@ -45,9 +45,9 @@ spec = do
         let tx = aValidTx 1
             st =
               CoordinatedHeadState
-                { seenUtxo = initUtxo
+                { seenUTxO = initUTxO
                 , seenTxs = [tx]
-                , confirmedSnapshot = InitialSnapshot $ Snapshot 0 initUtxo mempty
+                , confirmedSnapshot = InitialSnapshot $ Snapshot 0 initUTxO mempty
                 , seenSnapshot = NoSeenSnapshot
                 }
         newSn (envFor 1) params st `shouldBe` ShouldSnapshot 1 [tx]
@@ -56,20 +56,20 @@ spec = do
         let tx = aValidTx 1
             st =
               CoordinatedHeadState
-                { seenUtxo = initUtxo
+                { seenUTxO = initUTxO
                 , seenTxs = [tx]
-                , confirmedSnapshot = InitialSnapshot $ Snapshot 0 initUtxo mempty
+                , confirmedSnapshot = InitialSnapshot $ Snapshot 0 initUTxO mempty
                 , seenSnapshot = NoSeenSnapshot
                 }
         newSn (envFor 2) params st `shouldBe` ShouldNotSnapshot (NotLeader 1)
 
       it "do not send ReqSn when there is a snapshot in flight" $ do
-        let sn1 = Snapshot 1 initUtxo mempty :: Snapshot SimpleTx
+        let sn1 = Snapshot 1 initUTxO mempty :: Snapshot SimpleTx
             st =
               CoordinatedHeadState
-                { seenUtxo = initUtxo
+                { seenUTxO = initUTxO
                 , seenTxs = mempty
-                , confirmedSnapshot = InitialSnapshot $ Snapshot 0 initUtxo mempty
+                , confirmedSnapshot = InitialSnapshot $ Snapshot 0 initUTxO mempty
                 , seenSnapshot = SeenSnapshot sn1 mempty
                 }
         newSn (envFor 1) params st `shouldBe` ShouldNotSnapshot (SnapshotInFlight 1)
@@ -77,9 +77,9 @@ spec = do
       it "do not send ReqSn when there's no seen transactions" $ do
         let st =
               CoordinatedHeadState
-                { seenUtxo = initUtxo
+                { seenUTxO = initUTxO
                 , seenTxs = mempty
-                , confirmedSnapshot = InitialSnapshot $ Snapshot 0 initUtxo mempty
+                , confirmedSnapshot = InitialSnapshot $ Snapshot 0 initUTxO mempty
                 , seenSnapshot = NoSeenSnapshot
                 } ::
                 CoordinatedHeadState SimpleTx
@@ -90,9 +90,9 @@ spec = do
           let tx = aValidTx 1
               coordinatedState =
                 CoordinatedHeadState
-                  { seenUtxo = initUtxo
+                  { seenUTxO = initUTxO
                   , seenTxs = [tx]
-                  , confirmedSnapshot = InitialSnapshot $ Snapshot 0 initUtxo mempty
+                  , confirmedSnapshot = InitialSnapshot $ Snapshot 0 initUTxO mempty
                   , seenSnapshot = NoSeenSnapshot
                   }
               st =

@@ -59,7 +59,7 @@ properties:
             type: string
             enum: ["Commit"]
           utxo:
-            $ref: "common.yaml#/definitions/Utxo"
+            $ref: "common.yaml#/definitions/UTxO"
 
       - title: NewTx
         type: object
@@ -72,14 +72,14 @@ properties:
           transaction:
             $ref: "common.yaml#/definitions/Transaction"
 
-      - title: GetUtxo
+      - title: GetUTxO
         type: object
         required:
         - tag
         properties:
           tag:
             type: string
-            enum: ["GetUtxo"]
+            enum: ["GetUTxO"]
 
       - title: Close
         type: object
@@ -154,7 +154,7 @@ properties:
           party:
             $ref: "common.yaml#/definitions/Party"
           utxo:
-            $ref: "common.yaml#/definitions/Utxo"
+            $ref: "common.yaml#/definitions/UTxO"
 
       - title: HeadIsOpen
         type: object
@@ -166,7 +166,7 @@ properties:
             type: string
             enum: ["HeadIsOpen"]
           utxo:
-            $ref: "common.yaml#/definitions/Utxo"
+            $ref: "common.yaml#/definitions/UTxO"
 
       - title: HeadIsClosed
         type: object
@@ -194,7 +194,7 @@ properties:
             type: string
             enum: ["HeadIsAborted"]
           utxo:
-            $ref: "common.yaml#/definitions/Utxo"
+            $ref: "common.yaml#/definitions/UTxO"
 
       - title: HeadIsFinalized
         type: object
@@ -206,7 +206,7 @@ properties:
             type: string
             enum: ["HeadIsFinalized"]
           utxo:
-            $ref: "common.yaml#/definitions/Utxo"
+            $ref: "common.yaml#/definitions/UTxO"
 
       - title: TxSeen
         type: object
@@ -244,7 +244,7 @@ properties:
             type: string
             enum: ["TxInvalid"]
           utxo:
-            $ref: "common.yaml#/definitions/Utxo"
+            $ref: "common.yaml#/definitions/UTxO"
           transaction:
             $ref: "common.yaml#/definitions/Transaction"
           validationError:
@@ -265,16 +265,16 @@ properties:
           snapshot:
             $ref: "common.yaml#/definitions/Snapshot"
 
-      - title: Utxo
+      - title: UTxO
         type: object
         required:
         - tag
         properties:
           tag:
             type: string
-            enum: ["Utxo"]
+            enum: ["UTxO"]
           utxo:
-            $ref: "common.yaml#/definitions/Utxo"
+            $ref: "common.yaml#/definitions/UTxO"
 
       - title: CommandFailed
         type: object

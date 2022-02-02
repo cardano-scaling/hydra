@@ -1,5 +1,3 @@
-{-# LANGUAGE TypeApplications #-}
-
 -- | A basic cardano-node client that can talk to a local cardano-node.
 --
 -- The idea of this module is to provide a Haskell interface on top of cardano-cli's API,
@@ -8,14 +6,9 @@ module CardanoClient where
 
 import Hydra.Prelude
 
--- We use quite a lot of stuff from the API so enumerating them all is pointless and
--- clutters the code
-import Cardano.Api
+import Hydra.Cardano.Api
 
-import Cardano.Api.Shelley (
-  PoolId,
-  ProtocolParameters (protocolParamTxFeeFixed, protocolParamTxFeePerByte),
- )
+import qualified Cardano.Api.UTxO as UTxO
 import Cardano.Slotting.Time (SystemStart)
 import CardanoNode (RunningNode (RunningNode))
 import qualified Data.Map as Map
@@ -23,16 +16,6 @@ import qualified Data.Set as Set
 import qualified Hydra.Chain.Direct.Util as Hydra
 import Hydra.Ledger.Cardano (
   CardanoTx,
-  Utxo,
-  Utxo' (Utxo),
-  fromCardanoApiUtxo,
-  fromPlutusData,
-  lovelaceToTxOutValue,
-  mkVkAddress,
-  unsafeCastHash,
-  utxoFromTx,
-  utxoMap,
-  utxoPairs,
  )
 import Ouroboros.Consensus.HardFork.Combinator.AcrossEras (EraMismatch)
 import Ouroboros.Network.Protocol.LocalTxSubmission.Client (SubmitResult (..))
@@ -40,14 +23,14 @@ import Ouroboros.Network.Protocol.LocalTxSubmission.Client (SubmitResult (..))
 type NodeSocket = FilePath
 
 data CardanoClient = CardanoClient
-  { queryUtxoByAddress :: [Address ShelleyAddr] -> IO Utxo
+  { queryUTxOByAddress :: [Address ShelleyAddr] -> IO UTxO
   , networkId :: NetworkId
   }
 
 mkCardanoClient :: NetworkId -> FilePath -> CardanoClient
 mkCardanoClient networkId filePath =
   CardanoClient
-    { queryUtxoByAddress = fmap fromCardanoApiUtxo . queryUtxo networkId filePath
+    { queryUTxOByAddress = queryUTxO networkId filePath
     , networkId
     }
 
@@ -70,8 +53,8 @@ buildScriptAddress script networkId =
 --
 -- This query is specialised for Shelley addresses in Alonzo era.
 -- Throws 'CardanoClientException' if query fails.
-queryUtxo :: NetworkId -> FilePath -> [Address ShelleyAddr] -> IO (UTxO AlonzoEra)
-queryUtxo networkId socket addresses =
+queryUTxO :: NetworkId -> FilePath -> [Address ShelleyAddr] -> IO UTxO
+queryUTxO networkId socket addresses =
   let query =
         QueryInEra
           AlonzoEraInCardanoMode
@@ -81,10 +64,10 @@ queryUtxo networkId socket addresses =
                   (QueryUTxOByAddress (Set.fromList $ map AddressShelley addresses))
               )
           )
-   in runQuery networkId socket query
+   in UTxO.fromApi <$> runQuery networkId socket query
 
-queryUtxoByTxIn :: NetworkId -> FilePath -> [TxIn] -> IO (UTxO AlonzoEra)
-queryUtxoByTxIn networkId socket inputs =
+queryUTxOByTxIn :: NetworkId -> FilePath -> [TxIn] -> IO UTxO
+queryUTxOByTxIn networkId socket inputs =
   let query =
         QueryInEra
           AlonzoEraInCardanoMode
@@ -92,7 +75,7 @@ queryUtxoByTxIn networkId socket inputs =
               ShelleyBasedEraAlonzo
               (QueryUTxO (QueryUTxOByTxIn (Set.fromList inputs)))
           )
-   in runQuery networkId socket query
+   in UTxO.fromApi <$> runQuery networkId socket query
 
 -- | Extract ADA value from an output
 -- NOTE(AB): there is txOutValueToLovelace in more recent cardano-api versions which
@@ -200,7 +183,7 @@ build networkId socket changeAddress txIns collateral txOuts = do
   systemStart <- querySystemStart networkId socket
   eraHistory <- queryEraHistory networkId socket
   stakePools <- queryStakePools networkId socket
-  utxo <- queryUtxoByTxIn networkId socket (map fst txIns)
+  utxo <- queryUTxOByTxIn networkId socket (map fst txIns)
   pure $
     second extractBody $
       makeTransactionBodyAutoBalance
@@ -209,7 +192,7 @@ build networkId socket changeAddress txIns collateral txOuts = do
         eraHistory
         pparams
         stakePools
-        utxo
+        (UTxO.toApi utxo)
         (txBodyContent pparams)
         (AddressInEra (ShelleyAddressInEra ShelleyBasedEraAlonzo) changeAddress)
         noOverrideWitness
@@ -299,17 +282,17 @@ data CardanoClientException
 
 instance Exception CardanoClientException
 
--- TODO: This should return a 'Utxo' (from Hydra.Ledger.Cardano)
+-- TODO: This should return a 'UTxO' (from Hydra.Ledger.Cardano)
 waitForPayment ::
   NetworkId ->
   FilePath ->
   Lovelace ->
   Address ShelleyAddr ->
-  IO (UTxO AlonzoEra)
+  IO UTxO
 waitForPayment networkId socket amount addr = go
  where
   go = do
-    utxo <- queryUtxo networkId socket [addr]
+    utxo <- queryUTxO networkId socket [addr]
     let expectedPayment = selectPayment utxo
     if expectedPayment /= mempty
       then pure $ UTxO expectedPayment
@@ -318,16 +301,16 @@ waitForPayment networkId socket amount addr = go
   selectPayment (UTxO utxo) =
     Map.filter ((== amount) . txOutLovelace) utxo
 
-waitForUtxo ::
+waitForUTxO ::
   NetworkId ->
   FilePath ->
-  Utxo ->
+  UTxO ->
   IO ()
-waitForUtxo networkId nodeSocket utxo =
-  forM_ (snd <$> utxoPairs utxo) forEachUtxo
+waitForUTxO networkId nodeSocket utxo =
+  forM_ (snd <$> UTxO.pairs utxo) forEachUTxO
  where
-  forEachUtxo :: TxOut CtxUTxO AlonzoEra -> IO ()
-  forEachUtxo = \case
+  forEachUTxO :: TxOut CtxUTxO AlonzoEra -> IO ()
+  forEachUTxO = \case
     TxOut (AddressInEra (ShelleyAddressInEra ShelleyBasedEraAlonzo) addr) value _ -> do
       void $
         waitForPayment
@@ -338,18 +321,18 @@ waitForUtxo networkId nodeSocket utxo =
     txOut ->
       error $ "Unexpected TxOut " <> show txOut
 
--- TODO: This should return a 'Utxo' (from Hydra.Ledger.Cardano)
+-- TODO: This should return a 'UTxO' (from Hydra.Ledger.Cardano)
 waitForTransaction ::
   NetworkId ->
   FilePath ->
   CardanoTx ->
-  IO (UTxO AlonzoEra)
+  IO UTxO
 waitForTransaction networkId socket tx = go
  where
-  txIns = Map.keys (utxoMap $ utxoFromTx tx)
+  txIns = Map.keys (UTxO.toMap $ utxoFromTx tx)
   go = do
-    utxo <- queryUtxoByTxIn networkId socket txIns
-    if null (unUTxO utxo)
+    utxo <- queryUTxOByTxIn networkId socket txIns
+    if null utxo
       then go
       else pure utxo
 
@@ -399,16 +382,16 @@ generatePaymentToCommit ::
   SigningKey PaymentKey ->
   VerificationKey PaymentKey ->
   Lovelace ->
-  IO Utxo
+  IO UTxO
 generatePaymentToCommit networkId (RunningNode _ nodeSocket) spendingSigningKey receivingVerificationKey lovelace = do
-  UTxO availableUtxo <- queryUtxo networkId nodeSocket [spendingAddress]
-  let inputs = (,Nothing) <$> Map.keys (Map.filter (not . Hydra.isMarkedOutput) availableUtxo)
+  UTxO availableUTxO <- queryUTxO networkId nodeSocket [spendingAddress]
+  let inputs = (,Nothing) <$> Map.keys (Map.filter (not . Hydra.isMarkedOutput) availableUTxO)
   build networkId nodeSocket spendingAddress inputs [] [theOutput] >>= \case
     Left e -> error (show e)
     Right body -> do
       let tx = sign spendingSigningKey body
       submit networkId nodeSocket tx
-      convertUtxo <$> waitForPayment networkId nodeSocket lovelace receivingAddress
+      convertUTxO <$> waitForPayment networkId nodeSocket lovelace receivingAddress
  where
   spendingAddress = buildAddress (getVerificationKey spendingSigningKey) networkId
 
@@ -420,7 +403,7 @@ generatePaymentToCommit networkId (RunningNode _ nodeSocket) spendingSigningKey 
       (lovelaceToTxOutValue lovelace)
       TxOutDatumNone
 
-  convertUtxo (UTxO ledgerUtxo) = Utxo ledgerUtxo
+  convertUTxO (UTxO ledgerUTxO) = UTxO ledgerUTxO
 
 postSeedPayment :: NetworkId -> ProtocolParameters -> Lovelace -> FilePath -> SigningKey PaymentKey -> Lovelace -> IO ()
 postSeedPayment networkId pparams initialAmount nodeSocket signingKey amountLovelace = do

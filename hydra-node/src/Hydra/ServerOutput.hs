@@ -4,7 +4,7 @@
 module Hydra.ServerOutput where
 
 import Hydra.Chain (PostChainTx, PostTxError)
-import Hydra.Ledger (IsTx, TxIdType, UtxoType, ValidationError)
+import Hydra.Ledger (IsTx, TxIdType, UTxOType, ValidationError)
 import Hydra.Network (Host)
 import Hydra.Party (MultiSigned, Party)
 import Hydra.Prelude
@@ -14,20 +14,20 @@ data ServerOutput tx
   = PeerConnected {peer :: Host}
   | PeerDisconnected {peer :: Host}
   | ReadyToCommit {parties :: Set Party}
-  | Committed {party :: Party, utxo :: UtxoType tx}
-  | HeadIsOpen {utxo :: UtxoType tx}
+  | Committed {party :: Party, utxo :: UTxOType tx}
+  | HeadIsOpen {utxo :: UTxOType tx}
   | HeadIsClosed {contestationDeadline :: UTCTime, latestSnapshot :: Snapshot tx}
-  | HeadIsAborted {utxo :: UtxoType tx}
-  | HeadIsFinalized {utxo :: UtxoType tx}
+  | HeadIsAborted {utxo :: UTxOType tx}
+  | HeadIsFinalized {utxo :: UTxOType tx}
   | CommandFailed
   | TxSeen {transaction :: tx}
   | TxValid {transaction :: tx}
-  | TxInvalid {utxo :: UtxoType tx, transaction :: tx, validationError :: ValidationError}
+  | TxInvalid {utxo :: UTxOType tx, transaction :: tx, validationError :: ValidationError}
   | SnapshotConfirmed {snapshot :: Snapshot tx, signatures :: MultiSigned (Snapshot tx)}
   | -- XXX(SN): This is too vague of a name and prone to conflict. Also we want
-    -- to relate it to 'GetUtxo' from 'ClientInput', so 'GetUtxoResult' might be
+    -- to relate it to 'GetUTxO' from 'ClientInput', so 'GetUTxOResult' might be
     -- a better name
-    Utxo {utxo :: UtxoType tx}
+    UTxO {utxo :: UTxOType tx}
   | InvalidInput {reason :: String, input :: Text}
   | -- | A friendly welcome message which tells a client something about the
     -- node. Currently used for knowing what signing key the server uses (it
@@ -41,7 +41,7 @@ deriving instance IsTx tx => Show (ServerOutput tx)
 deriving instance IsTx tx => ToJSON (ServerOutput tx)
 deriving instance IsTx tx => FromJSON (ServerOutput tx)
 
-instance (Arbitrary tx, Arbitrary (UtxoType tx), Arbitrary (TxIdType tx)) => Arbitrary (ServerOutput tx) where
+instance (Arbitrary tx, Arbitrary (UTxOType tx), Arbitrary (TxIdType tx)) => Arbitrary (ServerOutput tx) where
   arbitrary = genericArbitrary
 
   -- NOTE: See note on 'Arbitrary (ClientInput tx)'
@@ -59,7 +59,7 @@ instance (Arbitrary tx, Arbitrary (UtxoType tx), Arbitrary (TxIdType tx)) => Arb
     TxValid tx -> TxValid <$> shrink tx
     TxInvalid u tx err -> TxInvalid <$> shrink u <*> shrink tx <*> shrink err
     SnapshotConfirmed s ms -> SnapshotConfirmed <$> shrink s <*> shrink ms
-    Utxo u -> Utxo <$> shrink u
+    UTxO u -> UTxO <$> shrink u
     InvalidInput r i -> InvalidInput <$> shrink r <*> shrink i
     Greetings me -> Greetings <$> shrink me
     PostTxOnChainFailed p e -> PostTxOnChainFailed <$> shrink p <*> shrink e
