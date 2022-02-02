@@ -31,9 +31,10 @@ PlutusTx.unstableMakeIsData ''SerializedTxOut
 instance Eq SerializedTxOut where
   SerializedTxOut bs == SerializedTxOut bs' = bs == bs'
 
--- TODO: Is the 'Party' here even used? If yes, why is it not a PubKeyHash /
--- cardano-credential?
 instance Scripts.ValidatorTypes Commit where
+  -- TODO: Party is not used on-chain but is needed off-chain while it's still
+  -- based on mock crypto. When we move to real crypto we could simply use
+  -- the PT's token name to identify the committing party
   type DatumType Commit = (Party, ValidatorHash, Maybe SerializedTxOut)
   type RedeemerType Commit = CommitRedeemer
 

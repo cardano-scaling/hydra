@@ -10,8 +10,27 @@ changes.
 
 ## [0.3.0] - UNRELEASED
 
+#### Added
+
+- Implementation of On-Chain contracts for Hydra Head lifecycle without contests
+- Enable nix-shell on Mac
+- Build separate docker images for `hydra-node` and `hydra-tui` available as _packages_ from GitHub repo
+- Provide utility `inspect-script` to dump contracts for further analysis
+- Implement CBOR encoder and Merkle-Tree in Plutus
+
 #### Changed
+
 - Package `local-cluster` is now `hydra-cluster`.
+- Use exclusively cardano-api's types and functions to interact with chain
+- Refine computation of fees from internal wallet
+- Remove several sources of `error` in chain interaction component
+
+#### Known issues
+
+- `CollectCom` requires increase in tx size limit over current mainchain parameters to 32KB
+  - Should be alleviated with Plutus optimisations and merging all contracts in one
+- Head can collect at most 9 commits and each party can commit either 1 or 0 UTXO to a Head
+- Fan-Out cannot handle more than 100 UTxO with the standard tx size of 16KB (200 with the temporary increase for test purpose).
 
 ## [0.2.0] - 2021-12-14
 

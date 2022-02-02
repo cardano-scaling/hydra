@@ -3,10 +3,131 @@
 {-# OPTIONS_GHC -Wno-orphans #-}
 
 -- | Provides building blocks for Mutation testing of Contracts.
+--
+-- == Introduction
+--
+-- Traditional [Mutation testing](https://en.wikipedia.org/wiki/Mutation_testing) is a testing technique
+-- that introduces small modifications like changing a comparison operator, or modifying constants, into
+-- a program and checks whether or not the existing tests "kill" the produced mutants, eg. fail. Mutation
+-- testing requires somewhat complex tooling because it needs to modify the source code, in limited and
+-- semantically meaningful ways in order to generate code that won't be rejected by the compiler.
+--
+-- Recall that Plutus eUTxO validators are boolean expressions of the form:
+--
+-- @
+-- validator : Datum -> Redeemer -> ScriptContext -> Bool
+-- @
+--
+-- All things being equal, "mutating" a /validator/ so that it returns `False` instead of `True` can be done:
+--
+-- * Either by /mutating/ the code of the `validator` implementation,
+-- * Or by /mutating/ its arguments.
+--
+-- This simple idea lead to the following strategy to test-drive validator scripts:
+--
+-- 1. Start with a validator that always return `True`,
+-- 2. Write a /positive/ property test checking /valid/ transactions are accepted by the validator(s),
+-- 3. Write a /negative/ property test checking /invalid/ transactions are rejected. This is where /mutations/
+--    are introduced, each different mutation type representing some possible "attack",
+-- 4. Watch one or the other properties fail and enhance the validators code to make them pass,
+-- 5. Rinse and repeat.
+--
+-- == Generic Property and Mutations
+--
+-- Given a transaction with some UTxO context, and a function that generates `SomeMutation` from a valid
+-- transaction and context pair, the generic 'propMutation' property checks applying any generated mutation
+-- makes the mutated (hence expectedly invalid) transaction fail the validation stage.
+--
+-- @
+-- propMutation :: (CardanoTx, Utxo) -> ((CardanoTx, Utxo) -> Gen SomeMutation) -> Property
+-- propMutation (tx, utxo) genMutation =
+--   forAll @_ @Property (genMutation (tx, utxo)) $ \SomeMutation{label, mutation} ->
+--     (tx, utxo)
+--       & applyMutation mutation
+--       & propTransactionDoesNotValidate
+-- @
+--
+-- To this basic property definition we add a `checkCoverage` that ensures the set of generated mutations
+-- covers a statistically significant share of each of the various possible mutations classified by their @label@.
+--
+-- The `SomeMutation` type is simply a wrapper that attaches a @label@ to a proper `Mutation` which is the interesting bit here.
+--
+-- The `Mutation` type enumerates various possible "atomic" mutations which preserve the structural correctness of the transaction but should make a validator fail.
+--
+-- @
+-- data Mutation
+--   = ChangeHeadRedeemer Head.Input
+--   | ChangeHeadDatum Head.State
+--   ...
+--   | Changes [Mutation]
+-- @
+--
+-- The constructors should hopefully be self-explaining but for the last one. Some interesting mutations we want
+-- to make require more than one "atomic" change to represent a possible validator failure. For example,
+-- we wanted to check that the `Commit` validator, in the context of a `CollectCom` transaction, verifies the
+-- state (`Input`) of the `Head` validator is correct. But to be interesting, this mutation needs to ensure the
+-- /transition/ verified by the `Head` state machine is valid, which requires changing /both/ the datum and the
+-- redeemer of the consumed head output.
+--
+-- == Transaction-specific Mutations
+--
+-- To be run the `propMutation` requires a starting "healthy" (valid) transaction and a specialised generating
+-- function. It is instantiated in the test runner by providing these two elements. For example, the "ContractSpec"
+-- module has the following property check:
+--
+-- @
+-- describe "CollectCom" $ do
+--   prop "does not survive random adversarial mutations" $
+--     propMutation healthyCollectComTx genCollectComMutation
+-- @
+--
+-- The interesting part is the `genCollectComMutation` (details of the `Mutation` generators are omitted):
+--
+-- @
+-- genCollectComMutation :: (CardanoTx, Utxo) -> Gen SomeMutation
+-- genCollectComMutation (tx, utxo) =
+--   oneof
+--     [ SomeMutation MutateOpenOutputValue . ChangeOutput ...
+--     , SomeMutation MutateOpenUtxoHash . ChangeOutput ...
+--     , SomeMutation MutateHeadScriptInput . ChangeInput ...
+--     , SomeMutation MutateHeadTransition <$> do
+--         changeRedeemer <- ChangeHeadRedeemer <$> ...
+--         changeDatum <- ChangeHeadDatum <$> ...
+--         pure $ Changes [changeRedeemer, changeDatum]
+--     ]
+-- @
+--
+-- Here we have defined four different type of mutations that are interesting for the "CollectCom" transaction
+-- and represent possible /attack vectors/:
+--
+--   * Changing the `Head` output's value, which would imply some of the committed funds could be "stolen"
+--     by the party posting the transaction,
+--   * Tampering with the content of the UTxO committed to the Head,
+--   * Trying to collect commits without running the `Head` validator,
+--   * Trying to collect commits in another Head state machine transition.
+--
+-- == Running Properties
+--
+-- When such a property test succeeds we get the following report which shows the distribution of the various
+-- mutations that were tested.
+--
+-- @
+-- Hydra.Chain.Direct.Contract
+--   CollectCom
+--     does not survive random adversarial mutations
+--       +++ OK, passed 200 tests.
+--
+--       CollectComMutation (200 in total):
+--       30.5% MutateOpenUtxoHash
+--       27.0% MutateHeadTransition
+--       23.5% MutateOpenOutputValue
+--       19.0% MutateHeadScriptInput
+--
+-- Finished in 18.1146 seconds
+-- @
+--
+-- In the case of a failure we get a detailed report on the context of the failure.
 module Hydra.Chain.Direct.Contract.Mutation where
-
-import Hydra.Prelude hiding (label)
-import Test.Hydra.Prelude
 
 import Cardano.Api.Shelley (TxBody (ShelleyTxBody))
 import qualified Cardano.Ledger.Alonzo.Data as Ledger
@@ -53,9 +174,11 @@ import Hydra.Party (
   SigningKey,
   generateKey,
  )
+import Hydra.Prelude hiding (label)
 import Plutus.Orphans ()
 import Plutus.V1.Ledger.Api (toData)
 import qualified System.Directory.Internal.Prelude as Prelude
+import Test.Hydra.Prelude
 import Test.QuickCheck (
   Property,
   checkCoverage,
