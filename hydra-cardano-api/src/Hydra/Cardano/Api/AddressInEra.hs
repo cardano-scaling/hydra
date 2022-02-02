@@ -45,6 +45,11 @@ mkScriptAddress networkId script =
  where
   version = plutusScriptVersion (proxyToAsType $ Proxy @lang)
 
+-- | Get the address associated with some 'TxOut'
+txOutAddress :: TxOut ctx Era -> AddressInEra Era
+txOutAddress (TxOut addr _ _) =
+  addr
+
 -- * Type Conversions
 
 -- | From a ledger 'Addr' to an api 'AddressInEra'

@@ -11,6 +11,7 @@ module Cardano.Api.UTxO where
 import Hydra.Prelude
 
 import Cardano.Api hiding (UTxO, toLedgerUTxO)
+import qualified Cardano.Api
 import qualified Data.Map as Map
 import qualified Data.Text as T
 
@@ -46,3 +47,17 @@ pairs = Map.toList . toMap
 render :: (TxIn, TxOut ctx era) -> Text
 render (k, TxOut _ (txOutValueToValue -> v) _) =
   T.drop 54 (renderTxIn k) <> " ↦ " <> renderValue v
+
+-- | Select the minimum (by TxIn) utxo entry from the UTxO map.
+--
+-- This function is partial.
+min :: UTxO -> UTxO
+min = UTxO . uncurry Map.singleton . Map.findMin . toMap
+
+-- * Type Conversions
+
+fromApi :: Cardano.Api.UTxO AlonzoEra -> UTxO
+fromApi = coerce
+
+toApi :: UTxO -> Cardano.Api.UTxO AlonzoEra
+toApi = coerce
