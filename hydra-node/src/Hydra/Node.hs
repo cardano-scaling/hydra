@@ -3,6 +3,18 @@
 {-# LANGUAGE UndecidableInstances #-}
 
 -- | Top-level module to run a single Hydra node.
+--
+-- == Node Architecture
+--
+-- The following diagram represents the internal structure of the Hydra Node and the interactions between its components.
+--
+-- ![](images/hydra-architecture-direct.jpg)
+--
+-- **Legend**:
+-- - Grayed boxes represent components which are not developed yet
+-- - Black boxes represent components which are expected to be used as _black box_, eg. without any knowledge of their inner workings.
+-- - Arrows depict the flow of data (Requests, messages, responses...)
+-- - We represent some components that are not part of the Hydra node proper for legibility's sake
 module Hydra.Node where
 
 import Hydra.Prelude

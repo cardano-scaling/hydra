@@ -60,16 +60,6 @@ architecture itself then is just a result of all accepted ADRs, which have not
 been deprecated or superseeded. An up-to-date index of still relevant ADRs is
 kept [here](./adr/README.md).
 
-The following diagram represents the internal structure of the Hydra Node and the interactions between its components.
-
-![](images/hydra-architecture-direct.jpg)
-
-**Legend**:
-- Grayed boxes represent components which are not developed yet
-- Black boxes represent components which are expected to be used as _black box_, eg. without any knowledge of their inner workings.
-- Arrows depict the flow of data (Requests, messages, responses...)
-- We represent some components that are not part of the Hydra node proper for legibility's sake
-
 # On-chain verification (OCV)
 
 An important part of the Hydra Head protocol is how it is secured on-chain. For
@@ -91,16 +81,7 @@ is documented on examples of the [full](./images/on-chain-full.jpg) and
 
 Please refer to each component's internal documentation for details.
 
-* The [HydraNode](https://github.com/input-output-hk/hydra-poc/blob/d24c04e138acd333c3d47f97bb214957785fde08/hydra-node/src/Hydra/Node.hs) is a handle to all other components' handles
-  * This handle is used by the main loop to `processNextEvent` and `processEffect`
-* The [HeadLogic](https://github.com/input-output-hk/hydra-poc/blob/d24c04e138acd333c3d47f97bb214957785fde08/hydra-node/src/Hydra/HeadLogic.hs) component implements the Head Protocol's _state machine_ as a _pure function_.
-  * The protocol is described in two parts in the [Hydra paper](https://iohk.io/en/research/library/papers/hydrafast-isomorphic-state-channels/):
-    * One part detailing how the Head deals with _clients input_, eg. [ClientRequest](https://github.com/input-output-hk/hydra-poc/blob/d24c04e138acd333c3d47f97bb214957785fde08/hydra-node/src/Hydra/HeadLogic.hs#L43):
-    * Another part detailing how the Head reacts to _peers input_ provided by the network, eg. [HydraMessage](https://github.com/input-output-hk/hydra-poc/blob/d24c04e138acd333c3d47f97bb214957785fde08/hydra-node/src/Hydra/HeadLogic.hs#L78):
-* The [OnChain](https://github.com/input-output-hk/hydra-poc/blob/d24c04e138acd333c3d47f97bb214957785fde08/hydra-node/src/Hydra/Node.hs#L154) client implements the _Head-Chain Interaction_ part of the protocol
-  * Incoming and outgoing on-chain transactions are modelled as an [OnChainTx](https://github.com/input-output-hk/hydra-poc/blob/d24c04e138acd333c3d47f97bb214957785fde08/hydra-node/src/Hydra/HeadLogic.hs#L88) data type that abstracts away the details of the structure of the transaction.
-* The [Network](https://github.com/input-output-hk/hydra-poc/blob/d24c04e138acd333c3d47f97bb214957785fde08/hydra-node/src/Hydra/Network.hs) component provides the Node an asynchronous messaging interface to the Hydra Network, e.g to other Hydra nodes
-  * Incoming and outgoing messages are modelled as [HydraMessage](https://github.com/input-output-hk/hydra-poc/blob/d24c04e138acd333c3d47f97bb214957785fde08/hydra-node/src/Hydra/HeadLogic.hs#L78) data type
+* The [Network](https://github.com/input-output-hk/hydra-poc/blob/d24c04e138acd333c3d47f97bb214957785fde08/hydra-node/src/Hydra/Network.hs) component
   * We have a [ouroboros-network](https://github.com/input-output-hk/ouroboros-network/tree/master/ouroboros-network-framework) based implementation of the network component (we had another one using [ZeroMQ](https://zeromq.org/))
     * The [Ouroboros](https://github.com/input-output-hk/hydra-poc/blob/d24c04e138acd333c3d47f97bb214957785fde08/hydra-node/src/Hydra/Network/Ouroboros.hs) based network layer implements a dumb [FireForget](https://github.com/input-output-hk/hydra-poc/blob/d24c04e138acd333c3d47f97bb214957785fde08/hydra-node/src/Hydra/Network/Ouroboros/Type.hs#L27) protocol. Contrary to other protocols implemented in Ouroboros, this is a push-based protocol
 * The main constituent of the Head's state is the [Ledger](https://github.com/input-output-hk/hydra-poc/blob/d24c04e138acd333c3d47f97bb214957785fde08/hydra-node/src/Hydra/Ledger.hs) which allows the head to maintain and update the state of _Seen_ or _Confirmed_ transactions and UTxOs according to its protocol.
