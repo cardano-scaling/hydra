@@ -263,9 +263,8 @@ seedFromFaucet networkId (RunningNode _ nodeSocket) receivingVerificationKey lov
   build networkId nodeSocket changeAddress [(i, Nothing)] [] [theOutput] >>= \case
     Left e -> error (show e)
     Right body -> do
-      let tx = sign faucetSk body
-      submit networkId nodeSocket tx
-      waitForTransaction networkId nodeSocket tx
+      submit networkId nodeSocket $ sign faucetSk body
+      waitForPayment networkId nodeSocket lovelace receivingAddress
  where
   findUtxo faucetVk = do
     faucetUtxo <- queryUTxO networkId nodeSocket [buildAddress faucetVk networkId]
