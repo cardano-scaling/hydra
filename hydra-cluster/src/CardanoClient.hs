@@ -364,6 +364,7 @@ mkGenesisTx networkId pparams initialAmount signingKey verificationKey amount =
         Right tx -> sign signingKey tx
 
 generatePaymentToCommit ::
+  HasCallStack =>
   NetworkId ->
   RunningNode ->
   SigningKey PaymentKey ->
