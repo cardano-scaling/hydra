@@ -20,6 +20,7 @@ import CardanoClient (
  )
 import CardanoCluster (
   Actor (Alice, Bob, Carol, Faucet),
+  Marked (Marked, Normal),
   availableInitialFunds,
   defaultNetworkId,
   keysFor,
@@ -80,15 +81,13 @@ spec = around showLogsOnFailure $
           withTempDir "end-to-end-inits-and-closes" $ \tmpDir -> do
             config <- newNodeConfig tmpDir
             (aliceCardanoVk, aliceCardanoSk) <- keysFor Alice
-            (bobCardanoVk, bobCardanoSk) <- keysFor Bob
-            (carolCardanoVk, carolCardanoSk) <- keysFor Carol
+            (bobCardanoVk, _bobCardanoSk) <- keysFor Bob
+            (carolCardanoVk, _) <- keysFor Carol
             (faucetVk, _) <- keysFor Faucet
-            let initialFundsVks = [faucetVk, aliceCardanoVk, bobCardanoVk, carolCardanoVk]
-            withBFTNode (contramap FromCluster tracer) config initialFundsVks $ \node@(RunningNode _ nodeSocket) -> do
+            withBFTNode (contramap FromCluster tracer) config [faucetVk] $ \node@(RunningNode _ nodeSocket) -> do
               (aliceVkPath, aliceSkPath) <- writeKeysFor tmpDir Alice
               (bobVkPath, bobSkPath) <- writeKeysFor tmpDir Bob
               (carolVkPath, carolSkPath) <- writeKeysFor tmpDir Carol
-              pparams <- queryProtocolParameters defaultNetworkId nodeSocket
 
               -- TODO: Run the whole thing below concurrently using the same
               -- keys, but in two distinct heads. (This also requires us to
@@ -99,10 +98,10 @@ spec = around showLogsOnFailure $
                   withHydraNode tracer carolSkPath [aliceVkPath, bobVkPath] tmpDir nodeSocket 3 carolSk [aliceVk, bobVk] allNodeIds $ \n3 -> do
                     waitForNodesConnected tracer allNodeIds [n1, n2, n3]
 
-                    seedFromFaucet defaultNetworkId node aliceCardanoVk 100_000_000
-
-                    postSeedPayment defaultNetworkId pparams availableInitialFunds nodeSocket bobCardanoSk 100_000_000
-                    postSeedPayment defaultNetworkId pparams availableInitialFunds nodeSocket carolCardanoSk 100_000_000
+                    -- Funds to be used as fuel by Hydra protocol transactions
+                    void $ seedFromFaucet defaultNetworkId node aliceCardanoVk 100_000_000 Marked
+                    void $ seedFromFaucet defaultNetworkId node bobCardanoVk 100_000_000 Marked
+                    void $ seedFromFaucet defaultNetworkId node carolCardanoVk 100_000_000 Marked
 
                     let contestationPeriod = 10 :: Natural
                     send n1 $ input "Init" ["contestationPeriod" .= contestationPeriod]
