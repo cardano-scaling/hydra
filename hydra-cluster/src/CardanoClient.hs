@@ -74,7 +74,7 @@ queryUTxOByTxIn networkId socket inputs =
           )
    in UTxO.fromApi <$> runQuery networkId socket query
 
--- |Query current protocol parameters.
+-- | Query current protocol parameters.
 --
 -- Throws 'CardanoClientException' if query fails.
 queryProtocolParameters :: NetworkId -> FilePath -> IO ProtocolParameters
@@ -321,6 +321,10 @@ waitForTransaction networkId socket tx = go
       then go
       else pure utxo
 
+markerDatumHash :: TxOutDatum ctx
+markerDatumHash =
+  TxOutDatumHash (hashScriptData $ fromPlutusData Hydra.markerDatum)
+
 mkGenesisTx ::
   NetworkId ->
   ProtocolParameters ->
@@ -349,7 +353,7 @@ mkGenesisTx networkId pparams initialAmount signingKey verificationKey amount =
         TxOut
           changeAddr
           (lovelaceToValue $ initialAmount - amount - fee)
-          (TxOutDatumHash $ hashScriptData $ fromPlutusData Hydra.markerDatum)
+          markerDatumHash
 
       recipientAddr = mkVkAddress networkId verificationKey
       recipientOutput =

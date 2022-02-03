@@ -4,6 +4,12 @@ import Hydra.Cardano.Api.Prelude
 
 import qualified Cardano.Ledger.Coin as Ledger
 
+-- * Extras
+
+-- | Directly retrieve the amount of 'Lovelace' stored in a 'TxOut'.
+txOutLovelace :: TxOut ctx era -> Lovelace
+txOutLovelace (TxOut _ v _) = txOutValueToLovelace v
+
 -- * Type Conversions
 
 -- | Convert a cardano-ledger's 'Coin' into a cardano-api 'Lovelace'.
