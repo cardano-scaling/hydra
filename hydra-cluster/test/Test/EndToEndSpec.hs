@@ -24,6 +24,7 @@ import CardanoCluster (
   defaultNetworkId,
   keysFor,
   newNodeConfig,
+  seedFromFaucet,
   withBFTNode,
   writeKeysFor,
  )
@@ -95,7 +96,9 @@ spec = around showLogsOnFailure $
                 withHydraNode tracer bobSkPath [aliceVkPath, carolVkPath] tmpDir nodeSocket 2 bobSk [aliceVk, carolVk] allNodeIds $ \n2 ->
                   withHydraNode tracer carolSkPath [aliceVkPath, bobVkPath] tmpDir nodeSocket 3 carolSk [aliceVk, bobVk] allNodeIds $ \n3 -> do
                     waitForNodesConnected tracer allNodeIds [n1, n2, n3]
-                    postSeedPayment defaultNetworkId pparams availableInitialFunds nodeSocket aliceCardanoSk 100_000_000
+
+                    seedFromFaucet defaultNetworkId node aliceCardanoVk 100_000_000
+
                     postSeedPayment defaultNetworkId pparams availableInitialFunds nodeSocket bobCardanoSk 100_000_000
                     postSeedPayment defaultNetworkId pparams availableInitialFunds nodeSocket carolCardanoSk 100_000_000
 
