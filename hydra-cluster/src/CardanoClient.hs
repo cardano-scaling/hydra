@@ -276,7 +276,8 @@ waitForPayment ::
   Lovelace ->
   Address ShelleyAddr ->
   IO UTxO
-waitForPayment networkId socket amount addr = go
+waitForPayment networkId socket amount addr =
+  go
  where
   go = do
     utxo <- queryUTxO networkId socket [addr]
@@ -308,13 +309,13 @@ waitForUTxO networkId nodeSocket utxo =
     txOut ->
       error $ "Unexpected TxOut " <> show txOut
 
--- TODO: This should return a 'UTxO' (from Hydra.Ledger.Cardano)
 waitForTransaction ::
   NetworkId ->
   FilePath ->
   Tx ->
   IO UTxO
-waitForTransaction networkId socket tx = go
+waitForTransaction networkId socket tx =
+  go
  where
   ins = Map.keys (UTxO.toMap $ utxoFromTx tx)
   go = do
@@ -363,6 +364,7 @@ mkGenesisTx networkId pparams initialAmount signingKey verificationKey amount =
         Left err -> error $ "Fail to build genesis transations: " <> show err
         Right tx -> sign signingKey tx
 
+-- TODO: replace with 'seedFromFaucet'
 generatePaymentToCommit ::
   HasCallStack =>
   NetworkId ->
@@ -379,7 +381,7 @@ generatePaymentToCommit networkId (RunningNode _ nodeSocket) spendingSigningKey 
     Right body -> do
       let tx = sign spendingSigningKey body
       submit networkId nodeSocket tx
-      convertUTxO <$> waitForPayment networkId nodeSocket lovelace receivingAddress
+      waitForPayment networkId nodeSocket lovelace receivingAddress
  where
   spendingAddress = buildAddress (getVerificationKey spendingSigningKey) networkId
 
@@ -391,8 +393,7 @@ generatePaymentToCommit networkId (RunningNode _ nodeSocket) spendingSigningKey 
       (lovelaceToValue lovelace)
       TxOutDatumNone
 
-  convertUTxO (UTxO ledgerUTxO) = UTxO ledgerUTxO
-
+-- TODO: replace usages with 'seedFromFaucet'
 postSeedPayment :: NetworkId -> ProtocolParameters -> Lovelace -> FilePath -> SigningKey PaymentKey -> Lovelace -> IO ()
 postSeedPayment networkId pparams initialAmount nodeSocket signingKey amountLovelace = do
   let genesisTx = mkGenesisTx networkId pparams initialAmount signingKey verificationKey amountLovelace

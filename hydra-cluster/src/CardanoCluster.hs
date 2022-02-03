@@ -8,7 +8,14 @@ import Hydra.Prelude
 
 import qualified Cardano.Api.UTxO as UTxO
 import Cardano.Ledger.Keys (VKey (VKey))
-import CardanoClient (build, buildAddress, queryUTxO, sign, submit, waitForPayment)
+import CardanoClient (
+  build,
+  buildAddress,
+  queryUTxO,
+  sign,
+  submit,
+  waitForTransaction,
+ )
 import CardanoNode (
   CardanoNodeArgs (..),
   CardanoNodeConfig (..),
@@ -256,8 +263,9 @@ seedFromFaucet networkId (RunningNode _ nodeSocket) receivingVerificationKey lov
   build networkId nodeSocket changeAddress [(i, Nothing)] [] [theOutput] >>= \case
     Left e -> error (show e)
     Right body -> do
-      submit networkId nodeSocket $ sign faucetSk body
-      waitForPayment networkId nodeSocket lovelace receivingAddress
+      let tx = sign faucetSk body
+      submit networkId nodeSocket tx
+      waitForTransaction networkId nodeSocket tx
  where
   findUtxo faucetVk = do
     faucetUtxo <- queryUTxO networkId nodeSocket [buildAddress faucetVk networkId]

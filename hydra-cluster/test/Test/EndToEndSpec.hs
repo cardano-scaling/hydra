@@ -79,18 +79,18 @@ spec = around showLogsOnFailure $
         failAfter 60 $
           withTempDir "end-to-end-inits-and-closes" $ \tmpDir -> do
             config <- newNodeConfig tmpDir
-            (aliceCardanoVk, aliceCardanoSk) <- keysFor Alice
-            (bobCardanoVk, _bobCardanoSk) <- keysFor Bob
-            (carolCardanoVk, _) <- keysFor Carol
             (faucetVk, _) <- keysFor Faucet
             withBFTNode (contramap FromCluster tracer) config [faucetVk] $ \node@(RunningNode _ nodeSocket) -> do
-              (aliceVkPath, aliceSkPath) <- writeKeysFor tmpDir Alice
-              (bobVkPath, bobSkPath) <- writeKeysFor tmpDir Bob
-              (carolVkPath, carolSkPath) <- writeKeysFor tmpDir Carol
-
               -- TODO: Run the whole thing below concurrently using the same
               -- keys, but in two distinct heads. (This also requires us to
               -- create a faucet and distribute funds from there)
+
+              (aliceCardanoVk, aliceCardanoSk) <- keysFor Alice
+              (bobCardanoVk, _bobCardanoSk) <- keysFor Bob
+              (carolCardanoVk, _) <- keysFor Carol
+              (aliceVkPath, aliceSkPath) <- writeKeysFor tmpDir Alice
+              (bobVkPath, bobSkPath) <- writeKeysFor tmpDir Bob
+              (carolVkPath, carolSkPath) <- writeKeysFor tmpDir Carol
 
               withHydraNode tracer aliceSkPath [bobVkPath, carolVkPath] tmpDir nodeSocket 1 aliceSk [bobVk, carolVk] allNodeIds $ \n1 ->
                 withHydraNode tracer bobSkPath [aliceVkPath, carolVkPath] tmpDir nodeSocket 2 bobSk [aliceVk, carolVk] allNodeIds $ \n2 ->
