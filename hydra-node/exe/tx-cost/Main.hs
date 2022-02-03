@@ -2,6 +2,7 @@
 
 import Hydra.Prelude
 
+import qualified Cardano.Api.UTxO as UTxO
 import Cardano.Binary (serialize)
 import qualified Cardano.Ledger.Alonzo as Ledger.Alonzo
 import qualified Cardano.Ledger.Alonzo.Data as Ledger
@@ -17,41 +18,41 @@ import qualified Data.ByteString as BS
 import qualified Data.Map as Map
 import Data.Maybe (fromJust)
 import Data.Maybe.Strict (StrictMaybe (..))
+import Hydra.Cardano.Api (
+  BuildTxWith (BuildTxWith),
+  ExecutionUnits (..),
+  LedgerEra,
+  NetworkId (Testnet),
+  NetworkMagic (NetworkMagic),
+  PlutusScriptV1,
+  StandardCrypto,
+  TxOut (..),
+  UTxO,
+  fromAlonzoExUnits,
+  fromLedgerTxOut,
+  fromPlutusData,
+  fromPlutusScript,
+  lovelaceToTxOutValue,
+  mkScriptAddress,
+  mkScriptDatum,
+  mkScriptWitness,
+  mkTxOutDatum,
+  toCtxUTxOTxOut,
+  toScriptData,
+ )
 import Hydra.Chain.Direct.Tx (fanoutTx, policyId)
 import qualified Hydra.Contract.Hash as Hash
 import qualified Hydra.Contract.Head as Head
 import qualified Hydra.Contract.HeadState as Head
 import Hydra.Ledger.Cardano (
-  BuildTxWith (BuildTxWith),
   CardanoTx,
-  ExecutionUnits (..),
-  LedgerCrypto,
-  LedgerEra,
-  NetworkId (Testnet),
-  NetworkMagic (NetworkMagic),
-  PlutusScriptV1,
-  TxOut (..),
-  Utxo,
-  Utxo' (Utxo),
   adaOnly,
   addInputs,
   emptyTxBody,
-  fromAlonzoExUnits,
-  fromLedgerTxOut,
-  fromPlutusData,
-  fromPlutusScript,
   genKeyPair,
-  genOneUtxoFor,
+  genOneUTxOFor,
   hashTxOuts,
-  lovelaceToTxOutValue,
-  mkDatumForTxIn,
-  mkRedeemerForTxIn,
-  mkScriptAddress,
-  mkScriptWitness,
-  mkTxOutDatum,
-  simplifyUtxo,
-  singletonUtxo,
-  toCtxUTxOTxOut,
+  simplifyUTxO,
   unsafeBuildTransaction,
  )
 import Hydra.Ledger.Cardano.Evaluate (evaluateTx, pparams)
@@ -79,9 +80,9 @@ costOfFanOut = do
   putStrLn "Cost of running the fanout validator"
   putStrLn "# UTXO  % max Mem   % max CPU"
   forM_ [1 .. 100] $ \numElems -> do
-    utxo <- generate (foldMap simplifyUtxo <$> vectorOf numElems genSomeUtxo)
-    let (tx, lookupUtxo) = mkFanoutTx utxo
-    case evaluateTx tx lookupUtxo of
+    utxo <- generate (foldMap simplifyUTxO <$> vectorOf numElems genSomeUTxO)
+    let (tx, lookupUTxO) = mkFanoutTx utxo
+    case evaluateTx tx lookupUTxO of
       (Right (toList -> [Right (Ledger.ExUnits mem cpu)])) -> do
         putStrLn $
           showPad 8 numElems
@@ -90,7 +91,7 @@ costOfFanOut = do
       _ ->
         pure ()
  where
-  genSomeUtxo = genKeyPair >>= fmap (fmap adaOnly) . genOneUtxoFor . fst
+  genSomeUTxO = genKeyPair >>= fmap (fmap adaOnly) . genOneUTxOFor . fst
   Ledger.ExUnits (fromIntegral @_ @Double -> maxMem) (fromIntegral @_ @Double -> maxCpu) =
     Ledger._maxTxExUnits pparams
 
@@ -100,9 +101,9 @@ showPad n x =
  where
   len = length $ show @String x
 
-mkFanoutTx :: Utxo -> (CardanoTx, Utxo)
+mkFanoutTx :: UTxO -> (CardanoTx, UTxO)
 mkFanoutTx utxo =
-  (tx, lookupUtxo)
+  (tx, lookupUTxO)
  where
   tx = fanoutTx utxo (headInput, fromPlutusData headDatum)
   headInput = generateWith arbitrary 42
@@ -110,7 +111,7 @@ mkFanoutTx utxo =
   headDatum =
     toData $
       Head.Closed 1 (toBuiltin $ hashTxOuts $ toList utxo)
-  lookupUtxo = singletonUtxo (headInput, headOutput)
+  lookupUTxO = UTxO.singleton (headInput, headOutput)
 
 mkHeadOutput :: StrictMaybe (Ledger.Data LedgerEra) -> Ledger.Alonzo.TxOut LedgerEra
 mkHeadOutput headDatum =
@@ -124,7 +125,7 @@ costOfMerkleTree :: IO ()
 costOfMerkleTree = do
   putStrLn "Cost of on-chain Merkle-Tree"
   forM_ ([1 .. 10] <> [20, 30 .. 100] <> [120, 140 .. 500]) $ \numElems -> do
-    utxo <- fmap Plutus.toBuiltin <$> genFakeUtxos numElems
+    utxo <- fmap Plutus.toBuiltin <$> genFakeUTxOs numElems
 
     let (memberMem, memberCpu) = executionCostForMember utxo
         ExUnits (fromIntegral @_ @Double -> maxMem) (fromIntegral @_ @Double -> maxCpu) =
@@ -149,7 +150,7 @@ costOfMerkleTree = do
         putTextLn "\t0\t0"
  where
   -- NOTE: assume size of a UTXO is around  60 bytes
-  genFakeUtxos numElems = generate (vectorOf numElems $ BS.pack <$> vectorOf 60 arbitrary)
+  genFakeUTxOs numElems = generate (vectorOf numElems $ BS.pack <$> vectorOf 60 arbitrary)
 
 executionCostForMember :: [Plutus.BuiltinByteString] -> (Natural, Natural)
 executionCostForMember utxo =
@@ -209,19 +210,19 @@ calculateHashExUnits n algorithm =
           error $ "Too many redeemers in report: " <> show report
  where
   tx = unsafeBuildTransaction $ emptyTxBody & addInputs [(input, witness)]
-  utxo = Utxo $ Map.singleton input output
+  utxo = UTxO.singleton (input, output)
   input = generateWith arbitrary 42
   output = toCtxUTxOTxOut $ TxOut address value (mkTxOutDatum datum)
   value = lovelaceToTxOutValue 1_000_000
   address = mkScriptAddress @PlutusScriptV1 (Testnet $ NetworkMagic 42) script
-  witness = BuildTxWith $ mkScriptWitness script (mkDatumForTxIn datum) redeemer
+  witness = BuildTxWith $ mkScriptWitness script (mkScriptDatum datum) redeemer
   script = fromPlutusScript Hash.validatorScript
   datum = Hash.datum $ toBuiltin bytes
-  redeemer = mkRedeemerForTxIn $ Hash.redeemer algorithm
+  redeemer = toScriptData $ Hash.redeemer algorithm
   bytes = fold $ replicate n ("0" :: ByteString)
 
 -- | Get the ledger address for a given plutus script.
-scriptAddr :: Ledger.Script LedgerEra -> Ledger.Addr LedgerCrypto
+scriptAddr :: Ledger.Script LedgerEra -> Ledger.Addr StandardCrypto
 scriptAddr script =
   Ledger.Addr
     Ledger.Testnet

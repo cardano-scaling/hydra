@@ -8,8 +8,6 @@ module Hydra.Chain.Direct.Wallet where
 
 import Hydra.Prelude
 
-import Cardano.Api (AddressInEra (..), AddressTypeInEra (..), PaymentKey, SigningKey, VerificationKey, shelleyBasedEra)
-import qualified Cardano.Api.Shelley as Cardano.Api
 import qualified Cardano.Crypto.DSIGN as Crypto
 import Cardano.Crypto.Hash.Class
 import qualified Cardano.Ledger.Address as Ledger
@@ -79,6 +77,21 @@ import Data.Ratio ((%))
 import qualified Data.Sequence.Strict as StrictSeq
 import qualified Data.Set as Set
 import GHC.Ix (Ix)
+import Hydra.Cardano.Api (
+  AddressInEra (..),
+  AddressTypeInEra (..),
+  NetworkId (Testnet),
+  PaymentKey,
+  SigningKey,
+  VerificationKey,
+  fromLedgerTxId,
+  mkVkAddress,
+  shelleyBasedEra,
+  signWith,
+  toLedgerAddr,
+  toLedgerKeyWitness,
+ )
+import qualified Hydra.Cardano.Api as Cardano.Api
 import Hydra.Chain.Direct.Util (
   Block,
   Era,
@@ -88,15 +101,7 @@ import Hydra.Chain.Direct.Util (
   nullConnectTracers,
   versions,
  )
-import Hydra.Ledger.Cardano (
-  NetworkId (Testnet),
-  fromLedgerTxId,
-  genKeyPair,
-  mkVkAddress,
-  signWith,
-  toLedgerAddr,
-  toLedgerKeyWitness,
- )
+import Hydra.Ledger.Cardano (genKeyPair)
 import Hydra.Logging (Tracer, traceWith)
 import Ouroboros.Consensus.Cardano.Block (BlockQuery (..), CardanoEras, pattern BlockAlonzo)
 import Ouroboros.Consensus.HardFork.Combinator (MismatchEraInfo)
@@ -154,7 +159,7 @@ type TxIn = Ledger.TxIn StandardCrypto
 type TxOut = Ledger.TxOut Era
 type VkWitness = Ledger.WitVKey 'Ledger.Witness StandardCrypto
 type QueryResult result = Either (MismatchEraInfo (CardanoEras StandardCrypto)) result
-type UtxoSet = Ledger.UTxO Era
+type UTxOSet = Ledger.UTxO Era
 type AlonzoPoint = Point (ShelleyBlock Era)
 
 -- | A 'TinyWallet' is a small abstraction of a wallet with basic UTXO
@@ -163,16 +168,16 @@ type AlonzoPoint = Point (ShelleyBlock Era)
 --
 -- It can sign transactions and keeps track of its UTXO behind the scene.
 data TinyWallet m = TinyWallet
-  { getUtxo :: STM m (Map TxIn TxOut)
+  { getUTxO :: STM m (Map TxIn TxOut)
   , getAddress :: Address
   , sign :: ValidatedTx Era -> ValidatedTx Era
   , coverFee :: Map TxIn TxOut -> ValidatedTx Era -> STM m (Either ErrCoverFee (ValidatedTx Era))
   , verificationKey :: VerificationKey PaymentKey
   }
 
-watchUtxoUntil :: (Map TxIn TxOut -> Bool) -> TinyWallet IO -> IO (Map TxIn TxOut)
-watchUtxoUntil predicate TinyWallet{getUtxo} = atomically $ do
-  u <- getUtxo
+watchUTxOUntil :: (Map TxIn TxOut -> Bool) -> TinyWallet IO -> IO (Map TxIn TxOut)
+watchUTxOUntil predicate TinyWallet{getUTxO} = atomically $ do
+  u <- getUTxO
   u <$ check (predicate u)
 
 withTinyWallet ::
@@ -206,7 +211,7 @@ withTinyWallet tracer magic (vk, sk) iocp addr action = do
 
   newTinyWallet utxoVar =
     TinyWallet
-      { getUtxo =
+      { getUTxO =
           (\(u, _, _, _) -> u) <$> readTMVar utxoVar
       , getAddress =
           address
@@ -221,13 +226,13 @@ withTinyWallet tracer magic (vk, sk) iocp addr action = do
                       { txwitsVKey = toLedgerKeyWitness @Cardano.Api.AlonzoEra [wit]
                       }
                 }
-      , coverFee = \lookupUtxo partialTx -> do
-          (walletUtxo, pparams, systemStart, epochInfo) <- readTMVar utxoVar
-          case coverFee_ pparams systemStart epochInfo lookupUtxo walletUtxo partialTx of
+      , coverFee = \lookupUTxO partialTx -> do
+          (walletUTxO, pparams, systemStart, epochInfo) <- readTMVar utxoVar
+          case coverFee_ pparams systemStart epochInfo lookupUTxO walletUTxO partialTx of
             Left e ->
               pure (Left e)
-            Right (walletUtxo', balancedTx) -> do
-              _ <- swapTMVar utxoVar (walletUtxo', pparams, systemStart, epochInfo)
+            Right (walletUTxO', balancedTx) -> do
+              _ <- swapTMVar utxoVar (walletUTxO', pparams, systemStart, epochInfo)
               pure (Right balancedTx)
       , verificationKey = vk
       }
@@ -264,10 +269,10 @@ getTxId ::
 getTxId tx = Ledger.TxId $ SafeHash.hashAnnotated (body tx)
 
 data ErrCoverFee
-  = ErrNoAvailableUtxo
+  = ErrNoAvailableUTxO
   | ErrNotEnoughFunds ChangeError
   | ErrUnknownInput {input :: TxIn}
-  | ErrNoPaymentUtxoFound
+  | ErrNoPaymentUTxOFound
   | ErrScriptExecutionFailed (RdmrPtr, ScriptFailure StandardCrypto)
   deriving (Show)
 
@@ -287,15 +292,15 @@ coverFee_ ::
   Map TxIn TxOut ->
   ValidatedTx Era ->
   Either ErrCoverFee (Map TxIn TxOut, ValidatedTx Era)
-coverFee_ pparams systemStart epochInfo lookupUtxo walletUtxo partialTx@ValidatedTx{body, wits} = do
-  (input, output) <- findUtxoToPayFees walletUtxo
+coverFee_ pparams systemStart epochInfo lookupUTxO walletUTxO partialTx@ValidatedTx{body, wits} = do
+  (input, output) <- findUTxOToPayFees walletUTxO
 
   let inputs' = inputs body <> Set.singleton input
   resolvedInputs <- traverse resolveInput (toList inputs')
 
   estimatedScriptCosts <-
     left ErrScriptExecutionFailed $
-      estimateScriptsCost pparams systemStart epochInfo (lookupUtxo <> walletUtxo) partialTx
+      estimateScriptsCost pparams systemStart epochInfo (lookupUTxO <> walletUTxO) partialTx
   let adjustedRedeemers =
         adjustRedeemers
           (inputs body)
@@ -333,16 +338,16 @@ coverFee_ pparams systemStart epochInfo lookupUtxo walletUtxo partialTx@Validate
                 (txdats wits)
           }
   pure
-    ( Map.withoutKeys walletUtxo inputs'
+    ( Map.withoutKeys walletUTxO inputs'
     , partialTx
         { body = finalBody
         , wits = wits{txrdmrs = adjustedRedeemers}
         }
     )
  where
-  findUtxoToPayFees utxo = case Map.lookupMax (Map.filter hasMarkerDatum utxo) of
+  findUTxOToPayFees utxo = case Map.lookupMax (Map.filter hasMarkerDatum utxo) of
     Nothing ->
-      Left ErrNoPaymentUtxoFound
+      Left ErrNoPaymentUTxOFound
     Just (i, o) ->
       Right (i, o)
 
@@ -361,7 +366,7 @@ coverFee_ pparams systemStart epochInfo lookupUtxo walletUtxo partialTx@Validate
 
   resolveInput :: TxIn -> Either ErrCoverFee TxOut
   resolveInput i = do
-    case Map.lookup i (lookupUtxo <> walletUtxo) of
+    case Map.lookup i (lookupUTxO <> walletUTxO) of
       Nothing -> Left $ ErrUnknownInput i
       Just o -> Right o
 
@@ -661,17 +666,17 @@ stateQueryClient tracer tipVar utxoVar address =
     LSQ.ClientStQuerying
       { LSQ.recvMsgResult = \(interpreterToEpochInfo -> epochInfo) -> do
           let query = QueryIfCurrentAlonzo $ GetUTxOByAddress (Set.singleton address)
-          let continuation = clientStQueryingUtxo tip pparams systemStart epochInfo
+          let continuation = clientStQueryingUTxO tip pparams systemStart epochInfo
           pure $ LSQ.SendMsgQuery (BlockQuery query) continuation
       }
 
-  clientStQueryingUtxo ::
+  clientStQueryingUTxO ::
     Point Block ->
     PParams Era ->
     SystemStart ->
     EpochInfo (Except PastHorizonException) ->
-    LSQ.ClientStQuerying Block (Point Block) (Query Block) m () (QueryResult UtxoSet)
-  clientStQueryingUtxo tip pparams systemStart epochInfo =
+    LSQ.ClientStQuerying Block (Point Block) (Query Block) m () (QueryResult UTxOSet)
+  clientStQueryingUTxO tip pparams systemStart epochInfo =
     LSQ.ClientStQuerying
       { LSQ.recvMsgResult = \case
           Left err ->
@@ -715,11 +720,11 @@ data TinyWalletLog
 instance ToJSON TinyWalletLog where
   toJSON =
     \case
-      (InitializingWallet point initialUtxo) ->
+      (InitializingWallet point initialUTxO) ->
         object
           [ "tag" .= String "InitializingWallet"
           , "point" .= show @Text point
-          , "initialUtxo" .= initialUtxo
+          , "initialUTxO" .= initialUTxO
           ]
       (ApplyBlock utxo utxo') ->
         object

@@ -2,7 +2,7 @@ module Hydra.TUI.Options where
 
 import Hydra.Prelude
 
-import Hydra.Ledger.Cardano (
+import Hydra.Cardano.Api (
   NetworkId (Mainnet, Testnet),
   NetworkMagic (NetworkMagic),
  )

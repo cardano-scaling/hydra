@@ -76,7 +76,7 @@ spec =
           shouldRender "Initializing"
           sendInputEvent $ EvKey (KChar 'c') []
           threadDelay 1
-          shouldRender "900.000000"
+          shouldRender "900000000 lovelace"
           sendInputEvent $ EvKey (KChar ' ') []
           sendInputEvent $ EvKey KEnter []
           threadDelay 1
@@ -86,7 +86,7 @@ spec =
           shouldRender "Closed"
           threadDelay 10 -- contestation period
           shouldRender "Final"
-          shouldRender "900.000000"
+          shouldRender "900000000 lovelace"
           sendInputEvent $ EvKey (KChar 'q') []
 
 setupNodeAndTUI :: (TUITest -> IO ()) -> IO ()

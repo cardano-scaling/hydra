@@ -7,12 +7,12 @@ import Test.Hydra.Prelude
 
 import Bench.EndToEnd (bench)
 import Data.Aeson (eitherDecodeFileStrict', encodeFile)
-import Hydra.Generator (generateConstantUtxoDataset)
-import Hydra.Ledger.Cardano (
+import Hydra.Cardano.Api (
   ShelleyBasedEra (..),
   ShelleyGenesis (..),
   fromLedgerPParams,
  )
+import Hydra.Generator (generateConstantUTxODataset)
 import Options.Applicative (
   Parser,
   ParserInfo,
@@ -114,7 +114,7 @@ main =
         Left err -> fail $ show err
         Right shelleyGenesis ->
           pure $ fromLedgerPParams ShelleyBasedEraShelley (sgProtocolParams shelleyGenesis)
-    dataset <- replicateM (fromIntegral clusterSize) (generateConstantUtxoDataset pparams numberOfTxs)
+    dataset <- replicateM (fromIntegral clusterSize) (generateConstantUTxODataset pparams numberOfTxs)
     saveDataset benchDir dataset
     run timeoutSeconds benchDir dataset clusterSize
 

@@ -21,21 +21,21 @@ class
   , FromJSON (TxIdType tx)
   , ToJSON (TxIdType tx)
   , --
-    Eq (UtxoType tx)
-  , Show (UtxoType tx)
-  , FromJSON (UtxoType tx)
-  , Monoid (UtxoType tx)
-  , ToJSON (UtxoType tx)
+    Eq (UTxOType tx)
+  , Show (UTxOType tx)
+  , FromJSON (UTxOType tx)
+  , Monoid (UTxOType tx)
+  , ToJSON (UTxOType tx)
   ) =>
   IsTx tx
   where
-  type UtxoType tx
+  type UTxOType tx
   type TxIdType tx
   type ValueType tx
 
   -- XXX(SN): this name easily conflicts
   txId :: tx -> TxIdType tx
-  balance :: UtxoType tx -> ValueType tx
+  balance :: UTxOType tx -> ValueType tx
 
 -- | An abstract interface for a 'Ledger'. Allows to define mock / simpler
 -- implementation for testing as well as limiting feature-envy from the business
@@ -44,18 +44,18 @@ data Ledger tx = Ledger
   { -- | Apply a set of transaction to a given UTXO set. Returns the new UTXO or
     -- validation failures returned from the ledger.
     applyTransactions ::
-      UtxoType tx ->
+      UTxOType tx ->
       [tx] ->
-      Either (tx, ValidationError) (UtxoType tx)
+      Either (tx, ValidationError) (UTxOType tx)
   , -- | Generates an initial UTXO set. This is only temporary as it does not
     -- allow to initialize the UTXO.
     --
-    -- TODO: This seems redundant with the `Monoid (UtxoType tx)` constraints
+    -- TODO: This seems redundant with the `Monoid (UTxOType tx)` constraints
     -- coming with `IsTx`. We probably want to dry this out.
-    initUtxo :: UtxoType tx
+    initUTxO :: UTxOType tx
   }
 
-canApply :: Ledger tx -> UtxoType tx -> tx -> ValidationResult
+canApply :: Ledger tx -> UTxOType tx -> tx -> ValidationResult
 canApply ledger utxo tx =
   either (Invalid . snd) (const Valid) $ applyTransactions ledger utxo (pure tx)
 

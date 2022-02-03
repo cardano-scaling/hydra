@@ -6,14 +6,14 @@ import Control.Concurrent.Async (link)
 import Control.Exception (Handler (Handler), IOException, catches)
 import Control.Monad.Class.MonadSTM (MonadSTM (newTBQueueIO), MonadSTMTx (readTBQueue, writeTBQueue))
 import Data.Aeson (eitherDecodeStrict, encode)
-import Hydra.Chain.Direct.Util (readFileTextEnvelopeThrow)
-import Hydra.ClientInput (ClientInput)
-import Hydra.Ledger (IsTx)
-import Hydra.Ledger.Cardano (
+import Hydra.Cardano.Api (
   AsType (AsPaymentKey, AsSigningKey),
   PaymentKey,
   SigningKey,
  )
+import Hydra.Chain.Direct.Util (readFileTextEnvelopeThrow)
+import Hydra.ClientInput (ClientInput)
+import Hydra.Ledger (IsTx)
 import Hydra.Network (Host (Host, hostname, port))
 import Hydra.ServerOutput (ServerOutput)
 import Hydra.TUI.Options (Options (..))

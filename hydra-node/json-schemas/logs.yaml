@@ -298,15 +298,15 @@ definitions:
       required:
       - tag
       - point
-      - initialUtxo
+      - initialUTxO
       properties:
         tag:
           type: string
           enum: ["InitializingWallet"]
         point:
           $ref: "common.yaml#/definitions/Point"
-        initialUtxo:
-          $ref: "common.yaml#/definitions/Utxo"
+        initialUTxO:
+          $ref: "common.yaml#/definitions/UTxO"
     - title: ApplyBlock
       description: >-
         The wallet has discovered and applied a new block of interest.
@@ -320,9 +320,9 @@ definitions:
           type: string
           enum: ["ApplyBlock"]
         before:
-          $ref: "common.yaml#/definitions/Utxo"
+          $ref: "common.yaml#/definitions/UTxO"
         after:
-          $ref: "common.yaml#/definitions/Utxo"
+          $ref: "common.yaml#/definitions/UTxO"
     - title: EraMismatchError
       description: >-
         The wallet received a block from an era different than the one expected. This should not be a problem as it probably
@@ -572,19 +572,19 @@ definitions:
         parameters:
           $ref: "common.yaml#/definitions/HeadParameters"
         utxos:
-          $ref: "common.yaml#/definitions/Utxo"
+          $ref: "common.yaml#/definitions/UTxO"
 
   CoordinatedHeadState:
     type: object
     additionalProperties: false
     required:
-    - seenUtxo
+    - seenUTxO
     - seenTxs
     - confirmedSnapshot
     - seenSnapshot
     properties:
-      seenUtxo:
-        $ref: "common.yaml#/definitions/Utxo"
+      seenUTxO:
+        $ref: "common.yaml#/definitions/UTxO"
       seenTxs:
         type: array
         items:
@@ -820,7 +820,7 @@ definitions:
           party:
             $ref: "common.yaml#/definitions/Party"
           committed:
-            $ref: "common.yaml#/definitions/Utxo"
+            $ref: "common.yaml#/definitions/UTxO"
       - title: OnAbortTx
         type: object
         additionalProperties: false

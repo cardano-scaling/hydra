@@ -26,15 +26,15 @@ import Test.QuickCheck (choose, getSize, sublistOf)
 -- A transaction is a 'SimpleId', a list of inputs and a list of outputs.
 data SimpleTx = SimpleTx
   { txSimpleId :: SimpleId
-  , txInputs :: UtxoType SimpleTx
-  , txOutputs :: UtxoType SimpleTx
+  , txInputs :: UTxOType SimpleTx
+  , txOutputs :: UTxOType SimpleTx
   }
   deriving stock (Eq, Ord, Generic, Show)
 
 type SimpleId = Integer
 
 instance IsTx SimpleTx where
-  type UtxoType SimpleTx = Set SimpleTxIn
+  type UTxOType SimpleTx = Set SimpleTxIn
   type TxIdType SimpleTx = SimpleId
   type ValueType SimpleTx = Int
 
@@ -98,17 +98,17 @@ simpleLedger =
           if ins `Set.isSubsetOf` utxo && utxo `Set.disjoint` outs
             then Right $ (utxo Set.\\ ins) `Set.union` outs
             else Left (tx, ValidationError "cannot apply transaction")
-    , initUtxo = mempty
+    , initUTxO = mempty
     }
 
 --
 -- Builders
 --
 
-utxoRef :: Integer -> UtxoType SimpleTx
+utxoRef :: Integer -> UTxOType SimpleTx
 utxoRef = Set.singleton . SimpleTxIn
 
-utxoRefs :: [Integer] -> UtxoType SimpleTx
+utxoRefs :: [Integer] -> UTxOType SimpleTx
 utxoRefs = Set.fromList . fmap SimpleTxIn
 
 aValidTx :: Integer -> SimpleTx
@@ -118,21 +118,21 @@ aValidTx n = SimpleTx n mempty (utxoRef n)
 --  Generators
 --
 
-listOfCommittedUtxos :: Integer -> Gen [UtxoType SimpleTx]
-listOfCommittedUtxos numCommits =
+listOfCommittedUTxOs :: Integer -> Gen [UTxOType SimpleTx]
+listOfCommittedUTxOs numCommits =
   pure $ Set.singleton . SimpleTxIn <$> [1 .. numCommits]
 
-genSequenceOfValidTransactions :: UtxoType SimpleTx -> Gen [SimpleTx]
-genSequenceOfValidTransactions initialUtxo = do
+genSequenceOfValidTransactions :: UTxOType SimpleTx -> Gen [SimpleTx]
+genSequenceOfValidTransactions initialUTxO = do
   n <- fromIntegral <$> getSize
-  let maxId = if Set.null initialUtxo then 0 else unSimpleTxIn (maximum initialUtxo)
+  let maxId = if Set.null initialUTxO then 0 else unSimpleTxIn (maximum initialUTxO)
   numTxs <- choose (1, n)
-  foldlM newTx (maxId, initialUtxo, mempty) [1 .. numTxs] >>= \(_, _, txs) -> pure (reverse txs)
+  foldlM newTx (maxId, initialUTxO, mempty) [1 .. numTxs] >>= \(_, _, txs) -> pure (reverse txs)
  where
   newTx ::
-    (TxIdType SimpleTx, UtxoType SimpleTx, [SimpleTx]) ->
+    (TxIdType SimpleTx, UTxOType SimpleTx, [SimpleTx]) ->
     TxIdType SimpleTx ->
-    Gen (TxIdType SimpleTx, UtxoType SimpleTx, [SimpleTx])
+    Gen (TxIdType SimpleTx, UTxOType SimpleTx, [SimpleTx])
   newTx (maxId, utxo, txs) txid = do
     (newMax, ins, outs) <- genInputsAndOutputs maxId utxo
     pure (newMax, (utxo Set.\\ ins) `Set.union` outs, SimpleTx txid ins outs : txs)

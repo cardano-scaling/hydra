@@ -12,6 +12,10 @@ import Cardano.Crypto.Util (SignableRepresentation (getSignableRepresentation))
 import Cardano.Ledger.Alonzo.TxInfo (txInfoOut)
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Base16 as Base16
+import Hydra.Cardano.Api (
+  UTxO,
+  toLedgerTxOut,
+ )
 import Hydra.Chain.Direct.Contract.Abort (genAbortMutation, healthyAbortTx, propHasCommit, propHasInitial)
 import Hydra.Chain.Direct.Contract.Close (genCloseMutation, healthyCloseTx)
 import Hydra.Chain.Direct.Contract.CollectCom (genCollectComMutation, healthyCollectComTx)
@@ -30,11 +34,9 @@ import Hydra.Contract.Head (
 import qualified Hydra.Contract.Head as Head
 import Hydra.Data.Party (partyFromVerKey)
 import Hydra.Ledger.Cardano (
-  Utxo,
-  genUtxoWithSimplifiedAddresses,
+  genUTxOWithSimplifiedAddresses,
   hashTxOuts,
-  shrinkUtxo,
-  toLedgerTxOut,
+  shrinkUTxO,
  )
 import Hydra.Ledger.Simple (SimpleTx)
 import Hydra.Party (
@@ -114,7 +116,7 @@ prop_consistentOnAndOffChainHashOfTxOuts :: Property
 prop_consistentOnAndOffChainHashOfTxOuts =
   -- NOTE: We only generate shelley addressed txouts because they are left out
   -- of the plutus script context in 'txInfoOut'.
-  forAllShrink genUtxoWithSimplifiedAddresses shrinkUtxo $ \(utxo :: Utxo) ->
+  forAllShrink genUTxOWithSimplifiedAddresses shrinkUTxO $ \(utxo :: UTxO) ->
     let plutusTxOuts = mapMaybe (txInfoOut . toLedgerTxOut) ledgerTxOuts
         ledgerTxOuts = toList utxo
         plutusBytes = serialiseTxOuts plutusTxOuts

@@ -3,21 +3,6 @@ module Test.LocalClusterSpec where
 import Hydra.Prelude
 import Test.Hydra.Prelude
 
-import Cardano.Api (
-  MultiAssetSupportedInEra (MultiAssetInAlonzoEra),
-  ScriptDataSupportedInEra (ScriptDataInAlonzoEra),
-  TxIn (TxIn),
-  TxIx (TxIx),
-  TxOut (TxOut),
-  TxOutDatum (TxOutDatum, TxOutDatumHash, TxOutDatumNone),
-  TxOutValue (TxOutValue),
-  UTxO (..),
-  getTxId,
-  hashScriptData,
-  lovelaceToValue,
-  shelleyAddressInEra,
- )
-import Cardano.Api.Shelley (fromPlutusData)
 import CardanoClient (
   Sizes (..),
   build,
@@ -27,7 +12,7 @@ import CardanoClient (
   calculateMinFee,
   defaultSizes,
   queryProtocolParameters,
-  queryUtxo,
+  queryUTxO,
   sign,
   submit,
   txOutLovelace,
@@ -36,6 +21,21 @@ import CardanoClient (
 import CardanoCluster (ClusterConfig (..), ClusterLog (..), RunningCluster (..), defaultNetworkId, keysFor, withCluster)
 import CardanoNode (ChainTip (..), RunningNode (..), cliQueryTip)
 import qualified Data.Map as Map
+import Hydra.Cardano.Api (
+  MultiAssetSupportedInEra (MultiAssetInAlonzoEra),
+  ScriptDataSupportedInEra (ScriptDataInAlonzoEra),
+  TxIn (TxIn),
+  TxIx (TxIx),
+  TxOut (TxOut),
+  TxOutDatum (TxOutDatum, TxOutDatumHash, TxOutDatumNone),
+  TxOutValue (TxOutValue),
+  UTxO' (..),
+  fromPlutusData,
+  getTxId,
+  hashScriptData,
+  lovelaceToValue,
+  shelleyAddressInEra,
+ )
 import Hydra.Chain.Direct.Tx (policyId)
 import qualified Hydra.Contract.Head as Head
 import qualified Hydra.Contract.HeadState as Head
@@ -79,10 +79,10 @@ assertCanSpendInitialFunds = \case
   (RunningCluster ClusterConfig{networkId} (RunningNode _ socket : _)) -> do
     (vk, sk) <- keysFor "alice"
     let addr = buildAddress vk networkId
-    UTxO utxo <- queryUtxo networkId socket [addr]
+    UTxO utxo <- queryUTxO networkId socket [addr]
     pparams <- queryProtocolParameters networkId socket
     let (txIn, out) = case Map.toList utxo of
-          [] -> error "No Utxo found"
+          [] -> error "No UTxO found"
           (tx : _) -> tx
         initialAmount = txOutLovelace out
         amountToPay = 100_000_001
@@ -110,9 +110,9 @@ assertCanCallInitAndAbort = \case
         headScript = toCardanoApiScript $ Head.validatorScript policyId
         headAddress = buildScriptAddress headScript networkId
         headDatum = fromPlutusData $ toData $ Head.Initial 1_000_000_000_000 []
-    UTxO utxo <- queryUtxo networkId socket [addr]
+    UTxO utxo <- queryUTxO networkId socket [addr]
     let (txIn, _) = case Map.toList utxo of
-          [] -> error "No Utxo found"
+          [] -> error "No UTxO found"
           (tx : _) -> tx
         minValue = 2_000_000
     balancedHeadTx <-
@@ -134,9 +134,9 @@ assertCanCallInitAndAbort = \case
     void $ waitForPayment networkId socket minValue headAddress
 
     -- get change utxo
-    UTxO utxo' <- queryUtxo networkId socket [addr]
+    UTxO utxo' <- queryUTxO networkId socket [addr]
     let (txIn', _) = case Map.toList utxo' of
-          [] -> error "No Utxo found for fees"
+          [] -> error "No UTxO found for fees"
           (tx : _) -> tx
 
     let abortDatum = fromPlutusData $ toData Head.Final

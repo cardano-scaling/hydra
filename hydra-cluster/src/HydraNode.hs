@@ -1,6 +1,5 @@
 {-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE NumericUnderscores #-}
-{-# LANGUAGE TypeApplications #-}
 {-# OPTIONS_GHC -Wno-incomplete-uni-patterns #-}
 
 module HydraNode (
@@ -23,9 +22,9 @@ module HydraNode (
   EndToEndLog (..),
 ) where
 
+import Hydra.Cardano.Api
 import Hydra.Prelude hiding (delete)
 
-import Cardano.Api
 import Cardano.BM.Tracing (ToObject)
 import Cardano.Crypto.DSIGN (
   DSIGNAlgorithm (..),

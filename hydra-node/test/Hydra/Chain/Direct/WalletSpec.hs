@@ -6,7 +6,6 @@ module Hydra.Chain.Direct.WalletSpec where
 import Hydra.Prelude hiding (label)
 import Test.Hydra.Prelude
 
-import Cardano.Api (PaymentKey, VerificationKey)
 import Cardano.Binary (unsafeDeserialize')
 import Cardano.Ledger.Alonzo.Data (Data (Data), hashData)
 import Cardano.Ledger.Alonzo.Language (Language (PlutusV1))
@@ -32,6 +31,16 @@ import Data.Maybe (fromJust)
 import Data.Ratio ((%))
 import qualified Data.Sequence.Strict as StrictSeq
 import qualified Data.Set as Set
+import Hydra.Cardano.Api (
+  NetworkId (Testnet),
+  NetworkMagic,
+  PaymentKey,
+  VerificationKey,
+  fromLedgerTx,
+  mkVkAddress,
+  renderTx,
+  toLedgerAddr,
+ )
 import Hydra.Chain.Direct.MockServer (withMockServer)
 import Hydra.Chain.Direct.Util (Era, markerDatum)
 import Hydra.Chain.Direct.Wallet (
@@ -40,18 +49,10 @@ import Hydra.Chain.Direct.Wallet (
   TxOut,
   applyBlock,
   coverFee_,
-  watchUtxoUntil,
+  watchUTxOUntil,
   withTinyWallet,
  )
-import Hydra.Ledger.Cardano (
-  NetworkId (Testnet),
-  NetworkMagic,
-  describeCardanoTx,
-  fromLedgerTx,
-  genKeyPair,
-  mkVkAddress,
-  toLedgerAddr,
- )
+import Hydra.Ledger.Cardano (genKeyPair)
 import Hydra.Ledger.Cardano.Evaluate (epochInfo, systemStart)
 import Ouroboros.Consensus.Cardano.Block (HardForkBlock (..))
 import Ouroboros.Consensus.Shelley.Ledger (mkShelleyBlock)
@@ -77,7 +78,7 @@ import qualified Prelude
 
 spec :: Spec
 spec = parallel $ do
-  describe "genBlock / genUtxo" $ do
+  describe "genBlock / genUTxO" $ do
     prop "are well-suited for testing" prop_wellSuitedGenerators
 
   describe "applyBlock" $ do
@@ -93,14 +94,14 @@ spec = parallel $ do
     it "connects to server and returns UTXO in a timely manner" $ do
       withMockServer $ \networkMagic iocp socket _ -> do
         withTinyWallet nullTracer networkMagic (vk, sk) iocp socket $ \wallet -> do
-          result <- timeout 10 $ watchUtxoUntil (const True) wallet
+          result <- timeout 10 $ watchUTxOUntil (const True) wallet
           result `shouldSatisfy` isJust
 
     it "tracks UTXO correctly when payments are received" $ do
       withMockServer $ \magic iocp socket submitTx -> do
         withTinyWallet nullTracer magic (vk, sk) iocp socket $ \wallet -> do
           generate (genPaymentTo magic vk) >>= submitTx
-          result <- timeout 10 $ watchUtxoUntil (not . null) wallet
+          result <- timeout 10 $ watchUTxOUntil (not . null) wallet
           result `shouldSatisfy` isJust
 
 --
@@ -110,7 +111,7 @@ spec = parallel $ do
 prop_wellSuitedGenerators ::
   Property
 prop_wellSuitedGenerators =
-  forAll genUtxo $ \utxo ->
+  forAll genUTxO $ \utxo ->
     forAllBlind (genBlock utxo) $ \blk ->
       property (smallTxSets blk)
         & cover 0.3 (noneIsOurs utxo blk) "has no tx that are ours"
@@ -137,7 +138,7 @@ prop_wellSuitedGenerators =
 prop_reducesWhenNotOurs ::
   Property
 prop_reducesWhenNotOurs =
-  forAll genUtxo $ \utxo ->
+  forAll genUTxO $ \utxo ->
     forAllBlind (genBlock utxo) $ \blk ->
       let utxo' = applyBlock (BlockAlonzo $ mkShelleyBlock blk) (const False) utxo
        in (length utxo' <= length utxo)
@@ -148,7 +149,7 @@ prop_reducesWhenNotOurs =
 prop_seenInputsAreConsumed ::
   Property
 prop_seenInputsAreConsumed =
-  forAll genUtxo $ \utxo ->
+  forAll genUTxO $ \utxo ->
     forAllBlind (genBlock utxo) $ \blk ->
       let utxo' = applyBlock (BlockAlonzo $ mkShelleyBlock blk) (isOurs utxo) utxo
           seenInputs = fromList $ ourDirectInputs utxo blk
@@ -164,17 +165,17 @@ prop_balanceTransaction ::
   Property
 prop_balanceTransaction =
   forAllBlind (reasonablySized genValidatedTx) $ \tx ->
-    forAllBlind (reasonablySized $ genOutputsForInputs tx) $ \lookupUtxo ->
-      forAllBlind genMarkedUtxo $ \walletUtxo ->
-        case coverFee_ pparams systemStart epochInfo lookupUtxo walletUtxo tx of
+    forAllBlind (reasonablySized $ genOutputsForInputs tx) $ \lookupUTxO ->
+      forAllBlind genMarkedUTxO $ \walletUTxO ->
+        case coverFee_ pparams systemStart epochInfo lookupUTxO walletUTxO tx of
           Left err ->
             property False
               & counterexample ("Error: " <> show err)
-              & counterexample ("Lookup UTXO: \n" <> decodeUtf8 (encodePretty lookupUtxo))
-              & counterexample ("Wallet UTXO: \n" <> decodeUtf8 (encodePretty walletUtxo))
-              & counterexample (toString $ describeCardanoTx $ fromLedgerTx tx)
+              & counterexample ("Lookup UTXO: \n" <> decodeUtf8 (encodePretty lookupUTxO))
+              & counterexample ("Wallet UTXO: \n" <> decodeUtf8 (encodePretty walletUTxO))
+              & counterexample (toString $ renderTx $ fromLedgerTx tx)
           Right (_, tx') ->
-            isBalanced (lookupUtxo <> walletUtxo) tx tx'
+            isBalanced (lookupUTxO <> walletUTxO) tx tx'
 
 isBalanced :: Map TxIn TxOut -> ValidatedTx Era -> ValidatedTx Era -> Property
 isBalanced utxo originalTx balancedTx =
@@ -193,19 +194,19 @@ prop_removeUsedInputs ::
   Property
 prop_removeUsedInputs =
   forAllBlind (reasonablySized genValidatedTx) $ \tx ->
-    forAllBlind (reasonablySized $ genOutputsForInputs tx) $ \txUtxo ->
-      forAllBlind genMarkedUtxo $ \extraUtxo ->
-        prop' txUtxo (txUtxo <> extraUtxo) tx
+    forAllBlind (reasonablySized $ genOutputsForInputs tx) $ \txUTxO ->
+      forAllBlind genMarkedUTxO $ \extraUTxO ->
+        prop' txUTxO (txUTxO <> extraUTxO) tx
  where
-  prop' txUtxo walletUtxo tx =
-    case coverFee_ pparams systemStart epochInfo mempty walletUtxo tx of
+  prop' txUTxO walletUTxO tx =
+    case coverFee_ pparams systemStart epochInfo mempty walletUTxO tx of
       Left err ->
         property False & counterexample ("Error: " <> show err)
       Right (utxo', _) ->
-        null (Map.intersection walletUtxo utxo')
+        null (Map.intersection walletUTxO utxo')
           & counterexample ("Remaining UTXO: " <> show utxo')
-          & counterexample ("Tx UTxO: " <> show txUtxo)
-          & counterexample ("Wallet UTXO: " <> show walletUtxo)
+          & counterexample ("Tx UTxO: " <> show txUTxO)
+          & counterexample ("Wallet UTXO: " <> show walletUTxO)
 
 --
 -- Generators
@@ -231,7 +232,7 @@ genBlock utxo = scale (round @Double . sqrt . fromIntegral) $ do
       lift $
         frequency
           [ (4, pure $ lift arbitrary)
-          , (1, pure genBodyFromUtxo)
+          , (1, pure genBodyFromUTxO)
           ]
     body <- genBody
     lift $
@@ -243,8 +244,8 @@ genBlock utxo = scale (round @Double . sqrt . fromIntegral) $ do
   -- Generate a TxBody by consuming a UTXO from the state, and generating a new
   -- one. The number of UTXO in the state after calling this function remains
   -- identical.
-  genBodyFromUtxo :: StateT (Map TxIn TxOut) Gen (TxBody Era)
-  genBodyFromUtxo = do
+  genBodyFromUTxO :: StateT (Map TxIn TxOut) Gen (TxBody Era)
+  genBodyFromUTxO = do
     base <- lift arbitrary
     (input, output) <- gets Map.findMax
     let body =
@@ -256,8 +257,8 @@ genBlock utxo = scale (round @Double . sqrt . fromIntegral) $ do
     modify (\m -> m & Map.delete input & Map.insert input' output)
     pure body
 
-genUtxo :: Gen (Map TxIn TxOut)
-genUtxo = do
+genUTxO :: Gen (Map TxIn TxOut)
+genUTxO = do
   tx <- arbitrary `suchThat` (\tx -> length (outputs (body tx)) >= 1)
   txIn <- genTxIn
   let txOut = scaleAda $ Prelude.head $ toList $ outputs $ body tx
@@ -276,9 +277,9 @@ genTxIn =
     <$> fmap (unsafeDeserialize' . BS.pack . ([88, 32] <>)) (vectorOf 32 arbitrary)
     <*> fmap fromIntegral (choose @Int (0, 99))
 
-genMarkedUtxo :: Gen (Map TxIn TxOut)
-genMarkedUtxo = do
-  utxo <- reasonablySized genUtxo
+genMarkedUTxO :: Gen (Map TxIn TxOut)
+genMarkedUTxO = do
+  utxo <- reasonablySized genUTxO
   pure $ markForWallet <$> utxo
  where
   markForWallet :: TxOut -> TxOut
