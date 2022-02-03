@@ -19,7 +19,7 @@ import CardanoClient (
   waitForUTxO,
  )
 import CardanoCluster (
-  Actor (Alice, Bob, Carol),
+  Actor (Alice, Bob, Carol, Faucet),
   availableInitialFunds,
   defaultNetworkId,
   keysFor,
@@ -82,7 +82,9 @@ spec = around showLogsOnFailure $
             (aliceCardanoVk, aliceCardanoSk) <- keysFor Alice
             (bobCardanoVk, bobCardanoSk) <- keysFor Bob
             (carolCardanoVk, carolCardanoSk) <- keysFor Carol
-            withBFTNode (contramap FromCluster tracer) config [aliceCardanoVk, bobCardanoVk, carolCardanoVk] $ \node@(RunningNode _ nodeSocket) -> do
+            (faucetVk, _) <- keysFor Faucet
+            let initialFundsVks = [faucetVk, aliceCardanoVk, bobCardanoVk, carolCardanoVk]
+            withBFTNode (contramap FromCluster tracer) config initialFundsVks $ \node@(RunningNode _ nodeSocket) -> do
               (aliceVkPath, aliceSkPath) <- writeKeysFor tmpDir Alice
               (bobVkPath, bobSkPath) <- writeKeysFor tmpDir Bob
               (carolVkPath, carolSkPath) <- writeKeysFor tmpDir Carol
