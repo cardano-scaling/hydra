@@ -9,6 +9,7 @@ module Hydra.TUI where
 import Hydra.Prelude hiding (State, padLeft)
 
 import Brick
+import Hydra.Cardano.Api
 
 import Brick.BChan (newBChan, writeBChan)
 import Brick.Forms (Form, FormFieldState, checkboxField, editShowableFieldWithValidate, formState, handleFormEvent, newForm, radioField, renderForm)
@@ -38,33 +39,11 @@ import Graphics.Vty (
  )
 import qualified Graphics.Vty as Vty
 import Graphics.Vty.Attributes (defAttr)
-import Hydra.Cardano.Api (
-  AddressInEra,
-  CtxUTxO,
-  Era,
-  Key (getVerificationKey),
-  Lovelace (Lovelace),
-  NetworkId,
-  PaymentKey,
-  TxIn,
-  TxOut (TxOut),
-  UTxO,
-  UTxO' (UTxO),
-  VerificationKey,
-  lovelaceToValue,
-  mkVkAddress,
-  renderValue,
-  serialiseAddress,
-  txOutValueToLovelace,
- )
 import Hydra.Chain.Direct.Util (isMarkedOutput)
 import Hydra.Client (Client (..), HydraEvent (..), withClient)
 import Hydra.ClientInput (ClientInput (..))
 import Hydra.Ledger (IsTx (..))
-import Hydra.Ledger.Cardano (
-  CardanoTx,
-  mkSimpleCardanoTx,
- )
+import Hydra.Ledger.Cardano (mkSimpleTx)
 import Hydra.Network (Host (..))
 import Hydra.Party (Party)
 import Hydra.ServerOutput (
@@ -121,7 +100,7 @@ data DialogState where
   NoDialog :: DialogState
   Dialog ::
     forall s e n.
-    (n ~ Name, e ~ HydraEvent CardanoTx) =>
+    (n ~ Name, e ~ HydraEvent Tx) =>
     Text ->
     Form s e n ->
     (State -> s -> EventM n (Next State)) ->
@@ -193,10 +172,10 @@ clearFeedback :: State -> State
 clearFeedback = feedbackL .~ empty
 
 handleEvent ::
-  Client CardanoTx IO ->
+  Client Tx IO ->
   CardanoClient ->
   State ->
-  BrickEvent Name (HydraEvent CardanoTx) ->
+  BrickEvent Name (HydraEvent Tx) ->
   EventM Name (Next State)
 handleEvent client@Client{sendInput} cardanoClient (clearFeedback -> s) = \case
   AppEvent e ->
@@ -243,7 +222,7 @@ handleEvent client@Client{sendInput} cardanoClient (clearFeedback -> s) = \case
 
 handleAppEvent ::
   State ->
-  HydraEvent CardanoTx ->
+  HydraEvent Tx ->
   State
 handleAppEvent s = \case
   ClientConnected ->
@@ -272,7 +251,7 @@ handleAppEvent s = \case
           & feedbackL ?~ UserFeedback Info "Head initialized, ready for commit(s)."
   Update Committed{party, utxo} ->
     s & headStateL %~ partyCommitted [party] utxo
-      & feedbackL ?~ UserFeedback Info (show party <> " committed " <> renderValue (balance @CardanoTx utxo))
+      & feedbackL ?~ UserFeedback Info (show party <> " committed " <> renderValue (balance @Tx utxo))
   Update HeadIsOpen{utxo} ->
     s & headStateL %~ headIsOpen utxo
       & feedbackL ?~ UserFeedback Info "Head is now open!"
@@ -321,7 +300,7 @@ handleAppEvent s = \case
 
 handleDialogEvent ::
   forall s e n.
-  (n ~ Name, e ~ HydraEvent CardanoTx) =>
+  (n ~ Name, e ~ HydraEvent Tx) =>
   (Text, Form s e n, State -> s -> EventM n (Next State)) ->
   State ->
   Vty.Event ->
@@ -342,7 +321,7 @@ handleDialogEvent (title, form, submit) s = \case
     continue $ s & dialogStateL .~ Dialog title form' submit
 
 handleCommitEvent ::
-  Client CardanoTx IO ->
+  Client Tx IO ->
   CardanoClient ->
   State ->
   EventM n (Next State)
@@ -374,7 +353,7 @@ handleCommitEvent Client{sendInput, sk} CardanoClient{queryUTxOByAddress, networ
           continue (s' & dialogStateL .~ NoDialog)
 
 handleNewTxEvent ::
-  Client CardanoTx IO ->
+  Client Tx IO ->
   CardanoClient ->
   State ->
   EventM n (Next State)
@@ -419,12 +398,12 @@ handleNewTxEvent Client{sendInput, sk} CardanoClient{networkId} s = case s ^? he
 
     form =
       -- NOTE(SN): use 'Integer' because we don't have a 'Read Lovelace'
-      let Lovelace limit = txOutValueToLovelace v
+      let Lovelace limit = selectLovelace v
           field = editShowableFieldWithValidate (lens id seq) "amount" (\n -> n > 0 && n <= limit)
        in newForm [field] limit
 
     submit s' amount = do
-      case mkSimpleCardanoTx input (recipient, lovelaceToValue $ Lovelace amount) sk of
+      case mkSimpleTx input (recipient, lovelaceToValue $ Lovelace amount) sk of
         Left e -> continue $ s' & feedbackL ?~ UserFeedback Error ("Failed to construct tx, contact @_ktorz_ on twitter: " <> show e)
         Right tx -> do
           liftIO (sendInput (NewTx tx))
@@ -434,7 +413,7 @@ handleNewTxEvent Client{sendInput, sk} CardanoClient{networkId} s = case s ^? he
 -- View
 --
 
-draw :: Client CardanoTx m -> CardanoClient -> State -> [Widget Name]
+draw :: Client Tx m -> CardanoClient -> State -> [Widget Name]
 draw Client{sk} CardanoClient{networkId} s =
   pure $
     withBorderStyle ascii $
@@ -502,7 +481,7 @@ draw Client{sk} CardanoClient{networkId} s =
           Just Initializing{remainingParties, utxo} ->
             withCommands
               [ drawHeadState
-              , padLeftRight 1 $ str ("Total committed: " <> toString (renderValue (balance @CardanoTx utxo)))
+              , padLeftRight 1 $ str ("Total committed: " <> toString (renderValue (balance @Tx utxo)))
               , padLeftRight 1 $
                   padTop (Pad 1) $
                     str "Waiting for parties to commit:"
@@ -516,7 +495,7 @@ draw Client{sk} CardanoClient{networkId} s =
             withCommands
               [ drawHeadState
               , padLeftRight 1 $
-                  txt ("Head UTXO, total: " <> renderValue (balance @CardanoTx utxo))
+                  txt ("Head UTXO, total: " <> renderValue (balance @Tx utxo))
                     <=> padLeft (Pad 2) (drawUTxO utxo)
               ]
               [ "[N]ew Transaction"
@@ -533,7 +512,7 @@ draw Client{sk} CardanoClient{networkId} s =
             withCommands
               [ drawHeadState
               , padLeftRight 1 $
-                  txt ("Distributed UTXO, total: " <> renderValue (balance @CardanoTx utxo))
+                  txt ("Distributed UTXO, total: " <> renderValue (balance @Tx utxo))
                     <=> padLeft (Pad 2) (drawUTxO utxo)
               ]
               [ "[I]nit"
@@ -613,7 +592,7 @@ draw Client{sk} CardanoClient{networkId} s =
 
 -- HACK(SN): This might be too expensive for a general case and we should move
 -- this somehwere.
-instance Ord (AddressInEra Era) where
+instance Ord AddressInEra where
   a <= b = show @Text a <= show @Text b
 
 --
@@ -623,10 +602,10 @@ instance Ord (AddressInEra Era) where
 -- A helper for creating multiple form fields from a UTXO set.
 utxoCheckboxField ::
   forall s e n.
-  ( s ~ Map.Map TxIn (TxOut CtxUTxO Era, Bool)
+  ( s ~ Map.Map TxIn (TxOut CtxUTxO, Bool)
   , n ~ Name
   ) =>
-  Map TxIn (TxOut CtxUTxO Era) ->
+  Map TxIn (TxOut CtxUTxO) ->
   [s -> FormFieldState s e n]
 utxoCheckboxField u =
   [ checkboxField
@@ -645,10 +624,10 @@ utxoCheckboxField u =
 -- A helper for creating a radio form fields for selecting a UTXO in a given set
 utxoRadioField ::
   forall s e n.
-  ( s ~ (TxIn, TxOut CtxUTxO Era)
+  ( s ~ (TxIn, TxOut CtxUTxO)
   , n ~ Name
   ) =>
-  Map TxIn (TxOut CtxUTxO Era) ->
+  Map TxIn (TxOut CtxUTxO) ->
   [s -> FormFieldState s e n]
 utxoRadioField u =
   [ radioField
@@ -658,7 +637,7 @@ utxoRadioField u =
       ]
   ]
 
-myAvailableUTxO :: NetworkId -> VerificationKey PaymentKey -> State -> Map TxIn (TxOut CtxUTxO Era)
+myAvailableUTxO :: NetworkId -> VerificationKey PaymentKey -> State -> Map TxIn (TxOut CtxUTxO)
 myAvailableUTxO networkId vk s =
   case s ^? headStateL of
     Just Open{utxo = UTxO u'} ->
@@ -690,7 +669,7 @@ runWithVty :: IO Vty -> Options -> IO State
 runWithVty buildVty options@Options{hydraNodeHost, cardanoNetworkId, cardanoNodeSocket} = do
   eventChan <- newBChan 10
   -- REVIEW(SN): what happens if callback blocks?
-  withClient @CardanoTx options (writeBChan eventChan) $ \client -> do
+  withClient @Tx options (writeBChan eventChan) $ \client -> do
     initialVty <- buildVty
     customMain initialVty buildVty (Just eventChan) (app client) initialState
  where

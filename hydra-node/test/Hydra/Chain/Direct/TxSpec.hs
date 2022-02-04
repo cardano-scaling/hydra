@@ -31,7 +31,6 @@ import Hydra.Data.ContestationPeriod (contestationPeriodFromDiffTime)
 import Hydra.Data.Party (partyFromVerKey)
 import Hydra.Ledger (balance)
 import Hydra.Ledger.Cardano (
-  CardanoTx,
   adaOnly,
   genAdaOnlyUTxO,
   genOneUTxOFor,
@@ -77,7 +76,7 @@ spec =
             tx = initTx testNetworkId cardanoKeys params txIn
             observed = observeInitTx testNetworkId party tx
          in case observed of
-              Just (octx, _) -> octx === OnInitTx @CardanoTx cperiod (party : parties)
+              Just (octx, _) -> octx === OnInitTx @Tx cperiod (party : parties)
               _ -> property False
               & counterexample ("Observed: " <> show observed)
 
@@ -121,7 +120,7 @@ spec =
             commitDatum = mkCommitDatum party (Head.validatorHash policyId) singleUTxO
             expectedOutput =
               ( TxIn (getTxId (getTxBody tx)) (TxIx 0)
-              , toUTxOContext $ TxOut commitAddress (mkTxOutValue commitValue) (mkTxOutDatum commitDatum)
+              , toUTxOContext $ TxOut commitAddress commitValue (mkTxOutDatum commitDatum)
               , fromPlutusData (toData commitDatum)
               )
             committedUTxO = maybe mempty UTxO.singleton singleUTxO
@@ -133,9 +132,9 @@ spec =
         let myInitial = (\(a, b, _) -> (a, b)) $ Prelude.head txInputs
             tx = commitTx testNetworkId party (Just singleUTxO) myInitial
             committedUTxO = UTxO $ Map.fromList [singleUTxO]
-            commitOutput = toUTxOContext $ TxOut commitAddress (mkTxOutValue commitValue) (mkTxOutDatum commitDatum)
+            commitOutput = toUTxOContext $ TxOut commitAddress commitValue (mkTxOutDatum commitDatum)
             commitAddress = mkScriptAddress @PlutusScriptV1 testNetworkId $ fromPlutusScript Commit.validatorScript
-            commitValue = headValue <> balance @CardanoTx committedUTxO
+            commitValue = headValue <> balance @Tx committedUTxO
             commitDatum = mkCommitDatum party (Head.validatorHash policyId) $ Just singleUTxO
             commitInput = TxIn (getTxId $ getTxBody tx) (TxIx 0)
             onChainState =
@@ -295,7 +294,7 @@ spec =
               headOutput =
                 TxOut
                   (mkScriptAddress @PlutusScriptV1 testNetworkId headScript)
-                  (mkTxOutValue $ lovelaceToValue $ Lovelace 10_000_000)
+                  (lovelaceToValue $ Lovelace 10_000_000)
                   (toUTxOContext $ mkTxOutDatum headDatum)
               headDatum =
                 Head.Closed
@@ -419,7 +418,7 @@ spec =
                     & counterexample (toString (renderTx tx))
 
 mkInitials ::
-  (TxIn, Hash PaymentKey, TxOut CtxUTxO Era) ->
+  (TxIn, Hash PaymentKey, TxOut CtxUTxO) ->
   UTxOWithScript
 mkInitials (txin, vkh, TxOut _ value _) =
   let initDatum = Initial.datum (toPlutusKeyHash vkh)
@@ -430,8 +429,8 @@ mkInitials (txin, vkh, TxOut _ value _) =
 
 mkInitialTxOut ::
   Hash PaymentKey ->
-  TxOutValue Era ->
-  TxOut CtxUTxO Era
+  Value ->
+  TxOut CtxUTxO
 mkInitialTxOut vkh initialValue =
   toUTxOContext $
     TxOut
@@ -444,7 +443,7 @@ mkInitialTxOut vkh initialValue =
 
 -- | Generate a UTXO representing /commit/ outputs for a given list of `Party`.
 -- FIXME: This function is very complicated and it's hard to understand it after a while
-generateCommitUTxOs :: [Party] -> Gen (Map.Map TxIn (TxOut CtxUTxO Era, ScriptData))
+generateCommitUTxOs :: [Party] -> Gen (Map.Map TxIn (TxOut CtxUTxO, ScriptData))
 generateCommitUTxOs parties = do
   txins <- vectorOf (length parties) (arbitrary @TxIn)
   committedUTxO <-
@@ -460,14 +459,14 @@ generateCommitUTxOs parties = do
           uncurry mkCommitUTxO <$> zip parties committedUTxO
   pure $ Map.fromList commitUTxO
  where
-  mkCommitUTxO :: Party -> Maybe (TxIn, TxOut CtxUTxO Era) -> (TxOut CtxUTxO Era, ScriptData)
+  mkCommitUTxO :: Party -> Maybe (TxIn, TxOut CtxUTxO) -> (TxOut CtxUTxO, ScriptData)
   mkCommitUTxO party utxo =
     ( toUTxOContext $
         TxOut
           (mkScriptAddress @PlutusScriptV1 testNetworkId commitScript)
           -- TODO(AB): We should add the value from the initialIn too because it contains
           -- the PTs
-          (mkTxOutValue commitValue)
+          commitValue
           (mkTxOutDatum commitDatum)
     , fromPlutusData (toData commitDatum)
     )
@@ -484,7 +483,7 @@ generateCommitUTxOs parties = do
 validateTxScriptsUnlimited ::
   -- | UTxO set used to create context for any tx inputs.
   UTxO ->
-  CardanoTx ->
+  Tx ->
   Either
     (Ledger.BasicFailure StandardCrypto)
     (Map Ledger.RdmrPtr (Either (Ledger.ScriptFailure StandardCrypto) Ledger.ExUnits))

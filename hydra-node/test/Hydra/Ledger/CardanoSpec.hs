@@ -5,6 +5,7 @@
 
 module Hydra.Ledger.CardanoSpec where
 
+import Hydra.Cardano.Api
 import Hydra.Prelude
 import Test.Hydra.Prelude
 
@@ -13,17 +14,8 @@ import Data.Aeson (eitherDecode, encode)
 import qualified Data.Aeson as Aeson
 import qualified Data.ByteString.Base16 as Base16
 import Data.Text (unpack)
-import Hydra.Cardano.Api (
-  AssetName,
-  Tx (..),
-  UTxO,
-  fromLedgerTx,
-  getTxId,
-  toLedgerTx,
- )
 import Hydra.Ledger (applyTransactions)
 import Hydra.Ledger.Cardano (
-  CardanoTx,
   cardanoLedger,
   genSequenceOfValidTransactions,
   genUTxO,
@@ -39,14 +31,14 @@ spec =
     roundtripAndGoldenSpecs (Proxy @AssetName)
     -- FIXME: Roundtrip instances for all JSON types we depend on
     roundtripAndGoldenSpecs (Proxy @UTxO)
-    -- roundtripAndGoldenSpecs (Proxy @CardanoTxWitnesses)
-    roundtripAndGoldenSpecs (Proxy @CardanoTx)
+    -- roundtripAndGoldenSpecs (Proxy @TxWitnesses)
+    roundtripAndGoldenSpecs (Proxy @Tx)
 
     prop "Same TxId before/after JSON encoding" roundtripTxId
 
     prop "Roundtrip to and from Ledger" roundtripLedger
 
-    prop "CBOR encoding of CardanoTx" $ roundtripCBOR @CardanoTx
+    prop "CBOR encoding of Tx" $ roundtripCBOR @Tx
 
     prop "applies valid transaction" appliesValidTransaction
 
@@ -61,7 +53,7 @@ spec =
       shouldParseJSONAs @UTxO bs
 
     -- TODO(SN): rather ensure we use the right (cardano-api's) witness format as a test
-    it "should parse a CardanoTx" $ do
+    it "should parse a Tx" $ do
       let bs =
             "{\"witnesses\":\
             \    {\"keys\": [\"8200825820db995fe25169d141cab9bbba92baa01f9f2e1ece7df4cb2ac05190f37fcc1f9d58400599ccd0028389216631446cf0f9a4b095bbed03c25537595aa5a2e107e3704a55050c4ee5198a0aa9fc88007791ef9f3847cd96f3cb9a430d1c2d81c817480c\"]\
@@ -69,7 +61,7 @@ spec =
             \ \"body\":{\"outputs\":[{\"address\":\"addr1vx35vu6aqmdw6uuc34gkpdymrpsd3lsuh6ffq6d9vja0s6spkenss\",\"value\":{\"lovelace\":14}}],\
             \ \"inputs\":[\"9fdc525c20bc00d9dfa9d14904b65e01910c0dfe3bb39865523c1e20eaeb0903#0\"]},\
             \ \"auxiliaryData\":null}"
-      shouldParseJSONAs @CardanoTx bs
+      shouldParseJSONAs @Tx bs
 
 shouldParseJSONAs :: forall a. FromJSON a => LByteString -> Expectation
 shouldParseJSONAs bs =
@@ -77,7 +69,7 @@ shouldParseJSONAs bs =
     Left err -> failure err
     Right (_ :: a) -> pure ()
 
-roundtripTxId :: CardanoTx -> Property
+roundtripTxId :: Tx -> Property
 roundtripTxId tx@(Tx body _) =
   case Aeson.decode (Aeson.encode tx) of
     Nothing ->
@@ -87,7 +79,7 @@ roundtripTxId tx@(Tx body _) =
         & counterexample ("after:  " <> decodeUtf8 (Base16.encode $ serialize' tx'))
         & counterexample ("before: " <> decodeUtf8 (Base16.encode $ serialize' tx))
 
-roundtripLedger :: CardanoTx -> Property
+roundtripLedger :: Tx -> Property
 roundtripLedger tx =
   fromLedgerTx (toLedgerTx tx) === tx
 

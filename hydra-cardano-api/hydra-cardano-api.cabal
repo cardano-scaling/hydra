@@ -78,6 +78,7 @@ library
     Hydra.Cardano.Api.AddressInEra
     Hydra.Cardano.Api.CtxTx
     Hydra.Cardano.Api.CtxUTxO
+    Hydra.Cardano.Api.ExecutionUnits
     Hydra.Cardano.Api.Hash
     Hydra.Cardano.Api.KeyWitness
     Hydra.Cardano.Api.Lovelace

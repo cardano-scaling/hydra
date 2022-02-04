@@ -26,7 +26,7 @@ import Hydra.Chain.Direct (DirectChainLog, withDirectChain)
 import Hydra.Chain.Direct.MockServer (withMockServer)
 import Hydra.Chain.Direct.Util (Era, retry)
 import Hydra.Chain.Direct.WalletSpec (genPaymentTo)
-import Hydra.Ledger.Cardano (CardanoTx, genKeyPair)
+import Hydra.Ledger.Cardano (Tx, genKeyPair)
 import Hydra.Logging (showLogsOnFailure)
 import Hydra.Party (Party, deriveParty, generateKey)
 import Test.QuickCheck (generate)
@@ -48,7 +48,7 @@ spec = do
               let parameters = HeadParameters 100 [alice, bob, carol]
               mkSeedPayment magic aliceVk submitTx
 
-              retry (== NoSeedInput @CardanoTx) $ postTx $ InitTx parameters
+              retry (== NoSeedInput @Tx) $ postTx $ InitTx parameters
               takeMVar calledBackAlice `shouldReturn` OnInitTx 100 [alice, bob, carol]
               takeMVar calledBackBob `shouldReturn` OnInitTx 100 [alice, bob, carol]
 

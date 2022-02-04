@@ -1,3 +1,4 @@
+{-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE TypeApplications #-}
 
 import Hydra.Prelude
@@ -26,26 +27,26 @@ import Hydra.Cardano.Api (
   NetworkMagic (NetworkMagic),
   PlutusScriptV1,
   StandardCrypto,
-  TxOut (..),
+  Tx,
   UTxO,
-  fromAlonzoExUnits,
+  fromLedgerExUnits,
   fromLedgerTxOut,
   fromPlutusData,
   fromPlutusScript,
-  lovelaceToTxOutValue,
+  lovelaceToValue,
   mkScriptAddress,
   mkScriptDatum,
   mkScriptWitness,
   mkTxOutDatum,
   toCtxUTxOTxOut,
   toScriptData,
+  pattern TxOut,
  )
 import Hydra.Chain.Direct.Tx (fanoutTx, policyId)
 import qualified Hydra.Contract.Hash as Hash
 import qualified Hydra.Contract.Head as Head
 import qualified Hydra.Contract.HeadState as Head
 import Hydra.Ledger.Cardano (
-  CardanoTx,
   adaOnly,
   addInputs,
   emptyTxBody,
@@ -101,7 +102,7 @@ showPad n x =
  where
   len = length $ show @String x
 
-mkFanoutTx :: UTxO -> (CardanoTx, UTxO)
+mkFanoutTx :: UTxO -> (Tx, UTxO)
 mkFanoutTx utxo =
   (tx, lookupUTxO)
  where
@@ -205,7 +206,7 @@ calculateHashExUnits n algorithm =
     Right report ->
       case Map.elems report of
         [Right units] ->
-          fromAlonzoExUnits units
+          fromLedgerExUnits units
         _ ->
           error $ "Too many redeemers in report: " <> show report
  where
@@ -213,7 +214,7 @@ calculateHashExUnits n algorithm =
   utxo = UTxO.singleton (input, output)
   input = generateWith arbitrary 42
   output = toCtxUTxOTxOut $ TxOut address value (mkTxOutDatum datum)
-  value = lovelaceToTxOutValue 1_000_000
+  value = lovelaceToValue 1_000_000
   address = mkScriptAddress @PlutusScriptV1 (Testnet $ NetworkMagic 42) script
   witness = BuildTxWith $ mkScriptWitness script (mkScriptDatum datum) redeemer
   script = fromPlutusScript Hash.validatorScript

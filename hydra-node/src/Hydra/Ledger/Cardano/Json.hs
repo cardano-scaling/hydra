@@ -271,15 +271,15 @@ instance ToJSON (Ledger.Alonzo.TxBody StandardAlonzo) where
   toJSON b =
     object $
       mconcat
-        [ onlyIf (const True) "inputs" (Set.map fromShelleyTxIn (Ledger.Alonzo.inputs' b))
-        , onlyIf (not . null) "collateral" (Set.map fromShelleyTxIn (Ledger.Alonzo.collateral' b))
-        , onlyIf (const True) "outputs" (fromShelleyTxOut ShelleyBasedEraAlonzo <$> Ledger.Alonzo.outputs' b)
+        [ onlyIf (const True) "inputs" (Set.map fromLedgerTxIn (Ledger.Alonzo.inputs' b))
+        , onlyIf (not . null) "collateral" (Set.map fromLedgerTxIn (Ledger.Alonzo.collateral' b))
+        , onlyIf (const True) "outputs" (fromLedgerTxOut <$> Ledger.Alonzo.outputs' b)
         , onlyIf (not . null) "certificates" (Ledger.Alonzo.certs' b)
         , onlyIf (not . null . Ledger.unWdrl) "withdrawals" (Ledger.Alonzo.wdrls' b)
         , onlyIf (const True) "fees" (Ledger.Alonzo.txfee' b)
         , onlyIf (not . isOpenInterval) "validity" (Ledger.Alonzo.vldt' b)
         , onlyIf (not . null) "requiredSignatures" (Ledger.Alonzo.reqSignerHashes' b)
-        , onlyIf ((/=) mempty) "mint" (fromMaryValue (Ledger.Alonzo.mint' b))
+        , onlyIf ((/=) mempty) "mint" (fromLedgerValue (Ledger.Alonzo.mint' b))
         , onlyIf isSJust "scriptIntegrityHash" (Ledger.Alonzo.scriptIntegrityHash' b)
         , onlyIf isSJust "auxiliaryDataHash" (Ledger.Alonzo.adHash' b)
         , onlyIf isSJust "networkId" (Ledger.Alonzo.txnetworkid' b)
@@ -372,7 +372,7 @@ txIdFromText = fmap Ledger.TxId . safeHashFromText
 --
 
 instance FromJSON (Ledger.TxIn StandardCrypto) where
-  parseJSON = fmap toShelleyTxIn . parseJSON
+  parseJSON = fmap toLedgerTxIn . parseJSON
 
 txInFromText :: (Crypto crypto, MonadFail m) => Text -> m (Ledger.TxIn crypto)
 txInFromText t = do
@@ -388,14 +388,14 @@ txInFromText t = do
       (decode (encodeUtf8 $ Text.drop 1 txIxText))
 
 instance FromJSONKey TxIn where
-  fromJSONKey = FromJSONKeyTextParser (fmap fromShelleyTxIn . txInFromText)
+  fromJSONKey = FromJSONKeyTextParser (fmap fromLedgerTxIn . txInFromText)
 
 --
 -- TxOut
 --
 
 instance FromJSON (Ledger.Alonzo.TxOut StandardAlonzo) where
-  parseJSON = fmap (toShelleyTxOut ShelleyBasedEraAlonzo) . parseJSON
+  parseJSON = fmap toLedgerTxOut . parseJSON
 
 --
 -- TxWitness
@@ -495,7 +495,7 @@ instance FromJSON Ledger.Mary.ValidityInterval where
 --
 
 instance FromJSON (Ledger.Mary.Value StandardCrypto) where
-  parseJSON = fmap toMaryValue . parseJSON
+  parseJSON = fmap toLedgerValue . parseJSON
 
 --
 -- Wdrl

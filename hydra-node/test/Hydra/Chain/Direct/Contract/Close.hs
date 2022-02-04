@@ -14,7 +14,6 @@ import Hydra.Chain.Direct.Tx (closeTx, mkHeadOutput)
 import qualified Hydra.Contract.HeadState as Head
 import Hydra.Data.Party (partyFromVerKey)
 import qualified Hydra.Data.Party as OnChain
-import Hydra.Ledger.Cardano (CardanoTx)
 import Hydra.Party (
   MultiSigned (MultiSigned),
   SigningKey,
@@ -33,7 +32,7 @@ import Test.QuickCheck.Instances ()
 -- CloseTx
 --
 
-healthyCloseTx :: (CardanoTx, UTxO)
+healthyCloseTx :: (Tx, UTxO)
 healthyCloseTx =
   (tx, lookupUTxO)
  where
@@ -43,7 +42,7 @@ healthyCloseTx =
   headDatum = fromPlutusData $ toData healthyCloseDatum
   lookupUTxO = UTxO.singleton (headInput, headOutput)
 
-healthySnapshot :: Snapshot CardanoTx
+healthySnapshot :: Snapshot Tx
 healthySnapshot =
   Snapshot
     { number = healthySnapshotNumber
@@ -67,7 +66,7 @@ healthyCloseParties = partyFromVerKey . vkey . deriveParty <$> healthyPartyCrede
 healthyPartyCredentials :: [SigningKey]
 healthyPartyCredentials = [1, 2, 3]
 
-healthySignature :: SnapshotNumber -> MultiSigned (Snapshot CardanoTx)
+healthySignature :: SnapshotNumber -> MultiSigned (Snapshot Tx)
 healthySignature number = MultiSigned [sign sk snapshot | sk <- healthyPartyCredentials]
  where
   snapshot = healthySnapshot{number}
@@ -79,7 +78,7 @@ data CloseMutation
   | MutateParties
   deriving (Generic, Show, Enum, Bounded)
 
-genCloseMutation :: (CardanoTx, UTxO) -> Gen SomeMutation
+genCloseMutation :: (Tx, UTxO) -> Gen SomeMutation
 genCloseMutation (_tx, _utxo) =
   -- FIXME: using 'closeRedeemer' here is actually too high-level and reduces
   -- the power of the mutators, we should test at the level of the validator.

@@ -14,9 +14,6 @@ import CardanoNode (RunningNode (RunningNode))
 import qualified Data.Map as Map
 import qualified Data.Set as Set
 import qualified Hydra.Chain.Direct.Util as Hydra
-import Hydra.Ledger.Cardano (
-  CardanoTx,
- )
 import Ouroboros.Consensus.HardFork.Combinator.AcrossEras (EraMismatch)
 import Ouroboros.Network.Protocol.LocalTxSubmission.Client (SubmitResult (..))
 
@@ -44,7 +41,7 @@ buildAddress :: VerificationKey PaymentKey -> NetworkId -> Address ShelleyAddr
 buildAddress vKey networkId =
   makeShelleyAddress networkId (PaymentCredentialByKey $ verificationKeyHash vKey) NoStakeAddress
 
-buildScriptAddress :: Script PlutusScriptV1 -> NetworkId -> Address ShelleyAddr
+buildScriptAddress :: Script -> NetworkId -> Address ShelleyAddr
 buildScriptAddress script networkId =
   let hashed = hashScript script
    in makeShelleyAddress networkId (PaymentCredentialByScript hashed) NoStakeAddress
@@ -76,15 +73,6 @@ queryUTxOByTxIn networkId socket inputs =
               (QueryUTxO (QueryUTxOByTxIn (Set.fromList inputs)))
           )
    in UTxO.fromApi <$> runQuery networkId socket query
-
--- | Extract ADA value from an output
--- NOTE(AB): there is txOutValueToLovelace in more recent cardano-api versions which
--- serves same purpose
-txOutLovelace :: TxOut ctx era -> Lovelace
-txOutLovelace (TxOut _ val _) =
-  case val of
-    TxOutAdaOnly _ l -> l
-    TxOutValue _ v -> selectLovelace v
 
 -- |Query current protocol parameters.
 --
@@ -147,16 +135,17 @@ queryEraHistory networkId socket =
     Right result -> pure result
 
 -- | Build a "raw" transaction from a bunch of inputs, outputs and fees.
-buildRaw :: [TxIn] -> [TxOut CtxTx AlonzoEra] -> Lovelace -> Either TxBodyError (TxBody AlonzoEra)
-buildRaw txIns txOuts fee =
-  makeTransactionBody txBodyContent
+buildRaw :: [TxIn] -> [TxOut CtxTx] -> Lovelace -> Either TxBodyError TxBody
+buildRaw ins outs fee =
+  makeTransactionBody bodyContent
  where
-  txBodyContent =
+  noProtocolParameters = Nothing
+  bodyContent =
     TxBodyContent
-      (map (,BuildTxWith $ KeyWitness KeyWitnessForSpending) txIns)
+      (map (,BuildTxWith $ KeyWitness KeyWitnessForSpending) ins)
       TxInsCollateralNone
-      txOuts
-      (TxFeeExplicit TxFeesExplicitInAlonzoEra fee)
+      outs
+      (TxFeeExplicit fee)
       (TxValidityNoLowerBound, TxValidityNoUpperBound ValidityNoUpperBoundInAlonzoEra)
       TxMetadataNone
       TxAuxScriptsNone
@@ -165,27 +154,25 @@ buildRaw txIns txOuts fee =
       TxWithdrawalsNone
       TxCertificatesNone
       TxUpdateProposalNone
-      TxMintNone
+      TxMintValueNone
       TxScriptValidityNone
-
-  noProtocolParameters = Nothing
 
 build ::
   NetworkId ->
   FilePath ->
   Address ShelleyAddr ->
-  [(TxIn, Maybe (Script PlutusScriptV1, ScriptData, ScriptRedeemer))] ->
+  [(TxIn, Maybe (Script, ScriptData, ScriptRedeemer))] ->
   [TxIn] ->
-  [TxOut CtxTx AlonzoEra] ->
-  IO (Either TxBodyErrorAutoBalance (TxBody AlonzoEra))
-build networkId socket changeAddress txIns collateral txOuts = do
+  [TxOut CtxTx] ->
+  IO (Either TxBodyErrorAutoBalance TxBody)
+build networkId socket changeAddress ins collateral outs = do
   pparams <- queryProtocolParameters networkId socket
   systemStart <- querySystemStart networkId socket
   eraHistory <- queryEraHistory networkId socket
   stakePools <- queryStakePools networkId socket
-  utxo <- queryUTxOByTxIn networkId socket (map fst txIns)
+  utxo <- queryUTxOByTxIn networkId socket (map fst ins)
   pure $
-    second extractBody $
+    second balancedTxBody $
       makeTransactionBodyAutoBalance
         AlonzoEraInCardanoMode
         systemStart
@@ -193,53 +180,49 @@ build networkId socket changeAddress txIns collateral txOuts = do
         pparams
         stakePools
         (UTxO.toApi utxo)
-        (txBodyContent pparams)
-        (AddressInEra (ShelleyAddressInEra ShelleyBasedEraAlonzo) changeAddress)
+        (bodyContent pparams)
+        (AddressInEra ShelleyAddressInAnyEra changeAddress)
         noOverrideWitness
  where
-  txBodyContent pparams =
+  bodyContent pparams =
     TxBodyContent
-      (map mkWitness txIns)
-      (TxInsCollateral CollateralInAlonzoEra collateral)
-      txOuts
+      (map mkWitness ins)
+      (TxInsCollateral collateral)
+      outs
       dummyFee
       (TxValidityNoLowerBound, TxValidityNoUpperBound ValidityNoUpperBoundInAlonzoEra)
-      (TxMetadataInEra TxMetadataInAlonzoEra (TxMetadata noMetadataMap))
-      (TxAuxScripts AuxScriptsInAlonzoEra [])
-      (TxExtraKeyWitnesses ExtraKeyWitnessesInAlonzoEra [])
+      (TxMetadataInEra (TxMetadata noMetadataMap))
+      (TxAuxScripts [])
+      (TxExtraKeyWitnesses [])
       (BuildTxWith $ Just pparams)
       (TxWithdrawals WithdrawalsInAlonzoEra [])
       (TxCertificates CertificatesInAlonzoEra [] (BuildTxWith noStakeCredentialWitnesses))
       TxUpdateProposalNone
-      (TxMintValue MultiAssetInAlonzoEra noMintedValue (BuildTxWith noPolicyIdToWitnessMap))
+      (TxMintValue noMintedValue (BuildTxWith noPolicyIdToWitnessMap))
       TxScriptValidityNone
   noMintedValue = mempty
   noPolicyIdToWitnessMap = mempty
   noMetadataMap = mempty
   noStakeCredentialWitnesses = mempty
   noOverrideWitness = Nothing
-  dummyFee = TxFeeExplicit TxFeesExplicitInAlonzoEra $ Lovelace 0
+  dummyFee = TxFeeExplicit (Lovelace 0)
 
   mkWitness ::
-    (TxIn, Maybe (Script PlutusScriptV1, ScriptData, ScriptRedeemer)) ->
-    (TxIn, BuildTxWith BuildTx (Witness WitCtxTxIn AlonzoEra))
+    (TxIn, Maybe (Script, ScriptData, ScriptRedeemer)) ->
+    (TxIn, BuildTxWith BuildTx (Witness WitCtxTxIn))
   mkWitness (txIn, Nothing) = (txIn, BuildTxWith $ KeyWitness KeyWitnessForSpending)
-  mkWitness (txIn, Just (PlutusScript PlutusScriptV1 script, datum, redeemer)) = (txIn, BuildTxWith $ ScriptWitness ScriptWitnessForSpending sWit)
+  mkWitness (txIn, Just (PlutusScript script, datum, redeemer)) = (txIn, BuildTxWith $ ScriptWitness ScriptWitnessForSpending sWit)
    where
     sWit =
       PlutusScriptWitness
-        PlutusScriptV1InAlonzo
-        PlutusScriptV1
         script
         (ScriptDatumForTxIn datum)
         redeemer
         (ExecutionUnits 0 0)
 
-  extractBody (BalancedTxBody txBody _ _) = txBody
-
-calculateMinFee :: NetworkId -> TxBody AlonzoEra -> Sizes -> ProtocolParameters -> Lovelace
-calculateMinFee networkId txBody Sizes{inputs, outputs, witnesses} pparams =
-  let tx = makeSignedTransaction [] txBody
+calculateMinFee :: NetworkId -> TxBody -> Sizes -> ProtocolParameters -> Lovelace
+calculateMinFee networkId body Sizes{inputs, outputs, witnesses} pparams =
+  let tx = makeSignedTransaction [] body
       noByronWitnesses = 0
    in estimateTransactionFee
         networkId
@@ -262,14 +245,16 @@ defaultSizes :: Sizes
 defaultSizes = Sizes{inputs = 0, outputs = 0, witnesses = 0}
 
 -- | Sign a transaction body with given signing key.
-sign :: SigningKey PaymentKey -> TxBody AlonzoEra -> Tx AlonzoEra
-sign signingKey txBody =
-  makeSignedTransaction [makeShelleyKeyWitness txBody (WitnessPaymentKey signingKey)] txBody
+sign :: SigningKey PaymentKey -> TxBody -> Tx
+sign signingKey body =
+  makeSignedTransaction
+    [makeShelleyKeyWitness body (WitnessPaymentKey signingKey)]
+    body
 
 -- | Submit a (signed) transaction to the node.
 --
 -- Throws 'CardanoClientException' if submission fails.
-submit :: NetworkId -> FilePath -> Tx AlonzoEra -> IO ()
+submit :: NetworkId -> FilePath -> Tx -> IO ()
 submit networkId socket tx =
   submitTxToNodeLocal (localNodeConnectInfo networkId socket) (TxInMode tx AlonzoEraInCardanoMode) >>= \case
     SubmitSuccess -> pure ()
@@ -277,7 +262,7 @@ submit networkId socket tx =
 
 data CardanoClientException
   = QueryException Text
-  | SubmitException {reason :: Text, tx :: Tx AlonzoEra}
+  | SubmitException {reason :: Text, tx :: Tx}
   deriving (Show)
 
 instance Exception CardanoClientException
@@ -299,7 +284,7 @@ waitForPayment networkId socket amount addr = go
       else threadDelay 1 >> go
 
   selectPayment (UTxO utxo) =
-    Map.filter ((== amount) . txOutLovelace) utxo
+    Map.filter ((== amount) . selectLovelace . txOutValue) utxo
 
 waitForUTxO ::
   NetworkId ->
@@ -309,14 +294,14 @@ waitForUTxO ::
 waitForUTxO networkId nodeSocket utxo =
   forM_ (snd <$> UTxO.pairs utxo) forEachUTxO
  where
-  forEachUTxO :: TxOut CtxUTxO AlonzoEra -> IO ()
+  forEachUTxO :: TxOut CtxUTxO -> IO ()
   forEachUTxO = \case
-    TxOut (AddressInEra (ShelleyAddressInEra ShelleyBasedEraAlonzo) addr) value _ -> do
+    TxOut (AddressInEra _ addr@ShelleyAddress{}) value _ -> do
       void $
         waitForPayment
           networkId
           nodeSocket
-          (txOutValueToLovelace value)
+          (selectLovelace value)
           addr
     txOut ->
       error $ "Unexpected TxOut " <> show txOut
@@ -325,13 +310,13 @@ waitForUTxO networkId nodeSocket utxo =
 waitForTransaction ::
   NetworkId ->
   FilePath ->
-  CardanoTx ->
+  Tx ->
   IO UTxO
 waitForTransaction networkId socket tx = go
  where
-  txIns = Map.keys (UTxO.toMap $ utxoFromTx tx)
+  ins = Map.keys (UTxO.toMap $ utxoFromTx tx)
   go = do
-    utxo <- queryUTxOByTxIn networkId socket txIns
+    utxo <- queryUTxOByTxIn networkId socket ins
     if null utxo
       then go
       else pure utxo
@@ -347,7 +332,7 @@ mkGenesisTx ::
   VerificationKey PaymentKey ->
   -- |Amount to pay
   Lovelace ->
-  CardanoTx
+  Tx
 mkGenesisTx networkId pparams initialAmount signingKey verificationKey amount =
   let initialInput =
         genesisUTxOPseudoTxIn
@@ -363,14 +348,14 @@ mkGenesisTx networkId pparams initialAmount signingKey verificationKey amount =
       changeOutput =
         TxOut
           changeAddr
-          (lovelaceToTxOutValue $ initialAmount - amount - fee)
-          (TxOutDatumHash ScriptDataInAlonzoEra (hashScriptData $ fromPlutusData Hydra.markerDatum))
+          (lovelaceToValue $ initialAmount - amount - fee)
+          (TxOutDatumHash $ hashScriptData $ fromPlutusData Hydra.markerDatum)
 
       recipientAddr = mkVkAddress networkId verificationKey
       recipientOutput =
         TxOut
           recipientAddr
-          (lovelaceToTxOutValue amount)
+          (lovelaceToValue amount)
           TxOutDatumNone
    in case buildRaw [initialInput] [recipientOutput, changeOutput] fee of
         Left err -> error $ "Fail to build genesis transations: " <> show err
@@ -400,7 +385,7 @@ generatePaymentToCommit networkId (RunningNode _ nodeSocket) spendingSigningKey 
   theOutput =
     TxOut
       (shelleyAddressInEra receivingAddress)
-      (lovelaceToTxOutValue lovelace)
+      (lovelaceToValue lovelace)
       TxOutDatumNone
 
   convertUTxO (UTxO ledgerUTxO) = UTxO ledgerUTxO
@@ -409,8 +394,7 @@ postSeedPayment :: NetworkId -> ProtocolParameters -> Lovelace -> FilePath -> Si
 postSeedPayment networkId pparams initialAmount nodeSocket signingKey amountLovelace = do
   let genesisTx = mkGenesisTx networkId pparams initialAmount signingKey verificationKey amountLovelace
   submit networkId nodeSocket genesisTx
-  void $ waitForPayment networkId nodeSocket amountLovelace address
+  void $ waitForPayment networkId nodeSocket amountLovelace addr
  where
   verificationKey = getVerificationKey signingKey
-
-  address = buildAddress verificationKey networkId
+  addr = buildAddress verificationKey networkId

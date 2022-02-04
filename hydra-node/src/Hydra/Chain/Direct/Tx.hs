@@ -26,7 +26,7 @@ import qualified Hydra.Contract.Initial as Initial
 import Hydra.Data.ContestationPeriod (contestationPeriodFromDiffTime, contestationPeriodToDiffTime)
 import Hydra.Data.Party (partyFromVerKey, partyToVerKey)
 import qualified Hydra.Data.Party as OnChain
-import Hydra.Ledger.Cardano (CardanoTx, hashTxOuts)
+import Hydra.Ledger.Cardano (hashTxOuts)
 import Hydra.Ledger.Cardano.Builder (addInputs, addOutputs, addVkInputs, emptyTxBody, unsafeBuildTransaction)
 import Hydra.Party (MultiSigned, Party (Party), toPlutusSignatures, vkey)
 import Hydra.Snapshot (Snapshot (..))
@@ -39,7 +39,7 @@ import Plutus.V2.Ledger.Api (toBuiltin)
 
 -- * Post Hydra Head transactions
 
-type UTxOWithScript = (TxIn, TxOut CtxUTxO Era, ScriptData)
+type UTxOWithScript = (TxIn, TxOut CtxUTxO, ScriptData)
 
 -- | Maintains information needed to construct on-chain transactions
 -- depending on the current state of the head.
@@ -51,7 +51,7 @@ data OnChainHeadState
         -- transactions.
         -- NOTE(SN): The Head's identifier is somewhat encoded in the TxOut's address
         -- XXX(SN): Data and [OnChain.Party] are overlapping
-        threadOutput :: (TxIn, TxOut CtxUTxO Era, ScriptData, [OnChain.Party])
+        threadOutput :: (TxIn, TxOut CtxUTxO, ScriptData, [OnChain.Party])
       , initials :: [UTxOWithScript]
       , commits :: [UTxOWithScript]
       }
@@ -61,7 +61,7 @@ data OnChainHeadState
         -- transactions.
         -- NOTE(SN): The Head's identifier is somewhat encoded in the TxOut's address
         -- XXX(SN): Data and [OnChain.Party] are overlapping
-        threadOutput :: (TxIn, TxOut CtxUTxO Era, ScriptData, [OnChain.Party])
+        threadOutput :: (TxIn, TxOut CtxUTxO, ScriptData, [OnChain.Party])
       }
   | Final
   deriving (Eq, Show, Generic)
@@ -86,7 +86,7 @@ initTx ::
   [VerificationKey PaymentKey] ->
   HeadParameters ->
   TxIn ->
-  CardanoTx
+  Tx
 initTx networkId cardanoKeys parameters txIn =
   unsafeBuildTransaction $
     emptyTxBody
@@ -96,15 +96,15 @@ initTx networkId cardanoKeys parameters txIn =
           map (mkInitialOutput networkId) cardanoKeys
         )
 
-mkHeadOutput :: NetworkId -> TxOutDatum ctx Era -> TxOut ctx Era
+mkHeadOutput :: NetworkId -> TxOutDatum ctx -> TxOut ctx
 mkHeadOutput networkId =
   TxOut
     (mkScriptAddress @PlutusScriptV1 networkId headScript)
-    (mkTxOutValue headValue)
+    headValue
  where
   headScript = fromPlutusScript $ Head.validatorScript policyId
 
-mkHeadOutputInitial :: NetworkId -> HeadParameters -> TxOut CtxTx Era
+mkHeadOutputInitial :: NetworkId -> HeadParameters -> TxOut CtxTx
 mkHeadOutputInitial networkId HeadParameters{contestationPeriod, parties} =
   mkHeadOutput networkId headDatum
  where
@@ -114,13 +114,13 @@ mkHeadOutputInitial networkId HeadParameters{contestationPeriod, parties} =
         (contestationPeriodFromDiffTime contestationPeriod)
         (map (partyFromVerKey . vkey) parties)
 
-mkInitialOutput :: NetworkId -> VerificationKey PaymentKey -> TxOut CtxTx Era
+mkInitialOutput :: NetworkId -> VerificationKey PaymentKey -> TxOut CtxTx
 mkInitialOutput networkId (toPlutusKeyHash . verificationKeyHash -> pkh) =
   TxOut initialAddress initialValue initialDatum
  where
   -- FIXME: should really be the minted PTs plus some ADA to make the ledger happy
   initialValue =
-    mkTxOutValue headValue
+    headValue
   initialAddress =
     mkScriptAddress @PlutusScriptV1 networkId initialScript
   initialScript =
@@ -139,11 +139,11 @@ commitTx ::
   Party ->
   -- | A single UTxO to commit to the Head
   -- We currently limit committing one UTxO to the head because of size limitations.
-  Maybe (TxIn, TxOut CtxUTxO Era) ->
+  Maybe (TxIn, TxOut CtxUTxO) ->
   -- | The inital output (sent to each party) which should contain the PT and is
   -- locked by initial script
   (TxIn, Hash PaymentKey) ->
-  Tx Era
+  Tx
 commitTx networkId party utxo (initialInput, vkh) =
   unsafeBuildTransaction $
     emptyTxBody
@@ -170,12 +170,11 @@ commitTx networkId party utxo (initialInput, vkh) =
     mkScriptAddress @PlutusScriptV1 networkId commitScript
   -- FIXME: We should add the value from the initialIn too because it contains the PTs
   commitValue =
-    mkTxOutValue $
-      headValue <> maybe mempty (txOutValue . snd) utxo
+    headValue <> maybe mempty (txOutValue . snd) utxo
   commitDatum =
     mkTxOutDatum $ mkCommitDatum party (Head.validatorHash policyId) utxo
 
-mkCommitDatum :: Party -> Plutus.ValidatorHash -> Maybe (TxIn, TxOut CtxUTxO Era) -> Plutus.Datum
+mkCommitDatum :: Party -> Plutus.ValidatorHash -> Maybe (TxIn, TxOut CtxUTxO) -> Plutus.Datum
 mkCommitDatum (partyFromVerKey . vkey -> party) headValidatorHash utxo =
   Commit.datum (party, headValidatorHash, serializedUTxO)
  where
@@ -194,8 +193,8 @@ collectComTx ::
   (TxIn, ScriptData, [OnChain.Party]) ->
   -- | Data needed to spend the commit output produced by each party.
   -- Should contain the PT and is locked by @ν_commit@ script.
-  Map TxIn (TxOut CtxUTxO Era, ScriptData) ->
-  CardanoTx
+  Map TxIn (TxOut CtxUTxO, ScriptData) ->
+  Tx
 -- TODO(SN): utxo unused means other participants would not "see" the opened
 -- utxo when observing. Right now, they would be trusting the OCV checks this
 -- and construct their "world view" from observed commit txs in the HeadLogic
@@ -214,7 +213,7 @@ collectComTx networkId (headInput, ScriptDatumForTxIn -> headDatumBefore, partie
   headOutput =
     TxOut
       (mkScriptAddress @PlutusScriptV1 networkId headScript)
-      (mkTxOutValue $ headValue <> commitValue)
+      (headValue <> commitValue)
       headDatumAfter
   headDatumAfter =
     mkTxOutDatum Head.Open{Head.parties = parties, utxoHash}
@@ -244,13 +243,13 @@ collectComTx networkId (headInput, ScriptDatumForTxIn -> headDatumBefore, partie
 
 -- | Create a transaction closing a head with given snapshot number and utxo.
 closeTx ::
-  Snapshot CardanoTx ->
+  Snapshot Tx ->
   -- | Multi-signature of the whole snapshot
-  MultiSigned (Snapshot CardanoTx) ->
+  MultiSigned (Snapshot Tx) ->
   -- | Everything needed to spend the Head state-machine output.
   -- FIXME(SN): should also contain some Head identifier/address and stored Value (maybe the TxOut + Data?)
   UTxOWithScript ->
-  Tx Era
+  Tx
 closeTx Snapshot{number, utxo} sig (headInput, headOutputBefore, ScriptDatumForTxIn -> headDatumBefore) =
   unsafeBuildTransaction $
     emptyTxBody
@@ -284,7 +283,7 @@ fanoutTx ::
   -- | Everything needed to spend the Head state-machine output.
   -- FIXME(SN): should also contain some Head identifier/address and stored Value (maybe the TxOut + Data?)
   (TxIn, ScriptData) ->
-  Tx Era
+  Tx
 fanoutTx utxo (headInput, ScriptDatumForTxIn -> headDatumBefore) =
   unsafeBuildTransaction $
     emptyTxBody
@@ -316,8 +315,8 @@ abortTx ::
   Map TxIn ScriptData ->
   -- | Data needed to spend commit outputs.
   -- Should contain the PT and is locked by commit script.
-  Map TxIn (TxOut CtxUTxO Era, ScriptData) ->
-  Either AbortTxError CardanoTx
+  Map TxIn (TxOut CtxUTxO, ScriptData) ->
+  Either AbortTxError Tx
 abortTx networkId (headInput, ScriptDatumForTxIn -> headDatumBefore) initialsToAbort commitsToAbort
   | isJust (lookup headInput initialsToAbort) =
     Left OverlappingInputs
@@ -344,7 +343,7 @@ abortTx networkId (headInput, ScriptDatumForTxIn -> headDatumBefore) initialsToA
   headOutput =
     TxOut
       (mkScriptAddress @PlutusScriptV1 networkId headScript)
-      (mkTxOutValue headValue)
+      headValue
       headDatumAfter
   headDatumAfter =
     mkTxOutDatum Head.Final
@@ -373,7 +372,7 @@ abortTx networkId (headInput, ScriptDatumForTxIn -> headDatumBefore) initialsToA
 
   commitOutputs = mapMaybe (mkCommitOutput . snd) $ Map.elems commitsToAbort
 
-  mkCommitOutput :: ScriptData -> Maybe (TxOut CtxTx Era)
+  mkCommitOutput :: ScriptData -> Maybe (TxOut CtxTx)
   mkCommitOutput x =
     case fromData @(DatumType Commit.Commit) $ toPlutusData x of
       Just (_party, _validatorHash, serialisedTxOut) ->
@@ -387,8 +386,8 @@ abortTx networkId (headInput, ScriptDatumForTxIn -> headDatumBefore) initialsToA
 observeInitTx ::
   NetworkId ->
   Party ->
-  CardanoTx ->
-  Maybe (OnChainTx CardanoTx, OnChainHeadState)
+  Tx ->
+  Maybe (OnChainTx Tx, OnChainHeadState)
 observeInitTx networkId party tx = do
   (ix, headOut, headData, Head.Initial cp ps) <- findFirst headOutput indexedOutputs
   let parties = map convertParty ps
@@ -400,7 +399,7 @@ observeInitTx networkId party tx = do
         { threadOutput =
             ( mkTxIn tx ix
             , toCtxUTxOTxOut headOut
-            , fromAlonzoData headData
+            , fromLedgerData headData
             , ps
             )
         , initials
@@ -409,8 +408,8 @@ observeInitTx networkId party tx = do
     )
  where
   headOutput = \case
-    (ix, out@(TxOut _ _ (TxOutDatum _ d))) ->
-      (ix,out,toAlonzoData d,) <$> fromData (toPlutusData d)
+    (ix, out@(TxOut _ _ (TxOutDatum d))) ->
+      (ix,out,toLedgerData d,) <$> fromData (toPlutusData d)
     _ -> Nothing
 
   indexedOutputs = zip [0 ..] (txOuts' tx)
@@ -446,8 +445,8 @@ observeCommitTx ::
   NetworkId ->
   -- | Known (remaining) initial tx inputs.
   [TxIn] ->
-  CardanoTx ->
-  Maybe (OnChainTx CardanoTx, UTxOWithScript)
+  Tx ->
+  Maybe (OnChainTx Tx, UTxOWithScript)
 observeCommitTx networkId initials tx = do
   initialTxIn <- findInitialTxIn
   mCommittedTxIn <- decodeInitialRedeemer initialTxIn
@@ -487,7 +486,7 @@ observeCommitTx networkId initials tx = do
 
   commitScript = fromPlutusScript Commit.validatorScript
 
-convertTxOut :: Maybe Commit.SerializedTxOut -> Maybe (TxOut CtxUTxO Era)
+convertTxOut :: Maybe Commit.SerializedTxOut -> Maybe (TxOut CtxUTxO)
 convertTxOut = \case
   Nothing -> Nothing
   Just (Commit.SerializedTxOut outBytes) ->
@@ -501,9 +500,9 @@ convertTxOut = \case
 -- filter all 'getKnownUTxO' after observing any protocol tx?
 observeCommit ::
   NetworkId ->
-  CardanoTx ->
+  Tx ->
   OnChainHeadState ->
-  Maybe (OnChainTx CardanoTx, OnChainHeadState)
+  Maybe (OnChainTx Tx, OnChainHeadState)
 observeCommit networkId tx = \case
   Initial{threadOutput, initials, commits} -> do
     (onChainTx, commitTriple) <- observeCommitTx networkId (initials <&> \(a, _, _) -> a) tx
@@ -529,8 +528,8 @@ observeCommit networkId tx = \case
 observeCollectComTx ::
   -- | A UTxO set to lookup tx inputs
   UTxO ->
-  CardanoTx ->
-  Maybe (OnChainTx CardanoTx, OnChainHeadState)
+  Tx ->
+  Maybe (OnChainTx Tx, OnChainHeadState)
 observeCollectComTx utxo tx = do
   (headInput, headOutput) <- findScriptOutput @PlutusScriptV1 utxo headScript
   redeemer <- findRedeemerSpending tx headInput
@@ -560,8 +559,8 @@ observeCollectComTx utxo tx = do
 observeCloseTx ::
   -- | A UTxO set to lookup tx inputs
   UTxO ->
-  CardanoTx ->
-  Maybe (OnChainTx CardanoTx, OnChainHeadState)
+  Tx ->
+  Maybe (OnChainTx Tx, OnChainHeadState)
 observeCloseTx utxo tx = do
   (headInput, headOutput) <- findScriptOutput @PlutusScriptV1 utxo headScript
   redeemer <- findRedeemerSpending tx headInput
@@ -599,8 +598,8 @@ observeCloseTx utxo tx = do
 observeFanoutTx ::
   -- | A UTxO set to lookup tx inputs
   UTxO ->
-  CardanoTx ->
-  Maybe (OnChainTx CardanoTx, OnChainHeadState)
+  Tx ->
+  Maybe (OnChainTx Tx, OnChainHeadState)
 observeFanoutTx utxo tx = do
   headInput <- fst <$> findScriptOutput @PlutusScriptV1 utxo headScript
   findRedeemerSpending tx headInput
@@ -615,8 +614,8 @@ observeFanoutTx utxo tx = do
 observeAbortTx ::
   -- | A UTxO set to lookup tx inputs
   UTxO ->
-  CardanoTx ->
-  Maybe (OnChainTx CardanoTx, OnChainHeadState)
+  Tx ->
+  Maybe (OnChainTx Tx, OnChainHeadState)
 observeAbortTx utxo tx = do
   headInput <- fst <$> findScriptOutput @PlutusScriptV1 utxo headScript
   findRedeemerSpending tx headInput >>= \case
@@ -631,7 +630,7 @@ observeAbortTx utxo tx = do
 -- | Provide a UTXO map for given OnChainHeadState. Used by the TinyWallet and
 -- the direct chain component to lookup inputs for balancing / constructing txs.
 -- XXX(SN): This is a hint that we might want to track the UTxO directly?
-getKnownUTxO :: OnChainHeadState -> Map TxIn (TxOut CtxUTxO Era)
+getKnownUTxO :: OnChainHeadState -> Map TxIn (TxOut CtxUTxO)
 getKnownUTxO = \case
   Initial{threadOutput, initials, commits} ->
     Map.fromList $ take2 threadOutput : (take2' <$> (initials <> commits))

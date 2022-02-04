@@ -39,6 +39,7 @@ import Hydra.Cardano.Api (
   NetworkId (Testnet),
   PaymentKey,
   SigningKey,
+  Tx,
   UTxO' (..),
   VerificationKey,
   fromLedgerTx,
@@ -87,7 +88,6 @@ import Hydra.Chain.Direct.Wallet (
   getTxId,
   withTinyWallet,
  )
-import Hydra.Ledger.Cardano (CardanoTx)
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Party (Party)
 import Hydra.Snapshot (ConfirmedSnapshot (..))
@@ -145,7 +145,7 @@ withDirectChain ::
   Party ->
   -- | Cardano keys of all Head participants.
   [VerificationKey PaymentKey] ->
-  ChainComponent CardanoTx IO ()
+  ChainComponent Tx IO ()
 withDirectChain tracer networkMagic iocp socketPath keyPair party cardanoKeys callback action = do
   queue <- newTQueueIO
   headState <- newTVarIO None
@@ -168,7 +168,7 @@ withDirectChain tracer networkMagic iocp socketPath keyPair party cardanoKeys ca
                     traceWith tracer $ ToPost tx
                     -- XXX(SN): 'finalizeTx' retries until a payment utxo is
                     -- found. See haddock for details
-                    timeoutThrowAfter (NoPaymentInput @CardanoTx) 10 $
+                    timeoutThrowAfter (NoPaymentInput @Tx) 10 $
                       fromPostChainTx wallet (Testnet networkMagic) headState cardanoKeys tx
                         >>= finalizeTx wallet headState . toLedgerTx
                         >>= writeTQueue queue
@@ -211,7 +211,7 @@ client ::
   TQueue m (ValidatedTx Era) ->
   Party ->
   TVar m OnChainHeadState ->
-  ChainCallback CardanoTx m ->
+  ChainCallback Tx m ->
   NodeToClientVersion ->
   OuroborosApplication 'InitiatorMode LocalAddress LByteString m () Void
 client tracer networkMagic queue party headState callback nodeToClientV =
@@ -246,7 +246,7 @@ chainSyncClient ::
   MonadSTM m =>
   Tracer m DirectChainLog ->
   NetworkMagic ->
-  ChainCallback CardanoTx m ->
+  ChainCallback Tx m ->
   Party ->
   TVar m OnChainHeadState ->
   ChainSyncClient Block (Point Block) (Tip Block) m ()
@@ -319,10 +319,10 @@ chainSyncClient tracer networkMagic callback party headState =
             pure clientStIdle
       }
 
-  runOnChainTxs :: [ValidatedTx Era] -> m [OnChainTx CardanoTx]
+  runOnChainTxs :: [ValidatedTx Era] -> m [OnChainTx Tx]
   runOnChainTxs = fmap reverse . atomically . foldM runOnChainTx []
 
-  runOnChainTx :: [OnChainTx CardanoTx] -> ValidatedTx Era -> STM m [OnChainTx CardanoTx]
+  runOnChainTx :: [OnChainTx Tx] -> ValidatedTx Era -> STM m [OnChainTx Tx]
   runOnChainTx observed (fromLedgerTx -> tx) = do
     onChainHeadState <- readTVar headState
     let utxo = UTxO (getKnownUTxO onChainHeadState)
@@ -398,7 +398,7 @@ finalizeTx TinyWallet{sign, getUTxO, coverFee} headState partialTx = do
             , walletUTxO
             , headUTxO
             } ::
-            PostTxError CardanoTx
+            PostTxError Tx
         )
     Left e ->
       throwIO
@@ -408,7 +408,7 @@ finalizeTx TinyWallet{sign, getUTxO, coverFee} headState partialTx = do
             , reason = show e
             , tx = fromLedgerTx partialTx
             } ::
-            PostTxError CardanoTx
+            PostTxError Tx
         )
     Right validatedTx -> do
       pure $ sign validatedTx
@@ -419,8 +419,8 @@ fromPostChainTx ::
   NetworkId ->
   TVar m OnChainHeadState ->
   [VerificationKey PaymentKey] ->
-  PostChainTx CardanoTx ->
-  STM m CardanoTx
+  PostChainTx Tx ->
+  STM m Tx
 fromPostChainTx TinyWallet{getUTxO, verificationKey} networkId headState cardanoKeys tx =
   case tx of
     InitTx params -> do
@@ -428,7 +428,7 @@ fromPostChainTx TinyWallet{getUTxO, verificationKey} networkId headState cardano
       -- NOTE: 'lookupMax' to favor change outputs!
       case Map.lookupMax u of
         Just (fromLedgerTxIn -> seedInput, _) -> pure $ initTx networkId cardanoKeys params seedInput
-        Nothing -> throwIO (NoSeedInput @CardanoTx)
+        Nothing -> throwIO (NoSeedInput @Tx)
     AbortTx _utxo ->
       readTVar headState >>= \case
         Initial{threadOutput, initials, commits} ->
@@ -441,7 +441,7 @@ fromPostChainTx TinyWallet{getUTxO, verificationKey} networkId headState cardano
       readTVar headState >>= \case
         st@Initial{initials} -> case ownInitial verificationKey initials of
           Nothing ->
-            throwIO (CannotFindOwnInitial{knownUTxO = UTxO $ getKnownUTxO st} :: PostTxError CardanoTx)
+            throwIO (CannotFindOwnInitial{knownUTxO = UTxO $ getKnownUTxO st} :: PostTxError Tx)
           Just initial ->
             case UTxO.pairs utxo of
               [aUTxO] -> do
@@ -449,7 +449,7 @@ fromPostChainTx TinyWallet{getUTxO, verificationKey} networkId headState cardano
               [] -> do
                 pure $ commitTx networkId party Nothing initial
               _ ->
-                throwIO (MoreThanOneUTxOCommitted @CardanoTx)
+                throwIO (MoreThanOneUTxOCommitted @Tx)
         _st -> throwIO $ InvalidStateToPost tx
     -- TODO: We do not rely on the utxo from the collect com tx here because the
     -- chain head-state is already tracking UTXO entries locked by commit scripts,
@@ -505,10 +505,10 @@ getAlonzoTxs = \case
 
 -- TODO add  ToJSON, FromJSON instances
 data DirectChainLog
-  = ToPost {toPost :: PostChainTx CardanoTx}
+  = ToPost {toPost :: PostChainTx Tx}
   | PostingTx {postedTx :: (TxId StandardCrypto, ValidatedTx Era)}
   | PostedTx {postedTxId :: TxId StandardCrypto}
-  | ReceivedTxs {onChainTxs :: [OnChainTx CardanoTx], receivedTxs :: [(TxId StandardCrypto, ValidatedTx Era)]}
+  | ReceivedTxs {onChainTxs :: [OnChainTx Tx], receivedTxs :: [(TxId StandardCrypto, ValidatedTx Era)]}
   | RolledBackward {point :: SomePoint}
   | Wallet TinyWalletLog
   deriving (Eq, Show, Generic)

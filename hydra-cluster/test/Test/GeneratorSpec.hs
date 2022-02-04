@@ -10,7 +10,7 @@ import Data.Text (unpack)
 import Hydra.Cardano.Api (UTxO, utxoFromTx)
 import Hydra.Generator (Dataset (..), defaultProtocolParameters, genConstantUTxODataset)
 import Hydra.Ledger (applyTransactions, balance)
-import Hydra.Ledger.Cardano (CardanoTx, cardanoLedger, genUTxO)
+import Hydra.Ledger.Cardano (Tx, cardanoLedger, genUTxO)
 import Test.Aeson.GenericSpecs (roundtripSpecs)
 import Test.QuickCheck (Positive (Positive), Property, counterexample, forAll)
 
@@ -23,7 +23,7 @@ spec = parallel $ do
 prop_computeValueFromUTxO :: Property
 prop_computeValueFromUTxO =
   forAll genUTxO $ \utxo ->
-    balance @CardanoTx utxo /= mempty
+    balance @Tx utxo /= mempty
 
 prop_keepsUTxOConstant :: Property
 prop_keepsUTxOConstant =
@@ -35,7 +35,7 @@ prop_keepsUTxOConstant =
             & counterexample ("\ntransactions: " <> jsonString transactionsSequence)
             & counterexample ("\nutxo: " <> jsonString initialUTxO)
 
-apply :: UTxO -> CardanoTx -> UTxO
+apply :: UTxO -> Tx -> UTxO
 apply utxo tx =
   case applyTransactions cardanoLedger utxo [tx] of
     Left err -> error $ "invalid generated data set" <> show err

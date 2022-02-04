@@ -9,6 +9,7 @@ import CardanoClient (
 import CardanoCluster (asSigningKey, availableInitialFunds, defaultNetworkId)
 import Hydra.Cardano.Api (Lovelace, getVerificationKey)
 import Hydra.Chain.Direct.Util (readFileTextEnvelopeThrow)
+import Hydra.Ledger.Cardano ()
 import Hydra.Prelude
 import Options.Applicative (
   Parser,

@@ -51,3 +51,15 @@ lookupScriptData (Tx (ShelleyTxBody _ _ _ scriptsData _ _) _) = \case
 {-# DEPRECATED lookupDatum "use 'lookupScriptData' instead." #-}
 lookupDatum :: Tx Era -> TxOut CtxUTxO Era -> Maybe ScriptData
 lookupDatum = lookupScriptData
+
+-- * Type Conversions
+
+-- | Convert a cardano-ledger's script 'Data' into a cardano-api's 'ScriptDatum'.
+fromLedgerData :: Ledger.Data LedgerEra -> ScriptData
+fromLedgerData =
+  fromAlonzoData
+
+-- | Convert a cardano-api's 'ScriptData' into a cardano-ledger's script 'Data'.
+toLedgerData :: ScriptData -> Ledger.Data LedgerEra
+toLedgerData =
+  toAlonzoData

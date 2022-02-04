@@ -39,7 +39,7 @@
 -- makes the mutated (hence expectedly invalid) transaction fail the validation stage.
 --
 -- @
--- propMutation :: (CardanoTx, Utxo) -> ((CardanoTx, Utxo) -> Gen SomeMutation) -> Property
+-- propMutation :: (Tx, Utxo) -> ((Tx, Utxo) -> Gen SomeMutation) -> Property
 -- propMutation (tx, utxo) genMutation =
 --   forAll @_ @Property (genMutation (tx, utxo)) $ \SomeMutation{label, mutation} ->
 --     (tx, utxo)
@@ -84,7 +84,7 @@
 -- The interesting part is the `genCollectComMutation` (details of the `Mutation` generators are omitted):
 --
 -- @
--- genCollectComMutation :: (CardanoTx, Utxo) -> Gen SomeMutation
+-- genCollectComMutation :: (Tx, Utxo) -> Gen SomeMutation
 -- genCollectComMutation (tx, utxo) =
 --   oneof
 --     [ SomeMutation MutateOpenOutputValue . ChangeOutput ...
@@ -129,6 +129,8 @@
 -- In the case of a failure we get a detailed report on the context of the failure.
 module Hydra.Chain.Direct.Contract.Mutation where
 
+import Hydra.Cardano.Api hiding (SigningKey)
+
 import qualified Cardano.Api.UTxO as UTxO
 import qualified Cardano.Ledger.Alonzo.Data as Ledger
 import qualified Cardano.Ledger.Alonzo.Scripts as Ledger
@@ -139,48 +141,13 @@ import qualified Data.ByteString as BS
 import qualified Data.List as List
 import qualified Data.Map as Map
 import qualified Data.Sequence.Strict as StrictSeq
-import Hydra.Cardano.Api (
-  AlonzoEra,
-  CtxTx,
-  CtxUTxO,
-  Era,
-  LedgerEra,
-  PlutusScriptV1,
-  Tx (Tx),
-  TxBody (ShelleyTxBody),
-  TxBodyScriptData (TxBodyNoScriptData, TxBodyScriptData),
-  TxIn,
-  TxOut (..),
-  TxOutDatum (..),
-  UTxO,
-  UTxO' (UTxO),
-  fromLedgerTxOut,
-  fromPlutusScript,
-  mkScriptAddress,
-  mkTxOutDatum,
-  mkTxOutDatumHash,
-  renderTx,
-  toAlonzoData,
-  toCtxUTxOTxOut,
-  toLedgerTxIn,
-  toLedgerTxOut,
- )
 import qualified Hydra.Chain.Direct.Fixture as Fixture
-import Hydra.Chain.Direct.Tx (
-  policyId,
- )
+import Hydra.Chain.Direct.Tx (policyId)
 import qualified Hydra.Contract.Head as Head
 import qualified Hydra.Contract.HeadState as Head
-import Hydra.Ledger.Cardano (
-  CardanoTx,
-  genKeyPair,
-  genOutput,
- )
+import Hydra.Ledger.Cardano (genKeyPair, genOutput)
 import Hydra.Ledger.Cardano.Evaluate (evaluateTx)
-import Hydra.Party (
-  SigningKey,
-  generateKey,
- )
+import Hydra.Party (SigningKey, generateKey)
 import Hydra.Prelude hiding (label)
 import Plutus.Orphans ()
 import Plutus.V1.Ledger.Api (toData)
@@ -206,7 +173,7 @@ import Test.QuickCheck.Instances ()
 --
 -- Note that only "level 2" validation is run, e.g the transaction is assume to be
 -- structurally valid and having passed "level 1" checks.
-propMutation :: (CardanoTx, UTxO) -> ((CardanoTx, UTxO) -> Gen SomeMutation) -> Property
+propMutation :: (Tx, UTxO) -> ((Tx, UTxO) -> Gen SomeMutation) -> Property
 propMutation (tx, utxo) genMutation =
   forAll @_ @Property (genMutation (tx, utxo)) $ \SomeMutation{label, mutation} ->
     (tx, utxo)
@@ -216,7 +183,7 @@ propMutation (tx, utxo) genMutation =
       & checkCoverage
 
 -- | A 'Property' checking some (transaction, UTxO) pair is invalid.
-propTransactionDoesNotValidate :: (CardanoTx, UTxO) -> Property
+propTransactionDoesNotValidate :: (Tx, UTxO) -> Property
 propTransactionDoesNotValidate (tx, lookupUTxO) =
   let result = evaluateTx tx lookupUTxO
    in case result of
@@ -230,7 +197,7 @@ propTransactionDoesNotValidate (tx, lookupUTxO) =
             & counterexample "Phase-2 validation should have failed"
 
 -- | A 'Property' checking some (transaction, UTxO) pair is valid.
-propTransactionValidates :: (CardanoTx, UTxO) -> Property
+propTransactionValidates :: (Tx, UTxO) -> Property
 propTransactionValidates (tx, lookupUTxO) =
   let result = evaluateTx tx lookupUTxO
    in case result of
@@ -272,7 +239,7 @@ data Mutation
     -- map of 'DatumHash' to 'Datum' in the transaction's witnesses.
     ChangeHeadDatum Head.State
   | -- | Adds given output to the transaction's outputs.
-    PrependOutput (TxOut CtxTx Era)
+    PrependOutput (TxOut CtxTx)
   | -- | Removes given output from the transaction's outputs.
     RemoveOutput Word
   | -- | Change an input's 'TxOut' to something else.
@@ -282,9 +249,9 @@ data Mutation
     --
     -- NOTE: The changed output should not be spending a script address as
     -- we don't provide any redeemer for it.
-    ChangeInput TxIn (TxOut CtxUTxO Era)
+    ChangeInput TxIn (TxOut CtxUTxO)
   | -- | Change the transaction's output at given index to something else.
-    ChangeOutput Word (TxOut CtxTx Era)
+    ChangeOutput Word (TxOut CtxTx)
   | -- | Applies several mutations as a single atomic 'Mutation'.
     -- This is useful to enable specific mutations that require consistent
     -- change of more than one thing in the transaction and/or UTxO set, for
@@ -296,10 +263,10 @@ data Mutation
 -- '''NOTE''': This function is partial, it can raise 'error' when some preconditions
 -- are not met by the transaction or UTxO set, for example if there's no
 -- Head script input or no datums in the transaction.
-applyMutation :: Mutation -> (CardanoTx, UTxO) -> (CardanoTx, UTxO)
+applyMutation :: Mutation -> (Tx, UTxO) -> (Tx, UTxO)
 applyMutation mutation (tx@(Tx body wits), utxo) = case mutation of
   ChangeHeadRedeemer newRedeemer ->
-    let ShelleyTxBody era ledgerBody scripts scriptData mAuxData scriptValidity = body
+    let ShelleyTxBody ledgerBody scripts scriptData mAuxData scriptValidity = body
         headOutputIndices =
           fst
             <$> filter
@@ -314,7 +281,7 @@ applyMutation mutation (tx@(Tx body wits), utxo) = case mutation of
           | otherwise = (dat, units)
 
         redeemers = alterRedeemers newHeadRedeemer scriptData
-        body' = ShelleyTxBody era ledgerBody scripts redeemers mAuxData scriptValidity
+        body' = ShelleyTxBody ledgerBody scripts redeemers mAuxData scriptValidity
      in (Tx body' wits, utxo)
   ChangeHeadDatum d' ->
     let datum = mkTxOutDatum d'
@@ -326,9 +293,9 @@ applyMutation mutation (tx@(Tx body wits), utxo) = case mutation of
           | otherwise =
             o
         -- change the datums in the tx
-        ShelleyTxBody era ledgerBody scripts scriptData mAuxData scriptValidity = body
+        ShelleyTxBody ledgerBody scripts scriptData mAuxData scriptValidity = body
         newDatums = addDatum datum scriptData
-        body' = ShelleyTxBody era ledgerBody scripts newDatums mAuxData scriptValidity
+        body' = ShelleyTxBody ledgerBody scripts newDatums mAuxData scriptValidity
      in (Tx body' wits, fmap fn utxo)
   PrependOutput txOut ->
     ( alterTxOuts (txOut :) tx
@@ -347,21 +314,21 @@ applyMutation mutation (tx@(Tx body wits), utxo) = case mutation of
     , UTxO $ Map.insert txIn txOut (UTxO.toMap utxo)
     )
    where
-    ShelleyTxBody era ledgerBody scripts scriptData mAuxData scriptValidity = body
+    ShelleyTxBody ledgerBody scripts scriptData mAuxData scriptValidity = body
     redeemers = removeRedeemerFor (Ledger.inputs ledgerBody) (toLedgerTxIn txIn) scriptData
-    body' = ShelleyTxBody era ledgerBody scripts redeemers mAuxData scriptValidity
+    body' = ShelleyTxBody ledgerBody scripts redeemers mAuxData scriptValidity
   ChangeOutput ix txOut ->
     ( alterTxOuts replaceAtIndex tx
     , utxo
     )
    where
-    replaceAtIndex txOuts =
+    replaceAtIndex outs =
       foldr
         ( \(i, out) list ->
             if i == ix then txOut : list else out : list
         )
         []
-        (zip [0 ..] txOuts)
+        (zip [0 ..] outs)
   Changes mutations ->
     foldr applyMutation (tx, utxo) mutations
 
@@ -392,7 +359,7 @@ instance Arbitrary Head.State where
 
 -- | Identify Head script's output.
 -- TODO: Parameterise by 'MonetaryPolicyId' as this is currently hardwired.
-isHeadOutput :: TxOut CtxUTxO Era -> Bool
+isHeadOutput :: TxOut CtxUTxO -> Bool
 isHeadOutput (TxOut addr _ _) = addr == headAddress
  where
   headAddress = mkScriptAddress @PlutusScriptV1 Fixture.testNetworkId headScript
@@ -401,18 +368,18 @@ isHeadOutput (TxOut addr _ _) = addr == headAddress
 -- | Adds given 'Datum' and corresponding hash to the transaction's scripts.
 -- TODO: As we are creating the `TxOutDatum` from a known datum, passing a `TxOutDatum` is
 -- pointless and requires more work than needed to check impossible variants.
-addDatum :: TxOutDatum CtxTx Era -> TxBodyScriptData Era -> TxBodyScriptData Era
-addDatum datum txBodyScriptData =
+addDatum :: TxOutDatum CtxTx -> TxBodyScriptData -> TxBodyScriptData
+addDatum datum scriptData =
   case datum of
     TxOutDatumNone -> error "unexpected datuym none"
-    TxOutDatumHash _sdsie _ha -> error "hash only, expected full datum"
-    TxOutDatum _ha sd ->
-      case txBodyScriptData of
+    TxOutDatumHash _ha -> error "hash only, expected full datum"
+    TxOutDatum sd ->
+      case scriptData of
         TxBodyNoScriptData -> error "TxBodyNoScriptData unexpected"
-        TxBodyScriptData supportedInEra (Ledger.TxDats dats) redeemers ->
-          let dat = toAlonzoData sd
+        TxBodyScriptData (Ledger.TxDats dats) redeemers ->
+          let dat = toLedgerData sd
               newDats = Ledger.TxDats $ Map.insert (Ledger.hashData dat) dat dats
-           in TxBodyScriptData supportedInEra newDats redeemers
+           in TxBodyScriptData newDats redeemers
 
 -- | Alter a transaction's  redeemers map given some mapping function.
 alterRedeemers ::
@@ -420,46 +387,46 @@ alterRedeemers ::
     (Ledger.Data LedgerEra, Ledger.ExUnits) ->
     (Ledger.Data LedgerEra, Ledger.ExUnits)
   ) ->
-  TxBodyScriptData AlonzoEra ->
-  TxBodyScriptData AlonzoEra
+  TxBodyScriptData ->
+  TxBodyScriptData
 alterRedeemers fn = \case
   TxBodyNoScriptData -> error "TxBodyNoScriptData unexpected"
-  TxBodyScriptData supportedInEra dats (Ledger.Redeemers redeemers) ->
+  TxBodyScriptData dats (Ledger.Redeemers redeemers) ->
     let newRedeemers = Map.mapWithKey fn redeemers
-     in TxBodyScriptData supportedInEra dats (Ledger.Redeemers newRedeemers)
+     in TxBodyScriptData dats (Ledger.Redeemers newRedeemers)
 
 -- | Remove redeemer for given `TxIn` from the transaction's redeemers map.
 removeRedeemerFor ::
   Set (Ledger.TxIn a) ->
   Ledger.TxIn a ->
-  TxBodyScriptData AlonzoEra ->
-  TxBodyScriptData AlonzoEra
+  TxBodyScriptData ->
+  TxBodyScriptData
 removeRedeemerFor initialInputs txIn = \case
   TxBodyNoScriptData -> error "TxBodyNoScriptData unexpected"
-  TxBodyScriptData supportedInEra dats (Ledger.Redeemers initialRedeemers) ->
+  TxBodyScriptData dats (Ledger.Redeemers initialRedeemers) ->
     let newRedeemers = Ledger.Redeemers $ Map.fromList $ filter removeRedeemer $ Map.toList initialRedeemers
         sortedInputs = sort $ toList initialInputs
         removeRedeemer (Ledger.RdmrPtr _ idx, _) = sortedInputs List.!! fromIntegral idx /= txIn
-     in TxBodyScriptData supportedInEra dats newRedeemers
+     in TxBodyScriptData dats newRedeemers
 
 -- | Apply some mapping function over a transaction's  outputs.
 alterTxOuts ::
-  ([TxOut CtxTx Era] -> [TxOut CtxTx Era]) ->
-  CardanoTx ->
-  CardanoTx
+  ([TxOut CtxTx] -> [TxOut CtxTx]) ->
+  Tx ->
+  Tx
 alterTxOuts fn tx =
   Tx body' wits
  where
-  body' = ShelleyTxBody era ledgerBody' scripts scriptData mAuxData scriptValidity
+  body' = ShelleyTxBody ledgerBody' scripts scriptData mAuxData scriptValidity
   ledgerBody' = ledgerBody{Ledger.outputs = outputs'}
   -- WIP
   outputs' = StrictSeq.fromList . mapOutputs . toList $ Ledger.outputs ledgerBody
   mapOutputs = fmap (toLedgerTxOut . toCtxUTxOTxOut) . fn . fmap fromLedgerTxOut
-  ShelleyTxBody era ledgerBody scripts scriptData mAuxData scriptValidity = body
+  ShelleyTxBody ledgerBody scripts scriptData mAuxData scriptValidity = body
   Tx body wits = tx
 
 -- | Generates an output that pays to some arbitrary pubkey.
-anyPayToPubKeyTxOut :: Gen (TxOut ctx Era)
+anyPayToPubKeyTxOut :: Gen (TxOut ctx)
 anyPayToPubKeyTxOut = genKeyPair >>= genOutput . fst
 
 -- | Finds the Head script's input in given `UTxO` set.

@@ -78,8 +78,8 @@ import qualified Data.Sequence.Strict as StrictSeq
 import qualified Data.Set as Set
 import GHC.Ix (Ix)
 import Hydra.Cardano.Api (
-  AddressInEra (..),
-  AddressTypeInEra (..),
+  AddressInEra,
+  AddressTypeInEra,
   NetworkId (Testnet),
   PaymentKey,
   SigningKey,

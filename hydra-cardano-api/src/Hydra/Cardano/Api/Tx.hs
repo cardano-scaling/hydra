@@ -9,7 +9,6 @@ import Hydra.Cardano.Api.KeyWitness (
  )
 import Hydra.Cardano.Api.Lovelace (fromLedgerCoin)
 import Hydra.Cardano.Api.TxScriptValidity (toLedgerScriptValidity)
-import Hydra.Cardano.Api.Value (txOutValue)
 
 import Cardano.Binary (serialize)
 import qualified Cardano.Ledger.Alonzo as Ledger
@@ -83,6 +82,9 @@ renderTx (Tx body _wits) =
     , "    total number of assets: " <> show totalNumberOfAssets
     ]
       <> (("    - " <>) . renderValue . txOutValue <$> txOuts)
+
+  txOutValue (TxOut _ value _) =
+    txOutValueToValue value
 
   totalNumberOfAssets =
     sum $

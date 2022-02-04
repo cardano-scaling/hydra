@@ -1,5 +1,6 @@
 module Test.LocalClusterSpec where
 
+import Hydra.Cardano.Api
 import Hydra.Prelude
 import Test.Hydra.Prelude
 
@@ -15,27 +16,11 @@ import CardanoClient (
   queryUTxO,
   sign,
   submit,
-  txOutLovelace,
   waitForPayment,
  )
 import CardanoCluster (ClusterConfig (..), ClusterLog (..), RunningCluster (..), defaultNetworkId, keysFor, withCluster)
 import CardanoNode (ChainTip (..), RunningNode (..), cliQueryTip)
 import qualified Data.Map as Map
-import Hydra.Cardano.Api (
-  MultiAssetSupportedInEra (MultiAssetInAlonzoEra),
-  ScriptDataSupportedInEra (ScriptDataInAlonzoEra),
-  TxIn (TxIn),
-  TxIx (TxIx),
-  TxOut (TxOut),
-  TxOutDatum (TxOutDatum, TxOutDatumHash, TxOutDatumNone),
-  TxOutValue (TxOutValue),
-  UTxO' (..),
-  fromPlutusData,
-  getTxId,
-  hashScriptData,
-  lovelaceToValue,
-  shelleyAddressInEra,
- )
 import Hydra.Chain.Direct.Tx (policyId)
 import qualified Hydra.Contract.Head as Head
 import qualified Hydra.Contract.HeadState as Head
@@ -84,13 +69,13 @@ assertCanSpendInitialFunds = \case
     let (txIn, out) = case Map.toList utxo of
           [] -> error "No UTxO found"
           (tx : _) -> tx
-        initialAmount = txOutLovelace out
+        initialAmount = selectLovelace (txOutValue out)
         amountToPay = 100_000_001
-        paymentOutput = TxOut (shelleyAddressInEra addr) (TxOutValue MultiAssetInAlonzoEra (lovelaceToValue amountToPay)) TxOutDatumNone
+        paymentOutput = TxOut (shelleyAddressInEra addr) (lovelaceToValue amountToPay) TxOutDatumNone
         signedTx = do
           rawTx <- buildRaw [txIn] [] 0
           let fee = calculateMinFee networkId rawTx defaultSizes{inputs = 1, outputs = 2, witnesses = 1} pparams
-              changeOutput = TxOut (shelleyAddressInEra addr) (TxOutValue MultiAssetInAlonzoEra (lovelaceToValue $ initialAmount - amountToPay - fee)) TxOutDatumNone
+              changeOutput = TxOut (shelleyAddressInEra addr) (lovelaceToValue $ initialAmount - amountToPay - fee) TxOutDatumNone
           draftTx <- buildRaw [txIn] [paymentOutput, changeOutput] fee
           pure $ sign sk draftTx
 
@@ -125,8 +110,8 @@ assertCanCallInitAndAbort = \case
           []
           [ TxOut
               (shelleyAddressInEra headAddress)
-              (TxOutValue MultiAssetInAlonzoEra (lovelaceToValue minValue))
-              (TxOutDatumHash ScriptDataInAlonzoEra (hashScriptData headDatum))
+              (lovelaceToValue minValue)
+              (TxOutDatumHash (hashScriptData headDatum))
           ]
 
     let headTxIn = TxIn (getTxId balancedHeadTx) (TxIx 1)
@@ -153,8 +138,8 @@ assertCanCallInitAndAbort = \case
           [txIn']
           [ TxOut
               (shelleyAddressInEra headAddress)
-              (TxOutValue MultiAssetInAlonzoEra (lovelaceToValue minValue))
-              (TxOutDatum ScriptDataInAlonzoEra abortDatum)
+              (lovelaceToValue minValue)
+              (TxOutDatum abortDatum)
           ]
     submit networkId socket $ sign sk balancedAbortTx
     void $ waitForPayment networkId socket minValue headAddress
