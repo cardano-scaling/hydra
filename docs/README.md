@@ -60,6 +60,9 @@ architecture itself then is just a result of all accepted ADRs, which have not
 been deprecated or superseeded. An up-to-date index of still relevant ADRs is
 kept [here](./adr/README.md).
 
+Please refer to the [inline documentation](https://input-output-hk.github.io/hydra-poc/haddock/hydra-node/index.html)
+of each module for more details.
+
 # On-chain verification (OCV)
 
 An important part of the Hydra Head protocol is how it is secured on-chain. For
@@ -74,22 +77,3 @@ limitations due to Plutus execution budgets or script sizes along the way. The
 current structure of transactions, involved scripts and their datums/redeemers
 is documented on examples of the [full](./images/on-chain-full.jpg) and
 [abort](./images/on-chain-abort.jpg) on-chain life-cycles of a Hydra Head.
-
-## Components
-
-> **TODO**: Move as haddock comments to each module/function
-
-Please refer to each component's internal documentation for details.
-
-* The [Network](https://github.com/input-output-hk/hydra-poc/blob/d24c04e138acd333c3d47f97bb214957785fde08/hydra-node/src/Hydra/Network.hs) component
-  * We have a [ouroboros-network](https://github.com/input-output-hk/ouroboros-network/tree/master/ouroboros-network-framework) based implementation of the network component (we had another one using [ZeroMQ](https://zeromq.org/))
-    * The [Ouroboros](https://github.com/input-output-hk/hydra-poc/blob/d24c04e138acd333c3d47f97bb214957785fde08/hydra-node/src/Hydra/Network/Ouroboros.hs) based network layer implements a dumb [FireForget](https://github.com/input-output-hk/hydra-poc/blob/d24c04e138acd333c3d47f97bb214957785fde08/hydra-node/src/Hydra/Network/Ouroboros/Type.hs#L27) protocol. Contrary to other protocols implemented in Ouroboros, this is a push-based protocol
-* The main constituent of the Head's state is the [Ledger](https://github.com/input-output-hk/hydra-poc/blob/d24c04e138acd333c3d47f97bb214957785fde08/hydra-node/src/Hydra/Ledger.hs) which allows the head to maintain and update the state of _Seen_ or _Confirmed_ transactions and UTxOs according to its protocol.
-  * [MaryTest](https://github.com/input-output-hk/hydra-poc/blob/d24c04e138acd333c3d47f97bb214957785fde08/hydra-node/src/Hydra/Ledger/MaryTest.hs) provides a more concrete implementation based on a Mary-era Shelley ledger, but with test cryptographic routines
-* Structured logging is implemented using [IOHK monitoring framework](https://github.com/input-output-hk/iohk-monitoring-framework) which provides backend for [contra-tracer](https://hackage.haskell.org/package/contra-tracer) generic logging
-  * Each component defines its own tracing messages as a datatype and they are aggregated in the [HydraLog](https://github.com/input-output-hk/hydra-poc/blob/d24c04e138acd333c3d47f97bb214957785fde08/hydra-node/src/Hydra/Logging/Messages.hs) datatype. Specialized `Tracer`s can be passed around from the top-level one using `contramap` to peel one layer of the onion
-  * Configuration of the main tracer is done via the [withTracer](https://github.com/input-output-hk/hydra-poc/blob/d24c04e138acd333c3d47f97bb214957785fde08/hydra-node/src/Hydra/Logging.hs) wrapper function
-* Metrics and monitoring are piggy-backed on tracing events:
-  * Monitoring collection is configured at start of the hydra-node
-  * Traced events are [interpreted](https://github.com/input-output-hk/hydra-poc/blob/d24c04e138acd333c3d47f97bb214957785fde08/hydra-node/src/Hydra/Logging/Monitoring.hs) as contributing to some specific metric value without trace producers needing to be aware of how this process happens
-  * Metrics are exposed using [Prometheus](https://prometheus.io/docs/instrumenting/exposition_formats/) format over URI `/metrics` from an HTTP server started on a configurable port.
