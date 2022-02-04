@@ -2,33 +2,7 @@
 
 module Hydra.Cardano.Api (
   module Hydra.Cardano.Api,
-  module Cardano.Api,
-  module Cardano.Api.Byron,
-  module Cardano.Api.Shelley,
-  module Hydra.Cardano.Api.AddressInEra,
-  module Hydra.Cardano.Api.CtxTx,
-  module Hydra.Cardano.Api.CtxUTxO,
-  module Hydra.Cardano.Api.ExecutionUnits,
-  module Hydra.Cardano.Api.Hash,
-  module Hydra.Cardano.Api.KeyWitness,
-  module Hydra.Cardano.Api.Lovelace,
-  module Hydra.Cardano.Api.PlutusScript,
-  module Hydra.Cardano.Api.PlutusScriptVersion,
-  module Hydra.Cardano.Api.ScriptData,
-  module Hydra.Cardano.Api.ScriptDatum,
-  module Hydra.Cardano.Api.ScriptHash,
-  module Hydra.Cardano.Api.ScriptWitnessInCtx,
-  module Hydra.Cardano.Api.Tx,
-  module Hydra.Cardano.Api.TxBody,
-  module Hydra.Cardano.Api.TxId,
-  module Hydra.Cardano.Api.TxIn,
-  module Hydra.Cardano.Api.TxOut,
-  module Hydra.Cardano.Api.TxOutDatum,
-  module Hydra.Cardano.Api.TxOutValue,
-  module Hydra.Cardano.Api.TxScriptValidity,
-  module Hydra.Cardano.Api.UTxO,
-  module Hydra.Cardano.Api.Value,
-  module Hydra.Cardano.Api.Witness,
+  module X,
   UTxO,
   UTxO' (UTxO),
   StandardCrypto,
@@ -38,7 +12,7 @@ module Hydra.Cardano.Api (
 
 import Hydra.Prelude
 
-import Cardano.Api hiding (
+import Cardano.Api as X hiding (
   AddressInEra (..),
   AddressTypeInEra (..),
   BalancedTxBody (..),
@@ -65,25 +39,56 @@ import Cardano.Api hiding (
   Witness (..),
   toLedgerUTxO,
  )
-import qualified Cardano.Api
-import Cardano.Api.Byron (
+import Cardano.Api.Byron as X (
   Address (..),
  )
-import Cardano.Api.Shelley (
+import Cardano.Api.Shelley as X (
   Address (..),
   PoolId,
   ProtocolParameters (..),
-  ShelleyBasedEra (..),
   ShelleyGenesis (..),
   ShelleyLedgerEra,
-  SigningKey (..),
   VerificationKey (..),
-  fromLedgerPParams,
   fromPlutusData,
   toPlutusData,
  )
+import Cardano.Api.UTxO (
+  UTxO,
+  UTxO' (..),
+ )
+import Hydra.Cardano.Api.Prelude (
+  Era,
+  LedgerEra,
+  StandardCrypto,
+ )
+
+import Hydra.Cardano.Api.AddressInEra as X
+import Hydra.Cardano.Api.CtxTx as X
+import Hydra.Cardano.Api.CtxUTxO as X
+import Hydra.Cardano.Api.ExecutionUnits as X
+import Hydra.Cardano.Api.Hash as X
+import Hydra.Cardano.Api.KeyWitness as X
+import Hydra.Cardano.Api.Lovelace as X
+import Hydra.Cardano.Api.PlutusScript as X
+import Hydra.Cardano.Api.PlutusScriptVersion as X
+import Hydra.Cardano.Api.ScriptData as X
+import Hydra.Cardano.Api.ScriptDatum as X
+import Hydra.Cardano.Api.ScriptHash as X
+import Hydra.Cardano.Api.ScriptWitnessInCtx as X
+import Hydra.Cardano.Api.Tx as X
+import Hydra.Cardano.Api.TxBody as X
+import Hydra.Cardano.Api.TxId as X
+import Hydra.Cardano.Api.TxIn as X
+import Hydra.Cardano.Api.TxOut as X
+import Hydra.Cardano.Api.TxOutDatum as X
+import Hydra.Cardano.Api.TxOutValue as X
+import Hydra.Cardano.Api.TxScriptValidity as X
+import Hydra.Cardano.Api.UTxO as X
+import Hydra.Cardano.Api.Value as X
+import Hydra.Cardano.Api.Witness as X
+
+import qualified Cardano.Api
 import qualified Cardano.Api.Shelley
-import Cardano.Api.UTxO (UTxO, UTxO' (..))
 import qualified Cardano.Ledger.Alonzo.Data as Ledger
 import qualified Cardano.Ledger.Alonzo.Scripts as Ledger
 import qualified Cardano.Ledger.Alonzo.TxBody as Ledger
@@ -91,36 +96,6 @@ import qualified Cardano.Ledger.Alonzo.TxWitness as Ledger
 import qualified Cardano.Ledger.Keys as Ledger
 import qualified Cardano.Ledger.Shelley.Address.Bootstrap as Ledger
 import qualified Cardano.Ledger.Shelley.Tx as Ledger hiding (TxBody)
-import Hydra.Cardano.Api.Prelude (
-  Era,
-  LedgerEra,
-  StandardCrypto,
- )
-
-import Hydra.Cardano.Api.AddressInEra
-import Hydra.Cardano.Api.CtxTx
-import Hydra.Cardano.Api.CtxUTxO
-import Hydra.Cardano.Api.ExecutionUnits
-import Hydra.Cardano.Api.Hash
-import Hydra.Cardano.Api.KeyWitness
-import Hydra.Cardano.Api.Lovelace
-import Hydra.Cardano.Api.PlutusScript
-import Hydra.Cardano.Api.PlutusScriptVersion
-import Hydra.Cardano.Api.ScriptData
-import Hydra.Cardano.Api.ScriptDatum
-import Hydra.Cardano.Api.ScriptHash
-import Hydra.Cardano.Api.ScriptWitnessInCtx
-import Hydra.Cardano.Api.Tx
-import Hydra.Cardano.Api.TxBody
-import Hydra.Cardano.Api.TxId
-import Hydra.Cardano.Api.TxIn
-import Hydra.Cardano.Api.TxOut
-import Hydra.Cardano.Api.TxOutDatum
-import Hydra.Cardano.Api.TxOutValue
-import Hydra.Cardano.Api.TxScriptValidity
-import Hydra.Cardano.Api.UTxO
-import Hydra.Cardano.Api.Value
-import Hydra.Cardano.Api.Witness
 
 -- NOTE: We always use the latest era available in our codebase, so to ease type
 -- signatures and notations, we specialize any type of the cardano-api normally
