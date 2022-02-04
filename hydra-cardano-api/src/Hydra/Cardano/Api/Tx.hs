@@ -23,7 +23,7 @@ import qualified Data.ByteString.Lazy as BL
 import qualified Data.Map as Map
 import Data.Maybe.Strict (maybeToStrictMaybe, strictMaybeToMaybe)
 
--- * Extra
+-- * Extras
 
 -- | Get explicit fees allocated to a transaction.
 --
@@ -34,10 +34,6 @@ txFee' (getTxBody -> TxBody body) =
   case txFee body of
     TxFeeExplicit TxFeesExplicitInAlonzoEra fee -> fee
     TxFeeImplicit _ -> error "impossible: TxFeeImplicit on non-Byron transaction."
-
-{-# DEPRECATED getFee "use txFee' instead." #-}
-getFee :: Tx Era -> Lovelace
-getFee = txFee'
 
 -- | Calculate the total execution cost of a transaction, according to the
 -- budget assigned to each redeemer.
@@ -50,13 +46,6 @@ totalExecutionCost pparams tx =
  where
   executionUnits = foldMap snd $ Ledger.unRedeemers $ Ledger.txrdmrs wits
   Ledger.ValidatedTx{Ledger.wits = wits} = toLedgerTx tx
-
-executionCost ::
-  Ledger.PParams LedgerEra ->
-  Tx Era ->
-  Lovelace
-executionCost = totalExecutionCost
-{-# DEPRECATED executionCost "use totalExecutionCost instead." #-}
 
 -- | Obtain a human-readable pretty text representation of a transaction.
 renderTx :: Tx Era -> Text
@@ -116,10 +105,6 @@ renderTx (Tx body _wits) =
       let rdmrs = Map.elems $ Ledger.unRedeemers re
        in "  Redeemers (" <> show (length rdmrs) <> ")" :
           (("    - " <>) . show . fst <$> rdmrs)
-
-{-# DEPRECATED describeCardanoTx "use 'renderTx' instead." #-}
-describeCardanoTx :: Tx Era -> Text
-describeCardanoTx = renderTx
 
 -- * Type Conversions
 

@@ -156,9 +156,9 @@ commitTx networkId party utxo (initialInput, vkh) =
   initialScript =
     fromPlutusScript Initial.validatorScript
   initialDatum =
-    mkDatumForTxIn $ Initial.datum $ toPlutusKeyHash vkh
+    mkScriptDatum $ Initial.datum $ toPlutusKeyHash vkh
   initialRedeemer =
-    mkRedeemerForTxIn . Initial.redeemer $
+    toScriptData . Initial.redeemer $
       Initial.Commit (toPlutusTxOutRef <$> mCommittedInput)
   mCommittedInput =
     fst <$> utxo
@@ -209,7 +209,7 @@ collectComTx networkId (headInput, ScriptDatumForTxIn -> headDatumBefore, partie
   headScript =
     fromPlutusScript $ Head.validatorScript policyId
   headRedeemer =
-    mkRedeemerForTxIn Head.CollectCom
+    toScriptData Head.CollectCom
   headOutput =
     TxOut
       (mkScriptAddress @PlutusScriptV1 networkId headScript)
@@ -239,7 +239,7 @@ collectComTx networkId (headInput, ScriptDatumForTxIn -> headDatumBefore, partie
   commitScript =
     fromPlutusScript Commit.validatorScript
   commitRedeemer =
-    mkRedeemerForTxIn $ Commit.redeemer Commit.CollectCom
+    toScriptData $ Commit.redeemer Commit.CollectCom
 
 -- | Create a transaction closing a head with given snapshot number and utxo.
 closeTx ::
@@ -261,7 +261,7 @@ closeTx Snapshot{number, utxo} sig (headInput, headOutputBefore, ScriptDatumForT
   headScript =
     fromPlutusScript $ Head.validatorScript policyId
   headRedeemer =
-    mkRedeemerForTxIn
+    toScriptData
       Head.Close
         { snapshotNumber = toInteger number
         , signature = toPlutusSignatures sig
@@ -295,7 +295,7 @@ fanoutTx utxo (headInput, ScriptDatumForTxIn -> headDatumBefore) =
   headScript =
     fromPlutusScript $ Head.validatorScript policyId
   headRedeemer =
-    mkRedeemerForTxIn (Head.Fanout $ fromIntegral $ length utxo)
+    toScriptData (Head.Fanout $ fromIntegral $ length utxo)
 
   fanoutOutputs =
     foldr ((:) . toTxContext) [] utxo
@@ -332,7 +332,7 @@ abortTx networkId (headInput, ScriptDatumForTxIn -> headDatumBefore) initialsToA
   headScript =
     fromPlutusScript $ Head.validatorScript policyId
   headRedeemer =
-    mkRedeemerForTxIn Head.Abort
+    toScriptData Head.Abort
 
   initialInputs = mkAbortInitial <$> Map.toList initialsToAbort
 
@@ -359,7 +359,7 @@ abortTx networkId (headInput, ScriptDatumForTxIn -> headDatumBefore) initialsToA
   initialScript =
     fromPlutusScript Initial.validatorScript
   initialRedeemer =
-    mkRedeemerForTxIn $ Initial.redeemer Initial.Abort
+    toScriptData $ Initial.redeemer Initial.Abort
 
   mkAbortCommit (commitInput, (_, ScriptDatumForTxIn -> commitDatum)) =
     (commitInput, mkCommitWitness commitDatum)
@@ -368,7 +368,7 @@ abortTx networkId (headInput, ScriptDatumForTxIn -> headDatumBefore) initialsToA
   commitScript =
     fromPlutusScript Commit.validatorScript
   commitRedeemer =
-    mkRedeemerForTxIn (Commit.redeemer Commit.Abort)
+    toScriptData (Commit.redeemer Commit.Abort)
 
   commitOutputs = mapMaybe (mkCommitOutput . snd) $ Map.elems commitsToAbort
 
@@ -419,7 +419,7 @@ observeInitTx networkId party tx = do
   initials =
     mapMaybe
       ( \(i, o) -> do
-          dat <- getDatum o
+          dat <- getScriptData o
           pure (mkTxIn tx i, toCtxUTxOTxOut o, dat)
       )
       initialOutputs
@@ -452,7 +452,7 @@ observeCommitTx networkId initials tx = do
   mCommittedTxIn <- decodeInitialRedeemer initialTxIn
 
   (commitIn, commitOut) <- findTxOutByAddress commitAddress tx
-  dat <- getDatum commitOut
+  dat <- getScriptData commitOut
   -- TODO: This 'party' would be available from the spent 'initial' utxo (PT eventually)
   (party, _, serializedTxOut) <- fromData @(DatumType Commit.Commit) $ toPlutusData dat
   let mCommittedTxOut = convertTxOut serializedTxOut
@@ -533,12 +533,12 @@ observeCollectComTx ::
 observeCollectComTx utxo tx = do
   (headInput, headOutput) <- findScriptOutput @PlutusScriptV1 utxo headScript
   redeemer <- findRedeemerSpending tx headInput
-  oldHeadDatum <- lookupDatum tx headOutput
+  oldHeadDatum <- lookupScriptData tx headOutput
   datum <- fromData $ toPlutusData oldHeadDatum
   case (datum, redeemer) of
     (Head.Initial{parties}, Head.CollectCom) -> do
       (newHeadInput, newHeadOutput) <- findScriptOutput @PlutusScriptV1 (utxoFromTx tx) headScript
-      newHeadDatum <- lookupDatum tx newHeadOutput
+      newHeadDatum <- lookupScriptData tx newHeadOutput
       pure
         ( OnCollectComTx
         , OpenOrClosed
@@ -564,12 +564,12 @@ observeCloseTx ::
 observeCloseTx utxo tx = do
   (headInput, headOutput) <- findScriptOutput @PlutusScriptV1 utxo headScript
   redeemer <- findRedeemerSpending tx headInput
-  oldHeadDatum <- lookupDatum tx headOutput
+  oldHeadDatum <- lookupScriptData tx headOutput
   datum <- fromData $ toPlutusData oldHeadDatum
   case (datum, redeemer) of
     (Head.Open{parties}, Head.Close{snapshotNumber = onChainSnapshotNumber}) -> do
       (newHeadInput, newHeadOutput) <- findScriptOutput @PlutusScriptV1 (utxoFromTx tx) headScript
-      newHeadDatum <- lookupDatum tx newHeadOutput
+      newHeadDatum <- lookupScriptData tx newHeadOutput
       snapshotNumber <- integerToNatural onChainSnapshotNumber
       pure
         ( OnCloseTx{contestationDeadline, snapshotNumber}

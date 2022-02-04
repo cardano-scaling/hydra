@@ -10,8 +10,3 @@ import Hydra.Cardano.Api.ScriptData (ToScriptData, toScriptData)
 mkScriptDatum :: (ToScriptData a) => a -> ScriptDatum WitCtxTxIn
 mkScriptDatum =
   ScriptDatumForTxIn . toScriptData
-
-{-# DEPRECATED mkDatumForTxIn "use 'mkScriptDatum' instead." #-}
-mkDatumForTxIn :: (ToScriptData a) => a -> ScriptDatum WitCtxTxIn
-mkDatumForTxIn =
-  mkScriptDatum
