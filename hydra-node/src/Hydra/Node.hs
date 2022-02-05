@@ -8,13 +8,13 @@
 --
 -- The following diagram represents the internal structure of the Hydra Node and the interactions between its components.
 --
--- ![](https://github.com/input-output-hk/hydra-poc/blob/55a94fdd77c221ce815b8be21b5213e17ace952d/docs/images/hydra-architecture-direct.jpg)
+-- ![](./images/hydra-architecture-direct.jpg)
 --
--- **Legend**:
--- - Grayed boxes represent components which are not developed yet
--- - Black boxes represent components which are expected to be used as _black box_, eg. without any knowledge of their inner workings.
--- - Arrows depict the flow of data (Requests, messages, responses...)
--- - We represent some components that are not part of the Hydra node proper for legibility's sake
+-- '''Legend''':
+--  - Grayed boxes represent components which are not developed yet
+--  - Black boxes represent components which are expected to be used as _black box_, eg. without any knowledge of their inner workings.
+--  - Arrows depict the flow of data (Requests, messages, responses...)
+--  - We represent some components that are not part of the Hydra node proper for legibility's sake
 module Hydra.Node where
 
 import Hydra.Prelude
