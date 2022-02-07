@@ -29,7 +29,8 @@ Accepted
 
 * Heads can be identified by looking for the `ST` in `init`, `collectCom`, `close`, `contest` or `fanout` transactions, or the `PT` in `commit` transactions. In both cases, the `CurrencySymbol == HeadId`
 * Our scripts become simpler as the ledger checks that ST/PT are paid forward (phase 1 validation), instead of OCV scripts needing to check datums
-* The datum produced by `commit` txs (and consumed by `collectCom`) is `Just SerializedTxOut`, which is simpler than also keeping the participant which committed in the datum (compare to 0.3.0).
+* The datum produced by `commit` txs (and consumed by `collectCom`) is `Just SerializedTxOut`, which is simpler than also keeping the participant which committed in the datum (compare to full life-cycle of [0.3.0](https://github.com/input-output-hk/hydra-poc/tree/0.3.0/docs/images/on-chain-full.jpg)).
+
 * The `v_head` script validator does not need to be parameterized, which makes discoverying new Heads (and also tracking them for metrics) easier as the address to watch for is common to all Heads (of the same `v_head` version).
-* The `v_head` script (path) for the abort life-cycle can be implemented already much safer by checking that all PTs are burned on the `abort` transaction (counting inputs in 0.3.0).
+* The `v_head` script (path) for the abort life-cycle can be implemented already much safer by checking that all PTs are burned on the `abort` transaction (counting inputs in abort life-cycle of [0.3.0](https://github.com/input-output-hk/hydra-poc/tree/0.3.0/docs/images/on-chain-abort.jpg)).
 * Updated diagrams for the [full](../images/on-chain-full.jpg) and [abort](../images/on-chain-abort.jpg) on-chain life-cycles of a Hydra Head.
