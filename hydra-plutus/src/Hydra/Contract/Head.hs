@@ -22,8 +22,8 @@ import Plutus.Codec.CBOR.Encoding (
   encodeBeginList,
   encodeBreak,
   encodeInteger,
-  encodeRaw,
   encodingToBuiltinByteString,
+  unsafeEncodeRaw,
  )
 import PlutusTx (fromBuiltinData, toBuiltinData)
 import qualified PlutusTx
@@ -195,7 +195,7 @@ hashPreSerializedCommits :: [SerializedTxOut] -> BuiltinByteString
 hashPreSerializedCommits o =
   sha2_256 . encodingToBuiltinByteString $
     encodeBeginList
-      <> foldMap (\(SerializedTxOut bytes) -> encodeRaw bytes) o
+      <> foldMap (\(SerializedTxOut bytes) -> unsafeEncodeRaw bytes) o
       <> encodeBreak
 {-# INLINEABLE hashPreSerializedCommits #-}
 
