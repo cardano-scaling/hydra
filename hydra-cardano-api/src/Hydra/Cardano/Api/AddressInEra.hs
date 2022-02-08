@@ -48,11 +48,11 @@ mkScriptAddress networkId script =
 -- * Type Conversions
 
 -- | From a ledger 'Addr' to an api 'AddressInEra'
-fromLedgerAddr :: Ledger.Addr StandardCrypto -> AddressInEra Era
+fromLedgerAddr :: IsShelleyBasedEra era => Ledger.Addr StandardCrypto -> AddressInEra era
 fromLedgerAddr = fromShelleyAddr
 
 -- | From an api 'AddressInEra' to a ledger 'Addr'
-toLedgerAddr :: AddressInEra Era -> Ledger.Addr StandardCrypto
+toLedgerAddr :: AddressInEra era -> Ledger.Addr StandardCrypto
 toLedgerAddr = \case
   AddressInEra ByronAddressInAnyEra (ByronAddress addr) ->
     Ledger.AddrBootstrap (Ledger.BootstrapAddress addr)

@@ -2,6 +2,7 @@ module Hydra.Cardano.Api.ScriptData where
 
 import Hydra.Cardano.Api.Prelude
 
+import Cardano.Api.Byron (TxBody (..))
 import qualified Cardano.Ledger.Alonzo.Data as Ledger
 import qualified Cardano.Ledger.Alonzo.TxWitness as Ledger
 import qualified Data.Map as Map
@@ -30,7 +31,16 @@ getScriptData (TxOut _ _ d) =
     _ -> Nothing
 
 -- | Lookup included datum of given 'TxOut'.
-lookupScriptData :: Tx Era -> TxOut CtxUTxO Era -> Maybe ScriptData
+lookupScriptData ::
+  forall era.
+  ( UsesStandardCrypto era
+  , Typeable (ShelleyLedgerEra era)
+  ) =>
+  Tx era ->
+  TxOut CtxUTxO era ->
+  Maybe ScriptData
+lookupScriptData (Tx ByronTxBody{} _) =
+  const Nothing
 lookupScriptData (Tx (ShelleyTxBody _ _ _ scriptsData _ _) _) = \case
   TxOut _ _ TxOutDatumNone ->
     Nothing
@@ -44,11 +54,11 @@ lookupScriptData (Tx (ShelleyTxBody _ _ _ scriptsData _ _) _) = \case
 -- * Type Conversions
 
 -- | Convert a cardano-ledger's script 'Data' into a cardano-api's 'ScriptDatum'.
-fromLedgerData :: Ledger.Data LedgerEra -> ScriptData
+fromLedgerData :: Ledger.Data era -> ScriptData
 fromLedgerData =
   fromAlonzoData
 
 -- | Convert a cardano-api's 'ScriptData' into a cardano-ledger's script 'Data'.
-toLedgerData :: ScriptData -> Ledger.Data LedgerEra
+toLedgerData :: ScriptData -> Ledger.Data era
 toLedgerData =
   toAlonzoData

@@ -58,6 +58,9 @@ import Cardano.Api as X hiding (
   TxScriptValidity (..),
   UTxO (..),
   Witness (..),
+  multiAssetSupportedInEra,
+  scriptDataSupportedInEra,
+  scriptLanguageSupportedInEra,
   toLedgerUTxO,
  )
 import Cardano.Api.Byron as X (
@@ -90,11 +93,14 @@ import Hydra.Cardano.Api.ExecutionUnits as Extras
 import Hydra.Cardano.Api.Hash as Extras
 import Hydra.Cardano.Api.KeyWitness as Extras
 import Hydra.Cardano.Api.Lovelace as Extras
+import Hydra.Cardano.Api.MultiAssetSupportedInEra as Extras
 import Hydra.Cardano.Api.PlutusScript as Extras
 import Hydra.Cardano.Api.PlutusScriptVersion as Extras
 import Hydra.Cardano.Api.ScriptData as Extras
+import Hydra.Cardano.Api.ScriptDataSupportedInEra as Extras
 import Hydra.Cardano.Api.ScriptDatum as Extras
 import Hydra.Cardano.Api.ScriptHash as Extras
+import Hydra.Cardano.Api.ScriptLanguageInEra as Extras
 import Hydra.Cardano.Api.ScriptWitnessInCtx as Extras
 import Hydra.Cardano.Api.Tx as Extras
 import Hydra.Cardano.Api.TxBody as Extras

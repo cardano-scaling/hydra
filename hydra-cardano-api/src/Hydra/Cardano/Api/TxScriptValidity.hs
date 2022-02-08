@@ -6,7 +6,7 @@ import qualified Cardano.Ledger.Alonzo.Tx as Ledger
 
 -- | Convert a cardano-api's 'TxScriptValidity' into a cardano-ledger 'IsValid'
 -- boolean wrapper.
-toLedgerScriptValidity :: TxScriptValidity Era -> Ledger.IsValid
+toLedgerScriptValidity :: TxScriptValidity era -> Ledger.IsValid
 toLedgerScriptValidity =
   Ledger.IsValid . \case
     TxScriptValidityNone -> True

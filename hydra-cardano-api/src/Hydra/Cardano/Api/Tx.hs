@@ -29,23 +29,30 @@ import Data.Maybe.Strict (maybeToStrictMaybe, strictMaybeToMaybe)
 --
 -- NOTE: this function is partial and throws if given a Byron transaction for
 -- which fees are necessarily implicit.
-txFee' :: Tx Era -> Lovelace
+txFee' :: HasCallStack => Tx era -> Lovelace
 txFee' (getTxBody -> TxBody body) =
   case txFee body of
+    TxFeeExplicit TxFeesExplicitInShelleyEra fee -> fee
+    TxFeeExplicit TxFeesExplicitInAllegraEra fee -> fee
+    TxFeeExplicit TxFeesExplicitInMaryEra fee -> fee
     TxFeeExplicit TxFeesExplicitInAlonzoEra fee -> fee
     TxFeeImplicit _ -> error "impossible: TxFeeImplicit on non-Byron transaction."
 
 -- | Calculate the total execution cost of a transaction, according to the
 -- budget assigned to each redeemer.
 totalExecutionCost ::
-  Ledger.PParams LedgerEra ->
-  Tx Era ->
+  Ledger.PParams (ShelleyLedgerEra era) ->
+  Tx era ->
   Lovelace
 totalExecutionCost pparams tx =
   fromLedgerCoin (Ledger.txscriptfee (Ledger._prices pparams) executionUnits)
  where
-  executionUnits = foldMap snd $ Ledger.unRedeemers $ Ledger.txrdmrs wits
-  Ledger.ValidatedTx{Ledger.wits = wits} = toLedgerTx tx
+  executionUnits =
+    case tx of
+      Tx (ShelleyTxBody _ _ _ (TxBodyScriptData _ _ redeemers) _ _) _ ->
+        foldMap snd (Ledger.unRedeemers redeemers)
+      _ ->
+        mempty
 
 -- | Obtain a human-readable pretty text representation of a transaction.
 renderTx :: Tx Era -> Text
@@ -87,7 +94,7 @@ renderTx (Tx body _wits) =
     ]
       <> (("    - " <>) . prettyScript <$> scripts)
 
-  prettyScript = show . (Ledger.hashScript @LedgerEra)
+  prettyScript = show . (Ledger.hashScript @(ShelleyLedgerEra Era))
 
   totalScriptSize = sum $ BL.length . serialize <$> scripts
 
@@ -110,7 +117,7 @@ renderTx (Tx body _wits) =
 
 -- | Convert a cardano-api's 'Tx' into a cardano-ledger's 'Tx' in the Alonzo era
 -- (a.k.a. 'ValidatedTx').
-toLedgerTx :: Tx Era -> Ledger.ValidatedTx LedgerEra
+toLedgerTx :: Tx Era -> Ledger.ValidatedTx (ShelleyLedgerEra Era)
 toLedgerTx = \case
   Tx (ShelleyTxBody _era body scripts scriptsData auxData validity) vkWits ->
     let (datums, redeemers) =
@@ -132,7 +139,7 @@ toLedgerTx = \case
                     toLedgerBootstrapWitness vkWits
                 , Ledger.txscripts =
                     fromList
-                      [ ( Ledger.hashScript @LedgerEra s
+                      [ ( Ledger.hashScript @(ShelleyLedgerEra Era) s
                         , s
                         )
                       | s <- scripts
@@ -146,7 +153,7 @@ toLedgerTx = \case
 
 -- | Convert a cardano-ledger's 'Tx' in the Alonzo era (a.k.a. 'ValidatedTx')
 -- into a cardano-api's 'Tx'.
-fromLedgerTx :: Ledger.ValidatedTx LedgerEra -> Tx Era
+fromLedgerTx :: Ledger.ValidatedTx (ShelleyLedgerEra Era) -> Tx Era
 fromLedgerTx (Ledger.ValidatedTx body wits isValid auxData) =
   Tx
     (ShelleyTxBody era body scripts scriptsData (strictMaybeToMaybe auxData) validity)

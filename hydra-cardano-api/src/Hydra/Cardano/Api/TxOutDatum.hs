@@ -3,16 +3,25 @@ module Hydra.Cardano.Api.TxOutDatum where
 import Hydra.Cardano.Api.Prelude
 
 import Hydra.Cardano.Api.ScriptData (ToScriptData, toScriptData)
+import Hydra.Cardano.Api.ScriptDataSupportedInEra (HasScriptData (..))
 
 -- | Construct a 'TxOutDatum' as plain 'ScriptData' from some serialisable data
 -- type. Note that this is only possible in 'CtxTx' for 'CtxUTxO' only allows to
 -- embed hashes.
-mkTxOutDatum :: (ToScriptData a) => a -> TxOutDatum CtxTx Era
+mkTxOutDatum ::
+  forall era a.
+  (ToScriptData a, HasScriptData era) =>
+  a ->
+  TxOutDatum CtxTx era
 mkTxOutDatum =
-  TxOutDatum ScriptDataInAlonzoEra . toScriptData
+  TxOutDatum (scriptDataSupportedInEra @era) . toScriptData
 
 -- | Construct a 'TxOutDatum' as a 'ScriptData' hash, from some serialisable
 -- data type.
-mkTxOutDatumHash :: (ToScriptData a) => a -> TxOutDatum ctx Era
+mkTxOutDatumHash ::
+  forall era a ctx.
+  (ToScriptData a, HasScriptData era) =>
+  a ->
+  TxOutDatum ctx era
 mkTxOutDatumHash =
-  TxOutDatumHash ScriptDataInAlonzoEra . hashScriptData . toScriptData
+  TxOutDatumHash (scriptDataSupportedInEra @era) . hashScriptData . toScriptData

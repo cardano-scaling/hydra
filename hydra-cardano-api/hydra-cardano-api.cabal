@@ -83,12 +83,15 @@ library
     Hydra.Cardano.Api.KeyWitness
     Hydra.Cardano.Api.Lovelace
     Hydra.Cardano.Api.Network
+    Hydra.Cardano.Api.MultiAssetSupportedInEra
     Hydra.Cardano.Api.PlutusScript
     Hydra.Cardano.Api.PlutusScriptVersion
     Hydra.Cardano.Api.Prelude
     Hydra.Cardano.Api.ScriptData
+    Hydra.Cardano.Api.ScriptDataSupportedInEra
     Hydra.Cardano.Api.ScriptDatum
     Hydra.Cardano.Api.ScriptHash
+    Hydra.Cardano.Api.ScriptLanguageInEra
     Hydra.Cardano.Api.ScriptWitnessInCtx
     Hydra.Cardano.Api.Tx
     Hydra.Cardano.Api.TxBody

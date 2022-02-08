@@ -57,11 +57,20 @@ toLedgerBootstrapWitness vkWits =
 -- NOTE: this only concerns key and bootstrap witnesses. Scripts and auxiliary
 -- data are obviously not part of the resulting list.
 fromLedgerTxWitness ::
-  Ledger.TxWitness LedgerEra ->
-  [KeyWitness Era]
+  forall era.
+  ( IsShelleyBasedEra era
+  , UsesStandardCrypto era
+  ) =>
+  Ledger.TxWitness (ShelleyLedgerEra era) ->
+  [KeyWitness era]
 fromLedgerTxWitness wits =
-  Set.foldr ((:) . ShelleyKeyWitness era) [] (Ledger.txwitsVKey' wits)
-    ++ Set.foldr ((:) . ShelleyBootstrapWitness era) [] (Ledger.txwitsBoot' wits)
- where
-  era =
-    ShelleyBasedEraAlonzo
+  mconcat
+    [ Set.foldr
+        ((:) . ShelleyKeyWitness shelleyBasedEra)
+        []
+        (Ledger.txwitsVKey' wits)
+    , Set.foldr
+        ((:) . ShelleyBootstrapWitness shelleyBasedEra)
+        []
+        (Ledger.txwitsBoot' wits)
+    ]

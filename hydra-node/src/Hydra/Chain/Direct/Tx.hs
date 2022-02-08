@@ -154,7 +154,7 @@ commitTx networkId party utxo (initialInput, vkh) =
   initialWitness =
     BuildTxWith $ mkScriptWitness initialScript initialDatum initialRedeemer
   initialScript =
-    fromPlutusScript Initial.validatorScript
+    fromPlutusScript @PlutusScriptV1 Initial.validatorScript
   initialDatum =
     mkScriptDatum $ Initial.datum $ toPlutusKeyHash vkh
   initialRedeemer =
@@ -207,7 +207,7 @@ collectComTx networkId (headInput, ScriptDatumForTxIn -> headDatumBefore, partie
   headWitness =
     BuildTxWith $ mkScriptWitness headScript headDatumBefore headRedeemer
   headScript =
-    fromPlutusScript $ Head.validatorScript policyId
+    fromPlutusScript @PlutusScriptV1 $ Head.validatorScript policyId
   headRedeemer =
     toScriptData Head.CollectCom
   headOutput =
@@ -237,7 +237,7 @@ collectComTx networkId (headInput, ScriptDatumForTxIn -> headDatumBefore, partie
   commitValue =
     mconcat $ txOutValue . fst <$> Map.elems commits
   commitScript =
-    fromPlutusScript Commit.validatorScript
+    fromPlutusScript @PlutusScriptV1 Commit.validatorScript
   commitRedeemer =
     toScriptData $ Commit.redeemer Commit.CollectCom
 
@@ -259,7 +259,7 @@ closeTx Snapshot{number, utxo} sig (headInput, headOutputBefore, ScriptDatumForT
   headWitness =
     BuildTxWith $ mkScriptWitness headScript headDatumBefore headRedeemer
   headScript =
-    fromPlutusScript $ Head.validatorScript policyId
+    fromPlutusScript @PlutusScriptV1 $ Head.validatorScript policyId
   headRedeemer =
     toScriptData
       Head.Close
@@ -293,7 +293,7 @@ fanoutTx utxo (headInput, ScriptDatumForTxIn -> headDatumBefore) =
   headWitness =
     BuildTxWith $ mkScriptWitness headScript headDatumBefore headRedeemer
   headScript =
-    fromPlutusScript $ Head.validatorScript policyId
+    fromPlutusScript @PlutusScriptV1 $ Head.validatorScript policyId
   headRedeemer =
     toScriptData (Head.Fanout $ fromIntegral $ length utxo)
 
@@ -330,7 +330,7 @@ abortTx networkId (headInput, ScriptDatumForTxIn -> headDatumBefore) initialsToA
   headWitness =
     BuildTxWith $ mkScriptWitness headScript headDatumBefore headRedeemer
   headScript =
-    fromPlutusScript $ Head.validatorScript policyId
+    fromPlutusScript @PlutusScriptV1 $ Head.validatorScript policyId
   headRedeemer =
     toScriptData Head.Abort
 
@@ -357,7 +357,7 @@ abortTx networkId (headInput, ScriptDatumForTxIn -> headDatumBefore) initialsToA
   mkAbortWitness initialDatum =
     BuildTxWith $ mkScriptWitness initialScript initialDatum initialRedeemer
   initialScript =
-    fromPlutusScript Initial.validatorScript
+    fromPlutusScript @PlutusScriptV1 Initial.validatorScript
   initialRedeemer =
     toScriptData $ Initial.redeemer Initial.Abort
 
@@ -366,7 +366,7 @@ abortTx networkId (headInput, ScriptDatumForTxIn -> headDatumBefore) initialsToA
   mkCommitWitness commitDatum =
     BuildTxWith $ mkScriptWitness commitScript commitDatum commitRedeemer
   commitScript =
-    fromPlutusScript Commit.validatorScript
+    fromPlutusScript @PlutusScriptV1 Commit.validatorScript
   commitRedeemer =
     toScriptData (Commit.redeemer Commit.Abort)
 

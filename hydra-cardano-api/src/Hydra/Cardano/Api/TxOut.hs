@@ -1,5 +1,6 @@
 module Hydra.Cardano.Api.TxOut where
 
+import Hydra.Cardano.Api.MultiAssetSupportedInEra (HasMultiAsset (..))
 import Hydra.Cardano.Api.PlutusScriptVersion (HasPlutusScriptVersion (..))
 import Hydra.Cardano.Api.Prelude
 import Hydra.Cardano.Api.TxIn (mkTxIn)
@@ -18,25 +19,26 @@ txOuts' (getTxBody -> txBody) =
 
 -- | Alter the address of a 'TxOut' with the given transformation.
 modifyTxOutAddress ::
-  (AddressInEra Era -> AddressInEra Era) ->
-  TxOut ctx Era ->
-  TxOut ctx Era
+  (AddressInEra era -> AddressInEra era) ->
+  TxOut ctx era ->
+  TxOut ctx era
 modifyTxOutAddress fn (TxOut addr value dat) =
   TxOut (fn addr) value dat
 
 -- | Alter the value of a 'TxOut' with the given transformation.
 modifyTxOutValue ::
+  HasMultiAsset era =>
   (Value -> Value) ->
-  TxOut ctx Era ->
-  TxOut ctx Era
+  TxOut ctx era ->
+  TxOut ctx era
 modifyTxOutValue fn (TxOut addr value dat) =
   TxOut addr (mkTxOutValue $ fn $ txOutValueToValue value) dat
 
 -- | Alter the datum of a 'TxOut' with the given transformation.
 modifyTxOutDatum ::
-  (TxOutDatum ctx0 Era -> TxOutDatum ctx1 Era) ->
-  TxOut ctx0 Era ->
-  TxOut ctx1 Era
+  (TxOutDatum ctx0 era -> TxOutDatum ctx1 era) ->
+  TxOut ctx0 era ->
+  TxOut ctx1 era
 modifyTxOutDatum fn (TxOut addr value dat) =
   TxOut addr value (fn dat)
 

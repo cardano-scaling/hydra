@@ -7,20 +7,40 @@ module Hydra.Cardano.Api.Prelude (
   StandardCrypto,
   Era,
   LedgerEra,
+  UsesStandardCrypto,
   unsafeHashFromBytes,
 ) where
 
 import Hydra.Prelude hiding (Key)
 
-import Cardano.Api hiding (UTxO, toLedgerUTxO)
-import Cardano.Api.Shelley hiding (UTxO, toLedgerUTxO)
+import Cardano.Api hiding (
+  UTxO,
+  multiAssetSupportedInEra,
+  scriptDataSupportedInEra,
+  scriptLanguageSupportedInEra,
+  toLedgerUTxO,
+ )
+import Cardano.Api.Shelley hiding (
+  UTxO,
+  multiAssetSupportedInEra,
+  scriptDataSupportedInEra,
+  scriptLanguageSupportedInEra,
+  toLedgerUTxO,
+ )
 import Cardano.Api.UTxO (UTxO, UTxO' (..))
 import qualified Cardano.Crypto.Hash.Class as CC
 import qualified Cardano.Ledger.Alonzo as Ledger
 import Cardano.Ledger.Crypto (StandardCrypto)
+import qualified Cardano.Ledger.Era as Ledger.Era
 
-type Era = AlonzoEra
-type LedgerEra = Ledger.AlonzoEra StandardCrypto
+type Era =
+  AlonzoEra
+
+type LedgerEra =
+  Ledger.AlonzoEra StandardCrypto
+
+type UsesStandardCrypto era =
+  (Ledger.Era.Crypto (ShelleyLedgerEra era) ~ StandardCrypto)
 
 -- | Interpret some raw 'ByteString' as a particular 'Hash'.
 --

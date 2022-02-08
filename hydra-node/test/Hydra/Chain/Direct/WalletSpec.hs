@@ -41,6 +41,7 @@ import Hydra.Cardano.Api (
   renderTx,
   toLedgerAddr,
  )
+import qualified Hydra.Cardano.Api as Cardano.Api
 import Hydra.Chain.Direct.MockServer (withMockServer)
 import Hydra.Chain.Direct.Util (Era, markerDatum)
 import Hydra.Chain.Direct.Wallet (
@@ -312,7 +313,7 @@ genPaymentTo magic vk = do
       ValidatedTx{body, wits, isValid, auxiliaryData} <- arbitrary
       let myAddr =
             toLedgerAddr $
-              mkVkAddress (Testnet magic) vk
+              mkVkAddress @Cardano.Api.Era (Testnet magic) vk
       pure $
         ValidatedTx
           { body =

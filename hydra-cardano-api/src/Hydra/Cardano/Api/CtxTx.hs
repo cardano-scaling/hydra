@@ -7,7 +7,7 @@ import Hydra.Cardano.Api.TxOut (modifyTxOutDatum)
 --
 -- See also 'ToUtxoContext' for the reverse.
 class ToTxContext f where
-  toTxContext :: f CtxUTxO Era -> f CtxTx Era
+  toTxContext :: f CtxUTxO era -> f CtxTx era
 
 instance ToTxContext TxOutDatum where
   toTxContext = \case

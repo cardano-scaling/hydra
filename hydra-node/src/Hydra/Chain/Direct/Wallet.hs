@@ -207,7 +207,7 @@ withTinyWallet tracer magic (vk, sk) iocp addr action = do
  where
   address =
     toLedgerAddr $
-      mkVkAddress (Testnet magic) vk
+      mkVkAddress @Cardano.Api.Era (Testnet magic) vk
 
   newTinyWallet utxoVar =
     TinyWallet
