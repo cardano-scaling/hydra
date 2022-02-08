@@ -1,13 +1,34 @@
 {-# LANGUAGE PatternSynonyms #-}
 
+-- | A Haskell API for Cardano, tailored to the Hydra project.
+--
+-- This package provides a wrapper around the @cardano-ledger@, @cardano-api@ and
+-- @plutus@ libraries with extra utilities and function commonly used across the
+-- Hydra project.
+--
+-- NOTE: We always use the latest era available in our codebase, so to ease type
+-- signatures and notations, we specialize any type of the @cardano-api@ normally
+-- parameterized by an era to the latest era 'Era'. As a consequence, we've
+-- defined pattern synonyms for most constructors in the @cardano-api@ to also
+-- get rid of era witnesses.
 module Hydra.Cardano.Api (
-  module Hydra.Cardano.Api,
-  module X,
-  UTxO,
-  UTxO' (UTxO),
+  -- * Common type-alias
   StandardCrypto,
   Era,
   LedgerEra,
+
+  -- * Wrapped Types
+  module Hydra.Cardano.Api,
+
+  -- ** UTxO
+  UTxO,
+  UTxO' (UTxO),
+
+  -- * Extras
+  module Extras,
+
+  -- * Re-exports from @cardano-api@
+  module X,
 ) where
 
 import Hydra.Prelude
@@ -62,30 +83,30 @@ import Hydra.Cardano.Api.Prelude (
   StandardCrypto,
  )
 
-import Hydra.Cardano.Api.AddressInEra as X
-import Hydra.Cardano.Api.CtxTx as X
-import Hydra.Cardano.Api.CtxUTxO as X
-import Hydra.Cardano.Api.ExecutionUnits as X
-import Hydra.Cardano.Api.Hash as X
-import Hydra.Cardano.Api.KeyWitness as X
-import Hydra.Cardano.Api.Lovelace as X
-import Hydra.Cardano.Api.PlutusScript as X
-import Hydra.Cardano.Api.PlutusScriptVersion as X
-import Hydra.Cardano.Api.ScriptData as X
-import Hydra.Cardano.Api.ScriptDatum as X
-import Hydra.Cardano.Api.ScriptHash as X
-import Hydra.Cardano.Api.ScriptWitnessInCtx as X
-import Hydra.Cardano.Api.Tx as X
-import Hydra.Cardano.Api.TxBody as X
-import Hydra.Cardano.Api.TxId as X
-import Hydra.Cardano.Api.TxIn as X
-import Hydra.Cardano.Api.TxOut as X
-import Hydra.Cardano.Api.TxOutDatum as X
-import Hydra.Cardano.Api.TxOutValue as X
-import Hydra.Cardano.Api.TxScriptValidity as X
-import Hydra.Cardano.Api.UTxO as X
-import Hydra.Cardano.Api.Value as X
-import Hydra.Cardano.Api.Witness as X
+import Hydra.Cardano.Api.AddressInEra as Extras
+import Hydra.Cardano.Api.CtxTx as Extras
+import Hydra.Cardano.Api.CtxUTxO as Extras
+import Hydra.Cardano.Api.ExecutionUnits as Extras
+import Hydra.Cardano.Api.Hash as Extras
+import Hydra.Cardano.Api.KeyWitness as Extras
+import Hydra.Cardano.Api.Lovelace as Extras
+import Hydra.Cardano.Api.PlutusScript as Extras
+import Hydra.Cardano.Api.PlutusScriptVersion as Extras
+import Hydra.Cardano.Api.ScriptData as Extras
+import Hydra.Cardano.Api.ScriptDatum as Extras
+import Hydra.Cardano.Api.ScriptHash as Extras
+import Hydra.Cardano.Api.ScriptWitnessInCtx as Extras
+import Hydra.Cardano.Api.Tx as Extras
+import Hydra.Cardano.Api.TxBody as Extras
+import Hydra.Cardano.Api.TxId as Extras
+import Hydra.Cardano.Api.TxIn as Extras
+import Hydra.Cardano.Api.TxOut as Extras
+import Hydra.Cardano.Api.TxOutDatum as Extras
+import Hydra.Cardano.Api.TxOutValue as Extras
+import Hydra.Cardano.Api.TxScriptValidity as Extras
+import Hydra.Cardano.Api.UTxO as Extras
+import Hydra.Cardano.Api.Value as Extras
+import Hydra.Cardano.Api.Witness as Extras
 
 import qualified Cardano.Api
 import qualified Cardano.Api.Shelley
@@ -97,11 +118,7 @@ import qualified Cardano.Ledger.Keys as Ledger
 import qualified Cardano.Ledger.Shelley.Address.Bootstrap as Ledger
 import qualified Cardano.Ledger.Shelley.Tx as Ledger hiding (TxBody)
 
--- NOTE: We always use the latest era available in our codebase, so to ease type
--- signatures and notations, we specialize any type of the cardano-api normally
--- parameterized by an era to the latest era 'Era'.
-
--- AddressInEra
+-- ** AddressInEra
 
 type AddressInEra = Cardano.Api.AddressInEra Era
 {-# COMPLETE AddressInEra #-}
@@ -113,7 +130,7 @@ pattern AddressInEra{addressTypeInEra, address} <-
     AddressInEra =
       Cardano.Api.AddressInEra
 
--- AddressTypeInEra
+-- ** AddressTypeInEra
 
 type AddressTypeInEra addrType = Cardano.Api.AddressTypeInEra addrType Era
 {-# COMPLETE ByronAddressInAnyEra, ShelleyAddressInAnyEra #-}
@@ -132,7 +149,7 @@ pattern ShelleyAddressInAnyEra <-
     ShelleyAddressInAnyEra =
       Cardano.Api.ShelleyAddressInEra ShelleyBasedEraAlonzo
 
--- BalancedTxBody
+-- ** BalancedTxBody
 
 type BalancedTxBody = Cardano.Api.BalancedTxBody Era
 {-# COMPLETE BalancedTxBody #-}
@@ -144,7 +161,7 @@ pattern BalancedTxBody{balancedTxBody, balancedTxChangeOutput, balancedTxFee} <-
     BalancedTxBody =
       Cardano.Api.BalancedTxBody
 
--- KeyWitness
+-- ** KeyWitness
 
 type KeyWitness = Cardano.Api.KeyWitness Era
 {-# COMPLETE ShelleyBootstrapWitness, ShelleyKeyWitness #-}
@@ -163,7 +180,7 @@ pattern ShelleyKeyWitness{shelleyKeyWitness} <-
     ShelleyKeyWitness =
       Cardano.Api.Shelley.ShelleyKeyWitness ShelleyBasedEraAlonzo
 
--- PlutusScript
+-- ** PlutusScript
 
 type PlutusScript = Cardano.Api.PlutusScript PlutusScriptV1
 {-# COMPLETE PlutusScriptSerialised #-}
@@ -175,7 +192,7 @@ pattern PlutusScriptSerialised{plutusScriptSerialised} <-
     PlutusScriptSerialised =
       Cardano.Api.Shelley.PlutusScriptSerialised
 
--- Script
+-- ** Script
 
 type Script = Cardano.Api.Script PlutusScriptV1
 {-# COMPLETE PlutusScript #-}
@@ -187,11 +204,11 @@ pattern PlutusScript{plutusScript} <-
     PlutusScript =
       Cardano.Api.Shelley.PlutusScript PlutusScriptV1
 
--- ScriptInEra
+-- ** ScriptInEra
 
 type ScriptInEra = Cardano.Api.ScriptInEra Era
 
--- ScriptLanguage
+-- ** ScriptLanguage
 
 type ScriptLanguage = Cardano.Api.ScriptLanguage PlutusScriptV1
 {-# COMPLETE PlutusScriptLanguage #-}
@@ -203,7 +220,7 @@ pattern PlutusScriptLanguage <-
     PlutusScriptLanguage =
       Cardano.Api.Shelley.PlutusScriptLanguage PlutusScriptV1
 
--- ScriptWitness
+-- ** ScriptWitness
 
 type ScriptWitness witCtx = Cardano.Api.ScriptWitness witCtx Era
 {-# COMPLETE PlutusScriptWitness #-}
@@ -233,7 +250,7 @@ pattern PlutusScriptWitness
         PlutusScriptV1InAlonzo
         PlutusScriptV1
 
--- Tx
+-- ** Tx
 
 type Tx = Cardano.Api.Tx Era
 {-# COMPLETE Tx #-}
@@ -271,7 +288,7 @@ pattern ShelleyTxBody
     ShelleyTxBody =
       Cardano.Api.Shelley.ShelleyTxBody ShelleyBasedEraAlonzo
 
--- TxAuxScripts
+-- ** TxAuxScripts
 
 type TxAuxScripts = Cardano.Api.TxAuxScripts Era
 {-# COMPLETE TxAuxScriptsNone, TxAuxScripts #-}
@@ -290,7 +307,7 @@ pattern TxAuxScripts{txAuxScripts'} <-
     TxAuxScripts =
       Cardano.Api.TxAuxScripts AuxScriptsInAlonzoEra
 
--- TxBody
+-- ** TxBody
 
 type TxBody = Cardano.Api.TxBody Era
 {-# COMPLETE TxBody #-}
@@ -300,7 +317,7 @@ pattern TxBody{txBodyContent} <-
   Cardano.Api.TxBody txBodyContent
 {-# COMPLETE TxBody #-}
 
--- TxBodyContent
+-- ** TxBodyContent
 
 type TxBodyContent build = Cardano.Api.TxBodyContent build Era
 {-# COMPLETE TxBodyContent #-}
@@ -355,7 +372,7 @@ pattern TxBodyContent
   where
     TxBodyContent = Cardano.Api.TxBodyContent
 
--- TxBodyScriptData
+-- ** TxBodyScriptData
 
 type TxBodyScriptData = Cardano.Api.TxBodyScriptData Era
 {-# COMPLETE TxBodyNoScriptData, TxBodyScriptData #-}
@@ -377,7 +394,7 @@ pattern TxBodyScriptData{txBodyScriptDatums, txBodyScriptRedeemers} <-
     TxBodyScriptData =
       Cardano.Api.TxBodyScriptData ScriptDataInAlonzoEra
 
--- TxExtraKeyWitnesses
+-- ** TxExtraKeyWitnesses
 
 type TxExtraKeyWitnesses = Cardano.Api.TxExtraKeyWitnesses Era
 {-# COMPLETE TxExtraKeyWitnessesNone, TxExtraKeyWitnesses #-}
@@ -395,7 +412,7 @@ pattern TxExtraKeyWitnesses{txExtraKeyWitnesses} <-
     TxExtraKeyWitnesses =
       Cardano.Api.TxExtraKeyWitnesses ExtraKeyWitnessesInAlonzoEra
 
--- TxFee
+-- ** TxFee
 
 type TxFee = Cardano.Api.TxFee Era
 {-# COMPLETE TxFeeExplicit #-}
@@ -407,11 +424,11 @@ pattern TxFeeExplicit{txFeeExplicit} <-
     TxFeeExplicit =
       Cardano.Api.TxFeeExplicit TxFeesExplicitInAlonzoEra
 
--- TxIns
+-- ** TxIns
 
 type TxIns build = [(TxIn, BuildTxWith build (Cardano.Api.Witness WitCtxTxIn Era))]
 
--- TxInsCollateral
+-- ** TxInsCollateral
 
 type TxInsCollateral = Cardano.Api.TxInsCollateral Era
 {-# COMPLETE TxInsCollateralNone, TxInsCollateral #-}
@@ -430,7 +447,7 @@ pattern TxInsCollateral{txInsCollateral'} <-
     TxInsCollateral =
       Cardano.Api.TxInsCollateral CollateralInAlonzoEra
 
--- TxMetadataInEra
+-- ** TxMetadataInEra
 
 type TxMetadataInEra = Cardano.Api.TxMetadataInEra Era
 {-# COMPLETE TxMetadataNone, TxMetadataInEra #-}
@@ -449,7 +466,7 @@ pattern TxMetadataInEra{txMetadataInEra} <-
     TxMetadataInEra =
       Cardano.Api.TxMetadataInEra TxMetadataInAlonzoEra
 
--- TxMintValue
+-- ** TxMintValue
 
 type TxMintValue build = Cardano.Api.TxMintValue build Era
 {-# COMPLETE TxMintValueNone, TxMintValue #-}
@@ -471,7 +488,7 @@ pattern TxMintValue{txMintValueInEra, txMintValueScriptWitnesses} <-
     TxMintValue =
       Cardano.Api.TxMintValue MultiAssetInAlonzoEra
 
--- TxOut
+-- ** TxOut
 
 type TxOut ctx = Cardano.Api.TxOut ctx Era
 {-# COMPLETE TxOut #-}
@@ -483,7 +500,7 @@ pattern TxOut{txOutAddress, txOutValue, txOutDatum} <-
     TxOut addr =
       Cardano.Api.TxOut addr . TxOutValue MultiAssetInAlonzoEra
 
--- TxOutDatum
+-- ** TxOutDatum
 
 type TxOutDatum ctx = Cardano.Api.TxOutDatum ctx Era
 {-# COMPLETE TxOutDatumNone, TxOutDatumHash, TxOutDatum #-}
@@ -509,7 +526,7 @@ pattern TxOutDatum{txOutDatumScriptData} <-
     TxOutDatum =
       Cardano.Api.TxOutDatum ScriptDataInAlonzoEra
 
--- TxScriptValidity
+-- ** TxScriptValidity
 
 type TxScriptValidity = Cardano.Api.TxScriptValidity Era
 {-# COMPLETE TxScriptValidityNone, TxScriptValidity #-}
@@ -528,7 +545,7 @@ pattern TxScriptValidity{txScriptValidity'} <-
     TxScriptValidity =
       Cardano.Api.TxScriptValidity TxScriptValiditySupportedInAlonzoEra
 
--- Witness
+-- ** Witness
 
 type Witness witCtx = Cardano.Api.Witness witCtx Era
 {-# COMPLETE ScriptWitness, KeyWitness #-}
