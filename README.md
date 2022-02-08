@@ -88,6 +88,7 @@ API Documentation is available for:
 
 [Haddock](https://www.haskell.org/haddock/) documentation is also published for each package:
 * [hydra-prelude](https://input-output-hk.github.io/hydra-poc/haddock/hydra-prelude/index.html)
+* [hydra-cardano-api](https://input-output-hk.github.io/hydra-poc/haddock/hydra-cardano-api/index.html)
 * [hydra-node](https://input-output-hk.github.io/hydra-poc/haddock/hydra-node/index.html)
     * [hydra-node tests](https://input-output-hk.github.io/hydra-poc/haddock/hydra-node/tests/index.html)
 * [hydra-tui](https://input-output-hk.github.io/hydra-poc/haddock/hydra-tui/index.html)
