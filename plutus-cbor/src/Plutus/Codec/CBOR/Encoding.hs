@@ -7,8 +7,10 @@ module Plutus.Codec.CBOR.Encoding (
   encodingToBuiltinByteString,
 
   -- * Basic Types
+  encodeBool,
   encodeInteger,
   encodeByteString,
+  encodeString,
   encodeNull,
 
   -- * Data-Structures
@@ -26,6 +28,9 @@ module Plutus.Codec.CBOR.Encoding (
   encodeListIndef,
   encodeBeginMap,
   encodeMapIndef,
+
+  -- * Tags
+  encodeTag,
 
   -- * Backdoor / Unsafe
   unsafeEncodeRaw,
@@ -56,6 +61,15 @@ encodingToBuiltinByteString (Encoding runEncoder) =
 
 -- * Basic types
 
+-- | Encode a 'Bool' as a CBOR type-07 major type.
+encodeBool :: Bool -> Encoding
+encodeBool = \case
+  False ->
+    Encoding (encodeUnsigned8 244)
+  True ->
+    Encoding (encodeUnsigned8 245)
+{-# INLINEABLE encodeBool #-}
+
 -- | Encode an 'Integer' as a CBOR type-00 or type-01 (negative) number.
 --
 -- Note (1): The 'Encoding' is of variable-length, larger numbers are larger to
@@ -75,6 +89,12 @@ encodeByteString :: BuiltinByteString -> Encoding
 encodeByteString bytes =
   Encoding (encodeUnsigned 2 (lengthOfByteString bytes) . appendByteString bytes)
 {-# INLINEABLE encodeByteString #-}
+
+-- | Encode a 'BuiltinString' as a CBOR type-03 major type.
+encodeString :: BuiltinString -> Encoding
+encodeString (encodeUtf8 -> bytes) =
+  Encoding (encodeUnsigned 3 (lengthOfByteString bytes) . appendByteString bytes)
+{-# INLINEABLE encodeString #-}
 
 -- | Encode a null character, useful to encode optional values.
 encodeNull :: Encoding
@@ -211,6 +231,33 @@ encodeMaybe encode = \case
   Nothing -> Encoding id
   Just a -> encode a
 {-# INLINEABLE encodeMaybe #-}
+
+-- * Tags
+
+-- | Encode a CBOR-tag as a major type-06.
+--
+-- Well known tags:
+--
+-- +-----+-------------------------------------+--------------+
+-- | Tag | Description                         | Type         |
+-- +-----+-------------------------------------+--------------+
+-- |  0  | Standard date/time string           | text string  |
+-- +-----+-------------------------------------+--------------+
+-- |  1  | Epoch-based date/time               | number       |
+-- +-----+-------------------------------------+--------------+
+-- |  2  | Positive bignum                     | byte string  |
+-- +-----+-------------------------------------+--------------+
+-- |  3  | Negative bignum                     | byte string  |
+-- +-----+-------------------------------------+--------------+
+-- |  4  | Decimal fraction                    | array        |
+-- +-----+-------------------------------------+--------------+
+-- | 24  | Encoded CBOR data item              | byte string  |
+-- +-----+-------------------------------------+--------------+
+--
+-- For more tags, have a look at [iana's Concise Binary Object Representation (CBOR) Tags list](https://www.iana.org/assignments/cbor-tags/cbor-tags.xhtml).
+encodeTag :: Integer -> Encoding
+encodeTag =
+  Encoding . encodeUnsigned 6
 
 -- * Backdoor
 

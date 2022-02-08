@@ -1,5 +1,3 @@
-{-# LANGUAGE TypeApplications #-}
-
 module Plutus.Codec.CBOR.EncodingSpec where
 
 import Hydra.Prelude hiding (label)
@@ -12,6 +10,7 @@ import qualified Data.ByteString as BS
 import Data.ByteString.Base16 (encodeBase16)
 import Plutus.Codec.CBOR.Encoding (
   Encoding,
+  encodeBool,
   encodeByteString,
   encodeInteger,
   encodeList,
@@ -19,10 +18,13 @@ import Plutus.Codec.CBOR.Encoding (
   encodeMap,
   encodeMapIndef,
   encodeNull,
+  encodeString,
+  encodeTag,
   encodingToBuiltinByteString,
  )
-import qualified Plutus.V1.Ledger.Api as Plutus
+
 import qualified PlutusTx.AssocMap as Plutus.Map
+import qualified PlutusTx.Builtins as Plutus
 import Test.QuickCheck (
   Property,
   choose,
@@ -30,6 +32,7 @@ import Test.QuickCheck (
   elements,
   forAllShrink,
   liftShrink2,
+  listOf1,
   oneof,
   shrinkList,
   vector,
@@ -95,14 +98,22 @@ genSomeValue =
   withMaxDepth n =
     oneof $
       catMaybes
-        [ Just genSomeInteger
+        [ Just genSomeBool
+        , Just genSomeInteger
         , Just genSomeByteString
+        , Just genSomeString
         , Just genSomeNull
         , guard (n > 0) $> genSomeList n
         , guard (n > 0) $> genSomeMap n
         , guard (n > 0) $> genSomeListIndef n
         , guard (n > 0) $> genSomeMapIndef n
+        , Just genSomeTag
         ]
+
+  genSomeBool :: Gen SomeValue
+  genSomeBool = do
+    val <- arbitrary
+    return $ SomeValue val shrink CBOR.encodeBool encodeBool
 
   genSomeInteger :: Gen SomeValue
   genSomeInteger = do
@@ -112,7 +123,22 @@ genSomeValue =
   genSomeByteString :: Gen SomeValue
   genSomeByteString = do
     val <- genByteString
-    return $ SomeValue val shrinkByteString CBOR.encodeBytes (encodeByteString . Plutus.toBuiltin)
+    return $
+      SomeValue
+        val
+        shrinkByteString
+        CBOR.encodeBytes
+        (encodeByteString . Plutus.toBuiltin)
+
+  genSomeString :: Gen SomeValue
+  genSomeString = do
+    val <- listOf1 (elements ['a' .. 'z'])
+    return $
+      SomeValue
+        val
+        (shrinkList (const []))
+        (CBOR.encodeString . toText)
+        (encodeString . fromString)
 
   genSomeNull :: Gen SomeValue
   genSomeNull = do
@@ -183,6 +209,11 @@ genSomeValue =
             (\(SomeValue v _ _ encodeValue) -> encodeValue v)
             . Plutus.Map.fromList
     return $ SomeValue val shrinkMap encodeCborg encodeOurs
+
+  genSomeTag :: Gen SomeValue
+  genSomeTag = do
+    tag <- elements [0, 1, 2, 3, 4, 24]
+    return $ SomeValue tag (const []) (CBOR.encodeTag . fromIntegral) encodeTag
 
 --
 -- Generators
