@@ -4,6 +4,28 @@ A Haskell API for Cardano, tailored to the Hydra project. This package provides 
 
 Some of those addition may be likely candidates for upstream change requests, but having this extra space gives us an opportunity to iterate faster and to unify not-always-consistent names / approches across the Cardano ecosystem.
 
+In addition, the top-level module `Hydra.Cardano.Api` does re-export only specialized types and constructors for all underlying types. Everything is indeed specialized to the latest era (e.g. Alonzo) making the era type parameter redundant in most cases. This also removes the need for extra indirections or, for proxy-values witnessing era types as present in many `cardano-api` constructors. For example, a vanilla usage of the `cardano-api` would looks like the followings:
+
+```hs
+changeOutput :: Address ShelleyAddr -> TxOut CtxUTxO AlonzoEra
+changeOutput =
+  TxOut
+    (AddressInEra (ShelleyAddressInEra ShelleyBasedEraAlonzo) addr)
+    (TxOutValue MultiAssetInAlonzoEra (lovelaceToValue $ initialAmount - amount - fee))
+    (TxOutDatumHash ScriptDataInAlonzoEra (hashScriptData $ fromPlutusData someDatum))
+```
+
+...whereas, the wrapped API would offer a more lightweight notation:
+
+```hs
+changeOutput :: Address ShelleyAddr -> TxOut CtxUTxO
+changeOutput =
+  TxOut
+    (AddressInEra addr)
+    (lovelaceToValue $ initialAmount - amount - fee)
+    (TxOutDatumHash $ hashScriptData $ fromPlutusData someDatum)
+```
+
 ## Organization & naming conventions
 
 This package follows some simple rules to remain tidy and organized: 
@@ -36,6 +58,6 @@ This package follows some simple rules to remain tidy and organized:
 
 3. Builders are prefix with `mk` (as in 'make').
 
-4. Getters are prefix with `get` unless they have an equivalent in cardano-api, for which we adopt cardano-api's naming convention as much as possible. 
+4. Getters are prefix with `get` unless they have an equivalent in `cardano-api`, for which we adopt `cardano-api`'s naming convention as much as possible. 
 
-5. ... to be continued.
+5. Functions outside of the top-level `Hydra.Cardano.Api` are unspecialized and written for _any era_ (where it does make sense!). Said differently, it should be easy to move those functions upstream if need be. Specialization only happens at the very frontier, in the top-level module.. 
