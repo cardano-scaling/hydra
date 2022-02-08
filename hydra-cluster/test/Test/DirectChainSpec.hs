@@ -43,7 +43,7 @@ import Hydra.Chain.Direct (
   withIOManager,
  )
 import Hydra.Ledger (IsTx (..))
-import Hydra.Ledger.Cardano (CardanoTx, genOneUTxOFor)
+import Hydra.Ledger.Cardano (Tx, genOneUTxOFor)
 import Hydra.Logging (nullTracer, showLogsOnFailure)
 import Hydra.Party (Party, SigningKey, aggregate, deriveParty, generateKey, sign)
 import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot (..))
@@ -132,7 +132,7 @@ spec = around showLogsOnFailure $ do
               alicesCallback `observesInTime` OnInitTx 100 [alice, carol]
 
               bobPostTx (AbortTx mempty)
-                `shouldThrow` (== InvalidStateToPost @CardanoTx (AbortTx mempty))
+                `shouldThrow` (== InvalidStateToPost @Tx (AbortTx mempty))
 
   it "can commit" $ \tracer -> do
     alicesCallback <- newEmptyMVar
@@ -153,11 +153,11 @@ spec = around showLogsOnFailure $ do
             someUTxOB <- generate $ genOneUTxOFor aliceCardanoVk
 
             postTx (CommitTx alice (someUTxOA <> someUTxOB))
-              `shouldThrow` (== MoreThanOneUTxOCommitted @CardanoTx)
+              `shouldThrow` (== MoreThanOneUTxOCommitted @Tx)
 
             postTx (CommitTx alice someUTxOA)
               `shouldThrow` \case
-                (CannotSpendInput{} :: PostTxError CardanoTx) -> True
+                (CannotSpendInput{} :: PostTxError Tx) -> True
                 _ -> False
 
             aliceUTxO <- generatePaymentToCommit defaultNetworkId node aliceCardanoSk aliceCardanoVk 1_000_000

@@ -10,7 +10,7 @@ import Control.Lens ((^?))
 import Data.Aeson (Value (..), decode, encode)
 import Data.Aeson.Lens (key)
 import qualified Data.ByteString.Lazy as LBS
-import Hydra.Ledger.Cardano (CardanoTx)
+import Hydra.Ledger.Cardano (Tx)
 import Hydra.LogFilter (filterLog)
 import Hydra.Logging (Envelope)
 import Hydra.Logging.Messages (HydraLog)
@@ -38,7 +38,7 @@ spec = parallel $ do
       `shouldBe` Just (Array [String "6cba5394ec8a1a1161758a33089661383143283d0121e4a293ed51a0272cfbc4"])
 
   prop "significantly reduces standard log messages size" $ \(ReasonablySized (NonEmpty logs)) ->
-    let jsonLogs = map toJSON (logs :: [Envelope (HydraLog CardanoTx Text)])
+    let jsonLogs = map toJSON (logs :: [Envelope (HydraLog Tx Text)])
         bytes = mconcat $ map encode jsonLogs
         filtered = encode $ mapMaybe filterLog jsonLogs
         sizeRatio = fromIntegral (LBS.length filtered) * (100.0 :: Double) / fromIntegral (LBS.length bytes)

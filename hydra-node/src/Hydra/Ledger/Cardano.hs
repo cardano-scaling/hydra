@@ -9,6 +9,7 @@ module Hydra.Ledger.Cardano (
   module Hydra.Ledger.Cardano,
   module Hydra.Ledger.Cardano.Builder,
   Ledger.ShelleyGenesis (..),
+  Tx,
 ) where
 
 import Hydra.Prelude
@@ -74,7 +75,7 @@ import Test.QuickCheck (
 
 -- TODO(SN): Pre-validate transactions to get less confusing errors on
 -- transactions which are not expected to working on a layer-2
-cardanoLedger :: Ledger CardanoTx
+cardanoLedger :: Ledger Tx
 cardanoLedger =
   Ledger
     { applyTransactions = applyAll
@@ -115,71 +116,67 @@ cardanoLedger =
 
 -- * Cardano Tx
 
-type CardanoTx = Tx Era
-
-instance IsTx CardanoTx where
-  type TxIdType CardanoTx = TxId
-  type UTxOType CardanoTx = UTxO
-  type ValueType CardanoTx = Value
+instance IsTx Tx where
+  type TxIdType Tx = TxId
+  type UTxOType Tx = UTxO
+  type ValueType Tx = Value
 
   txId = getTxId . getTxBody
-  balance = foldMap (\(TxOut _ value _) -> txOutValueToValue value)
+  balance = foldMap txOutValue
 
-instance ToCBOR CardanoTx where
+instance ToCBOR Tx where
   toCBOR = CBOR.encodeBytes . serialize' . toLedgerTx
 
-instance FromCBOR CardanoTx where
+instance FromCBOR Tx where
   fromCBOR = do
     bs <- CBOR.decodeBytes
-    decodeAnnotator "CardanoTx" fromCBOR (fromStrict bs)
+    decodeAnnotator "Tx" fromCBOR (fromStrict bs)
       & either
         (fail . toString . toLazyText . build)
         (pure . fromLedgerTx)
 
-instance ToJSON CardanoTx where
+instance ToJSON Tx where
   toJSON = toJSON . toLedgerTx
 
-instance FromJSON CardanoTx where
+instance FromJSON Tx where
   parseJSON = fmap fromLedgerTx . parseJSON
 
-instance Arbitrary CardanoTx where
+instance Arbitrary Tx where
   -- TODO: shrinker!
   arbitrary = genUTxO >>= genTx
 
 -- | Create a zero-fee, payment cardano transaction.
-mkSimpleCardanoTx ::
-  (TxIn, TxOut CtxUTxO Era) ->
+mkSimpleTx ::
+  (TxIn, TxOut CtxUTxO) ->
   -- | Recipient address and amount.
-  (AddressInEra Era, Value) ->
+  (AddressInEra, Value) ->
   -- | Sender's signing key.
   SigningKey PaymentKey ->
-  Either TxBodyError CardanoTx
-mkSimpleCardanoTx (txin, TxOut owner txOutValueIn datum) (recipient, valueOut) sk = do
-  body <- makeTransactionBody txBodyContent
+  Either TxBodyError Tx
+mkSimpleTx (txin, TxOut owner valueIn datum) (recipient, valueOut) sk = do
+  body <- makeTransactionBody bodyContent
   let witnesses = [makeShelleyKeyWitness body (WitnessPaymentKey sk)]
   pure $ makeSignedTransaction witnesses body
  where
-  valueIn = txOutValueToValue txOutValueIn
-
-  txBodyContent =
+  bodyContent =
     emptyTxBody
       { txIns = map (,BuildTxWith $ KeyWitness KeyWitnessForSpending) [txin]
-      , txOuts
-      , txFee = TxFeeExplicit TxFeesExplicitInAlonzoEra fee
+      , txOuts = outs
+      , txFee = TxFeeExplicit fee
       }
 
-  txOuts =
-    TxOut @CtxTx recipient (TxOutValue MultiAssetInAlonzoEra valueOut) TxOutDatumNone :
+  outs =
+    TxOut @CtxTx recipient valueOut TxOutDatumNone :
       [ TxOut @CtxTx
         owner
-        (TxOutValue MultiAssetInAlonzoEra $ valueIn <> negateValue valueOut)
+        (valueIn <> negateValue valueOut)
         (toTxContext datum)
       | valueOut /= valueIn
       ]
 
   fee = Lovelace 0
 
-hashTxOuts :: [TxOut CtxUTxO Era] -> ByteString
+hashTxOuts :: [TxOut CtxUTxO] -> ByteString
 hashTxOuts =
   digest @SHA256 Proxy . serialize' . fmap toLedgerTxOut
 
@@ -230,7 +227,7 @@ genKeyPair = do
 -- details. We later changed the ledger's internals to work with Alonzo-era
 -- specific types, and, to make this in incremental steps, this function still
 -- generates Mary transactions, but cast them to Alonzo's.
-genTx :: UTxO -> Gen CardanoTx
+genTx :: UTxO -> Gen Tx
 genTx utxos = do
   fromLedgerTx <$> Ledger.Generator.genTx genEnv ledgerEnv (utxoState, dpState)
  where
@@ -254,7 +251,7 @@ genTx utxos = do
         , Ledger.Generator.maxCertsPerTx = 0
         }
 
-genSequenceOfValidTransactions :: UTxO -> Gen [CardanoTx]
+genSequenceOfValidTransactions :: UTxO -> Gen [Tx]
 genSequenceOfValidTransactions initialUTxO
   | initialUTxO == mempty = pure []
   | otherwise = do
@@ -262,7 +259,7 @@ genSequenceOfValidTransactions initialUTxO
     numTxs <- choose (1, n)
     genFixedSizeSequenceOfValidTransactions numTxs initialUTxO
 
-genFixedSizeSequenceOfValidTransactions :: Int -> UTxO -> Gen [CardanoTx]
+genFixedSizeSequenceOfValidTransactions :: Int -> UTxO -> Gen [Tx]
 genFixedSizeSequenceOfValidTransactions numTxs initialUTxO
   | initialUTxO == mempty = pure []
   | otherwise =
@@ -277,17 +274,11 @@ genFixedSizeSequenceOfValidTransactions numTxs initialUTxO
 -- TODO: Enable arbitrary datum in generators
 -- TODO: This should better be called 'genOutputFor'
 genOutput ::
-  forall era ctx.
-  (IsShelleyBasedEra era) =>
+  forall ctx.
   VerificationKey PaymentKey ->
-  Gen (TxOut ctx era)
+  Gen (TxOut ctx)
 genOutput vk = do
-  assets <- fromLedgerValue <$> scale (* 8) arbitrary
-  let value =
-        either
-          (`TxOutAdaOnly` selectLovelace assets)
-          (`TxOutValue` assets)
-          (multiAssetSupportedInEra (cardanoEra @era))
+  value <- fromLedgerValue <$> scale (* 8) arbitrary
   pure $ TxOut (mkVkAddress (Testnet $ NetworkMagic 42) vk) value TxOutDatumNone
 
 genUTxO :: Gen UTxO
@@ -321,7 +312,7 @@ genOneUTxOFor vk = do
   pure $ UTxO $ Map.singleton (fromLedgerTxIn input) output
 
 -- | NOTE: See note on 'mkVkAddress' about 'NetworkId'.
-genAddressInEra :: NetworkId -> Gen (AddressInEra Era)
+genAddressInEra :: NetworkId -> Gen AddressInEra
 genAddressInEra networkId =
   mkVkAddress networkId <$> genVerificationKey
 
@@ -334,10 +325,10 @@ genAdaOnlyUTxO :: Gen UTxO
 genAdaOnlyUTxO = do
   fmap adaOnly <$> arbitrary
 
-adaOnly :: TxOut CtxUTxO AlonzoEra -> TxOut CtxUTxO AlonzoEra
+adaOnly :: TxOut CtxUTxO -> TxOut CtxUTxO
 adaOnly = \case
   TxOut addr value datum ->
-    TxOut addr (lovelaceToTxOutValue $ txOutValueToLovelace value) datum
+    TxOut addr (lovelaceToValue $ selectLovelace value) datum
 
 -- | Generate "simplified" UTXO, ie. without some of the complexities required for
 -- backward-compatibility and obscure features.
@@ -354,7 +345,7 @@ simplifyUTxO :: UTxO -> UTxO
 simplifyUTxO = UTxO . Map.fromList . map tweakAddress . filter notByronAddress . UTxO.pairs
  where
   notByronAddress (_, TxOut addr _ _) = case addr of
-    AddressInEra ByronAddressInAnyEra _ -> False
+    AddressInEra _ ByronAddress{} -> False
     _ -> True
   -- NOTE:
   -- - we discard pointers because there encoding sucks and they are unused.
@@ -362,23 +353,21 @@ simplifyUTxO = UTxO . Map.fromList . map tweakAddress . filter notByronAddress .
   --
   -- - We fix all network id to testnet.
   tweakAddress out@(txin, TxOut addr val dat) = case addr of
-    AddressInEra er@(ShelleyAddressInEra _) (ShelleyAddress _ cre sr) ->
+    AddressInEra typ (ShelleyAddress _ cre sr) ->
       case sr of
         Ledger.StakeRefPtr _ ->
-          (txin, TxOut (AddressInEra er (ShelleyAddress Ledger.Testnet cre Ledger.StakeRefNull)) val dat)
+          (txin, TxOut (AddressInEra typ (ShelleyAddress Ledger.Testnet cre Ledger.StakeRefNull)) val dat)
         _ ->
-          (txin, TxOut (AddressInEra er (ShelleyAddress Ledger.Testnet cre sr)) val dat)
+          (txin, TxOut (AddressInEra typ (ShelleyAddress Ledger.Testnet cre sr)) val dat)
     _ -> out
 
 shrinkUTxO :: UTxO -> [UTxO]
 shrinkUTxO = shrinkMapBy (UTxO . fromList) UTxO.pairs (shrinkList shrinkOne)
  where
-  shrinkOne :: (TxIn, TxOut CtxUTxO AlonzoEra) -> [(TxIn, TxOut CtxUTxO AlonzoEra)]
+  shrinkOne :: (TxIn, TxOut CtxUTxO) -> [(TxIn, TxOut CtxUTxO)]
   shrinkOne (i, o) = case o of
-    TxOut _ TxOutAdaOnly{} _ ->
-      []
-    TxOut addr (TxOutValue MultiAssetInAlonzoEra value) datum ->
-      [ (i, TxOut addr (TxOutValue MultiAssetInAlonzoEra value') datum)
+    TxOut addr value datum ->
+      [ (i, TxOut addr value' datum)
       | value' <- shrinkValue value
       ]
 
@@ -392,15 +381,15 @@ instance Arbitrary AssetName where
   arbitrary = AssetName . BS.take 32 <$> arbitrary
 
 instance Arbitrary TxIn where
-  arbitrary = fromShelleyTxIn <$> arbitrary
+  arbitrary = fromLedgerTxIn <$> arbitrary
 
 instance Arbitrary TxId where
-  arbitrary = onlyTxId . fromShelleyTxIn <$> arbitrary
+  arbitrary = onlyTxId . fromLedgerTxIn <$> arbitrary
    where
     onlyTxId (TxIn txi _) = txi
 
-instance Arbitrary (TxOut CtxUTxO AlonzoEra) where
-  arbitrary = fromShelleyTxOut ShelleyBasedEraAlonzo <$> arbitrary
+instance Arbitrary (TxOut CtxUTxO) where
+  arbitrary = fromLedgerTxOut <$> arbitrary
 
 instance Arbitrary (VerificationKey PaymentKey) where
   arbitrary = fst <$> genKeyPair

@@ -8,7 +8,7 @@ import Test.Hydra.Prelude
 import Data.Aeson (object, (.=))
 import Data.Aeson.Lens (key)
 import Hydra.JSONSchema (SpecificationSelector, prop_specIsComplete, prop_validateToJSON, withJsonSpecifications)
-import Hydra.Ledger.Cardano (CardanoTx)
+import Hydra.Ledger.Cardano (Tx)
 import Hydra.Logging (Envelope (..), Verbosity (Verbose), traceWith, withTracer)
 import Hydra.Logging.Messages (HydraLog)
 import System.FilePath ((</>))
@@ -29,8 +29,8 @@ spec = do
       property $
         withMaxSuccess 1 $
           conjoin
-            [ prop_validateToJSON @(Envelope (HydraLog CardanoTx ())) (dir </> "logs.yaml") "messages" (dir </> "HydraLog")
-            , prop_specIsComplete @(HydraLog CardanoTx ()) (dir </> "logs.yaml") apiSpecificationSelector
+            [ prop_validateToJSON @(Envelope (HydraLog Tx ())) (dir </> "logs.yaml") "messages" (dir </> "HydraLog")
+            , prop_specIsComplete @(HydraLog Tx ()) (dir </> "logs.yaml") apiSpecificationSelector
             ]
 
 apiSpecificationSelector :: SpecificationSelector

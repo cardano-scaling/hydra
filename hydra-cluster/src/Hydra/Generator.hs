@@ -12,7 +12,7 @@ import Control.Monad (foldM)
 import Data.Aeson (object, withObject, (.:), (.=))
 import Data.Default (def)
 import Hydra.Ledger (IsTx (..))
-import Hydra.Ledger.Cardano (CardanoTx, genKeyPair, mkSimpleCardanoTx)
+import Hydra.Ledger.Cardano (genKeyPair, mkSimpleTx)
 import Test.QuickCheck (choose, generate, sized)
 
 networkId :: NetworkId
@@ -22,8 +22,8 @@ networkId = Testnet $ NetworkMagic 42
 -- The 'transactionSequence' is guaranteed to be applicable, in sequence, to the 'initialUTxO'
 -- set.
 data Dataset = Dataset
-  { fundingTransaction :: CardanoTx
-  , transactionsSequence :: [CardanoTx]
+  { fundingTransaction :: Tx
+  , transactionsSequence :: [Tx]
   , signingKey :: SigningKey PaymentKey
   }
   deriving (Show, Generic)
@@ -83,16 +83,16 @@ genConstantUTxODataset pparams len = do
   thrd (_, _, c) = c
 
   generateOneTransfer ::
-    (UTxO, (VerificationKey PaymentKey, SigningKey PaymentKey), [CardanoTx]) ->
+    (UTxO, (VerificationKey PaymentKey, SigningKey PaymentKey), [Tx]) ->
     Int ->
-    Gen (UTxO, (VerificationKey PaymentKey, SigningKey PaymentKey), [CardanoTx])
+    Gen (UTxO, (VerificationKey PaymentKey, SigningKey PaymentKey), [Tx])
   generateOneTransfer (utxo, (_, sender), txs) _ = do
     recipient <- genKeyPair
     -- NOTE(AB): elements is partial, it crashes if given an empty list, We don't expect
     -- this function to be ever used in production, and crash will be caught in tests
     case UTxO.pairs utxo of
       [txin] ->
-        case mkSimpleCardanoTx txin (mkVkAddress networkId (fst recipient), balance @CardanoTx utxo) sender of
+        case mkSimpleTx txin (mkVkAddress networkId (fst recipient), balance @Tx utxo) sender of
           Left e -> error $ "Tx construction failed: " <> show e <> ", utxo: " <> show utxo
           Right tx ->
             pure (utxoFromTx tx, recipient, tx : txs)

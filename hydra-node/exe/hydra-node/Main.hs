@@ -10,7 +10,7 @@ import Hydra.Chain (Chain, ChainCallback)
 import Hydra.Chain.Direct (withDirectChain)
 import Hydra.Chain.Direct.Util (readKeyPair, readVerificationKey)
 import Hydra.HeadLogic (Environment (..), Event (..))
-import Hydra.Ledger.Cardano (CardanoTx)
+import Hydra.Ledger.Cardano (Tx)
 import qualified Hydra.Ledger.Cardano as Ledger
 import Hydra.Logging (Tracer, Verbosity (..), withTracer)
 import Hydra.Logging.Messages (HydraLog (..))
@@ -45,11 +45,11 @@ main = do
      in withHeartbeat localhost $ withOuroborosNetwork tracer localhost peers
 
 withChain ::
-  Tracer IO (HydraLog CardanoTx net) ->
+  Tracer IO (HydraLog Tx net) ->
   Party ->
-  ChainCallback CardanoTx IO ->
+  ChainCallback Tx IO ->
   ChainConfig ->
-  (Chain CardanoTx IO -> IO ()) ->
+  (Chain Tx IO -> IO ()) ->
   IO ()
 withChain tracer party callback config action = do
   keyPair@(vk, _) <- readKeyPair cardanoSigningKey

@@ -30,7 +30,7 @@ import qualified Hydra.Contract.Head as Head
 import qualified Hydra.Contract.HeadState as Head
 import qualified Hydra.Data.Party as OnChain
 import qualified Hydra.Data.Party as Party
-import Hydra.Ledger.Cardano (CardanoTx, genAdaOnlyUTxO, genValue)
+import Hydra.Ledger.Cardano (genAdaOnlyUTxO, genValue)
 import Hydra.Party (Party, vkey)
 import Plutus.Orphans ()
 import Plutus.V1.Ledger.Api (fromData, toBuiltin, toData)
@@ -42,7 +42,7 @@ import qualified Prelude
 -- CollectComTx
 --
 
-healthyCollectComTx :: (CardanoTx, UTxO)
+healthyCollectComTx :: (Tx, UTxO)
 healthyCollectComTx =
   (tx, lookupUTxO)
  where
@@ -86,14 +86,14 @@ healthyCollectComParties = flip generateWith 42 $ do
   carol <- arbitrary
   pure [alice, bob, carol]
 
-genCommittableTxOut :: Gen (TxIn, TxOut CtxUTxO AlonzoEra)
+genCommittableTxOut :: Gen (TxIn, TxOut CtxUTxO)
 genCommittableTxOut =
   Prelude.head . UTxO.pairs <$> (genAdaOnlyUTxO `suchThat` (\u -> length u > 1))
 
 healthyCommitOutput ::
   Party ->
-  (TxIn, TxOut CtxUTxO AlonzoEra) ->
-  (TxIn, (TxOut CtxUTxO AlonzoEra, ScriptData))
+  (TxIn, TxOut CtxUTxO) ->
+  (TxIn, (TxOut CtxUTxO, ScriptData))
 healthyCommitOutput party committed =
   ( generateWith arbitrary seed
   ,
@@ -109,8 +109,7 @@ healthyCommitOutput party committed =
   commitAddress =
     mkScriptAddress @PlutusScriptV1 Fixture.testNetworkId commitScript
   commitValue =
-    mkTxOutValue $
-      headValue <> (txOutValue . snd) committed
+    headValue <> (txOutValue . snd) committed
   commitDatum =
     mkCommitDatum party (Head.validatorHash policyId) (Just committed)
 
@@ -121,11 +120,11 @@ data CollectComMutation
   | MutateHeadTransition
   deriving (Generic, Show, Enum, Bounded)
 
-genCollectComMutation :: (CardanoTx, UTxO) -> Gen SomeMutation
+genCollectComMutation :: (Tx, UTxO) -> Gen SomeMutation
 genCollectComMutation (tx, utxo) =
   oneof
     [ SomeMutation MutateOpenOutputValue . ChangeOutput 0 <$> do
-        mutatedValue <- (mkTxOutValue <$> genValue) `suchThat` (/= collectComOutputValue)
+        mutatedValue <- genValue `suchThat` (/= collectComOutputValue)
         pure $ TxOut collectComOutputAddress mutatedValue collectComOutputDatum
     , SomeMutation MutateOpenUTxOHash . ChangeOutput 0 <$> mutateUTxOHash
     , SomeMutation MutateHeadScriptInput . ChangeInput (headTxIn utxo) <$> anyPayToPubKeyTxOut
@@ -149,9 +148,9 @@ genCollectComMutation (tx, utxo) =
     case collectComOutputDatum of
       TxOutDatumNone ->
         error "Unexpected empty head datum"
-      (TxOutDatumHash _sdsie _ha) ->
+      (TxOutDatumHash _ha) ->
         error "Unexpected hash-only datum"
-      (TxOutDatum _sdsie sd) ->
+      (TxOutDatum sd) ->
         case fromData $ toPlutusData sd of
           (Just Head.Open{parties}) ->
             pure $

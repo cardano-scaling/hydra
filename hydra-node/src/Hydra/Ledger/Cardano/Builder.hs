@@ -9,10 +9,7 @@ import Hydra.Cardano.Api
 
 -- * Types
 
-type TxBuilder = TxBodyContent BuildTx AlonzoEra
-
--- TODO: This is copied straight from 'cardano-api', could be exposed upstream.
-type TxIns build era = [(TxIn, BuildTxWith build (Witness WitCtxTxIn era))]
+type TxBuilder = TxBodyContent BuildTx
 
 -- * Executing
 
@@ -23,7 +20,7 @@ type TxIns build era = [(TxIn, BuildTxWith build (Witness WitCtxTxIn era))]
 --
 -- We use the builder only internally for on-chain transaction crafted in the
 -- context of Hydra.
-unsafeBuildTransaction :: HasCallStack => TxBuilder -> Tx AlonzoEra
+unsafeBuildTransaction :: HasCallStack => TxBuilder -> Tx
 unsafeBuildTransaction builder =
   either
     (\txBodyError -> bug $ InvalidTransactionException{txBodyError, builder})
@@ -63,9 +60,9 @@ emptyTxBody :: TxBuilder
 emptyTxBody =
   TxBodyContent
     mempty
-    (TxInsCollateral CollateralInAlonzoEra mempty)
+    (TxInsCollateral mempty)
     mempty
-    (TxFeeExplicit TxFeesExplicitInAlonzoEra 0)
+    (TxFeeExplicit 0)
     (TxValidityNoLowerBound, TxValidityNoUpperBound ValidityNoUpperBoundInAlonzoEra)
     TxMetadataNone
     TxAuxScriptsNone
@@ -74,11 +71,11 @@ emptyTxBody =
     TxWithdrawalsNone
     TxCertificatesNone
     TxUpdateProposalNone
-    TxMintNone
+    TxMintValueNone
     TxScriptValidityNone
 
 -- | Add new inputs to an ongoing builder.
-addInputs :: TxIns BuildTx AlonzoEra -> TxBuilder -> TxBuilder
+addInputs :: TxIns BuildTx -> TxBuilder -> TxBuilder
 addInputs ins tx =
   tx{txIns = txIns tx <> ins}
 
@@ -88,6 +85,6 @@ addVkInputs ins =
   addInputs ((,BuildTxWith $ KeyWitness KeyWitnessForSpending) <$> ins)
 
 -- | Append new outputs to an ongoing builder.
-addOutputs :: [TxOut CtxTx AlonzoEra] -> TxBuilder -> TxBuilder
+addOutputs :: [TxOut CtxTx] -> TxBuilder -> TxBuilder
 addOutputs outputs tx =
   tx{txOuts = txOuts tx <> outputs}

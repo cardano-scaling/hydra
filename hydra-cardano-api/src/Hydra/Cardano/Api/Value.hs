@@ -6,12 +6,6 @@ import qualified Cardano.Ledger.Alonzo.TxInfo as Ledger
 import qualified Cardano.Ledger.Mary.Value as Ledger
 import qualified Plutus.V1.Ledger.Api as Plutus
 
--- * Extra
-
-txOutValue :: TxOut ctx Era -> Value
-txOutValue (TxOut _ value _) =
-  txOutValueToValue value
-
 -- * Type Conversions
 
 -- | Convert a cardano-ledger's 'Value'  into a cardano-api's 'Value'

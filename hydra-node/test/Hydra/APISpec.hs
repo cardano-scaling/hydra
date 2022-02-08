@@ -9,7 +9,7 @@ import Test.Hydra.Prelude
 import Data.Aeson.Lens (key)
 import Hydra.ClientInput (ClientInput)
 import Hydra.JSONSchema (SpecificationSelector, prop_specIsComplete, prop_validateToJSON, withJsonSpecifications)
-import Hydra.Ledger.Cardano (CardanoTx)
+import Hydra.Ledger.Cardano (Tx)
 import Hydra.ServerOutput (ServerOutput)
 import System.FilePath ((</>))
 import Test.QuickCheck.Property (conjoin, withMaxSuccess)
@@ -21,14 +21,14 @@ spec = parallel $ do
       specify "ClientInput" $ \dir ->
         withMaxSuccess 1 $
           conjoin
-            [ prop_validateToJSON @(ClientInput CardanoTx) (dir </> "api.yaml") "inputs" (dir </> "ClientInput")
-            , prop_specIsComplete @(ClientInput CardanoTx) (dir </> "api.yaml") (apiSpecificationSelector "inputs")
+            [ prop_validateToJSON @(ClientInput Tx) (dir </> "api.yaml") "inputs" (dir </> "ClientInput")
+            , prop_specIsComplete @(ClientInput Tx) (dir </> "api.yaml") (apiSpecificationSelector "inputs")
             ]
       specify "ServerOutput" $ \dir ->
         withMaxSuccess 1 $
           conjoin
-            [ prop_validateToJSON @(ServerOutput CardanoTx) (dir </> "api.yaml") "outputs" (dir </> "ServerOutput")
-            , prop_specIsComplete @(ServerOutput CardanoTx) (dir </> "api.yaml") (apiSpecificationSelector "outputs")
+            [ prop_validateToJSON @(ServerOutput Tx) (dir </> "api.yaml") "outputs" (dir </> "ServerOutput")
+            , prop_specIsComplete @(ServerOutput Tx) (dir </> "api.yaml") (apiSpecificationSelector "outputs")
             ]
 
 apiSpecificationSelector ::

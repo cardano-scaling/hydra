@@ -5,19 +5,11 @@
 -- 'healthyAbortTx' gets mutated by an arbitrary 'AbortMutation'.
 module Hydra.Chain.Direct.Contract.Abort where
 
+import Hydra.Cardano.Api
+
 import qualified Cardano.Api.UTxO as UTxO
 import qualified Data.Map as Map
 import Data.Maybe (fromJust)
-import Hydra.Cardano.Api (
-  PlutusScriptV1,
-  UTxO,
-  UTxO' (UTxO),
-  fromPlutusScript,
-  getScriptData,
-  mkScriptAddress,
-  toUTxOContext,
-  txOutAddress,
- )
 import Hydra.Chain (HeadParameters (..))
 import Hydra.Chain.Direct.Contract.Mutation (Mutation (ChangeHeadDatum, ChangeInput, RemoveOutput), SomeMutation (..), anyPayToPubKeyTxOut, headTxIn)
 import Hydra.Chain.Direct.Fixture (testNetworkId)
@@ -28,7 +20,6 @@ import qualified Hydra.Contract.Commit as Commit
 import qualified Hydra.Contract.HeadState as Head
 import qualified Hydra.Contract.Initial as Initial
 import Hydra.Data.Party (partyFromVerKey)
-import Hydra.Ledger.Cardano (CardanoTx)
 import Hydra.Party (Party, vkey)
 import Hydra.Prelude
 import Test.QuickCheck (Property, choose, counterexample, oneof)
@@ -37,7 +28,7 @@ import Test.QuickCheck (Property, choose, counterexample, oneof)
 -- AbortTx
 --
 
-healthyAbortTx :: (CardanoTx, UTxO)
+healthyAbortTx :: (Tx, UTxO)
 healthyAbortTx =
   (tx, lookupUTxO)
  where
@@ -85,25 +76,25 @@ healthyParties =
   [ generateWith arbitrary i | i <- [1 .. 3]
   ]
 
-propHasInitial :: (CardanoTx, UTxO) -> Property
+propHasInitial :: (Tx, UTxO) -> Property
 propHasInitial (_, utxo) =
   any paysToInitialScript utxo
     & counterexample ("UTxO: " <> decodeUtf8 (encodePretty utxo))
-    & counterexample ("Looking for Initial Script: " <> show address)
+    & counterexample ("Looking for Initial Script: " <> show addr)
  where
-  address = mkScriptAddress @PlutusScriptV1 testNetworkId (fromPlutusScript Initial.validatorScript)
+  addr = mkScriptAddress @PlutusScriptV1 testNetworkId (fromPlutusScript Initial.validatorScript)
   paysToInitialScript txOut =
-    txOutAddress txOut == address
+    txOutAddress txOut == addr
 
-propHasCommit :: (CardanoTx, UTxO) -> Property
+propHasCommit :: (Tx, UTxO) -> Property
 propHasCommit (_, utxo) =
   any paysToCommitScript utxo
     & counterexample ("UTxO: " <> decodeUtf8 (encodePretty utxo))
-    & counterexample ("Looking for Commit Script: " <> show address)
+    & counterexample ("Looking for Commit Script: " <> show addr)
  where
-  address = mkScriptAddress @PlutusScriptV1 testNetworkId (fromPlutusScript Commit.validatorScript)
+  addr = mkScriptAddress @PlutusScriptV1 testNetworkId (fromPlutusScript Commit.validatorScript)
   paysToCommitScript txOut =
-    txOutAddress txOut == address
+    txOutAddress txOut == addr
 
 data AbortMutation
   = MutateParties
@@ -111,7 +102,7 @@ data AbortMutation
   | MutateHeadScriptInput
   deriving (Generic, Show, Enum, Bounded)
 
-genAbortMutation :: (CardanoTx, UTxO) -> Gen SomeMutation
+genAbortMutation :: (Tx, UTxO) -> Gen SomeMutation
 genAbortMutation (_, utxo) =
   oneof
     [ SomeMutation MutateParties . ChangeHeadDatum <$> do

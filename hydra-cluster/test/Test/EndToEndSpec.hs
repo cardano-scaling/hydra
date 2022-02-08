@@ -35,7 +35,6 @@ import qualified Data.Map as Map
 import qualified Data.Set as Set
 import Hydra.Cardano.Api (
   AddressInEra,
-  Era,
   NetworkId (Testnet),
   NetworkMagic (NetworkMagic),
   PaymentKey,
@@ -47,9 +46,7 @@ import Hydra.Cardano.Api (
   serialiseAddress,
  )
 import Hydra.Ledger (txId)
-import Hydra.Ledger.Cardano (
-  mkSimpleCardanoTx,
- )
+import Hydra.Ledger.Cardano (mkSimpleTx)
 import Hydra.Logging (showLogsOnFailure)
 import Hydra.Party (Party, deriveParty)
 import HydraNode (
@@ -112,7 +109,7 @@ spec = around showLogsOnFailure $
                     -- NOTE(AB): this is partial and will fail if we are not able to generate a payment
                     let firstCommittedUTxO = Prelude.head $ UTxO.pairs committedUTxO
                     let Right tx =
-                          mkSimpleCardanoTx
+                          mkSimpleTx
                             firstCommittedUTxO
                             (inHeadAddress bobCardanoVk, lovelaceToValue paymentFromAliceToBob)
                             aliceCardanoSk
@@ -226,7 +223,7 @@ carol = deriveParty carolSk
 someTxId :: IsString s => s
 someTxId = "9fdc525c20bc00d9dfa9d14904b65e01910c0dfe3bb39865523c1e20eaeb0903"
 
-inHeadAddress :: VerificationKey PaymentKey -> AddressInEra Era
+inHeadAddress :: VerificationKey PaymentKey -> AddressInEra
 inHeadAddress =
   mkVkAddress network
  where

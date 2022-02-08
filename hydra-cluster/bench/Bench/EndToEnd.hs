@@ -39,10 +39,9 @@ import Data.Scientific (Scientific)
 import Data.Set ((\\))
 import qualified Data.Set as Set
 import Data.Time (nominalDiffTimeToSeconds)
-import Hydra.Cardano.Api (TxId, UTxO, getVerificationKey)
+import Hydra.Cardano.Api (Tx, TxId, UTxO, getVerificationKey)
 import Hydra.Generator (Dataset (..))
 import Hydra.Ledger (txId)
-import Hydra.Ledger.Cardano (CardanoTx)
 import Hydra.Logging (showLogsOnFailure)
 import Hydra.Party (deriveParty, generateKey)
 import HydraNode (
@@ -143,7 +142,7 @@ processTransactions clients dataset = do
         `concurrently_` progressReport (hydraNodeId client') clientId numberOfTxs submissionQ
       readTVarIO (processedTxs registry)
 
-progressReport :: Int -> Int -> Int -> TBQueue IO CardanoTx -> IO ()
+progressReport :: Int -> Int -> Int -> TBQueue IO Tx -> IO ()
 progressReport nodeId clientId queueSize queue = do
   len <- atomically (lengthTBQueue queue)
   if len == (0 :: Natural)
@@ -184,7 +183,7 @@ type TransactionOutput = Int
 newTx ::
   TVar IO (Map.Map TxId Event) ->
   HydraClient ->
-  CardanoTx ->
+  Tx ->
   IO ()
 newTx registry client tx = do
   now <- getCurrentTime
@@ -199,8 +198,8 @@ newTx registry client tx = do
   send client $ input "NewTx" ["transaction" .= tx]
 
 data WaitResult
-  = TxInvalid {transaction :: CardanoTx, reason :: Text}
-  | TxValid {transaction :: CardanoTx}
+  = TxInvalid {transaction :: Tx, reason :: Text}
+  | TxValid {transaction :: Tx}
   | SnapshotConfirmed {transactions :: [Value], snapshotNumber :: Scientific}
 
 data Registry tx = Registry
@@ -209,7 +208,7 @@ data Registry tx = Registry
   }
 
 newRegistry ::
-  IO (Registry CardanoTx)
+  IO (Registry Tx)
 newRegistry = do
   processedTxs <- newTVarIO mempty
   latestSnapshot <- newTVarIO 0
@@ -217,8 +216,8 @@ newRegistry = do
 
 submitTxs ::
   HydraClient ->
-  Registry CardanoTx ->
-  TBQueue IO CardanoTx ->
+  Registry Tx ->
+  TBQueue IO Tx ->
   IO ()
 submitTxs client registry@Registry{processedTxs} submissionQ = do
   txToSubmit <- atomically $ tryReadTBQueue submissionQ
@@ -236,8 +235,8 @@ submitTxs client registry@Registry{processedTxs} submissionQ = do
 
 waitForAllConfirmations ::
   HydraClient ->
-  Registry CardanoTx ->
-  TBQueue IO CardanoTx ->
+  Registry Tx ->
+  TBQueue IO Tx ->
   Set TxId ->
   IO ()
 waitForAllConfirmations n1 Registry{processedTxs} submissionQ allIds = do

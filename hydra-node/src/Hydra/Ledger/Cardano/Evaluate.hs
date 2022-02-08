@@ -26,15 +26,14 @@ import qualified Data.Map as Map
 import Data.Maybe (fromJust)
 import Data.Ratio ((%))
 import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
-import Hydra.Cardano.Api (StandardCrypto, UTxO, toLedgerTx, toLedgerUTxO)
+import Hydra.Cardano.Api (StandardCrypto, Tx, UTxO, toLedgerTx, toLedgerUTxO)
 import Hydra.Chain.Direct.Util (Era)
-import Hydra.Ledger.Cardano (CardanoTx)
 
 type RedeemerReport =
   (Map RdmrPtr (Either (ScriptFailure StandardCrypto) ExUnits))
 
 evaluateTx ::
-  CardanoTx ->
+  Tx ->
   UTxO ->
   Either (BasicFailure StandardCrypto) RedeemerReport
 evaluateTx tx utxo =

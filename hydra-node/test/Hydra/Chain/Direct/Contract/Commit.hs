@@ -2,6 +2,7 @@
 -- 'healthyCommitTx' gets mutated by an arbitrary 'CommitMutation'.
 module Hydra.Chain.Direct.Contract.Commit where
 
+import Hydra.Cardano.Api
 import Hydra.Prelude
 
 -- Arbitrary VerificationKey instance
@@ -9,24 +10,6 @@ import Hydra.Chain.Direct.TxSpec ()
 
 import qualified Cardano.Api.UTxO as UTxO
 import Data.Maybe (fromJust)
-import Hydra.Cardano.Api (
-  CtxUTxO,
-  Era,
-  PaymentKey,
-  TxIn,
-  TxOut (TxOut),
-  UTxO,
-  VerificationKey,
-  lovelaceToValue,
-  mkTxOutValue,
-  modifyTxOutAddress,
-  modifyTxOutValue,
-  toUTxOContext,
-  txOutAddress,
-  txOutValue,
-  txOuts',
-  verificationKeyHash,
- )
 import Hydra.Chain.Direct.Contract.Mutation (
   Mutation (..),
   SomeMutation (..),
@@ -34,7 +17,6 @@ import Hydra.Chain.Direct.Contract.Mutation (
 import qualified Hydra.Chain.Direct.Fixture as Fixture
 import Hydra.Chain.Direct.Tx (commitTx, mkInitialOutput)
 import Hydra.Ledger.Cardano (
-  CardanoTx,
   genAddressInEra,
   genOutput,
   genValue,
@@ -46,7 +28,7 @@ import Test.QuickCheck (oneof, suchThat)
 -- CommitTx
 --
 
-healthyCommitTx :: (CardanoTx, UTxO)
+healthyCommitTx :: (Tx, UTxO)
 healthyCommitTx =
   (tx, lookupUTxO)
  where
@@ -74,7 +56,7 @@ healthyCommitTx =
   commitParty = generateWith arbitrary 42
 
 -- NOTE: An 8₳ output which is currently addressed to some arbitrary key.
-healthyCommittedUTxO :: (TxIn, TxOut CtxUTxO Era)
+healthyCommittedUTxO :: (TxIn, TxOut CtxUTxO)
 healthyCommittedUTxO = flip generateWith 42 $ do
   txIn <- arbitrary
   txOut <- modifyTxOutValue (const $ lovelaceToValue 8_000_000) <$> (genOutput =<< arbitrary)
@@ -86,11 +68,11 @@ data CommitMutation
   | MutateCommittedAddress
   deriving (Generic, Show, Enum, Bounded)
 
-genCommitMutation :: (CardanoTx, UTxO) -> Gen SomeMutation
+genCommitMutation :: (Tx, UTxO) -> Gen SomeMutation
 genCommitMutation (tx, _utxo) =
   oneof
     [ SomeMutation MutateCommitOutputValue . ChangeOutput 0 <$> do
-        mutatedValue <- (mkTxOutValue <$> genValue) `suchThat` (/= commitOutputValue)
+        mutatedValue <- genValue `suchThat` (/= commitOutputValue)
         pure $ TxOut commitOutputAddress mutatedValue commitOutputDatum
     , SomeMutation MutateCommittedValue <$> do
         mutatedValue <- genValue `suchThat` (/= committedOutputValue)

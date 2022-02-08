@@ -12,7 +12,6 @@ import Hydra.Chain.Direct.Fixture (testNetworkId)
 import Hydra.Chain.Direct.Tx (fanoutTx, mkHeadOutput)
 import qualified Hydra.Contract.HeadState as Head
 import Hydra.Ledger.Cardano (
-  CardanoTx,
   adaOnly,
   genOutput,
   genUTxOWithSimplifiedAddresses,
@@ -24,7 +23,7 @@ import Plutus.V1.Ledger.Api (toBuiltin, toData)
 import Test.QuickCheck (elements, oneof, suchThat)
 import Test.QuickCheck.Instances ()
 
-healthyFanoutTx :: (CardanoTx, UTxO)
+healthyFanoutTx :: (Tx, UTxO)
 healthyFanoutTx =
   (tx, lookupUTxO)
  where
@@ -49,7 +48,7 @@ data FanoutMutation
   | MutateChangeOutputValue
   deriving (Generic, Show, Enum, Bounded)
 
-genFanoutMutation :: (CardanoTx, UTxO) -> Gen SomeMutation
+genFanoutMutation :: (Tx, UTxO) -> Gen SomeMutation
 genFanoutMutation (tx, _utxo) =
   oneof
     [ SomeMutation MutateAddUnexpectedOutput . PrependOutput <$> do

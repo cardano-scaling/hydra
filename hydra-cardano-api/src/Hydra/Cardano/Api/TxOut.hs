@@ -16,11 +16,6 @@ txOuts' (getTxBody -> txBody) =
   let TxBody TxBodyContent{txOuts} = txBody
    in txOuts
 
-{-# DEPRECATED getOutputs "use txOuts' instead." #-}
-getOutputs :: Tx Era -> [TxOut CtxTx Era]
-getOutputs =
-  txOuts'
-
 -- | Alter the address of a 'TxOut' with the given transformation.
 modifyTxOutAddress ::
   (AddressInEra Era -> AddressInEra Era) ->
