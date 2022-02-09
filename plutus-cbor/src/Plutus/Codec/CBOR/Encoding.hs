@@ -246,7 +246,7 @@ encodeMap :: (k -> Encoding) -> (v -> Encoding) -> Map k v -> Encoding
 encodeMap encodeKey encodeValue =
   step 0 mempty . Map.toList
  where
-  step !n bs = \case
+  step !n !bs = \case
     [] -> encodeMapLen n <> bs
     ((k, v) : q) -> step (n + 1) (bs <> encodeKey k <> encodeValue v) q
 {-# INLINEABLE encodeMap #-}
