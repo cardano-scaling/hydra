@@ -116,7 +116,7 @@ encodeBool = \case
 --
 -- Note (2): This can only encode numbers up to @2^64 - 1@ and down to @-2^63@
 encodeInteger :: Integer -> Encoding
-encodeInteger n
+encodeInteger !n
   | n < 0 =
     Encoding (encodeUnsigned 1 (subtractInteger 0 n - 1))
   | otherwise =
@@ -125,14 +125,15 @@ encodeInteger n
 
 -- | Encode a 'BuiltinByteString' as a CBOR type-02 major type.
 encodeByteString :: BuiltinByteString -> Encoding
-encodeByteString bytes =
+encodeByteString !bytes =
   Encoding (encodeUnsigned 2 (lengthOfByteString bytes) . appendByteString bytes)
 {-# INLINEABLE encodeByteString #-}
 
 -- | Encode a 'BuiltinString' as a CBOR type-03 major type.
 encodeString :: BuiltinString -> Encoding
-encodeString (encodeUtf8 -> bytes) =
-  Encoding (encodeUnsigned 3 (lengthOfByteString bytes) . appendByteString bytes)
+encodeString bytes =
+  let encoded = encodeUtf8 bytes
+   in Encoding (encodeUnsigned 3 (lengthOfByteString encoded) . appendByteString encoded)
 {-# INLINEABLE encodeString #-}
 
 -- | Encode a null character, useful to encode optional values.
@@ -162,7 +163,7 @@ encodeBreak = Encoding (consByteString 0xFF)
 --   <> encodeInteger 42
 -- @
 encodeListLen :: Integer -> Encoding
-encodeListLen = Encoding . encodeUnsigned 4
+encodeListLen !n = Encoding (encodeUnsigned 4 n)
 {-# INLINEABLE encodeListLen #-}
 
 -- | Declare a list of indefinite size. Each element of the list must then be
@@ -219,7 +220,7 @@ encodeListIndef encodeElem es =
 --   <> encodeInteger 42 <> encodeByteString "0000"
 -- @
 encodeMapLen :: Integer -> Encoding
-encodeMapLen = Encoding . encodeUnsigned 5
+encodeMapLen !n = Encoding (encodeUnsigned 5 n)
 {-# INLINEABLE encodeMapLen #-}
 
 -- | Declare a map of indefinite size. Each key/value pair of the map must then
@@ -295,8 +296,8 @@ encodeMaybe encode = \case
 --
 -- For more tags, have a look at [iana's Concise Binary Object Representation (CBOR) Tags list](https://www.iana.org/assignments/cbor-tags/cbor-tags.xhtml).
 encodeTag :: Integer -> Encoding
-encodeTag =
-  Encoding . encodeUnsigned 6
+encodeTag !n =
+  Encoding (encodeUnsigned 6 n)
 
 -- * Backdoor
 
@@ -304,8 +305,8 @@ encodeTag =
 -- unless you know what you're doing, this may creates an 'Encoding' not
 -- compliant with the CBOR specification.
 unsafeEncodeRaw :: BuiltinByteString -> Encoding
-unsafeEncodeRaw =
-  Encoding . appendByteString
+unsafeEncodeRaw !bs =
+  Encoding (appendByteString bs)
 {-# INLINEABLE unsafeEncodeRaw #-}
 
 -- * Internal
