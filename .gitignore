@@ -1,27 +1,30 @@
-### Cabal ###
+# Cabal
 .ghc.environment.*
 /cabal.project.diff
 /cabal.project.local
 /cabal.project.old
 /dist-newstyle/
 
-### Haskell ###
+# Haskell
 *.eventlog
 *.hp
 *.prof
 
-### Nix ###
+# Nix
 result*
 
-### Direnv ###
+# Direnv
 .direnv/
 *~
 
-### hydra-node ###
+# hydra-node
 .history
 *.hi
 *.o
 test-results.xml
+
+# Benchmark results
+*.html
 
 # Getting started / demo instructions
 devnet/
