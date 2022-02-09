@@ -87,7 +87,7 @@ import PlutusTx.Builtins (subtractInteger)
 newtype Encoding = Encoding (BuiltinByteString -> BuiltinByteString)
 
 instance Semigroup Encoding where
-  (Encoding a) <> (Encoding b) = Encoding (a . b)
+  (Encoding f) <> (Encoding g) = Encoding (\(!x) -> f $ g x)
 
 instance Monoid Encoding where
   mempty = Encoding id
