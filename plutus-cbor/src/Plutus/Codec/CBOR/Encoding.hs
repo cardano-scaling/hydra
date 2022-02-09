@@ -1,3 +1,4 @@
+{-# LANGUAGE BangPatterns #-}
 {-# OPTIONS_GHC -fno-specialize #-}
 {-# OPTIONS_HADDOCK prune #-}
 
@@ -310,12 +311,12 @@ unsafeEncodeRaw =
 -- * Internal
 
 withMajorType :: Integer -> Integer -> BuiltinByteString -> BuiltinByteString
-withMajorType major n =
-  consByteString (32 * major + n)
+withMajorType major n !next =
+  consByteString (32 * major + n) next
 {-# INLINEABLE withMajorType #-}
 
 encodeUnsigned :: Integer -> Integer -> BuiltinByteString -> BuiltinByteString
-encodeUnsigned major n next
+encodeUnsigned major n !next
   | n < 24 =
     withMajorType major n next
   | n < 256 =
@@ -329,20 +330,20 @@ encodeUnsigned major n next
 {-# INLINEABLE encodeUnsigned #-}
 
 encodeUnsigned8 :: Integer -> BuiltinByteString -> BuiltinByteString
-encodeUnsigned8 = consByteString
+encodeUnsigned8 n !next = consByteString n next
 {-# INLINEABLE encodeUnsigned8 #-}
 
 encodeUnsigned16 :: Integer -> BuiltinByteString -> BuiltinByteString
-encodeUnsigned16 n =
-  encodeUnsigned8 (quotient n 256) . encodeUnsigned8 (remainder n 256)
+encodeUnsigned16 n !next =
+  encodeUnsigned8 (quotient n 256) $ encodeUnsigned8 (remainder n 256) next
 {-# INLINEABLE encodeUnsigned16 #-}
 
 encodeUnsigned32 :: Integer -> BuiltinByteString -> BuiltinByteString
-encodeUnsigned32 n =
-  encodeUnsigned16 (quotient n 65536) . encodeUnsigned16 (remainder n 65536)
+encodeUnsigned32 n !next =
+  encodeUnsigned16 (quotient n 65536) $ encodeUnsigned16 (remainder n 65536) next
 {-# INLINEABLE encodeUnsigned32 #-}
 
 encodeUnsigned64 :: Integer -> BuiltinByteString -> BuiltinByteString
-encodeUnsigned64 n =
-  encodeUnsigned32 (quotient n 4294967296) . encodeUnsigned32 (remainder n 4294967296)
+encodeUnsigned64 n !next =
+  encodeUnsigned32 (quotient n 4294967296) $ encodeUnsigned32 (remainder n 4294967296) next
 {-# INLINEABLE encodeUnsigned64 #-}
