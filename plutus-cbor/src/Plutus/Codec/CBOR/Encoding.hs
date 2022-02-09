@@ -189,7 +189,7 @@ encodeList :: (a -> Encoding) -> [a] -> Encoding
 encodeList encodeElem =
   step 0 mempty
  where
-  step n bs = \case
+  step !n !bs = \case
     [] -> encodeListLen n <> bs
     (e : q) -> step (n + 1) (bs <> encodeElem e) q
 {-# INLINEABLE encodeList #-}
