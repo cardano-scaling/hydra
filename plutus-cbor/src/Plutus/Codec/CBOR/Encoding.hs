@@ -1,6 +1,44 @@
 {-# OPTIONS_GHC -fno-specialize #-}
 {-# OPTIONS_HADDOCK prune #-}
 
+-- | An on-chain implementation of [RFC 8949](https://www.rfc-editor.org/rfc/rfc8949): Concise Binary Object Representation (CBOR).
+--
+-- This is generally something one would want to avoid as the memory and CPU
+-- budgets on-chain are heavily limited. However, there are scenarios when one
+-- needs to serialise some higher level data-type into binary. This library
+-- provides an efficient way of doing it.
+--
+-- = How to use
+--
+-- Let's start with some relatively simple type:
+--
+-- @
+-- data Foo = Foo
+--  { bar :: Bool
+--  , baz :: Integer
+--  }
+-- @
+--
+-- From there, one can define an 'Encoding' for the @Foo@ data-type. This is a
+-- simple record of unary constructors, so using a 2-tuple should do. Note that
+-- 'Encoding' is a 'Semigroup', and thus, they are easily composed using the
+-- concatenation operator ('<>').
+--
+-- @
+-- encodeFoo :: Foo -> Encoding
+-- encodeFoo Foo{bar,baz} =
+--   encodeListLen 2
+--     <> encodeBool bar
+--     <> encodeInteger baz
+-- @
+--
+-- Then, any 'Encoding' can be turned into a 'BuiltinByteString' using: 'encodingToBuiltinByteString'.
+-- For instance, one could define:
+--
+-- @
+-- serialiseFoo :: Foo -> BuiltinByteString
+-- serialiseFoo = encodingToBuiltinByteString . encodeFoo
+-- @
 module Plutus.Codec.CBOR.Encoding (
   -- * Encoding
   Encoding,
@@ -44,7 +82,7 @@ import PlutusTx.Builtins (subtractInteger)
 
 -- * Encoding
 
--- | An opaque 'Encoding' type. See also 'encodeToBuiltinByteString'.
+-- | An opaque 'Encoding' type. See also 'encodingToBuiltinByteString'.
 newtype Encoding = Encoding (BuiltinByteString -> BuiltinByteString)
 
 instance Semigroup Encoding where
@@ -174,9 +212,9 @@ encodeListIndef encodeElem es =
 -- different types. For uniform maps, see 'encodeMap'.
 --
 -- @
--- -- Encoding { 14: b'ffff', 42: b'0000' } as a finite map...
+-- -- Encoding { 14: b'1abc', 42: b'0000' } as a finite map...
 -- encodeMapLen 2
---   <> encodeInteger 14 <> encodeByteString "ffff"
+--   <> encodeInteger 14 <> encodeByteString "1abc"
 --   <> encodeInteger 42 <> encodeByteString "0000"
 -- @
 encodeMapLen :: Integer -> Encoding
@@ -190,9 +228,9 @@ encodeMapLen = Encoding . encodeUnsigned 5
 -- different types. For uniform maps, see 'encodeMap'.
 --
 -- @
--- -- Encoding { 14: b'ffff', 42: b'0000' } as a finite map...
+-- -- Encoding { 14: b'1abc', 42: b'0000' } as a finite map...
 -- encodeBeginMap
---   <> encodeInteger 14 <> encodeByteString "ffff"
+--   <> encodeInteger 14 <> encodeByteString "1abc"
 --   <> encodeInteger 42 <> encodeByteString "0000"
 --   <> encodeBreak
 -- @
