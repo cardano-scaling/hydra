@@ -1,39 +1,91 @@
+-- | Criterion benchmark of serializing some Plutus values to ByteString using
+-- this library, but also `cborg` as a reference.
 module Main where
 
-import Hydra.Prelude
+import Hydra.Prelude hiding ((<>))
 
+import Codec.Serialise (serialise)
 import Criterion.Main (bench, bgroup, defaultMain, whnf)
 import qualified Data.ByteString as BS
-import Plutus.V1.Ledger.Api (BuiltinByteString, Data, toData)
+import Plutus.Codec.CBOR.Encoding (Encoding, encodeByteString, encodeInteger, encodeListLen, encodeMap, encodeMaybe, encodingToBuiltinByteString)
+import Plutus.V1.Ledger.Api (Address (..), BuiltinByteString, Credential (PubKeyCredential, ScriptCredential), CurrencySymbol (CurrencySymbol), DatumHash (DatumHash), PubKeyHash (PubKeyHash), TokenName (TokenName), TxOut (TxOut), ValidatorHash (ValidatorHash), Value (getValue), toBuiltin, toData)
 import qualified Plutus.V1.Ledger.Api as Plutus
 import qualified PlutusTx.AssocMap as Plutus.Map
+import PlutusTx.Semigroup ((<>))
 import Test.QuickCheck (choose, oneof, vector, vectorOf)
 
 main :: IO ()
 main =
   defaultMain
     [ bgroup
-        "TxOut serialization in Haskell"
+        "TxOut"
         [ bgroup
             "ada only"
             [ bench "plutus-cbor" $ whnf plutusSerialize txOutAdaOnly
             , bench "cborg" $ whnf cborgSerialize txOutAdaOnly
             ]
+        , bgroup
+            "20 assets"
+            [ bench "plutus-cbor" $ whnf plutusSerialize txOut20Assets
+            , bench "cborg" $ whnf cborgSerialize txOut20Assets
+            ]
+        , bgroup
+            "100 assets"
+            [ bench "plutus-cbor" $ whnf plutusSerialize txOut100Assets
+            , bench "cborg" $ whnf cborgSerialize txOut100Assets
+            ]
         ]
     ]
+ where
+  txOutAdaOnly = generateWith genAdaOnlyTxOut 42
+  txOut20Assets = generateWith (genTxOut 20) 42
+  txOut100Assets = generateWith (genTxOut 100) 42
 
-cborgSerialize :: Data -> BuiltinByteString
-cborgSerialize = const ""
+-- | Use the provided 'Serialise' instance for 'Data' from plutus.
+cborgSerialize :: TxOut -> BuiltinByteString
+cborgSerialize = toBuiltin . toStrict . serialise . toData
 
--- | Serialize a 'TxOut' to cbor using a simplified encoder.
-plutusSerialize :: Data -> BuiltinByteString
-plutusSerialize = const ""
+-- | Serialize a 'TxOut' to cbor using our on-chain encoder plutus-cbor, but run in Haskell.
+plutusSerialize :: TxOut -> BuiltinByteString
+plutusSerialize = encodingToBuiltinByteString . encodeTxOut
+
+encodeTxOut :: TxOut -> Encoding
+encodeTxOut (TxOut addr value datum) =
+  encodeListLen 3
+    <> encodeAddress addr
+    <> encodeValue value
+    <> encodeDatum datum
+{-# INLINEABLE encodeTxOut #-}
+
+-- NOTE 1: This is missing the header byte with network discrimination. For the
+-- sake of getting an order of magnitude and moving forward, it is fine.
+--
+-- NOTE 2: This is ignoring any stake reference and assuming that all addresses
+-- are plain script or payment addresses with no delegation whatsoever. Again,
+-- see NOTE #1.
+encodeAddress :: Address -> Encoding
+encodeAddress Address{addressCredential} =
+  encodeByteString (credentialToBytes addressCredential)
+ where
+  credentialToBytes = \case
+    PubKeyCredential (PubKeyHash h) -> h
+    ScriptCredential (ValidatorHash h) -> h
+{-# INLINEABLE encodeAddress #-}
+
+encodeValue :: Value -> Encoding
+encodeValue =
+  encodeMap encodeCurrencySymbol (encodeMap encodeTokenName encodeInteger) . getValue
+ where
+  encodeCurrencySymbol (CurrencySymbol symbol) = encodeByteString symbol
+  encodeTokenName (TokenName token) = encodeByteString token
+{-# INLINEABLE encodeValue #-}
+
+encodeDatum :: Maybe DatumHash -> Encoding
+encodeDatum =
+  encodeMaybe (\(DatumHash h) -> encodeByteString h)
+{-# INLINEABLE encodeDatum #-}
 
 -- * Benchmark values
-
-txOutAdaOnly :: Data
-txOutAdaOnly =
-  toData $ generateWith genAdaOnlyTxOut 42
 
 genTxOut :: Int -> Gen Plutus.TxOut
 genTxOut n = do

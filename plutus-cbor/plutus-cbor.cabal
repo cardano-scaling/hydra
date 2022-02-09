@@ -125,6 +125,7 @@ benchmark bench
     , plutus-ledger-api
     , plutus-tx
     , QuickCheck
+    , serialise
 
 executable encoding-cost
   import:         project-config
