@@ -1,4 +1,4 @@
-# Plutus CBOR
+# Plutus CBOR [![](https://img.shields.io/badge/haddock-1.0.0-blue?style=for-the-badge&logo=haskell)](https://input-output-hk.github.io/hydra-poc/haddock/plutus-cbor/Plutus-Codec-CBOR-Encoding.html)
 
 Encode builtin Plutus types to [CBOR](https://cbor.io/).
 
