@@ -83,6 +83,7 @@ test-suite unit
   import:             project-config
   type:               exitcode-stdio-1.0
   hs-source-dirs:     test
+  main-is:            Main.hs
   ghc-options:        -threaded -rtsopts
   build-tool-depends: hspec-discover:hspec-discover -any
   build-depends:
@@ -106,7 +107,24 @@ test-suite unit
     Plutus.Codec.CBOR.EncodingSpec
     Spec
 
+benchmark bench
+  import:             project-config
+  type:               exitcode-stdio-1.0
+  hs-source-dirs:     bench
   main-is:            Main.hs
+  ghc-options:        -threaded -rtsopts
+  build-tool-depends: hspec-discover:hspec-discover -any
+  build-depends:
+    , base
+    , bytestring
+    , cborg
+    , criterion
+    , hydra-prelude
+    , plutus-cbor
+    , plutus-core
+    , plutus-ledger-api
+    , plutus-tx
+    , QuickCheck
 
 executable encoding-cost
   import:         project-config
