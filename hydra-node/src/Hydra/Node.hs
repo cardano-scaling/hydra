@@ -1,5 +1,4 @@
 {-# LANGUAGE DeriveAnyClass #-}
-{-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE UndecidableInstances #-}
 
 -- | Top-level module to run a single Hydra node.
@@ -8,7 +7,7 @@
 --
 -- The following diagram represents the internal structure of the Hydra Node and the interactions between its components.
 --
--- ![](./images/hydra-architecture-direct.jpg)
+-- ![](https://github.com/input-output-hk/hydra-poc/raw/master/docs/images/hydra-architecture-direct.jpg)
 --
 -- '''Legend''':
 --  - Grayed boxes represent components which are not developed yet
