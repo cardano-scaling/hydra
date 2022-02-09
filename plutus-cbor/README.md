@@ -36,3 +36,10 @@ encodeAssets m
   | otherwise = encodeMapIndef encodeCurrencySymbol encodeSingleAsset m
 {-# INLINEABLE encodeAssets #-}
 ```
+
+## Running the benchmark
+
+To run the benchmark and produce an HTML output in the package directory:
+```
+cabal bench --benchmark-options "-o bench.html"
+```
