@@ -47,17 +47,20 @@ instance Eq MerkleTree where
 -- Note that, while this operation is doable on-chain, it is expensive and
 -- preferably done off-chain.
 fromList :: [BuiltinByteString] -> MerkleTree
-fromList =
-  \case
-    [] -> MerkleEmpty
-    [e] -> MerkleLeaf (hash e) e
-    es ->
-      let len = length es
-          cutoff = len `divideInteger` 2
-          (l, r) = (List.take cutoff es, drop cutoff es)
-          lnode = fromList l
-          rnode = fromList r
-       in MerkleNode (combineHash (rootHash lnode) (rootHash rnode)) lnode rnode
+fromList es0 = recursively (length es0) es0
+ where
+  recursively len =
+    \case
+      [] ->
+        MerkleEmpty
+      [e] ->
+        MerkleLeaf (hash e) e
+      es ->
+        let cutoff = len `divideInteger` 2
+            (l, r) = (List.take cutoff es, drop cutoff es)
+            lnode = recursively cutoff l
+            rnode = recursively (len - cutoff) r
+         in MerkleNode (combineHash (rootHash lnode) (rootHash rnode)) lnode rnode
 {-# INLINEABLE fromList #-}
 
 -- | Deconstruct a 'MerkleTree' back to a list of elements.
