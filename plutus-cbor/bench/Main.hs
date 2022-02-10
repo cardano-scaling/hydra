@@ -8,14 +8,27 @@ import Codec.Serialise (serialise)
 import Criterion.Main (bench, bgroup, defaultMain, whnf)
 import qualified Data.ByteString as BS
 import Plutus.Codec.CBOR.Encoding (Encoding, encodeByteString, encodeInteger, encodeListLen, encodeMap, encodeMaybe, encodingToBuiltinByteString)
-import Plutus.V1.Ledger.Api (Address (..), BuiltinByteString, Credential (PubKeyCredential, ScriptCredential), CurrencySymbol (CurrencySymbol), DatumHash (DatumHash), PubKeyHash (PubKeyHash), TokenName (TokenName), TxOut (TxOut), ValidatorHash (ValidatorHash), Value (getValue), toBuiltin, toData)
+import Plutus.V1.Ledger.Api (
+  Address (..),
+  BuiltinByteString,
+  Credential (PubKeyCredential, ScriptCredential),
+  CurrencySymbol (CurrencySymbol),
+  DatumHash (DatumHash),
+  PubKeyHash (PubKeyHash),
+  TokenName (TokenName),
+  TxOut (TxOut),
+  ValidatorHash (ValidatorHash),
+  Value (getValue),
+  toBuiltin,
+  toData,
+ )
 import qualified Plutus.V1.Ledger.Api as Plutus
 import qualified PlutusTx.AssocMap as Plutus.Map
 import PlutusTx.Semigroup ((<>))
 import Test.QuickCheck (choose, oneof, vector, vectorOf)
 
 main :: IO ()
-main =
+main = do
   defaultMain
     [ bgroup
         "TxOut"
@@ -29,6 +42,11 @@ main =
             [ bench "plutus-cbor" $ whnf plutusSerialize txOut20Assets
             , bench "cborg" $ whnf cborgSerialize txOut20Assets
             ]
+        , bgroup -- roughly current maxValSize=5000 on mainchain
+            "80 assets"
+            [ bench "plutus-cbor" $ whnf plutusSerialize txOut80Assets
+            , bench "cborg" $ whnf cborgSerialize txOut80Assets
+            ]
         , bgroup
             "100 assets"
             [ bench "plutus-cbor" $ whnf plutusSerialize txOut100Assets
@@ -39,6 +57,7 @@ main =
  where
   txOutAdaOnly = generateWith genAdaOnlyTxOut 42
   txOut20Assets = generateWith (genTxOut 20) 42
+  txOut80Assets = generateWith (genTxOut 80) 42
   txOut100Assets = generateWith (genTxOut 100) 42
 
 -- | Use the provided 'Serialise' instance for 'Data' from plutus.
