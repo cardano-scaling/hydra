@@ -1,6 +1,6 @@
 cabal-version: 2.2
 name:          plutus-cbor
-version:       0.1.0
+version:       1.0.0
 synopsis:      On-chain CBOR encoders/decoders
 author:        IOG
 copyright:     2022 IOG
