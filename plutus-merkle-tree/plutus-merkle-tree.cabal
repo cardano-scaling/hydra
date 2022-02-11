@@ -1,7 +1,7 @@
 cabal-version: 2.2
 name:          plutus-merkle-tree
-version:       0.2.0
-synopsis:      Plutus Basic Merkle Tree
+version:       1.0.0
+synopsis:      On-Chain Merkle Trees
 author:        IOHK
 copyright:     2022 IOHK
 license:       Apache-2.0
