@@ -2,6 +2,11 @@
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE UndecidableInstances #-}
 
+-- | Specifies the /Head-Chain Interaction/ part of the protocol
+--
+-- Incoming and outgoing on-chain transactions are modelled respectively as `OnChainTx`
+-- and `PostChainTx` which are data type that abstracts away the details of the structure
+-- of the transaction.
 module Hydra.Chain where
 
 import Cardano.Prelude

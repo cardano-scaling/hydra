@@ -28,4 +28,4 @@ For the time being, until _Plutus Application Framework_ is released, we will im
 * Remove all PAB-related code as well as off-chain `Contract`s code and related dependencies
 * An updated architecture diagram:
 
-![](../images/hydra-architecture-direct.jpg)
+![](../../hydra-node/images/hydra-architecture-direct.jpg)

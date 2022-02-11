@@ -2,6 +2,11 @@
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE UndecidableInstances #-}
 
+-- | Implements the Head Protocol's _state machine_ as a _pure function_.
+--
+-- * The protocol is described in two parts in the [Hydra paper](https://iohk.io/en/research/library/papers/hydrafast-isomorphic-state-channels/):
+--     * One part detailing how the Head deals with _clients input_, `ClientInput` and `ServerOutput`
+--     * Another part detailing how the Head reacts to _peers input_ provided by the network, `Message`
 module Hydra.HeadLogic where
 
 import Hydra.Prelude
