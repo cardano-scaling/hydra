@@ -158,7 +158,8 @@ spec = around showLogsOnFailure $
         withTempDir "end-to-end-prometheus-metrics" $ \tmpDir -> do
           config <- newNodeConfig tmpDir
           (aliceCardanoVk, _) <- keysFor Alice
-          withBFTNode (contramap FromCluster tracer) config [aliceCardanoVk] $ \node@(RunningNode _ nodeSocket) -> do
+          (faucetVk, _) <- keysFor Faucet
+          withBFTNode (contramap FromCluster tracer) config [faucetVk] $ \node@(RunningNode _ nodeSocket) -> do
             (aliceVkPath, aliceSkPath) <- writeKeysFor tmpDir Alice
             (bobVkPath, bobSkPath) <- writeKeysFor tmpDir Bob
             (carolVkPath, carolSkPath) <- writeKeysFor tmpDir Carol
