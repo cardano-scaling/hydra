@@ -14,11 +14,9 @@ Our current approach involves maintaining a so-called 'OnChainHeadState' sum-typ
 
 We've been bothered with maintaining an 'OnChainHeadState' ever since we went for this approach. Indeed, it is a partially redundant piece of information which overlaps with the core of the Hydra node which is managing the application logic (and also maintains a folded state). Plus, with the introduction of head identification and multi-head support, we are exploring ways to simplify and make less cumbersome our on-chain state management.
 
-## Decision
+### Observing Transitions
 
 A first observation we made is that we can actually observe all transactions involved in the head life-cycle by solely looking at those transactions and some credentials known of the node (i.e. a verification key). From each transaction, we want to be able to derive _some identifier_ that uniquely identifies a head in order to tell head apart. Before anything else, let's recap how we currently observe each transaction on-chain. 
-
-### Head Life-cycle Summary
 
 To ease notation, here below is a table which summarizes the name of each transition and the states they transition from and to. 
 
@@ -45,7 +43,7 @@ A transaction qualifies as an `Init` if and only if:
 
 - Our verification key `vk_ephemeral` is a member of the list of ephemeral keys stored in `δHead`.
 
-- For each key hash in `δHead`, it mints a participation token with a unique policy id and such that its asset name is an injective function of the corresponding key hash it's minted for. 
+- For each key hash in `δHead`, it mints a participation token with a unique policy id and such that its asset name is an injective function of the corresponding key hash it's minted for. (See also [ADR-0014: Token Usage In Scripts](https://github.com/input-output-hk/hydra-poc/blob/master/docs/adr/0014-hydra-script-tokens.md)).
 
 - It produces exactly `n` outputs to addresses locked by `νInitial` scripts where; each output has a datum `δInitial` representing one of the `vk_cardano` of a participant and carries one of the minted participation tokens. 
 
@@ -116,7 +114,7 @@ From observing a `Commit` transaction, observers may infer the following pieces 
 - A candidate final UTXO set
 - A candidate snapshot number 
 
-### Observing Transitions
+## Decision
 
 One interesting detail to notice is how any transition can be observed _by itself_, out of any context. This is actually consequence of Cardano's smart-contract design which forces transactions validations to be deterministic and solely dependent on the surrounding transaction. This means that it is possible to write a pure function `observeTransition` for observing transitions as such:
 
@@ -141,22 +139,51 @@ data KnownScripts = KnownScripts
 data Transition 
   = Init 
       { headParameters :: HeadParameters
-      , ephemeralKeyHashes :: [VerificationKeyHash]
+      , ephemeralKeyHashes :: [Hash VerificationKey]
       , initials :: Map TxOutRef (TxOut CtxUTxO)
       }
   | Commit
       { initialConsumed :: TxOutRef
       , commit :: (TxOutRef, TxOut CtxUTxO)
+      , party :: Hash VerificationKey
       }
-  | TODO...
+  | CollectCom
+      { initialUTxO :: UTxO
+      , headStateMachineConsumed :: TxOutRef
+      , commitsConsumed :: [TxOutRef]
+      }
+  | Abort
+      { headStateMachineConsumed :: TxOutRef
+      , initialsConsumed :: [TxOutRef]
+      , commitsConsumed :: [TxOutRef]
+      }
+  | Close
+      { headStateMachineConsumed :: TxOutRef
+      , closedUTxO :: UTxO
+      , snapshotNumber :: SnapshotNumber
+      }
+  | Fanout
+      { headStateMachineConsumed :: TxOutRef
+      , finalUTxO :: UTxO
+      }
 ```
 
-In particular, we can also imagine splitting that function into sub-functions each dedicated to each transition. A corollary of this means that it is possible to represent our current state as a list of transaction `[Tx]` from which we can extract on-demand the required information for the application logic by folding over the sequence of transactions with the `observeTransition` function.
+Seemingly, it is possible to represent our current state as a list of transactions `[Tx]` from which we can, by folding over it, extract any information needed for the application business logic. In particular, we can also now define various functions to derive information from the sequence of transaction by folding and accumulating results. For example:
 
-More exactly, in the light of upcoming work stream, we would want to also keep track of the slots at which transactions were found in blocks (i.e. `[(SlotNo, Tx)]`) as this allows for easy rollback later on. 
+```hs
+contestationPeriod :: Configuration -> [Tx] -> Maybe ContestationPeriod
 
-This approach is very similar to [event-sourcing](https://docs.microsoft.com/en-us/azure/architecture/patterns/event-sourcing) where transactions play the role of events. 
+allCommits :: Configuration -> [Tx] -> [(TxOutRef, TxOut CtxUTxO)]
+
+closedUTxO :: Configuration -> [Tx] -> UTxO
+```
+
+This approach reconciles our current `OnChainTx` and `OnChainHeadState` under one common abstraction. The direct chain component no longer needs to maintain some ad-hoc state and can get away with maintaining a simple list of observed transactions. 
 
 ## Consequence
 
-TODO.
+- Accessing information from the state now requires a bit more of CPU since we pretty much need to refold the state for any request. This may not be much of a problem in practice because the sequence of transactions is relatively small (even in the worse case, it'll be about folding over a hundred of entries). It however simplifies a great deal the representation and maintenance of that the on-chain head state. 
+
+- The `Transition` described above comes (at least conceptually) as a replacement for the `OnChainTx` and contains more details than mere `OnChainTx`. Some of those details are however irrelevant to the head logic; so we may still want to define some transformation `Transition -> OnChainTx` to strip out noise before passing the result to the head logic callback.
+
+- In the light of upcoming work stream, we would want to also keep track of the slots at which transactions were found in blocks (i.e. `[(SlotNo, Tx)]`) to enable an easy(ier) management of rollbacks later on. This approach is very similar to [event-sourcing](https://docs.microsoft.com/en-us/azure/architecture/patterns/event-sourcing) where transactions play the role of events. Rolling back the state becomes as simple as dropping transactions beyond the point of rollback. 
