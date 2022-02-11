@@ -54,6 +54,34 @@ totalExecutionCost pparams tx =
       _ ->
         mempty
 
+-- | Find and deserialise from 'ScriptData', a redeemer from the transaction
+-- associated to the given input.
+findRedeemerSpending ::
+  forall a era.
+  ( FromScriptData a
+  , Ledger.Era (ShelleyLedgerEra era)
+  , HasField
+      "inputs"
+      (Ledger.Core.TxBody (ShelleyLedgerEra era))
+      (Set (Ledger.TxIn StandardCrypto))
+  ) =>
+  Tx era ->
+  TxIn ->
+  Maybe a
+findRedeemerSpending (getTxBody -> ByronTxBody{}) _ = do
+  Nothing
+findRedeemerSpending (getTxBody -> ShelleyTxBody _ body _ scriptData _ _) txIn = do
+  idx <- Set.lookupIndex (toLedgerTxIn txIn) (getField @"inputs" body)
+  let ptr = RdmrPtr Ledger.Spend $ fromIntegral idx
+  (d, _exUnits) <- Map.lookup ptr redeemers
+  Plutus.fromData $ Ledger.getPlutusData d
+ where
+  redeemers = case scriptData of
+    TxBodyNoScriptData ->
+      mempty
+    TxBodyScriptData _ _ (Ledger.Redeemers rs) ->
+      rs
+
 -- | Obtain a human-readable pretty text representation of a transaction.
 renderTx :: Tx Era -> Text
 renderTx (Tx body _wits) =
