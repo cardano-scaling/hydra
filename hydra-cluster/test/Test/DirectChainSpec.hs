@@ -9,18 +9,17 @@ import Test.Hydra.Prelude
 import CardanoClient (
   buildAddress,
   generatePaymentToCommit,
-  postSeedPayment,
-  queryProtocolParameters,
   queryUTxO,
   waitForUTxO,
  )
 import CardanoCluster (
   Actor (Alice, Bob, Carol),
   ClusterLog,
-  availableInitialFunds,
+  Marked (Marked),
   defaultNetworkId,
   keysFor,
   newNodeConfig,
+  seedFromFaucet,
   withBFTNode,
  )
 import CardanoNode (NodeLog, RunningNode (..))
@@ -57,15 +56,14 @@ spec = around showLogsOnFailure $ do
     bobsCallback <- newEmptyMVar
     withTempDir "hydra-cluster" $ \tmp -> do
       config <- newNodeConfig tmp
-      aliceKeys@(aliceCardanoVk, aliceCardanoSk) <- keysFor Alice
-      withBFTNode (contramap FromCluster tracer) config [aliceCardanoVk] $ \(RunningNode _ nodeSocket) -> do
+      aliceKeys@(aliceCardanoVk, _) <- keysFor Alice
+      withBFTNode (contramap FromCluster tracer) config [aliceCardanoVk] $ \node@(RunningNode _ nodeSocket) -> do
         bobKeys <- keysFor Bob
-        pparams <- queryProtocolParameters defaultNetworkId nodeSocket
         cardanoKeys <- fmap fst <$> mapM keysFor [Alice, Bob, Carol]
         withIOManager $ \iocp -> do
           withDirectChain (contramap (FromDirectChain "alice") tracer) magic iocp nodeSocket aliceKeys alice cardanoKeys (putMVar alicesCallback) $ \Chain{postTx} -> do
             withDirectChain nullTracer magic iocp nodeSocket bobKeys bob cardanoKeys (putMVar bobsCallback) $ \_ -> do
-              postSeedPayment (Testnet magic) pparams availableInitialFunds nodeSocket aliceCardanoSk 100_000_000
+              void $ seedFromFaucet (Testnet magic) node aliceCardanoVk 100_000_000 Marked
 
               postTx $ InitTx $ HeadParameters 100 [alice, bob, carol]
               alicesCallback `observesInTime` OnInitTx 100 [alice, bob, carol]
@@ -84,12 +82,11 @@ spec = around showLogsOnFailure $ do
       aliceKeys@(aliceCardanoVk, aliceCardanoSk) <- keysFor Alice
       withBFTNode (contramap FromCluster tracer) config [aliceCardanoVk] $ \node@(RunningNode _ nodeSocket) -> do
         bobKeys <- keysFor Bob
-        pparams <- queryProtocolParameters defaultNetworkId nodeSocket
         cardanoKeys <- fmap fst <$> mapM keysFor [Alice, Bob, Carol]
         withIOManager $ \iocp -> do
           withDirectChain (contramap (FromDirectChain "alice") tracer) magic iocp nodeSocket aliceKeys alice cardanoKeys (putMVar alicesCallback) $ \Chain{postTx} -> do
             withDirectChain nullTracer magic iocp nodeSocket bobKeys bob cardanoKeys (putMVar bobsCallback) $ \_ -> do
-              postSeedPayment (Testnet magic) pparams availableInitialFunds nodeSocket aliceCardanoSk 100_000_000
+              void $ seedFromFaucet (Testnet magic) node aliceCardanoVk 100_000_000 Marked
 
               postTx $ InitTx $ HeadParameters 100 [alice, bob, carol]
               alicesCallback `observesInTime` OnInitTx 100 [alice, bob, carol]
@@ -120,15 +117,15 @@ spec = around showLogsOnFailure $ do
     bobsCallback <- newEmptyMVar
     withTempDir "hydra-cluster" $ \tmp -> do
       config <- newNodeConfig tmp
-      aliceKeys@(aliceCardanoVk, aliceCardanoSk) <- keysFor Alice
-      withBFTNode (contramap FromCluster tracer) config [aliceCardanoVk] $ \(RunningNode _ nodeSocket) -> do
+      aliceKeys@(aliceCardanoVk, _) <- keysFor Alice
+      withBFTNode (contramap FromCluster tracer) config [aliceCardanoVk] $ \node@(RunningNode _ nodeSocket) -> do
         bobKeys <- keysFor Bob
-        pparams <- queryProtocolParameters defaultNetworkId nodeSocket
         let cardanoKeys = []
         withIOManager $ \iocp -> do
           withDirectChain (contramap (FromDirectChain "alice") tracer) magic iocp nodeSocket aliceKeys alice cardanoKeys (putMVar alicesCallback) $ \Chain{postTx = alicePostTx} -> do
             withDirectChain nullTracer magic iocp nodeSocket bobKeys bob cardanoKeys (putMVar bobsCallback) $ \Chain{postTx = bobPostTx} -> do
-              postSeedPayment (Testnet magic) pparams availableInitialFunds nodeSocket aliceCardanoSk 100_000_000
+              void $ seedFromFaucet (Testnet magic) node aliceCardanoVk 100_000_000 Marked
+
               alicePostTx $ InitTx $ HeadParameters 100 [alice, carol]
               alicesCallback `observesInTime` OnInitTx 100 [alice, carol]
 
@@ -141,11 +138,10 @@ spec = around showLogsOnFailure $ do
       config <- newNodeConfig tmp
       aliceKeys@(aliceCardanoVk, aliceCardanoSk) <- keysFor Alice
       withBFTNode (contramap FromCluster tracer) config [aliceCardanoVk] $ \node@(RunningNode _ nodeSocket) -> do
-        pparams <- queryProtocolParameters defaultNetworkId nodeSocket
         let cardanoKeys = [aliceCardanoVk]
         withIOManager $ \iocp -> do
           withDirectChain (contramap (FromDirectChain "alice") tracer) magic iocp nodeSocket aliceKeys alice cardanoKeys (putMVar alicesCallback) $ \Chain{postTx} -> do
-            postSeedPayment (Testnet magic) pparams availableInitialFunds nodeSocket aliceCardanoSk 100_000_000
+            void $ seedFromFaucet (Testnet magic) node aliceCardanoVk 100_000_000 Marked
 
             postTx $ InitTx $ HeadParameters 100 [alice]
             alicesCallback `observesInTime` OnInitTx 100 [alice]
@@ -169,13 +165,12 @@ spec = around showLogsOnFailure $ do
     alicesCallback <- newEmptyMVar
     withTempDir "hydra-cluster" $ \tmp -> do
       config <- newNodeConfig tmp
-      aliceKeys@(aliceCardanoVk, aliceCardanoSk) <- keysFor Alice
-      withBFTNode (contramap FromCluster tracer) config [aliceCardanoVk] $ \(RunningNode _ nodeSocket) -> do
-        pparams <- queryProtocolParameters defaultNetworkId nodeSocket
+      aliceKeys@(aliceCardanoVk, _) <- keysFor Alice
+      withBFTNode (contramap FromCluster tracer) config [aliceCardanoVk] $ \node@(RunningNode _ nodeSocket) -> do
         let cardanoKeys = [aliceCardanoVk]
         withIOManager $ \iocp -> do
           withDirectChain (contramap (FromDirectChain "alice") tracer) magic iocp nodeSocket aliceKeys alice cardanoKeys (putMVar alicesCallback) $ \Chain{postTx} -> do
-            postSeedPayment (Testnet magic) pparams availableInitialFunds nodeSocket aliceCardanoSk 100_000_000
+            void $ seedFromFaucet (Testnet magic) node aliceCardanoVk 100_000_000 Marked
 
             postTx $ InitTx $ HeadParameters 100 [alice]
             alicesCallback `observesInTime` OnInitTx 100 [alice]
@@ -189,11 +184,10 @@ spec = around showLogsOnFailure $ do
       config <- newNodeConfig tmp
       aliceKeys@(aliceCardanoVk, aliceCardanoSk) <- keysFor Alice
       withBFTNode (contramap FromCluster tracer) config [aliceCardanoVk] $ \node@(RunningNode _ nodeSocket) -> do
-        pparams <- queryProtocolParameters defaultNetworkId nodeSocket
         let cardanoKeys = [aliceCardanoVk]
         withIOManager $ \iocp -> do
           withDirectChain (contramap (FromDirectChain "alice") tracer) magic iocp nodeSocket aliceKeys alice cardanoKeys (putMVar alicesCallback) $ \Chain{postTx} -> do
-            postSeedPayment (Testnet magic) pparams availableInitialFunds nodeSocket aliceCardanoSk 100_000_000
+            void $ seedFromFaucet (Testnet magic) node aliceCardanoVk 100_000_000 Marked
 
             postTx $ InitTx $ HeadParameters 100 [alice]
             alicesCallback `observesInTime` OnInitTx 100 [alice]
