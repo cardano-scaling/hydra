@@ -12,15 +12,10 @@ import Cardano.Crypto.DSIGN (
   SignKeyDSIGN,
   VerKeyDSIGN,
  )
-import CardanoClient (
-  postSeedPayment,
-  queryProtocolParameters,
-  waitForUTxO,
- )
+import CardanoClient (waitForUTxO)
 import CardanoCluster (
   Actor (Alice, Bob, Carol, Faucet),
   Marked (Marked, Normal),
-  availableInitialFunds,
   defaultNetworkId,
   keysFor,
   newNodeConfig,
@@ -162,18 +157,18 @@ spec = around showLogsOnFailure $
 
         withTempDir "end-to-end-prometheus-metrics" $ \tmpDir -> do
           config <- newNodeConfig tmpDir
-          (aliceCardanoVk, aliceCardanoSk) <- keysFor Alice
-          withBFTNode (contramap FromCluster tracer) config [aliceCardanoVk] $ \(RunningNode _ nodeSocket) -> do
+          (aliceCardanoVk, _) <- keysFor Alice
+          withBFTNode (contramap FromCluster tracer) config [aliceCardanoVk] $ \node@(RunningNode _ nodeSocket) -> do
             (aliceVkPath, aliceSkPath) <- writeKeysFor tmpDir Alice
             (bobVkPath, bobSkPath) <- writeKeysFor tmpDir Bob
             (carolVkPath, carolSkPath) <- writeKeysFor tmpDir Carol
-            pparams <- queryProtocolParameters defaultNetworkId nodeSocket
             failAfter 20 $
               withHydraNode tracer aliceSkPath [bobVkPath, carolVkPath] tmpDir nodeSocket 1 aliceSk [bobVk, carolVk] allNodeIds $ \n1 ->
                 withHydraNode tracer bobSkPath [aliceVkPath, carolVkPath] tmpDir nodeSocket 2 bobSk [aliceVk, carolVk] allNodeIds $ \_ ->
                   withHydraNode tracer carolSkPath [aliceVkPath, bobVkPath] tmpDir nodeSocket 3 carolSk [aliceVk, bobVk] allNodeIds $ \_ -> do
-                    postSeedPayment defaultNetworkId pparams availableInitialFunds nodeSocket aliceCardanoSk 100_000_000
-                    waitForNodesConnected tracer [n1]
+                    -- Funds to be used as fuel by Hydra protocol transactions
+                    void $ seedFromFaucet defaultNetworkId node aliceCardanoVk 100_000_000 Marked
+                    waitForNodesConnected tracer allNodeIds [n1]
                     send n1 $ input "Init" ["contestationPeriod" .= int 10]
                     waitFor tracer 3 [n1] $ output "ReadyToCommit" ["parties" .= Set.fromList [alice, bob, carol]]
                     metrics <- getMetrics n1
