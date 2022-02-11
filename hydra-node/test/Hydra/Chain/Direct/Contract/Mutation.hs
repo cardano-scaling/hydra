@@ -132,15 +132,9 @@ module Hydra.Chain.Direct.Contract.Mutation where
 import Hydra.Cardano.Api hiding (SigningKey)
 
 import qualified Cardano.Api.UTxO as UTxO
-import qualified Cardano.Ledger.Alonzo.Data as Ledger
-import qualified Cardano.Ledger.Alonzo.Scripts as Ledger
-import qualified Cardano.Ledger.Alonzo.TxBody as Ledger
 import qualified Cardano.Ledger.Alonzo.TxWitness as Ledger
-import qualified Cardano.Ledger.Shelley.API as Ledger
 import qualified Data.ByteString as BS
-import qualified Data.List as List
 import qualified Data.Map as Map
-import qualified Data.Sequence.Strict as StrictSeq
 import qualified Hydra.Chain.Direct.Fixture as Fixture
 import Hydra.Chain.Direct.Tx (policyId)
 import qualified Hydra.Contract.Head as Head
@@ -150,7 +144,6 @@ import Hydra.Ledger.Cardano.Evaluate (evaluateTx)
 import Hydra.Party (SigningKey, generateKey)
 import Hydra.Prelude hiding (label)
 import Plutus.Orphans ()
-import Plutus.V1.Ledger.Api (toData)
 import qualified System.Directory.Internal.Prelude as Prelude
 import Test.Hydra.Prelude
 import Test.QuickCheck (
@@ -264,10 +257,9 @@ data Mutation
 -- are not met by the transaction or UTxO set, for example if there's no
 -- Head script input or no datums in the transaction.
 applyMutation :: Mutation -> (Tx, UTxO) -> (Tx, UTxO)
-applyMutation mutation (tx@(Tx body wits), utxo) = case mutation of
+applyMutation mutation (tx, utxo) = case mutation of
   ChangeHeadRedeemer newRedeemer ->
-    let ShelleyTxBody ledgerBody scripts scriptData mAuxData scriptValidity = body
-        headOutputIndices =
+    let headOutputIndices =
           fst
             <$> filter
               (isHeadOutput . snd . snd)
@@ -277,32 +269,23 @@ applyMutation mutation (tx@(Tx body wits), utxo) = case mutation of
           _ -> error $ "could not find head output in utxo: " <> show utxo
 
         newHeadRedeemer (Ledger.RdmrPtr _ ix) (dat, units)
-          | ix == headInputIdx = (Ledger.Data (toData newRedeemer), units)
+          | ix == headInputIdx = (toScriptData newRedeemer, units)
           | otherwise = (dat, units)
-
-        redeemers = alterRedeemers newHeadRedeemer scriptData
-        body' = ShelleyTxBody ledgerBody scripts redeemers mAuxData scriptValidity
-     in (Tx body' wits, utxo)
+     in (adjustRedeemers newHeadRedeemer tx, utxo)
   ChangeHeadDatum d' ->
-    let datum = mkTxOutDatum d'
-        datumHash = mkTxOutDatumHash d'
-        -- change the lookup UTXO
+    let -- change the lookup UTXO
         fn o@(TxOut addr value _)
           | isHeadOutput o =
-            TxOut addr value datumHash
+            TxOut addr value (mkTxOutDatumHash d')
           | otherwise =
             o
-        -- change the datums in the tx
-        ShelleyTxBody ledgerBody scripts scriptData mAuxData scriptValidity = body
-        newDatums = addDatum datum scriptData
-        body' = ShelleyTxBody ledgerBody scripts newDatums mAuxData scriptValidity
-     in (Tx body' wits, fmap fn utxo)
+     in (addDatum (toScriptData d') tx, fmap fn utxo)
   PrependOutput txOut ->
-    ( alterTxOuts (txOut :) tx
+    ( adjustTxOuts (txOut :) tx
     , utxo
     )
   RemoveOutput ix ->
-    ( alterTxOuts (removeAt ix) tx
+    ( adjustTxOuts (removeAt ix) tx
     , utxo
     )
    where
@@ -310,15 +293,11 @@ applyMutation mutation (tx@(Tx body wits), utxo) = case mutation of
       map snd $
         filter ((/= i) . fst) $ zip [0 ..] es
   ChangeInput txIn txOut ->
-    ( Tx body' wits
+    ( removeRedeemerSpending txIn tx
     , UTxO $ Map.insert txIn txOut (UTxO.toMap utxo)
     )
-   where
-    ShelleyTxBody ledgerBody scripts scriptData mAuxData scriptValidity = body
-    redeemers = removeRedeemerFor (Ledger.inputs ledgerBody) (toLedgerTxIn txIn) scriptData
-    body' = ShelleyTxBody ledgerBody scripts redeemers mAuxData scriptValidity
   ChangeOutput ix txOut ->
-    ( alterTxOuts replaceAtIndex tx
+    ( adjustTxOuts replaceAtIndex tx
     , utxo
     )
    where
@@ -364,66 +343,6 @@ isHeadOutput (TxOut addr _ _) = addr == headAddress
  where
   headAddress = mkScriptAddress @PlutusScriptV1 Fixture.testNetworkId headScript
   headScript = fromPlutusScript $ Head.validatorScript policyId
-
--- | Adds given 'Datum' and corresponding hash to the transaction's scripts.
--- TODO: As we are creating the `TxOutDatum` from a known datum, passing a `TxOutDatum` is
--- pointless and requires more work than needed to check impossible variants.
-addDatum :: TxOutDatum CtxTx -> TxBodyScriptData -> TxBodyScriptData
-addDatum datum scriptData =
-  case datum of
-    TxOutDatumNone -> error "unexpected datuym none"
-    TxOutDatumHash _ha -> error "hash only, expected full datum"
-    TxOutDatum sd ->
-      case scriptData of
-        TxBodyNoScriptData -> error "TxBodyNoScriptData unexpected"
-        TxBodyScriptData (Ledger.TxDats dats) redeemers ->
-          let dat = toLedgerData sd
-              newDats = Ledger.TxDats $ Map.insert (Ledger.hashData dat) dat dats
-           in TxBodyScriptData newDats redeemers
-
--- | Alter a transaction's  redeemers map given some mapping function.
-alterRedeemers ::
-  ( Ledger.RdmrPtr ->
-    (Ledger.Data LedgerEra, Ledger.ExUnits) ->
-    (Ledger.Data LedgerEra, Ledger.ExUnits)
-  ) ->
-  TxBodyScriptData ->
-  TxBodyScriptData
-alterRedeemers fn = \case
-  TxBodyNoScriptData -> error "TxBodyNoScriptData unexpected"
-  TxBodyScriptData dats (Ledger.Redeemers redeemers) ->
-    let newRedeemers = Map.mapWithKey fn redeemers
-     in TxBodyScriptData dats (Ledger.Redeemers newRedeemers)
-
--- | Remove redeemer for given `TxIn` from the transaction's redeemers map.
-removeRedeemerFor ::
-  Set (Ledger.TxIn a) ->
-  Ledger.TxIn a ->
-  TxBodyScriptData ->
-  TxBodyScriptData
-removeRedeemerFor initialInputs txIn = \case
-  TxBodyNoScriptData -> error "TxBodyNoScriptData unexpected"
-  TxBodyScriptData dats (Ledger.Redeemers initialRedeemers) ->
-    let newRedeemers = Ledger.Redeemers $ Map.fromList $ filter removeRedeemer $ Map.toList initialRedeemers
-        sortedInputs = sort $ toList initialInputs
-        removeRedeemer (Ledger.RdmrPtr _ idx, _) = sortedInputs List.!! fromIntegral idx /= txIn
-     in TxBodyScriptData dats newRedeemers
-
--- | Apply some mapping function over a transaction's  outputs.
-alterTxOuts ::
-  ([TxOut CtxTx] -> [TxOut CtxTx]) ->
-  Tx ->
-  Tx
-alterTxOuts fn tx =
-  Tx body' wits
- where
-  body' = ShelleyTxBody ledgerBody' scripts scriptData mAuxData scriptValidity
-  ledgerBody' = ledgerBody{Ledger.outputs = outputs'}
-  -- WIP
-  outputs' = StrictSeq.fromList . mapOutputs . toList $ Ledger.outputs ledgerBody
-  mapOutputs = fmap (toLedgerTxOut . toCtxUTxOTxOut) . fn . fmap fromLedgerTxOut
-  ShelleyTxBody ledgerBody scripts scriptData mAuxData scriptValidity = body
-  Tx body wits = tx
 
 -- | Generates an output that pays to some arbitrary pubkey.
 anyPayToPubKeyTxOut :: Gen (TxOut ctx)
