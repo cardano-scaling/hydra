@@ -56,12 +56,6 @@
         }
     }
 , "nonAvvmBalances":
-    { "2657WMsDfac51gYid9ZM3uNZPrevCbTox7CCYBRf2p72tzZC3Ya8JfiSZvbtR6foz":
-        "100"
-    , "2657WMsDfac5RoEMiJgTSxvghxyP62VtjbXjTmZkb6AhnqadGr6BazqYYfiMZ3Vmd":
-        "100"
-    , "2657WMsDfac5jdFtdQoEzKwpfuk8aHWGYGXC3TcqefufamgzzHhBJnhEtrYvGXuRi":
-        "100"
-    }
+    {}
 , "avvmDistr": {}
 }
