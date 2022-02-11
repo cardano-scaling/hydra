@@ -4,6 +4,7 @@
 
 module CardanoCluster where
 
+import Hydra.Cardano.Api
 import Hydra.Prelude
 
 import qualified Cardano.Api.UTxO as UTxO
@@ -36,24 +37,6 @@ import qualified Data.Aeson as Aeson
 import Data.Aeson.Lens (key)
 import qualified Data.ByteString as BS
 import Data.ByteString.Base16 (encodeBase16)
-import Hydra.Cardano.Api (
-  AsType (..),
-  Lovelace,
-  NetworkId (Testnet),
-  NetworkMagic (NetworkMagic),
-  PaymentKey,
-  SigningKey,
-  TextEnvelopeError (TextEnvelopeAesonDecodeError),
-  UTxO,
-  VerificationKey (PaymentVerificationKey),
-  deserialiseFromTextEnvelope,
-  getVerificationKey,
-  lovelaceToValue,
-  serialiseToRawBytes,
-  shelleyAddressInEra,
-  txOutLovelace,
- )
-import qualified Hydra.Cardano.Api as Api
 import Hydra.Chain.Direct.Util (markerDatumHash, retry)
 import qualified Hydra.Chain.Direct.Util as Cardano
 import qualified Paths_hydra_cluster as Pkg
@@ -281,14 +264,14 @@ seedFromFaucet networkId (RunningNode _ nodeSocket) receivingVerificationKey lov
   receivingAddress = buildAddress receivingVerificationKey networkId
 
   theOutput =
-    Api.TxOut
+    TxOut
       (shelleyAddressInEra receivingAddress)
       (lovelaceToValue lovelace)
       theOutputDatum
 
   theOutputDatum = case marked of
-    Marked -> Api.TxOutDatumHash markerDatumHash
-    Normal -> Api.TxOutDatumNone
+    Marked -> TxOutDatumHash markerDatumHash
+    Normal -> TxOutDatumNone
 
   isCardanoClientException :: CardanoClientException -> Bool
   isCardanoClientException = const True
