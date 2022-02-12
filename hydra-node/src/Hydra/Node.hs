@@ -5,7 +5,7 @@
 --
 -- == Node Architecture
 --
--- The following diagram represents the internal structure of the Hydra Node and the interactions between its components.
+-- The following [diagram (click for a full-wdith version)](https://raw.githubusercontent.com/input-output-hk/hydra-poc/master/hydra-node/images/hydra-architecture-direct.jpg) represents the internal structure of the Hydra Node and the interactions between its components.
 --
 -- ![Hydra Architecture](https://raw.githubusercontent.com/input-output-hk/hydra-poc/master/hydra-node/images/hydra-architecture-direct_800x.jpg)
 --
