@@ -5,7 +5,7 @@
 --
 -- == Node Architecture
 --
--- The following [diagram (click for a full-wdith version)](https://raw.githubusercontent.com/input-output-hk/hydra-poc/master/hydra-node/images/hydra-architecture-direct.jpg) represents the internal structure of the Hydra Node and the interactions between its components.
+-- The following [diagram (click for a full-width version)](https://raw.githubusercontent.com/input-output-hk/hydra-poc/master/hydra-node/images/hydra-architecture-direct.jpg) represents the internal structure of the Hydra Node and the interactions between its components.
 --
 -- ![Hydra Architecture](https://raw.githubusercontent.com/input-output-hk/hydra-poc/master/hydra-node/images/hydra-architecture-direct_800x.jpg)
 --
@@ -15,7 +15,6 @@
 --     * Black boxes represent components which are expected to be used as _black box_, eg. without any knowledge of their inner workings.
 --     * Arrows depict the flow of data (Requests, messages, responses...)
 --     * We represent some components that are not part of the Hydra node proper for legibility's sake
---
 module Hydra.Node where
 
 import Hydra.Prelude
