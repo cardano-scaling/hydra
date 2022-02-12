@@ -7,7 +7,7 @@
 --
 -- The following diagram represents the internal structure of the Hydra Node and the interactions between its components.
 --
--- ![](https://github.com/input-output-hk/hydra-poc/raw/master/docs/images/hydra-architecture-direct.jpg)
+-- ![](https://raw.githubusercontent.com/input-output-hk/hydra-poc/master/hydra-node/images/hydra-architecture-direct.jpg)
 --
 -- '''Legend''':
 --  - Grayed boxes represent components which are not developed yet
