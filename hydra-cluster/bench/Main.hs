@@ -1,5 +1,3 @@
-{-# LANGUAGE TypeApplications #-}
-
 module Main where
 
 import Hydra.Prelude
@@ -124,7 +122,8 @@ main =
     run timeoutSeconds benchDir datasets clusterSize
 
   -- TODO(SN): Ideally we would like to say "to re-run use ... " on errors
-  run timeoutSeconds benchDir datasets clusterSize =
+  run timeoutSeconds benchDir datasets clusterSize = do
+    putStrLn $ "Test logs available in: " <> (benchDir </> "test.log")
     withArgs [] . hspec $ bench timeoutSeconds benchDir datasets clusterSize
 
   saveDataset tmpDir dataset = do

@@ -42,7 +42,7 @@ import Data.Time (nominalDiffTimeToSeconds)
 import Hydra.Cardano.Api (Tx, TxId, UTxO, getVerificationKey)
 import Hydra.Generator (Dataset (..))
 import Hydra.Ledger (txId)
-import Hydra.Logging (showLogsOnFailure)
+import Hydra.Logging (withTracerOutputTo)
 import Hydra.Party (deriveParty, generateKey)
 import HydraNode (
   EndToEndLog (..),
@@ -80,45 +80,47 @@ data Event = Event
 bench :: DiffTime -> FilePath -> [Dataset] -> Word64 -> Spec
 bench timeoutSeconds workDir dataset clusterSize =
   specify ("Load test on " <> show clusterSize <> " local nodes in " <> workDir) $ do
-    showLogsOnFailure $ \tracer ->
-      failAfter timeoutSeconds $ do
-        let cardanoKeys = map (\Dataset{signingKey} -> (getVerificationKey signingKey, signingKey)) dataset
-        config <- newNodeConfig workDir
-        withBFTNode (contramap FromCluster tracer) config (fst <$> cardanoKeys) $ \(RunningNode _ nodeSocket) -> do
-          withHydraCluster tracer workDir nodeSocket cardanoKeys $ \(leader :| followers) -> do
-            let nodes = leader : followers
-            waitForNodesConnected tracer [1 .. fromIntegral clusterSize] nodes
+    withFile (workDir </> "test.log") ReadWriteMode $ \hdl ->
+      withTracerOutputTo hdl "Test" $ \tracer ->
+        failAfter timeoutSeconds $ do
+          let cardanoKeys = map (\Dataset{signingKey} -> (getVerificationKey signingKey, signingKey)) dataset
+          config <- newNodeConfig workDir
+          withBFTNode (contramap FromCluster tracer) config (fst <$> cardanoKeys) $ \(RunningNode _ nodeSocket) -> do
+            withHydraCluster tracer workDir nodeSocket cardanoKeys $ \(leader :| followers) -> do
+              let nodes = leader : followers
+              waitForNodesConnected tracer [1 .. fromIntegral clusterSize] nodes
 
-            initialUTxOs <- createUTxOToCommit dataset nodeSocket
+              initialUTxOs <- createUTxOToCommit dataset nodeSocket
 
-            let contestationPeriod = 10 :: Natural
-            send leader $ input "Init" ["contestationPeriod" .= contestationPeriod]
-            let parties = Set.fromList $ map (deriveParty . generateKey) [1 .. fromIntegral clusterSize]
-            waitFor tracer 3 nodes $
-              output "ReadyToCommit" ["parties" .= parties]
+              let contestationPeriod = 10 :: Natural
+              send leader $ input "Init" ["contestationPeriod" .= contestationPeriod]
+              let parties = Set.fromList $ map (deriveParty . generateKey) [1 .. fromIntegral clusterSize]
+              waitFor tracer (fromIntegral $ 10 * clusterSize) nodes $
+                output "ReadyToCommit" ["parties" .= parties]
 
-            expectedUTxO <- mconcat <$> forM (zip nodes initialUTxOs) (uncurry commit)
+              expectedUTxO <- mconcat <$> forM (zip nodes initialUTxOs) (uncurry commit)
 
-            waitFor tracer 3 nodes $ output "HeadIsOpen" ["utxo" .= expectedUTxO]
+              waitFor tracer (fromIntegral $ 10 * clusterSize) nodes $
+                output "HeadIsOpen" ["utxo" .= expectedUTxO]
 
-            processedTransactions <- processTransactions nodes dataset
+              processedTransactions <- processTransactions nodes dataset
 
-            putTextLn "Closing the Head..."
-            send leader $ input "Close" []
-            waitMatch (fromIntegral $ 60 * clusterSize) leader $ \v ->
-              guard (v ^? key "tag" == Just "HeadIsFinalized")
+              putTextLn "Closing the Head..."
+              send leader $ input "Close" []
+              waitMatch (fromIntegral $ 60 * clusterSize) leader $ \v ->
+                guard (v ^? key "tag" == Just "HeadIsFinalized")
 
-            let res = mapMaybe analyze . Map.toList $ processedTransactions
-            writeResultsCsv (workDir </> "results.csv") res
-            -- TODO: Create a proper summary
-            let confTimes = map (\(_, _, a) -> a) res
-                below1Sec = filter (< 1) confTimes
-                avgConfirmation = double (nominalDiffTimeToSeconds $ sum confTimes) / double (length confTimes)
-                percentBelow1Sec = double (length below1Sec) / double (length confTimes) * 100
-            putTextLn $ "Confirmed txs: " <> show (length confTimes)
-            putTextLn $ "Average confirmation time: " <> show avgConfirmation
-            putTextLn $ "Confirmed below 1 sec: " <> show percentBelow1Sec <> "%"
-            percentBelow1Sec `shouldSatisfy` (> 90)
+              let res = mapMaybe analyze . Map.toList $ processedTransactions
+              writeResultsCsv (workDir </> "results.csv") res
+              -- TODO: Create a proper summary
+              let confTimes = map (\(_, _, a) -> a) res
+                  below1Sec = filter (< 1) confTimes
+                  avgConfirmation = double (nominalDiffTimeToSeconds $ sum confTimes) / double (length confTimes)
+                  percentBelow1Sec = double (length below1Sec) / double (length confTimes) * 100
+              putTextLn $ "Confirmed txs: " <> show (length confTimes)
+              putTextLn $ "Average confirmation time: " <> show avgConfirmation
+              putTextLn $ "Confirmed below 1 sec: " <> show percentBelow1Sec <> "%"
+              percentBelow1Sec `shouldSatisfy` (> 90)
 
 createUTxOToCommit :: [Dataset] -> FilePath -> IO [UTxO]
 createUTxOToCommit dataset nodeSocket =

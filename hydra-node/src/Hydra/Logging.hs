@@ -20,6 +20,7 @@ module Hydra.Logging (
   Verbosity (..),
   Envelope (..),
   withTracer,
+  withTracerOutputTo,
   contramap,
   showLogsOnFailure,
 ) where
@@ -37,6 +38,7 @@ import Control.Tracer (
   traceWith,
  )
 import Data.Aeson (encode)
+import qualified Data.ByteString.Lazy as LBS
 import qualified Data.Text as Text
 
 data Verbosity = Quiet | Verbose Text
@@ -69,8 +71,19 @@ withTracer ::
   Verbosity ->
   (Tracer m msg -> IO a) ->
   IO a
-withTracer Quiet action = action nullTracer
-withTracer (Verbose namespace) action = do
+withTracer Quiet = ($ nullTracer)
+withTracer (Verbose namespace) = withTracerOutputTo stdout namespace
+
+-- | Start logging thread acquiring a 'Tracer', outputting JSON formatted messages
+-- to some 'Handle'.
+withTracerOutputTo ::
+  forall m msg a.
+  (MonadIO m, ToJSON msg) =>
+  Handle ->
+  Text ->
+  (Tracer m msg -> IO a) ->
+  IO a
+withTracerOutputTo hdl namespace action = do
   msgQueue <- newTBQueueIO @_ @(Envelope msg) defaultQueueSize
   withAsync (writeLogs msgQueue) $ \_ ->
     action (tracer msgQueue) `finally` flushLogs msgQueue
@@ -93,13 +106,15 @@ withTracer (Verbose namespace) action = do
 
   writeLogs queue =
     forever $ do
-      atomically (readTBQueue queue) >>= putLBSLn . encode
-      hFlush stdout
+      atomically (readTBQueue queue) >>= write . encode
+      hFlush hdl
 
   flushLogs queue = do
     entries <- atomically $ flushTBQueue queue
-    forM_ entries (putLBSLn . encode)
-    hFlush stdout
+    forM_ entries (write . encode)
+    hFlush hdl
+
+  write bs = LBS.hPut hdl (bs <> "\n")
 
 traceInTVar :: MonadSTM m => TVar m [a] -> Tracer m a
 traceInTVar tvar = Tracer $ \a ->
