@@ -58,8 +58,18 @@ import HydraNode (
   withHydraCluster,
   withNewClient,
  )
+import System.Directory (findExecutable)
 import System.FilePath ((</>))
+import System.IO (hGetLine, hPutStrLn)
+import System.Process (
+  CreateProcess (..),
+  StdStream (CreatePipe),
+  proc,
+  withCreateProcess,
+ )
 import Text.Printf (printf)
+import Text.Regex.TDFA (getAllTextMatches, (=~))
+import Prelude (read)
 
 aliceSk, bobSk, carolSk :: SignKeyDSIGN MockDSIGN
 aliceSk = 10
@@ -86,45 +96,91 @@ bench timeoutSeconds workDir dataset clusterSize =
         failAfter timeoutSeconds $ do
           let cardanoKeys = map (\Dataset{signingKey} -> (getVerificationKey signingKey, signingKey)) dataset
           config <- newNodeConfig workDir
-          withBFTNode (contramap FromCluster tracer) config (fst <$> cardanoKeys) $ \(RunningNode _ nodeSocket) -> do
-            withHydraCluster tracer workDir nodeSocket cardanoKeys $ \(leader :| followers) -> do
-              let nodes = leader : followers
-              waitForNodesConnected tracer [1 .. fromIntegral clusterSize] nodes
+          withOSStats workDir $
+            withBFTNode (contramap FromCluster tracer) config (fst <$> cardanoKeys) $ \(RunningNode _ nodeSocket) -> do
+              withHydraCluster tracer workDir nodeSocket cardanoKeys $ \(leader :| followers) -> do
+                let nodes = leader : followers
+                waitForNodesConnected tracer [1 .. fromIntegral clusterSize] nodes
 
-              initialUTxOs <- createUTxOToCommit dataset nodeSocket
+                initialUTxOs <- createUTxOToCommit dataset nodeSocket
 
-              let contestationPeriod = 10 :: Natural
-              send leader $ input "Init" ["contestationPeriod" .= contestationPeriod]
-              let parties = Set.fromList $ map (deriveParty . generateKey) [1 .. fromIntegral clusterSize]
-              waitFor tracer (fromIntegral $ 10 * clusterSize) nodes $
-                output "ReadyToCommit" ["parties" .= parties]
+                let contestationPeriod = 10 :: Natural
+                send leader $ input "Init" ["contestationPeriod" .= contestationPeriod]
+                let parties = Set.fromList $ map (deriveParty . generateKey) [1 .. fromIntegral clusterSize]
+                waitFor tracer (fromIntegral $ 10 * clusterSize) nodes $
+                  output "ReadyToCommit" ["parties" .= parties]
 
-              expectedUTxO <- mconcat <$> forM (zip nodes initialUTxOs) (uncurry commit)
+                expectedUTxO <- mconcat <$> forM (zip nodes initialUTxOs) (uncurry commit)
 
-              waitFor tracer (fromIntegral $ 10 * clusterSize) nodes $
-                output "HeadIsOpen" ["utxo" .= expectedUTxO]
+                waitFor tracer (fromIntegral $ 10 * clusterSize) nodes $
+                  output "HeadIsOpen" ["utxo" .= expectedUTxO]
 
-              processedTransactions <- processTransactions nodes dataset
+                processedTransactions <- processTransactions nodes dataset
 
-              putTextLn "Closing the Head..."
-              send leader $ input "Close" []
-              waitMatch (fromIntegral $ 60 * clusterSize) leader $ \v ->
-                guard (v ^? key "tag" == Just "HeadIsFinalized")
+                putTextLn "Closing the Head..."
+                send leader $ input "Close" []
+                waitMatch (fromIntegral $ 60 * clusterSize) leader $ \v ->
+                  guard (v ^? key "tag" == Just "HeadIsFinalized")
 
-              let res = mapMaybe analyze . Map.toList $ processedTransactions
-                  aggregates = movingAverage res
+                let res = mapMaybe analyze . Map.toList $ processedTransactions
+                    aggregates = movingAverage res
 
-              writeResultsCsv (workDir </> "results.csv") aggregates
+                writeResultsCsv (workDir </> "results.csv") aggregates
 
-              -- TODO: Create a proper summary
-              let confTimes = map (\(_, _, a) -> a) res
-                  below1Sec = filter (< 1) confTimes
-                  avgConfirmation = double (nominalDiffTimeToSeconds $ sum confTimes) / double (length confTimes)
-                  percentBelow1Sec = double (length below1Sec) / double (length confTimes) * 100
-              putTextLn $ "Confirmed txs: " <> show (length confTimes)
-              putTextLn $ "Average confirmation time: " <> show avgConfirmation
-              putTextLn $ "Confirmed below 1 sec: " <> show percentBelow1Sec <> "%"
-              percentBelow1Sec `shouldSatisfy` (> 90)
+                -- TODO: Create a proper summary
+                let confTimes = map (\(_, _, a) -> a) res
+                    below1Sec = filter (< 1) confTimes
+                    avgConfirmation = double (nominalDiffTimeToSeconds $ sum confTimes) / double (length confTimes)
+                    percentBelow1Sec = double (length below1Sec) / double (length confTimes) * 100
+                putTextLn $ "Confirmed txs: " <> show (length confTimes)
+                putTextLn $ "Average confirmation time: " <> show avgConfirmation
+                putTextLn $ "Confirmed below 1 sec: " <> show percentBelow1Sec <> "%"
+                percentBelow1Sec `shouldSatisfy` (> 90)
+
+-- | Collect OS-level stats while running some 'IO' action.
+--
+-- __NOTE__: This function relies on [dstat](https://linux.die.net/man/1/dstat). If the executable is not in the @PATH@
+-- it's basically a no-op.
+--
+-- Writes a @system.csv@ file into given `workDir` containing one line every 5 second with share of user CPU load.
+-- Here is a sample content:
+--
+-- @@
+-- 2022-02-16 14:25:43.67203351 UTC,11
+-- 2022-02-16 14:25:48.669817664 UTC,10
+-- 2022-02-16 14:25:53.672050421 UTC,14
+-- 2022-02-16 14:25:58.670460796 UTC,12
+-- 2022-02-16 14:26:03.669831775 UTC,11
+-- 2022-02-16 14:26:08.67203726 UTC,10
+-- ...
+-- @@
+--
+-- TODO: add more data points for memory and network consumption
+withOSStats :: FilePath -> IO () -> IO ()
+withOSStats workDir action =
+  findExecutable "dstat" >>= \case
+    Nothing -> action
+    Just exePath ->
+      withCreateProcess (process exePath){std_out = CreatePipe} $ \_stdin out _stderr _processHandle ->
+        race_
+          (collectStats out $ workDir </> "system.csv")
+          action
+ where
+  process exePath = (proc exePath ["-cm", "-n", "-N", "lo", "--integer", "--noheaders", "--noupdate", "5"]){cwd = Just workDir}
+
+  collectStats Nothing _ = pure ()
+  collectStats (Just hdl) filepath =
+    withFile filepath WriteMode $ \file ->
+      forever $
+        hGetLine hdl >>= processStat file
+
+  processStat :: Handle -> String -> IO ()
+  processStat file stat =
+    case getAllTextMatches (stat =~ ("[0-9]+" :: String)) :: [String] of
+      (cpu : _) -> do
+        now <- getCurrentTime
+        hPutStrLn file $ show now <> "," <> show ((read cpu :: Double) / 100)
+      _ -> pure ()
 
 movingAverage :: [(UTCTime, NominalDiffTime, NominalDiffTime)] -> [(UTCTime, NominalDiffTime, NominalDiffTime, Int)]
 movingAverage confirmations =

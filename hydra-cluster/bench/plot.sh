@@ -3,14 +3,15 @@
 
 set -e
 
-[ $# -eq 1 ] && [ -f $1 ] || {
-    echo "Expecting path to benchmark results.csv as FILE argument"
-    echo "Usage: $0 FILE"
+[ $# -eq 1 ] && [ -d $1 ] || {
+    echo "Expecting path to benchmark directory results as DIR argument"
+    echo "Usage: $0 DIR"
     exit 1
 }
 
-RESULTS=$1
-DIR=$(dirname ${RESULTS})
+DIR=$1
+RESULTS=${DIR}/results.csv
+SYSTEM=${DIR}/system.csv
 COUNT=$(tail -n +2 ${RESULTS} | wc -l)
 NAME=$(basename ${DIR})
 
@@ -30,7 +31,8 @@ set y2label "Submitted Tx / s"
 set datafile separator ","
 plot "${RESULTS}" u (timecolumn(1,"%Y-%m-%d %H:%M:%S")):3 t 'Tx Confirmation over time' w histeps axis x1y1, \
      "${RESULTS}" u (timecolumn(1,"%Y-%m-%d %H:%M:%S")):2 t 'Tx Validation time' w histeps axis x1y1, \
-     "${RESULTS}" u (timecolumn(1, "%Y-%m-%d %H:%M:%S UTC")):4 w histeps axis x1y2 t 'Submitted Tx/s'
+     "${RESULTS}" u (timecolumn(1, "%Y-%m-%d %H:%M:%S UTC")):4 w histeps axis x1y2 t 'Submitted Tx/s', \
+     "${SYSTEM}" u (timecolumn(1, "%Y-%m-%d %H:%M:%S UTC")):2 w histeps axis x1y1 t 'CPU %'
 EOF
 
 echo "Created plot: ${DIR}/results.png"
