@@ -14,7 +14,7 @@ import CardanoClient (
   queryUTxO,
   sign,
   submit,
-  waitForTransaction,
+  waitForPayment,
  )
 import CardanoNode (
   CardanoNodeArgs (..),
