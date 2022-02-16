@@ -167,7 +167,7 @@ withOuroborosNetwork tracer localHost remoteHosts networkCallback between = do
       { spLocalAddresses = LocalAddresses (Just localAddr) Nothing Nothing
       , spConnectionAttemptDelay = const Nothing
       , spErrorPolicies = nullErrorPolicies
-      , spSubscriptionTarget = IPSubscriptionTarget remoteAddrs 7
+      , spSubscriptionTarget = IPSubscriptionTarget remoteAddrs (length remoteAddrs)
       }
 
   actualConnect iomgr chanPool app sn = do
