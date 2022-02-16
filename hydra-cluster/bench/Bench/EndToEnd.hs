@@ -34,11 +34,12 @@ import Control.Monad.Class.MonadSTM (
  )
 import Data.Aeson (Result (Error, Success), Value, encode, fromJSON, (.=))
 import Data.Aeson.Lens (key, _Array, _Number, _String)
+import qualified Data.List as List
 import qualified Data.Map as Map
 import Data.Scientific (Scientific)
 import Data.Set ((\\))
 import qualified Data.Set as Set
-import Data.Time (nominalDiffTimeToSeconds)
+import Data.Time (nominalDiffTimeToSeconds, utctDayTime)
 import Hydra.Cardano.Api (Tx, TxId, UTxO, getVerificationKey)
 import Hydra.Generator (Dataset (..))
 import Hydra.Ledger (txId)
@@ -111,7 +112,10 @@ bench timeoutSeconds workDir dataset clusterSize =
                 guard (v ^? key "tag" == Just "HeadIsFinalized")
 
               let res = mapMaybe analyze . Map.toList $ processedTransactions
-              writeResultsCsv (workDir </> "results.csv") res
+                  aggregates = movingAverage res
+
+              writeResultsCsv (workDir </> "results.csv") aggregates
+
               -- TODO: Create a proper summary
               let confTimes = map (\(_, _, a) -> a) res
                   below1Sec = filter (< 1) confTimes
@@ -121,6 +125,27 @@ bench timeoutSeconds workDir dataset clusterSize =
               putTextLn $ "Average confirmation time: " <> show avgConfirmation
               putTextLn $ "Confirmed below 1 sec: " <> show percentBelow1Sec <> "%"
               percentBelow1Sec `shouldSatisfy` (> 90)
+
+movingAverage :: [(UTCTime, NominalDiffTime, NominalDiffTime)] -> [(UTCTime, NominalDiffTime, NominalDiffTime, Int)]
+movingAverage confirmations =
+  let window :: Num a => a
+      window = 5
+
+      fiveSeconds = List.groupBy fiveSecSlice $ sortOn fst3 confirmations
+
+      fiveSecSlice (utctDayTime -> t1, _, _) (utctDayTime -> t2, _, _) =
+        (floor (t1 / window) * window :: Integer) == floor (t2 / window) * window
+
+      fst3 (a, _, _) = a
+      snd3 (_, a, _) = a
+      thd3 (_, _, a) = a
+
+      average = \case
+        [] -> error "empty group"
+        slice@((t, _, _) : _) ->
+          let n = length slice
+           in (t, sum (map snd3 slice) / fromIntegral n, sum (map thd3 slice) / fromIntegral n, n `div` window)
+   in map average fiveSeconds
 
 createUTxOToCommit :: [Dataset] -> FilePath -> IO [UTxO]
 createUTxOToCommit dataset nodeSocket =
@@ -308,14 +333,15 @@ validTx registry txid = do
 
 analyze :: (TxId, Event) -> Maybe (UTCTime, NominalDiffTime, NominalDiffTime)
 analyze = \case
-  (_, Event{submittedAt, validAt = Just valid, confirmedAt = Just conf}) -> Just (submittedAt, valid `diffUTCTime` submittedAt, conf `diffUTCTime` submittedAt)
+  (_, Event{submittedAt, validAt = Just valid, confirmedAt = Just conf}) ->
+    Just (submittedAt, valid `diffUTCTime` submittedAt, conf `diffUTCTime` submittedAt)
   _ -> Nothing
 
-writeResultsCsv :: FilePath -> [(UTCTime, NominalDiffTime, NominalDiffTime)] -> IO ()
+writeResultsCsv :: FilePath -> [(UTCTime, NominalDiffTime, NominalDiffTime, Int)] -> IO ()
 writeResultsCsv fp res = do
   putStrLn $ "Writing results to: " <> fp
   writeFileLBS fp $ headers <> "\n" <> foldMap toCsv res
  where
   headers = "txId,confirmationTime"
 
-  toCsv (a, b, c) = show a <> "," <> encode b <> "," <> encode c <> "\n"
+  toCsv (a, b, c, d) = show a <> "," <> encode b <> "," <> encode c <> "," <> encode d <> "\n"

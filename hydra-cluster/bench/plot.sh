@@ -28,9 +28,9 @@ set y2tics 0, 10
 set y2range [0:]
 set y2label "Submitted Tx / s"
 set datafile separator ","
-plot "${RESULTS}" u (timecolumn(1,"%Y-%m-%d %H:%M:%S")):3 t 'Tx Confirmation over time' axis x1y1, \
+plot "${RESULTS}" u (timecolumn(1,"%Y-%m-%d %H:%M:%S")):3 t 'Tx Confirmation over time' w histeps axis x1y1, \
      "${RESULTS}" u (timecolumn(1,"%Y-%m-%d %H:%M:%S")):2 t 'Tx Validation time' w histeps axis x1y1, \
-     "${RESULTS}" u (timecolumn(1, "%Y-%m-%d %H:%M:%S UTC")):(1.0) bins binwidth=1 w histeps axis x1y2 t 'Submitted Tx/s'
+     "${RESULTS}" u (timecolumn(1, "%Y-%m-%d %H:%M:%S UTC")):4 w histeps axis x1y2 t 'Submitted Tx/s'
 EOF
 
 echo "Created plot: ${DIR}/results.png"
