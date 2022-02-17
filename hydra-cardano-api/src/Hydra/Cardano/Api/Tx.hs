@@ -119,10 +119,9 @@ findRedeemerSpending (getTxBody -> ShelleyTxBody _ body _ scriptData _ _) txIn =
 --
 -- This function is partial and fails if given a Byron transaction body or, if
 -- the provided input isn't part of the transaction.
---
--- TODO: This function does NOT maintain the transaction's script integrity hash.
 removeRedeemerSpending ::
-  ( HasCallStack
+  forall era.
+  ( IsShelleyBasedEra era
   , Ledger.Era (ShelleyLedgerEra era)
   , HasField
       "inputs"
@@ -133,20 +132,14 @@ removeRedeemerSpending ::
   Tx era ->
   Tx era
 removeRedeemerSpending i (Tx body wits) =
-  case body of
-    ByronTxBody{} ->
-      error "removeRedeemerFor: called on a Byron transaction. What are you trying to do?"
-    ShelleyTxBody era ledgerBody scripts scriptsData auxData validity ->
+  case (body, shelleyBasedEra @era) of
+    (ShelleyTxBody era ledgerBody scripts scriptsData auxData validity, _) ->
       case Set.lookupIndex (toLedgerTxIn i) (getField @"inputs" ledgerBody) of
-        Nothing ->
-          -- NOTE: We _could_ return the unchanged transaction here, but that would
-          -- silently make the function continue where the caller probably did not
-          -- mean to call this function with a wrong 'TxIn'. So it is arguably
-          -- better to loudly fail and indicate an invariant failure.
-          error "removeRedeemerFor: provided 'TxIn' is not part of the transaction."
         Just ix ->
           let ptr = RdmrPtr Ledger.Spend (fromIntegral ix)
            in Tx (ShelleyTxBody era ledgerBody scripts (fn ptr scriptsData) auxData validity) wits
+        Nothing ->
+          Tx body wits
  where
   fn ptr = \case
     TxBodyNoScriptData ->
@@ -160,20 +153,17 @@ removeRedeemerSpending i (Tx body wits) =
 -- | Alter a transaction's  redeemers map given some mapping function.
 --
 -- This function is partial and fails if given a Byron transaction.
---
--- TODO: This function does NOT maintain the transaction's script integrity hash.
 adjustRedeemers ::
-  ( HasCallStack
+  forall era.
+  ( IsShelleyBasedEra era
   , Ledger.Era (ShelleyLedgerEra era)
   ) =>
   (RdmrPtr -> (ScriptData, ExecutionUnits) -> (ScriptData, ExecutionUnits)) ->
   Tx era ->
   Tx era
 adjustRedeemers adjust (Tx body wits) =
-  case body of
-    ByronTxBody{} ->
-      error "adjustRedeemers: called on a Byron transaction. What are you trying to do?"
-    ShelleyTxBody era ledgerBody scripts scriptsData auxData validity ->
+  case (body, shelleyBasedEra @era) of
+    (ShelleyTxBody era ledgerBody scripts scriptsData auxData validity, _) ->
       Tx (ShelleyTxBody era ledgerBody scripts (fn scriptsData) auxData validity) wits
  where
   fn = \case
@@ -195,21 +185,17 @@ adjustRedeemers adjust (Tx body wits) =
 -- | Adds given 'TxOutDatum' and corresponding hash to the transaction's scripts.
 --
 -- This function is partial and fails if given a Byron transaction.
---
--- TODO: This function does NOT maintain the transaction's script integrity hash.
 addDatum ::
-  ( HasCallStack
-  , HasScriptData era
+  forall era.
+  ( HasScriptData era
   , Ledger.Era (ShelleyLedgerEra era)
   ) =>
   ScriptData ->
   Tx era ->
   Tx era
 addDatum (toLedgerData -> datum) (Tx body wits) =
-  case body of
-    ByronTxBody{} ->
-      error "addDatum: called on a Byron transaction. What are you trying to do?"
-    ShelleyTxBody era ledgerBody scripts scriptsData auxData validity ->
+  case (body, shelleyBasedEra @era) of
+    (ShelleyTxBody era ledgerBody scripts scriptsData auxData validity, _) ->
       Tx (ShelleyTxBody era ledgerBody scripts (fn scriptsData) auxData validity) wits
  where
   fn = \case
