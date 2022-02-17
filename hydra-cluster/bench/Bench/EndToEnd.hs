@@ -39,7 +39,7 @@ import qualified Data.Map as Map
 import Data.Scientific (Scientific)
 import Data.Set ((\\))
 import qualified Data.Set as Set
-import Data.Time (nominalDiffTimeToSeconds, utctDayTime)
+import Data.Time (UTCTime (UTCTime), nominalDiffTimeToSeconds, utctDayTime)
 import Hydra.Cardano.Api (Tx, TxId, UTxO, getVerificationKey)
 import Hydra.Generator (Dataset (..))
 import Hydra.Ledger (txId)
@@ -182,6 +182,14 @@ withOSStats workDir action =
         hPutStrLn file $ show now <> "," <> show ((read cpu :: Double) / 100)
       _ -> pure ()
 
+-- | Compute average confirmation/validation time over intervals of 5 seconds.
+--
+-- Given a stream of (possibly unordered) data points for validation and confirmation time,
+-- this function will order and group them in 5s intervals, and compute the average of
+-- timings for this interval. It also outputs the /count/ of values for each interval.
+--
+-- __NOTE__: The timestamp of the grouped values is set to the beginning of the 5s time
+-- slice of the group.
 movingAverage :: [(UTCTime, NominalDiffTime, NominalDiffTime)] -> [(UTCTime, NominalDiffTime, NominalDiffTime, Int)]
 movingAverage confirmations =
   let window :: Num a => a
@@ -189,8 +197,10 @@ movingAverage confirmations =
 
       fiveSeconds = List.groupBy fiveSecSlice $ sortOn fst3 confirmations
 
-      fiveSecSlice (utctDayTime -> t1, _, _) (utctDayTime -> t2, _, _) =
-        (floor (t1 / window) * window :: Integer) == floor (t2 / window) * window
+      timeSlice t@UTCTime{utctDayTime} =
+        t{utctDayTime = fromIntegral (floor (utctDayTime / window) * window :: Integer)}
+
+      fiveSecSlice (timeSlice -> t1, _, _) (timeSlice -> t2, _, _) = t1 == t2
 
       fst3 (a, _, _) = a
       snd3 (_, a, _) = a
@@ -200,7 +210,11 @@ movingAverage confirmations =
         [] -> error "empty group"
         slice@((t, _, _) : _) ->
           let n = length slice
-           in (t, sum (map snd3 slice) / fromIntegral n, sum (map thd3 slice) / fromIntegral n, n `div` window)
+           in ( timeSlice t
+              , sum (map snd3 slice) / fromIntegral n
+              , sum (map thd3 slice) / fromIntegral n
+              , n `div` window
+              )
    in map average fiveSeconds
 
 createUTxOToCommit :: [Dataset] -> FilePath -> IO [UTxO]
