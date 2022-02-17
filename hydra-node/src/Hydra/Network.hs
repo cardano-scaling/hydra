@@ -17,6 +17,7 @@ module Hydra.Network (
   Network (..),
   NetworkComponent,
   NetworkCallback,
+  NetworkException (..),
   IP,
   Host (..),
   showHost,
@@ -28,10 +29,9 @@ module Hydra.Network (
   close,
 ) where
 
-import Hydra.Prelude hiding (show)
-
 import Data.IP (IP, toIPv4w)
 import Data.Text (pack, unpack)
+import Hydra.Prelude hiding (show)
 import Network.Socket (PortNumber, close)
 import Network.TypedProtocol.Pipelined ()
 import Text.Read (Read (readsPrec))
@@ -42,8 +42,13 @@ import Text.Show (Show (show))
 -- | Handle to interface with the hydra network and send messages "off chain".
 newtype Network m msg = Network
   { -- | Send a `msg` to the whole hydra network.
-    broadcast :: msg -> m ()
+    --
+    -- Throws at least 'NetworkException' when something goes wrong.
+    broadcast :: MonadThrow m => msg -> m ()
   }
+
+data NetworkException = NoConnectedPeers
+  deriving (Show, Exception)
 
 instance Contravariant (Network m) where
   contramap f (Network bcast) = Network $ \msg -> bcast (f msg)

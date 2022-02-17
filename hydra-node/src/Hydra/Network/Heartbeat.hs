@@ -73,6 +73,7 @@ withHeartbeat ::
   ( MonadAsync m
   , MonadDelay m
   , MonadMonotonicTime m
+  , MonadThrow m
   ) =>
   Host ->
   NetworkComponent m (Heartbeat (Message tx)) a ->
@@ -123,6 +124,7 @@ checkHeartbeatState ::
   ( MonadDelay m
   , MonadSTM m
   , MonadMonotonicTime m
+  , MonadThrow m
   ) =>
   Host ->
   TVar m HeartbeatState ->

@@ -8,8 +8,6 @@ module Hydra.Network.Ouroboros (
   module Hydra.Network,
 ) where
 
-import Hydra.Prelude
-
 import Cardano.Tracing.OrphanInstances.Network ()
 import Codec.CBOR.Term (Term)
 import qualified Codec.CBOR.Term as CBOR
@@ -24,6 +22,7 @@ import Control.Concurrent.STM (
   writeTChan,
  )
 import Control.Monad.Class.MonadAsync (wait)
+import Control.Monad.Class.MonadSTM (readTMVar, tryReadTMVar)
 import Data.Aeson (object, withObject, (.:), (.=))
 import qualified Data.Aeson as Aeson
 import qualified Data.Aeson.Types as Aeson
@@ -34,6 +33,7 @@ import Hydra.Network (
   Network (..),
   NetworkCallback,
   NetworkComponent,
+  NetworkException (NoConnectedPeers),
   PortNumber,
  )
 import Hydra.Network.Ouroboros.Client as FireForget (
@@ -49,6 +49,7 @@ import Hydra.Network.Ouroboros.Type (
   Message (..),
   codecFireForget,
  )
+import Hydra.Prelude
 import Network.Mux.Compat (
   MuxTrace,
   WithMuxBearer (..),
@@ -121,38 +122,44 @@ withOuroborosNetwork ::
   (ToCBOR msg, FromCBOR msg) =>
   Tracer IO (WithHost (TraceOuroborosNetwork msg)) ->
   Host ->
-  [Host] ->
+  TMVar IO [Host] ->
   NetworkCallback msg IO ->
   (Network IO msg -> IO ()) ->
   IO ()
 withOuroborosNetwork tracer localHost remoteHosts networkCallback between = do
   bchan <- newBroadcastTChanIO
-  chanPool <- newTBQueueIO (fromIntegral $ length remoteHosts)
-  replicateM_ (length remoteHosts) $
-    atomically $ do
-      dup <- dupTChan bchan
-      writeTBQueue chanPool dup
   -- TODO: Factor this out, there should be only one IOManager per process.
   withIOManager $ \iomgr -> do
-    race_ (connect iomgr chanPool hydraClient) $
+    race_ (connect iomgr bchan hydraClient) $
       race_ (listen iomgr hydraServer) $ do
         between $
           Network
-            { broadcast = atomically . writeTChan bchan
+            { broadcast = broadcast bchan
             }
  where
+  broadcast bchan msg =
+    atomically (tryReadTMVar remoteHosts) >>= \case
+      Just (_ : _) -> atomically $ writeTChan bchan msg
+      _ -> throwIO NoConnectedPeers
+
   resolveSockAddr Host{hostname, port} = do
     is <- getAddrInfo (Just defaultHints) (Just $ toString hostname) (Just $ show port)
     case is of
       (info : _) -> pure $ addrAddress info
       _ -> error "getAdrrInfo failed.. do proper error handling"
 
-  connect iomgr chanPool app = do
+  connect iomgr bchan app = do
+    peers <- atomically (readTMVar remoteHosts)
+    chanPool <- newTBQueueIO (fromIntegral $ length peers)
+    replicateM_ (length peers) $
+      atomically $ do
+        dup <- dupTChan bchan
+        writeTBQueue chanPool dup
     -- REVIEW(SN): move outside to have this information available?
     networkState <- newNetworkMutableState
     -- Using port number 0 to let the operating system pick a random port
     localAddr <- resolveSockAddr localHost{port = 0}
-    remoteAddrs <- forM remoteHosts resolveSockAddr
+    remoteAddrs <- mapM resolveSockAddr peers
     let sn = socketSnocket iomgr
     Subscription.ipSubscriptionWorker
       sn

@@ -4,18 +4,17 @@
 -- | Test the real networking layer
 module Hydra.NetworkSpec where
 
-import Hydra.Prelude
-import Test.Hydra.Prelude
-
 import Codec.CBOR.Read (deserialiseFromBytes)
 import Codec.CBOR.Write (toLazyByteString)
-import Control.Monad.Class.MonadSTM (newTQueue, readTQueue, writeTQueue)
+import Control.Monad.Class.MonadSTM (newEmptyTMVarIO, newTMVarIO, newTQueue, readTQueue, writeTQueue)
 import Hydra.Ledger.Simple (SimpleTx (..))
 import Hydra.Logging (showLogsOnFailure)
-import Hydra.Network (Host (..), Network, PortNumber)
+import Hydra.Network (Host (..), Network, NetworkException, PortNumber)
 import Hydra.Network.Message (Message (..))
 import Hydra.Network.Ouroboros (broadcast, withOuroborosNetwork)
+import Hydra.Prelude
 import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
+import Test.Hydra.Prelude
 import Test.Network.Ports (randomUnusedTCPPorts)
 import Test.QuickCheck (
   property,
@@ -28,12 +27,21 @@ spec = parallel $
     let lo = "127.0.0.1"
 
     describe "Ouroboros Network" $ do
+      it "raises exception when broadcasting given no peer is given" $ do
+        showLogsOnFailure $ \tracer -> failAfter 30 $ do
+          [port1] <- fmap fromIntegral <$> randomUnusedTCPPorts 1
+          peers <- newEmptyTMVarIO
+          withOuroborosNetwork tracer (Host lo port1) peers (const @_ @Integer $ pure ()) $ \hn1 ->
+            broadcast hn1 1 `shouldThrow` \(_ :: NetworkException) -> True
+
       it "broadcasts messages to single connected peer" $ do
         received <- atomically newTQueue
         showLogsOnFailure $ \tracer -> failAfter 30 $ do
           [port1, port2] <- fmap fromIntegral <$> randomUnusedTCPPorts 2
-          withOuroborosNetwork tracer (Host lo port1) [Host lo port2] (const @_ @Integer $ pure ()) $ \hn1 ->
-            withOuroborosNetwork @Integer tracer (Host lo port2) [Host lo port1] (atomically . writeTQueue received) $ \_ -> do
+          peers1 <- newTMVarIO [Host lo port2]
+          peers2 <- newTMVarIO [Host lo port1]
+          withOuroborosNetwork tracer (Host lo port1) peers1 (const @_ @Integer $ pure ()) $ \hn1 ->
+            withOuroborosNetwork @Integer tracer (Host lo port2) peers2 (atomically . writeTQueue received) $ \_ -> do
               withAsync (1 `broadcastFrom` hn1) $ \_ ->
                 atomically (readTQueue received) `shouldReturn` 1
 
@@ -43,9 +51,12 @@ spec = parallel $
         node3received <- atomically newTQueue
         showLogsOnFailure $ \tracer -> failAfter 30 $ do
           [port1, port2, port3] <- fmap fromIntegral <$> randomUnusedTCPPorts 3
-          withOuroborosNetwork @Integer tracer (Host lo port1) [Host lo port2, Host lo port3] (atomically . writeTQueue node1received) $ \hn1 ->
-            withOuroborosNetwork tracer (Host lo port2) [Host lo port1, Host lo port3] (atomically . writeTQueue node2received) $ \hn2 -> do
-              withOuroborosNetwork tracer (Host lo port3) [Host lo port1, Host lo port2] (atomically . writeTQueue node3received) $ \hn3 -> do
+          peers1 <- newTMVarIO [Host lo port2, Host lo port3]
+          peers2 <- newTMVarIO [Host lo port1, Host lo port3]
+          peers3 <- newTMVarIO [Host lo port1, Host lo port2]
+          withOuroborosNetwork @Integer tracer (Host lo port1) peers1 (atomically . writeTQueue node1received) $ \hn1 ->
+            withOuroborosNetwork tracer (Host lo port2) peers2 (atomically . writeTQueue node2received) $ \hn2 -> do
+              withOuroborosNetwork tracer (Host lo port3) peers3 (atomically . writeTQueue node3received) $ \hn3 -> do
                 assertAllNodesBroadcast
                   [ (port1, hn1, node1received)
                   , (port2, hn2, node2received)

@@ -3,8 +3,7 @@
 
 module Main where
 
-import Hydra.Prelude
-
+import Control.Monad.Class.MonadSTM (newTMVarIO)
 import Hydra.API.Server (withAPIServer)
 import Hydra.Chain (Chain, ChainCallback)
 import Hydra.Chain.Direct (withDirectChain)
@@ -27,6 +26,7 @@ import Hydra.Node (
  )
 import Hydra.Options (ChainConfig (..), Options (..), parseHydraOptions)
 import Hydra.Party (Party)
+import Hydra.Prelude
 
 main :: IO ()
 main = do
@@ -35,8 +35,9 @@ main = do
   withTracer verbosity $ \tracer' ->
     withMonitoring monitoringPort tracer' $ \tracer -> do
       eq <- createEventQueue
+      remoteHosts <- newTMVarIO peers
       withChain tracer party (putEvent eq . OnChainEvent) chainConfig $ \oc ->
-        withNetwork (contramap Network tracer) host port peers (putEvent eq . NetworkEvent) $ \hn ->
+        withNetwork (contramap Network tracer) host port remoteHosts (putEvent eq . NetworkEvent) $ \hn ->
           withAPIServer apiHost apiPort party (contramap APIServer tracer) (putEvent eq . ClientEvent) $ \server ->
             createHydraNode eq hn Ledger.cardanoLedger oc server env >>= runHydraNode (contramap Node tracer)
  where

@@ -182,7 +182,7 @@ executable hydra-node
     , base
     , hydra-node
     , hydra-prelude
-
+    , io-classes
   ghc-options:    -threaded -rtsopts
 
 executable tx-cost
