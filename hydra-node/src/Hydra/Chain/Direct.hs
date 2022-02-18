@@ -329,7 +329,7 @@ chainSyncClient tracer callback headState =
   runOnChainTx :: [OnChainTx Tx] -> ValidatedTx Era -> STM m [OnChainTx Tx]
   runOnChainTx observed (fromLedgerTx -> tx) = do
     SomeOnChainHeadState st <- readTVar headState
-    observeTx tx st >>= \case
+    case observeTx tx st of
       Just (onChainTx, st') -> do
         writeTVar headState st'
         pure $ onChainTx : observed

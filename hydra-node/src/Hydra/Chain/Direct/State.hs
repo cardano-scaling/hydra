@@ -34,6 +34,9 @@ import qualified Cardano.Api.UTxO as UTxO
 import qualified Data.Map as Map
 import Hydra.Chain (HeadParameters, OnChainTx (..), PostTxError (..))
 import Hydra.Chain.Direct.Tx (
+  CloseObservation (..),
+  CollectComObservation (..),
+  InitObservation (..),
   abortTx,
   closeTx,
   collectComTx,
@@ -91,8 +94,18 @@ data HydraStateMachine (st :: HeadStateKind) where
 getKnownUTxO ::
   OnChainHeadState m st ->
   UTxO
-getKnownUTxO =
-  undefined
+getKnownUTxO OnChainHeadState{stateMachine} =
+  case stateMachine of
+    Idle{} ->
+      mempty
+    Initialized{initialThreadOutput, initialInitials, initialCommits} ->
+      UTxO $
+        Map.fromList $
+          take2Of4 initialThreadOutput : (take2Of3 <$> (initialInitials <> initialCommits))
+    Open{openThreadOutput = (i, o, _, _)} ->
+      UTxO.singleton (i, o)
+    Closed{closedThreadOutput = (i, o, _, _)} ->
+      UTxO.singleton (i, o)
 
 -- Working with opaque states
 
@@ -266,21 +279,112 @@ fanout utxo OnChainHeadState{stateMachine} = do
 
 class HasTransition st where
   observeTx ::
+    MonadSTM m =>
     Tx ->
     OnChainHeadState m st ->
-    STM m (Maybe (OnChainTx Tx, SomeOnChainHeadState m))
+    Maybe (OnChainTx Tx, SomeOnChainHeadState m)
 
 instance HasTransition 'StIdle where
-  observeTx = undefined
+  observeTx tx OnChainHeadState{networkId, ownParty, ownWallet} = do
+    (event, observation) <- observeInitTx networkId ownParty tx
+    let InitObservation{threadOutput, initials, commits} = observation
+    let st' =
+          OnChainHeadState
+            { networkId
+            , ownParty
+            , ownWallet
+            , stateMachine =
+                Initialized
+                  { initialThreadOutput = threadOutput
+                  , initialInitials = initials
+                  , initialCommits = commits
+                  }
+            }
+    pure (event, SomeOnChainHeadState st')
 
 instance HasTransition 'StInitialized where
-  observeTx = undefined
+  observeTx tx st@OnChainHeadState{networkId, ownWallet, ownParty, stateMachine} = do
+    observeCommit <|> observeCollectCom <|> observeAbort
+   where
+    Initialized
+      { initialCommits
+      , initialInitials
+      } = stateMachine
+
+    observeCommit = do
+      let initials = fst3 <$> initialInitials
+      (event, newCommit) <- observeCommitTx networkId initials tx
+      let st' =
+            st
+              { stateMachine =
+                  stateMachine
+                    { initialInitials =
+                        -- NOTE: A commit tx has been observed and thus we can
+                        -- remove all it's inputs from our tracked initials
+                        filter ((`notElem` txIns' tx) . fst3) initialInitials
+                    , initialCommits =
+                        newCommit : initialCommits
+                    }
+              }
+      pure (event, SomeOnChainHeadState st')
+
+    observeCollectCom = do
+      let utxo = getKnownUTxO st
+      (event, observation) <- observeCollectComTx utxo tx
+      let CollectComObservation{threadOutput} = observation
+      let st' =
+            OnChainHeadState
+              { networkId
+              , ownWallet
+              , ownParty
+              , stateMachine =
+                  Open
+                    { openThreadOutput = threadOutput
+                    }
+              }
+      pure (event, SomeOnChainHeadState st')
+
+    observeAbort = do
+      let utxo = getKnownUTxO st
+      (event, ()) <- observeAbortTx utxo tx
+      let st' =
+            OnChainHeadState
+              { networkId
+              , ownWallet
+              , ownParty
+              , stateMachine = Idle
+              }
+      pure (event, SomeOnChainHeadState st')
 
 instance HasTransition 'StOpen where
-  observeTx = undefined
+  observeTx tx st@OnChainHeadState{networkId, ownWallet, ownParty} = do
+    let utxo = getKnownUTxO st
+    (event, observation) <- observeCloseTx utxo tx
+    let CloseObservation{threadOutput} = observation
+    let st' =
+          OnChainHeadState
+            { networkId
+            , ownWallet
+            , ownParty
+            , stateMachine =
+                Closed
+                  { closedThreadOutput = threadOutput
+                  }
+            }
+    pure (event, SomeOnChainHeadState st')
 
 instance HasTransition 'StClosed where
-  observeTx = undefined
+  observeTx tx st@OnChainHeadState{networkId, ownWallet, ownParty} = do
+    let utxo = getKnownUTxO st
+    (event, ()) <- observeFanoutTx utxo tx
+    let st' =
+          OnChainHeadState
+            { networkId
+            , ownWallet
+            , ownParty
+            , stateMachine = Idle
+            }
+    pure (event, SomeOnChainHeadState st')
 
 --
 -- Helpers
@@ -296,3 +400,9 @@ drop2nd (a, _b, c) = (a, c)
 
 tripleToPair :: (a, b, c) -> (a, (b, c))
 tripleToPair (a, b, c) = (a, (b, c))
+
+take2Of4 :: (a, b, c, d) -> (a, b)
+take2Of4 (a, b, _c, _d) = (a, b)
+
+take2Of3 :: (a, b, c) -> (a, b)
+take2Of3 (a, b, _c) = (a, b)
