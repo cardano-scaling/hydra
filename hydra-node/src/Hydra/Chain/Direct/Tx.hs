@@ -41,31 +41,6 @@ import Plutus.V2.Ledger.Api (toBuiltin)
 
 type UTxOWithScript = (TxIn, TxOut CtxUTxO, ScriptData)
 
--- | Maintains information needed to construct on-chain transactions
--- depending on the current state of the head.
-data OnChainHeadState
-  = None
-  | Initial
-      { -- | The state machine UTxO produced by the Init transaction
-        -- This output should always be present and 'threaded' across all
-        -- transactions.
-        -- NOTE(SN): The Head's identifier is somewhat encoded in the TxOut's address
-        -- XXX(SN): Data and [OnChain.Party] are overlapping
-        threadOutput :: (TxIn, TxOut CtxUTxO, ScriptData, [OnChain.Party])
-      , initials :: [UTxOWithScript]
-      , commits :: [UTxOWithScript]
-      }
-  | OpenOrClosed
-      { -- | The state machine UTxO produced by the Init transaction
-        -- This output should always be present and 'threaded' across all
-        -- transactions.
-        -- NOTE(SN): The Head's identifier is somewhat encoded in the TxOut's address
-        -- XXX(SN): Data and [OnChain.Party] are overlapping
-        threadOutput :: (TxIn, TxOut CtxUTxO, ScriptData, [OnChain.Party])
-      }
-  | Final
-  deriving (Eq, Show, Generic)
-
 -- FIXME: should not be hardcoded, for testing purposes only
 threadToken :: AssetClass
 threadToken = assetClass (currencySymbol "hydra") (tokenName "token")
@@ -626,21 +601,6 @@ observeAbortTx utxo tx = do
   headScript = fromPlutusScript $ Head.validatorScript policyId
 
 -- * Functions related to OnChainHeadState
-
--- | Provide a UTXO map for given OnChainHeadState. Used by the TinyWallet and
--- the direct chain component to lookup inputs for balancing / constructing txs.
--- XXX(SN): This is a hint that we might want to track the UTxO directly?
-getKnownUTxO :: OnChainHeadState -> Map TxIn (TxOut CtxUTxO)
-getKnownUTxO = \case
-  Initial{threadOutput, initials, commits} ->
-    Map.fromList $ take2 threadOutput : (take2' <$> (initials <> commits))
-  OpenOrClosed{threadOutput = (i, o, _, _)} ->
-    Map.singleton i o
-  _ ->
-    mempty
- where
-  take2 (i, o, _, _) = (i, o)
-  take2' (i, o, _) = (i, o)
 
 -- | Look for the "initial" which corresponds to given cardano verification key.
 ownInitial ::
