@@ -2,54 +2,59 @@
 {-# LANGUAGE TypeApplications #-}
 
 module Hydra.Chain.Direct.State (
-  -- * OnChainHeadState'
-  OnChainHeadState',
+  -- * OnChainHeadState
+  OnChainHeadState,
   HeadStateKind (..),
+  getKnownUTxO,
 
-  -- ** Common
-  commitAddress,
+  -- ** Working with opaque states
+  SomeOnChainHeadState (..),
+  TokHeadState (..),
+  reifyState,
 
-  -- ** Idle
-  idleOnChainHeadState',
+  -- ** Initializing
+  idleOnChainHeadState,
 
-  -- ** Initialized
-  initialOutputRef,
-  mkCommitOutput,
-  findInitialRedeemer,
-  putCommit,
+  -- ** Constructing transitions
+  initialize,
+  abort,
+  commit,
+  collect,
+  close,
+  fanout,
 
-  -- ** Open
-
-  -- ** Closed
+  -- ** Observing transitions
+  observeTx,
 ) where
 
 import Hydra.Cardano.Api
 import Hydra.Prelude
 
-import Cardano.Binary (serialize')
-import qualified Hydra.Contract.Commit as Commit
-import qualified Hydra.Contract.Head as Head
-import Hydra.Contract.Initial (Initial)
-import qualified Hydra.Contract.Initial as Initial
-import Hydra.Data.Party (partyFromVerKey)
-import qualified Hydra.Data.Party as OnChain
-import Hydra.Party (Party, vkey)
-import Ledger.Typed.Scripts (ValidatorTypes (..))
-import Ledger.Value (AssetClass (..), currencyMPSHash)
-import Plutus.V1.Ledger.Api (
-  Datum,
-  MintingPolicyHash,
-  ValidatorHash,
-  fromData,
-  toBuiltin,
+import qualified Data.Map as Map
+import Hydra.Chain (HeadParameters, OnChainTx (..), PostTxError (..))
+import Hydra.Chain.Direct.Tx (
+  abortTx,
+  closeTx,
+  collectComTx,
+  commitTx,
+  fanoutTx,
+  initTx,
+  observeAbortTx,
+  observeCloseTx,
+  observeCollectComTx,
+  observeCommitTx,
+  observeFanoutTx,
+  observeInitTx,
  )
-import Plutus.V1.Ledger.Value (assetClass, currencySymbol, tokenName)
+import Hydra.Chain.Direct.Wallet (TinyWallet (..))
+import qualified Hydra.Data.Party as OnChain
+import Hydra.Party (Party)
 
 -- | An opaque on-chain head state, which records information and events
 -- happening on the layer-1 for a given Hydra head.
-data OnChainHeadState' (st :: HeadStateKind) = OnChainHeadState'
+data OnChainHeadState m (st :: HeadStateKind) = OnChainHeadState
   { networkId :: NetworkId
-  , ownVerificationKey :: VerificationKey PaymentKey
+  , ownWallet :: TinyWallet m
   , ownParty :: Party
   , stateMachine :: HydraStateMachine st
   }
@@ -65,7 +70,7 @@ data OnChainHeadState' (st :: HeadStateKind) = OnChainHeadState'
 -- across all branches!
 data HydraStateMachine (st :: HeadStateKind) where
   Idle :: HydraStateMachine 'StIdle
-  Initial ::
+  Initialized ::
     { initialThreadOutput :: (TxIn, TxOut CtxUTxO, ScriptData, [OnChain.Party])
     , initialInitials :: [UTxOWithScript]
     , initialCommits :: [UTxOWithScript]
@@ -80,6 +85,19 @@ data HydraStateMachine (st :: HeadStateKind) where
     } ->
     HydraStateMachine 'StClosed
 
+getKnownUTxO ::
+  OnChainHeadState m st ->
+  UTxO
+getKnownUTxO =
+  undefined
+
+-- Working with opaque states
+
+-- | An existential wrapping /some/ 'OnChainHeadState' into a value that carry
+-- no type-level information about the state.
+data SomeOnChainHeadState m where
+  SomeOnChainHeadState :: forall st m. OnChainHeadState m st -> SomeOnChainHeadState m
+
 -- | Some Kind for witnessing Hydra state-machine's states at the type-level.
 --
 -- This is useful to
@@ -90,94 +108,119 @@ data HydraStateMachine (st :: HeadStateKind) where
 -- non-reachable cases.
 data HeadStateKind = StIdle | StInitialized | StOpen | StClosed
 
--- Common
+-- | A token witnessing the state's type of an 'OnChainHeadState'. See 'reifyState'
+data TokHeadState (st :: HeadStateKind) where
+  TokHeadStateIdle :: TokHeadState 'StIdle
+  TokHeadStateInitialized :: TokHeadState 'StInitialized
+  TokHeadStateOpen :: TokHeadState 'StOpen
+  TokHeadStateClosed :: TokHeadState 'StClosed
 
-commitAddress :: OnChainHeadState' st -> AddressInEra
-commitAddress OnChainHeadState'{networkId} =
-  mkScriptAddress @PlutusScriptV1 networkId commitScript
- where
-  commitScript = fromPlutusScript Commit.validatorScript
+-- | Reify a 'HeadStateKind' kind into a value to enable pattern-matching on
+-- existentials.
+reifyState :: forall m st. OnChainHeadState m st -> TokHeadState st
+reifyState OnChainHeadState{stateMachine} =
+  case stateMachine of
+    Idle{} -> TokHeadStateIdle
+    Initialized{} -> TokHeadStateInitialized
+    Open{} -> TokHeadStateOpen
+    Closed{} -> TokHeadStateClosed
 
--- Idle
+-- Initialization
 
--- | Initialize a new 'OnChainHeadState''.
-idleOnChainHeadState' ::
+-- | Initialize a new 'OnChainHeadState'.
+idleOnChainHeadState ::
   NetworkId ->
-  VerificationKey PaymentKey ->
+  TinyWallet m ->
   Party ->
-  OnChainHeadState' 'StIdle
-idleOnChainHeadState' networkId ownVerificationKey ownParty =
-  OnChainHeadState'
+  OnChainHeadState m 'StIdle
+idleOnChainHeadState networkId ownWallet ownParty =
+  OnChainHeadState
     { networkId
-    , ownVerificationKey
+    , ownWallet
     , ownParty
     , stateMachine = Idle
     }
 
--- Initialized
+-- Constructing Transitions
 
--- | Retrieve the initial output reference (i.e. locked by an initial script)
--- and a corresponding spending witness.
-initialOutputRef ::
-  Maybe (TxIn, TxOut CtxUTxO) ->
-  OnChainHeadState' 'StInitialized ->
-  Maybe (TxIn, BuildTxWith BuildTx (Witness WitCtxTxIn))
-initialOutputRef utxo OnChainHeadState'{ownVerificationKey, stateMachine} = do
-  (outRef, vkh) <- ownInitial ownVerificationKey initialInitials
-  let initialScript =
-        fromPlutusScript @PlutusScriptV1 Initial.validatorScript
-  let initialDatum =
-        mkScriptDatum $ Initial.datum $ toPlutusKeyHash vkh
-  let initialRedeemer =
-        toScriptData . Initial.redeemer $
-          Initial.Commit (toPlutusTxOutRef . fst <$> utxo)
-  return
-    ( outRef
-    , BuildTxWith $ mkScriptWitness initialScript initialDatum initialRedeemer
-    )
- where
-  Initial{initialInitials} = stateMachine
+-- | Initialize a head from an 'StIdle' state. This does not change the state
+-- but produces a transaction which, if observed, does apply the transition.
+initialize ::
+  (MonadSTM m, MonadThrow (STM m)) =>
+  HeadParameters ->
+  [VerificationKey PaymentKey] ->
+  OnChainHeadState m 'StIdle ->
+  STM m Tx
+initialize params cardanoKeys OnChainHeadState{ownWallet, networkId} = do
+  u <- getUTxO ownWallet
+  -- NOTE: 'lookupMax' to favor change outputs!
+  case Map.lookupMax u of
+    Just (fromLedgerTxIn -> seedInput, _) ->
+      pure $ initTx networkId cardanoKeys params seedInput
+    Nothing ->
+      throwIO (NoSeedInput @Tx)
 
-mkCommitOutput ::
-  Maybe (TxIn, TxOut CtxUTxO) ->
-  OnChainHeadState' 'StInitialized ->
-  TxOut CtxTx
-mkCommitOutput mUTxO st@OnChainHeadState'{ownParty} =
-  TxOut (commitAddress st) commitValue commitDatum
- where
-  -- FIXME: We should add the value from the initialIn too because it contains the PTs
-  commitValue =
-    headValue <> maybe mempty (txOutValue . snd) mUTxO
-  commitDatum =
-    mkTxOutDatum $ mkCommitDatum ownParty (Head.validatorHash policyId) mUTxO
+commit ::
+  (MonadSTM m, MonadThrow (STM m)) =>
+  UTxO ->
+  OnChainHeadState m 'StInitialized ->
+  STM m Tx
+commit =
+  undefined
 
-findInitialRedeemer ::
-  Tx ->
-  OnChainHeadState' 'StInitialized ->
-  Maybe (RedeemerType Initial)
-findInitialRedeemer tx OnChainHeadState'{stateMachine} = do
-  findInitialOutputRef >>= findRedeemerSpending tx
- where
-  Initial{initialInitials} = stateMachine
+abort ::
+  (MonadSTM m, MonadThrow (STM m)) =>
+  OnChainHeadState m 'StInitialized ->
+  STM m Tx
+abort =
+  undefined
 
-  findInitialOutputRef =
-    case filter (`elem` (fst3 <$> initialInitials)) (txIns' tx) of
-      [input] -> Just input
-      _ -> Nothing
+collect ::
+  (MonadSTM m, MonadThrow (STM m)) =>
+  OnChainHeadState m 'StInitialized ->
+  STM m Tx
+collect =
+  undefined
 
-putCommit ::
-  UTxOWithScript ->
-  OnChainHeadState' 'StInitialized ->
-  OnChainHeadState' 'StInitialized
-putCommit commit st@OnChainHeadState'{stateMachine} =
-  st
-    { stateMachine =
-        stateMachine
-          { initialCommits = commit : initialCommits
-          }
-    }
- where
-  Initial{initialCommits} = stateMachine
+close ::
+  (MonadSTM m, MonadThrow (STM m)) =>
+  OnChainHeadState m 'StOpen ->
+  STM m Tx
+close =
+  undefined
+
+fanout ::
+  (MonadSTM m, MonadThrow (STM m)) =>
+  OnChainHeadState m 'StClosed ->
+  STM m Tx
+fanout =
+  undefined
+
+-- Observing Transitions
+
+class HasTransition st st' where
+  observeTx ::
+    Tx ->
+    OnChainHeadState m st ->
+    m (Maybe (OnChainTx Tx, OnChainHeadState m st'))
+
+instance HasTransition 'StIdle 'StInitialized where
+  observeTx = undefined
+
+instance HasTransition 'StInitialized 'StIdle where
+  observeTx = undefined
+
+instance HasTransition 'StInitialized 'StInitialized where
+  observeTx = undefined
+
+instance HasTransition 'StInitialized 'StOpen where
+  observeTx = undefined
+
+instance HasTransition 'StOpen 'StClosed where
+  observeTx = undefined
+
+instance HasTransition 'StClosed 'StIdle where
+  observeTx = undefined
 
 --
 -- Helpers
@@ -187,40 +230,3 @@ type UTxOWithScript = (TxIn, TxOut CtxUTxO, ScriptData)
 
 fst3 :: (a, b, c) -> a
 fst3 (a, _b, _c) = a
-
--- FIXME: should not be hardcoded but come from the previous state!
-headValue :: Value
-headValue = lovelaceToValue (Lovelace 2_000_000)
-
--- FIXME: should not be hardcoded, for testing purposes only
-threadToken :: AssetClass
-threadToken = assetClass (currencySymbol "hydra") (tokenName "token")
-
--- FIXME: This should be part of the OnChainHeadState
-policyId :: MintingPolicyHash
-(policyId, _) = first currencyMPSHash (unAssetClass threadToken)
-
-mkCommitDatum :: Party -> ValidatorHash -> Maybe (TxIn, TxOut CtxUTxO) -> Datum
-mkCommitDatum (partyFromVerKey . vkey -> party) headValidatorHash utxo =
-  Commit.datum (party, headValidatorHash, serializedUTxO)
- where
-  serializedUTxO = case utxo of
-    Nothing ->
-      Nothing
-    Just (_i, o) ->
-      Just $ Commit.SerializedTxOut (toBuiltin $ serialize' $ toLedgerTxOut o)
-
--- | Look for the "initial" which corresponds to given cardano verification key.
-ownInitial ::
-  VerificationKey PaymentKey ->
-  [UTxOWithScript] ->
-  Maybe (TxIn, Hash PaymentKey)
-ownInitial vkey =
-  foldl' go Nothing
- where
-  go (Just x) _ = Just x
-  go Nothing (i, _, dat) = do
-    let vkh = verificationKeyHash vkey
-    pkh <- fromData (toPlutusData dat)
-    guard $ pkh == toPlutusKeyHash vkh
-    pure (i, vkh)
