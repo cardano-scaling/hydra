@@ -30,6 +30,7 @@ module Hydra.Chain.Direct.State (
 import Hydra.Cardano.Api
 import Hydra.Prelude
 
+import qualified Cardano.Api.UTxO as UTxO
 import qualified Data.Map as Map
 import Hydra.Chain (HeadParameters, OnChainTx (..), PostTxError (..))
 import Hydra.Chain.Direct.Tx (
@@ -45,6 +46,7 @@ import Hydra.Chain.Direct.Tx (
   observeCommitTx,
   observeFanoutTx,
   observeInitTx,
+  ownInitial,
  )
 import Hydra.Chain.Direct.Wallet (TinyWallet (..))
 import qualified Hydra.Data.Party as OnChain
@@ -150,6 +152,16 @@ idleOnChainHeadState networkId ownWallet ownParty =
 
 -- Constructing Transitions
 
+-- NOTE / TODO: The only real reason why all the function belows are in STM is
+-- because they do access the wallet's UTXO for error reporting. This is
+-- misleading and slightly annoying for testing given that all those functions
+-- are actually "pure" (modulo exceptions which can be captured as 'Either').
+--
+-- I'd suggest to remove the `MonadThrow` instance and instead have the
+-- potentially failing functions return an 'Either' and, do the exception
+-- throwing in the upper-layer, wrapping the error with details such as the
+-- wallet UTxO.
+
 -- | Initialize a head from an 'StIdle' state. This does not change the state
 -- but produces a transaction which, if observed, does apply the transition.
 initialize ::
@@ -172,38 +184,83 @@ commit ::
   UTxO ->
   OnChainHeadState m 'StInitialized ->
   STM m Tx
-commit =
-  undefined
+commit utxo st@OnChainHeadState{networkId, ownParty, ownWallet, stateMachine} = do
+  case ownInitial (verificationKey ownWallet) initialInitials of
+    Nothing ->
+      throwIO (CannotFindOwnInitial{knownUTxO = getKnownUTxO st} :: PostTxError Tx)
+    Just initial ->
+      case UTxO.pairs utxo of
+        [aUTxO] -> do
+          pure $ commitTx networkId ownParty (Just aUTxO) initial
+        [] -> do
+          pure $ commitTx networkId ownParty Nothing initial
+        _ ->
+          throwIO (MoreThanOneUTxOCommitted @Tx)
+ where
+  Initialized
+    { initialInitials
+    } = stateMachine
 
 abort ::
-  (MonadSTM m, MonadThrow (STM m)) =>
+  (MonadSTM m) =>
   OnChainHeadState m 'StInitialized ->
   STM m Tx
-abort =
-  undefined
+abort OnChainHeadState{networkId, stateMachine} = do
+  let (i, _, dat, _) = initialThreadOutput
+      initials = Map.fromList $ map drop2nd initialInitials
+      commits = Map.fromList $ map tripleToPair initialCommits
+   in case abortTx networkId (i, dat) initials commits of
+        Left err ->
+          -- FIXME: Exception with MonadThrow?
+          error $ show err
+        Right tx' ->
+          pure tx'
+ where
+  Initialized
+    { initialThreadOutput
+    , initialInitials
+    , initialCommits
+    } = stateMachine
 
 collect ::
-  (MonadSTM m, MonadThrow (STM m)) =>
+  (MonadSTM m) =>
   OnChainHeadState m 'StInitialized ->
   STM m Tx
-collect =
-  undefined
+collect OnChainHeadState{networkId, stateMachine} = do
+  let (i, _, dat, parties) = initialThreadOutput
+      commits = Map.fromList $ fmap tripleToPair initialCommits
+  pure $ collectComTx networkId (i, dat, parties) commits
+ where
+  Initialized
+    { initialThreadOutput
+    , initialCommits
+    } = stateMachine
 
 close ::
-  (MonadSTM m, MonadThrow (STM m)) =>
+  (MonadSTM m) =>
   ConfirmedSnapshot Tx ->
   OnChainHeadState m 'StOpen ->
   STM m Tx
-close =
-  undefined
+close confirmedSnapshot OnChainHeadState{stateMachine} = do
+  let (sn, sigs) =
+        case confirmedSnapshot of
+          ConfirmedSnapshot{snapshot, signatures} -> (snapshot, signatures)
+          InitialSnapshot{snapshot} -> (snapshot, mempty)
+  let (i, o, dat, _) = openThreadOutput
+  pure $ closeTx sn sigs (i, o, dat)
+ where
+  Open{openThreadOutput} = stateMachine
 
 fanout ::
-  (MonadSTM m, MonadThrow (STM m)) =>
+  (MonadSTM m) =>
   UTxO ->
   OnChainHeadState m 'StClosed ->
   STM m Tx
-fanout =
-  undefined
+fanout utxo OnChainHeadState{stateMachine} = do
+  let (i, _, dat, _) = closedThreadOutput
+   in pure $ fanoutTx utxo (i, dat)
+ where
+  Closed{closedThreadOutput} = stateMachine
 
 -- Observing Transitions
 
@@ -233,3 +290,9 @@ type UTxOWithScript = (TxIn, TxOut CtxUTxO, ScriptData)
 
 fst3 :: (a, b, c) -> a
 fst3 (a, _b, _c) = a
+
+drop2nd :: (a, b, c) -> (a, c)
+drop2nd (a, _b, c) = (a, c)
+
+tripleToPair :: (a, b, c) -> (a, (b, c))
+tripleToPair (a, b, c) = (a, (b, c))
