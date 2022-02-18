@@ -34,15 +34,16 @@ import Control.Monad.Class.MonadSTM (
  )
 import Data.Aeson (Result (Error, Success), Value, encode, fromJSON, (.=))
 import Data.Aeson.Lens (key, _Array, _Number, _String)
+import qualified Data.List as List
 import qualified Data.Map as Map
 import Data.Scientific (Scientific)
 import Data.Set ((\\))
 import qualified Data.Set as Set
-import Data.Time (nominalDiffTimeToSeconds)
+import Data.Time (UTCTime (UTCTime), nominalDiffTimeToSeconds, utctDayTime)
 import Hydra.Cardano.Api (Tx, TxId, UTxO, getVerificationKey)
 import Hydra.Generator (Dataset (..))
 import Hydra.Ledger (txId)
-import Hydra.Logging (showLogsOnFailure)
+import Hydra.Logging (withTracerOutputTo)
 import Hydra.Party (deriveParty, generateKey)
 import HydraNode (
   EndToEndLog (..),
@@ -57,8 +58,18 @@ import HydraNode (
   withHydraCluster,
   withNewClient,
  )
+import System.Directory (findExecutable)
 import System.FilePath ((</>))
+import System.IO (hGetLine, hPutStrLn)
+import System.Process (
+  CreateProcess (..),
+  StdStream (CreatePipe),
+  proc,
+  withCreateProcess,
+ )
 import Text.Printf (printf)
+import Text.Regex.TDFA (getAllTextMatches, (=~))
+import Prelude (read)
 
 aliceSk, bobSk, carolSk :: SignKeyDSIGN MockDSIGN
 aliceSk = 10
@@ -80,45 +91,131 @@ data Event = Event
 bench :: DiffTime -> FilePath -> [Dataset] -> Word64 -> Spec
 bench timeoutSeconds workDir dataset clusterSize =
   specify ("Load test on " <> show clusterSize <> " local nodes in " <> workDir) $ do
-    showLogsOnFailure $ \tracer ->
-      failAfter timeoutSeconds $ do
-        let cardanoKeys = map (\Dataset{signingKey} -> (getVerificationKey signingKey, signingKey)) dataset
-        config <- newNodeConfig workDir
-        withBFTNode (contramap FromCluster tracer) config (fst <$> cardanoKeys) $ \(RunningNode _ nodeSocket) -> do
-          withHydraCluster tracer workDir nodeSocket cardanoKeys $ \(leader :| followers) -> do
-            let nodes = leader : followers
-            waitForNodesConnected tracer [1 .. fromIntegral clusterSize] nodes
+    withFile (workDir </> "test.log") ReadWriteMode $ \hdl ->
+      withTracerOutputTo hdl "Test" $ \tracer ->
+        failAfter timeoutSeconds $ do
+          let cardanoKeys = map (\Dataset{signingKey} -> (getVerificationKey signingKey, signingKey)) dataset
+          config <- newNodeConfig workDir
+          withOSStats workDir $
+            withBFTNode (contramap FromCluster tracer) config (fst <$> cardanoKeys) $ \(RunningNode _ nodeSocket) -> do
+              withHydraCluster tracer workDir nodeSocket cardanoKeys $ \(leader :| followers) -> do
+                let nodes = leader : followers
+                waitForNodesConnected tracer [1 .. fromIntegral clusterSize] nodes
 
-            initialUTxOs <- createUTxOToCommit dataset nodeSocket
+                initialUTxOs <- createUTxOToCommit dataset nodeSocket
 
-            let contestationPeriod = 10 :: Natural
-            send leader $ input "Init" ["contestationPeriod" .= contestationPeriod]
-            let parties = Set.fromList $ map (deriveParty . generateKey) [1 .. fromIntegral clusterSize]
-            waitFor tracer 3 nodes $
-              output "ReadyToCommit" ["parties" .= parties]
+                let contestationPeriod = 10 :: Natural
+                send leader $ input "Init" ["contestationPeriod" .= contestationPeriod]
+                let parties = Set.fromList $ map (deriveParty . generateKey) [1 .. fromIntegral clusterSize]
+                waitFor tracer (fromIntegral $ 10 * clusterSize) nodes $
+                  output "ReadyToCommit" ["parties" .= parties]
 
-            expectedUTxO <- mconcat <$> forM (zip nodes initialUTxOs) (uncurry commit)
+                expectedUTxO <- mconcat <$> forM (zip nodes initialUTxOs) (uncurry commit)
 
-            waitFor tracer 3 nodes $ output "HeadIsOpen" ["utxo" .= expectedUTxO]
+                waitFor tracer (fromIntegral $ 10 * clusterSize) nodes $
+                  output "HeadIsOpen" ["utxo" .= expectedUTxO]
 
-            processedTransactions <- processTransactions nodes dataset
+                processedTransactions <- processTransactions nodes dataset
 
-            putTextLn "Closing the Head..."
-            send leader $ input "Close" []
-            waitMatch (fromIntegral $ 60 * clusterSize) leader $ \v ->
-              guard (v ^? key "tag" == Just "HeadIsFinalized")
+                putTextLn "Closing the Head..."
+                send leader $ input "Close" []
+                waitMatch (fromIntegral $ 60 * clusterSize) leader $ \v ->
+                  guard (v ^? key "tag" == Just "HeadIsFinalized")
 
-            let res = mapMaybe analyze . Map.toList $ processedTransactions
-            writeResultsCsv (workDir </> "results.csv") res
-            -- TODO: Create a proper summary
-            let confTimes = map (\(_, _, a) -> a) res
-                below1Sec = filter (< 1) confTimes
-                avgConfirmation = double (nominalDiffTimeToSeconds $ sum confTimes) / double (length confTimes)
-                percentBelow1Sec = double (length below1Sec) / double (length confTimes) * 100
-            putTextLn $ "Confirmed txs: " <> show (length confTimes)
-            putTextLn $ "Average confirmation time: " <> show avgConfirmation
-            putTextLn $ "Confirmed below 1 sec: " <> show percentBelow1Sec <> "%"
-            percentBelow1Sec `shouldSatisfy` (> 90)
+                let res = mapMaybe analyze . Map.toList $ processedTransactions
+                    aggregates = movingAverage res
+
+                writeResultsCsv (workDir </> "results.csv") aggregates
+
+                -- TODO: Create a proper summary
+                let confTimes = map (\(_, _, a) -> a) res
+                    below1Sec = filter (< 1) confTimes
+                    avgConfirmation = double (nominalDiffTimeToSeconds $ sum confTimes) / double (length confTimes)
+                    percentBelow1Sec = double (length below1Sec) / double (length confTimes) * 100
+                putTextLn $ "Confirmed txs: " <> show (length confTimes)
+                putTextLn $ "Average confirmation time: " <> show avgConfirmation
+                putTextLn $ "Confirmed below 1 sec: " <> show percentBelow1Sec <> "%"
+                percentBelow1Sec `shouldSatisfy` (> 90)
+
+-- | Collect OS-level stats while running some 'IO' action.
+--
+-- __NOTE__: This function relies on [dstat](https://linux.die.net/man/1/dstat). If the executable is not in the @PATH@
+-- it's basically a no-op.
+--
+-- Writes a @system.csv@ file into given `workDir` containing one line every 5 second with share of user CPU load.
+-- Here is a sample content:
+--
+-- @@
+-- 2022-02-16 14:25:43.67203351 UTC,11
+-- 2022-02-16 14:25:48.669817664 UTC,10
+-- 2022-02-16 14:25:53.672050421 UTC,14
+-- 2022-02-16 14:25:58.670460796 UTC,12
+-- 2022-02-16 14:26:03.669831775 UTC,11
+-- 2022-02-16 14:26:08.67203726 UTC,10
+-- ...
+-- @@
+--
+-- TODO: add more data points for memory and network consumption
+withOSStats :: FilePath -> IO () -> IO ()
+withOSStats workDir action =
+  findExecutable "dstat" >>= \case
+    Nothing -> action
+    Just exePath ->
+      withCreateProcess (process exePath){std_out = CreatePipe} $ \_stdin out _stderr _processHandle ->
+        race_
+          (collectStats out $ workDir </> "system.csv")
+          action
+ where
+  process exePath = (proc exePath ["-cm", "-n", "-N", "lo", "--integer", "--noheaders", "--noupdate", "5"]){cwd = Just workDir}
+
+  collectStats Nothing _ = pure ()
+  collectStats (Just hdl) filepath =
+    withFile filepath WriteMode $ \file ->
+      forever $
+        hGetLine hdl >>= processStat file
+
+  processStat :: Handle -> String -> IO ()
+  processStat file stat =
+    case getAllTextMatches (stat =~ ("[0-9]+" :: String)) :: [String] of
+      (cpu : _) -> do
+        now <- getCurrentTime
+        hPutStrLn file $ show now <> "," <> show ((read cpu :: Double) / 100)
+      _ -> pure ()
+
+-- | Compute average confirmation/validation time over intervals of 5 seconds.
+--
+-- Given a stream of (possibly unordered) data points for validation and confirmation time,
+-- this function will order and group them in 5s intervals, and compute the average of
+-- timings for this interval. It also outputs the /count/ of values for each interval.
+--
+-- __NOTE__: The timestamp of the grouped values is set to the beginning of the 5s time
+-- slice of the group.
+movingAverage :: [(UTCTime, NominalDiffTime, NominalDiffTime)] -> [(UTCTime, NominalDiffTime, NominalDiffTime, Int)]
+movingAverage confirmations =
+  let window :: Num a => a
+      window = 5
+
+      fiveSeconds = List.groupBy fiveSecSlice $ sortOn fst3 confirmations
+
+      timeSlice t@UTCTime{utctDayTime} =
+        t{utctDayTime = fromIntegral (floor (utctDayTime / window) * window :: Integer)}
+
+      fiveSecSlice (timeSlice -> t1, _, _) (timeSlice -> t2, _, _) = t1 == t2
+
+      fst3 (a, _, _) = a
+      snd3 (_, a, _) = a
+      thd3 (_, _, a) = a
+
+      average = \case
+        [] -> error "empty group"
+        slice@((t, _, _) : _) ->
+          let n = length slice
+           in ( timeSlice t
+              , sum (map snd3 slice) / fromIntegral n
+              , sum (map thd3 slice) / fromIntegral n
+              , n `div` window
+              )
+   in map average fiveSeconds
 
 createUTxOToCommit :: [Dataset] -> FilePath -> IO [UTxO]
 createUTxOToCommit dataset nodeSocket =
@@ -306,14 +403,15 @@ validTx registry txid = do
 
 analyze :: (TxId, Event) -> Maybe (UTCTime, NominalDiffTime, NominalDiffTime)
 analyze = \case
-  (_, Event{submittedAt, validAt = Just valid, confirmedAt = Just conf}) -> Just (submittedAt, valid `diffUTCTime` submittedAt, conf `diffUTCTime` submittedAt)
+  (_, Event{submittedAt, validAt = Just valid, confirmedAt = Just conf}) ->
+    Just (submittedAt, valid `diffUTCTime` submittedAt, conf `diffUTCTime` submittedAt)
   _ -> Nothing
 
-writeResultsCsv :: FilePath -> [(UTCTime, NominalDiffTime, NominalDiffTime)] -> IO ()
+writeResultsCsv :: FilePath -> [(UTCTime, NominalDiffTime, NominalDiffTime, Int)] -> IO ()
 writeResultsCsv fp res = do
   putStrLn $ "Writing results to: " <> fp
   writeFileLBS fp $ headers <> "\n" <> foldMap toCsv res
  where
   headers = "txId,confirmationTime"
 
-  toCsv (a, b, c) = show a <> "," <> encode b <> "," <> encode c <> "\n"
+  toCsv (a, b, c, d) = show a <> "," <> encode b <> "," <> encode c <> "," <> encode d <> "\n"

@@ -276,7 +276,9 @@ benchmark bench-e2e
     , lens
     , lens-aeson
     , optparse-applicative
+    , process
     , QuickCheck
+    , regex-tdfa
     , scientific
     , strict-containers
     , time
