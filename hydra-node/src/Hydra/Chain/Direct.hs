@@ -14,7 +14,6 @@ module Hydra.Chain.Direct (
 
 import Hydra.Prelude
 
-import qualified Cardano.Api.UTxO as UTxO
 import Cardano.Ledger.Alonzo.Language (Language (PlutusV1))
 import Cardano.Ledger.Alonzo.Rules.Utxo (UtxoPredicateFailure (UtxosFailure))
 import Cardano.Ledger.Alonzo.Rules.Utxos (TagMismatchDescription (FailedUnexpectedly), UtxosPredicateFailure (ValidationTagMismatch))
@@ -33,17 +32,14 @@ import Control.Monad.Class.MonadSTM (newTQueueIO, newTVarIO, readTQueue, retry, 
 import Control.Monad.Class.MonadTimer (timeout)
 import Control.Tracer (nullTracer)
 import Data.Aeson (Value (String), object, (.=))
-import qualified Data.Map.Strict as Map
 import Data.Sequence.Strict (StrictSeq)
 import Hydra.Cardano.Api (
   NetworkId (Testnet),
   PaymentKey,
   SigningKey,
   Tx,
-  UTxO' (..),
   VerificationKey,
   fromLedgerTx,
-  fromLedgerTxIn,
   fromLedgerUTxO,
   toLedgerTx,
   toLedgerUTxO,
@@ -57,8 +53,6 @@ import Hydra.Chain (
   PostTxError (..),
  )
 import Hydra.Chain.Direct.State (
-  HeadStateKind (..),
-  OnChainHeadState,
   SomeOnChainHeadState (..),
   TokHeadState (..),
   abort,
@@ -89,7 +83,6 @@ import Hydra.Chain.Direct.Wallet (
  )
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Party (Party)
-import Hydra.Snapshot (ConfirmedSnapshot (..))
 import Ouroboros.Consensus.Cardano.Block (GenTx (..), HardForkApplyTxErr (ApplyTxErrAlonzo), HardForkBlock (BlockAlonzo))
 import Ouroboros.Consensus.Ledger.SupportsMempool (ApplyTxErr)
 import Ouroboros.Consensus.Network.NodeToClient (Codecs' (..))
