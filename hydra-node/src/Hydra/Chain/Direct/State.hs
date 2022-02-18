@@ -51,16 +51,15 @@ import Hydra.Chain.Direct.Tx (
   observeInitTx,
   ownInitial,
  )
-import Hydra.Chain.Direct.Wallet (TinyWallet (..))
 import qualified Hydra.Data.Party as OnChain
 import Hydra.Party (Party)
 import Hydra.Snapshot (ConfirmedSnapshot (..))
 
 -- | An opaque on-chain head state, which records information and events
 -- happening on the layer-1 for a given Hydra head.
-data OnChainHeadState m (st :: HeadStateKind) = OnChainHeadState
+data OnChainHeadState (st :: HeadStateKind) = OnChainHeadState
   { networkId :: NetworkId
-  , ownWallet :: TinyWallet m
+  , ownVerificationKey :: VerificationKey PaymentKey
   , ownParty :: Party
   , stateMachine :: HydraStateMachine st
   }
@@ -92,7 +91,7 @@ data HydraStateMachine (st :: HeadStateKind) where
     HydraStateMachine 'StClosed
 
 getKnownUTxO ::
-  OnChainHeadState m st ->
+  OnChainHeadState st ->
   UTxO
 getKnownUTxO OnChainHeadState{stateMachine} =
   case stateMachine of
@@ -111,12 +110,12 @@ getKnownUTxO OnChainHeadState{stateMachine} =
 
 -- | An existential wrapping /some/ 'OnChainHeadState' into a value that carry
 -- no type-level information about the state.
-data SomeOnChainHeadState m where
+data SomeOnChainHeadState where
   SomeOnChainHeadState ::
-    forall st m.
+    forall st.
     HasTransition st =>
-    OnChainHeadState m st ->
-    SomeOnChainHeadState m
+    OnChainHeadState st ->
+    SomeOnChainHeadState
 
 -- | Some Kind for witnessing Hydra state-machine's states at the type-level.
 --
@@ -139,7 +138,7 @@ deriving instance Show (TokHeadState st)
 
 -- | Reify a 'HeadStateKind' kind into a value to enable pattern-matching on
 -- existentials.
-reifyState :: forall m st. OnChainHeadState m st -> TokHeadState st
+reifyState :: forall st. OnChainHeadState st -> TokHeadState st
 reifyState OnChainHeadState{stateMachine} =
   case stateMachine of
     Idle{} -> TkIdle
@@ -152,13 +151,13 @@ reifyState OnChainHeadState{stateMachine} =
 -- | Initialize a new 'OnChainHeadState'.
 idleOnChainHeadState ::
   NetworkId ->
-  TinyWallet m ->
+  VerificationKey PaymentKey ->
   Party ->
-  OnChainHeadState m 'StIdle
-idleOnChainHeadState networkId ownWallet ownParty =
+  OnChainHeadState 'StIdle
+idleOnChainHeadState networkId ownVerificationKey ownParty =
   OnChainHeadState
     { networkId
-    , ownWallet
+    , ownVerificationKey
     , ownParty
     , stateMachine = Idle
     }
@@ -178,46 +177,39 @@ idleOnChainHeadState networkId ownWallet ownParty =
 -- | Initialize a head from an 'StIdle' state. This does not change the state
 -- but produces a transaction which, if observed, does apply the transition.
 initialize ::
-  (MonadSTM m, MonadThrow (STM m)) =>
   HeadParameters ->
   [VerificationKey PaymentKey] ->
-  OnChainHeadState m 'StIdle ->
-  STM m Tx
-initialize params cardanoKeys OnChainHeadState{ownWallet, networkId} = do
-  u <- getUTxO ownWallet
-  -- NOTE: 'lookupMax' to favor change outputs!
-  case Map.lookupMax u of
-    Just (fromLedgerTxIn -> seedInput, _) ->
-      pure $ initTx networkId cardanoKeys params seedInput
-    Nothing ->
-      throwIO (NoSeedInput @Tx)
+  TxIn ->
+  OnChainHeadState 'StIdle ->
+  Tx
+initialize params cardanoKeys seedInput OnChainHeadState{networkId} = do
+  initTx networkId cardanoKeys params seedInput
 
 commit ::
-  (MonadSTM m, MonadThrow (STM m)) =>
   UTxO ->
-  OnChainHeadState m 'StInitialized ->
-  STM m Tx
-commit utxo st@OnChainHeadState{networkId, ownParty, ownWallet, stateMachine} = do
-  case ownInitial (verificationKey ownWallet) initialInitials of
+  OnChainHeadState 'StInitialized ->
+  Either (PostTxError Tx) Tx
+commit utxo st@OnChainHeadState{networkId, ownParty, ownVerificationKey, stateMachine} = do
+  case ownInitial ownVerificationKey initialInitials of
     Nothing ->
-      throwIO (CannotFindOwnInitial{knownUTxO = getKnownUTxO st} :: PostTxError Tx)
+      Left (CannotFindOwnInitial{knownUTxO = getKnownUTxO st})
     Just initial ->
       case UTxO.pairs utxo of
         [aUTxO] -> do
-          pure $ commitTx networkId ownParty (Just aUTxO) initial
+          Right $ commitTx networkId ownParty (Just aUTxO) initial
         [] -> do
-          pure $ commitTx networkId ownParty Nothing initial
+          Right $ commitTx networkId ownParty Nothing initial
         _ ->
-          throwIO (MoreThanOneUTxOCommitted @Tx)
+          Left (MoreThanOneUTxOCommitted @Tx)
  where
   Initialized
     { initialInitials
     } = stateMachine
 
 abort ::
-  (MonadSTM m) =>
-  OnChainHeadState m 'StInitialized ->
-  STM m Tx
+  HasCallStack =>
+  OnChainHeadState 'StInitialized ->
+  Tx
 abort OnChainHeadState{networkId, stateMachine} = do
   let (i, _, dat, _) = initialThreadOutput
       initials = Map.fromList $ map drop2nd initialInitials
@@ -226,8 +218,8 @@ abort OnChainHeadState{networkId, stateMachine} = do
         Left err ->
           -- FIXME: Exception with MonadThrow?
           error $ show err
-        Right tx' ->
-          pure tx'
+        Right tx ->
+          tx
  where
   Initialized
     { initialThreadOutput
@@ -236,13 +228,12 @@ abort OnChainHeadState{networkId, stateMachine} = do
     } = stateMachine
 
 collect ::
-  (MonadSTM m) =>
-  OnChainHeadState m 'StInitialized ->
-  STM m Tx
+  OnChainHeadState 'StInitialized ->
+  Tx
 collect OnChainHeadState{networkId, stateMachine} = do
   let (i, _, dat, parties) = initialThreadOutput
       commits = Map.fromList $ fmap tripleToPair initialCommits
-  pure $ collectComTx networkId (i, dat, parties) commits
+   in collectComTx networkId (i, dat, parties) commits
  where
   Initialized
     { initialThreadOutput
@@ -250,28 +241,26 @@ collect OnChainHeadState{networkId, stateMachine} = do
     } = stateMachine
 
 close ::
-  (MonadSTM m) =>
   ConfirmedSnapshot Tx ->
-  OnChainHeadState m 'StOpen ->
-  STM m Tx
+  OnChainHeadState 'StOpen ->
+  Tx
 close confirmedSnapshot OnChainHeadState{stateMachine} = do
   let (sn, sigs) =
         case confirmedSnapshot of
           ConfirmedSnapshot{snapshot, signatures} -> (snapshot, signatures)
           InitialSnapshot{snapshot} -> (snapshot, mempty)
-  let (i, o, dat, _) = openThreadOutput
-  pure $ closeTx sn sigs (i, o, dat)
+      (i, o, dat, _) = openThreadOutput
+   in closeTx sn sigs (i, o, dat)
  where
   Open{openThreadOutput} = stateMachine
 
 fanout ::
-  (MonadSTM m) =>
   UTxO ->
-  OnChainHeadState m 'StClosed ->
-  STM m Tx
+  OnChainHeadState 'StClosed ->
+  Tx
 fanout utxo OnChainHeadState{stateMachine} = do
   let (i, _, dat, _) = closedThreadOutput
-   in pure $ fanoutTx utxo (i, dat)
+   in fanoutTx utxo (i, dat)
  where
   Closed{closedThreadOutput} = stateMachine
 
@@ -279,20 +268,19 @@ fanout utxo OnChainHeadState{stateMachine} = do
 
 class HasTransition st where
   observeTx ::
-    MonadSTM m =>
     Tx ->
-    OnChainHeadState m st ->
-    Maybe (OnChainTx Tx, SomeOnChainHeadState m)
+    OnChainHeadState st ->
+    Maybe (OnChainTx Tx, SomeOnChainHeadState)
 
 instance HasTransition 'StIdle where
-  observeTx tx OnChainHeadState{networkId, ownParty, ownWallet} = do
+  observeTx tx OnChainHeadState{networkId, ownParty, ownVerificationKey} = do
     (event, observation) <- observeInitTx networkId ownParty tx
     let InitObservation{threadOutput, initials, commits} = observation
     let st' =
           OnChainHeadState
             { networkId
             , ownParty
-            , ownWallet
+            , ownVerificationKey
             , stateMachine =
                 Initialized
                   { initialThreadOutput = threadOutput
@@ -303,7 +291,7 @@ instance HasTransition 'StIdle where
     pure (event, SomeOnChainHeadState st')
 
 instance HasTransition 'StInitialized where
-  observeTx tx st@OnChainHeadState{networkId, ownWallet, ownParty, stateMachine} = do
+  observeTx tx st@OnChainHeadState{networkId, ownVerificationKey, ownParty, stateMachine} = do
     observeCommit <|> observeCollectCom <|> observeAbort
    where
     Initialized
@@ -335,7 +323,7 @@ instance HasTransition 'StInitialized where
       let st' =
             OnChainHeadState
               { networkId
-              , ownWallet
+              , ownVerificationKey
               , ownParty
               , stateMachine =
                   Open
@@ -350,21 +338,21 @@ instance HasTransition 'StInitialized where
       let st' =
             OnChainHeadState
               { networkId
-              , ownWallet
+              , ownVerificationKey
               , ownParty
               , stateMachine = Idle
               }
       pure (event, SomeOnChainHeadState st')
 
 instance HasTransition 'StOpen where
-  observeTx tx st@OnChainHeadState{networkId, ownWallet, ownParty} = do
+  observeTx tx st@OnChainHeadState{networkId, ownVerificationKey, ownParty} = do
     let utxo = getKnownUTxO st
     (event, observation) <- observeCloseTx utxo tx
     let CloseObservation{threadOutput} = observation
     let st' =
           OnChainHeadState
             { networkId
-            , ownWallet
+            , ownVerificationKey
             , ownParty
             , stateMachine =
                 Closed
@@ -374,13 +362,13 @@ instance HasTransition 'StOpen where
     pure (event, SomeOnChainHeadState st')
 
 instance HasTransition 'StClosed where
-  observeTx tx st@OnChainHeadState{networkId, ownWallet, ownParty} = do
+  observeTx tx st@OnChainHeadState{networkId, ownVerificationKey, ownParty} = do
     let utxo = getKnownUTxO st
     (event, ()) <- observeFanoutTx utxo tx
     let st' =
           OnChainHeadState
             { networkId
-            , ownWallet
+            , ownVerificationKey
             , ownParty
             , stateMachine = Idle
             }

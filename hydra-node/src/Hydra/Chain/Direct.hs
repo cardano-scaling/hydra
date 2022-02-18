@@ -32,6 +32,7 @@ import Control.Monad.Class.MonadSTM (newTQueueIO, newTVarIO, readTQueue, retry, 
 import Control.Monad.Class.MonadTimer (timeout)
 import Control.Tracer (nullTracer)
 import Data.Aeson (Value (String), object, (.=))
+import qualified Data.Map as Map
 import Data.Sequence.Strict (StrictSeq)
 import Hydra.Cardano.Api (
   NetworkId (Testnet),
@@ -40,6 +41,7 @@ import Hydra.Cardano.Api (
   Tx,
   VerificationKey,
   fromLedgerTx,
+  fromLedgerTxIn,
   fromLedgerUTxO,
   toLedgerTx,
   toLedgerUTxO,
@@ -121,7 +123,6 @@ import Ouroboros.Network.Protocol.LocalTxSubmission.Client (
   localTxSubmissionClientPeer,
  )
 import Test.Cardano.Ledger.Alonzo.Serialisation.Generators ()
-import qualified Prelude
 
 withDirectChain ::
   -- | Tracer for logging
@@ -148,7 +149,7 @@ withDirectChain tracer networkMagic iocp socketPath keyPair party cardanoKeys ca
           SomeOnChainHeadState $
             idleOnChainHeadState
               (Testnet networkMagic)
-              wallet
+              (verificationKey wallet)
               party
       race_
         ( do
@@ -179,7 +180,7 @@ withDirectChain tracer networkMagic iocp socketPath keyPair party cardanoKeys ca
                       -- bootstrap the init transaction.
                       -- For now, we bear with it and keep the static keys in
                       -- context.
-                      fromPostChainTx cardanoKeys headState tx
+                      fromPostChainTx cardanoKeys wallet headState tx
                         >>= finalizeTx wallet headState . toLedgerTx
                         >>= writeTQueue queue
                 }
@@ -218,7 +219,7 @@ client ::
   (MonadST m, MonadTimer m) =>
   Tracer m DirectChainLog ->
   TQueue m (ValidatedTx Era) ->
-  TVar m (SomeOnChainHeadState m) ->
+  TVar m SomeOnChainHeadState ->
   ChainCallback Tx m ->
   NodeToClientVersion ->
   OuroborosApplication 'InitiatorMode LocalAddress LByteString m () Void
@@ -254,7 +255,7 @@ chainSyncClient ::
   MonadSTM m =>
   Tracer m DirectChainLog ->
   ChainCallback Tx m ->
-  TVar m (SomeOnChainHeadState m) ->
+  TVar m SomeOnChainHeadState ->
   ChainSyncClient Block (Point Block) (Tip Block) m ()
 chainSyncClient tracer callback headState =
   ChainSyncClient (pure initStIdle)
@@ -378,7 +379,7 @@ txSubmissionClient tracer queue =
 finalizeTx ::
   (MonadSTM m, MonadThrow (STM m)) =>
   TinyWallet m ->
-  TVar m (SomeOnChainHeadState m) ->
+  TVar m SomeOnChainHeadState ->
   ValidatedTx Era ->
   STM m (ValidatedTx Era)
 finalizeTx TinyWallet{sign, getUTxO, coverFee} headState partialTx = do
@@ -412,21 +413,28 @@ finalizeTx TinyWallet{sign, getUTxO, coverFee} headState partialTx = do
 fromPostChainTx ::
   (MonadSTM m, MonadThrow (STM m)) =>
   [VerificationKey PaymentKey] ->
-  TVar m (SomeOnChainHeadState m) ->
+  TinyWallet m ->
+  TVar m SomeOnChainHeadState ->
   PostChainTx Tx ->
   STM m Tx
-fromPostChainTx cardanoKeys someHeadState tx = do
+fromPostChainTx cardanoKeys TinyWallet{getUTxO} someHeadState tx = do
   SomeOnChainHeadState st <- readTVar someHeadState
   case (tx, reifyState st) of
     (InitTx params, TkIdle) -> do
-      initialize params cardanoKeys st
+      u <- getUTxO
+      -- NOTE: 'lookupMax' to favor change outputs!
+      case Map.lookupMax u of
+        Just (fromLedgerTxIn -> seedInput, _) -> do
+          pure $ initialize params cardanoKeys seedInput st
+        Nothing ->
+          throwIO (NoSeedInput @Tx)
     (AbortTx{}, TkInitialized) -> do
-      abort st
+      pure (abort st)
     -- NOTE / TODO: 'CommitTx' also contains a 'Party' which seems redundant
     -- here. The 'Party' is already part of the state and it is the only party
     -- which can commit from this Hydra node.
     (CommitTx{committed}, TkInitialized) -> do
-      commit committed st
+      either throwIO pure (commit committed st)
     -- TODO: We do not rely on the utxo from the collect com tx here because the
     -- chain head-state is already tracking UTXO entries locked by commit scripts,
     -- and thus, can re-construct the committed UTXO for the collectComTx from
@@ -435,19 +443,13 @@ fromPostChainTx cardanoKeys someHeadState tx = do
     -- Perhaps we do want however to perform some kind of sanity check to ensure
     -- that both states are consistent.
     (CollectComTx{}, TkInitialized) -> do
-      collect st
+      pure (collect st)
     (CloseTx{confirmedSnapshot}, TkOpen) ->
-      close confirmedSnapshot st
+      pure (close confirmedSnapshot st)
     (FanoutTx{utxo}, TkClosed) ->
-      fanout utxo st
-    (_, tok) ->
-      let transition = Prelude.head $ words $ show tx
-       in error $
-            "fromPostChainTx: invalid state-transition: "
-              <> show tok
-              <> "  --- "
-              <> transition
-              <> " --> ?"
+      pure (fanout utxo st)
+    (_, _) ->
+      throwIO $ InvalidStateToPost tx
 
 --
 -- Helpers
