@@ -57,6 +57,7 @@ import Hydra.Chain (
   PostTxError (..),
  )
 import Hydra.Chain.Direct.State (
+  HeadStateKind (..),
   OnChainHeadState,
   SomeOnChainHeadState (..),
   TokHeadState (..),
@@ -193,7 +194,7 @@ withDirectChain tracer networkMagic iocp socketPath keyPair party cardanoKeys ca
         ( connectTo
             (localSnocket iocp)
             nullConnectTracers
-            (versions networkMagic (client tracer networkMagic queue party headState callback))
+            (versions networkMagic (client tracer queue headState callback))
             socketPath
         )
  where
@@ -223,21 +224,19 @@ instance Exception ConnectException
 client ::
   (MonadST m, MonadTimer m) =>
   Tracer m DirectChainLog ->
-  NetworkMagic ->
   TQueue m (ValidatedTx Era) ->
-  Party ->
   TVar m (SomeOnChainHeadState m) ->
   ChainCallback Tx m ->
   NodeToClientVersion ->
   OuroborosApplication 'InitiatorMode LocalAddress LByteString m () Void
-client tracer networkMagic queue party headState callback nodeToClientV =
+client tracer queue headState callback nodeToClientV =
   nodeToClientProtocols
     ( const $
         pure $
           NodeToClientProtocols
             { localChainSyncProtocol =
                 InitiatorProtocolOnly $
-                  let peer = chainSyncClientPeer $ chainSyncClient tracer networkMagic callback party headState
+                  let peer = chainSyncClientPeer $ chainSyncClient tracer callback headState
                    in MuxPeer nullTracer cChainSyncCodec peer
             , localTxSubmissionProtocol =
                 InitiatorProtocolOnly $
@@ -261,16 +260,12 @@ chainSyncClient ::
   forall m.
   MonadSTM m =>
   Tracer m DirectChainLog ->
-  NetworkMagic ->
   ChainCallback Tx m ->
-  Party ->
   TVar m (SomeOnChainHeadState m) ->
   ChainSyncClient Block (Point Block) (Tip Block) m ()
-chainSyncClient tracer networkMagic callback party headState =
+chainSyncClient tracer callback headState =
   ChainSyncClient (pure initStIdle)
  where
-  networkId = Testnet networkMagic
-
   -- NOTE:
   -- We fast-forward the chain client to the current node's tip on start, and
   -- from there, follow the chain block by block as they arrive. This is why the
@@ -340,7 +335,13 @@ chainSyncClient tracer networkMagic callback party headState =
 
   runOnChainTx :: [OnChainTx Tx] -> ValidatedTx Era -> STM m [OnChainTx Tx]
   runOnChainTx observed (fromLedgerTx -> tx) = do
-    undefined
+    SomeOnChainHeadState st <- readTVar headState
+    observeTx tx st >>= \case
+      Just (onChainTx, st') -> do
+        writeTVar headState st'
+        pure $ onChainTx : observed
+      Nothing ->
+        pure observed
 
 txSubmissionClient ::
   forall m.

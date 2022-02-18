@@ -97,7 +97,11 @@ getKnownUTxO =
 -- | An existential wrapping /some/ 'OnChainHeadState' into a value that carry
 -- no type-level information about the state.
 data SomeOnChainHeadState m where
-  SomeOnChainHeadState :: forall st m. OnChainHeadState m st -> SomeOnChainHeadState m
+  SomeOnChainHeadState ::
+    forall st m.
+    HasTransition st =>
+    OnChainHeadState m st ->
+    SomeOnChainHeadState m
 
 -- | Some Kind for witnessing Hydra state-machine's states at the type-level.
 --
@@ -203,28 +207,22 @@ fanout =
 
 -- Observing Transitions
 
-class HasTransition st st' where
+class HasTransition st where
   observeTx ::
     Tx ->
     OnChainHeadState m st ->
-    m (Maybe (OnChainTx Tx, OnChainHeadState m st'))
+    STM m (Maybe (OnChainTx Tx, SomeOnChainHeadState m))
 
-instance HasTransition 'StIdle 'StInitialized where
+instance HasTransition 'StIdle where
   observeTx = undefined
 
-instance HasTransition 'StInitialized 'StIdle where
+instance HasTransition 'StInitialized where
   observeTx = undefined
 
-instance HasTransition 'StInitialized 'StInitialized where
+instance HasTransition 'StOpen where
   observeTx = undefined
 
-instance HasTransition 'StInitialized 'StOpen where
-  observeTx = undefined
-
-instance HasTransition 'StOpen 'StClosed where
-  observeTx = undefined
-
-instance HasTransition 'StClosed 'StIdle where
+instance HasTransition 'StClosed where
   observeTx = undefined
 
 --
