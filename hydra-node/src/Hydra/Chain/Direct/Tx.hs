@@ -19,15 +19,6 @@ import Cardano.Binary (decodeFull', serialize')
 import qualified Data.Map as Map
 import Data.Time (Day (ModifiedJulianDay), UTCTime (UTCTime))
 import Hydra.Chain (HeadParameters (..), OnChainTx (..))
-import Hydra.Chain.Direct.State (
-  HeadStateKind (..),
-  OnChainHeadState',
-  commitAddress,
-  findInitialRedeemer,
-  initialOutputRef,
-  mkCommitOutput,
-  putCommit,
- )
 import qualified Hydra.Contract.Commit as Commit
 import qualified Hydra.Contract.Head as Head
 import qualified Hydra.Contract.HeadState as Head
@@ -182,23 +173,6 @@ commitTx networkId party utxo (initialInput, vkh) =
     headValue <> maybe mempty (txOutValue . snd) utxo
   commitDatum =
     mkTxOutDatum $ mkCommitDatum party (Head.validatorHash policyId) utxo
-
--- | Craft a commit transaction which includes the "committed" utxo as datum.
-commitTx' ::
-  OnChainHeadState' 'StInitialized ->
-  -- | A single UTxO to commit to the Head
-  -- We currently limit committing one UTxO to the head because of size limitations.
-  Maybe (TxIn, TxOut CtxUTxO) ->
-  -- | Zero-or-one UTXO entry to commit.
-  Maybe Tx
-commitTx' st utxo = do
-  initialInput <- initialOutputRef utxo st
-  return $
-    unsafeBuildTransaction $
-      emptyTxBody
-        & addInputs [initialInput]
-        & addVkInputs [i | Just (i, _) <- [utxo]]
-        & addOutputs [mkCommitOutput utxo st]
 
 mkCommitDatum :: Party -> Plutus.ValidatorHash -> Maybe (TxIn, TxOut CtxUTxO) -> Plutus.Datum
 mkCommitDatum (partyFromVerKey . vkey -> party) headValidatorHash utxo =
@@ -458,34 +432,6 @@ observeInitTx networkId party tx = do
 
 convertParty :: OnChain.Party -> Party
 convertParty = Party . partyToVerKey
-
-observeCommitTx' ::
-  Tx ->
-  OnChainHeadState' 'StInitialized ->
-  Maybe (OnChainTx Tx, OnChainHeadState' 'StInitialized)
-observeCommitTx' tx st = do
-  findInitialRedeemer tx st >>= \case
-    Initial.Abort -> do
-      Nothing
-    Initial.Commit{committedRef} -> do
-      let mCommittedTxIn = fromPlutusTxOutRef <$> committedRef
-      (commitIn, commitOut) <- findTxOutByAddress (commitAddress st) tx
-      dat <- getScriptData commitOut
-      -- TODO: This 'party' would be available from the spent 'initial' utxo (PT eventually)
-      (party, _, serializedTxOut) <- fromData @(DatumType Commit.Commit) $ toPlutusData dat
-      let mCommittedTxOut = convertTxOut serializedTxOut
-
-      comittedUTxO <-
-        case (mCommittedTxIn, mCommittedTxOut) of
-          (Nothing, Nothing) -> Just mempty
-          (Just i, Just o) -> Just $ UTxO.singleton (i, o)
-          (Nothing, Just{}) -> error "found commit with no redeemer out ref but with serialized output."
-          (Just{}, Nothing) -> error "found commit with redeemer out ref but with no serialized output."
-
-      return
-        ( OnCommitTx (convertParty party) comittedUTxO
-        , putCommit (commitIn, toUTxOContext commitOut, dat) st
-        )
 
 -- | Identify a commit tx by:
 --
