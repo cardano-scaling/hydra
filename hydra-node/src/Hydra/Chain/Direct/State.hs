@@ -49,6 +49,7 @@ import Hydra.Chain.Direct.Tx (
 import Hydra.Chain.Direct.Wallet (TinyWallet (..))
 import qualified Hydra.Data.Party as OnChain
 import Hydra.Party (Party)
+import Hydra.Snapshot (ConfirmedSnapshot (..))
 
 -- | An opaque on-chain head state, which records information and events
 -- happening on the layer-1 for a given Hydra head.
@@ -110,20 +111,22 @@ data HeadStateKind = StIdle | StInitialized | StOpen | StClosed
 
 -- | A token witnessing the state's type of an 'OnChainHeadState'. See 'reifyState'
 data TokHeadState (st :: HeadStateKind) where
-  TokHeadStateIdle :: TokHeadState 'StIdle
-  TokHeadStateInitialized :: TokHeadState 'StInitialized
-  TokHeadStateOpen :: TokHeadState 'StOpen
-  TokHeadStateClosed :: TokHeadState 'StClosed
+  TkIdle :: TokHeadState 'StIdle
+  TkInitialized :: TokHeadState 'StInitialized
+  TkOpen :: TokHeadState 'StOpen
+  TkClosed :: TokHeadState 'StClosed
+
+deriving instance Show (TokHeadState st)
 
 -- | Reify a 'HeadStateKind' kind into a value to enable pattern-matching on
 -- existentials.
 reifyState :: forall m st. OnChainHeadState m st -> TokHeadState st
 reifyState OnChainHeadState{stateMachine} =
   case stateMachine of
-    Idle{} -> TokHeadStateIdle
-    Initialized{} -> TokHeadStateInitialized
-    Open{} -> TokHeadStateOpen
-    Closed{} -> TokHeadStateClosed
+    Idle{} -> TkIdle
+    Initialized{} -> TkInitialized
+    Open{} -> TkOpen
+    Closed{} -> TkClosed
 
 -- Initialization
 
@@ -184,6 +187,7 @@ collect =
 
 close ::
   (MonadSTM m, MonadThrow (STM m)) =>
+  ConfirmedSnapshot Tx ->
   OnChainHeadState m 'StOpen ->
   STM m Tx
 close =
@@ -191,6 +195,7 @@ close =
 
 fanout ::
   (MonadSTM m, MonadThrow (STM m)) =>
+  UTxO ->
   OnChainHeadState m 'StClosed ->
   STM m Tx
 fanout =

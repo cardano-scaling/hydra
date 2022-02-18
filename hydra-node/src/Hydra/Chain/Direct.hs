@@ -127,6 +127,7 @@ import Ouroboros.Network.Protocol.LocalTxSubmission.Client (
   localTxSubmissionClientPeer,
  )
 import Test.Cardano.Ledger.Alonzo.Serialisation.Generators ()
+import qualified Prelude
 
 withDirectChain ::
   -- | Tracer for logging
@@ -420,8 +421,39 @@ fromPostChainTx ::
   TVar m (SomeOnChainHeadState m) ->
   PostChainTx Tx ->
   STM m Tx
-fromPostChainTx =
-  undefined
+fromPostChainTx cardanoKeys someHeadState tx = do
+  SomeOnChainHeadState st <- readTVar someHeadState
+  case (tx, reifyState st) of
+    (InitTx params, TkIdle) -> do
+      initialize params cardanoKeys st
+    (AbortTx{}, TkInitialized) -> do
+      abort st
+    -- NOTE / TODO: 'CommitTx' also contains a 'Party' which seems redundant
+    -- here. The 'Party' is already part of the state and it is the only party
+    -- which can commit from this Hydra node.
+    (CommitTx{committed}, TkInitialized) -> do
+      commit committed st
+    -- TODO: We do not rely on the utxo from the collect com tx here because the
+    -- chain head-state is already tracking UTXO entries locked by commit scripts,
+    -- and thus, can re-construct the committed UTXO for the collectComTx from
+    -- the commits' datums.
+    --
+    -- Perhaps we do want however to perform some kind of sanity check to ensure
+    -- that both states are consistent.
+    (CollectComTx{}, TkInitialized) -> do
+      collect st
+    (CloseTx{confirmedSnapshot}, TkOpen) ->
+      close confirmedSnapshot st
+    (FanoutTx{utxo}, TkClosed) ->
+      fanout utxo st
+    (_, tok) ->
+      let transition = Prelude.head $ words $ show tx
+       in error $
+            "fromPostChainTx: invalid state-transition: "
+              <> show tok
+              <> "  --- "
+              <> transition
+              <> " --> ?"
 
 --
 -- Helpers
