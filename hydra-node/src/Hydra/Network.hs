@@ -48,7 +48,10 @@ newtype Network m msg = Network
   }
 
 data NetworkException = NoConnectedPeers
-  deriving (Show, Exception)
+  deriving (Eq, Show, Exception, Generic, ToJSON, FromJSON)
+
+instance Arbitrary NetworkException where
+  arbitrary = genericArbitrary
 
 instance Contravariant (Network m) where
   contramap f (Network bcast) = Network $ \msg -> bcast (f msg)

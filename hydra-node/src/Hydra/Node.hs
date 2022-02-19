@@ -17,15 +17,12 @@
 --     * We represent some components that are not part of the Hydra node proper for legibility's sake
 module Hydra.Node where
 
-import Hydra.Prelude
-
 import Cardano.Crypto.DSIGN (DSIGNAlgorithm (rawDeserialiseVerKeyDSIGN), deriveVerKeyDSIGN, rawDeserialiseSignKeyDSIGN)
 import Control.Monad.Class.MonadAsync (async)
 import Control.Monad.Class.MonadSTM (
   isEmptyTQueue,
   modifyTVar',
   newTQueue,
-  newTVar,
   newTVarIO,
   readTQueue,
   stateTVar,
@@ -46,10 +43,11 @@ import Hydra.HeadLogic (
 import qualified Hydra.HeadLogic as Logic
 import Hydra.Ledger (IsTx, Ledger, TxIdType, UTxOType)
 import Hydra.Logging (Tracer, traceWith)
-import Hydra.Network (Network (..))
+import Hydra.Network (Network (..), NetworkException)
 import Hydra.Network.Message (Message)
 import Hydra.Options (Options (..))
 import Hydra.Party (Party (..))
+import Hydra.Prelude
 
 -- * Environment Handling
 
@@ -193,7 +191,10 @@ processEffect HydraNode{hn, oc, server, eq, env = Environment{party}} tracer e =
   traceWith tracer $ ProcessingEffect party e
   case e of
     ClientEffect i -> sendOutput server i
-    NetworkEffect msg -> broadcast hn msg >> putEvent eq (NetworkEvent msg)
+    NetworkEffect msg ->
+      (broadcast hn msg >> putEvent eq (NetworkEvent msg))
+        `catch` \(networkException :: NetworkException) ->
+          putEvent eq $ NetworkException{networkException}
     OnChainEffect postChainTx ->
       postTx oc postChainTx
         `catch` \(postTxError :: PostTxError tx) ->
@@ -215,7 +216,7 @@ data EventQueue m e = EventQueue
 
 createEventQueue :: (MonadSTM m, MonadDelay m, MonadAsync m) => m (EventQueue m e)
 createEventQueue = do
-  numThreads <- atomically (newTVar (0 :: Integer))
+  numThreads <- newTVarIO (0 :: Integer)
   q <- atomically newTQueue
   pure
     EventQueue

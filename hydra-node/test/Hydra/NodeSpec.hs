@@ -2,9 +2,6 @@
 
 module Hydra.NodeSpec where
 
-import Hydra.Prelude
-import Test.Hydra.Prelude
-
 import Hydra.API.Server (Server (..))
 import Hydra.Chain (
   Chain (..),
@@ -22,7 +19,7 @@ import Hydra.HeadLogic (
 import Hydra.Ledger (IsTx)
 import Hydra.Ledger.Simple (SimpleTx (..), simpleLedger, utxoRef, utxoRefs)
 import Hydra.Logging (Tracer, showLogsOnFailure)
-import Hydra.Network (Host (..), Network (..))
+import Hydra.Network (Host (..), Network (..), NetworkException (..))
 import Hydra.Network.Message (Message (..))
 import Hydra.Node (
   EventQueue (..),
@@ -34,8 +31,10 @@ import Hydra.Node (
   stepHydraNode,
  )
 import Hydra.Party (Party, SigningKey, deriveParty, sign)
-import Hydra.ServerOutput (ServerOutput (PostTxOnChainFailed))
+import Hydra.Prelude
+import Hydra.ServerOutput (ServerOutput (NetworkBroadcastFailed, PostTxOnChainFailed))
 import Hydra.Snapshot (Snapshot (..))
+import Test.Hydra.Prelude
 
 spec :: Spec
 spec = parallel $ do
@@ -105,6 +104,19 @@ spec = parallel $ do
 
       outputs <- getServerOutputs
       outputs `shouldContain` [PostTxOnChainFailed (InitTx $ HeadParameters 10 [10, 20, 30]) NoSeedInput]
+
+  it "notifies client when broadcast throws NetworkError" $
+    showLogsOnFailure $ \tracer -> do
+      let events =
+            eventsToOpenHead
+              <> [NetworkEvent{message = ReqSn{party = 10, snapshotNumber = 1, transactions = mempty}}]
+
+      (node, getServerOutputs) <- createHydraNode 10 [20, 30] events >>= throwExceptionOnBroadcast NoConnectedPeers >>= recordServerOutputs
+
+      runToCompletion tracer node
+
+      outputs <- getServerOutputs
+      outputs `shouldContain` [NetworkBroadcastFailed NoConnectedPeers]
 
 isReqSn :: Message tx -> Bool
 isReqSn = \case
@@ -179,3 +191,7 @@ messageRecorder = do
 throwExceptionOnPostTx :: IsTx tx => PostTxError tx -> HydraNode tx IO -> IO (HydraNode tx IO)
 throwExceptionOnPostTx exception node =
   pure node{oc = Chain{postTx = const $ throwIO exception}}
+
+throwExceptionOnBroadcast :: NetworkException -> HydraNode tx IO -> IO (HydraNode tx IO)
+throwExceptionOnBroadcast exception node =
+  pure node{hn = Network{broadcast = const $ throwIO exception}}

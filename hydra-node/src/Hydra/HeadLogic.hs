@@ -9,8 +9,6 @@
 --     * Another part detailing how the Head reacts to _peers input_ provided by the network, `Message`
 module Hydra.HeadLogic where
 
-import Hydra.Prelude
-
 import Data.List (elemIndex, (\\))
 import qualified Data.Map.Strict as Map
 import qualified Data.Set as Set
@@ -27,8 +25,10 @@ import Hydra.Ledger (
   applyTransactions,
   canApply,
  )
+import Hydra.Network (NetworkException)
 import Hydra.Network.Message (Message (..))
 import Hydra.Party (Party, Signed, SigningKey, aggregateInOrder, sign, verify)
+import Hydra.Prelude
 import Hydra.ServerOutput (ServerOutput (..))
 import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot (..), SnapshotNumber, getSnapshot)
 
@@ -38,6 +38,7 @@ data Event tx
   | OnChainEvent {onChainTx :: OnChainTx tx}
   | ShouldPostFanout
   | PostTxError {postChainTx :: PostChainTx tx, postTxError :: PostTxError tx}
+  | NetworkException {networkException :: NetworkException}
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON, FromJSON)
 
@@ -55,8 +56,11 @@ instance (Arbitrary tx, Arbitrary (UTxOType tx), Arbitrary (TxIdType tx)) => Arb
   arbitrary = genericArbitrary
 
 deriving instance IsTx tx => Eq (Effect tx)
+
 deriving instance IsTx tx => Show (Effect tx)
+
 deriving instance IsTx tx => ToJSON (Effect tx)
+
 deriving instance IsTx tx => FromJSON (Effect tx)
 
 data HeadState tx
@@ -71,8 +75,11 @@ instance (Arbitrary (UTxOType tx), Arbitrary tx) => Arbitrary (HeadState tx) whe
   arbitrary = genericArbitrary
 
 deriving instance IsTx tx => Eq (HeadState tx)
+
 deriving instance IsTx tx => Show (HeadState tx)
+
 deriving instance IsTx tx => ToJSON (HeadState tx)
+
 deriving instance IsTx tx => FromJSON (HeadState tx)
 
 type Committed tx = Map Party (UTxOType tx)
@@ -90,8 +97,11 @@ instance (Arbitrary (UTxOType tx), Arbitrary tx) => Arbitrary (CoordinatedHeadSt
   arbitrary = genericArbitrary
 
 deriving instance IsTx tx => Eq (CoordinatedHeadState tx)
+
 deriving instance IsTx tx => Show (CoordinatedHeadState tx)
+
 deriving instance IsTx tx => ToJSON (CoordinatedHeadState tx)
+
 deriving instance IsTx tx => FromJSON (CoordinatedHeadState tx)
 
 data SeenSnapshot tx
@@ -107,8 +117,11 @@ instance (Arbitrary (UTxOType tx), Arbitrary tx) => Arbitrary (SeenSnapshot tx) 
   arbitrary = genericArbitrary
 
 deriving instance IsTx tx => Eq (SeenSnapshot tx)
+
 deriving instance IsTx tx => Show (SeenSnapshot tx)
+
 deriving instance IsTx tx => ToJSON (SeenSnapshot tx)
+
 deriving instance IsTx tx => FromJSON (SeenSnapshot tx)
 
 type PendingCommits = Set Party
@@ -128,8 +141,11 @@ instance (Arbitrary tx, Arbitrary (UTxOType tx), Arbitrary (TxIdType tx)) => Arb
   arbitrary = genericArbitrary
 
 deriving instance IsTx tx => ToJSON (LogicError tx)
+
 deriving instance IsTx tx => FromJSON (LogicError tx)
+
 deriving instance (Eq (HeadState tx), Eq (Event tx)) => Eq (LogicError tx)
+
 deriving instance (Show (HeadState tx), Show (Event tx)) => Show (LogicError tx)
 
 data Outcome tx
@@ -138,6 +154,7 @@ data Outcome tx
   | Error (LogicError tx)
 
 deriving instance IsTx tx => Eq (Outcome tx)
+
 deriving instance IsTx tx => Show (Outcome tx)
 
 data Environment = Environment
@@ -329,6 +346,8 @@ update Environment{party, signingKey, otherParties} ledger st ev = case (st, ev)
     sameState [ClientEffect $ PeerDisconnected host]
   (_, PostTxError{postChainTx, postTxError}) ->
     sameState [ClientEffect $ PostTxOnChainFailed{postChainTx, postTxError}]
+  (_, NetworkException{networkException}) ->
+    sameState [ClientEffect $ NetworkBroadcastFailed{networkException}]
   _ ->
     Error $ InvalidEvent ev st
  where

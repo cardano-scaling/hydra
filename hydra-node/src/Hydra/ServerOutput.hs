@@ -5,7 +5,7 @@ module Hydra.ServerOutput where
 
 import Hydra.Chain (PostChainTx, PostTxError)
 import Hydra.Ledger (IsTx, TxIdType, UTxOType, ValidationError)
-import Hydra.Network (Host)
+import Hydra.Network (Host, NetworkException)
 import Hydra.Party (MultiSigned, Party)
 import Hydra.Prelude
 import Hydra.Snapshot (Snapshot)
@@ -34,11 +34,15 @@ data ServerOutput tx
     -- only knows one).
     Greetings {me :: Party}
   | PostTxOnChainFailed {postChainTx :: PostChainTx tx, postTxError :: PostTxError tx}
+  | NetworkBroadcastFailed {networkException :: NetworkException}
   deriving (Generic)
 
 deriving instance IsTx tx => Eq (ServerOutput tx)
+
 deriving instance IsTx tx => Show (ServerOutput tx)
+
 deriving instance IsTx tx => ToJSON (ServerOutput tx)
+
 deriving instance IsTx tx => FromJSON (ServerOutput tx)
 
 instance (Arbitrary tx, Arbitrary (UTxOType tx), Arbitrary (TxIdType tx)) => Arbitrary (ServerOutput tx) where
@@ -63,3 +67,4 @@ instance (Arbitrary tx, Arbitrary (UTxOType tx), Arbitrary (TxIdType tx)) => Arb
     InvalidInput r i -> InvalidInput <$> shrink r <*> shrink i
     Greetings me -> Greetings <$> shrink me
     PostTxOnChainFailed p e -> PostTxOnChainFailed <$> shrink p <*> shrink e
+    NetworkBroadcastFailed e -> NetworkBroadcastFailed <$> shrink e
