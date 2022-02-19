@@ -22,9 +22,6 @@ module HydraNode (
   EndToEndLog (..),
 ) where
 
-import Hydra.Cardano.Api
-import Hydra.Prelude hiding (delete)
-
 import Cardano.BM.Tracing (ToObject)
 import Cardano.Crypto.DSIGN (
   DSIGNAlgorithm (..),
@@ -43,7 +40,11 @@ import Data.Aeson.Types (Pair)
 import qualified Data.ByteString as BS
 import qualified Data.List as List
 import qualified Data.Text as T
+import Hydra.Cardano.Api
 import Hydra.Logging (Tracer, traceWith)
+import Hydra.Network (Host (Host))
+import Hydra.Network.Topology (NetworkTopology (NetworkTopology, hosts), defaultNetworkTopologyFile)
+import Hydra.Prelude hiding (delete)
 import Network.HTTP.Conduit (HttpExceptionContent (ConnectionFailure), parseRequest)
 import Network.HTTP.Simple (HttpException (HttpExceptionRequest), Response, getResponseBody, getResponseStatusCode, httpBS)
 import Network.WebSockets (Connection, receiveData, runClient, sendClose, sendTextData)
@@ -239,9 +240,15 @@ withHydraNode tracer cardanoSKeyPath cardanoVKeysPaths workDir nodeSocket hydraN
       hydraVKeysPaths <- forM (zip [1 ..] hydraVKeys) $ \(i :: Int, vKey) -> do
         let filepath = dir </> (show i <> ".vk")
         filepath <$ BS.writeFile filepath (rawSerialiseVerKeyDSIGN vKey)
+      let networkTopology =
+            NetworkTopology
+              { hosts = [Host "127.0.0.1" (fromIntegral $ 5000 + p) | p <- allNodeIds, p /= hydraNodeId]
+              }
+      Aeson.encodeFile (dir </> defaultNetworkTopologyFile) networkTopology
       let p =
             (hydraNodeProcess $ defaultArguments hydraNodeId cardanoSKeyPath cardanoVKeysPaths hydraSKeyPath hydraVKeysPaths nodeSocket allNodeIds)
-              { std_out = UseHandle out
+              { cwd = Just dir
+              , std_out = UseHandle out
               }
       withCreateProcess p $
         \_stdin _stdout _stderr processHandle -> do
@@ -273,6 +280,7 @@ withNewClient HydraClient{hydraNodeId, tracer} =
   withConnectionToNode tracer hydraNodeId
 
 newtype CannotStartHydraClient = CannotStartHydraClient Int deriving (Show)
+
 instance Exception CannotStartHydraClient
 
 hydraNodeProcess :: [String] -> CreateProcess

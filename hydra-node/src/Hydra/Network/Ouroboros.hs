@@ -49,6 +49,7 @@ import Hydra.Network.Ouroboros.Type (
   Message (..),
   codecFireForget,
  )
+import Hydra.Network.Topology (NetworkTopology (..))
 import Hydra.Prelude
 import Network.Mux.Compat (
   MuxTrace,
@@ -122,7 +123,7 @@ withOuroborosNetwork ::
   (ToCBOR msg, FromCBOR msg) =>
   Tracer IO (WithHost (TraceOuroborosNetwork msg)) ->
   Host ->
-  TMVar IO [Host] ->
+  TMVar IO NetworkTopology ->
   NetworkCallback msg IO ->
   (Network IO msg -> IO ()) ->
   IO ()
@@ -139,7 +140,7 @@ withOuroborosNetwork tracer localHost remoteHosts networkCallback between = do
  where
   broadcast bchan msg =
     atomically (tryReadTMVar remoteHosts) >>= \case
-      Just (_ : _) -> atomically $ writeTChan bchan msg
+      Just (NetworkTopology (_ : _)) -> atomically $ writeTChan bchan msg
       _ -> throwIO NoConnectedPeers
 
   resolveSockAddr Host{hostname, port} = do
@@ -149,7 +150,7 @@ withOuroborosNetwork tracer localHost remoteHosts networkCallback between = do
       _ -> error "getAdrrInfo failed.. do proper error handling"
 
   connect iomgr bchan app = do
-    peers <- atomically (readTMVar remoteHosts)
+    peers <- hosts <$> atomically (readTMVar remoteHosts)
     chanPool <- newTBQueueIO (fromIntegral $ length peers)
     replicateM_ (length peers) $
       atomically $ do

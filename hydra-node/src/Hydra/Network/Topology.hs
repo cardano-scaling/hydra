@@ -9,6 +9,9 @@ import Hydra.Prelude
 newtype NetworkTopology = NetworkTopology {hosts :: [Host]}
   deriving newtype (Eq, Show, ToJSON, FromJSON)
 
+defaultNetworkTopologyFile :: FilePath
+defaultNetworkTopologyFile = "network-topology.json"
+
 -- | Watch changes to given 'filepath' and update given 'peers' variable
 -- when it contains a valid config.
 --

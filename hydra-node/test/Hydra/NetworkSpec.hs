@@ -42,8 +42,8 @@ spec = parallel $
         received <- atomically newTQueue
         showLogsOnFailure $ \tracer -> failAfter 30 $ do
           [port1, port2] <- fmap fromIntegral <$> randomUnusedTCPPorts 2
-          peers1 <- newTMVarIO [Host lo port2]
-          peers2 <- newTMVarIO [Host lo port1]
+          peers1 <- newTMVarIO $ NetworkTopology [Host lo port2]
+          peers2 <- newTMVarIO $ NetworkTopology [Host lo port1]
           withOuroborosNetwork tracer (Host lo port1) peers1 (const @_ @Integer $ pure ()) $ \hn1 ->
             withOuroborosNetwork @Integer tracer (Host lo port2) peers2 (atomically . writeTQueue received) $ \_ -> do
               withAsync (1 `broadcastFrom` hn1) $ \_ ->
@@ -55,9 +55,9 @@ spec = parallel $
         node3received <- atomically newTQueue
         showLogsOnFailure $ \tracer -> failAfter 30 $ do
           [port1, port2, port3] <- fmap fromIntegral <$> randomUnusedTCPPorts 3
-          peers1 <- newTMVarIO [Host lo port2, Host lo port3]
-          peers2 <- newTMVarIO [Host lo port1, Host lo port3]
-          peers3 <- newTMVarIO [Host lo port1, Host lo port2]
+          peers1 <- newTMVarIO $ NetworkTopology [Host lo port2, Host lo port3]
+          peers2 <- newTMVarIO $ NetworkTopology [Host lo port1, Host lo port3]
+          peers3 <- newTMVarIO $ NetworkTopology [Host lo port1, Host lo port2]
           withOuroborosNetwork @Integer tracer (Host lo port1) peers1 (atomically . writeTQueue node1received) $ \hn1 ->
             withOuroborosNetwork tracer (Host lo port2) peers2 (atomically . writeTQueue node2received) $ \hn2 -> do
               withOuroborosNetwork tracer (Host lo port3) peers3 (atomically . writeTQueue node3received) $ \hn3 -> do
