@@ -101,6 +101,7 @@ library
     Hydra.Network.Ouroboros.Client
     Hydra.Network.Ouroboros.Server
     Hydra.Network.Ouroboros.Type
+    Hydra.Network.Topology
     Hydra.Node
     Hydra.Node.Version
     Hydra.Options

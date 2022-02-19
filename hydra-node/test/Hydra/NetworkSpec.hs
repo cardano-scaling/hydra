@@ -6,13 +6,17 @@ module Hydra.NetworkSpec where
 
 import Codec.CBOR.Read (deserialiseFromBytes)
 import Codec.CBOR.Write (toLazyByteString)
-import Control.Monad.Class.MonadSTM (newEmptyTMVarIO, newTMVarIO, newTQueue, readTQueue, writeTQueue)
+import Control.Monad.Class.MonadSTM (newEmptyTMVarIO, newTMVarIO, newTQueue, readTMVar, readTQueue, writeTQueue)
+import qualified Data.Aeson as Aeson
+import qualified Data.ByteString.Lazy as LBS
 import Hydra.Ledger.Simple (SimpleTx (..))
 import Hydra.Logging (showLogsOnFailure)
 import Hydra.Network (Host (..), Network, NetworkException, PortNumber)
 import Hydra.Network.Message (Message (..))
 import Hydra.Network.Ouroboros (broadcast, withOuroborosNetwork)
+import Hydra.Network.Topology (NetworkTopology (..), withConfigWatcher)
 import Hydra.Prelude
+import System.FilePath ((</>))
 import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
 import Test.Hydra.Prelude
 import Test.Network.Ports (randomUnusedTCPPorts)
@@ -63,9 +67,19 @@ spec = parallel $
                   , (port3, hn3, node3received)
                   ]
 
-    describe "Serialisation" $ do
-      it "can roundtrip CBOR encoding/decoding of Hydra Message" $ property $ prop_canRoundtripCBOREncoding @(Message SimpleTx)
-      roundtripAndGoldenSpecs (Proxy @(Message SimpleTx))
+      describe "Serialisation" $ do
+        it "can roundtrip CBOR encoding/decoding of Hydra Message" $ property $ prop_canRoundtripCBOREncoding @(Message SimpleTx)
+        roundtripAndGoldenSpecs (Proxy @(Message SimpleTx))
+
+    describe "Config watcher" $ do
+      it "writes decoded network topology to shared variable" $ do
+        failAfter 5 $ do
+          peers <- newEmptyTMVarIO
+          withTempDir "network" $ \dir ->
+            withConfigWatcher (dir </> "topology.json") peers $ do
+              let networkTopology = NetworkTopology{hosts = [Host lo 45678]}
+              LBS.writeFile (dir </> "topology.json") $ Aeson.encode networkTopology
+              atomically (readTMVar peers) `shouldReturn` networkTopology
 
 assertAllNodesBroadcast ::
   [(PortNumber, Network IO Integer, TQueue IO Integer)] ->
