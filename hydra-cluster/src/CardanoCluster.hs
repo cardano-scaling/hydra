@@ -171,7 +171,9 @@ withBFTNode clusterTracer cfg initialFunds action = do
     >>= writeFileBS
       (stateDirectory cfg </> nodeByronGenesisFile args)
 
-  setInitialFundsInGenesisShelley (stateDirectory cfg </> nodeShelleyGenesisFile args)
+  readConfigFile "genesis-shelley.json"
+    >>= writeFileBS
+      (stateDirectory cfg </> nodeShelleyGenesisFile args)
 
   readConfigFile "genesis-alonzo.json"
     >>= writeFileBS
@@ -187,24 +189,6 @@ withBFTNode clusterTracer cfg initialFunds action = do
   vrfKeyFilename i = "delegate" <> show i <> ".vrf.skey"
   kesKeyFilename i = "delegate" <> show i <> ".kes.skey"
   opCertFilename i = "opcert" <> show i <> ".cert"
-
-  setInitialFundsInGenesisShelley file = do
-    bs <- readConfigFile "genesis-shelley.json"
-    genesisJson <- either fail pure $ Aeson.eitherDecodeStrict @Aeson.Value bs
-    let updatedJson = genesisJson & key "initialFunds" .~ initialFundsValue
-    Aeson.encodeFile file updatedJson
-
-  initialFundsValue =
-    foldr
-      (uncurry addField)
-      (object [])
-      (mkInitialFundsEntry <$> initialFunds)
-
-  mkInitialFundsEntry :: VerificationKey PaymentKey -> (Text, Word)
-  mkInitialFundsEntry vk =
-    let addr = buildAddress vk defaultNetworkId
-        bytes = serialiseToRawBytes addr
-     in (encodeBase16 bytes, availableInitialFunds)
 
   copyCredential parentDir file = do
     bs <- readConfigFile ("credentials" </> file)
