@@ -46,13 +46,6 @@ let
   ];
 
   haskellNixShell = hsPkgs.shellFor {
-    packages = ps: with ps; [
-      hydra-prelude
-      hydra-node
-      hydra-plutus
-      hydra-cluster
-      merkle-patricia-tree
-    ];
 
     # Haskell.nix managed tools (via hackage)
     tools = {
