@@ -1,6 +1,6 @@
 cabal-version: 2.2
 name:          hydra-tui
-version:       0.3.0
+version:       0.4.0
 synopsis:      TUI for managing a Hydra node
 description:   TUI for managing a Hydra node
 author:        IOG
@@ -89,10 +89,10 @@ library
     , cardano-ledger-shelley-ma
     , containers
     , hydra-cardano-api
+    , hydra-cluster
     , hydra-node
     , hydra-prelude
     , io-classes
-    , hydra-cluster
     , microlens
     , microlens-th
     , optparse-applicative
@@ -129,12 +129,12 @@ test-suite tests
     , bytestring
     , hspec
     , hydra-cardano-api
+    , hydra-cluster
     , hydra-node
     , hydra-prelude
     , hydra-test-utils
     , hydra-tui
     , io-classes
-    , hydra-cluster
     , optparse-applicative
     , temporary
     , unix
