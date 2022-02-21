@@ -12,7 +12,6 @@ import Hydra.Cardano.Api
 
 import qualified Cardano.Api.UTxO as UTxO
 import Cardano.Slotting.Time (SystemStart)
-import CardanoNode (RunningNode (RunningNode))
 import qualified Data.Map as Map
 import qualified Data.Set as Set
 import qualified Hydra.Chain.Direct.Util as Hydra
@@ -363,42 +362,3 @@ mkGenesisTx networkId pparams initialAmount signingKey verificationKey amount =
    in case buildRaw [initialInput] [recipientOutput, changeOutput] fee of
         Left err -> error $ "Fail to build genesis transations: " <> show err
         Right tx -> sign signingKey tx
-
--- TODO: replace with 'seedFromFaucet'
-generatePaymentToCommit ::
-  HasCallStack =>
-  NetworkId ->
-  RunningNode ->
-  SigningKey PaymentKey ->
-  VerificationKey PaymentKey ->
-  Lovelace ->
-  IO UTxO
-generatePaymentToCommit networkId (RunningNode _ nodeSocket) spendingSigningKey receivingVerificationKey lovelace = do
-  UTxO availableUTxO <- queryUTxO networkId nodeSocket [spendingAddress]
-  let inputs = (,Nothing) <$> Map.keys (Map.filter (not . Hydra.isMarkedOutput) availableUTxO)
-  build networkId nodeSocket spendingAddress inputs [] [theOutput] >>= \case
-    Left e -> error (show e)
-    Right body -> do
-      let tx = sign spendingSigningKey body
-      submit networkId nodeSocket tx
-      waitForPayment networkId nodeSocket lovelace receivingAddress
- where
-  spendingAddress = buildAddress (getVerificationKey spendingSigningKey) networkId
-
-  receivingAddress = buildAddress receivingVerificationKey networkId
-
-  theOutput =
-    TxOut
-      (shelleyAddressInEra receivingAddress)
-      (lovelaceToValue lovelace)
-      TxOutDatumNone
-
--- TODO: replace usages with 'seedFromFaucet'
-postSeedPayment :: NetworkId -> ProtocolParameters -> Lovelace -> FilePath -> SigningKey PaymentKey -> Lovelace -> IO ()
-postSeedPayment networkId pparams initialAmount nodeSocket signingKey amountLovelace = do
-  let genesisTx = mkGenesisTx networkId pparams initialAmount signingKey verificationKey amountLovelace
-  submit networkId nodeSocket genesisTx
-  void $ waitForPayment networkId nodeSocket amountLovelace addr
- where
-  verificationKey = getVerificationKey signingKey
-  addr = buildAddress verificationKey networkId

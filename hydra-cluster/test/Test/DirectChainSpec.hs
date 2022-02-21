@@ -8,14 +8,13 @@ import Test.Hydra.Prelude
 
 import CardanoClient (
   buildAddress,
-  generatePaymentToCommit,
   queryUTxO,
   waitForUTxO,
  )
 import CardanoCluster (
   Actor (Alice, Bob, Carol, Faucet),
   ClusterLog,
-  Marked (Marked),
+  Marked (Marked, Normal),
   defaultNetworkId,
   keysFor,
   newNodeConfig,
@@ -80,7 +79,7 @@ spec = around showLogsOnFailure $ do
     bobsCallback <- newEmptyMVar
     withTempDir "hydra-cluster" $ \tmp -> do
       config <- newNodeConfig tmp
-      aliceKeys@(aliceCardanoVk, aliceCardanoSk) <- keysFor Alice
+      aliceKeys@(aliceCardanoVk, _) <- keysFor Alice
       (faucetVk, _) <- keysFor Faucet
       withBFTNode (contramap FromCluster tracer) config [faucetVk] $ \node@(RunningNode _ nodeSocket) -> do
         bobKeys <- keysFor Bob
@@ -95,7 +94,7 @@ spec = around showLogsOnFailure $ do
               bobsCallback `observesInTime` OnInitTx 100 [alice, bob, carol]
 
               let aliceCommitment = 66_000_000
-              aliceUTxO <- generatePaymentToCommit defaultNetworkId node aliceCardanoSk aliceCardanoVk aliceCommitment
+              aliceUTxO <- seedFromFaucet defaultNetworkId node aliceCardanoVk aliceCommitment Normal
               postTx $ CommitTx alice aliceUTxO
 
               alicesCallback `observesInTime` OnCommitTx alice aliceUTxO
@@ -139,7 +138,7 @@ spec = around showLogsOnFailure $ do
     alicesCallback <- newEmptyMVar
     withTempDir "hydra-cluster" $ \tmp -> do
       config <- newNodeConfig tmp
-      aliceKeys@(aliceCardanoVk, aliceCardanoSk) <- keysFor Alice
+      aliceKeys@(aliceCardanoVk, _) <- keysFor Alice
       (faucetVk, _) <- keysFor Faucet
       withBFTNode (contramap FromCluster tracer) config [faucetVk] $ \node@(RunningNode _ nodeSocket) -> do
         let cardanoKeys = [aliceCardanoVk]
@@ -161,7 +160,7 @@ spec = around showLogsOnFailure $ do
                 (CannotSpendInput{} :: PostTxError Tx) -> True
                 _ -> False
 
-            aliceUTxO <- generatePaymentToCommit defaultNetworkId node aliceCardanoSk aliceCardanoVk 1_000_000
+            aliceUTxO <- seedFromFaucet defaultNetworkId node aliceCardanoVk 1_000_000 Normal
             postTx $ CommitTx alice aliceUTxO
             alicesCallback `observesInTime` OnCommitTx alice aliceUTxO
 
@@ -187,7 +186,7 @@ spec = around showLogsOnFailure $ do
     alicesCallback <- newEmptyMVar
     withTempDir "hydra-cluster" $ \tmp -> do
       config <- newNodeConfig tmp
-      aliceKeys@(aliceCardanoVk, aliceCardanoSk) <- keysFor Alice
+      aliceKeys@(aliceCardanoVk, _) <- keysFor Alice
       (faucetVk, _) <- keysFor Faucet
       withBFTNode (contramap FromCluster tracer) config [faucetVk] $ \node@(RunningNode _ nodeSocket) -> do
         let cardanoKeys = [aliceCardanoVk]
@@ -198,7 +197,7 @@ spec = around showLogsOnFailure $ do
             postTx $ InitTx $ HeadParameters 100 [alice]
             alicesCallback `observesInTime` OnInitTx 100 [alice]
 
-            someUTxO <- generatePaymentToCommit defaultNetworkId node aliceCardanoSk aliceCardanoVk 1_000_000
+            someUTxO <- seedFromFaucet defaultNetworkId node aliceCardanoVk 1_000_000 Normal
             postTx $ CommitTx alice someUTxO
             alicesCallback `observesInTime` OnCommitTx alice someUTxO
 
