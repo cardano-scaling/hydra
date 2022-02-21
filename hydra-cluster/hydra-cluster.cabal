@@ -179,25 +179,6 @@ executable log-filter
     , optparse-applicative
     , temporary
 
-executable seed-network
-  import:         project-config
-  hs-source-dirs: exe
-  main-is:        seed-network.hs
-  ghc-options:    -threaded -rtsopts
-  build-depends:
-    , aeson
-    , base                  >=4.7 && <5
-    , bytestring
-    , contra-tracer
-    , hydra-cardano-api
-    , hydra-cluster
-    , hydra-node
-    , hydra-prelude
-    , lens
-    , lens-aeson
-    , optparse-applicative
-    , temporary
-
 test-suite integration
   import:             project-config
   hs-source-dirs:     test

@@ -5,11 +5,23 @@
 set -e
 
 MARKER_DATUM_HASH="a654fb60d21c1fed48db2c320aa6df9737ec0204c0ba53b9b94a09fb40e757f3"
-DEVNET_DIR=/data
+SCRIPT_DIR=$(realpath $(dirname $(realpath $0)))
 
+CCLI_PATH=
+DEVNET_DIR=/data
+if [[ -n ${1} ]] && $(${1} version > /dev/null); then
+    CCLI_PATH=${1}
+    echo >&2 "Using provided cardano-cli"
+    DEVNET_DIR=${SCRIPT_DIR}/devnet
+fi
+
+# Invoke cardano-cli in running cardano-node container or via provided cardano-cli
 function ccli() {
-  # Invoke cardano-cli in running cardano-node container
-  docker-compose exec cardano-node cardano-cli ${@} --testnet-magic 42
+  if [[ -x ${CCLI_PATH} ]]; then
+      cardano-cli ${@} --testnet-magic 42
+  else
+      docker-compose exec cardano-node cardano-cli ${@} --testnet-magic 42
+  fi
 }
 
 # Retrieve some lovelace from faucet, marked as "fuel" if requested
