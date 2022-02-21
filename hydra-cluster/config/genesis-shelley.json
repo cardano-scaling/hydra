@@ -41,9 +41,7 @@
     "updateQuorum": 5,
     "networkId": "Testnet",
     "initialFunds": {
-        "60f8a68cd18e59a6ace848155a0e967af64f4d00cf8acee8adc95a6b0d": 900000000000,
-        "601052386136b347f3bb7c67fe3f2ee4ef120e1836e5d2707bb068afa6": 900000000000,
-        "603aaa2e3de913b0f5aa7e7f076e122d737db5329df1aa905192284fea": 900000000000
+        "609783be7d3c54f11377966dfabc9284cd6c32fca1cd42ef0a4f1cc45b": 1000000000000
     },
     "maxLovelaceSupply": 300,
     "networkMagic": 42,
