@@ -8,6 +8,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 As a minor extension, we also keep a semantic version for the `UNRELEASED`
 changes.
 
+## [0.4.0] - UNRELEASED
+
+## Fixed
+
+- `hydra-tui` to show form focus, indicate invalid fields in dialogs and only allow valid values
+  to be submitted [#224](https://github.com/input-output-hk/hydra-poc/issues/224).
+
 ## [0.3.0] - 2022-02-22
 
 #### Added

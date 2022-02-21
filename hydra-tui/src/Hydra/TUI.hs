@@ -12,7 +12,7 @@ import Brick
 import Hydra.Cardano.Api
 
 import Brick.BChan (newBChan, writeBChan)
-import Brick.Forms (Form, FormFieldState, checkboxField, editShowableFieldWithValidate, formState, handleFormEvent, newForm, radioField, renderForm)
+import Brick.Forms (Form, FormFieldState, checkboxField, editShowableFieldWithValidate, focusedFormInputAttr, formState, handleFormEvent, invalidFields, invalidFormInputAttr, newForm, radioField, renderForm)
 import Brick.Widgets.Border (hBorder, vBorder)
 import Brick.Widgets.Border.Style (ascii)
 import qualified Cardano.Api.UTxO as UTxO
@@ -315,7 +315,9 @@ handleDialogEvent (title, form, submit) s = \case
   EvKey KEsc [] ->
     continue $ s & dialogStateL .~ NoDialog
   EvKey KEnter [] -> do
-    submit s (formState form)
+    case invalidFields form of
+      [] -> submit s (formState form)
+      fs -> continue $ s & feedbackL ?~ UserFeedback Error ("Invalid fields: " <> Text.intercalate ", " fs)
   e -> do
     form' <- handleFormEvent (VtyEvent e) form
     continue $ s & dialogStateL .~ Dialog title form' submit
@@ -394,12 +396,13 @@ handleNewTxEvent Client{sendInput, sk} CardanoClient{networkId} s = case s ^? he
   amountDialog input@(_, TxOut _ v _) recipient =
     Dialog title form submit
    where
-    title = "Choose an amount"
+    title = "Choose an amount (max: " <> show limit <> ")"
+
+    Lovelace limit = selectLovelace v
 
     form =
       -- NOTE(SN): use 'Integer' because we don't have a 'Read Lovelace'
-      let Lovelace limit = selectLovelace v
-          field = editShowableFieldWithValidate (lens id seq) "amount" (\n -> n > 0 && n <= limit)
+      let field = editShowableFieldWithValidate (lens id seq) "amount" (\n -> n > 0 && n <= limit)
        in newForm [field] limit
 
     submit s' amount = do
@@ -658,6 +661,9 @@ style _ =
     , (negative, fg red)
     , (positive, fg green)
     , (own, fg yellow)
+    , -- Brick forms
+      (focusedFormInputAttr, fg brightBlue)
+    , (invalidFormInputAttr, fg red)
     ]
 
 --
