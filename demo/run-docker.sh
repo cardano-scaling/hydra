@@ -5,7 +5,11 @@
 # If there's already a demo running, bail out.
 set -e
 
-BASEDIR=$(realpath $(dirname $(realpath $0))/..)
+case $0 in
+  /*) BASEDIR=$(dirname $0)/..;;
+  *) BASEDIR=$(dirname $PWD/$0)/..;;
+esac
+
 COMPOSE_YAML="$BASEDIR/demo/docker-compose.yaml"
 
 # Sanity check to prevent accidentally tripping oneself with an existing demo
