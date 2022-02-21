@@ -165,11 +165,11 @@ spec = around showLogsOnFailure $
             (carolVkPath, carolSkPath) <- writeKeysFor tmpDir Carol
             failAfter 20 $
               withHydraNode tracer aliceSkPath [bobVkPath, carolVkPath] tmpDir nodeSocket 1 aliceSk [bobVk, carolVk] allNodeIds $ \n1 ->
-                withHydraNode tracer bobSkPath [aliceVkPath, carolVkPath] tmpDir nodeSocket 2 bobSk [aliceVk, carolVk] allNodeIds $ \_ ->
-                  withHydraNode tracer carolSkPath [aliceVkPath, bobVkPath] tmpDir nodeSocket 3 carolSk [aliceVk, bobVk] allNodeIds $ \_ -> do
+                withHydraNode tracer bobSkPath [aliceVkPath, carolVkPath] tmpDir nodeSocket 2 bobSk [aliceVk, carolVk] allNodeIds $ \n2 ->
+                  withHydraNode tracer carolSkPath [aliceVkPath, bobVkPath] tmpDir nodeSocket 3 carolSk [aliceVk, bobVk] allNodeIds $ \n3 -> do
                     -- Funds to be used as fuel by Hydra protocol transactions
                     void $ seedFromFaucet defaultNetworkId node aliceCardanoVk 100_000_000 Marked
-                    waitForNodesConnected tracer allNodeIds [n1]
+                    waitForNodesConnected tracer [n1, n2, n3]
                     send n1 $ input "Init" ["contestationPeriod" .= int 10]
                     waitFor tracer 3 [n1] $ output "ReadyToCommit" ["parties" .= Set.fromList [alice, bob, carol]]
                     metrics <- getMetrics n1
