@@ -28,7 +28,7 @@ EOF
 
 mkdir $TARGETDIR/node-3
 cat > $TARGETDIR/node-3/network-topology.json <<EOF
-[{"hostname":"hydra-node-1","port":5001},,{"hostname":"hydra-node-2","port":5001}]
+[{"hostname":"hydra-node-1","port":5001},{"hostname":"hydra-node-2","port":5001}]
 EOF
 
 echo '{"Producers": []}' > "$TARGETDIR/topology.json"

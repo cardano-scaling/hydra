@@ -29,6 +29,7 @@ services:
       - $PWD/devnet/credentials:/credentials:ro
       - $PWD/devnet/ipc:/ipc
       - $PWD/devnet/node-1:/work
+    working_dir: /work
     ports:
       - "4001:4001"
     command:
@@ -60,6 +61,7 @@ services:
       - $PWD/devnet/credentials:/credentials:ro
       - $PWD/devnet/ipc:/ipc
       - $PWD/devnet/node-2:/work
+    working_dir: /work
     ports:
       - "4002:4001"
     command:
@@ -91,6 +93,7 @@ services:
       - $PWD/devnet/credentials:/credentials:ro
       - $PWD/devnet/ipc:/ipc
       - $PWD/devnet/node-3:/work
+    working_dir: /work
     ports:
       - "4003:4001"
     command:
