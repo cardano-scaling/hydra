@@ -32,6 +32,6 @@ cat > $TARGETDIR/node-3/network-topology.json <<EOF
 EOF
 
 echo '{"Producers": []}' > "$TARGETDIR/topology.json"
-sed -i "bak" "s/\"startTime\": [0-9]*/\"startTime\": $(date +%s)/" "$TARGETDIR/genesis-byron.json" && \
-sed -i "bak" "s/\"systemStart\": \".*\"/\"systemStart\": \"$(date -u +%FT%TZ)\"/" "$TARGETDIR/genesis-shelley.json"
+sed -i "s/\"startTime\": [0-9]*/\"startTime\": $(date +%s)/" "$TARGETDIR/genesis-byron.json" && \
+sed -i "s/\"systemStart\": \".*\"/\"systemStart\": \"$(date -u +%FT%TZ)\"/" "$TARGETDIR/genesis-shelley.json"
 echo "Prepared devnet, you can start the cluster now"
