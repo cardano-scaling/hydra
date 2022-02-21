@@ -669,3 +669,20 @@ definitions:
             enum: ["InvalidStateToPost"]
           txTried:
             $ref: "#/definitions/PostChainTx"
+
+  NetworkException:
+    description: >-
+      Provide details about Hydra network communication failure.
+    oneOf:
+      - title: NoConnectedPeers
+        type: object
+        additionalProperties: false
+        required:
+        - tag
+        description: >-
+          No other Hydra nodes are connected to this network, probably caused by
+          a lack of proper `network-topology.json` file.
+        properties:
+          tag:
+            type: string
+            enum: ["NoConnectedPeers"]

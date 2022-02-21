@@ -674,6 +674,20 @@ definitions:
           $ref: "common.yaml#/definitions/PostChainTx"
         postTxError:
           $ref: "common.yaml#/definitions/PostTxError"
+    - title: NetworkException
+      type: object
+      additionalProperties: false
+      required:
+      - tag
+      - networkException
+      description: >-
+        Event emitted when broadcasting a message to Hydra network failed.
+      properties:
+        tag:
+          type: string
+          enum: ["NetworkException"]
+        networkException:
+          $ref: "common.yaml#/definitions/NetworkException"
 
   Message:
     description: >-

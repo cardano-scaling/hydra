@@ -336,3 +336,20 @@ properties:
             $ref: "common.yaml#/definitions/PostChainTx"
           postTxError:
             $ref: "common.yaml#/definitions/PostTxError"
+
+      - title: NetworkBroadcastFailed
+        description: >-
+          Something wrong happened when trying to communicate with peers in the
+          Hydra network. The field `networkException` provides some details
+          about the issue.
+        type: object
+        additionalProperties: false
+        required:
+        - tag
+        - networkException
+        properties:
+          tag:
+            type: string
+            enum: ["NetworkBroadcastFailed"]
+          networkException:
+            $ref: "common.yaml#/definitions/NetworkException"

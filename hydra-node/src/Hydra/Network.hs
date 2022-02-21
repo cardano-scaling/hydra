@@ -29,6 +29,7 @@ module Hydra.Network (
   close,
 ) where
 
+import Data.Aeson (object, withObject, (.:), (.=))
 import Data.IP (IP, toIPv4w)
 import Data.Text (pack, unpack)
 import Hydra.Prelude hiding (show)
@@ -48,7 +49,20 @@ newtype Network m msg = Network
   }
 
 data NetworkException = NoConnectedPeers
-  deriving (Eq, Show, Exception, Generic, ToJSON, FromJSON)
+  deriving (Eq, Show, Exception, Generic)
+
+-- NOTE: Use custom instances because the default generic with a single
+-- constructor does not generate an object with a 'tag' field, only an
+-- empty object.
+instance ToJSON NetworkException where
+  toJSON = \case
+    NoConnectedPeers -> object ["tag" .= ("NoConnectedPeers" :: Text)]
+
+instance FromJSON NetworkException where
+  parseJSON = withObject "NetworkException" $ \o ->
+    o .: "tag" >>= \case
+      "NoConnectedPeers" -> pure NoConnectedPeers
+      other -> fail $ "Unknown tag: " <> other
 
 instance Arbitrary NetworkException where
   arbitrary = genericArbitrary
