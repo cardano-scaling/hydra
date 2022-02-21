@@ -12,7 +12,7 @@ module Hydra.Options (
 import Data.IP (IP)
 import Hydra.Chain.Direct (NetworkMagic (..))
 import Hydra.Logging (Verbosity (..))
-import Hydra.Network (Host, PortNumber, readHost, readPort)
+import Hydra.Network (PortNumber, readPort)
 import Hydra.Node.Version (gitRevision, showFullVersion, version)
 import Hydra.Prelude
 import Options.Applicative (
@@ -47,7 +47,6 @@ data Options = Options
   , nodeId :: Natural
   , host :: IP
   , port :: PortNumber
-  , peers :: [Host]
   , apiHost :: IP
   , apiPort :: PortNumber
   , monitoringPort :: Maybe PortNumber
@@ -64,7 +63,6 @@ hydraNodeParser =
     <*> nodeIdParser
     <*> hostParser
     <*> portParser
-    <*> many peerParser
     <*> apiHostParser
     <*> apiPortParser
     <*> optional monitoringPortParser
@@ -143,15 +141,6 @@ hydraVerificationKeyFileParser =
     ( long "hydra-verification-key"
         <> metavar "FILE"
         <> help "Other party multisig verification key."
-    )
-
-peerParser :: Parser Host
-peerParser =
-  option
-    (maybeReader readHost)
-    ( long "peer"
-        <> short 'P'
-        <> help "A peer address in the form <host>:<port>, where <host> can be an IP address, or a host name"
     )
 
 nodeIdParser :: Parser Natural

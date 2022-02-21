@@ -28,6 +28,7 @@ services:
       - $PWD:/keys:ro
       - $PWD/devnet/credentials:/credentials:ro
       - $PWD/devnet/ipc:/ipc
+      - $PWD/devnet/node-1:/work
     ports:
       - "4001:4001"
     command:
@@ -35,8 +36,6 @@ services:
       , "--api-host", "0.0.0.0"
       , "--host", "172.16.238.10"
       , "--monitoring-port", "6001"
-      , "--peer", "hydra-node-2:5001"
-      , "--peer", "hydra-node-3:5001"
       , "--hydra-signing-key", "/keys/alice.sk"
       , "--hydra-verification-key", "/keys/bob.vk"
       , "--hydra-verification-key", "/keys/carol.vk"
@@ -60,6 +59,7 @@ services:
       - $PWD:/keys:ro
       - $PWD/devnet/credentials:/credentials:ro
       - $PWD/devnet/ipc:/ipc
+      - $PWD/devnet/node-2:/work
     ports:
       - "4002:4001"
     command:
@@ -67,8 +67,6 @@ services:
       , "--api-host", "0.0.0.0"
       , "--host", "172.16.238.20"
       , "--monitoring-port", "6001"
-      , "--peer", "hydra-node-1:5001"
-      , "--peer", "hydra-node-3:5001"
       , "--hydra-signing-key", "/keys/bob.sk"
       , "--hydra-verification-key", "/keys/alice.vk"
       , "--hydra-verification-key", "/keys/carol.vk"
@@ -92,6 +90,7 @@ services:
       - $PWD:/keys:ro
       - $PWD/devnet/credentials:/credentials:ro
       - $PWD/devnet/ipc:/ipc
+      - $PWD/devnet/node-3:/work
     ports:
       - "4003:4001"
     command:
@@ -99,8 +98,6 @@ services:
       , "--api-host", "0.0.0.0"
       , "--host", "172.16.238.30"
       , "--monitoring-port", "6001"
-      , "--peer", "hydra-node-1:5001"
-      , "--peer", "hydra-node-2:5001"
       , "--hydra-signing-key", "/keys/carol.sk"
       , "--hydra-verification-key", "/keys/alice.vk"
       , "--hydra-verification-key", "/keys/bob.vk"

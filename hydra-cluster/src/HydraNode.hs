@@ -246,7 +246,7 @@ withHydraNode tracer cardanoSKeyPath cardanoVKeysPaths workDir nodeSocket hydraN
               }
       Aeson.encodeFile (dir </> defaultNetworkTopologyFile) networkTopology
       let p =
-            (hydraNodeProcess $ defaultArguments hydraNodeId cardanoSKeyPath cardanoVKeysPaths hydraSKeyPath hydraVKeysPaths nodeSocket allNodeIds)
+            (hydraNodeProcess $ defaultArguments hydraNodeId cardanoSKeyPath cardanoVKeysPaths hydraSKeyPath hydraVKeysPaths nodeSocket)
               { cwd = Just dir
               , std_out = UseHandle out
               }
@@ -293,9 +293,8 @@ defaultArguments ::
   FilePath ->
   [FilePath] ->
   FilePath ->
-  [Int] ->
   [String]
-defaultArguments nodeId cardanoSKey cardanoVKeys hydraSKey hydraVKeys nodeSocket allNodeIds =
+defaultArguments nodeId cardanoSKey cardanoVKeys hydraSKey hydraVKeys nodeSocket =
   [ "--node-id"
   , show nodeId
   , "--host"
@@ -313,7 +312,6 @@ defaultArguments nodeId cardanoSKey cardanoVKeys hydraSKey hydraVKeys nodeSocket
   , "--cardano-signing-key"
   , cardanoSKey
   ]
-    <> concat [["--peer", "127.0.0.1:" <> show (5000 + i)] | i <- allNodeIds, i /= nodeId]
     <> concat [["--hydra-verification-key", vKey] | vKey <- hydraVKeys]
     <> concat [["--cardano-verification-key", vKey] | vKey <- cardanoVKeys]
     <> ["--network-magic", "42"]

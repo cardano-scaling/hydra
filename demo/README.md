@@ -66,10 +66,9 @@ Then in 3 different terminals, start 3 `hydra-node`s from the `demo/` directory:
 
 Alice's node:
 ```sh
+cd devnet/node-1
 cabal exec hydra-node -- \
   --node-id 1 --port 5001 --api-port 4001 --monitoring-port 6001 \
-  --peer localhost:5002 \
-  --peer localhost:5003 \
   --hydra-signing-key alice.sk \
   --hydra-verification-key bob.vk \
   --hydra-verification-key carol.vk \
@@ -82,10 +81,9 @@ cabal exec hydra-node -- \
 
 Bob's node:
 ```sh
+cd devnet/node-2
 cabal exec hydra-node -- \
   --node-id 2 --port 5002 --api-port 4002 --monitoring-port 6002 \
-  --peer localhost:5001 \
-  --peer localhost:5003 \
   --hydra-signing-key bob.sk \
   --hydra-verification-key alice.vk \
   --hydra-verification-key carol.vk \
@@ -98,10 +96,9 @@ cabal exec hydra-node -- \
 
 Carol's node:
 ```sh
+cd devnet/node-3
 cabal exec hydra-node -- \
   --node-id 3 --port 5003 --api-port 4003 --monitoring-port 6003 \
-  --peer localhost:5001 \
-  --peer localhost:5002 \
   --hydra-signing-key carol.sk \
   --hydra-verification-key alice.vk \
   --hydra-verification-key bob.vk \
@@ -113,7 +110,6 @@ cabal exec hydra-node -- \
 ```
 
 If things go well, the nodes should start logging once they are connected to the chain.
-
 
 # Seeding Network
 
