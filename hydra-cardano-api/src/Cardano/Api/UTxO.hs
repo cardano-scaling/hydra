@@ -43,6 +43,10 @@ singleton (i, o) = UTxO $ Map.singleton i o
 pairs :: UTxO' out -> [(TxIn, out)]
 pairs = Map.toList . toMap
 
+-- | Get the 'UTxO' domain input's set
+inputSet :: UTxO' out -> Set TxIn
+inputSet = Map.keysSet . toMap
+
 -- | Get a human-readable pretty text representation of a UTxO.
 render :: (TxIn, TxOut ctx era) -> Text
 render (k, TxOut _ (txOutValueToValue -> v) _) =

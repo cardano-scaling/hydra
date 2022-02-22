@@ -80,6 +80,7 @@ library
     Hydra.API.Server
     Hydra.Chain
     Hydra.Chain.Direct
+    Hydra.Chain.Direct.State
     Hydra.Chain.Direct.Tx
     Hydra.Chain.Direct.Util
     Hydra.Chain.Direct.Wallet
@@ -236,6 +237,7 @@ test-suite tests
     Hydra.Chain.Direct.ContractSpec
     Hydra.Chain.Direct.Fixture
     Hydra.Chain.Direct.MockServer
+    Hydra.Chain.Direct.StateSpec
     Hydra.Chain.Direct.TxSpec
     Hydra.Chain.Direct.WalletSpec
     Hydra.Chain.DirectSpec

@@ -14,7 +14,6 @@ module Hydra.Chain.Direct (
 
 import Hydra.Prelude
 
-import qualified Cardano.Api.UTxO as UTxO
 import Cardano.Ledger.Alonzo.Language (Language (PlutusV1))
 import Cardano.Ledger.Alonzo.Rules.Utxo (UtxoPredicateFailure (UtxosFailure))
 import Cardano.Ledger.Alonzo.Rules.Utxos (TagMismatchDescription (FailedUnexpectedly), UtxosPredicateFailure (ValidationTagMismatch))
@@ -33,14 +32,13 @@ import Control.Monad.Class.MonadSTM (newTQueueIO, newTVarIO, readTQueue, retry, 
 import Control.Monad.Class.MonadTimer (timeout)
 import Control.Tracer (nullTracer)
 import Data.Aeson (Value (String), object, (.=))
-import qualified Data.Map.Strict as Map
+import qualified Data.Map as Map
 import Data.Sequence.Strict (StrictSeq)
 import Hydra.Cardano.Api (
   NetworkId (Testnet),
   PaymentKey,
   SigningKey,
   Tx,
-  UTxO' (..),
   VerificationKey,
   fromLedgerTx,
   fromLedgerTxIn,
@@ -56,22 +54,19 @@ import Hydra.Chain (
   PostChainTx (..),
   PostTxError (..),
  )
-import Hydra.Chain.Direct.Tx (
-  OnChainHeadState (..),
-  abortTx,
-  closeTx,
-  collectComTx,
-  commitTx,
-  fanoutTx,
+import Hydra.Chain.Direct.State (
+  SomeOnChainHeadState (..),
+  TokHeadState (..),
+  abort,
+  close,
+  collect,
+  commit,
+  fanout,
   getKnownUTxO,
-  initTx,
-  observeAbortTx,
-  observeCloseTx,
-  observeCollectComTx,
-  observeCommit,
-  observeFanoutTx,
-  observeInitTx,
-  ownInitial,
+  idleOnChainHeadState,
+  initialize,
+  observeTx,
+  reifyState,
  )
 import Hydra.Chain.Direct.Util (
   Block,
@@ -90,7 +85,6 @@ import Hydra.Chain.Direct.Wallet (
  )
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Party (Party)
-import Hydra.Snapshot (ConfirmedSnapshot (..))
 import Ouroboros.Consensus.Cardano.Block (GenTx (..), HardForkApplyTxErr (ApplyTxErrAlonzo), HardForkBlock (BlockAlonzo))
 import Ouroboros.Consensus.Ledger.SupportsMempool (ApplyTxErr)
 import Ouroboros.Consensus.Network.NodeToClient (Codecs' (..))
@@ -148,9 +142,15 @@ withDirectChain ::
   ChainComponent Tx IO ()
 withDirectChain tracer networkMagic iocp socketPath keyPair party cardanoKeys callback action = do
   queue <- newTQueueIO
-  headState <- newTVarIO None
   handle onIOException $
-    withTinyWallet (contramap Wallet tracer) networkMagic keyPair iocp socketPath $ \wallet ->
+    withTinyWallet (contramap Wallet tracer) networkMagic keyPair iocp socketPath $ \wallet -> do
+      headState <-
+        newTVarIO $
+          SomeOnChainHeadState $
+            idleOnChainHeadState
+              (Testnet networkMagic)
+              (verificationKey wallet)
+              party
       race_
         ( do
             -- FIXME: There's currently a race-condition with the actual client
@@ -169,7 +169,18 @@ withDirectChain tracer networkMagic iocp socketPath keyPair party cardanoKeys ca
                     -- XXX(SN): 'finalizeTx' retries until a payment utxo is
                     -- found. See haddock for details
                     timeoutThrowAfter (NoPaymentInput @Tx) 10 $
-                      fromPostChainTx wallet (Testnet networkMagic) headState cardanoKeys tx
+                      -- FIXME (MB): 'cardanoKeys' should really not be here. They
+                      -- are only required for the init transaction and ought to
+                      -- come from the _client_ and be part of the init request
+                      -- altogether. This goes in the direction of 'dynamic
+                      -- heads' where participants aren't known upfront but
+                      -- provided via the API. Ultimately, an init request from
+                      -- a client would contain all the details needed to
+                      -- establish connection to the other peers and to
+                      -- bootstrap the init transaction.
+                      -- For now, we bear with it and keep the static keys in
+                      -- context.
+                      fromPostChainTx cardanoKeys wallet headState tx
                         >>= finalizeTx wallet headState . toLedgerTx
                         >>= writeTQueue queue
                 }
@@ -177,7 +188,7 @@ withDirectChain tracer networkMagic iocp socketPath keyPair party cardanoKeys ca
         ( connectTo
             (localSnocket iocp)
             nullConnectTracers
-            (versions networkMagic (client tracer networkMagic queue party headState callback))
+            (versions networkMagic (client tracer queue headState callback))
             socketPath
         )
  where
@@ -207,21 +218,19 @@ instance Exception ConnectException
 client ::
   (MonadST m, MonadTimer m) =>
   Tracer m DirectChainLog ->
-  NetworkMagic ->
   TQueue m (ValidatedTx Era) ->
-  Party ->
-  TVar m OnChainHeadState ->
+  TVar m SomeOnChainHeadState ->
   ChainCallback Tx m ->
   NodeToClientVersion ->
   OuroborosApplication 'InitiatorMode LocalAddress LByteString m () Void
-client tracer networkMagic queue party headState callback nodeToClientV =
+client tracer queue headState callback nodeToClientV =
   nodeToClientProtocols
     ( const $
         pure $
           NodeToClientProtocols
             { localChainSyncProtocol =
                 InitiatorProtocolOnly $
-                  let peer = chainSyncClientPeer $ chainSyncClient tracer networkMagic callback party headState
+                  let peer = chainSyncClientPeer $ chainSyncClient tracer callback headState
                    in MuxPeer nullTracer cChainSyncCodec peer
             , localTxSubmissionProtocol =
                 InitiatorProtocolOnly $
@@ -245,16 +254,12 @@ chainSyncClient ::
   forall m.
   MonadSTM m =>
   Tracer m DirectChainLog ->
-  NetworkMagic ->
   ChainCallback Tx m ->
-  Party ->
-  TVar m OnChainHeadState ->
+  TVar m SomeOnChainHeadState ->
   ChainSyncClient Block (Point Block) (Tip Block) m ()
-chainSyncClient tracer networkMagic callback party headState =
+chainSyncClient tracer callback headState =
   ChainSyncClient (pure initStIdle)
  where
-  networkId = Testnet networkMagic
-
   -- NOTE:
   -- We fast-forward the chain client to the current node's tip on start, and
   -- from there, follow the chain block by block as they arrive. This is why the
@@ -324,21 +329,13 @@ chainSyncClient tracer networkMagic callback party headState =
 
   runOnChainTx :: [OnChainTx Tx] -> ValidatedTx Era -> STM m [OnChainTx Tx]
   runOnChainTx observed (fromLedgerTx -> tx) = do
-    onChainHeadState <- readTVar headState
-    let utxo = UTxO (getKnownUTxO onChainHeadState)
-    -- TODO(SN): We should be only looking for abort,commit etc. when we have a headId/policyId
-    let res =
-          observeInitTx networkId party tx
-            <|> observeCommit networkId tx onChainHeadState
-            <|> observeCollectComTx utxo tx
-            <|> observeCloseTx utxo tx
-            <|> observeAbortTx utxo tx
-            <|> observeFanoutTx utxo tx
-    case res of
-      Just (onChainTx, newOnChainHeadState) -> do
-        writeTVar headState newOnChainHeadState
+    SomeOnChainHeadState st <- readTVar headState
+    case observeTx tx st of
+      Just (onChainTx, st') -> do
+        writeTVar headState st'
         pure $ onChainTx : observed
-      Nothing -> pure observed
+      Nothing ->
+        pure observed
 
 txSubmissionClient ::
   forall m.
@@ -382,11 +379,11 @@ txSubmissionClient tracer queue =
 finalizeTx ::
   (MonadSTM m, MonadThrow (STM m)) =>
   TinyWallet m ->
-  TVar m OnChainHeadState ->
+  TVar m SomeOnChainHeadState ->
   ValidatedTx Era ->
   STM m (ValidatedTx Era)
 finalizeTx TinyWallet{sign, getUTxO, coverFee} headState partialTx = do
-  headUTxO <- UTxO . getKnownUTxO <$> readTVar headState
+  headUTxO <- (\(SomeOnChainHeadState st) -> getKnownUTxO st) <$> readTVar headState
   walletUTxO <- fromLedgerUTxO . Ledger.UTxO <$> getUTxO
   coverFee (Ledger.unUTxO $ toLedgerUTxO headUTxO) partialTx >>= \case
     Left ErrNoPaymentUTxOFound ->
@@ -415,42 +412,29 @@ finalizeTx TinyWallet{sign, getUTxO, coverFee} headState partialTx = do
 
 fromPostChainTx ::
   (MonadSTM m, MonadThrow (STM m)) =>
-  TinyWallet m ->
-  NetworkId ->
-  TVar m OnChainHeadState ->
   [VerificationKey PaymentKey] ->
+  TinyWallet m ->
+  TVar m SomeOnChainHeadState ->
   PostChainTx Tx ->
   STM m Tx
-fromPostChainTx TinyWallet{getUTxO, verificationKey} networkId headState cardanoKeys tx =
-  case tx of
-    InitTx params -> do
+fromPostChainTx cardanoKeys TinyWallet{getUTxO} someHeadState tx = do
+  SomeOnChainHeadState st <- readTVar someHeadState
+  case (tx, reifyState st) of
+    (InitTx params, TkIdle) -> do
       u <- getUTxO
       -- NOTE: 'lookupMax' to favor change outputs!
       case Map.lookupMax u of
-        Just (fromLedgerTxIn -> seedInput, _) -> pure $ initTx networkId cardanoKeys params seedInput
-        Nothing -> throwIO (NoSeedInput @Tx)
-    AbortTx _utxo ->
-      readTVar headState >>= \case
-        Initial{threadOutput, initials, commits} ->
-          let (i, _, dat, _) = threadOutput
-           in case abortTx networkId (i, dat) (Map.fromList $ map convertTuple initials) (Map.fromList $ map tripleToPair commits) of
-                Left err -> error $ show err
-                Right tx' -> pure tx'
-        _st -> throwIO $ InvalidStateToPost tx
-    CommitTx party utxo ->
-      readTVar headState >>= \case
-        st@Initial{initials} -> case ownInitial verificationKey initials of
-          Nothing ->
-            throwIO (CannotFindOwnInitial{knownUTxO = UTxO $ getKnownUTxO st} :: PostTxError Tx)
-          Just initial ->
-            case UTxO.pairs utxo of
-              [aUTxO] -> do
-                pure $ commitTx networkId party (Just aUTxO) initial
-              [] -> do
-                pure $ commitTx networkId party Nothing initial
-              _ ->
-                throwIO (MoreThanOneUTxOCommitted @Tx)
-        _st -> throwIO $ InvalidStateToPost tx
+        Just (fromLedgerTxIn -> seedInput, _) -> do
+          pure $ initialize params cardanoKeys seedInput st
+        Nothing ->
+          throwIO (NoSeedInput @Tx)
+    (AbortTx{}, TkInitialized) -> do
+      pure (abort st)
+    -- NOTE / TODO: 'CommitTx' also contains a 'Party' which seems redundant
+    -- here. The 'Party' is already part of the state and it is the only party
+    -- which can commit from this Hydra node.
+    (CommitTx{committed}, TkInitialized) -> do
+      either throwIO pure (commit committed st)
     -- TODO: We do not rely on the utxo from the collect com tx here because the
     -- chain head-state is already tracking UTXO entries locked by commit scripts,
     -- and thus, can re-construct the committed UTXO for the collectComTx from
@@ -458,33 +442,14 @@ fromPostChainTx TinyWallet{getUTxO, verificationKey} networkId headState cardano
     --
     -- Perhaps we do want however to perform some kind of sanity check to ensure
     -- that both states are consistent.
-    CollectComTx{} ->
-      readTVar headState >>= \case
-        Initial{threadOutput, commits} -> do
-          let (i, _, dat, parties) = threadOutput
-          pure $ collectComTx networkId (i, dat, parties) (Map.fromList $ fmap tripleToPair commits)
-        _st -> throwIO $ InvalidStateToPost tx
-    CloseTx confirmedSnapshot ->
-      readTVar headState >>= \case
-        OpenOrClosed{threadOutput} -> do
-          let (sn, sigs) =
-                case confirmedSnapshot of
-                  ConfirmedSnapshot{snapshot, signatures} -> (snapshot, signatures)
-                  InitialSnapshot{snapshot} -> (snapshot, mempty)
-          let (i, o, dat, _) = threadOutput
-          pure $ closeTx sn sigs (i, o, dat)
-        _st -> throwIO $ InvalidStateToPost tx
-    FanoutTx{utxo} ->
-      readTVar headState >>= \case
-        OpenOrClosed{threadOutput} ->
-          let (i, _, dat, _) = threadOutput
-           in pure $ fanoutTx utxo (i, dat)
-        _st -> throwIO $ InvalidStateToPost tx
-    _ -> error "not implemented"
- where
-  convertTuple (i, _, dat) = (i, dat)
-
-  tripleToPair (a, b, c) = (a, (b, c))
+    (CollectComTx{}, TkInitialized) -> do
+      pure (collect st)
+    (CloseTx{confirmedSnapshot}, TkOpen) ->
+      pure (close confirmedSnapshot st)
+    (FanoutTx{utxo}, TkClosed) ->
+      pure (fanout utxo st)
+    (_, _) ->
+      throwIO $ InvalidStateToPost tx
 
 --
 -- Helpers

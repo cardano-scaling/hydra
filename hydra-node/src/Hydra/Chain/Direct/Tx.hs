@@ -41,31 +41,6 @@ import Plutus.V2.Ledger.Api (toBuiltin)
 
 type UTxOWithScript = (TxIn, TxOut CtxUTxO, ScriptData)
 
--- | Maintains information needed to construct on-chain transactions
--- depending on the current state of the head.
-data OnChainHeadState
-  = None
-  | Initial
-      { -- | The state machine UTxO produced by the Init transaction
-        -- This output should always be present and 'threaded' across all
-        -- transactions.
-        -- NOTE(SN): The Head's identifier is somewhat encoded in the TxOut's address
-        -- XXX(SN): Data and [OnChain.Party] are overlapping
-        threadOutput :: (TxIn, TxOut CtxUTxO, ScriptData, [OnChain.Party])
-      , initials :: [UTxOWithScript]
-      , commits :: [UTxOWithScript]
-      }
-  | OpenOrClosed
-      { -- | The state machine UTxO produced by the Init transaction
-        -- This output should always be present and 'threaded' across all
-        -- transactions.
-        -- NOTE(SN): The Head's identifier is somewhat encoded in the TxOut's address
-        -- XXX(SN): Data and [OnChain.Party] are overlapping
-        threadOutput :: (TxIn, TxOut CtxUTxO, ScriptData, [OnChain.Party])
-      }
-  | Final
-  deriving (Eq, Show, Generic)
-
 -- FIXME: should not be hardcoded, for testing purposes only
 threadToken :: AssetClass
 threadToken = assetClass (currencySymbol "hydra") (tokenName "token")
@@ -147,11 +122,11 @@ commitTx ::
 commitTx networkId party utxo (initialInput, vkh) =
   unsafeBuildTransaction $
     emptyTxBody
-      & addInputs [(initialInput, initialWitness)]
+      & addInputs [(initialInput, initialWitness_)]
       & addVkInputs (maybeToList mCommittedInput)
       & addOutputs [commitOutput]
  where
-  initialWitness =
+  initialWitness_ =
     BuildTxWith $ mkScriptWitness initialScript initialDatum initialRedeemer
   initialScript =
     fromPlutusScript @PlutusScriptV1 Initial.validatorScript
@@ -381,13 +356,25 @@ abortTx networkId (headInput, ScriptDatumForTxIn -> headDatumBefore) initialsToA
 
 -- * Observe Hydra Head transactions
 
+data InitObservation = InitObservation
+  { -- | The state machine UTxO produced by the Init transaction
+    -- This output should always be present and 'threaded' across all
+    -- transactions.
+    -- NOTE(SN): The Head's identifier is somewhat encoded in the TxOut's address
+    -- XXX(SN): Data and [OnChain.Party] are overlapping
+    threadOutput :: (TxIn, TxOut CtxUTxO, ScriptData, [OnChain.Party])
+  , initials :: [UTxOWithScript]
+  , commits :: [UTxOWithScript]
+  }
+  deriving (Show, Eq)
+
 -- XXX(SN): We should log decisions why a tx is not an initTx etc. instead of
 -- only returning a Maybe, i.e. 'Either Reason (OnChainTx tx, OnChainHeadState)'
 observeInitTx ::
   NetworkId ->
   Party ->
   Tx ->
-  Maybe (OnChainTx Tx, OnChainHeadState)
+  Maybe (OnChainTx Tx, InitObservation)
 observeInitTx networkId party tx = do
   (ix, headOut, headData, Head.Initial cp ps) <- findFirst headOutput indexedOutputs
   let parties = map convertParty ps
@@ -395,7 +382,7 @@ observeInitTx networkId party tx = do
   guard $ party `elem` parties
   pure
     ( OnInitTx cperiod parties
-    , Initial
+    , InitObservation
         { threadOutput =
             ( mkTxIn tx ix
             , toCtxUTxOTxOut headOut
@@ -433,6 +420,8 @@ observeInitTx networkId party tx = do
 convertParty :: OnChain.Party -> Party
 convertParty = Party . partyToVerKey
 
+type CommitObservation = UTxOWithScript
+
 -- | Identify a commit tx by:
 --
 -- - Find which 'initial' tx input is being consumed.
@@ -446,7 +435,7 @@ observeCommitTx ::
   -- | Known (remaining) initial tx inputs.
   [TxIn] ->
   Tx ->
-  Maybe (OnChainTx Tx, UTxOWithScript)
+  Maybe (OnChainTx Tx, CommitObservation)
 observeCommitTx networkId initials tx = do
   initialTxIn <- findInitialTxIn
   mCommittedTxIn <- decodeInitialRedeemer initialTxIn
@@ -496,32 +485,12 @@ convertTxOut = \case
       Right result -> Just result
       Left{} -> error "couldn't deserialize serialized output in commit's datum."
 
--- REVIEW(SN): Is this really specific to commit only, or wouldn't we be able to
--- filter all 'getKnownUTxO' after observing any protocol tx?
-observeCommit ::
-  NetworkId ->
-  Tx ->
-  OnChainHeadState ->
-  Maybe (OnChainTx Tx, OnChainHeadState)
-observeCommit networkId tx = \case
-  Initial{threadOutput, initials, commits} -> do
-    (onChainTx, commitTriple) <- observeCommitTx networkId (initials <&> \(a, _, _) -> a) tx
-    -- NOTE(SN): A commit tx has been observed and thus we can remove all it's
-    -- inputs from our tracked initials
-    let commitIns = txIns' tx
-    let initials' = filter (\(i, _, _) -> i `notElem` commitIns) initials
-    let commits' = commitTriple : commits
-    pure
-      ( onChainTx
-      , Initial
-          { threadOutput
-          , initials = initials'
-          , commits = commits'
-          }
-      )
-  _ -> Nothing
-
 -- TODO(SN): obviously the observeCollectComTx/observeAbortTx can be DRYed.. deliberately hold back on it though
+
+data CollectComObservation = CollectComObservation
+  { threadOutput :: (TxIn, TxOut CtxUTxO, ScriptData, [OnChain.Party])
+  }
+  deriving (Show, Eq)
 
 -- | Identify a collectCom tx by lookup up the input spending the Head output
 -- and decoding its redeemer.
@@ -529,7 +498,7 @@ observeCollectComTx ::
   -- | A UTxO set to lookup tx inputs
   UTxO ->
   Tx ->
-  Maybe (OnChainTx Tx, OnChainHeadState)
+  Maybe (OnChainTx Tx, CollectComObservation)
 observeCollectComTx utxo tx = do
   (headInput, headOutput) <- findScriptOutput @PlutusScriptV1 utxo headScript
   redeemer <- findRedeemerSpending tx headInput
@@ -541,7 +510,7 @@ observeCollectComTx utxo tx = do
       newHeadDatum <- lookupScriptData tx newHeadOutput
       pure
         ( OnCollectComTx
-        , OpenOrClosed
+        , CollectComObservation
             { threadOutput =
                 ( newHeadInput
                 , newHeadOutput
@@ -554,13 +523,18 @@ observeCollectComTx utxo tx = do
  where
   headScript = fromPlutusScript $ Head.validatorScript policyId
 
+data CloseObservation = CloseObservation
+  { threadOutput :: (TxIn, TxOut CtxUTxO, ScriptData, [OnChain.Party])
+  }
+  deriving (Show, Eq)
+
 -- | Identify a close tx by lookup up the input spending the Head output and
 -- decoding its redeemer.
 observeCloseTx ::
   -- | A UTxO set to lookup tx inputs
   UTxO ->
   Tx ->
-  Maybe (OnChainTx Tx, OnChainHeadState)
+  Maybe (OnChainTx Tx, CloseObservation)
 observeCloseTx utxo tx = do
   (headInput, headOutput) <- findScriptOutput @PlutusScriptV1 utxo headScript
   redeemer <- findRedeemerSpending tx headInput
@@ -573,7 +547,7 @@ observeCloseTx utxo tx = do
       snapshotNumber <- integerToNatural onChainSnapshotNumber
       pure
         ( OnCloseTx{contestationDeadline, snapshotNumber}
-        , OpenOrClosed
+        , CloseObservation
             { threadOutput =
                 ( newHeadInput
                 , newHeadOutput
@@ -589,6 +563,8 @@ observeCloseTx utxo tx = do
   -- FIXME(SN): store in/read from datum
   contestationDeadline = UTCTime (ModifiedJulianDay 0) 0
 
+type FanoutObservation = ()
+
 -- | Identify a fanout tx by lookup up the input spending the Head output and
 -- decoding its redeemer.
 --
@@ -599,15 +575,17 @@ observeFanoutTx ::
   -- | A UTxO set to lookup tx inputs
   UTxO ->
   Tx ->
-  Maybe (OnChainTx Tx, OnChainHeadState)
+  Maybe (OnChainTx Tx, FanoutObservation)
 observeFanoutTx utxo tx = do
   headInput <- fst <$> findScriptOutput @PlutusScriptV1 utxo headScript
   findRedeemerSpending tx headInput
     >>= \case
-      Head.Fanout{} -> pure (OnFanoutTx, Final)
+      Head.Fanout{} -> pure (OnFanoutTx, ())
       _ -> Nothing
  where
   headScript = fromPlutusScript $ Head.validatorScript policyId
+
+type AbortObservation = ()
 
 -- | Identify an abort tx by looking up the input spending the Head output and
 -- decoding its redeemer.
@@ -615,32 +593,17 @@ observeAbortTx ::
   -- | A UTxO set to lookup tx inputs
   UTxO ->
   Tx ->
-  Maybe (OnChainTx Tx, OnChainHeadState)
+  Maybe (OnChainTx Tx, AbortObservation)
 observeAbortTx utxo tx = do
   headInput <- fst <$> findScriptOutput @PlutusScriptV1 utxo headScript
   findRedeemerSpending tx headInput >>= \case
-    Head.Abort -> pure (OnAbortTx, Final)
+    Head.Abort -> pure (OnAbortTx, ())
     _ -> Nothing
  where
   -- FIXME(SN): make sure this is aborting "the right head / your head" by not hard-coding policyId
   headScript = fromPlutusScript $ Head.validatorScript policyId
 
 -- * Functions related to OnChainHeadState
-
--- | Provide a UTXO map for given OnChainHeadState. Used by the TinyWallet and
--- the direct chain component to lookup inputs for balancing / constructing txs.
--- XXX(SN): This is a hint that we might want to track the UTxO directly?
-getKnownUTxO :: OnChainHeadState -> Map TxIn (TxOut CtxUTxO)
-getKnownUTxO = \case
-  Initial{threadOutput, initials, commits} ->
-    Map.fromList $ take2 threadOutput : (take2' <$> (initials <> commits))
-  OpenOrClosed{threadOutput = (i, o, _, _)} ->
-    Map.singleton i o
-  _ ->
-    mempty
- where
-  take2 (i, o, _, _) = (i, o)
-  take2' (i, o, _) = (i, o)
 
 -- | Look for the "initial" which corresponds to given cardano verification key.
 ownInitial ::

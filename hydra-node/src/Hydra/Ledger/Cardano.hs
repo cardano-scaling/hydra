@@ -18,7 +18,7 @@ import Hydra.Cardano.Api
 import Hydra.Ledger.Cardano.Builder
 
 import qualified Cardano.Api.UTxO as UTxO
-import Cardano.Binary (decodeAnnotator, serialize')
+import Cardano.Binary (decodeAnnotator, serialize', unsafeDeserialize')
 import qualified Cardano.Crypto.DSIGN as CC
 import Cardano.Crypto.Hash (SHA256, digest)
 import qualified Cardano.Ledger.Alonzo.PParams as Ledger.Alonzo
@@ -280,6 +280,14 @@ genOutput ::
 genOutput vk = do
   value <- fromLedgerValue <$> scale (* 8) arbitrary
   pure $ TxOut (mkVkAddress (Testnet $ NetworkMagic 42) vk) value TxOutDatumNone
+
+-- A more random generator than the default 'arbitrary' that we have in scope.
+genTxIn :: Gen TxIn
+genTxIn =
+  fmap fromLedgerTxIn . Ledger.TxIn
+    -- NOTE: [88, 32] is a CBOR prefix for a bytestring of 32 bytes.
+    <$> fmap (unsafeDeserialize' . BS.pack . ([88, 32] <>)) (vectorOf 32 arbitrary)
+    <*> fmap fromIntegral (choose @Int (0, 99))
 
 genUTxO :: Gen UTxO
 genUTxO = do

@@ -18,7 +18,7 @@ import qualified Cardano.Ledger.Alonzo.Scripts as Ledger
 import qualified Cardano.Ledger.Alonzo.Tools as Ledger
 import qualified Cardano.Ledger.Alonzo.TxWitness as Ledger
 import qualified Data.ByteString.Lazy as LBS
-import Data.List (intersect, nub, (\\))
+import Data.List (nub, (\\))
 import qualified Data.Map as Map
 import Hydra.Chain (HeadParameters (..), OnChainTx (..))
 import Hydra.Chain.Direct.Fixture (costModels, epochInfo, maxTxSize, pparams, systemStart, testNetworkId)
@@ -29,7 +29,6 @@ import qualified Hydra.Contract.HeadState as Head
 import qualified Hydra.Contract.Initial as Initial
 import Hydra.Data.ContestationPeriod (contestationPeriodFromDiffTime)
 import Hydra.Data.Party (partyFromVerKey)
-import Hydra.Ledger (balance)
 import Hydra.Ledger.Cardano (
   adaOnly,
   genAdaOnlyUTxO,
@@ -47,7 +46,6 @@ import Test.QuickCheck (
   Property,
   checkCoverage,
   choose,
-  conjoin,
   counterexample,
   cover,
   elements,
@@ -62,10 +60,8 @@ import Test.QuickCheck (
   withMaxSuccess,
   (.&&.),
   (===),
-  (==>),
  )
 import Test.QuickCheck.Instances ()
-import qualified Prelude
 
 spec :: Spec
 spec =
@@ -95,7 +91,7 @@ spec =
             tx = initTx testNetworkId cardanoKeys params txIn
             res = observeInitTx testNetworkId (fst me) tx
          in case res of
-              Just (OnInitTx cp ps, Initial{initials}) ->
+              Just (OnInitTx cp ps, InitObservation{initials}) ->
                 cp === cperiod
                   .&&. ps === parties
                   .&&. length initials === length cardanoKeys
@@ -128,37 +124,6 @@ spec =
               === Just (OnCommitTx{party, committed = committedUTxO}, expectedOutput)
               & counterexample ("Tx: " <> show tx)
 
-      prop "consumes all inputs that are committed from initials" $ \party singleUTxO (NonEmpty txInputs) ->
-        let myInitial = (\(a, b, _) -> (a, b)) $ Prelude.head txInputs
-            tx = commitTx testNetworkId party (Just singleUTxO) myInitial
-            committedUTxO = UTxO $ Map.fromList [singleUTxO]
-            commitOutput = toUTxOContext $ TxOut commitAddress commitValue (mkTxOutDatum commitDatum)
-            commitAddress = mkScriptAddress @PlutusScriptV1 testNetworkId $ fromPlutusScript Commit.validatorScript
-            commitValue = headValue <> balance @Tx committedUTxO
-            commitDatum = mkCommitDatum party (Head.validatorHash policyId) $ Just singleUTxO
-            commitInput = TxIn (getTxId $ getTxBody tx) (TxIx 0)
-            onChainState =
-              Initial
-                { threadOutput = error "should not be evaluated anyway."
-                , initials = mkInitials <$> txInputs
-                , commits = []
-                }
-            Just
-              Initial
-                { initials = newInitials
-                , commits = newCommits
-                } = snd <$> observeCommit testNetworkId tx onChainState
-
-            commitedUTxODoesNotOverlapWithInitials =
-              null $ [fst singleUTxO] `intersect` ((\(a, _, _) -> a) <$> txInputs)
-         in commitedUTxODoesNotOverlapWithInitials
-              ==> conjoin
-                [ (newInitials === (mkInitials <$> Prelude.tail txInputs))
-                    & counterexample "newInitials /= expectation."
-                , (newCommits === [(commitInput, commitOutput, fromPlutusData (toData commitDatum))])
-                    & counterexample "newCommits /= expectation."
-                ]
-
     describe "collectComTx" $ do
       prop "transaction size below limit" $ \(ReasonablySized parties) headIn cperiod ->
         forAll (generateCommitUTxOs parties) $ \commitsUTxO ->
@@ -187,7 +152,7 @@ spec =
                   commitsUTxO
               res = observeCollectComTx lookupUTxO tx
            in case res of
-                Just (OnCollectComTx, OpenOrClosed{threadOutput}) ->
+                Just (OnCollectComTx, CollectComObservation{threadOutput}) ->
                   txOutValue ((\(_, b, _, _) -> b) threadOutput) === headTotalValue
                 _ -> property False
                 & counterexample ("Observe result: " <> show res)
@@ -236,7 +201,7 @@ spec =
             tx = closeTx snapshot msig (headInput, headOutput, fromPlutusData $ toData headDatum)
             res = observeCloseTx lookupUTxO tx
          in case res of
-              Just (OnCloseTx{snapshotNumber}, OpenOrClosed{}) -> snapshotNumber === number snapshot
+              Just (OnCloseTx{snapshotNumber}, CloseObservation{}) -> snapshotNumber === number snapshot
               _ -> property False
               & counterexample ("Observe result: " <> show res)
               & counterexample ("Tx: " <> show tx)
@@ -281,7 +246,7 @@ spec =
             headDatum = fromPlutusData $ toData $ Head.Closed{snapshotNumber = 1, utxoHash = ""}
             lookupUTxO = UTxO.singleton (headInput, headOutput)
             res = observeFanoutTx lookupUTxO tx
-         in res === Just (OnFanoutTx, Final)
+         in res === Just (OnFanoutTx, ())
               & counterexample ("Tx: " <> show tx)
               & counterexample ("UTxO map: " <> show lookupUTxO)
 
@@ -341,7 +306,8 @@ spec =
                   Right tx ->
                     let res = observeAbortTx utxo tx
                      in case res of
-                          Just (_, st) -> st === Final
+                          Just (_, ()) ->
+                            property True
                           _ ->
                             property False
                               & counterexample ("Result: " <> show res)
@@ -380,7 +346,7 @@ spec =
           let params = HeadParameters cperiod (party : parties)
               tx = initTx testNetworkId cardanoKeys params txIn
            in case observeInitTx testNetworkId party tx of
-                Just (_, Initial{initials, threadOutput}) -> do
+                Just (_, InitObservation{initials, threadOutput}) -> do
                   let (headInput, headOutput, headDatum, _) = threadOutput
                       initials' = Map.fromList [(a, c) | (a, _, c) <- initials]
                       lookupUTxO =
