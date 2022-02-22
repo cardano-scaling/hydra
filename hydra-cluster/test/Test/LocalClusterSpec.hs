@@ -5,20 +5,25 @@ import Hydra.Prelude
 import Test.Hydra.Prelude
 
 import CardanoClient (
-  Sizes (..),
   build,
   buildAddress,
-  buildRaw,
   buildScriptAddress,
-  calculateMinFee,
-  defaultSizes,
-  queryProtocolParameters,
   queryUTxO,
   sign,
   submit,
   waitForPayment,
  )
-import CardanoCluster (Actor (Alice), ClusterConfig (..), ClusterLog (..), RunningCluster (..), defaultNetworkId, keysFor, withCluster)
+import CardanoCluster (
+  Actor (Alice),
+  ClusterConfig (..),
+  ClusterLog (..),
+  Marked (Normal),
+  RunningCluster (..),
+  defaultNetworkId,
+  keysFor,
+  seedFromFaucet,
+  withCluster,
+ )
 import CardanoNode (ChainTip (..), RunningNode (..), cliQueryTip)
 import qualified Data.Map as Map
 import Hydra.Chain.Direct.Tx (policyId)
@@ -33,12 +38,11 @@ spec =
   it "should produce blocks, provide funds, and send Hydra OCV transactions" $ do
     showLogsOnFailure $ \tr ->
       withTempDir "hydra-cluster" $ \tmp -> do
-        (vk, _) <- keysFor Alice
         let config =
               ClusterConfig
                 { parentStateDirectory = tmp
                 , networkId = defaultNetworkId
-                , initialFunds = [vk]
+                , initialFunds = []
                 }
         withCluster tr config $ \cluster -> do
           failAfter 30 $ assertNetworkIsProducingBlock tr cluster
@@ -61,29 +65,9 @@ assertNetworkIsProducingBlock tracer = go (-1)
 
 assertCanSpendInitialFunds :: HasCallStack => RunningCluster -> IO ()
 assertCanSpendInitialFunds = \case
-  (RunningCluster ClusterConfig{networkId} (RunningNode _ socket : _)) -> do
-    (vk, sk) <- keysFor Alice
-    let addr = buildAddress vk networkId
-    UTxO utxo <- queryUTxO networkId socket [addr]
-    pparams <- queryProtocolParameters networkId socket
-    let (txIn, out) = case Map.toList utxo of
-          [] -> error "No UTxO found"
-          (tx : _) -> tx
-        initialAmount = selectLovelace (txOutValue out)
-        amountToPay = 100_000_001
-        paymentOutput = TxOut (shelleyAddressInEra addr) (lovelaceToValue amountToPay) TxOutDatumNone
-        signedTx = do
-          rawTx <- buildRaw [txIn] [] 0
-          let fee = calculateMinFee networkId rawTx defaultSizes{inputs = 1, outputs = 2, witnesses = 1} pparams
-              changeOutput = TxOut (shelleyAddressInEra addr) (lovelaceToValue $ initialAmount - amountToPay - fee) TxOutDatumNone
-          draftTx <- buildRaw [txIn] [paymentOutput, changeOutput] fee
-          pure $ sign sk draftTx
-
-    case signedTx of
-      Left err -> failure ("transaction is malformed: " <> show err)
-      Right tx -> do
-        submit networkId socket tx
-        void $ waitForPayment networkId socket amountToPay addr
+  (RunningCluster ClusterConfig{networkId} (node : _)) -> do
+    (vk, _) <- keysFor Alice
+    void $ seedFromFaucet networkId node vk 100_000_000 Normal
   _ ->
     error "empty cluster?"
 
