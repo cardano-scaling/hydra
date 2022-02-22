@@ -20,35 +20,43 @@ import Hydra.Chain.Direct.State (
  )
 import Hydra.Ledger.Cardano (genOneUTxOFor, genTxIn, genVerificationKey)
 import Hydra.Party (Party)
-import Test.QuickCheck (choose, elements, forAll, property, vector)
+import Test.QuickCheck (Property, choose, elements, forAll, property, vector)
 
 spec :: Spec
 spec =
   describe "commit" $ do
     prop "consumes all inputs that are committed." $
-      forAll genHydraContext $ \ctx ->
-        forAll (genStInitialized ctx) $ \stInitialized ->
-          forAll genSingleUTxO $ \utxo ->
-            let tx = unsafeCommit utxo stInitialized
-             in case transition @_ @'StInitialized tx stInitialized of
-                  Just (_, st') ->
-                    let knownInputs = UTxO.inputSet (getKnownUTxO st')
-                     in property (knownInputs `Set.disjoint` txInputSet tx)
-                  Nothing ->
-                    property False
+      forAllCommit $ \st tx ->
+         case transition @_ @'StInitialized tx st of
+            Just (_, st') ->
+              let knownInputs = UTxO.inputSet (getKnownUTxO st')
+               in property (knownInputs `Set.disjoint` txInputSet tx)
+            Nothing ->
+              property False
 
     prop "can only apply / observe the same commit once" $
-      forAll genHydraContext $ \ctx ->
-        forAll (genStInitialized ctx) $ \stInitialized ->
-          forAll genSingleUTxO $ \utxo ->
-            let tx = unsafeCommit utxo stInitialized
-             in case transition tx stInitialized of
-                  Just (_, st' :: OnChainHeadState 'StInitialized) ->
-                    case transition @_ @'StInitialized tx st' of
-                      Just{} -> property False
-                      Nothing -> property True
-                  Nothing ->
-                    property False
+      forAllCommit $ \st tx ->
+         case transition @_ @'StInitialized tx st of
+            Just (_, st') ->
+              case transition @_ @'StInitialized tx st' of
+                Just{} -> property False
+                Nothing -> property True
+            Nothing ->
+              property False
+
+--
+-- QuickCheck Extras
+--
+
+forAllCommit
+  :: (OnChainHeadState 'StInitialized -> Tx -> Property)
+  -> Property
+forAllCommit action = do
+  forAll genHydraContext $ \ctx ->
+    forAll (genStInitialized ctx) $ \stInitialized ->
+      forAll genSingleUTxO $ \utxo ->
+        let tx = unsafeCommit utxo stInitialized
+         in action stInitialized tx
 
 --
 -- Generators
