@@ -1,3 +1,5 @@
+{-# LANGUAGE TypeApplications #-}
+
 module Hydra.Chain.Direct.StateSpec where
 
 import Hydra.Cardano.Api
@@ -10,8 +12,6 @@ import Hydra.Chain (HeadParameters (..))
 import Hydra.Chain.Direct.State (
   HeadStateKind (..),
   OnChainHeadState,
-  SomeOnChainHeadState (..),
-  TokHeadState (..),
   commit,
   getKnownUTxO,
   idleOnChainHeadState,
@@ -30,10 +30,23 @@ spec =
         forAll (genStInitialized ctx) $ \stInitialized ->
           forAll genSingleUTxO $ \utxo ->
             let tx = unsafeCommit utxo stInitialized
-             in case transition tx stInitialized of
-                  Just (_, st' :: OnChainHeadState 'StInitialized) ->
+             in case transition @_ @'StInitialized tx stInitialized of
+                  Just (_, st') ->
                     let knownInputs = UTxO.inputSet (getKnownUTxO st')
                      in property (knownInputs `Set.disjoint` txInputSet tx)
+                  Nothing ->
+                    property False
+
+    prop "can only apply / observe the same commit once" $
+      forAll genHydraContext $ \ctx ->
+        forAll (genStInitialized ctx) $ \stInitialized ->
+          forAll genSingleUTxO $ \utxo ->
+            let tx = unsafeCommit utxo stInitialized
+             in case transition tx stInitialized of
+                  Just (_, st' :: OnChainHeadState 'StInitialized) ->
+                    case transition @_ @'StInitialized tx st' of
+                      Just{} -> property False
+                      Nothing -> property True
                   Nothing ->
                     property False
 
@@ -82,9 +95,10 @@ genStInitialized ctx@HydraContext{ctxParties, ctxContestationPeriod, ctxVerifica
   stIdle <- genStIdle ctx
   let headParameters = HeadParameters ctxContestationPeriod ctxParties
   seedInput <- genTxIn
-  case transition (initialize headParameters ctxVerificationKeys seedInput stIdle) stIdle of
+  let initTx = initialize headParameters ctxVerificationKeys seedInput stIdle
+  case transition @_ @'StInitialized initTx stIdle of
     Nothing -> error "failed to observe arbitrarily generated init tx?"
-    Just (_, st' :: OnChainHeadState 'StInitialized) ->
+    Just (_, st') ->
       pure st'
 
 genSingleUTxO :: Gen UTxO
