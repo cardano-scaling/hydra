@@ -19,7 +19,7 @@ import Hydra.Cardano.Api (
  )
 import Hydra.Ledger (IsTx, TxIdType, UTxOType)
 import Hydra.Party (Party)
-import Hydra.Snapshot (ConfirmedSnapshot, Snapshot, SnapshotNumber)
+import Hydra.Snapshot (ConfirmedSnapshot, Snapshot (number), SnapshotNumber, getSnapshot)
 
 -- | Contains the head's parameters as established in the initial transaction.
 data HeadParameters = HeadParameters

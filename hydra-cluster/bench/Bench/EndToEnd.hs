@@ -39,7 +39,7 @@ import Data.Scientific (Scientific)
 import Data.Set ((\\))
 import qualified Data.Set as Set
 import Data.Time (UTCTime (UTCTime), nominalDiffTimeToSeconds, utctDayTime)
-import Hydra.Cardano.Api (Tx, TxId, UTxO, getVerificationKey)
+import Hydra.Cardano.Api (Tx, TxId, TxIn (TxIn), TxIx (TxIx), UTxO, UTxO' (UTxO), getVerificationKey, toUTxOContext, txOuts')
 import Hydra.Generator (Dataset (..))
 import Hydra.Ledger (txId)
 import Hydra.Logging (withTracerOutputTo)
@@ -69,7 +69,7 @@ import System.Process (
  )
 import Text.Printf (printf)
 import Text.Regex.TDFA (getAllTextMatches, (=~))
-import Prelude (read)
+import Prelude (head, read)
 
 aliceSk, bobSk, carolSk :: SignKeyDSIGN MockDSIGN
 aliceSk = 10
@@ -103,7 +103,11 @@ bench timeoutSeconds workDir dataset clusterSize =
                 let nodes = leader : followers
                 waitForNodesConnected tracer nodes
 
-                initialUTxOs <- error "undefined"
+                let initialUTxOs =
+                      UTxO . uncurry Map.singleton
+                        <$> zip
+                          ((`TxIn` TxIx 0) . txId . fundingTransaction <$> dataset)
+                          (toUTxOContext . Prelude.head . txOuts' . fundingTransaction <$> dataset)
 
                 let contestationPeriod = 10 :: Natural
                 send leader $ input "Init" ["contestationPeriod" .= contestationPeriod]
