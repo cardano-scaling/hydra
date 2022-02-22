@@ -24,6 +24,7 @@ module Hydra.Chain.Direct.State (
   fanout,
 
   -- ** Observing transitions
+  HasTransition,
   observeTx,
 ) where
 
@@ -63,6 +64,7 @@ data OnChainHeadState (st :: HeadStateKind) = OnChainHeadState
   , ownParty :: Party
   , stateMachine :: HydraStateMachine st
   }
+  deriving (Show)
 
 -- NOTE (1): The state machine UTxO produced by the Init transaction (a.k.a
 -- 'threadOutput') is always present and 'threaded' across all transactions.
@@ -89,6 +91,8 @@ data HydraStateMachine (st :: HeadStateKind) where
     { closedThreadOutput :: (TxIn, TxOut CtxUTxO, ScriptData, [OnChain.Party])
     } ->
     HydraStateMachine 'StClosed
+
+deriving instance Show (HydraStateMachine st)
 
 getKnownUTxO ::
   OnChainHeadState st ->

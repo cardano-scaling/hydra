@@ -237,6 +237,7 @@ test-suite tests
     Hydra.Chain.Direct.ContractSpec
     Hydra.Chain.Direct.Fixture
     Hydra.Chain.Direct.MockServer
+    Hydra.Chain.Direct.StateSpec
     Hydra.Chain.Direct.TxSpec
     Hydra.Chain.Direct.WalletSpec
     Hydra.Chain.DirectSpec
