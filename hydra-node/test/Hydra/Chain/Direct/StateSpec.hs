@@ -16,8 +16,7 @@ import Hydra.Chain.Direct.State (
   getKnownUTxO,
   idleOnChainHeadState,
   initialize,
-  observeTx,
-  reifyState,
+  transition,
  )
 import Hydra.Ledger.Cardano (genOneUTxOFor, genTxIn, genVerificationKey)
 import Hydra.Party (Party)
@@ -31,8 +30,8 @@ spec =
         forAll (genStInitialized ctx) $ \stInitialized ->
           forAll genSingleUTxO $ \utxo ->
             let tx = unsafeCommit utxo stInitialized
-             in case observeTx tx stInitialized of
-                  Just (_, SomeOnChainHeadState st') ->
+             in case transition tx stInitialized of
+                  Just (_, st' :: OnChainHeadState 'StInitialized) ->
                     let knownInputs = UTxO.inputSet (getKnownUTxO st')
                      in property (knownInputs `Set.disjoint` txInputSet tx)
                   Nothing ->
@@ -83,14 +82,10 @@ genStInitialized ctx@HydraContext{ctxParties, ctxContestationPeriod, ctxVerifica
   stIdle <- genStIdle ctx
   let headParameters = HeadParameters ctxContestationPeriod ctxParties
   seedInput <- genTxIn
-  case observeTx (initialize headParameters ctxVerificationKeys seedInput stIdle) stIdle of
+  case transition (initialize headParameters ctxVerificationKeys seedInput stIdle) stIdle of
     Nothing -> error "failed to observe arbitrarily generated init tx?"
-    Just (_, SomeOnChainHeadState st) ->
-      case reifyState st of
-        TkInitialized ->
-          pure st
-        _ ->
-          error "expected 'Initialized' state after observing init but got something else!"
+    Just (_, st' :: OnChainHeadState 'StInitialized) ->
+      pure st'
 
 genSingleUTxO :: Gen UTxO
 genSingleUTxO =
