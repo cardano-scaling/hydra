@@ -366,6 +366,7 @@ data InitObservation = InitObservation
   , initials :: [UTxOWithScript]
   , commits :: [UTxOWithScript]
   }
+  deriving (Show, Eq)
 
 -- XXX(SN): We should log decisions why a tx is not an initTx etc. instead of
 -- only returning a Maybe, i.e. 'Either Reason (OnChainTx tx, OnChainHeadState)'
@@ -489,6 +490,7 @@ convertTxOut = \case
 data CollectComObservation = CollectComObservation
   { threadOutput :: (TxIn, TxOut CtxUTxO, ScriptData, [OnChain.Party])
   }
+  deriving (Show, Eq)
 
 -- | Identify a collectCom tx by lookup up the input spending the Head output
 -- and decoding its redeemer.
@@ -524,6 +526,7 @@ observeCollectComTx utxo tx = do
 data CloseObservation = CloseObservation
   { threadOutput :: (TxIn, TxOut CtxUTxO, ScriptData, [OnChain.Party])
   }
+  deriving (Show, Eq)
 
 -- | Identify a close tx by lookup up the input spending the Head output and
 -- decoding its redeemer.
