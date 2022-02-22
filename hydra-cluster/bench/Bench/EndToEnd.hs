@@ -18,8 +18,7 @@ import CardanoClient (
   submit,
   waitForTransaction,
  )
-import CardanoCluster (defaultNetworkId, newNodeConfig, withBFTNode)
-import CardanoNode (RunningNode (..))
+import CardanoCluster (defaultNetworkId)
 import Control.Lens (to, (^?))
 import Control.Monad.Class.MonadAsync (mapConcurrently)
 import Control.Monad.Class.MonadSTM (
@@ -46,7 +45,7 @@ import Hydra.Ledger (txId)
 import Hydra.Logging (withTracerOutputTo)
 import Hydra.Party (deriveParty, generateKey)
 import HydraNode (
-  EndToEndLog (..),
+  ChainConnection (ConnectToMockChain),
   HydraClient,
   hydraNodeId,
   input,
@@ -56,6 +55,7 @@ import HydraNode (
   waitForNodesConnected,
   waitMatch,
   withHydraCluster,
+  withMockChain,
   withNewClient,
  )
 import System.Directory (findExecutable)
@@ -97,14 +97,13 @@ bench timeoutSeconds workDir dataset clusterSize =
           let cardanoKeys = map (\Dataset{signingKey} -> (getVerificationKey signingKey, signingKey)) dataset
           let hydraKeys = generateKey <$> [1 .. toInteger (length cardanoKeys)]
           let parties = Set.fromList (deriveParty <$> hydraKeys)
-          config <- newNodeConfig workDir
           withOSStats workDir $
-            withBFTNode (contramap FromCluster tracer) config (fst <$> cardanoKeys) $ \(RunningNode _ nodeSocket) -> do
-              withHydraCluster tracer workDir nodeSocket 1 cardanoKeys hydraKeys $ \(leader :| followers) -> do
+            withMockChain $ \ports -> do
+              withHydraCluster tracer workDir (ConnectToMockChain ports) cardanoKeys $ \(leader :| followers) -> do
                 let nodes = leader : followers
                 waitForNodesConnected tracer nodes
 
-                initialUTxOs <- createUTxOToCommit dataset nodeSocket
+                initialUTxOs <- error "undefined"
 
                 let contestationPeriod = 10 :: Natural
                 send leader $ input "Init" ["contestationPeriod" .= contestationPeriod]

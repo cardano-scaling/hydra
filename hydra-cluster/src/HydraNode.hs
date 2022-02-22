@@ -4,6 +4,7 @@
 
 module HydraNode (
   HydraClient (..),
+  ChainConnection (..),
   withHydraNode,
   send,
   input,
@@ -187,12 +188,14 @@ data EndToEndLog
   | FromCluster ClusterLog
   deriving (Eq, Show, Generic, ToJSON, FromJSON, ToObject)
 
--- XXX: The two lists need to be of same length. Also the verification keys can
--- be derived from the signing keys.
+data ChainConnection
+  = ConnectToCardanoNode FilePath
+  | ConnectToMockChain (Int, Int, Int)
+
 withHydraCluster ::
   Tracer IO EndToEndLog ->
   FilePath ->
-  FilePath ->
+  ChainConnection ->
   -- | First node id
   Int ->
   -- | NOTE: This decides on the size of the cluster!
@@ -200,7 +203,7 @@ withHydraCluster ::
   [Hydra.SigningKey] ->
   (NonEmpty HydraClient -> IO ()) ->
   IO ()
-withHydraCluster tracer workDir nodeSocket firstNodeId allKeys hydraKeys action = do
+withHydraCluster tracer workDir chainConnection firstNodeId allKeys hydraKeys action = do
   -- We have been bitten by this in the past
   when (clusterSize == 0) $
     error "Cannot run a cluster with 0 number of nodes"
@@ -228,7 +231,7 @@ withHydraCluster tracer workDir nodeSocket firstNodeId allKeys hydraKeys action 
         cardanoSKey
         cardanoVKeys
         workDir
-        nodeSocket
+        chainConnection
         nodeId
         hydraSKey
         hydraVKeys
@@ -242,14 +245,14 @@ withHydraNode ::
   String ->
   [String] ->
   FilePath ->
-  FilePath ->
+  ChainConnection ->
   Int ->
   SignKeyDSIGN alg ->
   [VerKeyDSIGN alg] ->
   [Int] ->
   (HydraClient -> IO ()) ->
   IO ()
-withHydraNode tracer cardanoSKeyPath cardanoVKeysPaths workDir nodeSocket hydraNodeId hydraSKey hydraVKeys allNodeIds action = do
+withHydraNode tracer cardanoSKeyPath cardanoVKeysPaths workDir chainConnection hydraNodeId hydraSKey hydraVKeys allNodeIds action = do
   withFile' (workDir </> show hydraNodeId) $ \out -> do
     withSystemTempDirectory "hydra-node" $ \dir -> do
       let hydraSKeyPath = dir </> (show hydraNodeId <> ".sk")
@@ -257,10 +260,12 @@ withHydraNode tracer cardanoSKeyPath cardanoVKeysPaths workDir nodeSocket hydraN
       hydraVKeysPaths <- forM (zip [1 ..] hydraVKeys) $ \(i :: Int, vKey) -> do
         let filepath = dir </> (show i <> ".vk")
         filepath <$ BS.writeFile filepath (rawSerialiseVerKeyDSIGN vKey)
-      let p =
-            (hydraNodeProcess $ defaultArguments hydraNodeId cardanoSKeyPath cardanoVKeysPaths hydraSKeyPath hydraVKeysPaths nodeSocket allNodeIds)
+      let args = defaultArguments hydraNodeId cardanoSKeyPath cardanoVKeysPaths hydraSKeyPath hydraVKeysPaths chainConnection allNodeIds
+          p =
+            (hydraNodeProcess $ args)
               { std_out = UseHandle out
               }
+      print args
       withCreateProcess p $
         \_stdin _stdout _stderr processHandle -> do
           race_
@@ -302,10 +307,10 @@ defaultArguments ::
   [FilePath] ->
   FilePath ->
   [FilePath] ->
-  FilePath ->
+  ChainConnection ->
   [Int] ->
   [String]
-defaultArguments nodeId cardanoSKey cardanoVKeys hydraSKey hydraVKeys nodeSocket allNodeIds =
+defaultArguments nodeId cardanoSKey cardanoVKeys hydraSKey hydraVKeys chainConnection allNodeIds =
   [ "--node-id"
   , show nodeId
   , "--host"
@@ -320,14 +325,27 @@ defaultArguments nodeId cardanoSKey cardanoVKeys hydraSKey hydraVKeys nodeSocket
   , show (6000 + nodeId)
   , "--hydra-signing-key"
   , hydraSKey
-  , "--cardano-signing-key"
-  , cardanoSKey
   ]
     <> concat [["--peer", "127.0.0.1:" <> show (5000 + i)] | i <- allNodeIds, i /= nodeId]
     <> concat [["--hydra-verification-key", vKey] | vKey <- hydraVKeys]
-    <> concat [["--cardano-verification-key", vKey] | vKey <- cardanoVKeys]
-    <> ["--network-magic", "42"]
-    <> ["--node-socket", nodeSocket]
+    <> chainConnectionArguments
+ where
+  chainConnectionArguments = case chainConnection of
+    (ConnectToCardanoNode nodeSocket) ->
+      [ "--network-magic"
+      , "42"
+      , "--node-socket"
+      , nodeSocket
+      , "--cardano-signing-key"
+      , cardanoSKey
+      ]
+        <> concat [["--cardano-verification-key", vKey] | vKey <- cardanoVKeys]
+    (ConnectToMockChain (sync, catchUp, post)) ->
+      [ "--mock-chain-host"
+      , "127.0.0.1"
+      , "--mock-chain-ports"
+      , "(" <> show sync <> "," <> show catchUp <> "," <> show post <> ")"
+      ]
 
 waitForNodesConnected :: HasCallStack => Tracer IO EndToEndLog -> [HydraClient] -> IO ()
 waitForNodesConnected tracer clients =

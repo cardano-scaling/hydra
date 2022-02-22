@@ -53,6 +53,7 @@ import Hydra.Logging (Tracer, showLogsOnFailure)
 import Hydra.Party (Party, deriveParty)
 import qualified Hydra.Party as Party
 import HydraNode (
+  ChainConnection (ConnectToCardanoNode),
   EndToEndLog (..),
   getMetrics,
   hydraNodeProcess,
@@ -118,8 +119,8 @@ spec = around showLogsOnFailure $
               (aliceVkPath, aliceSkPath) <- writeKeysFor tmpDir Alice
               (_, bobSkPath) <- writeKeysFor tmpDir Bob
               pparams <- queryProtocolParameters defaultNetworkId nodeSocket
-              withHydraNode tracer aliceSkPath [] tmpDir nodeSocket 1 aliceSk [] allNodeIds $ \n1 ->
-                withHydraNode tracer bobSkPath [aliceVkPath] tmpDir nodeSocket 2 bobSk [aliceVk] allNodeIds $ \n2 -> do
+              withHydraNode tracer aliceSkPath [] tmpDir (ConnectToCardanoNode nodeSocket) 1 aliceSk [] allNodeIds $ \n1 ->
+                withHydraNode tracer bobSkPath [aliceVkPath] tmpDir (ConnectToCardanoNode nodeSocket) 2 bobSk [aliceVk] allNodeIds $ \n2 -> do
                   postSeedPayment defaultNetworkId pparams availableInitialFunds nodeSocket aliceCardanoSk 100_000_000
                   postSeedPayment defaultNetworkId pparams availableInitialFunds nodeSocket bobCardanoSk 100_000_000
 
@@ -169,9 +170,9 @@ spec = around showLogsOnFailure $
             (carolVkPath, carolSkPath) <- writeKeysFor tmpDir Carol
             pparams <- queryProtocolParameters defaultNetworkId nodeSocket
             failAfter 20 $
-              withHydraNode tracer aliceSkPath [bobVkPath, carolVkPath] tmpDir nodeSocket 1 aliceSk [bobVk, carolVk] allNodeIds $ \n1 ->
-                withHydraNode tracer bobSkPath [aliceVkPath, carolVkPath] tmpDir nodeSocket 2 bobSk [aliceVk, carolVk] allNodeIds $ \_ ->
-                  withHydraNode tracer carolSkPath [aliceVkPath, bobVkPath] tmpDir nodeSocket 3 carolSk [aliceVk, bobVk] allNodeIds $ \_ -> do
+              withHydraNode tracer aliceSkPath [bobVkPath, carolVkPath] tmpDir (ConnectToCardanoNode nodeSocket) 1 aliceSk [bobVk, carolVk] allNodeIds $ \n1 ->
+                withHydraNode tracer bobSkPath [aliceVkPath, carolVkPath] tmpDir (ConnectToCardanoNode nodeSocket) 2 bobSk [aliceVk, carolVk] allNodeIds $ \_ ->
+                  withHydraNode tracer carolSkPath [aliceVkPath, bobVkPath] tmpDir (ConnectToCardanoNode nodeSocket) 3 carolSk [aliceVk, bobVk] allNodeIds $ \_ -> do
                     postSeedPayment defaultNetworkId pparams availableInitialFunds nodeSocket aliceCardanoSk 100_000_000
                     waitForNodesConnected tracer [n1]
                     send n1 $ input "Init" ["contestationPeriod" .= int 10]
