@@ -84,6 +84,7 @@ library
     Hydra.Chain.Direct.Tx
     Hydra.Chain.Direct.Util
     Hydra.Chain.Direct.Wallet
+    Hydra.Chain.ZeroMQ
     Hydra.ClientInput
     Hydra.HeadLogic
     Hydra.Ledger
@@ -139,9 +140,9 @@ library
     , formatting
     , gitrev
     , hedgehog-quickcheck
+    , hydra-cardano-api
     , hydra-plutus
     , hydra-prelude
-    , hydra-cardano-api
     , io-classes
     , iohk-monitoring
     , iproute
@@ -172,6 +173,7 @@ library
     , typed-protocols-cborg
     , typed-protocols-examples
     , websockets
+    , zeromq4-haskell
 
   ghc-options:     -haddock
 
@@ -220,6 +222,19 @@ executable tx-cost
     -- NOTE(SN): should fix HLS choking on PlutusTx plugin
     ghc-options: -fplugin-opt PlutusTx.Plugin:defer-errors
 
+executable mock-chain
+  import:         project-config
+  hs-source-dirs: exe/mock-chain
+  main-is:        Main.hs
+  build-depends:
+    , aeson
+    , base
+    , hydra-node
+    , hydra-prelude
+    , optparse-applicative
+
+  ghc-options:    -threaded -rtsopts
+
 test-suite tests
   import:             project-config
   ghc-options:        -threaded -rtsopts -with-rtsopts=-N
@@ -241,6 +256,7 @@ test-suite tests
     Hydra.Chain.Direct.TxSpec
     Hydra.Chain.Direct.WalletSpec
     Hydra.Chain.DirectSpec
+    Hydra.Chain.ZeroMQSpec
     Hydra.ClientInputSpec
     Hydra.FireForgetSpec
     Hydra.HeadLogicSpec

@@ -86,7 +86,7 @@ benchOptions =
     ( fullDesc
         <> progDesc
           "Starts a cluster of Hydra nodes interconnected through a network and \
-          \ talking to a local cardano devnet, generates an initial UTxO set and a bunch \
+          \ talking to mock-chain, generates an initial UTxO set and a bunch \
           \ of valid transactions, and send those transactions to the cluster as \
           \ fast as possible.\n \
           \ Arguments can control various parameters of the run, like number of nodes, \

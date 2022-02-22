@@ -11,7 +11,7 @@ jobs:
   docker:
     strategy:
       matrix:
-        target: [ hydra-node, hydra-tui ]
+        target: [ hydra-node, hydra-tui, mock-chain ]
 
     runs-on: ubuntu-latest
     steps:

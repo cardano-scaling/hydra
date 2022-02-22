@@ -20,7 +20,7 @@ import Control.Monad.Class.MonadTimer (timeout)
 import Control.Monad.IOSim (Failure (FailureDeadlock), IOSim, runSimTrace, selectTraceEventsDynamic)
 import GHC.Records (getField)
 import Hydra.API.Server (Server (..))
-import Hydra.Chain (Chain (..), HeadParameters (..), OnChainTx (..), PostChainTx (..))
+import Hydra.Chain (Chain (..), PostChainTx (FanoutTx), toOnChainTx)
 import Hydra.ClientInput
 import Hydra.HeadLogic (
   Effect (ClientEffect),
@@ -43,7 +43,7 @@ import Hydra.Node (
  )
 import Hydra.Party (Party, SigningKey, aggregate, deriveParty, sign)
 import Hydra.ServerOutput (ServerOutput (..))
-import Hydra.Snapshot (Snapshot (..), getSnapshot)
+import Hydra.Snapshot (Snapshot (..))
 import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
 import Test.Util (shouldBe, shouldNotBe, shouldReturn, shouldRunInSim, shouldSatisfy, traceInIOSim)
 
@@ -438,23 +438,6 @@ simulatedChainAndNetwork = do
     mapM_ (`handleMessage` msg) otherNodes
 
   getNodeId = getField @"party" . env
-
--- | Derive an 'OnChainTx' from 'PostChainTx' to simulate a "perfect" chain.
--- NOTE(SN): This implementation does *NOT* honor the 'HeadParameters' and
--- announces hard-coded contestationDeadlines.
-toOnChainTx :: UTCTime -> PostChainTx tx -> OnChainTx tx
-toOnChainTx currentTime = \case
-  InitTx HeadParameters{contestationPeriod, parties} -> OnInitTx{contestationPeriod, parties}
-  (CommitTx pa ut) -> OnCommitTx pa ut
-  AbortTx{} -> OnAbortTx
-  CollectComTx{} -> OnCollectComTx
-  (CloseTx confirmedSnapshot) ->
-    OnCloseTx
-      { contestationDeadline = addUTCTime 10 currentTime
-      , snapshotNumber = number (getSnapshot confirmedSnapshot)
-      }
-  ContestTx{} -> OnContestTx
-  FanoutTx{} -> OnFanoutTx
 
 -- NOTE(SN): Deliberately long to emphasize that we run these tests in IOSim.
 testContestationPeriod :: DiffTime

@@ -13,6 +13,7 @@ module HydraNode (
   getMetrics,
   queryNode,
   defaultArguments,
+  withMockChain,
   hydraNodeProcess,
   module System.Process,
   waitForNodesConnected,
@@ -59,6 +60,7 @@ import System.Process (
  )
 import System.Timeout (timeout)
 import Test.Hydra.Prelude (checkProcessHasNotDied, failAfter, failure, withFile')
+import Test.Network.Ports (randomUnusedTCPPorts)
 import qualified Prelude
 
 data HydraClient = HydraClient
@@ -346,3 +348,20 @@ waitForNodesConnected tracer clients =
               ]
         )
         (filter (/= hydraNodeId) allNodeIds)
+
+withMockChain :: ((Int, Int, Int) -> IO ()) -> IO ()
+withMockChain action = do
+  [sync, catchUp, post] <- randomUnusedTCPPorts 3
+  withCreateProcess (proc "mock-chain" (arguments sync catchUp post)) $
+    \_in _out _err processHandle -> do
+      race_ (checkProcessHasNotDied "mock-chain" processHandle) (action (sync, catchUp, post))
+ where
+  arguments s c p =
+    [ "--quiet"
+    , "--sync-address"
+    , "tcp://127.0.0.1:" <> show s
+    , "--catch-up-address"
+    , "tcp://127.0.0.1:" <> show c
+    , "--post-address"
+    , "tcp://127.0.0.1:" <> show p
+    ]

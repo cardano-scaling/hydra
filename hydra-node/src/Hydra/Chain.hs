@@ -116,6 +116,23 @@ instance
   where
   arbitrary = genericArbitrary
 
+-- | Derive an 'OnChainTx' from 'PostChainTx'. This is primarily used in tests
+-- and simplified "chains". NOTE(SN): This implementation does *NOT* honor the
+-- 'HeadParameters' and announce hard-coded contestationDeadlines.
+toOnChainTx :: UTCTime -> PostChainTx tx -> OnChainTx tx
+toOnChainTx currentTime = \case
+  InitTx HeadParameters{contestationPeriod, parties} -> OnInitTx{contestationPeriod, parties}
+  (CommitTx pa ut) -> OnCommitTx pa ut
+  AbortTx{} -> OnAbortTx
+  CollectComTx{} -> OnCollectComTx
+  (CloseTx snap) ->
+    OnCloseTx
+      { contestationDeadline = addUTCTime 10 currentTime
+      , snapshotNumber = number (getSnapshot snap)
+      }
+  ContestTx{} -> OnContestTx
+  FanoutTx{} -> OnFanoutTx
+
 -- | Handle to interface with the main chain network
 newtype Chain tx m = Chain
   { -- | Construct and send a transaction to the main chain corresponding to the

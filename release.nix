@@ -11,4 +11,5 @@ in
   # Build executables only (for now)
   hydra-node = hsPkgs.hydra-node.components.exes.hydra-node;
   hydra-tui = hsPkgs.hydra-tui.components.exes.hydra-tui;
+  mock-chain = hsPkgs.hydra-node.components.exes.mock-chain;
 }

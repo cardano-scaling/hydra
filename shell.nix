@@ -25,6 +25,7 @@ let
     libsodium-vrf
     pkgs.zlib
     pkgs.lzma
+    pkgs.zeromq
   ]
   ++
   pkgs.lib.optionals (pkgs.stdenv.isLinux) [ pkgs.systemd ];

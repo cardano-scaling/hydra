@@ -12,11 +12,14 @@ import Hydra.Prelude
 
 import Hydra.API.Server (APIServerLog)
 import Hydra.Chain.Direct (DirectChainLog)
+import Hydra.Chain.ZeroMQ (MockChainLog)
 import Hydra.Ledger (TxIdType, UTxOType)
 import Hydra.Node (HydraNodeLog)
+import Test.QuickCheck (oneof)
 
 data HydraLog tx net
   = DirectChain {directChain :: DirectChainLog}
+  | MockChain {chain :: MockChainLog tx}
   | APIServer {api :: APIServerLog}
   | Network {network :: net}
   | Node {node :: HydraNodeLog tx}
@@ -29,8 +32,15 @@ instance
   , Arbitrary DirectChainLog
   , Arbitrary (UTxOType tx)
   , Arbitrary (TxIdType tx)
+  , Arbitrary (MockChainLog tx)
   , Arbitrary APIServerLog
   ) =>
   Arbitrary (HydraLog tx net)
   where
-  arbitrary = genericArbitrary
+  arbitrary =
+    oneof
+      [ DirectChain <$> arbitrary
+      , APIServer <$> arbitrary
+      , Network <$> arbitrary
+      , Node <$> arbitrary
+      ]
