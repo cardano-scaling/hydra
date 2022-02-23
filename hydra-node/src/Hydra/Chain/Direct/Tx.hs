@@ -416,14 +416,6 @@ observeInitTx networkId party tx = do
         }
     )
  where
-  findStateToken txOut =
-    flip findFirst (valueToList $ txOutValue txOut) $ \case
-      (AssetId pid aname, q)
-        | aname == hydraHeadV1AssetName && q == 1 ->
-          Just $ mkHeadId pid
-      _ ->
-        Nothing
-
   headOutput = \case
     (ix, out@(TxOut _ _ (TxOutDatum d))) ->
       (ix,out,toLedgerData d,) <$> fromData (toPlutusData d)
@@ -535,6 +527,7 @@ observeCollectComTx utxo tx = do
   redeemer <- findRedeemerSpending tx headInput
   oldHeadDatum <- lookupScriptData tx headOutput
   datum <- fromData $ toPlutusData oldHeadDatum
+  headId <- findStateToken headOutput
   case (datum, redeemer) of
     (Head.Initial{parties}, Head.CollectCom) -> do
       (newHeadInput, newHeadOutput) <- findScriptOutput @PlutusScriptV1 (utxoFromTx tx) headScript
@@ -548,7 +541,7 @@ observeCollectComTx utxo tx = do
                 , newHeadDatum
                 , parties
                 )
-            , headId = HeadId ""
+            , headId
             }
         )
     _ -> Nothing
@@ -663,3 +656,13 @@ mkHeadId =
 -- | Find first occurrence including a transformation.
 findFirst :: Foldable t => (a -> Maybe b) -> t a -> Maybe b
 findFirst fn = getFirst . foldMap (First . fn)
+
+-- | Find (if it exists) the head identifier contained in given `TxOut`.
+findStateToken :: TxOut ctx -> Maybe HeadId
+findStateToken txOut =
+  flip findFirst (valueToList $ txOutValue txOut) $ \case
+    (AssetId pid aname, q)
+      | aname == hydraHeadV1AssetName && q == 1 ->
+        Just $ mkHeadId pid
+    _ ->
+      Nothing

@@ -143,7 +143,7 @@ spec =
         forAll (generateCommitUTxOs parties) $ \commitsUTxO ->
           let committedValue = foldMap (txOutValue . fst) commitsUTxO
               headOutput = mkHeadOutput testNetworkId testPolicyId $ toUTxOContext $ mkTxOutDatum headDatum
-              headTotalValue = headValue <> committedValue
+              headTotalValue = txOutValue headOutput <> committedValue
               onChainParties = partyFromVerKey . vkey <$> parties
               headDatum = Head.Initial cperiod onChainParties
               lookupUTxO = UTxO.singleton (headInput, headOutput)
