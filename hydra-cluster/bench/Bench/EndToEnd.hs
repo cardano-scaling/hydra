@@ -13,8 +13,8 @@ import Cardano.Crypto.DSIGN (
   SignKeyDSIGN,
   VerKeyDSIGN,
  )
-import CardanoClient (submit)
-import CardanoCluster (Marked (Marked), defaultNetworkId, newNodeConfig, seedFromFaucet, withBFTNode)
+import CardanoClient (buildAddress, queryUTxO, submit)
+import CardanoCluster (Actor (Faucet), Marked (Marked), defaultNetworkId, keysFor, newNodeConfig, seedFromFaucet, withBFTNode)
 import CardanoNode (RunningNode (..))
 import Control.Lens (to, (^?))
 import Control.Monad.Class.MonadAsync (mapConcurrently)
@@ -36,7 +36,7 @@ import Data.Scientific (Scientific)
 import Data.Set ((\\))
 import qualified Data.Set as Set
 import Data.Time (UTCTime (UTCTime), nominalDiffTimeToSeconds, utctDayTime)
-import Hydra.Cardano.Api (Tx, TxId, UTxO, getVerificationKey)
+import Hydra.Cardano.Api (Tx, TxId, UTxO, getVerificationKey, prettyPrintJSON)
 import Hydra.Generator (ClientDataset (..), Dataset (..))
 import Hydra.Ledger (txId)
 import Hydra.Logging (withTracerOutputTo)
@@ -90,6 +90,7 @@ bench timeoutSeconds workDir dataset@Dataset{clientDatasets} clusterSize =
     withFile (workDir </> "test.log") ReadWriteMode $ \hdl ->
       withTracerOutputTo hdl "Test" $ \tracer ->
         failAfter timeoutSeconds $ do
+          putTextLn "Starting benchmark"
           let cardanoKeys = map (\ClientDataset{signingKey} -> (getVerificationKey signingKey, signingKey)) clientDatasets
           let hydraKeys = generateKey <$> [1 .. toInteger (length cardanoKeys)]
           let parties = Set.fromList (deriveParty <$> hydraKeys)
@@ -100,6 +101,12 @@ bench timeoutSeconds workDir dataset@Dataset{clientDatasets} clusterSize =
                 let clients = leader : followers
                 waitForNodesConnected tracer clients
 
+                -- TODO: remove all the debug outputs
+                (vk, _) <- keysFor Faucet
+                preSeed <- queryUTxO defaultNetworkId nodeSocket [buildAddress vk defaultNetworkId]
+                putBSLn $ prettyPrintJSON preSeed
+
+                putTextLn "Seeding network"
                 seedNetwork node dataset
 
                 let contestationPeriod = 10 :: Natural
@@ -107,6 +114,7 @@ bench timeoutSeconds workDir dataset@Dataset{clientDatasets} clusterSize =
                 waitFor tracer (fromIntegral $ 10 * clusterSize) clients $
                   output "ReadyToCommit" ["parties" .= parties]
 
+                putTextLn "Comitting initialUTxO from dataset"
                 expectedUTxO <- commitUTxO clients dataset
 
                 waitFor tracer (fromIntegral $ 10 * clusterSize) clients $
@@ -219,6 +227,7 @@ movingAverage confirmations =
 seedNetwork :: RunningNode -> Dataset -> IO ()
 seedNetwork node@(RunningNode _ nodeSocket) Dataset{fundingTransaction, clientDatasets} = do
   -- Submit the funding transaction first
+  putTextLn $ "Funding transaction: " <> decodeUtf8 (prettyPrintJSON fundingTransaction)
   submit defaultNetworkId nodeSocket fundingTransaction
   -- Then, fuel all clients with some 100 ADA
   forM_ clientDatasets $ \ClientDataset{signingKey} -> do
