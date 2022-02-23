@@ -182,8 +182,7 @@ mkCommitDatum (partyFromVerKey . vkey -> party) headValidatorHash utxo =
 collectComTx ::
   NetworkId ->
   -- | Everything needed to spend the Head state-machine output.
-  -- FIXME(SN): should also contain some Head identifier/address and stored Value (maybe the TxOut + Data?)
-  (TxIn, ScriptData, [OnChain.Party]) ->
+  (TxIn, TxOut CtxUTxO, ScriptData, [OnChain.Party]) ->
   -- | Data needed to spend the commit output produced by each party.
   -- Should contain the PT and is locked by @ν_commit@ script.
   Map TxIn (TxOut CtxUTxO, ScriptData) ->
@@ -191,7 +190,7 @@ collectComTx ::
 -- TODO(SN): utxo unused means other participants would not "see" the opened
 -- utxo when observing. Right now, they would be trusting the OCV checks this
 -- and construct their "world view" from observed commit txs in the HeadLogic
-collectComTx networkId (headInput, ScriptDatumForTxIn -> headDatumBefore, parties) commits =
+collectComTx networkId (headInput, initialHeadOutput, ScriptDatumForTxIn -> headDatumBefore, parties) commits =
   unsafeBuildTransaction $
     emptyTxBody
       & addInputs ((headInput, headWitness) : (mkCommit <$> Map.toList commits))
@@ -206,7 +205,7 @@ collectComTx networkId (headInput, ScriptDatumForTxIn -> headDatumBefore, partie
   headOutput =
     TxOut
       (mkScriptAddress @PlutusScriptV1 networkId headScript)
-      (headValue <> commitValue)
+      (txOutValue initialHeadOutput <> commitValue)
       headDatumAfter
   headDatumAfter =
     mkTxOutDatum Head.Open{Head.parties = parties, utxoHash}

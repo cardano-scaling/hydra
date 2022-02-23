@@ -128,8 +128,9 @@ spec =
     describe "collectComTx" $ do
       prop "transaction size below limit" $ \(ReasonablySized parties) headIn cperiod ->
         forAll (generateCommitUTxOs parties) $ \commitsUTxO ->
-          let tx = collectComTx testNetworkId (headIn, headDatum, onChainParties) commitsUTxO
-              headDatum = fromPlutusData $ toData $ Head.Initial cperiod onChainParties
+          let tx = collectComTx testNetworkId (headIn, headOutput, fromPlutusData $ toData headDatum, onChainParties) commitsUTxO
+              headOutput = mkHeadOutput testNetworkId testPolicyId $ toUTxOContext $ mkTxOutDatum headDatum
+              headDatum = Head.Initial cperiod onChainParties
               onChainParties = partyFromVerKey . vkey <$> parties
               cbor = serialize tx
               len = LBS.length cbor
@@ -149,7 +150,7 @@ spec =
               tx =
                 collectComTx
                   testNetworkId
-                  (headInput, fromPlutusData $ toData headDatum, onChainParties)
+                  (headInput, headOutput, fromPlutusData $ toData headDatum, onChainParties)
                   commitsUTxO
               res = observeCollectComTx lookupUTxO tx
            in case res of
@@ -171,6 +172,7 @@ spec =
                     collectComTx
                       testNetworkId
                       ( headInput
+                      , headOutput
                       , fromPlutusData $ toData headDatum
                       , onChainParties
                       )

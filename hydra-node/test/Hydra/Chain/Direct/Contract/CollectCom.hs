@@ -52,7 +52,7 @@ healthyCollectComTx =
   tx =
     collectComTx
       testNetworkId
-      (headInput, headDatum, healthyCollectComOnChainParties)
+      (headInput, headResolvedInput, headDatum, healthyCollectComOnChainParties)
       commits
 
   committedUTxO =

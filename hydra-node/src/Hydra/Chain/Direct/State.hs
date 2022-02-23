@@ -228,9 +228,8 @@ collect ::
   OnChainHeadState 'StInitialized ->
   Tx
 collect OnChainHeadState{networkId, stateMachine} = do
-  let (i, _, dat, parties) = initialThreadOutput
-      commits = Map.fromList $ fmap tripleToPair initialCommits
-   in collectComTx networkId (i, dat, parties) commits
+  let commits = Map.fromList $ fmap tripleToPair initialCommits
+   in collectComTx networkId initialThreadOutput commits
  where
   Initialized
     { initialThreadOutput
