@@ -56,6 +56,7 @@ import Test.QuickCheck (
   Property,
   checkCoverage,
   choose,
+  conjoin,
   counterexample,
   cover,
   elements,
@@ -283,7 +284,10 @@ spec =
                 Left basicFailure ->
                   property False & counterexample ("Basic failure: " <> show basicFailure)
                 Right redeemerReport ->
-                  1 == length (rights $ Map.elems redeemerReport)
+                  conjoin
+                    [ 1 == length (successfulRedeemersSpending redeemerReport)
+                    , 1 == length (successfulRedeemersMinting redeemerReport)
+                    ]
                     & label (show (length inHeadUTxO) <> " UTXO")
                     & counterexample ("Redeemer report: " <> show redeemerReport)
                     & counterexample ("Tx: " <> show tx)
@@ -487,6 +491,32 @@ prettyRedeemerReport (Map.toList -> xs) =
     toString ("  - " <> show ptr <> ": " <> prettyResult result)
   prettyResult =
     either (T.replace "\n" " " . show) show
+
+successfulRedeemersSpending ::
+  Map Ledger.RdmrPtr (Either (Ledger.ScriptFailure StandardCrypto) Ledger.ExUnits) ->
+  [Ledger.RdmrPtr]
+successfulRedeemersSpending =
+  Map.foldrWithKey onlySuccessfulSpending []
+ where
+  onlySuccessfulSpending ptr = \case
+    Left{} -> identity
+    Right{} ->
+      case ptr of
+        Ledger.RdmrPtr Ledger.Spend _ -> (ptr :)
+        Ledger.RdmrPtr _ _ -> identity
+
+successfulRedeemersMinting ::
+  Map Ledger.RdmrPtr (Either (Ledger.ScriptFailure StandardCrypto) Ledger.ExUnits) ->
+  [Ledger.RdmrPtr]
+successfulRedeemersMinting =
+  Map.foldrWithKey onlySuccessfulMinting []
+ where
+  onlySuccessfulMinting ptr = \case
+    Left{} -> identity
+    Right{} ->
+      case ptr of
+        Ledger.RdmrPtr Ledger.Mint _ -> (ptr :)
+        Ledger.RdmrPtr _ _ -> identity
 
 genAbortableOutputs :: [Party] -> Gen ([UTxOWithScript], [UTxOWithScript])
 genAbortableOutputs parties = do
