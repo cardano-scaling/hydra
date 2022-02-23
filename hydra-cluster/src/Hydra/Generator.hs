@@ -25,7 +25,7 @@ networkId = Testnet $ NetworkMagic 42
 -- set.
 data Dataset = Dataset
   { fundingTransaction :: Tx
-  , clients :: [ClientDataset]
+  , clientDatasets :: [ClientDataset]
   }
   deriving (Show, Generic, ToJSON, FromJSON)
 
@@ -34,23 +34,27 @@ instance Arbitrary Dataset where
     genConstantUTxODataset defaultProtocolParameters (n `div` 10) n
 
 data ClientDataset = ClientDataset
-  { txSequence :: [Tx]
-  , signingKey :: SigningKey PaymentKey
+  { signingKey :: SigningKey PaymentKey
+  , initialUTxO :: UTxO
+  , txSequence :: [Tx]
   }
   deriving (Show, Generic)
 
 instance ToJSON ClientDataset where
-  toJSON ClientDataset{txSequence, signingKey} =
+  toJSON ClientDataset{initialUTxO, txSequence, signingKey} =
     object
-      [ "txSequence" .= txSequence
-      , "signingKey" .= serialiseToBech32 signingKey
+      [ "signingKey" .= serialiseToBech32 signingKey
+      , "initialUTxO" .= initialUTxO
+      , "txSequence" .= txSequence
       ]
 
 instance FromJSON ClientDataset where
   parseJSON =
     withObject "ClientDataset" $ \o ->
-      ClientDataset <$> o .: "txSequence"
-        <*> (decodeSigningKey =<< o .: "signingKey")
+      ClientDataset
+        <$> (decodeSigningKey =<< o .: "signingKey")
+        <*> o .: "initialUTxO"
+        <*> o .: "txSequence"
    where
     decodeSigningKey =
       either (fail . show) pure . deserialiseFromBech32 (AsSigningKey AsPaymentKey)
@@ -92,8 +96,8 @@ genConstantUTxODataset pparams nClients nTxs = do
           faucetSk
           (Lovelace availableInitialFunds)
           (first getVerificationKey <$> clientFunds)
-  clients <- forM (zip clientFunds [0 ..]) (generateClientDataset fundingTransaction)
-  pure Dataset{fundingTransaction, clients}
+  clientDatasets <- forM (zip clientFunds [0 ..]) (generateClientDataset fundingTransaction)
+  pure Dataset{fundingTransaction, clientDatasets}
  where
   thrd (_, _, c) = c
 
@@ -114,7 +118,7 @@ genConstantUTxODataset pparams nClients nTxs = do
     txSequence <-
       reverse . thrd
         <$> foldM generateOneTransfer (initialUTxO, keyPair, []) [1 .. nTxs]
-    pure ClientDataset{signingKey = sk, txSequence}
+    pure ClientDataset{signingKey = sk, initialUTxO, txSequence}
 
   generateOneTransfer ::
     (UTxO, (VerificationKey PaymentKey, SigningKey PaymentKey), [Tx]) ->

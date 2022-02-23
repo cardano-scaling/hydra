@@ -7,18 +7,14 @@ module Bench.EndToEnd where
 import Hydra.Prelude
 import Test.Hydra.Prelude
 
-import qualified Cardano.Api.UTxO as UTxO
 import Cardano.Crypto.DSIGN (
   DSIGNAlgorithm (deriveVerKeyDSIGN),
   MockDSIGN,
   SignKeyDSIGN,
   VerKeyDSIGN,
  )
-import CardanoClient (
-  submit,
-  waitForTransaction,
- )
-import CardanoCluster (defaultNetworkId, newNodeConfig, withBFTNode)
+import CardanoClient (submit)
+import CardanoCluster (Marked (Marked), defaultNetworkId, newNodeConfig, seedFromFaucet, withBFTNode)
 import CardanoNode (RunningNode (..))
 import Control.Lens (to, (^?))
 import Control.Monad.Class.MonadAsync (mapConcurrently)
@@ -41,7 +37,7 @@ import Data.Set ((\\))
 import qualified Data.Set as Set
 import Data.Time (UTCTime (UTCTime), nominalDiffTimeToSeconds, utctDayTime)
 import Hydra.Cardano.Api (Tx, TxId, UTxO, getVerificationKey)
-import Hydra.Generator (Dataset (..))
+import Hydra.Generator (ClientDataset (..), Dataset (..))
 import Hydra.Ledger (txId)
 import Hydra.Logging (withTracerOutputTo)
 import Hydra.Party (deriveParty, generateKey)
@@ -88,35 +84,35 @@ data Event = Event
   }
   deriving (Generic, Eq, Show, ToJSON)
 
-bench :: DiffTime -> FilePath -> [Dataset] -> Word64 -> Spec
-bench timeoutSeconds workDir dataset clusterSize =
+bench :: DiffTime -> FilePath -> Dataset -> Word64 -> Spec
+bench timeoutSeconds workDir dataset@Dataset{clientDatasets} clusterSize =
   specify ("Load test on " <> show clusterSize <> " local nodes in " <> workDir) $ do
     withFile (workDir </> "test.log") ReadWriteMode $ \hdl ->
       withTracerOutputTo hdl "Test" $ \tracer ->
         failAfter timeoutSeconds $ do
-          let cardanoKeys = map (\Dataset{signingKey} -> (getVerificationKey signingKey, signingKey)) dataset
+          let cardanoKeys = map (\ClientDataset{signingKey} -> (getVerificationKey signingKey, signingKey)) clientDatasets
           let hydraKeys = generateKey <$> [1 .. toInteger (length cardanoKeys)]
           let parties = Set.fromList (deriveParty <$> hydraKeys)
           config <- newNodeConfig workDir
           withOSStats workDir $
-            withBFTNode (contramap FromCluster tracer) config (fst <$> cardanoKeys) $ \(RunningNode _ nodeSocket) -> do
-              withHydraCluster tracer workDir nodeSocket 1 cardanoKeys hydraKeys $ \(leader :| followers) -> do
-                let nodes = leader : followers
-                waitForNodesConnected tracer nodes
+            withBFTNode (contramap FromCluster tracer) config $ \node@(RunningNode _ nodeSocket) -> do
+              withHydraCluster tracer workDir nodeSocket 0 cardanoKeys hydraKeys $ \(leader :| followers) -> do
+                let clients = leader : followers
+                waitForNodesConnected tracer clients
 
-                initialUTxOs <- createUTxOToCommit dataset nodeSocket
+                seedNetwork node dataset
 
                 let contestationPeriod = 10 :: Natural
                 send leader $ input "Init" ["contestationPeriod" .= contestationPeriod]
-                waitFor tracer (fromIntegral $ 10 * clusterSize) nodes $
+                waitFor tracer (fromIntegral $ 10 * clusterSize) clients $
                   output "ReadyToCommit" ["parties" .= parties]
 
-                expectedUTxO <- mconcat <$> forM (zip nodes initialUTxOs) (uncurry commit)
+                expectedUTxO <- commitUTxO clients dataset
 
-                waitFor tracer (fromIntegral $ 10 * clusterSize) nodes $
+                waitFor tracer (fromIntegral $ 10 * clusterSize) clients $
                   output "HeadIsOpen" ["utxo" .= expectedUTxO]
 
-                processedTransactions <- processTransactions nodes dataset
+                processedTransactions <- processTransactions clients dataset
 
                 putTextLn "Closing the Head..."
                 send leader $ input "Close" []
@@ -218,25 +214,38 @@ movingAverage confirmations =
               )
    in map average fiveSeconds
 
-createUTxOToCommit :: [Dataset] -> FilePath -> IO [UTxO]
-createUTxOToCommit dataset nodeSocket =
-  forM dataset $ \Dataset{fundingTransaction} -> do
-    submit defaultNetworkId nodeSocket fundingTransaction
-    UTxO.min <$> waitForTransaction defaultNetworkId nodeSocket fundingTransaction
+-- | Distribute 100 ADA fuel and starting funds from faucet for each client in
+-- the dataset.
+seedNetwork :: RunningNode -> Dataset -> IO ()
+seedNetwork node@(RunningNode _ nodeSocket) Dataset{fundingTransaction, clientDatasets} = do
+  -- Submit the funding transaction first
+  submit defaultNetworkId nodeSocket fundingTransaction
+  -- Then, fuel all clients with some 100 ADA
+  forM_ clientDatasets $ \ClientDataset{signingKey} -> do
+    let vk = getVerificationKey signingKey
+    seedFromFaucet defaultNetworkId node vk 100_000_000 Marked
 
-processTransactions :: [HydraClient] -> [Dataset] -> IO (Map.Map TxId Event)
-processTransactions clients dataset = do
-  let processors = zip (zip dataset (cycle clients)) [1 ..]
+-- | Commit all (expected to exit) 'initialUTxO' from the dataset using the
+-- (asumed same sequence) of clients.
+commitUTxO :: [HydraClient] -> Dataset -> IO UTxO
+commitUTxO clients Dataset{clientDatasets} =
+  mconcat <$> forM (zip clients clientDatasets) doCommit
+ where
+  doCommit (client, ClientDataset{initialUTxO}) = commit client initialUTxO
+
+processTransactions :: [HydraClient] -> Dataset -> IO (Map.Map TxId Event)
+processTransactions clients Dataset{clientDatasets} = do
+  let processors = zip (zip clientDatasets (cycle clients)) [1 ..]
   mconcat <$> mapConcurrently (uncurry clientProcessTransactionsSequence) processors
  where
-  clientProcessTransactionsSequence (Dataset{transactionsSequence}, client) clientId = do
-    let numberOfTxs = length transactionsSequence
+  clientProcessTransactionsSequence (ClientDataset{txSequence}, client) clientId = do
+    let numberOfTxs = length txSequence
     submissionQ <- newTBQueueIO (fromIntegral numberOfTxs)
     registry <- newRegistry
     withNewClient client $ \client' -> do
-      atomically $ forM_ transactionsSequence $ writeTBQueue submissionQ
+      atomically $ forM_ txSequence $ writeTBQueue submissionQ
       submitTxs client' registry submissionQ
-        `concurrently_` waitForAllConfirmations client' registry submissionQ (Set.fromList $ map txId transactionsSequence)
+        `concurrently_` waitForAllConfirmations client' registry submissionQ (Set.fromList $ map txId txSequence)
         `concurrently_` progressReport (hydraNodeId client') clientId numberOfTxs submissionQ
       readTVarIO (processedTxs registry)
 
