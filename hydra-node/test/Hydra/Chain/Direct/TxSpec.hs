@@ -21,7 +21,7 @@ import qualified Data.ByteString.Lazy as LBS
 import Data.List (nub, (\\))
 import qualified Data.Map as Map
 import qualified Data.Text as T
-import Hydra.Chain (HeadId (..), HeadParameters (..), OnChainTx (..))
+import Hydra.Chain (HeadParameters (..), OnChainTx (..))
 import Hydra.Chain.Direct.Fixture (costModels, epochInfo, maxTxSize, pparams, systemStart, testNetworkId, testPolicyId)
 import Hydra.Chain.Direct.Wallet (ErrCoverFee (..), coverFee_)
 import qualified Hydra.Contract.Commit as Commit
@@ -72,9 +72,8 @@ spec =
         let params = HeadParameters cperiod (party : parties)
             tx = initTx testNetworkId cardanoKeys params txIn
             observed = observeInitTx testNetworkId party tx
-            headId = mkHeadId (headPolicyId txIn)
          in case observed of
-              Just (octx, _) -> octx === OnInitTx @Tx headId cperiod (party : parties)
+              Just (octx, _) -> octx === OnInitTx @Tx cperiod (party : parties)
               _ -> property False
               & counterexample ("Observed: " <> show observed)
 
@@ -93,7 +92,7 @@ spec =
             tx = initTx testNetworkId cardanoKeys params txIn
             res = observeInitTx testNetworkId (fst me) tx
          in case res of
-              Just (OnInitTx _ cp ps, InitObservation{initials}) ->
+              Just (OnInitTx cp ps, InitObservation{initials}) ->
                 cp === cperiod
                   .&&. ps === parties
                   .&&. length initials === length cardanoKeys

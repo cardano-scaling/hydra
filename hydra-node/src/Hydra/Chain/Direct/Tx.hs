@@ -383,6 +383,7 @@ data InitObservation = InitObservation
     threadOutput :: (TxIn, TxOut CtxUTxO, ScriptData, [OnChain.Party])
   , initials :: [UTxOWithScript]
   , commits :: [UTxOWithScript]
+  , headId :: HeadId
   }
   deriving (Show, Eq)
 
@@ -402,7 +403,7 @@ observeInitTx networkId party tx = do
   guard $ party `elem` parties
   headId <- findStateToken headOut
   pure
-    ( OnInitTx headId cperiod parties
+    ( OnInitTx cperiod parties
     , InitObservation
         { threadOutput =
             ( mkTxIn tx ix
@@ -412,6 +413,7 @@ observeInitTx networkId party tx = do
             )
         , initials
         , commits = []
+        , headId
         }
     )
  where
@@ -518,6 +520,7 @@ convertTxOut = \case
 
 data CollectComObservation = CollectComObservation
   { threadOutput :: (TxIn, TxOut CtxUTxO, ScriptData, [OnChain.Party])
+  , headId :: HeadId
   }
   deriving (Show, Eq)
 
@@ -546,6 +549,7 @@ observeCollectComTx utxo tx = do
                 , newHeadDatum
                 , parties
                 )
+            , headId = HeadId ""
             }
         )
     _ -> Nothing
@@ -554,6 +558,7 @@ observeCollectComTx utxo tx = do
 
 data CloseObservation = CloseObservation
   { threadOutput :: (TxIn, TxOut CtxUTxO, ScriptData, [OnChain.Party])
+  , headId :: HeadId
   }
   deriving (Show, Eq)
 
@@ -583,6 +588,7 @@ observeCloseTx utxo tx = do
                 , newHeadDatum
                 , parties
                 )
+            , headId = HeadId ""
             }
         )
     _ -> Nothing

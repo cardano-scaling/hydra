@@ -171,16 +171,6 @@ idleOnChainHeadState networkId ownVerificationKey ownParty =
 
 -- Constructing Transitions
 
--- NOTE / TODO: The only real reason why all the function belows are in STM is
--- because they do access the wallet's UTXO for error reporting. This is
--- misleading and slightly annoying for testing given that all those functions
--- are actually "pure" (modulo exceptions which can be captured as 'Either').
---
--- I'd suggest to remove the `MonadThrow` instance and instead have the
--- potentially failing functions return an 'Either' and, do the exception
--- throwing in the upper-layer, wrapping the error with details such as the
--- wallet UTxO.
-
 -- | Initialize a head from an 'StIdle' state. This does not change the state
 -- but produces a transaction which, if observed, does apply the transition.
 initialize ::
@@ -282,7 +272,7 @@ class HasTransition st where
 instance HasTransition 'StIdle where
   observeTx tx OnChainHeadState{networkId, ownParty, ownVerificationKey} = do
     (event, observation) <- observeInitTx networkId ownParty tx
-    let InitObservation{threadOutput, initials, commits} = observation
+    let InitObservation{threadOutput, initials, commits, headId} = observation
     let st' =
           OnChainHeadState
             { networkId
@@ -293,6 +283,7 @@ instance HasTransition 'StIdle where
                   { initialThreadOutput = threadOutput
                   , initialInitials = initials
                   , initialCommits = commits
+                  , initialHeadId = headId
                   }
             }
     pure (event, SomeOnChainHeadState st')
@@ -304,6 +295,7 @@ instance HasTransition 'StInitialized where
     Initialized
       { initialCommits
       , initialInitials
+      , initialHeadId
       } = stateMachine
 
     observeCommit = do
@@ -326,7 +318,8 @@ instance HasTransition 'StInitialized where
     observeCollectCom = do
       let utxo = getKnownUTxO st
       (event, observation) <- observeCollectComTx utxo tx
-      let CollectComObservation{threadOutput} = observation
+      let CollectComObservation{threadOutput, headId} = observation
+      guard (headId == initialHeadId)
       let st' =
             OnChainHeadState
               { networkId
@@ -335,6 +328,7 @@ instance HasTransition 'StInitialized where
               , stateMachine =
                   Open
                     { openThreadOutput = threadOutput
+                    , openHeadId = headId
                     }
               }
       pure (event, SomeOnChainHeadState st')
@@ -352,10 +346,11 @@ instance HasTransition 'StInitialized where
       pure (event, SomeOnChainHeadState st')
 
 instance HasTransition 'StOpen where
-  observeTx tx st@OnChainHeadState{networkId, ownVerificationKey, ownParty} = do
+  observeTx tx st@OnChainHeadState{networkId, ownVerificationKey, ownParty, stateMachine} = do
     let utxo = getKnownUTxO st
     (event, observation) <- observeCloseTx utxo tx
-    let CloseObservation{threadOutput} = observation
+    let CloseObservation{threadOutput, headId} = observation
+    guard (headId == openHeadId)
     let st' =
           OnChainHeadState
             { networkId
@@ -364,9 +359,14 @@ instance HasTransition 'StOpen where
             , stateMachine =
                 Closed
                   { closedThreadOutput = threadOutput
+                  , closedHeadId = headId
                   }
             }
     pure (event, SomeOnChainHeadState st')
+   where
+    Open
+      { openHeadId
+      } = stateMachine
 
 instance HasTransition 'StClosed where
   observeTx tx st@OnChainHeadState{networkId, ownVerificationKey, ownParty} = do

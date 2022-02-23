@@ -785,7 +785,6 @@ definitions:
         additionalProperties: false
         required:
         - tag
-        - headId
         - contestationPeriod
         - parties
         description: >-
@@ -795,9 +794,6 @@ definitions:
           tag:
             type: string
             enum: ["OnInitTx"]
-          headId:
-            type: string
-            contentEncoding: base16
           contestationPeriod:
             type: number
             description: >-
