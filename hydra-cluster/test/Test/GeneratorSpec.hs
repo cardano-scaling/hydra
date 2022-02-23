@@ -1,4 +1,5 @@
 {-# LANGUAGE TypeApplications #-}
+{-# OPTIONS_GHC -Wno-incomplete-uni-patterns #-}
 
 module Test.GeneratorSpec where
 
@@ -7,8 +8,13 @@ import Test.Hydra.Prelude
 
 import Data.Aeson (encode)
 import Data.Text (unpack)
-import Hydra.Cardano.Api (UTxO, utxoFromTx)
-import Hydra.Generator (Dataset (..), defaultProtocolParameters, genConstantUTxODataset)
+import Hydra.Cardano.Api (UTxO, prettyPrintJSON, utxoFromTx)
+import Hydra.Generator (
+  ClientDataset (..),
+  Dataset (..),
+  defaultProtocolParameters,
+  genConstantUTxODataset,
+ )
 import Hydra.Ledger (applyTransactions, balance)
 import Hydra.Ledger.Cardano (Tx, cardanoLedger, genUTxO)
 import Test.Aeson.GenericSpecs (roundtripSpecs)
@@ -28,12 +34,15 @@ prop_computeValueFromUTxO =
 prop_keepsUTxOConstant :: Property
 prop_keepsUTxOConstant =
   forAll arbitrary $ \(Positive n) ->
-    forAll (genConstantUTxODataset defaultProtocolParameters n) $ \Dataset{fundingTransaction, transactionsSequence} ->
-      let initialUTxO = utxoFromTx fundingTransaction
-          finalUTxO = foldl' apply initialUTxO transactionsSequence
-       in length finalUTxO == length initialUTxO
-            & counterexample ("\ntransactions: " <> jsonString transactionsSequence)
-            & counterexample ("\nutxo: " <> jsonString initialUTxO)
+    -- XXX: non-exhaustive pattern match
+    forAll (genConstantUTxODataset defaultProtocolParameters 1 n) $
+      \Dataset{fundingTransaction, clients = [ClientDataset{txSequence}]} ->
+        let initialUTxO = utxoFromTx fundingTransaction
+            finalUTxO = foldl' apply initialUTxO txSequence
+         in length finalUTxO == length initialUTxO
+              & counterexample ("transactions: " <> prettyJSONString txSequence)
+              & counterexample ("utxo: " <> prettyJSONString initialUTxO)
+              & counterexample ("funding tx: " <> prettyJSONString fundingTransaction)
 
 apply :: UTxO -> Tx -> UTxO
 apply utxo tx =
@@ -41,5 +50,5 @@ apply utxo tx =
     Left err -> error $ "invalid generated data set" <> show err
     Right finalUTxO -> finalUTxO
 
-jsonString :: ToJSON a => a -> String
-jsonString = unpack . decodeUtf8 . encode
+prettyJSONString :: ToJSON a => a -> String
+prettyJSONString = unpack . decodeUtf8 . prettyPrintJSON

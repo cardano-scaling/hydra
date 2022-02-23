@@ -1,5 +1,3 @@
-{-# OPTIONS_GHC -Wno-deferred-out-of-scope-variables #-}
-
 -- | A basic cardano-node client that can talk to a local cardano-node.
 --
 -- The idea of this module is to provide a Haskell interface on top of cardano-cli's API,
@@ -14,7 +12,6 @@ import qualified Cardano.Api.UTxO as UTxO
 import Cardano.Slotting.Time (SystemStart)
 import qualified Data.Map as Map
 import qualified Data.Set as Set
-import qualified Hydra.Chain.Direct.Util as Hydra
 import Ouroboros.Consensus.HardFork.Combinator.AcrossEras (EraMismatch)
 import Ouroboros.Network.Protocol.LocalTxSubmission.Client (SubmitResult (..))
 
@@ -334,7 +331,7 @@ mkGenesisTx ::
   [(VerificationKey PaymentKey, Lovelace)] ->
   Tx
 mkGenesisTx networkId pparams signingKey initialAmount recipients =
-  case buildRaw [initialInput] (changeOutput : recipientOutputs) fee of
+  case buildRaw [initialInput] (recipientOutputs <> [changeOutput]) fee of
     Left err -> error $ "Fail to build genesis transations: " <> show err
     Right tx -> sign signingKey tx
  where
@@ -348,15 +345,17 @@ mkGenesisTx networkId pparams signingKey initialAmount recipients =
     Left err -> error $ "Fail to build genesis transactions: " <> show err
     Right tx -> tx
 
+  totalSent = foldMap snd recipients
+
   changeAddr = mkVkAddress networkId (getVerificationKey signingKey)
   changeOutput =
     TxOut
       changeAddr
-      (lovelaceToValue $ initialAmount - amount - fee)
-      (TxOutDatumHash Hydra.markerDatumHash)
+      (lovelaceToValue $ initialAmount - totalSent - fee)
+      TxOutDatumNone
 
   recipientOutputs =
-    for recipients $ \(vk, ll) ->
+    flip map recipients $ \(vk, ll) ->
       TxOut
         (mkVkAddress networkId vk)
         (lovelaceToValue ll)

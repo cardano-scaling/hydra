@@ -1,3 +1,4 @@
+{-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE TypeApplications #-}
 
 module Hydra.Generator where
@@ -7,10 +8,11 @@ import Hydra.Prelude hiding (size)
 
 import qualified Cardano.Api.UTxO as UTxO
 import CardanoClient (mkGenesisTx)
-import CardanoCluster (availableInitialFunds)
+import CardanoCluster (Actor (Faucet), availableInitialFunds, keysFor)
 import Control.Monad (foldM)
 import Data.Aeson (object, withObject, (.:), (.=))
 import Data.Default (def)
+import GHC.IO (unsafePerformIO)
 import Hydra.Ledger (IsTx (..))
 import Hydra.Ledger.Cardano (genKeyPair, mkSimpleTx)
 import Test.QuickCheck (choose, generate, sized)
@@ -23,64 +25,96 @@ networkId = Testnet $ NetworkMagic 42
 -- set.
 data Dataset = Dataset
   { fundingTransaction :: Tx
-  , transactionsSequence :: [Tx]
+  , clients :: [ClientDataset]
+  }
+  deriving (Show, Generic, ToJSON, FromJSON)
+
+instance Arbitrary Dataset where
+  arbitrary = sized $ \n ->
+    genConstantUTxODataset defaultProtocolParameters (n `div` 10) n
+
+data ClientDataset = ClientDataset
+  { txSequence :: [Tx]
   , signingKey :: SigningKey PaymentKey
   }
   deriving (Show, Generic)
 
-defaultProtocolParameters :: ProtocolParameters
-defaultProtocolParameters = fromLedgerPParams ShelleyBasedEraShelley def
-
-instance Arbitrary Dataset where
-  arbitrary = sized (genConstantUTxODataset defaultProtocolParameters)
-
-instance ToJSON Dataset where
-  toJSON Dataset{fundingTransaction, transactionsSequence, signingKey} =
+instance ToJSON ClientDataset where
+  toJSON ClientDataset{txSequence, signingKey} =
     object
-      [ "fundingTransaction" .= fundingTransaction
-      , "transactionsSequence" .= transactionsSequence
+      [ "txSequence" .= txSequence
       , "signingKey" .= serialiseToBech32 signingKey
       ]
 
-instance FromJSON Dataset where
+instance FromJSON ClientDataset where
   parseJSON =
-    withObject "Dataset" $ \o ->
-      Dataset <$> o .: "fundingTransaction"
-        <*> o .: "transactionsSequence"
+    withObject "ClientDataset" $ \o ->
+      ClientDataset <$> o .: "txSequence"
         <*> (decodeSigningKey =<< o .: "signingKey")
    where
     decodeSigningKey =
       either (fail . show) pure . deserialiseFromBech32 (AsSigningKey AsPaymentKey)
 
--- | Generate a 'Dataset' which does not grow the UTXO set over time.
--- The sequence of transactions generated consist only of simple payments from and to
--- arbitrary keys controlled by the "client".
-generateConstantUTxODataset :: ProtocolParameters -> Int -> IO Dataset
-generateConstantUTxODataset pparams = generate . genConstantUTxODataset pparams
+defaultProtocolParameters :: ProtocolParameters
+defaultProtocolParameters = fromLedgerPParams ShelleyBasedEraShelley def
 
-genConstantUTxODataset :: ProtocolParameters -> Int -> Gen Dataset
-genConstantUTxODataset pparams len = do
-  keyPair@(verificationKey, signingKey) <- genKeyPair
-  amount <- choose (1, availableInitialFunds `div` 2)
+-- | Generate 'Dataset' which does not grow the per-client UTXO set over time.
+-- The sequence of transactions generated consist only of simple payments from
+-- and to arbitrary keys controlled by the individual clients.
+generateConstantUTxODataset ::
+  ProtocolParameters ->
+  -- | Number of clients
+  Int ->
+  -- | Number of transactions
+  Int ->
+  IO Dataset
+generateConstantUTxODataset pparams nClients =
+  generate . genConstantUTxODataset pparams nClients
+
+genConstantUTxODataset ::
+  ProtocolParameters ->
+  -- | Number of clients
+  Int ->
+  -- | Number of transactions
+  Int ->
+  Gen Dataset
+genConstantUTxODataset pparams nClients nTxs = do
+  clientFunds <- replicateM nClients $ do
+    (_vk, sk) <- genKeyPair
+    amount <- Lovelace . fromIntegral <$> choose (1, availableInitialFunds `div` nClients)
+    pure (sk, amount)
+  -- Prepare funding transaction as it will be posted
+  let (_, faucetSk) = unsafePerformIO $ keysFor Faucet -- HACK
   let fundingTransaction =
         mkGenesisTx
           networkId
           pparams
+          faucetSk
           (Lovelace availableInitialFunds)
-          signingKey
-          verificationKey
-          (Lovelace amount)
-  -- NOTE: The initialUTxO must contain only the UTXO we will later commit. We
-  -- know that by construction, the 'mkGenesisTx' will have exactly two outputs,
-  -- the last one being the change output. So, it suffices to lookup for the
-  -- minimum key in the utxo map to isolate the commit UTXO.
-  let initialUTxO = UTxO.min $ utxoFromTx fundingTransaction
-  transactionsSequence <-
-    reverse . thrd
-      <$> foldM generateOneTransfer (initialUTxO, keyPair, []) [1 .. len]
-  pure Dataset{fundingTransaction, transactionsSequence, signingKey}
+          (first getVerificationKey <$> clientFunds)
+  clients <- forM (zip clientFunds [0 ..]) (generateClientDataset fundingTransaction)
+  pure Dataset{fundingTransaction, clients}
  where
   thrd (_, _, c) = c
+
+  generateClientDataset fundingTransaction ((sk, amount), index) = do
+    let vk = getVerificationKey sk
+        keyPair = (vk, sk)
+    -- NOTE: The initialUTxO must contain only the UTXO we will later commit. We
+    -- know that by construction, the 'mkGenesisTx' will create outputs
+    -- addressed to recipient verification keys and only holding the requested
+    -- amount of lovelace (and a potential change output last).
+    let txIn = mkTxIn fundingTransaction index
+        txOut =
+          TxOut
+            (mkVkAddress networkId vk)
+            (lovelaceToValue amount)
+            TxOutDatumNone
+        initialUTxO = UTxO.singleton (txIn, txOut)
+    txSequence <-
+      reverse . thrd
+        <$> foldM generateOneTransfer (initialUTxO, keyPair, []) [1 .. nTxs]
+    pure ClientDataset{signingKey = sk, txSequence}
 
   generateOneTransfer ::
     (UTxO, (VerificationKey PaymentKey, SigningKey PaymentKey), [Tx]) ->
@@ -98,6 +132,3 @@ genConstantUTxODataset pparams len = do
             pure (utxoFromTx tx, recipient, tx : txs)
       _ ->
         error "Couldn't generate transaction sequence: need exactly one UTXO."
-
-mkCredentials :: Int -> (VerificationKey PaymentKey, SigningKey PaymentKey)
-mkCredentials = generateWith genKeyPair

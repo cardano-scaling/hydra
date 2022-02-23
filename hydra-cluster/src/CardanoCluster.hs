@@ -52,8 +52,8 @@ data RunningCluster = RunningCluster ClusterConfig [RunningNode]
 defaultNetworkId :: NetworkId
 defaultNetworkId = Testnet (NetworkMagic 42)
 
--- FIXME: This is hard-coded and should correspond to the initial funds set in
--- the genesis file.
+-- NOTE: This is hard-coded and needs to correspond to the initial funds set in
+-- the genesis-shelley.json file.
 availableInitialFunds :: Num a => a
 availableInitialFunds = 900_000_000_000
 
