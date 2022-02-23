@@ -14,7 +14,7 @@ import Cardano.Crypto.DSIGN (
  )
 import CardanoClient (waitForUTxO)
 import CardanoCluster (
-  Actor (Alice, Bob, Carol, Faucet),
+  Actor (Alice, Bob, Carol),
   Marked (Marked, Normal),
   defaultNetworkId,
   keysFor,
@@ -77,8 +77,7 @@ spec = around showLogsOnFailure $
         failAfter 60 $
           withTempDir "end-to-end-cardano-node" $ \tmpDir -> do
             config <- newNodeConfig tmpDir
-            (faucetVk, _) <- keysFor Faucet
-            withBFTNode (contramap FromCluster tracer) config [faucetVk] $ \node -> do
+            withBFTNode (contramap FromCluster tracer) config $ \node -> do
               initAndClose tracer 1 node
 
     describe "two hydra heads scenario" $ do
@@ -86,8 +85,7 @@ spec = around showLogsOnFailure $
         failAfter 60 $
           withTempDir "end-to-end-cardano-node" $ \tmpDir -> do
             config <- newNodeConfig tmpDir
-            (faucetVk, _) <- keysFor Faucet
-            withBFTNode (contramap FromCluster tracer) config [faucetVk] $ \node -> do
+            withBFTNode (contramap FromCluster tracer) config $ \node -> do
               concurrently_
                 (initAndClose tracer 0 node)
                 (initAndClose tracer 1 node)
@@ -107,16 +105,16 @@ spec = around showLogsOnFailure $
         failAfter 60 $
           withTempDir "end-to-end-two-heads" $ \tmpDir -> do
             config <- newNodeConfig tmpDir
-            (aliceCardanoVk, aliceCardanoSk) <- keysFor Alice
-            (bobCardanoVk, bobCardanoSk) <- keysFor Bob
-            withBFTNode (contramap FromCluster tracer) config [aliceCardanoVk, bobCardanoVk] $ \(RunningNode _ nodeSocket) -> do
+            withBFTNode (contramap FromCluster tracer) config $ \node@(RunningNode _ nodeSocket) -> do
+              (aliceCardanoVk, aliceCardanoSk) <- keysFor Alice
+              (bobCardanoVk, _bobCardanoSk) <- keysFor Bob
               (aliceVkPath, aliceSkPath) <- writeKeysFor tmpDir Alice
               (_, bobSkPath) <- writeKeysFor tmpDir Bob
-              pparams <- queryProtocolParameters defaultNetworkId nodeSocket
               withHydraNode tracer aliceSkPath [] tmpDir nodeSocket 1 aliceSk [] allNodeIds $ \n1 ->
                 withHydraNode tracer bobSkPath [aliceVkPath] tmpDir nodeSocket 2 bobSk [aliceVk] allNodeIds $ \n2 -> do
-                  postSeedPayment defaultNetworkId pparams availableInitialFunds nodeSocket aliceCardanoSk 100_000_000
-                  postSeedPayment defaultNetworkId pparams availableInitialFunds nodeSocket bobCardanoSk 100_000_000
+                  -- Funds to be used as fuel by Hydra protocol transactions
+                  void $ seedFromFaucet defaultNetworkId node aliceCardanoVk 100_000_000 Marked
+                  void $ seedFromFaucet defaultNetworkId node bobCardanoVk 100_000_000 Marked
 
                   let contestationPeriod = 10 :: Natural
                   send n1 $ input "Init" ["contestationPeriod" .= contestationPeriod]
@@ -158,8 +156,7 @@ spec = around showLogsOnFailure $
         withTempDir "end-to-end-prometheus-metrics" $ \tmpDir -> do
           config <- newNodeConfig tmpDir
           (aliceCardanoVk, _) <- keysFor Alice
-          (faucetVk, _) <- keysFor Faucet
-          withBFTNode (contramap FromCluster tracer) config [faucetVk] $ \node@(RunningNode _ nodeSocket) -> do
+          withBFTNode (contramap FromCluster tracer) config $ \node@(RunningNode _ nodeSocket) -> do
             (aliceVkPath, aliceSkPath) <- writeKeysFor tmpDir Alice
             (bobVkPath, bobSkPath) <- writeKeysFor tmpDir Bob
             (carolVkPath, carolSkPath) <- writeKeysFor tmpDir Carol

@@ -42,7 +42,6 @@ spec =
               ClusterConfig
                 { parentStateDirectory = tmp
                 , networkId = defaultNetworkId
-                , initialFunds = []
                 }
         withCluster tr config $ \cluster -> do
           failAfter 30 $ assertNetworkIsProducingBlock tr cluster

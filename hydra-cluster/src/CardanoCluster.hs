@@ -1,6 +1,5 @@
 {-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE DerivingStrategies #-}
-{-# LANGUAGE TypeApplications #-}
 
 module CardanoCluster where
 
@@ -26,17 +25,12 @@ import CardanoNode (
   Port,
   PortsConfig (..),
   RunningNode (..),
-  addField,
   defaultCardanoNodeArgs,
   withCardanoNode,
  )
-import Control.Lens ((.~))
 import Control.Tracer (Tracer, traceWith)
-import Data.Aeson (object)
 import qualified Data.Aeson as Aeson
-import Data.Aeson.Lens (key)
 import qualified Data.ByteString as BS
-import Data.ByteString.Base16 (encodeBase16)
 import Hydra.Chain.Direct.Util (markerDatumHash, retry)
 import qualified Hydra.Chain.Direct.Util as Cardano
 import qualified Paths_hydra_cluster as Pkg
@@ -67,7 +61,6 @@ availableInitialFunds = 900_000_000_000
 data ClusterConfig = ClusterConfig
   { parentStateDirectory :: FilePath
   , networkId :: NetworkId
-  , initialFunds :: [VerificationKey PaymentKey]
   }
 
 asSigningKey :: AsType (SigningKey PaymentKey)
@@ -75,18 +68,19 @@ asSigningKey = AsSigningKey AsPaymentKey
 
 withCluster ::
   Tracer IO ClusterLog -> ClusterConfig -> (RunningCluster -> IO ()) -> IO ()
-withCluster tr cfg@ClusterConfig{parentStateDirectory, initialFunds} action = do
+withCluster tr cfg@ClusterConfig{parentStateDirectory} action = do
   systemStart <- initSystemStart
   (cfgA, cfgB, cfgC) <-
     makeNodesConfig parentStateDirectory systemStart
       <$> randomUnusedTCPPorts 3
 
-  withBFTNode tr cfgA initialFunds $ \nodeA -> do
-    withBFTNode tr cfgB initialFunds $ \nodeB -> do
-      withBFTNode tr cfgC initialFunds $ \nodeC -> do
+  withBFTNode tr cfgA $ \nodeA -> do
+    withBFTNode tr cfgB $ \nodeB -> do
+      withBFTNode tr cfgC $ \nodeC -> do
         let nodes = [nodeA, nodeB, nodeC]
         action (RunningCluster cfg nodes)
 
+-- | Enumeration of known actors for which we can get the 'keysFor' and 'writeKeysFor'.
 data Actor
   = Alice
   | Bob
@@ -100,6 +94,7 @@ actorName = \case
   Carol -> "carol"
   Faucet -> "faucet"
 
+-- | Get the "well-known" keys for given actor.
 keysFor :: Actor -> IO (VerificationKey PaymentKey, SigningKey PaymentKey)
 keysFor actor = do
   bs <- readConfigFile ("credentials" </> actorName actor <.> "sk")
@@ -134,13 +129,16 @@ writeKeysFor targetDir actor = do
 
   vkName = actorName actor <.> ".vk"
 
+-- | Start a cardano-node in BFT mode using the config from config/ and
+-- credentials from config/credentials/ using given 'nodeId'. NOTE: This means
+-- that nodeId should only be 1,2 or 3 and that only the faucet receives
+-- 'initialFunds'. Use 'seedFromFaucet' to distribute funds other wallets.
 withBFTNode ::
   Tracer IO ClusterLog ->
   CardanoNodeConfig ->
-  [VerificationKey PaymentKey] ->
   (RunningNode -> IO ()) ->
   IO ()
-withBFTNode clusterTracer cfg initialFunds action = do
+withBFTNode clusterTracer cfg action = do
   createDirectoryIfMissing False (stateDirectory cfg)
 
   [dlgCert, signKey, vrfKey, kesKey, opCert] <-
