@@ -9,10 +9,12 @@ import Test.Hydra.Prelude
 import qualified Cardano.Api.UTxO as UTxO
 import Data.List (intersect)
 import qualified Data.Set as Set
-import Hydra.Chain (HeadParameters (..))
+import Hydra.Chain (HeadParameters (..), OnChainTx)
 import Hydra.Chain.Direct.State (
+  IsTransition,
   HeadStateKind (..),
   OnChainHeadState,
+  collect,
   commit,
   getKnownUTxO,
   idleOnChainHeadState,
@@ -27,6 +29,7 @@ import Test.QuickCheck (
   choose,
   elements,
   forAll,
+  frequency,
   vector,
   (==>),
  )
@@ -35,8 +38,8 @@ spec :: Spec
 spec = parallel $ do
   describe "init" $ do
     prop "is observed" $
-      forAllInit $ \stIdle tx ->
-        isJust (transition @_ @'StInitialized tx stIdle)
+      forAllInit $ \stIdle initTx ->
+        isJust (transition @_ @'StInitialized initTx stIdle)
 
     prop "is not observed if not invited" $
       forAll2 genHydraContext genHydraContext $ \(ctxA, ctxB) ->
@@ -52,8 +55,8 @@ spec = parallel $ do
 
   describe "commit" $ do
     prop "is observed" $
-      forAllCommit $ \stInitialized tx ->
-        isJust (transition @_ @'StInitialized tx stInitialized)
+      forAllCommit $ \stInitialized commitTx ->
+        isJust (transition @_ @'StInitialized commitTx stInitialized)
 
     prop "consumes all inputs that are committed" $
       forAllCommit $ \st tx ->
@@ -73,6 +76,12 @@ spec = parallel $ do
                 Nothing -> True
             Nothing ->
               False
+
+  describe "collectCom" $ do
+    prop "is observed" $
+      forAllCollectCom $ \stInitialized collectComTx ->
+        isJust (transition @_ @'StOpen collectComTx stInitialized)
+
 
 --
 -- QuickCheck Extras
@@ -96,9 +105,57 @@ forAllCommit
 forAllCommit action = do
   forAll genHydraContext $ \ctx ->
     forAll (genStInitialized ctx) $ \stInitialized ->
-      forAll genSingleUTxO $ \utxo ->
+      forAll genCommit $ \utxo ->
         let tx = unsafeCommit utxo stInitialized
          in action stInitialized tx
+
+-- | Generating some arbitrary 'CollectCom' transaction with a state that is
+-- ready to accept it is a bit trickier than the others. Indeed, an
+-- 'OnChainHeadState' is tied to a particular 'Party' (or verification key).
+--
+-- But, we still need to construct commits for the other parties, and have them
+-- observed by that one party we are "incarnating" via this OnChainHeadState.
+--
+-- Commits depend on the initial transactions, so it is important that all
+-- commits are created from the same init transaction.
+forAllCollectCom
+  :: Testable property
+  => (OnChainHeadState 'StInitialized -> Tx -> property)
+  -> Property
+forAllCollectCom action = do
+  forAll genHydraContext $ \ctx ->
+    forAll (genInitTx ctx) $ \initTx -> do
+      forAll (genCommits ctx initTx) $ \commits ->
+        forAll (genStIdle ctx) $ \stIdle ->
+        let
+            (_, stInitialized) =
+              unsafeTransition @_ @'StInitialized initTx stIdle
+
+            stInitialized' = flip execState stInitialized $ do
+              forM_ commits $ \commitTx -> do
+                st <- get
+                let (_, st') = unsafeTransition @_ @'StInitialized commitTx st
+                put st'
+         in action stInitialized' (collect stInitialized')
+ where
+  genInitTx
+    :: HydraContext
+    -> Gen Tx
+  genInitTx ctx =
+    initialize (ctxHeadParameters ctx) (ctxVerificationKeys ctx)
+      <$> genTxIn
+      <*> genStIdle ctx
+
+  genCommits
+    :: HydraContext
+    -> Tx
+    -> Gen [Tx]
+  genCommits ctx initTx = do
+    forM (zip (ctxVerificationKeys ctx) (ctxParties ctx)) $ \(p, vk) -> do
+      let stIdle = idleOnChainHeadState (ctxNetworkId ctx) p vk
+      let (_, stInitialized) = unsafeTransition @_ @'StInitialized initTx stIdle
+      utxo <- genCommit
+      pure $ unsafeCommit utxo stInitialized
 
 --
 -- Generators
@@ -149,14 +206,14 @@ genStInitialized ctx = do
   stIdle <- genStIdle ctx
   seedInput <- genTxIn
   let initTx = initialize (ctxHeadParameters ctx) (ctxVerificationKeys ctx) seedInput stIdle
-  case transition @_ @'StInitialized initTx stIdle of
-    Nothing -> error "failed to observe arbitrarily generated init tx?"
-    Just (_, st') ->
-      pure st'
+  pure $ snd $ unsafeTransition @_ @'StInitialized initTx stIdle
 
-genSingleUTxO :: Gen UTxO
-genSingleUTxO =
-  genVerificationKey >>= genOneUTxOFor
+genCommit :: Gen UTxO
+genCommit =
+  frequency
+    [ (1, pure mempty)
+    , (10, genVerificationKey >>= genOneUTxOFor)
+    ]
 
 --
 -- Helpers
@@ -173,6 +230,23 @@ forAll2 genA genB action =
     forAll genB $ \b ->
       action (a, b)
 
+--
+-- Here be dragons
+--
+
 unsafeCommit :: HasCallStack => UTxO -> OnChainHeadState 'StInitialized -> Tx
 unsafeCommit u =
   either (error . show) id . commit u
+
+unsafeTransition ::
+  forall st st'. (IsTransition st st', HasCallStack) =>
+  Tx ->
+  OnChainHeadState st ->
+  (OnChainTx Tx, OnChainHeadState st')
+unsafeTransition tx st =
+  fromMaybe (error hopefullyInformativeMessage) (transition @st @st' tx st)
+ where
+  hopefullyInformativeMessage =
+    "unsafeTransition:"
+    <> "\n  From:\n    " <> show st
+    <> "\n  Via:\n    " <> renderTx tx
