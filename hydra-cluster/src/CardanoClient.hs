@@ -326,39 +326,38 @@ waitForTransaction networkId socket tx =
 mkGenesisTx ::
   NetworkId ->
   ProtocolParameters ->
-  -- | Amount of initialFunds
-  Lovelace ->
   -- | Owner of the 'initialFund'.
   SigningKey PaymentKey ->
-  -- | Recipient of this transaction.
-  VerificationKey PaymentKey ->
-  -- |Amount to pay
+  -- | Amount of initialFunds
   Lovelace ->
+  -- | Recipients and amounts to pay in this transaction.
+  [(VerificationKey PaymentKey, Lovelace)] ->
   Tx
-mkGenesisTx networkId pparams initialAmount signingKey verificationKey amount =
-  let initialInput =
-        genesisUTxOPseudoTxIn
-          networkId
-          (unsafeCastHash $ verificationKeyHash $ getVerificationKey signingKey)
+mkGenesisTx networkId pparams signingKey initialAmount recipients =
+  case buildRaw [initialInput] (changeOutput : recipientOutputs) fee of
+    Left err -> error $ "Fail to build genesis transations: " <> show err
+    Right tx -> sign signingKey tx
+ where
+  initialInput =
+    genesisUTxOPseudoTxIn
+      networkId
+      (unsafeCastHash $ verificationKeyHash $ getVerificationKey signingKey)
 
-      rawTx = case buildRaw [initialInput] [] 0 of
-        Left err -> error $ "Fail to build genesis transactions: " <> show err
-        Right tx -> tx
-      fee = calculateMinFee networkId rawTx Sizes{inputs = 1, outputs = 2, witnesses = 1} pparams
+  fee = calculateMinFee networkId rawTx Sizes{inputs = 1, outputs = length recipients + 1, witnesses = 1} pparams
+  rawTx = case buildRaw [initialInput] [] 0 of
+    Left err -> error $ "Fail to build genesis transactions: " <> show err
+    Right tx -> tx
 
-      changeAddr = mkVkAddress networkId (getVerificationKey signingKey)
-      changeOutput =
-        TxOut
-          changeAddr
-          (lovelaceToValue $ initialAmount - amount - fee)
-          (TxOutDatumHash Hydra.markerDatumHash)
+  changeAddr = mkVkAddress networkId (getVerificationKey signingKey)
+  changeOutput =
+    TxOut
+      changeAddr
+      (lovelaceToValue $ initialAmount - amount - fee)
+      (TxOutDatumHash Hydra.markerDatumHash)
 
-      recipientAddr = mkVkAddress networkId verificationKey
-      recipientOutput =
-        TxOut
-          recipientAddr
-          (lovelaceToValue amount)
-          TxOutDatumNone
-   in case buildRaw [initialInput] [recipientOutput, changeOutput] fee of
-        Left err -> error $ "Fail to build genesis transations: " <> show err
-        Right tx -> sign signingKey tx
+  recipientOutputs =
+    for recipients $ \(vk, ll) ->
+      TxOut
+        (mkVkAddress networkId vk)
+        (lovelaceToValue ll)
+        TxOutDatumNone
