@@ -208,10 +208,10 @@ abort ::
   OnChainHeadState 'StInitialized ->
   Tx
 abort OnChainHeadState{networkId, stateMachine} = do
-  let (i, _, dat, _) = initialThreadOutput
+  let (i, o, dat, _) = initialThreadOutput
       initials = Map.fromList $ map drop2nd initialInitials
       commits = Map.fromList $ map tripleToPair initialCommits
-   in case abortTx networkId (i, dat) initials commits of
+   in case abortTx networkId (i, o, dat) initials commits of
         Left err ->
           -- FIXME: Exception with MonadThrow?
           error $ show err

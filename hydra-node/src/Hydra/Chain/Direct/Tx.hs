@@ -301,7 +301,7 @@ abortTx ::
   -- | Network identifier for address discrimination
   NetworkId ->
   -- | Everything needed to spend the Head state-machine output.
-  (TxIn, ScriptData) ->
+  (TxIn, TxOut CtxUTxO, ScriptData) ->
   -- | Data needed to spend the initial output sent to each party to the Head.
   -- Should contain the PT and is locked by initial script.
   Map TxIn ScriptData ->
@@ -309,7 +309,7 @@ abortTx ::
   -- Should contain the PT and is locked by commit script.
   Map TxIn (TxOut CtxUTxO, ScriptData) ->
   Either AbortTxError Tx
-abortTx networkId (headInput, ScriptDatumForTxIn -> headDatumBefore) initialsToAbort commitsToAbort
+abortTx networkId (headInput, initialHeadOutput, ScriptDatumForTxIn -> headDatumBefore) initialsToAbort commitsToAbort
   | isJust (lookup headInput initialsToAbort) =
     Left OverlappingInputs
   | otherwise =
@@ -335,7 +335,7 @@ abortTx networkId (headInput, ScriptDatumForTxIn -> headDatumBefore) initialsToA
   headOutput =
     TxOut
       (mkScriptAddress @PlutusScriptV1 networkId headScript)
-      headValue
+      (txOutValue initialHeadOutput)
       headDatumAfter
   headDatumAfter =
     mkTxOutDatum Head.Final
