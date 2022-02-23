@@ -162,7 +162,7 @@ spec =
 
       modifyMaxSuccess (const 10) $
         prop "validates" $ \headInput cperiod ->
-          forAll (vectorOf 9 arbitrary) $ \parties ->
+          forAll (vectorOf 8 arbitrary) $ \parties ->
             forAll (generateCommitUTxOs parties) $ \commitsUTxO ->
               let onChainUTxO = UTxO $ Map.singleton headInput headOutput <> fmap fst commitsUTxO
                   headOutput = mkHeadOutput testNetworkId testPolicyId $ toUTxOContext $ mkTxOutDatum headDatum
