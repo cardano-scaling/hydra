@@ -577,6 +577,7 @@ observeCloseTx utxo tx = do
   redeemer <- findRedeemerSpending tx headInput
   oldHeadDatum <- lookupScriptData tx headOutput
   datum <- fromData $ toPlutusData oldHeadDatum
+  headId <- findStateToken headOutput
   case (datum, redeemer) of
     (Head.Open{parties}, Head.Close{snapshotNumber = onChainSnapshotNumber}) -> do
       (newHeadInput, newHeadOutput) <- findScriptOutput @PlutusScriptV1 (utxoFromTx tx) headScript
@@ -591,7 +592,7 @@ observeCloseTx utxo tx = do
                 , newHeadDatum
                 , parties
                 )
-            , headId = HeadId ""
+            , headId
             }
         )
     _ -> Nothing
