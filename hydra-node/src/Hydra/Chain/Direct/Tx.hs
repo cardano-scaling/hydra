@@ -409,8 +409,8 @@ observeInitTx networkId party tx = do
   let parties = map convertParty ps
   let cperiod = contestationPeriodToDiffTime cp
   guard $ party `elem` parties
-  headId <- findStateToken headOut
-  let headTokenScript = error "headTokenScript"
+  (headTokenPolicyId, _headAssetName) <- findHeadAssetId headOut
+  headTokenScript <- findScriptMinting tx headTokenPolicyId
   pure
     ( OnInitTx cperiod parties
     , InitObservation
@@ -422,7 +422,7 @@ observeInitTx networkId party tx = do
             )
         , initials
         , commits = []
-        , headId
+        , headId = mkHeadId headTokenPolicyId
         , headTokenScript
         }
     )
@@ -668,8 +668,8 @@ mkHeadId =
 findFirst :: Foldable t => (a -> Maybe b) -> t a -> Maybe b
 findFirst fn = getFirst . foldMap (First . fn)
 
-findHeadPolicyId :: TxOut ctx -> Maybe (PolicyId, AssetName)
-findHeadPolicyId txOut =
+findHeadAssetId :: TxOut ctx -> Maybe (PolicyId, AssetName)
+findHeadAssetId txOut =
   flip findFirst (valueToList $ txOutValue txOut) $ \case
     (AssetId pid aname, q)
       | aname == hydraHeadV1AssetName && q == 1 ->
@@ -680,4 +680,4 @@ findHeadPolicyId txOut =
 -- | Find (if it exists) the head identifier contained in given `TxOut`.
 findStateToken :: TxOut ctx -> Maybe HeadId
 findStateToken =
-  fmap (mkHeadId . fst) . findHeadPolicyId
+  fmap (mkHeadId . fst) . findHeadAssetId
