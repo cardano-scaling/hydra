@@ -281,7 +281,10 @@ fanoutTx utxo (headInput, ScriptDatumForTxIn -> headDatumBefore) =
     emptyTxBody
       & addInputs [(headInput, headWitness)]
       & addOutputs fanoutOutputs
+      & burnTokens headTokenScript hydraHeadV1AssetName 1
  where
+  headTokenScript =
+    fromPlutusScript @PlutusScriptV1 $ HeadTokens.validatorScript (toPlutusTxOutRef txIn)
   headWitness =
     BuildTxWith $ ScriptWitness scriptWitnessCtx $ mkScriptWitness headScript headDatumBefore headRedeemer
   headScript =

@@ -114,3 +114,9 @@ mintTokens script assetName quantity tx =
 
   policyId =
     PolicyId $ hashScript $ PlutusScript script
+
+-- | Burn tokens for given policy.
+-- This is really just `mintTokens` with negated 'Quantity'.
+burnTokens :: PlutusScript -> AssetName -> Quantity -> TxBuilder -> TxBuilder
+burnTokens script assetName quantity =
+  mintTokens script assetName (negate quantity)
