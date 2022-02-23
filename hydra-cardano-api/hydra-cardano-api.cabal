@@ -86,6 +86,7 @@ library
     Hydra.Cardano.Api.Network
     Hydra.Cardano.Api.PlutusScript
     Hydra.Cardano.Api.PlutusScriptVersion
+    Hydra.Cardano.Api.PolicyId
     Hydra.Cardano.Api.Prelude
     Hydra.Cardano.Api.ScriptData
     Hydra.Cardano.Api.ScriptDataSupportedInEra
