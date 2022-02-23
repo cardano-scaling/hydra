@@ -286,9 +286,10 @@ spec =
         \txIn cperiod (ReasonablySized parties) ->
           forAll (genAbortableOutputs parties) $
             \(fmap drop2nd -> initials, commits) ->
-              let headDatum = fromPlutusData . toData $ Head.Initial cperiod onChainParties
+              let headOutput = mkHeadOutput testNetworkId testPolicyId TxOutDatumNone
+                  headDatum = fromPlutusData . toData $ Head.Initial cperiod onChainParties
                   onChainParties = partyFromVerKey . vkey <$> parties
-               in case abortTx testNetworkId (txIn, headDatum) (Map.fromList initials) (Map.fromList $ map tripleToPair commits) of
+               in case abortTx testNetworkId (txIn, headOutput, headDatum) (Map.fromList initials) (Map.fromList $ map tripleToPair commits) of
                     Left err -> property False & counterexample ("AbortTx construction failed: " <> show err)
                     Right tx ->
                       let cbor = serialize tx
@@ -305,7 +306,7 @@ spec =
                 headDatum = fromPlutusData $ toData $ Head.Initial cperiod onChainParties
                 onChainParties = partyFromVerKey . vkey <$> parties
                 utxo = UTxO.singleton (txIn, headOutput)
-             in case abortTx testNetworkId (txIn, headDatum) (Map.fromList initials) (Map.fromList $ map tripleToPair commits) of
+             in case abortTx testNetworkId (txIn, headOutput, headDatum) (Map.fromList initials) (Map.fromList $ map tripleToPair commits) of
                   Left err -> property False & counterexample ("AbortTx construction failed: " <> show err)
                   Right tx ->
                     let res = observeAbortTx utxo tx
@@ -331,7 +332,7 @@ spec =
                 commits = Map.fromList (drop2nd <$> resolvedCommits)
                 commitsUTxO = drop3rd <$> resolvedCommits
                 utxo = UTxO $ Map.fromList (headUTxO : initialsUTxO <> commitsUTxO)
-             in checkCoverage $ case abortTx testNetworkId (txIn, fromPlutusData $ toData headDatum) initials (Map.fromList $ map tripleToPair resolvedCommits) of
+             in checkCoverage $ case abortTx testNetworkId (txIn, headOutput, fromPlutusData $ toData headDatum) initials (Map.fromList $ map tripleToPair resolvedCommits) of
                   Left OverlappingInputs ->
                     property (isJust $ txIn `Map.lookup` initials)
                   Right tx ->
@@ -358,7 +359,7 @@ spec =
                           & Map.fromList
                           & Map.mapKeys toLedgerTxIn
                           & Map.map toLedgerTxOut
-                   in case abortTx testNetworkId (headInput, headDatum) initials' mempty of
+                   in case abortTx testNetworkId (headInput, headOutput, headDatum) initials' mempty of
                         Left err ->
                           property False & counterexample ("AbortTx construction failed: " <> show err)
                         Right (toLedgerTx -> txAbort) ->

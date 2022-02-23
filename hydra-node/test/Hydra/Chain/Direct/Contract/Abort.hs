@@ -40,7 +40,7 @@ healthyAbortTx =
   Right tx =
     abortTx
       Fixture.testNetworkId
-      (headInput, headDatum)
+      (headInput, toUTxOContext headOutput, headDatum)
       (Map.fromList (drop2nd <$> healthyInitials))
       (Map.fromList (tripleToPair <$> healthyCommits))
 
