@@ -7,6 +7,7 @@ import Hydra.Prelude
 import Test.Hydra.Prelude
 
 import qualified Cardano.Api.UTxO as UTxO
+import Data.List (intersect)
 import qualified Data.Set as Set
 import Hydra.Chain (HeadParameters (..))
 import Hydra.Chain.Direct.State (
@@ -20,36 +21,77 @@ import Hydra.Chain.Direct.State (
  )
 import Hydra.Ledger.Cardano (genOneUTxOFor, genTxIn, genVerificationKey)
 import Hydra.Party (Party)
-import Test.QuickCheck (Property, choose, elements, forAll, property, vector)
+import Test.QuickCheck (
+  Property,
+  Testable,
+  choose,
+  elements,
+  forAll,
+  vector,
+  (==>),
+ )
 
 spec :: Spec
-spec =
+spec = parallel $ do
+  describe "init" $ do
+    prop "is observed" $
+      forAllInit $ \stIdle tx ->
+        isJust (transition @_ @'StInitialized tx stIdle)
+
+    prop "is not observed if not invited" $
+      forAll2 genHydraContext genHydraContext $ \(ctxA, ctxB) ->
+        null (ctxParties ctxA `intersect` ctxParties ctxB) ==>
+        forAll2 (genStIdle ctxA) (genStIdle ctxB) $ \(stIdleA, stIdleB) ->
+          forAll genTxIn $ \seedInput ->
+            let tx = initialize
+                  (ctxHeadParameters ctxA)
+                  (ctxVerificationKeys ctxA)
+                  seedInput
+                  stIdleA
+             in isNothing (transition @_ @'StInitialized tx stIdleB)
+
   describe "commit" $ do
-    prop "consumes all inputs that are committed." $
+    prop "is observed" $
+      forAllCommit $ \stInitialized tx ->
+        isJust (transition @_ @'StInitialized tx stInitialized)
+
+    prop "consumes all inputs that are committed" $
       forAllCommit $ \st tx ->
          case transition @_ @'StInitialized tx st of
             Just (_, st') ->
               let knownInputs = UTxO.inputSet (getKnownUTxO st')
-               in property (knownInputs `Set.disjoint` txInputSet tx)
+               in knownInputs `Set.disjoint` txInputSet tx
             Nothing ->
-              property False
+              False
 
-    prop "can only apply / observe the same commit once" $
+    prop "can only be applied / observed once" $
       forAllCommit $ \st tx ->
          case transition @_ @'StInitialized tx st of
             Just (_, st') ->
               case transition @_ @'StInitialized tx st' of
-                Just{} -> property False
-                Nothing -> property True
+                Just{} -> False
+                Nothing -> True
             Nothing ->
-              property False
+              False
 
 --
 -- QuickCheck Extras
 --
 
+forAllInit
+  :: Testable property
+  => (OnChainHeadState 'StIdle -> Tx -> property)
+  -> Property
+forAllInit action =
+  forAll genHydraContext $ \ctx ->
+    forAll (genStIdle ctx) $ \stIdle ->
+      forAll genTxIn $ \seedInput -> do
+        let tx = initialize (ctxHeadParameters ctx) (ctxVerificationKeys ctx) seedInput stIdle
+         in action stIdle tx
+
 forAllCommit
-  :: (OnChainHeadState 'StInitialized -> Tx -> Property)
+  :: Testable property
+  => (OnChainHeadState 'StInitialized -> Tx -> property)
   -> Property
 forAllCommit action = do
   forAll genHydraContext $ \ctx ->
@@ -77,6 +119,10 @@ data HydraContext = HydraContext
   }
   deriving (Show)
 
+ctxHeadParameters :: HydraContext -> HeadParameters
+ctxHeadParameters HydraContext{ctxContestationPeriod, ctxParties} =
+  HeadParameters ctxContestationPeriod ctxParties
+
 genHydraContext :: Gen HydraContext
 genHydraContext = do
   n <- choose (1, 10)
@@ -99,11 +145,10 @@ genStIdle HydraContext{ctxVerificationKeys, ctxNetworkId, ctxParties} = do
   pure $ idleOnChainHeadState ctxNetworkId ownVerificationKey ownParty
 
 genStInitialized :: HydraContext -> Gen (OnChainHeadState 'StInitialized)
-genStInitialized ctx@HydraContext{ctxParties, ctxContestationPeriod, ctxVerificationKeys} = do
+genStInitialized ctx = do
   stIdle <- genStIdle ctx
-  let headParameters = HeadParameters ctxContestationPeriod ctxParties
   seedInput <- genTxIn
-  let initTx = initialize headParameters ctxVerificationKeys seedInput stIdle
+  let initTx = initialize (ctxHeadParameters ctx) (ctxVerificationKeys ctx) seedInput stIdle
   case transition @_ @'StInitialized initTx stIdle of
     Nothing -> error "failed to observe arbitrarily generated init tx?"
     Just (_, st') ->
@@ -116,6 +161,17 @@ genSingleUTxO =
 --
 -- Helpers
 --
+
+forAll2
+  :: (Testable property, Show a, Show b)
+  => Gen a
+  -> Gen b
+  -> ((a, b) -> property)
+  -> Property
+forAll2 genA genB action =
+  forAll genA $ \a ->
+    forAll genB $ \b ->
+      action (a, b)
 
 unsafeCommit :: HasCallStack => UTxO -> OnChainHeadState 'StInitialized -> Tx
 unsafeCommit u =
