@@ -28,7 +28,15 @@ import Hydra.Data.ContestationPeriod (contestationPeriodFromDiffTime, contestati
 import Hydra.Data.Party (partyFromVerKey, partyToVerKey)
 import qualified Hydra.Data.Party as OnChain
 import Hydra.Ledger.Cardano (hashTxOuts)
-import Hydra.Ledger.Cardano.Builder (addInputs, addOutputs, addVkInputs, emptyTxBody, mintTokens, unsafeBuildTransaction)
+import Hydra.Ledger.Cardano.Builder (
+  addInputs,
+  addOutputs,
+  addVkInputs,
+  burnTokens,
+  emptyTxBody,
+  mintTokens,
+  unsafeBuildTransaction,
+ )
 import Hydra.Party (MultiSigned, Party (Party), toPlutusSignatures, vkey)
 import Hydra.Snapshot (Snapshot (..))
 import Ledger.Typed.Scripts (DatumType)
@@ -45,10 +53,11 @@ hydraHeadV1 = "HydraHeadV1"
 
 headPolicyId :: TxIn -> PolicyId
 headPolicyId =
-  scriptPolicyId . PlutusScript . headTokenScript
- where
-  headTokenScript =
-    fromPlutusScript @PlutusScriptV1 . HeadTokens.validatorScript . toPlutusTxOutRef
+  scriptPolicyId . PlutusScript . mkHeadTokenScript
+
+mkHeadTokenScript :: TxIn -> PlutusScript
+mkHeadTokenScript =
+  fromPlutusScript @PlutusScriptV1 . HeadTokens.validatorScript . toPlutusTxOutRef
 
 hydraHeadV1AssetName :: AssetName
 hydraHeadV1AssetName = AssetName hydraHeadV1
@@ -76,18 +85,15 @@ initTx ::
   HeadParameters ->
   TxIn ->
   Tx
-initTx networkId cardanoKeys parameters txIn =
+initTx networkId cardanoKeys parameters seed =
   unsafeBuildTransaction $
     emptyTxBody
-      & addVkInputs [txIn]
+      & addVkInputs [seed]
       & addOutputs
-        ( mkHeadOutputInitial networkId (headPolicyId txIn) parameters :
+        ( mkHeadOutputInitial networkId (headPolicyId seed) parameters :
           map (mkInitialOutput networkId) cardanoKeys
         )
-      & mintTokens headTokenScript hydraHeadV1AssetName 1
- where
-  headTokenScript =
-    fromPlutusScript @PlutusScriptV1 $ HeadTokens.validatorScript (toPlutusTxOutRef txIn)
+      & mintTokens (mkHeadTokenScript seed) hydraHeadV1AssetName 1
 
 mkHeadOutput :: NetworkId -> PolicyId -> TxOutDatum ctx -> TxOut ctx
 mkHeadOutput networkId tokenPolicyId =
@@ -273,18 +279,17 @@ fanoutTx ::
   -- | Snapshotted UTxO to fanout on layer 1
   UTxO ->
   -- | Everything needed to spend the Head state-machine output.
-  -- FIXME(SN): should also contain some Head identifier/address and stored Value (maybe the TxOut + Data?)
   (TxIn, ScriptData) ->
+  -- | Minting Policy script, made from initial seed
+  PlutusScript ->
   Tx
-fanoutTx utxo (headInput, ScriptDatumForTxIn -> headDatumBefore) =
+fanoutTx utxo (headInput, ScriptDatumForTxIn -> headDatumBefore) headTokenScript =
   unsafeBuildTransaction $
     emptyTxBody
       & addInputs [(headInput, headWitness)]
       & addOutputs fanoutOutputs
       & burnTokens headTokenScript hydraHeadV1AssetName 1
  where
-  headTokenScript =
-    fromPlutusScript @PlutusScriptV1 $ HeadTokens.validatorScript (toPlutusTxOutRef txIn)
   headWitness =
     BuildTxWith $ ScriptWitness scriptWitnessCtx $ mkScriptWitness headScript headDatumBefore headRedeemer
   headScript =
@@ -386,6 +391,7 @@ data InitObservation = InitObservation
   , initials :: [UTxOWithScript]
   , commits :: [UTxOWithScript]
   , headId :: HeadId
+  , headTokenScript :: PlutusScript
   }
   deriving (Show, Eq)
 
@@ -404,6 +410,7 @@ observeInitTx networkId party tx = do
   let cperiod = contestationPeriodToDiffTime cp
   guard $ party `elem` parties
   headId <- findStateToken headOut
+  let headTokenScript = error "headTokenScript"
   pure
     ( OnInitTx cperiod parties
     , InitObservation
@@ -416,6 +423,7 @@ observeInitTx networkId party tx = do
         , initials
         , commits = []
         , headId
+        , headTokenScript
         }
     )
  where
@@ -660,12 +668,16 @@ mkHeadId =
 findFirst :: Foldable t => (a -> Maybe b) -> t a -> Maybe b
 findFirst fn = getFirst . foldMap (First . fn)
 
--- | Find (if it exists) the head identifier contained in given `TxOut`.
-findStateToken :: TxOut ctx -> Maybe HeadId
-findStateToken txOut =
+findHeadPolicyId :: TxOut ctx -> Maybe (PolicyId, AssetName)
+findHeadPolicyId txOut =
   flip findFirst (valueToList $ txOutValue txOut) $ \case
     (AssetId pid aname, q)
       | aname == hydraHeadV1AssetName && q == 1 ->
-        Just $ mkHeadId pid
+        Just (pid, aname)
     _ ->
       Nothing
+
+-- | Find (if it exists) the head identifier contained in given `TxOut`.
+findStateToken :: TxOut ctx -> Maybe HeadId
+findStateToken =
+  fmap (mkHeadId . fst) . findHeadPolicyId

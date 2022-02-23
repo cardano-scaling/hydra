@@ -22,7 +22,16 @@ import Data.List (nub, (\\))
 import qualified Data.Map as Map
 import qualified Data.Text as T
 import Hydra.Chain (HeadParameters (..), OnChainTx (..))
-import Hydra.Chain.Direct.Fixture (costModels, epochInfo, maxTxSize, pparams, systemStart, testNetworkId, testPolicyId)
+import Hydra.Chain.Direct.Fixture (
+  costModels,
+  epochInfo,
+  maxTxSize,
+  pparams,
+  systemStart,
+  testNetworkId,
+  testPolicyId,
+  testSeedInput,
+ )
 import Hydra.Chain.Direct.Wallet (ErrCoverFee (..), coverFee_)
 import qualified Hydra.Contract.Commit as Commit
 import qualified Hydra.Contract.Head as Head
@@ -213,7 +222,7 @@ spec =
     describe "fanoutTx" $ do
       let prop_fanoutTxSize :: UTxO -> TxIn -> Property
           prop_fanoutTxSize utxo headIn =
-            let tx = fanoutTx utxo (headIn, headDatum)
+            let tx = fanoutTx utxo (headIn, headDatum) (mkHeadTokenScript testSeedInput)
                 headDatum = fromPlutusData $ toData Head.Closed{snapshotNumber = 1, utxoHash = ""}
                 cbor = serialize tx
                 len = LBS.length cbor
@@ -245,7 +254,7 @@ spec =
             expectFailure . prop_fanoutTxSize utxo
 
       prop "is observed" $ \utxo headInput ->
-        let tx = fanoutTx utxo (headInput, headDatum)
+        let tx = fanoutTx utxo (headInput, headDatum) (mkHeadTokenScript testSeedInput)
             headOutput = mkHeadOutput testNetworkId testPolicyId TxOutDatumNone
             headDatum = fromPlutusData $ toData $ Head.Closed{snapshotNumber = 1, utxoHash = ""}
             lookupUTxO = UTxO.singleton (headInput, headOutput)
@@ -256,7 +265,7 @@ spec =
 
       prop "validates" $ \headInput ->
         forAll (reasonablySized genUTxOWithSimplifiedAddresses) $ \inHeadUTxO ->
-          let tx = fanoutTx inHeadUTxO (headInput, fromPlutusData $ toData headDatum)
+          let tx = fanoutTx inHeadUTxO (headInput, fromPlutusData $ toData headDatum) (mkHeadTokenScript testSeedInput)
               onChainUTxO = UTxO.singleton (headInput, headOutput)
               headScript = fromPlutusScript $ Head.validatorScript policyId
               -- FIXME: Ensure the headOutput contains enough value to fanout all inHeadUTxO

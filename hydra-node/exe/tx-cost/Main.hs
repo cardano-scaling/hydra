@@ -30,6 +30,7 @@ import Hydra.Cardano.Api (
   Tx,
   UTxO,
   fromLedgerExUnits,
+  fromLedgerScript,
   fromLedgerTxOut,
   fromPlutusData,
   fromPlutusScript,
@@ -108,8 +109,9 @@ mkFanoutTx :: UTxO -> (Tx, UTxO)
 mkFanoutTx utxo =
   (tx, lookupUTxO)
  where
-  tx = fanoutTx utxo (headInput, fromPlutusData headDatum)
+  tx = fanoutTx utxo (headInput, fromPlutusData headDatum) (fromLedgerScript headTokenScript)
   headInput = generateWith arbitrary 42
+  headTokenScript = plutusScript $ Head.validatorScript policyId
   headOutput = fromLedgerTxOut $ mkHeadOutput (SJust $ Ledger.Data headDatum)
   headDatum =
     toData $

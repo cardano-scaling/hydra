@@ -27,6 +27,7 @@ import Hydra.Cardano.Api (
   NetworkId (Testnet),
   NetworkMagic (NetworkMagic),
   PolicyId,
+  TxIn,
  )
 import Hydra.Chain.Direct.Tx (headPolicyId)
 import Hydra.Chain.Direct.Util (Era)
@@ -39,7 +40,10 @@ testNetworkId :: NetworkId
 testNetworkId = Testnet (NetworkMagic 42)
 
 testPolicyId :: PolicyId
-testPolicyId = headPolicyId (generateWith arbitrary 42)
+testPolicyId = headPolicyId testSeedInput
+
+testSeedInput :: TxIn
+testSeedInput = generateWith arbitrary 42
 
 maxTxSize :: Int64
 maxTxSize = 1 `shift` 15

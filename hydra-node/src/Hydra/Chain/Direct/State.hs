@@ -82,16 +82,19 @@ data HydraStateMachine (st :: HeadStateKind) where
     , initialInitials :: [UTxOWithScript]
     , initialCommits :: [UTxOWithScript]
     , initialHeadId :: HeadId
+    , initialHeadTokenScript :: PlutusScript
     } ->
     HydraStateMachine 'StInitialized
   Open ::
     { openThreadOutput :: (TxIn, TxOut CtxUTxO, ScriptData, [OnChain.Party])
     , openHeadId :: HeadId
+    , openHeadTokenScript :: PlutusScript
     } ->
     HydraStateMachine 'StOpen
   Closed ::
     { closedThreadOutput :: (TxIn, TxOut CtxUTxO, ScriptData, [OnChain.Party])
     , closedHeadId :: HeadId
+    , closedHeadTokenScript :: PlutusScript
     } ->
     HydraStateMachine 'StClosed
 
@@ -256,9 +259,9 @@ fanout ::
   Tx
 fanout utxo OnChainHeadState{stateMachine} = do
   let (i, _, dat, _) = closedThreadOutput
-   in fanoutTx utxo (i, dat)
+   in fanoutTx utxo (i, dat) closedHeadTokenScript
  where
-  Closed{closedThreadOutput} = stateMachine
+  Closed{closedThreadOutput, closedHeadTokenScript} = stateMachine
 
 -- Observing Transitions
 
@@ -271,7 +274,7 @@ class HasTransition st where
 instance HasTransition 'StIdle where
   observeTx tx OnChainHeadState{networkId, ownParty, ownVerificationKey} = do
     (event, observation) <- observeInitTx networkId ownParty tx
-    let InitObservation{threadOutput, initials, commits, headId} = observation
+    let InitObservation{threadOutput, initials, commits, headId, headTokenScript} = observation
     let st' =
           OnChainHeadState
             { networkId
@@ -283,6 +286,7 @@ instance HasTransition 'StIdle where
                   , initialInitials = initials
                   , initialCommits = commits
                   , initialHeadId = headId
+                  , initialHeadTokenScript = headTokenScript
                   }
             }
     pure (event, SomeOnChainHeadState st')
@@ -295,6 +299,7 @@ instance HasTransition 'StInitialized where
       { initialCommits
       , initialInitials
       , initialHeadId
+      , initialHeadTokenScript
       } = stateMachine
 
     observeCommit = do
@@ -328,6 +333,7 @@ instance HasTransition 'StInitialized where
                   Open
                     { openThreadOutput = threadOutput
                     , openHeadId = headId
+                    , openHeadTokenScript = initialHeadTokenScript
                     }
               }
       pure (event, SomeOnChainHeadState st')
@@ -359,12 +365,14 @@ instance HasTransition 'StOpen where
                 Closed
                   { closedThreadOutput = threadOutput
                   , closedHeadId = headId
+                  , closedHeadTokenScript = openHeadTokenScript
                   }
             }
     pure (event, SomeOnChainHeadState st')
    where
     Open
       { openHeadId
+      , openHeadTokenScript
       } = stateMachine
 
 instance HasTransition 'StClosed where
