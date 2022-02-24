@@ -104,6 +104,7 @@ bench timeoutSeconds workDir dataset@Dataset{clientDatasets} clusterSize =
                 putTextLn "Seeding network"
                 seedNetwork node dataset
 
+                putTextLn "Initializing Head"
                 let contestationPeriod = 10 :: Natural
                 send leader $ input "Init" ["contestationPeriod" .= contestationPeriod]
                 waitFor tracer (fromIntegral $ 10 * clusterSize) clients $

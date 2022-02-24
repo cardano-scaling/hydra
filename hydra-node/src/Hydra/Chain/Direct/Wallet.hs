@@ -168,12 +168,18 @@ type AlonzoPoint = Point (ShelleyBlock Era)
 --
 -- It can sign transactions and keeps track of its UTXO behind the scene.
 data TinyWallet m = TinyWallet
-  { getUTxO :: STM m (Map TxIn TxOut)
+  { -- | Return all known UTxO addressed to this wallet.
+    getUTxO :: STM m (Map TxIn TxOut)
   , getAddress :: Address
   , sign :: ValidatedTx Era -> ValidatedTx Era
   , coverFee :: Map TxIn TxOut -> ValidatedTx Era -> STM m (Either ErrCoverFee (ValidatedTx Era))
   , verificationKey :: VerificationKey PaymentKey
   }
+
+-- | Get a single, marked as "fuel" UTxO.
+getFuelUTxO :: MonadSTM m => TinyWallet m -> STM m (Maybe (TxIn, TxOut))
+getFuelUTxO TinyWallet{getUTxO} =
+  findFuelUTxO <$> getUTxO
 
 watchUTxOUntil :: (Map TxIn TxOut -> Bool) -> TinyWallet IO -> IO (Map TxIn TxOut)
 watchUTxOUntil predicate TinyWallet{getUTxO} = atomically $ do
@@ -345,15 +351,11 @@ coverFee_ pparams systemStart epochInfo lookupUTxO walletUTxO partialTx@Validate
         }
     )
  where
-  findUTxOToPayFees utxo = case Map.lookupMax (Map.filter hasMarkerDatum utxo) of
+  findUTxOToPayFees utxo = case findFuelUTxO utxo of
     Nothing ->
       Left ErrNoPaymentUTxOFound
     Just (i, o) ->
       Right (i, o)
-
-  hasMarkerDatum :: TxOut -> Bool
-  hasMarkerDatum (TxOut _ _ dh) =
-    dh == SJust (hashData $ Data @Era markerDatum)
 
   -- TODO: Do a better fee estimation based on the transaction's content.
   calculateNeedlesslyHighFee (Redeemers redeemers) =
@@ -415,6 +417,14 @@ coverFee_ pparams systemStart epochInfo lookupUTxO walletUTxO partialTx@Validate
        in ExUnits
             (floor (maxMem * approxMem % totalMem))
             (floor (maxCpu * approxCpu % totalCpu))
+
+findFuelUTxO :: Map TxIn TxOut -> Maybe (TxIn, TxOut)
+findFuelUTxO utxo =
+  Map.lookupMax (Map.filter hasMarkerDatum utxo)
+ where
+  hasMarkerDatum :: TxOut -> Bool
+  hasMarkerDatum (TxOut _ _ dh) =
+    dh == SJust (hashData $ Data @Era markerDatum)
 
 -- | Estimate cost of script executions on the transaction. This is only an
 -- estimates because the transaction isn't sealed at this point and adding new

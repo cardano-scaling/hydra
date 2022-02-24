@@ -32,7 +32,6 @@ import Control.Monad.Class.MonadSTM (newTQueueIO, newTVarIO, readTQueue, retry, 
 import Control.Monad.Class.MonadTimer (timeout)
 import Control.Tracer (nullTracer)
 import Data.Aeson (Value (String), object, (.=))
-import qualified Data.Map as Map
 import Data.Sequence.Strict (StrictSeq)
 import Hydra.Cardano.Api (
   NetworkId (Testnet),
@@ -80,6 +79,7 @@ import Hydra.Chain.Direct.Wallet (
   ErrCoverFee (..),
   TinyWallet (..),
   TinyWalletLog,
+  getFuelUTxO,
   getTxId,
   withTinyWallet,
  )
@@ -417,13 +417,11 @@ fromPostChainTx ::
   TVar m SomeOnChainHeadState ->
   PostChainTx Tx ->
   STM m Tx
-fromPostChainTx cardanoKeys TinyWallet{getUTxO} someHeadState tx = do
+fromPostChainTx cardanoKeys wallet someHeadState tx = do
   SomeOnChainHeadState st <- readTVar someHeadState
   case (tx, reifyState st) of
     (InitTx params, TkIdle) -> do
-      u <- getUTxO
-      -- NOTE: 'lookupMax' to favor change outputs!
-      case Map.lookupMax u of
+      getFuelUTxO wallet >>= \case
         Just (fromLedgerTxIn -> seedInput, _) -> do
           pure $ initialize params cardanoKeys seedInput st
         Nothing ->
