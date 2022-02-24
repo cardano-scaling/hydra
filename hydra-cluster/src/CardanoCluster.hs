@@ -259,14 +259,17 @@ seedFromFaucet ::
   IO UTxO
 seedFromFaucet networkId (RunningNode _ nodeSocket) receivingVerificationKey lovelace marked = do
   (faucetVk, faucetSk) <- keysFor Faucet
-  (i, _o) <- findUTxO faucetVk
-  let changeAddress = buildAddress faucetVk networkId
-  build networkId nodeSocket changeAddress [(i, Nothing)] [] [theOutput] >>= \case
-    Left e -> error (show e)
-    Right body -> do
-      retry isCardanoClientException $ submit networkId nodeSocket (sign faucetSk body)
-      waitForPayment networkId nodeSocket lovelace receivingAddress
+  retry isCardanoClientException $ submitFuelingTx faucetVk faucetSk
+  waitForPayment networkId nodeSocket lovelace receivingAddress
  where
+  submitFuelingTx faucetVk faucetSk = do
+    (i, _o) <- findUTxO faucetVk
+    let changeAddress = buildAddress faucetVk networkId
+    build networkId nodeSocket changeAddress [(i, Nothing)] [] [theOutput] >>= \case
+      Left e -> error (show e)
+      Right body -> do
+        submit networkId nodeSocket (sign faucetSk body)
+
   findUTxO faucetVk = do
     faucetUTxO <- queryUTxO networkId nodeSocket [buildAddress faucetVk networkId]
     let foundUTxO = find (\(_i, o) -> txOutLovelace o >= lovelace) $ UTxO.pairs faucetUTxO
