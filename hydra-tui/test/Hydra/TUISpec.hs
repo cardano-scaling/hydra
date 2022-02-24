@@ -6,6 +6,7 @@ import Test.Hydra.Prelude
 import Blaze.ByteString.Builder.Char8 (writeChar)
 import CardanoClient (postSeedPayment, queryProtocolParameters)
 import CardanoCluster (
+  Actor (Alice),
   ClusterLog,
   availableInitialFunds,
   defaultNetworkId,
@@ -94,9 +95,9 @@ setupNodeAndTUI action =
   showLogsOnFailure $ \tracer ->
     withTempDir "tui-end-to-end" $ \tmpDir -> do
       config <- newNodeConfig tmpDir
-      (aliceCardanoVk, aliceCardanoSk) <- keysFor "alice"
+      (aliceCardanoVk, aliceCardanoSk) <- keysFor Alice
       withBFTNode (contramap FromCardano tracer) config [aliceCardanoVk] $ \(RunningNode _ nodeSocket) -> do
-        (_, aliceSkPath) <- writeKeysFor tmpDir "alice"
+        (_, aliceSkPath) <- writeKeysFor tmpDir Alice
         -- XXX(SN): API port id is inferred from nodeId, in this case 4001
         let nodeId = 1
         pparams <- queryProtocolParameters defaultNetworkId nodeSocket

@@ -48,7 +48,7 @@ data Effect tx
   = ClientEffect {serverOutput :: ServerOutput tx}
   | NetworkEffect {message :: Message tx}
   | OnChainEffect {onChainTx :: PostChainTx tx}
-  | Delay {delay :: DiffTime, event :: Event tx}
+  | Delay {delay :: DiffTime, reason :: WaitReason, event :: Event tx}
   deriving stock (Generic)
 
 instance (Arbitrary tx, Arbitrary (UTxOType tx), Arbitrary (TxIdType tx)) => Arbitrary (Effect tx) where
@@ -134,11 +134,22 @@ deriving instance (Show (HeadState tx), Show (Event tx)) => Show (LogicError tx)
 
 data Outcome tx
   = NewState (HeadState tx) [Effect tx]
-  | Wait
+  | Wait WaitReason
   | Error (LogicError tx)
 
 deriving instance IsTx tx => Eq (Outcome tx)
 deriving instance IsTx tx => Show (Outcome tx)
+
+data WaitReason
+  = WaitOnNotApplicableTx {validationError :: ValidationError}
+  | WaitOnSnapshotNumber {waitingFor :: SnapshotNumber}
+  | WaitOnSeenSnapshot
+  | WaitOnContestationPeriod
+  deriving stock (Generic, Eq, Show)
+  deriving anyclass (ToJSON, FromJSON)
+
+instance Arbitrary WaitReason where
+  arbitrary = genericArbitrary
 
 data Environment = Environment
   { -- | This is the p_i from the paper
@@ -179,7 +190,7 @@ update Environment{party, signingKey, otherParties} ledger st ev = case (st, ev)
     | canCommit -> sameState [OnChainEffect (CommitTx party utxo)]
    where
     canCommit = party `Set.member` remainingParties
-  (InitialState parameters remainingParties committed, OnChainEvent (OnCommitTx pt utxo)) ->
+  (InitialState parameters remainingParties committed, OnChainEvent OnCommitTx{party = pt, committed = utxo}) ->
     nextState newHeadState $
       [ClientEffect $ Committed pt utxo]
         <> [OnChainEffect $ CollectComTx collectedUTxO | canCollectCom]
@@ -198,7 +209,7 @@ update Environment{party, signingKey, otherParties} ledger st ev = case (st, ev)
     --       We shouldn't see any commit outside of the collecting state, if we do,
     --       there's an issue our logic or onChain layer.
     sameState []
-  (InitialState parameters _remainingParties committed, OnChainEvent OnCollectComTx) ->
+  (InitialState parameters _remainingParties committed, OnChainEvent OnCollectComTx{}) ->
     -- TODO: We would want to check whether this even matches our local state.
     -- For example, we do expect `null remainingParties` but what happens if
     -- it's untrue?
@@ -206,13 +217,13 @@ update Environment{party, signingKey, otherParties} ledger st ev = case (st, ev)
      in nextState
           (OpenState parameters $ CoordinatedHeadState u0 mempty (InitialSnapshot $ Snapshot 0 u0 mempty) NoSeenSnapshot)
           [ClientEffect $ HeadIsOpen u0]
-  (InitialState _ _ committed, OnChainEvent OnAbortTx) ->
+  (InitialState _ _ committed, OnChainEvent OnAbortTx{}) ->
     nextState ReadyState [ClientEffect $ HeadIsAborted $ fold committed]
   --
   (OpenState HeadParameters{contestationPeriod} CoordinatedHeadState{confirmedSnapshot}, ClientEvent Close) ->
     sameState
       [ OnChainEffect (CloseTx confirmedSnapshot)
-      , Delay contestationPeriod ShouldPostFanout
+      , Delay contestationPeriod WaitOnContestationPeriod ShouldPostFanout
       ]
   --
   (OpenState _ CoordinatedHeadState{confirmedSnapshot}, ClientEvent GetUTxO) ->
@@ -228,7 +239,7 @@ update Environment{party, signingKey, otherParties} ledger st ev = case (st, ev)
         Invalid err -> [ClientEffect $ TxInvalid{utxo = utxo, transaction = tx, validationError = err}]
   (OpenState parameters headState@CoordinatedHeadState{seenTxs, seenUTxO}, NetworkEvent (ReqTx _ tx)) ->
     case applyTransactions ledger seenUTxO [tx] of
-      Left _err -> Wait -- The transaction may not be applicable yet.
+      Left (_, err) -> Wait $ WaitOnNotApplicableTx err -- The transaction may not be applicable yet.
       Right utxo' ->
         let newSeenTxs = seenTxs <> [tx]
          in nextState
@@ -246,7 +257,7 @@ update Environment{party, signingKey, otherParties} ledger st ev = case (st, ev)
       -- TODO: Verify the request is signed by (?) / comes from the leader
       -- (Can we prove a message comes from a given peer, without signature?)
       case applyTransactions ledger (getField @"utxo" $ getSnapshot confirmedSnapshot) txs of
-        Left _ -> Wait
+        Left (_, err) -> Wait $ WaitOnNotApplicableTx err
         Right u ->
           let nextSnapshot = Snapshot sn u txs
               snapshotSignature = sign signingKey nextSnapshot
@@ -259,14 +270,14 @@ update Environment{party, signingKey, otherParties} ledger st ev = case (st, ev)
       case seenSnapshot of
         SeenSnapshot{snapshot}
           | number snapshot == sn -> Error (InvalidEvent e st)
-          | otherwise -> Wait
-        _ -> Wait
+          | otherwise -> Wait $ WaitOnSnapshotNumber (number snapshot)
+        _ -> Wait WaitOnSeenSnapshot
   (OpenState parameters@HeadParameters{parties} headState@CoordinatedHeadState{seenSnapshot, seenTxs}, NetworkEvent (AckSn otherParty snapshotSignature sn)) ->
     case seenSnapshot of
-      NoSeenSnapshot -> Wait
-      RequestedSnapshot -> Wait
+      NoSeenSnapshot -> Wait WaitOnSeenSnapshot
+      RequestedSnapshot -> Wait WaitOnSeenSnapshot
       SeenSnapshot snapshot sigs
-        | number snapshot /= sn -> Wait
+        | number snapshot /= sn -> Wait $ WaitOnSnapshotNumber (number snapshot)
         | otherwise ->
           let sigs'
                 -- TODO: Must check whether we know the 'otherParty' signing the snapshot
@@ -318,7 +329,7 @@ update Environment{party, signingKey, otherParties} ledger st ev = case (st, ev)
     sameState []
   (ClosedState _ utxo, ShouldPostFanout) ->
     sameState [OnChainEffect (FanoutTx utxo)]
-  (ClosedState _ utxos, OnChainEvent OnFanoutTx) ->
+  (ClosedState _ utxos, OnChainEvent OnFanoutTx{}) ->
     nextState ReadyState [ClientEffect $ HeadIsFinalized utxos]
   --
   (_, ClientEvent{}) ->

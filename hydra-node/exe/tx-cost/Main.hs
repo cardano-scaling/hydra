@@ -30,6 +30,7 @@ import Hydra.Cardano.Api (
   Tx,
   UTxO,
   fromLedgerExUnits,
+  fromLedgerScript,
   fromLedgerTxOut,
   fromPlutusData,
   fromPlutusScript,
@@ -38,8 +39,10 @@ import Hydra.Cardano.Api (
   mkScriptDatum,
   mkScriptWitness,
   mkTxOutDatum,
+  scriptWitnessCtx,
   toCtxUTxOTxOut,
   toScriptData,
+  pattern ScriptWitness,
   pattern TxOut,
  )
 import Hydra.Chain.Direct.Tx (fanoutTx, policyId)
@@ -106,8 +109,9 @@ mkFanoutTx :: UTxO -> (Tx, UTxO)
 mkFanoutTx utxo =
   (tx, lookupUTxO)
  where
-  tx = fanoutTx utxo (headInput, fromPlutusData headDatum)
+  tx = fanoutTx utxo (headInput, fromPlutusData headDatum) (fromLedgerScript headTokenScript)
   headInput = generateWith arbitrary 42
+  headTokenScript = plutusScript $ Head.validatorScript policyId
   headOutput = fromLedgerTxOut $ mkHeadOutput (SJust $ Ledger.Data headDatum)
   headDatum =
     toData $
@@ -216,7 +220,7 @@ calculateHashExUnits n algorithm =
   output = toCtxUTxOTxOut $ TxOut address value (mkTxOutDatum datum)
   value = lovelaceToValue 1_000_000
   address = mkScriptAddress @PlutusScriptV1 (Testnet $ NetworkMagic 42) script
-  witness = BuildTxWith $ mkScriptWitness script (mkScriptDatum datum) redeemer
+  witness = BuildTxWith $ ScriptWitness scriptWitnessCtx $ mkScriptWitness script (mkScriptDatum datum) redeemer
   script = fromPlutusScript @PlutusScriptV1 Hash.validatorScript
   datum = Hash.datum $ toBuiltin bytes
   redeemer = toScriptData $ Hash.redeemer algorithm

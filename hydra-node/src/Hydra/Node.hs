@@ -25,7 +25,6 @@ import Control.Monad.Class.MonadSTM (
   isEmptyTQueue,
   modifyTVar',
   newTQueue,
-  newTVar,
   newTVarIO,
   readTQueue,
   stateTVar,
@@ -178,7 +177,7 @@ processNextEvent HydraNode{hh, env} e =
         let (s'', effects') = emitSnapshot env effects s'
          in (Right effects', s'')
       Error err -> (Left err, s)
-      Wait -> (Right [Delay 0.1 e], s)
+      Wait reason -> (Right [Delay 0.1 reason e], s)
 
 processEffect ::
   ( MonadAsync m
@@ -198,7 +197,7 @@ processEffect HydraNode{hn, oc, server, eq, env = Environment{party}} tracer e =
       postTx oc postChainTx
         `catch` \(postTxError :: PostTxError tx) ->
           putEvent eq $ PostTxError{postChainTx, postTxError}
-    Delay after event -> putEventAfter eq after event
+    Delay delay _ event -> putEventAfter eq delay event
   traceWith tracer $ ProcessedEffect party e
 -- ** Some general event queue from which the Hydra head is "fed"
 
@@ -215,7 +214,7 @@ data EventQueue m e = EventQueue
 
 createEventQueue :: (MonadSTM m, MonadDelay m, MonadAsync m) => m (EventQueue m e)
 createEventQueue = do
-  numThreads <- atomically (newTVar (0 :: Integer))
+  numThreads <- newTVarIO (0 :: Integer)
   q <- atomically newTQueue
   pure
     EventQueue

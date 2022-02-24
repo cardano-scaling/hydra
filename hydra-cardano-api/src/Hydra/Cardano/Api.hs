@@ -96,6 +96,7 @@ import Hydra.Cardano.Api.Lovelace as Extras
 import Hydra.Cardano.Api.MultiAssetSupportedInEra as Extras
 import Hydra.Cardano.Api.PlutusScript as Extras
 import Hydra.Cardano.Api.PlutusScriptVersion as Extras
+import Hydra.Cardano.Api.PolicyId as Extras
 import Hydra.Cardano.Api.ScriptData as Extras
 import Hydra.Cardano.Api.ScriptDataSupportedInEra as Extras
 import Hydra.Cardano.Api.ScriptDatum as Extras
@@ -111,6 +112,7 @@ import Hydra.Cardano.Api.TxOutDatum as Extras
 import Hydra.Cardano.Api.TxOutValue as Extras
 import Hydra.Cardano.Api.TxScriptValidity as Extras
 import Hydra.Cardano.Api.UTxO as Extras
+import Hydra.Cardano.Api.UsingRawBytesHex as Extras
 import Hydra.Cardano.Api.Value as Extras
 import Hydra.Cardano.Api.Witness as Extras
 

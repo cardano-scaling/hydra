@@ -33,7 +33,7 @@ import Hydra.Prelude
 
 import qualified Cardano.Api.UTxO as UTxO
 import qualified Data.Map as Map
-import Hydra.Chain (HeadParameters, OnChainTx (..), PostTxError (..))
+import Hydra.Chain (HeadId (..), HeadParameters, OnChainTx (..), PostTxError (..))
 import Hydra.Chain.Direct.Tx (
   CloseObservation (..),
   CollectComObservation (..),
@@ -81,14 +81,20 @@ data HydraStateMachine (st :: HeadStateKind) where
     { initialThreadOutput :: (TxIn, TxOut CtxUTxO, ScriptData, [OnChain.Party])
     , initialInitials :: [UTxOWithScript]
     , initialCommits :: [UTxOWithScript]
+    , initialHeadId :: HeadId
+    , initialHeadTokenScript :: PlutusScript
     } ->
     HydraStateMachine 'StInitialized
   Open ::
     { openThreadOutput :: (TxIn, TxOut CtxUTxO, ScriptData, [OnChain.Party])
+    , openHeadId :: HeadId
+    , openHeadTokenScript :: PlutusScript
     } ->
     HydraStateMachine 'StOpen
   Closed ::
     { closedThreadOutput :: (TxIn, TxOut CtxUTxO, ScriptData, [OnChain.Party])
+    , closedHeadId :: HeadId
+    , closedHeadTokenScript :: PlutusScript
     } ->
     HydraStateMachine 'StClosed
 
@@ -168,16 +174,6 @@ idleOnChainHeadState networkId ownVerificationKey ownParty =
 
 -- Constructing Transitions
 
--- NOTE / TODO: The only real reason why all the function belows are in STM is
--- because they do access the wallet's UTXO for error reporting. This is
--- misleading and slightly annoying for testing given that all those functions
--- are actually "pure" (modulo exceptions which can be captured as 'Either').
---
--- I'd suggest to remove the `MonadThrow` instance and instead have the
--- potentially failing functions return an 'Either' and, do the exception
--- throwing in the upper-layer, wrapping the error with details such as the
--- wallet UTxO.
-
 -- | Initialize a head from an 'StIdle' state. This does not change the state
 -- but produces a transaction which, if observed, does apply the transition.
 initialize ::
@@ -215,10 +211,10 @@ abort ::
   OnChainHeadState 'StInitialized ->
   Tx
 abort OnChainHeadState{networkId, stateMachine} = do
-  let (i, _, dat, _) = initialThreadOutput
+  let (i, o, dat, _) = initialThreadOutput
       initials = Map.fromList $ map drop2nd initialInitials
       commits = Map.fromList $ map tripleToPair initialCommits
-   in case abortTx networkId (i, dat) initials commits of
+   in case abortTx networkId (i, o, dat) initials commits of
         Left err ->
           -- FIXME: Exception with MonadThrow?
           error $ show err
@@ -235,9 +231,8 @@ collect ::
   OnChainHeadState 'StInitialized ->
   Tx
 collect OnChainHeadState{networkId, stateMachine} = do
-  let (i, _, dat, parties) = initialThreadOutput
-      commits = Map.fromList $ fmap tripleToPair initialCommits
-   in collectComTx networkId (i, dat, parties) commits
+  let commits = Map.fromList $ fmap tripleToPair initialCommits
+   in collectComTx networkId initialThreadOutput commits
  where
   Initialized
     { initialThreadOutput
@@ -264,9 +259,9 @@ fanout ::
   Tx
 fanout utxo OnChainHeadState{stateMachine} = do
   let (i, _, dat, _) = closedThreadOutput
-   in fanoutTx utxo (i, dat)
+   in fanoutTx utxo (i, dat) closedHeadTokenScript
  where
-  Closed{closedThreadOutput} = stateMachine
+  Closed{closedThreadOutput, closedHeadTokenScript} = stateMachine
 
 -- Observing Transitions
 
@@ -279,7 +274,7 @@ class HasTransition st where
 instance HasTransition 'StIdle where
   observeTx tx OnChainHeadState{networkId, ownParty, ownVerificationKey} = do
     (event, observation) <- observeInitTx networkId ownParty tx
-    let InitObservation{threadOutput, initials, commits} = observation
+    let InitObservation{threadOutput, initials, commits, headId, headTokenScript} = observation
     let st' =
           OnChainHeadState
             { networkId
@@ -290,6 +285,8 @@ instance HasTransition 'StIdle where
                   { initialThreadOutput = threadOutput
                   , initialInitials = initials
                   , initialCommits = commits
+                  , initialHeadId = headId
+                  , initialHeadTokenScript = headTokenScript
                   }
             }
     pure (event, SomeOnChainHeadState st')
@@ -301,6 +298,8 @@ instance HasTransition 'StInitialized where
     Initialized
       { initialCommits
       , initialInitials
+      , initialHeadId
+      , initialHeadTokenScript
       } = stateMachine
 
     observeCommit = do
@@ -323,7 +322,8 @@ instance HasTransition 'StInitialized where
     observeCollectCom = do
       let utxo = getKnownUTxO st
       (event, observation) <- observeCollectComTx utxo tx
-      let CollectComObservation{threadOutput} = observation
+      let CollectComObservation{threadOutput, headId} = observation
+      guard (headId == initialHeadId)
       let st' =
             OnChainHeadState
               { networkId
@@ -332,6 +332,8 @@ instance HasTransition 'StInitialized where
               , stateMachine =
                   Open
                     { openThreadOutput = threadOutput
+                    , openHeadId = headId
+                    , openHeadTokenScript = initialHeadTokenScript
                     }
               }
       pure (event, SomeOnChainHeadState st')
@@ -349,10 +351,11 @@ instance HasTransition 'StInitialized where
       pure (event, SomeOnChainHeadState st')
 
 instance HasTransition 'StOpen where
-  observeTx tx st@OnChainHeadState{networkId, ownVerificationKey, ownParty} = do
+  observeTx tx st@OnChainHeadState{networkId, ownVerificationKey, ownParty, stateMachine} = do
     let utxo = getKnownUTxO st
     (event, observation) <- observeCloseTx utxo tx
-    let CloseObservation{threadOutput} = observation
+    let CloseObservation{threadOutput, headId} = observation
+    guard (headId == openHeadId)
     let st' =
           OnChainHeadState
             { networkId
@@ -361,9 +364,16 @@ instance HasTransition 'StOpen where
             , stateMachine =
                 Closed
                   { closedThreadOutput = threadOutput
+                  , closedHeadId = headId
+                  , closedHeadTokenScript = openHeadTokenScript
                   }
             }
     pure (event, SomeOnChainHeadState st')
+   where
+    Open
+      { openHeadId
+      , openHeadTokenScript
+      } = stateMachine
 
 instance HasTransition 'StClosed where
   observeTx tx st@OnChainHeadState{networkId, ownVerificationKey, ownParty} = do

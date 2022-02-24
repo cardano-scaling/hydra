@@ -1,3 +1,4 @@
+{-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE TypeApplications #-}
 {-# OPTIONS_GHC -Wno-incomplete-uni-patterns #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
@@ -22,7 +23,13 @@ import qualified Data.Map as Map
 import Data.Maybe (fromJust)
 import Data.Ratio ((%))
 import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
-import Hydra.Cardano.Api (NetworkId (Testnet), NetworkMagic (NetworkMagic))
+import Hydra.Cardano.Api (
+  NetworkId (Testnet),
+  NetworkMagic (NetworkMagic),
+  PolicyId,
+  TxIn,
+ )
+import Hydra.Chain.Direct.Tx (headPolicyId)
 import Hydra.Chain.Direct.Util (Era)
 import Plutus.V1.Ledger.Api (PubKeyHash (PubKeyHash), toBuiltin)
 import Test.Cardano.Ledger.Alonzo.PlutusScripts (defaultCostModel)
@@ -31,6 +38,12 @@ import Test.QuickCheck.Instances ()
 
 testNetworkId :: NetworkId
 testNetworkId = Testnet (NetworkMagic 42)
+
+testPolicyId :: PolicyId
+testPolicyId = headPolicyId testSeedInput
+
+testSeedInput :: TxIn
+testSeedInput = generateWith arbitrary 42
 
 maxTxSize :: Int64
 maxTxSize = 1 `shift` 15

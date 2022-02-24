@@ -18,7 +18,7 @@ import Hydra.Cardano.Api (NetworkMagic, PaymentKey, VerificationKey)
 import Hydra.Chain (
   Chain (..),
   HeadParameters (HeadParameters),
-  OnChainTx (OnAbortTx, OnInitTx),
+  OnChainTx (..),
   PostChainTx (AbortTx, InitTx),
   PostTxError (NoSeedInput),
  )
@@ -49,8 +49,22 @@ spec = do
               mkSeedPayment magic aliceVk submitTx
 
               retry (== NoSeedInput @Tx) $ postTx $ InitTx parameters
-              takeMVar calledBackAlice `shouldReturn` OnInitTx 100 [alice, bob, carol]
-              takeMVar calledBackBob `shouldReturn` OnInitTx 100 [alice, bob, carol]
+              takeMVar calledBackAlice
+                >>= ( `shouldSatisfy`
+                        \case
+                          OnInitTx{contestationPeriod, parties} ->
+                            contestationPeriod == 100 && parties == [alice, bob, carol]
+                          _ ->
+                            False
+                    )
+              takeMVar calledBackBob
+                >>= ( `shouldSatisfy`
+                        \case
+                          OnInitTx{contestationPeriod, parties} ->
+                            contestationPeriod == 100 && parties == [alice, bob, carol]
+                          _ ->
+                            False
+                    )
 
               postTx $ AbortTx mempty
               takeMVar calledBackAlice `shouldReturn` OnAbortTx

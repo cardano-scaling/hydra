@@ -1,10 +1,10 @@
-cabal-version:      3.0
-name:               hydra-cardano-api
-version:            0.3.0
-synopsis:           A Haskell API for Cardano, tailored to the Hydra project.
-author:             IOG
-copyright:          2022 IOG
-license:            Apache-2.0
+cabal-version: 3.0
+name:          hydra-cardano-api
+version:       0.3.0
+synopsis:      A Haskell API for Cardano, tailored to the Hydra project.
+author:        IOG
+copyright:     2022 IOG
+license:       Apache-2.0
 license-files:
   LICENSE
   NOTICE
@@ -82,10 +82,11 @@ library
     Hydra.Cardano.Api.Hash
     Hydra.Cardano.Api.KeyWitness
     Hydra.Cardano.Api.Lovelace
-    Hydra.Cardano.Api.Network
     Hydra.Cardano.Api.MultiAssetSupportedInEra
+    Hydra.Cardano.Api.Network
     Hydra.Cardano.Api.PlutusScript
     Hydra.Cardano.Api.PlutusScriptVersion
+    Hydra.Cardano.Api.PolicyId
     Hydra.Cardano.Api.Prelude
     Hydra.Cardano.Api.ScriptData
     Hydra.Cardano.Api.ScriptDataSupportedInEra
@@ -101,12 +102,15 @@ library
     Hydra.Cardano.Api.TxOutDatum
     Hydra.Cardano.Api.TxOutValue
     Hydra.Cardano.Api.TxScriptValidity
+    Hydra.Cardano.Api.UsingRawBytesHex
     Hydra.Cardano.Api.UTxO
     Hydra.Cardano.Api.Value
     Hydra.Cardano.Api.Witness
-  build-depends: base
+
+  build-depends:
     , aeson
     , array
+    , base
     , base16-bytestring
     , bech32
     , bech32-th

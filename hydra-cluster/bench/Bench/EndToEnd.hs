@@ -95,18 +95,19 @@ bench timeoutSeconds workDir dataset clusterSize =
       withTracerOutputTo hdl "Test" $ \tracer ->
         failAfter timeoutSeconds $ do
           let cardanoKeys = map (\Dataset{signingKey} -> (getVerificationKey signingKey, signingKey)) dataset
+          let hydraKeys = generateKey <$> [1 .. toInteger (length cardanoKeys)]
+          let parties = Set.fromList (deriveParty <$> hydraKeys)
           config <- newNodeConfig workDir
           withOSStats workDir $
             withBFTNode (contramap FromCluster tracer) config (fst <$> cardanoKeys) $ \(RunningNode _ nodeSocket) -> do
-              withHydraCluster tracer workDir nodeSocket cardanoKeys $ \(leader :| followers) -> do
+              withHydraCluster tracer workDir nodeSocket 1 cardanoKeys hydraKeys $ \(leader :| followers) -> do
                 let nodes = leader : followers
-                waitForNodesConnected tracer [1 .. fromIntegral clusterSize] nodes
+                waitForNodesConnected tracer nodes
 
                 initialUTxOs <- createUTxOToCommit dataset nodeSocket
 
                 let contestationPeriod = 10 :: Natural
                 send leader $ input "Init" ["contestationPeriod" .= contestationPeriod]
-                let parties = Set.fromList $ map (deriveParty . generateKey) [1 .. fromIntegral clusterSize]
                 waitFor tracer (fromIntegral $ 10 * clusterSize) nodes $
                   output "ReadyToCommit" ["parties" .= parties]
 

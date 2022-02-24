@@ -23,6 +23,7 @@ import Control.Concurrent.STM (
   writeTBQueue,
   writeTChan,
  )
+import Control.Exception (IOException)
 import Control.Monad.Class.MonadAsync (wait)
 import Data.Aeson (object, withObject, (.:), (.=))
 import qualified Data.Aeson as Aeson
@@ -192,19 +193,20 @@ withOuroborosNetwork tracer localHost remoteHosts networkCallback between = do
     networkState <- newNetworkMutableState
     localAddr <- resolveSockAddr localHost
     -- TODO(SN): whats this? _ <- async $ cleanNetworkMutableState networkState
-    withServerNode
-      (socketSnocket iomgr)
-      networkServerTracers
-      networkState
-      (AcceptedConnectionsLimit maxBound maxBound 0)
-      localAddr
-      unversionedHandshakeCodec
-      noTimeLimitsHandshake
-      unversionedProtocolDataCodec
-      acceptableVersion
-      (unversionedProtocol (SomeResponderApplication app))
-      nullErrorPolicies
-      $ \_ serverAsync -> wait serverAsync -- block until async exception
+    handle onIOException $
+      withServerNode
+        (socketSnocket iomgr)
+        networkServerTracers
+        networkState
+        (AcceptedConnectionsLimit maxBound maxBound 0)
+        localAddr
+        unversionedHandshakeCodec
+        noTimeLimitsHandshake
+        unversionedProtocolDataCodec
+        acceptableVersion
+        (unversionedProtocol (SomeResponderApplication app))
+        nullErrorPolicies
+        $ \_ serverAsync -> wait serverAsync -- block until async exception
    where
     networkServerTracers =
       NetworkServerTracers
@@ -213,6 +215,13 @@ withOuroborosNetwork tracer localHost remoteHosts networkCallback between = do
         , nstErrorPolicyTracer = contramap (WithHost localHost . TraceErrorPolicy) tracer
         , nstAcceptPolicyTracer = contramap (WithHost localHost . TraceAcceptPolicy) tracer
         }
+
+    onIOException ioException =
+      throwIO $
+        NetworkServerListenException
+          { ioException
+          , localHost
+          }
 
   hydraClient ::
     TChan msg ->
@@ -269,6 +278,14 @@ withOuroborosNetwork tracer localHost remoteHosts networkCallback between = do
       { recvMsg = \msg -> networkCallback msg $> server
       , recvMsgDone = pure ()
       }
+
+data NetworkServerListenException = NetworkServerListenException
+  { ioException :: IOException
+  , localHost :: Host
+  }
+  deriving (Show)
+
+instance Exception NetworkServerListenException
 
 data WithHost trace = WithHost Host trace
   deriving (Show)
