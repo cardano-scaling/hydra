@@ -3,29 +3,33 @@
 module Hydra.Chain.Direct.StateSpec where
 
 import Hydra.Cardano.Api
-import Hydra.Prelude
+import Hydra.Prelude hiding (label)
 import Test.Hydra.Prelude
 
 import qualified Cardano.Api.UTxO as UTxO
-import Data.List (intersect)
+import Data.List ((!!), elemIndex, intersect)
+import Data.Maybe (fromJust)
 import qualified Data.Set as Set
+import Data.Type.Equality ((:~:)(..), testEquality)
 import Hydra.Chain (HeadParameters (..), OnChainTx)
 import Hydra.Chain.Direct.State (
-  ObserveTx,
-  HasTransition,
+  HasTransition (..),
   HeadStateKind (..),
+  HeadStateKindVal (..),
+  ObserveTx(..),
   OnChainHeadState,
-  SomeOnChainHeadState(..),
-  observeSomeTx,
+  SomeOnChainHeadState (..),
+  TransitionFrom (..),
   collect,
   commit,
   getKnownUTxO,
   idleOnChainHeadState,
   initialize,
-  observeTx,
+  observeSomeTx,
  )
 import Hydra.Ledger.Cardano (genOneUTxOFor, genTxIn, genVerificationKey)
 import Hydra.Party (Party)
+import qualified Prelude
 import Test.QuickCheck (
   Property,
   Testable,
@@ -34,16 +38,21 @@ import Test.QuickCheck (
   forAll,
   forAllBlind,
   frequency,
+  label,
   vector,
   (==>),
+  checkCoverage,
  )
+import Type.Reflection (typeOf)
 
 spec :: Spec
 spec = parallel $ do
   describe "observeTx" $ do
     prop "All valid transitions for all possible states can be observed." $
-      forAllSt $ \st tx ->
-        isJust (observeSomeTx tx (SomeOnChainHeadState st))
+      checkCoverage $
+        genericCoverTable [minBound .. maxBound @Transition] $
+          forAllSt $ \st tx ->
+            isJust (observeSomeTx tx (SomeOnChainHeadState st))
 
   describe "init" $ do
     prop "is not observed if not invited" $
@@ -89,8 +98,11 @@ forAllSt ::
 forAllSt action =
   forAllBlind (elements
     [ forAllInit action
+        & label (show $ Transition @'StIdle (TransitionTo (Proxy @'StInitialized)))
     , forAllCommit action
+        & label (show $ Transition @'StInitialized (TransitionTo (Proxy @'StInitialized)))
     , forAllCollectCom action
+        & label (show $ Transition @'StInitialized (TransitionTo (Proxy @'StOpen)))
     ] ) identity
 
 forAllInit ::
@@ -241,6 +253,42 @@ forAll2 genA genB action =
   forAll genA $ \a ->
     forAll genB $ \b ->
       action (a, b)
+
+--
+-- Wrapping Transition for easy labelling
+--
+
+allTransitions :: [Transition]
+allTransitions = mconcat
+  [ Transition <$> transitions (Proxy @'StIdle)
+  , Transition <$> transitions (Proxy @'StInitialized)
+  , Transition <$> transitions (Proxy @'StOpen)
+  , Transition <$> transitions (Proxy @'StClosed)
+  ]
+
+data Transition where
+  Transition ::
+    forall (st :: HeadStateKind). (HeadStateKindVal st, Typeable st) =>
+    TransitionFrom st ->
+    Transition
+deriving instance Typeable Transition
+
+instance Show Transition where
+  show (Transition t) = show t
+
+instance Eq Transition where
+  (Transition from) == (Transition from') =
+    case testEquality (typeOf from) (typeOf from') of
+      Just Refl -> from == from'
+      Nothing -> False
+
+instance Enum Transition where
+  toEnum = (!!) allTransitions
+  fromEnum = fromJust . (`elemIndex` allTransitions)
+
+instance Bounded Transition where
+  minBound = Prelude.head allTransitions
+  maxBound = Prelude.last allTransitions
 
 --
 -- Here be dragons

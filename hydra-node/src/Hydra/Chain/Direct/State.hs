@@ -5,6 +5,7 @@ module Hydra.Chain.Direct.State (
   -- * OnChainHeadState
   OnChainHeadState,
   HeadStateKind (..),
+  HeadStateKindVal (..),
   getKnownUTxO,
 
   -- ** Working with opaque states
@@ -24,10 +25,12 @@ module Hydra.Chain.Direct.State (
   fanout,
 
   -- ** Observing transitions
-  ObserveTx,
-  observeTx,
-  HasTransition,
   observeSomeTx,
+
+  -- *** Internal API
+  ObserveTx(..),
+  HasTransition (..),
+  TransitionFrom(..)
 ) where
 
 import Hydra.Cardano.Api
@@ -57,6 +60,7 @@ import Hydra.Chain.Direct.Tx (
 import qualified Hydra.Data.Party as OnChain
 import Hydra.Party (Party)
 import Hydra.Snapshot (ConfirmedSnapshot (..))
+import qualified Text.Show
 
 -- | An opaque on-chain head state, which records information and events
 -- happening on the layer-1 for a given Hydra head.
@@ -137,6 +141,19 @@ data SomeOnChainHeadState where
 -- (b) Pattern-match on the 'HydraStateMachine' without having to bother with
 -- non-reachable cases.
 data HeadStateKind = StIdle | StInitialized | StOpen | StClosed
+  deriving (Eq, Show, Enum, Bounded)
+
+class HeadStateKindVal (st :: HeadStateKind) where
+  headStateKindVal :: Proxy st -> HeadStateKind
+
+instance HeadStateKindVal 'StIdle where
+  headStateKindVal _ = StIdle
+instance HeadStateKindVal 'StInitialized where
+  headStateKindVal _ = StInitialized
+instance HeadStateKindVal 'StOpen where
+  headStateKindVal _ = StOpen
+instance HeadStateKindVal 'StClosed where
+  headStateKindVal _ = StClosed
 
 -- | A token witnessing the state's type of an 'OnChainHeadState'. See 'reifyState'
 data TokHeadState (st :: HeadStateKind) where
@@ -284,13 +301,7 @@ class HasTransition st =>
 -- 'SomeOnChainHeadState').
 class HasTransition (st :: HeadStateKind) where
   transitions ::
-    Proxy st -> [TransitionTo st]
-
-data TransitionTo st where
-  TransitionTo
-    :: forall st st'. (ObserveTx st st', HasTransition st')
-    => Proxy st'
-    -> TransitionTo st
+    Proxy st -> [TransitionFrom st]
 
 --
 -- StIdle
@@ -464,6 +475,34 @@ observeSomeTx tx (SomeOnChainHeadState (st :: OnChainHeadState st)) =
     Maybe (OnChainTx Tx, SomeOnChainHeadState)
   observeSome _ =
     second SomeOnChainHeadState <$> observeTx @st @st' tx st
+
+--
+-- TransitionFrom
+--
+
+data TransitionFrom st where
+  TransitionTo ::
+    forall st st'.
+      ( ObserveTx st st'
+      , HasTransition st'
+      , HeadStateKindVal st
+      , HeadStateKindVal st'
+      ) =>
+    Proxy st' ->
+    TransitionFrom st
+
+instance Show (TransitionFrom st) where
+  show (TransitionTo proxy) =
+    "Transition "
+    <> show (headStateKindVal (Proxy @st))
+    <> " -> "
+    <> show (headStateKindVal proxy)
+
+
+
+instance Eq (TransitionFrom st) where
+  (TransitionTo proxy) == (TransitionTo proxy') =
+    headStateKindVal proxy == headStateKindVal proxy'
 
 --
 -- Helpers
