@@ -25,7 +25,6 @@ import Control.Monad.Class.MonadSTM (
   isEmptyTQueue,
   modifyTVar',
   newTQueue,
-  newTVar,
   newTVarIO,
   readTQueue,
   stateTVar,
@@ -215,7 +214,7 @@ data EventQueue m e = EventQueue
 
 createEventQueue :: (MonadSTM m, MonadDelay m, MonadAsync m) => m (EventQueue m e)
 createEventQueue = do
-  numThreads <- atomically (newTVar (0 :: Integer))
+  numThreads <- newTVarIO (0 :: Integer)
   q <- atomically newTQueue
   pure
     EventQueue

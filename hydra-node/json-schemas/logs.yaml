@@ -933,6 +933,7 @@ definitions:
       required:
       - tag
       - delay
+      - reason
       - event
       description: >-
         A special effect requesting the given event to be delayed from
@@ -949,5 +950,65 @@ definitions:
           minimum: 0
           description: >-
             The length of the delay, in seconds.
+        reason:
+          $ref: "#/definitions/WaitReason"
         event:
           $ref: "#/definitions/Event"
+
+  WaitReason:
+    oneOf:
+    - title: WaitOnNotApplicableTx
+      description: >-
+        A transaction failed to apply, but could apply later on.
+      type: object
+      additionalProperties: false
+      required:
+      - tag
+      - validationError
+      properties:
+        tag:
+          type: string
+          enum: [ "WaitOnNotApplicableTx" ]
+        validationError:
+          <<: { "$ref": "#/definitions/ValidationError" }
+          description: >-
+            Description of the cause of the validation failure.
+    - title: WaitOnSnapshotNumber
+      description: >-
+        Current observed snapshot is not the right one, waiting for some other
+        number.
+      type: object
+      additionalProperties: false
+      required:
+      - tag
+      - waitingFor
+      properties:
+        tag:
+          type: string
+          enum: [ "WaitOnSnapshotNumber" ]
+        waitingFor:
+          <<: { "$ref": "common.yaml#/definitions/SnapshotNumber" }
+          description: >-
+            The expected number.
+    - title: WaitOnSeenSnapshot
+      description: >-
+        No current snapshot is available, waiting for some snapshot to start.
+      type: object
+      additionalProperties: false
+      required:
+      - tag
+      properties:
+        tag:
+          type: string
+          enum: [ "WaitOnSeenSnapshot" ]
+    - title: WaitOnContestationPeriod
+      description: >-
+        Contestation period is not over yet.
+      type: object
+      additionalProperties: false
+      required:
+      - tag
+      properties:
+        tag:
+          type: string
+          enum: [ "WaitOnContestationPeriod" ]

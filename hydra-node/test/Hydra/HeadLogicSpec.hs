@@ -20,9 +20,10 @@ import Hydra.HeadLogic (
   LogicError (..),
   Outcome (..),
   SeenSnapshot (NoSeenSnapshot, SeenSnapshot),
+  WaitReason (..),
   update,
  )
-import Hydra.Ledger (IsTx (..), Ledger (..))
+import Hydra.Ledger (IsTx (..), Ledger (..), ValidationError (..))
 import Hydra.Ledger.Simple (SimpleTx (..), aValidTx, simpleLedger, utxoRef)
 import Hydra.Network (Host (..))
 import Hydra.Network.Message (Message (AckSn, Connected, ReqSn, ReqTx))
@@ -53,7 +54,7 @@ spec = do
             inputs = utxoRef 1
             s0 = inOpenState threeParties ledger
 
-        update env ledger s0 reqTx `shouldBe` Wait
+        update env ledger s0 reqTx `shouldBe` Wait (WaitOnNotApplicableTx (ValidationError "cannot apply transaction"))
 
       it "confirms snapshot given it receives AckSn from all parties" $ do
         let s0 = inOpenState threeParties ledger
@@ -97,25 +98,26 @@ spec = do
 
       it "waits if we receive a snapshot with not-yet-seen transactions" $ do
         let event = NetworkEvent $ ReqSn 1 1 [SimpleTx 1 (utxoRef 1) (utxoRef 2)]
-        update env ledger (inOpenState threeParties ledger) event `shouldBe` Wait
+        update env ledger (inOpenState threeParties ledger) event
+          `shouldBe` Wait (WaitOnNotApplicableTx (ValidationError "cannot apply transaction"))
 
       it "waits if we receive an AckSn for an unseen snapshot" $ do
         let snapshot = Snapshot 1 mempty []
             event = NetworkEvent $ AckSn 1 (sign 1 snapshot) 1
-        update env ledger (inOpenState threeParties ledger) event `shouldBe` Wait
+        update env ledger (inOpenState threeParties ledger) event `shouldBe` Wait WaitOnSeenSnapshot
 
       -- TODO: write a property test for various future snapshots
       it "waits if we receive a future snapshot" $ do
         let event = NetworkEvent $ ReqSn 2 2 []
             st = inOpenState threeParties ledger
-        update env ledger st event `shouldBe` Wait
+        update env ledger st event `shouldBe` Wait WaitOnSeenSnapshot
 
       it "waits if we receive a future snapshot while collecting signatures" $ do
         let s0 = inOpenState threeParties ledger
             reqSn1 = NetworkEvent $ ReqSn 1 1 []
             reqSn2 = NetworkEvent $ ReqSn 2 2 []
         s1 <- assertNewState $ update env ledger s0 reqSn1
-        update env ledger s1 reqSn2 `shouldBe` Wait
+        update env ledger s1 reqSn2 `shouldBe` Wait (WaitOnSnapshotNumber 1)
 
       it "acks signed snapshot from the constant leader" $ do
         let leader = 1
@@ -167,7 +169,7 @@ spec = do
         let event = NetworkEvent $ ReqSn theLeader 3 []
             theLeader = 3
             st = inOpenState threeParties ledger
-        update env ledger st event `shouldBe` Wait
+        update env ledger st event `shouldBe` Wait WaitOnSeenSnapshot
 
       it "rejects overlapping snapshot requests from the leader" $ do
         let s0 = inOpenState threeParties ledger
@@ -278,7 +280,7 @@ assertNewState :: IsTx tx => Outcome tx -> IO (HeadState tx)
 assertNewState = \case
   NewState st _ -> pure st
   Error e -> failure $ "Unexpected 'Error' outcome: " <> show e
-  Wait -> failure "Unexpected 'Wait' outcome"
+  Wait r -> failure $ "Unexpected 'Wait' outcome with reason: " <> show r
 
 applyEvent ::
   IsTx tx =>

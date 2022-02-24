@@ -141,8 +141,8 @@ deriving instance IsTx tx => Eq (Outcome tx)
 deriving instance IsTx tx => Show (Outcome tx)
 
 data WaitReason
-  = WaitOnNotApplicableTx ValidationError
-  | WaitOnSnapshotNumber SnapshotNumber
+  = WaitOnNotApplicableTx {validationError :: ValidationError}
+  | WaitOnSnapshotNumber {waitingFor :: SnapshotNumber}
   | WaitOnSeenSnapshot
   | WaitOnContestationPeriod
   deriving stock (Generic, Eq, Show)
