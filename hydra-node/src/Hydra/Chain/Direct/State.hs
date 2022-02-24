@@ -492,13 +492,11 @@ data TransitionFrom st where
     TransitionFrom st
 
 instance Show (TransitionFrom st) where
-  show (TransitionTo proxy) =
-    "Transition "
-    <> show (headStateKindVal (Proxy @st))
-    <> " -> "
-    <> show (headStateKindVal proxy)
-
-
+  show (TransitionTo proxy) = mconcat
+    [ show (headStateKindVal (Proxy @st))
+    , " -> "
+    , show (headStateKindVal proxy)
+    ]
 
 instance Eq (TransitionFrom st) where
   (TransitionTo proxy) == (TransitionTo proxy') =

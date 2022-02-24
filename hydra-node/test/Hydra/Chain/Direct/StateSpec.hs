@@ -20,28 +20,36 @@ import Hydra.Chain.Direct.State (
   OnChainHeadState,
   SomeOnChainHeadState (..),
   TransitionFrom (..),
+  abort,
+  close,
   collect,
   commit,
+  fanout,
   getKnownUTxO,
   idleOnChainHeadState,
   initialize,
   observeSomeTx,
  )
-import Hydra.Ledger.Cardano (genOneUTxOFor, genTxIn, genVerificationKey)
+import Hydra.Ledger.Cardano (
+  genOneUTxOFor,
+  genTxIn,
+  genUTxO,
+  genVerificationKey,
+ )
 import Hydra.Party (Party)
 import qualified Prelude
 import Test.QuickCheck (
   Property,
   Testable,
+  (==>),
+  checkCoverage,
   choose,
   elements,
   forAll,
   forAllBlind,
   frequency,
-  label,
+  sublistOf,
   vector,
-  (==>),
-  checkCoverage,
  )
 import Type.Reflection (typeOf)
 
@@ -50,9 +58,8 @@ spec = parallel $ do
   describe "observeTx" $ do
     prop "All valid transitions for all possible states can be observed." $
       checkCoverage $
-        genericCoverTable [minBound .. maxBound @Transition] $
-          forAllSt $ \st tx ->
-            isJust (observeSomeTx tx (SomeOnChainHeadState st))
+        forAllSt $ \st tx ->
+          isJust (observeSomeTx tx (SomeOnChainHeadState st))
 
   describe "init" $ do
     prop "is not observed if not invited" $
@@ -97,13 +104,26 @@ forAllSt ::
   Property
 forAllSt action =
   forAllBlind (elements
-    [ forAllInit action
-        & label (show $ Transition @'StIdle (TransitionTo (Proxy @'StInitialized)))
-    , forAllCommit action
-        & label (show $ Transition @'StInitialized (TransitionTo (Proxy @'StInitialized)))
-    , forAllCollectCom action
-        & label (show $ Transition @'StInitialized (TransitionTo (Proxy @'StOpen)))
-    ] ) identity
+    [ ( forAllInit action
+      , Transition @'StIdle (TransitionTo (Proxy @'StInitialized))
+      )
+    , ( forAllCommit action
+      , Transition @'StInitialized (TransitionTo (Proxy @'StInitialized))
+      )
+    , ( forAllAbort action
+      , Transition @'StInitialized (TransitionTo (Proxy @'StIdle))
+      )
+    , ( forAllCollectCom action
+      , Transition @'StInitialized (TransitionTo (Proxy @'StOpen))
+      )
+    , ( forAllClose action
+      , Transition @'StOpen (TransitionTo (Proxy @'StClosed))
+      )
+    , ( forAllFanout action
+      , Transition @'StClosed (TransitionTo (Proxy @'StIdle))
+      )
+    ])
+    (\(p, lbl) -> genericCoverTable [lbl] p)
 
 forAllInit ::
   (Testable property) =>
@@ -127,15 +147,18 @@ forAllCommit action = do
         let tx = unsafeCommit utxo stInitialized
          in action stInitialized tx
 
--- | Generating some arbitrary 'CollectCom' transaction with a state that is
--- ready to accept it is a bit trickier than the others. Indeed, an
--- 'OnChainHeadState' is tied to a particular 'Party' (or verification key).
---
--- But, we still need to construct commits for the other parties, and have them
--- observed by that one party we are "incarnating" via this OnChainHeadState.
---
--- Commits depend on the initial transactions, so it is important that all
--- commits are created from the same init transaction.
+forAllAbort ::
+  (Testable property) =>
+  (OnChainHeadState 'StInitialized -> Tx -> property) ->
+  Property
+forAllAbort action = do
+  forAll genHydraContext $ \ctx ->
+    forAll (genInitTx ctx) $ \initTx -> do
+      forAll (sublistOf =<< genCommits ctx initTx) $ \commits ->
+        forAll (genStIdle ctx) $ \stIdle ->
+          let stInitialized = executeCommits initTx commits stIdle
+           in action stInitialized (abort stInitialized)
+
 forAllCollectCom
   :: (Testable property)
   => (OnChainHeadState 'StInitialized -> Tx -> property)
@@ -145,16 +168,28 @@ forAllCollectCom action = do
     forAll (genInitTx ctx) $ \initTx -> do
       forAll (genCommits ctx initTx) $ \commits ->
         forAll (genStIdle ctx) $ \stIdle ->
-        let
-            (_, stInitialized) =
-              unsafeObserveTx @_ @'StInitialized initTx stIdle
+          let stInitialized = executeCommits initTx commits stIdle
+           in action stInitialized (collect stInitialized)
 
-            stInitialized' = flip execState stInitialized $ do
-              forM_ commits $ \commitTx -> do
-                st <- get
-                let (_, st') = unsafeObserveTx @_ @'StInitialized commitTx st
-                put st'
-         in action stInitialized' (collect stInitialized')
+forAllClose
+  :: (Testable property)
+  => (OnChainHeadState 'StOpen -> Tx -> property)
+  -> Property
+forAllClose action = do
+  forAll genHydraContext $ \ctx ->
+    forAll (genStOpen ctx) $ \stOpen ->
+      forAll arbitrary $ \snapshot ->
+        action stOpen (close snapshot stOpen)
+
+forAllFanout
+  :: (Testable property)
+  => (OnChainHeadState 'StClosed -> Tx -> property)
+  -> Property
+forAllFanout action = do
+  forAll genHydraContext $ \ctx ->
+    forAll (genStClosed ctx) $ \stClosed ->
+      forAll genUTxO $ \utxo ->
+        action stClosed (fanout utxo stClosed)
 
 --
 -- Generators
@@ -212,6 +247,29 @@ genStInitialized ctx = do
   seedInput <- genTxIn
   let initTx = initialize (ctxHeadParameters ctx) (ctxVerificationKeys ctx) seedInput stIdle
   pure $ snd $ unsafeObserveTx @_ @'StInitialized initTx stIdle
+
+genStOpen ::
+  HydraContext ->
+  Gen (OnChainHeadState 'StOpen)
+genStOpen ctx = do
+  initTx <- genInitTx ctx
+  commits <- genCommits ctx initTx
+  stInitialized <- executeCommits initTx commits <$> genStIdle ctx
+  let collectComTx = collect stInitialized
+  pure $ snd $ unsafeObserveTx @_ @'StOpen collectComTx stInitialized
+
+genStClosed ::
+  HydraContext ->
+  Gen (OnChainHeadState 'StClosed)
+genStClosed ctx = do
+  initTx <- genInitTx ctx
+  commits <- genCommits ctx initTx
+  stInitialized <- executeCommits initTx commits <$> genStIdle ctx
+  let collectComTx = collect stInitialized
+  let stOpen = snd $ unsafeObserveTx @_ @'StOpen collectComTx stInitialized
+  snapshot <- arbitrary
+  let closeTx = close snapshot stOpen
+  pure $ snd $ unsafeObserveTx @_ @'StClosed closeTx stOpen
 
 genInitTx ::
   HydraContext ->
@@ -279,7 +337,11 @@ instance Bounded Transition where
 -- Here be dragons
 --
 
-unsafeCommit :: HasCallStack => UTxO -> OnChainHeadState 'StInitialized -> Tx
+unsafeCommit ::
+  HasCallStack =>
+  UTxO ->
+  OnChainHeadState 'StInitialized ->
+  Tx
 unsafeCommit u =
   either (error . show) id . commit u
 
@@ -295,3 +357,17 @@ unsafeObserveTx tx st =
     "unsafeObserveTx:"
     <> "\n  From:\n    " <> show st
     <> "\n  Via:\n    " <> renderTx tx
+
+executeCommits ::
+  Tx ->
+  [Tx] ->
+  OnChainHeadState 'StIdle ->
+  OnChainHeadState 'StInitialized
+executeCommits initTx commits stIdle =
+  flip execState stInitialized $ do
+    forM_ commits $ \commitTx -> do
+      st <- get
+      let (_, st') = unsafeObserveTx @_ @'StInitialized commitTx st
+      put st'
+ where
+  (_, stInitialized) = unsafeObserveTx @_ @'StInitialized initTx stIdle
