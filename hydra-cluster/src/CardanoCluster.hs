@@ -191,7 +191,8 @@ withBFTNode clusterTracer cfg action = do
   copyCredential parentDir file = do
     bs <- readConfigFile ("credentials" </> file)
     let destination = parentDir </> file
-    writeFileBS destination bs
+    unlessM (doesFileExist destination) $
+      writeFileBS destination bs
     setFileMode destination ownerReadMode
     pure destination
 
