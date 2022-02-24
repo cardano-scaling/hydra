@@ -19,7 +19,7 @@ Date: 2022-02-23
 * This client interacts with whatever _server_ it connects sending and receiving `PostChainTx` and `OnChainTx` messages in full-duplex mode
 * Specific _Chain servers_ can be provided as separate processes/services to be deployed and managed separately from the Hydra node. We provide 2 Chain server: One mock and one using direct connection to a cardano node
 
-![Target architecture](./hydra-node-with-chain-client.md)
+![Target architecture](./hydra-node-with-chain-client.jpg)
 
 ## Consequences
 
