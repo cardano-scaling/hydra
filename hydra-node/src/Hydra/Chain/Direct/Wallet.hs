@@ -16,7 +16,7 @@ import Cardano.Ledger.Alonzo.Data (Data (Data))
 import Cardano.Ledger.Alonzo.Language (Language (PlutusV1))
 import Cardano.Ledger.Alonzo.PParams (PParams' (..))
 import Cardano.Ledger.Alonzo.PlutusScriptApi (language)
-import Cardano.Ledger.Alonzo.Scripts (ExUnits (..), txscriptfee)
+import Cardano.Ledger.Alonzo.Scripts (ExUnits (..), Tag (Spend), txscriptfee)
 import Cardano.Ledger.Alonzo.Tools (
   BasicFailure (..),
   ScriptFailure (..),
@@ -398,11 +398,14 @@ coverFee_ pparams systemStart epochInfo lookupUTxO walletUTxO partialTx@Validate
     sortedInputs = sort $ toList initialInputs
     sortedFinalInputs = sort $ toList finalInputs
     differences = List.findIndices (not . uncurry (==)) $ zip sortedInputs sortedFinalInputs
-    adjustOne (ptr@(RdmrPtr t idx), (d, _exUnits))
-      | fromIntegral idx `elem` differences =
-        (RdmrPtr t (idx + 1), (d, executionUnitsFor ptr))
-      | otherwise =
-        (ptr, (d, executionUnitsFor ptr))
+
+    adjustOne (ptr, (d, _exUnits)) =
+      case ptr of
+        RdmrPtr Spend idx
+          | fromIntegral idx `elem` differences ->
+            (RdmrPtr Spend (idx + 1), (d, executionUnitsFor ptr))
+        _ ->
+          (ptr, (d, executionUnitsFor ptr))
 
     executionUnitsFor :: RdmrPtr -> ExUnits
     executionUnitsFor ptr =
