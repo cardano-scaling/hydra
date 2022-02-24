@@ -5,14 +5,11 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
-{-# LANGUAGE TypeOperators #-}
-{-# LANGUAGE TypeSynonymInstances #-}
 
 module Test.Hydra.Prelude (
   createSystemTempDirectory,
@@ -23,6 +20,7 @@ module Test.Hydra.Prelude (
   reasonablySized,
   ReasonablySized (..),
   genericCoverTable,
+  forAll2,
 
   -- * HSpec re-exports
   module Test.Hspec,
@@ -42,14 +40,14 @@ import Data.Typeable (typeRep)
 import GHC.Exception (SrcLoc (..))
 import System.Directory (removePathForcibly)
 import System.Exit (ExitCode (..))
-import System.Info (os)
 import System.IO.Temp (createTempDirectory, getCanonicalTemporaryDirectory)
+import System.Info (os)
 import System.Process (ProcessHandle, waitForProcess)
 import Test.HSpec.JUnit (junitFormat)
 import Test.HUnit.Lang (FailureReason (Reason), HUnitFailure (HUnitFailure))
 import Test.Hspec.Core.Format (Format, FormatConfig (..))
 import Test.Hspec.Core.Formatters (formatterToFormat, specdoc)
-import Test.QuickCheck (Property, Testable, coverTable, scale, tabulate)
+import Test.QuickCheck (Property, Testable, coverTable, forAll, scale, tabulate)
 
 -- | Create a unique temporary directory.
 createSystemTempDirectory :: String -> IO FilePath
@@ -205,3 +203,15 @@ genericCoverTable xs =
   allLabels = enumerate :: [a]
   enumerate = [minBound .. maxBound]
   lengthI = toInteger . length
+
+-- | Shorthand for using 2 generated values in a property.
+forAll2 ::
+  (Testable property, Show a, Show b) =>
+  Gen a ->
+  Gen b ->
+  ((a, b) -> property) ->
+  Property
+forAll2 genA genB action =
+  forAll genA $ \a ->
+    forAll genB $ \b ->
+      action (a, b)

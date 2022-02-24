@@ -240,21 +240,6 @@ genCommit =
     ]
 
 --
--- Helpers
---
-
-forAll2
-  :: (Testable property, Show a, Show b)
-  => Gen a
-  -> Gen b
-  -> ((a, b) -> property)
-  -> Property
-forAll2 genA genB action =
-  forAll genA $ \a ->
-    forAll genB $ \b ->
-      action (a, b)
-
---
 -- Wrapping Transition for easy labelling
 --
 
