@@ -12,8 +12,11 @@ import qualified Data.Set as Set
 import Hydra.Chain (HeadParameters (..), OnChainTx)
 import Hydra.Chain.Direct.State (
   ObserveTx,
+  HasTransition,
   HeadStateKind (..),
   OnChainHeadState,
+  SomeOnChainHeadState(..),
+  observeSomeTx,
   collect,
   commit,
   getKnownUTxO,
@@ -29,6 +32,7 @@ import Test.QuickCheck (
   choose,
   elements,
   forAll,
+  forAllBlind,
   frequency,
   vector,
   (==>),
@@ -36,11 +40,12 @@ import Test.QuickCheck (
 
 spec :: Spec
 spec = parallel $ do
-  describe "init" $ do
-    prop "is observed" $
-      forAllInit $ \stIdle initTx ->
-        isJust (observeTx @_ @'StInitialized initTx stIdle)
+  describe "observeTx" $ do
+    prop "All valid transitions for all possible states can be observed." $
+      forAllSt $ \st tx ->
+        isJust (observeSomeTx tx (SomeOnChainHeadState st))
 
+  describe "init" $ do
     prop "is not observed if not invited" $
       forAll2 genHydraContext genHydraContext $ \(ctxA, ctxB) ->
         null (ctxParties ctxA `intersect` ctxParties ctxB) ==>
@@ -54,10 +59,6 @@ spec = parallel $ do
              in isNothing (observeTx @_ @'StInitialized tx stIdleB)
 
   describe "commit" $ do
-    prop "is observed" $
-      forAllCommit $ \stInitialized commitTx ->
-        isJust (observeTx @_ @'StInitialized commitTx stInitialized)
-
     prop "consumes all inputs that are committed" $
       forAllCommit $ \st tx ->
          case observeTx @_ @'StInitialized tx st of
@@ -77,14 +78,20 @@ spec = parallel $ do
             Nothing ->
               False
 
-  describe "collectCom" $ do
-    prop "is observed" $
-      forAllCollectCom $ \stInitialized collectComTx ->
-        isJust (observeTx @_ @'StOpen collectComTx stInitialized)
-
 --
 -- QuickCheck Extras
 --
+
+forAllSt ::
+  (Testable property) =>
+  (forall st. (HasTransition st) => OnChainHeadState st -> Tx -> property) ->
+  Property
+forAllSt action =
+  forAllBlind (elements
+    [ forAllInit action
+    , forAllCommit action
+    , forAllCollectCom action
+    ] ) identity
 
 forAllInit ::
   (Testable property) =>
