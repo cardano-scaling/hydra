@@ -51,6 +51,7 @@ import Hydra.Ledger (txId)
 import Hydra.Ledger.Cardano (genKeyPair, mkSimpleTx)
 import Hydra.Logging (Tracer, showLogsOnFailure)
 import Hydra.Party (Party, deriveParty)
+import qualified Hydra.Party as Party
 import HydraNode (
   EndToEndLog (..),
   getMetrics,
@@ -96,7 +97,18 @@ spec = around showLogsOnFailure $
                 (initAndClose tracer 0 node)
                 (initAndClose tracer 1 node)
 
-      it "bob cannot abort alice's head" $ \tracer ->
+      it "bob cannot abort alice's head" $ \tracer -> do
+        let aliceSk, bobSk :: SignKeyDSIGN MockDSIGN
+            aliceSk = 10
+            bobSk = 20
+
+        let aliceVk :: VerKeyDSIGN MockDSIGN
+            aliceVk = deriveVerKeyDSIGN aliceSk
+
+        let alice, bob :: Party
+            alice = deriveParty aliceSk
+            bob = deriveParty bobSk
+
         failAfter 60 $
           withTempDir "end-to-end-two-heads" $ \tmpDir -> do
             config <- newNodeConfig tmpDir
@@ -131,8 +143,23 @@ spec = around showLogsOnFailure $
                   waitFor tracer 10 [n1] $
                     output "HeadIsOpen" ["utxo" .= Object mempty]
 
-    describe "Monitoring" $
-      it "Node exposes Prometheus metrics on port 6001" $ \tracer ->
+    describe "Monitoring" $ do
+      it "Node exposes Prometheus metrics on port 6001" $ \tracer -> do
+        let aliceSk, bobSk, carolSk :: SignKeyDSIGN MockDSIGN
+            aliceSk = 10
+            bobSk = 20
+            carolSk = 30
+
+        let aliceVk, bobVk, carolVk :: VerKeyDSIGN MockDSIGN
+            aliceVk = deriveVerKeyDSIGN aliceSk
+            bobVk = deriveVerKeyDSIGN bobSk
+            carolVk = deriveVerKeyDSIGN carolSk
+
+        let alice, bob, carol :: Party
+            alice = deriveParty aliceSk
+            bob = deriveParty bobSk
+            carol = deriveParty carolSk
+
         withTempDir "end-to-end-prometheus-metrics" $ \tmpDir -> do
           config <- newNodeConfig tmpDir
           (aliceCardanoVk, aliceCardanoSk) <- keysFor Alice
@@ -164,6 +191,14 @@ initAndClose tracer clusterIx node@(RunningNode _ nodeSocket) = do
     aliceKeys@(aliceCardanoVk, aliceCardanoSk) <- generate genKeyPair
     bobKeys@(bobCardanoVk, _) <- generate genKeyPair
     carolKeys@(carolCardanoVk, _) <- generate genKeyPair
+
+    let aliceSk = Party.generateKey (10 + toInteger clusterIx)
+    let bobSk = Party.generateKey (20 + toInteger clusterIx)
+    let carolSk = Party.generateKey (30 + toInteger clusterIx)
+
+    let alice = deriveParty aliceSk
+    let bob = deriveParty bobSk
+    let carol = deriveParty carolSk
 
     let cardanoKeys = [aliceKeys, bobKeys, carolKeys]
         hydraKeys = [aliceSk, bobSk, carolSk]
@@ -267,21 +302,6 @@ bobCommittedToHead = 5_000_000
 
 paymentFromAliceToBob :: Num a => a
 paymentFromAliceToBob = 1_000_000
-
-aliceSk, bobSk, carolSk :: SignKeyDSIGN MockDSIGN
-aliceSk = 10
-bobSk = 20
-carolSk = 30
-
-aliceVk, bobVk, carolVk :: VerKeyDSIGN MockDSIGN
-aliceVk = deriveVerKeyDSIGN aliceSk
-bobVk = deriveVerKeyDSIGN bobSk
-carolVk = deriveVerKeyDSIGN carolSk
-
-alice, bob, carol :: Party
-alice = deriveParty aliceSk
-bob = deriveParty bobSk
-carol = deriveParty carolSk
 
 someTxId :: IsString s => s
 someTxId = "9fdc525c20bc00d9dfa9d14904b65e01910c0dfe3bb39865523c1e20eaeb0903"
