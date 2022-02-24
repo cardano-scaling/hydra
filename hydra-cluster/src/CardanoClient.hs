@@ -72,6 +72,19 @@ queryUTxOByTxIn networkId socket inputs =
           )
    in UTxO.fromApi <$> runQuery networkId socket query
 
+-- | Query the whole UTxO from node. Useful for debugging, but should obviously
+-- not be used in production code.
+queryUTxOWhole :: NetworkId -> FilePath -> IO UTxO
+queryUTxOWhole networkId socket =
+  let query =
+        QueryInEra
+          AlonzoEraInCardanoMode
+          ( QueryInShelleyBasedEra
+              ShelleyBasedEraAlonzo
+              (QueryUTxO QueryUTxOWhole)
+          )
+   in UTxO.fromApi <$> runQuery networkId socket query
+
 -- | Query current protocol parameters.
 --
 -- Throws 'CardanoClientException' if query fails.
