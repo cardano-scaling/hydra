@@ -100,7 +100,7 @@ bench timeoutSeconds workDir dataset clusterSize =
           config <- newNodeConfig workDir
           withOSStats workDir $
             withBFTNode (contramap FromCluster tracer) config (fst <$> cardanoKeys) $ \(RunningNode _ nodeSocket) -> do
-              withHydraCluster tracer workDir nodeSocket 0 cardanoKeys hydraKeys $ \(leader :| followers) -> do
+              withHydraCluster tracer workDir nodeSocket 1 cardanoKeys hydraKeys $ \(leader :| followers) -> do
                 let nodes = leader : followers
                 waitForNodesConnected tracer nodes
 
