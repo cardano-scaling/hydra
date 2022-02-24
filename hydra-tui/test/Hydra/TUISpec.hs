@@ -5,7 +5,7 @@ import Test.Hydra.Prelude
 
 import Blaze.ByteString.Builder.Char8 (writeChar)
 import CardanoCluster (
-  Actor (Alice, Faucet),
+  Actor (Alice),
   ClusterLog,
   Marked (Marked, Normal),
   defaultNetworkId,
@@ -96,8 +96,7 @@ setupNodeAndTUI action =
     withTempDir "tui-end-to-end" $ \tmpDir -> do
       config <- newNodeConfig tmpDir
       (aliceCardanoVk, _) <- keysFor Alice
-      (faucetVk, _) <- keysFor Faucet
-      withBFTNode (contramap FromCardano tracer) config [faucetVk] $ \node@(RunningNode _ nodeSocket) -> do
+      withBFTNode (contramap FromCardano tracer) config $ \node@(RunningNode _ nodeSocket) -> do
         (_, aliceSkPath) <- writeKeysFor tmpDir Alice
         -- XXX(SN): API port id is inferred from nodeId, in this case 4001
         let nodeId = 1
