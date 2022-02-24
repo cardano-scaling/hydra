@@ -6,18 +6,19 @@ module Test.GeneratorSpec where
 import Hydra.Prelude
 import Test.Hydra.Prelude
 
+import CardanoCluster (Actor (Faucet), keysFor)
 import Data.Text (unpack)
 import Hydra.Cardano.Api (UTxO, prettyPrintJSON, utxoFromTx)
 import Hydra.Generator (
   ClientDataset (..),
   Dataset (..),
   defaultProtocolParameters,
-  genConstantUTxODataset,
+  genDatasetConstantUTxO,
  )
 import Hydra.Ledger (applyTransactions, balance)
 import Hydra.Ledger.Cardano (Tx, cardanoLedger, genUTxO)
 import Test.Aeson.GenericSpecs (roundtripSpecs)
-import Test.QuickCheck (Positive (Positive), Property, counterexample, forAll)
+import Test.QuickCheck (Positive (Positive), Property, counterexample, forAll, idempotentIOProperty)
 
 spec :: Spec
 spec = parallel $ do
@@ -32,16 +33,19 @@ prop_computeValueFromUTxO =
 
 prop_keepsUTxOConstant :: Property
 prop_keepsUTxOConstant =
-  forAll arbitrary $ \(Positive n) ->
-    -- XXX: non-exhaustive pattern match
-    forAll (genConstantUTxODataset defaultProtocolParameters 1 n) $
-      \Dataset{fundingTransaction, clientDatasets = [ClientDataset{txSequence}]} ->
-        let initialUTxO = utxoFromTx fundingTransaction
-            finalUTxO = foldl' apply initialUTxO txSequence
-         in length finalUTxO == length initialUTxO
-              & counterexample ("transactions: " <> prettyJSONString txSequence)
-              & counterexample ("utxo: " <> prettyJSONString initialUTxO)
-              & counterexample ("funding tx: " <> prettyJSONString fundingTransaction)
+  forAll arbitrary $ \(Positive n) -> do
+    idempotentIOProperty $ do
+      faucetSk <- snd <$> keysFor Faucet
+      -- XXX: non-exhaustive pattern match
+      pure $
+        forAll (genDatasetConstantUTxO faucetSk defaultProtocolParameters 1 n) $
+          \Dataset{fundingTransaction, clientDatasets = [ClientDataset{txSequence}]} ->
+            let initialUTxO = utxoFromTx fundingTransaction
+                finalUTxO = foldl' apply initialUTxO txSequence
+             in length finalUTxO == length initialUTxO
+                  & counterexample ("transactions: " <> prettyJSONString txSequence)
+                  & counterexample ("utxo: " <> prettyJSONString initialUTxO)
+                  & counterexample ("funding tx: " <> prettyJSONString fundingTransaction)
 
 apply :: UTxO -> Tx -> UTxO
 apply utxo tx =

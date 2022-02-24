@@ -12,9 +12,8 @@ import CardanoCluster (Actor (Faucet), availableInitialFunds, keysFor)
 import Control.Monad (foldM)
 import Data.Aeson (object, withObject, (.:), (.=))
 import Data.Default (def)
-import GHC.IO (unsafePerformIO)
 import Hydra.Ledger (IsTx (..))
-import Hydra.Ledger.Cardano (genKeyPair, mkSimpleTx)
+import Hydra.Ledger.Cardano (genKeyPair, genSigningKey, mkSimpleTx)
 import Test.QuickCheck (choose, generate, sized)
 
 networkId :: NetworkId
@@ -30,8 +29,9 @@ data Dataset = Dataset
   deriving (Show, Generic, ToJSON, FromJSON)
 
 instance Arbitrary Dataset where
-  arbitrary = sized $ \n ->
-    genConstantUTxODataset defaultProtocolParameters (n `div` 10) n
+  arbitrary = sized $ \n -> do
+    sk <- genSigningKey
+    genDatasetConstantUTxO sk defaultProtocolParameters (n `div` 10) n
 
 data ClientDataset = ClientDataset
   { signingKey :: SigningKey PaymentKey
@@ -72,23 +72,25 @@ generateConstantUTxODataset ::
   -- | Number of transactions
   Int ->
   IO Dataset
-generateConstantUTxODataset pparams nClients =
-  generate . genConstantUTxODataset pparams nClients
+generateConstantUTxODataset pparams nClients nTxs = do
+  (_, faucetSk) <- keysFor Faucet
+  generate $ genDatasetConstantUTxO faucetSk pparams nClients nTxs
 
-genConstantUTxODataset ::
+genDatasetConstantUTxO ::
+  -- | The faucet signing key
+  SigningKey PaymentKey ->
   ProtocolParameters ->
   -- | Number of clients
   Int ->
   -- | Number of transactions
   Int ->
   Gen Dataset
-genConstantUTxODataset pparams nClients nTxs = do
+genDatasetConstantUTxO faucetSk pparams nClients nTxs = do
   clientFunds <- replicateM nClients $ do
     (_vk, sk) <- genKeyPair
     amount <- Lovelace . fromIntegral <$> choose (1, availableInitialFunds `div` nClients)
     pure (sk, amount)
   -- Prepare funding transaction as it will be posted
-  let (_, faucetSk) = unsafePerformIO $ keysFor Faucet -- HACK
   let fundingTransaction =
         mkGenesisTx
           networkId

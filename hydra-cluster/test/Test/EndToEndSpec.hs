@@ -106,7 +106,7 @@ spec = around showLogsOnFailure $
           withTempDir "end-to-end-two-heads" $ \tmpDir -> do
             config <- newNodeConfig tmpDir
             withBFTNode (contramap FromCluster tracer) config $ \node@(RunningNode _ nodeSocket) -> do
-              (aliceCardanoVk, aliceCardanoSk) <- keysFor Alice
+              (aliceCardanoVk, _aliceCardanoSk) <- keysFor Alice
               (bobCardanoVk, _bobCardanoSk) <- keysFor Bob
               (aliceVkPath, aliceSkPath) <- writeKeysFor tmpDir Alice
               (_, bobSkPath) <- writeKeysFor tmpDir Bob

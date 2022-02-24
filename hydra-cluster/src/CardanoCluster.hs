@@ -42,8 +42,6 @@ import System.Posix.Files (
  )
 import Test.Network.Ports (randomUnusedTCPPort, randomUnusedTCPPorts)
 
-data RunningCluster = RunningCluster ClusterConfig [RunningNode]
-
 -- | TODO: This is hard-coded and must match what's in the genesis file, so
 -- ideally, we want to either:
 --
@@ -56,29 +54,6 @@ defaultNetworkId = Testnet (NetworkMagic 42)
 -- the genesis-shelley.json file.
 availableInitialFunds :: Num a => a
 availableInitialFunds = 900_000_000_000
-
--- | Configuration parameters for the cluster.
-data ClusterConfig = ClusterConfig
-  { parentStateDirectory :: FilePath
-  , networkId :: NetworkId
-  }
-
-asSigningKey :: AsType (SigningKey PaymentKey)
-asSigningKey = AsSigningKey AsPaymentKey
-
-withCluster ::
-  Tracer IO ClusterLog -> ClusterConfig -> (RunningCluster -> IO ()) -> IO ()
-withCluster tr cfg@ClusterConfig{parentStateDirectory} action = do
-  systemStart <- initSystemStart
-  (cfgA, cfgB, cfgC) <-
-    makeNodesConfig parentStateDirectory systemStart
-      <$> randomUnusedTCPPorts 3
-
-  withBFTNode tr cfgA $ \nodeA -> do
-    withBFTNode tr cfgB $ \nodeB -> do
-      withBFTNode tr cfgC $ \nodeC -> do
-        let nodes = [nodeA, nodeB, nodeC]
-        action (RunningCluster cfg nodes)
 
 -- | Enumeration of known actors for which we can get the 'keysFor' and 'writeKeysFor'.
 data Actor
@@ -128,6 +103,33 @@ writeKeysFor targetDir actor = do
   skName = actorName actor <.> ".sk"
 
   vkName = actorName actor <.> ".vk"
+
+-- * Starting a cluster or single nodes
+
+data RunningCluster = RunningCluster ClusterConfig [RunningNode]
+
+-- | Configuration parameters for the cluster.
+data ClusterConfig = ClusterConfig
+  { parentStateDirectory :: FilePath
+  , networkId :: NetworkId
+  }
+
+asSigningKey :: AsType (SigningKey PaymentKey)
+asSigningKey = AsSigningKey AsPaymentKey
+
+withCluster ::
+  Tracer IO ClusterLog -> ClusterConfig -> (RunningCluster -> IO ()) -> IO ()
+withCluster tr cfg@ClusterConfig{parentStateDirectory} action = do
+  systemStart <- initSystemStart
+  (cfgA, cfgB, cfgC) <-
+    makeNodesConfig parentStateDirectory systemStart
+      <$> randomUnusedTCPPorts 3
+
+  withBFTNode tr cfgA $ \nodeA -> do
+    withBFTNode tr cfgB $ \nodeB -> do
+      withBFTNode tr cfgC $ \nodeC -> do
+        let nodes = [nodeA, nodeB, nodeC]
+        action (RunningCluster cfg nodes)
 
 -- | Start a cardano-node in BFT mode using the config from config/ and
 -- credentials from config/credentials/ using given 'nodeId'. NOTE: This means
