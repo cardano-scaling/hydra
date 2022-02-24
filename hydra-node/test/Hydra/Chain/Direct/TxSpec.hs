@@ -40,7 +40,6 @@ import Hydra.Data.ContestationPeriod (contestationPeriodFromDiffTime)
 import Hydra.Data.Party (partyFromVerKey)
 import Hydra.Ledger.Cardano (
   adaOnly,
-  genAdaOnlyUTxO,
   genOneUTxOFor,
   genUTxOWithSimplifiedAddresses,
   hashTxOuts,
@@ -59,7 +58,6 @@ import Test.QuickCheck (
   expectFailure,
   forAll,
   forAllShrinkBlind,
-  forAllShrinkShow,
   label,
   oneof,
   property,
@@ -71,30 +69,7 @@ import Test.QuickCheck.Instances ()
 spec :: Spec
 spec =
   parallel $ do
-    describe "commitTx" $ do
-      prop "transaction size for single commit utxo below limit" $ \party (ReasonablySized singleUTxO) initialIn ->
-        let tx = commitTx testNetworkId party (Just singleUTxO) initialIn
-            cbor = serialize tx
-            len = LBS.length cbor
-         in len < maxTxSize
-              & label (show (len `div` 1024) <> "kB")
-              & counterexample ("Tx: " <> show tx)
-              & counterexample ("Tx serialized size: " <> show len)
-
     describe "collectComTx" $ do
-      prop "transaction size below limit" $ \(ReasonablySized parties) headIn cperiod ->
-        forAll (generateCommitUTxOs parties) $ \commitsUTxO ->
-          let tx = collectComTx testNetworkId (headIn, headOutput, fromPlutusData $ toData headDatum, onChainParties) commitsUTxO
-              headOutput = mkHeadOutput testNetworkId testPolicyId $ toUTxOContext $ mkTxOutDatum headDatum
-              headDatum = Head.Initial cperiod onChainParties
-              onChainParties = partyFromVerKey . vkey <$> parties
-              cbor = serialize tx
-              len = LBS.length cbor
-           in len < maxTxSize
-                & label (show (len `div` 1024) <> "kB")
-                & counterexample ("Tx: " <> show tx)
-                & counterexample ("Tx serialized size: " <> show len)
-
       modifyMaxSuccess (const 10) $
         prop "validates" $ \headInput cperiod ->
           forAll (vectorOf 8 arbitrary) $ \parties ->
@@ -120,18 +95,6 @@ spec =
                         & counterexample (prettyRedeemerReport redeemerReport)
                         & counterexample ("Tx: " <> toString (renderTx tx))
 
-    describe "closeTx" $ do
-      prop "transaction size below limit" $ \headIn parties snapshot sig ->
-        let tx = closeTx snapshot sig (headIn, headOutput, headDatum)
-            headOutput = mkHeadOutput testNetworkId testPolicyId TxOutDatumNone
-            headDatum = fromPlutusData $ toData $ Head.Open{parties, utxoHash = ""}
-            cbor = serialize tx
-            len = LBS.length cbor
-         in len < maxTxSize
-              & label (show (len `div` 1024) <> "kB")
-              & counterexample ("Tx: " <> show tx)
-              & counterexample ("Tx serialized size: " <> show len)
-
     describe "fanoutTx" $ do
       let prop_fanoutTxSize :: UTxO -> TxIn -> Property
           prop_fanoutTxSize utxo headIn =
@@ -151,11 +114,6 @@ spec =
               | len >= 50 = "50-99"
               | len >= 10 = "10-49"
               | otherwise = "00-10"
-
-      prop "size is below limit for small number of UTXO" $
-        forAllShrinkShow (reasonablySized genAdaOnlyUTxO) shrinkUTxO (decodeUtf8 . encodePretty) $ \utxo ->
-          forAll arbitrary $
-            prop_fanoutTxSize utxo
 
       -- FIXME: This property currently fails even with a single UTXO if this
       -- UTXO is generated with too many values. We need to deal with it eventually
@@ -196,24 +154,6 @@ spec =
                     & cover 0.8 True "Success"
 
     describe "abortTx" $ do
-      -- NOTE(AB): This property fails if initials are too big
-      prop "transaction size below limit" $
-        \txIn cperiod (ReasonablySized parties) ->
-          forAll (genAbortableOutputs parties) $
-            \(fmap drop2nd -> initials, commits) ->
-              let headOutput = mkHeadOutput testNetworkId testPolicyId TxOutDatumNone
-                  headDatum = fromPlutusData . toData $ Head.Initial cperiod onChainParties
-                  onChainParties = partyFromVerKey . vkey <$> parties
-               in case abortTx testNetworkId (txIn, headOutput, headDatum) (Map.fromList initials) (Map.fromList $ map tripleToPair commits) of
-                    Left err -> property False & counterexample ("AbortTx construction failed: " <> show err)
-                    Right tx ->
-                      let cbor = serialize tx
-                          len = LBS.length cbor
-                       in len < maxTxSize
-                            & label (show (len `div` 1024) <> "kB")
-                            & counterexample ("Tx: " <> show tx)
-                            & counterexample ("Tx serialized size: " <> show len)
-
       prop "validates" $
         \txIn contestationPeriod (ReasonablySized parties) -> forAll (genAbortableOutputs parties) $
           \(resolvedInitials, resolvedCommits) ->

@@ -6,7 +6,9 @@ import Hydra.Cardano.Api
 import Hydra.Prelude hiding (label)
 import Test.Hydra.Prelude
 
+import Cardano.Binary (serialize)
 import qualified Cardano.Api.UTxO as UTxO
+import qualified Data.ByteString.Lazy as LBS
 import Data.List ((!!), elemIndex, intersect)
 import Data.Maybe (fromJust)
 import qualified Data.Set as Set
@@ -30,6 +32,7 @@ import Hydra.Chain.Direct.State (
   initialize,
   observeSomeTx,
  )
+import Hydra.Chain.Direct.Fixture (maxTxSize)
 import Hydra.Ledger.Cardano (
   genOneUTxOFor,
   genTxIn,
@@ -46,10 +49,12 @@ import Test.QuickCheck (
   checkCoverage,
   choose,
   classify,
+  counterexample,
   elements,
   forAll,
   forAllBlind,
   frequency,
+  label,
   sublistOf,
   vector,
  )
@@ -77,6 +82,8 @@ spec = parallel $ do
              in isNothing (observeTx @_ @'StInitialized tx stIdleB)
 
   describe "commit" $ do
+    propBelowSizeLimit forAllCommit
+
     prop "consumes all inputs that are committed" $
       forAllCommit $ \st tx ->
          case observeTx @_ @'StInitialized tx st of
@@ -95,6 +102,37 @@ spec = parallel $ do
                 Nothing -> True
             Nothing ->
               False
+
+  describe "abort" $ do
+    propBelowSizeLimit forAllAbort
+
+  describe "collectCom" $ do
+    propBelowSizeLimit forAllCollectCom
+
+  describe "close" $ do
+    propBelowSizeLimit forAllClose
+
+  describe "fanout" $ do
+    propBelowSizeLimit forAllFanout
+
+--
+-- Generic Properties
+--
+
+propBelowSizeLimit ::
+  forall st.
+  ((OnChainHeadState st -> Tx -> Property) -> Property) ->
+  SpecWith ()
+propBelowSizeLimit forAllTx =
+  prop "is below the network size limit" $
+    forAllTx $ \_st tx ->
+      let cbor = serialize tx
+          len = LBS.length cbor
+       in len < maxTxSize
+            & label (show (len `div` 1024) <> "kB")
+            & counterexample (toString (renderTx tx))
+            & counterexample ("Actual size: " <> show len)
+
 
 --
 -- QuickCheck Extras
@@ -210,6 +248,14 @@ forAllFanout action = do
     forAll (genStClosed ctx) $ \stClosed ->
       forAll genUTxO $ \utxo ->
         action stClosed (fanout utxo stClosed)
+          & label ("Fanout size: " <> prettyLength utxo)
+ where
+  prettyLength :: Foldable f => f a -> String
+  prettyLength (length -> len)
+    | len >= 100 = "> 100"
+    | len >= 50 = "50-99"
+    | len >= 10 = "10-49"
+    | otherwise = "00-10"
 
 --
 -- Generators
