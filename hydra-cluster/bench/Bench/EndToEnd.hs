@@ -13,8 +13,8 @@ import Cardano.Crypto.DSIGN (
   SignKeyDSIGN,
   VerKeyDSIGN,
  )
-import CardanoClient (buildAddress, queryUTxO, submit, waitForTransaction)
-import CardanoCluster (Actor (Faucet), Marked (Marked), defaultNetworkId, keysFor, newNodeConfig, seedFromFaucet, withBFTNode)
+import CardanoClient (submit, waitForTransaction)
+import CardanoCluster (Marked (Marked), defaultNetworkId, newNodeConfig, seedFromFaucet, withBFTNode)
 import CardanoNode (RunningNode (..))
 import Control.Lens (to, (^?))
 import Control.Monad.Class.MonadAsync (mapConcurrently)
@@ -36,7 +36,7 @@ import Data.Scientific (Scientific)
 import Data.Set ((\\))
 import qualified Data.Set as Set
 import Data.Time (UTCTime (UTCTime), nominalDiffTimeToSeconds, utctDayTime)
-import Hydra.Cardano.Api (Tx, TxId, UTxO, getVerificationKey, prettyPrintJSON)
+import Hydra.Cardano.Api (Tx, TxId, UTxO, getVerificationKey)
 import Hydra.Generator (ClientDataset (..), Dataset (..))
 import Hydra.Ledger (txId)
 import Hydra.Logging (withTracerOutputTo)
@@ -101,11 +101,6 @@ bench timeoutSeconds workDir dataset@Dataset{clientDatasets} clusterSize =
                 let clients = leader : followers
                 waitForNodesConnected tracer clients
 
-                -- TODO: remove all the debug outputs
-                (vk, _) <- keysFor Faucet
-                preSeed <- queryUTxO defaultNetworkId nodeSocket [buildAddress vk defaultNetworkId]
-                putBSLn $ prettyPrintJSON preSeed
-
                 putTextLn "Seeding network"
                 seedNetwork node dataset
 
@@ -120,9 +115,10 @@ bench timeoutSeconds workDir dataset@Dataset{clientDatasets} clusterSize =
                 waitFor tracer (fromIntegral $ 10 * clusterSize) clients $
                   output "HeadIsOpen" ["utxo" .= expectedUTxO]
 
+                putTextLn "HeadIsOpen"
                 processedTransactions <- processTransactions clients dataset
 
-                putTextLn "Closing the Head..."
+                putTextLn "Closing the Head"
                 send leader $ input "Close" []
                 waitMatch (fromIntegral $ 60 * clusterSize) leader $ \v ->
                   guard (v ^? key "tag" == Just "HeadIsFinalized")
@@ -227,7 +223,6 @@ movingAverage confirmations =
 seedNetwork :: RunningNode -> Dataset -> IO ()
 seedNetwork node@(RunningNode _ nodeSocket) Dataset{fundingTransaction, clientDatasets} = do
   -- Submit the funding transaction first
-  putTextLn $ "Funding transaction: " <> decodeUtf8 (prettyPrintJSON fundingTransaction)
   submit defaultNetworkId nodeSocket fundingTransaction
   void $ waitForTransaction defaultNetworkId nodeSocket fundingTransaction
   -- Then, fuel all clients with some 100 ADA
