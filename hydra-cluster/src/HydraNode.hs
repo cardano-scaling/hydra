@@ -213,12 +213,11 @@ withHydraCluster tracer workDir nodeSocket firstNodeId allKeys hydraKeys action 
   clusterSize = length allKeys
   allNodeIds = [firstNodeId .. firstNodeId + clusterSize - 1]
 
-  hydraVKeys = map deriveVerKeyDSIGN hydraKeys
-
   startNodes clients = \case
     [] -> action (fromList $ reverse clients)
     (nodeId : rest) -> do
       let hydraSKey = hydraKeys Prelude.!! (nodeId - firstNodeId)
+          hydraVKeys = map deriveVerKeyDSIGN $ filter (/= hydraSKey) hydraKeys
           cardanoVKeys = [workDir </> show i <.> "vk" | i <- allNodeIds, i /= nodeId]
           cardanoSKey = workDir </> show nodeId <.> "sk"
 
