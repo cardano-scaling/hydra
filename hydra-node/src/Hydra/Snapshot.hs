@@ -97,5 +97,12 @@ getSnapshot = \case
   InitialSnapshot{snapshot} -> snapshot
   ConfirmedSnapshot{snapshot} -> snapshot
 
+-- | Tell whether a snapshot is the initial snapshot coming from the collect-com
+-- transaction.
+isInitialSnapshot :: ConfirmedSnapshot tx -> Bool
+isInitialSnapshot = \case
+  InitialSnapshot{} -> True
+  ConfirmedSnapshot{} -> False
+
 instance (Arbitrary tx, Arbitrary (UTxOType tx)) => Arbitrary (ConfirmedSnapshot tx) where
   arbitrary = genericArbitrary

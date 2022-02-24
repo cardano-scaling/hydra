@@ -5,6 +5,7 @@ module Hydra.Chain.Direct.State (
   -- * OnChainHeadState
   OnChainHeadState,
   HeadStateKind (..),
+  HeadStateKindVal (..),
   getKnownUTxO,
 
   -- ** Working with opaque states
@@ -24,8 +25,12 @@ module Hydra.Chain.Direct.State (
   fanout,
 
   -- ** Observing transitions
-  HasTransition,
-  observeTx,
+  observeSomeTx,
+
+  -- *** Internal API
+  ObserveTx(..),
+  HasTransition (..),
+  TransitionFrom(..)
 ) where
 
 import Hydra.Cardano.Api
@@ -55,6 +60,7 @@ import Hydra.Chain.Direct.Tx (
 import qualified Hydra.Data.Party as OnChain
 import Hydra.Party (Party)
 import Hydra.Snapshot (ConfirmedSnapshot (..))
+import qualified Text.Show
 
 -- | An opaque on-chain head state, which records information and events
 -- happening on the layer-1 for a given Hydra head.
@@ -122,8 +128,7 @@ getKnownUTxO OnChainHeadState{stateMachine} =
 -- no type-level information about the state.
 data SomeOnChainHeadState where
   SomeOnChainHeadState ::
-    forall st.
-    HasTransition st =>
+    forall st. HasTransition st =>
     OnChainHeadState st ->
     SomeOnChainHeadState
 
@@ -136,6 +141,19 @@ data SomeOnChainHeadState where
 -- (b) Pattern-match on the 'HydraStateMachine' without having to bother with
 -- non-reachable cases.
 data HeadStateKind = StIdle | StInitialized | StOpen | StClosed
+  deriving (Eq, Show, Enum, Bounded)
+
+class HeadStateKindVal (st :: HeadStateKind) where
+  headStateKindVal :: Proxy st -> HeadStateKind
+
+instance HeadStateKindVal 'StIdle where
+  headStateKindVal _ = StIdle
+instance HeadStateKindVal 'StInitialized where
+  headStateKindVal _ = StInitialized
+instance HeadStateKindVal 'StOpen where
+  headStateKindVal _ = StOpen
+instance HeadStateKindVal 'StClosed where
+  headStateKindVal _ = StClosed
 
 -- | A token witnessing the state's type of an 'OnChainHeadState'. See 'reifyState'
 data TokHeadState (st :: HeadStateKind) where
@@ -265,13 +283,36 @@ fanout utxo OnChainHeadState{stateMachine} = do
 
 -- Observing Transitions
 
-class HasTransition st where
+-- | A class for describing a Hydra transition from a state to another.
+--
+-- The transition is encoded at the type-level through the `HeadStateKind` and
+-- the function `transition` overloaded for all transitions.
+class HasTransition st =>
+  ObserveTx (st :: HeadStateKind) (st' :: HeadStateKind)
+ where
   observeTx ::
     Tx ->
     OnChainHeadState st ->
-    Maybe (OnChainTx Tx, SomeOnChainHeadState)
+    Maybe (OnChainTx Tx, OnChainHeadState st')
+
+-- | A convenient class to declare all possible transitions from a given
+-- starting state 'st'. This is useful to embed 'OnChainHeadState' with an
+-- existential that carries some capabilities in the form of transitions (e.g.
+-- 'SomeOnChainHeadState').
+class HasTransition (st :: HeadStateKind) where
+  transitions ::
+    Proxy st -> [TransitionFrom st]
+
+--
+-- StIdle
+--
 
 instance HasTransition 'StIdle where
+  transitions _ =
+    [ TransitionTo (Proxy @'StInitialized)
+    ]
+
+instance ObserveTx 'StIdle 'StInitialized where
   observeTx tx OnChainHeadState{networkId, ownParty, ownVerificationKey} = do
     (event, observation) <- observeInitTx networkId ownParty tx
     let InitObservation{threadOutput, initials, commits, headId, headTokenScript} = observation
@@ -289,68 +330,90 @@ instance HasTransition 'StIdle where
                   , initialHeadTokenScript = headTokenScript
                   }
             }
-    pure (event, SomeOnChainHeadState st')
+    pure (event, st')
+
+--
+-- StInitialized
+--
 
 instance HasTransition 'StInitialized where
-  observeTx tx st@OnChainHeadState{networkId, ownVerificationKey, ownParty, stateMachine} = do
-    observeCommit <|> observeCollectCom <|> observeAbort
+  transitions _ =
+    [ TransitionTo (Proxy @'StInitialized)
+    , TransitionTo (Proxy @'StOpen)
+    , TransitionTo (Proxy @'StIdle)
+    ]
+
+instance ObserveTx 'StInitialized 'StInitialized where
+  observeTx tx st@OnChainHeadState{networkId, stateMachine} = do
+    let initials = fst3 <$> initialInitials
+    (event, newCommit) <- observeCommitTx networkId initials tx
+    let st' =
+          st
+            { stateMachine =
+                stateMachine
+                  { initialInitials =
+                      -- NOTE: A commit tx has been observed and thus we can
+                      -- remove all it's inputs from our tracked initials
+                      filter ((`notElem` txIns' tx) . fst3) initialInitials
+                  , initialCommits =
+                      newCommit : initialCommits
+                  }
+            }
+    pure (event, st')
    where
     Initialized
       { initialCommits
       , initialInitials
-      , initialHeadId
+      } = stateMachine
+
+instance ObserveTx 'StInitialized 'StOpen where
+  observeTx tx st@OnChainHeadState{networkId, ownVerificationKey, ownParty, stateMachine} = do
+    let utxo = getKnownUTxO st
+    (event, observation) <- observeCollectComTx utxo tx
+    let CollectComObservation{threadOutput, headId} = observation
+    guard (headId == initialHeadId)
+    let st' =
+          OnChainHeadState
+            { networkId
+            , ownVerificationKey
+            , ownParty
+            , stateMachine =
+                Open
+                  { openThreadOutput = threadOutput
+                  , openHeadId = initialHeadId
+                  , openHeadTokenScript = initialHeadTokenScript
+                  }
+            }
+    pure (event, st')
+   where
+    Initialized
+      { initialHeadId
       , initialHeadTokenScript
       } = stateMachine
 
-    observeCommit = do
-      let initials = fst3 <$> initialInitials
-      (event, newCommit) <- observeCommitTx networkId initials tx
-      let st' =
-            st
-              { stateMachine =
-                  stateMachine
-                    { initialInitials =
-                        -- NOTE: A commit tx has been observed and thus we can
-                        -- remove all it's inputs from our tracked initials
-                        filter ((`notElem` txIns' tx) . fst3) initialInitials
-                    , initialCommits =
-                        newCommit : initialCommits
-                    }
-              }
-      pure (event, SomeOnChainHeadState st')
+instance ObserveTx 'StInitialized 'StIdle where
+  observeTx tx st@OnChainHeadState{networkId, ownVerificationKey, ownParty} = do
+    let utxo = getKnownUTxO st
+    (event, ()) <- observeAbortTx utxo tx
+    let st' =
+          OnChainHeadState
+            { networkId
+            , ownVerificationKey
+            , ownParty
+            , stateMachine = Idle
+            }
+    pure (event, st')
 
-    observeCollectCom = do
-      let utxo = getKnownUTxO st
-      (event, observation) <- observeCollectComTx utxo tx
-      let CollectComObservation{threadOutput, headId} = observation
-      guard (headId == initialHeadId)
-      let st' =
-            OnChainHeadState
-              { networkId
-              , ownVerificationKey
-              , ownParty
-              , stateMachine =
-                  Open
-                    { openThreadOutput = threadOutput
-                    , openHeadId = headId
-                    , openHeadTokenScript = initialHeadTokenScript
-                    }
-              }
-      pure (event, SomeOnChainHeadState st')
-
-    observeAbort = do
-      let utxo = getKnownUTxO st
-      (event, ()) <- observeAbortTx utxo tx
-      let st' =
-            OnChainHeadState
-              { networkId
-              , ownVerificationKey
-              , ownParty
-              , stateMachine = Idle
-              }
-      pure (event, SomeOnChainHeadState st')
+--
+-- StOpen
+--
 
 instance HasTransition 'StOpen where
+  transitions _ =
+    [ TransitionTo (Proxy @'StClosed)
+    ]
+
+instance ObserveTx 'StOpen 'StClosed where
   observeTx tx st@OnChainHeadState{networkId, ownVerificationKey, ownParty, stateMachine} = do
     let utxo = getKnownUTxO st
     (event, observation) <- observeCloseTx utxo tx
@@ -368,14 +431,23 @@ instance HasTransition 'StOpen where
                   , closedHeadTokenScript = openHeadTokenScript
                   }
             }
-    pure (event, SomeOnChainHeadState st')
+    pure (event, st')
    where
     Open
       { openHeadId
       , openHeadTokenScript
       } = stateMachine
 
+--
+-- StClosed
+--
+
 instance HasTransition 'StClosed where
+  transitions _ =
+    [ TransitionTo (Proxy @'StIdle)
+    ]
+
+instance ObserveTx 'StClosed 'StIdle where
   observeTx tx st@OnChainHeadState{networkId, ownVerificationKey, ownParty} = do
     let utxo = getKnownUTxO st
     (event, ()) <- observeFanoutTx utxo tx
@@ -386,7 +458,49 @@ instance HasTransition 'StClosed where
             , ownParty
             , stateMachine = Idle
             }
-    pure (event, SomeOnChainHeadState st')
+    pure (event, st')
+
+-- | A convenient way to apply transition to 'SomeOnChainHeadState' without
+-- bothering about the internal details.
+observeSomeTx ::
+  Tx ->
+  SomeOnChainHeadState ->
+  Maybe (OnChainTx Tx, SomeOnChainHeadState)
+observeSomeTx tx (SomeOnChainHeadState (st :: OnChainHeadState st)) =
+  asum $ (\(TransitionTo st') -> observeSome st') <$> transitions (Proxy @st)
+ where
+  observeSome
+    :: forall st'. (ObserveTx st st', HasTransition st') =>
+    Proxy st' ->
+    Maybe (OnChainTx Tx, SomeOnChainHeadState)
+  observeSome _ =
+    second SomeOnChainHeadState <$> observeTx @st @st' tx st
+
+--
+-- TransitionFrom
+--
+
+data TransitionFrom st where
+  TransitionTo ::
+    forall st st'.
+      ( ObserveTx st st'
+      , HasTransition st'
+      , HeadStateKindVal st
+      , HeadStateKindVal st'
+      ) =>
+    Proxy st' ->
+    TransitionFrom st
+
+instance Show (TransitionFrom st) where
+  show (TransitionTo proxy) = mconcat
+    [ show (headStateKindVal (Proxy @st))
+    , " -> "
+    , show (headStateKindVal proxy)
+    ]
+
+instance Eq (TransitionFrom st) where
+  (TransitionTo proxy) == (TransitionTo proxy') =
+    headStateKindVal proxy == headStateKindVal proxy'
 
 --
 -- Helpers
