@@ -37,6 +37,7 @@ import Hydra.Ledger.Cardano (
   genVerificationKey,
  )
 import Hydra.Party (Party)
+import Hydra.Snapshot (isInitialSnapshot)
 import qualified Prelude
 import Test.QuickCheck (
   Property,
@@ -44,6 +45,7 @@ import Test.QuickCheck (
   (==>),
   checkCoverage,
   choose,
+  classify,
   elements,
   forAll,
   forAllBlind,
@@ -135,6 +137,10 @@ forAllInit action =
       forAll genTxIn $ \seedInput -> do
         let tx = initialize (ctxHeadParameters ctx) (ctxVerificationKeys ctx) seedInput stIdle
          in action stIdle tx
+              & classify (length (ctxParties ctx) == 1)
+                  "1 party"
+              & classify (length (ctxParties ctx) > 1)
+                  "2+ parties"
 
 forAllCommit ::
   (Testable property) =>
@@ -146,6 +152,10 @@ forAllCommit action = do
       forAll genCommit $ \utxo ->
         let tx = unsafeCommit utxo stInitialized
          in action stInitialized tx
+              & classify (null utxo)
+                  "Empty commit"
+              & classify (not (null utxo))
+                  "Non-empty commit"
 
 forAllAbort ::
   (Testable property) =>
@@ -158,6 +168,12 @@ forAllAbort action = do
         forAll (genStIdle ctx) $ \stIdle ->
           let stInitialized = executeCommits initTx commits stIdle
            in action stInitialized (abort stInitialized)
+                & classify (null commits)
+                    "Abort immediately, after 0 commits"
+                & classify (not (null commits) && length commits < length (ctxParties ctx))
+                    "Abort after some (but not all) commits"
+                & classify (length commits == length (ctxParties ctx))
+                    "Abort after all commits"
 
 forAllCollectCom
   :: (Testable property)
@@ -180,6 +196,10 @@ forAllClose action = do
     forAll (genStOpen ctx) $ \stOpen ->
       forAll arbitrary $ \snapshot ->
         action stOpen (close snapshot stOpen)
+          & classify (isInitialSnapshot snapshot)
+              "Close with initial snapshot"
+          & classify (not (isInitialSnapshot snapshot))
+              "Close with multi-signed snapshot"
 
 forAllFanout
   :: (Testable property)
