@@ -65,7 +65,7 @@ import Hydra.Chain.Direct.State (
   getKnownUTxO,
   idleOnChainHeadState,
   initialize,
-  observeTx,
+  observeSomeTx,
   reifyState,
  )
 import Hydra.Chain.Direct.Util (
@@ -330,7 +330,7 @@ chainSyncClient tracer callback headState =
   runOnChainTx :: [OnChainTx Tx] -> ValidatedTx Era -> STM m [OnChainTx Tx]
   runOnChainTx observed (fromLedgerTx -> tx) = do
     st <- readTVar headState
-    case observeTx tx st of
+    case observeSomeTx tx st of
       Just (onChainTx, st') -> do
         writeTVar headState st'
         pure $ onChainTx : observed

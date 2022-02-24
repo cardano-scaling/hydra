@@ -11,7 +11,7 @@ import Data.List (intersect)
 import qualified Data.Set as Set
 import Hydra.Chain (HeadParameters (..), OnChainTx)
 import Hydra.Chain.Direct.State (
-  IsTransition,
+  ObserveTx,
   HeadStateKind (..),
   OnChainHeadState,
   collect,
@@ -19,7 +19,7 @@ import Hydra.Chain.Direct.State (
   getKnownUTxO,
   idleOnChainHeadState,
   initialize,
-  transition,
+  observeTx,
  )
 import Hydra.Ledger.Cardano (genOneUTxOFor, genTxIn, genVerificationKey)
 import Hydra.Party (Party)
@@ -39,7 +39,7 @@ spec = parallel $ do
   describe "init" $ do
     prop "is observed" $
       forAllInit $ \stIdle initTx ->
-        isJust (transition @_ @'StInitialized initTx stIdle)
+        isJust (observeTx @_ @'StInitialized initTx stIdle)
 
     prop "is not observed if not invited" $
       forAll2 genHydraContext genHydraContext $ \(ctxA, ctxB) ->
@@ -51,16 +51,16 @@ spec = parallel $ do
                   (ctxVerificationKeys ctxA)
                   seedInput
                   stIdleA
-             in isNothing (transition @_ @'StInitialized tx stIdleB)
+             in isNothing (observeTx @_ @'StInitialized tx stIdleB)
 
   describe "commit" $ do
     prop "is observed" $
       forAllCommit $ \stInitialized commitTx ->
-        isJust (transition @_ @'StInitialized commitTx stInitialized)
+        isJust (observeTx @_ @'StInitialized commitTx stInitialized)
 
     prop "consumes all inputs that are committed" $
       forAllCommit $ \st tx ->
-         case transition @_ @'StInitialized tx st of
+         case observeTx @_ @'StInitialized tx st of
             Just (_, st') ->
               let knownInputs = UTxO.inputSet (getKnownUTxO st')
                in knownInputs `Set.disjoint` txInputSet tx
@@ -69,9 +69,9 @@ spec = parallel $ do
 
     prop "can only be applied / observed once" $
       forAllCommit $ \st tx ->
-         case transition @_ @'StInitialized tx st of
+         case observeTx @_ @'StInitialized tx st of
             Just (_, st') ->
-              case transition @_ @'StInitialized tx st' of
+              case observeTx @_ @'StInitialized tx st' of
                 Just{} -> False
                 Nothing -> True
             Nothing ->
@@ -80,7 +80,7 @@ spec = parallel $ do
   describe "collectCom" $ do
     prop "is observed" $
       forAllCollectCom $ \stInitialized collectComTx ->
-        isJust (transition @_ @'StOpen collectComTx stInitialized)
+        isJust (observeTx @_ @'StOpen collectComTx stInitialized)
 
 
 --
@@ -129,12 +129,12 @@ forAllCollectCom action = do
         forAll (genStIdle ctx) $ \stIdle ->
         let
             (_, stInitialized) =
-              unsafeTransition @_ @'StInitialized initTx stIdle
+              unsafeObserveTx @_ @'StInitialized initTx stIdle
 
             stInitialized' = flip execState stInitialized $ do
               forM_ commits $ \commitTx -> do
                 st <- get
-                let (_, st') = unsafeTransition @_ @'StInitialized commitTx st
+                let (_, st') = unsafeObserveTx @_ @'StInitialized commitTx st
                 put st'
          in action stInitialized' (collect stInitialized')
  where
@@ -153,7 +153,7 @@ forAllCollectCom action = do
   genCommits ctx initTx = do
     forM (zip (ctxVerificationKeys ctx) (ctxParties ctx)) $ \(p, vk) -> do
       let stIdle = idleOnChainHeadState (ctxNetworkId ctx) p vk
-      let (_, stInitialized) = unsafeTransition @_ @'StInitialized initTx stIdle
+      let (_, stInitialized) = unsafeObserveTx @_ @'StInitialized initTx stIdle
       utxo <- genCommit
       pure $ unsafeCommit utxo stInitialized
 
@@ -206,7 +206,7 @@ genStInitialized ctx = do
   stIdle <- genStIdle ctx
   seedInput <- genTxIn
   let initTx = initialize (ctxHeadParameters ctx) (ctxVerificationKeys ctx) seedInput stIdle
-  pure $ snd $ unsafeTransition @_ @'StInitialized initTx stIdle
+  pure $ snd $ unsafeObserveTx @_ @'StInitialized initTx stIdle
 
 genCommit :: Gen UTxO
 genCommit =
@@ -238,15 +238,15 @@ unsafeCommit :: HasCallStack => UTxO -> OnChainHeadState 'StInitialized -> Tx
 unsafeCommit u =
   either (error . show) id . commit u
 
-unsafeTransition ::
-  forall st st'. (IsTransition st st', HasCallStack) =>
+unsafeObserveTx ::
+  forall st st'. (ObserveTx st st', HasCallStack) =>
   Tx ->
   OnChainHeadState st ->
   (OnChainTx Tx, OnChainHeadState st')
-unsafeTransition tx st =
-  fromMaybe (error hopefullyInformativeMessage) (transition @st @st' tx st)
+unsafeObserveTx tx st =
+  fromMaybe (error hopefullyInformativeMessage) (observeTx @st @st' tx st)
  where
   hopefullyInformativeMessage =
-    "unsafeTransition:"
+    "unsafeObserveTx:"
     <> "\n  From:\n    " <> show st
     <> "\n  Via:\n    " <> renderTx tx
