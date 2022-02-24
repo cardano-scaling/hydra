@@ -216,7 +216,7 @@ initAndClose tracer clusterIx node@(RunningNode _ nodeSocket) = do
 
       let contestationPeriod = 10 :: Natural
       send n1 $ input "Init" ["contestationPeriod" .= contestationPeriod]
-      waitFor tracer 5 [n1, n2, n3] $
+      waitFor tracer 10 [n1, n2, n3] $
         output "ReadyToCommit" ["parties" .= Set.fromList [alice, bob, carol]]
 
       -- Get some UTXOs to commit to a head
@@ -225,7 +225,7 @@ initAndClose tracer clusterIx node@(RunningNode _ nodeSocket) = do
       send n1 $ input "Commit" ["utxo" .= committedUTxOByAlice]
       send n2 $ input "Commit" ["utxo" .= committedUTxOByBob]
       send n3 $ input "Commit" ["utxo" .= Object mempty]
-      waitFor tracer 5 [n1, n2, n3] $ output "HeadIsOpen" ["utxo" .= (committedUTxOByAlice <> committedUTxOByBob)]
+      waitFor tracer 10 [n1, n2, n3] $ output "HeadIsOpen" ["utxo" .= (committedUTxOByAlice <> committedUTxOByBob)]
 
       -- NOTE(AB): this is partial and will fail if we are not able to generate a payment
       let firstCommittedUTxO = Prelude.head $ UTxO.pairs committedUTxOByAlice
@@ -235,7 +235,7 @@ initAndClose tracer clusterIx node@(RunningNode _ nodeSocket) = do
               (inHeadAddress bobCardanoVk, lovelaceToValue paymentFromAliceToBob)
               aliceCardanoSk
       send n1 $ input "NewTx" ["transaction" .= tx]
-      waitFor tracer 5 [n1, n2, n3] $
+      waitFor tracer 10 [n1, n2, n3] $
         output "TxSeen" ["transaction" .= tx]
 
       -- The expected new utxo set is the created payment to bob,
@@ -267,13 +267,13 @@ initAndClose tracer clusterIx node@(RunningNode _ nodeSocket) = do
               , "confirmedTransactions" .= [tx]
               ]
 
-      waitMatch 5 n1 $ \v -> do
+      waitMatch 10 n1 $ \v -> do
         guard $ v ^? key "tag" == Just "SnapshotConfirmed"
         snapshot <- v ^? key "snapshot"
         guard $ snapshot == expectedSnapshot
 
       send n1 $ input "GetUTxO" []
-      waitFor tracer 5 [n1] $ output "UTxO" ["utxo" .= newUTxO]
+      waitFor tracer 10 [n1] $ output "UTxO" ["utxo" .= newUTxO]
 
       send n1 $ input "Close" []
       waitMatch 3 n1 $ \v -> do
