@@ -13,7 +13,7 @@ import Cardano.Crypto.DSIGN (
   SignKeyDSIGN,
   VerKeyDSIGN,
  )
-import CardanoClient (buildAddress, queryUTxO, submit)
+import CardanoClient (buildAddress, queryUTxO, submit, waitForTransaction)
 import CardanoCluster (Actor (Faucet), Marked (Marked), defaultNetworkId, keysFor, newNodeConfig, seedFromFaucet, withBFTNode)
 import CardanoNode (RunningNode (..))
 import Control.Lens (to, (^?))
@@ -229,6 +229,7 @@ seedNetwork node@(RunningNode _ nodeSocket) Dataset{fundingTransaction, clientDa
   -- Submit the funding transaction first
   putTextLn $ "Funding transaction: " <> decodeUtf8 (prettyPrintJSON fundingTransaction)
   submit defaultNetworkId nodeSocket fundingTransaction
+  void $ waitForTransaction defaultNetworkId nodeSocket fundingTransaction
   -- Then, fuel all clients with some 100 ADA
   forM_ clientDatasets $ \ClientDataset{signingKey} -> do
     let vk = getVerificationKey signingKey

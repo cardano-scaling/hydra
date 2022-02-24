@@ -6,7 +6,6 @@ module Test.GeneratorSpec where
 import Hydra.Prelude
 import Test.Hydra.Prelude
 
-import Data.Aeson (encode)
 import Data.Text (unpack)
 import Hydra.Cardano.Api (UTxO, prettyPrintJSON, utxoFromTx)
 import Hydra.Generator (
@@ -36,7 +35,7 @@ prop_keepsUTxOConstant =
   forAll arbitrary $ \(Positive n) ->
     -- XXX: non-exhaustive pattern match
     forAll (genConstantUTxODataset defaultProtocolParameters 1 n) $
-      \Dataset{fundingTransaction, clients = [ClientDataset{txSequence}]} ->
+      \Dataset{fundingTransaction, clientDatasets = [ClientDataset{txSequence}]} ->
         let initialUTxO = utxoFromTx fundingTransaction
             finalUTxO = foldl' apply initialUTxO txSequence
          in length finalUTxO == length initialUTxO
