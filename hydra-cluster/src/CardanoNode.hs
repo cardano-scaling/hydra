@@ -17,6 +17,7 @@ import qualified Data.Aeson as Aeson
 import qualified Data.HashMap.Strict as HM
 import Data.Time.Clock.POSIX (posixSecondsToUTCTime, utcTimeToPOSIXSeconds)
 import Hydra.Cardano.Api (AsType (AsPaymentKey), PaymentKey, SigningKey, VerificationKey, generateSigningKey, getVerificationKey)
+import System.Directory (doesFileExist, removeFile)
 import System.Exit (ExitCode (..))
 import System.FilePath ((<.>), (</>))
 import System.Process (
@@ -111,11 +112,18 @@ withCardanoNode tr cfg@CardanoNodeConfig{stateDirectory, nodeId} args action = d
       race_
         (checkProcessHasNotDied ("cardano-node-" <> show nodeId) processHandle)
         (action (RunningNode nodeId (stateDirectory </> nodeSocket args)))
+        `finally` cleanupSocketFile
  where
   generateEnvironment = do
     refreshSystemStart cfg args
     let topology = mkTopology $ peers $ ports cfg
     Aeson.encodeFile (stateDirectory </> nodeTopologyFile args) topology
+
+  cleanupSocketFile =
+    whenM (doesFileExist socketFile) $
+      removeFile socketFile
+
+  socketFile = stateDirectory </> nodeSocket args
 
 -- | Generate command-line arguments for launching @cardano-node@.
 cardanoNodeProcess :: Maybe FilePath -> CardanoNodeArgs -> CreateProcess
