@@ -10,6 +10,8 @@ module Hydra.Ledger.Cardano (
   module Hydra.Ledger.Cardano.Builder,
   Ledger.ShelleyGenesis (..),
   Tx,
+  defaultLedgerEnv,
+  defaultGlobals,
 ) where
 
 import Hydra.Prelude
@@ -74,8 +76,8 @@ import Test.QuickCheck (
 
 -- TODO(SN): Pre-validate transactions to get less confusing errors on
 -- transactions which are not expected to working on a layer-2
-cardanoLedger :: Ledger Tx
-cardanoLedger =
+cardanoLedger :: Ledger.Globals -> Ledger.LedgerEnv LedgerEra -> Ledger Tx
+cardanoLedger globals ledgerEnv =
   Ledger
     { applyTransactions = applyAll
     , initUTxO = mempty
@@ -142,7 +144,7 @@ instance FromJSON Tx where
 
 instance Arbitrary Tx where
   -- TODO: shrinker!
-  arbitrary = genUTxO >>= genTx
+  arbitrary = genUTxO >>= genTx defaultLedgerEnv
 
 -- | Create a zero-fee, payment cardano transaction.
 mkSimpleTx ::
@@ -230,8 +232,8 @@ genKeyPair = do
 -- details. We later changed the ledger's internals to work with Alonzo-era
 -- specific types, and, to make this in incremental steps, this function still
 -- generates Mary transactions, but cast them to Alonzo's.
-genTx :: UTxO -> Gen Tx
-genTx utxos = do
+genTx :: Ledger.LedgerEnv LedgerEra -> UTxO -> Gen Tx
+genTx ledgerEnv utxos = do
   fromLedgerTx <$> Ledger.Generator.genTx genEnv ledgerEnv (utxoState, dpState)
  where
   utxoState = def{Ledger._utxo = toLedgerUTxO utxos}
@@ -254,23 +256,23 @@ genTx utxos = do
         , Ledger.Generator.maxCertsPerTx = 0
         }
 
-genSequenceOfValidTransactions :: UTxO -> Gen [Tx]
-genSequenceOfValidTransactions initialUTxO
+genSequenceOfValidTransactions :: Ledger.Globals -> Ledger.LedgerEnv LedgerEra -> UTxO -> Gen [Tx]
+genSequenceOfValidTransactions globals ledgerEnv initialUTxO
   | initialUTxO == mempty = pure []
   | otherwise = do
     n <- getSize
     numTxs <- choose (1, n)
-    genFixedSizeSequenceOfValidTransactions numTxs initialUTxO
+    genFixedSizeSequenceOfValidTransactions globals ledgerEnv numTxs initialUTxO
 
-genFixedSizeSequenceOfValidTransactions :: Int -> UTxO -> Gen [Tx]
-genFixedSizeSequenceOfValidTransactions numTxs initialUTxO
+genFixedSizeSequenceOfValidTransactions :: Ledger.Globals -> Ledger.LedgerEnv LedgerEra -> Int -> UTxO -> Gen [Tx]
+genFixedSizeSequenceOfValidTransactions globals ledgerEnv numTxs initialUTxO
   | initialUTxO == mempty = pure []
   | otherwise =
     reverse . snd <$> foldM newTx (initialUTxO, []) [1 .. numTxs]
  where
   newTx (utxos, acc) _ = do
-    tx <- genTx utxos
-    case applyTransactions cardanoLedger utxos [tx] of
+    tx <- genTx ledgerEnv utxos
+    case applyTransactions (cardanoLedger globals ledgerEnv) utxos [tx] of
       Left err -> error $ show err
       Right newUTxOs -> pure (newUTxOs, tx : acc)
 
@@ -413,8 +415,8 @@ instance Arbitrary (Hash PaymentKey) where
 
 -- FIXME: Do not hard-code this, make it configurable / inferred from the
 -- genesis configuration.
-ledgerEnv :: Ledger.LedgerEnv LedgerEra
-ledgerEnv =
+defaultLedgerEnv :: Ledger.LedgerEnv LedgerEra
+defaultLedgerEnv =
   Ledger.LedgerEnv
     { Ledger.ledgerSlotNo = SlotNo 1
     , Ledger.ledgerIx = 0
@@ -449,8 +451,8 @@ ledgerEnv =
 -- genesis configuration.
 --
 -- From: shelley/chain-and-ledger/shelley-spec-ledger-test/src/Test/Shelley/Spec/Ledger/Utils.hs
-globals :: Ledger.Globals
-globals =
+defaultGlobals :: Ledger.Globals
+defaultGlobals =
   Ledger.Globals
     { Ledger.epochInfoWithErr = Slotting.fixedEpochInfo (Ledger.EpochSize 100) (Slotting.mkSlotLength 1)
     , Ledger.slotsPerKESPeriod = 20

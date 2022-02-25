@@ -37,8 +37,9 @@ main = do
       eq <- createEventQueue
       withChain tracer party (putEvent eq . OnChainEvent) chainConfig $ \oc ->
         withNetwork (contramap Network tracer) host port peers (putEvent eq . NetworkEvent) $ \hn ->
-          withAPIServer apiHost apiPort party (contramap APIServer tracer) (putEvent eq . ClientEvent) $ \server ->
-            createHydraNode eq hn Ledger.cardanoLedger oc server env >>= runHydraNode (contramap Node tracer)
+          withAPIServer apiHost apiPort party (contramap APIServer tracer) (putEvent eq . ClientEvent) $ \server -> do
+            node <- createHydraNode eq hn (Ledger.cardanoLedger Ledger.defaultGlobals Ledger.defaultLedgerEnv) oc server env
+            runHydraNode (contramap Node tracer) node
  where
   withNetwork tracer host port peers =
     let localhost = Host{hostname = show host, port}

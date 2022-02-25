@@ -16,7 +16,7 @@ import Hydra.Generator (
   genDatasetConstantUTxO,
  )
 import Hydra.Ledger (applyTransactions, balance)
-import Hydra.Ledger.Cardano (Tx, cardanoLedger, genUTxO)
+import Hydra.Ledger.Cardano (Tx, cardanoLedger, defaultGlobals, defaultLedgerEnv, genUTxO)
 import Test.Aeson.GenericSpecs (roundtripSpecs)
 import Test.QuickCheck (Positive (Positive), Property, counterexample, forAll, idempotentIOProperty)
 
@@ -49,7 +49,7 @@ prop_keepsUTxOConstant =
 
 apply :: UTxO -> Tx -> UTxO
 apply utxo tx =
-  case applyTransactions cardanoLedger utxo [tx] of
+  case applyTransactions (cardanoLedger defaultGlobals defaultLedgerEnv) utxo [tx] of
     Left err -> error $ "invalid generated data set" <> show err
     Right finalUTxO -> finalUTxO
 
