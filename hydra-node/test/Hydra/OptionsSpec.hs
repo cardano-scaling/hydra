@@ -9,6 +9,7 @@ import Hydra.Logging (Verbosity (Verbose))
 import Hydra.Network (Host (Host))
 import Hydra.Options (
   ChainConfig (..),
+  LedgerConfig (..),
   Options (..),
   ParserResult (..),
   parseHydraOptionsFromString,
@@ -135,6 +136,24 @@ spec = parallel $
                 }
           }
 
+    it "parses --ledger-genesis-file as a filepath" $
+      ["--ledger-genesis", "my-custom-genesis.json"]
+        `shouldParse` defaultOptions
+          { ledgerConfig =
+              defaultLedgerConfig
+                { cardanoLedgerGenesisFile = "my-custom-genesis.json"
+                }
+          }
+
+    it "parses --ledger-protocol-parameters-file as a filepath" $
+      ["--ledger-protocol-parameters", "my-custom-protocol-parameters.json"]
+        `shouldParse` defaultOptions
+          { ledgerConfig =
+              defaultLedgerConfig
+                { cardanoLedgerProtocolParametersFile = "my-custom-protocol-parameters.json"
+                }
+          }
+
 defaultOptions :: Options
 defaultOptions =
   Options
@@ -149,6 +168,7 @@ defaultOptions =
     , hydraSigningKey = "hydra.sk"
     , hydraVerificationKeys = []
     , chainConfig = defaultChainConfig
+    , ledgerConfig = defaultLedgerConfig
     }
 
 defaultChainConfig :: ChainConfig
@@ -158,6 +178,13 @@ defaultChainConfig =
     , nodeSocket = "node.socket"
     , cardanoSigningKey = "cardano.sk"
     , cardanoVerificationKeys = []
+    }
+
+defaultLedgerConfig :: LedgerConfig
+defaultLedgerConfig =
+  CardanoLedgerConfig
+    { cardanoLedgerGenesisFile = "genesis-shelley.json"
+    , cardanoLedgerProtocolParametersFile = "protocol-parameters.json"
     }
 
 shouldParse :: [String] -> Options -> Expectation

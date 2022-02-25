@@ -1,6 +1,7 @@
 module Hydra.Options (
   Options (..),
   ChainConfig (..),
+  LedgerConfig (..),
   parseHydraOptions,
   parseHydraOptionsFromString,
   getParseResult,
@@ -56,6 +57,7 @@ data Options = Options
   , hydraSigningKey :: FilePath
   , hydraVerificationKeys :: [FilePath]
   , chainConfig :: ChainConfig
+  , ledgerConfig :: LedgerConfig
   }
   deriving (Eq, Show)
 
@@ -73,6 +75,37 @@ hydraNodeParser =
     <*> hydraSigningKeyFileParser
     <*> many hydraVerificationKeyFileParser
     <*> chainConfigParser
+    <*> ledgerConfigParser
+
+data LedgerConfig = CardanoLedgerConfig
+  { cardanoLedgerGenesisFile :: FilePath
+  , cardanoLedgerProtocolParametersFile :: FilePath
+  }
+  deriving (Eq, Show)
+
+ledgerConfigParser :: Parser LedgerConfig
+ledgerConfigParser =
+  CardanoLedgerConfig
+    <$> cardanoLedgerGenesisParser
+    <*> cardanoLedgerProtocolParametersParser
+
+cardanoLedgerGenesisParser :: Parser FilePath
+cardanoLedgerGenesisParser =
+  strOption
+    ( long "ledger-genesis"
+        <> metavar "FILE"
+        <> value "genesis-shelley.json"
+        <> help "Path to a Shelley-compatible genesis JSON file."
+    )
+
+cardanoLedgerProtocolParametersParser :: Parser FilePath
+cardanoLedgerProtocolParametersParser =
+  strOption
+    ( long "ledger-protocol-parameters"
+        <> metavar "FILE"
+        <> value "protocol-parameters.json"
+        <> help "Path to a JSON file describing protocol parameters (same format as returned from 'cardano-cli query protocol-parameters')"
+    )
 
 data ChainConfig = DirectChainConfig
   { networkId :: NetworkId
