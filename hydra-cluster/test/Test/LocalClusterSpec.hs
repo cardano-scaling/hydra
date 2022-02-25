@@ -21,7 +21,6 @@ import CardanoCluster (
   RunningCluster (..),
   defaultNetworkId,
   keysFor,
-  seedFromFaucet,
   seedFromFaucet_,
   withCluster,
  )
