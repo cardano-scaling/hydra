@@ -5,6 +5,7 @@ module Hydra.Chain.Direct.Contract.Init where
 import Hydra.Cardano.Api
 import Hydra.Prelude
 
+import qualified Cardano.Api.UTxO as UTxO
 import Data.Maybe (fromJust)
 import Hydra.Chain.Direct.Contract.Mutation (
   Mutation (..),
@@ -13,9 +14,11 @@ import Hydra.Chain.Direct.Contract.Mutation (
 import Hydra.Chain.Direct.Fixture (testNetworkId)
 import Hydra.Chain.Direct.Tx (initTx)
 import Hydra.Ledger.Cardano (
+  genOneUTxOFor,
   genValue,
  )
 import Test.QuickCheck (oneof, suchThat, vectorOf)
+import qualified Prelude
 
 --
 -- InitTx
@@ -25,8 +28,6 @@ healthyInitTx :: (Tx, UTxO)
 healthyInitTx =
   (tx, lookupUTxO)
  where
-  lookupUTxO = mempty
-
   tx =
     initTx
       testNetworkId
@@ -34,11 +35,13 @@ healthyInitTx =
       parameters
       seedInput
 
+  lookupUTxO = generateWith (genOneUTxOFor (Prelude.head parties)) 42
+
   parties = generateWith (vectorOf 3 arbitrary) 42
 
   parameters = generateWith arbitrary 42
 
-  seedInput = generateWith arbitrary 42
+  seedInput = fst . Prelude.head $ UTxO.pairs lookupUTxO
 
 data InitMutation
   = MutateInitOutputValue
