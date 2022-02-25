@@ -28,6 +28,7 @@ services:
       - $PWD:/keys:ro
       - $PWD/devnet/credentials:/credentials:ro
       - $PWD/devnet/ipc:/ipc
+      - $PWD/devnet:/config
     ports:
       - "4001:4001"
     command:
@@ -43,6 +44,8 @@ services:
       , "--cardano-signing-key", "/credentials/alice.sk"
       , "--cardano-verification-key", "/credentials/bob.vk"
       , "--cardano-verification-key", "/credentials/carol.vk"
+      , "--ledger-genesis", "/config/genesis-shelley.json"
+      , "--ledger-protocol-parameters", "/config/protocol-parameters.json"
       , "--testnet", "42"
       , "--node-socket", "/ipc/node.socket"
       ]
@@ -60,6 +63,7 @@ services:
       - $PWD:/keys:ro
       - $PWD/devnet/credentials:/credentials:ro
       - $PWD/devnet/ipc:/ipc
+      - $PWD/devnet:/config
     ports:
       - "4002:4001"
     command:
@@ -75,6 +79,8 @@ services:
       , "--cardano-signing-key", "/credentials/bob.sk"
       , "--cardano-verification-key", "/credentials/alice.vk"
       , "--cardano-verification-key", "/credentials/carol.vk"
+      , "--ledger-genesis", "/config/genesis-shelley.json"
+      , "--ledger-protocol-parameters", "/config/protocol-parameters.json"
       , "--testnet", "42"
       , "--node-socket", "/ipc/node.socket"
       ]
@@ -92,6 +98,7 @@ services:
       - $PWD:/keys:ro
       - $PWD/devnet/credentials:/credentials:ro
       - $PWD/devnet/ipc:/ipc
+      - $PWD/devnet:/config
     ports:
       - "4003:4001"
     command:
@@ -107,6 +114,8 @@ services:
       , "--cardano-signing-key", "/credentials/carol.sk"
       , "--cardano-verification-key", "/credentials/alice.vk"
       , "--cardano-verification-key", "/credentials/bob.vk"
+      , "--ledger-genesis", "/config/genesis-shelley.json"
+      , "--ledger-protocol-parameters", "/config/protocol-parameters.json"
       , "--testnet", "42"
       , "--node-socket", "/ipc/node.socket"
       ]

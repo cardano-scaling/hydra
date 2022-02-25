@@ -1,5 +1,4 @@
 {-# LANGUAGE DuplicateRecordFields #-}
-{-# LANGUAGE TypeApplications #-}
 
 module Main where
 
@@ -12,6 +11,13 @@ import Hydra.Chain.Direct.Util (readKeyPair, readVerificationKey)
 import Hydra.HeadLogic (Environment (..), Event (..))
 import Hydra.Ledger.Cardano (Tx)
 import qualified Hydra.Ledger.Cardano as Ledger
+import Hydra.Ledger.Cardano.Configuration (
+  newGlobals,
+  newLedgerEnv,
+  protocolParametersFromJson,
+  readJsonFileThrow,
+  shelleyGenesisFromJson,
+ )
 import Hydra.Logging (Tracer, Verbosity (..), withTracer)
 import Hydra.Logging.Messages (HydraLog (..))
 import Hydra.Logging.Monitoring (withMonitoring)
@@ -25,12 +31,12 @@ import Hydra.Node (
   initEnvironment,
   runHydraNode,
  )
-import Hydra.Options (ChainConfig (..), Options (..), parseHydraOptions)
+import Hydra.Options (ChainConfig (..), LedgerConfig (..), Options (..), parseHydraOptions)
 import Hydra.Party (Party)
 
 main :: IO ()
 main = do
-  o@Options{verbosity, host, port, peers, apiHost, apiPort, monitoringPort, chainConfig} <- identifyNode <$> parseHydraOptions
+  o@Options{verbosity, host, port, peers, apiHost, apiPort, monitoringPort, chainConfig, ledgerConfig} <- identifyNode <$> parseHydraOptions
   env@Environment{party} <- initEnvironment o
   withTracer verbosity $ \tracer' ->
     withMonitoring monitoringPort tracer' $ \tracer -> do
@@ -38,12 +44,24 @@ main = do
       withChain tracer party (putEvent eq . OnChainEvent) chainConfig $ \oc ->
         withNetwork (contramap Network tracer) host port peers (putEvent eq . NetworkEvent) $ \hn ->
           withAPIServer apiHost apiPort party (contramap APIServer tracer) (putEvent eq . ClientEvent) $ \server -> do
-            node <- createHydraNode eq hn (Ledger.cardanoLedger Ledger.defaultGlobals Ledger.defaultLedgerEnv) oc server env
-            runHydraNode (contramap Node tracer) node
+            withCardanoLedger ledgerConfig $ \ledger -> do
+              node <- createHydraNode eq hn ledger oc server env
+              runHydraNode (contramap Node tracer) node
  where
   withNetwork tracer host port peers =
     let localhost = Host{hostname = show host, port}
      in withHeartbeat localhost $ withOuroborosNetwork tracer localhost peers
+
+  withCardanoLedger ledgerConfig action = do
+    globals <-
+      newGlobals
+        <$> readJsonFileThrow shelleyGenesisFromJson (cardanoLedgerGenesisFile ledgerConfig)
+
+    ledgerEnv <-
+      newLedgerEnv
+        <$> readJsonFileThrow protocolParametersFromJson (cardanoLedgerProtocolParametersFile ledgerConfig)
+
+    action (Ledger.cardanoLedger globals ledgerEnv)
 
 withChain ::
   Tracer IO (HydraLog Tx net) ->

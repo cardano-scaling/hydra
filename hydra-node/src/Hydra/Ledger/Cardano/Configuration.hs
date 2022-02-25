@@ -15,6 +15,15 @@ import qualified Data.Aeson as Json
 import qualified Data.Aeson.Types as Json
 import qualified Ouroboros.Consensus.HardFork.History as Consensus
 
+-- * Helpers
+
+readJsonFileThrow :: (Json.Value -> Json.Parser a) -> FilePath -> IO a
+readJsonFileThrow parser filepath = do
+  value <- Json.eitherDecodeFileStrict filepath >>= either fail pure
+  case Json.parseEither parser value of
+    Left e -> fail e
+    Right a -> pure a
+
 -- * Globals
 
 shelleyGenesisFromJson :: Json.Value -> Json.Parser (Ledger.ShelleyGenesis LedgerEra)
