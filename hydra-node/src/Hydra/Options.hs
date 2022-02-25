@@ -1,5 +1,3 @@
-{-# LANGUAGE TypeApplications #-}
-
 module Hydra.Options (
   Options (..),
   ChainConfig (..),
@@ -10,6 +8,7 @@ module Hydra.Options (
 ) where
 
 import Data.IP (IP)
+import Hydra.Cardano.Api (NetworkId (..))
 import Hydra.Chain.Direct (NetworkMagic (..))
 import Hydra.Logging (Verbosity (..))
 import Hydra.Network (Host, PortNumber, readHost, readPort)
@@ -20,9 +19,11 @@ import Options.Applicative (
   ParserInfo,
   ParserResult (..),
   auto,
+  completer,
   defaultPrefs,
   execParserPure,
   flag,
+  flag',
   fullDesc,
   getParseResult,
   handleParseResult,
@@ -31,6 +32,7 @@ import Options.Applicative (
   helper,
   info,
   infoOption,
+  listCompleter,
   long,
   maybeReader,
   metavar,
@@ -73,7 +75,7 @@ hydraNodeParser =
     <*> chainConfigParser
 
 data ChainConfig = DirectChainConfig
-  { networkMagic :: NetworkMagic
+  { networkId :: NetworkId
   , nodeSocket :: FilePath
   , cardanoSigningKey :: FilePath
   , cardanoVerificationKeys :: [FilePath]
@@ -83,20 +85,31 @@ data ChainConfig = DirectChainConfig
 chainConfigParser :: Parser ChainConfig
 chainConfigParser =
   DirectChainConfig
-    <$> networkMagicParser
+    <$> networkIdParser
     <*> nodeSocketParser
     <*> cardanoSigningKeyFileParser
     <*> many cardanoVerificationKeyFileParser
 
-networkMagicParser :: Parser NetworkMagic
-networkMagicParser =
-  NetworkMagic
-    <$> option
-      auto
-      ( long "network-magic"
-          <> metavar "MAGIC"
-          <> value 42
-          <> help "Network magic for the target network."
+networkIdParser :: Parser NetworkId
+networkIdParser =
+  testnetParser <|> mainnetParser
+ where
+  testnetParser =
+    Testnet . NetworkMagic
+      <$> option
+        auto
+        ( long "testnet"
+            <> metavar "MAGIC"
+            <> value 42
+            <> completer (listCompleter ["1097911063", "42"])
+            <> help "A test network with the given network magic."
+        )
+
+  mainnetParser =
+    flag'
+      Mainnet
+      ( long "mainnet"
+          <> help "The main network."
       )
 
 nodeSocketParser :: Parser FilePath

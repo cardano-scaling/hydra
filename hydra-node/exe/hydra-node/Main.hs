@@ -57,7 +57,7 @@ withChain tracer party callback config action = do
   withIOManager $ \iocp -> do
     withDirectChain
       (contramap DirectChain tracer)
-      networkMagic
+      networkId
       iocp
       nodeSocket
       keyPair
@@ -66,7 +66,7 @@ withChain tracer party callback config action = do
       callback
       action
  where
-  DirectChainConfig{networkMagic, nodeSocket, cardanoSigningKey, cardanoVerificationKeys} = config
+  DirectChainConfig{networkId, nodeSocket, cardanoSigningKey, cardanoVerificationKeys} = config
 
 identifyNode :: Options -> Options
 identifyNode opt@Options{verbosity = Verbose "HydraNode", nodeId} = opt{verbosity = Verbose $ "HydraNode-" <> show nodeId}

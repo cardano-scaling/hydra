@@ -76,7 +76,7 @@ cabal exec hydra-node -- \
   --cardano-signing-key devnet/credentials/alice.sk \
   --cardano-verification-key devnet/credentials/bob.vk \
   --cardano-verification-key devnet/credentials/carol.vk \
-  --network-magic 42 \
+  --testnet 42 \
   --node-socket devnet/ipc/node.socket
 ```
 
@@ -92,7 +92,7 @@ cabal exec hydra-node -- \
   --cardano-signing-key devnet/credentials/bob.sk \
   --cardano-verification-key devnet/credentials/alice.vk \
   --cardano-verification-key devnet/credentials/carol.vk \
-  --network-magic 42 \
+  --testnet 42 \
   --node-socket devnet/node.socket
 ```
 
@@ -108,7 +108,7 @@ cabal exec hydra-node -- \
   --cardano-signing-key devnet/credentials/carol.sk \
   --cardano-verification-key devnet/credentials/alice.vk \
   --cardano-verification-key devnet/credentials/bob.vk \
-  --network-magic 42 \
+  --testnet 42 \
   --node-socket devnet/node.socket
 ```
 
@@ -158,7 +158,7 @@ credentials:
 cabal exec hydra-tui -- \
   --connect localhost:4001 \
   --cardano-signing-key devnet/credentials/alice.sk \
-  --network-magic 42 \
+  --testnet 42 \
   --node-socket devnet/ipc/node.socket
 ```
 

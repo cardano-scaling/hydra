@@ -43,7 +43,7 @@ services:
       , "--cardano-signing-key", "/credentials/alice.sk"
       , "--cardano-verification-key", "/credentials/bob.vk"
       , "--cardano-verification-key", "/credentials/carol.vk"
-      , "--network-magic", "42"
+      , "--testnet", "42"
       , "--node-socket", "/ipc/node.socket"
       ]
     networks:
@@ -75,7 +75,7 @@ services:
       , "--cardano-signing-key", "/credentials/bob.sk"
       , "--cardano-verification-key", "/credentials/alice.vk"
       , "--cardano-verification-key", "/credentials/carol.vk"
-      , "--network-magic", "42"
+      , "--testnet", "42"
       , "--node-socket", "/ipc/node.socket"
       ]
     networks:
@@ -107,7 +107,7 @@ services:
       , "--cardano-signing-key", "/credentials/carol.sk"
       , "--cardano-verification-key", "/credentials/alice.vk"
       , "--cardano-verification-key", "/credentials/bob.vk"
-      , "--network-magic", "42"
+      , "--testnet", "42"
       , "--node-socket", "/ipc/node.socket"
       ]
     networks:
@@ -125,7 +125,7 @@ services:
     command:
       [ "--connect", "172.16.238.10:4001"
       , "--node-socket", "/ipc/node.socket"
-      , "--network-magic", "42"
+      , "--testnet", "42"
       , "--cardano-signing-key", "/credentials/alice.sk"
       ]
     volumes:
@@ -145,7 +145,7 @@ services:
     command:
       [ "--connect", "172.16.238.20:4001"
       , "--node-socket", "/ipc/node.socket"
-      , "--network-magic", "42"
+      , "--testnet", "42"
       , "--cardano-signing-key", "/credentials/bob.sk"
       ]
     volumes:
@@ -165,7 +165,7 @@ services:
     command:
       [ "--connect", "172.16.238.30:4001"
       , "--node-socket", "/ipc/node.socket"
-      , "--network-magic", "42"
+      , "--testnet", "42"
       , "--cardano-signing-key", "/credentials/carol.sk"
       ]
     volumes:

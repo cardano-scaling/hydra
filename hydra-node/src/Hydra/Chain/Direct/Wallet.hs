@@ -80,7 +80,7 @@ import GHC.Ix (Ix)
 import Hydra.Cardano.Api (
   AddressInEra,
   AddressTypeInEra,
-  NetworkId (Testnet),
+  NetworkId,
   PaymentKey,
   SigningKey,
   VerificationKey,
@@ -190,7 +190,7 @@ withTinyWallet ::
   -- | A tracer for logging
   Tracer IO TinyWalletLog ->
   -- | Network identifier to which we expect to connect.
-  NetworkMagic ->
+  NetworkId ->
   -- | Credentials of the wallet.
   (VerificationKey PaymentKey, SigningKey PaymentKey) ->
   -- | A cross-platform abstraction for managing I/O operations on local sockets
@@ -199,7 +199,7 @@ withTinyWallet ::
   FilePath ->
   (TinyWallet IO -> IO ()) ->
   IO ()
-withTinyWallet tracer magic (vk, sk) iocp addr action = do
+withTinyWallet tracer networkId (vk, sk) iocp addr action = do
   utxoVar <- newEmptyTMVarIO
   tipVar <- newTVarIO genesisPoint
   race_
@@ -207,13 +207,13 @@ withTinyWallet tracer magic (vk, sk) iocp addr action = do
     ( connectTo
         (localSnocket iocp)
         nullConnectTracers
-        (versions magic $ client tracer tipVar utxoVar address)
+        (versions networkId $ client tracer tipVar utxoVar address)
         addr
     )
  where
   address =
     toLedgerAddr $
-      mkVkAddress @Cardano.Api.Era (Testnet magic) vk
+      mkVkAddress @Cardano.Api.Era networkId vk
 
   newTinyWallet utxoVar =
     TinyWallet

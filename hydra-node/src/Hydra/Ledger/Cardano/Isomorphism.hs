@@ -1,5 +1,3 @@
-{-# LANGUAGE TypeApplications #-}
-
 -- | Anti-corruption module with isomorphisms from and to cardano-api,
 -- cardano-ledger and plutus. Across the Hydra code-base we aim for sticking to
 -- the cardano-api as much as possible, although with a few extra helpers on top
@@ -77,56 +75,6 @@ toLedgerAddr = \case
 
 fromLedgerAddr :: Ledger.Addr Ledger.StandardCrypto -> AddressInEra Era
 fromLedgerAddr = fromShelleyAddr
-
--- | Convert a 'plutus' address to a 'cardano-api' address. NOTE that there are
--- no network qualifiers in Plutus and this function does hard-code 'Testnet'
--- right now!
-fromPlutusAddress :: Plutus.Address -> AddressInEra Era
-fromPlutusAddress Plutus.Address{Plutus.addressCredential = credential, Plutus.addressStakingCredential = stakingCredential} =
-  fromShelleyAddr $
-    case (credential, stakingCredential) of
-      (Plutus.PubKeyCredential (Plutus.PubKeyHash paymentKeyHash), Just (Plutus.StakingHash (Plutus.PubKeyCredential (Plutus.PubKeyHash stakeKeyHash)))) ->
-        Ledger.Addr
-          network
-          (Ledger.KeyHashObj $ Ledger.KeyHash $ unsafeHashFromBytes $ Plutus.fromBuiltin paymentKeyHash)
-          (Ledger.StakeRefBase (Ledger.KeyHashObj $ Ledger.KeyHash $ unsafeHashFromBytes $ Plutus.fromBuiltin stakeKeyHash))
-      (Plutus.ScriptCredential (Plutus.ValidatorHash paymentScriptHash), Just (Plutus.StakingHash (Plutus.PubKeyCredential (Plutus.PubKeyHash stakeKeyHash)))) ->
-        Ledger.Addr
-          network
-          (Ledger.ScriptHashObj $ Ledger.ScriptHash $ unsafeHashFromBytes $ Plutus.fromBuiltin paymentScriptHash)
-          (Ledger.StakeRefBase (Ledger.KeyHashObj $ Ledger.KeyHash $ unsafeHashFromBytes $ Plutus.fromBuiltin stakeKeyHash))
-      (Plutus.PubKeyCredential (Plutus.PubKeyHash paymentKeyHash), Just (Plutus.StakingHash (Plutus.ScriptCredential (Plutus.ValidatorHash stakeScriptHash)))) ->
-        Ledger.Addr
-          network
-          (Ledger.KeyHashObj $ Ledger.KeyHash $ unsafeHashFromBytes $ Plutus.fromBuiltin paymentKeyHash)
-          (Ledger.StakeRefBase (Ledger.ScriptHashObj $ Ledger.ScriptHash $ unsafeHashFromBytes $ Plutus.fromBuiltin stakeScriptHash))
-      (Plutus.ScriptCredential (Plutus.ValidatorHash paymentScriptHash), Just (Plutus.StakingHash (Plutus.ScriptCredential (Plutus.ValidatorHash stakeScriptHash)))) ->
-        Ledger.Addr
-          network
-          (Ledger.ScriptHashObj $ Ledger.ScriptHash $ unsafeHashFromBytes $ Plutus.fromBuiltin paymentScriptHash)
-          (Ledger.StakeRefBase (Ledger.ScriptHashObj $ Ledger.ScriptHash $ unsafeHashFromBytes $ Plutus.fromBuiltin stakeScriptHash))
-      (Plutus.PubKeyCredential (Plutus.PubKeyHash paymentKeyHash), Nothing) ->
-        Ledger.Addr
-          network
-          (Ledger.KeyHashObj $ Ledger.KeyHash $ unsafeHashFromBytes $ Plutus.fromBuiltin paymentKeyHash)
-          Ledger.StakeRefNull
-      (Plutus.ScriptCredential (Plutus.ValidatorHash paymentScriptHash), Nothing) ->
-        Ledger.Addr
-          network
-          (Ledger.ScriptHashObj $ Ledger.ScriptHash $ unsafeHashFromBytes $ Plutus.fromBuiltin paymentScriptHash)
-          Ledger.StakeRefNull
-      (Plutus.PubKeyCredential (Plutus.PubKeyHash paymentKeyHash), Just (Plutus.StakingPtr a b c)) ->
-        Ledger.Addr
-          network
-          (Ledger.KeyHashObj $ Ledger.KeyHash $ unsafeHashFromBytes $ Plutus.fromBuiltin paymentKeyHash)
-          (Ledger.StakeRefPtr $ Ledger.Ptr (SlotNo $ fromInteger a) (fromInteger b) (fromInteger c))
-      (Plutus.ScriptCredential (Plutus.ValidatorHash paymentScriptHash), Just (Plutus.StakingPtr a b c)) ->
-        Ledger.Addr
-          network
-          (Ledger.ScriptHashObj $ Ledger.ScriptHash $ unsafeHashFromBytes $ Plutus.fromBuiltin paymentScriptHash)
-          (Ledger.StakeRefPtr $ Ledger.Ptr (SlotNo $ fromInteger a) (fromInteger b) (fromInteger c))
- where
-  network = Ledger.Testnet
 
 -- ** Coin
 

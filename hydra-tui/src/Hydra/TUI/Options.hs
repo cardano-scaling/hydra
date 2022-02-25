@@ -10,7 +10,10 @@ import Hydra.Network (Host (Host))
 import Options.Applicative (
   Parser,
   auto,
+  completer,
+  flag',
   help,
+  listCompleter,
   long,
   metavar,
   option,
@@ -61,14 +64,15 @@ parseCardanoNetworkId =
   ( Testnet . NetworkMagic
       <$> option
         auto
-        ( long "network-magic"
+        ( long "testnet"
             <> short 'n'
             <> metavar "INTEGER"
             <> help "The network magic number identifying the testnet to connect to."
+            <> completer (listCompleter ["1097911063", "42"])
             <> showDefault
         )
   )
-    <|> pure Mainnet
+    <|> flag' Mainnet (long "mainnet")
 
 parseCardanoSigningKey :: Parser FilePath
 parseCardanoSigningKey =

@@ -25,7 +25,6 @@ import CardanoCluster (
 import CardanoNode (NodeLog, RunningNode (..))
 import Control.Concurrent (MVar, newEmptyMVar, putMVar, takeMVar)
 import Hydra.Cardano.Api (
-  NetworkId (Testnet),
   lovelaceToValue,
   txOutValue,
  )
@@ -38,7 +37,6 @@ import Hydra.Chain (
  )
 import Hydra.Chain.Direct (
   DirectChainLog,
-  NetworkMagic (NetworkMagic),
   withDirectChain,
   withIOManager,
  )
@@ -61,9 +59,9 @@ spec = around showLogsOnFailure $ do
         bobKeys <- keysFor Bob
         cardanoKeys <- fmap fst <$> mapM keysFor [Alice, Bob, Carol]
         withIOManager $ \iocp -> do
-          withDirectChain (contramap (FromDirectChain "alice") tracer) magic iocp nodeSocket aliceKeys alice cardanoKeys (putMVar alicesCallback) $ \Chain{postTx} -> do
-            withDirectChain nullTracer magic iocp nodeSocket bobKeys bob cardanoKeys (putMVar bobsCallback) $ \_ -> do
-              seedFromFaucet_ (Testnet magic) node aliceCardanoVk 100_000_000 Fuel
+          withDirectChain (contramap (FromDirectChain "alice") tracer) defaultNetworkId iocp nodeSocket aliceKeys alice cardanoKeys (putMVar alicesCallback) $ \Chain{postTx} -> do
+            withDirectChain nullTracer defaultNetworkId iocp nodeSocket bobKeys bob cardanoKeys (putMVar bobsCallback) $ \_ -> do
+              seedFromFaucet_ defaultNetworkId node aliceCardanoVk 100_000_000 Fuel
 
               postTx $ InitTx $ HeadParameters 100 [alice, bob, carol]
               alicesCallback `observesInTime` OnInitTx 100 [alice, bob, carol]
@@ -84,9 +82,9 @@ spec = around showLogsOnFailure $ do
         bobKeys <- keysFor Bob
         cardanoKeys <- fmap fst <$> mapM keysFor [Alice, Bob, Carol]
         withIOManager $ \iocp -> do
-          withDirectChain (contramap (FromDirectChain "alice") tracer) magic iocp nodeSocket aliceKeys alice cardanoKeys (putMVar alicesCallback) $ \Chain{postTx} -> do
-            withDirectChain nullTracer magic iocp nodeSocket bobKeys bob cardanoKeys (putMVar bobsCallback) $ \_ -> do
-              seedFromFaucet_ (Testnet magic) node aliceCardanoVk 100_000_000 Fuel
+          withDirectChain (contramap (FromDirectChain "alice") tracer) defaultNetworkId iocp nodeSocket aliceKeys alice cardanoKeys (putMVar alicesCallback) $ \Chain{postTx} -> do
+            withDirectChain nullTracer defaultNetworkId iocp nodeSocket bobKeys bob cardanoKeys (putMVar bobsCallback) $ \_ -> do
+              seedFromFaucet_ defaultNetworkId node aliceCardanoVk 100_000_000 Fuel
 
               postTx $ InitTx $ HeadParameters 100 [alice, bob, carol]
               alicesCallback `observesInTime` OnInitTx 100 [alice, bob, carol]
@@ -104,11 +102,10 @@ spec = around showLogsOnFailure $ do
               alicesCallback `observesInTime` OnAbortTx
               bobsCallback `observesInTime` OnAbortTx
 
-              let networkId = Testnet magic
-                  aliceAddress = buildAddress aliceCardanoVk networkId
+              let aliceAddress = buildAddress aliceCardanoVk defaultNetworkId
 
               -- Expect that alice got her committed value back
-              utxo <- queryUTxO networkId nodeSocket [aliceAddress]
+              utxo <- queryUTxO defaultNetworkId nodeSocket [aliceAddress]
               let aliceValues = txOutValue <$> toList utxo
               aliceValues `shouldContain` [lovelaceToValue aliceCommitment]
 
@@ -122,9 +119,9 @@ spec = around showLogsOnFailure $ do
         bobKeys <- keysFor Bob
         let cardanoKeys = []
         withIOManager $ \iocp -> do
-          withDirectChain (contramap (FromDirectChain "alice") tracer) magic iocp nodeSocket aliceKeys alice cardanoKeys (putMVar alicesCallback) $ \Chain{postTx = alicePostTx} -> do
-            withDirectChain nullTracer magic iocp nodeSocket bobKeys bob cardanoKeys (putMVar bobsCallback) $ \Chain{postTx = bobPostTx} -> do
-              seedFromFaucet_ (Testnet magic) node aliceCardanoVk 100_000_000 Fuel
+          withDirectChain (contramap (FromDirectChain "alice") tracer) defaultNetworkId iocp nodeSocket aliceKeys alice cardanoKeys (putMVar alicesCallback) $ \Chain{postTx = alicePostTx} -> do
+            withDirectChain nullTracer defaultNetworkId iocp nodeSocket bobKeys bob cardanoKeys (putMVar bobsCallback) $ \Chain{postTx = bobPostTx} -> do
+              seedFromFaucet_ defaultNetworkId node aliceCardanoVk 100_000_000 Fuel
 
               alicePostTx $ InitTx $ HeadParameters 100 [alice, carol]
               alicesCallback `observesInTime` OnInitTx 100 [alice, carol]
@@ -140,8 +137,8 @@ spec = around showLogsOnFailure $ do
       withBFTNode (contramap FromCluster tracer) config $ \node@(RunningNode _ nodeSocket) -> do
         let cardanoKeys = [aliceCardanoVk]
         withIOManager $ \iocp -> do
-          withDirectChain (contramap (FromDirectChain "alice") tracer) magic iocp nodeSocket aliceKeys alice cardanoKeys (putMVar alicesCallback) $ \Chain{postTx} -> do
-            seedFromFaucet_ (Testnet magic) node aliceCardanoVk 100_000_000 Fuel
+          withDirectChain (contramap (FromDirectChain "alice") tracer) defaultNetworkId iocp nodeSocket aliceKeys alice cardanoKeys (putMVar alicesCallback) $ \Chain{postTx} -> do
+            seedFromFaucet_ defaultNetworkId node aliceCardanoVk 100_000_000 Fuel
 
             postTx $ InitTx $ HeadParameters 100 [alice]
             alicesCallback `observesInTime` OnInitTx 100 [alice]
@@ -169,8 +166,8 @@ spec = around showLogsOnFailure $ do
       withBFTNode (contramap FromCluster tracer) config $ \node@(RunningNode _ nodeSocket) -> do
         let cardanoKeys = [aliceCardanoVk]
         withIOManager $ \iocp -> do
-          withDirectChain (contramap (FromDirectChain "alice") tracer) magic iocp nodeSocket aliceKeys alice cardanoKeys (putMVar alicesCallback) $ \Chain{postTx} -> do
-            seedFromFaucet_ (Testnet magic) node aliceCardanoVk 100_000_000 Fuel
+          withDirectChain (contramap (FromDirectChain "alice") tracer) defaultNetworkId iocp nodeSocket aliceKeys alice cardanoKeys (putMVar alicesCallback) $ \Chain{postTx} -> do
+            seedFromFaucet_ defaultNetworkId node aliceCardanoVk 100_000_000 Fuel
 
             postTx $ InitTx $ HeadParameters 100 [alice]
             alicesCallback `observesInTime` OnInitTx 100 [alice]
@@ -186,8 +183,8 @@ spec = around showLogsOnFailure $ do
       withBFTNode (contramap FromCluster tracer) config $ \node@(RunningNode _ nodeSocket) -> do
         let cardanoKeys = [aliceCardanoVk]
         withIOManager $ \iocp -> do
-          withDirectChain (contramap (FromDirectChain "alice") tracer) magic iocp nodeSocket aliceKeys alice cardanoKeys (putMVar alicesCallback) $ \Chain{postTx} -> do
-            seedFromFaucet_ (Testnet magic) node aliceCardanoVk 100_000_000 Fuel
+          withDirectChain (contramap (FromDirectChain "alice") tracer) defaultNetworkId iocp nodeSocket aliceKeys alice cardanoKeys (putMVar alicesCallback) $ \Chain{postTx} -> do
+            seedFromFaucet_ defaultNetworkId node aliceCardanoVk 100_000_000 Fuel
 
             postTx $ InitTx $ HeadParameters 100 [alice]
             alicesCallback `observesInTime` OnInitTx 100 [alice]
@@ -226,9 +223,6 @@ spec = around showLogsOnFailure $ do
             alicesCallback `observesInTime` OnFanoutTx
             failAfter 5 $
               waitForUTxO defaultNetworkId nodeSocket someUTxO
-
-magic :: NetworkMagic
-magic = NetworkMagic 42
 
 alice, bob, carol :: Party
 alice = deriveParty aliceSigningKey

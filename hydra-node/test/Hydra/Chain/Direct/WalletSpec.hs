@@ -30,8 +30,7 @@ import Data.Ratio ((%))
 import qualified Data.Sequence.Strict as StrictSeq
 import qualified Data.Set as Set
 import Hydra.Cardano.Api (
-  NetworkId (Testnet),
-  NetworkMagic,
+  NetworkId (..),
   PaymentKey,
   VerificationKey,
   fromLedgerTx,
@@ -91,15 +90,15 @@ spec = parallel $ do
   describe "withTinyWallet" $ do
     (vk, sk) <- runIO (generate genKeyPair)
     it "connects to server and returns UTXO in a timely manner" $ do
-      withMockServer $ \networkMagic iocp socket _ -> do
-        withTinyWallet nullTracer networkMagic (vk, sk) iocp socket $ \wallet -> do
+      withMockServer $ \networkId iocp socket _ -> do
+        withTinyWallet nullTracer networkId (vk, sk) iocp socket $ \wallet -> do
           result <- timeout 10 $ watchUTxOUntil (const True) wallet
           result `shouldSatisfy` isJust
 
     it "tracks UTXO correctly when payments are received" $ do
-      withMockServer $ \magic iocp socket submitTx -> do
-        withTinyWallet nullTracer magic (vk, sk) iocp socket $ \wallet -> do
-          generate (genPaymentTo magic vk) >>= submitTx
+      withMockServer $ \networkId iocp socket submitTx -> do
+        withTinyWallet nullTracer networkId (vk, sk) iocp socket $ \wallet -> do
+          generate (genPaymentTo networkId vk) >>= submitTx
           result <- timeout 10 $ watchUTxOUntil (not . null) wallet
           result `shouldSatisfy` isJust
 
@@ -290,8 +289,8 @@ genValidatedTx = do
   body <- (\x -> x{txfee = Coin 0}) <$> arbitrary
   pure $ tx{body, wits = mempty}
 
-genPaymentTo :: NetworkMagic -> VerificationKey PaymentKey -> Gen (ValidatedTx Era)
-genPaymentTo magic vk = do
+genPaymentTo :: NetworkId -> VerificationKey PaymentKey -> Gen (ValidatedTx Era)
+genPaymentTo networkId vk = do
   toValidatedTx =<< arbitrary @TxOut `suchThat` atLeast 2_000_000_000
  where
   atLeast v = \case
@@ -303,7 +302,7 @@ genPaymentTo magic vk = do
       ValidatedTx{body, wits, isValid, auxiliaryData} <- arbitrary
       let myAddr =
             toLedgerAddr $
-              mkVkAddress @Cardano.Api.Era (Testnet magic) vk
+              mkVkAddress @Cardano.Api.Era networkId vk
       pure $
         ValidatedTx
           { body =

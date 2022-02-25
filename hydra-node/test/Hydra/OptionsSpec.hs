@@ -3,7 +3,8 @@ module Hydra.OptionsSpec where
 import Hydra.Prelude
 import Test.Hydra.Prelude
 
-import Hydra.Chain.Direct (NetworkMagic (NetworkMagic))
+import Hydra.Cardano.Api (NetworkId (..))
+import Hydra.Chain.Direct (NetworkMagic (..))
 import Hydra.Logging (Verbosity (Verbose))
 import Hydra.Network (Host (Host))
 import Hydra.Options (
@@ -73,27 +74,37 @@ spec = parallel $
     it "parses --hydra-signing-key option as a filepath" $
       ["--hydra-signing-key", "./alice.sk"] `shouldParse` defaultOptions{hydraSigningKey = "./alice.sk"}
 
-    it "parses --network-magic option as a number" $ do
-      shouldNotParse ["--network-magic", "abc"]
-      ["--network-magic", "0"]
+    it "parses --testnet option as a number" $ do
+      shouldNotParse ["--testnet", "abc"]
+      ["--testnet", "0"]
         `shouldParse` defaultOptions
           { chainConfig =
               defaultChainConfig
-                { networkMagic = NetworkMagic 0
+                { networkId = Testnet (NetworkMagic 0)
                 }
           }
-      ["--network-magic", "-1"] -- Word32 overflow expected
+      ["--testnet", "-1"] -- Word32 overflow expected
         `shouldParse` defaultOptions
           { chainConfig =
               defaultChainConfig
-                { networkMagic = NetworkMagic 4294967295
+                { networkId = Testnet (NetworkMagic 4294967295)
                 }
           }
-      ["--network-magic", "123"]
+      ["--testnet", "123"]
         `shouldParse` defaultOptions
           { chainConfig =
               defaultChainConfig
-                { networkMagic = NetworkMagic 123
+                { networkId = Testnet (NetworkMagic 123)
+                }
+          }
+
+    it "parses --mainnet flag" $ do
+      shouldNotParse ["--mainnet", "42"]
+      ["--mainnet"]
+        `shouldParse` defaultOptions
+          { chainConfig =
+              defaultChainConfig
+                { networkId = Mainnet
                 }
           }
 
@@ -143,7 +154,7 @@ defaultOptions =
 defaultChainConfig :: ChainConfig
 defaultChainConfig =
   DirectChainConfig
-    { networkMagic = NetworkMagic 42
+    { networkId = Testnet (NetworkMagic 42)
     , nodeSocket = "node.socket"
     , cardanoSigningKey = "cardano.sk"
     , cardanoVerificationKeys = []
