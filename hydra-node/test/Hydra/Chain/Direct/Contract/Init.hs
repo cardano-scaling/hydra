@@ -12,10 +12,8 @@ import Hydra.Chain.Direct.Contract.Mutation (
  )
 import Hydra.Chain.Direct.Fixture (testNetworkId)
 import Hydra.Chain.Direct.Tx (initTx)
-import Hydra.Ledger.Cardano (
-  genOneUTxOFor,
- )
-import Test.QuickCheck (oneof, vectorOf)
+import Hydra.Ledger.Cardano (genOneUTxOFor)
+import Test.QuickCheck (oneof, suchThat, vectorOf)
 import qualified Prelude
 
 --
@@ -42,20 +40,18 @@ healthyInitTx =
   seedInput = fst . Prelude.head $ UTxO.pairs lookupUTxO
 
 data InitMutation
-  = MutateMintedThreadToken
+  = MutateThreadTokenQuantity
   deriving (Generic, Show, Enum, Bounded)
 
 genInitMutation :: (Tx, UTxO) -> Gen SomeMutation
 genInitMutation (tx, _utxo) =
   oneof
-    [ SomeMutation MutateMintedThreadToken . ChangeMintedValue <$> do
+    [ SomeMutation MutateThreadTokenQuantity . ChangeMintedValue <$> do
         let mintedValue = txMintValue $ txBodyContent $ txBody tx
-            mutatedValue = case mintedValue of
-              TxMintValueNone ->
-                mempty
-              TxMintValue t _ ->
-                -- TODO: we acually want to change the value here
-                t
-
-        pure mutatedValue
+        case mintedValue of
+          TxMintValueNone ->
+            pure mempty
+          TxMintValue v _ -> do
+            someQuantity <- fromInteger <$> arbitrary `suchThat` (/= 1)
+            pure . valueFromList $ map (second $ const someQuantity) $ valueToList v
     ]
