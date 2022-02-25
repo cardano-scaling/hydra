@@ -14,11 +14,12 @@ import CardanoClient (
 import CardanoCluster (
   Actor (Alice, Bob, Carol),
   ClusterLog,
-  Marked (Marked, Normal),
+  Marked (Fuel, Normal),
   defaultNetworkId,
   keysFor,
   newNodeConfig,
   seedFromFaucet,
+  seedFromFaucet_,
   withBFTNode,
  )
 import CardanoNode (NodeLog, RunningNode (..))
@@ -62,7 +63,7 @@ spec = around showLogsOnFailure $ do
         withIOManager $ \iocp -> do
           withDirectChain (contramap (FromDirectChain "alice") tracer) magic iocp nodeSocket aliceKeys alice cardanoKeys (putMVar alicesCallback) $ \Chain{postTx} -> do
             withDirectChain nullTracer magic iocp nodeSocket bobKeys bob cardanoKeys (putMVar bobsCallback) $ \_ -> do
-              void $ seedFromFaucet (Testnet magic) node aliceCardanoVk 100_000_000 Marked
+              seedFromFaucet_ (Testnet magic) node aliceCardanoVk 100_000_000 Fuel
 
               postTx $ InitTx $ HeadParameters 100 [alice, bob, carol]
               alicesCallback `observesInTime` OnInitTx 100 [alice, bob, carol]
@@ -85,7 +86,7 @@ spec = around showLogsOnFailure $ do
         withIOManager $ \iocp -> do
           withDirectChain (contramap (FromDirectChain "alice") tracer) magic iocp nodeSocket aliceKeys alice cardanoKeys (putMVar alicesCallback) $ \Chain{postTx} -> do
             withDirectChain nullTracer magic iocp nodeSocket bobKeys bob cardanoKeys (putMVar bobsCallback) $ \_ -> do
-              void $ seedFromFaucet (Testnet magic) node aliceCardanoVk 100_000_000 Marked
+              seedFromFaucet_ (Testnet magic) node aliceCardanoVk 100_000_000 Fuel
 
               postTx $ InitTx $ HeadParameters 100 [alice, bob, carol]
               alicesCallback `observesInTime` OnInitTx 100 [alice, bob, carol]
@@ -123,7 +124,7 @@ spec = around showLogsOnFailure $ do
         withIOManager $ \iocp -> do
           withDirectChain (contramap (FromDirectChain "alice") tracer) magic iocp nodeSocket aliceKeys alice cardanoKeys (putMVar alicesCallback) $ \Chain{postTx = alicePostTx} -> do
             withDirectChain nullTracer magic iocp nodeSocket bobKeys bob cardanoKeys (putMVar bobsCallback) $ \Chain{postTx = bobPostTx} -> do
-              void $ seedFromFaucet (Testnet magic) node aliceCardanoVk 100_000_000 Marked
+              seedFromFaucet_ (Testnet magic) node aliceCardanoVk 100_000_000 Fuel
 
               alicePostTx $ InitTx $ HeadParameters 100 [alice, carol]
               alicesCallback `observesInTime` OnInitTx 100 [alice, carol]
@@ -140,7 +141,7 @@ spec = around showLogsOnFailure $ do
         let cardanoKeys = [aliceCardanoVk]
         withIOManager $ \iocp -> do
           withDirectChain (contramap (FromDirectChain "alice") tracer) magic iocp nodeSocket aliceKeys alice cardanoKeys (putMVar alicesCallback) $ \Chain{postTx} -> do
-            void $ seedFromFaucet (Testnet magic) node aliceCardanoVk 100_000_000 Marked
+            seedFromFaucet_ (Testnet magic) node aliceCardanoVk 100_000_000 Fuel
 
             postTx $ InitTx $ HeadParameters 100 [alice]
             alicesCallback `observesInTime` OnInitTx 100 [alice]
@@ -169,7 +170,7 @@ spec = around showLogsOnFailure $ do
         let cardanoKeys = [aliceCardanoVk]
         withIOManager $ \iocp -> do
           withDirectChain (contramap (FromDirectChain "alice") tracer) magic iocp nodeSocket aliceKeys alice cardanoKeys (putMVar alicesCallback) $ \Chain{postTx} -> do
-            void $ seedFromFaucet (Testnet magic) node aliceCardanoVk 100_000_000 Marked
+            seedFromFaucet_ (Testnet magic) node aliceCardanoVk 100_000_000 Fuel
 
             postTx $ InitTx $ HeadParameters 100 [alice]
             alicesCallback `observesInTime` OnInitTx 100 [alice]
@@ -186,7 +187,7 @@ spec = around showLogsOnFailure $ do
         let cardanoKeys = [aliceCardanoVk]
         withIOManager $ \iocp -> do
           withDirectChain (contramap (FromDirectChain "alice") tracer) magic iocp nodeSocket aliceKeys alice cardanoKeys (putMVar alicesCallback) $ \Chain{postTx} -> do
-            void $ seedFromFaucet (Testnet magic) node aliceCardanoVk 100_000_000 Marked
+            seedFromFaucet_ (Testnet magic) node aliceCardanoVk 100_000_000 Fuel
 
             postTx $ InitTx $ HeadParameters 100 [alice]
             alicesCallback `observesInTime` OnInitTx 100 [alice]

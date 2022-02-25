@@ -22,6 +22,7 @@ import CardanoCluster (
   defaultNetworkId,
   keysFor,
   seedFromFaucet,
+  seedFromFaucet_,
   withCluster,
  )
 import CardanoNode (ChainTip (..), RunningNode (..), cliQueryTip)
@@ -66,7 +67,7 @@ assertCanSpendInitialFunds :: HasCallStack => RunningCluster -> IO ()
 assertCanSpendInitialFunds = \case
   (RunningCluster ClusterConfig{networkId} (node : _)) -> do
     (vk, _) <- keysFor Alice
-    void $ seedFromFaucet networkId node vk 100_000_000 Normal
+    seedFromFaucet_ networkId node vk 100_000_000 Normal
   _ ->
     error "empty cluster?"
 

@@ -15,11 +15,12 @@ import Cardano.Crypto.DSIGN (
 import CardanoClient (waitForUTxO)
 import CardanoCluster (
   Actor (Alice, Bob, Carol),
-  Marked (Marked, Normal),
+  Marked (Fuel, Normal),
   defaultNetworkId,
   keysFor,
   newNodeConfig,
   seedFromFaucet,
+  seedFromFaucet_,
   withBFTNode,
   writeKeysFor,
  )
@@ -113,8 +114,8 @@ spec = around showLogsOnFailure $
               withHydraNode tracer aliceSkPath [] tmpDir nodeSocket 1 aliceSk [] allNodeIds $ \n1 ->
                 withHydraNode tracer bobSkPath [aliceVkPath] tmpDir nodeSocket 2 bobSk [aliceVk] allNodeIds $ \n2 -> do
                   -- Funds to be used as fuel by Hydra protocol transactions
-                  void $ seedFromFaucet defaultNetworkId node aliceCardanoVk 100_000_000 Marked
-                  void $ seedFromFaucet defaultNetworkId node bobCardanoVk 100_000_000 Marked
+                  seedFromFaucet_ defaultNetworkId node aliceCardanoVk 100_000_000 Fuel
+                  seedFromFaucet_ defaultNetworkId node bobCardanoVk 100_000_000 Fuel
 
                   let contestationPeriod = 10 :: Natural
                   send n1 $ input "Init" ["contestationPeriod" .= contestationPeriod]
@@ -165,7 +166,7 @@ spec = around showLogsOnFailure $
                 withHydraNode tracer bobSkPath [aliceVkPath, carolVkPath] tmpDir nodeSocket 2 bobSk [aliceVk, carolVk] allNodeIds $ \n2 ->
                   withHydraNode tracer carolSkPath [aliceVkPath, bobVkPath] tmpDir nodeSocket 3 carolSk [aliceVk, bobVk] allNodeIds $ \n3 -> do
                     -- Funds to be used as fuel by Hydra protocol transactions
-                    void $ seedFromFaucet defaultNetworkId node aliceCardanoVk 100_000_000 Marked
+                    seedFromFaucet_ defaultNetworkId node aliceCardanoVk 100_000_000 Fuel
                     waitForNodesConnected tracer [n1, n2, n3]
                     send n1 $ input "Init" ["contestationPeriod" .= int 10]
                     waitFor tracer 3 [n1] $ output "ReadyToCommit" ["parties" .= Set.fromList [alice, bob, carol]]
@@ -203,9 +204,9 @@ initAndClose tracer clusterIx node@(RunningNode _ nodeSocket) = do
       waitForNodesConnected tracer [n1, n2, n3]
 
       -- Funds to be used as fuel by Hydra protocol transactions
-      void $ seedFromFaucet defaultNetworkId node aliceCardanoVk 100_000_000 Marked
-      void $ seedFromFaucet defaultNetworkId node bobCardanoVk 100_000_000 Marked
-      void $ seedFromFaucet defaultNetworkId node carolCardanoVk 100_000_000 Marked
+      seedFromFaucet_ defaultNetworkId node aliceCardanoVk 100_000_000 Fuel
+      seedFromFaucet_ defaultNetworkId node bobCardanoVk 100_000_000 Fuel
+      seedFromFaucet_ defaultNetworkId node carolCardanoVk 100_000_000 Fuel
 
       let contestationPeriod = 10 :: Natural
       send n1 $ input "Init" ["contestationPeriod" .= contestationPeriod]

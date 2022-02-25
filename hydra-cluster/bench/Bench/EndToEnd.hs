@@ -14,7 +14,7 @@ import Cardano.Crypto.DSIGN (
   VerKeyDSIGN,
  )
 import CardanoClient (submit, waitForTransaction)
-import CardanoCluster (Marked (Marked), defaultNetworkId, newNodeConfig, seedFromFaucet, withBFTNode)
+import CardanoCluster (Marked (Fuel), defaultNetworkId, newNodeConfig, seedFromFaucet, withBFTNode)
 import CardanoNode (RunningNode (..))
 import Control.Lens (to, (^?))
 import Control.Monad.Class.MonadAsync (mapConcurrently)
@@ -232,7 +232,7 @@ seedNetwork node@(RunningNode _ nodeSocket) Dataset{fundingTransaction, clientDa
 
   fuelWith100Ada ClientDataset{signingKey} = do
     let vk = getVerificationKey signingKey
-    seedFromFaucet defaultNetworkId node vk 100_000_000 Marked
+    seedFromFaucet defaultNetworkId node vk 100_000_000 Fuel
 
 -- | Commit all (expected to exit) 'initialUTxO' from the dataset using the
 -- (asumed same sequence) of clients.

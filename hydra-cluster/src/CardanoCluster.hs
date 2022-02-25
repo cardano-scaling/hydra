@@ -208,7 +208,7 @@ withBFTNode clusterTracer cfg action = do
       threadDelay 0.1
       waitForSocket node
 
-data Marked = Marked | Normal
+data Marked = Fuel | Normal
 
 -- | Create a specially marked "seed" UTXO containing requested 'Lovelace' by
 -- redeeming funds available to the well-known faucet.
@@ -222,7 +222,7 @@ seedFromFaucet ::
   VerificationKey PaymentKey ->
   -- | Amount to get from faucet
   Lovelace ->
-  -- | Marked or normal output?
+  -- | Marked as fuel or normal output?
   Marked ->
   IO UTxO
 seedFromFaucet networkId (RunningNode _ nodeSocket) receivingVerificationKey lovelace marked = do
@@ -255,11 +255,25 @@ seedFromFaucet networkId (RunningNode _ nodeSocket) receivingVerificationKey lov
       theOutputDatum
 
   theOutputDatum = case marked of
-    Marked -> TxOutDatumHash markerDatumHash
+    Fuel -> TxOutDatumHash markerDatumHash
     Normal -> TxOutDatumNone
 
   isCardanoClientException :: CardanoClientException -> Bool
   isCardanoClientException = const True
+
+-- | Like 'seedFromFaucet', but without returning the seeded 'UTxO'.
+seedFromFaucet_ ::
+  NetworkId ->
+  RunningNode ->
+  -- | Recipient of the funds
+  VerificationKey PaymentKey ->
+  -- | Amount to get from faucet
+  Lovelace ->
+  -- | Marked as fuel or normal output?
+  Marked ->
+  IO ()
+seedFromFaucet_ nid node vk ll marked =
+  void $ seedFromFaucet nid node vk ll marked
 
 -- | Initialize the system start time to now (modulo a small offset needed to
 -- give time to the system to bootstrap correctly).

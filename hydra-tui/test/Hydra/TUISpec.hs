@@ -7,11 +7,11 @@ import Blaze.ByteString.Builder.Char8 (writeChar)
 import CardanoCluster (
   Actor (Alice),
   ClusterLog,
-  Marked (Marked, Normal),
+  Marked (Fuel, Normal),
   defaultNetworkId,
   keysFor,
   newNodeConfig,
-  seedFromFaucet,
+  seedFromFaucet_,
   withBFTNode,
   writeKeysFor,
  )
@@ -102,9 +102,9 @@ setupNodeAndTUI action =
         let nodeId = 1
         withHydraNode (contramap FromHydra tracer) aliceSkPath [] tmpDir nodeSocket nodeId aliceSk [] [nodeId] $ \HydraClient{hydraNodeId} -> do
           -- Fuel to pay hydra transactions
-          void $ seedFromFaucet defaultNetworkId node aliceCardanoVk 100_000_000 Marked
+          seedFromFaucet_ defaultNetworkId node aliceCardanoVk 100_000_000 Fuel
           -- Some ADA to commit
-          void $ seedFromFaucet defaultNetworkId node aliceCardanoVk 42_000_000 Normal
+          seedFromFaucet_ defaultNetworkId node aliceCardanoVk 42_000_000 Normal
 
           withTUITest (150, 10) $ \brickTest@TUITest{buildVty} -> do
             race_
