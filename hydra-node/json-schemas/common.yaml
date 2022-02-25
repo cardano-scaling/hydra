@@ -291,9 +291,13 @@ definitions:
           has unlimited validity. Each bound is a slot number.
         properties:
           notBefore:
-            type: integer
+            oneOf:
+              - type: integer
+              - type: "null"
           notAfter:
-            type: integer
+            oneOf:
+              - type: integer
+              - type: "null"
       auxiliaryDataHash:
         type: string
         contentEncoding: base16

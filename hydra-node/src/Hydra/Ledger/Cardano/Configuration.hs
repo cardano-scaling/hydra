@@ -1,4 +1,8 @@
-module Hydra.Ledger.Cardano.Configuration where
+module Hydra.Ledger.Cardano.Configuration (
+  module Hydra.Ledger.Cardano.Configuration,
+  Ledger.Globals,
+  Ledger.LedgerEnv,
+) where
 
 import Hydra.Cardano.Api
 import Hydra.Prelude

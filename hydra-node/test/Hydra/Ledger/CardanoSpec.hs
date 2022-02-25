@@ -14,11 +14,10 @@ import Data.Aeson (eitherDecode, encode)
 import qualified Data.Aeson as Aeson
 import qualified Data.ByteString.Base16 as Base16
 import Data.Text (unpack)
+import Hydra.Chain.Direct.Fixture (defaultGlobals, defaultLedgerEnv)
 import Hydra.Ledger (applyTransactions)
 import Hydra.Ledger.Cardano (
   cardanoLedger,
-  defaultGlobals,
-  defaultLedgerEnv,
   genSequenceOfValidTransactions,
   genUTxO,
  )
