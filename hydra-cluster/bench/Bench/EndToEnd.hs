@@ -223,11 +223,14 @@ movingAverage confirmations =
 -- the dataset.
 seedNetwork :: RunningNode -> Dataset -> IO ()
 seedNetwork node@(RunningNode _ nodeSocket) Dataset{fundingTransaction, clientDatasets} = do
-  -- Submit the funding transaction first
-  submit defaultNetworkId nodeSocket fundingTransaction
-  void $ waitForTransaction defaultNetworkId nodeSocket fundingTransaction
-  -- Then, fuel all clients with some 100 ADA
-  forM_ clientDatasets $ \ClientDataset{signingKey} -> do
+  fundClients
+  forM_ clientDatasets fuelWith100Ada
+ where
+  fundClients = do
+    submit defaultNetworkId nodeSocket fundingTransaction
+    void $ waitForTransaction defaultNetworkId nodeSocket fundingTransaction
+
+  fuelWith100Ada ClientDataset{signingKey} = do
     let vk = getVerificationKey signingKey
     seedFromFaucet defaultNetworkId node vk 100_000_000 Marked
 
@@ -242,9 +245,9 @@ commitUTxO clients Dataset{clientDatasets} =
 processTransactions :: [HydraClient] -> Dataset -> IO (Map.Map TxId Event)
 processTransactions clients Dataset{clientDatasets} = do
   let processors = zip (zip clientDatasets (cycle clients)) [1 ..]
-  mconcat <$> mapConcurrently (uncurry clientProcessTransactionsSequence) processors
+  mconcat <$> mapConcurrently (uncurry clientProcessDataset) processors
  where
-  clientProcessTransactionsSequence (ClientDataset{txSequence}, client) clientId = do
+  clientProcessDataset (ClientDataset{txSequence}, client) clientId = do
     let numberOfTxs = length txSequence
     submissionQ <- newTBQueueIO (fromIntegral numberOfTxs)
     registry <- newRegistry
