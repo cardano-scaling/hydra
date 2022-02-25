@@ -140,9 +140,9 @@ library
     , formatting
     , gitrev
     , hedgehog-quickcheck
+    , hydra-cardano-api
     , hydra-plutus
     , hydra-prelude
-    , hydra-cardano-api
     , io-classes
     , iohk-monitoring
     , iproute
@@ -235,6 +235,7 @@ test-suite tests
     Hydra.Chain.Direct.Contract.CollectCom
     Hydra.Chain.Direct.Contract.Commit
     Hydra.Chain.Direct.Contract.FanOut
+    Hydra.Chain.Direct.Contract.Init
     Hydra.Chain.Direct.Contract.Mutation
     Hydra.Chain.Direct.ContractSpec
     Hydra.Chain.Direct.Fixture
