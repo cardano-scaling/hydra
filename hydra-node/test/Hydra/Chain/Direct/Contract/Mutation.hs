@@ -252,8 +252,8 @@ data Mutation
     ChangeInput TxIn (TxOut CtxUTxO)
   | -- | Change the transaction's output at given index to something else.
     ChangeOutput Word (TxOut CtxTx)
-  | -- | Change the transaction's minted values.
-    ChangeMintedValue (Maybe Value)
+  | -- | Change the transaction's minted values if it is actually minting something.
+    ChangeMintedValue Value
   | -- | Applies several mutations as a single atomic 'Mutation'.
     -- This is useful to enable specific mutations that require consistent
     -- change of more than one thing in the transaction and/or UTxO set, for
@@ -331,8 +331,12 @@ applyMutation mutation (tx@(Tx body wits), utxo) = case mutation of
         )
         []
         (zip [0 ..] outs)
-  ChangeMintedValue _ ->
-    error "undefined"
+  ChangeMintedValue v' ->
+    (Tx body' wits, utxo)
+   where
+    ShelleyTxBody ledgerBody scripts scriptData mAuxData scriptValidity = body
+    ledgerBody' = ledgerBody{Ledger.mint = toLedgerValue v'}
+    body' = ShelleyTxBody ledgerBody' scripts scriptData mAuxData scriptValidity
   Changes mutations ->
     foldr applyMutation (tx, utxo) mutations
 

@@ -52,10 +52,10 @@ genInitMutation (tx, _utxo) =
         let mintedValue = txMintValue $ txBodyContent $ txBody tx
             mutatedValue = case mintedValue of
               TxMintValueNone ->
-                Nothing
+                mempty
               TxMintValue t _ ->
                 -- TODO: we acually want to change the value here
-                Just t
+                t
 
         pure mutatedValue
     ]
