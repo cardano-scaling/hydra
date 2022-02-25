@@ -28,8 +28,8 @@ function ccli() {
 function seedFaucet() {
     ACTOR=${1}
     AMOUNT=${2}
-    MARKED=${3:-false}
-    echo >&2 "Seeding a UTXO from faucet to ${ACTOR} with ${AMOUNT}Ł"
+    MARKED=${3:-"normal"}
+    echo >&2 "Seeding a UTXO from faucet to ${ACTOR} with ${AMOUNT}Ł (${MARKED})"
 
     # Determine faucet address and just the **first** txin addressed to it
     FAUCET_ADDR=$(ccli address build --payment-verification-key-file ${DEVNET_DIR}/credentials/faucet.vk)
@@ -39,7 +39,7 @@ function seedFaucet() {
 
     # Optionally mark output
     MARKER=""
-    if ${MARKED}; then
+    if [[ "${MARKED}" == "fuel" ]]; then
         MARKER="--tx-out-datum-hash ${MARKER_DATUM_HASH}"
     fi
 
@@ -57,8 +57,8 @@ function seedFaucet() {
 }
 
 seedFaucet "alice" 1000000000 # 1000 Ada to commit
-seedFaucet "alice" 100000000 true # 100 Ada marked as "fuel"
+seedFaucet "alice" 100000000 "fuel" # 100 Ada marked as "fuel"
 seedFaucet "bob" 500000000 # 500 Ada to commit
-seedFaucet "bob" 100000000 true # 100 Ada marked as "fuel"
+seedFaucet "bob" 100000000 "fuel" # 100 Ada marked as "fuel"
 seedFaucet "carol" 250000000 # 250 Ada to commit
-seedFaucet "carol" 100000000 true # 100 Ada marked as "fuel"
+seedFaucet "carol" 100000000 "fuel" # 100 Ada marked as "fuel"
