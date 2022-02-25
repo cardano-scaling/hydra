@@ -1,9 +1,9 @@
 {-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE DerivingStrategies #-}
-{-# LANGUAGE TypeApplications #-}
 
 module CardanoCluster where
 
+import Hydra.Cardano.Api
 import Hydra.Prelude
 
 import qualified Cardano.Api.UTxO as UTxO
@@ -25,35 +25,12 @@ import CardanoNode (
   Port,
   PortsConfig (..),
   RunningNode (..),
-  addField,
   defaultCardanoNodeArgs,
   withCardanoNode,
  )
-import Control.Lens ((.~))
 import Control.Tracer (Tracer, traceWith)
-import Data.Aeson (object)
 import qualified Data.Aeson as Aeson
-import Data.Aeson.Lens (key)
 import qualified Data.ByteString as BS
-import Data.ByteString.Base16 (encodeBase16)
-import Hydra.Cardano.Api (
-  AsType (..),
-  Lovelace,
-  NetworkId (Testnet),
-  NetworkMagic (NetworkMagic),
-  PaymentKey,
-  SigningKey,
-  TextEnvelopeError (TextEnvelopeAesonDecodeError),
-  UTxO,
-  VerificationKey (PaymentVerificationKey),
-  deserialiseFromTextEnvelope,
-  getVerificationKey,
-  lovelaceToValue,
-  serialiseToRawBytes,
-  shelleyAddressInEra,
-  txOutLovelace,
- )
-import qualified Hydra.Cardano.Api as Api
 import Hydra.Chain.Direct.Util (markerDatumHash, retry)
 import qualified Hydra.Chain.Direct.Util as Cardano
 import qualified Paths_hydra_cluster as Pkg
@@ -65,8 +42,6 @@ import System.Posix.Files (
  )
 import Test.Network.Ports (randomUnusedTCPPort, randomUnusedTCPPorts)
 
-data RunningCluster = RunningCluster ClusterConfig [RunningNode]
-
 -- | TODO: This is hard-coded and must match what's in the genesis file, so
 -- ideally, we want to either:
 --
@@ -75,35 +50,12 @@ data RunningCluster = RunningCluster ClusterConfig [RunningNode]
 defaultNetworkId :: NetworkId
 defaultNetworkId = Testnet (NetworkMagic 42)
 
--- FIXME: This is hard-coded and should correspond to the initial funds set in
--- the genesis file.
+-- NOTE: This is hard-coded and needs to correspond to the initial funds set in
+-- the genesis-shelley.json file.
 availableInitialFunds :: Num a => a
 availableInitialFunds = 900_000_000_000
 
--- | Configuration parameters for the cluster.
-data ClusterConfig = ClusterConfig
-  { parentStateDirectory :: FilePath
-  , networkId :: NetworkId
-  , initialFunds :: [VerificationKey PaymentKey]
-  }
-
-asSigningKey :: AsType (SigningKey PaymentKey)
-asSigningKey = AsSigningKey AsPaymentKey
-
-withCluster ::
-  Tracer IO ClusterLog -> ClusterConfig -> (RunningCluster -> IO ()) -> IO ()
-withCluster tr cfg@ClusterConfig{parentStateDirectory, initialFunds} action = do
-  systemStart <- initSystemStart
-  (cfgA, cfgB, cfgC) <-
-    makeNodesConfig parentStateDirectory systemStart
-      <$> randomUnusedTCPPorts 3
-
-  withBFTNode tr cfgA initialFunds $ \nodeA -> do
-    withBFTNode tr cfgB initialFunds $ \nodeB -> do
-      withBFTNode tr cfgC initialFunds $ \nodeC -> do
-        let nodes = [nodeA, nodeB, nodeC]
-        action (RunningCluster cfg nodes)
-
+-- | Enumeration of known actors for which we can get the 'keysFor' and 'writeKeysFor'.
 data Actor
   = Alice
   | Bob
@@ -117,6 +69,7 @@ actorName = \case
   Carol -> "carol"
   Faucet -> "faucet"
 
+-- | Get the "well-known" keys for given actor.
 keysFor :: Actor -> IO (VerificationKey PaymentKey, SigningKey PaymentKey)
 keysFor actor = do
   bs <- readConfigFile ("credentials" </> actorName actor <.> "sk")
@@ -151,13 +104,43 @@ writeKeysFor targetDir actor = do
 
   vkName = actorName actor <.> ".vk"
 
+-- * Starting a cluster or single nodes
+
+data RunningCluster = RunningCluster ClusterConfig [RunningNode]
+
+-- | Configuration parameters for the cluster.
+data ClusterConfig = ClusterConfig
+  { parentStateDirectory :: FilePath
+  , networkId :: NetworkId
+  }
+
+asSigningKey :: AsType (SigningKey PaymentKey)
+asSigningKey = AsSigningKey AsPaymentKey
+
+withCluster ::
+  Tracer IO ClusterLog -> ClusterConfig -> (RunningCluster -> IO ()) -> IO ()
+withCluster tr cfg@ClusterConfig{parentStateDirectory} action = do
+  systemStart <- initSystemStart
+  (cfgA, cfgB, cfgC) <-
+    makeNodesConfig parentStateDirectory systemStart
+      <$> randomUnusedTCPPorts 3
+
+  withBFTNode tr cfgA $ \nodeA -> do
+    withBFTNode tr cfgB $ \nodeB -> do
+      withBFTNode tr cfgC $ \nodeC -> do
+        let nodes = [nodeA, nodeB, nodeC]
+        action (RunningCluster cfg nodes)
+
+-- | Start a cardano-node in BFT mode using the config from config/ and
+-- credentials from config/credentials/ using given 'nodeId'. NOTE: This means
+-- that nodeId should only be 1,2 or 3 and that only the faucet receives
+-- 'initialFunds'. Use 'seedFromFaucet' to distribute funds other wallets.
 withBFTNode ::
   Tracer IO ClusterLog ->
   CardanoNodeConfig ->
-  [VerificationKey PaymentKey] ->
   (RunningNode -> IO ()) ->
   IO ()
-withBFTNode clusterTracer cfg initialFunds action = do
+withBFTNode clusterTracer cfg action = do
   createDirectoryIfMissing False (stateDirectory cfg)
 
   [dlgCert, signKey, vrfKey, kesKey, opCert] <-
@@ -188,7 +171,9 @@ withBFTNode clusterTracer cfg initialFunds action = do
     >>= writeFileBS
       (stateDirectory cfg </> nodeByronGenesisFile args)
 
-  setInitialFundsInGenesisShelley (stateDirectory cfg </> nodeShelleyGenesisFile args)
+  readConfigFile "genesis-shelley.json"
+    >>= writeFileBS
+      (stateDirectory cfg </> nodeShelleyGenesisFile args)
 
   readConfigFile "genesis-alonzo.json"
     >>= writeFileBS
@@ -205,28 +190,11 @@ withBFTNode clusterTracer cfg initialFunds action = do
   kesKeyFilename i = "delegate" <> show i <> ".kes.skey"
   opCertFilename i = "opcert" <> show i <> ".cert"
 
-  setInitialFundsInGenesisShelley file = do
-    bs <- readConfigFile "genesis-shelley.json"
-    genesisJson <- either fail pure $ Aeson.eitherDecodeStrict @Aeson.Value bs
-    let updatedJson = genesisJson & key "initialFunds" .~ initialFundsValue
-    Aeson.encodeFile file updatedJson
-
-  initialFundsValue =
-    foldr
-      (uncurry addField)
-      (object [])
-      (mkInitialFundsEntry <$> initialFunds)
-
-  mkInitialFundsEntry :: VerificationKey PaymentKey -> (Text, Word)
-  mkInitialFundsEntry vk =
-    let addr = buildAddress vk defaultNetworkId
-        bytes = serialiseToRawBytes addr
-     in (encodeBase16 bytes, availableInitialFunds)
-
   copyCredential parentDir file = do
     bs <- readConfigFile ("credentials" </> file)
     let destination = parentDir </> file
-    writeFileBS destination bs
+    unlessM (doesFileExist destination) $
+      writeFileBS destination bs
     setFileMode destination ownerReadMode
     pure destination
 
@@ -240,7 +208,7 @@ withBFTNode clusterTracer cfg initialFunds action = do
       threadDelay 0.1
       waitForSocket node
 
-data Marked = Marked | Normal
+data Marked = Fuel | Normal
 
 -- | Create a specially marked "seed" UTXO containing requested 'Lovelace' by
 -- redeeming funds available to the well-known faucet.
@@ -254,7 +222,7 @@ seedFromFaucet ::
   VerificationKey PaymentKey ->
   -- | Amount to get from faucet
   Lovelace ->
-  -- | Marked or normal output?
+  -- | Marked as fuel or normal output?
   Marked ->
   IO UTxO
 seedFromFaucet networkId (RunningNode _ nodeSocket) receivingVerificationKey lovelace marked = do
@@ -281,17 +249,31 @@ seedFromFaucet networkId (RunningNode _ nodeSocket) receivingVerificationKey lov
   receivingAddress = buildAddress receivingVerificationKey networkId
 
   theOutput =
-    Api.TxOut
+    TxOut
       (shelleyAddressInEra receivingAddress)
       (lovelaceToValue lovelace)
       theOutputDatum
 
   theOutputDatum = case marked of
-    Marked -> Api.TxOutDatumHash markerDatumHash
-    Normal -> Api.TxOutDatumNone
+    Fuel -> TxOutDatumHash markerDatumHash
+    Normal -> TxOutDatumNone
 
   isCardanoClientException :: CardanoClientException -> Bool
   isCardanoClientException = const True
+
+-- | Like 'seedFromFaucet', but without returning the seeded 'UTxO'.
+seedFromFaucet_ ::
+  NetworkId ->
+  RunningNode ->
+  -- | Recipient of the funds
+  VerificationKey PaymentKey ->
+  -- | Amount to get from faucet
+  Lovelace ->
+  -- | Marked as fuel or normal output?
+  Marked ->
+  IO ()
+seedFromFaucet_ nid node vk ll marked =
+  void $ seedFromFaucet nid node vk ll marked
 
 -- | Initialize the system start time to now (modulo a small offset needed to
 -- give time to the system to bootstrap correctly).

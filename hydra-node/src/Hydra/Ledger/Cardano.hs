@@ -28,7 +28,6 @@ import qualified Cardano.Ledger.BaseTypes as Ledger
 import qualified Cardano.Ledger.Core as Ledger
 import qualified Cardano.Ledger.Credential as Ledger
 import qualified Cardano.Ledger.Crypto as Ledger (StandardCrypto)
-import qualified Cardano.Ledger.Keys as Ledger
 import qualified Cardano.Ledger.Mary as Ledger.Mary hiding (Value)
 import qualified Cardano.Ledger.Shelley.API.Mempool as Ledger
 import qualified Cardano.Ledger.Shelley.Genesis as Ledger
@@ -210,16 +209,20 @@ instance Arbitrary UTxO where
 
 -- * Generators
 
-genVerificationKey :: Gen (VerificationKey PaymentKey)
-genVerificationKey = fst <$> genKeyPair
-
-genKeyPair :: Gen (VerificationKey PaymentKey, SigningKey PaymentKey)
-genKeyPair = do
+genSigningKey :: Gen (SigningKey PaymentKey)
+genSigningKey = do
   -- NOTE: not using 'genKeyDSIGN' purposely here, it is not pure and does not
   -- play well with pure generation from seed.
   sk <- fromJust . CC.rawDeserialiseSignKeyDSIGN . fromList <$> vectorOf 64 arbitrary
-  let vk = CC.deriveVerKeyDSIGN sk
-  pure (PaymentVerificationKey (Ledger.VKey vk), PaymentSigningKey sk)
+  pure (PaymentSigningKey sk)
+
+genVerificationKey :: Gen (VerificationKey PaymentKey)
+genVerificationKey = getVerificationKey <$> genSigningKey
+
+genKeyPair :: Gen (VerificationKey PaymentKey, SigningKey PaymentKey)
+genKeyPair = do
+  sk <- genSigningKey
+  pure (getVerificationKey sk, sk)
 
 -- TODO: Generate non-genesis transactions for better coverage.
 -- TODO: Enable Alonzo-specific features. We started off in the Mary era, and

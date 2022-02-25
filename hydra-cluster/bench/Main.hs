@@ -112,7 +112,7 @@ main =
         Left err -> fail $ show err
         Right shelleyGenesis ->
           pure $ fromLedgerPParams ShelleyBasedEraShelley (sgProtocolParams shelleyGenesis)
-    dataset <- replicateM (fromIntegral clusterSize) (generateConstantUTxODataset pparams numberOfTxs)
+    dataset <- generateConstantUTxODataset pparams (fromIntegral clusterSize) numberOfTxs
     saveDataset benchDir dataset
     run timeoutSeconds benchDir dataset clusterSize
 

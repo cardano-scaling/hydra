@@ -12,19 +12,15 @@ import Cardano.Crypto.DSIGN (
   SignKeyDSIGN,
   VerKeyDSIGN,
  )
-import CardanoClient (
-  postSeedPayment,
-  queryProtocolParameters,
-  waitForUTxO,
- )
+import CardanoClient (waitForUTxO)
 import CardanoCluster (
-  Actor (Alice, Bob, Carol, Faucet),
-  Marked (Marked, Normal),
-  availableInitialFunds,
+  Actor (Alice, Bob, Carol),
+  Marked (Fuel, Normal),
   defaultNetworkId,
   keysFor,
   newNodeConfig,
   seedFromFaucet,
+  seedFromFaucet_,
   withBFTNode,
   writeKeysFor,
  )
@@ -82,8 +78,7 @@ spec = around showLogsOnFailure $
         failAfter 60 $
           withTempDir "end-to-end-cardano-node" $ \tmpDir -> do
             config <- newNodeConfig tmpDir
-            (faucetVk, _) <- keysFor Faucet
-            withBFTNode (contramap FromCluster tracer) config [faucetVk] $ \node -> do
+            withBFTNode (contramap FromCluster tracer) config $ \node -> do
               initAndClose tracer 1 node
 
     describe "two hydra heads scenario" $ do
@@ -91,8 +86,7 @@ spec = around showLogsOnFailure $
         failAfter 60 $
           withTempDir "end-to-end-cardano-node" $ \tmpDir -> do
             config <- newNodeConfig tmpDir
-            (faucetVk, _) <- keysFor Faucet
-            withBFTNode (contramap FromCluster tracer) config [faucetVk] $ \node -> do
+            withBFTNode (contramap FromCluster tracer) config $ \node -> do
               concurrently_
                 (initAndClose tracer 0 node)
                 (initAndClose tracer 1 node)
@@ -112,16 +106,16 @@ spec = around showLogsOnFailure $
         failAfter 60 $
           withTempDir "end-to-end-two-heads" $ \tmpDir -> do
             config <- newNodeConfig tmpDir
-            (aliceCardanoVk, aliceCardanoSk) <- keysFor Alice
-            (bobCardanoVk, bobCardanoSk) <- keysFor Bob
-            withBFTNode (contramap FromCluster tracer) config [aliceCardanoVk, bobCardanoVk] $ \(RunningNode _ nodeSocket) -> do
+            withBFTNode (contramap FromCluster tracer) config $ \node@(RunningNode _ nodeSocket) -> do
+              (aliceCardanoVk, _aliceCardanoSk) <- keysFor Alice
+              (bobCardanoVk, _bobCardanoSk) <- keysFor Bob
               (aliceVkPath, aliceSkPath) <- writeKeysFor tmpDir Alice
               (_, bobSkPath) <- writeKeysFor tmpDir Bob
-              pparams <- queryProtocolParameters defaultNetworkId nodeSocket
               withHydraNode tracer aliceSkPath [] tmpDir nodeSocket 1 aliceSk [] allNodeIds $ \n1 ->
                 withHydraNode tracer bobSkPath [aliceVkPath] tmpDir nodeSocket 2 bobSk [aliceVk] allNodeIds $ \n2 -> do
-                  postSeedPayment defaultNetworkId pparams availableInitialFunds nodeSocket aliceCardanoSk 100_000_000
-                  postSeedPayment defaultNetworkId pparams availableInitialFunds nodeSocket bobCardanoSk 100_000_000
+                  -- Funds to be used as fuel by Hydra protocol transactions
+                  seedFromFaucet_ defaultNetworkId node aliceCardanoVk 100_000_000 Fuel
+                  seedFromFaucet_ defaultNetworkId node bobCardanoVk 100_000_000 Fuel
 
                   let contestationPeriod = 10 :: Natural
                   send n1 $ input "Init" ["contestationPeriod" .= contestationPeriod]
@@ -162,18 +156,18 @@ spec = around showLogsOnFailure $
 
         withTempDir "end-to-end-prometheus-metrics" $ \tmpDir -> do
           config <- newNodeConfig tmpDir
-          (aliceCardanoVk, aliceCardanoSk) <- keysFor Alice
-          withBFTNode (contramap FromCluster tracer) config [aliceCardanoVk] $ \(RunningNode _ nodeSocket) -> do
+          (aliceCardanoVk, _) <- keysFor Alice
+          withBFTNode (contramap FromCluster tracer) config $ \node@(RunningNode _ nodeSocket) -> do
             (aliceVkPath, aliceSkPath) <- writeKeysFor tmpDir Alice
             (bobVkPath, bobSkPath) <- writeKeysFor tmpDir Bob
             (carolVkPath, carolSkPath) <- writeKeysFor tmpDir Carol
-            pparams <- queryProtocolParameters defaultNetworkId nodeSocket
             failAfter 20 $
               withHydraNode tracer aliceSkPath [bobVkPath, carolVkPath] tmpDir nodeSocket 1 aliceSk [bobVk, carolVk] allNodeIds $ \n1 ->
-                withHydraNode tracer bobSkPath [aliceVkPath, carolVkPath] tmpDir nodeSocket 2 bobSk [aliceVk, carolVk] allNodeIds $ \_ ->
-                  withHydraNode tracer carolSkPath [aliceVkPath, bobVkPath] tmpDir nodeSocket 3 carolSk [aliceVk, bobVk] allNodeIds $ \_ -> do
-                    postSeedPayment defaultNetworkId pparams availableInitialFunds nodeSocket aliceCardanoSk 100_000_000
-                    waitForNodesConnected tracer [n1]
+                withHydraNode tracer bobSkPath [aliceVkPath, carolVkPath] tmpDir nodeSocket 2 bobSk [aliceVk, carolVk] allNodeIds $ \n2 ->
+                  withHydraNode tracer carolSkPath [aliceVkPath, bobVkPath] tmpDir nodeSocket 3 carolSk [aliceVk, bobVk] allNodeIds $ \n3 -> do
+                    -- Funds to be used as fuel by Hydra protocol transactions
+                    seedFromFaucet_ defaultNetworkId node aliceCardanoVk 100_000_000 Fuel
+                    waitForNodesConnected tracer [n1, n2, n3]
                     send n1 $ input "Init" ["contestationPeriod" .= int 10]
                     waitFor tracer 3 [n1] $ output "ReadyToCommit" ["parties" .= Set.fromList [alice, bob, carol]]
                     metrics <- getMetrics n1
@@ -210,9 +204,9 @@ initAndClose tracer clusterIx node@(RunningNode _ nodeSocket) = do
       waitForNodesConnected tracer [n1, n2, n3]
 
       -- Funds to be used as fuel by Hydra protocol transactions
-      void $ seedFromFaucet defaultNetworkId node aliceCardanoVk 100_000_000 Marked
-      void $ seedFromFaucet defaultNetworkId node bobCardanoVk 100_000_000 Marked
-      void $ seedFromFaucet defaultNetworkId node carolCardanoVk 100_000_000 Marked
+      seedFromFaucet_ defaultNetworkId node aliceCardanoVk 100_000_000 Fuel
+      seedFromFaucet_ defaultNetworkId node bobCardanoVk 100_000_000 Fuel
+      seedFromFaucet_ defaultNetworkId node carolCardanoVk 100_000_000 Fuel
 
       let contestationPeriod = 10 :: Natural
       send n1 $ input "Init" ["contestationPeriod" .= contestationPeriod]

@@ -1,5 +1,3 @@
-{-# OPTIONS_GHC -Wno-deferred-out-of-scope-variables #-}
-
 -- | A basic cardano-node client that can talk to a local cardano-node.
 --
 -- The idea of this module is to provide a Haskell interface on top of cardano-cli's API,
@@ -12,10 +10,8 @@ import Hydra.Cardano.Api
 
 import qualified Cardano.Api.UTxO as UTxO
 import Cardano.Slotting.Time (SystemStart)
-import CardanoNode (RunningNode (RunningNode))
 import qualified Data.Map as Map
 import qualified Data.Set as Set
-import qualified Hydra.Chain.Direct.Util as Hydra
 import Ouroboros.Consensus.HardFork.Combinator.AcrossEras (EraMismatch)
 import Ouroboros.Network.Protocol.LocalTxSubmission.Client (SubmitResult (..))
 
@@ -73,6 +69,19 @@ queryUTxOByTxIn networkId socket inputs =
           ( QueryInShelleyBasedEra
               ShelleyBasedEraAlonzo
               (QueryUTxO (QueryUTxOByTxIn (Set.fromList inputs)))
+          )
+   in UTxO.fromApi <$> runQuery networkId socket query
+
+-- | Query the whole UTxO from node. Useful for debugging, but should obviously
+-- not be used in production code.
+queryUTxOWhole :: NetworkId -> FilePath -> IO UTxO
+queryUTxOWhole networkId socket =
+  let query =
+        QueryInEra
+          AlonzoEraInCardanoMode
+          ( QueryInShelleyBasedEra
+              ShelleyBasedEraAlonzo
+              (QueryUTxO QueryUTxOWhole)
           )
    in UTxO.fromApi <$> runQuery networkId socket query
 
@@ -327,78 +336,40 @@ waitForTransaction networkId socket tx =
 mkGenesisTx ::
   NetworkId ->
   ProtocolParameters ->
-  -- | Amount of initialFunds
-  Lovelace ->
   -- | Owner of the 'initialFund'.
   SigningKey PaymentKey ->
-  -- | Recipient of this transaction.
-  VerificationKey PaymentKey ->
-  -- |Amount to pay
+  -- | Amount of initialFunds
   Lovelace ->
+  -- | Recipients and amounts to pay in this transaction.
+  [(VerificationKey PaymentKey, Lovelace)] ->
   Tx
-mkGenesisTx networkId pparams initialAmount signingKey verificationKey amount =
-  let initialInput =
-        genesisUTxOPseudoTxIn
-          networkId
-          (unsafeCastHash $ verificationKeyHash $ getVerificationKey signingKey)
-
-      rawTx = case buildRaw [initialInput] [] 0 of
-        Left err -> error $ "Fail to build genesis transactions: " <> show err
-        Right tx -> tx
-      fee = calculateMinFee networkId rawTx Sizes{inputs = 1, outputs = 2, witnesses = 1} pparams
-
-      changeAddr = mkVkAddress networkId (getVerificationKey signingKey)
-      changeOutput =
-        TxOut
-          changeAddr
-          (lovelaceToValue $ initialAmount - amount - fee)
-          (TxOutDatumHash Hydra.markerDatumHash)
-
-      recipientAddr = mkVkAddress networkId verificationKey
-      recipientOutput =
-        TxOut
-          recipientAddr
-          (lovelaceToValue amount)
-          TxOutDatumNone
-   in case buildRaw [initialInput] [recipientOutput, changeOutput] fee of
-        Left err -> error $ "Fail to build genesis transations: " <> show err
-        Right tx -> sign signingKey tx
-
--- TODO: replace with 'seedFromFaucet'
-generatePaymentToCommit ::
-  HasCallStack =>
-  NetworkId ->
-  RunningNode ->
-  SigningKey PaymentKey ->
-  VerificationKey PaymentKey ->
-  Lovelace ->
-  IO UTxO
-generatePaymentToCommit networkId (RunningNode _ nodeSocket) spendingSigningKey receivingVerificationKey lovelace = do
-  UTxO availableUTxO <- queryUTxO networkId nodeSocket [spendingAddress]
-  let inputs = (,Nothing) <$> Map.keys (Map.filter (not . Hydra.isMarkedOutput) availableUTxO)
-  build networkId nodeSocket spendingAddress inputs [] [theOutput] >>= \case
-    Left e -> error (show e)
-    Right body -> do
-      let tx = sign spendingSigningKey body
-      submit networkId nodeSocket tx
-      waitForPayment networkId nodeSocket lovelace receivingAddress
+mkGenesisTx networkId pparams signingKey initialAmount recipients =
+  case buildRaw [initialInput] (recipientOutputs <> [changeOutput]) fee of
+    Left err -> error $ "Fail to build genesis transations: " <> show err
+    Right tx -> sign signingKey tx
  where
-  spendingAddress = buildAddress (getVerificationKey spendingSigningKey) networkId
+  initialInput =
+    genesisUTxOPseudoTxIn
+      networkId
+      (unsafeCastHash $ verificationKeyHash $ getVerificationKey signingKey)
 
-  receivingAddress = buildAddress receivingVerificationKey networkId
+  fee = calculateMinFee networkId rawTx Sizes{inputs = 1, outputs = length recipients + 1, witnesses = 1} pparams
+  rawTx = case buildRaw [initialInput] [] 0 of
+    Left err -> error $ "Fail to build genesis transactions: " <> show err
+    Right tx -> tx
 
-  theOutput =
+  totalSent = foldMap snd recipients
+
+  changeAddr = mkVkAddress networkId (getVerificationKey signingKey)
+  changeOutput =
     TxOut
-      (shelleyAddressInEra receivingAddress)
-      (lovelaceToValue lovelace)
+      changeAddr
+      (lovelaceToValue $ initialAmount - totalSent - fee)
       TxOutDatumNone
 
--- TODO: replace usages with 'seedFromFaucet'
-postSeedPayment :: NetworkId -> ProtocolParameters -> Lovelace -> FilePath -> SigningKey PaymentKey -> Lovelace -> IO ()
-postSeedPayment networkId pparams initialAmount nodeSocket signingKey amountLovelace = do
-  let genesisTx = mkGenesisTx networkId pparams initialAmount signingKey verificationKey amountLovelace
-  submit networkId nodeSocket genesisTx
-  void $ waitForPayment networkId nodeSocket amountLovelace addr
- where
-  verificationKey = getVerificationKey signingKey
-  addr = buildAddress verificationKey networkId
+  recipientOutputs =
+    flip map recipients $ \(vk, ll) ->
+      TxOut
+        (mkVkAddress networkId vk)
+        (lovelaceToValue ll)
+        TxOutDatumNone

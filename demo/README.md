@@ -121,24 +121,18 @@ In the current stage of development, Hydra nodes need a specially crafted set of
 
 ## With Docker
 
-The included script `seed-devnet.sh` uses the `cardano-cli` in the already running `cardano-node` container to give Alice, Bob and Carol some "fuel" UTXO while the change can be used to commit to the Head (this is why amounts vary in the script).
+The included script `seed-devnet.sh` uses the `cardano-cli` in the already running `cardano-node` container to give Alice, Bob and Carol some UTXO to commit and some "fuel" UTXO.
 
 NOTE: There is nothing special about those transactions so one could any other Cardano client to create those transactions. This transaction must match the following characteristics:
-* It must pay all its outputs to the key that's used by the Hydra Node's internal wallet, as defined by argument `--cardano-signing-key` of `hydra-node` executable,
-* One of the outputs of the transaction must include datum hash `a654fb60d21c1fed48db2c320aa6df9737ec0204c0ba53b9b94a09fb40e757f3`.
+* It must pay outputs to commit to the key that's used by the Hydra Node's internal wallet, as defined by argument `--cardano-signing-key` of `hydra-node` executable,
+* One of the outputs must include datum hash `a654fb60d21c1fed48db2c320aa6df9737ec0204c0ba53b9b94a09fb40e757f3` as this is our "fuel" marker.
 
 ## Without Docker
 
-To seed the network with those UTXO, posting a transaction, one can use the `seed-network` executable:
+You can use the `seed-devnet.sh` script by passing it the path to a `cardano-cli` executable to use instead of having it using the docker container, e.g.
 
-For example, to ensure Alice can commit some 1000 Ada and also that "her" node can pay for the Hydra transactions, run:
-
-```
-sudo chmod a+w devnet/ipc/node.socket
-cabal run seed-network -- \
-  --node-socket devnet/ipc/node.socket \
-  --cardano-signing-key devnet/credentials/alice.sk \
-  --commit-amount 1000000000
+``` sh
+./seed-devnet.sh $(which cardano-cli)
 ```
 
 # Running clients

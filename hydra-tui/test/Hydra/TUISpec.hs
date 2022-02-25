@@ -4,14 +4,14 @@ import Hydra.Prelude
 import Test.Hydra.Prelude
 
 import Blaze.ByteString.Builder.Char8 (writeChar)
-import CardanoClient (postSeedPayment, queryProtocolParameters)
 import CardanoCluster (
   Actor (Alice),
   ClusterLog,
-  availableInitialFunds,
+  Marked (Fuel, Normal),
   defaultNetworkId,
   keysFor,
   newNodeConfig,
+  seedFromFaucet_,
   withBFTNode,
   writeKeysFor,
  )
@@ -77,7 +77,7 @@ spec =
           shouldRender "Initializing"
           sendInputEvent $ EvKey (KChar 'c') []
           threadDelay 1
-          shouldRender "900000000 lovelace"
+          shouldRender "42000000 lovelace"
           sendInputEvent $ EvKey (KChar ' ') []
           sendInputEvent $ EvKey KEnter []
           threadDelay 1
@@ -87,7 +87,7 @@ spec =
           shouldRender "Closed"
           threadDelay 10 -- contestation period
           shouldRender "Final"
-          shouldRender "900000000 lovelace"
+          shouldRender "42000000 lovelace"
           sendInputEvent $ EvKey (KChar 'q') []
 
 setupNodeAndTUI :: (TUITest -> IO ()) -> IO ()
@@ -95,14 +95,17 @@ setupNodeAndTUI action =
   showLogsOnFailure $ \tracer ->
     withTempDir "tui-end-to-end" $ \tmpDir -> do
       config <- newNodeConfig tmpDir
-      (aliceCardanoVk, aliceCardanoSk) <- keysFor Alice
-      withBFTNode (contramap FromCardano tracer) config [aliceCardanoVk] $ \(RunningNode _ nodeSocket) -> do
+      (aliceCardanoVk, _) <- keysFor Alice
+      withBFTNode (contramap FromCardano tracer) config $ \node@(RunningNode _ nodeSocket) -> do
         (_, aliceSkPath) <- writeKeysFor tmpDir Alice
         -- XXX(SN): API port id is inferred from nodeId, in this case 4001
         let nodeId = 1
-        pparams <- queryProtocolParameters defaultNetworkId nodeSocket
         withHydraNode (contramap FromHydra tracer) aliceSkPath [] tmpDir nodeSocket nodeId aliceSk [] [nodeId] $ \HydraClient{hydraNodeId} -> do
-          postSeedPayment defaultNetworkId pparams availableInitialFunds nodeSocket aliceCardanoSk 900_000_000
+          -- Fuel to pay hydra transactions
+          seedFromFaucet_ defaultNetworkId node aliceCardanoVk 100_000_000 Fuel
+          -- Some ADA to commit
+          seedFromFaucet_ defaultNetworkId node aliceCardanoVk 42_000_000 Normal
+
           withTUITest (150, 10) $ \brickTest@TUITest{buildVty} -> do
             race_
               ( runWithVty
