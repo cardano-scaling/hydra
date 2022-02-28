@@ -41,17 +41,33 @@ healthyInitTx =
 
 data InitMutation
   = MutateThreadTokenQuantity
+  | MutateAddAnotherPT
   deriving (Generic, Show, Enum, Bounded)
 
 genInitMutation :: (Tx, UTxO) -> Gen SomeMutation
 genInitMutation (tx, _utxo) =
   oneof
     [ SomeMutation MutateThreadTokenQuantity . ChangeMintedValue <$> do
-        let mintedValue = txMintValue $ txBodyContent $ txBody tx
         case mintedValue of
           TxMintValueNone ->
             pure mempty
           TxMintValue v _ -> do
             someQuantity <- fromInteger <$> arbitrary `suchThat` (/= 1)
             pure . valueFromList $ map (second $ const someQuantity) $ valueToList v
+    , SomeMutation MutateAddAnotherPT . ChangeMintedValue <$> do
+        case mintedValue of
+          TxMintValue v _ -> do
+            -- NOTE: We do not expect Ada or any other assets to be minted, so
+            -- we can take the policy id from the headtake the policy id from
+            -- the head.
+            case Prelude.head $ valueToList v of
+              (AdaAssetId, _) -> error "unexpected mint of Ada"
+              (AssetId pid _an, _) -> do
+                -- Some arbitrary token name, which could correspond to a pub key hash
+                pkh <- arbitrary
+                pure $ v <> valueFromList [(AssetId pid pkh, 1)]
+          TxMintValueNone ->
+            pure mempty
     ]
+ where
+  mintedValue = txMintValue $ txBodyContent $ txBody tx
