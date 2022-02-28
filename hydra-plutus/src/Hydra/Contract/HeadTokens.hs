@@ -1,4 +1,5 @@
 {-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE TypeApplications #-}
 
 -- | Minting policy for a single head tokens.
 module Hydra.Contract.HeadTokens where
@@ -11,6 +12,7 @@ import Ledger (
     scriptContextTxInfo
   ),
   TxInfo (txInfoMint),
+  getDatum,
   ownCurrencySymbol,
  )
 import Ledger.Typed.Scripts (wrapMintingPolicy)
@@ -32,9 +34,25 @@ hydraHeadV1 = "HydraHeadV1"
 validate :: TxOutRef -> () -> ScriptContext -> Bool
 validate _ _ context =
   let currency = ownCurrencySymbol context
-      ScriptContext{scriptContextTxInfo = txInfo} = context
       minted = txInfoMint txInfo
    in valueOf minted currency (TokenName hydraHeadV1) == 1
+ where
+  ScriptContext{scriptContextTxInfo = txInfo} = context
+
+-- TODO: Do determine parameters/party from datum as soon as v_head is not
+-- parameterized anymore (with something like this below)
+
+-- parameters =
+--   case scriptOutputsAt headValidator txInfo of
+--     [(dh, _)] ->
+--       case getDatum <$> findDatum dh txInfo of
+--         Nothing -> traceError "expected optional commit datum"
+--         Just da ->
+--           case fromBuiltinData @(DatumType Head.State) da of
+--             Nothing -> traceError "expected commit datum type, got something else"
+--             Just Head.Initial{} -> True
+--             Just _ -> traceError "unexpected State in datum"
+--     _ -> traceError "expected single head output"
 
 mintingPolicy :: TxOutRef -> MintingPolicy
 mintingPolicy txOutRef =
