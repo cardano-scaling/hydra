@@ -128,7 +128,7 @@ spec =
         forAll (reasonablySized genUTxOWithSimplifiedAddresses) $ \inHeadUTxO ->
           let tx = fanoutTx inHeadUTxO (headInput, fromPlutusData $ toData headDatum) (mkHeadTokenScript testSeedInput)
               onChainUTxO = UTxO.singleton (headInput, headOutput)
-              headScript = fromPlutusScript $ Head.validatorScript policyId
+              headScript = fromPlutusScript Head.validatorScript
               -- FIXME: Ensure the headOutput contains enough value to fanout all inHeadUTxO
               headOutput =
                 TxOut
@@ -280,7 +280,7 @@ generateCommitUTxOs parties = do
    where
     commitValue = lovelaceToValue (Lovelace 2000000) <> maybe mempty (txOutValue . snd) utxo
     commitScript = fromPlutusScript Commit.validatorScript
-    commitDatum = mkCommitDatum party (Head.validatorHash policyId) utxo
+    commitDatum = mkCommitDatum party Head.validatorHash utxo
 
 -- | Evaluate all plutus scripts and return execution budgets of a given
 -- transaction (any included budgets are ignored).

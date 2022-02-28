@@ -6,15 +6,7 @@ module Hydra.Contract.HeadTokens where
 
 import PlutusTx.Prelude
 
-import Ledger (
-  ScriptContext (
-    ScriptContext,
-    scriptContextTxInfo
-  ),
-  TxInfo (txInfoMint),
-  getDatum,
-  ownCurrencySymbol,
- )
+import Ledger (ScriptContext (..), TxInfo (txInfoMint), ownCurrencySymbol)
 import Ledger.Typed.Scripts (wrapMintingPolicy)
 import Plutus.V1.Ledger.Api (
   MintingPolicy,

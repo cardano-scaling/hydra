@@ -23,7 +23,6 @@ import Hydra.Chain.Direct.Tx (
   headValue,
   mkCommitDatum,
   mkHeadOutput,
-  policyId,
  )
 import qualified Hydra.Contract.Commit as Commit
 import qualified Hydra.Contract.Head as Head
@@ -111,7 +110,7 @@ healthyCommitOutput party committed =
   commitValue =
     headValue <> (txOutValue . snd) committed
   commitDatum =
-    mkCommitDatum party (Head.validatorHash policyId) (Just committed)
+    mkCommitDatum party Head.validatorHash (Just committed)
 
 data CollectComMutation
   = MutateOpenOutputValue

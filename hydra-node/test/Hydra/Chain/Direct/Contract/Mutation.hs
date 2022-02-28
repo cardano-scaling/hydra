@@ -142,7 +142,6 @@ import qualified Data.List as List
 import qualified Data.Map as Map
 import qualified Data.Sequence.Strict as StrictSeq
 import qualified Hydra.Chain.Direct.Fixture as Fixture
-import Hydra.Chain.Direct.Tx (policyId)
 import qualified Hydra.Contract.Head as Head
 import qualified Hydra.Contract.HeadState as Head
 import Hydra.Ledger.Cardano (genKeyPair, genOutput)
@@ -366,12 +365,11 @@ instance Arbitrary Head.State where
 -- * Helpers
 
 -- | Identify Head script's output.
--- TODO: Parameterise by 'MonetaryPolicyId' as this is currently hardwired.
 isHeadOutput :: TxOut CtxUTxO -> Bool
 isHeadOutput (TxOut addr _ _) = addr == headAddress
  where
   headAddress = mkScriptAddress @PlutusScriptV1 Fixture.testNetworkId headScript
-  headScript = fromPlutusScript $ Head.validatorScript policyId
+  headScript = fromPlutusScript Head.validatorScript
 
 -- | Adds given 'Datum' and corresponding hash to the transaction's scripts.
 -- TODO: As we are creating the `TxOutDatum` from a known datum, passing a `TxOutDatum` is

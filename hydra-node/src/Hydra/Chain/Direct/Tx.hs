@@ -40,10 +40,8 @@ import Hydra.Ledger.Cardano.Builder (
 import Hydra.Party (MultiSigned, Party (Party), toPlutusSignatures, vkey)
 import Hydra.Snapshot (Snapshot (..))
 import Ledger.Typed.Scripts (DatumType)
-import Ledger.Value (AssetClass (..), currencyMPSHash)
-import Plutus.V1.Ledger.Api (MintingPolicyHash, fromBuiltin, fromData)
+import Plutus.V1.Ledger.Api (fromBuiltin, fromData)
 import qualified Plutus.V1.Ledger.Api as Plutus
-import Plutus.V1.Ledger.Value (assetClass, currencySymbol, tokenName)
 import Plutus.V2.Ledger.Api (toBuiltin)
 
 type UTxOWithScript = (TxIn, TxOut CtxUTxO, ScriptData)
@@ -58,14 +56,6 @@ mkHeadTokenScript =
 
 hydraHeadV1AssetName :: AssetName
 hydraHeadV1AssetName = AssetName (fromBuiltin HeadTokens.hydraHeadV1)
-
--- FIXME: should not be hardcoded, for testing purposes only
-threadToken :: AssetClass
-threadToken = assetClass (currencySymbol "hydra") (tokenName "token")
-
--- FIXME: should not be hardcoded
-policyId :: MintingPolicyHash
-(policyId, _) = first currencyMPSHash (unAssetClass threadToken)
 
 -- FIXME: sould not be hardcoded
 headValue :: Value
@@ -98,7 +88,7 @@ mkHeadOutput networkId tokenPolicyId =
     (mkScriptAddress @PlutusScriptV1 networkId headScript)
     (headValue <> valueFromList [(AssetId tokenPolicyId hydraHeadV1AssetName, 1)])
  where
-  headScript = fromPlutusScript $ Head.validatorScript policyId
+  headScript = fromPlutusScript Head.validatorScript
 
 mkHeadOutputInitial :: NetworkId -> PolicyId -> HeadParameters -> TxOut CtxTx
 mkHeadOutputInitial networkId tokenPolicyId HeadParameters{contestationPeriod, parties} =
@@ -168,7 +158,7 @@ commitTx networkId party utxo (initialInput, vkh) =
   commitValue =
     headValue <> maybe mempty (txOutValue . snd) utxo
   commitDatum =
-    mkTxOutDatum $ mkCommitDatum party (Head.validatorHash policyId) utxo
+    mkTxOutDatum $ mkCommitDatum party Head.validatorHash utxo
 
 mkCommitDatum :: Party -> Plutus.ValidatorHash -> Maybe (TxIn, TxOut CtxUTxO) -> Plutus.Datum
 mkCommitDatum (partyFromVerKey . vkey -> party) headValidatorHash utxo =
@@ -202,7 +192,7 @@ collectComTx networkId (headInput, initialHeadOutput, ScriptDatumForTxIn -> head
   headWitness =
     BuildTxWith $ ScriptWitness scriptWitnessCtx $ mkScriptWitness headScript headDatumBefore headRedeemer
   headScript =
-    fromPlutusScript @PlutusScriptV1 $ Head.validatorScript policyId
+    fromPlutusScript @PlutusScriptV1 Head.validatorScript
   headRedeemer =
     toScriptData Head.CollectCom
   headOutput =
@@ -254,7 +244,7 @@ closeTx Snapshot{number, utxo} sig (headInput, headOutputBefore, ScriptDatumForT
   headWitness =
     BuildTxWith $ ScriptWitness scriptWitnessCtx $ mkScriptWitness headScript headDatumBefore headRedeemer
   headScript =
-    fromPlutusScript @PlutusScriptV1 $ Head.validatorScript policyId
+    fromPlutusScript @PlutusScriptV1 Head.validatorScript
   headRedeemer =
     toScriptData
       Head.Close
@@ -290,7 +280,7 @@ fanoutTx utxo (headInput, ScriptDatumForTxIn -> headDatumBefore) headTokenScript
   headWitness =
     BuildTxWith $ ScriptWitness scriptWitnessCtx $ mkScriptWitness headScript headDatumBefore headRedeemer
   headScript =
-    fromPlutusScript @PlutusScriptV1 $ Head.validatorScript policyId
+    fromPlutusScript @PlutusScriptV1 Head.validatorScript
   headRedeemer =
     toScriptData (Head.Fanout $ fromIntegral $ length utxo)
 
@@ -327,7 +317,7 @@ abortTx networkId (headInput, initialHeadOutput, ScriptDatumForTxIn -> headDatum
   headWitness =
     BuildTxWith $ ScriptWitness scriptWitnessCtx $ mkScriptWitness headScript headDatumBefore headRedeemer
   headScript =
-    fromPlutusScript @PlutusScriptV1 $ Head.validatorScript policyId
+    fromPlutusScript @PlutusScriptV1 Head.validatorScript
   headRedeemer =
     toScriptData Head.Abort
 
@@ -554,7 +544,7 @@ observeCollectComTx utxo tx = do
         )
     _ -> Nothing
  where
-  headScript = fromPlutusScript $ Head.validatorScript policyId
+  headScript = fromPlutusScript Head.validatorScript
 
 data CloseObservation = CloseObservation
   { threadOutput :: (TxIn, TxOut CtxUTxO, ScriptData, [OnChain.Party])
@@ -594,7 +584,7 @@ observeCloseTx utxo tx = do
         )
     _ -> Nothing
  where
-  headScript = fromPlutusScript $ Head.validatorScript policyId
+  headScript = fromPlutusScript Head.validatorScript
 
   -- FIXME(SN): store in/read from datum
   contestationDeadline = UTCTime (ModifiedJulianDay 0) 0
@@ -619,12 +609,13 @@ observeFanoutTx utxo tx = do
       Head.Fanout{} -> pure (OnFanoutTx, ())
       _ -> Nothing
  where
-  headScript = fromPlutusScript $ Head.validatorScript policyId
+  headScript = fromPlutusScript Head.validatorScript
 
 type AbortObservation = ()
 
 -- | Identify an abort tx by looking up the input spending the Head output and
 -- decoding its redeemer.
+-- FIXME(SN): make sure this is aborting "the right head / your head"
 observeAbortTx ::
   -- | A UTxO set to lookup tx inputs
   UTxO ->
@@ -636,8 +627,7 @@ observeAbortTx utxo tx = do
     Head.Abort -> pure (OnAbortTx, ())
     _ -> Nothing
  where
-  -- FIXME(SN): make sure this is aborting "the right head / your head" by not hard-coding policyId
-  headScript = fromPlutusScript $ Head.validatorScript policyId
+  headScript = fromPlutusScript Head.validatorScript
 
 -- * Functions related to OnChainHeadState
 
