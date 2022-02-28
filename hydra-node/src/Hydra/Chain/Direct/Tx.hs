@@ -48,9 +48,6 @@ import Plutus.V2.Ledger.Api (toBuiltin)
 
 type UTxOWithScript = (TxIn, TxOut CtxUTxO, ScriptData)
 
-hydraHeadV1 :: ByteString
-hydraHeadV1 = "HydraHeadV1"
-
 headPolicyId :: TxIn -> PolicyId
 headPolicyId =
   scriptPolicyId . PlutusScript . mkHeadTokenScript
@@ -60,7 +57,7 @@ mkHeadTokenScript =
   fromPlutusScript @PlutusScriptV1 . HeadTokens.validatorScript . toPlutusTxOutRef
 
 hydraHeadV1AssetName :: AssetName
-hydraHeadV1AssetName = AssetName hydraHeadV1
+hydraHeadV1AssetName = AssetName (fromBuiltin HeadTokens.hydraHeadV1)
 
 -- FIXME: should not be hardcoded, for testing purposes only
 threadToken :: AssetClass
