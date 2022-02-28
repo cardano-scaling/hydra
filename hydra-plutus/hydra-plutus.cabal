@@ -78,6 +78,7 @@ library
     Hydra.Contract.HeadState
     Hydra.Contract.HeadTokens
     Hydra.Contract.Initial
+    Hydra.Contract.MintAction
     Hydra.Data.ContestationPeriod
     Hydra.Data.HeadParameters
     Hydra.Data.Party

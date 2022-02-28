@@ -24,6 +24,7 @@ import qualified Hydra.Contract.Head as Head
 import qualified Hydra.Contract.HeadState as Head
 import qualified Hydra.Contract.HeadTokens as HeadTokens
 import qualified Hydra.Contract.Initial as Initial
+import Hydra.Contract.MintAction (MintAction (Burn, Mint))
 import Hydra.Data.ContestationPeriod (contestationPeriodFromDiffTime, contestationPeriodToDiffTime)
 import Hydra.Data.Party (partyFromVerKey, partyToVerKey)
 import qualified Hydra.Data.Party as OnChain
@@ -80,7 +81,7 @@ initTx networkId cardanoKeys parameters seed =
         ( mkHeadOutputInitial networkId (headPolicyId seed) parameters :
           map (mkInitialOutput networkId) cardanoKeys
         )
-      & mintTokens (mkHeadTokenScript seed) hydraHeadV1AssetName 1
+      & mintTokens (mkHeadTokenScript seed) Mint hydraHeadV1AssetName 1
 
 mkHeadOutput :: NetworkId -> PolicyId -> TxOutDatum ctx -> TxOut ctx
 mkHeadOutput networkId tokenPolicyId =
@@ -275,7 +276,7 @@ fanoutTx utxo (headInput, ScriptDatumForTxIn -> headDatumBefore) headTokenScript
     emptyTxBody
       & addInputs [(headInput, headWitness)]
       & addOutputs fanoutOutputs
-      & burnTokens headTokenScript hydraHeadV1AssetName 1
+      & burnTokens headTokenScript Burn hydraHeadV1AssetName 1
  where
   headWitness =
     BuildTxWith $ ScriptWitness scriptWitnessCtx $ mkScriptWitness headScript headDatumBefore headRedeemer

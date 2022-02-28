@@ -91,9 +91,9 @@ addOutputs :: [TxOut CtxTx] -> TxBuilder -> TxBuilder
 addOutputs outputs tx =
   tx{txOuts = txOuts tx <> outputs}
 
--- | Mint tokens identified by the given Plutus script.
-mintTokens :: PlutusScript -> AssetName -> Quantity -> TxBuilder -> TxBuilder
-mintTokens script assetName quantity tx =
+-- | Mint tokens with given plutus minting script and redeemer.
+mintTokens :: ToScriptData redeemer => PlutusScript -> redeemer -> AssetName -> Quantity -> TxBuilder -> TxBuilder
+mintTokens script redeemer assetName quantity tx =
   tx{txMintValue = TxMintValue mintedTokens' mintedWitnesses'}
  where
   (mintedTokens, mintedWitnesses) =
@@ -110,13 +110,13 @@ mintTokens script assetName quantity tx =
     BuildTxWith $ mintedWitnesses <> Map.singleton policyId mintingWitness
 
   mintingWitness =
-    mkScriptWitness script NoScriptDatumForMint (toScriptData ())
+    mkScriptWitness script NoScriptDatumForMint (toScriptData redeemer)
 
   policyId =
     PolicyId $ hashScript $ PlutusScript script
 
--- | Burn tokens for given policy.
+-- | Burn tokens with given plutus minting script and redeemer.
 -- This is really just `mintTokens` with negated 'Quantity'.
-burnTokens :: PlutusScript -> AssetName -> Quantity -> TxBuilder -> TxBuilder
-burnTokens script assetName quantity =
-  mintTokens script assetName (negate quantity)
+burnTokens :: ToScriptData redeemer => PlutusScript -> redeemer -> AssetName -> Quantity -> TxBuilder -> TxBuilder
+burnTokens script redeemer assetName quantity =
+  mintTokens script redeemer assetName (negate quantity)

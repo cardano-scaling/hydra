@@ -7,6 +7,7 @@ module Hydra.Contract.HeadTokens where
 import PlutusTx.Prelude
 
 import qualified Hydra.Contract.Head as Head
+import Hydra.Contract.MintAction (MintAction (Burn, Mint))
 import Ledger (ScriptContext (..), TxInfo (txInfoMint), ValidatorHash, ownCurrencySymbol)
 import Ledger.Typed.Scripts (wrapMintingPolicy)
 import Plutus.V1.Ledger.Api (
@@ -28,13 +29,16 @@ validate ::
   -- | Head validator
   ValidatorHash ->
   TxOutRef ->
-  () ->
+  MintAction ->
   ScriptContext ->
   Bool
-validate _headValidator _ _ context =
+validate _headValidator _ action context =
   let currency = ownCurrencySymbol context
       minted = txInfoMint txInfo
-   in valueOf minted currency (TokenName hydraHeadV1) == 1
+      quantityST = valueOf minted currency (TokenName hydraHeadV1)
+   in case action of
+        Mint -> traceIfFalse "minted not 1" $ quantityST == 1
+        Burn -> traceIfFalse "burnt not 1" $ quantityST == -1
  where
   ScriptContext{scriptContextTxInfo = txInfo} = context
 
