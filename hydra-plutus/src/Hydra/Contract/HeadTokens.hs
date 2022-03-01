@@ -13,8 +13,9 @@ import qualified Hydra.Contract.HeadState as Head
 import Hydra.Contract.MintAction (MintAction (Burn, Mint))
 import Ledger.Typed.Scripts (ValidatorTypes (..), wrapMintingPolicy)
 import Plutus.V1.Ledger.Api (fromBuiltinData)
-import Plutus.V1.Ledger.Value (TokenName (..), valueOf)
+import Plutus.V1.Ledger.Value (getValue)
 import qualified PlutusTx
+import PlutusTx.AssocMap as Map
 
 hydraHeadV1 :: BuiltinByteString
 hydraHeadV1 = "HydraHeadV1"
@@ -29,13 +30,15 @@ validate ::
   Bool
 validate headValidator _ action context =
   let currency = ownCurrencySymbol context
-      minted = txInfoMint txInfo
-      quantityST = valueOf minted currency (TokenName hydraHeadV1)
+      minted = getValue $ txInfoMint txInfo
+      quantityST = case Map.lookup currency minted of
+        Nothing -> 0
+        Just tokenMap -> length tokenMap
    in case action of
         Mint ->
-          traceIfFalse "minted not 1" $ quantityST == 1
+          traceIfFalse "minted not 1" $ quantityST == nParties + 1
         Burn ->
-          traceIfFalse "burnt not 1" $ quantityST == -1
+          traceIfFalse "burnt not 1" $ quantityST == negate (nParties + 1)
  where
   ScriptContext{scriptContextTxInfo = txInfo} = context
 
