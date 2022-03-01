@@ -13,7 +13,7 @@ import qualified Hydra.Contract.HeadState as Head
 import qualified Hydra.Contract.Initial as Initial
 import Hydra.Contract.MintAction (MintAction (Burn, Mint))
 import Ledger.Typed.Scripts (ValidatorTypes (..), wrapMintingPolicy)
-import Plutus.V1.Ledger.Api (fromBuiltinData)
+import Plutus.V1.Ledger.Api (TokenName (TokenName), fromBuiltinData)
 import Plutus.V1.Ledger.Value (getValue)
 import qualified PlutusTx
 import qualified PlutusTx.AssocMap as Map
@@ -32,14 +32,32 @@ validate ::
   Bool
 validate initialValidator headValidator _ action context =
   case action of
-    Mint ->
-      traceIfFalse "minted wrong" $
-        participationTokensAreDistributed currency initialValidator txInfo nParties
-          && checkQuantities
-          && assetNamesInPolicy == nParties + 1
-    Burn ->
-      traceIfFalse "burnt wrong" $
-        checkQuantities && assetNamesInPolicy == nParties + 1
+    Mint -> validateTokensMinting initialValidator headValidator context
+    Burn -> validateTokensBurning context
+
+validateTokensBurning :: ScriptContext -> Bool
+validateTokensBurning context =
+  traceIfFalse "burnt wrong" $
+    checkHeadTokenIsBurnt
+ where
+  currency = ownCurrencySymbol context
+
+  ScriptContext{scriptContextTxInfo = txInfo} = context
+
+  minted = getValue $ txInfoMint txInfo
+
+  checkHeadTokenIsBurnt = case Map.lookup currency minted of
+    Nothing -> False
+    Just tokenMap -> case Map.lookup (TokenName hydraHeadV1) tokenMap of
+      Nothing -> traceError "state token not burnt"
+      Just qty -> traceIfFalse "wrong quantity burnt" $ qty == -1
+
+validateTokensMinting :: ValidatorHash -> ValidatorHash -> ScriptContext -> Bool
+validateTokensMinting initialValidator headValidator context =
+  traceIfFalse "minted wrong" $
+    participationTokensAreDistributed currency initialValidator txInfo nParties
+      && checkQuantities
+      && assetNamesInPolicy == nParties + 1
  where
   currency = ownCurrencySymbol context
 
@@ -49,13 +67,9 @@ validate initialValidator headValidator _ action context =
     Nothing -> (False, 0)
     Just tokenMap ->
       foldr
-        (\q (assertion, n) -> (assertion && (q == mintedQuantityExpected), n + 1))
+        (\q (assertion, n) -> (assertion && q == 1, n + 1))
         (True, 0)
         tokenMap
-
-  mintedQuantityExpected = case action of
-    Mint -> 1
-    Burn -> -1
 
   ScriptContext{scriptContextTxInfo = txInfo} = context
 
