@@ -111,7 +111,6 @@ genAbortMutation (_, utxo) =
         pure $ Head.Initial c (partyFromVerKey . vkey <$> moreParties)
     , SomeMutation MutateDropCommitOutput
         . RemoveOutput
-        . (+ 1) -- NOTE(AB): Assumes the transaction's first output is the head output
         <$> choose (0, fromIntegral (length healthyCommits - 1))
     , SomeMutation MutateHeadScriptInput . ChangeInput (headTxIn utxo) <$> anyPayToPubKeyTxOut
     ]

@@ -307,7 +307,7 @@ abortTx ::
   -- Should contain the PT and is locked by commit script.
   Map TxIn (TxOut CtxUTxO, ScriptData) ->
   Either AbortTxError Tx
-abortTx networkId (headInput, initialHeadOutput, ScriptDatumForTxIn -> headDatumBefore) initialsToAbort commitsToAbort
+abortTx _networkId (headInput, _initialHeadOutput, ScriptDatumForTxIn -> headDatumBefore) initialsToAbort commitsToAbort
   | isJust (lookup headInput initialsToAbort) =
     Left OverlappingInputs
   | otherwise =
@@ -315,7 +315,7 @@ abortTx networkId (headInput, initialHeadOutput, ScriptDatumForTxIn -> headDatum
       unsafeBuildTransaction $
         emptyTxBody
           & addInputs ((headInput, headWitness) : initialInputs <> commitInputs)
-          & addOutputs (headOutput : commitOutputs)
+          & addOutputs (commitOutputs)
  where
   headWitness =
     BuildTxWith $ ScriptWitness scriptWitnessCtx $ mkScriptWitness headScript headDatumBefore headRedeemer
@@ -328,15 +328,15 @@ abortTx networkId (headInput, initialHeadOutput, ScriptDatumForTxIn -> headDatum
 
   commitInputs = mkAbortCommit <$> Map.toList commitsToAbort
 
-  -- FIXME:
-  -- (b) There's in principle no need to output any SM output here, it's over.
-  headOutput =
-    TxOut
-      (mkScriptAddress @PlutusScriptV1 networkId headScript)
-      (txOutValue initialHeadOutput)
-      headDatumAfter
-  headDatumAfter =
-    mkTxOutDatum Head.Final
+  -- -- FIXME:
+  -- -- (b) There's in principle no need to output any SM output here, it's over.
+  -- headOutput =
+  --   TxOut
+  --     (mkScriptAddress @PlutusScriptV1 networkId headScript)
+  --     (txOutValue initialHeadOutput)
+  --     headDatumAfter
+  -- headDatumAfter =
+  --   mkTxOutDatum Head.Final
 
   -- NOTE: Abort datums contain the datum of the spent state-machine input, but
   -- also, the datum of the created output which is necessary for the
