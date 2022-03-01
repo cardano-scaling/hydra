@@ -345,7 +345,7 @@ defaultArguments nodeId genesisFile pparamsFile cardanoSKey cardanoVKeys hydraSK
     <> concat [["--peer", "127.0.0.1:" <> show (5000 + i)] | i <- allNodeIds, i /= nodeId]
     <> concat [["--hydra-verification-key", vKey] | vKey <- hydraVKeys]
     <> concat [["--cardano-verification-key", vKey] | vKey <- cardanoVKeys]
-    <> ["--testnet", "42"]
+    <> ["--network-id", "42"]
     <> ["--node-socket", nodeSocket]
 
 waitForNodesConnected :: HasCallStack => Tracer IO EndToEndLog -> [HydraClient] -> IO ()

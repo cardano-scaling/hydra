@@ -75,23 +75,23 @@ spec = parallel $
     it "parses --hydra-signing-key option as a filepath" $
       ["--hydra-signing-key", "./alice.sk"] `shouldParse` defaultOptions{hydraSigningKey = "./alice.sk"}
 
-    it "parses --testnet option as a number" $ do
-      shouldNotParse ["--testnet", "abc"]
-      ["--testnet", "0"]
+    it "parses --network-id option as a number" $ do
+      shouldNotParse ["--network-id", "abc"]
+      ["--network-id", "0"]
         `shouldParse` defaultOptions
           { chainConfig =
               defaultChainConfig
                 { networkId = Testnet (NetworkMagic 0)
                 }
           }
-      ["--testnet", "-1"] -- Word32 overflow expected
+      ["--network-id", "-1"] -- Word32 overflow expected
         `shouldParse` defaultOptions
           { chainConfig =
               defaultChainConfig
                 { networkId = Testnet (NetworkMagic 4294967295)
                 }
           }
-      ["--testnet", "123"]
+      ["--network-id", "123"]
         `shouldParse` defaultOptions
           { chainConfig =
               defaultChainConfig
@@ -100,14 +100,7 @@ spec = parallel $
           }
 
     it "parses --mainnet flag" $ do
-      shouldNotParse ["--mainnet", "42"]
-      ["--mainnet"]
-        `shouldParse` defaultOptions
-          { chainConfig =
-              defaultChainConfig
-                { networkId = Mainnet
-                }
-          }
+      shouldNotParse ["--mainnet"]
 
     it "parses --node-socket as a filepath" $
       ["--node-socket", "foo.sock"]

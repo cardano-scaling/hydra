@@ -46,7 +46,7 @@ services:
       , "--cardano-verification-key", "/credentials/carol.vk"
       , "--ledger-genesis", "/config/genesis-shelley.json"
       , "--ledger-protocol-parameters", "/config/protocol-parameters.json"
-      , "--testnet", "42"
+      , "--network-id", "42"
       , "--node-socket", "/ipc/node.socket"
       ]
     networks:
@@ -81,7 +81,7 @@ services:
       , "--cardano-verification-key", "/credentials/carol.vk"
       , "--ledger-genesis", "/config/genesis-shelley.json"
       , "--ledger-protocol-parameters", "/config/protocol-parameters.json"
-      , "--testnet", "42"
+      , "--network-id", "42"
       , "--node-socket", "/ipc/node.socket"
       ]
     networks:
@@ -116,7 +116,7 @@ services:
       , "--cardano-verification-key", "/credentials/bob.vk"
       , "--ledger-genesis", "/config/genesis-shelley.json"
       , "--ledger-protocol-parameters", "/config/protocol-parameters.json"
-      , "--testnet", "42"
+      , "--network-id", "42"
       , "--node-socket", "/ipc/node.socket"
       ]
     networks:
@@ -134,7 +134,7 @@ services:
     command:
       [ "--connect", "172.16.238.10:4001"
       , "--node-socket", "/ipc/node.socket"
-      , "--testnet", "42"
+      , "--network-id", "42"
       , "--cardano-signing-key", "/credentials/alice.sk"
       ]
     volumes:
@@ -154,7 +154,7 @@ services:
     command:
       [ "--connect", "172.16.238.20:4001"
       , "--node-socket", "/ipc/node.socket"
-      , "--testnet", "42"
+      , "--network-id", "42"
       , "--cardano-signing-key", "/credentials/bob.sk"
       ]
     volumes:
@@ -174,7 +174,7 @@ services:
     command:
       [ "--connect", "172.16.238.30:4001"
       , "--node-socket", "/ipc/node.socket"
-      , "--testnet", "42"
+      , "--network-id", "42"
       , "--cardano-signing-key", "/credentials/carol.sk"
       ]
     volumes:

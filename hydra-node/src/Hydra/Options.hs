@@ -24,7 +24,6 @@ import Options.Applicative (
   defaultPrefs,
   execParserPure,
   flag,
-  flag',
   fullDesc,
   getParseResult,
   handleParseResult,
@@ -125,25 +124,18 @@ chainConfigParser =
 
 networkIdParser :: Parser NetworkId
 networkIdParser =
-  testnetParser <|> mainnetParser
+  testnetParser
  where
   testnetParser =
     Testnet . NetworkMagic
       <$> option
         auto
-        ( long "testnet"
-            <> metavar "MAGIC"
+        ( long "network-id"
+            <> metavar "INTEGER"
             <> value 42
             <> completer (listCompleter ["1097911063", "42"])
             <> help "A test network with the given network magic."
         )
-
-  mainnetParser =
-    flag'
-      Mainnet
-      ( long "mainnet"
-          <> help "The main network."
-      )
 
 nodeSocketParser :: Parser FilePath
 nodeSocketParser =
