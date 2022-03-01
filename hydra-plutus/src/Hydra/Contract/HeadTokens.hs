@@ -31,14 +31,23 @@ validate ::
 validate headValidator _ action context =
   let currency = ownCurrencySymbol context
       minted = getValue $ txInfoMint txInfo
-      quantityST = case Map.lookup currency minted of
-        Nothing -> 0
-        Just tokenMap -> length tokenMap
+      mintValue = case action of
+        Mint -> 1
+        Burn -> -1
+      (checkQuantities, total) = case Map.lookup currency minted of
+        Nothing -> (False, 0)
+        Just tokenMap ->
+          foldr
+            (\q (assertion, n) -> (assertion && (q == mintValue), n + 1))
+            (True, 0)
+            tokenMap
    in case action of
         Mint ->
-          traceIfFalse "minted not 1" $ quantityST == nParties + 1
+          traceIfFalse "minted wrong" $
+            checkQuantities && total == nParties + 1
         Burn ->
-          traceIfFalse "burnt not 1" $ quantityST == negate (nParties + 1)
+          traceIfFalse "burnt wrong" $
+            checkQuantities && total == nParties + 1
  where
   ScriptContext{scriptContextTxInfo = txInfo} = context
 
