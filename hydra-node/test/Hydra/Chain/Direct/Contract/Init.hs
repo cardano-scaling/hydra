@@ -13,8 +13,8 @@ import Hydra.Chain.Direct.Contract.Mutation (
  )
 import Hydra.Chain.Direct.Fixture (testNetworkId)
 import Hydra.Chain.Direct.Tx (initTx)
-import Hydra.Ledger.Cardano (genOneUTxOFor)
-import Test.QuickCheck (oneof, suchThat, vectorOf)
+import Hydra.Ledger.Cardano (genOneUTxOFor, genValue)
+import Test.QuickCheck (elements, oneof, suchThat, vectorOf)
 import qualified Prelude
 
 --
@@ -47,6 +47,7 @@ healthyInitTx =
 data InitMutation
   = MutateThreadTokenQuantity
   | MutateAddAnotherPT
+  | MutateInitialOutputValue
   deriving (Generic, Show, Enum, Bounded)
 
 genInitMutation :: (Tx, UTxO) -> Gen SomeMutation
@@ -73,6 +74,11 @@ genInitMutation (tx, _utxo) =
                 pure $ v <> valueFromList [(AssetId pid pkh, 1)]
           TxMintValueNone ->
             pure mempty
+    , SomeMutation MutateInitialOutputValue <$> do
+        let outs = txOuts' tx
+        (ix, out) <- elements (zip [1 .. length outs - 1] outs)
+        value' <- genValue `suchThat` (/= txOutValue out)
+        pure $ ChangeOutput (fromIntegral ix) (modifyTxOutValue (const value') out)
     ]
  where
   mintedValue = txMintValue $ txBodyContent $ txBody tx
