@@ -23,10 +23,8 @@ spec :: Spec
 spec = parallel $ do
   it "parses --connect option" $ do
     shouldParseWith parseNodeHost ["--connect", "127.0.0.1:4002"] (Host "127.0.0.1" 4002)
-  it "parses --network-magic option" $ do
-    shouldParseWith parseCardanoNetworkId ["--network-magic", "123"] (Testnet $ NetworkMagic 123)
-  it "defaults --network-magic to Mainnet" $ do
-    shouldParseWith parseCardanoNetworkId [] Mainnet
+  it "parses --network-id option" $ do
+    shouldParseWith parseCardanoNetworkId ["--network-id", "123"] (Testnet $ NetworkMagic 123)
   it "parses --cardano-signing-key option" $ do
     shouldParseWith parseCardanoSigningKey ["--cardano-signing-key", "foo.sk"] "foo.sk"
   it "parses --node-socket option" $ do

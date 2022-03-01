@@ -53,6 +53,7 @@ data-files:
   config/genesis-alonzo.json
   config/genesis-byron.json
   config/genesis-shelley.json
+  config/protocol-parameters.json
 
 source-repository head
   type:     git
@@ -190,6 +191,7 @@ test-suite integration
     Test.DirectChainSpec
     Test.EndToEndSpec
     Test.GeneratorSpec
+    Test.Ledger.Cardano.ConfigurationSpec
     Test.LocalClusterSpec
     Test.LogFilterSpec
 

@@ -82,14 +82,18 @@ nodeToClientVLatest =
   proxy = Proxy @(CardanoBlock StandardCrypto)
 
 versions ::
-  NetworkMagic ->
+  NetworkId ->
   (NodeToClientVersion -> app) ->
   Versions NodeToClientVersion NodeToClientVersionData app
-versions magic app =
+versions networkId app =
   combineVersions
     [ simpleSingletonVersions v (NodeToClientVersionData magic) (app v)
     | v <- [nodeToClientVLatest, pred nodeToClientVLatest]
     ]
+ where
+  magic = case networkId of
+    Testnet n -> n
+    Mainnet -> NetworkMagic 764824073
 
 --
 -- Codecs

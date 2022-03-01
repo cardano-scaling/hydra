@@ -14,6 +14,7 @@ import Data.Aeson (eitherDecode, encode)
 import qualified Data.Aeson as Aeson
 import qualified Data.ByteString.Base16 as Base16
 import Data.Text (unpack)
+import Hydra.Chain.Direct.Fixture (defaultGlobals, defaultLedgerEnv)
 import Hydra.Ledger (applyTransactions)
 import Hydra.Ledger.Cardano (
   cardanoLedger,
@@ -93,8 +94,8 @@ roundtripCBOR a =
 appliesValidTransaction :: Property
 appliesValidTransaction =
   forAll genUTxO $ \utxo ->
-    forAllShrink (genSequenceOfValidTransactions utxo) shrink $ \txs ->
-      let result = applyTransactions cardanoLedger utxo txs
+    forAllShrink (genSequenceOfValidTransactions defaultGlobals defaultLedgerEnv utxo) shrink $ \txs ->
+      let result = applyTransactions (cardanoLedger defaultGlobals defaultLedgerEnv) utxo txs
        in isRight result
             & counterexample ("Error: " <> show result)
             & counterexample ("JSON for txs: " <> unpack (decodeUtf8With lenientDecode $ toStrict $ Aeson.encode txs))
@@ -103,9 +104,9 @@ appliesValidTransaction =
 appliesValidTransactionFromJSON :: Property
 appliesValidTransactionFromJSON =
   forAll genUTxO $ \utxo ->
-    forAllShrink (genSequenceOfValidTransactions utxo) shrink $ \txs ->
+    forAllShrink (genSequenceOfValidTransactions defaultGlobals defaultLedgerEnv utxo) shrink $ \txs ->
       let encoded = encode txs
-          result = eitherDecode encoded >>= first show . applyTransactions cardanoLedger utxo
+          result = eitherDecode encoded >>= first show . applyTransactions (cardanoLedger defaultGlobals defaultLedgerEnv) utxo
        in isRight result
             & counterexample ("Error: " <> show result)
             & counterexample ("JSON for txs: " <> unpack (decodeUtf8With lenientDecode $ toStrict encoded))

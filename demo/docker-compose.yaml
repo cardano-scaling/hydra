@@ -28,6 +28,7 @@ services:
       - $PWD:/keys:ro
       - $PWD/devnet/credentials:/credentials:ro
       - $PWD/devnet/ipc:/ipc
+      - $PWD/devnet:/config
     ports:
       - "4001:4001"
     command:
@@ -43,7 +44,9 @@ services:
       , "--cardano-signing-key", "/credentials/alice.sk"
       , "--cardano-verification-key", "/credentials/bob.vk"
       , "--cardano-verification-key", "/credentials/carol.vk"
-      , "--network-magic", "42"
+      , "--ledger-genesis", "/config/genesis-shelley.json"
+      , "--ledger-protocol-parameters", "/config/protocol-parameters.json"
+      , "--network-id", "42"
       , "--node-socket", "/ipc/node.socket"
       ]
     networks:
@@ -60,6 +63,7 @@ services:
       - $PWD:/keys:ro
       - $PWD/devnet/credentials:/credentials:ro
       - $PWD/devnet/ipc:/ipc
+      - $PWD/devnet:/config
     ports:
       - "4002:4001"
     command:
@@ -75,7 +79,9 @@ services:
       , "--cardano-signing-key", "/credentials/bob.sk"
       , "--cardano-verification-key", "/credentials/alice.vk"
       , "--cardano-verification-key", "/credentials/carol.vk"
-      , "--network-magic", "42"
+      , "--ledger-genesis", "/config/genesis-shelley.json"
+      , "--ledger-protocol-parameters", "/config/protocol-parameters.json"
+      , "--network-id", "42"
       , "--node-socket", "/ipc/node.socket"
       ]
     networks:
@@ -92,6 +98,7 @@ services:
       - $PWD:/keys:ro
       - $PWD/devnet/credentials:/credentials:ro
       - $PWD/devnet/ipc:/ipc
+      - $PWD/devnet:/config
     ports:
       - "4003:4001"
     command:
@@ -107,7 +114,9 @@ services:
       , "--cardano-signing-key", "/credentials/carol.sk"
       , "--cardano-verification-key", "/credentials/alice.vk"
       , "--cardano-verification-key", "/credentials/bob.vk"
-      , "--network-magic", "42"
+      , "--ledger-genesis", "/config/genesis-shelley.json"
+      , "--ledger-protocol-parameters", "/config/protocol-parameters.json"
+      , "--network-id", "42"
       , "--node-socket", "/ipc/node.socket"
       ]
     networks:
@@ -125,7 +134,7 @@ services:
     command:
       [ "--connect", "172.16.238.10:4001"
       , "--node-socket", "/ipc/node.socket"
-      , "--network-magic", "42"
+      , "--network-id", "42"
       , "--cardano-signing-key", "/credentials/alice.sk"
       ]
     volumes:
@@ -145,7 +154,7 @@ services:
     command:
       [ "--connect", "172.16.238.20:4001"
       , "--node-socket", "/ipc/node.socket"
-      , "--network-magic", "42"
+      , "--network-id", "42"
       , "--cardano-signing-key", "/credentials/bob.sk"
       ]
     volumes:
@@ -165,7 +174,7 @@ services:
     command:
       [ "--connect", "172.16.238.30:4001"
       , "--node-socket", "/ipc/node.socket"
-      , "--network-magic", "42"
+      , "--network-id", "42"
       , "--cardano-signing-key", "/credentials/carol.sk"
       ]
     volumes:

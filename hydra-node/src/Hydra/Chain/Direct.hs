@@ -34,7 +34,7 @@ import Control.Tracer (nullTracer)
 import Data.Aeson (Value (String), object, (.=))
 import Data.Sequence.Strict (StrictSeq)
 import Hydra.Cardano.Api (
-  NetworkId (Testnet),
+  NetworkId,
   PaymentKey,
   SigningKey,
   Tx,
@@ -128,7 +128,7 @@ withDirectChain ::
   -- | Tracer for logging
   Tracer IO DirectChainLog ->
   -- | Network identifer to which we expect to connect.
-  NetworkMagic ->
+  NetworkId ->
   -- | A cross-platform abstraction for managing I/O operations on local sockets
   IOManager ->
   -- | Path to a domain socket used to connect to the server.
@@ -140,14 +140,14 @@ withDirectChain ::
   -- | Cardano keys of all Head participants.
   [VerificationKey PaymentKey] ->
   ChainComponent Tx IO ()
-withDirectChain tracer networkMagic iocp socketPath keyPair party cardanoKeys callback action = do
+withDirectChain tracer networkId iocp socketPath keyPair party cardanoKeys callback action = do
   queue <- newTQueueIO
-  withTinyWallet (contramap Wallet tracer) networkMagic keyPair iocp socketPath $ \wallet -> do
+  withTinyWallet (contramap Wallet tracer) networkId keyPair iocp socketPath $ \wallet -> do
     headState <-
       newTVarIO $
         SomeOnChainHeadState $
           idleOnChainHeadState
-            (Testnet networkMagic)
+            networkId
             (verificationKey wallet)
             party
     race_
@@ -188,7 +188,7 @@ withDirectChain tracer networkMagic iocp socketPath keyPair party cardanoKeys ca
           connectTo
             (localSnocket iocp)
             nullConnectTracers
-            (versions networkMagic (client tracer queue headState callback))
+            (versions networkId (client tracer queue headState callback))
             socketPath
       )
  where
@@ -203,13 +203,13 @@ withDirectChain tracer networkMagic iocp socketPath keyPair party cardanoKeys ca
       ConnectException
         { ioException
         , socketPath
-        , networkMagic
+        , networkId
         }
 
 data ConnectException = ConnectException
   { ioException :: IOException
   , socketPath :: FilePath
-  , networkMagic :: NetworkMagic
+  , networkId :: NetworkId
   }
   deriving (Show)
 

@@ -1,8 +1,7 @@
-{-# LANGUAGE TypeApplications #-}
-
 module Hydra.Options (
   Options (..),
   ChainConfig (..),
+  LedgerConfig (..),
   parseHydraOptions,
   parseHydraOptionsFromString,
   getParseResult,
@@ -10,6 +9,7 @@ module Hydra.Options (
 ) where
 
 import Data.IP (IP)
+import Hydra.Cardano.Api (NetworkId (..))
 import Hydra.Chain.Direct (NetworkMagic (..))
 import Hydra.Logging (Verbosity (..))
 import Hydra.Network (Host, PortNumber, readHost, readPort)
@@ -20,6 +20,7 @@ import Options.Applicative (
   ParserInfo,
   ParserResult (..),
   auto,
+  completer,
   defaultPrefs,
   execParserPure,
   flag,
@@ -31,6 +32,7 @@ import Options.Applicative (
   helper,
   info,
   infoOption,
+  listCompleter,
   long,
   maybeReader,
   metavar,
@@ -54,6 +56,7 @@ data Options = Options
   , hydraSigningKey :: FilePath
   , hydraVerificationKeys :: [FilePath]
   , chainConfig :: ChainConfig
+  , ledgerConfig :: LedgerConfig
   }
   deriving (Eq, Show)
 
@@ -71,9 +74,40 @@ hydraNodeParser =
     <*> hydraSigningKeyFileParser
     <*> many hydraVerificationKeyFileParser
     <*> chainConfigParser
+    <*> ledgerConfigParser
+
+data LedgerConfig = CardanoLedgerConfig
+  { cardanoLedgerGenesisFile :: FilePath
+  , cardanoLedgerProtocolParametersFile :: FilePath
+  }
+  deriving (Eq, Show)
+
+ledgerConfigParser :: Parser LedgerConfig
+ledgerConfigParser =
+  CardanoLedgerConfig
+    <$> cardanoLedgerGenesisParser
+    <*> cardanoLedgerProtocolParametersParser
+
+cardanoLedgerGenesisParser :: Parser FilePath
+cardanoLedgerGenesisParser =
+  strOption
+    ( long "ledger-genesis"
+        <> metavar "FILE"
+        <> value "genesis-shelley.json"
+        <> help "Path to a Shelley-compatible genesis JSON file."
+    )
+
+cardanoLedgerProtocolParametersParser :: Parser FilePath
+cardanoLedgerProtocolParametersParser =
+  strOption
+    ( long "ledger-protocol-parameters"
+        <> metavar "FILE"
+        <> value "protocol-parameters.json"
+        <> help "Path to a JSON file describing protocol parameters (same format as returned from 'cardano-cli query protocol-parameters')"
+    )
 
 data ChainConfig = DirectChainConfig
-  { networkMagic :: NetworkMagic
+  { networkId :: NetworkId
   , nodeSocket :: FilePath
   , cardanoSigningKey :: FilePath
   , cardanoVerificationKeys :: [FilePath]
@@ -83,21 +117,25 @@ data ChainConfig = DirectChainConfig
 chainConfigParser :: Parser ChainConfig
 chainConfigParser =
   DirectChainConfig
-    <$> networkMagicParser
+    <$> networkIdParser
     <*> nodeSocketParser
     <*> cardanoSigningKeyFileParser
     <*> many cardanoVerificationKeyFileParser
 
-networkMagicParser :: Parser NetworkMagic
-networkMagicParser =
-  NetworkMagic
-    <$> option
-      auto
-      ( long "network-magic"
-          <> metavar "MAGIC"
-          <> value 42
-          <> help "Network magic for the target network."
-      )
+networkIdParser :: Parser NetworkId
+networkIdParser =
+  testnetParser
+ where
+  testnetParser =
+    Testnet . NetworkMagic
+      <$> option
+        auto
+        ( long "network-id"
+            <> metavar "INTEGER"
+            <> value 42
+            <> completer (listCompleter ["1097911063", "42"])
+            <> help "A test network with the given network magic."
+        )
 
 nodeSocketParser :: Parser FilePath
 nodeSocketParser =

@@ -14,7 +14,7 @@ import Test.Hydra.Prelude
 
 import Cardano.Ledger.Alonzo.Tx (ValidatedTx)
 import Control.Concurrent (newEmptyMVar, putMVar, takeMVar)
-import Hydra.Cardano.Api (NetworkMagic, PaymentKey, VerificationKey)
+import Hydra.Cardano.Api (NetworkId (..), PaymentKey, VerificationKey)
 import Hydra.Chain (
   Chain (..),
   HeadParameters (HeadParameters),
@@ -42,11 +42,11 @@ spec = do
         bobKeys <- generate genKeyPair
         carolKeys <- generate genKeyPair
         let cardanoKeys = [aliceVk, fst bobKeys, fst carolKeys]
-        withMockServer $ \magic iocp socket submitTx -> do
-          withDirectChain (contramap FromAlice tracer) magic iocp socket aliceKeys alice cardanoKeys (putMVar calledBackAlice) $ \Chain{postTx} -> do
-            withDirectChain (contramap FromBob tracer) magic iocp socket bobKeys bob cardanoKeys (putMVar calledBackBob) $ \_ -> do
+        withMockServer $ \networkId iocp socket submitTx -> do
+          withDirectChain (contramap FromAlice tracer) networkId iocp socket aliceKeys alice cardanoKeys (putMVar calledBackAlice) $ \Chain{postTx} -> do
+            withDirectChain (contramap FromBob tracer) networkId iocp socket bobKeys bob cardanoKeys (putMVar calledBackBob) $ \_ -> do
               let parameters = HeadParameters 100 [alice, bob, carol]
-              mkSeedPayment magic aliceVk submitTx
+              mkSeedPayment networkId aliceVk submitTx
 
               retry (== NoSeedInput @Tx) $ postTx $ InitTx parameters
               takeMVar calledBackAlice
@@ -70,9 +70,9 @@ spec = do
               takeMVar calledBackAlice `shouldReturn` OnAbortTx
               takeMVar calledBackBob `shouldReturn` OnAbortTx
 
-mkSeedPayment :: NetworkMagic -> VerificationKey PaymentKey -> (ValidatedTx Era -> IO ()) -> IO ()
-mkSeedPayment magic vk submitTx =
-  generate (genPaymentTo magic vk) >>= submitTx
+mkSeedPayment :: NetworkId -> VerificationKey PaymentKey -> (ValidatedTx Era -> IO ()) -> IO ()
+mkSeedPayment networkId vk submitTx =
+  generate (genPaymentTo networkId vk) >>= submitTx
 
 alice, bob, carol :: Party
 alice = deriveParty $ generateKey 10

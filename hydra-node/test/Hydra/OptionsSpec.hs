@@ -3,11 +3,13 @@ module Hydra.OptionsSpec where
 import Hydra.Prelude
 import Test.Hydra.Prelude
 
-import Hydra.Chain.Direct (NetworkMagic (NetworkMagic))
+import Hydra.Cardano.Api (NetworkId (..))
+import Hydra.Chain.Direct (NetworkMagic (..))
 import Hydra.Logging (Verbosity (Verbose))
 import Hydra.Network (Host (Host))
 import Hydra.Options (
   ChainConfig (..),
+  LedgerConfig (..),
   Options (..),
   ParserResult (..),
   parseHydraOptionsFromString,
@@ -73,29 +75,32 @@ spec = parallel $
     it "parses --hydra-signing-key option as a filepath" $
       ["--hydra-signing-key", "./alice.sk"] `shouldParse` defaultOptions{hydraSigningKey = "./alice.sk"}
 
-    it "parses --network-magic option as a number" $ do
-      shouldNotParse ["--network-magic", "abc"]
-      ["--network-magic", "0"]
+    it "parses --network-id option as a number" $ do
+      shouldNotParse ["--network-id", "abc"]
+      ["--network-id", "0"]
         `shouldParse` defaultOptions
           { chainConfig =
               defaultChainConfig
-                { networkMagic = NetworkMagic 0
+                { networkId = Testnet (NetworkMagic 0)
                 }
           }
-      ["--network-magic", "-1"] -- Word32 overflow expected
+      ["--network-id", "-1"] -- Word32 overflow expected
         `shouldParse` defaultOptions
           { chainConfig =
               defaultChainConfig
-                { networkMagic = NetworkMagic 4294967295
+                { networkId = Testnet (NetworkMagic 4294967295)
                 }
           }
-      ["--network-magic", "123"]
+      ["--network-id", "123"]
         `shouldParse` defaultOptions
           { chainConfig =
               defaultChainConfig
-                { networkMagic = NetworkMagic 123
+                { networkId = Testnet (NetworkMagic 123)
                 }
           }
+
+    it "parses --mainnet flag" $ do
+      shouldNotParse ["--mainnet"]
 
     it "parses --node-socket as a filepath" $
       ["--node-socket", "foo.sock"]
@@ -124,6 +129,24 @@ spec = parallel $
                 }
           }
 
+    it "parses --ledger-genesis-file as a filepath" $
+      ["--ledger-genesis", "my-custom-genesis.json"]
+        `shouldParse` defaultOptions
+          { ledgerConfig =
+              defaultLedgerConfig
+                { cardanoLedgerGenesisFile = "my-custom-genesis.json"
+                }
+          }
+
+    it "parses --ledger-protocol-parameters-file as a filepath" $
+      ["--ledger-protocol-parameters", "my-custom-protocol-parameters.json"]
+        `shouldParse` defaultOptions
+          { ledgerConfig =
+              defaultLedgerConfig
+                { cardanoLedgerProtocolParametersFile = "my-custom-protocol-parameters.json"
+                }
+          }
+
 defaultOptions :: Options
 defaultOptions =
   Options
@@ -138,15 +161,23 @@ defaultOptions =
     , hydraSigningKey = "hydra.sk"
     , hydraVerificationKeys = []
     , chainConfig = defaultChainConfig
+    , ledgerConfig = defaultLedgerConfig
     }
 
 defaultChainConfig :: ChainConfig
 defaultChainConfig =
   DirectChainConfig
-    { networkMagic = NetworkMagic 42
+    { networkId = Testnet (NetworkMagic 42)
     , nodeSocket = "node.socket"
     , cardanoSigningKey = "cardano.sk"
     , cardanoVerificationKeys = []
+    }
+
+defaultLedgerConfig :: LedgerConfig
+defaultLedgerConfig =
+  CardanoLedgerConfig
+    { cardanoLedgerGenesisFile = "genesis-shelley.json"
+    , cardanoLedgerProtocolParametersFile = "protocol-parameters.json"
     }
 
 shouldParse :: [String] -> Options -> Expectation

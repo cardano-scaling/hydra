@@ -27,6 +27,7 @@ import Control.Monad.Class.MonadSTM (modifyTVar', newTVarIO, retry)
 import Control.Tracer (nullTracer)
 import Data.List ((!!))
 import qualified Data.Sequence.Strict as StrictSeq
+import Hydra.Cardano.Api (NetworkId (..))
 import qualified Hydra.Chain.Direct.Fixture as Fixture
 import Hydra.Chain.Direct.Util (
   Block,
@@ -111,11 +112,11 @@ import Test.Cardano.Ledger.Alonzo.Serialisation.Generators ()
 -- fake network magic, the path to the server's socket and, a way to enqueue new
 -- transactions (and thus, force production of new blocks).
 withMockServer ::
-  (NetworkMagic -> IOManager -> FilePath -> (ValidatedTx Era -> IO ()) -> IO a) ->
+  (NetworkId -> IOManager -> FilePath -> (ValidatedTx Era -> IO ()) -> IO a) ->
   IO a
 withMockServer action =
   withSystemTempDirectory "withMockServer" $ \dir -> do
-    let magic = NetworkMagic 42
+    let networkId = Testnet (NetworkMagic 42)
     let addr = dir </> "node.socket"
     withIOManager $ \iocp -> do
       let snocket = localSnocket iocp
@@ -131,9 +132,9 @@ withMockServer action =
         noTimeLimitsHandshake
         (cborTermVersionDataCodec nodeToClientCodecCBORTerm)
         acceptableVersion
-        (SomeResponderApplication <$> versions magic (mockServer db))
+        (SomeResponderApplication <$> versions networkId (mockServer db))
         errorPolicies
-        (\_ _ -> action magic iocp addr (\tx -> atomically $ modifyTVar' db (tx :)))
+        (\_ _ -> action networkId iocp addr (\tx -> atomically $ modifyTVar' db (tx :)))
  where
   connLimit :: AcceptedConnectionsLimit
   connLimit = AcceptedConnectionsLimit maxBound maxBound 0

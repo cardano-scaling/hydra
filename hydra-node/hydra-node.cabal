@@ -89,6 +89,7 @@ library
     Hydra.Ledger
     Hydra.Ledger.Cardano
     Hydra.Ledger.Cardano.Builder
+    Hydra.Ledger.Cardano.Configuration
     Hydra.Ledger.Cardano.Evaluate
     Hydra.Ledger.Cardano.Json
     Hydra.Ledger.Simple
@@ -168,6 +169,7 @@ library
     , strict-containers
     , text
     , time
+    , transformers
     , typed-protocols
     , typed-protocols-cborg
     , typed-protocols-examples

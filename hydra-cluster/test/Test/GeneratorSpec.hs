@@ -8,7 +8,7 @@ import Test.Hydra.Prelude
 
 import CardanoCluster (Actor (Faucet), keysFor)
 import Data.Text (unpack)
-import Hydra.Cardano.Api (UTxO, prettyPrintJSON, utxoFromTx)
+import Hydra.Cardano.Api (LedgerEra, UTxO, prettyPrintJSON, utxoFromTx)
 import Hydra.Generator (
   ClientDataset (..),
   Dataset (..),
@@ -17,6 +17,15 @@ import Hydra.Generator (
  )
 import Hydra.Ledger (applyTransactions, balance)
 import Hydra.Ledger.Cardano (Tx, cardanoLedger, genUTxO)
+import Hydra.Ledger.Cardano.Configuration (
+  Globals,
+  LedgerEnv,
+  newGlobals,
+  newLedgerEnv,
+  protocolParametersFromJson,
+  readJsonFileThrow,
+  shelleyGenesisFromJson,
+ )
 import Test.Aeson.GenericSpecs (roundtripSpecs)
 import Test.QuickCheck (Positive (Positive), Property, counterexample, forAll, idempotentIOProperty)
 
@@ -36,20 +45,26 @@ prop_keepsUTxOConstant =
   forAll arbitrary $ \(Positive n) -> do
     idempotentIOProperty $ do
       faucetSk <- snd <$> keysFor Faucet
+      globals <-
+        newGlobals
+          <$> readJsonFileThrow shelleyGenesisFromJson "config/genesis-shelley.json"
+      ledgerEnv <-
+        newLedgerEnv
+          <$> readJsonFileThrow protocolParametersFromJson "config/protocol-parameters.json"
       -- XXX: non-exhaustive pattern match
       pure $
         forAll (genDatasetConstantUTxO faucetSk defaultProtocolParameters 1 n) $
           \Dataset{fundingTransaction, clientDatasets = [ClientDataset{txSequence}]} ->
             let initialUTxO = utxoFromTx fundingTransaction
-                finalUTxO = foldl' apply initialUTxO txSequence
+                finalUTxO = foldl' (apply globals ledgerEnv) initialUTxO txSequence
              in length finalUTxO == length initialUTxO
                   & counterexample ("transactions: " <> prettyJSONString txSequence)
                   & counterexample ("utxo: " <> prettyJSONString initialUTxO)
                   & counterexample ("funding tx: " <> prettyJSONString fundingTransaction)
 
-apply :: UTxO -> Tx -> UTxO
-apply utxo tx =
-  case applyTransactions cardanoLedger utxo [tx] of
+apply :: Globals -> LedgerEnv LedgerEra -> UTxO -> Tx -> UTxO
+apply globals ledgerEnv utxo tx =
+  case applyTransactions (cardanoLedger globals ledgerEnv) utxo [tx] of
     Left err -> error $ "invalid generated data set" <> show err
     Right finalUTxO -> finalUTxO
 
