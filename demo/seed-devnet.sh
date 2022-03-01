@@ -2,7 +2,7 @@
 
 # Seed a "devnet" by distributing some Ada to commit and also some marked as
 # "fuel" for the Hydra Head.
-set -e
+set -eo pipefail
 
 MARKER_DATUM_HASH="a654fb60d21c1fed48db2c320aa6df9737ec0204c0ba53b9b94a09fb40e757f3"
 SCRIPT_DIR=$(realpath $(dirname $(realpath $0)))
@@ -17,10 +17,13 @@ fi
 
 # Invoke cardano-cli in running cardano-node container or via provided cardano-cli
 function ccli() {
+  ccli_ ${@} --testnet-magic 42
+}
+function ccli_() {
   if [[ -x ${CCLI_PATH} ]]; then
-      cardano-cli ${@} --testnet-magic 42
+      cardano-cli ${@}
   else
-      docker-compose exec cardano-node cardano-cli ${@} --testnet-magic 42
+      docker-compose exec cardano-node cardano-cli ${@}
   fi
 }
 
@@ -53,7 +56,17 @@ function seedFaucet() {
         --tx-body-file ${DEVNET_DIR}/seed-${ACTOR}.draft \
         --signing-key-file ${DEVNET_DIR}/credentials/faucet.sk \
         --out-file ${DEVNET_DIR}/seed-${ACTOR}.signed
+    SEED_TXID=$(ccli_ transaction txid --tx-file ${DEVNET_DIR}/seed-${ACTOR}.signed | tr -d '\r')
+    SEED_TXIN="${SEED_TXID}#0"
     ccli transaction submit --tx-file ${DEVNET_DIR}/seed-${ACTOR}.signed
+
+    echo -n >&2 "Waiting for utxo ${SEED_TXIN}.."
+
+    while [[ "$(ccli query utxo --tx-in "${SEED_TXIN}" --out-file /dev/stdout | jq ".\"${SEED_TXIN}\"")" = "null" ]]; do
+        sleep 1
+        echo -n >&2 "."
+    done
+    echo >&2 "Done"
 }
 
 seedFaucet "alice" 1000000000 # 1000 Ada to commit
