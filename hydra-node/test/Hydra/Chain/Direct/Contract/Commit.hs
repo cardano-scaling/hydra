@@ -35,13 +35,12 @@ healthyCommitTx =
   lookupUTxO =
     UTxO.singleton (initialInput, toUTxOContext initialOutput)
       <> UTxO.singleton healthyCommittedUTxO
-
   tx =
     commitTx
       Fixture.testNetworkId
       commitParty
       (Just healthyCommittedUTxO)
-      (initialInput, initialPubKeyHash)
+      (initialInput, toUTxOContext initialOutput, initialPubKeyHash)
 
   initialInput = generateWith arbitrary 42
 

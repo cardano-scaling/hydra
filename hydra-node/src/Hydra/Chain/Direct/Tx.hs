@@ -109,7 +109,6 @@ mkInitialOutput :: NetworkId -> PolicyId -> VerificationKey PaymentKey -> TxOut 
 mkInitialOutput networkId tokenPolicyId (verificationKeyHash -> pkh) =
   TxOut initialAddress initialValue initialDatum
  where
-  -- FIXME: should really be the minted PTs plus some ADA to make the ledger happy
   initialValue =
     headValue <> valueFromList [(AssetId tokenPolicyId (AssetName $ serialiseToRawBytes pkh), 1)]
   initialAddress =
@@ -131,11 +130,11 @@ commitTx ::
   -- | A single UTxO to commit to the Head
   -- We currently limit committing one UTxO to the head because of size limitations.
   Maybe (TxIn, TxOut CtxUTxO) ->
-  -- | The inital output (sent to each party) which should contain the PT and is
+  -- | The initial output (sent to each party) which should contain the PT and is
   -- locked by initial script
-  (TxIn, Hash PaymentKey) ->
+  (TxIn, TxOut CtxUTxO, Hash PaymentKey) ->
   Tx
-commitTx networkId party utxo (initialInput, vkh) =
+commitTx networkId party utxo (initialInput, out, vkh) =
   unsafeBuildTransaction $
     emptyTxBody
       & addInputs [(initialInput, initialWitness_)]
@@ -159,9 +158,8 @@ commitTx networkId party utxo (initialInput, vkh) =
     fromPlutusScript Commit.validatorScript
   commitAddress =
     mkScriptAddress @PlutusScriptV1 networkId commitScript
-  -- FIXME: We should add the value from the initialIn too because it contains the PTs
   commitValue =
-    headValue <> maybe mempty (txOutValue . snd) utxo
+    txOutValue out <> maybe mempty (txOutValue . snd) utxo
   commitDatum =
     mkTxOutDatum $ mkCommitDatum party Head.validatorHash utxo
 
@@ -640,16 +638,16 @@ observeAbortTx utxo tx = do
 ownInitial ::
   VerificationKey PaymentKey ->
   [UTxOWithScript] ->
-  Maybe (TxIn, Hash PaymentKey)
+  Maybe (TxIn, TxOut CtxUTxO, Hash PaymentKey)
 ownInitial vkey =
   foldl' go Nothing
  where
   go (Just x) _ = Just x
-  go Nothing (i, _, dat) = do
+  go Nothing (i, out, dat) = do
     let vkh = verificationKeyHash vkey
     pkh <- fromData (toPlutusData dat)
     guard $ pkh == toPlutusKeyHash vkh
-    pure (i, vkh)
+    pure (i, out, vkh)
 
 mkHeadId :: PolicyId -> HeadId
 mkHeadId =
