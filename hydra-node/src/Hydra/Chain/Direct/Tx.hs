@@ -81,7 +81,10 @@ initTx networkId cardanoKeys parameters seed =
         ( mkHeadOutputInitial networkId (headPolicyId seed) parameters :
           map (mkInitialOutput networkId) cardanoKeys
         )
-      & mintTokens (mkHeadTokenScript seed) Mint hydraHeadV1AssetName 1
+      & mintTokens (mkHeadTokenScript seed) Mint ((hydraHeadV1AssetName, 1) : participationTokens)
+ where
+  participationTokens =
+    [(assetNameFromVerificationKey vk, 1) | vk <- cardanoKeys]
 
 mkHeadOutput :: NetworkId -> PolicyId -> TxOutDatum ctx -> TxOut ctx
 mkHeadOutput networkId tokenPolicyId =
@@ -276,7 +279,7 @@ fanoutTx utxo (headInput, ScriptDatumForTxIn -> headDatumBefore) headTokenScript
     emptyTxBody
       & addInputs [(headInput, headWitness)]
       & addOutputs fanoutOutputs
-      & burnTokens headTokenScript Burn hydraHeadV1AssetName 1
+      & burnTokens headTokenScript Burn [(hydraHeadV1AssetName, 1)]
  where
   headWitness =
     BuildTxWith $ ScriptWitness scriptWitnessCtx $ mkScriptWitness headScript headDatumBefore headRedeemer
@@ -652,6 +655,10 @@ mkHeadId =
   HeadId . serialiseToRawBytes
 
 -- * Helpers
+
+assetNameFromVerificationKey :: VerificationKey PaymentKey -> AssetName
+assetNameFromVerificationKey =
+  AssetName . serialiseToRawBytes . verificationKeyHash
 
 -- | Find first occurrence including a transformation.
 findFirst :: Foldable t => (a -> Maybe b) -> t a -> Maybe b

@@ -6,6 +6,7 @@ import Hydra.Cardano.Api
 import Hydra.Prelude
 
 import qualified Cardano.Api.UTxO as UTxO
+import Hydra.Chain (HeadParameters (..))
 import Hydra.Chain.Direct.Contract.Mutation (
   Mutation (..),
   SomeMutation (..),
@@ -35,7 +36,11 @@ healthyInitTx =
 
   parties = generateWith (vectorOf 3 arbitrary) 42
 
-  parameters = generateWith arbitrary 42
+  parameters =
+    flip generateWith 42 $
+      HeadParameters
+        <$> arbitrary
+        <*> vectorOf (length parties) arbitrary
 
   seedInput = fst . Prelude.head $ UTxO.pairs lookupUTxO
 
