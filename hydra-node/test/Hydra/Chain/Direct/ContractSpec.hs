@@ -84,6 +84,7 @@ spec = parallel $ do
       propTransactionValidates healthyInitTx
     prop "does not survive random adversarial mutations" $
       propMutation healthyInitTx genInitMutation
+
   describe "Abort" $ do
     prop "is healthy" $
       conjoin

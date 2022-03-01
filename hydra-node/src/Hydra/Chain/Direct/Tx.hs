@@ -78,11 +78,12 @@ initTx networkId cardanoKeys parameters seed =
     emptyTxBody
       & addVkInputs [seed]
       & addOutputs
-        ( mkHeadOutputInitial networkId (headPolicyId seed) parameters :
-          map (mkInitialOutput networkId) cardanoKeys
+        ( mkHeadOutputInitial networkId policyId parameters :
+          map (mkInitialOutput networkId policyId) cardanoKeys
         )
       & mintTokens (mkHeadTokenScript seed) Mint ((hydraHeadV1AssetName, 1) : participationTokens)
  where
+  policyId = headPolicyId seed
   participationTokens =
     [(assetNameFromVerificationKey vk, 1) | vk <- cardanoKeys]
 
@@ -104,19 +105,19 @@ mkHeadOutputInitial networkId tokenPolicyId HeadParameters{contestationPeriod, p
         (contestationPeriodFromDiffTime contestationPeriod)
         (map (partyFromVerKey . vkey) parties)
 
-mkInitialOutput :: NetworkId -> VerificationKey PaymentKey -> TxOut CtxTx
-mkInitialOutput networkId (toPlutusKeyHash . verificationKeyHash -> pkh) =
+mkInitialOutput :: NetworkId -> PolicyId -> VerificationKey PaymentKey -> TxOut CtxTx
+mkInitialOutput networkId tokenPolicyId (verificationKeyHash -> pkh) =
   TxOut initialAddress initialValue initialDatum
  where
   -- FIXME: should really be the minted PTs plus some ADA to make the ledger happy
   initialValue =
-    headValue
+    headValue <> valueFromList [(AssetId tokenPolicyId (AssetName $ serialiseToRawBytes pkh), 1)]
   initialAddress =
     mkScriptAddress @PlutusScriptV1 networkId initialScript
   initialScript =
     fromPlutusScript Initial.validatorScript
   initialDatum =
-    mkTxOutDatum $ Initial.datum pkh
+    mkTxOutDatum $ Initial.datum (toPlutusKeyHash pkh)
 
 -- | Craft a commit transaction which includes the "committed" utxo as a datum.
 --

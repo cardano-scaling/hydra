@@ -75,7 +75,7 @@ participationTokensAreDistributed :: CurrencySymbol -> ValidatorHash -> TxInfo -
 participationTokensAreDistributed currency initialValidator txInfo nParties =
   case scriptOutputsAt initialValidator txInfo of
     [] -> traceIfFalse "no initial outputs for parties" $ nParties == (0 :: Integer)
-    outs -> all hasParticipationToken outs
+    outs -> nParties == length outs && all hasParticipationToken outs
  where
   hasParticipationToken :: (DatumHash, Value) -> Bool
   hasParticipationToken (_, val) =
