@@ -28,9 +28,9 @@ module Hydra.Chain.Direct.State (
   observeSomeTx,
 
   -- *** Internal API
-  ObserveTx(..),
+  ObserveTx (..),
   HasTransition (..),
-  TransitionFrom(..)
+  TransitionFrom (..),
 ) where
 
 import Hydra.Cardano.Api
@@ -128,7 +128,8 @@ getKnownUTxO OnChainHeadState{stateMachine} =
 -- no type-level information about the state.
 data SomeOnChainHeadState where
   SomeOnChainHeadState ::
-    forall st. HasTransition st =>
+    forall st.
+    HasTransition st =>
     OnChainHeadState st ->
     SomeOnChainHeadState
 
@@ -232,7 +233,7 @@ abort OnChainHeadState{networkId, stateMachine} = do
   let (i, o, dat, _) = initialThreadOutput
       initials = Map.fromList $ map drop2nd initialInitials
       commits = Map.fromList $ map tripleToPair initialCommits
-   in case abortTx networkId (i, o, dat) initials commits of
+   in case abortTx networkId (i, o, dat) (initialHeadTokenScript stateMachine) initials commits of
         Left err ->
           -- FIXME: Exception with MonadThrow?
           error $ show err
@@ -287,9 +288,10 @@ fanout utxo OnChainHeadState{stateMachine} = do
 --
 -- The transition is encoded at the type-level through the `HeadStateKind` and
 -- the function `transition` overloaded for all transitions.
-class HasTransition st =>
+class
+  HasTransition st =>
   ObserveTx (st :: HeadStateKind) (st' :: HeadStateKind)
- where
+  where
   observeTx ::
     Tx ->
     OnChainHeadState st ->
@@ -309,7 +311,7 @@ class HasTransition (st :: HeadStateKind) where
 
 instance HasTransition 'StIdle where
   transitions _ =
-    [ TransitionTo (Proxy @'StInitialized)
+    [ TransitionTo (Proxy @ 'StInitialized)
     ]
 
 instance ObserveTx 'StIdle 'StInitialized where
@@ -338,9 +340,9 @@ instance ObserveTx 'StIdle 'StInitialized where
 
 instance HasTransition 'StInitialized where
   transitions _ =
-    [ TransitionTo (Proxy @'StInitialized)
-    , TransitionTo (Proxy @'StOpen)
-    , TransitionTo (Proxy @'StIdle)
+    [ TransitionTo (Proxy @ 'StInitialized)
+    , TransitionTo (Proxy @ 'StOpen)
+    , TransitionTo (Proxy @ 'StIdle)
     ]
 
 instance ObserveTx 'StInitialized 'StInitialized where
@@ -410,7 +412,7 @@ instance ObserveTx 'StInitialized 'StIdle where
 
 instance HasTransition 'StOpen where
   transitions _ =
-    [ TransitionTo (Proxy @'StClosed)
+    [ TransitionTo (Proxy @ 'StClosed)
     ]
 
 instance ObserveTx 'StOpen 'StClosed where
@@ -444,7 +446,7 @@ instance ObserveTx 'StOpen 'StClosed where
 
 instance HasTransition 'StClosed where
   transitions _ =
-    [ TransitionTo (Proxy @'StIdle)
+    [ TransitionTo (Proxy @ 'StIdle)
     ]
 
 instance ObserveTx 'StClosed 'StIdle where
@@ -469,8 +471,9 @@ observeSomeTx ::
 observeSomeTx tx (SomeOnChainHeadState (st :: OnChainHeadState st)) =
   asum $ (\(TransitionTo st') -> observeSome st') <$> transitions (Proxy @st)
  where
-  observeSome
-    :: forall st'. (ObserveTx st st', HasTransition st') =>
+  observeSome ::
+    forall st'.
+    (ObserveTx st st', HasTransition st') =>
     Proxy st' ->
     Maybe (OnChainTx Tx, SomeOnChainHeadState)
   observeSome _ =
@@ -483,20 +486,21 @@ observeSomeTx tx (SomeOnChainHeadState (st :: OnChainHeadState st)) =
 data TransitionFrom st where
   TransitionTo ::
     forall st st'.
-      ( ObserveTx st st'
-      , HasTransition st'
-      , HeadStateKindVal st
-      , HeadStateKindVal st'
-      ) =>
+    ( ObserveTx st st'
+    , HasTransition st'
+    , HeadStateKindVal st
+    , HeadStateKindVal st'
+    ) =>
     Proxy st' ->
     TransitionFrom st
 
 instance Show (TransitionFrom st) where
-  show (TransitionTo proxy) = mconcat
-    [ show (headStateKindVal (Proxy @st))
-    , " -> "
-    , show (headStateKindVal proxy)
-    ]
+  show (TransitionTo proxy) =
+    mconcat
+      [ show (headStateKindVal (Proxy @st))
+      , " -> "
+      , show (headStateKindVal proxy)
+      ]
 
 instance Eq (TransitionFrom st) where
   (TransitionTo proxy) == (TransitionTo proxy') =

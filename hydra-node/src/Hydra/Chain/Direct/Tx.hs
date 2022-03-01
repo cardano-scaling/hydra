@@ -300,6 +300,8 @@ abortTx ::
   NetworkId ->
   -- | Everything needed to spend the Head state-machine output.
   (TxIn, TxOut CtxUTxO, ScriptData) ->
+  -- | Script for monetary policy to burn tokens
+  PlutusScript ->
   -- | Data needed to spend the initial output sent to each party to the Head.
   -- Should contain the PT and is locked by initial script.
   Map TxIn ScriptData ->
@@ -307,7 +309,7 @@ abortTx ::
   -- Should contain the PT and is locked by commit script.
   Map TxIn (TxOut CtxUTxO, ScriptData) ->
   Either AbortTxError Tx
-abortTx _networkId (headInput, _initialHeadOutput, ScriptDatumForTxIn -> headDatumBefore) initialsToAbort commitsToAbort
+abortTx _networkId (headInput, _initialHeadOutput, ScriptDatumForTxIn -> headDatumBefore) headTokenScript initialsToAbort commitsToAbort
   | isJust (lookup headInput initialsToAbort) =
     Left OverlappingInputs
   | otherwise =
@@ -315,7 +317,8 @@ abortTx _networkId (headInput, _initialHeadOutput, ScriptDatumForTxIn -> headDat
       unsafeBuildTransaction $
         emptyTxBody
           & addInputs ((headInput, headWitness) : initialInputs <> commitInputs)
-          & addOutputs (commitOutputs)
+          & addOutputs commitOutputs
+          & burnTokens headTokenScript Burn [(hydraHeadV1AssetName, 1)]
  where
   headWitness =
     BuildTxWith $ ScriptWitness scriptWitnessCtx $ mkScriptWitness headScript headDatumBefore headRedeemer
@@ -327,16 +330,6 @@ abortTx _networkId (headInput, _initialHeadOutput, ScriptDatumForTxIn -> headDat
   initialInputs = mkAbortInitial <$> Map.toList initialsToAbort
 
   commitInputs = mkAbortCommit <$> Map.toList commitsToAbort
-
-  -- -- FIXME:
-  -- -- (b) There's in principle no need to output any SM output here, it's over.
-  -- headOutput =
-  --   TxOut
-  --     (mkScriptAddress @PlutusScriptV1 networkId headScript)
-  --     (txOutValue initialHeadOutput)
-  --     headDatumAfter
-  -- headDatumAfter =
-  --   mkTxOutDatum Head.Final
 
   -- NOTE: Abort datums contain the datum of the spent state-machine input, but
   -- also, the datum of the created output which is necessary for the

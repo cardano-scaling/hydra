@@ -11,10 +11,10 @@ import qualified Cardano.Api.UTxO as UTxO
 import qualified Data.Map as Map
 import Data.Maybe (fromJust)
 import Hydra.Chain (HeadParameters (..))
-import Hydra.Chain.Direct.Contract.Mutation (Mutation (ChangeHeadDatum, ChangeInput, RemoveOutput), SomeMutation (..), anyPayToPubKeyTxOut, headTxIn)
-import Hydra.Chain.Direct.Fixture (testNetworkId, testPolicyId)
+import Hydra.Chain.Direct.Contract.Mutation (Mutation (ChangeHeadDatum, ChangeInput, ChangeMintedValue, RemoveOutput), SomeMutation (..), anyPayToPubKeyTxOut, headTxIn)
+import Hydra.Chain.Direct.Fixture (testNetworkId, testPolicyId, testSeedInput)
 import qualified Hydra.Chain.Direct.Fixture as Fixture
-import Hydra.Chain.Direct.Tx (UTxOWithScript, abortTx, mkHeadOutputInitial)
+import Hydra.Chain.Direct.Tx (UTxOWithScript, abortTx, mkHeadOutputInitial, mkHeadTokenScript)
 import Hydra.Chain.Direct.TxSpec (drop2nd, drop3rd, genAbortableOutputs)
 import qualified Hydra.Contract.Commit as Commit
 import qualified Hydra.Contract.HeadState as Head
@@ -23,6 +23,7 @@ import Hydra.Data.Party (partyFromVerKey)
 import Hydra.Party (Party, vkey)
 import Hydra.Prelude
 import Test.QuickCheck (Property, choose, counterexample, oneof)
+import Test.QuickCheck.Gen (suchThat)
 
 --
 -- AbortTx
@@ -41,10 +42,13 @@ healthyAbortTx =
     abortTx
       Fixture.testNetworkId
       (headInput, toUTxOContext headOutput, headDatum)
+      headTokenScript
       (Map.fromList (drop2nd <$> healthyInitials))
       (Map.fromList (tripleToPair <$> healthyCommits))
 
   headInput = generateWith arbitrary 42
+
+  headTokenScript = mkHeadTokenScript testSeedInput
 
   headOutput = mkHeadOutputInitial testNetworkId testPolicyId headParameters
 
@@ -100,10 +104,11 @@ data AbortMutation
   = MutateParties
   | MutateDropCommitOutput
   | MutateHeadScriptInput
+  | MutateBurnTokens
   deriving (Generic, Show, Enum, Bounded)
 
 genAbortMutation :: (Tx, UTxO) -> Gen SomeMutation
-genAbortMutation (_, utxo) =
+genAbortMutation (tx, utxo) =
   oneof
     [ SomeMutation MutateParties . ChangeHeadDatum <$> do
         moreParties <- (: healthyParties) <$> arbitrary
@@ -113,4 +118,17 @@ genAbortMutation (_, utxo) =
         . RemoveOutput
         <$> choose (0, fromIntegral (length healthyCommits - 1))
     , SomeMutation MutateHeadScriptInput . ChangeInput (headTxIn utxo) <$> anyPayToPubKeyTxOut
+    , SomeMutation MutateBurnTokens . ChangeMintedValue <$> do
+        case mintedValue of
+          TxMintValueNone ->
+            pure mempty
+          TxMintValue v _ ->
+            oneof
+              [ do
+                  someQuantity <- fromInteger <$> arbitrary `suchThat` (/= -1)
+                  pure . valueFromList $ map (second $ const someQuantity) $ valueToList v
+              , pure mempty
+              ]
     ]
+ where
+  mintedValue = txMintValue $ txBodyContent $ txBody tx

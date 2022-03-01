@@ -168,7 +168,7 @@ spec =
                 commits = Map.fromList (drop2nd <$> resolvedCommits)
                 commitsUTxO = drop3rd <$> resolvedCommits
                 utxo = UTxO $ Map.fromList (headUTxO : initialsUTxO <> commitsUTxO)
-             in checkCoverage $ case abortTx testNetworkId (txIn, headOutput, fromPlutusData $ toData headDatum) initials (Map.fromList $ map tripleToPair resolvedCommits) of
+             in checkCoverage $ case abortTx testNetworkId (txIn, headOutput, fromPlutusData $ toData headDatum) (mkHeadTokenScript testSeedInput) initials (Map.fromList $ map tripleToPair resolvedCommits) of
                   Left OverlappingInputs ->
                     property (isJust $ txIn `Map.lookup` initials)
                   Right tx ->
@@ -176,7 +176,9 @@ spec =
                       Left basicFailure ->
                         property False & counterexample ("Basic failure: " <> show basicFailure)
                       Right redeemerReport ->
-                        1 + (length initials + length commits) == length (rights $ Map.elems redeemerReport)
+                        -- NOTE: There's 1 redeemer report for the head + 1 for the mint script +
+                        -- 1 for each of either initials or commits
+                        2 + (length initials + length commits) == length (rights $ Map.elems redeemerReport)
                           & counterexample ("Redeemer report: " <> show redeemerReport)
                           & counterexample ("Tx: " <> toString (renderTx tx))
                           & counterexample ("Input utxo: " <> decodeUtf8 (encodePretty utxo))
@@ -195,7 +197,7 @@ spec =
                           & Map.fromList
                           & Map.mapKeys toLedgerTxIn
                           & Map.map toLedgerTxOut
-                   in case abortTx testNetworkId (headInput, headOutput, headDatum) initials' mempty of
+                   in case abortTx testNetworkId (headInput, headOutput, headDatum) (mkHeadTokenScript testSeedInput) initials' mempty of
                         Left err ->
                           property False & counterexample ("AbortTx construction failed: " <> show err)
                         Right (toLedgerTx -> txAbort) ->
