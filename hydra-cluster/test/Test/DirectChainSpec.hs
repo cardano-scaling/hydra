@@ -115,9 +115,10 @@ spec = around showLogsOnFailure $ do
     withTempDir "hydra-cluster" $ \tmp -> do
       config <- newNodeConfig tmp
       aliceKeys@(aliceCardanoVk, _) <- keysFor Alice
+      (carolCardanoVk, _) <- keysFor Carol
       withBFTNode (contramap FromCluster tracer) config $ \node@(RunningNode _ nodeSocket) -> do
         bobKeys <- keysFor Bob
-        let cardanoKeys = []
+        let cardanoKeys = [aliceCardanoVk, carolCardanoVk]
         withIOManager $ \iocp -> do
           withDirectChain (contramap (FromDirectChain "alice") tracer) defaultNetworkId iocp nodeSocket aliceKeys alice cardanoKeys (putMVar alicesCallback) $ \Chain{postTx = alicePostTx} -> do
             withDirectChain nullTracer defaultNetworkId iocp nodeSocket bobKeys bob cardanoKeys (putMVar bobsCallback) $ \Chain{postTx = bobPostTx} -> do
