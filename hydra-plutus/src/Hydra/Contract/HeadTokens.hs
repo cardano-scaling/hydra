@@ -14,14 +14,13 @@ import qualified Hydra.Contract.Initial as Initial
 import Hydra.Contract.MintAction (MintAction (Burn, Mint))
 import Ledger.Typed.Scripts (ValidatorTypes (..), wrapMintingPolicy)
 import Plutus.V1.Ledger.Api (TokenName (TokenName), fromBuiltinData)
-import Plutus.V1.Ledger.Value (getValue)
+import Plutus.V1.Ledger.Value (Value (Value), getValue)
 import qualified PlutusTx
 import qualified PlutusTx.AssocMap as Map
 
 hydraHeadV1 :: BuiltinByteString
 hydraHeadV1 = "HydraHeadV1"
 
-{-# INLINEABLE validate #-}
 validate ::
   -- | Head validator
   ValidatorHash ->
@@ -34,6 +33,7 @@ validate initialValidator headValidator _ action context =
   case action of
     Mint -> validateTokensMinting initialValidator headValidator context
     Burn -> validateTokensBurning context
+{-# INLINEABLE validate #-}
 
 validateTokensBurning :: ScriptContext -> Bool
 validateTokensBurning context =
@@ -52,12 +52,11 @@ validateTokensBurning context =
 
   minted = getValue $ txInfoMint txInfo
 
-  inputsValue = getValue $ foldMap (txOutValue . txInInfoResolved) $ txInfoInputs txInfo
-
   consumedHeadTokens =
-    case Map.lookup currency inputsValue of
-      Nothing -> 0
-      Just tokenMap -> sum tokenMap
+    foldr (\x acc -> acc + countOurTokens (txOutValue $ txInInfoResolved x)) 0 $ txInfoInputs txInfo
+
+  countOurTokens v =
+    maybe 0 sum (Map.lookup currency $ getValue v)
 
   burnHeadTokens =
     case Map.lookup currency minted of
