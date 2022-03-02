@@ -11,7 +11,14 @@ import qualified Cardano.Api.UTxO as UTxO
 import qualified Data.Map as Map
 import Data.Maybe (fromJust)
 import Hydra.Chain (HeadParameters (..))
-import Hydra.Chain.Direct.Contract.Mutation (Mutation (ChangeHeadDatum, ChangeInput, ChangeMintedValue, RemoveOutput), SomeMutation (..), anyPayToPubKeyTxOut, headTxIn)
+import Hydra.Chain.Direct.Contract.Mutation (
+  Mutation (ChangeHeadDatum, ChangeInput, RemoveOutput),
+  SomeMutation (..),
+  addPTWithQuantity,
+  anyPayToPubKeyTxOut,
+  changeMintedValueQuantityFrom,
+  headTxIn,
+ )
 import Hydra.Chain.Direct.Fixture (testNetworkId, testPolicyId, testSeedInput)
 import qualified Hydra.Chain.Direct.Fixture as Fixture
 import Hydra.Chain.Direct.Tx (UTxOWithScript, abortTx, mkHeadOutputInitial, mkHeadTokenScript)
@@ -23,7 +30,6 @@ import Hydra.Data.Party (partyFromVerKey)
 import Hydra.Party (Party, vkey)
 import Hydra.Prelude
 import Test.QuickCheck (Property, choose, counterexample, oneof)
-import Test.QuickCheck.Gen (suchThat)
 
 --
 -- AbortTx
@@ -102,9 +108,10 @@ propHasCommit (_, utxo) =
 
 data AbortMutation
   = MutateParties
-  | MutateDropCommitOutput
+  | DropOneCommitOutput
   | MutateHeadScriptInput
-  | MutateBurnTokens
+  | BurnOneTokenMore
+  | MutateThreadTokenQuantity
   deriving (Generic, Show, Enum, Bounded)
 
 genAbortMutation :: (Tx, UTxO) -> Gen SomeMutation
@@ -114,21 +121,10 @@ genAbortMutation (tx, utxo) =
         moreParties <- (: healthyParties) <$> arbitrary
         c <- arbitrary
         pure $ Head.Initial c (partyFromVerKey . vkey <$> moreParties)
-    , SomeMutation MutateDropCommitOutput
+    , SomeMutation DropOneCommitOutput
         . RemoveOutput
         <$> choose (0, fromIntegral (length healthyCommits - 1))
     , SomeMutation MutateHeadScriptInput . ChangeInput (headTxIn utxo) <$> anyPayToPubKeyTxOut
-    , SomeMutation MutateBurnTokens . ChangeMintedValue <$> do
-        case mintedValue of
-          TxMintValueNone ->
-            pure mempty
-          TxMintValue v _ ->
-            oneof
-              [ do
-                  someQuantity <- fromInteger <$> arbitrary `suchThat` (/= -1)
-                  pure . valueFromList $ map (second $ const someQuantity) $ valueToList v
-              , pure mempty
-              ]
+    , SomeMutation MutateThreadTokenQuantity <$> changeMintedValueQuantityFrom tx (-1)
+    , SomeMutation BurnOneTokenMore <$> addPTWithQuantity tx (-1)
     ]
- where
-  mintedValue = txMintValue $ txBodyContent $ txBody tx

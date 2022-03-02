@@ -37,20 +37,32 @@ validate initialValidator headValidator _ action context =
 
 validateTokensBurning :: ScriptContext -> Bool
 validateTokensBurning context =
-  traceIfFalse "burnt wrong" $
-    checkHeadTokenIsBurnt
+  traceIfFalse "burnt wrong" checkAllPTsAreBurnt
  where
+  -- we do not check the actual token names but only that all tokens pertaining
+  -- to the currency scripts are burnt. This should work whether we are burning
+  -- in Abort or FanOut transaction
+  checkAllPTsAreBurnt =
+    traceIfFalse "inconsistent quantity of head tokens burnt" $
+      consumedHeadTokens == burnHeadTokens
+
   currency = ownCurrencySymbol context
 
   ScriptContext{scriptContextTxInfo = txInfo} = context
 
   minted = getValue $ txInfoMint txInfo
 
-  checkHeadTokenIsBurnt = case Map.lookup currency minted of
-    Nothing -> False
-    Just tokenMap -> case Map.lookup (TokenName hydraHeadV1) tokenMap of
-      Nothing -> traceError "state token not burnt"
-      Just qty -> traceIfFalse "wrong quantity burnt" $ qty == -1
+  inputsValue = getValue $ foldMap (txOutValue . txInInfoResolved) $ txInfoInputs txInfo
+
+  consumedHeadTokens =
+    case Map.lookup currency inputsValue of
+      Nothing -> 0
+      Just tokenMap -> sum tokenMap
+
+  burnHeadTokens =
+    case Map.lookup currency minted of
+      Nothing -> 0
+      Just tokenMap -> negate $ sum tokenMap
 
 validateTokensMinting :: ValidatorHash -> ValidatorHash -> ScriptContext -> Bool
 validateTokensMinting initialValidator headValidator context =
