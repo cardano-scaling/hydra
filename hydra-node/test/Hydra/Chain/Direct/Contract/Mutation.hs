@@ -159,6 +159,7 @@ import Test.QuickCheck (
   counterexample,
   forAll,
   property,
+  suchThat,
   vector,
  )
 import Test.QuickCheck.Instances ()
@@ -440,3 +441,37 @@ anyPayToPubKeyTxOut = genKeyPair >>= genOutput . fst
 -- Head script output.
 headTxIn :: UTxO -> TxIn
 headTxIn = fst . Prelude.head . filter (isHeadOutput . snd) . UTxO.pairs
+
+-- | A 'Mutation' that changes the minted/burnt quantity of all tokens.
+changeMintedValueQuantityFrom :: Tx -> Integer -> Gen Mutation
+changeMintedValueQuantityFrom tx exclude =
+  ChangeMintedValue
+    <$> case mintedValue of
+      TxMintValueNone ->
+        pure mempty
+      TxMintValue v _ -> do
+        someQuantity <- fromInteger <$> arbitrary `suchThat` (/= exclude)
+        pure . valueFromList $ map (second $ const someQuantity) $ valueToList v
+ where
+  mintedValue = txMintValue $ txBodyContent $ txBody tx
+
+-- | A `Mutation` that adds an `Arbitrary` participation token with some quantity.
+-- As usual the quantity can be positive for minting, or negative for burning.
+addPTWithQuantity :: Tx -> Quantity -> Gen Mutation
+addPTWithQuantity tx quantity =
+  ChangeMintedValue <$> do
+    case mintedValue of
+      TxMintValue v _ -> do
+        -- NOTE: We do not expect Ada or any other assets to be minted, so
+        -- we can take the policy id from the headtake the policy id from
+        -- the head.
+        case Prelude.head $ valueToList v of
+          (AdaAssetId, _) -> error "unexpected mint of Ada"
+          (AssetId pid _an, _) -> do
+            -- Some arbitrary token name, which could correspond to a pub key hash
+            pkh <- arbitrary
+            pure $ v <> valueFromList [(AssetId pid pkh, quantity)]
+      TxMintValueNone ->
+        pure mempty
+ where
+  mintedValue = txMintValue $ txBodyContent $ txBody tx

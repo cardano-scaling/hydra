@@ -10,6 +10,8 @@ import Hydra.Chain (HeadParameters (..))
 import Hydra.Chain.Direct.Contract.Mutation (
   Mutation (..),
   SomeMutation (..),
+  addPTWithQuantity,
+  changeMintedValueQuantityFrom,
  )
 import Hydra.Chain.Direct.Fixture (testNetworkId)
 import Hydra.Chain.Direct.Tx (initTx)
@@ -54,27 +56,8 @@ data InitMutation
 genInitMutation :: (Tx, UTxO) -> Gen SomeMutation
 genInitMutation (tx, _utxo) =
   oneof
-    [ SomeMutation MutateThreadTokenQuantity . ChangeMintedValue <$> do
-        case mintedValue of
-          TxMintValueNone ->
-            pure mempty
-          TxMintValue v _ -> do
-            someQuantity <- fromInteger <$> arbitrary `suchThat` (/= 1)
-            pure . valueFromList $ map (second $ const someQuantity) $ valueToList v
-    , SomeMutation MutateAddAnotherPT . ChangeMintedValue <$> do
-        case mintedValue of
-          TxMintValue v _ -> do
-            -- NOTE: We do not expect Ada or any other assets to be minted, so
-            -- we can take the policy id from the headtake the policy id from
-            -- the head.
-            case Prelude.head $ valueToList v of
-              (AdaAssetId, _) -> error "unexpected mint of Ada"
-              (AssetId pid _an, _) -> do
-                -- Some arbitrary token name, which could correspond to a pub key hash
-                pkh <- arbitrary
-                pure $ v <> valueFromList [(AssetId pid pkh, 1)]
-          TxMintValueNone ->
-            pure mempty
+    [ SomeMutation MutateThreadTokenQuantity <$> changeMintedValueQuantityFrom tx 1
+    , SomeMutation MutateAddAnotherPT <$> addPTWithQuantity tx 1
     , SomeMutation MutateInitialOutputValue <$> do
         let outs = txOuts' tx
         (ix, out) <- elements (zip [1 .. length outs - 1] outs)
@@ -84,5 +67,3 @@ genInitMutation (tx, _utxo) =
         ix <- choose (1, length (txOuts' tx) - 1)
         pure $ RemoveOutput (fromIntegral ix)
     ]
- where
-  mintedValue = txMintValue $ txBodyContent $ txBody tx
