@@ -309,8 +309,11 @@ applyMutation mutation (tx@(Tx body wits), utxo) = case mutation of
     )
    where
     removeAt i es =
-      map snd $
-        filter ((/= i) . fst) $ zip [0 ..] es
+      if fromIntegral i >= length es
+        then error "trying to removeAt beyond end of list"
+        else
+          map snd $
+            filter ((/= i) . fst) $ zip [0 ..] es
   ChangeInput txIn txOut ->
     ( Tx body' wits
     , UTxO $ Map.insert txIn txOut (UTxO.toMap utxo)

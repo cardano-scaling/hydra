@@ -29,7 +29,7 @@ import qualified Hydra.Contract.Initial as Initial
 import Hydra.Data.Party (partyFromVerKey)
 import Hydra.Party (Party, vkey)
 import Hydra.Prelude
-import Test.QuickCheck (Property, choose, counterexample, oneof)
+import Test.QuickCheck (Property, choose, counterexample, oneof, suchThat)
 
 --
 -- AbortTx
@@ -75,11 +75,13 @@ healthyAbortTx =
 healthyInitials :: [UTxOWithScript]
 healthyCommits :: [UTxOWithScript]
 (healthyInitials, healthyCommits) =
-  -- NOTE: Why 43 one may ask? Because 42 does not generate commit UTXOs
   -- TODO: Refactor this to be an AbortTx generator because we actually want
   -- to test healthy abort txs with varied combinations of inital and commit
   -- outputs
-  generateWith (genAbortableOutputs healthyParties) 43
+  generateWith (genAbortableOutputs healthyParties `suchThat` thereIsAtLeastOneCommit) 42
+
+thereIsAtLeastOneCommit :: ([UTxOWithScript], [UTxOWithScript]) -> Bool
+thereIsAtLeastOneCommit (is, cs) = not (null cs) && not (null is)
 
 healthyParties :: [Party]
 healthyParties =
@@ -123,7 +125,7 @@ genAbortMutation (tx, utxo) =
         pure $ Head.Initial c (partyFromVerKey . vkey <$> moreParties)
     , SomeMutation DropOneCommitOutput
         . RemoveOutput
-        <$> choose (0, fromIntegral (length healthyCommits - 1))
+        <$> choose (0, fromIntegral (length (txOuts' tx) - 1))
     , SomeMutation MutateHeadScriptInput . ChangeInput (headTxIn utxo) <$> anyPayToPubKeyTxOut
     , SomeMutation MutateThreadTokenQuantity <$> changeMintedValueQuantityFrom tx (-1)
     , SomeMutation BurnOneTokenMore <$> addPTWithQuantity tx (-1)
