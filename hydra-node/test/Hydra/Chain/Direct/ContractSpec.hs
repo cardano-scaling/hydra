@@ -21,6 +21,7 @@ import Hydra.Chain.Direct.Contract.Close (genCloseMutation, healthyCloseTx)
 import Hydra.Chain.Direct.Contract.CollectCom (genCollectComMutation, healthyCollectComTx)
 import Hydra.Chain.Direct.Contract.Commit (genCommitMutation, healthyCommitTx)
 import Hydra.Chain.Direct.Contract.FanOut (genFanoutMutation, healthyFanoutTx)
+import Hydra.Chain.Direct.Contract.Init (genInitMutation, healthyInitTx)
 import Hydra.Chain.Direct.Contract.Mutation (
   genListOfSigningKeys,
   propMutation,
@@ -77,6 +78,12 @@ spec = parallel $ do
   describe "TxOut hashing" $ do
     modifyMaxSuccess (const 20) $
       prop "OffChain.hashTxOuts == OnChain.hashTxOuts" prop_consistentOnAndOffChainHashOfTxOuts
+
+  describe "Init" $ do
+    prop "is healthy" $
+      propTransactionValidates healthyInitTx
+    prop "does not survive random adversarial mutations" $
+      propMutation healthyInitTx genInitMutation
 
   describe "Abort" $ do
     prop "is healthy" $

@@ -26,7 +26,6 @@ import CardanoCluster (
  )
 import CardanoNode (ChainTip (..), RunningNode (..), cliQueryTip)
 import qualified Data.Map as Map
-import Hydra.Chain.Direct.Tx (policyId)
 import qualified Hydra.Contract.Head as Head
 import qualified Hydra.Contract.HeadState as Head
 import Hydra.Logging (Tracer, showLogsOnFailure)
@@ -75,7 +74,7 @@ assertCanCallInitAndAbort = \case
   (RunningCluster ClusterConfig{networkId} (RunningNode _ socket : _)) -> do
     (vk, sk) <- keysFor Alice
     let addr = buildAddress vk networkId
-        headScript = toCardanoApiScript $ Head.validatorScript policyId
+        headScript = toCardanoApiScript Head.validatorScript
         headAddress = buildScriptAddress headScript networkId
         headDatum = fromPlutusData $ toData $ Head.Initial 1_000_000_000_000 []
     UTxO utxo <- queryUTxO networkId socket [addr]

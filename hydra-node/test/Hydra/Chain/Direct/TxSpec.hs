@@ -96,9 +96,9 @@ spec =
                         & counterexample ("Tx: " <> toString (renderTx tx))
 
     describe "fanoutTx" $ do
-      let prop_fanoutTxSize :: UTxO -> TxIn -> Property
-          prop_fanoutTxSize utxo headIn =
-            let tx = fanoutTx utxo (headIn, headDatum) (mkHeadTokenScript testSeedInput)
+      let prop_fanoutTxSize :: UTxO -> TxIn -> TxOut CtxUTxO -> Property
+          prop_fanoutTxSize utxo headIn headOut =
+            let tx = fanoutTx utxo (headIn, headOut, headDatum) (mkHeadTokenScript testSeedInput)
                 headDatum = fromPlutusData $ toData Head.Closed{snapshotNumber = 1, utxoHash = ""}
                 cbor = serialize tx
                 len = LBS.length cbor
@@ -126,14 +126,22 @@ spec =
 
       prop "validates" $ \headInput ->
         forAll (reasonablySized genUTxOWithSimplifiedAddresses) $ \inHeadUTxO ->
-          let tx = fanoutTx inHeadUTxO (headInput, fromPlutusData $ toData headDatum) (mkHeadTokenScript testSeedInput)
+          let tx =
+                fanoutTx
+                  inHeadUTxO
+                  (headInput, headOutput, fromPlutusData $ toData headDatum)
+                  (mkHeadTokenScript testSeedInput)
               onChainUTxO = UTxO.singleton (headInput, headOutput)
-              headScript = fromPlutusScript $ Head.validatorScript policyId
+              headScript = fromPlutusScript Head.validatorScript
               -- FIXME: Ensure the headOutput contains enough value to fanout all inHeadUTxO
               headOutput =
                 TxOut
                   (mkScriptAddress @PlutusScriptV1 testNetworkId headScript)
-                  (lovelaceToValue $ Lovelace 10_000_000)
+                  ( lovelaceToValue (Lovelace 10_000_000)
+                      <> valueFromList
+                        [ (AssetId (headPolicyId testSeedInput) hydraHeadV1AssetName, 1)
+                        ]
+                  )
                   (toUTxOContext $ mkTxOutDatum headDatum)
               headDatum =
                 Head.Closed
@@ -146,7 +154,9 @@ spec =
                 Right redeemerReport ->
                   conjoin
                     [ 1 == length (successfulRedeemersSpending redeemerReport)
+                        & counterexample "Wrong count of spend redeemer(s)"
                     , 1 == length (successfulRedeemersMinting redeemerReport)
+                        & counterexample "Wrong count of mint redeemer(s)"
                     ]
                     & label (show (length inHeadUTxO) <> " UTXO")
                     & counterexample ("Redeemer report: " <> show redeemerReport)
@@ -168,7 +178,11 @@ spec =
                 commits = Map.fromList (drop2nd <$> resolvedCommits)
                 commitsUTxO = drop3rd <$> resolvedCommits
                 utxo = UTxO $ Map.fromList (headUTxO : initialsUTxO <> commitsUTxO)
-             in checkCoverage $ case abortTx testNetworkId (txIn, headOutput, fromPlutusData $ toData headDatum) initials (Map.fromList $ map tripleToPair resolvedCommits) of
+                headInfo = (txIn, headOutput, fromPlutusData $ toData headDatum)
+                headScript = mkHeadTokenScript testSeedInput
+                abortableCommits = Map.fromList $ map tripleToPair resolvedCommits
+                abortableInitials = Map.fromList $ map tripleToPair resolvedInitials
+             in checkCoverage $ case abortTx testNetworkId headInfo headScript abortableInitials abortableCommits of
                   Left OverlappingInputs ->
                     property (isJust $ txIn `Map.lookup` initials)
                   Right tx ->
@@ -176,7 +190,9 @@ spec =
                       Left basicFailure ->
                         property False & counterexample ("Basic failure: " <> show basicFailure)
                       Right redeemerReport ->
-                        1 + (length initials + length commits) == length (rights $ Map.elems redeemerReport)
+                        -- NOTE: There's 1 redeemer report for the head + 1 for the mint script +
+                        -- 1 for each of either initials or commits
+                        2 + (length initials + length commits) == length (rights $ Map.elems redeemerReport)
                           & counterexample ("Redeemer report: " <> show redeemerReport)
                           & counterexample ("Tx: " <> toString (renderTx tx))
                           & counterexample ("Input utxo: " <> decodeUtf8 (encodePretty utxo))
@@ -189,13 +205,13 @@ spec =
            in case observeInitTx testNetworkId party tx of
                 Just (_, InitObservation{initials, threadOutput}) -> do
                   let (headInput, headOutput, headDatum, _) = threadOutput
-                      initials' = Map.fromList [(a, c) | (a, _, c) <- initials]
+                      initials' = Map.fromList [(a, (b, c)) | (a, b, c) <- initials]
                       lookupUTxO =
                         ((headInput, headOutput) : [(a, b) | (a, b, _) <- initials])
                           & Map.fromList
                           & Map.mapKeys toLedgerTxIn
                           & Map.map toLedgerTxOut
-                   in case abortTx testNetworkId (headInput, headOutput, headDatum) initials' mempty of
+                   in case abortTx testNetworkId (headInput, headOutput, headDatum) (mkHeadTokenScript testSeedInput) initials' mempty of
                         Left err ->
                           property False & counterexample ("AbortTx construction failed: " <> show err)
                         Right (toLedgerTx -> txAbort) ->
@@ -223,30 +239,6 @@ spec =
                   property False
                     & counterexample "Failed to construct and observe init tx."
                     & counterexample (toString (renderTx tx))
-
-mkInitials ::
-  (TxIn, Hash PaymentKey, TxOut CtxUTxO) ->
-  UTxOWithScript
-mkInitials (txin, vkh, TxOut _ value _) =
-  let initDatum = Initial.datum (toPlutusKeyHash vkh)
-   in ( txin
-      , mkInitialTxOut vkh value
-      , fromPlutusData (toData initDatum)
-      )
-
-mkInitialTxOut ::
-  Hash PaymentKey ->
-  Value ->
-  TxOut CtxUTxO
-mkInitialTxOut vkh initialValue =
-  toUTxOContext $
-    TxOut
-      (mkScriptAddress @PlutusScriptV1 testNetworkId initialScript)
-      initialValue
-      (mkTxOutDatum initialDatum)
- where
-  initialScript = fromPlutusScript Initial.validatorScript
-  initialDatum = Initial.datum (toPlutusKeyHash vkh)
 
 -- | Generate a UTXO representing /commit/ outputs for a given list of `Party`.
 -- FIXME: This function is very complicated and it's hard to understand it after a while
@@ -280,7 +272,7 @@ generateCommitUTxOs parties = do
    where
     commitValue = lovelaceToValue (Lovelace 2000000) <> maybe mempty (txOutValue . snd) utxo
     commitScript = fromPlutusScript Commit.validatorScript
-    commitDatum = mkCommitDatum party (Head.validatorHash policyId) utxo
+    commitDatum = mkCommitDatum party Head.validatorHash utxo
 
 -- | Evaluate all plutus scripts and return execution budgets of a given
 -- transaction (any included budgets are ignored).
@@ -345,8 +337,19 @@ genAbortableOutputs :: [Party] -> Gen ([UTxOWithScript], [UTxOWithScript])
 genAbortableOutputs parties = do
   (initParties, commitParties) <- (`splitAt` parties) <$> choose (0, length parties)
   initials <- vectorOf (length initParties) genInitial
+  initVkeys <- vectorOf (length initParties) $ arbitrary @(VerificationKey PaymentKey)
+
   commits <- fmap (\(a, (b, c)) -> (a, b, c)) . Map.toList <$> generateCommitUTxOs commitParties
-  pure (initials, commits)
+  commitVkeys <- vectorOf (length commitParties) $ arbitrary @(VerificationKey PaymentKey)
+
+  let initialsWithPT = zipWith addPT initials initVkeys
+      commitsWithPT = zipWith addPT commits commitVkeys
+  pure (initialsWithPT, commitsWithPT)
+ where
+  ptFor vk = valueFromList [(AssetId testPolicyId (AssetName . serialiseToRawBytes . verificationKeyHash $ vk), 1)]
+
+  addPT :: UTxOWithScript -> VerificationKey PaymentKey -> UTxOWithScript
+  addPT (ti, to, sd) vKey = (ti, modifyTxOutValue (<> ptFor vKey) to, sd)
 
 drop2nd :: (a, b, c) -> (a, c)
 drop2nd (a, _, c) = (a, c)
@@ -359,3 +362,26 @@ tripleToPair (a, b, c) = (a, (b, c))
 
 genInitial :: Gen UTxOWithScript
 genInitial = mkInitials <$> arbitrary
+ where
+  mkInitials ::
+    (TxIn, Hash PaymentKey) ->
+    UTxOWithScript
+  mkInitials (txin, vkh) =
+    let initDatum = Initial.datum (toPlutusKeyHash vkh)
+     in ( txin
+        , mkInitialTxOut vkh
+        , fromPlutusData (toData initDatum)
+        )
+
+  mkInitialTxOut ::
+    Hash PaymentKey ->
+    TxOut CtxUTxO
+  mkInitialTxOut vkh =
+    toUTxOContext $
+      TxOut
+        (mkScriptAddress @PlutusScriptV1 testNetworkId initialScript)
+        headValue
+        (mkTxOutDatum initialDatum)
+   where
+    initialScript = fromPlutusScript Initial.validatorScript
+    initialDatum = Initial.datum (toPlutusKeyHash vkh)

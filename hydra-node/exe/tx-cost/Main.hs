@@ -45,7 +45,7 @@ import Hydra.Cardano.Api (
   pattern ScriptWitness,
   pattern TxOut,
  )
-import Hydra.Chain.Direct.Tx (fanoutTx, policyId)
+import Hydra.Chain.Direct.Tx (fanoutTx)
 import qualified Hydra.Contract.Hash as Hash
 import qualified Hydra.Contract.Head as Head
 import qualified Hydra.Contract.HeadState as Head
@@ -109,9 +109,9 @@ mkFanoutTx :: UTxO -> (Tx, UTxO)
 mkFanoutTx utxo =
   (tx, lookupUTxO)
  where
-  tx = fanoutTx utxo (headInput, fromPlutusData headDatum) (fromLedgerScript headTokenScript)
+  tx = fanoutTx utxo (headInput, headOutput, fromPlutusData headDatum) (fromLedgerScript headScript)
   headInput = generateWith arbitrary 42
-  headTokenScript = plutusScript $ Head.validatorScript policyId
+  headScript = plutusScript Head.validatorScript
   headOutput = fromLedgerTxOut $ mkHeadOutput (SJust $ Ledger.Data headDatum)
   headDatum =
     toData $
@@ -122,7 +122,7 @@ mkHeadOutput :: StrictMaybe (Ledger.Data LedgerEra) -> Ledger.Alonzo.TxOut Ledge
 mkHeadOutput headDatum =
   Ledger.Alonzo.TxOut headAddress headValue headDatumHash
  where
-  headAddress = scriptAddr $ plutusScript $ Head.validatorScript policyId
+  headAddress = scriptAddr $ plutusScript Head.validatorScript
   headValue = Ledger.inject (Ledger.Coin 2_000_000)
   headDatumHash = Ledger.hashData @LedgerEra <$> headDatum
 

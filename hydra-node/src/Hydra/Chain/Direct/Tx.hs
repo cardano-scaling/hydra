@@ -24,6 +24,7 @@ import qualified Hydra.Contract.Head as Head
 import qualified Hydra.Contract.HeadState as Head
 import qualified Hydra.Contract.HeadTokens as HeadTokens
 import qualified Hydra.Contract.Initial as Initial
+import Hydra.Contract.MintAction (MintAction (Burn, Mint))
 import Hydra.Data.ContestationPeriod (contestationPeriodFromDiffTime, contestationPeriodToDiffTime)
 import Hydra.Data.Party (partyFromVerKey, partyToVerKey)
 import qualified Hydra.Data.Party as OnChain
@@ -40,16 +41,11 @@ import Hydra.Ledger.Cardano.Builder (
 import Hydra.Party (MultiSigned, Party (Party), toPlutusSignatures, vkey)
 import Hydra.Snapshot (Snapshot (..))
 import Ledger.Typed.Scripts (DatumType)
-import Ledger.Value (AssetClass (..), currencyMPSHash)
-import Plutus.V1.Ledger.Api (MintingPolicyHash, fromBuiltin, fromData)
+import Plutus.V1.Ledger.Api (fromBuiltin, fromData)
 import qualified Plutus.V1.Ledger.Api as Plutus
-import Plutus.V1.Ledger.Value (assetClass, currencySymbol, tokenName)
 import Plutus.V2.Ledger.Api (toBuiltin)
 
 type UTxOWithScript = (TxIn, TxOut CtxUTxO, ScriptData)
-
-hydraHeadV1 :: ByteString
-hydraHeadV1 = "HydraHeadV1"
 
 headPolicyId :: TxIn -> PolicyId
 headPolicyId =
@@ -60,15 +56,7 @@ mkHeadTokenScript =
   fromPlutusScript @PlutusScriptV1 . HeadTokens.validatorScript . toPlutusTxOutRef
 
 hydraHeadV1AssetName :: AssetName
-hydraHeadV1AssetName = AssetName hydraHeadV1
-
--- FIXME: should not be hardcoded, for testing purposes only
-threadToken :: AssetClass
-threadToken = assetClass (currencySymbol "hydra") (tokenName "token")
-
--- FIXME: should not be hardcoded
-policyId :: MintingPolicyHash
-(policyId, _) = first currencyMPSHash (unAssetClass threadToken)
+hydraHeadV1AssetName = AssetName (fromBuiltin HeadTokens.hydraHeadV1)
 
 -- FIXME: sould not be hardcoded
 headValue :: Value
@@ -90,10 +78,14 @@ initTx networkId cardanoKeys parameters seed =
     emptyTxBody
       & addVkInputs [seed]
       & addOutputs
-        ( mkHeadOutputInitial networkId (headPolicyId seed) parameters :
-          map (mkInitialOutput networkId) cardanoKeys
+        ( mkHeadOutputInitial networkId policyId parameters :
+          map (mkInitialOutput networkId policyId) cardanoKeys
         )
-      & mintTokens (mkHeadTokenScript seed) hydraHeadV1AssetName 1
+      & mintTokens (mkHeadTokenScript seed) Mint ((hydraHeadV1AssetName, 1) : participationTokens)
+ where
+  policyId = headPolicyId seed
+  participationTokens =
+    [(assetNameFromVerificationKey vk, 1) | vk <- cardanoKeys]
 
 mkHeadOutput :: NetworkId -> PolicyId -> TxOutDatum ctx -> TxOut ctx
 mkHeadOutput networkId tokenPolicyId =
@@ -101,7 +93,7 @@ mkHeadOutput networkId tokenPolicyId =
     (mkScriptAddress @PlutusScriptV1 networkId headScript)
     (headValue <> valueFromList [(AssetId tokenPolicyId hydraHeadV1AssetName, 1)])
  where
-  headScript = fromPlutusScript $ Head.validatorScript policyId
+  headScript = fromPlutusScript Head.validatorScript
 
 mkHeadOutputInitial :: NetworkId -> PolicyId -> HeadParameters -> TxOut CtxTx
 mkHeadOutputInitial networkId tokenPolicyId HeadParameters{contestationPeriod, parties} =
@@ -113,19 +105,18 @@ mkHeadOutputInitial networkId tokenPolicyId HeadParameters{contestationPeriod, p
         (contestationPeriodFromDiffTime contestationPeriod)
         (map (partyFromVerKey . vkey) parties)
 
-mkInitialOutput :: NetworkId -> VerificationKey PaymentKey -> TxOut CtxTx
-mkInitialOutput networkId (toPlutusKeyHash . verificationKeyHash -> pkh) =
+mkInitialOutput :: NetworkId -> PolicyId -> VerificationKey PaymentKey -> TxOut CtxTx
+mkInitialOutput networkId tokenPolicyId (verificationKeyHash -> pkh) =
   TxOut initialAddress initialValue initialDatum
  where
-  -- FIXME: should really be the minted PTs plus some ADA to make the ledger happy
   initialValue =
-    headValue
+    headValue <> valueFromList [(AssetId tokenPolicyId (AssetName $ serialiseToRawBytes pkh), 1)]
   initialAddress =
     mkScriptAddress @PlutusScriptV1 networkId initialScript
   initialScript =
     fromPlutusScript Initial.validatorScript
   initialDatum =
-    mkTxOutDatum $ Initial.datum pkh
+    mkTxOutDatum $ Initial.datum (toPlutusKeyHash pkh)
 
 -- | Craft a commit transaction which includes the "committed" utxo as a datum.
 --
@@ -139,11 +130,11 @@ commitTx ::
   -- | A single UTxO to commit to the Head
   -- We currently limit committing one UTxO to the head because of size limitations.
   Maybe (TxIn, TxOut CtxUTxO) ->
-  -- | The inital output (sent to each party) which should contain the PT and is
+  -- | The initial output (sent to each party) which should contain the PT and is
   -- locked by initial script
-  (TxIn, Hash PaymentKey) ->
+  (TxIn, TxOut CtxUTxO, Hash PaymentKey) ->
   Tx
-commitTx networkId party utxo (initialInput, vkh) =
+commitTx networkId party utxo (initialInput, out, vkh) =
   unsafeBuildTransaction $
     emptyTxBody
       & addInputs [(initialInput, initialWitness_)]
@@ -167,11 +158,10 @@ commitTx networkId party utxo (initialInput, vkh) =
     fromPlutusScript Commit.validatorScript
   commitAddress =
     mkScriptAddress @PlutusScriptV1 networkId commitScript
-  -- FIXME: We should add the value from the initialIn too because it contains the PTs
   commitValue =
-    headValue <> maybe mempty (txOutValue . snd) utxo
+    txOutValue out <> maybe mempty (txOutValue . snd) utxo
   commitDatum =
-    mkTxOutDatum $ mkCommitDatum party (Head.validatorHash policyId) utxo
+    mkTxOutDatum $ mkCommitDatum party Head.validatorHash utxo
 
 mkCommitDatum :: Party -> Plutus.ValidatorHash -> Maybe (TxIn, TxOut CtxUTxO) -> Plutus.Datum
 mkCommitDatum (partyFromVerKey . vkey -> party) headValidatorHash utxo =
@@ -205,7 +195,7 @@ collectComTx networkId (headInput, initialHeadOutput, ScriptDatumForTxIn -> head
   headWitness =
     BuildTxWith $ ScriptWitness scriptWitnessCtx $ mkScriptWitness headScript headDatumBefore headRedeemer
   headScript =
-    fromPlutusScript @PlutusScriptV1 $ Head.validatorScript policyId
+    fromPlutusScript @PlutusScriptV1 Head.validatorScript
   headRedeemer =
     toScriptData Head.CollectCom
   headOutput =
@@ -257,7 +247,7 @@ closeTx Snapshot{number, utxo} sig (headInput, headOutputBefore, ScriptDatumForT
   headWitness =
     BuildTxWith $ ScriptWitness scriptWitnessCtx $ mkScriptWitness headScript headDatumBefore headRedeemer
   headScript =
-    fromPlutusScript @PlutusScriptV1 $ Head.validatorScript policyId
+    fromPlutusScript @PlutusScriptV1 Head.validatorScript
   headRedeemer =
     toScriptData
       Head.Close
@@ -279,23 +269,25 @@ fanoutTx ::
   -- | Snapshotted UTxO to fanout on layer 1
   UTxO ->
   -- | Everything needed to spend the Head state-machine output.
-  (TxIn, ScriptData) ->
+  (TxIn, TxOut CtxUTxO, ScriptData) ->
   -- | Minting Policy script, made from initial seed
   PlutusScript ->
   Tx
-fanoutTx utxo (headInput, ScriptDatumForTxIn -> headDatumBefore) headTokenScript =
+fanoutTx utxo (headInput, headOutput, ScriptDatumForTxIn -> headDatumBefore) headTokenScript =
   unsafeBuildTransaction $
     emptyTxBody
       & addInputs [(headInput, headWitness)]
       & addOutputs fanoutOutputs
-      & burnTokens headTokenScript hydraHeadV1AssetName 1
+      & burnTokens headTokenScript Burn headTokens
  where
   headWitness =
     BuildTxWith $ ScriptWitness scriptWitnessCtx $ mkScriptWitness headScript headDatumBefore headRedeemer
   headScript =
-    fromPlutusScript @PlutusScriptV1 $ Head.validatorScript policyId
+    fromPlutusScript @PlutusScriptV1 Head.validatorScript
   headRedeemer =
     toScriptData (Head.Fanout $ fromIntegral $ length utxo)
+  headTokens =
+    headTokensFromValue headTokenScript (txOutValue headOutput)
 
   fanoutOutputs =
     foldr ((:) . toTxContext) [] utxo
@@ -310,14 +302,16 @@ abortTx ::
   NetworkId ->
   -- | Everything needed to spend the Head state-machine output.
   (TxIn, TxOut CtxUTxO, ScriptData) ->
+  -- | Script for monetary policy to burn tokens
+  PlutusScript ->
   -- | Data needed to spend the initial output sent to each party to the Head.
   -- Should contain the PT and is locked by initial script.
-  Map TxIn ScriptData ->
+  Map TxIn (TxOut CtxUTxO, ScriptData) ->
   -- | Data needed to spend commit outputs.
   -- Should contain the PT and is locked by commit script.
   Map TxIn (TxOut CtxUTxO, ScriptData) ->
   Either AbortTxError Tx
-abortTx networkId (headInput, initialHeadOutput, ScriptDatumForTxIn -> headDatumBefore) initialsToAbort commitsToAbort
+abortTx _networkId (headInput, initialHeadOutput, ScriptDatumForTxIn -> headDatumBefore) headTokenScript initialsToAbort commitsToAbort
   | isJust (lookup headInput initialsToAbort) =
     Left OverlappingInputs
   | otherwise =
@@ -325,12 +319,13 @@ abortTx networkId (headInput, initialHeadOutput, ScriptDatumForTxIn -> headDatum
       unsafeBuildTransaction $
         emptyTxBody
           & addInputs ((headInput, headWitness) : initialInputs <> commitInputs)
-          & addOutputs (headOutput : commitOutputs)
+          & addOutputs commitOutputs
+          & burnTokens headTokenScript Burn headTokens
  where
   headWitness =
     BuildTxWith $ ScriptWitness scriptWitnessCtx $ mkScriptWitness headScript headDatumBefore headRedeemer
   headScript =
-    fromPlutusScript @PlutusScriptV1 $ Head.validatorScript policyId
+    fromPlutusScript @PlutusScriptV1 Head.validatorScript
   headRedeemer =
     toScriptData Head.Abort
 
@@ -338,21 +333,19 @@ abortTx networkId (headInput, initialHeadOutput, ScriptDatumForTxIn -> headDatum
 
   commitInputs = mkAbortCommit <$> Map.toList commitsToAbort
 
-  -- FIXME:
-  -- (b) There's in principle no need to output any SM output here, it's over.
-  headOutput =
-    TxOut
-      (mkScriptAddress @PlutusScriptV1 networkId headScript)
-      (txOutValue initialHeadOutput)
-      headDatumAfter
-  headDatumAfter =
-    mkTxOutDatum Head.Final
+  headTokens =
+    headTokensFromValue headTokenScript $
+      mconcat
+        [ txOutValue initialHeadOutput
+        , foldMap (txOutValue . fst) initialsToAbort
+        , foldMap (txOutValue . fst) commitsToAbort
+        ]
 
   -- NOTE: Abort datums contain the datum of the spent state-machine input, but
   -- also, the datum of the created output which is necessary for the
   -- state-machine on-chain validator to control the correctness of the
   -- transition.
-  mkAbortInitial (initialInput, ScriptDatumForTxIn -> initialDatum) =
+  mkAbortInitial (initialInput, (_, ScriptDatumForTxIn -> initialDatum)) =
     (initialInput, mkAbortWitness initialDatum)
   mkAbortWitness initialDatum =
     BuildTxWith $ ScriptWitness scriptWitnessCtx $ mkScriptWitness initialScript initialDatum initialRedeemer
@@ -557,7 +550,7 @@ observeCollectComTx utxo tx = do
         )
     _ -> Nothing
  where
-  headScript = fromPlutusScript $ Head.validatorScript policyId
+  headScript = fromPlutusScript Head.validatorScript
 
 data CloseObservation = CloseObservation
   { threadOutput :: (TxIn, TxOut CtxUTxO, ScriptData, [OnChain.Party])
@@ -597,7 +590,7 @@ observeCloseTx utxo tx = do
         )
     _ -> Nothing
  where
-  headScript = fromPlutusScript $ Head.validatorScript policyId
+  headScript = fromPlutusScript Head.validatorScript
 
   -- FIXME(SN): store in/read from datum
   contestationDeadline = UTCTime (ModifiedJulianDay 0) 0
@@ -622,12 +615,13 @@ observeFanoutTx utxo tx = do
       Head.Fanout{} -> pure (OnFanoutTx, ())
       _ -> Nothing
  where
-  headScript = fromPlutusScript $ Head.validatorScript policyId
+  headScript = fromPlutusScript Head.validatorScript
 
 type AbortObservation = ()
 
 -- | Identify an abort tx by looking up the input spending the Head output and
 -- decoding its redeemer.
+-- FIXME(SN): make sure this is aborting "the right head / your head"
 observeAbortTx ::
   -- | A UTxO set to lookup tx inputs
   UTxO ->
@@ -639,8 +633,7 @@ observeAbortTx utxo tx = do
     Head.Abort -> pure (OnAbortTx, ())
     _ -> Nothing
  where
-  -- FIXME(SN): make sure this is aborting "the right head / your head" by not hard-coding policyId
-  headScript = fromPlutusScript $ Head.validatorScript policyId
+  headScript = fromPlutusScript Head.validatorScript
 
 -- * Functions related to OnChainHeadState
 
@@ -648,22 +641,33 @@ observeAbortTx utxo tx = do
 ownInitial ::
   VerificationKey PaymentKey ->
   [UTxOWithScript] ->
-  Maybe (TxIn, Hash PaymentKey)
+  Maybe (TxIn, TxOut CtxUTxO, Hash PaymentKey)
 ownInitial vkey =
   foldl' go Nothing
  where
   go (Just x) _ = Just x
-  go Nothing (i, _, dat) = do
+  go Nothing (i, out, dat) = do
     let vkh = verificationKeyHash vkey
     pkh <- fromData (toPlutusData dat)
     guard $ pkh == toPlutusKeyHash vkh
-    pure (i, vkh)
+    pure (i, out, vkh)
 
 mkHeadId :: PolicyId -> HeadId
 mkHeadId =
   HeadId . serialiseToRawBytes
 
 -- * Helpers
+
+headTokensFromValue :: PlutusScript -> Value -> [(AssetName, Quantity)]
+headTokensFromValue headTokenScript v =
+  [ (assetName, q)
+  | (AssetId pid assetName, q) <- valueToList v
+  , pid == scriptPolicyId (PlutusScript headTokenScript)
+  ]
+
+assetNameFromVerificationKey :: VerificationKey PaymentKey -> AssetName
+assetNameFromVerificationKey =
+  AssetName . serialiseToRawBytes . verificationKeyHash
 
 -- | Find first occurrence including a transformation.
 findFirst :: Foldable t => (a -> Maybe b) -> t a -> Maybe b

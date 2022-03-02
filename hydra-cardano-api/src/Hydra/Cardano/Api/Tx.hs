@@ -61,13 +61,14 @@ renderTx (Tx body _wits) =
     [show (getTxId body)]
       <> inputLines
       <> outputLines
+      <> mintLines
       <> scriptLines
       <> datumLines
       <> redeemerLines
  where
   ShelleyTxBody _era lbody scripts scriptsData _auxData _validity = body
   outs = Ledger.outputs' lbody
-  TxBody TxBodyContent{txIns, txOuts} = body
+  TxBody TxBodyContent{txIns, txOuts, txMintValue} = body
 
   inputLines =
     "  Input set (" <> show (length txIns) <> ")" :
@@ -87,6 +88,10 @@ renderTx (Tx body _wits) =
       [ foldl' (\n inner -> n + Map.size inner) 0 outer
       | Ledger.TxOut _ (Ledger.Value _ outer) _ <- toList outs
       ]
+
+  mintLines =
+    [ "  Minted: " <> show txMintValue
+    ]
 
   scriptLines =
     [ "  Scripts (" <> show (length scripts) <> ")"

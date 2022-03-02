@@ -15,7 +15,7 @@ import Hydra.Chain.Direct.Contract.Mutation (
   SomeMutation (..),
  )
 import qualified Hydra.Chain.Direct.Fixture as Fixture
-import Hydra.Chain.Direct.Tx (commitTx, mkInitialOutput)
+import Hydra.Chain.Direct.Tx (commitTx, headPolicyId, mkInitialOutput)
 import Hydra.Ledger.Cardano (
   genAddressInEra,
   genOutput,
@@ -35,17 +35,18 @@ healthyCommitTx =
   lookupUTxO =
     UTxO.singleton (initialInput, toUTxOContext initialOutput)
       <> UTxO.singleton healthyCommittedUTxO
-
   tx =
     commitTx
       Fixture.testNetworkId
       commitParty
       (Just healthyCommittedUTxO)
-      (initialInput, initialPubKeyHash)
+      (initialInput, toUTxOContext initialOutput, initialPubKeyHash)
 
   initialInput = generateWith arbitrary 42
 
-  initialOutput = mkInitialOutput Fixture.testNetworkId commitVerificationKey
+  initialOutput = mkInitialOutput Fixture.testNetworkId policyId commitVerificationKey
+
+  policyId = headPolicyId initialInput
 
   initialPubKeyHash = verificationKeyHash commitVerificationKey
 

@@ -15,7 +15,6 @@ import Hydra.Contract.HeadState as Head
 import Hydra.Contract.Initial as Initial
 import Ledger (Datum (..), datumHash)
 import Ledger.Scripts (Script, toCardanoApiScript)
-import Ledger.Value
 import Plutus.V1.Ledger.Api (Data, dataToBuiltinData, toData)
 import PlutusTx (getPlc)
 import PlutusTx.Code (CompiledCode)
@@ -24,23 +23,14 @@ import Prettyprinter.Render.Text (renderStrict)
 
 -- | Serialise Hydra scripts to files for submission through cardano-cli.
 -- This small utility is useful to manually construct transactions payload for Hydra on-chain
--- protocol. It takes as arguments the currency and token name to be used as unique Head
--- identifier, both of which can simply be a UTXO in the network that's consumed by the
--- init transaction.
+-- protocol.
 main :: IO ()
 main = do
-  [currency, token] <- getArgs
-  let (policyId, _) =
-        first
-          currencyMPSHash
-          ( unAssetClass $
-              assetClass (currencySymbol $ encodeUtf8 currency) (tokenName $ encodeUtf8 token)
-          )
   putTextLn "Serialise scripts:"
-  writeScripts (scripts policyId)
+  writeScripts scripts
 
   putTextLn "Compile scripts:"
-  writePlc (compiledScripts policyId)
+  writePlc compiledScripts
 
   putTextLn "Serialise datums:"
   writeData datums
@@ -78,14 +68,14 @@ main = do
 
   sizeInKb = (<> " KB") . show . (`div` 1024) . BL.length
 
-  scripts policyId =
-    [ (headScript policyId, "headScript")
+  scripts =
+    [ (headScript, "headScript")
     , (initialScript, "initialScript")
     , (commitScript, "commitScript")
     , (hashScript, "hashScript")
     ]
 
-  headScript policyId = Head.validatorScript policyId
+  headScript = Head.validatorScript
 
   commitScript = Commit.validatorScript
 
@@ -93,8 +83,8 @@ main = do
 
   hashScript = Hash.validatorScript
 
-  compiledScripts policyId =
-    [ (Compiled $ Head.compiledValidator policyId, "headScript")
+  compiledScripts =
+    [ (Compiled Head.compiledValidator, "headScript")
     , (Compiled Initial.compiledValidator, "initialScript")
     , (Compiled Commit.compiledValidator, "commitScript")
     ]

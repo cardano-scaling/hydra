@@ -35,12 +35,8 @@ instance Scripts.ValidatorTypes Head where
   type DatumType Head = State
   type RedeemerType Head = Input
 
--- TODO: Add state checkings as done previously by SM
 {-# INLINEABLE headValidator #-}
 headValidator ::
-  -- | Unique identifier for this particular Head
-  -- TODO: currently unused
-  MintingPolicyHash ->
   -- | Commit script address. NOTE: Used to identify inputs from commits and
   -- likely could be replaced by looking for PTs.
   Address ->
@@ -51,7 +47,7 @@ headValidator ::
   Input ->
   ScriptContext ->
   Bool
-headValidator _ commitAddress initialAddress oldState input context =
+headValidator commitAddress initialAddress oldState input context =
   case (oldState, input) of
     (Initial{contestationPeriod, parties}, CollectCom) ->
       checkCollectCom commitAddress (contestationPeriod, parties) context
@@ -233,40 +229,30 @@ mockSign vkey msg = appendByteString (sliceByteString 0 8 hashedMsg) (encodingTo
 {-# INLINEABLE mockSign #-}
 
 -- | The script instance of the auction state machine. It contains the state
--- machine compiled to a Plutus core validator script. The 'MintingPolicyHash' serves
--- two roles here:
---
---   1. Parameterizing the script, such that we get a unique address and allow
---   for multiple instances of it
---
---   2. Identify the 'state thread token', which should be passed in
---   transactions transitioning the state machine and provide "contract
---   continuity"
---
+-- machine compiled to a Plutus core validator script.
 -- TODO: Add a NetworkId so that we can properly serialise address hashes
 -- see 'encodeAddress' for details
-typedValidator :: MintingPolicyHash -> TypedValidator Head
-typedValidator policyId =
+typedValidator :: TypedValidator Head
+typedValidator =
   Scripts.mkTypedValidator @Head
-    (compiledValidator policyId)
+    compiledValidator
     $$(PlutusTx.compile [||wrap||])
  where
   wrap = Scripts.wrapValidator @(DatumType Head) @(RedeemerType Head)
 
-compiledValidator :: MintingPolicyHash -> CompiledCode (ValidatorType Head)
-compiledValidator policyId =
+compiledValidator :: CompiledCode (ValidatorType Head)
+compiledValidator =
   $$(PlutusTx.compile [||headValidator||])
-    `PlutusTx.applyCode` PlutusTx.liftCode policyId
     `PlutusTx.applyCode` PlutusTx.liftCode Commit.address
     `PlutusTx.applyCode` PlutusTx.liftCode Initial.address
 
-validatorHash :: MintingPolicyHash -> ValidatorHash
-validatorHash = Scripts.validatorHash . typedValidator
+validatorHash :: ValidatorHash
+validatorHash = Scripts.validatorHash typedValidator
 
-address :: MintingPolicyHash -> Address
-address = scriptHashAddress . validatorHash
+address :: Address
+address = scriptHashAddress validatorHash
 
 -- | Get the actual plutus script. Mainly used to serialize and use in
 -- transactions.
-validatorScript :: MintingPolicyHash -> Script
-validatorScript = unValidatorScript . Scripts.validatorScript . typedValidator
+validatorScript :: Script
+validatorScript = unValidatorScript $ Scripts.validatorScript typedValidator

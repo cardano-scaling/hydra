@@ -142,7 +142,6 @@ import qualified Data.List as List
 import qualified Data.Map as Map
 import qualified Data.Sequence.Strict as StrictSeq
 import qualified Hydra.Chain.Direct.Fixture as Fixture
-import Hydra.Chain.Direct.Tx (policyId)
 import qualified Hydra.Contract.Head as Head
 import qualified Hydra.Contract.HeadState as Head
 import Hydra.Ledger.Cardano (genKeyPair, genOutput)
@@ -160,6 +159,7 @@ import Test.QuickCheck (
   counterexample,
   forAll,
   property,
+  suchThat,
   vector,
  )
 import Test.QuickCheck.Instances ()
@@ -252,6 +252,8 @@ data Mutation
     ChangeInput TxIn (TxOut CtxUTxO)
   | -- | Change the transaction's output at given index to something else.
     ChangeOutput Word (TxOut CtxTx)
+  | -- | Change the transaction's minted values if it is actually minting something.
+    ChangeMintedValue Value
   | -- | Applies several mutations as a single atomic 'Mutation'.
     -- This is useful to enable specific mutations that require consistent
     -- change of more than one thing in the transaction and/or UTxO set, for
@@ -307,8 +309,11 @@ applyMutation mutation (tx@(Tx body wits), utxo) = case mutation of
     )
    where
     removeAt i es =
-      map snd $
-        filter ((/= i) . fst) $ zip [0 ..] es
+      if fromIntegral i >= length es
+        then error "trying to removeAt beyond end of list"
+        else
+          map snd $
+            filter ((/= i) . fst) $ zip [0 ..] es
   ChangeInput txIn txOut ->
     ( Tx body' wits
     , UTxO $ Map.insert txIn txOut (UTxO.toMap utxo)
@@ -329,6 +334,12 @@ applyMutation mutation (tx@(Tx body wits), utxo) = case mutation of
         )
         []
         (zip [0 ..] outs)
+  ChangeMintedValue v' ->
+    (Tx body' wits, utxo)
+   where
+    ShelleyTxBody ledgerBody scripts scriptData mAuxData scriptValidity = body
+    ledgerBody' = ledgerBody{Ledger.mint = toLedgerValue v'}
+    body' = ShelleyTxBody ledgerBody' scripts scriptData mAuxData scriptValidity
   Changes mutations ->
     foldr applyMutation (tx, utxo) mutations
 
@@ -358,12 +369,11 @@ instance Arbitrary Head.State where
 -- * Helpers
 
 -- | Identify Head script's output.
--- TODO: Parameterise by 'MonetaryPolicyId' as this is currently hardwired.
 isHeadOutput :: TxOut CtxUTxO -> Bool
 isHeadOutput (TxOut addr _ _) = addr == headAddress
  where
   headAddress = mkScriptAddress @PlutusScriptV1 Fixture.testNetworkId headScript
-  headScript = fromPlutusScript $ Head.validatorScript policyId
+  headScript = fromPlutusScript Head.validatorScript
 
 -- | Adds given 'Datum' and corresponding hash to the transaction's scripts.
 -- TODO: As we are creating the `TxOutDatum` from a known datum, passing a `TxOutDatum` is
@@ -434,3 +444,37 @@ anyPayToPubKeyTxOut = genKeyPair >>= genOutput . fst
 -- Head script output.
 headTxIn :: UTxO -> TxIn
 headTxIn = fst . Prelude.head . filter (isHeadOutput . snd) . UTxO.pairs
+
+-- | A 'Mutation' that changes the minted/burnt quantity of all tokens.
+changeMintedValueQuantityFrom :: Tx -> Integer -> Gen Mutation
+changeMintedValueQuantityFrom tx exclude =
+  ChangeMintedValue
+    <$> case mintedValue of
+      TxMintValueNone ->
+        pure mempty
+      TxMintValue v _ -> do
+        someQuantity <- fromInteger <$> arbitrary `suchThat` (/= exclude)
+        pure . valueFromList $ map (second $ const someQuantity) $ valueToList v
+ where
+  mintedValue = txMintValue $ txBodyContent $ txBody tx
+
+-- | A `Mutation` that adds an `Arbitrary` participation token with some quantity.
+-- As usual the quantity can be positive for minting, or negative for burning.
+addPTWithQuantity :: Tx -> Quantity -> Gen Mutation
+addPTWithQuantity tx quantity =
+  ChangeMintedValue <$> do
+    case mintedValue of
+      TxMintValue v _ -> do
+        -- NOTE: We do not expect Ada or any other assets to be minted, so
+        -- we can take the policy id from the headtake the policy id from
+        -- the head.
+        case Prelude.head $ valueToList v of
+          (AdaAssetId, _) -> error "unexpected mint of Ada"
+          (AssetId pid _an, _) -> do
+            -- Some arbitrary token name, which could correspond to a pub key hash
+            pkh <- arbitrary
+            pure $ v <> valueFromList [(AssetId pid pkh, quantity)]
+      TxMintValueNone ->
+        pure mempty
+ where
+  mintedValue = txMintValue $ txBodyContent $ txBody tx

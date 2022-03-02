@@ -1,4 +1,5 @@
 {-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE TypeApplications #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 
 module Hydra.Chain.Direct.Contract.FanOut where
@@ -20,17 +21,26 @@ import Hydra.Ledger.Cardano (
  )
 import Plutus.Orphans ()
 import Plutus.V1.Ledger.Api (toBuiltin, toData)
-import Test.QuickCheck (elements, oneof, suchThat)
+import Test.QuickCheck (elements, oneof, suchThat, vectorOf)
 import Test.QuickCheck.Instances ()
 
 healthyFanoutTx :: (Tx, UTxO)
 healthyFanoutTx =
   (tx, lookupUTxO)
  where
-  tx = fanoutTx healthyFanoutUTxO (headInput, headDatum) headTokenScript
+  tx = fanoutTx healthyFanoutUTxO (headInput, headOutput, headDatum) headTokenScript
   headInput = generateWith arbitrary 42
   headTokenScript = mkHeadTokenScript testSeedInput
-  headOutput = mkHeadOutput testNetworkId testPolicyId (toUTxOContext $ mkTxOutDatum healthyFanoutDatum)
+  headOutput' = mkHeadOutput testNetworkId testPolicyId (toUTxOContext $ mkTxOutDatum healthyFanoutDatum)
+  parties = generateWith (vectorOf 3 (arbitrary @(VerificationKey PaymentKey))) 42
+  headOutput = modifyTxOutValue (<> participationTokens) headOutput'
+  participationTokens =
+    valueFromList $
+      map
+        ( \vk ->
+            (AssetId testPolicyId (AssetName . serialiseToRawBytes . verificationKeyHash $ vk), 1)
+        )
+        parties
   headDatum = fromPlutusData $ toData healthyFanoutDatum
   lookupUTxO = UTxO.singleton (headInput, headOutput)
 
