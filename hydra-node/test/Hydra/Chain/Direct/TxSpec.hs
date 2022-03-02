@@ -347,8 +347,19 @@ genAbortableOutputs :: [Party] -> Gen ([UTxOWithScript], [UTxOWithScript])
 genAbortableOutputs parties = do
   (initParties, commitParties) <- (`splitAt` parties) <$> choose (0, length parties)
   initials <- vectorOf (length initParties) genInitial
+  initVkeys <- vectorOf (length initParties) $ arbitrary @(VerificationKey PaymentKey)
+
   commits <- fmap (\(a, (b, c)) -> (a, b, c)) . Map.toList <$> generateCommitUTxOs commitParties
-  pure (initials, commits)
+  commitVkeys <- vectorOf (length commitParties) $ arbitrary @(VerificationKey PaymentKey)
+
+  let initialsWithPT = zipWith addPT initials initVkeys
+      commitsWithPT = zipWith addPT commits commitVkeys
+  pure (initialsWithPT, commitsWithPT)
+ where
+  ptFor vk = valueFromList [(AssetId testPolicyId (AssetName . serialiseToRawBytes . verificationKeyHash $ vk), 1)]
+
+  addPT :: UTxOWithScript -> VerificationKey PaymentKey -> UTxOWithScript
+  addPT (ti, to, sd) vKey = (ti, modifyTxOutValue (<> ptFor vKey) to, sd)
 
 drop2nd :: (a, b, c) -> (a, c)
 drop2nd (a, _, c) = (a, c)
