@@ -10,8 +10,19 @@ changes.
 
 ## [0.4.0] - UNRELEASED
 
-## Fixed
+#### Added
 
+- Support multiple Heads per Cardano network by identifying and distinguishing transactions of individual Head instances [#180](https://github.com/input-output-hk/hydra-poc/issues/180).
+
+#### Changed
+
+- Use a faucet to distribute funds in test suites and the `demo/` setup.
+
+#### Fixed
+
+- `Hydra.Network.Ouroboros` not using hard-coded valency values anymore to allow
+  more than 7 peer connections.
+- Build issues due to explicit packages list in nix shell [#223](https://github.com/input-output-hk/hydra-poc/issues/223).
 - `hydra-tui` to show form focus, indicate invalid fields in dialogs and only allow valid values
   to be submitted [#224](https://github.com/input-output-hk/hydra-poc/issues/224).
 
