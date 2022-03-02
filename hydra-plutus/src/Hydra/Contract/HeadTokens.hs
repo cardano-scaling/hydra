@@ -13,8 +13,8 @@ import qualified Hydra.Contract.HeadState as Head
 import qualified Hydra.Contract.Initial as Initial
 import Hydra.Contract.MintAction (MintAction (Burn, Mint))
 import Ledger.Typed.Scripts (ValidatorTypes (..), wrapMintingPolicy)
-import Plutus.V1.Ledger.Api (TokenName (TokenName), fromBuiltinData)
-import Plutus.V1.Ledger.Value (Value (Value), getValue)
+import Plutus.V1.Ledger.Api (fromBuiltinData)
+import Plutus.V1.Ledger.Value (getValue)
 import qualified PlutusTx
 import qualified PlutusTx.AssocMap as Map
 

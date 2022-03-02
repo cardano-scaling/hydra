@@ -230,30 +230,6 @@ spec =
                     & counterexample "Failed to construct and observe init tx."
                     & counterexample (toString (renderTx tx))
 
-mkInitials ::
-  (TxIn, Hash PaymentKey, TxOut CtxUTxO) ->
-  UTxOWithScript
-mkInitials (txin, vkh, TxOut _ value _) =
-  let initDatum = Initial.datum (toPlutusKeyHash vkh)
-   in ( txin
-      , mkInitialTxOut vkh value
-      , fromPlutusData (toData initDatum)
-      )
-
-mkInitialTxOut ::
-  Hash PaymentKey ->
-  Value ->
-  TxOut CtxUTxO
-mkInitialTxOut vkh initialValue =
-  toUTxOContext $
-    TxOut
-      (mkScriptAddress @PlutusScriptV1 testNetworkId initialScript)
-      initialValue
-      (mkTxOutDatum initialDatum)
- where
-  initialScript = fromPlutusScript Initial.validatorScript
-  initialDatum = Initial.datum (toPlutusKeyHash vkh)
-
 -- | Generate a UTXO representing /commit/ outputs for a given list of `Party`.
 -- FIXME: This function is very complicated and it's hard to understand it after a while
 generateCommitUTxOs :: [Party] -> Gen (Map.Map TxIn (TxOut CtxUTxO, ScriptData))
@@ -376,3 +352,26 @@ tripleToPair (a, b, c) = (a, (b, c))
 
 genInitial :: Gen UTxOWithScript
 genInitial = mkInitials <$> arbitrary
+ where
+  mkInitials ::
+    (TxIn, Hash PaymentKey) ->
+    UTxOWithScript
+  mkInitials (txin, vkh) =
+    let initDatum = Initial.datum (toPlutusKeyHash vkh)
+     in ( txin
+        , mkInitialTxOut vkh
+        , fromPlutusData (toData initDatum)
+        )
+
+  mkInitialTxOut ::
+    Hash PaymentKey ->
+    TxOut CtxUTxO
+  mkInitialTxOut vkh =
+    toUTxOContext $
+      TxOut
+        (mkScriptAddress @PlutusScriptV1 testNetworkId initialScript)
+        headValue
+        (mkTxOutDatum initialDatum)
+   where
+    initialScript = fromPlutusScript Initial.validatorScript
+    initialDatum = Initial.datum (toPlutusKeyHash vkh)
