@@ -109,7 +109,7 @@ mkFanoutTx :: UTxO -> (Tx, UTxO)
 mkFanoutTx utxo =
   (tx, lookupUTxO)
  where
-  tx = fanoutTx utxo (headInput, fromPlutusData headDatum) (fromLedgerScript headScript)
+  tx = fanoutTx utxo (headInput, headOutput, fromPlutusData headDatum) (fromLedgerScript headScript)
   headInput = generateWith arbitrary 42
   headScript = plutusScript Head.validatorScript
   headOutput = fromLedgerTxOut $ mkHeadOutput (SJust $ Ledger.Data headDatum)
