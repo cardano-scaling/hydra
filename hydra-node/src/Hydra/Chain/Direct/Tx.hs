@@ -269,16 +269,16 @@ fanoutTx ::
   -- | Snapshotted UTxO to fanout on layer 1
   UTxO ->
   -- | Everything needed to spend the Head state-machine output.
-  (TxIn, ScriptData) ->
+  (TxIn, TxOut CtxUTxO, ScriptData) ->
   -- | Minting Policy script, made from initial seed
   PlutusScript ->
   Tx
-fanoutTx utxo (headInput, ScriptDatumForTxIn -> headDatumBefore) headTokenScript =
+fanoutTx utxo (headInput, headOutput, ScriptDatumForTxIn -> headDatumBefore) headTokenScript =
   unsafeBuildTransaction $
     emptyTxBody
       & addInputs [(headInput, headWitness)]
       & addOutputs fanoutOutputs
-      & burnTokens headTokenScript Burn [(hydraHeadV1AssetName, 1)]
+      & burnTokens headTokenScript Burn headTokens
  where
   headWitness =
     BuildTxWith $ ScriptWitness scriptWitnessCtx $ mkScriptWitness headScript headDatumBefore headRedeemer
@@ -286,6 +286,8 @@ fanoutTx utxo (headInput, ScriptDatumForTxIn -> headDatumBefore) headTokenScript
     fromPlutusScript @PlutusScriptV1 Head.validatorScript
   headRedeemer =
     toScriptData (Head.Fanout $ fromIntegral $ length utxo)
+  headTokens =
+    headTokensFromValue headTokenScript (txOutValue headOutput)
 
   fanoutOutputs =
     foldr ((:) . toTxContext) [] utxo
@@ -332,14 +334,12 @@ abortTx _networkId (headInput, initialHeadOutput, ScriptDatumForTxIn -> headDatu
   commitInputs = mkAbortCommit <$> Map.toList commitsToAbort
 
   headTokens =
-    [ (assetName, q)
-    | (AssetId pid assetName, q) <- valueToList fullHeadValue
-    , pid == scriptPolicyId (PlutusScript headTokenScript)
-    ]
-  fullHeadValue =
-    txOutValue initialHeadOutput
-      <> foldMap (txOutValue . fst) initialsToAbort
-      <> foldMap (txOutValue . fst) commitsToAbort
+    headTokensFromValue headTokenScript $
+      mconcat
+        [ txOutValue initialHeadOutput
+        , foldMap (txOutValue . fst) initialsToAbort
+        , foldMap (txOutValue . fst) commitsToAbort
+        ]
 
   -- NOTE: Abort datums contain the datum of the spent state-machine input, but
   -- also, the datum of the created output which is necessary for the
@@ -657,6 +657,13 @@ mkHeadId =
   HeadId . serialiseToRawBytes
 
 -- * Helpers
+
+headTokensFromValue :: PlutusScript -> Value -> [(AssetName, Quantity)]
+headTokensFromValue headTokenScript v =
+  [ (assetName, q)
+  | (AssetId pid assetName, q) <- valueToList v
+  , pid == scriptPolicyId (PlutusScript headTokenScript)
+  ]
 
 assetNameFromVerificationKey :: VerificationKey PaymentKey -> AssetName
 assetNameFromVerificationKey =

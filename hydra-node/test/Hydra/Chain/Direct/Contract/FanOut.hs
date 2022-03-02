@@ -28,7 +28,7 @@ healthyFanoutTx :: (Tx, UTxO)
 healthyFanoutTx =
   (tx, lookupUTxO)
  where
-  tx = fanoutTx healthyFanoutUTxO (headInput, headDatum) headTokenScript
+  tx = fanoutTx healthyFanoutUTxO (headInput, headOutput, headDatum) headTokenScript
   headInput = generateWith arbitrary 42
   headTokenScript = mkHeadTokenScript testSeedInput
   headOutput' = mkHeadOutput testNetworkId testPolicyId (toUTxOContext $ mkTxOutDatum healthyFanoutDatum)

@@ -277,8 +277,8 @@ fanout ::
   OnChainHeadState 'StClosed ->
   Tx
 fanout utxo OnChainHeadState{stateMachine} = do
-  let (i, _, dat, _) = closedThreadOutput
-   in fanoutTx utxo (i, dat) closedHeadTokenScript
+  let (i, o, dat, _) = closedThreadOutput
+   in fanoutTx utxo (i, o, dat) closedHeadTokenScript
  where
   Closed{closedThreadOutput, closedHeadTokenScript} = stateMachine
 

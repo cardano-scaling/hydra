@@ -96,9 +96,9 @@ spec =
                         & counterexample ("Tx: " <> toString (renderTx tx))
 
     describe "fanoutTx" $ do
-      let prop_fanoutTxSize :: UTxO -> TxIn -> Property
-          prop_fanoutTxSize utxo headIn =
-            let tx = fanoutTx utxo (headIn, headDatum) (mkHeadTokenScript testSeedInput)
+      let prop_fanoutTxSize :: UTxO -> TxIn -> TxOut CtxUTxO -> Property
+          prop_fanoutTxSize utxo headIn headOut =
+            let tx = fanoutTx utxo (headIn, headOut, headDatum) (mkHeadTokenScript testSeedInput)
                 headDatum = fromPlutusData $ toData Head.Closed{snapshotNumber = 1, utxoHash = ""}
                 cbor = serialize tx
                 len = LBS.length cbor
@@ -126,14 +126,22 @@ spec =
 
       prop "validates" $ \headInput ->
         forAll (reasonablySized genUTxOWithSimplifiedAddresses) $ \inHeadUTxO ->
-          let tx = fanoutTx inHeadUTxO (headInput, fromPlutusData $ toData headDatum) (mkHeadTokenScript testSeedInput)
+          let tx =
+                fanoutTx
+                  inHeadUTxO
+                  (headInput, headOutput, fromPlutusData $ toData headDatum)
+                  (mkHeadTokenScript testSeedInput)
               onChainUTxO = UTxO.singleton (headInput, headOutput)
               headScript = fromPlutusScript Head.validatorScript
               -- FIXME: Ensure the headOutput contains enough value to fanout all inHeadUTxO
               headOutput =
                 TxOut
                   (mkScriptAddress @PlutusScriptV1 testNetworkId headScript)
-                  (lovelaceToValue $ Lovelace 10_000_000)
+                  ( lovelaceToValue (Lovelace 10_000_000)
+                      <> valueFromList
+                        [ (AssetId (headPolicyId testSeedInput) hydraHeadV1AssetName, 1)
+                        ]
+                  )
                   (toUTxOContext $ mkTxOutDatum headDatum)
               headDatum =
                 Head.Closed
@@ -146,7 +154,9 @@ spec =
                 Right redeemerReport ->
                   conjoin
                     [ 1 == length (successfulRedeemersSpending redeemerReport)
+                        & counterexample "Wrong count of spend redeemer(s)"
                     , 1 == length (successfulRedeemersMinting redeemerReport)
+                        & counterexample "Wrong count of mint redeemer(s)"
                     ]
                     & label (show (length inHeadUTxO) <> " UTXO")
                     & counterexample ("Redeemer report: " <> show redeemerReport)

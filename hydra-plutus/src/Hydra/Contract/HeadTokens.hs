@@ -35,34 +35,6 @@ validate initialValidator headValidator _ action context =
     Burn -> validateTokensBurning context
 {-# INLINEABLE validate #-}
 
-validateTokensBurning :: ScriptContext -> Bool
-validateTokensBurning context =
-  traceIfFalse "burnt wrong" checkAllPTsAreBurnt
- where
-  -- we do not check the actual token names but only that all tokens pertaining
-  -- to the currency scripts are burnt. This should work whether we are burning
-  -- in Abort or FanOut transaction
-  checkAllPTsAreBurnt =
-    traceIfFalse "inconsistent quantity of head tokens burnt" $
-      consumedHeadTokens == burnHeadTokens
-
-  currency = ownCurrencySymbol context
-
-  ScriptContext{scriptContextTxInfo = txInfo} = context
-
-  minted = getValue $ txInfoMint txInfo
-
-  consumedHeadTokens =
-    foldr (\x acc -> acc + countOurTokens (txOutValue $ txInInfoResolved x)) 0 $ txInfoInputs txInfo
-
-  countOurTokens v =
-    maybe 0 sum (Map.lookup currency $ getValue v)
-
-  burnHeadTokens =
-    case Map.lookup currency minted of
-      Nothing -> 0
-      Just tokenMap -> negate $ sum tokenMap
-
 validateTokensMinting :: ValidatorHash -> ValidatorHash -> ScriptContext -> Bool
 validateTokensMinting initialValidator headValidator context =
   traceIfFalse "minted wrong" $
@@ -95,6 +67,34 @@ validateTokensMinting initialValidator headValidator context =
               Just Head.Initial{Head.parties = parties} -> length parties
               Just _ -> traceError "unexpected State in datum"
       _ -> traceError "expected single head output"
+
+validateTokensBurning :: ScriptContext -> Bool
+validateTokensBurning context =
+  traceIfFalse "burnt wrong" checkAllPTsAreBurnt
+ where
+  -- we do not check the actual token names but only that all tokens pertaining
+  -- to the currency scripts are burnt. This should work whether we are burning
+  -- in Abort or FanOut transaction
+  checkAllPTsAreBurnt =
+    traceIfFalse "inconsistent quantity of head tokens burnt" $
+      consumedHeadTokens == burnHeadTokens
+
+  currency = ownCurrencySymbol context
+
+  ScriptContext{scriptContextTxInfo = txInfo} = context
+
+  minted = getValue $ txInfoMint txInfo
+
+  consumedHeadTokens =
+    foldr (\x acc -> acc + countOurTokens (txOutValue $ txInInfoResolved x)) 0 $ txInfoInputs txInfo
+
+  countOurTokens v =
+    maybe 0 sum (Map.lookup currency $ getValue v)
+
+  burnHeadTokens =
+    case Map.lookup currency minted of
+      Nothing -> 0
+      Just tokenMap -> negate $ sum tokenMap
 
 participationTokensAreDistributed :: CurrencySymbol -> ValidatorHash -> TxInfo -> Integer -> Bool
 participationTokensAreDistributed currency initialValidator txInfo nParties =
