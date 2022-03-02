@@ -22,7 +22,7 @@ import Hydra.Chain.Direct.Contract.Mutation (
 import Hydra.Chain.Direct.Fixture (testNetworkId, testPolicyId, testSeedInput)
 import qualified Hydra.Chain.Direct.Fixture as Fixture
 import Hydra.Chain.Direct.Tx (UTxOWithScript, abortTx, mkHeadOutputInitial, mkHeadTokenScript)
-import Hydra.Chain.Direct.TxSpec (drop2nd, drop3rd, genAbortableOutputs)
+import Hydra.Chain.Direct.TxSpec (drop3rd, genAbortableOutputs)
 import qualified Hydra.Contract.Commit as Commit
 import qualified Hydra.Contract.HeadState as Head
 import qualified Hydra.Contract.Initial as Initial
@@ -49,7 +49,7 @@ healthyAbortTx =
       Fixture.testNetworkId
       (headInput, toUTxOContext headOutput, headDatum)
       headTokenScript
-      (Map.fromList (drop2nd <$> healthyInitials))
+      (Map.fromList (tripleToPair <$> healthyInitials))
       (Map.fromList (tripleToPair <$> healthyCommits))
 
   headInput = generateWith arbitrary 42

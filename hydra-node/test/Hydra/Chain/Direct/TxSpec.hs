@@ -168,7 +168,11 @@ spec =
                 commits = Map.fromList (drop2nd <$> resolvedCommits)
                 commitsUTxO = drop3rd <$> resolvedCommits
                 utxo = UTxO $ Map.fromList (headUTxO : initialsUTxO <> commitsUTxO)
-             in checkCoverage $ case abortTx testNetworkId (txIn, headOutput, fromPlutusData $ toData headDatum) (mkHeadTokenScript testSeedInput) initials (Map.fromList $ map tripleToPair resolvedCommits) of
+                headInfo = (txIn, headOutput, fromPlutusData $ toData headDatum)
+                headScript = mkHeadTokenScript testSeedInput
+                abortableCommits = Map.fromList $ map tripleToPair resolvedCommits
+                abortableInitials = Map.fromList $ map tripleToPair resolvedInitials
+             in checkCoverage $ case abortTx testNetworkId headInfo headScript abortableInitials abortableCommits of
                   Left OverlappingInputs ->
                     property (isJust $ txIn `Map.lookup` initials)
                   Right tx ->
@@ -191,7 +195,7 @@ spec =
            in case observeInitTx testNetworkId party tx of
                 Just (_, InitObservation{initials, threadOutput}) -> do
                   let (headInput, headOutput, headDatum, _) = threadOutput
-                      initials' = Map.fromList [(a, c) | (a, _, c) <- initials]
+                      initials' = Map.fromList [(a, (b, c)) | (a, b, c) <- initials]
                       lookupUTxO =
                         ((headInput, headOutput) : [(a, b) | (a, b, _) <- initials])
                           & Map.fromList

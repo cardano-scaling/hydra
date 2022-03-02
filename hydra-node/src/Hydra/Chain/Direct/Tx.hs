@@ -304,12 +304,12 @@ abortTx ::
   PlutusScript ->
   -- | Data needed to spend the initial output sent to each party to the Head.
   -- Should contain the PT and is locked by initial script.
-  Map TxIn ScriptData ->
+  Map TxIn (TxOut CtxUTxO, ScriptData) ->
   -- | Data needed to spend commit outputs.
   -- Should contain the PT and is locked by commit script.
   Map TxIn (TxOut CtxUTxO, ScriptData) ->
   Either AbortTxError Tx
-abortTx _networkId (headInput, _initialHeadOutput, ScriptDatumForTxIn -> headDatumBefore) headTokenScript initialsToAbort commitsToAbort
+abortTx _networkId (headInput, initialHeadOutput, ScriptDatumForTxIn -> headDatumBefore) headTokenScript initialsToAbort commitsToAbort
   | isJust (lookup headInput initialsToAbort) =
     Left OverlappingInputs
   | otherwise =
@@ -318,7 +318,7 @@ abortTx _networkId (headInput, _initialHeadOutput, ScriptDatumForTxIn -> headDat
         emptyTxBody
           & addInputs ((headInput, headWitness) : initialInputs <> commitInputs)
           & addOutputs commitOutputs
-          & burnTokens headTokenScript Burn [(hydraHeadV1AssetName, 1)]
+          & burnTokens headTokenScript Burn headTokens
  where
   headWitness =
     BuildTxWith $ ScriptWitness scriptWitnessCtx $ mkScriptWitness headScript headDatumBefore headRedeemer
@@ -331,11 +331,21 @@ abortTx _networkId (headInput, _initialHeadOutput, ScriptDatumForTxIn -> headDat
 
   commitInputs = mkAbortCommit <$> Map.toList commitsToAbort
 
+  headTokens =
+    [ (assetName, q)
+    | (AssetId pid assetName, q) <- valueToList fullHeadValue
+    , pid == scriptPolicyId (PlutusScript headTokenScript)
+    ]
+  fullHeadValue =
+    txOutValue initialHeadOutput
+      <> foldMap (txOutValue . fst) initialsToAbort
+      <> foldMap (txOutValue . fst) commitsToAbort
+
   -- NOTE: Abort datums contain the datum of the spent state-machine input, but
   -- also, the datum of the created output which is necessary for the
   -- state-machine on-chain validator to control the correctness of the
   -- transition.
-  mkAbortInitial (initialInput, ScriptDatumForTxIn -> initialDatum) =
+  mkAbortInitial (initialInput, (_, ScriptDatumForTxIn -> initialDatum)) =
     (initialInput, mkAbortWitness initialDatum)
   mkAbortWitness initialDatum =
     BuildTxWith $ ScriptWitness scriptWitnessCtx $ mkScriptWitness initialScript initialDatum initialRedeemer

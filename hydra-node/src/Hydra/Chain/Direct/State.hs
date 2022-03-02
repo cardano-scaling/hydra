@@ -231,7 +231,7 @@ abort ::
   Tx
 abort OnChainHeadState{networkId, stateMachine} = do
   let (i, o, dat, _) = initialThreadOutput
-      initials = Map.fromList $ map drop2nd initialInitials
+      initials = Map.fromList $ map tripleToPair initialInitials
       commits = Map.fromList $ map tripleToPair initialCommits
    in case abortTx networkId (i, o, dat) (initialHeadTokenScript stateMachine) initials commits of
         Left err ->
@@ -514,9 +514,6 @@ type UTxOWithScript = (TxIn, TxOut CtxUTxO, ScriptData)
 
 fst3 :: (a, b, c) -> a
 fst3 (a, _b, _c) = a
-
-drop2nd :: (a, b, c) -> (a, c)
-drop2nd (a, _b, c) = (a, c)
 
 tripleToPair :: (a, b, c) -> (a, (b, c))
 tripleToPair (a, b, c) = (a, (b, c))
