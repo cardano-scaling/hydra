@@ -16,8 +16,11 @@ import Ledger.Typed.Scripts (TypedValidator, ValidatorType, ValidatorTypes (..))
 import qualified Ledger.Typed.Scripts as Scripts
 import Plutus.Codec.CBOR.Encoding (encodingToBuiltinByteString)
 import Plutus.V1.Ledger.Ada (fromValue, getLovelace)
+import Plutus.V1.Ledger.Api (CurrencySymbol (CurrencySymbol), TokenName (unTokenName), Value (Value), getValue)
+import Plutus.V1.Ledger.Value (flattenValue)
 import PlutusTx (CompiledCode)
 import qualified PlutusTx
+import qualified PlutusTx.AssocMap as AssocMap
 import PlutusTx.IsData.Class (ToData (..), fromBuiltinData)
 
 data Initial
@@ -54,9 +57,24 @@ validator commitValidator _datum red context =
 checkAuthor ::
   ScriptContext ->
   Bool
-checkAuthor ScriptContext{scriptContextTxInfo = txInfo} =
+checkAuthor context@ScriptContext{scriptContextTxInfo = txInfo} =
   traceIfFalse "Missing or invalid commit author" $
-    not (null (txInfoSignatories txInfo))
+    elem (unTokenName ourParticipationTokenName) (getPubKeyHash <$> txInfoSignatories txInfo)
+ where
+  -- TODO: WIP
+  headCurrency = traceError "undefined" :: CurrencySymbol
+
+  ourParticipationTokenName =
+    case AssocMap.lookup headCurrency (getValue initialValue) of
+      Just tokenMap ->
+        case AssocMap.toList tokenMap of
+          [(tk, q)] | q == 1 -> tk
+          _ -> traceError "multiple head tokens or more than 1 PTs found"
+      _ -> traceError "missing head tokens"
+
+  -- TODO: DRY
+  initialValue =
+    maybe mempty (txOutValue . txInInfoResolved) $ findOwnInput context
 
 checkCommit ::
   -- | Commit validator
