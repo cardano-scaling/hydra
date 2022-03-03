@@ -12,7 +12,7 @@ import qualified Data.Map as Map
 import Data.Maybe (fromJust)
 import Hydra.Chain (HeadParameters (..))
 import Hydra.Chain.Direct.Contract.Mutation (
-  Mutation (ChangeHeadDatum, ChangeInput, RemoveOutput),
+  Mutation (ChangeHeadDatum, ChangeInput, RemoveInput, RemoveOutput),
   SomeMutation (..),
   addPTWithQuantity,
   anyPayToPubKeyTxOut,
@@ -29,7 +29,7 @@ import qualified Hydra.Contract.Initial as Initial
 import Hydra.Data.Party (partyFromVerKey)
 import Hydra.Party (Party, vkey)
 import Hydra.Prelude
-import Test.QuickCheck (Property, choose, counterexample, oneof, suchThat)
+import Test.QuickCheck (Property, choose, counterexample, elements, oneof, suchThat)
 
 --
 -- AbortTx
@@ -114,6 +114,7 @@ data AbortMutation
   | MutateHeadScriptInput
   | BurnOneTokenMore
   | MutateThreadTokenQuantity
+  | DropCollectedInput
   deriving (Generic, Show, Enum, Bounded)
 
 genAbortMutation :: (Tx, UTxO) -> Gen SomeMutation
@@ -129,4 +130,5 @@ genAbortMutation (tx, utxo) =
     , SomeMutation MutateHeadScriptInput . ChangeInput (headTxIn utxo) <$> anyPayToPubKeyTxOut
     , SomeMutation MutateThreadTokenQuantity <$> changeMintedValueQuantityFrom tx (-1)
     , SomeMutation BurnOneTokenMore <$> addPTWithQuantity tx (-1)
+    , SomeMutation DropCollectedInput . RemoveInput <$> elements (txIns' tx)
     ]
