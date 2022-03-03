@@ -20,6 +20,7 @@ import Hydra.Ledger.Cardano (
   genAddressInEra,
   genOutput,
   genValue,
+  genVerificationKey,
  )
 import Hydra.Party (Party)
 import Test.QuickCheck (oneof, suchThat)
@@ -67,6 +68,7 @@ data CommitMutation
   = MutateCommitOutputValue
   | MutateCommittedValue
   | MutateCommittedAddress
+  | MutateRequiredSigner
   deriving (Generic, Show, Enum, Bounded)
 
 genCommitMutation :: (Tx, UTxO) -> Gen SomeMutation
@@ -83,6 +85,9 @@ genCommitMutation (tx, _utxo) =
         mutatedAddress <- genAddressInEra Fixture.testNetworkId `suchThat` (/= committedAddress)
         let mutatedOutput = modifyTxOutAddress (const mutatedAddress) committedTxOut
         pure $ ChangeInput committedTxIn mutatedOutput
+    , SomeMutation MutateRequiredSigner <$> do
+        newSigner <- verificationKeyHash <$> genVerificationKey
+        pure $ ChangeRequiredSigners [newSigner]
     ]
  where
   TxOut commitOutputAddress commitOutputValue commitOutputDatum =

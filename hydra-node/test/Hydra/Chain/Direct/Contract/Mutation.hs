@@ -257,6 +257,8 @@ data Mutation
     ChangeOutput Word (TxOut CtxTx)
   | -- | Change the transaction's minted values if it is actually minting something.
     ChangeMintedValue Value
+  | -- | Change required signers on a transaction'
+    ChangeRequiredSigners [Hash PaymentKey]
   | -- | Applies several mutations as a single atomic 'Mutation'.
     -- This is useful to enable specific mutations that require consistent
     -- change of more than one thing in the transaction and/or UTxO set, for
@@ -353,6 +355,15 @@ applyMutation mutation (tx@(Tx body wits), utxo) = case mutation of
     ShelleyTxBody ledgerBody scripts scriptData mAuxData scriptValidity = body
     ledgerBody' = ledgerBody{Ledger.mint = toLedgerValue v'}
     body' = ShelleyTxBody ledgerBody' scripts scriptData mAuxData scriptValidity
+  ChangeRequiredSigners newSigners ->
+    (Tx body' wits, utxo)
+   where
+    ShelleyTxBody ledgerBody scripts scriptData mAuxData scriptValidity = body
+    body' = ShelleyTxBody ledgerBody' scripts scriptData mAuxData scriptValidity
+    ledgerBody' =
+      ledgerBody
+        { Ledger.reqSignerHashes = Set.fromList (toLedgerKeyHash <$> newSigners)
+        }
   Changes mutations ->
     foldr applyMutation (tx, utxo) mutations
 
