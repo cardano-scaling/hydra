@@ -16,8 +16,7 @@ import Ledger.Typed.Scripts (TypedValidator, ValidatorType, ValidatorTypes (..))
 import qualified Ledger.Typed.Scripts as Scripts
 import Plutus.Codec.CBOR.Encoding (encodingToBuiltinByteString)
 import Plutus.V1.Ledger.Ada (fromValue, getLovelace)
-import Plutus.V1.Ledger.Api (CurrencySymbol (CurrencySymbol), TokenName (unTokenName), Value (Value), getValue)
-import Plutus.V1.Ledger.Value (flattenValue)
+import Plutus.V1.Ledger.Api (TokenName (unTokenName), getValue)
 import PlutusTx (CompiledCode)
 import qualified PlutusTx
 import qualified PlutusTx.AssocMap as AssocMap
@@ -70,12 +69,12 @@ checkAuthor context@ScriptContext{scriptContextTxInfo = txInfo} =
   traceIfFalse "Missing or invalid commit author" $
     elem (unTokenName ourParticipationTokenName) (getPubKeyHash <$> txInfoSignatories txInfo)
  where
-  -- TODO: WIP
-  headCurrency = traceError "undefined" :: CurrencySymbol
-
+  -- NOTE: We don't check the currency symbol, only the well-formedness of the value that
+  -- allows us to extract a token name, because this would be validated in other parts of the
+  -- protocol.
   ourParticipationTokenName =
-    case AssocMap.lookup headCurrency (getValue initialValue) of
-      Just tokenMap ->
+    case AssocMap.toList (getValue initialValue) of
+      [_someAdas, (_headCurrencyHopefully, tokenMap)] ->
         case AssocMap.toList tokenMap of
           [(tk, q)] | q == 1 -> tk
           _ -> traceError "multiple head tokens or more than 1 PTs found"
