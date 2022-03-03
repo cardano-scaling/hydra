@@ -38,6 +38,15 @@ instance Scripts.ValidatorTypes Initial where
   type DatumType Initial = PubKeyHash
   type RedeemerType Initial = InitialRedeemer
 
+-- | The initial validator has two responsibilities:
+--
+--   * ensures the committed value is recorded correctly in the output datum
+--
+--   * ensures that the transaction was signed by the key corresponding to the
+--     PubKeyHash encoded in the participation token name
+--
+-- NOTE: It does not need to ensure that the participation token is of some
+-- specific Head currency.
 validator ::
   -- | Commit validator
   ValidatorHash ->
