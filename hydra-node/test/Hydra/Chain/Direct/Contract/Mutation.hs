@@ -141,6 +141,7 @@ import qualified Data.ByteString as BS
 import qualified Data.List as List
 import qualified Data.Map as Map
 import qualified Data.Sequence.Strict as StrictSeq
+import qualified Data.Set as Set
 import qualified Hydra.Chain.Direct.Fixture as Fixture
 import qualified Hydra.Contract.Head as Head
 import qualified Hydra.Contract.HeadState as Head
@@ -242,6 +243,8 @@ data Mutation
     PrependOutput (TxOut CtxTx)
   | -- | Removes given output from the transaction's outputs.
     RemoveOutput Word
+  | -- | Drops the given input from the transaction's inputs
+    RemoveInput TxIn
   | -- | Change an input's 'TxOut' to something else.
     -- This mutation alters the redeemers of the transaction to ensure
     -- any matching redeemer for given input is removed, otherwise the
@@ -314,6 +317,16 @@ applyMutation mutation (tx@(Tx body wits), utxo) = case mutation of
         else
           map snd $
             filter ((/= i) . fst) $ zip [0 ..] es
+  RemoveInput i ->
+    ( alterTxIns (safeFilter (/= i)) tx
+    , utxo
+    )
+   where
+    safeFilter fn xs =
+      let xs' = filter fn xs
+       in if xs' == xs
+            then error "RemoveInput did not remove any input."
+            else xs'
   ChangeInput txIn txOut ->
     ( Tx body' wits
     , UTxO $ Map.insert txIn txOut (UTxO.toMap utxo)
@@ -418,6 +431,20 @@ removeRedeemerFor initialInputs txIn = \case
         sortedInputs = sort $ toList initialInputs
         removeRedeemer (Ledger.RdmrPtr _ idx, _) = sortedInputs List.!! fromIntegral idx /= txIn
      in TxBodyScriptData dats newRedeemers
+
+alterTxIns ::
+  ([TxIn] -> [TxIn]) ->
+  Tx ->
+  Tx
+alterTxIns fn (Tx body wits) =
+  Tx (ShelleyTxBody ledgerBody' scripts scriptData mAuxData scriptValidity) wits
+ where
+  ShelleyTxBody ledgerBody scripts scriptData mAuxData scriptValidity = body
+  inputs' = fn . fmap fromLedgerTxIn . toList $ Ledger.inputs ledgerBody
+  ledgerBody' =
+    ledgerBody
+      { Ledger.inputs = Set.fromList (toLedgerTxIn <$> inputs')
+      }
 
 -- | Apply some mapping function over a transaction's  outputs.
 alterTxOuts ::
