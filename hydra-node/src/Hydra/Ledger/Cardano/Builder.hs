@@ -91,6 +91,18 @@ addOutputs :: [TxOut CtxTx] -> TxBuilder -> TxBuilder
 addOutputs outputs tx =
   tx{txOuts = txOuts tx <> outputs}
 
+-- | Add extra required key witnesses to a transaction.
+addExtraRequiredSigners :: [Hash PaymentKey] -> TxBuilder -> TxBuilder
+addExtraRequiredSigners vks tx =
+  tx{txExtraKeyWits = txExtraKeyWits'}
+ where
+  txExtraKeyWits' =
+    case txExtraKeyWits tx of
+      TxExtraKeyWitnessesNone ->
+        TxExtraKeyWitnesses vks
+      TxExtraKeyWitnesses vks' ->
+        TxExtraKeyWitnesses (vks' <> vks)
+
 -- | Mint tokens with given plutus minting script and redeemer.
 mintTokens :: ToScriptData redeemer => PlutusScript -> redeemer -> [(AssetName, Quantity)] -> TxBuilder -> TxBuilder
 mintTokens script redeemer assets tx =

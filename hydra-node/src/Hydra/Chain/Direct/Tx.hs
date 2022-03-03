@@ -30,6 +30,7 @@ import Hydra.Data.Party (partyFromVerKey, partyToVerKey)
 import qualified Hydra.Data.Party as OnChain
 import Hydra.Ledger.Cardano (hashTxOuts)
 import Hydra.Ledger.Cardano.Builder (
+  addExtraRequiredSigners,
   addInputs,
   addOutputs,
   addVkInputs,
@@ -139,6 +140,7 @@ commitTx networkId party utxo (initialInput, out, vkh) =
     emptyTxBody
       & addInputs [(initialInput, initialWitness_)]
       & addVkInputs (maybeToList mCommittedInput)
+      & addExtraRequiredSigners [vkh]
       & addOutputs [commitOutput]
  where
   initialWitness_ =

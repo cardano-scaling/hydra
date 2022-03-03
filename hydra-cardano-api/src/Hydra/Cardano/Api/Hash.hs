@@ -12,6 +12,11 @@ toPlutusKeyHash :: Hash PaymentKey -> Plutus.PubKeyHash
 toPlutusKeyHash (PaymentKeyHash vkh) =
   Ledger.transKeyHash vkh
 
+-- | Convert a cardano-api's 'Hash' into a cardano-ledger's 'KeyHash'
+toLedgerKeyHash :: Hash PaymentKey -> Ledger.KeyHash 'Ledger.Witness StandardCrypto
+toLedgerKeyHash (PaymentKeyHash (Ledger.KeyHash vkh)) =
+  Ledger.KeyHash vkh
+
 -- | Unsafe wrap some bytes as a 'Hash PaymentKey'.
 --
 -- Pre-condition: the input bytestring MUST be of length 28.
