@@ -34,7 +34,7 @@ data InitialRedeemer
 PlutusTx.unstableMakeIsData ''InitialRedeemer
 
 instance Scripts.ValidatorTypes Initial where
-  type DatumType Initial = PubKeyHash
+  type DatumType Initial = ()
   type RedeemerType Initial = InitialRedeemer
 
 -- | The initial validator has two responsibilities:
@@ -49,12 +49,11 @@ instance Scripts.ValidatorTypes Initial where
 validator ::
   -- | Commit validator
   ValidatorHash ->
-  -- | The Hydra party which committed
-  PubKeyHash ->
+  () ->
   InitialRedeemer ->
   ScriptContext ->
   Bool
-validator commitValidator _datum red context =
+validator commitValidator () red context =
   case red of
     Abort -> True
     Commit{committedRef} ->

@@ -351,6 +351,31 @@ genAbortableOutputs parties = do
   addPT :: UTxOWithScript -> VerificationKey PaymentKey -> UTxOWithScript
   addPT (ti, to, sd) vKey = (ti, modifyTxOutValue (<> ptFor vKey) to, sd)
 
+  -- FIXME: refactor this to actually generate a well-formed initial including a PT
+  genInitial :: Gen UTxOWithScript
+  genInitial = mkInitials <$> arbitrary
+
+  mkInitials ::
+    TxIn ->
+    UTxOWithScript
+  mkInitials txin =
+    ( txin
+    , initialTxOut
+    , fromPlutusData (toData initialDatum)
+    )
+
+  initialTxOut :: TxOut CtxUTxO
+  initialTxOut =
+    toUTxOContext $
+      TxOut
+        (mkScriptAddress @PlutusScriptV1 testNetworkId initialScript)
+        headValue
+        (mkTxOutDatum initialDatum)
+
+  initialScript = fromPlutusScript Initial.validatorScript
+
+  initialDatum = Initial.datum ()
+
 drop2nd :: (a, b, c) -> (a, c)
 drop2nd (a, _, c) = (a, c)
 
@@ -359,29 +384,3 @@ drop3rd (a, b, _) = (a, b)
 
 tripleToPair :: (a, b, c) -> (a, (b, c))
 tripleToPair (a, b, c) = (a, (b, c))
-
-genInitial :: Gen UTxOWithScript
-genInitial = mkInitials <$> arbitrary
- where
-  mkInitials ::
-    (TxIn, Hash PaymentKey) ->
-    UTxOWithScript
-  mkInitials (txin, vkh) =
-    let initDatum = Initial.datum (toPlutusKeyHash vkh)
-     in ( txin
-        , mkInitialTxOut vkh
-        , fromPlutusData (toData initDatum)
-        )
-
-  mkInitialTxOut ::
-    Hash PaymentKey ->
-    TxOut CtxUTxO
-  mkInitialTxOut vkh =
-    toUTxOContext $
-      TxOut
-        (mkScriptAddress @PlutusScriptV1 testNetworkId initialScript)
-        headValue
-        (mkTxOutDatum initialDatum)
-   where
-    initialScript = fromPlutusScript Initial.validatorScript
-    initialDatum = Initial.datum (toPlutusKeyHash vkh)
