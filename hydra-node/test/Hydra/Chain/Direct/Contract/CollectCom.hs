@@ -33,7 +33,7 @@ import Hydra.Ledger.Cardano (genAdaOnlyUTxO, genValue)
 import Hydra.Party (Party, vkey)
 import Plutus.Orphans ()
 import Plutus.V1.Ledger.Api (fromData, toBuiltin, toData)
-import Test.QuickCheck (oneof, suchThat)
+import Test.QuickCheck (elements, oneof, suchThat)
 import Test.QuickCheck.Instances ()
 import qualified Prelude
 
@@ -117,6 +117,7 @@ data CollectComMutation
   | MutateOpenUTxOHash
   | MutateHeadScriptInput
   | MutateHeadTransition
+  | MutateDropCollectedInput
   deriving (Generic, Show, Enum, Bounded)
 
 genCollectComMutation :: (Tx, UTxO) -> Gen SomeMutation
@@ -131,6 +132,7 @@ genCollectComMutation (tx, utxo) =
         changeRedeemer <- ChangeHeadRedeemer <$> (Head.Close 0 . toBuiltin <$> genHash <*> arbitrary)
         changeDatum <- ChangeHeadDatum <$> (Head.Open <$> arbitrary <*> (toBuiltin <$> genHash))
         pure $ Changes [changeRedeemer, changeDatum]
+    , SomeMutation MutateDropCollectedInput . RemoveInput <$> elements (txIns' tx)
     ]
  where
   TxOut collectComOutputAddress collectComOutputValue collectComOutputDatum =
