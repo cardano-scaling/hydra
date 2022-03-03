@@ -46,7 +46,17 @@ validator ::
 validator commitValidator _datum red context =
   case red of
     Abort -> True
-    Commit{committedRef} -> checkCommit commitValidator committedRef context
+    Commit{committedRef} ->
+      checkCommit commitValidator committedRef context
+        && checkAuthor context
+
+-- | Verifies that the commit is only done by the author
+checkAuthor ::
+  ScriptContext ->
+  Bool
+checkAuthor ScriptContext{scriptContextTxInfo = txInfo} =
+  traceIfFalse "Missing or invalid commit author" $
+    not (null (txInfoSignatories txInfo))
 
 checkCommit ::
   -- | Commit validator
