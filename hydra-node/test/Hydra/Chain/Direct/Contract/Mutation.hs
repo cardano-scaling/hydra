@@ -191,7 +191,7 @@ propTransactionDoesNotValidate (tx, lookupUTxO) =
         Left _ ->
           property True
         Right redeemerReport ->
-          trace (show redeemerReport) any isLeft (Map.elems redeemerReport)
+          any isLeft (Map.elems redeemerReport)
             & counterexample ("Tx: " <> toString (renderTx tx))
             & counterexample ("Lookup utxo: " <> decodeUtf8 (encodePretty lookupUTxO))
             & counterexample ("Redeemer report: " <> show redeemerReport)
@@ -405,7 +405,7 @@ isHeadOutput (TxOut addr _ _) = addr == headAddress
 addDatum :: TxOutDatum CtxTx -> TxBodyScriptData -> TxBodyScriptData
 addDatum datum scriptData =
   case datum of
-    TxOutDatumNone -> error "unexpected datuym none"
+    TxOutDatumNone -> error "unexpected datum none"
     TxOutDatumHash _ha -> error "hash only, expected full datum"
     TxOutDatum sd ->
       case scriptData of
@@ -417,7 +417,13 @@ addDatum datum scriptData =
 
 -- | Ensures the included datums of given 'TxOut's are included in the transactions' 'TxBodyScriptData'.
 ensureDatums :: [TxOut CtxTx] -> TxBodyScriptData -> TxBodyScriptData
-ensureDatums = undefined
+ensureDatums outs scriptData =
+  foldr ensureDatum scriptData outs
+ where
+  ensureDatum txOut sd =
+    case txOutDatum txOut of
+      d@(TxOutDatum _) -> addDatum d sd
+      _ -> sd
 
 -- | Alter a transaction's  redeemers map given some mapping function.
 alterRedeemers ::

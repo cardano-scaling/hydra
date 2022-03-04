@@ -27,7 +27,6 @@ import Hydra.Chain.Direct.Tx (
 import qualified Hydra.Contract.Commit as Commit
 import qualified Hydra.Contract.Head as Head
 import qualified Hydra.Contract.HeadState as Head
-import Hydra.Data.Party (partyFromVerKey)
 import qualified Hydra.Data.Party as OnChain
 import qualified Hydra.Data.Party as Party
 import Hydra.Ledger.Cardano (genAdaOnlyUTxO, genValue)
