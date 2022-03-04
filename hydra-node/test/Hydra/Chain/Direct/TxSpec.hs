@@ -58,12 +58,12 @@ import Test.QuickCheck (
   conjoin,
   counterexample,
   cover,
-  expectFailure,
   forAll,
   forAllShrinkBlind,
   label,
   oneof,
   property,
+  resize,
   suchThat,
   vectorOf,
   withMaxSuccess,
@@ -129,7 +129,7 @@ spec =
             prop_fanoutTxSize utxo
 
       prop "validates" $ \headInput ->
-        forAll (reasonablySized genUTxOWithSimplifiedAddresses) $ \inHeadUTxO ->
+        forAll (resize 50 genUTxOWithSimplifiedAddresses) $ \inHeadUTxO ->
           let tx =
                 fanoutTx
                   inHeadUTxO
@@ -164,7 +164,7 @@ spec =
                     ]
                     & label (show (length inHeadUTxO) <> " UTXO")
                     & counterexample ("Redeemer report: " <> show redeemerReport)
-                    & counterexample ("Tx: " <> show tx)
+                    & counterexample ("Tx: " <> toString (renderTx tx))
                     & cover 0.8 True "Success"
 
     describe "abortTx" $ do

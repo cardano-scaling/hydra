@@ -1,6 +1,4 @@
-{-# LANGUAGE DerivingStrategies #-}
 {-# LANGUAGE TypeApplications #-}
-{-# LANGUAGE TypeSynonymInstances #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 
 module Hydra.Ledger.Cardano (
@@ -57,6 +55,7 @@ import Test.QuickCheck (
   scale,
   shrinkList,
   shrinkMapBy,
+  sized,
   suchThat,
   vectorOf,
  )
@@ -274,13 +273,24 @@ genTxIn =
     <$> fmap (unsafeDeserialize' . BS.pack . ([88, 32] <>)) (vectorOf 32 arbitrary)
     <*> fmap fromIntegral (choose @Int (0, 99))
 
--- | Generate some 'UTxO'. NOTE: This seems to be generating Ada-only 'TxOut'.
+-- | Generate some number of 'UTxO'. NOTE: This seems to be generating Ada-only 'TxOut'.
 genUTxO :: Gen UTxO
-genUTxO = do
-  genesisTxId <- arbitrary
-  utxo <- Ledger.Generator.genUtxo0 (Ledger.Generator.genEnv Proxy)
-  pure $ fromLedgerUTxO . Ledger.UTxO . Map.mapKeys (setTxId genesisTxId) $ Ledger.unUTxO utxo
+genUTxO =
+  sized $ \n -> do
+    genesisTxId <- arbitrary
+    utxo <- Ledger.Generator.genUtxo0 (env n)
+    pure $ fromLedgerUTxO . Ledger.UTxO . Map.mapKeys (setTxId genesisTxId) $ Ledger.unUTxO utxo
  where
+  env n = (Ledger.Generator.genEnv Proxy){Ledger.Generator.geConstants = constants n}
+
+  constants n =
+    Ledger.Generator.defaultConstants
+      { Ledger.Generator.minGenesisUTxOouts = 1
+      , -- NOTE: The genUtxo0 generator seems to draw twice from the range
+        -- [minGenesisUTxOouts, maxGenesisUTxOouts]
+        Ledger.Generator.maxGenesisUTxOouts = n `div` 2
+      }
+
   setTxId ::
     Ledger.TxId Ledger.StandardCrypto ->
     Ledger.TxIn Ledger.StandardCrypto ->
