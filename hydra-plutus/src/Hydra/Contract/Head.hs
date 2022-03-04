@@ -126,6 +126,8 @@ checkCollectCom commitAddress (_, parties) context@ScriptContext{scriptContextTx
     && everyoneHasCommitted
  where
   everyoneHasCommitted =
+    -- TODO: This check is lame, what we want is to check also the PTs are legit, which means
+    -- verifying the CurrencySymbol match the Head.
     collectedPTs == length parties
 
   -- TODO: Can find own input (i.e. 'headInputValue') during this traversal already.
