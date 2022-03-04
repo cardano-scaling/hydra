@@ -34,6 +34,7 @@ import Hydra.Party (Party, vkey)
 import Plutus.Orphans ()
 import Plutus.V1.Ledger.Api (fromData, toBuiltin, toData)
 import Test.QuickCheck (elements, oneof, suchThat)
+import Test.QuickCheck.Gen (suchThatMap)
 import Test.QuickCheck.Instances ()
 import qualified Prelude
 
@@ -117,7 +118,11 @@ data CollectComMutation
   | MutateOpenUTxOHash
   | MutateHeadScriptInput
   | MutateHeadTransition
-  | MutateDropOneCommit
+  | -- | NOTE: we want to ccheck CollectCom validator checks
+    -- there's exactly the expected number of commits.
+    -- This is needed because the Head protocol requires to ensure every party
+    -- has a chance to commit.
+    MutateNumberOfParties
   deriving (Generic, Show, Enum, Bounded)
 
 genCollectComMutation :: (Tx, UTxO) -> Gen SomeMutation
@@ -132,7 +137,7 @@ genCollectComMutation (tx, utxo) =
         changeRedeemer <- ChangeHeadRedeemer <$> (Head.Close 0 . toBuiltin <$> genHash <*> arbitrary)
         changeDatum <- ChangeHeadDatum <$> (Head.Open <$> arbitrary <*> (toBuiltin <$> genHash))
         pure $ Changes [changeRedeemer, changeDatum]
-    , SomeMutation MutateDropOneCommit <$> do
+    , SomeMutation MutateNumberOfParties <$> do
         (commitTxIn, commitTxOut) <- findSomeCommitUTxO
         let headOutput = Prelude.head $ txOuts' tx
         let out' = modifyTxOutValue (\v -> v <> negateValue (txOutValue commitTxOut)) headOutput
@@ -147,13 +152,16 @@ genCollectComMutation (tx, utxo) =
     fromJust $ txOuts' tx !!? 0
 
   findSomeCommitUTxO :: Gen (TxIn, TxOut CtxUTxO)
-  findSomeCommitUTxO = do
-    commitTxIn <- elements (txIns' tx)
-    let commitTxOut = fromJust $ UTxO.resolve commitTxIn utxo
-    pure (commitTxIn, commitTxOut)
-      `suchThat` (\(_, o) -> txOutAddress o == commitAddress)
+  findSomeCommitUTxO =
+    suchThatMap (elements $ txIns' tx) $
+      \txIn -> do
+        txOut <- UTxO.resolve txIn utxo
+        guard $ txOutAddress txOut == commitAddress
+        pure (txIn, txOut)
 
-  commitAddress = undefined
+  commitScript = fromPlutusScript Commit.validatorScript
+
+  commitAddress = mkScriptAddress @PlutusScriptV1 testNetworkId commitScript
 
   mutateUTxOHash = do
     mutatedUTxOHash <- genHash
