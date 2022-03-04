@@ -82,7 +82,7 @@ spec = parallel $ do
              in isNothing (observeTx @_ @'StInitialized tx stIdleB)
 
   describe "commit" $ do
-    propBelowSizeLimit forAllCommit
+    propBelowSizeLimit maxTxSize forAllCommit
 
     prop "consumes all inputs that are committed" $
       forAllCommit $ \st tx ->
@@ -104,16 +104,16 @@ spec = parallel $ do
               False
 
   describe "abort" $ do
-    propBelowSizeLimit forAllAbort
+    propBelowSizeLimit (2*maxTxSize) forAllAbort
 
   describe "collectCom" $ do
-    propBelowSizeLimit forAllCollectCom
+    propBelowSizeLimit (2*maxTxSize) forAllCollectCom
 
   describe "close" $ do
-    propBelowSizeLimit forAllClose
+    propBelowSizeLimit maxTxSize forAllClose
 
   describe "fanout" $ do
-    propBelowSizeLimit forAllFanout
+    propBelowSizeLimit (2*maxTxSize) forAllFanout
 
 --
 -- Generic Properties
@@ -121,17 +121,20 @@ spec = parallel $ do
 
 propBelowSizeLimit ::
   forall st.
+  Int64 ->
   ((OnChainHeadState st -> Tx -> Property) -> Property) ->
   SpecWith ()
-propBelowSizeLimit forAllTx =
-  prop "is below the network size limit" $
+propBelowSizeLimit txSizeLimit forAllTx =
+  prop ("transaction size is below " <> showKB txSizeLimit) $
     forAllTx $ \_st tx ->
       let cbor = serialize tx
           len = LBS.length cbor
-       in len < maxTxSize
-            & label (show (len `div` 1024) <> "kB")
+       in len < txSizeLimit
+            & label (showKB len)
             & counterexample (toString (renderTx tx))
             & counterexample ("Actual size: " <> show len)
+ where
+  showKB nb = show (nb `div` 1024) <> "kB"
 
 
 --

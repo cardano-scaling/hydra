@@ -54,7 +54,7 @@ testSeedInput :: TxIn
 testSeedInput = generateWith arbitrary 42
 
 maxTxSize :: Int64
-maxTxSize = 1 `shift` 15
+maxTxSize = 1 `shift` 14 -- 16kB
 
 instance Arbitrary PubKeyHash where
   arbitrary = PubKeyHash . toBuiltin <$> (arbitrary :: Gen ByteString)
