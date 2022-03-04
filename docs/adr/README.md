@@ -16,3 +16,4 @@ Here is a list of currently accepted or discussed **Architecture Decision Record
 12. [Top-down test-driven design](./0012-testing-strategy.md)
 13. [Adversarial Mutation-based Contract Testing](./0013-contract-testing-strategy.md)
 14. [Token usage in Hydra scripts](./0014-hydra-script-tokens.md)
+15. _[Provide Admin API for Node](./0015-admin-api.md)_
