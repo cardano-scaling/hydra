@@ -1,8 +1,6 @@
 {-# LANGUAGE DerivingStrategies #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeSynonymInstances #-}
-{-# LANGUAGE UndecidableInstances #-}
-{-# OPTIONS_GHC -Wno-missing-methods #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 
 module Hydra.Ledger.Cardano (
@@ -23,17 +21,14 @@ import qualified Cardano.Crypto.DSIGN as CC
 import Cardano.Crypto.Hash (SHA256, digest)
 import qualified Cardano.Ledger.Alonzo.PParams as Ledger.Alonzo
 import qualified Cardano.Ledger.Alonzo.Tx as Ledger.Alonzo
-import qualified Cardano.Ledger.Alonzo.TxBody as Ledger.Alonzo
 import qualified Cardano.Ledger.BaseTypes as Ledger
 import qualified Cardano.Ledger.Core as Ledger
 import qualified Cardano.Ledger.Credential as Ledger
 import qualified Cardano.Ledger.Crypto as Ledger (StandardCrypto)
-import qualified Cardano.Ledger.Mary as Ledger.Mary hiding (Value)
 import qualified Cardano.Ledger.Shelley.API.Mempool as Ledger
 import qualified Cardano.Ledger.Shelley.Genesis as Ledger
 import qualified Cardano.Ledger.Shelley.LedgerState as Ledger
 import qualified Cardano.Ledger.Shelley.Rules.Ledger as Ledger
-import qualified Cardano.Ledger.Shelley.Tx as Ledger.Shelley
 import qualified Cardano.Ledger.Shelley.UTxO as Ledger
 import qualified Cardano.Ledger.TxIn as Ledger
 import qualified Codec.CBOR.Decoding as CBOR
@@ -191,21 +186,9 @@ instance FromCBOR UTxO where
   fromCBOR = fromLedgerUTxO <$> fromCBOR
   label _ = label (Proxy @(Ledger.UTxO LedgerEra))
 
--- TODO: Use Alonzo generators!
--- probably: import Test.Cardano.Ledger.Alonzo.AlonzoEraGen ()
 instance Arbitrary UTxO where
   shrink = shrinkUTxO
-  arbitrary =
-    fmap
-      (fromLedgerUTxO . Ledger.UTxO . Map.map fromMaryTxOut . Ledger.unUTxO)
-      arbitrary
-   where
-    fromMaryTxOut ::
-      Ledger.Mary.TxOut (Ledger.Mary.MaryEra Ledger.StandardCrypto) ->
-      Ledger.TxOut LedgerEra
-    fromMaryTxOut = \case
-      Ledger.Shelley.TxOutCompact addr value ->
-        Ledger.Alonzo.TxOutCompact addr value
+  arbitrary = genUTxO
 
 -- * Generators
 
