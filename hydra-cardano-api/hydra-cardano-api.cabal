@@ -88,6 +88,7 @@ library
     Hydra.Cardano.Api.PlutusScriptVersion
     Hydra.Cardano.Api.PolicyId
     Hydra.Cardano.Api.Prelude
+    Hydra.Cardano.Api.RdmrTag
     Hydra.Cardano.Api.ScriptData
     Hydra.Cardano.Api.ScriptDataSupportedInEra
     Hydra.Cardano.Api.ScriptDatum
