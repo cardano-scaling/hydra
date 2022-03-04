@@ -27,14 +27,14 @@ import Hydra.Chain.Direct.Tx (
 import qualified Hydra.Contract.Commit as Commit
 import qualified Hydra.Contract.Head as Head
 import qualified Hydra.Contract.HeadState as Head
+import Hydra.Data.Party (partyFromVerKey)
 import qualified Hydra.Data.Party as OnChain
 import qualified Hydra.Data.Party as Party
 import Hydra.Ledger.Cardano (genAdaOnlyUTxO, genValue)
 import Hydra.Party (Party, vkey)
 import Plutus.Orphans ()
 import Plutus.V1.Ledger.Api (fromData, toBuiltin, toData)
-import Test.QuickCheck (elements, oneof, suchThat)
-import Test.QuickCheck.Gen (suchThatMap)
+import Test.QuickCheck (oneof, suchThat)
 import Test.QuickCheck.Instances ()
 import qualified Prelude
 
@@ -52,16 +52,16 @@ healthyCollectComTx =
   tx =
     collectComTx
       testNetworkId
-      (headInput, headResolvedInput, headDatum, healthyCollectComOnChainParties)
+      (headInput, headResolvedInput, headDatum, healthyOnChainParties)
       commits
 
   committedUTxO =
     generateWith
-      (replicateM (length healthyCollectComParties) genCommittableTxOut)
+      (replicateM (length healthyParties) genCommittableTxOut)
       42
 
   commits =
-    (uncurry healthyCommitOutput <$> zip healthyCollectComParties committedUTxO)
+    (uncurry healthyCommitOutput <$> zip healthyParties committedUTxO)
       & Map.fromList
 
   headInput = generateWith arbitrary 42
@@ -72,15 +72,15 @@ healthyCollectComInitialDatum :: Head.State
 healthyCollectComInitialDatum =
   Head.Initial
     { contestationPeriod = generateWith arbitrary 42
-    , parties = healthyCollectComOnChainParties
+    , parties = healthyOnChainParties
     }
 
-healthyCollectComOnChainParties :: [OnChain.Party]
-healthyCollectComOnChainParties =
-  Party.partyFromVerKey . vkey <$> healthyCollectComParties
+healthyOnChainParties :: [OnChain.Party]
+healthyOnChainParties =
+  Party.partyFromVerKey . vkey <$> healthyParties
 
-healthyCollectComParties :: [Party]
-healthyCollectComParties = flip generateWith 42 $ do
+healthyParties :: [Party]
+healthyParties = flip generateWith 42 $ do
   alice <- arbitrary
   bob <- arbitrary
   carol <- arbitrary
@@ -118,10 +118,9 @@ data CollectComMutation
   | MutateOpenUTxOHash
   | MutateHeadScriptInput
   | MutateHeadTransition
-  | -- | NOTE: we want to ccheck CollectCom validator checks
-    -- there's exactly the expected number of commits.
-    -- This is needed because the Head protocol requires to ensure every party
-    -- has a chance to commit.
+  | -- | NOTE: We want to ccheck CollectCom validator checks there's exactly the
+    -- expected number of commits. This is needed because the Head protocol
+    -- requires to ensure every party has a chance to commit.
     MutateNumberOfParties
   deriving (Generic, Show, Enum, Bounded)
 
@@ -138,30 +137,43 @@ genCollectComMutation (tx, utxo) =
         changeDatum <- ChangeHeadDatum <$> (Head.Open <$> arbitrary <*> (toBuiltin <$> genHash))
         pure $ Changes [changeRedeemer, changeDatum]
     , SomeMutation MutateNumberOfParties <$> do
-        (commitTxIn, commitTxOut) <- findSomeCommitUTxO
-        let headOutput = Prelude.head $ txOuts' tx
-        let out' = modifyTxOutValue (\v -> v <> negateValue (txOutValue commitTxOut)) headOutput
+        -- NOTE: This also mutates the contestation period becuase we could not
+        -- be bothered to decode/lookup the current one.
+        c <- arbitrary
+        moreParties <- (: healthyOnChainParties) <$> arbitrary
         pure $
           Changes
-            [ RemoveInput commitTxIn
-            , ChangeOutput 0 out'
+            [ ChangeHeadDatum $ Head.Initial c moreParties
+            , ChangeOutput 0 $ mutatedPartiesHeadTxOut moreParties
             ]
     ]
  where
   TxOut collectComOutputAddress collectComOutputValue collectComOutputDatum =
     fromJust $ txOuts' tx !!? 0
 
-  findSomeCommitUTxO :: Gen (TxIn, TxOut CtxUTxO)
-  findSomeCommitUTxO =
-    suchThatMap (elements $ txIns' tx) $
-      \txIn -> do
-        txOut <- UTxO.resolve txIn utxo
-        guard $ txOutAddress txOut == commitAddress
-        pure (txIn, txOut)
-
-  commitScript = fromPlutusScript Commit.validatorScript
-
-  commitAddress = mkScriptAddress @PlutusScriptV1 testNetworkId commitScript
+  mutatedPartiesHeadTxOut parties =
+    -- NOTE / TODO:
+    --
+    -- This should probably be defined a 'Mutation', but it is different
+    -- from 'ChangeHeadDatum'. The latter modifies the _input_ datum given
+    -- to the script, whereas this one modifies the resulting head datum in
+    -- the output.
+    case collectComOutputDatum of
+      TxOutDatumNone ->
+        error "Unexpected empty head datum"
+      (TxOutDatumHash _ha) ->
+        error "Unexpected hash-only datum"
+      (TxOutDatum sd) ->
+        case fromData $ toPlutusData sd of
+          (Just Head.Open{utxoHash}) ->
+            TxOut
+              collectComOutputAddress
+              collectComOutputValue
+              (mkTxOutDatum Head.Open{parties, utxoHash})
+          (Just st) ->
+            error $ "Unexpected state " <> show st
+          Nothing ->
+            error "Invalid data"
 
   mutateUTxOHash = do
     mutatedUTxOHash <- genHash

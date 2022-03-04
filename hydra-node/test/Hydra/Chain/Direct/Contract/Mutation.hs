@@ -415,6 +415,10 @@ addDatum datum scriptData =
               newDats = Ledger.TxDats $ Map.insert (Ledger.hashData dat) dat dats
            in TxBodyScriptData newDats redeemers
 
+-- | Ensures the included datums of given 'TxOut's are included in the transactions' 'TxBodyScriptData'.
+ensureDatums :: [TxOut CtxTx] -> TxBodyScriptData -> TxBodyScriptData
+ensureDatums = undefined
+
 -- | Alter a transaction's  redeemers map given some mapping function.
 alterRedeemers ::
   ( Ledger.RdmrPtr ->
@@ -457,7 +461,7 @@ alterTxIns fn (Tx body wits) =
       { Ledger.inputs = Set.fromList (toLedgerTxIn <$> inputs')
       }
 
--- | Apply some mapping function over a transaction's  outputs.
+-- | Apply some mapping function over a transaction's outputs.
 alterTxOuts ::
   ([TxOut CtxTx] -> [TxOut CtxTx]) ->
   Tx ->
@@ -465,11 +469,15 @@ alterTxOuts ::
 alterTxOuts fn tx =
   Tx body' wits
  where
-  body' = ShelleyTxBody ledgerBody' scripts scriptData mAuxData scriptValidity
-  ledgerBody' = ledgerBody{Ledger.outputs = outputs'}
-  -- WIP
-  outputs' = StrictSeq.fromList . mapOutputs . toList $ Ledger.outputs ledgerBody
-  mapOutputs = fmap (toLedgerTxOut . toCtxUTxOTxOut) . fn . fmap fromLedgerTxOut
+  body' = ShelleyTxBody ledgerBody' scripts scriptData' mAuxData scriptValidity
+  ledgerBody' = ledgerBody{Ledger.outputs = ledgerOutputs'}
+
+  ledgerOutputs' = StrictSeq.fromList . map (toLedgerTxOut . toCtxUTxOTxOut) $ outputs'
+
+  outputs' = fn . fmap fromLedgerTxOut . toList $ Ledger.outputs ledgerBody
+
+  scriptData' = ensureDatums outputs' scriptData
+
   ShelleyTxBody ledgerBody scripts scriptData mAuxData scriptValidity = body
   Tx body wits = tx
 
