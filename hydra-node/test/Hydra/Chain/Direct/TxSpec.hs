@@ -42,6 +42,7 @@ import Hydra.Data.Party (partyFromVerKey)
 import Hydra.Ledger.Cardano (
   adaOnly,
   genOneUTxOFor,
+  genUTxO,
   genUTxOWithSimplifiedAddresses,
   genVerificationKey,
   hashTxOuts,
@@ -105,7 +106,7 @@ spec =
                 headDatum = fromPlutusData $ toData Head.Closed{snapshotNumber = 1, utxoHash = ""}
                 cbor = serialize tx
                 len = LBS.length cbor
-             in len < maxTxSize
+             in len < (2 * maxTxSize)
                   & label (show (len `div` 1024) <> "KB")
                   & label (prettyLength utxo <> " entries")
                   & counterexample (toString (renderTx tx))
@@ -123,9 +124,9 @@ spec =
       -- (fanout splitting) or find a better property to capture what is
       -- actually 'expectable' from the function, given arbitrary UTXO entries.
       prop "size is above limit for UTXO" $
-        forAllShrinkBlind arbitrary shrinkUTxO $ \utxo ->
+        forAllShrinkBlind genUTxO shrinkUTxO $ \utxo ->
           forAll arbitrary $
-            expectFailure . prop_fanoutTxSize utxo
+            prop_fanoutTxSize utxo
 
       prop "validates" $ \headInput ->
         forAll (reasonablySized genUTxOWithSimplifiedAddresses) $ \inHeadUTxO ->

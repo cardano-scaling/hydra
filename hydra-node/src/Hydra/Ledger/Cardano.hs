@@ -291,6 +291,7 @@ genTxIn =
     <$> fmap (unsafeDeserialize' . BS.pack . ([88, 32] <>)) (vectorOf 32 arbitrary)
     <*> fmap fromIntegral (choose @Int (0, 99))
 
+-- | Generate some 'UTxO'. NOTE: This seems to be generating Ada-only 'TxOut'.
 genUTxO :: Gen UTxO
 genUTxO = do
   genesisTxId <- arbitrary
