@@ -12,7 +12,7 @@ Here is a list of currently accepted or discussed **Architecture Decision Record
 8. [Use custom Prelude](./0008-use-custom-prelude.md)
 9. [Simplify logging](./0009-simplify-logging.md)
 10. Use [Direct chain](./0010-use-direct-chain.md) connection
-11. _Standardize on Cardano API_
+11. [Standardize on Cardano API](./0011-use-cardano-api.md)
 12. [Top-down test-driven design](./0012-testing-strategy.md)
 13. [Adversarial Mutation-based Contract Testing](./0013-contract-testing-strategy.md)
 14. [Token usage in Hydra scripts](./0014-hydra-script-tokens.md)
