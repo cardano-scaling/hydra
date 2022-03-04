@@ -123,18 +123,24 @@ checkCollectCom ::
   Bool
 checkCollectCom commitAddress (_, parties) context@ScriptContext{scriptContextTxInfo = txInfo} =
   mustContinueHeadWith context expectedOutputValue expectedOutputDatum
+    && everyoneHasCommitted
  where
+  everyoneHasCommitted =
+    -- TODO: This check is lame, what we want is to check also the PTs are legit, which means
+    -- verifying the CurrencySymbol match the Head.
+    collectedPTs == length parties
+
   -- TODO: Can find own input (i.e. 'headInputValue') during this traversal already.
-  (expectedOutputValue, collectedCommits) =
+  (expectedOutputValue, collectedCommits, collectedPTs) =
     foldr
-      ( \TxInInfo{txInInfoResolved} (val, commits) ->
+      ( \TxInInfo{txInInfoResolved} (val, commits, pts) ->
           if txOutAddress txInInfoResolved == commitAddress
             then case commitFrom txInInfoResolved of
-              (commitValue, Just commit) -> (val + commitValue, commit : commits)
-              (commitValue, Nothing) -> (val + commitValue, commits)
-            else (val, commits)
+              (commitValue, Just commit) -> (val + commitValue, commit : commits, pts + 1)
+              (commitValue, Nothing) -> (val + commitValue, commits, pts + 1)
+            else (val, commits, pts)
       )
-      (headInputValue, [])
+      (headInputValue, [], 0)
       (txInfoInputs txInfo)
 
   headInputValue :: Value

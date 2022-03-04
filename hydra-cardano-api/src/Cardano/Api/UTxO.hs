@@ -39,6 +39,10 @@ instance Traversable UTxO' where
 singleton :: (TxIn, TxOut CtxUTxO AlonzoEra) -> UTxO
 singleton (i, o) = UTxO $ Map.singleton i o
 
+-- | Find an 'out' for a given 'TxIn'.
+resolve :: TxIn -> UTxO' out -> Maybe out
+resolve k = Map.lookup k . toMap
+
 -- | Turn a 'UTxO' into a list of pairs.
 pairs :: UTxO' out -> [(TxIn, out)]
 pairs = Map.toList . toMap

@@ -51,16 +51,16 @@ healthyCollectComTx =
   tx =
     collectComTx
       testNetworkId
-      (headInput, headResolvedInput, headDatum, healthyCollectComOnChainParties)
+      (headInput, headResolvedInput, headDatum, healthyOnChainParties)
       commits
 
   committedUTxO =
     generateWith
-      (replicateM (length healthyCollectComParties) genCommittableTxOut)
+      (replicateM (length healthyParties) genCommittableTxOut)
       42
 
   commits =
-    (uncurry healthyCommitOutput <$> zip healthyCollectComParties committedUTxO)
+    (uncurry healthyCommitOutput <$> zip healthyParties committedUTxO)
       & Map.fromList
 
   headInput = generateWith arbitrary 42
@@ -71,15 +71,15 @@ healthyCollectComInitialDatum :: Head.State
 healthyCollectComInitialDatum =
   Head.Initial
     { contestationPeriod = generateWith arbitrary 42
-    , parties = healthyCollectComOnChainParties
+    , parties = healthyOnChainParties
     }
 
-healthyCollectComOnChainParties :: [OnChain.Party]
-healthyCollectComOnChainParties =
-  Party.partyFromVerKey . vkey <$> healthyCollectComParties
+healthyOnChainParties :: [OnChain.Party]
+healthyOnChainParties =
+  Party.partyFromVerKey . vkey <$> healthyParties
 
-healthyCollectComParties :: [Party]
-healthyCollectComParties = flip generateWith 42 $ do
+healthyParties :: [Party]
+healthyParties = flip generateWith 42 $ do
   alice <- arbitrary
   bob <- arbitrary
   carol <- arbitrary
@@ -117,6 +117,10 @@ data CollectComMutation
   | MutateOpenUTxOHash
   | MutateHeadScriptInput
   | MutateHeadTransition
+  | -- | NOTE: We want to ccheck CollectCom validator checks there's exactly the
+    -- expected number of commits. This is needed because the Head protocol
+    -- requires to ensure every party has a chance to commit.
+    MutateNumberOfParties
   deriving (Generic, Show, Enum, Bounded)
 
 genCollectComMutation :: (Tx, UTxO) -> Gen SomeMutation
@@ -131,10 +135,44 @@ genCollectComMutation (tx, utxo) =
         changeRedeemer <- ChangeHeadRedeemer <$> (Head.Close 0 . toBuiltin <$> genHash <*> arbitrary)
         changeDatum <- ChangeHeadDatum <$> (Head.Open <$> arbitrary <*> (toBuiltin <$> genHash))
         pure $ Changes [changeRedeemer, changeDatum]
+    , SomeMutation MutateNumberOfParties <$> do
+        -- NOTE: This also mutates the contestation period becuase we could not
+        -- be bothered to decode/lookup the current one.
+        c <- arbitrary
+        moreParties <- (: healthyOnChainParties) <$> arbitrary
+        pure $
+          Changes
+            [ ChangeHeadDatum $ Head.Initial c moreParties
+            , ChangeOutput 0 $ mutatedPartiesHeadTxOut moreParties
+            ]
     ]
  where
   TxOut collectComOutputAddress collectComOutputValue collectComOutputDatum =
     fromJust $ txOuts' tx !!? 0
+
+  mutatedPartiesHeadTxOut parties =
+    -- NOTE / TODO:
+    --
+    -- This should probably be defined a 'Mutation', but it is different
+    -- from 'ChangeHeadDatum'. The latter modifies the _input_ datum given
+    -- to the script, whereas this one modifies the resulting head datum in
+    -- the output.
+    case collectComOutputDatum of
+      TxOutDatumNone ->
+        error "Unexpected empty head datum"
+      (TxOutDatumHash _ha) ->
+        error "Unexpected hash-only datum"
+      (TxOutDatum sd) ->
+        case fromData $ toPlutusData sd of
+          (Just Head.Open{utxoHash}) ->
+            TxOut
+              collectComOutputAddress
+              collectComOutputValue
+              (mkTxOutDatum Head.Open{parties, utxoHash})
+          (Just st) ->
+            error $ "Unexpected state " <> show st
+          Nothing ->
+            error "Invalid data"
 
   mutateUTxOHash = do
     mutatedUTxOHash <- genHash

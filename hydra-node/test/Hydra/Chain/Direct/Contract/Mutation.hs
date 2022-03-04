@@ -141,6 +141,7 @@ import qualified Data.ByteString as BS
 import qualified Data.List as List
 import qualified Data.Map as Map
 import qualified Data.Sequence.Strict as StrictSeq
+import qualified Data.Set as Set
 import qualified Hydra.Chain.Direct.Fixture as Fixture
 import qualified Hydra.Contract.Head as Head
 import qualified Hydra.Contract.HeadState as Head
@@ -242,6 +243,8 @@ data Mutation
     PrependOutput (TxOut CtxTx)
   | -- | Removes given output from the transaction's outputs.
     RemoveOutput Word
+  | -- | Drops the given input from the transaction's inputs
+    RemoveInput TxIn
   | -- | Change an input's 'TxOut' to something else.
     -- This mutation alters the redeemers of the transaction to ensure
     -- any matching redeemer for given input is removed, otherwise the
@@ -254,6 +257,8 @@ data Mutation
     ChangeOutput Word (TxOut CtxTx)
   | -- | Change the transaction's minted values if it is actually minting something.
     ChangeMintedValue Value
+  | -- | Change required signers on a transaction'
+    ChangeRequiredSigners [Hash PaymentKey]
   | -- | Applies several mutations as a single atomic 'Mutation'.
     -- This is useful to enable specific mutations that require consistent
     -- change of more than one thing in the transaction and/or UTxO set, for
@@ -314,6 +319,16 @@ applyMutation mutation (tx@(Tx body wits), utxo) = case mutation of
         else
           map snd $
             filter ((/= i) . fst) $ zip [0 ..] es
+  RemoveInput i ->
+    ( alterTxIns (safeFilter (/= i)) tx
+    , utxo
+    )
+   where
+    safeFilter fn xs =
+      let xs' = filter fn xs
+       in if xs' == xs
+            then error "RemoveInput did not remove any input."
+            else xs'
   ChangeInput txIn txOut ->
     ( Tx body' wits
     , UTxO $ Map.insert txIn txOut (UTxO.toMap utxo)
@@ -340,6 +355,15 @@ applyMutation mutation (tx@(Tx body wits), utxo) = case mutation of
     ShelleyTxBody ledgerBody scripts scriptData mAuxData scriptValidity = body
     ledgerBody' = ledgerBody{Ledger.mint = toLedgerValue v'}
     body' = ShelleyTxBody ledgerBody' scripts scriptData mAuxData scriptValidity
+  ChangeRequiredSigners newSigners ->
+    (Tx body' wits, utxo)
+   where
+    ShelleyTxBody ledgerBody scripts scriptData mAuxData scriptValidity = body
+    body' = ShelleyTxBody ledgerBody' scripts scriptData mAuxData scriptValidity
+    ledgerBody' =
+      ledgerBody
+        { Ledger.reqSignerHashes = Set.fromList (toLedgerKeyHash <$> newSigners)
+        }
   Changes mutations ->
     foldr applyMutation (tx, utxo) mutations
 
@@ -381,7 +405,7 @@ isHeadOutput (TxOut addr _ _) = addr == headAddress
 addDatum :: TxOutDatum CtxTx -> TxBodyScriptData -> TxBodyScriptData
 addDatum datum scriptData =
   case datum of
-    TxOutDatumNone -> error "unexpected datuym none"
+    TxOutDatumNone -> error "unexpected datum none"
     TxOutDatumHash _ha -> error "hash only, expected full datum"
     TxOutDatum sd ->
       case scriptData of
@@ -390,6 +414,16 @@ addDatum datum scriptData =
           let dat = toLedgerData sd
               newDats = Ledger.TxDats $ Map.insert (Ledger.hashData dat) dat dats
            in TxBodyScriptData newDats redeemers
+
+-- | Ensures the included datums of given 'TxOut's are included in the transactions' 'TxBodyScriptData'.
+ensureDatums :: [TxOut CtxTx] -> TxBodyScriptData -> TxBodyScriptData
+ensureDatums outs scriptData =
+  foldr ensureDatum scriptData outs
+ where
+  ensureDatum txOut sd =
+    case txOutDatum txOut of
+      d@(TxOutDatum _) -> addDatum d sd
+      _ -> sd
 
 -- | Alter a transaction's  redeemers map given some mapping function.
 alterRedeemers ::
@@ -419,7 +453,21 @@ removeRedeemerFor initialInputs txIn = \case
         removeRedeemer (Ledger.RdmrPtr _ idx, _) = sortedInputs List.!! fromIntegral idx /= txIn
      in TxBodyScriptData dats newRedeemers
 
--- | Apply some mapping function over a transaction's  outputs.
+alterTxIns ::
+  ([TxIn] -> [TxIn]) ->
+  Tx ->
+  Tx
+alterTxIns fn (Tx body wits) =
+  Tx (ShelleyTxBody ledgerBody' scripts scriptData mAuxData scriptValidity) wits
+ where
+  ShelleyTxBody ledgerBody scripts scriptData mAuxData scriptValidity = body
+  inputs' = fn . fmap fromLedgerTxIn . toList $ Ledger.inputs ledgerBody
+  ledgerBody' =
+    ledgerBody
+      { Ledger.inputs = Set.fromList (toLedgerTxIn <$> inputs')
+      }
+
+-- | Apply some mapping function over a transaction's outputs.
 alterTxOuts ::
   ([TxOut CtxTx] -> [TxOut CtxTx]) ->
   Tx ->
@@ -427,11 +475,15 @@ alterTxOuts ::
 alterTxOuts fn tx =
   Tx body' wits
  where
-  body' = ShelleyTxBody ledgerBody' scripts scriptData mAuxData scriptValidity
-  ledgerBody' = ledgerBody{Ledger.outputs = outputs'}
-  -- WIP
-  outputs' = StrictSeq.fromList . mapOutputs . toList $ Ledger.outputs ledgerBody
-  mapOutputs = fmap (toLedgerTxOut . toCtxUTxOTxOut) . fn . fmap fromLedgerTxOut
+  body' = ShelleyTxBody ledgerBody' scripts scriptData' mAuxData scriptValidity
+  ledgerBody' = ledgerBody{Ledger.outputs = ledgerOutputs'}
+
+  ledgerOutputs' = StrictSeq.fromList . map (toLedgerTxOut . toCtxUTxOTxOut) $ outputs'
+
+  outputs' = fn . fmap fromLedgerTxOut . toList $ Ledger.outputs ledgerBody
+
+  scriptData' = ensureDatums outputs' scriptData
+
   ShelleyTxBody ledgerBody scripts scriptData mAuxData scriptValidity = body
   Tx body wits = tx
 

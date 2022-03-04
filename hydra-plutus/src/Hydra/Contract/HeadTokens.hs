@@ -29,18 +29,19 @@ validate ::
   MintAction ->
   ScriptContext ->
   Bool
-validate initialValidator headValidator _ action context =
+validate initialValidator headValidator seedInput action context =
   case action of
-    Mint -> validateTokensMinting initialValidator headValidator context
+    Mint -> validateTokensMinting initialValidator headValidator seedInput context
     Burn -> validateTokensBurning context
 {-# INLINEABLE validate #-}
 
-validateTokensMinting :: ValidatorHash -> ValidatorHash -> ScriptContext -> Bool
-validateTokensMinting initialValidator headValidator context =
+validateTokensMinting :: ValidatorHash -> ValidatorHash -> TxOutRef -> ScriptContext -> Bool
+validateTokensMinting initialValidator headValidator seedInput context =
   traceIfFalse "minted wrong" $
     participationTokensAreDistributed currency initialValidator txInfo nParties
       && checkQuantities
       && assetNamesInPolicy == nParties + 1
+      && seedInputIsConsumed
  where
   currency = ownCurrencySymbol context
 
@@ -67,6 +68,8 @@ validateTokensMinting initialValidator headValidator context =
               Just Head.Initial{Head.parties = parties} -> length parties
               Just _ -> traceError "unexpected State in datum"
       _ -> traceError "expected single head output"
+
+  seedInputIsConsumed = seedInput `elem` (txInInfoOutRef <$> txInfoInputs txInfo)
 
 validateTokensBurning :: ScriptContext -> Bool
 validateTokensBurning context =

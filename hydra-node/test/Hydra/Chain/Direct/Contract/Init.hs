@@ -25,32 +25,39 @@ import qualified Prelude
 
 healthyInitTx :: (Tx, UTxO)
 healthyInitTx =
-  (tx, lookupUTxO)
+  (tx, healthyLookupUTxO)
  where
   tx =
     initTx
       testNetworkId
-      parties
+      healthyParties
       parameters
-      seedInput
-
-  lookupUTxO = generateWith (genOneUTxOFor (Prelude.head parties)) 42
-
-  parties = generateWith (vectorOf 3 arbitrary) 42
+      healthySeedInput
 
   parameters =
     flip generateWith 42 $
       HeadParameters
         <$> arbitrary
-        <*> vectorOf (length parties) arbitrary
+        <*> vectorOf (length healthyParties) arbitrary
 
-  seedInput = fst . Prelude.head $ UTxO.pairs lookupUTxO
+healthySeedInput :: TxIn
+healthySeedInput =
+  fst . Prelude.head $ UTxO.pairs healthyLookupUTxO
+
+healthyParties :: [VerificationKey PaymentKey]
+healthyParties =
+  generateWith (vectorOf 3 arbitrary) 42
+
+healthyLookupUTxO :: UTxO
+healthyLookupUTxO =
+  generateWith (genOneUTxOFor (Prelude.head healthyParties)) 42
 
 data InitMutation
   = MutateThreadTokenQuantity
   | MutateAddAnotherPT
   | MutateInitialOutputValue
   | MutateDropInitialOutput
+  | MutateDropSeedInput
   deriving (Generic, Show, Enum, Bounded)
 
 genInitMutation :: (Tx, UTxO) -> Gen SomeMutation
@@ -66,4 +73,6 @@ genInitMutation (tx, _utxo) =
     , SomeMutation MutateDropInitialOutput <$> do
         ix <- choose (1, length (txOuts' tx) - 1)
         pure $ RemoveOutput (fromIntegral ix)
+    , SomeMutation MutateDropSeedInput <$> do
+        pure $ RemoveInput healthySeedInput
     ]

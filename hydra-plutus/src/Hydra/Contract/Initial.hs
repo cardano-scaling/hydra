@@ -16,8 +16,10 @@ import Ledger.Typed.Scripts (TypedValidator, ValidatorType, ValidatorTypes (..))
 import qualified Ledger.Typed.Scripts as Scripts
 import Plutus.Codec.CBOR.Encoding (encodingToBuiltinByteString)
 import Plutus.V1.Ledger.Ada (fromValue, getLovelace)
+import Plutus.V1.Ledger.Api (TokenName (unTokenName), getValue)
 import PlutusTx (CompiledCode)
 import qualified PlutusTx
+import qualified PlutusTx.AssocMap as AssocMap
 import PlutusTx.IsData.Class (ToData (..), fromBuiltinData)
 
 data Initial
@@ -32,21 +34,54 @@ data InitialRedeemer
 PlutusTx.unstableMakeIsData ''InitialRedeemer
 
 instance Scripts.ValidatorTypes Initial where
-  type DatumType Initial = PubKeyHash
+  type DatumType Initial = ()
   type RedeemerType Initial = InitialRedeemer
 
+-- | The initial validator has two responsibilities:
+--
+--   * ensures the committed value is recorded correctly in the output datum
+--
+--   * ensures that the transaction was signed by the key corresponding to the
+--     PubKeyHash encoded in the participation token name
+--
+-- NOTE: It does not need to ensure that the participation token is of some
+-- specific Head currency.
 validator ::
   -- | Commit validator
   ValidatorHash ->
-  -- | The Hydra party which committed
-  PubKeyHash ->
+  () ->
   InitialRedeemer ->
   ScriptContext ->
   Bool
-validator commitValidator _datum red context =
+validator commitValidator () red context =
   case red of
     Abort -> True
-    Commit{committedRef} -> checkCommit commitValidator committedRef context
+    Commit{committedRef} ->
+      checkCommit commitValidator committedRef context
+        && checkAuthor context
+
+-- | Verifies that the commit is only done by the author
+checkAuthor ::
+  ScriptContext ->
+  Bool
+checkAuthor context@ScriptContext{scriptContextTxInfo = txInfo} =
+  traceIfFalse "Missing or invalid commit author" $
+    elem (unTokenName ourParticipationTokenName) (getPubKeyHash <$> txInfoSignatories txInfo)
+ where
+  -- NOTE: We don't check the currency symbol, only the well-formedness of the value that
+  -- allows us to extract a token name, because this would be validated in other parts of the
+  -- protocol.
+  ourParticipationTokenName =
+    case AssocMap.toList (getValue initialValue) of
+      [_someAdas, (_headCurrencyHopefully, tokenMap)] ->
+        case AssocMap.toList tokenMap of
+          [(tk, q)] | q == 1 -> tk
+          _ -> traceError "multiple head tokens or more than 1 PTs found"
+      _ -> traceError "missing head tokens"
+
+  -- TODO: DRY
+  initialValue =
+    maybe mempty (txOutValue . txInInfoResolved) $ findOwnInput context
 
 checkCommit ::
   -- | Commit validator

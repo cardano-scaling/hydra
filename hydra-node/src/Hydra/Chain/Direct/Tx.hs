@@ -30,6 +30,7 @@ import Hydra.Data.Party (partyFromVerKey, partyToVerKey)
 import qualified Hydra.Data.Party as OnChain
 import Hydra.Ledger.Cardano (hashTxOuts)
 import Hydra.Ledger.Cardano.Builder (
+  addExtraRequiredSigners,
   addInputs,
   addOutputs,
   addVkInputs,
@@ -116,7 +117,7 @@ mkInitialOutput networkId tokenPolicyId (verificationKeyHash -> pkh) =
   initialScript =
     fromPlutusScript Initial.validatorScript
   initialDatum =
-    mkTxOutDatum $ Initial.datum (toPlutusKeyHash pkh)
+    mkTxOutDatum $ Initial.datum ()
 
 -- | Craft a commit transaction which includes the "committed" utxo as a datum.
 --
@@ -139,6 +140,7 @@ commitTx networkId party utxo (initialInput, out, vkh) =
     emptyTxBody
       & addInputs [(initialInput, initialWitness_)]
       & addVkInputs (maybeToList mCommittedInput)
+      & addExtraRequiredSigners [vkh]
       & addOutputs [commitOutput]
  where
   initialWitness_ =
@@ -146,7 +148,7 @@ commitTx networkId party utxo (initialInput, out, vkh) =
   initialScript =
     fromPlutusScript @PlutusScriptV1 Initial.validatorScript
   initialDatum =
-    mkScriptDatum $ Initial.datum $ toPlutusKeyHash vkh
+    mkScriptDatum $ Initial.datum ()
   initialRedeemer =
     toScriptData . Initial.redeemer $
       Initial.Commit (toPlutusTxOutRef <$> mCommittedInput)
@@ -639,18 +641,24 @@ observeAbortTx utxo tx = do
 
 -- | Look for the "initial" which corresponds to given cardano verification key.
 ownInitial ::
+  PlutusScript ->
   VerificationKey PaymentKey ->
   [UTxOWithScript] ->
   Maybe (TxIn, TxOut CtxUTxO, Hash PaymentKey)
-ownInitial vkey =
+ownInitial headTokenScript vkey =
   foldl' go Nothing
  where
   go (Just x) _ = Just x
-  go Nothing (i, out, dat) = do
+  go Nothing (i, out, _) = do
     let vkh = verificationKeyHash vkey
-    pkh <- fromData (toPlutusData dat)
-    guard $ pkh == toPlutusKeyHash vkh
+    guard $ hasMatchingPT vkh (txOutValue out)
     pure (i, out, vkh)
+
+  hasMatchingPT :: Hash PaymentKey -> Value -> Bool
+  hasMatchingPT vkh val =
+    case headTokensFromValue headTokenScript val of
+      [(AssetName bs, 1)] -> bs == serialiseToRawBytes vkh
+      _ -> False
 
 mkHeadId :: PolicyId -> HeadId
 mkHeadId =
