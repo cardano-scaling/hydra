@@ -641,18 +641,24 @@ observeAbortTx utxo tx = do
 
 -- | Look for the "initial" which corresponds to given cardano verification key.
 ownInitial ::
+  PlutusScript ->
   VerificationKey PaymentKey ->
   [UTxOWithScript] ->
   Maybe (TxIn, TxOut CtxUTxO, Hash PaymentKey)
-ownInitial vkey =
+ownInitial headTokenScript vkey =
   foldl' go Nothing
  where
   go (Just x) _ = Just x
-  go Nothing (i, out, dat) = do
+  go Nothing (i, out, _) = do
     let vkh = verificationKeyHash vkey
-    pkh <- fromData (toPlutusData dat)
-    guard $ pkh == toPlutusKeyHash vkh
+    guard $ hasMatchingPT vkh (txOutValue out)
     pure (i, out, vkh)
+
+  hasMatchingPT :: Hash PaymentKey -> Value -> Bool
+  hasMatchingPT vkh val =
+    case headTokensFromValue headTokenScript val of
+      [(AssetName bs, 1)] -> bs == serialiseToRawBytes vkh
+      _ -> False
 
 mkHeadId :: PolicyId -> HeadId
 mkHeadId =

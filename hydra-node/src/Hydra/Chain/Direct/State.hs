@@ -209,7 +209,7 @@ commit ::
   OnChainHeadState 'StInitialized ->
   Either (PostTxError Tx) Tx
 commit utxo st@OnChainHeadState{networkId, ownParty, ownVerificationKey, stateMachine} = do
-  case ownInitial ownVerificationKey initialInitials of
+  case ownInitial initialHeadTokenScript ownVerificationKey initialInitials of
     Nothing ->
       Left (CannotFindOwnInitial{knownUTxO = getKnownUTxO st})
     Just initial ->
@@ -223,6 +223,7 @@ commit utxo st@OnChainHeadState{networkId, ownParty, ownVerificationKey, stateMa
  where
   Initialized
     { initialInitials
+    , initialHeadTokenScript
     } = stateMachine
 
 abort ::
