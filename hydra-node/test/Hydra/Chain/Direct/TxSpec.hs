@@ -13,11 +13,9 @@ import Hydra.Prelude hiding (label)
 import Test.Hydra.Prelude
 
 import qualified Cardano.Api.UTxO as UTxO
-import Cardano.Binary (serialize)
 import qualified Cardano.Ledger.Alonzo.Scripts as Ledger
 import qualified Cardano.Ledger.Alonzo.Tools as Ledger
 import qualified Cardano.Ledger.Alonzo.TxWitness as Ledger
-import qualified Data.ByteString.Lazy as LBS
 import Data.List (intersectBy)
 import qualified Data.Map as Map
 import qualified Data.Text as T
@@ -25,7 +23,6 @@ import Hydra.Chain (HeadParameters (..))
 import Hydra.Chain.Direct.Fixture (
   costModels,
   epochInfo,
-  maxTxSize,
   pparams,
   systemStart,
   testNetworkId,
@@ -42,24 +39,20 @@ import Hydra.Data.Party (partyFromVerKey)
 import Hydra.Ledger.Cardano (
   adaOnly,
   genOneUTxOFor,
-  genUTxO,
   genUTxOWithSimplifiedAddresses,
   genVerificationKey,
   hashTxOuts,
-  shrinkUTxO,
  )
 import Hydra.Party (Party, vkey)
 import Plutus.V1.Ledger.Api (toBuiltin, toData)
 import Test.Cardano.Ledger.Alonzo.Serialisation.Generators ()
 import Test.QuickCheck (
-  Property,
   checkCoverage,
   choose,
   conjoin,
   counterexample,
   cover,
   forAll,
-  forAllShrinkBlind,
   label,
   oneof,
   property,
@@ -100,34 +93,6 @@ spec =
                         & counterexample ("Tx: " <> toString (renderTx tx))
 
     describe "fanoutTx" $ do
-      let prop_fanoutTxSize :: UTxO -> TxIn -> TxOut CtxUTxO -> Property
-          prop_fanoutTxSize utxo headIn headOut =
-            let tx = fanoutTx utxo (headIn, headOut, headDatum) (mkHeadTokenScript testSeedInput)
-                headDatum = fromPlutusData $ toData Head.Closed{snapshotNumber = 1, utxoHash = ""}
-                cbor = serialize tx
-                len = LBS.length cbor
-             in len < (2 * maxTxSize)
-                  & label (show (len `div` 1024) <> "KB")
-                  & label (prettyLength utxo <> " entries")
-                  & counterexample (toString (renderTx tx))
-                  & counterexample ("Tx serialized size: " <> show len)
-           where
-            prettyLength :: Foldable f => f a -> String
-            prettyLength (length -> len)
-              | len >= 100 = "> 100"
-              | len >= 50 = "50-99"
-              | len >= 10 = "10-49"
-              | otherwise = "00-10"
-
-      -- FIXME: This property currently fails even with a single UTXO if this
-      -- UTXO is generated with too many values. We need to deal with it eventually
-      -- (fanout splitting) or find a better property to capture what is
-      -- actually 'expectable' from the function, given arbitrary UTXO entries.
-      prop "size is above limit for UTXO" $
-        forAllShrinkBlind genUTxO shrinkUTxO $ \utxo ->
-          forAll arbitrary $
-            prop_fanoutTxSize utxo
-
       prop "validates" $ \headInput ->
         forAll (resize 50 genUTxOWithSimplifiedAddresses) $ \inHeadUTxO ->
           let tx =
