@@ -11,7 +11,7 @@
 -- thus we have not yet "reached" 'isomorphism'.
 module Hydra.Chain.Direct.Tx where
 
-import Hydra.Cardano.Api
+import Hydra.Cardano.Api hiding (RdmrTag (Mint))
 import Hydra.Prelude
 
 import qualified Cardano.Api.UTxO as UTxO
@@ -460,13 +460,12 @@ type CommitObservation = UTxOWithScript
 -- - Reconstruct the committed UTxO from both values (tx input and output).
 observeCommitTx ::
   NetworkId ->
-  -- | Known (remaining) initial tx inputs.
-  [TxIn] ->
   Tx ->
   Maybe (OnChainTx Tx, CommitObservation)
-observeCommitTx networkId initials tx = do
-  initialTxIn <- findInitialTxIn
-  mCommittedTxIn <- decodeInitialRedeemer initialTxIn
+observeCommitTx networkId tx = do
+  guard (hasScript tx initialScript)
+
+  mCommittedTxIn <- findCommittedTxIn
 
   (commitIn, commitOut) <- findTxOutByAddress commitAddress tx
   dat <- getScriptData commitOut
@@ -487,20 +486,23 @@ observeCommitTx networkId initials tx = do
     , (commitIn, toUTxOContext commitOut, dat)
     )
  where
-  findInitialTxIn =
-    case filter (`elem` initials) (txIns' tx) of
-      [input] -> Just input
-      _ -> Nothing
+  initialScript = fromPlutusScript Initial.validatorScript
 
-  decodeInitialRedeemer =
-    findRedeemerSpending tx >=> \case
-      Initial.Abort ->
+  findCommittedTxIn =
+    case redeemersSpending of
+      [fromScriptData -> Just Initial.Abort] ->
         Nothing
-      Initial.Commit{committedRef} ->
+      [fromScriptData -> Just Initial.Commit{committedRef}] ->
         Just (fromPlutusTxOutRef <$> committedRef)
+      _ ->
+        Nothing
+
+  redeemersSpending = foldRedeemers tx [] $ \tag _ dat _ rs ->
+    case tag of
+      Spend -> dat : rs
+      _ -> rs
 
   commitAddress = mkScriptAddress @PlutusScriptV1 networkId commitScript
-
   commitScript = fromPlutusScript Commit.validatorScript
 
 convertTxOut :: Maybe Commit.SerializedTxOut -> Maybe (TxOut CtxUTxO)

@@ -348,8 +348,8 @@ instance HasTransition 'StInitialized where
 
 instance ObserveTx 'StInitialized 'StInitialized where
   observeTx tx st@OnChainHeadState{networkId, stateMachine} = do
-    let initials = fst3 <$> initialInitials
-    (event, newCommit) <- observeCommitTx networkId initials tx
+    (event, newCommit) <- observeCommitTx networkId tx
+    guard (newCommit `notElem` initialCommits)
     let st' =
           st
             { stateMachine =

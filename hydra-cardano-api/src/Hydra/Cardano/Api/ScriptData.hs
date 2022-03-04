@@ -13,13 +13,18 @@ import qualified Plutus.V1.Ledger.Api as Plutus
 -- | Data-types that can be marshalled into a generic 'ScriptData' structure.
 type ToScriptData a = Plutus.ToData a
 
--- | Data-types that can be unmarshalled from a generic 'ScriptData' structure.
-type FromScriptData a = Plutus.FromData a
-
 -- | Serialise some type into a generic 'ScriptData' structure.
 toScriptData :: (ToScriptData a) => a -> ScriptData
 toScriptData =
   fromPlutusData . Plutus.toData
+
+-- | Data-types that can be unmarshalled from a generic 'ScriptData' structure.
+type FromScriptData a = Plutus.FromData a
+
+-- | Interpret a script data as some type.
+fromScriptData :: (FromScriptData a) => ScriptData -> Maybe a
+fromScriptData =
+  Plutus.fromData . Ledger.getPlutusData . toLedgerData
 
 -- | Get the 'ScriptData' associated to the a 'TxOut'. Note that this requires
 -- the 'CtxTx' context. To get script data in a 'CtxUTxO' context, see
