@@ -331,11 +331,7 @@ genStClosed ::
   HydraContext ->
   Gen (OnChainHeadState 'StClosed)
 genStClosed ctx = do
-  initTx <- genInitTx ctx
-  commits <- genCommits ctx initTx
-  stInitialized <- executeCommits initTx commits <$> genStIdle ctx
-  let collectComTx = collect stInitialized
-  let stOpen = snd $ unsafeObserveTx @_ @'StOpen collectComTx stInitialized
+  stOpen <- genStOpen ctx
   snapshot <- arbitrary
   let closeTx = close snapshot stOpen
   pure $ snd $ unsafeObserveTx @_ @'StClosed closeTx stOpen
