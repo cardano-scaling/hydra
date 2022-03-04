@@ -191,7 +191,7 @@ propTransactionDoesNotValidate (tx, lookupUTxO) =
         Left _ ->
           property True
         Right redeemerReport ->
-          any isLeft (Map.elems redeemerReport)
+          trace (show redeemerReport) any isLeft (Map.elems redeemerReport)
             & counterexample ("Tx: " <> toString (renderTx tx))
             & counterexample ("Lookup utxo: " <> decodeUtf8 (encodePretty lookupUTxO))
             & counterexample ("Redeemer report: " <> show redeemerReport)

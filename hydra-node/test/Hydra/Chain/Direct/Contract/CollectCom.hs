@@ -117,7 +117,7 @@ data CollectComMutation
   | MutateOpenUTxOHash
   | MutateHeadScriptInput
   | MutateHeadTransition
-  | MutateDropCollectedInput
+  | MutateDropOneCommit
   deriving (Generic, Show, Enum, Bounded)
 
 genCollectComMutation :: (Tx, UTxO) -> Gen SomeMutation
@@ -132,11 +132,28 @@ genCollectComMutation (tx, utxo) =
         changeRedeemer <- ChangeHeadRedeemer <$> (Head.Close 0 . toBuiltin <$> genHash <*> arbitrary)
         changeDatum <- ChangeHeadDatum <$> (Head.Open <$> arbitrary <*> (toBuiltin <$> genHash))
         pure $ Changes [changeRedeemer, changeDatum]
-    , SomeMutation MutateDropCollectedInput . RemoveInput <$> elements (txIns' tx)
+    , SomeMutation MutateDropOneCommit <$> do
+        (commitTxIn, commitTxOut) <- findSomeCommitUTxO
+        let headOutput = Prelude.head $ txOuts' tx
+        let out' = modifyTxOutValue (\v -> v <> negateValue (txOutValue commitTxOut)) headOutput
+        pure $
+          Changes
+            [ RemoveInput commitTxIn
+            , ChangeOutput 0 out'
+            ]
     ]
  where
   TxOut collectComOutputAddress collectComOutputValue collectComOutputDatum =
     fromJust $ txOuts' tx !!? 0
+
+  findSomeCommitUTxO :: Gen (TxIn, TxOut CtxUTxO)
+  findSomeCommitUTxO = do
+    commitTxIn <- elements (txIns' tx)
+    let commitTxOut = fromJust $ UTxO.resolve commitTxIn utxo
+    pure (commitTxIn, commitTxOut)
+      `suchThat` (\(_, o) -> txOutAddress o == commitAddress)
+
+  commitAddress = undefined
 
   mutateUTxOHash = do
     mutatedUTxOHash <- genHash
