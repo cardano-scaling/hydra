@@ -14,21 +14,37 @@ Date: 2022-03-04
 * Having static network configuration is probably not sustainable in the long run, even if we don't add any fancy multihead capabilities to the node, as it would make it significantly harder to have automated creation of Heads.
 * There's been an [attempt](https://github.com/input-output-hk/hydra-poc/pull/222) at providing a file-based network configuration but this was deemed unconvincing
 * [Hydra paper (sec. 4, p. 13)](https://eprint.iacr.org/2020/299.pdf) explicitly assumes the existence of a _setup_ phase
+  * This _setup_ is currently left aside, eg. exchanging keys for setting up multisig and identifying peers. The [hydra-node](https://github.com/input-output-hk/hydra-poc/blob/abailly-iohk/admin-api-adr/hydra-node/exe/hydra-node/Main.hs#L41) executable is statically configured and those things are assumed to be known beforehand
 
 ## Decision
 
 * Hydra-node exposes an _Administrative API_ to enable configuration of the Hydra network using "standard" tools
-  * API is exposed as a set of HTTP endpoints on some port, consuming and producing JSON data
+  * API is exposed as a set of HTTP endpoints on some port, consuming and producing JSON data,
   * It is documented as part of the User's Guide for Hydra Head
 * This API provides _commands_ and _queries_ to:
   * Add/remove _peers_ providing their address and keys,
   * List currently known peers and their connectivity status,
   * Start/stop/reset the Hydra network
+* This API is implemented by a _new component_ accessible through a network port separate from current _Client API_, that _configures_ the `Network` component
+
+The following picture sketches the proposed architectural change:
+
+![Architecture change](./0015-architecture-change.jpg)
+
+## Q&A
+
+* *Why a REST interface?*
+  * This API is an interface over a specific _resource_ controlled by the Hydra node, namely its knowledge of other peers with which new _Head_s can be opened. As such a proper REST interface (_not_ RPC-in-disguise) seems to make sense here, rather than stream/event-based [duplex communication channels](./0003-asynchronous-duplex-api.md)
+  * We can easily extend such an API with websockets to provide notifications (eg. peers connectivity, setup events...)
+* *Why a separate component?*
+  * We could imagine extending the existing [APIServer](../../hydra-node/src/Hydra/API/Server.hs) interface with new messages related to this network configuration, however this seems to conflate different responsibilities in a single place: Configuring and managing the Hydra node itself, and configuring, managing, and interacting with the Head itself
+  * "Physical" separation of endpoints makes it easier to secure a very sensitive part of the node, namely its administration, e.g by ensuring this can only be accessed through a specific network interface, without relying on application level authnz mechanisms
 
 ## Consequences
 
-* The API must be secured/authorised possibly using standard HTTP mechanisms
-* It's easy to deploy Hydra nodes with some standard configuration, then dynamically configure them
+* It's easy to deploy Hydra nodes with some standard configuration, then dynamically configure them, thus reducing the hassle of defining and configuring the Hydra network
 * It makes it possible to _reconfigure_ a Hydra node with different peers
 * The _Client API_ should reflect the state of the network and disable `Init`ing a head if the network layer is not started
+  * In the long run, it should also have its scope reduced to represent only the possible interactions with a _Head_, moving things related to network connectivity and setup to the Admin API
+  * In a _Managed Head_ scenario it would even make sense to have another layer of separation between the API to manage the lifecycle of the Head and the API to make transactions within the Head
 * Operational tools could be built easily on top of the API, for command-line or Web-based configuration
