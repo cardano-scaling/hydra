@@ -19,10 +19,13 @@ import qualified Cardano.Crypto.DSIGN as CC
 import Cardano.Crypto.Hash (SHA256, digest)
 import qualified Cardano.Ledger.Alonzo.PParams as Ledger.Alonzo
 import qualified Cardano.Ledger.Alonzo.Tx as Ledger.Alonzo
+import qualified Cardano.Ledger.Alonzo.TxBody as Ledger.Alonzo
 import qualified Cardano.Ledger.BaseTypes as Ledger
 import qualified Cardano.Ledger.Core as Ledger
 import qualified Cardano.Ledger.Credential as Ledger
 import qualified Cardano.Ledger.Crypto as Ledger (StandardCrypto)
+import qualified Cardano.Ledger.Mary as Ledger.Mary
+import qualified Cardano.Ledger.Shelley.API as Ledger.Shelley
 import qualified Cardano.Ledger.Shelley.API.Mempool as Ledger
 import qualified Cardano.Ledger.Shelley.Genesis as Ledger
 import qualified Cardano.Ledger.Shelley.LedgerState as Ledger
@@ -296,6 +299,19 @@ genUTxO =
     Ledger.TxIn Ledger.StandardCrypto ->
     Ledger.TxIn Ledger.StandardCrypto
   setTxId baseId (Ledger.TxIn _ti wo) = Ledger.TxIn baseId wo
+
+genUTxOMultiAsset :: Gen UTxO
+genUTxOMultiAsset =
+  fmap
+    (fromLedgerUTxO . Ledger.UTxO . Map.map fromMaryTxOut . Ledger.unUTxO)
+    arbitrary
+ where
+  fromMaryTxOut ::
+    Ledger.Mary.TxOut (Ledger.Mary.MaryEra Ledger.StandardCrypto) ->
+    Ledger.TxOut LedgerEra
+  fromMaryTxOut = \case
+    Ledger.Shelley.TxOutCompact addr value ->
+      Ledger.Alonzo.TxOutCompact addr value
 
 -- | Generate utxos owned by the given cardano key.
 genUTxOFor :: VerificationKey PaymentKey -> Gen UTxO
