@@ -281,7 +281,9 @@ genUTxO :: Gen UTxO
 genUTxO =
   fromLedgerUTxO <$> arbitrary
 
--- | Generate a 'Mary' era which may contain arbitrary assets in 'TxOut's.
+-- | Generate a 'Mary' era which may contain arbitrary assets in 'TxOut's. NOTE:
+-- This is not reducing size when generating assets in 'TxOut's, so will end up
+-- regularly with 300+ assets with generator size 30.
 genUTxOMultiAsset :: Gen UTxO
 genUTxOMultiAsset =
   convertFromMaryUTxO <$> arbitrary
