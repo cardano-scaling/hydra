@@ -279,33 +279,15 @@ genTxIn =
 -- | Generate some number of 'UTxO'. NOTE: This seems to be generating Ada-only 'TxOut'.
 genUTxO :: Gen UTxO
 genUTxO =
-  sized $ \n -> do
-    genesisTxId <- arbitrary
-    utxo <- Ledger.Generator.genUtxo0 (env n)
-    pure $ fromLedgerUTxO . Ledger.UTxO . Map.mapKeys (setTxId genesisTxId) $ Ledger.unUTxO utxo
- where
-  env n = (Ledger.Generator.genEnv Proxy){Ledger.Generator.geConstants = constants n}
+  fromLedgerUTxO <$> arbitrary
 
-  constants n =
-    Ledger.Generator.defaultConstants
-      { Ledger.Generator.minGenesisUTxOouts = 1
-      , -- NOTE: The genUtxo0 generator seems to draw twice from the range
-        -- [minGenesisUTxOouts, maxGenesisUTxOouts]
-        Ledger.Generator.maxGenesisUTxOouts = n `div` 2
-      }
-
-  setTxId ::
-    Ledger.TxId Ledger.StandardCrypto ->
-    Ledger.TxIn Ledger.StandardCrypto ->
-    Ledger.TxIn Ledger.StandardCrypto
-  setTxId baseId (Ledger.TxIn _ti wo) = Ledger.TxIn baseId wo
-
+-- | Generate a 'Mary' era which may contain arbitrary assets in 'TxOut's.
 genUTxOMultiAsset :: Gen UTxO
 genUTxOMultiAsset =
-  fmap
-    (fromLedgerUTxO . Ledger.UTxO . Map.map fromMaryTxOut . Ledger.unUTxO)
-    arbitrary
+  convertFromMaryUTxO <$> arbitrary
  where
+  convertFromMaryUTxO = fromLedgerUTxO . Ledger.UTxO . Map.map fromMaryTxOut . Ledger.unUTxO
+
   fromMaryTxOut ::
     Ledger.Mary.TxOut (Ledger.Mary.MaryEra Ledger.StandardCrypto) ->
     Ledger.TxOut LedgerEra
