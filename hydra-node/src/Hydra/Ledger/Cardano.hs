@@ -276,16 +276,22 @@ genTxIn =
     <$> fmap (unsafeDeserialize' . BS.pack . ([88, 32] <>)) (vectorOf 32 arbitrary)
     <*> fmap fromIntegral (choose @Int (0, 99))
 
--- | Generate some number of 'UTxO'. NOTE: This seems to be generating Ada-only 'TxOut'.
+-- | Generate some number of 'UTxO'.
 genUTxO :: Gen UTxO
 genUTxO =
+  genUTxOAlonzo
+
+-- | Generate 'Alonzo' era 'UTxO', which has Ada-only 'TxOut' addressed to
+-- public keys and scripts.
+genUTxOAlonzo :: Gen UTxO
+genUTxOAlonzo =
   fromLedgerUTxO <$> arbitrary
 
--- | Generate a 'Mary' era which may contain arbitrary assets in 'TxOut's. NOTE:
--- This is not reducing size when generating assets in 'TxOut's, so will end up
--- regularly with 300+ assets with generator size 30.
-genUTxOMultiAsset :: Gen UTxO
-genUTxOMultiAsset =
+-- | Generate 'Mary' era 'UTxO', which may contain arbitrary assets in 'TxOut's.
+-- NOTE: This is not reducing size when generating assets in 'TxOut's, so will
+-- end up regularly with 300+ assets with generator size 30.
+genUTxOMary :: Gen UTxO
+genUTxOMary =
   convertFromMaryUTxO <$> arbitrary
  where
   convertFromMaryUTxO = fromLedgerUTxO . Ledger.UTxO . Map.map fromMaryTxOut . Ledger.unUTxO
