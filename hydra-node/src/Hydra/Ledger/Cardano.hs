@@ -58,7 +58,6 @@ import Test.QuickCheck (
   scale,
   shrinkList,
   shrinkMapBy,
-  sized,
   suchThat,
   vectorOf,
  )
@@ -209,36 +208,6 @@ genKeyPair = do
   sk <- genSigningKey
   pure (getVerificationKey sk, sk)
 
--- TODO: Generate non-genesis transactions for better coverage.
--- TODO: Enable Alonzo-specific features. We started off in the Mary era, and
--- some of our tests / interfaces aren't fully ready for Alonzo-specific
--- details. We later changed the ledger's internals to work with Alonzo-era
--- specific types, and, to make this in incremental steps, this function still
--- generates Mary transactions, but cast them to Alonzo's.
-genTx :: Ledger.LedgerEnv LedgerEra -> UTxO -> Gen Tx
-genTx ledgerEnv utxos = do
-  fromLedgerTx <$> Ledger.Generator.genTx genEnv ledgerEnv (utxoState, dpState)
- where
-  utxoState = def{Ledger._utxo = toLedgerUTxO utxos}
-  dpState = Ledger.DPState def def
-
-  -- NOTE(AB): This sets some parameters for the tx generator that will
-  -- affect the structure of generated trasactions. In our case, we want
-  -- to remove "special" capabilities which are irrelevant in the context
-  -- of a Hydra head
-  -- see https://github.com/input-output-hk/cardano-ledger-specs/blob/nil/shelley/chain-and-ledger/shelley-spec-ledger-test/src/Test/Shelley/Spec/Ledger/Generator/Constants.hs#L10
-  genEnv =
-    (Ledger.Generator.genEnv Proxy)
-      { Ledger.Generator.geConstants = noPPUpdatesNoScripts
-      }
-   where
-    noPPUpdatesNoScripts =
-      Ledger.Generator.defaultConstants
-        { Ledger.Generator.frequencyTxUpdates = 0
-        , Ledger.Generator.frequencyTxWithMetadata = 0
-        , Ledger.Generator.maxCertsPerTx = 0
-        }
-
 genSequenceOfValidTransactions :: Ledger.Globals -> Ledger.LedgerEnv LedgerEra -> Gen (UTxO, [Tx])
 genSequenceOfValidTransactions globals ledgerEnv = do
   n <- getSize
@@ -247,16 +216,44 @@ genSequenceOfValidTransactions globals ledgerEnv = do
 
 genFixedSizeSequenceOfValidTransactions :: Ledger.Globals -> Ledger.LedgerEnv LedgerEra -> Int -> Gen (UTxO, [Tx])
 genFixedSizeSequenceOfValidTransactions globals ledgerEnv numTxs = do
-  initialUTxO <- genUTxO
-  if initialUTxO == mempty
-    then pure (initialUTxO, [])
-    else (initialUTxO,) . reverse . snd <$> foldM newTx (initialUTxO, []) [1 .. numTxs]
+  n <- getSize
+  numUTxOs <- choose (0, n)
+  let genEnv = customGenEnv numUTxOs
+  initialUTxO <- fromLedgerUTxO <$> Ledger.Generator.genUtxo0 genEnv
+  (_, txs) <- foldM (nextTx genEnv) (initialUTxO, []) [1 .. numTxs]
+  pure (initialUTxO, reverse txs)
  where
-  newTx (utxos, acc) _ = do
-    tx <- genTx ledgerEnv utxos
+  nextTx genEnv (utxos, acc) _ = do
+    tx <- genTx genEnv utxos
     case applyTransactions (cardanoLedger globals ledgerEnv) utxos [tx] of
       Left err -> error $ show err
       Right newUTxOs -> pure (newUTxOs, tx : acc)
+
+  genTx genEnv utxos = do
+    fromLedgerTx <$> Ledger.Generator.genTx genEnv ledgerEnv (utxoState, dpState)
+   where
+    utxoState = def{Ledger._utxo = toLedgerUTxO utxos}
+    dpState = Ledger.DPState def def
+
+  -- NOTE(AB): This sets some parameters for the tx generator that will affect
+  -- the structure of generated transactions. In our case, we want to remove
+  -- "special" capabilities which are irrelevant in the context of a Hydra head
+  -- see https://github.com/input-output-hk/cardano-ledger-specs/blob/nil/shelley/chain-and-ledger/shelley-spec-ledger-test/src/Test/Shelley/Spec/Ledger/Generator/Constants.hs#L10
+  customGenEnv n =
+    (Ledger.Generator.genEnv Proxy)
+      { Ledger.Generator.geConstants = constants n
+      }
+
+  constants n =
+    Ledger.Generator.defaultConstants
+      { Ledger.Generator.minGenesisUTxOouts = 1
+      , -- NOTE: The genUtxo0 generator seems to draw twice from the range
+        -- [minGenesisUTxOouts, maxGenesisUTxOouts]
+        Ledger.Generator.maxGenesisUTxOouts = n `div` 2
+      , Ledger.Generator.frequencyTxUpdates = 0
+      , Ledger.Generator.frequencyTxWithMetadata = 0
+      , Ledger.Generator.maxCertsPerTx = 0
+      }
 
 -- TODO: Enable arbitrary datum in generators
 -- TODO: This should better be called 'genOutputFor'
