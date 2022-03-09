@@ -1,10 +1,14 @@
-# 7. Use with-pattern based component interfaces
-
-Date: 2021-06-08
+---
+slug: 7
+title: | 
+  7. Use with-pattern based component interfaces
+authors: []
+tags: [Draft]
+---
 
 ## Status
 
-:hammer_and_wrench:
+Draft
 
 TBD:
 * Naming of `Callback` and `Component`

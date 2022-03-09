@@ -1,6 +1,10 @@
-# 5. Use io-classes
-
-Date: 2021-06-08
+---
+slug: 5
+title: | 
+  5. Use io-classes
+authors: []
+tags: [Accepted]
+---
 
 ## Status
 
@@ -8,7 +12,7 @@ Accepted
 
 ## Context
 
-Although we try to contain the use of IO at the outskirt of the Hydra node using [Handle pattern](0004-use-handle-to-model-effects.md) and [Reactive core](0002-reactive-core.md), low-level effects are still needed in various places, notably to define concurrently executing actions, and thus need to be tested
+Although we try to contain the use of IO at the outskirt of the Hydra node using [Handle pattern](/adr/4) and [Reactive core](/adr/2), low-level effects are still needed in various places, notably to define concurrently executing actions, and thus need to be tested
 
 Testing asynchronous and concurrent code is notoriously painful
 

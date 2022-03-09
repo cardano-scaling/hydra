@@ -1,6 +1,10 @@
-# 1. Record architecture decisions
-
-Date: 2021-06-07
+---
+slug: 1
+title: | 
+  1. Record Architecture Decisions
+authors: []
+tags: [Accepted]
+---
 
 ## Status
 

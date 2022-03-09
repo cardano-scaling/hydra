@@ -1,6 +1,10 @@
-# 10. Use direct connection to cardano-node
-
-Date: 2021-10-23
+---
+slug: 10
+title: | 
+  10. Use Direct Connection to `cardano-node`
+authors: []
+tags: [Accepted]
+---
 
 ## Status
 

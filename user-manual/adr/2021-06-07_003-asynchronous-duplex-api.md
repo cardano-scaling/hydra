@@ -1,6 +1,10 @@
-# 3. Asynchronous Duplex Client API
-
-Date: 2021-06-07
+---
+slug: 3
+title: 
+  3. Asynchronous Duplex Client API
+authors: []
+tags: [Accepted]
+---
 
 ## Status
 
@@ -8,7 +12,7 @@ Accepted
 
 ## Context
 
-The [_reactive_ nature of the Hydra node](0002-reactive-core.md) means that
+The [_reactive_ nature of the Hydra node](/adr/2) means that
 clients produce a _stream_ of _inputs_ to a node which in turns issues a stream
 of _outputs_ representing the outcome of previous inputs or resulting from
 interaction with peers in the network.

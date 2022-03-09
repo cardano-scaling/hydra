@@ -1,6 +1,10 @@
-# 9. Simplify logging
-
-Date: 2021-08-19
+---
+slug: 9
+title: | 
+  9. Simplify Logging
+authors: []
+tags: [Proposed]
+---
 
 ## Status
 

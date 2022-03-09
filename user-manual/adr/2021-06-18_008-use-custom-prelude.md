@@ -1,6 +1,10 @@
-# 8. Custom Prelude 
-
-Date: 2021-06-18
+---
+slug: 8
+title: | 
+  8. Custom Prelude
+authors: []
+tags: [Accepted]
+---
 
 ## Status
 

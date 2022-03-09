@@ -25,7 +25,15 @@ const config = {
           sidebarPath: require.resolve('./sidebars.js'),
           editUrl: 'https://github.com/input-output-hk/hydra-poc/tree/master/docs'
         },
-        blog: false,
+        blog: {
+          path: 'adr',
+          routeBasePath: '/adr',
+          blogTitle: 'Architectural Decision Records',
+          blogDescription: 'Lightweight technical documentation for the Hydra node software.',
+          blogSidebarTitle: 'Architectural Decision Records',
+          blogSidebarCount: 'ALL',
+          sortPosts: 'ascending',
+        },
         theme: {
           customCss: require.resolve('./src/css/custom.css'),
         },
@@ -78,7 +86,7 @@ const config = {
               },
               {
                 label: 'Architectural Decision Records',
-                to: 'https://input-output-hk.github.io/hydra-poc/adr/',
+                to: '/adr',
               },
               {
                 label: 'Testing Strategy',

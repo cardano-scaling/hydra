@@ -1,6 +1,10 @@
-# 6. Network Broadcasts all messages
-
-Date: 2021-06-08
+---
+slug: 6
+title: | 
+  6. Network Broadcasts all messages
+authors: []
+tags: [Accepted]
+---
 
 ## Status
 

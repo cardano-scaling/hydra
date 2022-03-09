@@ -1,6 +1,10 @@
-# 2. Reactive core
-
-Date: 2021-06-07
+---
+slug: 2
+title: | 
+  2. Reactive Core
+authors: []
+tags: [Accepted]
+---
 
 ## Status
 

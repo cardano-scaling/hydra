@@ -1,6 +1,10 @@
-# 4. Use Handle to model Effects
-
-Date: 2021-06-08
+---
+slug: 4
+title: | 
+  4. Use Handle to model Effects
+authors: []
+tags: [Accepted]
+---
 
 ## Status
 
@@ -8,7 +12,7 @@ Accepted
 
 ## Context
 
-Given we are structuring Hydra node as a [reactive core](0002-reactive-core.md) we need a way to ensure a strict separation of pure and impure (or effectful) code.
+Given we are structuring Hydra node as a [reactive core](/adr/2) we need a way to ensure a strict separation of pure and impure (or effectful) code.
 
 We want to be able to test those impure/effectful parts of the code. This requires a means for exchanging the actual implementation for e.g. the function to send messages over a network.
 
