@@ -265,7 +265,7 @@ genFixedSizeSequenceOfValidTransactions globals ledgerEnv numTxs = do
   initialUTxO <- genUTxO
   if initialUTxO == mempty
     then pure (initialUTxO, [])
-    else second reverse <$> foldM newTx (initialUTxO, []) [1 .. numTxs]
+    else (initialUTxO,) . reverse . snd <$> foldM newTx (initialUTxO, []) [1 .. numTxs]
  where
   newTx (utxos, acc) _ = do
     tx <- genTx ledgerEnv utxos
