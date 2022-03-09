@@ -1,6 +1,34 @@
 This issue attempts to summarise the current situation wrt. to Hydra networking layer, documenting what's been done and what needs to be implemented.
 
-# Ouroboros
+# Current State
+
+_NOTE_: We know the current situation w.r.t. networking is less than ideal, it's just a way to get started and have _something_ that works. There is already [proposal](https://github.com/input-output-hk/hydra-poc/pull/237) to improve the situation by making the network more dynamic.
+
+* Each `hydra-node` instance is connected _statically_ to a list of _peers_ using a Point-to-point (e.g TCP) connection.
+* A `hydra-node` can only open a Head with _all_ its peers, and only them. This implies the nodes need to know in advance the topology of the peers and Heads they want to open
+* Nodes use [Ouroboros]() as the underlying network abstraction, which takes care of managing connections
+* Connected nodes implement basic _failure detection_ through heartbeats and monitoring exchanged messages
+
+# Questions to Answer
+
+* What's the expected topology of the transport layer?
+  * Are connected peers a subset/superset/identity set of the Head parties?
+* Do we need the delivery ordering and reliability guarantees TCP provides?
+  * TCP is full-duplex stream oriented persistent connection between nodes
+  * Our networking layer is based on asynchronous messages passing which seems better suited to UDP
+* Do we need to care about nodes being reachable through firewalls?
+  * This could be something we push onto end users, eg. let them be responsible of configuring their firewalls/NATs to match Hydra node needs
+  * Probably easier for business/corporate/organisation players than for end-users
+* Do we want _privacy_ within a Head?
+  * The details of txs should be opaque for outside observers, only the end result of the Head's fanout is observable
+* How do we know/discover peers/parties?
+  * The paper assumes there exists a _Setup_ phase where
+    > In order to create a head-protocol instance, an initiator invites a set of participants ${p1,...,pn}$ (himself being one of them) to join by announcing to them the protocol parameters: the list of participants, the parameters of the (multi-)signature scheme to be used, etc.
+    > Each party then establishes pairwise authenticated channels to all other parties.
+  * What exactly is a _list of participants_? It seems at the very least each participant should be _identified_, in order to be distinguished from each other, but how? Some naming scheme? IP:Port address? Public key? Certificate?
+  * What are "pairwise authenticated channels" exactly? Are these actual TCP/TLS connections? Or is it more a layer 4 (Transport) or layer 5 (Session) solution?
+
+## Ouroboros
 
 We had a meeting with network team on 2022-02-14 where we investigated how Ouroboros network stack fits in Hydra.
 Discussion quickly derived on performance, with Neil Davies giving some interesting numbers:
@@ -38,22 +66,3 @@ See [this wiki page](https://github.com/input-output-hk/hydra-poc.wiki/blob/mast
 The following diagram is one possible implementation of a pull-based messaging system for Hydra, drawn from a discussion with IOG's networking engineers:
 
 ![Hydra pull-based network](./hydra-pull-based-network.jpg)
-
-# Questions to Answer
-
-* What's the expected topology of the transport layer?
-  * Are connected peers a subset/superset/identity set of the Head parties?
-* Do we need the delivery ordering and reliability guarantees TCP provides?
-  * TCP is full-duplex stream oriented persistent connection between nodes
-  * Our networking layer is based on asynchronous messages passing which seems better suited to UDP
-* Do we need to care about nodes being reachable through firewalls?
-  * This could be something we push onto end users, eg. let them be responsible of configuring their firewalls/NATs to match Hydra node needs
-  * Probably easier for business/corporate/organisation players than for end-users
-* Do we want _privacy_ within a Head?
-  * The details of txs should be opaque for outside observers, only the end result of the Head's fanout is observable
-* How do we know/discover peers/parties?
-  * The paper assumes there exists a _Setup_ phase where
-    > In order to create a head-protocol instance, an initiator invites a set of participants ${p1,...,pn}$ (himself being one of them) to join by announcing to them the protocol parameters: the list of participants, the parameters of the (multi-)signature scheme to be used, etc.
-    > Each party then establishes pairwise authenticated channels to all other parties.
-  * What exactly is a _list of participants_? It seems at the very least each participant should be _identified_, in order to be distinguished from each other, but how? Some naming scheme? IP:Port address? Public key? Certificate?
-  * What are "pairwise authenticated channels" exactly? Are these actual TCP/TLS connections? Or is it more a layer 4 (Transport) or layer 5 (Session) solution?
