@@ -93,20 +93,27 @@ roundtripCBOR a =
 
 appliesValidTransaction :: Property
 appliesValidTransaction =
-  forAllShrink (genSequenceOfValidTransactions defaultGlobals defaultLedgerEnv) shrink $ \(utxo, txs) ->
+  forAllBlind (genSequenceOfValidTransactions defaultGlobals defaultLedgerEnv) $ \(utxo, txs) ->
     let result = applyTransactions (cardanoLedger defaultGlobals defaultLedgerEnv) utxo txs
-     in isRight result
-          & counterexample ("Error: " <> show result)
-          & counterexample ("JSON for txs: " <> unpack (decodeUtf8With lenientDecode $ toStrict $ Aeson.encode txs))
-          & counterexample ("JSON for utxo: " <> unpack (decodeUtf8With lenientDecode $ toStrict $ Aeson.encode utxo))
+     in case result of
+          Right _ -> property True
+          Left (tx, err) ->
+            property False
+              & counterexample ("Error: " <> show err)
+              & counterexample ("Failing tx: " <> toString (renderTx tx))
+              & counterexample ("All txs: " <> unpack (decodeUtf8With lenientDecode $ prettyPrintJSON txs))
+              & counterexample ("Initial UTxO: " <> unpack (decodeUtf8With lenientDecode $ prettyPrintJSON utxo))
 
 appliesValidTransactionFromJSON :: Property
 appliesValidTransactionFromJSON =
-  -- TODO: shrinking of tuple also shrinks input utxo?
-  forAllShrink (genSequenceOfValidTransactions defaultGlobals defaultLedgerEnv) shrink $ \(utxo, txs) ->
+  forAllBlind (genSequenceOfValidTransactions defaultGlobals defaultLedgerEnv) $ \(utxo, txs) ->
     let encoded = encode txs
         result = eitherDecode encoded >>= first show . applyTransactions (cardanoLedger defaultGlobals defaultLedgerEnv) utxo
-     in isRight result
-          & counterexample ("Error: " <> show result)
-          & counterexample ("JSON for txs: " <> unpack (decodeUtf8With lenientDecode $ toStrict encoded))
-          & counterexample ("JSON for utxo: " <> unpack (decodeUtf8With lenientDecode $ toStrict $ Aeson.encode utxo))
+     in case result of
+          Right _ -> property True
+          Left (tx, err) ->
+            property False
+              & counterexample ("Error: " <> show err)
+              & counterexample ("Failing tx: " <> toString (renderTx tx))
+              & counterexample ("All txs: " <> unpack (decodeUtf8With lenientDecode $ prettyPrintJSON txs))
+              & counterexample ("Initial UTxO: " <> unpack (decodeUtf8With lenientDecode $ prettyPrintJSON utxo))
