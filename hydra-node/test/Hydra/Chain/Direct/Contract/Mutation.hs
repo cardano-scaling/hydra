@@ -135,6 +135,7 @@ import qualified Cardano.Api.UTxO as UTxO
 import qualified Cardano.Ledger.Alonzo.Data as Ledger
 import qualified Cardano.Ledger.Alonzo.Scripts as Ledger
 import qualified Cardano.Ledger.Alonzo.TxBody as Ledger
+import Cardano.Ledger.Alonzo.TxWitness (RdmrPtr)
 import qualified Cardano.Ledger.Alonzo.TxWitness as Ledger
 import qualified Cardano.Ledger.Shelley.API as Ledger
 import qualified Data.ByteString as BS
@@ -247,12 +248,13 @@ data Mutation
     RemoveInput TxIn
   | -- | Change an input's 'TxOut' to something else.
     -- This mutation alters the redeemers of the transaction to ensure
-    -- any matching redeemer for given input is removed, otherwise the
-    -- transaction would be invalid for the wrong reason (unused redeemer).
+    -- any matching redeemer for given input matches the new redeemer, otherwise
+    -- the transaction would be invalid for the wrong reason (unused redeemer).
     --
-    -- NOTE: The changed output should not be spending a script address as
-    -- we don't provide any redeemer for it.
-    ChangeInput TxIn (TxOut CtxUTxO)
+    -- This expects 'Nothing' if the new input is not locked by any script, and
+    -- it expects 'Just' with some potentially new redeemer if locked by a
+    -- script.
+    ChangeInput TxIn (TxOut CtxUTxO) (Maybe (RdmrPtr, ScriptData))
   | -- | Change the transaction's output at given index to something else.
     ChangeOutput Word (TxOut CtxTx)
   | -- | Change the transaction's minted values if it is actually minting something.
