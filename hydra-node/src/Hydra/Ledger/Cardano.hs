@@ -58,6 +58,7 @@ import Test.QuickCheck (
   scale,
   shrinkList,
   shrinkMapBy,
+  sized,
   suchThat,
   vectorOf,
  )
@@ -273,10 +274,29 @@ genTxIn =
     <$> fmap (unsafeDeserialize' . BS.pack . ([88, 32] <>)) (vectorOf 32 arbitrary)
     <*> fmap fromIntegral (choose @Int (0, 99))
 
--- | Generate some number of 'UTxO'.
+-- | Generate some number of 'UTxO'. NOTE: We interpret the QuickCheck 'size' as
+-- the upper bound of "assets" in this UTxO. That is, instead of sizing on the
+-- number of outputs, we also consider the number of native tokens in the output
+-- values.
 genUTxO :: Gen UTxO
 genUTxO =
-  genUTxOAlonzo
+  sized $ \n -> do
+    nAssets <- choose (0, n)
+    UTxO.fromPairs . takeAssetsUTxO nAssets . UTxO.pairs <$> genUTxOAlonzo
+ where
+  -- REVIEW: Maybe it's easier / more intelligent to compute upper bounds and
+  -- pick a higher likelihood of having ada-only outputs.
+  takeAssetsUTxO remaining utxos =
+    case (remaining, utxos) of
+      (0, _) -> []
+      (_, []) -> []
+      (_, (i, o) : us) ->
+        let o' = modifyTxOutValue (takeAssetsTxOut remaining) o
+            rem' = remaining - valueSize (txOutValue o')
+         in ((i, o') : takeAssetsUTxO rem' us)
+
+  takeAssetsTxOut remaining =
+    valueFromList . take remaining . valueToList
 
 -- | Generate 'Alonzo' era 'UTxO', which has Ada-only 'TxOut' addressed to
 -- public keys and scripts.
