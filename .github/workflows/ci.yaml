@@ -56,20 +56,32 @@ jobs:
       env:
         TERM: "xterm"
 
-    - name: Documentation
-      run: nix-shell --run '.github/workflows/ci-haddock.sh'
+    - name: Documentation (Haddock)
+      run: |
+        nix-shell --run '.github/workflows/ci-haddock.sh'
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: 16
+        cache: 'yarn'
+
+    - name: Documentation (Docusaurus)
+      working-directory: docs
+      run: |
+        yarn && yarn build
 
     - name: Publish Unit Test Results
       uses: EnricoMi/publish-unit-test-result-action@v1
       with:
         files: ./**/test-results.xml
 
-    - uses: peaceiris/actions-gh-pages@v3
-      name: Publish Documentation
-      # if: github.event_name == 'push'
+    - name: Publish Documentation
+      if: github.event_name == 'push'
+      uses: peaceiris/actions-gh-pages@v3
       with:
         github_token: ${{ secrets.GITHUB_TOKEN || github.token }}
-        publish_dir: docs
+        publish_dir: docs/build
         enable_jekyll: true
         force_orphan: true
 
