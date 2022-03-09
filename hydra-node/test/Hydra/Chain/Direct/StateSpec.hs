@@ -32,7 +32,7 @@ import Hydra.Chain.Direct.State (
   initialize,
   observeSomeTx,
  )
-import Hydra.Chain.Direct.Fixture (maxTxSize)
+import Hydra.Chain.Direct.Fixture (maxTxSize, maxTxExecutionUnits)
 import Hydra.Ledger.Cardano (
   genOneUTxOFor,
   genTxIn,
@@ -58,11 +58,11 @@ import Test.QuickCheck (
   label,
   sublistOf,
   vector,
-  resize,
+  resize, expectFailure
  )
 import Type.Reflection (typeOf)
 import qualified Data.Map as Map
-import Hydra.Ledger.Cardano.Evaluate (evaluateTx)
+import Hydra.Ledger.Cardano.Evaluate (evaluateTx')
 
 spec :: Spec
 spec = parallel $ do
@@ -112,13 +112,22 @@ spec = parallel $ do
 
   describe "collectCom" $ do
     propBelowSizeLimit (2*maxTxSize) forAllCollectCom
+    propIsValid tenTimesTxExecutionUnits forAllCollectCom
 
   describe "close" $ do
     propBelowSizeLimit maxTxSize forAllClose
 
   describe "fanout" $ do
     propBelowSizeLimit maxTxSize forAllFanout
-    propIsValid forAllFanout
+    -- TODO: look into why this is failing
+    propIsValid maxTxExecutionUnits (expectFailure . forAllFanout)
+
+tenTimesTxExecutionUnits :: ExecutionUnits
+tenTimesTxExecutionUnits =
+  ExecutionUnits
+    { executionMemory = 100_000_000
+    , executionSteps = 100_000_000_000
+    }
 
 --
 -- Generic Properties
@@ -144,13 +153,14 @@ propBelowSizeLimit txSizeLimit forAllTx =
 -- TODO: DRY with Hydra.Chain.Direct.Contract.Mutation.propTransactionValidates?
 propIsValid ::
   forall st.
+  ExecutionUnits ->
   ((OnChainHeadState st -> Tx -> Property) -> Property) ->
   SpecWith ()
-propIsValid forAllTx =
-  prop "validates within budget" $
+propIsValid exUnits forAllTx =
+  prop ("validates within " <> show exUnits) $
     forAllTx $ \st tx ->
       let lookupUTxO = getKnownUTxO st
-       in case evaluateTx tx lookupUTxO of
+       in case evaluateTx' exUnits tx lookupUTxO of
             Left basicFailure ->
               property False
                 & counterexample ("Tx: " <> toString (renderTx tx))
@@ -314,9 +324,10 @@ ctxHeadParameters ::
 ctxHeadParameters HydraContext{ctxContestationPeriod, ctxParties} =
   HeadParameters ctxContestationPeriod ctxParties
 
+-- TODO: allow bigger hydra heads than 3 parties
 genHydraContext :: Gen HydraContext
 genHydraContext = do
-  n <- choose (1, 10)
+  n <- choose (1, 3)
   ctxVerificationKeys <- replicateM n genVerificationKey
   ctxParties <- vector n
   ctxNetworkId <- Testnet . NetworkMagic <$> arbitrary

@@ -29,12 +29,14 @@ import qualified Data.Map as Map
 import Data.Maybe (fromJust)
 import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
 import Hydra.Cardano.Api (
+  ExecutionUnits (..),
   LedgerEra,
   NetworkId (Testnet),
   NetworkMagic (NetworkMagic),
   PolicyId,
   SlotNo (..),
   TxIn,
+  toLedgerExUnits,
  )
 import Hydra.Chain.Direct.Tx (headPolicyId)
 import Hydra.Ledger.Cardano.Evaluate (pparams)
@@ -53,8 +55,17 @@ testPolicyId = headPolicyId testSeedInput
 testSeedInput :: TxIn
 testSeedInput = generateWith arbitrary 42
 
+-- | Current mainchain max transaction size in bytes.
 maxTxSize :: Int64
 maxTxSize = 1 `shift` 14 -- 16kB
+
+-- | Current mainchain max transaction execution unit budget.
+maxTxExecutionUnits :: ExecutionUnits
+maxTxExecutionUnits =
+  ExecutionUnits
+    { executionMemory = 14_000_000
+    , executionSteps = 10_000_000_000
+    }
 
 instance Arbitrary PubKeyHash where
   arbitrary = PubKeyHash . toBuiltin <$> (arbitrary :: Gen ByteString)
@@ -87,10 +98,7 @@ defaultLedgerEnv =
           , Ledger.Alonzo._maxValSize = 5000
           , Ledger.Alonzo._maxCollateralInputs = 10
           , Ledger.Alonzo._maxTxExUnits =
-              Ledger.Alonzo.ExUnits
-                { Ledger.Alonzo.exUnitsMem = 10_000_000
-                , Ledger.Alonzo.exUnitsSteps = 10_000_000_000
-                }
+              toLedgerExUnits maxTxExecutionUnits
           , Ledger.Alonzo._maxBlockExUnits =
               Ledger.Alonzo.ExUnits
                 { Ledger.Alonzo.exUnitsMem = 50_000_000
