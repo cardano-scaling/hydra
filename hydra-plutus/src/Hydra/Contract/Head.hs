@@ -25,9 +25,11 @@ import Plutus.Codec.CBOR.Encoding (
   encodingToBuiltinByteString,
   unsafeEncodeRaw,
  )
-import Plutus.V1.Ledger.Value (symbols)
+import Plutus.V1.Ledger.Ada (adaSymbol)
+import Plutus.V1.Ledger.Value (Value (Value), symbols)
 import PlutusTx (fromBuiltinData, toBuiltinData)
 import qualified PlutusTx
+import qualified PlutusTx.AssocMap as Map
 import PlutusTx.Code (CompiledCode)
 
 data Head
@@ -127,16 +129,17 @@ checkCollectCom commitAddress (_, parties) context@ScriptContext{scriptContextTx
     && everyoneHasCommitted
  where
   everyoneHasCommitted =
-    -- TODO: This check is lame, what we want is to check also the PTs are legit, which means
-    -- verifying the CurrencySymbol match the Head.
-    collectedPTs == length parties
+    length collectedPTs == length parties
 
   threadToken =
     context
       & findOwnInput
-      & maybe mempty txInInfoResolved
-      & txOutValue
+      & maybe mempty (txOutValue . txInInfoResolved)
       & symbols
+      & filter (/= adaSymbol)
+      & \case
+        [headPolicyId] -> headPolicyId
+        _ -> traceError "malformed thread token, expected single asset"
 
   -- TODO: Can find own input (i.e. 'headInputValue') during this traversal already.
   (expectedOutputValue, collectedCommits, collectedPTs) =
@@ -147,16 +150,16 @@ checkCollectCom commitAddress (_, parties) context@ScriptContext{scriptContextTx
               (commitValue, Just commit) ->
                 ( val + commitValue
                 , commit : commits
-                , pts + 1
+                , pts <> getParticipationToken commitValue threadToken
                 )
               (commitValue, Nothing) ->
                 ( val + commitValue
                 , commits
-                , pts + 1
+                , pts <> getParticipationToken commitValue threadToken
                 )
             else (val, commits, pts)
       )
-      (headInputValue, [], 0)
+      (headInputValue, [], [])
       (txInfoInputs txInfo)
 
   headInputValue :: Value
@@ -184,7 +187,15 @@ checkCollectCom commitAddress (_, parties) context@ScriptContext{scriptContextTx
         Nothing
       Nothing ->
         traceError "fromBuiltinData failed"
+
+  getParticipationToken :: Value -> CurrencySymbol -> [TokenName]
+  getParticipationToken (Value assets) currency =
+    maybe [] Map.keys (Map.lookup currency assets)
 {-# INLINEABLE checkCollectCom #-}
+
+(&) :: a -> (a -> b) -> b
+(&) = flip ($)
+{-# INLINEABLE (&) #-}
 
 mustContinueHeadWith :: ScriptContext -> Value -> Datum -> Bool
 mustContinueHeadWith context@ScriptContext{scriptContextTxInfo = txInfo} val datum =
