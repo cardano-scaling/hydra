@@ -23,6 +23,7 @@ import Hydra.Chain.Direct.Fixture (
   testSeedInput,
  )
 import Hydra.Chain.Direct.Tx (
+  assetNameFromVerificationKey,
   collectComTx,
   headPolicyId,
   headValue,
@@ -34,7 +35,7 @@ import qualified Hydra.Contract.Head as Head
 import qualified Hydra.Contract.HeadState as Head
 import qualified Hydra.Data.Party as OnChain
 import qualified Hydra.Data.Party as Party
-import Hydra.Ledger.Cardano (genAdaOnlyUTxO, genValue)
+import Hydra.Ledger.Cardano (genAdaOnlyUTxO, genValue, genVerificationKey)
 import Hydra.Party (Party, vkey)
 import Plutus.Orphans ()
 import Plutus.V1.Ledger.Api (fromData, toBuiltin, toData)
@@ -117,12 +118,18 @@ healthyCommitOutput party committed =
  where
   Party.UnsafeParty (fromIntegral -> seed) = Party.partyFromVerKey (vkey party)
 
+  cardanoVk = generateWith genVerificationKey seed
+
   commitScript =
     fromPlutusScript Commit.validatorScript
   commitAddress =
     mkScriptAddress @PlutusScriptV1 testNetworkId commitScript
   commitValue =
-    headValue <> (txOutValue . snd) committed
+    headValue
+      <> (txOutValue . snd) committed
+      <> valueFromList
+        [ (AssetId testPolicyId (assetNameFromVerificationKey cardanoVk), 1)
+        ]
   commitDatum =
     mkCommitDatum party Head.validatorHash (Just committed)
 
