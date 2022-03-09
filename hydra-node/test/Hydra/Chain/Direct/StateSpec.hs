@@ -38,13 +38,14 @@ import Hydra.Ledger.Cardano (
   genTxIn,
   genUTxO,
   genVerificationKey,
+  simplifyUTxO,
  )
 import Hydra.Party (Party)
 import Hydra.Snapshot (isInitialSnapshot)
 import qualified Prelude
 import Test.QuickCheck (
   Property,
-  Testable,
+  Testable (property),
   (==>),
   checkCoverage,
   choose,
@@ -60,6 +61,8 @@ import Test.QuickCheck (
   resize,
  )
 import Type.Reflection (typeOf)
+import qualified Data.Map as Map
+import Hydra.Ledger.Cardano.Evaluate (evaluateTx)
 
 spec :: Spec
 spec = parallel $ do
@@ -115,6 +118,7 @@ spec = parallel $ do
 
   describe "fanout" $ do
     propBelowSizeLimit maxTxSize forAllFanout
+    propIsValid forAllFanout
 
 --
 -- Generic Properties
@@ -137,6 +141,27 @@ propBelowSizeLimit txSizeLimit forAllTx =
  where
   showKB nb = show (nb `div` 1024) <> "kB"
 
+-- TODO: DRY with Hydra.Chain.Direct.Contract.Mutation.propTransactionValidates?
+propIsValid ::
+  forall st.
+  ((OnChainHeadState st -> Tx -> Property) -> Property) ->
+  SpecWith ()
+propIsValid forAllTx =
+  prop "validates within budget" $
+    forAllTx $ \st tx ->
+      let lookupUTxO = getKnownUTxO st
+       in case evaluateTx tx lookupUTxO of
+            Left basicFailure ->
+              property False
+                & counterexample ("Tx: " <> toString (renderTx tx))
+                & counterexample ("Lookup utxo: " <> decodeUtf8 (encodePretty lookupUTxO))
+                & counterexample ("Phase-1 validation failed: " <> show basicFailure)
+            Right redeemerReport ->
+              all isRight (Map.elems redeemerReport)
+                & counterexample ("Tx: " <> toString (renderTx tx))
+                & counterexample ("Lookup utxo: " <> decodeUtf8 (encodePretty lookupUTxO))
+                & counterexample ("Redeemer report: " <> show redeemerReport)
+                & counterexample "Phase-2 validation failed"
 
 --
 -- QuickCheck Extras
@@ -250,10 +275,12 @@ forAllFanout
 forAllFanout action = do
   forAll genHydraContext $ \ctx ->
     forAll (genStClosed ctx) $ \stClosed ->
-      forAll (resize 25 genUTxO) $ \utxo ->
+      forAll (resize maxAssetsSupported $ simplifyUTxO <$> genUTxO) $ \utxo ->
         action stClosed (fanout utxo stClosed)
           & label ("Fanout size: " <> prettyLength (assetsInUtxo utxo))
  where
+  maxAssetsSupported = 1
+
   assetsInUtxo = valueSize . foldMap txOutValue
 
   prettyLength len
