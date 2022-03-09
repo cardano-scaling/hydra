@@ -152,7 +152,8 @@ genCollectComMutation (tx, utxo) =
         mutatedValue <- genValue `suchThat` (/= collectComOutputValue)
         pure $ TxOut collectComOutputAddress mutatedValue collectComOutputDatum
     , SomeMutation MutateOpenUTxOHash . ChangeOutput 0 <$> mutateUTxOHash
-    , SomeMutation MutateHeadScriptInput . ChangeInput (headTxIn utxo) <$> anyPayToPubKeyTxOut
+    , SomeMutation MutateHeadScriptInput
+        <$> (ChangeInput (headTxIn utxo) <$> anyPayToPubKeyTxOut <*> pure Nothing)
     , SomeMutation MutateHeadTransition <$> do
         changeRedeemer <- ChangeHeadRedeemer <$> (Head.Close 0 . toBuiltin <$> genHash <*> arbitrary)
         changeDatum <- ChangeHeadDatum <$> (Head.Open <$> arbitrary <*> (toBuiltin <$> genHash))
@@ -173,7 +174,7 @@ genCollectComMutation (tx, utxo) =
             <$> pure testNetworkId
             <*> fmap headPolicyId (arbitrary `suchThat` (/= testSeedInput))
             <*> pure (toUTxOContext $ mkTxOutDatum healthyCollectComInitialDatum)
-        return $ ChangeInput healthyHeadInput illedHeadResolvedInput
+        return $ ChangeInput healthyHeadInput illedHeadResolvedInput (Just $ toScriptData Head.CollectCom)
     ]
  where
   TxOut collectComOutputAddress collectComOutputValue collectComOutputDatum =

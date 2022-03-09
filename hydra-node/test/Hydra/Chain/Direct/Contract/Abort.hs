@@ -127,7 +127,7 @@ genAbortMutation (tx, utxo) =
     , SomeMutation DropOneCommitOutput
         . RemoveOutput
         <$> choose (0, fromIntegral (length (txOuts' tx) - 1))
-    , SomeMutation MutateHeadScriptInput . ChangeInput (headTxIn utxo) <$> anyPayToPubKeyTxOut
+    , SomeMutation MutateHeadScriptInput <$> (ChangeInput (headTxIn utxo) <$> anyPayToPubKeyTxOut <*> pure Nothing)
     , SomeMutation MutateThreadTokenQuantity <$> changeMintedValueQuantityFrom tx (-1)
     , SomeMutation BurnOneTokenMore <$> addPTWithQuantity tx (-1)
     , SomeMutation DropCollectedInput . RemoveInput <$> elements (txIns' tx)

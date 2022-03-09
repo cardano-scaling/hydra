@@ -135,7 +135,6 @@ import qualified Cardano.Api.UTxO as UTxO
 import qualified Cardano.Ledger.Alonzo.Data as Ledger
 import qualified Cardano.Ledger.Alonzo.Scripts as Ledger
 import qualified Cardano.Ledger.Alonzo.TxBody as Ledger
-import Cardano.Ledger.Alonzo.TxWitness (RdmrPtr)
 import qualified Cardano.Ledger.Alonzo.TxWitness as Ledger
 import qualified Cardano.Ledger.Shelley.API as Ledger
 import qualified Data.ByteString as BS
@@ -254,7 +253,7 @@ data Mutation
     -- This expects 'Nothing' if the new input is not locked by any script, and
     -- it expects 'Just' with some potentially new redeemer if locked by a
     -- script.
-    ChangeInput TxIn (TxOut CtxUTxO) (Maybe (RdmrPtr, ScriptData))
+    ChangeInput TxIn (TxOut CtxUTxO) (Maybe ScriptData)
   | -- | Change the transaction's output at given index to something else.
     ChangeOutput Word (TxOut CtxTx)
   | -- | Change the transaction's minted values if it is actually minting something.
@@ -331,13 +330,13 @@ applyMutation mutation (tx@(Tx body wits), utxo) = case mutation of
        in if xs' == xs
             then error "RemoveInput did not remove any input."
             else xs'
-  ChangeInput txIn txOut ->
+  ChangeInput txIn txOut maybeRedeemer ->
     ( Tx body' wits
     , UTxO $ Map.insert txIn txOut (UTxO.toMap utxo)
     )
    where
     ShelleyTxBody ledgerBody scripts scriptData mAuxData scriptValidity = body
-    redeemers = removeRedeemerFor (Ledger.inputs ledgerBody) (toLedgerTxIn txIn) scriptData
+    redeemers = alterRedeemerFor (Ledger.inputs ledgerBody) (toLedgerTxIn txIn) (const maybeRedeemer) scriptData
     body' = ShelleyTxBody ledgerBody scripts redeemers mAuxData scriptValidity
   ChangeOutput ix txOut ->
     ( alterTxOuts replaceAtIndex tx
@@ -442,17 +441,23 @@ alterRedeemers fn = \case
      in TxBodyScriptData dats (Ledger.Redeemers newRedeemers)
 
 -- | Remove redeemer for given `TxIn` from the transaction's redeemers map.
-removeRedeemerFor ::
+alterRedeemerFor ::
   Set (Ledger.TxIn a) ->
   Ledger.TxIn a ->
+  (ScriptData -> Maybe ScriptData) ->
   TxBodyScriptData ->
   TxBodyScriptData
-removeRedeemerFor initialInputs txIn = \case
+alterRedeemerFor initialInputs txIn fn = \case
   TxBodyNoScriptData -> error "TxBodyNoScriptData unexpected"
   TxBodyScriptData dats (Ledger.Redeemers initialRedeemers) ->
-    let newRedeemers = Ledger.Redeemers $ Map.fromList $ filter removeRedeemer $ Map.toList initialRedeemers
+    let newRedeemers = Ledger.Redeemers $ Map.fromList $ foldMap removeRedeemer $ Map.toList initialRedeemers
         sortedInputs = sort $ toList initialInputs
-        removeRedeemer (Ledger.RdmrPtr _ idx, _) = sortedInputs List.!! fromIntegral idx /= txIn
+        removeRedeemer (ptr@(Ledger.RdmrPtr _ idx), (sd, exUnits))
+          | sortedInputs List.!! fromIntegral idx == txIn =
+            case fn (fromLedgerData sd) of
+              Nothing -> []
+              Just sd' -> [(ptr, (toLedgerData sd', exUnits))]
+          | otherwise = [(ptr, (sd, exUnits))]
      in TxBodyScriptData dats newRedeemers
 
 alterTxIns ::

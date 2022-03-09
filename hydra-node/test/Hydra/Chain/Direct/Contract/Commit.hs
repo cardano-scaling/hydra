@@ -80,11 +80,12 @@ genCommitMutation (tx, _utxo) =
     , SomeMutation MutateCommittedValue <$> do
         mutatedValue <- genValue `suchThat` (/= committedOutputValue)
         let mutatedOutput = modifyTxOutValue (const mutatedValue) committedTxOut
-        pure $ ChangeInput committedTxIn mutatedOutput
+
+        pure $ ChangeInput committedTxIn mutatedOutput Nothing
     , SomeMutation MutateCommittedAddress <$> do
         mutatedAddress <- genAddressInEra Fixture.testNetworkId `suchThat` (/= committedAddress)
         let mutatedOutput = modifyTxOutAddress (const mutatedAddress) committedTxOut
-        pure $ ChangeInput committedTxIn mutatedOutput
+        pure $ ChangeInput committedTxIn mutatedOutput Nothing
     , SomeMutation MutateRequiredSigner <$> do
         newSigner <- verificationKeyHash <$> genVerificationKey
         pure $ ChangeRequiredSigners [newSigner]
