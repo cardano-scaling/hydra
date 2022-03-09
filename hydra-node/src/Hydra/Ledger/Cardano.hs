@@ -254,19 +254,18 @@ genTx ledgerEnv utxos = do
         , Ledger.Generator.maxCertsPerTx = 0
         }
 
-genSequenceOfValidTransactions :: Ledger.Globals -> Ledger.LedgerEnv LedgerEra -> UTxO -> Gen [Tx]
-genSequenceOfValidTransactions globals ledgerEnv initialUTxO
-  | initialUTxO == mempty = pure []
-  | otherwise = do
-    n <- getSize
-    numTxs <- choose (1, n)
-    genFixedSizeSequenceOfValidTransactions globals ledgerEnv numTxs initialUTxO
+genSequenceOfValidTransactions :: Ledger.Globals -> Ledger.LedgerEnv LedgerEra -> Gen (UTxO, [Tx])
+genSequenceOfValidTransactions globals ledgerEnv = do
+  n <- getSize
+  numTxs <- choose (1, n)
+  genFixedSizeSequenceOfValidTransactions globals ledgerEnv numTxs
 
-genFixedSizeSequenceOfValidTransactions :: Ledger.Globals -> Ledger.LedgerEnv LedgerEra -> Int -> UTxO -> Gen [Tx]
-genFixedSizeSequenceOfValidTransactions globals ledgerEnv numTxs initialUTxO
-  | initialUTxO == mempty = pure []
-  | otherwise =
-    reverse . snd <$> foldM newTx (initialUTxO, []) [1 .. numTxs]
+genFixedSizeSequenceOfValidTransactions :: Ledger.Globals -> Ledger.LedgerEnv LedgerEra -> Int -> Gen (UTxO, [Tx])
+genFixedSizeSequenceOfValidTransactions globals ledgerEnv numTxs = do
+  initialUTxO <- genUTxO
+  if initialUTxO == mempty
+    then pure (initialUTxO, [])
+    else second reverse <$> foldM newTx (initialUTxO, []) [1 .. numTxs]
  where
   newTx (utxos, acc) _ = do
     tx <- genTx ledgerEnv utxos
