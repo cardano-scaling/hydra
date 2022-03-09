@@ -17,9 +17,14 @@ import Hydra.Chain.Direct.Contract.Mutation (
   genHash,
   headTxIn,
  )
-import Hydra.Chain.Direct.Fixture (testNetworkId, testPolicyId)
+import Hydra.Chain.Direct.Fixture (
+  testNetworkId,
+  testPolicyId,
+  testSeedInput,
+ )
 import Hydra.Chain.Direct.Tx (
   collectComTx,
+  headPolicyId,
   headValue,
   mkCommitDatum,
   mkHeadOutput,
@@ -46,12 +51,12 @@ healthyCollectComTx =
   (tx, lookupUTxO)
  where
   lookupUTxO =
-    UTxO.singleton (headInput, headResolvedInput) <> UTxO (fst <$> commits)
+    UTxO.singleton (healthyHeadInput, healthyHeadResolvedInput) <> UTxO (fst <$> commits)
 
   tx =
     collectComTx
       testNetworkId
-      (headInput, headResolvedInput, headDatum, healthyOnChainParties)
+      (healthyHeadInput, healthyHeadResolvedInput, headDatum, healthyOnChainParties)
       commits
 
   committedUTxO =
@@ -63,9 +68,18 @@ healthyCollectComTx =
     (uncurry healthyCommitOutput <$> zip healthyParties committedUTxO)
       & Map.fromList
 
-  headInput = generateWith arbitrary 42
-  headResolvedInput = mkHeadOutput testNetworkId testPolicyId (toUTxOContext $ mkTxOutDatum healthyCollectComInitialDatum)
   headDatum = fromPlutusData $ toData healthyCollectComInitialDatum
+
+healthyHeadInput :: TxIn
+healthyHeadInput =
+  generateWith arbitrary 42
+
+healthyHeadResolvedInput :: TxOut CtxUTxO
+healthyHeadResolvedInput =
+  mkHeadOutput
+    testNetworkId
+    testPolicyId
+    (toUTxOContext $ mkTxOutDatum healthyCollectComInitialDatum)
 
 healthyCollectComInitialDatum :: Head.State
 healthyCollectComInitialDatum =
@@ -121,6 +135,7 @@ data CollectComMutation
     -- expected number of commits. This is needed because the Head protocol
     -- requires to ensure every party has a chance to commit.
     MutateNumberOfParties
+  | MutateHeadId
   deriving (Generic, Show, Enum, Bounded)
 
 genCollectComMutation :: (Tx, UTxO) -> Gen SomeMutation
@@ -145,6 +160,13 @@ genCollectComMutation (tx, utxo) =
             [ ChangeHeadDatum $ Head.Initial c moreParties
             , ChangeOutput 0 $ mutatedPartiesHeadTxOut moreParties
             ]
+    , SomeMutation MutateHeadId <$> do
+        illedHeadResolvedInput <-
+          mkHeadOutput
+            <$> pure testNetworkId
+            <*> fmap headPolicyId (arbitrary `suchThat` (/= testSeedInput))
+            <*> pure (toUTxOContext $ mkTxOutDatum healthyCollectComInitialDatum)
+        return $ ChangeInput healthyHeadInput illedHeadResolvedInput
     ]
  where
   TxOut collectComOutputAddress collectComOutputValue collectComOutputDatum =

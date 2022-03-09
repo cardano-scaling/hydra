@@ -136,8 +136,16 @@ checkCollectCom commitAddress (_, parties) context@ScriptContext{scriptContextTx
       ( \TxInInfo{txInInfoResolved} (val, commits, pts) ->
           if txOutAddress txInInfoResolved == commitAddress
             then case commitFrom txInInfoResolved of
-              (commitValue, Just commit) -> (val + commitValue, commit : commits, pts + 1)
-              (commitValue, Nothing) -> (val + commitValue, commits, pts + 1)
+              (commitValue, Just commit) ->
+                ( val + commitValue
+                , commit : commits
+                , pts + 1
+                )
+              (commitValue, Nothing) ->
+                ( val + commitValue
+                , commits
+                , pts + 1
+                )
             else (val, commits, pts)
       )
       (headInputValue, [], 0)
