@@ -25,6 +25,7 @@ import Plutus.Codec.CBOR.Encoding (
   encodingToBuiltinByteString,
   unsafeEncodeRaw,
  )
+import Plutus.V1.Ledger.Value (symbols)
 import PlutusTx (fromBuiltinData, toBuiltinData)
 import qualified PlutusTx
 import PlutusTx.Code (CompiledCode)
@@ -129,6 +130,13 @@ checkCollectCom commitAddress (_, parties) context@ScriptContext{scriptContextTx
     -- TODO: This check is lame, what we want is to check also the PTs are legit, which means
     -- verifying the CurrencySymbol match the Head.
     collectedPTs == length parties
+
+  threadToken =
+    context
+      & findOwnInput
+      & maybe mempty txInInfoResolved
+      & txOutValue
+      & symbols
 
   -- TODO: Can find own input (i.e. 'headInputValue') during this traversal already.
   (expectedOutputValue, collectedCommits, collectedPTs) =
