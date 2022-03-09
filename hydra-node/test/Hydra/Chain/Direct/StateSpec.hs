@@ -57,6 +57,7 @@ import Test.QuickCheck (
   label,
   sublistOf,
   vector,
+  resize,
  )
 import Type.Reflection (typeOf)
 
@@ -113,7 +114,7 @@ spec = parallel $ do
     propBelowSizeLimit maxTxSize forAllClose
 
   describe "fanout" $ do
-    propBelowSizeLimit (2*maxTxSize) forAllFanout
+    propBelowSizeLimit maxTxSize forAllFanout
 
 --
 -- Generic Properties
@@ -249,12 +250,13 @@ forAllFanout
 forAllFanout action = do
   forAll genHydraContext $ \ctx ->
     forAll (genStClosed ctx) $ \stClosed ->
-      forAll genUTxO $ \utxo ->
+      forAll (resize 25 genUTxO) $ \utxo ->
         action stClosed (fanout utxo stClosed)
-          & label ("Fanout size: " <> prettyLength utxo)
+          & label ("Fanout size: " <> prettyLength (assetsInUtxo utxo))
  where
-  prettyLength :: Foldable f => f a -> String
-  prettyLength (length -> len)
+  assetsInUtxo = valueSize . foldMap txOutValue
+
+  prettyLength len
     | len >= 100 = "> 100"
     | len >= 50 = "50-99"
     | len >= 10 = "10-49"

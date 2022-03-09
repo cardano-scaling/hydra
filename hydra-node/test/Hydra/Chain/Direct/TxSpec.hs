@@ -39,9 +39,10 @@ import Hydra.Data.Party (partyFromVerKey)
 import Hydra.Ledger.Cardano (
   adaOnly,
   genOneUTxOFor,
-  genUTxOWithSimplifiedAddresses,
+  genUTxO,
   genVerificationKey,
   hashTxOuts,
+  simplifyUTxO,
  )
 import Hydra.Party (Party, vkey)
 import Plutus.V1.Ledger.Api (toBuiltin, toData)
@@ -94,7 +95,7 @@ spec =
 
     describe "fanoutTx" $ do
       prop "validates" $ \headInput ->
-        forAll (resize 50 genUTxOWithSimplifiedAddresses) $ \inHeadUTxO ->
+        forAll (resize 70 $ simplifyUTxO <$> genUTxO) $ \inHeadUTxO ->
           let tx =
                 fanoutTx
                   inHeadUTxO
@@ -128,6 +129,7 @@ spec =
                         & counterexample "Wrong count of mint redeemer(s)"
                     ]
                     & label (show (length inHeadUTxO) <> " UTXO")
+                    & label (show (valueSize $ foldMap txOutValue inHeadUTxO) <> " Assets")
                     & counterexample ("Redeemer report: " <> show redeemerReport)
                     & counterexample ("Tx: " <> toString (renderTx tx))
                     & cover 0.8 True "Success"
