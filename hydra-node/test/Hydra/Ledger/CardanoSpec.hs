@@ -19,12 +19,10 @@ import Hydra.Ledger (applyTransactions)
 import Hydra.Ledger.Cardano (
   cardanoLedger,
   genSequenceOfValidTransactions,
-  genUTxO,
  )
 import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
 import Test.Cardano.Ledger.MaryEraGen ()
-import Test.QuickCheck (Property, counterexample, forAllBlind, forAllShrink, property, (.&&.), (===))
-import Test.QuickCheck.Property (forAll)
+import Test.QuickCheck (Property, counterexample, forAllBlind, property, (.&&.), (===))
 
 spec :: Spec
 spec =
