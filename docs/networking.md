@@ -1,4 +1,6 @@
-This issue attempts to summarise the current situation wrt. to Hydra networking layer, documenting what's been done and what needs to be implemented.
+This document provides details about the _Hydra Networking Layer_, eg. the network comprised of Hydra nodes upon which Heads can be opened.
+
+**DISCLAIMER**:  :hammer_and_wrench: This document is a work in progress
 
 # Current State
 
