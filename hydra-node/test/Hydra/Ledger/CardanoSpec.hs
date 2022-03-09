@@ -23,7 +23,7 @@ import Hydra.Ledger.Cardano (
  )
 import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
 import Test.Cardano.Ledger.MaryEraGen ()
-import Test.QuickCheck (Property, counterexample, forAllShrink, property, (.&&.), (===))
+import Test.QuickCheck (Property, counterexample, forAllBlind, forAllShrink, property, (.&&.), (===))
 import Test.QuickCheck.Property (forAll)
 
 spec :: Spec
@@ -109,11 +109,7 @@ appliesValidTransactionFromJSON =
   forAllBlind (genSequenceOfValidTransactions defaultGlobals defaultLedgerEnv) $ \(utxo, txs) ->
     let encoded = encode txs
         result = eitherDecode encoded >>= first show . applyTransactions (cardanoLedger defaultGlobals defaultLedgerEnv) utxo
-     in case result of
-          Right _ -> property True
-          Left (tx, err) ->
-            property False
-              & counterexample ("Error: " <> show err)
-              & counterexample ("Failing tx: " <> toString (renderTx tx))
-              & counterexample ("All txs: " <> unpack (decodeUtf8With lenientDecode $ prettyPrintJSON txs))
-              & counterexample ("Initial UTxO: " <> unpack (decodeUtf8With lenientDecode $ prettyPrintJSON utxo))
+     in isRight result
+          & counterexample ("Result: " <> show result)
+          & counterexample ("All txs: " <> unpack (decodeUtf8With lenientDecode $ prettyPrintJSON txs))
+          & counterexample ("Initial UTxO: " <> unpack (decodeUtf8With lenientDecode $ prettyPrintJSON utxo))
