@@ -1,0 +1,45 @@
+asyncapi: '2.3.0'
+info:
+  title: Hydra Node API
+  version: '0.4.0'
+  description: |
+    WebSocket API for administrating Hydra heads: multi-party isomorphic state-channels for Cardano.
+  license:
+    name: Apache 2.0
+    url: https://raw.githubusercontent.com/input-output-hk/hydra-poc/master/LICENSE
+
+defaultContentType: application/json
+
+servers:
+  localhost:
+    url: "{host}:{port}"
+    protocol: ws
+    description: |
+    variables:
+      host:
+        description: Address the Hydra node is listening for client connections.
+        default: '127.0.0.1'
+      port:
+        description: Port the Hydra node is listening for client connections.
+        default: "4001"
+
+channels:
+  /:
+    description: Main (and sole) entry point for the Hydra service.
+    servers:
+      - localhost
+    subscribe:
+      summary: Events emitted by the Hydra node.
+      operationId: serverOutput
+      message:
+        payload:
+          type: object
+
+    publish:
+      summary: Commands sent to the Hydra node.
+      operationId: clientInput
+      message:
+        payload:
+          type: object
+
+components: {}

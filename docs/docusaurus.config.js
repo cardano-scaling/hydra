@@ -15,6 +15,10 @@ const config = {
   favicon: 'img/hydra.png',
   organizationName: 'Input Output',
   projectName: 'Hydra',
+  staticDirectories: ['static', 'api'],
+  customFields: {
+    apiSpecUrl: 'hydra-node.yml',
+  },
 
   presets: [
     [
@@ -63,7 +67,7 @@ const config = {
             position: 'left',
           },
           {
-            to: '#TODO-api-reference',
+            to: '/api-reference',
             label: 'API Reference',
             position: 'left',
           },
