@@ -61,14 +61,8 @@ headValidator commitAddress initialAddress oldState input context =
       | snapshotNumber > 0 -> verifySnapshotSignature parties snapshotNumber signature
       | otherwise -> False
     (Closed{utxoHash}, Fanout{numberOfFanoutOutputs}) ->
-      traceIfFalse "fannedOutUtxoHash /= closedUtxoHash" $ fannedOutUtxoHash numberOfFanoutOutputs == utxoHash
+      checkFanout utxoHash numberOfFanoutOutputs context
     _ -> False
- where
-  fannedOutUtxoHash numberOfFanoutOutputs = hashTxOuts $ take numberOfFanoutOutputs txInfoOutputs
-
-  TxInfo{txInfoOutputs} = txInfo
-
-  ScriptContext{scriptContextTxInfo = txInfo} = context
 
 data CheckCollectComError
   = NoContinuingOutput
@@ -196,6 +190,18 @@ checkCollectCom commitAddress (_, parties) context@ScriptContext{scriptContextTx
       Nothing ->
         traceError "fromBuiltinData failed"
 {-# INLINEABLE checkCollectCom #-}
+
+checkFanout ::
+  BuiltinByteString ->
+  Integer ->
+  ScriptContext ->
+  Bool
+checkFanout utxoHash numberOfFanoutOutputs ScriptContext{scriptContextTxInfo = txInfo} =
+  traceIfFalse "fannedOutUtxoHash /= closedUtxoHash" $ fannedOutUtxoHash == utxoHash
+ where
+  fannedOutUtxoHash = hashTxOuts $ take numberOfFanoutOutputs txInfoOutputs
+  TxInfo{txInfoOutputs} = txInfo
+{-# INLINEABLE checkFanout #-}
 
 (&) :: a -> (a -> b) -> b
 (&) = flip ($)
