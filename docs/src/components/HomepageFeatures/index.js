@@ -5,7 +5,7 @@ import styles from './styles.module.css';
 const FeatureList = [
   {
     title: 'Secure',
-    Svg: require('@site/static/img/undraw_docusaurus_mountain.svg').default,
+    src: require('@site/static/img/knight.png').default,
     description: (
       <>
         Participants of a Hydra head can never lose funds they haven't explicitly agreed on spending.
@@ -14,7 +14,7 @@ const FeatureList = [
   },
   {
     title: 'Fast',
-    Svg: require('@site/static/img/undraw_docusaurus_tree.svg').default,
+    src: require('@site/static/img/runner.png').default,
     description: (
       <>
         Near-instant settlement for transactions executed inside a head network.
@@ -23,7 +23,7 @@ const FeatureList = [
   },
   {
     title: 'Isomorphic',
-    Svg: require('@site/static/img/undraw_docusaurus_react.svg').default,
+    src: require('@site/static/img/astro_kitten.png').default,
     description: (
       <>
         Leverage capabilities, interfaces and safety of the underlying layer 1 ledger.
@@ -32,11 +32,11 @@ const FeatureList = [
   },
 ];
 
-function Feature({Svg, title, description}) {
+function Feature({src, title, description}) {
   return (
     <div className={clsx('col col--4')}>
       <div className="text--center">
-        <Svg className={styles.featureSvg} role="img" />
+        <img src={src} className={styles.featureSvg} />
       </div>
       <div className="text--center padding-horiz--md">
         <h3>{title}</h3>
