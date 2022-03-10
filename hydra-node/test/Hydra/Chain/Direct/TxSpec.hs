@@ -18,6 +18,7 @@ import qualified Cardano.Ledger.Alonzo.Scripts as Ledger
 import qualified Cardano.Ledger.Alonzo.Tools as Ledger
 import qualified Cardano.Ledger.Alonzo.TxWitness as Ledger
 import qualified Data.ByteString.Lazy as LBS
+import Data.List (intersectBy)
 import qualified Data.Map as Map
 import qualified Data.Text as T
 import Hydra.Chain (HeadParameters (..))
@@ -62,6 +63,7 @@ import Test.QuickCheck (
   label,
   oneof,
   property,
+  suchThat,
   vectorOf,
   withMaxSuccess,
  )
@@ -341,42 +343,40 @@ successfulRedeemersMinting =
         Ledger.RdmrPtr _ _ -> identity
 
 genAbortableOutputs :: [Party] -> Gen ([UTxOWithScript], [UTxOWithScript])
-genAbortableOutputs parties = do
-  (initParties, commitParties) <- (`splitAt` parties) <$> choose (0, length parties)
-  initials <- vectorOf (length initParties) genInitial
-  initVkeys <- vectorOf (length initParties) $ arbitrary @(VerificationKey PaymentKey)
-
-  commits <- fmap (\(a, (b, c)) -> (a, b, c)) . Map.toList <$> generateCommitUTxOs commitParties
-  commitVkeys <- vectorOf (length commitParties) $ arbitrary @(VerificationKey PaymentKey)
-
-  let initialsWithPT = zipWith addPT initials initVkeys
-      commitsWithPT = zipWith addPT commits commitVkeys
-  pure (initialsWithPT, commitsWithPT)
+genAbortableOutputs parties =
+  go `suchThat` notConflict
  where
-  ptFor vk = valueFromList [(AssetId testPolicyId (AssetName . serialiseToRawBytes . verificationKeyHash $ vk), 1)]
+  go = do
+    (initParties, commitParties) <- (`splitAt` parties) <$> choose (0, length parties)
+    initials <- vectorOf (length initParties) genInitial
+    commits <- fmap (\(a, (b, c)) -> (a, b, c)) . Map.toList <$> generateCommitUTxOs commitParties
+    pure (initials, commits)
 
-  addPT :: UTxOWithScript -> VerificationKey PaymentKey -> UTxOWithScript
-  addPT (ti, to, sd) vKey = (ti, modifyTxOutValue (<> ptFor vKey) to, sd)
+  notConflict (is, cs) =
+    null $ intersectBy (\(i, _, _) (c, _, _) -> i == c) is cs
 
-  -- FIXME: refactor this to actually generate a well-formed initial including a PT
-  genInitial :: Gen UTxOWithScript
-  genInitial = mkInitials <$> arbitrary
+  genInitial = mkInitial <$> arbitrary <*> arbitrary
 
-  mkInitials ::
+  mkInitial ::
     TxIn ->
+    VerificationKey PaymentKey ->
     UTxOWithScript
-  mkInitials txin =
+  mkInitial txin vk =
     ( txin
-    , initialTxOut
+    , initialTxOut vk
     , fromPlutusData (toData initialDatum)
     )
 
-  initialTxOut :: TxOut CtxUTxO
-  initialTxOut =
+  initialTxOut :: VerificationKey PaymentKey -> TxOut CtxUTxO
+  initialTxOut vk =
     toUTxOContext $
       TxOut
         (mkScriptAddress @PlutusScriptV1 testNetworkId initialScript)
-        headValue
+        ( headValue
+            <> valueFromList
+              [ (AssetId testPolicyId (assetNameFromVerificationKey vk), 1)
+              ]
+        )
         (mkTxOutDatum initialDatum)
 
   initialScript = fromPlutusScript Initial.validatorScript
