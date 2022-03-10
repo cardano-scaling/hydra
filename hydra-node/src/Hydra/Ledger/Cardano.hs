@@ -283,7 +283,7 @@ genOutput vk = do
   value <- fromLedgerValue <$> scale (* 8) arbitrary
   pure $ TxOut (mkVkAddress (Testnet $ NetworkMagic 42) vk) value TxOutDatumNone
 
--- A more random generator than the default 'arbitrary' that we have in scope.
+-- | A more random generator than the 'Arbitrary TxIn' from cardano-ledger.
 genTxIn :: Gen TxIn
 genTxIn =
   fmap fromLedgerTxIn . Ledger.TxIn
@@ -391,10 +391,10 @@ instance Arbitrary AssetName where
   arbitrary = AssetName . BS.take 32 <$> arbitrary
 
 instance Arbitrary TxIn where
-  arbitrary = fromLedgerTxIn <$> arbitrary
+  arbitrary = genTxIn
 
 instance Arbitrary TxId where
-  arbitrary = onlyTxId . fromLedgerTxIn <$> arbitrary
+  arbitrary = onlyTxId <$> arbitrary
    where
     onlyTxId (TxIn txi _) = txi
 
