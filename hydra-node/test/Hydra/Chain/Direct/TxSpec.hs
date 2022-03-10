@@ -42,6 +42,7 @@ import Hydra.Ledger.Cardano (
   adaOnly,
   genOneUTxOFor,
   genUTxOWithSimplifiedAddresses,
+  genVerificationKey,
   hashTxOuts,
   shrinkUTxO,
  )
@@ -245,6 +246,7 @@ spec =
 generateCommitUTxOs :: [Party] -> Gen (Map.Map TxIn (TxOut CtxUTxO, ScriptData))
 generateCommitUTxOs parties = do
   txins <- vectorOf (length parties) (arbitrary @TxIn)
+  vks <- vectorOf (length parties) genVerificationKey
   committedUTxO <-
     vectorOf (length parties) $
       oneof
@@ -255,22 +257,27 @@ generateCommitUTxOs parties = do
         ]
   let commitUTxO =
         zip txins $
-          uncurry mkCommitUTxO <$> zip parties committedUTxO
+          uncurry mkCommitUTxO <$> zip (zip vks parties) committedUTxO
   pure $ Map.fromList commitUTxO
  where
-  mkCommitUTxO :: Party -> Maybe (TxIn, TxOut CtxUTxO) -> (TxOut CtxUTxO, ScriptData)
-  mkCommitUTxO party utxo =
+  mkCommitUTxO :: (VerificationKey PaymentKey, Party) -> Maybe (TxIn, TxOut CtxUTxO) -> (TxOut CtxUTxO, ScriptData)
+  mkCommitUTxO (vk, party) utxo =
     ( toUTxOContext $
         TxOut
           (mkScriptAddress @PlutusScriptV1 testNetworkId commitScript)
-          -- TODO(AB): We should add the value from the initialIn too because it contains
-          -- the PTs
           commitValue
           (mkTxOutDatum commitDatum)
     , fromPlutusData (toData commitDatum)
     )
    where
-    commitValue = lovelaceToValue (Lovelace 2000000) <> maybe mempty (txOutValue . snd) utxo
+    commitValue =
+      mconcat
+        [ lovelaceToValue (Lovelace 2000000)
+        , maybe mempty (txOutValue . snd) utxo
+        , valueFromList
+            [ (AssetId testPolicyId (assetNameFromVerificationKey vk), 1)
+            ]
+        ]
     commitScript = fromPlutusScript Commit.validatorScript
     commitDatum = mkCommitDatum party Head.validatorHash utxo
 
