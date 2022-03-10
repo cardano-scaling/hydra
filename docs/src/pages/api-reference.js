@@ -20,6 +20,11 @@ export default function AsyncApi() {
           schema: {
             url: '${siteConfig.baseUrl}${siteConfig.customFields.apiSpecUrl}',
           },
+          config: {
+            show: {
+              messages: false,
+            },
+          },
         }, document.getElementById('asyncapi'));
       })();`;
       document.body.appendChild(scriptTag);
@@ -43,7 +48,19 @@ export default function AsyncApi() {
 function darkThemeSupport() {
   return `
     .z-10 {
+      z-index: 1 !important;
+    }
+
+    .z-20 {
       z-index: 2 !important;
+    }
+
+    div.sidebar--content > div > h1 {
+      display: none;
+    }
+
+    a[href^='#messages'], a[href^='#messages']+* {
+      display: none !important;
     }
 
     .bg-white {
@@ -64,6 +81,14 @@ function darkThemeSupport() {
 
     .prose {
       color: var(--ifm-font-color-base) !important;
+    }
+
+    .prose blockquote {
+      color: var(--ifm-font-color-secondary) !important;
+    }
+
+    .prose code {
+      color: var(--ifm-color-primary) !important;
     }
 
     svg.cursor-pointer {
