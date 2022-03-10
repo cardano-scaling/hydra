@@ -129,42 +129,50 @@ checkCollectCom commitAddress (_, parties) context@ScriptContext{scriptContextTx
     && everyoneHasCommitted
  where
   everyoneHasCommitted =
-    length collectedPTs == length parties
+    nTotalCommits == length parties
 
-  threadToken =
+  headCurrencySymbol =
     context
       & findOwnInput
       & maybe mempty (txOutValue . txInInfoResolved)
       & symbols
       & filter (/= adaSymbol)
       & \case
-        [headPolicyId] -> headPolicyId
+        [s] -> s
         _ -> traceError "malformed thread token, expected single asset"
 
   -- TODO: Can find own input (i.e. 'headInputValue') during this traversal already.
-  (expectedOutputValue, collectedCommits, collectedPTs) =
+  (expectedOutputValue, collectedCommits, nTotalCommits) =
     foldr
-      ( \TxInInfo{txInInfoResolved} (val, commits, pts) ->
+      ( \TxInInfo{txInInfoResolved} (val, commits, nCommits) ->
           if txOutAddress txInInfoResolved == commitAddress
             then case commitFrom txInInfoResolved of
-              (commitValue, Just commit) ->
-                ( val + commitValue
-                , commit : commits
-                , pts <> getParticipationToken commitValue threadToken
-                )
-              (commitValue, Nothing) ->
-                ( val + commitValue
-                , commits
-                , pts <> getParticipationToken commitValue threadToken
-                )
-            else (val, commits, pts)
+              (commitValue, Just commit)
+                | hasParticipationToken commitValue ->
+                  ( val + commitValue
+                  , commit : commits
+                  , succ nCommits
+                  )
+              (commitValue, Nothing)
+                | hasParticipationToken commitValue ->
+                  ( val + commitValue
+                  , commits
+                  , succ nCommits
+                  )
+              _ ->
+                traceError "Invalid commit: does not contain valid PT."
+            else (val, commits, nCommits)
       )
-      (headInputValue, [], [])
+      (headInputValue, [], 0)
       (txInfoInputs txInfo)
 
   headInputValue :: Value
   headInputValue =
     maybe mempty (txOutValue . txInInfoResolved) (findOwnInput context)
+
+  hasParticipationToken :: Value -> Bool
+  hasParticipationToken (Value val) =
+    headCurrencySymbol `Map.member` val
 
   expectedOutputDatum :: Datum
   expectedOutputDatum =
@@ -187,10 +195,6 @@ checkCollectCom commitAddress (_, parties) context@ScriptContext{scriptContextTx
         Nothing
       Nothing ->
         traceError "fromBuiltinData failed"
-
-  getParticipationToken :: Value -> CurrencySymbol -> [TokenName]
-  getParticipationToken (Value assets) currency =
-    maybe [] Map.keys (Map.lookup currency assets)
 {-# INLINEABLE checkCollectCom #-}
 
 (&) :: a -> (a -> b) -> b
