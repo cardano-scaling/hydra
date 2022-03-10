@@ -13,7 +13,7 @@
 	}
     },
     "maxTxExUnits": {
-        "exUnitsMem":   14000000,
+        "exUnitsMem":   20000000,
         "exUnitsSteps": 10000000000
     },
     "maxBlockExUnits": {
