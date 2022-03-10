@@ -33,7 +33,7 @@ changes.
 
 #### Added
 
-- Implementation of on-chain verification of Hydra Head lifecycle without contests. This first version with its various shortcuts is documented on examples of the [full](./docs/images/on-chain-full.jpg) and [abort](./docs/images/on-chain-abort.jpg) on-chain life-cycles of a Hydra Head
+- Implementation of on-chain verification of Hydra Head lifecycle without contests. This first version with its various shortcuts is documented on examples of the [full](./docs/adr/img/on-chain-full.jpg) and [abort](./docs/adr/img/on-chain-abort.jpg) on-chain life-cycles of a Hydra Head
 - Enable nix-shell on Mac
 - Build separate docker images for `hydra-node` and `hydra-tui` available as [packages](https://github.com/orgs/input-output-hk/packages?repo_name=hydra-poc) from GitHub repo
 - Utility executable `inspect-script` to dump contracts for further analysis
