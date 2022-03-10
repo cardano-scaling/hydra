@@ -73,7 +73,7 @@ spec =
     describe "collectComTx" $ do
       modifyMaxSuccess (const 10) $
         prop "validates" $ \headInput cperiod ->
-          forAll (vectorOf 5 arbitrary) $ \parties ->
+          forAll (vectorOf 3 arbitrary) $ \parties ->
             forAll (generateCommitUTxOs parties) $ \commitsUTxO ->
               let onChainUTxO = UTxO $ Map.singleton headInput headOutput <> fmap fst commitsUTxO
                   headOutput = mkHeadOutput testNetworkId testPolicyId $ toUTxOContext $ mkTxOutDatum headDatum
