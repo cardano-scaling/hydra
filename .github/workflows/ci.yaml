@@ -65,6 +65,7 @@ jobs:
       with:
         node-version: 16
         cache: 'yarn'
+        cache-dependency-path: docs/yarn.lock
 
     - name: Documentation (Docusaurus)
       working-directory: docs
