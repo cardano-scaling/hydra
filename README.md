@@ -58,6 +58,18 @@ Later:
 - [ ] Optimistic Head closure and incremental de-/commit protocol extension
 - [ ] Relay-capable, mesh network
 
+## :handshake: Contributing
+
+The best way to contribute right now is to provide feedback. Give the
+[demo](./demo) a test drive and have a look at our [documentation](./docs).
+Should you have any questions, ideas or issues, we would like to hear from you:
+
+- #ask-hydra on the IOG [Discord server](https://discord.gg/Qq5vNTg9PT)
+- create a Github [Discussion](https://github.com/input-output-hk/hydra-poc/discussions) or [Issue](https://github.com/input-output-hk/hydra-poc/issues/new)
+- or ask on Cardano [StackExchange](https://cardano.stackexchange.com/) using the `hydra` tag
+
+When contributing to this project and interacting with other contributors, please follow our [Code of Conduct](./CODE-OF-CONDUCT.md).
+
 ---
 
 <p align="center">
