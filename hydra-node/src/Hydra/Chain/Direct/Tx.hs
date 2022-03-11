@@ -447,7 +447,9 @@ observeInitTx networkId party tx = do
 convertParty :: OnChain.Party -> Party
 convertParty = Party . partyToVerKey
 
-type CommitObservation = UTxOWithScript
+newtype CommitObservation = CommitObservation
+  { utxoWithScript :: UTxOWithScript
+  }
 
 -- | Identify a commit tx by:
 --
@@ -459,11 +461,14 @@ type CommitObservation = UTxOWithScript
 -- - Reconstruct the committed UTxO from both values (tx input and output).
 observeCommitTx ::
   NetworkId ->
+  -- | This identifies the Head
+  -- TODO: Make it a `HeadId`
+  PlutusScript ->
   -- | Known (remaining) initial tx inputs.
   [TxIn] ->
   Tx ->
   Maybe (OnChainTx Tx, CommitObservation)
-observeCommitTx networkId initials tx = do
+observeCommitTx networkId headScript initials tx = do
   initialTxIn <- findInitialTxIn
   mCommittedTxIn <- decodeInitialRedeemer initialTxIn
 
@@ -471,7 +476,7 @@ observeCommitTx networkId initials tx = do
   dat <- getScriptData commitOut
   -- TODO: WIP Extract party from the PT. This is not the end-goal though, it will
   -- eventually contain a cardano pkh and we need to change things then again.
-  let party = undefined
+  party <- getPartyFromPT (txOutValue commitOut)
   (_, serializedTxOut) <- fromData @(DatumType Commit.Commit) $ toPlutusData dat
   let mCommittedTxOut = convertTxOut serializedTxOut
 
@@ -483,10 +488,8 @@ observeCommitTx networkId initials tx = do
       (Just{}, Nothing) -> error "found commit with redeemer out ref but with no serialized output."
 
   let onChainTx = OnCommitTx (convertParty party) comittedUTxO
-  pure
-    ( onChainTx
-    , (commitIn, toUTxOContext commitOut, dat)
-    )
+  pure $
+    (onChainTx, CommitObservation{utxoWithScript = (commitIn, toUTxOContext commitOut, dat)})
  where
   findInitialTxIn =
     case filter (`elem` initials) (txIns' tx) of
@@ -503,6 +506,15 @@ observeCommitTx networkId initials tx = do
   commitAddress = mkScriptAddress @PlutusScriptV1 networkId commitScript
 
   commitScript = fromPlutusScript Commit.validatorScript
+
+  getPartyFromPT :: Value -> Maybe OnChain.Party
+  getPartyFromPT value =
+    case headTokensFromValue headScript value of
+      [(assetName, 1)] -> Just $ partyFromAsset assetName
+      _ -> Nothing
+
+  partyFromAsset :: AssetName -> OnChain.Party
+  partyFromAsset (AssetName bs) = undefined
 
 convertTxOut :: Maybe Commit.SerializedTxOut -> Maybe (TxOut CtxUTxO)
 convertTxOut = \case
@@ -694,4 +706,4 @@ findHeadAssetId txOut =
 -- | Find (if it exists) the head identifier contained in given `TxOut`.
 findStateToken :: TxOut ctx -> Maybe HeadId
 findStateToken =
-  fmap (mkHeadId . fst) . findHeadAssetId
+  fmap (getPolicyId . fst) . findHeadAssetId
