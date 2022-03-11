@@ -17,7 +17,7 @@ The demo consists of:
 - a Prometheus server to gather metrics;
 - ad-hoc terminal user interface clients to interact with the individual Hydra nodes;
 
-:::Caution!
+:::caution Caution!
 As we use ad-hoc private devnets that start from the genesis block, you need to ensure the devnet configuration is reasonably up to date. If you get `LedgerNoView` errors from the Cardano node, the start times are too far in the past and you should update them by using the `prepare-devnet.sh` script, for example.
 :::
 
