@@ -17,9 +17,15 @@ import Hydra.Chain.Direct.Contract.Mutation (
   genHash,
   headTxIn,
  )
-import Hydra.Chain.Direct.Fixture (testNetworkId, testPolicyId)
+import Hydra.Chain.Direct.Fixture (
+  testNetworkId,
+  testPolicyId,
+  testSeedInput,
+ )
 import Hydra.Chain.Direct.Tx (
+  assetNameFromVerificationKey,
   collectComTx,
+  headPolicyId,
   headValue,
   mkCommitDatum,
   mkHeadOutput,
@@ -29,7 +35,7 @@ import qualified Hydra.Contract.Head as Head
 import qualified Hydra.Contract.HeadState as Head
 import qualified Hydra.Data.Party as OnChain
 import qualified Hydra.Data.Party as Party
-import Hydra.Ledger.Cardano (genAdaOnlyUTxO, genValue)
+import Hydra.Ledger.Cardano (genAdaOnlyUTxO, genValue, genVerificationKey)
 import Hydra.Party (Party, vkey)
 import Plutus.Orphans ()
 import Plutus.V1.Ledger.Api (fromData, toBuiltin, toData)
@@ -46,12 +52,12 @@ healthyCollectComTx =
   (tx, lookupUTxO)
  where
   lookupUTxO =
-    UTxO.singleton (headInput, headResolvedInput) <> UTxO (fst <$> commits)
+    UTxO.singleton (healthyHeadInput, healthyHeadResolvedInput) <> UTxO (fst <$> commits)
 
   tx =
     collectComTx
       testNetworkId
-      (headInput, headResolvedInput, headDatum, healthyOnChainParties)
+      (healthyHeadInput, healthyHeadResolvedInput, headDatum, healthyOnChainParties)
       commits
 
   committedUTxO =
@@ -63,9 +69,18 @@ healthyCollectComTx =
     (uncurry healthyCommitOutput <$> zip healthyParties committedUTxO)
       & Map.fromList
 
-  headInput = generateWith arbitrary 42
-  headResolvedInput = mkHeadOutput testNetworkId testPolicyId (toUTxOContext $ mkTxOutDatum healthyCollectComInitialDatum)
   headDatum = fromPlutusData $ toData healthyCollectComInitialDatum
+
+healthyHeadInput :: TxIn
+healthyHeadInput =
+  generateWith arbitrary 42
+
+healthyHeadResolvedInput :: TxOut CtxUTxO
+healthyHeadResolvedInput =
+  mkHeadOutput
+    testNetworkId
+    testPolicyId
+    (toUTxOContext $ mkTxOutDatum healthyCollectComInitialDatum)
 
 healthyCollectComInitialDatum :: Head.State
 healthyCollectComInitialDatum =
@@ -103,12 +118,18 @@ healthyCommitOutput party committed =
  where
   Party.UnsafeParty (fromIntegral -> seed) = Party.partyFromVerKey (vkey party)
 
+  cardanoVk = generateWith genVerificationKey seed
+
   commitScript =
     fromPlutusScript Commit.validatorScript
   commitAddress =
     mkScriptAddress @PlutusScriptV1 testNetworkId commitScript
   commitValue =
-    headValue <> (txOutValue . snd) committed
+    headValue
+      <> (txOutValue . snd) committed
+      <> valueFromList
+        [ (AssetId testPolicyId (assetNameFromVerificationKey cardanoVk), 1)
+        ]
   commitDatum =
     mkCommitDatum party Head.validatorHash (Just committed)
 
@@ -121,6 +142,7 @@ data CollectComMutation
     -- expected number of commits. This is needed because the Head protocol
     -- requires to ensure every party has a chance to commit.
     MutateNumberOfParties
+  | MutateHeadId
   deriving (Generic, Show, Enum, Bounded)
 
 genCollectComMutation :: (Tx, UTxO) -> Gen SomeMutation
@@ -130,7 +152,8 @@ genCollectComMutation (tx, utxo) =
         mutatedValue <- genValue `suchThat` (/= collectComOutputValue)
         pure $ TxOut collectComOutputAddress mutatedValue collectComOutputDatum
     , SomeMutation MutateOpenUTxOHash . ChangeOutput 0 <$> mutateUTxOHash
-    , SomeMutation MutateHeadScriptInput . ChangeInput (headTxIn utxo) <$> anyPayToPubKeyTxOut
+    , SomeMutation MutateHeadScriptInput
+        <$> (ChangeInput (headTxIn utxo) <$> anyPayToPubKeyTxOut <*> pure Nothing)
     , SomeMutation MutateHeadTransition <$> do
         changeRedeemer <- ChangeHeadRedeemer <$> (Head.Close 0 . toBuiltin <$> genHash <*> arbitrary)
         changeDatum <- ChangeHeadDatum <$> (Head.Open <$> arbitrary <*> (toBuiltin <$> genHash))
@@ -145,6 +168,13 @@ genCollectComMutation (tx, utxo) =
             [ ChangeHeadDatum $ Head.Initial c moreParties
             , ChangeOutput 0 $ mutatedPartiesHeadTxOut moreParties
             ]
+    , SomeMutation MutateHeadId <$> do
+        illedHeadResolvedInput <-
+          mkHeadOutput
+            <$> pure testNetworkId
+            <*> fmap headPolicyId (arbitrary `suchThat` (/= testSeedInput))
+            <*> pure (toUTxOContext $ mkTxOutDatum healthyCollectComInitialDatum)
+        return $ ChangeInput healthyHeadInput illedHeadResolvedInput (Just $ toScriptData Head.CollectCom)
     ]
  where
   TxOut collectComOutputAddress collectComOutputValue collectComOutputDatum =

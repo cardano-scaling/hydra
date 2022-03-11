@@ -22,7 +22,7 @@ import Hydra.Ledger.Cardano (
  )
 import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
 import Test.Cardano.Ledger.MaryEraGen ()
-import Test.QuickCheck (Property, counterexample, forAllBlind, property, (.&&.), (===))
+import Test.QuickCheck (Property, counterexample, forAll, forAllBlind, property, withMaxSuccess, (.&&.), (===))
 
 spec :: Spec
 spec =
@@ -61,6 +61,12 @@ spec =
             \ \"inputs\":[\"9fdc525c20bc00d9dfa9d14904b65e01910c0dfe3bb39865523c1e20eaeb0903#0\"]},\
             \ \"auxiliaryData\":null}"
       shouldParseJSONAs @Tx bs
+
+    describe "orphan instances" $ do
+      propCollisionResistant "arbitrary TxIn" (arbitrary @TxIn)
+      propCollisionResistant "arbitrary TxId" (arbitrary @TxId)
+      propCollisionResistant "arbitrary VerificationKey" (arbitrary @(VerificationKey PaymentKey))
+      propCollisionResistant "arbitrary Hash" (arbitrary @(Hash PaymentKey))
 
 shouldParseJSONAs :: forall a. FromJSON a => LByteString -> Expectation
 shouldParseJSONAs bs =
@@ -111,3 +117,11 @@ appliesValidTransactionFromJSON =
           & counterexample ("Result: " <> show result)
           & counterexample ("All txs: " <> unpack (decodeUtf8With lenientDecode $ prettyPrintJSON txs))
           & counterexample ("Initial UTxO: " <> unpack (decodeUtf8With lenientDecode $ prettyPrintJSON utxo))
+
+propCollisionResistant :: (Show a, Eq a) => String -> Gen a -> Spec
+propCollisionResistant name gen =
+  prop (name <> " is reasonably collision resistant") $
+    withMaxSuccess 100_000 $
+      forAll gen $ \a ->
+        forAll gen $ \b ->
+          a /= b

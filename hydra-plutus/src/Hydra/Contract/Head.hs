@@ -25,8 +25,11 @@ import Plutus.Codec.CBOR.Encoding (
   encodingToBuiltinByteString,
   unsafeEncodeRaw,
  )
+import Plutus.V1.Ledger.Ada (adaSymbol)
+import Plutus.V1.Ledger.Value (Value (Value), symbols)
 import PlutusTx (fromBuiltinData, toBuiltinData)
 import qualified PlutusTx
+import qualified PlutusTx.AssocMap as Map
 import PlutusTx.Code (CompiledCode)
 
 data Head
@@ -58,14 +61,8 @@ headValidator commitAddress initialAddress oldState input context =
       | snapshotNumber > 0 -> verifySnapshotSignature parties snapshotNumber signature
       | otherwise -> False
     (Closed{utxoHash}, Fanout{numberOfFanoutOutputs}) ->
-      traceIfFalse "fannedOutUtxoHash /= closedUtxoHash" $ fannedOutUtxoHash numberOfFanoutOutputs == utxoHash
+      checkFanout utxoHash numberOfFanoutOutputs context
     _ -> False
- where
-  fannedOutUtxoHash numberOfFanoutOutputs = hashTxOuts $ take numberOfFanoutOutputs txInfoOutputs
-
-  TxInfo{txInfoOutputs} = txInfo
-
-  ScriptContext{scriptContextTxInfo = txInfo} = context
 
 data CheckCollectComError
   = NoContinuingOutput
@@ -126,19 +123,39 @@ checkCollectCom commitAddress (_, parties) context@ScriptContext{scriptContextTx
     && everyoneHasCommitted
  where
   everyoneHasCommitted =
-    -- TODO: This check is lame, what we want is to check also the PTs are legit, which means
-    -- verifying the CurrencySymbol match the Head.
-    collectedPTs == length parties
+    nTotalCommits == length parties
+
+  headCurrencySymbol =
+    context
+      & findOwnInput
+      & maybe mempty (txOutValue . txInInfoResolved)
+      & symbols
+      & filter (/= adaSymbol)
+      & \case
+        [s] -> s
+        _ -> traceError "malformed thread token, expected single asset"
 
   -- TODO: Can find own input (i.e. 'headInputValue') during this traversal already.
-  (expectedOutputValue, collectedCommits, collectedPTs) =
+  (expectedOutputValue, collectedCommits, nTotalCommits) =
     foldr
-      ( \TxInInfo{txInInfoResolved} (val, commits, pts) ->
+      ( \TxInInfo{txInInfoResolved} (val, commits, nCommits) ->
           if txOutAddress txInInfoResolved == commitAddress
             then case commitFrom txInInfoResolved of
-              (commitValue, Just commit) -> (val + commitValue, commit : commits, pts + 1)
-              (commitValue, Nothing) -> (val + commitValue, commits, pts + 1)
-            else (val, commits, pts)
+              (commitValue, Just commit)
+                | hasParticipationToken commitValue ->
+                  ( val + commitValue
+                  , commit : commits
+                  , succ nCommits
+                  )
+              (commitValue, Nothing)
+                | hasParticipationToken commitValue ->
+                  ( val + commitValue
+                  , commits
+                  , succ nCommits
+                  )
+              _ ->
+                traceError "Invalid commit: does not contain valid PT."
+            else (val, commits, nCommits)
       )
       (headInputValue, [], 0)
       (txInfoInputs txInfo)
@@ -146,6 +163,10 @@ checkCollectCom commitAddress (_, parties) context@ScriptContext{scriptContextTx
   headInputValue :: Value
   headInputValue =
     maybe mempty (txOutValue . txInInfoResolved) (findOwnInput context)
+
+  hasParticipationToken :: Value -> Bool
+  hasParticipationToken (Value val) =
+    headCurrencySymbol `Map.member` val
 
   expectedOutputDatum :: Datum
   expectedOutputDatum =
@@ -169,6 +190,22 @@ checkCollectCom commitAddress (_, parties) context@ScriptContext{scriptContextTx
       Nothing ->
         traceError "fromBuiltinData failed"
 {-# INLINEABLE checkCollectCom #-}
+
+checkFanout ::
+  BuiltinByteString ->
+  Integer ->
+  ScriptContext ->
+  Bool
+checkFanout utxoHash numberOfFanoutOutputs ScriptContext{scriptContextTxInfo = txInfo} =
+  traceIfFalse "fannedOutUtxoHash /= closedUtxoHash" $ fannedOutUtxoHash == utxoHash
+ where
+  fannedOutUtxoHash = hashTxOuts $ take numberOfFanoutOutputs txInfoOutputs
+  TxInfo{txInfoOutputs} = txInfo
+{-# INLINEABLE checkFanout #-}
+
+(&) :: a -> (a -> b) -> b
+(&) = flip ($)
+{-# INLINEABLE (&) #-}
 
 mustContinueHeadWith :: ScriptContext -> Value -> Datum -> Bool
 mustContinueHeadWith context@ScriptContext{scriptContextTxInfo = txInfo} val datum =
