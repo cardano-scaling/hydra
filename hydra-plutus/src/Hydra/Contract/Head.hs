@@ -125,10 +125,12 @@ checkCollectCom commitAddress (_, parties) context@ScriptContext{scriptContextTx
   everyoneHasCommitted =
     nTotalCommits == length parties
 
+  headInputValue :: Value
+  headInputValue =
+    maybe mempty (txOutValue . txInInfoResolved) (findOwnInput context)
+
   headCurrencySymbol =
-    context
-      & findOwnInput
-      & maybe mempty (txOutValue . txInInfoResolved)
+    headInputValue
       & symbols
       & filter (/= adaSymbol)
       & \case
@@ -159,10 +161,6 @@ checkCollectCom commitAddress (_, parties) context@ScriptContext{scriptContextTx
       )
       (headInputValue, [], 0)
       (txInfoInputs txInfo)
-
-  headInputValue :: Value
-  headInputValue =
-    maybe mempty (txOutValue . txInInfoResolved) (findOwnInput context)
 
   hasParticipationToken :: Value -> Bool
   hasParticipationToken (Value val) =
