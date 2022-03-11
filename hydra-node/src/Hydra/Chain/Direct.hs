@@ -150,6 +150,7 @@ withDirectChain tracer networkId iocp socketPath keyPair party cardanoKeys callb
             networkId
             (verificationKey wallet)
             party
+            cardanoKeys
     race_
       ( do
           -- FIXME: There's currently a race-condition with the actual client

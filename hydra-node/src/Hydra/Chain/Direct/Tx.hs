@@ -386,6 +386,7 @@ data InitObservation = InitObservation
   , commits :: [UTxOWithScript]
   , headId :: HeadId
   , headTokenScript :: PlutusScript
+  , parties :: [Party]
   }
   deriving (Show, Eq)
 
@@ -418,6 +419,7 @@ observeInitTx networkId party tx = do
         , commits = []
         , headId = mkHeadId headTokenPolicyId
         , headTokenScript
+        , parties
         }
     )
  where
@@ -686,7 +688,8 @@ mkHeadId =
 -- actually all be tracked inside `Party`, such that `HeadParameters` suffice to
 -- do this lookup.
 
-data PartyTable = PartyTable (Map (Hash PaymentKey) Party)
+newtype PartyTable = PartyTable (Map (Hash PaymentKey) Party)
+  deriving (Show)
 
 mkPartyTable :: [VerificationKey PaymentKey] -> [Party] -> PartyTable
 mkPartyTable = undefined

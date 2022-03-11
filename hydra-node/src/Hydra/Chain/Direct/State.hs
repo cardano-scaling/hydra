@@ -42,13 +42,16 @@ import Hydra.Chain (HeadId (..), HeadParameters, OnChainTx (..), PostTxError (..
 import Hydra.Chain.Direct.Tx (
   CloseObservation (..),
   CollectComObservation (..),
+  CommitObservation (..),
   InitObservation (..),
+  PartyTable,
   abortTx,
   closeTx,
   collectComTx,
   commitTx,
   fanoutTx,
   initTx,
+  mkPartyTable,
   observeAbortTx,
   observeCloseTx,
   observeCollectComTx,
@@ -69,6 +72,7 @@ data OnChainHeadState (st :: HeadStateKind) = OnChainHeadState
   , ownVerificationKey :: VerificationKey PaymentKey
   , ownParty :: Party
   , stateMachine :: HydraStateMachine st
+  , verificationKeys :: [VerificationKey PaymentKey]
   }
   deriving (Show)
 
@@ -89,6 +93,7 @@ data HydraStateMachine (st :: HeadStateKind) where
     , initialCommits :: [UTxOWithScript]
     , initialHeadId :: HeadId
     , initialHeadTokenScript :: PlutusScript
+    , initialPartyTable :: PartyTable
     } ->
     HydraStateMachine 'StInitialized
   Open ::
@@ -182,13 +187,15 @@ idleOnChainHeadState ::
   NetworkId ->
   VerificationKey PaymentKey ->
   Party ->
+  [VerificationKey PaymentKey] ->
   OnChainHeadState 'StIdle
-idleOnChainHeadState networkId ownVerificationKey ownParty =
+idleOnChainHeadState networkId ownVerificationKey ownParty verificationKeys =
   OnChainHeadState
     { networkId
     , ownVerificationKey
     , ownParty
     , stateMachine = Idle
+    , verificationKeys
     }
 
 -- Constructing Transitions
@@ -316,9 +323,9 @@ instance HasTransition 'StIdle where
     ]
 
 instance ObserveTx 'StIdle 'StInitialized where
-  observeTx tx OnChainHeadState{networkId, ownParty, ownVerificationKey} = do
+  observeTx tx OnChainHeadState{networkId, ownParty, ownVerificationKey, verificationKeys} = do
     (event, observation) <- observeInitTx networkId ownParty tx
-    let InitObservation{threadOutput, initials, commits, headId, headTokenScript} = observation
+    let InitObservation{threadOutput, initials, commits, headId, headTokenScript, parties} = observation
     let st' =
           OnChainHeadState
             { networkId
@@ -331,7 +338,9 @@ instance ObserveTx 'StIdle 'StInitialized where
                   , initialCommits = commits
                   , initialHeadId = headId
                   , initialHeadTokenScript = headTokenScript
+                  , initialPartyTable = mkPartyTable verificationKeys parties
                   }
+            , verificationKeys
             }
     pure (event, st')
 
@@ -349,7 +358,7 @@ instance HasTransition 'StInitialized where
 instance ObserveTx 'StInitialized 'StInitialized where
   observeTx tx st@OnChainHeadState{networkId, stateMachine} = do
     let initials = fst3 <$> initialInitials
-    (event, newCommit) <- observeCommitTx networkId initials tx
+    (event, CommitObservation{utxoWithScript}) <- observeCommitTx networkId initialHeadTokenScript initialPartyTable initials tx
     let st' =
           st
             { stateMachine =
@@ -359,7 +368,7 @@ instance ObserveTx 'StInitialized 'StInitialized where
                       -- remove all it's inputs from our tracked initials
                       filter ((`notElem` txIns' tx) . fst3) initialInitials
                   , initialCommits =
-                      newCommit : initialCommits
+                      utxoWithScript : initialCommits
                   }
             }
     pure (event, st')
@@ -367,20 +376,19 @@ instance ObserveTx 'StInitialized 'StInitialized where
     Initialized
       { initialCommits
       , initialInitials
+      , initialHeadTokenScript
+      , initialPartyTable
       } = stateMachine
 
 instance ObserveTx 'StInitialized 'StOpen where
-  observeTx tx st@OnChainHeadState{networkId, ownVerificationKey, ownParty, stateMachine} = do
+  observeTx tx st@OnChainHeadState{stateMachine} = do
     let utxo = getKnownUTxO st
     (event, observation) <- observeCollectComTx utxo tx
     let CollectComObservation{threadOutput, headId} = observation
     guard (headId == initialHeadId)
     let st' =
-          OnChainHeadState
-            { networkId
-            , ownVerificationKey
-            , ownParty
-            , stateMachine =
+          st
+            { stateMachine =
                 Open
                   { openThreadOutput = threadOutput
                   , openHeadId = initialHeadId
@@ -395,15 +403,12 @@ instance ObserveTx 'StInitialized 'StOpen where
       } = stateMachine
 
 instance ObserveTx 'StInitialized 'StIdle where
-  observeTx tx st@OnChainHeadState{networkId, ownVerificationKey, ownParty} = do
+  observeTx tx st = do
     let utxo = getKnownUTxO st
     (event, ()) <- observeAbortTx utxo tx
     let st' =
-          OnChainHeadState
-            { networkId
-            , ownVerificationKey
-            , ownParty
-            , stateMachine = Idle
+          st
+            { stateMachine = Idle
             }
     pure (event, st')
 
@@ -417,17 +422,14 @@ instance HasTransition 'StOpen where
     ]
 
 instance ObserveTx 'StOpen 'StClosed where
-  observeTx tx st@OnChainHeadState{networkId, ownVerificationKey, ownParty, stateMachine} = do
+  observeTx tx st@OnChainHeadState{stateMachine} = do
     let utxo = getKnownUTxO st
     (event, observation) <- observeCloseTx utxo tx
     let CloseObservation{threadOutput, headId} = observation
     guard (headId == openHeadId)
     let st' =
-          OnChainHeadState
-            { networkId
-            , ownVerificationKey
-            , ownParty
-            , stateMachine =
+          st
+            { stateMachine =
                 Closed
                   { closedThreadOutput = threadOutput
                   , closedHeadId = headId
@@ -451,16 +453,10 @@ instance HasTransition 'StClosed where
     ]
 
 instance ObserveTx 'StClosed 'StIdle where
-  observeTx tx st@OnChainHeadState{networkId, ownVerificationKey, ownParty} = do
+  observeTx tx st = do
     let utxo = getKnownUTxO st
     (event, ()) <- observeFanoutTx utxo tx
-    let st' =
-          OnChainHeadState
-            { networkId
-            , ownVerificationKey
-            , ownParty
-            , stateMachine = Idle
-            }
+    let st' = st{stateMachine = Idle}
     pure (event, st')
 
 -- | A convenient way to apply transition to 'SomeOnChainHeadState' without
