@@ -464,21 +464,26 @@ observeCommitTx ::
   -- | This identifies the Head
   -- TODO: Make it a `HeadId`
   PlutusScript ->
+  -- | XXX: Temporarily pass a way to lookup chain credentials to hydra
+  -- credentials (Party).
+  -- TODO: bite the bullet and make `Party` hold both, and do the lookup
+  -- "somewhere above" using the `HeadParameters`.
+  PartyTable ->
   -- | Known (remaining) initial tx inputs.
   [TxIn] ->
   Tx ->
   Maybe (OnChainTx Tx, CommitObservation)
-observeCommitTx networkId headScript initials tx = do
+observeCommitTx networkId headScript _partyTable initials tx = do
   initialTxIn <- findInitialTxIn
   mCommittedTxIn <- decodeInitialRedeemer initialTxIn
 
   (commitIn, commitOut) <- findTxOutByAddress commitAddress tx
   dat <- getScriptData commitOut
+  (_, serializedTxOut) <- fromData @(DatumType Commit.Commit) $ toPlutusData dat
+  let mCommittedTxOut = convertTxOut serializedTxOut
   -- TODO: WIP Extract party from the PT. This is not the end-goal though, it will
   -- eventually contain a cardano pkh and we need to change things then again.
   party <- getPartyFromPT (txOutValue commitOut)
-  (_, serializedTxOut) <- fromData @(DatumType Commit.Commit) $ toPlutusData dat
-  let mCommittedTxOut = convertTxOut serializedTxOut
 
   comittedUTxO <-
     case (mCommittedTxIn, mCommittedTxOut) of
@@ -487,8 +492,8 @@ observeCommitTx networkId headScript initials tx = do
       (Nothing, Just{}) -> error "found commit with no redeemer out ref but with serialized output."
       (Just{}, Nothing) -> error "found commit with redeemer out ref but with no serialized output."
 
-  let onChainTx = OnCommitTx (convertParty party) comittedUTxO
-  pure $
+  let onChainTx = OnCommitTx party comittedUTxO
+  pure
     (onChainTx, CommitObservation{utxoWithScript = (commitIn, toUTxOContext commitOut, dat)})
  where
   findInitialTxIn =
@@ -507,14 +512,14 @@ observeCommitTx networkId headScript initials tx = do
 
   commitScript = fromPlutusScript Commit.validatorScript
 
-  getPartyFromPT :: Value -> Maybe OnChain.Party
+  getPartyFromPT :: Value -> Maybe Party
   getPartyFromPT value =
     case headTokensFromValue headScript value of
-      [(assetName, 1)] -> Just $ partyFromAsset assetName
+      [(assetName, 1)] -> partyFromAsset assetName
       _ -> Nothing
 
-  partyFromAsset :: AssetName -> OnChain.Party
-  partyFromAsset (AssetName bs) = undefined
+  partyFromAsset :: AssetName -> Maybe Party
+  partyFromAsset an = assetNameToVKH an >>= lookupVKHParty undefined
 
 convertTxOut :: Maybe Commit.SerializedTxOut -> Maybe (TxOut CtxUTxO)
 convertTxOut = \case
@@ -677,6 +682,21 @@ mkHeadId :: PolicyId -> HeadId
 mkHeadId =
   HeadId . serialiseToRawBytes
 
+-- XXX: This is a makeshift mapping of off-/on-chain credentials which should
+-- actually all be tracked inside `Party`, such that `HeadParameters` suffice to
+-- do this lookup.
+
+data PartyTable = PartyTable (Map (Hash PaymentKey) Party)
+
+mkPartyTable :: [VerificationKey PaymentKey] -> [Party] -> PartyTable
+mkPartyTable = undefined
+
+-- | Map a chain-specific credential (Hash PaymentKey) to the hydra-credential
+-- (Party). This function actually connects the chain layer to the logic layer.
+-- TODO: move somewhere else
+lookupVKHParty :: PartyTable -> Hash PaymentKey -> Maybe Party
+lookupVKHParty (PartyTable m) = flip Map.lookup m
+
 -- * Helpers
 
 headTokensFromValue :: PlutusScript -> Value -> [(AssetName, Quantity)]
@@ -689,6 +709,10 @@ headTokensFromValue headTokenScript v =
 assetNameFromVerificationKey :: VerificationKey PaymentKey -> AssetName
 assetNameFromVerificationKey =
   AssetName . serialiseToRawBytes . verificationKeyHash
+
+assetNameToVKH :: AssetName -> Maybe (Hash PaymentKey)
+assetNameToVKH (AssetName bs) =
+  deserialiseFromRawBytes (AsHash AsPaymentKey) bs
 
 -- | Find first occurrence including a transformation.
 findFirst :: Foldable t => (a -> Maybe b) -> t a -> Maybe b
@@ -706,4 +730,4 @@ findHeadAssetId txOut =
 -- | Find (if it exists) the head identifier contained in given `TxOut`.
 findStateToken :: TxOut ctx -> Maybe HeadId
 findStateToken =
-  fmap (getPolicyId . fst) . findHeadAssetId
+  fmap (mkHeadId . fst) . findHeadAssetId
