@@ -131,7 +131,7 @@ healthyCommitOutput party committed =
         [ (AssetId testPolicyId (assetNameFromVerificationKey cardanoVk), 1)
         ]
   commitDatum =
-    mkCommitDatum party Head.validatorHash (Just committed)
+    mkCommitDatum Head.validatorHash (Just committed)
 
 data CollectComMutation
   = MutateOpenOutputValue

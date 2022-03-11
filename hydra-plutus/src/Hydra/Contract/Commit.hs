@@ -10,7 +10,6 @@ import PlutusTx.Prelude
 
 import Hydra.Contract.Encoding (encodeTxOut)
 import Hydra.Contract.HeadState (State (..))
-import Hydra.Data.Party (Party)
 import Ledger.Typed.Scripts (TypedValidator, ValidatorType, ValidatorTypes (..))
 import qualified Ledger.Typed.Scripts as Scripts
 import Plutus.Codec.CBOR.Encoding (encodingToBuiltinByteString)
@@ -32,14 +31,13 @@ instance Eq SerializedTxOut where
   SerializedTxOut bs == SerializedTxOut bs' = bs == bs'
 
 instance Scripts.ValidatorTypes Commit where
-  -- TODO: Party is not used on-chain but is needed off-chain while it's still
-  -- based on mock crypto. When we move to real crypto we could simply use
-  -- the PT's token name to identify the committing party
-  type DatumType Commit = (Party, ValidatorHash, Maybe SerializedTxOut)
+  -- TODO: Move ValidatorHash into validator parameter, but only possible after
+  -- we make v_head unparameterized
+  type DatumType Commit = (ValidatorHash, Maybe SerializedTxOut)
   type RedeemerType Commit = CommitRedeemer
 
 validator :: DatumType Commit -> RedeemerType Commit -> ScriptContext -> Bool
-validator (_party, headScriptHash, commit) consumer ScriptContext{scriptContextTxInfo = txInfo} =
+validator (headScriptHash, commit) consumer ScriptContext{scriptContextTxInfo = txInfo} =
   case txInInfoResolved <$> findHeadScript of
     Nothing -> traceError "Cannot find Head script"
     Just (TxOut _ _ (Just dh)) ->

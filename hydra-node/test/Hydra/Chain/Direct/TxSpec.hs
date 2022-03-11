@@ -245,6 +245,7 @@ spec =
 
 -- | Generate a UTXO representing /commit/ outputs for a given list of `Party`.
 -- FIXME: This function is very complicated and it's hard to understand it after a while
+-- XXX: [Party] is only used for the length of the list
 generateCommitUTxOs :: [Party] -> Gen (Map.Map TxIn (TxOut CtxUTxO, ScriptData))
 generateCommitUTxOs parties = do
   txins <- vectorOf (length parties) (arbitrary @TxIn)
@@ -259,11 +260,11 @@ generateCommitUTxOs parties = do
         ]
   let commitUTxO =
         zip txins $
-          uncurry mkCommitUTxO <$> zip (zip vks parties) committedUTxO
+          uncurry mkCommitUTxO <$> zip vks committedUTxO
   pure $ Map.fromList commitUTxO
  where
-  mkCommitUTxO :: (VerificationKey PaymentKey, Party) -> Maybe (TxIn, TxOut CtxUTxO) -> (TxOut CtxUTxO, ScriptData)
-  mkCommitUTxO (vk, party) utxo =
+  mkCommitUTxO :: VerificationKey PaymentKey -> Maybe (TxIn, TxOut CtxUTxO) -> (TxOut CtxUTxO, ScriptData)
+  mkCommitUTxO vk utxo =
     ( toUTxOContext $
         TxOut
           (mkScriptAddress @PlutusScriptV1 testNetworkId commitScript)
@@ -281,7 +282,7 @@ generateCommitUTxOs parties = do
             ]
         ]
     commitScript = fromPlutusScript Commit.validatorScript
-    commitDatum = mkCommitDatum party Head.validatorHash utxo
+    commitDatum = mkCommitDatum Head.validatorHash utxo
 
 -- | Evaluate all plutus scripts and return execution budgets of a given
 -- transaction (any included budgets are ignored).

@@ -208,16 +208,16 @@ commit ::
   UTxO ->
   OnChainHeadState 'StInitialized ->
   Either (PostTxError Tx) Tx
-commit utxo st@OnChainHeadState{networkId, ownParty, ownVerificationKey, stateMachine} = do
+commit utxo st@OnChainHeadState{networkId, ownVerificationKey, stateMachine} = do
   case ownInitial initialHeadTokenScript ownVerificationKey initialInitials of
     Nothing ->
       Left (CannotFindOwnInitial{knownUTxO = getKnownUTxO st})
     Just initial ->
       case UTxO.pairs utxo of
         [aUTxO] -> do
-          Right $ commitTx networkId ownParty (Just aUTxO) initial
+          Right $ commitTx networkId (Just aUTxO) initial
         [] -> do
-          Right $ commitTx networkId ownParty Nothing initial
+          Right $ commitTx networkId Nothing initial
         _ ->
           Left (MoreThanOneUTxOCommitted @Tx)
  where

@@ -127,7 +127,6 @@ mkInitialOutput networkId tokenPolicyId (verificationKeyHash -> pkh) =
 -- TODO: Get rid of Ledger types in the signature and fully rely on Cardano.Api
 commitTx ::
   NetworkId ->
-  Party ->
   -- | A single UTxO to commit to the Head
   -- We currently limit committing one UTxO to the head because of size limitations.
   Maybe (TxIn, TxOut CtxUTxO) ->
@@ -135,7 +134,7 @@ commitTx ::
   -- locked by initial script
   (TxIn, TxOut CtxUTxO, Hash PaymentKey) ->
   Tx
-commitTx networkId party utxo (initialInput, out, vkh) =
+commitTx networkId utxo (initialInput, out, vkh) =
   unsafeBuildTransaction $
     emptyTxBody
       & addInputs [(initialInput, initialWitness_)]
@@ -163,11 +162,11 @@ commitTx networkId party utxo (initialInput, out, vkh) =
   commitValue =
     txOutValue out <> maybe mempty (txOutValue . snd) utxo
   commitDatum =
-    mkTxOutDatum $ mkCommitDatum party Head.validatorHash utxo
+    mkTxOutDatum $ mkCommitDatum Head.validatorHash utxo
 
-mkCommitDatum :: Party -> Plutus.ValidatorHash -> Maybe (TxIn, TxOut CtxUTxO) -> Plutus.Datum
-mkCommitDatum (partyFromVerKey . vkey -> party) headValidatorHash utxo =
-  Commit.datum (party, headValidatorHash, serializedUTxO)
+mkCommitDatum :: Plutus.ValidatorHash -> Maybe (TxIn, TxOut CtxUTxO) -> Plutus.Datum
+mkCommitDatum headValidatorHash utxo =
+  Commit.datum (headValidatorHash, serializedUTxO)
  where
   serializedUTxO = case utxo of
     Nothing ->
@@ -213,7 +212,7 @@ collectComTx networkId (headInput, initialHeadOutput, ScriptDatumForTxIn -> head
   extractSerialisedTxOut d =
     case fromData $ toPlutusData d of
       Nothing -> error "SNAFU"
-      Just ((_, _, Just o) :: DatumType Commit.Commit) -> Just o
+      Just ((_, Just o) :: DatumType Commit.Commit) -> Just o
       _ -> Nothing
   utxoHash =
     Head.hashPreSerializedCommits $
@@ -370,7 +369,7 @@ abortTx _networkId (headInput, initialHeadOutput, ScriptDatumForTxIn -> headDatu
   mkCommitOutput :: ScriptData -> Maybe (TxOut CtxTx)
   mkCommitOutput x =
     case fromData @(DatumType Commit.Commit) $ toPlutusData x of
-      Just (_party, _validatorHash, serialisedTxOut) ->
+      Just (_validatorHash, serialisedTxOut) ->
         toTxContext <$> convertTxOut serialisedTxOut
       Nothing -> error "Invalid Commit datum"
 
@@ -470,8 +469,10 @@ observeCommitTx networkId initials tx = do
 
   (commitIn, commitOut) <- findTxOutByAddress commitAddress tx
   dat <- getScriptData commitOut
-  -- TODO: This 'party' would be available from the spent 'initial' utxo (PT eventually)
-  (party, _, serializedTxOut) <- fromData @(DatumType Commit.Commit) $ toPlutusData dat
+  -- TODO: WIP Extract party from the PT. This is not the end-goal though, it will
+  -- eventually contain a cardano pkh and we need to change things then again.
+  let party = undefined
+  (_, serializedTxOut) <- fromData @(DatumType Commit.Commit) $ toPlutusData dat
   let mCommittedTxOut = convertTxOut serializedTxOut
 
   comittedUTxO <-

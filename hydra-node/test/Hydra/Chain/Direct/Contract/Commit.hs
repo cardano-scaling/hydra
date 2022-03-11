@@ -22,7 +22,6 @@ import Hydra.Ledger.Cardano (
   genValue,
   genVerificationKey,
  )
-import Hydra.Party (Party)
 import Test.QuickCheck (oneof, suchThat)
 
 --
@@ -39,7 +38,6 @@ healthyCommitTx =
   tx =
     commitTx
       Fixture.testNetworkId
-      commitParty
       (Just healthyCommittedUTxO)
       (initialInput, toUTxOContext initialOutput, initialPubKeyHash)
 
@@ -53,9 +51,6 @@ healthyCommitTx =
 
   commitVerificationKey :: VerificationKey PaymentKey
   commitVerificationKey = generateWith arbitrary 42
-
-  commitParty :: Party
-  commitParty = generateWith arbitrary 42
 
 -- NOTE: An 8₳ output which is currently addressed to some arbitrary key.
 healthyCommittedUTxO :: (TxIn, TxOut CtxUTxO)

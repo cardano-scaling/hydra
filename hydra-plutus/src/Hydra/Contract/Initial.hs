@@ -131,7 +131,7 @@ checkCommit commitValidator committedRef context@ScriptContext{scriptContextTxIn
           (Just da) ->
             case fromBuiltinData @(DatumType Commit.Commit) da of
               Nothing -> traceError "expected commit datum type, got something else"
-              Just (_party, _headScriptHash, mSerializedTxOut) ->
+              Just (_headScriptHash, mSerializedTxOut) ->
                 mSerializedTxOut
       _ -> traceError "expected single commit output"
 

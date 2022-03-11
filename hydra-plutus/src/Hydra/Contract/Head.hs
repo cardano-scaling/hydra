@@ -183,9 +183,9 @@ checkCollectCom commitAddress (_, parties) context@ScriptContext{scriptContextTx
   lookupCommit h = do
     d <- getDatum <$> findDatum h txInfo
     case fromBuiltinData @(DatumType Commit) d of
-      Just (_p, _, Just o) ->
+      Just (_, Just o) ->
         Just o
-      Just (_p, _, Nothing) ->
+      Just (_, Nothing) ->
         Nothing
       Nothing ->
         traceError "fromBuiltinData failed"
