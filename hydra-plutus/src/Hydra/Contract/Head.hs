@@ -119,15 +119,21 @@ checkCollectCom ::
   ScriptContext ->
   Bool
 checkCollectCom commitAddress (_, parties) context@ScriptContext{scriptContextTxInfo = txInfo} =
-  mustContinueHeadWith context expectedOutputValue expectedOutputDatum
+  mustContinueHeadWith context headInput expectedOutputValue expectedOutputDatum
     && everyoneHasCommitted
  where
   everyoneHasCommitted =
     nTotalCommits == length parties
 
+  headInput :: TxInInfo
+  headInput =
+    fromMaybe
+      (traceError "script not spending a head input?")
+      (findOwnInput context)
+
   headInputValue :: Value
   headInputValue =
-    maybe mempty (txOutValue . txInInfoResolved) (findOwnInput context)
+    txOutValue (txInInfoResolved headInput)
 
   headCurrencySymbol =
     headInputValue
@@ -209,20 +215,23 @@ checkFanout utxoHash numberOfFanoutOutputs ScriptContext{scriptContextTxInfo = t
 (&) = flip ($)
 {-# INLINEABLE (&) #-}
 
-mustContinueHeadWith :: ScriptContext -> Value -> Datum -> Bool
-mustContinueHeadWith context@ScriptContext{scriptContextTxInfo = txInfo} val datum =
-  case findContinuingOutputs context of
-    [ix] ->
-      let headOutput = txInfoOutputs txInfo !! ix
-          checkOutputValue =
-            traceIfFalse "wrong output head value" $ txOutValue headOutput == val
-          checkOutputDatum =
-            traceIfFalse "wrong output head datum" $ txOutDatum txInfo headOutput == datum
-       in checkOutputValue && checkOutputDatum
+mustContinueHeadWith :: ScriptContext -> TxInInfo -> Value -> Datum -> Bool
+mustContinueHeadWith ScriptContext{scriptContextTxInfo = txInfo} headInput val datum =
+  go (txInfoOutputs txInfo)
+ where
+  headAddress = txOutAddress (txInInfoResolved headInput)
+  go = \case
     [] ->
-      traceIfFalse "no continuing head output" False
-    _ ->
-      traceIfFalse "more than one continuing head output" False
+      traceError "no continuing head output"
+    (o : _)
+      | txOutAddress o == headAddress ->
+        let checkOutputValue =
+              traceIfFalse "wrong output head value" $ txOutValue o == val
+            checkOutputDatum =
+              traceIfFalse "wrong output head datum" $ txOutDatum txInfo o == datum
+         in checkOutputValue && checkOutputDatum
+    (_ : rest) ->
+      go rest
 {-# INLINEABLE mustContinueHeadWith #-}
 
 txOutDatum :: TxInfo -> TxOut -> Datum
