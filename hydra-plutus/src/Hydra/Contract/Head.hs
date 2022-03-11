@@ -143,10 +143,10 @@ checkCollectCom commitAddress (_, parties) context@ScriptContext{scriptContextTx
       ( \TxInInfo{txInInfoResolved} (val, commits, nCommits) ->
           if txOutAddress txInInfoResolved == commitAddress
             then case commitFrom txInInfoResolved of
-              (commitValue, Just commit)
+              (commitValue, Just (SerializedTxOut commit))
                 | hasParticipationToken commitValue ->
                   ( val + commitValue
-                  , commit : commits
+                  , unsafeEncodeRaw commit <> commits
                   , succ nCommits
                   )
               (commitValue, Nothing)
@@ -159,7 +159,7 @@ checkCollectCom commitAddress (_, parties) context@ScriptContext{scriptContextTx
                 traceError "Invalid commit: does not contain valid PT."
             else (val, commits, nCommits)
       )
-      (headInputValue, [], 0)
+      (headInputValue, encodeBreak, 0)
       (txInfoInputs txInfo)
 
   hasParticipationToken :: Value -> Bool
@@ -168,7 +168,10 @@ checkCollectCom commitAddress (_, parties) context@ScriptContext{scriptContextTx
 
   expectedOutputDatum :: Datum
   expectedOutputDatum =
-    let utxoHash = hashPreSerializedCommits collectedCommits
+    let utxoHash =
+          (encodeBeginList <> collectedCommits)
+            & encodingToBuiltinByteString
+            & sha2_256
      in Datum $ toBuiltinData Open{parties, utxoHash}
 
   commitFrom :: TxOut -> (Value, Maybe SerializedTxOut)
