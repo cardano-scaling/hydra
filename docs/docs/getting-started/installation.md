@@ -4,10 +4,10 @@ sidebar_position: 1
 
 # Installation Instructions
 
-> Installation instructions for Hydra nodes. We recommend using docker and dealing with containers as a quick-start.
+> Installation instructions for Hydra nodes. We recommend using Docker and dealing with containers as a quick start.
 
 ## Using Docker
-The quickest way to get a hydra-node running is to use our docker images.
+The quickest way to get a hydra-node running is to use our Docker images.
 
 ```
 docker pull ghcr.io/input-output-hk/hydra-node:latest
@@ -15,12 +15,12 @@ docker run --rm ghcr.io/input-output-hk/hydra-node --help
 ```
 
 :::tip
-This is enough for most use-cases. Unless you want to install everything from source code, you can skip the next sections and go directly to [Quick Start](/docs/getting-started/quickstart).
+This is enough for most use cases. Unless you want to install everything from source code, you can skip the next sections and go directly to [Quick Start](/docs/getting-started/quickstart).
 :::
 
 ## Using Nix
 
-We provide a `shell.nix` to set up a development environment. So a simple call to nix-shell should put everything in place for building, testing and general development.
+We provide a `shell.nix` to set up a development environment. So a simple call to nix-shell should put everything in place for building, testing, and general development.
 Make sure the following caches are listed in your `nix.conf` for a speedy setup:
 
 ```nix title="nix.conf"
