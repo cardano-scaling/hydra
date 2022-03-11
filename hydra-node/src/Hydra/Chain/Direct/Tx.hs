@@ -16,6 +16,7 @@ import Hydra.Prelude
 
 import qualified Cardano.Api.UTxO as UTxO
 import Cardano.Binary (decodeFull', serialize')
+import Control.Exception (assert)
 import qualified Data.Map as Map
 import Data.Time (Day (ModifiedJulianDay), UTCTime (UTCTime))
 import Hydra.Chain (HeadId (..), HeadParameters (..), OnChainTx (..))
@@ -475,7 +476,7 @@ observeCommitTx ::
   [TxIn] ->
   Tx ->
   Maybe (OnChainTx Tx, CommitObservation)
-observeCommitTx networkId headScript partyTable initials tx = do
+observeCommitTx networkId headTokenScript partyTable initials tx = do
   initialTxIn <- findInitialTxIn
   mCommittedTxIn <- decodeInitialRedeemer initialTxIn
 
@@ -516,7 +517,7 @@ observeCommitTx networkId headScript partyTable initials tx = do
 
   getPartyFromPT :: Value -> Maybe Party
   getPartyFromPT value =
-    case headTokensFromValue headScript value of
+    case headTokensFromValue headTokenScript value of
       [(assetName, 1)] -> partyFromAsset assetName
       _ -> Nothing
 
@@ -695,7 +696,9 @@ newtype PartyTable = PartyTable (Map (Hash PaymentKey) Party)
 -- --cardano-verification-key options on all hydra-nodes need to be in the same
 -- order :(
 mkPartyTable :: [VerificationKey PaymentKey] -> [Party] -> PartyTable
-mkPartyTable vks ps = PartyTable $ Map.fromList (zip (map verificationKeyHash vks) ps)
+mkPartyTable vks ps =
+  assert (length vks == length ps) $
+    PartyTable $ Map.fromList (zip (map verificationKeyHash vks) ps)
 
 -- | Map a chain-specific credential (Hash PaymentKey) to the hydra-credential
 -- (Party). This function actually connects the chain layer to the logic layer.
