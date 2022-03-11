@@ -1,5 +1,7 @@
 # Star-Shaped Head Network
 
+:hammer_and_wrench: This document is a work in progress
+
 This document details the behaviour of so-called _Star-shaped Hydra Network_.
 
 ## Summary
@@ -11,7 +13,7 @@ A _Star-shaped Hydra Network_ or more precisely a Star-shaped Heads Network is c
 
 ![Star-shaped Heads Network](./star-shaped-general.jpg)
 
-Client nodes want to be able to interact with each other efficiently, at a low cost, using L2 solution, but without bearing the operational burden of operating a full blown Hydra node. There might be a lot of them, say in the 100s or even 1000s but they are not always all live and up at the same time.
+Client nodes want to be able to interact with each other efficiently, at a low cost, using L2 solution, with all the Hydra safety guarantees, but without bearing the operational burden of operating an always online "full" Hydra node (eg. using an embedded version of the node, or a lighweight version). There might be a lot of them, say in the 100s or even 1000s but they are not always all live and up at the same time.
 
 Client nodes establish pairwise Heads (eg. _channels_) with the server: This setup is simpler than with a normal multiparty head because the server has as a well-known identity and the client can always provide the needed parameters (keys, IP) to the server when setting up the Head using some specific service whose definition is outside of the scope of this document.
 
@@ -20,8 +22,8 @@ Transactions a client node posts in "its" Head should be _reflected_ by the serv
 _Questions_:
 * Is it expected the pairwise Heads to have varying "durations", eg. a client comes, opens a Head, does some stuff, and closes it but the other Heads maintained by the same server stay _Open_?
 * How does the server provided guarantees preserving the basic _Safety property_ of Hydra Heads for each of the pairwise heads?
-  * What the diagram suggest is to use _Hash-Timed based Lock Contracts_ which ensures the Client can always get its UTxO back if the server does not properly route the transaction to its destination
-* What kind of transaction should be supported? HTCL are good for payments-style transactions but not for DApps for example, or they would need to be adapted
+  * What the diagram suggest is to use _Hash Time-Lock Contracts_ ([HTLC](https://docs.lightning.engineering/the-lightning-network/multihop-payments/hash-time-lock-contract-htlc)) which ensures the Client can always get its UTxO back if the server does not properly route the transaction to its destination
+* What kind of transaction should be supported? HTLC are good for payments-style transactions but not for DApps for example, or they would need to be adapted
   * There seems to be an implicit assumption that the server can "route" a transaction in one Head to the proper Head which implies it "understands" the addresses of UTxO posted in Heads
 
 ## On-Chain Transactions
