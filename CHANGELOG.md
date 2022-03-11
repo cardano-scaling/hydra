@@ -29,6 +29,10 @@ changes.
 - `hydra-tui` to show form focus, indicate invalid fields in dialogs and only allow valid values
   to be submitted [#224](https://github.com/input-output-hk/hydra-poc/issues/224).
 
+## Known issues
+
+- `cardano-verification-key` need to be in the same order on all `hydra-node` instances of the same Head.
+
 ## [0.3.0] - 2022-02-22
 
 #### Added
