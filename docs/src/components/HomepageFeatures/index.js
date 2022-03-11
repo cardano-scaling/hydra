@@ -8,7 +8,7 @@ const FeatureList = [
     src: require('@site/static/img/knight.png').default,
     description: (
       <>
-        Participants of a Hydra head can never lose funds they haven't explicitly agreed on spending.
+        Stay confident that participants of a Hydra Head can’t lose funds they’ve not explicitly agreed to spend.
       </>
     ),
   },
@@ -17,7 +17,7 @@ const FeatureList = [
     src: require('@site/static/img/runner.png').default,
     description: (
       <>
-        Near-instant settlement for transactions executed inside a head network.
+        Benefit from near-instant settlement for transactions executed inside a Hydra Head.
       </>
     ),
   },
@@ -26,7 +26,7 @@ const FeatureList = [
     src: require('@site/static/img/astro_kitten.png').default,
     description: (
       <>
-        Leverage capabilities, interfaces and safety of the underlying layer 1 ledger.
+        Harness robust capabilities, interfaces and safety of the Cardano main ledger.
       </>
     ),
   },
