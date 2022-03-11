@@ -10,15 +10,15 @@ import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 ```
 
-> Running the demo without docker containers, but with plain executables and scripts.
+> Running the demo without Docker containers, but with plain executables and scripts.
 
 :::info Context
-All commands below are written as if executed from the `demo` folder in the project repository, so make sure to clone the repository and `cd demo` before anything.
+All commands below are written as if executed from the `demo` folder in the project repository, so make sure to clone the repository and `cd demo` before doing anything.
 :::
 
 # Setting-up The Network
 
-One needs to prepare a `cardano-node` (devnet) and `hydra-node`s "manually". These instructions assume you have both built and in scope for `cabal exec`.
+One needs to prepare a `cardano-node` (devnet) and a `hydra-node` "manually". These instructions assume you have both built and in scope for `cabal exec`.
 
 First, let's prepare and start an ad-hoc, single `cardano-node` devnet using our configuration. Note that this will create a `devnet` directory in your current working directory:
 
@@ -41,7 +41,7 @@ cabal exec cardano-node -- run \
 </TerminalWindow>
 ````
 
-Then in 3 different terminals, start 3 Hydra nodes from the `demo/` directory:
+Then, in 3 different terminals, start 3 Hydra nodes from the `demo/` directory:
 
 ````mdx-code-block
 <Tabs>
@@ -119,11 +119,11 @@ cabal exec hydra-node -- \
 </Tabs>
 ````
 
-If things go well, the nodes should start logging once they are connected to the chain.
+If things go well, the nodes should start logging once connected to the chain.
 
 # Seeding The Network
 
-You can use the `seed-devnet.sh` script by passing it the path to a cardano-cli executable to use instead of having it using the docker container, e.g.
+You can use the `seed-devnet.sh` script by passing it the path to a cardano-cli executable to use, instead of having it using the Docker container. For example:
 
 
 ```mdx-code-block
@@ -133,7 +133,7 @@ You can use the `seed-devnet.sh` script by passing it the path to a cardano-cli 
 ```
 
 Running The Clients
-Connect to the nodes using hydra-tui. For example to use Alice's hydra-node and her on-chain credentials:
+Connect to the nodes using hydra-tui. For example, to use Alice's hydra-node and her on-chain credentials:
 
 ````mdx-code-block
 <TerminalWindow>
