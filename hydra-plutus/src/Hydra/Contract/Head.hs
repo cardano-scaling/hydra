@@ -25,8 +25,8 @@ import Plutus.Codec.CBOR.Encoding (
   encodingToBuiltinByteString,
   unsafeEncodeRaw,
  )
-import Plutus.V1.Ledger.Ada (adaSymbol)
-import Plutus.V1.Ledger.Value (Value (Value), symbols)
+import Plutus.V1.Ledger.Ada (adaSymbol, adaToken, lovelaceValueOf)
+import Plutus.V1.Ledger.Value (Value (Value), symbols, valueOf)
 import PlutusTx (fromBuiltinData, toBuiltinData)
 import qualified PlutusTx
 import qualified PlutusTx.AssocMap as Map
@@ -119,7 +119,7 @@ checkCollectCom ::
   ScriptContext ->
   Bool
 checkCollectCom commitAddress (_, parties) context@ScriptContext{scriptContextTxInfo = txInfo} =
-  mustContinueHeadWith context headInput expectedOutputValue expectedOutputDatum
+  mustContinueHeadWith context headAddress expectedChangeValue expectedOutputDatum
     && everyoneHasCommitted
  where
   everyoneHasCommitted =
@@ -135,6 +135,10 @@ checkCollectCom commitAddress (_, parties) context@ScriptContext{scriptContextTx
   headInputValue =
     txOutValue (txInInfoResolved headInput)
 
+  headAddress :: Address
+  headAddress =
+    txOutAddress (txInInfoResolved headInput)
+
   headCurrencySymbol =
     headInputValue
       & symbols
@@ -144,8 +148,8 @@ checkCollectCom commitAddress (_, parties) context@ScriptContext{scriptContextTx
         _ -> traceError "malformed thread token, expected single asset"
 
   -- TODO: Can find own input (i.e. 'headInputValue') during this traversal already.
-  (expectedOutputValue, collectedCommits, nTotalCommits) =
-    traverseInputs (headInputValue, encodeBeginList, 0) (txInfoInputs txInfo)
+  (expectedChangeValue, collectedCommits, nTotalCommits) =
+    traverseInputs (negate (txInfoAdaFee txInfo), encodeBeginList, 0) (txInfoInputs txInfo)
 
   expectedOutputDatum :: Datum
   expectedOutputDatum =
@@ -155,27 +159,32 @@ checkCollectCom commitAddress (_, parties) context@ScriptContext{scriptContextTx
             & sha2_256
      in Datum $ toBuiltinData Open{parties, utxoHash}
 
-  traverseInputs (val, commits, nCommits) = \case
-    [] -> (val, commits, nCommits)
+  traverseInputs (fuel, commits, nCommits) = \case
+    [] -> (fuel, commits, nCommits)
     TxInInfo{txInInfoResolved} : rest ->
-      if txOutAddress txInInfoResolved == commitAddress
-        then case commitFrom txInInfoResolved of
-          (commitValue, Just (SerializedTxOut commit))
-            | hasParticipationToken commitValue ->
-              traverseInputs
-                (val + commitValue, commits <> unsafeEncodeRaw commit, succ nCommits)
-                rest
-          (commitValue, Nothing)
-            | hasParticipationToken commitValue ->
-              traverseInputs
-                (val + commitValue, commits, succ nCommits)
-                rest
-          _ ->
-            traceError "Invalid commit: does not contain valid PT."
-        else
-          traverseInputs
-            (val, commits, nCommits)
-            rest
+      if
+          | txOutAddress txInInfoResolved == headAddress ->
+            traverseInputs
+              (fuel, commits, nCommits)
+              rest
+          | txOutAddress txInInfoResolved == commitAddress ->
+            case commitFrom txInInfoResolved of
+              (commitValue, Just (SerializedTxOut commit))
+                | hasParticipationToken commitValue ->
+                  traverseInputs
+                    (fuel, commits <> unsafeEncodeRaw commit, succ nCommits)
+                    rest
+              (commitValue, Nothing)
+                | hasParticipationToken commitValue ->
+                  traverseInputs
+                    (fuel, commits, succ nCommits)
+                    rest
+              _ ->
+                traceError "Invalid commit: does not contain valid PT."
+          | otherwise ->
+            traverseInputs
+              (fuel + txOutAdaValue txInInfoResolved, commits, nCommits)
+              rest
 
   hasParticipationToken :: Value -> Bool
   hasParticipationToken (Value val) =
@@ -199,6 +208,14 @@ checkCollectCom commitAddress (_, parties) context@ScriptContext{scriptContextTx
         traceError "fromBuiltinData failed"
 {-# INLINEABLE checkCollectCom #-}
 
+txOutAdaValue :: TxOut -> Integer
+txOutAdaValue o = valueOf (txOutValue o) adaSymbol adaToken
+{-# INLINEABLE txOutAdaValue #-}
+
+txInfoAdaFee :: TxInfo -> Integer
+txInfoAdaFee tx = valueOf (txInfoFee tx) adaSymbol adaToken
+{-# INLINEABLE txInfoAdaFee #-}
+
 checkFanout ::
   BuiltinByteString ->
   Integer ->
@@ -215,23 +232,28 @@ checkFanout utxoHash numberOfFanoutOutputs ScriptContext{scriptContextTxInfo = t
 (&) = flip ($)
 {-# INLINEABLE (&) #-}
 
-mustContinueHeadWith :: ScriptContext -> TxInInfo -> Value -> Datum -> Bool
-mustContinueHeadWith ScriptContext{scriptContextTxInfo = txInfo} headInput val datum =
-  go (txInfoOutputs txInfo)
+mustContinueHeadWith :: ScriptContext -> Address -> Integer -> Datum -> Bool
+mustContinueHeadWith ScriptContext{scriptContextTxInfo = txInfo} headAddress changeValue datum =
+  checkOutputDatum [] (txInfoOutputs txInfo)
  where
-  headAddress = txOutAddress (txInInfoResolved headInput)
-  go = \case
+  checkOutputDatum xs = \case
     [] ->
       traceError "no continuing head output"
-    (o : _)
+    (o : rest)
       | txOutAddress o == headAddress ->
-        let checkOutputValue =
-              traceIfFalse "wrong output head value" $ txOutValue o == val
-            checkOutputDatum =
-              traceIfFalse "wrong output head datum" $ txOutDatum txInfo o == datum
-         in checkOutputValue && checkOutputDatum
-    (_ : rest) ->
-      go rest
+        traceIfFalse "wrong output head datum" (txOutDatum txInfo o == datum)
+          && checkOutputValue (xs <> rest)
+    (o : rest) ->
+      checkOutputDatum (o : xs) rest
+
+  checkOutputValue = \case
+    [] ->
+      True
+    [o]
+      | txOutAddress o /= headAddress ->
+        txOutValue o == lovelaceValueOf changeValue
+    _ ->
+      traceError "invalid collect-com outputs: more than 2 outputs."
 {-# INLINEABLE mustContinueHeadWith #-}
 
 txOutDatum :: TxInfo -> TxOut -> Datum
