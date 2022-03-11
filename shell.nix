@@ -43,8 +43,6 @@ let
     pkgs.yq
     # For plotting results of hydra-cluster benchmarks
     pkgs.gnuplot
-    # For docs/
-    pkgs.yarn
   ];
 
   haskellNixShell = hsPkgs.shellFor {
