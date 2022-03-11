@@ -14,22 +14,32 @@ export default function AsyncApi() {
   const { siteConfig } = useDocusaurusContext();
 
   useEffect(() => {
-      const scriptTag = document.createElement('script');
-      scriptTag.innerHTML = `(() => {
-        AsyncApiStandalone.render({
-          schema: {
-            url: '${siteConfig.baseUrl}${siteConfig.customFields.apiSpecUrl}',
-          },
-          config: {
-            show: {
-              messages: false,
-            },
-          },
-        }, document.getElementById('asyncapi'));
-      })();`;
-      document.body.appendChild(scriptTag);
+    const lib = document.createElement('script');
+    lib.src = "https://unpkg.com/@asyncapi/react-component@1.0.0-next.34/browser/standalone/index.js"
 
-      return () => { document.body.removeChild(scriptTag); }
+    const scriptTag = document.createElement('script');
+    scriptTag.innerHTML = `(() => {
+      AsyncApiStandalone.render({
+        schema: {
+          url: '${siteConfig.baseUrl}${siteConfig.customFields.apiSpecUrl}',
+        },
+        config: {
+          show: {
+            messages: false,
+          },
+        },
+      }, document.getElementById('asyncapi'));
+    })();`;
+
+    lib.addEventListener('load', () => {
+      document.body.appendChild(scriptTag)
+      setTimeout(() => {
+        document.querySelector('div.loader').style.display = "none";
+      } , 250);
+    });
+    document.body.appendChild(lib);
+
+    return () => { document.body.removeChild(lib); document.body.removeChild(scriptTag); }
   }, []);
 
   return (
@@ -38,7 +48,7 @@ export default function AsyncApi() {
         <div id="asyncapi"></div>
         <link rel="stylesheet" href="https://unpkg.com/@asyncapi/react-component@1.0.0-next.34/styles/default.min.css" />
         <style>{darkThemeSupport()}</style>
-        <script src="https://unpkg.com/@asyncapi/react-component@1.0.0-next.34/browser/standalone/index.js"></script>
+        <div className="loader"></div>
       </main>
     </Layout>
   );
