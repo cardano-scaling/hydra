@@ -19,13 +19,9 @@ import qualified Cardano.Crypto.DSIGN as CC
 import Cardano.Crypto.Hash (SHA256, digest)
 import qualified Cardano.Ledger.Alonzo.PParams as Ledger.Alonzo
 import qualified Cardano.Ledger.Alonzo.Tx as Ledger.Alonzo
-import qualified Cardano.Ledger.Alonzo.TxBody as Ledger.Alonzo
 import qualified Cardano.Ledger.BaseTypes as Ledger
 import qualified Cardano.Ledger.Core as Ledger
 import qualified Cardano.Ledger.Credential as Ledger
-import qualified Cardano.Ledger.Crypto as Ledger (StandardCrypto)
-import qualified Cardano.Ledger.Mary as Ledger.Mary
-import qualified Cardano.Ledger.Shelley.API as Ledger.Shelley
 import qualified Cardano.Ledger.Shelley.API.Mempool as Ledger
 import qualified Cardano.Ledger.Shelley.Genesis as Ledger
 import qualified Cardano.Ledger.Shelley.LedgerState as Ledger
@@ -280,12 +276,17 @@ genTxIn =
 -- values.
 genUTxO :: Gen UTxO
 genUTxO =
+  -- TODO: this implementation is a bit stupid and will yield quite low-number
+  -- of utxo, with often up-to-size number of assets. Instead we should be
+  -- generating from multiple cases:
+  --   - all ada-only outputs of length == size
+  --   - one outputs with number of assets == size
+  --   - both of the above within range (0,size) (less likely, because less interesting)
+  --   - empty utxo
   sized $ \n -> do
     nAssets <- choose (0, n)
     UTxO.fromPairs . takeAssetsUTxO nAssets . UTxO.pairs <$> genUTxOAlonzo
  where
-  -- REVIEW: Maybe it's easier / more intelligent to compute upper bounds and
-  -- pick a higher likelihood of having ada-only outputs.
   takeAssetsUTxO remaining utxos =
     case (remaining, utxos) of
       (0, _) -> []
@@ -298,27 +299,13 @@ genUTxO =
   takeAssetsTxOut remaining =
     valueFromList . take remaining . valueToList
 
--- | Generate 'Alonzo' era 'UTxO', which has Ada-only 'TxOut' addressed to
--- public keys and scripts.
+-- | Generate 'Alonzo' era 'UTxO', which may contain arbitrary assets in
+-- 'TxOut's addressed to public keys *and* scripts. NOTE: This is not reducing
+-- size when generating assets in 'TxOut's, so will end up regularly with 300+
+-- assets with generator size 30.
 genUTxOAlonzo :: Gen UTxO
 genUTxOAlonzo =
   fromLedgerUTxO <$> arbitrary
-
--- | Generate 'Mary' era 'UTxO', which may contain arbitrary assets in 'TxOut's.
--- NOTE: This is not reducing size when generating assets in 'TxOut's, so will
--- end up regularly with 300+ assets with generator size 30.
-genUTxOMary :: Gen UTxO
-genUTxOMary =
-  convertFromMaryUTxO <$> arbitrary
- where
-  convertFromMaryUTxO = fromLedgerUTxO . Ledger.UTxO . Map.map fromMaryTxOut . Ledger.unUTxO
-
-  fromMaryTxOut ::
-    Ledger.Mary.TxOut (Ledger.Mary.MaryEra Ledger.StandardCrypto) ->
-    Ledger.TxOut LedgerEra
-  fromMaryTxOut = \case
-    Ledger.Shelley.TxOutCompact addr value ->
-      Ledger.Alonzo.TxOutCompact addr value
 
 -- | Generate utxos owned by the given cardano key.
 genUTxOFor :: VerificationKey PaymentKey -> Gen UTxO
