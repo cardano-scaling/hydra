@@ -139,40 +139,41 @@ checkCollectCom commitAddress (_, parties) context@ScriptContext{scriptContextTx
 
   -- TODO: Can find own input (i.e. 'headInputValue') during this traversal already.
   (expectedOutputValue, collectedCommits, nTotalCommits) =
-    foldr
-      ( \TxInInfo{txInInfoResolved} (val, commits, nCommits) ->
-          if txOutAddress txInInfoResolved == commitAddress
-            then case commitFrom txInInfoResolved of
-              (commitValue, Just (SerializedTxOut commit))
-                | hasParticipationToken commitValue ->
-                  ( val + commitValue
-                  , unsafeEncodeRaw commit <> commits
-                  , succ nCommits
-                  )
-              (commitValue, Nothing)
-                | hasParticipationToken commitValue ->
-                  ( val + commitValue
-                  , commits
-                  , succ nCommits
-                  )
-              _ ->
-                traceError "Invalid commit: does not contain valid PT."
-            else (val, commits, nCommits)
-      )
-      (headInputValue, encodeBreak, 0)
-      (txInfoInputs txInfo)
-
-  hasParticipationToken :: Value -> Bool
-  hasParticipationToken (Value val) =
-    headCurrencySymbol `Map.member` val
+    traverseInputs (headInputValue, encodeBeginList, 0) (txInfoInputs txInfo)
 
   expectedOutputDatum :: Datum
   expectedOutputDatum =
     let utxoHash =
-          (encodeBeginList <> collectedCommits)
+          (collectedCommits <> encodeBreak)
             & encodingToBuiltinByteString
             & sha2_256
      in Datum $ toBuiltinData Open{parties, utxoHash}
+
+  traverseInputs (val, commits, nCommits) = \case
+    [] -> (val, commits, nCommits)
+    TxInInfo{txInInfoResolved} : rest ->
+      if txOutAddress txInInfoResolved == commitAddress
+        then case commitFrom txInInfoResolved of
+          (commitValue, Just (SerializedTxOut commit))
+            | hasParticipationToken commitValue ->
+              traverseInputs
+                (val + commitValue, commits <> unsafeEncodeRaw commit, succ nCommits)
+                rest
+          (commitValue, Nothing)
+            | hasParticipationToken commitValue ->
+              traverseInputs
+                (val + commitValue, commits, succ nCommits)
+                rest
+          _ ->
+            traceError "Invalid commit: does not contain valid PT."
+        else
+          traverseInputs
+            (val, commits, nCommits)
+            rest
+
+  hasParticipationToken :: Value -> Bool
+  hasParticipationToken (Value val) =
+    headCurrencySymbol `Map.member` val
 
   commitFrom :: TxOut -> (Value, Maybe SerializedTxOut)
   commitFrom o =
