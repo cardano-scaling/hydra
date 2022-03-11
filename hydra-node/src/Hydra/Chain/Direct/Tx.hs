@@ -475,7 +475,7 @@ observeCommitTx ::
   [TxIn] ->
   Tx ->
   Maybe (OnChainTx Tx, CommitObservation)
-observeCommitTx networkId headScript _partyTable initials tx = do
+observeCommitTx networkId headScript partyTable initials tx = do
   initialTxIn <- findInitialTxIn
   mCommittedTxIn <- decodeInitialRedeemer initialTxIn
 
@@ -521,7 +521,7 @@ observeCommitTx networkId headScript _partyTable initials tx = do
       _ -> Nothing
 
   partyFromAsset :: AssetName -> Maybe Party
-  partyFromAsset an = assetNameToVKH an >>= lookupVKHParty undefined
+  partyFromAsset an = assetNameToVKH an >>= lookupVKHParty partyTable
 
 convertTxOut :: Maybe Commit.SerializedTxOut -> Maybe (TxOut CtxUTxO)
 convertTxOut = \case
@@ -691,8 +691,11 @@ mkHeadId =
 newtype PartyTable = PartyTable (Map (Hash PaymentKey) Party)
   deriving (Show)
 
+-- FIXME: This results in a known issue where we need all
+-- --cardano-verification-key options on all hydra-nodes need to be in the same
+-- order :(
 mkPartyTable :: [VerificationKey PaymentKey] -> [Party] -> PartyTable
-mkPartyTable = undefined
+mkPartyTable vks ps = PartyTable $ Map.fromList (zip (map verificationKeyHash vks) ps)
 
 -- | Map a chain-specific credential (Hash PaymentKey) to the hydra-credential
 -- (Party). This function actually connects the chain layer to the logic layer.
