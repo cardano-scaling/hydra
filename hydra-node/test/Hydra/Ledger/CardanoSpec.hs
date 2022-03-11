@@ -19,12 +19,10 @@ import Hydra.Ledger (applyTransactions)
 import Hydra.Ledger.Cardano (
   cardanoLedger,
   genSequenceOfValidTransactions,
-  genUTxO,
  )
 import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
 import Test.Cardano.Ledger.MaryEraGen ()
-import Test.QuickCheck (Property, counterexample, forAllShrink, property, (.&&.), (===))
-import Test.QuickCheck.Property (forAll)
+import Test.QuickCheck (Property, counterexample, forAllBlind, property, (.&&.), (===))
 
 spec :: Spec
 spec =
@@ -93,21 +91,23 @@ roundtripCBOR a =
 
 appliesValidTransaction :: Property
 appliesValidTransaction =
-  forAll genUTxO $ \utxo ->
-    forAllShrink (genSequenceOfValidTransactions defaultGlobals defaultLedgerEnv utxo) shrink $ \txs ->
-      let result = applyTransactions (cardanoLedger defaultGlobals defaultLedgerEnv) utxo txs
-       in isRight result
-            & counterexample ("Error: " <> show result)
-            & counterexample ("JSON for txs: " <> unpack (decodeUtf8With lenientDecode $ toStrict $ Aeson.encode txs))
-            & counterexample ("JSON for utxo: " <> unpack (decodeUtf8With lenientDecode $ toStrict $ Aeson.encode utxo))
+  forAllBlind (genSequenceOfValidTransactions defaultGlobals defaultLedgerEnv) $ \(utxo, txs) ->
+    let result = applyTransactions (cardanoLedger defaultGlobals defaultLedgerEnv) utxo txs
+     in case result of
+          Right _ -> property True
+          Left (tx, err) ->
+            property False
+              & counterexample ("Error: " <> show err)
+              & counterexample ("Failing tx: " <> toString (renderTx tx))
+              & counterexample ("All txs: " <> unpack (decodeUtf8With lenientDecode $ prettyPrintJSON txs))
+              & counterexample ("Initial UTxO: " <> unpack (decodeUtf8With lenientDecode $ prettyPrintJSON utxo))
 
 appliesValidTransactionFromJSON :: Property
 appliesValidTransactionFromJSON =
-  forAll genUTxO $ \utxo ->
-    forAllShrink (genSequenceOfValidTransactions defaultGlobals defaultLedgerEnv utxo) shrink $ \txs ->
-      let encoded = encode txs
-          result = eitherDecode encoded >>= first show . applyTransactions (cardanoLedger defaultGlobals defaultLedgerEnv) utxo
-       in isRight result
-            & counterexample ("Error: " <> show result)
-            & counterexample ("JSON for txs: " <> unpack (decodeUtf8With lenientDecode $ toStrict encoded))
-            & counterexample ("JSON for utxo: " <> unpack (decodeUtf8With lenientDecode $ toStrict $ Aeson.encode utxo))
+  forAllBlind (genSequenceOfValidTransactions defaultGlobals defaultLedgerEnv) $ \(utxo, txs) ->
+    let encoded = encode txs
+        result = eitherDecode encoded >>= first show . applyTransactions (cardanoLedger defaultGlobals defaultLedgerEnv) utxo
+     in isRight result
+          & counterexample ("Result: " <> show result)
+          & counterexample ("All txs: " <> unpack (decodeUtf8With lenientDecode $ prettyPrintJSON txs))
+          & counterexample ("Initial UTxO: " <> unpack (decodeUtf8With lenientDecode $ prettyPrintJSON utxo))

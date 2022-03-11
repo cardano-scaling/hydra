@@ -1,5 +1,4 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
-{-# LANGUAGE TypeApplications #-}
 
 module Hydra.Ledger where
 
@@ -43,6 +42,8 @@ class
 data Ledger tx = Ledger
   { -- | Apply a set of transaction to a given UTXO set. Returns the new UTXO or
     -- validation failures returned from the ledger.
+    -- TODO: 'ValidationError' should also include the UTxO, which is not
+    -- necessarily the same as the given UTxO after some transactions
     applyTransactions ::
       UTxOType tx ->
       [tx] ->
