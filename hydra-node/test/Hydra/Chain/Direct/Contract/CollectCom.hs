@@ -35,7 +35,7 @@ import qualified Hydra.Contract.Head as Head
 import qualified Hydra.Contract.HeadState as Head
 import qualified Hydra.Data.Party as OnChain
 import qualified Hydra.Data.Party as Party
-import Hydra.Ledger.Cardano (genAdaOnlyUTxO, genValue, genVerificationKey)
+import Hydra.Ledger.Cardano (genAdaOnlyUTxO, genVerificationKey)
 import Hydra.Party (Party, vkey)
 import Plutus.Orphans ()
 import Plutus.V1.Ledger.Api (fromData, toBuiltin, toData)
@@ -134,8 +134,7 @@ healthyCommitOutput party committed =
     mkCommitDatum party Head.validatorHash (Just committed)
 
 data CollectComMutation
-  = MutateOpenOutputValue
-  | MutateOpenUTxOHash
+  = MutateOpenUTxOHash
   | MutateHeadScriptInput
   | MutateHeadTransition
   | -- | NOTE: We want to ccheck CollectCom validator checks there's exactly the
@@ -148,10 +147,7 @@ data CollectComMutation
 genCollectComMutation :: (Tx, UTxO) -> Gen SomeMutation
 genCollectComMutation (tx, utxo) =
   oneof
-    [ SomeMutation MutateOpenOutputValue . ChangeOutput 0 <$> do
-        mutatedValue <- genValue `suchThat` (/= collectComOutputValue)
-        pure $ TxOut collectComOutputAddress mutatedValue collectComOutputDatum
-    , SomeMutation MutateOpenUTxOHash . ChangeOutput 0 <$> mutateUTxOHash
+    [ SomeMutation MutateOpenUTxOHash . ChangeOutput 0 <$> mutateUTxOHash
     , SomeMutation MutateHeadScriptInput
         <$> (ChangeInput (headTxIn utxo) <$> anyPayToPubKeyTxOut <*> pure Nothing)
     , SomeMutation MutateHeadTransition <$> do
