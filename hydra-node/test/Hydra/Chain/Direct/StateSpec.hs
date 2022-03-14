@@ -32,19 +32,20 @@ import Hydra.Chain.Direct.State (
   initialize,
   observeSomeTx,
  )
-import Hydra.Chain.Direct.Fixture (maxTxSize)
+import Hydra.Chain.Direct.Fixture (maxTxSize, maxTxExecutionUnits)
 import Hydra.Ledger.Cardano (
   genOneUTxOFor,
   genTxIn,
   genUTxO,
   genVerificationKey,
+  simplifyUTxO,
  )
 import Hydra.Party (Party)
 import Hydra.Snapshot (isInitialSnapshot)
 import qualified Prelude
 import Test.QuickCheck (
   Property,
-  Testable,
+  Testable (property),
   (==>),
   checkCoverage,
   choose,
@@ -57,8 +58,11 @@ import Test.QuickCheck (
   label,
   sublistOf,
   vector,
+  resize, expectFailure
  )
 import Type.Reflection (typeOf)
+import qualified Data.Map as Map
+import Hydra.Ledger.Cardano.Evaluate (evaluateTx')
 
 spec :: Spec
 spec = parallel $ do
@@ -82,7 +86,7 @@ spec = parallel $ do
              in isNothing (observeTx @_ @'StInitialized tx stIdleB)
 
   describe "commit" $ do
-    propBelowSizeLimit forAllCommit
+    propBelowSizeLimit maxTxSize forAllCommit
 
     prop "consumes all inputs that are committed" $
       forAllCommit $ \st tx ->
@@ -104,16 +108,26 @@ spec = parallel $ do
               False
 
   describe "abort" $ do
-    propBelowSizeLimit forAllAbort
+    propBelowSizeLimit (2*maxTxSize) forAllAbort
 
   describe "collectCom" $ do
-    propBelowSizeLimit forAllCollectCom
+    propBelowSizeLimit (2*maxTxSize) forAllCollectCom
+    propIsValid tenTimesTxExecutionUnits forAllCollectCom
 
   describe "close" $ do
-    propBelowSizeLimit forAllClose
+    propBelowSizeLimit maxTxSize forAllClose
 
   describe "fanout" $ do
-    propBelowSizeLimit forAllFanout
+    propBelowSizeLimit maxTxSize forAllFanout
+    -- TODO: look into why this is failing
+    propIsValid maxTxExecutionUnits (expectFailure . forAllFanout)
+
+tenTimesTxExecutionUnits :: ExecutionUnits
+tenTimesTxExecutionUnits =
+  ExecutionUnits
+    { executionMemory = 100_000_000
+    , executionSteps = 100_000_000_000
+    }
 
 --
 -- Generic Properties
@@ -121,18 +135,43 @@ spec = parallel $ do
 
 propBelowSizeLimit ::
   forall st.
+  Int64 ->
   ((OnChainHeadState st -> Tx -> Property) -> Property) ->
   SpecWith ()
-propBelowSizeLimit forAllTx =
-  prop "is below the network size limit" $
+propBelowSizeLimit txSizeLimit forAllTx =
+  prop ("transaction size is below " <> showKB txSizeLimit) $
     forAllTx $ \_st tx ->
       let cbor = serialize tx
           len = LBS.length cbor
-       in len < maxTxSize
-            & label (show (len `div` 1024) <> "kB")
+       in len < txSizeLimit
+            & label (showKB len)
             & counterexample (toString (renderTx tx))
             & counterexample ("Actual size: " <> show len)
+ where
+  showKB nb = show (nb `div` 1024) <> "kB"
 
+-- TODO: DRY with Hydra.Chain.Direct.Contract.Mutation.propTransactionValidates?
+propIsValid ::
+  forall st.
+  ExecutionUnits ->
+  ((OnChainHeadState st -> Tx -> Property) -> Property) ->
+  SpecWith ()
+propIsValid exUnits forAllTx =
+  prop ("validates within " <> show exUnits) $
+    forAllTx $ \st tx ->
+      let lookupUTxO = getKnownUTxO st
+       in case evaluateTx' exUnits tx lookupUTxO of
+            Left basicFailure ->
+              property False
+                & counterexample ("Tx: " <> toString (renderTx tx))
+                & counterexample ("Lookup utxo: " <> decodeUtf8 (encodePretty lookupUTxO))
+                & counterexample ("Phase-1 validation failed: " <> show basicFailure)
+            Right redeemerReport ->
+              all isRight (Map.elems redeemerReport)
+                & counterexample ("Tx: " <> toString (renderTx tx))
+                & counterexample ("Lookup utxo: " <> decodeUtf8 (encodePretty lookupUTxO))
+                & counterexample ("Redeemer report: " <> show redeemerReport)
+                & counterexample "Phase-2 validation failed"
 
 --
 -- QuickCheck Extras
@@ -246,12 +285,15 @@ forAllFanout
 forAllFanout action = do
   forAll genHydraContext $ \ctx ->
     forAll (genStClosed ctx) $ \stClosed ->
-      forAll genUTxO $ \utxo ->
+      forAll (resize maxAssetsSupported $ simplifyUTxO <$> genUTxO) $ \utxo ->
         action stClosed (fanout utxo stClosed)
-          & label ("Fanout size: " <> prettyLength utxo)
+          & label ("Fanout size: " <> prettyLength (assetsInUtxo utxo))
  where
-  prettyLength :: Foldable f => f a -> String
-  prettyLength (length -> len)
+  maxAssetsSupported = 1
+
+  assetsInUtxo = valueSize . foldMap txOutValue
+
+  prettyLength len
     | len >= 100 = "> 100"
     | len >= 50 = "50-99"
     | len >= 10 = "10-49"
@@ -282,9 +324,10 @@ ctxHeadParameters ::
 ctxHeadParameters HydraContext{ctxContestationPeriod, ctxParties} =
   HeadParameters ctxContestationPeriod ctxParties
 
+-- TODO: allow bigger hydra heads than 3 parties
 genHydraContext :: Gen HydraContext
 genHydraContext = do
-  n <- choose (1, 10)
+  n <- choose (1, 3)
   ctxVerificationKeys <- replicateM n genVerificationKey
   ctxParties <- vector n
   ctxNetworkId <- Testnet . NetworkMagic <$> arbitrary
@@ -328,11 +371,7 @@ genStClosed ::
   HydraContext ->
   Gen (OnChainHeadState 'StClosed)
 genStClosed ctx = do
-  initTx <- genInitTx ctx
-  commits <- genCommits ctx initTx
-  stInitialized <- executeCommits initTx commits <$> genStIdle ctx
-  let collectComTx = collect stInitialized
-  let stOpen = snd $ unsafeObserveTx @_ @'StOpen collectComTx stInitialized
+  stOpen <- genStOpen ctx
   snapshot <- arbitrary
   let closeTx = close snapshot stOpen
   pure $ snd $ unsafeObserveTx @_ @'StClosed closeTx stOpen

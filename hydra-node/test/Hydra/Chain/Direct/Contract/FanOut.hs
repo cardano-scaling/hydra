@@ -46,9 +46,8 @@ healthyFanoutTx =
 
 healthyFanoutUTxO :: UTxO
 healthyFanoutUTxO =
-  -- NOTE: we trim down the generated tx's output to make sure it fits w/in
-  -- TX size limits
-  adaOnly <$> generateWith genUTxOWithSimplifiedAddresses 42
+  -- FIXME: fanoutTx would result in 0 outputs and MutateChangeOutputValue below fail
+  adaOnly <$> generateWith (genUTxOWithSimplifiedAddresses `suchThat` (not . null)) 42
 
 healthyFanoutDatum :: Head.State
 healthyFanoutDatum =
@@ -66,6 +65,9 @@ genFanoutMutation (tx, _utxo) =
         arbitrary >>= genOutput
     , SomeMutation MutateChangeOutputValue <$> do
         let outs = txOuts' tx
+        -- NOTE: Assumes the fanout transaction has non-empty outputs, which
+        -- might not be always the case when testing unbalanced txs and we need
+        -- to ensure it by at least one utxo is in healthyFanoutUTxO
         (ix, out) <- elements (zip [0 .. length outs - 1] outs)
         value' <- genValue `suchThat` (/= txOutValue out)
         pure $ ChangeOutput (fromIntegral ix) (modifyTxOutValue (const value') out)

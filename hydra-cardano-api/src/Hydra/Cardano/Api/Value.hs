@@ -6,6 +6,12 @@ import qualified Cardano.Ledger.Alonzo.TxInfo as Ledger
 import qualified Cardano.Ledger.Mary.Value as Ledger
 import qualified Plutus.V1.Ledger.Api as Plutus
 
+-- * Extras
+
+-- | Count number of assets in a 'Value'.
+valueSize :: Value -> Int
+valueSize = length . valueToList
+
 -- * Type Conversions
 
 -- | Convert a cardano-ledger's 'Value'  into a cardano-api's 'Value'

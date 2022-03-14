@@ -15,8 +15,8 @@ import Hydra.Generator (
   defaultProtocolParameters,
   genDatasetConstantUTxO,
  )
-import Hydra.Ledger (applyTransactions, balance)
-import Hydra.Ledger.Cardano (Tx, cardanoLedger, genUTxO)
+import Hydra.Ledger (applyTransactions)
+import Hydra.Ledger.Cardano (Tx, cardanoLedger)
 import Hydra.Ledger.Cardano.Configuration (
   Globals,
   LedgerEnv,
@@ -32,13 +32,7 @@ import Test.QuickCheck (Positive (Positive), Property, counterexample, forAll, i
 spec :: Spec
 spec = parallel $ do
   roundtripSpecs (Proxy @Dataset)
-  prop "compute values from UTXO set" prop_computeValueFromUTxO
   prop "generates a Dataset that keeps UTXO constant" prop_keepsUTxOConstant
-
-prop_computeValueFromUTxO :: Property
-prop_computeValueFromUTxO =
-  forAll genUTxO $ \utxo ->
-    balance @Tx utxo /= mempty
 
 prop_keepsUTxOConstant :: Property
 prop_keepsUTxOConstant =

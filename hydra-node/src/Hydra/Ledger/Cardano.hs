@@ -1,8 +1,4 @@
-{-# LANGUAGE DerivingStrategies #-}
 {-# LANGUAGE TypeApplications #-}
-{-# LANGUAGE TypeSynonymInstances #-}
-{-# LANGUAGE UndecidableInstances #-}
-{-# OPTIONS_GHC -Wno-missing-methods #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 
 module Hydra.Ledger.Cardano (
@@ -23,17 +19,13 @@ import qualified Cardano.Crypto.DSIGN as CC
 import Cardano.Crypto.Hash (SHA256, digest)
 import qualified Cardano.Ledger.Alonzo.PParams as Ledger.Alonzo
 import qualified Cardano.Ledger.Alonzo.Tx as Ledger.Alonzo
-import qualified Cardano.Ledger.Alonzo.TxBody as Ledger.Alonzo
 import qualified Cardano.Ledger.BaseTypes as Ledger
 import qualified Cardano.Ledger.Core as Ledger
 import qualified Cardano.Ledger.Credential as Ledger
-import qualified Cardano.Ledger.Crypto as Ledger (StandardCrypto)
-import qualified Cardano.Ledger.Mary as Ledger.Mary hiding (Value)
 import qualified Cardano.Ledger.Shelley.API.Mempool as Ledger
 import qualified Cardano.Ledger.Shelley.Genesis as Ledger
 import qualified Cardano.Ledger.Shelley.LedgerState as Ledger
 import qualified Cardano.Ledger.Shelley.Rules.Ledger as Ledger
-import qualified Cardano.Ledger.Shelley.Tx as Ledger.Shelley
 import qualified Cardano.Ledger.Shelley.UTxO as Ledger
 import qualified Cardano.Ledger.TxIn as Ledger
 import qualified Codec.CBOR.Decoding as CBOR
@@ -62,6 +54,7 @@ import Test.QuickCheck (
   scale,
   shrinkList,
   shrinkMapBy,
+  sized,
   suchThat,
   vectorOf,
  )
@@ -191,21 +184,9 @@ instance FromCBOR UTxO where
   fromCBOR = fromLedgerUTxO <$> fromCBOR
   label _ = label (Proxy @(Ledger.UTxO LedgerEra))
 
--- TODO: Use Alonzo generators!
--- probably: import Test.Cardano.Ledger.Alonzo.AlonzoEraGen ()
 instance Arbitrary UTxO where
   shrink = shrinkUTxO
-  arbitrary =
-    fmap
-      (fromLedgerUTxO . Ledger.UTxO . Map.map fromMaryTxOut . Ledger.unUTxO)
-      arbitrary
-   where
-    fromMaryTxOut ::
-      Ledger.Mary.TxOut (Ledger.Mary.MaryEra Ledger.StandardCrypto) ->
-      Ledger.TxOut LedgerEra
-    fromMaryTxOut = \case
-      Ledger.Shelley.TxOutCompact addr value ->
-        Ledger.Alonzo.TxOutCompact addr value
+  arbitrary = genUTxO
 
 -- * Generators
 
@@ -224,36 +205,6 @@ genKeyPair = do
   sk <- genSigningKey
   pure (getVerificationKey sk, sk)
 
--- TODO: Generate non-genesis transactions for better coverage.
--- TODO: Enable Alonzo-specific features. We started off in the Mary era, and
--- some of our tests / interfaces aren't fully ready for Alonzo-specific
--- details. We later changed the ledger's internals to work with Alonzo-era
--- specific types, and, to make this in incremental steps, this function still
--- generates Mary transactions, but cast them to Alonzo's.
-genTx :: Ledger.LedgerEnv LedgerEra -> UTxO -> Gen Tx
-genTx ledgerEnv utxos = do
-  fromLedgerTx <$> Ledger.Generator.genTx genEnv ledgerEnv (utxoState, dpState)
- where
-  utxoState = def{Ledger._utxo = toLedgerUTxO utxos}
-  dpState = Ledger.DPState def def
-
-  -- NOTE(AB): This sets some parameters for the tx generator that will
-  -- affect the structure of generated trasactions. In our case, we want
-  -- to remove "special" capabilities which are irrelevant in the context
-  -- of a Hydra head
-  -- see https://github.com/input-output-hk/cardano-ledger-specs/blob/nil/shelley/chain-and-ledger/shelley-spec-ledger-test/src/Test/Shelley/Spec/Ledger/Generator/Constants.hs#L10
-  genEnv =
-    (Ledger.Generator.genEnv Proxy)
-      { Ledger.Generator.geConstants = noPPUpdatesNoScripts
-      }
-   where
-    noPPUpdatesNoScripts =
-      Ledger.Generator.defaultConstants
-        { Ledger.Generator.frequencyTxUpdates = 0
-        , Ledger.Generator.frequencyTxWithMetadata = 0
-        , Ledger.Generator.maxCertsPerTx = 0
-        }
-
 genSequenceOfValidTransactions :: Ledger.Globals -> Ledger.LedgerEnv LedgerEra -> Gen (UTxO, [Tx])
 genSequenceOfValidTransactions globals ledgerEnv = do
   n <- getSize
@@ -262,16 +213,44 @@ genSequenceOfValidTransactions globals ledgerEnv = do
 
 genFixedSizeSequenceOfValidTransactions :: Ledger.Globals -> Ledger.LedgerEnv LedgerEra -> Int -> Gen (UTxO, [Tx])
 genFixedSizeSequenceOfValidTransactions globals ledgerEnv numTxs = do
-  initialUTxO <- genUTxO
-  if initialUTxO == mempty
-    then pure (initialUTxO, [])
-    else (initialUTxO,) . reverse . snd <$> foldM newTx (initialUTxO, []) [1 .. numTxs]
+  n <- getSize
+  numUTxOs <- choose (0, n)
+  let genEnv = customGenEnv numUTxOs
+  initialUTxO <- fromLedgerUTxO <$> Ledger.Generator.genUtxo0 genEnv
+  (_, txs) <- foldM (nextTx genEnv) (initialUTxO, []) [1 .. numTxs]
+  pure (initialUTxO, reverse txs)
  where
-  newTx (utxos, acc) _ = do
-    tx <- genTx ledgerEnv utxos
+  nextTx genEnv (utxos, acc) _ = do
+    tx <- genTx genEnv utxos
     case applyTransactions (cardanoLedger globals ledgerEnv) utxos [tx] of
       Left err -> error $ show err
       Right newUTxOs -> pure (newUTxOs, tx : acc)
+
+  genTx genEnv utxos = do
+    fromLedgerTx <$> Ledger.Generator.genTx genEnv ledgerEnv (utxoState, dpState)
+   where
+    utxoState = def{Ledger._utxo = toLedgerUTxO utxos}
+    dpState = Ledger.DPState def def
+
+  -- NOTE(AB): This sets some parameters for the tx generator that will affect
+  -- the structure of generated transactions. In our case, we want to remove
+  -- "special" capabilities which are irrelevant in the context of a Hydra head
+  -- see https://github.com/input-output-hk/cardano-ledger-specs/blob/nil/shelley/chain-and-ledger/shelley-spec-ledger-test/src/Test/Shelley/Spec/Ledger/Generator/Constants.hs#L10
+  customGenEnv n =
+    (Ledger.Generator.genEnv Proxy)
+      { Ledger.Generator.geConstants = constants n
+      }
+
+  constants n =
+    Ledger.Generator.defaultConstants
+      { Ledger.Generator.minGenesisUTxOouts = 1
+      , -- NOTE: The genUtxo0 generator seems to draw twice from the range
+        -- [minGenesisUTxOouts, maxGenesisUTxOouts]
+        Ledger.Generator.maxGenesisUTxOouts = n `div` 2
+      , Ledger.Generator.frequencyTxUpdates = 0
+      , Ledger.Generator.frequencyTxWithMetadata = 0
+      , Ledger.Generator.maxCertsPerTx = 0
+      }
 
 -- TODO: Enable arbitrary datum in generators
 -- TODO: This should better be called 'genOutputFor'
@@ -291,17 +270,42 @@ genTxIn =
     <$> fmap (unsafeDeserialize' . BS.pack . ([88, 32] <>)) (vectorOf 32 arbitrary)
     <*> fmap fromIntegral (choose @Int (0, 99))
 
+-- | Generate some number of 'UTxO'. NOTE: We interpret the QuickCheck 'size' as
+-- the upper bound of "assets" in this UTxO. That is, instead of sizing on the
+-- number of outputs, we also consider the number of native tokens in the output
+-- values.
 genUTxO :: Gen UTxO
-genUTxO = do
-  genesisTxId <- arbitrary
-  utxo <- Ledger.Generator.genUtxo0 (Ledger.Generator.genEnv Proxy)
-  pure $ fromLedgerUTxO . Ledger.UTxO . Map.mapKeys (setTxId genesisTxId) $ Ledger.unUTxO utxo
+genUTxO =
+  -- TODO: this implementation is a bit stupid and will yield quite low-number
+  -- of utxo, with often up-to-size number of assets. Instead we should be
+  -- generating from multiple cases:
+  --   - all ada-only outputs of length == size
+  --   - one outputs with number of assets == size
+  --   - both of the above within range (0,size) (less likely, because less interesting)
+  --   - empty utxo
+  sized $ \n -> do
+    nAssets <- choose (0, n)
+    UTxO.fromPairs . takeAssetsUTxO nAssets . UTxO.pairs <$> genUTxOAlonzo
  where
-  setTxId ::
-    Ledger.TxId Ledger.StandardCrypto ->
-    Ledger.TxIn Ledger.StandardCrypto ->
-    Ledger.TxIn Ledger.StandardCrypto
-  setTxId baseId (Ledger.TxIn _ti wo) = Ledger.TxIn baseId wo
+  takeAssetsUTxO remaining utxos =
+    case (remaining, utxos) of
+      (0, _) -> []
+      (_, []) -> []
+      (_, (i, o) : us) ->
+        let o' = modifyTxOutValue (takeAssetsTxOut remaining) o
+            rem' = remaining - valueSize (txOutValue o')
+         in ((i, o') : takeAssetsUTxO rem' us)
+
+  takeAssetsTxOut remaining =
+    valueFromList . take remaining . valueToList
+
+-- | Generate 'Alonzo' era 'UTxO', which may contain arbitrary assets in
+-- 'TxOut's addressed to public keys *and* scripts. NOTE: This is not reducing
+-- size when generating assets in 'TxOut's, so will end up regularly with 300+
+-- assets with generator size 30.
+genUTxOAlonzo :: Gen UTxO
+genUTxOAlonzo =
+  fromLedgerUTxO <$> arbitrary
 
 -- | Generate utxos owned by the given cardano key.
 genUTxOFor :: VerificationKey PaymentKey -> Gen UTxO
