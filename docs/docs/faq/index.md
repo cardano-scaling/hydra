@@ -5,7 +5,8 @@
 <details>
   <summary>When Hydra?</summary>
   
-  Our [roadmap](https://github.com/orgs/input-output-hk/projects/21) is publicly available on Github. Note that there are multiple sections behind tabs to view it from different angles (as release packages, as quarters, etc...)  
+  Our <a href="https://github.com/orgs/input-output-hk/projects/21/">roadmap</a> is publicly available on Github. Note that there are multiple sections behind tabs to view it from different angles (as release packages, as quarters, etc...)  
+
 </details>
 
 <details>
@@ -26,4 +27,15 @@
   It is (at least\*) a **one-to-many** relationship. Each Hydra head is comprised of several Hydra nodes. We are currently aiming for up to 100 nodes per head as a stretch goal. Heads are independent and form an isolated network. It is possible to have infinitely many heads running in parallel. 
 
   _(\*) It is possible to make Hydra nodes support multiple heads making it a many-to-many relationship._
+</details>
+
+<details>
+  <summary>Is the Hydra Head protocol a side-chain?</summary>
+  
+  No it isn't. In fact, there are two crucial facts that discards heads from being seen as side-chains:
+
+  1. There's no guaranteed data availability on Hydra. Said differently, transactions are (a) only known of the head participants, and (b) typically forgotten as soon as they're processed. Indeed, there's no block in a Hydra head and also no incentive for participants to either keep the history around or make it available to users outside of the head.
+
+  2. A head network is static, new participants cannot join and have to be decided upfront. The network is thus very much isolated / private, and not reachable by any peer. Hydra heads are really channels between a set of well-known participants.
+
 </details>
