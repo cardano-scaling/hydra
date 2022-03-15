@@ -35,10 +35,6 @@ const drawPixel = (x, y, rgb) => {
   ctx.fillRect(x, y, 1, 1);
 }
 
-drawPixel(15, 15, [255, 0, 0]);
-drawPixel(10, 10, [0, 250, 0]);
-
-console.log(canvas)
 const canvasPosition = {
   x: canvas.offsetLeft,
   y: canvas.offsetTop
@@ -48,9 +44,15 @@ canvas.addEventListener('click', function(e) {
   const clickedPixel = {
     x: (e.pageX - canvasPosition.x) / canvasScale.x,
     y: (e.pageY - canvasPosition.y) / canvasScale.y
-  }
-  console.log(clickedPixel, currentColor);
-  drawPixel(Math.floor(clickedPixel.x), Math.floor(clickedPixel.y), currentColor);
+  };
+
+  const x = Math.floor(clickedPixel.x);
+  const y = Math.floor(clickedPixel.y);
+
+  const [r, g, b] = currentColor;
+  fetch(`http://localhost:1337/paint/${x}/${y}/${r}/${g}/${b}`)
+    .then(() => console.log("Ok"))
+    .catch(e => console.log("Error", e));
 });
 
 // Color picker
@@ -62,7 +64,7 @@ const picker = new Picker(currentColorElement);
 currentColorElement.style.background = `rgb(${currentColor[0]}, ${currentColor[1]}, ${currentColor[2]})`;
 
 picker.onDone = function(color) {
-  console.log("onDone", color);
+  console.log("Color picked:", color);
   currentColor = color.rgba;
   currentColorElement.style.background = color.rgbaString;
 };
