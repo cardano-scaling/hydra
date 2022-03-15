@@ -73,6 +73,7 @@ library
   hs-source-dirs:  src
   exposed-modules:
     Hydra.Client
+    Hydra.Painter
     Hydra.TUI
     Hydra.TUI.Options
 
@@ -104,6 +105,18 @@ library
 executable hydra-tui
   import:         project-config
   hs-source-dirs: exe
+  main-is:        Main.hs
+  build-depends:
+    , base
+    , hydra-prelude
+    , hydra-tui
+    , optparse-applicative
+
+  ghc-options:    -threaded -rtsopts
+
+executable hydra-painter
+  import:         project-config
+  hs-source-dirs: painter
   main-is:        Main.hs
   build-depends:
     , base
