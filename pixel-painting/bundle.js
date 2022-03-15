@@ -22,7 +22,11 @@ const CANVAS_SIZE = 32;
 
 const canvas = document.querySelector('canvas');
 const ctx = canvas.getContext('2d');
-ctx.scale(canvas.width/CANVAS_SIZE, canvas.width/CANVAS_SIZE);
+const canvasScale = {
+  x: canvas.width/CANVAS_SIZE,
+  y: canvas.height/CANVAS_SIZE,
+}
+ctx.scale(canvasScale.x, canvasScale.y);
 
 const drawPixel = (x, y, rgb) => {
   const [r,g,b] = rgb;
@@ -32,3 +36,18 @@ const drawPixel = (x, y, rgb) => {
 
 drawPixel(15, 15, [255, 0, 0]);
 drawPixel(10, 10, [0, 250, 0]);
+
+console.log(canvas)
+const canvasPosition = {
+  x: canvas.offsetLeft,
+  y: canvas.offsetTop
+};
+
+canvas.addEventListener('click', function(e) {
+  const clickedPixel = {
+    x: (e.pageX - canvasPosition.x) / canvasScale.x,
+    y: (e.pageY - canvasPosition.y) / canvasScale.y
+  }
+  console.log(clickedPixel);
+  drawPixel(Math.floor(clickedPixel.x), Math.floor(clickedPixel.y), [255,0,0]);
+});
