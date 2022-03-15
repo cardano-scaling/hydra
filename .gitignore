@@ -25,6 +25,7 @@ test-results.xml
 
 # Benchmark results
 *.html
+!index.html
 
 # Getting started / demo instructions
 devnet/
