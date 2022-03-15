@@ -62,7 +62,7 @@ mkPaintTx (txin, TxOut owner valueIn datum) (recipient, valueOut) sk Pixel{x, y,
   let witnesses = [makeShelleyKeyWitness body (WitnessPaymentKey sk)]
   pure $ makeSignedTransaction witnesses body
  where
-  metadata = TxMetadataInEra $ TxMetadata $ Map.fromList [(1, listOfInts)]
+  metadata = TxMetadataInEra $ TxMetadata $ Map.fromList [(14, listOfInts)]
 
   listOfInts = TxMetaList $ TxMetaNumber . fromIntegral <$> [x, y, red, green, blue]
 
