@@ -1,7 +1,7 @@
 cabal-version: 2.2
-name:           pixel-painting
-version:        0.0.1
-build-type:     Simple
+name:          pixel-painting
+version:       0.0.1
+build-type:    Simple
 
 common project-config
   default-language:   Haskell2010
@@ -47,10 +47,9 @@ common project-config
 library
   import:          project-config
   hs-source-dirs:  src
-  exposed-modules:
-    Hydra.Painter
+  exposed-modules: Hydra.Painter
   build-depends:
-      aeson
+    , aeson
     , base
     , cardano-crypto-class
     , cardano-ledger-alonzo
@@ -66,14 +65,16 @@ library
     , websockets
 
 executable pixel-painting
-  import:          project-config
-  hs-source-dirs:
-    app
-  main-is:
-    Main.hs
-  ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wpartial-fields -Wredundant-constraints -Wunused-packages -threaded -rtsopts
+  import:         project-config
+  hs-source-dirs: app
+  main-is:        Main.hs
+  ghc-options:
+    -Wall -Wcompat -Widentities -Wincomplete-record-updates
+    -Wincomplete-uni-patterns -Wpartial-fields -Wredundant-constraints
+    -Wunused-packages -threaded -rtsopts
+
   build-depends:
-      base >=4.7 && <5
+    , base               >=4.7 && <5
     , http-types
     , hydra-cardano-api
     , hydra-node
@@ -83,3 +84,20 @@ executable pixel-painting
     , safe
     , wai
     , warp
+
+executable hydra-painter
+  import:         project-config
+  hs-source-dirs: painter
+  main-is:        Main.hs
+  ghc-options:
+    -Wall -Wcompat -Widentities -Wincomplete-record-updates
+    -Wincomplete-uni-patterns -Wpartial-fields -Wredundant-constraints
+    -Wunused-packages -threaded -rtsopts
+
+  build-depends:
+    , base            >=4.7 && <5
+    , hydra-node
+    , hydra-prelude
+    , pixel-painting
+
+  ghc-options:    -threaded -rtsopts
