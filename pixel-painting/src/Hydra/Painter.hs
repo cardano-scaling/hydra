@@ -2,18 +2,21 @@
 
 module Hydra.Painter where
 
-import           Control.Exception             (IOException)
-import qualified Data.Aeson                    as Aeson
-import qualified Data.Map                      as Map
-import           Hydra.Cardano.Api
-import           Hydra.Chain.Direct.Util       (readFileTextEnvelopeThrow)
-import           Hydra.ClientInput             (ClientInput (GetUTxO, NewTx))
-import           Hydra.Ledger.Cardano          (emptyTxBody)
-import           Hydra.Network                 (Host (..))
-import           Hydra.Prelude
-import           Network.WebSockets            (Connection, runClient,
-                                                sendTextData)
-import           Network.WebSockets.Connection (receiveData)
+import Control.Exception (IOException)
+import qualified Data.Aeson as Aeson
+import qualified Data.Map as Map
+import Hydra.Cardano.Api
+import Hydra.Chain.Direct.Util (readFileTextEnvelopeThrow)
+import Hydra.ClientInput (ClientInput (GetUTxO, NewTx))
+import Hydra.Ledger.Cardano (emptyTxBody)
+import Hydra.Network (Host (..))
+import Hydra.Prelude
+import Network.WebSockets (
+  Connection,
+  runClient,
+  sendTextData,
+ )
+import Network.WebSockets.Connection (receiveData)
 
 data Pixel = Pixel
   { x, y, red, green, blue :: Word8
@@ -26,6 +29,7 @@ paintPixel signingKeyPath networkId host pixel = do
   withClient host $ \cnx -> do
     sendTextData @Text cnx $ decodeUtf8 $ Aeson.encode (GetUTxO @Tx)
     msg <- receiveData cnx
+    putStrLn $ "Received from Hydra-node: " <> show msg
     case Aeson.eitherDecode msg of
       Left e -> error $ "Failed to decode server answer:  " <> show e
       Right (UTxO utxo) -> do

@@ -7,6 +7,7 @@ import Hydra.Prelude
 import Hydra.Cardano.Api (NetworkId)
 import Hydra.Network (Host, readHost)
 import Hydra.Painter (Pixel (..), paintPixel, readNetworkId)
+import Network.HTTP.Types.Header (HeaderName)
 import Network.HTTP.Types.Status (status200, status500)
 import Network.Wai (
   Application,
@@ -39,6 +40,9 @@ main = do
 app :: FilePath -> NetworkId -> Host -> Application
 app key networkId host req send =
   case (requestMethod req, pathInfo req) of
+    ("HEAD", _) -> do
+      send $
+        responseLBS status200 corsHeaders ""
     ("GET", "paint" : args) -> do
       case traverse (readMay . toString) args of
         Just [x, y, r, g, b] ->
@@ -52,8 +56,15 @@ handleGetPaint :: FilePath -> NetworkId -> Host -> (Word8, Word8) -> (Word8, Wor
 handleGetPaint key networkId host (x, y) (red, green, blue) = do
   putStrLn $ show (x, y) <> " -> " <> show (red, green, blue)
   paintPixel key networkId host Pixel{x, y, red, green, blue}
-  pure $ responseLBS status200 [] "OK"
+  pure $ responseLBS status200 corsHeaders "OK"
 
 handleError :: Response
 handleError =
-  responseLBS status500 [] "INVALID REQUEST"
+  responseLBS status500 corsHeaders "INVALID REQUEST"
+
+corsHeaders :: [(HeaderName, ByteString)]
+corsHeaders =
+  [ ("Access-Control-Allow-Origin", "*")
+  , ("Access-Control-Allow-Methods", "*")
+  , ("Access-Control-Allow-Headers", "*")
+  ]
