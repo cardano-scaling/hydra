@@ -1,29 +1,18 @@
+cabal-version: 2.2
 name:           pixel-painting
 version:        0.0.1
 build-type:     Simple
-cabal-version: 1.12
 
-executable pixel-painting
-  hs-source-dirs:
-    app
-  main-is:
-    Main.hs
-  default-language:
-    Haskell2010
-  ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wpartial-fields -Wredundant-constraints -Wunused-packages -threaded -rtsopts
-  build-depends:
-      base >=4.7 && <5
-    , http-types
-    , relude
-    , safe
-    , wai
-    , warp
+common project-config
+  default-language:   Haskell2010
   default-extensions:
+    NoImplicitPrelude
     BangPatterns
     BinaryLiterals
     ConstraintKinds
     DataKinds
     DefaultSignatures
+    DeriveAnyClass
     DeriveDataTypeable
     DeriveFoldable
     DeriveFunctor
@@ -36,13 +25,13 @@ executable pixel-painting
     FlexibleInstances
     FunctionalDependencies
     GADTs
+    GeneralizedNewtypeDeriving
     InstanceSigs
     KindSignatures
     LambdaCase
     MultiParamTypeClasses
     MultiWayIf
     NamedFieldPuns
-    NoImplicitPrelude
     NumericUnderscores
     OverloadedStrings
     PartialTypeSignatures
@@ -51,7 +40,46 @@ executable pixel-painting
     ScopedTypeVariables
     StandaloneDeriving
     TupleSections
-    TypeApplications
     TypeFamilies
     TypeSynonymInstances
     ViewPatterns
+
+library
+  import:          project-config
+  hs-source-dirs:  src
+  exposed-modules:
+    Hydra.Painter
+  build-depends:
+      aeson
+    , base
+    , cardano-crypto-class
+    , cardano-ledger-alonzo
+    , cardano-ledger-core
+    , cardano-ledger-shelley
+    , cardano-ledger-shelley-ma
+    , containers
+    , hydra-cardano-api
+    , hydra-cluster
+    , hydra-node
+    , hydra-prelude
+    , text
+    , websockets
+
+executable pixel-painting
+  import:          project-config
+  hs-source-dirs:
+    app
+  main-is:
+    Main.hs
+  ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wpartial-fields -Wredundant-constraints -Wunused-packages -threaded -rtsopts
+  build-depends:
+      base >=4.7 && <5
+    , http-types
+    , hydra-cardano-api
+    , hydra-node
+    , hydra-prelude
+    , pixel-painting
+    , relude
+    , safe
+    , wai
+    , warp
