@@ -13,3 +13,15 @@ client.addEventListener("message", e => {
       }
   }
 });
+
+
+const canvas = document.querySelector('canvas');
+const ctx = canvas.getContext('2d');
+
+const drawPixel = (x, y, rgb) => {
+  const [r,g,b] = rgb;
+  ctx.fillStyle = `rgb(${r}, ${g}, ${b})`;
+  ctx.fillRect(x, y, 1, 1);
+}
+
+drawPixel(15, 15, [255, 0, 0]);
