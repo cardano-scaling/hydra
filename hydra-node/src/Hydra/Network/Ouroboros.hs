@@ -17,10 +17,7 @@ import Control.Concurrent.STM (
   TChan,
   dupTChan,
   newBroadcastTChanIO,
-  newTBQueueIO,
-  readTBQueue,
   readTChan,
-  writeTBQueue,
   writeTChan,
  )
 import Control.Exception (IOException)
