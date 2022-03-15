@@ -11,6 +11,7 @@ packages:
   merkle-patricia-tree
   plutus-cbor
   plutus-merkle-tree
+  pixel-painting
 
 tests: False
 package hydra-cluster
