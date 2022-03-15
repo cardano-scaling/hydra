@@ -4,6 +4,7 @@ import Hydra.Prelude
 
 import Cardano.Api (ScriptDataJsonSchema (ScriptDataJsonDetailedSchema), scriptDataToJson, serialiseToTextEnvelope)
 import Cardano.Api.Shelley (fromPlutusData)
+import Codec.Serialise (serialise)
 import qualified Data.Aeson as Aeson
 import qualified Data.ByteString.Lazy as BL
 import Data.Text (pack)
@@ -48,7 +49,7 @@ main = do
       let itemFile = itemName <> ".plutus"
           serialised = Aeson.encode $ serialiseToTextEnvelope (Just $ fromString itemName) $ toCardanoApiScript item
       BL.writeFile itemFile serialised
-      putTextLn $ "  " <> pack itemFile <> ":     " <> sizeInKb serialised
+      putTextLn $ "  " <> pack itemFile <> ":     " <> sizeInKb (serialise item)
 
   writePlc :: [(Compiled, String)] -> IO ()
   writePlc plutus =
