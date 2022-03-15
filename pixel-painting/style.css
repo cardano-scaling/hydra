@@ -1,3 +1,10 @@
 canvas {
   border: 1px solid black;
 }
+
+#current-color {
+  display: inline-block;
+  width: 20px;
+  height: 20px;
+  border-radius: 10px;
+}

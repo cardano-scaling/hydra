@@ -17,6 +17,7 @@ client.addEventListener("message", e => {
   }
 });
 
+// Canvas
 
 const CANVAS_SIZE = 32;
 
@@ -48,6 +49,20 @@ canvas.addEventListener('click', function(e) {
     x: (e.pageX - canvasPosition.x) / canvasScale.x,
     y: (e.pageY - canvasPosition.y) / canvasScale.y
   }
-  console.log(clickedPixel);
-  drawPixel(Math.floor(clickedPixel.x), Math.floor(clickedPixel.y), [255,0,0]);
+  console.log(clickedPixel, currentColor);
+  drawPixel(Math.floor(clickedPixel.x), Math.floor(clickedPixel.y), currentColor);
 });
+
+// Color picker
+
+let currentColor = [255,0,0];
+const currentColorElement = document.querySelector('#current-color');
+const picker = new Picker(currentColorElement);
+
+currentColorElement.style.background = `rgb(${currentColor[0]}, ${currentColor[1]}, ${currentColor[2]})`;
+
+picker.onDone = function(color) {
+  console.log("onDone", color);
+  currentColor = color.rgba;
+  currentColorElement.style.background = color.rgbaString;
+};
