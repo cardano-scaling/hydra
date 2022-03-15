@@ -128,14 +128,10 @@ withOuroborosNetwork ::
   IO ()
 withOuroborosNetwork tracer localHost remoteHosts networkCallback between = do
   bchan <- newBroadcastTChanIO
-  chanPool <- newTBQueueIO (fromIntegral $ length remoteHosts)
-  replicateM_ (length remoteHosts) $
-    atomically $ do
-      dup <- dupTChan bchan
-      writeTBQueue chanPool dup
+  let newBroadcastChannel = atomically $ dupTChan bchan
   -- TODO: Factor this out, there should be only one IOManager per process.
   withIOManager $ \iomgr -> do
-    race_ (connect iomgr chanPool hydraClient) $
+    race_ (connect iomgr newBroadcastChannel hydraClient) $
       race_ (listen iomgr hydraServer) $ do
         between $
           Network
@@ -148,7 +144,7 @@ withOuroborosNetwork tracer localHost remoteHosts networkCallback between = do
       (info : _) -> pure $ addrAddress info
       _ -> error "getAdrrInfo failed.. do proper error handling"
 
-  connect iomgr chanPool app = do
+  connect iomgr newBroadcastChannel app = do
     -- REVIEW(SN): move outside to have this information available?
     networkState <- newNetworkMutableState
     -- Using port number 0 to let the operating system pick a random port
@@ -161,7 +157,7 @@ withOuroborosNetwork tracer localHost remoteHosts networkCallback between = do
       (contramap (WithHost localHost . TraceErrorPolicy) tracer)
       networkState
       (subscriptionParams localAddr remoteAddrs)
-      (actualConnect iomgr chanPool app)
+      (actualConnect iomgr newBroadcastChannel app)
 
   subscriptionParams localAddr remoteAddrs =
     SubscriptionParams
@@ -171,8 +167,8 @@ withOuroborosNetwork tracer localHost remoteHosts networkCallback between = do
       , spSubscriptionTarget = IPSubscriptionTarget remoteAddrs (length remoteAddrs)
       }
 
-  actualConnect iomgr chanPool app sn = do
-    chan <- atomically $ readTBQueue chanPool
+  actualConnect iomgr newBroadcastChannel app sn = do
+    chan <- newBroadcastChannel
     connectToNodeSocket
       iomgr
       unversionedHandshakeCodec
