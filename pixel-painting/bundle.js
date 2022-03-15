@@ -18,8 +18,11 @@ client.addEventListener("message", e => {
 });
 
 
+const CANVAS_SIZE = 32;
+
 const canvas = document.querySelector('canvas');
 const ctx = canvas.getContext('2d');
+ctx.scale(canvas.width/CANVAS_SIZE, canvas.width/CANVAS_SIZE);
 
 const drawPixel = (x, y, rgb) => {
   const [r,g,b] = rgb;
@@ -28,3 +31,4 @@ const drawPixel = (x, y, rgb) => {
 }
 
 drawPixel(15, 15, [255, 0, 0]);
+drawPixel(10, 10, [0, 250, 0]);
