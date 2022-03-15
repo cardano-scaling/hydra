@@ -30,7 +30,7 @@ main = do
   settings =
     Warp.defaultSettings
       & Warp.setPort port
-      & Warp.setHost "localhost"
+      & Warp.setHost "0.0.0.0"
       & Warp.setBeforeMainLoop
         ( do
             putStrLn "Server started..."
