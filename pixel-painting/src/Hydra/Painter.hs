@@ -16,7 +16,7 @@ import Network.WebSockets (
   runClient,
   sendTextData,
  )
-import Network.WebSockets.Connection (receiveData)
+import Network.WebSockets.Connection (receive, receiveData)
 
 data Pixel = Pixel
   { x, y, red, green, blue :: Word8
@@ -27,6 +27,7 @@ paintPixel signingKeyPath networkId host pixel = do
   sk <- readFileTextEnvelopeThrow (AsSigningKey AsPaymentKey) signingKeyPath
   let vk = getVerificationKey sk
   withClient host $ \cnx -> do
+    flushQueue cnx
     sendTextData @Text cnx $ decodeUtf8 $ Aeson.encode (GetUTxO @Tx)
     msg <- receiveData cnx
     putStrLn $ "Received from Hydra-node: " <> show msg
@@ -38,6 +39,9 @@ paintPixel signingKeyPath networkId host pixel = do
         case mkPaintTx (txIn, txOut) (myAddress, txOutValue txOut) sk pixel of
           Left err -> error $ "failed to build pixel transaction " <> show err
           Right tx -> sendTextData cnx $ Aeson.encode $ NewTx tx
+ where
+  flushQueue cnx =
+    race_ (threadDelay 0.25) (void (receive cnx) >> flushQueue cnx)
 
 withClient :: Host -> (Connection -> IO ()) -> IO ()
 withClient Host{hostname, port} action = retry
