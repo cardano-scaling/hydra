@@ -11,6 +11,7 @@ import Hydra.ClientInput (ClientInput (GetUTxO, NewTx))
 import Hydra.Ledger.Cardano (emptyTxBody)
 import Hydra.Network (Host (..))
 import Hydra.Prelude
+import qualified Hydra.ServerOutput as ServerOutput
 import Network.WebSockets (
   Connection,
   runClient,
@@ -31,9 +32,9 @@ paintPixel signingKeyPath networkId host pixel = do
     sendTextData @Text cnx $ decodeUtf8 $ Aeson.encode (GetUTxO @Tx)
     msg <- receiveData cnx
     putStrLn $ "Received from Hydra-node: " <> show msg
-    case Aeson.eitherDecode msg of
+    case Aeson.eitherDecode @(ServerOutput.ServerOutput Tx) msg of
       Left e -> error $ "Failed to decode server answer:  " <> show e
-      Right (UTxO utxo) -> do
+      Right (ServerOutput.UTxO (UTxO utxo)) -> do
         let myAddress = mkVkAddress networkId vk
             (txIn, txOut) = Map.findMin $ Map.filter (\(TxOut addr _ _) -> addr == myAddress) utxo
         case mkPaintTx (txIn, txOut) (myAddress, txOutValue txOut) sk pixel of
@@ -87,4 +88,4 @@ mkPaintTx (txin, TxOut owner valueIn datum) (recipient, valueOut) sk Pixel{x, y,
 
 readNetworkId :: String -> NetworkId
 readNetworkId nid =
-  Testnet . NetworkMagic . fromMaybe (error "set NETWORK_ID environment variable") $ readMaybe nid
+  Testnet . NetworkMagic . fromMaybe (error "Invalid network magic") $ readMaybe nid

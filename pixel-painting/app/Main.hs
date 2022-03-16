@@ -22,7 +22,7 @@ import Safe (readMay)
 main :: IO ()
 main = do
   key <- fromMaybe (error "set HYDRA_SIGNING_KEY environment variable") <$> lookupEnv "HYDRA_SIGNING_KEY"
-  networkId <- readNetworkId . error "set NETWORK_ID environment variable" <$> lookupEnv "NETWORK_ID"
+  networkId <- readNetworkId . fromMaybe (error "set NETWORK_ID environment variable") <$> lookupEnv "NETWORK_ID"
   host <- readHost . fromMaybe (error "set HYDRA_API_HOST environment variable") =<< lookupEnv "HYDRA_API_HOST"
   Warp.runSettings settings (app key networkId host)
  where
