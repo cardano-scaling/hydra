@@ -76,7 +76,6 @@ executable pixel-painting
   build-depends:
     , base               >=4.7 && <5
     , http-types
-    , hydra-cardano-api
     , hydra-node
     , hydra-prelude
     , pixel-painting

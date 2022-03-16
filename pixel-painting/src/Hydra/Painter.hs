@@ -23,8 +23,8 @@ data Pixel = Pixel
   { x, y, red, green, blue :: Word8
   }
 
-paintPixel :: FilePath -> NetworkId -> Host -> Pixel -> IO ()
-paintPixel signingKeyPath networkId host pixel = do
+paintPixel :: FilePath -> Host -> Pixel -> IO ()
+paintPixel signingKeyPath host pixel = do
   sk <- readFileTextEnvelopeThrow (AsSigningKey AsPaymentKey) signingKeyPath
   let vk = getVerificationKey sk
   withClient host $ \cnx -> do
@@ -41,6 +41,9 @@ paintPixel signingKeyPath networkId host pixel = do
           Left err -> error $ "failed to build pixel transaction " <> show err
           Right tx -> sendTextData cnx $ Aeson.encode $ NewTx tx
  where
+  networkId = Testnet unusedNetworkMagic
+  unusedNetworkMagic = NetworkMagic 42
+
   flushQueue cnx =
     race_ (threadDelay 0.25) (void (receive cnx) >> flushQueue cnx)
 
@@ -85,7 +88,3 @@ mkPaintTx (txin, TxOut owner valueIn datum) (recipient, valueOut) sk Pixel{x, y,
       ]
 
   fee = Lovelace 0
-
-readNetworkId :: String -> NetworkId
-readNetworkId nid =
-  Testnet . NetworkMagic . fromMaybe (error "Invalid network magic") $ readMaybe nid
