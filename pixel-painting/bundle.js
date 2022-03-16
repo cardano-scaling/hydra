@@ -11,7 +11,8 @@ client.addEventListener("message", e => {
       console.log("New transaction seen", msg.transaction.id);
       if (msg.transaction.auxiliaryData != null) {
         console.log("Transaction has auxiliary data", msg.transaction.auxiliaryData);
-        const [x, y, r, g, b] = cbor.decode(msg.transaction.auxiliaryData).get(metadataLabel);
+        const aux = cbor.decodeFirstSync(msg.transaction.auxiliaryData).value;
+        const [x, y, r, g, b] = (aux.get(0) || aux.get(1)).get(metadataLabel);
         drawPixel(x, y, [r, g, b]);
       }
     default:
