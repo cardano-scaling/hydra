@@ -1,7 +1,14 @@
 const client = new WebSocket("ws://" + window.location.host);
 
 const metadataLabel = 14;
+const query = (window.location.search || "?")
+  .substr(1)
+  .split('&')
+  .filter(x => x != '')
+  .map(x => x.split('='))
+const delay = Number((query.filter(([k, v]) => k == 'delay')[0] || [])[1] || 0);
 
+let n = 0
 client.addEventListener("message", e => {
   const msg = JSON.parse(e.data);
   switch (msg.tag) {
@@ -11,7 +18,8 @@ client.addEventListener("message", e => {
         console.log("Transaction has auxiliary data", msg.transaction.auxiliaryData);
         const aux = cbor.decodeFirstSync(msg.transaction.auxiliaryData).value;
         const [x, y, r, g, b] = (aux.get(0) || aux.get(1)).get(metadataLabel);
-        drawPixel(x, y, [r, g, b]);
+        n += delay;
+        setTimeout(() => drawPixel(x, y, [r, g, b]), n);
       }
     default:
       console.log("Irrelevant message", msg);
