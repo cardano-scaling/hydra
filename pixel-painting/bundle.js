@@ -31,6 +31,7 @@ const canvasScale = {
   y: canvas.height/CANVAS_SIZE,
 }
 ctx.scale(canvasScale.x, canvasScale.y);
+console.log("canvasScale", canvasScale);
 
 const drawPixel = (x, y, rgb) => {
   const [r,g,b] = rgb;
@@ -38,16 +39,19 @@ const drawPixel = (x, y, rgb) => {
   ctx.fillRect(x, y, 1, 1);
 }
 
-const canvasPosition = {
-  x: canvas.offsetLeft,
-  y: canvas.offsetTop
-};
 
 canvas.addEventListener('click', function(e) {
+  console.log("event", e);
+  const canvasPosition = {
+    x: canvas.offsetLeft,
+    y: canvas.offsetTop
+  };
+  console.log("canvasPosition", canvasPosition);
   const clickedPixel = {
     x: (e.pageX - canvasPosition.x) / canvasScale.x,
     y: (e.pageY - canvasPosition.y) / canvasScale.y
   };
+  console.log("clickedPixel", clickedPixel);
 
   const x = Math.floor(clickedPixel.x);
   const y = Math.floor(clickedPixel.y);
