@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
   <head>
+    <title>Hydraxel</title>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <script src="https://unpkg.com/cbor-web"></script>
@@ -8,12 +9,19 @@
     <link rel="stylesheet" href="style.css" type="text/css">
   </head>
   <body>
+    <header>
+      <img width=150 src="logo.png" />
+      <h1>Hydraxel</h1>
+    </header>
     <div>
       <span>Color: </span><span id="current-color"></span>
     </div>
     <canvas width="600" height="600" class="canvas">
       Here should be pixels
     </canvas>
+    <footer>
+      Powered by <img width=32 src="https://ucarecdn.com/9d697897-6aec-4664-801d-e432df594520/-/format/webp/-/resize/100/" /> + <img width=32 src="https://input-output-hk.github.io/hydra-poc/img/hydra.png" />
+    </footer>
     <script src="bundle.js"></script>
   </body>
 </html>

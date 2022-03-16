@@ -1,21 +1,16 @@
 module Main where
 
-import Hydra.Prelude
+import           Hydra.Prelude
 
-import Hydra.Network (Host, readHost)
-import Hydra.Painter (Pixel (..), paintPixel)
-import Network.HTTP.Types.Header (HeaderName)
-import Network.HTTP.Types.Status (status200, status404, status500)
-import Network.Wai (
-  Application,
-  Response,
-  pathInfo,
-  requestMethod,
-  responseFile,
-  responseLBS,
- )
-import qualified Network.Wai.Handler.Warp as Warp
-import Safe (readMay)
+import           Hydra.Network             (Host, readHost)
+import           Hydra.Painter             (Pixel (..), paintPixel)
+import           Network.HTTP.Types.Header (HeaderName)
+import           Network.HTTP.Types.Status (status200, status404, status500)
+import           Network.Wai               (Application, Response, pathInfo,
+                                            requestMethod, responseFile,
+                                            responseLBS)
+import qualified Network.Wai.Handler.Warp  as Warp
+import           Safe                      (readMay)
 
 main :: IO ()
 main = do
@@ -44,6 +39,7 @@ app key host req send =
     ("GET", ["index.html"]) -> send $ handleFile "index.html"
     ("GET", ["bundle.js"]) -> send $ handleFile "bundle.js"
     ("GET", ["style.css"]) -> send $ handleFile "style.css"
+    ("GET", ["logo.png"]) -> send $ handleFile "logo.png"
     ("GET", "paint" : args) -> do
       case traverse (readMay . toString) args of
         Just [x, y, r, g, b] ->
