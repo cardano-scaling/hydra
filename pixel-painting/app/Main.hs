@@ -1,5 +1,3 @@
-{-# LANGUAGE TypeApplications #-}
-
 module Main where
 
 import Hydra.Prelude
@@ -7,12 +5,13 @@ import Hydra.Prelude
 import Hydra.Network (Host, readHost)
 import Hydra.Painter (Pixel (..), paintPixel)
 import Network.HTTP.Types.Header (HeaderName)
-import Network.HTTP.Types.Status (status200, status500)
+import Network.HTTP.Types.Status (status200, status404, status500)
 import Network.Wai (
   Application,
   Response,
   pathInfo,
   requestMethod,
+  responseFile,
   responseLBS,
  )
 import qualified Network.Wai.Handler.Warp as Warp
@@ -41,6 +40,10 @@ app key host req send =
     ("HEAD", _) -> do
       send $
         responseLBS status200 corsHeaders ""
+    ("GET", []) -> send $ handleFile "index.html"
+    ("GET", ["index.html"]) -> send $ handleFile "index.html"
+    ("GET", ["bundle.js"]) -> send $ handleFile "bundle.js"
+    ("GET", ["style.css"]) -> send $ handleFile "style.css"
     ("GET", "paint" : args) -> do
       case traverse (readMay . toString) args of
         Just [x, y, r, g, b] ->
@@ -48,7 +51,7 @@ app key host req send =
         _ ->
           send handleError
     (_, _) ->
-      send handleError
+      send handleNotFound
 
 handleGetPaint :: FilePath -> Host -> (Word8, Word8) -> (Word8, Word8, Word8) -> IO Response
 handleGetPaint key host (x, y) (red, green, blue) = do
@@ -59,6 +62,13 @@ handleGetPaint key host (x, y) (red, green, blue) = do
 handleError :: Response
 handleError =
   responseLBS status500 corsHeaders "INVALID REQUEST"
+
+handleNotFound :: Response
+handleNotFound =
+  responseLBS status404 corsHeaders "NOT FOUND"
+
+handleFile :: FilePath -> Response
+handleFile filepath = responseFile status200 corsHeaders filepath Nothing
 
 corsHeaders :: [(HeaderName, ByteString)]
 corsHeaders =

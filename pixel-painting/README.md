@@ -9,7 +9,7 @@ Launching the UI
 simple-http-server -oi
 ```
 
-Launching the pixel-painting bridge
+Launching the pixel-painting bridge (assumes current directory is the `pixel-painting` directory):
 
 ``` sh
 cabal run pixel-painting
