@@ -24,8 +24,9 @@ main :: IO ()
 main = do
   key <- fromMaybe (error "set HYDRA_SIGNING_KEY environment variable") <$> lookupEnv "HYDRA_SIGNING_KEY"
   host <- readHost . fromMaybe (error "set HYDRA_API_HOST environment variable") =<< lookupEnv "HYDRA_API_HOST"
-  Wai.websocketsOr WS.defaultConnectionOptions (websocketApp host) (httpApp key host)
-    & Warp.runSettings settings
+  withClient host $ \cnx -> do
+    Wai.websocketsOr WS.defaultConnectionOptions (websocketApp host) (httpApp key cnx)
+      & Warp.runSettings settings
  where
   port = 1337
   settings =
@@ -59,8 +60,8 @@ websocketApp host pendingConnection = do
       (forever $ await >>= WS.send cnx)
       (forever $ WS.receive cnx >>= yield)
 
-httpApp :: FilePath -> Host -> Application
-httpApp key host req send =
+httpApp :: FilePath -> WS.Connection -> Application
+httpApp key cnx req send =
   case (requestMethod req, pathInfo req) of
     ("HEAD", _) -> do
       send $
@@ -73,16 +74,16 @@ httpApp key host req send =
     ("GET", "paint" : args) -> do
       case traverse (readMay . toString) args of
         Just [x, y, r, g, b] ->
-          send =<< handleGetPaint key host (x, y) (r, g, b)
+          send =<< handleGetPaint key cnx (x, y) (r, g, b)
         _ ->
           send handleError
     (_, _) ->
       send handleNotFound
 
-handleGetPaint :: FilePath -> Host -> (Word8, Word8) -> (Word8, Word8, Word8) -> IO Response
-handleGetPaint key host (x, y) (red, green, blue) = do
+handleGetPaint :: FilePath -> WS.Connection -> (Word8, Word8) -> (Word8, Word8, Word8) -> IO Response
+handleGetPaint key cnx (x, y) (red, green, blue) = do
   putStrLn $ show (x, y) <> " -> " <> show (red, green, blue)
-  paintPixel key host Pixel{x, y, red, green, blue}
+  paintPixel key cnx Pixel{x, y, red, green, blue}
   pure $ responseLBS status200 corsHeaders "OK"
 
 handleError :: Response
