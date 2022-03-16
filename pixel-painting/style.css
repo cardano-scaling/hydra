@@ -19,8 +19,8 @@ html {
 body {
   display: flex;
   flex-direction: column;
-  justify-content: center;
   align-items: center;
+  justify-content: space-around;
   background: var(--color-yellow);
   height: 100%;
   margin: 0;
@@ -37,6 +37,7 @@ header {
 
 header > * {
   margin: 0 0.5rem;
+  padding: 1rem 0;
 }
 
 footer {
@@ -53,9 +54,18 @@ footer img {
   margin: 0 0.5rem;
 }
 
+#current-color-wrapper {
+  display: flex;
+  width: min(70vh,70vw);
+  align-items: center;
+  justify-content: flex-start;
+  margin: 1rem;
+}
+
 #current-color {
+  margin: 0 1rem;
   display: inline-block;
-  width: 20px;
-  height: 20px;
+  width: 2rem;
+  height: 2rem;
   border-radius: 10px;
 }
