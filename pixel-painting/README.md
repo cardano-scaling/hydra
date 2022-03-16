@@ -4,11 +4,6 @@ Edit the API endpoint in the `bundle.js` to your API host+port, e.g. for `13.38.
 const client = new WebSocket("ws://13.38.35.167:4001");
 ```
 
-Launching the UI
-``` sh
-simple-http-server -oi
-```
-
 Launching the pixel-painting bridge (assumes current directory is the `pixel-painting` directory):
 
 ``` sh
