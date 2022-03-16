@@ -1,6 +1,4 @@
-const HYDRA_API_HOST = "hydra.example.io:4001";
-
-const client = new WebSocket("ws://" + HYDRA_API_HOST);
+const client = new WebSocket("ws://" + window.location.host);
 
 const metadataLabel = 14;
 

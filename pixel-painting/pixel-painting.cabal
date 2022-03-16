@@ -78,11 +78,14 @@ executable pixel-painting
     , http-types
     , hydra-node
     , hydra-prelude
+    , io-classes
     , pixel-painting
     , relude
     , safe
     , wai
+    , wai-websockets
     , warp
+    , websockets
 
 executable hydra-painter
   import:         project-config

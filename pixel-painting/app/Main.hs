@@ -1,22 +1,31 @@
 module Main where
 
-import           Hydra.Prelude
+import Hydra.Prelude
 
-import           Hydra.Network             (Host, readHost)
-import           Hydra.Painter             (Pixel (..), paintPixel)
-import           Network.HTTP.Types.Header (HeaderName)
-import           Network.HTTP.Types.Status (status200, status404, status500)
-import           Network.Wai               (Application, Response, pathInfo,
-                                            requestMethod, responseFile,
-                                            responseLBS)
-import qualified Network.Wai.Handler.Warp  as Warp
-import           Safe                      (readMay)
+import Control.Monad.Class.MonadSTM (newTQueueIO, readTQueue, writeTQueue)
+import Hydra.Network (Host, readHost)
+import Hydra.Painter (Pixel (..), paintPixel, withClient)
+import Network.HTTP.Types.Header (HeaderName)
+import Network.HTTP.Types.Status (status200, status404, status500)
+import Network.Wai (
+  Application,
+  Response,
+  pathInfo,
+  requestMethod,
+  responseFile,
+  responseLBS,
+ )
+import qualified Network.Wai.Handler.Warp as Warp
+import qualified Network.Wai.Handler.WebSockets as Wai
+import qualified Network.WebSockets as WS
+import Safe (readMay)
 
 main :: IO ()
 main = do
   key <- fromMaybe (error "set HYDRA_SIGNING_KEY environment variable") <$> lookupEnv "HYDRA_SIGNING_KEY"
   host <- readHost . fromMaybe (error "set HYDRA_API_HOST environment variable") =<< lookupEnv "HYDRA_API_HOST"
-  Warp.runSettings settings (app key host)
+  Wai.websocketsOr WS.defaultConnectionOptions (websocketApp host) (httpApp key host)
+    & Warp.runSettings settings
  where
   port = 1337
   settings =
@@ -29,8 +38,29 @@ main = do
             putStrLn $ "Listening on: tcp/" <> show port
         )
 
-app :: FilePath -> Host -> Application
-app key host req send =
+websocketApp :: Host -> WS.PendingConnection -> IO ()
+websocketApp host pendingConnection = do
+  qA <- newTQueueIO
+  qB <- newTQueueIO
+
+  cnx <- WS.acceptRequest pendingConnection
+  concurrently_
+    (producer cnx (atomically . writeTQueue qA) (atomically (readTQueue qB)))
+    (consumer (atomically . writeTQueue qB) (atomically (readTQueue qA)))
+ where
+  consumer yield await =
+    withClient host $ \cnx ->
+      concurrently_
+        (forever $ await >>= WS.send cnx)
+        (forever $ WS.receive cnx >>= yield)
+
+  producer cnx yield await =
+    concurrently_
+      (forever $ await >>= WS.send cnx)
+      (forever $ WS.receive cnx >>= yield)
+
+httpApp :: FilePath -> Host -> Application
+httpApp key host req send =
   case (requestMethod req, pathInfo req) of
     ("HEAD", _) -> do
       send $
