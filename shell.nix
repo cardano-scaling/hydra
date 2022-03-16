@@ -45,8 +45,6 @@ let
     pkgs.gnuplot
     # For docs/
     pkgs.yarn
-    # For pixel-painting/
-    pkgs.simple-http-server
   ];
 
   haskellNixShell = hsPkgs.shellFor {
