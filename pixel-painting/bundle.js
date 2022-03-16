@@ -1,4 +1,6 @@
-const client = new WebSocket("ws://13.38.35.167:4001");
+const HYDRA_API_HOST = "hydra.example.io:4001";
+
+const client = new WebSocket("ws://" + HYDRA_API_HOST);
 
 const metadataLabel = 14;
 
@@ -50,7 +52,7 @@ canvas.addEventListener('click', function(e) {
   const y = Math.floor(clickedPixel.y);
 
   const [r, g, b] = currentColor;
-  fetch(`http://localhost:1337/paint/${x}/${y}/${r}/${g}/${b}`)
+  fetch(`/paint/${x}/${y}/${r}/${g}/${b}`)
     .then(() => console.log("Ok"))
     .catch(e => console.log("Error", e));
 });
