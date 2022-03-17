@@ -9,7 +9,7 @@ const config = {
   title: 'Hydra: Head Protocol',
   tagline: 'User Manual, core concepts and API reference.',
   url: 'https://input-output-hk.github.io',
-  baseUrl: '/hydra-poc/',
+  baseUrl: '/head-protocol/',
   onBrokenLinks: 'throw',
   onBrokenMarkdownLinks: 'warn',
   favicon: 'img/hydra.png',
