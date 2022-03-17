@@ -15,3 +15,10 @@ A Hydra Head is formed by a group of online and responsive participants. Partici
 While open, they can use the Hydra Head via a hydra-node to submit transactions over the Head network. Transactions have the same format and properties as on the main-chain: they are _isomorphic_. When UTXO entries are spent, and new UTXO entries are created in a Hydra Head, all participants are required to acknowledge and agree on the new state in so-called snapshots (`U1..Un`).
 
 Any participant can **close** the Head using an agreed state, when for example they wish to cash out on the mainnet, or if another party misbehaves or stalls the Head's evolution. There is a mechanism to **contest** the final state on the main chain. Ultimately, a **fanout** transaction distributes the final agreed state and makes available on the layer 1 what only existed virtually in the Head.
+
+```mdx-code-block
+import DocCardList from '@theme/DocCardList';
+import {useDocsSidebar} from '@docusaurus/theme-common';
+
+<DocCardList items={useDocsSidebar().filter(({ docId }) => docId != "index")}/>
+```

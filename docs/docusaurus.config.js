@@ -26,8 +26,8 @@ const config = {
       /** @type {import('@docusaurus/preset-classic').Options} */
       ({
         docs: {
-          sidebarPath: require.resolve('./sidebars.js'),
-          editUrl: 'https://github.com/input-output-hk/hydra-poc/tree/master/docs'
+          sidebarPath: require.resolve('./_sidebars/docs.js'),
+          editUrl: 'https://github.com/input-output-hk/hydra-poc/tree/master/docs/docs'
         },
         blog: {
           path: 'adr',
@@ -45,6 +45,20 @@ const config = {
     ],
   ],
 
+  plugins: [
+    [
+      'content-docs',
+      /** @type {import('@docusaurus/plugin-content-docs').Options} */
+      ({
+        id: 'core-concepts',
+        path: 'core-concepts',
+        routeBasePath: 'core-concepts',
+        sidebarPath: require.resolve('./_sidebars/core-concepts.js'),
+        editUrl: 'https://github.com/input-output-hk/hydra-poc/tree/master/docs/core-concepts'
+      }),
+    ],
+  ],
+
   themeConfig:
     /** @type {import('@docusaurus/preset-classic').ThemeConfig} */
     ({
@@ -57,12 +71,12 @@ const config = {
         },
         items: [
           {
-            to: '/docs/intro',
+            to: '/docs/getting-started',
             label: 'User Manual',
             position: 'left',
           },
           {
-            to: '#TODO-core-concepts',
+            to: '/core-concepts',
             label: 'Core Concepts',
             position: 'left',
           },
