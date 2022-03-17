@@ -1,17 +1,17 @@
 This document provides details about the _Hydra Networking Layer_, eg. the network comprised of Hydra nodes upon which Heads can be opened.
 
-**DISCLAIMER**:  :hammer_and_wrench: This document is a work in progress
+**DISCLAIMER**:  :hammer_and_wrench: This document is a work in progress. We know the current situation w.r.t. networking is less than ideal, it's just a way to get started and have _something_ that works. There is already [proposal](https://github.com/input-output-hk/hydra-poc/pull/237) to improve the situation by making the network more dynamic.
 
 # Current State
 
-_NOTE_: We know the current situation w.r.t. networking is less than ideal, it's just a way to get started and have _something_ that works. There is already [proposal](https://github.com/input-output-hk/hydra-poc/pull/237) to improve the situation by making the network more dynamic.
-
-* Each `hydra-node` instance is connected _statically_ to a list of _peers_ using a Point-to-point (e.g TCP) connection.
+* Hydra nodes form a network of pairwise connected _peers_ using Point-to-point (e.g TCP) connections. Those connections are expected to be up and running at all time
+  * Nodes use [Ouroboros](https://github.com/input-output-hk/ouroboros-network/) as the underlying network abstraction, which takes care of managing connections with peers providing a reliable Point-to-Point stream-based communication abstraction called a `Snocket`
+  * All messages are _broadcast_ to peers using the PTP connections
+  * Due to the nature of the Hydra protocol, the lack of connection to a peer prevents any progress of the Head
 * A `hydra-node` can only open a Head with _all_ its peers, and only them. This implies the nodes need to know in advance the topology of the peers and Heads they want to open
-* Nodes use [Ouroboros]() as the underlying network abstraction, which takes care of managing connections
 * Connected nodes implement basic _failure detection_ through heartbeats and monitoring exchanged messages
 
-# Questions to Answer
+## Questions
 
 * What's the expected topology of the transport layer?
   * Are connected peers a subset/superset/identity set of the Head parties?
@@ -29,6 +29,8 @@ _NOTE_: We know the current situation w.r.t. networking is less than ideal, it's
     > Each party then establishes pairwise authenticated channels to all other parties.
   * What exactly is a _list of participants_? It seems at the very least each participant should be _identified_, in order to be distinguished from each other, but how? Some naming scheme? IP:Port address? Public key? Certificate?
   * What are "pairwise authenticated channels" exactly? Are these actual TCP/TLS connections? Or is it more a layer 4 (Transport) or layer 5 (Session) solution?
+* How open do we want our network protocol to be?
+  * We are currently using Ouroboros stack with CBOR encoding of messages, this will make it somewhat hard to have other tools be part of the Hydra network
 
 ## Ouroboros
 
