@@ -71,6 +71,9 @@ jobs:
       working-directory: docs
       run: |
         yarn && yarn build
+        mkdir -p public/head-protocol
+        mv build/* public/head-protocol
+        echo "hydra.family" > public/CNAME
 
     - name: Publish Unit Test Results
       uses: EnricoMi/publish-unit-test-result-action@v1
@@ -82,7 +85,7 @@ jobs:
       uses: peaceiris/actions-gh-pages@v3
       with:
         github_token: ${{ secrets.GITHUB_TOKEN || github.token }}
-        publish_dir: docs/build
+        publish_dir: docs/public
         enable_jekyll: true
         force_orphan: true
 
