@@ -6,6 +6,13 @@ _Hydraw_ is the result of a 3 days Hackathon that took place in Lyon March 2022.
 * Participants in the Head can request coloring individual pixels using the provided user interface which results in a _transaction_ being posted into the Head,
 * Metadata from _Confirmed_ transactions happening in the Head is interpreted as instructions to draw individual pixels with some RGB color.
 
+```diff
+- DISCLAIMER
+! This code is the result of an intense 3 days long Hackathon and is not meant for long-term maintenance and
+! evolution, hence it should not be taken as representative of the coding practices the Hydra team members
+! endorse in the rest of the codebase.
+```
+
 # Build
 
 To build the web server that connects serves frontend and connects to Hydra API:
