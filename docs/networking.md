@@ -11,7 +11,7 @@ This document provides details about the _Hydra Networking Layer_, eg. the netwo
 * A `hydra-node` can only open a Head with _all_ its peers, and only them. This implies the nodes need to know in advance the topology of the peers and Heads they want to open
 * Connected nodes implement basic _failure detection_ through heartbeats and monitoring exchanged messages
 
-## Questions
+# Questions
 
 * What's the expected topology of the transport layer?
   * Are connected peers a subset/superset/identity set of the Head parties?
@@ -31,6 +31,8 @@ This document provides details about the _Hydra Networking Layer_, eg. the netwo
   * What are "pairwise authenticated channels" exactly? Are these actual TCP/TLS connections? Or is it more a layer 4 (Transport) or layer 5 (Session) solution?
 * How open do we want our network protocol to be?
   * We are currently using Ouroboros stack with CBOR encoding of messages, this will make it somewhat hard to have other tools be part of the Hydra network
+
+# Investigations
 
 ## Ouroboros
 
@@ -67,6 +69,20 @@ See [this wiki page](https://github.com/input-output-hk/hydra-poc.wiki/blob/mast
 * Producer nodes are sensitive assets as they need access to signing keys, hence are usually run behind _relay nodes_ in order to increase safety and reduce the risk of DoS or other malicious activities
 * Nodes are expected to run behind ADSL or cable boxes, firewalls, or in other complex networking settings preventing nodes to be _addressed_ directly, hence the need for nodes to _initiate_ connections to externally reachable _relay nodes_, and for _pull-based_ messaging
 
+# Implementations
+
+## Gossip diffusion network
+
 The following diagram is one possible implementation of a pull-based messaging system for Hydra, drawn from a discussion with IOG's networking engineers:
 
 ![Hydra pull-based network](./hydra-pull-based-network.jpg)
+
+## Simple Messaging Network
+
+* Nodes are identified by public keys
+  * Those keys could be published somewhere like standard PGP keys, or retrieved from a well-known source, or passed as initialisation data to the Hydra node
+  * The level of trust given to a key is the responsibility of the node operator
+* Given a public key, one can retrieve an associated IP address
+  * Hydra nodes register their IP address(es) when they join the network "somewhere", signing it through their public key
+  * We could use a mechanism similar to [BitTorrent](http://bittorrent.org/beps/bep_0003.html), whereby nodes can either use _trackers_ to provide peer and head discovery mechanism, or a centralised service someone hosts
+*
