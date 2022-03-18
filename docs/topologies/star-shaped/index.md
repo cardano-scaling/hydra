@@ -1,3 +1,7 @@
+---
+sidebar_label: 'Star-shaped Network'
+---
+
 # Star-Shaped Head Network
 
 :hammer_and_wrench: This document is a work in progress
