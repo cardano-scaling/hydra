@@ -5,6 +5,9 @@
   "scripts": {
     "docusaurus": "docusaurus",
     "start": "docusaurus start",
+    "validate:inputs": "./validate-api.js publish '/' '../hydra-node/golden/ReasonablySized (ClientInput (Tx AlonzoEra)).json'",
+    "validate:outputs": "./validate-api.js subscribe '/' '../hydra-node/golden/ReasonablySized (ServerOutput (Tx AlonzoEra)).json'",
+    "validate": "yarn validate:inputs && yarn validate:outputs",
     "build": "docusaurus build",
     "swizzle": "docusaurus swizzle",
     "deploy": "docusaurus deploy",
@@ -18,6 +21,7 @@
     "@docusaurus/plugin-content-docs": "^2.0.0-beta.17",
     "@docusaurus/preset-classic": "2.0.0-beta.17",
     "@mdx-js/react": "^1.6.22",
+    "asyncapi-validator": "^3.1.1",
     "clsx": "^1.1.1",
     "prism-react-renderer": "^1.2.1",
     "react": "^17.0.1",
