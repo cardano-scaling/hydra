@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <title>Hydraw</title>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" type="image/png" href="/logo.png" />
+    <script src="https://unpkg.com/cbor-web"></script>
+    <script src="https://unpkg.com/vanilla-picker@2"></script>
+    <link rel="stylesheet" href="style.css" type="text/css">
+  </head>
+  <body>
+    <header>
+      <img width=100 src="logo.png" />
+      <h1>Hydraw</h1>
+    </header>
+    <div id="current-color-wrapper">
+      <span>Color: </span><span id="current-color"></span>
+    </div>
+    <canvas class="canvas">
+      Here should be pixels
+    </canvas>
+    <script>
+      ;(() => {
+        const canvas = document.querySelector('canvas');
+        const size = Math.min(window.innerHeight, window.innerWidth);
+        canvas.width = 0.7 * size;
+        canvas.height = 0.7 * size;
+      })();
+    </script>
+    <footer>
+      Powered by <img width=32 src="https://ucarecdn.com/9d697897-6aec-4664-801d-e432df594520/-/format/webp/-/resize/100/" /> + <img width=32 src="https://input-output-hk.github.io/hydra-poc/img/hydra.png" />
+    </footer>
+    <script src="bundle.js"></script>
+  </body>
+</html>

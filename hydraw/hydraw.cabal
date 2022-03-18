@@ -1,0 +1,105 @@
+cabal-version: 2.2
+name:          hydraw
+version:       0.0.1
+build-type:    Simple
+
+common project-config
+  default-language:   Haskell2010
+  default-extensions:
+    NoImplicitPrelude
+    BangPatterns
+    BinaryLiterals
+    ConstraintKinds
+    DataKinds
+    DefaultSignatures
+    DeriveAnyClass
+    DeriveDataTypeable
+    DeriveFoldable
+    DeriveFunctor
+    DeriveGeneric
+    DeriveTraversable
+    DerivingStrategies
+    EmptyDataDecls
+    ExistentialQuantification
+    FlexibleContexts
+    FlexibleInstances
+    FunctionalDependencies
+    GADTs
+    GeneralizedNewtypeDeriving
+    InstanceSigs
+    KindSignatures
+    LambdaCase
+    MultiParamTypeClasses
+    MultiWayIf
+    NamedFieldPuns
+    NumericUnderscores
+    OverloadedStrings
+    PartialTypeSignatures
+    PatternGuards
+    RankNTypes
+    ScopedTypeVariables
+    StandaloneDeriving
+    TupleSections
+    TypeFamilies
+    TypeSynonymInstances
+    ViewPatterns
+
+library
+  import:          project-config
+  hs-source-dirs:  src
+  exposed-modules: Hydra.Painter
+  build-depends:
+    , aeson
+    , base
+    , cardano-crypto-class
+    , cardano-ledger-alonzo
+    , cardano-ledger-core
+    , cardano-ledger-shelley
+    , cardano-ledger-shelley-ma
+    , containers
+    , hydra-cardano-api
+    , hydra-cluster
+    , hydra-node
+    , hydra-prelude
+    , text
+    , websockets
+
+executable hydraw
+  import:         project-config
+  hs-source-dirs: app
+  main-is:        Main.hs
+  ghc-options:
+    -Wall -Wcompat -Widentities -Wincomplete-record-updates
+    -Wincomplete-uni-patterns -Wpartial-fields -Wredundant-constraints
+    -Wunused-packages -threaded -rtsopts
+
+  build-depends:
+    , base               >=4.7 && <5
+    , http-types
+    , hydra-node
+    , hydra-prelude
+    , io-classes
+    , hydraw
+    , relude
+    , safe
+    , wai
+    , wai-websockets
+    , warp
+    , websockets
+
+executable hydrawer
+  import:         project-config
+  hs-source-dirs: painter
+  main-is:        Main.hs
+  ghc-options:
+    -Wall -Wcompat -Widentities -Wincomplete-record-updates
+    -Wincomplete-uni-patterns -Wpartial-fields -Wredundant-constraints
+    -Wunused-packages -threaded -rtsopts
+
+  build-depends:
+    , base            >=4.7 && <5
+    , hydra-node
+    , hydra-prelude
+    , hydraw
+
+  ghc-options:    -threaded -rtsopts

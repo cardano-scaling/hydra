@@ -10,6 +10,7 @@ packages:
   hydra-cardano-api
   plutus-cbor
   plutus-merkle-tree
+  hydraw
 
 tests: False
 package hydra-cluster
