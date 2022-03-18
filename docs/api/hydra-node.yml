@@ -54,7 +54,7 @@ channels:
           - $ref: "#/components/messages/SnapshotConfirmed"
           - $ref: "#/components/messages/UTxO"
           - $ref: "#/components/messages/InvalidInput"
-          - $ref: "#/components/messages/PostOnChainFailed"
+          - $ref: "#/components/messages/PostTxOnChainFailed"
           - $ref: "#/components/messages/CommandFailed"
 
     publish:
@@ -338,7 +338,7 @@ components:
             $ref: "#/components/schemas/UTxO"
 
     TxSeen:
-      title: TxSeend
+      title: TxSeen
       description: |
         A new transaction was observed inside the head. Note that a node observes its own transactions.
       payload:
@@ -445,8 +445,8 @@ components:
           input:
             type: string
 
-    PostOnChainFailed:
-      title: PostOnChainFailed
+    PostTxOnChainFailed:
+      title: PostTxOnChainFailed
       description: |
         Something wrong happened when trying to post a transaction on-chain. Provides information about what kind of transaction was tentatively posted, and the reason for failure.
       payload:
@@ -500,7 +500,6 @@ components:
       description: |
         The base16-encoding of the CBOR encoding of some binary data
       contentEncoding: base16
-      format: cbor
       example:
         "820082582089ff4f3ff4a6052ec9d073b3be68b5e7596bd74a04e7b74504a8302fb2278cd95840f66eb3cd160372d617411408792c0ebd9791968e9948112894e2706697a55c10296b04019ed2f146f4d81e8ab17b9d14cf99569a2f85cbfa32320127831db202"
 
@@ -535,7 +534,7 @@ components:
             enum: ["ConfirmedSnapshot"]
 
     ContestationPeriod:
-      type: integer
+      type: number
       description: |
         A contestation duration in seconds.
       example: 60
@@ -935,6 +934,10 @@ components:
               patternProperties:
                 "[0-9a-f]+":
                   $ref: "#/components/schemas/Cbor"
+            bootstrap:
+              type: array
+              items:
+                $ref: "#/components/schemas/Cbor"
         auxiliaryData:
           $ref: "#/components/schemas/Cbor"
       example:
@@ -1009,11 +1012,7 @@ components:
           items:
             $ref: "#/components/schemas/Cbor"
         withdrawals:
-          type: array
-          description: >-
-            An array of withdrawal.
-          items:
-            $ref: "#/components/schemas/Withdrawal"
+            $ref: "#/components/schemas/Withdrawals"
         fees:
           type: integer
           minimum: 0
@@ -1127,7 +1126,6 @@ components:
         patternProperties:
           "[0-9a-f]*":
             type: integer
-            minimum: 0
             description: |
               A quantity of a certain asset.
       properties:
@@ -1137,10 +1135,10 @@ components:
           description: |
             A (positive) amount of lovelace
 
-    Withdrawal:
+    Withdrawals:
       type: object
       description: |
-        A withdrawal of some number of coins to some reward address.
+        Mapping of reward addresses to rewards.
       additionalProperties: false
       patternProperties:
         "[0-9a-f]+":
