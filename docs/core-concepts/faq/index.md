@@ -1,3 +1,8 @@
+---
+sidebar_label: "F.A.Q."
+sidebar_position: 99
+---
+
 # Frequently Asked Questions
 
 > And their answers!

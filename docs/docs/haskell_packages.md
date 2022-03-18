@@ -1,3 +1,7 @@
+---
+sidebar_position: 99
+---
+
 # Haskell Packages
 
 The Hydra project is divided into several Haskell packages fulfilling different parts of the protocol. While some packages are internal and specific to the Hydra project, some are quite generic and may be useful to other projects facing similar issues. Regardless, we expose [Haddock](https://www.haskell.org/haddock/) documentation for all of them. 

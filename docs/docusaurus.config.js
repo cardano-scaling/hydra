@@ -26,7 +26,6 @@ const config = {
       /** @type {import('@docusaurus/preset-classic').Options} */
       ({
         docs: {
-          sidebarPath: require.resolve('./_sidebars/docs.js'),
           editUrl: 'https://github.com/input-output-hk/hydra-poc/tree/master/docs/docs'
         },
         blog: {
@@ -53,7 +52,6 @@ const config = {
         id: 'core-concepts',
         path: 'core-concepts',
         routeBasePath: 'core-concepts',
-        sidebarPath: require.resolve('./_sidebars/core-concepts.js'),
         editUrl: 'https://github.com/input-output-hk/hydra-poc/tree/master/docs/core-concepts'
       })
     ],
@@ -64,7 +62,6 @@ const config = {
         id: 'topologies',
         path: 'topologies',
         routeBasePath: 'topologies',
-        sidebarPath: require.resolve('./_sidebars/topologies.js'),
         editUrl: 'https://github.com/input-output-hk/hydra-poc/tree/master/docs/topologies'
       }),
     ],
