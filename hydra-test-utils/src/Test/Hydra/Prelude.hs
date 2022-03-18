@@ -148,7 +148,7 @@ reasonablySized = scale (ceiling . sqrt @Double . fromIntegral)
 
 -- | A QuickCheck modifier to make use of `reasonablySized` on existing types.
 newtype ReasonablySized a = ReasonablySized a
-  deriving newtype (Show)
+  deriving newtype (Show, ToJSON, FromJSON)
 
 instance Arbitrary a => Arbitrary (ReasonablySized a) where
   arbitrary = ReasonablySized <$> reasonablySized arbitrary
