@@ -7,7 +7,7 @@ const darkCodeTheme = require('prism-react-renderer/themes/dracula');
 /** @type {import('@docusaurus/types').Config} */
 const config = {
   title: 'Hydra: Head Protocol',
-  tagline: 'User Manual, core concepts and API reference.',
+  tagline: 'User Manual, Core Concepts and API Reference',
   url: 'https://input-output-hk.github.io',
   baseUrl: '/head-protocol/',
   onBrokenLinks: 'throw',
