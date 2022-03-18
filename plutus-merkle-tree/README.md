@@ -1,4 +1,4 @@
-# Plutus Merkle Tree [![](https://img.shields.io/badge/haddock-1.0.0-blue?style=for-the-badge&logo=haskell)](https://input-output-hk.github.io/hydra-poc/haddock/plutus-merkle-tree/Plutus-MerkleTree.html)
+# Plutus Merkle Tree [![](https://img.shields.io/badge/haddock-1.0.0-blue?style=for-the-badge&logo=haskell)](https://input-output-hk.github.io/hydra-poc/head-protocol/haddock/plutus-merkle-tree/Plutus-MerkleTree.html)
 
 A Plutus-compatible implementation of Merkle tree data-structure for compact membership checking. 
 
