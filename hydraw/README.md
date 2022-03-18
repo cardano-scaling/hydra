@@ -25,7 +25,7 @@ The frontend is written in vanilla HTML/CSS/JS and is dynamically served from th
 
 # Run
 
-All command from within `pixel-painting/` and assuming your Hydra API host+port is `hydra.example.io:4001` and your cardano signing key is `cardano.sk`:
+All command from within `hydraw/` and assuming your Hydra API host+port is `hydra.example.io:4001` and your cardano signing key is `cardano.sk`:
 
 Edit the API endpoint in the `bundle.js` to your API host+port, e.g.
 
@@ -33,8 +33,8 @@ Edit the API endpoint in the `bundle.js` to your API host+port, e.g.
 const HYDRA_API_HOST = "hydra.example.io:4001";
 ```
 
-Launching the pixel-painting bridge (assumes current directory is the `pixel-painting` directory):
+Launching the hydraw bridge (assumes current directory is the `hydraw` directory):
 
 ``` sh
-HYDRA_API_HOST=hydra.example.io:4001 HYDRA_SIGNING_KEY=cardano.sk cabal exec pixel-painting
+HYDRA_API_HOST=hydra.example.io:4001 HYDRA_SIGNING_KEY=cardano.sk cabal exec hydraw
 ```

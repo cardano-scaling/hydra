@@ -1,5 +1,5 @@
 cabal-version: 2.2
-name:          pixel-painting
+name:          hydraw
 version:       0.0.1
 build-type:    Simple
 
@@ -64,7 +64,7 @@ library
     , text
     , websockets
 
-executable pixel-painting
+executable hydraw
   import:         project-config
   hs-source-dirs: app
   main-is:        Main.hs
@@ -79,7 +79,7 @@ executable pixel-painting
     , hydra-node
     , hydra-prelude
     , io-classes
-    , pixel-painting
+    , hydraw
     , relude
     , safe
     , wai
@@ -87,7 +87,7 @@ executable pixel-painting
     , warp
     , websockets
 
-executable hydra-painter
+executable hydrawer
   import:         project-config
   hs-source-dirs: painter
   main-is:        Main.hs
@@ -100,6 +100,6 @@ executable hydra-painter
     , base            >=4.7 && <5
     , hydra-node
     , hydra-prelude
-    , pixel-painting
+    , hydraw
 
   ghc-options:    -threaded -rtsopts
