@@ -58,7 +58,6 @@ let
       hydra-test-utils
       hydra-tui
       hydra-cardano-api
-      merkle-patricia-tree
       plutus-cbor
       plutus-merkle-tree
     ];

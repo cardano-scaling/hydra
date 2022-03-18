@@ -8,7 +8,6 @@ packages:
   hydra-test-utils
   hydra-tui
   hydra-cardano-api
-  merkle-patricia-tree
   plutus-cbor
   plutus-merkle-tree
 
@@ -25,9 +24,6 @@ package hydra-plutus
   haddock-options: "--optghc=-fplugin-opt PlutusTx.Plugin:defer-errors"
 
 package hydra-tui
-  tests: True
-
-package merkle-patricia-tree
   tests: True
 
 package plutus-cbor

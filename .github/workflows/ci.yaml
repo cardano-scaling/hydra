@@ -97,7 +97,7 @@ jobs:
     # NOTE: We do not check the 'docs' folder because links in markdown are already checked and handled by Docusaurus.
     - uses: gaurav-nelson/github-action-markdown-link-check@v1
       with:
-        folder-path: "hydra-cardano-api, hydra-cluster, hydra-node, hydra-plutus, hydra-prelude, hydra-test-utils, hydra-tui, merkle-patricia-tree, plutus-cbor, plutus-merkle-tree"
+        folder-path: "hydra-cardano-api, hydra-cluster, hydra-node, hydra-plutus, hydra-prelude, hydra-test-utils, hydra-tui, plutus-cbor, plutus-merkle-tree"
     - uses: gaurav-nelson/github-action-markdown-link-check@v1
       with:
         folder-path: "."
