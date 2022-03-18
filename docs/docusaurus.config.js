@@ -55,6 +55,17 @@ const config = {
         routeBasePath: 'core-concepts',
         sidebarPath: require.resolve('./_sidebars/core-concepts.js'),
         editUrl: 'https://github.com/input-output-hk/hydra-poc/tree/master/docs/core-concepts'
+      })
+    ],
+    [
+      'content-docs',
+      /** @type {import('@docusaurus/plugin-content-docs').Options} */
+      ({
+        id: 'topologies',
+        path: 'topologies',
+        routeBasePath: 'topologies',
+        sidebarPath: require.resolve('./_sidebars/topologies.js'),
+        editUrl: 'https://github.com/input-output-hk/hydra-poc/tree/master/docs/topologies'
       }),
     ],
   ],
@@ -78,6 +89,11 @@ const config = {
           {
             to: '/core-concepts',
             label: 'Core Concepts',
+            position: 'left',
+          },
+          {
+            to: '/topologies',
+            label: 'Topologies',
             position: 'left',
           },
           {

@@ -21,7 +21,7 @@ the Cardano blockchain and provides an API to clients such as the included
 terminal user interface `hydra-tui`.
 
 > :warning: :warning: :warning:
-> 
+>
 > This is still prototypical and exploratory work shared here for your
 interest.
 >
@@ -37,7 +37,7 @@ docker pull ghcr.io/input-output-hk/hydra-node:latest
 docker run --rm ghcr.io/input-output-hk/hydra-node --help
 ```
 
-More information (including a demo) available on [user manual 📖](https://input-output-hk.github.io/hydra-poc/)!
+More information (including a demo) available on [user manual 📖](https://hydra.family/head-protocol/docs/getting-started)!
 
 ## :rainbow: Features
 
@@ -49,9 +49,9 @@ Proof of concept:
 - [x] WebSocket, message-based API Server
 - [x] Terminal user interface client
 - [x] Cardano-node integration via Direct connection
+- [x] Running on testnets and mainnet
 
 Later:
-- [ ] Running on testnets and mainnet
 - [ ] Persisted Head state
 - [ ] Multiple Heads per hydra-node, managed via API
 - [ ] Support for external wallets (e.g. hardware wallets)
