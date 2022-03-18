@@ -61,7 +61,7 @@ Later:
 ## :handshake: Contributing
 
 The best way to contribute right now is to provide feedback. Give the
-[demo](./demo) a test drive and have a look at our [documentation](./docs).
+[demo](./demo) a test drive and have a look at our [documentation](https://hydra.family/head-protocol).
 Should you have any questions, ideas or issues, we would like to hear from you:
 
 - #ask-hydra on the IOG [Discord server](https://discord.gg/Qq5vNTg9PT)
