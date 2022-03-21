@@ -49,10 +49,11 @@ Proof of concept:
 - [x] WebSocket, message-based API Server
 - [x] Terminal user interface client
 - [x] Cardano-node integration via Direct connection
-- [x] Running on testnets and mainnet
+- [x] Running on testnet
 
 Later:
 - [ ] Persisted Head state
+- [ ] Audited and mainnet ready
 - [ ] Multiple Heads per hydra-node, managed via API
 - [ ] Support for external wallets (e.g. hardware wallets)
 - [ ] Optimistic Head closure and incremental de-/commit protocol extension
