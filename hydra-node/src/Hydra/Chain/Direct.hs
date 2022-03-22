@@ -177,26 +177,28 @@ withDirectChain tracer networkId iocp socketPath keyPair party cardanoKeys callb
                   traceWith tracer $ ToPost tx
                   -- XXX(SN): 'finalizeTx' retries until a payment utxo is
                   -- found. See haddock for details
-                  timeoutThrowAfter (NoPaymentInput @Tx) 10 $
-                    -- FIXME (MB): 'cardanoKeys' should really not be here. They
-                    -- are only required for the init transaction and ought to
-                    -- come from the _client_ and be part of the init request
-                    -- altogether. This goes in the direction of 'dynamic
-                    -- heads' where participants aren't known upfront but
-                    -- provided via the API. Ultimately, an init request from
-                    -- a client would contain all the details needed to
-                    -- establish connection to the other peers and to
-                    -- bootstrap the init transaction.
-                    -- For now, we bear with it and keep the static keys in
-                    -- context.
-                    fromPostChainTx cardanoKeys wallet headState tx
-                      >>= finalizeTx wallet headState . toLedgerTx
-                      >>= \vtx -> do
-                        response <- newEmptyTMVar
-                        writeTQueue queue (vtx, response)
-                        takeTMVar response >>= \case
-                          Nothing -> pure ()
-                          Just err -> throwIO err
+                  response <-
+                    timeoutThrowAfter (NoPaymentInput @Tx) 10 $
+                      -- FIXME (MB): 'cardanoKeys' should really not be here. They
+                      -- are only required for the init transaction and ought to
+                      -- come from the _client_ and be part of the init request
+                      -- altogether. This goes in the direction of 'dynamic
+                      -- heads' where participants aren't known upfront but
+                      -- provided via the API. Ultimately, an init request from
+                      -- a client would contain all the details needed to
+                      -- establish connection to the other peers and to
+                      -- bootstrap the init transaction.
+                      -- For now, we bear with it and keep the static keys in
+                      -- context.
+                      fromPostChainTx cardanoKeys wallet headState tx
+                        >>= finalizeTx wallet headState . toLedgerTx
+                        >>= \vtx -> do
+                          response <- newEmptyTMVar
+                          writeTQueue queue (vtx, response)
+                          return response
+                  atomically (takeTMVar response) >>= \case
+                    Nothing -> pure ()
+                    Just err -> throwIO err
               }
       )
       ( handle onIOException $
@@ -210,7 +212,7 @@ withDirectChain tracer networkId iocp socketPath keyPair party cardanoKeys callb
   timeoutThrowAfter ex s stm = do
     timeout s (atomically stm) >>= \case
       Nothing -> throwIO ex
-      Just _ -> pure ()
+      Just a -> pure a
 
   onIOException :: IOException -> IO ()
   onIOException ioException =
@@ -365,17 +367,18 @@ txSubmissionClient tracer queue =
   clientStIdle = do
     (tx, response) <- atomically $ readTQueue queue
     traceWith tracer (PostingTx (getTxId tx, tx))
-    pure $ SendMsgSubmitTx
-      (GenTxAlonzo . mkShelleyTx $ tx)
-      ( \case
-          SubmitSuccess -> do
-            traceWith tracer (PostedTx (getTxId tx))
-            atomically (putTMVar response Nothing)
-            clientStIdle
-          SubmitFail reason -> do
-            atomically (putTMVar response (Just $ onFail reason))
-            clientStIdle
-      )
+    pure $
+      SendMsgSubmitTx
+        (GenTxAlonzo . mkShelleyTx $ tx)
+        ( \case
+            SubmitSuccess -> do
+              traceWith tracer (PostedTx (getTxId tx))
+              atomically (putTMVar response Nothing)
+              clientStIdle
+            SubmitFail reason -> do
+              atomically (putTMVar response (Just $ onFail reason))
+              clientStIdle
+        )
 
   -- XXX(SN): patch-work error pretty printing on single plutus script failures
   onFail err =
