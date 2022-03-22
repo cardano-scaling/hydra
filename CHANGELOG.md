@@ -8,28 +8,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 As a minor extension, we also keep a semantic version for the `UNRELEASED`
 changes.
 
-## [0.4.0] - UNRELEASED
+## [0.4.0] - 2022-03-23
 
 #### Added
 
+- Our [user manual 📖](https://hydra.family/head-protocol) is now available! It includes installation and usage instructions, a full API reference and also a knowledge base about Hydra concepts. The manual will be an ever-evolving source of documentation that we'll maintain alongside the project. 
 - Support multiple Heads per Cardano network by identifying and distinguishing transactions of individual Head instances [#180](https://github.com/input-output-hk/hydra-poc/issues/180).
-- Mint and burn state token used to thread state across the OCV state machine, and participation tokens for each party in the head [#181](https://github.com/input-output-hk/hydra-poc/issues/181).
+- Mint and burn state token used to thread state across the OCV state machine, and participation tokens for each party in the head [#181](https://github.com/input-output-hk/hydra-poc/issues/181)
 - Provide (mandatory) command-line options `--ledger-genesis` and `--ledger-protocol-parameters` to configure the ledger that runs _inside a head_. Options are provided as filepath to JSON files which match formats from `cardano-cli` and `cardano-node` [#180](https://github.com/input-output-hk/hydra-poc/issues/180).
+- Created [hydra-cardano-api](https://hydra.family/head-protocol/haddock/hydra-cardano-api/) as wrapper around [cardano-api](https://github.com/input-output-hk/cardano-node/tree/master/cardano-api#cardano-api) specialized to the latest Cardano's era, and with useful extra utility functions. 
+- Wrapped up work on [plutus-cbor](https://hydra.family/head-protocol/haddock/plutus-cbor) and [plutus-merkle-tree](https://hydra.family/head-protocol/haddock/plutus-merkle-tree) to bring them into a releasable first version; including full test coverage and low-level Plutus code benchmarks.
+- Two new architectural decision records:
+  - [ADR-0014: Token usage in Hydra Scripts](https://hydra.family/head-protocol/adr/14)
+  - [ADR-0015: Configuration Through an Admin API](https://hydra.family/head-protocol/adr/15)
+- The result of our 3-day hackathon in Lyon is now available as [Hydraw](https://github.com/input-output-hk/hydra-poc/tree/master/hydraw#readme), an example of a Hydra-DApp that we wrote to better understand the challenges that come from setting up a Hydra head and using a Hydra node. **Important Disclaimer:** this project is a 3-day hackathon with very low emphasis on quality, but with the end goal of _getting something done_.
 
 #### Changed
 
-- Use a faucet to distribute funds in test suites and the `demo/` setup.
 - `--network-magic` option for the `hydra-node` and `hydra-tui` has been changed to `--network-id`. Also, the `hydra-tui` command-line used to default to mainnet when not provided with any `--network-magic` option, it doesn't anymore, `--network-id` is mandatory. [#180](https://github.com/input-output-hk/hydra-poc/issues/180)
+- Optimize the `CollectCom` transition of the on-chain Hydra contract to allow collecting commits from more than 2 parties! [#254](https://github.com/input-output-hk/hydra-poc/issues/254)
+- Use a faucet to distribute funds in test suites and the `demo/` setup.
+- Internally, better decouple the management of the on-chain head state from the network component. While not visible to the end user, this improvement paves the way for better handling rollbacks and on-chain _"instability"_ of newly posted transactions. [#184](https://github.com/input-output-hk/hydra-poc/issues/184)
+- Internally, improved and consolidate generators used for property-based testing to cover a wider range of cases, be more consistent and also faster (avoiding to generate too large nested data-structures). 
+- Various UX improvements to the TUI, in particular regarding user inputs validation. 
 
 #### Fixed
 
-- `Hydra.Network.Ouroboros` not using hard-coded valency values anymore to allow
-  more than 7 peer connections.
+- `Hydra.Network.Ouroboros` not using hard-coded valency values anymore to allow more than 7 peer connections [#203]((https://github.com/input-output-hk/hydra-poc/issues/203).
 - Build issues due to explicit packages list in nix shell [#223](https://github.com/input-output-hk/hydra-poc/issues/223).
-- `hydra-tui` to show form focus, indicate invalid fields in dialogs and only allow valid values
-  to be submitted [#224](https://github.com/input-output-hk/hydra-poc/issues/224).
+- `hydra-tui` to show form focus, indicate invalid fields in dialogs and only allow valid values to be submitted [#224](https://github.com/input-output-hk/hydra-poc/issues/224).
+- Repaired benchmarks and improved collected metrics; in particular, benchmarks now collect CPU usage and provide average confirmation times over 5s windows. 
+- Fixed a bug in the Fanout transaction scheduling and submission where clients would attempt to post a fanout transaction before a 'Close' transaction is even observed. Now, every participant of the head will attempt to post a fanout a transaction after they successfully observed a transaction. Of course, the layer 1 will enforce that only one fanout is posted [#279](https://github.com/input-output-hk/hydra-poc/issues/279).
 
-## [0.3.0] - 2022-02-22
+## [0.3.0] - 2022-02-02
 
 #### Added
 
