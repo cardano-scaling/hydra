@@ -1,3 +1,4 @@
+{-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE TypeApplications #-}
 
 -- | Unit tests of the the protocol logic in 'HeadLogic'. These are very fine
@@ -10,7 +11,7 @@ import Hydra.Prelude
 import Test.Hydra.Prelude
 
 import qualified Data.Set as Set
-import Hydra.Chain (HeadParameters (HeadParameters), OnChainTx (OnAbortTx, OnCloseTx, OnCollectComTx))
+import Hydra.Chain (HeadParameters (..), OnChainTx (OnAbortTx, OnCloseTx, OnCollectComTx))
 import Hydra.HeadLogic (
   CoordinatedHeadState (..),
   Effect (..),
@@ -207,9 +208,22 @@ spec = do
 
       it "any node should post FanoutTx when observing on-chain CloseTx" $ do
         let s0 = inOpenState threeParties ledger
-            secondReqSn = OnChainEvent $ OnCloseTx 0
+            closeTx = OnChainEvent $ OnCloseTx 0
 
-        update env ledger s0 secondReqSn `shouldBe` Error (InvalidEvent secondReqSn s0)
+        let shouldPostFanout =
+              Delay
+                { delay = case s0 of
+                    OpenState{parameters = HeadParameters{contestationPeriod}} ->
+                      contestationPeriod
+                    _ ->
+                      error "inOpenState: not OpenState?"
+                , reason =
+                    WaitOnContestationPeriod
+                , event =
+                    ShouldPostFanout
+                }
+
+        update env ledger s0 closeTx `hasEffect_` shouldPostFanout
 
 --
 -- Assertion utilities
