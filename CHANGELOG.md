@@ -21,7 +21,6 @@ changes.
 - Two new architectural decision records:
   - [ADR-0014: Token usage in Hydra Scripts](https://hydra.family/head-protocol/adr/14)
   - [ADR-0015: Configuration Through an Admin API](https://hydra.family/head-protocol/adr/15)
-- The result of our 3-day hackathon in Lyon is now available as [Hydraw](https://github.com/input-output-hk/hydra-poc/tree/master/hydraw#readme), an example of a Hydra-DApp that we wrote to better understand the challenges that come from setting up a Hydra head and using a Hydra node. **Important Disclaimer:** this project is a 3-day hackathon with very low emphasis on quality, but with the end goal of _getting something done_.
 
 #### Changed
 
@@ -30,11 +29,10 @@ changes.
 - Use a faucet to distribute funds in test suites and the `demo/` setup.
 - Internally, better decouple the management of the on-chain head state from the network component. While not visible to the end user, this improvement paves the way for better handling rollbacks and on-chain _"instability"_ of newly posted transactions. [#184](https://github.com/input-output-hk/hydra-poc/issues/184)
 - Internally, improved and consolidate generators used for property-based testing to cover a wider range of cases, be more consistent and also faster (avoiding to generate too large nested data-structures). 
-- Various UX improvements to the TUI, in particular regarding user inputs validation. 
 
 #### Fixed
 
-- `Hydra.Network.Ouroboros` not using hard-coded valency values anymore to allow more than 7 peer connections [#203]((https://github.com/input-output-hk/hydra-poc/issues/203).
+- `Hydra.Network.Ouroboros` not using hard-coded valency values anymore to allow more than 7 peer connections [#203](https://github.com/input-output-hk/hydra-poc/issues/203).
 - Build issues due to explicit packages list in nix shell [#223](https://github.com/input-output-hk/hydra-poc/issues/223).
 - `hydra-tui` to show form focus, indicate invalid fields in dialogs and only allow valid values to be submitted [#224](https://github.com/input-output-hk/hydra-poc/issues/224).
 - Repaired benchmarks and improved collected metrics; in particular, benchmarks now collect CPU usage and provide average confirmation times over 5s windows. 
