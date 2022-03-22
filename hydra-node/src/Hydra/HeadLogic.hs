@@ -220,10 +220,9 @@ update Environment{party, signingKey, otherParties} ledger st ev = case (st, ev)
   (InitialState _ _ committed, OnChainEvent OnAbortTx{}) ->
     nextState ReadyState [ClientEffect $ HeadIsAborted $ fold committed]
   --
-  (OpenState HeadParameters{contestationPeriod} CoordinatedHeadState{confirmedSnapshot}, ClientEvent Close) ->
+  (OpenState _parameters CoordinatedHeadState{confirmedSnapshot}, ClientEvent Close) ->
     sameState
       [ OnChainEffect (CloseTx confirmedSnapshot)
-      , Delay contestationPeriod WaitOnContestationPeriod ShouldPostFanout
       ]
   --
   (OpenState _ CoordinatedHeadState{confirmedSnapshot}, ClientEvent GetUTxO) ->
