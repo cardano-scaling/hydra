@@ -2,10 +2,13 @@
 
 const AsyncApiValidator = require('asyncapi-validator');
 const fs = require('fs');
+const path = require('path');
 const assert = require('assert');
+const { customFields } = require('./docusaurus.config.js')
 
 async function main() {
-  const validator = await AsyncApiValidator.fromSource('api/hydra-node.yml', { msgIdentifier: 'title' });
+  const specFile = path.join(customFields.apiSpecDir, customFields.apiSpecUrl);
+  const validator = await AsyncApiValidator.fromSource(specFile, { msgIdentifier: 'title' });
   const [_node, _script, operation, channel, golden, stopAtFirst] = process.argv;
   const examples = JSON.parse(fs.readFileSync(golden));
 

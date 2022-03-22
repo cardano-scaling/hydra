@@ -4,6 +4,11 @@
 const lightCodeTheme = require('prism-react-renderer/themes/github');
 const darkCodeTheme = require('prism-react-renderer/themes/dracula');
 
+const customFields = {
+  apiSpecDir: '../hydra-node/json-schemas',
+  apiSpecUrl: 'api.yaml',
+};
+
 /** @type {import('@docusaurus/types').Config} */
 const config = {
   title: 'Hydra: Head Protocol',
@@ -15,10 +20,8 @@ const config = {
   favicon: 'img/hydra.png',
   organizationName: 'Input Output',
   projectName: 'Hydra',
-  staticDirectories: ['static', '../hydra-node/json-schemas'],
-  customFields: {
-    apiSpecUrl: 'api.yaml',
-  },
+  staticDirectories: ['static', customFields.apiSpecDir],
+  customFields,
 
   presets: [
     [
