@@ -132,7 +132,7 @@ spec =
                     & label (show (valueSize $ foldMap txOutValue inHeadUTxO) <> " Assets")
                     & counterexample ("Redeemer report: " <> show redeemerReport)
                     & counterexample ("Tx: " <> toString (renderTx tx))
-                    & cover 0.8 True "Success"
+                    & cover 80 True "Success"
 
     describe "abortTx" $ do
       prop "validates" $
@@ -167,7 +167,7 @@ spec =
                           & counterexample ("Redeemer report: " <> show redeemerReport)
                           & counterexample ("Tx: " <> toString (renderTx tx))
                           & counterexample ("Input utxo: " <> decodeUtf8 (encodePretty utxo))
-                          & cover 0.8 True "Success"
+                          & cover 80 True "Success"
 
       prop "cover fee correctly handles redeemers" $
         withMaxSuccess 60 $ \txIn cperiod (party :| parties) cardanoKeys walletUTxO ->

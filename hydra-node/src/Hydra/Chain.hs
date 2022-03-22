@@ -80,7 +80,7 @@ data OnChainTx tx
   | OnCommitTx {party :: Party, committed :: UTxOType tx}
   | OnAbortTx
   | OnCollectComTx
-  | OnCloseTx {contestationDeadline :: UTCTime, snapshotNumber :: SnapshotNumber}
+  | OnCloseTx {snapshotNumber :: SnapshotNumber}
   | OnContestTx
   | OnFanoutTx
   deriving (Generic)

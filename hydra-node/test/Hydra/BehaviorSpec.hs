@@ -45,7 +45,7 @@ import Hydra.Party (Party, SigningKey, aggregate, deriveParty, sign)
 import Hydra.ServerOutput (ServerOutput (..))
 import Hydra.Snapshot (Snapshot (..), getSnapshot)
 import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
-import Test.Util (shouldBe, shouldNotBe, shouldReturn, shouldRunInSim, shouldSatisfy, traceInIOSim)
+import Test.Util (shouldBe, shouldNotBe, shouldReturn, shouldRunInSim, traceInIOSim)
 
 spec :: Spec
 spec = parallel $ do
@@ -405,7 +405,7 @@ data ConnectToChain tx m = ConnectToChain
 -- patch" a 'HydraNode' such that it is connected. This is necessary, to get to
 -- know all nodes which use this function and simulate network and chain
 -- messages being sent around.
-simulatedChainAndNetwork :: (MonadSTM m, MonadTime m) => m (ConnectToChain tx m)
+simulatedChainAndNetwork :: (MonadSTM m) => m (ConnectToChain tx m)
 simulatedChainAndNetwork = do
   refHistory <- newTVarIO []
   nodes <- newTVarIO []
@@ -429,8 +429,7 @@ simulatedChainAndNetwork = do
     case res of
       Nothing -> pure ()
       Just ns -> do
-        time <- getCurrentTime
-        mapM_ (`handleChainTx` toOnChainTx time tx) ns
+        mapM_ (`handleChainTx` toOnChainTx tx) ns
 
   broadcast node nodes msg = do
     allNodes <- readTVarIO nodes
@@ -442,16 +441,15 @@ simulatedChainAndNetwork = do
 -- | Derive an 'OnChainTx' from 'PostChainTx' to simulate a "perfect" chain.
 -- NOTE(SN): This implementation does *NOT* honor the 'HeadParameters' and
 -- announces hard-coded contestationDeadlines.
-toOnChainTx :: UTCTime -> PostChainTx tx -> OnChainTx tx
-toOnChainTx currentTime = \case
+toOnChainTx :: PostChainTx tx -> OnChainTx tx
+toOnChainTx = \case
   InitTx HeadParameters{contestationPeriod, parties} -> OnInitTx{contestationPeriod, parties}
   (CommitTx pa ut) -> OnCommitTx pa ut
   AbortTx{} -> OnAbortTx
   CollectComTx{} -> OnCollectComTx
   (CloseTx confirmedSnapshot) ->
     OnCloseTx
-      { contestationDeadline = addUTCTime 10 currentTime
-      , snapshotNumber = number (getSnapshot confirmedSnapshot)
+      { snapshotNumber = number (getSnapshot confirmedSnapshot)
       }
   ContestTx{} -> OnContestTx
   FanoutTx{} -> OnFanoutTx
@@ -503,15 +501,13 @@ matchFanout = \case
   FanoutTx{} -> True
   _ -> False
 
-assertHeadIsClosed :: (HasCallStack, MonadThrow m, MonadTime m) => ServerOutput tx -> m ()
+assertHeadIsClosed :: (HasCallStack, MonadThrow m) => ServerOutput tx -> m ()
 assertHeadIsClosed = \case
-  HeadIsClosed{contestationDeadline} -> do
-    getCurrentTime >>= \t -> contestationDeadline `shouldSatisfy` (> t)
+  HeadIsClosed{} -> pure ()
   _ -> failure "expected HeadIsClosed"
 
-assertHeadIsClosedWith :: (HasCallStack, MonadThrow m, MonadTime m, IsTx tx) => Snapshot tx -> ServerOutput tx -> m ()
+assertHeadIsClosedWith :: (HasCallStack, MonadThrow m, IsTx tx) => Snapshot tx -> ServerOutput tx -> m ()
 assertHeadIsClosedWith expectedSnapshot = \case
-  HeadIsClosed{contestationDeadline, latestSnapshot} -> do
-    getCurrentTime >>= \t -> contestationDeadline `shouldSatisfy` (> t)
+  HeadIsClosed{latestSnapshot} -> do
     latestSnapshot `shouldBe` expectedSnapshot
   _ -> failure "expected HeadIsClosed"
