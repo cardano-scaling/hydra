@@ -28,7 +28,17 @@ import Cardano.Ledger.Shelley.Rules.Ledger (LedgerPredicateFailure (UtxowFailure
 import Cardano.Ledger.Shelley.Rules.Utxow (UtxowPredicateFailure (UtxoFailure))
 import Control.Exception (IOException)
 import Control.Monad (foldM)
-import Control.Monad.Class.MonadSTM (newTQueueIO, newTVarIO, readTQueue, retry, writeTQueue, writeTVar)
+import Control.Monad.Class.MonadSTM (
+  newEmptyTMVar,
+  newTQueueIO,
+  newTVarIO,
+  putTMVar,
+  readTQueue,
+  retry,
+  takeTMVar,
+  writeTQueue,
+  writeTVar,
+ )
 import Control.Monad.Class.MonadTimer (timeout)
 import Control.Tracer (nullTracer)
 import Data.Aeson (Value (String), object, (.=))
@@ -181,7 +191,12 @@ withDirectChain tracer networkId iocp socketPath keyPair party cardanoKeys callb
                     -- context.
                     fromPostChainTx cardanoKeys wallet headState tx
                       >>= finalizeTx wallet headState . toLedgerTx
-                      >>= writeTQueue queue
+                      >>= \vtx -> do
+                        response <- newEmptyTMVar
+                        writeTQueue queue (vtx, response)
+                        takeTMVar response >>= \case
+                          Nothing -> pure ()
+                          Just err -> throwIO err
               }
       )
       ( handle onIOException $
@@ -218,7 +233,7 @@ instance Exception ConnectException
 client ::
   (MonadST m, MonadTimer m) =>
   Tracer m DirectChainLog ->
-  TQueue m (ValidatedTx Era) ->
+  TQueue m (ValidatedTx Era, TMVar m (Maybe (PostTxError Tx))) ->
   TVar m SomeOnChainHeadState ->
   ChainCallback Tx m ->
   NodeToClientVersion ->
@@ -339,23 +354,23 @@ chainSyncClient tracer callback headState =
 
 txSubmissionClient ::
   forall m.
-  MonadSTM m =>
+  (MonadSTM m, MonadThrow m) =>
   Tracer m DirectChainLog ->
-  TQueue m (ValidatedTx Era) ->
+  TQueue m (ValidatedTx Era, TMVar m (Maybe (PostTxError Tx))) ->
   LocalTxSubmissionClient (GenTx Block) (ApplyTxErr Block) m ()
 txSubmissionClient tracer queue =
   LocalTxSubmissionClient clientStIdle
  where
   clientStIdle :: m (LocalTxClientStIdle (GenTx Block) (ApplyTxErr Block) m ())
   clientStIdle = do
-    tx <- atomically $ readTQueue queue
+    (tx, response) <- atomically $ readTQueue queue
     traceWith tracer (PostingTx (getTxId tx, tx))
     pure $
       SendMsgSubmitTx
         (GenTxAlonzo . mkShelleyTx $ tx)
         ( \case
-            SubmitFail reason -> traceWith tracer (onFail reason) >> clientStIdle
-            SubmitSuccess -> traceWith tracer (PostedTx (getTxId tx)) >> clientStIdle
+            SubmitFail reason -> atomically (putTMVar response (Just $ onFail reason)) >> clientStIdle
+            SubmitSuccess -> traceWith tracer (PostedTx (getTxId tx)) >> atomically (putTMVar response Nothing) >> clientStIdle
         )
 
   -- XXX(SN): patch-work error pretty printing on single plutus script failures
@@ -366,7 +381,7 @@ txSubmissionClient tracer queue =
    where
     failedToPostTx = FailedToPostTx{failureReason = show err}
 
-  unwrapPlutus :: LedgerPredicateFailure Era -> Maybe DirectChainLog
+  unwrapPlutus :: LedgerPredicateFailure Era -> Maybe (PostTxError Tx)
   unwrapPlutus = \case
     UtxowFailure (WrappedShelleyEraFailure (UtxoFailure (UtxosFailure (ValidationTagMismatch _ (FailedUnexpectedly [PlutusFailure plutusFailure debug]))))) ->
       Just $ PlutusValidationFailed{plutusFailure, plutusDebugInfo = show (debugPlutus PlutusV1 (decodeUtf8 debug))}
@@ -474,10 +489,6 @@ data DirectChainLog
   = ToPost {toPost :: PostChainTx Tx}
   | PostingTx {postedTx :: (TxId StandardCrypto, ValidatedTx Era)}
   | PostedTx {postedTxId :: TxId StandardCrypto}
-  | FailedToPostTx {failureReason :: Text}
-  | -- NOTE: PlutusDebugInfo does not have much available instances so we put it in Text
-    -- form but it's lame
-    PlutusValidationFailed {plutusFailure :: Text, plutusDebugInfo :: Text}
   | ReceivedTxs {onChainTxs :: [OnChainTx Tx], receivedTxs :: [(TxId StandardCrypto, ValidatedTx Era)]}
   | RolledBackward {point :: SomePoint}
   | Wallet TinyWalletLog
@@ -502,17 +513,6 @@ instance ToJSON DirectChainLog where
       object
         [ "tag" .= String "PostedTx"
         , "postedTxId" .= postedTxId
-        ]
-    FailedToPostTx{failureReason} ->
-      object
-        [ "tag" .= String "FailedToPostTx"
-        , "failureReason" .= failureReason
-        ]
-    PlutusValidationFailed{plutusFailure, plutusDebugInfo} ->
-      object
-        [ "tag" .= String "PlutusValidationFailed"
-        , "plutusFailure" .= plutusFailure
-        , "plutusDebugInfo" .= plutusDebugInfo
         ]
     ReceivedTxs{onChainTxs, receivedTxs} ->
       object

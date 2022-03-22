@@ -99,6 +99,10 @@ data PostTxError tx
   | CannotSpendInput {input :: Text, walletUTxO :: UTxOType tx, headUTxO :: UTxOType tx}
   | CannotCoverFees {walletUTxO :: UTxOType tx, headUTxO :: UTxOType tx, reason :: Text, tx :: tx}
   | CannotFindOwnInitial {knownUTxO :: UTxOType tx}
+  | FailedToPostTx {failureReason :: Text}
+  | -- NOTE: PlutusDebugInfo does not have much available instances so we put it in Text
+    -- form but it's lame
+    PlutusValidationFailed {plutusFailure :: Text, plutusDebugInfo :: Text}
   | NoSeedInput
   | NoPaymentInput
   | InvalidStateToPost {txTried :: PostChainTx tx}
