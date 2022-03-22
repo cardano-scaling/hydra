@@ -321,7 +321,7 @@ spec = parallel $ do
 
               waitFor [n1] $ UTxO (utxoRefs [2, 42])
 
-      it "leader post fanout tx after contestation period" $
+      it "when closing head is finalized after contestation period and all parties post fanout tx" $
         shouldRunInSim $ do
           chain <- simulatedChainAndNetwork
           withHydraNode 1 [2] chain $ \n1 ->
@@ -332,7 +332,7 @@ spec = parallel $ do
               threadDelay testContestationPeriod
               waitFor [n1, n2] $ HeadIsFinalized (utxoRefs [1, 2])
               allTxs <- history chain
-              length (filter matchFanout allTxs) `shouldBe` 1
+              length (filter matchFanout allTxs) `shouldBe` 2
 
     describe "Hydra Node Logging" $ do
       it "traces processing of events" $ do
