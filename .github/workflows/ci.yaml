@@ -71,6 +71,7 @@ jobs:
       working-directory: docs
       run: |
         yarn && yarn build
+        yarn validate
         mkdir -p public/head-protocol
         mv build/* public/head-protocol
         echo "hydra.family" > public/CNAME

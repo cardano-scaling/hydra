@@ -61,6 +61,7 @@ import Data.Aeson.Types (
   toJSONKeyText,
  )
 import qualified Data.ByteString.Base16 as Base16
+import qualified Data.Map as Map
 import Data.Maybe.Strict (StrictMaybe (..), isSJust)
 import qualified Data.Set as Set
 import qualified Data.Text as Text
@@ -181,6 +182,21 @@ instance
 
 instance ToCBOR (Ledger.Alonzo.Redeemers era) => ToJSON (Ledger.Alonzo.Redeemers era) where
   toJSON = String . decodeUtf8 . Base16.encode . serialize'
+
+--
+-- RewardAcnt
+--
+
+-- NOTE: The Ledge derive generic ToJSONKey from 'RewardAcnt', which by default
+-- turn them into an array of elements.
+rewardAcntToText :: Ledger.RewardAcnt crypto -> Text
+rewardAcntToText = decodeUtf8 . Base16.encode . Ledger.serialiseRewardAcnt
+
+rewardAcntFromText :: Crypto crypto => Text -> Maybe (Ledger.RewardAcnt crypto)
+rewardAcntFromText t = do
+  case Base16.decode (encodeUtf8 t) of
+    Left{} -> Nothing
+    Right bs -> Ledger.deserialiseRewardAcnt bs
 
 --
 -- SafeHash
@@ -502,10 +518,14 @@ instance FromJSON (Ledger.Mary.Value StandardCrypto) where
 --
 
 instance Crypto crypto => ToJSON (Ledger.Wdrl crypto) where
-  toJSON = toJSON . Ledger.unWdrl
+  toJSON = toJSON . Map.mapKeys rewardAcntToText . Ledger.unWdrl
 
 instance Crypto crypto => FromJSON (Ledger.Wdrl crypto) where
-  parseJSON v = Ledger.Wdrl <$> parseJSON v
+  parseJSON json = do
+    m <- Map.foldMapWithKey fn <$> parseJSON json
+    maybe (fail "failed to parse withdrawal map.") (pure . Ledger.Wdrl) m
+   where
+    fn k v = Map.singleton <$> rewardAcntFromText k <*> v
 
 --
 -- WitVKey
