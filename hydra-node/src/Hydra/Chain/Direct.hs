@@ -354,20 +354,23 @@ txSubmissionClient tracer queue =
       SendMsgSubmitTx
         (GenTxAlonzo . mkShelleyTx $ tx)
         ( \case
-            SubmitFail reason -> onFail reason
+            SubmitFail reason -> traceWith tracer (onFail reason) >> clientStIdle
             SubmitSuccess -> traceWith tracer (PostedTx (getTxId tx)) >> clientStIdle
         )
 
   -- XXX(SN): patch-work error pretty printing on single plutus script failures
-  onFail = \case
-    ApplyTxErrAlonzo (ApplyTxError [failure]) -> unwrapPlutus failure
-    err -> error $ "failed to submit tx: " <> show err
+  onFail err =
+    case err of
+      ApplyTxErrAlonzo (ApplyTxError [failure]) -> fromMaybe failedToPostTx (unwrapPlutus failure)
+      _ -> failedToPostTx
+   where
+    failedToPostTx = FailedToPostTx{failureReason = show err}
 
-  unwrapPlutus :: LedgerPredicateFailure Era -> p
+  unwrapPlutus :: LedgerPredicateFailure Era -> Maybe DirectChainLog
   unwrapPlutus = \case
     UtxowFailure (WrappedShelleyEraFailure (UtxoFailure (UtxosFailure (ValidationTagMismatch _ (FailedUnexpectedly [PlutusFailure plutusFailure debug]))))) ->
-      error $ "Plutus validation failed: " <> plutusFailure <> "\nDebugInfo: " <> show (debugPlutus PlutusV1 (decodeUtf8 debug))
-    err -> error $ "Some other ledger failure: " <> show err
+      Just $ PlutusValidationFailed{plutusFailure, plutusDebugInfo = show (debugPlutus PlutusV1 (decodeUtf8 debug))}
+    _ -> Nothing
 
 -- | Balance and sign the given partial transaction.
 --
@@ -471,6 +474,10 @@ data DirectChainLog
   = ToPost {toPost :: PostChainTx Tx}
   | PostingTx {postedTx :: (TxId StandardCrypto, ValidatedTx Era)}
   | PostedTx {postedTxId :: TxId StandardCrypto}
+  | FailedToPostTx {failureReason :: Text}
+  | -- NOTE: PlutusDebugInfo does not have much available instances so we put it in Text
+    -- form but it's lame
+    PlutusValidationFailed {plutusFailure :: Text, plutusDebugInfo :: Text}
   | ReceivedTxs {onChainTxs :: [OnChainTx Tx], receivedTxs :: [(TxId StandardCrypto, ValidatedTx Era)]}
   | RolledBackward {point :: SomePoint}
   | Wallet TinyWalletLog
@@ -495,6 +502,17 @@ instance ToJSON DirectChainLog where
       object
         [ "tag" .= String "PostedTx"
         , "postedTxId" .= postedTxId
+        ]
+    FailedToPostTx{failureReason} ->
+      object
+        [ "tag" .= String "FailedToPostTx"
+        , "failureReason" .= failureReason
+        ]
+    PlutusValidationFailed{plutusFailure, plutusDebugInfo} ->
+      object
+        [ "tag" .= String "PlutusValidationFailed"
+        , "plutusFailure" .= plutusFailure
+        , "plutusDebugInfo" .= plutusDebugInfo
         ]
     ReceivedTxs{onChainTxs, receivedTxs} ->
       object
