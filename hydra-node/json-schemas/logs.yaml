@@ -853,7 +853,6 @@ definitions:
         required:
         - tag
         - snapshotNumber
-        - contestationDeadline
         properties:
           tag:
             type: string

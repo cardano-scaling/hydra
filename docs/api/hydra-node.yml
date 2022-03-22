@@ -293,15 +293,11 @@ components:
         type: object
         required:
           - tag
-          - contestationDeadline
           - latestSnapshot
         properties:
           tag:
             type: string
             enum: ["HeadIsClosed"]
-          contestationDeadline:
-            type: string
-            format: date-time
           latestSnapshot:
             $ref: "#/components/schemas/Snapshot"
 
