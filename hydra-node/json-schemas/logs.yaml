@@ -203,7 +203,7 @@ definitions:
           type: string
           enum: ["ToPost"]
         toPost:
-          $ref: "common.yaml#/definitions/PostChainTx"
+          $ref: "api.yaml#/components/schemas/PostChainTx"
     - title: PostingTx
       description: >-
         A transaction with given content is about to be submitted on-chain.
@@ -219,8 +219,8 @@ definitions:
         postedTx:
           type: array
           prefixItems:
-            - $ref: "common.yaml#/definitions/TxId"
-            - $ref: "common.yaml#/definitions/Transaction"
+            - $ref: "api.yaml#/components/schemas/TxId"
+            - $ref: "api.yaml#/components/schemas/Transaction"
     - title: PostedTx
       description: >-
         A transaction with given Id has been successfully submitted to the chain.
@@ -234,7 +234,7 @@ definitions:
           type: string
           enum: ["PostedTx"]
         postedTxId:
-          $ref: "common.yaml#/definitions/TxId"
+          $ref: "api.yaml#/components/schemas/TxId"
     - title: ReceivedTxs
       description: >-
         Some transactions relevant to the Head logic have been observed on-chain, provide both the
@@ -271,7 +271,7 @@ definitions:
           type: string
           enum: ["RolledBackward"]
         point:
-          $ref: "common.yaml#/definitions/Point"
+          $ref: "api.yaml#/components/schemas/Point"
 
     - title: Wallet
       description: >-
@@ -304,9 +304,9 @@ definitions:
           type: string
           enum: ["InitializingWallet"]
         point:
-          $ref: "common.yaml#/definitions/Point"
+          $ref: "api.yaml#/components/schemas/Point"
         initialUTxO:
-          $ref: "common.yaml#/definitions/UTxO"
+          $ref: "api.yaml#/components/schemas/UTxO"
     - title: ApplyBlock
       description: >-
         The wallet has discovered and applied a new block of interest.
@@ -320,9 +320,9 @@ definitions:
           type: string
           enum: ["ApplyBlock"]
         before:
-          $ref: "common.yaml#/definitions/UTxO"
+          $ref: "api.yaml#/components/schemas/UTxO"
         after:
-          $ref: "common.yaml#/definitions/UTxO"
+          $ref: "api.yaml#/components/schemas/UTxO"
     - title: EraMismatchError
       description: >-
         The wallet received a block from an era different than the one expected. This should not be a problem as it probably
@@ -363,7 +363,7 @@ definitions:
           type: string
           enum: [ "ErrorHandlingEvent" ]
         by:
-          <<: { "$ref": "common.yaml#/definitions/Party" }
+          <<: { "$ref": "api.yaml#/components/schemas/Party" }
           description: >-
             The Party emitting the log entry.
         event:
@@ -389,7 +389,7 @@ definitions:
           type: string
           enum: [ "ProcessingEvent" ]
         by:
-          <<: { "$ref": "common.yaml#/definitions/Party" }
+          <<: { "$ref": "api.yaml#/components/schemas/Party" }
           description: >-
             The Party emitting the log entry.
         event:
@@ -408,7 +408,7 @@ definitions:
           type: string
           enum: [ "ProcessedEvent" ]
         by:
-          <<: { "$ref": "common.yaml#/definitions/Party" }
+          <<: { "$ref": "api.yaml#/components/schemas/Party" }
           description: >-
             The Party emitting the log entry.
         event:
@@ -428,7 +428,7 @@ definitions:
           type: string
           enum: [ "ProcessingEffect" ]
         by:
-          <<: { "$ref": "common.yaml#/definitions/Party" }
+          <<: { "$ref": "api.yaml#/components/schemas/Party" }
           description: >-
             The Party emitting the log entry.
         effect:
@@ -447,7 +447,7 @@ definitions:
           type: string
           enum: [ "ProcessedEffect" ]
         by:
-          <<: { "$ref": "common.yaml#/definitions/Party" }
+          <<: { "$ref": "api.yaml#/components/schemas/Party" }
           description: >-
             The Party emitting the log entry.
         effect:
@@ -491,9 +491,9 @@ definitions:
           type: string
           enum: [ "InvalidSnapshot" ]
         expected:
-          $ref: "common.yaml#/definitions/SnapshotNumber"
+          $ref: "api.yaml#/components/schemas/SnapshotNumber"
         actual:
-          $ref: "common.yaml#/definitions/SnapshotNumber"
+          $ref: "api.yaml#/components/schemas/SnapshotNumber"
     - title: LedgerError
       additionalProperties: false
       required:
@@ -536,15 +536,15 @@ definitions:
           type: string
           enum: [ "InitialState" ]
         parameters:
-          $ref: "common.yaml#/definitions/HeadParameters"
+          $ref: "api.yaml#/components/schemas/HeadParameters"
         pendingCommits:
           type: array
           items:
-            $ref: "common.yaml#/definitions/Party"
+            $ref: "api.yaml#/components/schemas/Party"
         committed:
           type: array
           items:
-            $ref: "common.yaml#/definitions/Party"
+            $ref: "api.yaml#/components/schemas/Party"
     - title: "OpenState"
       additionalProperties: false
       required:
@@ -556,7 +556,7 @@ definitions:
           type: string
           enum: [ "OpenState" ]
         parameters:
-          $ref: "common.yaml#/definitions/HeadParameters"
+          $ref: "api.yaml#/components/schemas/HeadParameters"
         coordinatedHeadState:
           $ref: "#/definitions/CoordinatedHeadState"
     - title: "ClosedState"
@@ -570,9 +570,9 @@ definitions:
           type: string
           enum: [ "ClosedState" ]
         parameters:
-          $ref: "common.yaml#/definitions/HeadParameters"
+          $ref: "api.yaml#/components/schemas/HeadParameters"
         utxos:
-          $ref: "common.yaml#/definitions/UTxO"
+          $ref: "api.yaml#/components/schemas/UTxO"
 
   CoordinatedHeadState:
     type: object
@@ -584,15 +584,15 @@ definitions:
     - seenSnapshot
     properties:
       seenUTxO:
-        $ref: "common.yaml#/definitions/UTxO"
+        $ref: "api.yaml#/components/schemas/UTxO"
       seenTxs:
         type: array
         items:
-          $ref: "common.yaml#/definitions/Transaction"
+          $ref: "api.yaml#/components/schemas/Transaction"
       confirmedSnapshot:
-        $ref: "common.yaml#/definitions/ConfirmedSnapshot"
+        $ref: "api.yaml#/components/schemas/ConfirmedSnapshot"
       seenSnapshot:
-        $ref: "common.yaml#/definitions/SeenSnapshot"
+        $ref: "api.yaml#/components/schemas/SeenSnapshot"
 
   Event:
     description: >-
@@ -615,7 +615,15 @@ definitions:
           type: string
           enum: ["ClientEvent"]
         clientInput:
-          $ref: "api.yaml#/properties/inputs/items"
+          oneOf:
+            - $ref: "api.yaml#/components/messages/Init/payload"
+            - $ref: "api.yaml#/components/messages/Abort/payload"
+            - $ref: "api.yaml#/components/messages/Commit/payload"
+            - $ref: "api.yaml#/components/messages/NewTx/payload"
+            - $ref: "api.yaml#/components/messages/GetUTxO/payload"
+            - $ref: "api.yaml#/components/messages/Close/payload"
+            - $ref: "api.yaml#/components/messages/Contest/payload"
+
     - title: NetworkEvent
       type: object
       additionalProperties: false
@@ -671,9 +679,9 @@ definitions:
           type: string
           enum: ["PostTxError"]
         postChainTx:
-          $ref: "common.yaml#/definitions/PostChainTx"
+          $ref: "api.yaml#/components/schemas/PostChainTx"
         postTxError:
-          $ref: "common.yaml#/definitions/PostTxError"
+          $ref: "api.yaml#/components/schemas/PostTxError"
 
   Message:
     description: >-
@@ -694,9 +702,9 @@ definitions:
             type: string
             enum: ["ReqTx"]
           party:
-            $ref: "common.yaml#/definitions/Party"
+            $ref: "api.yaml#/components/schemas/Party"
           transaction:
-            $ref: "common.yaml#/definitions/Transaction"
+            $ref: "api.yaml#/components/schemas/Transaction"
       - title: ReqSn
         type: object
         additionalProperties: false
@@ -713,13 +721,13 @@ definitions:
             type: string
             enum: ["ReqSn"]
           party:
-            $ref: "common.yaml#/definitions/Party"
+            $ref: "api.yaml#/components/schemas/Party"
           snapshotNumber:
-            $ref: "common.yaml#/definitions/SnapshotNumber"
+            $ref: "api.yaml#/components/schemas/SnapshotNumber"
           transactions:
             type: array
             items:
-              $ref: "common.yaml#/definitions/Transaction"
+              $ref: "api.yaml#/components/schemas/Transaction"
       - title: AckSn
         type: object
         additionalProperties: false
@@ -735,7 +743,7 @@ definitions:
             type: string
             enum: ["AckSn"]
           party:
-            $ref: "common.yaml#/definitions/Party"
+            $ref: "api.yaml#/components/schemas/Party"
           snapshotNumber:
             type: integer
             minimum: 0
@@ -758,7 +766,7 @@ definitions:
             type: string
             enum: ["Connected"]
           peer:
-            $ref: "common.yaml#/definitions/Peer"
+            $ref: "api.yaml#/components/schemas/Peer"
       - title: Disconnected
         type: object
         additionalProperties: false
@@ -772,7 +780,7 @@ definitions:
             type: string
             enum: ["Disconnected"]
           peer:
-            $ref: "common.yaml#/definitions/Peer"
+            $ref: "api.yaml#/components/schemas/Peer"
 
   OnChainTx:
     description: >-
@@ -802,7 +810,7 @@ definitions:
           parties:
             type: array
             items:
-              $ref: "common.yaml#/definitions/Party"
+              $ref: "api.yaml#/components/schemas/Party"
       - title: OnCommitTx
         type: object
         additionalProperties: false
@@ -818,9 +826,9 @@ definitions:
             type: string
             enum: ["OnCommitTx"]
           party:
-            $ref: "common.yaml#/definitions/Party"
+            $ref: "api.yaml#/components/schemas/Party"
           committed:
-            $ref: "common.yaml#/definitions/UTxO"
+            $ref: "api.yaml#/components/schemas/UTxO"
       - title: OnAbortTx
         type: object
         additionalProperties: false
@@ -895,7 +903,25 @@ definitions:
           type: string
           enum: ["ClientEffect"]
         serverOutput:
-          $ref: "api.yaml#/properties/outputs/items"
+          oneOf:
+            - $ref: "api.yaml#/components/messages/Greetings/payload"
+            - $ref: "api.yaml#/components/messages/PeerConnected/payload"
+            - $ref: "api.yaml#/components/messages/PeerDisconnected/payload"
+            - $ref: "api.yaml#/components/messages/ReadyToCommit/payload"
+            - $ref: "api.yaml#/components/messages/Committed/payload"
+            - $ref: "api.yaml#/components/messages/HeadIsOpen/payload"
+            - $ref: "api.yaml#/components/messages/HeadIsClosed/payload"
+            - $ref: "api.yaml#/components/messages/HeadIsAborted/payload"
+            - $ref: "api.yaml#/components/messages/HeadIsFinalized/payload"
+            - $ref: "api.yaml#/components/messages/TxSeen/payload"
+            - $ref: "api.yaml#/components/messages/TxValid/payload"
+            - $ref: "api.yaml#/components/messages/TxInvalid/payload"
+            - $ref: "api.yaml#/components/messages/SnapshotConfirmed/payload"
+            - $ref: "api.yaml#/components/messages/UTxO/payload"
+            - $ref: "api.yaml#/components/messages/InvalidInput/payload"
+            - $ref: "api.yaml#/components/messages/PostTxOnChainFailed/payload"
+            - $ref: "api.yaml#/components/messages/CommandFailed/payload"
+
     - title: NetworkEffect
       type: object
       additionalProperties: false
@@ -926,7 +952,7 @@ definitions:
           type: string
           enum: ["OnChainEffect"]
         onChainTx:
-          $ref: "common.yaml#/definitions/PostChainTx"
+          $ref: "api.yaml#/components/schemas/PostChainTx"
     - title: Delay
       type: object
       additionalProperties: false
@@ -987,7 +1013,7 @@ definitions:
           type: string
           enum: [ "WaitOnSnapshotNumber" ]
         waitingFor:
-          <<: { "$ref": "common.yaml#/definitions/SnapshotNumber" }
+          <<: { "$ref": "api.yaml#/components/schemas/SnapshotNumber" }
           description: >-
             The expected number.
     - title: WaitOnSeenSnapshot
