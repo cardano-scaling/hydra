@@ -75,6 +75,7 @@ jobs:
         mkdir -p public/head-protocol
         mv build/* public/head-protocol
         echo "hydra.family" > public/CNAME
+        echo '<!DOCTYPE html><html><head><meta http-equiv="Refresh" content="0; URL=https://hydra.family/head-protocol"></head></html>' > public/index.html
 
     - name: Publish Unit Test Results
       uses: EnricoMi/publish-unit-test-result-action@v1
