@@ -17,7 +17,6 @@ import Hydra.Prelude
 import qualified Cardano.Api.UTxO as UTxO
 import Cardano.Binary (decodeFull', serialize')
 import qualified Data.Map as Map
-import Data.Time (Day (ModifiedJulianDay), UTCTime (UTCTime))
 import Hydra.Chain (HeadId (..), HeadParameters (..), OnChainTx (..))
 import qualified Hydra.Contract.Commit as Commit
 import qualified Hydra.Contract.Head as Head
@@ -579,7 +578,7 @@ observeCloseTx utxo tx = do
       newHeadDatum <- lookupScriptData tx newHeadOutput
       snapshotNumber <- integerToNatural onChainSnapshotNumber
       pure
-        ( OnCloseTx{contestationDeadline, snapshotNumber}
+        ( OnCloseTx{snapshotNumber}
         , CloseObservation
             { threadOutput =
                 ( newHeadInput
@@ -593,9 +592,6 @@ observeCloseTx utxo tx = do
     _ -> Nothing
  where
   headScript = fromPlutusScript Head.validatorScript
-
-  -- FIXME(SN): store in/read from datum
-  contestationDeadline = UTCTime (ModifiedJulianDay 0) 0
 
 type FanoutObservation = ()
 

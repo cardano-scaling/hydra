@@ -28,7 +28,17 @@ import Cardano.Ledger.Shelley.Rules.Ledger (LedgerPredicateFailure (UtxowFailure
 import Cardano.Ledger.Shelley.Rules.Utxow (UtxowPredicateFailure (UtxoFailure))
 import Control.Exception (IOException)
 import Control.Monad (foldM)
-import Control.Monad.Class.MonadSTM (newTQueueIO, newTVarIO, readTQueue, retry, writeTQueue, writeTVar)
+import Control.Monad.Class.MonadSTM (
+  newEmptyTMVar,
+  newTQueueIO,
+  newTVarIO,
+  putTMVar,
+  readTQueue,
+  retry,
+  takeTMVar,
+  writeTQueue,
+  writeTVar,
+ )
 import Control.Monad.Class.MonadTimer (timeout)
 import Control.Tracer (nullTracer)
 import Data.Aeson (Value (String), object, (.=))
@@ -167,21 +177,28 @@ withDirectChain tracer networkId iocp socketPath keyPair party cardanoKeys callb
                   traceWith tracer $ ToPost tx
                   -- XXX(SN): 'finalizeTx' retries until a payment utxo is
                   -- found. See haddock for details
-                  timeoutThrowAfter (NoPaymentInput @Tx) 10 $
-                    -- FIXME (MB): 'cardanoKeys' should really not be here. They
-                    -- are only required for the init transaction and ought to
-                    -- come from the _client_ and be part of the init request
-                    -- altogether. This goes in the direction of 'dynamic
-                    -- heads' where participants aren't known upfront but
-                    -- provided via the API. Ultimately, an init request from
-                    -- a client would contain all the details needed to
-                    -- establish connection to the other peers and to
-                    -- bootstrap the init transaction.
-                    -- For now, we bear with it and keep the static keys in
-                    -- context.
-                    fromPostChainTx cardanoKeys wallet headState tx
-                      >>= finalizeTx wallet headState . toLedgerTx
-                      >>= writeTQueue queue
+                  response <-
+                    timeoutThrowAfter (NoPaymentInput @Tx) 10 $
+                      -- FIXME (MB): 'cardanoKeys' should really not be here. They
+                      -- are only required for the init transaction and ought to
+                      -- come from the _client_ and be part of the init request
+                      -- altogether. This goes in the direction of 'dynamic
+                      -- heads' where participants aren't known upfront but
+                      -- provided via the API. Ultimately, an init request from
+                      -- a client would contain all the details needed to
+                      -- establish connection to the other peers and to
+                      -- bootstrap the init transaction.
+                      -- For now, we bear with it and keep the static keys in
+                      -- context.
+                      fromPostChainTx cardanoKeys wallet headState tx
+                        >>= finalizeTx wallet headState . toLedgerTx
+                        >>= \vtx -> do
+                          response <- newEmptyTMVar
+                          writeTQueue queue (vtx, response)
+                          return response
+                  atomically (takeTMVar response) >>= \case
+                    Nothing -> pure ()
+                    Just err -> throwIO err
               }
       )
       ( handle onIOException $
@@ -195,7 +212,7 @@ withDirectChain tracer networkId iocp socketPath keyPair party cardanoKeys callb
   timeoutThrowAfter ex s stm = do
     timeout s (atomically stm) >>= \case
       Nothing -> throwIO ex
-      Just _ -> pure ()
+      Just a -> pure a
 
   onIOException :: IOException -> IO ()
   onIOException ioException =
@@ -218,7 +235,7 @@ instance Exception ConnectException
 client ::
   (MonadST m, MonadTimer m) =>
   Tracer m DirectChainLog ->
-  TQueue m (ValidatedTx Era) ->
+  TQueue m (ValidatedTx Era, TMVar m (Maybe (PostTxError Tx))) ->
   TVar m SomeOnChainHeadState ->
   ChainCallback Tx m ->
   NodeToClientVersion ->
@@ -339,35 +356,46 @@ chainSyncClient tracer callback headState =
 
 txSubmissionClient ::
   forall m.
-  MonadSTM m =>
+  (MonadSTM m) =>
   Tracer m DirectChainLog ->
-  TQueue m (ValidatedTx Era) ->
+  TQueue m (ValidatedTx Era, TMVar m (Maybe (PostTxError Tx))) ->
   LocalTxSubmissionClient (GenTx Block) (ApplyTxErr Block) m ()
 txSubmissionClient tracer queue =
   LocalTxSubmissionClient clientStIdle
  where
   clientStIdle :: m (LocalTxClientStIdle (GenTx Block) (ApplyTxErr Block) m ())
   clientStIdle = do
-    tx <- atomically $ readTQueue queue
+    (tx, response) <- atomically $ readTQueue queue
     traceWith tracer (PostingTx (getTxId tx, tx))
     pure $
       SendMsgSubmitTx
         (GenTxAlonzo . mkShelleyTx $ tx)
         ( \case
-            SubmitFail reason -> onFail reason
-            SubmitSuccess -> traceWith tracer (PostedTx (getTxId tx)) >> clientStIdle
+            SubmitSuccess -> do
+              traceWith tracer (PostedTx (getTxId tx))
+              atomically (putTMVar response Nothing)
+              clientStIdle
+            SubmitFail reason -> do
+              atomically (putTMVar response (Just $ onFail reason))
+              clientStIdle
         )
 
   -- XXX(SN): patch-work error pretty printing on single plutus script failures
-  onFail = \case
-    ApplyTxErrAlonzo (ApplyTxError [failure]) -> unwrapPlutus failure
-    err -> error $ "failed to submit tx: " <> show err
+  onFail err =
+    case err of
+      ApplyTxErrAlonzo (ApplyTxError [failure]) ->
+        fromMaybe failedToPostTx (unwrapPlutus failure)
+      _ ->
+        failedToPostTx
+   where
+    failedToPostTx = FailedToPostTx{failureReason = show err}
 
-  unwrapPlutus :: LedgerPredicateFailure Era -> p
+  unwrapPlutus :: LedgerPredicateFailure Era -> Maybe (PostTxError Tx)
   unwrapPlutus = \case
     UtxowFailure (WrappedShelleyEraFailure (UtxoFailure (UtxosFailure (ValidationTagMismatch _ (FailedUnexpectedly [PlutusFailure plutusFailure debug]))))) ->
-      error $ "Plutus validation failed: " <> plutusFailure <> "\nDebugInfo: " <> show (debugPlutus PlutusV1 (decodeUtf8 debug))
-    err -> error $ "Some other ledger failure: " <> show err
+      Just $ PlutusValidationFailed{plutusFailure, plutusDebugInfo = show (debugPlutus PlutusV1 (decodeUtf8 debug))}
+    _ ->
+      Nothing
 
 -- | Balance and sign the given partial transaction.
 --

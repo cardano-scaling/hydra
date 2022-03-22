@@ -1,4 +1,3 @@
-{-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE UndecidableInstances #-}
 
 module Hydra.ServerOutput where
@@ -16,7 +15,7 @@ data ServerOutput tx
   | ReadyToCommit {parties :: Set Party}
   | Committed {party :: Party, utxo :: UTxOType tx}
   | HeadIsOpen {utxo :: UTxOType tx}
-  | HeadIsClosed {contestationDeadline :: UTCTime, latestSnapshot :: Snapshot tx}
+  | HeadIsClosed {latestSnapshot :: Snapshot tx}
   | HeadIsAborted {utxo :: UTxOType tx}
   | HeadIsFinalized {utxo :: UTxOType tx}
   | CommandFailed
@@ -51,7 +50,7 @@ instance (Arbitrary tx, Arbitrary (UTxOType tx), Arbitrary (TxIdType tx)) => Arb
     ReadyToCommit xs -> ReadyToCommit <$> shrink xs
     Committed p u -> Committed <$> shrink p <*> shrink u
     HeadIsOpen u -> HeadIsOpen <$> shrink u
-    HeadIsClosed t s -> HeadIsClosed t <$> shrink s
+    HeadIsClosed s -> HeadIsClosed <$> shrink s
     HeadIsFinalized u -> HeadIsFinalized <$> shrink u
     HeadIsAborted u -> HeadIsAborted <$> shrink u
     CommandFailed -> []

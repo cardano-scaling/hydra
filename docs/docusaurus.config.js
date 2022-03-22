@@ -15,9 +15,9 @@ const config = {
   favicon: 'img/hydra.png',
   organizationName: 'Input Output',
   projectName: 'Hydra',
-  staticDirectories: ['static', 'api'],
+  staticDirectories: ['static', '../hydra-node/json-schemas'],
   customFields: {
-    apiSpecUrl: 'hydra-node.yml',
+    apiSpecUrl: 'api.yaml',
   },
 
   presets: [

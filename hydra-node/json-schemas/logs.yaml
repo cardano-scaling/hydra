@@ -853,7 +853,6 @@ definitions:
         required:
         - tag
         - snapshotNumber
-        - contestationDeadline
         properties:
           tag:
             type: string
@@ -861,9 +860,6 @@ definitions:
           snapshotNumber:
             type: integer
             minimum: 0
-          contestationDeadline:
-            type: string
-            format: date-time
       - title: OnContestTx
         type: object
         additionalProperties: false

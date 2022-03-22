@@ -80,7 +80,7 @@ data OnChainTx tx
   | OnCommitTx {party :: Party, committed :: UTxOType tx}
   | OnAbortTx
   | OnCollectComTx
-  | OnCloseTx {contestationDeadline :: UTCTime, snapshotNumber :: SnapshotNumber}
+  | OnCloseTx {snapshotNumber :: SnapshotNumber}
   | OnContestTx
   | OnFanoutTx
   deriving (Generic)
@@ -99,6 +99,10 @@ data PostTxError tx
   | CannotSpendInput {input :: Text, walletUTxO :: UTxOType tx, headUTxO :: UTxOType tx}
   | CannotCoverFees {walletUTxO :: UTxOType tx, headUTxO :: UTxOType tx, reason :: Text, tx :: tx}
   | CannotFindOwnInitial {knownUTxO :: UTxOType tx}
+  | FailedToPostTx {failureReason :: Text}
+  | -- NOTE: PlutusDebugInfo does not have much available instances so we put it in Text
+    -- form but it's lame
+    PlutusValidationFailed {plutusFailure :: Text, plutusDebugInfo :: Text}
   | NoSeedInput
   | NoPaymentInput
   | InvalidStateToPost {txTried :: PostChainTx tx}

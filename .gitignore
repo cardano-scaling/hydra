@@ -29,3 +29,6 @@ test-results.xml
 
 # Getting started / demo instructions
 devnet/
+
+# faulty golden files
+*.faulty.json

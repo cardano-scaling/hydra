@@ -220,10 +220,9 @@ update Environment{party, signingKey, otherParties} ledger st ev = case (st, ev)
   (InitialState _ _ committed, OnChainEvent OnAbortTx{}) ->
     nextState ReadyState [ClientEffect $ HeadIsAborted $ fold committed]
   --
-  (OpenState HeadParameters{contestationPeriod} CoordinatedHeadState{confirmedSnapshot}, ClientEvent Close) ->
+  (OpenState _parameters CoordinatedHeadState{confirmedSnapshot}, ClientEvent Close) ->
     sameState
       [ OnChainEffect (CloseTx confirmedSnapshot)
-      , Delay contestationPeriod WaitOnContestationPeriod ShouldPostFanout
       ]
   --
   (OpenState _ CoordinatedHeadState{confirmedSnapshot}, ClientEvent GetUTxO) ->
@@ -307,7 +306,7 @@ update Environment{party, signingKey, otherParties} ledger st ev = case (st, ev)
                           }
                     )
                     []
-  (OpenState parameters CoordinatedHeadState{confirmedSnapshot}, OnChainEvent OnCloseTx{contestationDeadline}) ->
+  (OpenState parameters@HeadParameters{contestationPeriod} CoordinatedHeadState{confirmedSnapshot}, OnChainEvent OnCloseTx{}) ->
     -- TODO(1): Should check whether we want / can contest the close snapshot by
     --       comparing with our local state / utxo.
     --
@@ -319,9 +318,17 @@ update Environment{party, signingKey, otherParties} ledger st ev = case (st, ev)
       (ClosedState parameters $ getField @"utxo" $ getSnapshot confirmedSnapshot)
       [ ClientEffect $
           HeadIsClosed
-            { contestationDeadline
-            , latestSnapshot = getSnapshot confirmedSnapshot
+            { latestSnapshot = getSnapshot confirmedSnapshot
             }
+      , Delay
+          { -- TODO: In principle, we want to start the stopwatch from the
+            -- upper validity bound of the close transaction. The contestation
+            -- period here is really a minimum. At the moment, this isn't enforced
+            -- on-chain anyway so it's only faking it (until we make it).
+            delay = contestationPeriod
+          , reason = WaitOnContestationPeriod
+          , event = ShouldPostFanout
+          }
       ]
   --
   (_, OnChainEvent OnContestTx{}) ->

@@ -63,7 +63,6 @@ import Hydra.ServerOutput (
     TxInvalid,
     TxSeen,
     TxValid,
-    contestationDeadline,
     me,
     parties,
     party,
@@ -140,7 +139,7 @@ data HeadState
   = Ready
   | Initializing {parties :: [Party], remainingParties :: [Party], utxo :: UTxO}
   | Open {parties :: [Party], utxo :: UTxO}
-  | Closed {contestationDeadline :: UTCTime}
+  | Closed
   | Final {utxo :: UTxO}
   deriving (Eq, Show, Generic)
 
@@ -255,8 +254,8 @@ handleAppEvent s = \case
   Update HeadIsOpen{utxo} ->
     s & headStateL %~ headIsOpen utxo
       & feedbackL ?~ UserFeedback Info "Head is now open!"
-  Update HeadIsClosed{contestationDeadline} ->
-    s & headStateL .~ Closed{contestationDeadline}
+  Update HeadIsClosed{} ->
+    s & headStateL .~ Closed{}
       & feedbackL ?~ UserFeedback Info "Head closed."
   Update HeadIsFinalized{utxo} ->
     s & headStateL .~ Final{utxo}
@@ -505,10 +504,9 @@ draw Client{sk} CardanoClient{networkId} s =
               , "[C]lose"
               , "[Q]uit"
               ]
-          Just Closed{contestationDeadline} ->
+          Just Closed{} ->
             withCommands
               [ drawHeadState
-              , padLeftRight 1 $ str $ "Contestation deadline: " <> show contestationDeadline
               ]
               ["[Q]uit"]
           Just Final{utxo} ->
