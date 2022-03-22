@@ -149,6 +149,10 @@ const config = {
             title: 'More',
             items: [
               {
+                label: 'Haskell Packages',
+                to: '/docs/haskell_packages'
+              },
+              {
                 label: 'Logbook',
                 to: 'https://github.com/input-output-hk/hydra-poc/wiki/Logbook'
               },
