@@ -354,7 +354,7 @@ chainSyncClient tracer callback headState =
 
 txSubmissionClient ::
   forall m.
-  (MonadSTM m, MonadThrow m) =>
+  (MonadSTM m) =>
   Tracer m DirectChainLog ->
   TQueue m (ValidatedTx Era, TMVar m (Maybe (PostTxError Tx))) ->
   LocalTxSubmissionClient (GenTx Block) (ApplyTxErr Block) m ()
@@ -365,19 +365,25 @@ txSubmissionClient tracer queue =
   clientStIdle = do
     (tx, response) <- atomically $ readTQueue queue
     traceWith tracer (PostingTx (getTxId tx, tx))
-    pure $
-      SendMsgSubmitTx
-        (GenTxAlonzo . mkShelleyTx $ tx)
-        ( \case
-            SubmitFail reason -> atomically (putTMVar response (Just $ onFail reason)) >> clientStIdle
-            SubmitSuccess -> traceWith tracer (PostedTx (getTxId tx)) >> atomically (putTMVar response Nothing) >> clientStIdle
-        )
+    pure $ SendMsgSubmitTx
+      (GenTxAlonzo . mkShelleyTx $ tx)
+      ( \case
+          SubmitSuccess -> do
+            traceWith tracer (PostedTx (getTxId tx))
+            atomically (putTMVar response Nothing)
+            clientStIdle
+          SubmitFail reason -> do
+            atomically (putTMVar response (Just $ onFail reason))
+            clientStIdle
+      )
 
   -- XXX(SN): patch-work error pretty printing on single plutus script failures
   onFail err =
     case err of
-      ApplyTxErrAlonzo (ApplyTxError [failure]) -> fromMaybe failedToPostTx (unwrapPlutus failure)
-      _ -> failedToPostTx
+      ApplyTxErrAlonzo (ApplyTxError [failure]) ->
+        fromMaybe failedToPostTx (unwrapPlutus failure)
+      _ ->
+        failedToPostTx
    where
     failedToPostTx = FailedToPostTx{failureReason = show err}
 
@@ -385,7 +391,8 @@ txSubmissionClient tracer queue =
   unwrapPlutus = \case
     UtxowFailure (WrappedShelleyEraFailure (UtxoFailure (UtxosFailure (ValidationTagMismatch _ (FailedUnexpectedly [PlutusFailure plutusFailure debug]))))) ->
       Just $ PlutusValidationFailed{plutusFailure, plutusDebugInfo = show (debugPlutus PlutusV1 (decodeUtf8 debug))}
-    _ -> Nothing
+    _ ->
+      Nothing
 
 -- | Balance and sign the given partial transaction.
 --
