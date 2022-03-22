@@ -869,6 +869,38 @@ components:
               enum: ["InvalidStateToPost"]
             txTried:
               $ref: "#/components/schemas/PostChainTx"
+        - title: PlutusValidationFailed
+          type: object
+          additionalProperties: false
+          required:
+          - tag
+          - plutusFailure
+          - plutusDebugInfo
+          description: >-
+            An internal transaction created by the Hydra node failed with Plutus errors. This should not happen in principle
+            and may disappear in the final version but is currently useful as a debugging mean.
+          properties:
+            tag:
+              type: string
+              enum: ["PlutusValidationFailed"]
+            plutusFailure:
+              type: string
+            plutusDebugInfo:
+              type: string
+        - title: FailedToPostTx
+          type: object
+          additionalProperties: false
+          required:
+          - tag
+          - failureReason
+          description: >-
+            A generic error case. Some transaction that wasn't expected to fail still failed... somehow.
+          properties:
+            tag:
+              type: string
+              enum: ["FailedToPostTx"]
+            failureReason:
+              type: string
 
     SeenSnapshot:
       oneOf:
