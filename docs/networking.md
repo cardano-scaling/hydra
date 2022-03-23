@@ -2,15 +2,6 @@ This document provides details about the _Hydra Networking Layer_, eg. the netwo
 
 **DISCLAIMER**:  :hammer_and_wrench: This document is a work in progress. We know the current situation w.r.t. networking is less than ideal, it's just a way to get started and have _something_ that works. There is already [proposal](https://github.com/input-output-hk/hydra-poc/pull/237) to improve the situation by making the network more dynamic.
 
-# Current State
-
-* Hydra nodes form a network of pairwise connected _peers_ using Point-to-point (e.g TCP) connections. Those connections are expected to be up and running at all time
-  * Nodes use [Ouroboros](https://github.com/input-output-hk/ouroboros-network/) as the underlying network abstraction, which takes care of managing connections with peers providing a reliable Point-to-Point stream-based communication abstraction called a `Snocket`
-  * All messages are _broadcast_ to peers using the PTP connections
-  * Due to the nature of the Hydra protocol, the lack of connection to a peer prevents any progress of the Head
-* A `hydra-node` can only open a Head with _all_ its peers, and only them. This implies the nodes need to know in advance the topology of the peers and Heads they want to open
-* Connected nodes implement basic _failure detection_ through heartbeats and monitoring exchanged messages
-
 # Questions
 
 * What's the expected topology of the transport layer?
@@ -71,18 +62,17 @@ See [this wiki page](https://github.com/input-output-hk/hydra-poc.wiki/blob/mast
 
 # Implementations
 
+## Current State
+
+* Hydra nodes form a network of pairwise connected _peers_ using Point-to-point (e.g TCP) connections. Those connections are expected to be up and running at all time
+  * Nodes use [Ouroboros](https://github.com/input-output-hk/ouroboros-network/) as the underlying network abstraction, which takes care of managing connections with peers providing a reliable Point-to-Point stream-based communication abstraction called a `Snocket`
+  * All messages are _broadcast_ to peers using the PTP connections
+  * Due to the nature of the Hydra protocol, the lack of connection to a peer prevents any progress of the Head
+* A `hydra-node` can only open a Head with _all_ its peers, and only them. This implies the nodes need to know in advance the topology of the peers and Heads they want to open
+* Connected nodes implement basic _failure detection_ through heartbeats and monitoring exchanged messages
+
 ## Gossip diffusion network
 
 The following diagram is one possible implementation of a pull-based messaging system for Hydra, drawn from a discussion with IOG's networking engineers:
 
 ![Hydra pull-based network](./hydra-pull-based-network.jpg)
-
-## Simple Messaging Network
-
-* Nodes are identified by public keys
-  * Those keys could be published somewhere like standard PGP keys, or retrieved from a well-known source, or passed as initialisation data to the Hydra node
-  * The level of trust given to a key is the responsibility of the node operator
-* Given a public key, one can retrieve an associated IP address
-  * Hydra nodes register their IP address(es) when they join the network "somewhere", signing it through their public key
-  * We could use a mechanism similar to [BitTorrent](http://bittorrent.org/beps/bep_0003.html), whereby nodes can either use _trackers_ to provide peer and head discovery mechanism, or a centralised service someone hosts
-*
