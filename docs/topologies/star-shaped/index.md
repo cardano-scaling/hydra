@@ -1,5 +1,6 @@
 ---
 sidebar_label: 'Star-shaped Network'
+sidebar_position: 3
 ---
 
 # Star-Shaped Head Network
