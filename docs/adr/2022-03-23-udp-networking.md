@@ -17,11 +17,11 @@ Current Hydra networking layer is based on [Ouroboros network framework](https:/
 2. A Multiplexing connection manager that manages a set of equivalent peers, maintains connectivity, and ensures diffusion of messages to/from all peers,
 2. Typed protocols for expressing the logic of message exchanges as a form of _state machine_.
 
-While it's been working mostly fine so far, we think the abstractions and facilities provided by this network layer are not well suited for Hydra Head networking. Some of the questions and shortcomings are discussed in a document on [Networking Requirements](../../core-concepts/networking.md), and has the Hydra Head matures it seems time is ripe for overhauling current network implementation to better suite current and future Hydra Head networks needs.
+While it's been working mostly fine so far, the abstractions and facilities provided by this network layer are not well suited for Hydra Head networking. Some of the questions and shortcomings are discussed in a document on [Networking Requirements](../../core-concepts/networking.md), and as the Hydra Head matures it seems time is ripe for overhauling current network implementation to better suite current and future Hydra Head networks needs.
 
 ## Decision
 
-* Hydra Head nodes communicate by sending messages to other nodes using _UDP_ protocol
+* Hydra Head nodes communicate by sending messages to other nodes using [UDP](https://en.wikipedia.org/wiki/User_Datagram_Protocol) protocol
 
 ## Details
 
@@ -33,3 +33,4 @@ While it's been working mostly fine so far, we think the abstractions and facili
 
 * Node's _HeadLogic_ handles lost, duplicates, and out-of-order messages using _retry_ and _timeout_ mechanisms
 * Messages should carry a unique identifier, eg. source node and index
+* Protocol, eg. messages format, is documented
