@@ -1,6 +1,11 @@
+# Hydra Networking
+
 This document provides details about the _Hydra Networking Layer_, eg. the network comprised of Hydra nodes upon which Heads can be opened.
 
-**DISCLAIMER**:  :hammer_and_wrench: This document is a work in progress. We know the current situation w.r.t. networking is less than ideal, it's just a way to get started and have _something_ that works. There is already [proposal](https://github.com/input-output-hk/hydra-poc/pull/237) to improve the situation by making the network more dynamic.
+:::warning
+
+🛠 This document is a work in progress. We know the current situation w.r.t. networking is less than ideal, it's just a way to get started and have _something_ that works. There is already a [proposal](https://github.com/input-output-hk/hydra-poc/pull/237) to improve the situation by making the network more dynamic.
+:::
 
 # Questions
 
