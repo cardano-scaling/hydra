@@ -23,6 +23,8 @@ const config = {
   staticDirectories: ['static', customFields.apiSpecDir],
   customFields,
 
+  scripts: [{ src: 'https://plausible.io/js/script.js', defer: true, 'data-domain': 'hydra.family' }],
+
   presets: [
     [
       'classic',
