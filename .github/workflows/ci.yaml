@@ -41,9 +41,12 @@ jobs:
         key: |
           cabal-${{ runner.os }}-${{ hashFiles('cabal.project', 'default.nix', 'shell.nix') }}
 
-    - name: Prepare nix-shell
-      run: |
-        nix-build shell.nix
+    - name: Setup Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: 16
+        cache: 'yarn'
+        cache-dependency-path: docs/yarn.lock
 
     - name: Documentation (Docusaurus)
       working-directory: docs
@@ -54,6 +57,10 @@ jobs:
         mv build/* public/head-protocol
         echo "hydra.family" > public/CNAME
         echo '<!DOCTYPE html><html><head><meta http-equiv="Refresh" content="0; URL=https://hydra.family/head-protocol"></head></html>' > public/index.html
+
+    - name: Prepare nix-shell
+      run: |
+        nix-build shell.nix
 
     - name: Build
       run: nix-shell --run '.github/workflows/ci-build.sh'
@@ -69,13 +76,6 @@ jobs:
     - name: Documentation (Haddock)
       run: |
         nix-shell --run '.github/workflows/ci-haddock.sh'
-
-    - name: Setup Node.js
-      uses: actions/setup-node@v3
-      with:
-        node-version: 16
-        cache: 'yarn'
-        cache-dependency-path: docs/yarn.lock
 
     - name: Publish Unit Test Results
       uses: EnricoMi/publish-unit-test-result-action@v1
