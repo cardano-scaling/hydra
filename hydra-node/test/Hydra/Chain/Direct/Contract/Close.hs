@@ -14,6 +14,7 @@ import Hydra.Chain.Direct.Tx (closeTx, mkHeadOutput)
 import qualified Hydra.Contract.HeadState as Head
 import Hydra.Data.Party (partyFromVerKey)
 import qualified Hydra.Data.Party as OnChain
+import Hydra.Ledger.Cardano (genVerificationKey)
 import Hydra.Party (
   MultiSigned (MultiSigned),
   SigningKey,
@@ -76,6 +77,7 @@ data CloseMutation
   | MutateSnapshotNumberButNotSignature
   | MutateSnapshotToIllFormedValue
   | MutateParties
+  | MutateRequiredSigner
   deriving (Generic, Show, Enum, Bounded)
 
 genCloseMutation :: (Tx, UTxO) -> Gen SomeMutation
@@ -112,6 +114,9 @@ genCloseMutation (_tx, _utxo) =
           parties /= Head.parties healthyCloseDatum
         _ ->
           True
+    , SomeMutation MutateRequiredSigner <$> do
+        newSigner <- verificationKeyHash <$> genVerificationKey
+        pure $ ChangeRequiredSigners [newSigner]
     ]
  where
   closeRedeemer snapshotNumber sig =
