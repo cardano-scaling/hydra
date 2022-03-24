@@ -4,7 +4,7 @@ services:
   cardano-node:
     image: inputoutput/cardano-node:latest
     volumes:
-      - $PWD/devnet:/data
+      - ./devnet:/data
     environment:
       - CARDANO_BLOCK_PRODUCER=true
       - CARDANO_SOCKET_PATH=/data/ipc/node.socket # used by cardano-node
@@ -25,10 +25,10 @@ services:
       context: ../
       target: hydra-node
     volumes:
-      - $PWD:/keys:ro
-      - $PWD/devnet/credentials:/credentials:ro
-      - $PWD/devnet/ipc:/ipc
-      - $PWD/devnet:/config
+      - .:/keys:ro
+      - ./devnet/credentials:/credentials:ro
+      - ./devnet/ipc:/ipc
+      - ./devnet:/config
     ports:
       - "4001:4001"
     command:
@@ -60,10 +60,10 @@ services:
       context: ../
       target: hydra-node
     volumes:
-      - $PWD:/keys:ro
-      - $PWD/devnet/credentials:/credentials:ro
-      - $PWD/devnet/ipc:/ipc
-      - $PWD/devnet:/config
+      - .:/keys:ro
+      - ./devnet/credentials:/credentials:ro
+      - ./devnet/ipc:/ipc
+      - ./devnet:/config
     ports:
       - "4002:4001"
     command:
@@ -95,10 +95,10 @@ services:
       context: ../
       target: hydra-node
     volumes:
-      - $PWD:/keys:ro
-      - $PWD/devnet/credentials:/credentials:ro
-      - $PWD/devnet/ipc:/ipc
-      - $PWD/devnet:/config
+      - .:/keys:ro
+      - ./devnet/credentials:/credentials:ro
+      - ./devnet/ipc:/ipc
+      - ./devnet:/config
     ports:
       - "4003:4001"
     command:
@@ -138,8 +138,8 @@ services:
       , "--cardano-signing-key", "/credentials/alice.sk"
       ]
     volumes:
-      - $PWD/devnet/credentials:/credentials:ro
-      - $PWD/devnet/ipc/:/ipc
+      - ./devnet/credentials:/credentials:ro
+      - ./devnet/ipc/:/ipc
     networks:
       hydra_net:
         ipv4_address: 172.16.238.11
@@ -158,8 +158,8 @@ services:
       , "--cardano-signing-key", "/credentials/bob.sk"
       ]
     volumes:
-      - $PWD/devnet/credentials:/credentials:ro
-      - $PWD/devnet/ipc/:/ipc
+      - ./devnet/credentials:/credentials:ro
+      - ./devnet/ipc/:/ipc
     networks:
       hydra_net:
         ipv4_address: 172.16.238.21
@@ -178,8 +178,8 @@ services:
       , "--cardano-signing-key", "/credentials/carol.sk"
       ]
     volumes:
-      - $PWD/devnet/credentials:/credentials:ro
-      - $PWD/devnet/ipc/:/ipc
+      - ./devnet/credentials:/credentials:ro
+      - ./devnet/ipc/:/ipc
     networks:
       hydra_net:
         ipv4_address: 172.16.238.31
@@ -192,7 +192,7 @@ services:
     command:
     - --config.file=/etc/prometheus/prometheus.yml
     volumes:
-    - $PWD/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
     networks:
       hydra_net:
         ipv4_address: 172.16.238.5
