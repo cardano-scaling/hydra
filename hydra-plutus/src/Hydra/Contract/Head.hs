@@ -126,12 +126,9 @@ checkCollectCom commitAddress (_, parties) context@ScriptContext{scriptContextTx
   isAuthenticated =
     traceIfFalse "Missing or invalid transaction signatory" $
       case getPubKeyHash <$> txInfoSignatories txInfo of
-        [signer] -> signatoryIsInPTs (unTokenName <$> allParticipationTokens) signer
+        [signer] -> signatoryIsInPTs signer (unTokenName <$> allParticipationTokens)
         [] -> traceError "Missing required signer"
         _ -> traceError "Too many signers"
-
-  allParticipationTokens :: [TokenName]
-  allParticipationTokens = traceError "TODO"
 
   everyoneHasCommitted =
     nTotalCommits == length parties
@@ -159,8 +156,10 @@ checkCollectCom commitAddress (_, parties) context@ScriptContext{scriptContextTx
         _ -> traceError "malformed thread token, expected single asset"
 
   -- TODO: Can find own input (i.e. 'headInputValue') during this traversal already.
-  (expectedChangeValue, collectedCommits, nTotalCommits) =
-    traverseInputs (negate (txInfoAdaFee txInfo), encodeBeginList, 0) (txInfoInputs txInfo)
+  (expectedChangeValue, collectedCommits, nTotalCommits, allParticipationTokens) =
+    traverseInputs
+      (negate (txInfoAdaFee txInfo), encodeBeginList, 0, [])
+      (txInfoInputs txInfo)
 
   expectedOutputDatum :: Datum
   expectedOutputDatum =
@@ -170,36 +169,46 @@ checkCollectCom commitAddress (_, parties) context@ScriptContext{scriptContextTx
             & sha2_256
      in Datum $ toBuiltinData Open{parties, utxoHash}
 
-  traverseInputs (fuel, commits, nCommits) = \case
-    [] -> (fuel, commits, nCommits)
+  traverseInputs (fuel, commits, nCommits, participationTokens) = \case
+    [] ->
+      (fuel, commits, nCommits, participationTokens)
     TxInInfo{txInInfoResolved} : rest ->
       if
           | txOutAddress txInInfoResolved == headAddress ->
             traverseInputs
-              (fuel, commits, nCommits)
+              (fuel, commits, nCommits, participationTokens)
               rest
           | txOutAddress txInInfoResolved == commitAddress ->
             case commitFrom txInInfoResolved of
-              (commitValue, Just (SerializedTxOut commit))
-                | hasParticipationToken commitValue ->
-                  traverseInputs
-                    (fuel, commits <> unsafeEncodeRaw commit, succ nCommits)
-                    rest
-              (commitValue, Nothing)
-                | hasParticipationToken commitValue ->
-                  traverseInputs
-                    (fuel, commits, succ nCommits)
-                    rest
-              _ ->
-                traceError "Invalid commit: does not contain valid PT."
+              (commitValue, Just (SerializedTxOut commit)) ->
+                case matchParticipationToken commitValue of
+                  Just tk ->
+                    traverseInputs
+                      (fuel, commits <> unsafeEncodeRaw commit, succ nCommits, tk : participationTokens)
+                      rest
+                  Nothing ->
+                    traceError "Invalid commit: does not contain valid PT."
+              (commitValue, Nothing) ->
+                case matchParticipationToken commitValue of
+                  Just tk ->
+                    traverseInputs
+                      (fuel, commits, succ nCommits, tk : participationTokens)
+                      rest
+                  _ ->
+                    traceError "Invalid commit: does not contain valid PT."
           | otherwise ->
             traverseInputs
-              (fuel + txOutAdaValue txInInfoResolved, commits, nCommits)
+              (fuel + txOutAdaValue txInInfoResolved, commits, nCommits, participationTokens)
               rest
 
-  hasParticipationToken :: Value -> Bool
-  hasParticipationToken (Value val) =
-    headCurrencySymbol `Map.member` val
+  matchParticipationToken :: Value -> Maybe TokenName
+  matchParticipationToken (Value val) =
+    case Map.toList <$> Map.lookup headCurrencySymbol val of
+      Just [(tokenName, n)]
+        | n == 1 ->
+          Just tokenName
+      _ ->
+        Nothing
 
   commitFrom :: TxOut -> (Value, Maybe SerializedTxOut)
   commitFrom o =
@@ -218,8 +227,15 @@ checkCollectCom commitAddress (_, parties) context@ScriptContext{scriptContextTx
       Nothing ->
         traceError "fromBuiltinData failed"
 
-  signatoryIsInPTs :: [BuiltinByteString] -> BuiltinByteString -> Bool
-  signatoryIsInPTs = traceError "not implemented"
+  -- This is really: `elem`, but Plutus' elem looks dubious.
+  signatoryIsInPTs :: BuiltinByteString -> [BuiltinByteString] -> Bool
+  signatoryIsInPTs signatory = \case
+    [] ->
+      False
+    tk : rest ->
+      if tk == signatory
+        then True
+        else signatoryIsInPTs signatory rest
 {-# INLINEABLE checkCollectCom #-}
 
 txOutAdaValue :: TxOut -> Integer
