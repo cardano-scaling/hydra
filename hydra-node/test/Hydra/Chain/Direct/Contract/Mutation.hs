@@ -129,7 +129,7 @@
 -- In the case of a failure we get a detailed report on the context of the failure.
 module Hydra.Chain.Direct.Contract.Mutation where
 
-import Hydra.Cardano.Api hiding (SigningKey)
+import Hydra.Cardano.Api
 
 import qualified Cardano.Api.UTxO as UTxO
 import qualified Cardano.Ledger.Alonzo.Data as Ledger
@@ -145,9 +145,11 @@ import qualified Data.Set as Set
 import qualified Hydra.Chain.Direct.Fixture as Fixture
 import qualified Hydra.Contract.Head as Head
 import qualified Hydra.Contract.HeadState as Head
+import qualified Hydra.Data.Party as Party
 import Hydra.Ledger.Cardano (genKeyPair, genOutput)
 import Hydra.Ledger.Cardano.Evaluate (evaluateTx)
-import Hydra.Party (SigningKey, generateKey)
+import Hydra.Party (Party, generateKey, vkey)
+import qualified Hydra.Party as Party
 import Hydra.Prelude hiding (label)
 import Plutus.Orphans ()
 import Plutus.V1.Ledger.Api (toData)
@@ -372,7 +374,7 @@ applyMutation mutation (tx@(Tx body wits), utxo) = case mutation of
 -- Generators
 --
 
-genListOfSigningKeys :: Gen [SigningKey]
+genListOfSigningKeys :: Gen [Party.SigningKey]
 genListOfSigningKeys = choose (1, 20) <&> fmap generateKey . enumFromTo 1
 
 genBytes :: Gen ByteString
@@ -537,3 +539,7 @@ addPTWithQuantity tx quantity =
         pure mempty
  where
   mintedValue = txMintValue $ txBodyContent $ txBody tx
+
+credentialsFor :: Party -> (VerificationKey PaymentKey, SigningKey PaymentKey)
+credentialsFor (Party.partyFromVerKey . vkey -> (Party.UnsafeParty (fromIntegral -> seed))) =
+  generateWith genKeyPair seed

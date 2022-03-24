@@ -20,6 +20,7 @@ import Data.List (intersectBy)
 import qualified Data.Map as Map
 import qualified Data.Text as T
 import Hydra.Chain (HeadParameters (..))
+import Hydra.Chain.Direct.Contract.Mutation (credentialsFor)
 import Hydra.Chain.Direct.Fixture (
   costModels,
   epochInfo,
@@ -316,20 +317,20 @@ genAbortableOutputs parties =
  where
   go = do
     (initParties, commitParties) <- (`splitAt` parties) <$> choose (0, length parties)
-    initials <- vectorOf (length initParties) genInitial
+    initials <- mapM genInitial initParties
     commits <- fmap (\(a, (b, c)) -> (a, b, c)) . Map.toList <$> generateCommitUTxOs commitParties
     pure (initials, commits)
 
   notConflict (is, cs) =
     null $ intersectBy (\(i, _, _) (c, _, _) -> i == c) is cs
 
-  genInitial = mkInitial <$> arbitrary <*> arbitrary
+  genInitial p = mkInitial (credentialsFor p) <$> arbitrary
 
   mkInitial ::
+    (VerificationKey PaymentKey, SigningKey PaymentKey) ->
     TxIn ->
-    VerificationKey PaymentKey ->
     UTxOWithScript
-  mkInitial txin vk =
+  mkInitial (vk, _) txin =
     ( txin
     , initialTxOut vk
     , fromPlutusData (toData initialDatum)

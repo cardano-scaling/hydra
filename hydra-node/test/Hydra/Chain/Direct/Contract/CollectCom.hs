@@ -14,6 +14,7 @@ import Hydra.Chain.Direct.Contract.Mutation (
   Mutation (..),
   SomeMutation (..),
   anyPayToPubKeyTxOut,
+  credentialsFor,
   genHash,
   headTxIn,
  )
@@ -36,7 +37,7 @@ import qualified Hydra.Contract.Head as Head
 import qualified Hydra.Contract.HeadState as Head
 import qualified Hydra.Data.Party as OnChain
 import qualified Hydra.Data.Party as Party
-import Hydra.Ledger.Cardano (genAdaOnlyUTxO, genKeyPair, genVerificationKey)
+import Hydra.Ledger.Cardano (genAdaOnlyUTxO, genVerificationKey)
 import Hydra.Party (Party, vkey)
 import Plutus.Orphans ()
 import Plutus.V1.Ledger.Api (fromData, toBuiltin, toData)
@@ -67,7 +68,7 @@ healthyCollectComTx =
         )
 
   somePartyCredentials = flip generateWith 42 $ do
-    generateKeyPair <$> elements healthyParties
+    credentialsFor <$> elements healthyParties
 
   committedUTxO =
     generateWith
@@ -127,7 +128,7 @@ healthyCommitOutput party committed =
  where
   (Party.partyFromVerKey . vkey -> (Party.UnsafeParty (fromIntegral -> seed))) = party
 
-  (cardanoVk, _) = generateKeyPair party
+  (cardanoVk, _) = credentialsFor party
 
   commitScript =
     fromPlutusScript Commit.validatorScript
@@ -141,10 +142,6 @@ healthyCommitOutput party committed =
         ]
   commitDatum =
     mkCommitDatum party Head.validatorHash (Just committed)
-
-generateKeyPair :: Party -> (VerificationKey PaymentKey, SigningKey PaymentKey)
-generateKeyPair (Party.partyFromVerKey . vkey -> (Party.UnsafeParty (fromIntegral -> seed))) =
-  generateWith genKeyPair seed
 
 data CollectComMutation
   = MutateOpenUTxOHash

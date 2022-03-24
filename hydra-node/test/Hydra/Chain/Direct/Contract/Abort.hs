@@ -17,12 +17,14 @@ import Hydra.Chain.Direct.Contract.Mutation (
   addPTWithQuantity,
   anyPayToPubKeyTxOut,
   changeMintedValueQuantityFrom,
+  credentialsFor,
   headTxIn,
  )
 import Hydra.Chain.Direct.Fixture (testNetworkId, testPolicyId, testSeedInput)
 import qualified Hydra.Chain.Direct.Fixture as Fixture
 import Hydra.Chain.Direct.Tx (UTxOWithScript, abortTx, mkHeadOutputInitial, mkHeadTokenScript)
 import Hydra.Chain.Direct.TxSpec (drop3rd, genAbortableOutputs)
+import qualified Hydra.Chain.Direct.Util as Util
 import qualified Hydra.Contract.Commit as Commit
 import qualified Hydra.Contract.HeadState as Head
 import qualified Hydra.Contract.Initial as Initial
@@ -36,7 +38,7 @@ import Test.QuickCheck (Property, choose, counterexample, elements, oneof, suchT
 -- AbortTx
 --
 
-healthyAbortTx :: (Tx, UTxO)
+healthyAbortTx :: HasCallStack => (Tx, UTxO)
 healthyAbortTx =
   (tx, lookupUTxO)
  where
@@ -45,13 +47,21 @@ healthyAbortTx =
       <> UTxO (Map.fromList (drop3rd <$> healthyInitials))
       <> UTxO (Map.fromList (drop3rd <$> healthyCommits))
 
-  Right tx =
-    abortTx
-      Fixture.testNetworkId
-      (headInput, toUTxOContext headOutput, headDatum)
-      headTokenScript
-      (Map.fromList (tripleToPair <$> healthyInitials))
-      (Map.fromList (tripleToPair <$> healthyCommits))
+  tx =
+    fromLedgerTx $
+      Util.signWith
+        somePartyCredentials
+        ( toLedgerTx . either (error . show) id $
+            abortTx
+              Fixture.testNetworkId
+              (headInput, toUTxOContext headOutput, headDatum)
+              headTokenScript
+              (Map.fromList (tripleToPair <$> healthyInitials))
+              (Map.fromList (tripleToPair <$> healthyCommits))
+        )
+
+  somePartyCredentials = flip generateWith 42 $ do
+    credentialsFor <$> elements healthyParties
 
   headInput = generateWith arbitrary 42
 
