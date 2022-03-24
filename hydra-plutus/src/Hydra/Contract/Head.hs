@@ -26,7 +26,7 @@ import Plutus.Codec.CBOR.Encoding (
   unsafeEncodeRaw,
  )
 import Plutus.V1.Ledger.Ada (adaSymbol, adaToken, lovelaceValueOf)
-import Plutus.V1.Ledger.Value (Value (Value), symbols, valueOf)
+import Plutus.V1.Ledger.Value (Value (Value), symbols, unTokenName, valueOf)
 import PlutusTx (fromBuiltinData, toBuiltinData)
 import qualified PlutusTx
 import qualified PlutusTx.AssocMap as Map
@@ -121,7 +121,18 @@ checkCollectCom ::
 checkCollectCom commitAddress (_, parties) context@ScriptContext{scriptContextTxInfo = txInfo} =
   mustContinueHeadWith context headAddress expectedChangeValue expectedOutputDatum
     && everyoneHasCommitted
+    && isAuthenticated
  where
+  isAuthenticated =
+    traceIfFalse "Missing or invalid transaction signatory" $
+      case getPubKeyHash <$> txInfoSignatories txInfo of
+        [signer] -> signatoryIsInPTs (unTokenName <$> allParticipationTokens) signer
+        [] -> traceError "Missing required signer"
+        _ -> traceError "Too many signers"
+
+  allParticipationTokens :: [TokenName]
+  allParticipationTokens = traceError "TODO"
+
   everyoneHasCommitted =
     nTotalCommits == length parties
 
@@ -206,6 +217,9 @@ checkCollectCom commitAddress (_, parties) context@ScriptContext{scriptContextTx
         Nothing
       Nothing ->
         traceError "fromBuiltinData failed"
+
+  signatoryIsInPTs :: [BuiltinByteString] -> BuiltinByteString -> Bool
+  signatoryIsInPTs = traceError "not implemented"
 {-# INLINEABLE checkCollectCom #-}
 
 txOutAdaValue :: TxOut -> Integer
