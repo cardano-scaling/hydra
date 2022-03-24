@@ -101,6 +101,7 @@ import Hydra.Chain.Direct.Util (
   nullConnectTracers,
   versions,
  )
+import qualified Hydra.Chain.Direct.Util as Util
 import Hydra.Ledger.Cardano (genKeyPair)
 import Hydra.Logging (Tracer, traceWith)
 import Ouroboros.Consensus.Cardano.Block (BlockQuery (..), CardanoEras, pattern BlockAlonzo)
@@ -221,17 +222,7 @@ withTinyWallet tracer networkId (vk, sk) iocp addr action = do
           (\(u, _, _, _) -> u) <$> readTMVar utxoVar
       , getAddress =
           address
-      , sign = \validatedTx@ValidatedTx{body, wits} ->
-          let txid = Ledger.TxId (SafeHash.hashAnnotated body)
-              wit =
-                fromLedgerTxId txid
-                  `signWith` (vk, sk)
-           in validatedTx
-                { wits =
-                    wits
-                      { txwitsVKey = toLedgerKeyWitness @Cardano.Api.AlonzoEra [wit]
-                      }
-                }
+      , sign = Util.signWith (vk, sk)
       , coverFee = \lookupUTxO partialTx -> do
           (walletUTxO, pparams, systemStart, epochInfo) <- readTMVar utxoVar
           case coverFee_ pparams systemStart epochInfo lookupUTxO walletUTxO partialTx of

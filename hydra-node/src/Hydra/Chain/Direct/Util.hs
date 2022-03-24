@@ -6,12 +6,18 @@ module Hydra.Chain.Direct.Util where
 import Hydra.Prelude
 
 import qualified Cardano.Crypto.DSIGN as Crypto
+import Cardano.Ledger.Alonzo.Tx (ValidatedTx (..))
+import Cardano.Ledger.Alonzo.TxWitness (TxWitness (..))
 import Cardano.Ledger.Crypto (DSIGN)
+import qualified Cardano.Ledger.SafeHash as SafeHash
+import qualified Cardano.Ledger.TxIn as Ledger
 import Cardano.Slotting.Slot (WithOrigin (..))
 import Control.Tracer (nullTracer)
 import Data.Map.Strict ((!))
 import qualified Data.Map.Strict as Map
+import qualified Data.Set as Set
 import Hydra.Cardano.Api hiding (AlonzoEra, Block, SigningKey, VerificationKey)
+import qualified Hydra.Cardano.Api as Api
 import qualified Hydra.Cardano.Api as Shelley
 import Ouroboros.Consensus.Byron.Ledger.Config (CodecConfig (..))
 import Ouroboros.Consensus.Cardano (CardanoBlock)
@@ -173,6 +179,21 @@ retry predicate action =
     threadDelay 0.5 >> retry predicate action
  where
   catchIf f a b = a `catch` \e -> if f e then b e else throwIO e
+
+signWith ::
+  (Api.VerificationKey Api.PaymentKey, Api.SigningKey Api.PaymentKey) ->
+  ValidatedTx Api.LedgerEra ->
+  ValidatedTx Api.LedgerEra
+signWith credentials validatedTx@ValidatedTx{body, wits} =
+  let txid = Ledger.TxId (SafeHash.hashAnnotated body)
+      wit =
+        Api.signWith @Api.Era (fromLedgerTxId txid) credentials
+   in validatedTx
+        { wits =
+            wits
+              { txwitsVKey = Set.union (txwitsVKey wits) (toLedgerKeyWitness [wit])
+              }
+        }
 
 -- | Marker datum used to identify payment UTXO
 markerDatum :: Data

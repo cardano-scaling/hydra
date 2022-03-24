@@ -30,6 +30,7 @@ import Hydra.Chain.Direct.Tx (
   mkCommitDatum,
   mkHeadOutput,
  )
+import qualified Hydra.Chain.Direct.Util as Util
 import qualified Hydra.Contract.Commit as Commit
 import qualified Hydra.Contract.Head as Head
 import qualified Hydra.Contract.HeadState as Head
@@ -39,7 +40,7 @@ import Hydra.Ledger.Cardano (genAdaOnlyUTxO, genKeyPair, genVerificationKey)
 import Hydra.Party (Party, vkey)
 import Plutus.Orphans ()
 import Plutus.V1.Ledger.Api (fromData, toBuiltin, toData)
-import Test.QuickCheck (oneof, suchThat)
+import Test.QuickCheck (elements, oneof, suchThat)
 import Test.QuickCheck.Instances ()
 import qualified Prelude
 
@@ -55,13 +56,18 @@ healthyCollectComTx =
     UTxO.singleton (healthyHeadInput, healthyHeadResolvedInput) <> UTxO (fst <$> commits)
 
   tx =
-    signTransaction
-      ( collectComTx
-          testNetworkId
-          (healthyHeadInput, healthyHeadResolvedInput, headDatum, healthyOnChainParties)
-          commits
-      )
-      cardanoKey
+    fromLedgerTx $
+      Util.signWith
+        somePartyCredentials
+        ( toLedgerTx $
+            collectComTx
+              testNetworkId
+              (healthyHeadInput, healthyHeadResolvedInput, headDatum, healthyOnChainParties)
+              commits
+        )
+
+  somePartyCredentials = flip generateWith 42 $ do
+    generateKeyPair <$> elements healthyParties
 
   committedUTxO =
     generateWith
