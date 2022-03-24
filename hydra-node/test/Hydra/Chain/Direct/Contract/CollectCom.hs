@@ -142,6 +142,7 @@ data CollectComMutation
     -- requires to ensure every party has a chance to commit.
     MutateNumberOfParties
   | MutateHeadId
+  | MutateRequiredSigner
   deriving (Generic, Show, Enum, Bounded)
 
 genCollectComMutation :: (Tx, UTxO) -> Gen SomeMutation
@@ -171,6 +172,9 @@ genCollectComMutation (tx, utxo) =
             <*> fmap headPolicyId (arbitrary `suchThat` (/= testSeedInput))
             <*> pure (toUTxOContext $ mkTxOutDatum healthyCollectComInitialDatum)
         return $ ChangeInput healthyHeadInput illedHeadResolvedInput (Just $ toScriptData Head.CollectCom)
+    , SomeMutation MutateRequiredSigner <$> do
+        newSigner <- verificationKeyHash <$> genVerificationKey
+        pure $ ChangeRequiredSigners [newSigner]
     ]
  where
   TxOut collectComOutputAddress collectComOutputValue collectComOutputDatum =
