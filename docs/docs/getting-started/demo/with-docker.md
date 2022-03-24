@@ -2,7 +2,7 @@
 sidebar_position: 2
 ---
 
-# With Docker 
+# With Docker
 
 ```mdx-code-block
 import TerminalWindow from '@site/src/components/TerminalWindow';
@@ -33,11 +33,11 @@ To get started, let's pull the necessary images for services defined in the comp
 
 ```mdx-code-block
 <TerminalWindow>
-docker-compose pull
+docker-compose pull --profile tui
 </TerminalWindow>
 ```
 
-From there, we can run the `./prepare-devnet.sh` script to create an initial configuration for our development network. This creates genesis files needed to bootstrap a Cardano blockchain. Note that, for the demo, we use a simple variant of Cardano that requires no stake pools whatsoever. 
+From there, we can run the `./prepare-devnet.sh` script to create an initial configuration for our development network. This creates genesis files needed to bootstrap a Cardano blockchain. Note that, for the demo, we use a simple variant of Cardano that requires no stake pools whatsoever.
 
 ```mdx-code-block
 <TerminalWindow>
@@ -53,7 +53,7 @@ docker-compose up -d
 </TerminalWindow>
 ```
 
-For convenience, we also provide a script `./run-docker.sh`, which combines the steps above. It also performs a few sanity checks to avoid tripping ourselves.  
+For convenience, we also provide a script `./run-docker.sh`, which combines the steps above. It also performs a few sanity checks to avoid tripping ourselves.
 
 ## Seeding The Network
 
