@@ -33,7 +33,7 @@ To get started, let's pull the necessary images for services defined in the comp
 
 ```mdx-code-block
 <TerminalWindow>
-docker-compose pull --profile tui
+docker-compose --profile tui pull
 </TerminalWindow>
 ```
 
