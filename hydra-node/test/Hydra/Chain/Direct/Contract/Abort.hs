@@ -12,7 +12,7 @@ import qualified Data.Map as Map
 import Data.Maybe (fromJust)
 import Hydra.Chain (HeadParameters (..))
 import Hydra.Chain.Direct.Contract.Mutation (
-  Mutation (ChangeHeadDatum, ChangeInput, RemoveInput, RemoveOutput),
+  Mutation (..),
   SomeMutation (..),
   addPTWithQuantity,
   anyPayToPubKeyTxOut,
@@ -27,6 +27,7 @@ import qualified Hydra.Contract.Commit as Commit
 import qualified Hydra.Contract.HeadState as Head
 import qualified Hydra.Contract.Initial as Initial
 import Hydra.Data.Party (partyFromVerKey)
+import Hydra.Ledger.Cardano (genVerificationKey)
 import Hydra.Party (Party, vkey)
 import Hydra.Prelude
 import Test.QuickCheck (Property, choose, counterexample, elements, oneof, suchThat)
@@ -115,6 +116,7 @@ data AbortMutation
   | BurnOneTokenMore
   | MutateThreadTokenQuantity
   | DropCollectedInput
+  | MutateRequiredSigner
   deriving (Generic, Show, Enum, Bounded)
 
 genAbortMutation :: (Tx, UTxO) -> Gen SomeMutation
@@ -131,4 +133,7 @@ genAbortMutation (tx, utxo) =
     , SomeMutation MutateThreadTokenQuantity <$> changeMintedValueQuantityFrom tx (-1)
     , SomeMutation BurnOneTokenMore <$> addPTWithQuantity tx (-1)
     , SomeMutation DropCollectedInput . RemoveInput <$> elements (txIns' tx)
+    , SomeMutation MutateRequiredSigner <$> do
+        newSigner <- verificationKeyHash <$> genVerificationKey
+        pure $ ChangeRequiredSigners [newSigner]
     ]
