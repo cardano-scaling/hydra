@@ -29,6 +29,10 @@ We'll be using [Docker](https://www.docker.com/get-started) and [compose](https:
 All commands below are written as if executed from the `demo` folder in the project repository, so make sure to clone the repository and `cd demo` before doing anything else.
 :::
 
+:::warning OS Compatibility
+These instructions have been tested only on Linux environments (Ubuntu, NixOS). If you're on Windows or Mac OS X, you might need to adapt to use [Volumes](https://docs.docker.com/storage/volumes/).
+:::
+
 To get started, let's pull the necessary images for services defined in the compose file:
 
 ```mdx-code-block
