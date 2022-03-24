@@ -7,6 +7,7 @@ import Hydra.Prelude
 
 import qualified Cardano.Crypto.DSIGN as Crypto
 import Cardano.Ledger.Alonzo.Tx (ValidatedTx (..))
+import Cardano.Ledger.Alonzo.TxBody (TxBody (..))
 import Cardano.Ledger.Alonzo.TxWitness (TxWitness (..))
 import Cardano.Ledger.Crypto (DSIGN)
 import qualified Cardano.Ledger.SafeHash as SafeHash
@@ -188,10 +189,25 @@ signWith credentials validatedTx@ValidatedTx{body, wits} =
   let txid = Ledger.TxId (SafeHash.hashAnnotated body)
       wit =
         Api.signWith @Api.Era (fromLedgerTxId txid) credentials
+      vkh =
+        toLedgerKeyHash (Api.verificationKeyHash (fst credentials))
    in validatedTx
-        { wits =
+        { body =
+            body
+              { -- NOTE: in Plutus, on-chain, only the explicit required signers
+                -- are available within the script context. So, if we want to
+                -- control that someone did sign a transaction, it must be
+                -- explicitly added to the field.
+                --
+                -- Incidentally, any signatories present in this extra field is
+                -- checked during phase-1 validations by the ledger.
+                reqSignerHashes =
+                  Set.union (reqSignerHashes body) (Set.singleton vkh)
+              }
+        , wits =
             wits
-              { txwitsVKey = Set.union (txwitsVKey wits) (toLedgerKeyWitness [wit])
+              { txwitsVKey =
+                  Set.union (txwitsVKey wits) (toLedgerKeyWitness [wit])
               }
         }
 
