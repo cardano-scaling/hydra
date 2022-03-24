@@ -3,12 +3,12 @@ slug: 16
 title: |
   16. Keep Rejected ADRs
 authors: []
-tags: [Draft]
+tags: [Accepted]
 ---
 
 ## Status
 
-🛠
+✔
 
 ## Context
 
