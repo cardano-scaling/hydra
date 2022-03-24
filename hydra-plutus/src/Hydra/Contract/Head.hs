@@ -56,10 +56,8 @@ headValidator commitAddress initialAddress oldState input context =
       checkCollectCom context headContext (contestationPeriod, parties)
     (Initial{parties}, Abort) ->
       checkAbort context headContext parties
-    (Open{parties}, Close{snapshotNumber, signature})
-      | snapshotNumber == 0 -> True
-      | snapshotNumber > 0 -> verifySnapshotSignature parties snapshotNumber signature
-      | otherwise -> False
+    (Open{parties}, Close{snapshotNumber, signature}) ->
+      checkClose context headContext parties snapshotNumber signature
     (Closed{utxoHash}, Fanout{numberOfFanoutOutputs}) ->
       checkFanout utxoHash numberOfFanoutOutputs context
     _ -> False
@@ -239,6 +237,22 @@ checkCollectCom context@ScriptContext{scriptContextTxInfo = txInfo} headContext 
       Nothing ->
         traceError "fromBuiltinData failed"
 {-# INLINEABLE checkCollectCom #-}
+
+checkClose ::
+  ScriptContext ->
+  HeadContext ->
+  [Party] ->
+  SnapshotNumber ->
+  [Signature] ->
+  Bool
+checkClose context headContext parties snapshotNumber sig =
+  checkSnapshot && mustBeSignedByParticipant context headContext
+ where
+  checkSnapshot
+    | snapshotNumber == 0 = True
+    | snapshotNumber > 0 = verifySnapshotSignature parties snapshotNumber sig
+    | otherwise = False
+{-# INLINEABLE checkClose #-}
 
 txOutAdaValue :: TxOut -> Integer
 txOutAdaValue o = valueOf (txOutValue o) adaSymbol adaToken
