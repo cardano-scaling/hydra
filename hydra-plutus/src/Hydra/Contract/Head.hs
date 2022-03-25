@@ -111,7 +111,7 @@ mkHeadContext context initialAddress commitAddress =
       & findCandidateSymbols
       & \case
         [s] -> s
-        _ -> traceError "malformed thread token, expected only one asset."
+        _ -> traceError "malformed thread token, expected exactly one asset."
 
   findCandidateSymbols :: Value -> [CurrencySymbol]
   findCandidateSymbols (Value v) = loop (Map.toList v)

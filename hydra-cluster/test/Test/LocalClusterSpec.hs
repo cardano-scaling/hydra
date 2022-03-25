@@ -69,6 +69,14 @@ assertCanSpendInitialFunds = \case
   _ ->
     error "empty cluster?"
 
+-- TODO(MB): What is this function really testing? Seems like an uglier version
+-- of the end-to-end specs, in a less maintainable way.
+--
+-- This now fails because the manually constructed init transaction below does
+-- not mint the thread token, and thus later fails during the abort which needs
+-- it to verify signers.
+--
+-- I say: we should remove this assertion and let this to existing end-to-end tests.
 assertCanCallInitAndAbort :: HasCallStack => RunningCluster -> IO ()
 assertCanCallInitAndAbort = \case
   (RunningCluster ClusterConfig{networkId} (RunningNode _ socket : _)) -> do
