@@ -42,6 +42,7 @@ import Hydra.Ledger.Cardano (
   genOneUTxOFor,
   genUTxO,
   hashTxOuts,
+  renderTx,
   simplifyUTxO,
  )
 import Hydra.Party (Party, vkey)

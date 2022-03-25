@@ -38,6 +38,7 @@ import Hydra.Ledger.Cardano (
   genTxIn,
   genUTxO,
   genVerificationKey,
+  renderTx,
   simplifyUTxO,
  )
 import Hydra.Party (Party)

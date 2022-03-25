@@ -146,7 +146,7 @@ import qualified Hydra.Chain.Direct.Fixture as Fixture
 import qualified Hydra.Contract.Head as Head
 import qualified Hydra.Contract.HeadState as Head
 import qualified Hydra.Data.Party as Party
-import Hydra.Ledger.Cardano (genKeyPair, genOutput)
+import Hydra.Ledger.Cardano (genKeyPair, genOutput, renderTxWithUTxO)
 import Hydra.Ledger.Cardano.Evaluate (evaluateTx)
 import Hydra.Party (Party, generateKey, vkey)
 import qualified Hydra.Party as Party
@@ -194,8 +194,7 @@ propTransactionDoesNotValidate (tx, lookupUTxO) =
           property True
         Right redeemerReport ->
           any isLeft (Map.elems redeemerReport)
-            & counterexample ("Tx: " <> toString (renderTx tx))
-            & counterexample ("Lookup utxo: " <> decodeUtf8 (encodePretty lookupUTxO))
+            & counterexample ("Tx: " <> toString (renderTxWithUTxO lookupUTxO tx))
             & counterexample ("Redeemer report: " <> show redeemerReport)
             & counterexample "Phase-2 validation should have failed"
 
@@ -206,13 +205,11 @@ propTransactionValidates (tx, lookupUTxO) =
    in case result of
         Left basicFailure ->
           property False
-            & counterexample ("Tx: " <> toString (renderTx tx))
-            & counterexample ("Lookup utxo: " <> decodeUtf8 (encodePretty lookupUTxO))
+            & counterexample ("Tx: " <> toString (renderTxWithUTxO lookupUTxO tx))
             & counterexample ("Phase-1 validation failed: " <> show basicFailure)
         Right redeemerReport ->
           all isRight (Map.elems redeemerReport)
-            & counterexample ("Tx: " <> toString (renderTx tx))
-            & counterexample ("Lookup utxo: " <> decodeUtf8 (encodePretty lookupUTxO))
+            & counterexample ("Tx: " <> toString (renderTxWithUTxO lookupUTxO tx))
             & counterexample ("Redeemer report: " <> show redeemerReport)
             & counterexample "Phase-2 validation failed"
 
