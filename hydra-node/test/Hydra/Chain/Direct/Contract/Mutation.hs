@@ -540,6 +540,6 @@ addPTWithQuantity tx quantity =
  where
   mintedValue = txMintValue $ txBodyContent $ txBody tx
 
-credentialsFor :: Party -> (VerificationKey PaymentKey, SigningKey PaymentKey)
-credentialsFor (Party.partyFromVerKey . vkey -> (Party.UnsafeParty (fromIntegral -> seed))) =
+cardanoCredentialsFor :: Party -> (VerificationKey PaymentKey, SigningKey PaymentKey)
+cardanoCredentialsFor (Party.partyFromVerKey . vkey -> (Party.UnsafeParty (fromIntegral -> seed))) =
   generateWith genKeyPair seed

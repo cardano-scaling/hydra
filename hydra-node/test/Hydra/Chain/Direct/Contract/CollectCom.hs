@@ -14,7 +14,7 @@ import Hydra.Chain.Direct.Contract.Mutation (
   Mutation (..),
   SomeMutation (..),
   anyPayToPubKeyTxOut,
-  credentialsFor,
+  cardanoCredentialsFor,
   genHash,
   headTxIn,
  )
@@ -68,7 +68,7 @@ healthyCollectComTx =
         )
 
   somePartyCredentials = flip generateWith 42 $ do
-    credentialsFor <$> elements healthyParties
+    cardanoCredentialsFor <$> elements healthyParties
 
   committedUTxO =
     generateWith
@@ -128,7 +128,7 @@ healthyCommitOutput party committed =
  where
   (Party.partyFromVerKey . vkey -> (Party.UnsafeParty (fromIntegral -> seed))) = party
 
-  (cardanoVk, _) = credentialsFor party
+  (cardanoVk, _) = cardanoCredentialsFor party
 
   commitScript =
     fromPlutusScript Commit.validatorScript

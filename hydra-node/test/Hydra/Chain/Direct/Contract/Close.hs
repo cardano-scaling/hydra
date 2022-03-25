@@ -8,15 +8,21 @@ import Hydra.Prelude hiding (label)
 
 import Cardano.Api.UTxO as UTxO
 import Cardano.Binary (serialize')
-import Hydra.Chain.Direct.Contract.Mutation (Mutation (..), SomeMutation (..))
+import Hydra.Chain.Direct.Contract.Mutation (
+  Mutation (..),
+  SomeMutation (..),
+  cardanoCredentialsFor,
+ )
 import Hydra.Chain.Direct.Fixture (testNetworkId, testPolicyId)
-import Hydra.Chain.Direct.Tx (closeTx, mkHeadOutput)
+import Hydra.Chain.Direct.Tx (assetNameFromVerificationKey, closeTx, mkHeadOutput)
+import qualified Hydra.Chain.Direct.Util as Util
 import qualified Hydra.Contract.HeadState as Head
 import Hydra.Data.Party (partyFromVerKey)
 import qualified Hydra.Data.Party as OnChain
 import Hydra.Ledger.Cardano (genVerificationKey)
 import Hydra.Party (
   MultiSigned (MultiSigned),
+  Party,
   SigningKey,
   deriveParty,
   sign,
@@ -26,7 +32,7 @@ import Hydra.Party (
 import Hydra.Snapshot (Snapshot (..), SnapshotNumber)
 import Plutus.Orphans ()
 import Plutus.V1.Ledger.Api (toData)
-import Test.QuickCheck (arbitrarySizedNatural, oneof, suchThat)
+import Test.QuickCheck (arbitrarySizedNatural, elements, oneof, suchThat)
 import Test.QuickCheck.Instances ()
 
 --
@@ -37,11 +43,36 @@ healthyCloseTx :: (Tx, UTxO)
 healthyCloseTx =
   (tx, lookupUTxO)
  where
-  tx = closeTx healthySnapshot (healthySignature healthySnapshotNumber) (headInput, headOutput, headDatum)
+  tx =
+    fromLedgerTx $
+      Util.signWith
+        somePartyCredentials
+        ( toLedgerTx $
+            closeTx
+              healthySnapshot
+              (healthySignature healthySnapshotNumber)
+              (headInput, headResolvedInput, headDatum)
+        )
   headInput = generateWith arbitrary 42
-  headOutput = mkHeadOutput testNetworkId testPolicyId $ toUTxOContext (mkTxOutDatum healthyCloseDatum)
+  headResolvedInput =
+    mkHeadOutput testNetworkId testPolicyId headTxOutDatum
+      & addParticipationTokens healthyParties
+  headTxOutDatum = toUTxOContext (mkTxOutDatum healthyCloseDatum)
   headDatum = fromPlutusData $ toData healthyCloseDatum
-  lookupUTxO = UTxO.singleton (headInput, headOutput)
+  lookupUTxO = UTxO.singleton (headInput, headResolvedInput)
+  somePartyCredentials = flip generateWith 42 $ do
+    cardanoCredentialsFor <$> elements healthyParties
+
+addParticipationTokens :: [Party] -> TxOut CtxUTxO -> TxOut CtxUTxO
+addParticipationTokens parties (TxOut addr val datum) =
+  TxOut addr val' datum
+ where
+  val' =
+    val
+      <> valueFromList
+        [ (AssetId testPolicyId (assetNameFromVerificationKey cardanoVk), 1)
+        | (cardanoVk, _) <- cardanoCredentialsFor <$> parties
+        ]
 
 healthySnapshot :: Snapshot Tx
 healthySnapshot =
@@ -57,15 +88,18 @@ healthySnapshotNumber = 1
 healthyCloseDatum :: Head.State
 healthyCloseDatum =
   Head.Open
-    { parties = healthyCloseParties
+    { parties = healthyOnChainParties
     , utxoHash = ""
     }
 
-healthyCloseParties :: [OnChain.Party]
-healthyCloseParties = partyFromVerKey . vkey . deriveParty <$> healthyPartyCredentials
-
 healthyPartyCredentials :: [SigningKey]
 healthyPartyCredentials = [1, 2, 3]
+
+healthyParties :: [Party]
+healthyParties = deriveParty <$> healthyPartyCredentials
+
+healthyOnChainParties :: [OnChain.Party]
+healthyOnChainParties = partyFromVerKey . vkey <$> healthyParties
 
 healthySignature :: SnapshotNumber -> MultiSigned (Snapshot Tx)
 healthySignature number = MultiSigned [sign sk snapshot | sk <- healthyPartyCredentials]
@@ -103,7 +137,7 @@ genCloseMutation (_tx, _utxo) =
             , utxoHash = ""
             }
     , SomeMutation MutateParties . ChangeHeadDatum <$> do
-        mutatedParties <- arbitrary `suchThat` (/= healthyCloseParties)
+        mutatedParties <- arbitrary `suchThat` (/= healthyOnChainParties)
         pure $
           Head.Open
             { parties = mutatedParties

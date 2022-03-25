@@ -201,15 +201,15 @@ checkCollectCom context@ScriptContext{scriptContextTxInfo = txInfo} headContext 
         case commitFrom txInInfoResolved of
           (commitValue, Just (SerializedTxOut commit)) ->
             case matchParticipationToken headCurrencySymbol commitValue of
-              Just{} ->
+              [_] ->
                 traverseInputs
                   (fuel, commits <> unsafeEncodeRaw commit, succ nCommits)
                   rest
-              Nothing ->
+              _ ->
                 traceError "Invalid commit: does not contain valid PT."
           (commitValue, Nothing) ->
             case matchParticipationToken headCurrencySymbol commitValue of
-              Just{} ->
+              [_] ->
                 traverseInputs
                   (fuel, commits, succ nCommits)
                   rest
@@ -296,19 +296,16 @@ mustBeSignedByParticipant ScriptContext{scriptContextTxInfo = txInfo} HeadContex
   loop = \case
     [] -> []
     (TxInInfo{txInInfoResolved} : rest) ->
-      case matchParticipationToken headCurrencySymbol (txOutValue txInInfoResolved) of
-        Nothing -> loop rest
-        Just tk -> tk : loop rest
+      matchParticipationToken headCurrencySymbol (txOutValue txInInfoResolved) ++ loop rest
 {-# INLINEABLE mustBeSignedByParticipant #-}
 
-matchParticipationToken :: CurrencySymbol -> Value -> Maybe TokenName
+matchParticipationToken :: CurrencySymbol -> Value -> [TokenName]
 matchParticipationToken headCurrency (Value val) =
   case Map.toList <$> Map.lookup headCurrency val of
-    Just [(tokenName, n)]
-      | n == 1 ->
-        Just tokenName
+    Just tokens ->
+      mapMaybe (\(tokenName, n) -> if n == 1 then Just tokenName else Nothing) tokens
     _ ->
-      Nothing
+      []
 {-# INLINEABLE matchParticipationToken #-}
 
 mustContinueHeadWith :: ScriptContext -> Address -> Integer -> Datum -> Bool

@@ -16,8 +16,8 @@ import Hydra.Chain.Direct.Contract.Mutation (
   SomeMutation (..),
   addPTWithQuantity,
   anyPayToPubKeyTxOut,
+  cardanoCredentialsFor,
   changeMintedValueQuantityFrom,
-  credentialsFor,
   headTxIn,
  )
 import Hydra.Chain.Direct.Fixture (testNetworkId, testPolicyId, testSeedInput)
@@ -61,7 +61,7 @@ healthyAbortTx =
         )
 
   somePartyCredentials = flip generateWith 42 $ do
-    credentialsFor <$> elements healthyParties
+    cardanoCredentialsFor <$> elements healthyParties
 
   headInput = generateWith arbitrary 42
 

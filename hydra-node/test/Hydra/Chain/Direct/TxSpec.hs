@@ -20,7 +20,7 @@ import Data.List (intersectBy)
 import qualified Data.Map as Map
 import qualified Data.Text as T
 import Hydra.Chain (HeadParameters (..))
-import Hydra.Chain.Direct.Contract.Mutation (credentialsFor)
+import Hydra.Chain.Direct.Contract.Mutation (cardanoCredentialsFor)
 import Hydra.Chain.Direct.Fixture (
   costModels,
   epochInfo,
@@ -324,7 +324,7 @@ genAbortableOutputs parties =
   notConflict (is, cs) =
     null $ intersectBy (\(i, _, _) (c, _, _) -> i == c) is cs
 
-  genInitial p = mkInitial (credentialsFor p) <$> arbitrary
+  genInitial p = mkInitial (cardanoCredentialsFor p) <$> arbitrary
 
   mkInitial ::
     (VerificationKey PaymentKey, SigningKey PaymentKey) ->
