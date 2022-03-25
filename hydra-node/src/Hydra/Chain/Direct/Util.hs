@@ -7,7 +7,6 @@ import Hydra.Prelude
 
 import qualified Cardano.Crypto.DSIGN as Crypto
 import Cardano.Ledger.Alonzo.Tx (ValidatedTx (..))
-import Cardano.Ledger.Alonzo.TxBody (TxBody (..))
 import Cardano.Ledger.Alonzo.TxWitness (TxWitness (..))
 import Cardano.Ledger.Crypto (DSIGN)
 import qualified Cardano.Ledger.SafeHash as SafeHash
@@ -181,45 +180,21 @@ retry predicate action =
  where
   catchIf f a b = a `catch` \e -> if f e then b e else throwIO e
 
--- NOTE: This function can only be called _once_ since it modifies the
--- transaction's body, thus invalidating any pre-existing signatures.
 signWith ::
-  HasCallStack =>
   (Api.VerificationKey Api.PaymentKey, Api.SigningKey Api.PaymentKey) ->
   ValidatedTx Api.LedgerEra ->
   ValidatedTx Api.LedgerEra
-signWith credentials validatedTx@ValidatedTx{body, wits}
-  | not (Set.null (txwitsVKey wits)) =
-    error
-      "signWith: was given an already signed transaction. Don't do that, \
-      \you'll hurt yourself later."
-  | otherwise =
-    validatedTx
-      { body =
-          body'
-      , wits =
-          wits{txwitsVKey = sigs}
-      }
+signWith credentials validatedTx@ValidatedTx{body, wits} =
+  validatedTx
+    { wits =
+        wits{txwitsVKey = Set.union (txwitsVKey wits) sig}
+    }
  where
-  body' =
-    body
-      { -- NOTE: in Plutus, on-chain, only the explicit required signers
-        -- are available within the script context. So, if we want to
-        -- control that someone did sign a transaction, it must be
-        -- explicitly added to the field.
-        --
-        -- Incidentally, any signatories present in this extra field is
-        -- checked during phase-1 validations by the ledger.
-        reqSignerHashes =
-          Set.union (reqSignerHashes body) (Set.singleton vkh)
-      }
   txid =
-    Ledger.TxId (SafeHash.hashAnnotated body')
-  sigs =
+    Ledger.TxId (SafeHash.hashAnnotated body)
+  sig =
     toLedgerKeyWitness
       [Api.signWith @Api.Era (fromLedgerTxId txid) credentials]
-  vkh =
-    toLedgerKeyHash (Api.verificationKeyHash (fst credentials))
 
 -- | Marker datum used to identify payment UTXO
 markerDatum :: Data
