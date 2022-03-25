@@ -21,10 +21,8 @@ import Hydra.Chain.Direct.Contract.Mutation (
   headTxIn,
  )
 import Hydra.Chain.Direct.Fixture (testNetworkId, testPolicyId, testSeedInput)
-import qualified Hydra.Chain.Direct.Fixture as Fixture
 import Hydra.Chain.Direct.Tx (UTxOWithScript, abortTx, mkHeadOutputInitial, mkHeadTokenScript)
 import Hydra.Chain.Direct.TxSpec (drop3rd, genAbortableOutputs)
-import qualified Hydra.Chain.Direct.Util as Util
 import qualified Hydra.Contract.Commit as Commit
 import qualified Hydra.Contract.HeadState as Head
 import qualified Hydra.Contract.Initial as Initial
@@ -48,17 +46,13 @@ healthyAbortTx =
       <> UTxO (Map.fromList (drop3rd <$> healthyCommits))
 
   tx =
-    fromLedgerTx $
-      Util.signWith
-        somePartyCredentials
-        ( toLedgerTx . either (error . show) id $
-            abortTx
-              Fixture.testNetworkId
-              (headInput, toUTxOContext headOutput, headDatum)
-              headTokenScript
-              (Map.fromList (tripleToPair <$> healthyInitials))
-              (Map.fromList (tripleToPair <$> healthyCommits))
-        )
+    either (error . show) id $
+      abortTx
+        (fst somePartyCredentials)
+        (headInput, toUTxOContext headOutput, headDatum)
+        headTokenScript
+        (Map.fromList (tripleToPair <$> healthyInitials))
+        (Map.fromList (tripleToPair <$> healthyCommits))
 
   somePartyCredentials = flip generateWith 42 $ do
     cardanoCredentialsFor <$> elements healthyParties

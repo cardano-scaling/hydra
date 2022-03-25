@@ -15,7 +15,6 @@ import Hydra.Chain.Direct.Contract.Mutation (
  )
 import Hydra.Chain.Direct.Fixture (testNetworkId, testPolicyId)
 import Hydra.Chain.Direct.Tx (assetNameFromVerificationKey, closeTx, mkHeadOutput)
-import qualified Hydra.Chain.Direct.Util as Util
 import qualified Hydra.Contract.HeadState as Head
 import Hydra.Data.Party (partyFromVerKey)
 import qualified Hydra.Data.Party as OnChain
@@ -44,15 +43,11 @@ healthyCloseTx =
   (tx, lookupUTxO)
  where
   tx =
-    fromLedgerTx $
-      Util.signWith
-        somePartyCredentials
-        ( toLedgerTx $
-            closeTx
-              healthySnapshot
-              (healthySignature healthySnapshotNumber)
-              (headInput, headResolvedInput, headDatum)
-        )
+    closeTx
+      (fst somePartyCredentials)
+      healthySnapshot
+      (healthySignature healthySnapshotNumber)
+      (headInput, headResolvedInput, headDatum)
   headInput = generateWith arbitrary 42
   headResolvedInput =
     mkHeadOutput testNetworkId testPolicyId headTxOutDatum

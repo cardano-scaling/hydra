@@ -31,7 +31,6 @@ import Hydra.Chain.Direct.Tx (
   mkCommitDatum,
   mkHeadOutput,
  )
-import qualified Hydra.Chain.Direct.Util as Util
 import qualified Hydra.Contract.Commit as Commit
 import qualified Hydra.Contract.Head as Head
 import qualified Hydra.Contract.HeadState as Head
@@ -57,15 +56,11 @@ healthyCollectComTx =
     UTxO.singleton (healthyHeadInput, healthyHeadResolvedInput) <> UTxO (fst <$> commits)
 
   tx =
-    fromLedgerTx $
-      Util.signWith
-        somePartyCredentials
-        ( toLedgerTx $
-            collectComTx
-              testNetworkId
-              (healthyHeadInput, healthyHeadResolvedInput, headDatum, healthyOnChainParties)
-              commits
-        )
+    collectComTx
+      testNetworkId
+      (fst somePartyCredentials)
+      (healthyHeadInput, healthyHeadResolvedInput, headDatum, healthyOnChainParties)
+      commits
 
   somePartyCredentials = flip generateWith 42 $ do
     cardanoCredentialsFor <$> elements healthyParties
