@@ -26,7 +26,7 @@ import Plutus.Codec.CBOR.Encoding (
   unsafeEncodeRaw,
  )
 import Plutus.V1.Ledger.Ada (adaSymbol, adaToken, lovelaceValueOf)
-import Plutus.V1.Ledger.Value (Value (Value), symbols, unTokenName, valueOf)
+import Plutus.V1.Ledger.Value (TokenName (..), Value (..), valueOf)
 import PlutusTx (fromBuiltinData, toBuiltinData)
 import qualified PlutusTx
 import qualified PlutusTx.AssocMap as Map
@@ -37,6 +37,9 @@ data Head
 instance Scripts.ValidatorTypes Head where
   type DatumType Head = State
   type RedeemerType Head = Input
+
+hydraHeadV1 :: BuiltinByteString
+hydraHeadV1 = "HydraHeadV1"
 
 {-# INLINEABLE headValidator #-}
 headValidator ::
@@ -105,11 +108,20 @@ mkHeadContext context initialAddress commitAddress =
   headCurrencySymbol :: CurrencySymbol
   headCurrencySymbol =
     headInputValue
-      & symbols
-      & filter (/= adaSymbol)
+      & findCandidateSymbols
       & \case
         [s] -> s
-        _ -> traceError "malformed thread token, expected single asset"
+        _ -> traceError "malformed thread token, expected only one asset."
+
+  findCandidateSymbols :: Value -> [CurrencySymbol]
+  findCandidateSymbols (Value v) = loop (Map.toList v)
+   where
+    loop = \case
+      [] -> []
+      (symbol, assets) : rest ->
+        case filter ((TokenName hydraHeadV1, 1) ==) (Map.toList assets) of
+          [] -> loop rest
+          _ -> symbol : loop rest
 {-# INLINEABLE mkHeadContext #-}
 
 -- | On-Chain Validation for 'Abort' transition.

@@ -56,7 +56,7 @@ mkHeadTokenScript =
   fromPlutusScript @PlutusScriptV1 . HeadTokens.validatorScript . toPlutusTxOutRef
 
 hydraHeadV1AssetName :: AssetName
-hydraHeadV1AssetName = AssetName (fromBuiltin HeadTokens.hydraHeadV1)
+hydraHeadV1AssetName = AssetName (fromBuiltin Head.hydraHeadV1)
 
 -- FIXME: sould not be hardcoded
 headValue :: Value
