@@ -14,14 +14,20 @@ import Hydra.Cardano.Api
 import Hydra.Ledger.Cardano.Builder
 
 import qualified Cardano.Api.UTxO as UTxO
-import Cardano.Binary (decodeAnnotator, serialize', unsafeDeserialize')
+import Cardano.Binary (decodeAnnotator, serialize, serialize', unsafeDeserialize')
 import qualified Cardano.Crypto.DSIGN as CC
 import Cardano.Crypto.Hash (SHA256, digest)
 import qualified Cardano.Ledger.Alonzo.PParams as Ledger.Alonzo
+import qualified Cardano.Ledger.Alonzo.Scripts as Ledger.Alonzo
 import qualified Cardano.Ledger.Alonzo.Tx as Ledger.Alonzo
+import qualified Cardano.Ledger.Alonzo.TxBody as Ledger
+import qualified Cardano.Ledger.Alonzo.TxWitness as Ledger
 import qualified Cardano.Ledger.BaseTypes as Ledger
 import qualified Cardano.Ledger.Core as Ledger
 import qualified Cardano.Ledger.Credential as Ledger
+import qualified Cardano.Ledger.Era as Ledger
+import qualified Cardano.Ledger.Mary.Value as Ledger
+import qualified Cardano.Ledger.SafeHash as Ledger
 import qualified Cardano.Ledger.Shelley.API.Mempool as Ledger
 import qualified Cardano.Ledger.Shelley.Genesis as Ledger
 import qualified Cardano.Ledger.Shelley.LedgerState as Ledger
@@ -33,13 +39,19 @@ import qualified Codec.CBOR.Encoding as CBOR
 import Control.Arrow (left)
 import Control.Monad (foldM)
 import qualified Control.State.Transition as Ledger
+import qualified Data.Aeson as Aeson
 import qualified Data.ByteString as BS
+import qualified Data.ByteString.Lazy as BL
 import Data.Default (Default, def)
 import qualified Data.Map.Strict as Map
 import Data.Maybe (fromJust)
 import Data.Maybe.Strict (StrictMaybe (..))
+import qualified Data.Text as T
 import Data.Text.Lazy.Builder (toLazyText)
 import Formatting.Buildable (build)
+import qualified Hydra.Contract.Commit as Commit
+import qualified Hydra.Contract.Head as Head
+import qualified Hydra.Contract.Initial as Initial
 import Hydra.Ledger (IsTx (..), Ledger (..), ValidationError (..))
 import Hydra.Ledger.Cardano.Json ()
 import Test.Cardano.Ledger.Alonzo.AlonzoEraGen ()
@@ -167,6 +179,157 @@ mkSimpleTx (txin, TxOut owner valueIn datum) (recipient, valueOut) sk = do
       ]
 
   fee = Lovelace 0
+
+-- | Obtain a human-readable pretty text representation of a transaction.
+renderTx :: Tx -> Text
+renderTx = renderTxWithUTxO mempty
+
+-- | Like 'renderTx', but uses the given UTxO to resolve inputs.
+renderTxWithUTxO :: UTxO -> Tx -> Text
+renderTxWithUTxO utxo (Tx body _wits) =
+  unlines $
+    [show (getTxId body)]
+      <> [""]
+      <> inputLines
+      <> [""]
+      <> outputLines
+      <> [""]
+      <> mintLines
+      <> [""]
+      <> scriptLines
+      <> [""]
+      <> datumLines
+      <> [""]
+      <> redeemerLines
+      <> [""]
+      <> requiredSignersLines
+ where
+  ShelleyTxBody lbody scripts scriptsData _auxData _validity = body
+  outs = Ledger.outputs' lbody
+  TxBody content = body
+
+  inputLines =
+    "== INPUTS (" <> show (length (txIns content)) <> ")" :
+    (("- " <>) . prettyTxIn <$> sortBy (compare `on` fst) (txIns content))
+
+  prettyTxIn (i, _) =
+    case UTxO.resolve i utxo of
+      Nothing -> renderTxIn i
+      Just o ->
+        case txOutAddress o of
+          AddressInEra _ addr ->
+            renderTxIn i
+              <> ("\n      " <> show addr)
+              <> ("\n      " <> prettyValue 1 (txOutValue o))
+              <> ("\n      " <> prettyDatumUtxo (txOutDatum o))
+
+  outputLines =
+    [ "== OUTPUTS (" <> show (length (txOuts content)) <> ")"
+    , "Total number of assets: " <> show totalNumberOfAssets
+    ]
+      <> (("- " <>) . prettyOut <$> txOuts content)
+
+  prettyOut o =
+    case txOutAddress o of
+      AddressInEra _ addr ->
+        mconcat
+          [ show addr
+          , "\n      " <> prettyValue 1 (txOutValue o)
+          , "\n      " <> prettyDatumCtx (txOutDatum o)
+          ]
+
+  totalNumberOfAssets =
+    sum $
+      [ foldl' (\n inner -> n + Map.size inner) 0 outer
+      | Ledger.TxOut _ (Ledger.Value _ outer) _ <- toList outs
+      ]
+
+  mintLines =
+    [ "== MINT/BURN\n" <> case txMintValue content of
+        TxMintValueNone -> "[]"
+        TxMintValue val _ -> prettyValue 0 val
+    ]
+
+  prettyValue n =
+    T.replace " + " indent . renderValue
+   where
+    indent = "\n  " <> T.replicate n "    "
+
+  prettyDatumUtxo :: TxOutDatum CtxUTxO -> Text
+  prettyDatumUtxo = \case
+    TxOutDatumNone ->
+      "TxOutDatumNone"
+    TxOutDatumHash h ->
+      "TxOutDatumHash " <> show h
+    _ ->
+      error "absurd"
+
+  prettyDatumCtx = \case
+    TxOutDatumNone ->
+      "TxOutDatumNone"
+    TxOutDatumHash h ->
+      "TxOutDatumHash " <> show h
+    TxOutDatum scriptData ->
+      "TxOutDatum " <> prettyScriptData scriptData
+
+  scriptLines =
+    [ "== SCRIPTS (" <> show (length scripts) <> ")"
+    , "Total size (bytes):  " <> show totalScriptSize
+    ]
+      <> (("- " <>) . prettyScript <$> scripts)
+
+  totalScriptSize = sum $ BL.length . serialize <$> scripts
+
+  prettyScript (fromLedgerScript -> script)
+    | script == fromPlutusScript @PlutusScriptV1 Initial.validatorScript =
+      "InitialScript Script (" <> scriptHash <> ")"
+    | script == fromPlutusScript @PlutusScriptV1 Commit.validatorScript =
+      "CommitScript Script (" <> scriptHash <> ")"
+    | script == fromPlutusScript @PlutusScriptV1 Head.validatorScript =
+      "Head Script (" <> scriptHash <> ")"
+    | otherwise =
+      "Unknown Script (" <> scriptHash <> ")"
+   where
+    scriptHash =
+      show (Ledger.hashScript @(ShelleyLedgerEra Era) (toLedgerScript script))
+
+  datumLines = case scriptsData of
+    TxBodyNoScriptData -> []
+    (TxBodyScriptData (Ledger.TxDats dats) _) ->
+      "== DATUMS (" <> show (length dats) <> ")" :
+      (("- " <>) . showDatumAndHash <$> Map.toList dats)
+
+  showDatumAndHash (k, v) =
+    mconcat
+      [ show (Ledger.extractHash k)
+      , "\n  "
+      , prettyScriptData (fromLedgerData v)
+      ]
+
+  prettyScriptData =
+    decodeUtf8 . Aeson.encode . scriptDataToJson ScriptDataJsonNoSchema
+
+  redeemerLines = case scriptsData of
+    TxBodyNoScriptData -> []
+    (TxBodyScriptData _ re) ->
+      let rdmrs = Map.toList $ Ledger.unRedeemers re
+       in "== REDEEMERS (" <> show (length rdmrs) <> ")" :
+          (("- " <>) . prettyRedeemer <$> rdmrs)
+
+  prettyRedeemer (Ledger.RdmrPtr tag ix, (redeemerData, redeemerBudget)) =
+    unwords
+      [ show tag <> "#" <> show ix
+      , mconcat
+          [ "( cpu = " <> show (Ledger.Alonzo.exUnitsSteps redeemerBudget)
+          , ", mem = " <> show (Ledger.Alonzo.exUnitsMem redeemerBudget) <> " )"
+          ]
+      , "\n  " <> prettyScriptData (fromLedgerData redeemerData)
+      ]
+
+  requiredSignersLines =
+    "== REQUIRED SIGNERS" : case txExtraKeyWits content of
+      TxExtraKeyWitnessesNone -> ["[]"]
+      TxExtraKeyWitnesses xs -> ("- " <>) . show <$> xs
 
 hashTxOuts :: [TxOut CtxUTxO] -> ByteString
 hashTxOuts =

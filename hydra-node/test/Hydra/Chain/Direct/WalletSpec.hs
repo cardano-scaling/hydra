@@ -35,7 +35,6 @@ import Hydra.Cardano.Api (
   VerificationKey,
   fromLedgerTx,
   mkVkAddress,
-  renderTx,
   toLedgerAddr,
   toLedgerTxIn,
  )
@@ -51,7 +50,7 @@ import Hydra.Chain.Direct.Wallet (
   watchUTxOUntil,
   withTinyWallet,
  )
-import Hydra.Ledger.Cardano (genKeyPair, genTxIn)
+import Hydra.Ledger.Cardano (genKeyPair, genTxIn, renderTx)
 import Hydra.Ledger.Cardano.Evaluate (epochInfo, systemStart)
 import Ouroboros.Consensus.Cardano.Block (HardForkBlock (..))
 import Ouroboros.Consensus.Shelley.Ledger (mkShelleyBlock)

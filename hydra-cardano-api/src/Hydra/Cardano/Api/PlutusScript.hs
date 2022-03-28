@@ -2,8 +2,10 @@ module Hydra.Cardano.Api.PlutusScript where
 
 import Hydra.Cardano.Api.Prelude
 
+import qualified Cardano.Ledger.Alonzo.Language as Ledger
 import qualified Cardano.Ledger.Alonzo.Scripts as Ledger
 import Codec.Serialise (serialise)
+import Hydra.Cardano.Api.PlutusScriptVersion (HasPlutusScriptVersion (..))
 import qualified Plutus.V1.Ledger.Api as Plutus
 
 -- * Type Conversions
@@ -18,6 +20,18 @@ fromLedgerScript :: HasCallStack => Ledger.Script era -> PlutusScript lang
 fromLedgerScript = \case
   Ledger.TimelockScript{} -> error "fromLedgerScript: TimelockScript"
   Ledger.PlutusScript _ bytes -> PlutusScriptSerialised bytes
+
+-- | Convert a cardano-api's 'PlutusScript' into a cardano-ledger's 'Script'.
+toLedgerScript ::
+  forall lang.
+  (HasPlutusScriptVersion lang) =>
+  PlutusScript lang ->
+  Ledger.Script (ShelleyLedgerEra AlonzoEra)
+toLedgerScript (PlutusScriptSerialised bytes) =
+  let lang = case plutusScriptVersion $ proxyToAsType (Proxy @lang) of
+        PlutusScriptV1 -> Ledger.PlutusV1
+        PlutusScriptV2 -> Ledger.PlutusV2
+   in Ledger.PlutusScript lang bytes
 
 -- | Convert a plutus' 'Script' into a cardano-api's 'PlutusScript'
 fromPlutusScript :: Plutus.Script -> PlutusScript lang
