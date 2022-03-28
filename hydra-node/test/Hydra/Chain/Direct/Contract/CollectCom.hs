@@ -14,6 +14,7 @@ import Hydra.Chain.Direct.Contract.Mutation (
   Mutation (..),
   SomeMutation (..),
   anyPayToPubKeyTxOut,
+  cardanoCredentialsFor,
   genHash,
   headTxIn,
  )
@@ -39,7 +40,7 @@ import Hydra.Ledger.Cardano (genAdaOnlyUTxO, genVerificationKey)
 import Hydra.Party (Party, vkey)
 import Plutus.Orphans ()
 import Plutus.V1.Ledger.Api (fromData, toBuiltin, toData)
-import Test.QuickCheck (oneof, suchThat)
+import Test.QuickCheck (elements, oneof, suchThat)
 import Test.QuickCheck.Instances ()
 import qualified Prelude
 
@@ -57,8 +58,12 @@ healthyCollectComTx =
   tx =
     collectComTx
       testNetworkId
+      (fst somePartyCredentials)
       (healthyHeadInput, healthyHeadResolvedInput, headDatum, healthyOnChainParties)
       commits
+
+  somePartyCredentials = flip generateWith 42 $ do
+    cardanoCredentialsFor <$> elements healthyParties
 
   committedUTxO =
     generateWith
@@ -116,9 +121,9 @@ healthyCommitOutput party committed =
     )
   )
  where
-  Party.UnsafeParty (fromIntegral -> seed) = Party.partyFromVerKey (vkey party)
+  (Party.partyFromVerKey . vkey -> (Party.UnsafeParty (fromIntegral -> seed))) = party
 
-  cardanoVk = generateWith genVerificationKey seed
+  (cardanoVk, _) = cardanoCredentialsFor party
 
   commitScript =
     fromPlutusScript Commit.validatorScript
@@ -142,6 +147,7 @@ data CollectComMutation
     -- requires to ensure every party has a chance to commit.
     MutateNumberOfParties
   | MutateHeadId
+  | MutateRequiredSigner
   deriving (Generic, Show, Enum, Bounded)
 
 genCollectComMutation :: (Tx, UTxO) -> Gen SomeMutation
@@ -171,6 +177,9 @@ genCollectComMutation (tx, utxo) =
             <*> fmap headPolicyId (arbitrary `suchThat` (/= testSeedInput))
             <*> pure (toUTxOContext $ mkTxOutDatum healthyCollectComInitialDatum)
         return $ ChangeInput healthyHeadInput illedHeadResolvedInput (Just $ toScriptData Head.CollectCom)
+    , SomeMutation MutateRequiredSigner <$> do
+        newSigner <- verificationKeyHash <$> genVerificationKey
+        pure $ ChangeRequiredSigners [newSigner]
     ]
  where
   TxOut collectComOutputAddress collectComOutputValue collectComOutputDatum =

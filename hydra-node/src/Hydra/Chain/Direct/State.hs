@@ -230,11 +230,11 @@ abort ::
   HasCallStack =>
   OnChainHeadState 'StInitialized ->
   Tx
-abort OnChainHeadState{networkId, stateMachine} = do
+abort OnChainHeadState{ownVerificationKey, stateMachine} = do
   let (i, o, dat, _) = initialThreadOutput
       initials = Map.fromList $ map tripleToPair initialInitials
       commits = Map.fromList $ map tripleToPair initialCommits
-   in case abortTx networkId (i, o, dat) (initialHeadTokenScript stateMachine) initials commits of
+   in case abortTx ownVerificationKey (i, o, dat) (initialHeadTokenScript stateMachine) initials commits of
         Left err ->
           -- FIXME: Exception with MonadThrow?
           error $ show err
@@ -250,9 +250,9 @@ abort OnChainHeadState{networkId, stateMachine} = do
 collect ::
   OnChainHeadState 'StInitialized ->
   Tx
-collect OnChainHeadState{networkId, stateMachine} = do
+collect OnChainHeadState{networkId, ownVerificationKey, stateMachine} = do
   let commits = Map.fromList $ fmap tripleToPair initialCommits
-   in collectComTx networkId initialThreadOutput commits
+   in collectComTx networkId ownVerificationKey initialThreadOutput commits
  where
   Initialized
     { initialThreadOutput
@@ -263,13 +263,13 @@ close ::
   ConfirmedSnapshot Tx ->
   OnChainHeadState 'StOpen ->
   Tx
-close confirmedSnapshot OnChainHeadState{stateMachine} = do
+close confirmedSnapshot OnChainHeadState{ownVerificationKey, stateMachine} = do
   let (sn, sigs) =
         case confirmedSnapshot of
           ConfirmedSnapshot{snapshot, signatures} -> (snapshot, signatures)
           InitialSnapshot{snapshot} -> (snapshot, mempty)
       (i, o, dat, _) = openThreadOutput
-   in closeTx sn sigs (i, o, dat)
+   in closeTx ownVerificationKey sn sigs (i, o, dat)
  where
   Open{openThreadOutput} = stateMachine
 

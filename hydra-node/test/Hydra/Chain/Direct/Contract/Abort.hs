@@ -12,21 +12,22 @@ import qualified Data.Map as Map
 import Data.Maybe (fromJust)
 import Hydra.Chain (HeadParameters (..))
 import Hydra.Chain.Direct.Contract.Mutation (
-  Mutation (ChangeHeadDatum, ChangeInput, RemoveInput, RemoveOutput),
+  Mutation (..),
   SomeMutation (..),
   addPTWithQuantity,
   anyPayToPubKeyTxOut,
+  cardanoCredentialsFor,
   changeMintedValueQuantityFrom,
   headTxIn,
  )
 import Hydra.Chain.Direct.Fixture (testNetworkId, testPolicyId, testSeedInput)
-import qualified Hydra.Chain.Direct.Fixture as Fixture
 import Hydra.Chain.Direct.Tx (UTxOWithScript, abortTx, mkHeadOutputInitial, mkHeadTokenScript)
 import Hydra.Chain.Direct.TxSpec (drop3rd, genAbortableOutputs)
 import qualified Hydra.Contract.Commit as Commit
 import qualified Hydra.Contract.HeadState as Head
 import qualified Hydra.Contract.Initial as Initial
 import Hydra.Data.Party (partyFromVerKey)
+import Hydra.Ledger.Cardano (genVerificationKey)
 import Hydra.Party (Party, vkey)
 import Hydra.Prelude
 import Test.QuickCheck (Property, choose, counterexample, elements, oneof, suchThat)
@@ -35,7 +36,7 @@ import Test.QuickCheck (Property, choose, counterexample, elements, oneof, suchT
 -- AbortTx
 --
 
-healthyAbortTx :: (Tx, UTxO)
+healthyAbortTx :: HasCallStack => (Tx, UTxO)
 healthyAbortTx =
   (tx, lookupUTxO)
  where
@@ -44,13 +45,17 @@ healthyAbortTx =
       <> UTxO (Map.fromList (drop3rd <$> healthyInitials))
       <> UTxO (Map.fromList (drop3rd <$> healthyCommits))
 
-  Right tx =
-    abortTx
-      Fixture.testNetworkId
-      (headInput, toUTxOContext headOutput, headDatum)
-      headTokenScript
-      (Map.fromList (tripleToPair <$> healthyInitials))
-      (Map.fromList (tripleToPair <$> healthyCommits))
+  tx =
+    either (error . show) id $
+      abortTx
+        (fst somePartyCredentials)
+        (headInput, toUTxOContext headOutput, headDatum)
+        headTokenScript
+        (Map.fromList (tripleToPair <$> healthyInitials))
+        (Map.fromList (tripleToPair <$> healthyCommits))
+
+  somePartyCredentials = flip generateWith 42 $ do
+    cardanoCredentialsFor <$> elements healthyParties
 
   headInput = generateWith arbitrary 42
 
@@ -115,6 +120,7 @@ data AbortMutation
   | BurnOneTokenMore
   | MutateThreadTokenQuantity
   | DropCollectedInput
+  | MutateRequiredSigner
   deriving (Generic, Show, Enum, Bounded)
 
 genAbortMutation :: (Tx, UTxO) -> Gen SomeMutation
@@ -131,4 +137,7 @@ genAbortMutation (tx, utxo) =
     , SomeMutation MutateThreadTokenQuantity <$> changeMintedValueQuantityFrom tx (-1)
     , SomeMutation BurnOneTokenMore <$> addPTWithQuantity tx (-1)
     , SomeMutation DropCollectedInput . RemoveInput <$> elements (txIns' tx)
+    , SomeMutation MutateRequiredSigner <$> do
+        newSigner <- verificationKeyHash <$> genVerificationKey
+        pure $ ChangeRequiredSigners [newSigner]
     ]

@@ -20,6 +20,7 @@ import Data.List (intersectBy)
 import qualified Data.Map as Map
 import qualified Data.Text as T
 import Hydra.Chain (HeadParameters (..))
+import Hydra.Chain.Direct.Contract.Mutation (cardanoCredentialsFor)
 import Hydra.Chain.Direct.Fixture (
   costModels,
   epochInfo,
@@ -40,7 +41,6 @@ import Hydra.Ledger.Cardano (
   adaOnly,
   genOneUTxOFor,
   genUTxO,
-  genVerificationKey,
   hashTxOuts,
   simplifyUTxO,
  )
@@ -48,11 +48,13 @@ import Hydra.Party (Party, vkey)
 import Plutus.V1.Ledger.Api (toBuiltin, toData)
 import Test.Cardano.Ledger.Alonzo.Serialisation.Generators ()
 import Test.QuickCheck (
+  NonEmptyList (..),
   checkCoverage,
   choose,
   conjoin,
   counterexample,
   cover,
+  elements,
   forAll,
   label,
   oneof,
@@ -71,27 +73,29 @@ spec =
       modifyMaxSuccess (const 10) $
         prop "validates" $ \headInput cperiod ->
           forAll (vectorOf 3 arbitrary) $ \parties ->
-            forAll (generateCommitUTxOs parties) $ \commitsUTxO ->
-              let onChainUTxO = UTxO $ Map.singleton headInput headOutput <> fmap fst commitsUTxO
-                  headOutput = mkHeadOutput testNetworkId testPolicyId $ toUTxOContext $ mkTxOutDatum headDatum
-                  onChainParties = partyFromVerKey . vkey <$> parties
-                  headDatum = Head.Initial cperiod onChainParties
-                  tx =
-                    collectComTx
-                      testNetworkId
-                      ( headInput
-                      , headOutput
-                      , fromPlutusData $ toData headDatum
-                      , onChainParties
-                      )
-                      commitsUTxO
-               in case validateTxScriptsUnlimited onChainUTxO tx of
-                    Left basicFailure ->
-                      property False & counterexample ("Basic failure: " <> show basicFailure)
-                    Right redeemerReport ->
-                      length commitsUTxO + 1 == length (rights $ Map.elems redeemerReport)
-                        & counterexample (prettyRedeemerReport redeemerReport)
-                        & counterexample ("Tx: " <> toString (renderTx tx))
+            forAll (cardanoCredentialsFor <$> elements parties) $ \(signer, _) ->
+              forAll (generateCommitUTxOs parties) $ \commitsUTxO ->
+                let onChainUTxO = UTxO $ Map.singleton headInput headOutput <> fmap fst commitsUTxO
+                    headOutput = mkHeadOutput testNetworkId testPolicyId $ toUTxOContext $ mkTxOutDatum headDatum
+                    onChainParties = partyFromVerKey . vkey <$> parties
+                    headDatum = Head.Initial cperiod onChainParties
+                    tx =
+                      collectComTx
+                        testNetworkId
+                        signer
+                        ( headInput
+                        , headOutput
+                        , fromPlutusData $ toData headDatum
+                        , onChainParties
+                        )
+                        commitsUTxO
+                 in case validateTxScriptsUnlimited onChainUTxO tx of
+                      Left basicFailure ->
+                        property False & counterexample ("Basic failure: " <> show basicFailure)
+                      Right redeemerReport ->
+                        length commitsUTxO + 1 == length (rights $ Map.elems redeemerReport)
+                          & counterexample (prettyRedeemerReport redeemerReport)
+                          & counterexample ("Tx: " <> toString (renderTx tx))
 
     describe "fanoutTx" $ do
       prop "validates" $ \headInput ->
@@ -136,87 +140,89 @@ spec =
 
     describe "abortTx" $ do
       prop "validates" $
-        \txIn contestationPeriod (ReasonablySized parties) -> forAll (genAbortableOutputs parties) $
-          \(resolvedInitials, resolvedCommits) ->
-            let headUTxO = (txIn :: TxIn, headOutput)
-                headOutput = mkHeadOutput testNetworkId testPolicyId $ toUTxOContext $ mkTxOutDatum headDatum
-                headDatum =
-                  Head.Initial
-                    (contestationPeriodFromDiffTime contestationPeriod)
-                    (map (partyFromVerKey . vkey) parties)
-                initials = Map.fromList (drop2nd <$> resolvedInitials)
-                initialsUTxO = drop3rd <$> resolvedInitials
-                commits = Map.fromList (drop2nd <$> resolvedCommits)
-                commitsUTxO = drop3rd <$> resolvedCommits
-                utxo = UTxO $ Map.fromList (headUTxO : initialsUTxO <> commitsUTxO)
-                headInfo = (txIn, headOutput, fromPlutusData $ toData headDatum)
-                headScript = mkHeadTokenScript testSeedInput
-                abortableCommits = Map.fromList $ map tripleToPair resolvedCommits
-                abortableInitials = Map.fromList $ map tripleToPair resolvedInitials
-             in checkCoverage $ case abortTx testNetworkId headInfo headScript abortableInitials abortableCommits of
-                  Left OverlappingInputs ->
-                    property (isJust $ txIn `Map.lookup` initials)
-                  Right tx ->
-                    case validateTxScriptsUnlimited utxo tx of
-                      Left basicFailure ->
-                        property False & counterexample ("Basic failure: " <> show basicFailure)
-                      Right redeemerReport ->
-                        -- NOTE: There's 1 redeemer report for the head + 1 for the mint script +
-                        -- 1 for each of either initials or commits
-                        2 + (length initials + length commits) == length (rights $ Map.elems redeemerReport)
-                          & counterexample ("Redeemer report: " <> show redeemerReport)
-                          & counterexample ("Tx: " <> toString (renderTx tx))
-                          & counterexample ("Input utxo: " <> decodeUtf8 (encodePretty utxo))
-                          & cover 80 True "Success"
+        \txIn contestationPeriod (ReasonablySized (NonEmpty parties)) -> forAll (genAbortableOutputs parties) $
+          \(resolvedInitials, resolvedCommits) -> forAll (cardanoCredentialsFor <$> elements parties) $
+            \(signer, _) ->
+              let headUTxO = (txIn :: TxIn, headOutput)
+                  headOutput = mkHeadOutput testNetworkId testPolicyId $ toUTxOContext $ mkTxOutDatum headDatum
+                  headDatum =
+                    Head.Initial
+                      (contestationPeriodFromDiffTime contestationPeriod)
+                      (map (partyFromVerKey . vkey) parties)
+                  initials = Map.fromList (drop2nd <$> resolvedInitials)
+                  initialsUTxO = drop3rd <$> resolvedInitials
+                  commits = Map.fromList (drop2nd <$> resolvedCommits)
+                  commitsUTxO = drop3rd <$> resolvedCommits
+                  utxo = UTxO $ Map.fromList (headUTxO : initialsUTxO <> commitsUTxO)
+                  headInfo = (txIn, headOutput, fromPlutusData $ toData headDatum)
+                  headScript = mkHeadTokenScript testSeedInput
+                  abortableCommits = Map.fromList $ map tripleToPair resolvedCommits
+                  abortableInitials = Map.fromList $ map tripleToPair resolvedInitials
+               in checkCoverage $ case abortTx signer headInfo headScript abortableInitials abortableCommits of
+                    Left OverlappingInputs ->
+                      property (isJust $ txIn `Map.lookup` initials)
+                    Right tx ->
+                      case validateTxScriptsUnlimited utxo tx of
+                        Left basicFailure ->
+                          property False & counterexample ("Basic failure: " <> show basicFailure)
+                        Right redeemerReport ->
+                          -- NOTE: There's 1 redeemer report for the head + 1 for the mint script +
+                          -- 1 for each of either initials or commits
+                          2 + (length initials + length commits) == length (rights $ Map.elems redeemerReport)
+                            & counterexample ("Redeemer report: " <> show redeemerReport)
+                            & counterexample ("Tx: " <> toString (renderTx tx))
+                            & counterexample ("Input utxo: " <> decodeUtf8 (encodePretty utxo))
+                            & cover 80 True "Success"
 
       prop "cover fee correctly handles redeemers" $
         withMaxSuccess 60 $ \txIn cperiod (party :| parties) cardanoKeys walletUTxO ->
-          let params = HeadParameters cperiod (party : parties)
-              tx = initTx testNetworkId cardanoKeys params txIn
-           in case observeInitTx testNetworkId party tx of
-                Just (_, InitObservation{initials, threadOutput}) -> do
-                  let (headInput, headOutput, headDatum, _) = threadOutput
-                      initials' = Map.fromList [(a, (b, c)) | (a, b, c) <- initials]
-                      lookupUTxO =
-                        ((headInput, headOutput) : [(a, b) | (a, b, _) <- initials])
-                          & Map.fromList
-                          & Map.mapKeys toLedgerTxIn
-                          & Map.map toLedgerTxOut
-                   in case abortTx testNetworkId (headInput, headOutput, headDatum) (mkHeadTokenScript testSeedInput) initials' mempty of
-                        Left err ->
-                          property False & counterexample ("AbortTx construction failed: " <> show err)
-                        Right (toLedgerTx -> txAbort) ->
-                          case coverFee_ pparams systemStart epochInfo lookupUTxO walletUTxO txAbort of
-                            Left err ->
-                              True
-                                & label
-                                  ( case err of
-                                      ErrNoAvailableUTxO -> "No available UTxO"
-                                      ErrNoPaymentUTxOFound -> "No payment UTxO found"
-                                      ErrNotEnoughFunds{} -> "Not enough funds"
-                                      ErrUnknownInput{} -> "Unknown input"
-                                      ErrScriptExecutionFailed{} -> "Script(s) execution failed"
-                                  )
-                            Right (_, fromLedgerTx -> txAbortWithFees) ->
-                              let actualExecutionCost = totalExecutionCost pparams txAbortWithFees
-                                  fee = txFee' txAbortWithFees
-                               in actualExecutionCost > Lovelace 0 && fee > actualExecutionCost
-                                    & label "Ok"
-                                    & counterexample ("Execution cost: " <> show actualExecutionCost)
-                                    & counterexample ("Fee: " <> show fee)
-                                    & counterexample ("Tx: " <> show txAbortWithFees)
-                                    & counterexample ("Input utxo: " <> show (walletUTxO <> lookupUTxO))
-                _ ->
-                  property False
-                    & counterexample "Failed to construct and observe init tx."
-                    & counterexample (toString (renderTx tx))
+          forAll (cardanoCredentialsFor <$> elements (party : parties)) $ \(signer, _) ->
+            let params = HeadParameters cperiod (party : parties)
+                tx = initTx testNetworkId cardanoKeys params txIn
+             in case observeInitTx testNetworkId party tx of
+                  Just (_, InitObservation{initials, threadOutput}) -> do
+                    let (headInput, headOutput, headDatum, _) = threadOutput
+                        initials' = Map.fromList [(a, (b, c)) | (a, b, c) <- initials]
+                        lookupUTxO =
+                          ((headInput, headOutput) : [(a, b) | (a, b, _) <- initials])
+                            & Map.fromList
+                            & Map.mapKeys toLedgerTxIn
+                            & Map.map toLedgerTxOut
+                     in case abortTx signer (headInput, headOutput, headDatum) (mkHeadTokenScript testSeedInput) initials' mempty of
+                          Left err ->
+                            property False & counterexample ("AbortTx construction failed: " <> show err)
+                          Right (toLedgerTx -> txAbort) ->
+                            case coverFee_ pparams systemStart epochInfo lookupUTxO walletUTxO txAbort of
+                              Left err ->
+                                True
+                                  & label
+                                    ( case err of
+                                        ErrNoAvailableUTxO -> "No available UTxO"
+                                        ErrNoPaymentUTxOFound -> "No payment UTxO found"
+                                        ErrNotEnoughFunds{} -> "Not enough funds"
+                                        ErrUnknownInput{} -> "Unknown input"
+                                        ErrScriptExecutionFailed{} -> "Script(s) execution failed"
+                                    )
+                              Right (_, fromLedgerTx -> txAbortWithFees) ->
+                                let actualExecutionCost = totalExecutionCost pparams txAbortWithFees
+                                    fee = txFee' txAbortWithFees
+                                 in actualExecutionCost > Lovelace 0 && fee > actualExecutionCost
+                                      & label "Ok"
+                                      & counterexample ("Execution cost: " <> show actualExecutionCost)
+                                      & counterexample ("Fee: " <> show fee)
+                                      & counterexample ("Tx: " <> show txAbortWithFees)
+                                      & counterexample ("Input utxo: " <> show (walletUTxO <> lookupUTxO))
+                  _ ->
+                    property False
+                      & counterexample "Failed to construct and observe init tx."
+                      & counterexample (toString (renderTx tx))
 
 -- | Generate a UTXO representing /commit/ outputs for a given list of `Party`.
 -- FIXME: This function is very complicated and it's hard to understand it after a while
 generateCommitUTxOs :: [Party] -> Gen (Map.Map TxIn (TxOut CtxUTxO, ScriptData))
 generateCommitUTxOs parties = do
   txins <- vectorOf (length parties) (arbitrary @TxIn)
-  vks <- vectorOf (length parties) genVerificationKey
+  let vks = (\p -> (fst (cardanoCredentialsFor p), p)) <$> parties
   committedUTxO <-
     vectorOf (length parties) $
       oneof
@@ -227,7 +233,7 @@ generateCommitUTxOs parties = do
         ]
   let commitUTxO =
         zip txins $
-          uncurry mkCommitUTxO <$> zip (zip vks parties) committedUTxO
+          uncurry mkCommitUTxO <$> zip vks committedUTxO
   pure $ Map.fromList commitUTxO
  where
   mkCommitUTxO :: (VerificationKey PaymentKey, Party) -> Maybe (TxIn, TxOut CtxUTxO) -> (TxOut CtxUTxO, ScriptData)
@@ -316,20 +322,20 @@ genAbortableOutputs parties =
  where
   go = do
     (initParties, commitParties) <- (`splitAt` parties) <$> choose (0, length parties)
-    initials <- vectorOf (length initParties) genInitial
+    initials <- mapM genInitial initParties
     commits <- fmap (\(a, (b, c)) -> (a, b, c)) . Map.toList <$> generateCommitUTxOs commitParties
     pure (initials, commits)
 
   notConflict (is, cs) =
     null $ intersectBy (\(i, _, _) (c, _, _) -> i == c) is cs
 
-  genInitial = mkInitial <$> arbitrary <*> arbitrary
+  genInitial p = mkInitial (cardanoCredentialsFor p) <$> arbitrary
 
   mkInitial ::
+    (VerificationKey PaymentKey, SigningKey PaymentKey) ->
     TxIn ->
-    VerificationKey PaymentKey ->
     UTxOWithScript
-  mkInitial txin vk =
+  mkInitial (vk, _) txin =
     ( txin
     , initialTxOut vk
     , fromPlutusData (toData initialDatum)

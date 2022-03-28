@@ -18,9 +18,6 @@ import Plutus.V1.Ledger.Value (getValue)
 import qualified PlutusTx
 import qualified PlutusTx.AssocMap as Map
 
-hydraHeadV1 :: BuiltinByteString
-hydraHeadV1 = "HydraHeadV1"
-
 validate ::
   -- | Head validator
   ValidatorHash ->
@@ -35,6 +32,10 @@ validate initialValidator headValidator seedInput action context =
     Burn -> validateTokensBurning context
 {-# INLINEABLE validate #-}
 
+-- FIXME: This doesn't verify that:
+--
+-- (a) A ST is minted with the right 'HydraHeadV1' name
+-- (b) PTs's name have the right shape (i.e. 28 bytes long)
 validateTokensMinting :: ValidatorHash -> ValidatorHash -> TxOutRef -> ScriptContext -> Bool
 validateTokensMinting initialValidator headValidator seedInput context =
   traceIfFalse "minted wrong" $

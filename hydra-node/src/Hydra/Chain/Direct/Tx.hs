@@ -56,7 +56,7 @@ mkHeadTokenScript =
   fromPlutusScript @PlutusScriptV1 . HeadTokens.validatorScript . toPlutusTxOutRef
 
 hydraHeadV1AssetName :: AssetName
-hydraHeadV1AssetName = AssetName (fromBuiltin HeadTokens.hydraHeadV1)
+hydraHeadV1AssetName = AssetName (fromBuiltin Head.hydraHeadV1)
 
 -- FIXME: sould not be hardcoded
 headValue :: Value
@@ -178,6 +178,8 @@ mkCommitDatum (partyFromVerKey . vkey -> party) headValidatorHash utxo =
 -- i.e. driving the Head script state.
 collectComTx ::
   NetworkId ->
+  -- | Party who's authorizing this transaction
+  VerificationKey PaymentKey ->
   -- | Everything needed to spend the Head state-machine output.
   (TxIn, TxOut CtxUTxO, ScriptData, [OnChain.Party]) ->
   -- | Data needed to spend the commit output produced by each party.
@@ -187,11 +189,12 @@ collectComTx ::
 -- TODO(SN): utxo unused means other participants would not "see" the opened
 -- utxo when observing. Right now, they would be trusting the OCV checks this
 -- and construct their "world view" from observed commit txs in the HeadLogic
-collectComTx networkId (headInput, initialHeadOutput, ScriptDatumForTxIn -> headDatumBefore, parties) commits =
+collectComTx networkId vk (headInput, initialHeadOutput, ScriptDatumForTxIn -> headDatumBefore, parties) commits =
   unsafeBuildTransaction $
     emptyTxBody
       & addInputs ((headInput, headWitness) : (mkCommit <$> Map.toList commits))
       & addOutputs [headOutput]
+      & addExtraRequiredSigners [verificationKeyHash vk]
  where
   headWitness =
     BuildTxWith $ ScriptWitness scriptWitnessCtx $ mkScriptWitness headScript headDatumBefore headRedeemer
@@ -232,6 +235,8 @@ collectComTx networkId (headInput, initialHeadOutput, ScriptDatumForTxIn -> head
 
 -- | Create a transaction closing a head with given snapshot number and utxo.
 closeTx ::
+  -- | Party who's authorizing this transaction
+  VerificationKey PaymentKey ->
   Snapshot Tx ->
   -- | Multi-signature of the whole snapshot
   MultiSigned (Snapshot Tx) ->
@@ -239,11 +244,12 @@ closeTx ::
   -- FIXME(SN): should also contain some Head identifier/address and stored Value (maybe the TxOut + Data?)
   UTxOWithScript ->
   Tx
-closeTx Snapshot{number, utxo} sig (headInput, headOutputBefore, ScriptDatumForTxIn -> headDatumBefore) =
+closeTx vk Snapshot{number, utxo} sig (headInput, headOutputBefore, ScriptDatumForTxIn -> headDatumBefore) =
   unsafeBuildTransaction $
     emptyTxBody
       & addInputs [(headInput, headWitness)]
       & addOutputs [headOutputAfter]
+      & addExtraRequiredSigners [verificationKeyHash vk]
  where
   headWitness =
     BuildTxWith $ ScriptWitness scriptWitnessCtx $ mkScriptWitness headScript headDatumBefore headRedeemer
@@ -299,8 +305,8 @@ data AbortTxError = OverlappingInputs
 -- | Create transaction which aborts a head by spending the Head output and all
 -- other "initial" outputs.
 abortTx ::
-  -- | Network identifier for address discrimination
-  NetworkId ->
+  -- | Party who's authorizing this transaction
+  VerificationKey PaymentKey ->
   -- | Everything needed to spend the Head state-machine output.
   (TxIn, TxOut CtxUTxO, ScriptData) ->
   -- | Script for monetary policy to burn tokens
@@ -312,7 +318,7 @@ abortTx ::
   -- Should contain the PT and is locked by commit script.
   Map TxIn (TxOut CtxUTxO, ScriptData) ->
   Either AbortTxError Tx
-abortTx _networkId (headInput, initialHeadOutput, ScriptDatumForTxIn -> headDatumBefore) headTokenScript initialsToAbort commitsToAbort
+abortTx vk (headInput, initialHeadOutput, ScriptDatumForTxIn -> headDatumBefore) headTokenScript initialsToAbort commitsToAbort
   | isJust (lookup headInput initialsToAbort) =
     Left OverlappingInputs
   | otherwise =
@@ -322,6 +328,7 @@ abortTx _networkId (headInput, initialHeadOutput, ScriptDatumForTxIn -> headDatu
           & addInputs ((headInput, headWitness) : initialInputs <> commitInputs)
           & addOutputs commitOutputs
           & burnTokens headTokenScript Burn headTokens
+          & addExtraRequiredSigners [verificationKeyHash vk]
  where
   headWitness =
     BuildTxWith $ ScriptWitness scriptWitnessCtx $ mkScriptWitness headScript headDatumBefore headRedeemer

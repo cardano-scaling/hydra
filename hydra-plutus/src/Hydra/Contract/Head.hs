@@ -26,7 +26,7 @@ import Plutus.Codec.CBOR.Encoding (
   unsafeEncodeRaw,
  )
 import Plutus.V1.Ledger.Ada (adaSymbol, adaToken, lovelaceValueOf)
-import Plutus.V1.Ledger.Value (Value (Value), symbols, valueOf)
+import Plutus.V1.Ledger.Value (TokenName (..), Value (..), valueOf)
 import PlutusTx (fromBuiltinData, toBuiltinData)
 import qualified PlutusTx
 import qualified PlutusTx.AssocMap as Map
@@ -37,6 +37,9 @@ data Head
 instance Scripts.ValidatorTypes Head where
   type DatumType Head = State
   type RedeemerType Head = Input
+
+hydraHeadV1 :: BuiltinByteString
+hydraHeadV1 = "HydraHeadV1"
 
 {-# INLINEABLE headValidator #-}
 headValidator ::
@@ -53,16 +56,16 @@ headValidator ::
 headValidator commitAddress initialAddress oldState input context =
   case (oldState, input) of
     (Initial{contestationPeriod, parties}, CollectCom) ->
-      checkCollectCom commitAddress (contestationPeriod, parties) context
+      checkCollectCom context headContext (contestationPeriod, parties)
     (Initial{parties}, Abort) ->
-      checkAbort commitAddress initialAddress parties context
-    (Open{parties}, Close{snapshotNumber, signature})
-      | snapshotNumber == 0 -> True
-      | snapshotNumber > 0 -> verifySnapshotSignature parties snapshotNumber signature
-      | otherwise -> False
+      checkAbort context headContext parties
+    (Open{parties}, Close{snapshotNumber, signature}) ->
+      checkClose context headContext parties snapshotNumber signature
     (Closed{utxoHash}, Fanout{numberOfFanoutOutputs}) ->
       checkFanout utxoHash numberOfFanoutOutputs context
     _ -> False
+ where
+  headContext = mkHeadContext context initialAddress commitAddress
 
 data CheckCollectComError
   = NoContinuingOutput
@@ -70,19 +73,72 @@ data CheckCollectComError
   | OutputValueNotPreserved
   | OutputHashNotMatching
 
+data HeadContext = HeadContext
+  { headAddress :: Address
+  , headInputValue :: Value
+  , headCurrencySymbol :: CurrencySymbol
+  , commitAddress :: Address
+  , initialAddress :: Address
+  }
+
+mkHeadContext :: ScriptContext -> Address -> Address -> HeadContext
+mkHeadContext context initialAddress commitAddress =
+  HeadContext
+    { headAddress
+    , headInputValue
+    , headCurrencySymbol
+    , initialAddress
+    , commitAddress
+    }
+ where
+  headInput :: TxInInfo
+  headInput =
+    fromMaybe
+      (traceError "script not spending a head input?")
+      (findOwnInput context)
+
+  headInputValue :: Value
+  headInputValue =
+    txOutValue (txInInfoResolved headInput)
+
+  headAddress :: Address
+  headAddress =
+    txOutAddress (txInInfoResolved headInput)
+
+  headCurrencySymbol :: CurrencySymbol
+  headCurrencySymbol =
+    headInputValue
+      & findCandidateSymbols
+      & \case
+        [s] -> s
+        _ -> traceError "malformed thread token, expected exactly one asset."
+
+  findCandidateSymbols :: Value -> [CurrencySymbol]
+  findCandidateSymbols (Value v) = loop (Map.toList v)
+   where
+    loop = \case
+      [] -> []
+      (symbol, assets) : rest ->
+        case filter ((TokenName hydraHeadV1, 1) ==) (Map.toList assets) of
+          [] -> loop rest
+          _ -> symbol : loop rest
+{-# INLINEABLE mkHeadContext #-}
+
 -- | On-Chain Validation for 'Abort' transition.
 -- It must verify that:
 --  * All PTs have been burnt
 --  * It has collected inputs for all parties, either from `Initial` or `Commit` script.
 checkAbort ::
-  Address ->
-  Address ->
-  [Party] ->
   ScriptContext ->
+  HeadContext ->
+  [Party] ->
   Bool
-checkAbort commitAddress initialAddress parties ScriptContext{scriptContextTxInfo = txInfo} =
+checkAbort context@ScriptContext{scriptContextTxInfo = txInfo} headContext parties =
   consumeInputsForAllParties
+    && mustBeSignedByParticipant context headContext
  where
+  HeadContext{initialAddress, commitAddress} = headContext
+
   consumeInputsForAllParties =
     traceIfFalse "number of inputs do not match number of parties" $
       length parties == length initialAndCommitInputs
@@ -111,45 +167,31 @@ checkAbort commitAddress initialAddress parties ScriptContext{scriptContextTxInf
 -- required to check applicability of those transactions to the UTXO set. It
 -- suffices to store a hash of the resulting outputs of that UTXO instead.
 checkCollectCom ::
-  -- | The commit script address
-  Address ->
-  -- | Initial state
-  (ContestationPeriod, [Party]) ->
   -- | Script execution context
   ScriptContext ->
+  -- | Static information about the head (i.e. address, value, currency...)
+  HeadContext ->
+  -- | Initial state
+  (ContestationPeriod, [Party]) ->
   Bool
-checkCollectCom commitAddress (_, parties) context@ScriptContext{scriptContextTxInfo = txInfo} =
+checkCollectCom context@ScriptContext{scriptContextTxInfo = txInfo} headContext (_, parties) =
   mustContinueHeadWith context headAddress expectedChangeValue expectedOutputDatum
     && everyoneHasCommitted
+    && mustBeSignedByParticipant context headContext
  where
   everyoneHasCommitted =
     nTotalCommits == length parties
 
-  headInput :: TxInInfo
-  headInput =
-    fromMaybe
-      (traceError "script not spending a head input?")
-      (findOwnInput context)
+  HeadContext
+    { headAddress
+    , headCurrencySymbol
+    , commitAddress
+    } = headContext
 
-  headInputValue :: Value
-  headInputValue =
-    txOutValue (txInInfoResolved headInput)
-
-  headAddress :: Address
-  headAddress =
-    txOutAddress (txInInfoResolved headInput)
-
-  headCurrencySymbol =
-    headInputValue
-      & symbols
-      & filter (/= adaSymbol)
-      & \case
-        [s] -> s
-        _ -> traceError "malformed thread token, expected single asset"
-
-  -- TODO: Can find own input (i.e. 'headInputValue') during this traversal already.
   (expectedChangeValue, collectedCommits, nTotalCommits) =
-    traverseInputs (negate (txInfoAdaFee txInfo), encodeBeginList, 0) (txInfoInputs txInfo)
+    traverseInputs
+      (negate (txInfoAdaFee txInfo), encodeBeginList, 0)
+      (txInfoInputs txInfo)
 
   expectedOutputDatum :: Datum
   expectedOutputDatum =
@@ -160,35 +202,35 @@ checkCollectCom commitAddress (_, parties) context@ScriptContext{scriptContextTx
      in Datum $ toBuiltinData Open{parties, utxoHash}
 
   traverseInputs (fuel, commits, nCommits) = \case
-    [] -> (fuel, commits, nCommits)
-    TxInInfo{txInInfoResolved} : rest ->
-      if
-          | txOutAddress txInInfoResolved == headAddress ->
-            traverseInputs
-              (fuel, commits, nCommits)
-              rest
-          | txOutAddress txInInfoResolved == commitAddress ->
-            case commitFrom txInInfoResolved of
-              (commitValue, Just (SerializedTxOut commit))
-                | hasParticipationToken commitValue ->
-                  traverseInputs
-                    (fuel, commits <> unsafeEncodeRaw commit, succ nCommits)
-                    rest
-              (commitValue, Nothing)
-                | hasParticipationToken commitValue ->
-                  traverseInputs
-                    (fuel, commits, succ nCommits)
-                    rest
+    [] ->
+      (fuel, commits, nCommits)
+    TxInInfo{txInInfoResolved} : rest
+      | txOutAddress txInInfoResolved == headAddress ->
+        traverseInputs
+          (fuel, commits, nCommits)
+          rest
+      | txOutAddress txInInfoResolved == commitAddress ->
+        case commitFrom txInInfoResolved of
+          (commitValue, Just (SerializedTxOut commit)) ->
+            case matchParticipationToken headCurrencySymbol commitValue of
+              [_] ->
+                traverseInputs
+                  (fuel, commits <> unsafeEncodeRaw commit, succ nCommits)
+                  rest
               _ ->
                 traceError "Invalid commit: does not contain valid PT."
-          | otherwise ->
-            traverseInputs
-              (fuel + txOutAdaValue txInInfoResolved, commits, nCommits)
-              rest
-
-  hasParticipationToken :: Value -> Bool
-  hasParticipationToken (Value val) =
-    headCurrencySymbol `Map.member` val
+          (commitValue, Nothing) ->
+            case matchParticipationToken headCurrencySymbol commitValue of
+              [_] ->
+                traverseInputs
+                  (fuel, commits, succ nCommits)
+                  rest
+              _ ->
+                traceError "Invalid commit: does not contain valid PT."
+      | otherwise ->
+        traverseInputs
+          (fuel + txOutAdaValue txInInfoResolved, commits, nCommits)
+          rest
 
   commitFrom :: TxOut -> (Value, Maybe SerializedTxOut)
   commitFrom o =
@@ -207,6 +249,22 @@ checkCollectCom commitAddress (_, parties) context@ScriptContext{scriptContextTx
       Nothing ->
         traceError "fromBuiltinData failed"
 {-# INLINEABLE checkCollectCom #-}
+
+checkClose ::
+  ScriptContext ->
+  HeadContext ->
+  [Party] ->
+  SnapshotNumber ->
+  [Signature] ->
+  Bool
+checkClose context headContext parties snapshotNumber sig =
+  checkSnapshot && mustBeSignedByParticipant context headContext
+ where
+  checkSnapshot
+    | snapshotNumber == 0 = True
+    | snapshotNumber > 0 = verifySnapshotSignature parties snapshotNumber sig
+    | otherwise = False
+{-# INLINEABLE checkClose #-}
 
 txOutAdaValue :: TxOut -> Integer
 txOutAdaValue o = valueOf (txOutValue o) adaSymbol adaToken
@@ -231,6 +289,36 @@ checkFanout utxoHash numberOfFanoutOutputs ScriptContext{scriptContextTxInfo = t
 (&) :: a -> (a -> b) -> b
 (&) = flip ($)
 {-# INLINEABLE (&) #-}
+
+mustBeSignedByParticipant ::
+  ScriptContext ->
+  HeadContext ->
+  Bool
+mustBeSignedByParticipant ScriptContext{scriptContextTxInfo = txInfo} HeadContext{headCurrencySymbol} =
+  traceIfFalse "mustBeSignedByParticipant: did not found expected signer" $
+    case getPubKeyHash <$> txInfoSignatories txInfo of
+      [signer] ->
+        signer `elem` (unTokenName <$> participationTokens)
+      [] ->
+        traceError "mustBeSignedByParticipant: no signers"
+      _ ->
+        traceError "mustBeSignedByParticipant: too many signers"
+ where
+  participationTokens = loop (txInfoInputs txInfo)
+  loop = \case
+    [] -> []
+    (TxInInfo{txInInfoResolved} : rest) ->
+      matchParticipationToken headCurrencySymbol (txOutValue txInInfoResolved) ++ loop rest
+{-# INLINEABLE mustBeSignedByParticipant #-}
+
+matchParticipationToken :: CurrencySymbol -> Value -> [TokenName]
+matchParticipationToken headCurrency (Value val) =
+  case Map.toList <$> Map.lookup headCurrency val of
+    Just tokens ->
+      mapMaybe (\(tokenName, n) -> if n == 1 then Just tokenName else Nothing) tokens
+    _ ->
+      []
+{-# INLINEABLE matchParticipationToken #-}
 
 mustContinueHeadWith :: ScriptContext -> Address -> Integer -> Datum -> Bool
 mustContinueHeadWith ScriptContext{scriptContextTxInfo = txInfo} headAddress changeValue datum =

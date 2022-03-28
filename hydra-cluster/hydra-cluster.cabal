@@ -188,11 +188,11 @@ test-suite integration
   other-modules:
     Paths_hydra_cluster
     Spec
+    Test.CardanoClusterSpec
     Test.DirectChainSpec
     Test.EndToEndSpec
     Test.GeneratorSpec
     Test.Ledger.Cardano.ConfigurationSpec
-    Test.LocalClusterSpec
     Test.LogFilterSpec
 
   build-depends:
