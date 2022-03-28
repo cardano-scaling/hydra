@@ -171,6 +171,13 @@ const config = {
         theme: lightCodeTheme,
         darkTheme: darkCodeTheme,
       },
+      algolia: {
+        appId: 'YZTAF8IOVB',
+        apiKey: 'ad133fe3b0b40974c26853abc9cad2ab',
+        indexName: 'hydra-family',
+        searchPagePath: 'search',
+        contextualSearch: true,
+      }
     }),
 };
 
