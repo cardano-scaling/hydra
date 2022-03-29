@@ -10,8 +10,7 @@ license-files:
   NOTICE
 
 extra-source-files: README.md
-data-files:
-  json-schemas/logs.yaml
+data-files:         json-schemas/logs.yaml
 
 source-repository head
   type:     git
@@ -186,11 +185,12 @@ executable hydra-node
 
   ghc-options:    -threaded -rtsopts
 
-executable tx-cost
+benchmark tx-cost
   import:         project-config
   hs-source-dirs: exe/tx-cost
   main-is:        Main.hs
   other-modules:  Validators
+  type:           exitcode-stdio-1.0
   build-depends:
     , base
     , bytestring
