@@ -201,11 +201,13 @@ benchmark tx-cost
     , cardano-ledger-shelley
     , cardano-ledger-shelley-ma
     , containers
+    , exceptions
     , hydra-cardano-api
     , hydra-node
     , hydra-plutus
     , hydra-prelude
     , hydra-test-utils
+    , mtl
     , optparse-applicative
     , plutus-ledger
     , plutus-ledger-api
@@ -214,6 +216,7 @@ benchmark tx-cost
     , plutus-tx-plugin
     , QuickCheck
     , strict-containers
+    , text
 
   ghc-options:    -threaded -rtsopts
 
@@ -285,6 +288,7 @@ test-suite tests
     , cryptonite
     , data-default
     , directory
+    , exceptions
     , filepath
     , hspec
     , hspec-core
