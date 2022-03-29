@@ -76,22 +76,29 @@ import Validators (merkleTreeValidator, mtBuilderValidator)
 main :: IO ()
 main = do
   costOfFanOut
+  putStrLn ""
   costOfMerkleTree
+  putStrLn ""
   costOfHashing
 
 costOfFanOut :: IO ()
 costOfFanOut = do
-  putStrLn "Cost of running the fanout validator"
-  putStrLn "# UTXO  % max Mem   % max CPU"
+  putStrLn "## Cost of FanOut validator"
+  putStrLn ""
+  putStrLn "| UTXO  | % max Mem |   % max CPU |"
+  putStrLn "| :---- | --------: | ----------: |"
   forM_ [1 .. 100] $ \numElems -> do
     utxo <- generate (foldMap simplifyUTxO <$> vectorOf numElems genSomeUTxO)
     let (tx, lookupUTxO) = mkFanoutTx utxo
     case evaluateTx tx lookupUTxO of
       (Right (toList -> [Right (Ledger.ExUnits mem cpu)])) -> do
         putStrLn $
-          showPad 8 numElems
+          "| " <> showPad 8 numElems
+            <> " | "
             <> showPad 12 (100 * fromIntegral mem / maxMem)
+            <> " | "
             <> showPad 12 (100 * fromIntegral cpu / maxCpu)
+            <> " |"
       _ ->
         pure ()
  where
@@ -128,7 +135,10 @@ mkHeadOutput headDatum =
 
 costOfMerkleTree :: IO ()
 costOfMerkleTree = do
-  putStrLn "Cost of on-chain Merkle-Tree"
+  putStrLn "## Cost of on-chain Merkle-Tree"
+  putStrLn ""
+  putStrLn "| Size | % member max mem | % member max cpu | % builder max mem | % builder max cpu |"
+  putStrLn "| :--- | ---------------: | ---------------: | ----------------: | ----------------: |"
   forM_ ([1 .. 10] <> [20, 30 .. 100] <> [120, 140 .. 500]) $ \numElems -> do
     utxo <- fmap Plutus.toBuiltin <$> genFakeUTxOs numElems
 
@@ -138,21 +148,23 @@ costOfMerkleTree = do
         (builderMem, builderCpu) = executionCostForBuilder utxo
 
     putText $
-      show numElems
-        <> "\t"
+      "| "
+        <> show numElems
+        <> " | "
         <> show (100 * fromIntegral (fromIntegral memberMem `div` numElems) / maxMem)
-        <> "\t"
+        <> " | "
         <> show (100 * fromIntegral (fromIntegral memberCpu `div` numElems) / maxCpu)
     putTextLn
-      ( "\t"
+      ( " | "
           <> show (100 * fromIntegral builderMem / maxMem)
-          <> "\t"
+          <> " | "
           <> show (100 * fromIntegral builderCpu / maxCpu)
+          <> " |"
       )
       `catch` \(_ :: ErrorCall) ->
         -- NOTE builder validator is likely to fail and thus raise an exception at low values
-        -- of numElems, so we put 0 instead
-        putTextLn "\t0\t0"
+        -- of numElems, so we put a dash instead
+        putTextLn "| - | - |"
  where
   -- NOTE: assume size of a UTXO is around  60 bytes
   genFakeUTxOs numElems = generate (vectorOf numElems $ BS.pack <$> vectorOf 60 arbitrary)
@@ -175,32 +187,43 @@ executionCostForBuilder utxo =
 
 costOfHashing :: IO ()
 costOfHashing = do
-  putStrLn "Cost of on-chain Hashing"
+  putStrLn "##  Cost of on-chain Hashing"
+  putStrLn ""
   for_ [0 .. 5] $ \(power :: Integer) -> do
     let n = 8 ^ power
         s = n `quot` 8
-    putTextLn @IO $ "    n = " <> show n <> ", s = " <> show s
+    putTextLn @IO $ "###  n = " <> show n <> ", s = " <> show s
+    putStrLn ""
+    putStrLn "| Algorithm | Cpu  | Mem  | Δcpu | Δmem |"
+    putStrLn "| :-------- | ---: | ---: | ---: | ---: |"
     for_ [minBound .. maxBound] $ \algorithm ->
-      do
-        let ExecutionUnits
-              { executionSteps = baseCpu
-              , executionMemory = baseMem
-              } = calculateHashExUnits n Hash.Base
-            units@ExecutionUnits
-              { executionSteps = cpu
-              , executionMemory = mem
-              } = calculateHashExUnits n algorithm
-        putTextLn $
-          "      " <> show algorithm
-            <> ": "
-            <> show units
-            <> " Δcpu="
-            <> show (toInteger cpu - toInteger baseCpu)
-            <> " Δmem="
-            <> show (toInteger mem - toInteger baseMem)
-        `catch` \(_ :: ErrorCall) ->
-          -- NOTE: evaluation can fail and raise an error if it blows up limits, simply stop there
-          pure ()
+      costOfHashingFor n algorithm
+    putStrLn ""
+ where
+  costOfHashingFor n algorithm = do
+    let ExecutionUnits
+          { executionSteps = baseCpu
+          , executionMemory = baseMem
+          } = calculateHashExUnits n Hash.Base
+        ExecutionUnits
+          { executionSteps = cpu
+          , executionMemory = mem
+          } = calculateHashExUnits n algorithm
+    putTextLn
+      ( "| " <> show algorithm
+          <> " | "
+          <> show baseCpu
+          <> " | "
+          <> show baseMem
+          <> " | "
+          <> show (toInteger cpu - toInteger baseCpu)
+          <> " | "
+          <> show (toInteger mem - toInteger baseMem)
+          <> " |"
+      )
+      `catch` \(_ :: ErrorCall) ->
+        -- NOTE: evaluation can fail and raise an error if it blows up limits, simply stop there
+        pure ()
 
 calculateHashExUnits :: Int -> Hash.HashAlgorithm -> ExecutionUnits
 calculateHashExUnits n algorithm =
