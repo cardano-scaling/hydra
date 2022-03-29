@@ -206,6 +206,7 @@ benchmark tx-cost
     , hydra-plutus
     , hydra-prelude
     , hydra-test-utils
+    , optparse-applicative
     , plutus-ledger
     , plutus-ledger-api
     , plutus-merkle-tree

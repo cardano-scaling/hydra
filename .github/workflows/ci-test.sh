@@ -13,6 +13,4 @@ cabal test hydra-tui
 cabal bench hydra-cluster --benchmark-options '--scaling-factor 1'
 
 # benchmarking transactions costs
-# TODO: output benchmark to some place where it will be picked up by
-# website publication process
-cabal bench tx-cost
+cabal bench tx-cost --benchmark-options '--output-directory docs/static/benchmarks'

@@ -60,6 +60,7 @@ import Hydra.Ledger.Cardano (
   unsafeBuildTransaction,
  )
 import Hydra.Ledger.Cardano.Evaluate (evaluateTx, pparams)
+import Options.Applicative (Parser, ParserInfo, argument, execParser, fullDesc, header, help, helper, info, metavar, progDesc, str)
 import Plutus.MerkleTree (rootHash)
 import qualified Plutus.MerkleTree as MT
 import Plutus.Orphans ()
@@ -73,13 +74,44 @@ import Test.Plutus.Validator (
 import Test.QuickCheck (generate, vectorOf)
 import Validators (merkleTreeValidator, mtBuilderValidator)
 
+newtype Options = Options {_outputDirectory :: Maybe FilePath}
+
+txCostOptionsParser :: Parser Options
+txCostOptionsParser =
+  Options
+    <$> optional
+      ( argument
+          str
+          ( metavar "DIR"
+              <> help
+                "Directory where benchmark files should be output to. \
+                \ If none is given, output is sent to stdout"
+          )
+      )
+
+logFilterOptions :: ParserInfo Options
+logFilterOptions =
+  info
+    (txCostOptionsParser <**> helper)
+    ( fullDesc
+        <> progDesc
+          "Runs benchmarks assessing the execution cost of various on-chain \
+          \ constructs: Some specific Plutus code, all OCV transactions,... \
+          \ The output is valid markdown that can be used as is to be processed \
+          \ and published."
+        <> header "tx-cost - Hydra OCV Code Benchmarks"
+    )
+
 main :: IO ()
 main = do
-  costOfFanOut
-  putStrLn ""
-  costOfMerkleTree
-  putStrLn ""
-  costOfHashing
+  execParser logFilterOptions >>= \case
+    Options Nothing -> do
+      costOfFanOut
+      putStrLn ""
+      costOfMerkleTree
+      putStrLn ""
+      costOfHashing
+    Options _ -> error "not implemented"
 
 costOfFanOut :: IO ()
 costOfFanOut = do
