@@ -18,10 +18,11 @@ import qualified Cardano.Ledger.Val as Ledger
 import Control.Monad.Writer (runWriterT, tell)
 import Data.ByteString (hPut)
 import qualified Data.ByteString as BS
+import qualified Data.ByteString.Lazy as LBS
+import Data.Fixed (E2, Fixed)
 import qualified Data.Map as Map
 import Data.Maybe (fromJust)
 import Data.Maybe.Strict (StrictMaybe (..))
-import qualified Data.Text as Text
 import Hydra.Cardano.Api (
   BuildTxWith (BuildTxWith),
   ExecutionUnits (..),
@@ -168,33 +169,29 @@ costOfFanOut = fmap (unlines . snd) $
   runWriterT $ do
     tell ["## Cost of FanOut validator"]
     tell [""]
-    tell ["| UTXO  | % max Mem |   % max CPU |"]
-    tell ["| :---- | --------: | ----------: |"]
+    tell ["| UTXO  | Tx. size | % max Mem |   % max CPU |"]
+    tell ["| :---- | -------: | --------: | ----------: |"]
     forM_ [1 .. 100] $ \numElems -> do
       utxo <- lift $ generate (foldMap simplifyUTxO <$> vectorOf numElems genSomeUTxO)
       let (tx, lookupUTxO) = mkFanoutTx utxo
       case evaluateTx tx lookupUTxO of
         (Right (toList -> [Right (Ledger.ExUnits mem cpu)])) ->
           tell
-            [ "| " <> showPad 8 numElems
+            [ "| " <> show numElems
+                <> "| "
+                <> show (LBS.length $ serialize tx)
                 <> " | "
-                <> showPad 12 (100 * fromIntegral mem / maxMem)
+                <> show (100 * fromIntegral mem / maxMem)
                 <> " | "
-                <> showPad 12 (100 * fromIntegral cpu / maxCpu)
+                <> show (100 * fromIntegral cpu / maxCpu)
                 <> " |"
             ]
         _ ->
           pure ()
  where
   genSomeUTxO = genKeyPair >>= fmap (fmap adaOnly) . genOneUTxOFor . fst
-  Ledger.ExUnits (fromIntegral @_ @Double -> maxMem) (fromIntegral @_ @Double -> maxCpu) =
+  Ledger.ExUnits (fromIntegral @_ @(Fixed E2) -> maxMem) (fromIntegral @_ @(Fixed E2) -> maxCpu) =
     Ledger._maxTxExUnits pparams
-
-showPad :: Show a => Int -> a -> Text
-showPad n x =
-  show x <> Text.pack (replicate (n - len) ' ')
- where
-  len = length $ show @String x
 
 mkFanoutTx :: UTxO -> (Tx, UTxO)
 mkFanoutTx utxo =
@@ -229,7 +226,7 @@ costOfMerkleTree = fmap (unlines . snd) $
 
       let (memberMem, memberCpu) = fromRight (0, 0) $ executionCostForMember utxo
           (builderMem, builderCpu) = fromRight (0, 0) $ executionCostForBuilder utxo
-          ExUnits (fromIntegral @_ @Double -> maxMem) (fromIntegral @_ @Double -> maxCpu) =
+          ExUnits (fromIntegral @_ @(Fixed E2) -> maxMem) (fromIntegral @_ @(Fixed E2) -> maxCpu) =
             defaultMaxExecutionUnits
       tell
         [ "| "
