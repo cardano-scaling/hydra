@@ -147,14 +147,12 @@ pageHeader =
   , ""
   , "# Transactions Costs "
   , ""
-  , "_Generated at_: " <> show now
-  , ""
-  , "_Max. memory units_: " <> show maxMem
-  , ""
-  , "_Max. CPU units_: " <> show maxCpu
-  , ""
-  , "_Max. tx size (kB)_: " <> show (Ledger._maxTxSize pparams)
-  , ""
+  , "| &nbsp; |  &nbsp; |"
+  , "| ---    | ----    |"
+  , "| _Generated at_ | " <> show now <> " |"
+  , "| _Max. memory units_ | " <> show maxMem <> " |"
+  , "| _Max. CPU units_ | " <> show maxCpu <> " |"
+  , "| _Max. tx size (kB)_ | " <> show (Ledger._maxTxSize pparams) <> " |"
   , ""
   ]
  where
