@@ -9,6 +9,7 @@ import Hydra.Cardano.Api (
   NetworkMagic (..),
   PaymentKey,
   Tx,
+  UTxO,
   VerificationKey,
  )
 import Hydra.Chain (HeadParameters (..), OnChainTx)
@@ -16,13 +17,14 @@ import Hydra.Chain.Direct.State (
   HeadStateKind (..),
   ObserveTx,
   OnChainHeadState,
+  commit,
   idleOnChainHeadState,
   initialize,
   observeTx,
  )
-import Hydra.Ledger.Cardano (genTxIn, genVerificationKey, renderTx)
+import Hydra.Ledger.Cardano (genOneUTxOFor, genTxIn, genVerificationKey, renderTx)
 import Hydra.Party (Party)
-import Test.QuickCheck (choose, elements, vector)
+import Test.QuickCheck (choose, elements, frequency, vector)
 
 -- | Define some 'global' context from which generators can pick
 -- values for generation. This allows to write fairly independent generators
@@ -87,6 +89,36 @@ genStInitialized ctx = do
   let initTx = initialize (ctxHeadParameters ctx) (ctxVerificationKeys ctx) seedInput stIdle
   pure $ snd $ unsafeObserveTx @_ @ 'StInitialized initTx stIdle
 
+genInitTx ::
+  HydraContext ->
+  Gen Tx
+genInitTx ctx =
+  initialize (ctxHeadParameters ctx) (ctxVerificationKeys ctx)
+    <$> genTxIn
+    <*> genStIdle ctx
+
+genCommits ::
+  HydraContext ->
+  Tx ->
+  Gen [Tx]
+genCommits ctx initTx = do
+  forM (zip (ctxVerificationKeys ctx) (ctxParties ctx)) $ \(p, vk) -> do
+    let stIdle = idleOnChainHeadState (ctxNetworkId ctx) p vk
+    let (_, stInitialized) = unsafeObserveTx @_ @ 'StInitialized initTx stIdle
+    utxo <- genCommit
+    pure $ unsafeCommit utxo stInitialized
+
+genCommit :: Gen UTxO
+genCommit =
+  frequency
+    [ (1, pure mempty)
+    , (10, genVerificationKey >>= genOneUTxOFor)
+    ]
+
+--
+-- Here be dragons
+--
+
 unsafeObserveTx ::
   forall st st'.
   (ObserveTx st st', HasCallStack) =>
@@ -102,3 +134,25 @@ unsafeObserveTx tx st =
       <> show st
       <> "\n  Via:\n    "
       <> renderTx tx
+
+unsafeCommit ::
+  HasCallStack =>
+  UTxO ->
+  OnChainHeadState 'StInitialized ->
+  Tx
+unsafeCommit u =
+  either (error . show) id . commit u
+
+executeCommits ::
+  Tx ->
+  [Tx] ->
+  OnChainHeadState 'StIdle ->
+  OnChainHeadState 'StInitialized
+executeCommits initTx commits stIdle =
+  flip execState stInitialized $ do
+    forM_ commits $ \commitTx -> do
+      st <- get
+      let (_, st') = unsafeObserveTx @_ @ 'StInitialized commitTx st
+      put st'
+ where
+  (_, stInitialized) = unsafeObserveTx @_ @ 'StInitialized initTx stIdle

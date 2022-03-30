@@ -54,11 +54,14 @@ import Hydra.Cardano.Api (
 import Hydra.Chain.Direct.Context (
   HydraContext (ctxVerificationKeys),
   ctxHeadParameters,
+  executeCommits,
+  genCommits,
   genHydraContextFor,
+  genInitTx,
   genStIdle,
   genStInitialized,
  )
-import Hydra.Chain.Direct.State (commit, getKnownUTxO, initialize)
+import Hydra.Chain.Direct.State (collect, commit, getKnownUTxO, initialize)
 import Hydra.Chain.Direct.Tx (fanoutTx)
 import qualified Hydra.Contract.Hash as Hash
 import qualified Hydra.Contract.Head as Head
@@ -146,10 +149,11 @@ writeTransactionCostMarkdown :: Handle -> IO ()
 writeTransactionCostMarkdown hdl = do
   initC <- costOfInit
   commitC <- costOfCommit
+  collectComC <- costOfCollectCom
   fanout <- costOfFanOut
   mt <- costOfMerkleTree
   h <- costOfHashing
-  hPut hdl $ encodeUtf8 $ unlines $ pageHeader <> intersperse "" [initC, commitC, fanout, mt, h]
+  hPut hdl $ encodeUtf8 $ unlines $ pageHeader <> intersperse "" [initC, commitC, collectComC, fanout, mt, h]
 
 pageHeader :: [Text]
 pageHeader =
@@ -181,7 +185,7 @@ costOfInit = fmap (unlines . snd) $
     tell ["| UTXO  | Tx. size |"]
     tell ["| :---- | -------: |"]
     forM_ [1 .. 100] $ \numParties -> do
-      tx <- lift $ generate $ genInitTx numParties
+      tx <- lift $ generate $ genInitTx' numParties
       let txSize = LBS.length $ serialize tx
       when (txSize < fromIntegral (Ledger._maxTxSize pparams)) $
         tell
@@ -191,7 +195,7 @@ costOfInit = fmap (unlines . snd) $
               <> " | "
           ]
  where
-  genInitTx numParties = do
+  genInitTx' numParties = do
     genHydraContextFor numParties >>= \ctx ->
       genStIdle ctx >>= \stIdle ->
         genTxIn >>= \seedInput ->
@@ -251,6 +255,40 @@ costOfCommit = fmap (unlines . snd) $
   resizeValue sz (i, o) = do
     value <- fromLedgerValue <$> resize sz arbitrary
     pure [(i, modifyTxOutValue (const value) o)]
+
+costOfCollectCom :: IO Text
+costOfCollectCom = fmap (unlines . snd) $
+  runWriterT $ do
+    tell ["## Cost of CollectCom Transaction"]
+    tell [""]
+    tell ["| # Parties | Tx. size | % max Mem |   % max CPU |"]
+    tell ["| :-------- | -------: | --------: | ----------: |"]
+    forM_ [1 .. 100] $ \numParties -> do
+      (tx, knownUtxo) <- lift $ generate $ genCollectComTx numParties
+      let txSize = LBS.length $ serialize tx
+      when (txSize < fromIntegral (Ledger._maxTxSize pparams)) $
+        case evaluateTx tx knownUtxo of
+          (Right (mconcat . rights . Map.elems -> (Ledger.ExUnits mem cpu))) ->
+            tell
+              [ "| " <> show numParties
+                  <> "| "
+                  <> show txSize
+                  <> " | "
+                  <> show (100 * fromIntegral mem / maxMem)
+                  <> " | "
+                  <> show (100 * fromIntegral cpu / maxCpu)
+                  <> " |"
+              ]
+          _e -> pure ()
+ where
+  genCollectComTx numParties = do
+    genHydraContextFor numParties
+      >>= \ctx ->
+        genInitTx ctx >>= \initTx ->
+          genCommits ctx initTx >>= \commits ->
+            genStIdle ctx >>= \stIdle ->
+              let stInitialized = executeCommits initTx commits stIdle
+               in pure (collect stInitialized, getKnownUTxO stInitialized)
 
 costOfFanOut :: IO Text
 costOfFanOut = fmap (unlines . snd) $

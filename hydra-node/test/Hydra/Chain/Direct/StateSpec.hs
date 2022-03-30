@@ -80,9 +80,14 @@ import Data.Type.Equality (testEquality, (:~:) (..))
 import Hydra.Chain.Direct.Context (
   HydraContext (..),
   ctxHeadParameters,
+  executeCommits,
+  genCommit,
+  genCommits,
   genHydraContext,
+  genInitTx,
   genStIdle,
   genStInitialized,
+  unsafeCommit,
   unsafeObserveTx,
  )
 import Hydra.Chain.Direct.Fixture (maxTxExecutionUnits, maxTxSize)
@@ -410,32 +415,6 @@ genStClosed ctx = do
   let closeTx = close snapshot stOpen
   pure $ snd $ unsafeObserveTx @_ @ 'StClosed closeTx stOpen
 
-genInitTx ::
-  HydraContext ->
-  Gen Tx
-genInitTx ctx =
-  initialize (ctxHeadParameters ctx) (ctxVerificationKeys ctx)
-    <$> genTxIn
-    <*> genStIdle ctx
-
-genCommits ::
-  HydraContext ->
-  Tx ->
-  Gen [Tx]
-genCommits ctx initTx = do
-  forM (zip (ctxVerificationKeys ctx) (ctxParties ctx)) $ \(p, vk) -> do
-    let stIdle = idleOnChainHeadState (ctxNetworkId ctx) p vk
-    let (_, stInitialized) = unsafeObserveTx @_ @ 'StInitialized initTx stIdle
-    utxo <- genCommit
-    pure $ unsafeCommit utxo stInitialized
-
-genCommit :: Gen UTxO
-genCommit =
-  frequency
-    [ (1, pure mempty)
-    , (10, genVerificationKey >>= genOneUTxOFor)
-    ]
-
 --
 -- Wrapping Transition for easy labelling
 --
@@ -473,29 +452,3 @@ instance Enum Transition where
 instance Bounded Transition where
   minBound = Prelude.head allTransitions
   maxBound = Prelude.last allTransitions
-
---
--- Here be dragons
---
-
-unsafeCommit ::
-  HasCallStack =>
-  UTxO ->
-  OnChainHeadState 'StInitialized ->
-  Tx
-unsafeCommit u =
-  either (error . show) id . commit u
-
-executeCommits ::
-  Tx ->
-  [Tx] ->
-  OnChainHeadState 'StIdle ->
-  OnChainHeadState 'StInitialized
-executeCommits initTx commits stIdle =
-  flip execState stInitialized $ do
-    forM_ commits $ \commitTx -> do
-      st <- get
-      let (_, st') = unsafeObserveTx @_ @ 'StInitialized commitTx st
-      put st'
- where
-  (_, stInitialized) = unsafeObserveTx @_ @ 'StInitialized initTx stIdle
