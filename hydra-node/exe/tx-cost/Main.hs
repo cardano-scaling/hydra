@@ -49,6 +49,13 @@ import Hydra.Cardano.Api (
   pattern ScriptWitness,
   pattern TxOut,
  )
+import Hydra.Chain.Direct.Context (
+  HydraContext (ctxVerificationKeys),
+  ctxHeadParameters,
+  genHydraContextFor,
+  genStIdle,
+ )
+import Hydra.Chain.Direct.State (initialize)
 import Hydra.Chain.Direct.Tx (fanoutTx)
 import qualified Hydra.Contract.Hash as Hash
 import qualified Hydra.Contract.Head as Head
@@ -59,6 +66,7 @@ import Hydra.Ledger.Cardano (
   emptyTxBody,
   genKeyPair,
   genOneUTxOFor,
+  genTxIn,
   hashTxOuts,
   simplifyUTxO,
   unsafeBuildTransaction,
@@ -134,10 +142,11 @@ main =
 
 writeTransactionCostMarkdown :: Handle -> IO ()
 writeTransactionCostMarkdown hdl = do
+  initC <- costOfInit
   fanout <- costOfFanOut
   mt <- costOfMerkleTree
   h <- costOfHashing
-  hPut hdl $ encodeUtf8 $ unlines $ pageHeader <> intersperse "" [fanout, mt, h]
+  hPut hdl $ encodeUtf8 $ unlines $ pageHeader <> intersperse "" [initC, fanout, mt, h]
 
 pageHeader :: [Text]
 pageHeader =
@@ -163,6 +172,30 @@ pageHeader =
 {-# NOINLINE now #-}
 now :: UTCTime
 now = unsafePerformIO getCurrentTime
+
+costOfInit :: IO Text
+costOfInit = fmap (unlines . snd) $
+  runWriterT $ do
+    tell ["## Cost of Init Transaction"]
+    tell [""]
+    tell ["| UTXO  | Tx. size |"]
+    tell ["| :---- | -------: |"]
+    forM_ [1 .. 100] $ \numParties -> do
+      tx <- lift $ generate $ genInitTx numParties
+      let txSize = LBS.length $ serialize tx
+      when (txSize < fromIntegral (Ledger._maxTxSize pparams)) $
+        tell
+          [ "| " <> show numParties
+              <> "| "
+              <> show txSize
+              <> " | "
+          ]
+ where
+  genInitTx numParties = do
+    genHydraContextFor numParties >>= \ctx ->
+      genStIdle ctx >>= \stIdle ->
+        genTxIn >>= \seedInput ->
+          pure $ initialize (ctxHeadParameters ctx) (ctxVerificationKeys ctx) seedInput stIdle
 
 costOfFanOut :: IO Text
 costOfFanOut = fmap (unlines . snd) $
