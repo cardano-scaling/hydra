@@ -23,7 +23,6 @@ import Cardano.Slotting.Slot (EpochSize (EpochSize))
 import Cardano.Slotting.Time (SlotLength, SystemStart (SystemStart), mkSlotLength)
 import qualified Cardano.Slotting.Time as Slotting
 import Data.Array (Array, array)
-import Data.Bits (shift)
 import Data.Default (def)
 import qualified Data.Map as Map
 import Data.Maybe (fromJust)
@@ -57,15 +56,18 @@ testSeedInput = generateWith arbitrary 42
 
 -- | Current mainchain max transaction size in bytes.
 maxTxSize :: Int64
-maxTxSize = 1 `shift` 14 -- 16kB
+maxTxSize = fromIntegral $ Ledger.Alonzo._maxTxSize pparams
 
 -- | Current mainchain max transaction execution unit budget.
 maxTxExecutionUnits :: ExecutionUnits
 maxTxExecutionUnits =
   ExecutionUnits
-    { executionMemory = 14_000_000
-    , executionSteps = 10_000_000_000
+    { executionMemory = maxMem
+    , executionSteps = maxCpu
     }
+ where
+  Ledger.Alonzo.ExUnits maxMem maxCpu =
+    Ledger.Alonzo._maxTxExUnits pparams
 
 instance Arbitrary PubKeyHash where
   arbitrary = PubKeyHash . toBuiltin <$> (arbitrary :: Gen ByteString)
