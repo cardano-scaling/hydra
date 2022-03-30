@@ -56,7 +56,7 @@ import Hydra.Chain.Direct.Context (
   genStIdle,
   genStInitialized,
  )
-import Hydra.Chain.Direct.State (commit, initialize)
+import Hydra.Chain.Direct.State (commit, getKnownUTxO, initialize)
 import Hydra.Chain.Direct.Tx (fanoutTx)
 import qualified Hydra.Contract.Hash as Hash
 import qualified Hydra.Contract.Head as Head
@@ -98,7 +98,6 @@ import System.FilePath ((</>))
 import System.IO.Unsafe (unsafePerformIO)
 import Test.Plutus.Validator (
   ExUnits (ExUnits),
-  defaultMaxExecutionUnits,
   evaluateScriptExecutionUnits,
  )
 import Test.QuickCheck (generate, vectorOf)
@@ -167,9 +166,6 @@ pageHeader =
   , "| _Max. tx size (kB)_ | " <> show (Ledger._maxTxSize pparams) <> " |"
   , ""
   ]
- where
-  Ledger.ExUnits (fromIntegral @_ @Double -> maxMem) (fromIntegral @_ @Double -> maxCpu) =
-    Ledger._maxTxExUnits pparams
 
 {-# NOINLINE now #-}
 now :: UTCTime
@@ -204,27 +200,35 @@ costOfCommit = fmap (unlines . snd) $
   runWriterT $ do
     tell ["## Cost of Commit Transaction"]
     tell [""]
-    tell ["| # UTxO Committed  | Tx. size |"]
-    tell ["| :---- | -------: |"]
+    tell ["| # UTxO Committed | Tx. size | % max Mem |   % max CPU |"]
+    tell ["| :--------------- | -------: | --------: | ----------: |"]
     forM_ [0 .. 100] $ \numUTxO -> do
       utxo <- lift $ generate $ genSimpleUTxOOfSize numUTxO
-      tx <- lift $ generate $ genCommitTx utxo
-      case tx of
+      (commitTx, knownUtxo) <- lift $ generate $ genCommitTx utxo
+      case commitTx of
         Left _ -> pure ()
-        Right ctx -> do
-          let txSize = LBS.length $ serialize ctx
+        Right tx -> do
+          let txSize = LBS.length $ serialize tx
           when (txSize < fromIntegral (Ledger._maxTxSize pparams)) $
-            tell
-              [ "| " <> show (length utxo)
-                  <> "| "
-                  <> show txSize
-                  <> " | "
-              ]
+            case evaluateTx tx (utxo <> knownUtxo) of
+              (Right (toList -> [Right (Ledger.ExUnits mem cpu)])) ->
+                tell
+                  [ "| " <> show (length utxo)
+                      <> "| "
+                      <> show txSize
+                      <> " | "
+                      <> show (100 * fromIntegral mem / maxMem)
+                      <> " | "
+                      <> show (100 * fromIntegral cpu / maxCpu)
+                      <> " |"
+                  ]
+              _ -> pure ()
  where
   genCommitTx utxo = do
     -- NOTE: number of parties is irrelevant for commit tx
     genHydraContextFor 3 >>= \ctx ->
-      genStInitialized ctx <&> commit utxo
+      genStInitialized ctx >>= \stInitialized ->
+        pure (commit utxo stInitialized, getKnownUTxO stInitialized)
 
 costOfFanOut :: IO Text
 costOfFanOut = fmap (unlines . snd) $
@@ -250,9 +254,10 @@ costOfFanOut = fmap (unlines . snd) $
             ]
         _ ->
           pure ()
- where
-  Ledger.ExUnits (fromIntegral @_ @(Fixed E2) -> maxMem) (fromIntegral @_ @(Fixed E2) -> maxCpu) =
-    Ledger._maxTxExUnits pparams
+
+maxMem, maxCpu :: Fixed E2
+Ledger.ExUnits (fromIntegral @_ @(Fixed E2) -> maxMem) (fromIntegral @_ @(Fixed E2) -> maxCpu) =
+  Ledger._maxTxExUnits pparams
 
 genSimpleUTxOOfSize :: Int -> Gen UTxO
 genSimpleUTxOOfSize numUTxO =
@@ -295,8 +300,6 @@ costOfMerkleTree = fmap (unlines . snd) $
 
       let (memberMem, memberCpu) = fromRight (0, 0) $ executionCostForMember utxo
           (builderMem, builderCpu) = fromRight (0, 0) $ executionCostForBuilder utxo
-          ExUnits (fromIntegral @_ @(Fixed E2) -> maxMem) (fromIntegral @_ @(Fixed E2) -> maxCpu) =
-            defaultMaxExecutionUnits
       tell
         [ "| "
             <> show numElems
