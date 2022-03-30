@@ -13,9 +13,10 @@ import qualified Cardano.Ledger.Alonzo.PParams as Ledger
 import qualified Cardano.Ledger.Alonzo.Scripts as Ledger
 import qualified Cardano.Ledger.Alonzo.TxBody as Ledger.Alonzo
 import Cardano.Ledger.Era (hashScript)
-import qualified Cardano.Ledger.Shelley.API as Ledger
+import qualified Cardano.Ledger.Shelley.API as API
 import qualified Cardano.Ledger.Val as Ledger
 import Control.Monad.Writer (runWriterT, tell)
+import Data.ByteString (hPut)
 import qualified Data.ByteString as BS
 import qualified Data.Map as Map
 import Data.Maybe (fromJust)
@@ -62,12 +63,29 @@ import Hydra.Ledger.Cardano (
   unsafeBuildTransaction,
  )
 import Hydra.Ledger.Cardano.Evaluate (evaluateTx, pparams)
-import Options.Applicative (Parser, ParserInfo, argument, execParser, fullDesc, header, help, helper, info, metavar, progDesc, str)
+import Options.Applicative (
+  Parser,
+  ParserInfo,
+  execParser,
+  fullDesc,
+  header,
+  help,
+  helper,
+  info,
+  long,
+  metavar,
+  progDesc,
+  short,
+  strOption,
+ )
 import Plutus.MerkleTree (rootHash)
 import qualified Plutus.MerkleTree as MT
 import Plutus.Orphans ()
 import Plutus.V1.Ledger.Api (toBuiltin, toData)
 import qualified Plutus.V1.Ledger.Api as Plutus
+import System.Directory (createDirectoryIfMissing, doesDirectoryExist)
+import System.FilePath ((</>))
+import System.IO.Unsafe (unsafePerformIO)
 import Test.Plutus.Validator (
   ExUnits (ExUnits),
   defaultMaxExecutionUnits,
@@ -76,15 +94,16 @@ import Test.Plutus.Validator (
 import Test.QuickCheck (generate, vectorOf)
 import Validators (merkleTreeValidator, mtBuilderValidator)
 
-newtype Options = Options {_outputDirectory :: Maybe FilePath}
+newtype Options = Options {outputDirectory :: Maybe FilePath}
 
 txCostOptionsParser :: Parser Options
 txCostOptionsParser =
   Options
     <$> optional
-      ( argument
-          str
-          ( metavar "DIR"
+      ( strOption
+          ( long "output-directory"
+              <> short 'o'
+              <> metavar "DIR"
               <> help
                 "Directory where benchmark files should be output to. \
                 \ If none is given, output is sent to stdout"
@@ -107,12 +126,44 @@ logFilterOptions =
 main :: IO ()
 main =
   execParser logFilterOptions >>= \case
-    Options Nothing -> do
-      fanout <- costOfFanOut
-      mt <- costOfMerkleTree
-      h <- costOfHashing
-      putTextLn $ unlines $ intersperse "" [fanout, mt, h]
-    Options _ -> error "not implemented"
+    Options{outputDirectory = Nothing} -> writeTransactionCostMarkdown stdout
+    Options{outputDirectory = Just outputDir} -> do
+      unlessM (doesDirectoryExist outputDir) $ createDirectoryIfMissing True outputDir
+      withFile (outputDir </> "transaction-cost.md") WriteMode writeTransactionCostMarkdown
+
+writeTransactionCostMarkdown :: Handle -> IO ()
+writeTransactionCostMarkdown hdl = do
+  fanout <- costOfFanOut
+  mt <- costOfMerkleTree
+  h <- costOfHashing
+  hPut hdl $ encodeUtf8 $ unlines $ pageHeader <> intersperse "" [fanout, mt, h]
+
+pageHeader :: [Text]
+pageHeader =
+  [ "--- "
+  , "sidebar_label: 'Transactions Costs' "
+  , "sidebar_position: 3 "
+  , "--- "
+  , ""
+  , "# Transactions Costs "
+  , ""
+  , "_Generated at_: " <> show now
+  , ""
+  , "_Max. memory units_: " <> show maxMem
+  , ""
+  , "_Max. CPU units_: " <> show maxCpu
+  , ""
+  , "_Max. tx size (kB)_: " <> show (Ledger._maxTxSize pparams)
+  , ""
+  , ""
+  ]
+ where
+  Ledger.ExUnits (fromIntegral @_ @Double -> maxMem) (fromIntegral @_ @Double -> maxCpu) =
+    Ledger._maxTxExUnits pparams
+
+{-# NOINLINE now #-}
+now :: UTCTime
+now = unsafePerformIO getCurrentTime
 
 costOfFanOut :: IO Text
 costOfFanOut = fmap (unlines . snd) $
@@ -165,7 +216,7 @@ mkHeadOutput headDatum =
   Ledger.Alonzo.TxOut headAddress headValue headDatumHash
  where
   headAddress = scriptAddr $ plutusScript Head.validatorScript
-  headValue = Ledger.inject (Ledger.Coin 2_000_000)
+  headValue = Ledger.inject (API.Coin 2_000_000)
   headDatumHash = Ledger.hashData @LedgerEra <$> headDatum
 
 costOfMerkleTree :: IO Text
@@ -285,12 +336,12 @@ calculateHashExUnits n algorithm =
   bytes = fold $ replicate n ("0" :: ByteString)
 
 -- | Get the ledger address for a given plutus script.
-scriptAddr :: Ledger.Script LedgerEra -> Ledger.Addr StandardCrypto
+scriptAddr :: Ledger.Script LedgerEra -> API.Addr StandardCrypto
 scriptAddr script =
-  Ledger.Addr
-    Ledger.Testnet
-    (Ledger.ScriptHashObj $ hashScript @LedgerEra script)
-    Ledger.StakeRefNull
+  API.Addr
+    API.Testnet
+    (API.ScriptHashObj $ hashScript @LedgerEra script)
+    API.StakeRefNull
 
 plutusScript :: Plutus.Script -> Ledger.Script LedgerEra
 plutusScript = Ledger.PlutusScript PlutusV1 . toShort . fromLazy . serialize

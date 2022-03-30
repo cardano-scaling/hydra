@@ -70,6 +70,16 @@ const config = {
         editUrl: 'https://github.com/input-output-hk/hydra-poc/tree/master/docs/topologies'
       }),
     ],
+    [
+      'content-docs',
+      /** @type {import('@docusaurus/plugin-content-docs').Options} */
+      ({
+        id: 'benchmarks',
+        path: 'benchmarks',
+        routeBasePath: 'benchmarks',
+        editUrl: 'https://github.com/input-output-hk/hydra-poc/tree/master/docs/benchmarks'
+      }),
+    ],
   ],
 
   themeConfig:
@@ -96,6 +106,11 @@ const config = {
           {
             to: '/topologies',
             label: 'Topologies',
+            position: 'left',
+          },
+          {
+            to: '/benchmarks',
+            label: 'Benchmarks',
             position: 'left',
           },
           {
