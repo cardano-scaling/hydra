@@ -2,9 +2,72 @@
 
 module Hydra.Chain.Direct.StateSpec where
 
-import Hydra.Cardano.Api
-import Hydra.Prelude hiding (label)
-import Test.Hydra.Prelude
+import Hydra.Cardano.Api (
+  ExecutionUnits (..),
+  Tx,
+  UTxO,
+  txInputSet,
+  txOutValue,
+  valueSize,
+ )
+import Hydra.Prelude (
+  Applicative (pure, (<*>)),
+  Arbitrary (arbitrary),
+  Bool (False, True),
+  Bounded (..),
+  ConvertUtf8 (decodeUtf8),
+  Either (Left, Right),
+  Enum (fromEnum, toEnum),
+  Eq ((==)),
+  Foldable (foldMap, length, null),
+  Gen,
+  HasCallStack,
+  Int64,
+  Integral (div),
+  Maybe (Just, Nothing),
+  Monad ((>>=)),
+  MonadState (get, put),
+  Monoid (mconcat, mempty),
+  Num ((*)),
+  Ord ((<), (>), (>=)),
+  Proxy (Proxy),
+  Semigroup ((<>)),
+  Show,
+  ToString (toString),
+  Typeable,
+  all,
+  either,
+  encodePretty,
+  error,
+  execState,
+  flip,
+  forM,
+  forM_,
+  id,
+  isJust,
+  isNothing,
+  isRight,
+  not,
+  otherwise,
+  show,
+  snd,
+  zip,
+  ($),
+  (&),
+  (&&),
+  (.),
+  (<$>),
+  (=<<),
+ )
+import Test.Hydra.Prelude (
+  Spec,
+  SpecWith,
+  describe,
+  forAll2,
+  genericCoverTable,
+  parallel,
+  prop,
+ )
 
 import qualified Cardano.Api.UTxO as UTxO
 import Cardano.Binary (serialize)
@@ -14,12 +77,13 @@ import qualified Data.Map as Map
 import Data.Maybe (fromJust)
 import qualified Data.Set as Set
 import Data.Type.Equality (testEquality, (:~:) (..))
-import Hydra.Chain (OnChainTx)
 import Hydra.Chain.Direct.Context (
   HydraContext (..),
   ctxHeadParameters,
   genHydraContext,
   genStIdle,
+  genStInitialized,
+  unsafeObserveTx,
  )
 import Hydra.Chain.Direct.Fixture (maxTxExecutionUnits, maxTxSize)
 import Hydra.Chain.Direct.State (
@@ -327,15 +391,6 @@ forAllFanout action = do
 -- Generators
 --
 
-genStInitialized ::
-  HydraContext ->
-  Gen (OnChainHeadState 'StInitialized)
-genStInitialized ctx = do
-  stIdle <- genStIdle ctx
-  seedInput <- genTxIn
-  let initTx = initialize (ctxHeadParameters ctx) (ctxVerificationKeys ctx) seedInput stIdle
-  pure $ snd $ unsafeObserveTx @_ @ 'StInitialized initTx stIdle
-
 genStOpen ::
   HydraContext ->
   Gen (OnChainHeadState 'StOpen)
@@ -430,22 +485,6 @@ unsafeCommit ::
   Tx
 unsafeCommit u =
   either (error . show) id . commit u
-
-unsafeObserveTx ::
-  forall st st'.
-  (ObserveTx st st', HasCallStack) =>
-  Tx ->
-  OnChainHeadState st ->
-  (OnChainTx Tx, OnChainHeadState st')
-unsafeObserveTx tx st =
-  fromMaybe (error hopefullyInformativeMessage) (observeTx @st @st' tx st)
- where
-  hopefullyInformativeMessage =
-    "unsafeObserveTx:"
-      <> "\n  From:\n    "
-      <> show st
-      <> "\n  Via:\n    "
-      <> renderTx tx
 
 executeCommits ::
   Tx ->

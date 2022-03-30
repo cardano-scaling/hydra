@@ -54,8 +54,9 @@ import Hydra.Chain.Direct.Context (
   ctxHeadParameters,
   genHydraContextFor,
   genStIdle,
+  genStInitialized,
  )
-import Hydra.Chain.Direct.State (initialize)
+import Hydra.Chain.Direct.State (commit, initialize)
 import Hydra.Chain.Direct.Tx (fanoutTx)
 import qualified Hydra.Contract.Hash as Hash
 import qualified Hydra.Contract.Head as Head
@@ -143,10 +144,11 @@ main =
 writeTransactionCostMarkdown :: Handle -> IO ()
 writeTransactionCostMarkdown hdl = do
   initC <- costOfInit
+  commitC <- costOfCommit
   fanout <- costOfFanOut
   mt <- costOfMerkleTree
   h <- costOfHashing
-  hPut hdl $ encodeUtf8 $ unlines $ pageHeader <> intersperse "" [initC, fanout, mt, h]
+  hPut hdl $ encodeUtf8 $ unlines $ pageHeader <> intersperse "" [initC, commitC, fanout, mt, h]
 
 pageHeader :: [Text]
 pageHeader =
@@ -197,6 +199,33 @@ costOfInit = fmap (unlines . snd) $
         genTxIn >>= \seedInput ->
           pure $ initialize (ctxHeadParameters ctx) (ctxVerificationKeys ctx) seedInput stIdle
 
+costOfCommit :: IO Text
+costOfCommit = fmap (unlines . snd) $
+  runWriterT $ do
+    tell ["## Cost of Commit Transaction"]
+    tell [""]
+    tell ["| # UTxO Committed  | Tx. size |"]
+    tell ["| :---- | -------: |"]
+    forM_ [0 .. 100] $ \numUTxO -> do
+      utxo <- lift $ generate $ genSimpleUTxOOfSize numUTxO
+      tx <- lift $ generate $ genCommitTx utxo
+      case tx of
+        Left _ -> pure ()
+        Right ctx -> do
+          let txSize = LBS.length $ serialize ctx
+          when (txSize < fromIntegral (Ledger._maxTxSize pparams)) $
+            tell
+              [ "| " <> show (length utxo)
+                  <> "| "
+                  <> show txSize
+                  <> " | "
+              ]
+ where
+  genCommitTx utxo = do
+    -- NOTE: number of parties is irrelevant for commit tx
+    genHydraContextFor 3 >>= \ctx ->
+      genStInitialized ctx <&> commit utxo
+
 costOfFanOut :: IO Text
 costOfFanOut = fmap (unlines . snd) $
   runWriterT $ do
@@ -205,7 +234,7 @@ costOfFanOut = fmap (unlines . snd) $
     tell ["| UTXO  | Tx. size | % max Mem |   % max CPU |"]
     tell ["| :---- | -------: | --------: | ----------: |"]
     forM_ [1 .. 100] $ \numElems -> do
-      utxo <- lift $ generate (foldMap simplifyUTxO <$> vectorOf numElems genSomeUTxO)
+      utxo <- lift $ generate (genSimpleUTxOOfSize numElems)
       let (tx, lookupUTxO) = mkFanoutTx utxo
       case evaluateTx tx lookupUTxO of
         (Right (toList -> [Right (Ledger.ExUnits mem cpu)])) ->
@@ -222,9 +251,16 @@ costOfFanOut = fmap (unlines . snd) $
         _ ->
           pure ()
  where
-  genSomeUTxO = genKeyPair >>= fmap (fmap adaOnly) . genOneUTxOFor . fst
   Ledger.ExUnits (fromIntegral @_ @(Fixed E2) -> maxMem) (fromIntegral @_ @(Fixed E2) -> maxCpu) =
     Ledger._maxTxExUnits pparams
+
+genSimpleUTxOOfSize :: Int -> Gen UTxO
+genSimpleUTxOOfSize numUTxO =
+  foldMap simplifyUTxO
+    <$> vectorOf
+      numUTxO
+      ( genKeyPair >>= fmap (fmap adaOnly) . genOneUTxOFor . fst
+      )
 
 mkFanoutTx :: UTxO -> (Tx, UTxO)
 mkFanoutTx utxo =

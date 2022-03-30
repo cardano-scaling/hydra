@@ -1,3 +1,5 @@
+{-# LANGUAGE TypeApplications #-}
+
 module Hydra.Chain.Direct.Context where
 
 import Hydra.Prelude
@@ -6,11 +8,19 @@ import Hydra.Cardano.Api (
   NetworkId (..),
   NetworkMagic (..),
   PaymentKey,
+  Tx,
   VerificationKey,
  )
-import Hydra.Chain (HeadParameters (..))
-import Hydra.Chain.Direct.State (HeadStateKind (..), OnChainHeadState, idleOnChainHeadState)
-import Hydra.Ledger.Cardano (genVerificationKey)
+import Hydra.Chain (HeadParameters (..), OnChainTx)
+import Hydra.Chain.Direct.State (
+  HeadStateKind (..),
+  ObserveTx,
+  OnChainHeadState,
+  idleOnChainHeadState,
+  initialize,
+  observeTx,
+ )
+import Hydra.Ledger.Cardano (genTxIn, genVerificationKey, renderTx)
 import Hydra.Party (Party)
 import Test.QuickCheck (choose, elements, vector)
 
@@ -67,3 +77,28 @@ genStIdle HydraContext{ctxVerificationKeys, ctxNetworkId, ctxParties} = do
   ownParty <- elements ctxParties
   ownVerificationKey <- elements ctxVerificationKeys
   pure $ idleOnChainHeadState ctxNetworkId ownVerificationKey ownParty
+
+genStInitialized ::
+  HydraContext ->
+  Gen (OnChainHeadState 'StInitialized)
+genStInitialized ctx = do
+  stIdle <- genStIdle ctx
+  seedInput <- genTxIn
+  let initTx = initialize (ctxHeadParameters ctx) (ctxVerificationKeys ctx) seedInput stIdle
+  pure $ snd $ unsafeObserveTx @_ @ 'StInitialized initTx stIdle
+
+unsafeObserveTx ::
+  forall st st'.
+  (ObserveTx st st', HasCallStack) =>
+  Tx ->
+  OnChainHeadState st ->
+  (OnChainTx Tx, OnChainHeadState st')
+unsafeObserveTx tx st =
+  fromMaybe (error hopefullyInformativeMessage) (observeTx @st @st' tx st)
+ where
+  hopefullyInformativeMessage =
+    "unsafeObserveTx:"
+      <> "\n  From:\n    "
+      <> show st
+      <> "\n  Via:\n    "
+      <> renderTx tx
