@@ -36,6 +36,7 @@ import Hydra.Cardano.Api (
   fromLedgerExUnits,
   fromLedgerScript,
   fromLedgerTxOut,
+  fromLedgerValue,
   fromPlutusData,
   fromPlutusScript,
   lovelaceToValue,
@@ -43,6 +44,7 @@ import Hydra.Cardano.Api (
   mkScriptDatum,
   mkScriptWitness,
   mkTxOutDatum,
+  modifyTxOutValue,
   scriptWitnessCtx,
   toCtxUTxOTxOut,
   toScriptData,
@@ -100,7 +102,7 @@ import Test.Plutus.Validator (
   ExUnits (ExUnits),
   evaluateScriptExecutionUnits,
  )
-import Test.QuickCheck (generate, vectorOf)
+import Test.QuickCheck (generate, resize, vectorOf)
 import Validators (merkleTreeValidator, mtBuilderValidator)
 
 newtype Options = Options {outputDirectory :: Maybe FilePath}
@@ -158,7 +160,7 @@ pageHeader =
   , ""
   , "# Transactions Costs "
   , ""
-  , "| &nbsp; |  &nbsp; |"
+  , "|  |   |"
   , "| ---    | ----    |"
   , "| _Generated at_ | " <> show now <> " |"
   , "| _Max. memory units_ | " <> show maxMem <> " |"
@@ -200,35 +202,55 @@ costOfCommit = fmap (unlines . snd) $
   runWriterT $ do
     tell ["## Cost of Commit Transaction"]
     tell [""]
-    tell ["| # UTxO Committed | Tx. size | % max Mem |   % max CPU |"]
-    tell ["| :--------------- | -------: | --------: | ----------: |"]
+    tell ["| # UTxO Committed | Assets size | Tx. size | % max Mem |   % max CPU |"]
+    tell ["| :--------------- | ----------: | -------: | --------: | ----------: |"]
     forM_ [0 .. 100] $ \numUTxO -> do
-      utxo <- lift $ generate $ genSimpleUTxOOfSize numUTxO
-      (commitTx, knownUtxo) <- lift $ generate $ genCommitTx utxo
-      case commitTx of
-        Left _ -> pure ()
-        Right tx -> do
-          let txSize = LBS.length $ serialize tx
-          when (txSize < fromIntegral (Ledger._maxTxSize pparams)) $
-            case evaluateTx tx (utxo <> knownUtxo) of
-              (Right (toList -> [Right (Ledger.ExUnits mem cpu)])) ->
-                tell
-                  [ "| " <> show (length utxo)
-                      <> "| "
-                      <> show txSize
-                      <> " | "
-                      <> show (100 * fromIntegral mem / maxMem)
-                      <> " | "
-                      <> show (100 * fromIntegral cpu / maxCpu)
-                      <> " |"
-                  ]
-              _ -> pure ()
+      let valueSizes =
+            if numUTxO == 0
+              then [0]
+              else 1 : [5, 10 .. 100]
+      forM_ valueSizes $ \sz -> do
+        utxo <-
+          lift $
+            generate $
+              genSimpleUTxOOfSize numUTxO
+                >>= resizeValuesTo sz
+        (commitTx, knownUtxo) <- lift $ generate $ genCommitTx utxo
+        case commitTx of
+          Left _ -> pure ()
+          Right tx -> do
+            let txSize = LBS.length $ serialize tx
+            when (txSize < fromIntegral (Ledger._maxTxSize pparams)) $
+              case evaluateTx tx (utxo <> knownUtxo) of
+                (Right (toList -> [Right (Ledger.ExUnits mem cpu)])) ->
+                  tell
+                    [ "| " <> show (length utxo)
+                        <> "| "
+                        <> show sz
+                        <> "| "
+                        <> show txSize
+                        <> " | "
+                        <> show (100 * fromIntegral mem / maxMem)
+                        <> " | "
+                        <> show (100 * fromIntegral cpu / maxCpu)
+                        <> " |"
+                    ]
+                _ -> pure ()
  where
   genCommitTx utxo = do
     -- NOTE: number of parties is irrelevant for commit tx
-    genHydraContextFor 3 >>= \ctx ->
-      genStInitialized ctx >>= \stInitialized ->
-        pure (commit utxo stInitialized, getKnownUTxO stInitialized)
+    genHydraContextFor 3
+      >>= ( genStInitialized
+              >=> ( \stInitialized ->
+                      pure (commit utxo stInitialized, getKnownUTxO stInitialized)
+                  )
+          )
+  resizeValuesTo sz utxo =
+    UTxO.fromPairs <$> foldMapM (resizeValue sz) (UTxO.pairs utxo)
+
+  resizeValue sz (i, o) = do
+    value <- fromLedgerValue <$> resize sz arbitrary
+    pure [(i, modifyTxOutValue (const value) o)]
 
 costOfFanOut :: IO Text
 costOfFanOut = fmap (unlines . snd) $
