@@ -190,7 +190,10 @@ benchmark tx-cost
   import:         project-config
   hs-source-dirs: exe/tx-cost
   main-is:        Main.hs
-  other-modules:  Validators
+  other-modules:
+    TxCost
+    Validators
+
   type:           exitcode-stdio-1.0
   build-depends:
     , base
