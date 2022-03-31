@@ -35,7 +35,7 @@ import qualified Data.Map as Map
 import Data.Maybe (fromJust)
 import Data.Ratio ((%))
 import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
-import Hydra.Cardano.Api (ExecutionUnits, StandardCrypto, Tx, UTxO, toLedgerExUnits, toLedgerTx, toLedgerUTxO)
+import Hydra.Cardano.Api (ExecutionUnits, StandardCrypto, Tx, UTxO, fromLedgerExUnits, toLedgerExUnits, toLedgerTx, toLedgerUTxO)
 import Hydra.Chain.Direct.Util (Era)
 
 type RedeemerReport =
@@ -45,15 +45,7 @@ evaluateTx ::
   Tx ->
   UTxO ->
   Either (BasicFailure StandardCrypto) RedeemerReport
-evaluateTx tx utxo =
-  runIdentity $
-    evaluateTransactionExecutionUnits
-      pparams
-      (toLedgerTx tx)
-      (toLedgerUTxO utxo)
-      epochInfo
-      systemStart
-      costModels
+evaluateTx = evaluateTx' (fromLedgerExUnits $ _maxTxExUnits pparams)
 
 evaluateTx' ::
   -- | Max tx execution units.

@@ -2,72 +2,7 @@
 
 module Hydra.Chain.Direct.StateSpec where
 
-import Hydra.Cardano.Api (
-  ExecutionUnits (..),
-  Tx,
-  UTxO,
-  txInputSet,
-  txOutValue,
-  valueSize,
- )
-import Hydra.Prelude (
-  Applicative (pure, (<*>)),
-  Arbitrary (arbitrary),
-  Bool (False, True),
-  Bounded (..),
-  ConvertUtf8 (decodeUtf8),
-  Either (Left, Right),
-  Enum (fromEnum, toEnum),
-  Eq ((==)),
-  Foldable (foldMap, length, null),
-  Gen,
-  HasCallStack,
-  Int64,
-  Integral (div),
-  Maybe (Just, Nothing),
-  Monad ((>>=)),
-  MonadState (get, put),
-  Monoid (mconcat, mempty),
-  Num ((*)),
-  Ord ((<), (>), (>=)),
-  Proxy (Proxy),
-  Semigroup ((<>)),
-  Show,
-  ToString (toString),
-  Typeable,
-  all,
-  either,
-  encodePretty,
-  error,
-  execState,
-  flip,
-  forM,
-  forM_,
-  id,
-  isJust,
-  isNothing,
-  isRight,
-  not,
-  otherwise,
-  show,
-  snd,
-  zip,
-  ($),
-  (&),
-  (&&),
-  (.),
-  (<$>),
-  (=<<),
- )
-import Test.Hydra.Prelude (
-  Spec,
-  SpecWith,
-  describe,
-  forAll2,
-  genericCoverTable,
-  parallel,
-  prop,
- )
+import Hydra.Prelude hiding (label)
 
 import qualified Cardano.Api.UTxO as UTxO
 import Cardano.Binary (serialize)
@@ -77,6 +12,13 @@ import qualified Data.Map as Map
 import Data.Maybe (fromJust)
 import qualified Data.Set as Set
 import Data.Type.Equality (testEquality, (:~:) (..))
+import Hydra.Cardano.Api (
+  ExecutionUnits (..),
+  Tx,
+  txInputSet,
+  txOutValue,
+  valueSize,
+ )
 import Hydra.Chain.Direct.Context (
   HydraContext (..),
   ctxHeadParameters,
@@ -102,23 +44,28 @@ import Hydra.Chain.Direct.State (
   abort,
   close,
   collect,
-  commit,
   fanout,
   getKnownUTxO,
-  idleOnChainHeadState,
   initialize,
   observeSomeTx,
  )
 import Hydra.Ledger.Cardano (
-  genOneUTxOFor,
   genTxIn,
   genUTxO,
-  genVerificationKey,
   renderTx,
   simplifyUTxO,
  )
 import Hydra.Ledger.Cardano.Evaluate (evaluateTx')
 import Hydra.Snapshot (isInitialSnapshot)
+import Test.Hydra.Prelude (
+  Spec,
+  SpecWith,
+  describe,
+  forAll2,
+  genericCoverTable,
+  parallel,
+  prop,
+ )
 import Test.QuickCheck (
   Property,
   Testable (property),
@@ -129,7 +76,6 @@ import Test.QuickCheck (
   expectFailure,
   forAll,
   forAllBlind,
-  frequency,
   label,
   resize,
   sublistOf,
