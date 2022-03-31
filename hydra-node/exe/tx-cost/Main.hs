@@ -257,30 +257,44 @@ costOfCommit = fmap (unlines . snd) $
     pure [(i, modifyTxOutValue (const value) o)]
 
 costOfCollectCom :: IO Text
-costOfCollectCom = fmap (unlines . snd) $
-  runWriterT $ do
-    tell ["## Cost of CollectCom Transaction"]
-    tell [""]
-    tell ["| # Parties | Tx. size | % max Mem |   % max CPU |"]
-    tell ["| :-------- | -------: | --------: | ----------: |"]
-    forM_ [1 .. 100] $ \numParties -> do
-      (tx, knownUtxo) <- lift $ generate $ genCollectComTx numParties
-      let txSize = LBS.length $ serialize tx
-      when (txSize < fromIntegral (Ledger._maxTxSize pparams)) $
-        case evaluateTx tx knownUtxo of
-          (Right (mconcat . rights . Map.elems -> (Ledger.ExUnits mem cpu))) ->
-            tell
-              [ "| " <> show numParties
-                  <> "| "
-                  <> show txSize
-                  <> " | "
-                  <> show (100 * fromIntegral mem / maxMem)
-                  <> " | "
-                  <> show (100 * fromIntegral cpu / maxCpu)
-                  <> " |"
-              ]
-          _e -> pure ()
+costOfCollectCom = markdownCollectComCost <$> computeCollectComCost
  where
+  markdownCollectComCost stats =
+    unlines $
+      [ "## Cost of CollectCom Transaction"
+      , ""
+      , "| # Parties | Tx. size | % max Mem |   % max CPU |"
+      , "| :-------- | -------: | --------: | ----------: |"
+      ]
+        <> fmap
+          ( \(numParties, txSize, mem, cpu) ->
+              "| " <> show numParties
+                <> "| "
+                <> show txSize
+                <> " | "
+                <> show (100 * fromIntegral mem / maxMem)
+                <> " | "
+                <> show (100 * fromIntegral cpu / maxCpu)
+                <> " |"
+          )
+          stats
+
+  computeCollectComCost :: IO [(Int, Int64, Natural, Natural)]
+  computeCollectComCost =
+    catMaybes
+      <$> forM
+        [1 .. 100]
+        ( \numParties -> do
+            (tx, knownUtxo) <- generate $ genCollectComTx numParties
+            let txSize = LBS.length $ serialize tx
+            if txSize < fromIntegral (Ledger._maxTxSize pparams)
+              then case evaluateTx tx knownUtxo of
+                (Right (mconcat . rights . Map.elems -> (Ledger.ExUnits mem cpu))) ->
+                  pure $ Just (numParties, txSize, mem, cpu)
+                _ -> pure Nothing
+              else pure Nothing
+        )
+
   genCollectComTx numParties = do
     genHydraContextFor numParties
       >>= \ctx ->
