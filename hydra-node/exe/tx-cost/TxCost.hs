@@ -89,7 +89,25 @@ import Test.Plutus.Validator (
 import Test.QuickCheck (generate, resize, vectorOf)
 import Validators (merkleTreeValidator, mtBuilderValidator)
 
-computeInitCost :: IO [(Int, Int64)]
+newtype NumParties = NumParties Int
+  deriving newtype (Eq, Show, Ord, Num, Real, Enum, Integral)
+
+newtype NumUTxO = NumUTxO Int
+  deriving newtype (Eq, Show, Ord, Num, Real, Enum, Integral)
+
+newtype ValueSize = ValueSize Int
+  deriving newtype (Eq, Show, Ord, Num, Real, Enum, Integral)
+
+newtype TxSize = TxSize Int64
+  deriving newtype (Eq, Show, Ord, Num, Real, Enum, Integral)
+
+newtype MemUnit = MemUnit Natural
+  deriving newtype (Eq, Show, Ord, Num, Real, Enum, Integral)
+
+newtype CpuUnit = CpuUnit Natural
+  deriving newtype (Eq, Show, Ord, Num, Real, Enum, Integral)
+
+computeInitCost :: IO [(NumParties, TxSize)]
 computeInitCost =
   catMaybes
     <$> forM
@@ -98,7 +116,7 @@ computeInitCost =
           tx <- generate $ genInitTx' numParties
           let txSize = LBS.length $ serialize tx
           if txSize < fromIntegral (Ledger._maxTxSize pparams)
-            then pure (Just (numParties, txSize))
+            then pure (Just (NumParties numParties, TxSize txSize))
             else pure Nothing
       )
  where
@@ -108,7 +126,7 @@ computeInitCost =
         genTxIn >>= \seedInput ->
           pure $ initialize (ctxHeadParameters ctx) (ctxVerificationKeys ctx) seedInput stIdle
 
-computeCommitCost :: IO [(Int, Int, Int64, Natural, Natural)]
+computeCommitCost :: IO [(NumUTxO, ValueSize, TxSize, MemUnit, CpuUnit)]
 computeCommitCost =
   concat
     <$> forM
@@ -134,7 +152,7 @@ computeCommitCost =
                       if txSize < fromIntegral (Ledger._maxTxSize pparams)
                         then case evaluateTx tx (utxo <> knownUtxo) of
                           (Right (toList -> [Right (Ledger.ExUnits mem cpu)])) ->
-                            pure $ Just (length utxo, sz, txSize, mem, cpu)
+                            pure $ Just (NumUTxO $ length utxo, ValueSize sz, TxSize txSize, MemUnit mem, CpuUnit cpu)
                           _ -> pure Nothing
                         else pure Nothing
               )
@@ -155,7 +173,7 @@ computeCommitCost =
     value <- fromLedgerValue <$> resize sz arbitrary
     pure [(i, modifyTxOutValue (const value) o)]
 
-computeCollectComCost :: IO [(Int, Int64, Natural, Natural)]
+computeCollectComCost :: IO [(NumParties, TxSize, MemUnit, CpuUnit)]
 computeCollectComCost =
   catMaybes
     <$> forM
@@ -166,7 +184,7 @@ computeCollectComCost =
           if txSize < fromIntegral (Ledger._maxTxSize pparams)
             then case evaluateTx tx knownUtxo of
               (Right (mconcat . rights . Map.elems -> (Ledger.ExUnits mem cpu))) ->
-                pure $ Just (numParties, txSize, mem, cpu)
+                pure $ Just (NumParties numParties, TxSize txSize, MemUnit mem, CpuUnit cpu)
               _ -> pure Nothing
             else pure Nothing
       )
@@ -180,7 +198,7 @@ computeCollectComCost =
               let stInitialized = executeCommits initTx commits stIdle
                in pure (collect stInitialized, getKnownUTxO stInitialized)
 
-computeFanOutCost :: IO [(Int, Int64, Natural, Natural)]
+computeFanOutCost :: IO [(NumUTxO, TxSize, MemUnit, CpuUnit)]
 computeFanOutCost =
   catMaybes
     <$> forM
@@ -190,7 +208,7 @@ computeFanOutCost =
           let (tx, lookupUTxO) = mkFanoutTx utxo
           case evaluateTx tx lookupUTxO of
             (Right (toList -> [Right (Ledger.ExUnits mem cpu)])) ->
-              pure (Just (numElems, LBS.length $ serialize tx, mem, cpu))
+              pure (Just (NumUTxO numElems, TxSize $ LBS.length $ serialize tx, MemUnit mem, CpuUnit cpu))
             _ ->
               pure Nothing
       )
@@ -225,7 +243,7 @@ mkHeadOutput headDatum =
   headValue = Ledger.inject (API.Coin 2_000_000)
   headDatumHash = Ledger.hashData @LedgerEra <$> headDatum
 
-computeMerkleTreeCost :: IO [(Int, Natural, Natural, Natural, Natural)]
+computeMerkleTreeCost :: IO [(Int, MemUnit, CpuUnit, MemUnit, CpuUnit)]
 computeMerkleTreeCost =
   forM
     ([1 .. 10] <> [20, 30 .. 100] <> [120, 140 .. 500])
@@ -234,7 +252,7 @@ computeMerkleTreeCost =
 
         let (memberMem, memberCpu) = fromRight (0, 0) $ executionCostForMember utxo
             (builderMem, builderCpu) = fromRight (0, 0) $ executionCostForBuilder utxo
-        pure (numElems, memberMem, memberCpu, builderMem, builderCpu)
+        pure (numElems, MemUnit memberMem, CpuUnit memberCpu, MemUnit builderMem, CpuUnit builderCpu)
     )
  where
   -- NOTE: assume size of a UTXO is around  60 bytes
@@ -259,7 +277,7 @@ executionCostForBuilder utxo =
    in evaluateScriptExecutionUnits mtBuilderValidator (utxo, root) <&> \case
         ExUnits mem cpu -> (mem, cpu)
 
-computeHashingCost :: [(Int, Int, [Either Text (Hash.HashAlgorithm, Natural, Natural, Natural, Natural)])]
+computeHashingCost :: [(Int, Int, [Either Text (Hash.HashAlgorithm, CpuUnit, MemUnit, CpuUnit, MemUnit)])]
 computeHashingCost =
   [0 .. 5] <&> \(power :: Integer) ->
     let n = 8 ^ power
@@ -275,7 +293,8 @@ computeHashingCost =
           { executionSteps = baseCpu
           , executionMemory = baseMem
           } = either (error . ("unexpected failure evaluating baseline " <>) . show) id $ calculateHashExUnits n Hash.Base
-     in calculateHashExUnits n algorithm <&> \ExecutionUnits{executionSteps = cpu, executionMemory = mem} -> (algorithm, baseCpu, baseMem, cpu, mem)
+     in calculateHashExUnits n algorithm <&> \ExecutionUnits{executionSteps = cpu, executionMemory = mem} ->
+          (algorithm, CpuUnit baseCpu, MemUnit baseMem, CpuUnit cpu, MemUnit mem)
 
 calculateHashExUnits :: Int -> Hash.HashAlgorithm -> Either Text ExecutionUnits
 calculateHashExUnits n algorithm =
