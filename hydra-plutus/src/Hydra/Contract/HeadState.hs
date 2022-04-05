@@ -20,9 +20,18 @@ type SnapshotNumber = Integer
 type Hash = BuiltinByteString
 
 data State
-  = Initial {contestationPeriod :: ContestationPeriod, parties :: [Party]}
-  | Open {parties :: [Party], utxoHash :: Hash}
-  | Closed {snapshotNumber :: SnapshotNumber, utxoHash :: Hash}
+  = Initial
+      { contestationPeriod :: ContestationPeriod
+      , parties :: [(Party, PubKeyHash)]
+      }
+  | Open
+      { parties :: [(Party, PubKeyHash)]
+      , utxoHash :: Hash
+      }
+  | Closed
+      { snapshotNumber :: SnapshotNumber
+      , utxoHash :: Hash
+      }
   | Final
   deriving stock (Generic, Show)
   deriving anyclass (FromJSON, ToJSON)

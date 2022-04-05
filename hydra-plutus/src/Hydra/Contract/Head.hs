@@ -131,7 +131,7 @@ mkHeadContext context initialAddress commitAddress =
 checkAbort ::
   ScriptContext ->
   HeadContext ->
-  [Party] ->
+  [(Party, PubKeyHash)] ->
   Bool
 checkAbort context@ScriptContext{scriptContextTxInfo = txInfo} headContext parties =
   consumeInputsForAllParties
@@ -172,7 +172,7 @@ checkCollectCom ::
   -- | Static information about the head (i.e. address, value, currency...)
   HeadContext ->
   -- | Initial state
-  (ContestationPeriod, [Party]) ->
+  (ContestationPeriod, [(Party, PubKeyHash)]) ->
   Bool
 checkCollectCom context@ScriptContext{scriptContextTxInfo = txInfo} headContext (_, parties) =
   mustContinueHeadWith context headAddress expectedChangeValue expectedOutputDatum
@@ -253,7 +253,7 @@ checkCollectCom context@ScriptContext{scriptContextTxInfo = txInfo} headContext 
 checkClose ::
   ScriptContext ->
   HeadContext ->
-  [Party] ->
+  [(Party, PubKeyHash)] ->
   SnapshotNumber ->
   [Signature] ->
   Bool
@@ -364,15 +364,15 @@ hashTxOuts =
   sha2_256 . serialiseTxOuts
 {-# INLINEABLE hashTxOuts #-}
 
-verifySnapshotSignature :: [Party] -> SnapshotNumber -> [Signature] -> Bool
+verifySnapshotSignature :: [(Party, PubKeyHash)] -> SnapshotNumber -> [Signature] -> Bool
 verifySnapshotSignature parties snapshotNumber sigs =
   traceIfFalse "signature verification failed" $
     length parties == length sigs
       && all (uncurry $ verifyPartySignature snapshotNumber) (zip parties sigs)
 {-# INLINEABLE verifySnapshotSignature #-}
 
-verifyPartySignature :: SnapshotNumber -> Party -> Signature -> Bool
-verifyPartySignature snapshotNumber vkey signed =
+verifyPartySignature :: SnapshotNumber -> (Party, PubKeyHash) -> Signature -> Bool
+verifyPartySignature snapshotNumber (vkey, _) signed =
   traceIfFalse "party signature verification failed" $
     mockVerifySignature vkey snapshotNumber (getSignature signed)
 {-# INLINEABLE verifyPartySignature #-}
