@@ -19,7 +19,7 @@ import Hydra.Chain.Direct.Contract.Mutation (
  )
 import Hydra.Chain.Direct.Fixture (testNetworkId)
 import Hydra.Chain.Direct.State (HeadStateKind (..), OnChainHeadState, idleOnChainHeadState)
-import Hydra.Chain.Direct.Tx (initTx)
+import Hydra.Chain.Direct.Tx (hydraHeadV1AssetName, initTx)
 import Hydra.Ledger.Cardano (genOneUTxOFor, genValue, genVerificationKey)
 import Hydra.Party (Party)
 import Test.QuickCheck (choose, elements, oneof, suchThat, vectorOf)
@@ -107,18 +107,19 @@ genObserveInitMutation :: (Tx, UTxO) -> Gen SomeMutation
 genObserveInitMutation (tx, _utxo) =
   oneof
     [ SomeMutation MutateSomePT <$> do
-        let outs = txOuts' tx
-        (ix :: Int, out) <- elements (drop 1 $ zip [0 ..] outs)
+        let minted = txMintAssets tx
         vk' <- genVerificationKey `suchThat` (`notElem` healthyCardanoKeys)
-        pure $ ChangeOutput (fromIntegral ix) (modifyTxOutValue (swapTokenName $ verificationKeyHash vk') out)
+        let minted' = swapTokenName (verificationKeyHash vk') minted
+        pure $ ChangeMintedValue (valueFromList minted')
     ]
 
-swapTokenName :: Hash PaymentKey -> Value -> Value
-swapTokenName vkh val =
-  valueFromList $ fmap swapPT $ valueToList val
- where
-  swapPT :: (AssetId, Quantity) -> (AssetId, Quantity)
-  swapPT = \case
-    adas@(AdaAssetId, _) -> adas
-    (AssetId pid _an, 1) -> (AssetId pid (AssetName $ serialiseToRawBytes vkh), 1)
-    v -> error $ "supernumerary value :" <> show v
+swapTokenName :: Hash PaymentKey -> [(AssetId, Quantity)] -> [(AssetId, Quantity)]
+swapTokenName vkh = \case
+  [] ->
+    []
+  x@(AdaAssetId, _) : xs ->
+    x : swapTokenName vkh xs
+  x@(AssetId pid assetName, q) : xs ->
+    if assetName == hydraHeadV1AssetName
+      then x : swapTokenName vkh xs
+      else (AssetId pid (AssetName $ serialiseToRawBytes vkh), q) : xs
