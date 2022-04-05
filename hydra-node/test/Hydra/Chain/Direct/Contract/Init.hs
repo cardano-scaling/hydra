@@ -87,7 +87,7 @@ genInitMutation (tx, _utxo) =
     , SomeMutation MutateAddAnotherPT <$> addPTWithQuantity tx 1
     , SomeMutation MutateInitialOutputValue <$> do
         let outs = txOuts' tx
-        (ix, out) <- elements (zip [1 .. length outs - 1] outs)
+        (ix :: Int, out) <- elements (drop 1 $ zip [0 ..] outs)
         value' <- genValue `suchThat` (/= txOutValue out)
         pure $ ChangeOutput (fromIntegral ix) (modifyTxOutValue (const value') out)
     , SomeMutation MutateDropInitialOutput <$> do
@@ -107,7 +107,7 @@ genObserveInitMutation (tx, _utxo) =
   oneof
     [ SomeMutation MutateSomePT <$> do
         let outs = txOuts' tx
-        (ix, out) <- elements (zip [1 .. length outs - 1] outs)
+        (ix :: Int, out) <- elements (drop 1 $ zip [0 ..] outs)
         vk' <- genVerificationKey `suchThat` (`notElem` healthyCardanoKeys)
         pure $ ChangeOutput (fromIntegral ix) (modifyTxOutValue (swapTokenName $ verificationKeyHash vk') out)
     ]
