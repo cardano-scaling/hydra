@@ -143,6 +143,7 @@ import qualified Data.Map as Map
 import qualified Data.Sequence.Strict as StrictSeq
 import qualified Data.Set as Set
 import qualified Hydra.Chain.Direct.Fixture as Fixture
+import Hydra.Chain.Direct.State (SomeOnChainHeadState (..), observeSomeTx, reifyState)
 import qualified Hydra.Contract.Head as Head
 import qualified Hydra.Contract.HeadState as Head
 import qualified Hydra.Data.Party as Party
@@ -159,8 +160,10 @@ import Test.QuickCheck (
   Property,
   checkCoverage,
   choose,
+  conjoin,
   counterexample,
   forAll,
+  forAllBlind,
   property,
   suchThat,
   vector,
@@ -176,14 +179,35 @@ import Test.QuickCheck.Instances ()
 --
 -- Note that only "level 2" validation is run, e.g the transaction is assume to be
 -- structurally valid and having passed "level 1" checks.
-propMutation :: (Tx, UTxO) -> ((Tx, UTxO) -> Gen SomeMutation) -> Property
-propMutation (tx, utxo) genMutation =
+propMutationOnChain :: (Tx, UTxO) -> ((Tx, UTxO) -> Gen SomeMutation) -> Property
+propMutationOnChain (tx, utxo) genMutation =
   forAll @_ @Property (genMutation (tx, utxo)) $ \SomeMutation{label, mutation} ->
     (tx, utxo)
       & applyMutation mutation
       & propTransactionDoesNotValidate
       & genericCoverTable [label]
       & checkCoverage
+
+propMutationOffChain ::
+  (Tx, UTxO) ->
+  ((Tx, UTxO) -> Gen SomeMutation) ->
+  Gen SomeOnChainHeadState ->
+  Property
+propMutationOffChain (tx, utxo) genMutation genSt =
+  forAll @_ @Property (genMutation (tx, utxo)) $ \SomeMutation{label, mutation} ->
+    forAllBlind genSt $ \st ->
+      (tx, utxo)
+        & applyMutation mutation
+        & ( \x ->
+              conjoin
+                [ propTransactionValidates x
+                    & counterexample "Transaction should have validated but didn't."
+                , propTransactionIsNotObserved x st
+                    & counterexample "Transaction should have not been observed but was observed."
+                ]
+          )
+        & genericCoverTable [label]
+        & checkCoverage
 
 -- | A 'Property' checking some (transaction, UTxO) pair is invalid.
 propTransactionDoesNotValidate :: (Tx, UTxO) -> Property
@@ -212,6 +236,20 @@ propTransactionValidates (tx, lookupUTxO) =
             & counterexample ("Tx: " <> toString (renderTxWithUTxO lookupUTxO tx))
             & counterexample ("Redeemer report: " <> show redeemerReport)
             & counterexample "Phase-2 validation failed"
+
+-- | A 'Property' checking some (on-chain valid) (transaction, UTxO) is not
+-- properly observe given a configuration.
+propTransactionIsNotObserved :: (Tx, UTxO) -> SomeOnChainHeadState -> Property
+propTransactionIsNotObserved (tx, _) st =
+  case observeSomeTx tx st of
+    Nothing ->
+      property True
+    Just (onChainTx, SomeOnChainHeadState st') ->
+      property False
+        & counterexample ("Observed tx: " <> strawmanGetConstr onChainTx)
+        & counterexample ("New head state: " <> show (reifyState st'))
+ where
+  strawmanGetConstr = toString . Prelude.head . words . show
 
 -- * Mutations
 

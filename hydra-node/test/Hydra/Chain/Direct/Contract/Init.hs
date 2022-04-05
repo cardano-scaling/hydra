@@ -13,11 +13,14 @@ import Hydra.Chain.Direct.Contract.Mutation (
   Mutation (..),
   SomeMutation (..),
   addPTWithQuantity,
+  cardanoCredentialsFor,
   changeMintedValueQuantityFrom,
  )
 import Hydra.Chain.Direct.Fixture (testNetworkId)
+import Hydra.Chain.Direct.State (HeadStateKind (..), OnChainHeadState, idleOnChainHeadState)
 import Hydra.Chain.Direct.Tx (initTx)
 import Hydra.Ledger.Cardano (genOneUTxOFor, genValue, genVerificationKey)
+import Hydra.Party (Party)
 import Test.QuickCheck (choose, elements, oneof, suchThat, vectorOf)
 import qualified Prelude
 
@@ -32,27 +35,38 @@ healthyInitTx =
   tx =
     initTx
       testNetworkId
-      healthyParties
-      parameters
+      healthyCardanoKeys
+      healthyHeadParameters
       healthySeedInput
 
-  parameters =
-    flip generateWith 42 $
-      HeadParameters
-        <$> arbitrary
-        <*> vectorOf (length healthyParties) arbitrary
+healthyHeadParameters :: HeadParameters
+healthyHeadParameters =
+  flip generateWith 42 $
+    HeadParameters
+      <$> arbitrary
+      <*> vectorOf (length healthyParties) arbitrary
 
 healthySeedInput :: TxIn
 healthySeedInput =
   fst . Prelude.head $ UTxO.pairs healthyLookupUTxO
 
-healthyParties :: [VerificationKey PaymentKey]
+healthyParties :: [Party]
 healthyParties =
   generateWith (vectorOf 3 arbitrary) 42
 
+healthyCardanoKeys :: [VerificationKey PaymentKey]
+healthyCardanoKeys =
+  fst . cardanoCredentialsFor <$> healthyParties
+
 healthyLookupUTxO :: UTxO
 healthyLookupUTxO =
-  generateWith (genOneUTxOFor (Prelude.head healthyParties)) 42
+  generateWith (genOneUTxOFor (Prelude.head healthyCardanoKeys)) 42
+
+genHealthyIdleSt :: Gen (OnChainHeadState 'StIdle)
+genHealthyIdleSt = do
+  party <- elements healthyParties
+  let (vk, _sk) = cardanoCredentialsFor party
+  pure $ idleOnChainHeadState testNetworkId vk party
 
 data InitMutation
   = MutateThreadTokenQuantity
@@ -94,7 +108,7 @@ genObserveInitMutation (tx, _utxo) =
     [ SomeMutation MutateSomePT <$> do
         let outs = txOuts' tx
         (ix, out) <- elements (zip [1 .. length outs - 1] outs)
-        vk' <- genVerificationKey `suchThat` (`notElem` healthyParties)
+        vk' <- genVerificationKey `suchThat` (`notElem` healthyCardanoKeys)
         pure $ ChangeOutput (fromIntegral ix) (modifyTxOutValue (swapTokenName $ verificationKeyHash vk') out)
     ]
 
