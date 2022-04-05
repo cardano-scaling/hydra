@@ -57,33 +57,45 @@ healthyLookupUTxO =
 data InitMutation
   = MutateThreadTokenQuantity
   | MutateAddAnotherPT
-  | MutateSomePT
   | MutateDropInitialOutput
   | MutateDropSeedInput
-  | MutateInitialOutputAddress
+  | MutateInitialOutputValue
+  deriving (Generic, Show, Enum, Bounded)
+
+data ObserveInitMutation
+  = MutateSomePT
   deriving (Generic, Show, Enum, Bounded)
 
 genInitMutation :: (Tx, UTxO) -> Gen SomeMutation
 genInitMutation (tx, _utxo) =
   oneof
-    [ -- SomeMutation MutateThreadTokenQuantity <$> changeMintedValueQuantityFrom tx 1
-      -- , SomeMutation MutateAddAnotherPT <$> addPTWithQuantity tx 1
-      -- , SomeMutation MutateInitialOutputValue <$> do
-      --     let outs = txOuts' tx
-      --     (ix, out) <- elements (zip [1 .. length outs - 1] outs)
-      --     value' <- genValue `suchThat` (/= txOutValue out)
-      --     pure $ ChangeOutput (fromIntegral ix) (modifyTxOutValue (const value') out)
-      -- ,
-      SomeMutation MutateInitialOutputAddress <$> do
+    [ SomeMutation MutateThreadTokenQuantity <$> changeMintedValueQuantityFrom tx 1
+    , SomeMutation MutateAddAnotherPT <$> addPTWithQuantity tx 1
+    , SomeMutation MutateInitialOutputValue <$> do
+        let outs = txOuts' tx
+        (ix, out) <- elements (zip [1 .. length outs - 1] outs)
+        value' <- genValue `suchThat` (/= txOutValue out)
+        pure $ ChangeOutput (fromIntegral ix) (modifyTxOutValue (const value') out)
+    , SomeMutation MutateDropInitialOutput <$> do
+        ix <- choose (1, length (txOuts' tx) - 1)
+        pure $ RemoveOutput (fromIntegral ix)
+    , SomeMutation MutateDropSeedInput <$> do
+        pure $ RemoveInput healthySeedInput
+    ]
+
+-- These are mutations we expect to be valid from an on-chain standpoint, yet
+-- invalid for the off-chain observation. There's mainly only the `init`
+-- transaction which is in this situation, because the on-chain parameters are
+-- specified during the init and there's no way to check, on-chain, that they
+-- correspond to what a node expects in terms of configuration.
+genObserveInitMutation :: (Tx, UTxO) -> Gen SomeMutation
+genObserveInitMutation (tx, _utxo) =
+  oneof
+    [ SomeMutation MutateSomePT <$> do
         let outs = txOuts' tx
         (ix, out) <- elements (zip [1 .. length outs - 1] outs)
         vk' <- genVerificationKey `suchThat` (`notElem` healthyParties)
         pure $ ChangeOutput (fromIntegral ix) (modifyTxOutValue (swapTokenName $ verificationKeyHash vk') out)
-        -- , SomeMutation MutateDropInitialOutput <$> do
-        --     ix <- choose (1, length (txOuts' tx) - 1)
-        --     pure $ RemoveOutput (fromIntegral ix)
-        -- , SomeMutation MutateDropSeedInput <$> do
-        --     pure $ RemoveInput healthySeedInput
     ]
 
 swapTokenName :: Hash PaymentKey -> Value -> Value
@@ -91,6 +103,7 @@ swapTokenName vkh val =
   valueFromList $ fmap swapPT $ valueToList val
  where
   swapPT :: (AssetId, Quantity) -> (AssetId, Quantity)
-  swapPT adas@(AdaAssetId, _) = adas
-  swapPT (AssetId pid _an, 1) = (AssetId pid (AssetName $ serialiseToRawBytes vkh), 1)
-  swapPT v = error $ "supernumerary value :" <> show v
+  swapPT = \case
+    adas@(AdaAssetId, _) -> adas
+    (AssetId pid _an, 1) -> (AssetId pid (AssetName $ serialiseToRawBytes vkh), 1)
+    v -> error $ "supernumerary value :" <> show v
