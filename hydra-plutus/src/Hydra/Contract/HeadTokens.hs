@@ -14,7 +14,7 @@ import qualified Hydra.Contract.Initial as Initial
 import Hydra.Contract.MintAction (MintAction (Burn, Mint))
 import Ledger.Typed.Scripts (ValidatorTypes (..), wrapMintingPolicy)
 import Plutus.V1.Ledger.Api (fromBuiltinData)
-import Plutus.V1.Ledger.Value (TokenName (..), getValue)
+import Plutus.V1.Ledger.Value (getValue)
 import qualified PlutusTx
 import qualified PlutusTx.AssocMap as Map
 
@@ -39,7 +39,7 @@ validate initialValidator headValidator seedInput action context =
 validateTokensMinting :: ValidatorHash -> ValidatorHash -> TxOutRef -> ScriptContext -> Bool
 validateTokensMinting initialValidator headValidator seedInput context =
   traceIfFalse "minted wrong" $
-    participationTokensAreDistributed currency initialValidator txInfo parties
+    participationTokensAreDistributed currency initialValidator txInfo nParties
       && checkQuantities
       && assetNamesInPolicy == nParties + 1
       && seedInputIsConsumed
@@ -58,8 +58,7 @@ validateTokensMinting initialValidator headValidator seedInput context =
 
   ScriptContext{scriptContextTxInfo = txInfo} = context
 
-  nParties = length parties
-  parties =
+  nParties =
     case scriptOutputsAt headValidator txInfo of
       [(dh, _)] ->
         case getDatum <$> findDatum dh txInfo of
@@ -67,8 +66,7 @@ validateTokensMinting initialValidator headValidator seedInput context =
           Just da ->
             case fromBuiltinData @(DatumType Head) da of
               Nothing -> traceError "expected commit datum type, got something else"
-              Just Head.Initial{Head.parties = headParties} ->
-                snd <$> headParties
+              Just Head.Initial{Head.parties = parties} -> length parties
               Just _ -> traceError "unexpected State in datum"
       _ -> traceError "expected single head output"
 
@@ -102,27 +100,19 @@ validateTokensBurning context =
       Nothing -> 0
       Just tokenMap -> negate $ sum tokenMap
 
-participationTokensAreDistributed :: CurrencySymbol -> ValidatorHash -> TxInfo -> [PubKeyHash] -> Bool
-participationTokensAreDistributed currency initialValidator txInfo parties =
+participationTokensAreDistributed :: CurrencySymbol -> ValidatorHash -> TxInfo -> Integer -> Bool
+participationTokensAreDistributed currency initialValidator txInfo nParties =
   case scriptOutputsAt initialValidator txInfo of
-    [] ->
-      traceIfFalse "no initial outputs for parties" $ length parties == (0 :: Integer)
-    outs ->
-      length parties == length outs && allHasParticipationToken (outs, parties)
+    [] -> traceIfFalse "no initial outputs for parties" $ nParties == (0 :: Integer)
+    outs -> nParties == length outs && all hasParticipationToken outs
  where
-  allHasParticipationToken :: ([(DatumHash, Value)], [PubKeyHash]) -> Bool
-  allHasParticipationToken = \case
-    ([], []) ->
-      True
-    ((_, val) : outs, pks) ->
-      case Map.lookup currency (getValue val) of
-        Nothing -> traceError "no PT distributed"
-        (Just tokenMap) -> case Map.toList tokenMap of
-          [(TokenName vkh, qty)] ->
-            let pks' = filter (/= PubKeyHash vkh) pks
-             in qty == 1 && pks' /= pks && allHasParticipationToken (outs, pks')
-          _ -> traceError "wrong quantity of PT distributed"
-    ([], _) -> False
+  hasParticipationToken :: (DatumHash, Value) -> Bool
+  hasParticipationToken (_, val) =
+    case Map.lookup currency (getValue val) of
+      Nothing -> traceError "no PT distributed"
+      (Just tokenMap) -> case Map.toList tokenMap of
+        [(_, qty)] -> qty == 1
+        _ -> traceError "wrong quantity of PT distributed"
 
 mintingPolicy :: TxOutRef -> MintingPolicy
 mintingPolicy txOutRef =
