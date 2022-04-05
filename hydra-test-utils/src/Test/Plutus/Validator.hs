@@ -96,15 +96,15 @@ evaluateScriptExecutionUnits ::
   Plutus.ToData a =>
   Scripts.TypedValidator v ->
   a ->
-  ExUnits
+  Either Text ExUnits
 evaluateScriptExecutionUnits validator redeemer =
   case runIdentity (evaluateTransactionExecutionUnits pparams tx utxo epoch start costModels) of
     Right (toList -> [units]) ->
-      either (error . ("unexpected script failure: " <>) . show) id units
+      first (("unexpected script failure: " <>) . show) units
     Right{} ->
-      error "executed more than one script?!"
+      Left "executed more than one script?!"
     Left e ->
-      error ("unexpected failure: " <> show e)
+      Left ("unexpected failure: " <> show e)
  where
   (tx, utxo) = transactionFromScript validator redeemer
   costModels = array (PlutusV1, PlutusV1) [(PlutusV1, fromJust defaultCostModel)]

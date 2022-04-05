@@ -11,3 +11,8 @@ cabal test hydra-tui
 # Sanity check benchmark still runs fine
 # TODO: turn into a test
 cabal bench hydra-cluster --benchmark-options '--scaling-factor 1'
+
+# benchmarking transactions costs
+# NOTE: cabal bench run in the given package's directory which forces us
+# to pass absolute directory output
+cabal bench tx-cost --benchmark-options "--output-directory $(pwd)/docs/benchmarks"

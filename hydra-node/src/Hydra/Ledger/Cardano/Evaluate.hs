@@ -29,12 +29,13 @@ import Cardano.Slotting.EpochInfo (EpochInfo, fixedEpochInfo)
 import Cardano.Slotting.Slot (EpochSize (EpochSize))
 import Cardano.Slotting.Time (SystemStart (SystemStart), mkSlotLength)
 import Data.Array (Array, array)
+import Data.Bits (shift)
 import Data.Default (def)
 import qualified Data.Map as Map
 import Data.Maybe (fromJust)
 import Data.Ratio ((%))
 import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
-import Hydra.Cardano.Api (ExecutionUnits, StandardCrypto, Tx, UTxO, toLedgerExUnits, toLedgerTx, toLedgerUTxO)
+import Hydra.Cardano.Api (ExecutionUnits, StandardCrypto, Tx, UTxO, fromLedgerExUnits, toLedgerExUnits, toLedgerTx, toLedgerUTxO)
 import Hydra.Chain.Direct.Util (Era)
 
 type RedeemerReport =
@@ -44,15 +45,7 @@ evaluateTx ::
   Tx ->
   UTxO ->
   Either (BasicFailure StandardCrypto) RedeemerReport
-evaluateTx tx utxo =
-  runIdentity $
-    evaluateTransactionExecutionUnits
-      pparams
-      (toLedgerTx tx)
-      (toLedgerUTxO utxo)
-      epochInfo
-      systemStart
-      costModels
+evaluateTx = evaluateTx' (fromLedgerExUnits $ _maxTxExUnits pparams)
 
 evaluateTx' ::
   -- | Max tx execution units.
@@ -70,6 +63,7 @@ evaluateTx' maxTxExUnits tx utxo =
       systemStart
       costModels
 
+-- | Current mainchain cost parameters.
 pparams :: PParams Era
 pparams =
   def
@@ -78,6 +72,7 @@ pparams =
     , _maxTxExUnits = ExUnits 14_000_000 10_000_000_000
     , _maxBlockExUnits = ExUnits 56_000_000 40_000_000_000
     , _protocolVersion = ProtVer 5 0
+    , _maxTxSize = 1 `shift` 14 -- 16kB
     , _prices =
         Prices
           { prMem = fromJust $ boundRational $ 721 % 10000000

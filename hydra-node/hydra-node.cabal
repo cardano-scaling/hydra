@@ -10,8 +10,7 @@ license-files:
   NOTICE
 
 extra-source-files: README.md
-data-files:
-  json-schemas/logs.yaml
+data-files:         json-schemas/logs.yaml
 
 source-repository head
   type:     git
@@ -78,6 +77,7 @@ library
     Hydra.API.Server
     Hydra.Chain
     Hydra.Chain.Direct
+    Hydra.Chain.Direct.Context
     Hydra.Chain.Direct.State
     Hydra.Chain.Direct.Tx
     Hydra.Chain.Direct.Util
@@ -186,11 +186,15 @@ executable hydra-node
 
   ghc-options:    -threaded -rtsopts
 
-executable tx-cost
+benchmark tx-cost
   import:         project-config
   hs-source-dirs: exe/tx-cost
   main-is:        Main.hs
-  other-modules:  Validators
+  other-modules:
+    TxCost
+    Validators
+
+  type:           exitcode-stdio-1.0
   build-depends:
     , base
     , bytestring
@@ -201,11 +205,16 @@ executable tx-cost
     , cardano-ledger-shelley
     , cardano-ledger-shelley-ma
     , containers
+    , directory
+    , exceptions
+    , filepath
     , hydra-cardano-api
     , hydra-node
     , hydra-plutus
     , hydra-prelude
     , hydra-test-utils
+    , mtl
+    , optparse-applicative
     , plutus-ledger
     , plutus-ledger-api
     , plutus-merkle-tree
@@ -213,6 +222,7 @@ executable tx-cost
     , plutus-tx-plugin
     , QuickCheck
     , strict-containers
+    , text
 
   ghc-options:    -threaded -rtsopts
 
@@ -284,6 +294,7 @@ test-suite tests
     , cryptonite
     , data-default
     , directory
+    , exceptions
     , filepath
     , hspec
     , hspec-core
