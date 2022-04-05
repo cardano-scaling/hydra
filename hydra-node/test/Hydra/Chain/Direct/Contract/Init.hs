@@ -8,6 +8,7 @@ import Hydra.Cardano.Api
 import Hydra.Prelude
 
 import qualified Cardano.Api.UTxO as UTxO
+import Data.List ((\\))
 import Hydra.Chain (HeadParameters (..))
 import Hydra.Chain.Direct.Contract.Mutation (
   Mutation (..),
@@ -66,7 +67,7 @@ genHealthyIdleSt :: Gen (OnChainHeadState 'StIdle)
 genHealthyIdleSt = do
   party <- elements healthyParties
   let (vk, _sk) = cardanoCredentialsFor party
-  pure $ idleOnChainHeadState testNetworkId vk party
+  pure $ idleOnChainHeadState testNetworkId (healthyCardanoKeys \\ [vk]) vk party
 
 data InitMutation
   = MutateThreadTokenQuantity

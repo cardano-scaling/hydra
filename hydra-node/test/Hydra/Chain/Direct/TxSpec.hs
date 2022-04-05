@@ -180,7 +180,7 @@ spec =
           forAll (cardanoCredentialsFor <$> elements (party : parties)) $ \(signer, _) ->
             let params = HeadParameters cperiod (party : parties)
                 tx = initTx testNetworkId cardanoKeys params txIn
-             in case observeInitTx testNetworkId party tx of
+             in case observeInitTx testNetworkId cardanoKeys party tx of
                   Just (_, InitObservation{initials, threadOutput}) -> do
                     let (headInput, headOutput, headDatum, _) = threadOutput
                         initials' = Map.fromList [(a, (b, c)) | (a, b, c) <- initials]

@@ -42,6 +42,7 @@ import Control.Monad.Class.MonadSTM (
 import Control.Monad.Class.MonadTimer (timeout)
 import Control.Tracer (nullTracer)
 import Data.Aeson (Value (String), object, (.=))
+import Data.List ((\\))
 import Data.Sequence.Strict (StrictSeq)
 import Hydra.Cardano.Api (
   NetworkId,
@@ -158,6 +159,7 @@ withDirectChain tracer networkId iocp socketPath keyPair party cardanoKeys callb
         SomeOnChainHeadState $
           idleOnChainHeadState
             networkId
+            (cardanoKeys \\ [verificationKey wallet])
             (verificationKey wallet)
             party
     race_
