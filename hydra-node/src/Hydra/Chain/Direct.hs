@@ -148,7 +148,7 @@ withDirectChain ::
   (VerificationKey PaymentKey, SigningKey PaymentKey) ->
   -- | Hydra party of our hydra node.
   Party ->
-  -- | Cardano keys of all Head participants.
+  -- | Cardano keys of all Head participants (including our key pair).
   [VerificationKey PaymentKey] ->
   ChainComponent Tx IO ()
 withDirectChain tracer networkId iocp socketPath keyPair party cardanoKeys callback action = do

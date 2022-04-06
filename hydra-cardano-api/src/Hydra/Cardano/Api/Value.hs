@@ -12,7 +12,7 @@ import qualified Plutus.V1.Ledger.Api as Plutus
 valueSize :: Value -> Int
 valueSize = length . valueToList
 
--- | Access minted assets of a transaction, as an ordered list.
+-- | Access minted assets of a transaction, as an ordered association list.
 txMintAssets :: Tx era -> [(AssetId, Quantity)]
 txMintAssets =
   asList . txMintValue . getTxBodyContent . getTxBody

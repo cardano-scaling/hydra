@@ -1,5 +1,3 @@
-{-# OPTIONS_GHC -Wno-unused-imports #-}
-
 -- | Mutation-based script validator tests for the init transaction where a
 -- 'healthyInitTx' gets mutated by an arbitrary 'InitMutation'.
 module Hydra.Chain.Direct.Contract.Init where
@@ -112,14 +110,14 @@ genObserveInitMutation (tx, _utxo) =
         let minted' = swapTokenName (verificationKeyHash vk') minted
         pure $ ChangeMintedValue (valueFromList minted')
     ]
-
-swapTokenName :: Hash PaymentKey -> [(AssetId, Quantity)] -> [(AssetId, Quantity)]
-swapTokenName vkh = \case
-  [] ->
-    []
-  x@(AdaAssetId, _) : xs ->
-    x : swapTokenName vkh xs
-  x@(AssetId pid assetName, q) : xs ->
-    if assetName == hydraHeadV1AssetName
-      then x : swapTokenName vkh xs
-      else (AssetId pid (AssetName $ serialiseToRawBytes vkh), q) : xs
+ where
+  swapTokenName :: Hash PaymentKey -> [(AssetId, Quantity)] -> [(AssetId, Quantity)]
+  swapTokenName vkh = \case
+    [] ->
+      []
+    x@(AdaAssetId, _) : xs ->
+      x : swapTokenName vkh xs
+    x@(AssetId pid assetName, q) : xs ->
+      if assetName == hydraHeadV1AssetName
+        then x : swapTokenName vkh xs
+        else (AssetId pid (AssetName $ serialiseToRawBytes vkh), q) : xs
