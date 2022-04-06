@@ -66,6 +66,7 @@ import qualified Text.Show
 -- happening on the layer-1 for a given Hydra head.
 data OnChainHeadState (st :: HeadStateKind) = OnChainHeadState
   { networkId :: NetworkId
+  , peerVerificationKeys :: [VerificationKey PaymentKey]
   , ownVerificationKey :: VerificationKey PaymentKey
   , ownParty :: Party
   , stateMachine :: HydraStateMachine st
@@ -180,12 +181,14 @@ reifyState OnChainHeadState{stateMachine} =
 -- | Initialize a new 'OnChainHeadState'.
 idleOnChainHeadState ::
   NetworkId ->
+  [VerificationKey PaymentKey] ->
   VerificationKey PaymentKey ->
   Party ->
   OnChainHeadState 'StIdle
-idleOnChainHeadState networkId ownVerificationKey ownParty =
+idleOnChainHeadState networkId peerVerificationKeys ownVerificationKey ownParty =
   OnChainHeadState
     { networkId
+    , peerVerificationKeys
     , ownVerificationKey
     , ownParty
     , stateMachine = Idle
@@ -316,14 +319,16 @@ instance HasTransition 'StIdle where
     ]
 
 instance ObserveTx 'StIdle 'StInitialized where
-  observeTx tx OnChainHeadState{networkId, ownParty, ownVerificationKey} = do
-    (event, observation) <- observeInitTx networkId ownParty tx
+  observeTx tx OnChainHeadState{networkId, peerVerificationKeys, ownParty, ownVerificationKey} = do
+    let allVerificationKeys = ownVerificationKey : peerVerificationKeys
+    (event, observation) <- observeInitTx networkId allVerificationKeys ownParty tx
     let InitObservation{threadOutput, initials, commits, headId, headTokenScript} = observation
     let st' =
           OnChainHeadState
             { networkId
             , ownParty
             , ownVerificationKey
+            , peerVerificationKeys
             , stateMachine =
                 Initialized
                   { initialThreadOutput = threadOutput
@@ -370,7 +375,7 @@ instance ObserveTx 'StInitialized 'StInitialized where
       } = stateMachine
 
 instance ObserveTx 'StInitialized 'StOpen where
-  observeTx tx st@OnChainHeadState{networkId, ownVerificationKey, ownParty, stateMachine} = do
+  observeTx tx st@OnChainHeadState{networkId, peerVerificationKeys, ownVerificationKey, ownParty, stateMachine} = do
     let utxo = getKnownUTxO st
     (event, observation) <- observeCollectComTx utxo tx
     let CollectComObservation{threadOutput, headId} = observation
@@ -378,6 +383,7 @@ instance ObserveTx 'StInitialized 'StOpen where
     let st' =
           OnChainHeadState
             { networkId
+            , peerVerificationKeys
             , ownVerificationKey
             , ownParty
             , stateMachine =
@@ -395,12 +401,13 @@ instance ObserveTx 'StInitialized 'StOpen where
       } = stateMachine
 
 instance ObserveTx 'StInitialized 'StIdle where
-  observeTx tx st@OnChainHeadState{networkId, ownVerificationKey, ownParty} = do
+  observeTx tx st@OnChainHeadState{networkId, peerVerificationKeys, ownVerificationKey, ownParty} = do
     let utxo = getKnownUTxO st
     (event, ()) <- observeAbortTx utxo tx
     let st' =
           OnChainHeadState
             { networkId
+            , peerVerificationKeys
             , ownVerificationKey
             , ownParty
             , stateMachine = Idle
@@ -417,7 +424,7 @@ instance HasTransition 'StOpen where
     ]
 
 instance ObserveTx 'StOpen 'StClosed where
-  observeTx tx st@OnChainHeadState{networkId, ownVerificationKey, ownParty, stateMachine} = do
+  observeTx tx st@OnChainHeadState{networkId, peerVerificationKeys, ownVerificationKey, ownParty, stateMachine} = do
     let utxo = getKnownUTxO st
     (event, observation) <- observeCloseTx utxo tx
     let CloseObservation{threadOutput, headId} = observation
@@ -425,6 +432,7 @@ instance ObserveTx 'StOpen 'StClosed where
     let st' =
           OnChainHeadState
             { networkId
+            , peerVerificationKeys
             , ownVerificationKey
             , ownParty
             , stateMachine =
@@ -451,12 +459,13 @@ instance HasTransition 'StClosed where
     ]
 
 instance ObserveTx 'StClosed 'StIdle where
-  observeTx tx st@OnChainHeadState{networkId, ownVerificationKey, ownParty} = do
+  observeTx tx st@OnChainHeadState{networkId, peerVerificationKeys, ownVerificationKey, ownParty} = do
     let utxo = getKnownUTxO st
     (event, ()) <- observeFanoutTx utxo tx
     let st' =
           OnChainHeadState
             { networkId
+            , peerVerificationKeys
             , ownVerificationKey
             , ownParty
             , stateMachine = Idle

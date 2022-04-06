@@ -400,17 +400,21 @@ data InitObservation = InitObservation
 -- only returning a Maybe, i.e. 'Either Reason (OnChainTx tx, OnChainHeadState)'
 observeInitTx ::
   NetworkId ->
+  [VerificationKey PaymentKey] ->
   Party ->
   Tx ->
   Maybe (OnChainTx Tx, InitObservation)
-observeInitTx networkId party tx = do
+observeInitTx networkId cardanoKeys party tx = do
   -- FIXME: This is affected by "same structure datum attacks", we should be
   -- using the Head script address instead.
   (ix, headOut, headData, Head.Initial cp ps) <- findFirst headOutput indexedOutputs
   let parties = map convertParty ps
   let cperiod = contestationPeriodToDiffTime cp
   guard $ party `elem` parties
-  (headTokenPolicyId, _headAssetName) <- findHeadAssetId headOut
+  (headTokenPolicyId, headAssetName) <- findHeadAssetId headOut
+  let expectedNames = assetNameFromVerificationKey <$> cardanoKeys
+  let actualNames = assetNames headAssetName
+  guard $ sort expectedNames == sort actualNames
   headTokenScript <- findScriptMinting tx headTokenPolicyId
   pure
     ( OnInitTx cperiod parties
@@ -450,6 +454,12 @@ observeInitTx networkId party tx = do
   initialAddress = mkScriptAddress @PlutusScriptV1 networkId initialScript
 
   initialScript = fromPlutusScript Initial.validatorScript
+
+  assetNames headAssetName =
+    [ assetName
+    | (AssetId _ assetName, _) <- txMintAssets tx
+    , assetName /= headAssetName
+    ]
 
 convertParty :: OnChain.Party -> Party
 convertParty = Party . partyToVerKey

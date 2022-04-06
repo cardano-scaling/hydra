@@ -4,6 +4,7 @@ module Hydra.Chain.Direct.Context where
 
 import Hydra.Prelude
 
+import Data.List ((\\))
 import Hydra.Cardano.Api (
   NetworkId (..),
   NetworkMagic (..),
@@ -78,7 +79,8 @@ genStIdle ::
 genStIdle HydraContext{ctxVerificationKeys, ctxNetworkId, ctxParties} = do
   ownParty <- elements ctxParties
   ownVerificationKey <- elements ctxVerificationKeys
-  pure $ idleOnChainHeadState ctxNetworkId ownVerificationKey ownParty
+  let peerVerificationKeys = ctxVerificationKeys \\ [ownVerificationKey]
+  pure $ idleOnChainHeadState ctxNetworkId peerVerificationKeys ownVerificationKey ownParty
 
 genStInitialized ::
   HydraContext ->
@@ -102,8 +104,9 @@ genCommits ::
   Tx ->
   Gen [Tx]
 genCommits ctx initTx = do
-  forM (zip (ctxVerificationKeys ctx) (ctxParties ctx)) $ \(p, vk) -> do
-    let stIdle = idleOnChainHeadState (ctxNetworkId ctx) p vk
+  forM (zip (ctxVerificationKeys ctx) (ctxParties ctx)) $ \(vk, p) -> do
+    let peerVerificationKeys = ctxVerificationKeys ctx \\ [vk]
+    let stIdle = idleOnChainHeadState (ctxNetworkId ctx) peerVerificationKeys vk p
     let (_, stInitialized) = unsafeObserveTx @_ @ 'StInitialized initTx stIdle
     utxo <- genCommit
     pure $ unsafeCommit utxo stInitialized

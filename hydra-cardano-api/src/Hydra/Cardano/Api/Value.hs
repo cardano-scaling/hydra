@@ -12,6 +12,16 @@ import qualified Plutus.V1.Ledger.Api as Plutus
 valueSize :: Value -> Int
 valueSize = length . valueToList
 
+-- | Access minted assets of a transaction, as an ordered association list.
+txMintAssets :: Tx era -> [(AssetId, Quantity)]
+txMintAssets =
+  asList . txMintValue . getTxBodyContent . getTxBody
+ where
+  getTxBodyContent (TxBody x) = x
+  asList = \case
+    TxMintNone -> []
+    TxMintValue _ val _ -> valueToList val
+
 -- * Type Conversions
 
 -- | Convert a cardano-ledger's 'Value'  into a cardano-api's 'Value'
