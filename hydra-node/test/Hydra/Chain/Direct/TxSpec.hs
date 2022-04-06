@@ -50,6 +50,7 @@ import Hydra.Party (Party, vkey)
 import Plutus.V1.Ledger.Api (toBuiltin, toData)
 import Test.Cardano.Ledger.Alonzo.Serialisation.Generators ()
 import Test.QuickCheck (
+  Property,
   checkCoverage,
   choose,
   conjoin,
@@ -94,10 +95,12 @@ spec =
                       Left basicFailure ->
                         property False & counterexample ("Basic failure: " <> show basicFailure)
                       Right redeemerReport ->
-                        withinTxExecutionBudget redeemerReport
-                          && length commitsUTxO + 1 == length (rights $ Map.elems redeemerReport)
-                          & counterexample (prettyRedeemerReport redeemerReport)
-                          & counterexample ("Tx: " <> toString (renderTx tx))
+                        conjoin
+                          [ withinTxExecutionBudget redeemerReport
+                          , length commitsUTxO + 1 == length (rights $ Map.elems redeemerReport)
+                              & counterexample (prettyRedeemerReport redeemerReport)
+                              & counterexample ("Tx: " <> toString (renderTx tx))
+                          ]
 
     describe "fanoutTx" $ do
       prop "validates" $ \headInput ->
@@ -134,7 +137,6 @@ spec =
                     , 1 == length (successfulRedeemersMinting redeemerReport)
                         & counterexample "Wrong count of mint redeemer(s)"
                     , withinTxExecutionBudget redeemerReport
-                        & counterexample "Total execution budget exceeded"
                     ]
                     & label (show (length inHeadUTxO) <> " UTXO")
                     & label (show (valueSize $ foldMap txOutValue inHeadUTxO) <> " Assets")
@@ -173,12 +175,13 @@ spec =
                           Right redeemerReport ->
                             -- NOTE: There's 1 redeemer report for the head + 1 for the mint script +
                             -- 1 for each of either initials or commits
-                            ( withinTxExecutionBudget redeemerReport
-                                && 2 + (length initials + length commits) == length (rights $ Map.elems redeemerReport)
-                            )
-                              & counterexample ("Redeemer report: " <> show redeemerReport)
-                              & counterexample ("Tx: " <> toString (renderTx tx))
-                              & counterexample ("Input utxo: " <> decodeUtf8 (encodePretty utxo))
+                            conjoin
+                              [ withinTxExecutionBudget redeemerReport
+                              , 2 + (length initials + length commits) == length (rights $ Map.elems redeemerReport)
+                                  & counterexample ("Redeemer report: " <> show redeemerReport)
+                                  & counterexample ("Tx: " <> toString (renderTx tx))
+                                  & counterexample ("Input utxo: " <> decodeUtf8 (encodePretty utxo))
+                              ]
                               & cover 80 True "Success"
 
       prop "cover fee correctly handles redeemers" $
@@ -224,13 +227,25 @@ spec =
                       & counterexample "Failed to construct and observe init tx."
                       & counterexample (toString (renderTx tx))
 
-withinTxExecutionBudget :: Map Ledger.RdmrPtr (Either (Ledger.ScriptFailure StandardCrypto) Ledger.ExUnits) -> Bool
+withinTxExecutionBudget :: Map Ledger.RdmrPtr (Either (Ledger.ScriptFailure StandardCrypto) Ledger.ExUnits) -> Property
 withinTxExecutionBudget redeemers =
-  let ExecutionUnits mem cpu = foldr addExUnit (ExecutionUnits 0 0) $ rights $ Map.elems redeemers
-      addExUnit (Ledger.ExUnits mem' cpu') (ExecutionUnits mem'' cpu'') =
-        ExecutionUnits (mem' + mem'') (cpu' + cpu'')
-   in mem <= executionMemory maxTxExecutionUnits
-        && cpu <= executionSteps maxTxExecutionUnits
+  ( mem <= maxMem
+      && cpu <= maxCpu
+  )
+    & counterexample
+      ( "Ex. Cost Limits exceeded, mem: "
+          <> show mem
+          <> "/"
+          <> show maxMem
+          <> ", cpu: "
+          <> show cpu
+          <> "/"
+          <> show maxCpu
+      )
+ where
+  ExecutionUnits{executionSteps = cpu, executionMemory = mem} = fromLedgerExUnits $ mconcat $ rights $ Map.elems redeemers
+  maxMem = executionMemory maxTxExecutionUnits
+  maxCpu = executionSteps maxTxExecutionUnits
 
 -- | Generate a UTXO representing /commit/ outputs for a given list of `Party`.
 -- FIXME: This function is very complicated and it's hard to understand it after a while
