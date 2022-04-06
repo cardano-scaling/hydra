@@ -8,9 +8,23 @@ on:
     - cron: "0 4 * * *"
 
 jobs:
-  build-test-documentation:
+  build-test:
     name: Build, test & documentation
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - package: plutus-cbor
+          - package: plutus-merkle-tree
+          - package: hydra-tui
+          - package: hydra-node
+            bench:
+              name: tx-cost
+              options: '--output-directory $(pwd)/docs/benchmarks'
+          - package: hydra-cluster
+            bench:
+              name: hydra-cluster
+              options: '--scaling-factor 1'
     steps:
     - uses: actions/checkout@v2.3.1
       with:
@@ -46,50 +60,61 @@ jobs:
         nix-build shell.nix
 
     - name: Build
-      run: nix-shell --run '.github/workflows/ci-build.sh'
+      run: |
+        nix-shell --run 'cabal update'
+        nix-shell --run 'cabal build ${{ matrix.package }}'
 
     - name: Test
-      run: nix-shell --run '.github/workflows/ci-test.sh'
+      if: ${{ matrix.package != 'hydra-tui' }}
+      run: |
+        nix-shell --run 'cabal test ${{ matrix.package }}'
+
+    - name: Test
+      if: ${{ matrix.package == 'hydra-tui' }}
       # https://giters.com/gfx/example-github-actions-with-tty
       # The default shell does not allocate a TTY which breaks some tests
       shell: 'script -q -e -c "bash {0}"'
       env:
         TERM: "xterm"
-
-    - name: Documentation (Haddock)
       run: |
-        nix-shell --run '.github/workflows/ci-haddock.sh'
+        nix-shell --run 'cabal test ${{ matrix.package }}'
 
-    - name: Setup Node.js
-      uses: actions/setup-node@v3
-      with:
-        node-version: 16
-        cache: 'yarn'
-        cache-dependency-path: docs/yarn.lock
+    # TODO vvv
 
-    - name: Documentation (Docusaurus)
-      working-directory: docs
-      run: |
-        yarn && yarn build
-        yarn validate
-        mkdir -p public/head-protocol
-        mv build/* public/head-protocol
-        echo "hydra.family" > public/CNAME
-        echo '<!DOCTYPE html><html><head><meta http-equiv="Refresh" content="0; URL=https://hydra.family/head-protocol"></head></html>' > public/index.html
+    # - name: Documentation (Haddock)
+    #   run: |
+    #     nix-shell --run '.github/workflows/ci-haddock.sh'
 
-    - name: Publish Unit Test Results
-      uses: EnricoMi/publish-unit-test-result-action@v1
-      with:
-        files: ./**/test-results.xml
+    # - name: Setup Node.js
+    #   uses: actions/setup-node@v3
+    #   with:
+    #     node-version: 16
+    #     cache: 'yarn'
+    #     cache-dependency-path: docs/yarn.lock
 
-    - name: Publish Documentation
-      if: github.event_name == 'push'
-      uses: peaceiris/actions-gh-pages@v3
-      with:
-        github_token: ${{ secrets.GITHUB_TOKEN || github.token }}
-        publish_dir: docs/public
-        enable_jekyll: true
-        force_orphan: true
+    # - name: Documentation (Docusaurus)
+    #   working-directory: docs
+    #   run: |
+    #     yarn && yarn build
+    #     yarn validate
+    #     mkdir -p public/head-protocol
+    #     mv build/* public/head-protocol
+    #     echo "hydra.family" > public/CNAME
+    #     echo '<!DOCTYPE html><html><head><meta http-equiv="Refresh" content="0; URL=https://hydra.family/head-protocol"></head></html>' > public/index.html
+
+    # - name: Publish Unit Test Results
+    #   uses: EnricoMi/publish-unit-test-result-action@v1
+    #   with:
+    #     files: ./**/test-results.xml
+
+    # - name: Publish Documentation
+    #   if: github.event_name == 'push'
+    #   uses: peaceiris/actions-gh-pages@v3
+    #   with:
+    #     github_token: ${{ secrets.GITHUB_TOKEN || github.token }}
+    #     publish_dir: docs/public
+    #     enable_jekyll: true
+    #     force_orphan: true
 
   markdown-link-check:
     name: "Check markdown links"
