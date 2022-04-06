@@ -7,6 +7,8 @@
 
 , hsPkgs ? import ./default.nix { }
 
+, githubWorkflow ? false
+
 , libsodium-vrf ? pkgs.libsodium.overrideAttrs (oldAttrs: {
     name = "libsodium-1.0.18-vrf";
     src = pkgs.fetchFromGitHub {
@@ -47,6 +49,16 @@ let
     pkgs.yarn
   ];
 
+  # Haskell.nix managed tools (via hackage)
+  buildTools = {
+    cabal = "3.4.0.0";
+  };
+
+  devTools = if githubWorkflow then {} else {
+    fourmolu = "0.4.0.0"; # 0.5.0.0 requires Cabal 3.6
+    haskell-language-server = "latest";
+  };
+
   haskellNixShell = hsPkgs.shellFor {
     # NOTE: Explicit list of local packages as hoogle would not work otherwise.
     # Make sure these are consistent with the packages in cabal.project.
@@ -62,16 +74,11 @@ let
       plutus-merkle-tree
     ];
 
-    # Haskell.nix managed tools (via hackage)
-    tools = {
-      cabal = "3.4.0.0";
-      fourmolu = "0.4.0.0"; # 0.5.0.0 requires Cabal 3.6
-      haskell-language-server = "latest";
-    };
+    tools = buildTools // devTools;
 
     buildInputs = libs ++ tools;
 
-    withHoogle = true;
+    withHoogle = !githubWorkflow;
 
     # Always create missing golden files
     CREATE_MISSING_GOLDEN = 1;

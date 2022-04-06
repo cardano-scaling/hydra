@@ -57,19 +57,19 @@ jobs:
 
     - name: Prepare nix-shell
       run: |
-        nix-build shell.nix
+        nix-build --arg githubWorkflow true shell.nix
 
     - name: Build
       run: |
-        nix-shell --run 'cabal update'
-        nix-shell --run 'cabal build ${{ matrix.package }}'
+        nix-shell --arg githubWorkflow true --run 'cabal update'
+        nix-shell --arg githubWorkflow true --run 'cabal build ${{ matrix.package }}'
 
     - name: Test
       if: ${{ matrix.package != 'hydra-tui' }}
       run: |
-        nix-shell --run 'cabal test ${{ matrix.package }}'
+        nix-shell --arg githubWorkflow true --run 'cabal test ${{ matrix.package }}'
 
-    - name: Test
+    - name: Test (TUI)
       if: ${{ matrix.package == 'hydra-tui' }}
       # https://giters.com/gfx/example-github-actions-with-tty
       # The default shell does not allocate a TTY which breaks some tests
@@ -77,7 +77,7 @@ jobs:
       env:
         TERM: "xterm"
       run: |
-        nix-shell --run 'cabal test ${{ matrix.package }}'
+        nix-shell --arg githubWorkflow true --run 'cabal test ${{ matrix.package }}'
 
     # TODO vvv
 
