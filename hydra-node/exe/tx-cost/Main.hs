@@ -28,6 +28,7 @@ import System.Directory (createDirectoryIfMissing, doesDirectoryExist)
 import System.FilePath ((</>))
 import System.IO.Unsafe (unsafePerformIO)
 import TxCost (
+  computeAbortCost,
   computeCollectComCost,
   computeCommitCost,
   computeFanOutCost,
@@ -78,10 +79,11 @@ writeTransactionCostMarkdown hdl = do
   initC <- costOfInit
   commitC <- costOfCommit
   collectComC <- costOfCollectCom
+  abortC <- costOfAbort
   fanout <- costOfFanOut
   mt <- costOfMerkleTree
   let h = costOfHashing
-  hPut hdl $ encodeUtf8 $ unlines $ pageHeader <> intersperse "" [initC, commitC, collectComC, fanout, mt, h]
+  hPut hdl $ encodeUtf8 $ unlines $ pageHeader <> intersperse "" [initC, commitC, collectComC, abortC, fanout, mt, h]
 
 pageHeader :: [Text]
 pageHeader =
@@ -155,6 +157,29 @@ costOfCollectCom = markdownCollectComCost <$> computeCollectComCost
   markdownCollectComCost stats =
     unlines $
       [ "## Cost of CollectCom Transaction"
+      , ""
+      , "| # Parties | Tx. size | % max Mem |   % max CPU |"
+      , "| :-------- | -------: | --------: | ----------: |"
+      ]
+        <> fmap
+          ( \(numParties, txSize, mem, cpu) ->
+              "| " <> show numParties
+                <> "| "
+                <> show txSize
+                <> " | "
+                <> show (100 * fromIntegral mem / maxMem)
+                <> " | "
+                <> show (100 * fromIntegral cpu / maxCpu)
+                <> " |"
+          )
+          stats
+
+costOfAbort :: IO Text
+costOfAbort = markdownAbortCost <$> computeAbortCost
+ where
+  markdownAbortCost stats =
+    unlines $
+      [ "## Cost of Abort Transaction"
       , ""
       , "| # Parties | Tx. size | % max Mem |   % max CPU |"
       , "| :-------- | -------: | --------: | ----------: |"
