@@ -86,6 +86,7 @@ library
     Hydra.Cardano.Api.Network
     Hydra.Cardano.Api.PlutusScript
     Hydra.Cardano.Api.PlutusScriptVersion
+    Hydra.Cardano.Api.Point
     Hydra.Cardano.Api.PolicyId
     Hydra.Cardano.Api.Prelude
     Hydra.Cardano.Api.ScriptData
@@ -133,6 +134,11 @@ library
     , containers
     , data-default
     , hydra-prelude
+    , ouroboros-consensus
+    , ouroboros-consensus-byron
+    , ouroboros-consensus-cardano
+    , ouroboros-consensus-shelley
+    , ouroboros-network
     , plutus-ledger
     , plutus-ledger-api
     , serialise
