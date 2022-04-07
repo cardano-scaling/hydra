@@ -1,12 +1,9 @@
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE TypeApplications #-}
 
 import Hydra.Prelude hiding (catch)
 
 import qualified Cardano.Ledger.Alonzo.PParams as Ledger
-import qualified Cardano.Ledger.Alonzo.Scripts as Ledger
 import Data.ByteString (hPut)
-import Data.Fixed (E2, Fixed)
 import Hydra.Ledger.Cardano.Evaluate (pparams)
 import Options.Applicative (
   Parser,
@@ -28,12 +25,15 @@ import System.Directory (createDirectoryIfMissing, doesDirectoryExist)
 import System.FilePath ((</>))
 import System.IO.Unsafe (unsafePerformIO)
 import TxCost (
+  computeAbortCost,
   computeCollectComCost,
   computeCommitCost,
   computeFanOutCost,
   computeHashingCost,
   computeInitCost,
   computeMerkleTreeCost,
+  maxCpu,
+  maxMem,
  )
 
 newtype Options = Options {outputDirectory :: Maybe FilePath}
@@ -78,10 +78,11 @@ writeTransactionCostMarkdown hdl = do
   initC <- costOfInit
   commitC <- costOfCommit
   collectComC <- costOfCollectCom
+  abortC <- costOfAbort
   fanout <- costOfFanOut
   mt <- costOfMerkleTree
   let h = costOfHashing
-  hPut hdl $ encodeUtf8 $ unlines $ pageHeader <> intersperse "" [initC, commitC, collectComC, fanout, mt, h]
+  hPut hdl $ encodeUtf8 $ unlines $ pageHeader <> intersperse "" [initC, commitC, collectComC, abortC, fanout, mt, h]
 
 pageHeader :: [Text]
 pageHeader =
@@ -112,8 +113,8 @@ costOfInit = markdownInitCost <$> computeInitCost
     unlines $
       [ "## Cost of Init Transaction"
       , ""
-      , "| UTXO  | Tx. size |"
-      , "| :---- | -------: |"
+      , "| # Parties | Tx. size |"
+      , "| :-------- | -------: |"
       ]
         <> fmap
           ( \(numParties, txSize) ->
@@ -172,6 +173,29 @@ costOfCollectCom = markdownCollectComCost <$> computeCollectComCost
           )
           stats
 
+costOfAbort :: IO Text
+costOfAbort = markdownAbortCost <$> computeAbortCost
+ where
+  markdownAbortCost stats =
+    unlines $
+      [ "## Cost of Abort Transaction"
+      , ""
+      , "| # Parties | Tx. size | % max Mem |   % max CPU |"
+      , "| :-------- | -------: | --------: | ----------: |"
+      ]
+        <> fmap
+          ( \(numParties, txSize, mem, cpu) ->
+              "| " <> show numParties
+                <> "| "
+                <> show txSize
+                <> " | "
+                <> show (100 * fromIntegral mem / maxMem)
+                <> " | "
+                <> show (100 * fromIntegral cpu / maxCpu)
+                <> " |"
+          )
+          stats
+
 costOfFanOut :: IO Text
 costOfFanOut = markdownFanOutCost <$> computeFanOutCost
  where
@@ -194,10 +218,6 @@ costOfFanOut = markdownFanOutCost <$> computeFanOutCost
                 <> " |"
           )
           stats
-
-maxMem, maxCpu :: Fixed E2
-Ledger.ExUnits (fromIntegral @_ @(Fixed E2) -> maxMem) (fromIntegral @_ @(Fixed E2) -> maxCpu) =
-  Ledger._maxTxExUnits pparams
 
 costOfMerkleTree :: IO Text
 costOfMerkleTree = markdownMerkleTreeCost <$> computeMerkleTreeCost

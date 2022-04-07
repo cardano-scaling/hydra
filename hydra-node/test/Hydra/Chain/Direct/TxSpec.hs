@@ -24,6 +24,7 @@ import Hydra.Chain.Direct.Contract.Mutation (cardanoCredentialsFor)
 import Hydra.Chain.Direct.Fixture (
   costModels,
   epochInfo,
+  maxTxExecutionUnits,
   pparams,
   systemStart,
   testNetworkId,
@@ -49,7 +50,7 @@ import Hydra.Party (Party, vkey)
 import Plutus.V1.Ledger.Api (toBuiltin, toData)
 import Test.Cardano.Ledger.Alonzo.Serialisation.Generators ()
 import Test.QuickCheck (
-  NonEmptyList (..),
+  Property,
   checkCoverage,
   choose,
   conjoin,
@@ -94,9 +95,12 @@ spec =
                       Left basicFailure ->
                         property False & counterexample ("Basic failure: " <> show basicFailure)
                       Right redeemerReport ->
-                        length commitsUTxO + 1 == length (rights $ Map.elems redeemerReport)
-                          & counterexample (prettyRedeemerReport redeemerReport)
-                          & counterexample ("Tx: " <> toString (renderTx tx))
+                        conjoin
+                          [ withinTxExecutionBudget redeemerReport
+                          , length commitsUTxO + 1 == length (rights $ Map.elems redeemerReport)
+                              & counterexample (prettyRedeemerReport redeemerReport)
+                              & counterexample ("Tx: " <> toString (renderTx tx))
+                          ]
 
     describe "fanoutTx" $ do
       prop "validates" $ \headInput ->
@@ -132,6 +136,7 @@ spec =
                         & counterexample "Wrong count of spend redeemer(s)"
                     , 1 == length (successfulRedeemersMinting redeemerReport)
                         & counterexample "Wrong count of mint redeemer(s)"
+                    , withinTxExecutionBudget redeemerReport
                     ]
                     & label (show (length inHeadUTxO) <> " UTXO")
                     & label (show (valueSize $ foldMap txOutValue inHeadUTxO) <> " Assets")
@@ -141,39 +146,43 @@ spec =
 
     describe "abortTx" $ do
       prop "validates" $
-        \txIn contestationPeriod (ReasonablySized (NonEmpty parties)) -> forAll (genAbortableOutputs parties) $
-          \(resolvedInitials, resolvedCommits) -> forAll (cardanoCredentialsFor <$> elements parties) $
-            \(signer, _) ->
-              let headUTxO = (txIn :: TxIn, headOutput)
-                  headOutput = mkHeadOutput testNetworkId testPolicyId $ toUTxOContext $ mkTxOutDatum headDatum
-                  headDatum =
-                    Head.Initial
-                      (contestationPeriodFromDiffTime contestationPeriod)
-                      (map (partyFromVerKey . vkey) parties)
-                  initials = Map.fromList (drop2nd <$> resolvedInitials)
-                  initialsUTxO = drop3rd <$> resolvedInitials
-                  commits = Map.fromList (drop2nd <$> resolvedCommits)
-                  commitsUTxO = drop3rd <$> resolvedCommits
-                  utxo = UTxO $ Map.fromList (headUTxO : initialsUTxO <> commitsUTxO)
-                  headInfo = (txIn, headOutput, fromPlutusData $ toData headDatum)
-                  headScript = mkHeadTokenScript testSeedInput
-                  abortableCommits = Map.fromList $ map tripleToPair resolvedCommits
-                  abortableInitials = Map.fromList $ map tripleToPair resolvedInitials
-               in checkCoverage $ case abortTx signer headInfo headScript abortableInitials abortableCommits of
-                    Left OverlappingInputs ->
-                      property (isJust $ txIn `Map.lookup` initials)
-                    Right tx ->
-                      case validateTxScriptsUnlimited utxo tx of
-                        Left basicFailure ->
-                          property False & counterexample ("Basic failure: " <> show basicFailure)
-                        Right redeemerReport ->
-                          -- NOTE: There's 1 redeemer report for the head + 1 for the mint script +
-                          -- 1 for each of either initials or commits
-                          2 + (length initials + length commits) == length (rights $ Map.elems redeemerReport)
-                            & counterexample ("Redeemer report: " <> show redeemerReport)
-                            & counterexample ("Tx: " <> toString (renderTx tx))
-                            & counterexample ("Input utxo: " <> decodeUtf8 (encodePretty utxo))
-                            & cover 80 True "Success"
+        forAll (vectorOf 4 arbitrary) $ \parties ->
+          \txIn contestationPeriod -> forAll (genAbortableOutputs parties) $
+            \(resolvedInitials, resolvedCommits) -> forAll (cardanoCredentialsFor <$> elements parties) $
+              \(signer, _) ->
+                let headUTxO = (txIn :: TxIn, headOutput)
+                    headOutput = mkHeadOutput testNetworkId testPolicyId $ toUTxOContext $ mkTxOutDatum headDatum
+                    headDatum =
+                      Head.Initial
+                        (contestationPeriodFromDiffTime contestationPeriod)
+                        (map (partyFromVerKey . vkey) parties)
+                    initials = Map.fromList (drop2nd <$> resolvedInitials)
+                    initialsUTxO = drop3rd <$> resolvedInitials
+                    commits = Map.fromList (drop2nd <$> resolvedCommits)
+                    commitsUTxO = drop3rd <$> resolvedCommits
+                    utxo = UTxO $ Map.fromList (headUTxO : initialsUTxO <> commitsUTxO)
+                    headInfo = (txIn, headOutput, fromPlutusData $ toData headDatum)
+                    headScript = mkHeadTokenScript testSeedInput
+                    abortableCommits = Map.fromList $ map tripleToPair resolvedCommits
+                    abortableInitials = Map.fromList $ map tripleToPair resolvedInitials
+                 in checkCoverage $ case abortTx signer headInfo headScript abortableInitials abortableCommits of
+                      Left OverlappingInputs ->
+                        property (isJust $ txIn `Map.lookup` initials)
+                      Right tx ->
+                        case validateTxScriptsUnlimited utxo tx of
+                          Left basicFailure ->
+                            property False & counterexample ("Basic failure: " <> show basicFailure)
+                          Right redeemerReport ->
+                            -- NOTE: There's 1 redeemer report for the head + 1 for the mint script +
+                            -- 1 for each of either initials or commits
+                            conjoin
+                              [ withinTxExecutionBudget redeemerReport
+                              , 2 + (length initials + length commits) == length (rights $ Map.elems redeemerReport)
+                                  & counterexample ("Redeemer report: " <> show redeemerReport)
+                                  & counterexample ("Tx: " <> toString (renderTx tx))
+                                  & counterexample ("Input utxo: " <> decodeUtf8 (encodePretty utxo))
+                              ]
+                              & cover 80 True "Success"
 
       prop "cover fee correctly handles redeemers" $
         withMaxSuccess 60 $ \txIn cperiod (party :| parties) cardanoKeys walletUTxO ->
@@ -217,6 +226,26 @@ spec =
                     property False
                       & counterexample "Failed to construct and observe init tx."
                       & counterexample (toString (renderTx tx))
+
+withinTxExecutionBudget :: Map Ledger.RdmrPtr (Either (Ledger.ScriptFailure StandardCrypto) Ledger.ExUnits) -> Property
+withinTxExecutionBudget redeemers =
+  ( mem <= maxMem
+      && cpu <= maxCpu
+  )
+    & counterexample
+      ( "Ex. Cost Limits exceeded, mem: "
+          <> show mem
+          <> "/"
+          <> show maxMem
+          <> ", cpu: "
+          <> show cpu
+          <> "/"
+          <> show maxCpu
+      )
+ where
+  ExecutionUnits{executionSteps = cpu, executionMemory = mem} = fromLedgerExUnits $ mconcat $ rights $ Map.elems redeemers
+  maxMem = executionMemory maxTxExecutionUnits
+  maxCpu = executionSteps maxTxExecutionUnits
 
 -- | Generate a UTXO representing /commit/ outputs for a given list of `Party`.
 -- FIXME: This function is very complicated and it's hard to understand it after a while

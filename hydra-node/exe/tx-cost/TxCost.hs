@@ -19,6 +19,7 @@ import qualified Cardano.Ledger.Shelley.API as API
 import qualified Cardano.Ledger.Val as Ledger
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as LBS
+import Data.Fixed (E2, Fixed)
 import qualified Data.Map as Map
 import Data.Maybe (fromJust)
 import Data.Maybe.Strict (StrictMaybe (..))
@@ -60,7 +61,7 @@ import Hydra.Chain.Direct.Context (
   genStIdle,
   genStInitialized,
  )
-import Hydra.Chain.Direct.State (collect, commit, getKnownUTxO, initialize)
+import Hydra.Chain.Direct.State (abort, collect, commit, getKnownUTxO, initialize)
 import Hydra.Chain.Direct.Tx (fanoutTx)
 import qualified Hydra.Contract.Hash as Hash
 import qualified Hydra.Contract.Head as Head
@@ -86,7 +87,7 @@ import Test.Plutus.Validator (
   ExUnits (ExUnits),
   evaluateScriptExecutionUnits,
  )
-import Test.QuickCheck (generate, resize, vectorOf)
+import Test.QuickCheck (generate, resize, sublistOf, vectorOf)
 import Validators (merkleTreeValidator, mtBuilderValidator)
 
 newtype NumParties = NumParties Int
@@ -183,8 +184,9 @@ computeCollectComCost =
           let txSize = LBS.length $ serialize tx
           if txSize < fromIntegral (Ledger._maxTxSize pparams)
             then case evaluateTx tx knownUtxo of
-              (Right (mconcat . rights . Map.elems -> (Ledger.ExUnits mem cpu))) ->
-                pure $ Just (NumParties numParties, TxSize txSize, MemUnit mem, CpuUnit cpu)
+              (Right (mconcat . rights . Map.elems -> (Ledger.ExUnits mem cpu)))
+                | fromIntegral mem <= maxMem && fromIntegral cpu <= maxCpu ->
+                  pure $ Just (NumParties numParties, TxSize txSize, MemUnit mem, CpuUnit cpu)
               _ -> pure Nothing
             else pure Nothing
       )
@@ -197,6 +199,31 @@ computeCollectComCost =
             genStIdle ctx >>= \stIdle ->
               let stInitialized = executeCommits initTx commits stIdle
                in pure (collect stInitialized, getKnownUTxO stInitialized)
+
+computeAbortCost :: IO [(NumParties, TxSize, MemUnit, CpuUnit)]
+computeAbortCost =
+  catMaybes
+    <$> forM
+      [1 .. 100]
+      ( \numParties -> do
+          (tx, knownUtxo) <- generate $ genAbortTx numParties
+          let txSize = LBS.length $ serialize tx
+          if txSize < fromIntegral (Ledger._maxTxSize pparams)
+            then case evaluateTx tx knownUtxo of
+              (Right (mconcat . rights . Map.elems -> (Ledger.ExUnits mem cpu)))
+                | fromIntegral mem <= maxMem && fromIntegral cpu <= maxCpu ->
+                  pure $ Just (NumParties numParties, TxSize txSize, MemUnit mem, CpuUnit cpu)
+              _ -> pure Nothing
+            else pure Nothing
+      )
+ where
+  genAbortTx numParties =
+    genHydraContextFor numParties >>= \ctx ->
+      genInitTx ctx >>= \initTx ->
+        (sublistOf =<< genCommits ctx initTx) >>= \commits ->
+          genStIdle ctx >>= \stIdle ->
+            let stInitialized = executeCommits initTx commits stIdle
+             in pure (abort stInitialized, getKnownUTxO stInitialized)
 
 computeFanOutCost :: IO [(NumUTxO, TxSize, MemUnit, CpuUnit)]
 computeFanOutCost =
@@ -330,3 +357,7 @@ scriptAddr script =
 
 plutusScript :: Plutus.Script -> Ledger.Script LedgerEra
 plutusScript = Ledger.PlutusScript PlutusV1 . toShort . fromLazy . serialize
+
+maxMem, maxCpu :: Fixed E2
+Ledger.ExUnits (fromIntegral @_ @(Fixed E2) -> maxMem) (fromIntegral @_ @(Fixed E2) -> maxCpu) =
+  Ledger._maxTxExUnits pparams
