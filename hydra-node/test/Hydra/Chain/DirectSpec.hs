@@ -43,8 +43,8 @@ spec = do
         carolKeys <- generate genKeyPair
         let cardanoKeys = [aliceVk, fst bobKeys, fst carolKeys]
         withMockServer $ \networkId iocp socket submitTx -> do
-          withDirectChain (contramap FromAlice tracer) networkId iocp socket aliceKeys alice cardanoKeys (putMVar calledBackAlice) $ \Chain{postTx} -> do
-            withDirectChain (contramap FromBob tracer) networkId iocp socket bobKeys bob cardanoKeys (putMVar calledBackBob) $ \_ -> do
+          withDirectChain (contramap FromAlice tracer) networkId iocp socket aliceKeys alice cardanoKeys (putMVar calledBackAlice) Nothing $ \Chain{postTx} -> do
+            withDirectChain (contramap FromBob tracer) networkId iocp socket bobKeys bob cardanoKeys (putMVar calledBackBob) Nothing $ \_ -> do
               let parameters = HeadParameters 100 [alice, bob, carol]
               mkSeedPayment networkId aliceVk submitTx
 

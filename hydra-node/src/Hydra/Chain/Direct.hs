@@ -150,8 +150,10 @@ withDirectChain ::
   Party ->
   -- | Cardano keys of all Head participants (including our key pair).
   [VerificationKey PaymentKey] ->
+  -- | Point at which to start following the chain.
+  Maybe (Point Block) ->
   ChainComponent Tx IO ()
-withDirectChain tracer networkId iocp socketPath keyPair party cardanoKeys callback action = do
+withDirectChain tracer networkId iocp socketPath keyPair party cardanoKeys _ callback action = do
   queue <- newTQueueIO
   withTinyWallet (contramap Wallet tracer) networkId keyPair iocp socketPath $ \wallet -> do
     headState <-
