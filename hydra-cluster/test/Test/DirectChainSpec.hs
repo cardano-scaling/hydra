@@ -236,16 +236,13 @@ spec = around showLogsOnFailure $ do
         withIOManager $ \iocp -> do
           tip <- withDirectChain (contramap (FromDirectChain "alice") tracer) defaultNetworkId iocp nodeSocket aliceKeys alice cardanoKeys Nothing (putMVar alicesCallback) $ \Chain{postTx = alicePostTx} -> do
             seedFromFaucet_ defaultNetworkId node aliceCardanoVk 100_000_000 Fuel
-
             tip <- queryTip defaultNetworkId nodeSocket
-
-            alicePostTx $ InitTx $ HeadParameters 100 [alice, carol]
-            alicesCallback `observesInTime` OnInitTx 100 [alice, carol]
-
+            alicePostTx $ InitTx $ HeadParameters 100 [alice]
+            alicesCallback `observesInTime` OnInitTx 100 [alice]
             return tip
 
           withDirectChain (contramap (FromDirectChain "alice") tracer) defaultNetworkId iocp nodeSocket aliceKeys alice cardanoKeys (Just tip) (putMVar alicesCallback) $ \_ -> do
-            alicesCallback `observesInTime` OnInitTx 100 [alice, carol]
+            alicesCallback `observesInTime` OnInitTx 100 [alice]
 
 alice, bob, carol :: Party
 alice = deriveParty aliceSigningKey
