@@ -19,6 +19,7 @@ import qualified Cardano.Ledger.Shelley.API as API
 import qualified Cardano.Ledger.Val as Ledger
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as LBS
+import Data.Fixed (E2, Fixed)
 import qualified Data.Map as Map
 import Data.Maybe (fromJust)
 import Data.Maybe.Strict (StrictMaybe (..))
@@ -183,8 +184,9 @@ computeCollectComCost =
           let txSize = LBS.length $ serialize tx
           if txSize < fromIntegral (Ledger._maxTxSize pparams)
             then case evaluateTx tx knownUtxo of
-              (Right (mconcat . rights . Map.elems -> (Ledger.ExUnits mem cpu))) ->
-                pure $ Just (NumParties numParties, TxSize txSize, MemUnit mem, CpuUnit cpu)
+              (Right (mconcat . rights . Map.elems -> (Ledger.ExUnits mem cpu)))
+                | fromIntegral mem <= maxMem && fromIntegral cpu <= maxCpu ->
+                  pure $ Just (NumParties numParties, TxSize txSize, MemUnit mem, CpuUnit cpu)
               _ -> pure Nothing
             else pure Nothing
       )
@@ -208,9 +210,10 @@ computeAbortCost =
           let txSize = LBS.length $ serialize tx
           if txSize < fromIntegral (Ledger._maxTxSize pparams)
             then case evaluateTx tx knownUtxo of
-              (Right (mconcat . rights . Map.elems -> (Ledger.ExUnits mem cpu))) ->
-                pure $ Just (NumParties numParties, TxSize txSize, MemUnit mem, CpuUnit cpu)
-              Left _ -> pure Nothing
+              (Right (mconcat . rights . Map.elems -> (Ledger.ExUnits mem cpu)))
+                | fromIntegral mem <= maxMem && fromIntegral cpu <= maxCpu ->
+                  pure $ Just (NumParties numParties, TxSize txSize, MemUnit mem, CpuUnit cpu)
+              _ -> pure Nothing
             else pure Nothing
       )
  where
@@ -354,3 +357,7 @@ scriptAddr script =
 
 plutusScript :: Plutus.Script -> Ledger.Script LedgerEra
 plutusScript = Ledger.PlutusScript PlutusV1 . toShort . fromLazy . serialize
+
+maxMem, maxCpu :: Fixed E2
+Ledger.ExUnits (fromIntegral @_ @(Fixed E2) -> maxMem) (fromIntegral @_ @(Fixed E2) -> maxCpu) =
+  Ledger._maxTxExUnits pparams

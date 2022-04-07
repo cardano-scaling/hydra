@@ -1,12 +1,9 @@
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE TypeApplications #-}
 
 import Hydra.Prelude hiding (catch)
 
 import qualified Cardano.Ledger.Alonzo.PParams as Ledger
-import qualified Cardano.Ledger.Alonzo.Scripts as Ledger
 import Data.ByteString (hPut)
-import Data.Fixed (E2, Fixed)
 import Hydra.Ledger.Cardano.Evaluate (pparams)
 import Options.Applicative (
   Parser,
@@ -35,6 +32,8 @@ import TxCost (
   computeHashingCost,
   computeInitCost,
   computeMerkleTreeCost,
+  maxCpu,
+  maxMem,
  )
 
 newtype Options = Options {outputDirectory :: Maybe FilePath}
@@ -114,8 +113,8 @@ costOfInit = markdownInitCost <$> computeInitCost
     unlines $
       [ "## Cost of Init Transaction"
       , ""
-      , "| UTXO  | Tx. size |"
-      , "| :---- | -------: |"
+      , "| # Parties | Tx. size |"
+      , "| :-------- | -------: |"
       ]
         <> fmap
           ( \(numParties, txSize) ->
@@ -219,10 +218,6 @@ costOfFanOut = markdownFanOutCost <$> computeFanOutCost
                 <> " |"
           )
           stats
-
-maxMem, maxCpu :: Fixed E2
-Ledger.ExUnits (fromIntegral @_ @(Fixed E2) -> maxMem) (fromIntegral @_ @(Fixed E2) -> maxCpu) =
-  Ledger._maxTxExUnits pparams
 
 costOfMerkleTree :: IO Text
 costOfMerkleTree = markdownMerkleTreeCost <$> computeMerkleTreeCost
