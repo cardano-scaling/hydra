@@ -152,7 +152,7 @@ withDirectChain ::
   [VerificationKey PaymentKey] ->
   -- | Point at which to start following the chain.
   Maybe (Point Block) ->
-  ChainComponent Tx IO ()
+  ChainComponent Tx IO a
 withDirectChain tracer networkId iocp socketPath keyPair party cardanoKeys _ callback action = do
   queue <- newTQueueIO
   withTinyWallet (contramap Wallet tracer) networkId keyPair iocp socketPath $ \wallet -> do
@@ -164,54 +164,58 @@ withDirectChain tracer networkId iocp socketPath keyPair party cardanoKeys _ cal
             (cardanoKeys \\ [verificationKey wallet])
             (verificationKey wallet)
             party
-    race_
-      ( do
-          -- FIXME: There's currently a race-condition with the actual client
-          -- which will only see transactions after it has established
-          -- connection with the server's tip. So any transaction submitted
-          -- before that tip will be missed.
-          --
-          -- The way we handle rollbacks is also wrong because it'll
-          -- fast-forward to the tip, and not allow recovering intermediate
-          -- history.
-          threadDelay 2
-          action $
-            Chain
-              { postTx = \tx -> do
-                  traceWith tracer $ ToPost tx
-                  -- XXX(SN): 'finalizeTx' retries until a payment utxo is
-                  -- found. See haddock for details
-                  response <-
-                    timeoutThrowAfter (NoPaymentInput @Tx) 10 $
-                      -- FIXME (MB): 'cardanoKeys' should really not be here. They
-                      -- are only required for the init transaction and ought to
-                      -- come from the _client_ and be part of the init request
-                      -- altogether. This goes in the direction of 'dynamic
-                      -- heads' where participants aren't known upfront but
-                      -- provided via the API. Ultimately, an init request from
-                      -- a client would contain all the details needed to
-                      -- establish connection to the other peers and to
-                      -- bootstrap the init transaction.
-                      -- For now, we bear with it and keep the static keys in
-                      -- context.
-                      fromPostChainTx cardanoKeys wallet headState tx
-                        >>= finalizeTx wallet headState . toLedgerTx
-                        >>= \vtx -> do
-                          response <- newEmptyTMVar
-                          writeTQueue queue (vtx, response)
-                          return response
-                  atomically (takeTMVar response) >>= \case
-                    Nothing -> pure ()
-                    Just err -> throwIO err
-              }
-      )
-      ( handle onIOException $
-          connectTo
-            (localSnocket iocp)
-            nullConnectTracers
-            (versions networkId (client tracer queue headState callback))
-            socketPath
-      )
+    res <-
+      race
+        ( do
+            -- FIXME: There's currently a race-condition with the actual client
+            -- which will only see transactions after it has established
+            -- connection with the server's tip. So any transaction submitted
+            -- before that tip will be missed.
+            --
+            -- The way we handle rollbacks is also wrong because it'll
+            -- fast-forward to the tip, and not allow recovering intermediate
+            -- history.
+            threadDelay 2
+            action $
+              Chain
+                { postTx = \tx -> do
+                    traceWith tracer $ ToPost tx
+                    -- XXX(SN): 'finalizeTx' retries until a payment utxo is
+                    -- found. See haddock for details
+                    response <-
+                      timeoutThrowAfter (NoPaymentInput @Tx) 10 $
+                        -- FIXME (MB): 'cardanoKeys' should really not be here. They
+                        -- are only required for the init transaction and ought to
+                        -- come from the _client_ and be part of the init request
+                        -- altogether. This goes in the direction of 'dynamic
+                        -- heads' where participants aren't known upfront but
+                        -- provided via the API. Ultimately, an init request from
+                        -- a client would contain all the details needed to
+                        -- establish connection to the other peers and to
+                        -- bootstrap the init transaction.
+                        -- For now, we bear with it and keep the static keys in
+                        -- context.
+                        fromPostChainTx cardanoKeys wallet headState tx
+                          >>= finalizeTx wallet headState . toLedgerTx
+                          >>= \vtx -> do
+                            response <- newEmptyTMVar
+                            writeTQueue queue (vtx, response)
+                            return response
+                    atomically (takeTMVar response) >>= \case
+                      Nothing -> pure ()
+                      Just err -> throwIO err
+                }
+        )
+        ( handle onIOException $
+            connectTo
+              (localSnocket iocp)
+              nullConnectTracers
+              (versions networkId (client tracer queue headState callback))
+              socketPath
+        )
+    case res of
+      Left a -> pure a
+      Right () -> error "'connectTo' cannot terminate but did?"
  where
   timeoutThrowAfter ex s stm = do
     timeout s (atomically stm) >>= \case

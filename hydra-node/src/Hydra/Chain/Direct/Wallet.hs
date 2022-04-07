@@ -198,19 +198,23 @@ withTinyWallet ::
   IOManager ->
   -- | Path to a domain socket used to connect to the server.
   FilePath ->
-  (TinyWallet IO -> IO ()) ->
-  IO ()
+  (TinyWallet IO -> IO a) ->
+  IO a
 withTinyWallet tracer networkId (vk, sk) iocp addr action = do
   utxoVar <- newEmptyTMVarIO
   tipVar <- newTVarIO genesisPoint
-  race_
-    (action $ newTinyWallet utxoVar)
-    ( connectTo
-        (localSnocket iocp)
-        nullConnectTracers
-        (versions networkId $ client tracer tipVar utxoVar address)
-        addr
-    )
+  res <-
+    race
+      (action $ newTinyWallet utxoVar)
+      ( connectTo
+          (localSnocket iocp)
+          nullConnectTracers
+          (versions networkId $ client tracer tipVar utxoVar address)
+          addr
+      )
+  case res of
+    Left a -> pure a
+    Right () -> error "'connectTo' cannot gracefully terminate but did?"
  where
   address =
     toLedgerAddr $
