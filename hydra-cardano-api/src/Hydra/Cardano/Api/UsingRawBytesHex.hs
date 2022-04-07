@@ -56,3 +56,10 @@ deserialiseFromRawBytesBase16 str =
     Left msg -> Left ("invalid hex " ++ show str ++ ", " ++ msg)
  where
   ttoken = proxyToAsType (Proxy :: Proxy a)
+
+unsafeDeserialiseFromRawBytesBase16 ::
+  (HasCallStack, SerialiseAsRawBytes a) =>
+  ByteString ->
+  a
+unsafeDeserialiseFromRawBytesBase16 =
+  either (error . toText) (\(UsingRawBytesHex a) -> a) . deserialiseFromRawBytesBase16

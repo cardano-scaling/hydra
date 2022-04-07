@@ -25,9 +25,13 @@ import CardanoCluster (
  )
 import CardanoNode (NodeLog, RunningNode (..))
 import Control.Concurrent (MVar, newEmptyMVar, putMVar, takeMVar)
+import qualified Data.ByteString.Char8 as B8
 import Hydra.Cardano.Api (
+  ChainPoint (..),
   lovelaceToValue,
+  toConsensusPointHF,
   txOutValue,
+  unsafeDeserialiseFromRawBytesBase16,
  )
 import Hydra.Chain (
   Chain (..),
@@ -38,6 +42,7 @@ import Hydra.Chain (
  )
 import Hydra.Chain.Direct (
   DirectChainLog,
+  IntersectionNotFoundException,
   withDirectChain,
   withIOManager,
  )
@@ -226,7 +231,7 @@ spec = around showLogsOnFailure $ do
             failAfter 5 $
               waitForUTxO defaultNetworkId nodeSocket someUTxO
 
-  it "cannot restart head to point in the past and replay on-chain events" $ \tracer -> do
+  it "can restart head to point in the past and replay on-chain events" $ \tracer -> do
     alicesCallback <- newEmptyMVar
     withTempDir "direct-chain" $ \tmp -> do
       config <- newNodeConfig tmp
@@ -243,6 +248,21 @@ spec = around showLogsOnFailure $ do
 
           withDirectChain (contramap (FromDirectChain "alice") tracer) defaultNetworkId iocp nodeSocket aliceKeys alice cardanoKeys (Just tip) (putMVar alicesCallback) $ \_ -> do
             alicesCallback `observesInTime` OnInitTx 100 [alice]
+
+  it "cannot restart head to an unknown point" $ \tracer -> do
+    alicesCallback <- newEmptyMVar
+    withTempDir "direct-chain" $ \tmp -> do
+      config <- newNodeConfig tmp
+      aliceKeys@(aliceCardanoVk, _) <- keysFor Alice
+      withBFTNode (contramap FromCluster tracer) config $ \(RunningNode _ nodeSocket) -> do
+        let aliceTrace = contramap (FromDirectChain "alice") tracer
+        let cardanoKeys = [aliceCardanoVk]
+        withIOManager $ \iocp -> do
+          let headerHash = unsafeDeserialiseFromRawBytesBase16 (B8.replicate 64 '0')
+          let fakeTip = toConsensusPointHF (ChainPoint 42 headerHash)
+          flip shouldThrow isIntersectionNotFoundException $
+            withDirectChain aliceTrace defaultNetworkId iocp nodeSocket aliceKeys alice cardanoKeys (Just fakeTip) (putMVar alicesCallback) $ \_ -> do
+              threadDelay 5 >> fail "should not execute main action but did?"
 
 alice, bob, carol :: Party
 alice = deriveParty aliceSigningKey
@@ -267,3 +287,6 @@ shouldSatisfyInTime :: Show a => MVar a -> (a -> Bool) -> Expectation
 shouldSatisfyInTime mvar f =
   failAfter 10 $
     takeMVar mvar >>= flip shouldSatisfy f
+
+isIntersectionNotFoundException :: IntersectionNotFoundException -> Bool
+isIntersectionNotFoundException _ = True
