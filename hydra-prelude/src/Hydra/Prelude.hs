@@ -1,6 +1,9 @@
 {-# LANGUAGE ConstraintKinds #-}
+{-# LANGUAGE DerivingStrategies #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeApplications #-}
 
 module Hydra.Prelude (
   module Relude,
@@ -27,6 +30,8 @@ module Hydra.Prelude (
   genericShrink,
   generateWith,
   shrinkListAggressively,
+  reasonablySized,
+  ReasonablySized (..),
   padLeft,
   padRight,
   Except,
@@ -143,6 +148,7 @@ import Test.QuickCheck (
   Arbitrary (..),
   Gen,
   genericShrink,
+  scale,
  )
 import Test.QuickCheck.Gen (Gen (..))
 import Test.QuickCheck.Instances ()
@@ -174,6 +180,33 @@ shrinkListAggressively :: [a] -> [[a]]
 shrinkListAggressively = \case
   [] -> []
   xs -> [[], take (length xs `div` 2) xs, drop 1 xs]
+
+-- | Resize a generator to grow with the size parameter, but remains reasonably
+-- sized. That is handy when testing on data-structures that can be arbitrarily
+-- large and, when large entities don't really bring any value to the test
+-- itself.
+--
+-- It uses a square root function which makes the size parameter grows
+-- quadratically slower than normal. That is,
+--
+--     +-------------+------------------+
+--     | Normal Size | Reasonable Size  |
+--     | ----------- + ---------------- +
+--     | 0           | 0                |
+--     | 1           | 1                |
+--     | 10          | 3                |
+--     | 100         | 10               |
+--     | 1000        | 31               |
+--     +-------------+------------------+
+reasonablySized :: Gen a -> Gen a
+reasonablySized = scale (ceiling . sqrt @Double . fromIntegral)
+
+-- | A QuickCheck modifier to make use of `reasonablySized` on existing types.
+newtype ReasonablySized a = ReasonablySized a
+  deriving newtype (Show, ToJSON, FromJSON)
+
+instance Arbitrary a => Arbitrary (ReasonablySized a) where
+  arbitrary = ReasonablySized <$> reasonablySized arbitrary
 
 -- | Pad a text-string to left with the given character until it reaches the given
 -- length.
