@@ -75,8 +75,6 @@ data Options = Options
   , hydraVerificationKeys :: [FilePath]
   , chainConfig :: ChainConfig
   , ledgerConfig :: LedgerConfig
-  , -- TODO: Move into 'ChainConfig'
-    startChainFrom :: Maybe ChainPoint
   }
   deriving (Eq, Show)
 
@@ -95,7 +93,6 @@ defaultOptions =
     , hydraVerificationKeys = []
     , chainConfig = defaultChainConfig
     , ledgerConfig = defaultLedgerConfig
-    , startChainFrom = Nothing
     }
 
 instance Arbitrary Options where
@@ -112,7 +109,6 @@ instance Arbitrary Options where
     hydraVerificationKeys <- reasonablySized (listOf (genFilePath "vk"))
     chainConfig <- arbitrary
     ledgerConfig <- arbitrary
-    startChainFrom <- oneof [pure Nothing, Just <$> genChainPoint]
     pure $
       defaultOptions
         { verbosity
@@ -127,7 +123,6 @@ instance Arbitrary Options where
         , hydraVerificationKeys
         , chainConfig
         , ledgerConfig
-        , startChainFrom
         }
 
 hydraNodeParser :: Parser Options
@@ -145,7 +140,6 @@ hydraNodeParser =
     <*> many hydraVerificationKeyFileParser
     <*> chainConfigParser
     <*> ledgerConfigParser
-    <*> optional startChainFromParser
 
 data LedgerConfig = CardanoLedgerConfig
   { cardanoLedgerGenesisFile :: FilePath
@@ -195,6 +189,7 @@ data ChainConfig = DirectChainConfig
   , nodeSocket :: FilePath
   , cardanoSigningKey :: FilePath
   , cardanoVerificationKeys :: [FilePath]
+  , startChainFrom :: Maybe ChainPoint
   }
   deriving (Eq, Show)
 
@@ -205,6 +200,7 @@ defaultChainConfig =
     , nodeSocket = "node.socket"
     , cardanoSigningKey = "cardano.sk"
     , cardanoVerificationKeys = []
+    , startChainFrom = Nothing
     }
 
 instance Arbitrary ChainConfig where
@@ -213,12 +209,14 @@ instance Arbitrary ChainConfig where
     nodeSocket <- genFilePath "socket"
     cardanoSigningKey <- genFilePath ".sk"
     cardanoVerificationKeys <- reasonablySized (listOf (genFilePath ".vk"))
+    startChainFrom <- oneof [pure Nothing, Just <$> genChainPoint]
     pure $
       DirectChainConfig
         { networkId
         , nodeSocket
         , cardanoSigningKey
         , cardanoVerificationKeys
+        , startChainFrom
         }
 
 chainConfigParser :: Parser ChainConfig
@@ -228,6 +226,7 @@ chainConfigParser =
     <*> nodeSocketParser
     <*> cardanoSigningKeyFileParser
     <*> many cardanoVerificationKeyFileParser
+    <*> optional startChainFromParser
 
 networkIdParser :: Parser NetworkId
 networkIdParser =
@@ -435,7 +434,6 @@ toArgs
     , hydraVerificationKeys
     , chainConfig
     , ledgerConfig
-    , startChainFrom
     } =
     isVerbose verbosity
       <> ["--node-id", show nodeId]
@@ -449,7 +447,6 @@ toArgs
       <> maybe [] (\mport -> ["--monitoring-port", show mport]) monitoringPort
       <> argsChainConfig
       <> argsLedgerConfig
-      <> toArgStartChainFrom startChainFrom
    where
     isVerbose = \case
       Quiet -> ["--quiet"]
@@ -477,6 +474,7 @@ toArgs
         <> ["--node-socket", nodeSocket]
         <> ["--cardano-signing-key", cardanoSigningKey]
         <> concatMap (\vk -> ["--cardano-verification-key", vk]) cardanoVerificationKeys
+        <> toArgStartChainFrom startChainFrom
 
     argsLedgerConfig =
       mempty
@@ -493,6 +491,7 @@ toArgs
       , nodeSocket
       , cardanoSigningKey
       , cardanoVerificationKeys
+      , startChainFrom
       } = chainConfig
 
 genFilePath :: String -> Gen FilePath
