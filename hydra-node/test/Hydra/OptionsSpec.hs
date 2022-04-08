@@ -5,13 +5,16 @@ import Test.Hydra.Prelude
 
 import Hydra.Cardano.Api (ChainPoint (..), NetworkId (..), unsafeDeserialiseFromRawBytesBase16)
 import Hydra.Chain.Direct (NetworkMagic (..))
-import Hydra.Logging (Verbosity (Verbose))
 import Hydra.Network (Host (Host))
 import Hydra.Options (
   ChainConfig (..),
   LedgerConfig (..),
   Options (..),
   ParserResult (..),
+  defaultChainConfig,
+  defaultLedgerConfig,
+  defaultOptions,
+  genOptions,
   parseHydraOptionsFromString,
   toArgs,
  )
@@ -166,43 +169,6 @@ canRoundtripOptionsAndPrettyPrinting opts =
         case parseHydraOptionsFromString args of
           Success opts' -> opts' === opts
           err -> property False & counterexample ("error : " <> show err)
-
-genOptions :: Gen Options
-genOptions = pure defaultOptions
-
-defaultOptions :: Options
-defaultOptions =
-  Options
-    { verbosity = Verbose "HydraNode"
-    , nodeId = 1
-    , host = "127.0.0.1"
-    , port = 5001
-    , peers = []
-    , apiHost = "127.0.0.1"
-    , apiPort = 4001
-    , monitoringPort = Nothing
-    , hydraSigningKey = "hydra.sk"
-    , hydraVerificationKeys = []
-    , chainConfig = defaultChainConfig
-    , ledgerConfig = defaultLedgerConfig
-    , startChainFrom = Nothing
-    }
-
-defaultChainConfig :: ChainConfig
-defaultChainConfig =
-  DirectChainConfig
-    { networkId = Testnet (NetworkMagic 42)
-    , nodeSocket = "node.socket"
-    , cardanoSigningKey = "cardano.sk"
-    , cardanoVerificationKeys = []
-    }
-
-defaultLedgerConfig :: LedgerConfig
-defaultLedgerConfig =
-  CardanoLedgerConfig
-    { cardanoLedgerGenesisFile = "genesis-shelley.json"
-    , cardanoLedgerProtocolParametersFile = "protocol-parameters.json"
-    }
 
 shouldParse :: [String] -> Options -> Expectation
 shouldParse args options =

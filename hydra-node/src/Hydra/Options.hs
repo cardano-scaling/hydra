@@ -7,11 +7,15 @@ module Hydra.Options (
   getParseResult,
   ParserResult (..),
   toArgs,
+  defaultOptions,
+  defaultLedgerConfig,
+  defaultChainConfig,
+  genOptions,
 ) where
 
 import Hydra.Prelude
 
-import Data.IP (IP)
+import Data.IP (IP (IPv4), toIPv4w)
 import qualified Data.Text as T
 import Hydra.Cardano.Api (
   ChainPoint (..),
@@ -53,11 +57,13 @@ import Options.Applicative (
   value,
  )
 import Options.Applicative.Builder (str)
+import Test.QuickCheck (elements)
 
 data Options = Options
   { verbosity :: Verbosity
   , nodeId :: Natural
-  , host :: IP
+  , -- NOTE: Why not a 'Host'?
+    host :: IP
   , port :: PortNumber
   , peers :: [Host]
   , apiHost :: IP
@@ -396,3 +402,44 @@ toArgs
       , cardanoSigningKey
       , cardanoVerificationKeys
       } = chainConfig
+
+genOptions :: Gen Options
+genOptions = do
+  verbosity <- elements [Quiet, Verbose "HydraNode"]
+  nodeId <- arbitrary
+  host <- IPv4 . toIPv4w <$> arbitrary
+  pure $ defaultOptions{verbosity, nodeId, host}
+
+defaultOptions :: Options
+defaultOptions =
+  Options
+    { verbosity = Verbose "HydraNode"
+    , nodeId = 1
+    , host = "127.0.0.1"
+    , port = 5001
+    , peers = []
+    , apiHost = "127.0.0.1"
+    , apiPort = 4001
+    , monitoringPort = Nothing
+    , hydraSigningKey = "hydra.sk"
+    , hydraVerificationKeys = []
+    , chainConfig = defaultChainConfig
+    , ledgerConfig = defaultLedgerConfig
+    , startChainFrom = Nothing
+    }
+
+defaultChainConfig :: ChainConfig
+defaultChainConfig =
+  DirectChainConfig
+    { networkId = Testnet (NetworkMagic 42)
+    , nodeSocket = "node.socket"
+    , cardanoSigningKey = "cardano.sk"
+    , cardanoVerificationKeys = []
+    }
+
+defaultLedgerConfig :: LedgerConfig
+defaultLedgerConfig =
+  CardanoLedgerConfig
+    { cardanoLedgerGenesisFile = "genesis-shelley.json"
+    , cardanoLedgerProtocolParametersFile = "protocol-parameters.json"
+    }
