@@ -150,8 +150,10 @@ withDirectChain ::
   Party ->
   -- | Cardano keys of all Head participants (including our key pair).
   [VerificationKey PaymentKey] ->
-  ChainComponent Tx IO ()
-withDirectChain tracer networkId iocp socketPath keyPair party cardanoKeys callback action = do
+  -- | Point at which to start following the chain.
+  Maybe (Point Block) ->
+  ChainComponent Tx IO a
+withDirectChain tracer networkId iocp socketPath keyPair party cardanoKeys point callback action = do
   queue <- newTQueueIO
   withTinyWallet (contramap Wallet tracer) networkId keyPair iocp socketPath $ \wallet -> do
     headState <-
@@ -162,54 +164,58 @@ withDirectChain tracer networkId iocp socketPath keyPair party cardanoKeys callb
             (cardanoKeys \\ [verificationKey wallet])
             (verificationKey wallet)
             party
-    race_
-      ( do
-          -- FIXME: There's currently a race-condition with the actual client
-          -- which will only see transactions after it has established
-          -- connection with the server's tip. So any transaction submitted
-          -- before that tip will be missed.
-          --
-          -- The way we handle rollbacks is also wrong because it'll
-          -- fast-forward to the tip, and not allow recovering intermediate
-          -- history.
-          threadDelay 2
-          action $
-            Chain
-              { postTx = \tx -> do
-                  traceWith tracer $ ToPost tx
-                  -- XXX(SN): 'finalizeTx' retries until a payment utxo is
-                  -- found. See haddock for details
-                  response <-
-                    timeoutThrowAfter (NoPaymentInput @Tx) 10 $
-                      -- FIXME (MB): 'cardanoKeys' should really not be here. They
-                      -- are only required for the init transaction and ought to
-                      -- come from the _client_ and be part of the init request
-                      -- altogether. This goes in the direction of 'dynamic
-                      -- heads' where participants aren't known upfront but
-                      -- provided via the API. Ultimately, an init request from
-                      -- a client would contain all the details needed to
-                      -- establish connection to the other peers and to
-                      -- bootstrap the init transaction.
-                      -- For now, we bear with it and keep the static keys in
-                      -- context.
-                      fromPostChainTx cardanoKeys wallet headState tx
-                        >>= finalizeTx wallet headState . toLedgerTx
-                        >>= \vtx -> do
-                          response <- newEmptyTMVar
-                          writeTQueue queue (vtx, response)
-                          return response
-                  atomically (takeTMVar response) >>= \case
-                    Nothing -> pure ()
-                    Just err -> throwIO err
-              }
-      )
-      ( handle onIOException $
-          connectTo
-            (localSnocket iocp)
-            nullConnectTracers
-            (versions networkId (client tracer queue headState callback))
-            socketPath
-      )
+    res <-
+      race
+        ( do
+            -- FIXME: There's currently a race-condition with the actual client
+            -- which will only see transactions after it has established
+            -- connection with the server's tip. So any transaction submitted
+            -- before that tip will be missed.
+            --
+            -- The way we handle rollbacks is also wrong because it'll
+            -- fast-forward to the tip, and not allow recovering intermediate
+            -- history.
+            threadDelay 2
+            action $
+              Chain
+                { postTx = \tx -> do
+                    traceWith tracer $ ToPost tx
+                    -- XXX(SN): 'finalizeTx' retries until a payment utxo is
+                    -- found. See haddock for details
+                    response <-
+                      timeoutThrowAfter (NoPaymentInput @Tx) 10 $
+                        -- FIXME (MB): 'cardanoKeys' should really not be here. They
+                        -- are only required for the init transaction and ought to
+                        -- come from the _client_ and be part of the init request
+                        -- altogether. This goes in the direction of 'dynamic
+                        -- heads' where participants aren't known upfront but
+                        -- provided via the API. Ultimately, an init request from
+                        -- a client would contain all the details needed to
+                        -- establish connection to the other peers and to
+                        -- bootstrap the init transaction.
+                        -- For now, we bear with it and keep the static keys in
+                        -- context.
+                        fromPostChainTx cardanoKeys wallet headState tx
+                          >>= finalizeTx wallet headState . toLedgerTx
+                          >>= \vtx -> do
+                            response <- newEmptyTMVar
+                            writeTQueue queue (vtx, response)
+                            return response
+                    atomically (takeTMVar response) >>= \case
+                      Nothing -> pure ()
+                      Just err -> throwIO err
+                }
+        )
+        ( handle onIOException $
+            connectTo
+              (localSnocket iocp)
+              nullConnectTracers
+              (versions networkId (client tracer point queue headState callback))
+              socketPath
+        )
+    case res of
+      Left a -> pure a
+      Right () -> error "'connectTo' cannot terminate but did?"
  where
   timeoutThrowAfter ex s stm = do
     timeout s (atomically stm) >>= \case
@@ -234,27 +240,35 @@ data ConnectException = ConnectException
 
 instance Exception ConnectException
 
+data IntersectionNotFoundException = IntersectionNotFound
+  { requestedPoint :: Point Block
+  }
+  deriving (Show)
+
+instance Exception IntersectionNotFoundException
+
 client ::
-  (MonadST m, MonadTimer m) =>
+  (MonadST m, MonadTimer m, MonadThrow m) =>
   Tracer m DirectChainLog ->
+  Maybe (Point Block) ->
   TQueue m (ValidatedTx Era, TMVar m (Maybe (PostTxError Tx))) ->
   TVar m SomeOnChainHeadState ->
   ChainCallback Tx m ->
   NodeToClientVersion ->
   OuroborosApplication 'InitiatorMode LocalAddress LByteString m () Void
-client tracer queue headState callback nodeToClientV =
+client tracer point queue headState callback nodeToClientV =
   nodeToClientProtocols
     ( const $
         pure $
           NodeToClientProtocols
             { localChainSyncProtocol =
                 InitiatorProtocolOnly $
-                  let peer = chainSyncClientPeer $ chainSyncClient tracer callback headState
-                   in MuxPeer nullTracer cChainSyncCodec peer
+                  let peer = chainSyncClient tracer callback headState point
+                   in MuxPeer nullTracer cChainSyncCodec (chainSyncClientPeer peer)
             , localTxSubmissionProtocol =
                 InitiatorProtocolOnly $
-                  let peer = localTxSubmissionClientPeer $ txSubmissionClient tracer queue
-                   in MuxPeer nullTracer cTxSubmissionCodec peer
+                  let peer = txSubmissionClient tracer queue
+                   in MuxPeer nullTracer cTxSubmissionCodec (localTxSubmissionClientPeer peer)
             , localStateQueryProtocol =
                 InitiatorProtocolOnly $
                   let peer = localStateQueryPeerNull
@@ -271,13 +285,23 @@ client tracer queue headState callback nodeToClientV =
 
 chainSyncClient ::
   forall m.
-  MonadSTM m =>
+  (MonadSTM m, MonadThrow m) =>
   Tracer m DirectChainLog ->
   ChainCallback Tx m ->
   TVar m SomeOnChainHeadState ->
+  Maybe (Point Block) ->
   ChainSyncClient Block (Point Block) (Tip Block) m ()
-chainSyncClient tracer callback headState =
-  ChainSyncClient (pure initStIdle)
+chainSyncClient tracer callback headState = \case
+  Nothing ->
+    ChainSyncClient (pure initStIdle)
+  Just startingPoint ->
+    ChainSyncClient $
+      pure $ do
+        SendMsgFindIntersect
+          [startingPoint]
+          ( clientStIntersect
+              (\_ -> throwIO (IntersectionNotFound startingPoint))
+          )
  where
   -- NOTE:
   -- We fast-forward the chain client to the current node's tip on start, and
@@ -299,19 +323,29 @@ chainSyncClient tracer callback headState =
     initStNext =
       ClientStNext
         { recvMsgRollForward = \_ (getTipPoint -> tip) ->
-            ChainSyncClient $ pure $ SendMsgFindIntersect [tip] initStIntersect
+            ChainSyncClient $
+              pure $
+                SendMsgFindIntersect [tip] (clientStIntersect initStIntersect)
         , recvMsgRollBackward = \_ (getTipPoint -> tip) ->
-            ChainSyncClient $ pure $ SendMsgFindIntersect [tip] initStIntersect
+            ChainSyncClient $
+              pure $
+                SendMsgFindIntersect [tip] (clientStIntersect initStIntersect)
         }
 
-    initStIntersect :: ClientStIntersect Block (Point Block) (Tip Block) m ()
-    initStIntersect =
-      ClientStIntersect
-        { recvMsgIntersectFound = \_ _ ->
-            ChainSyncClient (pure clientStIdle)
-        , recvMsgIntersectNotFound = \(getTipPoint -> tip) ->
-            ChainSyncClient $ pure $ SendMsgFindIntersect [tip] initStIntersect
-        }
+    initStIntersect :: Point Block -> m (ClientStIdle Block (Point Block) (Tip Block) m ())
+    initStIntersect tip =
+      pure $ SendMsgFindIntersect [tip] (clientStIntersect initStIntersect)
+
+  clientStIntersect ::
+    (Point Block -> m (ClientStIdle Block (Point Block) (Tip Block) m ())) ->
+    ClientStIntersect Block (Point Block) (Tip Block) m ()
+  clientStIntersect onIntersectionNotFound =
+    ClientStIntersect
+      { recvMsgIntersectFound = \_ _ ->
+          ChainSyncClient (pure clientStIdle)
+      , recvMsgIntersectNotFound = \(getTipPoint -> tip) ->
+          ChainSyncClient $ onIntersectionNotFound tip
+      }
 
   clientStIdle :: ClientStIdle Block (Point Block) (Tip Block) m ()
   clientStIdle = SendMsgRequestNext clientStNext (pure clientStNext)

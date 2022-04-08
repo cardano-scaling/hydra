@@ -82,6 +82,7 @@ withChain tracer party callback config action = do
       keyPair
       party
       (vk : otherCardanoKeys)
+      Nothing
       callback
       action
  where

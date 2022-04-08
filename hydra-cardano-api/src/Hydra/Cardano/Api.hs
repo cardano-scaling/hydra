@@ -96,6 +96,7 @@ import Hydra.Cardano.Api.Lovelace as Extras
 import Hydra.Cardano.Api.MultiAssetSupportedInEra as Extras
 import Hydra.Cardano.Api.PlutusScript as Extras
 import Hydra.Cardano.Api.PlutusScriptVersion as Extras
+import Hydra.Cardano.Api.Point as Extras
 import Hydra.Cardano.Api.PolicyId as Extras
 import Hydra.Cardano.Api.ScriptData as Extras
 import Hydra.Cardano.Api.ScriptDataSupportedInEra as Extras
