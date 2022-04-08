@@ -14,6 +14,7 @@ module Hydra.Options (
 
 import Hydra.Prelude
 
+import qualified Data.ByteString as BS
 import Data.IP (IP (IPv4), toIPv4w)
 import qualified Data.Text as T
 import Hydra.Cardano.Api (
@@ -22,7 +23,9 @@ import Hydra.Cardano.Api (
   NetworkMagic (..),
   SlotNo (..),
   UsingRawBytesHex (..),
+  deserialiseFromRawBytes,
   deserialiseFromRawBytesBase16,
+  proxyToAsType,
   serialiseToRawBytesHexText,
  )
 import Hydra.Logging (Verbosity (..))
@@ -56,7 +59,7 @@ import Options.Applicative (
   value,
  )
 import Options.Applicative.Builder (str)
-import Test.QuickCheck (elements, listOf, listOf1)
+import Test.QuickCheck (elements, listOf, listOf1, oneof, vectorOf)
 
 data Options = Options
   { verbosity :: Verbosity
@@ -108,6 +111,8 @@ instance Arbitrary Options where
     hydraSigningKey <- genFilePath "sk"
     hydraVerificationKeys <- reasonablySized (listOf (genFilePath "vk"))
     chainConfig <- arbitrary
+    ledgerConfig <- arbitrary
+    startChainFrom <- oneof [pure Nothing, Just <$> genChainPoint]
     pure $
       defaultOptions
         { verbosity
@@ -121,8 +126,8 @@ instance Arbitrary Options where
         , hydraSigningKey
         , hydraVerificationKeys
         , chainConfig
-        -- , ledgerConfig
-        -- , startChainFrom
+        , ledgerConfig
+        , startChainFrom
         }
 
 hydraNodeParser :: Parser Options
@@ -154,6 +159,12 @@ defaultLedgerConfig =
     { cardanoLedgerGenesisFile = "genesis-shelley.json"
     , cardanoLedgerProtocolParametersFile = "protocol-parameters.json"
     }
+
+instance Arbitrary LedgerConfig where
+  arbitrary = do
+    cardanoLedgerGenesisFile <- genFilePath ".json"
+    cardanoLedgerProtocolParametersFile <- genFilePath ".json"
+    pure $ CardanoLedgerConfig{cardanoLedgerProtocolParametersFile, cardanoLedgerGenesisFile}
 
 ledgerConfigParser :: Parser LedgerConfig
 ledgerConfigParser =
@@ -484,3 +495,11 @@ genFilePath :: String -> Gen FilePath
 genFilePath extension = do
   path <- reasonablySized (listOf1 (elements ["a", "b", "c"]))
   pure $ intercalate "/" path <> "." <> extension
+
+genChainPoint :: Gen ChainPoint
+genChainPoint = ChainPoint <$> (SlotNo <$> arbitrary) <*> someHeaderHash
+ where
+  someHeaderHash = do
+    bytes <- vectorOf 32 arbitrary
+    let hash = fromMaybe (error "invalid bytes") $ deserialiseFromRawBytes (proxyToAsType Proxy) . BS.pack $ bytes
+    pure hash
