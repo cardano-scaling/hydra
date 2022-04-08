@@ -6,6 +6,7 @@ module Hydra.Options (
   parseHydraOptionsFromString,
   getParseResult,
   ParserResult (..),
+  toArgs,
 ) where
 
 import Hydra.Prelude
@@ -318,3 +319,6 @@ parseHydraOptions = getArgs <&> parseHydraOptionsFromString >>= handleParseResul
 -- | Pure parsing of `Option` from a list of arguments.
 parseHydraOptionsFromString :: [String] -> ParserResult Options
 parseHydraOptionsFromString = execParserPure defaultPrefs hydraNodeOptions
+
+toArgs :: Options -> [String]
+toArgs _opts = []

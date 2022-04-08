@@ -13,7 +13,9 @@ import Hydra.Options (
   Options (..),
   ParserResult (..),
   parseHydraOptionsFromString,
+  toArgs,
  )
+import Test.QuickCheck (Property, counterexample, forAll, property, (===))
 
 spec :: Spec
 spec = parallel $
@@ -153,6 +155,19 @@ spec = parallel $
           { startChainFrom =
               Just (ChainPoint 1000 (unsafeDeserialiseFromRawBytesBase16 "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"))
           }
+
+    prop "roundtrip options" $ forAll genOptions canRoundtripOptionsAndPrettyPrinting
+
+canRoundtripOptionsAndPrettyPrinting :: Options -> Property
+canRoundtripOptionsAndPrettyPrinting opts =
+  let args = toArgs opts
+   in counterexample ("args:  " <> show args) $
+        case parseHydraOptionsFromString args of
+          Success opts' -> opts' === opts
+          err -> property False & counterexample ("error : " <> show err)
+
+genOptions :: Gen Options
+genOptions = pure defaultOptions
 
 defaultOptions :: Options
 defaultOptions =
