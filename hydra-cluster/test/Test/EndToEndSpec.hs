@@ -16,13 +16,13 @@ import CardanoClient (waitForUTxO)
 import CardanoCluster (
   Actor (Alice, Bob, Carol),
   Marked (Fuel, Normal),
+  chainConfigFor,
   defaultNetworkId,
   keysFor,
   newNodeConfig,
   seedFromFaucet,
   seedFromFaucet_,
   withBFTNode,
-  writeKeysFor,
  )
 import CardanoNode (RunningNode (RunningNode))
 import Control.Lens ((^?))
@@ -109,10 +109,10 @@ spec = around showLogsOnFailure $
             withBFTNode (contramap FromCluster tracer) config $ \node@(RunningNode _ nodeSocket) -> do
               (aliceCardanoVk, _aliceCardanoSk) <- keysFor Alice
               (bobCardanoVk, _bobCardanoSk) <- keysFor Bob
-              (aliceVkPath, aliceSkPath) <- writeKeysFor tmpDir Alice
-              (_, bobSkPath) <- writeKeysFor tmpDir Bob
-              withHydraNode tracer aliceSkPath [] tmpDir nodeSocket 1 aliceSk [] allNodeIds $ \n1 ->
-                withHydraNode tracer bobSkPath [aliceVkPath] tmpDir nodeSocket 2 bobSk [aliceVk] allNodeIds $ \n2 -> do
+              aliceChainConfig <- chainConfigFor Alice tmpDir nodeSocket []
+              bobChainConfig <- chainConfigFor Bob tmpDir nodeSocket [Alice]
+              withHydraNode tracer aliceChainConfig tmpDir 1 aliceSk [] allNodeIds $ \n1 ->
+                withHydraNode tracer bobChainConfig tmpDir 2 bobSk [aliceVk] allNodeIds $ \n2 -> do
                   -- Funds to be used as fuel by Hydra protocol transactions
                   seedFromFaucet_ defaultNetworkId node aliceCardanoVk 100_000_000 Fuel
                   seedFromFaucet_ defaultNetworkId node bobCardanoVk 100_000_000 Fuel
@@ -158,13 +158,13 @@ spec = around showLogsOnFailure $
           config <- newNodeConfig tmpDir
           (aliceCardanoVk, _) <- keysFor Alice
           withBFTNode (contramap FromCluster tracer) config $ \node@(RunningNode _ nodeSocket) -> do
-            (aliceVkPath, aliceSkPath) <- writeKeysFor tmpDir Alice
-            (bobVkPath, bobSkPath) <- writeKeysFor tmpDir Bob
-            (carolVkPath, carolSkPath) <- writeKeysFor tmpDir Carol
+            aliceChainConfig <- chainConfigFor Alice tmpDir nodeSocket [Bob, Carol]
+            bobChainConfig <- chainConfigFor Bob tmpDir nodeSocket [Alice, Carol]
+            carolChainConfig <- chainConfigFor Carol tmpDir nodeSocket [Bob, Carol]
             failAfter 20 $
-              withHydraNode tracer aliceSkPath [bobVkPath, carolVkPath] tmpDir nodeSocket 1 aliceSk [bobVk, carolVk] allNodeIds $ \n1 ->
-                withHydraNode tracer bobSkPath [aliceVkPath, carolVkPath] tmpDir nodeSocket 2 bobSk [aliceVk, carolVk] allNodeIds $ \n2 ->
-                  withHydraNode tracer carolSkPath [aliceVkPath, bobVkPath] tmpDir nodeSocket 3 carolSk [aliceVk, bobVk] allNodeIds $ \n3 -> do
+              withHydraNode tracer aliceChainConfig tmpDir 1 aliceSk [bobVk, carolVk] allNodeIds $ \n1 ->
+                withHydraNode tracer bobChainConfig tmpDir 2 bobSk [aliceVk, carolVk] allNodeIds $ \n2 ->
+                  withHydraNode tracer carolChainConfig tmpDir 3 carolSk [aliceVk, bobVk] allNodeIds $ \n3 -> do
                     -- Funds to be used as fuel by Hydra protocol transactions
                     seedFromFaucet_ defaultNetworkId node aliceCardanoVk 100_000_000 Fuel
                     waitForNodesConnected tracer [n1, n2, n3]

@@ -220,15 +220,18 @@ withHydraCluster tracer workDir nodeSocket firstNodeId allKeys hydraKeys action 
     (nodeId : rest) -> do
       let hydraSKey = hydraKeys Prelude.!! (nodeId - firstNodeId)
           hydraVKeys = map deriveVerKeyDSIGN $ filter (/= hydraSKey) hydraKeys
-          cardanoVKeys = [workDir </> show i <.> "vk" | i <- allNodeIds, i /= nodeId]
-          cardanoSKey = workDir </> show nodeId <.> "sk"
-
+          cardanoVerificationKeys = [workDir </> show i <.> "vk" | i <- allNodeIds, i /= nodeId]
+          cardanoSigningKey = workDir </> show nodeId <.> "sk"
+          chainConfig =
+            defaultChainConfig
+              { nodeSocket
+              , cardanoSigningKey
+              , cardanoVerificationKeys
+              }
       withHydraNode
         tracer
-        cardanoSKey
-        cardanoVKeys
+        chainConfig
         workDir
-        nodeSocket
         nodeId
         hydraSKey
         hydraVKeys
@@ -239,9 +242,7 @@ withHydraNode ::
   forall alg.
   DSIGNAlgorithm alg =>
   Tracer IO EndToEndLog ->
-  String ->
-  [String] ->
-  FilePath ->
+  ChainConfig ->
   FilePath ->
   Int ->
   SignKeyDSIGN alg ->
@@ -249,7 +250,7 @@ withHydraNode ::
   [Int] ->
   (HydraClient -> IO ()) ->
   IO ()
-withHydraNode tracer cardanoSigningKey cardanoVerificationKeys workDir nodeSocket hydraNodeId hydraSKey hydraVKeys allNodeIds action = do
+withHydraNode tracer chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNodeIds action = do
   withFile' (workDir </> show hydraNodeId) $ \out -> do
     withSystemTempDirectory "hydra-node" $ \dir -> do
       let cardanoLedgerGenesisFile = dir </> "genesis.json"
@@ -265,12 +266,6 @@ withHydraNode tracer cardanoSigningKey cardanoVerificationKeys workDir nodeSocke
             CardanoLedgerConfig
               { cardanoLedgerGenesisFile
               , cardanoLedgerProtocolParametersFile
-              }
-      let chainConfig =
-            defaultChainConfig
-              { nodeSocket
-              , cardanoSigningKey
-              , cardanoVerificationKeys
               }
       let p =
             ( hydraNodeProcess $

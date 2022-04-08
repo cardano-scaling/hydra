@@ -1,3 +1,5 @@
+{-# LANGUAGE DuplicateRecordFields #-}
+
 module Hydra.TUISpec where
 
 import Hydra.Prelude
@@ -8,12 +10,12 @@ import CardanoCluster (
   Actor (Alice),
   ClusterLog,
   Marked (Fuel, Normal),
+  chainConfigFor,
   defaultNetworkId,
   keysFor,
   newNodeConfig,
   seedFromFaucet_,
   withBFTNode,
-  writeKeysFor,
  )
 import CardanoNode (RunningNode (RunningNode))
 import Control.Monad.Class.MonadSTM (newTQueueIO, readTQueue, tryReadTQueue, writeTQueue)
@@ -37,6 +39,7 @@ import Graphics.Vty (
 import Graphics.Vty.Image (DisplayRegion)
 import Hydra.Logging (showLogsOnFailure)
 import Hydra.Network (Host (..))
+import Hydra.Options (ChainConfig (..))
 import Hydra.Party (generateKey)
 import qualified Hydra.Party as Hydra
 import Hydra.TUI (runWithVty)
@@ -97,10 +100,10 @@ setupNodeAndTUI action =
       config <- newNodeConfig tmpDir
       (aliceCardanoVk, _) <- keysFor Alice
       withBFTNode (contramap FromCardano tracer) config $ \node@(RunningNode _ nodeSocket) -> do
-        (_, aliceSkPath) <- writeKeysFor tmpDir Alice
+        chainConfig <- chainConfigFor Alice tmpDir nodeSocket []
         -- XXX(SN): API port id is inferred from nodeId, in this case 4001
         let nodeId = 1
-        withHydraNode (contramap FromHydra tracer) aliceSkPath [] tmpDir nodeSocket nodeId aliceSk [] [nodeId] $ \HydraClient{hydraNodeId} -> do
+        withHydraNode (contramap FromHydra tracer) chainConfig tmpDir nodeId aliceSk [] [nodeId] $ \HydraClient{hydraNodeId} -> do
           -- Fuel to pay hydra transactions
           seedFromFaucet_ defaultNetworkId node aliceCardanoVk 100_000_000 Fuel
           -- Some ADA to commit
@@ -116,9 +119,12 @@ setupNodeAndTUI action =
                           { hostname = "127.0.0.1"
                           , port = 4000 + fromIntegral hydraNodeId
                           }
-                    , cardanoNodeSocket = nodeSocket
-                    , cardanoNetworkId = defaultNetworkId
-                    , cardanoSigningKey = aliceSkPath
+                    , cardanoNodeSocket =
+                        nodeSocket
+                    , cardanoNetworkId =
+                        defaultNetworkId
+                    , cardanoSigningKey =
+                        (cardanoSigningKey :: ChainConfig -> FilePath) chainConfig
                     }
               )
               $ do

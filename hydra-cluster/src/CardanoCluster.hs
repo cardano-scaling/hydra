@@ -18,7 +18,18 @@ import CardanoClient (
   waitForPayment,
  )
 import CardanoNode (
-  CardanoNodeArgs (..),
+  CardanoNodeArgs (
+    nodeAlonzoGenesisFile,
+    nodeByronGenesisFile,
+    nodeConfigFile,
+    nodeDlgCertFile,
+    nodeKesKeyFile,
+    nodeOpCertFile,
+    nodePort,
+    nodeShelleyGenesisFile,
+    nodeSignKeyFile,
+    nodeVrfKeyFile
+  ),
   CardanoNodeConfig (..),
   NodeId,
   NodeLog,
@@ -33,6 +44,10 @@ import qualified Data.Aeson as Aeson
 import qualified Data.ByteString as BS
 import Hydra.Chain.Direct.Util (markerDatumHash, retry)
 import qualified Hydra.Chain.Direct.Util as Cardano
+import Hydra.Options (
+  ChainConfig (..),
+  defaultChainConfig,
+ )
 import qualified Paths_hydra_cluster as Pkg
 import System.Directory (createDirectoryIfMissing, doesFileExist)
 import System.FilePath ((<.>), (</>))
@@ -84,25 +99,21 @@ keysFor actor = do
 fromRawVKey :: Cardano.VerificationKey -> VerificationKey PaymentKey
 fromRawVKey = PaymentVerificationKey . VKey
 
--- | Write the "well-known" keys for given actor into a target directory.
-writeKeysFor ::
-  -- | Target directory
-  FilePath ->
-  Actor ->
-  -- | Paths of written keys in the form of (verification key, signing key)
-  IO (FilePath, FilePath)
-writeKeysFor targetDir actor = do
-  readConfigFile ("credentials" </> skName) >>= writeFileBS skTarget
-  readConfigFile ("credentials" </> vkName) >>= writeFileBS vkTarget
-  pure (vkTarget, skTarget)
+chainConfigFor :: Actor -> FilePath -> FilePath -> [Actor] -> IO ChainConfig
+chainConfigFor me targetDir nodeSocket them = do
+  readConfigFile ("credentials" </> skName me) >>= writeFileBS (skTarget me)
+  readConfigFile ("credentials" </> vkName me) >>= writeFileBS (vkTarget me)
+  pure $
+    defaultChainConfig
+      { nodeSocket
+      , cardanoSigningKey = skTarget me
+      , cardanoVerificationKeys = [vkTarget himOrHer | himOrHer <- them]
+      }
  where
-  skTarget = targetDir </> skName
-
-  vkTarget = targetDir </> vkName
-
-  skName = actorName actor <.> ".sk"
-
-  vkName = actorName actor <.> ".vk"
+  skTarget x = targetDir </> skName x
+  vkTarget x = targetDir </> vkName x
+  skName x = actorName x <.> ".sk"
+  vkName x = actorName x <.> ".vk"
 
 -- * Starting a cluster or single nodes
 
