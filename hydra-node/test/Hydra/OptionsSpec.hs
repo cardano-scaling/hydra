@@ -147,6 +147,13 @@ spec = parallel $
                 }
           }
 
+    it "parses --start-chain-from as a pair of slot number and block header hash" $
+      ["--start-chain-from", "1000.0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"]
+        `shouldParse` defaultOptions
+          { startChainFrom =
+              Just (ChainPoint 1000 (unsafeDeserialiseFromRawBytesBase16 "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"))
+          }
+
 defaultOptions :: Options
 defaultOptions =
   Options
@@ -162,6 +169,7 @@ defaultOptions =
     , hydraVerificationKeys = []
     , chainConfig = defaultChainConfig
     , ledgerConfig = defaultLedgerConfig
+    , startChainFrom = Nothing
     }
 
 defaultChainConfig :: ChainConfig

@@ -9,7 +9,7 @@ module Hydra.Options (
 ) where
 
 import Data.IP (IP)
-import Hydra.Cardano.Api (NetworkId (..))
+import Hydra.Cardano.Api (ChainPoint (ChainPoint), NetworkId (..))
 import Hydra.Chain.Direct (NetworkMagic (..))
 import Hydra.Logging (Verbosity (..))
 import Hydra.Network (Host, PortNumber, readHost, readPort)
@@ -57,6 +57,7 @@ data Options = Options
   , hydraVerificationKeys :: [FilePath]
   , chainConfig :: ChainConfig
   , ledgerConfig :: LedgerConfig
+  , startChainFrom :: Maybe ChainPoint
   }
   deriving (Eq, Show)
 
@@ -75,6 +76,7 @@ hydraNodeParser =
     <*> many hydraVerificationKeyFileParser
     <*> chainConfigParser
     <*> ledgerConfigParser
+    <*> optional startChainFromParser
 
 data LedgerConfig = CardanoLedgerConfig
   { cardanoLedgerGenesisFile :: FilePath
@@ -263,6 +265,18 @@ monitoringPortParser =
         <> metavar "PORT"
         <> help "The port this node listens on for monitoring and metrics. If left empty, monitoring server is not started"
     )
+
+startChainFromParser :: Parser ChainPoint
+startChainFromParser =
+  option
+    (maybeReader readChainPoint)
+    ( long "start-chain-from"
+        <> metavar "SLOT.HEADER_HASH"
+        <> help "The point at which to start on-chain component. Defaults to chain tip at startup time."
+    )
+
+readChainPoint :: String -> Maybe ChainPoint
+readChainPoint = const Nothing
 
 hydraNodeOptions :: ParserInfo Options
 hydraNodeOptions =
