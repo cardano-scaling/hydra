@@ -416,6 +416,10 @@ parseHydraOptions = getArgs <&> parseHydraOptionsFromString >>= handleParseResul
 parseHydraOptionsFromString :: [String] -> ParserResult Options
 parseHydraOptionsFromString = execParserPure defaultPrefs hydraNodeOptions
 
+-- | Convert an 'Options' instance into the corresponding list of command-line arguments.
+--
+-- This is useful in situations where one wants to programatically define 'Options', providing
+-- some measure of type safety, without having to juggle with strings.
 toArgs :: Options -> [String]
 toArgs
   Options

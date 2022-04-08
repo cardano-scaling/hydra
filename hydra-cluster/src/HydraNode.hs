@@ -42,6 +42,9 @@ import qualified Data.ByteString as BS
 import qualified Data.List as List
 import qualified Data.Text as T
 import Hydra.Logging (Tracer, traceWith)
+import Hydra.Network (Host (Host))
+import qualified Hydra.Network as Network
+import Hydra.Options (ChainConfig (..), LedgerConfig (..), Options (..), defaultChainConfig, defaultOptions, toArgs)
 import qualified Hydra.Party as Hydra
 import Network.HTTP.Conduit (HttpExceptionContent (ConnectionFailure), parseRequest)
 import Network.HTTP.Simple (HttpException (HttpExceptionRequest), Response, getResponseBody, getResponseStatusCode, httpBS)
@@ -247,7 +250,7 @@ withHydraNode ::
   [Int] ->
   (HydraClient -> IO ()) ->
   IO ()
-withHydraNode tracer cardanoSKeyPath cardanoVKeysPaths workDir nodeSocket hydraNodeId hydraSKey hydraVKeys allNodeIds action = do
+withHydraNode tracer cardanoSigningKey cardanoVerificationKeys workDir nodeSocket hydraNodeId hydraSKey hydraVKeys allNodeIds action = do
   withFile' (workDir </> show hydraNodeId) $ \out -> do
     withSystemTempDirectory "hydra-node" $ \dir -> do
       let genesisFile = dir </> "genesis.json"
@@ -262,11 +265,11 @@ withHydraNode tracer cardanoSKeyPath cardanoVKeysPaths workDir nodeSocket hydraN
       let p =
             ( hydraNodeProcess $
                 defaultArguments
-                  hydraNodeId
+                  (fromIntegral hydraNodeId)
                   genesisFile
                   pparamsFile
-                  cardanoSKeyPath
-                  cardanoVKeysPaths
+                  cardanoSigningKey
+                  cardanoVerificationKeys
                   hydraSKeyPath
                   hydraVKeysPaths
                   nodeSocket
@@ -306,11 +309,11 @@ withNewClient HydraClient{hydraNodeId, tracer} =
 newtype CannotStartHydraClient = CannotStartHydraClient Int deriving (Show)
 instance Exception CannotStartHydraClient
 
-hydraNodeProcess :: [String] -> CreateProcess
-hydraNodeProcess = proc "hydra-node"
+hydraNodeProcess :: Options -> CreateProcess
+hydraNodeProcess = proc "hydra-node" . toArgs
 
 defaultArguments ::
-  Int ->
+  Natural ->
   FilePath ->
   FilePath ->
   FilePath ->
@@ -319,34 +322,34 @@ defaultArguments ::
   [FilePath] ->
   FilePath ->
   [Int] ->
-  [String]
-defaultArguments nodeId genesisFile pparamsFile cardanoSKey cardanoVKeys hydraSKey hydraVKeys nodeSocket allNodeIds =
-  [ "--node-id"
-  , show nodeId
-  , "--host"
-  , "127.0.0.1"
-  , "--port"
-  , show (5000 + nodeId)
-  , "--api-host"
-  , "127.0.0.1"
-  , "--api-port"
-  , show (4000 + nodeId)
-  , "--monitoring-port"
-  , show (6000 + nodeId)
-  , "--hydra-signing-key"
-  , hydraSKey
-  , "--cardano-signing-key"
-  , cardanoSKey
-  , "--ledger-genesis"
-  , genesisFile
-  , "--ledger-protocol-parameters"
-  , pparamsFile
-  ]
-    <> concat [["--peer", "127.0.0.1:" <> show (5000 + i)] | i <- allNodeIds, i /= nodeId]
-    <> concat [["--hydra-verification-key", vKey] | vKey <- hydraVKeys]
-    <> concat [["--cardano-verification-key", vKey] | vKey <- cardanoVKeys]
-    <> ["--network-id", "42"]
-    <> ["--node-socket", nodeSocket]
+  Options
+defaultArguments nodeId cardanoLedgerGenesisFile cardanoLedgerProtocolParametersFile cardanoSigningKey cardanoVerificationKeys hydraSigningKey hydraVerificationKeys nodeSocket allNodeIds =
+  defaultOptions
+    { nodeId
+    , port = fromIntegral $ 5000 + nodeId
+    , apiPort = fromIntegral $ 4000 + nodeId
+    , monitoringPort = Just $ fromIntegral $ 6000 + nodeId
+    , hydraSigningKey
+    , hydraVerificationKeys
+    , chainConfig
+    , ledgerConfig
+    , peers
+    }
+ where
+  chainConfig =
+    defaultChainConfig
+      { nodeSocket
+      , cardanoSigningKey
+      , cardanoVerificationKeys
+      }
+
+  ledgerConfig = CardanoLedgerConfig{cardanoLedgerGenesisFile, cardanoLedgerProtocolParametersFile}
+
+  peers =
+    [ Host{Network.hostname = "127.0.0.1", Network.port = fromIntegral $ 5000 + i}
+    | i <- allNodeIds
+    , fromIntegral i /= nodeId
+    ]
 
 waitForNodesConnected :: HasCallStack => Tracer IO EndToEndLog -> [HydraClient] -> IO ()
 waitForNodesConnected tracer clients =

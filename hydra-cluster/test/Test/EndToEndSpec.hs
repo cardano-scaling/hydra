@@ -51,9 +51,9 @@ import qualified Hydra.Party as Party
 import HydraNode (
   EndToEndLog (..),
   getMetrics,
-  hydraNodeProcess,
   input,
   output,
+  proc,
   readCreateProcess,
   send,
   waitFor,
@@ -176,7 +176,7 @@ spec = around showLogsOnFailure $
     describe "hydra-node executable" $
       it "display proper semantic version given it is passed --version argument" $ \_ ->
         failAfter 5 $ do
-          version <- readCreateProcess (hydraNodeProcess ["--version"]) ""
+          version <- readCreateProcess (proc "hydra-node" ["--version"]) ""
           version `shouldSatisfy` (=~ ("[0-9]+\\.[0-9]+\\.[0-9]+(-[a-zA-Z0-9]+)?" :: String))
 
 initAndClose :: Tracer IO EndToEndLog -> Int -> RunningNode -> IO ()
