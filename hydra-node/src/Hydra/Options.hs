@@ -321,4 +321,41 @@ parseHydraOptionsFromString :: [String] -> ParserResult Options
 parseHydraOptionsFromString = execParserPure defaultPrefs hydraNodeOptions
 
 toArgs :: Options -> [String]
-toArgs _opts = []
+toArgs
+  Options
+    { verbosity
+    , nodeId
+    , host
+    , port
+    , peers
+    , apiHost
+    , apiPort
+    , monitoringPort
+    , hydraSigningKey
+    , hydraVerificationKeys
+    -- , chainConfig
+    -- , ledgerConfig
+    -- , startChainFrom
+    } =
+    [ "--node-id"
+    , show nodeId
+    , "--host"
+    , show host
+    , "--port"
+    , show port
+    , "--api-host"
+    , show apiHost
+    , "--api-port"
+    , show apiPort
+    , "--hydra-signing-key"
+    , hydraSigningKey
+    ]
+      <> concatMap (\vk -> ["--hydra-verification-key", vk]) hydraVerificationKeys
+      <> concatMap toArgPeer peers
+      <> maybe [] (\mport -> ["--monitoring-port", show mport]) monitoringPort
+      <> isVerbose verbosity
+   where
+    isVerbose = \case
+      Quiet -> ["--quiet"]
+      _ -> []
+    toArgPeer p = ["--peer", show p]

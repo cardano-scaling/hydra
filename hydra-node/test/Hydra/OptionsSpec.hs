@@ -156,7 +156,8 @@ spec = parallel $
               Just (ChainPoint 1000 (unsafeDeserialiseFromRawBytesBase16 "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"))
           }
 
-    prop "roundtrip options" $ forAll genOptions canRoundtripOptionsAndPrettyPrinting
+    prop "roundtrip options" $
+      forAll genOptions canRoundtripOptionsAndPrettyPrinting
 
 canRoundtripOptionsAndPrettyPrinting :: Options -> Property
 canRoundtripOptionsAndPrettyPrinting opts =
