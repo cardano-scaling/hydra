@@ -3,7 +3,7 @@ module Hydra.OptionsSpec where
 import Hydra.Prelude
 import Test.Hydra.Prelude
 
-import Hydra.Cardano.Api (NetworkId (..))
+import Hydra.Cardano.Api (ChainPoint (..), NetworkId (..), unsafeDeserialiseFromRawBytesBase16)
 import Hydra.Chain.Direct (NetworkMagic (..))
 import Hydra.Logging (Verbosity (Verbose))
 import Hydra.Network (Host (Host))

@@ -8,13 +8,21 @@ module Hydra.Options (
   ParserResult (..),
 ) where
 
+import Hydra.Prelude
+
 import Data.IP (IP)
-import Hydra.Cardano.Api (ChainPoint (ChainPoint), NetworkId (..))
+import qualified Data.Text as T
+import Hydra.Cardano.Api (
+  ChainPoint (..),
+  NetworkId (..),
+  SlotNo (..),
+  UsingRawBytesHex (..),
+  deserialiseFromRawBytesBase16,
+ )
 import Hydra.Chain.Direct (NetworkMagic (..))
 import Hydra.Logging (Verbosity (..))
 import Hydra.Network (Host, PortNumber, readHost, readPort)
 import Hydra.Node.Version (gitRevision, showFullVersion, version)
-import Hydra.Prelude
 import Options.Applicative (
   Parser,
   ParserInfo,
@@ -274,9 +282,20 @@ startChainFromParser =
         <> metavar "SLOT.HEADER_HASH"
         <> help "The point at which to start on-chain component. Defaults to chain tip at startup time."
     )
-
-readChainPoint :: String -> Maybe ChainPoint
-readChainPoint = const Nothing
+ where
+  readChainPoint :: String -> Maybe ChainPoint
+  readChainPoint chainPointStr =
+    case T.splitOn "." (toText chainPointStr) of
+      [slotNoTxt, headerHashTxt] -> do
+        slotNo <- SlotNo <$> readMaybe (toString slotNoTxt)
+        UsingRawBytesHex headerHash <-
+          either
+            (const Nothing)
+            Just
+            (deserialiseFromRawBytesBase16 (encodeUtf8 headerHashTxt))
+        pure $ ChainPoint slotNo headerHash
+      _ ->
+        Nothing
 
 hydraNodeOptions :: ParserInfo Options
 hydraNodeOptions =
