@@ -14,7 +14,6 @@ import Hydra.Options (
   defaultChainConfig,
   defaultLedgerConfig,
   defaultOptions,
-  genOptions,
   parseHydraOptionsFromString,
   toArgs,
  )
@@ -160,7 +159,7 @@ spec = parallel $
           }
 
     prop "roundtrip options" $
-      forAll genOptions canRoundtripOptionsAndPrettyPrinting
+      forAll arbitrary canRoundtripOptionsAndPrettyPrinting
 
 canRoundtripOptionsAndPrettyPrinting :: Options -> Property
 canRoundtripOptionsAndPrettyPrinting opts =

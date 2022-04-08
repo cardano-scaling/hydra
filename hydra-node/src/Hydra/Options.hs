@@ -10,7 +10,6 @@ module Hydra.Options (
   defaultOptions,
   defaultLedgerConfig,
   defaultChainConfig,
-  genOptions,
 ) where
 
 import Hydra.Prelude
@@ -57,7 +56,7 @@ import Options.Applicative (
   value,
  )
 import Options.Applicative.Builder (str)
-import Test.QuickCheck (elements)
+import Test.QuickCheck (elements, listOf, listOf1)
 
 data Options = Options
   { verbosity :: Verbosity
@@ -77,6 +76,54 @@ data Options = Options
     startChainFrom :: Maybe ChainPoint
   }
   deriving (Eq, Show)
+
+defaultOptions :: Options
+defaultOptions =
+  Options
+    { verbosity = Verbose "HydraNode"
+    , nodeId = 1
+    , host = "127.0.0.1"
+    , port = 5001
+    , peers = []
+    , apiHost = "127.0.0.1"
+    , apiPort = 4001
+    , monitoringPort = Nothing
+    , hydraSigningKey = "hydra.sk"
+    , hydraVerificationKeys = []
+    , chainConfig = defaultChainConfig
+    , ledgerConfig = defaultLedgerConfig
+    , startChainFrom = Nothing
+    }
+
+instance Arbitrary Options where
+  arbitrary = do
+    verbosity <- elements [Quiet, Verbose "HydraNode"]
+    nodeId <- arbitrary
+    host <- IPv4 . toIPv4w <$> arbitrary
+    port <- arbitrary
+    peers <- reasonablySized arbitrary
+    apiHost <- IPv4 . toIPv4w <$> arbitrary
+    apiPort <- arbitrary
+    monitoringPort <- arbitrary
+    hydraSigningKey <- genFilePath "sk"
+    hydraVerificationKeys <- reasonablySized (listOf (genFilePath "vk"))
+    chainConfig <- arbitrary
+    pure $
+      defaultOptions
+        { verbosity
+        , nodeId
+        , host
+        , port
+        , peers
+        , apiHost
+        , apiPort
+        , monitoringPort
+        , hydraSigningKey
+        , hydraVerificationKeys
+        , chainConfig
+        -- , ledgerConfig
+        -- , startChainFrom
+        }
 
 hydraNodeParser :: Parser Options
 hydraNodeParser =
@@ -100,6 +147,13 @@ data LedgerConfig = CardanoLedgerConfig
   , cardanoLedgerProtocolParametersFile :: FilePath
   }
   deriving (Eq, Show)
+
+defaultLedgerConfig :: LedgerConfig
+defaultLedgerConfig =
+  CardanoLedgerConfig
+    { cardanoLedgerGenesisFile = "genesis-shelley.json"
+    , cardanoLedgerProtocolParametersFile = "protocol-parameters.json"
+    }
 
 ledgerConfigParser :: Parser LedgerConfig
 ledgerConfigParser =
@@ -132,6 +186,29 @@ data ChainConfig = DirectChainConfig
   , cardanoVerificationKeys :: [FilePath]
   }
   deriving (Eq, Show)
+
+defaultChainConfig :: ChainConfig
+defaultChainConfig =
+  DirectChainConfig
+    { networkId = Testnet (NetworkMagic 42)
+    , nodeSocket = "node.socket"
+    , cardanoSigningKey = "cardano.sk"
+    , cardanoVerificationKeys = []
+    }
+
+instance Arbitrary ChainConfig where
+  arbitrary = do
+    networkId <- Testnet . NetworkMagic <$> arbitrary
+    nodeSocket <- genFilePath "socket"
+    cardanoSigningKey <- genFilePath ".sk"
+    cardanoVerificationKeys <- reasonablySized (listOf (genFilePath ".vk"))
+    pure $
+      DirectChainConfig
+        { networkId
+        , nodeSocket
+        , cardanoSigningKey
+        , cardanoVerificationKeys
+        }
 
 chainConfigParser :: Parser ChainConfig
 chainConfigParser =
@@ -403,43 +480,7 @@ toArgs
       , cardanoVerificationKeys
       } = chainConfig
 
-genOptions :: Gen Options
-genOptions = do
-  verbosity <- elements [Quiet, Verbose "HydraNode"]
-  nodeId <- arbitrary
-  host <- IPv4 . toIPv4w <$> arbitrary
-  pure $ defaultOptions{verbosity, nodeId, host}
-
-defaultOptions :: Options
-defaultOptions =
-  Options
-    { verbosity = Verbose "HydraNode"
-    , nodeId = 1
-    , host = "127.0.0.1"
-    , port = 5001
-    , peers = []
-    , apiHost = "127.0.0.1"
-    , apiPort = 4001
-    , monitoringPort = Nothing
-    , hydraSigningKey = "hydra.sk"
-    , hydraVerificationKeys = []
-    , chainConfig = defaultChainConfig
-    , ledgerConfig = defaultLedgerConfig
-    , startChainFrom = Nothing
-    }
-
-defaultChainConfig :: ChainConfig
-defaultChainConfig =
-  DirectChainConfig
-    { networkId = Testnet (NetworkMagic 42)
-    , nodeSocket = "node.socket"
-    , cardanoSigningKey = "cardano.sk"
-    , cardanoVerificationKeys = []
-    }
-
-defaultLedgerConfig :: LedgerConfig
-defaultLedgerConfig =
-  CardanoLedgerConfig
-    { cardanoLedgerGenesisFile = "genesis-shelley.json"
-    , cardanoLedgerProtocolParametersFile = "protocol-parameters.json"
-    }
+genFilePath :: String -> Gen FilePath
+genFilePath extension = do
+  path <- reasonablySized (listOf1 (elements ["a", "b", "c"]))
+  pure $ intercalate "/" path <> "." <> extension
