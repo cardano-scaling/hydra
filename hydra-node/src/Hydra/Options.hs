@@ -16,11 +16,12 @@ import qualified Data.Text as T
 import Hydra.Cardano.Api (
   ChainPoint (..),
   NetworkId (..),
+  NetworkMagic (..),
   SlotNo (..),
   UsingRawBytesHex (..),
   deserialiseFromRawBytesBase16,
+  serialiseToRawBytesHexText,
  )
-import Hydra.Chain.Direct (NetworkMagic (..))
 import Hydra.Logging (Verbosity (..))
 import Hydra.Network (Host, PortNumber, readHost, readPort)
 import Hydra.Node.Version (gitRevision, showFullVersion, version)
@@ -66,7 +67,8 @@ data Options = Options
   , hydraVerificationKeys :: [FilePath]
   , chainConfig :: ChainConfig
   , ledgerConfig :: LedgerConfig
-  , startChainFrom :: Maybe ChainPoint
+  , -- TODO: Move into 'ChainConfig'
+    startChainFrom :: Maybe ChainPoint
   }
   deriving (Eq, Show)
 
@@ -333,29 +335,64 @@ toArgs
     , monitoringPort
     , hydraSigningKey
     , hydraVerificationKeys
-    -- , chainConfig
-    -- , ledgerConfig
-    -- , startChainFrom
+    , chainConfig
+    , ledgerConfig
+    , startChainFrom
     } =
-    [ "--node-id"
-    , show nodeId
-    , "--host"
-    , show host
-    , "--port"
-    , show port
-    , "--api-host"
-    , show apiHost
-    , "--api-port"
-    , show apiPort
-    , "--hydra-signing-key"
-    , hydraSigningKey
-    ]
+    isVerbose verbosity
+      <> ["--node-id", show nodeId]
+      <> ["--host", show host]
+      <> ["--port", show port]
+      <> ["--api-host", show apiHost]
+      <> ["--api-port", show apiPort]
+      <> ["--hydra-signing-key", hydraSigningKey]
       <> concatMap (\vk -> ["--hydra-verification-key", vk]) hydraVerificationKeys
       <> concatMap toArgPeer peers
       <> maybe [] (\mport -> ["--monitoring-port", show mport]) monitoringPort
-      <> isVerbose verbosity
+      <> argsChainConfig
+      <> argsLedgerConfig
+      <> toArgStartChainFrom startChainFrom
    where
     isVerbose = \case
       Quiet -> ["--quiet"]
       _ -> []
-    toArgPeer p = ["--peer", show p]
+
+    toArgPeer p =
+      ["--peer", show p]
+
+    toArgStartChainFrom = \case
+      Just ChainPointAtGenesis ->
+        error "ChainPointAtGenesis"
+      Just (ChainPoint (SlotNo slotNo) headerHash) ->
+        let headerHashBase16 = toString (serialiseToRawBytesHexText headerHash)
+         in ["--start-chain-from", show slotNo <> "." <> headerHashBase16]
+      Nothing ->
+        []
+
+    toArgNetworkId = \case
+      Mainnet -> error "Mainnet not supported"
+      Testnet (NetworkMagic magic) -> show magic
+
+    argsChainConfig =
+      mempty
+        <> ["--network-id", toArgNetworkId networkId]
+        <> ["--node-socket", nodeSocket]
+        <> ["--cardano-signing-key", cardanoSigningKey]
+        <> concatMap (\vk -> ["--cardano-verification-key", vk]) cardanoVerificationKeys
+
+    argsLedgerConfig =
+      mempty
+        <> ["--ledger-genesis", cardanoLedgerGenesisFile]
+        <> ["--ledger-protocol-parameters", cardanoLedgerProtocolParametersFile]
+
+    CardanoLedgerConfig
+      { cardanoLedgerGenesisFile
+      , cardanoLedgerProtocolParametersFile
+      } = ledgerConfig
+
+    DirectChainConfig
+      { networkId
+      , nodeSocket
+      , cardanoSigningKey
+      , cardanoVerificationKeys
+      } = chainConfig
