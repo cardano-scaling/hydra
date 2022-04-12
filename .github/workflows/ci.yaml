@@ -80,9 +80,19 @@ jobs:
         nix-shell --arg withoutDevTools true --run 'cabal test ${{ matrix.package }}'
 
     - name: Test (TUI)
+      id: test_tui
       if: ${{ matrix.package == 'hydra-tui' }}
       # https://giters.com/gfx/example-github-actions-with-tty
       # The default shell does not allocate a TTY which breaks some tests
+      shell: 'script -q -e -c "bash {0}"'
+      env:
+        TERM: "xterm"
+      continue-on-error: true
+      run: |
+        nix-shell --arg withoutDevTools true --run 'cabal test ${{ matrix.package }}'
+
+    - name: Test (TUI, retry)
+      if: steps.test_tui.outcome=='failure'
       shell: 'script -q -e -c "bash {0}"'
       env:
         TERM: "xterm"
