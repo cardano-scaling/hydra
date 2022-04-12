@@ -59,17 +59,17 @@ jobs:
 
     - name: Prepare nix-shell
       run: |
-        nix-build --arg githubWorkflow true shell.nix
+        nix-build --arg withoutDevTools true shell.nix
 
     - name: Build
       run: |
-        nix-shell --arg githubWorkflow true --run 'cabal update'
-        nix-shell --arg githubWorkflow true --run 'cabal build ${{ matrix.package }}'
+        nix-shell --arg withoutDevTools true --run 'cabal update'
+        nix-shell --arg withoutDevTools true --run 'cabal build ${{ matrix.package }}'
 
     - name: Test
       if: ${{ matrix.package != 'hydra-tui' }}
       run: |
-        nix-shell --arg githubWorkflow true --run 'cabal test ${{ matrix.package }}'
+        nix-shell --arg withoutDevTools true --run 'cabal test ${{ matrix.package }}'
 
     - name: Test (TUI)
       if: ${{ matrix.package == 'hydra-tui' }}
@@ -79,7 +79,7 @@ jobs:
       env:
         TERM: "xterm"
       run: |
-        nix-shell --arg githubWorkflow true --run 'cabal test ${{ matrix.package }}'
+        nix-shell --arg withoutDevTools true --run 'cabal test ${{ matrix.package }}'
 
     # TODO vvv
 
