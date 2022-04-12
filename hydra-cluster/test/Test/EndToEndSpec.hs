@@ -46,6 +46,9 @@ import Hydra.Cardano.Api (
 import Hydra.Ledger (txId)
 import Hydra.Ledger.Cardano (genKeyPair, mkSimpleTx)
 import Hydra.Logging (Tracer, showLogsOnFailure)
+import Hydra.Options (
+  ChainConfig (startChainFrom),
+ )
 import Hydra.Party (Party, deriveParty)
 import qualified Hydra.Party as Party
 import HydraNode (
@@ -99,7 +102,11 @@ spec = around showLogsOnFailure $
                 output "ReadyToCommit" ["parties" .= Set.fromList [alice]]
               return tip
 
-            withHydraNode tracer aliceChainConfig tmp 1 aliceSk [] [1] $ \n1 ->
+            let aliceChainConfig' =
+                  aliceChainConfig'
+                    { startChainFrom = Just tip
+                    }
+            withHydraNode tracer aliceChainConfig' tmp 1 aliceSk [] [1] $ \n1 -> do
               waitFor tracer 10 [n1] $
                 output "ReadyToCommit" ["parties" .= Set.fromList [alice]]
 

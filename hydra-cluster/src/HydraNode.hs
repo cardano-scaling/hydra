@@ -310,7 +310,7 @@ withConnectionToNode tracer hydraNodeId action = do
   tryConnect connectedOnce =
     doConnect connectedOnce `catch` \(e :: IOException) -> do
       readIORef connectedOnce >>= \case
-        False -> tryConnect connectedOnce
+        False -> threadDelay 0.1 >> tryConnect connectedOnce
         True -> throwIO e
 
   doConnect connectedOnce = runClient "127.0.0.1" (4000 + hydraNodeId) "/" $ \connection -> do

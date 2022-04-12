@@ -244,7 +244,7 @@ spec = around showLogsOnFailure $ do
             tip <- queryTip defaultNetworkId nodeSocket
             alicePostTx $ InitTx $ HeadParameters 100 [alice]
             alicesCallback `observesInTime` OnInitTx 100 [alice]
-            return tip
+            return (toConsensusPointHF tip)
 
           withDirectChain (contramap (FromDirectChain "alice") tracer) defaultNetworkId iocp nodeSocket aliceKeys alice cardanoKeys (Just tip) (putMVar alicesCallback) $ \_ -> do
             alicesCallback `observesInTime` OnInitTx 100 [alice]
