@@ -95,11 +95,43 @@ jobs:
       run: |
         nix-shell --arg withoutDevTools true --run 'cabal bench ${{ matrix.bench.name }} --benchmark-options "${{ matrix.bench.options }}"'
 
+    - name: Upload build & test artifacts
+      uses: actions/upload-artifact@v2
+      with:
+        path: ./**/test-results.xml
+
+  publish:
+    needs: [build-test]
+    name: Publish documentation and test results
+    runs-on: ubuntu-latest
+    steps:
+
+    - uses: actions/checkout@v2.3.1
+      with:
+        repository: input-output-hk/hydra-poc
+        token: ${{ secrets.MY_TOKEN || github.token }}
+
+    - uses: actions/download-artifact@v3
+
+    - name: Publish Unit Test Results
+      uses: EnricoMi/publish-unit-test-result-action@v1
+      with:
+        files: ./**/test-results.xml
+
     # TODO vvv
 
     # - name: Documentation (Haddock)
     #   run: |
     #     nix-shell --run '.github/workflows/ci-haddock.sh'
+
+    # - name: Publish Documentation
+    #   if: github.event_name == 'push'
+    #   uses: peaceiris/actions-gh-pages@v3
+    #   with:
+    #     github_token: ${{ secrets.GITHUB_TOKEN || github.token }}
+    #     publish_dir: docs/public
+    #     enable_jekyll: true
+    #     force_orphan: true
 
     # - name: Setup Node.js
     #   uses: actions/setup-node@v3
@@ -117,20 +149,6 @@ jobs:
     #     mv build/* public/head-protocol
     #     echo "hydra.family" > public/CNAME
     #     echo '<!DOCTYPE html><html><head><meta http-equiv="Refresh" content="0; URL=https://hydra.family/head-protocol"></head></html>' > public/index.html
-
-    # - name: Publish Unit Test Results
-    #   uses: EnricoMi/publish-unit-test-result-action@v1
-    #   with:
-    #     files: ./**/test-results.xml
-
-    # - name: Publish Documentation
-    #   if: github.event_name == 'push'
-    #   uses: peaceiris/actions-gh-pages@v3
-    #   with:
-    #     github_token: ${{ secrets.GITHUB_TOKEN || github.token }}
-    #     publish_dir: docs/public
-    #     enable_jekyll: true
-    #     force_orphan: true
 
   markdown-link-check:
     name: "Check markdown links"
