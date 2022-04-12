@@ -9,7 +9,7 @@ on:
 
 jobs:
   build-test:
-    name: Build, test & documentation
+    name: "Build & test"
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -46,7 +46,6 @@ jobs:
         extra_nix_config: |
           trusted-public-keys = iohk.cachix.org-1:DpRUyj7h7V830dp/i6Nti+NEO2/nhblbov/8MW7Rqoo= hydra.iohk.io:f/Ea+s+dFdN+3Y/G+FDgSq+a5NEWhJGzdjvKNGv0/EQ= cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY=
           substituters = https://cache.nixos.org https://hydra.iohk.io https://iohk.cachix.org
-          max-jobs = 2
 
     - name: Cachix cache of nix derivations
       uses: cachix/cachix-action@v10
@@ -100,12 +99,11 @@ jobs:
       with:
         path: ./**/test-results.xml
 
-  publish:
+  publish-test-results:
+    name: Publish test results
     needs: [build-test]
-    name: Publish documentation and test results
     runs-on: ubuntu-latest
     steps:
-
     - uses: actions/checkout@v2.3.1
       with:
         repository: input-output-hk/hydra-poc
@@ -118,48 +116,78 @@ jobs:
       with:
         files: ./**/test-results.xml
 
-    # TODO vvv
-
-    # - name: Documentation (Haddock)
-    #   run: |
-    #     nix-shell --run '.github/workflows/ci-haddock.sh'
-
-    # - name: Publish Documentation
-    #   if: github.event_name == 'push'
-    #   uses: peaceiris/actions-gh-pages@v3
-    #   with:
-    #     github_token: ${{ secrets.GITHUB_TOKEN || github.token }}
-    #     publish_dir: docs/public
-    #     enable_jekyll: true
-    #     force_orphan: true
-
-    # - name: Setup Node.js
-    #   uses: actions/setup-node@v3
-    #   with:
-    #     node-version: 16
-    #     cache: 'yarn'
-    #     cache-dependency-path: docs/yarn.lock
-
-    # - name: Documentation (Docusaurus)
-    #   working-directory: docs
-    #   run: |
-    #     yarn && yarn build
-    #     yarn validate
-    #     mkdir -p public/head-protocol
-    #     mv build/* public/head-protocol
-    #     echo "hydra.family" > public/CNAME
-    #     echo '<!DOCTYPE html><html><head><meta http-equiv="Refresh" content="0; URL=https://hydra.family/head-protocol"></head></html>' > public/index.html
-
-  markdown-link-check:
-    name: "Check markdown links"
+  documentation:
+    name: Documentation
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@master
-    # NOTE: We do not check the 'docs' folder because links in markdown are already checked and handled by Docusaurus.
+    - uses: actions/checkout@v2.3.1
+      with:
+        repository: input-output-hk/hydra-poc
+        token: ${{ secrets.MY_TOKEN || github.token }}
+
     - uses: gaurav-nelson/github-action-markdown-link-check@v1
       with:
         folder-path: "hydra-cardano-api, hydra-cluster, hydra-node, hydra-plutus, hydra-prelude, hydra-test-utils, hydra-tui, plutus-cbor, plutus-merkle-tree"
+
     - uses: gaurav-nelson/github-action-markdown-link-check@v1
       with:
         folder-path: "."
         max-depth: 1
+
+    - name: Prepare nix
+      uses: cachix/install-nix-action@v13
+      with:
+        skip_adding_nixpkgs_channel: true
+        extra_nix_config: |
+          trusted-public-keys = iohk.cachix.org-1:DpRUyj7h7V830dp/i6Nti+NEO2/nhblbov/8MW7Rqoo= hydra.iohk.io:f/Ea+s+dFdN+3Y/G+FDgSq+a5NEWhJGzdjvKNGv0/EQ= cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY=
+          substituters = https://cache.nixos.org https://hydra.iohk.io https://iohk.cachix.org
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: 16
+        cache: 'yarn'
+        cache-dependency-path: docs/yarn.lock
+
+    - name: Cachix cache of nix derivations
+      uses: cachix/cachix-action@v10
+      with:
+        name: hydra-node
+        authToken: '${{ secrets.CACHIX_AUTH_TOKEN }}'
+
+    - name: Github cache ~/.cabal/packages, ~/.cabal/store and dist-newstyle
+      uses: actions/cache@v2.1.5
+      with:
+        path: |
+          ~/.cabal/packages
+          ~/.cabal/store
+          dist-newstyle
+        key: |
+          cabal-${{ runner.os }}-${{ hashFiles('cabal.project', 'default.nix', 'shell.nix') }}
+
+    - name: Prepare nix-shell
+      run: |
+        nix-build --arg withoutDevTools true shell.nix
+
+    - name: Documentation (Haddock)
+      run: |
+        nix-shell --run '.github/workflows/ci-haddock.sh'
+
+    - name: Documentation (Docusaurus)
+      working-directory: docs
+      run: |
+        yarn && yarn build
+        yarn validate
+        mkdir -p public/head-protocol
+        mv build/* public/head-protocol
+        echo "hydra.family" > public/CNAME
+        echo '<!DOCTYPE html><html><head><meta http-equiv="Refresh" content="0; URL=https://hydra.family/head-protocol"></head></html>' > public/index.html
+
+    - name: Publish Documentation
+      if: github.event_name == 'push'
+      uses: peaceiris/actions-gh-pages@v3
+      with:
+        github_token: ${{ secrets.GITHUB_TOKEN || github.token }}
+        publish_dir: docs/public
+        enable_jekyll: true
+        force_orphan: true
