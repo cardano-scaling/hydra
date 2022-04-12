@@ -239,7 +239,7 @@ withHydraCluster tracer workDir nodeSocket firstNodeId allKeys hydraKeys action 
         (\c -> startNodes (c : clients) rest)
 
 withHydraNode ::
-  forall alg.
+  forall alg a.
   DSIGNAlgorithm alg =>
   Tracer IO EndToEndLog ->
   ChainConfig ->
@@ -248,8 +248,8 @@ withHydraNode ::
   SignKeyDSIGN alg ->
   [VerKeyDSIGN alg] ->
   [Int] ->
-  (HydraClient -> IO ()) ->
-  IO ()
+  (HydraClient -> IO a) ->
+  IO a
 withHydraNode tracer chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNodeIds action = do
   withFile' (workDir </> show hydraNodeId) $ \out -> do
     withSystemTempDirectory "hydra-node" $ \dir -> do
@@ -285,9 +285,13 @@ withHydraNode tracer chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNod
               }
       withCreateProcess p $
         \_stdin _stdout _stderr processHandle -> do
-          race_
-            (checkProcessHasNotDied ("hydra-node (" <> show hydraNodeId <> ")") processHandle)
-            (withConnectionToNode tracer hydraNodeId action)
+          result <-
+            race
+              (checkProcessHasNotDied ("hydra-node (" <> show hydraNodeId <> ")") processHandle)
+              (withConnectionToNode tracer hydraNodeId action)
+          case result of
+            Left err -> absurd err
+            Right a -> pure a
  where
   peers =
     [ Host

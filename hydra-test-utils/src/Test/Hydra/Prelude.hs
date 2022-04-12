@@ -118,10 +118,10 @@ dualFormatter suiteName config = do
 --         (checkProcessHasNotDied "my-process" processHandle)
 --         doStuff
 -- @@
-checkProcessHasNotDied :: Text -> ProcessHandle -> IO ()
+checkProcessHasNotDied :: Text -> ProcessHandle -> IO Void
 checkProcessHasNotDied name processHandle =
   waitForProcess processHandle >>= \case
-    ExitSuccess -> pure ()
+    ExitSuccess -> failure "Process has died"
     ExitFailure exit -> failure $ "Process " <> show name <> " exited with failure code: " <> show exit
 
 -- | Like 'coverTable', but construct the weight requirements generically from

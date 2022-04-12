@@ -12,7 +12,7 @@ import Cardano.Crypto.DSIGN (
   SignKeyDSIGN,
   VerKeyDSIGN,
  )
-import CardanoClient (waitForUTxO)
+import CardanoClient (queryTip, waitForUTxO)
 import CardanoCluster (
   Actor (Alice, Bob, Carol),
   Marked (Fuel, Normal),
@@ -80,6 +80,28 @@ spec = around showLogsOnFailure $
             config <- newNodeConfig tmpDir
             withBFTNode (contramap FromCluster tracer) config $ \node -> do
               initAndClose tracer 1 node
+
+    describe "start chain observer from the past" $
+      it "can restart head to point in the past and replay on-chain events" $ \tracer -> do
+        withTempDir "end-to-end-chain-observer" $ \tmp -> do
+          config <- newNodeConfig tmp
+          withBFTNode (contramap FromCluster tracer) config $ \node@(RunningNode _ nodeSocket) -> do
+            let aliceSk = 10
+            let alice = deriveParty aliceSk
+            (aliceCardanoVk, _aliceCardanoSk) <- keysFor Alice
+            aliceChainConfig <- chainConfigFor Alice tmp nodeSocket []
+            tip <- withHydraNode tracer aliceChainConfig tmp 1 aliceSk [] [1] $ \n1 -> do
+              seedFromFaucet_ defaultNetworkId node aliceCardanoVk 100_000_000 Fuel
+              tip <- queryTip defaultNetworkId nodeSocket
+              let contestationPeriod = 10 :: Natural
+              send n1 $ input "Init" ["contestationPeriod" .= contestationPeriod]
+              waitFor tracer 10 [n1] $
+                output "ReadyToCommit" ["parties" .= Set.fromList [alice]]
+              return tip
+
+            withHydraNode tracer aliceChainConfig tmp 1 aliceSk [] [1] $ \n1 ->
+              waitFor tracer 10 [n1] $
+                output "ReadyToCommit" ["parties" .= Set.fromList [alice]]
 
     describe "two hydra heads scenario" $ do
       it "two heads on the same network do not conflict" $ \tracer ->
