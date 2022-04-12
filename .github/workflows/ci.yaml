@@ -15,14 +15,22 @@ jobs:
       matrix:
         include:
           - package: plutus-cbor
+            bench:
+              shouldRun: false
           - package: plutus-merkle-tree
+            bench:
+              shouldRun: false
           - package: hydra-tui
+            bench:
+              shouldRun: false
           - package: hydra-node
             bench:
+              shouldRun: true
               name: tx-cost
               options: '--output-directory $(pwd)/docs/benchmarks'
           - package: hydra-cluster
             bench:
+              shouldRun: true
               name: hydra-cluster
               options: '--scaling-factor 1'
     steps:
@@ -38,6 +46,7 @@ jobs:
         extra_nix_config: |
           trusted-public-keys = iohk.cachix.org-1:DpRUyj7h7V830dp/i6Nti+NEO2/nhblbov/8MW7Rqoo= hydra.iohk.io:f/Ea+s+dFdN+3Y/G+FDgSq+a5NEWhJGzdjvKNGv0/EQ= cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY=
           substituters = https://cache.nixos.org https://hydra.iohk.io https://iohk.cachix.org
+          max-jobs = 2
 
     - name: Cachix cache of nix derivations
       uses: cachix/cachix-action@v10
@@ -80,6 +89,11 @@ jobs:
         TERM: "xterm"
       run: |
         nix-shell --arg withoutDevTools true --run 'cabal test ${{ matrix.package }}'
+
+    - name: Bench
+      if: ${{ matrix.bench.shouldRun }}
+      run: |
+        nix-shell --arg withoutDevTools true --run 'cabal bench ${{ matrix.bench.name }} --benchmark-options "${{ matrix.bench.options }}"'
 
     # TODO vvv
 
