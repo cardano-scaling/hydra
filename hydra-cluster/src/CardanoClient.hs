@@ -12,8 +12,6 @@ import qualified Cardano.Api.UTxO as UTxO
 import Cardano.Slotting.Time (SystemStart)
 import qualified Data.Map as Map
 import qualified Data.Set as Set
-import Hydra.Chain.Direct.Util (Block)
-import Ouroboros.Consensus.Block (Point)
 import Ouroboros.Consensus.HardFork.Combinator.AcrossEras (EraMismatch)
 import Ouroboros.Network.Protocol.LocalTxSubmission.Client (SubmitResult (..))
 
@@ -135,9 +133,9 @@ queryTipSlotNo networkId socket =
     ChainTipAtGenesis -> pure 0
     ChainTip slotNo _ _ -> pure slotNo
 
-queryTip :: NetworkId -> FilePath -> IO (Point Block)
+queryTip :: NetworkId -> FilePath -> IO ChainPoint
 queryTip networkId socket =
-  toConsensusPointHF . chainTipToChainPoint <$> getLocalChainTip (localNodeConnectInfo networkId socket)
+  chainTipToChainPoint <$> getLocalChainTip (localNodeConnectInfo networkId socket)
 
 querySystemStart :: NetworkId -> FilePath -> IO SystemStart
 querySystemStart networkId socket =

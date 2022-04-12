@@ -29,7 +29,6 @@ import qualified Data.ByteString.Char8 as B8
 import Hydra.Cardano.Api (
   ChainPoint (..),
   lovelaceToValue,
-  toConsensusPointHF,
   txOutValue,
   unsafeDeserialiseFromRawBytesBase16,
  )
@@ -259,7 +258,7 @@ spec = around showLogsOnFailure $ do
         let cardanoKeys = [aliceCardanoVk]
         withIOManager $ \iocp -> do
           let headerHash = unsafeDeserialiseFromRawBytesBase16 (B8.replicate 64 '0')
-          let fakeTip = toConsensusPointHF (ChainPoint 42 headerHash)
+          let fakeTip = ChainPoint 42 headerHash
           flip shouldThrow isIntersectionNotFoundException $
             withDirectChain aliceTrace defaultNetworkId iocp nodeSocket aliceKeys alice cardanoKeys (Just fakeTip) (putMVar alicesCallback) $ \_ -> do
               threadDelay 5 >> fail "should not execute main action but did?"

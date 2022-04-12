@@ -12,7 +12,6 @@ module HydraNode (
   output,
   getMetrics,
   queryNode,
-  defaultArguments,
   hydraNodeProcess,
   module System.Process,
   waitForNodesConnected,
@@ -42,6 +41,9 @@ import qualified Data.ByteString as BS
 import qualified Data.List as List
 import qualified Data.Text as T
 import Hydra.Logging (Tracer, traceWith)
+import Hydra.Network (Host (Host))
+import qualified Hydra.Network as Network
+import Hydra.Options (ChainConfig (..), LedgerConfig (..), Options (..), defaultChainConfig, defaultOptions, toArgs)
 import qualified Hydra.Party as Hydra
 import Network.HTTP.Conduit (HttpExceptionContent (ConnectionFailure), parseRequest)
 import Network.HTTP.Simple (HttpException (HttpExceptionRequest), Response, getResponseBody, getResponseStatusCode, httpBS)
@@ -218,15 +220,18 @@ withHydraCluster tracer workDir nodeSocket firstNodeId allKeys hydraKeys action 
     (nodeId : rest) -> do
       let hydraSKey = hydraKeys Prelude.!! (nodeId - firstNodeId)
           hydraVKeys = map deriveVerKeyDSIGN $ filter (/= hydraSKey) hydraKeys
-          cardanoVKeys = [workDir </> show i <.> "vk" | i <- allNodeIds, i /= nodeId]
-          cardanoSKey = workDir </> show nodeId <.> "sk"
-
+          cardanoVerificationKeys = [workDir </> show i <.> "vk" | i <- allNodeIds, i /= nodeId]
+          cardanoSigningKey = workDir </> show nodeId <.> "sk"
+          chainConfig =
+            defaultChainConfig
+              { nodeSocket
+              , cardanoSigningKey
+              , cardanoVerificationKeys
+              }
       withHydraNode
         tracer
-        cardanoSKey
-        cardanoVKeys
+        chainConfig
         workDir
-        nodeSocket
         nodeId
         hydraSKey
         hydraVKeys
@@ -234,51 +239,68 @@ withHydraCluster tracer workDir nodeSocket firstNodeId allKeys hydraKeys action 
         (\c -> startNodes (c : clients) rest)
 
 withHydraNode ::
-  forall alg.
+  forall alg a.
   DSIGNAlgorithm alg =>
   Tracer IO EndToEndLog ->
-  String ->
-  [String] ->
-  FilePath ->
+  ChainConfig ->
   FilePath ->
   Int ->
   SignKeyDSIGN alg ->
   [VerKeyDSIGN alg] ->
   [Int] ->
-  (HydraClient -> IO ()) ->
-  IO ()
-withHydraNode tracer cardanoSKeyPath cardanoVKeysPaths workDir nodeSocket hydraNodeId hydraSKey hydraVKeys allNodeIds action = do
+  (HydraClient -> IO a) ->
+  IO a
+withHydraNode tracer chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNodeIds action = do
   withFile' (workDir </> show hydraNodeId) $ \out -> do
     withSystemTempDirectory "hydra-node" $ \dir -> do
-      let genesisFile = dir </> "genesis.json"
-      readConfigFile "genesis-shelley.json" >>= writeFileBS genesisFile
-      let pparamsFile = dir </> "protocol-parameters.json"
-      readConfigFile "protocol-parameters.json" >>= writeFileBS pparamsFile
-      let hydraSKeyPath = dir </> (show hydraNodeId <> ".sk")
-      BS.writeFile hydraSKeyPath (rawSerialiseSignKeyDSIGN hydraSKey)
-      hydraVKeysPaths <- forM (zip [1 ..] hydraVKeys) $ \(i :: Int, vKey) -> do
+      let cardanoLedgerGenesisFile = dir </> "genesis.json"
+      readConfigFile "genesis-shelley.json" >>= writeFileBS cardanoLedgerGenesisFile
+      let cardanoLedgerProtocolParametersFile = dir </> "protocol-parameters.json"
+      readConfigFile "protocol-parameters.json" >>= writeFileBS cardanoLedgerProtocolParametersFile
+      let hydraSigningKey = dir </> (show hydraNodeId <> ".sk")
+      BS.writeFile hydraSigningKey (rawSerialiseSignKeyDSIGN hydraSKey)
+      hydraVerificationKeys <- forM (zip [1 ..] hydraVKeys) $ \(i :: Int, vKey) -> do
         let filepath = dir </> (show i <> ".vk")
         filepath <$ BS.writeFile filepath (rawSerialiseVerKeyDSIGN vKey)
+      let ledgerConfig =
+            CardanoLedgerConfig
+              { cardanoLedgerGenesisFile
+              , cardanoLedgerProtocolParametersFile
+              }
       let p =
             ( hydraNodeProcess $
-                defaultArguments
-                  hydraNodeId
-                  genesisFile
-                  pparamsFile
-                  cardanoSKeyPath
-                  cardanoVKeysPaths
-                  hydraSKeyPath
-                  hydraVKeysPaths
-                  nodeSocket
-                  allNodeIds
+                defaultOptions
+                  { nodeId = fromIntegral hydraNodeId
+                  , port = fromIntegral $ 5000 + hydraNodeId
+                  , apiPort = fromIntegral $ 4000 + hydraNodeId
+                  , monitoringPort = Just $ fromIntegral $ 6000 + hydraNodeId
+                  , hydraSigningKey
+                  , hydraVerificationKeys
+                  , chainConfig
+                  , ledgerConfig
+                  , peers
+                  }
             )
               { std_out = UseHandle out
               }
       withCreateProcess p $
         \_stdin _stdout _stderr processHandle -> do
-          race_
-            (checkProcessHasNotDied ("hydra-node (" <> show hydraNodeId <> ")") processHandle)
-            (withConnectionToNode tracer hydraNodeId action)
+          result <-
+            race
+              (checkProcessHasNotDied ("hydra-node (" <> show hydraNodeId <> ")") processHandle)
+              (withConnectionToNode tracer hydraNodeId action)
+          case result of
+            Left err -> absurd err
+            Right a -> pure a
+ where
+  peers =
+    [ Host
+      { Network.hostname = "127.0.0.1"
+      , Network.port = fromIntegral $ 5000 + i
+      }
+    | i <- allNodeIds
+    , i /= hydraNodeId
+    ]
 
 withConnectionToNode :: Tracer IO EndToEndLog -> Int -> (HydraClient -> IO a) -> IO a
 withConnectionToNode tracer hydraNodeId action = do
@@ -288,7 +310,7 @@ withConnectionToNode tracer hydraNodeId action = do
   tryConnect connectedOnce =
     doConnect connectedOnce `catch` \(e :: IOException) -> do
       readIORef connectedOnce >>= \case
-        False -> tryConnect connectedOnce
+        False -> threadDelay 0.1 >> tryConnect connectedOnce
         True -> throwIO e
 
   doConnect connectedOnce = runClient "127.0.0.1" (4000 + hydraNodeId) "/" $ \connection -> do
@@ -306,47 +328,8 @@ withNewClient HydraClient{hydraNodeId, tracer} =
 newtype CannotStartHydraClient = CannotStartHydraClient Int deriving (Show)
 instance Exception CannotStartHydraClient
 
-hydraNodeProcess :: [String] -> CreateProcess
-hydraNodeProcess = proc "hydra-node"
-
-defaultArguments ::
-  Int ->
-  FilePath ->
-  FilePath ->
-  FilePath ->
-  [FilePath] ->
-  FilePath ->
-  [FilePath] ->
-  FilePath ->
-  [Int] ->
-  [String]
-defaultArguments nodeId genesisFile pparamsFile cardanoSKey cardanoVKeys hydraSKey hydraVKeys nodeSocket allNodeIds =
-  [ "--node-id"
-  , show nodeId
-  , "--host"
-  , "127.0.0.1"
-  , "--port"
-  , show (5000 + nodeId)
-  , "--api-host"
-  , "127.0.0.1"
-  , "--api-port"
-  , show (4000 + nodeId)
-  , "--monitoring-port"
-  , show (6000 + nodeId)
-  , "--hydra-signing-key"
-  , hydraSKey
-  , "--cardano-signing-key"
-  , cardanoSKey
-  , "--ledger-genesis"
-  , genesisFile
-  , "--ledger-protocol-parameters"
-  , pparamsFile
-  ]
-    <> concat [["--peer", "127.0.0.1:" <> show (5000 + i)] | i <- allNodeIds, i /= nodeId]
-    <> concat [["--hydra-verification-key", vKey] | vKey <- hydraVKeys]
-    <> concat [["--cardano-verification-key", vKey] | vKey <- cardanoVKeys]
-    <> ["--network-id", "42"]
-    <> ["--node-socket", nodeSocket]
+hydraNodeProcess :: Options -> CreateProcess
+hydraNodeProcess = proc "hydra-node" . toArgs
 
 waitForNodesConnected :: HasCallStack => Tracer IO EndToEndLog -> [HydraClient] -> IO ()
 waitForNodesConnected tracer clients =

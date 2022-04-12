@@ -3,17 +3,21 @@ module Hydra.OptionsSpec where
 import Hydra.Prelude
 import Test.Hydra.Prelude
 
-import Hydra.Cardano.Api (NetworkId (..))
+import Hydra.Cardano.Api (ChainPoint (..), NetworkId (..), unsafeDeserialiseFromRawBytesBase16)
 import Hydra.Chain.Direct (NetworkMagic (..))
-import Hydra.Logging (Verbosity (Verbose))
 import Hydra.Network (Host (Host))
 import Hydra.Options (
   ChainConfig (..),
   LedgerConfig (..),
   Options (..),
   ParserResult (..),
+  defaultChainConfig,
+  defaultLedgerConfig,
+  defaultOptions,
   parseHydraOptionsFromString,
+  toArgs,
  )
+import Test.QuickCheck (Property, counterexample, forAll, property, (===))
 
 spec :: Spec
 spec = parallel $
@@ -147,38 +151,30 @@ spec = parallel $
                 }
           }
 
-defaultOptions :: Options
-defaultOptions =
-  Options
-    { verbosity = Verbose "HydraNode"
-    , nodeId = 1
-    , host = "127.0.0.1"
-    , port = 5001
-    , peers = []
-    , apiHost = "127.0.0.1"
-    , apiPort = 4001
-    , monitoringPort = Nothing
-    , hydraSigningKey = "hydra.sk"
-    , hydraVerificationKeys = []
-    , chainConfig = defaultChainConfig
-    , ledgerConfig = defaultLedgerConfig
-    }
+    it "parses --start-chain-from as a pair of slot number and block header hash" $
+      ["--start-chain-from", "1000.0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"]
+        `shouldParse` defaultOptions
+          { chainConfig =
+              defaultChainConfig
+                { startChainFrom =
+                    Just
+                      ( ChainPoint
+                          1000
+                          (unsafeDeserialiseFromRawBytesBase16 "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef")
+                      )
+                }
+          }
 
-defaultChainConfig :: ChainConfig
-defaultChainConfig =
-  DirectChainConfig
-    { networkId = Testnet (NetworkMagic 42)
-    , nodeSocket = "node.socket"
-    , cardanoSigningKey = "cardano.sk"
-    , cardanoVerificationKeys = []
-    }
+    prop "roundtrip options" $
+      forAll arbitrary canRoundtripOptionsAndPrettyPrinting
 
-defaultLedgerConfig :: LedgerConfig
-defaultLedgerConfig =
-  CardanoLedgerConfig
-    { cardanoLedgerGenesisFile = "genesis-shelley.json"
-    , cardanoLedgerProtocolParametersFile = "protocol-parameters.json"
-    }
+canRoundtripOptionsAndPrettyPrinting :: Options -> Property
+canRoundtripOptionsAndPrettyPrinting opts =
+  let args = toArgs opts
+   in counterexample ("args:  " <> show args) $
+        case parseHydraOptionsFromString args of
+          Success opts' -> opts' === opts
+          err -> property False & counterexample ("error : " <> show err)
 
 shouldParse :: [String] -> Options -> Expectation
 shouldParse args options =

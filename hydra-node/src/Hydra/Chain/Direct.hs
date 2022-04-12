@@ -45,6 +45,7 @@ import Data.Aeson (Value (String), object, (.=))
 import Data.List ((\\))
 import Data.Sequence.Strict (StrictSeq)
 import Hydra.Cardano.Api (
+  ChainPoint,
   NetworkId,
   PaymentKey,
   SigningKey,
@@ -53,6 +54,7 @@ import Hydra.Cardano.Api (
   fromLedgerTx,
   fromLedgerTxIn,
   fromLedgerUTxO,
+  toConsensusPointHF,
   toLedgerTx,
   toLedgerUTxO,
  )
@@ -151,7 +153,7 @@ withDirectChain ::
   -- | Cardano keys of all Head participants (including our key pair).
   [VerificationKey PaymentKey] ->
   -- | Point at which to start following the chain.
-  Maybe (Point Block) ->
+  Maybe ChainPoint ->
   ChainComponent Tx IO a
 withDirectChain tracer networkId iocp socketPath keyPair party cardanoKeys point callback action = do
   queue <- newTQueueIO
@@ -210,7 +212,7 @@ withDirectChain tracer networkId iocp socketPath keyPair party cardanoKeys point
             connectTo
               (localSnocket iocp)
               nullConnectTracers
-              (versions networkId (client tracer point queue headState callback))
+              (versions networkId (client tracer (toConsensusPointHF <$> point) queue headState callback))
               socketPath
         )
     case res of

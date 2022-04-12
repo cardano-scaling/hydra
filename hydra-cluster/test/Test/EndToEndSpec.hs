@@ -12,17 +12,17 @@ import Cardano.Crypto.DSIGN (
   SignKeyDSIGN,
   VerKeyDSIGN,
  )
-import CardanoClient (waitForUTxO)
+import CardanoClient (queryTip, waitForUTxO)
 import CardanoCluster (
   Actor (Alice, Bob, Carol),
   Marked (Fuel, Normal),
+  chainConfigFor,
   defaultNetworkId,
   keysFor,
   newNodeConfig,
   seedFromFaucet,
   seedFromFaucet_,
   withBFTNode,
-  writeKeysFor,
  )
 import CardanoNode (RunningNode (RunningNode))
 import Control.Lens ((^?))
@@ -46,14 +46,17 @@ import Hydra.Cardano.Api (
 import Hydra.Ledger (txId)
 import Hydra.Ledger.Cardano (genKeyPair, mkSimpleTx)
 import Hydra.Logging (Tracer, showLogsOnFailure)
+import Hydra.Options (
+  ChainConfig (startChainFrom),
+ )
 import Hydra.Party (Party, deriveParty)
 import qualified Hydra.Party as Party
 import HydraNode (
   EndToEndLog (..),
   getMetrics,
-  hydraNodeProcess,
   input,
   output,
+  proc,
   readCreateProcess,
   send,
   waitFor,
@@ -80,6 +83,32 @@ spec = around showLogsOnFailure $
             config <- newNodeConfig tmpDir
             withBFTNode (contramap FromCluster tracer) config $ \node -> do
               initAndClose tracer 1 node
+
+    describe "start chain observer from the past" $
+      it "can restart head to point in the past and replay on-chain events" $ \tracer -> do
+        withTempDir "end-to-end-chain-observer" $ \tmp -> do
+          config <- newNodeConfig tmp
+          withBFTNode (contramap FromCluster tracer) config $ \node@(RunningNode _ nodeSocket) -> do
+            let aliceSk = 10
+            let alice = deriveParty aliceSk
+            (aliceCardanoVk, _aliceCardanoSk) <- keysFor Alice
+            aliceChainConfig <- chainConfigFor Alice tmp nodeSocket []
+            tip <- withHydraNode tracer aliceChainConfig tmp 1 aliceSk [] [1] $ \n1 -> do
+              seedFromFaucet_ defaultNetworkId node aliceCardanoVk 100_000_000 Fuel
+              tip <- queryTip defaultNetworkId nodeSocket
+              let contestationPeriod = 10 :: Natural
+              send n1 $ input "Init" ["contestationPeriod" .= contestationPeriod]
+              waitFor tracer 10 [n1] $
+                output "ReadyToCommit" ["parties" .= Set.fromList [alice]]
+              return tip
+
+            let aliceChainConfig' =
+                  aliceChainConfig
+                    { startChainFrom = Just tip
+                    }
+            withHydraNode tracer aliceChainConfig' tmp 1 aliceSk [] [1] $ \n1 -> do
+              waitFor tracer 10 [n1] $
+                output "ReadyToCommit" ["parties" .= Set.fromList [alice]]
 
     describe "two hydra heads scenario" $ do
       it "two heads on the same network do not conflict" $ \tracer ->
@@ -109,10 +138,10 @@ spec = around showLogsOnFailure $
             withBFTNode (contramap FromCluster tracer) config $ \node@(RunningNode _ nodeSocket) -> do
               (aliceCardanoVk, _aliceCardanoSk) <- keysFor Alice
               (bobCardanoVk, _bobCardanoSk) <- keysFor Bob
-              (aliceVkPath, aliceSkPath) <- writeKeysFor tmpDir Alice
-              (_, bobSkPath) <- writeKeysFor tmpDir Bob
-              withHydraNode tracer aliceSkPath [] tmpDir nodeSocket 1 aliceSk [] allNodeIds $ \n1 ->
-                withHydraNode tracer bobSkPath [aliceVkPath] tmpDir nodeSocket 2 bobSk [aliceVk] allNodeIds $ \n2 -> do
+              aliceChainConfig <- chainConfigFor Alice tmpDir nodeSocket []
+              bobChainConfig <- chainConfigFor Bob tmpDir nodeSocket [Alice]
+              withHydraNode tracer aliceChainConfig tmpDir 1 aliceSk [] allNodeIds $ \n1 ->
+                withHydraNode tracer bobChainConfig tmpDir 2 bobSk [aliceVk] allNodeIds $ \n2 -> do
                   -- Funds to be used as fuel by Hydra protocol transactions
                   seedFromFaucet_ defaultNetworkId node aliceCardanoVk 100_000_000 Fuel
                   seedFromFaucet_ defaultNetworkId node bobCardanoVk 100_000_000 Fuel
@@ -158,13 +187,13 @@ spec = around showLogsOnFailure $
           config <- newNodeConfig tmpDir
           (aliceCardanoVk, _) <- keysFor Alice
           withBFTNode (contramap FromCluster tracer) config $ \node@(RunningNode _ nodeSocket) -> do
-            (aliceVkPath, aliceSkPath) <- writeKeysFor tmpDir Alice
-            (bobVkPath, bobSkPath) <- writeKeysFor tmpDir Bob
-            (carolVkPath, carolSkPath) <- writeKeysFor tmpDir Carol
+            aliceChainConfig <- chainConfigFor Alice tmpDir nodeSocket [Bob, Carol]
+            bobChainConfig <- chainConfigFor Bob tmpDir nodeSocket [Alice, Carol]
+            carolChainConfig <- chainConfigFor Carol tmpDir nodeSocket [Bob, Carol]
             failAfter 20 $
-              withHydraNode tracer aliceSkPath [bobVkPath, carolVkPath] tmpDir nodeSocket 1 aliceSk [bobVk, carolVk] allNodeIds $ \n1 ->
-                withHydraNode tracer bobSkPath [aliceVkPath, carolVkPath] tmpDir nodeSocket 2 bobSk [aliceVk, carolVk] allNodeIds $ \n2 ->
-                  withHydraNode tracer carolSkPath [aliceVkPath, bobVkPath] tmpDir nodeSocket 3 carolSk [aliceVk, bobVk] allNodeIds $ \n3 -> do
+              withHydraNode tracer aliceChainConfig tmpDir 1 aliceSk [bobVk, carolVk] allNodeIds $ \n1 ->
+                withHydraNode tracer bobChainConfig tmpDir 2 bobSk [aliceVk, carolVk] allNodeIds $ \n2 ->
+                  withHydraNode tracer carolChainConfig tmpDir 3 carolSk [aliceVk, bobVk] allNodeIds $ \n3 -> do
                     -- Funds to be used as fuel by Hydra protocol transactions
                     seedFromFaucet_ defaultNetworkId node aliceCardanoVk 100_000_000 Fuel
                     waitForNodesConnected tracer [n1, n2, n3]
@@ -176,7 +205,7 @@ spec = around showLogsOnFailure $
     describe "hydra-node executable" $
       it "display proper semantic version given it is passed --version argument" $ \_ ->
         failAfter 5 $ do
-          version <- readCreateProcess (hydraNodeProcess ["--version"]) ""
+          version <- readCreateProcess (proc "hydra-node" ["--version"]) ""
           version `shouldSatisfy` (=~ ("[0-9]+\\.[0-9]+\\.[0-9]+(-[a-zA-Z0-9]+)?" :: String))
 
 initAndClose :: Tracer IO EndToEndLog -> Int -> RunningNode -> IO ()

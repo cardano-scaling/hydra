@@ -82,11 +82,11 @@ withChain tracer party callback config action = do
       keyPair
       party
       (vk : otherCardanoKeys)
-      Nothing
+      startChainFrom
       callback
       action
  where
-  DirectChainConfig{networkId, nodeSocket, cardanoSigningKey, cardanoVerificationKeys} = config
+  DirectChainConfig{networkId, nodeSocket, cardanoSigningKey, cardanoVerificationKeys, startChainFrom} = config
 
 identifyNode :: Options -> Options
 identifyNode opt@Options{verbosity = Verbose "HydraNode", nodeId} = opt{verbosity = Verbose $ "HydraNode-" <> show nodeId}
