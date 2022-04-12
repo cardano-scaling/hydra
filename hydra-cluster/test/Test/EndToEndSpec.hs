@@ -103,7 +103,7 @@ spec = around showLogsOnFailure $
               return tip
 
             let aliceChainConfig' =
-                  aliceChainConfig'
+                  aliceChainConfig
                     { startChainFrom = Just tip
                     }
             withHydraNode tracer aliceChainConfig' tmp 1 aliceSk [] [1] $ \n1 -> do
