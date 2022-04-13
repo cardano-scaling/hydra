@@ -46,6 +46,9 @@ jobs:
         extra_nix_config: |
           trusted-public-keys = iohk.cachix.org-1:DpRUyj7h7V830dp/i6Nti+NEO2/nhblbov/8MW7Rqoo= hydra.iohk.io:f/Ea+s+dFdN+3Y/G+FDgSq+a5NEWhJGzdjvKNGv0/EQ= cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY=
           substituters = https://cache.nixos.org https://hydra.iohk.io https://iohk.cachix.org
+          auto-optimise-store = true
+          keep-outputs = true
+          keep-derivations = true
 
     - name: Cachix cache of nix derivations
       uses: cachix/cachix-action@v10
@@ -54,20 +57,28 @@ jobs:
         authToken: '${{ secrets.CACHIX_AUTH_TOKEN }}'
 
     - name: Github cache ~/.cabal/packages, ~/.cabal/store and dist-newstyle
+      id: cache-deps
       uses: actions/cache@v2.1.5
       with:
         path: |
           ~/.cabal/packages
           ~/.cabal/store
           dist-newstyle
+          nix-shell.closure
         key: |
-          cabal-${{ runner.os }}-${{ hashFiles('cabal.project', 'default.nix', 'shell.nix') }}-${{ matrix.package }}
-        restore-keys: |
-          cabal-${{ runner.os }}-${{ hashFiles('cabal.project', 'default.nix', 'shell.nix') }}
+          cabal-${{ runner.os }}-${{ hashFiles('cabal.project', 'default.nix', 'shell.nix') }}-${{ matrix.package }}-1
+        # restore-keys: |
+        #   cabal-${{ runner.os }}-${{ hashFiles('cabal.project', 'default.nix', 'shell.nix') }}
 
     - name: Prepare nix-shell
       run: |
+        [[ -e nix-shell.closure ]] && nix-store --import < nix-shell.closure || echo "No nix-shell cache found"
+        nix-store --verify --check-contents --repair
         nix-build --arg withoutDevTools true shell.nix
+    - name: Cache nix-shell
+      if: steps.cache-deps.outputs.cache-hit != 'true'
+      run: |
+        nix-store --export $(nix-store -qR --include-outputs $(nix-instantiate --arg withoutDevTools true shell.nix)) > nix-shell.closure
 
     - name: Build
       run: |
@@ -80,7 +91,7 @@ jobs:
         nix-shell --arg withoutDevTools true --run 'cabal test ${{ matrix.package }}'
 
     - name: Test (TUI)
-      id: test_tui
+      id: test-tui
       if: ${{ matrix.package == 'hydra-tui' }}
       # https://giters.com/gfx/example-github-actions-with-tty
       # The default shell does not allocate a TTY which breaks some tests
@@ -92,7 +103,7 @@ jobs:
         nix-shell --arg withoutDevTools true --run 'cabal test ${{ matrix.package }}'
 
     - name: Test (TUI, retry)
-      if: steps.test_tui.outcome=='failure'
+      if: steps.test-tui.outcome == 'failure'
       shell: 'script -q -e -c "bash {0}"'
       env:
         TERM: "xterm"
@@ -181,7 +192,8 @@ jobs:
 
     - name: Documentation (Haddock)
       run: |
-        nix-shell --run '.github/workflows/ci-haddock.sh'
+        nix-shell --arg withoutDevTools true --run 'cabal update'
+        nix-shell --arg withoutDevTools true --run '.github/workflows/ci-haddock.sh'
 
     - name: Documentation (Docusaurus)
       working-directory: docs
