@@ -53,6 +53,7 @@ channels:
           - $ref: "#/components/messages/TxInvalid"
           - $ref: "#/components/messages/SnapshotConfirmed"
           - $ref: "#/components/messages/UTxO"
+          - $ref: "#/components/messages/RolledBack"
           - $ref: "#/components/messages/InvalidInput"
           - $ref: "#/components/messages/PostTxOnChainFailed"
           - $ref: "#/components/messages/CommandFailed"
@@ -460,6 +461,20 @@ components:
             $ref: "#/components/schemas/PostChainTx"
           postTxError:
             $ref: "#/components/schemas/PostTxError"
+
+    RolledBack:
+      title: RolledBack
+      description: |
+        The node has adopted a different chain fork and we had to rollback the application state.
+      payload:
+        type: object
+        additionalProperties: false
+        required:
+        - tag
+        properties:
+          tag:
+            type: string
+            enum: ["RolledBack"]
 
     CommandFailed:
       title: CommandFailed
