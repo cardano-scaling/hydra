@@ -345,6 +345,9 @@ update Environment{party, signingKey, otherParties} ledger st ev = case (st, ev)
   (ClosedState _ utxos, OnChainEvent (Observation OnFanoutTx{})) ->
     nextState ReadyState [ClientEffect $ HeadIsFinalized utxos]
   --
+  (_, OnChainEvent Rollback) ->
+    sameState [ClientEffect RolledBack]
+  --
   (_, ClientEvent{}) ->
     sameState [ClientEffect CommandFailed]
   (_, NetworkEvent (Connected host)) ->
