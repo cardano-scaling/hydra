@@ -11,7 +11,11 @@ import Hydra.Prelude
 import Test.Hydra.Prelude
 
 import qualified Data.Set as Set
-import Hydra.Chain (HeadParameters (..), OnChainTx (OnAbortTx, OnCloseTx, OnCollectComTx))
+import Hydra.Chain (
+  ChainEvent (..),
+  HeadParameters (..),
+  OnChainTx (OnAbortTx, OnCloseTx, OnCollectComTx),
+ )
 import Hydra.HeadLogic (
   CoordinatedHeadState (..),
   Effect (..),
@@ -194,21 +198,21 @@ spec = do
 
       it "cannot observe abort after collect com" $ do
         let s0 = inInitialState threeParties
-        s1 <- assertNewState $ update env ledger s0 (OnChainEvent OnCollectComTx)
-        let invalidEvent = OnChainEvent OnAbortTx
+        s1 <- assertNewState $ update env ledger s0 (OnChainEvent $ Observation OnCollectComTx)
+        let invalidEvent = OnChainEvent $ Observation OnAbortTx
         let s2 = update env ledger s1 invalidEvent
         s2 `shouldBe` Error (InvalidEvent invalidEvent s1)
 
       it "cannot observe collect com after abort" $ do
         let s0 = inInitialState threeParties
-        s1 <- assertNewState $ update env ledger s0 (OnChainEvent OnAbortTx)
-        let invalidEvent = OnChainEvent OnCollectComTx
+        s1 <- assertNewState $ update env ledger s0 (OnChainEvent $ Observation OnAbortTx)
+        let invalidEvent = OnChainEvent $ Observation OnCollectComTx
         let s2 = update env ledger s1 invalidEvent
         s2 `shouldBe` Error (InvalidEvent invalidEvent s1)
 
       it "any node should post FanoutTx when observing on-chain CloseTx" $ do
         let s0 = inOpenState threeParties ledger
-            closeTx = OnChainEvent $ OnCloseTx 0
+            closeTx = OnChainEvent $ Observation $ OnCloseTx 0
 
         let shouldPostFanout =
               Delay

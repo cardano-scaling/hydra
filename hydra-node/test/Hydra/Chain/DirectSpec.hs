@@ -17,6 +17,7 @@ import Control.Concurrent (newEmptyMVar, putMVar, takeMVar)
 import Hydra.Cardano.Api (NetworkId (..), PaymentKey, VerificationKey)
 import Hydra.Chain (
   Chain (..),
+  ChainEvent (Observation),
   HeadParameters (HeadParameters),
   OnChainTx (..),
   PostChainTx (AbortTx, InitTx),
@@ -52,7 +53,7 @@ spec = do
               takeMVar calledBackAlice
                 >>= ( `shouldSatisfy`
                         \case
-                          OnInitTx{contestationPeriod, parties} ->
+                          (Observation OnInitTx{contestationPeriod, parties}) ->
                             contestationPeriod == 100 && parties == [alice, bob, carol]
                           _ ->
                             False
@@ -60,15 +61,15 @@ spec = do
               takeMVar calledBackBob
                 >>= ( `shouldSatisfy`
                         \case
-                          OnInitTx{contestationPeriod, parties} ->
+                          (Observation OnInitTx{contestationPeriod, parties}) ->
                             contestationPeriod == 100 && parties == [alice, bob, carol]
                           _ ->
                             False
                     )
 
               postTx $ AbortTx mempty
-              takeMVar calledBackAlice `shouldReturn` OnAbortTx
-              takeMVar calledBackBob `shouldReturn` OnAbortTx
+              takeMVar calledBackAlice `shouldReturn` Observation OnAbortTx
+              takeMVar calledBackBob `shouldReturn` Observation OnAbortTx
 
 mkSeedPayment :: NetworkId -> VerificationKey PaymentKey -> (ValidatedTx Era -> IO ()) -> IO ()
 mkSeedPayment networkId vk submitTx =
