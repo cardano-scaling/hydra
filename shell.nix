@@ -7,6 +7,8 @@
 
 , hsPkgs ? import ./default.nix { }
 
+, withoutDevTools ? false
+
 , libsodium-vrf ? pkgs.libsodium.overrideAttrs (oldAttrs: {
     name = "libsodium-1.0.18-vrf";
     src = pkgs.fetchFromGitHub {
@@ -29,23 +31,40 @@ let
   ++
   pkgs.lib.optionals (pkgs.stdenv.isLinux) [ pkgs.systemd ];
 
-  tools = [
+  buildInputs = [
     pkgs.pkgconfig
-    pkgs.haskellPackages.ghcid
     pkgs.haskellPackages.hspec-discover
-    pkgs.haskellPackages.graphmod
     pkgs.haskellPackages.cabal-plan
+    # For validating JSON instances against a pre-defined schema
+    pkgs.python3Packages.jsonschema
+    # For plotting results of hydra-cluster benchmarks
+    pkgs.gnuplot
+  ];
+
+  devInputs = if withoutDevTools then [] else [
+    # The interactive Glasgow Haskell Compiler as a Daemon
+    pkgs.haskellPackages.ghcid
+    # Generate a graph of the module dependencies in the "dot" format
+    pkgs.haskellPackages.graphmod
+    # Automagically format .cabal files
     pkgs.haskellPackages.cabal-fmt
     # Handy to interact with the hydra-node via websockets
     pkgs.ws
-    # For validating JSON instances against a pre-defined schema
-    pkgs.python3Packages.jsonschema
+    # Like 'jq' to manipulate JSON, but work for YAML
     pkgs.yq
-    # For plotting results of hydra-cluster benchmarks
-    pkgs.gnuplot
-    # For docs/
+    # For docs/ (i.e. Docusaurus, Node.js & React)
     pkgs.yarn
   ];
+
+  # Haskell.nix managed tools (via hackage)
+  buildTools = {
+    cabal = "3.4.0.0";
+  };
+
+  devTools = if withoutDevTools then {} else {
+    fourmolu = "0.4.0.0"; # 0.5.0.0 requires Cabal 3.6
+    haskell-language-server = "latest";
+  };
 
   haskellNixShell = hsPkgs.shellFor {
     # NOTE: Explicit list of local packages as hoogle would not work otherwise.
@@ -62,16 +81,11 @@ let
       plutus-merkle-tree
     ];
 
-    # Haskell.nix managed tools (via hackage)
-    tools = {
-      cabal = "3.4.0.0";
-      fourmolu = "0.4.0.0"; # 0.5.0.0 requires Cabal 3.6
-      haskell-language-server = "latest";
-    };
+    tools = buildTools // devTools;
 
-    buildInputs = libs ++ tools;
+    buildInputs = libs ++ buildInputs ++ devInputs;
 
-    withHoogle = true;
+    withHoogle = !withoutDevTools;
 
     # Always create missing golden files
     CREATE_MISSING_GOLDEN = 1;
@@ -86,7 +100,7 @@ let
       pkgs.cabal-install
       pkgs.git
       pkgs.pkgconfig
-    ] ++ tools;
+    ] ++ buildInputs ++ devInputs;
 
     # Ensure that libz.so and other libraries are available to TH splices.
     LD_LIBRARY_PATH = pkgs.lib.makeLibraryPath libs;

@@ -8,9 +8,31 @@ on:
     - cron: "0 4 * * *"
 
 jobs:
-  build-test-documentation:
-    name: Build, test & documentation
+  build-test:
+    name: "Build & test"
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - package: plutus-cbor
+            bench:
+              shouldRun: false
+          - package: plutus-merkle-tree
+            bench:
+              shouldRun: false
+          - package: hydra-tui
+            bench:
+              shouldRun: false
+          - package: hydra-node
+            bench:
+              shouldRun: true
+              name: tx-cost
+              options: '--output-directory $(pwd)/docs/benchmarks'
+          - package: hydra-cluster
+            bench:
+              shouldRun: true
+              name: hydra-cluster
+              options: '--scaling-factor 1'
     steps:
     - uses: actions/checkout@v2.3.1
       with:
@@ -39,26 +61,96 @@ jobs:
           ~/.cabal/store
           dist-newstyle
         key: |
+          cabal-${{ runner.os }}-${{ hashFiles('cabal.project', 'default.nix', 'shell.nix') }}-${{ matrix.package }}
+        restore-keys: |
           cabal-${{ runner.os }}-${{ hashFiles('cabal.project', 'default.nix', 'shell.nix') }}
 
     - name: Prepare nix-shell
       run: |
-        nix-build shell.nix
+        nix-build --arg withoutDevTools true shell.nix
 
     - name: Build
-      run: nix-shell --run '.github/workflows/ci-build.sh'
+      run: |
+        nix-shell --arg withoutDevTools true --run 'cabal update'
+        nix-shell --arg withoutDevTools true --run 'cabal build ${{ matrix.package }}'
 
     - name: Test
-      run: nix-shell --run '.github/workflows/ci-test.sh'
+      if: ${{ matrix.package != 'hydra-tui' }}
+      run: |
+        nix-shell --arg withoutDevTools true --run 'cabal test ${{ matrix.package }}'
+
+    - name: Test (TUI)
+      id: test_tui
+      if: ${{ matrix.package == 'hydra-tui' }}
       # https://giters.com/gfx/example-github-actions-with-tty
       # The default shell does not allocate a TTY which breaks some tests
       shell: 'script -q -e -c "bash {0}"'
       env:
         TERM: "xterm"
-
-    - name: Documentation (Haddock)
+      continue-on-error: true
       run: |
-        nix-shell --run '.github/workflows/ci-haddock.sh'
+        nix-shell --arg withoutDevTools true --run 'cabal test ${{ matrix.package }}'
+
+    - name: Test (TUI, retry)
+      if: steps.test_tui.outcome=='failure'
+      shell: 'script -q -e -c "bash {0}"'
+      env:
+        TERM: "xterm"
+      run: |
+        nix-shell --arg withoutDevTools true --run 'cabal test ${{ matrix.package }}'
+
+    - name: Bench
+      if: ${{ matrix.bench.shouldRun }}
+      run: |
+        nix-shell --arg withoutDevTools true --run 'cabal bench ${{ matrix.bench.name }} --benchmark-options "${{ matrix.bench.options }}"'
+
+    - name: Upload build & test artifacts
+      uses: actions/upload-artifact@v2
+      with:
+        path: ./**/test-results.xml
+
+  publish-test-results:
+    name: Publish test results
+    needs: [build-test]
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2.3.1
+      with:
+        repository: input-output-hk/hydra-poc
+        token: ${{ secrets.MY_TOKEN || github.token }}
+
+    - uses: actions/download-artifact@v3
+
+    - name: Publish Unit Test Results
+      uses: EnricoMi/publish-unit-test-result-action@v1
+      with:
+        files: ./**/test-results.xml
+
+  documentation:
+    name: Documentation
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2.3.1
+      with:
+        repository: input-output-hk/hydra-poc
+        token: ${{ secrets.MY_TOKEN || github.token }}
+
+    - uses: gaurav-nelson/github-action-markdown-link-check@v1
+      with:
+        folder-path: "hydra-cardano-api, hydra-cluster, hydra-node, hydra-plutus, hydra-prelude, hydra-test-utils, hydra-tui, plutus-cbor, plutus-merkle-tree"
+
+    - uses: gaurav-nelson/github-action-markdown-link-check@v1
+      with:
+        folder-path: "."
+        max-depth: 1
+
+    - name: Prepare nix
+      uses: cachix/install-nix-action@v13
+      with:
+        skip_adding_nixpkgs_channel: true
+        extra_nix_config: |
+          trusted-public-keys = iohk.cachix.org-1:DpRUyj7h7V830dp/i6Nti+NEO2/nhblbov/8MW7Rqoo= hydra.iohk.io:f/Ea+s+dFdN+3Y/G+FDgSq+a5NEWhJGzdjvKNGv0/EQ= cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY=
+          substituters = https://cache.nixos.org https://hydra.iohk.io https://iohk.cachix.org
 
     - name: Setup Node.js
       uses: actions/setup-node@v3
@@ -66,6 +158,30 @@ jobs:
         node-version: 16
         cache: 'yarn'
         cache-dependency-path: docs/yarn.lock
+
+    - name: Cachix cache of nix derivations
+      uses: cachix/cachix-action@v10
+      with:
+        name: hydra-node
+        authToken: '${{ secrets.CACHIX_AUTH_TOKEN }}'
+
+    - name: Github cache ~/.cabal/packages, ~/.cabal/store and dist-newstyle
+      uses: actions/cache@v2.1.5
+      with:
+        path: |
+          ~/.cabal/packages
+          ~/.cabal/store
+          dist-newstyle
+        key: |
+          cabal-${{ runner.os }}-${{ hashFiles('cabal.project', 'default.nix', 'shell.nix') }}
+
+    - name: Prepare nix-shell
+      run: |
+        nix-build --arg withoutDevTools true shell.nix
+
+    - name: Documentation (Haddock)
+      run: |
+        nix-shell --run '.github/workflows/ci-haddock.sh'
 
     - name: Documentation (Docusaurus)
       working-directory: docs
@@ -77,11 +193,6 @@ jobs:
         echo "hydra.family" > public/CNAME
         echo '<!DOCTYPE html><html><head><meta http-equiv="Refresh" content="0; URL=https://hydra.family/head-protocol"></head></html>' > public/index.html
 
-    - name: Publish Unit Test Results
-      uses: EnricoMi/publish-unit-test-result-action@v1
-      with:
-        files: ./**/test-results.xml
-
     - name: Publish Documentation
       if: github.event_name == 'push'
       uses: peaceiris/actions-gh-pages@v3
@@ -90,17 +201,3 @@ jobs:
         publish_dir: docs/public
         enable_jekyll: true
         force_orphan: true
-
-  markdown-link-check:
-    name: "Check markdown links"
-    runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@master
-    # NOTE: We do not check the 'docs' folder because links in markdown are already checked and handled by Docusaurus.
-    - uses: gaurav-nelson/github-action-markdown-link-check@v1
-      with:
-        folder-path: "hydra-cardano-api, hydra-cluster, hydra-node, hydra-plutus, hydra-prelude, hydra-test-utils, hydra-tui, plutus-cbor, plutus-merkle-tree"
-    - uses: gaurav-nelson/github-action-markdown-link-check@v1
-      with:
-        folder-path: "."
-        max-depth: 1
