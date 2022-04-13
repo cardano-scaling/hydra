@@ -15,7 +15,13 @@ import Data.List (elemIndex, (\\))
 import qualified Data.Map.Strict as Map
 import qualified Data.Set as Set
 import GHC.Records (getField)
-import Hydra.Chain (HeadParameters (..), OnChainTx (..), PostChainTx (..), PostTxError)
+import Hydra.Chain (
+  ChainEvent (..),
+  HeadParameters (..),
+  OnChainTx (..),
+  PostChainTx (..),
+  PostTxError,
+ )
 import Hydra.ClientInput (ClientInput (..))
 import Hydra.Ledger (
   IsTx,
@@ -35,7 +41,7 @@ import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot (..), SnapshotNumber, ge
 data Event tx
   = ClientEvent {clientInput :: ClientInput tx}
   | NetworkEvent {message :: Message tx}
-  | OnChainEvent {onChainTx :: OnChainTx tx}
+  | OnChainEvent {chainEvent :: ChainEvent tx}
   | ShouldPostFanout
   | PostTxError {postChainTx :: PostChainTx tx, postTxError :: PostTxError tx}
   deriving stock (Eq, Show, Generic)
@@ -181,7 +187,7 @@ update Environment{party, signingKey, otherParties} ledger st ev = case (st, ev)
         { contestationPeriod
         , parties = party : otherParties
         }
-  (_, OnChainEvent OnInitTx{contestationPeriod, parties}) ->
+  (_, OnChainEvent (Observation OnInitTx{contestationPeriod, parties})) ->
     NewState
       (InitialState (HeadParameters{contestationPeriod, parties}) (Set.fromList parties) mempty)
       [ClientEffect $ ReadyToCommit $ fromList parties]
@@ -190,7 +196,7 @@ update Environment{party, signingKey, otherParties} ledger st ev = case (st, ev)
     | canCommit -> sameState [OnChainEffect (CommitTx party utxo)]
    where
     canCommit = party `Set.member` remainingParties
-  (InitialState parameters remainingParties committed, OnChainEvent OnCommitTx{party = pt, committed = utxo}) ->
+  (InitialState parameters remainingParties committed, OnChainEvent (Observation OnCommitTx{party = pt, committed = utxo})) ->
     nextState newHeadState $
       [ClientEffect $ Committed pt utxo]
         <> [OnChainEffect $ CollectComTx collectedUTxO | canCollectCom]
@@ -204,12 +210,12 @@ update Environment{party, signingKey, otherParties} ledger st ev = case (st, ev)
     sameState [ClientEffect $ UTxO (mconcat $ Map.elems committed)]
   (InitialState _ _ committed, ClientEvent Abort) ->
     sameState [OnChainEffect $ AbortTx (mconcat $ Map.elems committed)]
-  (_, OnChainEvent OnCommitTx{}) ->
+  (_, OnChainEvent (Observation OnCommitTx{})) ->
     -- TODO: This should warn the user / client that something went _terribly_ wrong
     --       We shouldn't see any commit outside of the collecting state, if we do,
     --       there's an issue our logic or onChain layer.
     sameState []
-  (InitialState parameters _remainingParties committed, OnChainEvent OnCollectComTx{}) ->
+  (InitialState parameters _remainingParties committed, OnChainEvent (Observation OnCollectComTx{})) ->
     -- TODO: We would want to check whether this even matches our local state.
     -- For example, we do expect `null remainingParties` but what happens if
     -- it's untrue?
@@ -217,7 +223,7 @@ update Environment{party, signingKey, otherParties} ledger st ev = case (st, ev)
      in nextState
           (OpenState parameters $ CoordinatedHeadState u0 mempty (InitialSnapshot $ Snapshot 0 u0 mempty) NoSeenSnapshot)
           [ClientEffect $ HeadIsOpen u0]
-  (InitialState _ _ committed, OnChainEvent OnAbortTx{}) ->
+  (InitialState _ _ committed, OnChainEvent (Observation OnAbortTx{})) ->
     nextState ReadyState [ClientEffect $ HeadIsAborted $ fold committed]
   --
   (OpenState _parameters CoordinatedHeadState{confirmedSnapshot}, ClientEvent Close) ->
@@ -306,7 +312,7 @@ update Environment{party, signingKey, otherParties} ledger st ev = case (st, ev)
                           }
                     )
                     []
-  (OpenState parameters@HeadParameters{contestationPeriod} CoordinatedHeadState{confirmedSnapshot}, OnChainEvent OnCloseTx{}) ->
+  (OpenState parameters@HeadParameters{contestationPeriod} CoordinatedHeadState{confirmedSnapshot}, OnChainEvent (Observation OnCloseTx{})) ->
     -- TODO(1): Should check whether we want / can contest the close snapshot by
     --       comparing with our local state / utxo.
     --
@@ -331,12 +337,12 @@ update Environment{party, signingKey, otherParties} ledger st ev = case (st, ev)
           }
       ]
   --
-  (_, OnChainEvent OnContestTx{}) ->
+  (_, OnChainEvent (Observation OnContestTx{})) ->
     -- TODO: Handle contest tx
     sameState []
   (ClosedState _ utxo, ShouldPostFanout) ->
     sameState [OnChainEffect (FanoutTx utxo)]
-  (ClosedState _ utxos, OnChainEvent OnFanoutTx{}) ->
+  (ClosedState _ utxos, OnChainEvent (Observation OnFanoutTx{})) ->
     nextState ReadyState [ClientEffect $ HeadIsFinalized utxos]
   --
   (_, ClientEvent{}) ->

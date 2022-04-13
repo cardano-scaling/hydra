@@ -62,6 +62,7 @@ import Hydra.Chain (
   Chain (..),
   ChainCallback,
   ChainComponent,
+  ChainEvent (..),
   OnChainTx (..),
   PostChainTx (..),
   PostTxError (..),
@@ -371,11 +372,12 @@ chainSyncClient tracer callback headState = \case
             onChainTxs <- runOnChainTxs receivedTxs
             unless (null receivedTxs) $
               traceWith tracer $ ReceivedTxs{onChainTxs, receivedTxs = map (\tx -> (getTxId tx, tx)) receivedTxs}
-            mapM_ callback onChainTxs
+            mapM_ (callback . Observation) onChainTxs
             pure clientStIdle
       , recvMsgRollBackward = \point _tip ->
           ChainSyncClient $ do
             traceWith tracer $ RolledBackward $ SomePoint point
+            callback Rollback
             pure clientStIdle
       }
 

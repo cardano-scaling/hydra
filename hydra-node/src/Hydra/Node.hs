@@ -31,7 +31,7 @@ import Control.Monad.Class.MonadSTM (
   writeTQueue,
  )
 import Hydra.API.Server (Server, sendOutput)
-import Hydra.Chain (Chain (..), OnChainTx, PostTxError)
+import Hydra.Chain (Chain (..), ChainEvent, PostTxError)
 import Hydra.ClientInput (ClientInput)
 import Hydra.HeadLogic (
   Effect (..),
@@ -125,7 +125,7 @@ createHydraNode eq hn ledger oc server env = do
 handleClientInput :: HydraNode tx m -> ClientInput tx -> m ()
 handleClientInput HydraNode{eq} = putEvent eq . ClientEvent
 
-handleChainTx :: HydraNode tx m -> OnChainTx tx -> m ()
+handleChainTx :: HydraNode tx m -> ChainEvent tx -> m ()
 handleChainTx HydraNode{eq} = putEvent eq . OnChainEvent
 
 handleMessage :: HydraNode tx m -> Message tx -> m ()

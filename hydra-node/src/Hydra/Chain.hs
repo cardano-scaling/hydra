@@ -129,8 +129,21 @@ newtype Chain tx m = Chain
     postTx :: MonadThrow m => PostChainTx tx -> m ()
   }
 
+data ChainEvent tx = Observation (OnChainTx tx) | Rollback
+  deriving stock (Eq, Show, Generic)
+  deriving anyclass (ToJSON, FromJSON)
+
+instance
+  ( Arbitrary tx
+  , Arbitrary (UTxOType tx)
+  , Arbitrary (TxIdType tx)
+  ) =>
+  Arbitrary (ChainEvent tx)
+  where
+  arbitrary = genericArbitrary
+
 -- | Handle to interface observed transactions.
-type ChainCallback tx m = OnChainTx tx -> m ()
+type ChainCallback tx m = ChainEvent tx -> m ()
 
 -- | A type tying both posting and observing transactions into a single /Component/.
 type ChainComponent tx m a = ChainCallback tx m -> (Chain tx m -> m a) -> m a
