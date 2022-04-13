@@ -33,6 +33,7 @@ data ServerOutput tx
     -- only knows one).
     Greetings {me :: Party}
   | PostTxOnChainFailed {postChainTx :: PostChainTx tx, postTxError :: PostTxError tx}
+  | RolledBack
   deriving (Generic)
 
 deriving instance IsTx tx => Eq (ServerOutput tx)
@@ -62,3 +63,4 @@ instance (Arbitrary tx, Arbitrary (UTxOType tx), Arbitrary (TxIdType tx)) => Arb
     InvalidInput r i -> InvalidInput <$> shrink r <*> shrink i
     Greetings me -> Greetings <$> shrink me
     PostTxOnChainFailed p e -> PostTxOnChainFailed <$> shrink p <*> shrink e
+    RolledBack -> []

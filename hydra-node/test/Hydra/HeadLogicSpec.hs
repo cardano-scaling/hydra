@@ -33,9 +33,11 @@ import Hydra.Ledger.Simple (SimpleTx (..), aValidTx, simpleLedger, utxoRef)
 import Hydra.Network (Host (..))
 import Hydra.Network.Message (Message (AckSn, Connected, ReqSn, ReqTx))
 import Hydra.Party (Party (..), aggregate, sign)
-import Hydra.ServerOutput (ServerOutput (PeerConnected))
+import Hydra.ServerOutput (ServerOutput (PeerConnected, RolledBack))
 import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot (..), getSnapshot)
 import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
+import Test.QuickCheck (forAll)
+import Test.QuickCheck.Monadic (monadicIO, run)
 
 spec :: Spec
 spec = do
@@ -228,6 +230,12 @@ spec = do
                 }
 
         update env ledger s0 closeTx `hasEffect_` shouldPostFanout
+
+      it "notify user on rollback" $
+        forAll arbitrary $ \s -> monadicIO $ do
+          let rollback = OnChainEvent Rollback
+          let s' = update env ledger s rollback
+          void $ run $ s' `hasEffect` ClientEffect RolledBack
 
 --
 -- Assertion utilities
