@@ -6,19 +6,28 @@ import Hydra.Prelude hiding (label)
 
 import qualified Cardano.Api.UTxO as UTxO
 import Cardano.Binary (serialize)
+import Cardano.Ledger.Era (toTxSeq)
+import qualified Cardano.Ledger.Shelley.API as Ledger
+import Control.Monad.Class.MonadSTM (MonadSTM (..))
+import Control.Tracer (nullTracer)
 import qualified Data.ByteString.Lazy as LBS
 import Data.List (elemIndex, intersect, (!!))
 import qualified Data.Map as Map
 import Data.Maybe (fromJust)
+import qualified Data.Sequence.Strict as StrictSeq
 import qualified Data.Set as Set
 import Data.Type.Equality (testEquality, (:~:) (..))
 import Hydra.Cardano.Api (
   ExecutionUnits (..),
+  SlotNo,
   Tx,
+  toLedgerTx,
   txInputSet,
   txOutValue,
   valueSize,
  )
+import Hydra.Chain (ChainEvent (..))
+import Hydra.Chain.Direct (ChainSyncHandler (..), newChainSyncHandler)
 import Hydra.Chain.Direct.Context (
   HydraContext (..),
   ctxHeadParameters,
@@ -49,6 +58,7 @@ import Hydra.Chain.Direct.State (
   initialize,
   observeSomeTx,
  )
+import Hydra.Chain.Direct.Util (Block)
 import Hydra.Ledger.Cardano (
   genTxIn,
   genUTxO,
@@ -57,6 +67,9 @@ import Hydra.Ledger.Cardano (
  )
 import Hydra.Ledger.Cardano.Evaluate (evaluateTx')
 import Hydra.Snapshot (isInitialSnapshot)
+import Ouroboros.Consensus.Cardano.Block (HardForkBlock (BlockAlonzo))
+import Ouroboros.Consensus.Shelley.Ledger (mkShelleyBlock)
+import Test.Hspec (shouldBe)
 import Test.Hydra.Prelude (
   Spec,
   SpecWith,
@@ -80,6 +93,10 @@ import Test.QuickCheck (
   resize,
   sublistOf,
   (==>),
+ )
+import Test.QuickCheck.Monadic (
+  monadicIO,
+  run,
  )
 import Type.Reflection (typeOf)
 import qualified Prelude
@@ -143,6 +160,19 @@ spec = parallel $ do
     propBelowSizeLimit maxTxSize forAllFanout
     -- TODO: look into why this is failing
     propIsValid maxTxExecutionUnits (expectFailure . forAllFanout)
+
+  describe "ChainSyncHandler" $ do
+    prop "yields observed transactions rolling forward" $ do
+      forAllSt $ \(SomeOnChainHeadState -> st) tx -> do
+        let callback = \case
+              Rollback{} ->
+                fail "rolled back but expected roll forward."
+              Observation onChainTx ->
+                fst <$> observeSomeTx tx st `shouldBe` Just onChainTx
+        forAllBlind (genBlockAt 1 [tx]) $ \blk -> monadicIO $ do
+          headState <- run $ newTVarIO st
+          handler <- run $ newChainSyncHandler nullTracer callback headState
+          run $ onRollForward handler blk
 
 tenTimesTxExecutionUnits :: ExecutionUnits
 tenTimesTxExecutionUnits =
@@ -360,6 +390,12 @@ genStClosed ctx = do
   snapshot <- arbitrary
   let closeTx = close snapshot stOpen
   pure $ snd $ unsafeObserveTx @_ @ 'StClosed closeTx stOpen
+
+genBlockAt :: SlotNo -> [Tx] -> Gen Block
+genBlockAt _sl txs = do
+  header <- arbitrary
+  let body = toTxSeq $ StrictSeq.fromList (toLedgerTx <$> txs)
+  pure $ BlockAlonzo $ mkShelleyBlock $ Ledger.Block header body
 
 --
 -- Wrapping Transition for easy labelling
