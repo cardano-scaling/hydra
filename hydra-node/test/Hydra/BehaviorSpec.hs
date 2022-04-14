@@ -376,7 +376,7 @@ spec = parallel $ do
           waitFor [n1] $ Committed 1 (utxoRef 1)
           waitFor [n1] $ HeadIsOpen (utxoRefs [1])
           -- NOTE: Rollback affects the commit tx
-          chainEvent n1 (Rollback (-1))
+          chainEvent n1 (Rollback 1)
           waitFor [n1] $ RolledBack -- FIXME
           waitFor [n1] $ ReadyToCommit (fromList [1])
 
@@ -501,7 +501,7 @@ withHydraNode signingKey otherParties connectToChain action = do
         , chainEvent = \e -> do
             case e of
               Rollback n -> do
-                atomically (modify (drop n) history)
+                atomically (modify (drop $ fromIntegral n) history)
               _ -> pure ()
             handleChainTx node e
         , waitForNext = atomically $ readTQueue outputs

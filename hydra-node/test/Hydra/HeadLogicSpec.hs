@@ -291,19 +291,22 @@ inOpenState' ::
   [Party] ->
   CoordinatedHeadState tx ->
   HeadState tx
-inOpenState' parties = OpenState parameters
+inOpenState' parties coordinatedHeadState =
+  OpenState{parameters, coordinatedHeadState, previousState}
  where
   parameters = HeadParameters 42 parties
+  previousState = error "INIT STATE"
 
 inClosedState :: [Party] -> HeadState SimpleTx
 inClosedState parties =
-  ClosedState parameters mempty
+  ClosedState{parameters, utxos = mempty, previousState}
  where
   parameters = HeadParameters 42 parties
+  previousState = inOpenState parties simpleLedger
 
 getConfirmedSnapshot :: HeadState tx -> Maybe (Snapshot tx)
 getConfirmedSnapshot = \case
-  OpenState _ CoordinatedHeadState{confirmedSnapshot} ->
+  OpenState{coordinatedHeadState = CoordinatedHeadState{confirmedSnapshot}} ->
     Just (getSnapshot confirmedSnapshot)
   _ ->
     Nothing
