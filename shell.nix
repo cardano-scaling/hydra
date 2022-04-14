@@ -79,7 +79,6 @@ let
       hydra-cardano-api
       plutus-cbor
       plutus-merkle-tree
-      hydraw
     ];
 
     tools = buildTools // devTools;
