@@ -398,8 +398,8 @@ update Environment{party, signingKey, otherParties} ledger st ev = case (st, ev)
   (ClosedState{utxos}, OnChainEvent (Observation OnFanoutTx{})) ->
     nextState ReadyState [ClientEffect $ HeadIsFinalized utxos]
   --
-  (_, OnChainEvent (Rollback _)) ->
-    sameState [ClientEffect RolledBack]
+  (currentState, OnChainEvent (Rollback n)) ->
+    nextState (rollback n currentState) [ClientEffect RolledBack]
   --
   (_, ClientEvent{}) ->
     sameState [ClientEffect CommandFailed]
@@ -467,3 +467,23 @@ emitSnapshot env@Environment{party} effects = \case
         )
       _ -> (st, effects)
   st -> (st, effects)
+
+rollback :: HasCallStack => Word -> HeadState tx -> HeadState tx
+rollback n
+  | n == 0 =
+    identity
+  | otherwise =
+    rollback (pred n) . \case
+      ReadyState ->
+        -- NOTE: This is debatable. We could also just return 'ReadyState' and
+        -- silently swallow this. But we choose to make it a clear invariant /
+        -- post-condition to show that there's a inconsistency between both
+        -- layers. In principle, once we are in ready state, we can only
+        -- rollback of `0` (thus caught by the case above).
+        error "trying to rollback beyond known states? Chain layer screwed up."
+      InitialState{previousState} ->
+        previousState
+      OpenState{previousState} ->
+        previousState
+      ClosedState{previousState} ->
+        previousState
