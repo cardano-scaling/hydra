@@ -60,7 +60,6 @@ import Hydra.Cardano.Api (
  )
 import Hydra.Chain (
   Chain (..),
-  ChainCallback,
   ChainComponent,
   ChainEvent (..),
   OnChainTx (..),
@@ -167,6 +166,7 @@ withDirectChain tracer networkId iocp socketPath keyPair party cardanoKeys point
             (cardanoKeys \\ [verificationKey wallet])
             (verificationKey wallet)
             party
+    chainSyncHandler <- newChainSyncHandler tracer callback headState
     res <-
       race
         ( do
@@ -174,10 +174,6 @@ withDirectChain tracer networkId iocp socketPath keyPair party cardanoKeys point
             -- which will only see transactions after it has established
             -- connection with the server's tip. So any transaction submitted
             -- before that tip will be missed.
-            --
-            -- The way we handle rollbacks is also wrong because it'll
-            -- fast-forward to the tip, and not allow recovering intermediate
-            -- history.
             threadDelay 2
             action $
               Chain
@@ -209,11 +205,13 @@ withDirectChain tracer networkId iocp socketPath keyPair party cardanoKeys point
                       Just err -> throwIO err
                 }
         )
-        ( handle onIOException $
+        ( handle onIOException $ do
+            let intersection = toConsensusPointHF <$> point
+            let client = ouroborosApplication tracer intersection queue chainSyncHandler
             connectTo
               (localSnocket iocp)
               nullConnectTracers
-              (versions networkId (client tracer (toConsensusPointHF <$> point) queue headState callback))
+              (versions networkId client)
               socketPath
         )
     case res of
@@ -250,23 +248,22 @@ data IntersectionNotFoundException = IntersectionNotFound
 
 instance Exception IntersectionNotFoundException
 
-client ::
+ouroborosApplication ::
   (MonadST m, MonadTimer m, MonadThrow m) =>
   Tracer m DirectChainLog ->
   Maybe (Point Block) ->
   TQueue m (ValidatedTx Era, TMVar m (Maybe (PostTxError Tx))) ->
-  TVar m SomeOnChainHeadState ->
-  ChainCallback Tx m ->
+  ChainSyncHandler m ->
   NodeToClientVersion ->
   OuroborosApplication 'InitiatorMode LocalAddress LByteString m () Void
-client tracer point queue headState callback nodeToClientV =
+ouroborosApplication tracer point queue handler nodeToClientV =
   nodeToClientProtocols
     ( const $
         pure $
           NodeToClientProtocols
             { localChainSyncProtocol =
                 InitiatorProtocolOnly $
-                  let peer = chainSyncClient tracer callback headState point
+                  let peer = chainSyncClient handler point
                    in MuxPeer nullTracer cChainSyncCodec (chainSyncClientPeer peer)
             , localTxSubmissionProtocol =
                 InitiatorProtocolOnly $
@@ -286,15 +283,64 @@ client tracer point queue headState callback nodeToClientV =
     , cStateQueryCodec
     } = defaultCodecs nodeToClientV
 
+data ChainSyncHandler m = ChainSyncHandler
+  { onRollForward :: Block -> m ()
+  , onRollBackward :: Point Block -> m ()
+  }
+
+newChainSyncHandler ::
+  forall m.
+  (MonadSTM m) =>
+  -- | Tracer for logging
+  Tracer m DirectChainLog ->
+  -- | Chain callback
+  (ChainEvent Tx -> m ()) ->
+  -- | On-chain head-state.
+  TVar m SomeOnChainHeadState ->
+  -- | A chain-sync handler to use in a local-chain-sync client.
+  m (ChainSyncHandler m)
+newChainSyncHandler tracer callback headState = do
+  pure $
+    ChainSyncHandler
+      { onRollForward
+      , onRollBackward
+      }
+ where
+  onRollForward :: Block -> m ()
+  onRollForward blk = do
+    let receivedTxs = toList $ getAlonzoTxs blk
+    onChainTxs <- reverse <$> atomically (foldM withNextTx [] receivedTxs)
+    unless (null receivedTxs) $
+      traceWith tracer $
+        ReceivedTxs
+          { onChainTxs
+          , receivedTxs = map (\tx -> (getTxId tx, tx)) receivedTxs
+          }
+    mapM_ (callback . Observation) onChainTxs
+
+  onRollBackward :: Point Block -> m ()
+  onRollBackward point = do
+    traceWith tracer $ RolledBackward $ SomePoint point
+    -- TODO: need to compute how much to rollback
+    callback (Rollback 0)
+
+  withNextTx :: [OnChainTx Tx] -> ValidatedTx Era -> STM m [OnChainTx Tx]
+  withNextTx observed (fromLedgerTx -> tx) = do
+    st <- readTVar headState
+    case observeSomeTx tx st of
+      Just (onChainTx, st') -> do
+        writeTVar headState st'
+        pure $ onChainTx : observed
+      Nothing ->
+        pure observed
+
 chainSyncClient ::
   forall m.
   (MonadSTM m, MonadThrow m) =>
-  Tracer m DirectChainLog ->
-  ChainCallback Tx m ->
-  TVar m SomeOnChainHeadState ->
+  ChainSyncHandler m ->
   Maybe (Point Block) ->
   ChainSyncClient Block (Point Block) (Tip Block) m ()
-chainSyncClient tracer callback headState = \case
+chainSyncClient handler = \case
   Nothing ->
     ChainSyncClient (pure initStIdle)
   Just startingPoint ->
@@ -353,46 +399,14 @@ chainSyncClient tracer callback headState = \case
   clientStIdle :: ClientStIdle Block (Point Block) (Tip Block) m ()
   clientStIdle = SendMsgRequestNext clientStNext (pure clientStNext)
 
-  -- FIXME: rolling forward with a transaction does not necessarily mean that we
-  -- can't roll backward. Or said differently, the block / transactions yielded
-  -- by the server are not necessarily settled. Settlement only happens after a
-  -- while and we will have to carefully consider how we want to handle
-  -- rollbacks. What happen if an 'init' transaction is rolled back?
-  --
-  -- At the moment, we trigger the callback directly, though we may want to
-  -- perhaps only yield transactions through the callback once they have
-  -- 'settled' and keep a short buffer of pending transactions in the network
-  -- layer directly? To be discussed.
   clientStNext :: ClientStNext Block (Point Block) (Tip Block) m ()
   clientStNext =
     ClientStNext
-      { recvMsgRollForward = \blk _tip -> do
-          ChainSyncClient $ do
-            let receivedTxs = toList $ getAlonzoTxs blk
-            onChainTxs <- runOnChainTxs receivedTxs
-            unless (null receivedTxs) $
-              traceWith tracer $ ReceivedTxs{onChainTxs, receivedTxs = map (\tx -> (getTxId tx, tx)) receivedTxs}
-            mapM_ (callback . Observation) onChainTxs
-            pure clientStIdle
-      , recvMsgRollBackward = \point _tip ->
-          ChainSyncClient $ do
-            traceWith tracer $ RolledBackward $ SomePoint point
-            callback (Rollback 0) -- TODO: need to compute how much to rollback
-            pure clientStIdle
+      { recvMsgRollForward = \block _tip -> ChainSyncClient $ do
+          clientStIdle <$ onRollForward handler block
+      , recvMsgRollBackward = \point _tip -> ChainSyncClient $ do
+          clientStIdle <$ onRollBackward handler point
       }
-
-  runOnChainTxs :: [ValidatedTx Era] -> m [OnChainTx Tx]
-  runOnChainTxs = fmap reverse . atomically . foldM runOnChainTx []
-
-  runOnChainTx :: [OnChainTx Tx] -> ValidatedTx Era -> STM m [OnChainTx Tx]
-  runOnChainTx observed (fromLedgerTx -> tx) = do
-    st <- readTVar headState
-    case observeSomeTx tx st of
-      Just (onChainTx, st') -> do
-        writeTVar headState st'
-        pure $ onChainTx : observed
-      Nothing ->
-        pure observed
 
 txSubmissionClient ::
   forall m.
