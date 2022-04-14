@@ -215,12 +215,11 @@ update Environment{party, signingKey, otherParties} ledger st ev = case (st, ev)
     | canCommit -> sameState [OnChainEffect (CommitTx party utxo)]
    where
     canCommit = party `Set.member` pendingCommits
-  (InitialState{parameters, pendingCommits, committed, previousState}, OnChainEvent (Observation OnCommitTx{party = pt, committed = utxo})) ->
+  (previousState@InitialState{parameters, pendingCommits, committed}, OnChainEvent (Observation OnCommitTx{party = pt, committed = utxo})) ->
     nextState newHeadState $
       [ClientEffect $ Committed pt utxo]
         <> [OnChainEffect $ CollectComTx collectedUTxO | canCollectCom]
    where
-    -- FIXME: previousState = st, needed. But test should catch that.
     newHeadState =
       InitialState
         { parameters

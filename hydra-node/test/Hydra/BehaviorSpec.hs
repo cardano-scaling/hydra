@@ -15,6 +15,7 @@ import Control.Monad.Class.MonadSTM (
   readTQueue,
   readTVarIO,
   writeTQueue,
+  writeTVar,
  )
 import Control.Monad.Class.MonadTimer (timeout)
 import Control.Monad.IOSim (Failure (FailureDeadlock), IOSim, runSimTrace, selectTraceEventsDynamic)
@@ -372,13 +373,24 @@ spec = parallel $ do
         withHydraNode 1 [] chain $ \n1 -> do
           send n1 (Init testContestationPeriod)
           waitFor [n1] $ ReadyToCommit (fromList [1])
+          chainEvent n1 (Rollback 1)
+          waitFor [n1] RolledBack
+          waitFor [n1] $ ReadyToCommit (fromList [1])
+
+    it "resets head to just after collect-com" $
+      shouldRunInSim $ do
+        chain <- simulatedChainAndNetwork
+        withHydraNode 1 [] chain $ \n1 -> do
+          send n1 (Init testContestationPeriod)
+          waitFor [n1] $ ReadyToCommit (fromList [1])
           send n1 (Commit (utxoRef 1))
           waitFor [n1] $ Committed 1 (utxoRef 1)
           waitFor [n1] $ HeadIsOpen (utxoRefs [1])
-          -- NOTE: Rollback affects the commit tx
-          chainEvent n1 (Rollback 1)
-          waitFor [n1] RolledBack -- FIXME
-          waitFor [n1] $ ReadyToCommit (fromList [1])
+          -- NOTE: Rollback affects the commit AND collect-com tx
+          chainEvent n1 (Rollback 2)
+          waitFor [n1] RolledBack
+          waitFor [n1] $ Committed 1 (utxoRef 1)
+          waitFor [n1] $ HeadIsOpen (utxoRefs [1])
 
 -- NOTE:
 -- In principle, we can observe any prefix of the following sequence
@@ -498,11 +510,15 @@ withHydraNode signingKey otherParties connectToChain@ConnectToChain{history} act
       TestHydraNode
         { send = handleClientInput node
         , chainEvent = \e -> do
-            case e of
-              Rollback n -> do
-                atomically $ modifyTVar' history (drop $ fromIntegral n)
-              _ -> pure ()
+            toReplay <- case e of
+              Rollback (fromIntegral -> n) -> do
+                atomically $ do
+                  (toReplay, kept) <- splitAt n <$> readTVar history
+                  toReplay <$ writeTVar history kept
+              _ ->
+                pure []
             handleChainTx node e
+            mapM_ (postTx (oc node)) (reverse toReplay)
         , waitForNext = atomically $ readTQueue outputs
         }
  where
