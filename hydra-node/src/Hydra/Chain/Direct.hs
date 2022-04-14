@@ -377,7 +377,7 @@ chainSyncClient tracer callback headState = \case
       , recvMsgRollBackward = \point _tip ->
           ChainSyncClient $ do
             traceWith tracer $ RolledBackward $ SomePoint point
-            callback Rollback
+            callback (Rollback 0) -- TODO: need to compute how much to rollback
             pure clientStIdle
       }
 

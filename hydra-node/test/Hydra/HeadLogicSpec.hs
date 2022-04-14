@@ -233,7 +233,7 @@ spec = do
 
       it "notify user on rollback" $
         forAll arbitrary $ \s -> monadicIO $ do
-          let rollback = OnChainEvent Rollback
+          let rollback = OnChainEvent (Rollback (-2))
           let s' = update env ledger s rollback
           void $ run $ s' `hasEffect` ClientEffect RolledBack
 

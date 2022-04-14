@@ -129,7 +129,7 @@ newtype Chain tx m = Chain
     postTx :: MonadThrow m => PostChainTx tx -> m ()
   }
 
-data ChainEvent tx = Observation (OnChainTx tx) | Rollback
+data ChainEvent tx = Observation (OnChainTx tx) | Rollback Int
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON, FromJSON)
 
