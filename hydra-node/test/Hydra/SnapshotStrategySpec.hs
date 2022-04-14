@@ -112,6 +112,14 @@ inOpenState' ::
   [Party] ->
   CoordinatedHeadState tx ->
   HeadState tx
-inOpenState' parties = OpenState parameters
+inOpenState' parties coordinatedHeadState =
+  OpenState{parameters, coordinatedHeadState, previousState}
  where
   parameters = HeadParameters 42 parties
+  previousState =
+    InitialState
+      { parameters
+      , pendingCommits = mempty
+      , committed = mempty
+      , previousState = ReadyState
+      }

@@ -331,7 +331,7 @@ spec = parallel $ do
               forM_ [n1, n2] $ waitForNext >=> assertHeadIsClosed
               threadDelay testContestationPeriod
               waitFor [n1, n2] $ HeadIsFinalized (utxoRefs [1, 2])
-              allTxs <- history chain
+              allTxs <- reverse <$> readTVarIO (history chain)
               length (filter matchFanout allTxs) `shouldBe` 2
 
     describe "Hydra Node Logging" $ do
@@ -377,7 +377,7 @@ spec = parallel $ do
           waitFor [n1] $ HeadIsOpen (utxoRefs [1])
           -- NOTE: Rollback affects the commit tx
           chainEvent n1 (Rollback 1)
-          waitFor [n1] $ RolledBack -- FIXME
+          waitFor [n1] RolledBack -- FIXME
           waitFor [n1] $ ReadyToCommit (fromList [1])
 
 -- NOTE:
@@ -422,7 +422,7 @@ data TestHydraNode tx m = TestHydraNode
 
 data ConnectToChain tx m = ConnectToChain
   { chainComponent :: HydraNode tx m -> m (HydraNode tx m)
-  , history :: m [PostChainTx tx]
+  , history :: TVar m [PostChainTx tx]
   }
 
 -- | Creates a simulated chain and network by returning a function to "monkey
@@ -431,7 +431,7 @@ data ConnectToChain tx m = ConnectToChain
 -- messages being sent around.
 simulatedChainAndNetwork :: (MonadSTM m) => m (ConnectToChain tx m)
 simulatedChainAndNetwork = do
-  refHistory <- newTVarIO []
+  history <- newTVarIO []
   nodes <- newTVarIO []
   pure $
     ConnectToChain
@@ -439,11 +439,10 @@ simulatedChainAndNetwork = do
           atomically $ modifyTVar nodes (node :)
           pure $
             node
-              { oc = Chain{postTx = postTx nodes refHistory}
+              { oc = Chain{postTx = postTx nodes history}
               , hn = Network{broadcast = broadcast node nodes}
               }
-      , history = do
-          reverse <$> readTVarIO refHistory
+      , history
       }
  where
   postTx nodes refHistory tx = do
@@ -490,7 +489,7 @@ withHydraNode ::
   ConnectToChain SimpleTx (IOSim s) ->
   (TestHydraNode SimpleTx (IOSim s) -> IOSim s a) ->
   IOSim s a
-withHydraNode signingKey otherParties connectToChain action = do
+withHydraNode signingKey otherParties connectToChain@ConnectToChain{history} action = do
   outputs <- atomically newTQueue
   node <- createHydraNode outputs
 
@@ -501,7 +500,7 @@ withHydraNode signingKey otherParties connectToChain action = do
         , chainEvent = \e -> do
             case e of
               Rollback n -> do
-                atomically (modify (drop $ fromIntegral n) history)
+                atomically $ modifyTVar' history (drop $ fromIntegral n)
               _ -> pure ()
             handleChainTx node e
         , waitForNext = atomically $ readTQueue outputs

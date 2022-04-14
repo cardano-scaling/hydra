@@ -233,7 +233,7 @@ spec = do
 
       it "notify user on rollback" $
         forAll arbitrary $ \s -> monadicIO $ do
-          let rollback = OnChainEvent (Rollback (-2))
+          let rollback = OnChainEvent (Rollback 2)
           let s' = update env ledger s rollback
           void $ run $ s' `hasEffect` ClientEffect RolledBack
 
@@ -273,7 +273,12 @@ isAckSn = \case
 
 inInitialState :: [Party] -> HeadState SimpleTx
 inInitialState parties =
-  InitialState parameters (Set.fromList parties) mempty
+  InitialState
+    { parameters
+    , pendingCommits = Set.fromList parties
+    , committed = mempty
+    , previousState = ReadyState
+    }
  where
   parameters = HeadParameters 42 parties
 
@@ -295,7 +300,13 @@ inOpenState' parties coordinatedHeadState =
   OpenState{parameters, coordinatedHeadState, previousState}
  where
   parameters = HeadParameters 42 parties
-  previousState = error "INIT STATE"
+  previousState =
+    InitialState
+      { parameters
+      , pendingCommits = mempty
+      , committed = mempty
+      , previousState = ReadyState
+      }
 
 inClosedState :: [Party] -> HeadState SimpleTx
 inClosedState parties =
