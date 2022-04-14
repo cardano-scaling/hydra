@@ -365,6 +365,25 @@ spec = parallel $ do
 
       roundtripAndGoldenSpecs (Proxy @(HydraNodeLog SimpleTx))
 
+    describe "rolling back" $ do
+      let openHead n1 n2 = do
+            send n1 (Init testContestationPeriod)
+            waitFor [n1, n2] $ ReadyToCommit (fromList [1, 2])
+            send n1 (Commit (utxoRef 1))
+            waitFor [n1, n2] $ Committed 1 (utxoRef 1)
+            send n2 (Commit (utxoRef 2))
+            waitFor [n1, n2] $ Committed 2 (utxoRef 2)
+            waitFor [n1, n2] $ HeadIsOpen (utxoRefs [1, 2])
+            chainEvent n1 (Rollback (-2))
+            waitFor [n1] $ ReadyToCommit (fromList [1, 2])
+            -- NOTE:
+            -- In principle, we can observe any prefix of the following sequence
+            -- of events.
+            --
+            -- waitFor [n1] $ Committed 1 (utxoRef 1)
+            -- waitFor [n1] $ Committed 2 (utxoRef 2)
+            -- waitFor [n1] $ HeadIsOpen (utxoRefs [1, 2])
+
 waitFor ::
   (HasCallStack, MonadThrow m, IsTx tx, MonadAsync m, MonadTimer m) =>
   [TestHydraNode tx m] ->
@@ -393,6 +412,7 @@ waitUntil nodes expected =
 -- | A thin layer around 'HydraNode' to be able to 'waitFor'.
 data TestHydraNode tx m = TestHydraNode
   { send :: ClientInput tx -> m ()
+  , chainEvent :: ChainEvent tx -> m ()
   , waitForNext :: m (ServerOutput tx)
   }
 
@@ -474,6 +494,7 @@ withHydraNode signingKey otherParties connectToChain action = do
     action $
       TestHydraNode
         { send = handleClientInput node
+        , chainEvent = handleChainTx node
         , waitForNext = atomically $ readTQueue outputs
         }
  where
