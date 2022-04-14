@@ -26,6 +26,7 @@ import Hydra.Cardano.Api (
   SlotNo (..),
   Tx,
   blockSlotNo,
+  renderUTxO,
   toLedgerTx,
   txInputSet,
   txOutValue,
@@ -74,6 +75,7 @@ import Hydra.Ledger.Cardano (
   genTxIn,
   genUTxO,
   renderTx,
+  renderTxs,
   simplifyUTxO,
  )
 import Hydra.Ledger.Cardano.Evaluate (evaluateTx')
@@ -342,7 +344,7 @@ propBelowSizeLimit txSizeLimit forAllTx =
           len = LBS.length cbor
        in len < txSizeLimit
             & label (showKB len)
-            & counterexample (toString (renderTx tx))
+            & counterexample (renderTx tx)
             & counterexample ("Actual size: " <> show len)
  where
   showKB nb = show (nb `div` 1024) <> "kB"
@@ -360,12 +362,12 @@ propIsValid exUnits forAllTx =
        in case evaluateTx' exUnits tx lookupUTxO of
             Left basicFailure ->
               property False
-                & counterexample ("Tx: " <> toString (renderTx tx))
+                & counterexample ("Tx: " <> renderTx tx)
                 & counterexample ("Lookup utxo: " <> decodeUtf8 (encodePretty lookupUTxO))
                 & counterexample ("Phase-1 validation failed: " <> show basicFailure)
             Right redeemerReport ->
               all isRight (Map.elems redeemerReport)
-                & counterexample ("Tx: " <> toString (renderTx tx))
+                & counterexample ("Tx: " <> renderTx tx)
                 & counterexample ("Lookup utxo: " <> decodeUtf8 (encodePretty lookupUTxO))
                 & counterexample ("Redeemer report: " <> show redeemerReport)
                 & counterexample "Phase-2 validation failed"
@@ -433,7 +435,7 @@ forAllCommit ::
 forAllCommit action = do
   forAll (genHydraContext 3) $ \ctx ->
     forAll (genStInitialized ctx) $ \stInitialized ->
-      forAll genCommit $ \utxo ->
+      forAllShow genCommit renderUTxO $ \utxo ->
         let tx = unsafeCommit utxo stInitialized
          in action stInitialized tx
               & classify
@@ -449,8 +451,8 @@ forAllAbort ::
   Property
 forAllAbort action = do
   forAll (genHydraContext 3) $ \ctx ->
-    forAll (genInitTx ctx) $ \initTx -> do
-      forAll (sublistOf =<< genCommits ctx initTx) $ \commits ->
+    forAllShow (genInitTx ctx) renderTx $ \initTx -> do
+      forAllShow (sublistOf =<< genCommits ctx initTx) renderTxs $ \commits ->
         forAll (genStIdle ctx) $ \stIdle ->
           let stInitialized = executeCommits initTx commits stIdle
            in action stInitialized (abort stInitialized)
@@ -470,8 +472,8 @@ forAllCollectCom ::
   Property
 forAllCollectCom action = do
   forAll (genHydraContext 3) $ \ctx ->
-    forAll (genInitTx ctx) $ \initTx -> do
-      forAll (genCommits ctx initTx) $ \commits ->
+    forAllShow (genInitTx ctx) renderTx $ \initTx -> do
+      forAllShow (genCommits ctx initTx) renderTxs $ \commits ->
         forAll (genStIdle ctx) $ \stIdle ->
           let stInitialized = executeCommits initTx commits stIdle
            in action stInitialized (collect stInitialized)
@@ -499,7 +501,7 @@ forAllFanout ::
 forAllFanout action = do
   forAll (genHydraContext 3) $ \ctx ->
     forAll (genStClosed ctx) $ \stClosed ->
-      forAll (resize maxAssetsSupported $ simplifyUTxO <$> genUTxO) $ \utxo ->
+      forAllShow (resize maxAssetsSupported $ simplifyUTxO <$> genUTxO) renderUTxO $ \utxo ->
         action stClosed (fanout utxo stClosed)
           & label ("Fanout size: " <> prettyLength (assetsInUtxo utxo))
  where

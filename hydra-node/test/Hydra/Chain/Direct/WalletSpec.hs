@@ -170,7 +170,7 @@ prop_balanceTransaction =
               & counterexample ("Error: " <> show err)
               & counterexample ("Lookup UTXO: \n" <> decodeUtf8 (encodePretty lookupUTxO))
               & counterexample ("Wallet UTXO: \n" <> decodeUtf8 (encodePretty walletUTxO))
-              & counterexample (toString $ renderTx $ fromLedgerTx tx)
+              & counterexample (renderTx $ fromLedgerTx tx)
           Right (_, tx') ->
             isBalanced (lookupUTxO <> walletUTxO) tx tx'
 

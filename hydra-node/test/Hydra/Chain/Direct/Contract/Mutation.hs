@@ -218,7 +218,7 @@ propTransactionDoesNotValidate (tx, lookupUTxO) =
           property True
         Right redeemerReport ->
           any isLeft (Map.elems redeemerReport)
-            & counterexample ("Tx: " <> toString (renderTxWithUTxO lookupUTxO tx))
+            & counterexample ("Tx: " <> renderTxWithUTxO lookupUTxO tx)
             & counterexample ("Redeemer report: " <> show redeemerReport)
             & counterexample "Phase-2 validation should have failed"
 
@@ -229,11 +229,11 @@ propTransactionValidates (tx, lookupUTxO) =
    in case result of
         Left basicFailure ->
           property False
-            & counterexample ("Tx: " <> toString (renderTxWithUTxO lookupUTxO tx))
+            & counterexample ("Tx: " <> renderTxWithUTxO lookupUTxO tx)
             & counterexample ("Phase-1 validation failed: " <> show basicFailure)
         Right redeemerReport ->
           all isRight (Map.elems redeemerReport)
-            & counterexample ("Tx: " <> toString (renderTxWithUTxO lookupUTxO tx))
+            & counterexample ("Tx: " <> renderTxWithUTxO lookupUTxO tx)
             & counterexample ("Redeemer report: " <> show redeemerReport)
             & counterexample "Phase-2 validation failed"
 
