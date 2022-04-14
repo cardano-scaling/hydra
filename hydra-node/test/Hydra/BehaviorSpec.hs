@@ -369,18 +369,16 @@ spec = parallel $ do
     it "resets head to just after init" $
       shouldRunInSim $ do
         chain <- simulatedChainAndNetwork
-        withHydraNode 1 [2] chain $ \n1 ->
-          withHydraNode 2 [1] chain $ \n2 -> do
-            send n1 (Init testContestationPeriod)
-            waitFor [n1, n2] $ ReadyToCommit (fromList [1, 2])
-            send n1 (Commit (utxoRef 1))
-            waitFor [n1, n2] $ Committed 1 (utxoRef 1)
-            send n2 (Commit (utxoRef 2))
-            waitFor [n1, n2] $ Committed 2 (utxoRef 2)
-            waitFor [n1, n2] $ HeadIsOpen (utxoRefs [1, 2])
-            chainEvent n1 (Rollback (-2))
-            waitFor [n1] $ RolledBack -- FIXME
-            waitFor [n1] $ ReadyToCommit (fromList [1, 2])
+        withHydraNode 1 [] chain $ \n1 -> do
+          send n1 (Init testContestationPeriod)
+          waitFor [n1] $ ReadyToCommit (fromList [1])
+          send n1 (Commit (utxoRef 1))
+          waitFor [n1] $ Committed 1 (utxoRef 1)
+          waitFor [n1] $ HeadIsOpen (utxoRefs [1])
+          -- NOTE: Rollback affects the commit tx
+          chainEvent n1 (Rollback (-1))
+          waitFor [n1] $ RolledBack -- FIXME
+          waitFor [n1] $ ReadyToCommit (fromList [1])
 
 -- NOTE:
 -- In principle, we can observe any prefix of the following sequence
@@ -500,7 +498,12 @@ withHydraNode signingKey otherParties connectToChain action = do
     action $
       TestHydraNode
         { send = handleClientInput node
-        , chainEvent = handleChainTx node
+        , chainEvent = \e -> do
+            case e of
+              Rollback n -> do
+                atomically (modify (drop n) history)
+              _ -> pure ()
+            handleChainTx node e
         , waitForNext = atomically $ readTQueue outputs
         }
  where
