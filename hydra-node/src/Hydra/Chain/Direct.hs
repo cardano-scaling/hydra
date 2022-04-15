@@ -106,7 +106,7 @@ import Ouroboros.Consensus.Ledger.SupportsMempool (ApplyTxErr)
 import Ouroboros.Consensus.Network.NodeToClient (Codecs' (..))
 import Ouroboros.Consensus.Shelley.Ledger (ShelleyBlock (..))
 import Ouroboros.Consensus.Shelley.Ledger.Mempool (mkShelleyTx)
-import Ouroboros.Network.Block (Point (..), Tip (..), getTipPoint)
+import Ouroboros.Network.Block (Point (..), Tip (..), blockPoint, getTipPoint)
 import Ouroboros.Network.Magic (NetworkMagic (..))
 import Ouroboros.Network.Mux (
   MuxMode (..),
@@ -312,7 +312,7 @@ newChainSyncHandler tracer callback headState = do
   onRollForward :: Block -> m ()
   onRollForward blk = do
     let receivedTxs = toList $ getAlonzoTxs blk
-    onChainTxs <- reverse <$> atomically (foldM withNextTx [] receivedTxs)
+    onChainTxs <- reverse <$> atomically (foldM (withNextTx (blockPoint blk)) [] receivedTxs)
     unless (null receivedTxs) $
       traceWith tracer $
         ReceivedTxs
@@ -327,8 +327,8 @@ newChainSyncHandler tracer callback headState = do
     st <- readTVarIO headState
     callback (Rollback $ rollbackDepth (fromConsensusPointHF point) st)
 
-  withNextTx :: [OnChainTx Tx] -> ValidatedTx Era -> STM m [OnChainTx Tx]
-  withNextTx observed (fromLedgerTx -> tx) = do
+  withNextTx :: Point Block -> [OnChainTx Tx] -> ValidatedTx Era -> STM m [OnChainTx Tx]
+  withNextTx _point observed (fromLedgerTx -> tx) = do
     st <- readTVar headState
     case observeSomeTx tx st of
       Just (onChainTx, st') -> do
