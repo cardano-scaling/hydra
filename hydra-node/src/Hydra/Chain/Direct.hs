@@ -372,18 +372,14 @@ chainSyncClient handler = \case
     initStNext =
       ClientStNext
         { recvMsgRollForward = \_ (getTipPoint -> tip) ->
-            ChainSyncClient $
-              pure $
-                SendMsgFindIntersect [tip] (clientStIntersect initStIntersect)
+            ChainSyncClient $ findIntersect tip
         , recvMsgRollBackward = \_ (getTipPoint -> tip) ->
-            ChainSyncClient $
-              pure $
-                SendMsgFindIntersect [tip] (clientStIntersect initStIntersect)
+            ChainSyncClient $ findIntersect tip
         }
 
-    initStIntersect :: Point Block -> m (ClientStIdle Block (Point Block) (Tip Block) m ())
-    initStIntersect tip =
-      pure $ SendMsgFindIntersect [tip] (clientStIntersect initStIntersect)
+    findIntersect :: Point Block -> m (ClientStIdle Block (Point Block) (Tip Block) m ())
+    findIntersect tip =
+      pure $ SendMsgFindIntersect [tip] (clientStIntersect findIntersect)
 
   clientStIntersect ::
     (Point Block -> m (ClientStIdle Block (Point Block) (Tip Block) m ())) ->
