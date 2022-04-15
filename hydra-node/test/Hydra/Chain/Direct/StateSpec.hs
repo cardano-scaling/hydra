@@ -8,6 +8,7 @@ import qualified Cardano.Api.UTxO as UTxO
 import Cardano.Binary (serialize)
 import Cardano.Ledger.Era (toTxSeq)
 import qualified Cardano.Ledger.Shelley.API as Ledger
+import Cardano.Slotting.Slot (WithOrigin (..))
 import Control.Monad.Class.MonadSTM (MonadSTM (..))
 import Control.Tracer (nullTracer)
 import qualified Data.ByteString.Lazy as LBS
@@ -19,7 +20,7 @@ import qualified Data.Set as Set
 import Data.Type.Equality (testEquality, (:~:) (..))
 import Hydra.Cardano.Api (
   ExecutionUnits (..),
-  SlotNo,
+  SlotNo (..),
   Tx,
   toLedgerTx,
   txInputSet,
@@ -67,7 +68,7 @@ import Hydra.Ledger.Cardano (
  )
 import Hydra.Ledger.Cardano.Evaluate (evaluateTx')
 import Hydra.Snapshot (isInitialSnapshot)
-import Ouroboros.Consensus.Block (Point, blockPoint)
+import Ouroboros.Consensus.Block (Point, blockPoint, pointSlot)
 import Ouroboros.Consensus.Cardano.Block (HardForkBlock (BlockAlonzo))
 import Ouroboros.Consensus.Shelley.Ledger (mkShelleyBlock)
 import Test.Hspec (shouldBe)
@@ -173,7 +174,7 @@ spec = parallel $ do
               Observation onChainTx ->
                 fst <$> observeSomeTx tx st `shouldBe` Just onChainTx
         forAllBlind (genBlockAt 1 [tx]) $ \blk -> monadicIO $ do
-          headState <- run $ newTVarIO (Nothing ,st)
+          headState <- run $ newTVarIO (Nothing, st)
           handler <- run $ newChainSyncHandler nullTracer callback headState
           run $ onRollForward handler blk
 
@@ -192,21 +193,28 @@ spec = parallel $ do
             monitor $ counterexample $ "On-chain head state: " <> show st'
             run $ onRollBackward handler rollbackPoint
 
-genRollbackPoint :: [Block] -> Gen (Word, Point Block)
+genRollbackPoint :: NonEmpty Block -> Gen (Word, Point Block)
 genRollbackPoint blks = do
-  ix <- choose (0, length blks - 1)
-  let rollbackPoint = blockPoint (blks !! ix)
-  let rollbackDepth = fromIntegral (length blks - ix)
-  pure (rollbackDepth, rollbackPoint)
+  let maxSlotNo = pointSlot' (last blks)
+  ix <- SlotNo <$> choose (0, unSlotNo maxSlotNo)
+  let rollbackDepth = length [blk | blk <- toList blks, pointSlot' blk > ix]
+  rollbackPoint <- blockPoint <$> genBlockAt ix []
+  pure (fromIntegral rollbackDepth, rollbackPoint)
+ where
+  pointSlot' :: Block -> SlotNo
+  pointSlot' pt =
+    case pointSlot (blockPoint pt) of
+      Origin -> 0
+      At sl -> sl
 
-genSequenceOfObservableBlocks :: Gen (SomeOnChainHeadState, [Block])
+genSequenceOfObservableBlocks :: Gen (SomeOnChainHeadState, NonEmpty Block)
 genSequenceOfObservableBlocks = do
   ctx <- genHydraContext 3
   stIdle <- genStIdle ctx
   tx <- genInit ctx stIdle
   let _stInit = snd $ unsafeObserveTx @_ @ 'StInitialized tx stIdle
   blk <- genBlockAt 1 [tx]
-  pure (SomeOnChainHeadState stIdle, [blk])
+  pure (SomeOnChainHeadState stIdle, blk :| [])
  where
   genInit ctx stIdle =
     initialize (ctxHeadParameters ctx) (ctxVerificationKeys ctx)
@@ -431,10 +439,14 @@ genStClosed ctx = do
   pure $ snd $ unsafeObserveTx @_ @ 'StClosed closeTx stOpen
 
 genBlockAt :: SlotNo -> [Tx] -> Gen Block
-genBlockAt _sl txs = do
-  header <- arbitrary
+genBlockAt sl txs = do
+  header <- adjustSlot <$> arbitrary
   let body = toTxSeq $ StrictSeq.fromList (toLedgerTx <$> txs)
   pure $ BlockAlonzo $ mkShelleyBlock $ Ledger.Block header body
+ where
+  adjustSlot (Ledger.BHeader body sig) =
+    let body' = body{Ledger.bheaderSlotNo = sl}
+     in Ledger.BHeader body' sig
 
 --
 -- Wrapping Transition for easy labelling

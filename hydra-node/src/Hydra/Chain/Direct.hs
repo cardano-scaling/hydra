@@ -325,8 +325,8 @@ newChainSyncHandler tracer callback headState = do
   onRollBackward :: Point Block -> m ()
   onRollBackward point = do
     traceWith tracer $ RolledBackward $ SomePoint point
-    st <- fst <$> readTVarIO headState
-    callback (Rollback $ rollbackDepth (fromConsensusPointHF point) st)
+    at <- fst <$> readTVarIO headState
+    callback (Rollback $ rollbackDepth (fromConsensusPointHF point) at)
 
   withNextTx :: Point Block -> [OnChainTx Tx] -> ValidatedTx Era -> STM m [OnChainTx Tx]
   withNextTx point observed (fromLedgerTx -> tx) = do
