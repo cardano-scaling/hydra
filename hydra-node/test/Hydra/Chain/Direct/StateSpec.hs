@@ -173,7 +173,7 @@ spec = parallel $ do
               Observation onChainTx ->
                 fst <$> observeSomeTx tx st `shouldBe` Just onChainTx
         forAllBlind (genBlockAt 1 [tx]) $ \blk -> monadicIO $ do
-          headState <- run $ newTVarIO st
+          headState <- run $ newTVarIO (Nothing ,st)
           handler <- run $ newChainSyncHandler nullTracer callback headState
           run $ onRollForward handler blk
 
@@ -185,7 +185,7 @@ spec = parallel $ do
                   pure ()
                 Rollback n -> n `shouldBe` rollbackDepth
           monadicIO $ do
-            headState <- run $ newTVarIO st
+            headState <- run $ newTVarIO (Nothing, st)
             handler <- run $ newChainSyncHandler nullTracer callback headState
             run $ mapM_ (onRollForward handler) blks
             st' <- run $ readTVarIO headState

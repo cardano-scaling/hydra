@@ -77,7 +77,6 @@ import Hydra.Chain.Direct.State (
   commit,
   fanout,
   getKnownUTxO,
-  happenedAt,
   idleOnChainHeadState,
   initialize,
   observeSomeTx,
@@ -162,13 +161,15 @@ withDirectChain tracer networkId iocp socketPath keyPair party cardanoKeys point
   queue <- newTQueueIO
   withTinyWallet (contramap Wallet tracer) networkId keyPair iocp socketPath $ \wallet -> do
     headState <-
-      newTVarIO $
-        SomeOnChainHeadState $
-          idleOnChainHeadState
-            networkId
-            (cardanoKeys \\ [verificationKey wallet])
-            (verificationKey wallet)
-            party
+      newTVarIO
+        ( Nothing
+        , SomeOnChainHeadState $
+            idleOnChainHeadState
+              networkId
+              (cardanoKeys \\ [verificationKey wallet])
+              (verificationKey wallet)
+              party
+        )
     chainSyncHandler <- newChainSyncHandler tracer callback headState
     res <-
       race
@@ -299,7 +300,7 @@ newChainSyncHandler ::
   -- | Chain callback
   (ChainEvent Tx -> m ()) ->
   -- | On-chain head-state.
-  TVar m SomeOnChainHeadState ->
+  TVar m (Maybe ChainPoint, SomeOnChainHeadState) ->
   -- | A chain-sync handler to use in a local-chain-sync client.
   m (ChainSyncHandler m)
 newChainSyncHandler tracer callback headState = do
@@ -324,25 +325,24 @@ newChainSyncHandler tracer callback headState = do
   onRollBackward :: Point Block -> m ()
   onRollBackward point = do
     traceWith tracer $ RolledBackward $ SomePoint point
-    st <- readTVarIO headState
+    st <- fst <$> readTVarIO headState
     callback (Rollback $ rollbackDepth (fromConsensusPointHF point) st)
 
   withNextTx :: Point Block -> [OnChainTx Tx] -> ValidatedTx Era -> STM m [OnChainTx Tx]
-  withNextTx _point observed (fromLedgerTx -> tx) = do
-    st <- readTVar headState
+  withNextTx point observed (fromLedgerTx -> tx) = do
+    st <- snd <$> readTVar headState
     case observeSomeTx tx st of
       Just (onChainTx, st') -> do
-        writeTVar headState st'
+        writeTVar headState (Just $ fromConsensusPointHF point, st')
         pure $ onChainTx : observed
       Nothing ->
         pure observed
 
-rollbackDepth :: ChainPoint -> SomeOnChainHeadState -> Word
-rollbackDepth pt st =
-  case happenedAt st of
-    Just somePoint
-      | pt < somePoint -> 1
-    _ -> 0
+rollbackDepth :: ChainPoint -> Maybe ChainPoint -> Word
+rollbackDepth pt = \case
+  Just somePoint
+    | pt < somePoint -> 1
+  _ -> 0
 
 chainSyncClient ::
   forall m.
@@ -467,11 +467,11 @@ txSubmissionClient tracer queue =
 finalizeTx ::
   (MonadSTM m, MonadThrow (STM m)) =>
   TinyWallet m ->
-  TVar m SomeOnChainHeadState ->
+  TVar m (Maybe ChainPoint, SomeOnChainHeadState) ->
   ValidatedTx Era ->
   STM m (ValidatedTx Era)
 finalizeTx TinyWallet{sign, getUTxO, coverFee} headState partialTx = do
-  headUTxO <- (\(SomeOnChainHeadState st) -> getKnownUTxO st) <$> readTVar headState
+  headUTxO <- (\(SomeOnChainHeadState st) -> getKnownUTxO st) . snd <$> readTVar headState
   walletUTxO <- fromLedgerUTxO . Ledger.UTxO <$> getUTxO
   coverFee (Ledger.unUTxO $ toLedgerUTxO headUTxO) partialTx >>= \case
     Left ErrNoPaymentUTxOFound ->
@@ -502,11 +502,11 @@ fromPostChainTx ::
   (MonadSTM m, MonadThrow (STM m)) =>
   [VerificationKey PaymentKey] ->
   TinyWallet m ->
-  TVar m SomeOnChainHeadState ->
+  TVar m (Maybe ChainPoint, SomeOnChainHeadState) ->
   PostChainTx Tx ->
   STM m Tx
 fromPostChainTx cardanoKeys wallet someHeadState tx = do
-  SomeOnChainHeadState st <- readTVar someHeadState
+  SomeOnChainHeadState st <- snd <$> readTVar someHeadState
   case (tx, reifyState st) of
     (InitTx params, TkIdle) -> do
       getFuelUTxO wallet >>= \case

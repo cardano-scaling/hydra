@@ -12,9 +12,7 @@ import Hydra.Cardano.Api (
   Tx,
   UTxO,
   VerificationKey,
-  fromConsensusPointHF,
  )
-import Hydra.Cardano.Api.Prelude (ChainPoint)
 import Hydra.Chain (HeadParameters (..), OnChainTx)
 import Hydra.Chain.Direct.State (
   HeadStateKind (..),
@@ -25,7 +23,6 @@ import Hydra.Chain.Direct.State (
   initialize,
   observeTx,
  )
-import Hydra.Chain.Direct.Util (Block)
 import Hydra.Ledger.Cardano (genOneUTxOFor, genTxIn, genVerificationKey, renderTx)
 import Hydra.Party (Party)
 import Test.QuickCheck (choose, elements, frequency, vector)
@@ -91,9 +88,8 @@ genStInitialized ::
 genStInitialized ctx = do
   stIdle <- genStIdle ctx
   seedInput <- genTxIn
-  point <- fromConsensusPointHF @Block <$> arbitrary
   let initTx = initialize (ctxHeadParameters ctx) (ctxVerificationKeys ctx) seedInput stIdle
-  pure $ snd $ unsafeObserveTx @_ @ 'StInitialized point initTx stIdle
+  pure $ snd $ unsafeObserveTx @_ @ 'StInitialized initTx stIdle
 
 genInitTx ::
   HydraContext ->
@@ -129,12 +125,11 @@ genCommit =
 unsafeObserveTx ::
   forall st st'.
   (ObserveTx st st', HasCallStack) =>
-  ChainPoint ->
   Tx ->
   OnChainHeadState st ->
   (OnChainTx Tx, OnChainHeadState st')
-unsafeObserveTx point tx st =
-  fromMaybe (error hopefullyInformativeMessage) (observeTx @st @st' point tx st)
+unsafeObserveTx tx st =
+  fromMaybe (error hopefullyInformativeMessage) (observeTx @st @st' tx st)
  where
   hopefullyInformativeMessage =
     "unsafeObserveTx:"
