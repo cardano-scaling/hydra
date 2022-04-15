@@ -67,7 +67,7 @@ import Hydra.Ledger.Cardano (
  )
 import Hydra.Ledger.Cardano.Evaluate (evaluateTx')
 import Hydra.Snapshot (isInitialSnapshot)
-import Ouroboros.Consensus.Block (blockPoint)
+import Ouroboros.Consensus.Block (Point, blockPoint)
 import Ouroboros.Consensus.Cardano.Block (HardForkBlock (BlockAlonzo))
 import Ouroboros.Consensus.Shelley.Ledger (mkShelleyBlock)
 import Test.Hspec (shouldBe)
@@ -179,12 +179,11 @@ spec = parallel $ do
 
     prop "rollback rewind the chain state" $
       forAllBlind genSequenceOfObservableBlocks $ \(st, blks) ->
-        forAll (choose (0, length blks - 1)) $ \ix -> do
-          let rollbackPoint = blockPoint (blks !! ix)
+        forAll (genRollbackPoint blks) $ \(rollbackDepth, rollbackPoint) -> do
           let callback = \case
                 Observation{} -> do
                   pure ()
-                Rollback n -> n `shouldBe` fromIntegral ix
+                Rollback n -> n `shouldBe` rollbackDepth
           monadicIO $ do
             headState <- run $ newTVarIO st
             handler <- run $ newChainSyncHandler nullTracer callback headState
@@ -192,6 +191,13 @@ spec = parallel $ do
             st' <- run $ readTVarIO headState
             monitor $ counterexample $ "On-chain head state: " <> show st'
             run $ onRollBackward handler rollbackPoint
+
+genRollbackPoint :: [Block] -> Gen (Word, Point Block)
+genRollbackPoint blks = do
+  ix <- choose (0, length blks - 1)
+  let rollbackPoint = blockPoint (blks !! ix)
+  let rollbackDepth = fromIntegral (length blks - ix)
+  pure (rollbackDepth, rollbackPoint)
 
 genSequenceOfObservableBlocks :: Gen (SomeOnChainHeadState, [Block])
 genSequenceOfObservableBlocks = do
