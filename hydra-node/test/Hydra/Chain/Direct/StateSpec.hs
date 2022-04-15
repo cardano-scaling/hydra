@@ -67,6 +67,7 @@ import Hydra.Ledger.Cardano (
  )
 import Hydra.Ledger.Cardano.Evaluate (evaluateTx')
 import Hydra.Snapshot (isInitialSnapshot)
+import Ouroboros.Consensus.Block (blockPoint)
 import Ouroboros.Consensus.Cardano.Block (HardForkBlock (BlockAlonzo))
 import Ouroboros.Consensus.Shelley.Ledger (mkShelleyBlock)
 import Test.Hspec (shouldBe)
@@ -83,6 +84,7 @@ import Test.QuickCheck (
   Property,
   Testable (property),
   checkCoverage,
+  choose,
   classify,
   counterexample,
   elements,
@@ -96,6 +98,7 @@ import Test.QuickCheck (
  )
 import Test.QuickCheck.Monadic (
   monadicIO,
+  monitor,
   run,
  )
 import Type.Reflection (typeOf)
@@ -174,26 +177,35 @@ spec = parallel $ do
           handler <- run $ newChainSyncHandler nullTracer callback headState
           run $ onRollForward handler blk
 
-    prop "rollback rewind the chain state" $ do
-      forAllSequenceOfBlocks $ \(st, blks) -> do
+    prop "rollback rewind the chain state" $
+      forAllBlind genSequenceOfObservableBlocks $ \(st, blks) ->
         forAll (choose (0, length blks - 1)) $ \ix -> do
-          let rollbackPoint = chainPoint (blks !! ix)
+          let rollbackPoint = blockPoint (blks !! ix)
           let callback = \case
                 Observation{} -> do
                   pure ()
-                Rollback n -> do
-                  n `shouldBe` ix
+                Rollback n -> n `shouldBe` fromIntegral ix
           monadicIO $ do
             headState <- run $ newTVarIO st
             handler <- run $ newChainSyncHandler nullTracer callback headState
             run $ mapM_ (onRollForward handler) blks
+            st' <- run $ readTVarIO headState
+            monitor $ counterexample $ "On-chain head state: " <> show st'
             run $ onRollBackward handler rollbackPoint
 
-forAllSequenceOfBlocks :: Gen (SomeOnChainHeadState, [Block])
-forAllSequenceOfBlocks = error "forAllSequenceOfBlocks"
-
-chainPoint :: Block -> Point Block
-chainPoint = error "chainPoint"
+genSequenceOfObservableBlocks :: Gen (SomeOnChainHeadState, [Block])
+genSequenceOfObservableBlocks = do
+  ctx <- genHydraContext 3
+  stIdle <- genStIdle ctx
+  tx <- genInit ctx stIdle
+  let _stInit = snd $ unsafeObserveTx @_ @ 'StInitialized tx stIdle
+  blk <- genBlockAt 1 [tx]
+  pure (SomeOnChainHeadState stIdle, [blk])
+ where
+  genInit ctx stIdle =
+    initialize (ctxHeadParameters ctx) (ctxVerificationKeys ctx)
+      <$> genTxIn
+      <*> pure stIdle
 
 tenTimesTxExecutionUnits :: ExecutionUnits
 tenTimesTxExecutionUnits =

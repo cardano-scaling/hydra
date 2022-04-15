@@ -134,6 +134,9 @@ data SomeOnChainHeadState where
     OnChainHeadState st ->
     SomeOnChainHeadState
 
+instance Show SomeOnChainHeadState where
+  show (SomeOnChainHeadState st) = show st
+
 -- | Some Kind for witnessing Hydra state-machine's states at the type-level.
 --
 -- This is useful to
