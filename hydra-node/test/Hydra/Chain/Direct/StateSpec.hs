@@ -206,13 +206,11 @@ genSequenceOfObservableBlocks :: Gen (SomeOnChainHeadState, NonEmpty Block)
 genSequenceOfObservableBlocks = do
   ctx <- genHydraContext 3
   stIdle <- genStIdle ctx
-
   blks <- flip execStateT [] $ do
     stInitialized <- stepInit ctx stIdle
     let n = fromIntegral $ length $ ctxVerificationKeys ctx
     stInitialized' <- stepCommits ctx stInitialized n
     pure ()
-
   pure (SomeOnChainHeadState stIdle, NE.fromList blks)
  where
   nextSlot :: Monad m => StateT [Block] m SlotNo
