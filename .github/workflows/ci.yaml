@@ -181,7 +181,8 @@ jobs:
 
     - name: Documentation (Haddock)
       run: |
-        nix-shell --run '.github/workflows/ci-haddock.sh'
+        nix-shell --arg withoutDevTools true --run 'cabal update'
+        nix-shell --arg withoutDevTools true --run '.github/workflows/ci-haddock.sh'
 
     - name: Documentation (Docusaurus)
       working-directory: docs
