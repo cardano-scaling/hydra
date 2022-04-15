@@ -12,7 +12,6 @@ import qualified Cardano.Api.UTxO as UTxO
 import Cardano.Binary (serialize)
 import Cardano.Ledger.Era (toTxSeq)
 import qualified Cardano.Ledger.Shelley.API as Ledger
-import Cardano.Slotting.Slot (WithOrigin (..))
 import Control.Monad.Class.MonadSTM (MonadSTM (..))
 import Control.Tracer (nullTracer)
 import qualified Data.ByteString.Lazy as LBS
@@ -23,10 +22,10 @@ import qualified Data.Sequence.Strict as StrictSeq
 import qualified Data.Set as Set
 import Data.Type.Equality (testEquality, (:~:) (..))
 import Hydra.Cardano.Api (
-  ChainPoint (..),
   ExecutionUnits (..),
   SlotNo (..),
   Tx,
+  blockSlotNo,
   toLedgerTx,
   txInputSet,
   txOutValue,
@@ -35,6 +34,7 @@ import Hydra.Cardano.Api (
 import Hydra.Chain (ChainEvent (..))
 import Hydra.Chain.Direct (
   ChainSyncHandler (..),
+  RecordedAt (..),
   SomeOnChainHeadStateAt (..),
   newChainSyncHandler,
  )
@@ -217,14 +217,6 @@ spec = parallel $ do
             st'' <- run $ mapM_ (onRollForward handler) toReplay *> readTVarIO headState
             assert (st' == st'')
 
-showRollbackInfo :: (Word, Point Block) -> String
-showRollbackInfo (rollbackDepth, rollbackPoint) =
-  toString $
-    unlines
-      [ "Rollback depth: " <> show rollbackDepth
-      , "Rollback point: " <> show rollbackPoint
-      ]
-
 withCounterExample :: [Block] -> TVar IO SomeOnChainHeadStateAt -> IO a -> PropertyM IO a
 withCounterExample blks headState step = do
   stBefore <- run $ readTVarIO headState
@@ -235,8 +227,8 @@ withCounterExample blks headState step = do
       counterexample $
         toString $
           unlines
-            [ "Head state at (before rollback): " <> show (at stBefore)
-            , "Head state at (after rollback):  " <> show (at stAfter)
+            [ "Head state at (before rollback): " <> showStateRecordedAt stBefore
+            , "Head state at (after rollback):  " <> showStateRecordedAt stAfter
             , "Block sequence: \n"
                 <> unlines
                   ( fmap
@@ -247,12 +239,18 @@ withCounterExample blks headState step = do
 
 genRollbackPoint :: [Block] -> Gen (Word, Point Block)
 genRollbackPoint blks = do
-  let maxSlotNo = pointSlot' (Prelude.last blks)
+  let maxSlotNo = blockSlotNo (Prelude.last blks)
   ix <- SlotNo <$> choose (1, unSlotNo maxSlotNo)
-  let rollbackDepth = length blks - length [blk | blk <- blks, pointSlot' blk <= ix]
+  let rollbackDepth = length blks - length [blk | blk <- blks, blockSlotNo blk <= ix]
   rollbackPoint <- blockPoint <$> genBlockAt ix []
   pure (fromIntegral rollbackDepth, rollbackPoint)
 
+-- | Generate a non-sparse sequence of blocks each containing an observable
+-- transaction, starting from the returned on-chain head state.
+--
+-- Note that this does not generate the entire spectrum of observable
+-- transactions in Hydra, but only init and commits, which is already sufficient
+-- to observe at least one state transition and different levels of rollback.
 genSequenceOfObservableBlocks :: Gen (SomeOnChainHeadStateAt, [Block])
 genSequenceOfObservableBlocks = do
   ctx <- genHydraContext 3
@@ -274,7 +272,7 @@ genSequenceOfObservableBlocks = do
   nextSlot = do
     get <&> \case
       [] -> 1
-      x : _ -> SlotNo . succ . unSlotNo . pointSlot' $ x
+      x : _ -> SlotNo . succ . unSlotNo . blockSlotNo $ x
 
   putNextBlock :: Tx -> StateT [Block] Gen ()
   putNextBlock tx = do
@@ -324,18 +322,11 @@ tenTimesTxExecutionUnits =
     , executionSteps = 100_000_000_000
     }
 
-pointSlot' :: Block -> SlotNo
-pointSlot' pt =
-  case pointSlot (blockPoint pt) of
-    Origin -> 0
-    At sl -> sl
-
 stAtGenesis :: SomeOnChainHeadState -> SomeOnChainHeadStateAt
 stAtGenesis currentOnChainHeadState =
   SomeOnChainHeadStateAt
-    { previousOnChainHeadState = Nothing
-    , currentOnChainHeadState
-    , at = ChainPointAtGenesis
+    { currentOnChainHeadState
+    , recordedAt = AtStart
     }
 
 --
@@ -595,3 +586,21 @@ instance Enum Transition where
 instance Bounded Transition where
   minBound = Prelude.head allTransitions
   maxBound = Prelude.last allTransitions
+
+--
+-- Prettifier
+--
+
+showRollbackInfo :: (Word, Point Block) -> String
+showRollbackInfo (rollbackDepth, rollbackPoint) =
+  toString $
+    unlines
+      [ "Rollback depth: " <> show rollbackDepth
+      , "Rollback point: " <> show rollbackPoint
+      ]
+
+showStateRecordedAt :: SomeOnChainHeadStateAt -> Text
+showStateRecordedAt SomeOnChainHeadStateAt{recordedAt} =
+  case recordedAt of
+    AtStart -> "Start"
+    AtPoint pt _ -> show pt

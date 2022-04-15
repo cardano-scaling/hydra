@@ -104,6 +104,7 @@ import Hydra.Cardano.Api.ScriptDatum as Extras
 import Hydra.Cardano.Api.ScriptHash as Extras
 import Hydra.Cardano.Api.ScriptLanguageInEra as Extras
 import Hydra.Cardano.Api.ScriptWitnessInCtx as Extras
+import Hydra.Cardano.Api.SlotNo as Extras
 import Hydra.Cardano.Api.Tx as Extras
 import Hydra.Cardano.Api.TxBody as Extras
 import Hydra.Cardano.Api.TxId as Extras

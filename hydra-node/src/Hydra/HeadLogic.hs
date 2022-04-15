@@ -65,24 +65,41 @@ deriving instance IsTx tx => Show (Effect tx)
 deriving instance IsTx tx => ToJSON (Effect tx)
 deriving instance IsTx tx => FromJSON (Effect tx)
 
+-- | A recursive data-structure which represent the application state as a
+-- state-machine. The 'previousRecoverableState' records the state of the
+-- application before the latest 'OnChainEffect' that has been observed.
+-- On-Chain effects are indeed only __eventually__ immutable and the application
+-- state may be rolled back at any time (with a decreasing probability as the
+-- time pass).
+--
+-- Thus, leverage functional immutable data-structure, we build a recursive
+-- structure of states which we can easily navigate backwards when needed (see
+-- 'Rollback' and 'rollback').
+--
+-- Note that currently, rolling back to a previous recoverable state eliminates
+-- any off-chain events (e.g. transactions) that happened after that state. This
+-- is particularly important for anything following the transition to
+-- 'OpenState' since this is where clients may start submitting transactions. In
+-- practice, clients should not send transactions right way but wait for a
+-- certain grace period to minimize the risk.
 data HeadState tx
   = ReadyState
   | InitialState
       { parameters :: HeadParameters
       , pendingCommits :: PendingCommits
       , committed :: Committed tx
-      , previousState :: HeadState tx
+      , previousRecoverableState :: HeadState tx
       }
   | OpenState
       { parameters :: HeadParameters
       , coordinatedHeadState :: CoordinatedHeadState tx
-      , previousState :: HeadState tx
+      , previousRecoverableState :: HeadState tx
       }
   | -- TODO: rename utxos -> utxo
     ClosedState
       { parameters :: HeadParameters
       , utxos :: UTxOType tx
-      , previousState :: HeadState tx
+      , previousRecoverableState :: HeadState tx
       }
   deriving stock (Generic)
 
@@ -206,7 +223,7 @@ update Environment{party, signingKey, otherParties} ledger st ev = case (st, ev)
           { parameters = HeadParameters{contestationPeriod, parties}
           , pendingCommits = Set.fromList parties
           , committed = mempty
-          , previousState = ReadyState
+          , previousRecoverableState = ReadyState
           }
       )
       [ClientEffect $ ReadyToCommit $ fromList parties]
@@ -215,7 +232,7 @@ update Environment{party, signingKey, otherParties} ledger st ev = case (st, ev)
     | canCommit -> sameState [OnChainEffect (CommitTx party utxo)]
    where
     canCommit = party `Set.member` pendingCommits
-  (previousState@InitialState{parameters, pendingCommits, committed}, OnChainEvent (Observation OnCommitTx{party = pt, committed = utxo})) ->
+  (previousRecoverableState@InitialState{parameters, pendingCommits, committed}, OnChainEvent (Observation OnCommitTx{party = pt, committed = utxo})) ->
     nextState newHeadState $
       [ClientEffect $ Committed pt utxo]
         <> [OnChainEffect $ CollectComTx collectedUTxO | canCollectCom]
@@ -225,7 +242,7 @@ update Environment{party, signingKey, otherParties} ledger st ev = case (st, ev)
         { parameters
         , pendingCommits = remainingParties
         , committed = newCommitted
-        , previousState
+        , previousRecoverableState
         }
     remainingParties = Set.delete pt pendingCommits
     newCommitted = Map.insert pt utxo committed
@@ -240,7 +257,7 @@ update Environment{party, signingKey, otherParties} ledger st ev = case (st, ev)
     --       We shouldn't see any commit outside of the collecting state, if we do,
     --       there's an issue our logic or onChain layer.
     sameState []
-  (previousState@InitialState{parameters, committed}, OnChainEvent (Observation OnCollectComTx{})) ->
+  (previousRecoverableState@InitialState{parameters, committed}, OnChainEvent (Observation OnCollectComTx{})) ->
     -- TODO: We would want to check whether this even matches our local state.
     -- For example, we do expect `null remainingParties` but what happens if
     -- it's untrue?
@@ -249,7 +266,7 @@ update Environment{party, signingKey, otherParties} ledger st ev = case (st, ev)
           ( OpenState
               { parameters
               , coordinatedHeadState = CoordinatedHeadState u0 mempty (InitialSnapshot $ Snapshot 0 u0 mempty) NoSeenSnapshot
-              , previousState
+              , previousRecoverableState
               }
           )
           [ClientEffect $ HeadIsOpen u0]
@@ -272,7 +289,7 @@ update Environment{party, signingKey, otherParties} ledger st ev = case (st, ev)
       case canApply ledger utxo tx of
         Valid -> [ClientEffect $ TxValid tx, NetworkEffect $ ReqTx party tx]
         Invalid err -> [ClientEffect $ TxInvalid{utxo = utxo, transaction = tx, validationError = err}]
-  (OpenState{parameters, coordinatedHeadState = headState@CoordinatedHeadState{seenTxs, seenUTxO}, previousState}, NetworkEvent (ReqTx _ tx)) ->
+  (OpenState{parameters, coordinatedHeadState = headState@CoordinatedHeadState{seenTxs, seenUTxO}, previousRecoverableState}, NetworkEvent (ReqTx _ tx)) ->
     case applyTransactions ledger seenUTxO [tx] of
       Left (_, err) -> Wait $ WaitOnNotApplicableTx err -- The transaction may not be applicable yet.
       Right utxo' ->
@@ -285,11 +302,11 @@ update Environment{party, signingKey, otherParties} ledger st ev = case (st, ev)
                         { seenTxs = newSeenTxs
                         , seenUTxO = utxo'
                         }
-                  , previousState
+                  , previousRecoverableState
                   }
               )
               [ClientEffect $ TxSeen tx]
-  (OpenState{parameters, coordinatedHeadState = s@CoordinatedHeadState{confirmedSnapshot, seenSnapshot}, previousState}, e@(NetworkEvent (ReqSn otherParty sn txs)))
+  (OpenState{parameters, coordinatedHeadState = s@CoordinatedHeadState{confirmedSnapshot, seenSnapshot}, previousRecoverableState}, e@(NetworkEvent (ReqSn otherParty sn txs)))
     | (number . getSnapshot) confirmedSnapshot + 1 == sn && isLeader parameters otherParty sn && not (snapshotPending seenSnapshot) ->
       -- TODO: Also we might be robust against multiple ReqSn for otherwise
       -- valid request, which is currently leading to 'Error'
@@ -304,7 +321,7 @@ update Environment{party, signingKey, otherParties} ledger st ev = case (st, ev)
                 ( OpenState
                     { parameters
                     , coordinatedHeadState = s{seenSnapshot = SeenSnapshot nextSnapshot mempty}
-                    , previousState
+                    , previousRecoverableState
                     }
                 )
                 [NetworkEffect $ AckSn party snapshotSignature sn]
@@ -316,7 +333,7 @@ update Environment{party, signingKey, otherParties} ledger st ev = case (st, ev)
           | number snapshot == sn -> Error (InvalidEvent e st)
           | otherwise -> Wait $ WaitOnSnapshotNumber (number snapshot)
         _ -> Wait WaitOnSeenSnapshot
-  (OpenState{parameters = parameters@HeadParameters{parties}, coordinatedHeadState = headState@CoordinatedHeadState{seenSnapshot, seenTxs}, previousState}, NetworkEvent (AckSn otherParty snapshotSignature sn)) ->
+  (OpenState{parameters = parameters@HeadParameters{parties}, coordinatedHeadState = headState@CoordinatedHeadState{seenSnapshot, seenTxs}, previousRecoverableState}, NetworkEvent (AckSn otherParty snapshotSignature sn)) ->
     case seenSnapshot of
       NoSeenSnapshot -> Wait WaitOnSeenSnapshot
       RequestedSnapshot -> Wait WaitOnSeenSnapshot
@@ -343,7 +360,7 @@ update Environment{party, signingKey, otherParties} ledger st ev = case (st, ev)
                               , seenSnapshot = NoSeenSnapshot
                               , seenTxs = seenTxs \\ confirmed snapshot
                               }
-                        , previousState
+                        , previousRecoverableState
                         }
                     )
                     [ClientEffect $ SnapshotConfirmed snapshot multisig]
@@ -355,11 +372,11 @@ update Environment{party, signingKey, otherParties} ledger st ev = case (st, ev)
                             headState
                               { seenSnapshot = SeenSnapshot snapshot sigs'
                               }
-                        , previousState
+                        , previousRecoverableState
                         }
                     )
                     []
-  (previousState@OpenState{parameters = parameters@HeadParameters{contestationPeriod}, coordinatedHeadState = CoordinatedHeadState{confirmedSnapshot}}, OnChainEvent (Observation OnCloseTx{})) ->
+  (previousRecoverableState@OpenState{parameters = parameters@HeadParameters{contestationPeriod}, coordinatedHeadState = CoordinatedHeadState{confirmedSnapshot}}, OnChainEvent (Observation OnCloseTx{})) ->
     -- TODO(1): Should check whether we want / can contest the close snapshot by
     --       comparing with our local state / utxo.
     --
@@ -371,7 +388,7 @@ update Environment{party, signingKey, otherParties} ledger st ev = case (st, ev)
       ( ClosedState
           { parameters
           , utxos = getField @"utxo" $ getSnapshot confirmedSnapshot
-          , previousState
+          , previousRecoverableState
           }
       )
       [ ClientEffect $
@@ -454,13 +471,13 @@ newSn Environment{party} parameters CoordinatedHeadState{confirmedSnapshot, seen
 
 emitSnapshot :: IsTx tx => Environment -> [Effect tx] -> HeadState tx -> (HeadState tx, [Effect tx])
 emitSnapshot env@Environment{party} effects = \case
-  st@OpenState{parameters, coordinatedHeadState, previousState} ->
+  st@OpenState{parameters, coordinatedHeadState, previousRecoverableState} ->
     case newSn env parameters coordinatedHeadState of
       ShouldSnapshot sn txs ->
         ( OpenState
             { parameters
             , coordinatedHeadState = coordinatedHeadState{seenSnapshot = RequestedSnapshot}
-            , previousState
+            , previousRecoverableState
             }
         , NetworkEffect (ReqSn party sn txs) : effects
         )
@@ -480,9 +497,9 @@ rollback n
         -- layers. In principle, once we are in ready state, we can only
         -- rollback of `0` (thus caught by the case above).
         error "trying to rollback beyond known states? Chain layer screwed up."
-      InitialState{previousState} ->
-        previousState
-      OpenState{previousState} ->
-        previousState
-      ClosedState{previousState} ->
-        previousState
+      InitialState{previousRecoverableState} ->
+        previousRecoverableState
+      OpenState{previousRecoverableState} ->
+        previousRecoverableState
+      ClosedState{previousRecoverableState} ->
+        previousRecoverableState

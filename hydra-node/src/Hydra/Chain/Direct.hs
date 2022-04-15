@@ -163,15 +163,14 @@ withDirectChain tracer networkId iocp socketPath keyPair party cardanoKeys point
     headState <-
       newTVarIO $
         SomeOnChainHeadStateAt
-          { previousOnChainHeadState = Nothing
-          , currentOnChainHeadState =
+          { currentOnChainHeadState =
               SomeOnChainHeadState $
                 idleOnChainHeadState
                   networkId
                   (cardanoKeys \\ [verificationKey wallet])
                   (verificationKey wallet)
                   party
-          , at = fromMaybe ChainPointAtGenesis point
+          , recordedAt = AtStart
           }
     chainSyncHandler <- newChainSyncHandler tracer callback headState
     res <-
@@ -248,6 +247,11 @@ data ConnectException = ConnectException
 
 instance Exception ConnectException
 
+-- | Thrown when the user-provided custom point of intersection is unknown to
+-- the local node. This may happen if users shut down their node quickly after
+-- starting them and hold on a not-so-stable point of the chain. When they turn
+-- the node back on, that point may no longer exist on the network if a fork
+-- with deeper roots has been adopted in the meantime.
 data IntersectionNotFoundException = IntersectionNotFound
   { requestedPoint :: Point Block
   }
@@ -290,12 +294,22 @@ ouroborosApplication tracer point queue handler nodeToClientV =
     , cStateQueryCodec
     } = defaultCodecs nodeToClientV
 
+-- | The on-chain head state is maintained in a mutually-recursive data-structure,
+-- pointing to the previous chain state; This allows to easily rewind the state
+-- to a point in the past when rolling backward due to a change of chain fork by
+-- our local cardano-node.
 data SomeOnChainHeadStateAt = SomeOnChainHeadStateAt
-  { previousOnChainHeadState :: Maybe SomeOnChainHeadStateAt
-  , currentOnChainHeadState :: SomeOnChainHeadState
-  , at :: ChainPoint
+  { currentOnChainHeadState :: SomeOnChainHeadState
+  , recordedAt :: RecordedAt
   }
-  deriving (Show)
+  deriving (Eq, Show)
+
+-- | Records when a state was seen on-chain. 'AtStart' is used for states that
+-- simply exist out of any chain events (e.g. the 'Idle' state).
+data RecordedAt
+  = AtStart
+  | AtPoint ChainPoint SomeOnChainHeadStateAt
+  deriving (Eq, Show)
 
 data ChainSyncHandler m = ChainSyncHandler
   { onRollForward :: Block -> m ()
@@ -316,10 +330,17 @@ newChainSyncHandler ::
 newChainSyncHandler tracer callback headState = do
   pure $
     ChainSyncHandler
-      { onRollForward
-      , onRollBackward
+      { onRollBackward
+      , onRollForward
       }
  where
+  onRollBackward :: Point Block -> m ()
+  onRollBackward point = do
+    traceWith tracer $ RolledBackward $ SomePoint point
+    (st, depth) <- rollback (fromConsensusPointHF point) <$> readTVarIO headState
+    atomically $ writeTVar headState st
+    callback (Rollback depth)
+
   onRollForward :: Block -> m ()
   onRollForward blk = do
     let receivedTxs = toList $ getAlonzoTxs blk
@@ -332,14 +353,6 @@ newChainSyncHandler tracer callback headState = do
           }
     mapM_ (callback . Observation) onChainTxs
 
-  onRollBackward :: Point Block -> m ()
-  onRollBackward point = do
-    traceWith tracer $ RolledBackward $ SomePoint point
-    st <- readTVarIO headState
-    let (st', depth) = rollback st 0 (fromConsensusPointHF point)
-    atomically $ writeTVar headState st'
-    callback (Rollback depth)
-
   withNextTx :: Point Block -> [OnChainTx Tx] -> ValidatedTx Era -> STM m [OnChainTx Tx]
   withNextTx point observed (fromLedgerTx -> tx) = do
     st <- readTVar headState
@@ -347,22 +360,26 @@ newChainSyncHandler tracer callback headState = do
       Just (onChainTx, st') -> do
         writeTVar headState $
           SomeOnChainHeadStateAt
-            { previousOnChainHeadState = Just st
-            , currentOnChainHeadState = st'
-            , at = fromConsensusPointHF point
+            { currentOnChainHeadState = st'
+            , recordedAt = AtPoint (fromConsensusPointHF point) st
             }
         pure $ onChainTx : observed
       Nothing ->
         pure observed
 
-rollback :: SomeOnChainHeadStateAt -> Word -> ChainPoint -> (SomeOnChainHeadStateAt, Word)
-rollback st n pt
-  | at st > pt =
-    case previousOnChainHeadState st of
-      Nothing -> (st, n)
-      Just previous -> rollback previous (n + 1) pt
-  | otherwise =
-    (st, n)
+-- | Rewind some head state back to the first known state that is strictly
+-- before the provided 'ChainPoint'.
+rollback :: ChainPoint -> SomeOnChainHeadStateAt -> (SomeOnChainHeadStateAt, Word)
+rollback pt = backward 0
+ where
+  backward n st =
+    case recordedAt st of
+      AtStart ->
+        (st, n)
+      AtPoint at previous ->
+        if at <= pt
+          then (st, n)
+          else backward (succ n) previous
 
 chainSyncClient ::
   forall m.
