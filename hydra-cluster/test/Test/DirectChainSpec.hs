@@ -34,6 +34,7 @@ import Hydra.Cardano.Api (
  )
 import Hydra.Chain (
   Chain (..),
+  ChainEvent (Observation),
   HeadParameters (..),
   OnChainTx (..),
   PostChainTx (..),
@@ -216,7 +217,7 @@ spec = around showLogsOnFailure $ do
                 }
 
             alicesCallback `shouldSatisfyInTime` \case
-              OnCloseTx{snapshotNumber} ->
+              Observation OnCloseTx{snapshotNumber} ->
                 -- FIXME(SN): should assert contestationDeadline > current
                 snapshotNumber == 1
               _ ->
@@ -277,10 +278,15 @@ data TestClusterLog
   | FromDirectChain Text DirectChainLog
   deriving (Show)
 
-observesInTime :: IsTx tx => MVar (OnChainTx tx) -> OnChainTx tx -> Expectation
+observesInTime :: IsTx tx => MVar (ChainEvent tx) -> OnChainTx tx -> Expectation
 observesInTime mvar expected =
-  failAfter 10 $
-    takeMVar mvar `shouldReturn` expected
+  failAfter 10 go
+ where
+  go = do
+    e <- takeMVar mvar
+    case e of
+      Observation obs -> obs `shouldBe` expected
+      _ -> go
 
 shouldSatisfyInTime :: Show a => MVar a -> (a -> Bool) -> Expectation
 shouldSatisfyInTime mvar f =
