@@ -321,8 +321,8 @@ newChainSyncHandler tracer callback headState = do
   onRollBackward :: Point Block -> m ()
   onRollBackward point = do
     traceWith tracer $ RolledBackward $ SomePoint point
-    -- TODO: need to compute how much to rollback
-    callback (Rollback 0)
+    st <- readTVarIO headState
+    callback (Rollback $ rollbackDepth point st)
 
   withNextTx :: [OnChainTx Tx] -> ValidatedTx Era -> STM m [OnChainTx Tx]
   withNextTx observed (fromLedgerTx -> tx) = do
@@ -333,6 +333,15 @@ newChainSyncHandler tracer callback headState = do
         pure $ onChainTx : observed
       Nothing ->
         pure observed
+
+rollbackDepth :: Point Block -> SomeOnChainHeadState -> Word
+rollbackDepth pt st
+  | pt < happenedAt st =
+    1
+  -- rollbackDepth pt (rewind st)
+
+  | otherwise =
+    0
 
 chainSyncClient ::
   forall m.

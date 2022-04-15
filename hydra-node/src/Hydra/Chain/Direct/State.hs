@@ -12,6 +12,7 @@ module Hydra.Chain.Direct.State (
   SomeOnChainHeadState (..),
   TokHeadState (..),
   reifyState,
+  happenedAt,
 
   -- ** Initializing
   idleOnChainHeadState,
@@ -90,18 +91,21 @@ data HydraStateMachine (st :: HeadStateKind) where
     , initialCommits :: [UTxOWithScript]
     , initialHeadId :: HeadId
     , initialHeadTokenScript :: PlutusScript
+    , initialHappenedAt :: ChainPoint
     } ->
     HydraStateMachine 'StInitialized
   Open ::
     { openThreadOutput :: (TxIn, TxOut CtxUTxO, ScriptData, [OnChain.Party])
     , openHeadId :: HeadId
     , openHeadTokenScript :: PlutusScript
+    -- , openHappenedAt :: ChainPoint
     } ->
     HydraStateMachine 'StOpen
   Closed ::
     { closedThreadOutput :: (TxIn, TxOut CtxUTxO, ScriptData, [OnChain.Party])
     , closedHeadId :: HeadId
     , closedHeadTokenScript :: PlutusScript
+    -- , closedHappenedAt :: ChainPoint
     } ->
     HydraStateMachine 'StClosed
 
@@ -136,6 +140,24 @@ data SomeOnChainHeadState where
 
 instance Show SomeOnChainHeadState where
   show (SomeOnChainHeadState st) = show st
+
+happenedAt :: SomeOnChainHeadState -> Maybe ChainPoint
+happenedAt (SomeOnChainHeadState st) =
+  case (reifyState st, st) of
+    (TkIdle, _stIdle) ->
+      Nothing
+    (TkInitialized, stInitialized) ->
+      Just (initialHappenedAt (stateMachine stInitialized))
+    (TkOpen, _stOpen) ->
+      Nothing
+    -- Just (openHappenedAt stOpen)
+    (TkClosed, _stClosed) ->
+      Nothing
+
+--  Just (closeHappenedAt stClosed)
+
+-- rewind :: SomeOnChainHeadState -> SomeOnChainHeadState
+-- rewind = error "rewind"
 
 -- | Some Kind for witnessing Hydra state-machine's states at the type-level.
 --
@@ -339,6 +361,7 @@ instance ObserveTx 'StIdle 'StInitialized where
                   , initialCommits = commits
                   , initialHeadId = headId
                   , initialHeadTokenScript = headTokenScript
+                  , initialHappenedAt = error "initialHappenedAt"
                   }
             }
     pure (event, st')
