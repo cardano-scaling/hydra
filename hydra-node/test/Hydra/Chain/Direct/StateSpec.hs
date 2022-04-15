@@ -174,6 +174,27 @@ spec = parallel $ do
           handler <- run $ newChainSyncHandler nullTracer callback headState
           run $ onRollForward handler blk
 
+    prop "rollback rewind the chain state" $ do
+      forAllSequenceOfBlocks $ \(st, blks) -> do
+        forAll (choose (0, length blks - 1)) $ \ix -> do
+          let rollbackPoint = chainPoint (blks !! ix)
+          let callback = \case
+                Observation{} -> do
+                  pure ()
+                Rollback n -> do
+                  n `shouldBe` ix
+          monadicIO $ do
+            headState <- run $ newTVarIO st
+            handler <- run $ newChainSyncHandler nullTracer callback headState
+            run $ mapM_ (onRollForward handler) blks
+            run $ onRollBackward handler rollbackPoint
+
+forAllSequenceOfBlocks :: Gen (SomeOnChainHeadState, [Block])
+forAllSequenceOfBlocks = error "forAllSequenceOfBlocks"
+
+chainPoint :: Block -> Point Block
+chainPoint = error "chainPoint"
+
 tenTimesTxExecutionUnits :: ExecutionUnits
 tenTimesTxExecutionUnits =
   ExecutionUnits
