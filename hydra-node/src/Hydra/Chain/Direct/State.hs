@@ -322,6 +322,7 @@ class
   ObserveTx (st :: HeadStateKind) (st' :: HeadStateKind)
   where
   observeTx ::
+    ChainPoint ->
     Tx ->
     OnChainHeadState st ->
     Maybe (OnChainTx Tx, OnChainHeadState st')
