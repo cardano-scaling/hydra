@@ -17,7 +17,6 @@ import Control.Monad.Class.MonadSTM (MonadSTM (..))
 import Control.Tracer (nullTracer)
 import qualified Data.ByteString.Lazy as LBS
 import Data.List (elemIndex, intersect, (!!), (\\))
-import qualified Data.List.NonEmpty as NE
 import qualified Data.Map as Map
 import Data.Maybe (fromJust)
 import qualified Data.Sequence.Strict as StrictSeq
@@ -103,12 +102,15 @@ import Test.QuickCheck (
   expectFailure,
   forAll,
   forAllBlind,
+  forAllShow,
   label,
   resize,
   sublistOf,
   (==>),
  )
 import Test.QuickCheck.Monadic (
+  PropertyM,
+  assert,
   monadicIO,
   monitor,
   run,
@@ -189,30 +191,69 @@ spec = parallel $ do
           handler <- run $ newChainSyncHandler nullTracer callback headState
           run $ onRollForward handler blk
 
-    prop "rollback rewind the chain state" $
+    prop "can replay chain on (benign) rollback" $
       forAllBlind genSequenceOfObservableBlocks $ \(st, blks) ->
-        forAll (genRollbackPoint blks) $ \(rollbackDepth, rollbackPoint) -> do
+        forAllShow (genRollbackPoint blks) showRollbackInfo $ \(rollbackDepth, rollbackPoint) -> do
           let callback = \case
                 Observation{} -> do
                   pure ()
                 Rollback n -> n `shouldBe` rollbackDepth
+
           monadicIO $ do
+            monitor $ label ("Rollback depth: " <> show rollbackDepth)
             headState <- run $ newTVarIO st
             handler <- run $ newChainSyncHandler nullTracer callback headState
-            run $ mapM_ (onRollForward handler) blks
-            st' <- run $ readTVarIO headState
-            monitor $ counterexample $ "On-chain head state: " <> show st'
-            run $ onRollBackward handler rollbackPoint
 
-genRollbackPoint :: NonEmpty Block -> Gen (Word, Point Block)
+            -- 1/ Simulate some chain following
+            st' <- run $ mapM_ (onRollForward handler) blks *> readTVarIO headState
+
+            -- 2/ Inject a rollback to somewhere between any of the previous state
+            result <- withCounterExample blks headState $ do
+              try @_ @SomeException $ onRollBackward handler rollbackPoint
+            assert (isRight result)
+
+            -- 3/ Simulate chain-following replaying rolled back blocks, should re-apply
+            let toReplay = blks \\ [blk | blk <- blks, blockPoint blk <= rollbackPoint]
+            st'' <- run $ mapM_ (onRollForward handler) toReplay *> readTVarIO headState
+            assert (st' == st'')
+
+showRollbackInfo :: (Word, Point Block) -> String
+showRollbackInfo (rollbackDepth, rollbackPoint) =
+  toString $
+    unlines
+      [ "Rollback depth: " <> show rollbackDepth
+      , "Rollback point: " <> show rollbackPoint
+      ]
+
+withCounterExample :: [Block] -> TVar IO SomeOnChainHeadStateAt -> IO a -> PropertyM IO a
+withCounterExample blks headState step = do
+  stBefore <- run $ readTVarIO headState
+  a <- run step
+  stAfter <- run $ readTVarIO headState
+  a <$ do
+    monitor $
+      counterexample $
+        toString $
+          unlines
+            [ "Head state at (before rollback): " <> show (at stBefore)
+            , "Head state at (after rollback):  " <> show (at stAfter)
+            , "Block sequence: \n"
+                <> unlines
+                  ( fmap
+                      ("    " <>)
+                      [show (blockPoint blk) | blk <- blks]
+                  )
+            ]
+
+genRollbackPoint :: [Block] -> Gen (Word, Point Block)
 genRollbackPoint blks = do
-  let maxSlotNo = pointSlot' (last blks)
-  ix <- SlotNo <$> choose (0, unSlotNo maxSlotNo)
-  let rollbackDepth = length [blk | blk <- toList blks, pointSlot' blk > ix]
+  let maxSlotNo = pointSlot' (Prelude.last blks)
+  ix <- SlotNo <$> choose (1, unSlotNo maxSlotNo)
+  let rollbackDepth = length blks - length [blk | blk <- blks, pointSlot' blk <= ix]
   rollbackPoint <- blockPoint <$> genBlockAt ix []
   pure (fromIntegral rollbackDepth, rollbackPoint)
 
-genSequenceOfObservableBlocks :: Gen (SomeOnChainHeadStateAt, NonEmpty Block)
+genSequenceOfObservableBlocks :: Gen (SomeOnChainHeadStateAt, [Block])
 genSequenceOfObservableBlocks = do
   ctx <- genHydraContext 3
 
@@ -225,16 +266,15 @@ genSequenceOfObservableBlocks = do
   stIdle <- elements stIdles
   blks <- flip execStateT [] $ do
     initTx <- stepInit ctx stIdle
-    stInitializeds <- stepCommits ctx initTx stIdles
-    pure ()
+    void $ stepCommits ctx initTx stIdles
 
-  pure (stAtGenesis (SomeOnChainHeadState stIdle), NE.fromList blks)
+  pure (stAtGenesis (SomeOnChainHeadState stIdle), reverse blks)
  where
   nextSlot :: Monad m => StateT [Block] m SlotNo
   nextSlot = do
-    gets NE.nonEmpty <&> \case
-      Nothing -> 1
-      Just xs -> SlotNo . succ . unSlotNo . pointSlot' . last $ xs
+    get <&> \case
+      [] -> 1
+      x : _ -> SlotNo . succ . unSlotNo . pointSlot' $ x
 
   putNextBlock :: Tx -> StateT [Block] Gen ()
   putNextBlock tx = do
