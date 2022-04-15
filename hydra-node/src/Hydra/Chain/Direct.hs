@@ -34,6 +34,7 @@ import Control.Monad.Class.MonadSTM (
   newTVarIO,
   putTMVar,
   readTQueue,
+  readTVarIO,
   retry,
   takeTMVar,
   writeTQueue,
@@ -51,6 +52,7 @@ import Hydra.Cardano.Api (
   SigningKey,
   Tx,
   VerificationKey,
+  fromConsensusPointHF,
   fromLedgerTx,
   fromLedgerTxIn,
   fromLedgerUTxO,
@@ -75,6 +77,7 @@ import Hydra.Chain.Direct.State (
   commit,
   fanout,
   getKnownUTxO,
+  happenedAt,
   idleOnChainHeadState,
   initialize,
   observeSomeTx,
@@ -322,7 +325,7 @@ newChainSyncHandler tracer callback headState = do
   onRollBackward point = do
     traceWith tracer $ RolledBackward $ SomePoint point
     st <- readTVarIO headState
-    callback (Rollback $ rollbackDepth point st)
+    callback (Rollback $ rollbackDepth (fromConsensusPointHF point) st)
 
   withNextTx :: [OnChainTx Tx] -> ValidatedTx Era -> STM m [OnChainTx Tx]
   withNextTx observed (fromLedgerTx -> tx) = do
@@ -334,14 +337,12 @@ newChainSyncHandler tracer callback headState = do
       Nothing ->
         pure observed
 
-rollbackDepth :: Point Block -> SomeOnChainHeadState -> Word
-rollbackDepth pt st
-  | pt < happenedAt st =
-    1
-  -- rollbackDepth pt (rewind st)
-
-  | otherwise =
-    0
+rollbackDepth :: ChainPoint -> SomeOnChainHeadState -> Word
+rollbackDepth pt st =
+  case happenedAt st of
+    Just somePoint
+      | pt < somePoint -> 1
+    _ -> 0
 
 chainSyncClient ::
   forall m.
