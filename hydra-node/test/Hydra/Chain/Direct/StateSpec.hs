@@ -13,6 +13,7 @@ import Control.Monad.Class.MonadSTM (MonadSTM (..))
 import Control.Tracer (nullTracer)
 import qualified Data.ByteString.Lazy as LBS
 import Data.List (elemIndex, intersect, (!!))
+import qualified Data.List.NonEmpty as NE
 import qualified Data.Map as Map
 import Data.Maybe (fromJust)
 import qualified Data.Sequence.Strict as StrictSeq
@@ -200,26 +201,65 @@ genRollbackPoint blks = do
   let rollbackDepth = length [blk | blk <- toList blks, pointSlot' blk > ix]
   rollbackPoint <- blockPoint <$> genBlockAt ix []
   pure (fromIntegral rollbackDepth, rollbackPoint)
- where
-  pointSlot' :: Block -> SlotNo
-  pointSlot' pt =
-    case pointSlot (blockPoint pt) of
-      Origin -> 0
-      At sl -> sl
 
 genSequenceOfObservableBlocks :: Gen (SomeOnChainHeadState, NonEmpty Block)
 genSequenceOfObservableBlocks = do
   ctx <- genHydraContext 3
   stIdle <- genStIdle ctx
-  tx <- genInit ctx stIdle
-  let _stInit = snd $ unsafeObserveTx @_ @ 'StInitialized tx stIdle
-  blk <- genBlockAt 1 [tx]
-  pure (SomeOnChainHeadState stIdle, blk :| [])
+
+  blks <- flip execStateT [] $ do
+    stInitialized <- stepInit ctx stIdle
+    let n = fromIntegral $ length $ ctxVerificationKeys ctx
+    stInitialized' <- stepCommits ctx stInitialized n
+    pure ()
+
+  pure (SomeOnChainHeadState stIdle, NE.fromList blks)
  where
-  genInit ctx stIdle =
-    initialize (ctxHeadParameters ctx) (ctxVerificationKeys ctx)
-      <$> genTxIn
-      <*> pure stIdle
+  nextSlot :: Monad m => StateT [Block] m SlotNo
+  nextSlot = do
+    gets NE.nonEmpty <&> \case
+      Nothing -> 1
+      Just xs -> SlotNo . succ . unSlotNo . pointSlot' . last $ xs
+
+  putNextBlock :: Tx -> StateT [Block] Gen ()
+  putNextBlock tx = do
+    sl <- nextSlot
+    blk <- lift $ genBlockAt sl [tx]
+    modify' (blk :)
+
+  stepInit ::
+    HydraContext ->
+    OnChainHeadState 'StIdle ->
+    StateT [Block] Gen (OnChainHeadState 'StInitialized)
+  stepInit ctx stIdle = do
+    initTx <-
+      lift $
+        initialize (ctxHeadParameters ctx) (ctxVerificationKeys ctx)
+          <$> genTxIn
+          <*> pure stIdle
+    putNextBlock initTx
+    pure $ snd $ unsafeObserveTx @_ @ 'StInitialized initTx stIdle
+
+  stepCommits ::
+    HydraContext ->
+    OnChainHeadState 'StInitialized ->
+    Word64 ->
+    StateT [Block] Gen (OnChainHeadState 'StInitialized)
+  stepCommits ctx stInitialized = \case
+    0 -> do
+      pure stInitialized
+    n -> do
+      stInitialized' <- stepCommit stInitialized
+      stepCommits ctx stInitialized' (pred n)
+
+  stepCommit ::
+    OnChainHeadState 'StInitialized ->
+    StateT [Block] Gen (OnChainHeadState 'StInitialized)
+  stepCommit stInitialized = do
+    utxo <- lift genCommit
+    let commitTx = unsafeCommit utxo stInitialized
+    putNextBlock commitTx
+    pure $ snd $ unsafeObserveTx @_ @'StInitialized commitTx stInitialized
 
 tenTimesTxExecutionUnits :: ExecutionUnits
 tenTimesTxExecutionUnits =
@@ -227,6 +267,12 @@ tenTimesTxExecutionUnits =
     { executionMemory = 100_000_000
     , executionSteps = 100_000_000_000
     }
+
+pointSlot' :: Block -> SlotNo
+pointSlot' pt =
+  case pointSlot (blockPoint pt) of
+    Origin -> 0
+    At sl -> sl
 
 --
 -- Generic Properties
