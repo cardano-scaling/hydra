@@ -1,4 +1,8 @@
 {-# LANGUAGE TypeApplications #-}
+-- Fourmolu chokes on type-applications of promoted constructors (e.g.
+-- @'StInitialized) and is unable to format properly after that. Hence this
+-- option to allow using unticked constructor and save Fourmolu from dying.
+{-# OPTIONS_GHC -fno-warn-unticked-promoted-constructors #-}
 
 module Hydra.Chain.Direct.StateSpec where
 
@@ -12,7 +16,7 @@ import Cardano.Slotting.Slot (WithOrigin (..))
 import Control.Monad.Class.MonadSTM (MonadSTM (..))
 import Control.Tracer (nullTracer)
 import qualified Data.ByteString.Lazy as LBS
-import Data.List (elemIndex, intersect, (!!))
+import Data.List (elemIndex, intersect, (!!), (\\))
 import qualified Data.List.NonEmpty as NE
 import qualified Data.Map as Map
 import Data.Maybe (fromJust)
@@ -20,6 +24,7 @@ import qualified Data.Sequence.Strict as StrictSeq
 import qualified Data.Set as Set
 import Data.Type.Equality (testEquality, (:~:) (..))
 import Hydra.Cardano.Api (
+  ChainPoint (..),
   ExecutionUnits (..),
   SlotNo (..),
   Tx,
@@ -29,7 +34,11 @@ import Hydra.Cardano.Api (
   valueSize,
  )
 import Hydra.Chain (ChainEvent (..))
-import Hydra.Chain.Direct (ChainSyncHandler (..), newChainSyncHandler)
+import Hydra.Chain.Direct (
+  ChainSyncHandler (..),
+  SomeOnChainHeadStateAt (..),
+  newChainSyncHandler,
+ )
 import Hydra.Chain.Direct.Context (
   HydraContext (..),
   ctxHeadParameters,
@@ -57,6 +66,7 @@ import Hydra.Chain.Direct.State (
   collect,
   fanout,
   getKnownUTxO,
+  idleOnChainHeadState,
   initialize,
   observeSomeTx,
  )
@@ -127,14 +137,14 @@ spec = parallel $ do
                       (ctxVerificationKeys ctxA)
                       seedInput
                       stIdleA
-               in isNothing (observeTx @_ @ 'StInitialized tx stIdleB)
+               in isNothing (observeTx @_ @StInitialized tx stIdleB)
 
   describe "commit" $ do
     propBelowSizeLimit maxTxSize forAllCommit
 
     prop "consumes all inputs that are committed" $
       forAllCommit $ \st tx ->
-        case observeTx @_ @ 'StInitialized tx st of
+        case observeTx @_ @StInitialized tx st of
           Just (_, st') ->
             let knownInputs = UTxO.inputSet (getKnownUTxO st')
              in knownInputs `Set.disjoint` txInputSet tx
@@ -143,9 +153,9 @@ spec = parallel $ do
 
     prop "can only be applied / observed once" $
       forAllCommit $ \st tx ->
-        case observeTx @_ @ 'StInitialized tx st of
+        case observeTx @_ @StInitialized tx st of
           Just (_, st') ->
-            case observeTx @_ @ 'StInitialized tx st' of
+            case observeTx @_ @StInitialized tx st' of
               Just{} -> False
               Nothing -> True
           Nothing ->
@@ -175,7 +185,7 @@ spec = parallel $ do
               Observation onChainTx ->
                 fst <$> observeSomeTx tx st `shouldBe` Just onChainTx
         forAllBlind (genBlockAt 1 [tx]) $ \blk -> monadicIO $ do
-          headState <- run $ newTVarIO (Nothing, st)
+          headState <- run $ newTVarIO $ stAtGenesis st
           handler <- run $ newChainSyncHandler nullTracer callback headState
           run $ onRollForward handler blk
 
@@ -187,7 +197,7 @@ spec = parallel $ do
                   pure ()
                 Rollback n -> n `shouldBe` rollbackDepth
           monadicIO $ do
-            headState <- run $ newTVarIO (Nothing, st)
+            headState <- run $ newTVarIO st
             handler <- run $ newChainSyncHandler nullTracer callback headState
             run $ mapM_ (onRollForward handler) blks
             st' <- run $ readTVarIO headState
@@ -202,16 +212,23 @@ genRollbackPoint blks = do
   rollbackPoint <- blockPoint <$> genBlockAt ix []
   pure (fromIntegral rollbackDepth, rollbackPoint)
 
-genSequenceOfObservableBlocks :: Gen (SomeOnChainHeadState, NonEmpty Block)
+genSequenceOfObservableBlocks :: Gen (SomeOnChainHeadStateAt, NonEmpty Block)
 genSequenceOfObservableBlocks = do
   ctx <- genHydraContext 3
-  stIdle <- genStIdle ctx
+
+  -- NOTE: commits must be generated from each participant POV, and thus, we
+  -- need all their respective StIdle to move on.
+  let stIdles = flip map (zip (ctxVerificationKeys ctx) (ctxParties ctx)) $ \(vk, p) ->
+        let peerVerificationKeys = ctxVerificationKeys ctx \\ [vk]
+         in idleOnChainHeadState (ctxNetworkId ctx) peerVerificationKeys vk p
+
+  stIdle <- elements stIdles
   blks <- flip execStateT [] $ do
-    stInitialized <- stepInit ctx stIdle
-    let n = fromIntegral $ length $ ctxVerificationKeys ctx
-    stInitialized' <- stepCommits ctx stInitialized n
+    initTx <- stepInit ctx stIdle
+    stInitializeds <- stepCommits ctx initTx stIdles
     pure ()
-  pure (SomeOnChainHeadState stIdle, NE.fromList blks)
+
+  pure (stAtGenesis (SomeOnChainHeadState stIdle), NE.fromList blks)
  where
   nextSlot :: Monad m => StateT [Block] m SlotNo
   nextSlot = do
@@ -227,37 +244,38 @@ genSequenceOfObservableBlocks = do
 
   stepInit ::
     HydraContext ->
-    OnChainHeadState 'StIdle ->
-    StateT [Block] Gen (OnChainHeadState 'StInitialized)
+    OnChainHeadState StIdle ->
+    StateT [Block] Gen Tx
   stepInit ctx stIdle = do
     initTx <-
       lift $
         initialize (ctxHeadParameters ctx) (ctxVerificationKeys ctx)
           <$> genTxIn
           <*> pure stIdle
-    putNextBlock initTx
-    pure $ snd $ unsafeObserveTx @_ @ 'StInitialized initTx stIdle
+    initTx <$ putNextBlock initTx
 
   stepCommits ::
     HydraContext ->
-    OnChainHeadState 'StInitialized ->
-    Word64 ->
-    StateT [Block] Gen (OnChainHeadState 'StInitialized)
-  stepCommits ctx stInitialized = \case
-    0 -> do
-      pure stInitialized
-    n -> do
-      stInitialized' <- stepCommit stInitialized
-      stepCommits ctx stInitialized' (pred n)
+    Tx ->
+    [OnChainHeadState 'StIdle] ->
+    StateT [Block] Gen [OnChainHeadState 'StInitialized]
+  stepCommits ctx initTx = \case
+    [] ->
+      pure []
+    stIdle : rest -> do
+      stInitialized <- stepCommit initTx stIdle
+      (stInitialized :) <$> stepCommits ctx initTx rest
 
   stepCommit ::
-    OnChainHeadState 'StInitialized ->
+    Tx ->
+    OnChainHeadState 'StIdle ->
     StateT [Block] Gen (OnChainHeadState 'StInitialized)
-  stepCommit stInitialized = do
+  stepCommit initTx stIdle = do
+    let (_, stInitialized) = unsafeObserveTx @_ @StInitialized initTx stIdle
     utxo <- lift genCommit
     let commitTx = unsafeCommit utxo stInitialized
     putNextBlock commitTx
-    pure $ snd $ unsafeObserveTx @_ @'StInitialized commitTx stInitialized
+    pure $ snd $ unsafeObserveTx @_ @StInitialized commitTx stInitialized
 
 tenTimesTxExecutionUnits :: ExecutionUnits
 tenTimesTxExecutionUnits =
@@ -271,6 +289,14 @@ pointSlot' pt =
   case pointSlot (blockPoint pt) of
     Origin -> 0
     At sl -> sl
+
+stAtGenesis :: SomeOnChainHeadState -> SomeOnChainHeadStateAt
+stAtGenesis currentOnChainHeadState =
+  SomeOnChainHeadStateAt
+    { previousOnChainHeadState = Nothing
+    , currentOnChainHeadState
+    , at = ChainPointAtGenesis
+    }
 
 --
 -- Generic Properties
