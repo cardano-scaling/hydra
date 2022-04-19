@@ -67,8 +67,8 @@ deriving instance IsTx tx => FromJSON (Effect tx)
 
 -- | A recursive data-structure which represent the application state as a
 -- state-machine. The 'previousRecoverableState' records the state of the
--- application before the latest 'OnChainEffect' that has been observed.
--- On-Chain effects are indeed only __eventually__ immutable and the application
+-- application before the latest 'OnChainEvent' that has been observed.
+-- On-Chain events are indeed only __eventually__ immutable and the application
 -- state may be rolled back at any time (with a decreasing probability as the
 -- time pass).
 --
