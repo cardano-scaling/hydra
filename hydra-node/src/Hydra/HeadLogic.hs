@@ -484,12 +484,17 @@ emitSnapshot env@Environment{party} effects = \case
       _ -> (st, effects)
   st -> (st, effects)
 
+-- | Unwind the 'HeadState' to some /depth/.
+--
+-- The 'HeadState' is rolled back a number of times to some previous state. It's an
+-- 'error' to call this function with a 'depth' that's larger than the current state depth.
+-- See 'Hydra.Chain.Direct.rollback' for the on-chain counterpart to this function.
 rollback :: HasCallStack => Word -> HeadState tx -> HeadState tx
-rollback n
-  | n == 0 =
+rollback depth
+  | depth == 0 =
     identity
   | otherwise =
-    rollback (pred n) . \case
+    rollback (pred depth) . \case
       ReadyState ->
         -- NOTE: This is debatable. We could also just return 'ReadyState' and
         -- silently swallow this. But we choose to make it a clear invariant /

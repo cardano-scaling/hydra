@@ -369,15 +369,20 @@ newChainSyncHandler tracer callback headState = do
 
 -- | Rewind some head state back to the first known state that is strictly
 -- before the provided 'ChainPoint'.
+--
+-- This function also computes the /rollback depth/, e.g the number of observed states
+-- that needs to be discarded given some rollback 'chainPoint'. This depth is used
+-- in 'Hydra.HeadLogic.rollback' to discard corresponding off-chain state. Consequently
+-- the two states /must/ be kept in sync in order for rollbacks to be handled properly.
 rollback :: ChainPoint -> SomeOnChainHeadStateAt -> (SomeOnChainHeadStateAt, Word)
-rollback pt = backward 0
+rollback chainPoint = backward 0
  where
   backward n st =
     case recordedAt st of
       AtStart ->
         (st, n)
       AtPoint at previous ->
-        if at <= pt
+        if at <= chainPoint
           then (st, n)
           else backward (succ n) previous
 
