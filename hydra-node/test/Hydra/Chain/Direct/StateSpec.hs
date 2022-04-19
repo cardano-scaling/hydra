@@ -285,11 +285,8 @@ genSequenceOfObservableBlocks = do
     OnChainHeadState StIdle ->
     StateT [Block] Gen Tx
   stepInit ctx stIdle = do
-    initTx <-
-      lift $
-        initialize (ctxHeadParameters ctx) (ctxVerificationKeys ctx)
-          <$> genTxIn
-          <*> pure stIdle
+    txIn <- lift $ genTxIn
+    let initTx = initialize (ctxHeadParameters ctx) (ctxVerificationKeys ctx) txIn stIdle
     initTx <$ putNextBlock initTx
 
   stepCommits ::
