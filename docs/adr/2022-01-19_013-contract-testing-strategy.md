@@ -3,12 +3,12 @@ slug: 13
 title: | 
   13. Plutus Contracts Testing Strategy
 authors: []
-tags: [Draft]
+tags: [Accepted]
 ---
 
 ## Status
 
-Draft
+Accepted
 
 ## Context
 
