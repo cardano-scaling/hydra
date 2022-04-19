@@ -172,7 +172,6 @@ withDirectChain tracer networkId iocp socketPath keyPair party cardanoKeys point
                   party
           , recordedAt = AtStart
           }
-    chainSyncHandler <- newChainSyncHandler tracer callback headState
     res <-
       race
         ( do
@@ -213,7 +212,7 @@ withDirectChain tracer networkId iocp socketPath keyPair party cardanoKeys point
         )
         ( handle onIOException $ do
             let intersection = toConsensusPointHF <$> point
-            let client = ouroborosApplication tracer intersection queue chainSyncHandler
+            let client = ouroborosApplication tracer intersection queue (chainSyncHandler tracer callback headState)
             connectTo
               (localSnocket iocp)
               nullConnectTracers
@@ -316,7 +315,7 @@ data ChainSyncHandler m = ChainSyncHandler
   , onRollBackward :: Point Block -> m ()
   }
 
-newChainSyncHandler ::
+chainSyncHandler ::
   forall m.
   (MonadSTM m) =>
   -- | Tracer for logging
@@ -326,13 +325,12 @@ newChainSyncHandler ::
   -- | On-chain head-state.
   TVar m SomeOnChainHeadStateAt ->
   -- | A chain-sync handler to use in a local-chain-sync client.
-  m (ChainSyncHandler m)
-newChainSyncHandler tracer callback headState = do
-  pure $
-    ChainSyncHandler
-      { onRollBackward
-      , onRollForward
-      }
+  ChainSyncHandler m
+chainSyncHandler tracer callback headState =
+  ChainSyncHandler
+    { onRollBackward
+    , onRollForward
+    }
  where
   onRollBackward :: Point Block -> m ()
   onRollBackward point = do

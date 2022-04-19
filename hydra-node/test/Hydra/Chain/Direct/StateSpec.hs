@@ -36,7 +36,7 @@ import Hydra.Chain.Direct (
   ChainSyncHandler (..),
   RecordedAt (..),
   SomeOnChainHeadStateAt (..),
-  newChainSyncHandler,
+  chainSyncHandler,
  )
 import Hydra.Chain.Direct.Context (
   HydraContext (..),
@@ -188,7 +188,7 @@ spec = parallel $ do
                 fst <$> observeSomeTx tx st `shouldBe` Just onChainTx
         forAllBlind (genBlockAt 1 [tx]) $ \blk -> monadicIO $ do
           headState <- run $ newTVarIO $ stAtGenesis st
-          handler <- run $ newChainSyncHandler nullTracer callback headState
+          let handler = chainSyncHandler nullTracer callback headState
           run $ onRollForward handler blk
 
     prop "can replay chain on (benign) rollback" $
@@ -202,7 +202,7 @@ spec = parallel $ do
           monadicIO $ do
             monitor $ label ("Rollback depth: " <> show rollbackDepth)
             headState <- run $ newTVarIO st
-            handler <- run $ newChainSyncHandler nullTracer callback headState
+            let handler = chainSyncHandler nullTracer callback headState
 
             -- 1/ Simulate some chain following
             st' <- run $ mapM_ (onRollForward handler) blks *> readTVarIO headState
