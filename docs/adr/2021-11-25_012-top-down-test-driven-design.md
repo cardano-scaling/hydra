@@ -3,12 +3,12 @@ slug: 12
 title: | 
   12. Top-down Test-driven Design
 authors: []
-tags: [Draft]
+tags: [Accepted]
 ---
 
 ## Status
 
-Draft
+Accepted
 
 ## Context
 
