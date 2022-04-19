@@ -3,17 +3,12 @@ slug: 7
 title: | 
   7. Use with-pattern based component interfaces
 authors: []
-tags: [Draft]
+tags: [Accepted]
 ---
 
 ## Status
 
-Draft
-
-TBD:
-* Naming of `Callback` and `Component`
-* Demonstrate the `Covariant` consequence
-* Provide context about tying the knot
+Accepted
 
 ## Context
 
@@ -33,8 +28,8 @@ exchange messages with other components of the system. A prototypical signature
 of such a component could be:
 
   ```hs
-  type Component m = outmsg -> m ()
-  type Callback m = inmsg -> m ()
+  type Component m = inmsg -> m ()
+  type Callback m = outmsg -> m ()
 
   withXXX :: Callback m -> (Component m -> m a) -> m a
   ```
