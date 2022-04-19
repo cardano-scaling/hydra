@@ -1,3 +1,7 @@
+---
+sidebar_position: 4
+---
+
 # Hydra Networking
 
 This document provides details about the _Hydra Networking Layer_, eg. the network comprised of Hydra nodes upon which Heads can be opened.
