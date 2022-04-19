@@ -251,7 +251,7 @@ instance Exception ConnectException
 -- starting them and hold on a not-so-stable point of the chain. When they turn
 -- the node back on, that point may no longer exist on the network if a fork
 -- with deeper roots has been adopted in the meantime.
-data IntersectionNotFoundException = IntersectionNotFound
+newtype IntersectionNotFoundException = IntersectionNotFound
   { requestedPoint :: Point Block
   }
   deriving (Show)
