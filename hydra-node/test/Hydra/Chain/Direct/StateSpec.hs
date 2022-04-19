@@ -78,7 +78,7 @@ import Hydra.Ledger.Cardano (
  )
 import Hydra.Ledger.Cardano.Evaluate (evaluateTx')
 import Hydra.Snapshot (isInitialSnapshot)
-import Ouroboros.Consensus.Block (Point, blockPoint, pointSlot)
+import Ouroboros.Consensus.Block (Point, blockPoint)
 import Ouroboros.Consensus.Cardano.Block (HardForkBlock (BlockAlonzo))
 import Ouroboros.Consensus.Shelley.Ledger (mkShelleyBlock)
 import Test.Hspec (shouldBe)
