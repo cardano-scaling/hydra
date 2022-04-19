@@ -191,7 +191,10 @@ jobs:
         cache: 'yarn'
         cache-dependency-path: docs/yarn.lock
 
-    - uses: actions/download-artifact@v3
+    - name: Download generated documentation
+      uses: actions/download-artifact@v3
+      with:
+        path: docs
 
     - name: Documentation (Docusaurus)
       working-directory: docs
